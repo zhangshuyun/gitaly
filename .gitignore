@@ -3,3 +3,7 @@ _build
 vendor/*/
 git-daemon-client
 git-daemon-server
+git
+git-upload-archive
+git-upload-pack
+git-receive-pack
