@@ -4,11 +4,21 @@ import (
 	"bytes"
 	"io"
 	"log"
+	"os"
 	"os/exec"
+	"sync"
 	"syscall"
 
 	"gitlab.com/gitlab-org/gitaly/messaging"
 )
+
+type command struct {
+	Cmd *exec.Cmd
+
+	stdinWriter  *io.PipeWriter
+	stdoutReader *io.PipeReader
+	stderrReader *io.PipeReader
+}
 
 func CommandExecutor(chans *commChans) {
 	rawMsg, ok := <-chans.inChan
@@ -33,27 +43,19 @@ func runCommand(chans *commChans, commandMsg *messaging.Command) {
 
 	log.Println("Executing command:", name, "with args", args)
 
-	stdinReader, stdinWriter := io.Pipe()
-	stdoutReader, stdoutWriter := io.Pipe()
-	stderrReader, stderrWriter := io.Pipe()
-
-	go streamOut("stdout", stdoutReader, chans)
-	go streamOut("stderr", stderrReader, chans)
-	go streamIn(stdinWriter, chans)
-
-	cmd := exec.Command(name, args...)
+	cmd := newCommand(name, args...)
 
 	// Start the command in its own process group (nice for signalling)
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-	cmd.Env = commandMsg.Environ
-	cmd.Stdin = stdinReader
-	cmd.Stdout = stdoutWriter
-	cmd.Stderr = stderrWriter
+	cmd.Cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	cmd.Cmd.Env = commandMsg.Environ
 
-	err := cmd.Run()
-
+	state, err := cmd.Run(chans)
 	if err != nil {
-		exitStatus := int32(extractExitStatusFromError(err.(*exec.ExitError)))
+		return
+	}
+
+	if !state.Success() {
+		exitStatus := int32(extractExitStatusFromProcessState(state))
 		chans.outChan <- messaging.NewExitMessage(exitStatus)
 		return
 	}
@@ -61,9 +63,8 @@ func runCommand(chans *commChans, commandMsg *messaging.Command) {
 	chans.outChan <- messaging.NewExitMessage(0)
 }
 
-func extractExitStatusFromError(err *exec.ExitError) int {
-	processState := err.ProcessState
-	status := processState.Sys().(syscall.WaitStatus)
+func extractExitStatusFromProcessState(state *os.ProcessState) int {
+	status := state.Sys().(syscall.WaitStatus)
 
 	if status.Exited() {
 		return status.ExitStatus()
@@ -72,7 +73,9 @@ func extractExitStatusFromError(err *exec.ExitError) int {
 	return 255
 }
 
-func streamOut(streamName string, streamPipe io.Reader, chans *commChans) {
+func streamOut(streamName string, streamPipe io.Reader, chans *commChans, waitGrp *sync.WaitGroup) {
+	defer waitGrp.Done()
+
 	// TODO: Move buffer out of the loop and use defer instead of finished
 	finished := false
 
@@ -120,4 +123,47 @@ func streamIn(streamPipe *io.PipeWriter, chans *commChans) {
 			return
 		}
 	}
+}
+
+func newCommand(name string, args ...string) *command {
+	stdinReader, stdinWriter := io.Pipe()
+	stdoutReader, stdoutWriter := io.Pipe()
+	stderrReader, stderrWriter := io.Pipe()
+
+	cmd := exec.Command(name, args...)
+
+	cmd.Stdin = stdinReader
+	cmd.Stdout = stdoutWriter
+	cmd.Stderr = stderrWriter
+
+	return &command{
+		Cmd:          cmd,
+		stdinWriter:  stdinWriter,
+		stdoutReader: stdoutReader,
+		stderrReader: stderrReader,
+	}
+}
+
+func (cmd *command) Run(chans *commChans) (*os.ProcessState, error) {
+	waitGrp := &sync.WaitGroup{}
+
+	go streamOut("stdout", cmd.stdoutReader, chans, waitGrp)
+	go streamOut("stderr", cmd.stderrReader, chans, waitGrp)
+	waitGrp.Add(2)
+
+	go streamIn(cmd.stdinWriter, chans)
+
+	if err := cmd.Cmd.Start(); err != nil {
+		return nil, err
+	}
+	state, err := cmd.Cmd.Process.Wait()
+	if err != nil {
+		return nil, err
+	}
+
+	cmd.Cmd.Stdout.(*io.PipeWriter).Close()
+	cmd.Cmd.Stderr.(*io.PipeWriter).Close()
+	waitGrp.Wait()
+
+	return state, nil
 }
