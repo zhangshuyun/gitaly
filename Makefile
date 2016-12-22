@@ -27,6 +27,7 @@ test: ${BUILD_DIR}/_build deps
 	cd ${BUILD_DIR}/_build/src/${PKG}/server && go test -v
 	cd ${BUILD_DIR}/_build/src/${PKG}/client && go test -v
 	cd ${BUILD_DIR}/_build/src/${PKG}/helper && go test -v
+	cd ${BUILD_DIR}/_build/src/${PKG}/caching && go test -v
 
 clean:
 	rm -rf ${BUILD_DIR}/_build
