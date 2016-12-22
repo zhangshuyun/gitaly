@@ -61,6 +61,12 @@
 			"path": "github.com/prometheus/procfs",
 			"revision": "fcdb11ccb4389efb1b210b7ffb623ab71c5fdd60",
 			"revisionTime": "2016-12-06T22:21:41Z"
+		},
+		{
+			"checksumSHA1": "zmC8/3V4ls53DJlNTKDZwPSC/dA=",
+			"path": "github.com/satori/go.uuid",
+			"revision": "b061729afc07e77a8aa4fad0a2fd840958f1942a",
+			"revisionTime": "2016-09-27T10:08:44Z"
 		}
 	],
 	"rootPath": "gitlab.com/gitlab-org/gitaly"

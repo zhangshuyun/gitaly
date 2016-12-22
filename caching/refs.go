@@ -4,11 +4,15 @@ import (
 	"os"
 	"path"
 	"syscall"
+
+	"github.com/satori/go.uuid"
 )
 
 type RefsCache struct {
 	repositoryPath string
 	cacheDir string
+	uploadCachePath string
+	receiveCachePath string
 	lockFd int
 }
 
@@ -30,7 +34,7 @@ func NewRefsCache(repositoryPath string) *RefsCache {
 	cacheDir := EnsureCacheDir(repositoryPath)
 
 	// Open lock file
-	lockFd, err := syscall.Open(path.Join(cacheDir, "lock"), syscall.O_CREAT | syscall.O_RDONLY, 0750)
+	lockFd, err := syscall.Open(path.Join(cacheDir, "lock"), syscall.O_CREAT | syscall.O_RDWR, 0750)
 	if err != nil {
 		panic(err)
 	}
@@ -39,7 +43,15 @@ func NewRefsCache(repositoryPath string) *RefsCache {
 		repositoryPath: repositoryPath,
 		cacheDir: cacheDir,
 		lockFd: lockFd,
+		uploadCachePath: path.Join(cacheDir, "upload-pack"),
+		receiveCachePath: path.Join(cacheDir, "receive-pack"),
 	}
+}
+
+func (r *RefsCache) CloseLock() {
+	 if err := syscall.Close(r.lockFd); err != nil {
+		 panic(err)
+	 }
 }
 
 func (r *RefsCache) Lock() {
@@ -49,7 +61,24 @@ func (r *RefsCache) Lock() {
 }
 
 func (r *RefsCache) Unlock() {
+	defer r.CloseLock()
+
 	if err := syscall.Flock(r.lockFd, syscall.LOCK_UN); err != nil {
 		panic(err)
 	}
+}
+
+func (r *RefsCache) InvalidateCache() {
+	r.Lock()
+	defer r.Unlock()
+
+	newUuid := uuid.NewV4()
+
+	// Truncate and write a new UUID in the lock file
+	syscall.Ftruncate(r.lockFd, 0)
+	syscall.Write(r.lockFd, []byte(newUuid.String()))
+
+	// Remove cache files
+	os.Remove(r.uploadCachePath)
+	os.Remove(r.receiveCachePath)
 }
