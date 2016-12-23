@@ -1,7 +1,12 @@
 package caching
 
 import (
+	"bytes"
+	"fmt"
+	"io"
+	"io/ioutil"
 	"os"
+	"os/exec"
 	"path"
 	"syscall"
 
@@ -11,8 +16,7 @@ import (
 type RefsCache struct {
 	repositoryPath string
 	cacheDir string
-	uploadCachePath string
-	receiveCachePath string
+	cachePaths map[string]string
 	lockFd int
 }
 
@@ -43,8 +47,10 @@ func NewRefsCache(repositoryPath string) *RefsCache {
 		repositoryPath: repositoryPath,
 		cacheDir: cacheDir,
 		lockFd: lockFd,
-		uploadCachePath: path.Join(cacheDir, "upload-pack"),
-		receiveCachePath: path.Join(cacheDir, "receive-pack"),
+		cachePaths: map[string]string {
+			"upload-pack": path.Join(cacheDir, "upload-pack"),
+			"receive-pack": path.Join(cacheDir, "receive-pack"),
+		},
 	}
 }
 
@@ -68,6 +74,18 @@ func (r *RefsCache) Unlock() {
 	}
 }
 
+func (r *RefsCache) GetLockUuid() string {
+	var buf [4096]byte
+
+	syscall.Seek(r.lockFd, 0, 0) // Rewind to the start of the file
+	n, err := syscall.Read(r.lockFd, buf[:])
+	if err != nil {
+		panic(err)
+	}
+
+	return string(buf[:n])
+}
+
 func (r *RefsCache) InvalidateCache() {
 	r.Lock()
 	defer r.Unlock()
@@ -79,6 +97,58 @@ func (r *RefsCache) InvalidateCache() {
 	syscall.Write(r.lockFd, []byte(newUuid.String()))
 
 	// Remove cache files
-	os.Remove(r.uploadCachePath)
-	os.Remove(r.receiveCachePath)
+	for _, cachePath := range r.cachePaths {
+		os.Remove(cachePath)
+	}
+}
+
+func (r *RefsCache) ExecuteToFile(command string, f *os.File) {
+	var out bytes.Buffer
+	cmd := exec.Command("git", command, "--stateless-rpc", "--advertise-refs", r.repositoryPath)
+	cmd.Stdout = &out
+
+	err := cmd.Run()
+	if err != nil {
+		panic(err)
+	}
+
+	// Print to Stdout
+	out.WriteTo(os.Stdout)
+
+	// Print to file
+	_, err = f.Write(out.Bytes())
+	if err != nil {
+		panic(err)
+	}
+}
+
+func (r *RefsCache) Cache(command string) error {
+	if command != "upload-pack" && command != "receive-pack" {
+		return fmt.Errorf("Invalid command")
+	}
+
+	r.Lock()
+	defer r.Unlock()
+
+	currentUuid := r.GetLockUuid()
+	fmt.Printf(path.Join(os.TempDir(), "command_output"))
+	tempFile, err := ioutil.TempFile(os.TempDir(), "command_output")
+	if err != nil {
+		panic(err)
+	}
+	defer tempFile.Close()
+
+	r.ExecuteToFile(command, tempFile)
+
+	if newUuid := r.GetLockUuid(); currentUuid == newUuid {
+		cacheFile, err := os.Create(r.cachePaths[command])
+		if err != nil {
+			panic(err)
+		}
+		defer cacheFile.Close()
+		tempFile.Seek(0, 0) // Reset tempFile to the start of the file
+		io.Copy(cacheFile, tempFile)
+	}
+
+	return nil
 }

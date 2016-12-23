@@ -3,6 +3,7 @@ package caching
 import (
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path"
 	"syscall"
 	"testing"
@@ -36,10 +37,28 @@ func TestInvalidateCache(t *testing.T) {
 		t.Error("Expected InvalidateCache to rewrite lock")
 	}
 
-	if _, err := os.Stat(r.uploadCachePath); !os.IsNotExist(err) {
+	if _, err := os.Stat(r.cachePaths["upload-pack"]); !os.IsNotExist(err) {
 		t.Error("Expected InvalidateCache to remove upload-pack cache")
 	}
-	if _, err := os.Stat(r.receiveCachePath); !os.IsNotExist(err) {
+	if _, err := os.Stat(r.cachePaths["receive-pack"]); !os.IsNotExist(err) {
 		t.Error("Expected InvalidateCache to remove receive-pack cache")
+	}
+}
+
+func TestCache(t *testing.T) {
+	source := "https://gitlab.com/gitlab-org/gitlab-test.git"
+	repoDir := path.Join(tmpDir, "gitlab-test")
+	exec.Command("git", "clone", "--bare", source, repoDir).Run()
+	r := NewRefsCache(repoDir)
+	defer os.RemoveAll(tmpDir)
+
+	if err := r.Cache("non-existing-command"); err.Error() != "Invalid command" {
+		t.Error("Expected Cache to fail with \"Invalid command\"")
+	}
+
+	r.Cache("upload-pack")
+
+	if _, err := os.Stat(r.cachePaths["upload-pack"]); os.IsNotExist(err) {
+		t.Error("Expected Cache to create upload-pack cache")
 	}
 }
