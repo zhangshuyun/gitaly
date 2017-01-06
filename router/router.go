@@ -14,6 +14,7 @@ func NewRouter() http.Handler {
 	r := mux.NewRouter()
 
 	r.HandleFunc("/", handler.Home)
+	r.HandleFunc("/post-receive", handler.PostReceive)
 
 	return handlers.LoggingHandler(os.Stdout, r)
 }
