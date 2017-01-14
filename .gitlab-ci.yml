@@ -1,14 +1,23 @@
 image: golang:1.7
 
+stages:
+  - test
+  - package
+  - publish
+
 test:
+  stage: test
   script:
     - make
     - make test
 
 package:
+  stage: package
+  only: 
+    - tags
   script:
     - apt-get update -qq
-    - apt-get install -qq -y rubygems ruby2.1 bundler
+    - apt-get install -qq -y rubygems bundler
     - GOOS=linux GOARCH=amd64 make clean package
     - dpkg -e *.deb
     - cat DEBIAN/control
@@ -17,3 +26,15 @@ package:
   artifacts:
     paths:
       - ./*.deb
+
+publish:
+  stage: publish
+  only:
+    - tags
+  script:
+    - apt-get update -qq
+    - apt-get install rubygems
+    - gem install package_cloud
+    - ls -lh *.deb
+    - shasum -a256 *.deb
+    - package_cloud push gitlab/unstable *.deb --url=https://packages.gitlab.com
