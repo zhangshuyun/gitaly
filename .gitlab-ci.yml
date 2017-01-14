@@ -1,11 +1,18 @@
 image: golang:1.7
 
+stages:
+  - test
+  - package
+  - publish
+
 test:
   script:
     - make
     - make test
 
 package:
+  only: 
+    - tags
   script:
     - apt-get update -qq
     - apt-get install -qq -y rubygems ruby2.1 bundler
@@ -17,3 +24,10 @@ package:
   artifacts:
     paths:
       - ./*.deb
+
+publish:
+  only:
+    - tags
+  script:
+    - ls -lh *.deb
+    - shasum -a256 *.deb
