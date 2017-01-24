@@ -22,16 +22,12 @@ func GetInfoRefs(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	rpc := vars["service"]
 
-	glId := r.Header.Get(gitlabIdHeader)
-	if glId == "" {
-		helper.Fail500(w, r, fmt.Errorf("GetInfoRefs: %s header was not found", gitlabIdHeader))
-		return
-	}
 	repoPath := r.Header.Get(gitalyRepoPathHeader)
 	if repoPath == "" {
 		helper.Fail500(w, r, fmt.Errorf("GetInfoRefs: %s header was not found", gitalyRepoPathHeader))
 		return
 	}
+	glId := r.Header.Get(gitlabIdHeader) // Allowed to be empty
 
 	// Prepare our Git subprocess
 	cmd := gitCommand(glId, "git", rpc, "--stateless-rpc", "--advertise-refs", repoPath)

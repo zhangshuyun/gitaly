@@ -88,21 +88,16 @@ func TestFailedUploadPackRequestDueToMissingHeaders(t *testing.T) {
 	recorder := httptest.NewRecorder()
 
 	resource := "/projects/1/git-http/info-refs/upload-pack"
+
 	req, err := http.NewRequest("GET", resource, &bytes.Buffer{})
 	if err != nil {
 		t.Fatal("Failed creating a request to %s", resource)
 	}
+	NewRouter().ServeHTTP(recorder, req)
 
-	for _, headerName := range []string{"Gitaly-Repo-Path", "Gitaly-GL-Id"} {
-		req.Header.Set(headerName, "Dummy Value")
-
-		NewRouter().ServeHTTP(recorder, req)
-
-		if recorder.Code != 500 {
-			t.Errorf("GET %q: expected 200, got %d", resource, recorder.Code)
-		}
-
-		req.Header.Del(headerName)
+	expected := 500
+	if recorder.Code != expected {
+		t.Errorf("GET %q: expected %d, got %d", resource, expected, recorder.Code)
 	}
 }
 
