@@ -1,0 +1,43 @@
+#!/usr/bin/env ruby
+require 'digest'
+require 'fileutils'
+require_relative 'run.rb'
+
+BUILD_DIR = '_support/release'
+BUILD_ID = capture!(%w[git log -1 --format=%H]).chomp
+TARBALL = "gitaly-#{BUILD_ID}.tar.gz"
+S3_BUCKET = ENV.fetch('S3_BUCKET')
+
+def main
+  FileUtils.rm_rf(BUILD_DIR)
+  [
+    %w[linux amd64],
+    %w[darwin amd64],
+  ].each do |platform|
+    build_platform(*platform)
+  end
+  print_sha256
+  FileUtils.mkdir_p(BUILD_DIR)
+  run!(%W[tar -zcf #{File.join(Dir.pwd, TARBALL)} .], BUILD_DIR)
+  run!(%W[aws s3 cp --acl public-read #{TARBALL} s3://#{File.join(S3_BUCKET, BUILD_ID[0, 2], TARBALL)}])
+end
+
+def build_platform(os, arch)
+  destdir = File.join(BUILD_DIR, os, arch)
+  FileUtils.mkdir_p(destdir)
+  run!(%W[make GOOS=#{os} GOARCH=#{arch} DESTDIR=#{destdir}])
+end
+
+def print_sha256
+  puts
+  Dir.chdir(BUILD_DIR) do
+    Dir["**/*"].each do |entry|
+      next if File.directory?(entry)
+      sha = Digest::SHA256.file(entry)
+      puts "#{sha}  #{entry}"
+    end
+  end
+  puts
+end
+
+main
