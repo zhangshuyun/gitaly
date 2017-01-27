@@ -1,0 +1,30 @@
+#!/usr/bin/env ruby
+require 'fileutils'
+require_relative 'run.rb'
+
+RELEASE_DIR = '_support/release'
+RELEASE_ID = capture!(%w[git log -1 --format=%H]).chomp
+
+def main
+  clean_release_dir
+  [
+    %w[linux amd64],
+    %w[darwin amd64],
+  ].each do |platform|
+    build_platform(*platform)
+  end
+  FileUtils.cp('NOTICE', RELEASE_DIR)
+  run!(%W[tar -zxvf gitaly-#{RELEASE_ID}.tar.gz])
+end
+
+def clean_release_dir
+  FileUtils.rm_rf(RELEASE_DIR)
+end
+
+def build_platform(os, arch)
+  destdir = File.join(RELEASE_DIR, os, arch)
+  FileUtils.mkdir_p(destdir)
+  run!(%W[make GOOS=#{os} GOARCH=#{arch} DESTDIR=#{destdir}])
+end
+
+main
