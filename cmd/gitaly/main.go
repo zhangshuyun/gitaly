@@ -1,6 +1,9 @@
 package main
 
 import (
+	"crypto/tls"
+	"crypto/x509"
+	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
@@ -15,6 +18,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/reflection"
 )
 
@@ -45,6 +49,26 @@ func main() {
 	}
 	log.Println("Listening on socket", config.SocketPath)
 
+	// server certificate
+	cert, err := tls.LoadX509KeyPair("_ca/certs/gitaly-server.pem", "_ca/certs/gitaly-server-key.pem")
+	if err != nil {
+		panic(err)
+	}
+
+	// CA to verify client certificate
+	caCert, err := ioutil.ReadFile("_ca/certs/ca.pem")
+	if err != nil {
+		log.Fatal(err)
+	}
+	caCertPool := x509.NewCertPool()
+	caCertPool.AppendCertsFromPEM(caCert)
+	tlsConfig := &tls.Config{
+		Certificates: []tls.Certificate{cert},
+		ClientAuth:   tls.RequireAndVerifyClientCert,
+		ClientCAs:    caCertPool,
+	}
+	creds := credentials.NewTLS(tlsConfig)
+
 	server := grpc.NewServer(
 		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
 			panichandler.StreamPanicHandler,         // Panic Handler first: handle panics gracefully
@@ -54,6 +78,7 @@ func main() {
 			panichandler.UnaryPanicHandler,         // Panic Handler first: handle panics gracefully
 			grpc_prometheus.UnaryServerInterceptor, // Prometheus Metrics next: measure RPC times
 		)),
+		grpc.Creds(creds),
 	)
 
 	service.RegisterAll(server)
@@ -65,6 +90,15 @@ func main() {
 	serverError := make(chan error, 2)
 	go func() {
 		serverError <- server.Serve(listener)
+	}()
+
+	tcpListener, err := net.Listen("tcp4", ":8877")
+	if err != nil {
+		panic(err)
+	}
+
+	go func() {
+		serverError <- server.Serve(tcpListener)
 	}()
 
 	if config.PrometheusListenAddr != "" {

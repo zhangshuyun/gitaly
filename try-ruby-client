@@ -1,0 +1,6 @@
+# this was not working for me; it seems the ruby client tries to make an sslv3 connection
+
+creds = GRPC::Core::ChannelCredentials.new(File.read('/Volumes/GitLab.com/gitlab-development-kit/gitaly/src/gitlab.com/gitlab-org/gitaly/_ca/certs/gitaly-server.pem'))
+chan = GRPC::Core::Channel.new('localhost:8877',{},creds)#{ GRPC::Core::Channel::SSL_TARGET => 'gitaly-server' }, creds)
+stub = Gitaly::Notifications::Stub.new(nil, nil, channel_override: chan)
+stub.post_receive(Gitaly::PostReceiveRequest.new)
