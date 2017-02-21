@@ -4,4 +4,5 @@
 /_support/package/bin
 /_support/bin
 /internal/service/smarthttp/testdata
-_ca/certs
+/gitaly.crt
+/gitaly.key

@@ -60,19 +60,5 @@ install-developer-tools:
 	@go run _support/go-get-if-missing.go govendor github.com/kardianos/govendor
 	@go run _support/go-get-if-missing.go golint github.com/golang/lint/golint
 
-cfssl:
-	go run _support/go-get-if-missing.go cfssl github.com/cloudflare/cfssl/cmd/...
-
-_ca/certs:
-	mkdir -p $@
-
-# https://github.com/coreos/etcd/tree/master/hack/tls-setup
-_ca/certs/ca.pem:	_ca/certs
-	cfssl gencert -initca _ca/ca-csr.json | cfssljson -bare _ca/certs/ca
-
-_ca/certs/gitaly-server.pem:	cfssl
-	cfssl gencert \
-	 -ca _ca/certs/ca.pem \
-	 -ca-key _ca/certs/ca-key.pem \
-	 -config _ca/ca-config.json \
-	 _ca/req-csr.json | cfssljson -bare _ca/certs/gitaly-server
+gitaly.crt:
+	umask 077; openssl req -new -subj "/CN=gitaly/" -x509 -days 3650 -newkey rsa:2048 -nodes -keyout "gitaly.key" -out "gitaly.crt"

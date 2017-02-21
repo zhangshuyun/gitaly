@@ -50,13 +50,13 @@ func main() {
 	log.Println("Listening on socket", config.SocketPath)
 
 	// server certificate
-	cert, err := tls.LoadX509KeyPair("_ca/certs/gitaly-server.pem", "_ca/certs/gitaly-server-key.pem")
+	cert, err := tls.LoadX509KeyPair("gitaly.crt", "gitaly.key")
 	if err != nil {
 		panic(err)
 	}
 
 	// CA to verify client certificate
-	caCert, err := ioutil.ReadFile("_ca/certs/ca.pem")
+	caCert, err := ioutil.ReadFile("gitaly.crt")
 	if err != nil {
 		log.Fatal(err)
 	}
