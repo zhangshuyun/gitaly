@@ -2,8 +2,6 @@ package main
 
 import (
 	"crypto/tls"
-	"crypto/x509"
-	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
@@ -55,17 +53,8 @@ func main() {
 		panic(err)
 	}
 
-	// CA to verify client certificate
-	caCert, err := ioutil.ReadFile("gitaly.crt")
-	if err != nil {
-		log.Fatal(err)
-	}
-	caCertPool := x509.NewCertPool()
-	caCertPool.AppendCertsFromPEM(caCert)
 	tlsConfig := &tls.Config{
 		Certificates: []tls.Certificate{cert},
-		ClientAuth:   tls.RequireAndVerifyClientCert,
-		ClientCAs:    caCertPool,
 	}
 	creds := credentials.NewTLS(tlsConfig)
 
