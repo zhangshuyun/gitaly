@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 
+	_ "gitlab.com/gitlab-org/gitaly/internal/config"
 	"gitlab.com/gitlab-org/gitaly/internal/service"
 	"gitlab.com/gitlab-org/gitaly/internal/service/middleware/panichandler"
 
