@@ -8,7 +8,7 @@ import (
 )
 
 var (
-	Config     *config
+	Config     config
 	configFile string
 )
 
@@ -22,19 +22,28 @@ func init() {
 
 	configFile := viper.GetString("config")
 
+	if len(configFile) == 0 {
+		panic(fmt.Errorf("fatal: no config file given"))
+	}
+
 	viper.SetConfigFile(configFile)
 
 	err := viper.ReadInConfig()
 	if err != nil {
 		panic(fmt.Errorf("fatal: read config file: %q", configFile))
 	}
+
+	err = viper.Unmarshal(&Config)
+	if err != nil {
+		panic(fmt.Errorf("fatal: unable to decode config: %q: %v", configFile, err))
+	}
 }
 
 type Storage struct {
-	Name string `toml:"name"`
-	Path string `toml:"path"`
+	Name string
+	Path string
 }
 
 type config struct {
-	Storages []Storage `toml:"storage"`
+	Storages []Storage `mapstructure:"storage"`
 }
