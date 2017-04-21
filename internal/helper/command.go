@@ -60,7 +60,7 @@ func NewCommand(cmd *exec.Cmd, stdin io.Reader, stdout io.Writer, env ...string)
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Start(); err != nil {
-		return nil, fmt.Errorf("GitCommand: start %v: %v", cmd.Args, err)
+		return nil, fmt.Errorf("start %v: %v", cmd.Args, err)
 	}
 
 	return command, nil
