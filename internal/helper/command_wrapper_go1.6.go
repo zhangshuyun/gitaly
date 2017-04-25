@@ -14,10 +14,29 @@ func CommandWrapper(ctx context.Context, name string, arg ...string) *exec.Cmd {
 	command := exec.Command(name, arg...)
 
 	if ctx != nil {
+		// Create a channel to listen to the command completion
+		done := make(chan error, 1)
 		go func() {
-			<-ctx.Done()
-			log.Printf("Context done, killing process")
-			command.Kill()
+			done <- cmd.Wait()
+		}()
+
+		// Wait for the process to shutdown or the
+		// context to be complete
+		go func() {
+			select {
+			case <-ctx.Done():
+				log.Printf("Context done, killing process")
+				command.Kill()
+
+			case err <- done:
+				if err != nil {
+					log.Printf("process done with error = %v", err)
+				} else {
+					log.Print("process done gracefully without error")
+				}
+
+			}
+
 		}()
 	}
 
