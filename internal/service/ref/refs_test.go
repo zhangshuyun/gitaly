@@ -175,7 +175,7 @@ func TestInvalidRepoFindAllTagNamesRequest(t *testing.T) {
 }
 
 func TestHeadReference(t *testing.T) {
-	headRef, err := headReference(testRepoPath)
+	headRef, err := headReference(context.Background(), testRepoPath)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -193,47 +193,47 @@ func TestDefaultBranchName(t *testing.T) {
 
 	testCases := []struct {
 		desc            string
-		findBranchNames func(string) ([][]byte, error)
-		headReference   func(string) ([]byte, error)
+		findBranchNames func(context.Context, string) ([][]byte, error)
+		headReference   func(context.Context, string) ([]byte, error)
 		expected        []byte
 	}{
 		{
 			desc:     "Get first branch when only one branch exists",
 			expected: []byte("refs/heads/foo"),
-			findBranchNames: func(string) ([][]byte, error) {
+			findBranchNames: func(context.Context, string) ([][]byte, error) {
 				return [][]byte{[]byte("refs/heads/foo")}, nil
 			},
-			headReference: func(string) ([]byte, error) { return nil, nil },
+			headReference: func(context.Context, string) ([]byte, error) { return nil, nil },
 		},
 		{
 			desc:            "Get empy ref if no branches exists",
 			expected:        nil,
-			findBranchNames: func(string) ([][]byte, error) { return [][]byte{}, nil },
-			headReference:   func(string) ([]byte, error) { return nil, nil },
+			findBranchNames: func(context.Context, string) ([][]byte, error) { return [][]byte{}, nil },
+			headReference:   func(context.Context, string) ([]byte, error) { return nil, nil },
 		},
 		{
 			desc:     "Get the name of the head reference when more than one branch exists",
 			expected: []byte("refs/heads/bar"),
-			findBranchNames: func(string) ([][]byte, error) {
+			findBranchNames: func(context.Context, string) ([][]byte, error) {
 				return [][]byte{[]byte("refs/heads/foo"), []byte("refs/heads/bar")}, nil
 			},
-			headReference: func(string) ([]byte, error) { return []byte("refs/heads/bar"), nil },
+			headReference: func(context.Context, string) ([]byte, error) { return []byte("refs/heads/bar"), nil },
 		},
 		{
 			desc:     "Get `ref/heads/master` when several branches exist",
 			expected: []byte("refs/heads/master"),
-			findBranchNames: func(string) ([][]byte, error) {
+			findBranchNames: func(context.Context, string) ([][]byte, error) {
 				return [][]byte{[]byte("refs/heads/foo"), []byte("refs/heads/master"), []byte("refs/heads/bar")}, nil
 			},
-			headReference: func(string) ([]byte, error) { return nil, nil },
+			headReference: func(context.Context, string) ([]byte, error) { return nil, nil },
 		},
 		{
 			desc:     "Get the name of the first branch when several branches exists and no other conditions are met",
 			expected: []byte("refs/heads/foo"),
-			findBranchNames: func(string) ([][]byte, error) {
+			findBranchNames: func(context.Context, string) ([][]byte, error) {
 				return [][]byte{[]byte("refs/heads/foo"), []byte("refs/heads/bar"), []byte("refs/heads/baz")}, nil
 			},
-			headReference: func(string) ([]byte, error) { return nil, nil },
+			headReference: func(context.Context, string) ([]byte, error) { return nil, nil },
 		},
 	}
 
@@ -241,7 +241,7 @@ func TestDefaultBranchName(t *testing.T) {
 		findBranchNames = testCase.findBranchNames
 		headReference = testCase.headReference
 
-		defaultBranch, err := defaultBranchName("")
+		defaultBranch, err := defaultBranchName(context.Background(), "")
 		if err != nil {
 			t.Fatal(err)
 		}

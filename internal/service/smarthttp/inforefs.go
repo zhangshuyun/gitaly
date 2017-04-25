@@ -8,6 +8,7 @@ import (
 	pb "gitlab.com/gitlab-org/gitaly-proto/go"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 
+	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 )
@@ -29,20 +30,20 @@ func (w infoRefsResponseWriter) Write(p []byte) (int, error) {
 }
 
 func (s *server) InfoRefsUploadPack(in *pb.InfoRefsRequest, stream pb.SmartHTTP_InfoRefsUploadPackServer) error {
-	return handleInfoRefs("upload-pack", in.Repository, infoRefsResponseWriter{stream})
+	return handleInfoRefs(stream.Context(), "upload-pack", in.Repository, infoRefsResponseWriter{stream})
 }
 
 func (s *server) InfoRefsReceivePack(in *pb.InfoRefsRequest, stream pb.SmartHTTP_InfoRefsReceivePackServer) error {
-	return handleInfoRefs("receive-pack", in.Repository, infoRefsResponseWriter{stream})
+	return handleInfoRefs(stream.Context(), "receive-pack", in.Repository, infoRefsResponseWriter{stream})
 }
 
-func handleInfoRefs(service string, repo *pb.Repository, w io.Writer) error {
+func handleInfoRefs(ctx context.Context, service string, repo *pb.Repository, w io.Writer) error {
 	repoPath, err := helper.GetRepoPath(repo)
 	if err != nil {
 		return err
 	}
 
-	cmd, err := helper.GitCommandReader(service, "--stateless-rpc", "--advertise-refs", repoPath)
+	cmd, err := helper.GitCommandReader(ctx, service, "--stateless-rpc", "--advertise-refs", repoPath)
 	if err != nil {
 		return grpc.Errorf(codes.Internal, "GetInfoRefs: cmd: %v", err)
 	}

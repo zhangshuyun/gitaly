@@ -6,6 +6,8 @@ import (
 	"os"
 	"os/exec"
 	"syscall"
+
+	"golang.org/x/net/context"
 )
 
 // Command encapsulates operations with commands creates with NewCommand
@@ -21,7 +23,9 @@ func (c *Command) Kill() {
 }
 
 // GitCommandReader creates a git Command with the given args
-func GitCommandReader(args ...string) (*Command, error) {
+func GitCommandReader(ctx context.Context, args ...string) (*Command, error) {
+	// TODO: when we switch to Go 1.7, switch to using
+	// exec.CommandContext
 	return NewCommand(exec.Command("git", args...), nil, nil)
 }
 

@@ -28,7 +28,7 @@ func (s *server) FindRefName(ctx context.Context, in *pb.FindRefNameRequest) (*p
 		return nil, grpc.Errorf(codes.InvalidArgument, message)
 	}
 
-	ref, err := findRefName(repoPath, in.CommitId, string(in.Prefix))
+	ref, err := findRefName(ctx, repoPath, in.CommitId, string(in.Prefix))
 	if err != nil {
 		return nil, grpc.Errorf(codes.Internal, err.Error())
 	}
@@ -37,8 +37,8 @@ func (s *server) FindRefName(ctx context.Context, in *pb.FindRefNameRequest) (*p
 }
 
 // We assume `path` and `commitID` and `prefix` are non-empty
-func findRefName(path, commitID, prefix string) (string, error) {
-	cmd, err := helper.GitCommandReader("--git-dir", path, "for-each-ref", "--format=%(refname)", "--count=1", prefix, "--contains", commitID)
+func findRefName(ctx context.Context, path, commitID, prefix string) (string, error) {
+	cmd, err := helper.GitCommandReader(ctx, "--git-dir", path, "for-each-ref", "--format=%(refname)", "--count=1", prefix, "--contains", commitID)
 	if err != nil {
 		return "", err
 	}

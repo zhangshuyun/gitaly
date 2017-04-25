@@ -33,7 +33,7 @@ func handleGitCommand(w refsWriter, r io.Reader) error {
 	return w.Flush()
 }
 
-func findRefs(writer refsWriter, repo *pb.Repository, pattern string, args ...string) error {
+func findRefs(ctx context.Context, writer refsWriter, repo *pb.Repository, pattern string, args ...string) error {
 	repoPath, err := helper.GetRepoPath(repo)
 	if err != nil {
 		return err
@@ -49,7 +49,7 @@ func findRefs(writer refsWriter, repo *pb.Repository, pattern string, args ...st
 		args = append(baseArgs, args...)
 	}
 
-	cmd, err := helper.GitCommandReader(args...)
+	cmd, err := helper.GitCommandReader(ctx, args...)
 	if err != nil {
 		return err
 	}
@@ -64,18 +64,18 @@ func findRefs(writer refsWriter, repo *pb.Repository, pattern string, args ...st
 
 // FindAllBranchNames creates a stream of ref names for all branches in the given repository
 func (s *server) FindAllBranchNames(in *pb.FindAllBranchNamesRequest, stream pb.Ref_FindAllBranchNamesServer) error {
-	return findRefs(newFindAllBranchNamesWriter(stream, s.MaxMsgSize), in.Repository, "refs/heads")
+	return findRefs(stream.Context(), newFindAllBranchNamesWriter(stream, s.MaxMsgSize), in.Repository, "refs/heads")
 }
 
 // FindAllTagNames creates a stream of ref names for all tags in the given repository
 func (s *server) FindAllTagNames(in *pb.FindAllTagNamesRequest, stream pb.Ref_FindAllTagNamesServer) error {
-	return findRefs(newFindAllTagNamesWriter(stream, s.MaxMsgSize), in.Repository, "refs/tags")
+	return findRefs(stream.Context(), newFindAllTagNamesWriter(stream, s.MaxMsgSize), in.Repository, "refs/tags")
 }
 
-func _findBranchNames(repoPath string) ([][]byte, error) {
+func _findBranchNames(ctx context.Context, repoPath string) ([][]byte, error) {
 	var names [][]byte
 
-	cmd, err := helper.GitCommandReader("--git-dir", repoPath, "for-each-ref", "refs/heads", "--format=%(refname)")
+	cmd, err := helper.GitCommandReader(ctx, "--git-dir", repoPath, "for-each-ref", "refs/heads", "--format=%(refname)")
 	if err != nil {
 		return nil, err
 	}
@@ -96,10 +96,10 @@ func _findBranchNames(repoPath string) ([][]byte, error) {
 	return names, nil
 }
 
-func _headReference(repoPath string) ([]byte, error) {
+func _headReference(ctx context.Context, repoPath string) ([]byte, error) {
 	var headRef []byte
 
-	cmd, err := helper.GitCommandReader("--git-dir", repoPath, "rev-parse", "--symbolic-full-name", "HEAD")
+	cmd, err := helper.GitCommandReader(ctx, "--git-dir", repoPath, "rev-parse", "--symbolic-full-name", "HEAD")
 	if err != nil {
 		return nil, err
 	}
@@ -119,8 +119,8 @@ func _headReference(repoPath string) ([]byte, error) {
 	return headRef, nil
 }
 
-func defaultBranchName(repoPath string) ([]byte, error) {
-	branches, err := findBranchNames(repoPath)
+func defaultBranchName(ctx context.Context, repoPath string) ([]byte, error) {
+	branches, err := findBranchNames(ctx, repoPath)
 
 	if err != nil {
 		return nil, err
@@ -137,7 +137,7 @@ func defaultBranchName(repoPath string) ([]byte, error) {
 	}
 
 	hasMaster := false
-	headRef, err := headReference(repoPath)
+	headRef, err := headReference(ctx, repoPath)
 	if err != nil {
 		return nil, err
 	}
@@ -167,7 +167,7 @@ func (s *server) FindDefaultBranchName(ctx context.Context, in *pb.FindDefaultBr
 
 	log.Printf("FindDefaultBranchName: RepoPath=%q", repoPath)
 
-	defaultBranchName, err := defaultBranchName(repoPath)
+	defaultBranchName, err := defaultBranchName(ctx, repoPath)
 	if err != nil {
 		return nil, err
 	}
@@ -195,5 +195,5 @@ func (s *server) FindLocalBranches(in *pb.FindLocalBranchesRequest, stream pb.Re
 	sortFlag := "--sort=" + parseSortKey(in.GetSortBy())
 	writer := newFindLocalBranchesWriter(stream, s.MaxMsgSize)
 
-	return findRefs(writer, in.Repository, "refs/heads", formatFlag, sortFlag)
+	return findRefs(stream.Context(), writer, in.Repository, "refs/heads", formatFlag, sortFlag)
 }
