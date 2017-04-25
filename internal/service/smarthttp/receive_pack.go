@@ -3,7 +3,6 @@ package smarthttp
 import (
 	"fmt"
 	"log"
-	"os/exec"
 
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 
@@ -40,7 +39,7 @@ func (s *server) PostReceivePack(stream pb.SmartHTTP_PostReceivePackServer) erro
 
 	log.Printf("PostReceivePack: RepoPath=%q GlID=%q", repoPath, req.GlId)
 
-	osCommand := exec.Command("git", "receive-pack", "--stateless-rpc", repoPath)
+	osCommand := helper.CommandWrapper(stream.Context(), "git", "receive-pack", "--stateless-rpc", repoPath)
 	cmd, err := helper.NewCommand(osCommand, stdin, stdout, glIDEnv)
 
 	if err != nil {

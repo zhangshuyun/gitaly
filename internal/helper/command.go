@@ -26,7 +26,7 @@ func (c *Command) Kill() {
 func GitCommandReader(ctx context.Context, args ...string) (*Command, error) {
 	// TODO: when we switch to Go 1.7, switch to using
 	// exec.CommandContext
-	return NewCommand(exec.Command("git", args...), nil, nil)
+	return NewCommand(CommandWrapper(ctx, "git", args...), nil, nil)
 }
 
 // NewCommand creates a Command from an exec.Cmd

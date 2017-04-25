@@ -2,7 +2,6 @@ package smarthttp
 
 import (
 	"log"
-	"os/exec"
 
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 
@@ -38,7 +37,7 @@ func (s *server) PostUploadPack(stream pb.SmartHTTP_PostUploadPackServer) error 
 
 	log.Printf("PostUploadPack: RepoPath=%q", repoPath)
 
-	osCommand := exec.Command("git", "upload-pack", "--stateless-rpc", repoPath)
+	osCommand := helper.CommandWrapper(stream.Context(), "git", "upload-pack", "--stateless-rpc", repoPath)
 	cmd, err := helper.NewCommand(osCommand, stdin, stdout)
 
 	if err != nil {
