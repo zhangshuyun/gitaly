@@ -28,7 +28,7 @@ func CommandWrapper(ctx context.Context, name string, arg ...string) *exec.Cmd {
 				log.Printf("Context done, killing process")
 				command.Process.Kill()
 
-			case err <- done:
+			case err := <-done:
 				if err != nil {
 					log.Printf("process done with error = %v", err)
 				} else {
