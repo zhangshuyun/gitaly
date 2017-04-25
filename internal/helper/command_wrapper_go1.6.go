@@ -26,7 +26,7 @@ func CommandWrapper(ctx context.Context, name string, arg ...string) *exec.Cmd {
 			select {
 			case <-ctx.Done():
 				log.Printf("Context done, killing process")
-				command.Kill()
+				command.Process.Kill()
 
 			case err <- done:
 				if err != nil {
