@@ -17,7 +17,7 @@ func CommandWrapper(ctx context.Context, name string, arg ...string) *exec.Cmd {
 		// Create a channel to listen to the command completion
 		done := make(chan error, 1)
 		go func() {
-			done <- cmd.Wait()
+			done <- command.Wait()
 		}()
 
 		// Wait for the process to shutdown or the
