@@ -20,12 +20,12 @@ func (s *server) CommitIsAncestor(ctx context.Context, in *pb.CommitIsAncestorRe
 		return nil, err
 	}
 	if in.AncestorId == "" {
-		message := "Bad Request (empty ancestor sha)"
+		message := "bad request (empty ancestor sha)"
 		log.Printf("CommitIsAncestor: %q", message)
 		return nil, grpc.Errorf(codes.InvalidArgument, message)
 	}
 	if in.ChildId == "" {
-		message := "Bad Request (empty child sha)"
+		message := "bad request (empty child sha)"
 		log.Printf("CommitIsAncestor: %q", message)
 		return nil, grpc.Errorf(codes.InvalidArgument, message)
 	}
