@@ -3,6 +3,7 @@ package helper
 import (
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"os/exec"
 	"syscall"
@@ -70,6 +71,15 @@ func NewCommand(cmd *exec.Cmd, stdin io.Reader, stdout io.Writer, env ...string)
 	return command, nil
 }
 
+func cleanUpProcessGroupNoWait(cmd *exec.Cmd) {
+	process := cmd.Process
+	if process != nil && process.Pid > 0 {
+		// Send SIGTERM to the process group of cmd
+		syscall.Kill(-process.Pid, syscall.SIGTERM)
+	}
+
+}
+
 // CleanUpProcessGroup will send a SIGTERM signal to the process group
 // belonging to the `cmd` process
 func CleanUpProcessGroup(cmd *exec.Cmd) {
@@ -77,11 +87,7 @@ func CleanUpProcessGroup(cmd *exec.Cmd) {
 		return
 	}
 
-	process := cmd.Process
-	if process != nil && process.Pid > 0 {
-		// Send SIGTERM to the process group of cmd
-		syscall.Kill(-process.Pid, syscall.SIGTERM)
-	}
+	cleanUpProcessGroupNoWait(cmd)
 
 	// reap our child process
 	cmd.Wait()
@@ -100,4 +106,40 @@ func ExitStatus(err error) (int, bool) {
 	}
 
 	return waitStatus.ExitStatus(), true
+}
+
+// CommandWrapper ensures that the command is executed within a context,
+// and ensures that the process group is terminated with the
+func CommandWrapper(ctx context.Context, name string, arg ...string) *exec.Cmd {
+	command := exec.Command(name, arg...)
+
+	if ctx != nil {
+		// Create a channel to listen to the command completion
+		done := make(chan error, 1)
+		go func() {
+			done <- command.Wait()
+		}()
+
+		// Wait for the process to shutdown or the
+		// context to be complete
+		go func() {
+			select {
+			case <-ctx.Done():
+				log.Printf("Context done, killing process")
+				cleanUpProcessGroupNoWait(command)
+
+			case err := <-done:
+				if err != nil {
+					log.Printf("process done with error = %v", err)
+				} else {
+					log.Print("process done gracefully without error")
+				}
+				cleanUpProcessGroupNoWait(command)
+
+			}
+
+		}()
+	}
+
+	return command
 }
