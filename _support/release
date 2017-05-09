@@ -13,13 +13,14 @@ def main(version)
   puts 'Testing for staged changes'
   run!(%w[git diff --quiet --cached --exit-code])
 
+  tag_name = "v#{version}"
   write_version_file(version)
+  update_changelog(tag_name)
   version_msg = "Version #{version}"
   run!(%W[git commit -m #{version_msg}])
-
-  tag_name = "v#{version}"
   run!(%W[git tag -a -m #{version_msg} #{tag_name}])
 
+  # We use 'capture!' to prevent 'git show' from invoking 'less'.
   show_output = capture!(%W[git show --pretty #{tag_name}])
   puts show_output
 
@@ -39,6 +40,19 @@ def write_version_file(version)
   version_file = 'VERSION'
   open(version_file, 'w') { |f| f.puts version }
   run!(%W[git add #{version_file}])
+end
+
+def update_changelog(version_string)
+  changelog = 'CHANGELOG.md'
+  content = IO.read(changelog).lines
+  unreleased_line = "UNRELEASED\n"
+  version_index = content.find_index { |l| l == unreleased_line }
+  if version_index.nil?
+    abort "no #{unreleased_line.inspect} line found in #{changelog}"
+  end
+  content[version_index] = version_string + "\n"
+  IO.write(changelog, content.join)
+  run!(%W[git add #{changelog}])
 end
 
 def error(msg)

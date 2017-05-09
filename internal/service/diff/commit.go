@@ -1,6 +1,7 @@
 package diff
 
 import (
+	"fmt"
 	"log"
 
 	pb "gitlab.com/gitlab-org/gitaly-proto/go"
@@ -9,11 +10,18 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+
+	"golang.org/x/net/context"
 )
+
+type requestWithLeftRightCommitIds interface {
+	GetLeftCommitId() string
+	GetRightCommitId() string
+}
 
 func (s *server) CommitDiff(in *pb.CommitDiffRequest, stream pb.Diff_CommitDiffServer) error {
 	if err := validateRequest(in); err != nil {
-		return err
+		return grpc.Errorf(codes.InvalidArgument, "CommitDiff: %v", err)
 	}
 
 	repoPath, err := helper.GetRepoPath(in.Repository)
@@ -22,20 +30,40 @@ func (s *server) CommitDiff(in *pb.CommitDiffRequest, stream pb.Diff_CommitDiffS
 	}
 	leftSha := in.LeftCommitId
 	rightSha := in.RightCommitId
+	ignoreWhitespaceChange := in.GetIgnoreWhitespaceChange()
+	paths := in.GetPaths()
 
-	log.Printf("CommitDiff: RepoPath=%q LeftCommitId=%q RightCommitId=%q", repoPath, leftSha, rightSha)
+	log.Printf(
+		"CommitDiff: RepoPath=%q LeftCommitId=%q RightCommitId=%q IgnoreWhitespaceChange=%t Paths=%s",
+		repoPath,
+		leftSha,
+		rightSha,
+		ignoreWhitespaceChange,
+		paths,
+	)
 
-	cmd, err := helper.GitCommandReader(stream.Context(), "--git-dir", repoPath, "diff", "--full-index", "--find-renames", leftSha, rightSha)
-	if err != nil {
-		return grpc.Errorf(codes.Internal, "CommitDiff: cmd: %v", err)
+	cmdArgs := []string{
+		"--git-dir", repoPath,
+		"diff",
+		"--patch",
+		"--raw",
+		"--abbrev=40",
+		"--full-index",
+		"--find-renames",
 	}
-	defer cmd.Kill()
+	if ignoreWhitespaceChange {
+		cmdArgs = append(cmdArgs, "--ignore-space-change")
+	}
+	cmdArgs = append(cmdArgs, leftSha, rightSha)
+	if len(paths) > 0 {
+		cmdArgs = append(cmdArgs, "--")
+		for _, path := range paths {
+			cmdArgs = append(cmdArgs, string(path))
+		}
+	}
 
-	diffParser := diff.NewDiffParser(cmd)
-
-	for diffParser.Parse() {
-		diff := diffParser.Diff()
-		err = stream.Send(&pb.CommitDiffResponse{
+	err = eachDiff(stream.Context(), "CommitDiff", cmdArgs, func(diff *diff.Diff) error {
+		err := stream.Send(&pb.CommitDiffResponse{
 			FromPath:  diff.FromPath,
 			ToPath:    diff.ToPath,
 			FromId:    diff.FromID,
@@ -49,27 +77,140 @@ func (s *server) CommitDiff(in *pb.CommitDiffRequest, stream pb.Diff_CommitDiffS
 		if err != nil {
 			return grpc.Errorf(codes.Unavailable, "CommitDiff: send: %v", err)
 		}
+
+		return nil
+	})
+
+	return err
+}
+
+func (s *server) CommitDelta(in *pb.CommitDeltaRequest, stream pb.Diff_CommitDeltaServer) error {
+	if err := validateRequest(in); err != nil {
+		return grpc.Errorf(codes.InvalidArgument, "CommitDelta: %v", err)
 	}
 
-	if err := diffParser.Err(); err != nil {
-		log.Printf("CommitDiff: Parsing diff in repo %q between %q and %q failed: %v", repoPath, leftSha, rightSha, err)
-		return grpc.Errorf(codes.Internal, "CommitDiff: parse failure: %v", err)
+	repoPath, err := helper.GetRepoPath(in.Repository)
+	if err != nil {
+		return err
+	}
+	leftSha := in.LeftCommitId
+	rightSha := in.RightCommitId
+	paths := in.GetPaths()
+
+	log.Printf(
+		"CommitDelta: RepoPath=%q LeftCommitId=%q RightCommitId=%q Paths=%s",
+		repoPath,
+		leftSha,
+		rightSha,
+		paths,
+	)
+
+	cmdArgs := []string{
+		"--git-dir", repoPath,
+		"diff",
+		"--raw",
+		"--abbrev=40",
+		"--full-index",
+		"--find-renames",
+		leftSha,
+		rightSha,
+	}
+	if len(paths) > 0 {
+		cmdArgs = append(cmdArgs, "--")
+		for _, path := range paths {
+			cmdArgs = append(cmdArgs, string(path))
+		}
 	}
 
-	if err := cmd.Wait(); err != nil {
-		return grpc.Errorf(codes.Unavailable, "CommitDiff: cmd wait for %v: %v", cmd.Args, err)
+	var batch []*pb.CommitDelta
+	var batchSize int
+
+	flushFunc := func() error {
+		if len(batch) == 0 {
+			return nil
+		}
+
+		if err := stream.Send(&pb.CommitDeltaResponse{Deltas: batch}); err != nil {
+			return grpc.Errorf(codes.Unavailable, "CommitDelta: send: %v", err)
+		}
+
+		return nil
+	}
+
+	err = eachDiff(stream.Context(), "CommitDelta", cmdArgs, func(diff *diff.Diff) error {
+		delta := &pb.CommitDelta{
+			FromPath: diff.FromPath,
+			ToPath:   diff.ToPath,
+			FromId:   diff.FromID,
+			ToId:     diff.ToID,
+			OldMode:  diff.OldMode,
+			NewMode:  diff.NewMode,
+		}
+
+		batch = append(batch, delta)
+		batchSize += deltaSize(diff)
+
+		if batchSize > s.MsgSizeThreshold {
+			if err := flushFunc(); err != nil {
+				return err
+			}
+
+			batch = nil
+			batchSize = 0
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return err
+	}
+
+	return flushFunc()
+}
+
+func validateRequest(in requestWithLeftRightCommitIds) error {
+	if in.GetLeftCommitId() == "" {
+		return fmt.Errorf("empty LeftCommitId")
+	}
+	if in.GetRightCommitId() == "" {
+		return fmt.Errorf("empty RightCommitId")
 	}
 
 	return nil
 }
 
-func validateRequest(in *pb.CommitDiffRequest) error {
-	if in.LeftCommitId == "" {
-		return grpc.Errorf(codes.InvalidArgument, "CommitDiff: empty LeftCommitId")
+func eachDiff(ctx context.Context, rpc string, cmdArgs []string, callback func(*diff.Diff) error) error {
+	cmd, err := helper.GitCommandReader(ctx, cmdArgs...)
+	if err != nil {
+		return grpc.Errorf(codes.Internal, "%s: cmd: %v", rpc, err)
 	}
-	if in.RightCommitId == "" {
-		return grpc.Errorf(codes.InvalidArgument, "CommitDiff: empty RightCommitId")
+	defer cmd.Kill()
+
+	diffParser := diff.NewDiffParser(cmd)
+
+	for diffParser.Parse() {
+		if err := callback(diffParser.Diff()); err != nil {
+			return err
+		}
+	}
+
+	if err := diffParser.Err(); err != nil {
+		log.Printf("%s: Failed parsing diff for args %s: %v", rpc, cmd.Args)
+		return grpc.Errorf(codes.Internal, "%s: parse failure: %v", rpc, err)
+	}
+
+	if err := cmd.Wait(); err != nil {
+		return grpc.Errorf(codes.Unavailable, "%s: cmd wait for %v: %v", rpc, cmd.Args, err)
 	}
 
 	return nil
+}
+
+func deltaSize(diff *diff.Diff) int {
+	size := len(diff.FromID) + len(diff.ToID) +
+		4 + 4 + // OldMode and NewMode are int32 = 32/8 = 4 bytes
+		len(diff.FromPath) + len(diff.ToPath)
+
+	return size
 }

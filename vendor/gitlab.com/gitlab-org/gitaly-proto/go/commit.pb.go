@@ -19,6 +19,9 @@ It has these top-level messages:
 	CommitIsAncestorResponse
 	CommitDiffRequest
 	CommitDiffResponse
+	CommitDeltaRequest
+	CommitDelta
+	CommitDeltaResponse
 	PostReceiveRequest
 	PostReceiveResponse
 	FindDefaultBranchNameRequest

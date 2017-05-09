@@ -24,3 +24,13 @@ func IsNumber(s []byte) bool {
 	}
 	return true
 }
+
+// UnquoteBytes removes surrounding double-quotes from a byte slice returning
+// a new slice if they exist, otherwise it returns the same byte slice passed.
+func UnquoteBytes(s []byte) []byte {
+	if len(s) >= 2 && s[0] == '"' && s[len(s)-1] == '"' {
+		return s[1 : len(s)-1]
+	}
+
+	return s
+}

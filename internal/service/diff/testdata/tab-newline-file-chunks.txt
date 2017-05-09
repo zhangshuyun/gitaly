@@ -1,0 +1,2 @@
+@@ -0,0 +1 @@
++A file with a tab (\t) and a new line (\n) in its name.

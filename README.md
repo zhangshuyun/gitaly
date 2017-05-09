@@ -64,6 +64,10 @@ make install
 
 See [configuration documentation](doc/configuration)
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## Name
 
 Gitaly is a tribute to git and the town of [Aly](https://en.wikipedia.org/wiki/Aly). Where the town of
@@ -169,29 +173,20 @@ in descending order of **99% Cumulative Time** (that is `(number of calls) * (99
 A [Google Spreadsheet](https://docs.google.com/spreadsheets/d/1MVjsbLIjBVryMxO0UhBWebrwXuqpbCz18ZtrThcSFFU/edit) is available
 with these calculations.
 
-|**Controller**|**Analysis**|**RPCS**|**Server Impl**|**Client Impl**|**Optim 1**|**Optim 2**|
-|--------------|------------|--------|---------------|---------------|-----------|-----------|
-| SmartHTTP Workhorse Interceptors | #36 | - | | | | |
-| `Projects::CommitController#show` | #64 | #80 | #88 | #89| | |
-| `Projects::MergeRequestsController#ci_status.json` / `Projects::MergeRequestsController#ci_environments_status.json` | #66 | #81 | #86 | #87 | | |
-| `Projects::TreeController#show` | #65 | #82 | #84 | #85 | | |
-| Git HTTP: `POST /{upload,receive}-pack` | #92 | gitlab-org/gitaly-proto!4 | #122 | #125 | | |
-| Git SSH: handle gitlab-shell sessions | #91 | gitlab-org/gitaly-proto!5 | #123 | #124 | | |
-| `Projects::BranchesController#index` | #127 | #128 | | | | |
-| `RootController#index` | | | | | | |
-| `Projects::RawController#show` | | | | | | |
-| `Projects::BlobController#show` | | | | | | |
-| `ProjectsController#show` | | | | | | |
-| `Projects::RefsController#logs_tree` | | | | | | |
-| `GroupsController#show` | | | | | | |
-| `Projects::MergeRequestsController#show` | | | | | | |
-| `Dashboard::ProjectsController#index` | | | | | | |
-| `Explore::ProjectsController#trending` | | | | | | |
-| `Projects::MergeRequestsController#new` | | | | | | |
-| `Projects::MergeRequestsController#create` | | | | | | |
-| `Projects::BuildsController#show` | | | | | | |
-| `Explore::ProjectsController#index` | | | | | | |
-| `Projects::GitHttpController#git_upload_pack.json` | | | | | | |
+|**Controller**|**~"Migration Analysis"**|**~"RPC Design"**|**~"Server Implementation"**|**~"Client Implementation"**|**~"Acceptance Testing"**|**Optim 1**|**Optim 2**|
+|--------------|-------------------------|-----------------|----------------------------|----------------------------|-------------------------|-----------|-----------|
+| SmartHTTP Workhorse Interceptors | #36 | - | | | | | |
+| `Projects::CommitController#show` | #64 | #80 | #88 | #89| #209 | | |
+| `Projects::MergeRequestsController#ci_status.json` / `Projects::MergeRequestsController#ci_environments_status.json` | #66 | #81 | #86 | #87 | #210 | | |
+| `Projects::TreeController#show` | #65 | #82 | #84 | #85 | #211 | | |  
+| Git HTTP: `POST /{upload,receive}-pack` | #92 | gitlab-org/gitaly-proto!4 | #122 | #125 | #184 | | |
+| Git SSH: handle gitlab-shell sessions | #91 | gitlab-org/gitaly-proto!5 | #123 | #124 | | | |
+| `Projects::BranchesController#index` | #127 | #128 | !103 | gitlab-org/gitlab-ce!10059 | | | |
+| `ProjectsController#show` | #157 | -- | -- | gitlab-org/gitlab-ce!10780 | | | |
+| `Projects::GraphsController#charts` (shelved for now) | #158 |  | | | | | |
+| `Projects::MergeRequestsController#new` | #159 | | | | | | |
+| `Projects::RawController#show` | #160 | #195 | | | | | |
+| Workhorse `sendblob` | #194 |  | | | | | |
 
 (More to follow!)
 
@@ -244,3 +239,4 @@ High-level architecture overview:
 ## Presentations
 
 - [Git Paris meetup, 2017-02-22](https://docs.google.com/presentation/d/19OZUalFMIDM8WujXrrIyCuVb_oVeaUzpb-UdGThOvAo/edit?usp=sharing) a high-level overview of what our plans are and where we are.
+- [Gitaly Basics, 2017-05-01](https://docs.google.com/presentation/d/1cLslUbXVkniOaeJ-r3s5AYF0kQep8VeNfvs0XSGrpA0/edit#slide=id.g1c73db867d_0_0)

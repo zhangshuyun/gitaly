@@ -6,35 +6,27 @@ import (
 	"log"
 
 	pb "gitlab.com/gitlab-org/gitaly-proto/go"
+	pbhelper "gitlab.com/gitlab-org/gitaly-proto/go/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 
-	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+
+	"golang.org/x/net/context"
 )
 
-type infoRefsResponseWriter struct {
-	infoRefsResponseServer
-}
-
-type infoRefsResponseServer interface {
-	Send(*pb.InfoRefsResponse) error
-}
-
-func (w infoRefsResponseWriter) Write(p []byte) (int, error) {
-	if err := w.Send(&pb.InfoRefsResponse{Data: p}); err != nil {
-		return 0, err
-	}
-
-	return len(p), nil
-}
-
 func (s *server) InfoRefsUploadPack(in *pb.InfoRefsRequest, stream pb.SmartHTTP_InfoRefsUploadPackServer) error {
-	return handleInfoRefs(stream.Context(), "upload-pack", in.Repository, infoRefsResponseWriter{stream})
+	w := pbhelper.NewSendWriter(func(p []byte) error {
+		return stream.Send(&pb.InfoRefsResponse{Data: p})
+	})
+	return handleInfoRefs(stream.Context(), "upload-pack", in.Repository, w)
 }
 
 func (s *server) InfoRefsReceivePack(in *pb.InfoRefsRequest, stream pb.SmartHTTP_InfoRefsReceivePackServer) error {
-	return handleInfoRefs(stream.Context(), "receive-pack", in.Repository, infoRefsResponseWriter{stream})
+	w := pbhelper.NewSendWriter(func(p []byte) error {
+		return stream.Send(&pb.InfoRefsResponse{Data: p})
+	})
+	return handleInfoRefs(stream.Context(), "receive-pack", in.Repository, w)
 }
 
 func handleInfoRefs(ctx context.Context, service string, repo *pb.Repository, w io.Writer) error {

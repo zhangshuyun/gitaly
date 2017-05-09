@@ -58,7 +58,7 @@ notice-up-to-date:	notice
 	git diff --exit-code # there are no changed files
 
 clean:	clean-build
-	rm -rf client/testdata
+	rm -rf internal/testhelper/testdata
 	rm -f $(foreach cmd,${CMDS},./${cmd})
 
 clean-build:

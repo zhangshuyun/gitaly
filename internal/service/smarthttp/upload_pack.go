@@ -6,17 +6,10 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 
 	pb "gitlab.com/gitlab-org/gitaly-proto/go"
+	pbhelper "gitlab.com/gitlab-org/gitaly-proto/go/helper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 )
-
-type uploadPackBytesReader struct {
-	pb.SmartHTTP_PostUploadPackServer
-}
-
-type uploadPackWriter struct {
-	pb.SmartHTTP_PostUploadPackServer
-}
 
 func (s *server) PostUploadPack(stream pb.SmartHTTP_PostUploadPackServer) error {
 	req, err := stream.Recv() // First request contains Repository only
@@ -27,9 +20,13 @@ func (s *server) PostUploadPack(stream pb.SmartHTTP_PostUploadPackServer) error 
 		return err
 	}
 
-	streamBytesReader := uploadPackBytesReader{stream}
-	stdin := &streamReader{br: streamBytesReader}
-	stdout := uploadPackWriter{stream}
+	stdin := pbhelper.NewReceiveReader(func() ([]byte, error) {
+		resp, err := stream.Recv()
+		return resp.GetData(), err
+	})
+	stdout := pbhelper.NewSendWriter(func(p []byte) error {
+		return stream.Send(&pb.PostUploadPackResponse{Data: p})
+	})
 	repoPath, err := helper.GetRepoPath(req.Repository)
 	if err != nil {
 		return err
@@ -58,21 +55,4 @@ func validateUploadPackRequest(req *pb.PostUploadPackRequest) error {
 	}
 
 	return nil
-}
-
-func (rw uploadPackWriter) Write(p []byte) (int, error) {
-	resp := &pb.PostUploadPackResponse{Data: p}
-	if err := rw.Send(resp); err != nil {
-		return 0, err
-	}
-	return len(p), nil
-}
-
-func (br uploadPackBytesReader) ReceiveBytes() ([]byte, error) {
-	resp, err := br.Recv()
-	if err != nil {
-		return nil, err
-	}
-
-	return resp.GetData(), nil
 }

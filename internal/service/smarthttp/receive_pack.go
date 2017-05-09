@@ -7,17 +7,10 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 
 	pb "gitlab.com/gitlab-org/gitaly-proto/go"
+	pbhelper "gitlab.com/gitlab-org/gitaly-proto/go/helper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 )
-
-type receivePackBytesReader struct {
-	pb.SmartHTTP_PostReceivePackServer
-}
-
-type receivePackWriter struct {
-	pb.SmartHTTP_PostReceivePackServer
-}
 
 func (s *server) PostReceivePack(stream pb.SmartHTTP_PostReceivePackServer) error {
 	req, err := stream.Recv() // First request contains only Repository and GlId
@@ -28,19 +21,26 @@ func (s *server) PostReceivePack(stream pb.SmartHTTP_PostReceivePackServer) erro
 		return err
 	}
 
-	streamBytesReader := receivePackBytesReader{stream}
-	stdin := &streamReader{br: streamBytesReader}
-	stdout := receivePackWriter{stream}
-	glIDEnv := fmt.Sprintf("GL_ID=%s", req.GlId)
+	stdin := pbhelper.NewReceiveReader(func() ([]byte, error) {
+		resp, err := stream.Recv()
+		return resp.GetData(), err
+	})
+	stdout := pbhelper.NewSendWriter(func(p []byte) error {
+		return stream.Send(&pb.PostReceivePackResponse{Data: p})
+	})
+	env := []string{fmt.Sprintf("GL_ID=%s", req.GlId)}
+	if req.GlRepository != "" {
+		env = append(env, fmt.Sprintf("GL_REPOSITORY=%s", req.GlRepository))
+	}
 	repoPath, err := helper.GetRepoPath(req.Repository)
 	if err != nil {
 		return err
 	}
 
-	log.Printf("PostReceivePack: RepoPath=%q GlID=%q", repoPath, req.GlId)
+	log.Printf("PostReceivePack: RepoPath=%q GlID=%q GlRepository=%q", repoPath, req.GlId, req.GlRepository)
 
 	osCommand := helper.CommandWrapper(stream.Context(), "git", "receive-pack", "--stateless-rpc", repoPath)
-	cmd, err := helper.NewCommand(osCommand, stdin, stdout, glIDEnv)
+	cmd, err := helper.NewCommand(osCommand, stdin, stdout, env...)
 
 	if err != nil {
 		return grpc.Errorf(codes.Unavailable, "PostReceivePack: cmd: %v", err)
@@ -63,21 +63,4 @@ func validateReceivePackRequest(req *pb.PostReceivePackRequest) error {
 	}
 
 	return nil
-}
-
-func (rw receivePackWriter) Write(p []byte) (int, error) {
-	resp := &pb.PostReceivePackResponse{Data: p}
-	if err := rw.Send(resp); err != nil {
-		return 0, err
-	}
-	return len(p), nil
-}
-
-func (br receivePackBytesReader) ReceiveBytes() ([]byte, error) {
-	resp, err := br.Recv()
-	if err != nil {
-		return nil, err
-	}
-
-	return resp.GetData(), nil
 }
