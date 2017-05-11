@@ -16,6 +16,7 @@ import (
 	"github.com/mwitkow/go-grpc-middleware"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
+	"github.com/kavu/go_reuseport"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 )
@@ -72,7 +73,7 @@ func main() {
 	}
 
 	if addr := config.Config.ListenAddr; addr != "" {
-		l, err := net.Listen("tcp", addr)
+		l, err := reuseport.Listen("tcp", addr)
 		if err != nil {
 			log.Fatalf("configure tcp listener: %v", err)
 		}

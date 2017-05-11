@@ -45,6 +45,12 @@
 			"revisionTime": "2016-09-10T22:24:44Z"
 		},
 		{
+			"checksumSHA1": "QUmhDK0AghIRJy2j7H3ErJx9tZc=",
+			"path": "github.com/kavu/go_reuseport",
+			"revision": "db1bbbc1f61ffd0bd46bad78c739c9f85ba6ae18",
+			"revisionTime": "2017-03-29T12:06:11Z"
+		},
+		{
 			"checksumSHA1": "ngWgR7cRhH340bOHEpLTJCY1jTs=",
 			"path": "github.com/kelseyhightower/envconfig",
 			"revision": "5c008110b20b657eb7e005b83d0a5f6aa6bb5f4b",
