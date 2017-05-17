@@ -3,7 +3,6 @@ package smarthttp
 import (
 	"fmt"
 	"io"
-	"log"
 
 	pb "gitlab.com/gitlab-org/gitaly-proto/go"
 	pbhelper "gitlab.com/gitlab-org/gitaly-proto/go/helper"
@@ -39,7 +38,7 @@ func handleInfoRefs(service string, repo *pb.Repository, w io.Writer) error {
 	}
 	defer cmd.Kill()
 
-	log.Printf("handleInfoRefs: service=%q RepoPath=%q", service, repoPath)
+	helper.Debugf("handleInfoRefs: service=%q RepoPath=%q", service, repoPath)
 
 	if err := pktLine(w, fmt.Sprintf("# service=git-%s\n", service)); err != nil {
 		return grpc.Errorf(codes.Internal, "GetInfoRefs: pktLine: %v", err)

@@ -173,20 +173,20 @@ in descending order of **99% Cumulative Time** (that is `(number of calls) * (99
 A [Google Spreadsheet](https://docs.google.com/spreadsheets/d/1MVjsbLIjBVryMxO0UhBWebrwXuqpbCz18ZtrThcSFFU/edit) is available
 with these calculations.
 
-|**Controller**|**Analysis**|**RPCS**|**Server Impl**|**Client Impl**|**Optim 1**|**Optim 2**|
-|--------------|------------|--------|---------------|---------------|-----------|-----------|
-| SmartHTTP Workhorse Interceptors | #36 | - | | | | |
-| `Projects::CommitController#show` | #64 | #80 | #88 | #89| | |
-| `Projects::MergeRequestsController#ci_status.json` / `Projects::MergeRequestsController#ci_environments_status.json` | #66 | #81 | #86 | #87 | | |
-| `Projects::TreeController#show` | #65 | #82 | #84 | #85 | | |
-| Git HTTP: `POST /{upload,receive}-pack` | #92 | gitlab-org/gitaly-proto!4 | #122 | #125 | | |
-| Git SSH: handle gitlab-shell sessions | #91 | gitlab-org/gitaly-proto!5 | #123 | #124 | | |
-| `Projects::BranchesController#index` | #127 | #128 | | | | |
-| `ProjectsController#show` | #157 | -- | -- | gitlab-org/gitlab-ce!10780 | | |
-| `Projects::GraphsController#charts` (shelved for now) | #158 |  | | | | |
-| `Projects::MergeRequestsController#new` | #159 | | | | | |
-| `Projects::RawController#show` | #160 | #195 | | | | |
-| Workhorse `sendblob` | #194 |  | | | | |
+|**Controller**|**~"Migration Analysis"**|**~"RPC Design"**|**~"Server Implementation"**|**~"Client Implementation"**|**~"Acceptance Testing"**|**Optim 1**|**Optim 2**|
+|--------------|-------------------------|-----------------|----------------------------|----------------------------|-------------------------|-----------|-----------|
+| [`SmartHTTP::InfoRefsUploadPack` and `SmartHTTP::InfoRefsReceivePack`](https://gitlab.com/gitlab-org/gitaly/issues/223) | #36 | - | | | | | |
+| [`Diff::CommitDiff`](https://gitlab.com/gitlab-org/gitaly/issues/222) | #64 | #80 | #88 | #89| #209 | | |
+| [`Ref::FindRefName` and `Commit::CommitIsAncestor`](https://gitlab.com/gitlab-org/gitaly/issues/221) | #66 | #81 | #86 | #87 | #210 | | |
+| [`Ref::FindDefaultBranchName`, `Ref::FindAllBranchNames`, `Ref::FindAllTagNames`](https://gitlab.com/gitlab-org/gitaly/issues/220) | #65 | #82 | #84 | #85 | #211 | | |  
+| [`SmartHTTP::PostUploadPack` and `SmartHTTP::PostReceivePack`](https://gitlab.com/gitlab-org/gitaly/issues/219) | #92 | gitlab-org/gitaly-proto!4 | #122 | #125 | #184 | | |
+| [`SSH:SSHUploadPack` and `SSH::SSHReceivePack`](https://gitlab.com/gitlab-org/gitaly/issues/218) | #91 | gitlab-org/gitaly-proto!5 | #123 | #124 | | | |
+| [`Ref::FindLocalBranches`](https://gitlab.com/gitlab-org/gitaly/issues/217) | #127 | #128 | !103 | gitlab-org/gitlab-ce!10059 | | | |
+| [`Ref::count_branch_names` and `Ref::count_tag_names`](https://gitlab.com/gitlab-org/gitaly/issues/214) | #157 | -- | -- | gitlab-org/gitlab-ce!10780 | #215 | | |
+| `Projects::GraphsController#charts` (shelved for now) | #158 |  | | | | | |
+| [`Commit::GetAuthor`](https://gitlab.com/gitlab-org/gitaly/issues/216) | #159 | | | | | | |
+| `Projects::RawController#show` | #160 | #195 | | | | | |
+| [`CatFile::Blob`](https://gitlab.com/gitlab-org/gitaly/issues/212) | #194 |  | | | | | |
 
 (More to follow!)
 

@@ -66,7 +66,7 @@ func TestSuccessfulReceivePackRequest(t *testing.T) {
 
 	client := newSmartHTTPClient(t)
 	repo := &pb.Repository{Path: remoteRepoPath}
-	rpcRequest := &pb.PostReceivePackRequest{Repository: repo, GlId: "user-123"}
+	rpcRequest := &pb.PostReceivePackRequest{Repository: repo, GlId: "user-123", GlRepository: "project-123"}
 	stream, err := client.PostReceivePack(context.Background())
 	if err != nil {
 		t.Fatal(err)

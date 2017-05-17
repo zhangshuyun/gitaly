@@ -475,6 +475,233 @@ func TestFailedCommitDiffRequestWithNonExistentCommit(t *testing.T) {
 	testhelper.AssertGrpcError(t, err, codes.Unavailable, "")
 }
 
+func TestSuccessfulCommitDeltaRequest(t *testing.T) {
+	server := runDiffServer(t)
+	defer server.Stop()
+
+	client := newDiffClient(t)
+	repo := &pb.Repository{Path: testRepoPath}
+	rightCommit := "742518b2be68fc750bb4c357c0df821a88113286"
+	leftCommit := "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab"
+	rpcRequest := &pb.CommitDeltaRequest{Repository: repo, RightCommitId: rightCommit, LeftCommitId: leftCommit}
+
+	c, err := client.CommitDelta(context.Background(), rpcRequest)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expectedDeltas := []diff.Diff{
+		{
+			FromID:   "faaf198af3a36dbf41961466703cc1d47c61d051",
+			ToID:     "877cee6ab11f9094e1bcdb7f1fd9c0001b572185",
+			OldMode:  0100644,
+			NewMode:  0100644,
+			FromPath: []byte("README.md"),
+			ToPath:   []byte("README.md"),
+		},
+		{
+			FromID:   "bdea48ee65c869eb0b86b1283069d76cce0a7254",
+			ToID:     "0000000000000000000000000000000000000000",
+			OldMode:  0100644,
+			NewMode:  0,
+			FromPath: []byte("gitaly/deleted-file"),
+			ToPath:   []byte("gitaly/deleted-file"),
+		},
+		{
+			FromID:   "aa408b4556e594f7974390ad6b86210617fbda6e",
+			ToID:     "1c69c4d2a65ad05c24ac3b6780b5748b97ffd3aa",
+			OldMode:  0100644,
+			NewMode:  0100644,
+			FromPath: []byte("gitaly/file-with-multiple-chunks"),
+			ToPath:   []byte("gitaly/file-with-multiple-chunks"),
+		},
+		{
+			FromID:   "0000000000000000000000000000000000000000",
+			ToID:     "bc2ef601a538d69ef99d5bdafa605e63f902e8e4",
+			OldMode:  0,
+			NewMode:  0100644,
+			FromPath: []byte("gitaly/logo-white.png"),
+			ToPath:   []byte("gitaly/logo-white.png"),
+		},
+		{
+			FromID:   "ead5a0eee1391308803cfebd8a2a8530495645eb",
+			ToID:     "ead5a0eee1391308803cfebd8a2a8530495645eb",
+			OldMode:  0100644,
+			NewMode:  0100755,
+			FromPath: []byte("gitaly/mode-file"),
+			ToPath:   []byte("gitaly/mode-file"),
+		},
+		{
+			FromID:   "357406f3075a57708d0163752905cc1576fceacc",
+			ToID:     "8e5177d718c561d36efde08bad36b43687ee6bf0",
+			OldMode:  0100644,
+			NewMode:  0100755,
+			FromPath: []byte("gitaly/mode-file-with-mods"),
+			ToPath:   []byte("gitaly/mode-file-with-mods"),
+		},
+		{
+			FromID:   "43d24af4e22580f36b1ca52647c1aff75a766a33",
+			ToID:     "0000000000000000000000000000000000000000",
+			OldMode:  0100644,
+			NewMode:  0,
+			FromPath: []byte("gitaly/named-file-with-mods"),
+			ToPath:   []byte("gitaly/named-file-with-mods"),
+		},
+		{
+			FromID:   "0000000000000000000000000000000000000000",
+			ToID:     "b464dff7a75ccc92fbd920fd9ae66a84b9d2bf94",
+			OldMode:  0,
+			NewMode:  0100644,
+			FromPath: []byte("gitaly/no-newline-at-the-end"),
+			ToPath:   []byte("gitaly/no-newline-at-the-end"),
+		},
+		{
+			FromID:   "4e76e90b3c7e52390de9311a23c0a77575aed8a8",
+			ToID:     "4e76e90b3c7e52390de9311a23c0a77575aed8a8",
+			OldMode:  0100644,
+			NewMode:  0100644,
+			FromPath: []byte("gitaly/named-file"),
+			ToPath:   []byte("gitaly/renamed-file"),
+		},
+		{
+			FromID:   "0000000000000000000000000000000000000000",
+			ToID:     "3856c00e9450a51a62096327167fc43d3be62eef",
+			OldMode:  0,
+			NewMode:  0100644,
+			FromPath: []byte("gitaly/renamed-file-with-mods"),
+			ToPath:   []byte("gitaly/renamed-file-with-mods"),
+		},
+		{
+			FromID:   "0000000000000000000000000000000000000000",
+			ToID:     "a135e3e0d4af177a902ca57dcc4c7fc6f30858b1",
+			OldMode:  0,
+			NewMode:  0100644,
+			FromPath: []byte("gitaly/tab\tnewline\n file"),
+			ToPath:   []byte("gitaly/tab\tnewline\n file"),
+		},
+		{
+			FromID:   "0000000000000000000000000000000000000000",
+			ToID:     "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+			OldMode:  0,
+			NewMode:  0100755,
+			FromPath: []byte("gitaly/テスト.txt"),
+			ToPath:   []byte("gitaly/テスト.txt"),
+		},
+	}
+
+	assertExactReceivedDeltas(t, c, expectedDeltas)
+}
+
+func TestSuccessfulCommitDeltaRequestWithPaths(t *testing.T) {
+	server := runDiffServer(t)
+	defer server.Stop()
+
+	client := newDiffClient(t)
+	repo := &pb.Repository{Path: testRepoPath}
+	rightCommit := "e4003da16c1c2c3fc4567700121b17bf8e591c6c"
+	leftCommit := "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab"
+	rpcRequest := &pb.CommitDeltaRequest{
+		Repository:    repo,
+		RightCommitId: rightCommit,
+		LeftCommitId:  leftCommit,
+		Paths: [][]byte{
+			[]byte("CONTRIBUTING.md"),
+			[]byte("README.md"),
+			[]byte("gitaly/named-file-with-mods"),
+			[]byte("gitaly/mode-file-with-mods"),
+		},
+	}
+
+	c, err := client.CommitDelta(context.Background(), rpcRequest)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expectedDeltas := []diff.Diff{
+		{
+			FromID:   "c1788657b95998a2f177a4f86d68a60f2a80117f",
+			ToID:     "b87f61fe2d7b2e208b340a1f3cafea916bd27f75",
+			OldMode:  0100644,
+			NewMode:  0100644,
+			FromPath: []byte("CONTRIBUTING.md"),
+			ToPath:   []byte("CONTRIBUTING.md"),
+		},
+		{
+			FromID:   "faaf198af3a36dbf41961466703cc1d47c61d051",
+			ToID:     "877cee6ab11f9094e1bcdb7f1fd9c0001b572185",
+			OldMode:  0100644,
+			NewMode:  0100644,
+			FromPath: []byte("README.md"),
+			ToPath:   []byte("README.md"),
+		},
+		{
+			FromID:   "357406f3075a57708d0163752905cc1576fceacc",
+			ToID:     "8e5177d718c561d36efde08bad36b43687ee6bf0",
+			OldMode:  0100644,
+			NewMode:  0100755,
+			FromPath: []byte("gitaly/mode-file-with-mods"),
+			ToPath:   []byte("gitaly/mode-file-with-mods"),
+		},
+		{
+			FromID:   "43d24af4e22580f36b1ca52647c1aff75a766a33",
+			ToID:     "0000000000000000000000000000000000000000",
+			OldMode:  0100644,
+			NewMode:  0,
+			FromPath: []byte("gitaly/named-file-with-mods"),
+			ToPath:   []byte("gitaly/named-file-with-mods"),
+		},
+	}
+
+	assertExactReceivedDeltas(t, c, expectedDeltas)
+}
+
+func TestFailedCommitDeltaRequestDueToValidationError(t *testing.T) {
+	server := runDiffServer(t)
+	defer server.Stop()
+
+	client := newDiffClient(t)
+	rightCommit := "d42783470dc29fde2cf459eb3199ee1d7e3f3a72"
+	leftCommit := rightCommit + "~" // Parent of rightCommit
+
+	rpcRequests := []pb.CommitDeltaRequest{
+		{Repository: &pb.Repository{Path: ""}, RightCommitId: rightCommit, LeftCommitId: leftCommit},   // Repository.Path is empty
+		{Repository: nil, RightCommitId: rightCommit, LeftCommitId: leftCommit},                        // Repository is nil
+		{Repository: &pb.Repository{Path: testRepoPath}, RightCommitId: "", LeftCommitId: leftCommit},  // RightCommitId is empty
+		{Repository: &pb.Repository{Path: testRepoPath}, RightCommitId: rightCommit, LeftCommitId: ""}, // LeftCommitId is empty
+	}
+
+	for _, rpcRequest := range rpcRequests {
+		t.Logf("test case: %v", rpcRequest)
+
+		c, err := client.CommitDelta(context.Background(), &rpcRequest)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		err = drainCommitDeltaResponse(c)
+		testhelper.AssertGrpcError(t, err, codes.InvalidArgument, "")
+	}
+}
+
+func TestFailedCommitDeltaRequestWithNonExistentCommit(t *testing.T) {
+	server := runDiffServer(t)
+	defer server.Stop()
+
+	client := newDiffClient(t)
+	repo := &pb.Repository{Path: testRepoPath}
+	nonExistentCommitID := "deadfacedeadfacedeadfacedeadfacedeadface"
+	leftCommit := nonExistentCommitID + "~" // Parent of rightCommit
+	rpcRequest := &pb.CommitDeltaRequest{Repository: repo, RightCommitId: nonExistentCommitID, LeftCommitId: leftCommit}
+
+	c, err := client.CommitDelta(context.Background(), rpcRequest)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = drainCommitDeltaResponse(c)
+	testhelper.AssertGrpcError(t, err, codes.Unavailable, "")
+}
+
 func runDiffServer(t *testing.T) *grpc.Server {
 	server := grpc.NewServer()
 	listener, err := net.Listen("unix", serverSocketPath)
@@ -506,6 +733,17 @@ func newDiffClient(t *testing.T) pb.DiffClient {
 }
 
 func drainCommitDiffResponse(c pb.Diff_CommitDiffClient) error {
+	for {
+		_, err := c.Recv()
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func drainCommitDeltaResponse(c pb.Diff_CommitDeltaClient) error {
 	for {
 		_, err := c.Recv()
 		if err != nil {
@@ -550,11 +788,11 @@ func assertExactReceivedDiffs(t *testing.T, client pb.Diff_CommitDiffClient, exp
 		}
 
 		if !bytes.Equal(expectedDiff.FromPath, fetchedDiff.FromPath) {
-			t.Errorf("Expected diff #%d FromPath to equal = %s, got %s", i, expectedDiff.FromPath, fetchedDiff.FromPath)
+			t.Errorf("Expected diff #%d FromPath to equal = %q, got %q", i, expectedDiff.FromPath, fetchedDiff.FromPath)
 		}
 
 		if !bytes.Equal(expectedDiff.ToPath, fetchedDiff.ToPath) {
-			t.Errorf("Expected diff #%d ToPath to equal = %s, got %s", i, expectedDiff.ToPath, fetchedDiff.ToPath)
+			t.Errorf("Expected diff #%d ToPath to equal = %q, got %q", i, expectedDiff.ToPath, fetchedDiff.ToPath)
 		}
 
 		if expectedDiff.Binary != fetchedDiff.Binary {
@@ -571,5 +809,56 @@ func assertExactReceivedDiffs(t *testing.T, client pb.Diff_CommitDiffClient, exp
 
 	if len(expectedDiffs) != i {
 		t.Errorf("Expected number of diffs to be %d, got %d", len(expectedDiffs), i)
+	}
+}
+
+func assertExactReceivedDeltas(t *testing.T, client pb.Diff_CommitDeltaClient, expectedDeltas []diff.Diff) {
+	i := 0
+	for {
+		fetchedDeltas, err := client.Recv()
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			t.Fatal(err)
+		}
+
+		for _, fetchedDelta := range fetchedDeltas.GetDeltas() {
+			if i >= len(expectedDeltas) {
+				t.Errorf("Unexpected delta #%d received: %v", i, fetchedDelta)
+				break
+			}
+
+			expectedDelta := expectedDeltas[i]
+
+			if expectedDelta.FromID != fetchedDelta.FromId {
+				t.Errorf("Expected delta #%d FromID to equal = %q, got %q", i, expectedDelta.FromID, fetchedDelta.FromId)
+			}
+
+			if expectedDelta.ToID != fetchedDelta.ToId {
+				t.Errorf("Expected delta #%d ToID to equal = %q, got %q", i, expectedDelta.ToID, fetchedDelta.ToId)
+			}
+
+			if expectedDelta.OldMode != fetchedDelta.OldMode {
+				t.Errorf("Expected delta #%d OldMode to equal = %o, got %o", i, expectedDelta.OldMode, fetchedDelta.OldMode)
+			}
+
+			if expectedDelta.NewMode != fetchedDelta.NewMode {
+				t.Errorf("Expected delta #%d NewMode to equal = %o, got %o", i, expectedDelta.NewMode, fetchedDelta.NewMode)
+			}
+
+			if !bytes.Equal(expectedDelta.FromPath, fetchedDelta.FromPath) {
+				t.Errorf("Expected delta #%d FromPath to equal = %q, got %q", i, expectedDelta.FromPath, fetchedDelta.FromPath)
+			}
+
+			if !bytes.Equal(expectedDelta.ToPath, fetchedDelta.ToPath) {
+				t.Errorf("Expected delta #%d ToPath to equal = %q, got %q", i, expectedDelta.ToPath, fetchedDelta.ToPath)
+			}
+
+			i++
+		}
+	}
+
+	if len(expectedDeltas) != i {
+		t.Errorf("Expected number of deltas to be %d, got %d", len(expectedDeltas), i)
 	}
 }

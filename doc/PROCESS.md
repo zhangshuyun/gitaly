@@ -38,3 +38,7 @@ Like other GitLab projects, Gitaly uses the [GitLab Workflow](https://docs.gitla
 
 * Merge requests will target the master branch.
 * If the merge request is an optimisation of the previous stable branch, i.e. the branch currently running on GitLab.com, the MR will be cherry picked across to the stable branch and deployed to Gitlab.com from there.
+
+# Migration Process
+
+The Gitaly team aim to migrate each feature across to Gitaly according to a standardised process - read about the [Gitaly Migration Process here](MIGRATION_PROCESS.md)

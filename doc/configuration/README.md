@@ -57,14 +57,16 @@ match those in gitlab.yml.
 |path|string|yes|Path to storage shard|
 |name|string|yes|Name of storage shard|
 
-## Legacy environment variables
+## Environment variables
 
-These were used to configure earlier version of Gitaly. When present,
-they take precendence over the configuration file.
+### GITALY_DEBUG
+
+When set to `1`, Gitaly will print debug log messages.
 
 ### GITALY_SOCKET_PATH
 
-Required unless GITALY_LISTEN_ADDR is set.
+Required unless GITALY_LISTEN_ADDR is set. Overrides `socket_path` in
+config.toml. Deprecated; use config.toml.
 
 A path at which Gitaly should open a Unix socket. Example value:
 
@@ -74,7 +76,8 @@ GITALY_SOCKET_PATH=/home/git/gitlab/tmp/sockets/private/gitaly.socket
 
 ### GITALY_LISTEN_ADDR
 
-Required unless GITALY_SOCKET_PATH is set.
+Required unless GITALY_SOCKET_PATH is set. Overrides `listen_addr` in
+config.toml. Deprecated; use config.toml.
 
 TCP address for Gitaly to listen on. Note: at the moment Gitaly does
 not offer any form of authentication. When you use a TCP listener you
@@ -89,7 +92,8 @@ GITALY_LISTEN_ADDR=localhost:1234
 
 ### GITALY_PROMETHEUS_LISTEN_ADDR
 
-Optional.
+Optional. Overrides `prometheus_listen_addr` in config.toml.
+Deprecated; use config.toml.
 
 TCP listen address for Prometheus metrics. When missing or empty, no
 Prometheus listener is started.

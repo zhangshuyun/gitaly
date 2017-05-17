@@ -5,8 +5,10 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"log"
 	"strings"
+
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 
 	pb "gitlab.com/gitlab-org/gitaly-proto/go"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
@@ -39,7 +41,7 @@ func findRefs(writer refsWriter, repo *pb.Repository, pattern string, args ...st
 		return err
 	}
 
-	log.Printf("FindRefs: RepoPath=%q Pattern=%q", repoPath, pattern)
+	helper.Debugf("FindRefs: RepoPath=%q Pattern=%q", repoPath, pattern)
 
 	baseArgs := []string{"--git-dir", repoPath, "for-each-ref", pattern}
 
@@ -165,11 +167,11 @@ func (s *server) FindDefaultBranchName(ctx context.Context, in *pb.FindDefaultBr
 		return nil, err
 	}
 
-	log.Printf("FindDefaultBranchName: RepoPath=%q", repoPath)
+	helper.Debugf("FindDefaultBranchName: RepoPath=%q", repoPath)
 
 	defaultBranchName, err := defaultBranchName(repoPath)
 	if err != nil {
-		return nil, err
+		return nil, grpc.Errorf(codes.Internal, err.Error())
 	}
 
 	return &pb.FindDefaultBranchNameResponse{Name: defaultBranchName}, nil

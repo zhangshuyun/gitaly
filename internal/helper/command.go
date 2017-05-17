@@ -22,11 +22,11 @@ func (c *Command) Kill() {
 
 // GitCommandReader creates a git Command with the given args
 func GitCommandReader(args ...string) (*Command, error) {
-	return NewCommand(exec.Command("git", args...), nil, nil)
+	return NewCommand(exec.Command("git", args...), nil, nil, nil)
 }
 
 // NewCommand creates a Command from an exec.Cmd
-func NewCommand(cmd *exec.Cmd, stdin io.Reader, stdout io.Writer, env ...string) (*Command, error) {
+func NewCommand(cmd *exec.Cmd, stdin io.Reader, stdout, stderr io.Writer, env ...string) (*Command, error) {
 	command := &Command{Cmd: cmd}
 
 	// Explicitly set the environment for the command
@@ -56,8 +56,12 @@ func NewCommand(cmd *exec.Cmd, stdin io.Reader, stdout io.Writer, env ...string)
 		command.Reader = pipe
 	}
 
-	// If we don't do something with cmd.Stderr, Git errors will be lost
-	cmd.Stderr = os.Stderr
+	if stderr != nil {
+		cmd.Stderr = stderr
+	} else {
+		// If we don't do something with cmd.Stderr, Git errors will be lost
+		cmd.Stderr = os.Stderr
+	}
 
 	if err := cmd.Start(); err != nil {
 		return nil, fmt.Errorf("start %v: %v", cmd.Args, err)

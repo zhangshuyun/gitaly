@@ -2,7 +2,6 @@ package ref
 
 import (
 	"bufio"
-	"log"
 	"strings"
 
 	"google.golang.org/grpc"
@@ -23,9 +22,7 @@ func (s *server) FindRefName(ctx context.Context, in *pb.FindRefNameRequest) (*p
 		return nil, err
 	}
 	if in.CommitId == "" {
-		message := "Bad Request (empty commit sha)"
-		log.Printf("FindRefName: %q", message)
-		return nil, grpc.Errorf(codes.InvalidArgument, message)
+		return nil, grpc.Errorf(codes.InvalidArgument, "Bad Request (empty commit sha)")
 	}
 
 	ref, err := findRefName(repoPath, in.CommitId, string(in.Prefix))
@@ -44,7 +41,7 @@ func findRefName(path, commitID, prefix string) (string, error) {
 	}
 	defer cmd.Kill()
 
-	log.Printf("findRefName: RepoPath=%q commitSha=%s prefix=%s", path, commitID, prefix)
+	helper.Debugf("findRefName: RepoPath=%q commitSha=%s prefix=%s", path, commitID, prefix)
 
 	scanner := bufio.NewScanner(cmd)
 	scanner.Scan()

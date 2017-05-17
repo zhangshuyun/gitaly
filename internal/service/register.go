@@ -7,6 +7,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/service/notifications"
 	"gitlab.com/gitlab-org/gitaly/internal/service/ref"
 	"gitlab.com/gitlab-org/gitaly/internal/service/smarthttp"
+	"gitlab.com/gitlab-org/gitaly/internal/service/ssh"
 
 	"google.golang.org/grpc"
 )
@@ -19,4 +20,5 @@ func RegisterAll(grpcServer *grpc.Server) {
 	pb.RegisterSmartHTTPServer(grpcServer, smarthttp.NewServer())
 	pb.RegisterDiffServer(grpcServer, diff.NewServer())
 	pb.RegisterCommitServer(grpcServer, commit.NewServer())
+	pb.RegisterSSHServer(grpcServer, ssh.NewServer())
 }

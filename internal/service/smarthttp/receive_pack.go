@@ -2,7 +2,6 @@ package smarthttp
 
 import (
 	"fmt"
-	"log"
 	"os/exec"
 
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
@@ -29,16 +28,19 @@ func (s *server) PostReceivePack(stream pb.SmartHTTP_PostReceivePackServer) erro
 	stdout := pbhelper.NewSendWriter(func(p []byte) error {
 		return stream.Send(&pb.PostReceivePackResponse{Data: p})
 	})
-	glIDEnv := fmt.Sprintf("GL_ID=%s", req.GlId)
+	env := []string{fmt.Sprintf("GL_ID=%s", req.GlId)}
+	if req.GlRepository != "" {
+		env = append(env, fmt.Sprintf("GL_REPOSITORY=%s", req.GlRepository))
+	}
 	repoPath, err := helper.GetRepoPath(req.Repository)
 	if err != nil {
 		return err
 	}
 
-	log.Printf("PostReceivePack: RepoPath=%q GlID=%q", repoPath, req.GlId)
+	helper.Debugf("PostReceivePack: RepoPath=%q GlID=%q GlRepository=%q", repoPath, req.GlId, req.GlRepository)
 
 	osCommand := exec.Command("git", "receive-pack", "--stateless-rpc", repoPath)
-	cmd, err := helper.NewCommand(osCommand, stdin, stdout, glIDEnv)
+	cmd, err := helper.NewCommand(osCommand, stdin, stdout, nil, env...)
 
 	if err != nil {
 		return grpc.Errorf(codes.Unavailable, "PostReceivePack: cmd: %v", err)

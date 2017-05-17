@@ -96,6 +96,42 @@ func TestGetRepoPath(t *testing.T) {
 			repo: &pb.Repository{Path: "/made/up/path.git"},
 			err:  codes.NotFound,
 		},
+		{
+			desc:     "relative path with directory traversal",
+			storages: exampleStorages,
+			repo:     &pb.Repository{StorageName: "default", RelativePath: "../bazqux.git"},
+			err:      codes.InvalidArgument,
+		},
+		{
+			desc:     "valid path with ..",
+			storages: exampleStorages,
+			repo:     &pb.Repository{StorageName: "default", RelativePath: "foo../bazqux.git"},
+			err:      codes.NotFound, // Because the directory doesn't exist
+		},
+		{
+			desc:     "relative path with sneaky directory traversal",
+			storages: exampleStorages,
+			repo:     &pb.Repository{StorageName: "default", RelativePath: "/../bazqux.git"},
+			err:      codes.InvalidArgument,
+		},
+		{
+			desc:     "relative path with one level traversal at the end",
+			storages: exampleStorages,
+			repo:     &pb.Repository{StorageName: "default", RelativePath: testhelper.TestRelativePath + "/.."},
+			err:      codes.InvalidArgument,
+		},
+		{
+			desc:     "relative path with one level dashed traversal at the end",
+			storages: exampleStorages,
+			repo:     &pb.Repository{StorageName: "default", RelativePath: testhelper.TestRelativePath + "/../"},
+			err:      codes.InvalidArgument,
+		},
+		{
+			desc:     "relative path with deep traversal at the end",
+			storages: exampleStorages,
+			repo:     &pb.Repository{StorageName: "default", RelativePath: "bazqux.git/../.."},
+			err:      codes.InvalidArgument,
+		},
 	}
 
 	for _, tc := range testCases {

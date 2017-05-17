@@ -2,7 +2,6 @@ package commit
 
 import (
 	"io/ioutil"
-	"log"
 	"os/exec"
 
 	"google.golang.org/grpc"
@@ -20,14 +19,10 @@ func (s *server) CommitIsAncestor(ctx context.Context, in *pb.CommitIsAncestorRe
 		return nil, err
 	}
 	if in.AncestorId == "" {
-		message := "bad request (empty ancestor sha)"
-		log.Printf("CommitIsAncestor: %q", message)
-		return nil, grpc.Errorf(codes.InvalidArgument, message)
+		return nil, grpc.Errorf(codes.InvalidArgument, "bad request (empty ancestor sha)")
 	}
 	if in.ChildId == "" {
-		message := "bad request (empty child sha)"
-		log.Printf("CommitIsAncestor: %q", message)
-		return nil, grpc.Errorf(codes.InvalidArgument, message)
+		return nil, grpc.Errorf(codes.InvalidArgument, "bad request (empty child sha)")
 	}
 
 	ret, err := commitIsAncestorName(repoPath, in.AncestorId, in.ChildId)
@@ -37,13 +32,12 @@ func (s *server) CommitIsAncestor(ctx context.Context, in *pb.CommitIsAncestorRe
 // Assumes that `path`, `ancestorID` and `childID` are populated :trollface:
 func commitIsAncestorName(path, ancestorID, childID string) (bool, error) {
 	osCommand := exec.Command("git", "--git-dir", path, "merge-base", "--is-ancestor", ancestorID, childID)
-	cmd, err := helper.NewCommand(osCommand, nil, ioutil.Discard)
+	cmd, err := helper.NewCommand(osCommand, nil, ioutil.Discard, nil)
 	if err != nil {
 		return false, grpc.Errorf(codes.Internal, err.Error())
 	}
 	defer cmd.Kill()
 
-	log.Printf("commitIsAncestor: RepoPath=%q ancestorSha=%s childSha=%s", path, ancestorID, childID)
-
+	helper.Debugf("commitIsAncestor: RepoPath=%q ancestorSha=%s childSha=%s", path, ancestorID, childID)
 	return cmd.Wait() == nil, nil
 }

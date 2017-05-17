@@ -3,6 +3,7 @@ package helper
 import (
 	"os"
 	"path"
+	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/internal/config"
 
@@ -20,7 +21,15 @@ func GetRepoPath(repo *pb.Repository) (string, error) {
 	var repoPath string
 
 	if storagePath, ok := config.StoragePath(repo.GetStorageName()); ok {
-		repoPath = path.Join(storagePath, repo.GetRelativePath())
+		relativePath := repo.GetRelativePath()
+		// Disallow directory traversal for security
+		separator := string(os.PathSeparator)
+		if strings.HasPrefix(relativePath, ".."+separator) ||
+			strings.Contains(relativePath, separator+".."+separator) ||
+			strings.HasSuffix(relativePath, separator+"..") {
+			return "", grpc.Errorf(codes.InvalidArgument, "GetRepoPath: relative path can't contain directory traversal")
+		}
+		repoPath = path.Join(storagePath, relativePath)
 	} else {
 		repoPath = repo.GetPath()
 	}
