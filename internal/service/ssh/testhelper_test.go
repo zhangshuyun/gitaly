@@ -10,20 +10,39 @@ import (
 	log "github.com/Sirupsen/logrus"
 
 	pb "gitlab.com/gitlab-org/gitaly-proto/go"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 )
 
 const (
-	scratchDir = "testdata/scratch"
+	scratchDir   = "testdata/scratch"
+	testRepoRoot = "testdata/data"
 )
 
 var (
-	serverSocketPath = path.Join(scratchDir, "gitaly.sock")
+	serverSocketPath string
+	testRepoPath     string
+	workDir          string
 )
 
 func TestMain(m *testing.M) {
+	var err error
+	testRepoPath = testhelper.GitlabTestRepoPath()
+	workDir, err = os.Getwd()
+	if err != nil {
+		log.Panicf("can't get work directory: %v\n", err)
+	}
+	serverSocketPath = path.Join(scratchDir, "gitaly.sock")
+
+	os.RemoveAll(testRepoRoot)
+	if err := os.MkdirAll(testRepoRoot, 0755); err != nil {
+		log.Fatal(err)
+	}
+	defer os.RemoveAll(testRepoRoot)
+
+	os.RemoveAll(scratchDir)
 	if err := os.MkdirAll(scratchDir, 0755); err != nil {
 		log.Fatal(err)
 	}

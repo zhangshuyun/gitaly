@@ -1,6 +1,7 @@
 package ssh
 
 import (
+	"io"
 	"os/exec"
 
 	log "github.com/Sirupsen/logrus"
@@ -20,7 +21,8 @@ func (s *server) SSHUploadPack(stream pb.SSH_SSHUploadPackServer) error {
 		return err
 	}
 
-	stdin := pbhelper.NewReceiveReader(func() ([]byte, error) {
+	var stdin io.Reader
+	stdin = pbhelper.NewReceiveReader(func() ([]byte, error) {
 		request, err := stream.Recv()
 		return request.GetStdin(), err
 	})
