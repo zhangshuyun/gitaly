@@ -1,6 +1,7 @@
 package ssh
 
 import (
+	"io"
 	"os/exec"
 
 	log "github.com/sirupsen/logrus"
@@ -20,9 +21,14 @@ func (s *server) SSHUploadPack(stream pb.SSH_SSHUploadPackServer) error {
 		return err
 	}
 
-	stdin := pbhelper.NewReceiveReader(func() ([]byte, error) {
-		request, err := stream.Recv()
-		return request.GetStdin(), err
+	var stdin io.Reader
+	stdin = pbhelper.NewReceiveReader(func() ([]byte, error) {
+		request, errRecv := stream.Recv()
+		if len(request.Stdin) <= 0 {
+			// NOTE: Nasty hack to close stdin
+			return nil, io.EOF
+		}
+		return request.GetStdin(), errRecv
 	})
 	stdout := pbhelper.NewSendWriter(func(p []byte) error {
 		return stream.Send(&pb.SSHUploadPackResponse{Stdout: p})
@@ -49,6 +55,7 @@ func (s *server) SSHUploadPack(stream pb.SSH_SSHUploadPackServer) error {
 
 	if err := cmd.Wait(); err != nil {
 		if status, ok := helper.ExitStatus(err); ok {
+
 			return helper.DecorateError(
 				codes.Internal,
 				stream.Send(&pb.SSHUploadPackResponse{ExitStatus: &pb.ExitStatus{Value: int32(status)}}),
@@ -57,7 +64,14 @@ func (s *server) SSHUploadPack(stream pb.SSH_SSHUploadPackServer) error {
 		return grpc.Errorf(codes.Unavailable, "SSHUploadPack: cmd wait for %v: %v", cmd.Args, err)
 	}
 
-	return nil
+	log.WithFields(log.Fields{
+		"RepoPath": repoPath,
+	}).Debug("SSHUploadPack Done")
+
+	return helper.DecorateError(
+		codes.Internal,
+		stream.Send(&pb.SSHUploadPackResponse{ExitStatus: &pb.ExitStatus{Value: int32(0)}}),
+	)
 }
 
 func validateFirstUploadPackRequest(req *pb.SSHUploadPackRequest) error {

@@ -10,35 +10,50 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	pb "gitlab.com/gitlab-org/gitaly-proto/go"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 )
 
 const (
-	scratchDir = "testdata/scratch"
+	scratchDir   = "testdata/scratch"
+	testRepoRoot = "testdata/data"
 )
 
 var (
 	serverSocketPath = path.Join(scratchDir, "gitaly.sock")
+	testRepoPath     = ""
 )
 
 func TestMain(m *testing.M) {
+	testRepoPath = testhelper.GitlabTestRepoPath()
+
+	os.RemoveAll(testRepoRoot)
+	if err := os.MkdirAll(testRepoRoot, 0755); err != nil {
+		log.Fatal(err)
+	}
+	defer os.RemoveAll(testRepoRoot)
+
+	os.RemoveAll(scratchDir)
 	if err := os.MkdirAll(scratchDir, 0755); err != nil {
 		log.Fatal(err)
 	}
 	defer os.RemoveAll(scratchDir)
+
+	server := runSSHServer()
+	defer server.Stop()
 
 	os.Exit(func() int {
 		return m.Run()
 	}())
 }
 
-func runSSHServer(t *testing.T) *grpc.Server {
+func runSSHServer() *grpc.Server {
 	server := grpc.NewServer()
 	listener, err := net.Listen("unix", serverSocketPath)
 	if err != nil {
-		t.Fatal(err)
+		log.Fatal(err)
 	}
 
 	pb.RegisterSSHServer(server, NewServer())

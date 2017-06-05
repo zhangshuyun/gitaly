@@ -2,6 +2,7 @@ package ssh
 
 import (
 	"fmt"
+	"io"
 	"os/exec"
 
 	log "github.com/sirupsen/logrus"
@@ -23,8 +24,12 @@ func (s *server) SSHReceivePack(stream pb.SSH_SSHReceivePackServer) error {
 	}
 
 	stdin := pbhelper.NewReceiveReader(func() ([]byte, error) {
-		request, err := stream.Recv()
-		return request.GetStdin(), err
+		request, errRecv := stream.Recv()
+		if len(request.Stdin) <= 0 {
+			// NOTE: Nasty hack to close stdin
+			return nil, io.EOF
+		}
+		return request.GetStdin(), errRecv
 	})
 	stdout := pbhelper.NewSendWriter(func(p []byte) error {
 		return stream.Send(&pb.SSHReceivePackResponse{Stdout: p})
@@ -42,6 +47,12 @@ func (s *server) SSHReceivePack(stream pb.SSH_SSHReceivePackServer) error {
 
 	repoPath, err := helper.GetRepoPath(req.Repository)
 	if err != nil {
+
+		log.WithFields(log.Fields{
+			"RepoPath":     repoPath,
+			"GlID":         req.GlId,
+			"GlRepository": req.GlRepository,
+		}).Debug("SSHReceivePack GetRepoPath")
 		return err
 	}
 
@@ -69,7 +80,10 @@ func (s *server) SSHReceivePack(stream pb.SSH_SSHReceivePackServer) error {
 		return grpc.Errorf(codes.Unavailable, "SSHReceivePack: cmd wait for %v: %v", cmd.Args, err)
 	}
 
-	return nil
+	return helper.DecorateError(
+		codes.Internal,
+		stream.Send(&pb.SSHReceivePackResponse{ExitStatus: &pb.ExitStatus{Value: int32(0)}}),
+	)
 }
 
 func validateFirstReceivePackRequest(req *pb.SSHReceivePackRequest) error {
