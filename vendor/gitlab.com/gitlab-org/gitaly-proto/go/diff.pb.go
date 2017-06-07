@@ -28,7 +28,7 @@ type CommitDiffRequest struct {
 func (m *CommitDiffRequest) Reset()                    { *m = CommitDiffRequest{} }
 func (m *CommitDiffRequest) String() string            { return proto.CompactTextString(m) }
 func (*CommitDiffRequest) ProtoMessage()               {}
-func (*CommitDiffRequest) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{0} }
+func (*CommitDiffRequest) Descriptor() ([]byte, []int) { return fileDescriptor2, []int{0} }
 
 func (m *CommitDiffRequest) GetRepository() *Repository {
 	if m != nil {
@@ -82,7 +82,7 @@ type CommitDiffResponse struct {
 func (m *CommitDiffResponse) Reset()                    { *m = CommitDiffResponse{} }
 func (m *CommitDiffResponse) String() string            { return proto.CompactTextString(m) }
 func (*CommitDiffResponse) ProtoMessage()               {}
-func (*CommitDiffResponse) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{1} }
+func (*CommitDiffResponse) Descriptor() ([]byte, []int) { return fileDescriptor2, []int{1} }
 
 func (m *CommitDiffResponse) GetFromPath() []byte {
 	if m != nil {
@@ -157,7 +157,7 @@ type CommitDeltaRequest struct {
 func (m *CommitDeltaRequest) Reset()                    { *m = CommitDeltaRequest{} }
 func (m *CommitDeltaRequest) String() string            { return proto.CompactTextString(m) }
 func (*CommitDeltaRequest) ProtoMessage()               {}
-func (*CommitDeltaRequest) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{2} }
+func (*CommitDeltaRequest) Descriptor() ([]byte, []int) { return fileDescriptor2, []int{2} }
 
 func (m *CommitDeltaRequest) GetRepository() *Repository {
 	if m != nil {
@@ -200,7 +200,7 @@ type CommitDelta struct {
 func (m *CommitDelta) Reset()                    { *m = CommitDelta{} }
 func (m *CommitDelta) String() string            { return proto.CompactTextString(m) }
 func (*CommitDelta) ProtoMessage()               {}
-func (*CommitDelta) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{3} }
+func (*CommitDelta) Descriptor() ([]byte, []int) { return fileDescriptor2, []int{3} }
 
 func (m *CommitDelta) GetFromPath() []byte {
 	if m != nil {
@@ -251,7 +251,7 @@ type CommitDeltaResponse struct {
 func (m *CommitDeltaResponse) Reset()                    { *m = CommitDeltaResponse{} }
 func (m *CommitDeltaResponse) String() string            { return proto.CompactTextString(m) }
 func (*CommitDeltaResponse) ProtoMessage()               {}
-func (*CommitDeltaResponse) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{4} }
+func (*CommitDeltaResponse) Descriptor() ([]byte, []int) { return fileDescriptor2, []int{4} }
 
 func (m *CommitDeltaResponse) GetDeltas() []*CommitDelta {
 	if m != nil {
@@ -431,9 +431,9 @@ var _Diff_serviceDesc = grpc.ServiceDesc{
 	Metadata: "diff.proto",
 }
 
-func init() { proto.RegisterFile("diff.proto", fileDescriptor1) }
+func init() { proto.RegisterFile("diff.proto", fileDescriptor2) }
 
-var fileDescriptor1 = []byte{
+var fileDescriptor2 = []byte{
 	// 473 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xcc, 0x94, 0x4d, 0x8a, 0xdb, 0x30,
 	0x14, 0xc7, 0xab, 0xc4, 0x76, 0x9c, 0x17, 0xf7, 0x4b, 0x29, 0x53, 0x4d, 0x66, 0x63, 0x4c, 0x29,
