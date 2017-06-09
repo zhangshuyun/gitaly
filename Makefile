@@ -53,9 +53,9 @@ notice:	${BUILD_DIR}/_build install-developer-tools
 	cd ${PKG_BUILD_DIR} && govendor license -template _support/notice.template -o ${BUILD_DIR}/NOTICE
 
 notice-up-to-date:	${BUILD_DIR}/_build
-	@cd ${PKG_BUILD_DIR} && govendor license -template _support/notice.template -o ${BUILD_DIR}/_build/nutd.temp
-	@diff _build/nutd.temp NOTICE
-	@rm -f _build/nutd.temp
+	cd ${PKG_BUILD_DIR} && govendor license -template _support/notice.template -o ${BUILD_DIR}/_build/nutd.temp
+	diff _build/nutd.temp NOTICE
+	rm -f _build/nutd.temp
 
 clean:	clean-build
 	rm -rf internal/testhelper/testdata
