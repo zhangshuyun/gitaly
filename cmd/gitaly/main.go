@@ -5,6 +5,9 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	log "github.com/Sirupsen/logrus"
 
@@ -146,7 +149,29 @@ func main() {
 		}()
 	}
 
-	log.Fatal(<-serverError)
+	hupCh := make(chan os.Signal, 1)
+	signal.Notify(hupCh, syscall.SIGHUP)
+	select {
+	case <-listenSupervisor():
+		log.Print("supervisor went away")
+	case err := <-serverError:
+		log.Printf("server error: %v", err)
+	case <-hupCh:
+		log.Printf("received SIGHUP")
+	}
+
+	stopDone := make(chan struct{})
+	go func() {
+		log.Print("starting graceful stop")
+		server.GracefulStop()
+		close(stopDone)
+	}()
+	select {
+	case <-time.After(10 * time.Minute):
+		log.Print("graceful stop timed out")
+	case <-stopDone:
+	}
+	log.Print("exiting")
 }
 
 func createUnixListener(socketPath string) (net.Listener, error) {
@@ -155,4 +180,44 @@ func createUnixListener(socketPath string) (net.Listener, error) {
 	}
 	l, err := net.Listen("unix", socketPath)
 	return connectioncounter.New("unix", l), err
+}
+
+func listenSupervisor() <-chan struct{} {
+	supervisor := os.NewFile(3, "supervisor")
+	if _, err := supervisor.Stat(); err != nil {
+		log.Fatal(err)
+	}
+
+	done := make(chan struct{})
+	go func() {
+		time.Sleep(time.Second)
+		heartbeat := make(chan struct{})
+		go func() {
+			data := make([]byte, 1)
+			for {
+				n, err := supervisor.Read(data)
+				if n > 0 && err == nil {
+					heartbeat <- struct{}{}
+				}
+			}
+		}()
+
+		t := time.NewTicker(100 * time.Millisecond)
+		ticksQuiet := 0
+		for {
+			select {
+			case <-t.C:
+				ticksQuiet += 1
+				if ticksQuiet == 10 {
+					log.Print("too many missed heartbeats from supervisor")
+					close(done)
+					return
+				}
+			case <-heartbeat:
+				ticksQuiet = 0
+			}
+		}
+	}()
+
+	return done
 }
