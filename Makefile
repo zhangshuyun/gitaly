@@ -12,7 +12,7 @@ export GO15VENDOREXPERIMENT=1
 export PATH:=${GOPATH}/bin:$(PATH)
 
 .PHONY: all
-all: build
+all: clean-build build
 
 .PHONY: ${BUILD_DIR}/_build
 ${BUILD_DIR}/_build:
