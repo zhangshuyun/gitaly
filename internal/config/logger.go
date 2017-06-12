@@ -6,6 +6,10 @@ import (
 	log "github.com/Sirupsen/logrus"
 )
 
+var (
+	debugLoggingEnabled = os.Getenv("GITALY_DEBUG") == "1"
+)
+
 func init() {
 	// This ensures that any log statements that occur before
 	// the configuration has been loaded will be written to
@@ -28,7 +32,7 @@ func configureLoggingFormat() {
 
 // ConfigureLogging uses the global conf and environmental vars to configure the logged
 func ConfigureLogging() {
-	if os.Getenv("GITALY_DEBUG") != "1" {
+	if debugLoggingEnabled {
 		log.SetLevel(log.DebugLevel)
 	} else {
 		log.SetLevel(log.InfoLevel)

@@ -20,7 +20,7 @@ ${BUILD_DIR}/_build:
 	tar -cf - --exclude _build --exclude .git . | (cd $@/src/${PKG} && tar -xf -)
 	touch $@
 
-build:	clean-build ${BUILD_DIR}/_build $(shell find . -name '*.go' -not -path './vendor/*')
+build:	clean-build ${BUILD_DIR}/_build $(shell find . -name '*.go' -not -path './vendor/*' -not -path './_build/*')
 	rm -f -- "${BIN_BUILD_DIR}/*"
 	go install -ldflags "-X main.version=${VERSION}" ${PKG}/cmd/...
 	cp ${BIN_BUILD_DIR}/* ${BUILD_DIR}/

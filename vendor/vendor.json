@@ -41,6 +41,12 @@
 			"revisionTime": "2017-01-17T02:28:26Z"
 		},
 		{
+			"checksumSHA1": "ITzWX1LucDMHcZh509uUwc920KY=",
+			"path": "github.com/golang/protobuf/jsonpb",
+			"revision": "5a0f697c9ed9d68fef0116532c6e05cfeae00e55",
+			"revisionTime": "2017-06-01T23:02:30Z"
+		},
+		{
 			"checksumSHA1": "kBeNcaKk56FguvPSUCEaH6AxpRc=",
 			"path": "github.com/golang/protobuf/proto",
 			"revision": "8ee79997227bf9b34611aee7946ae64735e6fd93",
@@ -59,10 +65,40 @@
 			"revisionTime": "2017-05-26T16:57:56Z"
 		},
 		{
+			"checksumSHA1": "Z5Cpi8mr3kfpZ/CdmudThTWQ0Mo=",
+			"path": "github.com/golang/protobuf/ptypes/struct",
+			"revision": "5a0f697c9ed9d68fef0116532c6e05cfeae00e55",
+			"revisionTime": "2017-06-01T23:02:30Z"
+		},
+		{
 			"checksumSHA1": "sfoot+dHmmOgWZS6GJ5X79ClZM0=",
 			"path": "github.com/golang/protobuf/ptypes/timestamp",
 			"revision": "c9c7427a2a70d2eb3bafa0ab2dc163e45f143317",
 			"revisionTime": "2017-03-07T00:15:33Z"
+		},
+		{
+			"checksumSHA1": "rr55iSOD7nDMoZLDWjR/A5M8flw=",
+			"path": "github.com/grpc-ecosystem/go-grpc-middleware",
+			"revision": "04e29b049615a854b3a943e372e180c5ec3f7dc3",
+			"revisionTime": "2017-05-24T14:47:55Z"
+		},
+		{
+			"checksumSHA1": "S3ewTxb4DObPxnizenAS0qq1QvE=",
+			"path": "github.com/grpc-ecosystem/go-grpc-middleware/logging",
+			"revision": "04e29b049615a854b3a943e372e180c5ec3f7dc3",
+			"revisionTime": "2017-05-24T14:47:55Z"
+		},
+		{
+			"checksumSHA1": "H+Z0dx+9dNMej51x0EtLU7TA45M=",
+			"path": "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus",
+			"revision": "04e29b049615a854b3a943e372e180c5ec3f7dc3",
+			"revisionTime": "2017-05-24T14:47:55Z"
+		},
+		{
+			"checksumSHA1": "ajCG0vV10Aj13kh6lQaveMyyOdY=",
+			"path": "github.com/grpc-ecosystem/go-grpc-middleware/tags",
+			"revision": "04e29b049615a854b3a943e372e180c5ec3f7dc3",
+			"revisionTime": "2017-05-24T14:47:55Z"
 		},
 		{
 			"checksumSHA1": "OJPSJ4GBgH/XOFtYu2VM1g7rtjk=",
@@ -81,12 +117,6 @@
 			"path": "github.com/matttproud/golang_protobuf_extensions/pbutil",
 			"revision": "c12348ce28de40eed0136aa2b644d0ee0650e56c",
 			"revisionTime": "2016-04-24T11:30:07Z"
-		},
-		{
-			"checksumSHA1": "5h8cJQQ8Vs/Rrk0yZNB9JLhJkaE=",
-			"path": "github.com/mwitkow/go-grpc-middleware",
-			"revision": "3e23ca7fd796e946de34f19c1a30742057a244b3",
-			"revisionTime": "2016-12-19T10:04:13Z"
 		},
 		{
 			"checksumSHA1": "LuFv4/jlrmFNnDb/5SCSEPAM9vU=",

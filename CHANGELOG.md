@@ -1,5 +1,14 @@
 # Gitaly changelog
 
+v0.11.2
+
+Skipping 0.11.1 intentionally, we messed up the tag.
+
+- Add context to structured logging messages
+  https://gitlab.com/gitlab-org/gitaly/merge_requests/184
+- Fix incorrect dependency in Makefile
+  https://gitlab.com/gitlab-org/gitaly/merge_requests/189
+
 v0.11.0
 
 - FindDefaultBranchName: decorate error
