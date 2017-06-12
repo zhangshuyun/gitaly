@@ -1,5 +1,6 @@
 The following components are included in Gitaly:
 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 LICENSE -  go
 Copyright (c) 2009 The Go Authors. All rights reserved.
 
@@ -52,7 +53,6 @@ implementation of Go constitutes direct or contributory patent
 infringement, or inducement of patent infringement, then any patent
 rights granted to you under this License for this implementation of Go
 shall terminate as of the date such litigation is filed.
-
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 LICENSE - gitlab.com/gitlab-org/gitaly
 The MIT License (MIT)
