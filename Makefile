@@ -106,7 +106,7 @@ cover: ${TARGET_DIR}/.ok ${TEST_REPO} ${TOOLS_DIR}/gocovmerge
 list: ${TARGET_DIR}/.ok
 	@echo $(allpackages)
 
-_allpackages = $(shell cd "${PKG_BUILD_DIR}" && govendor list -no-status +local)
+_allpackages = $(shell cd "${PKG_BUILD_DIR}" && ${TOOLS_DIR}/govendor list -no-status +local)
 
 # memoize allpackages, so that it's executed only once and only if used
 allpackages = $(if $(__allpackages),,$(eval __allpackages := $$(_allpackages)))$(__allpackages)
