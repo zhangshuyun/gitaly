@@ -4,7 +4,7 @@ BUILD_DIR=${CURDIR}
 TARGET_DIR=${BUILD_DIR}/_build
 BIN_BUILD_DIR=${TARGET_DIR}/bin
 PKG_BUILD_DIR=${TARGET_DIR}/src/${PKG}
-CMDS:=$(shell cd cmd && ls)
+CMDS=$(shell cd cmd && ls)
 VERSION=$(shell git describe)-$(shell date -u +%Y%m%d.%H%M%S)
 export TEST_REPO_LOCATION=${TARGET_DIR}/testdata/data
 TEST_REPO=${TEST_REPO_LOCATION}/gitlab-test.git
@@ -13,7 +13,7 @@ TOOLS_DIR=${BUILD_DIR}/_tools
 
 export GOPATH=${TARGET_DIR}
 export GO15VENDOREXPERIMENT=1
-export PATH:=${GOPATH}/bin:$(PATH)
+export PATH=${GOPATH}/bin:${PATH}
 
 .PHONY: all
 all: verify build test
