@@ -13,7 +13,7 @@ TOOLS_DIR=${BUILD_DIR}/_tools
 
 export GOPATH=${TARGET_DIR}
 export GO15VENDOREXPERIMENT=1
-export PATH=${GOPATH}/bin:${PATH}
+export PATH:=${GOPATH}/bin:${PATH}
 
 .PHONY: all
 all: verify build test
