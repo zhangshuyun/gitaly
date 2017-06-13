@@ -108,7 +108,7 @@ list: ${TARGET_DIR}/.ok
 	cd "${PKG_BUILD_DIR}" && ${TOOLS_DIR}/govendor list -no-status +local
 	@echo "ALL PACKAGES===" $(allpackages)
 
-allpackages = $(shell cd "${PKG_BUILD_DIR}" && ${TOOLS_DIR}/govendor list -no-status +local)
+allpackages = $(shell cd "${PKG_BUILD_DIR}" && ${TOOLS_DIR}/govendor list -no-status +local 2>&1)
 
 .PHONY: install-developer-tools
 install-developer-tools: ${TOOLS_DIR}/govendor ${TOOLS_DIR}/golint ${TOOLS_DIR}/gocovmerge
