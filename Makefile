@@ -104,14 +104,11 @@ cover: ${TARGET_DIR}/.ok ${TEST_REPO} ${TOOLS_DIR}/gocovmerge
 	@go tool cover -func "${COVERAGE_DIR}/all.merged"
 
 list: ${TARGET_DIR}/.ok
-	echo GOPATH IS $GOPATH
+	echo GOPATH IS ${GOPATH}
 	cd "${PKG_BUILD_DIR}" && ${TOOLS_DIR}/govendor list -no-status +local
 	@echo $(allpackages)
 
-_allpackages = $(shell cd "${PKG_BUILD_DIR}" && ${TOOLS_DIR}/govendor list -no-status +local)
-
-# memoize allpackages, so that it's executed only once and only if used
-allpackages = $(if $(__allpackages),,$(eval __allpackages := $$(_allpackages)))$(__allpackages)
+allpackages = $(shell cd "${PKG_BUILD_DIR}" && ${TOOLS_DIR}/govendor list -no-status +local)
 
 .PHONY: install-developer-tools
 install-developer-tools: ${TOOLS_DIR}/govendor ${TOOLS_DIR}/golint ${TOOLS_DIR}/gocovmerge
