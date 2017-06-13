@@ -1,30 +1,34 @@
-image: registry.gitlab.com/gitlab-org/gitlab-build-images:golang-1.7-git-2.8.4
+image: registry.gitlab.com/gitlab-org/gitlab-build-images:golang-1.8-git-2.8.4
 
 stages:
   - test
   - package
   - publish
 
-.test_template: &test_definition
-  stage: test
-  script:
-    - go version
-    - git version
-    - make
-    - make test
-
-test:go1.8:
-  <<: *test_definition
-  image: registry.gitlab.com/gitlab-org/gitlab-build-images:golang-1.8-git-2.8.4
-
 verify:
   stage: test
   script:
     - make verify
 
+.test_template: &test_definition
+  stage: test
+  script:
+    - go version
+    - git version
+    - make test
+
+coverage:
+  stage: test
+  script:
+    - make cover
+
+test:go1.8:
+  <<: *test_definition
+  image: registry.gitlab.com/gitlab-org/gitlab-build-images:golang-1.8-git-2.8.4
+
 package:
   stage: package
-  only: 
+  only:
     - tags
   script:
     - apt-get update -qq
