@@ -106,7 +106,7 @@ cover: ${TARGET_DIR}/.ok ${TEST_REPO} ${TOOLS_DIR}/gocovmerge
 list: ${TARGET_DIR}/.ok
 	echo GOPATH IS ${GOPATH}
 	cd "${PKG_BUILD_DIR}" && ${TOOLS_DIR}/govendor list -no-status +local
-	@echo $(allpackages)
+	@echo "ALL PACKAGES===" $(allpackages)
 
 allpackages = $(shell cd "${PKG_BUILD_DIR}" && ${TOOLS_DIR}/govendor list -no-status +local)
 
