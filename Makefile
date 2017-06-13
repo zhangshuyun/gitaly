@@ -104,6 +104,8 @@ cover: ${TARGET_DIR}/.ok ${TEST_REPO} ${TOOLS_DIR}/gocovmerge
 	@go tool cover -func "${COVERAGE_DIR}/all.merged"
 
 list: ${TARGET_DIR}/.ok
+	echo GOPATH IS $GOPATH
+	cd "${PKG_BUILD_DIR}" && ${TOOLS_DIR}/govendor list -no-status +local
 	@echo $(allpackages)
 
 _allpackages = $(shell cd "${PKG_BUILD_DIR}" && ${TOOLS_DIR}/govendor list -no-status +local)
