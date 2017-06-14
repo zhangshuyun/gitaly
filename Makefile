@@ -10,6 +10,7 @@ export TEST_REPO_LOCATION=${TARGET_DIR}/testdata/data
 TEST_REPO=${TEST_REPO_LOCATION}/gitlab-test.git
 COVERAGE_DIR=${TARGET_DIR}/cover
 TOOLS_DIR=${BUILD_DIR}/_tools
+allpackages = $(shell cd "${PKG_BUILD_DIR}" && ${TOOLS_DIR}/govendor list -no-status +local)
 
 export GOPATH=${TARGET_DIR}
 export GO15VENDOREXPERIMENT=1
@@ -103,12 +104,11 @@ cover: ${TARGET_DIR}/.ok ${TEST_REPO} ${TOOLS_DIR}/gocovmerge
 	@echo ""
 	@go tool cover -func "${COVERAGE_DIR}/all.merged"
 
+.PHONY: list
 list: ${TARGET_DIR}/.ok
 	echo GOPATH IS ${GOPATH}
 	cd "${PKG_BUILD_DIR}" && ${TOOLS_DIR}/govendor list -no-status +local
 	@echo "ALL PACKAGES===" $(allpackages)
-
-allpackages = $(shell cd "${PKG_BUILD_DIR}" && ${TOOLS_DIR}/govendor list -no-status +local 2>&1)
 
 .PHONY: install-developer-tools
 install-developer-tools: ${TOOLS_DIR}/govendor ${TOOLS_DIR}/golint ${TOOLS_DIR}/gocovmerge
