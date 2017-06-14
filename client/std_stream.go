@@ -39,5 +39,8 @@ func recvStdoutStderrStream(recv func() (stdoutStderrResponse, error), stdout, s
 			}
 		}
 	}
+	if err == io.EOF {
+		err = nil
+	}
 	return exitStatus, err
 }
