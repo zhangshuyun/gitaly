@@ -16,8 +16,8 @@ export GO15VENDOREXPERIMENT = 1
 export PATH := ${GOPATH}/bin:${PATH}
 
 # Returns a list of all non-vendored (local packages)
-LOCAL_PACKAGES = $(shell cd "${PKG_BUILD_DIR}" && ${TOOLS_DIR}/govendor list -no-status +local)
-COMMAND_PACKAGES = $(shell cd "${PKG_BUILD_DIR}" && ${TOOLS_DIR}/govendor list -no-status +local +p ./cmd/...)
+LOCAL_PACKAGES = $(shell cd "${PKG_BUILD_DIR}" && GOPATH=${GOPATH} ${TOOLS_DIR}/govendor list -no-status +local)
+COMMAND_PACKAGES = $(shell cd "${PKG_BUILD_DIR}" && GOPATH=${GOPATH} ${TOOLS_DIR}/govendor list -no-status +local +p ./cmd/...)
 COMMANDS = $(subst $(PKG)/cmd/,,$(COMMAND_PACKAGES))
 
 .PHONY: all
@@ -77,8 +77,8 @@ notice:	${TARGET_DIR}/.ok ${TOOLS_DIR}/govendor
 .PHONY: notice-up-to-date
 notice-up-to-date: ${TARGET_DIR}/.ok ${TOOLS_DIR}/govendor
 	cd ${PKG_BUILD_DIR} && ${TOOLS_DIR}/govendor license -template _support/notice.template -o ${TARGET_DIR}/nutd.temp
-	diff _build/nutd.temp NOTICE
-	rm -f _build/nutd.temp
+	diff ${TARGET_DIR}/nutd.temp NOTICE
+	rm -f ${TARGET_DIR}/nutd.temp
 
 .PHONY: clean
 clean:
