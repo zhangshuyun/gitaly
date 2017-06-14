@@ -1,23 +1,24 @@
-PREFIX=/usr/local
-PKG=gitlab.com/gitlab-org/gitaly
-BUILD_DIR=${CURDIR}
-TARGET_DIR=${BUILD_DIR}/_build
-BIN_BUILD_DIR=${TARGET_DIR}/bin
-PKG_BUILD_DIR=${TARGET_DIR}/src/${PKG}
+PREFIX := /usr/local
+PKG := gitlab.com/gitlab-org/gitaly
+BUILD_DIR := ${CURDIR}
+TARGET_DIR := ${BUILD_DIR}/_build
+BIN_BUILD_DIR := ${TARGET_DIR}/bin
+PKG_BUILD_DIR := ${TARGET_DIR}/src/${PKG}
+export TEST_REPO_LOCATION := ${TARGET_DIR}/testdata/data
+TEST_REPO := ${TEST_REPO_LOCATION}/gitlab-test.git
+COVERAGE_DIR := ${TARGET_DIR}/cover
+TOOLS_DIR := ${BUILD_DIR}/_tools
+
 VERSION=$(shell git describe)-$(shell date -u +%Y%m%d.%H%M%S)
-export TEST_REPO_LOCATION=${TARGET_DIR}/testdata/data
-TEST_REPO=${TEST_REPO_LOCATION}/gitlab-test.git
-COVERAGE_DIR=${TARGET_DIR}/cover
-TOOLS_DIR=${BUILD_DIR}/_tools
+
+export GOPATH := ${TARGET_DIR}
+export GO15VENDOREXPERIMENT = 1
+export PATH := ${GOPATH}/bin:${PATH}
 
 # Returns a list of all non-vendored (local packages)
 LOCAL_PACKAGES = $(shell cd "${PKG_BUILD_DIR}" && ${TOOLS_DIR}/govendor list -no-status +local)
 COMMAND_PACKAGES = $(shell cd "${PKG_BUILD_DIR}" && ${TOOLS_DIR}/govendor list -no-status +local +p ./cmd/...)
 COMMANDS = $(subst $(PKG)/cmd/,,$(COMMAND_PACKAGES))
-
-export GOPATH = ${TARGET_DIR}
-export GO15VENDOREXPERIMENT = 1
-export PATH := ${GOPATH}/bin:${PATH}
 
 .PHONY: all
 all: verify build test
