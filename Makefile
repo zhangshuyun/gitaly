@@ -40,9 +40,7 @@ notice:
 	rm -f ${PKG_BUILD_DIR}/NOTICE # Avoid NOTICE-in-NOTICE
 	cd ${PKG_BUILD_DIR} && govendor license -template _support/notice.template -o ${BUILD_DIR}/NOTICE
 
-clean:	clean-build
+clean:
+	./run clean-build
 	rm -rf internal/testhelper/testdata
 	rm -f $(foreach cmd,${CMDS},./${cmd})
-
-clean-build:
-	rm -rf ${BUILD_DIR}/_build

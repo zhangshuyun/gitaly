@@ -16,9 +16,9 @@ func main() {
 }
 
 func run() error {
-if len(os.Args) <= 1 {
-return fmt.Errorf("need at least one argument")
-}
+	if len(os.Args) <= 1 {
+		return fmt.Errorf("need at least one argument")
+	}
 	config, err := build.ReadConfig()
 	if err != nil {
 		return err
