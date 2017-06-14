@@ -57,7 +57,7 @@ func TestSuccessUploadPack(t *testing.T) {
 
 	cmd := exec.Command("git", "clone", fmt.Sprintf("git@localhost:%s", remoteRepoPath), localRepoPath)
 	cmd.Env = []string{
-		fmt.Sprintf("GITALY_SOCKET=%s", serverSocketPath),
+		fmt.Sprintf("GITALY_SOCKET=unix://%s", serverSocketPath),
 		fmt.Sprintf("GL_REPOSITORY=%s", remoteRepoPath),
 		fmt.Sprintf("GOPATH=%s", os.Getenv("GOPATH")),
 		fmt.Sprintf("PATH=%s", os.Getenv("PATH")),

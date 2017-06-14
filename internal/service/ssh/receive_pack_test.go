@@ -66,7 +66,7 @@ func TestSuccessReceivePack(t *testing.T) {
 
 	cmd := exec.Command("git", "--git-dir", path.Join(localRepoPath, ".git"), "--work-tree", localRepoPath, "push", "origin", "master")
 	cmd.Env = []string{
-		fmt.Sprintf("GITALY_SOCKET=%s", serverSocketPath),
+		fmt.Sprintf("GITALY_SOCKET=unix://%s", serverSocketPath),
 		fmt.Sprintf("GL_REPOSITORY=%s", remoteRepoPath),
 		fmt.Sprintf("GOPATH=%s", os.Getenv("GOPATH")),
 		fmt.Sprintf("PATH=%s", os.Getenv("PATH")),
