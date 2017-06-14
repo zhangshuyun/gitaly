@@ -4,12 +4,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path"
 )
 
 type Config struct {
-	BuildGopath string `json:"build_gopath"`
+	BuildDir    string `json:"build_dir"`
 	Package     string `json:"package"`
+	BuildGopath string
 }
 
 func ReadConfig() (*Config, error) {
@@ -23,12 +25,16 @@ func ReadConfig() (*Config, error) {
 		return nil, err
 	}
 
-	for _, s := range []string{result.BuildGopath, result.Package} {
+	for _, s := range []string{result.BuildDir, result.Package} {
 		if len(s) == 0 {
 			return nil, fmt.Errorf("invalid build config: %q", data)
 		}
 	}
-
+	cwd, err := os.Getwd()
+	if err != nil {
+		return nil, err
+	}
+	result.BuildGopath = path.Join(cwd, result.BuildDir)
 	return result, nil
 }
 

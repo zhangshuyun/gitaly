@@ -24,14 +24,14 @@ func run() error {
 		return err
 	}
 
-	if err := os.RemoveAll(config.BuildGopath); err != nil {
+	if err := os.RemoveAll(config.BuildDir); err != nil {
 		return err
 	}
 	if err := os.MkdirAll(config.PackageBuildDir(), 0755); err != nil {
 		return err
 	}
 
-	tarSource := exec.CommandContext(ctx, "tar", "-cf", "-", "--exclude", config.BuildGopath, "--exclude", ".git", ".")
+	tarSource := exec.CommandContext(ctx, "tar", "-cf", "-", "--exclude", config.BuildDir, "--exclude", ".git", ".")
 	tarSource.Stderr = os.Stderr
 	sourcePipe, err := tarSource.StdoutPipe()
 	if err != nil {

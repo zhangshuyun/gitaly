@@ -1,4 +1,4 @@
 {
-"build_gopath": "./_build",
+"build_dir": "_build",
 "package":"gitlab.com/gitlab-org/gitaly"
 }

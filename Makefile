@@ -24,14 +24,10 @@ install: build
 	mkdir -p $(DESTDIR)${PREFIX}/bin/
 	cd ${BIN_BUILD_DIR} && install ${CMDS} ${DESTDIR}${PREFIX}/bin/
 
-verify: govendor-status
+verify:
 	./run lint
 	./run check-formatting
-
-govendor-status:
-	./run prepare-build
-	./run install-developer-tools
-	cd ${PKG_BUILD_DIR} && govendor status
+	./run govendor-status
 
 ${TEST_REPO}:
 	git clone --bare https://gitlab.com/gitlab-org/gitlab-test.git $@
