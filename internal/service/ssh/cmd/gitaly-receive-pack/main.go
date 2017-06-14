@@ -31,7 +31,7 @@ func main() {
 	defer cancel()
 	code, err := cli.ReceivePack(ctx, os.Stdin, os.Stdout, os.Stderr, os.Getenv("GL_REPOSITORY"), os.Getenv("GL_ID"))
 	if err != nil {
-		log.Printf("Error: %v", err)
+		log.Fatalf("Error: %v", err)
 	}
 
 	os.Exit(int(code))
