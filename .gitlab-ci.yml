@@ -2,6 +2,7 @@ image: registry.gitlab.com/gitlab-org/gitlab-build-images:golang-1.8-git-2.8.4
 
 stages:
   - test
+  - build
   - package
   - publish
 
@@ -20,12 +21,16 @@ verify:
 coverage:
   stage: test
   script:
-    - make -d list
     - make cover
 
 test:go1.8:
   <<: *test_definition
   image: registry.gitlab.com/gitlab-org/gitlab-build-images:golang-1.8-git-2.8.4
+
+compile:
+  stage: build
+  script:
+    - make build
 
 package:
   stage: package
