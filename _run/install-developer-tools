@@ -1,0 +1,2 @@
+go run _support/go-get-if-missing.go govendor github.com/kardianos/govendor
+go run _support/go-get-if-missing.go golint github.com/golang/lint/golint

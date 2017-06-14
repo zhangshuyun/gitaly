@@ -1,0 +1,2 @@
+#!/bin/sh
+exec sh -e -x -- ./_run/"$1"

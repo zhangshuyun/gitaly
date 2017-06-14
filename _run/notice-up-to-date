@@ -1,0 +1,2 @@
+git ls-files --error-unmatch NOTICE # NOTICE is a tracked file
+git diff --exit-code # there are no changed files

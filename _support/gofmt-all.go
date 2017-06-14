@@ -52,7 +52,7 @@ func gofmt(write bool) error {
 	fmt.Printf("%s", output)
 
 	if !write && len(output) > 0 {
-		return fmt.Errorf("Please run 'make format'")
+		return fmt.Errorf("Please run './run/format'")
 	}
 	return nil
 }

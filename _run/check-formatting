@@ -1,0 +1,2 @@
+./run install-developer-tools
+go run _support/gofmt-all.go -n

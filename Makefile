@@ -29,12 +29,12 @@ install: build
 	mkdir -p $(DESTDIR)${PREFIX}/bin/
 	cd ${BIN_BUILD_DIR} && install ${CMDS} ${DESTDIR}${PREFIX}/bin/
 
-verify: lint check-formatting govendor-status
+verify: govendor-status
+	./run lint
+	./run check-formatting
 
-check-formatting: install-developer-tools
-	go run _support/gofmt-all.go -n
-
-govendor-status: ${BUILD_DIR}/_build install-developer-tools
+govendor-status: ${BUILD_DIR}/_build
+	./run install-developer-tools
 	cd ${PKG_BUILD_DIR} && govendor status
 
 ${TEST_REPO}:
@@ -43,19 +43,17 @@ ${TEST_REPO}:
 test: clean-build ${TEST_REPO} ${BUILD_DIR}/_build
 	go test ${PKG}/...
 
-lint: install-developer-tools
+lint:
+	./run install-developer-tools
 	go run _support/lint.go
 
 package: build
 	./_support/package/package ${CMDS}
 
-notice:	${BUILD_DIR}/_build install-developer-tools
+notice:	${BUILD_DIR}/_build
+	./run install-developer-tools
 	rm -f ${PKG_BUILD_DIR}/NOTICE # Avoid NOTICE-in-NOTICE
 	cd ${PKG_BUILD_DIR} && govendor license -template _support/notice.template -o ${BUILD_DIR}/NOTICE
-
-notice-up-to-date:	notice
-	git ls-files --error-unmatch NOTICE # NOTICE is a tracked file
-	git diff --exit-code # there are no changed files
 
 clean:	clean-build
 	rm -rf internal/testhelper/testdata
@@ -63,12 +61,3 @@ clean:	clean-build
 
 clean-build:
 	rm -rf ${BUILD_DIR}/_build
-
-.PHONY: format
-format:
-	@go run _support/gofmt-all.go -f
-
-.PHONY: install-developer-tools
-install-developer-tools:
-	@go run _support/go-get-if-missing.go govendor github.com/kardianos/govendor
-	@go run _support/go-get-if-missing.go golint github.com/golang/lint/golint

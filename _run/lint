@@ -1,0 +1,2 @@
+./run install-developer-tools
+go run _support/lint.go

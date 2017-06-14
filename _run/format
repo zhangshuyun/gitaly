@@ -1,0 +1,1 @@
+go run _support/gofmt-all.go -f

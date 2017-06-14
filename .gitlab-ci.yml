@@ -20,7 +20,7 @@ test:go1.8:
 verify:
   stage: test
   script:
-    - make notice-up-to-date
+    - ./run notice-up-to-date
     - make verify
 
 package:
