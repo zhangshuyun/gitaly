@@ -43,10 +43,6 @@ ${TEST_REPO}:
 test: clean-build ${TEST_REPO} ${BUILD_DIR}/_build
 	go test ${PKG}/...
 
-lint:
-	./run install-developer-tools
-	go run _support/lint.go
-
 package: build
 	./_support/package/package ${CMDS}
 
