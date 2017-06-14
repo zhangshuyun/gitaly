@@ -31,7 +31,7 @@ ${TARGET_DIR}/.ok: Makefile ${TOOLS_DIR}/govendor
 	touch -- "${TARGET_DIR}/.ok"
 
 .PHONY: build
-build: ${TARGET_DIR}/.ok
+build: ${TARGET_DIR}/.ok list
 	go install -ldflags "-X main.version=${VERSION}" ${COMMAND_PACKAGES}
 	cp $(foreach cmd,${COMMANDS},${BIN_BUILD_DIR}/${cmd}) ${BUILD_DIR}/
 
@@ -55,7 +55,7 @@ ${TEST_REPO}:
 	git clone --bare https://gitlab.com/gitlab-org/gitlab-test.git $@
 
 .PHONY: test
-test: ${TARGET_DIR}/.ok ${TEST_REPO}
+test: ${TARGET_DIR}/.ok ${TEST_REPO} list
 	go test ${LOCAL_PACKAGES}
 
 .PHONY: test-race
@@ -90,7 +90,7 @@ format:
 	go run _support/gofmt-all.go -f
 
 .PHONY: cover
-cover: ${TARGET_DIR}/.ok ${TEST_REPO} ${TOOLS_DIR}/gocovmerge
+cover: ${TARGET_DIR}/.ok ${TEST_REPO} ${TOOLS_DIR}/gocovmerge list
 	@echo "NOTE: make cover does not exit 1 on failure, don't use it to check for tests success!"
 	mkdir -p "${COVERAGE_DIR}"
 	rm -f ${COVERAGE_DIR}/*.out "${COVERAGE_DIR}/all.merged" "${COVERAGE_DIR}/all.html"
@@ -108,7 +108,9 @@ cover: ${TARGET_DIR}/.ok ${TEST_REPO} ${TOOLS_DIR}/gocovmerge
 
 .PHONY: list
 list: ${TARGET_DIR}/.ok
-	@echo ${LOCAL_PACKAGES}
+	@echo "GOPATH: ${GOPATH}"
+	@echo "Packages: ${LOCAL_PACKAGES}"
+	@echo "Commands: ${COMMANDS}"
 
 .PHONY: install-developer-tools
 install-developer-tools: ${TOOLS_DIR}/govendor ${TOOLS_DIR}/golint ${TOOLS_DIR}/gocovmerge
