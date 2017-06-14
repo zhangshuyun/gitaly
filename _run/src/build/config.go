@@ -1,10 +1,12 @@
 package build
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path"
 )
 
@@ -40,4 +42,16 @@ func ReadConfig() (*Config, error) {
 
 func (c *Config) PackageBuildDir() string {
 	return path.Join(c.BuildGopath, "src", c.Package)
+}
+
+func Version() (string, error) {
+	describe, err := exec.Command("git", "describe").Output()
+	if err != nil {
+		return "", err
+	}
+	date, err := exec.Command("date", "-u", "+%Y%m%d.%H%M%S").Output() // TODO use package 'time'
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%s-%s", bytes.TrimSpace(describe), bytes.TrimSpace(date)), nil
 }

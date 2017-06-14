@@ -14,11 +14,8 @@ export PATH:=${GOPATH}/bin:$(PATH)
 .PHONY: all
 all: build
 
-build:	$(shell find . -name '*.go' -not -path './vendor/*' -not -path './_build/*')
-	./run prepare-build
-	rm -f -- "${BIN_BUILD_DIR}/*"
-	go install -ldflags "-X main.version=${VERSION}" ${PKG}/cmd/...
-	cp ${BIN_BUILD_DIR}/* ${BUILD_DIR}/
+build:
+	./run build
 
 install: build
 	mkdir -p $(DESTDIR)${PREFIX}/bin/
