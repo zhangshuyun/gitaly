@@ -4,17 +4,20 @@ BUILD_DIR=${CURDIR}
 TARGET_DIR=${BUILD_DIR}/_build
 BIN_BUILD_DIR=${TARGET_DIR}/bin
 PKG_BUILD_DIR=${TARGET_DIR}/src/${PKG}
-CMDS=$(shell cd cmd && ls)
 VERSION=$(shell git describe)-$(shell date -u +%Y%m%d.%H%M%S)
 export TEST_REPO_LOCATION=${TARGET_DIR}/testdata/data
 TEST_REPO=${TEST_REPO_LOCATION}/gitlab-test.git
 COVERAGE_DIR=${TARGET_DIR}/cover
 TOOLS_DIR=${BUILD_DIR}/_tools
-allpackages = $(shell cd "${PKG_BUILD_DIR}" && ${TOOLS_DIR}/govendor list -no-status +local)
 
-export GOPATH=${TARGET_DIR}
-export GO15VENDOREXPERIMENT=1
-export PATH:=${GOPATH}/bin:${PATH}
+# Returns a list of all non-vendored (local packages)
+LOCAL_PACKAGES = $(shell cd "${PKG_BUILD_DIR}" && ${TOOLS_DIR}/govendor list -no-status +local)
+COMMAND_PACKAGES = $(shell cd "${PKG_BUILD_DIR}" && ${TOOLS_DIR}/govendor list -no-status +local +p ./cmd/...)
+COMMANDS = $(subst $(PKG)/cmd/,,$(COMMAND_PACKAGES))
+
+export GOPATH = ${TARGET_DIR}
+export GO15VENDOREXPERIMENT = 1
+export PATH := ${GOPATH}/bin:${PATH}
 
 .PHONY: all
 all: verify build test
@@ -28,13 +31,13 @@ ${TARGET_DIR}/.ok: Makefile ${TOOLS_DIR}/govendor
 
 .PHONY: build
 build: ${TARGET_DIR}/.ok
-	go install -ldflags "-X main.version=${VERSION}" $(foreach cmd,${CMDS},${PKG}/cmd/${cmd})
-	cp $(foreach cmd,${CMDS},${BIN_BUILD_DIR}/${cmd}) ${BUILD_DIR}/
+	go install -ldflags "-X main.version=${VERSION}" ${COMMAND_PACKAGES}
+	cp $(foreach cmd,${COMMANDS},${BIN_BUILD_DIR}/${cmd}) ${BUILD_DIR}/
 
 .PHONY: install
 install: build
 	mkdir -p $(DESTDIR)${PREFIX}/bin/
-	cd ${BIN_BUILD_DIR} && install ${CMDS} ${DESTDIR}${PREFIX}/bin/
+	cd ${BIN_BUILD_DIR} && install ${COMMANDS} ${DESTDIR}${PREFIX}/bin/
 
 .PHONY: verify
 verify: lint check-formatting govendor-status notice-up-to-date
@@ -52,19 +55,19 @@ ${TEST_REPO}:
 
 .PHONY: test
 test: ${TARGET_DIR}/.ok ${TEST_REPO}
-	go test $(allpackages)
+	go test ${LOCAL_PACKAGES}
 
 .PHONY: test-race
 test-race: ${TARGET_DIR}/.ok ${TEST_REPO}
-	GODEBUG=cgocheck=2 go test -v -race $(allpackages)
+	GODEBUG=cgocheck=2 go test -v -race ${LOCAL_PACKAGES}
 
 .PHONY: lint
 lint: ${TARGET_DIR}/.ok ${TOOLS_DIR}/golint
-	${TOOLS_DIR}/golint $(allpackages)
+	${TOOLS_DIR}/golint ${LOCAL_PACKAGES}
 
 .PHONY: package
 package: build
-	./_support/package/package ${CMDS}
+	./_support/package/package ${COMMANDS}
 
 .PHONY: notice
 notice:	${TARGET_DIR}/.ok ${TOOLS_DIR}/govendor
@@ -79,7 +82,7 @@ notice-up-to-date: ${TARGET_DIR}/.ok ${TOOLS_DIR}/govendor
 .PHONY: clean
 clean:
 	rm -rf -- ${TARGET_DIR}
-	rm -f -- $(foreach cmd,${CMDS},./${cmd})
+	rm -f -- $(foreach cmd,${COMMANDS},./${cmd})
 
 .PHONY: format
 format:
@@ -90,10 +93,8 @@ cover: ${TARGET_DIR}/.ok ${TEST_REPO} ${TOOLS_DIR}/gocovmerge
 	@echo "NOTE: make cover does not exit 1 on failure, don't use it to check for tests success!"
 	mkdir -p "${COVERAGE_DIR}"
 	rm -f ${COVERAGE_DIR}/*.out "${COVERAGE_DIR}/all.merged" "${COVERAGE_DIR}/all.html"
-	@for MOD in $(allpackages); do \
-		echo go test -coverpkg=`echo $(allpackages)|tr " " ","` \
-			-coverprofile=${COVERAGE_DIR}/unit-`echo $$MOD|tr "/" "_"`.out $$MOD; \
-		go test -coverpkg=`echo $(allpackages)|tr " " ","` \
+	@for MOD in ${LOCAL_PACKAGES}; do \
+		go test -coverpkg=`echo ${LOCAL_PACKAGES}|tr " " ","` \
 			-coverprofile=${COVERAGE_DIR}/unit-`echo $$MOD|tr "/" "_"`.out \
 			$$MOD 2>&1 | grep -v "no packages being tested depend on"; \
 	done
@@ -106,9 +107,7 @@ cover: ${TARGET_DIR}/.ok ${TEST_REPO} ${TOOLS_DIR}/gocovmerge
 
 .PHONY: list
 list: ${TARGET_DIR}/.ok
-	echo GOPATH IS ${GOPATH}
-	cd "${PKG_BUILD_DIR}" && ${TOOLS_DIR}/govendor list -no-status +local
-	@echo "ALL PACKAGES===" $(allpackages)
+	@echo ${LOCAL_PACKAGES}
 
 .PHONY: install-developer-tools
 install-developer-tools: ${TOOLS_DIR}/govendor ${TOOLS_DIR}/golint ${TOOLS_DIR}/gocovmerge
