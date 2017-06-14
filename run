@@ -1,2 +1,4 @@
 #!/bin/sh
-exec sh -e -x -- ./_run/"$1"
+sub_command=$1
+shift
+exec sh -e -x -- ./_run/"$sub_command" "$@"

@@ -1,3 +1,3 @@
 ./run prepare-build
 ./run install-developer-tools
-GOPATH=$(pwd)/_run go run _support/govendor-status.go
+./run with-gopath govendor status

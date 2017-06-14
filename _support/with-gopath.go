@@ -16,11 +16,15 @@ func main() {
 }
 
 func run() error {
+if len(os.Args) <= 1 {
+return fmt.Errorf("need at least one argument")
+}
 	config, err := build.ReadConfig()
 	if err != nil {
 		return err
 	}
-	govendor, err := exec.LookPath("govendor")
+
+	executable, err := exec.LookPath(os.Args[1])
 	if err != nil {
 		return err
 	}
@@ -28,5 +32,5 @@ func run() error {
 	if err := os.Chdir(config.PackageBuildDir()); err != nil {
 		return err
 	}
-	return syscall.Exec(govendor, []string{"govendor", "status"}, os.Environ())
+	return syscall.Exec(executable, os.Args[1:], os.Environ())
 }
