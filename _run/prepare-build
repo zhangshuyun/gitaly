@@ -1,0 +1,1 @@
+GOPATH=$(pwd)/_run go run _support/prepare-build.go

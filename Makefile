@@ -14,13 +14,8 @@ export PATH:=${GOPATH}/bin:$(PATH)
 .PHONY: all
 all: build
 
-.PHONY: ${BUILD_DIR}/_build
-${BUILD_DIR}/_build:
-	mkdir -p $@/src/${PKG}
-	tar -cf - --exclude _build --exclude .git . | (cd $@/src/${PKG} && tar -xf -)
-	touch $@
-
-build:	clean-build ${BUILD_DIR}/_build $(shell find . -name '*.go' -not -path './vendor/*' -not -path './_build/*')
+build:	$(shell find . -name '*.go' -not -path './vendor/*' -not -path './_build/*')
+	./run prepare-build
 	rm -f -- "${BIN_BUILD_DIR}/*"
 	go install -ldflags "-X main.version=${VERSION}" ${PKG}/cmd/...
 	cp ${BIN_BUILD_DIR}/* ${BUILD_DIR}/
@@ -33,20 +28,23 @@ verify: govendor-status
 	./run lint
 	./run check-formatting
 
-govendor-status: ${BUILD_DIR}/_build
+govendor-status:
+	./run prepare-build
 	./run install-developer-tools
 	cd ${PKG_BUILD_DIR} && govendor status
 
 ${TEST_REPO}:
 	git clone --bare https://gitlab.com/gitlab-org/gitlab-test.git $@
 
-test: clean-build ${TEST_REPO} ${BUILD_DIR}/_build
+test: ${TEST_REPO}
+	./run prepare-build
 	go test ${PKG}/...
 
 package: build
 	./_support/package/package ${CMDS}
 
-notice:	${BUILD_DIR}/_build
+notice:
+	./run prepare-build
 	./run install-developer-tools
 	rm -f ${PKG_BUILD_DIR}/NOTICE # Avoid NOTICE-in-NOTICE
 	cd ${PKG_BUILD_DIR} && govendor license -template _support/notice.template -o ${BUILD_DIR}/NOTICE
