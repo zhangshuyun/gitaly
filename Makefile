@@ -5,7 +5,6 @@ BIN_BUILD_DIR=${BUILD_DIR}/_build/bin
 PKG_BUILD_DIR:=${BUILD_DIR}/_build/src/${PKG}
 CMDS:=$(shell cd cmd && ls)
 TEST_REPO=internal/testhelper/testdata/data/gitlab-test.git
-VERSION=$(shell git describe)-$(shell date -u +%Y%m%d.%H%M%S)
 
 export GOPATH=${BUILD_DIR}/_build
 export GO15VENDOREXPERIMENT=1
