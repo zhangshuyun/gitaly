@@ -1,0 +1,3 @@
+./run lint
+./run check-formatting
+./run govendor-status

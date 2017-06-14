@@ -21,7 +21,7 @@ verify:
   stage: test
   script:
     - ./run notice-up-to-date
-    - make verify
+    - ./run verify
 
 package:
   stage: package

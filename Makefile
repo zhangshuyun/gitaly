@@ -24,11 +24,6 @@ install: build
 	mkdir -p $(DESTDIR)${PREFIX}/bin/
 	cd ${BIN_BUILD_DIR} && install ${CMDS} ${DESTDIR}${PREFIX}/bin/
 
-verify:
-	./run lint
-	./run check-formatting
-	./run govendor-status
-
 ${TEST_REPO}:
 	git clone --bare https://gitlab.com/gitlab-org/gitlab-test.git $@
 
