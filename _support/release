@@ -4,7 +4,7 @@ require 'erb'
 require_relative 'run.rb'
 
 def main(version)
-  run!(%w[make notice-up-to-date])
+  run!(%w[make verify])
   run!(%w[make test])
 
   puts 'Testing for changed files'
