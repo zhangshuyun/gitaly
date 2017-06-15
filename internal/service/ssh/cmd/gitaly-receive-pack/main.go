@@ -8,6 +8,7 @@ import (
 
 	"golang.org/x/net/context"
 
+	pb "gitlab.com/gitlab-org/gitaly-proto/go"
 	"gitlab.com/gitlab-org/gitaly/client"
 )
 
@@ -27,9 +28,14 @@ func main() {
 	}
 	defer cli.Close()
 
+	req := &pb.SSHReceivePackRequest{
+		Repository: &pb.Repository{Path: os.Getenv("GL_REPOSITORY")},
+		GlId:       os.Getenv("GL_ID"),
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	code, err := cli.ReceivePack(ctx, os.Stdin, os.Stdout, os.Stderr, os.Getenv("GL_REPOSITORY"), os.Getenv("GL_ID"))
+	code, err := cli.ReceivePack(ctx, os.Stdin, os.Stdout, os.Stderr, req)
 	if err != nil {
 		log.Fatalf("Error: %v", err)
 	}

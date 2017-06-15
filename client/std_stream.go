@@ -18,7 +18,7 @@ func recvStdoutStderrStream(recv func() (stdoutStderrResponse, error), stdout, s
 		err        error
 		resp       stdoutStderrResponse
 	)
-	for err == nil {
+	for {
 		resp, err = recv()
 		if err != nil {
 			break

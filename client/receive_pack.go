@@ -10,7 +10,7 @@ import (
 )
 
 // ReceivePack gets git-pack from Gitaly
-func (cli *Client) ReceivePack(ctx context.Context, stdin io.Reader, stdout, stderr io.Writer, repo, glID string) (int32, error) {
+func (cli *Client) ReceivePack(ctx context.Context, stdin io.Reader, stdout, stderr io.Writer, req *pb.SSHReceivePackRequest) (int32, error) {
 	ctx2, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -18,11 +18,6 @@ func (cli *Client) ReceivePack(ctx context.Context, stdin io.Reader, stdout, std
 	stream, err := ssh.SSHReceivePack(ctx2)
 	if err != nil {
 		return 0, err
-	}
-
-	req := &pb.SSHReceivePackRequest{
-		Repository: &pb.Repository{Path: repo},
-		GlId:       glID,
 	}
 
 	if err = stream.Send(req); err != nil {

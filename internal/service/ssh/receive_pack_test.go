@@ -110,7 +110,6 @@ func makeCommit(t *testing.T, localRepoPath string) ([]byte, []byte, bool) {
 	newHead := bytes.TrimSpace(testhelper.MustRunCommand(t, nil, "git", "-C", localRepoPath, "rev-parse", "master"))
 
 	return oldHead, newHead, t.Failed()
-
 }
 
 func drainPostReceivePackResponse(stream pb.SSH_SSHReceivePackClient) error {

@@ -10,7 +10,7 @@ import (
 )
 
 // UploadPack sends a git-pack payload to Gitaly
-func (cli *Client) UploadPack(ctx context.Context, stdin io.Reader, stdout, stderr io.Writer, repo string) (int32, error) {
+func (cli *Client) UploadPack(ctx context.Context, stdin io.Reader, stdout, stderr io.Writer, req *pb.SSHUploadPackRequest) (int32, error) {
 	ctx2, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -18,10 +18,6 @@ func (cli *Client) UploadPack(ctx context.Context, stdin io.Reader, stdout, stde
 	stream, err := ssh.SSHUploadPack(ctx2)
 	if err != nil {
 		return 0, err
-	}
-
-	req := &pb.SSHUploadPackRequest{
-		Repository: &pb.Repository{Path: repo},
 	}
 
 	if err = stream.Send(req); err != nil {
