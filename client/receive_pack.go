@@ -3,6 +3,8 @@ package client
 import (
 	"io"
 
+	"google.golang.org/grpc"
+
 	"golang.org/x/net/context"
 
 	pb "gitlab.com/gitlab-org/gitaly-proto/go"
@@ -10,11 +12,11 @@ import (
 )
 
 // ReceivePack gets git-pack from Gitaly
-func (cli *Client) ReceivePack(ctx context.Context, stdin io.Reader, stdout, stderr io.Writer, req *pb.SSHReceivePackRequest) (int32, error) {
+func ReceivePack(conn *grpc.ClientConn, ctx context.Context, stdin io.Reader, stdout, stderr io.Writer, req *pb.SSHReceivePackRequest) (int32, error) {
 	ctx2, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	ssh := pb.NewSSHClient(cli.conn)
+	ssh := pb.NewSSHClient(conn)
 	stream, err := ssh.SSHReceivePack(ctx2)
 	if err != nil {
 		return 0, err

@@ -22,11 +22,11 @@ func main() {
 		log.Fatalf("GITALY_SOCKET not set")
 	}
 
-	cli, err := client.NewClient(addr)
+	conn, err := client.Dial(addr, client.DefaultDialOpts)
 	if err != nil {
 		log.Fatalf("Error: %v", err)
 	}
-	defer cli.Close()
+	defer conn.Close()
 
 	req := &pb.SSHReceivePackRequest{
 		Repository: &pb.Repository{Path: os.Getenv("GL_REPOSITORY")},
@@ -35,7 +35,7 @@ func main() {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	code, err := cli.ReceivePack(ctx, os.Stdin, os.Stdout, os.Stderr, req)
+	code, err := client.ReceivePack(conn, ctx, os.Stdin, os.Stdout, os.Stderr, req)
 	if err != nil {
 		log.Fatalf("Error: %v", err)
 	}

@@ -3,6 +3,8 @@ package client
 import (
 	"io"
 
+	"google.golang.org/grpc"
+
 	"golang.org/x/net/context"
 
 	pb "gitlab.com/gitlab-org/gitaly-proto/go"
@@ -10,11 +12,11 @@ import (
 )
 
 // UploadPack sends a git-pack payload to Gitaly
-func (cli *Client) UploadPack(ctx context.Context, stdin io.Reader, stdout, stderr io.Writer, req *pb.SSHUploadPackRequest) (int32, error) {
+func UploadPack(conn *grpc.ClientConn, ctx context.Context, stdin io.Reader, stdout, stderr io.Writer, req *pb.SSHUploadPackRequest) (int32, error) {
 	ctx2, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	ssh := pb.NewSSHClient(cli.conn)
+	ssh := pb.NewSSHClient(conn)
 	stream, err := ssh.SSHUploadPack(ctx2)
 	if err != nil {
 		return 0, err

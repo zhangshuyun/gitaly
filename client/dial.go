@@ -10,40 +10,22 @@ import (
 	"google.golang.org/grpc"
 )
 
-// Client holds a single gRPC connection
-type Client struct {
-	conn *grpc.ClientConn
+// DefaultDialOpts hold the default DialOptions for connection to Gitaly over UNIX-socket
+var DefaultDialOpts = []grpc.DialOption{
+	grpc.WithInsecure(),
 }
 
-// NewClient connects to a gRPC-server and returns the Client
-func NewClient(addr string) (*Client, error) {
-	conn, err := newConnection(addr)
-	if err != nil {
-		return nil, err
-	}
-
-	return &Client{conn: conn}, nil
-}
-
-// Close the gRPC-connection
-func (cli *Client) Close() error {
-	return cli.conn.Close()
-}
-
-// Thankfully borrowed from Workhorse
-
-func newConnection(rawAddress string) (*grpc.ClientConn, error) {
+// Dial gitaly
+func Dial(rawAddress string, connOpts []grpc.DialOption) (*grpc.ClientConn, error) {
 	network, addr, err := parseAddress(rawAddress)
 	if err != nil {
 		return nil, err
 	}
 
-	connOpts := []grpc.DialOption{
-		grpc.WithInsecure(), // Since we're connecting to Gitaly over UNIX, we don't need to use TLS credentials.
+	connOpts = append(connOpts,
 		grpc.WithDialer(func(a string, _ time.Duration) (net.Conn, error) {
 			return net.Dial(network, a)
-		}),
-	}
+		}))
 	conn, err := grpc.Dial(addr, connOpts...)
 	if err != nil {
 		return nil, err
