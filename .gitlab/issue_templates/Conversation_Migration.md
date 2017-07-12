@@ -2,13 +2,13 @@
 
 **Stages**:
 
-- [ ] ~"RPC Design": [Create Issue](https://gitlab.com/gitlab-org/gitaly/issues/new?issuable_template=Migration_RPC_Design)
+- [ ] RPC design: (include in issue description below)
 
-- [ ] ~"Server Implementation": [Create Issue](https://gitlab.com/gitlab-org/gitaly/issues/new?issuable_template=Migration_Server_Implementation)
+- [ ] ~"Server Implementation": (link to merge request)
 
-- [ ] ~"Client Implementation": [Create Issue](https://gitlab.com/gitlab-org/gitaly/issues/new?issuable_template=Migration_Client_Implementation)
+- [ ] ~"Client Implementation": (link to merge request)
 
-- [ ] ~"Acceptance Testing": [Create Issue](https://gitlab.com/gitlab-org/gitaly/issues/new?issuable_template=Migration_Acceptance_Testing)
+- [ ] ~"Acceptance Testing"
 
 **RPC Endpoints**:
   - `Endpoint::Name`
