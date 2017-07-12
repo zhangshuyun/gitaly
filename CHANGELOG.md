@@ -1,5 +1,9 @@
 # Gitaly changelog
 
+UNRELEASED
+
+- Implement CommitService.CommitStats
+
 v0.18.0
 
 - Add config to specify a git binary path
