@@ -1,8 +1,20 @@
 #!/usr/bin/env ruby
 
 require 'fileutils'
+require 'logger'
+
+$logger = Logger.new(STDOUT)
+$logger.progname = 'gitaly-ruby'
+$logger.level = :warn
+
+module GRPC
+  def self.logger
+    $logger
+  end
+end
 
 require 'grpc'
+require 'rugged'
 
 require_relative '../lib/gitaly_server.rb'
 
@@ -22,7 +34,8 @@ def main
   s = GRPC::RpcServer.new
   port = 'unix:' + socket_path
   s.add_http2_port(port, :this_port_is_insecure)
-  GRPC.logger.info("... running insecurely on #{port}")
+  $logger.warn "running insecurely on #{port}"
+  $logger.warn "using rugged #{Rugged::VERSION}"
 
   GitalyServer.register_handlers(s)
 
