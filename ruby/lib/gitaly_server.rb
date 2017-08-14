@@ -1,5 +1,7 @@
 require 'gitaly'
 
+require_relative 'gitlab/git.rb'
+
 require_relative 'gitaly_server/commit_service.rb'
 
 module GitalyServer

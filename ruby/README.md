@@ -27,3 +27,13 @@ for two reasons. Firstly, testing through the parent proves that the
 Ruby code under test is reachable. Secondly, testing through the
 parent will make it easier to create a Go implementation in the parent
 if we ever want to do that.
+
+## Vendored copy of Gitlab::Git
+
+`gitaly-ruby` contains a vendored copy of `lib/gitlab/git` from
+https://gitlab.com/gitlab-org/gitlab-ce. This allows us to share code
+between gitlab-ce / gitlab-ee and `gitaly-ruby`.
+
+To update the vendored copy of Gitlab::Git, run
+`_support/vendor-gitlab-git COMMIT_ID` from the root of the Gitaly
+repository.

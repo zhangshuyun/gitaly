@@ -2,6 +2,7 @@ package rubyserver
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
 	"os"
@@ -61,7 +62,8 @@ func Start() (*supervisor.Process, error) {
 	lazyInit.Do(prepareSocketPath)
 
 	args := []string{"bundle", "exec", "bin/gitaly-ruby", fmt.Sprintf("%d", os.Getpid()), socketPath}
-	return supervisor.New(nil, args, config.Config.Ruby.Dir)
+	env := append(os.Environ(), "GITALY_RUBY_GIT_BIN_PATH="+helper.GitPath())
+	return supervisor.New(env, args, config.Config.Ruby.Dir)
 }
 
 // CommitServiceClient returns a CommitServiceClient instance that is
@@ -97,4 +99,17 @@ func SetHeaders(ctx context.Context, repo *pb.Repository) (context.Context, erro
 
 	newCtx := metadata.NewOutgoingContext(ctx, metadata.Pairs(repoPathHeader, repoPath))
 	return newCtx, nil
+}
+
+// Proxy calls recvSend until it receives an error. The error is returned
+// to the caller unless it is io.EOF.
+func Proxy(recvSend func() error) (err error) {
+	for err == nil {
+		err = recvSend()
+	}
+
+	if err == io.EOF {
+		err = nil
+	}
+	return err
 }
