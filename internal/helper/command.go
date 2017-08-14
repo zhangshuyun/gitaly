@@ -134,7 +134,7 @@ func (c *Command) CleanUpProcessGroup(ctx context.Context) {
 
 	systemTime := cmd.ProcessState.SystemTime()
 	userTime := cmd.ProcessState.UserTime()
-	totalTime := time.Now().Sub(c.startTime)
+	realTime := time.Now().Sub(c.startTime)
 
 	grpc_logrus.Extract(ctx).WithFields(log.Fields{
 		"path":                   cmd.Path,
@@ -142,7 +142,7 @@ func (c *Command) CleanUpProcessGroup(ctx context.Context) {
 		"command.exitCode":       exitCode,
 		"command.system_time_ms": systemTime.Seconds() * 1000,
 		"command.user_time_ms":   userTime.Seconds() * 1000,
-		"command.total_time_ms":  totalTime.Seconds() * 1000,
+		"command.real_time_ms":   realTime.Seconds() * 1000,
 	}).Info("spawn complete")
 }
 
