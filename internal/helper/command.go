@@ -132,18 +132,8 @@ func (c *Command) CleanUpProcessGroup(ctx context.Context) {
 		}
 	}
 
-	systemTime := cmd.ProcessState.SystemTime()
-	userTime := cmd.ProcessState.UserTime()
-	realTime := time.Now().Sub(c.startTime)
+	c.logProcessComplete(ctx, exitCode)
 
-	grpc_logrus.Extract(ctx).WithFields(log.Fields{
-		"path":                   cmd.Path,
-		"args":                   cmd.Args,
-		"command.exitCode":       exitCode,
-		"command.system_time_ms": systemTime.Seconds() * 1000,
-		"command.user_time_ms":   userTime.Seconds() * 1000,
-		"command.real_time_ms":   realTime.Seconds() * 1000,
-	}).Info("spawn complete")
 }
 
 // ExitStatus will return the exit-code from an error
@@ -159,4 +149,30 @@ func ExitStatus(err error) (int, bool) {
 	}
 
 	return waitStatus.ExitStatus(), true
+}
+
+func (c *Command) logProcessComplete(ctx context.Context, exitCode int) {
+	cmd := c.Cmd
+
+	systemTime := cmd.ProcessState.SystemTime()
+	userTime := cmd.ProcessState.UserTime()
+	realTime := time.Now().Sub(c.startTime)
+
+	entry := grpc_logrus.Extract(ctx).WithFields(log.Fields{
+		"path":                   cmd.Path,
+		"args":                   cmd.Args,
+		"command.exitCode":       exitCode,
+		"command.system_time_ms": systemTime.Seconds() * 1000,
+		"command.user_time_ms":   userTime.Seconds() * 1000,
+		"command.real_time_ms":   realTime.Seconds() * 1000,
+	})
+
+	if rusage, ok := cmd.ProcessState.SysUsage().(*syscall.Rusage); ok {
+		entry = entry.WithFields(log.Fields{
+			"command.inblock": rusage.Inblock,
+			"command.oublock": rusage.Oublock,
+		})
+	}
+
+	entry.Info("spawn complete")
 }
