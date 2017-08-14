@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
 
@@ -21,6 +22,7 @@ import (
 type Command struct {
 	io.Reader
 	*exec.Cmd
+	startTime time.Time
 }
 
 // GitPath returns the path to the `git` binary. See `SetGitPath` for details
@@ -39,8 +41,8 @@ func GitPath() string {
 
 // Kill cleans the subprocess group of the command. Callers should defer a call
 // to kill after they get the command from NewCommand
-func (c *Command) Kill() {
-	CleanUpProcessGroup(c.Cmd)
+func (c *Command) Kill(ctx context.Context) {
+	c.CleanUpProcessGroup(ctx)
 }
 
 // GitCommandReader creates a git Command with the given args
@@ -55,7 +57,7 @@ func NewCommand(ctx context.Context, cmd *exec.Cmd, stdin io.Reader, stdout, std
 		"args": cmd.Args,
 	}).Info("spawn")
 
-	command := &Command{Cmd: cmd}
+	command := &Command{Cmd: cmd, startTime: time.Now()}
 
 	// Explicitly set the environment for the command
 	cmd.Env = []string{
@@ -108,7 +110,8 @@ func NewCommand(ctx context.Context, cmd *exec.Cmd, stdin io.Reader, stdout, std
 
 // CleanUpProcessGroup will send a SIGTERM signal to the process group
 // belonging to the `cmd` process
-func CleanUpProcessGroup(cmd *exec.Cmd) {
+func (c *Command) CleanUpProcessGroup(ctx context.Context) {
+	cmd := c.Cmd
 	if cmd == nil {
 		return
 	}
@@ -120,7 +123,27 @@ func CleanUpProcessGroup(cmd *exec.Cmd) {
 	}
 
 	// reap our child process
-	cmd.Wait()
+	err := cmd.Wait()
+
+	exitCode := 0
+	if err != nil {
+		if exitStatus, ok := ExitStatus(err); ok {
+			exitCode = exitStatus
+		}
+	}
+
+	systemTime := cmd.ProcessState.SystemTime()
+	userTime := cmd.ProcessState.UserTime()
+	totalTime := time.Now().Sub(c.startTime)
+
+	grpc_logrus.Extract(ctx).WithFields(log.Fields{
+		"path":                   cmd.Path,
+		"args":                   cmd.Args,
+		"command.exitCode":       exitCode,
+		"command.system_time_ms": systemTime.Seconds() * 1000,
+		"command.user_time_ms":   userTime.Seconds() * 1000,
+		"command.total_time_ms":  totalTime.Seconds() * 1000,
+	}).Info("spawn complete")
 }
 
 // ExitStatus will return the exit-code from an error

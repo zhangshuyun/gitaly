@@ -35,7 +35,7 @@ func CatFile(ctx context.Context, repoPath string, handler Handler) error {
 	if err != nil {
 		return grpc.Errorf(codes.Internal, "CatFile: cmd: %v", err)
 	}
-	defer cmd.Kill()
+	defer cmd.Kill(ctx)
 	defer stdinWriter.Close()
 	defer stdinReader.Close()
 

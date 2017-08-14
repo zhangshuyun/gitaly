@@ -91,7 +91,7 @@ func IsValidRef(ctx context.Context, path, ref string) bool {
 	if err != nil {
 		return false
 	}
-	defer cmd.Kill()
+	defer cmd.Kill(ctx)
 	cmd.Stdout, cmd.Stderr, cmd.Stdin = nil, nil, nil
 
 	return cmd.Wait() == nil

@@ -43,7 +43,7 @@ func handleInfoRefs(ctx context.Context, service string, repo *pb.Repository, w 
 	if err != nil {
 		return grpc.Errorf(codes.Internal, "GetInfoRefs: cmd: %v", err)
 	}
-	defer cmd.Kill()
+	defer cmd.Kill(ctx)
 
 	if err := pktLine(w, fmt.Sprintf("# service=git-%s\n", service)); err != nil {
 		return grpc.Errorf(codes.Internal, "GetInfoRefs: pktLine: %v", err)
