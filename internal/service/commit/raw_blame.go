@@ -32,7 +32,7 @@ func (s *server) RawBlame(in *pb.RawBlameRequest, stream pb.CommitService_RawBla
 	if err != nil {
 		return grpc.Errorf(codes.Internal, "RawBlame: cmd: %v", err)
 	}
-	defer cmd.Kill(ctx)
+	defer cmd.CleanUpProcessGroup(ctx)
 
 	sw := streamio.NewWriter(func(p []byte) error {
 		return stream.Send(&pb.RawBlameResponse{Data: p})
