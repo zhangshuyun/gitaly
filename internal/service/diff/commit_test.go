@@ -2,6 +2,7 @@ package diff
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"net"
 	"testing"
@@ -25,12 +26,15 @@ func TestSuccessfulCommitDiffRequest(t *testing.T) {
 	server := runDiffServer(t)
 	defer server.Stop()
 
-	client := newDiffClient(t)
+	client, conn := newDiffClient(t)
+	defer conn.Close()
 	rightCommit := "742518b2be68fc750bb4c357c0df821a88113286"
 	leftCommit := "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab"
 	rpcRequest := &pb.CommitDiffRequest{Repository: testRepo, RightCommitId: rightCommit, LeftCommitId: leftCommit, IgnoreWhitespaceChange: false}
 
-	c, err := client.CommitDiff(context.Background(), rpcRequest)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	c, err := client.CommitDiff(ctx, rpcRequest)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -161,7 +165,8 @@ func TestSuccessfulCommitDiffRequestWithPaths(t *testing.T) {
 	server := runDiffServer(t)
 	defer server.Stop()
 
-	client := newDiffClient(t)
+	client, conn := newDiffClient(t)
+	defer conn.Close()
 	rightCommit := "e4003da16c1c2c3fc4567700121b17bf8e591c6c"
 	leftCommit := "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab"
 	rpcRequest := &pb.CommitDiffRequest{
@@ -177,7 +182,9 @@ func TestSuccessfulCommitDiffRequestWithPaths(t *testing.T) {
 		},
 	}
 
-	c, err := client.CommitDiff(context.Background(), rpcRequest)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	c, err := client.CommitDiff(ctx, rpcRequest)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -232,7 +239,8 @@ func TestSuccessfulCommitDiffRequestWithTypeChangeDiff(t *testing.T) {
 	server := runDiffServer(t)
 	defer server.Stop()
 
-	client := newDiffClient(t)
+	client, conn := newDiffClient(t)
+	defer conn.Close()
 	rightCommit := "184a47d38677e2e439964859b877ae9bc424ab11"
 	leftCommit := "80d56eb72ba5d77fd8af857eced17a7d0640cb82"
 	rpcRequest := &pb.CommitDiffRequest{
@@ -241,7 +249,9 @@ func TestSuccessfulCommitDiffRequestWithTypeChangeDiff(t *testing.T) {
 		LeftCommitId:  leftCommit,
 	}
 
-	c, err := client.CommitDiff(context.Background(), rpcRequest)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	c, err := client.CommitDiff(ctx, rpcRequest)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -276,7 +286,8 @@ func TestSuccessfulCommitDiffRequestWithIgnoreWhitespaceChange(t *testing.T) {
 	server := runDiffServer(t)
 	defer server.Stop()
 
-	client := newDiffClient(t)
+	client, conn := newDiffClient(t)
+	defer conn.Close()
 	rightCommit := "e4003da16c1c2c3fc4567700121b17bf8e591c6c"
 	leftCommit := "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab"
 
@@ -343,34 +354,41 @@ func TestSuccessfulCommitDiffRequestWithIgnoreWhitespaceChange(t *testing.T) {
 	}
 
 	pathsAndDiffs := []struct {
+		desc  string
 		paths [][]byte
 		diffs []diff.Diff
 	}{
 		{
+			desc:  "whitespace paths",
 			paths: whitespacePaths,
 			diffs: expectedWhitespaceDiffs,
 		},
 		{
+			desc:  "whitespace paths and normal paths",
 			paths: append(whitespacePaths, normalPaths...),
 			diffs: append(expectedWhitespaceDiffs, expectedNormalDiffs...),
 		},
 	}
 
 	for _, entry := range pathsAndDiffs {
-		rpcRequest := &pb.CommitDiffRequest{
-			Repository:             testRepo,
-			RightCommitId:          rightCommit,
-			LeftCommitId:           leftCommit,
-			IgnoreWhitespaceChange: true,
-			Paths: entry.paths,
-		}
+		t.Run(entry.desc, func(t *testing.T) {
+			rpcRequest := &pb.CommitDiffRequest{
+				Repository:             testRepo,
+				RightCommitId:          rightCommit,
+				LeftCommitId:           leftCommit,
+				IgnoreWhitespaceChange: true,
+				Paths: entry.paths,
+			}
 
-		c, err := client.CommitDiff(context.Background(), rpcRequest)
-		if err != nil {
-			t.Fatal(err)
-		}
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			c, err := client.CommitDiff(ctx, rpcRequest)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-		assertExactReceivedDiffs(t, c, entry.diffs)
+			assertExactReceivedDiffs(t, c, entry.diffs)
+		})
 	}
 }
 
@@ -378,7 +396,8 @@ func TestSuccessfulCommitDiffRequestWithLimits(t *testing.T) {
 	server := runDiffServer(t)
 	defer server.Stop()
 
-	client := newDiffClient(t)
+	client, conn := newDiffClient(t)
+	defer conn.Close()
 	rightCommit := "899d3d27b04690ac1cd9ef4d8a74fde0667c57f1"
 	leftCommit := "184a47d38677e2e439964859b877ae9bc424ab11"
 
@@ -531,35 +550,38 @@ func TestSuccessfulCommitDiffRequestWithLimits(t *testing.T) {
 	}
 
 	for _, requestAndResult := range requestsAndResults {
-		t.Logf("test case: %s", requestAndResult.desc)
+		t.Run(requestAndResult.desc, func(t *testing.T) {
 
-		request := requestAndResult.request
-		request.Repository = testRepo
-		request.LeftCommitId = leftCommit
-		request.RightCommitId = rightCommit
+			request := requestAndResult.request
+			request.Repository = testRepo
+			request.LeftCommitId = leftCommit
+			request.RightCommitId = rightCommit
 
-		c, err := client.CommitDiff(context.Background(), &request)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		receivedDiffs := getDiffsFromCommitDiffClient(t, c)
-
-		require.Equal(t, len(requestAndResult.result), len(receivedDiffs), "number of diffs received")
-		for i, diff := range receivedDiffs {
-			if overflowMarker := requestAndResult.result[i].overflowMarker; overflowMarker {
-				require.Equal(t, overflowMarker, diff.OverflowMarker, "overflow marker")
-				continue
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			c, err := client.CommitDiff(ctx, &request)
+			if err != nil {
+				t.Fatal(err)
 			}
 
-			require.Equal(t, requestAndResult.result[i].path, string(diff.FromPath), "path")
+			receivedDiffs := getDiffsFromCommitDiffClient(t, c)
 
-			collapsed := requestAndResult.result[i].collapsed
-			require.Equal(t, collapsed, diff.Collapsed, "collapsed")
-			if collapsed {
-				require.Empty(t, diff.Patch, "patch")
+			require.Equal(t, len(requestAndResult.result), len(receivedDiffs), "number of diffs received")
+			for i, diff := range receivedDiffs {
+				if overflowMarker := requestAndResult.result[i].overflowMarker; overflowMarker {
+					require.Equal(t, overflowMarker, diff.OverflowMarker, "overflow marker")
+					continue
+				}
+
+				require.Equal(t, requestAndResult.result[i].path, string(diff.FromPath), "path")
+
+				collapsed := requestAndResult.result[i].collapsed
+				require.Equal(t, collapsed, diff.Collapsed, "collapsed")
+				if collapsed {
+					require.Empty(t, diff.Patch, "patch")
+				}
 			}
-		}
+		})
 	}
 }
 
@@ -567,7 +589,8 @@ func TestFailedCommitDiffRequestDueToValidationError(t *testing.T) {
 	server := runDiffServer(t)
 	defer server.Stop()
 
-	client := newDiffClient(t)
+	client, conn := newDiffClient(t)
+	defer conn.Close()
 	rightCommit := "d42783470dc29fde2cf459eb3199ee1d7e3f3a72"
 	leftCommit := rightCommit + "~" // Parent of rightCommit
 
@@ -579,15 +602,18 @@ func TestFailedCommitDiffRequestDueToValidationError(t *testing.T) {
 	}
 
 	for _, rpcRequest := range rpcRequests {
-		t.Logf("test case: %v", rpcRequest)
+		t.Run(fmt.Sprintf("%v", rpcRequest), func(t *testing.T) {
 
-		c, err := client.CommitDiff(context.Background(), &rpcRequest)
-		if err != nil {
-			t.Fatal(err)
-		}
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			c, err := client.CommitDiff(ctx, &rpcRequest)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-		err = drainCommitDiffResponse(c)
-		testhelper.AssertGrpcError(t, err, codes.InvalidArgument, "")
+			err = drainCommitDiffResponse(c)
+			testhelper.AssertGrpcError(t, err, codes.InvalidArgument, "")
+		})
 	}
 }
 
@@ -595,12 +621,15 @@ func TestFailedCommitDiffRequestWithNonExistentCommit(t *testing.T) {
 	server := runDiffServer(t)
 	defer server.Stop()
 
-	client := newDiffClient(t)
+	client, conn := newDiffClient(t)
+	defer conn.Close()
 	nonExistentCommitID := "deadfacedeadfacedeadfacedeadfacedeadface"
 	leftCommit := nonExistentCommitID + "~" // Parent of rightCommit
 	rpcRequest := &pb.CommitDiffRequest{Repository: testRepo, RightCommitId: nonExistentCommitID, LeftCommitId: leftCommit}
 
-	c, err := client.CommitDiff(context.Background(), rpcRequest)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	c, err := client.CommitDiff(ctx, rpcRequest)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -613,12 +642,15 @@ func TestSuccessfulCommitDeltaRequest(t *testing.T) {
 	server := runDiffServer(t)
 	defer server.Stop()
 
-	client := newDiffClient(t)
+	client, conn := newDiffClient(t)
+	defer conn.Close()
 	rightCommit := "742518b2be68fc750bb4c357c0df821a88113286"
 	leftCommit := "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab"
 	rpcRequest := &pb.CommitDeltaRequest{Repository: testRepo, RightCommitId: rightCommit, LeftCommitId: leftCommit}
 
-	c, err := client.CommitDelta(context.Background(), rpcRequest)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	c, err := client.CommitDelta(ctx, rpcRequest)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -729,7 +761,8 @@ func TestSuccessfulCommitDeltaRequestWithPaths(t *testing.T) {
 	server := runDiffServer(t)
 	defer server.Stop()
 
-	client := newDiffClient(t)
+	client, conn := newDiffClient(t)
+	defer conn.Close()
 	rightCommit := "e4003da16c1c2c3fc4567700121b17bf8e591c6c"
 	leftCommit := "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab"
 	rpcRequest := &pb.CommitDeltaRequest{
@@ -744,7 +777,9 @@ func TestSuccessfulCommitDeltaRequestWithPaths(t *testing.T) {
 		},
 	}
 
-	c, err := client.CommitDelta(context.Background(), rpcRequest)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	c, err := client.CommitDelta(ctx, rpcRequest)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -791,7 +826,8 @@ func TestFailedCommitDeltaRequestDueToValidationError(t *testing.T) {
 	server := runDiffServer(t)
 	defer server.Stop()
 
-	client := newDiffClient(t)
+	client, conn := newDiffClient(t)
+	defer conn.Close()
 	rightCommit := "d42783470dc29fde2cf459eb3199ee1d7e3f3a72"
 	leftCommit := rightCommit + "~" // Parent of rightCommit
 
@@ -803,15 +839,18 @@ func TestFailedCommitDeltaRequestDueToValidationError(t *testing.T) {
 	}
 
 	for _, rpcRequest := range rpcRequests {
-		t.Logf("test case: %v", rpcRequest)
+		t.Run(fmt.Sprintf("%v", rpcRequest), func(t *testing.T) {
 
-		c, err := client.CommitDelta(context.Background(), &rpcRequest)
-		if err != nil {
-			t.Fatal(err)
-		}
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			c, err := client.CommitDelta(ctx, &rpcRequest)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-		err = drainCommitDeltaResponse(c)
-		testhelper.AssertGrpcError(t, err, codes.InvalidArgument, "")
+			err = drainCommitDeltaResponse(c)
+			testhelper.AssertGrpcError(t, err, codes.InvalidArgument, "")
+		})
 	}
 }
 
@@ -819,12 +858,15 @@ func TestFailedCommitDeltaRequestWithNonExistentCommit(t *testing.T) {
 	server := runDiffServer(t)
 	defer server.Stop()
 
-	client := newDiffClient(t)
+	client, conn := newDiffClient(t)
+	defer conn.Close()
 	nonExistentCommitID := "deadfacedeadfacedeadfacedeadfacedeadface"
 	leftCommit := nonExistentCommitID + "~" // Parent of rightCommit
 	rpcRequest := &pb.CommitDeltaRequest{Repository: testRepo, RightCommitId: nonExistentCommitID, LeftCommitId: leftCommit}
 
-	c, err := client.CommitDelta(context.Background(), rpcRequest)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	c, err := client.CommitDelta(ctx, rpcRequest)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -834,7 +876,7 @@ func TestFailedCommitDeltaRequestWithNonExistentCommit(t *testing.T) {
 }
 
 func runDiffServer(t *testing.T) *grpc.Server {
-	server := testhelper.NewTestGrpcServer(t)
+	server := testhelper.NewTestGrpcServer(t, nil, nil)
 	listener, err := net.Listen("unix", serverSocketPath)
 	if err != nil {
 		t.Fatal(err)
@@ -848,7 +890,7 @@ func runDiffServer(t *testing.T) *grpc.Server {
 	return server
 }
 
-func newDiffClient(t *testing.T) pb.DiffClient {
+func newDiffClient(t *testing.T) (pb.DiffClient, *grpc.ClientConn) {
 	connOpts := []grpc.DialOption{
 		grpc.WithInsecure(),
 		grpc.WithDialer(func(addr string, _ time.Duration) (net.Conn, error) {
@@ -860,7 +902,7 @@ func newDiffClient(t *testing.T) pb.DiffClient {
 		t.Fatal(err)
 	}
 
-	return pb.NewDiffClient(conn)
+	return pb.NewDiffClient(conn), conn
 }
 
 func drainCommitDiffResponse(c pb.Diff_CommitDiffClient) error {
@@ -870,8 +912,6 @@ func drainCommitDiffResponse(c pb.Diff_CommitDiffClient) error {
 			return err
 		}
 	}
-
-	return nil
 }
 
 func drainCommitDeltaResponse(c pb.Diff_CommitDeltaClient) error {
@@ -881,8 +921,6 @@ func drainCommitDeltaResponse(c pb.Diff_CommitDeltaClient) error {
 			return err
 		}
 	}
-
-	return nil
 }
 
 func getDiffsFromCommitDiffClient(t *testing.T, client pb.DiffService_CommitDiffClient) []*diff.Diff {

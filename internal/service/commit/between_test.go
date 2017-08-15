@@ -13,10 +13,11 @@ import (
 )
 
 func TestSuccessfulCommitsBetween(t *testing.T) {
-	service, ruby, serverSocketPath := startTestServices(t)
-	defer stopTestServices(service, ruby)
+	server := startTestServices(t)
+	defer server.Stop()
 
-	client := newCommitServiceClient(t, serverSocketPath)
+	client, conn := newCommitServiceClient(t, serverSocketPath)
+	defer conn.Close()
 	from := []byte("498214de67004b1da3d820901307bed2a68a8ef6") // branch-merged
 	to := []byte("e63f41fe459e62e1228fcef60d7189127aeba95a")   // master
 	fakeHash := []byte("f63f41fe459e62e1228fcef60d7189127aeba95a")
@@ -133,40 +134,44 @@ func TestSuccessfulCommitsBetween(t *testing.T) {
 		},
 	}
 	for _, tc := range testCases {
-		commits := []*pb.GitCommit{}
-		t.Logf("test case: %v", tc.description)
-		rpcRequest := pb.CommitsBetweenRequest{
-			Repository: testRepo, From: tc.from, To: tc.to,
-		}
+		t.Run(tc.description, func(t *testing.T) {
+			commits := []*pb.GitCommit{}
+			rpcRequest := pb.CommitsBetweenRequest{
+				Repository: testRepo, From: tc.from, To: tc.to,
+			}
 
-		c, err := client.CommitsBetween(context.Background(), &rpcRequest)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		for {
-			resp, err := c.Recv()
-			if err == io.EOF {
-				break
-			} else if err != nil {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			c, err := client.CommitsBetween(ctx, &rpcRequest)
+			if err != nil {
 				t.Fatal(err)
 			}
-			commits = append(commits, resp.GetCommits()...)
-		}
 
-		for i, commit := range commits {
-			if !testhelper.CommitsEqual(commit, expectedCommits[i]) {
-				t.Fatalf("Expected commit\n%v\ngot\n%v", expectedCommits[i], commit)
+			for {
+				resp, err := c.Recv()
+				if err == io.EOF {
+					break
+				} else if err != nil {
+					t.Fatal(err)
+				}
+				commits = append(commits, resp.GetCommits()...)
 			}
-		}
+
+			for i, commit := range commits {
+				if !testhelper.CommitsEqual(commit, expectedCommits[i]) {
+					t.Fatalf("Expected commit\n%v\ngot\n%v", expectedCommits[i], commit)
+				}
+			}
+		})
 	}
 }
 
 func TestFailedCommitsBetweenRequest(t *testing.T) {
-	service, ruby, serverSocketPath := startTestServices(t)
-	defer stopTestServices(service, ruby)
+	server := startTestServices(t)
+	defer server.Stop()
 
-	client := newCommitServiceClient(t, serverSocketPath)
+	client, conn := newCommitServiceClient(t, serverSocketPath)
+	defer conn.Close()
 
 	invalidRepo := &pb.Repository{StorageName: "fake", RelativePath: "path"}
 	from := []byte("498214de67004b1da3d820901307bed2a68a8ef6")
@@ -222,18 +227,21 @@ func TestFailedCommitsBetweenRequest(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		t.Logf("test case: %v", tc.description)
-		rpcRequest := pb.CommitsBetweenRequest{
-			Repository: tc.repository, From: tc.from, To: tc.to,
-		}
+		t.Run(tc.description, func(t *testing.T) {
+			rpcRequest := pb.CommitsBetweenRequest{
+				Repository: tc.repository, From: tc.from, To: tc.to,
+			}
 
-		c, err := client.CommitsBetween(context.Background(), &rpcRequest)
-		if err != nil {
-			t.Fatal(err)
-		}
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			c, err := client.CommitsBetween(ctx, &rpcRequest)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-		err = drainCommitsBetweenResponse(c)
-		testhelper.AssertGrpcError(t, err, tc.code, "")
+			err = drainCommitsBetweenResponse(c)
+			testhelper.AssertGrpcError(t, err, tc.code, "")
+		})
 	}
 }
 

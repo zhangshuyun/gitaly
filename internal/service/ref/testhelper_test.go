@@ -91,7 +91,7 @@ func TestMain(m *testing.M) {
 
 func runRefServer(t *testing.T) *grpc.Server {
 	os.Remove(serverSocketPath)
-	grpcServer := testhelper.NewTestGrpcServer(t)
+	grpcServer := testhelper.NewTestGrpcServer(t, nil, nil)
 	listener, err := net.Listen("unix", serverSocketPath)
 	if err != nil {
 		t.Fatal(err)
@@ -107,7 +107,7 @@ func runRefServer(t *testing.T) *grpc.Server {
 
 func runRefServiceServer(t *testing.T) *grpc.Server {
 	os.Remove(serverSocketPath)
-	grpcServer := testhelper.NewTestGrpcServer(t)
+	grpcServer := testhelper.NewTestGrpcServer(t, nil, nil)
 
 	listener, err := net.Listen("unix", serverSocketPath)
 	if err != nil {
@@ -122,7 +122,7 @@ func runRefServiceServer(t *testing.T) *grpc.Server {
 	return grpcServer
 }
 
-func newRefClient(t *testing.T) pb.RefClient {
+func newRefClient(t *testing.T) (pb.RefClient, *grpc.ClientConn) {
 	connOpts := []grpc.DialOption{
 		grpc.WithInsecure(),
 		grpc.WithDialer(func(addr string, _ time.Duration) (net.Conn, error) {
@@ -134,10 +134,10 @@ func newRefClient(t *testing.T) pb.RefClient {
 		t.Fatal(err)
 	}
 
-	return pb.NewRefClient(conn)
+	return pb.NewRefClient(conn), conn
 }
 
-func newRefServiceClient(t *testing.T) pb.RefServiceClient {
+func newRefServiceClient(t *testing.T) (pb.RefServiceClient, *grpc.ClientConn) {
 	connOpts := []grpc.DialOption{
 		grpc.WithInsecure(),
 		grpc.WithDialer(func(addr string, _ time.Duration) (net.Conn, error) {
@@ -149,7 +149,7 @@ func newRefServiceClient(t *testing.T) pb.RefServiceClient {
 		t.Fatal(err)
 	}
 
-	return pb.NewRefServiceClient(conn)
+	return pb.NewRefServiceClient(conn), conn
 }
 
 func assertContainsLocalBranch(t *testing.T, branches []*pb.FindLocalBranchResponse, branch *pb.FindLocalBranchResponse) {

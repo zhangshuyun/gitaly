@@ -10,16 +10,19 @@ import (
 )
 
 func TestLanguages(t *testing.T) {
-	service, ruby, serverSocketPath := startTestServices(t)
-	defer stopTestServices(service, ruby)
+	server := startTestServices(t)
+	defer server.Stop()
 
-	client := newCommitServiceClient(t, serverSocketPath)
+	client, conn := newCommitServiceClient(t, serverSocketPath)
+	defer conn.Close()
 	request := &pb.CommitLanguagesRequest{
 		Repository: testRepo,
 		Revision:   []byte("cb19058ecc02d01f8e4290b7e79cafd16a8839b6"),
 	}
 
-	resp, err := client.CommitLanguages(context.Background(), request)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	resp, err := client.CommitLanguages(ctx, request)
 	require.NoError(t, err)
 
 	require.NotZero(t, len(resp.Languages), "number of languages in response")
@@ -56,15 +59,18 @@ func languageEqual(expected, actual *pb.CommitLanguagesResponse_Language) bool {
 }
 
 func TestLanguagesEmptyRevision(t *testing.T) {
-	service, ruby, serverSocketPath := startTestServices(t)
-	defer stopTestServices(service, ruby)
+	server := startTestServices(t)
+	defer server.Stop()
 
-	client := newCommitServiceClient(t, serverSocketPath)
+	client, conn := newCommitServiceClient(t, serverSocketPath)
+	defer conn.Close()
 	request := &pb.CommitLanguagesRequest{
 		Repository: testRepo,
 	}
 
-	resp, err := client.CommitLanguages(context.Background(), request)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	resp, err := client.CommitLanguages(ctx, request)
 	require.NoError(t, err)
 
 	require.NotZero(t, len(resp.Languages), "number of languages in response")

@@ -1,6 +1,7 @@
 package commit
 
 import (
+	"fmt"
 	"io/ioutil"
 	"testing"
 
@@ -15,10 +16,11 @@ import (
 )
 
 func TestSuccessfulRawBlameRequest(t *testing.T) {
-	service, ruby, serverSocketPath := startTestServices(t)
-	defer stopTestServices(service, ruby)
+	server := startTestServices(t)
+	defer server.Stop()
 
-	client := newCommitServiceClient(t, serverSocketPath)
+	client, conn := newCommitServiceClient(t, serverSocketPath)
+	defer conn.Close()
 
 	testCases := []struct {
 		revision, path, data []byte
@@ -41,38 +43,42 @@ func TestSuccessfulRawBlameRequest(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		t.Logf("test case: revision=%q path=%q", testCase.revision, testCase.path)
+		t.Run(fmt.Sprintf("test case: revision=%q path=%q", testCase.revision, testCase.path), func(t *testing.T) {
 
-		request := &pb.RawBlameRequest{
-			Repository: testRepo,
-			Revision:   testCase.revision,
-			Path:       testCase.path,
-		}
+			request := &pb.RawBlameRequest{
+				Repository: testRepo,
+				Revision:   testCase.revision,
+				Path:       testCase.path,
+			}
 
-		c, err := client.RawBlame(context.Background(), request)
-		if err != nil {
-			t.Fatal(err)
-		}
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			c, err := client.RawBlame(ctx, request)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-		sr := streamio.NewReader(func() ([]byte, error) {
-			response, err := c.Recv()
-			return response.GetData(), err
+			sr := streamio.NewReader(func() ([]byte, error) {
+				response, err := c.Recv()
+				return response.GetData(), err
+			})
+
+			blame, err := ioutil.ReadAll(sr)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			require.Equal(t, testCase.data, blame, "blame data mismatched")
 		})
-
-		blame, err := ioutil.ReadAll(sr)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		require.Equal(t, testCase.data, blame, "blame data mismatched")
 	}
 }
 
 func TestFailedRawBlameRequest(t *testing.T) {
-	service, ruby, serverSocketPath := startTestServices(t)
-	defer stopTestServices(service, ruby)
+	server := startTestServices(t)
+	defer server.Stop()
 
-	client := newCommitServiceClient(t, serverSocketPath)
+	client, conn := newCommitServiceClient(t, serverSocketPath)
+	defer conn.Close()
 
 	invalidRepo := &pb.Repository{StorageName: "fake", RelativePath: "path"}
 
@@ -106,20 +112,23 @@ func TestFailedRawBlameRequest(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		t.Logf("test case: %q", testCase.description)
+		t.Run(testCase.description, func(t *testing.T) {
 
-		request := pb.RawBlameRequest{
-			Repository: testCase.repo,
-			Revision:   testCase.revision,
-			Path:       testCase.path,
-		}
+			request := pb.RawBlameRequest{
+				Repository: testCase.repo,
+				Revision:   testCase.revision,
+				Path:       testCase.path,
+			}
 
-		c, err := client.RawBlame(context.Background(), &request)
-		if err != nil {
-			t.Fatal(err)
-		}
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			c, err := client.RawBlame(ctx, &request)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-		testhelper.AssertGrpcError(t, drainRawBlameResponse(c), testCase.code, "")
+			testhelper.AssertGrpcError(t, drainRawBlameResponse(c), testCase.code, "")
+		})
 	}
 }
 

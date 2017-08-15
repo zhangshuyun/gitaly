@@ -19,16 +19,17 @@ func TestSuccessfulScanDeepen(t *testing.T) {
 	}
 
 	for _, example := range examples {
-		desc := fmt.Sprintf(".30s", example.input) // guard against printing very long input
-		reader := bytes.NewReader([]byte(example.input))
-		hasDeepen := scanDeepen(reader)
-		if n := reader.Len(); n != 0 {
-			t.Fatalf("scanDeepen %q: expected reader to be drained, found %d bytes left", desc, n)
-		}
+		t.Run(fmt.Sprintf(".30%s", example.input), func(t *testing.T) {
+			reader := bytes.NewReader([]byte(example.input))
+			hasDeepen := scanDeepen(reader)
+			if n := reader.Len(); n != 0 {
+				t.Fatalf("expected reader to be drained, found %d bytes left", n)
+			}
 
-		if hasDeepen != example.output {
-			t.Fatalf("scanDeepen %q: expected %v, got %v", desc, example.output, hasDeepen)
-		}
+			if hasDeepen != example.output {
+				t.Fatalf("expected %v, got %v", example.output, hasDeepen)
+			}
+		})
 	}
 }
 
@@ -40,8 +41,10 @@ func TestFailedScanDeepen(t *testing.T) {
 	}
 
 	for _, example := range examples {
-		if scanDeepen(bytes.NewReader([]byte(example))) == true {
-			t.Fatalf("scanDeepen %q: expected result to be false, got true", example)
-		}
+		t.Run(example, func(t *testing.T) {
+			if scanDeepen(bytes.NewReader([]byte(example))) == true {
+				t.Fatalf("scanDeepen %q: expected result to be false, got true", example)
+			}
+		})
 	}
 }

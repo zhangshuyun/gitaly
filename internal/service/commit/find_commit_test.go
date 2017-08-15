@@ -11,10 +11,11 @@ import (
 )
 
 func TestSuccessfulFindCommitRequest(t *testing.T) {
-	service, ruby, serverSocketPath := startTestServices(t)
-	defer stopTestServices(service, ruby)
+	server := startTestServices(t)
+	defer server.Stop()
 
-	client := newCommitServiceClient(t, serverSocketPath)
+	client, conn := newCommitServiceClient(t, serverSocketPath)
+	defer conn.Close()
 
 	testCases := []struct {
 		description string
@@ -119,29 +120,32 @@ func TestSuccessfulFindCommitRequest(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		t.Logf("test case: %q", testCase.description)
+		t.Run(testCase.description, func(t *testing.T) {
+			request := &pb.FindCommitRequest{
+				Repository: testRepo,
+				Revision:   []byte(testCase.revision),
+			}
 
-		request := &pb.FindCommitRequest{
-			Repository: testRepo,
-			Revision:   []byte(testCase.revision),
-		}
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			response, err := client.FindCommit(ctx, request)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-		response, err := client.FindCommit(context.Background(), request)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		if !testhelper.CommitsEqual(testCase.commit, response.Commit) {
-			t.Fatalf("Expected commit %v, got %v", testCase.commit, response.Commit)
-		}
+			if !testhelper.CommitsEqual(testCase.commit, response.Commit) {
+				t.Fatalf("Expected commit %v, got %v", testCase.commit, response.Commit)
+			}
+		})
 	}
 }
 
 func TestFailedFindCommitRequest(t *testing.T) {
-	service, ruby, serverSocketPath := startTestServices(t)
-	defer stopTestServices(service, ruby)
+	server := startTestServices(t)
+	defer server.Stop()
 
-	client := newCommitServiceClient(t, serverSocketPath)
+	client, conn := newCommitServiceClient(t, serverSocketPath)
+	defer conn.Close()
 	invalidRepo := &pb.Repository{StorageName: "fake", RelativePath: "path"}
 
 	testCases := []struct {
@@ -155,14 +159,16 @@ func TestFailedFindCommitRequest(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		t.Logf("test case: %q", testCase.description)
+		t.Run(testCase.description, func(t *testing.T) {
+			request := &pb.FindCommitRequest{
+				Repository: testCase.repo,
+				Revision:   testCase.revision,
+			}
 
-		request := &pb.FindCommitRequest{
-			Repository: testCase.repo,
-			Revision:   testCase.revision,
-		}
-
-		_, err := client.FindCommit(context.Background(), request)
-		testhelper.AssertGrpcError(t, err, codes.InvalidArgument, "")
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			_, err := client.FindCommit(ctx, request)
+			testhelper.AssertGrpcError(t, err, codes.InvalidArgument, "")
+		})
 	}
 }

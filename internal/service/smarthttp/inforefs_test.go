@@ -18,10 +18,13 @@ func TestSuccessfulInfoRefsUploadPack(t *testing.T) {
 	server := runSmartHTTPServer(t)
 	defer server.Stop()
 
-	client := newSmartHTTPClient(t)
+	client, conn := newSmartHTTPClient(t)
+	defer conn.Close()
 	rpcRequest := &pb.InfoRefsRequest{Repository: testRepo}
 
-	c, err := client.InfoRefsUploadPack(context.Background(), rpcRequest)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	c, err := client.InfoRefsUploadPack(ctx, rpcRequest)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -44,10 +47,13 @@ func TestSuccessfulInfoRefsReceivePack(t *testing.T) {
 	server := runSmartHTTPServer(t)
 	defer server.Stop()
 
-	client := newSmartHTTPClient(t)
+	client, conn := newSmartHTTPClient(t)
+	defer conn.Close()
 	rpcRequest := &pb.InfoRefsRequest{Repository: testRepo}
 
-	c, err := client.InfoRefsReceivePack(context.Background(), rpcRequest)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	c, err := client.InfoRefsReceivePack(ctx, rpcRequest)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -70,11 +76,14 @@ func TestFailureRepoNotFoundInfoRefsReceivePack(t *testing.T) {
 	server := runSmartHTTPServer(t)
 	defer server.Stop()
 
-	client := newSmartHTTPClient(t)
+	client, conn := newSmartHTTPClient(t)
+	defer conn.Close()
 	repo := &pb.Repository{StorageName: "default", RelativePath: "testdata/data/another_repo"}
 	rpcRequest := &pb.InfoRefsRequest{Repository: repo}
 
-	c, err := client.InfoRefsReceivePack(context.Background(), rpcRequest)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	c, err := client.InfoRefsReceivePack(ctx, rpcRequest)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -89,10 +98,13 @@ func TestFailureRepoNotSetInfoRefsReceivePack(t *testing.T) {
 	server := runSmartHTTPServer(t)
 	defer server.Stop()
 
-	client := newSmartHTTPClient(t)
+	client, conn := newSmartHTTPClient(t)
+	defer conn.Close()
 	rpcRequest := &pb.InfoRefsRequest{}
 
-	c, err := client.InfoRefsReceivePack(context.Background(), rpcRequest)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	c, err := client.InfoRefsReceivePack(ctx, rpcRequest)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -70,10 +70,13 @@ func TestSuccessfulReceivePackRequest(t *testing.T) {
 	fmt.Fprintf(requestBuffer, "%04x%s%s", len(pkt)+4, pkt, pktFlushStr)
 	requestBuffer.Write(pack)
 
-	client := newSmartHTTPClient(t)
+	client, conn := newSmartHTTPClient(t)
+	defer conn.Close()
 	repo := &pb.Repository{StorageName: "default", RelativePath: remoteRepoRelativePath}
 	rpcRequest := &pb.PostReceivePackRequest{Repository: repo, GlId: "user-123", GlRepository: "project-123"}
-	stream, err := client.PostReceivePack(context.Background())
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	stream, err := client.PostReceivePack(ctx)
 	require.NoError(t, err)
 
 	require.NoError(t, stream.Send(rpcRequest))
@@ -106,7 +109,8 @@ func TestFailedReceivePackRequestDueToValidationError(t *testing.T) {
 	server := runSmartHTTPServer(t)
 	defer server.Stop()
 
-	client := newSmartHTTPClient(t)
+	client, conn := newSmartHTTPClient(t)
+	defer conn.Close()
 
 	rpcRequests := []pb.PostReceivePackRequest{
 		{Repository: &pb.Repository{StorageName: "fake", RelativePath: "path"}, GlId: "user-123"},                                  // Repository doesn't exist
@@ -116,15 +120,18 @@ func TestFailedReceivePackRequestDueToValidationError(t *testing.T) {
 	}
 
 	for _, rpcRequest := range rpcRequests {
-		t.Logf("test case: %v", rpcRequest)
-		stream, err := client.PostReceivePack(context.Background())
-		require.NoError(t, err)
+		t.Run(fmt.Sprintf("%v", rpcRequest), func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			stream, err := client.PostReceivePack(ctx)
+			require.NoError(t, err)
 
-		require.NoError(t, stream.Send(&rpcRequest))
-		stream.CloseSend()
+			require.NoError(t, stream.Send(&rpcRequest))
+			stream.CloseSend()
 
-		err = drainPostReceivePackResponse(stream)
-		testhelper.AssertGrpcError(t, err, codes.InvalidArgument, "")
+			err = drainPostReceivePackResponse(stream)
+			testhelper.AssertGrpcError(t, err, codes.InvalidArgument, "")
+		})
 	}
 }
 

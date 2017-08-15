@@ -22,7 +22,7 @@ var (
 	testRepo         = testhelper.TestRepository()
 )
 
-func newRepositoryClient(t *testing.T) pb.RepositoryServiceClient {
+func newRepositoryClient(t *testing.T) (pb.RepositoryServiceClient, *grpc.ClientConn) {
 	connOpts := []grpc.DialOption{
 		grpc.WithInsecure(),
 		grpc.WithDialer(func(addr string, _ time.Duration) (net.Conn, error) {
@@ -34,11 +34,11 @@ func newRepositoryClient(t *testing.T) pb.RepositoryServiceClient {
 		t.Fatal(err)
 	}
 
-	return pb.NewRepositoryServiceClient(conn)
+	return pb.NewRepositoryServiceClient(conn), conn
 }
 
 func runRepoServer(t *testing.T) *grpc.Server {
-	server := testhelper.NewTestGrpcServer(t)
+	server := testhelper.NewTestGrpcServer(t, nil, nil)
 	listener, err := net.Listen("unix", serverSocketPath)
 	if err != nil {
 		t.Fatal(err)

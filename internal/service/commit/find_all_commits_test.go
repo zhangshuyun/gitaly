@@ -31,10 +31,11 @@ func TestSuccessfulFindAllCommitsRequest(t *testing.T) {
 		}, nil
 	}
 
-	service, ruby, serverSocketPath := startTestServices(t)
-	defer stopTestServices(service, ruby)
+	server := startTestServices(t)
+	defer server.Stop()
 
-	client := newCommitServiceClient(t, serverSocketPath)
+	client, conn := newCommitServiceClient(t, serverSocketPath)
+	defer conn.Close()
 
 	// Commits made on another branch in parallel to the normal commits below.
 	// Will be used to test topology ordering.
@@ -247,33 +248,37 @@ func TestSuccessfulFindAllCommitsRequest(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		t.Logf("test case: %v", testCase.desc)
+		t.Run(testCase.desc, func(t *testing.T) {
 
-		request := testCase.request
-		request.Repository = testRepo
+			request := testCase.request
+			request.Repository = testRepo
 
-		c, err := client.FindAllCommits(context.Background(), request)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		receivedCommits := collectCommtsFromFindAllCommitsClient(t, c)
-
-		require.Equal(t, len(testCase.expectedCommits), len(receivedCommits), "number of commits received")
-
-		for i, receivedCommit := range receivedCommits {
-			if !testhelper.CommitsEqual(receivedCommit, testCase.expectedCommits[i]) {
-				t.Fatalf("Expected commit\n%v\ngot\n%v", testCase.expectedCommits[i], receivedCommit)
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			c, err := client.FindAllCommits(ctx, request)
+			if err != nil {
+				t.Fatal(err)
 			}
-		}
+
+			receivedCommits := collectCommtsFromFindAllCommitsClient(t, c)
+
+			require.Equal(t, len(testCase.expectedCommits), len(receivedCommits), "number of commits received")
+
+			for i, receivedCommit := range receivedCommits {
+				if !testhelper.CommitsEqual(receivedCommit, testCase.expectedCommits[i]) {
+					t.Fatalf("Expected commit\n%v\ngot\n%v", testCase.expectedCommits[i], receivedCommit)
+				}
+			}
+		})
 	}
 }
 
 func TestSuccessfulFindAllCommitsRequestWithAltGitObjectDirs(t *testing.T) {
-	service, ruby, serverSocketPath := startTestServices(t)
-	defer stopTestServices(service, ruby)
+	server := startTestServices(t)
+	defer server.Stop()
 
-	client := newCommitServiceClient(t, serverSocketPath)
+	client, conn := newCommitServiceClient(t, serverSocketPath)
+	defer conn.Close()
 
 	committerName := "Scrooge McDuck"
 	committerEmail := "scrooge@mcduck.com"
@@ -329,34 +334,38 @@ func TestSuccessfulFindAllCommitsRequestWithAltGitObjectDirs(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		t.Logf("test case: %q", testCase.desc)
+		t.Run(testCase.desc, func(t *testing.T) {
 
-		request := &pb.FindAllCommitsRequest{
-			Repository: &pb.Repository{
-				StorageName:                   testRepo.StorageName,
-				RelativePath:                  testRepo.RelativePath,
-				GitAlternateObjectDirectories: testCase.altDirs,
-			},
-			Revision: currentHead,
-			MaxCount: 1,
-		}
+			request := &pb.FindAllCommitsRequest{
+				Repository: &pb.Repository{
+					StorageName:                   testRepo.StorageName,
+					RelativePath:                  testRepo.RelativePath,
+					GitAlternateObjectDirectories: testCase.altDirs,
+				},
+				Revision: currentHead,
+				MaxCount: 1,
+			}
 
-		c, err := client.FindAllCommits(context.Background(), request)
-		if err != nil {
-			t.Fatal(err)
-		}
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			c, err := client.FindAllCommits(ctx, request)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-		receivedCommits := collectCommtsFromFindAllCommitsClient(t, c)
+			receivedCommits := collectCommtsFromFindAllCommitsClient(t, c)
 
-		require.Equal(t, testCase.expectedCount, len(receivedCommits), "number of commits received")
+			require.Equal(t, testCase.expectedCount, len(receivedCommits), "number of commits received")
+		})
 	}
 }
 
 func TestFailedFindAllCommitsRequest(t *testing.T) {
-	service, ruby, serverSocketPath := startTestServices(t)
-	defer stopTestServices(service, ruby)
+	server := startTestServices(t)
+	defer server.Stop()
 
-	client := newCommitServiceClient(t, serverSocketPath)
+	client, conn := newCommitServiceClient(t, serverSocketPath)
+	defer conn.Close()
 
 	invalidRepo := &pb.Repository{StorageName: "fake", RelativePath: "path"}
 
@@ -378,15 +387,18 @@ func TestFailedFindAllCommitsRequest(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		t.Logf("test case: %v", testCase.desc)
+		t.Run(testCase.desc, func(t *testing.T) {
 
-		c, err := client.FindAllCommits(context.Background(), testCase.request)
-		if err != nil {
-			t.Fatal(err)
-		}
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			c, err := client.FindAllCommits(ctx, testCase.request)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-		err = drainFindAllCommitsResponse(c)
-		testhelper.AssertGrpcError(t, err, testCase.code, "")
+			err = drainFindAllCommitsResponse(c)
+			testhelper.AssertGrpcError(t, err, testCase.code, "")
+		})
 	}
 }
 

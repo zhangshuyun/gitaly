@@ -1,6 +1,7 @@
 package commit
 
 import (
+	"fmt"
 	"io"
 	"testing"
 
@@ -23,10 +24,11 @@ func TestSuccessfulGetTreeEntries(t *testing.T) {
 	commitID := "913c66a37b4a45b9769037c55c2d238bd0942d2e"
 	rootOid := "faafbe7fe23fb83c664c78aaded9566c8f934412"
 
-	service, ruby, serverSocketPath := startTestServices(t)
-	defer stopTestServices(service, ruby)
+	server := startTestServices(t)
+	defer server.Stop()
 
-	client := newCommitServiceClient(t, serverSocketPath)
+	client, conn := newCommitServiceClient(t, serverSocketPath)
+	defer conn.Close()
 
 	rootEntries := []*pb.TreeEntry{
 		{
@@ -218,20 +220,22 @@ func TestSuccessfulGetTreeEntries(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		t.Logf("test case: %s", testCase.description)
+		t.Run(testCase.description, func(t *testing.T) {
+			request := &pb.GetTreeEntriesRequest{
+				Repository: testRepo,
+				Revision:   testCase.revision,
+				Path:       testCase.path,
+			}
 
-		request := &pb.GetTreeEntriesRequest{
-			Repository: testRepo,
-			Revision:   testCase.revision,
-			Path:       testCase.path,
-		}
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			c, err := client.GetTreeEntries(ctx, request)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-		c, err := client.GetTreeEntries(context.Background(), request)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		assertTreeEntriesReceived(t, c, testCase.entries)
+			assertTreeEntriesReceived(t, c, testCase.entries)
+		})
 	}
 }
 
@@ -265,10 +269,11 @@ func getTreeEntriesFromTreeEntryClient(t *testing.T, client pb.CommitService_Get
 }
 
 func TestFailedGetTreeEntriesRequestDueToValidationError(t *testing.T) {
-	service, ruby, serverSocketPath := startTestServices(t)
-	defer stopTestServices(service, ruby)
+	server := startTestServices(t)
+	defer server.Stop()
 
-	client := newCommitServiceClient(t, serverSocketPath)
+	client, conn := newCommitServiceClient(t, serverSocketPath)
+	defer conn.Close()
 
 	revision := []byte("d42783470dc29fde2cf459eb3199ee1d7e3f3a72")
 	path := []byte("a/b/c")
@@ -281,15 +286,17 @@ func TestFailedGetTreeEntriesRequestDueToValidationError(t *testing.T) {
 	}
 
 	for _, rpcRequest := range rpcRequests {
-		t.Logf("test case: %v", rpcRequest)
+		t.Run(fmt.Sprintf("%v", rpcRequest), func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			c, err := client.GetTreeEntries(ctx, &rpcRequest)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-		c, err := client.GetTreeEntries(context.Background(), &rpcRequest)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		err = drainTreeEntriesResponse(c)
-		testhelper.AssertGrpcError(t, err, codes.InvalidArgument, "")
+			err = drainTreeEntriesResponse(c)
+			testhelper.AssertGrpcError(t, err, codes.InvalidArgument, "")
+		})
 	}
 }
 

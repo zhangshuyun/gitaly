@@ -14,10 +14,11 @@ import (
 )
 
 func TestSuccessfulLastCommitForPathRequest(t *testing.T) {
-	service, ruby, serverSocketPath := startTestServices(t)
-	defer stopTestServices(service, ruby)
+	server := startTestServices(t)
+	defer server.Stop()
 
-	client := newCommitServiceClient(t, serverSocketPath)
+	client, conn := newCommitServiceClient(t, serverSocketPath)
+	defer conn.Close()
 
 	commit := &pb.GitCommit{
 		Id:      "570e7b2abdd848b95f2f578043fc23bd6f6fd24d",
@@ -61,28 +62,31 @@ func TestSuccessfulLastCommitForPathRequest(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		t.Logf("test case: %q", testCase.desc)
+		t.Run(testCase.desc, func(t *testing.T) {
+			request := &pb.LastCommitForPathRequest{
+				Repository: testRepo,
+				Revision:   []byte(testCase.revision),
+				Path:       []byte(testCase.path),
+			}
 
-		request := &pb.LastCommitForPathRequest{
-			Repository: testRepo,
-			Revision:   []byte(testCase.revision),
-			Path:       []byte(testCase.path),
-		}
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			response, err := client.LastCommitForPath(ctx, request)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-		response, err := client.LastCommitForPath(context.Background(), request)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		require.Equal(t, testCase.commit, response.GetCommit(), "mismatched commits")
+			require.Equal(t, testCase.commit, response.GetCommit(), "mismatched commits")
+		})
 	}
 }
 
 func TestFailedLastCommitForPathRequest(t *testing.T) {
-	service, ruby, serverSocketPath := startTestServices(t)
-	defer stopTestServices(service, ruby)
+	server := startTestServices(t)
+	defer server.Stop()
 
-	client := newCommitServiceClient(t, serverSocketPath)
+	client, conn := newCommitServiceClient(t, serverSocketPath)
+	defer conn.Close()
 
 	invalidRepo := &pb.Repository{StorageName: "fake", RelativePath: "path"}
 
@@ -109,9 +113,12 @@ func TestFailedLastCommitForPathRequest(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		t.Logf("test case: %v", testCase.desc)
+		t.Run(testCase.desc, func(t *testing.T) {
 
-		_, err := client.LastCommitForPath(context.Background(), testCase.request)
-		testhelper.AssertGrpcError(t, err, testCase.code, "")
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			_, err := client.LastCommitForPath(ctx, testCase.request)
+			testhelper.AssertGrpcError(t, err, testCase.code, "")
+		})
 	}
 }

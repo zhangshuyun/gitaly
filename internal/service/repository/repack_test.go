@@ -19,7 +19,8 @@ func TestRepackIncrementalSuccess(t *testing.T) {
 	server := runRepoServer(t)
 	defer server.Stop()
 
-	client := newRepositoryClient(t)
+	client, conn := newRepositoryClient(t)
+	defer conn.Close()
 
 	packPath := path.Join(testhelper.GitlabTestStoragePath(), testRepo.GetRelativePath(), "objects", "pack")
 
@@ -28,7 +29,9 @@ func TestRepackIncrementalSuccess(t *testing.T) {
 	// Stamp taken from https://golang.org/pkg/time/#pkg-constants
 	testhelper.MustRunCommand(t, nil, "touch", "-t", testTimeString, path.Join(packPath, "*"))
 	testTime := time.Date(2006, 01, 02, 15, 04, 05, 0, time.UTC)
-	c, err := client.RepackIncremental(context.Background(), &pb.RepackIncrementalRequest{Repository: testRepo})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	c, err := client.RepackIncremental(ctx, &pb.RepackIncrementalRequest{Repository: testRepo})
 	assert.NoError(t, err)
 	assert.NotNil(t, c)
 
@@ -40,7 +43,8 @@ func TestRepackIncrementalFailure(t *testing.T) {
 	server := runRepoServer(t)
 	defer server.Stop()
 
-	client := newRepositoryClient(t)
+	client, conn := newRepositoryClient(t)
+	defer conn.Close()
 
 	tests := []struct {
 		repo *pb.Repository
@@ -54,18 +58,21 @@ func TestRepackIncrementalFailure(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		t.Logf("running test: %q", test.desc)
-		_, err := client.RepackIncremental(context.Background(), &pb.RepackIncrementalRequest{Repository: test.repo})
-		testhelper.AssertGrpcError(t, err, test.code, "")
+		t.Run(test.desc, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			_, err := client.RepackIncremental(ctx, &pb.RepackIncrementalRequest{Repository: test.repo})
+			testhelper.AssertGrpcError(t, err, test.code, "")
+		})
 	}
-
 }
 
 func TestRepackFullSuccess(t *testing.T) {
 	server := runRepoServer(t)
 	defer server.Stop()
 
-	client := newRepositoryClient(t)
+	client, conn := newRepositoryClient(t)
+	defer conn.Close()
 
 	tests := []struct {
 		req  *pb.RepackFullRequest
@@ -78,31 +85,34 @@ func TestRepackFullSuccess(t *testing.T) {
 	packPath := path.Join(testhelper.GitlabTestStoragePath(), testRepo.GetRelativePath(), "objects", "pack")
 
 	for _, test := range tests {
-		// Reset mtime to a long while ago since some filesystems don't have sub-second
-		// precision on `mtime`.
-		testhelper.MustRunCommand(t, nil, "touch", "-t", testTimeString, packPath)
-		t.Logf("running test: %q", test.desc)
-		testTime := time.Date(2006, 01, 02, 15, 04, 05, 0, time.UTC)
-		c, err := client.RepackFull(context.Background(), test.req)
-		assert.NoError(t, err)
-		assert.NotNil(t, c)
+		t.Run(test.desc, func(t *testing.T) {
+			// Reset mtime to a long while ago since some filesystems don't have sub-second
+			// precision on `mtime`.
+			testhelper.MustRunCommand(t, nil, "touch", "-t", testTimeString, packPath)
+			testTime := time.Date(2006, 01, 02, 15, 04, 05, 0, time.UTC)
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			c, err := client.RepackFull(ctx, test.req)
+			assert.NoError(t, err)
+			assert.NotNil(t, c)
 
-		// Entire `path`-folder gets updated so this is fine :D
-		assertModTimeAfter(t, testTime, packPath)
+			// Entire `path`-folder gets updated so this is fine :D
+			assertModTimeAfter(t, testTime, packPath)
 
-		bmPath, err := filepath.Glob(path.Join(packPath, "pack-*.bitmap"))
-		if err != nil {
-			t.Fatalf("Error globbing bitmaps: %v", err)
-		}
-		if test.req.GetCreateBitmap() {
-			if len(bmPath) == 0 {
-				t.Errorf("No bitmaps found")
+			bmPath, err := filepath.Glob(path.Join(packPath, "pack-*.bitmap"))
+			if err != nil {
+				t.Fatalf("Error globbing bitmaps: %v", err)
 			}
-		} else {
-			if len(bmPath) != 0 {
-				t.Errorf("Bitmap found: %v", bmPath)
+			if test.req.GetCreateBitmap() {
+				if len(bmPath) == 0 {
+					t.Errorf("No bitmaps found")
+				}
+			} else {
+				if len(bmPath) != 0 {
+					t.Errorf("Bitmap found: %v", bmPath)
+				}
 			}
-		}
+		})
 	}
 }
 
@@ -110,7 +120,8 @@ func TestRepackFullFailure(t *testing.T) {
 	server := runRepoServer(t)
 	defer server.Stop()
 
-	client := newRepositoryClient(t)
+	client, conn := newRepositoryClient(t)
+	defer conn.Close()
 
 	tests := []struct {
 		repo *pb.Repository
@@ -124,9 +135,11 @@ func TestRepackFullFailure(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		t.Logf("running test: %q", test.desc)
-		_, err := client.RepackFull(context.Background(), &pb.RepackFullRequest{Repository: test.repo})
-		testhelper.AssertGrpcError(t, err, test.code, "")
+		t.Run(test.desc, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			_, err := client.RepackFull(ctx, &pb.RepackFullRequest{Repository: test.repo})
+			testhelper.AssertGrpcError(t, err, test.code, "")
+		})
 	}
-
 }

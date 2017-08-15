@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"fmt"
 	"path"
 	"path/filepath"
 	"testing"
@@ -18,7 +19,8 @@ func TestGarbageCollectSuccess(t *testing.T) {
 	server := runRepoServer(t)
 	defer server.Stop()
 
-	client := newRepositoryClient(t)
+	client, conn := newRepositoryClient(t)
+	defer conn.Close()
 
 	tests := []struct {
 		req  *pb.GarbageCollectRequest
@@ -37,31 +39,34 @@ func TestGarbageCollectSuccess(t *testing.T) {
 	packPath := path.Join(testhelper.GitlabTestStoragePath(), testRepo.GetRelativePath(), "objects", "pack")
 
 	for _, test := range tests {
-		// Reset mtime to a long while ago since some filesystems don't have sub-second
-		// precision on `mtime`.
-		// Stamp taken from https://golang.org/pkg/time/#pkg-constants
-		testhelper.MustRunCommand(t, nil, "touch", "-t", testTimeString, packPath)
-		t.Log(test.desc)
-		c, err := client.GarbageCollect(context.Background(), test.req)
-		assert.NoError(t, err)
-		assert.NotNil(t, c)
+		t.Run(test.desc, func(t *testing.T) {
+			// Reset mtime to a long while ago since some filesystems don't have sub-second
+			// precision on `mtime`.
+			// Stamp taken from https://golang.org/pkg/time/#pkg-constants
+			testhelper.MustRunCommand(t, nil, "touch", "-t", testTimeString, packPath)
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			c, err := client.GarbageCollect(ctx, test.req)
+			assert.NoError(t, err)
+			assert.NotNil(t, c)
 
-		// Entire `path`-folder gets updated so this is fine :D
-		assertModTimeAfter(t, testTime, packPath)
+			// Entire `path`-folder gets updated so this is fine :D
+			assertModTimeAfter(t, testTime, packPath)
 
-		bmPath, err := filepath.Glob(path.Join(packPath, "pack-*.bitmap"))
-		if err != nil {
-			t.Fatalf("Error globbing bitmaps: %v", err)
-		}
-		if test.req.GetCreateBitmap() {
-			if len(bmPath) == 0 {
-				t.Errorf("No bitmaps found")
+			bmPath, err := filepath.Glob(path.Join(packPath, "pack-*.bitmap"))
+			if err != nil {
+				t.Fatalf("Error globbing bitmaps: %v", err)
 			}
-		} else {
-			if len(bmPath) != 0 {
-				t.Errorf("Bitmap found: %v", bmPath)
+			if test.req.GetCreateBitmap() {
+				if len(bmPath) == 0 {
+					t.Errorf("No bitmaps found")
+				}
+			} else {
+				if len(bmPath) != 0 {
+					t.Errorf("Bitmap found: %v", bmPath)
+				}
 			}
-		}
+		})
 	}
 }
 
@@ -69,7 +74,8 @@ func TestGarbageCollectFailure(t *testing.T) {
 	server := runRepoServer(t)
 	defer server.Stop()
 
-	client := newRepositoryClient(t)
+	client, conn := newRepositoryClient(t)
+	defer conn.Close()
 
 	tests := []struct {
 		repo *pb.Repository
@@ -82,8 +88,12 @@ func TestGarbageCollectFailure(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		_, err := client.GarbageCollect(context.Background(), &pb.GarbageCollectRequest{Repository: test.repo})
-		testhelper.AssertGrpcError(t, err, test.code, "")
+		t.Run(fmt.Sprintf("%v", test.repo), func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			_, err := client.GarbageCollect(ctx, &pb.GarbageCollectRequest{Repository: test.repo})
+			testhelper.AssertGrpcError(t, err, test.code, "")
+		})
 	}
 
 }

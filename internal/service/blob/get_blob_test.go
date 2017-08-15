@@ -15,10 +15,11 @@ import (
 )
 
 func TestSuccessfulGetBlob(t *testing.T) {
-	server, serverSocketPath := runBlobServer(t)
+	server := runBlobServer(t)
 	defer server.Stop()
 
-	client := newBlobClient(t, serverSocketPath)
+	client, conn := newBlobClient(t, serverSocketPath)
+	defer conn.Close()
 	maintenanceMdBlobData := testhelper.MustReadFile(t, "testdata/maintenance-md-blob.txt")
 	testCases := []struct {
 		desc     string
@@ -63,31 +64,33 @@ func TestSuccessfulGetBlob(t *testing.T) {
 		},
 	}
 	for _, tc := range testCases {
-		t.Log(tc.desc)
-		request := &pb.GetBlobRequest{
-			Repository: testRepo,
-			Oid:        tc.oid,
-			Limit:      int64(tc.limit),
-		}
+		t.Run(tc.desc, func(t *testing.T) {
+			request := &pb.GetBlobRequest{
+				Repository: testRepo,
+				Oid:        tc.oid,
+				Limit:      int64(tc.limit),
+			}
 
-		stream, err := client.GetBlob(context.Background(), request)
-		require.NoError(t, err, "initiate RPC")
+			stream, err := client.GetBlob(context.Background(), request)
+			require.NoError(t, err, "initiate RPC")
 
-		reportedSize, reportedOid, data, err := getBlob(stream)
-		require.NoError(t, err, "consume response")
+			reportedSize, reportedOid, data, err := getBlob(stream)
+			require.NoError(t, err, "consume response")
 
-		require.Equal(t, int64(tc.size), reportedSize, "real blob size")
+			require.Equal(t, int64(tc.size), reportedSize, "real blob size")
 
-		require.NotEmpty(t, reportedOid)
-		require.True(t, bytes.Equal(tc.contents, data), "returned data exactly as expected")
+			require.NotEmpty(t, reportedOid)
+			require.True(t, bytes.Equal(tc.contents, data), "returned data exactly as expected")
+		})
 	}
 }
 
 func TestGetBlobNotFound(t *testing.T) {
-	server, serverSocketPath := runBlobServer(t)
+	server := runBlobServer(t)
 	defer server.Stop()
 
-	client := newBlobClient(t, serverSocketPath)
+	client, conn := newBlobClient(t, serverSocketPath)
+	defer conn.Close()
 
 	request := &pb.GetBlobRequest{
 		Repository: testRepo,
@@ -133,10 +136,11 @@ func getBlob(stream pb.BlobService_GetBlobClient) (int64, string, []byte, error)
 }
 
 func TestFailedGetBlobRequestDueToValidationError(t *testing.T) {
-	server, serverSocketPath := runBlobServer(t)
+	server := runBlobServer(t)
 	defer server.Stop()
 
-	client := newBlobClient(t, serverSocketPath)
+	client, conn := newBlobClient(t, serverSocketPath)
+	defer conn.Close()
 	oid := "d42783470dc29fde2cf459eb3199ee1d7e3f3a72"
 
 	rpcRequests := []pb.GetBlobRequest{

@@ -195,12 +195,14 @@ func ConfigureRuby() {
 }
 
 // NewTestGrpcServer creates a GRPC Server for testing purposes
-func NewTestGrpcServer(t *testing.T) *grpc.Server {
+func NewTestGrpcServer(t *testing.T, streamInterceptors []grpc.StreamServerInterceptor, unaryInterceptors []grpc.UnaryServerInterceptor) *grpc.Server {
 	logger := NewTestLogger(t)
 	logrusEntry := log.NewEntry(logger).WithField("test", t.Name())
 
+	streamInterceptors = append([]grpc.StreamServerInterceptor{grpc_logrus.StreamServerInterceptor(logrusEntry)}, streamInterceptors...)
+	unaryInterceptors = append([]grpc.UnaryServerInterceptor{grpc_logrus.UnaryServerInterceptor(logrusEntry)}, unaryInterceptors...)
 	return grpc.NewServer(
-		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(grpc_logrus.StreamServerInterceptor(logrusEntry))),
-		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(grpc_logrus.UnaryServerInterceptor(logrusEntry))),
+		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(streamInterceptors...)),
+		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(unaryInterceptors...)),
 	)
 }

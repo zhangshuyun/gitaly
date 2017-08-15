@@ -25,7 +25,7 @@ var (
 )
 
 func runSmartHTTPServer(t *testing.T) *grpc.Server {
-	server := testhelper.NewTestGrpcServer(t)
+	server := testhelper.NewTestGrpcServer(t, nil, nil)
 	listener, err := net.Listen("unix", serverSocketPath)
 	if err != nil {
 		t.Fatal(err)
@@ -39,7 +39,7 @@ func runSmartHTTPServer(t *testing.T) *grpc.Server {
 	return server
 }
 
-func newSmartHTTPClient(t *testing.T) pb.SmartHTTPClient {
+func newSmartHTTPClient(t *testing.T) (pb.SmartHTTPClient, *grpc.ClientConn) {
 	connOpts := []grpc.DialOption{
 		grpc.WithInsecure(),
 		grpc.WithDialer(func(addr string, _ time.Duration) (net.Conn, error) {
@@ -51,7 +51,7 @@ func newSmartHTTPClient(t *testing.T) pb.SmartHTTPClient {
 		t.Fatal(err)
 	}
 
-	return pb.NewSmartHTTPClient(conn)
+	return pb.NewSmartHTTPClient(conn), conn
 }
 
 func newRefServiceClient(t *testing.T) pb.RefServiceClient {

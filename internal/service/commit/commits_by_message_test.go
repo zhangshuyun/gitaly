@@ -15,10 +15,12 @@ import (
 )
 
 func TestSuccessfulCommitsByMessageRequest(t *testing.T) {
-	service, ruby, serverSocketPath := startTestServices(t)
-	defer stopTestServices(service, ruby)
+	server := startTestServices(t)
+	defer server.Stop()
+	defer server.Stop()
 
-	client := newCommitServiceClient(t, serverSocketPath)
+	client, conn := newCommitServiceClient(t, serverSocketPath)
+	defer conn.Close()
 
 	commits := []*pb.GitCommit{
 		{
@@ -114,41 +116,45 @@ func TestSuccessfulCommitsByMessageRequest(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		t.Logf("test case: %v", testCase.desc)
+		t.Run(testCase.desc, func(t *testing.T) {
 
-		request := testCase.request
-		request.Repository = testRepo
+			request := testCase.request
+			request.Repository = testRepo
 
-		c, err := client.CommitsByMessage(context.Background(), request)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		receivedCommits := []*pb.GitCommit{}
-		for {
-			resp, err := c.Recv()
-			if err == io.EOF {
-				break
-			} else if err != nil {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			c, err := client.CommitsByMessage(ctx, request)
+			if err != nil {
 				t.Fatal(err)
 			}
 
-			receivedCommits = append(receivedCommits, resp.GetCommits()...)
-		}
+			receivedCommits := []*pb.GitCommit{}
+			for {
+				resp, err := c.Recv()
+				if err == io.EOF {
+					break
+				} else if err != nil {
+					t.Fatal(err)
+				}
 
-		require.Equal(t, len(testCase.expectedCommits), len(receivedCommits), "number of commits received")
+				receivedCommits = append(receivedCommits, resp.GetCommits()...)
+			}
 
-		for i, receivedCommit := range receivedCommits {
-			require.Equal(t, testCase.expectedCommits[i], receivedCommit, "mismatched commit")
-		}
+			require.Equal(t, len(testCase.expectedCommits), len(receivedCommits), "number of commits received")
+
+			for i, receivedCommit := range receivedCommits {
+				require.Equal(t, testCase.expectedCommits[i], receivedCommit, "mismatched commit")
+			}
+		})
 	}
 }
 
 func TestFailedCommitsByMessageRequest(t *testing.T) {
-	service, ruby, serverSocketPath := startTestServices(t)
-	defer stopTestServices(service, ruby)
+	server := startTestServices(t)
+	defer server.Stop()
 
-	client := newCommitServiceClient(t, serverSocketPath)
+	client, conn := newCommitServiceClient(t, serverSocketPath)
+	defer conn.Close()
 
 	invalidRepo := &pb.Repository{StorageName: "fake", RelativePath: "path"}
 
@@ -175,14 +181,17 @@ func TestFailedCommitsByMessageRequest(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		t.Logf("test case: %v", testCase.desc)
+		t.Run(testCase.desc, func(t *testing.T) {
 
-		c, err := client.CommitsByMessage(context.Background(), testCase.request)
-		if err != nil {
-			t.Fatal(err)
-		}
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			c, err := client.CommitsByMessage(ctx, testCase.request)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-		testhelper.AssertGrpcError(t, drainCommitsByMessageResponse(c), testCase.code, "")
+			testhelper.AssertGrpcError(t, drainCommitsByMessageResponse(c), testCase.code, "")
+		})
 	}
 }
 

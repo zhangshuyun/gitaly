@@ -22,7 +22,8 @@ func TestFailedReceivePackRequestDueToValidationError(t *testing.T) {
 	server := runSSHServer(t)
 	defer server.Stop()
 
-	client := newSSHClient(t)
+	client, conn := newSSHClient(t)
+	defer conn.Close()
 
 	tests := []struct {
 		Desc string
@@ -52,19 +53,22 @@ func TestFailedReceivePackRequestDueToValidationError(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		t.Logf("test case: %v", test.Desc)
-		stream, err := client.SSHReceivePack(context.Background())
-		if err != nil {
-			t.Fatal(err)
-		}
+		t.Run(test.Desc, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			stream, err := client.SSHReceivePack(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-		if err = stream.Send(test.Req); err != nil {
-			t.Fatal(err)
-		}
-		stream.CloseSend()
+			if err = stream.Send(test.Req); err != nil {
+				t.Fatal(err)
+			}
+			stream.CloseSend()
 
-		err = drainPostReceivePackResponse(stream)
-		testhelper.AssertGrpcError(t, err, test.Code, "")
+			err = drainPostReceivePackResponse(stream)
+			testhelper.AssertGrpcError(t, err, test.Code, "")
+		})
 	}
 }
 

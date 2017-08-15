@@ -2,6 +2,7 @@ package commit
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"testing"
 
@@ -49,10 +50,11 @@ func TestListFilesSuccess(t *testing.T) {
 		defaultBranchName = ref.DefaultBranchName
 	}()
 
-	service, ruby, serverSocketPath := startTestServices(t)
-	defer stopTestServices(service, ruby)
+	server := startTestServices(t)
+	defer server.Stop()
 
-	client := newCommitServiceClient(t, serverSocketPath)
+	client, conn := newCommitServiceClient(t, serverSocketPath)
+	defer conn.Close()
 
 	tests := []struct {
 		revision string
@@ -94,45 +96,49 @@ func TestListFilesSuccess(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		var files [][]byte
-		t.Logf("test case: %q", test.revision)
-		rpcRequest := pb.ListFilesRequest{
-			Repository: testRepo, Revision: []byte(test.revision),
-		}
+		t.Run(fmt.Sprintf("test case: %q", test.revision), func(t *testing.T) {
+			var files [][]byte
+			rpcRequest := pb.ListFilesRequest{
+				Repository: testRepo, Revision: []byte(test.revision),
+			}
 
-		c, err := client.ListFiles(context.Background(), &rpcRequest)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		for {
-			resp, err := c.Recv()
-			if err == io.EOF {
-				break
-			} else if err != nil {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			c, err := client.ListFiles(ctx, &rpcRequest)
+			if err != nil {
 				t.Fatal(err)
 			}
-			files = append(files, resp.GetPaths()...)
-		}
 
-		if len(files) != len(test.files) {
-			t.Errorf("incorrect number of files: %d != %d", len(files), len(test.files))
-			continue
-		}
-
-		for i := range files {
-			if !bytes.Equal(files[i], test.files[i]) {
-				t.Errorf("%q != %q", files[i], test.files[i])
+			for {
+				resp, err := c.Recv()
+				if err == io.EOF {
+					break
+				} else if err != nil {
+					t.Fatal(err)
+				}
+				files = append(files, resp.GetPaths()...)
 			}
-		}
+
+			if len(files) != len(test.files) {
+				t.Errorf("incorrect number of files: %d != %d", len(files), len(test.files))
+				return
+			}
+
+			for i := range files {
+				if !bytes.Equal(files[i], test.files[i]) {
+					t.Errorf("%q != %q", files[i], test.files[i])
+				}
+			}
+		})
 	}
 }
 
 func TestListFilesFailure(t *testing.T) {
-	service, ruby, serverSocketPath := startTestServices(t)
-	defer stopTestServices(service, ruby)
+	server := startTestServices(t)
+	defer server.Stop()
 
-	client := newCommitServiceClient(t, serverSocketPath)
+	client, conn := newCommitServiceClient(t, serverSocketPath)
+	defer conn.Close()
 
 	tests := []struct {
 		repo     *pb.Repository
@@ -149,19 +155,22 @@ func TestListFilesFailure(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		t.Logf("test case: %q", test.desc)
+		t.Run(test.desc, func(t *testing.T) {
 
-		rpcRequest := pb.ListFilesRequest{
-			Repository: test.repo, Revision: []byte("master"),
-		}
+			rpcRequest := pb.ListFilesRequest{
+				Repository: test.repo, Revision: []byte("master"),
+			}
 
-		c, err := client.ListFiles(context.Background(), &rpcRequest)
-		if err != nil {
-			t.Fatal(err)
-		}
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			c, err := client.ListFiles(ctx, &rpcRequest)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-		err = drainListFilesResponse(c)
-		testhelper.AssertGrpcError(t, err, test.code, "")
+			err = drainListFilesResponse(c)
+			testhelper.AssertGrpcError(t, err, test.code, "")
+		})
 	}
 }
 

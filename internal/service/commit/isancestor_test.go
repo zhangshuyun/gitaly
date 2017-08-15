@@ -18,10 +18,11 @@ import (
 )
 
 func TestCommitIsAncestorFailure(t *testing.T) {
-	service, ruby, serverSocketPath := startTestServices(t)
-	defer stopTestServices(service, ruby)
+	server := startTestServices(t)
+	defer server.Stop()
 
-	client := newCommitServiceClient(t, serverSocketPath)
+	client, conn := newCommitServiceClient(t, serverSocketPath)
+	defer conn.Close()
 
 	queries := []struct {
 		Request   *pb.CommitIsAncestorRequest
@@ -67,19 +68,24 @@ func TestCommitIsAncestorFailure(t *testing.T) {
 	}
 
 	for _, v := range queries {
-		if _, err := client.CommitIsAncestor(context.Background(), v.Request); err == nil {
-			t.Error("Expected to throw an error")
-		} else if grpc.Code(err) != v.ErrorCode {
-			t.Errorf(v.ErrMsg, err)
-		}
+		t.Run(fmt.Sprintf("%v", v.Request), func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			if _, err := client.CommitIsAncestor(ctx, v.Request); err == nil {
+				t.Error("Expected to throw an error")
+			} else if grpc.Code(err) != v.ErrorCode {
+				t.Errorf(v.ErrMsg, err)
+			}
+		})
 	}
 }
 
 func TestCommitIsAncestorSuccess(t *testing.T) {
-	service, ruby, serverSocketPath := startTestServices(t)
-	defer stopTestServices(service, ruby)
+	server := startTestServices(t)
+	defer server.Stop()
 
-	client := newCommitServiceClient(t, serverSocketPath)
+	client, conn := newCommitServiceClient(t, serverSocketPath)
+	defer conn.Close()
 
 	queries := []struct {
 		Request  *pb.CommitIsAncestorRequest
@@ -152,23 +158,28 @@ func TestCommitIsAncestorSuccess(t *testing.T) {
 	}
 
 	for _, v := range queries {
-		c, err := client.CommitIsAncestor(context.Background(), v.Request)
-		if err != nil {
-			t.Fatalf("CommitIsAncestor threw error unexpectedly: %v", err)
-		}
+		t.Run(fmt.Sprintf("%v", v.Request), func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			c, err := client.CommitIsAncestor(ctx, v.Request)
+			if err != nil {
+				t.Fatalf("CommitIsAncestor threw error unexpectedly: %v", err)
+			}
 
-		response := c.GetValue()
-		if response != v.Response {
-			t.Errorf(v.ErrMsg)
-		}
+			response := c.GetValue()
+			if response != v.Response {
+				t.Errorf(v.ErrMsg)
+			}
+		})
 	}
 }
 
 func TestSuccessfulIsAncestorRequestWithAltGitObjectDirs(t *testing.T) {
-	service, ruby, serverSocketPath := startTestServices(t)
-	defer stopTestServices(service, ruby)
+	server := startTestServices(t)
+	defer server.Stop()
 
-	client := newCommitServiceClient(t, serverSocketPath)
+	client, conn := newCommitServiceClient(t, serverSocketPath)
+	defer conn.Close()
 
 	committerName := "Scrooge McDuck"
 	committerEmail := "scrooge@mcduck.com"
@@ -226,22 +237,25 @@ func TestSuccessfulIsAncestorRequestWithAltGitObjectDirs(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		t.Logf("test case: %q", testCase.desc)
-		request := &pb.CommitIsAncestorRequest{
-			Repository: &pb.Repository{
-				StorageName:                   testRepo.StorageName,
-				RelativePath:                  testRepo.RelativePath,
-				GitAlternateObjectDirectories: testCase.altDirs,
-			},
-			AncestorId: string(previousHead),
-			ChildId:    string(currentHead),
-		}
+		t.Run(testCase.desc, func(t *testing.T) {
+			request := &pb.CommitIsAncestorRequest{
+				Repository: &pb.Repository{
+					StorageName:                   testRepo.StorageName,
+					RelativePath:                  testRepo.RelativePath,
+					GitAlternateObjectDirectories: testCase.altDirs,
+				},
+				AncestorId: string(previousHead),
+				ChildId:    string(currentHead),
+			}
 
-		response, err := client.CommitIsAncestor(context.Background(), request)
-		if err != nil {
-			t.Fatal(err)
-		}
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			response, err := client.CommitIsAncestor(ctx, request)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-		require.Equal(t, testCase.result, response.Value)
+			require.Equal(t, testCase.result, response.Value)
+		})
 	}
 }

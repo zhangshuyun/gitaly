@@ -1,6 +1,7 @@
 package commit
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -15,10 +16,11 @@ import (
 )
 
 func TestSuccessfulCountCommitsRequest(t *testing.T) {
-	service, ruby, serverSocketPath := startTestServices(t)
-	defer stopTestServices(service, ruby)
+	server := startTestServices(t)
+	defer server.Stop()
 
-	client := newCommitServiceClient(t, serverSocketPath)
+	client, conn := newCommitServiceClient(t, serverSocketPath)
+	defer conn.Close()
 
 	testCases := []struct {
 		revision, path      []byte
@@ -69,47 +71,51 @@ func TestSuccessfulCountCommitsRequest(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		t.Logf("test case: %q", testCase.desc)
+		t.Run(testCase.desc, func(t *testing.T) {
 
-		request := &pb.CountCommitsRequest{
-			Repository: testRepo,
-			Revision:   testCase.revision,
-		}
+			request := &pb.CountCommitsRequest{
+				Repository: testRepo,
+				Revision:   testCase.revision,
+			}
 
-		if testCase.before != "" {
-			before, err := time.Parse(time.RFC3339, testCase.before)
+			if testCase.before != "" {
+				before, err := time.Parse(time.RFC3339, testCase.before)
+				if err != nil {
+					t.Fatal(err)
+				}
+				request.Before = &timestamp.Timestamp{Seconds: before.Unix()}
+			}
+
+			if testCase.after != "" {
+				after, err := time.Parse(time.RFC3339, testCase.after)
+				if err != nil {
+					t.Fatal(err)
+				}
+				request.After = &timestamp.Timestamp{Seconds: after.Unix()}
+			}
+
+			if testCase.path != nil {
+				request.Path = testCase.path
+			}
+
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			response, err := client.CountCommits(ctx, request)
 			if err != nil {
 				t.Fatal(err)
 			}
-			request.Before = &timestamp.Timestamp{Seconds: before.Unix()}
-		}
 
-		if testCase.after != "" {
-			after, err := time.Parse(time.RFC3339, testCase.after)
-			if err != nil {
-				t.Fatal(err)
-			}
-			request.After = &timestamp.Timestamp{Seconds: after.Unix()}
-		}
-
-		if testCase.path != nil {
-			request.Path = testCase.path
-		}
-
-		response, err := client.CountCommits(context.Background(), request)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		require.Equal(t, response.Count, testCase.count)
+			require.Equal(t, response.Count, testCase.count)
+		})
 	}
 }
 
 func TestFailedCountCommitsRequestDueToValidationError(t *testing.T) {
-	service, ruby, serverSocketPath := startTestServices(t)
-	defer stopTestServices(service, ruby)
+	server := startTestServices(t)
+	defer server.Stop()
 
-	client := newCommitServiceClient(t, serverSocketPath)
+	client, conn := newCommitServiceClient(t, serverSocketPath)
+	defer conn.Close()
 
 	revision := []byte("d42783470dc29fde2cf459eb3199ee1d7e3f3a72")
 
@@ -120,9 +126,12 @@ func TestFailedCountCommitsRequestDueToValidationError(t *testing.T) {
 	}
 
 	for _, rpcRequest := range rpcRequests {
-		t.Logf("test case: %v", rpcRequest)
+		t.Run(fmt.Sprintf("%v", rpcRequest), func(t *testing.T) {
 
-		_, err := client.CountCommits(context.Background(), &rpcRequest)
-		testhelper.AssertGrpcError(t, err, codes.InvalidArgument, "")
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			_, err := client.CountCommits(ctx, &rpcRequest)
+			testhelper.AssertGrpcError(t, err, codes.InvalidArgument, "")
+		})
 	}
 }

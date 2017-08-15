@@ -23,10 +23,13 @@ func TestSuccessfulPostReceive(t *testing.T) {
 	server := runNotificationsServer(t)
 	defer server.Stop()
 
-	client := newNotificationsClient(t)
+	client, conn := newNotificationsClient(t)
+	defer conn.Close()
 	rpcRequest := &pb.PostReceiveRequest{Repository: testRepo}
 
-	_, err := client.PostReceive(context.Background(), rpcRequest)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	_, err := client.PostReceive(ctx, rpcRequest)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -36,15 +39,18 @@ func TestEmptyPostReceiveRequest(t *testing.T) {
 	server := runNotificationsServer(t)
 	defer server.Stop()
 
-	client := newNotificationsClient(t)
+	client, conn := newNotificationsClient(t)
+	defer conn.Close()
 	rpcRequest := &pb.PostReceiveRequest{}
 
-	_, err := client.PostReceive(context.Background(), rpcRequest)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	_, err := client.PostReceive(ctx, rpcRequest)
 	testhelper.AssertGrpcError(t, err, codes.InvalidArgument, "")
 }
 
 func runNotificationsServer(t *testing.T) *grpc.Server {
-	server := testhelper.NewTestGrpcServer(t)
+	server := testhelper.NewTestGrpcServer(t, nil, nil)
 	listener, err := net.Listen("unix", serverSocketPath)
 	if err != nil {
 		t.Fatal(err)
@@ -58,7 +64,7 @@ func runNotificationsServer(t *testing.T) *grpc.Server {
 	return server
 }
 
-func newNotificationsClient(t *testing.T) pb.NotificationsClient {
+func newNotificationsClient(t *testing.T) (pb.NotificationsClient, *grpc.ClientConn) {
 	connOpts := []grpc.DialOption{
 		grpc.WithInsecure(),
 		grpc.WithDialer(func(addr string, _ time.Duration) (net.Conn, error) {
@@ -70,5 +76,5 @@ func newNotificationsClient(t *testing.T) pb.NotificationsClient {
 		t.Fatal(err)
 	}
 
-	return pb.NewNotificationsClient(conn)
+	return pb.NewNotificationsClient(conn), conn
 }

@@ -41,6 +41,17 @@ interpolating strings. The `%q` operator quotes strings and escapes
 spaces and non-printable characters. This can save a lot of debugging
 time.
 
+## Return statements
+
+### Don't use "naked return"
+
+In a function with named return variables it is valid to have a plain
+("naked") `return` statement, which will return the named return
+variables.
+
+In Gitaly we don't use this feature. If the function returns one or
+more values, then always pass them to `return`.
+
 ## Tests
 
 ### Table-driven tests

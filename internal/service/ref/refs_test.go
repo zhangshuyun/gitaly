@@ -31,10 +31,13 @@ func TestSuccessfulFindAllBranchNames(t *testing.T) {
 	server := runRefServer(t)
 	defer server.Stop()
 
-	client := newRefClient(t)
+	client, conn := newRefClient(t)
+	defer conn.Close()
 	rpcRequest := &pb.FindAllBranchNamesRequest{Repository: testRepo}
 
-	c, err := client.FindAllBranchNames(context.Background(), rpcRequest)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	c, err := client.FindAllBranchNames(ctx, rpcRequest)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,10 +64,13 @@ func TestEmptyFindAllBranchNamesRequest(t *testing.T) {
 	server := runRefServer(t)
 	defer server.Stop()
 
-	client := newRefClient(t)
+	client, conn := newRefClient(t)
+	defer conn.Close()
 	rpcRequest := &pb.FindAllBranchNamesRequest{}
 
-	c, err := client.FindAllBranchNames(context.Background(), rpcRequest)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	c, err := client.FindAllBranchNames(ctx, rpcRequest)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -83,11 +89,14 @@ func TestInvalidRepoFindAllBranchNamesRequest(t *testing.T) {
 	server := runRefServer(t)
 	defer server.Stop()
 
-	client := newRefClient(t)
+	client, conn := newRefClient(t)
+	defer conn.Close()
 	repo := &pb.Repository{StorageName: "default", RelativePath: "made/up/path"}
 	rpcRequest := &pb.FindAllBranchNamesRequest{Repository: repo}
 
-	c, err := client.FindAllBranchNames(context.Background(), rpcRequest)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	c, err := client.FindAllBranchNames(ctx, rpcRequest)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -106,10 +115,13 @@ func TestSuccessfulFindAllTagNames(t *testing.T) {
 	server := runRefServer(t)
 	defer server.Stop()
 
-	client := newRefClient(t)
+	client, conn := newRefClient(t)
+	defer conn.Close()
 	rpcRequest := &pb.FindAllTagNamesRequest{Repository: testRepo}
 
-	c, err := client.FindAllTagNames(context.Background(), rpcRequest)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	c, err := client.FindAllTagNames(ctx, rpcRequest)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -137,10 +149,13 @@ func TestEmptyFindAllTagNamesRequest(t *testing.T) {
 	server := runRefServer(t)
 	defer server.Stop()
 
-	client := newRefClient(t)
+	client, conn := newRefClient(t)
+	defer conn.Close()
 	rpcRequest := &pb.FindAllTagNamesRequest{}
 
-	c, err := client.FindAllTagNames(context.Background(), rpcRequest)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	c, err := client.FindAllTagNames(ctx, rpcRequest)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -159,11 +174,14 @@ func TestInvalidRepoFindAllTagNamesRequest(t *testing.T) {
 	server := runRefServer(t)
 	defer server.Stop()
 
-	client := newRefClient(t)
+	client, conn := newRefClient(t)
+	defer conn.Close()
 	repo := &pb.Repository{StorageName: "default", RelativePath: "made/up/path"}
 	rpcRequest := &pb.FindAllTagNamesRequest{Repository: repo}
 
-	c, err := client.FindAllTagNames(context.Background(), rpcRequest)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	c, err := client.FindAllTagNames(ctx, rpcRequest)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -179,7 +197,9 @@ func TestInvalidRepoFindAllTagNamesRequest(t *testing.T) {
 }
 
 func TestHeadReference(t *testing.T) {
-	headRef, err := headReference(context.Background(), testRepoPath)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	headRef, err := headReference(ctx, testRepoPath)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -196,7 +216,9 @@ func TestHeadReferenceWithNonExistingHead(t *testing.T) {
 		ioutil.WriteFile(testRepoPath+"/HEAD", []byte("ref: refs/heads/master"), 0644)
 	}()
 
-	headRef, err := headReference(context.Background(), testRepoPath)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	headRef, err := headReference(ctx, testRepoPath)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -262,7 +284,9 @@ func TestDefaultBranchName(t *testing.T) {
 		FindBranchNames = testCase.findBranchNames
 		headReference = testCase.headReference
 
-		defaultBranch, err := DefaultBranchName(context.Background(), "")
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		defaultBranch, err := DefaultBranchName(ctx, "")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -276,10 +300,13 @@ func TestSuccessfulFindDefaultBranchName(t *testing.T) {
 	server := runRefServer(t)
 	defer server.Stop()
 
-	client := newRefClient(t)
+	client, conn := newRefClient(t)
+	defer conn.Close()
 	rpcRequest := &pb.FindDefaultBranchNameRequest{Repository: testRepo}
 
-	r, err := client.FindDefaultBranchName(context.Background(), rpcRequest)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	r, err := client.FindDefaultBranchName(ctx, rpcRequest)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -293,10 +320,13 @@ func TestEmptyFindDefaultBranchNameRequest(t *testing.T) {
 	server := runRefServer(t)
 	defer server.Stop()
 
-	client := newRefClient(t)
+	client, conn := newRefClient(t)
+	defer conn.Close()
 	rpcRequest := &pb.FindDefaultBranchNameRequest{}
 
-	_, err := client.FindDefaultBranchName(context.Background(), rpcRequest)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	_, err := client.FindDefaultBranchName(ctx, rpcRequest)
 
 	if grpc.Code(err) != codes.InvalidArgument {
 		t.Fatal(err)
@@ -307,11 +337,14 @@ func TestInvalidRepoFindDefaultBranchNameRequest(t *testing.T) {
 	server := runRefServer(t)
 	defer server.Stop()
 
-	client := newRefClient(t)
+	client, conn := newRefClient(t)
+	defer conn.Close()
 	repo := &pb.Repository{StorageName: "default", RelativePath: "/made/up/path"}
 	rpcRequest := &pb.FindDefaultBranchNameRequest{Repository: repo}
 
-	_, err := client.FindDefaultBranchName(context.Background(), rpcRequest)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	_, err := client.FindDefaultBranchName(ctx, rpcRequest)
 
 	if grpc.Code(err) != codes.NotFound {
 		t.Fatal(err)
@@ -351,7 +384,8 @@ func TestSuccessfulFindAllTagsRequest(t *testing.T) {
 		"-c", fmt.Sprintf("user.email=%s", committerEmail),
 		"tag", "v1.4.0", blobID)
 
-	client := newRefServiceClient(t)
+	client, conn := newRefServiceClient(t)
+	defer conn.Close()
 	rpcRequest := &pb.FindAllTagsRequest{
 		Repository: &pb.Repository{
 			StorageName:  testRepo.StorageName,
@@ -359,7 +393,9 @@ func TestSuccessfulFindAllTagsRequest(t *testing.T) {
 		},
 	}
 
-	c, err := client.FindAllTags(context.Background(), rpcRequest)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	c, err := client.FindAllTags(ctx, rpcRequest)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -466,7 +502,8 @@ func TestInvalidFindAllTagsRequest(t *testing.T) {
 	server := runRefServiceServer(t)
 	defer server.Stop()
 
-	client := newRefServiceClient(t)
+	client, conn := newRefServiceClient(t)
+	defer conn.Close()
 	testCases := []struct {
 		desc    string
 		request *pb.FindAllTagsRequest
@@ -487,19 +524,21 @@ func TestInvalidFindAllTagsRequest(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		t.Logf("test case: %v", tc.desc)
+		t.Run(tc.desc, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			c, err := client.FindAllTags(ctx, tc.request)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-		c, err := client.FindAllTags(context.Background(), tc.request)
-		if err != nil {
-			t.Fatal(err)
-		}
+			var recvError error
+			for recvError == nil {
+				_, recvError = c.Recv()
+			}
 
-		var recvError error
-		for recvError == nil {
-			_, recvError = c.Recv()
-		}
-
-		testhelper.AssertGrpcError(t, recvError, codes.InvalidArgument, "")
+			testhelper.AssertGrpcError(t, recvError, codes.InvalidArgument, "")
+		})
 	}
 }
 
@@ -507,10 +546,13 @@ func TestSuccessfulFindLocalBranches(t *testing.T) {
 	server := runRefServer(t)
 	defer server.Stop()
 
-	client := newRefClient(t)
+	client, conn := newRefClient(t)
+	defer conn.Close()
 	rpcRequest := &pb.FindLocalBranchesRequest{Repository: testRepo}
 
-	c, err := client.FindLocalBranches(context.Background(), rpcRequest)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	c, err := client.FindLocalBranches(ctx, rpcRequest)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -591,33 +633,38 @@ func TestFindLocalBranchesSort(t *testing.T) {
 	server := runRefServer(t)
 	defer server.Stop()
 
-	client := newRefClient(t)
+	client, conn := newRefClient(t)
+	defer conn.Close()
 
 	for _, testCase := range testCases {
-		rpcRequest := &pb.FindLocalBranchesRequest{Repository: testRepo, SortBy: testCase.sortBy}
+		t.Run(testCase.desc, func(t *testing.T) {
+			rpcRequest := &pb.FindLocalBranchesRequest{Repository: testRepo, SortBy: testCase.sortBy}
 
-		c, err := client.FindLocalBranches(context.Background(), rpcRequest)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		var branches []string
-		for {
-			r, err := c.Recv()
-			if err == io.EOF {
-				break
-			}
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			c, err := client.FindLocalBranches(ctx, rpcRequest)
 			if err != nil {
 				t.Fatal(err)
 			}
-			for _, branch := range r.GetBranches() {
-				branches = append(branches, string(branch.Name))
-			}
-		}
 
-		if !isOrderedSubset(testCase.relativeOrder, branches) {
-			t.Fatalf("%s: Expected branches to have relative order %v; got them as %v", testCase.desc, testCase.relativeOrder, branches)
-		}
+			var branches []string
+			for {
+				r, err := c.Recv()
+				if err == io.EOF {
+					break
+				}
+				if err != nil {
+					t.Fatal(err)
+				}
+				for _, branch := range r.GetBranches() {
+					branches = append(branches, string(branch.Name))
+				}
+			}
+
+			if !isOrderedSubset(testCase.relativeOrder, branches) {
+				t.Fatalf("%s: Expected branches to have relative order %v; got them as %v", testCase.desc, testCase.relativeOrder, branches)
+			}
+		})
 	}
 }
 
@@ -625,10 +672,13 @@ func TestEmptyFindLocalBranchesRequest(t *testing.T) {
 	server := runRefServer(t)
 	defer server.Stop()
 
-	client := newRefClient(t)
+	client, conn := newRefClient(t)
+	defer conn.Close()
 	rpcRequest := &pb.FindLocalBranchesRequest{}
 
-	c, err := client.FindLocalBranches(context.Background(), rpcRequest)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	c, err := client.FindLocalBranches(ctx, rpcRequest)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -680,8 +730,11 @@ func TestSuccessfulFindAllBranchesRequest(t *testing.T) {
 	defer deleteRemoteBranch(t, testRepoPath, "origin", "fake-remote-branch")
 
 	request := &pb.FindAllBranchesRequest{Repository: testRepo}
-	client := newRefServiceClient(t)
-	c, err := client.FindAllBranches(context.Background(), request)
+	client, conn := newRefServiceClient(t)
+	defer conn.Close()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	c, err := client.FindAllBranches(ctx, request)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -715,7 +768,8 @@ func TestInvalidFindAllBranchesRequest(t *testing.T) {
 	server := runRefServiceServer(t)
 	defer server.Stop()
 
-	client := newRefServiceClient(t)
+	client, conn := newRefServiceClient(t)
+	defer conn.Close()
 	testCases := []struct {
 		description string
 		request     pb.FindAllBranchesRequest
@@ -736,18 +790,21 @@ func TestInvalidFindAllBranchesRequest(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		t.Logf("test case: %v", tc.description)
+		t.Run(tc.description, func(t *testing.T) {
 
-		c, err := client.FindAllBranches(context.Background(), &tc.request)
-		if err != nil {
-			t.Fatal(err)
-		}
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			c, err := client.FindAllBranches(ctx, &tc.request)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-		var recvError error
-		for recvError == nil {
-			_, recvError = c.Recv()
-		}
+			var recvError error
+			for recvError == nil {
+				_, recvError = c.Recv()
+			}
 
-		testhelper.AssertGrpcError(t, recvError, codes.InvalidArgument, "")
+			testhelper.AssertGrpcError(t, recvError, codes.InvalidArgument, "")
+		})
 	}
 }

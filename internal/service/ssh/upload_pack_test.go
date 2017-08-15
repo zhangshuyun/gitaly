@@ -21,7 +21,8 @@ func TestFailedUploadPackRequestDueToValidationError(t *testing.T) {
 	server := runSSHServer(t)
 	defer server.Stop()
 
-	client := newSSHClient(t)
+	client, conn := newSSHClient(t)
+	defer conn.Close()
 
 	tests := []struct {
 		Desc string
@@ -46,19 +47,22 @@ func TestFailedUploadPackRequestDueToValidationError(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		t.Logf("test case: %s", test.Desc)
-		stream, err := client.SSHUploadPack(context.Background())
-		if err != nil {
-			t.Fatal(err)
-		}
+		t.Run(test.Desc, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			stream, err := client.SSHUploadPack(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-		if err = stream.Send(test.Req); err != nil {
-			t.Fatal(err)
-		}
-		stream.CloseSend()
+			if err = stream.Send(test.Req); err != nil {
+				t.Fatal(err)
+			}
+			stream.CloseSend()
 
-		err = drainPostUploadPackResponse(stream)
-		testhelper.AssertGrpcError(t, err, test.Code, "")
+			err = drainPostUploadPackResponse(stream)
+			testhelper.AssertGrpcError(t, err, test.Code, "")
+		})
 	}
 }
 

@@ -2,6 +2,7 @@ package commit
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"testing"
 
@@ -22,10 +23,11 @@ type treeEntry struct {
 }
 
 func TestSuccessfulTreeEntry(t *testing.T) {
-	service, ruby, serverSocketPath := startTestServices(t)
-	defer stopTestServices(service, ruby)
+	server := startTestServices(t)
+	defer server.Stop()
 
-	client := newCommitServiceClient(t, serverSocketPath)
+	client, conn := newCommitServiceClient(t, serverSocketPath)
+	defer conn.Close()
 
 	testCases := []struct {
 		revision          []byte
@@ -121,29 +123,33 @@ func TestSuccessfulTreeEntry(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		t.Logf("test case: revision=%q path=%q", testCase.revision, testCase.path)
+		t.Run(fmt.Sprintf("test case: revision=%q path=%q", testCase.revision, testCase.path), func(t *testing.T) {
 
-		request := &pb.TreeEntryRequest{
-			Repository: testRepo,
-			Revision:   testCase.revision,
-			Path:       testCase.path,
-			Limit:      testCase.limit,
-		}
+			request := &pb.TreeEntryRequest{
+				Repository: testRepo,
+				Revision:   testCase.revision,
+				Path:       testCase.path,
+				Limit:      testCase.limit,
+			}
 
-		c, err := client.TreeEntry(context.Background(), request)
-		if err != nil {
-			t.Fatal(err)
-		}
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			c, err := client.TreeEntry(ctx, request)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-		assertExactReceivedTreeEntry(t, c, &testCase.expectedTreeEntry)
+			assertExactReceivedTreeEntry(t, c, &testCase.expectedTreeEntry)
+		})
 	}
 }
 
 func TestFailedTreeEntryRequestDueToValidationError(t *testing.T) {
-	service, ruby, serverSocketPath := startTestServices(t)
-	defer stopTestServices(service, ruby)
+	server := startTestServices(t)
+	defer server.Stop()
 
-	client := newCommitServiceClient(t, serverSocketPath)
+	client, conn := newCommitServiceClient(t, serverSocketPath)
+	defer conn.Close()
 
 	revision := []byte("d42783470dc29fde2cf459eb3199ee1d7e3f3a72")
 	path := []byte("a/b/c")
@@ -156,15 +162,18 @@ func TestFailedTreeEntryRequestDueToValidationError(t *testing.T) {
 	}
 
 	for _, rpcRequest := range rpcRequests {
-		t.Logf("test case: %v", rpcRequest)
+		t.Run(fmt.Sprintf("%+v", rpcRequest), func(t *testing.T) {
 
-		c, err := client.TreeEntry(context.Background(), &rpcRequest)
-		if err != nil {
-			t.Fatal(err)
-		}
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			c, err := client.TreeEntry(ctx, &rpcRequest)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-		err = drainTreeEntryResponse(c)
-		testhelper.AssertGrpcError(t, err, codes.InvalidArgument, "")
+			err = drainTreeEntryResponse(c)
+			testhelper.AssertGrpcError(t, err, codes.InvalidArgument, "")
+		})
 	}
 }
 

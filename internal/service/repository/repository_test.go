@@ -23,7 +23,8 @@ func TestRepositoryExists(t *testing.T) {
 	require.NoError(t, err, "tempdir")
 	defer os.Remove(storageOtherDir)
 
-	client := newRepositoryClient(t)
+	client, conn := newRepositoryClient(t)
+	defer conn.Close()
 
 	// Setup storage paths
 	testStorages := []config.Storage{
@@ -104,7 +105,9 @@ func TestRepositoryExists(t *testing.T) {
 
 	for _, tc := range queries {
 		t.Run(tc.desc, func(t *testing.T) {
-			response, err := client.Exists(context.Background(), tc.request)
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			response, err := client.Exists(ctx, tc.request)
 
 			require.Equal(t, tc.errorCode, grpc.Code(err))
 

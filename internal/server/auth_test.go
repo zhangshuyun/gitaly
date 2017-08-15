@@ -60,14 +60,13 @@ func TestAuthFailures(t *testing.T) {
 		},
 	}
 	for _, tc := range testCases {
-		t.Log(tc.desc)
-		connOpts := append(tc.opts, grpc.WithInsecure())
-		func() {
+		t.Run(tc.desc, func(t *testing.T) {
+			connOpts := append(tc.opts, grpc.WithInsecure())
 			conn, err := dial(connOpts)
 			require.NoError(t, err, tc.desc)
 			defer conn.Close()
 			testhelper.AssertGrpcError(t, healthCheck(conn), tc.code, "")
-		}()
+		})
 	}
 }
 
@@ -104,16 +103,15 @@ func TestAuthSuccess(t *testing.T) {
 		},
 	}
 	for _, tc := range testCases {
-		config.Config.Auth.Token = tc.token
-		config.Config.Auth.Transitioning = !tc.required
-		t.Logf("%+v", config.Config.Auth)
-		connOpts := append(tc.opts, grpc.WithInsecure())
-		func() {
+		t.Run(tc.desc, func(t *testing.T) {
+			config.Config.Auth.Token = tc.token
+			config.Config.Auth.Transitioning = !tc.required
+			connOpts := append(tc.opts, grpc.WithInsecure())
 			conn, err := dial(connOpts)
 			require.NoError(t, err, tc.desc)
 			defer conn.Close()
 			assert.NoError(t, healthCheck(conn), tc.desc)
-		}()
+		})
 	}
 }
 

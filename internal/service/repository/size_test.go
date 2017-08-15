@@ -19,7 +19,8 @@ func TestSuccessfulRepositorySizeRequest(t *testing.T) {
 	server := runRepoServer(t)
 	defer server.Stop()
 
-	client := newRepositoryClient(t)
+	client, conn := newRepositoryClient(t)
+	defer conn.Close()
 
 	storageName := "default"
 	storagePath, found := config.StoragePath(storageName)
@@ -38,7 +39,9 @@ func TestSuccessfulRepositorySizeRequest(t *testing.T) {
 		},
 	}
 
-	response, err := client.RepositorySize(context.Background(), request)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	response, err := client.RepositorySize(ctx, request)
 	require.NoError(t, err)
 	// We can't test for an exact size because it will be different for systems with different sector sizes,
 	// so we settle for anything greater than zero.
@@ -49,7 +52,8 @@ func TestFailedRepositorySizeRequest(t *testing.T) {
 	server := runRepoServer(t)
 	defer server.Stop()
 
-	client := newRepositoryClient(t)
+	client, conn := newRepositoryClient(t)
+	defer conn.Close()
 
 	invalidRepo := &pb.Repository{StorageName: "fake", RelativePath: "path"}
 
@@ -61,13 +65,16 @@ func TestFailedRepositorySizeRequest(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		t.Logf("test case: %q", testCase.description)
+		t.Run(testCase.description, func(t *testing.T) {
 
-		request := &pb.RepositorySizeRequest{
-			Repository: testCase.repo,
-		}
+			request := &pb.RepositorySizeRequest{
+				Repository: testCase.repo,
+			}
 
-		_, err := client.RepositorySize(context.Background(), request)
-		testhelper.AssertGrpcError(t, err, codes.InvalidArgument, "")
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			_, err := client.RepositorySize(ctx, request)
+			testhelper.AssertGrpcError(t, err, codes.InvalidArgument, "")
+		})
 	}
 }

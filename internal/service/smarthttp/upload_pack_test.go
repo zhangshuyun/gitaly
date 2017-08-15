@@ -66,10 +66,13 @@ func TestSuccessfulUploadPackRequest(t *testing.T) {
 	fmt.Fprintf(requestBuffer, "%04x%s%s", len(wantPkt)+4, wantPkt, pktFlushStr)
 	fmt.Fprintf(requestBuffer, "%04x%s%s", len(havePkt)+4, havePkt, pktFlushStr)
 
-	client := newSmartHTTPClient(t)
+	client, conn := newSmartHTTPClient(t)
+	defer conn.Close()
 	repo := &pb.Repository{StorageName: "default", RelativePath: path.Join(remoteRepoRelativePath, ".git")}
 	rpcRequest := &pb.PostUploadPackRequest{Repository: repo}
-	stream, err := client.PostUploadPack(context.Background())
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	stream, err := client.PostUploadPack(ctx)
 	require.NoError(t, err)
 
 	require.NoError(t, stream.Send(rpcRequest))
@@ -107,8 +110,11 @@ func TestSuccessfulUploadPackDeepenRequest(t *testing.T) {
 	server := runSmartHTTPServer(t)
 	defer server.Stop()
 
-	client := newSmartHTTPClient(t)
-	stream, err := client.PostUploadPack(context.Background())
+	client, conn := newSmartHTTPClient(t)
+	defer conn.Close()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	stream, err := client.PostUploadPack(ctx)
 	require.NoError(t, err)
 
 	require.NoError(t, stream.Send(&pb.PostUploadPackRequest{Repository: testRepo}))
@@ -133,7 +139,8 @@ func TestFailedUploadPackRequestDueToValidationError(t *testing.T) {
 	server := runSmartHTTPServer(t)
 	defer server.Stop()
 
-	client := newSmartHTTPClient(t)
+	client, conn := newSmartHTTPClient(t)
+	defer conn.Close()
 
 	rpcRequests := []pb.PostUploadPackRequest{
 		{Repository: &pb.Repository{StorageName: "fake", RelativePath: "path"}}, // Repository doesn't exist
@@ -142,15 +149,18 @@ func TestFailedUploadPackRequestDueToValidationError(t *testing.T) {
 	}
 
 	for _, rpcRequest := range rpcRequests {
-		t.Logf("test case: %v", rpcRequest)
-		stream, err := client.PostUploadPack(context.Background())
-		require.NoError(t, err)
+		t.Run(fmt.Sprintf("%v", rpcRequest), func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			stream, err := client.PostUploadPack(ctx)
+			require.NoError(t, err)
 
-		require.NoError(t, stream.Send(&rpcRequest))
-		stream.CloseSend()
+			require.NoError(t, stream.Send(&rpcRequest))
+			stream.CloseSend()
 
-		err = drainPostUploadPackResponse(stream)
-		testhelper.AssertGrpcError(t, err, codes.InvalidArgument, "")
+			err = drainPostUploadPackResponse(stream)
+			testhelper.AssertGrpcError(t, err, codes.InvalidArgument, "")
+		})
 	}
 }
 

@@ -15,14 +15,17 @@ func TestFindRefNameSuccess(t *testing.T) {
 	server := runRefServer(t)
 	defer server.Stop()
 
-	client := newRefClient(t)
+	client, conn := newRefClient(t)
+	defer conn.Close()
 	rpcRequest := &pb.FindRefNameRequest{
 		Repository: testRepo,
 		CommitId:   "0b4bc9a49b562e85de7cc9e834518ea6828729b9",
 		Prefix:     []byte(`refs/heads/`),
 	}
 
-	c, err := client.FindRefName(context.Background(), rpcRequest)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	c, err := client.FindRefName(ctx, rpcRequest)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -38,14 +41,17 @@ func TestFindRefNameEmptyCommit(t *testing.T) {
 	server := runRefServer(t)
 	defer server.Stop()
 
-	client := newRefClient(t)
+	client, conn := newRefClient(t)
+	defer conn.Close()
 	rpcRequest := &pb.FindRefNameRequest{
 		Repository: testRepo,
 		CommitId:   "",
 		Prefix:     []byte(`refs/heads/`),
 	}
 
-	c, err := client.FindRefName(context.Background(), rpcRequest)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	c, err := client.FindRefName(ctx, rpcRequest)
 	if err == nil {
 		t.Fatalf("Expected FindRefName to throw an error")
 	}
@@ -63,7 +69,8 @@ func TestFindRefNameInvalidRepo(t *testing.T) {
 	server := runRefServer(t)
 	defer server.Stop()
 
-	client := newRefClient(t)
+	client, conn := newRefClient(t)
+	defer conn.Close()
 	repo := &pb.Repository{StorageName: "fake", RelativePath: "path"}
 	rpcRequest := &pb.FindRefNameRequest{
 		Repository: repo,
@@ -71,7 +78,9 @@ func TestFindRefNameInvalidRepo(t *testing.T) {
 		Prefix:     []byte(`refs/heads/`),
 	}
 
-	c, err := client.FindRefName(context.Background(), rpcRequest)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	c, err := client.FindRefName(ctx, rpcRequest)
 	if err == nil {
 		t.Fatalf("Expected FindRefName to throw an error")
 	}
@@ -89,14 +98,17 @@ func TestFindRefNameInvalidPrefix(t *testing.T) {
 	server := runRefServer(t)
 	defer server.Stop()
 
-	client := newRefClient(t)
+	client, conn := newRefClient(t)
+	defer conn.Close()
 	rpcRequest := &pb.FindRefNameRequest{
 		Repository: testRepo,
 		CommitId:   "0b4bc9a49b562e85de7cc9e834518ea6828729b9",
 		Prefix:     []byte(`refs/nonexistant/`),
 	}
 
-	c, err := client.FindRefName(context.Background(), rpcRequest)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	c, err := client.FindRefName(ctx, rpcRequest)
 	if err != nil {
 		t.Fatalf("Expected FindRefName to not throw an error: %v", err)
 	}
@@ -109,13 +121,16 @@ func TestFindRefNameInvalidObject(t *testing.T) {
 	server := runRefServer(t)
 	defer server.Stop()
 
-	client := newRefClient(t)
+	client, conn := newRefClient(t)
+	defer conn.Close()
 	rpcRequest := &pb.FindRefNameRequest{
 		Repository: testRepo,
 		CommitId:   "dead1234dead1234dead1234dead1234dead1234",
 	}
 
-	c, err := client.FindRefName(context.Background(), rpcRequest)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	c, err := client.FindRefName(ctx, rpcRequest)
 	if err != nil {
 		t.Fatalf("Expected FindRefName to not throw an error")
 	}

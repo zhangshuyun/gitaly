@@ -67,7 +67,7 @@ func mustGetCwd() string {
 }
 
 func runSSHServer(t *testing.T) *grpc.Server {
-	server := testhelper.NewTestGrpcServer(t)
+	server := testhelper.NewTestGrpcServer(t, nil, nil)
 	listener, err := net.Listen("unix", serverSocketPath)
 	if err != nil {
 		t.Fatal(err)
@@ -81,7 +81,7 @@ func runSSHServer(t *testing.T) *grpc.Server {
 	return server
 }
 
-func newSSHClient(t *testing.T) pb.SSHServiceClient {
+func newSSHClient(t *testing.T) (pb.SSHServiceClient, *grpc.ClientConn) {
 	connOpts := []grpc.DialOption{
 		grpc.WithInsecure(),
 		grpc.WithDialer(func(addr string, _ time.Duration) (net.Conn, error) {
@@ -93,5 +93,5 @@ func newSSHClient(t *testing.T) pb.SSHServiceClient {
 		t.Fatal(err)
 	}
 
-	return pb.NewSSHServiceClient(conn)
+	return pb.NewSSHServiceClient(conn), conn
 }

@@ -106,6 +106,10 @@ notice: $(TARGET_SETUP) $(GOVENDOR)
 notice-up-to-date: $(TARGET_SETUP) $(GOVENDOR)
 	@(cd $(PKG_BUILD_DIR) && govendor license -template _support/notice.template | cmp - NOTICE) || (echo >&2 "NOTICE requires update: 'make notice'" && false)
 
+.PHONY: codeclimate-report
+codeclimate-report:
+	docker run --env CODECLIMATE_CODE="$(BUILD_DIR)" --volume "$(BUILD_DIR)":/code --volume /var/run/docker.sock:/var/run/docker.sock --volume /tmp/cc:/tmp/cc codeclimate/codeclimate analyze -f text
+
 .PHONY: clean
 clean:
 	rm -rf $(TARGET_DIR) $(TEST_REPO) $(TEST_REPO_STORAGE_PATH) ./internal/service/ssh/gitaly-*-pack .ruby-bundle
