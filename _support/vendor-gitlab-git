@@ -1,0 +1,36 @@
+#!/usr/bin/env ruby
+
+# These files and directories of gitlab-ce will be vendored
+FILE_LIST = %w[lib/gitlab/git.rb lib/gitlab/git lib/gitlab/encoding_helper.rb]
+
+REMOTE = 'https://gitlab.com/gitlab-org/gitlab-ce'
+
+# This directory in Gitaly will be the 'root' of gitlab-ce
+VENDOR_DIR = 'ruby/vendor/gitlab_git'
+
+require_relative 'run.rb'
+require 'tempfile'
+
+def main
+  if ARGV.count != 1
+    abort "usage: #{$0} BRANCH_OR_TAG"
+  end
+
+  revision = ARGV.first
+  revision_sha = nil
+
+  Dir.mktmpdir do |dir|
+    gitlab_dir = File.join(dir, 'gitlab')
+    run!(%W[git clone --depth=1 -b #{revision} #{REMOTE}.git #{gitlab_dir}])
+    revision_sha = capture!(%W[git rev-parse HEAD], gitlab_dir).chomp
+
+    FileUtils.rm_rf(VENDOR_DIR)
+    FileUtils.mkdir_p(VENDOR_DIR)
+    run!(%W[rsync -avR] + FILE_LIST + %W[#{File.join(Dir.pwd, VENDOR_DIR)}/], gitlab_dir)
+  end
+
+  File.write(File.join(VENDOR_DIR, 'REVISION'), "#{revision_sha}\n")
+  File.write(File.join(VENDOR_DIR, 'ORIGIN'), "Cloned from #{REMOTE}.\n")
+end
+
+main

@@ -58,7 +58,7 @@ func (s *server) SSHReceivePack(stream pb.SSHService_SSHReceivePackServer) error
 	if err != nil {
 		return grpc.Errorf(codes.Unavailable, "SSHReceivePack: cmd: %v", err)
 	}
-	defer cmd.Kill(stream.Context())
+	defer cmd.CleanUpProcessGroup(stream.Context())
 
 	if err := cmd.Wait(); err != nil {
 		if status, ok := helper.ExitStatus(err); ok {

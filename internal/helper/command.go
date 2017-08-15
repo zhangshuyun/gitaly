@@ -39,12 +39,6 @@ func GitPath() string {
 	return config.Config.Git.BinPath
 }
 
-// Kill cleans the subprocess group of the command. Callers should defer a call
-// to kill after they get the command from NewCommand
-func (c *Command) Kill(ctx context.Context) {
-	c.CleanUpProcessGroup(ctx)
-}
-
 // GitCommandReader creates a git Command with the given args
 func GitCommandReader(ctx context.Context, args ...string) (*Command, error) {
 	return NewCommand(ctx, exec.Command(GitPath(), args...), nil, nil, nil)

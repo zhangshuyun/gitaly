@@ -68,7 +68,7 @@ func gitLog(ctx context.Context, sender lines.Sender, repo *pb.Repository, revis
 	if err != nil {
 		return err
 	}
-	defer cmd.Kill(ctx)
+	defer cmd.CleanUpProcessGroup(ctx)
 
 	split := lines.ScanWithDelimiter([]byte("\x00"))
 	if err := lines.Send(cmd, sender, split); err != nil {
