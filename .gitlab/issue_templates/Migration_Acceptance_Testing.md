@@ -34,7 +34,7 @@ Required GitLab Version: `vX.X`
   - [ ] `!feature-set gitaly_FEATURE_NAME 1` in [`#dev-gitlab`](https://gitlab.slack.com/messages/C6WQ87MU3)
   - [ ] Inspect dev logs in ELK (base dev search: https://log.gitlap.com/goto/9dc4f7767fc8305778ad6a99efe186c0)
   - [ ] Check for errors in Gitaly Sentry: https://sentry.gitlap.com/gitlab/devgitlaborg-gitaly/
-  - [ ] Check for errors in dev.gitlab.org Sentry: https://sentry.gitlap.com/gitlab/devgitlaborg/
+  - [ ] Check for errors in dev.gitlab.org Sentry: https://sentry.gitlap.com/gitlab/devgitlaborg/?query=is%3Aunresolved+gitaly
   - [ ] Perform some testing and leave the feature enabled
 
 ## 3. Staging Trial
