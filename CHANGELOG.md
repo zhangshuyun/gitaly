@@ -4,6 +4,8 @@ UNRELEASED
 
 - Wait for monitor goroutine to return during supervisor shutdown
   https://gitlab.com/gitlab-org/gitaly/merge_requests/341
+- Fix handling of Git object dir attributes for streaming RPCs
+  https://gitlab.com/gitlab-org/gitaly/merge_requests/356
 
 v0.40.0
 - Use context cancellation instead of command.Close

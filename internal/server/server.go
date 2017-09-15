@@ -31,13 +31,15 @@ func New(rubyServer *rubyserver.Server) *grpc.Server {
 
 	server := grpc.NewServer(
 		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
-			objectdirhandler.Stream,
 			grpc_ctxtags.StreamServerInterceptor(ctxTagOpts...),
 			grpc_prometheus.StreamServerInterceptor,
 			grpc_logrus.StreamServerInterceptor(logrusEntry),
 			sentryhandler.StreamLogHandler,
 			cancelhandler.Stream, // Should be below LogHandler
 			authStreamServerInterceptor(),
+			// Should be the last one, or above interceptors that
+			// don't replace the stream context with a derived one.
+			objectdirhandler.Stream,
 			// Panic handler should remain last so that application panics will be
 			// converted to errors and logged
 			panichandler.StreamPanicHandler,

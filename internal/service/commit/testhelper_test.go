@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	"gitlab.com/gitlab-org/gitaly/internal/linguist"
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/objectdirhandler"
 	"gitlab.com/gitlab-org/gitaly/internal/rubyserver"
@@ -51,7 +52,14 @@ func testMain(m *testing.M) int {
 func startTestServices(t *testing.T) *grpc.Server {
 	server := testhelper.NewTestGrpcServer(
 		t,
-		[]grpc.StreamServerInterceptor{objectdirhandler.Stream},
+		[]grpc.StreamServerInterceptor{
+			// This interceptor only exists to make sure objectdirhandler works properly.
+			// If they switched positions, a test would fail.
+			grpc_ctxtags.StreamServerInterceptor(),
+			// Should be the last one, or above interceptors that
+			// don't replace the stream context with a derived one.
+			objectdirhandler.Stream,
+		},
 		[]grpc.UnaryServerInterceptor{objectdirhandler.Unary},
 	)
 
