@@ -24,7 +24,7 @@ type InfoRefsRequest struct {
 func (m *InfoRefsRequest) Reset()                    { *m = InfoRefsRequest{} }
 func (m *InfoRefsRequest) String() string            { return proto.CompactTextString(m) }
 func (*InfoRefsRequest) ProtoMessage()               {}
-func (*InfoRefsRequest) Descriptor() ([]byte, []int) { return fileDescriptor10, []int{0} }
+func (*InfoRefsRequest) Descriptor() ([]byte, []int) { return fileDescriptor11, []int{0} }
 
 func (m *InfoRefsRequest) GetRepository() *Repository {
 	if m != nil {
@@ -40,7 +40,7 @@ type InfoRefsResponse struct {
 func (m *InfoRefsResponse) Reset()                    { *m = InfoRefsResponse{} }
 func (m *InfoRefsResponse) String() string            { return proto.CompactTextString(m) }
 func (*InfoRefsResponse) ProtoMessage()               {}
-func (*InfoRefsResponse) Descriptor() ([]byte, []int) { return fileDescriptor10, []int{1} }
+func (*InfoRefsResponse) Descriptor() ([]byte, []int) { return fileDescriptor11, []int{1} }
 
 func (m *InfoRefsResponse) GetData() []byte {
 	if m != nil {
@@ -59,7 +59,7 @@ type PostUploadPackRequest struct {
 func (m *PostUploadPackRequest) Reset()                    { *m = PostUploadPackRequest{} }
 func (m *PostUploadPackRequest) String() string            { return proto.CompactTextString(m) }
 func (*PostUploadPackRequest) ProtoMessage()               {}
-func (*PostUploadPackRequest) Descriptor() ([]byte, []int) { return fileDescriptor10, []int{2} }
+func (*PostUploadPackRequest) Descriptor() ([]byte, []int) { return fileDescriptor11, []int{2} }
 
 func (m *PostUploadPackRequest) GetRepository() *Repository {
 	if m != nil {
@@ -83,7 +83,7 @@ type PostUploadPackResponse struct {
 func (m *PostUploadPackResponse) Reset()                    { *m = PostUploadPackResponse{} }
 func (m *PostUploadPackResponse) String() string            { return proto.CompactTextString(m) }
 func (*PostUploadPackResponse) ProtoMessage()               {}
-func (*PostUploadPackResponse) Descriptor() ([]byte, []int) { return fileDescriptor10, []int{3} }
+func (*PostUploadPackResponse) Descriptor() ([]byte, []int) { return fileDescriptor11, []int{3} }
 
 func (m *PostUploadPackResponse) GetData() []byte {
 	if m != nil {
@@ -107,7 +107,7 @@ type PostReceivePackRequest struct {
 func (m *PostReceivePackRequest) Reset()                    { *m = PostReceivePackRequest{} }
 func (m *PostReceivePackRequest) String() string            { return proto.CompactTextString(m) }
 func (*PostReceivePackRequest) ProtoMessage()               {}
-func (*PostReceivePackRequest) Descriptor() ([]byte, []int) { return fileDescriptor10, []int{4} }
+func (*PostReceivePackRequest) Descriptor() ([]byte, []int) { return fileDescriptor11, []int{4} }
 
 func (m *PostReceivePackRequest) GetRepository() *Repository {
 	if m != nil {
@@ -152,7 +152,7 @@ type PostReceivePackResponse struct {
 func (m *PostReceivePackResponse) Reset()                    { *m = PostReceivePackResponse{} }
 func (m *PostReceivePackResponse) String() string            { return proto.CompactTextString(m) }
 func (*PostReceivePackResponse) ProtoMessage()               {}
-func (*PostReceivePackResponse) Descriptor() ([]byte, []int) { return fileDescriptor10, []int{5} }
+func (*PostReceivePackResponse) Descriptor() ([]byte, []int) { return fileDescriptor11, []int{5} }
 
 func (m *PostReceivePackResponse) GetData() []byte {
 	if m != nil {
@@ -467,9 +467,9 @@ var _SmartHTTPService_serviceDesc = grpc.ServiceDesc{
 	Metadata: "smarthttp.proto",
 }
 
-func init() { proto.RegisterFile("smarthttp.proto", fileDescriptor10) }
+func init() { proto.RegisterFile("smarthttp.proto", fileDescriptor11) }
 
-var fileDescriptor10 = []byte{
+var fileDescriptor11 = []byte{
 	// 346 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xb4, 0x53, 0xd1, 0x4e, 0xc2, 0x30,
 	0x14, 0x75, 0x08, 0x24, 0x5e, 0x50, 0xc8, 0x25, 0xca, 0xb2, 0x44, 0x21, 0x33, 0x31, 0x3c, 0x28,

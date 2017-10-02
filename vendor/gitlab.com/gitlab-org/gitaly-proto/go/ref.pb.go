@@ -41,7 +41,7 @@ func (x FindLocalBranchesRequest_SortBy) String() string {
 	return proto.EnumName(FindLocalBranchesRequest_SortBy_name, int32(x))
 }
 func (FindLocalBranchesRequest_SortBy) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor7, []int{8, 0}
+	return fileDescriptor8, []int{8, 0}
 }
 
 type CreateBranchResponse_Status int32
@@ -70,7 +70,7 @@ func (x CreateBranchResponse_Status) String() string {
 	return proto.EnumName(CreateBranchResponse_Status_name, int32(x))
 }
 func (CreateBranchResponse_Status) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor7, []int{19, 0}
+	return fileDescriptor8, []int{19, 0}
 }
 
 type FindDefaultBranchNameRequest struct {
@@ -80,7 +80,7 @@ type FindDefaultBranchNameRequest struct {
 func (m *FindDefaultBranchNameRequest) Reset()                    { *m = FindDefaultBranchNameRequest{} }
 func (m *FindDefaultBranchNameRequest) String() string            { return proto.CompactTextString(m) }
 func (*FindDefaultBranchNameRequest) ProtoMessage()               {}
-func (*FindDefaultBranchNameRequest) Descriptor() ([]byte, []int) { return fileDescriptor7, []int{0} }
+func (*FindDefaultBranchNameRequest) Descriptor() ([]byte, []int) { return fileDescriptor8, []int{0} }
 
 func (m *FindDefaultBranchNameRequest) GetRepository() *Repository {
 	if m != nil {
@@ -96,7 +96,7 @@ type FindDefaultBranchNameResponse struct {
 func (m *FindDefaultBranchNameResponse) Reset()                    { *m = FindDefaultBranchNameResponse{} }
 func (m *FindDefaultBranchNameResponse) String() string            { return proto.CompactTextString(m) }
 func (*FindDefaultBranchNameResponse) ProtoMessage()               {}
-func (*FindDefaultBranchNameResponse) Descriptor() ([]byte, []int) { return fileDescriptor7, []int{1} }
+func (*FindDefaultBranchNameResponse) Descriptor() ([]byte, []int) { return fileDescriptor8, []int{1} }
 
 func (m *FindDefaultBranchNameResponse) GetName() []byte {
 	if m != nil {
@@ -112,7 +112,7 @@ type FindAllBranchNamesRequest struct {
 func (m *FindAllBranchNamesRequest) Reset()                    { *m = FindAllBranchNamesRequest{} }
 func (m *FindAllBranchNamesRequest) String() string            { return proto.CompactTextString(m) }
 func (*FindAllBranchNamesRequest) ProtoMessage()               {}
-func (*FindAllBranchNamesRequest) Descriptor() ([]byte, []int) { return fileDescriptor7, []int{2} }
+func (*FindAllBranchNamesRequest) Descriptor() ([]byte, []int) { return fileDescriptor8, []int{2} }
 
 func (m *FindAllBranchNamesRequest) GetRepository() *Repository {
 	if m != nil {
@@ -128,7 +128,7 @@ type FindAllBranchNamesResponse struct {
 func (m *FindAllBranchNamesResponse) Reset()                    { *m = FindAllBranchNamesResponse{} }
 func (m *FindAllBranchNamesResponse) String() string            { return proto.CompactTextString(m) }
 func (*FindAllBranchNamesResponse) ProtoMessage()               {}
-func (*FindAllBranchNamesResponse) Descriptor() ([]byte, []int) { return fileDescriptor7, []int{3} }
+func (*FindAllBranchNamesResponse) Descriptor() ([]byte, []int) { return fileDescriptor8, []int{3} }
 
 func (m *FindAllBranchNamesResponse) GetNames() [][]byte {
 	if m != nil {
@@ -144,7 +144,7 @@ type FindAllTagNamesRequest struct {
 func (m *FindAllTagNamesRequest) Reset()                    { *m = FindAllTagNamesRequest{} }
 func (m *FindAllTagNamesRequest) String() string            { return proto.CompactTextString(m) }
 func (*FindAllTagNamesRequest) ProtoMessage()               {}
-func (*FindAllTagNamesRequest) Descriptor() ([]byte, []int) { return fileDescriptor7, []int{4} }
+func (*FindAllTagNamesRequest) Descriptor() ([]byte, []int) { return fileDescriptor8, []int{4} }
 
 func (m *FindAllTagNamesRequest) GetRepository() *Repository {
 	if m != nil {
@@ -160,7 +160,7 @@ type FindAllTagNamesResponse struct {
 func (m *FindAllTagNamesResponse) Reset()                    { *m = FindAllTagNamesResponse{} }
 func (m *FindAllTagNamesResponse) String() string            { return proto.CompactTextString(m) }
 func (*FindAllTagNamesResponse) ProtoMessage()               {}
-func (*FindAllTagNamesResponse) Descriptor() ([]byte, []int) { return fileDescriptor7, []int{5} }
+func (*FindAllTagNamesResponse) Descriptor() ([]byte, []int) { return fileDescriptor8, []int{5} }
 
 func (m *FindAllTagNamesResponse) GetNames() [][]byte {
 	if m != nil {
@@ -180,7 +180,7 @@ type FindRefNameRequest struct {
 func (m *FindRefNameRequest) Reset()                    { *m = FindRefNameRequest{} }
 func (m *FindRefNameRequest) String() string            { return proto.CompactTextString(m) }
 func (*FindRefNameRequest) ProtoMessage()               {}
-func (*FindRefNameRequest) Descriptor() ([]byte, []int) { return fileDescriptor7, []int{6} }
+func (*FindRefNameRequest) Descriptor() ([]byte, []int) { return fileDescriptor8, []int{6} }
 
 func (m *FindRefNameRequest) GetRepository() *Repository {
 	if m != nil {
@@ -211,7 +211,7 @@ type FindRefNameResponse struct {
 func (m *FindRefNameResponse) Reset()                    { *m = FindRefNameResponse{} }
 func (m *FindRefNameResponse) String() string            { return proto.CompactTextString(m) }
 func (*FindRefNameResponse) ProtoMessage()               {}
-func (*FindRefNameResponse) Descriptor() ([]byte, []int) { return fileDescriptor7, []int{7} }
+func (*FindRefNameResponse) Descriptor() ([]byte, []int) { return fileDescriptor8, []int{7} }
 
 func (m *FindRefNameResponse) GetName() []byte {
 	if m != nil {
@@ -228,7 +228,7 @@ type FindLocalBranchesRequest struct {
 func (m *FindLocalBranchesRequest) Reset()                    { *m = FindLocalBranchesRequest{} }
 func (m *FindLocalBranchesRequest) String() string            { return proto.CompactTextString(m) }
 func (*FindLocalBranchesRequest) ProtoMessage()               {}
-func (*FindLocalBranchesRequest) Descriptor() ([]byte, []int) { return fileDescriptor7, []int{8} }
+func (*FindLocalBranchesRequest) Descriptor() ([]byte, []int) { return fileDescriptor8, []int{8} }
 
 func (m *FindLocalBranchesRequest) GetRepository() *Repository {
 	if m != nil {
@@ -251,7 +251,7 @@ type FindLocalBranchesResponse struct {
 func (m *FindLocalBranchesResponse) Reset()                    { *m = FindLocalBranchesResponse{} }
 func (m *FindLocalBranchesResponse) String() string            { return proto.CompactTextString(m) }
 func (*FindLocalBranchesResponse) ProtoMessage()               {}
-func (*FindLocalBranchesResponse) Descriptor() ([]byte, []int) { return fileDescriptor7, []int{9} }
+func (*FindLocalBranchesResponse) Descriptor() ([]byte, []int) { return fileDescriptor8, []int{9} }
 
 func (m *FindLocalBranchesResponse) GetBranches() []*FindLocalBranchResponse {
 	if m != nil {
@@ -271,7 +271,7 @@ type FindLocalBranchResponse struct {
 func (m *FindLocalBranchResponse) Reset()                    { *m = FindLocalBranchResponse{} }
 func (m *FindLocalBranchResponse) String() string            { return proto.CompactTextString(m) }
 func (*FindLocalBranchResponse) ProtoMessage()               {}
-func (*FindLocalBranchResponse) Descriptor() ([]byte, []int) { return fileDescriptor7, []int{10} }
+func (*FindLocalBranchResponse) Descriptor() ([]byte, []int) { return fileDescriptor8, []int{10} }
 
 func (m *FindLocalBranchResponse) GetName() []byte {
 	if m != nil {
@@ -317,7 +317,7 @@ type FindLocalBranchCommitAuthor struct {
 func (m *FindLocalBranchCommitAuthor) Reset()                    { *m = FindLocalBranchCommitAuthor{} }
 func (m *FindLocalBranchCommitAuthor) String() string            { return proto.CompactTextString(m) }
 func (*FindLocalBranchCommitAuthor) ProtoMessage()               {}
-func (*FindLocalBranchCommitAuthor) Descriptor() ([]byte, []int) { return fileDescriptor7, []int{11} }
+func (*FindLocalBranchCommitAuthor) Descriptor() ([]byte, []int) { return fileDescriptor8, []int{11} }
 
 func (m *FindLocalBranchCommitAuthor) GetName() []byte {
 	if m != nil {
@@ -347,7 +347,7 @@ type FindAllBranchesRequest struct {
 func (m *FindAllBranchesRequest) Reset()                    { *m = FindAllBranchesRequest{} }
 func (m *FindAllBranchesRequest) String() string            { return proto.CompactTextString(m) }
 func (*FindAllBranchesRequest) ProtoMessage()               {}
-func (*FindAllBranchesRequest) Descriptor() ([]byte, []int) { return fileDescriptor7, []int{12} }
+func (*FindAllBranchesRequest) Descriptor() ([]byte, []int) { return fileDescriptor8, []int{12} }
 
 func (m *FindAllBranchesRequest) GetRepository() *Repository {
 	if m != nil {
@@ -363,7 +363,7 @@ type FindAllBranchesResponse struct {
 func (m *FindAllBranchesResponse) Reset()                    { *m = FindAllBranchesResponse{} }
 func (m *FindAllBranchesResponse) String() string            { return proto.CompactTextString(m) }
 func (*FindAllBranchesResponse) ProtoMessage()               {}
-func (*FindAllBranchesResponse) Descriptor() ([]byte, []int) { return fileDescriptor7, []int{13} }
+func (*FindAllBranchesResponse) Descriptor() ([]byte, []int) { return fileDescriptor8, []int{13} }
 
 func (m *FindAllBranchesResponse) GetBranches() []*FindAllBranchesResponse_Branch {
 	if m != nil {
@@ -381,7 +381,7 @@ func (m *FindAllBranchesResponse_Branch) Reset()         { *m = FindAllBranchesR
 func (m *FindAllBranchesResponse_Branch) String() string { return proto.CompactTextString(m) }
 func (*FindAllBranchesResponse_Branch) ProtoMessage()    {}
 func (*FindAllBranchesResponse_Branch) Descriptor() ([]byte, []int) {
-	return fileDescriptor7, []int{13, 0}
+	return fileDescriptor8, []int{13, 0}
 }
 
 func (m *FindAllBranchesResponse_Branch) GetName() []byte {
@@ -405,7 +405,7 @@ type FindAllTagsRequest struct {
 func (m *FindAllTagsRequest) Reset()                    { *m = FindAllTagsRequest{} }
 func (m *FindAllTagsRequest) String() string            { return proto.CompactTextString(m) }
 func (*FindAllTagsRequest) ProtoMessage()               {}
-func (*FindAllTagsRequest) Descriptor() ([]byte, []int) { return fileDescriptor7, []int{14} }
+func (*FindAllTagsRequest) Descriptor() ([]byte, []int) { return fileDescriptor8, []int{14} }
 
 func (m *FindAllTagsRequest) GetRepository() *Repository {
 	if m != nil {
@@ -421,7 +421,7 @@ type FindAllTagsResponse struct {
 func (m *FindAllTagsResponse) Reset()                    { *m = FindAllTagsResponse{} }
 func (m *FindAllTagsResponse) String() string            { return proto.CompactTextString(m) }
 func (*FindAllTagsResponse) ProtoMessage()               {}
-func (*FindAllTagsResponse) Descriptor() ([]byte, []int) { return fileDescriptor7, []int{15} }
+func (*FindAllTagsResponse) Descriptor() ([]byte, []int) { return fileDescriptor8, []int{15} }
 
 func (m *FindAllTagsResponse) GetTags() []*Tag {
 	if m != nil {
@@ -439,7 +439,7 @@ type RefExistsRequest struct {
 func (m *RefExistsRequest) Reset()                    { *m = RefExistsRequest{} }
 func (m *RefExistsRequest) String() string            { return proto.CompactTextString(m) }
 func (*RefExistsRequest) ProtoMessage()               {}
-func (*RefExistsRequest) Descriptor() ([]byte, []int) { return fileDescriptor7, []int{16} }
+func (*RefExistsRequest) Descriptor() ([]byte, []int) { return fileDescriptor8, []int{16} }
 
 func (m *RefExistsRequest) GetRepository() *Repository {
 	if m != nil {
@@ -462,7 +462,7 @@ type RefExistsResponse struct {
 func (m *RefExistsResponse) Reset()                    { *m = RefExistsResponse{} }
 func (m *RefExistsResponse) String() string            { return proto.CompactTextString(m) }
 func (*RefExistsResponse) ProtoMessage()               {}
-func (*RefExistsResponse) Descriptor() ([]byte, []int) { return fileDescriptor7, []int{17} }
+func (*RefExistsResponse) Descriptor() ([]byte, []int) { return fileDescriptor8, []int{17} }
 
 func (m *RefExistsResponse) GetValue() bool {
 	if m != nil {
@@ -480,7 +480,7 @@ type CreateBranchRequest struct {
 func (m *CreateBranchRequest) Reset()                    { *m = CreateBranchRequest{} }
 func (m *CreateBranchRequest) String() string            { return proto.CompactTextString(m) }
 func (*CreateBranchRequest) ProtoMessage()               {}
-func (*CreateBranchRequest) Descriptor() ([]byte, []int) { return fileDescriptor7, []int{18} }
+func (*CreateBranchRequest) Descriptor() ([]byte, []int) { return fileDescriptor8, []int{18} }
 
 func (m *CreateBranchRequest) GetRepository() *Repository {
 	if m != nil {
@@ -511,7 +511,7 @@ type CreateBranchResponse struct {
 func (m *CreateBranchResponse) Reset()                    { *m = CreateBranchResponse{} }
 func (m *CreateBranchResponse) String() string            { return proto.CompactTextString(m) }
 func (*CreateBranchResponse) ProtoMessage()               {}
-func (*CreateBranchResponse) Descriptor() ([]byte, []int) { return fileDescriptor7, []int{19} }
+func (*CreateBranchResponse) Descriptor() ([]byte, []int) { return fileDescriptor8, []int{19} }
 
 func (m *CreateBranchResponse) GetStatus() CreateBranchResponse_Status {
 	if m != nil {
@@ -535,7 +535,7 @@ type DeleteBranchRequest struct {
 func (m *DeleteBranchRequest) Reset()                    { *m = DeleteBranchRequest{} }
 func (m *DeleteBranchRequest) String() string            { return proto.CompactTextString(m) }
 func (*DeleteBranchRequest) ProtoMessage()               {}
-func (*DeleteBranchRequest) Descriptor() ([]byte, []int) { return fileDescriptor7, []int{20} }
+func (*DeleteBranchRequest) Descriptor() ([]byte, []int) { return fileDescriptor8, []int{20} }
 
 func (m *DeleteBranchRequest) GetRepository() *Repository {
 	if m != nil {
@@ -558,7 +558,7 @@ type DeleteBranchResponse struct {
 func (m *DeleteBranchResponse) Reset()                    { *m = DeleteBranchResponse{} }
 func (m *DeleteBranchResponse) String() string            { return proto.CompactTextString(m) }
 func (*DeleteBranchResponse) ProtoMessage()               {}
-func (*DeleteBranchResponse) Descriptor() ([]byte, []int) { return fileDescriptor7, []int{21} }
+func (*DeleteBranchResponse) Descriptor() ([]byte, []int) { return fileDescriptor8, []int{21} }
 
 type FindBranchRequest struct {
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository" json:"repository,omitempty"`
@@ -569,7 +569,7 @@ type FindBranchRequest struct {
 func (m *FindBranchRequest) Reset()                    { *m = FindBranchRequest{} }
 func (m *FindBranchRequest) String() string            { return proto.CompactTextString(m) }
 func (*FindBranchRequest) ProtoMessage()               {}
-func (*FindBranchRequest) Descriptor() ([]byte, []int) { return fileDescriptor7, []int{22} }
+func (*FindBranchRequest) Descriptor() ([]byte, []int) { return fileDescriptor8, []int{22} }
 
 func (m *FindBranchRequest) GetRepository() *Repository {
 	if m != nil {
@@ -592,7 +592,7 @@ type FindBranchResponse struct {
 func (m *FindBranchResponse) Reset()                    { *m = FindBranchResponse{} }
 func (m *FindBranchResponse) String() string            { return proto.CompactTextString(m) }
 func (*FindBranchResponse) ProtoMessage()               {}
-func (*FindBranchResponse) Descriptor() ([]byte, []int) { return fileDescriptor7, []int{23} }
+func (*FindBranchResponse) Descriptor() ([]byte, []int) { return fileDescriptor8, []int{23} }
 
 func (m *FindBranchResponse) GetBranch() *Branch {
 	if m != nil {
@@ -1173,9 +1173,9 @@ var _RefService_serviceDesc = grpc.ServiceDesc{
 	Metadata: "ref.proto",
 }
 
-func init() { proto.RegisterFile("ref.proto", fileDescriptor7) }
+func init() { proto.RegisterFile("ref.proto", fileDescriptor8) }
 
-var fileDescriptor7 = []byte{
+var fileDescriptor8 = []byte{
 	// 1007 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xb4, 0x56, 0x51, 0x73, 0x22, 0x45,
 	0x10, 0xce, 0x12, 0xb2, 0x97, 0x34, 0x48, 0x36, 0x93, 0x98, 0x23, 0xcb, 0x79, 0xe4, 0x46, 0xef,

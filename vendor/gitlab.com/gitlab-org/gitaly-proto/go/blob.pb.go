@@ -12,6 +12,7 @@ It is generated from these files:
 	namespace.proto
 	notifications.proto
 	operations.proto
+	ping.proto
 	ref.proto
 	repository-service.proto
 	shared.proto
@@ -75,6 +76,8 @@ It has these top-level messages:
 	UserDeleteTagResponse
 	UserCreateTagRequest
 	UserCreateTagResponse
+	PingRequest
+	PingResponse
 	FindDefaultBranchNameRequest
 	FindDefaultBranchNameResponse
 	FindAllBranchNamesRequest
