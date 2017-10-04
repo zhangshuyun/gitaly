@@ -223,6 +223,14 @@ func eachDiff(ctx context.Context, rpc string, repo *pb.Repository, cmdArgs []st
 		return grpc.Errorf(codes.Internal, "%s: parse failure: %v", rpc, err)
 	}
 
+	// The context could be cancelled early because the client ended the request
+	// (e.g. it hit a limit), so we exit early here because the command has already
+	// been terminated as a cancellation result and `Wait` below would return an error
+	// we don't want.
+	if ctx.Err() == context.Canceled {
+		return nil
+	}
+
 	if err := cmd.Wait(); err != nil {
 		return grpc.Errorf(codes.Unavailable, "%s: %v", rpc, err)
 	}
