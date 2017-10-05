@@ -114,3 +114,12 @@ update-downstream-server-version:
   script:
     - ruby _support/update-downstream-server-version.rb
   allow_failure: true
+
+# Create a MR in GitLab-CE when releasing a Gitaly version
+test-vendor-gitaly-ruby:
+  stage: build_test
+  # only:
+  #  - schedules
+  script:
+    - ruby _support/update-downstream-server-version.rb master
+    - make test
