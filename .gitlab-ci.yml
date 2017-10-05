@@ -121,5 +121,5 @@ test-vendor-gitaly-ruby:
   # only:
   #  - schedules
   script:
-    - ruby _support/update-downstream-server-version.rb master
+    - _support/vendor-gitlab-git master
     - make test
