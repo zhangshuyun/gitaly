@@ -1,22 +1,19 @@
 package blob
 
 import (
-	"bufio"
 	"fmt"
-	"io"
-	"os/exec"
 
-	"gitlab.com/gitlab-org/gitaly/internal/command"
-	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 
 	pb "gitlab.com/gitlab-org/gitaly-proto/go"
-	"gitlab.com/gitlab-org/gitaly/streamio"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 )
 
+type blobSender func(size int64, oid string, data []byte) error
+
+// GetBlob might get depricated in favour of the more versatile GetBlobs.
 func (s *server) GetBlob(in *pb.GetBlobRequest, stream pb.BlobService_GetBlobServer) error {
 	if err := validateRequest(in); err != nil {
 		return grpc.Errorf(codes.InvalidArgument, "GetBlob: %v", err)
@@ -27,63 +24,15 @@ func (s *server) GetBlob(in *pb.GetBlobRequest, stream pb.BlobService_GetBlobSer
 		return err
 	}
 
-	stdinReader, stdinWriter := io.Pipe()
-
-	cmdArgs := []string{"--git-dir", repoPath, "cat-file", "--batch"}
-	cmd, err := command.New(stream.Context(), exec.Command(command.GitPath(), cmdArgs...), stdinReader, nil, nil)
-	if err != nil {
-		return grpc.Errorf(codes.Internal, "GetBlob: cmd: %v", err)
-	}
-	defer stdinWriter.Close()
-	defer stdinReader.Close()
-
-	if _, err := fmt.Fprintln(stdinWriter, in.Oid); err != nil {
-		return grpc.Errorf(codes.Internal, "GetBlob: stdin write: %v", err)
-	}
-	stdinWriter.Close()
-
-	stdout := bufio.NewReader(cmd)
-
-	objectInfo, err := catfile.ParseObjectInfo(stdout)
-	if err != nil {
-		return grpc.Errorf(codes.Internal, "GetBlob: %v", err)
-	}
-	if objectInfo.Type != "blob" {
-		return helper.DecorateError(codes.Unavailable, stream.Send(&pb.GetBlobResponse{}))
-	}
-
-	readLimit := objectInfo.Size
-	if in.Limit >= 0 && in.Limit < readLimit {
-		readLimit = in.Limit
-	}
-	firstMessage := &pb.GetBlobResponse{
-		Size: objectInfo.Size,
-		Oid:  objectInfo.Oid,
-	}
-
-	if readLimit == 0 {
-		return helper.DecorateError(codes.Unavailable, stream.Send(firstMessage))
-	}
-
-	sw := streamio.NewWriter(func(p []byte) error {
-		msg := &pb.GetBlobResponse{}
-		if firstMessage != nil {
-			msg = firstMessage
-			firstMessage = nil
+	return getBlobs(stream.Context(), repoPath, []string{in.Oid}, in.Limit, func(size int64, oid string, data []byte) error {
+		resp := &pb.GetBlobResponse{
+			Size: size,
+			Oid:  oid,
+			Data: data,
 		}
-		msg.Data = p
-		return stream.Send(msg)
+
+		return stream.Send(resp)
 	})
-
-	n, err := io.Copy(sw, io.LimitReader(stdout, readLimit))
-	if err != nil {
-		return grpc.Errorf(codes.Unavailable, "GetBlob: send: %v", err)
-	}
-	if n != readLimit {
-		return grpc.Errorf(codes.Unavailable, "GetBlob: short send: %d/%d bytes", n, objectInfo.Size)
-	}
-
-	return nil
 }
 
 func validateRequest(in *pb.GetBlobRequest) error {
