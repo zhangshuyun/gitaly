@@ -8,6 +8,8 @@ UNRELEASED
   https://gitlab.com/gitlab-org/gitaly/merge_requests/392
 - Implement RepositoryService.HasLocalBranches RPC
   https://gitlab.com/gitlab-org/gitaly/merge_requests/397
+- Fix Commit Subject parsing in rubyserver
+  https://gitlab.com/gitlab-org/gitaly/merge_requests/388
 
 v0.44.0
 
