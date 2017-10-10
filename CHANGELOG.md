@@ -1,5 +1,14 @@
 # Gitaly changelog
 
+UNRELEASED
+
+- Implement OperationService::UserMergeBranch
+  https://gitlab.com/gitlab-org/gitaly/merge_requests/394
+- Add client feature logging and metrics
+  https://gitlab.com/gitlab-org/gitaly/merge_requests/392
+- Implement RepositoryService.HasLocalBranches RPC
+  https://gitlab.com/gitlab-org/gitaly/merge_requests/397
+
 v0.44.0
 
 - Update gitlab_git to 4a0f720a502ac02423
@@ -8,10 +17,6 @@ v0.44.0
   https://gitlab.com/gitlab-org/gitaly/merge_requests/385
 - Implement Raw{Diff,Patch} RPCs
   https://gitlab.com/gitlab-org/gitaly/merge_requests/381
-- Add client feature logging and metrics
-  https://gitlab.com/gitlab-org/gitaly/merge_requests/392
-- Implement RepositoryService.HasLocalBranches RPC
-  https://gitlab.com/gitlab-org/gitaly/merge_requests/397
 
 v0.43.0
 
