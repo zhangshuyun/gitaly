@@ -105,7 +105,7 @@ func getBlobs(ctx context.Context, repoPath string, oids []string, limit int64, 
 				return grpc.Errorf(codes.Unavailable, "getBlob: read: %v", err)
 			}
 			if n != rest {
-				return grpc.Errorf(codes.Unavailable, "getBlob: short send: %d/%d bytes", n, rest)
+				return grpc.Errorf(codes.Unavailable, "getBlob: short read: %d/%d bytes", n, rest)
 			}
 		}
 	}

@@ -146,22 +146,39 @@ func TestFailedGetBlobsRequestDueToValidationError(t *testing.T) {
 	defer conn.Close()
 	oid := "d42783470dc29fde2cf459eb3199ee1d7e3f3a72"
 
-	rpcRequests := []pb.GetBlobsRequest{
-		{Repository: &pb.Repository{StorageName: "fake", RelativePath: "path"}, Oids: []string{oid}}, // Repository doesn't exist
-		{Repository: nil, Oids: []string{oid}},                                                       // Repository is nil
-		{Repository: testRepo},                                                                       // Oid is empty
-		{Repository: testRepo, Oids: []string{"foo", "", "bar"}},                                     // one Oid is empty
+	tests := []struct {
+		desc string
+		req  pb.GetBlobsRequest
+	}{
+		{
+			desc: "repo does not exist",
+			req:  pb.GetBlobsRequest{Repository: &pb.Repository{StorageName: "fake", RelativePath: "path"}, Oids: []string{oid}},
+		},
+		{
+			desc: "repo is nil",
+			req:  pb.GetBlobsRequest{Repository: nil, Oids: []string{oid}},
+		},
+		{
+			desc: "oid list is empty",
+			req:  pb.GetBlobsRequest{Repository: testRepo},
+		},
+		{
+			desc: "one oid is empty string",
+			req:  pb.GetBlobsRequest{Repository: testRepo, Oids: []string{"foo", "", "bar"}},
+		},
 	}
 
-	for _, rpcRequest := range rpcRequests {
-		ctx, cancel := testhelper.Context()
-		defer cancel()
+	for _, tc := range tests {
+		t.Run(tc.desc, func(t *testing.T) {
+			ctx, cancel := testhelper.Context()
+			defer cancel()
 
-		stream, err := client.GetBlobs(ctx, &rpcRequest)
-		require.NoError(t, err, rpcRequest)
-		_, err = stream.Recv()
-		require.NotEqual(t, io.EOF, err, rpcRequest)
-		require.Error(t, err, rpcRequest)
+			stream, err := client.GetBlobs(ctx, &tc.req)
+			require.NoError(t, err)
+			_, err = stream.Recv()
+			require.NotEqual(t, io.EOF, err)
+			require.Error(t, err)
+		})
 	}
 }
 
