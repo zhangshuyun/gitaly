@@ -121,21 +121,40 @@ func TestGetBlobsNotFound(t *testing.T) {
 	client, conn := newBlobClient(t, serverSocketPath)
 	defer conn.Close()
 
-	request := &pb.GetBlobsRequest{
-		Repository: testRepo,
-		Oids:       []string{"doesnotexist", "95d9f0a5e7bb054e9dd3975589b8dfc689e20e88"}, // Second exist
+	tests := []struct {
+		desc string
+		req  pb.GetBlobsRequest
+	}{
+		{
+			desc: "first of two is non-exist",
+			req: pb.GetBlobsRequest{
+				Repository: testRepo,
+				Oids:       []string{"doesnotexist", "95d9f0a5e7bb054e9dd3975589b8dfc689e20e88"}, // Second exist
+			},
+		},
+		{
+			desc: "second of three is non-exist",
+			req: pb.GetBlobsRequest{
+				Repository: testRepo,
+				Oids:       []string{"95d9f0a5e7bb054e9dd3975589b8dfc689e20e88", "doesnotexist", "95d9f0a5e7bb054e9dd3975589b8dfc689e20e88"}, // Second exist
+			},
+		},
 	}
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	for _, tc := range tests {
+		t.Run(tc.desc, func(t *testing.T) {
+			ctx, cancel := testhelper.Context()
+			defer cancel()
 
-	stream, err := client.GetBlobs(ctx, request)
-	require.NoError(t, err)
+			stream, err := client.GetBlobs(ctx, &tc.req)
+			require.NoError(t, err)
 
-	blobs, err := getAllBlobs(stream)
-	require.NoError(t, err)
+			blobs, err := getAllBlobs(stream)
+			require.NoError(t, err)
 
-	require.Nil(t, blobs)
+			require.Nil(t, blobs)
+		})
+	}
 }
 
 func TestFailedGetBlobsRequestDueToValidationError(t *testing.T) {
