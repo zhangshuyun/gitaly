@@ -65,6 +65,7 @@ func Test_generateRavenPacket(t *testing.T) {
 			assert.NotEmpty(t, tags["grpc.time_ms"])
 			assert.Equal(t, tt.method, tags["grpc.method"])
 			assert.Equal(t, tt.wantCode.String(), tags["grpc.code"])
+			assert.Equal(t, []string{"grpc", tt.wantCulprit, tt.wantCode.String()}, packet.Fingerprint)
 		})
 	}
 }

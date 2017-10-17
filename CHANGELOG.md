@@ -2,6 +2,8 @@
 
 UNRELEASED
 
+- Use sentry fingerprinting to group exceptions
+  https://gitlab.com/gitlab-org/gitaly/merge_requests/417
 - Remove old temporary files from repositories after GC
   https://gitlab.com/gitlab-org/gitaly/merge_requests/411
 

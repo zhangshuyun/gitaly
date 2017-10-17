@@ -52,10 +52,16 @@ func methodToCulprit(methodName string) string {
 	return methodName
 }
 
-func generateRavenPacket(ctx context.Context, method string, start time.Time, err error) (*raven.Packet, map[string]string) {
-	grpcErrorCode := grpc.Code(err)
+func logErrorToSentry(err error) (code codes.Code, bypass bool) {
+	code = grpc.Code(err)
 
-	if grpcErrorCode == codes.OK {
+	bypass = code == codes.OK || code == codes.Canceled
+	return code, bypass
+}
+
+func generateRavenPacket(ctx context.Context, method string, start time.Time, err error) (*raven.Packet, map[string]string) {
+	grpcErrorCode, bypass := logErrorToSentry(err)
+	if bypass {
 		return nil, nil
 	}
 
@@ -69,7 +75,12 @@ func generateRavenPacket(ctx context.Context, method string, start time.Time, er
 
 	// Skip the stacktrace as it's not helpful in this context
 	packet := raven.NewPacket(err.Error(), raven.NewException(err, nil))
-	packet.Culprit = methodToCulprit(method)
+	grpcMethod := methodToCulprit(method)
+
+	// Details on fingerprinting
+	// https://docs.sentry.io/learn/rollups/#customize-grouping-with-fingerprints
+	packet.Fingerprint = []string{"grpc", grpcMethod, grpcErrorCode.String()}
+	packet.Culprit = grpcMethod
 	return packet, ravenDetails
 }
 
