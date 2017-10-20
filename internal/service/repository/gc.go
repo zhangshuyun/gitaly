@@ -3,6 +3,7 @@ package repository
 import (
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
 	log "github.com/sirupsen/logrus"
+	"gitlab.com/gitlab-org/gitaly/internal/helper/housekeeping"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -10,10 +11,12 @@ import (
 
 	pb "gitlab.com/gitlab-org/gitaly-proto/go"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/helper"
 )
 
 func (server) GarbageCollect(ctx context.Context, in *pb.GarbageCollectRequest) (*pb.GarbageCollectResponse, error) {
-	grpc_logrus.Extract(ctx).WithFields(log.Fields{
+	ctxlogger := grpc_logrus.Extract(ctx)
+	ctxlogger.WithFields(log.Fields{
 		"WriteBitmaps": in.GetCreateBitmap(),
 	}).Debug("GarbageCollect")
 
@@ -34,6 +37,17 @@ func (server) GarbageCollect(ctx context.Context, in *pb.GarbageCollectRequest) 
 
 	if err := cmd.Wait(); err != nil {
 		return nil, grpc.Errorf(codes.Internal, err.Error())
+	}
+
+	// Perform housekeeping post GC
+	repoPath, err := helper.GetRepoPath(in.GetRepository())
+	if err != nil {
+		return nil, err
+	}
+
+	err = housekeeping.Perform(ctx, repoPath)
+	if err != nil {
+		ctxlogger.WithError(err).Warn("Post gc housekeeping failed")
 	}
 
 	return &pb.GarbageCollectResponse{}, nil

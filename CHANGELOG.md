@@ -1,5 +1,10 @@
 # Gitaly changelog
 
+UNRELEASED
+
+- Remove old temporary files from repositories after GC
+  https://gitlab.com/gitlab-org/gitaly/merge_requests/411
+
 v0.43.0
 
 - Pass details of Gitaly-Ruby's Ruby exceptions back to
