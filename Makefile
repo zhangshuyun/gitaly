@@ -19,6 +19,7 @@ GO_LDFLAGS = -ldflags '-X $(PKG)/internal/version.version=$(VERSION) -X $(PKG)/i
 
 unexport GOROOT
 unexport GOBIN
+unexport DESTDIR
 
 export GOPATH := $(TARGET_DIR)
 export PATH := $(GOPATH)/bin:$(PATH)
