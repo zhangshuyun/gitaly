@@ -1,6 +1,6 @@
 # Gitaly changelog
 
-UNRELEASED
+v0.43.1
 
 - Use sentry fingerprinting to group exceptions
   https://gitlab.com/gitlab-org/gitaly/merge_requests/417
