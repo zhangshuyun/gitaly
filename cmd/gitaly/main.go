@@ -130,6 +130,9 @@ func main() {
 		log.WithField("address", config.Config.PrometheusListenAddr).Info("Starting prometheus listener")
 		promMux := http.NewServeMux()
 		promMux.Handle("/metrics", promhttp.Handler())
+
+		server.AddPprofHandlers(promMux)
+
 		go func() {
 			http.ListenAndServe(config.Config.PrometheusListenAddr, promMux)
 		}()

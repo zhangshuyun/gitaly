@@ -1,5 +1,10 @@
 # Gitaly changelog
 
+UNRELEASED
+
+- Include pprof debug access in the Prometheus listener
+  https://gitlab.com/gitlab-org/gitaly/merge_requests/442
+
 v0.52.0
 
 - Implement WikiUpdatePage RPC
