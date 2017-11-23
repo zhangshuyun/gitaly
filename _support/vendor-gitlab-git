@@ -21,7 +21,7 @@ def main
 
   Dir.mktmpdir do |dir|
     gitlab_dir = File.join(dir, 'gitlab')
-    run!(%W[git clone --depth=1 -b #{revision} #{REMOTE}.git #{gitlab_dir}])
+    run!(%W[git clone -q --depth=1 -b #{revision} #{REMOTE}.git #{gitlab_dir}])
     revision_sha = capture!(%w[git rev-parse HEAD], gitlab_dir).chomp
 
     FileUtils.rm_rf(VENDOR_DIR)
