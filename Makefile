@@ -16,7 +16,8 @@ BUNDLE_FLAGS ?= --deployment
 BUILDTIME = $(shell date -u +%Y%m%d.%H%M%S)
 VERSION_PREFIXED = $(shell git describe)
 VERSION = $(VERSION_PREFIXED:v%=%)
-GO_LDFLAGS = -ldflags '-X $(PKG)/internal/version.version=$(VERSION) -X $(PKG)/internal/version.buildtime=$(BUILDTIME)'
+GOVERSION = $(shell go version | awk '{print $$3}')
+GO_LDFLAGS = -ldflags '-X $(PKG)/internal/version.version=$(VERSION)-$(GOVERSION) -X $(PKG)/internal/version.buildtime=$(BUILDTIME)'
 
 unexport GOROOT
 unexport GOBIN
@@ -54,6 +55,17 @@ $(TARGET_SETUP):
 build:	.ruby-bundle $(TARGET_SETUP)
 	go install $(GO_LDFLAGS) $(COMMAND_PACKAGES)
 	cp $(foreach cmd,$(COMMANDS),$(BIN_BUILD_DIR)/$(cmd)) $(BUILD_DIR)/
+
+# TODO make this less of a hack
+CUSTOM_NAME = gitaly-$(VERSION)-$(GOVERSION)
+CUSTOM_DIR = opt/$(CUSTOM_NAME)
+custom-linux-go-binary: $(TARGET_SETUP)
+	GOOS=linux GOARCH=amd64 go install $(GO_LDFLAGS) $(COMMAND_PACKAGES)
+	rm -rf _build/tmp
+	mkdir -p _build/tmp/$(CUSTOM_DIR)
+	cp $(BIN_BUILD_DIR)/linux_amd64/gitaly _build/tmp/$(CUSTOM_DIR)
+	tar -C _build/tmp -czf $(CUSTOM_NAME).tar.gz $(CUSTOM_DIR)
+	shasum -a256 *.tar.gz
 
 .ruby-bundle:	ruby/Gemfile.lock ruby/Gemfile
 	cd ruby && bundle install $(BUNDLE_FLAGS)
