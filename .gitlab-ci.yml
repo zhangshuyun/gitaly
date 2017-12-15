@@ -53,6 +53,8 @@ test:go1.8-git2.14:
   image: registry.gitlab.com/gitlab-org/gitaly/build-ruby-2.3-golang-1.8-git-2.14:latest
 
 cover:
+  before_script:
+      - bundle config --local gemfile Gemfile
   stage: test
   script:
     - make cover
