@@ -78,6 +78,10 @@ assemble: force-ruby-bundle build
 	cp -r ruby $(ASSEMBLY_ROOT)/ruby
 	install $(foreach cmd,$(COMMANDS),$(BIN_BUILD_DIR)/$(cmd)) $(ASSEMBLY_ROOT)/bin
 
+binaries: assemble
+	@if [ $$(uname -m) != 'x86_64' ]; then echo Incorrect architecture for build: $(uname -m); exit 1; fi
+	@cd $(ASSEMBLY_ROOT) && shasum -a 256 bin/* | tee checksums.sha256.txt
+
 docker: $(TARGET_SETUP)
 	rm -rf $(TARGET_DIR)/docker/
 	mkdir -p $(TARGET_DIR)/docker/bin/
