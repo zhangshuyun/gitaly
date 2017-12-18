@@ -12,30 +12,27 @@ verify:
   script:
     - make verify
 
-.build_template: &build_definition
+.ruby_template: &ruby_definition
   before_script:
     # Override gemfile config (for some reasong `config --delete` doesn't do it)
     - bundle config --local gemfile Gemfile
-  stage: build
   cache:
     key: gems
     paths:
       - ruby/vendor/bundle
+
+.build_template: &build_definition
+  <<: *ruby_definition
+  stage: build
   script:
     - make
     - _support/test-boot-time .
 
 .assemble_template: &assemble_definition
-  before_script:
-    # Override gemfile config (for some reasong `config --delete` doesn't do it)
-    - bundle config --local gemfile Gemfile
+  <<: *ruby_definition
   stage: build
   only:
     - tags
-  cache:
-    key: gems
-    paths:
-      - ruby/vendor/bundle
   script:
     # Just in case we start running CI builds on other architectures in future
     - go version
@@ -47,9 +44,9 @@ verify:
     expire_in: 6 months
 
 .test_template: &test_definition
-  before_script:
-    - bundle config --local gemfile Gemfile
+  <<: *ruby_definition
   stage: test
+  # Override the ruby_definition cache definition for pull
   cache:
     key: gems
     paths:
