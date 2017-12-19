@@ -6,6 +6,8 @@ require 'grpc'
 
 require_relative '../lib/gitaly_server.rb'
 
+SHUTDOWN_TIMEOUT = 600
+
 def main
   if ARGV.length != 2
     abort "Usage: #{$0} PPID /path/to/socket"
@@ -14,42 +16,43 @@ def main
 
   ppid_i = ppid.to_i
   abort "invalid PPID: #{ppid.inspect}" unless ppid_i > 0
-  start_parent_watcher(ppid_i)
 
   FileUtils.rm_f(socket_path)
   socket_dir = File.dirname(socket_path)
   FileUtils.mkdir_p(socket_dir)
   File.chmod(0700, socket_dir)
 
-  s = GRPC::RpcServer.new
+  s = GRPC::RpcServer.new(poll_period: SHUTDOWN_TIMEOUT)
   port = 'unix:' + socket_path
   s.add_http2_port(port, :this_port_is_insecure)
   GRPC.logger.info("... running insecurely on #{port}")
 
   GitalyServer.register_handlers(s)
 
-  wait_thread = Thread.new do
+  signal_thread = Thread.new do
     sleep
   end
 
-  trap('TERM') { wait_thread.kill }
+  trap('TERM') { signal_thread.kill }
+  start_parent_watcher(ppid_i, signal_thread)
 
   run_thread = Thread.new do
     s.run
-    wait_thread.kill
+    signal_thread.kill
   end
 
-  wait_thread.join
+  signal_thread.join
   s.stop
   run_thread.join
 end
 
-def start_parent_watcher(original_ppid)
+def start_parent_watcher(original_ppid, signal_thread)
   Thread.new do
     loop do
       if Process.ppid != original_ppid
         # Our original parent is gone. Self-terminate.
-        Process.kill(9, Process.pid)
+        signal_thread.kill
+        break
       end
 
       sleep 1
