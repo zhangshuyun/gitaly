@@ -1,6 +1,6 @@
 # Gitaly changelog
 
-UNRELEASED
+v0.59.1
 
 - gitaly-ruby shutdown improvements
   https://gitlab.com/gitlab-org/gitaly/merge_requests/500
