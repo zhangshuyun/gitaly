@@ -1,6 +1,6 @@
 # Gitaly changelog
 
-UNRELEASED
+v0.59.2
 
 - Cherry-pick Go 1.9 build changes from
   https://gitlab.com/gitlab-org/gitaly/merge_requests/496
