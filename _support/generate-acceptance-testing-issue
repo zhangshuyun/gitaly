@@ -26,7 +26,7 @@ end.parse!
 
 def prompt(text)
   puts text
-  gets
+  gets.strip
 end
 
 template_file = File.join(File.dirname(__FILE__), "..", ".gitlab", "issue_templates", "Migration_Acceptance_Testing.md")
