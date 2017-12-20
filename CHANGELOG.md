@@ -1,5 +1,10 @@
 # Gitaly changelog
 
+UNRELEASED
+
+- Cherry-pick Go 1.9 build changes from
+  https://gitlab.com/gitlab-org/gitaly/merge_requests/496
+
 v0.59.1
 
 - gitaly-ruby shutdown improvements
