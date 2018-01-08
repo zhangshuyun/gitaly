@@ -2,6 +2,8 @@
 
 UNRELEASED
 
+- Update vendored gitlab_git to 33cea50976
+  https://gitlab.com/gitlab-org/gitaly/merge_requests/518
 - Update vendored gitlab_git to bce886b776a
   https://gitlab.com/gitlab-org/gitaly/merge_requests/515
 - Update vendored gitlab_git to 6eeb69fc9a2
