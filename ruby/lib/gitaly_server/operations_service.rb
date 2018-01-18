@@ -258,6 +258,27 @@ module GitalyServer
       end
     end
 
+    def user_squash(request, call)
+      bridge_exceptions do
+        repo = Gitlab::Git::Repository.from_gitaly(request.repository, call)
+        user = Gitlab::Git::User.from_gitaly(request.user)
+        author = Gitlab::Git::User.from_gitaly(request.author)
+
+        begin
+          squash_sha = repo.squash(user, request.squash_id,
+                                   branch: request.branch,
+                                   start_sha: request.start_sha,
+                                   end_sha: request.end_sha,
+                                   author: author,
+                                   message: request.commit_message)
+
+          Gitaly::UserSquashResponse.new(squash_sha: squash_sha)
+        rescue Gitlab::Git::Repository::GitError => e
+          Gitaly::UserSquashResponse.new(git_error: e.message)
+        end
+      end
+    end
+
     private
 
     def commit_files_opts(call, header, actions)
