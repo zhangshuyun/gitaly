@@ -571,7 +571,21 @@ module Gitlab
       end
 
       def merged_branch_names(branch_names = [])
-        Set.new(git_merged_branch_names(branch_names))
+        return [] unless root_ref
+
+        root_sha = find_branch(root_ref)&.target
+
+        return [] unless root_sha
+
+        branches = gitaly_migrate(:merged_branch_names) do |is_enabled|
+          if is_enabled
+            gitaly_merged_branch_names(branch_names, root_sha)
+          else
+            git_merged_branch_names(branch_names, root_sha)
+          end
+        end
+
+        Set.new(branches)
       end
 
       # Return an array of Diff objects that represent the diff
@@ -654,6 +668,7 @@ module Gitlab
             end
           end
         end
+
         @refs_hash
       end
 
@@ -1111,19 +1126,6 @@ module Gitlab
         end
       end
 
-      def shell_write_ref(ref_path, ref, old_ref)
-        raise ArgumentError, "invalid ref_path #{ref_path.inspect}" if ref_path.include?(' ')
-        raise ArgumentError, "invalid ref #{ref.inspect}" if ref.include?("\x00")
-        raise ArgumentError, "invalid old_ref #{old_ref.inspect}" if !old_ref.nil? && old_ref.include?("\x00")
-
-        input = "update #{ref_path}\x00#{ref}\x00#{old_ref}\x00"
-        run_git!(%w[update-ref --stdin -z]) { |stdin| stdin.write(input) }
-      end
-
-      def rugged_write_ref(ref_path, ref)
-        rugged.references.create(ref_path, ref, force: true)
-      end
-
       def fetch_ref(source_repository, source_ref:, target_ref:)
         Gitlab::Git.check_namespace!(source_repository)
         source_repository = RemoteRepository.new(source_repository) unless source_repository.is_a?(RemoteRepository)
@@ -1221,33 +1223,31 @@ module Gitlab
       end
 
       def rebase(user, rebase_id, branch:, branch_sha:, remote_repository:, remote_branch:)
-        rebase_path = worktree_path(REBASE_WORKTREE_PREFIX, rebase_id)
-        env = git_env_for_user(user)
-
-        if remote_repository.is_a?(RemoteRepository)
-          env.merge!(remote_repository.fetch_env)
-          remote_repo_path = GITALY_INTERNAL_URL
-        else
-          remote_repo_path = remote_repository.path
-        end
-
-        with_worktree(rebase_path, branch, env: env) do
-          run_git!(
-            %W(pull --rebase #{remote_repo_path} #{remote_branch}),
-            chdir: rebase_path, env: env
-          )
-
-          rebase_sha = run_git!(%w(rev-parse HEAD), chdir: rebase_path, env: env).strip
-
-          Gitlab::Git::OperationService.new(user, self)
-            .update_branch(branch, rebase_sha, branch_sha)
-
-          rebase_sha
+        gitaly_migrate(:rebase) do |is_enabled|
+          if is_enabled
+            gitaly_rebase(user, rebase_id,
+                          branch: branch,
+                          branch_sha: branch_sha,
+                          remote_repository: remote_repository,
+                          remote_branch: remote_branch)
+          else
+            git_rebase(user, rebase_id,
+                       branch: branch,
+                       branch_sha: branch_sha,
+                       remote_repository: remote_repository,
+                       remote_branch: remote_branch)
+          end
         end
       end
 
       def rebase_in_progress?(rebase_id)
-        fresh_worktree?(worktree_path(REBASE_WORKTREE_PREFIX, rebase_id))
+        gitaly_migrate(:rebase_in_progress) do |is_enabled|
+          if is_enabled
+            gitaly_repository_client.rebase_in_progress?(rebase_id)
+          else
+            fresh_worktree?(worktree_path(REBASE_WORKTREE_PREFIX, rebase_id))
+          end
+        end
       end
 
       def squash(user, squash_id, branch:, start_sha:, end_sha:, author:, message:)
@@ -1383,6 +1383,23 @@ module Gitlab
 
       private
 
+      def shell_write_ref(ref_path, ref, old_ref)
+        raise ArgumentError, "invalid ref_path #{ref_path.inspect}" if ref_path.include?(' ')
+        raise ArgumentError, "invalid ref #{ref.inspect}" if ref.include?("\x00")
+        raise ArgumentError, "invalid old_ref #{old_ref.inspect}" if !old_ref.nil? && old_ref.include?("\x00")
+
+        input = "update #{ref_path}\x00#{ref}\x00#{old_ref}\x00"
+        run_git!(%w[update-ref --stdin -z]) { |stdin| stdin.write(input) }
+      end
+
+      def rugged_write_ref(ref_path, ref)
+        rugged.references.create(ref_path, ref, force: true)
+      rescue Rugged::ReferenceError => ex
+        raise CommandError, "ReferenceError: #{ex}"
+      rescue Rugged::OSError => ex
+        raise CommandError, "OSError: #{ex}"
+      end
+
       def fresh_worktree?(path)
         File.exist?(path) && !clean_stuck_worktree(path)
       end
@@ -1488,14 +1505,7 @@ module Gitlab
         sort_branches(branches, sort_by)
       end
 
-      # Gitaly migration: https://gitlab.com/gitlab-org/gitaly/issues/695
-      def git_merged_branch_names(branch_names = [])
-        return [] unless root_ref
-
-        root_sha = find_branch(root_ref)&.target
-
-        return [] unless root_sha
-
+      def git_merged_branch_names(branch_names, root_sha)
         git_arguments =
           %W[branch --merged #{root_sha}
              --format=%(refname:short)\ %(objectname)] + branch_names
@@ -1507,6 +1517,14 @@ module Gitlab
 
           branches << name if sha != root_sha
         end
+      end
+
+      def gitaly_merged_branch_names(branch_names, root_sha)
+        qualified_branch_names = branch_names.map { |b| "refs/heads/#{b}" }
+
+        gitaly_ref_client.merged_branches(qualified_branch_names)
+          .reject { |b| b.target == root_sha }
+          .map(&:name)
       end
 
       def process_count_commits_options(options)
@@ -2021,6 +2039,40 @@ module Gitlab
         return false unless diff_exists?(source_sha, tree_id)
 
         tree_id
+      end
+
+      def gitaly_rebase(user, rebase_id, branch:, branch_sha:, remote_repository:, remote_branch:)
+        gitaly_operation_client.user_rebase(user, rebase_id,
+                                            branch: branch,
+                                            branch_sha: branch_sha,
+                                            remote_repository: remote_repository,
+                                            remote_branch: remote_branch)
+      end
+
+      def git_rebase(user, rebase_id, branch:, branch_sha:, remote_repository:, remote_branch:)
+        rebase_path = worktree_path(REBASE_WORKTREE_PREFIX, rebase_id)
+        env = git_env_for_user(user)
+
+        if remote_repository.is_a?(RemoteRepository)
+          env.merge!(remote_repository.fetch_env)
+          remote_repo_path = GITALY_INTERNAL_URL
+        else
+          remote_repo_path = remote_repository.path
+        end
+
+        with_worktree(rebase_path, branch, env: env) do
+          run_git!(
+            %W(pull --rebase #{remote_repo_path} #{remote_branch}),
+            chdir: rebase_path, env: env
+          )
+
+          rebase_sha = run_git!(%w(rev-parse HEAD), chdir: rebase_path, env: env).strip
+
+          Gitlab::Git::OperationService.new(user, self)
+            .update_branch(branch, rebase_sha, branch_sha)
+
+          rebase_sha
+        end
       end
 
       def local_fetch_ref(source_path, source_ref:, target_ref:)
