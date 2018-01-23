@@ -2,6 +2,8 @@
 
 UNRELEASED
 
+- Update Gitlab::Git vendoring to ea14c1e6963f4411666804aed084344916e49ad9
+  https://gitlab.com/gitlab-org/gitaly/merge_requests/
 - Implement CreateRepositoryFromBundle RPC
   https://gitlab.com/gitlab-org/gitaly/merge_requests/557
 - Use gitaly-proto v0.77.0
