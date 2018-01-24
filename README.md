@@ -65,7 +65,7 @@ Gitaly requires Go 1.8 or newer and Ruby 2.3. Run `make` to download
 and compile Ruby dependencies, and to compile the Gitaly Go
 executable.
 
-Gitaly uses `git`. Version `2.13.6` is recommended, and `2.8.4` at a minimum.
+Gitaly uses `git`. Version `2.14.3` is recommended, and `2.9.0` at a minimum.
 
 ## Configuration
 
