@@ -3,6 +3,8 @@ FROM registry.gitlab.com/gitlab-org/gitlab-build-images:${CUSTOM_IMAGE_VERSION}
 
 RUN mkdir -p /bundle-cache
 
+RUN echo $(ls -la)
+
 COPY ./ruby/Gemfile /bundle-cache
 COPY ./ruby/Gemfile.lock /bundle-cache
 

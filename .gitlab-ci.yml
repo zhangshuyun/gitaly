@@ -124,8 +124,6 @@ codequality:
   variables:
     DOCKER_DRIVER: overlay
   stage: build_images
-  only:
-   - schedules
   image: docker:latest
   services:
   - docker:dind
