@@ -29,6 +29,9 @@ func (s *server) FindCommits(req *pb.FindCommitsRequest, stream pb.CommitService
 		}
 	}
 
+	// We are removing the 'rugged walk' implementation
+	req.DisableWalk = true
+
 	client, err := s.CommitServiceClient(ctx)
 	if err != nil {
 		return err
