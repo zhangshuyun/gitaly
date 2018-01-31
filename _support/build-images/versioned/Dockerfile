@@ -5,8 +5,8 @@ RUN mkdir -p /bundle-cache
 
 RUN echo $(ls -la)
 
-COPY ./ruby/Gemfile /bundle-cache
-COPY ./ruby/Gemfile.lock /bundle-cache
+COPY ./Gemfile /bundle-cache
+COPY ./Gemfile.lock /bundle-cache
 
 RUN DEBIAN_FRONTEND=noninteractive apt-get update -qq && \
     DEBIAN_FRONTEND=noninteractive apt-get install -qq -y rubygems bundler cmake build-essential libicu-dev && \
