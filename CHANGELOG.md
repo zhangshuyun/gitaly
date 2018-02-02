@@ -2,6 +2,8 @@
 
 UNRELEASED
 
+- Vendor gitlab_git at a00aed74af67dd72a2aa7bf
+  https://gitlab.com/gitlab-org/gitaly/merge_requests/583
 - Vendor gitlab_git at 498d32363aa61d679ff749b
   https://gitlab.com/gitlab-org/gitaly/merge_requests/579
 - Convert inputs to UTF-8 before passing them to Gollum
