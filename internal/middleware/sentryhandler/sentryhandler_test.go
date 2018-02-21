@@ -48,6 +48,13 @@ func Test_generateRavenPacket(t *testing.T) {
 			err:        nil,
 			wantNil:    true,
 		},
+		{
+			name:       "InfoRefsUploadPack not found",
+			method:     "/gitaly.SmartHTTPService/InfoRefsUploadPack",
+			sinceStart: 500 * time.Millisecond,
+			err:        status.Errorf(codes.NotFound, "Something failed"),
+			wantNil:    true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

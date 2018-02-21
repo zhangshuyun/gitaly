@@ -15,6 +15,15 @@ import (
 	"google.golang.org/grpc/codes"
 )
 
+// TODO: this blacklist needs to be configurable via config.toml
+var sentryErrorBlacklist = []struct {
+	method string
+	code   codes.Code
+}{
+	// Blacklist InfoRefsUploadPack/NotFound because Geo creates lots of bogus wiki clone requests
+	{method: "/gitaly.SmartHTTPService/InfoRefsUploadPack", code: codes.NotFound},
+}
+
 // UnaryLogHandler handles access times and errors for unary RPC's
 func UnaryLogHandler(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 	start := time.Now()
@@ -53,15 +62,24 @@ func methodToCulprit(methodName string) string {
 	return methodName
 }
 
-func logErrorToSentry(err error) (code codes.Code, bypass bool) {
+func logErrorToSentry(method string, err error) (code codes.Code, bypass bool) {
 	code = helper.GrpcCode(err)
 
-	bypass = code == codes.OK || code == codes.Canceled
-	return code, bypass
+	if code == codes.OK || code == codes.Canceled {
+		return code, true
+	}
+
+	for _, blacklisted := range sentryErrorBlacklist {
+		if method == blacklisted.method && code == blacklisted.code {
+			return code, true
+		}
+	}
+
+	return code, false
 }
 
 func generateRavenPacket(ctx context.Context, method string, start time.Time, err error) (*raven.Packet, map[string]string) {
-	grpcErrorCode, bypass := logErrorToSentry(err)
+	grpcErrorCode, bypass := logErrorToSentry(method, err)
 	if bypass {
 		return nil, nil
 	}
