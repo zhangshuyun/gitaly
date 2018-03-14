@@ -177,6 +177,35 @@ func TestSuccessfulHasLocalBranches(t *testing.T) {
 	}
 }
 
+func BenchmarkHasLocalBranchesShell(b *testing.B) {
+	server, serverSocketPath := runRepoServer(b)
+	defer server.Stop()
+
+	client, conn := newRepositoryClient(b, serverSocketPath)
+	defer conn.Close()
+
+	testRepo, _, cleanupFn := testhelper.NewTestRepo(b)
+	defer cleanupFn()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	for n := 0; n < b.N; n++ {
+		resp, err := client.HasLocalBranches(ctx, &pb.HasLocalBranchesRequest{Repository: testRepo})
+
+		require.NoError(b, err)
+		require.True(b, resp.Value)
+	}
+}
+
+func BenchmarkHasLocalBranchesRuby(b *testing.B) {
+	hlbRuby = true
+	defer func() { hlbRuby = false }()
+
+	BenchmarkHasLocalBranchesShell(b)
+
+}
+
 func TestFailedHasLocalBranches(t *testing.T) {
 	server, serverSocketPath := runRepoServer(t)
 	defer server.Stop()

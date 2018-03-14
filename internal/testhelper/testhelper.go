@@ -144,7 +144,7 @@ func AssertGrpcError(t *testing.T, err error, expectedCode codes.Code, containsT
 }
 
 // MustRunCommand runs a command with an optional standard input and returns the standard output, or fails.
-func MustRunCommand(t *testing.T, stdin io.Reader, name string, args ...string) []byte {
+func MustRunCommand(t testing.TB, stdin io.Reader, name string, args ...string) []byte {
 	cmd := exec.Command(name, args...)
 	if stdin != nil {
 		cmd.Stdin = stdin
@@ -269,7 +269,7 @@ func ConfigureRuby() {
 }
 
 // NewTestGrpcServer creates a GRPC Server for testing purposes
-func NewTestGrpcServer(t *testing.T, streamInterceptors []grpc.StreamServerInterceptor, unaryInterceptors []grpc.UnaryServerInterceptor) *grpc.Server {
+func NewTestGrpcServer(t testing.TB, streamInterceptors []grpc.StreamServerInterceptor, unaryInterceptors []grpc.UnaryServerInterceptor) *grpc.Server {
 	logger := NewTestLogger(t)
 	logrusEntry := log.NewEntry(logger).WithField("test", t.Name())
 
@@ -336,7 +336,7 @@ func Context() (context.Context, func()) {
 	return context.WithCancel(context.Background())
 }
 
-func createRepo(t *testing.T, storagePath string) (repo *pb.Repository, repoPath, relativePath string) {
+func createRepo(t testing.TB, storagePath string) (repo *pb.Repository, repoPath, relativePath string) {
 	normalizedPrefix := strings.Replace(t.Name(), "/", "-", -1) //TempDir doesn't like a prefix containing slashes
 
 	repoPath, err := ioutil.TempDir(storagePath, normalizedPrefix)
@@ -377,7 +377,7 @@ func initRepo(t *testing.T, bare bool) (*pb.Repository, string, func()) {
 }
 
 // NewTestRepo creates a bare copy of the test repository.
-func NewTestRepo(t *testing.T) (repo *pb.Repository, repoPath string, cleanup func()) {
+func NewTestRepo(t testing.TB) (repo *pb.Repository, repoPath string, cleanup func()) {
 	return cloneTestRepo(t, true)
 }
 
@@ -387,7 +387,7 @@ func NewTestRepoWithWorktree(t *testing.T) (repo *pb.Repository, repoPath string
 	return cloneTestRepo(t, false)
 }
 
-func cloneTestRepo(t *testing.T, bare bool) (repo *pb.Repository, repoPath string, cleanup func()) {
+func cloneTestRepo(t testing.TB, bare bool) (repo *pb.Repository, repoPath string, cleanup func()) {
 	storagePath := GitlabTestStoragePath()
 	repo, repoPath, relativePath := createRepo(t, storagePath)
 	testRepo := TestRepository()

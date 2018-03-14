@@ -28,7 +28,7 @@ var (
 	RubyServer *rubyserver.Server
 )
 
-func newRepositoryClient(t *testing.T, serverSocketPath string) (pb.RepositoryServiceClient, *grpc.ClientConn) {
+func newRepositoryClient(t testing.TB, serverSocketPath string) (pb.RepositoryServiceClient, *grpc.ClientConn) {
 	connOpts := []grpc.DialOption{
 		grpc.WithInsecure(),
 		grpc.WithDialer(func(addr string, timeout time.Duration) (net.Conn, error) {
@@ -46,7 +46,7 @@ func newRepositoryClient(t *testing.T, serverSocketPath string) (pb.RepositorySe
 
 var NewRepositoryClient = newRepositoryClient
 
-func runRepoServer(t *testing.T) (*grpc.Server, string) {
+func runRepoServer(t testing.TB) (*grpc.Server, string) {
 	streamInt := []grpc.StreamServerInterceptor{auth.StreamServerInterceptor()}
 	unaryInt := []grpc.UnaryServerInterceptor{auth.UnaryServerInterceptor()}
 
