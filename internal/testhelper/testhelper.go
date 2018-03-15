@@ -430,3 +430,10 @@ func GetRepositoryRefs(t *testing.T, repoPath string) string {
 
 	return string(refs)
 }
+
+func DisableLogs() func() {
+	log.SetOutput(ioutil.Discard)
+	return func() {
+		log.SetOutput(os.Stdout)
+	}
+}

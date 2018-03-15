@@ -1,0 +1,108 @@
+From 6ac188d18de437d99ccbe612ed9a899035e13979 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Kim=20=22BKC=22=20Carlb=C3=A4cker?=
+ <kim.carlbacker@gmail.com>
+Date: Wed, 14 Mar 2018 20:21:21 +0100
+Subject: [PATCH 1/3] Implement Repo::HasLocalBranches in shell, also Bench
+
+---
+ internal/service/repository/testhelper_test.go |  4 +--
+ internal/testhelper/test_hook.go               |  4 +--
+ internal/testhelper/testhelper.go              | 10 +++----
+ 5 files changed, 73 insertions(+), 10 deletions(-)
+
+diff --git a/internal/service/repository/testhelper_test.go b/internal/service/repository/testhelper_test.go
+index 7926c01..a01dc15 100644
+--- a/internal/service/repository/testhelper_test.go
++++ b/internal/service/repository/testhelper_test.go
+@@ -28,7 +28,7 @@ var (
+ 	RubyServer *rubyserver.Server
+ )
+ 
+-func newRepositoryClient(t *testing.T, serverSocketPath string) (pb.RepositoryServiceClient, *grpc.ClientConn) {
++func newRepositoryClient(t testing.TB, serverSocketPath string) (pb.RepositoryServiceClient, *grpc.ClientConn) {
+ 	connOpts := []grpc.DialOption{
+ 		grpc.WithInsecure(),
+ 		grpc.WithDialer(func(addr string, timeout time.Duration) (net.Conn, error) {
+@@ -46,7 +46,7 @@ func newRepositoryClient(t *testing.T, serverSocketPath string) (pb.RepositorySe
+ 
+ var NewRepositoryClient = newRepositoryClient
+ 
+-func runRepoServer(t *testing.T) (*grpc.Server, string) {
++func runRepoServer(t testing.TB) (*grpc.Server, string) {
+ 	streamInt := []grpc.StreamServerInterceptor{auth.StreamServerInterceptor()}
+ 	unaryInt := []grpc.UnaryServerInterceptor{auth.UnaryServerInterceptor()}
+ 
+diff --git a/internal/testhelper/test_hook.go b/internal/testhelper/test_hook.go
+index 2e9b9d7..cd87665 100644
+--- a/internal/testhelper/test_hook.go
++++ b/internal/testhelper/test_hook.go
+@@ -8,7 +8,7 @@ import (
+ )
+ 
+ type testHook struct {
+-	t         *testing.T
++	t         testing.TB
+ 	formatter log.Formatter
+ }
+ 
+@@ -43,7 +43,7 @@ func (s testHook) Fire(entry *log.Entry) error {
+ }
+ 
+ // NewTestLogger created a logrus hook which can be used with testing logs
+-func NewTestLogger(t *testing.T) *log.Logger {
++func NewTestLogger(t testing.TB) *log.Logger {
+ 	logger := log.New()
+ 	logger.Out = ioutil.Discard
+ 	formatter := &log.TextFormatter{}
+diff --git a/internal/testhelper/testhelper.go b/internal/testhelper/testhelper.go
+index 5b0c495..530aaba 100644
+--- a/internal/testhelper/testhelper.go
++++ b/internal/testhelper/testhelper.go
+@@ -144,7 +144,7 @@ func AssertGrpcError(t *testing.T, err error, expectedCode codes.Code, containsT
+ }
+ 
+ // MustRunCommand runs a command with an optional standard input and returns the standard output, or fails.
+-func MustRunCommand(t *testing.T, stdin io.Reader, name string, args ...string) []byte {
++func MustRunCommand(t testing.TB, stdin io.Reader, name string, args ...string) []byte {
+ 	cmd := exec.Command(name, args...)
+ 	if stdin != nil {
+ 		cmd.Stdin = stdin
+@@ -269,7 +269,7 @@ func ConfigureRuby() {
+ }
+ 
+ // NewTestGrpcServer creates a GRPC Server for testing purposes
+-func NewTestGrpcServer(t *testing.T, streamInterceptors []grpc.StreamServerInterceptor, unaryInterceptors []grpc.UnaryServerInterceptor) *grpc.Server {
++func NewTestGrpcServer(t testing.TB, streamInterceptors []grpc.StreamServerInterceptor, unaryInterceptors []grpc.UnaryServerInterceptor) *grpc.Server {
+ 	logger := NewTestLogger(t)
+ 	logrusEntry := log.NewEntry(logger).WithField("test", t.Name())
+ 
+@@ -336,7 +336,7 @@ func Context() (context.Context, func()) {
+ 	return context.WithCancel(context.Background())
+ }
+ 
+-func createRepo(t *testing.T, storagePath string) (repo *pb.Repository, repoPath, relativePath string) {
++func createRepo(t testing.TB, storagePath string) (repo *pb.Repository, repoPath, relativePath string) {
+ 	normalizedPrefix := strings.Replace(t.Name(), "/", "-", -1) //TempDir doesn't like a prefix containing slashes
+ 
+ 	repoPath, err := ioutil.TempDir(storagePath, normalizedPrefix)
+@@ -377,7 +377,7 @@ func initRepo(t *testing.T, bare bool) (*pb.Repository, string, func()) {
+ }
+ 
+ // NewTestRepo creates a bare copy of the test repository.
+-func NewTestRepo(t *testing.T) (repo *pb.Repository, repoPath string, cleanup func()) {
++func NewTestRepo(t testing.TB) (repo *pb.Repository, repoPath string, cleanup func()) {
+ 	return cloneTestRepo(t, true)
+ }
+ 
+@@ -387,7 +387,7 @@ func NewTestRepoWithWorktree(t *testing.T) (repo *pb.Repository, repoPath string
+ 	return cloneTestRepo(t, false)
+ }
+ 
+-func cloneTestRepo(t *testing.T, bare bool) (repo *pb.Repository, repoPath string, cleanup func()) {
++func cloneTestRepo(t testing.TB, bare bool) (repo *pb.Repository, repoPath string, cleanup func()) {
+ 	storagePath := GitlabTestStoragePath()
+ 	repo, repoPath, relativePath := createRepo(t, storagePath)
+ 	testRepo := TestRepository()
+-- 
+2.16.2
+

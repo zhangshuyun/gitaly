@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path"
@@ -178,17 +179,24 @@ func TestSuccessfulHasLocalBranches(t *testing.T) {
 }
 
 func BenchmarkHasLocalBranchesShell(b *testing.B) {
+	defer testhelper.DisableLogs()()
 	server, serverSocketPath := runRepoServer(b)
 	defer server.Stop()
 
 	client, conn := newRepositoryClient(b, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(b)
+	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(b)
 	defer cleanupFn()
+
+	for n := 0; n < 10000; n++ {
+		testhelper.MustRunCommand(b, nil, "git", fmt.Sprintf("--git-dir=%s", testRepoPath), "update-ref", fmt.Sprintf("refs/test/%d", n), "refs/heads/master")
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	b.ResetTimer()
 
 	for n := 0; n < b.N; n++ {
 		resp, err := client.HasLocalBranches(ctx, &pb.HasLocalBranchesRequest{Repository: testRepo})
