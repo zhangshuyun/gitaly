@@ -45,6 +45,7 @@ type Process struct {
 
 	memoryThreshold int
 	events          chan<- Event
+	healthCheck     func() error
 
 	// Information to start the process
 	env  []string
@@ -58,7 +59,7 @@ type Process struct {
 }
 
 // New creates a new proces instance.
-func New(name string, env []string, args []string, dir string, memoryThreshold int, events chan<- Event) (*Process, error) {
+func New(name string, env []string, args []string, dir string, memoryThreshold int, events chan<- Event, healthCheck func() error) (*Process, error) {
 	if len(args) < 1 {
 		return nil, fmt.Errorf("need at least one argument")
 	}
@@ -67,6 +68,7 @@ func New(name string, env []string, args []string, dir string, memoryThreshold i
 		Name:            name,
 		memoryThreshold: memoryThreshold,
 		events:          events,
+		healthCheck:     healthCheck,
 		env:             env,
 		args:            args,
 		dir:             dir,
@@ -89,11 +91,11 @@ func (p *Process) start(logger *log.Entry) (*exec.Cmd, error) {
 	return cmd, cmd.Start()
 }
 
-// Non-blocking notification
 func (p *Process) notifyUp(pid int) {
 	select {
 	case p.events <- Event{Type: Up, Pid: pid}:
-	default:
+	case <-time.After(1 * time.Second):
+		// Timeout
 	}
 }
 
@@ -108,6 +110,11 @@ func watch(p *Process) {
 	monitorChan := make(chan monitorProcess, config.CrashThreshold)
 	monitorDone := make(chan struct{})
 	go monitorRss(monitorChan, monitorDone, p.events, p.Name, p.memoryThreshold)
+
+	healthShutdown := make(chan struct{})
+	if p.healthCheck != nil {
+		go monitorHealth(p.healthCheck, p.events, p.Name, healthShutdown)
+	}
 
 spawnLoop:
 	for {
@@ -135,7 +142,7 @@ spawnLoop:
 			continue
 		}
 		pid := cmd.Process.Pid
-		p.notifyUp(pid)
+		go p.notifyUp(pid)
 		logger.WithField("supervisor.pid", pid).Warn("spawned")
 
 		waitCh := make(chan struct{})
@@ -156,7 +163,7 @@ spawnLoop:
 			case <-time.After(1 * time.Minute):
 				// We repeat this idempotent notification because its delivery is not
 				// guaranteed.
-				p.notifyUp(pid)
+				go p.notifyUp(pid)
 			case <-time.After(config.CrashResetTime):
 				crashes = 0
 			case <-waitCh:
@@ -172,6 +179,7 @@ spawnLoop:
 		}
 	}
 
+	close(healthShutdown)
 	close(monitorChan)
 	<-monitorDone
 	close(p.done)

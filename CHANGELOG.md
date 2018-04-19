@@ -1,5 +1,10 @@
 # Gitaly changelog
 
+UNRELEASED
+
+- Add health checks for gitaly-ruby
+  https://gitlab.com/gitlab-org/gitaly/merge_requests/678
+
 v0.95.0
 
 - Fix fragile checksum test

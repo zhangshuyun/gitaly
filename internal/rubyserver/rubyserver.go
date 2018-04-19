@@ -81,6 +81,7 @@ func (s *Server) Stop() {
 		}
 
 		for _, w := range s.workers {
+			w.stopMonitor()
 			w.Process.Stop()
 		}
 	}
@@ -126,13 +127,13 @@ func Start() (*Server, error) {
 		args := []string{"bundle", "exec", "bin/ruby-cd", wd, gitalyRuby, strconv.Itoa(os.Getpid()), socketPath}
 
 		events := make(chan supervisor.Event)
-
-		p, err := supervisor.New(name, env, args, cfg.Ruby.Dir, cfg.Ruby.MaxRSS, events)
+		check := func() error { return ping(socketPath) }
+		p, err := supervisor.New(name, env, args, cfg.Ruby.Dir, cfg.Ruby.MaxRSS, events, check)
 		if err != nil {
 			return nil, err
 		}
 
-		s.workers = append(s.workers, newWorker(p, socketPath, events))
+		s.workers = append(s.workers, newWorker(p, socketPath, events, false))
 	}
 
 	return s, nil
