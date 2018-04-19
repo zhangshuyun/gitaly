@@ -68,4 +68,17 @@ def start_parent_watcher(original_ppid, signal_thread)
   end
 end
 
+GRPC_LOGGER = Logger.new(STDOUT)
+GRPC_LOGGER.level = 'WARN'
+GRPC_LOGGER.progname = 'GRPC'
+GRPC_LOGGER.formatter = proc do |severity, datetime, progname, msg|
+  "GRPC-RUBY: #{severity}: #{msg}\n"
+end
+
+module GRPC
+  def self.logger
+    GRPC_LOGGER
+  end
+end
+
 main

@@ -1,5 +1,10 @@
 # Gitaly changelog
 
+UNRELEASED
+
+- Make gitaly-ruby's grpc server log at level WARN
+  https://gitlab.com/gitlab-org/gitaly/merge_requests/681
+
 v0.96.1
 
 - Make it a fatal error if gitaly-ruby can't start
