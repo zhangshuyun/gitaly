@@ -18,10 +18,18 @@ var (
 		},
 		[]string{"name"},
 	)
+	healthCounter = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "gitaly_supervisor_health_checks",
+			Help: "Count of Gitaly supervisor health checks",
+		},
+		[]string{"name", "status"},
+	)
 )
 
 func init() {
 	prometheus.MustRegister(rssGauge)
+	prometheus.MustRegister(healthCounter)
 }
 
 type monitorProcess struct {
@@ -51,8 +59,8 @@ func monitorRss(procs <-chan monitorProcess, done chan<- struct{}, events chan<-
 
 				select {
 				case events <- event:
-				default:
-					// The default case makes this non-blocking
+				case <-time.After(1 * time.Second):
+					// Prevent sending stale events
 				}
 			}
 
@@ -80,4 +88,28 @@ func getRss(pid int) int {
 	}
 
 	return rss
+}
+
+func monitorHealth(f func() error, events chan<- Event, name string, shutdown <-chan struct{}) {
+	for {
+		e := Event{Error: f()}
+
+		if e.Error != nil {
+			e.Type = HealthBad
+			healthCounter.WithLabelValues(name, "bad").Inc()
+		} else {
+			e.Type = HealthOK
+			healthCounter.WithLabelValues(name, "ok").Inc()
+		}
+
+		select {
+		case events <- e:
+		case <-time.After(1 * time.Second):
+			// Prevent sending stale events
+		case <-shutdown:
+			return
+		}
+
+		time.Sleep(15 * time.Second)
+	}
 }

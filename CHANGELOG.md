@@ -4,6 +4,8 @@ UNRELEASED
 
 - Make gitaly-ruby's grpc server log at level WARN
   https://gitlab.com/gitlab-org/gitaly/merge_requests/681
+- Add health checks for gitaly-ruby
+  https://gitlab.com/gitlab-org/gitaly/merge_requests/678
 
 v0.96.1
 

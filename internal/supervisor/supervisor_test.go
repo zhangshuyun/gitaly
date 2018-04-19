@@ -59,7 +59,7 @@ func testMain(m *testing.M) int {
 }
 
 func TestRespawnAfterCrashWithoutCircuitBreaker(t *testing.T) {
-	process, err := New(t.Name(), nil, []string{testExe}, testDir, 0, nil)
+	process, err := New(t.Name(), nil, []string{testExe}, testDir, 0, nil, nil)
 	require.NoError(t, err)
 	defer process.Stop()
 
@@ -80,7 +80,7 @@ func TestRespawnAfterCrashWithoutCircuitBreaker(t *testing.T) {
 }
 
 func TestTooManyCrashes(t *testing.T) {
-	process, err := New(t.Name(), nil, []string{testExe}, testDir, 0, nil)
+	process, err := New(t.Name(), nil, []string{testExe}, testDir, 0, nil, nil)
 	require.NoError(t, err)
 	defer process.Stop()
 
@@ -104,7 +104,7 @@ func TestSpawnFailure(t *testing.T) {
 	require.NoError(t, os.RemoveAll(notFoundExe))
 	defer os.Remove(notFoundExe)
 
-	process, err := New(t.Name(), nil, []string{notFoundExe}, testDir, 0, nil)
+	process, err := New(t.Name(), nil, []string{notFoundExe}, testDir, 0, nil, nil)
 	require.NoError(t, err)
 	defer process.Stop()
 

@@ -31,19 +31,24 @@ func init() {
 // it if necessary, in cooperation with the balancer.
 type worker struct {
 	*supervisor.Process
-	address string
-	events  <-chan supervisor.Event
+	address  string
+	events   <-chan supervisor.Event
+	shutdown chan struct{}
 
 	// This is for testing only, so that we can inject a fake balancer
 	balancerUpdate chan balancerProxy
+
+	testing bool
 }
 
-func newWorker(p *supervisor.Process, address string, events <-chan supervisor.Event) *worker {
+func newWorker(p *supervisor.Process, address string, events <-chan supervisor.Event, testing bool) *worker {
 	w := &worker{
 		Process:        p,
 		address:        address,
 		events:         events,
+		shutdown:       make(chan struct{}),
 		balancerUpdate: make(chan balancerProxy),
+		testing:        testing,
 	}
 	go w.monitor()
 
@@ -69,8 +74,17 @@ type defaultBalancer struct{}
 func (defaultBalancer) AddAddress(s string)         { balancer.AddAddress(s) }
 func (defaultBalancer) RemoveAddress(s string) bool { return balancer.RemoveAddress(s) }
 
+var (
+	// Ignore health checks for the current process after it just restarted
+	healthRestartCoolOff = 5 * time.Minute
+	// Health considered bad after sustained failed health checks
+	healthRestartDelay = 1 * time.Minute
+)
+
 func (w *worker) monitor() {
-	sw := &stopwatch{}
+	swMem := &stopwatch{}
+	swHealth := &stopwatch{}
+	lastRestart := time.Now()
 	currentPid := 0
 	bal := <-w.balancerUpdate
 
@@ -78,16 +92,13 @@ func (w *worker) monitor() {
 	nextEvent:
 		select {
 		case e := <-w.events:
-			if e.Pid <= 0 {
-				log.WithFields(log.Fields{
-					"worker.name":      w.Name,
-					"worker.event_pid": e.Pid,
-				}).Info("received invalid PID")
-				break nextEvent
-			}
-
 			switch e.Type {
 			case supervisor.Up:
+				if badPid(e.Pid) {
+					w.logBadEvent(e)
+					break nextEvent
+				}
+
 				if e.Pid == currentPid {
 					// Ignore repeated events to avoid constantly resetting our internal
 					// state.
@@ -96,14 +107,22 @@ func (w *worker) monitor() {
 
 				bal.AddAddress(w.address)
 				currentPid = e.Pid
-				sw.reset()
+
+				swMem.reset()
+				swHealth.reset()
+				lastRestart = time.Now()
 			case supervisor.MemoryHigh:
+				if badPid(e.Pid) {
+					w.logBadEvent(e)
+					break nextEvent
+				}
+
 				if e.Pid != currentPid {
 					break nextEvent
 				}
 
-				sw.mark()
-				if sw.elapsed() <= config.Config.Ruby.RestartDelay {
+				swMem.mark()
+				if swMem.elapsed() <= config.Config.Ruby.RestartDelay {
 					break nextEvent
 				}
 
@@ -111,42 +130,94 @@ func (w *worker) monitor() {
 				// we may leave the system without the capacity to make gitaly-ruby
 				// requests.
 				if bal.RemoveAddress(w.address) {
-					go w.waitTerminate(e.Pid)
-					sw.reset()
+					w.logPid(currentPid).Info("removed from balancer due to high memory")
+					go w.waitTerminate(currentPid)
+					swMem.reset()
 				}
 			case supervisor.MemoryLow:
+				if badPid(e.Pid) {
+					w.logBadEvent(e)
+					break nextEvent
+				}
+
 				if e.Pid != currentPid {
 					break nextEvent
 				}
 
-				sw.reset()
+				swMem.reset()
+			case supervisor.HealthOK:
+				swHealth.reset()
+			case supervisor.HealthBad:
+				if time.Since(lastRestart) <= healthRestartCoolOff {
+					// Ignore health checks for a while after the supervised process restarted
+					break nextEvent
+				}
+
+				w.log().WithError(e.Error).Warn("health check failed")
+
+				swHealth.mark()
+				if swHealth.elapsed() <= healthRestartDelay {
+					break nextEvent
+				}
+
+				if bal.RemoveAddress(w.address) {
+					w.logPid(currentPid).Info("removed from balancer due to sustained failing health checks")
+					go w.waitTerminate(currentPid)
+					swHealth.reset()
+				}
 			default:
 				panic(fmt.Sprintf("unknown state %v", e.Type))
 			}
 		case bal = <-w.balancerUpdate:
 			// For testing only.
+		case <-w.shutdown:
+			return
 		}
 	}
 }
 
+func (w *worker) stopMonitor() {
+	close(w.shutdown)
+}
+
+func badPid(pid int) bool {
+	return pid <= 0
+}
+
+func (w *worker) log() *log.Entry {
+	return log.WithFields(log.Fields{
+		"worker.name": w.Name,
+	})
+}
+
+func (w *worker) logPid(pid int) *log.Entry {
+	return w.log().WithFields(log.Fields{
+		"worker.pid": pid,
+	})
+}
+
+func (w *worker) logBadEvent(e supervisor.Event) {
+	w.log().WithFields(log.Fields{
+		"worker.event": e,
+	}).Error("monitor state machine received bad event")
+}
+
 func (w *worker) waitTerminate(pid int) {
+	if w.testing {
+		return
+	}
+
 	// Wait for in-flight requests to reach the worker before we slam the
 	// door in their face.
 	time.Sleep(1 * time.Minute)
 
 	terminationCounter.WithLabelValues(w.Name).Inc()
 
-	log.WithFields(log.Fields{
-		"worker.name": w.Name,
-		"worker.pid":  pid,
-	}).Info("sending SIGTERM")
+	w.logPid(pid).Info("sending SIGTERM")
 	syscall.Kill(pid, syscall.SIGTERM)
 
 	time.Sleep(config.Config.Ruby.GracefulRestartTimeout)
 
-	log.WithFields(log.Fields{
-		"worker.name": w.Name,
-		"worker.pid":  pid,
-	}).Info("sending SIGKILL")
+	w.logPid(pid).Info("sending SIGKILL")
 	syscall.Kill(pid, syscall.SIGKILL)
 }

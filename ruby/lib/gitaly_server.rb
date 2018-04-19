@@ -13,6 +13,7 @@ require_relative 'gitaly_server/repository_service.rb'
 require_relative 'gitaly_server/wiki_service.rb'
 require_relative 'gitaly_server/conflicts_service.rb'
 require_relative 'gitaly_server/remote_service.rb'
+require_relative 'gitaly_server/health_service.rb'
 
 module GitalyServer
   STORAGE_PATH_HEADER = 'gitaly-storage-path'.freeze
@@ -51,5 +52,6 @@ module GitalyServer
     server.handle(ConflictsService.new)
     server.handle(RemoteService.new)
     server.handle(BlobService.new)
+    server.handle(HealthService.new)
   end
 end

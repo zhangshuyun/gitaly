@@ -1,6 +1,7 @@
 package rubyserver
 
 import (
+	"errors"
 	"testing"
 	"time"
 
@@ -10,7 +11,8 @@ import (
 )
 
 func TestWorker(t *testing.T) {
-	restartDelay := 100 * time.Millisecond
+	restartDelay := 10 * time.Millisecond
+
 	defer func(old time.Duration) {
 		config.Config.Ruby.RestartDelay = old
 	}(config.Config.Ruby.RestartDelay)
@@ -18,77 +20,127 @@ func TestWorker(t *testing.T) {
 
 	events := make(chan supervisor.Event)
 	addr := "the address"
-	w := newWorker(&supervisor.Process{Name: "testing"}, addr, events)
+	w := newWorker(&supervisor.Process{Name: "testing"}, addr, events, true)
 
-	mustIgnore := func(e supervisor.Event) {
-		nothing := &nothingBalancer{t}
-		w.balancerUpdate <- nothing
-		t.Logf("sending Event %+v, expect nothing to happen", e)
-		events <- e
-		// This second balancer update is used to synchronize with the monitor
-		// goroutine. When the channel send finishes, we know the event we sent
-		// before must have been processed.
-		w.balancerUpdate <- nothing
-	}
-
-	mustAdd := func(e supervisor.Event) {
-		add := newAdd(t, addr)
-		w.balancerUpdate <- add
-		t.Logf("sending Event %+v, expect balancer add", e)
-		events <- e
-		add.wait()
-	}
-
-	mustRemove := func(e supervisor.Event) {
-		remove := newRemove(t, addr)
-		w.balancerUpdate <- remove
-		t.Logf("sending Event %+v, expect balancer remove", e)
-		events <- e
-		remove.wait()
-	}
+	t.Log("ignore health failures during startup")
+	mustIgnore(t, w, func() { events <- healthBadEvent() })
 
 	firstPid := 123
 
-	mustAdd(upEvent(firstPid))
+	t.Log("register first PID as 'up'")
+	mustAdd(t, w, addr, func() { events <- upEvent(firstPid) })
 
 	t.Log("ignore repeated up event")
-	mustIgnore(upEvent(firstPid))
+	mustIgnore(t, w, func() { events <- upEvent(firstPid) })
 
 	t.Log("send mem high events but too fast to trigger restart")
 	for i := 0; i < 5; i++ {
-		mustIgnore(memHighEvent(firstPid))
+		mustIgnore(t, w, func() { events <- memHighEvent(firstPid) })
 	}
 
 	t.Log("mem low resets mem high counter")
-	mustIgnore(memLowEvent(firstPid))
+	mustIgnore(t, w, func() { events <- memLowEvent(firstPid) })
 
 	t.Log("send mem high events but too fast to trigger restart")
 	for i := 0; i < 5; i++ {
-		mustIgnore(memHighEvent(firstPid))
+		mustIgnore(t, w, func() { events <- memHighEvent(firstPid) })
 	}
 
 	time.Sleep(2 * restartDelay)
 	t.Log("this mem high should push us over the threshold")
-	mustRemove(memHighEvent(firstPid))
+	mustRemove(t, w, addr, func() { events <- memHighEvent(firstPid) })
+
+	t.Log("ignore health failures during startup")
+	mustIgnore(t, w, func() { events <- healthBadEvent() })
 
 	secondPid := 456
-	t.Log("time for a new PID")
-	mustAdd(upEvent(secondPid))
+	t.Log("registering a new PID")
+	mustAdd(t, w, addr, func() { events <- upEvent(secondPid) })
 
 	t.Log("ignore mem high events for the previous pid")
-	mustIgnore(memHighEvent(firstPid))
+	mustIgnore(t, w, func() { events <- memHighEvent(firstPid) })
 	time.Sleep(2 * restartDelay)
-	mustIgnore(memHighEvent(firstPid))
+	t.Log("ignore mem high also after restart delay has expired")
+	mustIgnore(t, w, func() { events <- memHighEvent(firstPid) })
 
 	t.Log("start high memory timer")
-	mustIgnore(memHighEvent(secondPid))
+	mustIgnore(t, w, func() { events <- memHighEvent(secondPid) })
 
 	t.Log("ignore mem low event for wrong pid")
-	mustIgnore(memLowEvent(firstPid))
+	mustIgnore(t, w, func() { events <- memLowEvent(firstPid) })
 
 	t.Log("send mem high count over the threshold")
 	time.Sleep(2 * restartDelay)
-	mustRemove(memHighEvent(secondPid))
+	mustRemove(t, w, addr, func() { events <- memHighEvent(secondPid) })
+}
+
+func TestWorkerHealthChecks(t *testing.T) {
+	restartDelay := 10 * time.Millisecond
+
+	defer func(old time.Duration) {
+		healthRestartDelay = old
+	}(healthRestartDelay)
+	healthRestartDelay = restartDelay
+
+	defer func(old time.Duration) {
+		healthRestartCoolOff = old
+	}(healthRestartCoolOff)
+	healthRestartCoolOff = restartDelay
+
+	events := make(chan supervisor.Event)
+	addr := "the address"
+	w := newWorker(&supervisor.Process{Name: "testing"}, addr, events, true)
+
+	t.Log("ignore health failures during startup")
+	mustIgnore(t, w, func() { events <- healthBadEvent() })
+
+	firstPid := 123
+
+	t.Log("register first PID as 'up'")
+	mustAdd(t, w, addr, func() { events <- upEvent(firstPid) })
+
+	t.Log("still ignore health failures during startup")
+	mustIgnore(t, w, func() { events <- healthBadEvent() })
+
+	time.Sleep(2 * restartDelay)
+
+	t.Log("waited long enough, this health check should start health timer")
+	mustIgnore(t, w, func() { events <- healthBadEvent() })
+
+	time.Sleep(2 * restartDelay)
+
+	t.Log("this second failed health check should trigger failover")
+	mustRemove(t, w, addr, func() { events <- healthBadEvent() })
+
+	t.Log("ignore extra health failures")
+	mustIgnore(t, w, func() { events <- healthBadEvent() })
+}
+
+func mustIgnore(t *testing.T, w *worker, f func()) {
+	nothing := &nothingBalancer{t}
+	w.balancerUpdate <- nothing
+	t.Log("executing function that should be ignored by balancer")
+	f()
+	// This second balancer update is used to synchronize with the monitor
+	// goroutine. When the channel send finishes, we know the event we sent
+	// before must have been processed.
+	w.balancerUpdate <- nothing
+}
+
+func mustAdd(t *testing.T, w *worker, addr string, f func()) {
+	add := newAdd(t, addr)
+	w.balancerUpdate <- add
+	t.Log("executing function that should lead to balancer.AddAddress")
+	f()
+	add.wait()
+}
+
+func mustRemove(t *testing.T, w *worker, addr string, f func()) {
+	remove := newRemove(t, addr)
+	w.balancerUpdate <- remove
+	t.Log("executing function that should lead to balancer.RemoveAddress")
+	f()
+	remove.wait()
 }
 
 func waitFail(t *testing.T, done chan struct{}) {
@@ -109,6 +161,10 @@ func memHighEvent(pid int) supervisor.Event {
 
 func memLowEvent(pid int) supervisor.Event {
 	return supervisor.Event{Type: supervisor.MemoryLow, Pid: pid}
+}
+
+func healthBadEvent() supervisor.Event {
+	return supervisor.Event{Type: supervisor.HealthBad, Error: errors.New("test bad health")}
 }
 
 func newAdd(t *testing.T, addr string) *addBalancer {
@@ -156,7 +212,7 @@ type removeBalancer struct {
 func (rb *removeBalancer) RemoveAddress(s string) bool {
 	require.Equal(rb.t, rb.addr, s, "removeBalancer expected RemoveAddress argument")
 	close(rb.done)
-	return false
+	return true
 }
 
 func (rb *removeBalancer) AddAddress(s string) {
@@ -173,7 +229,7 @@ type nothingBalancer struct {
 
 func (nb *nothingBalancer) RemoveAddress(s string) bool {
 	nb.t.Fatal("unexpected RemoveAddress call")
-	return false
+	return true
 }
 
 func (nb *nothingBalancer) AddAddress(s string) {
