@@ -195,17 +195,3 @@ test-vendor-gitaly-ruby:
   script:
     - _support/vendor-gitlab-git master
     - make test
-
-sast:
-  image: registry.gitlab.com/gitlab-org/gl-sast:latest
-  before_script: []
-  stage: test
-  variables:
-    CONFIDENCE_LEVEL: 2
-  script:
-    - /app/bin/run ./ruby
-    - mv ruby/gl-sast-report.json ./
-  artifacts:
-    paths:
-    - gl-sast-report.json
-
