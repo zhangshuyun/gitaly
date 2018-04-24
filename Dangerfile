@@ -17,3 +17,11 @@ if git.modified_files.include?(VENDOR_JSON)
     fail("gitaly-proto version is incorrect")
   end
 end
+
+# Look for prose issues
+markdown_files = Dir['*.md'] + Dir['doc/**/*.md']
+prose.lint_files markdown_files
+
+# Look for spelling issues
+prose.ignored_words = [] # Add later if we know what and why
+prose.check_spelling markdown_files

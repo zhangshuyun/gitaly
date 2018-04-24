@@ -18,7 +18,7 @@ danger-review:
   stage: test
   script:
     - git version
-    - gem install danger-gitlab --no-document
+    - gem install danger-gitlab danger-prose --no-document
     - danger
 
 .ruby_template: &ruby_definition
