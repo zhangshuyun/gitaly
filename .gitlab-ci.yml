@@ -15,7 +15,7 @@ verify:
     - make verify
 
 danger-review:
-  stage: build
+  stage: test
   script:
     - git version
     - gem install danger-gitlab --no-document
