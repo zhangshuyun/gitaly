@@ -1,6 +1,6 @@
 # Gitaly changelog
 
-UNRELEASED
+v0.96.2
 
 - Make gitaly-ruby's grpc server log at level WARN
   https://gitlab.com/gitlab-org/gitaly/merge_requests/681
