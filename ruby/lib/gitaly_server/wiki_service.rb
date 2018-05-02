@@ -89,7 +89,6 @@ module GitalyServer
     end
 
     def wiki_get_all_pages(request, call)
-      bridge_exceptions do
         repo = Gitlab::Git::Repository.from_gitaly(request.repository, call)
         wiki = Gitlab::Git::Wiki.new(repo)
 
@@ -111,7 +110,7 @@ module GitalyServer
 
             io = StringIO.new(page.text_data)
             while chunk = io.read(Gitlab.config.git.write_buffer_size)
-              gitaly_wiki_page.raw_data = chunk
+              gitaly_wiki_page.raw_data = Gitlab::EncodingHelper.encode!(chunk)
 
               y.yield Gitaly::WikiGetAllPagesResponse.new(page: gitaly_wiki_page)
 
@@ -121,7 +120,8 @@ module GitalyServer
             y.yield Gitaly::WikiGetAllPagesResponse.new(end_of_page: true)
           end
         end
-      end
+    rescue 
+          warn caller[0..25].join(' ')
     end
 
     def wiki_find_file(request, call)

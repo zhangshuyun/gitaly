@@ -30,6 +30,7 @@ type createWikiPageOpts struct {
 
 var (
 	mockPageContent = bytes.Repeat([]byte("Mock wiki page content"), 10000)
+	nonUTF8Content  = bytes.Repeat([]byte("This is not valid UTF-8\xDC"), 10000)
 )
 
 func TestMain(m *testing.M) {
