@@ -1,7 +1,9 @@
 #!/usr/bin/env ruby
 
+# Usage: in gitlab-ce, run `bundle list > /tmp/gitlab-bundle`. Then run this script in the gitaly root.
+
 def main
-  gitaly_bundle = IO.popen(%w[bundle list], &:read).lines
+  gitaly_bundle = Dir.chdir('ruby') { IO.popen(%w[bundle list], &:read).lines }
   abort 'bundle list failed' unless $?.success?
   gitaly_bundle.shift
   gitaly_hash = bundle_lines_to_hash(gitaly_bundle)
