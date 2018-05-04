@@ -1,0 +1,29 @@
+#!/usr/bin/env ruby
+
+def main
+  gitaly_bundle = IO.popen(%w[bundle list], &:read).lines
+  abort 'bundle list failed' unless $?.success?
+  gitaly_bundle.shift
+  gitaly_hash = bundle_lines_to_hash(gitaly_bundle)
+  gitlab_bundle = File.read('/tmp/gitlab-bundle').lines
+  gitlab_bundle.shift
+  gitlab_hash = bundle_lines_to_hash(gitlab_bundle)
+
+  puts(' ' * 25 + '      gitlab     gitaly')
+  gitaly_hash.each do |k, v|
+    next if v == gitlab_hash[k]
+
+    printf("%25s  %10s %10s\n", k, gitlab_hash[k], v)
+  end
+end
+
+def bundle_lines_to_hash(lines)
+  h = {}
+  lines.each do |l|
+    _, _, name, version = l.chomp.split(/\s+/, 4)
+    h[name] = version
+  end
+  h
+end
+
+main

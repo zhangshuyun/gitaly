@@ -2,6 +2,8 @@
 
 UNRELEASED
 
+- Try to match gitlab-ce's Gemfile.lock
+  https://gitlab.com/gitlab-org/gitaly/merge_requests/707
 - GetBlobs: don't create blob reader if limit is zero
   https://gitlab.com/gitlab-org/gitaly/merge_requests/706
 - Implement SearchFilesBy{Content,Name}
