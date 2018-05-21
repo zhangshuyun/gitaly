@@ -9,6 +9,7 @@ import (
 	pb "gitlab.com/gitlab-org/gitaly-proto/go"
 	"gitlab.com/gitlab-org/gitaly/internal/diff"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/rubyserver"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -19,6 +20,35 @@ type requestWithLeftRightCommitIds interface {
 }
 
 func (s *server) CommitDiff(in *pb.CommitDiffRequest, stream pb.DiffService_CommitDiffServer) error {
+	ctx := stream.Context()
+
+	client, err := s.DiffServiceClient(ctx)
+	if err != nil {
+		return err
+	}
+
+	clientCtx, err := rubyserver.SetHeaders(ctx, in.GetRepository())
+	if err != nil {
+		return err
+	}
+
+	rubyStream, err := client.CommitDiff(clientCtx, in)
+	if err != nil {
+		return err
+	}
+
+	return rubyserver.Proxy(func() error {
+		resp, err := rubyStream.Recv()
+		if err != nil {
+			md := rubyStream.Trailer()
+			stream.SetTrailer(md)
+			return err
+		}
+		return stream.Send(resp)
+	})
+}
+
+/*
 	grpc_logrus.Extract(stream.Context()).WithFields(log.Fields{
 		"LeftCommitId":           in.LeftCommitId,
 		"RightCommitId":          in.RightCommitId,
@@ -111,7 +141,7 @@ func (s *server) CommitDiff(in *pb.CommitDiffRequest, stream pb.DiffService_Comm
 		return nil
 	})
 }
-
+*/
 func (s *server) CommitDelta(in *pb.CommitDeltaRequest, stream pb.DiffService_CommitDeltaServer) error {
 	grpc_logrus.Extract(stream.Context()).WithFields(log.Fields{
 		"LeftCommitId":  in.LeftCommitId,
