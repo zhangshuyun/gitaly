@@ -185,12 +185,12 @@ update-downstream-server-version:
   allow_failure: true
 
 create-dangercontainer:
-  stage: publish
+  stage: build
   image: docker:git
   services:
     - docker:dind
-  only:
-    - master@gitlab-org/gitaly
+  #only:
+  #  - master@gitlab-org/gitaly
   variables:
     IMAGE_TAG: "${CI_REGISTRY_IMAGE}/dangercontainer:latest"
   script:
