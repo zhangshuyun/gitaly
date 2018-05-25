@@ -1,5 +1,0 @@
----
-title: Use grpc 1.11.0 in gitaly-ruby
-merge_request: 732
-author:
-type: fixed
