@@ -33,7 +33,8 @@ module GitalyServer
         }
 
         Enumerator.new do |y|
-          repo.diff(request.left_commit_id, request.right_commit_id, options, *request.paths.to_a).each do |diff|
+          diffs = repo.diff(request.left_commit_id, request.right_commit_id, options, *request.paths.to_a)
+          diffs.each do |diff|
             response = Gitaly::CommitDiffResponse.new(
               :from_path => diff.old_path.b,
               :to_path => diff.new_path.b,
@@ -58,6 +59,9 @@ module GitalyServer
             response.raw_patch_data = ""
             response.end_of_patch = true
             y.yield response
+          end
+          if diffs.overflow?
+            y.yield Gitaly::CommitDiffResponse.new(overflow_marker: true, end_of_patch: true)
           end
         end
       end
