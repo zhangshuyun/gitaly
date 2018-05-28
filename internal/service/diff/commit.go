@@ -20,128 +20,133 @@ type requestWithLeftRightCommitIds interface {
 }
 
 func (s *server) CommitDiff(in *pb.CommitDiffRequest, stream pb.DiffService_CommitDiffServer) error {
-	ctx := stream.Context()
+	if true {
+		if err := validateRequest(in); err != nil {
+			return status.Errorf(codes.InvalidArgument, "CommitDiff: %v", err)
+		}
 
-	client, err := s.DiffServiceClient(ctx)
-	if err != nil {
-		return err
-	}
+		ctx := stream.Context()
 
-	clientCtx, err := rubyserver.SetHeaders(ctx, in.GetRepository())
-	if err != nil {
-		return err
-	}
-
-	rubyStream, err := client.CommitDiff(clientCtx, in)
-	if err != nil {
-		return err
-	}
-
-	return rubyserver.Proxy(func() error {
-		resp, err := rubyStream.Recv()
+		client, err := s.DiffServiceClient(ctx)
 		if err != nil {
-			md := rubyStream.Trailer()
-			stream.SetTrailer(md)
 			return err
 		}
-		return stream.Send(resp)
-	})
-}
 
-/*
-	grpc_logrus.Extract(stream.Context()).WithFields(log.Fields{
-		"LeftCommitId":           in.LeftCommitId,
-		"RightCommitId":          in.RightCommitId,
-		"IgnoreWhitespaceChange": in.IgnoreWhitespaceChange,
-		"Paths":                  in.Paths,
-	}).Debug("CommitDiff")
-
-	if err := validateRequest(in); err != nil {
-		return status.Errorf(codes.InvalidArgument, "CommitDiff: %v", err)
-	}
-
-	leftSha := in.LeftCommitId
-	rightSha := in.RightCommitId
-	ignoreWhitespaceChange := in.GetIgnoreWhitespaceChange()
-	paths := in.GetPaths()
-
-	cmdArgs := []string{
-		"diff",
-		"--patch",
-		"--raw",
-		"--abbrev=40",
-		"--full-index",
-		"--find-renames",
-	}
-	if ignoreWhitespaceChange {
-		cmdArgs = append(cmdArgs, "--ignore-space-change")
-	}
-	cmdArgs = append(cmdArgs, leftSha, rightSha)
-	if len(paths) > 0 {
-		cmdArgs = append(cmdArgs, "--")
-		for _, path := range paths {
-			cmdArgs = append(cmdArgs, string(path))
-		}
-	}
-
-	var limits diff.Limits
-	if in.EnforceLimits {
-		limits.EnforceLimits = true
-		limits.MaxFiles = int(in.MaxFiles)
-		limits.MaxLines = int(in.MaxLines)
-		limits.MaxBytes = int(in.MaxBytes)
-	}
-	limits.CollapseDiffs = in.CollapseDiffs
-	limits.SafeMaxFiles = int(in.SafeMaxFiles)
-	limits.SafeMaxLines = int(in.SafeMaxLines)
-	limits.SafeMaxBytes = int(in.SafeMaxBytes)
-
-	return eachDiff(stream.Context(), "CommitDiff", in.Repository, cmdArgs, limits, func(diff *diff.Diff) error {
-		response := &pb.CommitDiffResponse{
-			FromPath:       diff.FromPath,
-			ToPath:         diff.ToPath,
-			FromId:         diff.FromID,
-			ToId:           diff.ToID,
-			OldMode:        diff.OldMode,
-			NewMode:        diff.NewMode,
-			Binary:         diff.Binary,
-			OverflowMarker: diff.OverflowMarker,
-			Collapsed:      diff.Collapsed,
+		clientCtx, err := rubyserver.SetHeaders(ctx, in.GetRepository())
+		if err != nil {
+			return err
 		}
 
-		if len(diff.Patch) <= s.MsgSizeThreshold {
-			response.RawPatchData = diff.Patch
-			response.EndOfPatch = true
+		rubyStream, err := client.CommitDiff(clientCtx, in)
+		if err != nil {
+			return err
+		}
 
-			if err := stream.Send(response); err != nil {
-				return status.Errorf(codes.Unavailable, "CommitDiff: send: %v", err)
+		return rubyserver.Proxy(func() error {
+			resp, err := rubyStream.Recv()
+			if err != nil {
+				md := rubyStream.Trailer()
+				stream.SetTrailer(md)
+				return err
 			}
-		} else {
-			patch := diff.Patch
+			return stream.Send(resp)
+		})
 
-			for len(patch) > 0 {
-				if len(patch) > s.MsgSizeThreshold {
-					response.RawPatchData = patch[:s.MsgSizeThreshold]
-					patch = patch[s.MsgSizeThreshold:]
-				} else {
-					response.RawPatchData = patch
-					response.EndOfPatch = true
-					patch = nil
-				}
+	} else {
+		grpc_logrus.Extract(stream.Context()).WithFields(log.Fields{
+			"LeftCommitId":           in.LeftCommitId,
+			"RightCommitId":          in.RightCommitId,
+			"IgnoreWhitespaceChange": in.IgnoreWhitespaceChange,
+			"Paths":                  in.Paths,
+		}).Debug("CommitDiff")
+
+		if err := validateRequest(in); err != nil {
+			return status.Errorf(codes.InvalidArgument, "CommitDiff: %v", err)
+		}
+
+		leftSha := in.LeftCommitId
+		rightSha := in.RightCommitId
+		ignoreWhitespaceChange := in.GetIgnoreWhitespaceChange()
+		paths := in.GetPaths()
+
+		cmdArgs := []string{
+			"diff",
+			"--patch",
+			"--raw",
+			"--abbrev=40",
+			"--full-index",
+			"--find-renames=30%",
+		}
+		if ignoreWhitespaceChange {
+			cmdArgs = append(cmdArgs, "--ignore-space-change")
+		}
+		cmdArgs = append(cmdArgs, leftSha, rightSha)
+		if len(paths) > 0 {
+			cmdArgs = append(cmdArgs, "--")
+			for _, path := range paths {
+				cmdArgs = append(cmdArgs, string(path))
+			}
+		}
+
+		var limits diff.Limits
+		if in.EnforceLimits {
+			limits.EnforceLimits = true
+			limits.MaxFiles = int(in.MaxFiles)
+			limits.MaxLines = int(in.MaxLines)
+			limits.MaxBytes = int(in.MaxBytes)
+		}
+		limits.CollapseDiffs = in.CollapseDiffs
+		limits.SafeMaxFiles = int(in.SafeMaxFiles)
+		limits.SafeMaxLines = int(in.SafeMaxLines)
+		limits.SafeMaxBytes = int(in.SafeMaxBytes)
+
+		return eachDiff(stream.Context(), "CommitDiff", in.Repository, cmdArgs, limits, func(diff *diff.Diff) error {
+			response := &pb.CommitDiffResponse{
+				FromPath:       diff.FromPath,
+				ToPath:         diff.ToPath,
+				FromId:         diff.FromID,
+				ToId:           diff.ToID,
+				OldMode:        diff.OldMode,
+				NewMode:        diff.NewMode,
+				Binary:         diff.Binary,
+				OverflowMarker: diff.OverflowMarker,
+				Collapsed:      diff.Collapsed,
+			}
+
+			if len(diff.Patch) <= s.MsgSizeThreshold {
+				response.RawPatchData = diff.Patch
+				response.EndOfPatch = true
 
 				if err := stream.Send(response); err != nil {
 					return status.Errorf(codes.Unavailable, "CommitDiff: send: %v", err)
 				}
+			} else {
+				patch := diff.Patch
 
-				// Use a new response so we don't send other fields (FromPath, ...) over and over
-				response = &pb.CommitDiffResponse{}
+				for len(patch) > 0 {
+					if len(patch) > s.MsgSizeThreshold {
+						response.RawPatchData = patch[:s.MsgSizeThreshold]
+						patch = patch[s.MsgSizeThreshold:]
+					} else {
+						response.RawPatchData = patch
+						response.EndOfPatch = true
+						patch = nil
+					}
+
+					if err := stream.Send(response); err != nil {
+						return status.Errorf(codes.Unavailable, "CommitDiff: send: %v", err)
+					}
+
+					// Use a new response so we don't send other fields (FromPath, ...) over and over
+					response = &pb.CommitDiffResponse{}
+				}
 			}
-		}
 
-		return nil
-	})
+			return nil
+		})
+	}
 }
-*/
+
 func (s *server) CommitDelta(in *pb.CommitDeltaRequest, stream pb.DiffService_CommitDeltaServer) error {
 	grpc_logrus.Extract(stream.Context()).WithFields(log.Fields{
 		"LeftCommitId":  in.LeftCommitId,

@@ -33,35 +33,39 @@ module GitalyServer
         }
 
         Enumerator.new do |y|
-          diffs = repo.diff(request.left_commit_id, request.right_commit_id, options, *request.paths.to_a)
-          diffs.each do |diff|
-            response = Gitaly::CommitDiffResponse.new(
-              :from_path => diff.old_path.b,
-              :to_path => diff.new_path.b,
-              :from_id => diff.old_id,
-              :to_id => diff.new_id,
-              :old_mode => diff.a_mode.to_i(base=8),
-              :new_mode => diff.b_mode.to_i(base=8),
-              :binary => diff.has_binary_notice?,
-              :overflow_marker => diff.too_large?,
-              :collapsed => diff.collapsed?
-            )
-            io = StringIO.new(diff.diff)
+          begin
+            diffs = repo.diff(request.left_commit_id, request.right_commit_id, options, *request.paths.to_a)
+            diffs.each do |diff|
+              response = Gitaly::CommitDiffResponse.new(
+                :from_path => diff.old_path.b,
+                :to_path => diff.new_path.b,
+                :from_id => diff.old_id,
+                :to_id => diff.new_id,
+                :old_mode => diff.a_mode.to_i(base=8),
+                :new_mode => diff.b_mode.to_i(base=8),
+                :binary => diff.has_binary_notice?,
+                :overflow_marker => diff.too_large?,
+                :collapsed => diff.collapsed?
+              )
+              io = StringIO.new(diff.diff)
 
-            chunk = io.read(Gitlab.config.git.write_buffer_size)
-            chunk = strip_diff_headers(chunk)
-            response.raw_patch_data = chunk.b
-            y.yield response
-            while chunk = io.read(Gitlab.config.git.write_buffer_size)
+              chunk = io.read(Gitlab.config.git.write_buffer_size)
+              chunk = strip_diff_headers(chunk)
               response.raw_patch_data = chunk.b
               y.yield response
+              while chunk = io.read(Gitlab.config.git.write_buffer_size)
+                response.raw_patch_data = chunk.b
+                y.yield response
+              end
+              response.raw_patch_data = ""
+              response.end_of_patch = true
+              y.yield response
             end
-            response.raw_patch_data = ""
-            response.end_of_patch = true
-            y.yield response
-          end
-          if diffs.overflow?
-            y.yield Gitaly::CommitDiffResponse.new(overflow_marker: true, end_of_patch: true)
+            if diffs.overflow?
+              y.yield Gitaly::CommitDiffResponse.new(overflow_marker: true, end_of_patch: true)
+            end
+          rescue Rugged::ReferenceError => e
+            raise GRPC::Unavailable.new(e.message)
           end
         end
       end
