@@ -35,7 +35,9 @@ module GitalyServer
         Enumerator.new do |y|
           begin
             diffs = repo.diff(request.left_commit_id, request.right_commit_id, options, *request.paths.to_a)
-            diffs.each do |diff|
+            diffsarr = diffs.to_a
+            difs_len = diffsarr.length
+            diffsarr.each_with_index do |diff, idx|
               response = Gitaly::CommitDiffResponse.new(
                 :from_path => diff.old_path.b,
                 :to_path => diff.new_path.b,
@@ -44,9 +46,11 @@ module GitalyServer
                 :old_mode => diff.a_mode.to_i(base=8),
                 :new_mode => diff.b_mode.to_i(base=8),
                 :binary => diff.has_binary_notice?,
-                :overflow_marker => diff.too_large?,
                 :collapsed => diff.collapsed?
               )
+              if idx == difs_len - 1 && diffs.overflow?
+                break
+              end
               io = StringIO.new(diff.diff)
 
               chunk = io.read(Gitlab.config.git.write_buffer_size)

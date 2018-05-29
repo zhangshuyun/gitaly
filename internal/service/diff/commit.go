@@ -20,7 +20,7 @@ type requestWithLeftRightCommitIds interface {
 }
 
 func (s *server) CommitDiff(in *pb.CommitDiffRequest, stream pb.DiffService_CommitDiffServer) error {
-	if true {
+	if false {
 		if err := validateRequest(in); err != nil {
 			return status.Errorf(codes.InvalidArgument, "CommitDiff: %v", err)
 		}

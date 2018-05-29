@@ -10,6 +10,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/diff"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
@@ -600,22 +601,25 @@ func TestSuccessfulCommitDiffRequestWithLimits(t *testing.T) {
 
 			receivedDiffs := getDiffsFromCommitDiffClient(t, c)
 
-			for _, v := range receivedDiffs {
-				t.Logf("%q", v.FromPath)
+			i := 0
+			for j, v := range receivedDiffs {
+				t.Logf("%s == %s", v.FromPath, requestAndResult.result[j].path)
+				i = i + len(v.Patch)
 			}
+			t.Logf("bytes: %d", i)
 			require.Equal(t, len(requestAndResult.result), len(receivedDiffs), "number of diffs received")
 			for i, diff := range receivedDiffs {
 				if overflowMarker := requestAndResult.result[i].overflowMarker; overflowMarker {
-					require.Equal(t, overflowMarker, diff.OverflowMarker, "overflow marker on %q", diff.FromPath)
+					assert.Equal(t, overflowMarker, diff.OverflowMarker, "overflow marker on %q", diff.FromPath)
 					continue
 				}
 
-				require.Equal(t, requestAndResult.result[i].path, string(diff.FromPath), "path on %q", diff.FromPath)
+				assert.Equal(t, requestAndResult.result[i].path, string(diff.FromPath), "path on %q", diff.FromPath)
 
 				collapsed := requestAndResult.result[i].collapsed
-				require.Equal(t, collapsed, diff.Collapsed, "collapsed on %q", diff.FromPath)
+				assert.Equal(t, collapsed, diff.Collapsed, "collapsed on %q", diff.FromPath)
 				if collapsed {
-					require.Empty(t, diff.Patch, "patch on %q", diff.FromPath)
+					assert.Empty(t, diff.Patch, "patch on %q", diff.FromPath)
 				}
 			}
 		})
