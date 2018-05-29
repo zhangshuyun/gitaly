@@ -169,7 +169,7 @@ func TestFetchFullServerRequiresAuthentication(t *testing.T) {
 
 	client := healthpb.NewHealthClient(conn)
 	_, err = client.Check(ctx, &healthpb.HealthCheckRequest{})
-	testhelper.AssertGrpcError(t, err, codes.Unauthenticated, "")
+	testhelper.RequireGrpcError(t, err, codes.Unauthenticated)
 }
 
 func newTestRepo(t *testing.T, relativePath string) (*pb.Repository, string) {

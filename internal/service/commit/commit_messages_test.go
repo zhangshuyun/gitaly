@@ -93,7 +93,7 @@ func TestFailedGetCommitMessagesRequest(t *testing.T) {
 				}
 			}
 
-			testhelper.AssertGrpcError(t, err, testCase.code, "")
+			testhelper.RequireGrpcError(t, err, testCase.code)
 		})
 	}
 }

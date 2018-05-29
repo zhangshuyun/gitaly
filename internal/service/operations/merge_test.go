@@ -414,7 +414,7 @@ func TestFailedUserFFBranchRequest(t *testing.T) {
 				CommitId:   testCase.commitID,
 			}
 			_, err := client.UserFFBranch(ctx, request)
-			testhelper.AssertGrpcError(t, err, testCase.code, "")
+			testhelper.RequireGrpcError(t, err, testCase.code)
 		})
 	}
 }

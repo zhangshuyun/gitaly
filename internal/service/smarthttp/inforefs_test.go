@@ -120,7 +120,7 @@ func TestFailureRepoNotFoundInfoRefsReceivePack(t *testing.T) {
 	for err == nil {
 		_, err = c.Recv()
 	}
-	testhelper.AssertGrpcError(t, err, codes.NotFound, "not a git repository")
+	testhelper.RequireGrpcError(t, err, codes.NotFound)
 }
 
 func TestFailureRepoNotSetInfoRefsReceivePack(t *testing.T) {
@@ -141,7 +141,7 @@ func TestFailureRepoNotSetInfoRefsReceivePack(t *testing.T) {
 	for err == nil {
 		_, err = c.Recv()
 	}
-	testhelper.AssertGrpcError(t, err, codes.InvalidArgument, "")
+	testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
 }
 
 func assertGitRefAdvertisement(t *testing.T, rpc, responseBody string, firstLine, lastLine string, middleLines []string) {

@@ -267,7 +267,7 @@ func TestFailedCommitsBetweenRequest(t *testing.T) {
 			}
 
 			err = drainCommitsBetweenResponse(c)
-			testhelper.AssertGrpcError(t, err, tc.code, "")
+			testhelper.RequireGrpcError(t, err, tc.code)
 		})
 	}
 }

@@ -91,7 +91,7 @@ func TestGetSnapshotFailsIfRepositoryMissing(t *testing.T) {
 
 	req := &pb.GetSnapshotRequest{Repository: testRepo}
 	data, err := getSnapshot(t, req)
-	testhelper.AssertGrpcError(t, err, codes.NotFound, "not a git repository")
+	testhelper.RequireGrpcError(t, err, codes.NotFound)
 	require.Empty(t, data)
 }
 
@@ -106,7 +106,7 @@ func TestGetSnapshotFailsIfRepositoryContainsSymlink(t *testing.T) {
 
 	req := &pb.GetSnapshotRequest{Repository: testRepo}
 	data, err := getSnapshot(t, req)
-	testhelper.AssertGrpcError(t, err, codes.Internal, "Building snapshot failed")
+	testhelper.RequireGrpcError(t, err, codes.Internal)
 
 	// At least some of the tar file should have been written so far
 	require.NotEmpty(t, data)

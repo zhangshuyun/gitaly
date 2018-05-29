@@ -80,7 +80,7 @@ func TestWriteConfigFailure(t *testing.T) {
 			defer cancel()
 
 			c, err := client.WriteConfig(ctx, &pb.WriteConfigRequest{Repository: tc.repo, FullPath: tc.path})
-			testhelper.AssertGrpcError(t, err, codes.NotFound, "")
+			testhelper.RequireGrpcError(t, err, codes.NotFound)
 			require.Nil(t, c)
 			require.Empty(t, c.GetError())
 		})

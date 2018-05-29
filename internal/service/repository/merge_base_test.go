@@ -122,7 +122,7 @@ func TestFailedFindMergeBaseRequestDueToValidations(t *testing.T) {
 			}
 
 			_, err := client.FindMergeBase(ctx, request)
-			testhelper.AssertGrpcError(t, err, testCase.code, "")
+			testhelper.RequireGrpcError(t, err, testCase.code)
 		})
 	}
 }

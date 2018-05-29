@@ -144,7 +144,7 @@ func TestFailedAddRemoteDueToValidation(t *testing.T) {
 			}
 
 			_, err := client.AddRemote(ctx, request)
-			testhelper.AssertGrpcError(t, err, codes.InvalidArgument, "")
+			testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
 		})
 	}
 }
@@ -215,7 +215,7 @@ func TestFailedRemoveRemoteDueToValidation(t *testing.T) {
 	request := &pb.RemoveRemoteRequest{Repository: testRepo} // Remote name empty
 
 	_, err := client.RemoveRemote(ctx, request)
-	testhelper.AssertGrpcError(t, err, codes.InvalidArgument, "")
+	testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
 }
 
 func TestFindRemoteRepository(t *testing.T) {
@@ -266,7 +266,7 @@ func TestFailedFindRemoteRepository(t *testing.T) {
 		if tc.code == codes.OK {
 			require.NoError(t, err)
 		} else {
-			testhelper.AssertGrpcError(t, err, tc.code, "")
+			testhelper.RequireGrpcError(t, err, tc.code)
 			continue
 		}
 

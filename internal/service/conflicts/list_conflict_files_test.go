@@ -113,7 +113,7 @@ func TestFailedListConflictFilesRequestDueToConflictSideMissing(t *testing.T) {
 	}
 
 	c, _ := client.ListConflictFiles(ctx, request)
-	testhelper.AssertGrpcError(t, drainListConflictFilesResponse(c), codes.FailedPrecondition, "")
+	testhelper.RequireGrpcError(t, drainListConflictFilesResponse(c), codes.FailedPrecondition)
 }
 
 func TestFailedListConflictFilesRequestDueToValidation(t *testing.T) {
@@ -169,7 +169,7 @@ func TestFailedListConflictFilesRequestDueToValidation(t *testing.T) {
 			defer cancel()
 
 			c, _ := client.ListConflictFiles(ctx, testCase.request)
-			testhelper.AssertGrpcError(t, drainListConflictFilesResponse(c), testCase.code, "")
+			testhelper.RequireGrpcError(t, drainListConflictFilesResponse(c), testCase.code)
 		})
 	}
 }

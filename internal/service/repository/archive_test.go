@@ -155,7 +155,7 @@ func TestGetArchiveFailure(t *testing.T) {
 			require.NoError(t, err)
 
 			_, err = consumeArchive(stream)
-			testhelper.AssertGrpcError(t, err, tc.code, "")
+			testhelper.RequireGrpcError(t, err, tc.code)
 		})
 	}
 }

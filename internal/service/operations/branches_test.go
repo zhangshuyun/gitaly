@@ -239,7 +239,7 @@ func TestFailedUserCreateBranchRequest(t *testing.T) {
 			defer cancel()
 
 			_, err := client.UserCreateBranch(ctx, request)
-			testhelper.AssertGrpcError(t, err, testCase.code, "")
+			testhelper.RequireGrpcError(t, err, testCase.code)
 		})
 	}
 }
@@ -383,7 +383,7 @@ func TestFailedUserDeleteBranchDueToValidation(t *testing.T) {
 			defer cancel()
 
 			_, err := client.UserDeleteBranch(ctx, testCase.request)
-			testhelper.AssertGrpcError(t, err, testCase.code, "")
+			testhelper.RequireGrpcError(t, err, testCase.code)
 		})
 	}
 }

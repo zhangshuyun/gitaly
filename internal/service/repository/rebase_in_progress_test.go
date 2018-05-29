@@ -125,7 +125,7 @@ func TestFailedIsRebaseInProgressRequestDueToValidations(t *testing.T) {
 			defer cancel()
 
 			_, err := client.IsRebaseInProgress(ctx, testCase.request)
-			testhelper.AssertGrpcError(t, err, testCase.code, "")
+			testhelper.RequireGrpcError(t, err, testCase.code)
 		})
 	}
 }

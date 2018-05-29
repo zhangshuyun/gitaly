@@ -165,7 +165,7 @@ func TestFailedGetBlobsRequestDueToValidation(t *testing.T) {
 
 			_, err = stream.Recv()
 			require.NotEqual(t, io.EOF, err)
-			testhelper.AssertGrpcError(t, err, testCase.code, "")
+			testhelper.RequireGrpcError(t, err, testCase.code)
 		})
 	}
 }

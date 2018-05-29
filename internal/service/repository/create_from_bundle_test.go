@@ -94,5 +94,5 @@ func TestFailedCreateRepositoryFromBundleRequestDueToValidations(t *testing.T) {
 	require.NoError(t, stream.Send(&pb.CreateRepositoryFromBundleRequest{}))
 
 	_, err = stream.CloseAndRecv()
-	testhelper.AssertGrpcError(t, err, codes.InvalidArgument, "")
+	testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
 }

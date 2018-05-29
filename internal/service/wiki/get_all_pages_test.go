@@ -81,7 +81,7 @@ func TestFailedWikiGetAllPagesDueToValidation(t *testing.T) {
 		require.NoError(t, err)
 
 		err = drainWikiGetAllPagesResponse(c)
-		testhelper.AssertGrpcError(t, err, codes.InvalidArgument, "")
+		testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
 	}
 }
 

@@ -650,7 +650,7 @@ func TestFailedCommitDiffRequestDueToValidationError(t *testing.T) {
 			}
 
 			err = drainCommitDiffResponse(c)
-			testhelper.AssertGrpcError(t, err, codes.InvalidArgument, "")
+			testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
 		})
 	}
 }
@@ -677,7 +677,7 @@ func TestFailedCommitDiffRequestWithNonExistentCommit(t *testing.T) {
 	}
 
 	err = drainCommitDiffResponse(c)
-	testhelper.AssertGrpcError(t, err, codes.Unavailable, "")
+	testhelper.RequireGrpcError(t, err, codes.Unavailable)
 }
 
 func TestSuccessfulCommitDeltaRequest(t *testing.T) {
@@ -903,7 +903,7 @@ func TestFailedCommitDeltaRequestDueToValidationError(t *testing.T) {
 			}
 
 			err = drainCommitDeltaResponse(c)
-			testhelper.AssertGrpcError(t, err, codes.InvalidArgument, "")
+			testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
 		})
 	}
 }
@@ -930,7 +930,7 @@ func TestFailedCommitDeltaRequestWithNonExistentCommit(t *testing.T) {
 	}
 
 	err = drainCommitDeltaResponse(c)
-	testhelper.AssertGrpcError(t, err, codes.Unavailable, "")
+	testhelper.RequireGrpcError(t, err, codes.Unavailable)
 }
 
 func drainCommitDiffResponse(c pb.Diff_CommitDiffClient) error {

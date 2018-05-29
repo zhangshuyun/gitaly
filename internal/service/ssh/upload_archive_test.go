@@ -61,7 +61,7 @@ func TestFailedUploadArchiveRequestDueToValidationError(t *testing.T) {
 			stream.CloseSend()
 
 			err = drainUploadArchiveResponse(stream)
-			testhelper.AssertGrpcError(t, err, test.Code, "")
+			testhelper.RequireGrpcError(t, err, test.Code)
 		})
 	}
 }

@@ -258,7 +258,7 @@ func TestFailedUserRevertRequestDueToValidations(t *testing.T) {
 			ctx := metadata.NewOutgoingContext(ctxOuter, md)
 
 			_, err := client.UserRevert(ctx, testCase.request)
-			testhelper.AssertGrpcError(t, err, testCase.code, "")
+			testhelper.RequireGrpcError(t, err, testCase.code)
 		})
 	}
 }

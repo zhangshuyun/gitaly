@@ -322,7 +322,7 @@ func TestFailedFindAllCommitsRequest(t *testing.T) {
 			}
 
 			err = drainFindAllCommitsResponse(c)
-			testhelper.AssertGrpcError(t, err, testCase.code, "")
+			testhelper.RequireGrpcError(t, err, testCase.code)
 		})
 	}
 }

@@ -118,7 +118,7 @@ func TestCreateRepositoryFromSnapshotFailsIfRepositoryExists(t *testing.T) {
 
 	req := &pb.CreateRepositoryFromSnapshotRequest{Repository: testRepo}
 	rsp, err := createFromSnapshot(t, req)
-	testhelper.AssertGrpcError(t, err, codes.InvalidArgument, "destination directory exists")
+	testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
 	require.Nil(t, rsp)
 }
 
@@ -132,7 +132,7 @@ func TestCreateRepositoryFromSnapshotFailsIfBadURL(t *testing.T) {
 	}
 
 	rsp, err := createFromSnapshot(t, req)
-	testhelper.AssertGrpcError(t, err, codes.InvalidArgument, "Bad HTTP URL")
+	testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
 	require.Nil(t, rsp)
 }
 
@@ -151,7 +151,7 @@ func TestCreateRepositoryFromSnapshotFailsIfBadAuth(t *testing.T) {
 	}
 
 	rsp, err := createFromSnapshot(t, req)
-	testhelper.AssertGrpcError(t, err, codes.Internal, "HTTP server: 401 Unauthorized")
+	testhelper.RequireGrpcError(t, err, codes.Internal)
 	require.Nil(t, rsp)
 }
 
@@ -170,7 +170,7 @@ func TestCreateRepositoryFromSnapshotFailsIfHttp404(t *testing.T) {
 	}
 
 	rsp, err := createFromSnapshot(t, req)
-	testhelper.AssertGrpcError(t, err, codes.Internal, "HTTP server: 404 Not Found")
+	testhelper.RequireGrpcError(t, err, codes.Internal)
 	require.Nil(t, rsp)
 }
 
@@ -189,7 +189,7 @@ func TestCreateRepositoryFromSnapshotDoesNotFollowRedirects(t *testing.T) {
 	}
 
 	rsp, err := createFromSnapshot(t, req)
-	testhelper.AssertGrpcError(t, err, codes.Internal, "HTTP server: 302 Found")
+	testhelper.RequireGrpcError(t, err, codes.Internal)
 	require.Nil(t, rsp)
 }
 

@@ -219,7 +219,7 @@ func TestFailedDeleteBranchRequest(t *testing.T) {
 			defer cancel()
 
 			_, err := client.DeleteBranch(ctx, request)
-			testhelper.AssertGrpcError(t, err, testCase.code, "")
+			testhelper.RequireGrpcError(t, err, testCase.code)
 		})
 	}
 }
@@ -324,7 +324,7 @@ func TestFailedFindBranchRequest(t *testing.T) {
 			defer cancel()
 
 			_, err := client.FindBranch(ctx, request)
-			testhelper.AssertGrpcError(t, err, testCase.code, "")
+			testhelper.RequireGrpcError(t, err, testCase.code)
 		})
 	}
 }

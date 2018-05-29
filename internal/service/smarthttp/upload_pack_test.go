@@ -143,7 +143,7 @@ func TestUploadPackRequestWithGitConfigOptions(t *testing.T) {
 	// client just sees a grpc unavailable error
 	rpcRequest.GitConfigOptions = []string{"uploadpack.hideRefs=refs/hidden"}
 	response, err = makePostUploadPackRequest(t, serverSocketPath, rpcRequest, requestBodyCopy)
-	testhelper.AssertGrpcError(t, err, codes.Unavailable, "")
+	testhelper.RequireGrpcError(t, err, codes.Unavailable)
 	assert.Equal(t, response.String(), "", "Ref is hidden so no response should be received")
 }
 
@@ -182,7 +182,7 @@ func TestFailedUploadPackRequestDueToValidationError(t *testing.T) {
 	for _, rpcRequest := range rpcRequests {
 		t.Run(fmt.Sprintf("%v", rpcRequest), func(t *testing.T) {
 			_, err := makePostUploadPackRequest(t, serverSocketPath, &rpcRequest, bytes.NewBuffer(nil))
-			testhelper.AssertGrpcError(t, err, codes.InvalidArgument, "")
+			testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
 		})
 	}
 }

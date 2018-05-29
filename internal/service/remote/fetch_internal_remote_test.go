@@ -110,7 +110,7 @@ func TestFailedFetchInternalRemoteDueToValidations(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			_, err := client.FetchInternalRemote(ctx, tc.request)
 
-			testhelper.AssertGrpcError(t, err, codes.InvalidArgument, tc.desc)
+			testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
 		})
 	}
 }

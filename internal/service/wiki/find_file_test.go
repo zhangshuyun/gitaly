@@ -178,7 +178,7 @@ func TestFailedWikiFindFileDueToValidation(t *testing.T) {
 			require.NoError(t, err)
 
 			err = drainWikiFindFileResponse(c)
-			testhelper.AssertGrpcError(t, err, testCase.code, "")
+			testhelper.RequireGrpcError(t, err, testCase.code)
 		})
 	}
 }

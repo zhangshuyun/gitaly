@@ -116,7 +116,7 @@ func TestFailedCreateForkRequestDueToExistingTarget(t *testing.T) {
 			}
 
 			_, err = client.CreateFork(ctx, req)
-			testhelper.AssertGrpcError(t, err, codes.InvalidArgument, "")
+			testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
 		})
 	}
 }

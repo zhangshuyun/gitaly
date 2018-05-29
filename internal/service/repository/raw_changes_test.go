@@ -91,7 +91,7 @@ func TestGetRawChangesFailures(t *testing.T) {
 		require.NoError(t, err)
 
 		_, err = resp.Recv()
-		testhelper.AssertGrpcError(t, err, tc.code, "")
+		testhelper.RequireGrpcError(t, err, tc.code)
 	}
 }
 

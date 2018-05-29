@@ -318,7 +318,7 @@ func TestFailedWikiFindPageDueToValidation(t *testing.T) {
 			require.NoError(t, err)
 
 			err = drainWikiFindPageResponse(c)
-			testhelper.AssertGrpcError(t, err, testCase.code, "")
+			testhelper.RequireGrpcError(t, err, testCase.code)
 		})
 	}
 }

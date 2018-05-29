@@ -75,7 +75,7 @@ func TestCreateRepositoryFailure(t *testing.T) {
 		Repository: &pb.Repository{StorageName: "default", RelativePath: "foo.git"},
 	})
 
-	testhelper.AssertGrpcError(t, err, codes.Unknown, "")
+	testhelper.RequireGrpcError(t, err, codes.Unknown)
 }
 
 func TestCreateRepositoryFailureInvalidArgs(t *testing.T) {
@@ -103,7 +103,7 @@ func TestCreateRepositoryFailureInvalidArgs(t *testing.T) {
 			_, err := client.CreateRepository(ctx, &pb.CreateRepositoryRequest{Repository: tc.repo})
 
 			require.Error(t, err)
-			testhelper.AssertGrpcError(t, err, tc.code, "")
+			testhelper.RequireGrpcError(t, err, tc.code)
 		})
 	}
 }

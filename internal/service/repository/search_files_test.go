@@ -181,7 +181,7 @@ func TestSearchFilesByContentFailure(t *testing.T) {
 			require.NoError(t, err)
 
 			_, err = consumeFilenameByContent(stream)
-			testhelper.AssertGrpcError(t, err, tc.code, tc.msg)
+			testhelper.RequireGrpcError(t, err, tc.code)
 		})
 	}
 }
@@ -285,7 +285,7 @@ func TestSearchFilesByNameFailure(t *testing.T) {
 			require.NoError(t, err)
 
 			_, err = consumeFilenameByName(stream)
-			testhelper.AssertGrpcError(t, err, tc.code, tc.msg)
+			testhelper.RequireGrpcError(t, err, tc.code)
 		})
 	}
 }

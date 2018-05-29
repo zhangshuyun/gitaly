@@ -158,7 +158,7 @@ func TestExtractCommitSignatureFail(t *testing.T) {
 			if tc.code == codes.OK {
 				require.Equal(t, io.EOF, err, "expect EOF when there is no error")
 			} else {
-				testhelper.AssertGrpcError(t, err, tc.code, "")
+				testhelper.RequireGrpcError(t, err, tc.code)
 			}
 		})
 	}

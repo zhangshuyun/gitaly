@@ -45,7 +45,7 @@ func TestEmptyPostReceiveRequest(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	_, err := client.PostReceive(ctx, rpcRequest)
-	testhelper.AssertGrpcError(t, err, codes.InvalidArgument, "")
+	testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
 }
 
 func runNotificationsServer(t *testing.T) (*grpc.Server, string) {

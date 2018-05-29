@@ -119,7 +119,7 @@ func TestFailedGetLFSPointersRequestDueToValidations(t *testing.T) {
 
 			_, err = stream.Recv()
 			require.NotEqual(t, io.EOF, err)
-			testhelper.AssertGrpcError(t, err, testCase.code, "")
+			testhelper.RequireGrpcError(t, err, testCase.code)
 		})
 	}
 }
@@ -304,7 +304,7 @@ func TestFailedGetNewLFSPointersRequestDueToValidations(t *testing.T) {
 			require.NoError(t, err)
 
 			err = drainNewPointers(c)
-			testhelper.AssertGrpcError(t, err, codes.InvalidArgument, tc.desc)
+			testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
 		})
 	}
 }
@@ -420,7 +420,7 @@ func TestFailedGetAllLFSPointersRequestDueToValidations(t *testing.T) {
 			require.NoError(t, err)
 
 			err = drainAllPointers(c)
-			testhelper.AssertGrpcError(t, err, codes.InvalidArgument, tc.desc)
+			testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
 		})
 	}
 }

@@ -198,7 +198,7 @@ func TestFailedCommitsByMessageRequest(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			testhelper.AssertGrpcError(t, drainCommitsByMessageResponse(c), testCase.code, "")
+			testhelper.RequireGrpcError(t, drainCommitsByMessageResponse(c), testCase.code)
 		})
 	}
 }

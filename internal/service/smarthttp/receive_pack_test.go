@@ -131,7 +131,7 @@ func TestFailedReceivePackRequestDueToValidationError(t *testing.T) {
 			stream.CloseSend()
 
 			err = drainPostReceivePackResponse(stream)
-			testhelper.AssertGrpcError(t, err, codes.InvalidArgument, "")
+			testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
 		})
 	}
 }

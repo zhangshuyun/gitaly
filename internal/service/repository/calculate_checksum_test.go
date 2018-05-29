@@ -75,7 +75,7 @@ func TestBrokenRepositoryCalculateChecksum(t *testing.T) {
 	defer cancelCtx()
 
 	_, err := client.CalculateChecksum(testCtx, request)
-	testhelper.AssertGrpcError(t, err, codes.DataLoss, "not a git repository")
+	testhelper.RequireGrpcError(t, err, codes.DataLoss)
 }
 
 func TestFailedCalculateChecksum(t *testing.T) {
@@ -109,6 +109,6 @@ func TestFailedCalculateChecksum(t *testing.T) {
 		defer cancelCtx()
 
 		_, err := client.CalculateChecksum(testCtx, testCase.request)
-		testhelper.AssertGrpcError(t, err, testCase.code, "")
+		testhelper.RequireGrpcError(t, err, testCase.code)
 	}
 }

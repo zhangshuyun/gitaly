@@ -126,7 +126,7 @@ func TestGetRepoPath(t *testing.T) {
 			path, err := GetRepoPath(tc.repo)
 
 			if tc.err != codes.OK {
-				testhelper.AssertGrpcError(t, err, tc.err, "")
+				testhelper.RequireGrpcError(t, err, tc.err)
 				return
 			}
 
@@ -150,7 +150,7 @@ func assertInvalidRepoWithoutFile(t *testing.T, repo *pb.Repository, repoPath, f
 
 	_, err := GetRepoPath(repo)
 
-	testhelper.AssertGrpcError(t, err, codes.NotFound, "")
+	testhelper.RequireGrpcError(t, err, codes.NotFound)
 }
 
 func TestGetRepoPathWithCorruptedRepo(t *testing.T) {

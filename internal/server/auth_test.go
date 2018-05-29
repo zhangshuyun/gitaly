@@ -63,7 +63,7 @@ func TestAuthFailures(t *testing.T) {
 			conn, err := dial(serverSocketPath, connOpts)
 			require.NoError(t, err, tc.desc)
 			defer conn.Close()
-			testhelper.AssertGrpcError(t, healthCheck(conn), tc.code, "")
+			testhelper.RequireGrpcError(t, healthCheck(conn), tc.code)
 		})
 	}
 }

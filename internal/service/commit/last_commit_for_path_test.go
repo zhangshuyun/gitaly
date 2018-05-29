@@ -131,7 +131,7 @@ func TestFailedLastCommitForPathRequest(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			_, err := client.LastCommitForPath(ctx, testCase.request)
-			testhelper.AssertGrpcError(t, err, testCase.code, "")
+			testhelper.RequireGrpcError(t, err, testCase.code)
 		})
 	}
 }

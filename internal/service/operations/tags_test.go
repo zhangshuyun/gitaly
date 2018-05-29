@@ -285,7 +285,7 @@ func TestFailedUserDeleteTagRequestDueToValidation(t *testing.T) {
 			defer cancel()
 
 			_, err := client.UserDeleteTag(ctx, testCase.request)
-			testhelper.AssertGrpcError(t, err, testCase.code, "")
+			testhelper.RequireGrpcError(t, err, testCase.code)
 		})
 	}
 }
@@ -476,7 +476,7 @@ func TestFailedUserCreateTagRequestDueToValidation(t *testing.T) {
 			defer cancel()
 
 			_, err := client.UserCreateTag(ctx, request)
-			testhelper.AssertGrpcError(t, err, testCase.code, "")
+			testhelper.RequireGrpcError(t, err, testCase.code)
 		})
 	}
 }

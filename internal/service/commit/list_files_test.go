@@ -171,7 +171,7 @@ func TestListFilesFailure(t *testing.T) {
 			}
 
 			err = drainListFilesResponse(c)
-			testhelper.AssertGrpcError(t, err, test.code, "")
+			testhelper.RequireGrpcError(t, err, test.code)
 		})
 	}
 }

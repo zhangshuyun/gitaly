@@ -119,7 +119,7 @@ func TestFailedUpdateRemoteMirrorRequestDueToValidation(t *testing.T) {
 			require.NoError(t, stream.Send(tc.request))
 
 			_, err = stream.CloseAndRecv()
-			testhelper.AssertGrpcError(t, err, codes.InvalidArgument, tc.desc)
+			testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
 		})
 	}
 }

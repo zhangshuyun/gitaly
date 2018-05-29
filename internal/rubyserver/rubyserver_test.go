@@ -76,7 +76,7 @@ func TestSetHeaders(t *testing.T) {
 			clientCtx, err := tc.setter(ctx, tc.repo)
 
 			if tc.errType != codes.OK {
-				testhelper.AssertGrpcError(t, err, tc.errType, "")
+				testhelper.RequireGrpcError(t, err, tc.errType)
 				assert.Nil(t, clientCtx)
 			} else {
 				assert.NoError(t, err)

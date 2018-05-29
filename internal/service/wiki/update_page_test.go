@@ -245,7 +245,7 @@ func TestFailedWikiUpdatePageDueToValidations(t *testing.T) {
 			require.NoError(t, stream.Send(testCase.request))
 
 			_, err = stream.CloseAndRecv()
-			testhelper.AssertGrpcError(t, err, testCase.code, "")
+			testhelper.RequireGrpcError(t, err, testCase.code)
 		})
 	}
 }

@@ -181,7 +181,7 @@ func TestFailedWikiDeletePageDueToValidations(t *testing.T) {
 			defer cancel()
 
 			_, err := client.WikiDeletePage(ctx, testCase.request)
-			testhelper.AssertGrpcError(t, err, testCase.code, "")
+			testhelper.RequireGrpcError(t, err, testCase.code)
 		})
 	}
 }

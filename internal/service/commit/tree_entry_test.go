@@ -188,7 +188,7 @@ func TestFailedTreeEntryRequestDueToValidationError(t *testing.T) {
 			}
 
 			err = drainTreeEntryResponse(c)
-			testhelper.AssertGrpcError(t, err, codes.InvalidArgument, "")
+			testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
 		})
 	}
 }

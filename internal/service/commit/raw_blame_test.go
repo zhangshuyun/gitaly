@@ -133,7 +133,7 @@ func TestFailedRawBlameRequest(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			testhelper.AssertGrpcError(t, drainRawBlameResponse(c), testCase.code, "")
+			testhelper.RequireGrpcError(t, drainRawBlameResponse(c), testCase.code)
 		})
 	}
 }

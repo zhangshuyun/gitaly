@@ -116,7 +116,7 @@ func TestGarbageCollectDeletesRefsLocks(t *testing.T) {
 	createFileWithTimes(deleteLockPath, oldTime)
 
 	c, err := client.GarbageCollect(ctx, req)
-	testhelper.AssertGrpcError(t, err, codes.Internal, "GarbageCollect: cmd wait")
+	testhelper.RequireGrpcError(t, err, codes.Internal)
 	assert.Nil(t, c)
 
 	// Sanity checks
@@ -154,7 +154,7 @@ func TestGarbageCollectFailure(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			_, err := client.GarbageCollect(ctx, &pb.GarbageCollectRequest{Repository: test.repo})
-			testhelper.AssertGrpcError(t, err, test.code, "")
+			testhelper.RequireGrpcError(t, err, test.code)
 		})
 	}
 

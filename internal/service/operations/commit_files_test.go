@@ -232,7 +232,7 @@ func TestFailedUserCommitFilesRequest(t *testing.T) {
 			require.NoError(t, stream.Send(tc.req))
 
 			_, err = stream.CloseAndRecv()
-			testhelper.AssertGrpcError(t, err, codes.InvalidArgument, tc.desc)
+			testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
 		})
 	}
 }

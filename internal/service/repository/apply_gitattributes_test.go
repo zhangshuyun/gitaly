@@ -120,7 +120,7 @@ func TestApplyGitattributesFailure(t *testing.T) {
 
 			req := &pb.ApplyGitattributesRequest{Repository: test.repo, Revision: test.revision}
 			_, err := client.ApplyGitattributes(ctx, req)
-			testhelper.AssertGrpcError(t, err, test.code, "")
+			testhelper.RequireGrpcError(t, err, test.code)
 		})
 	}
 }
