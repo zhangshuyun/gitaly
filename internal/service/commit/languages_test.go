@@ -33,9 +33,9 @@ func TestLanguages(t *testing.T) {
 	require.NotZero(t, len(resp.Languages), "number of languages in response")
 
 	expectedLanguages := []pb.CommitLanguagesResponse_Language{
-		{Name: "Ruby", Share: 66, Color: "#701516"},
+		{Name: "Ruby", Share: 65, Color: "#701516"},
 		{Name: "JavaScript", Share: 22, Color: "#f1e05a"},
-		{Name: "HTML", Share: 7, Color: "#e34c26"},
+		{Name: "HTML", Share: 8, Color: "#e34c26"},
 		{Name: "CoffeeScript", Share: 2, Color: "#244776"},
 		// Modula-2 is a special case because Linguist has no color for it. This
 		// test case asserts that we invent a color for it (SHA256 of the name).

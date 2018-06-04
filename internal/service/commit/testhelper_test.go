@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"gitlab.com/gitlab-org/gitaly/internal/linguist"
 	"gitlab.com/gitlab-org/gitaly/internal/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 
@@ -30,9 +29,6 @@ func testMain(m *testing.M) int {
 	defer testhelper.MustHaveNoChildProcess()
 
 	testhelper.ConfigureRuby()
-	if err := linguist.LoadColors(); err != nil {
-		log.Fatal(err)
-	}
 
 	var err error
 	rubyServer, err = rubyserver.Start()
