@@ -1,0 +1,5 @@
+---
+title: Use caching for linguist results
+merge_request: 751
+author:
+type: performance

@@ -1,6 +1,8 @@
 require 'gitaly'
 
 require_relative 'gitlab/git.rb'
+require_relative 'gitlab/linguist/repository_languages.rb'
+require_relative 'gitlab/linguist/cache.rb'
 
 require_relative 'gitaly_server/client.rb'
 require_relative 'gitaly_server/utils.rb'

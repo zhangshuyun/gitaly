@@ -17,8 +17,6 @@ import (
 	pb "gitlab.com/gitlab-org/gitaly-proto/go"
 )
 
-var ()
-
 func TestMain(m *testing.M) {
 	os.Exit(testMain(m))
 }

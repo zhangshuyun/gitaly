@@ -167,21 +167,17 @@ module GitalyServer
         commit = Gitlab::Git::Commit.find(repo, request.revision)
         raise GRPC::InvalidArgument, 'revision could not be resolved' unless commit
 
-        languages = Linguist::Repository.new(repo.rugged, commit.id)
-          .languages
-          .sort_by { |_k, v| v }
-          .reverse
+        languages =
+          Gitlab::Linguist::RepositoryLanguages.new(repo, commit)
+          .detect
 
-        total_bytes = languages.sum(&:last)
-        return Gitaly::CommitLanguagesResponse.new(languages: []) if total_bytes == 0
+        total_bytes = languages.sum(&:last).to_f
 
         languages.map! do |name, bytes|
-          warn "#{bytes} of a total of #{total_bytes}" if name == 'Ruby'
-
           Gitaly::CommitLanguagesResponse::Language.new(
             name: name.to_s,
-            share: ((bytes.to_f / total_bytes.to_f) * 100).round,
-            color: linguist_color(name)
+            color: ::Linguist::Language.find_by_name(name)&.color || "##{Digest::SHA256.hexdigest(name)[0..5]}",
+            share: ((bytes / total_bytes) * 100).round,
           )
         end
 
@@ -219,10 +215,6 @@ module GitalyServer
 
         yield nil, chunk
       end
-    end
-
-    def linguist_color(language)
-      Linguist::Language.find_by_name(language)&.color || "##{Digest::SHA256.hexdigest(language)[0..5]}"
     end
   end
 end
