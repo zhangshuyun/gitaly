@@ -5,7 +5,8 @@ FILE_LIST = %w[
   lib/gitlab/git.rb
   lib/gitlab/git
   lib/gitlab/encoding_helper.rb
-  lib/gitlab/utils/strong_memoize.rb  
+  lib/gitlab/utils/strong_memoize.rb
+  lib/gitlab/version_info.rb
 ].freeze
 
 REMOTE = 'https://gitlab.com/gitlab-org/gitlab-ce'.freeze
