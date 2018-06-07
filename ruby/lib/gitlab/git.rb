@@ -76,6 +76,10 @@ module Gitlab
         raise NotAvailableInGitalyRuby
       end
     end
+
+    def version
+      Gitlab::VersionInfo.parse(Gitlab::Git.popen(%W(#{Gitlab.config.git.bin_path} --version)).first)
+    end
   end
 end
 
