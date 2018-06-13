@@ -1,5 +1,11 @@
 # Gitaly changelog
 
+## v0.105.1
+
+#### Other
+- Bumping gitlab-gollum-rugged-adapter to version 0.4.4.1 and gitlab-gollum-lib to 4.2.7.4
+  https://gitlab.com/gitlab-org/gitaly/merge_requests/762
+
 ## v0.105.0
 
 #### Added
