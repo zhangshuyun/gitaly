@@ -26,15 +26,15 @@ GEM
       mime-types (>= 1.19)
       rugged (>= 0.25.1)
     github-markup (1.7.0)
-    gitlab-gollum-lib (4.2.7.1)
+    gitlab-gollum-lib (4.2.7.4)
       gemojione (~> 3.2)
       github-markup (~> 1.6)
       gollum-grit_adapter (~> 1.0)
       nokogiri (>= 1.6.1, < 2.0)
-      rouge (~> 2.1)
+      rouge (~> 3.1)
       sanitize (~> 2.1)
       stringex (~> 2.6)
-    gitlab-gollum-rugged_adapter (0.4.4)
+    gitlab-gollum-rugged_adapter (0.4.4.1)
       mime-types (>= 1.15)
       rugged (~> 0.25)
     gitlab-grit (2.8.2)
@@ -94,7 +94,7 @@ GEM
       rake
     rake (12.1.0)
     rdoc (4.3.0)
-    rouge (2.2.1)
+    rouge (3.1.1)
     rspec (3.6.0)
       rspec-core (~> 3.6.0)
       rspec-expectations (~> 3.6.0)
@@ -157,4 +157,4 @@ DEPENDENCIES
   sentry-raven (~> 2.7.2)
 
 BUNDLED WITH
-   1.16.1
+   1.16.2
