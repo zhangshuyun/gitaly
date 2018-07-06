@@ -1,0 +1,5 @@
+---
+title: Remove unnecessary commit size calculations
+merge_request: 791
+author:
+type: fixed

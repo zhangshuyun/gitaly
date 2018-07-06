@@ -14,6 +14,8 @@ type commitsSender interface {
 	Send([]*pb.GitCommit) error
 }
 
+const commitsPerChunk = 20
+
 func sendCommits(ctx context.Context, sender commitsSender, repo *pb.Repository, revisionRange []string, paths []string, extraArgs ...string) error {
 	cmd, err := log.GitLogCommand(ctx, repo, revisionRange, paths, extraArgs...)
 	if err != nil {
@@ -26,18 +28,15 @@ func sendCommits(ctx context.Context, sender commitsSender, repo *pb.Repository,
 	}
 
 	var commits []*pb.GitCommit
-	commitsSize := 0
 
 	for logParser.Parse() {
 		commit := logParser.Commit()
-		commitsSize += commitSize(commit)
 
-		if commitsSize >= maxMsgSize {
+		if len(commits) >= commitsPerChunk {
 			if err := sender.Send(commits); err != nil {
 				return err
 			}
 			commits = nil
-			commitsSize = 0
 		}
 
 		commits = append(commits, commit)
@@ -58,11 +57,4 @@ func sendCommits(ctx context.Context, sender commitsSender, repo *pb.Repository,
 	}
 
 	return nil
-}
-
-func commitSize(commit *pb.GitCommit) int {
-	return len(commit.Id) + len(commit.Subject) + len(commit.Body) +
-		len(commit.Author.Name) + len(commit.Author.Email) + len(commit.Committer.Name) + len(commit.Committer.Email) +
-		8 + 8 + // Author and Committer timestamps are int64
-		len(commit.ParentIds)*40
 }
