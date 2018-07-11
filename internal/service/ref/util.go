@@ -21,29 +21,30 @@ func parseRef(ref []byte) ([][]byte, error) {
 	return elements, nil
 }
 
-func buildLocalBranch(c *catfile.Batch, elements [][]byte) (*pb.FindLocalBranchResponse, error) {
-	target, err := log.GetCommitCatfile(c, string(elements[1]))
-	if err != nil {
-		return nil, err
-	}
-	author := pb.FindLocalBranchCommitAuthor{
-		Name:  target.Author.Name,
-		Email: target.Author.Email,
-		Date:  target.Author.Date,
-	}
-	committer := pb.FindLocalBranchCommitAuthor{
-		Name:  target.Committer.Name,
-		Email: target.Committer.Email,
-		Date:  target.Committer.Date,
+func buildLocalBranch(name []byte, target *pb.GitCommit) *pb.FindLocalBranchResponse {
+	response := &pb.FindLocalBranchResponse{
+		Name:          name,
+		CommitId:      target.Id,
+		CommitSubject: target.Subject,
 	}
 
-	return &pb.FindLocalBranchResponse{
-		Name:            elements[0],
-		CommitId:        target.Id,
-		CommitSubject:   target.Subject,
-		CommitAuthor:    &author,
-		CommitCommitter: &committer,
-	}, nil
+	if author := target.Author; author != nil {
+		response.CommitAuthor = &pb.FindLocalBranchCommitAuthor{
+			Name:  author.Name,
+			Email: author.Email,
+			Date:  author.Date,
+		}
+	}
+
+	if committer := target.Committer; committer != nil {
+		response.CommitCommitter = &pb.FindLocalBranchCommitAuthor{
+			Name:  committer.Name,
+			Email: committer.Email,
+			Date:  committer.Date,
+		}
+	}
+
+	return response
 }
 
 func buildBranch(c *catfile.Batch, elements [][]byte) (*pb.FindAllBranchesResponse_Branch, error) {
@@ -79,11 +80,13 @@ func newFindLocalBranchesWriter(stream pb.Ref_FindLocalBranchesServer, c *catfil
 			if err != nil {
 				return err
 			}
-			branch, err := buildLocalBranch(c, elements)
+
+			target, err := log.GetCommitCatfile(c, string(elements[1]))
 			if err != nil {
 				return err
 			}
-			branches = append(branches, branch)
+
+			branches = append(branches, buildLocalBranch(elements[0], target))
 		}
 		return stream.Send(&pb.FindLocalBranchesResponse{Branches: branches})
 	}
