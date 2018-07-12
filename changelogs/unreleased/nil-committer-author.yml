@@ -1,5 +1,0 @@
----
-title: Fix nil commit author dereference
-merge_request: 800
-author:
-type: fixed
