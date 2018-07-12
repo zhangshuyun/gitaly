@@ -212,6 +212,7 @@ module Gitlab
         @raw_changes_between[[old_rev, new_rev]] ||=
           begin
             return [] if new_rev.blank? || new_rev == Gitlab::Git::BLANK_SHA
+            return [] unless new_changes_in_rev?(new_rev)
 
             result = []
 
@@ -229,6 +230,14 @@ module Gitlab
           end
       rescue ArgumentError => e
         raise Gitlab::Git::Repository::GitError.new(e)
+      end
+
+      def new_changes_in_rev?(rev)
+        revs = run_git!(%W[rev-list #{rev} --not --all --objects --max-count=1]).strip
+
+        File.open('/Users/ruben/projects/gdk-ee/gitlab/log.txt', 'w') { |f| f.puts "OUT: #{revs.class}. #{revs.inspect}" }
+
+        revs.present?
       end
 
       def add_tag(tag_name, user:, target:, message: nil)
