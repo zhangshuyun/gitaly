@@ -110,6 +110,13 @@ func TestBuildLocalBranch(t *testing.T) {
 				CommitCommitter: nil,
 			},
 		},
+		{
+			desc: "nil commit",
+			in:   nil,
+			out: &pb.FindLocalBranchResponse{
+				Name: []byte("my-branch"),
+			},
+		},
 	}
 
 	for _, tc := range testCases {

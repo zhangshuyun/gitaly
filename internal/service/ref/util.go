@@ -23,10 +23,15 @@ func parseRef(ref []byte) ([][]byte, error) {
 
 func buildLocalBranch(name []byte, target *pb.GitCommit) *pb.FindLocalBranchResponse {
 	response := &pb.FindLocalBranchResponse{
-		Name:          name,
-		CommitId:      target.Id,
-		CommitSubject: target.Subject,
+		Name: name,
 	}
+
+	if target == nil {
+		return response
+	}
+
+	response.CommitId = target.Id
+	response.CommitSubject = target.Subject
 
 	if author := target.Author; author != nil {
 		response.CommitAuthor = &pb.FindLocalBranchCommitAuthor{
