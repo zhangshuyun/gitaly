@@ -1,5 +1,0 @@
----
-title: Handle nil commit in buildLocalBranch
-merge_request: 822
-author:
-type: fixed
