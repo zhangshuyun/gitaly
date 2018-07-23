@@ -1,5 +1,11 @@
 # Gitaly changelog
 
+## v0.111.3
+
+#### Security
+- Update to gitlab-gollum-lib v4.2.7.5 and make Gemfile consistent with GitLab versions
+  https://gitlab.com/gitlab-org/gitaly/merge_requests/828
+
 ## v0.111.2
 
 #### Fixed

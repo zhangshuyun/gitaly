@@ -1,6 +1,0 @@
----
-title: Update to gitlab-gollum-lib v4.2.7.5 and make Gemfile consistent with GitLab
-  versions
-merge_request: 828
-author:
-type: security
