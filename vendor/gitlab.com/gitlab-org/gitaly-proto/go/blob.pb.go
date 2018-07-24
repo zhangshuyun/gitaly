@@ -92,6 +92,9 @@ It has these top-level messages:
 	RawDiffResponse
 	RawPatchRequest
 	RawPatchResponse
+	DiffStatsRequest
+	DiffStats
+	DiffStatsResponse
 	AddNamespaceRequest
 	RemoveNamespaceRequest
 	RenameNamespaceRequest
@@ -130,6 +133,8 @@ It has these top-level messages:
 	UserRebaseResponse
 	UserSquashRequest
 	UserSquashResponse
+	ListNewObjectsRequest
+	ListNewObjectsResponse
 	FindDefaultBranchNameRequest
 	FindDefaultBranchNameResponse
 	FindAllBranchNamesRequest

@@ -534,7 +534,8 @@ func (m *WikiFindFileResponse) GetPath() []byte {
 
 type WikiGetAllPagesRequest struct {
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository" json:"repository,omitempty"`
-	Limit      uint32      `protobuf:"varint,2,opt,name=limit" json:"limit,omitempty"`
+	// Passing 0 means no limit is applied
+	Limit uint32 `protobuf:"varint,2,opt,name=limit" json:"limit,omitempty"`
 }
 
 func (m *WikiGetAllPagesRequest) Reset()                    { *m = WikiGetAllPagesRequest{} }
