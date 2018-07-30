@@ -3,6 +3,7 @@ package ssh
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"path"
@@ -13,6 +14,7 @@ import (
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/stretchr/testify/require"
 
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 
 	pb "gitlab.com/gitlab-org/gitaly-proto/go"
@@ -79,7 +81,15 @@ func TestReceivePackPushSuccess(t *testing.T) {
 	server, serverSocketPath := runSSHServer(t)
 	defer server.Stop()
 
-	lHead, rHead, err := testCloneAndPush(t, serverSocketPath, testRepo.GetStorageName(), "1")
+	lHead, rHead, err := testCloneAndPush(t, serverSocketPath, pushParams{storageName: testRepo.GetStorageName(), glID: "1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Compare(lHead, rHead) != 0 {
+		t.Errorf("local and remote head not equal. push failed: %q != %q", lHead, rHead)
+	}
+
+	lHead, rHead, err = testCloneAndPush(t, serverSocketPath, pushParams{storageName: testRepo.GetStorageName(), glID: "1", gitConfigOptions: []string{"receive.MaxInputSize=10000"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -92,17 +102,29 @@ func TestReceivePackPushFailure(t *testing.T) {
 	server, serverSocketPath := runSSHServer(t)
 	defer server.Stop()
 
-	_, _, err := testCloneAndPush(t, serverSocketPath, "foobar", "1")
+	_, _, err := testCloneAndPush(t, serverSocketPath, pushParams{storageName: "foobar", glID: "1"})
 	if err == nil {
 		t.Errorf("local and remote head equal. push did not fail")
 	}
-	_, _, err = testCloneAndPush(t, serverSocketPath, testRepo.GetStorageName(), "")
+
+	_, _, err = testCloneAndPush(t, serverSocketPath, pushParams{storageName: testRepo.GetStorageName(), glID: ""})
 	if err == nil {
 		t.Errorf("local and remote head equal. push did not fail")
+	}
+
+	currentGitVersion, _ := git.Version()
+
+	// receive.MaxInputSize is only available since Git 2.11.0
+	// Skip this test from the job that uses Git 2.9.0
+	if currentGitVersion != "2.9.0" {
+		_, _, err = testCloneAndPush(t, serverSocketPath, pushParams{storageName: testRepo.GetStorageName(), glID: "1", gitConfigOptions: []string{"receive.MaxInputSize=1"}})
+		if err == nil {
+			t.Errorf("local and remote head equal. push did not fail")
+		}
 	}
 }
 
-func testCloneAndPush(t *testing.T, serverSocketPath string, storageName, glID string) (string, string, error) {
+func testCloneAndPush(t *testing.T, serverSocketPath string, params pushParams) (string, string, error) {
 	storagePath := testhelper.GitlabTestStoragePath()
 	tempRepo := "gitlab-test-ssh-receive-pack.git"
 	testRepoPath := path.Join(storagePath, testRepo.GetRelativePath())
@@ -124,12 +146,13 @@ func testCloneAndPush(t *testing.T, serverSocketPath string, storageName, glID s
 
 	makeCommit(t, localRepoPath)
 
-	pbTempRepo := &pb.Repository{StorageName: storageName, RelativePath: tempRepo}
+	pbTempRepo := &pb.Repository{StorageName: params.storageName, RelativePath: tempRepo}
 	pbMarshaler := &jsonpb.Marshaler{}
 	payload, err := pbMarshaler.MarshalToString(&pb.SSHReceivePackRequest{
-		Repository:   pbTempRepo,
-		GlRepository: pbTempRepo.GetRelativePath(),
-		GlId:         glID,
+		Repository:       pbTempRepo,
+		GlRepository:     pbTempRepo.GetRelativePath(),
+		GlId:             params.glID,
+		GitConfigOptions: params.gitConfigOptions,
 	})
 	require.NoError(t, err)
 
@@ -159,6 +182,11 @@ func makeCommit(t *testing.T, localRepoPath string) ([]byte, []byte, bool) {
 	commitMsg := fmt.Sprintf("Testing ReceivePack RPC around %d", time.Now().Unix())
 	committerName := "Scrooge McDuck"
 	committerEmail := "scrooge@mcduck.com"
+	newFilePath := localRepoPath + "/foo.txt"
+
+	// Create a tiny file and add it to the index
+	require.NoError(t, ioutil.WriteFile(newFilePath, []byte("foo bar"), 0644))
+	testhelper.MustRunCommand(t, nil, "git", "-C", localRepoPath, "add", ".")
 
 	// The latest commit ID on the remote repo
 	oldHead := bytes.TrimSpace(testhelper.MustRunCommand(t, nil, "git", "-C", localRepoPath, "rev-parse", "master"))
@@ -166,7 +194,7 @@ func makeCommit(t *testing.T, localRepoPath string) ([]byte, []byte, bool) {
 	testhelper.MustRunCommand(t, nil, "git", "-C", localRepoPath,
 		"-c", fmt.Sprintf("user.name=%s", committerName),
 		"-c", fmt.Sprintf("user.email=%s", committerEmail),
-		"commit", "--allow-empty", "-m", commitMsg)
+		"commit", "-m", commitMsg)
 	if t.Failed() {
 		return nil, nil, false
 	}
@@ -183,4 +211,10 @@ func drainPostReceivePackResponse(stream pb.SSH_SSHReceivePackClient) error {
 		_, err = stream.Recv()
 	}
 	return err
+}
+
+type pushParams struct {
+	storageName      string
+	glID             string
+	gitConfigOptions []string
 }

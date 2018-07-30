@@ -59,3 +59,16 @@ func Version() (string, error) {
 
 	return ver[2], nil
 }
+
+// BuildGitOptions helps to generate options to the git command.
+// If gitOpts is not empty then its values are passed as part of
+// the "-c" option of the git command, the other values are passed along with the subcommand.
+func BuildGitOptions(gitOpts []string, otherOpts ...string) []string {
+	args := []string{}
+
+	if len(gitOpts) > 0 {
+		args = append([]string{"-c"}, gitOpts...)
+	}
+
+	return append(args, otherOpts...)
+}

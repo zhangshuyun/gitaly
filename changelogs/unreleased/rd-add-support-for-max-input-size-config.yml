@@ -1,0 +1,5 @@
+---
+title: Add ability to support custom options for git-receive-pack
+merge_request: 834
+author:
+type: added
