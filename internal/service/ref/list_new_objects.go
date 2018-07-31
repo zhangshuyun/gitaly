@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"regexp"
 	"strings"
+	"fmt"
 
 	pb "gitlab.com/gitlab-org/gitaly-proto/go"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
@@ -17,6 +18,8 @@ func (s *server) ListNewObjects(in *pb.ListNewObjectsRequest, stream pb.RefServi
 	if match, err := regexp.MatchString(`\A[0-9a-f]{40}\z`, oid); !match || err != nil {
 		return status.Errorf(codes.InvalidArgument, "commit id shoud have 40 hexidecimal characters")
 	}
+
+	fmt.Printf("The VALUE of limit is: %d", in.limit)
 
 	ctx := stream.Context()
 	revList, err := git.Command(ctx, in.GetRepository(), "rev-list", oid, "--objects", "--all")
