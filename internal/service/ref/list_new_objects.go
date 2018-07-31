@@ -40,14 +40,15 @@ func (s *server) ListNewObjects(in *pb.ListNewObjectsRequest, stream pb.RefServi
 		parts := strings.Fields(line)
 
 		if len(parts) == 2 {
+			path := []byte(parts[1])
 			info, err := batch.Info(parts[0])
 			if err != nil {
 				return status.Errorf(codes.Internal, "ListNewObjects: catfile: %v", err)
 			}
 
-			path := []byte(parts[1])
-
-			newBlobs = append(newBlobs, &pb.NewBlobObject{Oid: info.Oid, Size: info.Size, Path: path,})
+			if info.Type == "blob" {
+				newBlobs = append(newBlobs, &pb.NewBlobObject{Oid: info.Oid, Size: info.Size, Path: path,})
+			}
 		}
 
 		if i%10 == 0 {
