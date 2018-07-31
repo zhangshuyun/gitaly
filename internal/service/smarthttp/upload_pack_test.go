@@ -7,9 +7,12 @@ import (
 	"io"
 	"os"
 	"path"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
+	"gitlab.com/gitlab-org/gitaly/internal/config"
 	"gitlab.com/gitlab-org/gitaly/internal/git/pktline"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -24,7 +27,7 @@ import (
 )
 
 const (
-	clientCapabilities = `multi_ack_detailed no-done side-band-64k thin-pack include-tag ofs-delta deepen-since deepen-not agent=git/2.12.2`
+	clientCapabilities = `multi_ack_detailed no-done side-band-64k thin-pack include-tag ofs-delta deepen-since deepen-not agent=git/2.18.0`
 )
 
 func TestSuccessfulUploadPackRequest(t *testing.T) {
@@ -147,6 +150,66 @@ func TestUploadPackRequestWithGitConfigOptions(t *testing.T) {
 	assert.Equal(t, response.String(), "", "Ref is hidden so no response should be received")
 }
 
+func TestUploadPackRequestWithGitProtocol(t *testing.T) {
+	defer func(old string) {
+		config.Config.Git.BinPath = old
+	}(config.Config.Git.BinPath)
+	config.Config.Git.BinPath = "../../testhelper/env_git"
+
+	server, serverSocketPath := runSmartHTTPServer(t)
+	defer server.Stop()
+
+	testRepo := testhelper.TestRepository()
+	testRepoPath, err := helper.GetRepoPath(testRepo)
+	require.NoError(t, err)
+
+	storagePath := testhelper.GitlabTestStoragePath()
+	ourRepoRelativePath := "gitlab-test-remote"
+	ourRepoPath := path.Join(storagePath, ourRepoRelativePath)
+
+	// Make a clone of the test repo to modify
+	testhelper.MustRunCommand(t, nil, "git", "clone", "--bare", testRepoPath, ourRepoPath)
+	defer os.RemoveAll(ourRepoPath)
+
+	// Remove remote-tracking branches that get in the way for this test
+	testhelper.MustRunCommand(t, nil, "git", "-C", ourRepoPath, "remote", "remove", "origin")
+
+	// Turn the csv branch into a hidden ref
+	want := string(bytes.TrimSpace(testhelper.MustRunCommand(t, nil, "git", "-C", ourRepoPath, "rev-parse", "refs/heads/csv")))
+	testhelper.MustRunCommand(t, nil, "git", "-C", ourRepoPath, "update-ref", "refs/hidden/csv", want)
+	testhelper.MustRunCommand(t, nil, "git", "-C", ourRepoPath, "update-ref", "-d", "refs/heads/csv")
+
+	requestBody := &bytes.Buffer{}
+	requestBodyCopy := &bytes.Buffer{}
+	tee := io.MultiWriter(requestBody, requestBodyCopy)
+
+	pktLine(tee, fmt.Sprintf("command=ls-refs\n"))
+	pktDelim(tee)
+	pktLine(tee, fmt.Sprintf("peel\n"))
+	pktLine(tee, fmt.Sprintf("symrefs\n"))
+	pktFlush(tee)
+
+	// Only a Git server with v2 will recognize this request.
+	// Git v1 will throw a protocol error.
+	rpcRequest := &pb.PostUploadPackRequest{
+		Repository: &pb.Repository{
+			StorageName:  "default",
+			RelativePath: ourRepoRelativePath,
+		},
+		GitProtocol: "version=2",
+	}
+
+	// The ref is successfully requested as it is not hidden
+	_, err = makePostUploadPackRequest(t, serverSocketPath, rpcRequest, requestBody)
+	require.NoError(t, err)
+
+	envData := testhelper.GetGitEnvData()
+
+	if !strings.Contains(envData, "GIT_PROTOCOL=version=2") {
+		t.Errorf("Expected response to set GIT_PROTOCOL, found %q", envData)
+	}
+}
+
 // This test is here because git-upload-pack returns a non-zero exit code
 // on 'deepen' requests even though the request is being handled just
 // fine from the client perspective.
@@ -252,4 +315,9 @@ func extractPackDataFromResponse(t *testing.T, buf *bytes.Buffer) ([]byte, int, 
 	pack = pack[12:]
 
 	return pack, version, entries
+}
+
+func pktDelim(w io.Writer) error {
+	_, err := fmt.Fprint(w, "0001")
+	return err
 }

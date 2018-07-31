@@ -4,10 +4,12 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os/exec"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
 	log "github.com/sirupsen/logrus"
 	pb "gitlab.com/gitlab-org/gitaly-proto/go"
+	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/pktline"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
@@ -33,8 +35,15 @@ func (s *server) InfoRefsReceivePack(in *pb.InfoRefsRequest, stream pb.SmartHTTP
 
 func handleInfoRefs(ctx context.Context, service string, req *pb.InfoRefsRequest, w io.Writer) error {
 	grpc_logrus.Extract(ctx).WithFields(log.Fields{
-		"service": service,
+		"service":     service,
+		"GitProtocol": req.GitProtocol,
 	}).Debug("handleInfoRefs")
+
+	env := []string{}
+
+	if req.GitProtocol == "version=2" {
+		env = append(env, fmt.Sprintf("GIT_PROTOCOL=%s", req.GitProtocol))
+	}
 
 	repoPath, err := helper.GetRepoPath(req.Repository)
 	if err != nil {
@@ -48,7 +57,9 @@ func handleInfoRefs(ctx context.Context, service string, req *pb.InfoRefsRequest
 
 	args = append(args, service, "--stateless-rpc", "--advertise-refs", repoPath)
 
-	cmd, err := git.Command(ctx, req.Repository, args...)
+	osCommand := exec.Command(command.GitPath(), args...)
+	cmd, err := command.New(ctx, osCommand, nil, nil, nil, env...)
+
 	if err != nil {
 		if _, ok := status.FromError(err); ok {
 			return err

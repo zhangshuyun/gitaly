@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"gitlab.com/gitlab-org/gitaly/internal/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/streamio"
 
@@ -49,6 +50,49 @@ func TestSuccessfulInfoRefsUploadPackWithGitConfigOptions(t *testing.T) {
 	response, err := makeInfoRefsUploadPackRequest(t, serverSocketPath, rpcRequest)
 	require.NoError(t, err)
 	assertGitRefAdvertisement(t, "InfoRefsUploadPack", string(response), "001e# service=git-upload-pack", "0000", []string{})
+}
+
+func TestSuccessfulInfoRefsUploadPackWithGitProtocol(t *testing.T) {
+	defer func(old string) {
+		config.Config.Git.BinPath = old
+	}(config.Config.Git.BinPath)
+	config.Config.Git.BinPath = "../../testhelper/env_git"
+
+	server, serverSocketPath := runSmartHTTPServer(t)
+	defer server.Stop()
+
+	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	defer cleanupFn()
+
+	rpcRequest := &pb.InfoRefsRequest{
+		Repository:  testRepo,
+		GitProtocol: "version=2",
+	}
+
+	client, _ := newSmartHTTPClient(t, serverSocketPath)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	c, err := client.InfoRefsUploadPack(ctx, rpcRequest)
+	require.NoError(t, err)
+
+	response, err := ioutil.ReadAll(streamio.NewReader(func() ([]byte, error) {
+		resp, err := c.Recv()
+		return resp.GetData(), err
+	}))
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	require.NoError(t, err)
+	assertGitRefAdvertisement(t, "InfoRefsUploadPack", string(response), "001e# service=git-upload-pack", "0000", []string{})
+
+	envData := testhelper.GetGitEnvData()
+
+	if !strings.Contains(envData, "GIT_PROTOCOL=version=2") {
+		t.Errorf("Expected response to set GIT_PROTOCOL, found %q", envData)
+	}
 }
 
 func makeInfoRefsUploadPackRequest(t *testing.T, serverSocketPath string, rpcRequest *pb.InfoRefsRequest) ([]byte, error) {

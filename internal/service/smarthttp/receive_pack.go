@@ -27,6 +27,7 @@ func (s *server) PostReceivePack(stream pb.SmartHTTPService_PostReceivePackServe
 		"GlRepository":     req.GlRepository,
 		"GlUsername":       req.GlUsername,
 		"GitConfigOptions": req.GitConfigOptions,
+		"GitProtocol":      req.GitProtocol,
 	}).Debug("PostReceivePack")
 
 	if err := validateReceivePackRequest(req); err != nil {
@@ -49,6 +50,9 @@ func (s *server) PostReceivePack(stream pb.SmartHTTPService_PostReceivePackServe
 	}
 	if req.GlUsername != "" {
 		env = append(env, fmt.Sprintf("GL_USERNAME=%s", req.GlUsername))
+	}
+	if req.GitProtocol == "version=2" {
+		env = append(env, fmt.Sprintf("GIT_PROTOCOL=%s", req.GitProtocol))
 	}
 	repoPath, err := helper.GetRepoPath(req.Repository)
 	if err != nil {

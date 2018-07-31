@@ -3,6 +3,7 @@ package ssh
 import (
 	"bytes"
 	"fmt"
+	"gitlab.com/gitlab-org/gitaly/internal/config"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -98,6 +99,30 @@ func TestReceivePackPushSuccess(t *testing.T) {
 	}
 }
 
+func TestReceivePackPushSuccessWithGitProtocol(t *testing.T) {
+	defer func(old string) {
+		config.Config.Git.BinPath = old
+	}(config.Config.Git.BinPath)
+	config.Config.Git.BinPath = "../../testhelper/env_git"
+
+	server, serverSocketPath := runSSHServer(t)
+	defer server.Stop()
+
+	lHead, rHead, err := testCloneAndPush(t, serverSocketPath, pushParams{storageName: testRepo.GetStorageName(), glID: "1", gitProtocol: "version=2"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Compare(lHead, rHead) != 0 {
+		t.Errorf("local and remote head not equal. push failed: %q != %q", lHead, rHead)
+	}
+
+	envData := testhelper.GetGitEnvData()
+
+	if !strings.Contains(envData, "GIT_PROTOCOL=version=2") {
+		t.Errorf("Expected response to set GIT_PROTOCOL, found %q", envData)
+	}
+}
+
 func TestReceivePackPushFailure(t *testing.T) {
 	server, serverSocketPath := runSSHServer(t)
 	defer server.Stop()
@@ -153,6 +178,7 @@ func testCloneAndPush(t *testing.T, serverSocketPath string, params pushParams) 
 		GlRepository:     pbTempRepo.GetRelativePath(),
 		GlId:             params.glID,
 		GitConfigOptions: params.gitConfigOptions,
+		GitProtocol:      params.gitProtocol,
 	})
 	require.NoError(t, err)
 
@@ -217,4 +243,5 @@ type pushParams struct {
 	storageName      string
 	glID             string
 	gitConfigOptions []string
+	gitProtocol      string
 }

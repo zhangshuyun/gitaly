@@ -12,3 +12,4 @@
 /ruby/.bundle
 /ruby/tmp
 *.socket
+git-env

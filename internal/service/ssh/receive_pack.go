@@ -27,6 +27,7 @@ func (s *server) SSHReceivePack(stream pb.SSHService_SSHReceivePackServer) error
 		"GlRepository":     req.GlRepository,
 		"GlUsername":       req.GlUsername,
 		"GitConfigOptions": req.GitConfigOptions,
+		"GitProtocol":      req.GitProtocol,
 	}).Debug("SSHReceivePack")
 
 	if err = validateFirstReceivePackRequest(req); err != nil {
@@ -50,6 +51,9 @@ func (s *server) SSHReceivePack(stream pb.SSHService_SSHReceivePackServer) error
 	}
 	if req.GlRepository != "" {
 		env = append(env, fmt.Sprintf("GL_REPOSITORY=%s", req.GlRepository))
+	}
+	if req.GitProtocol == "version=2" {
+		env = append(env, fmt.Sprintf("GIT_PROTOCOL=%s", req.GitProtocol))
 	}
 
 	repoPath, err := helper.GetRepoPath(req.Repository)

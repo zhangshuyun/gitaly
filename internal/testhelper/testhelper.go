@@ -41,6 +41,7 @@ const (
 	TestRelativePath    = "gitlab-test.git"
 	RepositoryAuthToken = "the-secret-token"
 	DefaultStorageName  = "default"
+	testGitEnv          = "testdata/git-env"
 )
 
 func init() {
@@ -254,6 +255,17 @@ func ConfigureRuby() {
 	if err := config.ConfigureRuby(); err != nil {
 		log.Fatalf("validate ruby config: %v", err)
 	}
+}
+
+// GetGitEnvData reads and returns the content of testGitEnv
+func GetGitEnvData() string {
+	gitEnvBytes, err := ioutil.ReadFile(testGitEnv)
+
+	if err != nil {
+		log.Fatalf("Git env file read error: %v", err)
+	}
+
+	return string(gitEnvBytes)
 }
 
 // NewTestGrpcServer creates a GRPC Server for testing purposes

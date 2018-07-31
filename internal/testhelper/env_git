@@ -1,0 +1,4 @@
+#!/bin/sh
+mkdir -p testdata
+env > testdata/git-env
+exec git "$@"
