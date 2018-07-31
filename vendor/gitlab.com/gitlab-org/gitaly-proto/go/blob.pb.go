@@ -134,8 +134,8 @@ It has these top-level messages:
 	UserRebaseResponse
 	UserSquashRequest
 	UserSquashResponse
-	ListNewObjectsRequest
-	ListNewObjectsResponse
+	ListNewBlobsRequest
+	ListNewBlobsResponse
 	FindDefaultBranchNameRequest
 	FindDefaultBranchNameResponse
 	FindAllBranchNamesRequest
