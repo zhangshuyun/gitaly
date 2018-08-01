@@ -13,13 +13,13 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func (s *server) ListNewObjects(in *pb.ListNewObjectsRequest, stream pb.RefService_ListNewObjectsServer) error {
+func (s *server) ListNewBlobs(in *pb.ListNewBlobsRequest, stream pb.RefService_ListNewBlobsServer) error {
 	oid := in.GetCommitId()
 	if match, err := regexp.MatchString(`\A[0-9a-f]{40}\z`, oid); !match || err != nil {
 		return status.Errorf(codes.InvalidArgument, "commit id shoud have 40 hexidecimal characters")
 	}
 
-	fmt.Printf("The VALUE of limit is: %d", in.limit)
+	fmt.Printf("The VALUE of limit is: %d", in.Limit)
 
 	ctx := stream.Context()
 	revList, err := git.Command(ctx, in.GetRepository(), "rev-list", oid, "--objects", "--all")
@@ -27,12 +27,12 @@ func (s *server) ListNewObjects(in *pb.ListNewObjectsRequest, stream pb.RefServi
 		if _, ok := status.FromError(err); ok {
 			return err
 		}
-		return status.Errorf(codes.Internal, "ListNewObjects: gitCommand: %v", err)
+		return status.Errorf(codes.Internal, "ListNewBlobs: gitCommand: %v", err)
 	}
 
 	batch, err := catfile.New(ctx, in.GetRepository())
 	if err != nil {
-		return status.Errorf(codes.Internal, "ListNewObjects: catfile: %v", err)
+		return status.Errorf(codes.Internal, "ListNewBlobs: catfile: %v", err)
 	}
 
 	i := 0
@@ -46,7 +46,7 @@ func (s *server) ListNewObjects(in *pb.ListNewObjectsRequest, stream pb.RefServi
 			path := []byte(parts[1])
 			info, err := batch.Info(parts[0])
 			if err != nil {
-				return status.Errorf(codes.Internal, "ListNewObjects: catfile: %v", err)
+				return status.Errorf(codes.Internal, "ListNewBlobs: catfile: %v", err)
 			}
 
 			if info.Type == "blob" {
@@ -55,13 +55,13 @@ func (s *server) ListNewObjects(in *pb.ListNewObjectsRequest, stream pb.RefServi
 		}
 
 		if i%10 == 0 {
-			response := &pb.ListNewObjectsResponse{NewBlobObjects: newBlobs}
+			response := &pb.ListNewBlobsResponse{NewBlobObjects: newBlobs}
 			stream.Send(response)
 			newBlobs = newBlobs[:0]
 		}
 	}
 
-	response := &pb.ListNewObjectsResponse{NewBlobObjects: newBlobs}
+	response := &pb.ListNewBlobsResponse{NewBlobObjects: newBlobs}
 	stream.Send(response)
 
 	return revList.Wait()
