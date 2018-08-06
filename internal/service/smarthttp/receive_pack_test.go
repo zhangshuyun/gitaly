@@ -47,6 +47,73 @@ func TestSuccessfulReceivePackRequest(t *testing.T) {
 	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "show", push.newHead)
 }
 
+func TestReceivePackRequestWithGitOptions(t *testing.T) {
+	server, serverSocketPath := runSmartHTTPServer(t)
+	defer server.Stop()
+
+	repo, repoPath, cleanup := testhelper.NewTestRepo(t)
+	defer cleanup()
+
+	client, conn := newSmartHTTPClient(t, serverSocketPath)
+	defer conn.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	stream, err := client.PostReceivePack(ctx)
+	require.NoError(t, err)
+
+	// Test with a right MaxInputSize value
+	localCommitID, remoteCommitID := doPushWithOpts(t, repo, repoPath, stream, []string{"receive.MaxInputSize=10000"})
+
+	require.Equal(t, localCommitID, remoteCommitID)
+
+	// Test with a wrong MaxInputSize value
+	localCommitID, remoteCommitID = doPushWithOpts(t, repo, repoPath, stream, []string{"receive.MaxInputSize=1"})
+
+	require.NotEqual(t, localCommitID, remoteCommitID)
+}
+
+func TestFailedReceivePackRequestDueToValidationError(t *testing.T) {
+	server, serverSocketPath := runSmartHTTPServer(t)
+	defer server.Stop()
+
+	client, conn := newSmartHTTPClient(t, serverSocketPath)
+	defer conn.Close()
+
+	rpcRequests := []pb.PostReceivePackRequest{
+		{Repository: &pb.Repository{StorageName: "fake", RelativePath: "path"}, GlId: "user-123"},                                  // Repository doesn't exist
+		{Repository: nil, GlId: "user-123"},                                                                                        // Repository is nil
+		{Repository: &pb.Repository{StorageName: "default", RelativePath: "path/to/repo"}, GlId: ""},                               // Empty GlId
+		{Repository: &pb.Repository{StorageName: "default", RelativePath: "path/to/repo"}, GlId: "user-123", Data: []byte("Fail")}, // Data exists on first request
+	}
+
+	for _, rpcRequest := range rpcRequests {
+		t.Run(fmt.Sprintf("%v", rpcRequest), func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			stream, err := client.PostReceivePack(ctx)
+			require.NoError(t, err)
+
+			require.NoError(t, stream.Send(&rpcRequest))
+			stream.CloseSend()
+
+			err = drainPostReceivePackResponse(stream)
+			testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
+		})
+	}
+}
+
+func doPushWithOpts(t *testing.T, repo *pb.Repository, repoPath string, stream pb.SmartHTTPService_PostReceivePackClient, opts []string) (localCommitID string, remoteCommitID string) {
+	push := newTestPush(t, []byte("hello world"))
+	firstRequest := &pb.PostReceivePackRequest{Repository: repo, GlId: "user-123", GlRepository: "project-123", GitConfigOptions: opts}
+
+	doPush(t, stream, firstRequest, push.body)
+
+	remoteCommitID = strings.TrimSpace(string(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", "HEAD")))
+	return push.newHead, remoteCommitID
+}
+
 func doPush(t *testing.T, stream pb.SmartHTTPService_PostReceivePackClient, firstRequest *pb.PostReceivePackRequest, body io.Reader) []byte {
 	require.NoError(t, stream.Send(firstRequest))
 
@@ -127,36 +194,6 @@ func createCommit(t *testing.T, repoPath string, fileContents []byte) (oldHead s
 	newHead = strings.TrimSpace(string(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", "master")))
 
 	return oldHead, newHead
-}
-
-func TestFailedReceivePackRequestDueToValidationError(t *testing.T) {
-	server, serverSocketPath := runSmartHTTPServer(t)
-	defer server.Stop()
-
-	client, conn := newSmartHTTPClient(t, serverSocketPath)
-	defer conn.Close()
-
-	rpcRequests := []pb.PostReceivePackRequest{
-		{Repository: &pb.Repository{StorageName: "fake", RelativePath: "path"}, GlId: "user-123"},                                  // Repository doesn't exist
-		{Repository: nil, GlId: "user-123"},                                                                                        // Repository is nil
-		{Repository: &pb.Repository{StorageName: "default", RelativePath: "path/to/repo"}, GlId: ""},                               // Empty GlId
-		{Repository: &pb.Repository{StorageName: "default", RelativePath: "path/to/repo"}, GlId: "user-123", Data: []byte("Fail")}, // Data exists on first request
-	}
-
-	for _, rpcRequest := range rpcRequests {
-		t.Run(fmt.Sprintf("%v", rpcRequest), func(t *testing.T) {
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
-			stream, err := client.PostReceivePack(ctx)
-			require.NoError(t, err)
-
-			require.NoError(t, stream.Send(&rpcRequest))
-			stream.CloseSend()
-
-			err = drainPostReceivePackResponse(stream)
-			testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
-		})
-	}
 }
 
 func drainPostReceivePackResponse(stream pb.SmartHTTP_PostReceivePackClient) error {
