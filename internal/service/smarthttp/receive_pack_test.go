@@ -4,8 +4,9 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"os"
+	"io/ioutil"
 	"path"
+	"strings"
 	"testing"
 	"time"
 
@@ -23,74 +24,40 @@ func TestSuccessfulReceivePackRequest(t *testing.T) {
 	server, serverSocketPath := runSmartHTTPServer(t)
 	defer server.Stop()
 
-	testRepo := testhelper.TestRepository()
-	storagePath := testhelper.GitlabTestStoragePath()
-	remoteRepoRelativePath := "gitlab-test-remote"
-	localRepoRelativePath := "gitlab-test-local"
-	testRepoPath := path.Join(storagePath, testRepo.RelativePath)
-	remoteRepoPath := path.Join(storagePath, remoteRepoRelativePath)
-	localRepoPath := path.Join(storagePath, localRepoRelativePath)
-	// Make a non-bare clone of the test repo to act as a local one
-	testhelper.MustRunCommand(t, nil, "git", "clone", testRepoPath, localRepoPath)
-	// Make a bare clone of the test repo to act as a remote one and to leave the original repo intact for other tests
-	testhelper.MustRunCommand(t, nil, "git", "clone", "--bare", testRepoPath, remoteRepoPath)
-	defer os.RemoveAll(remoteRepoPath)
-	defer os.RemoveAll(localRepoPath)
-
-	commitMsg := fmt.Sprintf("Testing ReceivePack RPC around %d", time.Now().Unix())
-	committerName := "Scrooge McDuck"
-	committerEmail := "scrooge@mcduck.com"
-	clientCapabilities := "report-status side-band-64k agent=git/2.12.0"
-
-	// The latest commit ID on the remote repo
-	oldHead := bytes.TrimSpace(testhelper.MustRunCommand(t, nil, "git", "-C", localRepoPath, "rev-parse", "master"))
-
-	testhelper.MustRunCommand(t, nil, "git", "-C", localRepoPath,
-		"-c", fmt.Sprintf("user.name=%s", committerName),
-		"-c", fmt.Sprintf("user.email=%s", committerEmail),
-		"commit", "--allow-empty", "-m", commitMsg)
-
-	// The commit ID we want to push to the remote repo
-	newHead := bytes.TrimSpace(testhelper.MustRunCommand(t, nil, "git", "-C", localRepoPath, "rev-parse", "master"))
-
-	// ReceivePack request is a packet line followed by a packet flush, then the pack file of the objects we want to push.
-	// This is explained a bit in https://git-scm.com/book/en/v2/Git-Internals-Transfer-Protocols#_uploading_data
-	// We form the packet line the same way git executable does: https://github.com/git/git/blob/d1a13d3fcb252631361a961cb5e2bf10ed467cba/send-pack.c#L524-L527
-	pkt := fmt.Sprintf("%s %s refs/heads/master\x00 %s", oldHead, newHead, clientCapabilities)
-	// We need to get a pack file containing the objects we want to push, so we use git pack-objects
-	// which expects a list of revisions passed through standard input. The list format means
-	// pack the objects needed if I have oldHead but not newHead (think of it from the perspective of the remote repo).
-	// For more info, check the man pages of both `git-pack-objects` and `git-rev-list --objects`.
-	stdin := bytes.NewBufferString(fmt.Sprintf("^%s\n%s\n", oldHead, newHead))
-	// The options passed are the same ones used when doing an actual push.
-	pack := testhelper.MustRunCommand(t, stdin, "git", "-C", localRepoPath, "pack-objects", "--stdout", "--revs", "--thin", "--delta-base-offset", "-q")
-
-	// We chop the request into multiple small pieces to exercise the server code that handles
-	// the stream sent by the client, so we use a buffer to read chunks of data in a nice way.
-	requestBuffer := &bytes.Buffer{}
-	fmt.Fprintf(requestBuffer, "%04x%s%s", len(pkt)+4, pkt, pktFlushStr)
-	requestBuffer.Write(pack)
+	repo, repoPath, cleanup := testhelper.NewTestRepo(t)
+	defer cleanup()
 
 	client, conn := newSmartHTTPClient(t, serverSocketPath)
 	defer conn.Close()
-	repo := &pb.Repository{StorageName: "default", RelativePath: remoteRepoRelativePath}
-	rpcRequest := &pb.PostReceivePackRequest{Repository: repo, GlId: "user-123", GlRepository: "project-123"}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
 	stream, err := client.PostReceivePack(ctx)
 	require.NoError(t, err)
 
-	require.NoError(t, stream.Send(rpcRequest))
+	push := newTestPush(t, nil)
+	firstRequest := &pb.PostReceivePackRequest{Repository: repo, GlId: "user-123", GlRepository: "project-123"}
+	response := sendPush(t, stream, firstRequest, push.body)
+
+	expectedResponse := "0030\x01000eunpack ok\n0019ok refs/heads/master\n00000000"
+	require.Equal(t, expectedResponse, string(response), "Expected response to be %q, got %q", expectedResponse, response)
+
+	// The fact that this command succeeds means that we got the commit correctly, no further checks should be needed.
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "show", push.newHead)
+}
+
+func sendPush(t *testing.T, stream pb.SmartHTTPService_PostReceivePackClient, firstRequest *pb.PostReceivePackRequest, body io.Reader) []byte {
+	require.NoError(t, stream.Send(firstRequest))
 
 	sw := streamio.NewWriter(func(p []byte) error {
 		return stream.Send(&pb.PostReceivePackRequest{Data: p})
 	})
-	_, err = io.Copy(sw, requestBuffer)
+	_, err := io.Copy(sw, body)
 	require.NoError(t, err)
 
-	stream.CloseSend()
+	require.NoError(t, stream.CloseSend())
 
-	// Verify everything is going as planned
 	responseBuffer := bytes.Buffer{}
 	rr := streamio.NewReader(func() ([]byte, error) {
 		resp, err := stream.Recv()
@@ -99,11 +66,67 @@ func TestSuccessfulReceivePackRequest(t *testing.T) {
 	_, err = io.Copy(&responseBuffer, rr)
 	require.NoError(t, err)
 
-	expectedResponse := "0030\x01000eunpack ok\n0019ok refs/heads/master\n00000000"
-	require.Equal(t, expectedResponse, responseBuffer.String(), "Expected response to be %q, got %q", expectedResponse, responseBuffer.String())
+	return responseBuffer.Bytes()
+}
 
-	// The fact that this command succeeds means that we got the commit correctly, no further checks should be needed.
-	testhelper.MustRunCommand(t, nil, "git", "-C", remoteRepoPath, "show", string(newHead))
+type testPush struct {
+	newHead string
+	body    io.Reader
+}
+
+func newTestPush(t *testing.T, fileContents []byte) *testPush {
+	_, repoPath, localCleanup := testhelper.NewTestRepoWithWorktree(t)
+	defer localCleanup()
+
+	oldHead, newHead := createCommit(t, repoPath, fileContents)
+
+	// ReceivePack request is a packet line followed by a packet flush, then the pack file of the objects we want to push.
+	// This is explained a bit in https://git-scm.com/book/en/v2/Git-Internals-Transfer-Protocols#_uploading_data
+	// We form the packet line the same way git executable does: https://github.com/git/git/blob/d1a13d3fcb252631361a961cb5e2bf10ed467cba/send-pack.c#L524-L527
+	clientCapabilities := "report-status side-band-64k agent=git/2.12.0"
+	pkt := fmt.Sprintf("%s %s refs/heads/master\x00 %s", oldHead, newHead, clientCapabilities)
+
+	// We need to get a pack file containing the objects we want to push, so we use git pack-objects
+	// which expects a list of revisions passed through standard input. The list format means
+	// pack the objects needed if I have oldHead but not newHead (think of it from the perspective of the remote repo).
+	// For more info, check the man pages of both `git-pack-objects` and `git-rev-list --objects`.
+	stdin := strings.NewReader(fmt.Sprintf("^%s\n%s\n", oldHead, newHead))
+
+	// The options passed are the same ones used when doing an actual push.
+	pack := testhelper.MustRunCommand(t, stdin, "git", "-C", repoPath, "pack-objects", "--stdout", "--revs", "--thin", "--delta-base-offset", "-q")
+
+	// We chop the request into multiple small pieces to exercise the server code that handles
+	// the stream sent by the client, so we use a buffer to read chunks of data in a nice way.
+	requestBuffer := &bytes.Buffer{}
+	fmt.Fprintf(requestBuffer, "%04x%s%s", len(pkt)+4, pkt, pktFlushStr)
+	requestBuffer.Write(pack)
+
+	return &testPush{newHead: newHead, body: requestBuffer}
+}
+
+// createCommit creates a commit on HEAD with a file containing the
+// specified contents.
+func createCommit(t *testing.T, repoPath string, fileContents []byte) (oldHead string, newHead string) {
+	commitMsg := fmt.Sprintf("Testing ReceivePack RPC around %d", time.Now().Unix())
+	committerName := "Scrooge McDuck"
+	committerEmail := "scrooge@mcduck.com"
+
+	// The latest commit ID on the remote repo
+	oldHead = strings.TrimSpace(string(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", "master")))
+
+	changedFile := "README.md"
+	require.NoError(t, ioutil.WriteFile(path.Join(repoPath, changedFile), fileContents, 0644))
+
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "add", changedFile)
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath,
+		"-c", fmt.Sprintf("user.name=%s", committerName),
+		"-c", fmt.Sprintf("user.email=%s", committerEmail),
+		"commit", "-m", commitMsg)
+
+	// The commit ID we want to push to the remote repo
+	newHead = strings.TrimSpace(string(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", "master")))
+
+	return oldHead, newHead
 }
 
 func TestFailedReceivePackRequestDueToValidationError(t *testing.T) {
