@@ -38,7 +38,7 @@ func TestSuccessfulReceivePackRequest(t *testing.T) {
 
 	push := newTestPush(t, nil)
 	firstRequest := &pb.PostReceivePackRequest{Repository: repo, GlId: "user-123", GlRepository: "project-123"}
-	response := sendPush(t, stream, firstRequest, push.body)
+	response := doPush(t, stream, firstRequest, push.body)
 
 	expectedResponse := "0030\x01000eunpack ok\n0019ok refs/heads/master\n00000000"
 	require.Equal(t, expectedResponse, string(response), "Expected response to be %q, got %q", expectedResponse, response)
@@ -47,7 +47,7 @@ func TestSuccessfulReceivePackRequest(t *testing.T) {
 	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "show", push.newHead)
 }
 
-func sendPush(t *testing.T, stream pb.SmartHTTPService_PostReceivePackClient, firstRequest *pb.PostReceivePackRequest, body io.Reader) []byte {
+func doPush(t *testing.T, stream pb.SmartHTTPService_PostReceivePackClient, firstRequest *pb.PostReceivePackRequest, body io.Reader) []byte {
 	require.NoError(t, stream.Send(firstRequest))
 
 	sw := streamio.NewWriter(func(p []byte) error {
@@ -69,12 +69,12 @@ func sendPush(t *testing.T, stream pb.SmartHTTPService_PostReceivePackClient, fi
 	return responseBuffer.Bytes()
 }
 
-type testPush struct {
+type pushData struct {
 	newHead string
 	body    io.Reader
 }
 
-func newTestPush(t *testing.T, fileContents []byte) *testPush {
+func newTestPush(t *testing.T, fileContents []byte) *pushData {
 	_, repoPath, localCleanup := testhelper.NewTestRepoWithWorktree(t)
 	defer localCleanup()
 
@@ -101,7 +101,7 @@ func newTestPush(t *testing.T, fileContents []byte) *testPush {
 	fmt.Fprintf(requestBuffer, "%04x%s%s", len(pkt)+4, pkt, pktFlushStr)
 	requestBuffer.Write(pack)
 
-	return &testPush{newHead: newHead, body: requestBuffer}
+	return &pushData{newHead: newHead, body: requestBuffer}
 }
 
 // createCommit creates a commit on HEAD with a file containing the
