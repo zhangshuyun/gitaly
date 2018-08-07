@@ -64,14 +64,16 @@ func TestReceivePackRequestWithGitOptions(t *testing.T) {
 	require.NoError(t, err)
 
 	// Test with a right MaxInputSize value
-	localCommitID, remoteCommitID := doPushWithOpts(t, repo, repoPath, stream, []string{"receive.MaxInputSize=10000"})
+	localCommitID, remoteCommitID, pushOutput := doPushWithOpts(t, repo, repoPath, stream, []string{"receive.MaxInputSize=10000"})
 
 	require.Equal(t, localCommitID, remoteCommitID)
+	require.NotEqual(t, "", pushOutput)
 
 	// Test with a wrong MaxInputSize value
-	localCommitID, remoteCommitID = doPushWithOpts(t, repo, repoPath, stream, []string{"receive.MaxInputSize=1"})
+	localCommitID, remoteCommitID, pushOutput = doPushWithOpts(t, repo, repoPath, stream, []string{"receive.MaxInputSize=1"})
 
 	require.NotEqual(t, localCommitID, remoteCommitID)
+	require.Equal(t, "", pushOutput)
 }
 
 func TestFailedReceivePackRequestDueToValidationError(t *testing.T) {
@@ -104,14 +106,14 @@ func TestFailedReceivePackRequestDueToValidationError(t *testing.T) {
 	}
 }
 
-func doPushWithOpts(t *testing.T, repo *pb.Repository, repoPath string, stream pb.SmartHTTPService_PostReceivePackClient, opts []string) (localCommitID string, remoteCommitID string) {
+func doPushWithOpts(t *testing.T, repo *pb.Repository, repoPath string, stream pb.SmartHTTPService_PostReceivePackClient, opts []string) (localCommitID string, remoteCommitID string, pushOutput string) {
 	push := newTestPush(t, []byte("hello world"))
 	firstRequest := &pb.PostReceivePackRequest{Repository: repo, GlId: "user-123", GlRepository: "project-123", GitConfigOptions: opts}
 
-	doPush(t, stream, firstRequest, push.body)
+	pushOutput = string(doPush(t, stream, firstRequest, push.body))
 
 	remoteCommitID = strings.TrimSpace(string(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", "HEAD")))
-	return push.newHead, remoteCommitID
+	return push.newHead, remoteCommitID, pushOutput
 }
 
 func doPush(t *testing.T, stream pb.SmartHTTPService_PostReceivePackClient, firstRequest *pb.PostReceivePackRequest, body io.Reader) []byte {
