@@ -47,6 +47,57 @@ func TestSuccessfulReceivePackRequest(t *testing.T) {
 	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "show", push.newHead)
 }
 
+func TestSuccessfulReceivePackRequestWithGitOpts(t *testing.T) {
+	server, serverSocketPath := runSmartHTTPServer(t)
+	defer server.Stop()
+
+	repo, repoPath, cleanup := testhelper.NewTestRepo(t)
+	defer cleanup()
+
+	client, conn := newSmartHTTPClient(t, serverSocketPath)
+	defer conn.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	stream, err := client.PostReceivePack(ctx)
+	require.NoError(t, err)
+
+	push := newTestPush(t, nil)
+	firstRequest := &pb.PostReceivePackRequest{Repository: repo, GlId: "user-123", GlRepository: "project-123", GitConfigOptions: []string{"receive.MaxInputSize=10000"}}
+	response := doPush(t, stream, firstRequest, push.body)
+
+	expectedResponse := "0030\x01000eunpack ok\n0019ok refs/heads/master\n00000000"
+	require.Equal(t, expectedResponse, string(response), "Expected response to be %q, got %q", expectedResponse, response)
+
+	// The fact that this command succeeds means that we got the commit correctly, no further checks should be needed.
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "show", push.newHead)
+}
+
+func TestFailedReceivePackRequestWithGitOpts(t *testing.T) {
+	server, serverSocketPath := runSmartHTTPServer(t)
+	defer server.Stop()
+
+	repo, _, cleanup := testhelper.NewTestRepo(t)
+	defer cleanup()
+
+	client, conn := newSmartHTTPClient(t, serverSocketPath)
+	defer conn.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	stream, err := client.PostReceivePack(ctx)
+	require.NoError(t, err)
+
+	push := newTestPush(t, nil)
+	firstRequest := &pb.PostReceivePackRequest{Repository: repo, GlId: "user-123", GlRepository: "project-123", GitConfigOptions: []string{"receive.MaxInputSize=1"}}
+	response := doPush(t, stream, firstRequest, push.body)
+
+	expectedResponse := "002e\x02fatal: pack exceeds maximum allowed size\n0059\x010028unpack unpack-objects abnormal exit\n0028ng refs/heads/master unpacker error\n00000000"
+	require.Equal(t, expectedResponse, string(response), "Expected response to be %q, got %q", expectedResponse, response)
+}
+
 func doPush(t *testing.T, stream pb.SmartHTTPService_PostReceivePackClient, firstRequest *pb.PostReceivePackRequest, body io.Reader) []byte {
 	require.NoError(t, stream.Send(firstRequest))
 
