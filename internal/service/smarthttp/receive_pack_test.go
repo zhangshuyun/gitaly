@@ -181,7 +181,7 @@ func createCommit(t *testing.T, repoPath string, fileContents []byte) (oldHead s
 	// The latest commit ID on the remote repo
 	oldHead = strings.TrimSpace(string(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", "master")))
 
-	changedFile := "README.md"
+	changedFile := fmt.Sprintf("README-%v.md", time.Now().UnixNano())
 	require.NoError(t, ioutil.WriteFile(path.Join(repoPath, changedFile), fileContents, 0644))
 
 	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "add", changedFile)
