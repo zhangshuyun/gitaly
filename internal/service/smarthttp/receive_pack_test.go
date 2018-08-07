@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 
 	pb "gitlab.com/gitlab-org/gitaly-proto/go"
@@ -76,11 +75,6 @@ func TestSuccessfulReceivePackRequestWithGitOpts(t *testing.T) {
 }
 
 func TestFailedReceivePackRequestWithGitOpts(t *testing.T) {
-	currentGitVersion, _ := git.Version()
-	if currentGitVersion == "2.9.0" {
-		t.Skip("Skip because Git 2.9 does not support receive.MaxInputSize")
-	}
-
 	server, serverSocketPath := runSmartHTTPServer(t)
 	defer server.Stop()
 

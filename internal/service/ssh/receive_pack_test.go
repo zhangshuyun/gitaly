@@ -14,7 +14,6 @@ import (
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/stretchr/testify/require"
 
-	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 
 	pb "gitlab.com/gitlab-org/gitaly-proto/go"
@@ -112,15 +111,9 @@ func TestReceivePackPushFailure(t *testing.T) {
 		t.Errorf("local and remote head equal. push did not fail")
 	}
 
-	currentGitVersion, _ := git.Version()
-
-	// receive.MaxInputSize is only available since Git 2.11.0
-	// Skip this test from the job that uses Git 2.9.0
-	if currentGitVersion != "2.9.0" {
-		_, _, err = testCloneAndPush(t, serverSocketPath, pushParams{storageName: testRepo.GetStorageName(), glID: "1", gitConfigOptions: []string{"receive.MaxInputSize=1"}})
-		if err == nil {
-			t.Errorf("local and remote head equal. push did not fail")
-		}
+	_, _, err = testCloneAndPush(t, serverSocketPath, pushParams{storageName: testRepo.GetStorageName(), glID: "1", gitConfigOptions: []string{"receive.MaxInputSize=1"}})
+	if err == nil {
+		t.Errorf("local and remote head equal. push did not fail")
 	}
 }
 
