@@ -554,11 +554,11 @@ func TestSuccessfulCommitDiffRequestWithLimits(t *testing.T) {
 				SafeMaxBytes:  5 * 5 * 1024,
 			},
 			result: []diffAttributes{
-				{path: "CHANGELOG"},
+				{path: "CHANGELOG", collapsed: true},
 				{path: "CONTRIBUTING.md", collapsed: true},
-				{path: "LICENSE", collapsed: true},
+				{path: "LICENSE"},
 				{path: "PROCESS.md", collapsed: true},
-				{path: "VERSION", collapsed: true},
+				{path: "VERSION"},
 			},
 		},
 		{

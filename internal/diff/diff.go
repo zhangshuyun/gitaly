@@ -43,7 +43,6 @@ type Parser struct {
 	linesProcessed    int
 	bytesProcessed    int
 	finished          bool
-	overSafeLimits    bool
 	err               error
 }
 
@@ -149,7 +148,7 @@ func (parser *Parser) Parse() bool {
 		}
 	}
 
-	if parser.overSafeLimits && parser.currentDiff.lineCount > 0 {
+	if parser.limits.CollapseDiffs && parser.isOverSafeLimits() && parser.currentDiff.lineCount > 0 {
 		parser.linesProcessed -= parser.currentDiff.lineCount
 		parser.bytesProcessed -= len(parser.currentDiff.Patch)
 		parser.currentDiff.Collapsed = true
@@ -166,8 +165,6 @@ func (parser *Parser) Parse() bool {
 		}
 	}
 
-	parser.setOverSafeLimits()
-
 	return true
 }
 
@@ -183,16 +180,10 @@ func (parser *Parser) Err() error {
 	return parser.err
 }
 
-func (parser *Parser) setOverSafeLimits() {
-	if parser.overSafeLimits || !parser.limits.CollapseDiffs {
-		return
-	}
-
-	if parser.filesProcessed >= parser.limits.SafeMaxFiles ||
-		parser.linesProcessed >= parser.limits.SafeMaxLines ||
-		parser.bytesProcessed >= parser.limits.SafeMaxBytes {
-		parser.overSafeLimits = true
-	}
+func (parser *Parser) isOverSafeLimits() bool {
+	return parser.filesProcessed > parser.limits.SafeMaxFiles ||
+		parser.linesProcessed > parser.limits.SafeMaxLines ||
+		parser.bytesProcessed > parser.limits.SafeMaxBytes
 }
 
 func (parser *Parser) cacheRawLines(reader *bufio.Reader) {
