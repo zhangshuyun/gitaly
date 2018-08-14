@@ -1,0 +1,5 @@
+---
+title: Prune large patches by default when enforcing limits
+merge_request: 858
+author:
+type: fixed

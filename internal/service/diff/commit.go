@@ -77,6 +77,7 @@ func (s *server) CommitDiff(in *pb.CommitDiffRequest, stream pb.DiffService_Comm
 			Binary:         diff.Binary,
 			OverflowMarker: diff.OverflowMarker,
 			Collapsed:      diff.Collapsed,
+			TooLarge:       diff.TooLarge,
 		}
 
 		if len(diff.Patch) <= s.MsgSizeThreshold {

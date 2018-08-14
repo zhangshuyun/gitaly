@@ -14,6 +14,10 @@ import (
 
 const blankID = "0000000000000000000000000000000000000000"
 
+// MaxPatchBytes is a limitation of a single diff patch,
+// patches surpassing this limit are pruned by default.
+const MaxPatchBytes = 100000
+
 // Diff represents a single parsed diff entry
 type Diff struct {
 	FromID   string
@@ -29,6 +33,8 @@ type Diff struct {
 	OverflowMarker bool
 	// Collapsed means a soft limit was reached and the patch was pruned.
 	Collapsed bool
+	// TooLarge means a hard limit was reached for this patch.
+	TooLarge  bool
 	lineCount int
 }
 
@@ -149,13 +155,17 @@ func (parser *Parser) Parse() bool {
 	}
 
 	if parser.limits.CollapseDiffs && parser.isOverSafeLimits() && parser.currentDiff.lineCount > 0 {
-		parser.linesProcessed -= parser.currentDiff.lineCount
-		parser.bytesProcessed -= len(parser.currentDiff.Patch)
+		parser.prunePatch()
 		parser.currentDiff.Collapsed = true
-		parser.currentDiff.Patch = nil
 	}
 
 	if parser.limits.EnforceLimits {
+		// Apply single-file size limit
+		if len(parser.currentDiff.Patch) >= MaxPatchBytes {
+			parser.prunePatch()
+			parser.currentDiff.TooLarge = true
+		}
+
 		maxFilesExceeded := parser.filesProcessed > parser.limits.MaxFiles
 		maxBytesOrLinesExceeded := parser.bytesProcessed >= parser.limits.MaxBytes || parser.linesProcessed >= parser.limits.MaxLines
 
@@ -166,6 +176,14 @@ func (parser *Parser) Parse() bool {
 	}
 
 	return true
+}
+
+// prunePatch nullifies the current diff patch and reduce lines and bytes processed
+// according to it.
+func (parser *Parser) prunePatch() {
+	parser.linesProcessed -= parser.currentDiff.lineCount
+	parser.bytesProcessed -= len(parser.currentDiff.Patch)
+	parser.currentDiff.Patch = nil
 }
 
 // Diff returns a successfully parsed diff. It should be called only when Parser.Parse()
