@@ -1,5 +1,13 @@
 # Gitaly changelog
 
+## v0.117.1
+
+#### Security
+- Bump rouge to 3.2.1
+  https://gitlab.com/gitlab-org/gitaly/merge_requests/862
+- Bump rugged to 0.27.4 for security fixes
+  https://gitlab.com/gitlab-org/gitaly/merge_requests/856
+
 ## v0.117.0
 
 #### Performance
