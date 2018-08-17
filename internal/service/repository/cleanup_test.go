@@ -186,7 +186,7 @@ func TestCleanupDeletesStaleWorktrees(t *testing.T) {
 	}
 }
 
-func TestCleanupConfigLocks(t *testing.T) {
+func TestCleanupFileLocks(t *testing.T) {
 	server, serverSocketPath := runRepoServer(t)
 	defer server.Stop()
 
@@ -200,21 +200,23 @@ func TestCleanupConfigLocks(t *testing.T) {
 	defer cancel()
 
 	req := &pb.CleanupRequest{Repository: testRepo}
-	lockPath := filepath.Join(testRepoPath, "config.lock")
 
-	// No file on the lock path
-	_, err := client.Cleanup(ctx, req)
-	assert.NoError(t, err)
+	for _, fileName := range lockFiles {
+		lockPath := filepath.Join(testRepoPath, fileName)
+		// No file on the lock path
+		_, err := client.Cleanup(ctx, req)
+		assert.NoError(t, err)
 
-	// Fresh lock should remain
-	createFileWithTimes(lockPath, freshTime)
-	_, err = client.Cleanup(ctx, req)
-	assert.NoError(t, err)
-	assert.FileExists(t, lockPath)
+		// Fresh lock should remain
+		createFileWithTimes(lockPath, freshTime)
+		_, err = client.Cleanup(ctx, req)
+		assert.NoError(t, err)
+		assert.FileExists(t, lockPath)
 
-	// Old lock should be removed
-	createFileWithTimes(lockPath, oldTime)
-	_, err = client.Cleanup(ctx, req)
-	assert.NoError(t, err)
-	testhelper.AssertFileNotExists(t, lockPath)
+		// Old lock should be removed
+		createFileWithTimes(lockPath, oldTime)
+		_, err = client.Cleanup(ctx, req)
+		assert.NoError(t, err)
+		testhelper.AssertFileNotExists(t, lockPath)
+	}
 }

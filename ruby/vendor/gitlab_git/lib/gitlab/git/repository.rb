@@ -19,6 +19,7 @@ module Gitlab
         GIT_ALTERNATE_OBJECT_DIRECTORIES_RELATIVE
       ].freeze
       SEARCH_CONTEXT_LINES = 3
+      REV_LIST_COMMIT_LIMIT = 2_000
       # In https://gitlab.com/gitlab-org/gitaly/merge_requests/698
       # We copied these two prefixes into gitaly-go, so don't change these
       # or things will break! (REBASE_WORKTREE_PREFIX and SQUASH_WORKTREE_PREFIX)
@@ -39,19 +40,6 @@ module Gitlab
       ChecksumError = Class.new(StandardError)
 
       class << self
-        # Unlike `new`, `create` takes the repository path
-        def create(repo_path, bare: true, symlink_hooks_to: nil)
-          FileUtils.mkdir_p(repo_path, mode: 0770)
-
-          # Equivalent to `git --git-path=#{repo_path} init [--bare]`
-          repo = Rugged::Repository.init_at(repo_path, bare)
-          repo.close
-
-          create_hooks(repo_path, symlink_hooks_to) if symlink_hooks_to.present?
-
-          true
-        end
-
         def create_hooks(repo_path, global_hooks_path)
           local_hooks_path = File.join(repo_path, 'hooks')
           real_local_hooks_path = :not_found
@@ -378,17 +366,18 @@ module Gitlab
         end
       end
 
-      # Gitaly migration: https://gitlab.com/gitlab-org/gitaly/issues/1233
       def new_commits(newrev)
-        gitaly_migrate(:new_commits) do |is_enabled|
-          if is_enabled
-            gitaly_ref_client.list_new_commits(newrev)
-          else
-            refs = Gitlab::GitalyClient::StorageSettings.allow_disk_access do
-              rev_list(including: newrev, excluding: :all).split("\n").map(&:strip)
-            end
+        wrapped_gitaly_errors do
+          gitaly_ref_client.list_new_commits(newrev)
+        end
+      end
 
-            Gitlab::Git::Commit.batch_by_oid(self, refs)
+      def new_blobs(newrev)
+        return [] if newrev.blank? || newrev == ::Gitlab::Git::BLANK_SHA
+
+        strong_memoize("new_blobs_#{newrev}") do
+          wrapped_gitaly_errors do
+            gitaly_ref_client.list_new_blobs(newrev, REV_LIST_COMMIT_LIMIT)
           end
         end
       end

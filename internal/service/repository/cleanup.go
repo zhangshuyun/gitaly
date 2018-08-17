@@ -15,6 +15,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 )
 
+var lockFiles = []string{"config.lock", "HEAD.lock"}
+
 func (server) Cleanup(_ctx context.Context, in *pb.CleanupRequest) (*pb.CleanupResponse, error) {
 	repoPath, err := helper.GetRepoPath(in.GetRepository())
 	if err != nil {
@@ -43,7 +45,7 @@ func cleanupRepo(repoPath string) error {
 	}
 
 	configLockThreshod := time.Now().Add(-15 * time.Minute)
-	if err := cleanupConfigLock(repoPath, configLockThreshod); err != nil {
+	if err := cleanFileLocks(repoPath, configLockThreshod); err != nil {
 		return status.Errorf(codes.Internal, "Cleanup: cleanupConfigLock: %v", err)
 	}
 
@@ -127,20 +129,22 @@ func cleanStaleWorktrees(repoPath string, threshold time.Time) error {
 	return nil
 }
 
-func cleanupConfigLock(repoPath string, threshold time.Time) error {
-	configLockPath := filepath.Join(repoPath, "config.lock")
+func cleanFileLocks(repoPath string, threshold time.Time) error {
+	for _, fileName := range lockFiles {
+		lockPath := filepath.Join(repoPath, fileName)
 
-	fi, err := os.Stat(configLockPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil
-		}
-		return err
-	}
-
-	if fi.ModTime().Before(threshold) {
-		if err := os.Remove(configLockPath); err != nil && !os.IsNotExist(err) {
+		fi, err := os.Stat(lockPath)
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
 			return err
+		}
+
+		if fi.ModTime().Before(threshold) {
+			if err := os.Remove(lockPath); err != nil && !os.IsNotExist(err) {
+				return err
+			}
 		}
 	}
 

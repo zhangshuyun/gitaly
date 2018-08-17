@@ -478,7 +478,7 @@ func TestSuccessfulCommitDiffRequestWithLimits(t *testing.T) {
 			request: pb.CommitDiffRequest{
 				EnforceLimits: true,
 				MaxFiles:      5,
-				MaxLines:      100,
+				MaxLines:      90,
 				MaxBytes:      5 * 5 * 1024,
 			},
 			result: []diffAttributes{
@@ -493,7 +493,7 @@ func TestSuccessfulCommitDiffRequestWithLimits(t *testing.T) {
 				EnforceLimits: true,
 				MaxFiles:      5,
 				MaxLines:      1000,
-				MaxBytes:      7650,
+				MaxBytes:      6900,
 			},
 			result: []diffAttributes{
 				{path: "CHANGELOG"},
@@ -550,7 +550,7 @@ func TestSuccessfulCommitDiffRequestWithLimits(t *testing.T) {
 				MaxLines:      100,
 				MaxBytes:      5 * 5 * 1024,
 				SafeMaxFiles:  5,
-				SafeMaxLines:  45,
+				SafeMaxLines:  40,
 				SafeMaxBytes:  5 * 5 * 1024,
 			},
 			result: []diffAttributes{
@@ -610,7 +610,7 @@ func TestSuccessfulCommitDiffRequestWithLimits(t *testing.T) {
 				require.Equal(t, requestAndResult.result[i].path, string(diff.FromPath), "path")
 
 				collapsed := requestAndResult.result[i].collapsed
-				require.Equal(t, collapsed, diff.Collapsed, "collapsed")
+				require.Equal(t, collapsed, diff.Collapsed, "%s collapsed", requestAndResult.result[i].path)
 				if collapsed {
 					require.Empty(t, diff.Patch, "patch")
 				}

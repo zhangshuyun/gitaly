@@ -24,6 +24,7 @@ EXCLUDE = %w[
   lib/gitlab/git/index.rb
   lib/gitlab/git/lfs_changes.rb
   lib/gitlab/git/lfs_pointer_file.rb
+  lib/gitlab/git/merge_base.rb
   lib/gitlab/git/rev_list.rb
   lib/gitlab/git/storage/
   lib/gitlab/git/storage.rb

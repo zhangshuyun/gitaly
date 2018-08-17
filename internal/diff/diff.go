@@ -128,7 +128,7 @@ func (parser *Parser) Parse() bool {
 			}
 
 			if len(line) > 0 && len(line) < 10 {
-				parser.consumeChunkLine()
+				parser.consumeChunkLine(true)
 			}
 
 			break
@@ -140,11 +140,11 @@ func (parser *Parser) Parse() bool {
 		if bytes.HasPrefix(line, []byte("diff --git")) {
 			break
 		} else if bytes.HasPrefix(line, []byte("@@")) {
-			parser.consumeChunkLine()
+			parser.consumeChunkLine(false)
 		} else if helper.ByteSliceHasAnyPrefix(line, "---", "+++") && !parser.isParsingChunkLines() {
-			parser.consumeLine(true)
+			parser.consumeLine(false)
 		} else if helper.ByteSliceHasAnyPrefix(line, "-", "+", " ", "\\", "Binary") {
-			parser.consumeChunkLine()
+			parser.consumeChunkLine(true)
 		} else {
 			parser.consumeLine(false)
 		}
@@ -331,7 +331,7 @@ func parseRawLine(line []byte, diff *Diff) error {
 	return nil
 }
 
-func (parser *Parser) consumeChunkLine() {
+func (parser *Parser) consumeChunkLine(updateLineStats bool) {
 	var line []byte
 	var err error
 
@@ -351,9 +351,12 @@ func (parser *Parser) consumeChunkLine() {
 	}
 
 	parser.currentDiff.Patch = append(parser.currentDiff.Patch, line...)
-	parser.currentDiff.lineCount++
-	parser.linesProcessed++
-	parser.bytesProcessed += len(line)
+
+	if updateLineStats {
+		parser.bytesProcessed += len(line)
+		parser.currentDiff.lineCount++
+		parser.linesProcessed++
+	}
 }
 
 func (parser *Parser) consumeLine(updateStats bool) {
