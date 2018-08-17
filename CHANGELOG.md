@@ -1,5 +1,15 @@
 # Gitaly changelog
 
+## v0.117.2
+
+#### Fixed
+- Fix diffs being collapsed unnecessarily
+  https://gitlab.com/gitlab-org/gitaly/merge_requests/854
+- Fix patch size calculations to not include headers
+  https://gitlab.com/gitlab-org/gitaly/merge_requests/859
+- Prune large patches by default when enforcing limits
+  https://gitlab.com/gitlab-org/gitaly/merge_requests/858
+
 ## v0.117.1
 
 #### Security

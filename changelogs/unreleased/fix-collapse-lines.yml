@@ -1,5 +1,0 @@
----
-title: Fix patch size calculations to not include headers
-merge_request: 859
-author:
-type: fixed
