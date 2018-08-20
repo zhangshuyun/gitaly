@@ -105,6 +105,7 @@ func main() {
 	config.ConfigureSentry(version.GetVersion())
 	config.ConfigurePrometheus()
 	config.ConfigureConcurrencyLimits()
+	config.ConfigureTracing()
 
 	tempdir.StartCleaning()
 

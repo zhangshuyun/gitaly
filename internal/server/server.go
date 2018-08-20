@@ -20,6 +20,7 @@ import (
 	"github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
 	"github.com/grpc-ecosystem/go-grpc-middleware/tags"
+	"github.com/grpc-ecosystem/go-grpc-middleware/tracing/opentracing"
 	"github.com/grpc-ecosystem/go-grpc-prometheus"
 
 	"google.golang.org/grpc"
@@ -72,6 +73,7 @@ func New(rubyServer *rubyserver.Server) *grpc.Server {
 	server := grpc.NewServer(
 		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
 			grpc_ctxtags.StreamServerInterceptor(ctxTagOpts...),
+			grpc_opentracing.StreamServerInterceptor(),
 			metadatahandler.StreamInterceptor,
 			grpc_prometheus.StreamServerInterceptor,
 			grpc_logrus.StreamServerInterceptor(logrusEntry),
@@ -85,6 +87,7 @@ func New(rubyServer *rubyserver.Server) *grpc.Server {
 		)),
 		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(
 			grpc_ctxtags.UnaryServerInterceptor(ctxTagOpts...),
+			grpc_opentracing.UnaryServerInterceptor(),
 			metadatahandler.UnaryInterceptor,
 			grpc_prometheus.UnaryServerInterceptor,
 			grpc_logrus.UnaryServerInterceptor(logrusEntry),
