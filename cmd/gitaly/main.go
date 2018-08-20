@@ -105,7 +105,10 @@ func main() {
 	config.ConfigureSentry(version.GetVersion())
 	config.ConfigurePrometheus()
 	config.ConfigureConcurrencyLimits()
-	config.ConfigureTracing()
+	tracingCloser := config.ConfigureTracing()
+	if tracingCloser != nil {
+		defer tracingCloser.Close()
+	}
 
 	tempdir.StartCleaning()
 
