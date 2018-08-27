@@ -144,8 +144,11 @@ type CommitDiffResponse struct {
 	// Indicates the diff file at which we overflow according to the limitations sent,
 	// in which case only this attribute will be set.
 	OverflowMarker bool `protobuf:"varint,11,opt,name=overflow_marker,json=overflowMarker" json:"overflow_marker,omitempty"`
-	Collapsed      bool `protobuf:"varint,12,opt,name=collapsed" json:"collapsed,omitempty"`
-	// Patch is too large and has been pruned
+	// Indicates the patch surpassed a "safe" limit and was therefore pruned, but
+	// the client may still request the full patch on a separate request.
+	Collapsed bool `protobuf:"varint,12,opt,name=collapsed" json:"collapsed,omitempty"`
+	// Indicates the patch was pruned since it surpassed a hard limit, and can
+	// therefore not be expanded.
 	TooLarge bool `protobuf:"varint,13,opt,name=too_large,json=tooLarge" json:"too_large,omitempty"`
 }
 

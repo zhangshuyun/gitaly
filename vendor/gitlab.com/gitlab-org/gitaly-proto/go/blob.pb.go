@@ -271,6 +271,8 @@ It has these top-level messages:
 	SSHReceivePackResponse
 	SSHUploadArchiveRequest
 	SSHUploadArchiveResponse
+	ListDirectoriesRequest
+	ListDirectoriesResponse
 	DeleteAllRepositoriesRequest
 	DeleteAllRepositoriesResponse
 	WikiCommitDetails
