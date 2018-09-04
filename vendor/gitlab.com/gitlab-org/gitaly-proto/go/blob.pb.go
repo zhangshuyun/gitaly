@@ -8,7 +8,6 @@ It is generated from these files:
 	blob.proto
 	commit.proto
 	conflicts.proto
-	deprecated-services.proto
 	diff.proto
 	namespace.proto
 	notifications.proto
@@ -271,6 +270,8 @@ It has these top-level messages:
 	SSHReceivePackResponse
 	SSHUploadArchiveRequest
 	SSHUploadArchiveResponse
+	ListDirectoriesRequest
+	ListDirectoriesResponse
 	DeleteAllRepositoriesRequest
 	DeleteAllRepositoriesResponse
 	WikiCommitDetails

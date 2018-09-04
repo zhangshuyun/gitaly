@@ -25,7 +25,7 @@ type AddNamespaceRequest struct {
 func (m *AddNamespaceRequest) Reset()                    { *m = AddNamespaceRequest{} }
 func (m *AddNamespaceRequest) String() string            { return proto.CompactTextString(m) }
 func (*AddNamespaceRequest) ProtoMessage()               {}
-func (*AddNamespaceRequest) Descriptor() ([]byte, []int) { return fileDescriptor5, []int{0} }
+func (*AddNamespaceRequest) Descriptor() ([]byte, []int) { return fileDescriptor4, []int{0} }
 
 func (m *AddNamespaceRequest) GetStorageName() string {
 	if m != nil {
@@ -49,7 +49,7 @@ type RemoveNamespaceRequest struct {
 func (m *RemoveNamespaceRequest) Reset()                    { *m = RemoveNamespaceRequest{} }
 func (m *RemoveNamespaceRequest) String() string            { return proto.CompactTextString(m) }
 func (*RemoveNamespaceRequest) ProtoMessage()               {}
-func (*RemoveNamespaceRequest) Descriptor() ([]byte, []int) { return fileDescriptor5, []int{1} }
+func (*RemoveNamespaceRequest) Descriptor() ([]byte, []int) { return fileDescriptor4, []int{1} }
 
 func (m *RemoveNamespaceRequest) GetStorageName() string {
 	if m != nil {
@@ -74,7 +74,7 @@ type RenameNamespaceRequest struct {
 func (m *RenameNamespaceRequest) Reset()                    { *m = RenameNamespaceRequest{} }
 func (m *RenameNamespaceRequest) String() string            { return proto.CompactTextString(m) }
 func (*RenameNamespaceRequest) ProtoMessage()               {}
-func (*RenameNamespaceRequest) Descriptor() ([]byte, []int) { return fileDescriptor5, []int{2} }
+func (*RenameNamespaceRequest) Descriptor() ([]byte, []int) { return fileDescriptor4, []int{2} }
 
 func (m *RenameNamespaceRequest) GetStorageName() string {
 	if m != nil {
@@ -105,7 +105,7 @@ type NamespaceExistsRequest struct {
 func (m *NamespaceExistsRequest) Reset()                    { *m = NamespaceExistsRequest{} }
 func (m *NamespaceExistsRequest) String() string            { return proto.CompactTextString(m) }
 func (*NamespaceExistsRequest) ProtoMessage()               {}
-func (*NamespaceExistsRequest) Descriptor() ([]byte, []int) { return fileDescriptor5, []int{3} }
+func (*NamespaceExistsRequest) Descriptor() ([]byte, []int) { return fileDescriptor4, []int{3} }
 
 func (m *NamespaceExistsRequest) GetStorageName() string {
 	if m != nil {
@@ -128,7 +128,7 @@ type NamespaceExistsResponse struct {
 func (m *NamespaceExistsResponse) Reset()                    { *m = NamespaceExistsResponse{} }
 func (m *NamespaceExistsResponse) String() string            { return proto.CompactTextString(m) }
 func (*NamespaceExistsResponse) ProtoMessage()               {}
-func (*NamespaceExistsResponse) Descriptor() ([]byte, []int) { return fileDescriptor5, []int{4} }
+func (*NamespaceExistsResponse) Descriptor() ([]byte, []int) { return fileDescriptor4, []int{4} }
 
 func (m *NamespaceExistsResponse) GetExists() bool {
 	if m != nil {
@@ -143,7 +143,7 @@ type AddNamespaceResponse struct {
 func (m *AddNamespaceResponse) Reset()                    { *m = AddNamespaceResponse{} }
 func (m *AddNamespaceResponse) String() string            { return proto.CompactTextString(m) }
 func (*AddNamespaceResponse) ProtoMessage()               {}
-func (*AddNamespaceResponse) Descriptor() ([]byte, []int) { return fileDescriptor5, []int{5} }
+func (*AddNamespaceResponse) Descriptor() ([]byte, []int) { return fileDescriptor4, []int{5} }
 
 type RemoveNamespaceResponse struct {
 }
@@ -151,7 +151,7 @@ type RemoveNamespaceResponse struct {
 func (m *RemoveNamespaceResponse) Reset()                    { *m = RemoveNamespaceResponse{} }
 func (m *RemoveNamespaceResponse) String() string            { return proto.CompactTextString(m) }
 func (*RemoveNamespaceResponse) ProtoMessage()               {}
-func (*RemoveNamespaceResponse) Descriptor() ([]byte, []int) { return fileDescriptor5, []int{6} }
+func (*RemoveNamespaceResponse) Descriptor() ([]byte, []int) { return fileDescriptor4, []int{6} }
 
 type RenameNamespaceResponse struct {
 }
@@ -159,7 +159,7 @@ type RenameNamespaceResponse struct {
 func (m *RenameNamespaceResponse) Reset()                    { *m = RenameNamespaceResponse{} }
 func (m *RenameNamespaceResponse) String() string            { return proto.CompactTextString(m) }
 func (*RenameNamespaceResponse) ProtoMessage()               {}
-func (*RenameNamespaceResponse) Descriptor() ([]byte, []int) { return fileDescriptor5, []int{7} }
+func (*RenameNamespaceResponse) Descriptor() ([]byte, []int) { return fileDescriptor4, []int{7} }
 
 func init() {
 	proto.RegisterType((*AddNamespaceRequest)(nil), "gitaly.AddNamespaceRequest")
@@ -343,9 +343,9 @@ var _NamespaceService_serviceDesc = grpc.ServiceDesc{
 	Metadata: "namespace.proto",
 }
 
-func init() { proto.RegisterFile("namespace.proto", fileDescriptor5) }
+func init() { proto.RegisterFile("namespace.proto", fileDescriptor4) }
 
-var fileDescriptor5 = []byte{
+var fileDescriptor4 = []byte{
 	// 291 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0xe2, 0xcf, 0x4b, 0xcc, 0x4d,
 	0x2d, 0x2e, 0x48, 0x4c, 0x4e, 0xd5, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0x62, 0x4b, 0xcf, 0x2c,

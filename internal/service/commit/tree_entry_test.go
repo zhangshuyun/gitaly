@@ -198,7 +198,7 @@ func TestFailedTreeEntryRequestDueToValidationError(t *testing.T) {
 	}
 }
 
-func getTreeEntryFromTreeEntryClient(t *testing.T, client pb.Commit_TreeEntryClient) *treeEntry {
+func getTreeEntryFromTreeEntryClient(t *testing.T, client pb.CommitService_TreeEntryClient) *treeEntry {
 	fetchedTreeEntry := &treeEntry{}
 	firstResponseReceived := false
 
@@ -223,7 +223,7 @@ func getTreeEntryFromTreeEntryClient(t *testing.T, client pb.Commit_TreeEntryCli
 	return fetchedTreeEntry
 }
 
-func assertExactReceivedTreeEntry(t *testing.T, client pb.Commit_TreeEntryClient, expectedTreeEntry *treeEntry) {
+func assertExactReceivedTreeEntry(t *testing.T, client pb.CommitService_TreeEntryClient, expectedTreeEntry *treeEntry) {
 	fetchedTreeEntry := getTreeEntryFromTreeEntryClient(t, client)
 
 	if fetchedTreeEntry.oid != expectedTreeEntry.oid {
@@ -247,7 +247,7 @@ func assertExactReceivedTreeEntry(t *testing.T, client pb.Commit_TreeEntryClient
 	}
 }
 
-func drainTreeEntryResponse(c pb.Commit_TreeEntryClient) error {
+func drainTreeEntryResponse(c pb.CommitService_TreeEntryClient) error {
 	var err error
 	for err == nil {
 		_, err = c.Recv()
