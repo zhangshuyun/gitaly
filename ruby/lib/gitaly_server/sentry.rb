@@ -15,11 +15,19 @@ class GitalyServer::Sentry::URLSanitizer < Raven::Processor
     sanitize_message(data)
     sanitize_fingerprint(data)
     sanitize_exceptions(data)
+    sanitize_logentry(data)
 
     data
   end
 
   private
+
+  def sanitize_logentry(data)
+    logentry = data[:logentry]
+    return unless logentry.is_a?(Hash)
+
+    logentry[:message] = sanitize_url(logentry[:message])
+  end
 
   def sanitize_fingerprint(data)
     fingerprint = data[:fingerprint]
