@@ -30,6 +30,7 @@ describe GitalyServer::Sentry::URLSanitizer do
     data = JSON.parse(last_sentry_event[1])
 
     expect(data['message']).to eq("StandardError: #{ex_sanitized_message}")
+    expect(data['logentry']['message']).to eq("StandardError: #{ex_sanitized_message}")
     expect(data['fingerprint'].last).to eq(ex_sanitized_message)
     expect(data['exception']['values'][0]['value']).to eq(ex_sanitized_message)
   end
