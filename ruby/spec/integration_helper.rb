@@ -18,19 +18,24 @@ end
 def start_gitaly
   build_dir = File.expand_path('../../../_build', __FILE__)
   gitlab_shell_dir = File.join(TMP_DIR, 'gitlab-shell')
+  linguist_path = File.join(
+    Bundler.rubygems.find_name('github-linguist').first.full_gem_path,
+    "lib", "linguist", "languages.json"
+  )
 
   FileUtils.mkdir_p([TMP_DIR, File.join(gitlab_shell_dir, 'hooks')])
 
   config_toml = <<~CONFIG
     socket_path = "#{SOCKET_PATH}"
     bin_dir = "#{build_dir}/bin"
-    
+
     [gitlab-shell]
     dir = "#{gitlab_shell_dir}"
-    
+
     [gitaly-ruby]
     dir = "#{build_dir}/assembly/ruby"
-    
+    linguist_languages_path = "#{linguist_path}"
+
     [[storage]]
     name = "#{DEFAULT_STORAGE_NAME}"
     path = "#{DEFAULT_STORAGE_DIR}"
