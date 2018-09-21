@@ -1,5 +1,11 @@
 # Gitaly changelog
 
+## v0.120.1
+
+#### Security
+- Sanitize sentry events' logentry messages
+  https://gitlab.com/gitlab-org/gitaly/merge_requests/
+
 ## v0.120.0
 
 #### Added
