@@ -1,0 +1,5 @@
+---
+title: "Sanitize sentry events' logentry messages"
+merge_request:
+author:
+type: security
