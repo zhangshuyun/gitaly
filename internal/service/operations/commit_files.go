@@ -74,8 +74,5 @@ func validateUserCommitFilesHeader(header *pb.UserCommitFilesRequestHeader) erro
 	if len(header.GetCommitMessage()) == 0 {
 		return fmt.Errorf("empty CommitMessage")
 	}
-	if len(header.GetBranchName()) == 0 {
-		return fmt.Errorf("empty BranchName")
-	}
 	return nil
 }

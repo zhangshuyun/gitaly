@@ -277,10 +277,6 @@ func TestFailedUserCommitFilesRequest(t *testing.T) {
 			req:  headerRequest(testRepo, nil, branchName, commitFilesMessage, nil, nil),
 		},
 		{
-			desc: "empty BranchName",
-			req:  headerRequest(testRepo, user, "", commitFilesMessage, nil, nil),
-		},
-		{
 			desc: "empty CommitMessage",
 			req:  headerRequest(testRepo, user, branchName, nil, nil, nil),
 		},
