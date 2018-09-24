@@ -1,0 +1,70 @@
+#!/usr/bin/env ruby
+require 'securerandom'
+require 'tempfile'
+require 'fileutils'
+
+TEST_REPO = ENV.fetch('TEST_REPO')
+TMP_ROOT = Dir.mktmpdir
+
+def main
+  at_exit { FileUtils.rm_rf(TMP_ROOT) }
+
+  children = {}
+  %w[repo1 repo2].each { |name| children[name] = create_child(name) }
+
+  pool = File.join(TMP_ROOT, 'pool.git')
+  run!(%W[git init --bare #{pool}])
+  show_sizes([pool])
+
+  children.each do |name, path|
+    run!(%W[git remote add #{name} #{path}], pool)
+
+    # this ensures every ref, including remote refs/tags, gets fetched
+    run!(%W[git config remote.#{name}.fetch +refs/*:refs/remotes/#{name}/*], pool)
+
+    # this prevents remote tags being fetched into the top-level refs/tags namespace
+    run!(%W[git config remote.#{name}.tagopt --no-tags], pool)
+
+    open(File.join(path, 'objects/info/alternates'), 'w') do |f|
+      f.puts File.join(pool, 'objects')
+    end
+  end
+  run!(%W[git fetch --all --quiet], pool)
+
+  show_sizes([pool] + children.values)
+
+  children.each do |name, path|
+    # -l is important. Not sure about -A vs -a
+    run!(%w[git repack -Ald], path)
+  end
+
+  show_sizes([pool] + children.values)
+end
+
+def show_sizes(paths)
+  paths.each do |p|
+    run!(%W[du -sh #{p}])
+    #run!(%W[find #{p}/objects -type f])
+  end
+end
+
+def create_child(name)
+  path = File.join(TMP_ROOT, name + '.git')
+  run!(%W[git clone --quiet --bare #{TEST_REPO} #{path}])
+  run!(%W[git remote remove origin], path)
+  FileUtils.rm_rf(File.join(path, 'hooks'))
+  path
+end
+
+
+def run!(cmd, dir=nil)
+  dir ||= Dir.pwd
+  cmd_s = cmd.join(' ')
+  warn "#{File.basename(dir)}$ #{cmd_s}"
+  start = Time.now
+  abort "failed" unless system(*cmd, chdir: dir)
+  delta = Time.now - start
+  warn sprintf("time: %.3fs\n", delta) if delta > 1.0
+end
+
+main
