@@ -13,7 +13,8 @@ def main
   %w[repo1 repo2].each { |name| children[name] = create_child(name) }
 
   pool = File.join(TMP_ROOT, 'pool.git')
-  run!(%W[git init --bare #{pool}])
+  run!(%W[git init --bare #{File.basename(pool)}], File.dirname(pool))
+  run!(%w[git config advice.objectNameWarning false], pool)
   show_sizes([pool])
 
   children.each do |name, path|
@@ -43,15 +44,15 @@ end
 
 def show_sizes(paths)
   paths.each do |p|
-    run!(%W[du -sh #{p}])
-    #run!(%W[find #{p}/objects -type f])
+    run!(%W[du -sh #{File.basename(p)}], File.dirname(p))
   end
 end
 
 def create_child(name)
   path = File.join(TMP_ROOT, name + '.git')
-  run!(%W[git clone --quiet --bare #{TEST_REPO} #{path}])
+  run!(%W[git clone --quiet --bare #{TEST_REPO} #{File.basename(path)}], File.dirname(path))
   run!(%W[git remote remove origin], path)
+  run!(%w[git config advice.objectNameWarning false], path)
   FileUtils.rm_rf(File.join(path, 'hooks'))
   path
 end
