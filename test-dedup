@@ -25,16 +25,16 @@ def main
 
     # this prevents remote tags being fetched into the top-level refs/tags namespace
     run!(%W[git config remote.#{name}.tagopt --no-tags], pool)
-
-    open(File.join(path, 'objects/info/alternates'), 'w') do |f|
-      f.puts File.join(pool, 'objects')
-    end
   end
   run!(%W[git fetch --all --quiet], pool)
 
   show_sizes([pool] + children.values)
 
   children.each do |name, path|
+    open(File.join(path, 'objects/info/alternates'), 'w') do |f|
+      f.puts File.join(pool, 'objects')
+    end
+
     # -l is important. Not sure about -A vs -a
     run!(%w[git repack -Ald], path)
   end
