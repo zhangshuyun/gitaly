@@ -12,7 +12,6 @@ at_exit do
 end
 
 def main
-
   children = {}
   %w[repo1 repo2 repo3].each { |name| children[name] = create_child(name) }
 
@@ -39,7 +38,7 @@ def main
 
   children.each do |name, path|
     open(File.join(path, 'objects/info/alternates'), 'w') do |f|
-      f.puts File.join(pool, 'objects')
+      f.puts File.join('..', '..', File.basename(pool), 'objects')
     end
 
     # -l is important. Not sure about -A vs -a
@@ -50,13 +49,13 @@ def main
 end
 
 def add_child_to_pool(pool, child_name, child_path)
-    run!(%W[git remote add #{child_name} #{child_path}], pool)
+  run!(%W[git remote add #{child_name} ../#{File.basename(child_path)}], pool)
 
-    # this ensures every ref, including remote refs/tags, gets fetched
-    run!(%W[git config remote.#{child_name}.fetch +refs/*:refs/remotes/#{child_name}/*], pool)
+  # this ensures every ref, including remote refs/tags, gets fetched
+  run!(%W[git config remote.#{child_name}.fetch +refs/*:refs/remotes/#{child_name}/*], pool)
 
-    # this prevents remote tags being fetched into the top-level refs/tags namespace
-    run!(%W[git config remote.#{child_name}.tagopt --no-tags], pool)
+  # this prevents remote tags being fetched into the top-level refs/tags namespace
+  run!(%W[git config remote.#{child_name}.tagopt --no-tags], pool)
 end
 
 def delete_top_level_refs(repo)
