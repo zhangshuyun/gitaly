@@ -7,7 +7,10 @@ TEST_REPO = ENV.fetch('TEST_REPO')
 TMP_ROOT = Dir.mktmpdir
 
 def main
-  at_exit { FileUtils.rm_rf(TMP_ROOT) }
+  at_exit do
+    warn 'deleting tmp data'
+    FileUtils.rm_rf(TMP_ROOT)
+  end
 
   children = {}
   %w[repo1 repo2 repo3].each { |name| children[name] = create_child(name) }
@@ -17,7 +20,7 @@ def main
 
   # This creates a bunch of refs in the top-level namespace we don't want.
   # However, they speed up the first fetch, so we keep them for now.
-  run!(%W[git clone --bare --local #{source_path} #{File.basename(pool)}], File.dirname(pool))
+  run!(%W[git clone --quiet --bare --local #{source_path} #{File.basename(pool)}], File.dirname(pool))
 
   run!(%w[git config advice.objectNameWarning false], pool)
   show_sizes([pool])
