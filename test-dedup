@@ -6,11 +6,12 @@ require 'fileutils'
 TEST_REPO = ENV.fetch('TEST_REPO')
 TMP_ROOT = Dir.mktmpdir
 
+at_exit do
+  warn 'deleting tmp data'
+  FileUtils.rm_rf(TMP_ROOT)
+end
+
 def main
-  at_exit do
-    warn 'deleting tmp data'
-    FileUtils.rm_rf(TMP_ROOT)
-  end
 
   children = {}
   %w[repo1 repo2 repo3].each { |name| children[name] = create_child(name) }
