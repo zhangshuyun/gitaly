@@ -67,6 +67,11 @@ danger-review:
     paths:
       - ruby/vendor/bundle
     policy: pull
+  artifacts:
+    paths:
+    - ruby/tmp/gitaly-rspec-test.log
+    when: on_failure
+    expire_in: 1 week
 
 .test_template: &test_definition
   <<: *go_test_definition
