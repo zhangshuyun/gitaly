@@ -4,7 +4,7 @@ require 'tempfile'
 require 'fileutils'
 
 TEST_REPO = ENV.fetch('TEST_REPO')
-TMP_ROOT = Dir.mktmpdir
+TMP_ROOT = File.absolute_path(Dir.mktmpdir)
 
 at_exit do
   warn 'deleting tmp data'
@@ -21,31 +21,48 @@ def main
   # This creates a bunch of refs in the top-level namespace we don't want.
   # However, they speed up the first fetch, so we keep them for now.
   run!(%W[git clone --quiet --bare --local #{source_path} #{File.basename(pool)}], File.dirname(pool))
-
+  run!(%w[git remote remove origin], pool)
   run!(%w[git config advice.objectNameWarning false], pool)
   show_sizes([pool])
 
-  children.each do |name, path|
-    add_child_to_pool(pool, name, path)
-  end
-
+  add_child_to_pool(pool, source_name, source_path)
   run!(%W[git fetch --all --quiet], pool)
 
   # Now we can get rid of the top-level refs in pool.git.
   delete_top_level_refs(pool)
 
+  children.each do |name, path|
+    next if name == source_name
+
+    add_child_to_pool(pool, name, path)
+  end
+
+  run!(%w[git remote -v], pool)
   show_sizes([pool] + children.values)
 
-  children.each do |name, path|
-    open(File.join(path, 'objects/info/alternates'), 'w') do |f|
-      f.puts File.join('..', '..', File.basename(pool), 'objects')
-    end
+  children.each do |_, path|
+    set_child_alternates(path, pool)
 
     # -l is important. Not sure about -A vs -a
     run!(%w[git repack -Ald --quiet], path)
   end
 
   show_sizes([pool] + children.values)
+
+  target_name, target_path = 'repo4', child_path('repo4')
+  children[target_name] = target_path
+  clone_in_pool(pool, children['repo2'], target_name, target_path)
+
+  show_sizes([pool] + children.values)
+
+  run_pipeline([%w[git for-each-ref], %w[head -30]], target_path)
+  run!(%w[cat objects/info/alternates], target_path)
+end
+
+def set_child_alternates(child, pool)
+  open(File.join(child, 'objects/info/alternates'), 'w') do |f|
+    f.puts File.join('..', '..', File.basename(pool), 'objects')
+  end
 end
 
 def add_child_to_pool(pool, child_name, child_path)
@@ -66,13 +83,18 @@ def delete_top_level_refs(repo)
   ], repo)
 end
 
-def run_pipeline!(pipeline, dir)
+def run_pipeline(pipeline, dir)
   warn "#{File.basename(dir)}$ #{pipeline.map { |c| c.join(' ') }.join(' | ')}"
 
   statuses = Open3.pipeline(*pipeline, chdir: dir)
 
-  abort "failed" unless statuses.all? { |s| s && s.success? }
+  statuses.all? { |s| s && s.success? }
 end
+
+def run_pipeline!(pipeline, dir)
+  abort "failed" unless run_pipeline(pipeline, dir)
+end
+
 
 def show_sizes(paths)
   paths.each do |p|
@@ -81,14 +103,28 @@ def show_sizes(paths)
 end
 
 def create_child(name)
-  path = File.join(TMP_ROOT, name + '.git')
+  path = child_path(name)
   run!(%W[git clone --quiet --bare #{TEST_REPO} #{File.basename(path)}], File.dirname(path))
-  run!(%W[git remote remove origin], path)
-  run!(%w[git config advice.objectNameWarning false], path)
-  FileUtils.rm_rf(File.join(path, 'hooks'))
+  clean_child(path)
   path
 end
 
+def clean_child(path)
+  run!(%W[git remote remove origin], path)
+  run!(%w[git config advice.objectNameWarning false], path)
+  FileUtils.rm_rf(File.join(path, 'hooks'))
+end
+
+def child_path(name)
+  File.join(TMP_ROOT, name + '.git')
+end
+
+def clone_in_pool(pool, source_path, target_name, target_path)
+  run!(%W[git clone --quiet --bare --reference #{pool} #{source_path} #{target_path}])
+  clean_child(target_path)
+  add_child_to_pool(pool, target_name, target_path)
+  set_child_alternates(target_path, pool)
+end
 
 def run!(cmd, dir=nil)
   dir ||= Dir.pwd
