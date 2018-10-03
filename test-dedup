@@ -120,7 +120,7 @@ def child_path(name)
 end
 
 def clone_in_pool(pool, source_path, target_name, target_path)
-  run!(%W[git clone --quiet --bare --reference #{pool} #{source_path} #{target_path}])
+  run!(%W[git clone --quiet --bare --reference #{File.basename(pool)} #{File.basename(source_path)} #{File.basename(target_path)}], File.dirname(target_path))
   clean_child(target_path)
   add_child_to_pool(pool, target_name, target_path)
   set_child_alternates(target_path, pool)
