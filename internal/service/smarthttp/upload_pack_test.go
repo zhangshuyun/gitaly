@@ -7,7 +7,6 @@ import (
 	"io"
 	"os"
 	"path"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -183,11 +182,11 @@ func TestUploadPackRequestWithGitProtocol(t *testing.T) {
 	requestBodyCopy := &bytes.Buffer{}
 	tee := io.MultiWriter(requestBody, requestBodyCopy)
 
-	pktLine(tee, fmt.Sprintf("command=ls-refs\n"))
-	pktDelim(tee)
-	pktLine(tee, fmt.Sprintf("peel\n"))
-	pktLine(tee, fmt.Sprintf("symrefs\n"))
-	pktFlush(tee)
+	pktline.WriteString(tee, fmt.Sprintf("command=ls-refs\n"))
+	pktline.WriteDelim(tee)
+	pktline.WriteString(tee, fmt.Sprintf("peel\n"))
+	pktline.WriteString(tee, fmt.Sprintf("symrefs\n"))
+	pktline.WriteFlush(tee)
 
 	// Only a Git server with v2 will recognize this request.
 	// Git v1 will throw a protocol error.
@@ -315,9 +314,4 @@ func extractPackDataFromResponse(t *testing.T, buf *bytes.Buffer) ([]byte, int, 
 	pack = pack[12:]
 
 	return pack, version, entries
-}
-
-func pktDelim(w io.Writer) error {
-	_, err := fmt.Fprint(w, "0001")
-	return err
 }

@@ -61,6 +61,12 @@ func WriteFlush(w io.Writer) error {
 	return err
 }
 
+// WriteFlush write a pkt delim packet.
+func WriteDelim(w io.Writer) error {
+	_, err := fmt.Fprint(w, "0001")
+	return err
+}
+
 func pktLineSplitter(data []byte, atEOF bool) (advance int, token []byte, err error) {
 	if len(data) < 4 {
 		if atEOF && len(data) > 0 {
