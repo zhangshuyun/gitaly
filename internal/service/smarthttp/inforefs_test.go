@@ -1,6 +1,7 @@
 package smarthttp
 
 import (
+	"io"
 	"io/ioutil"
 	"strings"
 	"testing"
@@ -76,15 +77,12 @@ func TestSuccessfulInfoRefsUploadPackWithGitProtocol(t *testing.T) {
 	c, err := client.InfoRefsUploadPack(ctx, rpcRequest)
 	require.NoError(t, err)
 
-	_, err = ioutil.ReadAll(streamio.NewReader(func() ([]byte, error) {
-		resp, err := c.Recv()
-		return resp.GetData(), err
-	}))
-
-	if err != nil {
-		t.Fatal(err)
+	for err == nil {
+		_, err = c.Recv()
 	}
-
+	if err == io.EOF {
+		err = nil
+	}
 	require.NoError(t, err)
 
 	envData := testhelper.GetGitEnvData()
