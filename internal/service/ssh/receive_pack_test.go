@@ -3,7 +3,6 @@ package ssh
 import (
 	"bytes"
 	"fmt"
-	"gitlab.com/gitlab-org/gitaly/internal/config"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -11,6 +10,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"gitlab.com/gitlab-org/gitaly/internal/config"
 
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/stretchr/testify/require"
