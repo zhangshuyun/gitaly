@@ -158,7 +158,16 @@ func TestUploadPackRequestWithGitProtocol(t *testing.T) {
 	server, serverSocketPath := runSmartHTTPServer(t)
 	defer server.Stop()
 
+	testRepo := testhelper.TestRepository()
+	testRepoPath, err := helper.GetRepoPath(testRepo)
+	require.NoError(t, err)
+
+	storagePath := testhelper.GitlabTestStoragePath()
 	remoteRepoRelativePath := "gitlab-test-remote"
+	remoteRepoPath := path.Join(storagePath, remoteRepoRelativePath)
+	// Make a non-bare clone of the test repo to act as a remote one
+	testhelper.MustRunCommand(t, nil, "git", "clone", testRepoPath, remoteRepoPath)
+	defer os.RemoveAll(remoteRepoPath)
 
 	requestBody := &bytes.Buffer{}
 
@@ -179,7 +188,7 @@ func TestUploadPackRequestWithGitProtocol(t *testing.T) {
 	}
 
 	// The ref is successfully requested as it is not hidden
-	_, err := makePostUploadPackRequest(t, serverSocketPath, rpcRequest, requestBody)
+	_, err = makePostUploadPackRequest(t, serverSocketPath, rpcRequest, requestBody)
 	require.NoError(t, err)
 
 	envData := testhelper.GetGitEnvData()
