@@ -55,13 +55,13 @@ func WriteString(w io.Writer, str string) (int, error) {
 	return fmt.Fprintf(w, "%04x%s", pktLen, str)
 }
 
-// WriteFlush write a pkt flush packet.
+// WriteFlush writes a pkt flush packet.
 func WriteFlush(w io.Writer) error {
 	_, err := w.Write(flush)
 	return err
 }
 
-// WriteFlush write a pkt delim packet.
+// WriteDelim writes a pkt delim packet.
 func WriteDelim(w io.Writer) error {
 	_, err := fmt.Fprint(w, "0001")
 	return err
