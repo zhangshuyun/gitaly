@@ -158,48 +158,28 @@ func TestUploadPackRequestWithGitProtocol(t *testing.T) {
 	server, serverSocketPath := runSmartHTTPServer(t)
 	defer server.Stop()
 
-	testRepo := testhelper.TestRepository()
-	testRepoPath, err := helper.GetRepoPath(testRepo)
-	require.NoError(t, err)
-
-	storagePath := testhelper.GitlabTestStoragePath()
-	ourRepoRelativePath := "gitlab-test-remote"
-	ourRepoPath := path.Join(storagePath, ourRepoRelativePath)
-
-	// Make a clone of the test repo to modify
-	testhelper.MustRunCommand(t, nil, "git", "clone", "--bare", testRepoPath, ourRepoPath)
-	defer os.RemoveAll(ourRepoPath)
-
-	// Remove remote-tracking branches that get in the way for this test
-	testhelper.MustRunCommand(t, nil, "git", "-C", ourRepoPath, "remote", "remove", "origin")
-
-	// Turn the csv branch into a hidden ref
-	want := string(bytes.TrimSpace(testhelper.MustRunCommand(t, nil, "git", "-C", ourRepoPath, "rev-parse", "refs/heads/csv")))
-	testhelper.MustRunCommand(t, nil, "git", "-C", ourRepoPath, "update-ref", "refs/hidden/csv", want)
-	testhelper.MustRunCommand(t, nil, "git", "-C", ourRepoPath, "update-ref", "-d", "refs/heads/csv")
+	remoteRepoRelativePath := "gitlab-test-remote"
 
 	requestBody := &bytes.Buffer{}
-	requestBodyCopy := &bytes.Buffer{}
-	tee := io.MultiWriter(requestBody, requestBodyCopy)
 
-	pktline.WriteString(tee, fmt.Sprintf("command=ls-refs\n"))
-	pktline.WriteDelim(tee)
-	pktline.WriteString(tee, fmt.Sprintf("peel\n"))
-	pktline.WriteString(tee, fmt.Sprintf("symrefs\n"))
-	pktline.WriteFlush(tee)
+	pktline.WriteString(requestBody, fmt.Sprintf("command=ls-refs\n"))
+	pktline.WriteDelim(requestBody)
+	pktline.WriteString(requestBody, fmt.Sprintf("peel\n"))
+	pktline.WriteString(requestBody, fmt.Sprintf("symrefs\n"))
+	pktline.WriteFlush(requestBody)
 
 	// Only a Git server with v2 will recognize this request.
 	// Git v1 will throw a protocol error.
 	rpcRequest := &pb.PostUploadPackRequest{
 		Repository: &pb.Repository{
 			StorageName:  "default",
-			RelativePath: ourRepoRelativePath,
+			RelativePath: path.Join(remoteRepoRelativePath, ".git"),
 		},
 		GitProtocol: "version=2",
 	}
 
 	// The ref is successfully requested as it is not hidden
-	_, err = makePostUploadPackRequest(t, serverSocketPath, rpcRequest, requestBody)
+	_, err := makePostUploadPackRequest(t, serverSocketPath, rpcRequest, requestBody)
 	require.NoError(t, err)
 
 	envData := testhelper.GetGitEnvData()

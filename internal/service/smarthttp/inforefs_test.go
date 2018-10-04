@@ -76,7 +76,7 @@ func TestSuccessfulInfoRefsUploadPackWithGitProtocol(t *testing.T) {
 	c, err := client.InfoRefsUploadPack(ctx, rpcRequest)
 	require.NoError(t, err)
 
-	response, err := ioutil.ReadAll(streamio.NewReader(func() ([]byte, error) {
+	_, err = ioutil.ReadAll(streamio.NewReader(func() ([]byte, error) {
 		resp, err := c.Recv()
 		return resp.GetData(), err
 	}))
@@ -86,7 +86,6 @@ func TestSuccessfulInfoRefsUploadPackWithGitProtocol(t *testing.T) {
 	}
 
 	require.NoError(t, err)
-	assertGitRefAdvertisement(t, "InfoRefsUploadPack", string(response), "001e# service=git-upload-pack", "0000", []string{})
 
 	envData := testhelper.GetGitEnvData()
 
