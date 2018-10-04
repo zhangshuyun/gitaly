@@ -257,8 +257,18 @@ func ConfigureRuby() {
 	}
 }
 
-// GetGitEnvData reads and returns the content of testGitEnv
-func GetGitEnvData() string {
+// GetGitEnv fetches a key from a captured git environment
+func GetGitEnv(key string) string {
+	for _, line := range strings.Split(getGitEnvData(), "\n") {
+		if strings.HasPrefix(line, key+"=") {
+			return line
+		}
+	}
+
+	return ""
+}
+
+func getGitEnvData() string {
 	gitEnvBytes, err := ioutil.ReadFile(testGitEnv)
 
 	if err != nil {

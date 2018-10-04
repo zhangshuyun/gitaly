@@ -85,11 +85,7 @@ func TestSuccessfulInfoRefsUploadPackWithGitProtocol(t *testing.T) {
 	}
 	require.NoError(t, err)
 
-	envData := testhelper.GetGitEnvData()
-
-	if !strings.Contains(envData, "GIT_PROTOCOL=version=2") {
-		t.Errorf("Expected response to set GIT_PROTOCOL, found %q", envData)
-	}
+	require.Equal(t, "GIT_PROTOCOL=version=2", testhelper.GetGitEnv("GIT_PROTOCOL"))
 }
 
 func makeInfoRefsUploadPackRequest(t *testing.T, serverSocketPath string, rpcRequest *pb.InfoRefsRequest) ([]byte, error) {

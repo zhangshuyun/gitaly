@@ -7,7 +7,6 @@ import (
 	"io"
 	"os"
 	"path"
-	"strings"
 	"testing"
 	"time"
 
@@ -191,11 +190,7 @@ func TestUploadPackRequestWithGitProtocol(t *testing.T) {
 	_, err = makePostUploadPackRequest(t, serverSocketPath, rpcRequest, requestBody)
 	require.NoError(t, err)
 
-	envData := testhelper.GetGitEnvData()
-
-	if !strings.Contains(envData, "GIT_PROTOCOL=version=2") {
-		t.Errorf("Expected response to set GIT_PROTOCOL, found %q", envData)
-	}
+	require.Equal(t, "GIT_PROTOCOL=version=2", testhelper.GetGitEnv("GIT_PROTOCOL"))
 }
 
 // This test is here because git-upload-pack returns a non-zero exit code

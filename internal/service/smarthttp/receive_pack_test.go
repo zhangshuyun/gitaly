@@ -101,11 +101,7 @@ func TestSuccessfulReceivePackRequestWithGitProtocol(t *testing.T) {
 	firstRequest := &pb.PostReceivePackRequest{Repository: repo, GlId: "user-123", GlRepository: "project-123", GitProtocol: "version=2"}
 	doPush(t, stream, firstRequest, push.body)
 
-	envData := testhelper.GetGitEnvData()
-
-	if !strings.Contains(envData, "GIT_PROTOCOL=version=2") {
-		t.Errorf("Expected response to set GIT_PROTOCOL, found %q", envData)
-	}
+	require.Equal(t, "GIT_PROTOCOL=version=2", testhelper.GetGitEnv("GIT_PROTOCOL"))
 
 	// The fact that this command succeeds means that we got the commit correctly, no further checks should be needed.
 	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "show", push.newHead)

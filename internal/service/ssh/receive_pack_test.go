@@ -117,11 +117,7 @@ func TestReceivePackPushSuccessWithGitProtocol(t *testing.T) {
 		t.Errorf("local and remote head not equal. push failed: %q != %q", lHead, rHead)
 	}
 
-	envData := testhelper.GetGitEnvData()
-
-	if !strings.Contains(envData, "GIT_PROTOCOL=version=2") {
-		t.Errorf("Expected response to set GIT_PROTOCOL, found %q", envData)
-	}
+	require.Equal(t, "GIT_PROTOCOL=version=2", testhelper.GetGitEnv("GIT_PROTOCOL"))
 }
 
 func TestReceivePackPushFailure(t *testing.T) {

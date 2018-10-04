@@ -131,11 +131,7 @@ func TestUploadPackCloneSuccessWithGitProtocol(t *testing.T) {
 			require.NoError(t, err, "clone failed")
 			require.Equal(t, lHead, rHead, "local and remote head not equal")
 
-			envData := testhelper.GetGitEnvData()
-
-			if !strings.Contains(envData, "GIT_PROTOCOL=version=2") {
-				t.Errorf("Expected response to set GIT_PROTOCOL, found %q", envData)
-			}
+			require.Equal(t, "GIT_PROTOCOL=version=2", testhelper.GetGitEnv("GIT_PROTOCOL"))
 		})
 	}
 }
