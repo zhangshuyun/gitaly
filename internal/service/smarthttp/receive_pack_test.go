@@ -230,8 +230,8 @@ func TestFailedReceivePackRequestDueToValidationError(t *testing.T) {
 	defer conn.Close()
 
 	rpcRequests := []pb.PostReceivePackRequest{
-		{Repository: &pb.Repository{StorageName: "fake", RelativePath: "path"}, GlId: "user-123"},                                  // Repository doesn't exist
-		{Repository: nil, GlId: "user-123"},                                                                                        // Repository is nil
+		{Repository: &pb.Repository{StorageName: "fake", RelativePath: "path"}, GlId: "user-123"}, // Repository doesn't exist
+		{Repository: nil, GlId: "user-123"}, // Repository is nil
 		{Repository: &pb.Repository{StorageName: "default", RelativePath: "path/to/repo"}, GlId: ""},                               // Empty GlId
 		{Repository: &pb.Repository{StorageName: "default", RelativePath: "path/to/repo"}, GlId: "user-123", Data: []byte("Fail")}, // Data exists on first request
 	}
