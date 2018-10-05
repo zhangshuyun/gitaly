@@ -40,7 +40,7 @@ danger-review:
   <<: *ruby_definition
   stage: build
   script:
-    - make
+    - make rspec
     - _support/test-boot-time .
 
 .assemble_template: &assemble_definition
