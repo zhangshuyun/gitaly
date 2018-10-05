@@ -27,7 +27,7 @@ def env
     'BUNDLE_GEMFILE' => gemfile,
     'RUBYOPT' => nil
   }
-  env_hash['BUNDLE_APP_CONFIG'] = File.join(RUBY_PATH, '.bundle/config') unless ENV['CI']
+  env_hash['BUNDLE_APP_CONFIG'] = File.join(RUBY_PATH, '.bundle/config') #unless ENV['CI']
   env_hash
 end
 
