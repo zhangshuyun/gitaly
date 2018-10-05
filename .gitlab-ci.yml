@@ -30,6 +30,7 @@ danger-review:
   before_script:
     # Override gemfile config (for some reasong `config --delete` doesn't do it)
     - cd ruby && bundle config --local gemfile Gemfile
+    - pwd
   cache:
     key: gems-ruby-2.4
     paths:
