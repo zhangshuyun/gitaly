@@ -4,7 +4,7 @@ require 'gitaly'
 require 'spec_helper'
 
 SOCKET_PATH = 'gitaly.socket'.freeze
-RUBY_PATH = File.expand_path('../', __FILE__)
+RUBY_PATH = File.expand_path('../..', __FILE__)
 TMP_DIR = File.expand_path('../../tmp', __FILE__)
 
 module IntegrationClient
@@ -19,9 +19,12 @@ module IntegrationClient
 end
 
 def env
+  gemfile = File.join(RUBY_PATH, 'Gemfile')
+
   env_hash = {
-    'BUNDLE_FLAGS' => "--jobs=4 --retry=3",
-    'BUNDLE_INSTALL_FLAGS' => nil,
+    'GEM_PATH' => Gem.path.join(':'),
+#    'BUNDLE_FLAGS' => "--jobs=4 --retry=3",
+    'BUNDLE_GEMFILE' => gemfile,
     'RUBYOPT' => nil
   }
   env_hash['BUNDLE_APP_CONFIG'] = File.join(RUBY_PATH, '.bundle/config') unless ENV['CI']
@@ -42,7 +45,7 @@ def start_gitaly
     dir = "#{gitlab_shell_dir}"
 
     [gitaly-ruby]
-    dir = "#{build_dir}/assembly/ruby"
+    dir = "#{RUBY_PATH}"
 
     [[storage]]
     name = "#{DEFAULT_STORAGE_NAME}"
@@ -54,7 +57,7 @@ def start_gitaly
   test_log = File.join(TMP_DIR, 'gitaly-rspec-test.log')
   options = { out: test_log, err: test_log, chdir: TMP_DIR }
 
-  gitaly_pid = spawn(env, File.join(build_dir, 'bin/gitaly'), config_path, options)
+  gitaly_pid = Bundler.with_clean_env { spawn(File.join(build_dir, 'bin/gitaly'), config_path, options) }
 
   at_exit { Process.kill('KILL', gitaly_pid) }
   wait_ready!(File.join('tmp', SOCKET_PATH))
