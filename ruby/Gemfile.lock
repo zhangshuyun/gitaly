@@ -146,6 +146,7 @@ PLATFORMS
 
 DEPENDENCIES
   activesupport (~> 5.0.2)
+  bundler (~> 1.16.4)
   faraday (~> 0.12)
   gitaly-proto (~> 0.116.0)
   github-linguist (~> 6.1)
@@ -162,4 +163,4 @@ DEPENDENCIES
   sentry-raven (~> 2.7.2)
 
 BUNDLED WITH
-   1.16.4
+   1.16.6

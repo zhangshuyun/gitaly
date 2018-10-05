@@ -42,8 +42,18 @@ def start_gitaly
 
   test_log = File.join(TMP_DIR, 'gitaly-rspec-test.log')
   options = { out: test_log, err: test_log, chdir: TMP_DIR }
-  gitaly_pid = spawn(File.join(build_dir, 'bin/gitaly'), config_path, options)
+  gemfile = File.expand_path('../../Gemfile', __FILE__)
+  env = {
+    'GEM_PATH' => Gem.path.join(':'),
+    'BUNDLE_APP_CONFIG' => File.join(File.dirname(gemfile), '.bundle/config'),
+    'BUNDLE_GEMFILE' => gemfile,
+    'RUBYOPT' => nil
+  }
+
+  gitaly_pid = spawn(env, File.join(build_dir, 'bin/gitaly'), config_path, options)
+
   at_exit { Process.kill('KILL', gitaly_pid) }
+
   wait_ready!(File.join('tmp', SOCKET_PATH))
 end
 
