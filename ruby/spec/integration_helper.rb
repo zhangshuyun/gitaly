@@ -4,7 +4,7 @@ require 'gitaly'
 require 'spec_helper'
 
 SOCKET_PATH = 'gitaly.socket'.freeze
-RUBY_DIR = File.expand_path('../..', __FILE__)
+GITALY_RUBY_DIR = File.expand_path('../..', __FILE__)
 TMP_DIR = File.expand_path('../../tmp', __FILE__)
 
 module IntegrationClient
@@ -32,7 +32,7 @@ def start_gitaly
     dir = "#{gitlab_shell_dir}"
 
     [gitaly-ruby]
-    dir = "#{RUBY_DIR}"
+    dir = "#{GITALY_RUBY_DIR}"
 
     [[storage]]
     name = "#{DEFAULT_STORAGE_NAME}"
