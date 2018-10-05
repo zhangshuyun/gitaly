@@ -52,6 +52,8 @@ def start_gitaly
 
   gitaly_pid = spawn(env, File.join(build_dir, 'bin/gitaly'), config_path, options)
 
+sleep 1; spawn("tail -f #{test_log}")
+
   at_exit { Process.kill('KILL', gitaly_pid) }
 
   wait_ready!(File.join('tmp', SOCKET_PATH))
