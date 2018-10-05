@@ -57,7 +57,7 @@ def start_gitaly
   test_log = File.join(TMP_DIR, 'gitaly-rspec-test.log')
   options = { out: test_log, err: test_log, chdir: TMP_DIR }
 
-  gitaly_pid = Bundler.with_clean_env { spawn(File.join(build_dir, 'bin/gitaly'), config_path, options) }
+  gitaly_pid =   spawn(File.join(build_dir, 'bin/gitaly'), config_path, options)  
 
   at_exit { Process.kill('KILL', gitaly_pid) }
   wait_ready!(File.join('tmp', SOCKET_PATH))
