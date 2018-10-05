@@ -146,7 +146,6 @@ PLATFORMS
 
 DEPENDENCIES
   activesupport (~> 5.0.2)
-  bundler (~> 1.16.6)
   faraday (~> 0.12)
   gitaly-proto (~> 0.116.0)
   github-linguist (~> 6.1)
