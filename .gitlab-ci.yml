@@ -27,10 +27,6 @@ danger-review:
     - danger
 
 .ruby_template: &ruby_definition
-  before_script:
-    # Override gemfile config (for some reasong `config --delete` doesn't do it)
-    # - (cd ruby && bundle config --local gemfile Gemfile)
-    - pwd
   cache:
     key: gems-ruby-2.4
     paths:
@@ -40,7 +36,7 @@ danger-review:
   <<: *ruby_definition
   stage: build
   script:
-    - make rspec
+    - make rspec # <- cheating!
     - _support/test-boot-time .
 
 .assemble_template: &assemble_definition
@@ -79,7 +75,7 @@ danger-review:
   script:
     - go version
     - git version
-    - make rspec # should be test, restricting to rspec to debug ci
+    - make test
 
 build:go1.11:
   <<: *build_definition
