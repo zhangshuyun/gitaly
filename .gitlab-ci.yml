@@ -79,7 +79,7 @@ danger-review:
   script:
     - go version
     - git version
-    - make test
+    - make rspec # should be test, restricting to rspec to debug ci
 
 build:go1.11:
   <<: *build_definition
