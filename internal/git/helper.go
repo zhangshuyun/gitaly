@@ -11,15 +11,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/command"
 )
 
-// ProtocolV2 Git sets the protocol 2 string as in the environment
-const ProtocolV2 = "version=2"
-
-// GitV1 Indicates Git protocol 1 is used
-const GitV1 = "v1"
-
-// GitV2 Indicates Git protocol 2 is used
-const GitV2 = "v2"
-
 // FallbackTimeValue is the value returned by `SafeTimeParse` in case it
 // encounters a parse error. It's the maximum time value possible in golang.
 // See https://gitlab.com/gitlab-org/gitaly/issues/556#note_40289573
@@ -80,18 +71,4 @@ func BuildGitOptions(gitOpts []string, otherOpts ...string) []string {
 	}
 
 	return append(args, otherOpts...)
-}
-
-// AddGitProtocolEnv checks whether the request has Git protocol v2
-// and sets this in the environment.
-func AddGitProtocolEnv(req RequestWithGitProtocol, env []string) []string {
-	if req.GetGitProtocol() == ProtocolV2 {
-		env = append(env, fmt.Sprintf("GIT_PROTOCOL=%s", req.GetGitProtocol()))
-
-		gitProtocolRequests.WithLabelValues(GitV2)
-	} else {
-		gitProtocolRequests.WithLabelValues(GitV1)
-	}
-
-	return env
 }

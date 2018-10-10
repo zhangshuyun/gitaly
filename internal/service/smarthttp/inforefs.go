@@ -38,7 +38,7 @@ func handleInfoRefs(ctx context.Context, service string, req *gitalypb.InfoRefsR
 		"service": service,
 	}).Debug("handleInfoRefs")
 
-	env := git.AddGitProtocolEnv(req, []string{})
+	env := git.AddGitProtocolEnv(ctx, req, []string{})
 
 	repoPath, err := helper.GetRepoPath(req.Repository)
 	if err != nil {

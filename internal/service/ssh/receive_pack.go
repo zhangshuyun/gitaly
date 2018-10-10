@@ -17,12 +17,13 @@ import (
 )
 
 func (s *server) SSHReceivePack(stream gitalypb.SSHService_SSHReceivePackServer) error {
+	ctx := stream.Context()
 	req, err := stream.Recv() // First request contains only Repository, GlId, and GlUsername
 	if err != nil {
 		return err
 	}
 
-	grpc_logrus.Extract(stream.Context()).WithFields(log.Fields{
+	grpc_logrus.Extract(ctx).WithFields(log.Fields{
 		"GlID":             req.GlId,
 		"GlRepository":     req.GlRepository,
 		"GlUsername":       req.GlUsername,
@@ -51,7 +52,7 @@ func (s *server) SSHReceivePack(stream gitalypb.SSHService_SSHReceivePackServer)
 	if req.GlRepository != "" {
 		env = append(env, fmt.Sprintf("GL_REPOSITORY=%s", req.GlRepository))
 	}
-	env = git.AddGitProtocolEnv(req, env)
+	env = git.AddGitProtocolEnv(ctx, req, env)
 
 	repoPath, err := helper.GetRepoPath(req.Repository)
 	if err != nil {
@@ -60,7 +61,7 @@ func (s *server) SSHReceivePack(stream gitalypb.SSHService_SSHReceivePackServer)
 
 	gitOptions := git.BuildGitOptions(req.GitConfigOptions, "receive-pack", repoPath)
 	osCommand := exec.Command(command.GitPath(), gitOptions...)
-	cmd, err := command.New(stream.Context(), osCommand, stdin, stdout, stderr, env...)
+	cmd, err := command.New(ctx, osCommand, stdin, stdout, stderr, env...)
 
 	if err != nil {
 		return status.Errorf(codes.Unavailable, "SSHReceivePack: cmd: %v", err)

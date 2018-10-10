@@ -3,7 +3,6 @@ package ssh
 import (
 	"os/exec"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
@@ -13,8 +12,6 @@ import (
 )
 
 func (s *server) SSHUploadArchive(stream gitalypb.SSHService_SSHUploadArchiveServer) error {
-	grpc_logrus.Extract(stream.Context()).Debug("SSHUploadArchive")
-
 	req, err := stream.Recv() // First request contains Repository only
 	if err != nil {
 		return err

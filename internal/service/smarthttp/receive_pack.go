@@ -17,12 +17,13 @@ import (
 )
 
 func (s *server) PostReceivePack(stream gitalypb.SmartHTTPService_PostReceivePackServer) error {
+	ctx := stream.Context()
 	req, err := stream.Recv() // First request contains only Repository and GlId
 	if err != nil {
 		return err
 	}
 
-	grpc_logrus.Extract(stream.Context()).WithFields(log.Fields{
+	grpc_logrus.Extract(ctx).WithFields(log.Fields{
 		"GlID":             req.GlId,
 		"GlRepository":     req.GlRepository,
 		"GlUsername":       req.GlUsername,
@@ -51,7 +52,7 @@ func (s *server) PostReceivePack(stream gitalypb.SmartHTTPService_PostReceivePac
 		env = append(env, fmt.Sprintf("GL_USERNAME=%s", req.GlUsername))
 	}
 
-	env = git.AddGitProtocolEnv(req, env)
+	env = git.AddGitProtocolEnv(ctx, req, env)
 
 	repoPath, err := helper.GetRepoPath(req.Repository)
 	if err != nil {
@@ -60,7 +61,7 @@ func (s *server) PostReceivePack(stream gitalypb.SmartHTTPService_PostReceivePac
 
 	gitOptions := git.BuildGitOptions(req.GitConfigOptions, "receive-pack", "--stateless-rpc", repoPath)
 	osCommand := exec.Command(command.GitPath(), gitOptions...)
-	cmd, err := command.New(stream.Context(), osCommand, stdin, stdout, nil, env...)
+	cmd, err := command.New(ctx, osCommand, stdin, stdout, nil, env...)
 
 	if err != nil {
 		return status.Errorf(codes.Unavailable, "PostReceivePack: %v", err)
