@@ -31,6 +31,7 @@ CHANGED_LOCAL_GO_FILES = $(shell git status  --porcelain --short | awk '{ print 
 CHANGED_LOCAL_GO_PACKAGES = $(foreach file,$(CHANGED_LOCAL_GO_FILES),./$(dir $(file))/...)
 COMMAND_PACKAGES = $(shell cd "$(PKG_BUILD_DIR)" && GOPATH=$(GOPATH) go list ./cmd/...)
 COMMANDS = $(subst $(PKG)/cmd/,,$(COMMAND_PACKAGES))
+COMMAND_EXECUTABLES = $(foreach cmd,$(COMMANDS),$(BUILD_DIR)/$(cmd))
 
 # Developer Tools
 GOVENDOR = $(BIN_BUILD_DIR)/govendor
@@ -51,7 +52,10 @@ $(TARGET_SETUP):
 	mkdir -p "$(BIN_BUILD_DIR)"
 	touch "$(TARGET_SETUP)"
 
-build:	.ruby-bundle $(TARGET_SETUP)
+.PHONY: build
+build:	.ruby-bundle $(TARGET_SETUP) $(COMMAND_EXECUTABLES)
+
+$(COMMAND_EXECUTABLES): $(LOCAL_GO_FILES)
 	go install $(GO_LDFLAGS) $(COMMAND_PACKAGES)
 	cp $(foreach cmd,$(COMMANDS),$(BIN_BUILD_DIR)/$(cmd)) $(BUILD_DIR)/
 
@@ -78,12 +82,19 @@ assemble: force-ruby-bundle build assemble-internal
 
 # assemble-internal does not force 'bundle install' to run again
 .PHONY: assemble-internal
-assemble-internal: build
-	rm -rf $(ASSEMBLY_ROOT)/bin $(ASSEMBLY_ROOT)/ruby
-	mkdir -p $(ASSEMBLY_ROOT)/bin
+assemble-internal: assemble-go assemble-ruby
+
+.PHONY: assemble-ruby
+assemble-ruby:
+	rm -rf $(ASSEMBLY_ROOT)/ruby
 	rm -rf ruby/tmp
 	cp -r ruby $(ASSEMBLY_ROOT)/ruby
 	rm -rf $(ASSEMBLY_ROOT)/ruby/spec
+
+.PHONY: assemble-go
+assemble-go: build
+	rm -rf $(ASSEMBLY_ROOT)/bin
+	mkdir -p $(ASSEMBLY_ROOT)/bin
 	install $(foreach cmd,$(COMMANDS),$(BIN_BUILD_DIR)/$(cmd)) $(ASSEMBLY_ROOT)/bin
 
 binaries: assemble
@@ -134,7 +145,7 @@ race-go: prepare-tests
 	@go test -race $(LOCAL_PACKAGES)
 
 .PHONY: rspec
-rspec: assemble-internal prepare-tests
+rspec: .ruby-bundle prepare-tests assemble-go
 	cd ruby && bundle exec rspec
 
 .PHONY: test-changes
@@ -177,7 +188,7 @@ codeclimate-report:
 
 .PHONY: clean
 clean:
-	rm -rf $(TARGET_DIR) $(TEST_REPO) $(TEST_REPO_STORAGE_PATH) ./internal/service/ssh/gitaly-*-pack .ruby-bundle
+	rm -rf $(TARGET_DIR) $(TEST_REPO) $(TEST_REPO_STORAGE_PATH) ./internal/service/ssh/gitaly-*-pack .ruby-bundle $(COMMAND_EXECUTABLES)
 
 .PHONY: cover
 cover: prepare-tests $(GOCOVMERGE)
