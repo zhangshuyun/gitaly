@@ -6,8 +6,7 @@ module Gitlab
 
       # This number is the maximum amount of data that we want to display to
       # the user. We load as much as we can for encoding detection
-      # (Linguist) and LFS pointer parsing. All other cases where we need full
-      # blob data should use load_all_data!.
+      # (Linguist) and LFS pointer parsing.
       MAX_DATA_DISPLAY_SIZE = 10.megabytes
 
       # These limits are used as a heuristic to ignore files which can't be LFS
@@ -157,22 +156,6 @@ module Gitlab
 
       def data
         encode! @data
-      end
-
-      # Load all blob data (not just the first MAX_DATA_DISPLAY_SIZE bytes) into
-      # memory as a Ruby string.
-      def load_all_data!(repository)
-        return if @data == '' # don't mess with submodule blobs
-
-        # Even if we return early, recalculate wether this blob is binary in
-        # case a blob was initialized as text but the full data isn't
-        @binary = nil
-
-        return if @loaded_all_data
-
-        @data = repository.gitaly_blob_client.get_blob(oid: id, limit: -1).data
-        @loaded_all_data = true
-        @loaded_size = @data.bytesize
       end
 
       def name

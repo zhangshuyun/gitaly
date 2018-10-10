@@ -7,14 +7,27 @@ DEFAULT_STORAGE_DIR = File.expand_path('../../tmp/repositories', __FILE__)
 DEFAULT_STORAGE_NAME = 'default'.freeze
 TEST_REPO_PATH = File.join(DEFAULT_STORAGE_DIR, 'gitlab-test.git')
 TEST_REPO_ORIGIN = '../internal/testhelper/testdata/data/gitlab-test.git'.freeze
+GIT_TEST_REPO_PATH = File.join(DEFAULT_STORAGE_DIR, 'gitlab-git-test.git')
+GIT_TEST_REPO_ORIGIN = '../internal/testhelper/testdata/data/gitlab-git-test.git'.freeze
 
 module TestRepo
   def self.prepare_test_repository
     FileUtils.rm_rf(Dir["#{DEFAULT_STORAGE_DIR}/mutable-*"])
-    return if File.directory?(TEST_REPO_PATH)
 
     FileUtils.mkdir_p(DEFAULT_STORAGE_DIR)
-    clone_new_repo!(TEST_REPO_PATH)
+
+    {
+      TEST_REPO_ORIGIN => TEST_REPO_PATH,
+      GIT_TEST_REPO_ORIGIN => GIT_TEST_REPO_PATH
+    }.each do |origin, path|
+      next if File.directory?(path)
+
+      clone_new_repo!(origin, path)
+    end
+  end
+
+  def git_test_repo_read_only
+    Gitaly::Repository.new(storage_name: DEFAULT_STORAGE_NAME, relative_path: File.basename(GIT_TEST_REPO_PATH))
   end
 
   def test_repo_read_only
@@ -23,7 +36,7 @@ module TestRepo
 
   def new_mutable_test_repo
     relative_path = "mutable-#{SecureRandom.hex(6)}.git"
-    TestRepo.clone_new_repo!(File.join(DEFAULT_STORAGE_DIR, relative_path))
+    TestRepo.clone_new_repo!(TEST_REPO_ORIGIN, File.join(DEFAULT_STORAGE_DIR, relative_path))
     Gitaly::Repository.new(storage_name: DEFAULT_STORAGE_NAME, relative_path: relative_path)
   end
 
@@ -53,8 +66,8 @@ module TestRepo
     )
   end
 
-  def self.clone_new_repo!(destination)
-    return if system(*%W[git clone --quiet --bare #{TEST_REPO_ORIGIN} #{destination}])
+  def self.clone_new_repo!(origin, destination)
+    return if system(*%W[git clone --quiet --bare #{origin} #{destination}])
     abort "Failed to clone test repo. Try running 'make prepare-tests' and try again."
   end
 

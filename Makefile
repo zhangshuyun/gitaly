@@ -7,6 +7,7 @@ BIN_BUILD_DIR := $(TARGET_DIR)/bin
 PKG_BUILD_DIR := $(TARGET_DIR)/src/$(PKG)
 export TEST_REPO_STORAGE_PATH := $(BUILD_DIR)/internal/testhelper/testdata/data
 TEST_REPO := $(TEST_REPO_STORAGE_PATH)/gitlab-test.git
+GIT_TEST_REPO := $(TEST_REPO_STORAGE_PATH)/gitlab-git-test.git
 INSTALL_DEST_DIR := $(DESTDIR)$(PREFIX)/bin/
 COVERAGE_DIR := $(TARGET_DIR)/cover
 ASSEMBLY_ROOT := $(TARGET_DIR)/assembly
@@ -119,8 +120,11 @@ $(TEST_REPO):
 	# Git notes aren't fetched by default with git clone
 	git -C $@ fetch origin refs/notes/*:refs/notes/*
 
+$(GIT_TEST_REPO):
+	git clone --bare https://gitlab.com/gitlab-org/gitlab-git-test.git $@
+
 .PHONY: prepare-tests
-prepare-tests: $(TARGET_SETUP) $(TEST_REPO) .ruby-bundle
+prepare-tests: $(TARGET_SETUP) $(TEST_REPO) $(GIT_TEST_REPO) .ruby-bundle
 
 .PHONY: test
 test: test-go rspec
@@ -177,7 +181,7 @@ codeclimate-report:
 
 .PHONY: clean
 clean:
-	rm -rf $(TARGET_DIR) $(TEST_REPO) $(TEST_REPO_STORAGE_PATH) ./internal/service/ssh/gitaly-*-pack .ruby-bundle
+	rm -rf $(TARGET_DIR) $(TEST_REPO_STORAGE_PATH) ./ruby/tmp/repositories ./internal/service/ssh/gitaly-*-pack .ruby-bundle
 
 .PHONY: cover
 cover: prepare-tests $(GOCOVMERGE)
