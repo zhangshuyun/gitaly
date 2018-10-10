@@ -36,6 +36,7 @@ danger-review:
   <<: *ruby_definition
   stage: build
   script:
+    - ls -l
     - make
     - _support/test-boot-time .
 
