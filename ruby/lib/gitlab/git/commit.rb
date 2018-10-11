@@ -161,17 +161,6 @@ module Gitlab
         Gitlab::Git::CommitStats.new(@repository, self)
       end
 
-      # Get ref names collection
-      #
-      # Ex.
-      #   commit.ref_names(repo)
-      #
-      def ref_names(repo)
-        refs(repo).map do |ref|
-          ref.sub(%r{^refs/(heads|remotes|tags)/}, "")
-        end
-      end
-
       def message
         encode! @message
       end
@@ -293,32 +282,10 @@ module Gitlab
         )
       end
 
-      # Get a collection of Gitlab::Git::Ref objects for this commit.
-      #
-      # Ex.
-      #   commit.ref(repo)
-      #
-      def refs(repo)
-        repo.refs_hash[id]
-      end
-
       def message_from_gitaly_body
         return @raw_commit.subject.dup if @raw_commit.body_size.zero?
-        return @raw_commit.body.dup if full_body_fetched_from_gitaly?
 
-        if @raw_commit.body_size > MAX_COMMIT_MESSAGE_DISPLAY_SIZE
-          "#{@raw_commit.subject}\n\n--commit message is too big".strip
-        else
-          fetch_body_from_gitaly
-        end
-      end
-
-      def full_body_fetched_from_gitaly?
-        @raw_commit.body.bytesize == @raw_commit.body_size
-      end
-
-      def fetch_body_from_gitaly
-        self.class.get_message(@repository, id)
+        @raw_commit.body.dup
       end
     end
   end

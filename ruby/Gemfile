@@ -26,4 +26,5 @@ group :development, :test do
   gem 'gitlab-styles', '~> 2.0.0', require: false
   gem 'rspec', require: false
   gem 'timecop'
+  gem 'factory_bot'
 end

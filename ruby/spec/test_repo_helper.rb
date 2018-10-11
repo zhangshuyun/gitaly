@@ -35,13 +35,24 @@ module TestRepo
   end
 
   def new_mutable_test_repo
-    relative_path = "mutable-#{SecureRandom.hex(6)}.git"
+    relative_path = random_repository_relative_path(:mutable)
     TestRepo.clone_new_repo!(TEST_REPO_ORIGIN, File.join(DEFAULT_STORAGE_DIR, relative_path))
     Gitaly::Repository.new(storage_name: DEFAULT_STORAGE_NAME, relative_path: relative_path)
   end
 
+  def new_broken_test_repo
+    relative_path = random_repository_relative_path(:broken)
+    repo_path = File.join(DEFAULT_STORAGE_DIR, relative_path)
+    TestRepo.clone_new_repo!(TEST_REPO_ORIGIN, repo_path)
+
+    refs_path = File.join(repo_path, 'refs')
+    FileUtils.rm_r(refs_path)
+
+    Gitaly::Repository.new(storage_name: DEFAULT_STORAGE_NAME, relative_path: relative_path)
+  end
+
   def new_empty_test_repo
-    relative_path = "mutable-#{SecureRandom.hex(6)}.git"
+    relative_path = random_repository_relative_path(:mutable)
     TestRepo.init_new_repo!(File.join(DEFAULT_STORAGE_DIR, relative_path))
     Gitaly::Repository.new(storage_name: DEFAULT_STORAGE_NAME, relative_path: relative_path)
   end
@@ -75,6 +86,12 @@ module TestRepo
     return if system(*%W[git init --quiet --bare #{destination}])
 
     abort "Failed to init test repo."
+  end
+
+  private
+
+  def random_repository_relative_path(prefix)
+    "#{prefix}-#{SecureRandom.hex(6)}.git"
   end
 end
 
