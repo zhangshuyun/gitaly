@@ -3,6 +3,7 @@ require_relative '../lib/gitlab/git.rb'
 require_relative 'support/sentry.rb'
 require 'timecop'
 require 'test_repo_helper'
+require 'rspec-parameterized'
 require 'factory_bot'
 
 Dir[File.join(__dir__, 'support/helpers/*.rb')].each { |f| require f }
