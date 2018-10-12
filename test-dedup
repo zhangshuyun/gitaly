@@ -47,7 +47,8 @@ def main
 
   target_name, target_path = 'repo4', child_path('repo4')
   children[target_name] = target_path
-  clone_in_pool(pool, children['repo2'], target_name, target_path)
+  prepare_clone_in_pool(pool, children['repo2'], target_name, target_path)
+  link_repository_to_pool(pool, target_name, target_path)
 
   show_sizes([pool] + children.values)
 
@@ -66,6 +67,8 @@ def clean_pool_repository_post_create(pool)
 end
 
 def link_repository_to_pool(pool, child_name, child_path)
+  # It is important that the remote is a relative path, so that it is
+  # stable across changing git data mountpoints.
   run!(%W[git remote add #{child_name} ../#{File.basename(child_path)}], pool)
 
   # this ensures every ref, including remote refs/tags, gets fetched
@@ -75,6 +78,7 @@ def link_repository_to_pool(pool, child_name, child_path)
   run!(%W[git config remote.#{child_name}.tagopt --no-tags], pool)
 
   open(File.join(child_path, 'objects/info/alternates'), 'w') do |f|
+    # It is important that this is a relative path, so that it is stable across changing git data mountpoints.
     f.puts File.join('..', '..', File.basename(pool), 'objects')
   end
 end
@@ -123,10 +127,15 @@ def child_path(name)
   File.join(TMP_ROOT, name + '.git')
 end
 
-def clone_in_pool(pool, source_path, target_name, target_path)
+def prepare_clone_in_pool(pool, source_path, target_name, target_path)
+  # The --reference options is the secret sauce that prevents copying
+  # objects that exist in the pool. After this clone,
+  # objects/info/alternates is already set up but it points to an absolute
+  # path. This is not what we want. This gets fixed later by
+  # link_repository_to_pool.
+  #
   run!(%W[git clone --quiet --bare --reference #{File.basename(pool)} #{File.basename(source_path)} #{File.basename(target_path)}], File.dirname(target_path))
   clean_child(target_path)
-  link_repository_to_pool(pool, target_name, target_path)
 end
 
 # Note: tricks with the 'dir' argument and File.basename are there only
