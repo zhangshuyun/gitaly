@@ -24,7 +24,6 @@ def main
   show_sizes([pool])
 
   link_repository_to_pool(pool, source_name, source_path)
-  run!(%W[git fetch --all --quiet], pool)
 
   # Now we can get rid of the top-level refs in pool.git.
   clean_pool_repository_post_create(pool)
