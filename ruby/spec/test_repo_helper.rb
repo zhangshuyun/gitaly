@@ -40,6 +40,12 @@ module TestRepo
     Gitaly::Repository.new(storage_name: DEFAULT_STORAGE_NAME, relative_path: relative_path)
   end
 
+  def new_mutable_git_test_repo
+    relative_path = random_repository_relative_path(:mutable)
+    TestRepo.clone_new_repo!(GIT_TEST_REPO_ORIGIN, File.join(DEFAULT_STORAGE_DIR, relative_path))
+    Gitaly::Repository.new(storage_name: DEFAULT_STORAGE_NAME, relative_path: relative_path)
+  end
+
   def new_broken_test_repo
     relative_path = random_repository_relative_path(:broken)
     repo_path = File.join(DEFAULT_STORAGE_DIR, relative_path)

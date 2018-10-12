@@ -4,7 +4,6 @@ describe Gitlab::Git::Wiki do
   include TestRepo
 
   let(:repository) { gitlab_git_from_gitaly(new_empty_test_repo) }
-  let(:user) { project.owner }
 
   subject { described_class.new(repository) }
 

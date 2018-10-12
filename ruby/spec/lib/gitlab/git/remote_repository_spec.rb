@@ -70,8 +70,6 @@ describe Gitlab::Git::RemoteRepository, :seed_helper do
     subject { remote_repository.fetch_env }
 
     before do
-      ENV['GITALY_RUBY_GITALY_BIN_DIR'] = __dir__
-
       allow(remote_repository).to receive(:gitaly_client).and_return(gitaly_client)
 
       expect(gitaly_client).to receive(:address).with(repository.storage).and_return(address)

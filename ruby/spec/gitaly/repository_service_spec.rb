@@ -1,4 +1,4 @@
-require 'integration_helper'
+require 'spec_helper'
 
 describe Gitaly::RepositoryService do
   include IntegrationClient

@@ -4,13 +4,11 @@ require 'gitaly'
 require 'spec_helper'
 
 SOCKET_PATH = 'gitaly.socket'.freeze
-GITALY_RUBY_DIR = File.expand_path('../..', __FILE__)
-TMP_DIR = File.expand_path('../../tmp', __FILE__)
 
 module IntegrationClient
   def gitaly_stub(service)
     klass = Gitaly.const_get(service).const_get(:Stub)
-    klass.new("unix:tmp/#{SOCKET_PATH}", :this_channel_is_insecure)
+    klass.new("unix:#{File.join(TMP_DIR, SOCKET_PATH)}", :this_channel_is_insecure)
   end
 
   def gitaly_repo(storage, relative_path)
@@ -19,18 +17,16 @@ module IntegrationClient
 end
 
 def start_gitaly
-  build_dir = File.expand_path('../../../_build', __FILE__)
-  gitlab_shell_dir = File.join(TMP_DIR, 'gitlab-shell')
-
-  FileUtils.mkdir_p([TMP_DIR, File.join(gitlab_shell_dir, 'hooks')])
+  build_dir = File.expand_path(File.join(GITALY_RUBY_DIR, '../_build'))
+  GitlabShellHelper.setup_gitlab_shell
 
   config_toml = <<~CONFIG
     socket_path = "#{SOCKET_PATH}"
     bin_dir = "#{build_dir}/bin"
-    
+
     [gitlab-shell]
-    dir = "#{gitlab_shell_dir}"
-    
+    dir = "#{GITLAB_SHELL_DIR}"
+
     [gitaly-ruby]
     dir = "#{GITALY_RUBY_DIR}"
 
@@ -47,7 +43,7 @@ def start_gitaly
   gitaly_pid = spawn(File.join(build_dir, 'bin/gitaly'), config_path, options)
   at_exit { Process.kill('KILL', gitaly_pid) }
 
-  wait_ready!(File.join('tmp', SOCKET_PATH))
+  wait_ready!(File.join(TMP_DIR, SOCKET_PATH))
 end
 
 def wait_ready!(socket)

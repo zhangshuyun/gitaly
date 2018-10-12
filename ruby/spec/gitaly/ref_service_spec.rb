@@ -1,5 +1,5 @@
-require 'integration_helper'
 require 'securerandom'
+require 'spec_helper'
 
 describe Gitaly::RefService do
   include IntegrationClient
