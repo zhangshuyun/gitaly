@@ -20,16 +20,14 @@ def main
 
   # This creates a bunch of refs in the top-level namespace we don't want.
   # However, they speed up the first fetch, so we keep them for now.
-  run!(%W[git clone --quiet --bare --local #{File.basename(source_path)} #{File.basename(pool)}], File.dirname(pool))
-  run!(%w[git remote remove origin], pool)
-  run!(%w[git config advice.objectNameWarning false], pool)
+  create_pool_repository(source_path, pool)
   show_sizes([pool])
 
   add_child_to_pool(pool, source_name, source_path)
   run!(%W[git fetch --all --quiet], pool)
 
   # Now we can get rid of the top-level refs in pool.git.
-  delete_top_level_refs(pool)
+  clean_pool_repository_post_create(pool)
 
   children.each do |name, path|
     next if name == source_name
@@ -57,6 +55,16 @@ def main
 
   run_pipeline([%w[git for-each-ref], %w[head -30]], target_path)
   run!(%w[cat objects/info/alternates], target_path)
+end
+
+def create_pool_repository(source, pool)
+  run!(%W[git clone --quiet --bare --local #{File.basename(source)} #{File.basename(pool)}], File.dirname(pool))
+end
+
+def clean_pool_repository_post_create(pool)
+  run!(%w[git remote remove origin], pool)
+  run!(%w[git config advice.objectNameWarning false], pool)
+  delete_top_level_refs(pool)
 end
 
 def set_child_alternates(child, pool)
@@ -126,6 +134,8 @@ def clone_in_pool(pool, source_path, target_name, target_path)
   set_child_alternates(target_path, pool)
 end
 
+# Note: tricks with the 'dir' argument and File.basename are there only
+# to make the script output prettier.
 def run!(cmd, dir=nil)
   dir ||= Dir.pwd
   cmd_s = cmd.join(' ')
