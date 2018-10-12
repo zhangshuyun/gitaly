@@ -23,7 +23,7 @@ def main
   create_pool_repository(source_path, pool)
   show_sizes([pool])
 
-  add_child_to_pool(pool, source_name, source_path)
+  link_repository_to_pool(pool, source_name, source_path)
   run!(%W[git fetch --all --quiet], pool)
 
   # Now we can get rid of the top-level refs in pool.git.
@@ -32,15 +32,13 @@ def main
   children.each do |name, path|
     next if name == source_name
 
-    add_child_to_pool(pool, name, path)
+    link_repository_to_pool(pool, name, path)
   end
 
   run!(%w[git remote -v], pool)
   show_sizes([pool] + children.values)
 
   children.each do |_, path|
-    set_child_alternates(path, pool)
-
     # -l is important. Not sure about -A vs -a
     run!(%w[git repack -Ald --quiet], path)
   end
@@ -67,13 +65,7 @@ def clean_pool_repository_post_create(pool)
   delete_top_level_refs(pool)
 end
 
-def set_child_alternates(child, pool)
-  open(File.join(child, 'objects/info/alternates'), 'w') do |f|
-    f.puts File.join('..', '..', File.basename(pool), 'objects')
-  end
-end
-
-def add_child_to_pool(pool, child_name, child_path)
+def link_repository_to_pool(pool, child_name, child_path)
   run!(%W[git remote add #{child_name} ../#{File.basename(child_path)}], pool)
 
   # this ensures every ref, including remote refs/tags, gets fetched
@@ -81,6 +73,10 @@ def add_child_to_pool(pool, child_name, child_path)
 
   # this prevents remote tags being fetched into the top-level refs/tags namespace
   run!(%W[git config remote.#{child_name}.tagopt --no-tags], pool)
+
+  open(File.join(child_path, 'objects/info/alternates'), 'w') do |f|
+    f.puts File.join('..', '..', File.basename(pool), 'objects')
+  end
 end
 
 def delete_top_level_refs(repo)
@@ -130,8 +126,7 @@ end
 def clone_in_pool(pool, source_path, target_name, target_path)
   run!(%W[git clone --quiet --bare --reference #{File.basename(pool)} #{File.basename(source_path)} #{File.basename(target_path)}], File.dirname(target_path))
   clean_child(target_path)
-  add_child_to_pool(pool, target_name, target_path)
-  set_child_alternates(target_path, pool)
+  link_repository_to_pool(pool, target_name, target_path)
 end
 
 # Note: tricks with the 'dir' argument and File.basename are there only
