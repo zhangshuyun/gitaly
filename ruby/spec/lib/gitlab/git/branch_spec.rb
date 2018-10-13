@@ -1,6 +1,6 @@
 require "spec_helper"
 
-describe Gitlab::Git::Branch, :seed_helper do
+describe Gitlab::Git::Branch do
   include TestRepo
 
   let(:repository) { gitlab_git_from_gitaly(git_test_repo_read_only) }
