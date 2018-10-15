@@ -6,12 +6,11 @@ import (
 	"path"
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/service/operations"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
-
-	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 )

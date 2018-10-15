@@ -1,15 +1,13 @@
 package sentryhandler
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
 	raven "github.com/getsentry/raven-go"
 	"github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
-
-	"fmt"
-
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"

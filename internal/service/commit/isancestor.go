@@ -2,15 +2,12 @@ package commit
 
 import (
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-
-	"golang.org/x/net/context"
-
 	log "github.com/sirupsen/logrus"
-
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"golang.org/x/net/context"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func (s *server) CommitIsAncestor(ctx context.Context, in *gitalypb.CommitIsAncestorRequest) (*gitalypb.CommitIsAncestorResponse, error) {

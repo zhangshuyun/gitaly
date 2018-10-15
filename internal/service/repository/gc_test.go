@@ -10,12 +10,11 @@ import (
 	"testing"
 	"time"
 
-	"google.golang.org/grpc/codes"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"google.golang.org/grpc/codes"
 )
 
 var (

@@ -4,15 +4,12 @@ import (
 	"io"
 	"os/exec"
 
-	"gitlab.com/gitlab-org/gitaly/internal/git"
-
+	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/internal/command"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
-
 	"gitlab.com/gitlab-org/gitaly/streamio"
-
-	"github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )

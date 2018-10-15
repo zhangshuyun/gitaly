@@ -3,13 +3,11 @@ package ref
 import (
 	"testing"
 
-	"google.golang.org/grpc/codes"
-
-	"golang.org/x/net/context"
-
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"golang.org/x/net/context"
+	"google.golang.org/grpc/codes"
 )
 
 func TestFindRefNameSuccess(t *testing.T) {

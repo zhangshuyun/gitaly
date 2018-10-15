@@ -5,12 +5,11 @@ import (
 	"io/ioutil"
 	"strings"
 
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
+	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
-	log "github.com/sirupsen/logrus"
 )
 
 // LastCommitForPath returns the last commit which modified path.

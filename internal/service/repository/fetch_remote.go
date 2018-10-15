@@ -3,10 +3,9 @@ package repository
 import (
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
 	log "github.com/sirupsen/logrus"
-	"golang.org/x/net/context"
-
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/internal/rubyserver"
+	"golang.org/x/net/context"
 )
 
 func (s *server) FetchRemote(ctx context.Context, in *gitalypb.FetchRemoteRequest) (*gitalypb.FetchRemoteResponse, error) {

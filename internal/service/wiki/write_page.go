@@ -5,7 +5,6 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/internal/rubyserver"
-
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )

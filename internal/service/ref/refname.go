@@ -4,14 +4,13 @@ import (
 	"bufio"
 	"strings"
 
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"golang.org/x/net/context"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // FindRefName returns a ref that starts with the given prefix, if one exists.

@@ -5,16 +5,14 @@ import (
 	"sort"
 	"strings"
 
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/linguist"
 	"gitlab.com/gitlab-org/gitaly/internal/service/ref"
-
 	"golang.org/x/net/context"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func (*server) CommitLanguages(ctx context.Context, req *gitalypb.CommitLanguagesRequest) (*gitalypb.CommitLanguagesResponse, error) {

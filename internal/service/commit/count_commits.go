@@ -7,10 +7,9 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"

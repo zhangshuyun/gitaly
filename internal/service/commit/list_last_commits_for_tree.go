@@ -5,14 +5,13 @@ import (
 	"io"
 	"sort"
 
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/git/lstree"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 var (

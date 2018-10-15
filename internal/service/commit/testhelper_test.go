@@ -6,13 +6,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/protobuf/ptypes/timestamp"
+	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/internal/linguist"
 	"gitlab.com/gitlab-org/gitaly/internal/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
-
-	"github.com/golang/protobuf/ptypes/timestamp"
-	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 )

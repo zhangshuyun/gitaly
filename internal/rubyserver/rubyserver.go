@@ -11,6 +11,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/grpc-ecosystem/go-grpc-prometheus"
+	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/config"
@@ -19,9 +21,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/supervisor"
 	"gitlab.com/gitlab-org/gitaly/internal/version"
 	"gitlab.com/gitlab-org/gitaly/streamio"
-
-	"github.com/grpc-ecosystem/go-grpc-prometheus"
-	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 )

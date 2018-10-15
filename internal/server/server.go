@@ -1,10 +1,11 @@
 package server
 
 import (
-	"golang.org/x/net/context"
-
+	"github.com/grpc-ecosystem/go-grpc-middleware"
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
+	"github.com/grpc-ecosystem/go-grpc-middleware/tags"
+	"github.com/grpc-ecosystem/go-grpc-prometheus"
 	log "github.com/sirupsen/logrus"
-
 	"gitlab.com/gitlab-org/gitaly/internal/helper/fieldextractors"
 	gitalylog "gitlab.com/gitlab-org/gitaly/internal/log"
 	"gitlab.com/gitlab-org/gitaly/internal/logsanitizer"
@@ -16,12 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/server/auth"
 	"gitlab.com/gitlab-org/gitaly/internal/service"
-
-	"github.com/grpc-ecosystem/go-grpc-middleware"
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
-	"github.com/grpc-ecosystem/go-grpc-middleware/tags"
-	"github.com/grpc-ecosystem/go-grpc-prometheus"
-
+	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 )

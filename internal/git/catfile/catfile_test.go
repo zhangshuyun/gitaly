@@ -5,9 +5,8 @@ import (
 	"io/ioutil"
 	"testing"
 
-	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
-
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 )
 
 func TestInfo(t *testing.T) {

@@ -5,11 +5,10 @@ import (
 	"path"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/internal/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
-
-	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc/codes"
 )
 

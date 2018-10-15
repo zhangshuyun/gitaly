@@ -5,12 +5,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/auth"
 	"gitlab.com/gitlab-org/gitaly/internal/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	netctx "golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"

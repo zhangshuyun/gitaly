@@ -8,10 +8,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	log "github.com/sirupsen/logrus"
-
 	"github.com/BurntSushi/toml"
 	"github.com/kelseyhightower/envconfig"
+	log "github.com/sirupsen/logrus"
 )
 
 var (

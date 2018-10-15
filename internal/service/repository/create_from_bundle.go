@@ -13,7 +13,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/tempdir"
 	"gitlab.com/gitlab-org/gitaly/streamio"
-
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )

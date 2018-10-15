@@ -5,11 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/context"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func Test_generateRavenPacket(t *testing.T) {

@@ -5,13 +5,12 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
 	log "github.com/sirupsen/logrus"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/lines"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func (s *server) ListFiles(in *gitalypb.ListFilesRequest, stream gitalypb.CommitService_ListFilesServer) error {

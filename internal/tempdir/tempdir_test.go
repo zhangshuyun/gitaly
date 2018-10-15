@@ -7,11 +7,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
-
-	"github.com/stretchr/testify/require"
 )
 
 func TestNewAsRepositorySuccess(t *testing.T) {

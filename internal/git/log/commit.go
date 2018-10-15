@@ -8,12 +8,11 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/golang/protobuf/ptypes/timestamp"
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
-
-	"github.com/golang/protobuf/ptypes/timestamp"
 )
 
 // GetCommit tries to resolve revision to a Git commit. Returns nil if

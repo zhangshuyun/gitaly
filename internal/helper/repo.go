@@ -6,7 +6,6 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/internal/config"
-
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )

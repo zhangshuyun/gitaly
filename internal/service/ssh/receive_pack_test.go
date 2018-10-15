@@ -10,15 +10,12 @@ import (
 	"testing"
 	"time"
 
-	"gitlab.com/gitlab-org/gitaly/internal/config"
-
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/stretchr/testify/require"
-
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
+	"gitlab.com/gitlab-org/gitaly/internal/config"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
-
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
 )

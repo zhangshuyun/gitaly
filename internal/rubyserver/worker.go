@@ -5,12 +5,11 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/internal/config"
 	"gitlab.com/gitlab-org/gitaly/internal/rubyserver/balancer"
 	"gitlab.com/gitlab-org/gitaly/internal/supervisor"
-
-	"github.com/prometheus/client_golang/prometheus"
-	log "github.com/sirupsen/logrus"
 )
 
 var (

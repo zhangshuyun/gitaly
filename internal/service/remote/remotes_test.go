@@ -8,14 +8,11 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"google.golang.org/grpc/codes"
-
 	"github.com/stretchr/testify/require"
-
-	"golang.org/x/net/context"
-
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"golang.org/x/net/context"
+	"google.golang.org/grpc/codes"
 )
 
 func TestSuccessfulAddRemote(t *testing.T) {

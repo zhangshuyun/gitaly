@@ -9,7 +9,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/config"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/version"
-
 	"golang.org/x/net/context"
 )
 

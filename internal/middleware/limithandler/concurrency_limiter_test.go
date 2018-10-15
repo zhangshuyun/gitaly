@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-
 	"golang.org/x/net/context"
 )
 

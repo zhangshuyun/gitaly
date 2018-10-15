@@ -6,14 +6,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
 	gitLog "gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	serverPkg "gitlab.com/gitlab-org/gitaly/internal/server"
 	"gitlab.com/gitlab-org/gitaly/internal/service/repository"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
-
-	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"

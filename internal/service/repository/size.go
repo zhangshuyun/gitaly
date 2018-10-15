@@ -7,11 +7,10 @@ import (
 	"os/exec"
 	"strconv"
 
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
-
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
 	"golang.org/x/net/context"
 )
 

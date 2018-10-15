@@ -5,7 +5,6 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-
 	"golang.org/x/net/context"
 )
 

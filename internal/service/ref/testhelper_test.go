@@ -9,7 +9,6 @@ import (
 
 	"github.com/golang/protobuf/ptypes/timestamp"
 	log "github.com/sirupsen/logrus"
-
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/lines"

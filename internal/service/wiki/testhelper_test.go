@@ -9,14 +9,13 @@ import (
 	"testing"
 	"time"
 
+	log "github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
 	gitlog "gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
-
-	log "github.com/sirupsen/logrus"
-	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 )

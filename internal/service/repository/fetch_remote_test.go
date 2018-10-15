@@ -5,14 +5,12 @@ import (
 	"path"
 	"testing"
 
-	"google.golang.org/grpc/codes"
-
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc/codes"
 )
 
 func copyRepoWithNewRemote(t *testing.T, repo *gitalypb.Repository, remote string) *gitalypb.Repository {

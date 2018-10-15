@@ -11,18 +11,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
-	"gitlab.com/gitlab-org/gitaly/internal/git"
-
 	"gitlab.com/gitlab-org/gitaly/internal/config"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/pktline"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
-
 	"gitlab.com/gitlab-org/gitaly/streamio"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
 )

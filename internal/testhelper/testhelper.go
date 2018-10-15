@@ -18,18 +18,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-
+	"github.com/grpc-ecosystem/go-grpc-middleware"
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
 	log "github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/config"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
-
-	"github.com/grpc-ecosystem/go-grpc-middleware"
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"

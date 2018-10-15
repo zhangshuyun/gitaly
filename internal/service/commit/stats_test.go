@@ -5,11 +5,9 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-
-	"google.golang.org/grpc/codes"
-
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"google.golang.org/grpc/codes"
 )
 
 func TestCommitStatsSuccess(t *testing.T) {

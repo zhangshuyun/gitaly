@@ -6,13 +6,11 @@ import (
 	"io"
 	"testing"
 
-	"golang.org/x/net/context"
-
-	"google.golang.org/grpc/codes"
-
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/internal/service/ref"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"golang.org/x/net/context"
+	"google.golang.org/grpc/codes"
 )
 
 var (

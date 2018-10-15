@@ -9,8 +9,9 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
-
 	"gitlab.com/gitlab-org/gitaly/internal/config"
 	"gitlab.com/gitlab-org/gitaly/internal/connectioncounter"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
@@ -19,9 +20,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/server"
 	"gitlab.com/gitlab-org/gitaly/internal/tempdir"
 	"gitlab.com/gitlab-org/gitaly/internal/version"
-
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 var (

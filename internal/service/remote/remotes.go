@@ -6,14 +6,12 @@ import (
 	"io/ioutil"
 	"strings"
 
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-
-	"golang.org/x/net/context"
-
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/rubyserver"
+	"golang.org/x/net/context"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // AddRemote adds a remote to the repository

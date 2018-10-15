@@ -6,11 +6,10 @@ import (
 	"strings"
 	"testing"
 
-	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
-	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 )
 
 func TestWikiGetPageVersionsRequest(t *testing.T) {

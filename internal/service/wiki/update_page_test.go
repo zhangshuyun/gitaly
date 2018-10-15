@@ -4,11 +4,10 @@ import (
 	"bytes"
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
 	gitlog "gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
-
-	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 )
 

@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
-
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/metadata"
 )

@@ -3,9 +3,8 @@ package rubyserver
 import (
 	"testing"
 
-	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
-
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"google.golang.org/grpc/metadata"
 )
 

@@ -1,10 +1,9 @@
 package repository
 
 import (
-	"golang.org/x/net/context"
-
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/internal/rubyserver"
+	"golang.org/x/net/context"
 )
 
 func (s *server) FindLicense(ctx context.Context, in *gitalypb.FindLicenseRequest) (*gitalypb.FindLicenseResponse, error) {

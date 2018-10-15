@@ -8,14 +8,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
 	"gitlab.com/gitlab-org/gitaly/internal/config"
 	"gitlab.com/gitlab-org/gitaly/internal/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/server/auth"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
-
-	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 )

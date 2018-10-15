@@ -17,7 +17,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/service/ssh"
 	"gitlab.com/gitlab-org/gitaly/internal/service/storage"
 	"gitlab.com/gitlab-org/gitaly/internal/service/wiki"
-
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"

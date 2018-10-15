@@ -4,10 +4,9 @@ import (
 	"encoding/base64"
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
-
-	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/metadata"
 )
 

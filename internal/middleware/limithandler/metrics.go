@@ -4,9 +4,8 @@ import (
 	"strings"
 	"time"
 
-	prom "github.com/prometheus/client_golang/prometheus"
-
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
+	prom "github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/net/context"
 )
 

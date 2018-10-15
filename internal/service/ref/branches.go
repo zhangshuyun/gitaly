@@ -3,7 +3,6 @@ package ref
 import (
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/internal/rubyserver"
-
 	"golang.org/x/net/context"
 )
 

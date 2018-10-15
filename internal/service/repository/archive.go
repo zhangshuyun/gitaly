@@ -5,14 +5,12 @@ import (
 	"io"
 	"os/exec"
 
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/internal/command"
-	"gitlab.com/gitlab-org/gitaly/streamio"
-
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/streamio"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func parseArchiveFormat(format gitalypb.GetArchiveRequest_Format) (*exec.Cmd, string) {

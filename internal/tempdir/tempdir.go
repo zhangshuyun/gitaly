@@ -9,12 +9,11 @@ import (
 	"strings"
 	"time"
 
+	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/internal/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/housekeeping"
-
-	log "github.com/sirupsen/logrus"
 )
 
 const (
