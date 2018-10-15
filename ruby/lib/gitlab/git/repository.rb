@@ -336,8 +336,6 @@ module Gitlab
         target_object = Ref.dereference_object(lookup(target))
         raise InvalidRef.new("target not found: #{target}") unless target_object
 
-        user = Gitlab::Git::User.from_gitlab(user) unless user.respond_to?(:gl_id)
-
         options = nil # Use nil, not the empty hash. Rugged cares about this.
         if message
           options = {

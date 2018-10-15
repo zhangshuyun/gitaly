@@ -21,10 +21,7 @@ module Gitlab
       attr_reader :user, :repository
 
       def initialize(user, new_repository)
-        if user
-          user = Gitlab::Git::User.from_gitlab(user) unless user.respond_to?(:gl_id)
-          @user = user
-        end
+        @user = user
 
         # Refactoring aid
         Gitlab::Git.check_namespace!(new_repository)
