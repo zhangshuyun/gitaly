@@ -1,5 +1,11 @@
 # Gitaly changelog
 
+## v0.125.1
+
+#### Fixed
+- Fix git protocol prometheus metrics
+  https://gitlab.com/gitlab-org/gitaly/merge_requests/908
+
 ## v0.125.0
 
 #### Added

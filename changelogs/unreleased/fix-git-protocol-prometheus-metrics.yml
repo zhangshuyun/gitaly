@@ -1,5 +1,0 @@
----
-title: Fix git protocol prometheus metrics
-merge_request: 908
-author:
-type: fixed
