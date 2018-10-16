@@ -25,9 +25,6 @@ def main
 
   link_repository_to_pool(pool, source_name, source_path)
 
-  # Now we can get rid of the top-level refs in pool.git.
-  clean_pool_repository_post_create(pool)
-
   children.each do |name, path|
     next if name == source_name
 
@@ -50,21 +47,22 @@ def main
   link_repository_to_pool(pool, target_name, target_path)
 
   show_sizes([pool] + children.values)
-
-  run_pipeline([%w[git for-each-ref], %w[head -30]], target_path)
-  run!(%w[cat objects/info/alternates], target_path)
 end
 
 def create_pool_repository(source_name, source_path, pool)
+  puts '--- CreatePoolRepository'
+  # Use --local to get Git to use hardlinks, which avoids copying objects and packfiles
   run!(%W[git clone --quiet --bare --local #{File.basename(source_path)} #{File.basename(pool)}], File.dirname(pool))
+
+  # After the initial clone, the pool repository has top-level refs. This
+  # is not what we want, we want these refs to live under refs/remotes.
   create_remote_in_pool(pool, source_name, source_path)
   run!(%W[git fetch --quiet #{source_name}], pool)
-end
 
-def clean_pool_repository_post_create(pool)
+  # Now we can delete the top-level refs in the pool
   run!(%w[git remote remove origin], pool)
-  run!(%w[git config advice.objectNameWarning false], pool)
   delete_top_level_refs(pool)
+  puts '---'
 end
 
 def create_remote_in_pool(pool, child_name, child_path)
@@ -82,12 +80,15 @@ def create_remote_in_pool(pool, child_name, child_path)
 end
 
 def link_repository_to_pool(pool, child_name, child_path)
+  puts '--- LinkRepositoryToPool'
   create_remote_in_pool(pool, child_name, child_path)
 
   open(File.join(child_path, 'objects/info/alternates'), 'w') do |f|
     # It is important that this is a relative path, so that it is stable across changing git data mountpoints.
     f.puts File.join('..', '..', File.basename(pool), 'objects')
   end
+
+   puts '---'
 end
 
 def delete_top_level_refs(repo)
@@ -126,7 +127,6 @@ end
 
 def clean_child(path)
   run!(%W[git remote remove origin], path)
-  run!(%w[git config advice.objectNameWarning false], path)
   run!(%W[rm -rf hooks], path)
 end
 
@@ -135,6 +135,8 @@ def child_path(name)
 end
 
 def prepare_clone_in_pool(pool, source_path, target_name, target_path)
+  puts '--- PrepareCloneInPool'
+
   # The --reference options is the secret sauce that prevents copying
   # objects that exist in the pool. After this clone,
   # objects/info/alternates is already set up but it points to an absolute
@@ -143,6 +145,8 @@ def prepare_clone_in_pool(pool, source_path, target_name, target_path)
   #
   run!(%W[git clone --quiet --bare --reference #{File.basename(pool)} #{File.basename(source_path)} #{File.basename(target_path)}], File.dirname(target_path))
   clean_child(target_path)
+
+  puts '---'
 end
 
 # Note: tricks with the 'dir' argument and File.basename are there only
