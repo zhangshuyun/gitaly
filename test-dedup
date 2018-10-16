@@ -20,7 +20,7 @@ def main
 
   # This creates a bunch of refs in the top-level namespace we don't want.
   # However, they speed up the first fetch, so we keep them for now.
-  create_pool_repository(source_path, pool)
+  create_pool_repository(source_name, source_path, pool)
   show_sizes([pool])
 
   link_repository_to_pool(pool, source_name, source_path)
@@ -55,8 +55,10 @@ def main
   run!(%w[cat objects/info/alternates], target_path)
 end
 
-def create_pool_repository(source, pool)
-  run!(%W[git clone --quiet --bare --local #{File.basename(source)} #{File.basename(pool)}], File.dirname(pool))
+def create_pool_repository(source_name, source_path, pool)
+  run!(%W[git clone --quiet --bare --local #{File.basename(source_path)} #{File.basename(pool)}], File.dirname(pool))
+  create_remote_in_pool(pool, source_name, source_path)
+  run!(%W[git fetch --quiet #{source_name}], pool)
 end
 
 def clean_pool_repository_post_create(pool)
@@ -65,16 +67,22 @@ def clean_pool_repository_post_create(pool)
   delete_top_level_refs(pool)
 end
 
-def link_repository_to_pool(pool, child_name, child_path)
+def create_remote_in_pool(pool, child_name, child_path)
   # It is important that the remote is a relative path, so that it is
   # stable across changing git data mountpoints.
-  run!(%W[git remote add #{child_name} ../#{File.basename(child_path)}], pool)
+  unless run(%W[git remote add #{child_name} ../#{File.basename(child_path)}], pool)
+    run!(%W[git remote set-url #{child_name} ../#{File.basename(child_path)}], pool)
+  end
 
   # this ensures every ref, including remote refs/tags, gets fetched
   run!(%W[git config remote.#{child_name}.fetch +refs/*:refs/remotes/#{child_name}/*], pool)
 
   # this prevents remote tags being fetched into the top-level refs/tags namespace
   run!(%W[git config remote.#{child_name}.tagopt --no-tags], pool)
+end
+
+def link_repository_to_pool(pool, child_name, child_path)
+  create_remote_in_pool(pool, child_name, child_path)
 
   open(File.join(child_path, 'objects/info/alternates'), 'w') do |f|
     # It is important that this is a relative path, so that it is stable across changing git data mountpoints.
@@ -140,13 +148,18 @@ end
 # Note: tricks with the 'dir' argument and File.basename are there only
 # to make the script output prettier.
 def run!(cmd, dir=nil)
+ abort "failed" unless run(cmd, dir)
+end
+
+def run(cmd, dir=nil)
   dir ||= Dir.pwd
   cmd_s = cmd.join(' ')
   warn "#{File.basename(dir)}$ #{cmd_s}"
   start = Time.now
-  abort "failed" unless system(*cmd, chdir: dir)
+  status = system(*cmd, chdir: dir)
   delta = Time.now - start
   warn sprintf("time: %.3fs\n", delta) if delta > 1.0
+  status
 end
 
 main
