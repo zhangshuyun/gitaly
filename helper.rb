@@ -1,3 +1,5 @@
+require 'open3'
+
 def run_pipeline(pipeline, dir)
   warn "#{File.basename(dir)}$ #{pipeline.map { |c| c.join(' ') }.join(' | ')}"
 

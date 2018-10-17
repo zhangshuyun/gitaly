@@ -1,0 +1,52 @@
+#!/usr/bin/env ruby
+require 'tempfile'
+require 'fileutils'
+require 'securerandom'
+
+require_relative 'helper'
+
+TEST_REPO = ENV.fetch('TEST_REPO')
+TMP_ROOT = File.absolute_path(Dir.mktmpdir)
+TEST_REF = "refs/heads/test-ref-#{SecureRandom.hex(4)}"
+
+at_exit do
+  warn '... deleting tmp data'
+  FileUtils.rm_rf(TMP_ROOT)
+end
+
+def main
+  pool = File.join(TMP_ROOT, 'pool.git')
+  run!(%W[git clone --quiet --bare #{TEST_REPO} #{pool}])
+
+  child = File.join(TMP_ROOT, 'child.git')
+  run!(%W[git clone --quiet --bare --shared #{pool} #{child}])
+  run!(%w[git remote remove origin], child)
+
+  # Verify that child shares objects with pool
+  run!(%w[du -sh] + [pool, child])
+  run!(%w[cat objects/info/alternates], child)
+
+  # Create a dangling object in the pool repository
+  commit_id = IO.popen(
+    %w[git commit-tree -p HEAD -m hello HEAD^{tree}],
+    chdir: pool,
+    &:read
+  ).chomp
+  abort "git commit-tree failed" unless $?.success?
+
+  # Make objects old; to see if mtimes get updated later
+  run!(%w[find objects -exec touch -t 200001010101 {} ;], pool)
+  run!(%w[find objects -type f -exec ls -l {} ;], pool)
+
+  # Make the child refer to the dangling object
+  run!(%W[git update-ref #{TEST_REF} #{commit_id}], child)
+  run!(%W[git cat-file -p #{TEST_REF}], child)
+
+  # Print mtimes
+  run!(%w[find objects -type f -exec ls -l {} ;], pool)
+  run!(%w[find objects -type f -exec ls -l {} ;], child)
+
+  # Does not look good, no sign of mtime change. How will the pool know the object is used?
+end
+
+main
