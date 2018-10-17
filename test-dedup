@@ -95,6 +95,7 @@ def link_repository_to_pool(pool, child_name, child_path)
 end
 
 def delete_top_level_refs(repo)
+  # Delete every ref that does not start with 'refs/remotes/'
   run_pipeline!([
     %w[git for-each-ref --format=delete\ %(refname)],
     %w[grep -v ^delete\ refs/remotes/],
@@ -139,7 +140,12 @@ end
 
 def prepare_leave_pool(repo_path)
   puts '--- PrepareLeavePool'
+
+  # Because we are running 'git repack' _without_ '-l', Git will gather
+  # all the objects it needs from the pool repository into a new
+  # non-deduplicated packfile.
   run!(%w[git repack --quiet -a], repo_path)
+
   puts '---'
 end
 
