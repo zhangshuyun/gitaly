@@ -3,10 +3,11 @@ package client
 import (
 	"io"
 
-	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
-	"gitlab.com/gitlab-org/gitaly/streamio"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
+
+	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
+	"gitlab.com/gitlab-org/gitaly/streamio"
 )
 
 // UploadPack proxies an SSH git-upload-pack (git fetch) session to Gitaly

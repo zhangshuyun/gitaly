@@ -5,9 +5,10 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc/metadata"
+
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
-	"google.golang.org/grpc/metadata"
 )
 
 func TestExtractGitalyServers(t *testing.T) {

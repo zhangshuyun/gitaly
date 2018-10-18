@@ -69,8 +69,11 @@ func (gm *gitalyMake) BuildDir() string {
 	return gm.cwd
 }
 
-func (gm *gitalyMake) Pkg() string         { return "gitlab.com/gitlab-org/gitaly" }
-func (gm *gitalyMake) GoImports() string   { return "bin/goimports" }
+func (gm *gitalyMake) Pkg() string       { return "gitlab.com/gitlab-org/gitaly" }
+func (gm *gitalyMake) GoImports() string { return "bin/goimports" }
+func (gm *gitalyMake) GoImportsFlags() string {
+	return fmt.Sprintf("-local %s,gitlab.com/gitlab-org/gitaly-proto", gm.Pkg())
+}
 func (gm *gitalyMake) GoCovMerge() string  { return "bin/gocovmerge" }
 func (gm *gitalyMake) GoLint() string      { return "bin/golint" }
 func (gm *gitalyMake) GoVendor() string    { return "bin/govendor" }
@@ -325,7 +328,7 @@ lint: {{ .GoLint }}
 .PHONY: check-formatting
 check-formatting: {{ .GoImports }}
 	# goimports
-	@cd {{ .SourceDir }} && goimports -e -l {{ join .GoFiles " " }} | awk '{ print } END { if(NR>0) { print "Formatting error, run make format"; exit(1) } }'
+	@cd {{ .SourceDir }} && goimports {{ .GoImportsFlags }} -e -l {{ join .GoFiles " " }} | awk '{ print } END { if(NR>0) { print "Formatting error, run make format"; exit(1) } }'
 
 {{ .GoImports }}:
 	go get golang.org/x/tools/cmd/goimports
@@ -334,7 +337,7 @@ check-formatting: {{ .GoImports }}
 format: {{ .GoImports }}
 	# In addition to fixing imports, goimports also formats your code in the same style as gofmt
 	# so it can be used as a replacement.
-	@cd {{ .SourceDir }} && goimports -w -l {{ join .GoFiles " " }}
+	@cd {{ .SourceDir }} && goimports {{ .GoImportsFlags }} -w -l {{ join .GoFiles " " }}
 
 .PHONY: megacheck
 megacheck: {{ .MegaCheck }}

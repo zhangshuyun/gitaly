@@ -7,11 +7,12 @@ import (
 	"testing"
 	"time"
 
-	"gitlab.com/gitlab-org/gitaly/internal/config"
-	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"google.golang.org/grpc/codes"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/status"
+
+	"gitlab.com/gitlab-org/gitaly/internal/config"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 )
 
 func waitPing(s *Server) error {

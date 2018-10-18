@@ -8,10 +8,11 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
-	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
-	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
+
+	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 )
 
 const (

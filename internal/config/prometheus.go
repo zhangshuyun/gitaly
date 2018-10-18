@@ -4,6 +4,7 @@ import (
 	"github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
+
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/limithandler"
 )
 

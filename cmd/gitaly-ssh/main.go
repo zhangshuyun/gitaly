@@ -4,9 +4,10 @@ import (
 	"log"
 	"os"
 
+	"google.golang.org/grpc"
+
 	"gitlab.com/gitlab-org/gitaly/auth"
 	"gitlab.com/gitlab-org/gitaly/client"
-	"google.golang.org/grpc"
 )
 
 type packFn func(_, _ string) (int32, error)

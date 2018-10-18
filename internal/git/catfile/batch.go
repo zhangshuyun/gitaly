@@ -8,9 +8,10 @@ import (
 	"io/ioutil"
 	"sync"
 
-	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 )
 
 // batch encapsulates a 'git cat-file --batch' process

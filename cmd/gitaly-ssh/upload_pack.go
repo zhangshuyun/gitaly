@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/golang/protobuf/jsonpb"
+
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/client"
 )

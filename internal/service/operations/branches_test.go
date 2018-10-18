@@ -8,11 +8,12 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"golang.org/x/net/context"
+	"google.golang.org/grpc/codes"
+
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
-	"golang.org/x/net/context"
-	"google.golang.org/grpc/codes"
 )
 
 func TestSuccessfulUserCreateBranchRequest(t *testing.T) {

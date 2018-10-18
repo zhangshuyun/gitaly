@@ -3,12 +3,13 @@ package ref
 import (
 	"bytes"
 
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/lines"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 var localBranchFormatFields = []string{"%(refname)", "%(objectname)"}

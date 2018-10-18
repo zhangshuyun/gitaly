@@ -4,8 +4,9 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"google.golang.org/grpc/metadata"
+
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 )
 
 func TestSetHeadersBlocksUnknownMetadata(t *testing.T) {

@@ -7,10 +7,11 @@ import (
 
 	raven "github.com/getsentry/raven-go"
 	"github.com/grpc-ecosystem/go-grpc-middleware/tags"
-	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+
+	"gitlab.com/gitlab-org/gitaly/internal/helper"
 )
 
 var ignoredCodes = []codes.Code{

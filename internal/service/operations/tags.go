@@ -1,9 +1,10 @@
 package operations
 
 import (
+	"golang.org/x/net/context"
+
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/internal/rubyserver"
-	"golang.org/x/net/context"
 )
 
 func (s *server) UserDeleteTag(ctx context.Context, req *gitalypb.UserDeleteTagRequest) (*gitalypb.UserDeleteTagResponse, error) {

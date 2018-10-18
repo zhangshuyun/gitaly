@@ -5,6 +5,7 @@ import (
 
 	"github.com/getsentry/raven-go"
 	log "github.com/sirupsen/logrus"
+
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/panichandler"
 )
 

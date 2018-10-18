@@ -3,10 +3,11 @@ package repository
 import (
 	"bytes"
 
+	"golang.org/x/net/context"
+
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/alternates"
-	"golang.org/x/net/context"
 )
 
 func (s *server) Fsck(ctx context.Context, req *gitalypb.FsckRequest) (*gitalypb.FsckResponse, error) {

@@ -5,9 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/metadata"
+
+	"gitlab.com/gitlab-org/gitaly/internal/storage"
 )
 
 // ExtractGitalyServers extracts `storage.GitalyServers` from an incoming context.

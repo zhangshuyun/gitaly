@@ -7,9 +7,10 @@ import (
 	"io"
 	"sync"
 
-	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 )
 
 // batchCheck encapsulates a 'git cat-file --batch-check' process

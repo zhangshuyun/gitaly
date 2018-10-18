@@ -3,8 +3,9 @@ package limithandler_test
 import (
 	"sync/atomic"
 
-	pb "gitlab.com/gitlab-org/gitaly/internal/middleware/limithandler/testpb"
 	"golang.org/x/net/context"
+
+	pb "gitlab.com/gitlab-org/gitaly/internal/middleware/limithandler/testpb"
 )
 
 type server struct {

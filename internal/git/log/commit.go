@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/golang/protobuf/ptypes/timestamp"
+
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"

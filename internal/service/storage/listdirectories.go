@@ -5,10 +5,11 @@ import (
 	"path/filepath"
 	"strings"
 
-	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
-	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
+	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
+	"gitlab.com/gitlab-org/gitaly/internal/helper"
 )
 
 func (s *server) ListDirectories(req *gitalypb.ListDirectoriesRequest, stream gitalypb.StorageService_ListDirectoriesServer) error {

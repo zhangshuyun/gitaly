@@ -6,9 +6,10 @@ import (
 	"os"
 	"strings"
 
+	"google.golang.org/grpc/metadata"
+
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
-	"google.golang.org/grpc/metadata"
 )
 
 // ProxyHeaderWhitelist is the list of http/2 headers that will be
