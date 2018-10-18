@@ -7,7 +7,6 @@ require_relative 'helper'
 
 TEST_REPO = ENV.fetch('TEST_REPO')
 TMP_ROOT = File.absolute_path(Dir.mktmpdir)
-TEST_REF = "refs/heads/test-ref-#{SecureRandom.hex(4)}"
 
 at_exit do
   warn '... deleting tmp data'
@@ -27,26 +26,63 @@ def main
   run!(%w[cat objects/info/alternates], child)
 
   # Create a dangling object in the pool repository
-  commit_id = IO.popen(
-    %w[git commit-tree -p HEAD -m hello HEAD^{tree}],
-    chdir: pool,
-    &:read
-  ).chomp
-  abort "git commit-tree failed" unless $?.success?
+  commit_id = new_commit(pool)
 
   # Make objects old; to see if mtimes get updated later
-  run!(%w[find objects -exec touch -t 200001010101 {} ;], pool)
+  backdate_objects(pool)
   run!(%w[find objects -type f -exec ls -l {} ;], pool)
 
   # Make the child refer to the dangling object
-  run!(%W[git update-ref #{TEST_REF} #{commit_id}], child)
-  run!(%W[git cat-file -p #{TEST_REF}], child)
+  ref = new_test_ref
+  run!(%W[git update-ref #{ref} #{commit_id}], child)
+  run!(%W[git cat-file -p #{ref}], child)
 
   # Print mtimes
+  puts "--- looking for: #{commit_id}"
   run!(%w[find objects -type f -exec ls -l {} ;], pool)
   run!(%w[find objects -type f -exec ls -l {} ;], child)
 
   # Does not look good, no sign of mtime change. How will the pool know the object is used?
+
+  # Try pushing...
+
+  pusher = File.join(TMP_ROOT, 'pusher.git')
+  run!(%W[git clone --quiet --bare #{TEST_REPO} #{pusher}])
+  commit_id = new_commit(pusher)
+  ref = new_test_ref
+  run!(%W[git update-ref #{ref} #{commit_id}], pusher)
+
+  obj_name = "objects/#{commit_id[0,2]}/#{commit_id[2, commit_id.size]}"
+  FileUtils.mkdir_p(File.dirname(File.join(pool, obj_name)))
+  run!(%W[cp #{obj_name}  #{pool}/#{obj_name}], pusher)
+  backdate_objects(pool)
+
+  run!(%w[git config advice.objectNameWarning false], pusher)
+  run!(%w[git config advice.objectNameWarning false], child)
+
+  run!(%W[git push #{child} #{ref}], pusher)
+  puts "--- looking for: #{commit_id}"
+  run!(%w[find objects -type f -exec ls -l {} ;], pool)
+  run!(%w[find objects -type f -exec ls -l {} ;], child)
+end
+
+def new_commit(repo)
+  commit_id = IO.popen(
+    %W[git commit-tree -p HEAD -m hello#{SecureRandom.hex(2)} HEAD^{tree}],
+    chdir: repo,
+    &:read
+  ).chomp
+  abort "git commit-tree failed" unless $?.success?
+
+  commit_id
+end
+
+def new_test_ref
+  "refs/heads/test-ref-#{SecureRandom.hex(4)}"
+end
+
+def backdate_objects(repo)
+  run!(%w[find objects -exec touch -t 200001010101 {} ;], repo)
 end
 
 main
