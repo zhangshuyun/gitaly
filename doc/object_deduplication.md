@@ -22,7 +22,8 @@ repository.
 
 From a Gitaly point of view this is a very transparent solution. Almost
 all RPC's should continue to work without modification on repositories
-that are linked to a pool.
+that are linked to a pool. This is because Git natively supports
+`objects/info/alternates`.
 
 What is new is that GitLab must manage the pool repository and the pool
 relations in Gitaly.
@@ -56,32 +57,38 @@ The first iteration of object deduplication is limited to the following scope:
     objects. This means that the deduplication percentage will fall over
     time as new objects get pushed to the repositories in a pool. We
     will address this in a later iteration ("pool grooming")
-
 ### Scenarios
 
 #### Create pool from existing repo
 
-- SQL: create pool object
-- Gitaly: create pool repo from existing repo. Create remote pointing to existing repo, and clear top level refs in pool.
-- SQL: link project to pool
-- Gitaly: finalize link: create (remote and) objects/info/alternates connection for existing repo
+-   SQL: create pool object
+-   Gitaly: create pool repo from existing repo. Create remote pointing
+    to existing repo, and clear top level refs in pool.
+-   SQL: link project to pool
+-   Gitaly: finalize link: create (remote and) objects/info/alternates
+    connection for existing repo
 
 If this fails in the middle there is no data loss in the existing repo.
 
-#### Clone new repo from origin in pool (e.g. a fork)
+#### Clone new repo from origin in pool (e.g. a fork)
 
-- SQL: create project linked to pool. Project is in "being cloned" state
-- Gitaly: create new repo with local disk clone from origin
-- Gitaly: create remote and objects/info/alternates connection for new repo
-- SQL: clear project "being cloned" state
+-   SQL: create project linked to pool. Project is in "being cloned"
+    state
+-   Gitaly: create new repo with local disk clone from origin
+-   Gitaly: create remote and objects/info/alternates connection for new
+    repo
+-   SQL: clear project "being cloned" state
 
-#### Project leaves pool (e.g. fork taken private)
+#### Project leaves pool (e.g. fork taken private)
 
-- SQL: mark project as "repo transitioning to private". git pushes are blocked
-- Gitaly: copy needed objects from pool with git repack -a
-- Gitaly: remove objects/info/alternates link and pool remote
-- SQL: unmark "repo transitioning to private". git pushes no longer blocked
+-   SQL: mark project as "repo transitioning to private". git pushes are
+    blocked
+-   Gitaly: copy needed objects from pool with git repack -a
+-   Gitaly: remove objects/info/alternates link and pool remote
+-   SQL: unmark "repo transitioning to private". git pushes no longer
+    blocked
 
 This is problematic. If we fail in the middle, git pushes remain
-blocked. Do we really need to block git pushes during this operation?
-If we fail during the Gitaly parts we can re-create the pool links and restart the repack.
+blocked. Do we really need to block git pushes during this operation? If
+we fail during the Gitaly parts we can re-create the pool links and
+restart the repack.
