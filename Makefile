@@ -8,12 +8,13 @@
 # "Magic" should happen in the makegen.go dynamic template. We want
 # _build/Makefile to be as static as possible.
 
-BUILD_DIR = _build
+BUILD_DIR ?= $(CURDIR)/_build
 PKG = gitlab.com/gitlab-org/gitaly
 MAKEGEN = $(BUILD_DIR)/makegen
+TOP_LEVEL := $(CURDIR)
 
 # These variables are handed down to make in _build
-export GOPATH := $(CURDIR)/$(BUILD_DIR)
+export GOPATH := $(BUILD_DIR)
 export PATH := $(PATH):$(GOPATH)/bin
 export TEST_REPO_STORAGE_PATH := $(CURDIR)/internal/testhelper/testdata/data
 
@@ -76,14 +77,14 @@ prepare-build: $(BUILD_DIR)/.ok update-makefile
 $(BUILD_DIR)/.ok:
 	mkdir -p $(BUILD_DIR)/src/$(shell dirname $(PKG))
 	cd $(BUILD_DIR)/src/$(shell dirname $(PKG)) && rm -f $(shell basename $(PKG)) && \
-		ln -sf ../../../.. $(shell basename $(PKG))
+		ln -sf $(TOP_LEVEL) $(shell basename $(PKG))
 	touch $@
 
 .PHONY: update-makefile
-update-makefile: _build/makegen $(BUILD_DIR)/.ok
+update-makefile: $(BUILD_DIR)/makegen $(BUILD_DIR)/.ok
 	cd $(BUILD_DIR) && ./makegen > Makefile
 
-_build/makegen: _support/makegen.go $(BUILD_DIR)/.ok
+$(BUILD_DIR)/makegen: _support/makegen.go $(BUILD_DIR)/.ok
 	go build -o $@ _support/makegen.go
 
 clean:
