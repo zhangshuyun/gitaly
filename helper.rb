@@ -14,16 +14,16 @@ end
 
 # Note: tricks with the 'dir' argument and File.basename are there only
 # to make the script output prettier.
-def run!(cmd, dir=nil)
- abort "failed" unless run(cmd, dir)
+def run!(cmd, dir=nil, env={})
+ abort "failed" unless run(cmd, dir, env)
 end
 
-def run(cmd, dir=nil)
+def run(cmd, dir=nil, env={})
   dir ||= Dir.pwd
   cmd_s = cmd.join(' ')
   warn "#{File.basename(dir)}$ #{cmd_s}"
   start = Time.now
-  status = system(*cmd, chdir: dir)
+  status = system(env, *cmd, chdir: dir)
   delta = Time.now - start
   warn sprintf("time: %.3fs\n", delta) if delta > 1.0
   status

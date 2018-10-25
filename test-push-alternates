@@ -43,8 +43,13 @@ def main
   run!(%w[find objects -type f -exec ls -l {} ;], child)
 
   # Does not look good, no sign of mtime change. How will the pool know the object is used?
+  # Let's try freshening the commit.
+  run_pipeline!([%W[git cat-file commit #{commit_id}], %w[git hash-object -t commit -w --stdin]], child)
+  run!(%w[find objects -type f -exec ls -l {} ;], pool)
+  run!(%w[find objects -type f -exec ls -l {} ;], child)
+  # Freshening works!
 
-  # Try pushing...
+  # Different scenario: 'git push'
 
   pusher = File.join(TMP_ROOT, 'pusher.git')
   run!(%W[git clone --quiet --bare #{TEST_REPO} #{pusher}])
@@ -55,6 +60,7 @@ def main
   obj_name = "objects/#{commit_id[0,2]}/#{commit_id[2, commit_id.size]}"
   FileUtils.mkdir_p(File.dirname(File.join(pool, obj_name)))
   run!(%W[cp #{obj_name}  #{pool}/#{obj_name}], pusher)
+  run!(%w[git repack --quiet -k -d -a], pool)
   backdate_objects(pool)
 
   run!(%w[git config advice.objectNameWarning false], pusher)
@@ -64,6 +70,7 @@ def main
   puts "--- looking for: #{commit_id}"
   run!(%w[find objects -type f -exec ls -l {} ;], pool)
   run!(%w[find objects -type f -exec ls -l {} ;], child)
+  run!(%W[git show #{commit_id}], pool)
 end
 
 def new_commit(repo)
