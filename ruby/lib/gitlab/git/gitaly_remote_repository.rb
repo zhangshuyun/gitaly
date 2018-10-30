@@ -56,13 +56,13 @@ module Gitlab
       end
 
       def token
-        gitaly_client.token(storage).to_s
+        @token ||= gitaly_client.token(storage).to_s
       end
 
       def request_kwargs
         @request_kwargs ||= begin
           metadata = {
-            'authorization' => "Bearer #{auhtorization_token}",
+            'authorization' => "Bearer #{authorization_token}",
             'client_name' => CLIENT_NAME
           }
 
@@ -70,7 +70,11 @@ module Gitlab
         end
       end
 
-      def auhtorization_token
+      def authorization_token
+        # TODO: Remove support for direct secret handling (i.e. v1 auth scheme)
+        # https://gitlab.com/gitlab-org/gitaly/issues/1388
+        return token if token.split('.')[0] == 'v2'
+
         issued_at = Time.now.to_i.to_s
         hmac = OpenSSL::HMAC.hexdigest(OpenSSL::Digest::SHA256.new, token, issued_at)
 

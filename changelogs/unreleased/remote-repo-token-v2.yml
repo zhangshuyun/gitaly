@@ -1,0 +1,5 @@
+---
+title: Don't reprocess v2 tokens in GitalyRemoteRepository
+merge_request: 948
+author:
+type: changed

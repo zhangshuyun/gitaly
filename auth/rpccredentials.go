@@ -41,7 +41,22 @@ type rpcCredentialsV2 struct {
 func (*rpcCredentialsV2) RequireTransportSecurity() bool { return false }
 
 func (rc *rpcCredentialsV2) GetRequestMetadata(context.Context, ...string) (map[string]string, error) {
-	return map[string]string{"authorization": "Bearer " + rc.hmacToken()}, nil
+	// Check if token is already a v2 auth token
+	// TODO: Remove support for direct secret handling (i.e. v1 auth scheme)
+	// https://gitlab.com/gitlab-org/gitaly/issues/1388
+	authInfo, err := parseToken(rc.token)
+	if err != nil {
+		return nil, err
+	}
+
+	var authToken string
+	if authInfo.Version == "v2" {
+		authToken = rc.token
+	} else {
+		authToken = rc.hmacToken()
+	}
+
+	return map[string]string{"authorization": "Bearer " + authToken}, nil
 }
 
 func (rc *rpcCredentialsV2) hmacToken() string {

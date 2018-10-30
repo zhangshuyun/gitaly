@@ -52,7 +52,7 @@ func main() {
 func dialOpts() []grpc.DialOption {
 	connOpts := client.DefaultDialOpts
 	if token := os.Getenv("GITALY_TOKEN"); token != "" {
-		connOpts = append(connOpts, grpc.WithPerRPCCredentials(gitalyauth.RPCCredentials(token)))
+		connOpts = append(connOpts, grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(token)))
 	}
 
 	return connOpts
