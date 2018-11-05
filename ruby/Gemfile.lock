@@ -1,3 +1,11 @@
+GIT
+  remote: https://gitlab.com/gitlab-org/gitaly-proto
+  revision: 3cd0d45aeeec8712d2f4295d337bdb1c1f4958d0
+  ref: fj-add-option-avoid-loading-wiki-page-content
+  specs:
+    gitaly-proto (0.122.0)
+      grpc (~> 1.0)
+
 GEM
   remote: https://rubygems.org/
   specs:
@@ -30,8 +38,6 @@ GEM
       multipart-post (>= 1.2, < 3)
     gemojione (3.3.0)
       json
-    gitaly-proto (0.121.0)
-      grpc (~> 1.0)
     github-linguist (6.2.0)
       charlock_holmes (~> 0.7.6)
       escape_utils (~> 1.2.0)
@@ -150,7 +156,7 @@ DEPENDENCIES
   bundler (>= 1.16.5)
   factory_bot
   faraday (~> 0.12)
-  gitaly-proto (~> 0.121.0)
+  gitaly-proto!
   github-linguist (~> 6.1)
   gitlab-gollum-lib (~> 4.2)
   gitlab-gollum-rugged_adapter (~> 0.4.4)
@@ -167,4 +173,4 @@ DEPENDENCIES
   timecop
 
 BUNDLED WITH
-   1.16.6
+   1.17.1

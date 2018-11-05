@@ -1,0 +1,5 @@
+---
+title: Add WikiListAllPages call
+merge_request: 957
+author:
+type: performance
