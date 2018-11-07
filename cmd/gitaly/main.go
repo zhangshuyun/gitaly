@@ -8,7 +8,9 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
+	"github.com/cloudflare/tableflip"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
@@ -20,6 +22,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/server"
 	"gitlab.com/gitlab-org/gitaly/internal/tempdir"
 	"gitlab.com/gitlab-org/gitaly/internal/version"
+	"google.golang.org/grpc"
 )
 
 var (
@@ -107,9 +110,14 @@ func main() {
 	tempdir.StartCleaning()
 
 	var listeners []net.Listener
+	upg, err := tableflip.New(tableflip.Options{})
+	if err != nil {
+		log.WithError(err).Fatal("Unable to tableflip")
+	}
+	defer upg.Stop()
 
 	if socketPath := config.Config.SocketPath; socketPath != "" {
-		l, err := createUnixListener(socketPath)
+		l, err := createUnixListener(upg, socketPath)
 		if err != nil {
 			log.WithError(err).Fatal("configure unix listener")
 		}
@@ -118,7 +126,7 @@ func main() {
 	}
 
 	if addr := config.Config.ListenAddr; addr != "" {
-		l, err := net.Listen("tcp", addr)
+		l, err := upg.Fds.Listen("tcp", addr)
 		if err != nil {
 			log.WithError(err).Fatal("configure tcp listener")
 		}
@@ -135,35 +143,66 @@ func main() {
 		server.AddPprofHandlers(promMux)
 
 		go func() {
-			http.ListenAndServe(config.Config.PrometheusListenAddr, promMux)
+			l, err := upg.Fds.Listen("tcp", config.Config.PrometheusListenAddr)
+			if err != nil {
+				log.WithError(err).Fatal("No tableflip")
+			}
+
+			err = http.Serve(l, promMux)
+			if err != nil {
+				log.WithError(err).Fatal("Unable to serve")
+			}
 		}()
 	}
 
-	log.WithError(run(listeners)).Fatal("shutting down")
+	run(upg, listeners)
 }
 
-func createUnixListener(socketPath string) (net.Listener, error) {
+func createUnixListener(upg *tableflip.Upgrader, socketPath string) (net.Listener, error) {
 	if err := os.Remove(socketPath); err != nil && !os.IsNotExist(err) {
 		return nil, err
 	}
-	l, err := net.Listen("unix", socketPath)
+	l, err := upg.Fds.Listen("unix", socketPath)
 	return connectioncounter.New("unix", l), err
 }
 
-// Inside here we can use deferred functions. This is needed because
-// log.Fatal bypasses deferred functions.
-func run(listeners []net.Listener) error {
+// This function will never return
+func run(upg *tableflip.Upgrader, listeners []net.Listener) {
+	go func() {
+		sig := make(chan os.Signal, 1)
+		signal.Notify(sig, syscall.SIGHUP)
+		for range sig {
+			log.Println("SIGHUPSIGHUPSIGHUPSIGHUP")
+
+			err := upg.Upgrade()
+			if err != nil {
+				log.Println("Upgrade failed:", err)
+				continue
+			}
+
+			log.Println("Upgrade succeeded")
+		}
+	}()
+
 	signals := []os.Signal{syscall.SIGTERM, syscall.SIGINT}
 	termCh := make(chan os.Signal, len(signals))
 	signal.Notify(termCh, signals...)
 
 	ruby, err := rubyserver.Start()
 	if err != nil {
-		return err
+		log.WithError(err).Fatal("unable to start ruby server")
 	}
 	defer ruby.Stop()
 
 	server := server.New(ruby)
+
+	err = gracefulListen(server, upg, listeners)
+	if err != nil {
+		log.WithError(err).Fatal("unable to start ruby server")
+	}
+}
+
+func gracefulListen(server *grpc.Server, upg *tableflip.Upgrader, listeners []net.Listener) error {
 	defer server.Stop()
 
 	serverErrors := make(chan error, len(listeners))
@@ -175,11 +214,24 @@ func run(listeners []net.Listener) error {
 		}(listener)
 	}
 
+	if err := upg.Ready(); err != nil {
+		panic(err)
+	}
+
+	var err error
 	select {
-	case s := <-termCh:
-		err = fmt.Errorf("received signal %q", s)
+	case <-upg.Exit():
 	case err = <-serverErrors:
 	}
 
-	return err
+	if err != nil {
+		log.WithError(err).Fatal("unable to listen")
+	}
+
+	time.AfterFunc(30*time.Second, func() {
+		os.Exit(1)
+	})
+
+	server.GracefulStop()
+	return nil
 }
