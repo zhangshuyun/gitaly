@@ -8,8 +8,22 @@ describe Gitlab::Git::Wiki do
 
   subject { described_class.new(repository) }
 
+  shared_examples 'with limit option' do
+    it 'returns all the pages' do
+      expect(pages.count).to eq(2)
+      expect(pages.first.title).to eq 'page1'
+      expect(pages.last.title).to eq 'page2'
+    end
+
+    it 'returns only one page' do
+      expect(limited_pages.count).to eq(1)
+      expect(limited_pages.first.title).to eq 'page1'
+    end
+  end
+
   describe '#pages' do
     let(:pages) { subject.pages }
+    let(:limited_pages) { subject.pages(limit: 1) }
 
     before do
       create_page('page1', 'content')
@@ -21,21 +35,39 @@ describe Gitlab::Git::Wiki do
       destroy_page('page2')
     end
 
-    it 'returns all the pages' do
-      expect(pages.count).to eq(2)
-      expect(pages.first.title).to eq 'page1'
-      expect(pages.last.title).to eq 'page2'
-    end
-
-    it 'returns only one page' do
-      pages = subject.pages(limit: 1)
-
-      expect(pages.count).to eq(1)
-      expect(pages.first.title).to eq 'page1'
-    end
+    it_behaves_like 'with limit option'
 
     it 'returns formatted data' do
       expect(pages.first.formatted_data).to be_a(String)
+    end
+
+    it 'loads page raw_data' do
+      pages.each do |page|
+        expect(page.raw_data).not_to be_empty
+      end
+    end
+  end
+
+  describe '#list_pages' do
+    let(:pages) { subject.list_pages }
+    let(:limited_pages) { subject.list_pages(limit: 1) }
+
+    before do
+      create_page('page1', 'content')
+      create_page('page2', 'content2')
+    end
+
+    after do
+      destroy_page('page1')
+      destroy_page('page2')
+    end
+
+    it_behaves_like 'with limit option'
+
+    it 'does not load page raw_data' do
+      pages.each do |page|
+        expect(page.raw_data).to be_nil
+      end
     end
   end
 

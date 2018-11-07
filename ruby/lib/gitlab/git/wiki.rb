@@ -42,6 +42,10 @@ module Gitlab
         gollum_get_all_pages(limit: limit)
       end
 
+      def list_pages(limit: nil)
+        gollum_list_all_pages(limit: limit)
+      end
+
       def page(title:, version: nil, dir: nil)
         gollum_find_page(title: title, version: version, dir: dir)
       end
@@ -85,8 +89,10 @@ module Gitlab
 
       private
 
-      def new_page(gollum_page)
-        Gitlab::Git::WikiPage.new(gollum_page, new_version(gollum_page, gollum_page.version.id))
+      def new_page(gollum_page, load_content: true)
+        Gitlab::Git::WikiPage.new(gollum_page,
+                                  new_version(gollum_page, gollum_page.version.id),
+                                  load_content: load_content)
       end
 
       def new_version(gollum_page, commit_id)
@@ -199,6 +205,12 @@ module Gitlab
 
       def gollum_get_all_pages(limit: nil)
         gollum_wiki.pages(limit: limit).map { |gollum_page| new_page(gollum_page) }
+      end
+
+      def gollum_list_all_pages(limit: nil)
+        gollum_wiki.pages(limit: limit).map do |gollum_page|
+          new_page(gollum_page, load_content: false)
+        end
       end
     end
   end

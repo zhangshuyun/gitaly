@@ -244,7 +244,7 @@ module GitalyServer
         pages_limit = request.limit.zero? ? nil : request.limit
 
         Enumerator.new do |y|
-          wiki.pages(limit: pages_limit).each do |page|
+          wiki.list_pages(limit: pages_limit).each do |page|
             version = Gitaly::WikiPageVersion.new(
               commit: gitaly_commit_from_rugged(page.version.commit.raw_commit),
               format: page.version.format.to_s
