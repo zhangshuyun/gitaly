@@ -237,30 +237,32 @@ module GitalyServer
       end
     end
 
-    def wiki_list_all_pages(request, call)
+    def wiki_list_pages(request, call)
       bridge_exceptions do
         repo = Gitlab::Git::Repository.from_gitaly(request.repository, call)
         wiki = Gitlab::Git::Wiki.new(repo)
         pages_limit = request.limit.zero? ? nil : request.limit
 
         Enumerator.new do |y|
-          wiki.list_pages(limit: pages_limit).each do |page|
-            version = Gitaly::WikiPageVersion.new(
-              commit: gitaly_commit_from_rugged(page.version.commit.raw_commit),
-              format: page.version.format.to_s
-            )
-            gitaly_wiki_page = Gitaly::WikiPage.new(
-              version: version,
-              format: page.format.to_s,
-              title: page.title.b,
-              url_path: page.url_path.to_s,
-              path: page.path.b,
-              name: page.name.b,
-              historical: page.historical?
-            )
+          wiki.list_pages(limit: pages_limit).each_slice(1) do |slice|
+            pages = slice.map do |page|
+              version = Gitaly::WikiPageVersion.new(
+                commit: gitaly_commit_from_rugged(page.version.commit.raw_commit),
+                format: page.version.format.to_s
+              )
+              Gitaly::WikiPage.new(
+                version: version,
+                format: page.format.to_s,
+                title: page.title.b,
+                url_path: page.url_path.to_s,
+                path: page.path.b,
+                name: page.name.b,
+                historical: page.historical?
+              )
+            end
 
-            y.yield Gitaly::WikiGetAllPagesResponse.new(page: gitaly_wiki_page)
-            y.yield Gitaly::WikiGetAllPagesResponse.new(end_of_page: true)
+            y.yield Gitaly::WikiListPagesResponse.new(page: pages)
+            # y.yield Gitaly::WikiListAllPagesResponse.new(end_of_page: true)
           end
         end
       end

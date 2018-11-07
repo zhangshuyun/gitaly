@@ -5,7 +5,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/rubyserver"
 )
 
-func (s *server) WikiListAllPages(request *gitalypb.WikiListAllPagesRequest, stream gitalypb.WikiService_WikiListAllPagesServer) error {
+func (s *server) WikiListPages(request *gitalypb.WikiListPagesRequest, stream gitalypb.WikiService_WikiListPagesServer) error {
 	ctx := stream.Context()
 
 	client, err := s.WikiServiceClient(ctx)
@@ -18,7 +18,7 @@ func (s *server) WikiListAllPages(request *gitalypb.WikiListAllPagesRequest, str
 		return err
 	}
 
-	rubyStream, err := client.WikiListAllPages(clientCtx, request)
+	rubyStream, err := client.WikiListPages(clientCtx, request)
 	if err != nil {
 		return err
 	}

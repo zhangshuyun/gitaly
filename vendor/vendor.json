@@ -331,10 +331,10 @@
 			"versionExact": "v1.2.2"
 		},
 		{
-			"checksumSHA1": "4Ci+adPaRMxpfexJklmodJGHh9Y=",
+			"checksumSHA1": "6PVqrHt1mgLZkfWq6uj3TIbP2Pg=",
 			"path": "gitlab.com/gitlab-org/gitaly-proto/go/gitalypb",
-			"revision": "3cd0d45aeeec8712d2f4295d337bdb1c1f4958d0",
-			"revisionTime": "2018-11-06T11:47:38Z",
+			"revision": "273a6366d966069598c3272990aa11eba9b305d4",
+			"revisionTime": "2018-11-07T12:49:42Z",
 			"version": "=fj-add-option-avoid-loading-wiki-page-content",
 			"versionExact": "fj-add-option-avoid-loading-wiki-page-content"
 		},

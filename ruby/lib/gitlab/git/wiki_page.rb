@@ -18,7 +18,7 @@ module Gitlab
       end
 
       def formatted_data
-        @gollum_page.formatted_data
+        @raw_data && @gollum_page.formatted_data
       end
 
       def historical?

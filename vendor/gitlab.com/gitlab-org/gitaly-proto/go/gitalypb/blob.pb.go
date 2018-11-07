@@ -301,8 +301,8 @@ It has these top-level messages:
 	WikiGetAllPagesResponse
 	WikiGetFormattedDataRequest
 	WikiGetFormattedDataResponse
-	WikiListAllPagesRequest
-	WikiListAllPagesResponse
+	WikiListPagesRequest
+	WikiListPagesResponse
 */
 package gitalypb
 
