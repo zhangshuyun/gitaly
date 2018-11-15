@@ -267,8 +267,8 @@ func TestFailedReceivePackRequestDueToValidationError(t *testing.T) {
 	defer conn.Close()
 
 	rpcRequests := []gitalypb.PostReceivePackRequest{
-		{Repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}, GlId: "user-123"}, // Repository doesn't exist
-		{Repository: nil, GlId: "user-123"}, // Repository is nil
+		{Repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}, GlId: "user-123"},                                  // Repository doesn't exist
+		{Repository: nil, GlId: "user-123"},                                                                                              // Repository is nil
 		{Repository: &gitalypb.Repository{StorageName: "default", RelativePath: "path/to/repo"}, GlId: ""},                               // Empty GlId
 		{Repository: &gitalypb.Repository{StorageName: "default", RelativePath: "path/to/repo"}, GlId: "user-123", Data: []byte("Fail")}, // Data exists on first request
 	}

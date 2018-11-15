@@ -406,7 +406,7 @@ func TestSuccessfulCommitDiffRequestWithIgnoreWhitespaceChange(t *testing.T) {
 				RightCommitId:          rightCommit,
 				LeftCommitId:           leftCommit,
 				IgnoreWhitespaceChange: true,
-				Paths:                  entry.paths,
+				Paths: entry.paths,
 			}
 
 			ctx, cancel := context.WithCancel(context.Background())

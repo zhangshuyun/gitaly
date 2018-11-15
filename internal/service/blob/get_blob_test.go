@@ -158,8 +158,8 @@ func TestFailedGetBlobRequestDueToValidationError(t *testing.T) {
 
 	rpcRequests := []gitalypb.GetBlobRequest{
 		{Repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}, Oid: oid}, // Repository doesn't exist
-		{Repository: nil, Oid: oid}, // Repository is nil
-		{Repository: testRepo},      // Oid is empty
+		{Repository: nil, Oid: oid},                                                             // Repository is nil
+		{Repository: testRepo},                                                                  // Oid is empty
 	}
 
 	for _, rpcRequest := range rpcRequests {
