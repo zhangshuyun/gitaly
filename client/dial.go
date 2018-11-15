@@ -2,10 +2,8 @@ package client
 
 import (
 	"fmt"
-	"net"
 	"net/url"
 	"strings"
-	"time"
 
 	"google.golang.org/grpc"
 )
@@ -17,16 +15,7 @@ var DefaultDialOpts = []grpc.DialOption{
 
 // Dial gitaly
 func Dial(rawAddress string, connOpts []grpc.DialOption) (*grpc.ClientConn, error) {
-	network, addr, err := parseAddress(rawAddress)
-	if err != nil {
-		return nil, err
-	}
-
-	connOpts = append(connOpts,
-		grpc.WithDialer(func(a string, timeout time.Duration) (net.Conn, error) {
-			return net.DialTimeout(network, a, timeout)
-		}))
-	conn, err := grpc.Dial(addr, connOpts...)
+	conn, err := grpc.Dial(rawAddress, connOpts...)
 	if err != nil {
 		return nil, err
 	}

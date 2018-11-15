@@ -318,5 +318,5 @@ func runFullServer(t *testing.T) (*grpc.Server, string) {
 
 	go server.Serve(listener)
 
-	return server, serverSocketPath
+	return server, "unix://" + serverSocketPath
 }

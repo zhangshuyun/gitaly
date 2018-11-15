@@ -3,7 +3,6 @@ package server
 import (
 	"net"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -146,10 +145,6 @@ func (brokenAuth) GetRequestMetadata(netctx.Context, ...string) (map[string]stri
 }
 
 func dial(serverSocketPath string, opts []grpc.DialOption) (*grpc.ClientConn, error) {
-	opts = append(opts, grpc.WithDialer(func(addr string, timeout time.Duration) (net.Conn, error) {
-		return net.DialTimeout("unix", addr, timeout)
-	}))
-
 	return grpc.Dial(serverSocketPath, opts...)
 }
 
@@ -171,5 +166,5 @@ func runServer(t *testing.T) (*grpc.Server, string) {
 	require.NoError(t, err)
 	go srv.Serve(listener)
 
-	return srv, serverSocketPath
+	return srv, "unix://" + serverSocketPath
 }

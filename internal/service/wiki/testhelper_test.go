@@ -7,7 +7,6 @@ import (
 	"path"
 	"strings"
 	"testing"
-	"time"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
@@ -65,15 +64,12 @@ func runWikiServiceServer(t *testing.T) (*grpc.Server, string) {
 
 	go grpcServer.Serve(listener)
 
-	return grpcServer, serverSocketPath
+	return grpcServer, "unix://" + serverSocketPath
 }
 
 func newWikiClient(t *testing.T, serverSocketPath string) (gitalypb.WikiServiceClient, *grpc.ClientConn) {
 	connOpts := []grpc.DialOption{
 		grpc.WithInsecure(),
-		grpc.WithDialer(func(addr string, timeout time.Duration) (net.Conn, error) {
-			return net.DialTimeout("unix", addr, timeout)
-		}),
 	}
 	conn, err := grpc.Dial(serverSocketPath, connOpts...)
 	if err != nil {

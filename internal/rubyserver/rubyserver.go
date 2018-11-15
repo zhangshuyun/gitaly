@@ -3,7 +3,6 @@ package rubyserver
 import (
 	"fmt"
 	"io/ioutil"
-	"net"
 	"os"
 	"path"
 	"path/filepath"
@@ -126,6 +125,7 @@ func Start() (*Server, error) {
 	for i := 0; i < numWorkers; i++ {
 		name := fmt.Sprintf("gitaly-ruby.%d", i)
 		socketPath := socketPath(i)
+		address := "unix://" + socketPath
 
 		// Use 'ruby-cd' to make sure gitaly-ruby has the same working directory
 		// as the current process. This is a hack to sort-of support relative
@@ -133,13 +133,13 @@ func Start() (*Server, error) {
 		args := []string{"bundle", "exec", "bin/ruby-cd", wd, gitalyRuby, strconv.Itoa(os.Getpid()), socketPath}
 
 		events := make(chan supervisor.Event)
-		check := func() error { return ping(socketPath) }
+		check := func() error { return ping(address) }
 		p, err := supervisor.New(name, env, args, cfg.Ruby.Dir, cfg.Ruby.MaxRSS, events, check)
 		if err != nil {
 			return nil, err
 		}
 
-		s.workers = append(s.workers, newWorker(p, socketPath, events, false))
+		s.workers = append(s.workers, newWorker(p, address, events, false))
 	}
 
 	return s, nil
@@ -240,7 +240,7 @@ func (s *Server) createConnection(ctx context.Context) (*grpc.ClientConn, error)
 	dialCtx, cancel := context.WithTimeout(ctx, ConnectTimeout)
 	defer cancel()
 
-	conn, err := grpc.DialContext(dialCtx, balancer.Scheme+"://gitaly-ruby", dialOptions()...)
+	conn, err := grpc.DialContext(dialCtx, balancer.Scheme+":///gitaly-ruby", dialOptions()...)
 	if err != nil {
 		return nil, err
 	}
@@ -253,9 +253,6 @@ func dialOptions() []grpc.DialOption {
 	return []grpc.DialOption{
 		grpc.WithBlock(), // With this we get retries. Without, connections fail fast.
 		grpc.WithInsecure(),
-		grpc.WithDialer(func(addr string, timeout time.Duration) (net.Conn, error) {
-			return net.DialTimeout("unix", addr, timeout)
-		}),
 		grpc.WithUnaryInterceptor(grpc_prometheus.UnaryClientInterceptor),
 		grpc.WithStreamInterceptor(grpc_prometheus.StreamClientInterceptor),
 	}

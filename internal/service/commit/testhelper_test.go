@@ -4,7 +4,6 @@ import (
 	"net"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/golang/protobuf/ptypes/timestamp"
 	log "github.com/sirupsen/logrus"
@@ -54,15 +53,12 @@ func startTestServices(t *testing.T) (*grpc.Server, string) {
 	reflection.Register(server)
 
 	go server.Serve(listener)
-	return server, serverSocketPath
+	return server, "unix://" + serverSocketPath
 }
 
 func newCommitServiceClient(t *testing.T, serviceSocketPath string) (gitalypb.CommitServiceClient, *grpc.ClientConn) {
 	connOpts := []grpc.DialOption{
 		grpc.WithInsecure(),
-		grpc.WithDialer(func(addr string, timeout time.Duration) (net.Conn, error) {
-			return net.DialTimeout("unix", addr, timeout)
-		}),
 	}
 	conn, err := grpc.Dial(serviceSocketPath, connOpts...)
 	if err != nil {

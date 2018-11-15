@@ -188,7 +188,7 @@ func testClone(t *testing.T, serverSocketPath, storageName, relativePath, localR
 	require.NoError(t, err)
 
 	cmd.Env = []string{
-		fmt.Sprintf("GITALY_ADDRESS=unix:%s", serverSocketPath),
+		fmt.Sprintf("GITALY_ADDRESS=%s", serverSocketPath),
 		fmt.Sprintf("GITALY_PAYLOAD=%s", payload),
 		fmt.Sprintf("PATH=%s", ".:"+os.Getenv("PATH")),
 		fmt.Sprintf(`GIT_SSH_COMMAND=%s upload-pack`, gitalySSHPath),

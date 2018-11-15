@@ -201,7 +201,7 @@ func testCloneAndPush(t *testing.T, serverSocketPath string, params pushParams) 
 	cmd := exec.Command("git", "-C", localRepoPath, "push", "-v", "git@localhost:test/test.git", "master")
 	cmd.Env = []string{
 		fmt.Sprintf("GITALY_PAYLOAD=%s", payload),
-		fmt.Sprintf("GITALY_ADDRESS=unix:%s", serverSocketPath),
+		fmt.Sprintf("GITALY_ADDRESS=%s", serverSocketPath),
 		fmt.Sprintf("PATH=%s", ".:"+os.Getenv("PATH")),
 		fmt.Sprintf(`GIT_SSH_COMMAND=%s receive-pack`, gitalySSHPath),
 	}

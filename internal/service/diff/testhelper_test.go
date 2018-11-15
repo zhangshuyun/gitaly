@@ -4,7 +4,6 @@ import (
 	"net"
 	"os"
 	"testing"
-	"time"
 
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
@@ -49,15 +48,12 @@ func runDiffServer(t *testing.T) (*grpc.Server, string) {
 
 	go server.Serve(listener)
 
-	return server, serverSocketPath
+	return server, "unix://" + serverSocketPath
 }
 
 func newDiffClient(t *testing.T, serverSocketPath string) (gitalypb.DiffServiceClient, *grpc.ClientConn) {
 	connOpts := []grpc.DialOption{
 		grpc.WithInsecure(),
-		grpc.WithDialer(func(addr string, timeout time.Duration) (net.Conn, error) {
-			return net.DialTimeout("unix", addr, timeout)
-		}),
 	}
 
 	conn, err := grpc.Dial(serverSocketPath, connOpts...)

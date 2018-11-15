@@ -207,15 +207,12 @@ func runServer(t *testing.T, s *server, opt ...grpc.ServerOption) (*grpc.Server,
 
 	go grpcServer.Serve(lis)
 
-	return grpcServer, serverSocketPath
+	return grpcServer, "unix://" + serverSocketPath
 }
 
 func newClient(t *testing.T, serverSocketPath string) (pb.TestClient, *grpc.ClientConn) {
 	connOpts := []grpc.DialOption{
 		grpc.WithInsecure(),
-		grpc.WithDialer(func(addr string, timeout time.Duration) (net.Conn, error) {
-			return net.DialTimeout("unix", addr, timeout)
-		}),
 	}
 	conn, err := grpc.Dial(serverSocketPath, connOpts...)
 	if err != nil {

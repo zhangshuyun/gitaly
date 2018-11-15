@@ -7,7 +7,6 @@ import (
 	"os"
 	"path"
 	"testing"
-	"time"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
@@ -87,15 +86,12 @@ func runOperationServiceServer(t *testing.T) (*grpc.Server, string) {
 
 	go grpcServer.Serve(listener)
 
-	return grpcServer, serverSocketPath
+	return grpcServer, "unix://" + serverSocketPath
 }
 
 func newOperationClient(t *testing.T, serverSocketPath string) (gitalypb.OperationServiceClient, *grpc.ClientConn) {
 	connOpts := []grpc.DialOption{
 		grpc.WithInsecure(),
-		grpc.WithDialer(func(addr string, timeout time.Duration) (net.Conn, error) {
-			return net.DialTimeout("unix", addr, timeout)
-		}),
 	}
 	conn, err := grpc.Dial(serverSocketPath, connOpts...)
 	if err != nil {
