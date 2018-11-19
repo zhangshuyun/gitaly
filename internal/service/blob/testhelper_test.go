@@ -5,6 +5,7 @@ import (
 	"net"
 	"os"
 	"testing"
+	"time"
 
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/internal/rubyserver"
@@ -48,12 +49,15 @@ func runBlobServer(t *testing.T) (*grpc.Server, string) {
 
 	go grpcServer.Serve(listener)
 
-	return grpcServer, "unix://" + serverSocketPath
+	return grpcServer, serverSocketPath
 }
 
 func newBlobClient(t *testing.T, serverSocketPath string) (gitalypb.BlobServiceClient, *grpc.ClientConn) {
 	connOpts := []grpc.DialOption{
 		grpc.WithInsecure(),
+		grpc.WithDialer(func(addr string, timeout time.Duration) (net.Conn, error) {
+			return net.DialTimeout("unix", addr, timeout)
+		}),
 	}
 	conn, err := grpc.Dial(serverSocketPath, connOpts...)
 	if err != nil {

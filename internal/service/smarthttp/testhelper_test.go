@@ -3,6 +3,7 @@ package smarthttp
 import (
 	"net"
 	"testing"
+	"time"
 
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -28,12 +29,15 @@ func runSmartHTTPServer(t *testing.T) (*grpc.Server, string) {
 
 	go server.Serve(listener)
 
-	return server, "unix://" + serverSocketPath
+	return server, serverSocketPath
 }
 
 func newSmartHTTPClient(t *testing.T, serverSocketPath string) (gitalypb.SmartHTTPServiceClient, *grpc.ClientConn) {
 	connOpts := []grpc.DialOption{
 		grpc.WithInsecure(),
+		grpc.WithDialer(func(addr string, timeout time.Duration) (net.Conn, error) {
+			return net.DialTimeout("unix", addr, timeout)
+		}),
 	}
 	conn, err := grpc.Dial(serverSocketPath, connOpts...)
 	if err != nil {

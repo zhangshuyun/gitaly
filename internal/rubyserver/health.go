@@ -1,6 +1,7 @@
 package rubyserver
 
 import (
+	"net"
 	"time"
 
 	"golang.org/x/net/context"
@@ -12,6 +13,9 @@ func ping(address string) error {
 	conn, err := grpc.Dial(
 		address,
 		grpc.WithInsecure(),
+		grpc.WithDialer(func(addr string, timeout time.Duration) (net.Conn, error) {
+			return net.DialTimeout("unix", addr, timeout)
+		}),
 	)
 	if err != nil {
 		return err

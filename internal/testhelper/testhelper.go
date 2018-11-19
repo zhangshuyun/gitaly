@@ -86,7 +86,7 @@ func GitlabTestStoragePath() string {
 func GitalyServersMetadata(t *testing.T, serverSocketPath string) metadata.MD {
 	gitalyServers := storage.GitalyServers{
 		"default": {
-			"address": serverSocketPath,
+			"address": "unix:" + serverSocketPath,
 			"token":   RepositoryAuthToken,
 		},
 	}
