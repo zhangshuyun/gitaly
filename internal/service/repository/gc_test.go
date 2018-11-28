@@ -160,6 +160,86 @@ func TestGarbageCollectFailure(t *testing.T) {
 
 }
 
+func TestCleanupInvalidKeepAroundRefs(t *testing.T) {
+	server, serverSocketPath := runRepoServer(t)
+	defer server.Stop()
+
+	client, conn := newRepositoryClient(t, serverSocketPath)
+	defer conn.Close()
+
+	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	defer cleanupFn()
+
+	// Make the directory, so we can create random reflike things in it
+	require.NoError(t, os.MkdirAll(filepath.Join(testRepoPath, "refs", "keep-around"), 0755))
+
+	testCases := []struct {
+		desc        string
+		refName     string
+		refContent  string
+		shouldExist bool
+	}{
+		{
+			desc:        "A valid ref",
+			refName:     "0b4bc9a49b562e85de7cc9e834518ea6828729b9",
+			refContent:  "0b4bc9a49b562e85de7cc9e834518ea6828729b9",
+			shouldExist: true,
+		},
+		{
+			desc:        "A ref that does not exist",
+			refName:     "bogus",
+			refContent:  "bogus",
+			shouldExist: false,
+		}, {
+			desc:        "Filled with the blank ref",
+			refName:     "0b4bc9a49b562e85de7cc9e834518ea6828729b9",
+			refContent:  "0000000000000000000000000000000000000000",
+			shouldExist: true,
+		}, {
+			desc:        "An existing ref with blank content",
+			refName:     "0b4bc9a49b562e85de7cc9e834518ea6828729b9",
+			refContent:  "",
+			shouldExist: true,
+		}, {
+			desc:        "A valid sha that does not exist in the repo",
+			refName:     "d669a6f1a70693058cf484318c1cee8526119938",
+			refContent:  "d669a6f1a70693058cf484318c1cee8526119938",
+			shouldExist: false,
+		},
+	}
+
+	for _, testcase := range testCases {
+		t.Run(testcase.desc, func(t *testing.T) {
+			ctx, cancel := testhelper.Context()
+			defer cancel()
+
+			// Creating the keeparound without using git so we can create invalid ones
+			refPath := filepath.Join(testRepoPath, fmt.Sprintf("refs/keep-around/%s", testcase.refName))
+			err := ioutil.WriteFile(refPath, []byte(testcase.refContent), 0644)
+			require.NoError(t, err)
+
+			req := &gitalypb.GarbageCollectRequest{Repository: testRepo}
+			response, err := client.GarbageCollect(ctx, req)
+
+			require.NoError(t, err)
+			assert.NotNil(t, response)
+
+			if testcase.shouldExist {
+				checkValidKeepAroundRef(t, testRepoPath, testcase.refName)
+			} else {
+				_, err := os.Stat(refPath)
+				assert.Equal(t, true, os.IsNotExist(err))
+			}
+
+		})
+	}
+}
+
+func checkValidKeepAroundRef(t *testing.T, repoPath string, refname string) {
+	keepAroundName := fmt.Sprintf("refs/keep-around/%s", refname)
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "show", keepAroundName)
+}
+
 func createFileWithTimes(path string, mTime time.Time) {
 	ioutil.WriteFile(path, nil, 0644)
 	os.Chtimes(path, mTime, mTime)

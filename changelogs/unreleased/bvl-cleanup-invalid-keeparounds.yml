@@ -1,0 +1,5 @@
+---
+title: Clean up invalid keep-around refs when performing housekeeping
+merge_request: 992
+author:
+type: other
