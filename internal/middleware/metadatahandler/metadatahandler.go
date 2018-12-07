@@ -42,7 +42,7 @@ const ClientNameKey = "grpc.meta.client_name"
 // AuthVersionKey is the key used in ctx_tags to store the auth version
 const AuthVersionKey = "grpc.meta.auth_version"
 
-const correlationIdKey = "correlation_id"
+const correlationIDKey = "correlation_id"
 
 // Unknown client and feature. Matches the prometheus grpc unknown value
 const unknownValue = "unknown"
@@ -94,7 +94,7 @@ func addMetadataTags(ctx context.Context) metadataTags {
 	// This is a stop-gap approach to logging correlation_ids
 	correlationID := correlation.ExtractFromContext(ctx)
 	if correlationID != "" {
-		tags.Set(correlationIdKey, correlationID)
+		tags.Set(correlationIDKey, correlationID)
 	}
 
 	return metaTags

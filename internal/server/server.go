@@ -74,6 +74,7 @@ func createNewServer(rubyServer *rubyserver.Server, secure bool) *grpc.Server {
 	opts := []grpc.ServerOption{
 		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
 			grpc_ctxtags.StreamServerInterceptor(ctxTagOpts...),
+			grpccorrelation.StreamServerCorrelationInterceptor(), // Must be above the metadata handler
 			metadatahandler.StreamInterceptor,
 			grpc_prometheus.StreamServerInterceptor,
 			grpc_logrus.StreamServerInterceptor(logrusEntry),
@@ -81,13 +82,13 @@ func createNewServer(rubyServer *rubyserver.Server, secure bool) *grpc.Server {
 			cancelhandler.Stream, // Should be below LogHandler
 			lh.StreamInterceptor(),
 			auth.StreamServerInterceptor(),
-			grpccorrelation.StreamServerCorrelationInterceptor(),
 			// Panic handler should remain last so that application panics will be
 			// converted to errors and logged
 			panichandler.StreamPanicHandler,
 		)),
 		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(
 			grpc_ctxtags.UnaryServerInterceptor(ctxTagOpts...),
+			grpccorrelation.UnaryServerCorrelationInterceptor(), // Must be above the metadata handler
 			metadatahandler.UnaryInterceptor,
 			grpc_prometheus.UnaryServerInterceptor,
 			grpc_logrus.UnaryServerInterceptor(logrusEntry),
@@ -95,7 +96,6 @@ func createNewServer(rubyServer *rubyserver.Server, secure bool) *grpc.Server {
 			cancelhandler.Unary, // Should be below LogHandler
 			lh.UnaryInterceptor(),
 			auth.UnaryServerInterceptor(),
-			grpccorrelation.UnaryServerCorrelationInterceptor(),
 			// Panic handler should remain last so that application panics will be
 			// converted to errors and logged
 			panichandler.UnaryPanicHandler,
