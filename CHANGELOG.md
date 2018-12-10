@@ -1,5 +1,11 @@
 # Gitaly changelog
 
+## v1.7.1
+
+#### Other
+- Log correlation_id field in structured logging output
+  https://gitlab.com/gitlab-org/gitaly/merge_requests/995
+
 ## v1.7.0
 
 #### Added
