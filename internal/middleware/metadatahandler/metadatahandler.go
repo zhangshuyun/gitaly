@@ -5,6 +5,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
+	"gitlab.com/gitlab-org/labkit/correlation"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
@@ -40,6 +41,8 @@ const ClientNameKey = "grpc.meta.client_name"
 
 // AuthVersionKey is the key used in ctx_tags to store the auth version
 const AuthVersionKey = "grpc.meta.auth_version"
+
+const correlationIDKey = "correlation_id"
 
 // Unknown client and feature. Matches the prometheus grpc unknown value
 const unknownValue = "unknown"
@@ -86,6 +89,12 @@ func addMetadataTags(ctx context.Context) metadataTags {
 	if authInfo != nil {
 		metaTags.authVersion = authInfo.Version
 		tags.Set(AuthVersionKey, authInfo.Version)
+	}
+
+	// This is a stop-gap approach to logging correlation_ids
+	correlationID := correlation.ExtractFromContext(ctx)
+	if correlationID != "" {
+		tags.Set(correlationIDKey, correlationID)
 	}
 
 	return metaTags
