@@ -386,8 +386,24 @@ func TestSuccessfulGetAllLFSPointersRequest(t *testing.T) {
 			Data: []byte("version https://git-lfs.github.com/spec/v1\noid sha256:bad71f905b60729f502ca339f7c9f001281a3d12c68a5da7f15de8009f4bd63d\nsize 18\n"),
 			Oid:  "bab31d249f78fba464d1b75799aad496cc07fa3b",
 		},
+		{
+			Size: 132,
+			Data: []byte("version https://git-lfs.github.com/spec/v1\noid sha256:96f74c6fe7a2979eefb9ec74a5dfc6888fb25543cf99b77586b79afea1da6f97\nsize 1219696\n"),
+			Oid:  "ff0ab3afd1616ff78d0331865d922df103b64cf0",
+		},
+		{
+			Size: 129,
+			Data: []byte("version https://git-lfs.github.com/spec/v1\noid sha256:8c1e8de917525f83104736f6c64d32f0e2a02f5bf2ee57843a54f222cba8c813\nsize 2797\n"),
+			Oid:  "0360724a0d64498331888f1eaef2d24243809230",
+		},
+		{
+			Size: 129,
+			Data: []byte("version https://git-lfs.github.com/spec/v1\noid sha256:47997ea7ecff33be61e3ca1cc287ee72a2125161518f1a169f2893a5a82e9d95\nsize 7501\n"),
+			Oid:  "125fcc9f6e33175cb278b9b2809154d2535fe19f",
+		},
 	}
-	require.ElementsMatch(t, getAllPointers(t, c), expectedLFSPointers)
+
+	require.ElementsMatch(t, expectedLFSPointers, getAllPointers(t, c))
 }
 
 func getAllPointers(t *testing.T, c gitalypb.BlobService_GetAllLFSPointersClient) []*gitalypb.LFSPointer {
