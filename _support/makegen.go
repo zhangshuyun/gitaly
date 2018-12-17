@@ -289,9 +289,17 @@ binaries: assemble
 	git clone --bare --quiet https://gitlab.com/gitlab-org/gitlab-test.git $@
 	# Git notes aren't fetched by default with git clone
 	git -C $@ fetch origin refs/notes/*:refs/notes/*
+	rm -rf $@/refs
+	mkdir -p $@/refs/heads $@/refs/tags
+	cp {{ .SourceDir }}/_support/gitlab-test.git-packed-refs $@/packed-refs
+	git -C $@ fsck --no-progress
 
 {{ .GitTestRepo }}:
 	git clone --bare --quiet https://gitlab.com/gitlab-org/gitlab-git-test.git $@
+	rm -rf $@/refs
+	mkdir -p $@/refs/heads $@/refs/tags
+	cp {{ .SourceDir }}/_support/gitlab-git-test.git-packed-refs $@/packed-refs
+	git -C $@ fsck --no-progress
 
 .PHONY: prepare-tests
 prepare-tests: {{ .TestRepo }} {{ .GitTestRepo }} ../.ruby-bundle
