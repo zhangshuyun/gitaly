@@ -1,5 +1,11 @@
 # GitLab Shell
 
+---
+
+This is a **vendored copy** of [gitlab-org/gitlab-shell](https://gitlab.com/gitlab-org/gitlab-shell.git). The purpose of vendoring is to make the GitLab Git hooks part of Gitaly, not gitlab-shell.
+
+---
+
 ## GitLab Shell handles git SSH sessions for GitLab
 
 GitLab Shell handles git SSH sessions for GitLab and modifies the list of authorized keys.
