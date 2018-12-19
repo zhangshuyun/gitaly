@@ -305,7 +305,7 @@ binaries: assemble
 prepare-tests: {{ .TestRepo }} {{ .GitTestRepo }} ../.ruby-bundle
 
 .PHONY: test
-test: test-go rspec
+test: test-go rspec rspec-gitlab-shell
 
 .PHONY: test-go
 test-go: prepare-tests
@@ -318,6 +318,16 @@ race-go: prepare-tests
 .PHONY: rspec
 rspec: assemble-go prepare-tests
 	cd {{ .SourceDir }}/ruby && bundle exec rspec
+
+.PHONY: rspec-gitlab-shell
+rspec-gitlab-shell: .ruby-bundle-gitlab-shell {{ .SourceDir }}/ruby/gitlab-shell/config.yml
+	cd {{ .SourceDir }}/ruby/gitlab-shell && bundle exec rspec
+
+.ruby-bundle-gitlab-shell: {{ .SourceDir }}/ruby/gitlab-shell/Gemfile {{ .SourceDir }}/ruby/gitlab-shell/Gemfile.lock
+	cd {{ .SourceDir }}/ruby/gitlab-shell && bundle install
+
+{{ .SourceDir }}/ruby/gitlab-shell/config.yml: {{ .SourceDir }}/ruby/gitlab-shell/config.yml.example
+	cp $< $@
 
 .PHONY: verify
 verify: lint check-formatting megacheck govendor-status notice-up-to-date govendor-tagged rubocop

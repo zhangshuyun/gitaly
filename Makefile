@@ -47,6 +47,10 @@ test: prepare-build
 rspec: prepare-build
 	cd $(BUILD_DIR) && $(MAKE) $@
 
+.PHONY: rspec-gitlab-shell
+rspec-gitlab-shell: prepare-build
+	cd $(BUILD_DIR) && $(MAKE) $@
+
 .PHONY: verify
 verify: prepare-build
 	cd $(BUILD_DIR) && $(MAKE) $@
