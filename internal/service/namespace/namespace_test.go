@@ -274,11 +274,65 @@ func TestRenameNamespace(t *testing.T) {
 			},
 			errorCode: codes.InvalidArgument,
 		},
+		{
+			desc: "override flag and destination namespace exists",
+			request: &gitalypb.RenameNamespaceRequest{
+				From:        "existing-2",
+				To:          "existing-3",
+				StorageName: "default",
+				Override:    true,
+			},
+			errorCode: codes.OK,
+		},
+		{
+			desc: "override flag and non-existing destination namespace",
+			request: &gitalypb.RenameNamespaceRequest{
+				From:        "existing-4",
+				To:          "another-path",
+				StorageName: "default",
+				Override:    true,
+			},
+			errorCode: codes.OK,
+		},
+		{
+			desc: "override flag and non-existing source namespace",
+			request: &gitalypb.RenameNamespaceRequest{
+				From:        "non-existing",
+				To:          "existing-4",
+				StorageName: "default",
+				Override:    true,
+			},
+			errorCode: codes.InvalidArgument,
+		},
 	}
 
 	_, err := client.AddNamespace(ctx, &gitalypb.AddNamespaceRequest{
 		StorageName: "default",
 		Name:        "existing",
+	})
+	require.NoError(t, err)
+
+	_, err = client.AddNamespace(ctx, &gitalypb.AddNamespaceRequest{
+		StorageName: "default",
+		Name:        "existing-2",
+	})
+	require.NoError(t, err)
+
+	_, err = client.AddNamespace(ctx, &gitalypb.AddNamespaceRequest{
+		StorageName: "default",
+		Name:        "existing-3",
+	})
+	require.NoError(t, err)
+
+	_, err = client.AddNamespace(ctx, &gitalypb.AddNamespaceRequest{
+		StorageName: "default",
+		Name:        "existing-4",
+	})
+	require.NoError(t, err)
+
+	_, err = client.AddNamespace(ctx, &gitalypb.AddNamespaceRequest{
+		StorageName: "default",
+		Name:        "existing-5",
 	})
 	require.NoError(t, err)
 
@@ -289,9 +343,21 @@ func TestRenameNamespace(t *testing.T) {
 			require.Equal(t, tc.errorCode, helper.GrpcCode(err))
 
 			if tc.errorCode == codes.OK {
+				srcExistsReq := &gitalypb.NamespaceExistsRequest{StorageName: tc.request.StorageName, Name: tc.request.From}
+				srcExists, err := client.NamespaceExists(ctx, srcExistsReq)
+				require.NoError(t, err)
+
+				require.False(t, srcExists.Exists)
+
+				dstExistsReq := &gitalypb.NamespaceExistsRequest{StorageName: tc.request.StorageName, Name: tc.request.To}
+				dstExists, err := client.NamespaceExists(ctx, dstExistsReq)
+				require.NoError(t, err)
+
+				require.True(t, dstExists.Exists)
+
 				client.RemoveNamespace(ctx, &gitalypb.RemoveNamespaceRequest{
 					StorageName: "default",
-					Name:        "new-path",
+					Name:        tc.request.To,
 				})
 			}
 		})

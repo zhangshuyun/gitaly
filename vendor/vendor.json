@@ -315,12 +315,12 @@
 			"versionExact": "v1.2.2"
 		},
 		{
-			"checksumSHA1": "VpLdojyLYx9d/bwnqFkEy12sNd8=",
+			"checksumSHA1": "wrF4y4iwaGN1YvpalGvreOwXgrM=",
 			"path": "gitlab.com/gitlab-org/gitaly-proto/go/gitalypb",
-			"revision": "20e398e887e239ba4ddaa44cf075e99841e43f8a",
-			"revisionTime": "2018-12-17T08:03:04Z",
-			"version": "v1.5.0",
-			"versionExact": "v1.5.0"
+			"revision": "86e1bbb7790e872878e9b9813675070d1b1e6833",
+			"revisionTime": "2018-12-19T13:05:19Z",
+			"version": "osw-add-overrite-flag-to-rename-namespace",
+			"versionExact": "osw-add-overrite-flag-to-rename-namespace"
 		},
 		{
 			"checksumSHA1": "S9x46Eq79I1EkoXI8woeIU6w/wY=",

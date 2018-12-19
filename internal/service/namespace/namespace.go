@@ -62,6 +62,25 @@ func (s *server) RenameNamespace(ctx context.Context, in *gitalypb.RenameNamespa
 		return nil, status.Errorf(codes.InvalidArgument, "from and to cannot be empty")
 	}
 
+	if in.Override {
+		// Once it'll force a destination deletion, it should make sure the source exists
+		// in order to avoid getting into a state where the destination gets deleted
+		// and the source doesn't exists either.
+		fromExistsCheck := &gitalypb.NamespaceExistsRequest{StorageName: in.StorageName, Name: in.GetFrom()}
+		if fromExistsCheck, err := s.NamespaceExists(ctx, fromExistsCheck); err != nil {
+			return nil, err
+		} else if !fromExistsCheck.Exists {
+			return nil, status.Errorf(codes.InvalidArgument, "from directory %s not found", in.GetFrom())
+		}
+
+		// The os.Rename isn't able to handle folder renaming to a destination that already
+		// exists. Therefore, when Override flag is sent, we remove the destination entirely.
+		toRemoval := &gitalypb.RemoveNamespaceRequest{StorageName: in.StorageName, Name: in.GetTo()}
+		if _, err := s.RemoveNamespace(ctx, toRemoval); err != nil {
+			return nil, err
+		}
+	}
+
 	// No need to check if the from path exists, if it doesn't, we'd later get an
 	// os.LinkError
 	toExistsCheck := &gitalypb.NamespaceExistsRequest{StorageName: in.StorageName, Name: in.GetTo()}
