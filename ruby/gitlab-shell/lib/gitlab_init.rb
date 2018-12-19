@@ -1,3 +1,3 @@
-ROOT_PATH = File.expand_path('..', __dir__)
+ROOT_PATH = ENV.fetch('GITLAB_SHELL_DIR')
 
 require_relative 'gitlab_config'
