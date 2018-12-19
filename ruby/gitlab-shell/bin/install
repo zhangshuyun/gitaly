@@ -1,0 +1,33 @@
+#!/usr/bin/env ruby
+
+require_relative '../lib/gitlab_init'
+
+#
+# GitLab shell, invoked from ~/.ssh/authorized_keys
+#
+
+config = GitlabConfig.new
+key_dir = File.dirname("#{config.auth_file}")
+repository_storage_paths = ARGV
+
+commands = [
+  %W(mkdir -p #{key_dir}),
+  %W(chmod 700 #{key_dir}),
+]
+
+repository_storage_paths.each do |repository_storage_path|
+  commands << %W(mkdir -p #{repository_storage_path})
+  commands << %W(chmod ug+rwX,o-rwx #{repository_storage_path})
+end
+
+commands.each do |cmd|
+  print "#{cmd.join(' ')}: "
+  if system(*cmd)
+    puts 'OK'
+  else
+    puts 'Failed'
+    abort "#{$PROGRAM_NAME} failed"
+  end
+end
+
+exit

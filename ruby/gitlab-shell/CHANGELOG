@@ -1,0 +1,481 @@
+v8.4.4
+  - Pass push options along to gitlab-rails's post-receive endpoint
+
+v8.4.3
+  - Remove circular dependency between HTTPHelper and GitlabNet !258
+
+v8.4.2
+  - Include LFS operation when requesting auth !254
+
+v8.4.1
+  - Surface error message sent along with API Service Unavailable error to user
+
+v8.4.0
+  - Use Gitaly v2 auth scheme
+
+v8.3.3
+  - Release v8.3.3 as v8.3.2 tag is incorrect
+
+v8.3.2
+  - Ensure text/plain & text/html content types are handled !239
+  - Fix newlines not appearing between new log entries !242
+
+v8.3.1
+  - No changes (version tag correction)
+
+v8.3.0
+  - Add custom action (e.g. proxying SSH push) support
+
+v8.2.1
+  - Fix HTTP status code handling for /api/v4/allowed API endpoint
+
+v8.2.0
+  - Pass custom git_config_options to Gitaly !221
+  - Add missing require statement in create-hooks !225
+
+v8.1.1
+  - Fix two regressions in SSH certificate support (!226)
+
+v8.1.0
+  - Support Git v2 protocol (!217)
+
+v8.0.0
+  - SSH certificate support (!207)
+
+v7.2.0
+  - Update gitaly-proto to 0.109.0 (!216)
+
+v7.1.5
+  - Fix a NoMethodError in the pre-receive hook (!206)
+
+v7.1.4
+  - Don't truncate long strings in broadcast message (!202)
+
+v7.1.3
+  - Use username instead of full name for identifying users (!204)
+
+v7.1.2
+  - Add missing GitlabLogger#error method (!200)
+
+v7.1.1
+  - Flush log file after every write (!199)
+
+v7.1.0
+  - Migrate `git-upload-archive` to gitaly
+
+v7.0.0
+  - Switch to structured logging (!193)
+
+v6.0.4
+  - Don't delete GL_REPOSITORY environment variable from post-receive hook (!191)
+
+v6.0.3
+  - Print new project information in post-receive
+
+v6.0.2
+  - Use grpc-go 1.9.1 (!184)
+  - Update gitaly-proto and gitaly libs (!185)
+
+v6.0.1
+  - Fix git push by removing a bad require in the pre-receive hook (!183)
+
+v6.0.0
+  - Remove bin/gitlab_projects (!180)
+  - Remove direct redis integration (!181)
+  - Remove support unhiding of all references for Geo nodes (!179)
+
+v5.11.0
+  - Introduce a more-complete implementation of bin/authorized_keys (!178)
+
+v5.10.3
+  - Remove unused redis bin configuration
+
+v5.10.2
+  - Print redirection message when pushing into renamed project
+
+v5.10.1
+  - Use 'git clone --no-local' when creating a fork (!176)
+
+v5.10.0
+  - Add a 'fork-repository' command that works with hashed storage (!174)
+
+v5.9.4
+  - Add relative git object dir envvars to check access request
+
+v5.9.3
+  - Expose GitLab username to hooks in `GL_USERNAME` environment variable
+
+v5.9.2
+  - Fix pre-receive error when gitlab doesn't have /internal/pre_receive (!169)
+
+v5.9.1
+  - Adds --force option to push branches
+
+v5.9.0
+  - Support new /internal/pre-receive API endpoint for post-receive operations
+  - Support new /internal/post-receive API endpoint for post-receive operations
+  - Support `redis` field on /internal/check API endpoint
+
+v5.8.1
+  - Support old versions of ruby without monotonic clock
+
+v5.8.0
+  - Fix SSH support for Git for Windows v2.14
+
+v5.7.0
+  - Support unhiding of all refs via Gitaly
+
+v5.6.2
+  - Bump redis-rb library to 3.3.3
+
+v5.6.1
+  - Fix setting permissions of SSH key tempfiles
+  - Fix a missing constant error when using SSH authentication
+
+v5.6.0
+  - SSH authentication support
+
+v5.5.0
+  - Support unhiding of all references for Geo nodes
+
+v5.4.0
+  - Update Gitaly vendoring to use new RPC calls instead of old deprecated ones
+
+v5.3.1
+  - Gracefully handle internal API errors when getting merge request URLs
+
+v5.3.0
+  - Add ability to have git-receive-pack and git-upload-pack to go over Gitaly
+
+v5.2.1
+  - Revert changes in v5.2.0
+
+v5.2.0
+  - Disable RubyGems to increase performance
+
+v5.1.1
+  - Revert "Remove old `project` parameter, use `gl_repository` instead"
+
+v5.1.0
+  - Add `gitlab-keys list-key-ids` subcommand for iterating over key IDs to find keys that should be deleted
+
+v5.0.6
+  - Remove old `project` parameter, use `gl_repository` instead
+  - Use v4 of the GitLab REST API
+
+v5.0.5
+  - Use gl_repository if present when enqueing Sidekiq PostReceive jobs
+
+v5.0.4
+  - Handle GL_REPOSITORY env variable and use it in API calls and Sidekiq enqueuing
+
+v5.0.3
+  - Use recursive lookup for git repositories in the bin/create-hooks script
+
+v5.0.2
+  - Adds timeout option to push branches
+
+v5.0.1
+  - Fetch repositories with `--quiet` option by default
+
+v5.0.0
+  - Remove support for git-annex
+
+v4.1.1
+  - Send (a selection of) git environment variables while making the API call to `/allowed`, !112
+
+v4.1.0
+  - Add support for global custom hooks and chained hook directories (Elan Ruusamäe, Dirk Hörner), !113, !111, !93, !89, #32
+  - Clear up text with merge request after new branch push (Lisanne Fellinger)
+
+v4.0.3
+  - Fetch repositories with `--prune` option by default
+
+v4.0.2
+  - Fix gitlab_custom_hook dependencies
+
+v4.0.1
+  - Add instrumentation to push hooks
+
+v4.0.0
+  - Use full repository path for API calls
+
+v3.6.6
+  - Re-use the default logger when logging metrics data
+
+v3.6.5
+  - Test against ruby 2.3
+  - Instrument GitLab Shell and log metrics data to a file
+
+v3.6.4
+  - Fix rsync with ionice command building
+  - Fix short circuit logic between rsync with and without ionice for storage migrations
+
+v3.6.3
+  - Re-exposing GL_ID to custom hooks
+
+v3.6.2
+  - Enable GIT_TRACE/GIT_TRACE_PACKET/GIT_TRACE_PERFORMANCE by providing the git_trace_log_file config key
+
+v3.6.1
+  - Set a low IO priority for storage moves to lower performance impact
+
+v3.6.0
+  - Added full support for `git-lfs-authenticate` to properly handle LFS requests and pass them on to Workhorse
+
+v3.5.0
+  - Add option to recover 2FA via SSH
+
+v3.4.0
+  - Redis Sentinel support
+
+v3.3.3
+  - Print URL for new or existing merge request after push
+
+v3.3.2
+  - Improve authorized_keys check
+
+v3.3.1
+  - Manage authorized_keys permissions continuously
+
+v3.3.0
+  - Track ongoing push commands
+  - Add command to move repositories between repository storages
+
+v3.2.1
+  - Allow gitlab-project's fork-project command to fork projects between different repository storages
+
+v3.2.0
+  - Allow GitLab Shell to check for allowed access based on the used Git protocol
+  - Add an error message when using shell commands with incompatible GitLab versions
+
+v3.1.0
+  - Refactor repository paths handling to allow multiple git mount points
+
+v3.0.1
+  - Update PostReceive worker to provide enqueued_at time.
+
+v3.0.0
+  - Remove rm-tag command (Robert Schilling)
+  - Remove create-branch and rm-branch commands (Robert Schilling)
+  - Update PostReceive worker so it logs a unique JID in Sidekiq
+  - Remove update-head command
+  - Use Redis Ruby client instead of shelling out to redis-cli
+
+v2.7.2
+  - Do not prune objects during 'git gc'
+
+v2.7.1
+  - Add new command to list tags from a remote repo
+  - Add the ability to fetch remote repo with or without tags
+
+v2.7.0
+  - Add support for ssh AuthorizedKeysCommand query by key
+
+v2.6.13
+  - Add push-branches command
+  - Add delete-remote-branches command
+
+v2.6.12
+  - Fix git-annex issue not working using custom SSH port repositories
+
+v2.6.11
+  - Increase HTTP timeout and log request durations
+  - Workaround for a Webrick issue on Ruby 2.2
+  - New optional `--force` parameter for `gitlab-projects fetch-remote`
+
+v2.6.10
+  - Add git gc for housekeeping
+
+v2.6.9
+  - Remove trailing slashes from gitlab_url
+
+v2.6.8
+  - Revert git-lfs-authenticate command from white list
+
+v2.6.7
+  - Exit with non-zero status when import-repository fails
+  - Add fetch-remote command
+
+v2.6.6
+  - Do not clean LANG environment variable for the git hooks when working through the SSH-protocol
+  - Add git-lfs-authenticate command to white list (this command is used by git-lfs for SSO authentication through SSH-protocol)
+  - Handle git-annex and gcryptsetup
+
+v2.6.5
+  - Handle broken symlinks in create-hooks
+
+v2.6.4
+  - Remove keys from authorized_keys in-place
+  - Increase batch_add_keys lock timeout to 300 seconds
+  - If git-annex is enabled set GIT_ANNEX_SHELL_LIMITED variable
+
+v2.6.3
+  - Prevent keys with a very specific comment from accidentally being deleted.
+
+v2.6.2
+  - Include ecdsa keys in `gitlab_keys list-keys`.
+  - Refactor logic around GL_ID
+
+v2.6.1
+  - Write errors to stderr to get git to abort and show them as such.
+
+v2.6.0
+  - Prevent character encoding issues by sending received changes as raw data.
+
+v2.5.4
+  - Remove recursive commands from bin/install
+
+v2.5.3
+  - Improve git-annex integration
+
+v2.5.2
+  - Safer line sub for git-annex command
+
+v2.5.1
+  - Expect broadcast message to return empty JSON if no message now
+
+v2.5.0
+  - Support git-annex tool (disabled by default)
+  - Add rubocop (Ruby static code analyzer) for development
+
+v2.4.3
+  - Print broadcast message if one is available
+
+v2.4.2
+  - Pass git changes list as string instead of array
+
+v2.4.1
+  - Access token masking in url before loging
+
+v2.4.0
+  - Show error message when git push is rejected
+
+v2.2.0
+  - Support for custom hooks (Drew Blessing and Jose Kahan)
+
+v2.1.0
+  - Use secret token with GitLab internal API. Requires GitLab 7.5 or higher
+
+v2.0.1
+  - Send post-receive changes to redis as a string instead of array
+
+v2.0.0
+  - Works with GitLab v7.3+
+  - Replace raise with abort when checking path to prevent path exposure
+  - Handle invalid number of arguments on remote commands
+  - Replace update hook with pre-receive and post-receive hooks.
+  - Symlink the whole hooks directory
+  - Ignore missing repositories in create-hooks
+  - Connect to Redis via sockets by default
+
+v1.9.7
+  - Increased test coverage
+  - By default use direct unicorn connection (localhost:8080)
+  - Fix wrong repo path send to GitLab by GitlabUpdate hook
+
+v1.9.6
+  - Explicitly require 'timeout' from the standard library
+
+v1.9.5
+  - Put authorized_keys.lock in the same directory as authorized_keys
+  - Use lock file when add new entries to authorized_keys
+
+v1.9.4
+  - Use lock file when modify authorized_keys
+
+v1.9.3
+  - Ignore force push detection for new branch or branch remove push
+
+v1.9.2
+  - Add support for force push detection
+
+v1.9.1
+  - Update hook sends branch and tag name
+
+v1.9.0
+  - Call api in update hook for both ssdh and http push. Requires GitLab 6.7+
+  - Pass oldrev and newrev to api.allowed?
+
+v1.8.5
+  - Add `gitlab-keys batch-add-keys` subcommand for authorized_keys rebuilds
+
+v1.8.4
+  - Dont do import if repository exists
+
+v1.8.3
+  - Add timeout option for repository import
+
+v1.8.2
+  - Fix broken 1.8.1
+
+v1.8.1
+  - Restrict Environment Variables
+  - Add bin/create-hooks command
+  - More safe shell execution
+
+v1.8.0
+  - Fix return values in GitlabKeys
+
+v1.7.9
+  - Fix escape of repository path for custom ssh port
+
+v1.7.8
+  - Escape repository path to prevent relative links (CVE-2013-4583)
+
+v1.7.7
+  - Separate options from arguments with -- (CVE-2013-4582)
+  - Bypass shell and use stdlib JSON for GitlabUpdate (CVE-2013-4581)
+
+v1.7.6
+  - Fix gitlab-projects update-head for improted repo when branch exists but not listed in refs/head
+
+v1.7.5
+  - Remove keys from authorized_keys using ruby instead of shell
+
+v1.7.4
+  - More protection against shell injection (CVE-2013-4546)
+
+v1.7.3
+  - Use Kernel#open to append lines to authorized_keys (CVE-2013-4490)
+
+v1.7.2
+  - More safe command execution
+
+v1.7.1
+  - Fixed issue when developers are able to push to protected branches that contain a '/' in the branch name.
+
+v1.7.0
+  - Clean authorized_keys file with `gitlab-keys clear`
+
+v1.6.0
+  - Create branch/tag functionality
+  - Remove branch/tag functionality
+
+v1.5.0
+  - Logger
+  - Ability to specify ca_file/ca_path
+  - Update-head command for project
+  - Better regexp for key_id inside shell
+
+v1.4.0
+  - Regex used in rm-key command was too lax
+
+v1.3.0
+  - Fork-project command
+  - Custom redis configuration
+  - Interpret login with deploy key as anonymous one
+
+v1.2.0
+  - Return non-zero result if gitlab-projects and gitlab-keys execution was not successful
+  - http_settings configuration option added
+
+v1.1.0
+  - added mv-project feature
+  - increased test coverage
+
+v1.0.4
+  - requires gitlab c9ca15e
+  - don't use post-receive file any more. Make all updates in update
+  - fixed issue with invalid GL_USER
+  - use GL_ID instead of GL_USER

@@ -1,0 +1,135 @@
+image: "ruby:2.3"
+
+before_script:
+  - export PATH=~/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/go/bin
+  - gem install --bindir /usr/local/bin bundler
+  - cp config.yml.example config.yml
+  - bundle install
+
+.rspec_definition: &rspec_definition
+  script:
+    # Skip the experimental Golang wrapper in the Ruby specs. These are now
+    # primarily regression tests for particular versions of Ruby.
+    #
+    # The full rspec suite is also run against each suppported golang version
+    - cp bin/gitlab-shell-ruby bin/gitlab-shell
+    - bundle exec rspec --color --format d spec
+
+rspec:
+  <<: *rspec_definition
+  tags:
+    - ruby
+  except:
+    - tags
+
+rubocop:
+  script:
+    - bundle exec rubocop
+  tags:
+    - ruby
+  except:
+    - tags
+
+#ruby 2.2
+rspec:ruby2.2:
+  image: ruby:2.2
+  <<: *rspec_definition
+  tags:
+    - ruby
+  except:
+    - tags
+
+#ruby 2.1
+rspec:ruby2.1:
+  image: ruby:2.1
+  <<: *rspec_definition
+  tags:
+    - ruby
+  except:
+    - tags
+
+.go: &go_definition
+  before_script:
+  - apt-get update -qq && apt-get install -y ruby ruby-dev
+  - ruby -v
+  - export PATH=~/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/go/bin
+  - gem install --bindir /usr/local/bin bundler
+  - cp config.yml.example config.yml
+  - bundle install
+  script:
+    - go version
+    - which go
+    - bin/compile
+    - support/go-test
+    - support/go-format check
+    # Run the full Ruby test suite in the "go" tests. As more functionality is
+    # migrated into these tests and out of Ruby, the amount of work here will
+    # reduce
+    - bundle exec rspec --color --format d spec
+
+go:1.9:
+  <<: *go_definition
+  image: golang:1.9
+
+go:1.10:
+  <<: *go_definition
+  image: golang:1.10
+
+go:1.11:
+  <<: *go_definition
+  image: golang:1.10
+
+codequality:
+  image: docker:stable
+  variables:
+    DOCKER_DRIVER: overlay2
+  allow_failure: true
+  services:
+    - docker:stable-dind
+  before_script: []
+  script:
+    - export SP_VERSION=$(echo "$CI_SERVER_VERSION" | sed 's/^\([0-9]*\)\.\([0-9]*\).*/\1-\2-stable/')
+    - docker run
+        --env SOURCE_CODE="$PWD"
+        --volume "$PWD":/code
+        --volume /var/run/docker.sock:/var/run/docker.sock
+        "registry.gitlab.com/gitlab-org/security-products/codequality:$SP_VERSION" /code
+  artifacts:
+    paths: [codeclimate.json]
+
+
+sast:
+  image: docker:stable
+  variables:
+    DOCKER_DRIVER: overlay2
+  allow_failure: true
+  services:
+    - docker:stable-dind
+  before_script: []
+  script:
+    - export SP_VERSION=$(echo "$CI_SERVER_VERSION" | sed 's/^\([0-9]*\)\.\([0-9]*\).*/\1-\2-stable/')
+    - docker run
+        --env SAST_CONFIDENCE_LEVEL="${SAST_CONFIDENCE_LEVEL:-3}"
+        --volume "$PWD:/code"
+        --volume /var/run/docker.sock:/var/run/docker.sock
+        "registry.gitlab.com/gitlab-org/security-products/sast:$SP_VERSION" /app/bin/run /code
+  artifacts:
+    paths: [gl-sast-report.json]
+
+dependency_scanning:
+  image: docker:stable
+  variables:
+    DOCKER_DRIVER: overlay2
+  allow_failure: true
+  services:
+    - docker:stable-dind
+  before_script: []
+  script:
+    - export SP_VERSION=$(echo "$CI_SERVER_VERSION" | sed 's/^\([0-9]*\)\.\([0-9]*\).*/\1-\2-stable/')
+    - docker run
+        --env DEP_SCAN_DISABLE_REMOTE_CHECKS="${DEP_SCAN_DISABLE_REMOTE_CHECKS:-false}"
+        --volume "$PWD:/code"
+        --volume /var/run/docker.sock:/var/run/docker.sock
+        "registry.gitlab.com/gitlab-org/security-products/dependency-scanning:$SP_VERSION" /code
+  artifacts:
+    paths: [gl-dependency-scanning-report.json]
