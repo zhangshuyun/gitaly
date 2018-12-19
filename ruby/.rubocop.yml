@@ -4,6 +4,7 @@ AllCops:
   Exclude:
     - 'tmp/**/*'
     - 'vendor/**/*'
+    - 'gitlab-shell/**/*'
 
 Style/NumericPredicate:
   Enabled: false
