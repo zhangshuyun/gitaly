@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
-	"gitlab.com/gitlab-org/gitaly/internal/rubyserver"
+	"gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -13,33 +13,15 @@ func (s *server) GetCommitMessages(request *gitalypb.GetCommitMessagesRequest, s
 	if err := validateGetCommitMessagesRequest(request); err != nil {
 		return status.Errorf(codes.InvalidArgument, "GetCommitMessages: %v", err)
 	}
-
 	ctx := stream.Context()
-
-	client, err := s.CommitServiceClient(ctx)
-	if err != nil {
-		return err
-	}
-
-	clientCtx, err := rubyserver.SetHeaders(ctx, request.GetRepository())
-	if err != nil {
-		return err
-	}
-
-	rubyStream, err := client.GetCommitMessages(clientCtx, request)
-	if err != nil {
-		return err
-	}
-
-	return rubyserver.Proxy(func() error {
-		resp, err := rubyStream.Recv()
+	for _, commitID := range request.GetCommitIds() {
+		msg, err := log.GetCommitMessage(ctx, request.GetRepository(), commitID)
 		if err != nil {
-			md := rubyStream.Trailer()
-			stream.SetTrailer(md)
-			return err
+			return status.Errorf(codes.Internal, "failed to get commit message: %v", err)
 		}
-		return stream.Send(resp)
-	})
+		stream.Send(&gitalypb.GetCommitMessagesResponse{CommitId: commitID, Message: msg})
+	}
+	return nil
 }
 
 func validateGetCommitMessagesRequest(request *gitalypb.GetCommitMessagesRequest) error {
