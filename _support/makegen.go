@@ -390,7 +390,7 @@ govendor-tagged: {{ .GoVendor }}
 	@cd {{ .SourceDir }} && _support/gitaly-proto-tagged
 
 .PHONY: rubocop
-rubocop: ../.ruby-bundle
+rubocop: ../.ruby-bundle .ruby-bundle-gitlab-shell
 	cd {{ .SourceDir }}/ruby && bundle exec rubocop --parallel
 	cd {{ .SourceDir }}/ruby/gitlab-shell && bundle exec rubocop --parallel -c .rubocop.yml
 
