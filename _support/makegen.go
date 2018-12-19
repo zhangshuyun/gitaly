@@ -392,7 +392,7 @@ govendor-tagged: {{ .GoVendor }}
 .PHONY: rubocop
 rubocop: ../.ruby-bundle
 	cd {{ .SourceDir }}/ruby && bundle exec rubocop --parallel
-	cd {{ .SourceDir }}/ruby/gitlab-shell && bundle exec rubocop --parallel
+	cd {{ .SourceDir }}/ruby/gitlab-shell && bundle exec rubocop --parallel -c .rubocop.yml
 
 .PHONY: cover
 cover: prepare-tests {{ .GoCovMerge }}
