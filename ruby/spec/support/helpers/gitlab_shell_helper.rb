@@ -7,7 +7,7 @@ GITLAB_SHELL_DIR = File.join(TMP_DIR, 'gitlab-shell').freeze
 
 module GitlabShellHelper
   def self.setup_gitlab_shell
-    ENV['GITALY_RUBY_GITLAB_SHELL_PATH'] = GITLAB_SHELL_DIR
+    Gitlab.config.gitlab_shell.setup_ivar_for_specs(:path, GITLAB_SHELL_DIR)
 
     FileUtils.mkdir_p([TMP_DIR, File.join(GITLAB_SHELL_DIR, 'hooks')])
   end

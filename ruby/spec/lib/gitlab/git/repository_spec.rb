@@ -23,15 +23,6 @@ describe Gitlab::Git::Repository do # rubocop:disable Metrics/BlockLength
       }
     end
     let(:call) { double(metadata: call_metadata) }
-    let(:gitlab_shell_path) { '/foo/bar/gitlab-shell' }
-
-    before do
-      ENV['GITALY_RUBY_GITLAB_SHELL_PATH'] = gitlab_shell_path
-    end
-
-    after do
-      ENV.delete('GITALY_RUBY_GITLAB_SHELL_PATH')
-    end
 
     it 'cleans up the repository' do
       described_class.from_gitaly_with_block(test_repo_read_only, call) do |repository|

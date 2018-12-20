@@ -10,7 +10,6 @@ describe Gitlab::Git::Hook do
   end
 
   describe '#trigger' do
-    let!(:old_env) { ENV['GITALY_GIT_HOOKS_DIR'] }
     let(:tmp_dir) { Dir.mktmpdir }
     let(:hook_names) { %w[pre-receive post-receive update] }
     let(:repo) { gitlab_git_from_gitaly(test_repo_read_only) }
@@ -22,26 +21,45 @@ describe Gitlab::Git::Hook do
         FileUtils.chmod("u+x", path)
       end
 
-      ENV['GITALY_GIT_HOOKS_DIR'] = tmp_dir
+      allow(Gitlab.config.git).to receive(:hooks_directory).and_return(tmp_dir)
     end
 
     after do
       FileUtils.remove_entry(tmp_dir)
-      ENV['GITALY_GIT_HOOKS_DIR'] = old_env
     end
 
     context 'when the hooks require environment variables' do
-      let(:vars) { %w[GL_ID GL_USERNAME PWD GIT_DIR] }
+      let(:vars) do
+        {
+          'GL_ID' => 'user-123',
+          'GL_USERNAME' => 'janedoe',
+          'PWD' => repo.path,
+          'GIT_DIR' => repo.path,
+        }
+      end
+
       let(:script) do
-        "#!/bin/sh\n" +
-          vars.map { |var| "if [ -z \"$#{var}\"]; then exit 1; fi\n" }.join("\n") +
-          "exit 0\n"
+        [
+          "#!/bin/sh",
+          vars.map do |key, value|
+            <<-EOS
+              if [ x$#{key} != x#{value} ]; then
+                echo "unexpected value: #{key}=$#{key}"
+                exit 1
+               fi
+            EOS
+          end.join,
+          "exit 0"
+        ].join("\n") 
       end
 
       it 'returns true' do
         hook_names.each do |hook|
           trigger_result = described_class.new(hook, repo)
-                                          .trigger('1', 'admin', '0' * 40, 'a' * 40, 'master')
+                                          .trigger(vars['GL_ID'], vars['GL_USERNAME'], '0' * 40, 'a' * 40, 'master')
+
+          # Debug output if the test fails
+          puts "#{hook}:  #{trigger_result.last}" unless trigger_result.first
 
           expect(trigger_result.first).to be(true)
         end
@@ -54,7 +72,7 @@ describe Gitlab::Git::Hook do
       it 'returns true' do
         hook_names.each do |hook|
           trigger_result = described_class.new(hook, repo)
-                                          .trigger('1', 'admin', '0' * 40, 'a' * 40, 'master')
+                                          .trigger('user-456', 'admin', '0' * 40, 'a' * 40, 'master')
 
           expect(trigger_result.first).to be(true)
         end
@@ -67,7 +85,7 @@ describe Gitlab::Git::Hook do
       it 'returns false' do
         hook_names.each do |hook|
           trigger_result = described_class.new(hook, repo)
-                                          .trigger('1', 'admin', '0' * 40, 'a' * 40, 'master')
+                                          .trigger('user-1', 'admin', '0' * 40, 'a' * 40, 'master')
 
           expect(trigger_result.first).to be(false)
         end

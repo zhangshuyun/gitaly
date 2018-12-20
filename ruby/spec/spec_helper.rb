@@ -11,9 +11,9 @@ require File.join(__dir__, 'support/helpers/gitlab_shell_helper.rb')
 
 Dir[File.join(__dir__, 'support/helpers/*.rb')].each { |f| require f }
 
-ENV['GITALY_RUBY_GIT_BIN_PATH'] ||= 'git'
-ENV['GITALY_GIT_HOOKS_DIR'] ||= File.join(Gitlab.config.gitlab_shell.path.to_s, "hooks")
-ENV['GITALY_RUBY_GITALY_BIN_DIR'] = __dir__
+Gitlab.config.git.setup_ivar_for_specs(:bin_path, 'git')
+Gitlab.config.git.setup_ivar_for_specs(:hooks_directory, File.join(Gitlab.config.gitlab_shell.path.to_s, "hooks"))
+Gitlab.config.gitaly.setup_ivar_for_specs(:client_path, __dir__)
 
 RSpec.configure do |config|
   config.include FactoryBot::Syntax::Methods
