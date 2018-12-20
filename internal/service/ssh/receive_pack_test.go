@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"strings"
 	"testing"
 	"time"
 
@@ -76,21 +77,32 @@ func TestFailedReceivePackRequestDueToValidationError(t *testing.T) {
 }
 
 func TestReceivePackPushSuccess(t *testing.T) {
+	defer func(dir string) { config.Config.GitlabShell.Dir = dir }(config.Config.GitlabShell.Dir)
+	config.Config.GitlabShell.Dir = "/foo/bar/gitlab-shell"
+
+	hookOutputFile, cleanup := testhelper.CaptureHookEnv(t)
+	defer cleanup()
+
 	server, serverSocketPath := runSSHServer(t)
 	defer server.Stop()
 
-	lHead, rHead, err := testCloneAndPush(t, serverSocketPath, pushParams{storageName: testRepo.GetStorageName(), glID: "1"})
+	lHead, rHead, err := testCloneAndPush(t, serverSocketPath, pushParams{storageName: testRepo.GetStorageName(), glID: "user-123"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	require.Equal(t, lHead, rHead, "local and remote head not equal. push failed")
 
-	lHead, rHead, err = testCloneAndPush(t, serverSocketPath, pushParams{storageName: testRepo.GetStorageName(), glID: "1", gitConfigOptions: []string{"receive.MaxInputSize=10000"}})
-	if err != nil {
-		t.Fatal(err)
-	}
+	envData, err := ioutil.ReadFile(hookOutputFile)
+	require.NoError(t, err, "get git env data")
 
-	require.Equal(t, lHead, rHead, "local and remote head not equal. push failed")
+	for _, env := range []string{
+		"GL_ID=user-123",
+		"GL_REPOSITORY=project-456",
+		"GL_PROTOCOL=ssh",
+		"GITLAB_SHELL_DIR=" + "/foo/bar/gitlab-shell",
+	} {
+		require.Contains(t, strings.Split(string(envData), "\n"), env)
+	}
 }
 
 func TestReceivePackPushSuccessWithGitProtocol(t *testing.T) {
@@ -179,7 +191,7 @@ func testCloneAndPush(t *testing.T, serverSocketPath string, params pushParams) 
 	pbMarshaler := &jsonpb.Marshaler{}
 	payload, err := pbMarshaler.MarshalToString(&gitalypb.SSHReceivePackRequest{
 		Repository:       pbTempRepo,
-		GlRepository:     pbTempRepo.GetRelativePath(),
+		GlRepository:     "project-456",
 		GlId:             params.glID,
 		GitConfigOptions: params.gitConfigOptions,
 		GitProtocol:      params.gitProtocol,

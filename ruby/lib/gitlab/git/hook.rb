@@ -101,6 +101,7 @@ module Gitlab
 
       def env_base_vars(gl_id, gl_username)
         {
+          'GITLAB_SHELL_DIR' => Gitlab.config.gitlab_shell.path,
           'GL_ID' => gl_id,
           'GL_USERNAME' => gl_username,
           'PWD' => repo_path,

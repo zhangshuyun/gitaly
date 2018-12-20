@@ -22,6 +22,7 @@ describe Gitlab::Git::Hook do
       end
 
       allow(Gitlab.config.git).to receive(:hooks_directory).and_return(tmp_dir)
+      allow(Gitlab.config.gitlab_shell).to receive(:path).and_return('/foobar/gitlab-shell')
     end
 
     after do
@@ -35,6 +36,7 @@ describe Gitlab::Git::Hook do
           'GL_USERNAME' => 'janedoe',
           'PWD' => repo.path,
           'GIT_DIR' => repo.path,
+          'GITLAB_SHELL_DIR' => '/foobar/gitlab-shell'
         }
       end
 

@@ -30,4 +30,11 @@ func TestPath(t *testing.T) {
 
 		require.Equal(t, "/foobar/gitlab-shell/hooks", Path())
 	})
+
+	t.Run("with an override", func(t *testing.T) {
+		Override = "/override/hooks"
+		defer func() { Override = "" }()
+
+		require.Equal(t, "/override/hooks", Path())
+	})
 }

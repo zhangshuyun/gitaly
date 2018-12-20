@@ -23,6 +23,12 @@ import (
 )
 
 func TestSuccessfulReceivePackRequest(t *testing.T) {
+	defer func(dir string) { config.Config.GitlabShell.Dir = dir }(config.Config.GitlabShell.Dir)
+	config.Config.GitlabShell.Dir = "/foo/bar/gitlab-shell"
+
+	hookOutputFile, cleanup := testhelper.CaptureHookEnv(t)
+	defer cleanup()
+
 	server, serverSocketPath := runSmartHTTPServer(t)
 	defer server.Stop()
 
@@ -39,7 +45,7 @@ func TestSuccessfulReceivePackRequest(t *testing.T) {
 	require.NoError(t, err)
 
 	push := newTestPush(t, nil)
-	firstRequest := &gitalypb.PostReceivePackRequest{Repository: repo, GlId: "user-123", GlRepository: "project-123"}
+	firstRequest := &gitalypb.PostReceivePackRequest{Repository: repo, GlId: "user-123", GlRepository: "project-456"}
 	response := doPush(t, stream, firstRequest, push.body)
 
 	expectedResponse := "0030\x01000eunpack ok\n0019ok refs/heads/master\n00000000"
@@ -47,33 +53,18 @@ func TestSuccessfulReceivePackRequest(t *testing.T) {
 
 	// The fact that this command succeeds means that we got the commit correctly, no further checks should be needed.
 	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "show", push.newHead)
-}
 
-func TestSuccessfulReceivePackRequestWithGitOpts(t *testing.T) {
-	server, serverSocketPath := runSmartHTTPServer(t)
-	defer server.Stop()
+	envData, err := ioutil.ReadFile(hookOutputFile)
+	require.NoError(t, err, "get git env data")
 
-	repo, repoPath, cleanup := testhelper.NewTestRepo(t)
-	defer cleanup()
-
-	client, conn := newSmartHTTPClient(t, serverSocketPath)
-	defer conn.Close()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-
-	stream, err := client.PostReceivePack(ctx)
-	require.NoError(t, err)
-
-	push := newTestPush(t, nil)
-	firstRequest := &gitalypb.PostReceivePackRequest{Repository: repo, GlId: "user-123", GlRepository: "project-123", GitConfigOptions: []string{"receive.MaxInputSize=10000"}}
-	response := doPush(t, stream, firstRequest, push.body)
-
-	expectedResponse := "0030\x01000eunpack ok\n0019ok refs/heads/master\n00000000"
-	require.Equal(t, expectedResponse, string(response), "Expected response to be %q, got %q", expectedResponse, response)
-
-	// The fact that this command succeeds means that we got the commit correctly, no further checks should be needed.
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "show", push.newHead)
+	for _, env := range []string{
+		"GL_ID=user-123",
+		"GL_REPOSITORY=project-456",
+		"GL_PROTOCOL=http",
+		"GITLAB_SHELL_DIR=" + "/foo/bar/gitlab-shell",
+	} {
+		require.Contains(t, strings.Split(string(envData), "\n"), env)
+	}
 }
 
 func TestSuccessfulReceivePackRequestWithGitProtocol(t *testing.T) {

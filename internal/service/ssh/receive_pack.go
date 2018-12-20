@@ -7,6 +7,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/internal/command"
+	"gitlab.com/gitlab-org/gitaly/internal/config"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/hooks"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
@@ -47,6 +48,7 @@ func (s *server) SSHReceivePack(stream gitalypb.SSHService_SSHReceivePackServer)
 		fmt.Sprintf("GL_ID=%s", req.GlId),
 		fmt.Sprintf("GL_USERNAME=%s", req.GlUsername),
 		"GL_PROTOCOL=ssh",
+		fmt.Sprintf("GITLAB_SHELL_DIR=%s", config.Config.GitlabShell.Dir),
 	}
 	if req.GlRepository != "" {
 		env = append(env, fmt.Sprintf("GL_REPOSITORY=%s", req.GlRepository))
