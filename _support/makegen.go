@@ -277,9 +277,9 @@ assemble-go: build
 assemble-ruby:
 	rm -rf $(ASSEMBLY_ROOT)/ruby
 	mkdir -p $(ASSEMBLY_ROOT)
-	rm -rf {{ .SourceDir }}/ruby/tmp
+	rm -rf {{ .SourceDir }}/ruby/tmp {{ .SourceDir }}/ruby/gitlab-shell/tmp 
 	cp -r {{ .SourceDir }}/ruby $(ASSEMBLY_ROOT)/ruby
-	rm -rf $(ASSEMBLY_ROOT)/ruby/spec
+	rm -rf $(ASSEMBLY_ROOT)/ruby/spec $(ASSEMBLY_ROOT)/ruby/gitlab-shell/spec $(ASSEMBLY_ROOT)/ruby/gitlab-shell/gitlab-shell.log
 
 binaries: assemble
 	@if [ $$(uname -m) != 'x86_64' ]; then echo Incorrect architecture for build: $(uname -m); exit 1; fi
