@@ -320,11 +320,8 @@ rspec: assemble-go prepare-tests
 	cd {{ .SourceDir }}/ruby && bundle exec rspec
 
 .PHONY: rspec-gitlab-shell
-rspec-gitlab-shell: .ruby-bundle-gitlab-shell {{ .SourceDir }}/ruby/gitlab-shell/config.yml
+rspec-gitlab-shell: {{ .SourceDir }}/ruby/gitlab-shell/config.yml
 	cd {{ .SourceDir }}/ruby/gitlab-shell && bundle exec rspec
-
-.ruby-bundle-gitlab-shell: {{ .SourceDir }}/ruby/gitlab-shell/Gemfile {{ .SourceDir }}/ruby/gitlab-shell/Gemfile.lock
-	cd {{ .SourceDir }}/ruby/gitlab-shell && bundle install
 
 {{ .SourceDir }}/ruby/gitlab-shell/config.yml: {{ .SourceDir }}/ruby/gitlab-shell/config.yml.example
 	cp $< $@
@@ -390,7 +387,7 @@ govendor-tagged: {{ .GoVendor }}
 	@cd {{ .SourceDir }} && _support/gitaly-proto-tagged
 
 .PHONY: rubocop
-rubocop: ../.ruby-bundle .ruby-bundle-gitlab-shell
+rubocop: ../.ruby-bundle
 	cd {{ .SourceDir }}/ruby && bundle exec rubocop --parallel
 	cd {{ .SourceDir }}/ruby/gitlab-shell && bundle exec rubocop --parallel -c .rubocop.yml
 
