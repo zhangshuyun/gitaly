@@ -3,9 +3,12 @@ package ref
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
+
+	"gitlab.com/gitlab-org/gitaly/internal/helper"
 
 	grpc_logrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
 	log "github.com/sirupsen/logrus"
@@ -73,13 +76,28 @@ func (s *server) FindAllTagNames(in *gitalypb.FindAllTagNamesRequest, stream git
 func (s *server) FindAllTags(in *gitalypb.FindAllTagsRequest, stream gitalypb.RefService_FindAllTagsServer) error {
 	ctx := stream.Context()
 
+	if err := validateFindAllTagsRequest(in); err != nil {
+		return status.Errorf(codes.InvalidArgument, "FindAllTags: %v", err)
+	}
+
 	tags, err := gitlog.GetAllTags(ctx, in.GetRepository())
 	if err != nil {
-		return err
+		return status.Errorf(codes.Internal, "error when getting all tags: %v", err)
 	}
 	return stream.Send(&gitalypb.FindAllTagsResponse{
 		Tags: tags,
 	})
+}
+
+func validateFindAllTagsRequest(request *gitalypb.FindAllTagsRequest) error {
+	if request.GetRepository() == nil {
+		return errors.New("empty Repository")
+	}
+	_, err := helper.GetRepoPath(request.GetRepository())
+	if err != nil {
+		return errors.New("invalid git directory")
+	}
+	return nil
 }
 
 func _findBranchNames(ctx context.Context, repo *gitalypb.Repository) ([][]byte, error) {

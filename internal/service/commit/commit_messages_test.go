@@ -51,7 +51,7 @@ func TestSuccessfulGetCommitMessagesRequest(t *testing.T) {
 		},
 	}
 	fetchedMessages := readAllMessagesFromClient(t, c)
-	require.Equal(t, len(expectedMessages), len(fetchedMessages))
+
 	require.Equal(t, expectedMessages, fetchedMessages)
 }
 
