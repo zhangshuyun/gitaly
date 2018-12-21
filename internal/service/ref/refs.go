@@ -12,8 +12,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
+	gitlog "gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/lines"
-	"gitlab.com/gitlab-org/gitaly/internal/rubyserver"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -73,29 +73,12 @@ func (s *server) FindAllTagNames(in *gitalypb.FindAllTagNamesRequest, stream git
 func (s *server) FindAllTags(in *gitalypb.FindAllTagsRequest, stream gitalypb.RefService_FindAllTagsServer) error {
 	ctx := stream.Context()
 
-	client, err := s.RefServiceClient(ctx)
+	tags, err := gitlog.GetAllTags(ctx, in.GetRepository())
 	if err != nil {
 		return err
 	}
-
-	clientCtx, err := rubyserver.SetHeaders(ctx, in.GetRepository())
-	if err != nil {
-		return err
-	}
-
-	rubyStream, err := client.FindAllTags(clientCtx, in)
-	if err != nil {
-		return err
-	}
-
-	return rubyserver.Proxy(func() error {
-		resp, err := rubyStream.Recv()
-		if err != nil {
-			md := rubyStream.Trailer()
-			stream.SetTrailer(md)
-			return err
-		}
-		return stream.Send(resp)
+	return stream.Send(&gitalypb.FindAllTagsResponse{
+		Tags: tags,
 	})
 }
 

@@ -3,6 +3,7 @@ package testhelper
 import (
 	"bytes"
 	"fmt"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -42,4 +43,14 @@ func CreateTag(t *testing.T, repoPath, tagName, targetID string, opts *CreateTag
 
 	tagID := MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", tagName)
 	return strings.TrimSpace(string(tagID))
+}
+
+func GetTagDate(t *testing.T, repoPath, tagName string) (int64, error) {
+	tagInfoLines := strings.Split(string(MustRunCommand(t, nil, "git", "-C", repoPath, "show", "--date=unix", tagName)), "\n")
+	timestampString := strings.TrimSpace(strings.SplitN(tagInfoLines[2], "Date:", 2)[1])
+	timestamp, err := strconv.ParseInt(strings.TrimSpace(string(timestampString)), 10, 64)
+	if err != nil {
+		return 0, nil
+	}
+	return timestamp, nil
 }

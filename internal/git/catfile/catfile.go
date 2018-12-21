@@ -40,6 +40,14 @@ func (c *Batch) Commit(revspec string) (io.Reader, error) {
 	return c.batch.reader(revspec, "commit")
 }
 
+// Tag returns a raw tag object. It is an error if revspec does not
+// point to a commit. To prevent this first use Info to resolve the revspec
+// and check the object type. Caller must consume the Reader before
+// making another call on C.
+func (c *Batch) Tag(revspec string) (io.Reader, error) {
+	return c.batch.reader(revspec, "tag")
+}
+
 // Blob returns a reader for the requested blob. The entire blob must be
 // read before any new objects can be requested from this Batch instance.
 //

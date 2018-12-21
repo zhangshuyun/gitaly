@@ -410,7 +410,9 @@ func TestSuccessfulFindAllTagsRequest(t *testing.T) {
 	bigCommit, err := log.GetCommit(ctx, testRepoCopy, bigCommitID)
 	require.NoError(t, err)
 
-	annotatedTagID := testhelper.CreateTag(t, testRepoCopyPath, "v1.2.0", blobID, &testhelper.CreateTagOpts{Message: "Blob tag"})
+	annotatedTagID := testhelper.CreateTag(t, testRepoCopyPath, "v1.2.0", commitID, &testhelper.CreateTagOpts{Message: "Annotated tag"})
+	annotatedTagTimestamp, err := testhelper.GetTagDate(t, testRepoCopyPath, annotatedTagID)
+	require.NoError(t, err)
 
 	testhelper.CreateTag(t, testRepoCopyPath, "v1.3.0", commitID, nil)
 	testhelper.CreateTag(t, testRepoCopyPath, "v1.4.0", blobID, nil)
@@ -424,6 +426,8 @@ func TestSuccessfulFindAllTagsRequest(t *testing.T) {
 	// A tag with a big message
 	bigMessage := strings.Repeat("a", 11*1024)
 	bigMessageTag1ID := testhelper.CreateTag(t, testRepoCopyPath, "v1.7.0", commitID, &testhelper.CreateTagOpts{Message: bigMessage})
+	bigMessageTagTimestamp, err := testhelper.GetTagDate(t, testRepoCopyPath, bigMessageTag1ID)
+	require.NoError(t, err)
 
 	client, conn := newRefServiceClient(t, serverSocketPath)
 	defer conn.Close()
@@ -454,6 +458,11 @@ func TestSuccessfulFindAllTagsRequest(t *testing.T) {
 			TargetCommit: gitCommit,
 			Message:      []byte("Release"),
 			MessageSize:  7,
+			Tagger: &gitalypb.CommitAuthor{
+				Name:  []byte("Dmitriy Zaporozhets"),
+				Email: []byte("dmitriy.zaporozhets@gmail.com"),
+				Date:  &timestamp.Timestamp{Seconds: 1393491299},
+			},
 		},
 		{
 			Name: []byte("v1.1.0"),
@@ -477,21 +486,44 @@ func TestSuccessfulFindAllTagsRequest(t *testing.T) {
 			},
 			Message:     []byte("Version 1.1.0"),
 			MessageSize: 13,
+			Tagger: &gitalypb.CommitAuthor{
+				Name:  []byte("Dmitriy Zaporozhets"),
+				Email: []byte("dmitriy.zaporozhets@gmail.com"),
+				Date:  &timestamp.Timestamp{Seconds: 1393505709},
+			},
 		},
 		{
-			Name:        []byte("v1.2.0"),
-			Id:          string(annotatedTagID),
-			Message:     []byte("Blob tag"),
-			MessageSize: 8,
+			Name: []byte("v1.2.0"),
+			Id:   string(annotatedTagID),
+			TargetCommit: &gitalypb.GitCommit{
+				Id:      "6f6d7e7ed97bb5f0054f2b1df789b39ca89b6ff9",
+				Subject: []byte("More submodules"),
+				Body:    []byte("More submodules\n\nSigned-off-by: Dmitriy Zaporozhets <dmitriy.zaporozhets@gmail.com>\n"),
+				Author: &gitalypb.CommitAuthor{
+					Name:  []byte("Dmitriy Zaporozhets"),
+					Email: []byte("dmitriy.zaporozhets@gmail.com"),
+					Date:  &timestamp.Timestamp{Seconds: 1393491261},
+				},
+				Committer: &gitalypb.CommitAuthor{
+					Name:  []byte("Dmitriy Zaporozhets"),
+					Email: []byte("dmitriy.zaporozhets@gmail.com"),
+					Date:  &timestamp.Timestamp{Seconds: 1393491261},
+				},
+				ParentIds: []string{"d14d6c0abdd253381df51a723d58691b2ee1ab08"},
+				BodySize:  84,
+			},
+			Message:     []byte("Annotated tag"),
+			MessageSize: 13,
+			Tagger: &gitalypb.CommitAuthor{
+				Name:  []byte("Scrooge McDuck"),
+				Email: []byte("scrooge@mcduck.com"),
+				Date:  &timestamp.Timestamp{Seconds: annotatedTagTimestamp},
+			},
 		},
 		{
 			Name:         []byte("v1.3.0"),
 			Id:           string(commitID),
 			TargetCommit: gitCommit,
-		},
-		{
-			Name: []byte("v1.4.0"),
-			Id:   string(blobID),
 		},
 		{
 			Name:         []byte("v1.5.0"),
@@ -509,6 +541,11 @@ func TestSuccessfulFindAllTagsRequest(t *testing.T) {
 			Message:      []byte(bigMessage[:helper.MaxCommitOrTagMessageSize]),
 			MessageSize:  int64(len(bigMessage)),
 			TargetCommit: gitCommit,
+			Tagger: &gitalypb.CommitAuthor{
+				Name:  []byte("Scrooge McDuck"),
+				Email: []byte("scrooge@mcduck.com"),
+				Date:  &timestamp.Timestamp{Seconds: bigMessageTagTimestamp},
+			},
 		},
 	}
 
