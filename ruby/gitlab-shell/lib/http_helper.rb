@@ -78,7 +78,7 @@ module HTTPHelper
       $logger.warn('Failed to connect', method: method.to_s.upcase, url: url, error: e)
       raise GitlabNet::ApiUnreachableError
     ensure
-      $logger.info('finished HTTP request', method: method.to_s.upcase, url: url, duration: Time.new - start_time)
+      $logger.info('finished HTTP request', method: method.to_s.upcase, url: url, duration: Time.new - start_time, gitaly: true)
     end
 
     case response
