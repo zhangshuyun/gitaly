@@ -35,7 +35,7 @@ func TestParseRawCommit(t *testing.T) {
 		},
 		{
 			desc: "no email",
-			in:   []byte("author Jane Doe\n"),
+			in:   []byte("author Jane Doe"),
 			out: &gitalypb.GitCommit{
 				Id:     info.Oid,
 				Author: &gitalypb.CommitAuthor{Name: []byte("Jane Doe")},
@@ -43,7 +43,7 @@ func TestParseRawCommit(t *testing.T) {
 		},
 		{
 			desc: "unmatched <",
-			in:   []byte("author Jane Doe <janedoe@example.com\n"),
+			in:   []byte("author Jane Doe <janedoe@example.com"),
 			out: &gitalypb.GitCommit{
 				Id:     info.Oid,
 				Author: &gitalypb.CommitAuthor{Name: []byte("Jane Doe")},
@@ -51,7 +51,7 @@ func TestParseRawCommit(t *testing.T) {
 		},
 		{
 			desc: "unmatched >",
-			in:   []byte("author Jane Doe janedoe@example.com>\n"),
+			in:   []byte("author Jane Doe janedoe@example.com>"),
 			out: &gitalypb.GitCommit{
 				Id:     info.Oid,
 				Author: &gitalypb.CommitAuthor{Name: []byte("Jane Doe janedoe@example.com>")},
@@ -59,7 +59,7 @@ func TestParseRawCommit(t *testing.T) {
 		},
 		{
 			desc: "missing date",
-			in:   []byte("author Jane Doe <janedoe@example.com> \n"),
+			in:   []byte("author Jane Doe <janedoe@example.com> "),
 			out: &gitalypb.GitCommit{
 				Id:     info.Oid,
 				Author: &gitalypb.CommitAuthor{Name: []byte("Jane Doe"), Email: []byte("janedoe@example.com")},
@@ -67,7 +67,7 @@ func TestParseRawCommit(t *testing.T) {
 		},
 		{
 			desc: "date too high",
-			in:   []byte("author Jane Doe <janedoe@example.com> 9007199254740993 +0200\n"),
+			in:   []byte("author Jane Doe <janedoe@example.com> 9007199254740993 +0200"),
 			out: &gitalypb.GitCommit{
 				Id: info.Oid,
 				Author: &gitalypb.CommitAuthor{
@@ -79,7 +79,7 @@ func TestParseRawCommit(t *testing.T) {
 		},
 		{
 			desc: "date negative",
-			in:   []byte("author Jane Doe <janedoe@example.com> -1 +0200\n"),
+			in:   []byte("author Jane Doe <janedoe@example.com> -1 +0200"),
 			out: &gitalypb.GitCommit{
 				Id: info.Oid,
 				Author: &gitalypb.CommitAuthor{

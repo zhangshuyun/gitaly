@@ -2,9 +2,10 @@ package log
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"errors"
-	"io/ioutil"
+	"fmt"
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
@@ -38,10 +39,10 @@ func GetAllTags(ctx context.Context, repo *gitalypb.Repository) ([]*gitalypb.Tag
 			continue
 		}
 		tag, err := buildTag(oid, info.Type, line[1], c)
-		tags = append(tags, tag)
 		if err != nil {
 			return tags, err
 		}
+		tags = append(tags, tag)
 	}
 
 	return tags, nil
@@ -72,35 +73,42 @@ func buildTag(oid, objectType, tagName string, b *catfile.Batch) (*gitalypb.Tag,
 func buildAnnotatedTag(b *catfile.Batch, oid string) (*gitalypb.Tag, error) {
 	r, err := b.Tag(oid)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("buildAnnotatedTag error when getting tag reader: %v", err)
 	}
-	tagBytes, err := ioutil.ReadAll(r)
+	header, body, err := splitRawCommit(r)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("buildAnnotatedTag error when splitting commit: %v", err)
 	}
 
-	header, body := splitRawCommit(tagBytes)
-	headerLines := strings.Split(string(header), "\n")
-	if err != nil {
-		return nil, err
-	}
-	body = body[:len(body)-1]
-
-	commit, err := GetCommitCatfile(b, strings.SplitN(headerLines[0], " ", 2)[1])
-	if err != nil {
-		return nil, err
-	}
 	tag := &gitalypb.Tag{
-		Id:           oid,
-		Name:         []byte(strings.SplitN(headerLines[2], " ", 2)[1]),
-		Message:      body,
-		MessageSize:  int64(len(body)),
-		Tagger:       parseCommitAuthor(strings.SplitN(headerLines[3], " ", 2)[1]),
-		TargetCommit: commit,
+		Id:          oid,
+		MessageSize: int64(len(body)),
+		Message:     body,
 	}
 
-	if max := helper.MaxCommitOrTagMessageSize; len(tag.Message) > max {
+	if max := helper.MaxCommitOrTagMessageSize; len(body) > max {
 		tag.Message = tag.Message[:max]
+	}
+
+	s := bufio.NewScanner(bytes.NewReader(header))
+	for s.Scan() {
+		line := s.Text()
+		if len(line) == 0 || line[0] == ' ' {
+			continue
+		}
+		headerSplit := strings.SplitN(line, " ", 2)
+		switch headerSplit[0] {
+		case "object":
+			commit, err := GetCommitCatfile(b, headerSplit[1])
+			if err != nil {
+				return nil, fmt.Errorf("buildAnnotatedTag error when getting target commit: %v", err)
+			}
+			tag.TargetCommit = commit
+		case "tag":
+			tag.Name = []byte(headerSplit[1])
+		case "tagger":
+			tag.Tagger = parseCommitAuthor(headerSplit[1])
+		}
 	}
 
 	return tag, nil
