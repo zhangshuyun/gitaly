@@ -5,6 +5,7 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/internal/git/log"
+	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -15,11 +16,25 @@ func (s *server) GetCommitMessages(request *gitalypb.GetCommitMessagesRequest, s
 	}
 	ctx := stream.Context()
 	for _, commitID := range request.GetCommitIds() {
-		msg, err := log.GetCommitMessage(ctx, request.GetRepository(), commitID)
+		resp := &gitalypb.GetCommitMessagesResponse{
+			CommitId: commitID,
+		}
+
+		msgReader, err := log.GetCommitMessage(ctx, request.GetRepository(), commitID)
 		if err != nil {
 			return status.Errorf(codes.Internal, "failed to get commit message: %v", err)
 		}
-		stream.Send(&gitalypb.GetCommitMessagesResponse{CommitId: commitID, Message: msg})
+
+		chunk := make([]byte, helper.MaxCommitOrTagMessageSize)
+		for n, err := msgReader.Read(chunk); err == nil; {
+			resp.Message = chunk[:n]
+			stream.Send(resp)
+
+			// read the next chunk
+			n, err = msgReader.Read(chunk)
+			// reset the response
+			resp = &gitalypb.GetCommitMessagesResponse{}
+		}
 	}
 	return nil
 }

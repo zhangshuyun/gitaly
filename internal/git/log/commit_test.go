@@ -1,6 +1,7 @@
 package log
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/golang/protobuf/ptypes/timestamp"
@@ -34,7 +35,7 @@ func TestParseRawCommit(t *testing.T) {
 		},
 		{
 			desc: "no email",
-			in:   []byte("author Jane Doe"),
+			in:   []byte("author Jane Doe\n"),
 			out: &gitalypb.GitCommit{
 				Id:     info.Oid,
 				Author: &gitalypb.CommitAuthor{Name: []byte("Jane Doe")},
@@ -42,7 +43,7 @@ func TestParseRawCommit(t *testing.T) {
 		},
 		{
 			desc: "unmatched <",
-			in:   []byte("author Jane Doe <janedoe@example.com"),
+			in:   []byte("author Jane Doe <janedoe@example.com\n"),
 			out: &gitalypb.GitCommit{
 				Id:     info.Oid,
 				Author: &gitalypb.CommitAuthor{Name: []byte("Jane Doe")},
@@ -50,7 +51,7 @@ func TestParseRawCommit(t *testing.T) {
 		},
 		{
 			desc: "unmatched >",
-			in:   []byte("author Jane Doe janedoe@example.com>"),
+			in:   []byte("author Jane Doe janedoe@example.com>\n"),
 			out: &gitalypb.GitCommit{
 				Id:     info.Oid,
 				Author: &gitalypb.CommitAuthor{Name: []byte("Jane Doe janedoe@example.com>")},
@@ -58,7 +59,7 @@ func TestParseRawCommit(t *testing.T) {
 		},
 		{
 			desc: "missing date",
-			in:   []byte("author Jane Doe <janedoe@example.com> "),
+			in:   []byte("author Jane Doe <janedoe@example.com> \n"),
 			out: &gitalypb.GitCommit{
 				Id:     info.Oid,
 				Author: &gitalypb.CommitAuthor{Name: []byte("Jane Doe"), Email: []byte("janedoe@example.com")},
@@ -66,7 +67,7 @@ func TestParseRawCommit(t *testing.T) {
 		},
 		{
 			desc: "date too high",
-			in:   []byte("author Jane Doe <janedoe@example.com> 9007199254740993 +0200"),
+			in:   []byte("author Jane Doe <janedoe@example.com> 9007199254740993 +0200\n"),
 			out: &gitalypb.GitCommit{
 				Id: info.Oid,
 				Author: &gitalypb.CommitAuthor{
@@ -78,7 +79,7 @@ func TestParseRawCommit(t *testing.T) {
 		},
 		{
 			desc: "date negative",
-			in:   []byte("author Jane Doe <janedoe@example.com> -1 +0200"),
+			in:   []byte("author Jane Doe <janedoe@example.com> -1 +0200\n"),
 			out: &gitalypb.GitCommit{
 				Id: info.Oid,
 				Author: &gitalypb.CommitAuthor{
@@ -93,9 +94,10 @@ func TestParseRawCommit(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			info.Size = int64(len(tc.in))
-			out, err := parseRawCommit(tc.in, info)
+			out, err := parseRawCommit(bytes.NewBuffer(tc.in), info)
 			require.NoError(t, err, "parse error")
-			require.Equal(t, *tc.out, *out)
+			require.Equal(t, tc.out, out)
+
 		})
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"io"
 	"io/ioutil"
 	"strconv"
 	"strings"
@@ -42,16 +43,11 @@ func GetCommitCatfile(c *catfile.Batch, revision string) (*gitalypb.GitCommit, e
 		return nil, err
 	}
 
-	raw, err := ioutil.ReadAll(r)
-	if err != nil {
-		return nil, err
-	}
-
-	return parseRawCommit(raw, info)
+	return parseRawCommit(r, info)
 }
 
 // GetCommitMessage looks up a commit message and returns it in its entirety.
-func GetCommitMessage(ctx context.Context, repo *gitalypb.Repository, revision string) ([]byte, error) {
+func GetCommitMessage(ctx context.Context, repo *gitalypb.Repository, revision string) (io.Reader, error) {
 	c, err := catfile.New(ctx, repo)
 	if err != nil {
 		return nil, err
@@ -70,42 +66,49 @@ func GetCommitMessage(ctx context.Context, repo *gitalypb.Repository, revision s
 		return nil, err
 	}
 
-	raw, err := ioutil.ReadAll(r)
-	if err != nil {
-		return nil, err
-	}
-	_, body := splitRawCommit(raw)
+	_, body := splitRawCommit(r)
 	return body, nil
 }
 
-func parseRawCommit(raw []byte, info *catfile.ObjectInfo) (*gitalypb.GitCommit, error) {
-	header, body := splitRawCommit(raw)
+func parseRawCommit(r io.Reader, info *catfile.ObjectInfo) (*gitalypb.GitCommit, error) {
+	header, body := splitRawCommit(r)
 	return buildCommit(header, body, info)
 }
 
-func splitRawCommit(raw []byte) ([]byte, []byte) {
-	split := bytes.SplitN(raw, []byte("\n\n"), 2)
-
-	header := split[0]
-	var body []byte
-	if len(split) == 2 {
-		body = split[1]
+func splitRawCommit(r io.Reader) (io.Reader, io.Reader) {
+	var header bytes.Buffer
+	bufReader := bufio.NewReader(r)
+	for b, err := bufReader.ReadBytes('\n'); err == nil; {
+		if string(b) == "\n" {
+			break
+		}
+		header.Write(b)
+		b, err = bufReader.ReadBytes('\n')
 	}
-	return header, body
+	return &header, bufReader
 }
 
-func buildCommit(header, body []byte, info *catfile.ObjectInfo) (*gitalypb.GitCommit, error) {
+func buildCommit(header, body io.Reader, info *catfile.ObjectInfo) (*gitalypb.GitCommit, error) {
+	bodyBytes, err := ioutil.ReadAll(body)
+	if err != nil {
+		return &gitalypb.GitCommit{}, err
+	}
+	if len(bodyBytes) == 0 {
+		bodyBytes = nil
+	}
+
 	commit := &gitalypb.GitCommit{
 		Id:       info.Oid,
-		Body:     body,
-		Subject:  subjectFromBody(body),
-		BodySize: int64(len(body)),
+		BodySize: int64(len(bodyBytes)),
+		Body:     bodyBytes,
+		Subject:  subjectFromBody(bodyBytes),
 	}
-	if max := helper.MaxCommitOrTagMessageSize; len(commit.Body) > max {
+
+	if max := helper.MaxCommitOrTagMessageSize; len(bodyBytes) > max {
 		commit.Body = commit.Body[:max]
 	}
 
-	scanner := bufio.NewScanner(bytes.NewReader(header))
+	scanner := bufio.NewScanner(header)
 	for scanner.Scan() {
 		line := scanner.Text()
 		if len(line) == 0 || line[0] == ' ' {
