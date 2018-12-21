@@ -25,7 +25,8 @@ func TestSuccessfulGetCommitMessagesRequest(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	message1 := strings.Repeat("a\n", helper.MaxCommitOrTagMessageSize*2)
+	//	message1 := strings.Repeat("a\n", helper.MaxCommitOrTagMessageSize*2)
+	message1 := strings.Repeat("a\n", 3)
 	message2 := strings.Repeat("b\n", helper.MaxCommitOrTagMessageSize*2)
 
 	commit1ID := testhelper.CreateCommit(t, testRepoPath, "local-big-commits", &testhelper.CreateCommitOpts{Message: message1})
@@ -50,7 +51,7 @@ func TestSuccessfulGetCommitMessagesRequest(t *testing.T) {
 		},
 	}
 	fetchedMessages := readAllMessagesFromClient(t, c)
-
+	require.Equal(t, len(expectedMessages), len(fetchedMessages))
 	require.Equal(t, expectedMessages, fetchedMessages)
 }
 
