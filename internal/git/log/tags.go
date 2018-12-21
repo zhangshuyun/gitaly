@@ -13,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 )
 
+// GetAllTags retrieves all tag objects for a given repository
 func GetAllTags(ctx context.Context, repo *gitalypb.Repository) ([]*gitalypb.Tag, error) {
 	var tags []*gitalypb.Tag
 

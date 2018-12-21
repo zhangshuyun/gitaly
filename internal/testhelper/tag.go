@@ -45,6 +45,7 @@ func CreateTag(t *testing.T, repoPath, tagName, targetID string, opts *CreateTag
 	return strings.TrimSpace(string(tagID))
 }
 
+// GetTagDate gets the tag date in a timestamp form
 func GetTagDate(t *testing.T, repoPath, tagName string) (int64, error) {
 	tagInfoLines := strings.Split(string(MustRunCommand(t, nil, "git", "-C", repoPath, "show", "--date=unix", tagName)), "\n")
 	timestampString := strings.TrimSpace(strings.SplitN(tagInfoLines[2], "Date:", 2)[1])
