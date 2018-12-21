@@ -20,7 +20,7 @@ func Path() string {
 	}
 
 	if os.Getenv("GITALY_USE_EMBEDDED_HOOKS") == "1" {
-		return path.Join(config.Config.Ruby.Dir, "gitlab-shell/hooks")
+		return path.Join(config.Config.Ruby.Dir, "git-hooks")
 	}
 
 	return path.Join(config.Config.GitlabShell.Dir, "hooks")

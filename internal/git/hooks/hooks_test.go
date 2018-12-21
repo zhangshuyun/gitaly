@@ -22,7 +22,7 @@ func TestPath(t *testing.T) {
 		os.Setenv(hooksVar, "1")
 		defer os.Unsetenv(hooksVar)
 
-		require.Equal(t, "/bazqux/gitaly-ruby/gitlab-shell/hooks", Path())
+		require.Equal(t, "/bazqux/gitaly-ruby/git-hooks", Path())
 	})
 
 	t.Run(fmt.Sprintf("without %s=1", hooksVar), func(t *testing.T) {
