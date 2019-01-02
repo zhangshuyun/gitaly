@@ -32,19 +32,19 @@ func (s *server) WriteRef(ctx context.Context, req *gitalypb.WriteRefRequest) (*
 
 func validateWriteRefRequest(req *gitalypb.WriteRefRequest) error {
 	if err := git.ValidateRevision(req.Ref); err != nil {
-		return fmt.Errorf("Validate Ref: %v", err)
+		return fmt.Errorf("invalid ref: %v", err)
 	}
 	if err := git.ValidateRevision(req.Revision); err != nil {
-		return fmt.Errorf("Validate Revision: %v", err)
+		return fmt.Errorf("invalid revision: %v", err)
 	}
 	if len(req.OldRevision) > 0 {
 		if err := git.ValidateRevision(req.OldRevision); err != nil {
-			return fmt.Errorf("Validate OldRevision: %v", err)
+			return fmt.Errorf("invalid OldRevision: %v", err)
 		}
 	}
 
 	if !bytes.Equal(req.Ref, []byte("HEAD")) && !bytes.HasPrefix(req.Ref, []byte("refs/")) {
-		return fmt.Errorf("Ref has to be a full reference")
+		return fmt.Errorf("ref has to be a full reference")
 	}
 	return nil
 }

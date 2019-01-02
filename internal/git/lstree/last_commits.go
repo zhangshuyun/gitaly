@@ -35,7 +35,7 @@ const (
 )
 
 // ErrParse is returned when the parse of an entry was unsuccessful
-var ErrParse = errors.New("Failed to parse git ls-tree response")
+var ErrParse = errors.New("failed to parse git ls-tree response")
 
 func (e Entries) Len() int {
 	return len(e)

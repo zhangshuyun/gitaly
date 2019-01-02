@@ -47,7 +47,7 @@ func (t *TarBuilder) setErr(err error) error {
 
 func (t *TarBuilder) entry(fi os.FileInfo, filename string, r io.Reader) error {
 	if !fi.Mode().IsRegular() && !fi.Mode().IsDir() {
-		return fmt.Errorf("Unsupported mode for %v: %v", filename, fi.Mode())
+		return fmt.Errorf("unsupported mode for %v: %v", filename, fi.Mode())
 	}
 
 	hdr, err := tar.FileInfoHeader(fi, "")

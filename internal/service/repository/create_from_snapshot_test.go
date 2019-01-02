@@ -29,7 +29,7 @@ type testhandler struct {
 
 func (h *testhandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Header.Get("Authorization") != secret {
-		http.Error(w, "Unuthorized", 401)
+		http.Error(w, "Unuthorized", http.StatusUnauthorized)
 		return
 	}
 

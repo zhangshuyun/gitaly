@@ -187,19 +187,19 @@ func AuthorsEqual(a *gitalypb.CommitAuthor, b *gitalypb.CommitAuthor) bool {
 // GitCommitEqual tests if two `GitCommit`s are equal
 func GitCommitEqual(a, b *gitalypb.GitCommit) error {
 	if !authorSortofEqual(a.GetAuthor(), b.GetAuthor()) {
-		return fmt.Errorf("Author does not match: %v != %v", a.GetAuthor(), b.GetAuthor())
+		return fmt.Errorf("author does not match: %v != %v", a.GetAuthor(), b.GetAuthor())
 	}
 	if !authorSortofEqual(a.GetCommitter(), b.GetCommitter()) {
-		return fmt.Errorf("Commiter does not match: %v != %v", a.GetCommitter(), b.GetCommitter())
+		return fmt.Errorf("commiter does not match: %v != %v", a.GetCommitter(), b.GetCommitter())
 	}
 	if !bytes.Equal(a.GetBody(), b.GetBody()) {
-		return fmt.Errorf("Body differs: %q != %q", a.GetBody(), b.GetBody())
+		return fmt.Errorf("body differs: %q != %q", a.GetBody(), b.GetBody())
 	}
 	if !bytes.Equal(a.GetSubject(), b.GetSubject()) {
-		return fmt.Errorf("Subject differs: %q != %q", a.GetSubject(), b.GetSubject())
+		return fmt.Errorf("subject differs: %q != %q", a.GetSubject(), b.GetSubject())
 	}
 	if strings.Compare(a.GetId(), b.GetId()) != 0 {
-		return fmt.Errorf("Id does not match: %q != %q", a.GetId(), b.GetId())
+		return fmt.Errorf("id does not match: %q != %q", a.GetId(), b.GetId())
 	}
 	if len(a.GetParentIds()) != len(b.GetParentIds()) {
 		return fmt.Errorf("ParentId does not match: %v != %v", a.GetParentIds(), b.GetParentIds())
