@@ -116,3 +116,23 @@ package.
 - [Git Paris meetup, 2017-02-22](https://docs.google.com/presentation/d/19OZUalFMIDM8WujXrrIyCuVb_oVeaUzpb-UdGThOvAo/edit?usp=sharing) a high-level overview of what our plans are and where we are.
 - [Gitaly Basics, 2017-05-01](https://docs.google.com/presentation/d/1cLslUbXVkniOaeJ-r3s5AYF0kQep8VeNfvs0XSGrpA0/edit#slide=id.g1c73db867d_0_0)
 - [Infrastructure Team Update 2017-05-11](https://about.gitlab.com/2017/05/11/functional-group-updates/#infrastructure-team)
+
+
+## Development
+
+### Gitaly Proto Changes
+When you need to develop gitaly against a gitaly-proto branch or tag, you can use the _support/vendor-gitaly-proto script, and pass in either
+the branch or tag.
+
+```
+_support/vendor-gitaly-proto v1.7.0
+
+```
+
+```
+_support/vendor-gitaly-proto my-dev-branch 
+
+```
+
+### Running Tests in Gitlab-CE
+To run the entire gitlab test suite against a version of gitaly, you can modify the GITALY_SERVER_VERSION with the branch or tag you want to test. For details, check the [gitlab development page](https://gitlab.com/gitlab-org/gitlab-ce/blob/master/doc/development/gitaly.md#running-tests-with-a-locally-modified-version-of-gitaly) in the gitlab-ce repo
