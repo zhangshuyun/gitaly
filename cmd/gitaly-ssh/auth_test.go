@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -44,6 +45,9 @@ func TestConnectivity(t *testing.T) {
 
 	socketPath := testhelper.GetTemporaryGitalySocketFileName()
 
+	relativeSocketPath, err := filepath.Rel(cwd, socketPath)
+	require.NoError(t, err, "relative path failure: %v. %s", err)
+
 	tcpServer, tcpPort := runServer(t, server.NewInsecure, "tcp", "localhost:0")
 	defer tcpServer.Stop()
 
@@ -54,15 +58,35 @@ func TestConnectivity(t *testing.T) {
 	defer unixServer.Stop()
 
 	testCases := []struct {
-		addr string
+		name  string
+		addr  string
+		proxy bool
 	}{
 		{
+			name: "tcp",
 			addr: fmt.Sprintf("tcp://localhost:%d", tcpPort),
 		},
 		{
-			addr: fmt.Sprintf("unix://%s", socketPath),
+			name: "unix absolute",
+			addr: fmt.Sprintf("unix:%s", socketPath),
 		},
 		{
+			name:  "unix abs with proxy",
+			addr:  fmt.Sprintf("unix:%s", socketPath),
+			proxy: true,
+		},
+		{
+			name: "unix relative",
+			addr: fmt.Sprintf("unix:%s", relativeSocketPath),
+		},
+		{
+			name:  "unix relative with proxy",
+			addr:  fmt.Sprintf("unix:%s", relativeSocketPath),
+			proxy: true,
+		},
+
+		{
+			name: "tls",
 			addr: fmt.Sprintf("tls://localhost:%d", tlsPort),
 		},
 	}
@@ -74,20 +98,29 @@ func TestConnectivity(t *testing.T) {
 
 	require.NoError(t, err)
 	for _, testcase := range testCases {
-		cmd := exec.Command("git", "ls-remote", "git@localhost:test/test.git", "refs/heads/master")
-		cmd.Stderr = os.Stderr
-		cmd.Env = []string{
-			fmt.Sprintf("GITALY_PAYLOAD=%s", payload),
-			fmt.Sprintf("GITALY_ADDRESS=%s", testcase.addr),
-			fmt.Sprintf("PATH=.:%s", os.Getenv("PATH")),
-			fmt.Sprintf("GIT_SSH_COMMAND=%s upload-pack", gitalySSHPath),
-			fmt.Sprintf("SSL_CERT_DIR=%s", certPoolPath),
-		}
+		t.Run(testcase.name, func(t *testing.T) {
+			cmd := exec.Command("git", "ls-remote", "git@localhost:test/test.git", "refs/heads/master")
+			cmd.Stderr = os.Stderr
+			cmd.Env = []string{
+				fmt.Sprintf("GITALY_PAYLOAD=%s", payload),
+				fmt.Sprintf("GITALY_ADDRESS=%s", testcase.addr),
+				fmt.Sprintf("PATH=.:%s", os.Getenv("PATH")),
+				fmt.Sprintf("GIT_SSH_COMMAND=%s upload-pack", gitalySSHPath),
+				fmt.Sprintf("SSL_CERT_DIR=%s", certPoolPath),
+			}
 
-		output, err := cmd.Output()
+			if testcase.proxy {
+				cmd.Env = append(cmd.Env,
+					"http_proxy=http://invalid:1234",
+					"https_proxy=https://invalid:1234",
+				)
+			}
 
-		require.NoError(t, err, "git ls-remote exit status")
-		require.True(t, strings.HasSuffix(strings.TrimSpace(string(output)), "refs/heads/master"))
+			output, err := cmd.Output()
+
+			require.NoError(t, err, "git ls-remote exit status")
+			require.True(t, strings.HasSuffix(strings.TrimSpace(string(output)), "refs/heads/master"))
+		})
 	}
 }
 
