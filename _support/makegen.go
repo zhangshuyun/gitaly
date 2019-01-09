@@ -315,6 +315,7 @@ test: test-go rspec
 .PHONY: test-go
 test-go: prepare-tests
 	@go test -count=1 {{ join .AllPackages " " }} # count=1 bypasses go 1.10 test caching
+	@http_proxy="http://invalid:1234" https_proxy="https://invalid:1234" go test {{ .Pkg }}/client
 
 .PHONY: race-go
 race-go: prepare-tests
