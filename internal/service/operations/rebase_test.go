@@ -1,6 +1,7 @@
 package operations_test
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -90,23 +91,23 @@ func TestFailedUserRebaseRequestDueToPreReceiveError(t *testing.T) {
 	request := &gitalypb.UserRebaseRequest{
 		Repository:       testRepo,
 		User:             user,
-		RebaseId:         "1",
 		Branch:           []byte(branchName),
 		BranchSha:        branchSha,
 		RemoteRepository: testRepoCopy,
 		RemoteBranch:     []byte("master"),
 	}
 
-	hookContent := []byte("#!/bin/sh\necho GL_ID=$GL_ID\nexit 1")
-	for _, hookName := range operations.GitlabPreHooks {
+	hookContent := []byte("#!/bin/sh\necho GL_ID=$GL_ID\nexit 1\n")
+	for i, hookName := range operations.GitlabPreHooks {
 		t.Run(hookName, func(t *testing.T) {
 			remove, err := operations.OverrideHooks(hookName, hookContent)
-			require.NoError(t, err)
+			require.NoError(t, err, "set up hooks override")
 			defer remove()
 
 			md := testhelper.GitalyServersMetadata(t, serverSocketPath)
 			ctx := metadata.NewOutgoingContext(ctxOuter, md)
 
+			request.RebaseId = fmt.Sprintf("%d", i+1)
 			response, err := client.UserRebase(ctx, request)
 			require.NoError(t, err)
 			require.Contains(t, response.PreReceiveError, "GL_ID="+user.GlId)
