@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -44,6 +45,9 @@ func TestConnectivity(t *testing.T) {
 
 	socketPath := testhelper.GetTemporaryGitalySocketFileName()
 
+	relSocketPath, err := filepath.Rel("/", socketPath)
+	require.NoError(t, err)
+
 	tcpServer, tcpPort := runServer(t, server.NewInsecure, "tcp", "localhost:0")
 	defer tcpServer.Stop()
 
@@ -63,8 +67,12 @@ func TestConnectivity(t *testing.T) {
 			addr: fmt.Sprintf("tcp://localhost:%d", tcpPort),
 		},
 		{
-			name: "unix",
-			addr: fmt.Sprintf("unix://%s", socketPath),
+			name: "unix: absolute",
+			addr: "unix:" + socketPath,
+		},
+		{
+			name: "unix: relative",
+			addr: "unix:" + relSocketPath,
 		},
 		{
 			name:  "unix_with_proxy",
@@ -87,6 +95,7 @@ func TestConnectivity(t *testing.T) {
 		t.Run(testcase.name, func(t *testing.T) {
 			cmd := exec.Command("git", "ls-remote", "git@localhost:test/test.git", "refs/heads/master")
 			cmd.Stderr = os.Stderr
+			cmd.Dir = "/"
 			cmd.Env = []string{
 				fmt.Sprintf("GITALY_PAYLOAD=%s", payload),
 				fmt.Sprintf("GITALY_ADDRESS=%s", testcase.addr),
