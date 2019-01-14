@@ -1,5 +1,13 @@
 # Gitaly changelog
 
+## v1.12.1
+
+#### Fixed
+- Fix flaky rebase test
+  https://gitlab.com/gitlab-org/gitaly/merge_requests/1028
+- Fix regression for https_proxy and unix socket connections
+  https://gitlab.com/gitlab-org/gitaly/merge_requests/1032
+
 ## v1.12.0
 
 #### Fixed

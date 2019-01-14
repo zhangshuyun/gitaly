@@ -1,5 +1,0 @@
----
-title: Fix regression for https_proxy and unix socket connections
-merge_request: 1032
-author:
-type: fixed
