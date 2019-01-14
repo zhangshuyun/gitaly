@@ -78,15 +78,15 @@ func FieldExtractor(fullMethod string, req interface{}) map[string]interface{} {
 	}
 
 	var result map[string]interface{}
-	switch req.(type) {
+	switch req := req.(type) {
 	case gitalypb.RenameNamespaceRequest:
-		result = formatRenameNamespaceRequest(req.(gitalypb.RenameNamespaceRequest))
+		result = formatRenameNamespaceRequest(req)
 	case repositoryBasedRequest:
-		result = formatRepoRequest(req.(repositoryBasedRequest).GetRepository())
+		result = formatRepoRequest(req.GetRepository())
 	case namespaceBasedRequest:
-		result = formatNamespaceRequest(req.(namespaceBasedRequest))
+		result = formatNamespaceRequest(req)
 	case storageBasedRequest:
-		result = formatStorageRequest(req.(storageBasedRequest))
+		result = formatStorageRequest(req)
 	}
 
 	if result == nil {
