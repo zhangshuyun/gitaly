@@ -35,9 +35,6 @@ func GetAllTags(ctx context.Context, repo *gitalypb.Repository) ([]*gitalypb.Tag
 		if err != nil {
 			return tags, err
 		}
-		if info.IsBlob() {
-			continue
-		}
 		tag, err := buildTag(oid, info.Type, line[1], c)
 		if err != nil {
 			return tags, err
@@ -98,6 +95,11 @@ func buildAnnotatedTag(b *catfile.Batch, oid string) (*gitalypb.Tag, error) {
 		}
 		headerSplit := strings.SplitN(line, " ", 2)
 		switch headerSplit[0] {
+		case "type":
+			// we only want to get the referenced target commit, and are ignoring any other objects
+			if headerSplit[1] != "commit" {
+				continue
+			}
 		case "object":
 			commit, err := GetCommitCatfile(b, headerSplit[1])
 			if err != nil {
