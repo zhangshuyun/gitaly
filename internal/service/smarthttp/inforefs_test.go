@@ -10,7 +10,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
-	"gitlab.com/gitlab-org/gitaly/internal/config"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/streamio"
@@ -54,10 +53,8 @@ func TestSuccessfulInfoRefsUploadPackWithGitConfigOptions(t *testing.T) {
 }
 
 func TestSuccessfulInfoRefsUploadPackWithGitProtocol(t *testing.T) {
-	defer func(old string) {
-		config.Config.Git.BinPath = old
-	}(config.Config.Git.BinPath)
-	config.Config.Git.BinPath = "../../testhelper/env_git"
+	restore := testhelper.EnableGitProtocolV2Support()
+	defer restore()
 
 	server, serverSocketPath := runSmartHTTPServer(t)
 	defer server.Stop()

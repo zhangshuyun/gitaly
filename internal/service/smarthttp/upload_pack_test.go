@@ -15,7 +15,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
-	"gitlab.com/gitlab-org/gitaly/internal/config"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/pktline"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
@@ -149,10 +148,8 @@ func TestUploadPackRequestWithGitConfigOptions(t *testing.T) {
 }
 
 func TestUploadPackRequestWithGitProtocol(t *testing.T) {
-	defer func(old string) {
-		config.Config.Git.BinPath = old
-	}(config.Config.Git.BinPath)
-	config.Config.Git.BinPath = "../../testhelper/env_git"
+	restore := testhelper.EnableGitProtocolV2Support()
+	defer restore()
 
 	server, serverSocketPath := runSmartHTTPServer(t)
 	defer server.Stop()

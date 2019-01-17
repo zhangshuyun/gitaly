@@ -68,10 +68,8 @@ func TestSuccessfulReceivePackRequest(t *testing.T) {
 }
 
 func TestSuccessfulReceivePackRequestWithGitProtocol(t *testing.T) {
-	defer func(old string) {
-		config.Config.Git.BinPath = old
-	}(config.Config.Git.BinPath)
-	config.Config.Git.BinPath = "../../testhelper/env_git"
+	restore := testhelper.EnableGitProtocolV2Support()
+	defer restore()
 
 	server, serverSocketPath := runSmartHTTPServer(t)
 	defer server.Stop()
