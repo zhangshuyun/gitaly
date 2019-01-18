@@ -148,7 +148,7 @@ func TestFailureRepoNotFoundInfoRefsReceivePack(t *testing.T) {
 
 	client, conn := newSmartHTTPClient(t, serverSocketPath)
 	defer conn.Close()
-	repo := &gitalypb.Repository{StorageName: "default", RelativePath: "testdata/data/another_repo"}
+	repo := &gitalypb.Repository{StorageName: "default", RelativePath: "testdata/scratch/another_repo"}
 	rpcRequest := &gitalypb.InfoRefsRequest{Repository: repo}
 
 	ctx, cancel := context.WithCancel(context.Background())
