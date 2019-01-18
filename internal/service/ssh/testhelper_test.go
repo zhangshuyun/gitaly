@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	testPath     = "testdata"
+	testPath     = "testdata/scratch"
 	testRepoRoot = testPath + "/data"
 )
 
