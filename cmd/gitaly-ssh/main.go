@@ -4,7 +4,7 @@ import (
 	"log"
 	"os"
 
-	"gitlab.com/gitlab-org/gitaly/auth"
+	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
 	"gitlab.com/gitlab-org/gitaly/client"
 	"google.golang.org/grpc"
 )

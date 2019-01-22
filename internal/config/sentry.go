@@ -3,7 +3,7 @@ package config
 import (
 	"fmt"
 
-	"github.com/getsentry/raven-go"
+	raven "github.com/getsentry/raven-go"
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/panichandler"
 )
