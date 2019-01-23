@@ -14,10 +14,10 @@ import (
 // environment variables get set for hooks.
 func CaptureHookEnv(t *testing.T) (hookPath string, cleanup func()) {
 	var err error
-	hooks.Override, err = filepath.Abs("testdata/hooks")
+	hooks.Override, err = filepath.Abs("testdata/scratch/hooks")
 	require.NoError(t, err)
 
-	hookOutputFile, err := filepath.Abs("testdata/hook.env")
+	hookOutputFile, err := filepath.Abs("testdata/scratch/hook.env")
 	require.NoError(t, err)
 
 	require.NoError(t, os.RemoveAll(hookOutputFile))
