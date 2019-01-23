@@ -7,6 +7,8 @@ import (
 
 	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	"github.com/prometheus/client_golang/prometheus"
+
+	"gitlab.com/gitlab-org/gitaly/internal/config"
 )
 
 const (
@@ -39,9 +41,13 @@ func AddGitProtocolEnv(ctx context.Context, req RequestWithGitProtocol, env []st
 	service, method := methodFromContext(ctx)
 
 	if req.GetGitProtocol() == ProtocolV2 {
-		env = append(env, fmt.Sprintf("GIT_PROTOCOL=%s", ProtocolV2))
+		if config.Config.Git.ProtocolV2Enabled {
+			env = append(env, fmt.Sprintf("GIT_PROTOCOL=%s", ProtocolV2))
 
-		gitProtocolRequests.WithLabelValues(service, method, "v2").Inc()
+			gitProtocolRequests.WithLabelValues(service, method, "v2").Inc()
+		} else {
+			gitProtocolRequests.WithLabelValues(service, method, "v2-rejected").Inc()
+		}
 	} else {
 		gitProtocolRequests.WithLabelValues(service, method, "v0").Inc()
 	}
