@@ -1,5 +1,15 @@
 # Gitaly changelog
 
+## v1.7.2
+
+#### Other
+- Fix tests failing due to test-repo change
+  https://gitlab.com/gitlab-org/gitaly/merge_requests/1004
+
+#### Security
+- Disable git protocol v2 temporarily
+  https://gitlab.com/gitlab-org/gitaly/merge_requests/
+
 ## v1.7.1
 
 #### Other
