@@ -1,5 +1,11 @@
 # Gitaly changelog
 
+## v1.14.1
+
+#### Security
+- Disable git protocol v2 temporarily
+  https://gitlab.com/gitlab-org/gitaly/merge_requests/
+
 ## v1.14.0
 
 #### Fixed
