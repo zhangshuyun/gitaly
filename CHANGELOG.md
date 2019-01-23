@@ -1,5 +1,15 @@
 # Gitaly changelog
 
+## v0.129.1
+
+#### Other
+- Fix tests failing due to test-repo change
+  https://gitlab.com/gitlab-org/gitaly/merge_requests/1004
+
+#### Security
+- Disable git protocol v2 temporarily
+  https://gitlab.com/gitlab-org/gitaly/merge_requests/
+
 ## v0.129.0
 
 #### Added
