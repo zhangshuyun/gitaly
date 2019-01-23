@@ -12,7 +12,6 @@ import (
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
-	"gitlab.com/gitlab-org/gitaly/internal/config"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"golang.org/x/net/context"
@@ -98,10 +97,8 @@ func TestUploadPackCloneSuccess(t *testing.T) {
 }
 
 func TestUploadPackCloneSuccessWithGitProtocol(t *testing.T) {
-	defer func(old string) {
-		config.Config.Git.BinPath = old
-	}(config.Config.Git.BinPath)
-	config.Config.Git.BinPath = "../../testhelper/env_git"
+	restore := testhelper.EnableGitProtocolV2Support()
+	defer restore()
 
 	server, serverSocketPath := runSSHServer(t)
 	defer server.Stop()
