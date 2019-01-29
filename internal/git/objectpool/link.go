@@ -36,6 +36,7 @@ func (o *ObjectPool) Link(ctx context.Context, repo *gitalypb.Repository) error 
 		fmt.Sprintf("remote.%s.url", remoteName):    relPath,
 		fmt.Sprintf("remote.%s.fetch", remoteName):  fmt.Sprintf("+refs/*:refs/remotes/%s/*", remoteName),
 		fmt.Sprintf("remote.%s.tagOpt", remoteName): "--no-tags",
+		"pack.island": fmt.Sprintf("refs/remotes/%s", remoteName),
 	} {
 		if err := o.setConfig(ctx, k, v); err != nil {
 			return err
