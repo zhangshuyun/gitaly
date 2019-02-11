@@ -3,31 +3,37 @@ package repository
 import (
 	"context"
 
-	grpc_logrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
-	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
-	"gitlab.com/gitlab-org/gitaly/internal/rubyserver"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 )
 
 func (s *server) FetchRemote(ctx context.Context, in *gitalypb.FetchRemoteRequest) (*gitalypb.FetchRemoteResponse, error) {
-	grpc_logrus.Extract(ctx).WithFields(log.Fields{
-		"Remote":     in.GetRemote(),
-		"Force":      in.GetForce(),
-		"NoTags":     in.GetNoTags(),
-		"Timeout":    in.GetTimeout(),
-		"SSHKey":     in.GetSshKey(),
-		"KnownHosts": in.GetKnownHosts(),
-	}).Debug("FetchRemote")
+	repo := in.GetRepository()
 
-	client, err := s.RepositoryServiceClient(ctx)
+	force := ""
+	if in.GetForce() {
+		force = "--force"
+	}
+
+	prune := "--prune"
+	if in.GetNoPrune() {
+		prune = ""
+	}
+
+	tags := "--tags"
+	if in.GetNoTags() {
+		tags = "--no-tags"
+	}
+
+	cmd, err := git.Command(ctx, repo, "fetch", in.GetRemote(), prune, force, tags, "--quiet")
 	if err != nil {
 		return nil, err
 	}
 
-	clientCtx, err := rubyserver.SetHeaders(ctx, in.GetRepository())
-	if err != nil {
+	if err := cmd.Wait(); err != nil {
 		return nil, err
 	}
 
-	return client.FetchRemote(clientCtx, in)
+	return &gitalypb.FetchRemoteResponse{}, nil
+
 }
