@@ -1,5 +1,5 @@
 ---
-title: Porting FetchRemote to go
+title: Reimplement FetchRemote to go
 merge_request: 1071
 author:
 type: performance
