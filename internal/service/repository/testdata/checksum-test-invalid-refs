@@ -1,0 +1,9 @@
+# pack-refs with: peeled fully-peeled sorted
+1450cd639e0bc6721eb02800169e464f212cde06 foo/bar
+259a6fba859cc91c54cd86a2cbd4c2f720e3a19d foo/bar:baz
+d0a293c0ac821fadfdc086fe528f79423004229d refs/foo/bar:baz
+21751bf5cb2b556543a11018c1f13b35e44a99d7 tags/v0.0.1
+498214de67004b1da3d820901307bed2a68a8ef6 keep-around/498214de67004b1da3d820901307bed2a68a8ef6
+38008cb17ce1466d8fec2dfa6f6ab8dcfe5cf49e merge-requests/11/head
+c347ca2e140aa667b968e51ed0ffe055501fe4f4 environments/3/head
+4ed78158b5b018c43005cec917129861541e25bc notes/commits

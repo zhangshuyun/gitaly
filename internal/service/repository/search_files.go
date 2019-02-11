@@ -122,8 +122,13 @@ func sendSearchFilesResultChunked(cmd *command.Command, stream gitalypb.Reposito
 	scanner := bufio.NewScanner(cmd)
 
 	for scanner.Scan() {
-		line := append(scanner.Bytes(), '\n')
-		if bytes.Equal(line, contentDelimiter) {
+		// Intentionally avoid scanner.Bytes() because that returns a []byte that
+		// becomes invalid on the next loop iteration, and we want to hold on to
+		// the contents of the current line for a while. Scanner.Text() is a
+		// string and hence immutable.
+		line := scanner.Text() + "\n"
+
+		if line == string(contentDelimiter) {
 			if err := sendMatchInChunks(buf, stream); err != nil {
 				return err
 			}

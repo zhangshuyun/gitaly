@@ -143,3 +143,29 @@ func TestFailedCalculateChecksum(t *testing.T) {
 		testhelper.RequireGrpcError(t, err, testCase.code)
 	}
 }
+
+func TestInvalidRefsCalculateChecksum(t *testing.T) {
+	server, serverSocketPath := runRepoServer(t)
+	defer server.Stop()
+
+	client, conn := newRepositoryClient(t, serverSocketPath)
+	defer conn.Close()
+
+	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	defer cleanupFn()
+
+	// Force the refs database of testRepo into a known state
+	require.NoError(t, os.RemoveAll(path.Join(testRepoPath, "refs")))
+	for _, d := range []string{"refs/heads", "refs/tags", "refs/notes"} {
+		require.NoError(t, os.MkdirAll(path.Join(testRepoPath, d), 0755))
+	}
+	require.NoError(t, exec.Command("cp", "testdata/checksum-test-invalid-refs", path.Join(testRepoPath, "packed-refs")).Run())
+
+	request := &gitalypb.CalculateChecksumRequest{Repository: testRepo}
+	testCtx, cancelCtx := testhelper.Context()
+	defer cancelCtx()
+
+	response, err := client.CalculateChecksum(testCtx, request)
+	require.NoError(t, err)
+	require.Equal(t, "0000000000000000000000000000000000000000", response.Checksum)
+}

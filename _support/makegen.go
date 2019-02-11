@@ -232,6 +232,7 @@ PREFIX ?= /usr/local
 INSTALL_DEST_DIR := $(DESTDIR)$(PREFIX)/bin/
 BUNDLE_FLAGS ?= --deployment
 ASSEMBLY_ROOT ?= {{ .BuildDir }}/assembly
+BUILD_TAGS := tracer_static tracer_static_jaeger
 
 unexport GOROOT
 unexport GOBIN

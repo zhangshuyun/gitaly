@@ -13,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/internal/helper/chunk"
 )
 
 const commitsPerPage int = 20
@@ -115,40 +116,37 @@ func (g *GetCommits) Commit() (*gitalypb.GitCommit, error) {
 	return commit, nil
 }
 
+type findCommitsSender struct {
+	stream  gitalypb.CommitService_FindCommitsServer
+	commits []*gitalypb.GitCommit
+}
+
+func (s *findCommitsSender) Reset() { s.commits = nil }
+func (s *findCommitsSender) Append(it chunk.Item) {
+	s.commits = append(s.commits, it.(*gitalypb.GitCommit))
+}
+func (s *findCommitsSender) Send() error {
+	return s.stream.Send(&gitalypb.FindCommitsResponse{Commits: s.commits})
+}
+
 func streamPaginatedCommits(getCommits *GetCommits, commitsPerPage int, stream gitalypb.CommitService_FindCommitsServer) error {
-	var commitPage []*gitalypb.GitCommit
+	chunker := chunk.New(&findCommitsSender{stream: stream})
 
 	for getCommits.Scan() {
 		commit, err := getCommits.Commit()
 		if err != nil {
 			return err
 		}
-		commitPage = append(commitPage, commit)
-		if len(commitPage) == commitsPerPage {
-			if err := stream.Send(
-				&gitalypb.FindCommitsResponse{
-					Commits: commitPage,
-				},
-			); err != nil {
-				return fmt.Errorf("error when sending stream response: %v", err)
-			}
-			commitPage = nil
+
+		if err := chunker.Send(commit); err != nil {
+			return err
 		}
 	}
 	if getCommits.Err() != nil {
 		return fmt.Errorf("get commits: %v", getCommits.Err())
 	}
-	// send the last page
-	if len(commitPage) > 0 {
-		if err := stream.Send(
-			&gitalypb.FindCommitsResponse{
-				Commits: commitPage,
-			},
-		); err != nil {
-			return fmt.Errorf("error when sending stream response: %v", err)
-		}
-	}
-	return nil
+
+	return chunker.Flush()
 }
 
 func getLogCommandFlags(req *gitalypb.FindCommitsRequest) []string {

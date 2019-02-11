@@ -1,5 +1,25 @@
 # Gitaly changelog
 
+## v1.19.0
+
+#### Fixed
+- Return blank checksum for git repositories with only invalid refs
+  https://gitlab.com/gitlab-org/gitaly/merge_requests/1065
+
+#### Other
+- Use chunker in GetRawChanges
+  https://gitlab.com/gitlab-org/gitaly/merge_requests/1043
+
+## v1.18.0
+
+#### Other
+- Make clear there is no []byte reuse bug in SearchFilesByContent
+  https://gitlab.com/gitlab-org/gitaly/merge_requests/1055
+- Use chunker in FindCommits
+  https://gitlab.com/gitlab-org/gitaly/merge_requests/1059
+- Statically link jaeger into Gitaly by default
+  https://gitlab.com/gitlab-org/gitaly/merge_requests/1063
+
 ## v1.17.0
 
 #### Other

@@ -11,6 +11,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/git/rawdiff"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/internal/helper/chunk"
 )
 
 func (s *server) GetRawChanges(req *gitalypb.GetRawChangesRequest, stream gitalypb.RepositoryService_GetRawChangesServer) error {
@@ -62,17 +63,16 @@ func getRawChanges(stream gitalypb.RepositoryService_GetRawChangesServer, repo *
 	if err != nil {
 		return fmt.Errorf("start git diff: %v", err)
 	}
-	p := rawdiff.NewParser(diffCmd)
 
-	var chunk []*gitalypb.GetRawChangesResponse_RawChange
+	p := rawdiff.NewParser(diffCmd)
+	chunker := chunk.New(&rawChangesSender{stream: stream})
 
 	for {
 		d, err := p.NextDiff()
+		if err == io.EOF {
+			break // happy path
+		}
 		if err != nil {
-			if err == io.EOF {
-				break // happy path
-			}
-
 			return fmt.Errorf("read diff: %v", err)
 		}
 
@@ -80,21 +80,8 @@ func getRawChanges(stream gitalypb.RepositoryService_GetRawChangesServer, repo *
 		if err != nil {
 			return fmt.Errorf("build change from diff line: %v", err)
 		}
-		chunk = append(chunk, change)
 
-		const chunkSize = 50
-		if len(chunk) >= chunkSize {
-			resp := &gitalypb.GetRawChangesResponse{RawChanges: chunk}
-			if err := stream.Send(resp); err != nil {
-				return fmt.Errorf("send response: %v", err)
-			}
-			chunk = nil
-		}
-	}
-
-	if len(chunk) > 0 {
-		resp := &gitalypb.GetRawChangesResponse{RawChanges: chunk}
-		if err := stream.Send(resp); err != nil {
+		if err := chunker.Send(change); err != nil {
 			return fmt.Errorf("send response: %v", err)
 		}
 	}
@@ -103,7 +90,21 @@ func getRawChanges(stream gitalypb.RepositoryService_GetRawChangesServer, repo *
 		return fmt.Errorf("wait git diff: %v", err)
 	}
 
-	return nil
+	return chunker.Flush()
+}
+
+type rawChangesSender struct {
+	stream  gitalypb.RepositoryService_GetRawChangesServer
+	changes []*gitalypb.GetRawChangesResponse_RawChange
+}
+
+func (s *rawChangesSender) Reset() { s.changes = nil }
+func (s *rawChangesSender) Append(it chunk.Item) {
+	s.changes = append(s.changes, it.(*gitalypb.GetRawChangesResponse_RawChange))
+}
+func (s *rawChangesSender) Send() error {
+	response := &gitalypb.GetRawChangesResponse{RawChanges: s.changes}
+	return s.stream.Send(response)
 }
 
 // Ordinarily, Git uses 0000000000000000000000000000000000000000, the

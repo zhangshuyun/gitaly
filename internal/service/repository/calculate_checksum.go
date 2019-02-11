@@ -71,7 +71,7 @@ func (s *server) CalculateChecksum(ctx context.Context, in *gitalypb.CalculateCh
 		return nil, status.Errorf(codes.Internal, err.Error())
 	}
 
-	if err := cmd.Wait(); err != nil {
+	if err := cmd.Wait(); checksum == nil || err != nil {
 		if isValidRepo(ctx, repo) {
 			return &gitalypb.CalculateChecksumResponse{Checksum: blankChecksum}, nil
 		}
