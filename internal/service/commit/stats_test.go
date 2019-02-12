@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"google.golang.org/grpc/codes"
@@ -25,53 +24,30 @@ func TestCommitStatsSuccess(t *testing.T) {
 	defer cleanupFn()
 
 	tests := []struct {
-		desc                 string
-		revision             string
+		revision             []byte
 		oid                  string
 		additions, deletions int32
 	}{
 		{
-			desc:      "multiple changes, multiple files",
-			revision:  "test-do-not-touch",
+			revision:  []byte("test-do-not-touch"),
 			oid:       "899d3d27b04690ac1cd9ef4d8a74fde0667c57f1",
 			additions: 27,
 			deletions: 59,
 		},
 		{
-			desc:      "multiple changes, multiple files, reference by commit ID",
-			revision:  "899d3d27b04690ac1cd9ef4d8a74fde0667c57f1",
+			revision:  []byte("899d3d27b04690ac1cd9ef4d8a74fde0667c57f1"),
 			oid:       "899d3d27b04690ac1cd9ef4d8a74fde0667c57f1",
 			additions: 27,
 			deletions: 59,
-		},
-		{
-			desc:      "merge commit",
-			revision:  "60ecb67",
-			oid:       "60ecb67744cb56576c30214ff52294f8ce2def98",
-			additions: 1,
-			deletions: 0,
-		},
-		{
-			desc:      "binary file",
-			revision:  "ae73cb0",
-			oid:       "ae73cb07c9eeaf35924a10f713b364d32b2dd34f",
-			additions: 0,
-			deletions: 0,
 		},
 	}
 
 	for _, tc := range tests {
-		t.Run(tc.desc, func(t *testing.T) {
-			resp, err := client.CommitStats(ctx, &gitalypb.CommitStatsRequest{
-				Repository: testRepo,
-				Revision:   []byte(tc.revision),
-			})
-			require.NoError(t, err)
-
-			assert.Equal(t, tc.oid, resp.GetOid())
-			assert.Equal(t, tc.additions, resp.GetAdditions())
-			assert.Equal(t, tc.deletions, resp.GetDeletions())
-		})
+		resp, err := client.CommitStats(ctx, &gitalypb.CommitStatsRequest{Repository: testRepo, Revision: tc.revision})
+		assert.NoError(t, err)
+		assert.Equal(t, tc.oid, resp.GetOid())
+		assert.Equal(t, tc.additions, resp.GetAdditions())
+		assert.Equal(t, tc.deletions, resp.GetDeletions())
 	}
 }
 
