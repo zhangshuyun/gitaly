@@ -1,0 +1,5 @@
+---
+title: Added sha format validations for Raw diff operations
+merge_request:
+author:
+type: security
