@@ -50,7 +50,7 @@ func TestValidSha(t *testing.T) {
 		{"invalid-sha", true},
 		{"878d0d962673697c1d038d47e8070f8e7a807028", false},
 		{"878d0d962673697c1d038d47e8070f8e7a80702", true},
-		{"878d0d962673697c1d038d47e8070f8e7a807028a", true},
+		{"878d0d962673697c1d038d47e8070f8e7a807028~", false},
 	}
 
 	for _, tc := range testCases {

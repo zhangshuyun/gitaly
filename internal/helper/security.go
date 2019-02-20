@@ -28,8 +28,8 @@ func SanitizeString(str string) string {
 
 // ValidSha checks if SHA is valid
 func ValidSha(sha string) error {
-	if match, err := regexp.MatchString(`\A[0-9a-f]{40}\z`, sha); !match || err != nil {
-		return fmt.Errorf("Invalid Sha")
+	if match, err := regexp.MatchString(`[0-9a-f]{40}`, sha); !match || err != nil {
+		return fmt.Errorf("invalid Sha")
 	}
 
 	return nil

@@ -206,7 +206,7 @@ func validateRequest(in requestWithLeftRightCommitIds) error {
 		return fmt.Errorf("empty RightCommitId")
 	}
 
-	if err := helper.ValidSha(in.GetLeftCommitId()); err != nil {
+	if err := helper.ValidSha(in.GetRightCommitId()); err != nil {
 		return fmt.Errorf("invalid RightCommitId SHA")
 	}
 

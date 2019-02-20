@@ -98,7 +98,7 @@ func TestFailedRawDiffRequestDueToValidations(t *testing.T) {
 			code: codes.InvalidArgument,
 		},
 		{
-			desc: "invalid left commit",
+			desc: "invalid right commit",
 			request: &gitalypb.RawDiffRequest{
 				Repository:    testRepo,
 				RightCommitId: "invalid-sha",
@@ -107,7 +107,7 @@ func TestFailedRawDiffRequestDueToValidations(t *testing.T) {
 			code: codes.InvalidArgument,
 		},
 		{
-			desc: "invalid right commit",
+			desc: "invalid left commit",
 			request: &gitalypb.RawDiffRequest{
 				Repository:    testRepo,
 				RightCommitId: "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab",
@@ -208,7 +208,7 @@ func TestFailedRawPatchRequestDueToValidations(t *testing.T) {
 			code: codes.InvalidArgument,
 		},
 		{
-			desc: "invalid left commit",
+			desc: "invalid right commit",
 			request: &gitalypb.RawPatchRequest{
 				Repository:    testRepo,
 				RightCommitId: "invalid-sha",
@@ -217,7 +217,7 @@ func TestFailedRawPatchRequestDueToValidations(t *testing.T) {
 			code: codes.InvalidArgument,
 		},
 		{
-			desc: "invalid right commit",
+			desc: "invalid left commit",
 			request: &gitalypb.RawPatchRequest{
 				Repository:    testRepo,
 				RightCommitId: "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab",
