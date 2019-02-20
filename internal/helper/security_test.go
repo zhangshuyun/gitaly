@@ -40,3 +40,24 @@ func TestSanitizeString(t *testing.T) {
 		assert.Equal(t, tc.output, SanitizeString(tc.input))
 	}
 }
+
+func TestValidSha(t *testing.T) {
+	testCases := []struct {
+		sha   string
+		error bool
+	}{
+		{"", true},
+		{"invalid-sha", true},
+		{"878d0d962673697c1d038d47e8070f8e7a807028", false},
+		{"878d0d962673697c1d038d47e8070f8e7a80702", true},
+		{"878d0d962673697c1d038d47e8070f8e7a807028a", true},
+	}
+
+	for _, tc := range testCases {
+		if tc.error {
+			assert.Error(t, ValidSha(tc.sha), "Invalid Sha")
+		} else {
+			assert.NoError(t, ValidSha(tc.sha))
+		}
+	}
+}

@@ -9,6 +9,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/internal/diff"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -196,8 +197,17 @@ func validateRequest(in requestWithLeftRightCommitIds) error {
 	if in.GetLeftCommitId() == "" {
 		return fmt.Errorf("empty LeftCommitId")
 	}
+
+	if err := helper.ValidSha(in.GetLeftCommitId()); err != nil {
+		return fmt.Errorf("invalid LeftCommitId SHA")
+	}
+
 	if in.GetRightCommitId() == "" {
 		return fmt.Errorf("empty RightCommitId")
+	}
+
+	if err := helper.ValidSha(in.GetLeftCommitId()); err != nil {
+		return fmt.Errorf("invalid RightCommitId SHA")
 	}
 
 	return nil

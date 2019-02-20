@@ -97,6 +97,24 @@ func TestFailedRawDiffRequestDueToValidations(t *testing.T) {
 			},
 			code: codes.InvalidArgument,
 		},
+		{
+			desc: "invalid left commit",
+			request: &gitalypb.RawDiffRequest{
+				Repository:    testRepo,
+				RightCommitId: "invalid-sha",
+				LeftCommitId:  "e395f646b1499e8e0279445fc99a0596a65fab7e",
+			},
+			code: codes.InvalidArgument,
+		},
+		{
+			desc: "invalid right commit",
+			request: &gitalypb.RawDiffRequest{
+				Repository:    testRepo,
+				RightCommitId: "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab",
+				LeftCommitId:  "invalid-sha",
+			},
+			code: codes.InvalidArgument,
+		},
 	}
 
 	for _, testCase := range testCases {
@@ -186,6 +204,24 @@ func TestFailedRawPatchRequestDueToValidations(t *testing.T) {
 				Repository:    nil,
 				RightCommitId: "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab",
 				LeftCommitId:  "e395f646b1499e8e0279445fc99a0596a65fab7e",
+			},
+			code: codes.InvalidArgument,
+		},
+		{
+			desc: "invalid left commit",
+			request: &gitalypb.RawPatchRequest{
+				Repository:    testRepo,
+				RightCommitId: "invalid-sha",
+				LeftCommitId:  "e395f646b1499e8e0279445fc99a0596a65fab7e",
+			},
+			code: codes.InvalidArgument,
+		},
+		{
+			desc: "invalid right commit",
+			request: &gitalypb.RawPatchRequest{
+				Repository:    testRepo,
+				RightCommitId: "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab",
+				LeftCommitId:  "invalid-sha",
 			},
 			code: codes.InvalidArgument,
 		},

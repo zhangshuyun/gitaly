@@ -1,6 +1,7 @@
 package helper
 
 import (
+	"fmt"
 	"os"
 	"regexp"
 	"strings"
@@ -23,4 +24,13 @@ var hostPattern = regexp.MustCompile(`(?i)([a-z][a-z0-9+\-.]*://)([a-z0-9\-._~%!
 // with [FILTERED].
 func SanitizeString(str string) string {
 	return hostPattern.ReplaceAllString(str, "$1[FILTERED]@$3$4")
+}
+
+// ValidSha checks if SHA is valid
+func ValidSha(sha string) error {
+	if match, err := regexp.MatchString(`\A[0-9a-f]{40}\z`, sha); !match || err != nil {
+		return fmt.Errorf("Invalid Sha")
+	}
+
+	return nil
 }
