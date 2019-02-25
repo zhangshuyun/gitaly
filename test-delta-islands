@@ -25,6 +25,18 @@ def main
     puts "---\n\n"
   end
 
+  bitmapHC = File.join(tmp, 'bitmap-hashcache.git')
+  run!(%W[git clone --bare --mirror #{bitmap} #{bitmapHC}])
+  run!(%W[git -C #{bitmapHC} config repack.writeBitmaps true])
+  run!(%W[git -C #{bitmapHC} config pack.writeBitmapHashCache true])
+  run!(%W[git -C #{bitmapHC} repack -ad])
+
+  puts "\n\n---\nWith bitmap and bitmap hash cache\n---"
+  2.times do
+    pack_objects(bitmapHC)
+    puts "---\n\n"
+  end
+
   delta = File.join(tmp, 'delta.git')
   run!(%W[git clone --bare --mirror #{origin} #{delta}])
 
