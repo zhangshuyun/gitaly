@@ -1,0 +1,68 @@
+#!/usr/bin/env ruby
+require 'tempfile'
+
+# To speed up this script, make your own `git clone --bare --mirror`
+# into some directory in '/tmp', and run the script with
+# `TEST_REPO=/tmp/my-repo.git test-delta-islands`.
+#
+# It's important to start with a `clone --mirror` so that there are
+# "unwanted" objects in the origin repository.
+TEST_REPO = ENV.fetch('TEST_REPO', 'https://gitlab.com/gitlab-org/gitlab-ce.git')
+
+def main
+  tmp = Dir.mktmpdir
+  origin = File.join(tmp, 'origin.git')
+  run!(%W[git clone --bare --mirror #{TEST_REPO} #{origin}])
+
+  bitmap = File.join(tmp, 'bitmap.git')
+  run!(%W[git clone --bare --mirror #{origin} #{bitmap}])
+  run!(%W[git -C #{bitmap} config repack.writeBitmaps true])
+  run!(%W[git -C #{bitmap} repack -ad])
+
+  puts "\n\n---\nWith bitmap\n---"
+  2.times do
+    pack_objects(bitmap)
+    puts "---\n\n"
+  end
+
+  delta = File.join(tmp, 'delta.git')
+  run!(%W[git clone --bare --mirror #{origin} #{delta}])
+
+  %w[pack.island=refs/heads pack.island=refs/tags repack.writeBitmaps=true repack.useDeltaIslands=true].each do |cfg|
+    run!(%W[git -C #{delta} config] + cfg.split('=', 2))
+  end
+
+  run!(%W[git -C #{delta} repack -afd])
+
+  puts "\n\n---\nWith bitmap and delta islands\n---"
+  2.times do
+    pack_objects(delta)
+    puts "---\n\n"
+  end
+
+  run!(%W[git -C #{delta} config pack.writeBitmapHashCache true])
+  run!(%W[git -C #{delta} repack -ad])
+
+  puts "\n\n---\nWith bitmap, delta islands and bitmap hash cache\n---"
+  2.times do
+    pack_objects(delta)
+    puts "---\n\n"
+  end
+ensure
+  spawn('rm', '-rf', tmp)
+end
+
+def pack_objects(repo)
+  unless system("(git for-each-ref --format='%(objectname)' refs/heads refs/tags ; echo --not) | time git pack-objects --stdout --progress --revs --delta-base-offset", out: '/dev/null', chdir: repo)
+    abort 'pack failed' 
+  end
+end
+
+
+def run!(cmd)
+  cmd_s = cmd.join(' ')
+  warn "> #{cmd_s}"
+  abort 'command failed' unless system(*cmd)
+end
+
+main
