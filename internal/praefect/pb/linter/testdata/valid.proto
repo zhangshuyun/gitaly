@@ -7,5 +7,5 @@ import "optype.proto";
 // TestRequest has the required option, so we should not expect it to cause
 // a failure
 message TestRequest {
-  option (pb.op_type).op = ACCESSOR;
+  option (praefect.op_type).op = ACCESSOR;
 }

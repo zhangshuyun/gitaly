@@ -6,5 +6,5 @@ import "optype.proto";
 
 // InvalidRequest did not set the operation type to a valid option
 message InvalidRequest {
-  option (pb.op_type).op = UNKNOWN;
+  option (praefect.op_type).op = UNKNOWN;
 }

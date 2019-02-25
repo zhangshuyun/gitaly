@@ -10,7 +10,7 @@
 //
 // To try out, run the following command while in the project root:
 //
-//   protoc --gitaly_out=. -I$(pwd)/pb -I$(pwd)/testdata $(pwd)/testdata/*.proto
+//   protoc --gitaly_out=. ./internal/praefect/pb/linter/testdata/incomplete.proto
 //
 // You should see some errors printed to screen for improperly written
 // RPC's in the testdata/test.proto file.

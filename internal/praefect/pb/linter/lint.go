@@ -1,4 +1,4 @@
-package main
+package linter
 
 import (
 	"fmt"
@@ -6,7 +6,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/protoc-gen-go/descriptor"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/pb"
+	praefect "gitlab.com/gitlab-org/gitaly/internal/praefect/pb"
 )
 
 var (
@@ -27,7 +27,7 @@ func ensureMsgOpType(file string, msg *descriptor.DescriptorProto) error {
 	// 	return errMissingOpType
 	// }
 
-	if !proto.HasExtension(options, pb.E_OpType) {
+	if !proto.HasExtension(options, praefect.E_OpType) {
 		return fmt.Errorf(
 			"%s: Message %s missing op_type option",
 			file,
@@ -35,12 +35,12 @@ func ensureMsgOpType(file string, msg *descriptor.DescriptorProto) error {
 		)
 	}
 
-	ext, err := proto.GetExtension(options, pb.E_OpType)
+	ext, err := proto.GetExtension(options, praefect.E_OpType)
 	if err != nil {
 		return err
 	}
 
-	opMsg, ok := ext.(*pb.OperationMsg)
+	opMsg, ok := ext.(*praefect.OperationMsg)
 	if !ok {
 		return fmt.Errorf("unable to obtain OperationMsg from %#v", ext)
 	}
@@ -48,10 +48,10 @@ func ensureMsgOpType(file string, msg *descriptor.DescriptorProto) error {
 	// TODO: check if enum is set to UNKNOWN:
 	switch opMsg.GetOp() {
 
-	case pb.OperationMsg_ACCESSOR, pb.OperationMsg_MUTATOR:
+	case praefect.OperationMsg_ACCESSOR, praefect.OperationMsg_MUTATOR:
 		return nil
 
-	case pb.OperationMsg_UNKNOWN:
+	case praefect.OperationMsg_UNKNOWN:
 		return fmt.Errorf(
 			"%s: Message %s has op set to UNKNOWN",
 			file,

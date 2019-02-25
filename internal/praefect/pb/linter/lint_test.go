@@ -1,4 +1,4 @@
-package main_test
+package linter_test
 
 import (
 	"bytes"
@@ -11,8 +11,9 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/protoc-gen-go/descriptor"
 	"github.com/stretchr/testify/require"
-	main "gitlab.com/pokstad1/protoc-gen-gitaly"
-	_ "gitlab.com/pokstad1/protoc-gen-gitaly/testdata"
+
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/pb/linter"
+	_ "gitlab.com/gitlab-org/gitaly/internal/praefect/pb/linter/testdata"
 )
 
 func TestLintFile(t *testing.T) {
@@ -21,26 +22,26 @@ func TestLintFile(t *testing.T) {
 		errs      []error
 	}{
 		{
-			protoPath: "valid.proto",
+			protoPath: "linter/testdata/valid.proto",
 			errs:      nil,
 		},
 		{
-			protoPath: "invalid.proto",
+			protoPath: "linter/testdata/invalid.proto",
 			errs: []error{
-				errors.New("invalid.proto: Message InvalidRequest has op set to UNKNOWN"),
+				errors.New("linter/testdata/invalid.proto: Message InvalidRequest has op set to UNKNOWN"),
 			},
 		},
 		{
-			protoPath: "incomplete.proto",
+			protoPath: "linter/testdata/incomplete.proto",
 			errs: []error{
-				errors.New("incomplete.proto: Message IncompleteRequest missing op_type option"),
+				errors.New("linter/testdata/incomplete.proto: Message IncompleteRequest missing op_type option"),
 			},
 		},
 	} {
 		fd, err := extractFile(proto.FileDescriptor(tt.protoPath))
 		require.NoError(t, err)
 
-		errs := main.LintFile(fd)
+		errs := linter.LintFile(fd)
 		require.Equal(t, tt.errs, errs)
 	}
 }
