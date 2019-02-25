@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+package test;
+
+import "optype.proto";
+
+// IncompleteRequest is missing the required option, so we expect a failure
+message IncompleteRequest {
+}

@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package pb;
+
+import "google/protobuf/descriptor.proto";
+
+message OperationMsg {
+  enum Operation {
+    UNKNOWN = 0;
+    MUTATOR = 1;
+    ACCESSOR = 2;
+  }
+
+  Operation op = 1;
+}
+
+extend google.protobuf.MessageOptions {
+  // Random high number..
+  OperationMsg op_type = 82302;
+}
