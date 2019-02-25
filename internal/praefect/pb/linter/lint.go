@@ -21,11 +21,6 @@ var (
 //   }
 func ensureMsgOpType(file string, msg *descriptor.DescriptorProto) error {
 	options := msg.GetOptions()
-	//
-	// if options == nil {
-	// 	log.Printf("%s: Message %s missing options", file, msg.GetName())
-	// 	return errMissingOpType
-	// }
 
 	if !proto.HasExtension(options, praefect.E_OpType) {
 		return fmt.Errorf(
@@ -45,7 +40,6 @@ func ensureMsgOpType(file string, msg *descriptor.DescriptorProto) error {
 		return fmt.Errorf("unable to obtain OperationMsg from %#v", ext)
 	}
 
-	// TODO: check if enum is set to UNKNOWN:
 	switch opMsg.GetOp() {
 
 	case praefect.OperationMsg_ACCESSOR, praefect.OperationMsg_MUTATOR:
@@ -62,6 +56,9 @@ func ensureMsgOpType(file string, msg *descriptor.DescriptorProto) error {
 	return nil
 }
 
+// LintFile ensures the file described meets Gitaly required processes.
+// Currently, this is limited to validating if request messages contain
+// a mandatory operation code.
 func LintFile(file *descriptor.FileDescriptorProto) []error {
 	var errs []error
 
