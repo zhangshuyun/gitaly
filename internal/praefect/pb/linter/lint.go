@@ -40,9 +40,12 @@ func ensureMsgOpType(file string, msg *descriptor.DescriptorProto) error {
 		return fmt.Errorf("unable to obtain OperationMsg from %#v", ext)
 	}
 
-	switch opMsg.GetOp() {
+	switch opCode := opMsg.GetOp(); opCode {
 
-	case praefect.OperationMsg_ACCESSOR, praefect.OperationMsg_MUTATOR:
+	case praefect.OperationMsg_ACCESSOR:
+		return nil
+
+	case praefect.OperationMsg_MUTATOR:
 		return nil
 
 	case praefect.OperationMsg_UNKNOWN:
@@ -50,6 +53,14 @@ func ensureMsgOpType(file string, msg *descriptor.DescriptorProto) error {
 			"%s: Message %s has op set to UNKNOWN",
 			file,
 			msg.GetName(),
+		)
+
+	default:
+		return fmt.Errorf(
+			"%s: Message %s has invalid operation class with int32 value of %d",
+			file,
+			msg.GetName(),
+			opCode,
 		)
 	}
 
