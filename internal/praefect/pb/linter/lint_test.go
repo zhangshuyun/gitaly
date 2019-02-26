@@ -47,6 +47,8 @@ func TestLintFile(t *testing.T) {
 }
 
 // extractFile extracts a FileDescriptorProto from a gzip'd buffer.
+// Note: function is copied from the github.com/golang/protobuf dependency:
+// https://github.com/golang/protobuf/blob/9eb2c01ac278a5d89ce4b2be68fe4500955d8179/descriptor/descriptor.go#L50
 func extractFile(gz []byte) (*descriptor.FileDescriptorProto, error) {
 	r, err := gzip.NewReader(bytes.NewReader(gz))
 	if err != nil {
