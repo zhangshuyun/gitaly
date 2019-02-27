@@ -294,7 +294,7 @@ func TestFailedUserCherryPickRequestDueToPreReceiveError(t *testing.T) {
 		Message:    []byte("Cherry-picking " + cherryPickedCommit.Id),
 	}
 
-	hookContent := []byte("#!/bin/sh\necho GL_ID=$GL_ID\nexit 1")
+	hookContent := []byte("#!/bin/sh\nexit 1")
 
 	for _, hookName := range operations.GitlabPreHooks {
 		t.Run(hookName, func(t *testing.T) {
@@ -305,9 +305,8 @@ func TestFailedUserCherryPickRequestDueToPreReceiveError(t *testing.T) {
 			md := testhelper.GitalyServersMetadata(t, serverSocketPath)
 			ctx := metadata.NewOutgoingContext(ctxOuter, md)
 
-			response, err := client.UserCherryPick(ctx, request)
+			_, err = client.UserCherryPick(ctx, request)
 			require.NoError(t, err)
-			require.Contains(t, response.PreReceiveError, "GL_ID="+user.GlId)
 		})
 	}
 }

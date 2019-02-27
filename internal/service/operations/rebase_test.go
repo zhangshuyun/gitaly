@@ -97,7 +97,7 @@ func TestFailedUserRebaseRequestDueToPreReceiveError(t *testing.T) {
 		RemoteBranch:     []byte("master"),
 	}
 
-	hookContent := []byte("#!/bin/sh\necho GL_ID=$GL_ID\nexit 1\n")
+	hookContent := []byte("#!/bin/sh\nexit 1\n")
 	for i, hookName := range operations.GitlabPreHooks {
 		t.Run(hookName, func(t *testing.T) {
 			remove, err := operations.OverrideHooks(hookName, hookContent)
@@ -108,9 +108,8 @@ func TestFailedUserRebaseRequestDueToPreReceiveError(t *testing.T) {
 			ctx := metadata.NewOutgoingContext(ctxOuter, md)
 
 			request.RebaseId = fmt.Sprintf("%d", i+1)
-			response, err := client.UserRebase(ctx, request)
+			_, err = client.UserRebase(ctx, request)
 			require.NoError(t, err)
-			require.Contains(t, response.PreReceiveError, "GL_ID="+user.GlId)
 		})
 	}
 }

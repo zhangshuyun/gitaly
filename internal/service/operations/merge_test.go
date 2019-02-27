@@ -231,7 +231,7 @@ func TestFailedMergeDueToHooks(t *testing.T) {
 
 	prepareMergeBranch(t, testRepoPath)
 
-	hookContent := []byte("#!/bin/sh\necho 'failure'\nexit 1")
+	hookContent := []byte("#!/bin/sh\nexit 1")
 
 	for _, hookName := range gitlabPreHooks {
 		t.Run(hookName, func(t *testing.T) {
@@ -262,9 +262,8 @@ func TestFailedMergeDueToHooks(t *testing.T) {
 			require.NoError(t, mergeBidi.Send(&gitalypb.UserMergeBranchRequest{Apply: true}), "apply merge")
 			require.NoError(t, mergeBidi.CloseSend(), "close send")
 
-			secondResponse, err := mergeBidi.Recv()
+			_, err = mergeBidi.Recv()
 			require.NoError(t, err, "receive second response")
-			require.Contains(t, secondResponse.PreReceiveError, "failure")
 
 			err = consumeEOF(func() error {
 				_, err = mergeBidi.Recv()
@@ -435,7 +434,7 @@ func TestFailedUserFFBranchDueToHooks(t *testing.T) {
 	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", "-f", branchName, "6d394385cf567f80a8fd85055db1ab4c5295806f")
 	defer exec.Command("git", "-C", testRepoPath, "branch", "-d", branchName).Run()
 
-	hookContent := []byte("#!/bin/sh\necho 'failure'\nexit 1")
+	hookContent := []byte("#!/bin/sh\nexit 1")
 
 	for _, hookName := range gitlabPreHooks {
 		t.Run(hookName, func(t *testing.T) {
@@ -446,9 +445,8 @@ func TestFailedUserFFBranchDueToHooks(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			resp, err := client.UserFFBranch(ctx, request)
+			_, err = client.UserFFBranch(ctx, request)
 			require.Nil(t, err)
-			require.Contains(t, resp.PreReceiveError, "failure")
 		})
 	}
 }
@@ -668,7 +666,7 @@ func TestUserMergeToRefFailedDueToHooksRequest(t *testing.T) {
 		Message:    []byte(mergeCommitMessage),
 	}
 
-	hookContent := []byte("#!/bin/sh\necho 'failure'\nexit 1")
+	hookContent := []byte("#!/bin/sh\nexit 1")
 
 	for _, hookName := range gitlabPreHooks {
 		t.Run(hookName, func(t *testing.T) {
@@ -679,9 +677,8 @@ func TestUserMergeToRefFailedDueToHooksRequest(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			resp, err := client.UserMergeToRef(ctx, request)
+			_, err = client.UserMergeToRef(ctx, request)
 			require.Nil(t, err)
-			require.Contains(t, resp.PreReceiveError, "failure")
 		})
 	}
 }

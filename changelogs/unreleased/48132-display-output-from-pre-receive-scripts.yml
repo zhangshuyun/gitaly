@@ -1,0 +1,5 @@
+---
+title: Only return sanitized errors for Custom Hooks
+merge_request: 1101
+author:
+type: changed

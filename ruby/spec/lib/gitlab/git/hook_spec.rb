@@ -92,5 +92,94 @@ describe Gitlab::Git::Hook do
         end
       end
     end
+
+    describe 'sanitizing hook output' do
+      let(:trigger_hook) do
+        lambda do |hook|
+          described_class.new(hook, repo).trigger('user-456', 'admin', '0' * 40, 'a' * 40, 'master')
+        end
+      end
+
+      context 'when the hooks are successful' do
+        let(:script) { stdout_stderr_script(exit_code: 0) }
+
+        it 'does not return a message' do
+          hook_names.each do |hook|
+            silence_error_log
+
+            trigger_result = trigger_hook[hook]
+
+            expect(trigger_result.last).to be_nil
+          end
+        end
+
+        it 'logs all stderr to the error log' do
+          hook_names.each do |hook|
+            error_message = format(
+              Gitlab::Git::Hook::ERROR_LOG_FORMAT,
+              hook,
+              repo.relative_path,
+              'GitLab: prefixed msg to STDERR'
+            )
+
+            expect(Gitlab::GitLogger).to receive(:error).with(error_message)
+
+            trigger_hook[hook]
+          end
+        end
+      end
+
+      context 'when the hooks fail' do
+        let(:script) { stdout_stderr_script(exit_code: 1) }
+
+        it 'only returns messages that were marked as safe' do
+          hook_names.each do |hook|
+            silence_error_log
+
+            trigger_result = trigger_hook[hook]
+
+            expect(trigger_result.last).to eq(
+              "prefixed msg to STDOUT\na second safe message with no whitespace separation\nprefixed msg to STDERR"
+            )
+          end
+        end
+
+        it 'logs all stderr to the error log' do
+          hook_names.each do |hook|
+            error_message = format(
+              Gitlab::Git::Hook::ERROR_LOG_FORMAT,
+              hook,
+              repo.relative_path,
+              'GitLab: prefixed msg to STDERR'
+            )
+
+            expect(Gitlab::GitLogger).to receive(:error).with(error_message)
+
+            trigger_hook[hook]
+          end
+        end
+      end
+    end
+
+    private
+
+    def stdout_stderr_script(exit_code:)
+      <<-SCRIPT
+        #!/bin/sh
+        echo "msg to STDOUT";
+        1>&2 echo "#{Gitlab::Git::Hook::SAFE_MESSAGE_PREFIX} prefixed msg to STDERR";
+        echo "#{Gitlab::Git::Hook::SAFE_MESSAGE_PREFIX} prefixed msg to STDOUT\nwith a second line";
+        echo "#{Gitlab::Git::Hook::SAFE_MESSAGE_PREFIX}a second safe message with no whitespace separation";
+        echo "not prefixed by, but containing, #{Gitlab::Git::Hook::SAFE_MESSAGE_PREFIX}";
+        exit #{exit_code}
+      SCRIPT
+    end
+
+    # Call before tests of scripts that write to stderr, when stderr is
+    # not a subject of a test. This prevents the error from appearing in
+    # rspec's output when rspec is running
+    def silence_error_log
+      expect(Gitlab::GitLogger).to receive(:error)
+    end
   end
 end

@@ -8,6 +8,12 @@ module Gitlab
       end
 
       GL_PROTOCOL = 'web'
+
+      SAFE_MESSAGE_PREFIX = 'GitLab:'
+      SAFE_MESSAGE_REGEX = Regexp.new("^#{SAFE_MESSAGE_PREFIX}\s*(?<safe_message>.+)", Regexp::IGNORECASE)
+
+      ERROR_LOG_FORMAT = '%s hook error in repository %s: %s'
+
       attr_reader :name, :path, :repository
 
       def initialize(name, repository)
@@ -68,9 +74,18 @@ module Gitlab
 
           stdin.close
 
+          # Reading from pipes needs to be non-blocking to avoid deadlocks
+          out_reader = Thread.new { stdout.read }
+          err_reader = Thread.new { stderr.read }
+
+          stdout_messages = out_reader.value
+          stderr_messages = err_reader.value
+
+          log_error(stderr_messages)
+
           unless wait_thr.value == 0
             exit_status = false
-            exit_message = retrieve_error_message(stderr, stdout)
+            exit_message = retrieve_safe_messages(stdout_messages + stderr_messages)
           end
         end
 
@@ -87,13 +102,41 @@ module Gitlab
         vars = env_base_vars(gl_id, gl_username)
 
         stdout, stderr, status = Open3.capture3(vars, path, *args, options)
-        [status.success?, stderr.presence || stdout]
+
+        log_error(stderr)
+
+        exit_message = if status.success?
+                         nil
+                       else
+                         retrieve_safe_messages(stdout + stderr)
+                       end
+
+        [status.success?, exit_message]
       end
 
-      def retrieve_error_message(stderr, stdout)
-        err_message = stderr.read
-        err_message = err_message.blank? ? stdout.read : err_message
-        err_message
+      def retrieve_safe_messages(messages)
+        lines = messages.split("\n").map do |msg|
+          if (match = msg.match(SAFE_MESSAGE_REGEX))
+            match[:safe_message]
+          end
+        end.compact
+
+        lines.join("\n")
+      end
+
+      def log_error(errors)
+        return unless errors.present?
+
+        errors.split("\n").each do |error|
+          message = format(
+            ERROR_LOG_FORMAT,
+            @name,
+            @repository.relative_path,
+            error
+          )
+
+          Gitlab::GitLogger.error(message)
+        end
       end
 
       def env_base_vars(gl_id, gl_username)

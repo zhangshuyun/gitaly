@@ -219,7 +219,7 @@ func TestFailedUserCommitFilesRequestDueToHooks(t *testing.T) {
 	headerRequest := headerRequest(testRepo, user, branchName, commitFilesMessage)
 	actionsRequest1 := createFileHeaderRequest(filePath)
 	actionsRequest2 := actionContentRequest("My content")
-	hookContent := []byte("#!/bin/sh\nprintenv | paste -sd ' ' -\nexit 1")
+	hookContent := []byte("#!/bin/sh\nexit 1")
 
 	for _, hookName := range operations.GitlabPreHooks {
 		t.Run(hookName, func(t *testing.T) {
@@ -235,11 +235,8 @@ func TestFailedUserCommitFilesRequestDueToHooks(t *testing.T) {
 			require.NoError(t, stream.Send(actionsRequest1))
 			require.NoError(t, stream.Send(actionsRequest2))
 
-			r, err := stream.CloseAndRecv()
+			_, err = stream.CloseAndRecv()
 			require.NoError(t, err)
-
-			require.Contains(t, r.PreReceiveError, "GL_ID="+user.GlId)
-			require.Contains(t, r.PreReceiveError, "GL_USERNAME="+user.GlUsername)
 		})
 	}
 }

@@ -131,7 +131,7 @@ func TestFailedUserCreateBranchDueToHooks(t *testing.T) {
 	}
 	// Write a hook that will fail with the environment as the error message
 	// so we can check that string for our env variables.
-	hookContent := []byte("#!/bin/sh\nprintenv | paste -sd ' ' -\nexit 1")
+	hookContent := []byte("#!/bin/sh\nprintenv | sed  -e 's/^/GitLab: /' | paste -sd ' ' -\nexit 1")
 
 	for _, hookName := range gitlabPreHooks {
 		remove, err := OverrideHooks(hookName, hookContent)
@@ -386,7 +386,7 @@ func TestFailedUserDeleteBranchDueToHooks(t *testing.T) {
 		User:       user,
 	}
 
-	hookContent := []byte("#!/bin/sh\necho GL_ID=$GL_ID\nexit 1")
+	hookContent := []byte("#!/bin/sh\nexit 1")
 
 	for _, hookName := range gitlabPreHooks {
 		t.Run(hookName, func(t *testing.T) {
@@ -397,9 +397,8 @@ func TestFailedUserDeleteBranchDueToHooks(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			response, err := client.UserDeleteBranch(ctx, request)
+			_, err = client.UserDeleteBranch(ctx, request)
 			require.Nil(t, err)
-			require.Contains(t, response.PreReceiveError, "GL_ID="+user.GlId)
 
 			branches := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch")
 			require.Contains(t, string(branches), branchNameInput, "branch name does not exist in branches list")

@@ -106,7 +106,7 @@ func TestFailedUserUpdateBranchDueToHooks(t *testing.T) {
 	}
 	// Write a hook that will fail with the environment as the error message
 	// so we can check that string for our env variables.
-	hookContent := []byte("#!/bin/sh\nprintenv | paste -sd ' ' -\nexit 1")
+	hookContent := []byte("#!/bin/sh\nprintenv | sed  -e 's/^/GitLab: /' | paste -sd ' ' -\nexit 1")
 
 	for _, hookName := range gitlabPreHooks {
 		remove, err := OverrideHooks(hookName, hookContent)

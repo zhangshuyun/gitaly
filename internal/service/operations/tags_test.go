@@ -321,9 +321,8 @@ func TestFailedUserDeleteTagDueToHooks(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			response, err := client.UserDeleteTag(ctx, request)
+			_, err = client.UserDeleteTag(ctx, request)
 			require.Nil(t, err)
-			require.Contains(t, response.PreReceiveError, "GL_ID="+user.GlId)
 
 			tags := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "tag")
 			require.Contains(t, string(tags), tagNameInput, "tag name does not exist in tags list")
@@ -354,7 +353,7 @@ func TestFailedUserCreateTagDueToHooks(t *testing.T) {
 		User:           user,
 	}
 
-	hookContent := []byte("#!/bin/sh\necho GL_ID=$GL_ID\nexit 1")
+	hookContent := []byte("#!/bin/sh\nexit 1")
 
 	for _, hookName := range gitlabPreHooks {
 		remove, err := OverrideHooks(hookName, hookContent)
@@ -364,9 +363,8 @@ func TestFailedUserCreateTagDueToHooks(t *testing.T) {
 		ctx, cancel := testhelper.Context()
 		defer cancel()
 
-		response, err := client.UserCreateTag(ctx, request)
+		_, err = client.UserCreateTag(ctx, request)
 		require.Nil(t, err)
-		require.Contains(t, response.PreReceiveError, "GL_ID="+user.GlId)
 	}
 }
 
