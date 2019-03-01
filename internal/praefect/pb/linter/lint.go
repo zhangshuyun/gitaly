@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	requestRegex = regexp.MustCompile(".*Request")
+	requestRegex = regexp.MustCompile("^.*Request$")
 )
 
 // ensureMsgOpType will ensure that message includes the op_type option.
