@@ -11,8 +11,6 @@ import (
 	"os"
 )
 
-const packMagic = "PACK\x00\x00\x00\x02"
-
 func main() {
 	if len(os.Args) != 2 {
 		fmt.Println("Usage: glue-packs PACK1 < PACK2")
@@ -31,16 +29,20 @@ func _main() error {
 	}
 	defer pack1.Close()
 
-	nPack1, err := numPackObjects(pack1)
+	pack1Reader, err := NewPackReader(pack1)
 	if err != nil {
 		return err
 	}
+
+	nPack1 := pack1Reader.NumObjects()
 	log.Printf("%s: %d objects", os.Args[1], nPack1)
 
-	nPack2, err := numPackObjects(os.Stdin)
+	pack2Reader, err := NewPackReader(os.Stdin)
 	if err != nil {
 		return err
 	}
+	nPack2 := pack2Reader.NumObjects()
+
 	log.Printf("stdin: %d objects", nPack2)
 
 	summer := sha1.New()
@@ -51,18 +53,16 @@ func _main() error {
 	}
 
 	size := make([]byte, 4)
-	binary.BigEndian.PutUint32(size, nPack1+nPack2)
+	binary.BigEndian.PutUint32(size, nPack1+nPack2) // TODO check for overflow
 	if _, err := stdout.Write(size); err != nil {
 		return err
 	}
 
-	pack1Writer := &shaSplitter{w: stdout}
-	if _, err := io.Copy(pack1Writer, pack1); err != nil {
+	if _, err := io.Copy(stdout, pack1Reader); err != nil {
 		return err
 	}
 
-	pack2Writer := &shaSplitter{w: stdout}
-	if _, err := io.Copy(pack2Writer, os.Stdin); err != nil {
+	if _, err := io.Copy(stdout, pack2Reader); err != nil {
 		return err
 	}
 
@@ -73,69 +73,32 @@ func _main() error {
 	return nil
 }
 
-func numPackObjects(pack io.Reader) (uint32, error) {
-	header := make([]byte, 12)
-	if _, err := io.ReadFull(pack, header); err != nil {
-		return 0, err
-	}
-
-	if magic := string(header[:len(packMagic)]); magic != packMagic {
-		return 0, fmt.Errorf("bad pack header: %q", magic)
-	}
-
-	return binary.BigEndian.Uint32(header[len(packMagic):]), nil
-}
-
-const shaSize = 20
-
-type shaSplitter struct {
-	buf []byte
-	w   io.Writer
-}
-
-func (sp *shaSplitter) Write(p []byte) (int, error) {
-	sp.buf = append(sp.buf, p...)
-
-	chunkBoundary := len(sp.buf) - shaSize
-	if chunkBoundary <= 0 {
-		return len(p), nil
-	}
-
-	if _, err := sp.w.Write(sp.buf[:chunkBoundary]); err != nil {
-		return 0, err
-	}
-
-	copy(sp.buf, sp.buf[chunkBoundary:])
-	sp.buf = sp.buf[:shaSize]
-
-	return len(p), nil
-}
-
-func (sp *shaSplitter) Sha() ([]byte, error) {
-	if n := len(sp.buf); n != shaSize {
-		return nil, fmt.Errorf("error: %d bytes left in buffer", n)
-	}
-
-	return sp.buf, nil
-}
+const (
+	sumSize        = sha1.Size
+	packBufferSize = 4096
+)
 
 type packReader struct {
-	buf      []byte
-	avail    []byte
-	reader   io.Reader
-	readErr  error
-	sum      hash.Hash
-	nObjects uint32
+	buf        [packBufferSize]byte
+	avail      []byte
+	reader     io.Reader
+	readErr    error
+	sum        hash.Hash
+	numObjects uint32
 }
+
+const (
+	packMagic      = "PACK\x00\x00\x00\x02"
+	packHeaderSize = 12
+)
 
 func NewPackReader(r io.Reader) (*packReader, error) {
 	pr := &packReader{
-		buf:    make([]byte, 4096),
 		reader: r,
 		sum:    sha1.New(),
 	}
 
-	header := make([]byte, 12)
+	header := make([]byte, packHeaderSize)
 	if _, err := io.ReadFull(pr.reader, header); err != nil {
 		return nil, err
 	}
@@ -144,7 +107,7 @@ func NewPackReader(r io.Reader) (*packReader, error) {
 		return nil, fmt.Errorf("bad pack header: %q", magic)
 	}
 
-	pr.nObjects = binary.BigEndian.Uint32(header[len(packMagic):])
+	pr.numObjects = binary.BigEndian.Uint32(header[len(packMagic):])
 
 	if _, err := pr.sum.Write(header); err != nil {
 		return nil, err
@@ -153,15 +116,19 @@ func NewPackReader(r io.Reader) (*packReader, error) {
 	return pr, nil
 }
 
+func (pr *packReader) NumObjects() uint32 {
+	return pr.numObjects
+}
+
 func (pr *packReader) Read(p []byte) (int, error) {
-	if len(pr.avail) <= shaSize && pr.readErr == nil {
-		copy(pr.buf, pr.avail)
+	if len(pr.avail) <= sumSize && pr.readErr == nil {
+		copy(pr.buf[:], pr.avail)
 
 		var nRead int
 		nRead, pr.readErr = pr.reader.Read(pr.buf[len(pr.avail):])
 		pr.avail = pr.buf[:len(pr.avail)+nRead]
 
-		if nUncheckedBytes := len(pr.avail) - shaSize; nUncheckedBytes > 0 {
+		if nUncheckedBytes := len(pr.avail) - sumSize; nUncheckedBytes > 0 {
 			if _, err := pr.sum.Write(pr.avail[:nUncheckedBytes]); err != nil {
 				return 0, err
 			}
@@ -172,9 +139,9 @@ func (pr *packReader) Read(p []byte) (int, error) {
 		}
 	}
 
-	if len(pr.avail) <= shaSize {
+	if len(pr.avail) <= sumSize {
 		if pr.readErr == io.EOF {
-			if len(pr.avail) != shaSize {
+			if len(pr.avail) != sumSize {
 				return 0, fmt.Errorf("short read: incomplete packfile checksum")
 			}
 
@@ -186,7 +153,7 @@ func (pr *packReader) Read(p []byte) (int, error) {
 		return 0, pr.readErr
 	}
 
-	nYielded := copy(p, pr.avail[:len(pr.avail)-shaSize])
+	nYielded := copy(p, pr.avail[:len(pr.avail)-sumSize])
 	pr.avail = pr.avail[nYielded:]
 	return nYielded, nil
 }
