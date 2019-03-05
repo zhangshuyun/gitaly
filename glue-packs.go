@@ -141,8 +141,9 @@ func (pr *packReader) Read(p []byte) (int, error) {
 		}
 	}
 
-	// (Still) no data available? Early return.
-	if len(pr.avail) <= sumSize {
+	nBytesAvailable := len(pr.avail) - sumSize
+
+	if nBytesAvailable <= 0 {
 		if pr.readErr == io.EOF && !bytes.Equal(pr.sum.Sum(nil), pr.avail) {
 			return 0, fmt.Errorf("packfile checksum mismatch")
 		}
@@ -150,8 +151,7 @@ func (pr *packReader) Read(p []byte) (int, error) {
 		return 0, pr.readErr
 	}
 
-	// Happy path: yield data from our buffer.
-	nYielded := copy(p, pr.avail[:len(pr.avail)-sumSize])
+	nYielded := copy(p, pr.avail[:nBytesAvailable])
 	pr.avail = pr.avail[nYielded:]
 	return nYielded, nil
 }
