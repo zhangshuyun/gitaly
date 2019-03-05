@@ -41,8 +41,8 @@ func _main() error {
 	if err != nil {
 		return err
 	}
-	nPack2 := pack2Reader.NumObjects()
 
+	nPack2 := pack2Reader.NumObjects()
 	log.Printf("stdin: %d objects", nPack2)
 
 	summer := sha1.New()
@@ -92,6 +92,7 @@ const (
 	packHeaderSize = 12
 )
 
+// NewPackReader blocks until it has read the packfile header from r.
 func NewPackReader(r io.Reader) (*packReader, error) {
 	pr := &packReader{
 		reader: r,
@@ -121,6 +122,7 @@ func (pr *packReader) NumObjects() uint32 {
 }
 
 func (pr *packReader) Read(p []byte) (int, error) {
+	// No data available? Try to read from pr.reader.
 	if len(pr.avail) <= sumSize && pr.readErr == nil {
 		copy(pr.buf[:], pr.avail)
 
@@ -139,20 +141,16 @@ func (pr *packReader) Read(p []byte) (int, error) {
 		}
 	}
 
+	// (Still) no data available? Early return.
 	if len(pr.avail) <= sumSize {
-		if pr.readErr == io.EOF {
-			if len(pr.avail) != sumSize {
-				return 0, fmt.Errorf("short read: incomplete packfile checksum")
-			}
-
-			if !bytes.Equal(pr.sum.Sum(nil), pr.avail) {
-				return 0, fmt.Errorf("packfile checksum mismatch")
-			}
+		if pr.readErr == io.EOF && !bytes.Equal(pr.sum.Sum(nil), pr.avail) {
+			return 0, fmt.Errorf("packfile checksum mismatch")
 		}
 
 		return 0, pr.readErr
 	}
 
+	// Happy path: yield data from our buffer.
 	nYielded := copy(p, pr.avail[:len(pr.avail)-sumSize])
 	pr.avail = pr.avail[nYielded:]
 	return nYielded, nil
