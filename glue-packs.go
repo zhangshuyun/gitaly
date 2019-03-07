@@ -117,33 +117,30 @@ func NewPackReader(r io.Reader) (*packReader, error) {
 	return pr, nil
 }
 
-func (pr *packReader) NumObjects() uint32 {
-	return pr.numObjects
-}
+func (pr *packReader) NumObjects() uint32 { return pr.numObjects }
+
+func (pr *packReader) numBytesAvailable() int { return len(pr.avail) - sumSize }
 
 func (pr *packReader) Read(p []byte) (int, error) {
-	// No data available? Try to read from pr.reader.
-	if len(pr.avail) <= sumSize && pr.readErr == nil {
+	if pr.numBytesAvailable() <= 0 && pr.readErr == nil {
 		copy(pr.buf[:], pr.avail)
 
 		var nRead int
 		nRead, pr.readErr = pr.reader.Read(pr.buf[len(pr.avail):])
-		pr.avail = pr.buf[:len(pr.avail)+nRead]
-
-		if nUncheckedBytes := len(pr.avail) - sumSize; nUncheckedBytes > 0 {
-			if _, err := pr.sum.Write(pr.avail[:nUncheckedBytes]); err != nil {
-				return 0, err
-			}
-		}
-
 		if pr.readErr != nil && pr.readErr != io.EOF {
 			return 0, pr.readErr
 		}
+
+		pr.avail = pr.buf[:len(pr.avail)+nRead]
+
+		if n := pr.numBytesAvailable(); n > 0 {
+			if _, err := pr.sum.Write(pr.avail[:n]); err != nil {
+				return 0, err
+			}
+		}
 	}
 
-	nBytesAvailable := len(pr.avail) - sumSize
-
-	if nBytesAvailable <= 0 {
+	if pr.numBytesAvailable() <= 0 {
 		if pr.readErr == io.EOF && !bytes.Equal(pr.sum.Sum(nil), pr.avail) {
 			return 0, fmt.Errorf("packfile checksum mismatch")
 		}
@@ -151,7 +148,7 @@ func (pr *packReader) Read(p []byte) (int, error) {
 		return 0, pr.readErr
 	}
 
-	nYielded := copy(p, pr.avail[:nBytesAvailable])
+	nYielded := copy(p, pr.avail[:pr.numBytesAvailable()])
 	pr.avail = pr.avail[nYielded:]
 	return nYielded, nil
 }
