@@ -42,7 +42,7 @@ func getGitObjectDirSize(t *testing.T, repoPath string) int64 {
 	return blocks
 }
 
-func TestPreFetch(t *testing.T) {
+func TestGeoFetchWithPool(t *testing.T) {
 	server, serverSocketPath := runRepoServer(t)
 	defer server.Stop()
 
@@ -51,6 +51,13 @@ func TestPreFetch(t *testing.T) {
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
+
+	_, remoteRepoPath, cleanupRemoteRepo := testhelper.NewTestRepo(t)
+	defer cleanupRemoteRepo()
+
+	// add a branch
+	branch := "my-cool-branch"
+	testhelper.MustRunCommand(t, nil, "git", "-C", remoteRepoPath, "update-ref", "refs/heads/"+branch, "master")
 
 	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
@@ -66,15 +73,20 @@ func TestPreFetch(t *testing.T) {
 	forkedRepo, forkRepoPath, forkRepoCleanup := getForkDestination(t)
 	defer forkRepoCleanup()
 
-	req := &gitalypb.PreFetchRequest{
+	req := &gitalypb.GeoFetchWithPoolRequest{
 		TargetRepository: forkedRepo,
 		SourceRepository: testRepo,
 		ObjectPool: &gitalypb.ObjectPool{
 			Repository: poolRepo,
 		},
+		RemoteUrl: remoteRepoPath,
+		JwtAuthenticationHeader: &gitalypb.SetConfigRequest_Entry{
+			Key:   "http.remote_url.extraHeader",
+			Value: &gitalypb.SetConfigRequest_Entry_ValueStr{ValueStr: "Authorization: blahblahblah"},
+		},
 	}
 
-	_, err := client.PreFetch(ctx, req)
+	_, err := client.GeoFetchWithPool(ctx, req)
 	require.NoError(t, err)
 
 	assert.True(t, getGitObjectDirSize(t, forkRepoPath) < 40)
@@ -82,9 +94,10 @@ func TestPreFetch(t *testing.T) {
 	// feature is a branch known to exist in the source repository. By looking it up in the target
 	// we establish that the target has branches, even though (as we saw above) it has no objects.
 	testhelper.MustRunCommand(t, nil, "git", "-C", forkRepoPath, "show-ref", "feature")
+	testhelper.MustRunCommand(t, nil, "git", "-C", forkRepoPath, "show-ref", branch)
 }
 
-func TestPreFetchValidationError(t *testing.T) {
+func TestGeoFetchWithPoolValidationError(t *testing.T) {
 	server, serverSocketPath := runRepoServer(t)
 	defer server.Stop()
 
@@ -116,6 +129,7 @@ func TestPreFetchValidationError(t *testing.T) {
 		sourceRepo  *gitalypb.Repository
 		targetRepo  *gitalypb.Repository
 		objectPool  *gitalypb.Repository
+		remoteURL   string
 		code        codes.Code
 	}{
 		{
@@ -123,6 +137,7 @@ func TestPreFetchValidationError(t *testing.T) {
 			sourceRepo:  nil,
 			targetRepo:  forkedRepo,
 			objectPool:  poolRepo,
+			remoteURL:   "something",
 			code:        codes.InvalidArgument,
 		},
 		{
@@ -130,6 +145,7 @@ func TestPreFetchValidationError(t *testing.T) {
 			sourceRepo:  testRepo,
 			targetRepo:  nil,
 			objectPool:  poolRepo,
+			remoteURL:   "something",
 			code:        codes.InvalidArgument,
 		},
 		{
@@ -141,6 +157,7 @@ func TestPreFetchValidationError(t *testing.T) {
 				GlRepository: forkedRepo.GlRepository,
 			},
 			objectPool: poolRepo,
+			remoteURL:  "something",
 			code:       codes.InvalidArgument,
 		},
 		{
@@ -148,17 +165,31 @@ func TestPreFetchValidationError(t *testing.T) {
 			sourceRepo:  testRepo,
 			targetRepo:  forkedRepo,
 			objectPool:  badPool,
+			remoteURL:   "something",
 			code:        codes.FailedPrecondition,
+		},
+		{
+			description: "remote url is empty",
+			sourceRepo:  testRepo,
+			targetRepo:  forkedRepo,
+			objectPool:  poolRepo,
+			remoteURL:   "",
+			code:        codes.InvalidArgument,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.description, func(t *testing.T) {
-			_, err := client.PreFetch(ctx, &gitalypb.PreFetchRequest{
+			_, err := client.GeoFetchWithPool(ctx, &gitalypb.GeoFetchWithPoolRequest{
 				TargetRepository: tc.targetRepo,
 				SourceRepository: tc.sourceRepo,
 				ObjectPool: &gitalypb.ObjectPool{
 					Repository: tc.objectPool,
+				},
+				RemoteUrl: tc.remoteURL,
+				JwtAuthenticationHeader: &gitalypb.SetConfigRequest_Entry{
+					Key:   "http.remote_url.extraHeader",
+					Value: &gitalypb.SetConfigRequest_Entry_ValueStr{ValueStr: "Authorization: blahblahblah"},
 				},
 			})
 			testhelper.RequireGrpcError(t, err, tc.code)
@@ -166,7 +197,7 @@ func TestPreFetchValidationError(t *testing.T) {
 	}
 }
 
-func TestPreFetchDirectoryExists(t *testing.T) {
+func TestGeoFetchWithPoolDirectoryExists(t *testing.T) {
 	server, serverSocketPath := runRepoServer(t)
 	defer server.Stop()
 
@@ -182,6 +213,6 @@ func TestPreFetchDirectoryExists(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	_, err := client.PreFetch(ctx, &gitalypb.PreFetchRequest{TargetRepository: forkedRepo, SourceRepository: testRepo})
+	_, err := client.GeoFetchWithPool(ctx, &gitalypb.GeoFetchWithPoolRequest{TargetRepository: forkedRepo, SourceRepository: testRepo, RemoteUrl: "something"})
 	testhelper.RequireGrpcError(t, err, codes.FailedPrecondition)
 }
