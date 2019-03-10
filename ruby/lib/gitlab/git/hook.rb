@@ -72,9 +72,16 @@ module Gitlab
 
           stdin.close
 
+          # Reading from pipes needs to be non-blocking to avoid deadlocks
+          out_reader = Thread.new { stdout.read }
+          err_reader = Thread.new { stderr.read }
+
+          stdout_messages = out_reader.value
+          stderr_messages = err_reader.value
+
           unless wait_thr.value == 0
             exit_status = false
-            exit_message = retrieve_error_message(stderr, stdout)
+            exit_message = stderr_messages.presence || stdout_messages
           end
         end
 
@@ -92,12 +99,6 @@ module Gitlab
 
         stdout, stderr, status = Open3.capture3(vars, path, *args, options)
         [status.success?, stderr.presence || stdout]
-      end
-
-      def retrieve_error_message(stderr, stdout)
-        err_message = stderr.read
-        err_message = err_message.blank? ? stdout.read : err_message
-        err_message
       end
 
       def env_base_vars(gl_id, gl_username)
