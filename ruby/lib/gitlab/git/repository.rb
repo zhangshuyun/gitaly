@@ -270,8 +270,8 @@ module Gitlab
 
             result = []
 
-            Open3.popen3(*git_diff_cmd(old_rev, new_rev)) do |_stdin, stdout, _stderr, wait_thr|
-              cat_stdin, cat_stdout, cat_stderr, cat_wait_thr = Open3.popen3(*git_cat_file_cmd)
+            Open3.popen2(*git_diff_cmd(old_rev, new_rev)) do |_stdin, stdout, wait_thr|
+              cat_stdin, cat_stdout, cat_wait_thr = Open3.popen2(*git_cat_file_cmd)
 
               stdout.each_line do |line|
                 old_mode, new_mode, blob_id, rest = parse_raw_diff_line(line)
@@ -281,7 +281,6 @@ module Gitlab
 
               cat_stdin.close
               cat_stdout.close
-              cat_stderr.close
 
               raise ::Gitlab::Git::Repository::GitError, "Unabled to obtain changes between #{old_rev} and #{new_rev}" unless [cat_wait_thr, wait_thr].all? { |waiter| waiter.value&.success? }
             end
