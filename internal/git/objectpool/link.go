@@ -20,6 +20,7 @@ import (
 // Link will write the relative path to the object pool from the repository that
 // is to join the pool. This does not trigger deduplication, which is the
 // responsibility of the caller.
+// Link will not overwrite an existing alternates file if one already exists
 func (o *ObjectPool) Link(ctx context.Context, repo *gitalypb.Repository) error {
 	altPath, err := git.AlternatesPath(repo)
 	if err != nil {

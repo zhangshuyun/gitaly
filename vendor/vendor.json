@@ -485,39 +485,12 @@
 			"revisionTime": "2018-11-02T16:30:54Z"
 		},
 		{
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-			"checksumSHA1": "m2dWxzpWjVu9FT9sNBTEEyCeAYE=",
+			"checksumSHA1": "b8CgsZYi8mvMRLRaWFtXTyOu2To=",
 			"path": "gitlab.com/gitlab-org/gitaly-proto/go/gitalypb",
-			"revision": "16718ac6db9f02a58c5ffa510ba30cf2494eb84e",
-			"revisionTime": "2019-03-19T15:35:05Z",
-			"version": "v1.18.0",
-			"versionExact": "v1.18.0"
-=======
-			"checksumSHA1": "xj9TNy9rixe0pMJtUkmxXjVvEws=",
-			"path": "gitlab.com/gitlab-org/gitaly-proto/go/gitalypb",
-			"revision": "c10ac138c92d20f69180593c11700ecd3af8aa4b",
-			"revisionTime": "2019-03-15T17:00:58Z",
-			"version": "v1.15.0",
-			"versionExact": "v1.15.0"
->>>>>>> Adding FetchHttpRemote RPC
-=======
-			"checksumSHA1": "23AcE0doragVo0fk7c1K5FTEizg=",
-			"path": "gitlab.com/gitlab-org/gitaly-proto/go/gitalypb",
-			"revision": "bb0fe0045fc41cf5e1327f84aa94e2755823a18d",
-			"revisionTime": "2019-03-12T16:47:25Z",
-			"version": "jc-geo-fetch",
-			"versionExact": "jc-geo-fetch"
->>>>>>> Adding GeoFetch RPC
-=======
-			"checksumSHA1": "uroOI7kqhtko8Oqn2tsdZiuu3OM=",
-			"path": "gitlab.com/gitlab-org/gitaly-proto/go/gitalypb",
-			"revision": "ec7937b63b5edf01a6cf9ddcbc2bef91fbc32509",
+			"revision": "021b342a9ea503d2908773e090ecc896858d3d53",
 			"revisionTime": "2019-03-12T18:07:06Z",
 			"version": "jc-geo-fast-initial-fetch",
 			"versionExact": "jc-geo-fast-initial-fetch"
->>>>>>> Adding GeoFetch RPC
 		},
 		{
 			"checksumSHA1": "WMOuBgCyclqy+Mqunb0NbykaC4Y=",

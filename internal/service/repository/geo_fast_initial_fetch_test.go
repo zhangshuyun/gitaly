@@ -42,9 +42,7 @@ func getGitObjectDirSize(t *testing.T, repoPath string) int64 {
 	return blocks
 }
 
-func TestPreFetch(t *testing.T) {
-	t.Skip("PreFetch is unsafe https://gitlab.com/gitlab-org/gitaly/issues/1552")
-
+func TestGeoFastInitialFetch(t *testing.T) {
 	server, serverSocketPath := runRepoServer(t)
 	defer server.Stop()
 
@@ -54,29 +52,37 @@ func TestPreFetch(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	_, remoteRepoPath, cleanupRemoteRepo := testhelper.NewTestRepo(t)
+	defer cleanupRemoteRepo()
+
+	// add a branch
+	branch := "my-cool-branch"
+	testhelper.MustRunCommand(t, nil, "git", "-C", remoteRepoPath, "update-ref", "refs/heads/"+branch, "master")
+
+	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
 	pool, poolRepo := objectpool.NewTestObjectPool(t)
 	defer pool.Remove(ctx)
 
 	require.NoError(t, pool.Create(ctx, testRepo))
-	require.NoError(t, pool.Link(ctx, testRepo))
-
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "gc")
 
 	forkedRepo, forkRepoPath, forkRepoCleanup := getForkDestination(t)
 	defer forkRepoCleanup()
 
-	req := &gitalypb.PreFetchRequest{
-		TargetRepository: forkedRepo,
-		SourceRepository: testRepo,
+	req := &gitalypb.GeoFastInitialFetchRequest{
+		Repository: forkedRepo,
 		ObjectPool: &gitalypb.ObjectPool{
 			Repository: poolRepo,
 		},
+		Remote: &gitalypb.Remote{
+			Url:                     remoteRepoPath,
+			Name:                    "geo",
+			HttpAuthorizationHeader: "token",
+		},
 	}
 
-	_, err := client.PreFetch(ctx, req)
+	_, err := client.GeoFastInitialFetch(ctx, req)
 	require.NoError(t, err)
 
 	assert.True(t, getGitObjectDirSize(t, forkRepoPath) < 40)
@@ -84,11 +90,10 @@ func TestPreFetch(t *testing.T) {
 	// feature is a branch known to exist in the source repository. By looking it up in the target
 	// we establish that the target has branches, even though (as we saw above) it has no objects.
 	testhelper.MustRunCommand(t, nil, "git", "-C", forkRepoPath, "show-ref", "feature")
+	testhelper.MustRunCommand(t, nil, "git", "-C", forkRepoPath, "show-ref", branch)
 }
 
-func TestPreFetchValidationError(t *testing.T) {
-	t.Skip("PreFetch is unsafe https://gitlab.com/gitlab-org/gitaly/issues/1552")
-
+func TestGeoFastInitialFetchValidationError(t *testing.T) {
 	server, serverSocketPath := runRepoServer(t)
 	defer server.Stop()
 
@@ -105,7 +110,7 @@ func TestPreFetchValidationError(t *testing.T) {
 	defer pool.Remove(ctx)
 
 	require.NoError(t, pool.Create(ctx, testRepo))
-	require.NoError(t, pool.Link(ctx, testRepo))
+	require.NoError(t, pool.Link(ctx, testRepo, false))
 
 	forkedRepo, _, forkRepoCleanup := getForkDestination(t)
 	defer forkRepoCleanup()
@@ -117,52 +122,52 @@ func TestPreFetchValidationError(t *testing.T) {
 
 	testCases := []struct {
 		description string
-		sourceRepo  *gitalypb.Repository
-		targetRepo  *gitalypb.Repository
+		repo        *gitalypb.Repository
 		objectPool  *gitalypb.Repository
+		remoteURL   string
 		code        codes.Code
 	}{
 		{
 			description: "source repository nil",
-			sourceRepo:  nil,
-			targetRepo:  forkedRepo,
+			repo:        forkedRepo,
 			objectPool:  poolRepo,
+			remoteURL:   "something",
 			code:        codes.InvalidArgument,
 		},
 		{
 			description: "target repository nil",
-			sourceRepo:  testRepo,
-			targetRepo:  nil,
+			repo:        nil,
 			objectPool:  poolRepo,
+			remoteURL:   "something",
 			code:        codes.InvalidArgument,
 		},
 		{
-			description: "source/target repository have different storage",
-			sourceRepo:  testRepo,
-			targetRepo: &gitalypb.Repository{
-				StorageName:  "specialstorage",
-				RelativePath: forkedRepo.RelativePath,
-				GlRepository: forkedRepo.GlRepository,
-			},
-			objectPool: poolRepo,
-			code:       codes.InvalidArgument,
+			description: "bad pool repository",
+			repo:        forkedRepo,
+			objectPool:  badPool,
+			remoteURL:   "something",
+			code:        codes.FailedPrecondition,
 		},
 		{
-			description: "bad pool repository",
-			sourceRepo:  testRepo,
-			targetRepo:  forkedRepo,
-			objectPool:  badPool,
-			code:        codes.FailedPrecondition,
+			description: "remote url is empty",
+			repo:        forkedRepo,
+			objectPool:  poolRepo,
+			remoteURL:   "",
+			code:        codes.InvalidArgument,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.description, func(t *testing.T) {
-			_, err := client.PreFetch(ctx, &gitalypb.PreFetchRequest{
-				TargetRepository: tc.targetRepo,
-				SourceRepository: tc.sourceRepo,
+			_, err := client.GeoFastInitialFetch(ctx, &gitalypb.GeoFastInitialFetchRequest{
+				Repository: tc.repo,
 				ObjectPool: &gitalypb.ObjectPool{
 					Repository: tc.objectPool,
+				},
+				Remote: &gitalypb.Remote{
+					Name:                    "geo",
+					Url:                     tc.remoteURL,
+					HttpAuthorizationHeader: "header",
 				},
 			})
 			testhelper.RequireGrpcError(t, err, tc.code)
@@ -170,17 +175,12 @@ func TestPreFetchValidationError(t *testing.T) {
 	}
 }
 
-func TestPreFetchDirectoryExists(t *testing.T) {
-	t.Skip("PreFetch is unsafe https://gitlab.com/gitlab-org/gitaly/issues/1552")
-
+func TestGeoFastInitialFetchDirectoryExists(t *testing.T) {
 	server, serverSocketPath := runRepoServer(t)
 	defer server.Stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
-
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
-	defer cleanupFn()
 
 	forkedRepo, _, forkRepoCleanup := testhelper.InitBareRepo(t)
 	defer forkRepoCleanup()
@@ -188,6 +188,6 @@ func TestPreFetchDirectoryExists(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	_, err := client.PreFetch(ctx, &gitalypb.PreFetchRequest{TargetRepository: forkedRepo, SourceRepository: testRepo})
+	_, err := client.GeoFastInitialFetch(ctx, &gitalypb.GeoFastInitialFetchRequest{Repository: forkedRepo, ObjectPool: &gitalypb.ObjectPool{}})
 	testhelper.RequireGrpcError(t, err, codes.FailedPrecondition)
 }
