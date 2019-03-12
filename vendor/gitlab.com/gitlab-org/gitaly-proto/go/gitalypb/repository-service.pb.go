@@ -50,10 +50,17 @@ func (x GetArchiveRequest_Format) String() string {
 }
 func (GetArchiveRequest_Format) EnumDescriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{18, 0}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{18, 0}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{18, 0}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{18, 0}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 
 type GetRawChangesResponse_RawChange_Operation int32
@@ -92,10 +99,17 @@ func (x GetRawChangesResponse_RawChange_Operation) String() string {
 }
 func (GetRawChangesResponse_RawChange_Operation) EnumDescriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{63, 0, 0}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{63, 0, 0}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{63, 0, 0}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{63, 0, 0}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 
 type RepositoryExistsRequest struct {
@@ -110,10 +124,17 @@ func (m *RepositoryExistsRequest) String() string { return proto.CompactTextStri
 func (*RepositoryExistsRequest) ProtoMessage()    {}
 func (*RepositoryExistsRequest) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{0}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{0}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{0}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{0}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *RepositoryExistsRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RepositoryExistsRequest.Unmarshal(m, b)
@@ -152,10 +173,17 @@ func (m *RepositoryExistsResponse) String() string { return proto.CompactTextStr
 func (*RepositoryExistsResponse) ProtoMessage()    {}
 func (*RepositoryExistsResponse) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{1}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{1}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{1}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{1}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *RepositoryExistsResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RepositoryExistsResponse.Unmarshal(m, b)
@@ -194,10 +222,17 @@ func (m *RepackIncrementalRequest) String() string { return proto.CompactTextStr
 func (*RepackIncrementalRequest) ProtoMessage()    {}
 func (*RepackIncrementalRequest) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{2}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{2}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{2}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{2}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *RepackIncrementalRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RepackIncrementalRequest.Unmarshal(m, b)
@@ -235,10 +270,17 @@ func (m *RepackIncrementalResponse) String() string { return proto.CompactTextSt
 func (*RepackIncrementalResponse) ProtoMessage()    {}
 func (*RepackIncrementalResponse) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{3}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{3}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{3}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{3}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *RepackIncrementalResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RepackIncrementalResponse.Unmarshal(m, b)
@@ -271,10 +313,17 @@ func (m *RepackFullRequest) String() string { return proto.CompactTextString(m) 
 func (*RepackFullRequest) ProtoMessage()    {}
 func (*RepackFullRequest) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{4}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{4}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{4}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{4}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *RepackFullRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RepackFullRequest.Unmarshal(m, b)
@@ -319,10 +368,17 @@ func (m *RepackFullResponse) String() string { return proto.CompactTextString(m)
 func (*RepackFullResponse) ProtoMessage()    {}
 func (*RepackFullResponse) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{5}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{5}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{5}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{5}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *RepackFullResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RepackFullResponse.Unmarshal(m, b)
@@ -355,10 +411,17 @@ func (m *GarbageCollectRequest) String() string { return proto.CompactTextString
 func (*GarbageCollectRequest) ProtoMessage()    {}
 func (*GarbageCollectRequest) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{6}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{6}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{6}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{6}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *GarbageCollectRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GarbageCollectRequest.Unmarshal(m, b)
@@ -403,10 +466,17 @@ func (m *GarbageCollectResponse) String() string { return proto.CompactTextStrin
 func (*GarbageCollectResponse) ProtoMessage()    {}
 func (*GarbageCollectResponse) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{7}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{7}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{7}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{7}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *GarbageCollectResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GarbageCollectResponse.Unmarshal(m, b)
@@ -438,10 +508,17 @@ func (m *CleanupRequest) String() string { return proto.CompactTextString(m) }
 func (*CleanupRequest) ProtoMessage()    {}
 func (*CleanupRequest) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{8}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{8}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{8}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{8}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *CleanupRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CleanupRequest.Unmarshal(m, b)
@@ -479,10 +556,17 @@ func (m *CleanupResponse) String() string { return proto.CompactTextString(m) }
 func (*CleanupResponse) ProtoMessage()    {}
 func (*CleanupResponse) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{9}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{9}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{9}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{9}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *CleanupResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CleanupResponse.Unmarshal(m, b)
@@ -514,10 +598,17 @@ func (m *RepositorySizeRequest) String() string { return proto.CompactTextString
 func (*RepositorySizeRequest) ProtoMessage()    {}
 func (*RepositorySizeRequest) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{10}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{10}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{10}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{10}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *RepositorySizeRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RepositorySizeRequest.Unmarshal(m, b)
@@ -557,10 +648,17 @@ func (m *RepositorySizeResponse) String() string { return proto.CompactTextStrin
 func (*RepositorySizeResponse) ProtoMessage()    {}
 func (*RepositorySizeResponse) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{11}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{11}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{11}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{11}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *RepositorySizeResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RepositorySizeResponse.Unmarshal(m, b)
@@ -600,10 +698,17 @@ func (m *ApplyGitattributesRequest) String() string { return proto.CompactTextSt
 func (*ApplyGitattributesRequest) ProtoMessage()    {}
 func (*ApplyGitattributesRequest) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{12}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{12}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{12}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{12}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *ApplyGitattributesRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ApplyGitattributesRequest.Unmarshal(m, b)
@@ -648,10 +753,17 @@ func (m *ApplyGitattributesResponse) String() string { return proto.CompactTextS
 func (*ApplyGitattributesResponse) ProtoMessage()    {}
 func (*ApplyGitattributesResponse) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{13}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{13}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{13}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{13}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *ApplyGitattributesResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ApplyGitattributesResponse.Unmarshal(m, b)
@@ -690,10 +802,17 @@ func (m *FetchRemoteRequest) String() string { return proto.CompactTextString(m)
 func (*FetchRemoteRequest) ProtoMessage()    {}
 func (*FetchRemoteRequest) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{14}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{14}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{14}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{14}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *FetchRemoteRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_FetchRemoteRequest.Unmarshal(m, b)
@@ -780,10 +899,17 @@ func (m *FetchRemoteResponse) String() string { return proto.CompactTextString(m
 func (*FetchRemoteResponse) ProtoMessage()    {}
 func (*FetchRemoteResponse) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{15}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{15}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{15}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{15}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *FetchRemoteResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_FetchRemoteResponse.Unmarshal(m, b)
@@ -815,10 +941,17 @@ func (m *CreateRepositoryRequest) String() string { return proto.CompactTextStri
 func (*CreateRepositoryRequest) ProtoMessage()    {}
 func (*CreateRepositoryRequest) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{16}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{16}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{16}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{16}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *CreateRepositoryRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CreateRepositoryRequest.Unmarshal(m, b)
@@ -856,10 +989,17 @@ func (m *CreateRepositoryResponse) String() string { return proto.CompactTextStr
 func (*CreateRepositoryResponse) ProtoMessage()    {}
 func (*CreateRepositoryResponse) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{17}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{17}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{17}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{17}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *CreateRepositoryResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CreateRepositoryResponse.Unmarshal(m, b)
@@ -894,10 +1034,17 @@ func (m *GetArchiveRequest) String() string { return proto.CompactTextString(m) 
 func (*GetArchiveRequest) ProtoMessage()    {}
 func (*GetArchiveRequest) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{18}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{18}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{18}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{18}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *GetArchiveRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetArchiveRequest.Unmarshal(m, b)
@@ -957,10 +1104,17 @@ func (m *GetArchiveResponse) String() string { return proto.CompactTextString(m)
 func (*GetArchiveResponse) ProtoMessage()    {}
 func (*GetArchiveResponse) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{19}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{19}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{19}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{19}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *GetArchiveResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetArchiveResponse.Unmarshal(m, b)
@@ -999,10 +1153,17 @@ func (m *HasLocalBranchesRequest) String() string { return proto.CompactTextStri
 func (*HasLocalBranchesRequest) ProtoMessage()    {}
 func (*HasLocalBranchesRequest) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{20}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{20}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{20}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{20}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *HasLocalBranchesRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_HasLocalBranchesRequest.Unmarshal(m, b)
@@ -1041,10 +1202,17 @@ func (m *HasLocalBranchesResponse) String() string { return proto.CompactTextStr
 func (*HasLocalBranchesResponse) ProtoMessage()    {}
 func (*HasLocalBranchesResponse) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{21}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{21}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{21}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{21}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *HasLocalBranchesResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_HasLocalBranchesResponse.Unmarshal(m, b)
@@ -1086,10 +1254,17 @@ func (m *FetchSourceBranchRequest) String() string { return proto.CompactTextStr
 func (*FetchSourceBranchRequest) ProtoMessage()    {}
 func (*FetchSourceBranchRequest) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{22}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{22}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{22}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{22}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *FetchSourceBranchRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_FetchSourceBranchRequest.Unmarshal(m, b)
@@ -1149,10 +1324,17 @@ func (m *FetchSourceBranchResponse) String() string { return proto.CompactTextSt
 func (*FetchSourceBranchResponse) ProtoMessage()    {}
 func (*FetchSourceBranchResponse) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{23}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{23}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{23}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{23}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *FetchSourceBranchResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_FetchSourceBranchResponse.Unmarshal(m, b)
@@ -1191,10 +1373,17 @@ func (m *FsckRequest) String() string { return proto.CompactTextString(m) }
 func (*FsckRequest) ProtoMessage()    {}
 func (*FsckRequest) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{24}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{24}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{24}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{24}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *FsckRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_FsckRequest.Unmarshal(m, b)
@@ -1233,10 +1422,17 @@ func (m *FsckResponse) String() string { return proto.CompactTextString(m) }
 func (*FsckResponse) ProtoMessage()    {}
 func (*FsckResponse) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{25}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{25}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{25}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{25}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *FsckResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_FsckResponse.Unmarshal(m, b)
@@ -1279,10 +1475,17 @@ func (m *WriteRefRequest) String() string { return proto.CompactTextString(m) }
 func (*WriteRefRequest) ProtoMessage()    {}
 func (*WriteRefRequest) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{26}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{26}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{26}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{26}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *WriteRefRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_WriteRefRequest.Unmarshal(m, b)
@@ -1348,10 +1551,17 @@ func (m *WriteRefResponse) String() string { return proto.CompactTextString(m) }
 func (*WriteRefResponse) ProtoMessage()    {}
 func (*WriteRefResponse) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{27}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{27}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{27}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{27}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *WriteRefResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_WriteRefResponse.Unmarshal(m, b)
@@ -1387,10 +1597,17 @@ func (m *FindMergeBaseRequest) String() string { return proto.CompactTextString(
 func (*FindMergeBaseRequest) ProtoMessage()    {}
 func (*FindMergeBaseRequest) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{28}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{28}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{28}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{28}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *FindMergeBaseRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_FindMergeBaseRequest.Unmarshal(m, b)
@@ -1436,10 +1653,17 @@ func (m *FindMergeBaseResponse) String() string { return proto.CompactTextString
 func (*FindMergeBaseResponse) ProtoMessage()    {}
 func (*FindMergeBaseResponse) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{29}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{29}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{29}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{29}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *FindMergeBaseResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_FindMergeBaseResponse.Unmarshal(m, b)
@@ -1479,10 +1703,17 @@ func (m *CreateForkRequest) String() string { return proto.CompactTextString(m) 
 func (*CreateForkRequest) ProtoMessage()    {}
 func (*CreateForkRequest) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{30}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{30}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{30}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{30}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *CreateForkRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CreateForkRequest.Unmarshal(m, b)
@@ -1527,10 +1758,17 @@ func (m *CreateForkResponse) String() string { return proto.CompactTextString(m)
 func (*CreateForkResponse) ProtoMessage()    {}
 func (*CreateForkResponse) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{31}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{31}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{31}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{31}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *CreateForkResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CreateForkResponse.Unmarshal(m, b)
@@ -1563,10 +1801,17 @@ func (m *IsRebaseInProgressRequest) String() string { return proto.CompactTextSt
 func (*IsRebaseInProgressRequest) ProtoMessage()    {}
 func (*IsRebaseInProgressRequest) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{32}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{32}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{32}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{32}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *IsRebaseInProgressRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_IsRebaseInProgressRequest.Unmarshal(m, b)
@@ -1612,10 +1857,17 @@ func (m *IsRebaseInProgressResponse) String() string { return proto.CompactTextS
 func (*IsRebaseInProgressResponse) ProtoMessage()    {}
 func (*IsRebaseInProgressResponse) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{33}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{33}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{33}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{33}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *IsRebaseInProgressResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_IsRebaseInProgressResponse.Unmarshal(m, b)
@@ -1655,10 +1907,17 @@ func (m *IsSquashInProgressRequest) String() string { return proto.CompactTextSt
 func (*IsSquashInProgressRequest) ProtoMessage()    {}
 func (*IsSquashInProgressRequest) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{34}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{34}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{34}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{34}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *IsSquashInProgressRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_IsSquashInProgressRequest.Unmarshal(m, b)
@@ -1704,10 +1963,17 @@ func (m *IsSquashInProgressResponse) String() string { return proto.CompactTextS
 func (*IsSquashInProgressResponse) ProtoMessage()    {}
 func (*IsSquashInProgressResponse) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{35}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{35}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{35}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{35}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *IsSquashInProgressResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_IsSquashInProgressResponse.Unmarshal(m, b)
@@ -1747,10 +2013,17 @@ func (m *CreateRepositoryFromURLRequest) String() string { return proto.CompactT
 func (*CreateRepositoryFromURLRequest) ProtoMessage()    {}
 func (*CreateRepositoryFromURLRequest) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{36}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{36}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{36}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{36}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *CreateRepositoryFromURLRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CreateRepositoryFromURLRequest.Unmarshal(m, b)
@@ -1795,10 +2068,17 @@ func (m *CreateRepositoryFromURLResponse) String() string { return proto.Compact
 func (*CreateRepositoryFromURLResponse) ProtoMessage()    {}
 func (*CreateRepositoryFromURLResponse) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{37}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{37}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{37}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{37}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *CreateRepositoryFromURLResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CreateRepositoryFromURLResponse.Unmarshal(m, b)
@@ -1830,10 +2110,17 @@ func (m *CreateBundleRequest) String() string { return proto.CompactTextString(m
 func (*CreateBundleRequest) ProtoMessage()    {}
 func (*CreateBundleRequest) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{38}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{38}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{38}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{38}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *CreateBundleRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CreateBundleRequest.Unmarshal(m, b)
@@ -1872,10 +2159,17 @@ func (m *CreateBundleResponse) String() string { return proto.CompactTextString(
 func (*CreateBundleResponse) ProtoMessage()    {}
 func (*CreateBundleResponse) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{39}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{39}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{39}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{39}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *CreateBundleResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CreateBundleResponse.Unmarshal(m, b)
@@ -1915,10 +2209,17 @@ func (m *WriteConfigRequest) String() string { return proto.CompactTextString(m)
 func (*WriteConfigRequest) ProtoMessage()    {}
 func (*WriteConfigRequest) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{40}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{40}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{40}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{40}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *WriteConfigRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_WriteConfigRequest.Unmarshal(m, b)
@@ -1964,10 +2265,17 @@ func (m *WriteConfigResponse) String() string { return proto.CompactTextString(m
 func (*WriteConfigResponse) ProtoMessage()    {}
 func (*WriteConfigResponse) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{41}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{41}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{41}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{41}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *WriteConfigResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_WriteConfigResponse.Unmarshal(m, b)
@@ -2007,10 +2315,17 @@ func (m *SetConfigRequest) String() string { return proto.CompactTextString(m) }
 func (*SetConfigRequest) ProtoMessage()    {}
 func (*SetConfigRequest) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{42}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{42}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{42}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{42}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *SetConfigRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SetConfigRequest.Unmarshal(m, b)
@@ -2061,10 +2376,17 @@ func (m *SetConfigRequest_Entry) String() string { return proto.CompactTextStrin
 func (*SetConfigRequest_Entry) ProtoMessage()    {}
 func (*SetConfigRequest_Entry) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{42, 0}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{42, 0}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{42, 0}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{42, 0}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *SetConfigRequest_Entry) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SetConfigRequest_Entry.Unmarshal(m, b)
@@ -2235,10 +2557,17 @@ func (m *SetConfigResponse) String() string { return proto.CompactTextString(m) 
 func (*SetConfigResponse) ProtoMessage()    {}
 func (*SetConfigResponse) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{43}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{43}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{43}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{43}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *SetConfigResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SetConfigResponse.Unmarshal(m, b)
@@ -2271,10 +2600,17 @@ func (m *DeleteConfigRequest) String() string { return proto.CompactTextString(m
 func (*DeleteConfigRequest) ProtoMessage()    {}
 func (*DeleteConfigRequest) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{44}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{44}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{44}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{44}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *DeleteConfigRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_DeleteConfigRequest.Unmarshal(m, b)
@@ -2319,10 +2655,17 @@ func (m *DeleteConfigResponse) String() string { return proto.CompactTextString(
 func (*DeleteConfigResponse) ProtoMessage()    {}
 func (*DeleteConfigResponse) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{45}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{45}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{45}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{45}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *DeleteConfigResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_DeleteConfigResponse.Unmarshal(m, b)
@@ -2355,10 +2698,17 @@ func (m *RestoreCustomHooksRequest) String() string { return proto.CompactTextSt
 func (*RestoreCustomHooksRequest) ProtoMessage()    {}
 func (*RestoreCustomHooksRequest) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{46}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{46}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{46}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{46}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *RestoreCustomHooksRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RestoreCustomHooksRequest.Unmarshal(m, b)
@@ -2403,10 +2753,17 @@ func (m *RestoreCustomHooksResponse) String() string { return proto.CompactTextS
 func (*RestoreCustomHooksResponse) ProtoMessage()    {}
 func (*RestoreCustomHooksResponse) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{47}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{47}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{47}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{47}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *RestoreCustomHooksResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_RestoreCustomHooksResponse.Unmarshal(m, b)
@@ -2438,10 +2795,17 @@ func (m *BackupCustomHooksRequest) String() string { return proto.CompactTextStr
 func (*BackupCustomHooksRequest) ProtoMessage()    {}
 func (*BackupCustomHooksRequest) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{48}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{48}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{48}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{48}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *BackupCustomHooksRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_BackupCustomHooksRequest.Unmarshal(m, b)
@@ -2480,10 +2844,17 @@ func (m *BackupCustomHooksResponse) String() string { return proto.CompactTextSt
 func (*BackupCustomHooksResponse) ProtoMessage()    {}
 func (*BackupCustomHooksResponse) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{49}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{49}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{49}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{49}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *BackupCustomHooksResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_BackupCustomHooksResponse.Unmarshal(m, b)
@@ -2524,10 +2895,17 @@ func (m *CreateRepositoryFromBundleRequest) String() string { return proto.Compa
 func (*CreateRepositoryFromBundleRequest) ProtoMessage()    {}
 func (*CreateRepositoryFromBundleRequest) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{50}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{50}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{50}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{50}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *CreateRepositoryFromBundleRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CreateRepositoryFromBundleRequest.Unmarshal(m, b)
@@ -2572,10 +2950,17 @@ func (m *CreateRepositoryFromBundleResponse) String() string { return proto.Comp
 func (*CreateRepositoryFromBundleResponse) ProtoMessage()    {}
 func (*CreateRepositoryFromBundleResponse) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{51}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{51}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{51}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{51}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *CreateRepositoryFromBundleResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CreateRepositoryFromBundleResponse.Unmarshal(m, b)
@@ -2607,10 +2992,17 @@ func (m *FindLicenseRequest) String() string { return proto.CompactTextString(m)
 func (*FindLicenseRequest) ProtoMessage()    {}
 func (*FindLicenseRequest) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{52}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{52}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{52}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{52}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *FindLicenseRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_FindLicenseRequest.Unmarshal(m, b)
@@ -2649,10 +3041,17 @@ func (m *FindLicenseResponse) String() string { return proto.CompactTextString(m
 func (*FindLicenseResponse) ProtoMessage()    {}
 func (*FindLicenseResponse) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{53}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{53}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{53}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{53}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *FindLicenseResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_FindLicenseResponse.Unmarshal(m, b)
@@ -2691,10 +3090,17 @@ func (m *GetInfoAttributesRequest) String() string { return proto.CompactTextStr
 func (*GetInfoAttributesRequest) ProtoMessage()    {}
 func (*GetInfoAttributesRequest) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{54}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{54}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{54}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{54}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *GetInfoAttributesRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetInfoAttributesRequest.Unmarshal(m, b)
@@ -2733,10 +3139,17 @@ func (m *GetInfoAttributesResponse) String() string { return proto.CompactTextSt
 func (*GetInfoAttributesResponse) ProtoMessage()    {}
 func (*GetInfoAttributesResponse) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{55}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{55}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{55}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{55}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *GetInfoAttributesResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetInfoAttributesResponse.Unmarshal(m, b)
@@ -2775,10 +3188,17 @@ func (m *CalculateChecksumRequest) String() string { return proto.CompactTextStr
 func (*CalculateChecksumRequest) ProtoMessage()    {}
 func (*CalculateChecksumRequest) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{56}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{56}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{56}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{56}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *CalculateChecksumRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CalculateChecksumRequest.Unmarshal(m, b)
@@ -2817,10 +3237,17 @@ func (m *CalculateChecksumResponse) String() string { return proto.CompactTextSt
 func (*CalculateChecksumResponse) ProtoMessage()    {}
 func (*CalculateChecksumResponse) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{57}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{57}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{57}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{57}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *CalculateChecksumResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CalculateChecksumResponse.Unmarshal(m, b)
@@ -2859,10 +3286,17 @@ func (m *GetSnapshotRequest) String() string { return proto.CompactTextString(m)
 func (*GetSnapshotRequest) ProtoMessage()    {}
 func (*GetSnapshotRequest) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{58}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{58}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{58}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{58}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *GetSnapshotRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetSnapshotRequest.Unmarshal(m, b)
@@ -2901,10 +3335,17 @@ func (m *GetSnapshotResponse) String() string { return proto.CompactTextString(m
 func (*GetSnapshotResponse) ProtoMessage()    {}
 func (*GetSnapshotResponse) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{59}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{59}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{59}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{59}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *GetSnapshotResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetSnapshotResponse.Unmarshal(m, b)
@@ -2945,10 +3386,17 @@ func (m *CreateRepositoryFromSnapshotRequest) String() string { return proto.Com
 func (*CreateRepositoryFromSnapshotRequest) ProtoMessage()    {}
 func (*CreateRepositoryFromSnapshotRequest) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{60}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{60}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{60}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{60}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *CreateRepositoryFromSnapshotRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CreateRepositoryFromSnapshotRequest.Unmarshal(m, b)
@@ -3000,10 +3448,17 @@ func (m *CreateRepositoryFromSnapshotResponse) String() string { return proto.Co
 func (*CreateRepositoryFromSnapshotResponse) ProtoMessage()    {}
 func (*CreateRepositoryFromSnapshotResponse) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{61}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{61}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{61}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{61}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *CreateRepositoryFromSnapshotResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_CreateRepositoryFromSnapshotResponse.Unmarshal(m, b)
@@ -3037,10 +3492,17 @@ func (m *GetRawChangesRequest) String() string { return proto.CompactTextString(
 func (*GetRawChangesRequest) ProtoMessage()    {}
 func (*GetRawChangesRequest) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{62}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{62}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{62}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{62}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *GetRawChangesRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetRawChangesRequest.Unmarshal(m, b)
@@ -3093,10 +3555,17 @@ func (m *GetRawChangesResponse) String() string { return proto.CompactTextString
 func (*GetRawChangesResponse) ProtoMessage()    {}
 func (*GetRawChangesResponse) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{63}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{63}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{63}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{63}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *GetRawChangesResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetRawChangesResponse.Unmarshal(m, b)
@@ -3142,10 +3611,17 @@ func (m *GetRawChangesResponse_RawChange) String() string { return proto.Compact
 func (*GetRawChangesResponse_RawChange) ProtoMessage()    {}
 func (*GetRawChangesResponse_RawChange) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{63, 0}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{63, 0}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{63, 0}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{63, 0}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *GetRawChangesResponse_RawChange) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetRawChangesResponse_RawChange.Unmarshal(m, b)
@@ -3235,10 +3711,17 @@ func (m *SearchFilesByNameRequest) String() string { return proto.CompactTextStr
 func (*SearchFilesByNameRequest) ProtoMessage()    {}
 func (*SearchFilesByNameRequest) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{64}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{64}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{64}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{64}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *SearchFilesByNameRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SearchFilesByNameRequest.Unmarshal(m, b)
@@ -3291,10 +3774,17 @@ func (m *SearchFilesByNameResponse) String() string { return proto.CompactTextSt
 func (*SearchFilesByNameResponse) ProtoMessage()    {}
 func (*SearchFilesByNameResponse) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{65}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{65}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{65}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{65}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *SearchFilesByNameResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SearchFilesByNameResponse.Unmarshal(m, b)
@@ -3336,10 +3826,17 @@ func (m *SearchFilesByContentRequest) String() string { return proto.CompactText
 func (*SearchFilesByContentRequest) ProtoMessage()    {}
 func (*SearchFilesByContentRequest) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{66}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{66}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{66}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{66}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *SearchFilesByContentRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SearchFilesByContentRequest.Unmarshal(m, b)
@@ -3401,10 +3898,17 @@ func (m *SearchFilesByContentResponse) String() string { return proto.CompactTex
 func (*SearchFilesByContentResponse) ProtoMessage()    {}
 func (*SearchFilesByContentResponse) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{67}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{67}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{67}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{67}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *SearchFilesByContentResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SearchFilesByContentResponse.Unmarshal(m, b)
@@ -3459,10 +3963,17 @@ func (m *PreFetchRequest) String() string { return proto.CompactTextString(m) }
 func (*PreFetchRequest) ProtoMessage()    {}
 func (*PreFetchRequest) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{68}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{68}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{68}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{68}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *PreFetchRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PreFetchRequest.Unmarshal(m, b)
@@ -3514,10 +4025,17 @@ func (m *PreFetchResponse) String() string { return proto.CompactTextString(m) }
 func (*PreFetchResponse) ProtoMessage()    {}
 func (*PreFetchResponse) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{69}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{69}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{69}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{69}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *PreFetchResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PreFetchResponse.Unmarshal(m, b)
@@ -3551,10 +4069,17 @@ func (m *Remote) String() string { return proto.CompactTextString(m) }
 func (*Remote) ProtoMessage()    {}
 func (*Remote) Descriptor() ([]byte, []int) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_31fa3b04395213d1, []int{70}
 =======
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{70}
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{70}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{70}
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *Remote) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Remote.Unmarshal(m, b)
@@ -3641,7 +4166,11 @@ func (m *FetchHttpRemoteRequest) Reset()         { *m = FetchHttpRemoteRequest{}
 func (m *FetchHttpRemoteRequest) String() string { return proto.CompactTextString(m) }
 func (*FetchHttpRemoteRequest) ProtoMessage()    {}
 func (*FetchHttpRemoteRequest) Descriptor() ([]byte, []int) {
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{71}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{71}
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *FetchHttpRemoteRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_FetchHttpRemoteRequest.Unmarshal(m, b)
@@ -3726,7 +4255,11 @@ func (m *FetchHttpRemoteResponse) Reset()         { *m = FetchHttpRemoteResponse
 func (m *FetchHttpRemoteResponse) String() string { return proto.CompactTextString(m) }
 func (*FetchHttpRemoteResponse) ProtoMessage()    {}
 func (*FetchHttpRemoteResponse) Descriptor() ([]byte, []int) {
+<<<<<<< HEAD
 	return fileDescriptor_repository_service_b1f4501d941bd44b, []int{72}
+=======
+	return fileDescriptor_repository_service_18c4b86108bd9b84, []int{72}
+>>>>>>> Adding GeoFetch RPC
 }
 func (m *FetchHttpRemoteResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_FetchHttpRemoteResponse.Unmarshal(m, b)
@@ -5381,6 +5914,7 @@ var _RepositoryService_serviceDesc = grpc.ServiceDesc{
 
 func init() {
 <<<<<<< HEAD
+<<<<<<< HEAD
 	proto.RegisterFile("repository-service.proto", fileDescriptor_repository_service_31fa3b04395213d1)
 }
 
@@ -5555,6 +6089,8 @@ var fileDescriptor_repository_service_31fa3b04395213d1 = []byte{
 	0x4f, 0xe4, 0xc8, 0x4f, 0xc4, 0x4f, 0x68, 0x4f, 0xce, 0x49, 0xd4, 0x1e, 0x9c, 0x9d, 0x2d, 0x08,
 	0xd2, 0xd3, 0x7f, 0x07, 0x00, 0x00, 0xff, 0xff, 0x40, 0x12, 0xdf, 0xa3, 0xc9, 0x26, 0x00, 0x00,
 =======
+=======
+>>>>>>> Adding GeoFetch RPC
 	proto.RegisterFile("repository-service.proto", fileDescriptor_repository_service_b1f4501d941bd44b)
 }
 
@@ -5728,5 +6264,178 @@ var fileDescriptor_repository_service_b1f4501d941bd44b = []byte{
 	0x84, 0xe7, 0x4f, 0xc4, 0xc8, 0x4f, 0xf8, 0x9f, 0x65, 0x4f, 0xce, 0x89, 0x6c, 0x0f, 0xce, 0xce,
 	0x16, 0x38, 0xe9, 0xe9, 0x7f, 0x02, 0x00, 0x00, 0xff, 0xff, 0x31, 0x62, 0x37, 0x32, 0x9e, 0x26,
 	0x00, 0x00,
+<<<<<<< HEAD
 >>>>>>> Adding FetchHttpRemote RPC
+=======
+=======
+	proto.RegisterFile("repository-service.proto", fileDescriptor_repository_service_18c4b86108bd9b84)
+}
+
+var fileDescriptor_repository_service_18c4b86108bd9b84 = []byte{
+	// 2595 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xc4, 0x5a, 0xeb, 0x72, 0xdb, 0xb8,
+	0x15, 0x96, 0x7c, 0x93, 0x74, 0xa4, 0x24, 0x32, 0xec, 0xc4, 0x12, 0xe3, 0xc4, 0x09, 0x93, 0xd9,
+	0xcd, 0x5e, 0xea, 0xee, 0x3a, 0x3f, 0xba, 0xd3, 0xcb, 0x64, 0x7c, 0xb7, 0x93, 0xf8, 0x52, 0x3a,
+	0x3b, 0x99, 0x66, 0x76, 0x87, 0x43, 0x53, 0x90, 0xc5, 0x15, 0x45, 0x68, 0x41, 0x28, 0x5e, 0xa7,
+	0x7f, 0xbb, 0xd3, 0xfd, 0xd9, 0xbe, 0x43, 0x9f, 0xa0, 0x4f, 0xd1, 0xff, 0x7d, 0x8a, 0x4e, 0x5f,
+	0xa2, 0x83, 0x0b, 0x09, 0x52, 0x24, 0xdd, 0x74, 0x98, 0xb6, 0xff, 0x88, 0x73, 0x80, 0x73, 0x0e,
+	0xce, 0x01, 0x0e, 0x70, 0x3e, 0x10, 0x3a, 0x14, 0x8f, 0x49, 0xe8, 0x31, 0x42, 0xaf, 0x7e, 0x16,
+	0x62, 0xfa, 0xd6, 0x73, 0xf1, 0xfa, 0x98, 0x12, 0x46, 0xd0, 0xc2, 0x85, 0xc7, 0x1c, 0xff, 0xca,
+	0x68, 0x85, 0x03, 0x87, 0xe2, 0x9e, 0xa4, 0x9a, 0x47, 0xb0, 0x62, 0xc5, 0x23, 0x76, 0x7f, 0xf0,
+	0x42, 0x16, 0x5a, 0xf8, 0xfb, 0x09, 0x0e, 0x19, 0xda, 0x00, 0xd0, 0xc2, 0x3a, 0xd5, 0x07, 0xd5,
+	0x27, 0xcd, 0x0d, 0xb4, 0x2e, 0xa5, 0xac, 0xeb, 0x41, 0x56, 0xa2, 0x97, 0xb9, 0x01, 0x9d, 0xac,
+	0xb8, 0x70, 0x4c, 0x82, 0x10, 0xa3, 0x3b, 0xb0, 0x80, 0x05, 0x45, 0xc8, 0xaa, 0x5b, 0xaa, 0x65,
+	0x1e, 0x8b, 0x31, 0x8e, 0x3b, 0x3c, 0x0c, 0x5c, 0x8a, 0x47, 0x38, 0x60, 0x8e, 0x5f, 0xc6, 0x86,
+	0xbb, 0xd0, 0xcd, 0x91, 0x27, 0x8d, 0x30, 0x7d, 0x58, 0x94, 0xcc, 0xbd, 0x89, 0x5f, 0x46, 0x0b,
+	0x7a, 0x04, 0x37, 0x5c, 0x8a, 0x1d, 0x86, 0xed, 0x73, 0x8f, 0x8d, 0x9c, 0x71, 0x67, 0x46, 0x4c,
+	0xaa, 0x25, 0x89, 0x5b, 0x82, 0x66, 0x2e, 0x03, 0x4a, 0x6a, 0x53, 0x36, 0x8c, 0xe1, 0xf6, 0xbe,
+	0x43, 0xcf, 0x9d, 0x0b, 0xbc, 0x4d, 0x7c, 0x1f, 0xbb, 0xec, 0xbf, 0x6e, 0x47, 0x07, 0xee, 0x4c,
+	0x6b, 0x54, 0xb6, 0xec, 0xc0, 0xcd, 0x6d, 0x1f, 0x3b, 0xc1, 0x64, 0x5c, 0xc6, 0xe5, 0x8b, 0x70,
+	0x2b, 0x96, 0xa2, 0x04, 0xbf, 0x80, 0xdb, 0xba, 0xf3, 0x99, 0xf7, 0x0e, 0x97, 0x91, 0xff, 0x39,
+	0xdc, 0x99, 0x16, 0xa6, 0x16, 0x15, 0x82, 0xb9, 0xd0, 0x7b, 0x87, 0x85, 0x9c, 0x59, 0x4b, 0x7c,
+	0x9b, 0x43, 0xe8, 0x6e, 0x8e, 0xc7, 0xfe, 0xd5, 0xbe, 0xc7, 0x1c, 0xc6, 0xa8, 0x77, 0x3e, 0x61,
+	0xb8, 0xcc, 0xaa, 0x46, 0x06, 0xd4, 0x29, 0x7e, 0xeb, 0x85, 0x1e, 0x09, 0x84, 0x7b, 0x5b, 0x56,
+	0xdc, 0x36, 0x57, 0xc1, 0xc8, 0x53, 0xa6, 0xbc, 0xf0, 0x87, 0x19, 0x40, 0x7b, 0x98, 0xb9, 0x03,
+	0x0b, 0x8f, 0x08, 0x2b, 0xe3, 0x03, 0xbe, 0x7d, 0xa8, 0x10, 0x22, 0x4c, 0x68, 0x58, 0xaa, 0x85,
+	0x96, 0x61, 0xbe, 0x4f, 0xa8, 0x8b, 0x3b, 0xb3, 0x22, 0xf0, 0xb2, 0x81, 0x56, 0xa0, 0x16, 0x10,
+	0x9b, 0x39, 0x17, 0x61, 0x67, 0x4e, 0xee, 0xb6, 0x80, 0xbc, 0x72, 0x2e, 0x42, 0xd4, 0x81, 0x1a,
+	0xf3, 0x46, 0x98, 0x4c, 0x58, 0x67, 0xfe, 0x41, 0xf5, 0xc9, 0xbc, 0x15, 0x35, 0xf9, 0x90, 0x30,
+	0x1c, 0xd8, 0x43, 0x7c, 0xd5, 0x59, 0x90, 0x1a, 0xc2, 0x70, 0xf0, 0x02, 0x5f, 0xa1, 0x35, 0x68,
+	0x0e, 0x03, 0x72, 0x19, 0xd8, 0x03, 0xc2, 0x77, 0x6f, 0x4d, 0x30, 0x41, 0x90, 0x0e, 0x38, 0x05,
+	0x75, 0xa1, 0x1e, 0x10, 0x7b, 0x4c, 0x27, 0x01, 0xee, 0x34, 0x84, 0xb6, 0x5a, 0x40, 0x4e, 0x79,
+	0xf3, 0xf9, 0x5c, 0xbd, 0xde, 0x6e, 0x98, 0xb7, 0x61, 0x29, 0xe5, 0x05, 0xe5, 0x9d, 0x23, 0x58,
+	0xd9, 0x16, 0xcb, 0x34, 0x31, 0xe5, 0x12, 0xab, 0xc4, 0x80, 0x4e, 0x56, 0x9c, 0x52, 0xf5, 0xcf,
+	0x2a, 0x2c, 0xee, 0x63, 0xb6, 0x49, 0xdd, 0x81, 0xf7, 0xb6, 0x54, 0x1c, 0xee, 0x42, 0xc3, 0x25,
+	0xa3, 0x91, 0xc7, 0x6c, 0xaf, 0xa7, 0x42, 0x51, 0x97, 0x84, 0xc3, 0x1e, 0x0f, 0xd2, 0x98, 0xe2,
+	0xbe, 0xf7, 0x83, 0x88, 0x46, 0xc3, 0x52, 0x2d, 0xf4, 0x15, 0x2c, 0xf4, 0x09, 0x1d, 0x39, 0x4c,
+	0x44, 0xe3, 0xe6, 0xc6, 0x83, 0x48, 0x49, 0xc6, 0xa6, 0xf5, 0x3d, 0xd1, 0xcf, 0x52, 0xfd, 0xcd,
+	0xa7, 0xb0, 0x20, 0x29, 0xa8, 0x06, 0xb3, 0x6f, 0x0e, 0x4f, 0xdb, 0x15, 0xfe, 0xf1, 0x6a, 0xd3,
+	0x6a, 0x57, 0x11, 0xc0, 0xc2, 0xab, 0x4d, 0xcb, 0xde, 0x7f, 0xd3, 0x9e, 0x41, 0x4d, 0xa8, 0xf1,
+	0xef, 0xad, 0x37, 0x1b, 0xed, 0x59, 0xf3, 0x09, 0xa0, 0xa4, 0x60, 0xbd, 0x57, 0x7a, 0x0e, 0x73,
+	0xc4, 0x3c, 0x5b, 0x96, 0xf8, 0xe6, 0x21, 0x38, 0x70, 0xc2, 0x97, 0xc4, 0x75, 0xfc, 0x2d, 0xea,
+	0x04, 0xee, 0xa0, 0xd4, 0x4e, 0x31, 0xbf, 0x80, 0x4e, 0x56, 0x9c, 0x52, 0xbf, 0x0c, 0xf3, 0x6f,
+	0x1d, 0x7f, 0x82, 0x55, 0xfa, 0x97, 0x0d, 0xf3, 0xef, 0x55, 0xe8, 0x88, 0xb5, 0x71, 0x46, 0x26,
+	0xd4, 0xc5, 0x72, 0x54, 0x99, 0xf8, 0x3c, 0x83, 0xc5, 0x50, 0x88, 0xb2, 0x13, 0x43, 0x67, 0x0a,
+	0x87, 0xb6, 0x65, 0x67, 0x2b, 0x95, 0x51, 0x95, 0x80, 0x73, 0x61, 0x8c, 0x08, 0x65, 0xcb, 0x6a,
+	0x85, 0x09, 0x03, 0xd1, 0x3d, 0x00, 0xe6, 0xd0, 0x0b, 0xcc, 0x6c, 0x8a, 0xfb, 0x22, 0xa8, 0x2d,
+	0xab, 0x21, 0x29, 0x16, 0xee, 0x9b, 0x4f, 0xa1, 0x9b, 0x33, 0x29, 0x7d, 0x10, 0x52, 0x1c, 0x4e,
+	0x7c, 0x16, 0x1d, 0x84, 0xb2, 0x65, 0x6e, 0x42, 0x73, 0x2f, 0x74, 0x87, 0x65, 0xfc, 0xff, 0x18,
+	0x5a, 0x52, 0x84, 0xf6, 0x39, 0xa6, 0x94, 0x50, 0x15, 0x73, 0xd9, 0x30, 0xff, 0x5a, 0x85, 0x5b,
+	0xaf, 0xa9, 0xc7, 0x37, 0x4a, 0xbf, 0x8c, 0xab, 0xdb, 0x30, 0xcb, 0x67, 0x2f, 0x53, 0x22, 0xff,
+	0x4c, 0x65, 0xca, 0xd9, 0x74, 0xa6, 0x44, 0x0f, 0xa1, 0x45, 0xfc, 0x9e, 0x1d, 0xf3, 0xa5, 0xd3,
+	0x9a, 0xc4, 0xef, 0x59, 0x51, 0x97, 0x38, 0x97, 0xcd, 0x27, 0x72, 0xd9, 0xf3, 0xb9, 0xfa, 0x42,
+	0xbb, 0x66, 0x76, 0xa0, 0xad, 0x6d, 0x96, 0xd3, 0x7b, 0x3e, 0x57, 0xaf, 0xb6, 0x67, 0xcc, 0x01,
+	0x2c, 0xef, 0x79, 0x41, 0xef, 0x08, 0xd3, 0x0b, 0xbc, 0xe5, 0x84, 0xa5, 0x76, 0xf7, 0x2a, 0x34,
+	0x22, 0x03, 0xc3, 0xce, 0xcc, 0x83, 0x59, 0x1e, 0xd6, 0x98, 0x60, 0x7e, 0x06, 0xb7, 0xa7, 0x34,
+	0xe9, 0xad, 0x75, 0xee, 0x84, 0x72, 0x69, 0x37, 0x2c, 0xf1, 0x6d, 0xfe, 0x54, 0x85, 0x45, 0x99,
+	0x8f, 0xf6, 0x08, 0x1d, 0xfe, 0x3f, 0x97, 0x34, 0xbf, 0x87, 0x24, 0x2d, 0x89, 0xef, 0x42, 0xdd,
+	0xc3, 0xd0, 0xc2, 0xdc, 0xd8, 0xc3, 0xe0, 0x94, 0x92, 0x0b, 0x8a, 0xc3, 0xb0, 0x64, 0x6a, 0xa4,
+	0x42, 0x5c, 0x22, 0x35, 0x4a, 0xc2, 0x61, 0xcf, 0xfc, 0x0d, 0x18, 0x79, 0xda, 0x94, 0x03, 0xd7,
+	0xa0, 0xe9, 0x05, 0xf6, 0x58, 0x91, 0xd5, 0xc6, 0x00, 0x2f, 0xee, 0x28, 0x8d, 0x3d, 0xfb, 0x7e,
+	0xe2, 0x84, 0x83, 0x0f, 0x66, 0x6c, 0x28, 0xc4, 0x25, 0x8c, 0x95, 0x84, 0xc8, 0xd8, 0xac, 0xb6,
+	0xf7, 0x35, 0xb6, 0x0f, 0xf7, 0xa7, 0x4f, 0xa2, 0x3d, 0x4a, 0x46, 0x5f, 0x5b, 0x2f, 0x4b, 0x6e,
+	0xb7, 0x09, 0xf5, 0x95, 0xad, 0xfc, 0xd3, 0x7c, 0x08, 0x6b, 0x85, 0x7a, 0x54, 0x90, 0x0f, 0x61,
+	0x49, 0x76, 0xd9, 0x9a, 0x04, 0x3d, 0xbf, 0xd4, 0x2d, 0xec, 0x53, 0x58, 0x4e, 0x8b, 0xba, 0xe6,
+	0x5c, 0xc1, 0x80, 0xc4, 0x6e, 0xdd, 0x26, 0x41, 0xdf, 0xbb, 0x28, 0x19, 0xa7, 0xfe, 0xc4, 0xf7,
+	0xed, 0xb1, 0xc3, 0x06, 0x51, 0x9c, 0x38, 0xe1, 0xd4, 0x61, 0x03, 0xf3, 0x33, 0x58, 0x4a, 0xa9,
+	0xb9, 0x36, 0xed, 0xfd, 0x34, 0x03, 0xed, 0x33, 0xcc, 0xca, 0x9b, 0xf4, 0x15, 0xd4, 0x70, 0xc0,
+	0xa8, 0x87, 0x65, 0x8a, 0x68, 0x6e, 0xdc, 0x8f, 0x06, 0x4c, 0x8b, 0x5f, 0xdf, 0x0d, 0x18, 0xbd,
+	0xb2, 0xa2, 0xee, 0xc6, 0x8f, 0x55, 0x98, 0x17, 0x24, 0x1e, 0x4c, 0x7e, 0xd3, 0x92, 0x09, 0x83,
+	0x7f, 0xa2, 0x7b, 0xd0, 0x10, 0x47, 0xa2, 0x1d, 0x32, 0x2a, 0x27, 0x7a, 0x50, 0xb1, 0xea, 0x82,
+	0x74, 0xc6, 0x28, 0x7a, 0x08, 0x4d, 0xc9, 0xf6, 0x02, 0xf6, 0x74, 0x43, 0x64, 0xd7, 0xf9, 0x83,
+	0x8a, 0x05, 0x82, 0x78, 0xc8, 0x69, 0x68, 0x0d, 0x64, 0xcb, 0x3e, 0x27, 0xc4, 0x97, 0xf7, 0xbe,
+	0x83, 0x8a, 0x25, 0xa5, 0x6e, 0x11, 0xe2, 0x6f, 0xd5, 0xd4, 0x11, 0x6c, 0x2e, 0xc1, 0x62, 0xc2,
+	0x54, 0xb5, 0x54, 0xbe, 0x85, 0xa5, 0x1d, 0xec, 0xe3, 0x0f, 0x11, 0x34, 0x04, 0x73, 0x43, 0x7c,
+	0x25, 0xdd, 0xd3, 0xb0, 0xc4, 0xb7, 0x79, 0x07, 0x96, 0xd3, 0xe2, 0x95, 0x5a, 0x97, 0xd7, 0x6b,
+	0x21, 0x23, 0x14, 0x6f, 0x4f, 0x42, 0x46, 0x46, 0x07, 0x84, 0x0c, 0xc3, 0x92, 0xca, 0xc5, 0x7a,
+	0x9c, 0x49, 0xac, 0xc7, 0x55, 0x30, 0xf2, 0x94, 0x28, 0x13, 0x8e, 0xa1, 0xb3, 0xe5, 0xb8, 0xc3,
+	0xc9, 0xf8, 0xc3, 0x58, 0x60, 0xfe, 0x1c, 0xba, 0x39, 0xf2, 0xae, 0xd9, 0x2e, 0x43, 0x78, 0x98,
+	0xb7, 0x91, 0x4b, 0xef, 0xd9, 0x5c, 0x5f, 0x3c, 0x06, 0xf3, 0x3a, 0x65, 0xca, 0x27, 0x07, 0x80,
+	0xf8, 0x59, 0xf7, 0xd2, 0x73, 0x71, 0x50, 0xea, 0x4c, 0x35, 0xb7, 0x61, 0x29, 0x25, 0x49, 0xf9,
+	0xe1, 0x73, 0x40, 0xbe, 0x24, 0xd9, 0xe1, 0x80, 0x50, 0x66, 0x07, 0xce, 0x28, 0x3a, 0x41, 0xdb,
+	0x8a, 0x73, 0xc6, 0x19, 0xc7, 0xce, 0x48, 0x84, 0x68, 0x1f, 0xb3, 0xc3, 0xa0, 0x4f, 0x36, 0x3f,
+	0x44, 0x4d, 0x67, 0xfe, 0x0a, 0xba, 0x39, 0xf2, 0x94, 0x69, 0xf7, 0x01, 0x74, 0x31, 0xa7, 0x02,
+	0x95, 0xa0, 0x70, 0x63, 0xb6, 0x1d, 0xdf, 0x9d, 0xf8, 0x0e, 0xc3, 0xdb, 0x03, 0xec, 0x0e, 0xc3,
+	0xc9, 0xa8, 0x8c, 0x31, 0xbf, 0x80, 0x6e, 0x8e, 0x3c, 0x65, 0x8c, 0x01, 0x75, 0x57, 0xd1, 0x94,
+	0x77, 0xe2, 0x36, 0x0f, 0xd2, 0x3e, 0x66, 0x67, 0x81, 0x33, 0x0e, 0x07, 0xa4, 0x0c, 0x8e, 0x60,
+	0x7e, 0x02, 0x4b, 0x29, 0x49, 0xd7, 0x2c, 0xd6, 0x3f, 0x57, 0xe1, 0x51, 0xde, 0x02, 0xfa, 0x00,
+	0x66, 0xf0, 0x52, 0x72, 0xc0, 0xd8, 0xd8, 0xd6, 0x07, 0x5d, 0x8d, 0xb7, 0xbf, 0xa6, 0x3e, 0x3f,
+	0x08, 0x04, 0xcb, 0x99, 0xb0, 0x81, 0x2a, 0xaf, 0x44, 0xdf, 0xcd, 0x09, 0x1b, 0x98, 0x1f, 0xc1,
+	0xe3, 0xeb, 0x4d, 0x52, 0xab, 0xfa, 0x4f, 0x55, 0x58, 0xde, 0xc7, 0xcc, 0x72, 0x2e, 0xb7, 0x07,
+	0x4e, 0x70, 0x51, 0x0e, 0x17, 0x78, 0x04, 0x37, 0xfa, 0x94, 0x8c, 0xec, 0x14, 0x38, 0xd0, 0xb0,
+	0x5a, 0x9c, 0x18, 0xdf, 0x69, 0xd7, 0xa0, 0xc9, 0x88, 0x9d, 0xba, 0x15, 0x37, 0x2c, 0x60, 0x24,
+	0xea, 0x60, 0xfe, 0x63, 0x16, 0x6e, 0x4f, 0x99, 0xa4, 0x9c, 0x7f, 0x00, 0x4d, 0xea, 0x5c, 0xda,
+	0xae, 0x24, 0x77, 0xaa, 0xe2, 0xac, 0xf9, 0x38, 0x51, 0x3a, 0x66, 0xc7, 0xac, 0xc7, 0x24, 0x0b,
+	0x68, 0xcc, 0x35, 0x7e, 0x9c, 0x85, 0x46, 0xcc, 0xe1, 0x95, 0xfe, 0xb9, 0x4f, 0xce, 0xf9, 0xc5,
+	0x47, 0x2e, 0xa8, 0x05, 0xde, 0x3c, 0xec, 0xc5, 0x68, 0xca, 0x8c, 0x46, 0x53, 0x44, 0x71, 0x8f,
+	0x2f, 0xe5, 0xf1, 0x2b, 0x8d, 0xaf, 0x05, 0xf8, 0x92, 0x9f, 0xbe, 0x9c, 0xc5, 0x6f, 0xf4, 0x82,
+	0x35, 0x27, 0x59, 0xc4, 0xef, 0x09, 0xd6, 0x09, 0x34, 0xc8, 0x18, 0x53, 0x87, 0xf1, 0x39, 0xcf,
+	0x8b, 0x9a, 0xf7, 0xcb, 0xf7, 0x34, 0x7c, 0xfd, 0x24, 0x1a, 0x68, 0x69, 0x19, 0xdc, 0xd7, 0xdc,
+	0x17, 0x5a, 0xa8, 0xc4, 0x28, 0x5a, 0xd4, 0xb9, 0x8c, 0xfb, 0x47, 0x06, 0x8d, 0x48, 0x0f, 0x0b,
+	0x98, 0x62, 0x5e, 0x18, 0x74, 0x44, 0x7a, 0xf1, 0x34, 0x04, 0xab, 0x2e, 0x59, 0x01, 0xbe, 0xe4,
+	0x2c, 0xd3, 0x83, 0x86, 0x16, 0xd1, 0x84, 0xda, 0xd7, 0xc7, 0x2f, 0x8e, 0x4f, 0x5e, 0x1f, 0xb7,
+	0x2b, 0xa8, 0x01, 0xf3, 0x9b, 0x3b, 0x3b, 0xbb, 0x3b, 0xb2, 0xd6, 0xde, 0x3e, 0x39, 0x3d, 0xdc,
+	0xdd, 0x91, 0xb5, 0xf6, 0xce, 0xee, 0xcb, 0xdd, 0x57, 0xbb, 0x3b, 0xed, 0x59, 0xd4, 0x82, 0xfa,
+	0xd1, 0xc9, 0xce, 0xe1, 0x1e, 0x67, 0xcd, 0x71, 0x96, 0xb5, 0x7b, 0xbc, 0x79, 0xb4, 0xbb, 0xd3,
+	0x9e, 0x47, 0x6d, 0x68, 0xbd, 0xfa, 0xdd, 0xe9, 0xae, 0xbd, 0x7d, 0xb0, 0x79, 0xbc, 0xbf, 0xbb,
+	0xd3, 0x5e, 0x30, 0xdf, 0x42, 0xe7, 0x0c, 0x3b, 0xd4, 0x1d, 0xec, 0x79, 0x3e, 0x0e, 0xb7, 0xae,
+	0x78, 0x6a, 0x2b, 0xb3, 0x02, 0x97, 0x61, 0xfe, 0xfb, 0x09, 0x56, 0xd5, 0x40, 0xc3, 0x92, 0x8d,
+	0xa8, 0x2e, 0x9b, 0x8d, 0xeb, 0x32, 0xf3, 0x4b, 0xe8, 0xe6, 0xe8, 0xd5, 0xb7, 0xa5, 0x3e, 0x27,
+	0x8b, 0x05, 0xd6, 0xb2, 0x64, 0xc3, 0xfc, 0x4b, 0x15, 0xee, 0xa6, 0xc6, 0x6c, 0x93, 0x80, 0xe1,
+	0x80, 0xfd, 0x0f, 0xcc, 0x45, 0x9f, 0x40, 0xdb, 0x1d, 0x4c, 0x82, 0x21, 0xe6, 0xe5, 0xa2, 0xb4,
+	0x52, 0xc1, 0x58, 0xb7, 0x14, 0x3d, 0xde, 0xd0, 0x57, 0xb0, 0x9a, 0x6f, 0xa5, 0x9a, 0x5c, 0x07,
+	0x6a, 0x23, 0x87, 0xb9, 0x83, 0x78, 0x7a, 0x51, 0x93, 0x97, 0xf0, 0xe2, 0xd3, 0x4e, 0x1c, 0x90,
+	0x0d, 0x41, 0xd9, 0x71, 0x98, 0x83, 0x1e, 0x40, 0x0b, 0x07, 0x3d, 0x9b, 0xf4, 0x6d, 0x41, 0x53,
+	0xf0, 0x1a, 0xe0, 0xa0, 0x77, 0xd2, 0x3f, 0xe2, 0x14, 0xf3, 0x6f, 0x55, 0xb8, 0x75, 0x4a, 0xb1,
+	0x42, 0xb6, 0xa4, 0x57, 0x72, 0x4b, 0xb5, 0xea, 0x7f, 0x80, 0x3e, 0x3c, 0x83, 0xc5, 0x18, 0x58,
+	0x78, 0x9f, 0x5a, 0x2f, 0xc2, 0x1c, 0x62, 0x01, 0x4f, 0xa1, 0x49, 0xce, 0xbf, 0xc3, 0x2e, 0xb3,
+	0xc7, 0xfc, 0x16, 0x38, 0x9b, 0x1e, 0x7a, 0x22, 0x58, 0xa7, 0x84, 0xf8, 0x16, 0x90, 0xf8, 0xdb,
+	0x44, 0xd0, 0xd6, 0x33, 0x51, 0x9e, 0xfd, 0x0e, 0x16, 0x24, 0x5e, 0x17, 0x15, 0x1e, 0xd5, 0xb8,
+	0xf0, 0xe0, 0x89, 0x42, 0x9c, 0xd6, 0x32, 0x8e, 0xe2, 0x1b, 0xfd, 0x12, 0xba, 0x71, 0x7e, 0x26,
+	0xd4, 0x7b, 0x27, 0xf6, 0x93, 0x3d, 0xc0, 0x4e, 0x0f, 0x53, 0x95, 0x39, 0x56, 0xa2, 0x7c, 0x1d,
+	0xf3, 0x0f, 0x04, 0xdb, 0x64, 0x70, 0x47, 0x28, 0x3f, 0x60, 0x6c, 0x5c, 0x1e, 0x2a, 0xfd, 0x28,
+	0x05, 0x95, 0x36, 0x37, 0x6e, 0xea, 0xfe, 0x42, 0xb4, 0xe2, 0x9a, 0x5d, 0x58, 0xc9, 0x68, 0x95,
+	0x93, 0xdf, 0xf8, 0x63, 0x47, 0x3c, 0x14, 0x44, 0x90, 0xb3, 0x7c, 0x49, 0x41, 0xaf, 0xa1, 0x3d,
+	0xfd, 0xbc, 0x81, 0xd6, 0xb2, 0xc6, 0xa4, 0xde, 0x51, 0x8c, 0x07, 0xc5, 0x1d, 0x94, 0xa7, 0x2b,
+	0xe8, 0x4d, 0xf4, 0x2c, 0x91, 0x78, 0xb3, 0x40, 0xc9, 0x81, 0xb9, 0xcf, 0x23, 0xc6, 0xc3, 0x6b,
+	0x7a, 0xc4, 0xb2, 0x77, 0x01, 0xf4, 0x23, 0x04, 0xea, 0xa6, 0x87, 0x24, 0x9e, 0x41, 0x0c, 0x23,
+	0x8f, 0x15, 0x8b, 0xf9, 0x2d, 0xdc, 0x4c, 0xbf, 0x21, 0xa0, 0x7b, 0x71, 0x42, 0xcf, 0x7b, 0xcd,
+	0x30, 0xee, 0x17, 0xb1, 0x93, 0x22, 0xd3, 0xb0, 0xbe, 0x16, 0x99, 0xfb, 0x76, 0xa0, 0x45, 0xe6,
+	0xbf, 0x06, 0x98, 0x15, 0xf4, 0x2d, 0xa0, 0x2c, 0x1c, 0x8f, 0x62, 0x3f, 0x15, 0xbe, 0x0b, 0x18,
+	0xe6, 0x75, 0x5d, 0x62, 0xf1, 0x07, 0xd0, 0x4c, 0x00, 0xd9, 0x28, 0xf6, 0x58, 0x16, 0xe3, 0x37,
+	0xee, 0xe6, 0xf2, 0x62, 0x49, 0xaf, 0xa1, 0x3d, 0x7d, 0x61, 0xd1, 0x4b, 0xa9, 0x00, 0x15, 0xd7,
+	0x4b, 0xa9, 0x10, 0xe7, 0xae, 0xa0, 0x7d, 0x00, 0x8d, 0xfd, 0xea, 0x70, 0x67, 0x80, 0x66, 0x1d,
+	0xee, 0x2c, 0x54, 0x6c, 0x56, 0xbe, 0xa8, 0x72, 0x0b, 0xa7, 0xb1, 0x5c, 0x6d, 0x61, 0x01, 0x68,
+	0xac, 0x2d, 0x2c, 0x82, 0x81, 0xe5, 0x62, 0xcf, 0x80, 0xa3, 0x7a, 0xb1, 0x17, 0x81, 0xc1, 0x7a,
+	0xb1, 0x17, 0x22, 0xab, 0x66, 0x05, 0x3d, 0x85, 0xb9, 0xbd, 0xd0, 0x1d, 0xa2, 0xa5, 0xb8, 0xb3,
+	0x46, 0x54, 0x8d, 0xe5, 0x34, 0x31, 0x1e, 0xf4, 0x0c, 0xea, 0x11, 0xb4, 0x88, 0x56, 0xa2, 0x3e,
+	0x53, 0x00, 0xa9, 0xd1, 0xc9, 0x32, 0x62, 0x01, 0xc7, 0x70, 0x23, 0x85, 0x0b, 0xa2, 0xd5, 0x58,
+	0x53, 0x0e, 0x30, 0x69, 0xdc, 0x2b, 0xe0, 0x26, 0xb7, 0xac, 0xc6, 0xeb, 0x74, 0x0c, 0x33, 0x68,
+	0xa2, 0x8e, 0x61, 0x0e, 0xbc, 0x27, 0x36, 0x43, 0x16, 0x72, 0xd3, 0x9b, 0xa1, 0x10, 0xfc, 0xd3,
+	0x9b, 0xa1, 0x18, 0xb1, 0x8b, 0xc4, 0x4f, 0x83, 0x64, 0x49, 0xf1, 0x05, 0x70, 0x5d, 0x52, 0x7c,
+	0x11, 0xc6, 0x66, 0x56, 0x90, 0x9f, 0x7d, 0x1d, 0x52, 0xe0, 0x16, 0xfa, 0xa8, 0x68, 0x1f, 0xa4,
+	0x51, 0x36, 0xe3, 0xe3, 0x7f, 0xdb, 0x2f, 0xd6, 0x76, 0x04, 0xad, 0x24, 0xb8, 0x85, 0xee, 0xa6,
+	0x87, 0xa6, 0x2a, 0x71, 0x63, 0x35, 0x9f, 0x99, 0xd8, 0x3c, 0x97, 0x60, 0x14, 0xd7, 0xd8, 0xe8,
+	0x93, 0xeb, 0xec, 0x4a, 0xab, 0xfa, 0xf4, 0x7d, 0xba, 0x46, 0x8a, 0x9f, 0x54, 0x79, 0x86, 0x4a,
+	0x20, 0x62, 0x3a, 0x43, 0x65, 0xd1, 0x38, 0x9d, 0xa1, 0x72, 0x20, 0x34, 0xb3, 0x82, 0xb6, 0xa0,
+	0x11, 0x63, 0x44, 0xa8, 0x53, 0x84, 0x70, 0x19, 0xdd, 0x1c, 0x4e, 0x2c, 0xe3, 0x05, 0xb4, 0x92,
+	0x98, 0x8f, 0xf6, 0x6a, 0x0e, 0xd0, 0xa4, 0xbd, 0x9a, 0x0b, 0x13, 0xc9, 0xe4, 0xab, 0x71, 0x84,
+	0x44, 0xf2, 0xcd, 0xc0, 0x14, 0x89, 0xe4, 0x9b, 0x05, 0x1e, 0xcc, 0x0a, 0xfa, 0x46, 0x3c, 0x06,
+	0xa6, 0x8b, 0x7f, 0x94, 0x7c, 0x93, 0xcb, 0xc5, 0x19, 0x74, 0x06, 0x2a, 0x44, 0x0e, 0x44, 0xec,
+	0xdf, 0xc0, 0x62, 0xa6, 0x9a, 0xd7, 0xd2, 0x8b, 0x80, 0x03, 0x2d, 0xbd, 0x10, 0x0a, 0x30, 0x2b,
+	0xe8, 0xd7, 0x50, 0x53, 0x2f, 0xed, 0xe8, 0x4e, 0xdc, 0x3f, 0xf5, 0x80, 0x6f, 0xac, 0x64, 0xe8,
+	0xf1, 0xe8, 0xe7, 0xd0, 0x4c, 0x14, 0xf9, 0x28, 0x79, 0x02, 0x4c, 0x15, 0xef, 0xda, 0x83, 0x39,
+	0xa8, 0x80, 0x98, 0xe5, 0xef, 0x61, 0xf5, 0xba, 0x8a, 0x1b, 0x7d, 0x76, 0xdd, 0xc2, 0x9d, 0xd6,
+	0xf6, 0xf9, 0xfb, 0x75, 0x8e, 0x27, 0x72, 0x0a, 0x37, 0x52, 0x55, 0xa4, 0x4e, 0xb8, 0x79, 0xc5,
+	0xbd, 0x4e, 0xb8, 0xb9, 0xa5, 0xa7, 0x98, 0x0e, 0x86, 0xe5, 0xbc, 0x3a, 0x02, 0x3d, 0xd2, 0xcb,
+	0xbb, 0xb0, 0x16, 0x32, 0x1e, 0x5f, 0xdf, 0x29, 0xa1, 0xe6, 0x1b, 0x58, 0xcc, 0x14, 0x62, 0x7a,
+	0x6d, 0x14, 0xd5, 0x86, 0x7a, 0x6d, 0x14, 0x56, 0x71, 0x42, 0xfa, 0xb7, 0x80, 0xb2, 0x28, 0x27,
+	0x4a, 0xdc, 0x12, 0x0b, 0x60, 0x56, 0x9d, 0x91, 0x8b, 0x41, 0xd2, 0x27, 0xc2, 0xf8, 0x0c, 0xac,
+	0xa9, 0x8d, 0x2f, 0x42, 0x50, 0xb5, 0xf1, 0x85, 0x98, 0xa8, 0x30, 0xfe, 0x19, 0xd4, 0xa3, 0x1a,
+	0x44, 0x9f, 0xc2, 0x53, 0xf5, 0x95, 0x3e, 0x85, 0x33, 0xe5, 0x4a, 0x05, 0xbd, 0x82, 0x5b, 0x53,
+	0xd7, 0x79, 0x74, 0x3f, 0x75, 0x67, 0xc8, 0x54, 0x17, 0xc6, 0x5a, 0x21, 0x3f, 0x92, 0x7a, 0xbe,
+	0x20, 0x7e, 0x94, 0x7a, 0xfa, 0xaf, 0x00, 0x00, 0x00, 0xff, 0xff, 0x10, 0x68, 0x03, 0xc6, 0x5a,
+	0x25, 0x00, 0x00,
+>>>>>>> Adding GeoFetch RPC
+>>>>>>> Adding GeoFetch RPC
 }
