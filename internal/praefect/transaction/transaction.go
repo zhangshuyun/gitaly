@@ -1,5 +1,5 @@
-/*Package praefect provides transaction management functionality to coordinate
-one-to-many clients attempting to modify the shards concurrently.
+/*Package transaction provides transaction management functionality to
+coordinate one-to-many clients attempting to modify the shards concurrently.
 
 While Git is distributed in nature, there are some repository wide data points
 that can conflict between replicas if something goes wrong. This includes
@@ -7,7 +7,7 @@ references, which is why the transaction manager provides an API that allows
 an RPC transaction to read/write lock the references being accessed to prevent
 contention.
 */
-package praefect
+package transaction
 
 import (
 	"context"
@@ -30,16 +30,22 @@ type Verifier interface {
 	CheckSum(context.Context, Repository) ([]byte, error)
 }
 
+// Coordinator allows the transaction manager to look up the shard for a repo
+// at the beginning of each transaction
+type Coordinator interface {
+	FetchShard(ctx context.Context, repo Repository) (*Shard, error)
+}
+
 // ReplicationManager provides services to handle degraded nodes
 type ReplicationManager interface {
 	NotifyDegradation(context.Context, Repository, Node) error
 }
 
-// TransactionManager tracks the progress of RPCs being applied to multiple
+// Manager tracks the progress of RPCs being applied to multiple
 // downstream servers that make up a shard. It prevents conflicts that may arise
 // from contention between multiple clients trying to modify the same
 // references.
-type TransactionManager struct {
+type Manager struct {
 	mu     sync.Mutex
 	shards map[string]*Shard // shards keyed by project
 
@@ -48,8 +54,8 @@ type TransactionManager struct {
 	replman     ReplicationManager
 }
 
-func NewTransactionManager(v Verifier, c Coordinator, r ReplicationManager) *TransactionManager {
-	return &TransactionManager{
+func NewManager(v Verifier, c Coordinator, r ReplicationManager) *Manager {
+	return &Manager{
 		shards:      map[string]*Shard{},
 		verifier:    v,
 		coordinator: c,
@@ -238,8 +244,8 @@ func (t transaction) RLockRef(ctx context.Context, ref string) error {
 // author to mark all relevant assets being modified during a mutating
 // transaction to ensure they are locked and protected from other closures
 // modifying the same.
-func (tm *TransactionManager) Mutate(ctx context.Context, repo Repository, fn func(MutateTx) error) error {
-	shard, err := tm.coordinator.FetchShard(ctx, repo)
+func (m *Manager) Mutate(ctx context.Context, repo Repository, fn func(MutateTx) error) error {
+	shard, err := m.coordinator.FetchShard(ctx, repo)
 	if err != nil {
 		return err
 	}
@@ -259,7 +265,7 @@ func (tm *TransactionManager) Mutate(ctx context.Context, repo Repository, fn fu
 		node := node // rescope iterator var for goroutine closure
 
 		eg.Go(func() error {
-			return tm.replman.NotifyDegradation(eCtx, repo, node)
+			return m.replman.NotifyDegradation(eCtx, repo, node)
 		})
 	}
 
@@ -269,7 +275,6 @@ func (tm *TransactionManager) Mutate(ctx context.Context, repo Repository, fn fu
 	}
 	defer tx.unlockAll()
 
-	// run the transaction function
 	err = fn(tx)
 	if err != nil {
 		return err
@@ -278,8 +283,8 @@ func (tm *TransactionManager) Mutate(ctx context.Context, repo Repository, fn fu
 	return nil
 }
 
-func (tm *TransactionManager) Access(ctx context.Context, repo Repository, fn func(AccessTx) error) error {
-	shard, err := tm.coordinator.FetchShard(ctx, repo)
+func (m *Manager) Access(ctx context.Context, repo Repository, fn func(AccessTx) error) error {
+	shard, err := m.coordinator.FetchShard(ctx, repo)
 	if err != nil {
 		return err
 	}
@@ -299,7 +304,7 @@ func (tm *TransactionManager) Access(ctx context.Context, repo Repository, fn fu
 		node := node // rescope iterator var for goroutine closure
 
 		eg.Go(func() error {
-			return tm.replman.NotifyDegradation(eCtx, repo, node)
+			return m.replman.NotifyDegradation(eCtx, repo, node)
 		})
 	}
 
@@ -309,16 +314,10 @@ func (tm *TransactionManager) Access(ctx context.Context, repo Repository, fn fu
 	}
 	defer tx.unlockAll()
 
-	// run the transaction function
 	err = fn(tx)
 	if err != nil {
 		return err
 	}
 
 	return nil
-}
-
-func (c *Coordinator) FetchShard(ctx context.Context, repo Repository) (*Shard, error) {
-	// TODO: move this to coordinator.go
-	return nil, nil
 }
