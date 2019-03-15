@@ -43,6 +43,8 @@ func getGitObjectDirSize(t *testing.T, repoPath string) int64 {
 }
 
 func TestPreFetch(t *testing.T) {
+	t.Skip("PreFetch is unsafe https://gitlab.com/gitlab-org/gitaly/issues/1552")
+
 	server, serverSocketPath := runRepoServer(t)
 	defer server.Stop()
 
@@ -85,6 +87,8 @@ func TestPreFetch(t *testing.T) {
 }
 
 func TestPreFetchValidationError(t *testing.T) {
+	t.Skip("PreFetch is unsafe https://gitlab.com/gitlab-org/gitaly/issues/1552")
+
 	server, serverSocketPath := runRepoServer(t)
 	defer server.Stop()
 
@@ -167,6 +171,8 @@ func TestPreFetchValidationError(t *testing.T) {
 }
 
 func TestPreFetchDirectoryExists(t *testing.T) {
+	t.Skip("PreFetch is unsafe https://gitlab.com/gitlab-org/gitaly/issues/1552")
+
 	server, serverSocketPath := runRepoServer(t)
 	defer server.Stop()
 

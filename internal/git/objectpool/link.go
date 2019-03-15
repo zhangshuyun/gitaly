@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/internal/git/remote"
 
@@ -41,7 +42,36 @@ func (o *ObjectPool) Link(ctx context.Context, repo *gitalypb.Repository) error 
 		}
 	}
 
-	return ioutil.WriteFile(altPath, []byte(filepath.Join(relPath, "objects")), 0644)
+	expectedContent := filepath.Join(relPath, "objects")
+
+	actualContent, err := ioutil.ReadFile(altPath)
+	if err == nil {
+		if strings.TrimSuffix(string(actualContent), "\n") == expectedContent {
+			return nil
+		}
+
+		return fmt.Errorf("unexpected alternates content: %q", actualContent)
+	}
+
+	if !os.IsNotExist(err) {
+		return err
+	}
+
+	tmp, err := ioutil.TempFile(filepath.Dir(altPath), "alternates")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(tmp.Name())
+
+	if _, err := io.WriteString(tmp, expectedContent); err != nil {
+		return err
+	}
+
+	if err := tmp.Close(); err != nil {
+		return err
+	}
+
+	return os.Rename(tmp.Name(), altPath)
 }
 
 func (o *ObjectPool) getRelativeObjectPath(repo *gitalypb.Repository) (string, error) {

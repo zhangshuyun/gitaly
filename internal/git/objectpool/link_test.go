@@ -3,6 +3,7 @@ package objectpool
 import (
 	"io/ioutil"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -18,11 +19,11 @@ func TestLink(t *testing.T) {
 	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
-	pool, err := NewObjectPool(testRepo.GetStorageName(), t.Name())
+	pool, err := NewObjectPool(testRepo.GetStorageName(), testhelper.NewTestObjectPoolName(t))
 	require.NoError(t, err)
-	defer pool.Remove(ctx)
 
-	require.NoError(t, pool.Create(ctx, testRepo))
+	require.NoError(t, pool.Remove(ctx), "make sure pool does not exist prior to creation")
+	require.NoError(t, pool.Create(ctx, testRepo), "create pool")
 
 	altPath, err := git.AlternatesPath(testRepo)
 	require.NoError(t, err)
@@ -31,11 +32,12 @@ func TestLink(t *testing.T) {
 
 	require.NoError(t, pool.Link(ctx, testRepo))
 
-	_, err = os.Stat(altPath)
-	require.False(t, os.IsNotExist(err))
+	require.FileExists(t, altPath, "alternates file must exist after Link")
 
 	content, err := ioutil.ReadFile(altPath)
 	require.NoError(t, err)
+
+	require.True(t, strings.HasPrefix(string(content), "../"), "expected %q to be relative path", content)
 
 	require.NoError(t, pool.Link(ctx, testRepo))
 
@@ -68,8 +70,8 @@ func TestUnlink(t *testing.T) {
 
 	require.NoError(t, pool.Create(ctx, testRepo))
 	require.NoError(t, pool.Link(ctx, testRepo))
-	_, err = os.Stat(altPath)
-	require.False(t, os.IsNotExist(err))
+
+	require.FileExists(t, altPath, "alternates file must exist after Link")
 
 	require.NoError(t, pool.Unlink(ctx, testRepo))
 	_, err = os.Stat(altPath)

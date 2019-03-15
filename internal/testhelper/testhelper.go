@@ -3,6 +3,7 @@ package testhelper
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -355,6 +356,7 @@ func CreateRepo(t *testing.T, storagePath string) (repo *gitalypb.Repository, re
 
 	repoPath, err := ioutil.TempDir(storagePath, normalizedPrefix)
 	require.NoError(t, err)
+
 	relativePath, err = filepath.Rel(storagePath, repoPath)
 	require.NoError(t, err)
 	repo = &gitalypb.Repository{StorageName: "default", RelativePath: relativePath, GlRepository: "project-1"}
@@ -454,4 +456,13 @@ func GetRepositoryRefs(t *testing.T, repoPath string) string {
 func AssertFileNotExists(t *testing.T, path string) {
 	_, err := os.Stat(path)
 	assert.True(t, os.IsNotExist(err))
+}
+
+// NewTestObjectPoolName returns a random pool repository name.
+func NewTestObjectPoolName(t *testing.T) string {
+	b := make([]byte, 5)
+	_, err := io.ReadFull(rand.Reader, b)
+	require.NoError(t, err)
+
+	return fmt.Sprintf("pool-%x.git", b)
 }

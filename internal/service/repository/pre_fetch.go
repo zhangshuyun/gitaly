@@ -2,34 +2,33 @@ package repository
 
 import (
 	"context"
-	"errors"
-	"fmt"
-	"io/ioutil"
-	"os"
-	"path/filepath"
 
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
-	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/objectpool"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 )
 
+// PreFetch is unsafe https://gitlab.com/gitlab-org/gitaly/issues/1552
 func (s *server) PreFetch(ctx context.Context, req *gitalypb.PreFetchRequest) (*gitalypb.PreFetchResponse, error) {
-	if err := validatePreFetchRequest(req); err != nil {
-		return nil, helper.ErrInvalidArgument(err)
-	}
+	return nil, helper.Unimplemented
 
-	if err := validatePreFetchPrecondition(req); err != nil {
-		return nil, helper.ErrPreconditionFailed(err)
-	}
+	/*
+		if err := validatePreFetchRequest(req); err != nil {
+			return nil, helper.ErrInvalidArgument(err)
+		}
 
-	if err := preFetch(ctx, req); err != nil {
-		return nil, helper.ErrInternal(err)
-	}
+		if err := validatePreFetchPrecondition(req); err != nil {
+			return nil, helper.ErrPreconditionFailed(err)
+		}
 
-	return &gitalypb.PreFetchResponse{}, nil
+		if err := preFetch(ctx, req); err != nil {
+			return nil, helper.ErrInternal(err)
+		}
+
+		return &gitalypb.PreFetchResponse{}, nil
+	*/
 }
 
+/*
 func validatePreFetchRequest(req *gitalypb.PreFetchRequest) error {
 	if req.GetTargetRepository() == nil {
 		return errors.New("repository is empty")
@@ -153,3 +152,4 @@ func preFetch(ctx context.Context, req *gitalypb.PreFetchRequest) error {
 
 	return os.Rename(tmpRepoDir, targetRepositoryFullPath)
 }
+*/

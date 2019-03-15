@@ -2,6 +2,7 @@ package objectpool
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path"
 
@@ -71,22 +72,26 @@ func (o *ObjectPool) Create(ctx context.Context, repo *gitalypb.Repository) (err
 	}
 
 	if err := o.clone(ctx, repo); err != nil {
-		return err
+		return fmt.Errorf("clone: %v", err)
 	}
 
 	if err := o.removeHooksDir(); err != nil {
-		return err
+		return fmt.Errorf("remove hooks: %v", err)
 	}
 
 	if err := remote.Remove(ctx, o, "origin"); err != nil {
-		return err
+		return fmt.Errorf("remove origin: %v", err)
 	}
 
 	if err := o.removeRefs(ctx); err != nil {
-		return err
+		return fmt.Errorf("remove refs: %v", err)
 	}
 
-	return o.setConfig(ctx, "gc.auto", "0")
+	if err := o.setConfig(ctx, "gc.auto", "0"); err != nil {
+		return fmt.Errorf("config gc.auto: %v", err)
+	}
+
+	return nil
 }
 
 // Remove will remove the pool, and all its contents without preparing and/or
