@@ -2,6 +2,7 @@ package transaction
 
 import (
 	"context"
+	"errors"
 	"sync"
 )
 
@@ -25,28 +26,19 @@ type RPC struct {
 type Node interface {
 	Storage() string // storage location the node hosts
 	ForwardRPC(ctx context.Context, rpc *RPC) error
-
 	CheckSum(context.Context, Repository) ([]byte, error)
-	WriteRef(ctx context.Context, ref, value string) error
 }
 
-// MutateTx represents the resources available during a mutator transaction
-type MutateTx interface {
-	AccessTx
-	// LockRef acquires a write lock on a reference
-	LockRef(context.Context, string) error
-	Primary() Node
-}
+type txCategory int
 
-// AccessTx represents the resources available during an accessor transaction
-type AccessTx interface {
-	// Replicas returns all replicas without distinguishing the primary
-	Replicas() map[string]Node
-	// RLockRef acquires a read lock on a reference
-	RLockRef(context.Context, string) error
-}
+const (
+	txCatAccessor = iota
+	txCatMutator
+)
 
-type transaction struct {
+type Tx struct {
+	category txCategory
+
 	shard *Shard
 
 	replicas map[string]Node // only nodes verified to be consistent
@@ -61,13 +53,14 @@ type transaction struct {
 	refRollbacks map[string][]byte
 }
 
-func newTransaction(shard *Shard, good []Node) transaction {
+func newTx(shard *Shard, good []Node, txCat txCategory) Tx {
 	replicas := map[string]Node{}
 	for _, node := range good {
 		replicas[node.Storage()] = node
 	}
 
-	return transaction{
+	return Tx{
+		category: txCat,
 		shard:    shard,
 		replicas: replicas,
 		unlocks: struct {
@@ -80,110 +73,23 @@ func newTransaction(shard *Shard, good []Node) transaction {
 	}
 }
 
-// LockRef attempts to acquire a write lock on the reference name provided.
-// If the context is cancelled first, the lock acquisition will be
-// aborted.
-func (t transaction) LockRef(ctx context.Context, ref string) error {
-	lockQ := make(chan *sync.RWMutex)
-
-	go func() {
-		t.shard.refLocks.RLock()
-		l, ok := t.shard.refLocks.m[ref]
-		t.shard.refLocks.RUnlock()
-
-		if !ok {
-			l = new(sync.RWMutex)
-			t.shard.refLocks.Lock()
-			t.shard.refLocks.m[ref] = l
-			t.shard.refLocks.Unlock()
-		}
-
-		l.Lock()
-		lockQ <- l
-	}()
-
-	// ensure lockQ is consumed in all code paths so that goroutine doesn't
-	// stray
-	select {
-
-	case <-ctx.Done():
-		l := <-lockQ
-		l.Unlock()
-		return ctx.Err()
-
-	case l := <-lockQ:
-		t.unlocks.Lock()
-		t.unlocks.m[ref] = func() { l.Unlock() }
-		t.unlocks.Unlock()
-
-		return nil
-	}
-}
-
-// unlockAll will unlock all acquired locks at the end of a transaction
-func (t transaction) unlockAll() {
-	// unlock all refs
-	t.unlocks.RLock()
-	for _, unlock := range t.unlocks.m {
-		unlock()
-	}
-	t.unlocks.RUnlock()
-}
-
-func (t transaction) rollback(ctx context.Context) error {
+func (t Tx) rollback(ctx context.Context) error {
 	// for ref, value := range t.refRollbacks {
 	//
 	// }
 	return nil
 }
 
-func (t transaction) Replicas() map[string]Node {
+func (t Tx) Replicas() map[string]Node {
 	return t.replicas
 }
 
-func (t transaction) Primary() Node {
-	return t.replicas[t.shard.primary]
-}
+var ErrAccessorNotPermitted = errors.New("a mutator operation was attempted by an accessor")
 
-// RLockRef attempts to acquire a read lock on the reference name provided
-// (ref). If the context is cancelled first, the lock acquisition will be
-// aborted.
-func (t transaction) RLockRef(ctx context.Context, ref string) error {
-	lockQ := make(chan *sync.RWMutex)
-
-	go func() {
-		t.shard.refLocks.RLock()
-		l, ok := t.shard.refLocks.m[ref]
-		t.shard.refLocks.RUnlock()
-
-		if !ok {
-			l = new(sync.RWMutex)
-			t.shard.refLocks.Lock()
-			t.shard.refLocks.m[ref] = l
-			t.shard.refLocks.Unlock()
-		}
-
-		l.RLock()
-		lockQ <- l
-	}()
-
-	// ensure lockQ is consumed in all code paths so that goroutine doesn't
-	// stray
-	select {
-
-	case <-ctx.Done():
-		// unlock before aborting
-		l := <-lockQ
-		l.RUnlock()
-
-		return ctx.Err()
-
-	case l := <-lockQ:
-		t.unlocks.Lock()
-		t.unlocks.m[ref] = func() { l.RUnlock() }
-		t.unlocks.Unlock()
-
-		return nil
-
+func (t Tx) Primary() (Node, error) {
+	if t.category != txCatMutator {
+		return nil, ErrAccessorNotPermitted
 	}
+
+	return t.replicas[t.shard.primary], nil
 }

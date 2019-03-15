@@ -8,38 +8,27 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-// Shard represents a set of Gitaly replicas for repository. Each shard has a
+// Shard represents a set of Gitaly replicas for a repository. Each shard has a
 // designated primary and maintains locks to resources that can cause contention
 // between clients writing to the same repo.
 type Shard struct {
-	repo Repository
-
-	primary string // the designated primary node name
-
+	lock            *sync.RWMutex   // all mutations require a write lock
+	repo            Repository      // the repo this replica backs
+	primary         string          // the storage location of the primary node
 	storageReplicas map[string]Node // maps storage location to a replica
-
-	refLocks struct {
-		*sync.RWMutex
-		m map[string]*sync.RWMutex // maps ref name to a lock
-	}
-
-	// used to check shard for inconsistencies
-	verifier Verifier
 }
 
-func NewShard(r Repository, primary string, replicas []Node, v Verifier) *Shard {
+func NewShard(r Repository, primary string, replicas []Node) *Shard {
+	sreps := make(map[string]Node)
+	for _, r := range replicas {
+		sreps[r.Storage()] = r
+	}
+
 	return &Shard{
 		repo:            r,
 		primary:         primary,
-		storageReplicas: make(map[string]Node),
-		refLocks: struct {
-			*sync.RWMutex
-			m map[string]*sync.RWMutex
-		}{
-			RWMutex: new(sync.RWMutex),
-			m:       make(map[string]*sync.RWMutex),
-		},
-		verifier: v,
+		storageReplicas: sreps,
+		lock:            new(sync.RWMutex),
 	}
 }
 
@@ -60,7 +49,7 @@ func (s Shard) validate(ctx context.Context, omits map[string]struct{}) (good, b
 
 	eg, eCtx := errgroup.WithContext(ctx)
 
-	for storage, _ := range s.storageReplicas {
+	for storage, node := range s.storageReplicas {
 		_, ok := omits[storage]
 		if ok {
 			continue
@@ -69,7 +58,7 @@ func (s Shard) validate(ctx context.Context, omits map[string]struct{}) (good, b
 		storage := storage // rescope iterator vars
 
 		eg.Go(func() error {
-			cs, err := s.verifier.CheckSum(eCtx, s.repo)
+			cs, err := node.CheckSum(eCtx, s.repo)
 			if err != nil {
 				return err
 			}
