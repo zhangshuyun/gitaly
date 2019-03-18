@@ -68,7 +68,14 @@ describe Gitlab::Git::Hook do
     end
 
     context 'when the hooks are successful' do
-      let(:script) { "#!/bin/sh\nexit 0\n" }
+      let(:script) do
+        <<-SCRIPT
+          #!/bin/sh
+          echo "message";
+          1>&2 echo "error";
+          exit 0;
+        SCRIPT
+      end
 
       it 'returns true' do
         hook_names.each do |hook|
@@ -78,10 +85,26 @@ describe Gitlab::Git::Hook do
           expect(trigger_result.first).to be(true)
         end
       end
+
+      it 'returns no messages' do
+        hook_names.each do |hook|
+          trigger_result = described_class.new(hook, repo)
+                                          .trigger('user-456', 'admin', '0' * 40, 'a' * 40, 'master')
+
+          expect(trigger_result.last).to be_blank
+        end
+      end
     end
 
     context 'when the hooks fail' do
-      let(:script) { "#!/bin/sh\nexit 1\n" }
+      let(:script) do
+        <<-SCRIPT
+          #!/bin/sh
+          echo "message";
+          1>&2 echo "error";
+          exit 1;
+        SCRIPT
+      end
 
       it 'returns false' do
         hook_names.each do |hook|
@@ -89,6 +112,15 @@ describe Gitlab::Git::Hook do
                                           .trigger('user-1', 'admin', '0' * 40, 'a' * 40, 'master')
 
           expect(trigger_result.first).to be(false)
+        end
+      end
+
+      it 'returns messages' do
+        hook_names.each do |hook|
+          trigger_result = described_class.new(hook, repo)
+                                          .trigger('user-1', 'admin', '0' * 40, 'a' * 40, 'master')
+
+          expect(trigger_result.last).to eq("error\n")
         end
       end
     end

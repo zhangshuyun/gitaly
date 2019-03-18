@@ -81,7 +81,7 @@ module Gitlab
 
           unless wait_thr.value == 0
             exit_status = false
-            exit_message = stderr_messages.presence || stdout_messages
+            exit_message = retrieve_error_messages(stderr_messages, stdout_messages)
           end
         end
 
@@ -98,7 +98,18 @@ module Gitlab
         vars = env_base_vars(gl_id, gl_username)
 
         stdout, stderr, status = Open3.capture3(vars, path, *args, options)
-        [status.success?, stderr.presence || stdout]
+
+        exit_message = if status.success?
+                         nil
+                       else
+                         retrieve_error_messages(stderr, stdout)
+                       end
+
+        [status.success?, exit_message]
+      end
+
+      def retrieve_error_messages(stderr, stdout)
+        stderr.presence || stdout
       end
 
       def env_base_vars(gl_id, gl_username)
