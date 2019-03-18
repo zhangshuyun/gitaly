@@ -131,6 +131,37 @@ describe Gitlab::Git::Repository do # rubocop:disable Metrics/BlockLength
     it { expect(repository.tags.size).to eq(SeedRepo::Repo::TAGS.size) }
   end
 
+  describe '#remote_tags' do
+    context 'when listing of remote tags is successful' do
+      let(:target) { 'dc872e9fa6963f8f03da6c8f6f264d0845d6b092' }
+      let(:ref) { 'v1.10.0' }
+      let(:tag_list) { "#{target}\trefs/tags/#{ref}\n" }
+      let(:ref_name) { 'refs/heads/feature' }
+
+      it 'returns the list of remote tags' do
+        expect(Open3).to receive(:capture3).and_return(
+          [tag_list, '', double('success?' => true)]
+        )
+
+        response = repository.remote_tags(ref_name)
+
+        expect(response.length).to eq(1)
+        expect(response.first.target).to eq(target)
+        expect(response.first.name).to eq(ref)
+      end
+    end
+
+    context 'when listing of remote tags fails' do
+      let(:ref_name) { 'invalid-ref-name' }
+
+      it 'should raise an error' do
+        expect { repository.remote_tags(ref_name) }.to(
+          raise_error(Gitlab::Git::RepositoryMirroring::RemoteError)
+        )
+      end
+    end
+  end
+
   describe '#empty?' do
     it { expect(repository).not_to be_empty }
   end
