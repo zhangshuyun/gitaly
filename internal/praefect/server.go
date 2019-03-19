@@ -26,6 +26,7 @@ import (
 // into the praefect server
 type Logger interface {
 	Debugf(format string, args ...interface{})
+	Errorf(format string, args ...interface{})
 }
 
 // Coordinator takes care of directing client requests to the appropriate
