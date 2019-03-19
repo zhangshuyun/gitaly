@@ -115,7 +115,8 @@ func directoryExists(storagePath, namespace string) (bool, error) {
 }
 
 func validateRenameNamespaceRequest(req *gitalypb.RenameNamespaceRequest) error {
-	if _, err := helper.GetStorageByName(req.GetStorageName()); err != nil {
+	storePath, err := helper.GetStorageByName(req.GetStorageName())
+	if err != nil {
 		return err
 	}
 
@@ -124,6 +125,14 @@ func validateRenameNamespaceRequest(req *gitalypb.RenameNamespaceRequest) error 
 	}
 	if req.GetTo() == "" {
 		return errors.New("to field cannot be empty")
+	}
+
+	if found, err := directoryExists(storePath, req.GetTo()); found || err != nil {
+		if err != nil {
+			return err
+		}
+
+		return errors.New("target directory already exists")
 	}
 
 	return nil

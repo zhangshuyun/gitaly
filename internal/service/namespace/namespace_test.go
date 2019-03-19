@@ -271,7 +271,7 @@ func TestRenameNamespace(t *testing.T) {
 				To:          "existing",
 				StorageName: "default",
 			},
-			errorCode: codes.Internal,
+			errorCode: codes.InvalidArgument,
 		},
 		{
 			desc: "non existing to parent directory",
