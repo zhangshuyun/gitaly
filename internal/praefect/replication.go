@@ -71,7 +71,7 @@ func (rm *ReplMan) ProcessJobs(ctx context.Context, rc ReplCoordinator) error {
 
 		err = rc.CompleteJob(ctx, job.ID, jobErr)
 		if err != nil {
-			rm.l.Errorf("unable to report replication job completion for %+v", job.ID)
+			rm.l.Errorf("unable to report replication job completion for %v", job.ID)
 		}
 	}
 }
