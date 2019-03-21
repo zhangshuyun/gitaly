@@ -3,7 +3,6 @@ package log
 import (
 	"bufio"
 	"bytes"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -48,15 +47,14 @@ func splitRawTag(r io.Reader) (*tagHeader, []byte, error) {
 		return nil, nil, err
 	}
 
+	var body []byte
 	split := bytes.SplitN(raw, []byte("\n\n"), 2)
-	if len(split) != 2 {
-		return nil, nil, errors.New("invalid tag object")
+	if len(split) == 2 {
+		// Remove trailing newline, if any, to preserve existing behavior the old GitLab tag finding code.
+		// See https://gitlab.com/gitlab-org/gitaly/blob/5e94dc966ac1900c11794b107a77496552591f9b/ruby/lib/gitlab/git/repository.rb#L211.
+		// Maybe this belongs in the FindAllTags handler, or even on the gitlab-ce client side, instead of here?
+		body = bytes.TrimRight(split[1], "\n")
 	}
-
-	// Remove trailing newline, if any, to preserve existing behavior the old GitLab tag finding code.
-	// See https://gitlab.com/gitlab-org/gitaly/blob/5e94dc966ac1900c11794b107a77496552591f9b/ruby/lib/gitlab/git/repository.rb#L211.
-	// Maybe this belongs in the FindAllTags handler, or even on the gitlab-ce client side, instead of here?
-	body := bytes.TrimRight(split[1], "\n")
 
 	var header tagHeader
 	s := bufio.NewScanner(bytes.NewReader(split[0]))
