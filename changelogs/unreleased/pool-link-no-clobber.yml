@@ -1,5 +1,0 @@
----
-title: Prevent clobbering existing Git alternates
-merge_request: 1132
-author:
-type: fixed

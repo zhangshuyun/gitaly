@@ -1,5 +1,13 @@
 # Gitaly changelog
 
+## v1.27.1
+
+#### Fixed
+- Prevent clobbering existing Git alternates
+  https://gitlab.com/gitlab-org/gitaly/merge_requests/1132
+- FindAllTags: Handle edge case of annotated tags without messages
+  https://gitlab.com/gitlab-org/gitaly/merge_requests/1134
+
 ## v1.27.0
 
 #### Added
