@@ -12,6 +12,8 @@ module Gitlab
       end
 
       GL_PROTOCOL = 'web'
+      ERROR_LOG_FORMAT = '%s hook error in repository %s: %s'
+
       attr_reader :name, :path, :repository
 
       def initialize(name, repository)
@@ -52,6 +54,8 @@ module Gitlab
 
         stdout, stderr, exit_status = Open3.capture3(vars, path, options)
 
+        log_errors(stderr)
+
         exit_message = retrieve_output(stdout, stderr, exit_status)
 
         [exit_status.success?, exit_message]
@@ -64,6 +68,8 @@ module Gitlab
 
         stdout, stderr, exit_status = Open3.capture3(vars, path, *args, options)
 
+        log_errors(stderr)
+
         exit_message = retrieve_output(stdout, stderr, exit_status)
 
         [exit_status.success?, exit_message]
@@ -73,6 +79,21 @@ module Gitlab
         return if exit_status.success?
 
         (stdout + stderr).strip
+      end
+
+      def log_errors(errors)
+        return unless errors.present?
+
+        errors.split("\n").each do |error|
+          message = format(
+            ERROR_LOG_FORMAT,
+            name,
+            repository.relative_path,
+            error
+          )
+
+          Gitlab::GitLogger.error(message)
+        end
       end
 
       def env_base_vars(gl_id, gl_username)

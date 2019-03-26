@@ -79,6 +79,8 @@ describe Gitlab::Git::Hook do
 
       it 'returns true' do
         hook_names.each do |hook|
+          silence_error_log
+
           trigger_result = described_class.new(hook, repo)
                                           .trigger('user-456', 'admin', '0' * 40, 'a' * 40, 'master')
 
@@ -88,10 +90,27 @@ describe Gitlab::Git::Hook do
 
       it 'does not return a message' do
         hook_names.each do |hook|
+          silence_error_log
+
           trigger_result = described_class.new(hook, repo)
                                           .trigger('user-456', 'admin', '0' * 40, 'a' * 40, 'master')
 
           expect(trigger_result.last).to eq(nil)
+        end
+      end
+
+      it 'logs all stderr to the error log' do
+        hook_names.each do |hook|
+          error_message = format(
+            Gitlab::Git::Hook::ERROR_LOG_FORMAT,
+            hook,
+            repo.relative_path,
+            'msg to STDERR'
+          )
+
+          expect(Gitlab::GitLogger).to receive(:error).with(error_message)
+
+          described_class.new(hook, repo).trigger('user-456', 'admin', '0' * 40, 'a' * 40, 'master')
         end
       end
     end
@@ -108,6 +127,8 @@ describe Gitlab::Git::Hook do
 
       it 'returns false' do
         hook_names.each do |hook|
+          silence_error_log
+
           trigger_result = described_class.new(hook, repo)
                                           .trigger('user-456', 'admin', '0' * 40, 'a' * 40, 'master')
 
@@ -117,12 +138,36 @@ describe Gitlab::Git::Hook do
 
       it 'returns all stdout and stderr messages' do
         hook_names.each do |hook|
+          silence_error_log
+
           trigger_result = described_class.new(hook, repo)
                                           .trigger('user-456', 'admin', '0' * 40, 'a' * 40, 'master')
 
           expect(trigger_result.last).to eq("msg to STDOUT\nmsg to STDERR")
         end
       end
+
+      it 'logs all stderr to the error log' do
+        hook_names.each do |hook|
+          error_message = format(
+            Gitlab::Git::Hook::ERROR_LOG_FORMAT,
+            hook,
+            repo.relative_path,
+            'msg to STDERR'
+          )
+
+          expect(Gitlab::GitLogger).to receive(:error).with(error_message)
+
+          described_class.new(hook, repo).trigger('user-456', 'admin', '0' * 40, 'a' * 40, 'master')
+        end
+      end
     end
+  end
+
+  # Call before tests of scripts that write to stderr, when stderr is
+  # not a subject of a test. This prevents the error from appearing in
+  # rspec's output when rspec is running
+  def silence_error_log
+    expect(Gitlab::GitLogger).to receive(:error)
   end
 end
