@@ -44,60 +44,35 @@ module Gitlab
       private
 
       def call_receive_hook(gl_id, gl_username, oldrev, newrev, ref)
-        changes = [oldrev, newrev, ref].join(" ")
-
-        exit_status = false
-        exit_message = nil
-
         vars = env_base_vars(gl_id, gl_username)
-
         options = {
-          chdir: repo_path
+          chdir: repo_path,
+          stdin_data: [oldrev, newrev, ref].join(' ')
         }
 
-        Open3.popen3(vars, path, options) do |stdin, stdout, stderr, wait_thr|
-          exit_status = true
-          stdin.sync = true
+        stdout, stderr, exit_status = Open3.capture3(vars, path, options)
 
-          # in git, pre- and post- receive hooks may just exit without
-          # reading stdin. We catch the exception to avoid a broken pipe
-          # warning
-          begin
-            # inject all the changes as stdin to the hook
-            changes.lines do |line|
-              stdin.puts line
-            end
-          rescue Errno::EPIPE
-          end
+        exit_message = retrieve_output(stdout, stderr, exit_status)
 
-          stdin.close
-
-          unless wait_thr.value == 0
-            exit_status = false
-            exit_message = retrieve_error_message(stderr, stdout)
-          end
-        end
-
-        [exit_status, exit_message]
+        [exit_status.success?, exit_message]
       end
 
       def call_update_hook(gl_id, gl_username, oldrev, newrev, ref)
-        options = {
-          chdir: repo_path
-        }
-
-        args = [ref, oldrev, newrev]
-
         vars = env_base_vars(gl_id, gl_username)
+        args = [ref, oldrev, newrev]
+        options = { chdir: repo_path }
 
-        stdout, stderr, status = Open3.capture3(vars, path, *args, options)
-        [status.success?, stderr.presence || stdout]
+        stdout, stderr, exit_status = Open3.capture3(vars, path, *args, options)
+
+        exit_message = retrieve_output(stdout, stderr, exit_status)
+
+        [exit_status.success?, exit_message]
       end
 
-      def retrieve_error_message(stderr, stdout)
-        err_message = stderr.read
-        err_message = err_message.blank? ? stdout.read : err_message
-        err_message
+      def retrieve_output(stdout, stderr, exit_status)
+        return if exit_status.success?
+
+        (stdout + stderr).strip
       end
 
       def env_base_vars(gl_id, gl_username)

@@ -68,27 +68,59 @@ describe Gitlab::Git::Hook do
     end
 
     context 'when the hooks are successful' do
-      let(:script) { "#!/bin/sh\nexit 0\n" }
+      let(:script) do
+        <<-SCRIPT
+          #!/bin/sh
+          echo "msg to STDOUT";
+          1>&2 echo "msg to STDERR";
+          exit 0
+        SCRIPT
+      end
 
       it 'returns true' do
         hook_names.each do |hook|
           trigger_result = described_class.new(hook, repo)
                                           .trigger('user-456', 'admin', '0' * 40, 'a' * 40, 'master')
 
-          expect(trigger_result.first).to be(true)
+          expect(trigger_result.first).to eq(true)
+        end
+      end
+
+      it 'does not return a message' do
+        hook_names.each do |hook|
+          trigger_result = described_class.new(hook, repo)
+                                          .trigger('user-456', 'admin', '0' * 40, 'a' * 40, 'master')
+
+          expect(trigger_result.last).to eq(nil)
         end
       end
     end
 
     context 'when the hooks fail' do
-      let(:script) { "#!/bin/sh\nexit 1\n" }
+      let(:script) do
+        <<-SCRIPT
+          #!/bin/sh
+          echo "msg to STDOUT";
+          1>&2 echo "msg to STDERR";
+          exit 1
+        SCRIPT
+      end
 
       it 'returns false' do
         hook_names.each do |hook|
           trigger_result = described_class.new(hook, repo)
-                                          .trigger('user-1', 'admin', '0' * 40, 'a' * 40, 'master')
+                                          .trigger('user-456', 'admin', '0' * 40, 'a' * 40, 'master')
 
-          expect(trigger_result.first).to be(false)
+          expect(trigger_result.first).to eq(false)
+        end
+      end
+
+      it 'returns all stdout and stderr messages' do
+        hook_names.each do |hook|
+          trigger_result = described_class.new(hook, repo)
+                                          .trigger('user-456', 'admin', '0' * 40, 'a' * 40, 'master')
+
+          expect(trigger_result.last).to eq("msg to STDOUT\nmsg to STDERR")
         end
       end
     end
