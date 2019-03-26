@@ -45,6 +45,9 @@ module Gitlab
 
       private
 
+      # pre- and post-receive hooks pass the changes as stdin to the
+      # executable script.
+      # See https://git-scm.com/docs/githooks#pre-receive
       def call_receive_hook(gl_id, gl_username, oldrev, newrev, ref)
         vars = env_base_vars(gl_id, gl_username)
         options = {
@@ -61,6 +64,8 @@ module Gitlab
         [exit_status.success?, exit_message]
       end
 
+      # Update hooks pass the changes as arguments to the executable script
+      # See https://git-scm.com/docs/githooks#update
       def call_update_hook(gl_id, gl_username, oldrev, newrev, ref)
         vars = env_base_vars(gl_id, gl_username)
         args = [ref, oldrev, newrev]

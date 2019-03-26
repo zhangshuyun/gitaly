@@ -67,6 +67,64 @@ describe Gitlab::Git::Hook do
       end
     end
 
+    shared_examples_for 'when the hooks fail or are successful' do
+      it 'logs all stderr to the error log' do
+        hook_names.each do |hook|
+          error_message = format(
+            Gitlab::Git::Hook::ERROR_LOG_FORMAT,
+            hook,
+            repo.relative_path,
+            'msg to STDERR'
+          )
+
+          expect(Gitlab::GitLogger).to receive(:error).with(error_message)
+
+          described_class.new(hook, repo).trigger('user-456', 'admin', '0' * 40, 'a' * 40, 'master')
+        end
+      end
+
+      describe 'hooks passing git changes to the script' do
+        context 'the pre-receive and post-receive hook' do
+          let(:hook_names) { %w[pre-receive post-receive] }
+          let(:script) do
+            <<-SCRIPT
+              #!/bin/sh
+              echo $(</dev/stdin);
+              exit 1;
+            SCRIPT
+          end
+
+          it 'receives git changes as stdin in the format "<old-ref> <new-ref> <ref-name>"' do
+            hook_names.each do |hook|
+              trigger_result = described_class.new(hook, repo)
+                                              .trigger('user-456', 'admin', '0' * 40, 'a' * 40, 'master')
+
+              expect(trigger_result.last).to eq('0000000000000000000000000000000000000000 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa master')
+            end
+          end
+        end
+
+        context 'the update hook' do
+          let(:script) do
+            <<-SCRIPT
+              #!/bin/sh
+              echo $1;
+              echo $2;
+              echo $3;
+              exit 1;
+            SCRIPT
+          end
+
+          it 'receives git changes as args in the order <ref-name> <old-ref> <new-ref>' do
+            trigger_result = described_class.new('update', repo)
+                                            .trigger('user-456', 'admin', '0' * 40, 'a' * 40, 'master')
+
+            expect(trigger_result.last).to eq("master\n0000000000000000000000000000000000000000\naaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+          end
+        end
+      end
+    end
+
     context 'when the hooks are successful' do
       let(:script) do
         <<-SCRIPT
@@ -99,20 +157,7 @@ describe Gitlab::Git::Hook do
         end
       end
 
-      it 'logs all stderr to the error log' do
-        hook_names.each do |hook|
-          error_message = format(
-            Gitlab::Git::Hook::ERROR_LOG_FORMAT,
-            hook,
-            repo.relative_path,
-            'msg to STDERR'
-          )
-
-          expect(Gitlab::GitLogger).to receive(:error).with(error_message)
-
-          described_class.new(hook, repo).trigger('user-456', 'admin', '0' * 40, 'a' * 40, 'master')
-        end
-      end
+      include_examples 'when the hooks fail or are successful'
     end
 
     context 'when the hooks fail' do
@@ -147,20 +192,7 @@ describe Gitlab::Git::Hook do
         end
       end
 
-      it 'logs all stderr to the error log' do
-        hook_names.each do |hook|
-          error_message = format(
-            Gitlab::Git::Hook::ERROR_LOG_FORMAT,
-            hook,
-            repo.relative_path,
-            'msg to STDERR'
-          )
-
-          expect(Gitlab::GitLogger).to receive(:error).with(error_message)
-
-          described_class.new(hook, repo).trigger('user-456', 'admin', '0' * 40, 'a' * 40, 'master')
-        end
-      end
+      include_examples 'when the hooks fail or are successful'
     end
   end
 
