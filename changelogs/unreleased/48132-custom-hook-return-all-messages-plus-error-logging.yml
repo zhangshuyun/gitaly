@@ -1,0 +1,6 @@
+---
+title: pre-receive, post-receive and update hooks now return all stdout and stderr
+  in its response when script exits with an error code, and will log all stderr
+merge_request: 1152
+author:
+type: changed
