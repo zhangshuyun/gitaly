@@ -21,16 +21,25 @@ module GitalyServer
     end
 
     def fetch_remote(request, call)
+      repository = Gitlab::Git::Repository.from_gitaly(request.repository, call)
+
+      if request.remote_params
+        params = request.remote_params
+        repository.add_remote(params.name, params.url)
+      end
+
       gitlab_projects = Gitlab::Git::GitlabProjects.from_gitaly(request.repository, call)
 
       success = Gitlab::Git::SshAuth.from_gitaly(request).setup do |env|
-        gitlab_projects.fetch_remote(
-          request.remote,
-          request.timeout,
-          force: request.force,
-          tags: !request.no_tags,
-          env: env
-        )
+        Gitlab::Git::HttpAuth.from_gitaly(request) do
+          gitlab_projects.fetch_remote(
+            request.remote,
+            request.timeout,
+            force: request.force,
+            tags: !request.no_tags,
+            env: env
+          )
+        end
       end
 
       raise GRPC::Unknown.new("Fetching remote #{request.remote} failed: #{gitlab_projects.output}") unless success
