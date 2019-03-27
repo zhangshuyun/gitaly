@@ -32,13 +32,11 @@ func Test_generateRavenPacket(t *testing.T) {
 			wantCulprit: "SSHService::SSHUploadPack",
 		},
 		{
-			name:        "GRPC error",
-			method:      "/gitaly.RepoService/RepoExists",
-			sinceStart:  500 * time.Millisecond,
-			err:         status.Errorf(codes.NotFound, "Something failed"),
-			wantCode:    codes.NotFound,
-			wantMessage: "rpc error: code = NotFound desc = Something failed",
-			wantCulprit: "RepoService::RepoExists",
+			name:       "GRPC error",
+			method:     "/gitaly.RepoService/RepoExists",
+			sinceStart: 500 * time.Millisecond,
+			err:        status.Errorf(codes.NotFound, "Something failed"),
+			wantNil:    true,
 		},
 		{
 			name:       "nil",

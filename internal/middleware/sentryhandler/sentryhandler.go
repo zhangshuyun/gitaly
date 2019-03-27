@@ -16,6 +16,8 @@ import (
 var ignoredCodes = []codes.Code{
 	// OK means there was no error
 	codes.OK,
+	// NotFound means the (pool) repository was not present
+	codes.NotFound,
 	// Canceled and DeadlineExceeded indicate clients that disappeared or lost interest
 	codes.Canceled,
 	codes.DeadlineExceeded,
