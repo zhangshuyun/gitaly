@@ -13,11 +13,13 @@ import (
 )
 
 func sendGetBlobsResponse(req *gitalypb.GetBlobsRequest, stream gitalypb.BlobService_GetBlobsServer, c *catfile.Batch) error {
+	tef := commit.NewTreeEntryFinder(c)
+
 	for _, revisionPath := range req.RevisionPaths {
 		revision := revisionPath.Revision
 		path := revisionPath.Path
 
-		treeEntry, err := commit.TreeEntryForRevisionAndPath(c, revision, string(path))
+		treeEntry, err := tef.TreeEntryForRevisionAndPath(revision, string(path))
 		if err != nil {
 			return err
 		}

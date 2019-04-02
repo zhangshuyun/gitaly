@@ -84,7 +84,8 @@ func validateGetArchivePrecondition(ctx context.Context, in *gitalypb.GetArchive
 		return err
 	}
 
-	treeEntry, err := commit.TreeEntryForRevisionAndPath(c, in.GetCommitId(), strings.TrimRight(path, "/"))
+	tef := commit.NewTreeEntryFinder(c)
+	treeEntry, err := tef.TreeEntryForRevisionAndPath(in.GetCommitId(), strings.TrimRight(path, "/"))
 	if err != nil {
 		return err
 	}

@@ -50,6 +50,20 @@ func extractEntryInfoFromTreeData(treeData *bytes.Buffer, commitOid, rootOid, ro
 	return entries, nil
 }
 
+type revisionPath struct{ revision, path string }
+
+type TreeEntryFinder struct {
+	c         *catfile.Batch
+	treeCache map[revisionPath][]*gitalypb.TreeEntry
+}
+
+func NewTreeEntryFinder(c *catfile.Batch) *TreeEntryFinder {
+	return &TreeEntryFinder{
+		c:         c,
+		treeCache: make(map[revisionPath][]*gitalypb.TreeEntry),
+	}
+}
+
 func treeEntries(c *catfile.Batch, revision, path string, rootOid string, recursive bool) ([]*gitalypb.TreeEntry, error) {
 	if path == "." {
 		path = ""
@@ -124,8 +138,8 @@ func treeEntries(c *catfile.Batch, revision, path string, rootOid string, recurs
 }
 
 // TreeEntryForRevisionAndPath returns a TreeEntry struct for the object present at the revision/path pair.
-func TreeEntryForRevisionAndPath(c *catfile.Batch, revision, path string) (*gitalypb.TreeEntry, error) {
-	entries, err := treeEntries(c, revision, pathPkg.Dir(path), "", false)
+func (tef *TreeEntryFinder) TreeEntryForRevisionAndPath(revision, path string) (*gitalypb.TreeEntry, error) {
+	entries, err := treeEntries(tef.c, revision, pathPkg.Dir(path), "", false)
 	if err != nil {
 		return nil, err
 	}

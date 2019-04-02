@@ -14,7 +14,7 @@ import (
 )
 
 func sendTreeEntry(stream gitalypb.CommitService_TreeEntryServer, c *catfile.Batch, revision, path string, limit int64) error {
-	treeEntry, err := TreeEntryForRevisionAndPath(c, revision, path)
+	treeEntry, err := NewTreeEntryFinder(c).TreeEntryForRevisionAndPath(revision, path)
 	if err != nil {
 		return err
 	}
