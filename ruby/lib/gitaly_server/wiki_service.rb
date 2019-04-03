@@ -77,11 +77,13 @@ module GitalyServer
         ).each do |page|
           y.yield Gitaly::WikiGetAllPagesResponse.new(page: build_gitaly_wiki_page(page))
 
-          io = StringIO.new(page.text_data)
-          while chunk = io.read(Gitlab.config.git.write_buffer_size)
-            gitaly_wiki_page = Gitaly::WikiPage.new(raw_data: chunk)
+          if page.text_data
+            io = StringIO.new(page.text_data)
+            while chunk = io.read(Gitlab.config.git.write_buffer_size)
+              gitaly_wiki_page = Gitaly::WikiPage.new(raw_data: chunk)
 
-            y.yield Gitaly::WikiGetAllPagesResponse.new(page: gitaly_wiki_page)
+              y.yield Gitaly::WikiGetAllPagesResponse.new(page: gitaly_wiki_page)
+            end
           end
 
           y.yield Gitaly::WikiGetAllPagesResponse.new(end_of_page: true)

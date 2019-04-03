@@ -3,14 +3,14 @@ module Gitlab
     class WikiPage
       attr_reader :url_path, :title, :format, :path, :version, :raw_data, :name, :historical
 
-      def initialize(gollum_page, version)
+      def initialize(gollum_page, version, with_raw_data: true)
         @gollum_page = gollum_page
 
         @url_path = gollum_page.url_path
         @title = gollum_page.title
         @format = gollum_page.format
         @path = gollum_page.path
-        @raw_data = gollum_page.raw_data
+        @raw_data = gollum_page.raw_data if with_raw_data
         @name = gollum_page.name
         @historical = gollum_page.historical?
 

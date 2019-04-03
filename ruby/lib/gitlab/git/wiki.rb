@@ -85,8 +85,8 @@ module Gitlab
 
       private
 
-      def new_page(gollum_page)
-        Gitlab::Git::WikiPage.new(gollum_page, new_version(gollum_page, gollum_page.version.id))
+      def new_page(gollum_page, with_raw_data: true)
+        Gitlab::Git::WikiPage.new(gollum_page, new_version(gollum_page, gollum_page.version.id), with_raw_data: with_raw_data)
       end
 
       def new_version(gollum_page, commit_id)
@@ -195,7 +195,7 @@ module Gitlab
         gollum_wiki.pages(
           limit: limit, sort: sort, direction_desc: direction_desc
         ).map do |gollum_page|
-          new_page(gollum_page)
+          new_page(gollum_page, with_raw_data: false)
         end
       end
     end

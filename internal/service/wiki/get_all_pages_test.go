@@ -214,7 +214,7 @@ func createTestWikiPages(t *testing.T, client gitalypb.WikiServiceClient, wikiRe
 		UrlPath:    "Page-1",
 		Path:       []byte("Page-1.md"),
 		Name:       []byte(page1Name),
-		RawData:    mockPageContent,
+		RawData:    nil,
 		Historical: false,
 	}
 	expectedPage2 := &gitalypb.WikiPage{
@@ -234,7 +234,7 @@ func createTestWikiPages(t *testing.T, client gitalypb.WikiServiceClient, wikiRe
 		UrlPath:    "Page-3",
 		Path:       []byte("Page-3.md"),
 		Name:       []byte(page3Name),
-		RawData:    mockPageContent,
+		RawData:    nil,
 		Historical: false,
 	}
 
