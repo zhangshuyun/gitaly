@@ -15,6 +15,8 @@ import (
 	"strings"
 )
 
+const bundleFileName = "clone.bundle"
+
 func main() {
 	if len(os.Args) < 2 {
 		log.Fatal("not enough argument to pack-objects hook")
@@ -51,48 +53,21 @@ func _main(packObjects []string) error {
 		return fallback(packObjects, request)
 	}
 
-	bundleFile, err := os.Open("clone.bundle")
+	bundleFile, err := os.Open(bundleFileName)
 	if err != nil {
 		return fallback(packObjects, request)
 	}
 	defer bundleFile.Close()
 
 	bundle := bufio.NewReader(bundleFile)
-	bundleHeader, err := readLine(bundle)
-	if err != nil {
-		return err
-	}
-	if bundleHeader != "# v2 git bundle" {
-		return fmt.Errorf("unexpected bundle header: %q", bundleHeader)
-	}
 
 	request = bytes.NewBuffer(bytes.TrimSpace(request.Bytes()))
 	if _, err := request.WriteString("\n"); err != nil {
 		return err
 	}
 
-	for {
-		refLine, err := readLine(bundle)
-		if err != nil {
-			return err
-		}
-
-		if refLine == "" {
-			break
-		}
-
-		split := strings.SplitN(refLine, " ", 2)
-		if len(split) != 2 {
-			return fmt.Errorf("invalid ref line: %q", refLine)
-		}
-		id := split[0]
-		if !shaRegex.MatchString(id) {
-			return fmt.Errorf("invalid object ID: %q", id)
-		}
-
-		if _, err := fmt.Fprintln(request, id); err != nil {
-			return err
-		}
+	if err := addBundleRefsToRequest(request, bundle); err != nil {
+		return err
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -150,6 +125,8 @@ func _main(packObjects []string) error {
 		return err
 	}
 
+	fmt.Fprintf(os.Stderr, "re-used from %s: %d objects\n", bundleFileName, bundleReader.NumObjects())
+
 	return nil
 }
 
@@ -168,4 +145,41 @@ func readLine(r *bufio.Reader) (string, error) {
 	}
 
 	return string(line[:len(line)-1]), nil
+}
+
+func addBundleRefsToRequest(request io.Writer, bundle *bufio.Reader) error {
+	bundleHeader, err := readLine(bundle)
+	if err != nil {
+		return err
+	}
+	if bundleHeader != "# v2 git bundle" {
+		return fmt.Errorf("unexpected bundle header: %q", bundleHeader)
+	}
+
+	for {
+		refLine, err := readLine(bundle)
+		if err != nil {
+			return err
+		}
+
+		if refLine == "" {
+			break
+		}
+
+		split := strings.SplitN(refLine, " ", 2)
+		if len(split) != 2 {
+			return fmt.Errorf("invalid ref line: %q", refLine)
+		}
+
+		id := split[0]
+		if !shaRegex.MatchString(id) {
+			return fmt.Errorf("invalid object ID: %q", id)
+		}
+
+		if _, err := fmt.Fprintln(request, id); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
