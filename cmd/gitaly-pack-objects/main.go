@@ -13,12 +13,12 @@ func main() {
 		log.Fatal("not enough argument to pack-objects hook")
 	}
 
-	if err := _main(os.Args[1:]); err != nil {
+	if err := _main(); err != nil {
 		log.Fatal(err)
 	}
 }
 
-func _main(args []string) error {
+func _main() error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
