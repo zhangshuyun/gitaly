@@ -1,37 +1,27 @@
-package main
+package packobjects
 
 import (
 	"bufio"
 	"bytes"
 	"context"
-	"crypto/sha1"
-	"encoding/binary"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"os/exec"
 	"regexp"
 	"strings"
+
+	"gitlab.com/gitlab-org/gitaly/internal/command"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 )
 
-const bundleFileName = "clone.bundle"
-
-func main() {
-	if len(os.Args) < 2 {
-		log.Fatal("not enough argument to pack-objects hook")
-	}
-
-	if err := _main(os.Args[1:]); err != nil {
-		log.Fatal(err)
-	}
-}
+const bundleFileName = "gitaly/clone.bundle"
 
 var shaRegex = regexp.MustCompile(`\A[0-9a-f]{40}\z`)
 
-func _main(packObjects []string) error {
+func PackObjects(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.Writer) error {
 	request := &bytes.Buffer{}
-	scanner := bufio.NewScanner(io.TeeReader(os.Stdin, request))
+	scanner := bufio.NewScanner(io.TeeReader(stdin, request))
 	seenNot := false
 	isClone := true
 	for scanner.Scan() {
@@ -50,16 +40,21 @@ func _main(packObjects []string) error {
 	}
 
 	if !isClone {
-		return fallback(packObjects, request)
+		return fallback(ctx, args, request, stdout, stderr)
 	}
 
 	bundleFile, err := os.Open(bundleFileName)
 	if err != nil {
-		return fallback(packObjects, request)
+		return fallback(ctx, args, request, stdout, stderr)
 	}
 	defer bundleFile.Close()
 
 	bundle := bufio.NewReader(bundleFile)
+
+	bundleReader, err := git.NewPackReader(bundle)
+	if err != nil {
+		return fallback(ctx, args, request, stdout, stderr)
+	}
 
 	request = bytes.NewBuffer(bytes.TrimSpace(request.Bytes()))
 	if _, err := request.WriteString("\n"); err != nil {
@@ -70,46 +65,24 @@ func _main(packObjects []string) error {
 		return err
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	cmd := exec.CommandContext(ctx, packObjects[0], packObjects[1:]...)
-	cmd.Stdin = request
-	cmd.Stderr = os.Stderr
-
-	packObjectsOut, err := cmd.StdoutPipe()
+	cmd, err := command.New(ctx, exec.Command(args[0], args[1:]...), request, nil, stderr)
 	if err != nil {
 		return err
 	}
 
-	if err := cmd.Start(); err != nil {
-		return err
-	}
-
-	packObjectsReader, err := NewPackReader(packObjectsOut)
+	packObjectsReader, err := git.NewPackReader(cmd)
 	if err != nil {
 		return err
 	}
 
-	bundleReader, err := NewPackReader(bundle)
+	totalObjects := packObjectsReader.NumObjects() + bundleReader.NumObjects() // TODO check for overflow
+
+	w, err := git.NewPackWriter(stdout, totalObjects)
 	if err != nil {
 		return err
 	}
 
-	summer := sha1.New()
-	stdout := io.MultiWriter(os.Stdout, summer)
-
-	if _, err := fmt.Fprint(stdout, packMagic); err != nil {
-		return err
-	}
-
-	size := make([]byte, 4)
-	binary.BigEndian.PutUint32(size, packObjectsReader.NumObjects()+bundleReader.NumObjects()) // TODO check for overflow
-	if _, err := stdout.Write(size); err != nil {
-		return err
-	}
-
-	if _, err := io.Copy(stdout, packObjectsReader); err != nil {
+	if _, err := io.Copy(w, packObjectsReader); err != nil {
 		return err
 	}
 
@@ -117,25 +90,26 @@ func _main(packObjects []string) error {
 		return err
 	}
 
-	if _, err := io.Copy(stdout, bundleReader); err != nil {
+	if _, err := io.Copy(w, bundleReader); err != nil {
 		return err
 	}
 
-	if _, err := stdout.Write(summer.Sum(nil)); err != nil {
+	if err := w.Flush(); err != nil {
 		return err
 	}
 
-	fmt.Fprintf(os.Stderr, "re-used from %s: %d objects\n", bundleFileName, bundleReader.NumObjects())
+	fmt.Fprintf(stderr, "re-used from pre-computed packfile: %d objects\n", bundleReader.NumObjects())
 
 	return nil
 }
 
-func fallback(packObjects []string, request io.Reader) error {
-	cmd := exec.Command(packObjects[0], packObjects[1:]...)
-	cmd.Stdin = request
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
+func fallback(ctx context.Context, args []string, request io.Reader, stdout, stderr io.Writer) error {
+	cmd, err := command.New(ctx, exec.Command(args[0], args[1:]...), request, stdout, stderr)
+	if err != nil {
+		return err
+	}
+
+	return cmd.Wait()
 }
 
 func readLine(r *bufio.Reader) (string, error) {
@@ -147,12 +121,14 @@ func readLine(r *bufio.Reader) (string, error) {
 	return string(line[:len(line)-1]), nil
 }
 
+const BundleHeader = "# v2 git bundle"
+
 func addBundleRefsToRequest(request io.Writer, bundle *bufio.Reader) error {
 	bundleHeader, err := readLine(bundle)
 	if err != nil {
 		return err
 	}
-	if bundleHeader != "# v2 git bundle" {
+	if bundleHeader != BundleHeader {
 		return fmt.Errorf("unexpected bundle header: %q", bundleHeader)
 	}
 

@@ -17,3 +17,4 @@ cmd/gitaly-ssh/gitaly-ssh
 git-env
 /gitaly-debug
 /praefect
+/gitaly-pack-objects
