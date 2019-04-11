@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -19,7 +20,7 @@ const bundleFileName = "gitaly/clone.bundle"
 
 var shaRegex = regexp.MustCompile(`\A[0-9a-f]{40}\z`)
 
-func PackObjects(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.Writer) error {
+func PackObjects(ctx context.Context, cwd string, args []string, stdin io.Reader, stdout, stderr io.Writer) error {
 	request := &bytes.Buffer{}
 	scanner := bufio.NewScanner(io.TeeReader(stdin, request))
 	seenNot := false
@@ -39,11 +40,13 @@ func PackObjects(ctx context.Context, args []string, stdin io.Reader, stdout, st
 		return err
 	}
 
+	// TODO check args. If unexpected, return fallback.
+
 	if !isClone {
 		return fallback(ctx, args, request, stdout, stderr)
 	}
 
-	bundleFile, err := os.Open(bundleFileName)
+	bundleFile, err := os.Open(filepath.Join(cwd, bundleFileName))
 	if err != nil {
 		return fallback(ctx, args, request, stdout, stderr)
 	}
@@ -51,17 +54,17 @@ func PackObjects(ctx context.Context, args []string, stdin io.Reader, stdout, st
 
 	bundle := bufio.NewReader(bundleFile)
 
-	bundleReader, err := git.NewPackReader(bundle)
-	if err != nil {
-		return fallback(ctx, args, request, stdout, stderr)
-	}
-
 	request = bytes.NewBuffer(bytes.TrimSpace(request.Bytes()))
 	if _, err := request.WriteString("\n"); err != nil {
 		return err
 	}
 
 	if err := addBundleRefsToRequest(request, bundle); err != nil {
+		return err
+	}
+
+	bundleReader, err := git.NewPackReader(bundle)
+	if err != nil {
 		return err
 	}
 
@@ -75,7 +78,8 @@ func PackObjects(ctx context.Context, args []string, stdin io.Reader, stdout, st
 		return err
 	}
 
-	totalObjects := packObjectsReader.NumObjects() + bundleReader.NumObjects() // TODO check for overflow
+	// TODO check for overflow
+	totalObjects := packObjectsReader.NumObjects() + bundleReader.NumObjects()
 
 	w, err := git.NewPackWriter(stdout, totalObjects)
 	if err != nil {
@@ -90,6 +94,8 @@ func PackObjects(ctx context.Context, args []string, stdin io.Reader, stdout, st
 		return err
 	}
 
+	fmt.Fprintf(stderr, "Pre-computed packfile: %d objects\n", bundleReader.NumObjects())
+
 	if _, err := io.Copy(w, bundleReader); err != nil {
 		return err
 	}
@@ -97,8 +103,6 @@ func PackObjects(ctx context.Context, args []string, stdin io.Reader, stdout, st
 	if err := w.Flush(); err != nil {
 		return err
 	}
-
-	fmt.Fprintf(stderr, "re-used from pre-computed packfile: %d objects\n", bundleReader.NumObjects())
 
 	return nil
 }

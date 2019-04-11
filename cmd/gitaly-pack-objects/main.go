@@ -22,5 +22,10 @@ func _main() error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	return packobjects.PackObjects(ctx, os.Args[1:], os.Stdin, os.Stdout, os.Stderr)
+	wd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+
+	return packobjects.PackObjects(ctx, wd, os.Args[1:], os.Stdin, os.Stdout, os.Stderr)
 }
