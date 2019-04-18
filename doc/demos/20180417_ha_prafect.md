@@ -79,4 +79,21 @@ listening on.
         path: /Users/paulokstad/go/src/gitlab.com/gitlab-org/gitlab-development-kit/gdk-ce/repositories
         gitaly_address: unix:/Users/paulokstad/go/src/gitlab.com/gitlab-org/gitlab-development-kit/gdk-ce/gitaly.socket
 ```
-
+1. Open Gitaly's config file in `gitaly/config.toml` and note the storage path for the Gitaly name noted in gitlab.yml (i.e. "default"):
+```toml
+[[storage]]
+name = "default"
+path = "/Users/paulokstad/go/src/gitlab.com/gitlab-org/gitlab-development-kit/gdk-ce/repositories"
+```
+1. Run `gdk rub db`
+1. Go to `gitlab` and run `bin/rails console`
+1. Run `Project.last` and copy the project URL path (i.e. "terica_hirthe/gitlab-test")
+1. Run `Project.last.disk_path` to obtain the last project's path
+    - "@hashed/4e/c9/4ec9599fc203d176a301536c2e091a19bc852759b255bd6818810a42c5fed14a"
+    - Copy the hashed path (note: actual path will have .git appended to folder)
+1. Go back to praefect.toml and update whitelist with hashed path + .git
+    ```toml
+    whitelist = ["@hashed/4e/c9/4ec9599fc203d176a301536c2e091a19bc852759b255bd6818810a42c5fed14a.git"]
+    ```
+1. Restart praefect
+    1. We expect to see praefect start a replication job for the whitelisted project hash
