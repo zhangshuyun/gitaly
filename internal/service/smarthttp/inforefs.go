@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 
 	grpc_logrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
 	log "github.com/sirupsen/logrus"
@@ -55,7 +56,7 @@ func supportsInfoRefsCaching(ctx context.Context, req *gitalypb.InfoRefsRequest)
 		return false, status.Errorf(codes.Internal, "GetCachedInfoRefs: cmd: %v", err)
 	}
 
-	if configOption != "always" {
+	if !strings.Contains(configOption, "always") {
 		return false, nil
 	}
 
@@ -66,6 +67,11 @@ func (s *server) InfoRefsUploadPack(in *gitalypb.InfoRefsRequest, stream gitalyp
 	w := streamio.NewWriter(func(p []byte) error {
 		return stream.Send(&gitalypb.InfoRefsResponse{Data: p})
 	})
+
+	supported, _ := supportsInfoRefsCaching(stream.Context(), in)
+	if supported {
+		return handleCachedInfoRefs(stream.Context(), "upload-pack", in, w)
+	}
 
 	return handleInfoRefs(stream.Context(), "upload-pack", in, w)
 }
@@ -135,8 +141,7 @@ func createCachedInfoRefs(ctx context.Context, service string, req *gitalypb.Inf
 	os.RemoveAll(filepath.Join(repoPath, "logs", "refs"))
 
 	// create temporary file
-	tmpPath := filepath.Join(repoPath, "tmp")
-	tmpInfoLogs, err := ioutil.TempFile(tmpPath, "info-logs")
+	tmpInfoLogs, err := ioutil.TempFile(repoPath, "info-logs")
 	if err != nil {
 		return status.Errorf(codes.Internal, "CachedInfoRefs: %v", err)
 	}
