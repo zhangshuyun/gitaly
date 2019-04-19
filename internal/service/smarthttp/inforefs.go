@@ -112,24 +112,6 @@ func readCachedInfoRefs(ctx context.Context, req *gitalypb.InfoRefsRequest, w io
 	return nil
 }
 
-func hasLogsRefs(ctx context.Context, req *gitalypb.InfoRefsRequest) (bool, error) {
-	repoPath, err := helper.GetRepoPath(req.Repository)
-	if err != nil {
-		return false, err
-	}
-
-	logsRefRepoPath := filepath.Join(repoPath, "logs", "refs")
-	_, err = os.Lstat(logsRefRepoPath)
-
-	if err == nil {
-		return true, nil
-	} else if os.IsNotExist(err) {
-		return false, nil
-	} else {
-		return false, err
-	}
-}
-
 func createCachedInfoRefs(ctx context.Context, service string, req *gitalypb.InfoRefsRequest, w io.Writer) error {
 	repoPath, err := helper.GetRepoPath(req.Repository)
 	if err != nil {
