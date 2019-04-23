@@ -178,6 +178,3 @@ update-downstream-server-version:
   script:
     - ruby _support/update-downstream-server-version
   allow_failure: true
-
-include:
-  template: License-Management.gitlab-ci.yml

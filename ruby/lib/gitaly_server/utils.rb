@@ -1,7 +1,7 @@
 module GitalyServer
   module Utils
     # See internal/logsanitizer/url.go for credits and explanation.
-    URL_HOST_PATTERN = %r{([a-z][a-z0-9+\-.]*://)([a-z0-9\-._~%!$&'()*+,;=:]+@)([a-z0-9\-._~%]+|\[[a-z0-9\-._~%!$&'()*+,;=:]+\])}i
+    URL_HOST_PATTERN = %r{([a-z][a-z0-9+\-.]*://)?([a-z0-9\-._~%!$&'()*+,;=:]+@)([a-z0-9\-._~%]+|\[[a-z0-9\-._~%!$&'()*+,;=:]+\])}i
 
     def gitaly_commit_from_rugged(rugged_commit)
       message_split = rugged_commit.message.b.split("\n", 2)
