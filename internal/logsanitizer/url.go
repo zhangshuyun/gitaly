@@ -8,7 +8,7 @@ import (
 
 // Pattern taken from Regular Expressions Cookbook, slightly modified though
 //                                        |Scheme                |User                         |Named/IPv4 host|IPv6+ host
-var hostPattern = regexp.MustCompile(`(?i)([a-z][a-z0-9+\-.]*://)([a-z0-9\-._~%!$&'()*+,;=:]+@)([a-z0-9\-._~%]+|\[[a-z0-9\-._~%!$&'()*+,;=:]+\])`)
+var hostPattern = regexp.MustCompile(`(?i)([a-z][a-z0-9+\-.]*://)?([a-z0-9\-._~%!$&'()*+,;=:]+@)([a-z0-9\-._~%]+|\[[a-z0-9\-._~%!$&'()*+,;=:]+\])`)
 
 // URLSanitizerHook stores which gRPC methods to perform sanitization for.
 type URLSanitizerHook struct {

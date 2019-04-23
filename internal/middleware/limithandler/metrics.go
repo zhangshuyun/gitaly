@@ -12,7 +12,6 @@ import (
 const acquireDurationLogThreshold = 10 * time.Millisecond
 
 var (
-	histogramEnabled   = false
 	histogramVec       *prometheus.HistogramVec
 	inprogressGaugeVec = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
@@ -55,7 +54,6 @@ func splitMethodName(fullMethodName string) (string, string) {
 
 // EnableAcquireTimeHistogram enables histograms for acquisition times
 func EnableAcquireTimeHistogram(buckets []float64) {
-	histogramEnabled = true
 	histogramOpts := prometheus.HistogramOpts{
 		Namespace: "gitaly",
 		Subsystem: "rate_limiting",

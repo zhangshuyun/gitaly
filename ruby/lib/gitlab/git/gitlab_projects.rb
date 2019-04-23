@@ -112,15 +112,6 @@ module Gitlab
         false
       end
 
-      def mask_password_in_url(url)
-        result = URI(url)
-        result.password = "*****" unless result.password.nil?
-        result.user = "*****" unless result.user.nil? # it's needed for oauth access_token
-        result
-      rescue
-        url
-      end
-
       def remove_origin_in_repo
         cmd = %W(#{Gitlab.config.git.bin_path} remote rm origin)
         run(cmd, repository_absolute_path)
