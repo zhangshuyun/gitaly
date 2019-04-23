@@ -17,6 +17,15 @@ describe GitalyServer::ExceptionSanitizerInterceptor do
     end
   end
 
+  context 'with incomplete url in exception' do
+    let(:ex) { "unable to look up user:pass@non-existent.org (port 9418)" }
+    let(:ex_sanitized_message) { "unable to look up [FILTERED]@non-existent.org (port 9418)" }
+
+    it 'sanitizes exception message' do
+      expect { subject }.to raise_error(ex_sanitized_message)
+    end
+  end
+
   context 'GRPC::BadStatus exception' do
     let(:ex) { GRPC::Unknown.new(super().message) }
 
