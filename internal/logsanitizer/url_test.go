@@ -17,6 +17,7 @@ func TestUrlSanitizerHook(t *testing.T) {
 	urlSanitizer.AddPossibleGrpcMethod(
 		"UpdateRemoteMirror",
 		"CreateRepositoryFromURL",
+		"FetchRemote",
 	)
 
 	logger := log.New()
@@ -56,6 +57,15 @@ func TestUrlSanitizerHook(t *testing.T) {
 				}).Info("asked for: https://foo_the_user:hUntEr1@gitlab.com/foo/bar")
 			},
 			expectedString: "asked for: https://[FILTERED]@gitlab.com/foo/bar",
+		},
+		{
+			desc: "with URL without scheme output",
+			logFunc: func() {
+				logger.WithFields(log.Fields{
+					"grpc.method": "FetchRemote",
+				}).Info("fatal: unable to look up foo:bar@non-existent.org (port 9418) (nodename nor servname provided, or not known")
+			},
+			expectedString: "unable to look up [FILTERED]@non-existent.org (port 9418) (nodename nor servname provided, or not known",
 		},
 		{
 			desc: "with gRPC method not added to the list",
