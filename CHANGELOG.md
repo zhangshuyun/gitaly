@@ -1,5 +1,13 @@
 # Gitaly changelog
 
+## v1.20.1
+
+#### Security
+- Loosen regex for exception sanitization
+  https://gitlab.com/gitlab-org/gitaly/merge_requests/23
+- test
+  https://gitlab.com/gitlab-org/gitaly/merge_requests/
+
 ## v1.20.0
 
 #### Fixed
