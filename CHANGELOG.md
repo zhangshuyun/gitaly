@@ -1,5 +1,11 @@
 # Gitaly changelog
 
+## v1.33.1
+
+#### Security
+- Loosen regex for exception sanitization
+  https://gitlab.com/gitlab-org/gitaly/merge_requests/22
+
 ## v1.33.0
 
 #### Added
