@@ -426,7 +426,7 @@ module Gitlab
         with_worktree(squash_path, branch, sparse_checkout_files: diff_files, env: env) do
           # Apply diff of the `diff_range` to the worktree
           diff = run_git!(%W[diff --binary #{diff_range}])
-          run_git!(%w[apply --index --whitespace=nowarn], chdir: squash_path, env: env, include_stderr: true) do |stdin|
+          run_git!(%w[apply --index --3way --whitespace=nowarn], chdir: squash_path, env: env, include_stderr: true) do |stdin|
             stdin.binmode
             stdin.write(diff)
           end
