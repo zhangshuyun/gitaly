@@ -2,7 +2,7 @@ module Gitlab
   module Git
     class GitalyRemoteRepository < RemoteRepository
       CLIENT_NAME = 'gitaly-ruby'.freeze
-      PEM_REXP = /[-]+BEGIN CERTIFICATE[-]+.+?[-]+END CERTIFICATE[-]+/m.freeze
+      PEM_REXP = /[-]+BEGIN CERTIFICATE[-]+.+?[-]+END CERTIFICATE[-]+/m
 
       attr_reader :gitaly_client
 

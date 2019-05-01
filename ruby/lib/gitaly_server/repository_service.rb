@@ -102,11 +102,11 @@ module GitalyServer
     private
 
     OPERATION_MAP = {
-      added: Gitaly::GetRawChangesResponse::RawChange::Operation::ADDED,
-      copied: Gitaly::GetRawChangesResponse::RawChange::Operation::COPIED,
-      deleted: Gitaly::GetRawChangesResponse::RawChange::Operation::DELETED,
-      modified: Gitaly::GetRawChangesResponse::RawChange::Operation::MODIFIED,
-      renamed: Gitaly::GetRawChangesResponse::RawChange::Operation::RENAMED,
+      added:        Gitaly::GetRawChangesResponse::RawChange::Operation::ADDED,
+      copied:       Gitaly::GetRawChangesResponse::RawChange::Operation::COPIED,
+      deleted:      Gitaly::GetRawChangesResponse::RawChange::Operation::DELETED,
+      modified:     Gitaly::GetRawChangesResponse::RawChange::Operation::MODIFIED,
+      renamed:      Gitaly::GetRawChangesResponse::RawChange::Operation::RENAMED,
       type_changed: Gitaly::GetRawChangesResponse::RawChange::Operation::TYPE_CHANGED
     }.freeze
 

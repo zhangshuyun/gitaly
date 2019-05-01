@@ -73,11 +73,14 @@ module Gitlab
       # it would be created from `start_branch_name`.
       # If `start_repository` is passed, and the branch doesn't exist,
       # it would try to find the commits from it instead of current repository.
-      def with_branch(branch_name,
-                      start_branch_name: nil,
-                      start_repository: repository,
-                      force: false,
-                      &block)
+      def with_branch(
+        branch_name,
+        start_branch_name: nil,
+        start_repository: repository,
+        force: false,
+        &block
+      )
+
         Gitlab::Git.check_namespace!(start_repository)
         start_repository = RemoteRepository.new(start_repository) unless start_repository.is_a?(RemoteRepository)
 

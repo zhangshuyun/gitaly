@@ -23,7 +23,7 @@ gem 'licensee', '~> 8.9.0'
 gem 'google-protobuf', '~> 3.7.1'
 
 group :development, :test do
-  gem 'rubocop', '~> 0.68', require: false
+  gem 'rubocop', '~> 0.50', require: false
   gem 'rspec', require: false
   gem 'rspec-parameterized', require: false
   gem 'timecop', require: false
