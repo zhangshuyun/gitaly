@@ -40,7 +40,7 @@ func testMain(m *testing.M) int {
 	return m.Run()
 }
 
-func startTestServices(t testing.TB) (*grpc.Server, string) {
+func startTestServices(t *testing.T) (*grpc.Server, string) {
 	server := testhelper.NewTestGrpcServer(t, nil, nil)
 	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName()
 
@@ -56,7 +56,7 @@ func startTestServices(t testing.TB) (*grpc.Server, string) {
 	return server, "unix://" + serverSocketPath
 }
 
-func newCommitServiceClient(t testing.TB, serviceSocketPath string) (gitalypb.CommitServiceClient, *grpc.ClientConn) {
+func newCommitServiceClient(t *testing.T, serviceSocketPath string) (gitalypb.CommitServiceClient, *grpc.ClientConn) {
 	connOpts := []grpc.DialOption{
 		grpc.WithInsecure(),
 	}

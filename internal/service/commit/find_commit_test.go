@@ -1,7 +1,6 @@
 package commit
 
 import (
-	"bufio"
 	"context"
 	"io/ioutil"
 	"strings"
@@ -10,14 +9,10 @@ import (
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
-	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
 
@@ -289,55 +284,5 @@ func TestFailedFindCommitRequest(t *testing.T) {
 			_, err := client.FindCommit(ctx, request)
 			require.Equal(t, codes.InvalidArgument, status.Code(err), "default lookup should fail")
 		})
-	}
-}
-
-func BenchmarkFindCommitNoCache(b *testing.B) {
-	benchmarkFindCommit(false, b)
-}
-func BenchmarkFindCommitWithCache(b *testing.B) {
-	benchmarkFindCommit(true, b)
-}
-
-func benchmarkFindCommit(withCache bool, b *testing.B) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-
-	server, serverSocketPath := startTestServices(b)
-	defer server.Stop()
-
-	client, conn := newCommitServiceClient(b, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(b)
-	defer cleanupFn()
-
-	// get a list of revisions
-
-	logCmd, err := git.Command(ctx, testRepo, "log", "--format=format:%H")
-	require.NoError(b, err)
-
-	logScanner := bufio.NewScanner(logCmd)
-
-	var revisions []string
-	for logScanner.Scan() {
-		revisions = append(revisions, logScanner.Text())
-	}
-
-	require.NoError(b, logCmd.Wait())
-
-	defer catfile.ExpireAll()
-
-	for i := 0; i < b.N; i++ {
-		revision := revisions[b.N%len(revisions)]
-		if withCache {
-			md := metadata.New(map[string]string{featureflag.HeaderKey(catfile.CacheFeatureFlagKey): "true", "gitaly-session-id": "abc123"})
-			ctx = metadata.NewOutgoingContext(ctx, md)
-		}
-		_, err := client.FindCommit(ctx, &gitalypb.FindCommitRequest{
-			Repository: testRepo,
-			Revision:   []byte(revision),
-		})
-		require.NoError(b, err)
 	}
 }

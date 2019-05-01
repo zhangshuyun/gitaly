@@ -144,7 +144,7 @@ func RequireGrpcError(t *testing.T, err error, expectedCode codes.Code) {
 }
 
 // MustRunCommand runs a command with an optional standard input and returns the standard output, or fails.
-func MustRunCommand(t testing.TB, stdin io.Reader, name string, args ...string) []byte {
+func MustRunCommand(t *testing.T, stdin io.Reader, name string, args ...string) []byte {
 	cmd := exec.Command(name, args...)
 
 	if name == "git" {
@@ -352,7 +352,7 @@ func Context() (context.Context, func()) {
 }
 
 // CreateRepo creates an temporary directory for a repo, without initializing it
-func CreateRepo(t testing.TB, storagePath string) (repo *gitalypb.Repository, repoPath, relativePath string) {
+func CreateRepo(t *testing.T, storagePath string) (repo *gitalypb.Repository, repoPath, relativePath string) {
 	normalizedPrefix := strings.Replace(t.Name(), "/", "-", -1) //TempDir doesn't like a prefix containing slashes
 
 	repoPath, err := ioutil.TempDir(storagePath, normalizedPrefix)
@@ -392,7 +392,7 @@ func initRepo(t *testing.T, bare bool) (*gitalypb.Repository, string, func()) {
 }
 
 // NewTestRepo creates a bare copy of the test repository.
-func NewTestRepo(t testing.TB) (repo *gitalypb.Repository, repoPath string, cleanup func()) {
+func NewTestRepo(t *testing.T) (repo *gitalypb.Repository, repoPath string, cleanup func()) {
 	return cloneTestRepo(t, true)
 }
 
@@ -402,7 +402,7 @@ func NewTestRepoWithWorktree(t *testing.T) (repo *gitalypb.Repository, repoPath 
 	return cloneTestRepo(t, false)
 }
 
-func cloneTestRepo(t testing.TB, bare bool) (repo *gitalypb.Repository, repoPath string, cleanup func()) {
+func cloneTestRepo(t *testing.T, bare bool) (repo *gitalypb.Repository, repoPath string, cleanup func()) {
 	storagePath := GitlabTestStoragePath()
 	repo, repoPath, relativePath := CreateRepo(t, storagePath)
 	testRepo := TestRepository()

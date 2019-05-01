@@ -61,12 +61,6 @@
 			"versionExact": "v0.1.0"
 		},
 		{
-			"checksumSHA1": "LHNzQwau1zPeFPPG5zbNf8AgUOQ=",
-			"path": "github.com/golang/groupcache/lru",
-			"revision": "5b532d6fd5efaf7fa130d4e859a2fde0fc3a9e1b",
-			"revisionTime": "2019-01-29T15:46:38Z"
-		},
-		{
 			"checksumSHA1": "BP2buXHHOKxI5eYS2xELVng2kf4=",
 			"path": "github.com/golang/protobuf/jsonpb",
 			"revision": "c823c79ea1570fb5ff454033735a8e68575d1d0f",

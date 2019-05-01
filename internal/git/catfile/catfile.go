@@ -2,48 +2,11 @@ package catfile
 
 import (
 	"context"
-	"fmt"
 	"io"
-	"sync"
-	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/internal/git/alternates"
-	"gitlab.com/gitlab-org/gitaly/internal/metadata"
-	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 )
-
-var catfileCacheHitOrMiss = prometheus.NewCounterVec(
-	prometheus.CounterOpts{
-		Name: "gitaly_catfile_cache_total",
-		Help: "Counter of catfile cache hit/miss",
-	},
-	[]string{"type"},
-)
-
-var currentCatfileProcesses = prometheus.NewGauge(
-	prometheus.GaugeOpts{
-		Name: "gitaly_catfile_processes",
-		Help: "Gauge of active catfile processes",
-	},
-)
-
-var totalCatfileProcesses = prometheus.NewCounter(
-	prometheus.CounterOpts{
-		Name: "gitaly_catfile_processes_total",
-		Help: "Counter of catfile processes",
-	},
-)
-
-// DefaultBatchfileTTL is the default ttl for batch files to live in the cache
-var DefaultBatchfileTTL = 10 * time.Second
-
-func init() {
-	prometheus.MustRegister(catfileCacheHitOrMiss)
-	prometheus.MustRegister(currentCatfileProcesses)
-	prometheus.MustRegister(totalCatfileProcesses)
-}
 
 // Batch abstracts 'git cat-file --batch' and 'git cat-file --batch-check'.
 // It lets you retrieve object metadata and raw objects from a Git repo.
@@ -51,11 +14,8 @@ func init() {
 // A Batch instance can only serve single request at a time. If you want to
 // use it across multiple goroutines you need to add your own locking.
 type Batch struct {
-	sync.Mutex
 	*batchCheck
 	*batch
-	cancel func()
-	closed bool
 }
 
 // Info returns an ObjectInfo if spec exists. If spec does not exist the
@@ -95,36 +55,6 @@ func (c *Batch) Tag(revspec string) (io.Reader, error) {
 	return c.batch.reader(revspec, "tag")
 }
 
-// Close closes the writers for batchCheck and batch. This is only used for
-// cached Batches
-func (c *Batch) Close() {
-	c.Lock()
-	defer c.Unlock()
-
-	if c.closed {
-		return
-	}
-
-	c.closed = true
-	if c.cancel != nil {
-		// both c.batch and c.batchCheck have goroutines that listen on <ctx.Done()
-		// when this is cancelled, it will cause those goroutines to close both writers
-		c.cancel()
-	}
-}
-
-func (c *Batch) isClosed() bool {
-	c.Lock()
-	defer c.Unlock()
-	return c.closed
-}
-
-// HasUnreadData returns a boolean specifying whether or not the Batch has more
-// data still to be read
-func (c *Batch) HasUnreadData() bool {
-	return c.n > 1
-}
-
 // New returns a new Batch instance. It is important that ctx gets canceled
 // somewhere, because if it doesn't the cat-file processes spawned by
 // New() never terminate.
@@ -138,54 +68,17 @@ func New(ctx context.Context, repo *gitalypb.Repository) (*Batch, error) {
 		return nil, err
 	}
 
-	sessionID := metadata.GetValue(ctx, "gitaly-session-id")
+	c := &Batch{}
 
-	if featureflag.IsDisabled(ctx, CacheFeatureFlagKey) || sessionID == "" {
-		// if caching us used, the caller is responsible for putting the catfile
-		// into the cache
-		batch, err := newBatch(ctx, repoPath, env)
-		if err != nil {
-			return nil, err
-		}
-
-		batchCheck, err := newBatchCheck(ctx, repoPath, env)
-		if err != nil {
-			return nil, err
-		}
-
-		return &Batch{batch: batch, batchCheck: batchCheck}, nil
-	}
-
-	cacheKey := NewCacheKey(sessionID, repo)
-
-	c := cache.Get(cacheKey)
-
-	defer func() {
-		go cache.returnToCache(ctx, cacheKey, c)
-	}()
-
-	if c != nil {
-		catfileCacheHitOrMiss.WithLabelValues("hit").Inc()
-		cache.Del(cacheKey)
-		return c, nil
-	}
-
-	catfileCacheHitOrMiss.WithLabelValues("miss").Inc()
-	// if we are using caching, create a fresh context for the new batch
-	// and initialize the new batch with a cache key and cancel function
-	cacheCtx, cacheCancel := context.WithCancel(context.Background())
-	c = &Batch{cancel: cacheCancel}
-
-	c.batch, err = newBatch(cacheCtx, repoPath, env)
+	c.batch, err = newBatch(ctx, repoPath, env)
 	if err != nil {
-		return nil, fmt.Errorf("error when creating new batch: %v", err)
+		return nil, err
 	}
 
-	c.batchCheck, err = newBatchCheck(cacheCtx, repoPath, env)
+	c.batchCheck, err = newBatchCheck(ctx, repoPath, env)
 	if err != nil {
-		return nil, fmt.Errorf("error when creating new batch check: %v", err)
+		return nil, err
 	}
 
 	return c, nil
-
 }
