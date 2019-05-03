@@ -1,5 +1,11 @@
 # Gitaly changelog
 
+## v1.34.2
+
+#### Fixed
+- Use 3-way merge for squashing commits
+  https://gitlab.com/gitlab-org/gitaly/merge_requests/1214
+
 ## v1.34.1
 
 #### Security
