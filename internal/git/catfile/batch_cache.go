@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
 )
 
@@ -19,18 +20,21 @@ const (
 	defaultEvictionInterval = 1 * time.Second
 )
 
-var catfileCacheMembers = prometheus.NewGauge(
-	prometheus.GaugeOpts{
-		Name: "gitaly_catfile_cache_members",
-		Help: "Gauge of catfile cache members",
-	},
-)
+var (
+	catfileCacheMembers = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Name: "gitaly_catfile_cache_members",
+			Help: "Gauge of catfile cache members",
+		},
+	)
 
-var cache *batchCache
+	cache *batchCache
+)
 
 func init() {
 	prometheus.MustRegister(catfileCacheMembers)
 	cache = newCache(DefaultBatchfileTTL, CacheMaxItems)
+	command.RegisterCleanup(cache.EvictAll)
 }
 
 func newCacheKey(sessionID string, repo repository.GitRepo) key {

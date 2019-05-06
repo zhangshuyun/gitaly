@@ -34,12 +34,6 @@ var totalCatfileProcesses = prometheus.NewCounter(
 	},
 )
 
-const (
-	// CacheFeatureFlagKey is the feature flag key for catfile batch caching. This should match
-	// what is in gitlab-ce
-	CacheFeatureFlagKey = "catfile-cache"
-)
-
 func init() {
 	prometheus.MustRegister(catfileCacheCounter)
 	prometheus.MustRegister(currentCatfileProcesses)
@@ -135,7 +129,7 @@ func New(ctx context.Context, repo *gitalypb.Repository) (*Batch, error) {
 
 	sessionID := metadata.GetValue(ctx, "gitaly-session-id")
 
-	if featureflag.IsDisabled(ctx, CacheFeatureFlagKey) || sessionID == "" {
+	if featureflag.IsDisabled(ctx, featureflag.CatfileCacheKey) || sessionID == "" {
 		return newBatch(ctx, repoPath, env)
 	}
 

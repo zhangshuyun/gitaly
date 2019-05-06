@@ -8,6 +8,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
+	"gitlab.com/gitlab-org/gitaly/internal/command/commandtest"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
@@ -29,7 +30,7 @@ func TestMain(m *testing.M) {
 }
 
 func testMain(m *testing.M) int {
-	defer testhelper.MustHaveNoChildProcess()
+	defer commandtest.MustHaveNoChildProcess()
 
 	cwd = mustGetCwd()
 

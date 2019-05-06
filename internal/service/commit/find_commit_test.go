@@ -332,7 +332,7 @@ func benchmarkFindCommit(withCache bool, b *testing.B) {
 		revision := revisions[b.N%len(revisions)]
 		if withCache {
 			md := metadata.New(map[string]string{
-				featureflag.HeaderKey(catfile.CacheFeatureFlagKey): "true",
+				featureflag.HeaderKey(featureflag.CatfileCacheKey): "true",
 				"gitaly-session-id": "abc123",
 			})
 
@@ -378,7 +378,7 @@ func TestFindCommitWithCache(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		revision := revisions[i%len(revisions)]
 		md := metadata.New(map[string]string{
-			featureflag.HeaderKey(catfile.CacheFeatureFlagKey): "true",
+			featureflag.HeaderKey(featureflag.CatfileCacheKey): "true",
 			"gitaly-session-id": "abc123",
 		})
 

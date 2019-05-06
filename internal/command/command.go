@@ -134,12 +134,22 @@ func GitPath() string {
 	return config.Config.Git.BinPath
 }
 
-var wg = &sync.WaitGroup{}
+var (
+	wg               = &sync.WaitGroup{}
+	cleanupFunctions []func()
+)
+
+// RegisterCleanup registers callbacks that will be run during WaitAllDone.
+func RegisterCleanup(fn func()) { cleanupFunctions = append(cleanupFunctions, fn) }
 
 // WaitAllDone waits for all commands started by the command package to
 // finish. This can only be called once in the lifecycle of the current
 // Go process.
 func WaitAllDone() {
+	for _, fn := range cleanupFunctions {
+		fn()
+	}
+
 	wg.Wait()
 }
 
