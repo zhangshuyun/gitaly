@@ -1,0 +1,5 @@
+---
+title: Use cat-file caching in tests by default
+merge_request: 1239
+author:
+type: other
