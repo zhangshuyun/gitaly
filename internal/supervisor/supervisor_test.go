@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/command/commandtest"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 )
 
 var (
@@ -29,7 +29,7 @@ func TestMain(m *testing.M) {
 }
 
 func testMain(m *testing.M) int {
-	defer commandtest.MustHaveNoChildProcess()
+	defer testhelper.MustHaveNoChildProcess()
 
 	var err error
 	testDir, err = ioutil.TempDir("", "gitaly-supervisor-test")

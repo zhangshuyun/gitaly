@@ -13,8 +13,6 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-const deltaIslandsFeatureFlag = "delta-islands"
-
 var (
 	repackCounter = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
@@ -73,7 +71,7 @@ func repackConfig(ctx context.Context, bitmap bool) []string {
 		args = append(args, "-c", "repack.writeBitmaps=false")
 	}
 
-	deltaIslands := featureflag.IsEnabled(ctx, deltaIslandsFeatureFlag)
+	deltaIslands := featureflag.IsEnabled(ctx, featureflag.DeltaIslandsKey)
 	if deltaIslands {
 		args = append(args,
 			"-c", "pack.island=refs/heads",

@@ -8,7 +8,6 @@ import (
 	"github.com/golang/protobuf/ptypes/timestamp"
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
-	"gitlab.com/gitlab-org/gitaly/internal/command/commandtest"
 	"gitlab.com/gitlab-org/gitaly/internal/linguist"
 	"gitlab.com/gitlab-org/gitaly/internal/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -25,7 +24,7 @@ func TestMain(m *testing.M) {
 var rubyServer *rubyserver.Server
 
 func testMain(m *testing.M) int {
-	defer commandtest.MustHaveNoChildProcess()
+	defer testhelper.MustHaveNoChildProcess()
 
 	testhelper.ConfigureRuby()
 	if err := linguist.LoadColors(); err != nil {

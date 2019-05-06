@@ -11,7 +11,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
-	"gitlab.com/gitlab-org/gitaly/internal/command/commandtest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/hooks"
 	gitlog "gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
@@ -39,7 +38,7 @@ func TestMain(m *testing.M) {
 var rubyServer *rubyserver.Server
 
 func testMain(m *testing.M) int {
-	defer commandtest.MustHaveNoChildProcess()
+	defer testhelper.MustHaveNoChildProcess()
 
 	hooks.Override = "/does/not/exist"
 

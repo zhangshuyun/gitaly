@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"gitlab.com/gitlab-org/gitaly/internal/command/commandtest"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 )
 
 func TestMain(m *testing.M) {
@@ -12,7 +12,7 @@ func TestMain(m *testing.M) {
 }
 
 func testMain(m *testing.M) int {
-	defer commandtest.MustHaveNoChildProcess()
+	defer testhelper.MustHaveNoChildProcess()
 
 	return m.Run()
 }

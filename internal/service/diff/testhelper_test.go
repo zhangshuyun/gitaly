@@ -7,7 +7,6 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
-	"gitlab.com/gitlab-org/gitaly/internal/command/commandtest"
 	"gitlab.com/gitlab-org/gitaly/internal/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"google.golang.org/grpc"
@@ -21,7 +20,7 @@ func TestMain(m *testing.M) {
 var rubyServer *rubyserver.Server
 
 func testMain(m *testing.M) int {
-	defer commandtest.MustHaveNoChildProcess()
+	defer testhelper.MustHaveNoChildProcess()
 
 	var err error
 

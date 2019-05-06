@@ -204,7 +204,7 @@ func TestRepackFullDeltaIslands(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	md := metadata.New(map[string]string{featureflag.HeaderKey(deltaIslandsFeatureFlag): "true"})
+	md := metadata.New(map[string]string{featureflag.HeaderKey(featureflag.DeltaIslandsKey): "true"})
 	ctxWithFeatureFlag := metadata.NewOutgoingContext(ctx, md)
 
 	testCases := []struct {
