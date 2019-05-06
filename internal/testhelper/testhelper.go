@@ -28,9 +28,11 @@ import (
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/config"
+	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/fieldextractors"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	gitalylog "gitlab.com/gitlab-org/gitaly/internal/log"
+	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -302,6 +304,7 @@ func NewTestGrpcServer(tb testing.TB, streamInterceptors []grpc.StreamServerInte
 func MustHaveNoChildProcess() {
 	waitDone := make(chan struct{})
 	go func() {
+		catfile.ExpireAll()
 		command.WaitAllDone()
 		close(waitDone)
 	}()
@@ -348,7 +351,15 @@ func mustFindNoRunningChildProcess() {
 
 // Context returns a cancellable context.
 func Context() (context.Context, func()) {
-	return context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.Background())
+
+	md := metadata.New(map[string]string{
+		featureflag.HeaderKey(catfile.CacheFeatureFlagKey): "true",
+		"gitaly-session-id": "gitaly-test",
+	})
+	ctx = metadata.NewOutgoingContext(ctx, md)
+
+	return ctx, cancel
 }
 
 // CreateRepo creates an temporary directory for a repo, without initializing it
