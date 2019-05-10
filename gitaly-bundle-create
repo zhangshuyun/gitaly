@@ -3,11 +3,21 @@
 set -ex
 
 ref_snapshot=$(mktemp -t gitaly-create-bundle.XXXXXX)
+
+# Header
 echo '# gitaly bundle v1'
+
+# Ref dump
 git for-each-ref --format='%(objectname) %(refname)' | tee "${ref_snapshot}"
 echo
+
 (
+  # Tell pack-objects the objects we want to include
   awk '{print $1}' "${ref_snapshot}"
   rm "${ref_snapshot}"
+
+  # Use the ref dump from the previous snapshot to tell pack-objects which
+  # objects we already have. The previous snapshot may be empty
+  # (/dev/null).
   awk '/^$/ { exit } /^[^#]/ { print "^" $1 }'
 ) | git pack-objects --thin --stdout --non-empty --delta-base-offset
