@@ -2,7 +2,7 @@
 
 set -ex
 
-ref_snapshot=$(mktemp -t gitaly-create-bundle.XXXXXX)
+ref_snapshot=$(mktemp -t gitaly-bundle-create.XXXXXX)
 
 # Header
 echo '# gitaly bundle v1'
@@ -16,8 +16,9 @@ echo
   awk '{print $1}' "${ref_snapshot}"
   rm "${ref_snapshot}"
 
-  # Use the ref dump from the previous snapshot to tell pack-objects which
-  # objects we already have. The previous snapshot may be empty
-  # (/dev/null).
+  # The previous snapshot should be on stdin. Use it to tell pack-objects
+  # which objects we already have. The previous snapshot may be empty
+  # (/dev/null). This awk command will only consume the ref dump part of
+  # stdin; pack data is not read.
   awk '/^$/ { exit } /^[^#]/ { print "^" $1 }'
 ) | git pack-objects --thin --stdout --non-empty --delta-base-offset

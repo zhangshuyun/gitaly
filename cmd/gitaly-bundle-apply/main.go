@@ -39,6 +39,8 @@ func _main() error {
 	// There may not be a pack file, for instance if the only change is a ref deletion.
 	const magic = "PACK"
 	if b, err := r.Peek(len(magic)); err == nil && string(b) == magic {
+		// TODO use --keep to prevent concurrent repack/gc from deleting this
+		// packfile before we apply the ref update below?
 		indexPack := exec.Command("git", "index-pack", "--stdin", "--fix-thin")
 		indexPack.Stdin = r
 		indexPack.Stdout = os.Stderr
