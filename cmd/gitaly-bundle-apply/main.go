@@ -61,7 +61,7 @@ func _main() error {
 		fmt.Fprintf(refUpdate, "update %s %s\n", ref, oid)
 	}
 
-	for ref, _ := range oldRefs {
+	for ref := range oldRefs {
 		if _, ok := newRefs[ref]; ok {
 			continue
 		}
