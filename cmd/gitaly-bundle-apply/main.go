@@ -19,7 +19,7 @@ func main() {
 func _main() error {
 	r := bufio.NewReader(os.Stdin)
 
-	const header = "#gitaly bundle v1"
+	const header = "# gitaly bundle v1"
 	line, err := readLine(r)
 	if err != nil {
 		return err
