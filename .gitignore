@@ -20,3 +20,4 @@ git-env
 /gitaly-debug
 /praefect
 gitaly.pid
+/gitaly-bundle-apply
