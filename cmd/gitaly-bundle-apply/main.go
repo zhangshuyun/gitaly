@@ -52,10 +52,7 @@ func _main() error {
 	indexPack.Stdout = os.Stderr
 	indexPack.Stderr = os.Stderr
 
-	if err := indexPack.Start(); err != nil {
-		return err
-	}
-	if err := indexPack.Wait(); err != nil {
+	if err := indexPack.Run(); err != nil {
 		return err
 	}
 
@@ -64,10 +61,7 @@ func _main() error {
 	updateRef.Stdout = os.Stderr
 	updateRef.Stderr = os.Stderr
 
-	if err := updateRef.Start(); err != nil {
-		return err
-	}
-	if err := updateRef.Wait(); err != nil {
+	if err := updateRef.Run(); err != nil {
 		return err
 	}
 
