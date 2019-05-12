@@ -20,5 +20,8 @@ echo
   # which objects we already have. The previous snapshot may be empty
   # (/dev/null). This awk command will only consume the ref dump part of
   # stdin; pack data is not read.
-  awk '/^$/ { exit } /^[^#]/ { print "^" $1 }'
+  awk '/^$/ { exit } /^[^#]/ { print $1 }' |\
+    git cat-file --batch-check='%(objectname)' |\
+    grep -v ' missing$' |\
+    sed 's/^/^/'
 ) | git pack-objects --thin --stdout --non-empty --delta-base-offset
