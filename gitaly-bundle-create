@@ -22,6 +22,5 @@ echo
   # stdin; pack data is not read.
   awk '/^$/ { exit } /^[^#]/ { print $1 }' |\
     git cat-file --batch-check='%(objectname)' |\
-    grep -v ' missing$' |\
-    sed 's/^/^/'
+    awk '!/ missing$/ { print "^" $1 }'
 ) | git pack-objects --thin --stdout --non-empty --delta-base-offset
