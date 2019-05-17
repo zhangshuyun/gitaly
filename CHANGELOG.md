@@ -1,5 +1,11 @@
 # Gitaly changelog
 
+## v1.42.1
+
+#### Fixed
+- Check if PID belongs to Gitaly before adopting an existing process
+  https://gitlab.com/gitlab-org/gitaly/merge_requests/1254
+
 ## v1.42.0
 
 #### Other
