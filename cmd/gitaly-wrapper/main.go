@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path"
 	"strconv"
 	"syscall"
 	"time"
@@ -81,6 +82,10 @@ func findGitaly() (*os.Process, error) {
 	}
 
 	if isAlive(gitaly) {
+		if ok, err := isGitaly(pid); !ok {
+			return nil, err
+		}
+
 		return gitaly, nil
 	}
 
@@ -136,6 +141,19 @@ func isAlive(p *os.Process) bool {
 	// If p was spawned by someone else we rely on them to reap it, or on p to become an orphan.
 	// In the orphan case p should get reaped by the OS (PID 1).
 	return p.Signal(syscall.Signal(0)) == nil
+}
+
+func isGitaly(pid int) (bool, error) {
+	command, err := procPath(pid)
+	if err != nil {
+		return false, err
+	}
+
+	if path.Base(command) == "gitaly" {
+		return true, nil
+	}
+
+	return false, nil
 }
 
 func pidFile() string {
