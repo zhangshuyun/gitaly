@@ -16,6 +16,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// InfoRefsUploadPack is called when user is fetching info-refs over HTTP
 func (s *server) InfoRefsUploadPack(in *gitalypb.InfoRefsRequest, stream gitalypb.SmartHTTPService_InfoRefsUploadPackServer) error {
 	w := streamio.NewWriter(func(p []byte) error {
 		return stream.Send(&gitalypb.InfoRefsResponse{Data: p})
