@@ -53,6 +53,12 @@
 			"revisionTime": "2015-10-22T10:31:44Z"
 		},
 		{
+			"checksumSHA1": "pM6OvktcVnUN9X1P5l//sBu2Qj4=",
+			"path": "github.com/etcd-io/bbolt",
+			"revision": "4af6cfab7010371f25e79d9e104890c6377781ab",
+			"revisionTime": "2019-05-10T21:16:40Z"
+		},
+		{
 			"checksumSHA1": "hL8smC/vjdkuE1twM8TKpuTiOmw=",
 			"path": "github.com/getsentry/raven-go",
 			"revision": "3033899c76deb3fb6570d9c4074d00443aeab88f",
