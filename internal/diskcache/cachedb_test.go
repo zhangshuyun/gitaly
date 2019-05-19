@@ -7,12 +7,14 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/etcd-io/bbolt"
+	_ "github.com/etcd-io/bbolt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/diskcache"
 )
 
-func TestCacheDBGetStream(t *testing.T) {
+func TestCacheDB(t *testing.T) {
 	db, cleanup := tempDB(t)
 	defer cleanup()
 
@@ -20,7 +22,10 @@ func TestCacheDBGetStream(t *testing.T) {
 	key := "InfoRefsUploadPack"
 
 	_, err := db.GetStream(namespace, key)
-	require.Error(t, diskcache.ErrNamespaceNotFound, err)
+	require.Equal(t, diskcache.ErrNamespaceNotFound, err)
+
+	err = db.DelNamespace(namespace)
+	require.Equal(t, bbolt.ErrBucketNotFound, err)
 
 	// use a stream payload that is larger than the cache's internal buffer
 	expectStr := strings.Repeat("1234567890", os.Getpagesize())
@@ -34,6 +39,19 @@ func TestCacheDBGetStream(t *testing.T) {
 	actual, err := ioutil.ReadAll(stream)
 	require.NoError(t, err)
 	require.Equal(t, expectStr, string(actual))
+
+	require.NoError(t, db.DelNamespace(namespace))
+
+	_, err = db.GetStream(namespace, key)
+	require.Equal(t, diskcache.ErrNamespaceNotFound, err)
+
+	err = db.PutStream(namespace, key, strings.NewReader(expectStr))
+	require.NoError(t, err)
+
+	require.NoError(t, db.Reset())
+
+	_, err = db.GetStream(namespace, key)
+	require.Equal(t, diskcache.ErrNamespaceNotFound, err)
 }
 
 func tempDB(t testing.TB) (*diskcache.CacheDB, func()) {
@@ -46,11 +64,4 @@ func tempDB(t testing.TB) (*diskcache.CacheDB, func()) {
 	assert.NoError(t, err)
 
 	return db, cleanup
-}
-
-func TestCacheDBDestroy(t *testing.T) {
-	db, cleanup := tempDB(t)
-	defer cleanup()
-
-	require.NoError(t, db.Destroy())
 }

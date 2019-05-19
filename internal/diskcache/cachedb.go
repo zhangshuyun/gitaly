@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/etcd-io/bbolt"
@@ -14,14 +15,15 @@ import (
 type CacheDB struct {
 	db     *bbolt.DB
 	dbPath string
+	dbLock sync.RWMutex // coordinates reset event
+}
+
+var cacheDBOpts = &bbolt.Options{
+	Timeout: time.Second,
 }
 
 func CreateDB(dbPath string) (*CacheDB, error) {
-	options := &bbolt.Options{
-		Timeout: time.Second,
-	}
-
-	db, err := bbolt.Open(dbPath, 0644, options)
+	db, err := bbolt.Open(dbPath, 0644, cacheDBOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -40,7 +42,12 @@ var (
 // GetStream will fetch the key value within the provided namespace. It is the
 // responsibility of the caller to close the stream when done.
 func (cdb *CacheDB) GetStream(namespace, key string) (io.ReadCloser, error) {
+	cdb.dbLock.RLock()
+	defer cdb.dbLock.RUnlock()
+
 	r, w := io.Pipe()
+	ready := make(chan struct{})
+	errQ := make(chan error, 1)
 
 	go func() {
 		var err error
@@ -57,6 +64,8 @@ func (cdb *CacheDB) GetStream(namespace, key string) (io.ReadCloser, error) {
 				return ErrKeyNotFound
 			}
 
+			ready <- struct{}{} // cache hit!
+
 			return keyB.ForEach(func(k []byte, v []byte) error {
 				// boltdb returned data is only valid during a transaction,
 				// thus copying is necessary to ensure data is safe. See
@@ -70,12 +79,24 @@ func (cdb *CacheDB) GetStream(namespace, key string) (io.ReadCloser, error) {
 
 			return nil
 		})
+		errQ <- err // may never be received, thus buffer size of 1
 	}()
+
+	select {
+	case err := <-errQ:
+		// cache miss or other error
+		return nil, err
+	case <-ready:
+		// cache hit! continue...
+	}
 
 	return r, nil
 }
 
 func (cdb *CacheDB) PutStream(namespace, key string, src io.Reader) error {
+	cdb.dbLock.RLock()
+	defer cdb.dbLock.RUnlock()
+
 	return cdb.db.Update(func(tx *bbolt.Tx) error {
 		namespaceB, err := tx.CreateBucketIfNotExists([]byte(namespace))
 		if err != nil {
@@ -128,6 +149,15 @@ func (cdb *CacheDB) PutStream(namespace, key string, src io.Reader) error {
 	})
 }
 
+func (cdb *CacheDB) DelNamespace(namespace string) error {
+	cdb.dbLock.RLock()
+	defer cdb.dbLock.RUnlock()
+
+	return cdb.db.Update(func(tx *bbolt.Tx) error {
+		return tx.DeleteBucket([]byte(namespace))
+	})
+}
+
 // itob returns an 8-byte big endian representation of v.
 func itob(v uint64) []byte {
 	b := make([]byte, 8)
@@ -135,10 +165,25 @@ func itob(v uint64) []byte {
 	return b
 }
 
-func (cdb *CacheDB) Destroy() error {
+// Reset will wait for all pending operations to complete and then destroy and
+// recreate the database.
+func (cdb *CacheDB) Reset() error {
+	cdb.dbLock.Lock()
+	defer cdb.dbLock.Unlock()
+
 	if err := cdb.db.Close(); err != nil {
 		return err
 	}
 
-	return os.Remove(cdb.dbPath)
+	if err := os.Remove(cdb.dbPath); err != nil {
+		return err
+	}
+
+	db, err := bbolt.Open(cdb.dbPath, 0644, cacheDBOpts)
+	if err != nil {
+		return err
+	}
+
+	cdb.db = db
+	return nil
 }
