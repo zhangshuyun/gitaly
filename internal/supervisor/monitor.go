@@ -3,11 +3,11 @@ package supervisor
 import (
 	"os/exec"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
-	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 )
 
 var (
@@ -82,7 +82,7 @@ func getRss(pid int) int {
 		return 0
 	}
 
-	rss, err := strconv.Atoi(text.ChompBytes(psRss))
+	rss, err := strconv.Atoi(strings.TrimSpace(string(psRss)))
 	if err != nil {
 		return 0
 	}
