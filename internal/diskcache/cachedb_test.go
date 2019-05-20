@@ -11,6 +11,7 @@ import (
 	_ "github.com/etcd-io/bbolt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/internal/diskcache"
 )
 
@@ -20,6 +21,7 @@ func TestCacheDB(t *testing.T) {
 
 	namespace := "@hashed/abcd/1234"
 	key := "InfoRefsUploadPack"
+	repo := &gitalypb.Repository{}
 
 	_, err := db.GetStream(namespace, key)
 	require.Equal(t, diskcache.ErrNamespaceNotFound, err)

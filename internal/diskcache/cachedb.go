@@ -2,6 +2,7 @@ package diskcache
 
 import (
 	"bufio"
+	"crypto/sha256"
 	"encoding/binary"
 	"errors"
 	"io"
@@ -10,6 +11,8 @@ import (
 	"time"
 
 	"github.com/etcd-io/bbolt"
+	"github.com/golang/protobuf/proto"
+	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
 )
 
 type CacheDB struct {
@@ -39,11 +42,17 @@ var (
 	ErrKeyNotFound       = errors.New("key not found within namespace")
 )
 
-// GetStream will fetch the key value within the provided namespace. It is the
-// responsibility of the caller to close the stream when done.
-func (cdb *CacheDB) GetStream(namespace, key string) (io.ReadCloser, error) {
+// GetStream will fetch the cached stream for a request within the provided
+// repository namespace. It is the responsibility of the caller to close the
+// stream when done.
+func (cdb *CacheDB) GetStream(repo *gitalypb.Repository, req proto.Message) (io.ReadCloser, error) {
 	cdb.dbLock.RLock()
 	defer cdb.dbLock.RUnlock()
+
+	namespace, key, err := namespaceKey(repo, req)
+	if err != nil {
+		return nil, err
+	}
 
 	r, w := io.Pipe()
 	ready := make(chan struct{})
@@ -54,12 +63,12 @@ func (cdb *CacheDB) GetStream(namespace, key string) (io.ReadCloser, error) {
 		defer w.CloseWithError(err)
 
 		err = cdb.db.View(func(tx *bbolt.Tx) error {
-			namespaceB := tx.Bucket([]byte(namespace))
+			namespaceB := tx.Bucket(namespace)
 			if namespaceB == nil {
 				return ErrNamespaceNotFound
 			}
 
-			keyB := namespaceB.Bucket([]byte(key))
+			keyB := namespaceB.Bucket(key)
 			if keyB == nil {
 				return ErrKeyNotFound
 			}
@@ -93,26 +102,31 @@ func (cdb *CacheDB) GetStream(namespace, key string) (io.ReadCloser, error) {
 	return r, nil
 }
 
-func (cdb *CacheDB) PutStream(namespace, key string, src io.Reader) error {
+func (cdb *CacheDB) PutStream(repo *gitalypb.Repository, req proto.Message, src io.Reader) error {
 	cdb.dbLock.RLock()
 	defer cdb.dbLock.RUnlock()
 
+	namespace, key, err := namespaceKey(repo, req)
+	if err != nil {
+		return err
+	}
+
 	return cdb.db.Update(func(tx *bbolt.Tx) error {
-		namespaceB, err := tx.CreateBucketIfNotExists([]byte(namespace))
+		namespaceB, err := tx.CreateBucketIfNotExists(namespace)
 		if err != nil {
 			return err
 		}
 
-		keyB, err := namespaceB.CreateBucket([]byte(key))
+		keyB, err := namespaceB.CreateBucket(key)
 		switch err {
 		case nil:
 			break
 		case bbolt.ErrBucketExists:
-			if err := namespaceB.DeleteBucket([]byte(key)); err != nil {
+			if err := namespaceB.DeleteBucket(key); err != nil {
 				return err
 			}
 			// try again...
-			keyB, err = namespaceB.CreateBucket([]byte(key))
+			keyB, err = namespaceB.CreateBucket(key)
 			if err != nil {
 				return err
 			}
@@ -186,4 +200,28 @@ func (cdb *CacheDB) Reset() error {
 
 	cdb.db = db
 	return nil
+}
+
+func namespaceKey(repo *gitalypb.Repository, req proto.Message) (namespace []byte, key []byte, err error) {
+	namespace, err = protoSHA256(repo)
+	if err != nil {
+		return
+	}
+
+	key, err = protoSHA256(req)
+	if err != nil {
+		return
+	}
+
+	return
+}
+
+func protoSHA256(msg proto.Message) ([]byte, error) {
+	pb, err := proto.Marshal(msg)
+	if err != nil {
+		return nil, err
+	}
+
+	sum := sha256.Sum256(pb)
+	return sum[:], nil
 }

@@ -8,12 +8,18 @@ import (
 	grpc_logrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
+	"gitlab.com/gitlab-org/gitaly/internal/diskcache"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/pktline"
+	"gitlab.com/gitlab-org/gitaly/internal/global"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/streamio"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+)
+
+const (
+	uploadPack = "upload-pack"
 )
 
 // InfoRefsUploadPack is called when user is fetching info-refs over HTTP
@@ -21,7 +27,38 @@ func (s *server) InfoRefsUploadPack(in *gitalypb.InfoRefsRequest, stream gitalyp
 	w := streamio.NewWriter(func(p []byte) error {
 		return stream.Send(&gitalypb.InfoRefsResponse{Data: p})
 	})
-	return handleInfoRefs(stream.Context(), "upload-pack", in, w)
+
+	db, err := global.DiskcacheDB()
+	if err != nil {
+		withServiceLogger(stream.Context(), uploadPack).Warnf("disk cache DB unavailable: %s", err)
+		return handleInfoRefs(stream.Context(), uploadPack, in, w)
+	}
+
+	src, err := db.GetStream(in.GetRepository().GetRelativePath(), uploadPack)
+	switch err {
+	case nil:
+		withServiceLogger(stream.Context(), uploadPack).Info("cache hit")
+		_, err := io.Copy(w, src)
+		return helper.ErrInternal(err)
+
+	case diskcache.ErrNamespaceNotFound, diskcache.ErrKeyNotFound:
+		withServiceLogger(stream.Context(), uploadPack).Info("cache miss")
+		pr, pw := io.Pipe()
+		defer pw.Close()
+
+		go func() {
+			err := db.PutStream(in.GetRepository().GetRelativePath(), uploadPack, pr)
+			if err != nil {
+				withServiceLogger(stream.Context(), uploadPack).Warnf("unable to cache stream: %s", err)
+			}
+		}()
+
+		return handleInfoRefs(stream.Context(), uploadPack, in, pw)
+
+	default:
+		withServiceLogger(stream.Context(), uploadPack).Infof("cache error: %s", err)
+		return handleInfoRefs(stream.Context(), uploadPack, in, w)
+	}
 }
 
 func (s *server) InfoRefsReceivePack(in *gitalypb.InfoRefsRequest, stream gitalypb.SmartHTTPService_InfoRefsReceivePackServer) error {
@@ -29,6 +66,12 @@ func (s *server) InfoRefsReceivePack(in *gitalypb.InfoRefsRequest, stream gitaly
 		return stream.Send(&gitalypb.InfoRefsResponse{Data: p})
 	})
 	return handleInfoRefs(stream.Context(), "receive-pack", in, w)
+}
+
+func withServiceLogger(ctx context.Context, service string) *log.Entry {
+	return grpc_logrus.Extract(ctx).WithFields(log.Fields{
+		"service": service,
+	})
 }
 
 func handleInfoRefs(ctx context.Context, service string, req *gitalypb.InfoRefsRequest, w io.Writer) error {

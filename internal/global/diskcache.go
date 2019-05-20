@@ -6,6 +6,7 @@ import (
 	"errors"
 	"path/filepath"
 
+	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/internal/config"
 	"gitlab.com/gitlab-org/gitaly/internal/diskcache"
 )
@@ -28,6 +29,7 @@ func DiskcacheDB() (*diskcache.CacheDB, error) {
 	}
 
 	dbPath := filepath.Join(config.Config.Storages[0].Path, diskcacheDBName)
+	logrus.Infof("Creating global disk cache DB at %s", dbPath)
 	dcdb, err := diskcache.CreateDB(dbPath)
 	if err != nil {
 		return nil, err
