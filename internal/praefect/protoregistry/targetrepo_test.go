@@ -63,7 +63,7 @@ func TestProtoRegistryTargetRepo(t *testing.T) {
 	for _, tc := range testcases {
 		desc := fmt.Sprintf("%s:%s %s", tc.svc, tc.method, tc.desc)
 		t.Run(desc, func(t *testing.T) {
-			info, err := r.LookupMethod(tc.svc, tc.method)
+			info, err := r.LookupMethod(fmt.Sprintf("/gitaly.%s/%s", tc.svc, tc.method))
 			require.NoError(t, err)
 
 			actualTarget, actualErr := info.TargetRepo(tc.pbMsg)

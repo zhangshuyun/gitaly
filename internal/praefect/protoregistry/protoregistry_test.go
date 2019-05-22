@@ -1,6 +1,7 @@
 package protoregistry_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -187,7 +188,7 @@ func TestPopulatesProtoRegistry(t *testing.T) {
 
 	for serviceName, methods := range expectedResults {
 		for methodName, opType := range methods {
-			methodInfo, err := r.LookupMethod(serviceName, methodName)
+			methodInfo, err := r.LookupMethod(fmt.Sprintf("/gitaly.%s/%s", serviceName, methodName))
 			require.NoError(t, err)
 			assert.Equalf(t, opType, methodInfo.Operation, "expect %s:%s to have the correct op type", serviceName, methodName)
 		}

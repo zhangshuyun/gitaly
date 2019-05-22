@@ -66,33 +66,35 @@ func (mi MethodInfo) TargetRepo(msg proto.Message) (*gitalypb.Repository, error)
 // Registry contains info about RPC methods
 type Registry struct {
 	sync.RWMutex
-	protos map[string]map[string]MethodInfo
+	protos map[string]MethodInfo
 }
 
 // New creates a new ProtoRegistry
 func New() *Registry {
 	return &Registry{
-		protos: make(map[string]map[string]MethodInfo),
+		protos: make(map[string]MethodInfo),
 	}
 }
 
-// RegisterFiles takes one or more descriptor.FileDescriptorProto and populates the registry with its info
+// RegisterFiles takes one or more descriptor.FileDescriptorProto and populates
+// the registry with its info
 func (pr *Registry) RegisterFiles(protos ...*descriptor.FileDescriptorProto) error {
 	pr.Lock()
 	defer pr.Unlock()
 
 	for _, p := range protos {
-		for _, serviceDescriptorProto := range p.GetService() {
-			for _, methodDescriptorProto := range serviceDescriptorProto.GetMethod() {
-				mi, err := parseMethodInfo(methodDescriptorProto)
+		for _, svc := range p.GetService() {
+			for _, method := range svc.GetMethod() {
+				mi, err := parseMethodInfo(method)
 				if err != nil {
 					return err
 				}
 
-				if _, ok := pr.protos[serviceDescriptorProto.GetName()]; !ok {
-					pr.protos[serviceDescriptorProto.GetName()] = make(map[string]MethodInfo)
-				}
-				pr.protos[serviceDescriptorProto.GetName()][methodDescriptorProto.GetName()] = mi
+				fullMethodName := fmt.Sprintf(
+					"/%s.%s/%s",
+					p.GetPackage(), svc.GetName(), method.GetName(),
+				)
+				pr.protos[fullMethodName] = mi
 			}
 		}
 	}
@@ -189,16 +191,13 @@ func parseOID(rawFieldOID string) ([]int, error) {
 }
 
 // LookupMethod looks up an MethodInfo by service and method name
-func (pr *Registry) LookupMethod(service, method string) (MethodInfo, error) {
+func (pr *Registry) LookupMethod(fullMethodName string) (MethodInfo, error) {
 	pr.RLock()
 	defer pr.RUnlock()
 
-	if _, ok := pr.protos[service]; !ok {
-		return MethodInfo{}, fmt.Errorf("service not found: %v", service)
-	}
-	methodInfo, ok := pr.protos[service][method]
+	methodInfo, ok := pr.protos[fullMethodName]
 	if !ok {
-		return MethodInfo{}, fmt.Errorf("method not found: %v", method)
+		return MethodInfo{}, fmt.Errorf("Full method name not found: %v", fullMethodName)
 	}
 	return methodInfo, nil
 }
