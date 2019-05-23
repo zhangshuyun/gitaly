@@ -1,5 +1,11 @@
 # Gitaly changelog
 
+## v1.42.2
+
+#### Security
+- Fix GetArchive injection vulnerability
+  https://gitlab.com/gitlab-org/gitaly/merge_requests/27
+
 ## v1.42.1
 
 #### Fixed
