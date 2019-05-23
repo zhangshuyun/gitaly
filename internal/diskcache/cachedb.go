@@ -163,9 +163,16 @@ func (cdb *CacheDB) PutStream(repo *gitalypb.Repository, req proto.Message, src 
 	})
 }
 
-func (cdb *CacheDB) DelNamespace(namespace string) error {
+// InvalidateRepo will delete the repo's namespace. This is useful when the repo
+// has been modified and the cache can no longer be trusted.
+func (cdb *CacheDB) InvalidateRepo(repo *gitalypb.Repository) error {
 	cdb.dbLock.RLock()
 	defer cdb.dbLock.RUnlock()
+
+	namespace, err := protoSHA256(repo)
+	if err != nil {
+		return err
+	}
 
 	return cdb.db.Update(func(tx *bbolt.Tx) error {
 		return tx.DeleteBucket([]byte(namespace))
