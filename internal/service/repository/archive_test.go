@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -218,6 +220,80 @@ func TestGetArchiveFailure(t *testing.T) {
 			testhelper.RequireGrpcError(t, err, tc.code)
 		})
 	}
+}
+
+func TestGetArchivePathInjection(t *testing.T) {
+	server, serverSocketPath := runRepoServer(t)
+	defer server.Stop()
+
+	client, conn := newRepositoryClient(t, serverSocketPath)
+	defer conn.Close()
+
+	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepoWithWorktree(t)
+	defer cleanupFn()
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	// Adding a temp directory representing the .ssh directory
+	sshDirectory, err := ioutil.TempDir("", ".ssh")
+	require.NoError(t, err)
+	require.NoError(t, os.MkdirAll(sshDirectory, os.ModeDir|0755))
+
+	// Adding an empty authorized_keys file
+	authorizedKeysPath := filepath.Join(sshDirectory, "authorized_keys")
+
+	authorizedKeysFile, err := os.Create(authorizedKeysPath)
+	require.NoError(t, err)
+	require.NoError(t, authorizedKeysFile.Close())
+
+	// Create the directory on the repository
+	repoExploitPath := filepath.Join(testRepoPath, "--output=", authorizedKeysPath)
+	require.NoError(t, os.MkdirAll(repoExploitPath, os.ModeDir|0755))
+
+	f, err := os.Create(filepath.Join(repoExploitPath, "id_12345.pub"))
+	require.NoError(t, err)
+
+	evilPubKeyFile := fmt.Sprintf(`#
+		ssh-ed25519 my_super_evil_ssh_pubkey
+		#`)
+
+	_, err = fmt.Fprintf(f, evilPubKeyFile)
+	require.NoError(t, err)
+	require.NoError(t, f.Close())
+
+	// Add the directory to the repository
+	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "add", ".")
+	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "commit", "-m", "adding fake key file")
+	commitID := strings.TrimRight(string(testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "rev-parse", "HEAD")), "\n")
+
+	injectionPath := fmt.Sprintf("--output=%s", authorizedKeysPath)
+
+	req := &gitalypb.GetArchiveRequest{
+		Repository: testRepo,
+		CommitId:   commitID,
+		Prefix:     "",
+		Format:     gitalypb.GetArchiveRequest_TAR,
+		Path:       []byte(injectionPath),
+	}
+
+	stream, err := client.GetArchive(ctx, req)
+	require.NoError(t, err)
+
+	_, err = consumeArchive(stream)
+	require.NoError(t, err)
+
+	authorizedKeysFile, err = os.Open(authorizedKeysPath)
+	require.NoError(t, err)
+	defer authorizedKeysFile.Close()
+
+	authorizedKeysFileBytes, err := ioutil.ReadAll(authorizedKeysFile)
+	require.NoError(t, err)
+	authorizedKeysFileStat, err := authorizedKeysFile.Stat()
+	require.NoError(t, err)
+
+	require.NotContains(t, string(authorizedKeysFileBytes), evilPubKeyFile) // this should fail first in pre-fix failing test
+	require.Zero(t, authorizedKeysFileStat.Size())
 }
 
 func compressedFileContents(t *testing.T, format gitalypb.GetArchiveRequest_Format, name string) []byte {

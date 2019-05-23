@@ -98,7 +98,7 @@ func validateGetArchivePrecondition(ctx context.Context, in *gitalypb.GetArchive
 
 func handleArchive(ctx context.Context, writer io.Writer, in *gitalypb.GetArchiveRequest, compressCmd *exec.Cmd, format string, path string) error {
 	archiveCommand, err := git.Command(ctx, in.GetRepository(), "archive",
-		"--format="+format, "--prefix="+in.GetPrefix()+"/", in.GetCommitId(), path)
+		"--format="+format, "--prefix="+in.GetPrefix()+"/", in.GetCommitId(), "--", path)
 
 	if err != nil {
 		return err
