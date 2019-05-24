@@ -1,4 +1,4 @@
-package cleanup
+package cleanup_test
 
 import (
 	"net"
@@ -8,6 +8,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
+	"gitlab.com/gitlab-org/gitaly/internal/service/cleanup"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 )
 
@@ -20,7 +21,7 @@ func runCleanupServiceServer(t *testing.T) (*grpc.Server, string) {
 		t.Fatal(err)
 	}
 
-	gitalypb.RegisterCleanupServiceServer(grpcServer, NewServer())
+	gitalypb.RegisterCleanupServiceServer(grpcServer, cleanup.NewServer())
 	reflection.Register(grpcServer)
 
 	go grpcServer.Serve(listener)

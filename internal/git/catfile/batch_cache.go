@@ -157,6 +157,24 @@ func (bc *batchCache) EvictAll() {
 	}
 }
 
+func EvictCacheBySessionID(sessionID string) {
+	cache.EvictBySessionID(sessionID)
+}
+
+func (bc *batchCache) EvictBySessionID(sessionID string) {
+	bc.Lock()
+	defer bc.Unlock()
+
+	for i := 0; i < len(bc.entries); i++ {
+		ent := bc.entries[i]
+		if ent.key.sessionID == sessionID {
+			bc.delete(i, true)
+			i--
+		}
+	}
+	catfileCacheMembers.Set(float64(bc.len()))
+}
+
 // ExpireAll is used to expire all of the batches in the cache
 func ExpireAll() {
 	cache.EvictAll()

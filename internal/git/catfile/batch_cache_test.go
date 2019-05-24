@@ -153,6 +153,41 @@ func TestAutoExpiry(t *testing.T) {
 	bc.Unlock()
 }
 
+func TestExpireBySessionID(t *testing.T) {
+
+	ttl := 5 * time.Millisecond
+	bc := newCacheWithRefresh(ttl, 10, 1*time.Millisecond)
+
+	keysToGetEvicted := []key{
+		key{sessionID: "a", repoRelPath: "path_a"},
+		key{sessionID: "a", repoRelPath: "path_b"},
+	}
+
+	keysToRemain := []key{
+		key{sessionID: "b", repoRelPath: "path_b"},
+		key{sessionID: "c", repoRelPath: "path_b"},
+		key{sessionID: "d", repoRelPath: "path_b"},
+		key{sessionID: "e", repoRelPath: "path_b"},
+		key{sessionID: "f", repoRelPath: "path_b"},
+	}
+
+	for _, key := range append(keysToGetEvicted, keysToRemain...) {
+		bc.Add(key, testValue())
+	}
+
+	bc.EvictBySessionID("a")
+
+	for _, k := range keysToGetEvicted {
+		_, ok := bc.Checkout(k)
+		require.False(t, ok)
+	}
+
+	for _, k := range keysToRemain {
+		_, ok := bc.Checkout(k)
+		require.True(t, ok)
+	}
+}
+
 func requireCacheValid(t *testing.T, bc *batchCache) {
 	bc.Lock()
 	defer bc.Unlock()
