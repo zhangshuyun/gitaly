@@ -67,7 +67,7 @@ func (sc StreamCache) Get(id, tag string, cacheMissFn func() (io.Reader, error))
 	}
 	logrus.WithField(logWithDiskCache, entryPath).Infof("disk cache stored %d bytes", n)
 
-	if _, err := dst.Seek(0, os.SEEK_SET); err != nil {
+	if _, err := dst.Seek(0, io.SeekStart); err != nil {
 		return nil, err
 	}
 
