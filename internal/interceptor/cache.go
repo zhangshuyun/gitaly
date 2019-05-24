@@ -2,6 +2,7 @@ package interceptor
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/sirupsen/logrus"
@@ -10,12 +11,15 @@ import (
 	"google.golang.org/grpc"
 )
 
-type Cache interface {
+// RepoCache is a cache that is able to invalidate parts of the cache
+// pertinent to a specific repository.
+type RepoCache interface {
 	InvalidateRepo(repo *gitalypb.Repository) error
 }
 
-// Invalidator will invalidate any mutating RPC that targets a repository
-func Invalidator(c Cache, reg *protoregistry.Registry) grpc.StreamServerInterceptor {
+// StreamInvalidator will invalidate any mutating RPC that targets a repository
+// in a gRPC stream based RPC
+func StreamInvalidator(c RepoCache, reg *protoregistry.Registry) grpc.StreamServerInterceptor {
 	return func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 		mInfo, err := reg.LookupMethod(info.FullMethod)
 		if err != nil {
@@ -28,6 +32,7 @@ func Invalidator(c Cache, reg *protoregistry.Registry) grpc.StreamServerIntercep
 		case protoregistry.OpAccessor:
 			break
 		case protoregistry.OpMutator:
+			fmt.Printf("👹")
 			peekedMsg, err := peeker.PeekReq()
 			if err != nil {
 				logrus.Errorf("cache invalidator interceptor unable to peek into stream: %s", err)
@@ -42,13 +47,15 @@ func Invalidator(c Cache, reg *protoregistry.Registry) grpc.StreamServerIntercep
 				logrus.Errorf("cache invalidator interceptor unable to invalidate repo: %s", err)
 			}
 		default:
-			logrus.Errorf("cache invalidator interceptor unexpected operation type: %s", op)
+			logrus.Errorf("cache invalidator interceptor unexpected operation type: %d", op)
 		}
 
 		return handler(srv, peeker)
 	}
 }
 
+// StreamPeeker allows a stream interceptor the ability to peak into a stream
+// without removing messages from the next interceptor/handler.
 type StreamPeeker struct {
 	grpc.ServerStream
 
@@ -75,6 +82,9 @@ func (sp *StreamPeeker) PeekReq() (proto.Message, error) {
 	return pbMsg, sp.peekedErr
 }
 
+// RecvMsg overrides the embedded grpc.ServerStream's method of the same name.
+// It transparently ensures that any peeked messages are forwarded to the stream
+// as intended without the StreamPeeker.
 func (sp *StreamPeeker) RecvMsg(m interface{}) error {
 	if sp.peeked {
 		sp.peeked = false
@@ -82,5 +92,5 @@ func (sp *StreamPeeker) RecvMsg(m interface{}) error {
 		return sp.peekedErr
 	}
 
-	return sp.RecvMsg(m)
+	return sp.ServerStream.RecvMsg(m)
 }

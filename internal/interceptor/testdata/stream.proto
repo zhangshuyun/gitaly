@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package testdata;
+
+import "shared.proto";
+
+option go_package = "gitlab.com/gitlab-org/gitaly/internal/interceptor/testdata";
+
+message Request {
+  gitaly.Repository destination = 1;
+}
+
+message Response{}
+
+service TestService {
+  rpc ClientStreamRepoMutator(Request) returns (stream Response) {
+    option (gitaly.op_type) = {
+      op: MUTATOR
+      target_repository_field: "1"
+    };
+  }
+  
+  rpc ClientStreamRepoAccessor(Request) returns (stream Response) {
+    option (gitaly.op_type) = {
+      op: ACCESSOR
+    };
+  }
+}
