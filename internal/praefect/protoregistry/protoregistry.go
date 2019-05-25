@@ -21,7 +21,7 @@ var GitalyProtoFileDescriptors []*descriptor.FileDescriptorProto
 func init() {
 	for _, protoName := range gitalypb.GitalyProtos {
 		gz := proto.FileDescriptor(protoName)
-		fd, err := extractFile(gz)
+		fd, err := ExtractFileDescriptor(gz)
 		if err != nil {
 			panic(err)
 		}
@@ -48,7 +48,8 @@ const (
 type MethodInfo struct {
 	Operation   OpType
 	targetRepo  []int
-	requestName string // protobuf message name for input type
+	requestName string                        // protobuf message name for input type
+	newRequest  func() (proto.Message, error) // factory to create new request instance
 }
 
 // TargetRepo returns the target repository for a protobuf message if it exists
@@ -61,6 +62,11 @@ func (mi MethodInfo) TargetRepo(msg proto.Message) (*gitalypb.Repository, error)
 	}
 
 	return reflectFindRepoTarget(msg, mi.targetRepo)
+}
+
+// NewRequest returns a new instance of the request message type for the method
+func (mi MethodInfo) NewRequest() (proto.Message, error) {
+	return mi.newRequest()
 }
 
 // Registry contains info about RPC methods
@@ -148,10 +154,16 @@ func parseMethodInfo(methodDesc *descriptor.MethodDescriptorProto) (MethodInfo, 
 	// the two copies consistent for comparisons.
 	requestName := strings.TrimLeft(methodDesc.GetInputType(), ".")
 
+	factory, err := requestFactory(methodDesc)
+	if err != nil {
+		return MethodInfo{}, err
+	}
+
 	return MethodInfo{
 		Operation:   opCode,
 		targetRepo:  targetRepo,
 		requestName: requestName,
+		newRequest:  factory,
 	}, nil
 }
 
@@ -202,9 +214,9 @@ func (pr *Registry) LookupMethod(fullMethodName string) (MethodInfo, error) {
 	return methodInfo, nil
 }
 
-// extractFile extracts a FileDescriptorProto from a gzip'd buffer.
+// ExtractFileDescriptor extracts a FileDescriptorProto from a gzip'd buffer.
 // https://github.com/golang/protobuf/blob/9eb2c01ac278a5d89ce4b2be68fe4500955d8179/descriptor/descriptor.go#L50
-func extractFile(gz []byte) (*descriptor.FileDescriptorProto, error) {
+func ExtractFileDescriptor(gz []byte) (*descriptor.FileDescriptorProto, error) {
 	r, err := gzip.NewReader(bytes.NewReader(gz))
 	if err != nil {
 		return nil, fmt.Errorf("failed to open gzip reader: %v", err)
