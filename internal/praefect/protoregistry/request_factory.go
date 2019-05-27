@@ -13,7 +13,9 @@ import (
 // message type for an RPC method. This is useful in gRPC components that treat
 // messages generically, like a stream interceptor.
 func requestFactory(mdp *descriptor.MethodDescriptorProto) (func() (proto.Message, error), error) {
-	reqTypeName := strings.TrimPrefix(mdp.GetInputType(), ".") // not sure why this has a leading dot
+	// not sure why this has a leading dot
+	reqTypeName := strings.TrimPrefix(mdp.GetInputType(), ".")
+
 	reqType := proto.MessageType(reqTypeName)
 	if reqType == nil {
 		return nil, fmt.Errorf("unable to retrieve protobuf message type for %s", reqTypeName)
@@ -21,10 +23,12 @@ func requestFactory(mdp *descriptor.MethodDescriptorProto) (func() (proto.Messag
 
 	factory := func() (proto.Message, error) {
 		newReq := reflect.New(reqType.Elem())
+
 		val, ok := newReq.Interface().(proto.Message)
 		if !ok {
 			return nil, fmt.Errorf("method request factory does not return proto message: %#v", newReq)
 		}
+
 		return val, nil
 	}
 

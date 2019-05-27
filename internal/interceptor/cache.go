@@ -3,6 +3,8 @@ package interceptor
 import (
 	"errors"
 	"fmt"
+	"log"
+	"reflect"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/sirupsen/logrus"
@@ -17,6 +19,10 @@ type RepoCache interface {
 	InvalidateRepo(repo *gitalypb.Repository) error
 }
 
+type RequestFactory interface {
+	NewRequest() (proto.Message, error)
+}
+
 // StreamInvalidator will invalidate any mutating RPC that targets a repository
 // in a gRPC stream based RPC
 func StreamInvalidator(c RepoCache, reg *protoregistry.Registry) grpc.StreamServerInterceptor {
@@ -26,13 +32,15 @@ func StreamInvalidator(c RepoCache, reg *protoregistry.Registry) grpc.StreamServ
 			logrus.Errorf("unable to lookup method information for %+v", info)
 		}
 
-		peeker := &StreamPeeker{ServerStream: ss}
+		peeker := &StreamPeeker{
+			ServerStream: ss,
+			reqFactory:   mInfo,
+		}
 
 		switch op := mInfo.Operation; op {
 		case protoregistry.OpAccessor:
 			break
 		case protoregistry.OpMutator:
-			fmt.Printf("👹")
 			peekedMsg, err := peeker.PeekReq()
 			if err != nil {
 				logrus.Errorf("cache invalidator interceptor unable to peek into stream: %s", err)
@@ -59,9 +67,11 @@ func StreamInvalidator(c RepoCache, reg *protoregistry.Registry) grpc.StreamServ
 type StreamPeeker struct {
 	grpc.ServerStream
 
-	peeked    bool        // did you peek?
-	peekedMsg interface{} // what did you peek?
-	peekedErr error       // what did you screw up when you peeked?
+	peeked    bool          // did you peek?
+	peekedMsg proto.Message // what did you peek?
+	peekedErr error         // what did you screw up when you peeked?
+
+	reqFactory RequestFactory
 }
 
 // PeekMsg will peek one message into the stream to obtain the client's first
@@ -71,15 +81,19 @@ func (sp *StreamPeeker) PeekReq() (proto.Message, error) {
 	if sp.peeked {
 		return nil, errors.New("already peeked")
 	}
-	sp.peeked = true
-	sp.peekedErr = sp.ServerStream.RecvMsg(sp.peekedMsg)
 
-	pbMsg, ok := sp.peekedMsg.(proto.Message)
-	if !ok {
-		return nil, errors.New("peeked message is not protobuf")
+	sp.peeked = true
+
+	var err error
+	sp.peekedMsg, err = sp.reqFactory.NewRequest()
+	if err != nil {
+		return nil, err
 	}
 
-	return pbMsg, sp.peekedErr
+	sp.peekedErr = sp.ServerStream.RecvMsg(sp.peekedMsg)
+	log.Printf("👽: %#v", sp.peekedMsg)
+
+	return sp.peekedMsg, sp.peekedErr
 }
 
 // RecvMsg overrides the embedded grpc.ServerStream's method of the same name.
@@ -89,6 +103,16 @@ func (sp *StreamPeeker) RecvMsg(m interface{}) error {
 	if sp.peeked {
 		sp.peeked = false
 		m = sp.peekedMsg
+		log.Printf("Forwarding peeked msg: %#v", sp.peekedMsg)
+
+		mv := reflect.ValueOf(m)
+		if mv.Kind() != reflect.Ptr || mv.IsNil() {
+			return fmt.Errorf("receievd message of wrong type: %s", mv.Type())
+		}
+		mv.Elem().Set(reflect.ValueOf(sp.peekedMsg).Elem())
+
+		log.Printf("🤖: %#v", m)
+
 		return sp.peekedErr
 	}
 

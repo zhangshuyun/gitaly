@@ -2,6 +2,7 @@ package interceptor_test
 
 import (
 	"context"
+	"log"
 	"net"
 	"testing"
 	"time"
@@ -19,7 +20,6 @@ import (
 
 //go:generate make testdata/stream.pb.go
 func TestStreamInvalidator(t *testing.T) {
-
 	cache, repoQ := newMockCache()
 
 	reg := protoregistry.New()
@@ -60,16 +60,28 @@ func TestStreamInvalidator(t *testing.T) {
 	}()
 
 	for i := 0; i < len(expectedInvalidations); i++ {
-		t.Logf("waiting for repo invalidation #%d", i)
+		expect := expectedInvalidations[i]
 		select {
-		case repo := <-repoQ:
-			require.Equal(t, expectedInvalidations[i], repo)
+		case actual := <-repoQ:
+			requireReposEqual(t, actual, expect)
 		case <-ctx.Done():
-			break
+			require.Fail(t, "test timed out")
 		}
 
 	}
 
+	cancel()
+}
+
+// requireReposEqual only compares "important" fields of a repo and ignores
+// XXX_* fields
+func requireReposEqual(t testing.TB, expect, actual *gitalypb.Repository) {
+	require.Equal(t, expect.GitAlternateObjectDirectories, actual.GitAlternateObjectDirectories)
+	require.Equal(t, expect.GitObjectDirectory, actual.GitObjectDirectory)
+	require.Equal(t, expect.GlProjectPath, actual.GlProjectPath)
+	require.Equal(t, expect.GlRepository, actual.GlRepository)
+	require.Equal(t, expect.RelativePath, actual.RelativePath)
+	require.Equal(t, expect.StorageName, actual.StorageName)
 }
 
 // mockCache allows us to relay back via channel which repos are being
@@ -107,6 +119,7 @@ func newTestSvc(t testing.TB, ctx context.Context, srvr *grpc.Server, svc testda
 	}()
 
 	cleanup := func() {
+		srvr.Stop()
 		require.NoError(t, <-errQ)
 	}
 
@@ -121,11 +134,19 @@ func newTestSvc(t testing.TB, ctx context.Context, srvr *grpc.Server, svc testda
 	return testdata.NewTestServiceClient(cc), cleanup
 }
 
-type testSvc struct{}
+type testSvc struct {
+	clientStreamRepoMutatorQ chan<- *testdata.Request
+}
 
-func (ts *testSvc) ClientStreamRepoMutator(*testdata.Request, testdata.TestService_ClientStreamRepoMutatorServer) error {
+func (ts *testSvc) ClientStreamRepoMutator(req *testdata.Request, cli testdata.TestService_ClientStreamRepoMutatorServer) error {
+	log.Printf("req: %#v", req)
+	req = new(testdata.Request)
+	cli.RecvMsg(req)
+	log.Printf("req: %#v", req)
+	//req <- clientStreamRepoMutatorQ
 	return nil
 }
+
 func (ts *testSvc) ClientStreamRepoAccessor(*testdata.Request, testdata.TestService_ClientStreamRepoAccessorServer) error {
 	return nil
 }
