@@ -21,7 +21,7 @@ def main
 
   puts "\n\n---\nWith bitmap\n---"
   2.times do
-    pack_objects(bitmap)
+    run!(%W[gitaly-debug simulate-http-clone #{bitmap}])
     puts "---\n\n"
   end
 
@@ -33,7 +33,7 @@ def main
 
   puts "\n\n---\nWith bitmap and bitmap hash cache\n---"
   2.times do
-    pack_objects(bitmapHC)
+    run!(%W[gitaly-debug simulate-http-clone #{bitmapHC}])
     puts "---\n\n"
   end
 
@@ -44,11 +44,11 @@ def main
     run!(%W[git -C #{delta} config] + cfg.split('=', 2))
   end
 
-  run!(%W[git -C #{delta} repack -afd])
+  run!(%W[git -C #{delta} repack -ad])
 
   puts "\n\n---\nWith bitmap and delta islands\n---"
   2.times do
-    pack_objects(delta)
+    run!(%W[gitaly-debug simulate-http-clone #{delta}])
     puts "---\n\n"
   end
 
@@ -57,7 +57,7 @@ def main
 
   puts "\n\n---\nWith bitmap, delta islands and bitmap hash cache\n---"
   2.times do
-    pack_objects(delta)
+    run!(%W[gitaly-debug simulate-http-clone #{delta}])
     puts "---\n\n"
   end
 ensure
