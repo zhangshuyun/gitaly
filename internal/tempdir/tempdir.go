@@ -27,6 +27,10 @@ const (
 	// directories.
 	TmpRootPrefix = GitalyDataPrefix + "/tmp"
 
+	// CachePrefix is the directory where we store ephemeral disk-based caches
+	// that can be removed at anytime.
+	CachePrefix = GitalyDataPrefix + "/cache"
+
 	// MaxAge is used by ForDeleteAllRepositories. It is also a fallback
 	// for the context-scoped temporary directories, to ensure they get
 	// cleaned up if the cleanup at the end of the context failed to run.

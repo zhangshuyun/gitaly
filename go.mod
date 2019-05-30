@@ -3,7 +3,9 @@ module gitlab.com/gitlab-org/gitaly
 require (
 	github.com/BurntSushi/toml v0.3.1
 	github.com/cloudflare/tableflip v0.0.0-20190329062924-8392f1641731
+	github.com/dchest/safefile v0.0.0-20151022103144-855e8d98f185
 	github.com/getsentry/raven-go v0.1.2
+	github.com/gofrs/flock v0.7.1
 	github.com/golang/protobuf v1.3.1
 	github.com/grpc-ecosystem/go-grpc-middleware v1.0.0
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
