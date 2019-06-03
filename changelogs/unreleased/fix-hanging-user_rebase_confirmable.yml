@@ -1,5 +1,0 @@
----
-title: Fix UserRebaseConfirmable not sending PreReceiveError and GitError responses to client
-merge_request: 1270
-author:
-type: fixed

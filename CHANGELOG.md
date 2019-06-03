@@ -1,5 +1,11 @@
 # Gitaly changelog
 
+## v1.42.3
+
+#### Fixed
+- Fix UserRebaseConfirmable not sending PreReceiveError and GitError responses to client
+  https://gitlab.com/gitlab-org/gitaly/merge_requests/1270
+
 ## v1.42.2
 
 #### Security
