@@ -225,9 +225,9 @@ module GitalyServer
 
           y << Gitaly::UserRebaseConfirmableResponse.new(rebase_applied: true)
         rescue Gitlab::Git::PreReceiveError => e
-          Gitaly::UserRebaseConfirmableResponse.new(pre_receive_error: set_utf8!(e.message))
+          y << Gitaly::UserRebaseConfirmableResponse.new(pre_receive_error: set_utf8!(e.message))
         rescue Gitlab::Git::Repository::GitError => e
-          Gitaly::UserRebaseConfirmableResponse.new(git_error: set_utf8!(e.message))
+          y << Gitaly::UserRebaseConfirmableResponse.new(git_error: set_utf8!(e.message))
         rescue Gitlab::Git::CommitError => e
           raise GRPC::FailedPrecondition.new(e.message)
         end

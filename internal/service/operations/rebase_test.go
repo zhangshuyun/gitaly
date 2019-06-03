@@ -261,6 +261,110 @@ func TestFailedUserRebaseConfirmableDueToApplyBeingFalse(t *testing.T) {
 	require.NotEqual(t, newBranchSha, firstResponse.GetRebaseSha(), "branch should not be the sha returned when the rebase is not applied")
 }
 
+func TestFailedUserRebaseConfirmableRequestDueToPreReceiveError(t *testing.T) {
+	ctxOuter, cancel := testhelper.Context()
+	defer cancel()
+
+	server, serverSocketPath := runFullServer(t)
+	defer server.Stop()
+
+	client, conn := operations.NewOperationClient(t, serverSocketPath)
+	defer conn.Close()
+
+	testRepo, testRepoPath, cleanup := testhelper.NewTestRepo(t)
+	defer cleanup()
+
+	testRepoCopy, _, cleanup := testhelper.NewTestRepo(t)
+	defer cleanup()
+
+	branchSha := getBranchSha(t, testRepoPath, branchName)
+
+	hookContent := []byte("#!/bin/sh\necho 'failure'\nexit 1")
+
+	for i, hookName := range operations.GitlabPreHooks {
+		t.Run(hookName, func(t *testing.T) {
+			remove, err := operations.OverrideHooks(hookName, hookContent)
+			require.NoError(t, err, "set up hooks override")
+			defer remove()
+
+			md := testhelper.GitalyServersMetadata(t, serverSocketPath)
+			ctx := metadata.NewOutgoingContext(ctxOuter, md)
+
+			rebaseStream, err := client.UserRebaseConfirmable(ctx)
+			require.NoError(t, err)
+
+			headerRequest := buildHeaderRequest(testRepo, rebaseUser, fmt.Sprintf("%v", i), branchName, branchSha, testRepoCopy, "master")
+			require.NoError(t, rebaseStream.Send(headerRequest), "send header")
+
+			firstResponse, err := rebaseStream.Recv()
+			require.NoError(t, err, "receive first response")
+
+			_, err = gitlog.GetCommit(ctx, testRepo, firstResponse.GetRebaseSha())
+			require.NoError(t, err, "look up git commit before rebase is applied")
+
+			applyRequest := buildApplyRequest(true)
+			require.NoError(t, rebaseStream.Send(applyRequest), "apply rebase")
+
+			secondResponse, err := rebaseStream.Recv()
+
+			require.NoError(t, err, "receive second response")
+			require.Contains(t, secondResponse.PreReceiveError, "failure")
+
+			err = testhelper.ReceiveEOFWithTimeout(func() error {
+				_, err = rebaseStream.Recv()
+				return err
+			})
+			require.NoError(t, err, "consume EOF")
+
+			newBranchSha := getBranchSha(t, testRepoPath, branchName)
+			require.Equal(t, branchSha, newBranchSha, "branch should not change when the rebase fails due to PreReceiveError")
+			require.NotEqual(t, newBranchSha, firstResponse.GetRebaseSha(), "branch should not be the sha returned when the rebase fails due to PreReceiveError")
+		})
+	}
+}
+
+func TestFailedUserRebaseConfirmableDueToGitError(t *testing.T) {
+	ctxOuter, cancel := testhelper.Context()
+	defer cancel()
+
+	server, serverSocketPath := runFullServer(t)
+	defer server.Stop()
+
+	client, conn := operations.NewOperationClient(t, serverSocketPath)
+	defer conn.Close()
+
+	testRepo, testRepoPath, cleanup := testhelper.NewTestRepo(t)
+	defer cleanup()
+
+	testRepoCopy, _, cleanup := testhelper.NewTestRepo(t)
+	defer cleanup()
+
+	failedBranchName := "rebase-encoding-failure-trigger"
+	branchSha := getBranchSha(t, testRepoPath, failedBranchName)
+
+	md := testhelper.GitalyServersMetadata(t, serverSocketPath)
+	ctx := metadata.NewOutgoingContext(ctxOuter, md)
+
+	rebaseStream, err := client.UserRebaseConfirmable(ctx)
+	require.NoError(t, err)
+
+	headerRequest := buildHeaderRequest(testRepo, rebaseUser, "1", failedBranchName, branchSha, testRepoCopy, "master")
+	require.NoError(t, rebaseStream.Send(headerRequest), "send header")
+
+	firstResponse, err := rebaseStream.Recv()
+	require.NoError(t, err, "receive first response")
+	require.Contains(t, firstResponse.GitError, "error: Failed to merge in the changes.")
+
+	err = testhelper.ReceiveEOFWithTimeout(func() error {
+		_, err = rebaseStream.Recv()
+		return err
+	})
+	require.NoError(t, err, "consume EOF")
+
+	newBranchSha := getBranchSha(t, testRepoPath, failedBranchName)
+	require.Equal(t, branchSha, newBranchSha, "branch should not change when the rebase fails due to GitError")
+}
+
 // DEPRECATED: https://gitlab.com/gitlab-org/gitaly/issues/1628
 func TestSuccessfulUserRebaseRequest(t *testing.T) {
 	ctxOuter, cancel := testhelper.Context()
