@@ -244,5 +244,18 @@ func TestCommandStdErrLongLine(t *testing.T) {
 	assert.Empty(t, stdout.Bytes())
 	assert.NotEmpty(t, stderr.Bytes())
 	assert.Equal(t, fmt.Sprintf("%s\\n%s", strings.Repeat("a", StderrBufferSize), strings.Repeat("b", StderrBufferSize)), stderr.String())
-	//	t.Logf(stderr.String())
+}
+
+func TestCommandStdErrMaxBytes(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	var stdout, stderr bytes.Buffer
+
+	cmd, err := New(ctx, exec.Command("./testdata/stderr_max_bytes_edge_case.sh"), nil, &stdout, &stderr)
+	require.NoError(t, err)
+
+	require.Error(t, cmd.Wait())
+	assert.Empty(t, stdout.Bytes())
+	assert.NotEmpty(t, stderr.Bytes())
 }

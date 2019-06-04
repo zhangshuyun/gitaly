@@ -303,7 +303,7 @@ func writeLines(writer io.WriteCloser, reader io.Reader, done chan struct{}, max
 		}
 
 		// if we've reached the max, discard
-		if bytesWritten >= maxBytes {
+		if bytesWritten+len(escapedNewline) >= maxBytes {
 			ioutil.Discard.Write(b)
 			continue
 		}
