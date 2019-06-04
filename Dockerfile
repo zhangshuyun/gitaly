@@ -17,7 +17,7 @@ COPY ./ruby/Gemfile.lock /app/ruby/
 
 ENV DEBIAN_FRONTEND noninteractive
 RUN apt-get update -qq && \
-    apt-get install -qq -y rubygems bundler cmake build-essential libicu-dev && \
+    apt-get install -qq -y rubygems bundler cmake build-essential libicu-dev rsync && \
     cd /app/ruby && bundle install --path vendor/bundle && \
     rm -rf /var/lib/apt/lists/*
 

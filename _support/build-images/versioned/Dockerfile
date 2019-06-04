@@ -7,5 +7,5 @@ COPY ./Gemfile /bundle-cache
 COPY ./Gemfile.lock /bundle-cache
 
 RUN DEBIAN_FRONTEND=noninteractive apt-get update -qq && \
-    DEBIAN_FRONTEND=noninteractive apt-get install -qq -y rubygems bundler cmake build-essential libicu-dev && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -qq -y rubygems bundler cmake build-essential libicu-dev rsync && \
     cd /bundle-cache && bundle install --path vendor/bundle
