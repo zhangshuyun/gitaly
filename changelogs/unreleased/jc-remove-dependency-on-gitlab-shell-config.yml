@@ -1,0 +1,5 @@
+---
+title: Pass down gitlab-shell log config through env vars
+merge_request: 1293
+author:
+type: other

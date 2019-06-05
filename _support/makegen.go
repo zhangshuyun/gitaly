@@ -362,7 +362,7 @@ assemble-go: build
 .PHONY: assemble-ruby
 assemble-ruby:
 	mkdir -p $(ASSEMBLY_ROOT)
-	rm -rf {{ .GitalyRubyDir }}/tmp {{ .GitlabShellDir }}/tmp 
+	rm -rf {{ .GitalyRubyDir }}/tmp {{ .GitlabShellDir }}/tmp
 	mkdir -p $(ASSEMBLY_ROOT)/ruby/
 	rsync -a --delete  {{ .GitalyRubyDir }}/ $(ASSEMBLY_ROOT)/ruby/
 	rm -rf $(ASSEMBLY_ROOT)/ruby/spec $(ASSEMBLY_ROOT)/{{ .GitlabShellRelDir }}/spec $(ASSEMBLY_ROOT)/{{ .GitlabShellRelDir }}/gitlab-shell.log
@@ -388,12 +388,15 @@ binaries: assemble
 	git -C $@ fsck --no-progress
 
 .PHONY: prepare-tests
-prepare-tests: {{ .TestRepo }} {{ .GitTestRepo }} ../.ruby-bundle
+prepare-tests: {{ .GitlabShellDir }}/config.yml {{ .TestRepo }} {{ .GitTestRepo }} ../.ruby-bundle
+
+{{ .GitlabShellDir }}/config.yml: {{ .GitlabShellDir }}/config.yml.example
+	cp $< $@
 
 .PHONY: test
 test: test-go rspec rspec-gitlab-shell
 
-.PHONY: test-go 
+.PHONY: test-go
 test-go: prepare-tests
 	@cd {{ .SourceDir }} && go test -tags "$(BUILD_TAGS)" -count=1 {{ join .AllPackages " " }} # count=1 bypasses go 1.10 test caching
 
@@ -414,9 +417,6 @@ rspec: assemble-go prepare-tests
 rspec-gitlab-shell: {{ .GitlabShellDir }}/config.yml assemble-go prepare-tests
 	# rspec in {{ .GitlabShellRelDir }}
 	@cd  {{ .GitalyRubyDir }} && bundle exec bin/ruby-cd {{ .GitlabShellDir }} rspec
-
-{{ .GitlabShellDir }}/config.yml: {{ .GitlabShellDir }}/config.yml.example
-	cp $< $@
 
 .PHONY: verify
 verify: check-mod-tidy lint check-formatting staticcheck notice-up-to-date govendor-tagged rubocop
@@ -475,7 +475,7 @@ notice-tmp: {{ .GoVendor }} clean-ruby-vendor-go
 	cd {{ .SourceDir }} && go mod vendor
 	cd {{ .GopathSourceDir }} && env GOPATH={{ .BuildDir }} GO111MODULE=off govendor license -template _support/notice.template -o {{ .BuildDir }}/NOTICE
 
-.PHONY: clean-ruby-vendor-go 
+.PHONY: clean-ruby-vendor-go
 clean-ruby-vendor-go:
 	cd {{ .SourceDir }} && mkdir -p ruby/vendor && find ruby/vendor -type f -name '*.go' -delete
 

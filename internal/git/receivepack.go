@@ -5,6 +5,7 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/internal/config"
 	"gitlab.com/gitlab-org/gitaly/internal/git/hooks"
+	"gitlab.com/gitlab-org/gitaly/internal/gitlabshell"
 )
 
 // ReceivePackRequest abstracts away the different requests that end up
@@ -18,12 +19,12 @@ type ReceivePackRequest interface {
 // HookEnv is information we pass down to the Git hooks during
 // git-receive-pack.
 func HookEnv(req ReceivePackRequest) []string {
-	return []string{
+	return append([]string{
 		fmt.Sprintf("GL_ID=%s", req.GetGlId()),
 		fmt.Sprintf("GL_USERNAME=%s", req.GetGlUsername()),
 		fmt.Sprintf("GITLAB_SHELL_DIR=%s", config.Config.GitlabShell.Dir),
 		fmt.Sprintf("GL_REPOSITORY=%s", req.GetGlRepository()),
-	}
+	}, gitlabshell.Env()...)
 }
 
 // ReceivePackConfig contains config options we want to enforce when

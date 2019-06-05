@@ -8,8 +8,20 @@ def convert_log_level(log_level)
   Logger.const_get(log_level.upcase)
 rescue NameError
   $stderr.puts "WARNING: Unrecognized log level #{log_level.inspect}."
-  $stderr.puts "WARNING: Falling back to INFO."
-  Logger::INFO
+
+  fallback_level = Logger::INFO
+
+  case log_level
+  when 'trace'
+    fallback_level = Logger::DEBUG
+  when 'panic'
+    fallback_level = Logger::ERROR
+  end
+
+  fallback_level_name = Logger.constants.detect{ |c| Logger.const_get(c) == fallback_level}
+  $stderr.puts "WARNING: Falling back to #{fallback_level_name}"
+
+  fallback_level
 end
 
 class GitlabLogger

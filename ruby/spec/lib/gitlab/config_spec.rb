@@ -7,7 +7,7 @@ describe Gitlab::Config do
     let(:gitlab_shell_path) { '/foo/bar/gitlab-shell' }
 
     before do
-      allow(ENV).to receive(:[]).with('GITALY_RUBY_GITLAB_SHELL_PATH').and_return(gitlab_shell_path)
+      allow(ENV).to receive(:[]).with('GITALY_GITLAB_SHELL_DIR').and_return(gitlab_shell_path)
     end
 
     it { expect(subject.path).to eq(gitlab_shell_path) }

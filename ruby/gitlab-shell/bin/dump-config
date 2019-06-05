@@ -1,0 +1,12 @@
+#!/usr/bin/env ruby
+
+# only used for tests
+require 'json'
+
+require_relative '../lib/gitlab_init'
+require_relative '../lib/gitlab_config'
+require_relative '../lib/gitlab_logger'
+
+gitlab_config = GitlabConfig.new
+
+puts gitlab_config.to_json

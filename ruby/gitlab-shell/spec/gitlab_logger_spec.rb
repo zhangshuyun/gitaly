@@ -3,11 +3,15 @@ require_relative '../lib/gitlab_logger'
 require 'securerandom'
 
 describe :convert_log_level do
-  subject { convert_log_level :extreme }
-
-  it "converts invalid log level to Logger::INFO" do
-    expect($stderr).to receive(:puts).at_least(:once)
-    is_expected.to eq(Logger::INFO)
+  [
+    ['extreme', Logger::INFO],
+    ['panic', Logger::ERROR],
+    ['trace', Logger::DEBUG]
+  ].each do |level, expected|
+    it "converts invalid log level to Logger::INFO" do
+      expect($stderr).to receive(:puts).at_least(:once)
+      expect(convert_log_level(level)).to eq(expected)
+    end
   end
 end
 

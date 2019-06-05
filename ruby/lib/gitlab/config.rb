@@ -41,7 +41,7 @@ module Gitlab
       include TestSetup
 
       def path
-        @path ||= ENV['GITALY_RUBY_GITLAB_SHELL_PATH']
+        @path ||= ENV['GITALY_GITLAB_SHELL_DIR']
       end
 
       def git_timeout
@@ -69,12 +69,30 @@ module Gitlab
       end
     end
 
+    class Logging
+      def dir
+        @dir ||= ENV['GITALY_LOG_DIR']
+      end
+
+      def level
+        @level ||= ENV['GITALY_LOG_LEVEL']
+      end
+
+      def format
+        @format ||= ENV['GITALY_LOG_FORMAT']
+      end
+    end
+
     def git
       @git ||= Git.new
     end
 
     def gitlab_shell
       @gitlab_shell ||= GitlabShell.new
+    end
+
+    def logging
+      @logging ||= Logging.new
     end
 
     def gitaly

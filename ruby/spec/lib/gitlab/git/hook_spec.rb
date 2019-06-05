@@ -38,7 +38,7 @@ describe Gitlab::Git::Hook do
           'GL_PROTOCOL' => 'web',
           'PWD' => repo.path,
           'GIT_DIR' => repo.path,
-          'GITLAB_SHELL_DIR' => '/foobar/gitlab-shell'
+          'GITALY_GITLAB_SHELL_DIR' => '/foobar/gitlab-shell'
         }
       end
 
