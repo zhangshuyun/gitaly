@@ -54,14 +54,6 @@ module Gitlab
 
           result
         end
-
-        def create(repo_path)
-          FileUtils.mkdir_p(repo_path, mode: 0o770)
-
-          # Equivalent to `git --git-path=#{repo_path} init [--bare]`
-          repo = Rugged::Repository.init_at(repo_path, true)
-          repo.close
-        end
       end
 
       attr_reader :path

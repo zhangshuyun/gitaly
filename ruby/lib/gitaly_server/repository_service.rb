@@ -4,14 +4,6 @@ module GitalyServer
   class RepositoryService < Gitaly::RepositoryService::Service
     include Utils
 
-    def create_repository(_request, call)
-      repo_path = GitalyServer.repo_path(call)
-
-      Gitlab::Git::Repository.create(repo_path)
-
-      Gitaly::CreateRepositoryResponse.new
-    end
-
     def fetch_source_branch(request, call)
       source_repository = Gitlab::Git::GitalyRemoteRepository.new(request.source_repository, call)
       repository = Gitlab::Git::Repository.from_gitaly(request.repository, call)
