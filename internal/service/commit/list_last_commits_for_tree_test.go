@@ -168,6 +168,27 @@ func TestSuccessfulListLastCommitsForTreeRequest(t *testing.T) {
 			limit:  25,
 			offset: 13,
 		},
+		{
+			desc:     "multiple paths provided",
+			revision: "570e7b2abdd848b95f2f578043fc23bd6f6fd24d",
+			path:     []byte("files .gitmodules CONTRIBUTING.md"),
+			info: []commitInfo{
+				{
+					path: []byte("files"),
+					id:   "570e7b2abdd848b95f2f578043fc23bd6f6fd24d",
+				},
+				{
+					path: []byte(".gitmodules"),
+					id:   "6f6d7e7ed97bb5f0054f2b1df789b39ca89b6ff9",
+				},
+				{
+					path: []byte("CONTRIBUTING.md"),
+					id:   "6d394385cf567f80a8fd85055db1ab4c5295806f",
+				},
+			},
+			limit:  5,
+			offset: 0,
+		},
 	}
 
 	for _, testCase := range testCases {
@@ -208,6 +229,7 @@ func TestSuccessfulListLastCommitsForTreeRequest(t *testing.T) {
 					counter++
 				}
 			}
+			require.Equal(t, len(testCase.info), counter)
 		})
 	}
 }

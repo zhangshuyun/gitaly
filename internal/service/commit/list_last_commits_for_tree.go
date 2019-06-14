@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"sort"
+	"strings"
 
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/internal/command"
@@ -121,8 +122,9 @@ func newLSTreeParser(in *gitalypb.ListLastCommitsForTreeRequest, stream gitalypb
 	if path == "" || path == "/" {
 		path = "."
 	}
+	paths := strings.Split(path, " ")
 
-	cmdArgs := []string{"ls-tree", "-z", "--full-name", string(in.GetRevision()), path}
+	cmdArgs := append([]string{"ls-tree", "-z", "--full-name", string(in.GetRevision())}, paths...)
 	cmd, err := git.Command(stream.Context(), in.GetRepository(), cmdArgs...)
 	if err != nil {
 		return nil, nil, err
