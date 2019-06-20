@@ -26,6 +26,7 @@ func Path() string {
 	return path.Join(config.Config.Ruby.Dir, "git-hooks")
 }
 
+// GitPath returns the path where the go implemeneted global git hooks are located
 func GitPath() string {
 	if len(Override) > 0 {
 		return Override
