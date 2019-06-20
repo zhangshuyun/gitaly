@@ -1,5 +1,15 @@
 # Gitaly changelog
 
+## v1.42.4
+
+#### Added
+- Add GetObjectDirectorySize RPC
+  https://gitlab.com/gitlab-org/gitaly/merge_requests/1318
+
+#### Fixed
+- Fix stderr log writer
+  https://gitlab.com/gitlab-org/gitaly/merge_requests/1275
+
 ## v1.42.3
 
 #### Fixed
