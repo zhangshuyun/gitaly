@@ -14,7 +14,7 @@ Dir[File.join(__dir__, 'support/helpers/*.rb')].each { |f| require f }
 
 Gitlab.config.git.test_global_ivar_override(:bin_path, 'git')
 Gitlab.config.git.test_global_ivar_override(:hooks_directory, File.join(Gitlab.config.gitlab_shell.path.to_s, "hooks"))
-Gitlab.config.gitaly.test_global_ivar_override(:client_path, __dir__)
+Gitlab.config.gitaly.test_global_ivar_override(:bin_dir, __dir__)
 
 RSpec.configure do |config|
   config.include FactoryBot::Syntax::Methods

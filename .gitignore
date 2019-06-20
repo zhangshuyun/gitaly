@@ -1,5 +1,6 @@
 /_build
 /gitaly
+/gitaly-hooks
 cmd/gitaly-ssh/gitaly-ssh
 /gitaly-ssh
 cmd/gitaly-wrapper/gitaly-wrapper

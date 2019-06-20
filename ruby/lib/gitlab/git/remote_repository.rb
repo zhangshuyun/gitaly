@@ -36,7 +36,7 @@ module Gitlab
       end
 
       def fetch_env
-        gitaly_ssh = File.absolute_path(File.join(Gitlab.config.gitaly.client_path, 'gitaly-ssh'))
+        gitaly_ssh = File.absolute_path(File.join(Gitlab.config.gitaly.bin_dir, 'gitaly-ssh'))
         gitaly_address = gitaly_client.address(storage)
         gitaly_token = gitaly_client.token(storage)
 

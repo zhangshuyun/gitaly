@@ -1,6 +1,4 @@
 #!/bin/sh
 
 # This is the single source of truth for where Gitaly's embedded Git hooks are.
-hooks_dir="$(dirname $0)/../gitlab-shell/hooks"
-
-exec "$hooks_dir/$(basename $0)" "$@"
+exec "$GITALY_BIN_DIR/gitaly-hooks" "$(basename $0)" "$@"

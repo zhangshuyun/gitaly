@@ -52,8 +52,12 @@ module Gitlab
     class Gitaly
       include TestSetup
 
-      def client_path
-        @client_path ||= ENV['GITALY_RUBY_GITALY_BIN_DIR']
+      def bin_dir
+        @bin_dir ||= ENV['GITALY_RUBY_GITALY_BIN_DIR']
+      end
+
+      def ruby_dir
+        @ruby_dir ||= ENV['GITALY_RUBY_DIR']
       end
 
       def rbtrace_enabled?
