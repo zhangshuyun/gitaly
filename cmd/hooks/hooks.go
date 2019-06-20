@@ -5,6 +5,7 @@ import (
 	"io"
 )
 
+// ReadRefs reads a list of newline delimeted refs from a reader
 func ReadRefs(r io.Reader) ([]string, error) {
 	s := bufio.NewScanner(r)
 
