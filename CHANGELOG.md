@@ -1,5 +1,11 @@
 # Gitaly changelog
 
+## v1.33.2
+
+#### Added
+- Add GetObjectDirectorySize RPC
+  https://gitlab.com/gitlab-org/gitaly/merge_requests/1319
+
 ## v1.33.1
 
 #### Security
