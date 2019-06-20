@@ -111,7 +111,7 @@ func Start() (*Server, error) {
 		"GITALY_RUBY_GITLAB_SHELL_PATH="+cfg.GitlabShell.Dir,
 		"GITALY_RUBY_GITALY_BIN_DIR="+cfg.BinDir,
 		"GITALY_VERSION="+version.GetVersion(),
-		"GITALY_GIT_HOOKS_DIR="+hooks.Path(),
+		"GITALY_GIT_HOOKS_DIR="+hooks.GitPath(),
 	)
 
 	env = append(env, command.GitEnv...)

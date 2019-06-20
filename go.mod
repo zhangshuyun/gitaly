@@ -13,12 +13,12 @@ require (
 	github.com/sirupsen/logrus v1.2.0
 	github.com/stretchr/testify v1.2.2
 	github.com/tinylib/msgp v1.1.0 // indirect
-	gitlab.com/gitlab-org/gitaly-proto v1.32.0
+	gitlab.com/gitlab-org/gitaly-proto v1.33.1-0.20190620230240-211d8c765403
 	gitlab.com/gitlab-org/labkit v0.0.0-20190221122536-0c3fc7cdd57c
-	golang.org/x/net v0.0.0-20190311183353-d8887717615a
+	golang.org/x/net v0.0.0-20190620200207-3b0461eec859
 	golang.org/x/sync v0.0.0-20181221193216-37e7f081c4d4
 	golang.org/x/sys v0.0.0-20190215142949-d0b11bdaac8a
 	google.golang.org/genproto v0.0.0-20181202183823-bd91e49a0898 // indirect
-	google.golang.org/grpc v1.16.0
+	google.golang.org/grpc v1.21.1
 	gopkg.in/yaml.v2 v2.2.2 // indirect
 )

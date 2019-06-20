@@ -135,7 +135,7 @@ func (gm *gitalyMake) CommandPackages() []string {
 
 	for _, dir := range entries {
 		//Do not build gitaly-remote by default
-		if dir.Name() == "gitaly-remote" {
+		if dir.Name() == "gitaly-remote" || dir.Name() == "hooks" {
 			continue
 		}
 		if !dir.IsDir() {

@@ -45,6 +45,7 @@ func (s *server) PostReceivePack(stream gitalypb.SmartHTTPService_PostReceivePac
 		fmt.Sprintf("GL_ID=%s", req.GlId),
 		"GL_PROTOCOL=http",
 		fmt.Sprintf("GITLAB_SHELL_DIR=%s", config.Config.GitlabShell.Dir),
+		fmt.Sprintf("GL_URL=%s", config.Config.SocketPath),
 	}
 	if req.GlRepository != "" {
 		env = append(env, fmt.Sprintf("GL_REPOSITORY=%s", req.GlRepository))
@@ -61,7 +62,7 @@ func (s *server) PostReceivePack(stream gitalypb.SmartHTTPService_PostReceivePac
 	env = git.AddGitProtocolEnv(ctx, req, env)
 	env = append(env, command.GitEnv...)
 
-	opts := append([]string{fmt.Sprintf("core.hooksPath=%s", hooks.Path())}, req.GitConfigOptions...)
+	opts := append([]string{fmt.Sprintf("core.hooksPath=%s", hooks.GitPath())}, req.GitConfigOptions...)
 	gitOptions := git.BuildGitOptions(opts, "receive-pack", "--stateless-rpc", repoPath)
 	cmd, err := git.BareCommand(ctx, stdin, stdout, nil, env, gitOptions...)
 

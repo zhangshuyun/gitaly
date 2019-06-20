@@ -56,6 +56,7 @@ func sshReceivePack(stream gitalypb.SSHService_SSHReceivePackServer, req *gitaly
 		fmt.Sprintf("GL_USERNAME=%s", req.GlUsername),
 		"GL_PROTOCOL=ssh",
 		fmt.Sprintf("GITLAB_SHELL_DIR=%s", config.Config.GitlabShell.Dir),
+		fmt.Sprintf("GL_URL=%s", config.Config.SocketPath),
 	}
 	if req.GlRepository != "" {
 		env = append(env, fmt.Sprintf("GL_REPOSITORY=%s", req.GlRepository))
@@ -69,7 +70,7 @@ func sshReceivePack(stream gitalypb.SSHService_SSHReceivePackServer, req *gitaly
 	env = git.AddGitProtocolEnv(ctx, req, env)
 	env = append(env, command.GitEnv...)
 
-	opts := append([]string{fmt.Sprintf("core.hooksPath=%s", hooks.Path())}, req.GitConfigOptions...)
+	opts := append([]string{fmt.Sprintf("core.hooksPath=%s", hooks.GitPath())}, req.GitConfigOptions...)
 	gitOptions := git.BuildGitOptions(opts, "receive-pack", repoPath)
 	cmd, err := git.BareCommand(ctx, stdin, stdout, stderr, env, gitOptions...)
 
