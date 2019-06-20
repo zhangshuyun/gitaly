@@ -111,8 +111,13 @@ func Start() (*Server, error) {
 		fmt.Sprintf("GITALY_RUBY_MAX_COMMIT_OR_TAG_MESSAGE_SIZE=%d", helper.MaxCommitOrTagMessageSize),
 		"GITALY_RUBY_GITALY_BIN_DIR="+cfg.BinDir,
 		"GITALY_VERSION="+version.GetVersion(),
+<<<<<<< HEAD
 		"GITALY_GIT_HOOKS_DIR="+hooks.Path())
 	env = append(env, gitlabshell.Env()...)
+=======
+		"GITALY_GIT_HOOKS_DIR="+hooks.GitPath(),
+	)
+>>>>>>> Migrate hooks to use go binary
 
 	env = append(env, command.GitEnv...)
 

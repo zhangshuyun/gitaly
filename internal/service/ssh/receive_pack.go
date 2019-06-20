@@ -6,6 +6,7 @@ import (
 	grpc_logrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/internal/command"
+	"gitlab.com/gitlab-org/gitaly/internal/config"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -50,8 +51,7 @@ func sshReceivePack(stream gitalypb.SSHService_SSHReceivePackServer, req *gitaly
 		return stream.Send(&gitalypb.SSHReceivePackResponse{Stderr: p})
 	})
 
-	env := append(git.HookEnv(req), "GL_PROTOCOL=ssh")
-
+	env := append(git.HookEnv(req), "GL_PROTOCOL=ssh", fmt.Sprintf("GL_URL=%s", config.Config.SocketPath))
 	repoPath, err := helper.GetRepoPath(req.Repository)
 	if err != nil {
 		return err

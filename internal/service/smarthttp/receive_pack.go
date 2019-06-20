@@ -1,9 +1,12 @@
 package smarthttp
 
 import (
+	"fmt"
+
 	grpc_logrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/internal/command"
+	"gitlab.com/gitlab-org/gitaly/internal/config"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -38,7 +41,7 @@ func (s *server) PostReceivePack(stream gitalypb.SmartHTTPService_PostReceivePac
 		return stream.Send(&gitalypb.PostReceivePackResponse{Data: p})
 	})
 
-	env := append(git.HookEnv(req), "GL_PROTOCOL=http")
+	env := append(git.HookEnv(req), "GL_PROTOCOL=http", fmt.Sprintf("GL_URL=%s", config.Config.SocketPath))
 
 	repoPath, err := helper.GetRepoPath(req.Repository)
 	if err != nil {

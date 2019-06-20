@@ -25,3 +25,15 @@ func Path() string {
 
 	return path.Join(config.Config.Ruby.Dir, "git-hooks")
 }
+
+func GitPath() string {
+	if len(Override) > 0 {
+		return Override
+	}
+
+	if os.Getenv("GITALY_TESTING_NO_GIT_HOOKS") == "1" {
+		return "/var/empty"
+	}
+
+	return path.Join(config.Config.BinDir, "hooks")
+}
