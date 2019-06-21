@@ -17,10 +17,10 @@ func TestSuccessfulUserDeleteTagRequest(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	server, serverSocketPath := runOperationServiceServer(t)
+	server, serverSocketPath := testhelper.RunOpSvcServer(t, NewServer)
 	defer server.Stop()
 
-	client, conn := newOperationClient(t, serverSocketPath)
+	client, conn := testhelper.NewOpSvcCli(t, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
@@ -52,10 +52,10 @@ func TestSuccessfulUserDeleteTagRequest(t *testing.T) {
 }
 
 func TestSuccessfulGitHooksForUserDeleteTagRequest(t *testing.T) {
-	server, serverSocketPath := runOperationServiceServer(t)
+	server, serverSocketPath := testhelper.RunOpSvcServer(t, NewServer)
 	defer server.Stop()
 
-	client, conn := newOperationClient(t, serverSocketPath)
+	client, conn := testhelper.NewOpSvcCli(t, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
@@ -101,10 +101,10 @@ func TestSuccessfulUserCreateTagRequest(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	server, serverSocketPath := runOperationServiceServer(t)
+	server, serverSocketPath := testhelper.RunOpSvcServer(t, NewServer)
 	defer server.Stop()
 
-	client, conn := newOperationClient(t, serverSocketPath)
+	client, conn := testhelper.NewOpSvcCli(t, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
@@ -181,10 +181,10 @@ func TestSuccessfulUserCreateTagRequest(t *testing.T) {
 }
 
 func TestSuccessfulGitHooksForUserCreateTagRequest(t *testing.T) {
-	server, serverSocketPath := runOperationServiceServer(t)
+	server, serverSocketPath := testhelper.RunOpSvcServer(t, NewServer)
 	defer server.Stop()
 
-	client, conn := newOperationClient(t, serverSocketPath)
+	client, conn := testhelper.NewOpSvcCli(t, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
@@ -226,10 +226,10 @@ func TestSuccessfulGitHooksForUserCreateTagRequest(t *testing.T) {
 }
 
 func TestFailedUserDeleteTagRequestDueToValidation(t *testing.T) {
-	server, serverSocketPath := runOperationServiceServer(t)
+	server, serverSocketPath := testhelper.RunOpSvcServer(t, NewServer)
 	defer server.Stop()
 
-	client, conn := newOperationClient(t, serverSocketPath)
+	client, conn := testhelper.NewOpSvcCli(t, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
@@ -285,10 +285,10 @@ func TestFailedUserDeleteTagRequestDueToValidation(t *testing.T) {
 }
 
 func TestFailedUserDeleteTagDueToHooks(t *testing.T) {
-	server, serverSocketPath := runOperationServiceServer(t)
+	server, serverSocketPath := testhelper.RunOpSvcServer(t, NewServer)
 	defer server.Stop()
 
-	client, conn := newOperationClient(t, serverSocketPath)
+	client, conn := testhelper.NewOpSvcCli(t, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
@@ -332,10 +332,10 @@ func TestFailedUserDeleteTagDueToHooks(t *testing.T) {
 }
 
 func TestFailedUserCreateTagDueToHooks(t *testing.T) {
-	server, serverSocketPath := runOperationServiceServer(t)
+	server, serverSocketPath := testhelper.RunOpSvcServer(t, NewServer)
 	defer server.Stop()
 
-	client, conn := newOperationClient(t, serverSocketPath)
+	client, conn := testhelper.NewOpSvcCli(t, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
@@ -371,10 +371,10 @@ func TestFailedUserCreateTagDueToHooks(t *testing.T) {
 }
 
 func TestFailedUserCreateTagRequestDueToTagExistence(t *testing.T) {
-	server, serverSocketPath := runOperationServiceServer(t)
+	server, serverSocketPath := testhelper.RunOpSvcServer(t, NewServer)
 	defer server.Stop()
 
-	client, conn := newOperationClient(t, serverSocketPath)
+	client, conn := testhelper.NewOpSvcCli(t, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
@@ -412,10 +412,10 @@ func TestFailedUserCreateTagRequestDueToTagExistence(t *testing.T) {
 }
 
 func TestFailedUserCreateTagRequestDueToValidation(t *testing.T) {
-	server, serverSocketPath := runOperationServiceServer(t)
+	server, serverSocketPath := testhelper.RunOpSvcServer(t, NewServer)
 	defer server.Stop()
 
-	client, conn := newOperationClient(t, serverSocketPath)
+	client, conn := testhelper.NewOpSvcCli(t, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)

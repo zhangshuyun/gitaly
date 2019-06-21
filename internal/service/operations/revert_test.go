@@ -20,7 +20,7 @@ func TestSuccessfulUserRevertRequest(t *testing.T) {
 	server, serverSocketPath := runFullServer(t)
 	defer server.Stop()
 
-	client, conn := operations.NewOperationClient(t, serverSocketPath)
+	client, conn := testhelper.NewOpSvcCli(t, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, testRepoPath, cleanup := testhelper.NewTestRepo(t)
@@ -127,7 +127,7 @@ func TestSuccessfulGitHooksForUserRevertRequest(t *testing.T) {
 	server, serverSocketPath := runFullServer(t)
 	defer server.Stop()
 
-	client, conn := operations.NewOperationClient(t, serverSocketPath)
+	client, conn := testhelper.NewOpSvcCli(t, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, testRepoPath, cleanup := testhelper.NewTestRepo(t)
@@ -179,7 +179,7 @@ func TestFailedUserRevertRequestDueToValidations(t *testing.T) {
 	server, serverSocketPath := runFullServer(t)
 	defer server.Stop()
 
-	client, conn := operations.NewOperationClient(t, serverSocketPath)
+	client, conn := testhelper.NewOpSvcCli(t, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, _, cleanup := testhelper.NewTestRepo(t)
@@ -265,7 +265,7 @@ func TestFailedUserRevertRequestDueToPreReceiveError(t *testing.T) {
 	server, serverSocketPath := runFullServer(t)
 	defer server.Stop()
 
-	client, conn := operations.NewOperationClient(t, serverSocketPath)
+	client, conn := testhelper.NewOpSvcCli(t, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, testRepoPath, cleanup := testhelper.NewTestRepo(t)
@@ -316,7 +316,7 @@ func TestFailedUserRevertRequestDueToCreateTreeError(t *testing.T) {
 	server, serverSocketPath := runFullServer(t)
 	defer server.Stop()
 
-	client, conn := operations.NewOperationClient(t, serverSocketPath)
+	client, conn := testhelper.NewOpSvcCli(t, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, testRepoPath, cleanup := testhelper.NewTestRepo(t)
@@ -358,7 +358,7 @@ func TestFailedUserRevertRequestDueToCommitError(t *testing.T) {
 	server, serverSocketPath := runFullServer(t)
 	defer server.Stop()
 
-	client, conn := operations.NewOperationClient(t, serverSocketPath)
+	client, conn := testhelper.NewOpSvcCli(t, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, testRepoPath, cleanup := testhelper.NewTestRepo(t)

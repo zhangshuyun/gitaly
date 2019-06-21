@@ -36,10 +36,10 @@ func TestSuccessfulMerge(t *testing.T) {
 	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
-	server, serverSocketPath := runOperationServiceServer(t)
+	server, serverSocketPath := testhelper.RunOpSvcServer(t, NewServer)
 	defer server.Stop()
 
-	client, conn := newOperationClient(t, serverSocketPath)
+	client, conn := testhelper.NewOpSvcCli(t, serverSocketPath)
 	defer conn.Close()
 
 	mergeBidi, err := client.UserMergeBranch(ctx)
@@ -108,10 +108,10 @@ func TestAbortedMerge(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	server, serverSocketPath := runOperationServiceServer(t)
+	server, serverSocketPath := testhelper.RunOpSvcServer(t, NewServer)
 	defer server.Stop()
 
-	client, conn := newOperationClient(t, serverSocketPath)
+	client, conn := testhelper.NewOpSvcCli(t, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
@@ -179,10 +179,10 @@ func TestFailedMergeConcurrentUpdate(t *testing.T) {
 	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
-	server, serverSocketPath := runOperationServiceServer(t)
+	server, serverSocketPath := testhelper.RunOpSvcServer(t, NewServer)
 	defer server.Stop()
 
-	client, conn := newOperationClient(t, serverSocketPath)
+	client, conn := testhelper.NewOpSvcCli(t, serverSocketPath)
 	defer conn.Close()
 
 	mergeBidi, err := client.UserMergeBranch(ctx)
@@ -223,10 +223,10 @@ func TestFailedMergeDueToHooks(t *testing.T) {
 	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
-	server, serverSocketPath := runOperationServiceServer(t)
+	server, serverSocketPath := testhelper.RunOpSvcServer(t, NewServer)
 	defer server.Stop()
 
-	client, conn := newOperationClient(t, serverSocketPath)
+	client, conn := testhelper.NewOpSvcCli(t, serverSocketPath)
 	defer conn.Close()
 
 	prepareMergeBranch(t, testRepoPath)
@@ -283,10 +283,10 @@ func TestSuccessfulUserFFBranchRequest(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	server, serverSocketPath := runOperationServiceServer(t)
+	server, serverSocketPath := testhelper.RunOpSvcServer(t, NewServer)
 	defer server.Stop()
 
-	client, conn := newOperationClient(t, serverSocketPath)
+	client, conn := testhelper.NewOpSvcCli(t, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
@@ -319,10 +319,10 @@ func TestSuccessfulUserFFBranchRequest(t *testing.T) {
 }
 
 func TestFailedUserFFBranchRequest(t *testing.T) {
-	server, serverSocketPath := runOperationServiceServer(t)
+	server, serverSocketPath := testhelper.RunOpSvcServer(t, NewServer)
 	defer server.Stop()
 
-	client, conn := newOperationClient(t, serverSocketPath)
+	client, conn := testhelper.NewOpSvcCli(t, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
@@ -414,10 +414,10 @@ func TestFailedUserFFBranchRequest(t *testing.T) {
 }
 
 func TestFailedUserFFBranchDueToHooks(t *testing.T) {
-	server, serverSocketPath := runOperationServiceServer(t)
+	server, serverSocketPath := testhelper.RunOpSvcServer(t, NewServer)
 	defer server.Stop()
 
-	client, conn := newOperationClient(t, serverSocketPath)
+	client, conn := testhelper.NewOpSvcCli(t, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
@@ -454,10 +454,10 @@ func TestFailedUserFFBranchDueToHooks(t *testing.T) {
 }
 
 func TestSuccessfulUserMergeToRefRequest(t *testing.T) {
-	server, serverSocketPath := runOperationServiceServer(t)
+	server, serverSocketPath := testhelper.RunOpSvcServer(t, NewServer)
 	defer server.Stop()
 
-	client, conn := newOperationClient(t, serverSocketPath)
+	client, conn := testhelper.NewOpSvcCli(t, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
@@ -552,10 +552,10 @@ func TestSuccessfulUserMergeToRefRequest(t *testing.T) {
 }
 
 func TestFailedUserMergeToRefRequest(t *testing.T) {
-	server, serverSocketPath := runOperationServiceServer(t)
+	server, serverSocketPath := testhelper.RunOpSvcServer(t, NewServer)
 	defer server.Stop()
 
-	client, conn := newOperationClient(t, serverSocketPath)
+	client, conn := testhelper.NewOpSvcCli(t, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
@@ -654,10 +654,10 @@ func TestFailedUserMergeToRefRequest(t *testing.T) {
 }
 
 func TestUserMergeToRefIgnoreHooksRequest(t *testing.T) {
-	server, serverSocketPath := runOperationServiceServer(t)
+	server, serverSocketPath := testhelper.RunOpSvcServer(t, NewServer)
 	defer server.Stop()
 
-	client, conn := newOperationClient(t, serverSocketPath)
+	client, conn := testhelper.NewOpSvcCli(t, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)

@@ -23,9 +23,9 @@ func TestSuccessfulIsRebaseInProgressRequest(t *testing.T) {
 	testRepo1, testRepo1Path, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepo1Path, "worktree", "add", "--detach", path.Join(testRepo1Path, worktreePrefix, fmt.Sprintf("%s-1", rebaseWorktreePrefix)), "master")
+	testhelper.MustRunCommand(t, nil, "git", "-C", testRepo1Path, "worktree", "add", "--detach", path.Join(testRepo1Path, WorktreePrefix, fmt.Sprintf("%s-1", rebaseWorktreePrefix)), "master")
 
-	brokenPath := path.Join(testRepo1Path, worktreePrefix, fmt.Sprintf("%s-2", rebaseWorktreePrefix))
+	brokenPath := path.Join(testRepo1Path, WorktreePrefix, fmt.Sprintf("%s-2", rebaseWorktreePrefix))
 	testhelper.MustRunCommand(t, nil, "git", "-C", testRepo1Path, "worktree", "add", "--detach", brokenPath, "master")
 	os.Chmod(brokenPath, 0)
 	os.Chtimes(brokenPath, time.Now(), time.Now().Add(-16*time.Minute))
@@ -34,7 +34,7 @@ func TestSuccessfulIsRebaseInProgressRequest(t *testing.T) {
 		os.RemoveAll(brokenPath)
 	}()
 
-	oldPath := path.Join(testRepo1Path, worktreePrefix, fmt.Sprintf("%s-3", rebaseWorktreePrefix))
+	oldPath := path.Join(testRepo1Path, WorktreePrefix, fmt.Sprintf("%s-3", rebaseWorktreePrefix))
 	testhelper.MustRunCommand(t, nil, "git", "-C", testRepo1Path, "worktree", "add", "--detach", oldPath, "master")
 	os.Chtimes(oldPath, time.Now(), time.Now().Add(-16*time.Minute))
 

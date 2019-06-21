@@ -20,10 +20,10 @@ func TestSuccessfulUserCreateBranchRequest(t *testing.T) {
 	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
-	server, serverSocketPath := runOperationServiceServer(t)
+	server, serverSocketPath := testhelper.RunOpSvcServer(t, NewServer)
 	defer server.Stop()
 
-	client, conn := newOperationClient(t, serverSocketPath)
+	client, conn := testhelper.NewOpSvcCli(t, serverSocketPath)
 	defer conn.Close()
 
 	startPoint := "c7fbe50c7c7419d9701eebe64b1fdacc3df5b9dd"
@@ -79,10 +79,10 @@ func TestSuccessfulGitHooksForUserCreateBranchRequest(t *testing.T) {
 	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
-	server, serverSocketPath := runOperationServiceServer(t)
+	server, serverSocketPath := testhelper.RunOpSvcServer(t, NewServer)
 	defer server.Stop()
 
-	client, conn := newOperationClient(t, serverSocketPath)
+	client, conn := testhelper.NewOpSvcCli(t, serverSocketPath)
 	defer conn.Close()
 
 	branchName := "new-branch"
@@ -117,10 +117,10 @@ func TestFailedUserCreateBranchDueToHooks(t *testing.T) {
 	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
-	server, serverSocketPath := runOperationServiceServer(t)
+	server, serverSocketPath := testhelper.RunOpSvcServer(t, NewServer)
 	defer server.Stop()
 
-	client, conn := newOperationClient(t, serverSocketPath)
+	client, conn := testhelper.NewOpSvcCli(t, serverSocketPath)
 	defer conn.Close()
 
 	request := &gitalypb.UserCreateBranchRequest{
@@ -152,10 +152,10 @@ func TestFailedUserCreateBranchDueToHooks(t *testing.T) {
 }
 
 func TestFailedUserCreateBranchRequest(t *testing.T) {
-	server, serverSocketPath := runOperationServiceServer(t)
+	server, serverSocketPath := testhelper.RunOpSvcServer(t, NewServer)
 	defer server.Stop()
 
-	client, conn := newOperationClient(t, serverSocketPath)
+	client, conn := testhelper.NewOpSvcCli(t, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
@@ -224,10 +224,10 @@ func TestSuccessfulUserDeleteBranchRequest(t *testing.T) {
 	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
-	server, serverSocketPath := runOperationServiceServer(t)
+	server, serverSocketPath := testhelper.RunOpSvcServer(t, NewServer)
 	defer server.Stop()
 
-	client, conn := newOperationClient(t, serverSocketPath)
+	client, conn := testhelper.NewOpSvcCli(t, serverSocketPath)
 	defer conn.Close()
 
 	branchNameInput := "to-be-deleted-soon-branch"
@@ -259,10 +259,10 @@ func TestSuccessfulGitHooksForUserDeleteBranchRequest(t *testing.T) {
 	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
-	server, serverSocketPath := runOperationServiceServer(t)
+	server, serverSocketPath := testhelper.RunOpSvcServer(t, NewServer)
 	defer server.Stop()
 
-	client, conn := newOperationClient(t, serverSocketPath)
+	client, conn := testhelper.NewOpSvcCli(t, serverSocketPath)
 	defer conn.Close()
 
 	branchNameInput := "to-be-deleted-soon-branch"
@@ -302,10 +302,10 @@ func TestSuccessfulGitHooksForUserDeleteBranchRequest(t *testing.T) {
 }
 
 func TestFailedUserDeleteBranchDueToValidation(t *testing.T) {
-	server, serverSocketPath := runOperationServiceServer(t)
+	server, serverSocketPath := testhelper.RunOpSvcServer(t, NewServer)
 	defer server.Stop()
 
-	client, conn := newOperationClient(t, serverSocketPath)
+	client, conn := testhelper.NewOpSvcCli(t, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
@@ -364,10 +364,10 @@ func TestFailedUserDeleteBranchDueToHooks(t *testing.T) {
 	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
-	server, serverSocketPath := runOperationServiceServer(t)
+	server, serverSocketPath := testhelper.RunOpSvcServer(t, NewServer)
 	defer server.Stop()
 
-	client, conn := newOperationClient(t, serverSocketPath)
+	client, conn := testhelper.NewOpSvcCli(t, serverSocketPath)
 	defer conn.Close()
 
 	branchNameInput := "to-be-deleted-soon-branch"

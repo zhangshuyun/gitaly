@@ -30,10 +30,10 @@ func TestSuccessfulUserSquashRequest(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	server, serverSocketPath := runOperationServiceServer(t)
+	server, serverSocketPath := testhelper.RunOpSvcServer(t, NewServer)
 	defer server.Stop()
 
-	client, conn := NewOperationClient(t, serverSocketPath)
+	client, conn := testhelper.NewOpSvcCli(t, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, _, cleanup := testhelper.NewTestRepo(t)
@@ -81,10 +81,10 @@ func TestSuccessfulUserSquashRequestWith3wayMerge(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	server, serverSocketPath := runOperationServiceServer(t)
+	server, serverSocketPath := testhelper.RunOpSvcServer(t, NewServer)
 	defer server.Stop()
 
-	client, conn := NewOperationClient(t, serverSocketPath)
+	client, conn := testhelper.NewOpSvcCli(t, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepoWithWorktree(t)
@@ -151,10 +151,10 @@ func TestSplitIndex(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	server, serverSocketPath := runOperationServiceServer(t)
+	server, serverSocketPath := testhelper.RunOpSvcServer(t, NewServer)
 	defer server.Stop()
 
-	client, conn := NewOperationClient(t, serverSocketPath)
+	client, conn := testhelper.NewOpSvcCli(t, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, testRepoPath, cleanup := testhelper.NewTestRepoWithWorktree(t)
@@ -183,10 +183,10 @@ func TestFailedUserSquashRequestDueToGitError(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	server, serverSocketPath := runOperationServiceServer(t)
+	server, serverSocketPath := testhelper.RunOpSvcServer(t, NewServer)
 	defer server.Stop()
 
-	client, conn := NewOperationClient(t, serverSocketPath)
+	client, conn := testhelper.NewOpSvcCli(t, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, _, cleanup := testhelper.NewTestRepo(t)
@@ -212,10 +212,10 @@ func TestFailedUserSquashRequestDueToGitError(t *testing.T) {
 }
 
 func TestFailedUserSquashRequestDueToValidations(t *testing.T) {
-	server, serverSocketPath := runOperationServiceServer(t)
+	server, serverSocketPath := testhelper.RunOpSvcServer(t, NewServer)
 	defer server.Stop()
 
-	client, conn := NewOperationClient(t, serverSocketPath)
+	client, conn := testhelper.NewOpSvcCli(t, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, _, cleanup := testhelper.NewTestRepo(t)

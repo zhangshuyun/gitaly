@@ -35,7 +35,7 @@ func TestSuccessfulUserRebaseConfirmableRequest(t *testing.T) {
 	server, serverSocketPath := runFullServer(t)
 	defer server.Stop()
 
-	client, conn := operations.NewOperationClient(t, serverSocketPath)
+	client, conn := testhelper.NewOpSvcCli(t, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, testRepoPath, cleanup := testhelper.NewTestRepo(t)
@@ -88,7 +88,7 @@ func TestFailedRebaseUserRebaseConfirmableRequestDueToInvalidHeader(t *testing.T
 	server, serverSocketPath := runFullServer(t)
 	defer server.Stop()
 
-	client, conn := operations.NewOperationClient(t, serverSocketPath)
+	client, conn := testhelper.NewOpSvcCli(t, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, testRepoPath, cleanup := testhelper.NewTestRepo(t)
@@ -154,7 +154,7 @@ func TestAbortedUserRebaseConfirmable(t *testing.T) {
 	server, serverSocketPath := runFullServer(t)
 	defer server.Stop()
 
-	client, conn := operations.NewOperationClient(t, serverSocketPath)
+	client, conn := testhelper.NewOpSvcCli(t, serverSocketPath)
 	defer conn.Close()
 
 	md := testhelper.GitalyServersMetadata(t, serverSocketPath)
@@ -222,7 +222,7 @@ func TestFailedUserRebaseConfirmableDueToApplyBeingFalse(t *testing.T) {
 	server, serverSocketPath := runFullServer(t)
 	defer server.Stop()
 
-	client, conn := operations.NewOperationClient(t, serverSocketPath)
+	client, conn := testhelper.NewOpSvcCli(t, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, testRepoPath, cleanup := testhelper.NewTestRepo(t)
@@ -268,7 +268,7 @@ func TestFailedUserRebaseConfirmableRequestDueToPreReceiveError(t *testing.T) {
 	server, serverSocketPath := runFullServer(t)
 	defer server.Stop()
 
-	client, conn := operations.NewOperationClient(t, serverSocketPath)
+	client, conn := testhelper.NewOpSvcCli(t, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, testRepoPath, cleanup := testhelper.NewTestRepo(t)
@@ -330,7 +330,7 @@ func TestFailedUserRebaseConfirmableDueToGitError(t *testing.T) {
 	server, serverSocketPath := runFullServer(t)
 	defer server.Stop()
 
-	client, conn := operations.NewOperationClient(t, serverSocketPath)
+	client, conn := testhelper.NewOpSvcCli(t, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, testRepoPath, cleanup := testhelper.NewTestRepo(t)
@@ -373,7 +373,7 @@ func TestSuccessfulUserRebaseRequest(t *testing.T) {
 	server, serverSocketPath := runFullServer(t)
 	defer server.Stop()
 
-	client, conn := operations.NewOperationClient(t, serverSocketPath)
+	client, conn := testhelper.NewOpSvcCli(t, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, testRepoPath, cleanup := testhelper.NewTestRepo(t)
@@ -414,7 +414,7 @@ func TestFailedUserRebaseRequestDueToPreReceiveError(t *testing.T) {
 	server, serverSocketPath := runFullServer(t)
 	defer server.Stop()
 
-	client, conn := operations.NewOperationClient(t, serverSocketPath)
+	client, conn := testhelper.NewOpSvcCli(t, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, testRepoPath, cleanup := testhelper.NewTestRepo(t)
@@ -460,7 +460,7 @@ func TestFailedUserRebaseRequestDueToGitError(t *testing.T) {
 	server, serverSocketPath := runFullServer(t)
 	defer server.Stop()
 
-	client, conn := operations.NewOperationClient(t, serverSocketPath)
+	client, conn := testhelper.NewOpSvcCli(t, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, testRepoPath, cleanup := testhelper.NewTestRepo(t)
@@ -498,7 +498,7 @@ func TestFailedUserRebaseRequestDueToValidations(t *testing.T) {
 	server, serverSocketPath := runFullServer(t)
 	defer server.Stop()
 
-	client, conn := operations.NewOperationClient(t, serverSocketPath)
+	client, conn := testhelper.NewOpSvcCli(t, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, _, cleanup := testhelper.NewTestRepo(t)

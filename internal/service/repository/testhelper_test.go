@@ -12,7 +12,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
 	"gitlab.com/gitlab-org/gitaly/internal/config"
-	"gitlab.com/gitlab-org/gitaly/internal/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/server/auth"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"google.golang.org/grpc"
@@ -23,8 +22,7 @@ import (
 const testTimeString = "200601021504.05"
 
 var (
-	testTime   = time.Date(2006, 1, 2, 15, 4, 5, 0, time.UTC)
-	RubyServer *rubyserver.Server
+	testTime = time.Date(2006, 1, 2, 15, 4, 5, 0, time.UTC)
 )
 
 func newRepositoryClient(t *testing.T, serverSocketPath string) (gitalypb.RepositoryServiceClient, *grpc.ClientConn) {
@@ -54,7 +52,7 @@ func runRepoServer(t *testing.T) (*grpc.Server, string) {
 		t.Fatal(err)
 	}
 
-	gitalypb.RegisterRepositoryServiceServer(server, NewServer(RubyServer))
+	gitalypb.RegisterRepositoryServiceServer(server, NewServer(testhelper.RubyServer))
 	reflection.Register(server)
 
 	go server.Serve(listener)
@@ -82,8 +80,6 @@ func TestMain(m *testing.M) {
 }
 
 func testMain(m *testing.M) int {
-	defer testhelper.MustHaveNoChildProcess()
-
 	config.Config.Auth = config.Auth{Token: testhelper.RepositoryAuthToken}
 
 	var err error
@@ -94,11 +90,5 @@ func testMain(m *testing.M) int {
 
 	testhelper.ConfigureGitalySSH()
 
-	RubyServer, err = rubyserver.Start()
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer RubyServer.Stop()
-
-	return m.Run()
+	return testhelper.TestMainRuby(m)
 }

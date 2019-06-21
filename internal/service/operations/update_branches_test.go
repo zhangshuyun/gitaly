@@ -25,10 +25,10 @@ func TestSuccessfulUserUpdateBranchRequest(t *testing.T) {
 	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
-	server, serverSocketPath := runOperationServiceServer(t)
+	server, serverSocketPath := testhelper.RunOpSvcServer(t, NewServer)
 	defer server.Stop()
 
-	client, conn := newOperationClient(t, serverSocketPath)
+	client, conn := testhelper.NewOpSvcCli(t, serverSocketPath)
 	defer conn.Close()
 
 	request := &gitalypb.UserUpdateBranchRequest{
@@ -51,10 +51,10 @@ func TestSuccessfulUserUpdateBranchRequest(t *testing.T) {
 }
 
 func TestSuccessfulGitHooksForUserUpdateBranchRequest(t *testing.T) {
-	server, serverSocketPath := runOperationServiceServer(t)
+	server, serverSocketPath := testhelper.RunOpSvcServer(t, NewServer)
 	defer server.Stop()
 
-	client, conn := newOperationClient(t, serverSocketPath)
+	client, conn := testhelper.NewOpSvcCli(t, serverSocketPath)
 	defer conn.Close()
 
 	for _, hookName := range GitlabHooks {
@@ -91,10 +91,10 @@ func TestFailedUserUpdateBranchDueToHooks(t *testing.T) {
 	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
-	server, serverSocketPath := runOperationServiceServer(t)
+	server, serverSocketPath := testhelper.RunOpSvcServer(t, NewServer)
 	defer server.Stop()
 
-	client, conn := newOperationClient(t, serverSocketPath)
+	client, conn := testhelper.NewOpSvcCli(t, serverSocketPath)
 	defer conn.Close()
 
 	request := &gitalypb.UserUpdateBranchRequest{
@@ -127,10 +127,10 @@ func TestFailedUserUpdateBranchDueToHooks(t *testing.T) {
 }
 
 func TestFailedUserUpdateBranchRequest(t *testing.T) {
-	server, serverSocketPath := runOperationServiceServer(t)
+	server, serverSocketPath := testhelper.RunOpSvcServer(t, NewServer)
 	defer server.Stop()
 
-	client, conn := newOperationClient(t, serverSocketPath)
+	client, conn := testhelper.NewOpSvcCli(t, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)

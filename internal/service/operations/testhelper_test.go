@@ -3,7 +3,6 @@ package operations
 import (
 	"fmt"
 	"io/ioutil"
-	"net"
 	"os"
 	"path"
 	"testing"
@@ -12,10 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/internal/git/hooks"
-	"gitlab.com/gitlab-org/gitaly/internal/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/reflection"
 )
 
 var (
@@ -23,7 +19,6 @@ var (
 	gitlabPostHooks = []string{"post-receive"}
 	GitlabPreHooks  = gitlabPreHooks
 	GitlabHooks     []string
-	RubyServer      *rubyserver.Server
 	user            = &gitalypb.User{
 		Name:       []byte("Jane Doe"),
 		Email:      []byte("janedoe@gitlab.com"),
@@ -42,8 +37,6 @@ func TestMain(m *testing.M) {
 }
 
 func testMain(m *testing.M) int {
-	defer testhelper.MustHaveNoChildProcess()
-
 	hookDir, err := ioutil.TempDir("", "gitaly-tmp-hooks")
 	if err != nil {
 		log.Fatal(err)
@@ -54,45 +47,8 @@ func testMain(m *testing.M) int {
 
 	testhelper.ConfigureGitalySSH()
 
-	RubyServer, err = rubyserver.Start()
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer RubyServer.Stop()
-
-	return m.Run()
+	return testhelper.TestMainRuby(m)
 }
-
-func runOperationServiceServer(t *testing.T) (*grpc.Server, string) {
-	grpcServer := testhelper.NewTestGrpcServer(t, nil, nil)
-	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName()
-
-	listener, err := net.Listen("unix", serverSocketPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	gitalypb.RegisterOperationServiceServer(grpcServer, &server{RubyServer})
-	reflection.Register(grpcServer)
-
-	go grpcServer.Serve(listener)
-
-	return grpcServer, "unix://" + serverSocketPath
-}
-
-func newOperationClient(t *testing.T, serverSocketPath string) (gitalypb.OperationServiceClient, *grpc.ClientConn) {
-	connOpts := []grpc.DialOption{
-		grpc.WithInsecure(),
-	}
-	conn, err := grpc.Dial(serverSocketPath, connOpts...)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	return gitalypb.NewOperationServiceClient(conn), conn
-}
-
-var NewOperationClient = newOperationClient
 
 // The callee is responsible for clean up of the specific hook, testMain removes
 // the hook dir

@@ -183,7 +183,7 @@ func newTestRepo(t *testing.T, relativePath string) (*gitalypb.Repository, strin
 }
 
 func runFullServer(t *testing.T) (*grpc.Server, string) {
-	server := serverPkg.NewInsecure(repository.RubyServer)
+	server := serverPkg.NewInsecure(testhelper.RubyServer)
 	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName()
 
 	listener, err := net.Listen("unix", serverSocketPath)

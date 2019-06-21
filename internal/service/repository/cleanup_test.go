@@ -155,8 +155,8 @@ func TestCleanupDeletesStaleWorktrees(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
-			defer cleanupFn()
+			testRepo, testRepoPath, _ := testhelper.NewTestRepo(t)
+			//defer cleanupFn()
 
 			req := &gitalypb.CleanupRequest{Repository: testRepo}
 

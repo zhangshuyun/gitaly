@@ -16,7 +16,9 @@ import (
 )
 
 const (
-	worktreePrefix       = "gitlab-worktree"
+	// WorktreePrefix is subdirectory within the repo's directory where all
+	// rebase worktrees for merge requests are kept
+	WorktreePrefix       = "gitlab-worktree"
 	rebaseWorktreePrefix = "rebase"
 	freshTimeout         = 15 * time.Minute
 )
@@ -39,7 +41,7 @@ func (s *server) IsRebaseInProgress(ctx context.Context, req *gitalypb.IsRebaseI
 }
 
 func freshWorktree(repoPath, prefix, id string) (bool, error) {
-	worktreePath := path.Join(repoPath, worktreePrefix, fmt.Sprintf("%s-%s", prefix, id))
+	worktreePath := path.Join(repoPath, WorktreePrefix, fmt.Sprintf("%s-%s", prefix, id))
 
 	fs, err := os.Stat(worktreePath)
 	if err != nil {

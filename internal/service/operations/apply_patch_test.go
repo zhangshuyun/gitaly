@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/internal/git/log"
-	"gitlab.com/gitlab-org/gitaly/internal/service/operations"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/streamio"
 	"google.golang.org/grpc/codes"
@@ -22,7 +21,7 @@ func TestSuccessfulUserApplyPatch(t *testing.T) {
 	server, serverSocketPath := runFullServer(t)
 	defer server.Stop()
 
-	client, conn := operations.NewOperationClient(t, serverSocketPath)
+	client, conn := testhelper.NewOpSvcCli(t, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
@@ -143,7 +142,7 @@ func TestFailedPatchApplyPatch(t *testing.T) {
 	server, serverSocketPath := runFullServer(t)
 	defer server.Stop()
 
-	client, conn := operations.NewOperationClient(t, serverSocketPath)
+	client, conn := testhelper.NewOpSvcCli(t, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
@@ -178,7 +177,7 @@ func TestFailedValidationUserApplyPatch(t *testing.T) {
 	server, serverSocketPath := runFullServer(t)
 	defer server.Stop()
 
-	client, conn := operations.NewOperationClient(t, serverSocketPath)
+	client, conn := testhelper.NewOpSvcCli(t, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)

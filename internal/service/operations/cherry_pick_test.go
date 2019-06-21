@@ -23,7 +23,7 @@ func TestSuccessfulUserCherryPickRequest(t *testing.T) {
 	server, serverSocketPath := runFullServer(t)
 	defer server.Stop()
 
-	client, conn := operations.NewOperationClient(t, serverSocketPath)
+	client, conn := testhelper.NewOpSvcCli(t, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, testRepoPath, cleanup := testhelper.NewTestRepo(t)
@@ -130,7 +130,7 @@ func TestSuccessfulGitHooksForUserCherryPickRequest(t *testing.T) {
 	server, serverSocketPath := runFullServer(t)
 	defer server.Stop()
 
-	client, conn := operations.NewOperationClient(t, serverSocketPath)
+	client, conn := testhelper.NewOpSvcCli(t, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, testRepoPath, cleanup := testhelper.NewTestRepo(t)
@@ -182,7 +182,7 @@ func TestFailedUserCherryPickRequestDueToValidations(t *testing.T) {
 	server, serverSocketPath := runFullServer(t)
 	defer server.Stop()
 
-	client, conn := operations.NewOperationClient(t, serverSocketPath)
+	client, conn := testhelper.NewOpSvcCli(t, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, _, cleanup := testhelper.NewTestRepo(t)
@@ -268,7 +268,7 @@ func TestFailedUserCherryPickRequestDueToPreReceiveError(t *testing.T) {
 	server, serverSocketPath := runFullServer(t)
 	defer server.Stop()
 
-	client, conn := operations.NewOperationClient(t, serverSocketPath)
+	client, conn := testhelper.NewOpSvcCli(t, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, testRepoPath, cleanup := testhelper.NewTestRepo(t)
@@ -319,7 +319,7 @@ func TestFailedUserCherryPickRequestDueToCreateTreeError(t *testing.T) {
 	server, serverSocketPath := runFullServer(t)
 	defer server.Stop()
 
-	client, conn := operations.NewOperationClient(t, serverSocketPath)
+	client, conn := testhelper.NewOpSvcCli(t, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, testRepoPath, cleanup := testhelper.NewTestRepo(t)
@@ -361,7 +361,7 @@ func TestFailedUserCherryPickRequestDueToCommitError(t *testing.T) {
 	server, serverSocketPath := runFullServer(t)
 	defer server.Stop()
 
-	client, conn := operations.NewOperationClient(t, serverSocketPath)
+	client, conn := testhelper.NewOpSvcCli(t, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, testRepoPath, cleanup := testhelper.NewTestRepo(t)
@@ -399,7 +399,7 @@ func TestFailedUserCherryPickRequestDueToCommitError(t *testing.T) {
 }
 
 func runFullServer(t *testing.T) (*grpc.Server, string) {
-	server := serverPkg.NewInsecure(operations.RubyServer)
+	server := serverPkg.NewInsecure(testhelper.RubyServer)
 	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName()
 
 	listener, err := net.Listen("unix", serverSocketPath)

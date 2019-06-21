@@ -20,7 +20,7 @@ func TestSuccessfulIsSquashInProgressRequest(t *testing.T) {
 	testRepo1, testRepo1Path, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepo1Path, "worktree", "add", "--detach", path.Join(testRepo1Path, worktreePrefix, "squash-1"), "master")
+	testhelper.MustRunCommand(t, nil, "git", "-C", testRepo1Path, "worktree", "add", "--detach", path.Join(testRepo1Path, WorktreePrefix, "squash-1"), "master")
 
 	testRepo2, _, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
