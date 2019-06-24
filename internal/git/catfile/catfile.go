@@ -78,6 +78,11 @@ func (c *Batch) Tree(revspec string) (io.Reader, error) {
 // and check the object type. Caller must consume the Reader before
 // making another call on C.
 func (c *Batch) Commit(revspec string) (io.Reader, error) {
+	oi, ok := c.batchCheck.cachedInfo(revspec)
+	if ok {
+		revspec = oi.Oid
+	}
+
 	return c.batchProcess.reader(revspec, "commit")
 }
 

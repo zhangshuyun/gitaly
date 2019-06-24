@@ -12,13 +12,14 @@ import (
 
 // batchCheck encapsulates a 'git cat-file --batch-check' process
 type batchCheck struct {
-	r *bufio.Reader
-	w io.WriteCloser
+	r     *bufio.Reader
+	w     io.WriteCloser
+	cache map[string]ObjectInfo
 	sync.Mutex
 }
 
 func newBatchCheck(ctx context.Context, repoPath string, env []string) (*batchCheck, error) {
-	bc := &batchCheck{}
+	bc := &batchCheck{cache: make(map[string]ObjectInfo)}
 
 	var stdinReader io.Reader
 	stdinReader, bc.w = io.Pipe()
@@ -39,6 +40,10 @@ func newBatchCheck(ctx context.Context, repoPath string, env []string) (*batchCh
 }
 
 func (bc *batchCheck) info(spec string) (*ObjectInfo, error) {
+	if oi, ok := bc.cachedInfo(spec); ok {
+		return oi, nil
+	}
+
 	bc.Lock()
 	defer bc.Unlock()
 
@@ -46,5 +51,23 @@ func (bc *batchCheck) info(spec string) (*ObjectInfo, error) {
 		return nil, err
 	}
 
-	return parseObjectInfo(bc.r)
+	oi, err := parseObjectInfo(bc.r)
+	if err != nil {
+		return nil, err
+	}
+
+	bc.cache[spec] = *oi
+
+	return oi, nil
+}
+
+func (bc *batchCheck) cachedInfo(spec string) (*ObjectInfo, bool) {
+	bc.Lock()
+	defer bc.Unlock()
+
+	if oi, ok := bc.cache[spec]; ok {
+		return &oi, true
+	}
+
+	return nil, false
 }
