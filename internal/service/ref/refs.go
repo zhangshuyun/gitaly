@@ -143,6 +143,44 @@ func (s *server) FindAllTags(in *gitalypb.FindAllTagsRequest, stream gitalypb.Re
 	return nil
 }
 
+func (s *server) FindRef(ctx context.Context, req *gitalypb.FindRefRequest) (*gitalypb.FindRefResponse, error) {
+	refPath := string(req.GetRefPath())
+	if len(refPath) == 0 {
+		return nil, status.Errorf(codes.InvalidArgument, "Ref path cannot be empty")
+	}
+	repo := req.GetRepository()
+
+	cmd, err := git.Command(ctx, repo, "for-each-ref", "--format", "%(objectname)", refPath)
+	if err != nil {
+		return nil, err
+	}
+
+	reader := bufio.NewReader(cmd)
+	revision, _, err := reader.ReadLine()
+	if err != nil {
+		if err == io.EOF {
+			return &gitalypb.FindRefResponse{}, nil
+		}
+		return nil, err
+	}
+
+	commit, err := log.GetCommit(ctx, repo, string(revision))
+	if err != nil {
+		return nil, err
+	}
+
+	if err := cmd.Wait(); err != nil {
+		return nil, err
+	}
+
+	return &gitalypb.FindRefResponse{
+		Ref: &gitalypb.Ref{
+			RefPath:         []byte(refPath),
+			TargetCommit: commit,
+		},
+	}, nil
+}
+
 func validateFindAllTagsRequest(request *gitalypb.FindAllTagsRequest) error {
 	if request.GetRepository() == nil {
 		return errors.New("empty Repository")
