@@ -26,6 +26,7 @@ func init() {
 }
 
 func main() {
+	logger.Error("WAWAWAWA")
 	if len(os.Args) < 2 {
 		logger.Fatal("requires hook name")
 	}
