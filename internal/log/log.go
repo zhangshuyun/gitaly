@@ -16,6 +16,7 @@ var (
 
 	// Loggers is convenient when you want to apply configuration to all
 	// loggers
+
 	Loggers = []*logrus.Logger{Default, GrpcGo}
 )
 

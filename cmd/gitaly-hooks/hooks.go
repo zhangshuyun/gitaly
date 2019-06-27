@@ -2,15 +2,28 @@ package main
 
 import (
 	"context"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
+
+	"github.com/sirupsen/logrus"
 
 	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/log"
 )
 
-var logger = log.Default
+var logger *logrus.Logger
+
+func init() {
+	var err error
+
+	logger, err = log.NewHookLogger(filepath.Join(os.Getenv("GITALY_LOG_DIR"), "gitlab_shell.log"))
+	if err != nil {
+		logger = logrus.New()
+		logger.SetOutput(ioutil.Discard)
+	}
+}
 
 func main() {
 	if len(os.Args) < 2 {
