@@ -16,6 +16,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/admin"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
 	"gitlab.com/gitlab-org/labkit/tracing"
 )
@@ -91,6 +92,9 @@ func run(listeners []net.Listener, conf config.Config) error {
 		termCh       = make(chan os.Signal, len(signals))
 		serverErrors = make(chan error, 1)
 	)
+
+	adminSrv := admin.NewServer(conf.Admin.Port, datastore, coordinator, conf)
+	go adminSrv.ListenAndServe()
 
 	signal.Notify(termCh, signals...)
 

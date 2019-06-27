@@ -22,12 +22,18 @@ type Config struct {
 
 	Logging              config.Logging `toml:"logging"`
 	PrometheusListenAddr string         `toml:"prometheus_listen_addr"`
+	Admin                *Admin         `toml:"praefect_admin"`
 }
 
 // GitalyServer allows configuring the servers that RPCs are proxied to
 type GitalyServer struct {
 	Name       string `toml:"name"`
 	ListenAddr string `toml:"listen_addr" split_words:"true"`
+}
+
+// Admin configures the admin service
+type Admin struct {
+	Port int `toml:"port"`
 }
 
 // FromFile loads the config for the passed file path

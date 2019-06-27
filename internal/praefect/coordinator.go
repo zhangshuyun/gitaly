@@ -22,8 +22,9 @@ import (
 // downstream server. The coordinator is thread safe; concurrent calls to
 // register nodes are safe.
 type Coordinator struct {
-	log  *logrus.Logger
-	lock sync.RWMutex
+	sync.Mutex
+	log      *logrus.Logger
+	connLock sync.RWMutex
 
 	datastore PrimaryDatastore
 
@@ -66,6 +67,9 @@ func (c *Coordinator) GetStorageNode(storage string) (Node, error) {
 func (c *Coordinator) streamDirector(ctx context.Context, fullMethodName string, _ proxy.StreamPeeker) (context.Context, *grpc.ClientConn, error) {
 	// For phase 1, we need to route messages based on the storage location
 	// to the appropriate Gitaly node.
+	c.Lock()
+	defer c.Unlock()
+
 	c.log.Debugf("Stream director received method %s", fullMethodName)
 
 	storageName, err := c.datastore.GetPrimary()
@@ -105,16 +109,29 @@ func (c *Coordinator) RegisterNode(storageName, listenAddr string) error {
 	return nil
 }
 
+// UnregisterNode removes a node and its connection
+func (c *Coordinator) UnregisterNode(storageName string) error {
+	c.delConn(storageName)
+
+	return nil
+}
+
 func (c *Coordinator) setConn(storageName string, conn *grpc.ClientConn) {
-	c.lock.Lock()
+	c.connLock.Lock()
 	c.nodes[storageName] = conn
-	c.lock.Unlock()
+	c.connLock.Unlock()
 }
 
 func (c *Coordinator) getConn(storageName string) (*grpc.ClientConn, bool) {
-	c.lock.RLock()
+	c.connLock.RLock()
 	cc, ok := c.nodes[storageName]
-	c.lock.RUnlock()
+	c.connLock.RUnlock()
 
 	return cc, ok
+}
+
+func (c *Coordinator) delConn(storageName string) {
+	c.connLock.Lock()
+	delete(c.nodes, storageName)
+	c.connLock.Unlock()
 }
