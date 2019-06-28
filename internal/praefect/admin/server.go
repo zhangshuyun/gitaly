@@ -30,5 +30,7 @@ func NewServer(port int, d praefect.Datastore, coordinator *praefect.Coordinator
 	router := http.NewServeMux()
 	router.Handle("/failover", http.HandlerFunc(s.FailoverHandler))
 
+	s.Handler = router
+
 	return s
 }

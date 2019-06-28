@@ -1,0 +1,39 @@
+# Example Praefect configuration file
+
+# # TCP address to listen on
+listen_addr = "127.0.0.1:2305"
+
+# # Praefect can listen on a socket when placed on the same machine as all clients
+# socket_path = "/home/git/gitlab/tmp/sockets/private/praefect.socket"
+# # Praefect will only replicate whitelisted repositories
+# whitelist = ["@hashed/3f/db/3fdba35f04dc8c462986c992bcf875546257113072a909c162f7e470e581e278.git"]
+# # Optional: export metrics via Prometheus
+# prometheus_listen_addr = "127.0.01:10101"
+
+# # You can optionally configure Praefect to output JSON-formatted log messages to stdout
+# [logging]
+#   format = "json"
+# # Optional: Set log level to only log entries with that severity or above
+# # One of, in order: debug, info, warn, errror, fatal, panic
+# # Defaults to "info"
+#   level = "warn"
+
+# # One or more Gitaly servers need to be configured to be managed. The names
+# of each server are used to link multiple nodes, or `gitaly_server`s together
+# as shard. listen_addr should be unique for all nodes.
+# Requires the protocol to be defined, e.g. tcp://host.tld:1234
+
+[primary_server]
+  name = "default"
+  listen_addr = "tcp://0.0.0.0:9999"
+
+[[secondary_server]]
+  name = "backup1"
+  listen_addr = "tcp://0.0.0.0:9998"
+
+[[secondary_server]]
+  name = "backup2"
+  listen_addr = "tcp://0.0.0.0:9997"
+
+[praefect_admin]
+  port = 9093

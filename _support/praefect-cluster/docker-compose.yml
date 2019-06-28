@@ -1,0 +1,27 @@
+version: "3"
+services:
+  gitaly1:
+    image: gitaly:latest
+    command: ["/app/_build/bin/gitaly", "/etc/gitaly/config.toml"]
+    ports:
+      - "9999:9999"
+    volumes:
+      - ./gitaly1/data:/var/opt/gitlab/git-data
+      - ./gitaly1/config.toml:/etc/gitaly/config.toml
+  gitaly2:
+    image: gitaly:latest
+    command: ["/app/_build/bin/gitaly", "/etc/gitaly/config.toml"]
+    ports:
+      - "9998:9998"
+    volumes:
+      - ./gitaly2/data:/var/opt/gitlab/git-data
+      - ./gitaly2/config.toml:/etc/gitaly/config.toml
+  gitaly3:
+    image: gitaly:latest
+    command: ["/app/_build/bin/gitaly", "/etc/gitaly/config.toml"]
+    ports:
+      - "9997:9997"
+    volumes:
+      - ./gitaly3/data:/var/opt/gitlab/git-data
+      - ./gitaly3/config.toml:/etc/gitaly/config.toml
+

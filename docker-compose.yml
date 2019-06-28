@@ -1,0 +1,23 @@
+version: "3"
+services:
+  gitaly_primary:
+    image: registry.gitlab.com/gitlab-org/build/cng/gitaly:latest
+    ports:
+      - "8075:8075"
+    volumes:
+      - ./dev/gitaly-config:/etc/gital
+
+  gitaly_secondar_1:
+    image: registry.gitlab.com/gitlab-org/build/cng/gitaly:latest
+    ports:
+      - "${GITALY_HOST_PORT}:8075"
+    volumes:
+      - ./dev/gitaly-config:/etc/gital
+
+  gitaly_secondary_2:
+    image: registry.gitlab.com/gitlab-org/build/cng/gitaly:latest
+    ports:
+      - "${GITALY_HOST_PORT}:8075"
+    volumes:
+      - ./dev/gitaly-config:/etc/gital
+

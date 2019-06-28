@@ -1,10 +1,7 @@
 gitaly['enable'] = true
-gitaly['listen_addr'] = ':6667'
+gitaly['listen_addr'] = ':6666'
 
-# This instance will be serving the 'gitaly2' repository storage
-git_data_dirs({
-  'gitaly2' => { 'path' => '/var/opt/gitlab/git-data-2' }
-})
+# This instance will be serving the 'default' repository storage
 
 # Disable as many Omnibus services as we can
 unicorn['enable'] = false

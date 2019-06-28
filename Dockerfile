@@ -6,7 +6,7 @@
 # See the _support/load-cluster/docker-compose.yml for an example of how to use
 # this image
 #
-FROM registry.gitlab.com/gitlab-org/gitlab-build-images:ruby-2.6-golang-1.11-git-2.18
+FROM registry.gitlab.com/gitlab-org/gitlab-build-images:ruby-2.6-golang-1.12-git-2.21
 
 RUN mkdir -p /app/ruby
 
@@ -23,5 +23,12 @@ RUN apt-get update -qq && \
 
 COPY . /app
 
-CMD ["/app/bin/gitaly", "/app/config/config.toml"]
+RUN mkdir /app/bin
+RUN rm /app/_build/makegen
+
+RUN cd /app && make _build/makegen
+
+RUN cd /app && make PREFIX=/app/bin
+
+CMD ["/app/bin/gitaly", "/app/config.toml"]
 
