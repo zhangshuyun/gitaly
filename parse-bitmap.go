@@ -7,7 +7,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"math"
 	"os"
@@ -75,6 +74,11 @@ func _main(packIdx string) error {
 	// The type bitmaps come in this specific order: commit, tree, blob, tag.
 	log.Print("labeling objects")
 	for _, t := range []packfile.ObjectType{packfile.TCommit, packfile.TTree, packfile.TBlob, packfile.TTag} {
+		ewah, err := packfile.ReadEWAH(r)
+		if err != nil {
+			return err
+		}
+
 		setFunc := func(i uint32) error {
 			obj := packObjects[i]
 			if obj.Type != packfile.TUnknown {
@@ -86,7 +90,7 @@ func _main(packIdx string) error {
 			return nil
 		}
 
-		if err := parseEWAH(r, setFunc); err != nil {
+		if err := ewah.Scan(setFunc); err != nil {
 			return err
 		}
 	}
@@ -103,7 +107,7 @@ func _main(packIdx string) error {
 			return err
 		}
 
-		if err := skipEWAH(r); err != nil {
+		if _, err := packfile.ReadEWAH(r); err != nil {
 			return err
 		}
 	}
@@ -134,170 +138,6 @@ func _main(packIdx string) error {
 		} else {
 			fmt.Fprintln(out, o)
 		}
-	}
-
-	return nil
-}
-
-func skipEWAH(r io.Reader) error {
-	// discard bit count
-	if _, err := readUint32(r); err != nil {
-		return err
-	}
-
-	words, err := readUint32(r)
-	if err != nil {
-		return err
-	}
-
-	if _, err := io.CopyN(ioutil.Discard, r, int64(words)*8); err != nil {
-		return err
-	}
-
-	// discard RLW pointer
-	if _, err := readUint32(r); err != nil {
-		return nil
-	}
-
-	return nil
-}
-
-type EWAH struct {
-	raw   []byte
-	bits  uint32
-	words uint32
-}
-
-func ReadEWAH(r io.Reader) (*EWAH, error) {
-	header := make([]byte, 8)
-	if _, err := io.ReadFull(r, header); err != nil {
-		return nil, err
-	}
-
-	e := &EWAH{
-		bits:  binary.BigEndian.Uint32(header[:4]),
-		words: binary.BigEndian.Uint32(header[4:]),
-	}
-
-	rawSize := int64(e.words)*8 + 4
-	if rawSize > math.MaxInt32 {
-		return nil, fmt.Errorf("EWAH bitmap does not fit in Go slice")
-	}
-
-	e.raw = make([]byte, int(rawSize))
-
-	if _, err := io.ReadFull(r, e.raw); err != nil {
-		return nil, err
-	}
-
-	return e, nil
-}
-
-func (e *EWAH) Scan(f func(uint32) error) error {
-	bit := uint32(0)
-	lastByte := 8 * e.words
-	for cursor := 0; cursor < lastByte; {
-		header := binary.BigEndian.Uint64(e.raw[cursor : cursor+8])
-		cursor += 8
-
-		cleanBit := int(header & 1)
-		nClean := uint32(header >> 1)
-		nDirty := uint32(header >> 33)
-
-		for i := uint32(0); i < nClean; i++ {
-			for j := 0; j < 64; j++ {
-				if cleanBit == 1 {
-					if err := f(bit); err != nil {
-						return err
-					}
-				}
-
-				bit++
-			}
-		}
-
-		for i := uint32(0); i < nDirty; i++ {
-			word := binary.BigEndian.Uint64(e.raw[cursor : cursor+8])
-			cursor += 8
-
-			for j := uint(0); j < 64; j++ {
-				if mask := uint64(1 << j); word&mask >= mask {
-					if err := f(bit); err != nil {
-						return err
-					}
-				}
-
-				bit++
-			}
-		}
-	}
-
-	return nil
-}
-
-func parseEWAH(r io.Reader, f func(uint32) error) error {
-	bits, err := readUint32(r)
-	if err != nil {
-		return err
-	}
-
-	words, err := readUint32(r)
-	if err != nil {
-		return err
-	}
-
-	log.Printf(" ... EWAH with %d bits, %d words", bits, words)
-
-	offset := uint32(0)
-	wordReader := io.LimitReader(r, int64(words)*8)
-	for {
-		header, err := readUint64(wordReader)
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return err
-		}
-
-		cleanBit := int(header & 1)
-		nClean := uint32(header >> 1)
-		nDirty := uint32(header >> 33)
-
-		for i := uint32(0); i < nClean; i++ {
-			for j := 0; j < 64; j++ {
-				if cleanBit == 1 {
-					if err := f(offset); err != nil {
-						return err
-					}
-				}
-
-				offset++
-			}
-		}
-
-		for i := uint32(0); i < nDirty; i++ {
-			word, err := readUint64(wordReader)
-			if err != nil {
-				return err
-			}
-
-			for j := uint(0); j < 64; j++ {
-				if mask := uint64(1 << j); word&mask >= mask {
-					if err := f(offset); err != nil {
-						return err
-					}
-				}
-
-				offset++
-			}
-		}
-	}
-
-	// The EWAH trailer is there to make it easier to append new entries. We
-	// are not modifying the EWAH so we don't need the trailer.
-	const trailerLen = 4
-	if _, err := io.CopyN(ioutil.Discard, r, trailerLen); err != nil {
-		return err
 	}
 
 	return nil
