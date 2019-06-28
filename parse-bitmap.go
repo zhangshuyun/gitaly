@@ -15,6 +15,7 @@ import (
 	"sort"
 
 	"gitlab.com/gitlab-org/gitaly/internal/git/gitio"
+	"gitlab.com/gitlab-org/gitaly/internal/git/packfile"
 )
 
 var (
@@ -65,7 +66,7 @@ func _main(packIdx string) error {
 
 	// Sort objects by pack offset, because the object type bitmaps use
 	// packfile order.
-	packObjects := make([]*packObject, len(idxObjects))
+	packObjects := make([]*packfile.Object, len(idxObjects))
 	copy(packObjects, idxObjects)
 
 	log.Print("sorting object list")
@@ -73,14 +74,14 @@ func _main(packIdx string) error {
 
 	// The type bitmaps come in this specific order: commit, tree, blob, tag.
 	log.Print("labeling objects")
-	for _, t := range []objectType{tCommit, tTree, tBlob, tTag} {
+	for _, t := range []packfile.ObjectType{packfile.TCommit, packfile.TTree, packfile.TBlob, packfile.TTag} {
 		setFunc := func(i uint32) error {
 			obj := packObjects[i]
-			if obj.objectType != tUnknown {
+			if obj.Type != packfile.TUnknown {
 				return fmt.Errorf("type already set for object %v", obj)
 			}
 
-			obj.objectType = t
+			obj.Type = t
 
 			return nil
 		}
@@ -91,7 +92,7 @@ func _main(packIdx string) error {
 	}
 
 	for _, obj := range packObjects {
-		if obj.objectType == tUnknown {
+		if obj.Type == packfile.TUnknown {
 			return fmt.Errorf("object missing type label: %v", obj)
 		}
 	}
@@ -118,14 +119,14 @@ func _main(packIdx string) error {
 	for _, o := range packObjects {
 		if *printMap {
 			c := ""
-			switch o.objectType {
-			case tBlob:
+			switch o.Type {
+			case packfile.TBlob:
 				c = "b"
-			case tCommit:
+			case packfile.TCommit:
 				c = "C"
-			case tTree:
+			case packfile.TTree:
 				c = "e"
-			case tTag:
+			case packfile.TTag:
 				c = "T"
 			}
 
@@ -138,10 +139,10 @@ func _main(packIdx string) error {
 	return nil
 }
 
-type packObjectList []*packObject
+type packObjectList []*packfile.Object
 
 func (ol packObjectList) Len() int           { return len(ol) }
-func (ol packObjectList) Less(i, j int) bool { return ol[i].offset < ol[j].offset }
+func (ol packObjectList) Less(i, j int) bool { return ol[i].Offset < ol[j].Offset }
 func (ol packObjectList) Swap(i, j int)      { ol[i], ol[j] = ol[j], ol[i] }
 
 func skipEWAH(r io.Reader) error {
@@ -266,41 +267,9 @@ func parseBitmapHeader(r io.Reader, packID string) (uint32, error) {
 	return count, nil
 }
 
-type objectType int
-
-const (
-	tUnknown objectType = iota
-	tBlob
-	tCommit
-	tTree
-	tTag
-)
-
-type packObject struct {
-	oid string
-	objectType
-	offset uint64
-}
-
-func (po packObject) String() string {
-	t := "unknown"
-	switch po.objectType {
-	case tBlob:
-		t = "blob"
-	case tCommit:
-		t = "commit"
-	case tTree:
-		t = "tree"
-	case tTag:
-		t = "tag"
-	}
-
-	return fmt.Sprintf("%s %s\t%d", po.oid, t, po.offset)
-}
-
 const sumSize = 20
 
-func readIndex(packBase, packID string) ([]*packObject, error) {
+func readIndex(packBase, packID string) ([]*packfile.Object, error) {
 	f, err := os.Open(packBase + ".idx")
 	if err != nil {
 		return nil, err
@@ -333,14 +302,14 @@ func readIndex(packBase, packID string) ([]*packObject, error) {
 	if count > math.MaxInt32 {
 		return nil, fmt.Errorf("too many objects in packfile to fit in Go slice: %d", count)
 	}
-	objects := make([]*packObject, count)
+	objects := make([]*packfile.Object, count)
 
 	buf := make([]byte, sumSize)
 	for i := 0; i < len(objects); i++ {
 		if _, err := io.ReadFull(r, buf); err != nil {
 			return nil, err
 		}
-		objects[i] = &packObject{oid: hex.EncodeToString(buf)}
+		objects[i] = &packfile.Object{OID: hex.EncodeToString(buf)}
 	}
 
 	// Discard CRC32 values (one for each object)
@@ -364,7 +333,7 @@ func readIndex(packBase, packID string) ([]*packObject, error) {
 			continue
 		}
 
-		objects[i].offset = uint64(offset)
+		objects[i].Offset = uint64(offset)
 	}
 
 	if has8ByteOffsets {
@@ -377,7 +346,7 @@ func readIndex(packBase, packID string) ([]*packObject, error) {
 			// TODO Not clear if all 8-byte offsets are populated, or only those that
 			// don't fit into 4 bytes.
 			if offset > 0 {
-				objects[i].offset = offset
+				objects[i].Offset = offset
 			}
 		}
 	}
