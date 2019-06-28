@@ -8,6 +8,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
 )
 
+// Server is the struct for the admin server
 type Server struct {
 	d praefect.Datastore
 	*http.Server
