@@ -28,6 +28,7 @@ type Config struct {
 type GitalyServer struct {
 	Name       string `toml:"name"`
 	ListenAddr string `toml:"listen_addr" split_words:"true"`
+	Token      string `toml:"token"`
 }
 
 // FromFile loads the config for the passed file path

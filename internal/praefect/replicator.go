@@ -2,10 +2,14 @@ package praefect
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"time"
 
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
+	"gitlab.com/gitlab-org/gitaly/internal/storage"
+	"google.golang.org/grpc/metadata"
 
 	"github.com/sirupsen/logrus"
 )
@@ -57,7 +61,7 @@ func (dr defaultReplicator) Replicate(ctx context.Context, source Repository, ta
 // ReplMgr is a replication manager for handling replication jobs
 type ReplMgr struct {
 	log         *logrus.Logger
-	jobsStore   ReplJobsDatastore
+	dataStore   Datastore
 	coordinator *Coordinator
 	storage     string     // which replica is this replicator responsible for?
 	replicator  Replicator // does the actual replication logic
@@ -71,10 +75,10 @@ type ReplMgrOpt func(*ReplMgr)
 
 // NewReplMgr initializes a replication manager with the provided dependencies
 // and options
-func NewReplMgr(storage string, log *logrus.Logger, ds ReplJobsDatastore, c *Coordinator, opts ...ReplMgrOpt) ReplMgr {
+func NewReplMgr(storage string, log *logrus.Logger, ds Datastore, c *Coordinator, opts ...ReplMgrOpt) ReplMgr {
 	r := ReplMgr{
 		log:         log,
-		jobsStore:   ds,
+		dataStore:   ds,
 		whitelist:   map[string]struct{}{},
 		replicator:  defaultReplicator{log},
 		storage:     storage,
@@ -115,7 +119,7 @@ func (r ReplMgr) ScheduleReplication(ctx context.Context, repo Repository) error
 		return nil
 	}
 
-	id, err := r.jobsStore.CreateSecondaryReplJobs(repo)
+	id, err := r.dataStore.CreateSecondaryReplJobs(repo)
 	if err != nil {
 		return err
 	}
@@ -137,7 +141,7 @@ const (
 // ProcessBacklog will process queued jobs. It will block while processing jobs.
 func (r ReplMgr) ProcessBacklog(ctx context.Context) error {
 	for {
-		jobs, err := r.jobsStore.GetJobs(JobStatePending|JobStateReady, r.storage, 10)
+		jobs, err := r.dataStore.GetJobs(JobStatePending|JobStateReady, r.storage, 10)
 		if err != nil {
 			return err
 		}
@@ -165,9 +169,28 @@ func (r ReplMgr) ProcessBacklog(ctx context.Context) error {
 				return err
 			}
 
-			if err := r.jobsStore.UpdateReplJob(job.ID, JobStateInProgress); err != nil {
+			if err := r.dataStore.UpdateReplJob(job.ID, JobStateInProgress); err != nil {
 				return err
 			}
+
+			gitalyServer, err := r.dataStore.GetPrimary()
+			if err != nil {
+				return err
+			}
+
+			gitalyServers := storage.GitalyServers{
+				gitalyServer.Name: {
+					"address": gitalyServer.ListenAddr,
+					"token":   gitalyServer.Token,
+				},
+			}
+
+			gitalyServersJSON, err := json.Marshal(gitalyServers)
+			if err != nil {
+				return err
+			}
+
+			ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("gitaly-servers", base64.StdEncoding.EncodeToString(gitalyServersJSON)))
 
 			if err := r.replicator.Replicate(ctx, job.Source, node); err != nil {
 				return err
@@ -175,7 +198,7 @@ func (r ReplMgr) ProcessBacklog(ctx context.Context) error {
 
 			r.log.WithField(logWithReplJobID, job.ID).
 				Info("completed replication")
-			if err := r.jobsStore.UpdateReplJob(job.ID, JobStateComplete); err != nil {
+			if err := r.dataStore.UpdateReplJob(job.ID, JobStateComplete); err != nil {
 				return err
 			}
 		}

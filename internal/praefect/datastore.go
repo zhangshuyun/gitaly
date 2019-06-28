@@ -69,9 +69,9 @@ type Datastore interface {
 // PrimaryDatastore manages accessing and setting the primary storage location
 type PrimaryDatastore interface {
 	// GetPrimary gets the primary storage location
-	GetPrimary() (string, error)
+	GetPrimary() (config.GitalyServer, error)
 	// SetPrimary sets the primary storage location
-	SetPrimary(primary string) error
+	SetPrimary(server config.GitalyServer) error
 }
 
 // ReplicasDatastore manages accessing and setting which secondary replicas
@@ -132,7 +132,7 @@ type MemoryDatastore struct {
 
 	primary *struct {
 		sync.RWMutex
-		storageName string
+		server config.GitalyServer
 	}
 }
 
@@ -155,9 +155,12 @@ func NewMemoryDatastore(cfg config.Config) *MemoryDatastore {
 		},
 		primary: &struct {
 			sync.RWMutex
-			storageName string
+			server config.GitalyServer
 		}{
-			storageName: cfg.PrimaryServer.Name,
+			server: config.GitalyServer{
+				Name:       cfg.PrimaryServer.Name,
+				ListenAddr: cfg.PrimaryServer.ListenAddr,
+			},
 		},
 	}
 
@@ -333,24 +336,24 @@ func (md *MemoryDatastore) UpdateReplJob(jobID uint64, newState JobState) error 
 }
 
 // SetPrimary sets the primary datastore location
-func (md *MemoryDatastore) SetPrimary(primary string) error {
+func (md *MemoryDatastore) SetPrimary(primary config.GitalyServer) error {
 	md.primary.Lock()
 	defer md.primary.Unlock()
 
-	md.primary.storageName = primary
+	md.primary.server = primary
 
 	return nil
 }
 
 // GetPrimary gets the primary datastore location
-func (md *MemoryDatastore) GetPrimary() (string, error) {
+func (md *MemoryDatastore) GetPrimary() (config.GitalyServer, error) {
 	md.primary.RLock()
 	defer md.primary.RUnlock()
 
-	storageName := md.primary.storageName
-	if storageName == "" {
-		return "", ErrPrimaryNotSet
+	server := md.primary.server
+	if server == (config.GitalyServer{}) {
+		return config.GitalyServer{}, ErrPrimaryNotSet
 	}
 
-	return storageName, nil
+	return server, nil
 }

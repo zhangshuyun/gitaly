@@ -2,12 +2,15 @@ package praefect
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"sync"
 
 	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
 	gitalyconfig "gitlab.com/gitlab-org/gitaly/internal/config"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/protoregistry"
+	"gitlab.com/gitlab-org/gitaly/internal/storage"
 
 	"github.com/golang/protobuf/protoc-gen-go/descriptor"
 	"github.com/sirupsen/logrus"
@@ -15,6 +18,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/grpc-proxy/proxy"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
 
@@ -25,14 +29,14 @@ type Coordinator struct {
 	log  *logrus.Logger
 	lock sync.RWMutex
 
-	datastore PrimaryDatastore
+	datastore ServerDatastore
 
 	nodes    map[string]*grpc.ClientConn
 	registry *protoregistry.Registry
 }
 
 // NewCoordinator returns a new Coordinator that utilizes the provided logger
-func NewCoordinator(l *logrus.Logger, datastore PrimaryDatastore, fileDescriptors ...*descriptor.FileDescriptorProto) *Coordinator {
+func NewCoordinator(l *logrus.Logger, datastore ServerDatastore, fileDescriptors ...*descriptor.FileDescriptorProto) *Coordinator {
 	registry := protoregistry.New()
 	registry.RegisterFiles(fileDescriptors...)
 
@@ -68,7 +72,7 @@ func (c *Coordinator) streamDirector(ctx context.Context, fullMethodName string,
 	// to the appropriate Gitaly node.
 	c.log.Debugf("Stream director received method %s", fullMethodName)
 
-	storageName, err := c.datastore.GetPrimary()
+	serverConfig, err := c.datastore.GetPrimary()
 	if err != nil {
 		err := status.Error(
 			codes.FailedPrecondition,
@@ -79,10 +83,29 @@ func (c *Coordinator) streamDirector(ctx context.Context, fullMethodName string,
 
 	// We only need the primary node, as there's only one primary storage
 	// location per praefect at this time
-	cc, ok := c.getConn(storageName)
+	cc, ok := c.getConn(serverConfig.Name)
 	if !ok {
-		return nil, nil, fmt.Errorf("unable to find existing client connection for %s", storageName)
+		return nil, nil, fmt.Errorf("unable to find existing client connection for %+v", serverConfig)
 	}
+
+	gitalyServer, err := c.datastore.GetPrimary()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	gitalyServers := storage.GitalyServers{
+		gitalyServer.Name: {
+			"address": gitalyServer.ListenAddr,
+			"token":   gitalyServer.Token,
+		},
+	}
+
+	gitalyServersJSON, err := json.Marshal(gitalyServers)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("gitaly-servers", base64.StdEncoding.EncodeToString(gitalyServersJSON)))
 
 	return ctx, cc, nil
 }
