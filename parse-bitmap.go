@@ -2,8 +2,6 @@ package main
 
 import (
 	"bufio"
-	"bytes"
-	"crypto/sha1"
 	"encoding/binary"
 	"encoding/hex"
 	"flag"
@@ -58,9 +56,7 @@ func _main(packIdx string) error {
 	}
 	defer f.Close()
 
-	tr := gitio.NewTrailerReader(f, sumSize)
-	sum := sha1.New()
-	r := bufio.NewReader(io.TeeReader(tr, sum))
+	r := bufio.NewReader(gitio.NewHashfileReader(f))
 
 	nBitmapCommits, err := parseBitmapHeader(r, packID)
 	if err != nil {
@@ -113,15 +109,6 @@ func _main(packIdx string) error {
 
 	if _, err := r.Peek(1); err != io.EOF {
 		return fmt.Errorf("expected EOF, got %v", err)
-	}
-
-	expectedSum, err := tr.Trailer()
-	if err != nil {
-		return err
-	}
-
-	if !bytes.Equal(expectedSum, sum.Sum(nil)) {
-		return fmt.Errorf("bitmap checksum mismatch")
 	}
 
 	out := bufio.NewWriter(os.Stdout)
@@ -320,9 +307,7 @@ func readIndex(packBase, packID string) ([]*packObject, error) {
 	}
 	defer f.Close()
 
-	tr := gitio.NewTrailerReader(f, sumSize)
-	sum := sha1.New()
-	r := bufio.NewReader(io.TeeReader(tr, sum))
+	r := bufio.NewReader(gitio.NewHashfileReader(f))
 
 	const sig = "\377tOc\x00\x00\x00\x02"
 	actualSig, err := readN(r, len(sig))
@@ -411,14 +396,6 @@ func readIndex(packBase, packID string) ([]*packObject, error) {
 			err = fmt.Errorf("unexpected trailing data, expected EOF")
 		}
 		return nil, err
-	}
-
-	expectedSum, err := tr.Trailer()
-	if err != nil {
-		return nil, err
-	}
-	if !bytes.Equal(expectedSum, sum.Sum(nil)) {
-		return nil, fmt.Errorf("idx file checksum mismatch")
 	}
 
 	return objects, nil
