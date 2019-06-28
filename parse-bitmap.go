@@ -70,7 +70,7 @@ func _main(packIdx string) error {
 	copy(packObjects, idxObjects)
 
 	log.Print("sorting object list")
-	sort.Sort(packObjectList(packObjects))
+	sort.Sort(packfile.PackfileOrder(packObjects))
 
 	// The type bitmaps come in this specific order: commit, tree, blob, tag.
 	log.Print("labeling objects")
@@ -138,12 +138,6 @@ func _main(packIdx string) error {
 
 	return nil
 }
-
-type packObjectList []*packfile.Object
-
-func (ol packObjectList) Len() int           { return len(ol) }
-func (ol packObjectList) Less(i, j int) bool { return ol[i].Offset < ol[j].Offset }
-func (ol packObjectList) Swap(i, j int)      { ol[i], ol[j] = ol[j], ol[i] }
 
 func skipEWAH(r io.Reader) error {
 	// discard bit count
