@@ -15,6 +15,8 @@ import (
 	"os"
 	"regexp"
 	"sort"
+
+	"gitlab.com/gitlab-org/gitaly/internal/git/gitio"
 )
 
 var (
@@ -56,7 +58,7 @@ func _main(packIdx string) error {
 	}
 	defer f.Close()
 
-	tr := NewTrailerReader(f, sumSize)
+	tr := gitio.NewTrailerReader(f, sumSize)
 	sum := sha1.New()
 	r := bufio.NewReader(io.TeeReader(tr, sum))
 
@@ -318,7 +320,7 @@ func readIndex(packBase, packID string) ([]*packObject, error) {
 	}
 	defer f.Close()
 
-	tr := NewTrailerReader(f, sumSize)
+	tr := gitio.NewTrailerReader(f, sumSize)
 	sum := sha1.New()
 	r := bufio.NewReader(io.TeeReader(tr, sum))
 
@@ -502,66 +504,4 @@ func readUint64(r io.Reader) (uint64, error) {
 	}
 
 	return binary.BigEndian.Uint64(buf), nil
-}
-
-type trailerReader struct {
-	r           io.Reader
-	left, right int
-	trailerSize int
-	buf         []byte
-	atEOF       bool
-}
-
-func NewTrailerReader(r io.Reader, trailerSize int) *trailerReader {
-	return &trailerReader{
-		r:           r,
-		trailerSize: trailerSize,
-		buf:         make([]byte, 4096),
-	}
-}
-
-func (tr *trailerReader) Trailer() ([]byte, error) {
-	bufLen := tr.right - tr.left
-	if !tr.atEOF || bufLen > tr.trailerSize {
-		return nil, fmt.Errorf("cannot get trailer before reader has reached EOF")
-	}
-
-	if bufLen < tr.trailerSize {
-		return nil, fmt.Errorf("not enough bytes to yield trailer")
-	}
-
-	return tr.buf[tr.right-tr.trailerSize : tr.right], nil
-}
-
-func (tr *trailerReader) Read(p []byte) (int, error) {
-	if bufLen := tr.right - tr.left; !tr.atEOF && bufLen <= tr.trailerSize {
-		copy(tr.buf, tr.buf[tr.left:tr.right])
-		tr.left = 0
-		tr.right = bufLen
-
-		n, err := tr.r.Read(tr.buf[tr.right:])
-		if err != nil {
-			if err != io.EOF {
-				return 0, err
-			}
-			tr.atEOF = true
-		}
-		tr.right += n
-	}
-
-	if tr.right-tr.left <= tr.trailerSize {
-		if tr.atEOF {
-			return 0, io.EOF
-		}
-		return 0, nil
-	}
-
-	chunk := tr.right - tr.left - tr.trailerSize
-	if chunk > len(p) {
-		chunk = len(p)
-	}
-
-	copy(p, tr.buf[tr.left:tr.left+chunk])
-	tr.left += chunk
-	return chunk, nil
 }
