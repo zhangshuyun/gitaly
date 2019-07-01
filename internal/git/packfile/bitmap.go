@@ -14,11 +14,19 @@ import (
 )
 
 type Bitmap struct {
-	Commits        *EWAH
-	Trees          *EWAH
-	Blobs          *EWAH
-	Tags           *EWAH
-	nBitmapCommits uint32
+	Commits       *EWAH
+	Trees         *EWAH
+	Blobs         *EWAH
+	Tags          *EWAH
+	BitmapCommits []*BitmapCommit
+	flags         int
+}
+
+type BitmapCommit struct {
+	OID string
+	*EWAH
+	xorOffset byte
+	flags     byte
 }
 
 func (idx *Index) LoadBitmap() error {
@@ -31,8 +39,7 @@ func (idx *Index) LoadBitmap() error {
 	r := bufio.NewReader(gitio.NewHashfileReader(f))
 
 	bmp := &Bitmap{}
-	bmp.nBitmapCommits, err = idx.parseBitmapHeader(r)
-	if err != nil {
+	if err := bmp.parseBitmapHeader(r, idx); err != nil {
 		return err
 	}
 
@@ -47,19 +54,33 @@ func (idx *Index) LoadBitmap() error {
 		}
 	}
 
-	// TODO parse bitmap commits
-	for i := uint32(0); i < bmp.nBitmapCommits; i++ {
-		const entryHeaderLen = 6
-		if _, err := r.Discard(entryHeaderLen); err != nil {
+	for i := 0; i < len(bmp.BitmapCommits); i++ {
+		header, err := readN(r, 6)
+		if err != nil {
 			return err
 		}
 
-		if _, err := ReadEWAH(r); err != nil {
+		bc := &BitmapCommit{
+			OID:       idx.Objects[binary.BigEndian.Uint32(header[:4])].OID,
+			xorOffset: header[4],
+			flags:     header[5],
+		}
+
+		if bc.EWAH, err = ReadEWAH(r); err != nil {
 			return err
 		}
+
+		bmp.BitmapCommits[i] = bc
 	}
 
-	// TODO handle hashcache
+	if bmp.flags&BITMAP_OPT_HASH_CACHE > 0 {
+		// Discard bitmap hash cache
+		for i := 0; i < len(idx.Objects); i++ {
+			if _, err := r.Discard(4); err != nil {
+				return err
+			}
+		}
+	}
 
 	if _, err := r.Peek(1); err != io.EOF {
 		return fmt.Errorf("expected EOF, got %v", err)
@@ -69,35 +90,43 @@ func (idx *Index) LoadBitmap() error {
 	return nil
 }
 
-func (idx *Index) parseBitmapHeader(r io.Reader) (uint32, error) {
+const (
+	BITMAP_OPT_FULL_DAG   = 1
+	BITMAP_OPT_HASH_CACHE = 4
+)
+
+func (bmp *Bitmap) parseBitmapHeader(r io.Reader, idx *Index) error {
 	const headerLen = 32
 	header, err := readN(r, headerLen)
 	if err != nil {
-		return 0, err
+		return err
 	}
 
 	const sig = "BITM\x00\x01"
 	if actualSig := string(header[:len(sig)]); actualSig != sig {
-		return 0, fmt.Errorf("unexpected signature %q", actualSig)
+		return fmt.Errorf("unexpected signature %q", actualSig)
 	}
 	header = header[len(sig):]
 
 	const flagLen = 2
-	flags := binary.BigEndian.Uint16(header[:flagLen])
-	const minFlags = 1
-	if flags&minFlags < minFlags {
-		return 0, fmt.Errorf("invalid flags %x", flags)
-	}
+	bmp.flags = int(binary.BigEndian.Uint16(header[:flagLen]))
 	header = header[flagLen:]
 
-	count := binary.BigEndian.Uint32(header[:4])
-	header = header[4:]
-
-	if s := hex.EncodeToString(header); s != idx.ID {
-		return 0, fmt.Errorf("unexpected pack ID in bitmap header: %s", s)
+	const knownFlags = BITMAP_OPT_FULL_DAG | BITMAP_OPT_HASH_CACHE
+	if bmp.flags&^knownFlags != 0 || (bmp.flags&BITMAP_OPT_FULL_DAG == 0) {
+		return fmt.Errorf("invalid flags %x", bmp.flags)
 	}
 
-	return count, nil
+	const countLen = 4
+	count := binary.BigEndian.Uint32(header[:countLen])
+	header = header[countLen:]
+	bmp.BitmapCommits = make([]*BitmapCommit, count)
+
+	if s := hex.EncodeToString(header); s != idx.ID {
+		return fmt.Errorf("unexpected pack ID in bitmap header: %s", s)
+	}
+
+	return nil
 }
 
 type EWAH struct {
@@ -106,8 +135,6 @@ type EWAH struct {
 	raw   []byte
 	bm    *big.Int
 }
-
-const ewahTrailerLen = 4
 
 func ReadEWAH(r io.Reader) (*EWAH, error) {
 	header := make([]byte, 8)
@@ -129,6 +156,7 @@ func ReadEWAH(r io.Reader) (*EWAH, error) {
 	}
 	e.words = int(uWords)
 
+	const ewahTrailerLen = 4
 	rawSize := int64(e.words)*8 + ewahTrailerLen
 	if rawSize > math.MaxInt32 {
 		return nil, fmt.Errorf("EWAH bitmap does not fit in Go slice")
