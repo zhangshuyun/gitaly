@@ -42,6 +42,8 @@ func (idx *Index) LoadBitmap() error {
 			return err
 		}
 	}
+
+	// TODO parse bitmap commits
 	for i := uint32(0); i < bmp.nBitmapCommits; i++ {
 		const entryHeaderLen = 6
 		if _, err := r.Discard(entryHeaderLen); err != nil {
