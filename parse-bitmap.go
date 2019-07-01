@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"regexp"
+	"runtime/pprof"
 	"sort"
 	"time"
 
@@ -31,6 +32,15 @@ func main() {
 }
 
 func _main(packIdx string) error {
+	if pprofOut := os.Getenv("PPROF_OUT"); len(pprofOut) > 0 {
+		f, err := os.Create(pprofOut)
+		if err != nil {
+			return err
+		}
+		pprof.StartCPUProfile(f)
+		defer pprof.StopCPUProfile()
+	}
+
 	start := time.Now()
 	idx, err := packfile.ReadIndex(packIdx)
 	if err != nil {
