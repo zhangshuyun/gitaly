@@ -94,32 +94,29 @@ func ReadIndex(idxPath string) (*Index, error) {
 
 	// Read 4-byte offsets
 	has8ByteOffsets := false
+	const has8ByteOffsetMask = 1 << 31
 	for i := 0; i < len(idx.Objects); i++ {
 		offset, err := readUint32(r)
 		if err != nil {
 			return nil, err
 		}
 
-		const mask = 1 << 31
-		if offset&mask == mask {
+		if offset&has8ByteOffsetMask == has8ByteOffsetMask {
 			has8ByteOffsets = true
-			continue
 		}
 
 		idx.Objects[i].Offset = uint64(offset)
 	}
 
 	if has8ByteOffsets {
-		for i := 0; i < len(idx.Objects); i++ {
-			offset, err := readUint64(r)
+		for _, obj := range idx.Objects {
+			offset64, err := readUint64(r)
 			if err != nil {
 				return nil, err
 			}
 
-			// TODO Not clear if all 8-byte offsets are populated, or only those that
-			// don't fit into 4 bytes.
-			if offset > 0 {
-				idx.Objects[i].Offset = offset
+			if obj.Offset&has8ByteOffsetMask == has8ByteOffsetMask {
+				obj.Offset = offset64
 			}
 		}
 	}
