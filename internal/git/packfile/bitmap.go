@@ -180,10 +180,10 @@ func ReadEWAH(r io.Reader) (*EWAH, error) {
 	return e, nil
 }
 
-func (e *EWAH) Scan(f func(uint32) error) error {
+func (e *EWAH) Scan(f func(int) error) error {
 	for i := 0; i < e.bits; i++ {
 		if e.bm.Bit(i) == 1 {
-			if err := f(uint32(i)); err != nil {
+			if err := f(i); err != nil {
 				return err
 			}
 		}

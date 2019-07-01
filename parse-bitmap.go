@@ -63,7 +63,7 @@ func _main(packIdx string) error {
 		{packfile.TBlob, idx.Bitmap.Blobs},
 		{packfile.TTag, idx.Bitmap.Tags},
 	} {
-		setFunc := func(i uint32) error {
+		setFunc := func(i int) error {
 			obj := packObjects[i]
 			if obj.Type != packfile.TUnknown {
 				return fmt.Errorf("type already set for object %v", obj)
