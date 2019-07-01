@@ -93,7 +93,6 @@ func ReadIndex(idxPath string) (*Index, error) {
 	}
 
 	// Read 4-byte offsets
-	has8ByteOffsets := false
 	const has8ByteOffsetMask = 1 << 31
 	for _, obj := range idx.Objects {
 		offset, err := readUint32(r)
@@ -102,23 +101,10 @@ func ReadIndex(idxPath string) (*Index, error) {
 		}
 
 		if offset&has8ByteOffsetMask == has8ByteOffsetMask {
-			has8ByteOffsets = true
+			return nil, fmt.Errorf("handling 8-byte index offset is not supported")
 		}
 
 		obj.Offset = uint64(offset)
-	}
-
-	if has8ByteOffsets {
-		for _, obj := range idx.Objects {
-			offset64, err := readUint64(r)
-			if err != nil {
-				return nil, err
-			}
-
-			if obj.Offset&has8ByteOffsetMask == has8ByteOffsetMask {
-				obj.Offset = offset64
-			}
-		}
 	}
 
 	idxPackID, err := readN(r, sumSize)
