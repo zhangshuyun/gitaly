@@ -41,6 +41,10 @@ func (idx *Index) LoadBitmap() error {
 		if err != nil {
 			return err
 		}
+
+		if err := (*ptr).Parse(); err != nil {
+			return err
+		}
 	}
 
 	// TODO parse bitmap commits
@@ -99,6 +103,7 @@ func (idx *Index) parseBitmapHeader(r io.Reader) (uint32, error) {
 type EWAH struct {
 	bits  int
 	words int
+	raw   []byte
 	bm    *big.Int
 }
 
@@ -129,12 +134,16 @@ func ReadEWAH(r io.Reader) (*EWAH, error) {
 		return nil, fmt.Errorf("EWAH bitmap does not fit in Go slice")
 	}
 
-	raw := make([]byte, int(rawSize))
+	e.raw = make([]byte, int(rawSize))
 
-	if _, err := io.ReadFull(r, raw); err != nil {
+	if _, err := io.ReadFull(r, e.raw); err != nil {
 		return nil, err
 	}
 
+	return e, nil
+}
+
+func (e *EWAH) Parse() error {
 	nUnpackedWords := e.bits / 64
 	if e.bits%64 > 0 {
 		nUnpackedWords++
@@ -144,7 +153,7 @@ func ReadEWAH(r io.Reader) (*EWAH, error) {
 	bufPos := len(buf)
 
 	for i := 0; i < e.words; {
-		header := binary.BigEndian.Uint64(raw[8*i : 8*(i+1)])
+		header := binary.BigEndian.Uint64(e.raw[8*i : 8*(i+1)])
 		i++
 
 		cleanBit := int(header & 1)
@@ -167,7 +176,7 @@ func ReadEWAH(r io.Reader) (*EWAH, error) {
 		for ; nDirty > 0; nDirty-- {
 			copy(
 				buf[bufPos-8:bufPos],
-				raw[8*i:8*(i+1)],
+				e.raw[8*i:8*(i+1)],
 			)
 			bufPos -= 8
 			i++
@@ -177,7 +186,7 @@ func ReadEWAH(r io.Reader) (*EWAH, error) {
 	e.bm = big.NewInt(0)
 	e.bm.SetBytes(buf)
 
-	return e, nil
+	return nil
 }
 
 func (e *EWAH) Scan(f func(int) error) error {
