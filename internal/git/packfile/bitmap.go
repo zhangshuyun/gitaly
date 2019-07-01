@@ -54,7 +54,7 @@ func (idx *Index) LoadBitmap() error {
 		}
 	}
 
-	for i := 0; i < len(bmp.BitmapCommits); i++ {
+	for i := range bmp.BitmapCommits {
 		header, err := readN(r, 6)
 		if err != nil {
 			return err
@@ -75,7 +75,7 @@ func (idx *Index) LoadBitmap() error {
 
 	if bmp.flags&BITMAP_OPT_HASH_CACHE > 0 {
 		// Discard bitmap hash cache
-		for i := 0; i < len(idx.Objects); i++ {
+		for range idx.Objects {
 			if _, err := r.Discard(4); err != nil {
 				return err
 			}

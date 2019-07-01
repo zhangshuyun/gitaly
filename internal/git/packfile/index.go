@@ -78,7 +78,7 @@ func ReadIndex(idxPath string) (*Index, error) {
 	}
 
 	buf := make([]byte, sumSize)
-	for i := 0; i < len(idx.Objects); i++ {
+	for i := range idx.Objects {
 		if _, err := io.ReadFull(r, buf); err != nil {
 			return nil, err
 		}
@@ -86,7 +86,7 @@ func ReadIndex(idxPath string) (*Index, error) {
 	}
 
 	// Discard CRC32 values (one for each object)
-	for i := 0; i < len(idx.Objects); i++ {
+	for range idx.Objects {
 		if _, err := r.Discard(4); err != nil {
 			return nil, err
 		}
@@ -95,7 +95,7 @@ func ReadIndex(idxPath string) (*Index, error) {
 	// Read 4-byte offsets
 	has8ByteOffsets := false
 	const has8ByteOffsetMask = 1 << 31
-	for i := 0; i < len(idx.Objects); i++ {
+	for _, obj := range idx.Objects {
 		offset, err := readUint32(r)
 		if err != nil {
 			return nil, err
@@ -105,7 +105,7 @@ func ReadIndex(idxPath string) (*Index, error) {
 			has8ByteOffsets = true
 		}
 
-		idx.Objects[i].Offset = uint64(offset)
+		obj.Offset = uint64(offset)
 	}
 
 	if has8ByteOffsets {
@@ -157,15 +157,15 @@ func (idx *Index) GetObject(oid string) (*Object, bool) {
 		first = idx.fanOut[radix-1]
 	}
 
-	objRange := idx.Objects[first:last]
-	objIdx := sort.Search(len(objRange), func(i int) bool {
-		return objRange[i].OID >= oid
+	searchRange := idx.Objects[first:last]
+	objIdx := sort.Search(len(searchRange), func(i int) bool {
+		return searchRange[i].OID >= oid
 	})
-	if objIdx == len(objRange) {
+	if objIdx == len(searchRange) {
 		return nil, false
 	}
-	obj := objRange[objIdx]
 
+	obj := searchRange[objIdx]
 	if obj.OID != oid {
 		return nil, false
 	}
@@ -180,19 +180,12 @@ func (idx *Index) nPackObjects() (uint32, error) {
 	}
 	defer f.Close()
 
-	const headerLen = 12
-	header, err := readN(f, headerLen)
-	if err != nil {
+	const sizeOffset = 8
+	if _, err := f.Seek(sizeOffset, io.SeekStart); err != nil {
 		return 0, err
 	}
 
-	const sig = "PACK\x00\x00\x00\x02"
-	if s := string(header[:len(sig)]); s != sig {
-		return 0, fmt.Errorf("unexpected pack signature %q", s)
-	}
-	header = header[len(sig):]
-
-	return binary.BigEndian.Uint32(header), nil
+	return readUint32(f)
 }
 
 func (idx *Index) openPack() (f *os.File, err error) {
@@ -207,6 +200,17 @@ func (idx *Index) openPack() (f *os.File, err error) {
 			f.Close()
 		}
 	}(f) // Bind f early so that we can do "return nil, err".
+
+	const headerLen = 8
+	header, err := readN(f, headerLen)
+	if err != nil {
+		return nil, err
+	}
+
+	const sig = "PACK\x00\x00\x00\x02"
+	if s := string(header); s != sig {
+		return nil, fmt.Errorf("unexpected pack signature %q", s)
+	}
 
 	if _, err := f.Seek(-sumSize, io.SeekEnd); err != nil {
 		return nil, err
