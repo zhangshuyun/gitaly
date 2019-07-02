@@ -23,10 +23,12 @@ var (
 )
 
 type Index struct {
-	ID       string
-	packBase string
-	Objects  []*Object
-	fanOut   [256]int
+	ID                   string
+	packBase             string
+	packSize             int64
+	Objects              []*Object
+	ObjectsPackfileOrder []*Object
+	fanOut               [256]int
 	*Bitmap
 }
 
@@ -187,6 +189,12 @@ func (idx *Index) openPack() (f *os.File, err error) {
 		}
 	}(f) // Bind f early so that we can do "return nil, err".
 
+	fi, err := f.Stat()
+	if err != nil {
+		return nil, err
+	}
+	idx.packSize = fi.Size()
+
 	const headerLen = 8
 	header, err := readN(f, headerLen)
 	if err != nil {
@@ -243,4 +251,51 @@ func readN(r io.Reader, n int) ([]byte, error) {
 	}
 
 	return buf, nil
+}
+
+const (
+	digitSize = 16
+	nBuckets  = 1 << digitSize
+)
+
+func (idx *Index) ComputePackfileOrder() {
+	if len(idx.ObjectsPackfileOrder) > 0 {
+		return
+	}
+
+	from := make([]*Object, len(idx.Objects))
+	to := make([]*Object, len(idx.Objects))
+	copy(from, idx.Objects)
+
+	counts := make([]int, nBuckets)
+	curDigits := make([]int, len(idx.Objects))
+
+	for bits := uint(0); (idx.packSize >> bits) > 0; bits += digitSize {
+		for i := range counts {
+			counts[i] = 0
+		}
+
+		for j, obj := range from {
+			curDigits[j] = computeDigit(obj.Offset, bits)
+			counts[curDigits[j]]++
+		}
+
+		for i := 1; i < len(counts); i++ {
+			counts[i] += counts[i-1]
+		}
+
+		for i := len(from) - 1; i >= 0; i-- {
+			obj := from[i]
+			to[counts[curDigits[i]]-1] = obj
+			counts[curDigits[i]]--
+		}
+
+		to, from = from, to
+	}
+
+	idx.ObjectsPackfileOrder = from
+}
+
+func computeDigit(offset uint64, bits uint) int {
+	return int((offset >> bits) & (nBuckets - 1))
 }

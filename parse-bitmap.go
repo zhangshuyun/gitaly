@@ -8,7 +8,6 @@ import (
 	"os"
 	"regexp"
 	"runtime/pprof"
-	"sort"
 	"time"
 
 	"gitlab.com/gitlab-org/gitaly/internal/git/packfile"
@@ -57,10 +56,12 @@ func _main(packIdx string) error {
 	start = time.Now()
 	// Sort objects by pack offset, because the object type bitmaps use
 	// packfile order.
-	packObjects := make([]*packfile.Object, len(idx.Objects))
+	/* packObjects := make([]*packfile.Object, len(idx.Objects))
 	copy(packObjects, idx.Objects)
 
-	sort.Sort(packfile.PackfileOrder(packObjects))
+	sort.Sort(packfile.PackfileOrder(packObjects)) */
+	/**/ idx.ComputePackfileOrder()
+	packObjects := idx.ObjectsPackfileOrder /**/
 	log.Printf("sorted object list in %v", time.Since(start))
 
 	start = time.Now()
