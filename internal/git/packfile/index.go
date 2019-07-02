@@ -258,6 +258,7 @@ const (
 	nBuckets  = 1 << digitSize
 )
 
+// ComputePackfileOrder is based on https://github.com/git/git/blob/master/pack-revindex.c
 func (idx *Index) ComputePackfileOrder() {
 	if len(idx.ObjectsPackfileOrder) > 0 {
 		return
