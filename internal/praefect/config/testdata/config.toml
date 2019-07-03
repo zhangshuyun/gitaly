@@ -3,15 +3,15 @@ socket_path = ""
 whitelist = ["abcd1234", "edfg5678"]
 prometheus_listen_addr = ""
 
-[primary_server]
+[[server]]
   name = "default"
   listen_addr = "tcp://gitaly-primary.example.com"
 
-[[secondary_server]]
+[[server]]
   name = "default"
   listen_addr = "tcp://gitaly-backup1.example.com"
 
-[[secondary_server]]
+[[server]]
   name = "backup"
   listen_addr = "tcp://gitaly-backup2.example.com"
 

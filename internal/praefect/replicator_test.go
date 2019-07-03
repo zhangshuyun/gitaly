@@ -28,11 +28,11 @@ import (
 func TestReplicatorProcessJobsWhitelist(t *testing.T) {
 	var (
 		cfg = config.Config{
-			PrimaryServer: &config.GitalyServer{
-				Name:       "default",
-				ListenAddr: "tcp://gitaly-primary.example.com",
-			},
-			SecondaryServers: []*config.GitalyServer{
+			Servers: []*config.GitalyServer{
+				{
+					Name:       "default",
+					ListenAddr: "tcp://gitaly-primary.example.com",
+				},
 				{
 					Name:       "backup1",
 					ListenAddr: "tcp://gitaly-backup1.example.com",
@@ -51,7 +51,7 @@ func TestReplicatorProcessJobsWhitelist(t *testing.T) {
 		coordinator = praefect.NewCoordinator(logrus.New(), datastore)
 		resultsCh   = make(chan result)
 		replman     = praefect.NewReplMgr(
-			cfg.SecondaryServers[1].Name,
+			cfg.Servers[2].Name,
 			logrus.New(),
 			datastore,
 			coordinator,
@@ -60,11 +60,7 @@ func TestReplicatorProcessJobsWhitelist(t *testing.T) {
 		)
 	)
 
-	for _, node := range []*config.GitalyServer{
-		cfg.PrimaryServer,
-		cfg.SecondaryServers[0],
-		cfg.SecondaryServers[1],
-	} {
+	for _, node := range cfg.Servers {
 		err := coordinator.RegisterNode(node.Name, node.ListenAddr)
 		require.NoError(t, err)
 	}
@@ -85,8 +81,8 @@ func TestReplicatorProcessJobsWhitelist(t *testing.T) {
 			result := <-resultsCh
 
 			assert.Contains(t, cfg.Whitelist, result.source.RelativePath)
-			assert.Equal(t, result.target.Storage, cfg.SecondaryServers[1].Name)
-			assert.Equal(t, result.source.Storage, cfg.PrimaryServer.Name)
+			assert.Equal(t, cfg.Servers[2].Name, result.target.Storage)
+			assert.Equal(t, cfg.Servers[0].Name, result.source.Storage)
 		}
 
 		cancel()
@@ -140,11 +136,11 @@ func TestReplicate(t *testing.T) {
 	defer cleanupFn()
 	var (
 		cfg = config.Config{
-			PrimaryServer: &config.GitalyServer{
-				Name:       "default",
-				ListenAddr: "tcp://gitaly-primary.example.com",
-			},
-			SecondaryServers: []*config.GitalyServer{
+			Servers: []*config.GitalyServer{
+				{
+					Name:       "default",
+					ListenAddr: "tcp://gitaly-primary.example.com",
+				},
 				{
 					Name:       "backup",
 					ListenAddr: "tcp://gitaly-backup1.example.com",
@@ -184,7 +180,7 @@ func TestReplicate(t *testing.T) {
 	coordinator.RegisterNode("default", socketPath)
 
 	replman := praefect.NewReplMgr(
-		cfg.SecondaryServers[0].Name,
+		cfg.Servers[1].Name,
 		logrus.New(),
 		datastore,
 		coordinator,

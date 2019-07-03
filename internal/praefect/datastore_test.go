@@ -43,7 +43,7 @@ var operations = []struct {
 	{
 		desc: "associate the replication job target with a primary",
 		opFn: func(t *testing.T, ds praefect.Datastore) {
-			err := ds.SetSecondaries(repo1Primary, []string{stor2})
+			err := ds.AddSecondaries(repo1Primary, praefect.Node{Storage: stor2})
 			require.NoError(t, err)
 		},
 	},
@@ -93,8 +93,10 @@ var flavors = map[string]func() praefect.Datastore{
 	"in-memory-datastore": func() praefect.Datastore {
 		return praefect.NewMemoryDatastore(
 			config.Config{
-				PrimaryServer: &config.GitalyServer{
-					Name: "default",
+				Servers: []*config.GitalyServer{
+					{
+						Name: "default",
+					},
 				},
 			})
 	},

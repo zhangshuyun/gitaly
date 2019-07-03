@@ -103,9 +103,7 @@ func run(listeners []net.Listener, conf config.Config) error {
 
 	go func() { serverErrors <- repl.ProcessBacklog(ctx) }()
 
-	allBackendServers := append(conf.SecondaryServers, conf.PrimaryServer)
-
-	for _, gitaly := range allBackendServers {
+	for _, gitaly := range conf.Servers {
 		if err := coordinator.RegisterNode(gitaly.Name, gitaly.ListenAddr); err != nil {
 			return fmt.Errorf("failed to register %s: %s", gitaly.Name, err)
 		}

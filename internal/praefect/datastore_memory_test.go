@@ -13,10 +13,10 @@ import (
 // with a configuration file specifying the shard and whitelisted repositories.
 func TestMemoryDatastoreWhitelist(t *testing.T) {
 	cfg := config.Config{
-		PrimaryServer: &config.GitalyServer{
-			Name: "default",
-		},
-		SecondaryServers: []*config.GitalyServer{
+		Servers: []*config.GitalyServer{
+			{
+				Name: "default",
+			},
 			{
 				Name: "backup-1",
 			},
@@ -34,16 +34,16 @@ func TestMemoryDatastoreWhitelist(t *testing.T) {
 
 	repo1 := praefect.Repository{
 		RelativePath: cfg.Whitelist[0],
-		Storage:      cfg.PrimaryServer.Name,
+		Storage:      cfg.Servers[0].Name,
 	}
 	repo2 := praefect.Repository{
 		RelativePath: cfg.Whitelist[1],
-		Storage:      cfg.PrimaryServer.Name,
+		Storage:      cfg.Servers[0].Name,
 	}
 
-	expectSecondaries := []string{
-		cfg.SecondaryServers[0].Name,
-		cfg.SecondaryServers[1].Name,
+	expectSecondaries := []praefect.Node{
+		praefect.Node{Storage: cfg.Servers[1].Name},
+		praefect.Node{Storage: cfg.Servers[2].Name},
 	}
 
 	for _, repo := range []praefect.Repository{repo1, repo2} {
@@ -52,8 +52,8 @@ func TestMemoryDatastoreWhitelist(t *testing.T) {
 		require.ElementsMatch(t, actualSecondaries, expectSecondaries)
 	}
 
-	backup1 := cfg.SecondaryServers[0]
-	backup2 := cfg.SecondaryServers[1]
+	backup1 := cfg.Servers[1]
+	backup2 := cfg.Servers[2]
 
 	backup1ExpectedJobs := []praefect.ReplJob{
 		praefect.ReplJob{

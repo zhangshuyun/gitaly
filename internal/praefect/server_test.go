@@ -51,8 +51,10 @@ func TestServerSimpleUnaryUnary(t *testing.T) {
 			)
 
 			datastore := praefect.NewMemoryDatastore(config.Config{
-				PrimaryServer: &config.GitalyServer{
-					Name: "default",
+				Servers: []*config.GitalyServer{
+					{
+						Name: "default",
+					},
 				},
 			})
 			coordinator := praefect.NewCoordinator(logrus.New(), datastore)

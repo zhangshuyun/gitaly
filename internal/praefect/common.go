@@ -12,6 +12,8 @@ type Repository struct {
 // Node is a wrapper around the grpc client connection for a backend Gitaly node
 type Node struct {
 	Storage string
+	Address string
+	Token   string
 	cc      *grpc.ClientConn
 }
 

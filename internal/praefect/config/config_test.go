@@ -21,12 +21,12 @@ func TestConfigValidation(t *testing.T) {
 	}{
 		{
 			desc:   "No ListenAddr or SocketPath",
-			config: Config{ListenAddr: "", PrimaryServer: primarySrv, SecondaryServers: secondarySrvs},
+			config: Config{ListenAddr: "", Servers: append([]*GitalyServer{primarySrv}, secondarySrvs...)},
 			err:    errNoListener,
 		},
 		{
 			desc:   "Only a SocketPath",
-			config: Config{SocketPath: "/tmp/praefect.socket", PrimaryServer: primarySrv, SecondaryServers: secondarySrvs},
+			config: Config{SocketPath: "/tmp/praefect.socket", Servers: append([]*GitalyServer{primarySrv}, secondarySrvs...)},
 			err:    nil,
 		},
 		{
@@ -36,12 +36,12 @@ func TestConfigValidation(t *testing.T) {
 		},
 		{
 			desc:   "duplicate address",
-			config: Config{ListenAddr: "localhost:1234", PrimaryServer: primarySrv, SecondaryServers: []*GitalyServer{primarySrv}},
+			config: Config{ListenAddr: "localhost:1234", Servers: []*GitalyServer{primarySrv, primarySrv}},
 			err:    errDuplicateGitalyAddr,
 		},
 		{
 			desc:   "Valid config",
-			config: Config{ListenAddr: "localhost:1234", PrimaryServer: primarySrv, SecondaryServers: secondarySrvs},
+			config: Config{ListenAddr: "localhost:1234", Servers: append([]*GitalyServer{primarySrv}, secondarySrvs...)},
 			err:    nil,
 		},
 	}
@@ -62,11 +62,11 @@ func TestConfigParsing(t *testing.T) {
 		{
 			filePath: "testdata/config.toml",
 			expected: Config{
-				PrimaryServer: &GitalyServer{
-					Name:       "default",
-					ListenAddr: "tcp://gitaly-primary.example.com",
-				},
-				SecondaryServers: []*GitalyServer{
+				Servers: []*GitalyServer{
+					{
+						Name:       "default",
+						ListenAddr: "tcp://gitaly-primary.example.com",
+					},
 					{
 						Name:       "default",
 						ListenAddr: "tcp://gitaly-backup1.example.com",

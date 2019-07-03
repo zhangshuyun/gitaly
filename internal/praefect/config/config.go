@@ -13,8 +13,7 @@ type Config struct {
 	ListenAddr string `toml:"listen_addr"`
 	SocketPath string `toml:"socket_path"`
 
-	PrimaryServer    *GitalyServer   `toml:"primary_server"`
-	SecondaryServers []*GitalyServer `toml:"secondary_server"`
+	Servers []*GitalyServer `toml:"server"`
 
 	// Whitelist is a list of relative project paths (paths comprised of project
 	// hashes) that are permitted to use high availability features
@@ -50,20 +49,19 @@ var (
 	errGitalyWithoutName   = errors.New("all gitaly servers must have a name")
 )
 
-var emptyServer = &GitalyServer{}
-
 // Validate establishes if the config is valid
 func (c Config) Validate() error {
 	if c.ListenAddr == "" && c.SocketPath == "" {
 		return errNoListener
 	}
 
-	if c.PrimaryServer == nil || c.PrimaryServer == emptyServer {
+	listenAddrs := make(map[string]bool, len(c.Servers)+1)
+
+	if len(c.Servers) == 0 {
 		return errNoGitalyServers
 	}
 
-	listenAddrs := make(map[string]bool, len(c.SecondaryServers)+1)
-	for _, gitaly := range append(c.SecondaryServers, c.PrimaryServer) {
+	for _, gitaly := range c.Servers {
 		if gitaly.Name == "" {
 			return errGitalyWithoutName
 		}
