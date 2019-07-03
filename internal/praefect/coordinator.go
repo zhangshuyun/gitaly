@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 
+	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
 	gitalyconfig "gitlab.com/gitlab-org/gitaly/internal/config"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/protoregistry"
@@ -25,14 +26,14 @@ type Coordinator struct {
 	log  *logrus.Logger
 	lock sync.RWMutex
 
-	datastore PrimaryDatastore
+	datastore NodesDatastore
 
 	nodes    map[string]*grpc.ClientConn
 	registry *protoregistry.Registry
 }
 
 // NewCoordinator returns a new Coordinator that utilizes the provided logger
-func NewCoordinator(l *logrus.Logger, datastore PrimaryDatastore, fileDescriptors ...*descriptor.FileDescriptorProto) *Coordinator {
+func NewCoordinator(l *logrus.Logger, datastore NodesDatastore, fileDescriptors ...*descriptor.FileDescriptorProto) *Coordinator {
 	registry := protoregistry.New()
 	registry.RegisterFiles(fileDescriptors...)
 
@@ -62,13 +63,17 @@ func (c *Coordinator) GetStorageNode(storage string) (Node, error) {
 	}, nil
 }
 
+type GenericRequest struct {
+	Repository *gitalypb.Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
+}
+
 // streamDirector determines which downstream servers receive requests
-func (c *Coordinator) streamDirector(ctx context.Context, fullMethodName string, _ proxy.StreamPeeker) (context.Context, *grpc.ClientConn, error) {
+func (c *Coordinator) streamDirector(ctx context.Context, fullMethodName string, peeker proxy.StreamPeeker) (context.Context, *grpc.ClientConn, error) {
 	// For phase 1, we need to route messages based on the storage location
 	// to the appropriate Gitaly node.
 	c.log.Debugf("Stream director received method %s", fullMethodName)
 
-	storageName, err := c.datastore.GetPrimary()
+	node, err := c.datastore.GetDefaultPrimary()
 	if err != nil {
 		err := status.Error(
 			codes.FailedPrecondition,
@@ -79,9 +84,9 @@ func (c *Coordinator) streamDirector(ctx context.Context, fullMethodName string,
 
 	// We only need the primary node, as there's only one primary storage
 	// location per praefect at this time
-	cc, ok := c.getConn(storageName)
+	cc, ok := c.getConn(node.Storage)
 	if !ok {
-		return nil, nil, fmt.Errorf("unable to find existing client connection for %s", storageName)
+		return nil, nil, fmt.Errorf("unable to find existing client connection for %s", node.Storage)
 	}
 
 	return ctx, cc, nil

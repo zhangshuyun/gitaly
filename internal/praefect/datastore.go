@@ -62,28 +62,22 @@ func (b byJobID) Less(i, j int) bool { return b.replJobs[i].ID < b.replJobs[j].I
 // persistence needs
 type Datastore interface {
 	ReplJobsDatastore
-	ReplicasDatastore
-	PrimaryDatastore
+	NodesDatastore
 }
 
-// PrimaryDatastore manages accessing and setting the primary storage location
-type PrimaryDatastore interface {
-	// GetPrimary gets the primary storage location
-	GetPrimary() (string, error)
-	// SetPrimary sets the primary storage location
-	SetPrimary(primary string) error
-}
+// NodesDatastore manages accessing and setting the primary storage location
+type NodesDatastore interface {
+	GetDefaultPrimary() (Node, error)
 
-// ReplicasDatastore manages accessing and setting which secondary replicas
-// backup a repository
-type ReplicasDatastore interface {
-	// GetSecondaries will retrieve all secondary replica storage locations for
-	// a primary replica
-	GetSecondaries(primary Repository) ([]string, error)
+	GetPrimary(repo Repository) (Node, error)
 
-	// SetSecondaries will set the secondary storage locations for a repository
-	// in a primary replica.
-	SetSecondaries(primary Repository, secondaries []string) error
+	SetPrimary(repo Repository, node Node) error
+
+	GetSecondaries(repo Repository) ([]Node, error)
+
+	RemoveSecondary(repo Repository, node Node) error
+
+	AddSecondary(repo Repository, node Node) error
 }
 
 // ReplJobsDatastore represents the behavior needed for fetching and updating
@@ -119,32 +113,23 @@ type jobRecord struct {
 // only intended for early beta requirements and as a reference implementation
 // for the eventual SQL implementation
 type MemoryDatastore struct {
-	replicas *struct {
-		sync.RWMutex
-		m map[string]shard // keyed by project's relative path
-	}
-
 	jobs *struct {
 		sync.RWMutex
 		next    uint64
 		records map[uint64]jobRecord // all jobs indexed by ID
 	}
 
-	primary *struct {
+	nodes *struct {
 		sync.RWMutex
-		storageName string
+		reposToSecondaries map[string][]Node
+		reposToPrimary     map[string]Node
+		defaultPrimary     Node
 	}
 }
 
 // NewMemoryDatastore returns an initialized in-memory datastore
 func NewMemoryDatastore(cfg config.Config) *MemoryDatastore {
 	m := &MemoryDatastore{
-		replicas: &struct {
-			sync.RWMutex
-			m map[string]shard
-		}{
-			m: map[string]shard{},
-		},
 		jobs: &struct {
 			sync.RWMutex
 			next    uint64
@@ -153,33 +138,50 @@ func NewMemoryDatastore(cfg config.Config) *MemoryDatastore {
 			next:    0,
 			records: map[uint64]jobRecord{},
 		},
-		primary: &struct {
+		nodes: &struct {
 			sync.RWMutex
-			storageName string
+			reposToSecondaries map[string][]Node
+			reposToPrimary     map[string]Node
+			defaultPrimary     Node
 		}{
-			storageName: cfg.PrimaryServer.Name,
+			reposToSecondaries: make(map[string][]Node),
+			reposToPrimary:     make(map[string]Node),
+			defaultPrimary: Node{
+				Storage: cfg.Servers[0].Name,
+				Address: cfg.Servers[0].ListenAddr,
+				Token:   "",
+			},
 		},
 	}
 
-	secondaries := make([]string, len(cfg.SecondaryServers))
-	for i, server := range cfg.SecondaryServers {
-		secondaries[i] = server.Name
-	}
-
 	for _, relativePath := range cfg.Whitelist {
-		// store the configuration file specified shard
-		m.replicas.m[relativePath] = shard{
-			primary:     cfg.PrimaryServer.Name,
-			secondaries: secondaries,
+		for _, server := range cfg.Servers {
+			defaultPrimary, err := m.GetDefaultPrimary()
+			if err != nil {
+				panic(fmt.Sprintf("could not get default primary: %v", err))
+			}
+			if server.Name == defaultPrimary.Storage {
+				continue
+			}
+			secondaries, ok := m.nodes.reposToSecondaries[relativePath]
+			if !ok {
+				secondaries = make([]Node, 0)
+			}
+			secondaries = append(secondaries, Node{
+				Storage: server.Name,
+				Address: server.ListenAddr,
+				Token:   "",
+			})
+			m.nodes.reposToSecondaries[relativePath] = secondaries
 		}
 
 		// initialize replication job queue to replicate all whitelisted repos
 		// to every secondary server
-		for _, secondary := range cfg.SecondaryServers {
+		for _, secondary := range m.nodes.reposToSecondaries[relativePath] {
 			m.jobs.next++
 			m.jobs.records[m.jobs.next] = jobRecord{
 				state:        JobStateReady,
-				target:       secondary.Name,
+				target:       secondary.Storage,
 				relativePath: relativePath,
 			}
 		}
@@ -189,32 +191,71 @@ func NewMemoryDatastore(cfg config.Config) *MemoryDatastore {
 	return m
 }
 
-// GetSecondaries will return the set of secondary storage locations for a
-// given repository if they exist
-func (md *MemoryDatastore) GetSecondaries(primary Repository) ([]string, error) {
-	shard, _ := md.getShard(primary.RelativePath)
-
-	return shard.secondaries, nil
+func (md *MemoryDatastore) GetDefaultPrimary() (Node, error) {
+	return md.nodes.defaultPrimary, nil
 }
 
-// SetSecondaries will replace the set of replicas for a repository
-func (md *MemoryDatastore) SetSecondaries(primary Repository, secondaries []string) error {
-	md.replicas.Lock()
-	md.replicas.m[primary.RelativePath] = shard{
-		primary:     primary.Storage,
-		secondaries: secondaries,
+// GetPrimary gets the primary datastore location
+func (md *MemoryDatastore) GetPrimary(repo Repository) (Node, error) {
+	md.nodes.RLock()
+	defer md.nodes.RUnlock()
+
+	primary, ok := md.nodes.reposToPrimary[repo.RelativePath]
+	if !ok {
+		return md.GetDefaultPrimary()
 	}
-	md.replicas.Unlock()
+
+	return primary, nil
+}
+
+func (md *MemoryDatastore) SetPrimary(repo Repository, node Node) error {
+	md.nodes.Lock()
+	defer md.nodes.Unlock()
+
+	md.nodes.reposToPrimary[repo.RelativePath] = node
+	return nil
+}
+
+// GetSecondaries will return the set of secondary storage locations for a
+// given repository if they exist
+func (md *MemoryDatastore) GetSecondaries(repo Repository) ([]Node, error) {
+	return md.nodes.reposToSecondaries[repo.RelativePath], nil
+}
+
+// RemoveSecondary will return the set of secondary storage locations for a
+// given repository if they exist
+func (md *MemoryDatastore) RemoveSecondary(repo Repository, node Node) error {
+
+	secondaries, ok := md.nodes.reposToSecondaries[repo.RelativePath]
+	if !ok {
+		return nil
+	}
+
+	for i, secondary := range secondaries {
+		if secondary == node {
+			secondaries = append(secondaries[:i], secondaries[i+1:]...)
+			md.nodes.reposToSecondaries[repo.RelativePath] = secondaries
+			return nil
+		}
+	}
 
 	return nil
 }
 
-func (md *MemoryDatastore) getShard(project string) (shard, bool) {
-	md.replicas.RLock()
-	replicas, ok := md.replicas.m[project]
-	md.replicas.RUnlock()
+// AddSecondary will add a secondary to the list of secondaries for a repository
+func (md *MemoryDatastore) AddSecondary(repo Repository, node Node) error {
+	md.nodes.Lock()
+	defer md.nodes.Unlock()
 
-	return replicas, ok
+	secondaries, ok := md.nodes.reposToSecondaries[repo.RelativePath]
+	if !ok {
+		secondaries = make([]Node, 0)
+	}
+	secondaries = append(secondaries, node)
+
+	md.nodes.reposToSecondaries[repo.RelativePath] = secondaries
+
+	return nil
 }
 
 // ErrSecondariesMissing indicates the repository does not have any backup
@@ -251,8 +292,8 @@ func (md *MemoryDatastore) GetJobs(state JobState, storage string, count int) ([
 // replJobFromRecord constructs a replication job from a record and by cross
 // referencing the current shard for the project being replicated
 func (md *MemoryDatastore) replJobFromRecord(jobID uint64, record jobRecord) (ReplJob, error) {
-	shard, ok := md.getShard(record.relativePath)
-	if !ok {
+	primary, err := md.GetPrimary(Repository{RelativePath: record.relativePath})
+	if err != nil {
 		return ReplJob{}, fmt.Errorf(
 			"unable to find shard for project at relative path %q",
 			record.relativePath,
@@ -263,7 +304,7 @@ func (md *MemoryDatastore) replJobFromRecord(jobID uint64, record jobRecord) (Re
 		ID: jobID,
 		Source: Repository{
 			RelativePath: record.relativePath,
-			Storage:      shard.primary,
+			Storage:      primary.Storage,
 		},
 		State:  record.state,
 		Target: record.target,
@@ -285,8 +326,8 @@ func (md *MemoryDatastore) CreateSecondaryReplJobs(source Repository) ([]uint64,
 		return nil, errors.New("invalid source repository")
 	}
 
-	shard, ok := md.getShard(source.RelativePath)
-	if !ok {
+	secondaries, err := md.GetSecondaries(Repository{RelativePath: source.RelativePath})
+	if err != nil {
 		return nil, fmt.Errorf(
 			"unable to find shard for project at relative path %q",
 			source.RelativePath,
@@ -295,12 +336,12 @@ func (md *MemoryDatastore) CreateSecondaryReplJobs(source Repository) ([]uint64,
 
 	var jobIDs []uint64
 
-	for _, secondary := range shard.secondaries {
+	for _, secondary := range secondaries {
 		nextID := uint64(len(md.jobs.records) + 1)
 
 		md.jobs.next++
 		md.jobs.records[md.jobs.next] = jobRecord{
-			target:       secondary,
+			target:       secondary.Storage,
 			state:        JobStatePending,
 			relativePath: source.RelativePath,
 		}
@@ -330,27 +371,4 @@ func (md *MemoryDatastore) UpdateReplJob(jobID uint64, newState JobState) error 
 	job.state = newState
 	md.jobs.records[jobID] = job
 	return nil
-}
-
-// SetPrimary sets the primary datastore location
-func (md *MemoryDatastore) SetPrimary(primary string) error {
-	md.primary.Lock()
-	defer md.primary.Unlock()
-
-	md.primary.storageName = primary
-
-	return nil
-}
-
-// GetPrimary gets the primary datastore location
-func (md *MemoryDatastore) GetPrimary() (string, error) {
-	md.primary.RLock()
-	defer md.primary.RUnlock()
-
-	storageName := md.primary.storageName
-	if storageName == "" {
-		return "", ErrPrimaryNotSet
-	}
-
-	return storageName, nil
 }

@@ -23,14 +23,15 @@ listen_addr = "127.0.0.1:2305"
 # as shard. listen_addr should be unique for all nodes.
 # Requires the protocol to be defined, e.g. tcp://host.tld:1234
 
-[primary_server]
+# The first server in the list serves as the default primary for repositories that don't have a "primary" node configured
+[server]
   name = "default"
   listen_addr = "tcp://gitaly-primary.example.com"
 
-# [[secondary_server]]
-#  name = "default"
-#  listen_addr = "tcp://gitaly-backup1.example.com"
+[server]
+ name = "server-1"
+ listen_addr = "tcp://gitaly-backup1.example.com"
 
-# [[secondary_server]]
-#   name = "backup"
-#  listen_addr = "tcp://gitaly-backup2.example.com"
+[server]
+  name = "server-2"
+ listen_addr = "tcp://gitaly-backup2.example.com"
