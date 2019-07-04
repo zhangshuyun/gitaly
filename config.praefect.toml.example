@@ -8,7 +8,7 @@ listen_addr = "127.0.0.1:2305"
 # # Praefect will only replicate whitelisted repositories
 # whitelist = ["@hashed/3f/db/3fdba35f04dc8c462986c992bcf875546257113072a909c162f7e470e581e278.git"]
 # # Optional: export metrics via Prometheus
-# prometheus_listen_addr = "127.0.01:10101"
+# prometheus_listen_addr = "127.0.0.1:10101"
 
 # # You can optionally configure Praefect to output JSON-formatted log messages to stdout
 # [logging]
@@ -18,20 +18,24 @@ listen_addr = "127.0.0.1:2305"
 # # Defaults to "info"
 #   level = "warn"
 
+[postgres]
+  addr = "127.0.0.1:5432"
+  database = "praefect_test"
+
 # # One or more Gitaly servers need to be configured to be managed. The names
 # of each server are used to link multiple nodes, or `gitaly_server`s together
 # as shard. listen_addr should be unique for all nodes.
 # Requires the protocol to be defined, e.g. tcp://host.tld:1234
 
 # The first server in the list serves as the default primary for repositories that don't have a "primary" node configured
-[server]
+[[server]]
   name = "default"
   listen_addr = "tcp://gitaly-primary.example.com"
 
-[server]
+[[server]]
  name = "server-1"
  listen_addr = "tcp://gitaly-backup1.example.com"
 
-[server]
+[[server]]
   name = "server-2"
- listen_addr = "tcp://gitaly-backup2.example.com"
+  listen_addr = "tcp://gitaly-backup2.example.com"

@@ -21,12 +21,21 @@ type Config struct {
 
 	Logging              config.Logging `toml:"logging"`
 	PrometheusListenAddr string         `toml:"prometheus_listen_addr"`
+
+	Postgres *Postgres `toml:"postgres"`
 }
 
 // GitalyServer allows configuring the servers that RPCs are proxied to
 type GitalyServer struct {
 	Name       string `toml:"name"`
 	ListenAddr string `toml:"listen_addr" split_words:"true"`
+}
+
+// Postgres allows configuring the postgres database praefect uses
+type Postgres struct {
+	Addr          string `toml:"addr"`
+	Database      string `toml:"database"`
+	MigrationPath string `toml:"migration_path"`
 }
 
 // FromFile loads the config for the passed file path
