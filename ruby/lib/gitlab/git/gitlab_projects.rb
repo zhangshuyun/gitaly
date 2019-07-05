@@ -57,9 +57,9 @@ module Gitlab
         end
       end
 
-      def fetch_remote(name, timeout, force:, tags:, env: {}, prune: true, follow_redirects: false)
+      def fetch_remote(name, timeout, force:, tags:, env: {}, prune: true)
         logger.info "Fetching remote #{name} for repository #{repository_absolute_path}."
-        cmd = fetch_remote_command(name, tags, prune, force, follow_redirects)
+        cmd = fetch_remote_command(name, tags, prune, force)
 
         run_with_timeout(cmd, timeout, repository_absolute_path, env).tap do |success|
           logger.error "Fetching remote #{name} for repository #{repository_absolute_path} failed." unless success
@@ -119,8 +119,8 @@ module Gitlab
 
       private
 
-      def fetch_remote_command(name, tags, prune, force, follow_redirects)
-        %W(#{Gitlab.config.git.bin_path} -c http.followRedirects=#{follow_redirects} fetch #{name} --quiet).tap do |cmd|
+      def fetch_remote_command(name, tags, prune, force)
+        %W(#{Gitlab.config.git.bin_path} -c http.followRedirects=false fetch #{name} --quiet).tap do |cmd|
           cmd << '--prune' if prune
           cmd << '--force' if force
           cmd << (tags ? '--tags' : '--no-tags')
