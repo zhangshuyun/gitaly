@@ -41,7 +41,7 @@ module Gitlab
       include TestSetup
 
       def path
-        @path ||= ENV['GITALY_GITLAB_SHELL_DIR']
+        @path ||= ENV['GITALY_GITLAB_SHELL_DIR'] || ENV['GITALY_RUBY_GITLAB_SHELL_PATH']
       end
 
       def git_timeout

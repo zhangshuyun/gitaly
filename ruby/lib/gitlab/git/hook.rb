@@ -103,6 +103,7 @@ module Gitlab
       def env_base_vars(gl_id, gl_username)
         {
           'GITALY_GITLAB_SHELL_DIR' => Gitlab.config.gitlab_shell.path,
+          'GITLAB_SHELL_DIR' => Gitlab.config.gitlab_shell.path,
           'GITALY_LOG_DIR' => Gitlab.config.logging.dir,
           'GITALY_LOG_LEVEL' => Gitlab.config.logging.level,
           'GITALY_LOG_FORMAT' => Gitlab.config.logging.format,
