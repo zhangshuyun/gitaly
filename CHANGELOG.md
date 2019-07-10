@@ -1,5 +1,13 @@
 # Gitaly changelog
 
+## v1.52.0
+
+#### Other
+- Do not add linked repos as remotes on pool repository
+  https://gitlab.com/gitlab-org/gitaly/merge_requests/1356
+- Upgrade rouge to 3.5.1
+  https://gitlab.com/gitlab-org/gitaly/merge_requests/1355
+
 ## v1.51.0
 
 #### Changed
