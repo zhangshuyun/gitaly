@@ -216,8 +216,7 @@ func TestFetchRemoteOverHTTPWithRedirect(t *testing.T) {
 
 	_, err := client.FetchRemote(ctx, req)
 	require.Error(t, err)
-	errFmt := "rpc error: code = Unknown desc = Fetching remote  failed: fatal: unable to access '%s/': The requested URL returned error: 303\n"
-	require.Equal(t, fmt.Sprintf(errFmt, s.URL), err.Error())
+	require.Contains(t, err.Error(), "The requested URL returned error: 303")
 }
 
 func TestFetchRemoteOverHTTPError(t *testing.T) {
