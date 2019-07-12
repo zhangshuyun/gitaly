@@ -1,5 +1,9 @@
 # Gitaly changelog
 
+## 1.54.1
+
+- No changes.
+
 ## 1.54.0 (2019-07-22)
 
 - No changes.
