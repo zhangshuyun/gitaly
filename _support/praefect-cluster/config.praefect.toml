@@ -24,17 +24,22 @@ whitelist = ["@hashed/2c/62/2c624232cdd221771294dfbb310aca000a0df6ac8b66b696d90e
 # as shard. listen_addr should be unique for all nodes.
 # Requires the protocol to be defined, e.g. tcp://host.tld:1234
 
-[primary_server]
-  name = "default"
+[[storage_node]]
 #  listen_addr = "tcp://gitaly-primary:9999"
-  listen_addr = "tcp://127.0.0.1:9999"
+  storage = "praefect-internal-1"
+  address = "tcp://127.0.0.1:9999"
 
-[[secondary_server]]
-  name = "backup1"
+[[storage_node]]
 #  listen_addr = "tcp://gitaly-backup-1:9999"
-  listen_addr = "tcp://127.0.0.1:9998"
+  storage = "praefect-internal-2"
+  address = "tcp://127.0.0.1:9998"
 
-[[secondary_server]]
-  name = "backup2"
+[[storage_node]]
 #  listen_addr = "tcp://gitaly-backup-2:9999"
-  listen_addr = "tcp://127.0.0.1:9997"
+  storage = "praefect-internal-3"
+  address = "tcp://127.0.0.1:9997"
+
+[postgres]
+  user = "johncai"
+  address = "127.0.0.1:5432"
+  database = "praefect_test"

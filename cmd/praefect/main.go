@@ -19,6 +19,7 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/internal/praefect"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/internal/version"
 	"gitlab.com/gitlab-org/labkit/tracing"
 )
@@ -95,10 +96,9 @@ func run(listeners []net.Listener, conf config.Config) error {
 	var (
 		// top level server dependencies
 		datastore   = praefect.NewMemoryDatastore(conf)
-		coordinator = praefect.NewCoordinator(logger, datastore)
-		repl        = praefect.NewReplMgr("default", logger, datastore, coordinator, praefect.WithWhitelist(conf.Whitelist))
+		coordinator = praefect.NewCoordinator(logger, datastore, protoregistry.GitalyProtoFileDescriptors...)
+		repl        = praefect.NewReplMgr("default", logger, datastore, datastore, coordinator, praefect.WithWhitelist(conf.Whitelist))
 		srv         = praefect.NewServer(coordinator, repl, nil, logger)
-
 		// signal related
 		signals      = []os.Signal{syscall.SIGTERM, syscall.SIGINT}
 		termCh       = make(chan os.Signal, len(signals))
@@ -114,14 +114,12 @@ func run(listeners []net.Listener, conf config.Config) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	allBackendServers := append(conf.SecondaryServers, conf.PrimaryServer)
-
-	for _, gitaly := range allBackendServers {
-		if err := coordinator.RegisterNode(gitaly.Name, gitaly.ListenAddr); err != nil {
-			return fmt.Errorf("failed to register %s: %s", gitaly.Name, err)
+	for _, node := range conf.StorageNodes {
+		if err := coordinator.RegisterNode(node.Storage, node.Address); err != nil {
+			return fmt.Errorf("failed to register %s: %s", node.Address, err)
 		}
 
-		logger.WithField("node_name", gitaly.Name).WithField("gitaly listen addr", gitaly.ListenAddr).Info("registered gitaly node")
+		logger.WithField("node_address", node.Address).Info("registered gitaly node")
 	}
 
 	go func() { serverErrors <- repl.ProcessBacklog(ctx) }()

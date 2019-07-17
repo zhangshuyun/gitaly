@@ -1,93 +1,94 @@
-package praefect_test
+package praefect
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/models"
 )
 
 // TestMemoryDatastoreWhitelist verifies that the in-memory datastore will
-// populate itself with the correct replication jobs and shards when initialized
+// populate itself with the correct replication jobs and repositories when initialized
 // with a configuration file specifying the shard and whitelisted repositories.
 func TestMemoryDatastoreWhitelist(t *testing.T) {
-	cfg := config.Config{
-		PrimaryServer: &models.GitalyServer{
-			Name: "default",
-		},
-		SecondaryServers: []*models.GitalyServer{
-			{
-				Name: "backup-1",
-			},
-			{
-				Name: "backup-2",
-			},
-		},
-		Whitelist: []string{"abcd1234", "5678efgh"},
-	}
-
-	mds := praefect.NewMemoryDatastore(cfg)
-
 	repo1 := models.Repository{
-		RelativePath: cfg.Whitelist[0],
-		Storage:      cfg.PrimaryServer.Name,
+		RelativePath: "abcd1234",
 	}
-
 	repo2 := models.Repository{
-		RelativePath: cfg.Whitelist[1],
-		Storage:      cfg.PrimaryServer.Name,
+		RelativePath: "5678efgh",
 	}
+	mds := NewMemoryDatastore(config.Config{
+		StorageNodes: []*models.StorageNode{
+			&models.StorageNode{
+				ID:      0,
+				Address: "tcp://default",
+				Storage: "praefect-internal-1",
+			},
+			&models.StorageNode{
+				ID:      1,
+				Address: "tcp://backup-2",
+				Storage: "praefect-internal-2",
+			}, &models.StorageNode{
+				ID:      2,
+				Address: "tcp://backup-2",
+				Storage: "praefect-internal-3",
+			}},
+		Whitelist: []string{repo1.RelativePath, repo2.RelativePath},
+	})
 
-	expectSecondaries := []models.GitalyServer{
-		models.GitalyServer{Name: cfg.SecondaryServers[0].Name},
-		models.GitalyServer{Name: cfg.SecondaryServers[1].Name},
+	expectReplicas := []models.StorageNode{
+		mds.storageNodes.m[1],
+		mds.storageNodes.m[2],
 	}
 
 	for _, repo := range []models.Repository{repo1, repo2} {
-		actualSecondaries, err := mds.GetShardSecondaries(repo)
+		actualReplicas, err := mds.GetReplicas(repo.RelativePath)
 		require.NoError(t, err)
-		require.ElementsMatch(t, expectSecondaries, actualSecondaries)
+		require.ElementsMatch(t, expectReplicas, actualReplicas)
 	}
 
-	backup1 := cfg.SecondaryServers[0]
-	backup2 := cfg.SecondaryServers[1]
+	backup1 := mds.storageNodes.m[1]
+	backup2 := mds.storageNodes.m[2]
 
-	backup1ExpectedJobs := []praefect.ReplJob{
-		praefect.ReplJob{
-			ID:     1,
-			Target: backup1.Name,
-			Source: repo1,
-			State:  praefect.JobStateReady,
+	backup1ExpectedJobs := []ReplJob{
+		ReplJob{
+			ID:            1,
+			TargetNodeID:  backup1.ID,
+			Source:        models.Repository{RelativePath: repo1.RelativePath},
+			SourceStorage: "praefect-internal-1",
+			State:         JobStateReady,
 		},
-		praefect.ReplJob{
-			ID:     3,
-			Target: backup1.Name,
-			Source: repo2,
-			State:  praefect.JobStateReady,
+		ReplJob{
+			ID:            3,
+			TargetNodeID:  backup1.ID,
+			Source:        models.Repository{RelativePath: repo2.RelativePath},
+			SourceStorage: "praefect-internal-1",
+			State:         JobStateReady,
 		},
 	}
-	backup2ExpectedJobs := []praefect.ReplJob{
-		praefect.ReplJob{
-			ID:     2,
-			Target: backup2.Name,
-			Source: repo1,
-			State:  praefect.JobStateReady,
+	backup2ExpectedJobs := []ReplJob{
+		ReplJob{
+			ID:            2,
+			TargetNodeID:  backup2.ID,
+			Source:        models.Repository{RelativePath: repo1.RelativePath},
+			SourceStorage: "praefect-internal-1",
+			State:         JobStateReady,
 		},
-		praefect.ReplJob{
-			ID:     4,
-			Target: backup2.Name,
-			Source: repo2,
-			State:  praefect.JobStateReady,
+		ReplJob{
+			ID:            4,
+			TargetNodeID:  backup2.ID,
+			Source:        models.Repository{RelativePath: repo2.RelativePath},
+			SourceStorage: "praefect-internal-1",
+			State:         JobStateReady,
 		},
 	}
 
-	backup1ActualJobs, err := mds.GetJobs(praefect.JobStatePending|praefect.JobStateReady, backup1.Name, 10)
+	backup1ActualJobs, err := mds.GetJobs(JobStatePending|JobStateReady, backup1.ID, 10)
 	require.NoError(t, err)
 	require.Equal(t, backup1ExpectedJobs, backup1ActualJobs)
 
-	backup2ActualJobs, err := mds.GetJobs(praefect.JobStatePending|praefect.JobStateReady, backup2.Name, 10)
+	backup2ActualJobs, err := mds.GetJobs(JobStatePending|JobStateReady, backup2.ID, 10)
 	require.NoError(t, err)
 	require.Equal(t, backup2ActualJobs, backup2ExpectedJobs)
 

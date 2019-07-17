@@ -21,6 +21,7 @@ cmd/gitaly-remote/gitaly-remote
 git-env
 /gitaly-debug
 /praefect
+/praefect-migrate
 gitaly.pid
 /vendor/github.com/libgit2/git2go/vendor
 /vendor

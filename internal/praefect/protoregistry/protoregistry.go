@@ -43,11 +43,24 @@ const (
 	OpMutator
 )
 
+// Scope represents the scope for an RPC method
+type Scope int
+
+const (
+	// ScopeRepository = repository scope
+	ScopeRepository = iota
+	// ScopeStorage = storage scope
+	ScopeStorage
+	// ScopeServer = serer scope
+	ScopeServer
+)
+
 // MethodInfo contains metadata about the RPC method. Refer to documentation
 // for message type "OperationMsg" shared.proto in gitlab-org/gitaly-proto for
 // more documentation.
 type MethodInfo struct {
 	Operation      OpType
+	Scope          Scope
 	targetRepo     []int
 	requestName    string // protobuf message name for input type
 	requestFactory protoFactory
@@ -55,13 +68,6 @@ type MethodInfo struct {
 
 // TargetRepo returns the target repository for a protobuf message if it exists
 func (mi MethodInfo) TargetRepo(msg proto.Message) (*gitalypb.Repository, error) {
-	if mi.requestName != proto.MessageName(msg) {
-		return nil, fmt.Errorf(
-			"proto message %s does not match expected RPC request message %s",
-			proto.MessageName(msg), mi.requestName,
-		)
-	}
-
 	return reflectFindRepoTarget(msg, mi.targetRepo)
 }
 
@@ -179,6 +185,11 @@ func parseMethodInfo(methodDesc *descriptor.MethodDescriptorProto) (MethodInfo, 
 		return MethodInfo{}, err
 	}
 
+	scope, err := parseScope(opMsg.GetScopeLevel())
+	if err != nil {
+		return MethodInfo{}, err
+	}
+
 	// for some reason, the protobuf descriptor contains an extra dot in front
 	// of the request name that the generated code does not. This trimming keeps
 	// the two copies consistent for comparisons.
@@ -194,7 +205,19 @@ func parseMethodInfo(methodDesc *descriptor.MethodDescriptorProto) (MethodInfo, 
 		targetRepo:     targetRepo,
 		requestName:    requestName,
 		requestFactory: reqFactory,
+		Scope:          scope,
 	}, nil
+}
+
+func parseScope(scope gitalypb.OperationMsg_Scope) (Scope, error) {
+	switch scope {
+	case gitalypb.OperationMsg_REPOSITORY:
+		return ScopeRepository, nil
+	case gitalypb.OperationMsg_SERVER:
+		return ScopeServer, nil
+	}
+
+	return ScopeRepository, errors.New("scope not found")
 }
 
 // parses a string like "1.1" and returns a slice of ints
