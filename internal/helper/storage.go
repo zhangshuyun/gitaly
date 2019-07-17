@@ -34,6 +34,22 @@ func ExtractGitalyServers(ctx context.Context) (gitalyServersInfo storage.Gitaly
 	return
 }
 
+// IncomingToOutgoing creates an outgoing context out of an incoming context with the same storage metadata
+func IncomingToOutgoing(ctx context.Context) context.Context {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return ctx
+	}
+
+	gitalyServersJSONEncoded := md["gitaly-servers"]
+	if len(gitalyServersJSONEncoded) == 0 {
+		return ctx
+	}
+
+	return metadata.NewOutgoingContext(ctx, metadata.Pairs("gitaly-servers", gitalyServersJSONEncoded[0]))
+
+}
+
 // InjectGitalyServers injects gitaly-servers metadata into an outgoing context
 func InjectGitalyServers(ctx context.Context, name, address, token string) (context.Context, error) {
 

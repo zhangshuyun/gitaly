@@ -15,8 +15,7 @@ type Config struct {
 	ListenAddr string `toml:"listen_addr"`
 	SocketPath string `toml:"socket_path"`
 
-	PrimaryServer    *models.GitalyServer   `toml:"primary_server"`
-	SecondaryServers []*models.GitalyServer `toml:"secondary_server"`
+	StorageNodes []*models.StorageNode `toml:"storage_node"`
 
 	// Whitelist is a list of relative project paths (paths comprised of project
 	// hashes) that are permitted to use high availability features
@@ -24,13 +23,6 @@ type Config struct {
 
 	Logging              config.Logging `toml:"logging"`
 	PrometheusListenAddr string         `toml:"prometheus_listen_addr"`
-}
-
-// GitalyServer allows configuring the servers that RPCs are proxied to
-type GitalyServer struct {
-	Name       string `toml:"name"`
-	ListenAddr string `toml:"listen_addr" split_words:"true"`
-	Token      string `toml:"token"`
 }
 
 // FromFile loads the config for the passed file path
@@ -50,10 +42,8 @@ var (
 	errNoListener          = errors.New("no listen address or socket path configured")
 	errNoGitalyServers     = errors.New("no primary gitaly backends configured")
 	errDuplicateGitalyAddr = errors.New("gitaly listen addresses are not unique")
-	errGitalyWithoutName   = errors.New("all gitaly servers must have a name")
+	errGitalyWithoutAddr   = errors.New("all gitaly nodes must have an address")
 )
-
-var emptyServer = &models.GitalyServer{}
 
 // Validate establishes if the config is valid
 func (c Config) Validate() error {
@@ -61,21 +51,21 @@ func (c Config) Validate() error {
 		return errNoListener
 	}
 
-	if c.PrimaryServer == nil || c.PrimaryServer == emptyServer {
+	if len(c.StorageNodes) == 0 {
 		return errNoGitalyServers
 	}
 
-	listenAddrs := make(map[string]bool, len(c.SecondaryServers)+1)
-	for _, gitaly := range append(c.SecondaryServers, c.PrimaryServer) {
-		if gitaly.Name == "" {
-			return errGitalyWithoutName
+	listenAddrs := make(map[string]bool, len(c.StorageNodes))
+	for _, node := range c.StorageNodes {
+		if node.Address == "" {
+			return errGitalyWithoutAddr
 		}
 
-		if _, found := listenAddrs[gitaly.ListenAddr]; found {
+		if _, found := listenAddrs[node.Address]; found {
 			return errDuplicateGitalyAddr
 		}
 
-		listenAddrs[gitaly.ListenAddr] = true
+		listenAddrs[node.Address] = true
 	}
 
 	return nil
