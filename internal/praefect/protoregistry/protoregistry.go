@@ -55,13 +55,6 @@ type MethodInfo struct {
 
 // TargetRepo returns the target repository for a protobuf message if it exists
 func (mi MethodInfo) TargetRepo(msg proto.Message) (*gitalypb.Repository, error) {
-	if mi.requestName != proto.MessageName(msg) {
-		return nil, fmt.Errorf(
-			"proto message %s does not match expected RPC request message %s",
-			proto.MessageName(msg), mi.requestName,
-		)
-	}
-
 	return reflectFindRepoTarget(msg, mi.targetRepo)
 }
 

@@ -216,6 +216,8 @@ func (tcc *testClientConn) ConfigUpdates() []string {
 	return tcc.configUpdates
 }
 
+func (tcc *testClientConn) UpdateState(state resolver.State)  {}
+
 // configureBuilderTest reconfigures the global builder and pre-populates
 // it with addresses. It returns the list of addresses it added.
 func configureBuilderTest(numAddrs int) []string {

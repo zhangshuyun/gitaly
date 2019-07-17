@@ -19,6 +19,8 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/internal/praefect"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/database"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/internal/version"
 	"gitlab.com/gitlab-org/labkit/tracing"
 )
@@ -92,13 +94,22 @@ func configure() (config.Config, error) {
 
 func run(listeners []net.Listener, conf config.Config) error {
 
+	sqlDatastore, err := database.NewSQLDatastore(
+		os.Getenv("PRAEFECT_PG_USER"),
+		os.Getenv("PRAEFECT_PG_PASSWORD"),
+		os.Getenv("PRAEFECT_PG_ADDRESS"),
+		os.Getenv("PRAEFECT_PG_DATABASE"))
+
+	if err != nil {
+		return fmt.Errorf("failed to create sql datastore: %v", err)
+	}
+
 	var (
 		// top level server dependencies
 		datastore   = praefect.NewMemoryDatastore(conf)
-		coordinator = praefect.NewCoordinator(logger, datastore)
-		repl        = praefect.NewReplMgr("default", logger, datastore, coordinator, praefect.WithWhitelist(conf.Whitelist))
+		coordinator = praefect.NewCoordinator(logger, sqlDatastore, protoregistry.GitalyProtoFileDescriptors...)
+		repl        = praefect.NewReplMgr("default", logger, sqlDatastore, datastore, coordinator, praefect.WithWhitelist(conf.Whitelist))
 		srv         = praefect.NewServer(coordinator, repl, nil, logger)
-
 		// signal related
 		signals      = []os.Signal{syscall.SIGTERM, syscall.SIGINT}
 		termCh       = make(chan os.Signal, len(signals))
@@ -114,14 +125,14 @@ func run(listeners []net.Listener, conf config.Config) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	allBackendServers := append(conf.SecondaryServers, conf.PrimaryServer)
+	nodeAddresses, err := sqlDatastore.GetNodes()
 
-	for _, gitaly := range allBackendServers {
-		if err := coordinator.RegisterNode(gitaly.Name, gitaly.ListenAddr); err != nil {
-			return fmt.Errorf("failed to register %s: %s", gitaly.Name, err)
+	for _, address := range nodeAddresses {
+		if err := coordinator.RegisterNode(address); err != nil {
+			return fmt.Errorf("failed to register %s: %s", address, err)
 		}
 
-		logger.WithField("node_name", gitaly.Name).WithField("gitaly listen addr", gitaly.ListenAddr).Info("registered gitaly node")
+		logger.WithField("node_address", address).Info("registered gitaly node")
 	}
 
 	go func() { serverErrors <- repl.ProcessBacklog(ctx) }()

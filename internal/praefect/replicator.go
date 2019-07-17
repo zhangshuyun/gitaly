@@ -60,7 +60,8 @@ func (dr defaultReplicator) Replicate(ctx context.Context, source models.Reposit
 // ReplMgr is a replication manager for handling replication jobs
 type ReplMgr struct {
 	log         *logrus.Logger
-	dataStore   Datastore
+	replicasDS  ReplicasDatastore
+	replJobsDS  ReplJobsDatastore
 	coordinator *Coordinator
 	targetNode  string     // which replica is this replicator responsible for?
 	replicator  Replicator // does the actual replication logic
@@ -74,10 +75,11 @@ type ReplMgrOpt func(*ReplMgr)
 
 // NewReplMgr initializes a replication manager with the provided dependencies
 // and options
-func NewReplMgr(targetNode string, log *logrus.Logger, ds Datastore, c *Coordinator, opts ...ReplMgrOpt) ReplMgr {
+func NewReplMgr(targetNode string, log *logrus.Logger, replicasDS ReplicasDatastore, jobsDS ReplJobsDatastore, c *Coordinator, opts ...ReplMgrOpt) ReplMgr {
 	r := ReplMgr{
 		log:         log,
-		dataStore:   ds,
+		replicasDS:  replicasDS,
+		replJobsDS:  jobsDS,
 		whitelist:   map[string]struct{}{},
 		replicator:  defaultReplicator{log},
 		targetNode:  targetNode,
@@ -118,7 +120,7 @@ func (r ReplMgr) ScheduleReplication(ctx context.Context, repo models.Repository
 		return nil
 	}
 
-	id, err := r.dataStore.CreateSecondaryReplJobs(repo)
+	id, err := r.replJobsDS.CreateSecondaryReplJobs(repo)
 	if err != nil {
 		return err
 	}
@@ -140,7 +142,7 @@ const (
 // ProcessBacklog will process queued jobs. It will block while processing jobs.
 func (r ReplMgr) ProcessBacklog(ctx context.Context) error {
 	for {
-		jobs, err := r.dataStore.GetJobs(JobStatePending|JobStateReady, r.targetNode, 10)
+		jobs, err := r.replJobsDS.GetJobs(JobStatePending|JobStateReady, r.targetNode, 10)
 		if err != nil {
 			return err
 		}
@@ -169,16 +171,16 @@ func (r ReplMgr) ProcessBacklog(ctx context.Context) error {
 				return err
 			}
 
-			if err := r.dataStore.UpdateReplJob(job.ID, JobStateInProgress); err != nil {
+			if err := r.replJobsDS.UpdateReplJob(job.ID, JobStateInProgress); err != nil {
 				return err
 			}
 
-			primary, err := r.dataStore.GetShardPrimary(job.Source)
+			nodeStorage, err := r.replicasDS.GetPrimary(job.Source.RelativePath)
 			if err != nil {
 				return err
 			}
 
-			ctx, err = helper.InjectGitalyServers(ctx, job.Source.Storage, primary.ListenAddr, primary.Token)
+			ctx, err = helper.InjectGitalyServers(ctx, job.Source.Storage, nodeStorage.Address, "")
 			if err != nil {
 				return err
 			}
@@ -190,7 +192,7 @@ func (r ReplMgr) ProcessBacklog(ctx context.Context) error {
 
 			r.log.WithField(logWithReplJobID, job.ID).
 				Info("completed replication")
-			if err := r.dataStore.UpdateReplJob(job.ID, JobStateComplete); err != nil {
+			if err := r.replJobsDS.UpdateReplJob(job.ID, JobStateComplete); err != nil {
 				return err
 			}
 		}

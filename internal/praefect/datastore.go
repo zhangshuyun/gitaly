@@ -64,32 +64,26 @@ func (b byJobID) Less(i, j int) bool { return b.replJobs[i].ID < b.replJobs[j].I
 type Datastore interface {
 	ReplJobsDatastore
 	ReplicasDatastore
-	TemporaryDatastore
-}
-
-// TemporaryDatastore contains methods that will go away once we move to a SQL datastore
-type TemporaryDatastore interface {
-	GetDefaultPrimary() (models.GitalyServer, error)
-	SetDefaultPrimary(primary models.GitalyServer) error
 }
 
 // ReplicasDatastore manages accessing and setting which secondary replicas
 // backup a repository
 type ReplicasDatastore interface {
-	// GetSecondaries will retrieve all secondary replica storage locations for
-	// a primary replica
-	GetShardSecondaries(repo models.Repository) ([]models.GitalyServer, error)
+	GetNodesForStorage(storageName string) ([]models.StorageNode, error)
 
-	GetShardPrimary(repo models.Repository) (models.GitalyServer, error)
+	GetNodes() ([]string, error)
 
-	// SetSecondaries will set the secondary storage locations for a repository
-	// in a primary replica.
-	SetShardSecondaries(repo models.Repository, secondaries []models.GitalyServer) error
+	GetDefaultPrimary() (*models.StorageNode, error)
 
-	SetShardPrimary(repo models.Repository, primary models.GitalyServer) error
+	GetPrimary(relativePath string) (*models.StorageNode, error)
 
-	// GetRepositoriesForPrimary returns a map of all of the active shards for a given primary
-	GetRepositoriesForPrimary(primary models.GitalyServer) ([]string, error)
+	SetPrimary(relativePath string, storageNodeID int) error
+
+	AddSecondary(relativePath string, storageNodeID int) error
+
+	RemoveSecondary(relativePath string, storageNodeID int) error
+
+	GetShard(relativePath string) (*models.Shard, error)
 }
 
 // ReplJobsDatastore represents the behavior needed for fetching and updating

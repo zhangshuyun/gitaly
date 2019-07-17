@@ -2,12 +2,16 @@ package praefect
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
+	"math/rand"
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
+	"time"
 
+	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
 	gitalyconfig "gitlab.com/gitlab-org/gitaly/internal/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
@@ -19,8 +23,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/grpc-proxy/proxy"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 // Coordinator takes care of directing client requests to the appropriate
@@ -31,14 +33,14 @@ type Coordinator struct {
 	failoverMutex sync.RWMutex
 	connMutex     sync.RWMutex
 
-	datastore Datastore
+	datastore ReplicasDatastore
 
 	nodes    map[string]*grpc.ClientConn
 	registry *protoregistry.Registry
 }
 
 // NewCoordinator returns a new Coordinator that utilizes the provided logger
-func NewCoordinator(l *logrus.Logger, datastore Datastore, fileDescriptors ...*descriptor.FileDescriptorProto) *Coordinator {
+func NewCoordinator(l *logrus.Logger, datastore ReplicasDatastore, fileDescriptors ...*descriptor.FileDescriptorProto) *Coordinator {
 	registry := protoregistry.New()
 	registry.RegisterFiles(fileDescriptors...)
 
@@ -68,6 +70,30 @@ func (c *Coordinator) GetStorageNode(storage string) (Node, error) {
 	}, nil
 }
 
+func targetRepoFromStream(ctx context.Context, registry *protoregistry.Registry, fullMethodName string, peeker proxy.StreamPeeker) (*gitalypb.Repository, error) {
+	frames, err := peeker.Peek(ctx, 1)
+	if err != nil {
+		return nil, err
+	}
+
+	mi, err := registry.LookupMethod(fullMethodName)
+	if err != nil {
+		return nil, err
+	}
+
+	m, err := mi.UnmarshalRequestProto(frames[0])
+	if err != nil {
+		return nil, err
+	}
+
+	targetRepo, err := mi.TargetRepo(m)
+	if err != nil {
+		return nil, err
+	}
+
+	return targetRepo, nil
+}
+
 // streamDirector determines which downstream servers receive requests
 func (c *Coordinator) streamDirector(ctx context.Context, fullMethodName string, peeker proxy.StreamPeeker) (context.Context, *grpc.ClientConn, error) {
 	// For phase 1, we need to route messages based on the storage location
@@ -77,23 +103,47 @@ func (c *Coordinator) streamDirector(ctx context.Context, fullMethodName string,
 	c.failoverMutex.RLock()
 	defer c.failoverMutex.RUnlock()
 
-	serverConfig, err := c.datastore.GetDefaultPrimary()
+	var primary *models.StorageNode
+
+	targetRepo, err := targetRepoFromStream(ctx, c.registry, fullMethodName, peeker)
 	if err != nil {
-		err := status.Error(
-			codes.FailedPrecondition,
-			"no downstream node registered",
-		)
 		return nil, nil, err
+	}
+
+	primary, err = c.datastore.GetPrimary(targetRepo.GetRelativePath())
+	if err != nil {
+		if err != sql.ErrNoRows {
+			return nil, nil, err
+		}
+
+		// if there are no primaries for this repository, pick one
+		nodeStorages, err := c.datastore.GetNodesForStorage(targetRepo.GetStorageName())
+		if err != nil {
+			return nil, nil, err
+		}
+
+		if len(nodeStorages) == 0 {
+			return nil, nil, fmt.Errorf("no nodes serve storage %s", targetRepo.GetStorageName())
+
+		}
+		newPrimary := nodeStorages[rand.New(rand.NewSource(time.Now().Unix())).Intn(len(nodeStorages))]
+
+		// set the primary
+		if err = c.datastore.SetPrimary(targetRepo.GetRelativePath(), newPrimary.ID); err != nil {
+			return nil, nil, err
+		}
+
+		primary = &newPrimary
 	}
 
 	// We only need the primary node, as there's only one primary storage
 	// location per praefect at this time
-	cc, ok := c.getConn(serverConfig.Name)
+	cc, ok := c.getConn(primary.Address)
 	if !ok {
-		return nil, nil, fmt.Errorf("unable to find existing client connection for %s", serverConfig.Name)
+		return nil, nil, fmt.Errorf("unable to find existing client connection for %s", primary.Address)
 	}
 
-	ctx, err = helper.InjectGitalyServers(ctx, serverConfig.Name, serverConfig.ListenAddr, serverConfig.Token)
+	ctx, err = helper.InjectGitalyServers(ctx, primary.StorageName, primary.Address, "")
 	if err != nil {
 		return nil, nil, err
 	}
@@ -103,8 +153,8 @@ func (c *Coordinator) streamDirector(ctx context.Context, fullMethodName string,
 
 // RegisterNode will direct traffic to the supplied downstream connection when the storage location
 // is encountered.
-func (c *Coordinator) RegisterNode(storageName, listenAddr string) error {
-	conn, err := client.Dial(listenAddr,
+func (c *Coordinator) RegisterNode(address string) error {
+	conn, err := client.Dial(address,
 		[]grpc.DialOption{
 			grpc.WithDefaultCallOptions(grpc.CallCustomCodec(proxy.Codec())),
 			grpc.WithPerRPCCredentials(gitalyauth.RPCCredentials(gitalyconfig.Config.Auth.Token)),
@@ -114,7 +164,7 @@ func (c *Coordinator) RegisterNode(storageName, listenAddr string) error {
 		return err
 	}
 
-	c.setConn(storageName, conn)
+	c.setConn(address, conn)
 
 	return nil
 }
@@ -146,55 +196,7 @@ func (c *Coordinator) handleSignalAndRotate() {
 		<-failoverChan
 
 		c.failoverMutex.Lock()
-		primary, err := c.datastore.GetDefaultPrimary()
-		if err != nil {
-			c.log.Fatalf("error when getting default primary: %v", err)
-		}
-
-		if err := c.rotateSecondaryToPrimary(primary); err != nil {
-			c.log.WithError(err).Error("rotating secondary")
-		}
+		//TODO: Add failover code
 		c.failoverMutex.Unlock()
 	}
-}
-
-func (c *Coordinator) rotateSecondaryToPrimary(primary models.GitalyServer) error {
-	repositories, err := c.datastore.GetRepositoriesForPrimary(primary)
-	if err != nil {
-		return err
-	}
-
-	for _, repoPath := range repositories {
-		secondaries, err := c.datastore.GetShardSecondaries(models.Repository{
-			RelativePath: repoPath,
-		})
-		if err != nil {
-			return fmt.Errorf("getting secondaries: %v", err)
-		}
-
-		newPrimary := secondaries[0]
-		secondaries = append(secondaries[1:], primary)
-
-		if err = c.datastore.SetShardPrimary(models.Repository{
-			RelativePath: repoPath,
-		}, newPrimary); err != nil {
-			return fmt.Errorf("setting primary: %v", err)
-		}
-
-		if err = c.datastore.SetShardSecondaries(models.Repository{
-			RelativePath: repoPath,
-		}, secondaries); err != nil {
-			return fmt.Errorf("setting secondaries: %v", err)
-		}
-	}
-
-	// set the new default primary
-	primary, err = c.datastore.GetShardPrimary(models.Repository{
-		RelativePath: repositories[0],
-	})
-	if err != nil {
-		return fmt.Errorf("getting shard primary: %v", err)
-	}
-
-	return c.datastore.SetDefaultPrimary(primary)
 }
