@@ -6,15 +6,15 @@ services:
 #      dockerfile: Dockerfile.praefect
 #    image: praefect:latest
 #    depends_on:
-#      - gitaly-primary
-#      - gitaly-backup-1
-#      - gitaly-backup-2
+#      - gitaly-1
+#      - gitaly-2
+#      - gitaly-3
 #    command: ["/etc/gitaly/praefect", "-config", "/etc/gitaly/config.praefect.toml"]
 #    ports:
 #      - "2305:2305"
 #    volumes:
 #      - ./config.praefect.toml:/etc/gitaly/config.praefect.toml
-  gitaly-primary:
+  gitaly-1:
     image: registry.gitlab.com/gitlab-org/build/cng/gitaly:latest
     environment:
       - GITALY_TESTING_NO_GIT_HOOKS=1
@@ -24,9 +24,9 @@ services:
       - "9999:9999"
     command: ["/usr/local/bin/gitaly", "/etc/config/config.toml"]
     volumes:
-      - ./gitaly-primary/data:/home/git/repositories
-      - ./gitaly-primary.toml:/etc/config/config.toml
-  gitaly-backup-1:
+      - ./gitaly-1/data:/home/git/repositories
+      - ./config.gitaly.toml:/etc/config/config.toml
+  gitaly-2:
     image: registry.gitlab.com/gitlab-org/build/cng/gitaly:latest
     environment:
       - GITALY_TESTING_NO_GIT_HOOKS=1
@@ -36,9 +36,9 @@ services:
       - "9998:9999"
     command: ["/usr/local/bin/gitaly", "/etc/config/config.toml"]
     volumes:
-      - ./gitaly-backup-1/data:/home/git/repositories
-      - ./gitaly-backup-1.toml:/etc/config/config.toml
-  gitaly-backup-2:
+      - ./gitaly-2/data:/home/git/repositories
+      - ./config.gitaly.toml:/etc/config/config.toml
+  gitaly-3:
     image: registry.gitlab.com/gitlab-org/build/cng/gitaly:latest
     environment:
       - GITALY_TESTING_NO_GIT_HOOKS=1
@@ -48,5 +48,5 @@ services:
       - "9997:9999"
     command: ["/usr/local/bin/gitaly", "/etc/config/config.toml"]
     volumes:
-      - ./gitaly-backup-2/data:/home/git/repositories
-      - ./gitaly-backup-2.toml:/etc/config/config.toml
+      - ./gitaly-3/data:/home/git/repositories
+      - ./config.gitaly.toml:/etc/config/config.toml
