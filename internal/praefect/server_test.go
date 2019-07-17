@@ -1,4 +1,4 @@
-package praefect_test
+package praefect
 
 import (
 	"context"
@@ -7,14 +7,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/client"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/grpc-proxy/proxy"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/mock"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/models"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/protoregistry"
 	"google.golang.org/grpc"
 )
 
@@ -44,26 +45,49 @@ func TestServerSimpleUnaryUnary(t *testing.T) {
 		},
 	}
 
+	gz := proto.FileDescriptor("mock/mock.proto")
+	fd, err := protoregistry.ExtractFileDescriptor(gz)
+	if err != nil {
+		panic(err)
+	}
+
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
 			const (
 				storagePrimary = "default"
-				storageBackup  = "backup"
 			)
 
-			datastore := praefect.NewMemoryDatastore(config.Config{
-				PrimaryServer: &models.GitalyServer{
-					Name: "default",
-				},
+			datastore := NewMemoryDatastore(config.Config{
+				StorageNodes: []*models.StorageNode{
+					&models.StorageNode{
+						ID:      1,
+						Storage: "praefect-internal-1",
+					},
+					&models.StorageNode{
+						ID:      2,
+						Storage: "praefect-internal-2",
+					}},
 			})
-			coordinator := praefect.NewCoordinator(logrus.New(), datastore)
-			replmgr := praefect.NewReplMgr(
+
+			coordinator := NewCoordinator(logrus.New(), datastore, fd)
+
+			for id, nodeStorage := range datastore.storageNodes.m {
+				backend, cleanup := newMockDownstream(t, tt.callback)
+				defer cleanup() // clean up mock downstream server resources
+
+				coordinator.RegisterNode(nodeStorage.Storage, backend)
+				nodeStorage.Address = backend
+				datastore.storageNodes.m[id] = nodeStorage
+			}
+
+			replmgr := NewReplMgr(
 				storagePrimary,
 				logrus.New(),
 				datastore,
+				datastore,
 				coordinator,
 			)
-			prf := praefect.NewServer(
+			prf := NewServer(
 				coordinator,
 				replmgr,
 				nil,
@@ -84,13 +108,6 @@ func TestServerSimpleUnaryUnary(t *testing.T) {
 			cc := dialLocalPort(t, port, false)
 			defer cc.Close()
 			cli := mock.NewSimpleServiceClient(cc)
-
-			for _, replica := range []string{storagePrimary, storageBackup} {
-				backend, cleanup := newMockDownstream(t, tt.callback)
-				defer cleanup() // clean up mock downstream server resources
-
-				coordinator.RegisterNode(replica, backend)
-			}
 
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 			defer cancel()

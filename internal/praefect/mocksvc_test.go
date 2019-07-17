@@ -1,4 +1,4 @@
-package praefect_test
+package praefect
 
 import (
 	"context"
@@ -11,7 +11,7 @@ type simpleUnaryUnaryCallback func(context.Context, *mock.SimpleRequest) (*mock.
 // mockSvc is an implementation of mock.SimpleServer for testing purposes. The
 // gRPC stub can be updated via go generate:
 //
-//go:generate protoc --go_out=plugins=grpc:. mock/mock.proto
+//go:generate protoc --go_out=plugins=grpc:. -I../../proto -I./ mock/mock.proto
 //go:generate goimports -w mock/mock.pb.go
 type mockSvc struct {
 	simpleUnaryUnary simpleUnaryUnaryCallback

@@ -9,10 +9,10 @@ import (
 )
 
 func TestConfigValidation(t *testing.T) {
-	primarySrv := &models.GitalyServer{"test", "localhost:23456", "secret-token"}
-	secondarySrvs := []*models.GitalyServer{
-		{"test1", "localhost:23457", "secret-token"},
-		{"test2", "localhost:23458", "secret-token"},
+	nodes := []*models.StorageNode{
+		{ID: 1, Address: "localhost:23456", Token: "secret-token"},
+		{ID: 2, Address: "localhost:23457", Token: "secret-token"},
+		{ID: 3, Address: "localhost:23458", Token: "secret-token"},
 	}
 
 	testCases := []struct {
@@ -22,12 +22,12 @@ func TestConfigValidation(t *testing.T) {
 	}{
 		{
 			desc:   "No ListenAddr or SocketPath",
-			config: Config{ListenAddr: "", PrimaryServer: primarySrv, SecondaryServers: secondarySrvs},
+			config: Config{ListenAddr: "", StorageNodes: nodes},
 			err:    errNoListener,
 		},
 		{
 			desc:   "Only a SocketPath",
-			config: Config{SocketPath: "/tmp/praefect.socket", PrimaryServer: primarySrv, SecondaryServers: secondarySrvs},
+			config: Config{SocketPath: "/tmp/praefect.socket", StorageNodes: nodes},
 			err:    nil,
 		},
 		{
@@ -37,12 +37,12 @@ func TestConfigValidation(t *testing.T) {
 		},
 		{
 			desc:   "duplicate address",
-			config: Config{ListenAddr: "localhost:1234", PrimaryServer: primarySrv, SecondaryServers: []*models.GitalyServer{primarySrv}},
+			config: Config{ListenAddr: "localhost:1234", StorageNodes: append(nodes, &models.StorageNode{Address: nodes[0].Address})},
 			err:    errDuplicateGitalyAddr,
 		},
 		{
 			desc:   "Valid config",
-			config: Config{ListenAddr: "localhost:1234", PrimaryServer: primarySrv, SecondaryServers: secondarySrvs},
+			config: Config{ListenAddr: "localhost:1234", StorageNodes: nodes},
 			err:    nil,
 		},
 	}
@@ -63,18 +63,18 @@ func TestConfigParsing(t *testing.T) {
 		{
 			filePath: "testdata/config.toml",
 			expected: Config{
-				PrimaryServer: &models.GitalyServer{
-					Name:       "default",
-					ListenAddr: "tcp://gitaly-primary.example.com",
-				},
-				SecondaryServers: []*models.GitalyServer{
+				StorageNodes: []*models.StorageNode{
 					{
-						Name:       "default",
-						ListenAddr: "tcp://gitaly-backup1.example.com",
+						Address: "tcp://gitaly-internal-1.example.com",
+						Storage: "praefect-internal-1",
 					},
 					{
-						Name:       "backup",
-						ListenAddr: "tcp://gitaly-backup2.example.com",
+						Address: "tcp://gitaly-internal-2.example.com",
+						Storage: "praefect-internal-2",
+					},
+					{
+						Address: "tcp://gitaly-internal-3.example.com",
+						Storage: "praefect-internal-3",
 					},
 				},
 				Whitelist: []string{"abcd1234", "edfg5678"},

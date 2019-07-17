@@ -56,7 +56,7 @@ func TestProtoRegistryTargetRepo(t *testing.T) {
 			svc:       "RepositoryService",
 			method:    "RepackIncremental",
 			pbMsg:     &gitalypb.RepackIncrementalResponse{},
-			expectErr: errors.New("proto message gitaly.RepackIncrementalResponse does not match expected RPC request message gitaly.RepackIncrementalRequest"),
+			expectErr: errors.New("unable to descend OID [1] into message gitaly.RepackIncrementalResponse: unable to find protobuf field 1 in message RepackIncrementalResponse"),
 		},
 		{
 			desc:   "target nested in oneOf",
