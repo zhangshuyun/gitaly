@@ -1,77 +1,66 @@
 package database
 
 import (
-	"errors"
+	"fmt"
 	"os"
 
-	"github.com/go-pg/pg"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect"
+	"database/sql"
+
+	_ "github.com/lib/pq"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/models"
 )
 
 type SQLDatastore struct {
-	db *pg.DB
+	db *sql.DB
 }
 
-func NewSQLDatastore(addr string) *SQLDatastore {
-	return &SQLDatastore{
-		db: pg.Connect(&pg.Options{
-			Addr:     addr,
-			User:     os.Getenv("PRAEFECT_PG_USER"),
-			Password: os.Getenv("PRAEFECT_PG_PASSWORD"),
-			Database: os.Getenv("PRAEFECT_PG_DB"),
-		})}
+func NewSQLDatastore(addr string) (*sql.DB, error) {
+	connStr := fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=disabled",
+		os.Getenv("PRAEFECT_PG_USER"),
+		os.Getenv("PRAEFECT_PG_PASSWORD"),
+		addr,
+		os.Getenv("PRAEFECT_PG_DB"))
+
+	return sql.Open("postgres", connStr)
 }
 
-func (s *SQLDatastore) GetDefaultPrimary() (praefect.Node, error) {
-	var node praefect.Node
-	res, err := s.db.QueryOne(&node,
-		"SELECT storage, address FROM nodes LIMIT 1",
-		nil,
-	)
-	if err != nil {
-		return node, err
-	}
+func (sd *SQLDatastore) GetSecondaries(relativePath string) ([]models.StorageNode, error) {
+	var secondaries []models.StorageNode
 
-	if res.RowsAffected() == 0 {
-		return node, errors.New("no node found")
-	}
-
-	return node, nil
-}
-
-func (s *SQLDatastore) GetDefaultPrimary() (praefect.Node, error) {
-	var node praefect.Node
-	res, err := s.db.QueryOne(&node,
-		"SELECT storage, address FROM nodes LIMIT 1",
-		nil,
-	)
-	if err != nil {
-		return node, err
-	}
-
-	if res.RowsAffected() == 0 {
-		return node, errors.New("no node found")
-	}
-
-	return node, nil
-}
-
-func (s *SQLDatastore) GetPrimary(repo Repository) (praefect.Node, error) {
-	var node praefect.Node
-
-	res, err := s.db.Model(&node).
-		ColumnExpr("node.storage, node.address").
-		Join("JOIN node_repositories on node.id = node_repositories.node_id").
-		Join("JOIN repositories on node_repositories.repository_id = repositories.id").
-		Where("repositories.relative_path = ?", repo.RelativePath).First()
+	rows, err := sd.db.Query(`
+		SELECT storage_nodes.* FROM repositories
+			INNER JOIN repository_secondaries ON repositories.relative_path = repository_secondaries.repository_relative_path
+			INNER JOIN storage_nodes ON storage_nodes.id = repository_secondaries.storage_node_id WHERE repositories.relative_path = $1
+	`, relativePath)
 
 	if err != nil {
-		return node, err
+		return nil, err
 	}
 
-	if res.RowsAffected() == 0 {
-		return node, errors.New("no node found")
+	for rows.Next() {
+		var s models.StorageNode
+		err = rows.Scan(&s.ID, &s.Name, &s.Address)
+		if err != nil {
+			return nil, err
+		}
+		secondaries = append(secondaries, s)
 	}
 
-	return node, nil
+	return secondaries, nil
+}
+
+func (sd *SQLDatastore) GetPrimary(relativePath string) (models.StorageNode, error) {
+
+	row := sd.db.QueryRow(`
+		SELECT storage_nodes.* FROM repositories
+			INNER JOIN storage_nodes ON repositories.primary = storage_nodes.id
+			WHERE repositories.relative_path = $1
+	`, relativePath)
+
+	var s models.StorageNode
+	if err := row.Scan(&s.ID, &s.Name, &s.Address); err != nil {
+		return nil, err
+	}
+
+	return s, nil
 }

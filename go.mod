@@ -13,7 +13,7 @@ require (
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/kelseyhightower/envconfig v1.3.0
-	github.com/lib/pq v1.1.1
+	github.com/lib/pq v1.2.0
 	github.com/libgit2/git2go v0.0.0-20190104134018-ecaeb7a21d47
 	github.com/prometheus/client_golang v1.0.0
 	github.com/sirupsen/logrus v1.4.1
