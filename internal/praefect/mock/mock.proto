@@ -7,6 +7,8 @@ syntax = "proto3";
 
 package mock;
 
+import "shared.proto";
+
 message SimpleRequest {
 	int32 value = 1;
 }
@@ -17,7 +19,10 @@ message SimpleResponse {
 service SimpleService {
   // SimpleUnaryUnary is a simple unary request with unary response
   rpc SimpleUnaryUnary(SimpleRequest) returns (SimpleResponse) {
-    option (gitaly.op_type).op = ACCESSOR;
+    option (gitaly.op_type) = {
+      op: ACCESSOR
+      scope_level: SERVER
+    };
   }
 }
 

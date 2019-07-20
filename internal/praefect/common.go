@@ -4,7 +4,7 @@ import "google.golang.org/grpc"
 
 // Node is a wrapper around the grpc client connection for a backend Gitaly node
 type Node struct {
-	Storage string
+	Address string
 	cc      *grpc.ClientConn
 }
 

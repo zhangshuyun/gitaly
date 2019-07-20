@@ -106,8 +106,8 @@ func run(listeners []net.Listener, conf config.Config) error {
 
 	var (
 		// top level server dependencies
-		datastore   = praefect.NewMemoryDatastore(conf)
-		coordinator = praefect.NewCoordinator(logger, sqlDatastore, protoregistry.GitalyProtoFileDescriptors...)
+		datastore   = praefect.NewMemoryDatastore()
+		coordinator = praefect.NewCoordinator(logger, datastore, protoregistry.GitalyProtoFileDescriptors...)
 		repl        = praefect.NewReplMgr("default", logger, sqlDatastore, datastore, coordinator, praefect.WithWhitelist(conf.Whitelist))
 		srv         = praefect.NewServer(coordinator, repl, nil, logger)
 		// signal related
@@ -125,14 +125,20 @@ func run(listeners []net.Listener, conf config.Config) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	nodeAddresses, err := sqlDatastore.GetNodes()
+	nodeStorages, err := sqlDatastore.GetNodeStorages()
 
-	for _, address := range nodeAddresses {
-		if err := coordinator.RegisterNode(address); err != nil {
-			return fmt.Errorf("failed to register %s: %s", address, err)
+	addresses := make(map[string]struct{})
+	for _, nodeStorage := range nodeStorages {
+		if _, ok := addresses[nodeStorage.Address]; ok {
+			continue
+		}
+		if err := coordinator.RegisterNode(nodeStorage.Address); err != nil {
+			return fmt.Errorf("failed to register %s: %s", nodeStorage.Address, err)
 		}
 
-		logger.WithField("node_address", address).Info("registered gitaly node")
+		addresses[nodeStorage.Address] = struct{}{}
+
+		logger.WithField("node_address", nodeStorage.Address).Info("registered gitaly node")
 	}
 
 	go func() { serverErrors <- repl.ProcessBacklog(ctx) }()

@@ -3,6 +3,7 @@ package praefect
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"math/rand"
 	"os"
@@ -58,14 +59,14 @@ func (c *Coordinator) RegisterProtos(protos ...*descriptor.FileDescriptorProto) 
 }
 
 // GetStorageNode returns the registered node for the given storage location
-func (c *Coordinator) GetStorageNode(storage string) (Node, error) {
-	cc, ok := c.getConn(storage)
+func (c *Coordinator) GetStorageNode(address string) (Node, error) {
+	cc, ok := c.getConn(address)
 	if !ok {
-		return Node{}, fmt.Errorf("no node registered for storage location %q", storage)
+		return Node{}, fmt.Errorf("no node registered for storage location %q", address)
 	}
 
 	return Node{
-		Storage: storage,
+		Address: address,
 		cc:      cc,
 	}, nil
 }
@@ -107,33 +108,43 @@ func (c *Coordinator) streamDirector(ctx context.Context, fullMethodName string,
 
 	targetRepo, err := targetRepoFromStream(ctx, c.registry, fullMethodName, peeker)
 	if err != nil {
-		return nil, nil, err
-	}
-
-	primary, err = c.datastore.GetPrimary(targetRepo.GetRelativePath())
-	if err != nil {
-		if err != sql.ErrNoRows {
-			return nil, nil, err
-		}
-
-		// if there are no primaries for this repository, pick one
-		nodeStorages, err := c.datastore.GetNodesForStorage(targetRepo.GetStorageName())
+		//TODO: remove this, This is only here to catch the cases where we cannot find the target repo. We need to add the capability
+		// to the protregistry to be able to read the scope, and if it's not a repository scope then we shouldn't try to find the target repo
+		nodeStorages, err := c.datastore.GetNodeStorages()
 		if err != nil {
 			return nil, nil, err
 		}
-
 		if len(nodeStorages) == 0 {
-			return nil, nil, fmt.Errorf("no nodes serve storage %s", targetRepo.GetStorageName())
-
+			return nil, nil, errors.New("no node storages found")
 		}
-		newPrimary := nodeStorages[rand.New(rand.NewSource(time.Now().Unix())).Intn(len(nodeStorages))]
+		primary = &nodeStorages[0]
+	} else {
 
-		// set the primary
-		if err = c.datastore.SetPrimary(targetRepo.GetRelativePath(), newPrimary.ID); err != nil {
-			return nil, nil, err
+		primary, err = c.datastore.GetPrimary(targetRepo.GetRelativePath())
+		if err != nil {
+			if err != sql.ErrNoRows {
+				return nil, nil, err
+			}
+
+			// if there are no primaries for this repository, pick one
+			nodeStorages, err := c.datastore.GetNodesForStorage(targetRepo.GetStorageName())
+			if err != nil {
+				return nil, nil, err
+			}
+
+			if len(nodeStorages) == 0 {
+				return nil, nil, fmt.Errorf("no nodes serve storage %s", targetRepo.GetStorageName())
+
+			}
+			newPrimary := nodeStorages[rand.New(rand.NewSource(time.Now().Unix())).Intn(len(nodeStorages))]
+
+			// set the primary
+			if err = c.datastore.SetPrimary(targetRepo.GetRelativePath(), newPrimary.ID); err != nil {
+				return nil, nil, err
+			}
+
+			primary = &newPrimary
 		}
-
-		primary = &newPrimary
 	}
 
 	// We only need the primary node, as there's only one primary storage

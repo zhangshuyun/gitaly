@@ -14,16 +14,16 @@ import (
 
 // Replicator performs the actual replication logic between two nodes
 type Replicator interface {
-	Replicate(ctx context.Context, source models.Repository, target Node) error
+	Replicate(ctx context.Context, source models.Repository, targetStorage string, target Node) error
 }
 
 type defaultReplicator struct {
 	log *logrus.Logger
 }
 
-func (dr defaultReplicator) Replicate(ctx context.Context, source models.Repository, target Node) error {
+func (dr defaultReplicator) Replicate(ctx context.Context, source models.Repository, targetStorage string, target Node) error {
 	repository := &gitalypb.Repository{
-		StorageName:  target.Storage,
+		StorageName:  targetStorage,
 		RelativePath: source.RelativePath,
 	}
 
@@ -120,7 +120,7 @@ func (r ReplMgr) ScheduleReplication(ctx context.Context, repo models.Repository
 		return nil
 	}
 
-	id, err := r.replJobsDS.CreateSecondaryReplJobs(repo)
+	id, err := r.replJobsDS.CreateSecondaryReplJobs(repo.RelativePath)
 	if err != nil {
 		return err
 	}
@@ -142,58 +142,64 @@ const (
 // ProcessBacklog will process queued jobs. It will block while processing jobs.
 func (r ReplMgr) ProcessBacklog(ctx context.Context) error {
 	for {
-		jobs, err := r.replJobsDS.GetJobs(JobStatePending|JobStateReady, r.targetNode, 10)
+		nodes, err := r.replicasDS.GetNodeStorages()
 		if err != nil {
-			return err
+			return nil
 		}
 
-		if len(jobs) == 0 {
-			r.log.Tracef("no jobs for %s, checking again in %s", r.targetNode, jobFetchInterval)
-
-			select {
-			// TODO: exponential backoff when no queries are returned
-			case <-time.After(jobFetchInterval):
-				continue
-
-			case <-ctx.Done():
-				return ctx.Err()
-			}
-		}
-
-		r.log.Debugf("fetched replication jobs: %#v", jobs)
-
-		for _, job := range jobs {
-			r.log.WithField(logWithReplJobID, job.ID).
-				Infof("processing replication job %#v", job)
-			node, err := r.coordinator.GetStorageNode(job.Target)
-			r.log.WithField(logWithReplJobID, job.ID).Infof("got storage node? %+v %v", node, err)
+		for _, node := range nodes {
+			jobs, err := r.replJobsDS.GetJobs(JobStatePending|JobStateReady, node.StorageName, 10)
 			if err != nil {
 				return err
 			}
 
-			if err := r.replJobsDS.UpdateReplJob(job.ID, JobStateInProgress); err != nil {
-				return err
+			if len(jobs) == 0 {
+				r.log.Tracef("no jobs for %s, checking again in %s", r.targetNode, jobFetchInterval)
+
+				select {
+				// TODO: exponential backoff when no queries are returned
+				case <-time.After(jobFetchInterval):
+					continue
+
+				case <-ctx.Done():
+					return ctx.Err()
+				}
 			}
 
-			nodeStorage, err := r.replicasDS.GetPrimary(job.Source.RelativePath)
-			if err != nil {
-				return err
-			}
+			r.log.Debugf("fetched replication jobs: %#v", jobs)
 
-			ctx, err = helper.InjectGitalyServers(ctx, job.Source.Storage, nodeStorage.Address, "")
-			if err != nil {
-				return err
-			}
+			for _, job := range jobs {
+				r.log.WithField(logWithReplJobID, job.ID).
+					Infof("processing replication job %#v", job)
+				node, err := r.coordinator.GetStorageNode(node.Address)
+				if err != nil {
+					return err
+				}
 
-			if err := r.replicator.Replicate(ctx, job.Source, node); err != nil {
-				r.log.WithField(logWithReplJobID, job.ID).WithError(err).Error("error when replicating")
-				return err
-			}
+				r.log.WithField(logWithReplJobID, job.ID).WithField("storage", node).Info("got storage")
 
-			r.log.WithField(logWithReplJobID, job.ID).
-				Info("completed replication")
-			if err := r.replJobsDS.UpdateReplJob(job.ID, JobStateComplete); err != nil {
-				return err
+				if err := r.replJobsDS.UpdateReplJob(job.ID, JobStateInProgress); err != nil {
+					return err
+				}
+
+				nodeStorage, err := r.replicasDS.GetPrimary(job.Source.RelativePath)
+				if err != nil {
+					return err
+				}
+
+				ctx, err = helper.InjectGitalyServers(ctx, job.Source.Storage, nodeStorage.Address, "")
+				if err != nil {
+					return err
+				}
+
+				if err := r.replicator.Replicate(ctx, job.Source, job.Target, node); err != nil {
+					r.log.WithField(logWithReplJobID, job.ID).WithError(err).Error("error when replicating")
+					return err
+				}
+
+				if err := r.replJobsDS.UpdateReplJob(job.ID, JobStateComplete); err != nil {
+					return err
+				}
 			}
 		}
 	}

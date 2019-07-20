@@ -71,25 +71,25 @@ func (sd *SQLDatastore) GetNodesForStorage(storageName string) ([]models.Storage
 	return nodeStorages, nil
 }
 
-func (sd *SQLDatastore) GetNodes() ([]string, error) {
-	var addresses []string
+func (sd *SQLDatastore) GetNodeStorages() ([]models.StorageNode, error) {
+	var nodeStorages []models.StorageNode
 
-	rows, err := sd.db.Query("SELECT DISTINCT node_storages.address FROM node_storages")
+	rows, err := sd.db.Query("SELECT node_storages.id, node_storages.address,node_storages.storage_name   FROM node_storages")
 
 	if err != nil {
 		return nil, err
 	}
 
 	for rows.Next() {
-		var address string
-		err = rows.Scan(&address)
+		var nodeStorage models.StorageNode
+		err = rows.Scan(&nodeStorage.ID, &nodeStorage.Address, &nodeStorage.StorageName)
 		if err != nil {
 			return nil, err
 		}
-		addresses = append(addresses, address)
+		nodeStorages = append(nodeStorages, nodeStorage)
 	}
 
-	return addresses, nil
+	return nodeStorages, nil
 
 }
 

@@ -18,7 +18,6 @@ import (
 	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
 	gitaly_config "gitlab.com/gitlab-org/gitaly/internal/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/models"
 	"gitlab.com/gitlab-org/gitaly/internal/rubyserver"
 	serverPkg "gitlab.com/gitlab-org/gitaly/internal/server"
@@ -28,43 +27,53 @@ import (
 // TestReplicatorProcessJobs verifies that a replicator will schedule jobs for
 // all whitelisted repos
 func TestReplicatorProcessJobsWhitelist(t *testing.T) {
-	var (
-		cfg = config.Config{
-			PrimaryServer: &models.GitalyServer{
-				Name:       "default",
-				ListenAddr: "tcp://gitaly-primary.example.com",
-			},
-			SecondaryServers: []*models.GitalyServer{
-				{
-					Name:       "backup1",
-					ListenAddr: "tcp://gitaly-backup1.example.com",
-				},
-				{
-					Name:       "backup2",
-					ListenAddr: "tcp://gitaly-backup2.example.com",
-				},
-			},
-			Whitelist: []string{"abcd1234", "edfg5678"},
-		}
-		datastore   = NewMemoryDatastore(cfg)
-		coordinator = NewCoordinator(logrus.New(), datastore)
-		resultsCh   = make(chan result)
-		replman     = NewReplMgr(
-			cfg.SecondaryServers[1].Name,
-			logrus.New(),
-			datastore,
-			coordinator,
-			WithWhitelist(cfg.Whitelist),
-			WithReplicator(&mockReplicator{resultsCh}),
-		)
+	datastore := NewMemoryDatastore()
+	datastore.nodeStorages.m[1] = models.StorageNode{
+		ID:          1,
+		StorageName: "default",
+		Address:     "tcp://gitaly-primary.example.com",
+	}
+	datastore.nodeStorages.m[2] = models.StorageNode{
+		ID:          2,
+		StorageName: "backup1",
+		Address:     "tcp://gitaly-backup1.example.com",
+	}
+	datastore.nodeStorages.m[3] = models.StorageNode{
+		ID:          3,
+		StorageName: "backup2",
+		Address:     "tcp://gitaly-backup2.example.com",
+	}
+
+	datastore.shards.m["abcd1234"] = models.Shard{
+		RelativePath: "abcd1234",
+		Primary:      datastore.nodeStorages.m[1],
+		Secondaries:  []models.StorageNode{datastore.nodeStorages.m[2], datastore.nodeStorages.m[3]},
+	}
+	datastore.shards.m["edfg5678"] = models.Shard{
+		RelativePath: "edfg5678",
+		Primary:      datastore.nodeStorages.m[1],
+		Secondaries:  []models.StorageNode{datastore.nodeStorages.m[2], datastore.nodeStorages.m[3]},
+	}
+
+	for _, repo := range []string{"abcd1234", "edfg5678"} {
+		jobIDs, err := datastore.CreateSecondaryReplJobs(repo)
+		require.NoError(t, err)
+		require.Len(t, jobIDs, 2)
+	}
+
+	coordinator := NewCoordinator(logrus.New(), datastore)
+	resultsCh := make(chan result)
+	replman := NewReplMgr(
+		"default",
+		logrus.New(),
+		datastore,
+		datastore,
+		coordinator,
+		WithReplicator(&mockReplicator{resultsCh}),
 	)
 
-	for _, node := range []*models.GitalyServer{
-		cfg.PrimaryServer,
-		cfg.SecondaryServers[0],
-		cfg.SecondaryServers[1],
-	} {
-		err := coordinator.RegisterNode(node.Name, node.ListenAddr)
+	for _, node := range datastore.nodeStorages.m {
+		err := coordinator.RegisterNode(node.Address)
 		require.NoError(t, err)
 	}
 
@@ -80,12 +89,9 @@ func TestReplicatorProcessJobsWhitelist(t *testing.T) {
 
 	go func() {
 		// we expect one job per whitelisted repo with each backend server
-		for i := 0; i < len(cfg.Whitelist); i++ {
+		for _, shard := range datastore.shards.m {
 			result := <-resultsCh
-
-			assert.Contains(t, cfg.Whitelist, result.source.RelativePath)
-			assert.Equal(t, cfg.SecondaryServers[1].Name, result.target.Storage)
-			assert.Equal(t, cfg.PrimaryServer.Name, result.source.Storage)
+			assert.Equal(t, shard.Primary.StorageName, result.source.Storage)
 		}
 
 		cancel()
@@ -114,7 +120,7 @@ type mockReplicator struct {
 	resultsCh chan<- result
 }
 
-func (mr *mockReplicator) Replicate(ctx context.Context, source models.Repository, target Node) error {
+func (mr *mockReplicator) Replicate(ctx context.Context, source models.Repository, targetStorage string, target Node) error {
 	select {
 
 	case mr.resultsCh <- result{source, target}:
@@ -179,9 +185,10 @@ func TestReplicate(t *testing.T) {
 	require.NoError(t, replicator.Replicate(
 		ctx,
 		models.Repository{Storage: "default", RelativePath: testRepo.GetRelativePath()},
+		backupStorageName,
 		Node{
 			cc:      conn,
-			Storage: backupStorageName,
+			Address: srvSocketPath,
 		}))
 
 	replicatedPath := filepath.Join(backupDir, filepath.Base(testRepoPath))
