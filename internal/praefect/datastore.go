@@ -102,12 +102,6 @@ type ReplJobsDatastore interface {
 	UpdateReplJob(jobID uint64, newState JobState) error
 }
 
-// shard is a set of primary and secondary storage replicas for a project
-type shard struct {
-	primary     models.GitalyServer
-	secondaries []models.GitalyServer
-}
-
 type jobRecord struct {
 	relativePath  string // project's relative path
 	targetStorage string
@@ -161,6 +155,7 @@ func NewMemoryDatastore() *MemoryDatastore {
 	}
 }
 
+// GetSecondaries gets the secondaries for a shard based on the relative path
 func (md *MemoryDatastore) GetSecondaries(relativePath string) ([]models.StorageNode, error) {
 	md.shards.RLock()
 	md.nodeStorages.RLock()
@@ -175,6 +170,7 @@ func (md *MemoryDatastore) GetSecondaries(relativePath string) ([]models.Storage
 	return shard.Secondaries, nil
 }
 
+// GetNodesForStorage gets all storage nodes that serve a specified storage
 func (md *MemoryDatastore) GetNodesForStorage(storageName string) ([]models.StorageNode, error) {
 	md.nodeStorages.RLock()
 	defer md.nodeStorages.RUnlock()
@@ -188,6 +184,7 @@ func (md *MemoryDatastore) GetNodesForStorage(storageName string) ([]models.Stor
 	return nodes, nil
 }
 
+// GetNodeStorages gets all storage nodes
 func (md *MemoryDatastore) GetNodeStorages() ([]models.StorageNode, error) {
 	md.nodeStorages.RLock()
 	defer md.nodeStorages.RUnlock()
@@ -200,6 +197,7 @@ func (md *MemoryDatastore) GetNodeStorages() ([]models.StorageNode, error) {
 	return nodeStorages, nil
 }
 
+// GetPrimary gets the primary storage node for a shard of a repository relative path
 func (md *MemoryDatastore) GetPrimary(relativePath string) (*models.StorageNode, error) {
 	md.shards.RLock()
 	defer md.shards.RUnlock()
@@ -216,6 +214,8 @@ func (md *MemoryDatastore) GetPrimary(relativePath string) (*models.StorageNode,
 	return &nodeStorage, nil
 
 }
+
+// SetPrimary sets the primary storagee node for a shard of a repository relative path
 func (md *MemoryDatastore) SetPrimary(relativePath string, storageNodeID int) error {
 	md.shards.Lock()
 	defer md.shards.Unlock()
@@ -236,6 +236,7 @@ func (md *MemoryDatastore) SetPrimary(relativePath string, storageNodeID int) er
 	return nil
 }
 
+// AddSecondary adds a secondary to a shard of a repository relative path
 func (md *MemoryDatastore) AddSecondary(relativePath string, storageNodeID int) error {
 	md.shards.Lock()
 	defer md.shards.Unlock()
@@ -256,6 +257,7 @@ func (md *MemoryDatastore) AddSecondary(relativePath string, storageNodeID int) 
 	return nil
 }
 
+// RemoveSecondary removes a secondary from a shard of a repository relative path
 func (md *MemoryDatastore) RemoveSecondary(relativePath string, storageNodeID int) error {
 	md.shards.Lock()
 	defer md.shards.Unlock()
@@ -277,6 +279,7 @@ func (md *MemoryDatastore) RemoveSecondary(relativePath string, storageNodeID in
 	return nil
 }
 
+// GetShard gets the shard for a repository relative path
 func (md *MemoryDatastore) GetShard(relativePath string) (*models.Shard, error) {
 	md.shards.Lock()
 	defer md.shards.Unlock()

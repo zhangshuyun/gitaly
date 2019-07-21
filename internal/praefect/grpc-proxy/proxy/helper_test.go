@@ -39,6 +39,7 @@ func newBackendPinger(tb testing.TB, ctx context.Context) (*grpc.ClientConn, *in
 		grpc.WithInsecure(),
 		grpc.WithBlock(),
 		grpc.WithDefaultCallOptions(
+			//lint:ignore SA1019 grpc-proxy only exposes grpc.Codec
 			grpc.CallCustomCodec(proxy.Codec()),
 		),
 	)

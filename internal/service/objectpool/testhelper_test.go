@@ -1,10 +1,10 @@
 package objectpool
 
 import (
+	"context"
 	"net"
 	"os"
 	"testing"
-	"time"
 
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -42,8 +42,9 @@ func runObjectPoolServer(t *testing.T) (*grpc.Server, string) {
 func newObjectPoolClient(t *testing.T, serverSocketPath string) (gitalypb.ObjectPoolServiceClient, *grpc.ClientConn) {
 	connOpts := []grpc.DialOption{
 		grpc.WithInsecure(),
-		grpc.WithDialer(func(addr string, timeout time.Duration) (net.Conn, error) {
-			return net.DialTimeout("unix", addr, timeout)
+		grpc.WithContextDialer(func(ctx context.Context, addr string) (net.Conn, error) {
+			var dialer net.Dialer
+			return dialer.DialContext(ctx, "unix", addr)
 		}),
 	}
 

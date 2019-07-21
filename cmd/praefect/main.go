@@ -126,6 +126,9 @@ func run(listeners []net.Listener, conf config.Config) error {
 	defer cancel()
 
 	nodeStorages, err := sqlDatastore.GetNodeStorages()
+	if err != nil {
+		return fmt.Errorf("failed to get storage nodes from database: %v", err)
+	}
 
 	addresses := make(map[string]struct{})
 	for _, nodeStorage := range nodeStorages {
