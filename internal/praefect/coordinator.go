@@ -71,18 +71,8 @@ func (c *Coordinator) GetStorageNode(address string) (Node, error) {
 	}, nil
 }
 
-func targetRepoFromStream(ctx context.Context, registry *protoregistry.Registry, fullMethodName string, peeker proxy.StreamPeeker) (*gitalypb.Repository, error) {
-	frames, err := peeker.Peek(ctx, 1)
-	if err != nil {
-		return nil, err
-	}
-
-	mi, err := registry.LookupMethod(fullMethodName)
-	if err != nil {
-		return nil, err
-	}
-
-	m, err := mi.UnmarshalRequestProto(frames[0])
+func targetRepo(mi protoregistry.MethodInfo, frame []byte) (*gitalypb.Repository, error) {
+	m, err := mi.UnmarshalRequestProto(frame)
 	if err != nil {
 		return nil, err
 	}
@@ -104,22 +94,21 @@ func (c *Coordinator) streamDirector(ctx context.Context, fullMethodName string,
 	c.failoverMutex.RLock()
 	defer c.failoverMutex.RUnlock()
 
+	frames, err := peeker.Peek(ctx, 1)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	mi, err := c.registry.LookupMethod(fullMethodName)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	var primary *models.StorageNode
 
-	targetRepo, err := targetRepoFromStream(ctx, c.registry, fullMethodName, peeker)
-	if err != nil {
-		//TODO: remove this, This is only here to catch the cases where we cannot find the target repo. We need to add the capability
-		// to the protregistry to be able to read the scope, and if it's not a repository scope then we shouldn't try to find the target repo
-		nodeStorages, err := c.datastore.GetNodeStorages()
-		if err != nil {
-			return nil, nil, err
-		}
-		if len(nodeStorages) == 0 {
-			return nil, nil, errors.New("no node storages found")
-		}
-		primary = &nodeStorages[0]
-	} else {
+	if mi.Scope == protoregistry.ScopeRepository {
 
+		targetRepo, err := targetRepo(mi, frames[0])
 		primary, err = c.datastore.GetPrimary(targetRepo.GetRelativePath())
 		if err != nil {
 			if err != sql.ErrNoRows {
@@ -145,6 +134,17 @@ func (c *Coordinator) streamDirector(ctx context.Context, fullMethodName string,
 
 			primary = &newPrimary
 		}
+	} else {
+		//TODO: For now we just pick a random storage node for a non repository scoped RPC, but we will need to figure out exactly how to
+		// proxy requests that are not repository scoped
+		nodeStorages, err := c.datastore.GetNodeStorages()
+		if err != nil {
+			return nil, nil, err
+		}
+		if len(nodeStorages) == 0 {
+			return nil, nil, errors.New("no node storages found")
+		}
+		primary = &nodeStorages[0]
 	}
 
 	// We only need the primary node, as there's only one primary storage
