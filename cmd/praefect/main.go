@@ -107,7 +107,7 @@ func run(listeners []net.Listener, conf config.Config) error {
 	var (
 		// top level server dependencies
 		datastore   = praefect.NewMemoryDatastore()
-		coordinator = praefect.NewCoordinator(logger, datastore, protoregistry.GitalyProtoFileDescriptors...)
+		coordinator = praefect.NewCoordinator(logger, sqlDatastore, protoregistry.GitalyProtoFileDescriptors...)
 		repl        = praefect.NewReplMgr("default", logger, sqlDatastore, datastore, coordinator, praefect.WithWhitelist(conf.Whitelist))
 		srv         = praefect.NewServer(coordinator, repl, nil, logger)
 		// signal related
