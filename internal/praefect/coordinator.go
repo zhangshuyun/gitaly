@@ -170,7 +170,6 @@ func (c *Coordinator) streamDirector(ctx context.Context, fullMethodName string,
 func (c *Coordinator) RegisterNode(address string) error {
 	conn, err := client.Dial(address,
 		[]grpc.DialOption{
-			//lint:ignore SA1019 grpc-proxy only exposes grpc.Codec
 			grpc.WithDefaultCallOptions(grpc.CallCustomCodec(proxy.Codec())),
 			grpc.WithPerRPCCredentials(gitalyauth.RPCCredentials(gitalyconfig.Config.Auth.Token)),
 		},

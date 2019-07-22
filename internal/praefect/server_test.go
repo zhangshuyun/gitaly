@@ -143,7 +143,6 @@ func dialLocalPort(tb testing.TB, port int, backend bool) *grpc.ClientConn {
 	if backend {
 		opts = append(
 			opts,
-			//lint:ignore SA1019 grpc-proxy only exposes grpc.Codec
 			grpc.WithDefaultCallOptions(grpc.CallCustomCodec(proxy.Codec())),
 		)
 	}
