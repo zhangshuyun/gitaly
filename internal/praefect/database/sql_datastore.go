@@ -43,7 +43,7 @@ func (sd *SQLDatastore) GetSecondaries(relativePath string) ([]models.StorageNod
 
 	for rows.Next() {
 		var s models.StorageNode
-		err = rows.Scan(&s.ID, &s.StorageName, &s.Address)
+		err = rows.Scan(&s.ID, &s.Address, &s.StorageName)
 		if err != nil {
 			return nil, err
 		}

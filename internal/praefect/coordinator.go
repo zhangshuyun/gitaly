@@ -107,8 +107,11 @@ func (c *Coordinator) streamDirector(ctx context.Context, fullMethodName string,
 	var primary *models.StorageNode
 
 	if mi.Scope == protoregistry.ScopeRepository {
-
 		targetRepo, err := targetRepo(mi, frames[0])
+		if err != nil {
+			return nil, nil, err
+		}
+
 		primary, err = c.datastore.GetPrimary(targetRepo.GetRelativePath())
 		if err != nil {
 			if err != sql.ErrNoRows {
@@ -146,8 +149,6 @@ func (c *Coordinator) streamDirector(ctx context.Context, fullMethodName string,
 		}
 		primary = &nodeStorages[0]
 	}
-
-	c.log.WithField("primary", primary).Info("HEERES THEE\n\n\nPRIMARY!")
 
 	// We only need the primary node, as there's only one primary storage
 	// location per praefect at this time

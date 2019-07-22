@@ -166,7 +166,7 @@ func (r ReplMgr) ProcessBacklog(ctx context.Context) error {
 				}
 			}
 
-			r.log.Debugf("fetched replication jobs: %#v", jobs)
+			r.log.WithField("node", node).Debugf("fetched replication jobs: %#v", jobs)
 
 			for _, job := range jobs {
 				r.log.WithField(logWithReplJobID, job.ID).
