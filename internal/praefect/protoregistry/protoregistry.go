@@ -43,11 +43,15 @@ const (
 	OpMutator
 )
 
+// Scope represents the scope for an RPC method
 type Scope int
 
 const (
+	// ScopeRepository = repository scope
 	ScopeRepository = iota
+	// ScopeStorage = storage scope
 	ScopeStorage
+	// ScopeServer = serer scope
 	ScopeServer
 )
 
