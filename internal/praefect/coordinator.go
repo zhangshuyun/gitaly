@@ -147,6 +147,8 @@ func (c *Coordinator) streamDirector(ctx context.Context, fullMethodName string,
 		primary = &nodeStorages[0]
 	}
 
+	c.log.WithField("primary", primary).Info("HEERES THEE\n\n\nPRIMARY!")
+
 	// We only need the primary node, as there's only one primary storage
 	// location per praefect at this time
 	cc, ok := c.getConn(primary.Address)
