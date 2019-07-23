@@ -3,29 +3,61 @@ package database
 import (
 	"errors"
 	"fmt"
+	"log"
+	"time"
 
 	"database/sql"
 
 	// the lib/pg package provides postgres bindings for the sql package
+
+	"github.com/lib/pq"
+	// we need this for the postgres connection
 	_ "github.com/lib/pq"
 
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/models"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore/models"
 )
 
 // SQLDatastore is a sql based datastore that conforms to the ReplicasDatastore interface
 type SQLDatastore struct {
-	db *sql.DB
+	db       *sql.DB
+	listener *pq.Listener
 }
 
 // NewSQLDatastore instantiates a new sql datastore with environment variables
-func NewSQLDatastore(user, password, address, database string) (*SQLDatastore, error) {
+func NewSQLDatastore(user, password, address, database, notificationChannel string) (*SQLDatastore, error) {
 	connStr := fmt.Sprintf("postgres://%s:%s@%s/%s?sslmode=disable", user, password, address, database)
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {
 		return nil, err
 	}
 
-	return &SQLDatastore{db: db}, nil
+	updater := func(ev pq.ListenerEventType, err error) {
+		if err != nil {
+			log.Fatal(err.Error())
+		}
+
+		switch ev {
+		case pq.ListenerEventConnected:
+			log.Print("postgres listener connected")
+		case pq.ListenerEventDisconnected:
+			log.Print("postgres listener disconnected")
+		case pq.ListenerEventReconnected:
+			log.Print("postgres listener reconnected")
+		}
+	}
+
+	listener := pq.NewListener(connStr, 10*time.Second, 20*time.Second, updater)
+
+	if err := listener.Listen(notificationChannel); err != nil {
+		return nil, err
+	}
+
+	return &SQLDatastore{db: db, listener: listener}, nil
+}
+
+
+func (sd *SQLDatastore) Listener() *pq.Listener {
+	return sd.listener
 }
 
 // GetSecondaries gets the secondaries for a shard based on the relative path

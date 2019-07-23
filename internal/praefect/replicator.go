@@ -7,7 +7,8 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/models"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore/models"
 
 	"github.com/sirupsen/logrus"
 )
@@ -60,8 +61,8 @@ func (dr defaultReplicator) Replicate(ctx context.Context, source models.Reposit
 // ReplMgr is a replication manager for handling replication jobs
 type ReplMgr struct {
 	log         *logrus.Logger
-	replicasDS  ReplicasDatastore
-	replJobsDS  ReplJobsDatastore
+	replicasDS  datastore.ReplicasDatastore
+	replJobsDS  datastore.ReplJobsDatastore
 	coordinator *Coordinator
 	targetNode  string     // which replica is this replicator responsible for?
 	replicator  Replicator // does the actual replication logic
@@ -75,7 +76,7 @@ type ReplMgrOpt func(*ReplMgr)
 
 // NewReplMgr initializes a replication manager with the provided dependencies
 // and options
-func NewReplMgr(targetNode string, log *logrus.Logger, replicasDS ReplicasDatastore, jobsDS ReplJobsDatastore, c *Coordinator, opts ...ReplMgrOpt) ReplMgr {
+func NewReplMgr(targetNode string, log *logrus.Logger, replicasDS datastore.ReplicasDatastore, jobsDS datastore.ReplJobsDatastore, c *Coordinator, opts ...ReplMgrOpt) ReplMgr {
 	r := ReplMgr{
 		log:         log,
 		replicasDS:  replicasDS,
@@ -148,7 +149,7 @@ func (r ReplMgr) ProcessBacklog(ctx context.Context) error {
 		}
 
 		for _, node := range nodes {
-			jobs, err := r.replJobsDS.GetJobs(JobStatePending|JobStateReady, node.StorageName, 10)
+			jobs, err := r.replJobsDS.GetJobs(datastore.JobStatePending|datastore.JobStateReady, node.StorageName, 10)
 			if err != nil {
 				return err
 			}
@@ -178,7 +179,7 @@ func (r ReplMgr) ProcessBacklog(ctx context.Context) error {
 
 				r.log.WithField(logWithReplJobID, job.ID).WithField("storage", node).Info("got storage")
 
-				if err := r.replJobsDS.UpdateReplJob(job.ID, JobStateInProgress); err != nil {
+				if err := r.replJobsDS.UpdateReplJob(job.ID, datastore.JobStateInProgress); err != nil {
 					return err
 				}
 
@@ -197,7 +198,7 @@ func (r ReplMgr) ProcessBacklog(ctx context.Context) error {
 					return err
 				}
 
-				if err := r.replJobsDS.UpdateReplJob(job.ID, JobStateComplete); err != nil {
+				if err := r.replJobsDS.UpdateReplJob(job.ID, datastore.JobStateComplete); err != nil {
 					return err
 				}
 			}

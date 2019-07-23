@@ -3,7 +3,7 @@
 //
 // See original design discussion:
 // https://gitlab.com/gitlab-org/gitaly/issues/1495
-package praefect
+package datastore
 
 import (
 	"errors"
@@ -11,7 +11,7 @@ import (
 	"sort"
 	"sync"
 
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/models"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore/models"
 )
 
 var (

@@ -7,7 +7,7 @@ import (
 	"github.com/BurntSushi/toml"
 
 	"gitlab.com/gitlab-org/gitaly/internal/config"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/models"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore/models"
 )
 
 // Config is a container for everything found in the TOML config file

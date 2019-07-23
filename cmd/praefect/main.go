@@ -19,7 +19,8 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/internal/praefect"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/database"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore/database"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/internal/version"
 	"gitlab.com/gitlab-org/labkit/tracing"
@@ -98,17 +99,21 @@ func run(listeners []net.Listener, conf config.Config) error {
 		os.Getenv("PRAEFECT_PG_USER"),
 		os.Getenv("PRAEFECT_PG_PASSWORD"),
 		os.Getenv("PRAEFECT_PG_ADDRESS"),
-		os.Getenv("PRAEFECT_PG_DATABASE"))
+		os.Getenv("PRAEFECT_PG_DATABASE"),
+		os.Getenv("PRAEFECT_PG_NOTIFY_CHANNEL"),
+	)
 
 	if err != nil {
 		return fmt.Errorf("failed to create sql datastore: %v", err)
 	}
 
+	cachedDatastore := datastore.NewCachedDatastore(sqlDatastore, datastore.WithBustOnUpdate(sqlDatastore.Listener()))
+
 	var (
 		// top level server dependencies
-		datastore   = praefect.NewMemoryDatastore()
-		coordinator = praefect.NewCoordinator(logger, sqlDatastore, protoregistry.GitalyProtoFileDescriptors...)
-		repl        = praefect.NewReplMgr("default", logger, sqlDatastore, datastore, coordinator, praefect.WithWhitelist(conf.Whitelist))
+		datastore   = datastore.NewMemoryDatastore()
+		coordinator = praefect.NewCoordinator(logger, cachedDatastore, protoregistry.GitalyProtoFileDescriptors...)
+		repl        = praefect.NewReplMgr("default", logger, cachedDatastore, datastore, coordinator, praefect.WithWhitelist(conf.Whitelist))
 		srv         = praefect.NewServer(coordinator, repl, nil, logger)
 		// signal related
 		signals      = []os.Signal{syscall.SIGTERM, syscall.SIGINT}
