@@ -55,7 +55,6 @@ func NewSQLDatastore(user, password, address, database, notificationChannel stri
 	return &SQLDatastore{db: db, listener: listener}, nil
 }
 
-
 func (sd *SQLDatastore) Listener() *pq.Listener {
 	return sd.listener
 }
