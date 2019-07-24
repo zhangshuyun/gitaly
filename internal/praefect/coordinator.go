@@ -69,7 +69,7 @@ func (c *Coordinator) GetStorageNode(storage string) (Node, error) {
 }
 
 // streamDirector determines which downstream servers receive requests
-func (c *Coordinator) streamDirector(ctx context.Context, fullMethodName string, peeker proxy.StreamPeeker) (context.Context, *grpc.ClientConn, error) {
+func (c *Coordinator) streamDirector(ctx context.Context, fullMethodName string, peeker proxy.StreamModifier) (context.Context, *grpc.ClientConn, error) {
 	// For phase 1, we need to route messages based on the storage location
 	// to the appropriate Gitaly node.
 	c.log.Debugf("Stream director received method %s", fullMethodName)
