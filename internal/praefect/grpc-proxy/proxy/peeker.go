@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"errors"
+	"fmt"
 
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -56,4 +57,16 @@ func (p peeker) Peek(ctx context.Context, n uint) ([][]byte, error) {
 	}
 
 	return peekedFrames, nil
+}
+
+func (p peeker) ReplaceFrames(n int, payloads ...[]byte) error {
+	if n > len(payloads) {
+		return fmt.Errorf("not enough payloads for %d frames", n)
+	}
+
+	for i := 0; i < n; i++ {
+		p.consumedStream.frames[i].payload = payloads[i]
+	}
+
+	return nil
 }
