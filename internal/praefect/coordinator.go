@@ -92,11 +92,15 @@ func (c *Coordinator) streamDirector(ctx context.Context, fullMethodName string,
 	var primary *models.StorageNode
 
 	if mi.Scope == protoregistry.ScopeRepository {
-		targetRepo, err := targetRepo(mi, frames[0])
+		m, err := mi.UnmarshalRequestProto(frames[0])
 		if err != nil {
 			return nil, nil, err
 		}
 
+		targetRepo, err := mi.TargetRepo(m)
+		if err != nil {
+			return nil, nil, err
+		}
 		primary, err = c.datastore.GetPrimary(targetRepo.GetStorageName(), targetRepo.GetRelativePath())
 
 		if err != nil {
@@ -122,6 +126,16 @@ func (c *Coordinator) streamDirector(ctx context.Context, fullMethodName string,
 			}
 
 			primary = &newPrimary
+
+		}
+
+		targetRepo.StorageName = primary.Storage
+		b, err := proxy.Codec().Marshal(m)
+		if err != nil {
+			return nil, nil, err
+		}
+		if err := peeker.ReplaceFrames(1, b); err != nil {
+			return nil, nil, err
 		}
 	} else {
 		//TODO: For now we just pick a random storage node for a non repository scoped RPC, but we will need to figure out exactly how to

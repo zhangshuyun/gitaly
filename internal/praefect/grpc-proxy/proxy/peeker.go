@@ -15,6 +15,7 @@ type StreamPeeker interface {
 	// removing those messages from the stream that will be forwarded to
 	// the backend server.
 	Peek(ctx context.Context, n uint) (frames [][]byte, _ error)
+	ReplaceFrames(n int, payloads ...[]byte) error
 }
 
 type partialStream struct {
