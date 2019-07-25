@@ -28,14 +28,14 @@ func TestStreamPeeking(t *testing.T) {
 	pingReqSent := &testservice.PingRequest{Value: "hi"}
 
 	// director will peek into stream before routing traffic
-	director := func(ctx context.Context, fullMethodName string, peeker proxy.StreamModifier) (context.Context, *grpc.ClientConn, error) {
+	director := func(ctx context.Context, fullMethodName string, peeker proxy.StreamPeeker) (context.Context, *grpc.ClientConn, error) {
 		t.Logf("director routing method %s to backend", fullMethodName)
 
-		peekedMsg, err := peeker.Peek(ctx)
+		peekedMsg, err := peeker.Peek()
 		require.NoError(t, err)
 
 		peekedRequest := new(testservice.PingRequest)
-		err = proto.Unmarshal(peekedMsg, peekedRequest)
+		err = proto.Unmarshal(peekedMsg.Payload(), peekedRequest)
 		require.NoError(t, err)
 		require.Equal(t, pingReqSent, peekedRequest)
 
@@ -87,14 +87,14 @@ func TestStreamInjecting(t *testing.T) {
 	newValue := "bye"
 
 	// director will peek into stream and change some frames
-	director := func(ctx context.Context, fullMethodName string, peeker proxy.StreamModifier) (context.Context, *grpc.ClientConn, error) {
+	director := func(ctx context.Context, fullMethodName string, peeker proxy.StreamPeeker) (context.Context, *grpc.ClientConn, error) {
 		t.Logf("modifying request for method %s", fullMethodName)
 
-		peekedMsg, err := peeker.Peek(ctx)
+		peekedMsg, err := peeker.Peek()
 		require.NoError(t, err)
 
 		peekedRequest := new(testservice.PingRequest)
-		require.NoError(t, proto.Unmarshal(peekedMsg, peekedRequest))
+		require.NoError(t, proto.Unmarshal(peekedMsg.Payload(), peekedRequest))
 		require.Equal(t, "hi", peekedRequest.GetValue())
 
 		peekedRequest.Value = newValue
@@ -102,7 +102,7 @@ func TestStreamInjecting(t *testing.T) {
 		newPayload, err := proto.Marshal(peekedRequest)
 		require.NoError(t, err)
 
-		require.NoError(t, peeker.Modify(ctx, newPayload))
+		require.NoError(t, peekedMsg.Modify(newPayload))
 
 		return ctx, backendCC, nil
 	}

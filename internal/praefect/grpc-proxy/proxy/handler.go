@@ -160,6 +160,10 @@ func (s *handler) forwardServerToClient(src grpc.ServerStream, dst grpc.ClientSt
 				// number of frames can be peeked
 				break
 			}
+			frame.Lock()
+			defer frame.Unlock()
+			defer func() { frame.consumed = true }()
+
 			if err := dst.SendMsg(frame); err != nil {
 				ret <- err
 				return

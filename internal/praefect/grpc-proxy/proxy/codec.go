@@ -6,6 +6,7 @@ package proxy
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/golang/protobuf/proto"
 	"google.golang.org/grpc"
@@ -33,7 +34,9 @@ type rawCodec struct {
 }
 
 type frame struct {
-	payload []byte
+	payload  []byte
+	consumed bool
+	sync.Mutex
 }
 
 func (c *rawCodec) Marshal(v interface{}) ([]byte, error) {
