@@ -1,5 +1,13 @@
 # Gitaly changelog
 
+## v1.53.1
+
+#### Security
+- Add http.followRedirects directive to `git fetch` command
+  https://gitlab.com/gitlab-org/gitaly/merge_requests/
+- Do not follow redirect when cloning repo from URL
+  https://gitlab.com/gitlab-org/gitaly/merge_requests/
+
 ## v1.53.0
 
 #### Added
