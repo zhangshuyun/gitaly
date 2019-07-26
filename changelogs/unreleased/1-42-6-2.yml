@@ -1,0 +1,5 @@
+---
+title: Do not follow redirect when cloning repo from URL
+merge_request:
+author:
+type: security
