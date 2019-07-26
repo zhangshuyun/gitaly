@@ -94,8 +94,9 @@ describe Gitlab::Git::GitlabProjects do
     let(:tags) { true }
     let(:env) { { 'GIT_SSH_COMMAND' => 'foo-command bar' } }
     let(:prune) { true }
+    let(:follow_redirects) { false }
     let(:args) { { force: force, tags: tags, env: env, prune: prune } }
-    let(:cmd) { %W(#{Gitlab.config.git.bin_path} fetch #{remote_name} --quiet --prune --tags) }
+    let(:cmd) { %W(#{Gitlab.config.git.bin_path} -c http.followRedirects=false fetch #{remote_name} --quiet --prune --tags) }
 
     subject { gl_projects.fetch_remote(remote_name, 600, args) }
 
@@ -115,7 +116,7 @@ describe Gitlab::Git::GitlabProjects do
 
     context 'with --force' do
       let(:force) { true }
-      let(:cmd) { %W(#{Gitlab.config.git.bin_path} fetch #{remote_name} --quiet --prune --force --tags) }
+      let(:cmd) { %W(#{Gitlab.config.git.bin_path} -c http.followRedirects=false fetch #{remote_name} --quiet --prune --force --tags) }
 
       it 'executes the command with forced option' do
         stub_spawn(cmd, 600, tmp_repo_path, env, success: true)
@@ -126,7 +127,7 @@ describe Gitlab::Git::GitlabProjects do
 
     context 'with --no-tags' do
       let(:tags) { false }
-      let(:cmd) { %W(#{Gitlab.config.git.bin_path} fetch #{remote_name} --quiet --prune --no-tags) }
+      let(:cmd) { %W(#{Gitlab.config.git.bin_path} -c http.followRedirects=false fetch #{remote_name} --quiet --prune --no-tags) }
 
       it 'executes the command' do
         stub_spawn(cmd, 600, tmp_repo_path, env, success: true)
@@ -137,7 +138,7 @@ describe Gitlab::Git::GitlabProjects do
 
     context 'with no prune' do
       let(:prune) { false }
-      let(:cmd) { %W(#{Gitlab.config.git.bin_path} fetch #{remote_name} --quiet --tags) }
+      let(:cmd) { %W(#{Gitlab.config.git.bin_path} -c http.followRedirects=false fetch #{remote_name} --quiet --tags) }
 
       it 'executes the command' do
         stub_spawn(cmd, 600, tmp_repo_path, env, success: true)
