@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"io/ioutil"
+	"os"
 	"os/exec"
 	"testing"
 
@@ -9,7 +11,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/command"
-	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 )
 
 const redirectURL = "/redirect_url"
@@ -38,8 +39,9 @@ func StartRedirectingTestServer() (*RedirectingTestServerState, *httptest.Server
 }
 
 func TestRedirectingServerRedirects(t *testing.T) {
-	dir, cleanup := testhelper.TempDir(t, "", t.Name())
-	defer cleanup()
+	dir, err := ioutil.TempDir("", t.Name())
+	require.NoError(t, err)
+	defer os.RemoveAll(dir)
 
 	httpServerState, redirectingServer := StartRedirectingTestServer()
 
