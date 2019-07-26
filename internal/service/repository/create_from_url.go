@@ -29,6 +29,8 @@ func (s *server) CreateRepositoryFromURL(ctx context.Context, req *gitalypb.Crea
 	}
 
 	args := []string{
+		"-c",
+		"http.followRedirects=false",
 		"clone",
 		"--bare",
 		"--",
