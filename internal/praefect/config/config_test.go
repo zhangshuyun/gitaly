@@ -22,27 +22,32 @@ func TestConfigValidation(t *testing.T) {
 	}{
 		{
 			desc:   "No ListenAddr or SocketPath",
-			config: Config{ListenAddr: "", StorageNodes: nodes},
+			config: Config{ListenAddr: "", StorageNodes: nodes, Postgres: &Postgres{}},
 			err:    errNoListener,
 		},
 		{
 			desc:   "Only a SocketPath",
-			config: Config{SocketPath: "/tmp/praefect.socket", StorageNodes: nodes},
+			config: Config{SocketPath: "/tmp/praefect.socket", StorageNodes: nodes, Postgres: &Postgres{}},
 			err:    nil,
 		},
 		{
 			desc:   "No servers",
-			config: Config{ListenAddr: "localhost:1234"},
+			config: Config{ListenAddr: "localhost:1234", Postgres: &Postgres{}},
 			err:    errNoGitalyServers,
 		},
 		{
 			desc:   "duplicate address",
-			config: Config{ListenAddr: "localhost:1234", StorageNodes: append(nodes, &models.StorageNode{Address: nodes[0].Address})},
+			config: Config{ListenAddr: "localhost:1234", StorageNodes: append(nodes, &models.StorageNode{Address: nodes[0].Address}), Postgres: &Postgres{}},
 			err:    errDuplicateGitalyAddr,
 		},
 		{
-			desc:   "Valid config",
+			desc:   "Missing Postgres",
 			config: Config{ListenAddr: "localhost:1234", StorageNodes: nodes},
+			err:    errNoPostgres,
+		},
+		{
+			desc:   "Valid config",
+			config: Config{ListenAddr: "localhost:1234", StorageNodes: nodes, Postgres: &Postgres{}},
 			err:    nil,
 		},
 	}
@@ -78,6 +83,12 @@ func TestConfigParsing(t *testing.T) {
 					},
 				},
 				Whitelist: []string{"abcd1234", "edfg5678"},
+				Postgres: &Postgres{
+					User:     "pg_user",
+					Password: "password",
+					Address:  "/tmp/postgres.socket",
+					Database: "praefect_test",
+				},
 			},
 		},
 	}

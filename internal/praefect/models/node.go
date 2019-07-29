@@ -8,11 +8,10 @@ type StorageNode struct {
 	Token   string `toml:"token"`
 }
 
-// Shard describes a repository's relative path and its primary and list of secondaries
-type Shard struct {
+// Repository describes a repository's relative path and its primary and list of secondaries
+type Repository struct {
 	ID           int
-	Storage      string
 	RelativePath string
 	Primary      StorageNode
-	Secondaries  []StorageNode
+	Replicas     []StorageNode
 }

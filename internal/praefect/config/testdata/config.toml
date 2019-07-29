@@ -21,3 +21,8 @@ prometheus_listen_addr = ""
   address = "tcp://gitaly-internal-3.example.com"
   storage = "praefect-internal-3"
 
+[postgres]
+  user = "pg_user"
+  password = "password"
+  address = "/tmp/postgres.socket"
+  database = "praefect_test"

@@ -44,21 +44,19 @@ func TestReplicatorProcessJobsWhitelist(t *testing.T) {
 		Storage: "praefect-internal-3",
 	}
 
-	datastore.shards.m["default"+"abcd1234"] = models.Shard{
-		Storage:      "default",
+	datastore.repositories.m["abcd1234"] = models.Repository{
 		RelativePath: "abcd1234",
 		Primary:      datastore.storageNodes.m[1],
-		Secondaries:  []models.StorageNode{datastore.storageNodes.m[2], datastore.storageNodes.m[3]},
+		Replicas:     []models.StorageNode{datastore.storageNodes.m[2], datastore.storageNodes.m[3]},
 	}
-	datastore.shards.m["default"+"edfg5678"] = models.Shard{
-		Storage:      "default",
+	datastore.repositories.m["edfg5678"] = models.Repository{
 		RelativePath: "edfg5678",
 		Primary:      datastore.storageNodes.m[1],
-		Secondaries:  []models.StorageNode{datastore.storageNodes.m[2], datastore.storageNodes.m[3]},
+		Replicas:     []models.StorageNode{datastore.storageNodes.m[2], datastore.storageNodes.m[3]},
 	}
 
 	for _, repo := range []string{"abcd1234", "edfg5678"} {
-		jobIDs, err := datastore.CreateSecondaryReplJobs("default", repo)
+		jobIDs, err := datastore.CreateReplicaReplJobs(repo)
 		require.NoError(t, err)
 		require.Len(t, jobIDs, 2)
 	}
@@ -75,7 +73,7 @@ func TestReplicatorProcessJobsWhitelist(t *testing.T) {
 	)
 
 	for _, node := range datastore.storageNodes.m {
-		err := coordinator.RegisterNode(node.Address)
+		err := coordinator.RegisterNode(node.Storage, node.Address)
 		require.NoError(t, err)
 	}
 
@@ -91,9 +89,9 @@ func TestReplicatorProcessJobsWhitelist(t *testing.T) {
 
 	var expectedResults []result
 	// we expect one job per whitelisted repo with each backend server
-	for _, shard := range datastore.shards.m {
-		for _, secondary := range shard.Secondaries {
-			cc, err := coordinator.GetConnection(secondary.Address)
+	for _, shard := range datastore.repositories.m {
+		for _, secondary := range shard.Replicas {
+			cc, err := coordinator.GetConnection(secondary.Storage)
 			require.NoError(t, err)
 			expectedResults = append(expectedResults,
 				result{source: models.Repository{RelativePath: shard.RelativePath},
@@ -105,8 +103,8 @@ func TestReplicatorProcessJobsWhitelist(t *testing.T) {
 
 	go func() {
 		// we expect one job per whitelisted repo with each backend server
-		for _, shard := range datastore.shards.m {
-			for range shard.Secondaries {
+		for _, shard := range datastore.repositories.m {
+			for range shard.Replicas {
 				result := <-resultsCh
 				assert.Contains(t, expectedResults, result)
 			}
@@ -139,7 +137,7 @@ type mockReplicator struct {
 	resultsCh chan<- result
 }
 
-func (mr *mockReplicator) Replicate(ctx context.Context, source models.Repository, targetStorage string, target *grpc.ClientConn) error {
+func (mr *mockReplicator) Replicate(ctx context.Context, source models.Repository, sourceStorage, targetStorage string, target *grpc.ClientConn) error {
 	select {
 
 	case mr.resultsCh <- result{source, targetStorage, target}:
@@ -203,7 +201,8 @@ func TestReplicate(t *testing.T) {
 	var replicator defaultReplicator
 	require.NoError(t, replicator.Replicate(
 		ctx,
-		models.Repository{Storage: "default", RelativePath: testRepo.GetRelativePath()},
+		models.Repository{RelativePath: testRepo.GetRelativePath()},
+		"default",
 		backupStorageName,
 		conn,
 	))

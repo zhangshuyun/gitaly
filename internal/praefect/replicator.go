@@ -15,21 +15,21 @@ import (
 
 // Replicator performs the actual replication logic between two nodes
 type Replicator interface {
-	Replicate(ctx context.Context, source models.Repository, targetStorage string, target *grpc.ClientConn) error
+	Replicate(ctx context.Context, source models.Repository, sourceStorage, targetStorage string, target *grpc.ClientConn) error
 }
 
 type defaultReplicator struct {
 	log *logrus.Logger
 }
 
-func (dr defaultReplicator) Replicate(ctx context.Context, source models.Repository, targetStorage string, target *grpc.ClientConn) error {
+func (dr defaultReplicator) Replicate(ctx context.Context, source models.Repository, sourceStorage, targetStorage string, target *grpc.ClientConn) error {
 	repository := &gitalypb.Repository{
 		StorageName:  targetStorage,
 		RelativePath: source.RelativePath,
 	}
 
 	remoteRepository := &gitalypb.Repository{
-		StorageName:  source.Storage,
+		StorageName:  sourceStorage,
 		RelativePath: source.RelativePath,
 	}
 
@@ -121,7 +121,7 @@ func (r ReplMgr) ScheduleReplication(ctx context.Context, repo models.Repository
 		return nil
 	}
 
-	id, err := r.replJobsDS.CreateSecondaryReplJobs(repo.Storage, repo.RelativePath)
+	id, err := r.replJobsDS.CreateReplicaReplJobs(repo.RelativePath)
 	if err != nil {
 		return err
 	}
@@ -187,12 +187,12 @@ func (r ReplMgr) ProcessBacklog(ctx context.Context) error {
 					return err
 				}
 
-				cc, err := r.coordinator.GetConnection(node.Address)
+				cc, err := r.coordinator.GetConnection(node.Storage)
 				if err != nil {
 					return err
 				}
 
-				if err := r.replicator.Replicate(ctx, job.Source, node.Storage, cc); err != nil {
+				if err := r.replicator.Replicate(ctx, job.Source, job.SourceStorage, node.Storage, cc); err != nil {
 					r.log.WithField(logWithReplJobID, job.ID).WithError(err).Error("error when replicating")
 					return err
 				}

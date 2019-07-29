@@ -41,12 +41,7 @@ func IncomingToOutgoing(ctx context.Context) context.Context {
 		return ctx
 	}
 
-	gitalyServersJSONEncoded := md["gitaly-servers"]
-	if len(gitalyServersJSONEncoded) == 0 {
-		return ctx
-	}
-
-	return metadata.NewOutgoingContext(ctx, metadata.Pairs("gitaly-servers", gitalyServersJSONEncoded[0]))
+	return metadata.NewOutgoingContext(ctx, md)
 
 }
 

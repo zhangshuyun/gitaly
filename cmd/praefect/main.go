@@ -95,10 +95,11 @@ func configure() (config.Config, error) {
 func run(listeners []net.Listener, conf config.Config) error {
 
 	sqlDatastore, err := database.NewSQLDatastore(
-		os.Getenv("PRAEFECT_PG_USER"),
-		os.Getenv("PRAEFECT_PG_PASSWORD"),
-		os.Getenv("PRAEFECT_PG_ADDRESS"),
-		os.Getenv("PRAEFECT_PG_DATABASE"))
+		conf.Postgres.User,
+		conf.Postgres.Password,
+		conf.Postgres.Address,
+		conf.Postgres.Database,
+	)
 
 	if err != nil {
 		return fmt.Errorf("failed to create sql datastore: %v", err)
@@ -116,6 +117,10 @@ func run(listeners []net.Listener, conf config.Config) error {
 		serverErrors = make(chan error, 1)
 	)
 
+	if err := sqlDatastore.LoadFromConfig(conf); err != nil {
+		return fmt.Errorf("loading config for database: %v", err)
+	}
+
 	signal.Notify(termCh, signals...)
 
 	for _, l := range listeners {
@@ -125,21 +130,10 @@ func run(listeners []net.Listener, conf config.Config) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	nodes, err := sqlDatastore.GetStorageNodes()
-	if err != nil {
-		return fmt.Errorf("failed to get storage nodes from database: %v", err)
-	}
-
-	addresses := make(map[string]struct{})
-	for _, node := range nodes {
-		if _, ok := addresses[node.Address]; ok {
-			continue
-		}
-		if err := coordinator.RegisterNode(node.Address); err != nil {
+	for _, node := range conf.StorageNodes {
+		if err := coordinator.RegisterNode(node.Storage, node.Address); err != nil {
 			return fmt.Errorf("failed to register %s: %s", node.Address, err)
 		}
-
-		addresses[node.Address] = struct{}{}
 
 		logger.WithField("node_address", node.Address).Info("registered gitaly node")
 	}

@@ -3,12 +3,14 @@ package database
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"database/sql"
 
 	// the lib/pg package provides postgres bindings for the sql package
 	_ "github.com/lib/pq"
 
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/models"
 )
 
@@ -28,14 +30,35 @@ func NewSQLDatastore(user, password, address, database string) (*SQLDatastore, e
 	return &SQLDatastore{db: db}, nil
 }
 
-// GetSecondaries gets the secondaries for a shard based on the relative path
-func (sd *SQLDatastore) GetSecondaries(storage, relativePath string) ([]models.StorageNode, error) {
-	var secondaries []models.StorageNode
+// LoadFromConfig loads the config into the database
+func (sd *SQLDatastore) LoadFromConfig(cfg config.Config) error {
+	_, err := sd.db.Exec(insertStorageNodesQuery(cfg.StorageNodes))
+	if err != nil {
+		return fmt.Errorf("loading StorageNodes: %v", err)
+	}
+
+	return nil
+}
+
+func insertStorageNodesQuery(storageNodes []*models.StorageNode) string {
+	q := `INSERT INTO storage_nodes (storage) VALUES %s ON CONFLICT (storage) DO NOTHING`
+
+	var values []string
+	for _, storageNode := range storageNodes {
+		values = append(values, fmt.Sprintf(`('%s')`, storageNode.Storage))
+	}
+
+	return fmt.Sprintf(q, strings.Join(values, ","))
+}
+
+// GetReplicas gets the replicas for a repository based on the relative path
+func (sd *SQLDatastore) GetReplicas(relativePath string) ([]models.StorageNode, error) {
+	var replicas []models.StorageNode
 
 	rows, err := sd.db.Query(`
-	SELECT storage_nodes.id, storage_nodes.address FROM shards
-		INNER JOIN shard_secondaries ON shards.id = shard_secondaries.shard_id
-		INNER JOIN storage_nodes ON storage_nodes.id = shard_secondaries.storage_node_id WHERE shards.storage = $1 AND shards.relative_path = $2`, storage, relativePath)
+	SELECT storage_nodes.id FROM repositories
+		INNER JOIN repository_replicas ON repositories.id = repository_replicas.repository_id
+		INNER JOIN storage_nodes ON storage_nodes.id = repository_replicas.storage_node_id WHERE repositories.relative_path = $1`, relativePath)
 
 	if err != nil {
 		return nil, err
@@ -43,23 +66,23 @@ func (sd *SQLDatastore) GetSecondaries(storage, relativePath string) ([]models.S
 
 	for rows.Next() {
 		var s models.StorageNode
-		err = rows.Scan(&s.ID, &s.Address)
+		err = rows.Scan(&s.ID)
 		if err != nil {
 			return nil, err
 		}
-		secondaries = append(secondaries, s)
+		replicas = append(replicas, s)
 	}
 
-	return secondaries, nil
+	return replicas, nil
 }
 
 // GetStorageNode gets all storage storage_nodes
 func (sd *SQLDatastore) GetStorageNode(nodeID int) (models.StorageNode, error) {
 	var node models.StorageNode
 
-	row := sd.db.QueryRow("SELECT storage_nodes.id, storage_nodes.address, storage_nodes.storage FROM storage_nodes WHERE storage_nodes.id = $1", nodeID)
+	row := sd.db.QueryRow("SELECT storage_nodes.id, storage_nodes.storage FROM storage_nodes WHERE storage_nodes.id = $1", nodeID)
 
-	err := row.Scan(&node.ID, &node.Address, &node.Storage)
+	err := row.Scan(&node.ID, &node.Storage)
 	if err != nil {
 		return node, err
 	}
@@ -72,7 +95,7 @@ func (sd *SQLDatastore) GetStorageNode(nodeID int) (models.StorageNode, error) {
 func (sd *SQLDatastore) GetStorageNodes() ([]models.StorageNode, error) {
 	var nodeStorages []models.StorageNode
 
-	rows, err := sd.db.Query("SELECT storage_nodes.id, storage_nodes.address, storage_nodes.storage FROM storage_nodes")
+	rows, err := sd.db.Query("SELECT storage_nodes.id, storage_nodes.storage FROM storage_nodes")
 
 	if err != nil {
 		return nil, err
@@ -80,7 +103,7 @@ func (sd *SQLDatastore) GetStorageNodes() ([]models.StorageNode, error) {
 
 	for rows.Next() {
 		var nodeStorage models.StorageNode
-		err = rows.Scan(&nodeStorage.ID, &nodeStorage.Address, &nodeStorage.Storage)
+		err = rows.Scan(&nodeStorage.ID, &nodeStorage.Storage)
 		if err != nil {
 			return nil, err
 		}
@@ -91,26 +114,26 @@ func (sd *SQLDatastore) GetStorageNodes() ([]models.StorageNode, error) {
 
 }
 
-// GetPrimary gets the primary storage node for a shard of a repository relative path
-func (sd *SQLDatastore) GetPrimary(storage, relativePath string) (*models.StorageNode, error) {
+// GetPrimary gets the primary storage node for a repository of a repository relative path
+func (sd *SQLDatastore) GetPrimary(relativePath string) (*models.StorageNode, error) {
 
 	row := sd.db.QueryRow(`
-	SELECT storage_nodes.id, storage_nodes.address, storage_nodes.storage FROM shards
-	  INNER JOIN storage_nodes ON shards.primary = storage_nodes.id
-	  WHERE shards.storage = $1 AND shards.relative_path = $2
-	`, storage, relativePath)
+	SELECT storage_nodes.id, storage_nodes.storage FROM repositories
+	  INNER JOIN storage_nodes ON repositories.primary = storage_nodes.id
+	  WHERE repositories.relative_path = $1
+	`, relativePath)
 
 	var s models.StorageNode
-	if err := row.Scan(&s.ID, &s.Address, &s.Storage); err != nil {
+	if err := row.Scan(&s.ID, &s.Storage); err != nil {
 		return nil, err
 	}
 
 	return &s, nil
 }
 
-// SetPrimary sets the primary storagee node for a shard of a repository relative path
-func (sd *SQLDatastore) SetPrimary(storage, relativePath string, storageNodeID int) error {
-	res, err := sd.db.Exec(`UPDATE shards SET "primary" = $1 WHERE storage = $2 AND relative_path = $3`, storageNodeID, storage, relativePath)
+// SetPrimary sets the primary storagee node for a repository of a repository relative path
+func (sd *SQLDatastore) SetPrimary(relativePath string, storageNodeID int) error {
+	res, err := sd.db.Exec(`UPDATE repositories SET "primary" = $1 WHERE relative_path = $2`, storageNodeID, relativePath)
 	if err != nil {
 		return err
 	}
@@ -118,7 +141,7 @@ func (sd *SQLDatastore) SetPrimary(storage, relativePath string, storageNodeID i
 	if n, err := res.RowsAffected(); err != nil {
 		return err
 	} else if n == 0 {
-		res, err = sd.db.Exec(`INSERT INTO shards (storage, relative_path, "primary") VALUES ($1, $2, $3)`, storage, relativePath, storageNodeID)
+		res, err = sd.db.Exec(`INSERT INTO repositories (storage, relative_path, "primary") VALUES ($1, $2)`, relativePath, storageNodeID)
 		if err != nil {
 			return err
 		}
@@ -132,11 +155,11 @@ func (sd *SQLDatastore) SetPrimary(storage, relativePath string, storageNodeID i
 	return nil
 }
 
-// AddSecondary adds a secondary to a shard of a repository relative path
-func (sd *SQLDatastore) AddSecondary(storage, relativePath string, storageNodeID int) error {
+// AddReplica adds a replica to a repository of a repository relative path
+func (sd *SQLDatastore) AddReplica(relativePath string, storageNodeID int) error {
 	res, err := sd.db.Exec(`
-		INSERT INTO shard_secondaries (shard_id, storage_node_id)
-		VALUES (SELECT id, $1 FROM shards WHERE storage = $2 AND relative_path = $3)`, storageNodeID, storage, relativePath)
+		INSERT INTO repository_replicas (repository_id, storage_node_id)
+		VALUES (SELECT id, $1 FROM repositories WHERE relative_path = $2)`, storageNodeID, relativePath)
 	if err != nil {
 		return err
 	}
@@ -144,17 +167,17 @@ func (sd *SQLDatastore) AddSecondary(storage, relativePath string, storageNodeID
 	if n, err := res.RowsAffected(); err != nil {
 		return err
 	} else if n == 0 {
-		return errors.New("secondary already exists")
+		return errors.New("replica already exists")
 	}
 
 	return nil
 }
 
-// RemoveSecondary removes a secondary from a shard of a repository relative path
-func (sd *SQLDatastore) RemoveSecondary(storage, relativePath string, storageNodeID int) error {
+// RemoveReplica removes a replica from a repository of a repository relative path
+func (sd *SQLDatastore) RemoveReplica(relativePath string, storageNodeID int) error {
 	res, err := sd.db.Exec(`
-		DELETE FROM shard_secondaries (shard_relative_path, node_storage_id)
-			WHERE shard_id = (SELECT id FROM shard where storage = $1 AND relative_path = $2) AND storage_node_id = $3`, storage, relativePath, storageNodeID)
+		DELETE FROM repository_replicas (repository_relative_path, node_storage_id)
+			WHERE repository_id = (SELECT id FROM repository WHERE relative_path = $1) AND storage_node_id = $2`, relativePath, storageNodeID)
 	if err != nil {
 		return err
 	}
@@ -162,33 +185,33 @@ func (sd *SQLDatastore) RemoveSecondary(storage, relativePath string, storageNod
 	if n, err := res.RowsAffected(); err != nil {
 		return err
 	} else if n == 0 {
-		return errors.New("secondary did not exist")
+		return errors.New("replica did not exist")
 	}
 
 	return nil
 }
 
-// GetShard gets the shard for a repository relative path
-func (sd *SQLDatastore) GetShard(storage, relativePath string) (*models.Shard, error) {
-	primary, err := sd.GetPrimary(storage, relativePath)
+// GetRepository gets the repository for a repository relative path
+func (sd *SQLDatastore) GetRepository(relativePath string) (*models.Repository, error) {
+	primary, err := sd.GetPrimary(relativePath)
 	if err != nil {
 		return nil, fmt.Errorf("getting primary: %v", err)
 	}
 
-	secondaries, err := sd.GetSecondaries(storage, relativePath)
+	replicas, err := sd.GetReplicas(relativePath)
 	if err != nil {
-		return nil, fmt.Errorf("getting secondaries: %v", err)
+		return nil, fmt.Errorf("getting replicas: %v", err)
 	}
 
-	return &models.Shard{RelativePath: relativePath, Primary: *primary, Secondaries: secondaries}, nil
+	return &models.Repository{RelativePath: relativePath, Primary: *primary, Replicas: replicas}, nil
 }
 
-// RotatePrimary rotates a primary out of being primary, and picks a secondary of each shard at random to promote to the new primary
+// RotatePrimary rotates a primary out of being primary, and picks a replica of each repository at random to promote to the new primary
 func (sd *SQLDatastore) RotatePrimary(primaryNodeStorageID int) error {
 
-	// Add the primary as a secondary
+	// Add the primary as a replica
 	res, err := sd.db.Exec(`
-	INSERT INTO shard_secondaries (shard_id, node_storage_id) VALUES (SELECT shards.id, shards.primary FROM shards WHERE shards.primary = $1)
+	INSERT INTO repository_replicas (repository_id, node_storage_id) VALUES (SELECT repositories.id, repositories.primary FROM repositories WHERE repositories.primary = $1)
 	`, primaryNodeStorageID)
 	if err != nil {
 		return err
@@ -200,14 +223,14 @@ func (sd *SQLDatastore) RotatePrimary(primaryNodeStorageID int) error {
 	}
 
 	if affected == 0 {
-		return fmt.Errorf("no shards with primary %d found", primaryNodeStorageID)
+		return fmt.Errorf("no repositories with primary %d found", primaryNodeStorageID)
 	}
 
-	// Choose a new secondary
-	res, err = sd.db.Exec(`UPDATE shards SET "primary" =
-              	(SELECT shard_secondaries.storage_node_id FROM shard_secondaries
-									INNER JOIN shards ON shard_secondaries.shard_id = shards.id
-              		WHERE shards.primary = $1 AND shards.primary != shard_secondaries.storage_node_id LIMIT 1)
+	// Choose a new replica
+	res, err = sd.db.Exec(`UPDATE repositories SET "primary" =
+              	(SELECT repository_replicas.storage_node_id FROM repository_replicas
+									INNER JOIN repositories ON repository_replicas.repository_id = repositories.id
+              		WHERE repositories.primary = $1 AND repositories.primary != repository_replicas.storage_node_id LIMIT 1)
               	`, primaryNodeStorageID)
 	if err != nil {
 		return err
@@ -219,7 +242,7 @@ func (sd *SQLDatastore) RotatePrimary(primaryNodeStorageID int) error {
 	}
 
 	if affected == 0 {
-		return errors.New("no secondaries available to rotate")
+		return errors.New("no replicas available to rotate")
 	}
 	return nil
 }

@@ -22,8 +22,7 @@ var (
 )
 
 var (
-	repo1Shard = models.Shard{
-		Storage:      "storage1",
+	repo1Repository = models.Repository{
 		RelativePath: proj1,
 	}
 )
@@ -43,7 +42,7 @@ var operations = []struct {
 	{
 		desc: "creating replication jobs before secondaries are added results in no jobs added",
 		opFn: func(t *testing.T, ds Datastore) {
-			jobIDs, err := ds.CreateSecondaryReplJobs(repo1Shard.Storage, repo1Shard.RelativePath)
+			jobIDs, err := ds.CreateReplicaReplJobs(repo1Repository.RelativePath)
 			require.NoError(t, err)
 			require.Empty(t, jobIDs)
 		},
@@ -51,21 +50,21 @@ var operations = []struct {
 	{
 		desc: "set the primary for the shard",
 		opFn: func(t *testing.T, ds Datastore) {
-			err := ds.SetPrimary(repo1Shard.Storage, repo1Shard.RelativePath, stor1.ID)
+			err := ds.SetPrimary(repo1Repository.RelativePath, stor1.ID)
 			require.NoError(t, err)
 		},
 	},
 	{
 		desc: "add a secondary replica for the shard",
 		opFn: func(t *testing.T, ds Datastore) {
-			err := ds.AddSecondary(repo1Shard.Storage, repo1Shard.RelativePath, stor2.ID)
+			err := ds.AddReplica(repo1Repository.RelativePath, stor2.ID)
 			require.NoError(t, err)
 		},
 	},
 	{
 		desc: "insert first replication job after secondary mapped to primary",
 		opFn: func(t *testing.T, ds Datastore) {
-			ids, err := ds.CreateSecondaryReplJobs(repo1Shard.Storage, repo1Shard.RelativePath)
+			ids, err := ds.CreateReplicaReplJobs(repo1Repository.RelativePath)
 			require.NoError(t, err)
 			require.Equal(t, []uint64{1}, ids)
 		},
@@ -80,10 +79,11 @@ var operations = []struct {
 			expectedJob := ReplJob{
 				ID: 1,
 				Source: models.Repository{
-					RelativePath: repo1Shard.RelativePath,
+					RelativePath: repo1Repository.RelativePath,
 				},
-				TargetNodeID: stor2.ID,
-				State:        JobStatePending,
+				SourceStorage: "praefect-storage-1",
+				TargetNodeID:  stor2.ID,
+				State:         JobStatePending,
 			}
 			require.Equal(t, expectedJob, jobs[0])
 		},
@@ -110,7 +110,7 @@ var flavors = map[string]func() Datastore{
 	"in-memory-datastore": func() Datastore {
 		ds := NewMemoryDatastore()
 
-		ds.shards.m[repo1Shard.Storage+repo1Shard.RelativePath] = repo1Shard
+		ds.repositories.m[repo1Repository.RelativePath] = repo1Repository
 		ds.storageNodes.m[stor1.ID] = stor1
 		ds.storageNodes.m[stor2.ID] = stor2
 

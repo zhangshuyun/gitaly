@@ -72,7 +72,7 @@ func TestServerSimpleUnaryUnary(t *testing.T) {
 				backend, cleanup := newMockDownstream(t, tt.callback)
 				defer cleanup() // clean up mock downstream server resources
 
-				coordinator.RegisterNode(backend)
+				coordinator.RegisterNode(nodeStorage.Storage, backend)
 				nodeStorage.Address = backend
 				datastore.storageNodes.m[id] = nodeStorage
 			}

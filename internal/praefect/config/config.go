@@ -23,6 +23,16 @@ type Config struct {
 
 	Logging              config.Logging `toml:"logging"`
 	PrometheusListenAddr string         `toml:"prometheus_listen_addr"`
+
+	Postgres *Postgres `toml:"postgres"`
+}
+
+// Postgres contains details for connecting to a postgres database
+type Postgres struct {
+	User     string `toml:"user"`
+	Password string `toml:"password"`
+	Address  string `toml:"address"`
+	Database string `toml:"database"`
 }
 
 // FromFile loads the config for the passed file path
@@ -43,6 +53,7 @@ var (
 	errNoGitalyServers     = errors.New("no primary gitaly backends configured")
 	errDuplicateGitalyAddr = errors.New("gitaly listen addresses are not unique")
 	errGitalyWithoutAddr   = errors.New("all gitaly nodes must have an address")
+	errNoPostgres          = errors.New("postgres configuration missing")
 )
 
 // Validate establishes if the config is valid
@@ -66,6 +77,10 @@ func (c Config) Validate() error {
 		}
 
 		listenAddrs[node.Address] = true
+	}
+
+	if c.Postgres == nil {
+		return errNoPostgres
 	}
 
 	return nil

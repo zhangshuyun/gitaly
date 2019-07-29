@@ -97,7 +97,7 @@ func (c *Coordinator) streamDirector(ctx context.Context, fullMethodName string,
 			return nil, nil, err
 		}
 
-		primary, err = c.datastore.GetPrimary(targetRepo.GetStorageName(), targetRepo.GetRelativePath())
+		primary, err = c.datastore.GetPrimary(targetRepo.GetRelativePath())
 
 		if err != nil {
 			if err != sql.ErrNoRows {
@@ -117,7 +117,7 @@ func (c *Coordinator) streamDirector(ctx context.Context, fullMethodName string,
 			newPrimary := nodes[0]
 
 			// set the primary
-			if err = c.datastore.SetPrimary(targetRepo.GetStorageName(), targetRepo.GetRelativePath(), newPrimary.ID); err != nil {
+			if err = c.datastore.SetPrimary(targetRepo.GetRelativePath(), newPrimary.ID); err != nil {
 				return nil, nil, err
 			}
 
@@ -138,9 +138,9 @@ func (c *Coordinator) streamDirector(ctx context.Context, fullMethodName string,
 
 	// We only need the primary node, as there's only one primary storage
 	// location per praefect at this time
-	cc, err := c.GetConnection(primary.Address)
+	cc, err := c.GetConnection(primary.Storage)
 	if err != nil {
-		return nil, nil, fmt.Errorf("unable to find existing client connection for %s", primary.Address)
+		return nil, nil, fmt.Errorf("unable to find existing client connection for %s", primary.Storage)
 	}
 
 	return helper.IncomingToOutgoing(ctx), cc, nil
@@ -148,7 +148,7 @@ func (c *Coordinator) streamDirector(ctx context.Context, fullMethodName string,
 
 // RegisterNode will direct traffic to the supplied downstream connection when the storage location
 // is encountered.
-func (c *Coordinator) RegisterNode(address string) error {
+func (c *Coordinator) RegisterNode(storage, address string) error {
 	conn, err := client.Dial(address,
 		[]grpc.DialOption{
 			grpc.WithDefaultCallOptions(grpc.CallCustomCodec(proxy.Codec())),
@@ -159,21 +159,21 @@ func (c *Coordinator) RegisterNode(address string) error {
 		return err
 	}
 
-	c.setConn(address, conn)
+	c.setConn(storage, conn)
 
 	return nil
 }
 
-func (c *Coordinator) setConn(address string, conn *grpc.ClientConn) {
+func (c *Coordinator) setConn(storage string, conn *grpc.ClientConn) {
 	c.connMutex.Lock()
-	c.nodes[address] = conn
+	c.nodes[storage] = conn
 	c.connMutex.Unlock()
 }
 
 // GetConnection gets the grpc client connection based on an address
-func (c *Coordinator) GetConnection(address string) (*grpc.ClientConn, error) {
+func (c *Coordinator) GetConnection(storage string) (*grpc.ClientConn, error) {
 	c.connMutex.RLock()
-	cc, ok := c.nodes[address]
+	cc, ok := c.nodes[storage]
 	c.connMutex.RUnlock()
 	if !ok {
 		return nil, errors.New("client connection not found")
