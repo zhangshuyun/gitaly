@@ -19,6 +19,10 @@ func (s *server) ListFiles(in *gitalypb.ListFilesRequest, stream gitalypb.Commit
 		"Revision": in.GetRevision(),
 	}).Debug("ListFiles")
 
+	if err := validateListFilesRequest(in); err != nil {
+		return err
+	}
+
 	repo := in.Repository
 	if _, err := helper.GetRepoPath(repo); err != nil {
 		return err
@@ -42,6 +46,13 @@ func (s *server) ListFiles(in *gitalypb.ListFilesRequest, stream gitalypb.Commit
 		return helper.ErrInternal(err)
 	}
 
+	return nil
+}
+
+func validateListFilesRequest(in *gitalypb.ListFilesRequest) error {
+	if err := git.ValidateRevisionAllowEmpty(in.Revision); err != nil {
+		return helper.ErrInvalidArgument(err)
+	}
 	return nil
 }
 

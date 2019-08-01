@@ -46,8 +46,8 @@ func (s *server) RawBlame(in *gitalypb.RawBlameRequest, stream gitalypb.CommitSe
 }
 
 func validateRawBlameRequest(in *gitalypb.RawBlameRequest) error {
-	if len(in.GetRevision()) == 0 {
-		return fmt.Errorf("empty Revision")
+	if err := git.ValidateRevision(in.Revision); err != nil {
+		return err
 	}
 
 	if len(in.GetPath()) == 0 {
