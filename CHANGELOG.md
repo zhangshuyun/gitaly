@@ -1,5 +1,11 @@
 # Gitaly changelog
 
+## v1.53.2
+
+#### Security
+- Fix FindCommits flag injection exploit
+  https://gitlab.com/gitlab-org/gitaly/merge_requests/37
+
 ## v1.53.1
 
 #### Security
