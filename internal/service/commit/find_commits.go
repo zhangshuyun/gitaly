@@ -21,6 +21,10 @@ const commitsPerPage int = 20
 func (s *server) FindCommits(req *gitalypb.FindCommitsRequest, stream gitalypb.CommitService_FindCommitsServer) error {
 	ctx := stream.Context()
 
+	if err := git.ValidateRevisionAllowEmpty(req.Revision); err != nil {
+		return helper.ErrInvalidArgument(err)
+	}
+
 	// Use Gitaly's default branch lookup function because that is already
 	// migrated.
 	if revision := req.Revision; len(revision) == 0 && !req.GetAll() {
