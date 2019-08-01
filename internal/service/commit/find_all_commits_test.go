@@ -292,6 +292,9 @@ func TestFailedFindAllCommitsRequest(t *testing.T) {
 
 	invalidRepo := &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}
 
+	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	defer cleanupFn()
+
 	testCases := []struct {
 		desc    string
 		request *gitalypb.FindAllCommitsRequest
@@ -306,6 +309,14 @@ func TestFailedFindAllCommitsRequest(t *testing.T) {
 			desc:    "Repository is nil",
 			request: &gitalypb.FindAllCommitsRequest{},
 			code:    codes.InvalidArgument,
+		},
+		{
+			desc: "Revision is invalid",
+			request: &gitalypb.FindAllCommitsRequest{
+				Repository: testRepo,
+				Revision:   []byte("--output=/meow"),
+			},
+			code: codes.InvalidArgument,
 		},
 	}
 

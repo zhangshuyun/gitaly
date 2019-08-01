@@ -121,6 +121,13 @@ func TestFailedLastCommitForPathRequest(t *testing.T) {
 			request: &gitalypb.LastCommitForPathRequest{Repository: testRepo, Path: []byte("foo/bar")},
 			code:    codes.InvalidArgument,
 		},
+		{
+			desc: "Revision is invalid",
+			request: &gitalypb.LastCommitForPathRequest{
+				Repository: testRepo, Path: []byte("foo/bar"), Revision: []byte("--output=/meow"),
+			},
+			code: codes.InvalidArgument,
+		},
 	}
 
 	for _, testCase := range testCases {
