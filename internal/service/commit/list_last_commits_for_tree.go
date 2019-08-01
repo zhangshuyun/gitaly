@@ -1,7 +1,6 @@
 package commit
 
 import (
-	"fmt"
 	"io"
 	"sort"
 	"unicode/utf8"
@@ -140,8 +139,5 @@ func sendCommitsForTree(batch []*gitalypb.ListLastCommitsForTreeResponse_CommitF
 }
 
 func validateListLastCommitsForTreeRequest(in *gitalypb.ListLastCommitsForTreeRequest) error {
-	if in.Revision == "" {
-		return fmt.Errorf("empty Revision")
-	}
-	return nil
+	return git.ValidateRevision([]byte(in.Revision))
 }

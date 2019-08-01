@@ -2,10 +2,11 @@ package commit
 
 import (
 	"context"
-	"fmt"
 
 	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/log"
+	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -29,8 +30,8 @@ func (s *server) LastCommitForPath(ctx context.Context, in *gitalypb.LastCommitF
 }
 
 func validateLastCommitForPathRequest(in *gitalypb.LastCommitForPathRequest) error {
-	if len(in.Revision) == 0 {
-		return fmt.Errorf("empty Revision")
+	if err := git.ValidateRevision(in.Revision); err != nil {
+		return helper.ErrInvalidArgument(err)
 	}
 	return nil
 }
