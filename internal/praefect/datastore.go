@@ -229,6 +229,8 @@ func (md *MemoryDatastore) GetStorageNodes() ([]models.StorageNode, error) {
 		storageNodes = append(storageNodes, storageNode)
 	}
 
+	sort.Slice(storageNodes, func(i, j int) bool { return storageNodes[i].ID < storageNodes[j].ID })
+
 	return storageNodes, nil
 }
 

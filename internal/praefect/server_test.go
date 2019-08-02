@@ -69,7 +69,7 @@ func TestServerSimpleUnaryUnary(t *testing.T) {
 					}},
 			})
 
-			coordinator := NewCoordinator(logrus.New(), datastore, fd)
+			coordinator := NewCoordinator(logrus.New(), datastore, datastore, fd)
 
 			for id, nodeStorage := range datastore.storageNodes.m {
 				backend, cleanup := newMockDownstream(t, tt.callback)

@@ -71,7 +71,7 @@ func (s *handler) handler(srv interface{}, serverStream grpc.ServerStream) error
 	peeker := newPeeker(serverStream)
 
 	// We require that the director's returned context inherits from the serverStream.Context().
-	outgoingCtx, backendConn, err := s.director(serverStream.Context(), fullMethodName, peeker)
+	outgoingCtx, backendConn, updateJobFunc, err := s.director(serverStream.Context(), fullMethodName, peeker)
 	if err != nil {
 		return err
 	}
@@ -111,6 +111,7 @@ func (s *handler) handler(srv interface{}, serverStream grpc.ServerStream) error
 			if c2sErr != io.EOF {
 				return c2sErr
 			}
+			updateJobFunc()
 			return nil
 		}
 	}
