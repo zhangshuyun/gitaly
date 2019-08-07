@@ -1,0 +1,5 @@
+---
+title: Properly clean up worktrees after commit operations
+merge_request: 1383
+author:
+type: fixed
