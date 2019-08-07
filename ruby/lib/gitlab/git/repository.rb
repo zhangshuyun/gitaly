@@ -349,7 +349,7 @@ module Gitlab
       end
 
       def rebase(user, rebase_id, branch:, branch_sha:, remote_repository:, remote_branch:)
-        rebase_path = worktree_path(REBASE_WORKTREE_PREFIX, rebase_id)
+        worktree = Gitlab::Git::Worktree.new(path, REBASE_WORKTREE_PREFIX, rebase_id)
         env = git_env.merge(user.git_env)
 
         if remote_repository.is_a?(RemoteRepository)
@@ -359,13 +359,13 @@ module Gitlab
           remote_repo_path = remote_repository.path
         end
 
-        with_worktree(rebase_path, branch, env: env) do
+        with_worktree(worktree, branch, env: env) do
           run_git!(
             %W[pull --rebase #{remote_repo_path} #{remote_branch}],
-            chdir: rebase_path, env: env, include_stderr: true
+            chdir: worktree.path, env: env, include_stderr: true
           )
 
-          rebase_sha = run_git!(%w[rev-parse HEAD], chdir: rebase_path, env: env).strip
+          rebase_sha = run_git!(%w[rev-parse HEAD], chdir: worktree.path, env: env).strip
 
           yield rebase_sha if block_given?
 
@@ -376,7 +376,7 @@ module Gitlab
       end
 
       def squash(user, squash_id, branch:, start_sha:, end_sha:, author:, message:)
-        squash_path = worktree_path(SQUASH_WORKTREE_PREFIX, squash_id)
+        worktree = Gitlab::Git::Worktree.new(path, SQUASH_WORKTREE_PREFIX, squash_id)
         env = git_env.merge(user.git_env).merge(
           'GIT_AUTHOR_NAME' => author.name,
           'GIT_AUTHOR_EMAIL' => author.email
@@ -386,40 +386,40 @@ module Gitlab
           %W[diff --name-only --diff-filter=ar --binary #{diff_range}]
         ).chomp
 
-        with_worktree(squash_path, branch, sparse_checkout_files: diff_files, env: env) do
+        with_worktree(worktree, branch, sparse_checkout_files: diff_files, env: env) do
           # Apply diff of the `diff_range` to the worktree
           diff = run_git!(%W[diff --binary #{diff_range}])
-          run_git!(%w[apply --index --3way --whitespace=nowarn], chdir: squash_path, env: env, include_stderr: true) do |stdin|
+          run_git!(%w[apply --index --3way --whitespace=nowarn], chdir: worktree.path, env: env, include_stderr: true) do |stdin|
             stdin.binmode
             stdin.write(diff)
           end
 
           # Commit the `diff_range` diff
-          run_git!(%W[commit --no-verify --message #{message}], chdir: squash_path, env: env, include_stderr: true)
+          run_git!(%W[commit --no-verify --message #{message}], chdir: worktree.path, env: env, include_stderr: true)
 
           # Return the squash sha. May print a warning for ambiguous refs, but
           # we can ignore that with `--quiet` and just take the SHA, if present.
           # HEAD here always refers to the current HEAD commit, even if there is
           # another ref called HEAD.
           run_git!(
-            %w[rev-parse --quiet --verify HEAD], chdir: squash_path, env: env
+            %w[rev-parse --quiet --verify HEAD], chdir: worktree.path, env: env
           ).chomp
         end
       end
 
       def commit_patches(start_point, patches, extra_env: {})
-        worktree_path = worktree_path(AM_WORKTREE_PREFIX, SecureRandom.hex)
+        worktree = Gitlab::Git::Worktree.new(path, AM_WORKTREE_PREFIX, SecureRandom.hex)
         env = git_env.merge(extra_env)
 
-        with_worktree(worktree_path, start_point, env: env) do
-          result, status = run_git(%w[am --quiet --3way], chdir: worktree_path, env: env) do |stdin|
+        with_worktree(worktree, start_point, env: env) do
+          result, status = run_git(%w[am --quiet --3way], chdir: worktree.path, env: env) do |stdin|
             loop { stdin.write(patches.next) }
           end
 
           raise Gitlab::Git::PatchError, result unless status == 0
 
           run_git!(
-            %w[rev-parse --quiet --verify HEAD], chdir: worktree_path, env: env
+            %w[rev-parse --quiet --verify HEAD], chdir: worktree.path, env: env
           ).chomp
         end
       end
@@ -867,7 +867,7 @@ module Gitlab
         nil
       end
 
-      def with_worktree(worktree_path, branch, sparse_checkout_files: nil, env:)
+      def with_worktree(worktree, branch, sparse_checkout_files: nil, env:)
         base_args = %w[worktree add --detach]
 
         run_git!(%w[config core.splitIndex true])
@@ -878,22 +878,21 @@ module Gitlab
         # checkout files in by a changeset but that changeset only adds files.
         if sparse_checkout_files
           # Create worktree without checking out
-          run_git!(base_args + ['--no-checkout', worktree_path], env: env)
-          worktree_git_path = run_git!(%w[rev-parse --git-dir], chdir: worktree_path).chomp
+          run_git!(base_args + ['--no-checkout', worktree.path], env: env)
+          worktree_git_path = run_git!(%w[rev-parse --git-dir], chdir: worktree.path).chomp
 
           configure_sparse_checkout(worktree_git_path, sparse_checkout_files)
 
           # After sparse checkout configuration, checkout `branch` in worktree
-          run_git!(%W[checkout --detach #{branch}], chdir: worktree_path, env: env)
+          run_git!(%W[checkout --detach #{branch}], chdir: worktree.path, env: env)
         else
           # Create worktree and checkout `branch` in it
-          run_git!(base_args + [worktree_path, branch], env: env)
+          run_git!(base_args + [worktree.path, branch], env: env)
         end
 
         yield
       ensure
-        FileUtils.rm_rf(worktree_path) if File.exist?(worktree_path)
-        FileUtils.rm_rf(worktree_git_path) if worktree_git_path && File.exist?(worktree_git_path)
+        run_git(%W[worktree remove -f #{worktree.name}])
       end
 
       # Adding a worktree means checking out the repository. For large repos,
@@ -907,14 +906,6 @@ module Gitlab
         worktree_info_path = File.join(worktree_git_path, 'info')
         FileUtils.mkdir_p(worktree_info_path)
         File.write(File.join(worktree_info_path, 'sparse-checkout'), files)
-      end
-
-      def worktree_path(prefix, id)
-        id = id.to_s
-        raise ArgumentError, "worktree id can't be empty" unless id.present?
-        raise ArgumentError, "worktree id can't contain slashes " if id.include?("/")
-
-        File.join(path, 'gitlab-worktree', "#{prefix}-#{id}")
       end
 
       def rugged_fetch_source_branch(source_repository, source_branch, local_ref)
