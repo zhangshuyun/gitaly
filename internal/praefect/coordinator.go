@@ -32,14 +32,14 @@ type Coordinator struct {
 	failoverMutex sync.RWMutex
 	connMutex     sync.RWMutex
 
-	datastore ReplicasDatastore
+	datastore Datastore
 
 	nodes    map[string]*grpc.ClientConn
 	registry *protoregistry.Registry
 }
 
 // NewCoordinator returns a new Coordinator that utilizes the provided logger
-func NewCoordinator(l *logrus.Logger, datastore ReplicasDatastore, fileDescriptors ...*descriptor.FileDescriptorProto) *Coordinator {
+func NewCoordinator(l *logrus.Logger, datastore Datastore, fileDescriptors ...*descriptor.FileDescriptorProto) *Coordinator {
 	registry := protoregistry.New()
 	registry.RegisterFiles(fileDescriptors...)
 
@@ -57,7 +57,7 @@ func (c *Coordinator) RegisterProtos(protos ...*descriptor.FileDescriptorProto) 
 }
 
 // streamDirector determines which downstream servers receive requests
-func (c *Coordinator) streamDirector(ctx context.Context, fullMethodName string, peeker proxy.StreamModifier) (context.Context, *grpc.ClientConn, error) {
+func (c *Coordinator) streamDirector(ctx context.Context, fullMethodName string, peeker proxy.StreamModifier) (context.Context, *grpc.ClientConn, func(), error) {
 	// For phase 1, we need to route messages based on the storage location
 	// to the appropriate Gitaly node.
 	c.log.Debugf("Stream director received method %s", fullMethodName)
@@ -65,14 +65,16 @@ func (c *Coordinator) streamDirector(ctx context.Context, fullMethodName string,
 	c.failoverMutex.RLock()
 	defer c.failoverMutex.RUnlock()
 
+	jobUpdateFunc := func() {}
+
 	frame, err := peeker.Peek()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, jobUpdateFunc, err
 	}
 
 	mi, err := c.registry.LookupMethod(fullMethodName)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, jobUpdateFunc, err
 	}
 
 	var primary *models.Node
@@ -80,35 +82,35 @@ func (c *Coordinator) streamDirector(ctx context.Context, fullMethodName string,
 	if mi.Scope == protoregistry.ScopeRepository {
 		m, err := mi.UnmarshalRequestProto(frame)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, jobUpdateFunc, err
 		}
 
 		targetRepo, err := mi.TargetRepo(m)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, jobUpdateFunc, err
 		}
 
 		primary, err = c.datastore.GetPrimary(targetRepo.GetRelativePath())
 
 		if err != nil {
 			if err != ErrPrimaryNotSet {
-				return nil, nil, err
+				return nil, nil, jobUpdateFunc, err
 			}
 			// if there are no primaries for this repository, pick one
 			nodes, err := c.datastore.GetStorageNodes()
 			if err != nil {
-				return nil, nil, err
+				return nil, nil, jobUpdateFunc, err
 			}
 
 			if len(nodes) == 0 {
-				return nil, nil, fmt.Errorf("no nodes serve storage %s", targetRepo.GetStorageName())
+				return nil, nil, jobUpdateFunc, fmt.Errorf("no nodes serve storage %s", targetRepo.GetStorageName())
 
 			}
 			newPrimary := nodes[rand.New(rand.NewSource(time.Now().Unix())).Intn(len(nodes))]
 
 			// set the primary
 			if err = c.datastore.SetPrimary(targetRepo.GetRelativePath(), newPrimary.ID); err != nil {
-				return nil, nil, err
+				return nil, nil, jobUpdateFunc, err
 			}
 
 			primary = &newPrimary
@@ -118,10 +120,21 @@ func (c *Coordinator) streamDirector(ctx context.Context, fullMethodName string,
 
 		b, err := proxy.Codec().Marshal(m)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, jobUpdateFunc, err
 		}
 		if err = peeker.Modify(b); err != nil {
-			return nil, nil, err
+			return nil, nil, jobUpdateFunc, err
+		}
+		if mi.Operation == protoregistry.OpMutator {
+			jobIDs, err := c.datastore.CreateReplicaReplJobs(targetRepo.RelativePath)
+			if err != nil {
+				return nil, nil, nil, err
+			}
+			jobUpdateFunc = func() {
+				for _, jobID := range jobIDs {
+					c.datastore.UpdateReplJob(jobID, JobStateReady)
+				}
+			}
 		}
 
 	} else {
@@ -129,10 +142,10 @@ func (c *Coordinator) streamDirector(ctx context.Context, fullMethodName string,
 		// proxy requests that are not repository scoped
 		node, err := c.datastore.GetStorageNodes()
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, jobUpdateFunc, err
 		}
 		if len(node) == 0 {
-			return nil, nil, errors.New("no node storages found")
+			return nil, nil, jobUpdateFunc, errors.New("no node storages found")
 		}
 		primary = &node[0]
 	}
@@ -141,10 +154,10 @@ func (c *Coordinator) streamDirector(ctx context.Context, fullMethodName string,
 	// location per praefect at this time
 	cc, err := c.GetConnection(primary.Storage)
 	if err != nil {
-		return nil, nil, fmt.Errorf("unable to find existing client connection for %s", primary.Storage)
+		return nil, nil, jobUpdateFunc, fmt.Errorf("unable to find existing client connection for %s", primary.Storage)
 	}
 
-	return helper.IncomingToOutgoing(ctx), cc, nil
+	return helper.IncomingToOutgoing(ctx), cc, jobUpdateFunc, nil
 }
 
 // RegisterNode will direct traffic to the supplied downstream connection when the storage location
