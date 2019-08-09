@@ -4,12 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math/rand"
 	"os"
 	"os/signal"
+	"sort"
 	"sync"
 	"syscall"
-	"time"
 
 	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
 	gitalyconfig "gitlab.com/gitlab-org/gitaly/internal/config"
@@ -106,11 +105,24 @@ func (c *Coordinator) streamDirector(ctx context.Context, fullMethodName string,
 				return nil, nil, jobUpdateFunc, fmt.Errorf("no nodes serve storage %s", targetRepo.GetStorageName())
 
 			}
-			newPrimary := nodes[rand.New(rand.NewSource(time.Now().Unix())).Intn(len(nodes))]
+
+			sort.Slice(nodes, func(i, j int) bool {
+				return nodes[i].ID < nodes[j].ID
+			})
+
+			newPrimary := nodes[0]
+			replicas := nodes[1:]
 
 			// set the primary
 			if err = c.datastore.SetPrimary(targetRepo.GetRelativePath(), newPrimary.ID); err != nil {
 				return nil, nil, jobUpdateFunc, err
+			}
+
+			// add replicas
+			for _, replica := range replicas {
+				if err = c.datastore.AddReplica(targetRepo.GetRelativePath(), replica.ID); err != nil {
+					return nil, nil, jobUpdateFunc, err
+				}
 			}
 
 			primary = &newPrimary

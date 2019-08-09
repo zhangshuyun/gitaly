@@ -17,10 +17,6 @@ type Config struct {
 
 	Nodes []*models.Node `toml:"node"`
 
-	// Whitelist is a list of relative project paths (paths comprised of project
-	// hashes) that are permitted to use high availability features
-	Whitelist []string `toml:"whitelist"`
-
 	Logging              config.Logging `toml:"logging"`
 	PrometheusListenAddr string         `toml:"prometheus_listen_addr"`
 }

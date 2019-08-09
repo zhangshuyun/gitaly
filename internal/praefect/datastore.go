@@ -160,32 +160,6 @@ func NewMemoryDatastore(cfg config.Config) *MemoryDatastore {
 		m.storageNodes.m[i] = *storageNode
 	}
 
-	for _, repoPath := range cfg.Whitelist {
-		repo := models.Repository{
-			RelativePath: repoPath,
-		}
-		for storageID, storageNode := range cfg.Nodes {
-
-			// By default, pick the first storage node to be the primary. We can change this later to pick a randomly selected node
-			// to be the primary
-			if repo.Primary == (models.Node{}) {
-				repo.Primary = *storageNode
-			} else {
-				repo.Replicas = append(repo.Replicas, *storageNode)
-				// initialize replication job queue to replicate all whitelisted repos
-				// to every replica
-				m.jobs.next++
-				m.jobs.records[m.jobs.next] = jobRecord{
-					state:        JobStateReady,
-					targetNodeID: storageID,
-					sourceNodeID: repo.Primary.ID,
-					relativePath: repoPath,
-				}
-			}
-		}
-		m.repositories.m[repoPath] = repo
-	}
-
 	return m
 }
 

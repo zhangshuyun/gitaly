@@ -39,7 +39,6 @@ func TestReplicatorProcessJobsWhitelist(t *testing.T) {
 				Address: "tcp://gitaly-backup1.example.com",
 				Storage: "praefect-internal-2",
 			}},
-		Whitelist: []string{"abcd1234", "edfg5678"},
 	})
 
 	coordinator := NewCoordinator(logrus.New(), datastore)

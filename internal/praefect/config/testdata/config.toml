@@ -1,6 +1,5 @@
 listen_addr = ""
 socket_path = ""
-whitelist = ["abcd1234", "edfg5678"]
 prometheus_listen_addr = ""
 
 [logging]

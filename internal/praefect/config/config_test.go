@@ -77,7 +77,6 @@ func TestConfigParsing(t *testing.T) {
 						Storage: "praefect-internal-3",
 					},
 				},
-				Whitelist: []string{"abcd1234", "edfg5678"},
 			},
 		},
 	}
