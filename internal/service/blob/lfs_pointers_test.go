@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -368,9 +369,6 @@ func TestSuccessfulGetAllLFSPointersRequest(t *testing.T) {
 		Revision:   []byte("54fcc214b94e78d7a41a9a8fe6d87a5e59500e51"),
 	}
 
-	c, err := client.GetAllLFSPointers(ctx, request)
-	require.NoError(t, err)
-
 	expectedLFSPointers := []*gitalypb.LFSPointer{
 		{
 			Size: 133,
@@ -403,6 +401,16 @@ func TestSuccessfulGetAllLFSPointersRequest(t *testing.T) {
 			Oid:  "125fcc9f6e33175cb278b9b2809154d2535fe19f",
 		},
 	}
+
+	c, err := client.GetAllLFSPointers(ctx, request)
+	require.NoError(t, err)
+
+	require.ElementsMatch(t, expectedLFSPointers, getAllPointers(t, c))
+
+	// test with go implementation
+	// TODO: remove once feature flag is removed
+	c, err = client.GetAllLFSPointers(featureflag.EnableFeatureFlag(ctx, featureflag.GetAllLFSPointersGo), request)
+	require.NoError(t, err)
 
 	require.ElementsMatch(t, expectedLFSPointers, getAllPointers(t, c))
 }
