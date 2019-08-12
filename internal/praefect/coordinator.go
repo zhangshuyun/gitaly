@@ -27,6 +27,7 @@ import (
 // downstream server. The coordinator is thread safe; concurrent calls to
 // register nodes are safe.
 type Coordinator struct {
+	mutex         sync.Mutex
 	log           *logrus.Logger
 	failoverMutex sync.RWMutex
 	connMutex     sync.RWMutex
@@ -55,8 +56,25 @@ func (c *Coordinator) RegisterProtos(protos ...*descriptor.FileDescriptorProto) 
 	return c.registry.RegisterFiles(protos...)
 }
 
+func (c *Coordinator) connDownHandler(cc *grpc.ClientConn) error {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	for storage, conn := range c.nodes {
+		if conn == cc {
+			if err := c.datastore.Failover(storage); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
 // streamDirector determines which downstream servers receive requests
 func (c *Coordinator) streamDirector(ctx context.Context, fullMethodName string, peeker proxy.StreamModifier) (context.Context, *grpc.ClientConn, func(), error) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 	// For phase 1, we need to route messages based on the storage location
 	// to the appropriate Gitaly node.
 	c.log.Debugf("Stream director received method %s", fullMethodName)

@@ -84,6 +84,8 @@ type ReplicasDatastore interface {
 	RemoveReplica(relativePath string, storageNodeID int) error
 
 	GetRepository(relativePath string) (*models.Repository, error)
+
+	Failover(storage string) error
 }
 
 // ReplJobsDatastore represents the behavior needed for fetching and updating
@@ -415,5 +417,22 @@ func (md *MemoryDatastore) UpdateReplJob(jobID uint64, newState JobState) error 
 
 	job.state = newState
 	md.jobs.records[jobID] = job
+	return nil
+}
+
+// Failover replaces any repository with storage as its primary with one of its replicas
+func (md *MemoryDatastore) Failover(storage string) error {
+	md.repositories.Lock()
+	defer md.repositories.Unlock()
+
+	for relativePath, repository := range md.repositories.m {
+		if repository.Primary.Storage == storage {
+			if len(repository.Replicas) > 0 {
+				repository.Primary = repository.Replicas[0]
+				repository.Replicas = repository.Replicas[1:]
+				md.repositories.m[relativePath] = repository
+			}
+		}
+	}
 	return nil
 }
