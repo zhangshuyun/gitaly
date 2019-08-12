@@ -22,3 +22,5 @@ import (
 //
 // See the rather rich example.
 type StreamDirector func(ctx context.Context, fullMethodName string, peeker StreamModifier) (context.Context, *grpc.ClientConn, func(), error)
+
+type ConnectionDownNotifier func(cc *grpc.ClientConn) error

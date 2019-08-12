@@ -57,7 +57,7 @@ func TestStreamDirector(t *testing.T) {
 	cc, err := grpc.Dial("tcp://gitaly-primary.example.com", grpc.WithInsecure())
 	require.NoError(t, err)
 
-	coordinator.setConn("praefect-internal-1", cc)
+	coordinator.setConn(0, cc)
 
 	_, conn, jobUpdateFunc, err := coordinator.streamDirector(ctx, "/gitaly.RepositoryService/GarbageCollect", &mockPeeker{frame})
 	require.NoError(t, err)

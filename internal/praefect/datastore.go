@@ -75,6 +75,8 @@ type ReplicasDatastore interface {
 
 	GetStorageNodes() ([]models.Node, error)
 
+	GetHealthyStorageNodes() ([]models.Node, error)
+
 	GetPrimary(relativePath string) (*models.Node, error)
 
 	SetPrimary(relativePath string, storageNodeID int) error
@@ -84,6 +86,10 @@ type ReplicasDatastore interface {
 	RemoveReplica(relativePath string, storageNodeID int) error
 
 	GetRepository(relativePath string) (*models.Repository, error)
+
+	UpdateStorageNode(storageNodeID int, healthy bool) error
+
+	Failover(storageNodeID int) error
 }
 
 // ReplJobsDatastore represents the behavior needed for fetching and updating
@@ -196,6 +202,21 @@ func (md *MemoryDatastore) GetStorageNodes() ([]models.Node, error) {
 	var storageNodes []models.Node
 	for _, storageNode := range md.storageNodes.m {
 		storageNodes = append(storageNodes, storageNode)
+	}
+
+	return storageNodes, nil
+}
+
+// GetStorageHealthyNodes gets all storage nodes
+func (md *MemoryDatastore) GetHealthyStorageNodes() ([]models.Node, error) {
+	md.storageNodes.RLock()
+	defer md.storageNodes.RUnlock()
+
+	var storageNodes []models.Node
+	for _, storageNode := range md.storageNodes.m {
+		if storageNode.Healthy {
+			storageNodes = append(storageNodes, storageNode)
+		}
 	}
 
 	return storageNodes, nil
@@ -411,5 +432,38 @@ func (md *MemoryDatastore) UpdateReplJob(jobID uint64, newState JobState) error 
 
 	job.state = newState
 	md.jobs.records[jobID] = job
+	return nil
+}
+
+// Failover replaces any repository with storage as its primary with one of its replicas
+func (md *MemoryDatastore) Failover(storageNodeID int) error {
+	md.repositories.Lock()
+	defer md.repositories.Unlock()
+
+	md.UpdateStorageNode(storageNodeID, true)
+
+	for relativePath, repository := range md.repositories.m {
+		if repository.Primary.ID == storageNodeID {
+			if len(repository.Replicas) > 0 {
+				repository.Primary = repository.Replicas[0]
+				repository.Replicas = repository.Replicas[1:]
+				md.repositories.m[relativePath] = repository
+			}
+		}
+	}
+	return nil
+}
+
+func (md *MemoryDatastore) UpdateStorageNode(nodeID int, healthy bool) error {
+	md.storageNodes.Lock()
+	defer md.storageNodes.Unlock()
+
+	storageNode, ok := md.storageNodes.m[nodeID]
+	if !ok {
+		return errors.New("node not found")
+	}
+	storageNode.Healthy = healthy
+	md.storageNodes.m[nodeID] = storageNode
+
 	return nil
 }

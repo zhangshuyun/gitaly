@@ -64,8 +64,18 @@ func (p peeker) peek(n uint) ([][]byte, error) {
 		return nil, ErrInvalidPeekCount
 	}
 
-	p.consumedStream.frames = make([]*frame, n)
 	peekedFrames := make([][]byte, n)
+
+	// if there are already consumed frames, read those
+	if p.consumedStream.frames != nil && len(p.consumedStream.frames) >= int(n) {
+		for i := 0; i < int(n); i++ {
+			peekedFrames[i] = p.consumedStream.frames[i].payload
+		}
+
+		return peekedFrames, nil
+	}
+
+	p.consumedStream.frames = make([]*frame, n)
 
 	for i := 0; i < len(p.consumedStream.frames); i++ {
 		f := &frame{}

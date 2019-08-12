@@ -10,9 +10,11 @@ package proxy
 import (
 	"io"
 
+	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 var (
@@ -26,8 +28,8 @@ var (
 // The behaviour is the same as if you were registering a handler method, e.g. from a codegenerated pb.go file.
 //
 // This can *only* be used if the `server` also uses grpcproxy.CodecForServer() ServerOption.
-func RegisterService(server *grpc.Server, director StreamDirector, serviceName string, methodNames ...string) {
-	streamer := &handler{director}
+func RegisterService(server *grpc.Server, director StreamDirector, connDownNotifier ConnectionDownNotifier, serviceName string, methodNames ...string) {
+	streamer := &handler{director, connDownNotifier}
 	fakeDesc := &grpc.ServiceDesc{
 		ServiceName: serviceName,
 		HandlerType: (*interface{})(nil),
@@ -49,13 +51,14 @@ func RegisterService(server *grpc.Server, director StreamDirector, serviceName s
 // backends. It should be used as a `grpc.UnknownServiceHandler`.
 //
 // This can *only* be used if the `server` also uses grpcproxy.CodecForServer() ServerOption.
-func TransparentHandler(director StreamDirector) grpc.StreamHandler {
-	streamer := &handler{director}
+func TransparentHandler(director StreamDirector, connectionDownNotifier ConnectionDownNotifier) grpc.StreamHandler {
+	streamer := &handler{director, connectionDownNotifier}
 	return streamer.handler
 }
 
 type handler struct {
-	director StreamDirector
+	director         StreamDirector
+	connDownNotifier ConnectionDownNotifier
 }
 
 // handler is where the real magic of proxying happens.
@@ -76,18 +79,34 @@ func (s *handler) handler(srv interface{}, serverStream grpc.ServerStream) error
 		return err
 	}
 
+	clientCtx, clientCancel := context.WithCancel(outgoingCtx)
+	// TODO(mwitkow): Add a `forwarded` header to metadata, https://en.wikipedia.org/wiki/X-Forwarded-For.
+	clientStream, err := grpc.NewClientStream(clientCtx, clientStreamDescForProxying, backendConn, fullMethodName)
+	if err != nil {
+		status, ok := status.FromError(err)
+		if ok {
+			if status.Code() == codes.Unavailable {
+				s.connDownNotifier(backendConn)
+
+				// try again with a new backend connection
+				_, backendConn, requestFinalizer, err = s.director(serverStream.Context(), fullMethodName, peeker)
+				if err != nil {
+					return err
+				}
+
+				clientStream, err = grpc.NewClientStream(clientCtx, clientStreamDescForProxying, backendConn, fullMethodName)
+				if err != nil {
+					return helper.DecorateError(codes.Internal, err)
+				}
+			}
+		}
+	}
+
 	defer func() {
 		if requestFinalizer != nil {
 			requestFinalizer()
 		}
 	}()
-
-	clientCtx, clientCancel := context.WithCancel(outgoingCtx)
-	// TODO(mwitkow): Add a `forwarded` header to metadata, https://en.wikipedia.org/wiki/X-Forwarded-For.
-	clientStream, err := grpc.NewClientStream(clientCtx, clientStreamDescForProxying, backendConn, fullMethodName)
-	if err != nil {
-		return err
-	}
 	// Explicitly *do not close* s2cErrChan and c2sErrChan, otherwise the select below will not terminate.
 	// Channels do not have to be closed, it is just a control flow mechanism, see
 	// https://groups.google.com/forum/#!msg/golang-nuts/pZwdYRGxCIk/qpbHxRRPJdUJ
