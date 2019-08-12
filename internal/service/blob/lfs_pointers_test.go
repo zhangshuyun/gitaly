@@ -415,7 +415,7 @@ func TestSuccessfulGetAllLFSPointersRequest(t *testing.T) {
 	require.ElementsMatch(t, expectedLFSPointers, getAllPointers(t, c))
 }
 
-func getAllPointers(t *testing.T, c gitalypb.BlobService_GetAllLFSPointersClient) []*gitalypb.LFSPointer {
+func getAllPointers(t testing.TB, c gitalypb.BlobService_GetAllLFSPointersClient) []*gitalypb.LFSPointer {
 	var receivedLFSPointers []*gitalypb.LFSPointer
 	for {
 		resp, err := c.Recv()
@@ -428,6 +428,61 @@ func getAllPointers(t *testing.T, c gitalypb.BlobService_GetAllLFSPointersClient
 	}
 
 	return receivedLFSPointers
+}
+
+func BenchmarkSuccessfulGetAllLFSPointersRequestRuby(b *testing.B) {
+	server, serverSocketPath := runBlobServer(b)
+	defer server.Stop()
+
+	client, conn := newBlobClient(b, serverSocketPath)
+	defer conn.Close()
+
+	testRepo, _, cleanupFn := testhelper.NewTestRepo(b)
+	defer cleanupFn()
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	request := &gitalypb.GetAllLFSPointersRequest{
+		Repository: testRepo,
+		Revision:   []byte("54fcc214b94e78d7a41a9a8fe6d87a5e59500e51"),
+	}
+
+	for n := 0; n < b.N; n++ {
+		c, err := client.GetAllLFSPointers(ctx, request)
+		require.NoError(b, err)
+		getAllPointers(b, c)
+	}
+}
+
+func BenchmarkSuccessfulGetAllLFSPointersRequestGo(b *testing.B) {
+	server, serverSocketPath := runBlobServer(b)
+	defer server.Stop()
+
+	client, conn := newBlobClient(b, serverSocketPath)
+	defer conn.Close()
+
+	testRepo, _, cleanupFn := testhelper.NewTestRepo(b)
+	defer cleanupFn()
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	request := &gitalypb.GetAllLFSPointersRequest{
+		Repository: testRepo,
+		Revision:   []byte("54fcc214b94e78d7a41a9a8fe6d87a5e59500e51"),
+	}
+
+	_, err := client.GetAllLFSPointers(ctx, request)
+	require.NoError(b, err)
+
+	for n := 0; n < b.N; n++ {
+		// test with go implementation
+		// TODO: remove once feature flag is removed
+		c, err := client.GetAllLFSPointers(featureflag.EnableFeatureFlag(ctx, featureflag.GetAllLFSPointersGo), request)
+		require.NoError(b, err)
+		getAllPointers(b, c)
+	}
 }
 
 func TestFailedGetAllLFSPointersRequestDueToValidations(t *testing.T) {

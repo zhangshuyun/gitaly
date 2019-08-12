@@ -209,6 +209,8 @@ func getAllLFSPointers(repository *gitalypb.Repository, stream gitalypb.BlobServ
 		return err
 	}
 
+	defer c.Close()
+
 	for s.Scan() {
 		line := strings.SplitN(s.Text(), " ", 2)
 		if len(line) == 0 {
