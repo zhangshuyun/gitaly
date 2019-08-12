@@ -9,6 +9,7 @@ var GitalyProtos = []string{
 	"commit.proto",
 	"conflicts.proto",
 	"diff.proto",
+	"hook.proto",
 	"namespace.proto",
 	"objectpool.proto",
 	"operations.proto",

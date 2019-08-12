@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"os/exec"
 
-	"gitlab.com/gitlab-org/gitaly-proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/git/hooks"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
 func (s *server) PreReceive(ctx context.Context, in *gitalypb.PreReceiveHookRequest) (*gitalypb.PreReceiveHookResponse, error) {

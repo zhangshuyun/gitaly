@@ -104,8 +104,6 @@ github.com/uber/jaeger-client-go v2.15.0+incompatible h1:NP3qsSqNxh8VYr956ur1N/1
 github.com/uber/jaeger-client-go v2.15.0+incompatible/go.mod h1:WVhlPFC8FDjOFMMWRy2pZqQJSXxYSwNYOkTr/Z6d3Kk=
 github.com/uber/jaeger-lib v1.5.0 h1:OHbgr8l656Ub3Fw5k9SWnBfIEwvoHQ+W2y+Aa9D1Uyo=
 github.com/uber/jaeger-lib v1.5.0/go.mod h1:ComeNDZlWwrWnDv8aPp0Ba6+uUTzImX/AauajbLI56U=
-gitlab.com/gitlab-org/gitaly-proto v1.33.1-0.20190620230240-211d8c765403 h1:uaMwn3J9CJJaAYwRozQL2VNslSz3Rnl1/tGZtDJRkWc=
-gitlab.com/gitlab-org/gitaly-proto v1.33.1-0.20190620230240-211d8c765403/go.mod h1:r5s9CB3KH8viERqMaQg3eWIgk96p3eexfULUCepPU5g=
 gitlab.com/gitlab-org/labkit v0.0.0-20190221122536-0c3fc7cdd57c h1:xo48LcGsTCasKcJpQDBCCuZU+aP8uGaboUVvD7Lgm6g=
 gitlab.com/gitlab-org/labkit v0.0.0-20190221122536-0c3fc7cdd57c/go.mod h1:rYhLgfrbEcyfinG+R3EvKu6bZSsmwQqcXzLfHWSfUKM=
 go.uber.org/atomic v1.3.2 h1:2Oa65PReHzfn29GpvgsYwloV9AVFHPDk8tYxt2c2tr4=
