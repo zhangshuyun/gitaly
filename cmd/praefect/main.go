@@ -114,8 +114,13 @@ func run(listeners []net.Listener, conf config.Config) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	for _, node := range conf.Nodes {
-		if err := coordinator.RegisterNode(node.Storage, node.Address); err != nil {
+	nodes, err := datastore.GetStorageNodes()
+	if err != nil {
+		return fmt.Errorf("failed to get storage nodes from datastore: %v", err)
+	}
+
+	for _, node := range nodes {
+		if err := coordinator.RegisterNode(node.ID, node.Address); err != nil {
 			return fmt.Errorf("failed to register %s: %s", node.Address, err)
 		}
 
@@ -123,8 +128,6 @@ func run(listeners []net.Listener, conf config.Config) error {
 	}
 
 	go func() { serverErrors <- repl.ProcessBacklog(ctx) }()
-
-	go coordinator.FailoverRotation()
 
 	select {
 	case s := <-termCh:

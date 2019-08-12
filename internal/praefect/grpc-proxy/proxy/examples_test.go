@@ -18,14 +18,15 @@ import (
 )
 
 var (
-	director proxy.StreamDirector
+	director         proxy.StreamDirector
+	connDownNotifier proxy.ConnectionDownNotifier
 )
 
 func ExampleRegisterService() {
 	// A gRPC server with the proxying codec enabled.
 	server := grpc.NewServer(grpc.CustomCodec(proxy.Codec()))
 	// Register a TestService with 4 of its methods explicitly.
-	proxy.RegisterService(server, director,
+	proxy.RegisterService(server, director, connDownNotifier,
 		"mwitkow.testproto.TestService",
 		"PingEmpty", "Ping", "PingError", "PingList")
 }
@@ -33,7 +34,7 @@ func ExampleRegisterService() {
 func ExampleTransparentHandler() {
 	grpc.NewServer(
 		grpc.CustomCodec(proxy.Codec()),
-		grpc.UnknownServiceHandler(proxy.TransparentHandler(director)))
+		grpc.UnknownServiceHandler(proxy.TransparentHandler(director, connDownNotifier)))
 }
 
 // Provide sa simple example of a director that shields internal services and dials a staging or production backend.

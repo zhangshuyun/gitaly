@@ -56,10 +56,10 @@ func newBackendPinger(tb testing.TB, ctx context.Context) (*grpc.ClientConn, *in
 func newProxy(tb testing.TB, ctx context.Context, director proxy.StreamDirector, svc, method string) (*grpc.ClientConn, func()) {
 	proxySrvr := grpc.NewServer(
 		grpc.CustomCodec(proxy.Codec()),
-		grpc.UnknownServiceHandler(proxy.TransparentHandler(director)),
+		grpc.UnknownServiceHandler(proxy.TransparentHandler(director, connDownNotifier)),
 	)
 
-	proxy.RegisterService(proxySrvr, director, svc, method)
+	proxy.RegisterService(proxySrvr, director, connDownNotifier, svc, method)
 
 	done := make(chan struct{})
 	listener := newListener(tb)

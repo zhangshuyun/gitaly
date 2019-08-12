@@ -22,3 +22,6 @@ import (
 //
 // See the rather rich example.
 type StreamDirector func(ctx context.Context, fullMethodName string, peeker StreamModifier) (context.Context, *grpc.ClientConn, func(), error)
+
+// ConnectionDownNotifier takes care of updating the datastore so that other requests stop using the downed connection
+type ConnectionDownNotifier func(cc *grpc.ClientConn) error

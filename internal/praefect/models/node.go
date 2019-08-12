@@ -6,6 +6,7 @@ type Node struct {
 	Storage string `toml:"storage"`
 	Address string `toml:"address"`
 	Token   string `toml:"token"`
+	Healthy bool
 }
 
 // Repository describes a repository's relative path and its primary and list of secondaries

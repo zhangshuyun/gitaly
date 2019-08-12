@@ -178,7 +178,7 @@ func (r ReplMgr) ProcessBacklog(ctx context.Context) error {
 					return err
 				}
 
-				cc, err := r.coordinator.GetConnection(job.TargetNode.Storage)
+				cc, err := r.coordinator.GetConnection(job.TargetNode.ID)
 				if err != nil {
 					return err
 				}

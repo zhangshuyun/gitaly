@@ -28,7 +28,7 @@ type Server struct {
 // NewServer returns an initialized praefect gPRC proxy server configured
 // with the provided gRPC server options
 func NewServer(c *Coordinator, repl ReplMgr, grpcOpts []grpc.ServerOption, l *logrus.Entry) *Server {
-	grpcOpts = append(grpcOpts, proxyRequiredOpts(c.streamDirector)...)
+	grpcOpts = append(grpcOpts, proxyRequiredOpts(c.streamDirector, c.connDownHandler)...)
 	grpcOpts = append(grpcOpts, []grpc.ServerOption{
 		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
 			grpccorrelation.StreamServerCorrelationInterceptor(), // Must be above the metadata handler
@@ -58,10 +58,10 @@ func NewServer(c *Coordinator, repl ReplMgr, grpcOpts []grpc.ServerOption, l *lo
 	}
 }
 
-func proxyRequiredOpts(director proxy.StreamDirector) []grpc.ServerOption {
+func proxyRequiredOpts(director proxy.StreamDirector, connDownHandler proxy.ConnectionDownNotifier) []grpc.ServerOption {
 	return []grpc.ServerOption{
 		grpc.CustomCodec(proxy.Codec()),
-		grpc.UnknownServiceHandler(proxy.TransparentHandler(director)),
+		grpc.UnknownServiceHandler(proxy.TransparentHandler(director, connDownHandler)),
 	}
 }
 
