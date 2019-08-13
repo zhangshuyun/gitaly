@@ -113,6 +113,13 @@ func TestFailedRawBlameRequest(t *testing.T) {
 			path:        []byte(""),
 			code:        codes.InvalidArgument,
 		},
+		{
+			description: "Invalid revision",
+			repo:        testRepo,
+			revision:    []byte("--output=/meow"),
+			path:        []byte("a/b/c"),
+			code:        codes.InvalidArgument,
+		},
 	}
 
 	for _, testCase := range testCases {

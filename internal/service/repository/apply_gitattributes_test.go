@@ -110,6 +110,11 @@ func TestApplyGitattributesFailure(t *testing.T) {
 			revision: []byte("not-existing-ref"),
 			code:     codes.InvalidArgument,
 		},
+		{
+			repo:     testRepo,
+			revision: []byte("--output=/meow"),
+			code:     codes.InvalidArgument,
+		},
 	}
 
 	for _, test := range tests {

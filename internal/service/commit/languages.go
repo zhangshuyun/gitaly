@@ -18,6 +18,10 @@ import (
 func (*server) CommitLanguages(ctx context.Context, req *gitalypb.CommitLanguagesRequest) (*gitalypb.CommitLanguagesResponse, error) {
 	repo := req.Repository
 
+	if err := git.ValidateRevisionAllowEmpty(req.Revision); err != nil {
+		return nil, helper.ErrInvalidArgument(err)
+	}
+
 	revision := string(req.Revision)
 	if revision == "" {
 		defaultBranch, err := ref.DefaultBranchName(ctx, req.Repository)

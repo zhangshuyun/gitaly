@@ -151,6 +151,19 @@ func TestFailedGetBlobsRequestDueToValidation(t *testing.T) {
 			},
 			code: codes.InvalidArgument,
 		},
+		{
+			desc: "invalid Revision",
+			request: &gitalypb.GetBlobsRequest{
+				Repository: testRepo,
+				RevisionPaths: []*gitalypb.GetBlobsRequest_RevisionPath{
+					{
+						Path:     []byte("CHANGELOG"),
+						Revision: "--output=/meow",
+					},
+				},
+			},
+			code: codes.InvalidArgument,
+		},
 	}
 
 	for _, testCase := range testCases {

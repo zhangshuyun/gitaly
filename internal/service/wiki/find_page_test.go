@@ -370,3 +370,27 @@ func readFullWikiPageFromWikiFindPageClient(t *testing.T, c gitalypb.WikiService
 
 	return wikiPage
 }
+
+func TestInvalidWikiFindPageRequestRevision(t *testing.T) {
+	server, serverSocketPath := runWikiServiceServer(t)
+	defer server.Stop()
+
+	client, conn := newWikiClient(t, serverSocketPath)
+	defer conn.Close()
+
+	wikiRepo, _, cleanupFunc := setupWikiRepo(t)
+	defer cleanupFunc()
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	stream, err := client.WikiFindPage(ctx, &gitalypb.WikiFindPageRequest{
+		Repository: wikiRepo,
+		Title:      []byte("non-empty title"),
+		Revision:   []byte("--output=/meow"),
+	})
+	require.NoError(t, err)
+
+	_, err = stream.Recv()
+	testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
+}

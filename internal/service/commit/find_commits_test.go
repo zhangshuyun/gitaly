@@ -438,6 +438,15 @@ func TestFailureFindCommitsRequest(t *testing.T) {
 			},
 			code: codes.InvalidArgument,
 		},
+		{
+			desc: "invalid revision",
+			request: &gitalypb.FindCommitsRequest{
+				Repository: testRepo,
+				Revision:   []byte("--output=/meow"),
+				Limit:      1,
+			},
+			code: codes.InvalidArgument,
+		},
 	}
 
 	for _, tc := range testCases {

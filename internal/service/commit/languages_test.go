@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
+	"google.golang.org/grpc/codes"
 )
 
 func TestLanguages(t *testing.T) {
@@ -90,4 +91,24 @@ func TestLanguagesEmptyRevision(t *testing.T) {
 		}
 	}
 	require.True(t, foundRuby, "expected to find Ruby as a language on HEAD")
+}
+
+func TestInvalidCommitLanguagesRequestRevision(t *testing.T) {
+	server, serverSocketPath := startTestServices(t)
+	defer server.Stop()
+
+	client, conn := newCommitServiceClient(t, serverSocketPath)
+	defer conn.Close()
+
+	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	defer cleanupFn()
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	_, err := client.CommitLanguages(ctx, &gitalypb.CommitLanguagesRequest{
+		Repository: testRepo,
+		Revision:   []byte("--output=/meow"),
+	})
+	testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
 }

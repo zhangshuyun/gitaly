@@ -157,3 +157,27 @@ func readFullDataFromWikiGetFormattedDataClient(t *testing.T, c gitalypb.WikiSer
 
 	return
 }
+
+func TestInvalidWikiGetFormattedDataRequestRevision(t *testing.T) {
+	wikiRepo, _, cleanupFunc := setupWikiRepo(t)
+	defer cleanupFunc()
+
+	server, serverSocketPath := runWikiServiceServer(t)
+	defer server.Stop()
+
+	client, conn := newWikiClient(t, serverSocketPath)
+	defer conn.Close()
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	stream, err := client.WikiGetFormattedData(ctx, &gitalypb.WikiGetFormattedDataRequest{
+		Repository: wikiRepo,
+		Title:      []byte("Home Pagé"),
+		Revision:   []byte("--output=/meow"),
+	})
+	require.NoError(t, err)
+
+	_, err = stream.Recv()
+	testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
+}

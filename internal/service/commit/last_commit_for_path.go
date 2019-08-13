@@ -2,8 +2,8 @@ package commit
 
 import (
 	"context"
-	"fmt"
 
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
@@ -44,8 +44,8 @@ func lastCommitForPath(ctx context.Context, in *gitalypb.LastCommitForPathReques
 }
 
 func validateLastCommitForPathRequest(in *gitalypb.LastCommitForPathRequest) error {
-	if len(in.Revision) == 0 {
-		return fmt.Errorf("empty Revision")
+	if err := git.ValidateRevision(in.Revision); err != nil {
+		return helper.ErrInvalidArgument(err)
 	}
 	return nil
 }
