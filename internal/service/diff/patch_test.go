@@ -5,8 +5,10 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
+	"google.golang.org/grpc/codes"
 )
 
 func TestSuccessfulCommitPatchRequest(t *testing.T) {
@@ -66,4 +68,27 @@ func TestSuccessfulCommitPatchRequest(t *testing.T) {
 			assert.Equal(t, testCase.diff, data)
 		})
 	}
+}
+
+func TestInvalidCommitPatchRequestRevision(t *testing.T) {
+	server, serverSocketPath := runDiffServer(t)
+	defer server.Stop()
+
+	client, conn := newDiffClient(t, serverSocketPath)
+	defer conn.Close()
+
+	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	defer cleanupFn()
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	stream, err := client.CommitPatch(ctx, &gitalypb.CommitPatchRequest{
+		Repository: testRepo,
+		Revision:   []byte("--output=/meow"),
+	})
+	require.NoError(t, err)
+
+	_, err = stream.Recv()
+	testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
 }

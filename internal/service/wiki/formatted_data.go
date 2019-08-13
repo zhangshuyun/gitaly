@@ -1,6 +1,7 @@
 package wiki
 
 import (
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -8,6 +9,10 @@ import (
 )
 
 func (s *server) WikiGetFormattedData(request *gitalypb.WikiGetFormattedDataRequest, stream gitalypb.WikiService_WikiGetFormattedDataServer) error {
+	if err := git.ValidateRevisionAllowEmpty(request.Revision); err != nil {
+		return status.Errorf(codes.InvalidArgument, "WikiGetFormattedData: %s", err)
+	}
+
 	ctx := stream.Context()
 
 	if len(request.GetTitle()) == 0 {

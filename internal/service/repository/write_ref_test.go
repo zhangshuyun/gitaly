@@ -137,6 +137,14 @@ func TestWriteRefValidationError(t *testing.T) {
 				Revision:   []byte("0123012301231243"),
 			},
 		},
+		{
+			desc: "invalid revision",
+			req: &gitalypb.WriteRefRequest{
+				Repository: testRepo,
+				Ref:        []byte("refs/heads/master"),
+				Revision:   []byte("--output=/meow"),
+			},
+		},
 	}
 
 	for _, tc := range testCases {

@@ -1,0 +1,5 @@
+---
+title: Fix FindCommits flag injection exploit
+merge_request: 31
+author:
+type: security

@@ -119,6 +119,12 @@ func TestCommitStatsFailure(t *testing.T) {
 			revision: []byte("non/existing"),
 			err:      codes.Internal,
 		},
+		{
+			desc:     "invalid revision",
+			repo:     testRepo,
+			revision: []byte("--outpu=/meow"),
+			err:      codes.InvalidArgument,
+		},
 	}
 
 	for _, tc := range tests {

@@ -5,6 +5,7 @@ import (
 
 	grpc_logrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
 	log "github.com/sirupsen/logrus"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/chunk"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -15,8 +16,8 @@ import (
 var maxTreeEntries = 1000
 
 func validateGetTreeEntriesRequest(in *gitalypb.GetTreeEntriesRequest) error {
-	if len(in.GetRevision()) == 0 {
-		return fmt.Errorf("empty Revision")
+	if err := git.ValidateRevision(in.Revision); err != nil {
+		return err
 	}
 
 	if len(in.GetPath()) == 0 {

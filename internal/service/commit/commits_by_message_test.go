@@ -184,6 +184,11 @@ func TestFailedCommitsByMessageRequest(t *testing.T) {
 			request: &gitalypb.CommitsByMessageRequest{Repository: testRepo},
 			code:    codes.InvalidArgument,
 		},
+		{
+			desc:    "Revision is invalid",
+			request: &gitalypb.CommitsByMessageRequest{Repository: testRepo, Revision: []byte("--output=/meow"), Query: "not empty"},
+			code:    codes.InvalidArgument,
+		},
 	}
 
 	for _, testCase := range testCases {

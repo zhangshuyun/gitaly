@@ -7,6 +7,7 @@ import (
 	"io"
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/service/ref"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -183,4 +184,27 @@ func drainListFilesResponse(c gitalypb.CommitService_ListFilesClient) error {
 		return nil
 	}
 	return err
+}
+
+func TestInvalidListFilesRequestRevision(t *testing.T) {
+	server, serverSocketPath := startTestServices(t)
+	defer server.Stop()
+
+	client, conn := newCommitServiceClient(t, serverSocketPath)
+	defer conn.Close()
+
+	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	defer cleanupFn()
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	stream, err := client.ListFiles(ctx, &gitalypb.ListFilesRequest{
+		Repository: testRepo,
+		Revision:   []byte("--output=/meow"),
+	})
+	require.NoError(t, err)
+
+	_, err = stream.Recv()
+	testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
 }

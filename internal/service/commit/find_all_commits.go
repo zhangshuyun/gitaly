@@ -3,6 +3,7 @@ package commit
 import (
 	"fmt"
 
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/chunk"
 	"gitlab.com/gitlab-org/gitaly/internal/service/ref"
@@ -26,6 +27,10 @@ func (sender *findAllCommitsSender) Send() error {
 }
 
 func (s *server) FindAllCommits(in *gitalypb.FindAllCommitsRequest, stream gitalypb.CommitService_FindAllCommitsServer) error {
+	if err := validateFindAllCommitsRequest(in); err != nil {
+		return err
+	}
+
 	var revisions []string
 	if len(in.GetRevision()) == 0 {
 		branchNames, err := _findBranchNamesFunc(stream.Context(), in.Repository)
@@ -42,6 +47,14 @@ func (s *server) FindAllCommits(in *gitalypb.FindAllCommitsRequest, stream gital
 
 	if err := findAllCommits(in, stream, revisions); err != nil {
 		return helper.ErrInternal(err)
+	}
+
+	return nil
+}
+
+func validateFindAllCommitsRequest(in *gitalypb.FindAllCommitsRequest) error {
+	if err := git.ValidateRevisionAllowEmpty(in.Revision); err != nil {
+		return helper.ErrInvalidArgument(err)
 	}
 
 	return nil

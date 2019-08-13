@@ -3,6 +3,7 @@ package commit
 import (
 	"fmt"
 
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/chunk"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -67,6 +68,10 @@ func commitsByMessage(in *gitalypb.CommitsByMessageRequest, stream gitalypb.Comm
 }
 
 func validateCommitsByMessageRequest(in *gitalypb.CommitsByMessageRequest) error {
+	if err := git.ValidateRevisionAllowEmpty(in.Revision); err != nil {
+		return err
+	}
+
 	if in.GetQuery() == "" {
 		return fmt.Errorf("empty Query")
 	}

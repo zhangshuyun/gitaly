@@ -72,6 +72,10 @@ func (s *server) CountCommits(ctx context.Context, in *gitalypb.CountCommitsRequ
 }
 
 func validateCountCommitsRequest(in *gitalypb.CountCommitsRequest) error {
+	if err := git.ValidateRevisionAllowEmpty(in.Revision); err != nil {
+		return err
+	}
+
 	if len(in.GetRevision()) == 0 && !in.GetAll() {
 		return fmt.Errorf("empty Revision and false All")
 	}

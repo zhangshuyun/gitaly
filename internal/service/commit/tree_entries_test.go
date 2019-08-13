@@ -432,6 +432,7 @@ func TestFailedGetTreeEntriesRequestDueToValidationError(t *testing.T) {
 		{Repository: nil, Revision: revision, Path: path},                                                             // Repository is nil
 		{Repository: testRepo, Revision: nil, Path: path},                                                             // Revision is empty
 		{Repository: testRepo, Revision: revision},                                                                    // Path is empty
+		{Repository: testRepo, Revision: []byte("--output=/meow"), Path: path},                                        // Revision is invalid
 	}
 
 	for _, rpcRequest := range rpcRequests {

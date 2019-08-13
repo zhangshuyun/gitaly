@@ -177,8 +177,9 @@ func TestFailedCountCommitsRequestDueToValidationError(t *testing.T) {
 
 	rpcRequests := []gitalypb.CountCommitsRequest{
 		{Repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}, Revision: revision}, // Repository doesn't exist
-		{Repository: nil, Revision: revision},             // Repository is nil
-		{Repository: testRepo, Revision: nil, All: false}, // Revision is empty and All is false
+		{Repository: nil, Revision: revision},                                  // Repository is nil
+		{Repository: testRepo, Revision: nil, All: false},                      // Revision is empty and All is false
+		{Repository: testRepo, Revision: []byte("--output=/meow"), All: false}, // Revision is invalid
 	}
 
 	for _, rpcRequest := range rpcRequests {

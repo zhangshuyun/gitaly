@@ -4,6 +4,7 @@ import (
 	"io"
 	"io/ioutil"
 
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/service/commit"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -105,6 +106,19 @@ func sendGetBlobsResponse(req *gitalypb.GetBlobsRequest, stream gitalypb.BlobSer
 }
 
 func (*server) GetBlobs(req *gitalypb.GetBlobsRequest, stream gitalypb.BlobService_GetBlobsServer) error {
+	if err := validateGetBlobsRequest(req); err != nil {
+		return err
+	}
+
+	c, err := catfile.New(stream.Context(), req.Repository)
+	if err != nil {
+		return err
+	}
+
+	return sendGetBlobsResponse(req, stream, c)
+}
+
+func validateGetBlobsRequest(req *gitalypb.GetBlobsRequest) error {
 	if req.Repository == nil {
 		return status.Errorf(codes.InvalidArgument, "GetBlobs: empty Repository")
 	}
@@ -112,10 +126,12 @@ func (*server) GetBlobs(req *gitalypb.GetBlobsRequest, stream gitalypb.BlobServi
 	if len(req.RevisionPaths) == 0 {
 		return status.Errorf(codes.InvalidArgument, "GetBlobs: empty RevisionPaths")
 	}
-	c, err := catfile.New(stream.Context(), req.Repository)
-	if err != nil {
-		return err
+
+	for _, rp := range req.RevisionPaths {
+		if err := git.ValidateRevision([]byte(rp.Revision)); err != nil {
+			return status.Errorf(codes.InvalidArgument, "GetBlobs: %v", err)
+		}
 	}
 
-	return sendGetBlobsResponse(req, stream, c)
+	return nil
 }

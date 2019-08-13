@@ -180,6 +180,12 @@ func TestFailedWikiFindFileDueToValidation(t *testing.T) {
 			revision: "deadfacedeadfacedeadfacedeadfacedeadface",
 			code:     codes.Unknown,
 		},
+		{
+			desc:     "dangerously invalid revision",
+			name:     "image.jpg",
+			revision: "--output=/meow",
+			code:     codes.InvalidArgument,
+		},
 	}
 
 	for _, testCase := range testCases {

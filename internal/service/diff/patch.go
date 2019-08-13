@@ -1,11 +1,17 @@
 package diff
 
 import (
+	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
 func (s *server) CommitPatch(in *gitalypb.CommitPatchRequest, stream gitalypb.DiffService_CommitPatchServer) error {
+	if err := git.ValidateRevision(in.Revision); err != nil {
+		return helper.ErrInvalidArgument(err)
+	}
+
 	ctx := stream.Context()
 
 	client, err := s.DiffServiceClient(ctx)

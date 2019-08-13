@@ -278,6 +278,16 @@ func TestFailedListLastCommitsForTreeRequest(t *testing.T) {
 			},
 			code: codes.Internal,
 		},
+		{
+			desc: "Invalid revision",
+			request: &gitalypb.ListLastCommitsForTreeRequest{
+				Repository: testRepo,
+				Revision:   "--output=/meow",
+				Offset:     0,
+				Limit:      25,
+			},
+			code: codes.InvalidArgument,
+		},
 	}
 
 	for _, testCase := range testCases {
