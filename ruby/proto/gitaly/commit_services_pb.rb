@@ -20,6 +20,7 @@ module Gitaly
       rpc :CountCommits, CountCommitsRequest, CountCommitsResponse
       rpc :CountDivergingCommits, CountDivergingCommitsRequest, CountDivergingCommitsResponse
       rpc :GetTreeEntries, GetTreeEntriesRequest, stream(GetTreeEntriesResponse)
+      rpc :FindTreeEntries, FindTreeEntriesRequest, stream(TreeEntryResponse)
       rpc :ListFiles, ListFilesRequest, stream(ListFilesResponse)
       rpc :FindCommit, FindCommitRequest, FindCommitResponse
       rpc :CommitStats, CommitStatsRequest, CommitStatsResponse

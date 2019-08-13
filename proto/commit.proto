@@ -44,6 +44,12 @@ service CommitService {
       target_repository_field: "1"
     };
   }
+  rpc FindTreeEntries(FindTreeEntriesRequest) returns (stream TreeEntryResponse) {
+    option (op_type) = {
+      op: ACCESSOR
+      target_repository_field: "1"
+    };
+  }
   rpc ListFiles(ListFilesRequest) returns (stream ListFilesResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -197,6 +203,15 @@ message TreeEntryResponse {
   bytes data = 5;
 }
 
+message FindTreeEntriesRequest {
+  Repository repository = 1;
+  // commit ID or refname
+  bytes revision = 2;
+  // entry path relative to repository root
+  repeated bytes paths = 3;
+  int64 limit = 4;
+}
+
 message CommitsBetweenRequest {
   Repository repository = 1;
   bytes from = 2;
@@ -269,6 +284,8 @@ message GetTreeEntriesRequest {
 message GetTreeEntriesResponse {
   repeated TreeEntry entries = 1;
 }
+
+
 
 message ListFilesRequest {
   Repository repository = 1;
