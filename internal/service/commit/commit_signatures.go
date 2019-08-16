@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
@@ -179,6 +180,13 @@ func validateGetCommitSignaturesRequest(request *gitalypb.GetCommitSignaturesReq
 
 	if len(request.GetCommitIds()) == 0 {
 		return errors.New("empty CommitIds")
+	}
+
+	// Do not support shorthand or invalid commit SHAs
+	for _, commitID := range request.CommitIds {
+		if err := git.ValidateCommitID(commitID); err != nil {
+			return err
+		}
 	}
 
 	return nil
