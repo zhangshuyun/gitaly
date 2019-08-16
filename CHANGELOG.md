@@ -1,5 +1,11 @@
 # Gitaly changelog
 
+## v1.53.3
+
+#### Fixed
+- Properly clean up worktrees after commit operations
+  https://gitlab.com/gitlab-org/gitaly/merge_requests/1383
+
 ## v1.53.2
 
 #### Security
