@@ -1,6 +1,7 @@
 package operations
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -145,6 +146,16 @@ index 5b812ff..ff85394 100644
 	require.Equal(t, user.Name, commit.Committer.Name)
 	require.Equal(t, user.Email, commit.Committer.Email)
 	require.Equal(t, commitMessage, commit.Subject)
+
+	// Ensure Git metadata is cleaned up
+	worktreeList := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "worktree", "list", "--porcelain"))
+	expectedOut := fmt.Sprintf("worktree %s\nHEAD %s\nbranch refs/heads/3way-test\n", testRepoPath, baseSha)
+	require.Equal(t, expectedOut, worktreeList)
+
+	// Ensure actual worktree is removed
+	files, err := ioutil.ReadDir(filepath.Join(testRepoPath, ".git", "gitlab-worktree"))
+	require.NoError(t, err)
+	require.Equal(t, 0, len(files))
 }
 
 func TestSplitIndex(t *testing.T) {

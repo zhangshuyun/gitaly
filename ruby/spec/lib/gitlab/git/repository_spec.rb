@@ -651,10 +651,10 @@ describe Gitlab::Git::Repository do # rubocop:disable Metrics/BlockLength
       it 'checks out only the files in the diff' do
         allow(repository).to receive(:with_worktree).and_wrap_original do |m, *args|
           m.call(*args) do
-            worktree_path = args[0]
-            files_pattern = File.join(worktree_path, '**', '*')
+            worktree = args[0]
+            files_pattern = File.join(worktree.path, '**', '*')
             expected = expected_files.map do |path|
-              File.expand_path(path, worktree_path)
+              File.expand_path(path, worktree.path)
             end
 
             expect(Dir[files_pattern]).to eq(expected)
@@ -675,8 +675,8 @@ describe Gitlab::Git::Repository do # rubocop:disable Metrics/BlockLength
         it 'does not include the renamed file in the sparse checkout' do
           allow(repository).to receive(:with_worktree).and_wrap_original do |m, *args|
             m.call(*args) do
-              worktree_path = args[0]
-              files_pattern = File.join(worktree_path, '**', '*')
+              worktree = args[0]
+              files_pattern = File.join(worktree.path, '**', '*')
 
               expect(Dir[files_pattern]).not_to include('CHANGELOG')
               expect(Dir[files_pattern]).not_to include('encoding/CHANGELOG')
@@ -808,6 +808,11 @@ describe Gitlab::Git::Repository do # rubocop:disable Metrics/BlockLength
 
         expect(new_rev).not_to be_nil
         expect(commit.message).to eq("A commit from a patch\n")
+
+        # Ensure worktree cleanup occurs
+        result, status = repository.send(:run_git, %w[worktree list --porcelain])
+        expect(status).to eq(0)
+        expect(result).to eq("worktree #{repository_path}\nbare\n\n")
       end
     end
 
