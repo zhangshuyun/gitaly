@@ -36,7 +36,7 @@ func configureTestStorage() {
 
 	testStorage = config.Storage{Name: "storage-will-be-deleted", Path: storagePath}
 
-	config.Config.Storages = []config.Storage{testStorage}
+	config.ModifyStorages([]config.Storage{testStorage})
 }
 
 func runStorageServer(t *testing.T) (*grpc.Server, string) {

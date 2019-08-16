@@ -100,17 +100,17 @@ func setupDiskCacheWalker(t testing.TB) func() {
 	require.NoError(t, err)
 
 	oldStorages := config.Config.Storages
-	config.Config.Storages = []config.Storage{
+	config.ModifyStorages([]config.Storage{
 		{
 			Name: t.Name(),
 			Path: tmpPath,
 		},
-	}
+	})
 
 	satisfyConfigValidation(tmpPath)
 
 	cleanup := func() {
-		config.Config.Storages = oldStorages
+		config.ModifyStorages(oldStorages)
 		require.NoError(t, os.RemoveAll(tmpPath))
 	}
 

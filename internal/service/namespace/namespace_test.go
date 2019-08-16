@@ -23,11 +23,11 @@ func testMain(m *testing.M) int {
 	defer os.Remove(storageOtherDir)
 
 	oldStorages := config.Config.Storages
-	config.Config.Storages = []config.Storage{
+	config.ModifyStorages([]config.Storage{
 		{Name: "default", Path: testhelper.GitlabTestStoragePath()},
 		{Name: "other", Path: storageOtherDir},
-	}
-	defer func() { config.Config.Storages = oldStorages }()
+	})
+	defer func() { config.ModifyStorages(oldStorages) }()
 
 	return m.Run()
 }

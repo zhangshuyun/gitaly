@@ -14,7 +14,7 @@ import (
 
 func TestGetRepoPath(t *testing.T) {
 	defer func(oldStorages []config.Storage) {
-		config.Config.Storages = oldStorages
+		config.ModifyStorages(oldStorages)
 	}(config.Config.Storages)
 
 	testRepo := testhelper.TestRepository()
@@ -120,7 +120,7 @@ func TestGetRepoPath(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			config.Config.Storages = tc.storages
+			config.ModifyStorages(tc.storages)
 			path, err := GetRepoPath(tc.repo)
 
 			if tc.err != codes.OK {

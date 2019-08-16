@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/BurntSushi/toml"
@@ -257,6 +258,9 @@ func SetGitPath() error {
 // StoragePath looks up the base path for storageName. The second boolean
 // return value indicates if anything was found.
 func StoragePath(storageName string) (string, bool) {
+	storageMutex.RLock()
+	defer storageMutex.RUnlock()
+
 	for _, storage := range Config.Storages {
 		if storage.Name == storageName {
 			return storage.Path, true
@@ -275,4 +279,14 @@ func validateBinDir() error {
 	var err error
 	Config.BinDir, err = filepath.Abs(Config.BinDir)
 	return err
+}
+
+var storageMutex sync.RWMutex
+
+// ModifyStorages is used in tests to modify the storages in the config in a thread safe way
+func ModifyStorages(storages []Storage) {
+	storageMutex.Lock()
+	defer storageMutex.Unlock()
+
+	Config.Storages = storages
 }

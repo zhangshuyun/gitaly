@@ -34,9 +34,9 @@ func TestGitalyServerInfo(t *testing.T) {
 		{Name: "broken", Path: "/does/not/exist"},
 	}
 	defer func(oldStorages []config.Storage) {
-		config.Config.Storages = oldStorages
+		config.ModifyStorages(oldStorages)
 	}(config.Config.Storages)
-	config.Config.Storages = testStorages
+	config.ModifyStorages(testStorages)
 
 	tempDir, err := ioutil.TempDir("", "gitaly-bin")
 	require.NoError(t, err)

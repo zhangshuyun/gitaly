@@ -26,9 +26,9 @@ func TestListDirectories(t *testing.T) {
 	testStorages := []config.Storage{{Name: "default", Path: testDir}}
 
 	defer func(oldStorages []config.Storage) {
-		config.Config.Storages = oldStorages
+		config.ModifyStorages(oldStorages)
 	}(config.Config.Storages)
-	config.Config.Storages = testStorages
+	config.ModifyStorages(testStorages)
 
 	repoPaths := []string{"foo", "bar", "bar/baz", "bar/baz/foo/buz"}
 	for _, p := range repoPaths {

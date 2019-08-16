@@ -34,9 +34,9 @@ func TestRepositoryExists(t *testing.T) {
 	}
 
 	defer func(oldStorages []config.Storage) {
-		config.Config.Storages = oldStorages
+		config.ModifyStorages(oldStorages)
 	}(config.Config.Storages)
-	config.Config.Storages = testStorages
+	config.ModifyStorages(testStorages)
 
 	queries := []struct {
 		desc      string

@@ -148,10 +148,10 @@ func TestReplicate(t *testing.T) {
 
 	oldStorages := gitaly_config.Config.Storages
 	defer func() {
-		gitaly_config.Config.Storages = oldStorages
+		gitaly_config.ModifyStorages(oldStorages)
 	}()
 
-	gitaly_config.Config.Storages = append(gitaly_config.Config.Storages, gitaly_config.Storage{
+	gitaly_config.ModifyStorages(append(gitaly_config.Config.Storages, gitaly_config.Storage{
 		Name: backupStorageName,
 		Path: backupDir,
 	},
@@ -159,7 +159,7 @@ func TestReplicate(t *testing.T) {
 			Name: "default",
 			Path: testhelper.GitlabTestStoragePath(),
 		},
-	)
+	))
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
