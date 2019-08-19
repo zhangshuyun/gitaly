@@ -130,7 +130,7 @@ func RegisterHook(f func() error) {
 }
 
 // Validate checks the current Config for sanity. It will also run all
-// hooks that have been registered RegisterHook.
+// hooks that have been registered with RegisterHook.
 func Validate() error {
 	for _, err := range []error{
 		validateListeners(),
