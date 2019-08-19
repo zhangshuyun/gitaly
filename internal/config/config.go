@@ -122,12 +122,15 @@ func Load(file io.Reader) error {
 	return nil
 }
 
-// RegisterHook adds a post-validation callback.
+// RegisterHook adds a post-validation callback. Be careful with config
+// data race conditions if you spawn goroutines in a hook: tests may
+// modify configuration data _after_ your hook has run.
 func RegisterHook(f func() error) {
 	hooks = append(hooks, f)
 }
 
-// Validate checks the current Config for sanity.
+// Validate checks the current Config for sanity. It will also run all
+// hooks that have been registered RegisterHook.
 func Validate() error {
 	for _, err := range []error{
 		validateListeners(),

@@ -58,7 +58,7 @@ func TestDiskCacheObjectWalker(t *testing.T) {
 	*cache.ExportDisableMoveAndClear = true
 	defer func() { *cache.ExportDisableMoveAndClear = false }()
 
-	require.NoError(t, config.Validate()) // triggers walker
+	cache.StartCleaning()
 
 	pollCountersUntil(t, expectChecks, expectRemovals)
 

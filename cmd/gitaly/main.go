@@ -10,6 +10,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/internal/bootstrap"
+	"gitlab.com/gitlab-org/gitaly/internal/cache"
 	"gitlab.com/gitlab-org/gitaly/internal/config"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/server"
@@ -102,6 +103,7 @@ func main() {
 	tracing.Initialize(tracing.WithServiceName("gitaly"))
 
 	tempdir.StartCleaning()
+	cache.StartCleaning()
 
 	log.WithError(run(b)).Error("shutting down")
 }
