@@ -28,6 +28,8 @@ func (o *ObjectInfo) IsBlob() bool {
 	return o.Type == "blob"
 }
 
+var ParseObjectInfo = parseObjectInfo
+
 func parseObjectInfo(stdout *bufio.Reader) (*ObjectInfo, error) {
 	infoLine, err := stdout.ReadString('\n')
 	if err != nil {

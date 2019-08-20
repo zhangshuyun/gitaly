@@ -2,10 +2,13 @@ package blob
 
 import (
 	"io"
+	"os"
 	"os/exec"
+	"runtime/pprof"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/config"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -488,5 +491,64 @@ func drainAllPointers(c gitalypb.BlobService_GetAllLFSPointersClient) error {
 		if err != nil {
 			return err
 		}
+	}
+}
+
+func BenchmarkGetAllLFS(b *testing.B) {
+	t := testing.TB(b)
+	server, serverSocketPath := runBlobServer(t)
+	defer server.Stop()
+
+	client, conn := newBlobClient(t, serverSocketPath)
+	defer conn.Close()
+
+	config.Config.Storages = append(config.Config.Storages, config.Storage{Name: "bench", Path: "testdata"})
+	testRepo := &gitalypb.Repository{StorageName: "bench", RelativePath: "git.git"}
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	request := &gitalypb.GetAllLFSPointersRequest{
+		Repository: testRepo,
+		Revision:   []byte("54fcc214b94e78d7a41a9a8fe6d87a5e59500e51"), // unused ??
+	}
+
+	cases := []struct {
+		name string
+		flag string
+	}{
+		{name: "smallblob", flag: "smallblob"},
+		{name: "awk2", flag: "awk2"},
+		{name: "awk3", flag: "awk3"},
+		{name: "go", flag: featureflag.GetAllLFSPointersGo},
+		{name: "ruby", flag: ""},
+		{name: "awk", flag: "awk"},
+	}
+
+	for _, cs := range cases {
+		b.Run(cs.name, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				func() {
+					if i == 0 &&false{
+						f, err := os.Create("/tmp/cpu." + cs.name)
+						require.NoError(b, err)
+						defer f.Close()
+						require.NoError(b, pprof.StartCPUProfile(f))
+						defer pprof.StopCPUProfile()
+					}
+					c, err := client.GetAllLFSPointers(featureflag.EnableFeatureFlag(ctx, cs.flag), request)
+					require.NoError(b, err)
+
+					count := 0
+					for err == nil {
+						var resp *gitalypb.GetAllLFSPointersResponse
+						resp, err = c.Recv()
+						count += len(resp.GetLfsPointers())
+					}
+					require.Equal(b, io.EOF, err)
+					require.Equal(b, 0, count, "count lfs")
+				}()
+			}
+		})
 	}
 }

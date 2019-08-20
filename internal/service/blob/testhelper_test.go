@@ -33,7 +33,7 @@ func testMain(m *testing.M) int {
 	return m.Run()
 }
 
-func runBlobServer(t *testing.T) (*grpc.Server, string) {
+func runBlobServer(t testing.TB) (*grpc.Server, string) {
 	grpcServer := testhelper.NewTestGrpcServer(t, nil, nil)
 
 	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName()
@@ -51,7 +51,7 @@ func runBlobServer(t *testing.T) (*grpc.Server, string) {
 	return grpcServer, "unix://" + serverSocketPath
 }
 
-func newBlobClient(t *testing.T, serverSocketPath string) (gitalypb.BlobServiceClient, *grpc.ClientConn) {
+func newBlobClient(t testing.TB, serverSocketPath string) (gitalypb.BlobServiceClient, *grpc.ClientConn) {
 	connOpts := []grpc.DialOption{
 		grpc.WithInsecure(),
 	}

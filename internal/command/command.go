@@ -101,6 +101,13 @@ func (c *Command) Read(p []byte) (int, error) {
 	return c.reader.Read(p)
 }
 
+func (c *Command) WriteTo(w io.Writer) (int64, error) {
+	if wt, ok := c.reader.(io.WriterTo); ok {
+		return wt.WriteTo(w)
+	}
+	return io.Copy(w, c.reader)
+}
+
 // Write calls Write() on the stdin pipe of the command.
 func (c *Command) Write(p []byte) (int, error) {
 	if c.writer == nil {
