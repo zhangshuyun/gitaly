@@ -101,6 +101,8 @@ func (c *Command) Read(p []byte) (int, error) {
 	return c.reader.Read(p)
 }
 
+func (c *Command) Reader() io.Reader { return c.reader }
+
 func (c *Command) WriteTo(w io.Writer) (int64, error) {
 	if wt, ok := c.reader.(io.WriterTo); ok {
 		return wt.WriteTo(w)

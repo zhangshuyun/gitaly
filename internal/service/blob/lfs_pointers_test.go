@@ -4,8 +4,10 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime/pprof"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/config"
@@ -498,11 +500,13 @@ func BenchmarkGetAllLFS(b *testing.B) {
 	t := testing.TB(b)
 	server, serverSocketPath := runBlobServer(t)
 	defer server.Stop()
-
+	time.Sleep(5 * time.Second) //ruby server boot
 	client, conn := newBlobClient(t, serverSocketPath)
 	defer conn.Close()
 
-	config.Config.Storages = append(config.Config.Storages, config.Storage{Name: "bench", Path: "testdata"})
+	benchStorageDir, err := filepath.Abs("testdata")
+	require.NoError(t, err)
+	config.Config.Storages = append(config.Config.Storages, config.Storage{Name: "bench", Path: benchStorageDir})
 	testRepo := &gitalypb.Repository{StorageName: "bench", RelativePath: "git.git"}
 
 	ctx, cancel := testhelper.Context()
@@ -517,19 +521,21 @@ func BenchmarkGetAllLFS(b *testing.B) {
 		name string
 		flag string
 	}{
-		{name: "smallblob", flag: "smallblob"},
-		{name: "awk2", flag: "awk2"},
-		{name: "awk3", flag: "awk3"},
-		{name: "go", flag: featureflag.GetAllLFSPointersGo},
+		//		{name: "smallblob", flag: "smallblob"},
+		{name: "ruby-script", flag: "ruby-script"},
 		{name: "ruby", flag: ""},
+		{name: "awk2", flag: "awk2"},
+		{name: "awk4", flag: "awk4"},
+		{name: "awk3", flag: "awk3"},
 		{name: "awk", flag: "awk"},
+		{name: "go", flag: featureflag.GetAllLFSPointersGo},
 	}
 
 	for _, cs := range cases {
 		b.Run(cs.name, func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				func() {
-					if i == 0 &&false{
+					if i == 0 && false {
 						f, err := os.Create("/tmp/cpu." + cs.name)
 						require.NoError(b, err)
 						defer f.Close()
