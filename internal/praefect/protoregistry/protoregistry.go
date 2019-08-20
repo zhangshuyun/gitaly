@@ -81,7 +81,7 @@ var protoScope = map[gitalypb.OperationMsg_Scope]Scope{
 type MethodInfo struct {
 	Operation      OpType
 	Scope          Scope
-	targetRepo     []int
+	targetField    []int
 	requestName    string // protobuf message name for input type
 	requestFactory protoFactory
 }
@@ -95,7 +95,16 @@ func (mi MethodInfo) TargetRepo(msg proto.Message) (*gitalypb.Repository, error)
 		)
 	}
 
-	return reflectFindRepoTarget(msg, mi.targetRepo)
+	return reflectFindRepoTarget(msg, mi.targetField)
+}
+
+// TargetStorage returns the target storage for a protobuf message if it exists
+func (mi MethodInfo) TargetStorage(msg proto.Message) (string, error) {
+	if mi.Scope != ScopeStorage {
+		return "", fmt.Errorf("proto message %s is not storage scoped", proto.MessageName(msg))
+	}
+
+	return reflectFindStringTarget(msg, mi.targetField)
 }
 
 // UnmarshalRequestProto will unmarshal the bytes into the method's request
@@ -229,12 +238,19 @@ func parseMethodInfo(methodDesc *descriptor.MethodDescriptorProto) (MethodInfo, 
 		requestFactory: reqFactory,
 	}
 
-	if scope == ScopeRepository {
-		targetRepo, err := parseOID(opMsg.GetTargetRepositoryField())
+	switch scope {
+	case ScopeRepository:
+		targetField, err := parseOID(opMsg.GetTargetRepositoryField())
 		if err != nil {
 			return MethodInfo{}, err
 		}
-		mi.targetRepo = targetRepo
+		mi.targetField = targetField
+	case ScopeStorage:
+		targetField, err := parseOID(opMsg.GetTargetStorageField())
+		if err != nil {
+			return MethodInfo{}, err
+		}
+		mi.targetField = targetField
 	}
 
 	return mi, nil

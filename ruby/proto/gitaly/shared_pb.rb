@@ -9,6 +9,7 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
     optional :op, :enum, 1, "gitaly.OperationMsg.Operation"
     optional :scope_level, :enum, 2, "gitaly.OperationMsg.Scope"
     optional :target_repository_field, :string, 3
+    optional :target_storage_field, :string, 4
   end
   add_enum "gitaly.OperationMsg.Operation" do
     value :UNKNOWN, 0

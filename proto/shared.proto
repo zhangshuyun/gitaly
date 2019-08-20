@@ -15,19 +15,19 @@ message OperationMsg {
   }
 
   Operation op = 1;
-  
+
   enum Scope {
     REPOSITORY = 0;
     SERVER = 1;
     STORAGE = 2;
   }
-  
+
   // Scope level indicates what level an RPC interacts with a server:
   //   - REPOSITORY: scoped to only a single repo
   //   - SERVER: affects the entire server and potentially all repos
   //   - STORAGE: scoped to a specific storage location and all repos within
   Scope scope_level = 2;
-  
+
   // If this operation modifies a repository, this field will
   // specify the location of the Repository field within the
   // request message. The field is specified in an OID style
@@ -42,6 +42,7 @@ message OperationMsg {
   // For example, the following OID refers to a target repo field
   // nested in a one-of field, both at field one: "1.1"
   string target_repository_field = 3;
+  string target_storage_field = 4;
 }
 
 enum ObjectType {

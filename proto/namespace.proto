@@ -10,25 +10,29 @@ service NamespaceService {
   rpc AddNamespace(AddNamespaceRequest) returns (AddNamespaceResponse) {
     option (op_type) = {
       op: MUTATOR
-      scope_level: STORAGE,
+      target_storage_field: "1"
+      scope_level: STORAGE
     };
   }
   rpc RemoveNamespace(RemoveNamespaceRequest) returns (RemoveNamespaceResponse) {
     option (op_type) = {
       op: MUTATOR
-      scope_level: STORAGE,
+      target_storage_field: "1"
+      scope_level: STORAGE
     };
   }
   rpc RenameNamespace(RenameNamespaceRequest) returns (RenameNamespaceResponse) {
     option (op_type) = {
       op: MUTATOR
-      scope_level: STORAGE,
+      target_storage_field: "1"
+      scope_level: STORAGE
     };
   }
   rpc NamespaceExists(NamespaceExistsRequest) returns (NamespaceExistsResponse) {
     option (op_type) = {
       op: ACCESSOR
-      scope_level: STORAGE,
+      target_storage_field: "1"
+      scope_level: STORAGE
     };
   }
 }

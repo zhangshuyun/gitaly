@@ -21,18 +21,9 @@ const (
 func reflectFindRepoTarget(pbMsg proto.Message, targetOID []int) (*gitalypb.Repository, error) {
 	var targetRepo *gitalypb.Repository
 
-	msgV := reflect.ValueOf(pbMsg)
-
-	for _, fieldNo := range targetOID {
-		var err error
-
-		msgV, err = findProtoField(msgV, fieldNo)
-		if err != nil {
-			return nil, fmt.Errorf(
-				"unable to descend OID %+v into message %s: %s",
-				targetOID, proto.MessageName(pbMsg), err,
-			)
-		}
+	msgV, err := traverseProtoMessage(pbMsg, targetOID)
+	if err != nil {
+		return nil, err
 	}
 
 	targetRepo, ok := msgV.Interface().(*gitalypb.Repository)
@@ -41,6 +32,40 @@ func reflectFindRepoTarget(pbMsg proto.Message, targetOID []int) (*gitalypb.Repo
 	}
 
 	return targetRepo, nil
+}
+
+// reflectFindStringTarget finds the target string field by using the OID to
+// navigate the struct tags
+func reflectFindStringTarget(pbMsg proto.Message, targetOID []int) (string, error) {
+	var targetStorage string
+
+	msgV, err := traverseProtoMessage(pbMsg, targetOID)
+	if err != nil {
+		return "", err
+	}
+
+	targetStorage, ok := msgV.Interface().(string)
+	if !ok {
+		return "", fmt.Errorf("storage target OID 1 points to non-storage type %+v", msgV.Interface())
+	}
+
+	return targetStorage, nil
+}
+
+func traverseProtoMessage(pbMsg proto.Message, targetOID []int) (reflect.Value, error) {
+
+	msgV := reflect.ValueOf(pbMsg)
+
+	for _, fieldNo := range targetOID {
+		var err error
+
+		msgV, err = findProtoField(msgV, fieldNo)
+		if err != nil {
+			return reflect.Value{}, err
+		}
+	}
+
+	return msgV, nil
 }
 
 // matches a tag string like "bytes,1,opt,name=repository,proto3"
