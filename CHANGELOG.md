@@ -1,5 +1,11 @@
 # Gitaly changelog
 
+## v1.59.2
+
+#### Fixed
+- Validate commitIDs parameter for get_commit_signatures RPC
+  https://gitlab.com/gitlab-org/gitaly/merge_requests/1428
+
 ## v1.59.1
 
 #### Security
