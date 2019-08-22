@@ -188,6 +188,37 @@ func TestFetchRemoteOverHTTP(t *testing.T) {
 	}
 }
 
+func TestFetchRemoteOverHTTPWithRedirect(t *testing.T) {
+	server, serverSocketPath := runRepoServer(t)
+	defer server.Stop()
+
+	client, conn := newRepositoryClient(t, serverSocketPath)
+	defer conn.Close()
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	testRepo, _, cleanup := testhelper.NewTestRepo(t)
+	defer cleanup()
+
+	s := httptest.NewServer(
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			require.Equal(t, "/info/refs?service=git-upload-pack", r.URL.String())
+			http.Redirect(w, r, "/redirect_url", http.StatusSeeOther)
+		}),
+	)
+
+	req := &gitalypb.FetchRemoteRequest{
+		Repository:   testRepo,
+		RemoteParams: &gitalypb.Remote{Url: s.URL, Name: "geo"},
+		Timeout:      1000,
+	}
+
+	_, err := client.FetchRemote(ctx, req)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "The requested URL returned error: 303")
+}
+
 func TestFetchRemoteOverHTTPError(t *testing.T) {
 	server, serverSocketPath := runRepoServer(t)
 	defer server.Stop()

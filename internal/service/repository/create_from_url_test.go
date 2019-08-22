@@ -104,3 +104,34 @@ func TestFailedCreateRepositoryFromURLRequestDueToExistingTarget(t *testing.T) {
 		})
 	}
 }
+
+func TestPreventingRedirect(t *testing.T) {
+	server, serverSocketPath := runRepoServer(t)
+	defer server.Stop()
+
+	client, conn := newRepositoryClient(t, serverSocketPath)
+	defer conn.Close()
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	importedRepo := &gitalypb.Repository{
+		RelativePath: "imports/test-repo-imported.git",
+		StorageName:  testhelper.DefaultStorageName,
+	}
+
+	httpServerState, redirectingServer := StartRedirectingTestServer()
+	defer redirectingServer.Close()
+
+	req := &gitalypb.CreateRepositoryFromURLRequest{
+		Repository: importedRepo,
+		Url:        redirectingServer.URL,
+	}
+
+	_, err := client.CreateRepositoryFromURL(ctx, req)
+
+	require.True(t, httpServerState.serverVisited, "git command should make the initial HTTP request")
+	require.False(t, httpServerState.serverVisitedAfterRedirect, "git command should not follow HTTP redirection")
+
+	require.Error(t, err)
+}
