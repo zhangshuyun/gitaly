@@ -1,5 +1,0 @@
----
-title: Add http.followRedirects directive to `git fetch` command
-merge_request:
-author:
-type: security
