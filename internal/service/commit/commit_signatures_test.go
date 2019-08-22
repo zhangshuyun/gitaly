@@ -105,6 +105,14 @@ func TestFailedGetCommitSignaturesRequest(t *testing.T) {
 			},
 			code: codes.InvalidArgument,
 		},
+		{
+			desc: "commitIDS with shorthand sha",
+			request: &gitalypb.GetCommitSignaturesRequest{
+				Repository: testRepo,
+				CommitIds:  []string{"5937ac0a7beb003549fc5fd26fc247adbce4a52e", "a17a9f6"},
+			},
+			code: codes.InvalidArgument,
+		},
 	}
 
 	for _, testCase := range testCases {
