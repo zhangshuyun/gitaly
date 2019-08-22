@@ -120,7 +120,7 @@ module Gitlab
       private
 
       def fetch_remote_command(name, tags, prune, force)
-        %W(#{Gitlab.config.git.bin_path} fetch #{name} --quiet).tap do |cmd|
+        %W(#{Gitlab.config.git.bin_path} -c http.followRedirects=false fetch #{name} --quiet).tap do |cmd|
           cmd << '--prune' if prune
           cmd << '--force' if force
           cmd << (tags ? '--tags' : '--no-tags')
