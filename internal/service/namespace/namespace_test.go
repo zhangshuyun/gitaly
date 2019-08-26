@@ -297,3 +297,73 @@ func TestRenameNamespace(t *testing.T) {
 		})
 	}
 }
+
+func TestRenameNamespaceWithNonexistentParentDir(t *testing.T) {
+	server, serverSocketPath := runNamespaceServer(t)
+	defer server.Stop()
+
+	client, conn := newNamespaceClient(t, serverSocketPath)
+	defer conn.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	_, err := client.AddNamespace(ctx, &gitalypb.AddNamespaceRequest{
+		StorageName: "default",
+		Name:        "existing",
+	})
+	require.NoError(t, err)
+
+	testCases := []struct {
+		desc      string
+		request   *gitalypb.RenameNamespaceRequest
+		errorCode codes.Code
+	}{
+		{
+			desc: "existing source, non existing target directory",
+			request: &gitalypb.RenameNamespaceRequest{
+				From:        "existing",
+				To:          "some/other/new-path",
+				StorageName: "default",
+			},
+			errorCode: codes.OK,
+		},
+		{
+			desc: "path traversal in source",
+			request: &gitalypb.RenameNamespaceRequest{
+				From:        "../some/traversed/path",
+				To:          "some/other/new-path",
+				StorageName: "default",
+			},
+			errorCode: codes.InvalidArgument,
+		},
+		{
+			desc: "path traversal in destination",
+			request: &gitalypb.RenameNamespaceRequest{
+				From:        "existing",
+				To:          "../some/traversed/path",
+				StorageName: "default",
+			},
+			errorCode: codes.InvalidArgument,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+
+			_, err = client.RenameNamespace(ctx, &gitalypb.RenameNamespaceRequest{
+				From:        "existing",
+				To:          "some/other/new-path",
+				StorageName: "default"})
+			require.Equal(t, tc.errorCode, helper.GrpcCode(err))
+
+			if tc.errorCode == codes.OK {
+				storagePath, err := helper.GetStorageByName(tc.request.StorageName)
+				require.NoError(t, err)
+
+				path := namespacePath(storagePath, tc.request.GetTo())
+				require.NoError(t, os.RemoveAll(path))
+			}
+		})
+	}
+}

@@ -2,8 +2,11 @@ package namespace
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"os"
 	"path"
+	"path/filepath"
 
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -52,26 +55,49 @@ func (s *server) AddNamespace(ctx context.Context, in *gitalypb.AddNamespaceRequ
 	return &gitalypb.AddNamespaceResponse{}, nil
 }
 
-func (s *server) RenameNamespace(ctx context.Context, in *gitalypb.RenameNamespaceRequest) (*gitalypb.RenameNamespaceResponse, error) {
-	storagePath, err := helper.GetStorageByName(in.GetStorageName())
-	if err != nil {
-		return nil, err
+func (s *server) validateRenameNamespaceRequest(ctx context.Context, in *gitalypb.RenameNamespaceRequest) error {
+	if in.GetFrom() == "" || in.GetTo() == "" {
+		return errors.New("from and to cannot be empty")
 	}
 
-	if in.GetFrom() == "" || in.GetTo() == "" {
-		return nil, status.Errorf(codes.InvalidArgument, "from and to cannot be empty")
+	if helper.ContainsPathTraversal(in.To) {
+		return errors.New("destination cannot contain path traversal")
+	}
+
+	if helper.ContainsPathTraversal(in.From) {
+		return errors.New("source cannot contain path traversal")
 	}
 
 	// No need to check if the from path exists, if it doesn't, we'd later get an
 	// os.LinkError
 	toExistsCheck := &gitalypb.NamespaceExistsRequest{StorageName: in.StorageName, Name: in.GetTo()}
 	if exists, err := s.NamespaceExists(ctx, toExistsCheck); err != nil {
-		return nil, err
+		return err
 	} else if exists.Exists {
-		return nil, status.Errorf(codes.InvalidArgument, "to directory %s already exists", in.GetTo())
+		return fmt.Errorf("to directory %s already exists", in.GetTo())
 	}
 
-	err = os.Rename(namespacePath(storagePath, in.GetFrom()), namespacePath(storagePath, in.GetTo()))
+	return nil
+}
+
+func (s *server) RenameNamespace(ctx context.Context, in *gitalypb.RenameNamespaceRequest) (*gitalypb.RenameNamespaceResponse, error) {
+	if err := s.validateRenameNamespaceRequest(ctx, in); err != nil {
+		return nil, helper.ErrInvalidArgument(err)
+	}
+
+	storagePath, err := helper.GetStorageByName(in.GetStorageName())
+	if err != nil {
+		return nil, err
+	}
+
+	targetPath := namespacePath(storagePath, in.GetTo())
+
+	// Create the parent directory.
+	if err = os.MkdirAll(filepath.Dir(targetPath), 0775); err != nil {
+		return nil, helper.ErrInternalf("create directory: %v", err)
+	}
+
+	err = os.Rename(namespacePath(storagePath, in.GetFrom()), targetPath)
 	if _, ok := err.(*os.LinkError); ok {
 		return nil, status.Errorf(codes.InvalidArgument, "from directory %s not found", in.GetFrom())
 	} else if err != nil {
