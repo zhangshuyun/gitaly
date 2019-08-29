@@ -42,10 +42,8 @@ func TestFetchFromOriginRemoveDanglingRefs(t *testing.T) {
 	}
 	require.Len(t, listDanglingRefs(t, pool), 3, "test setup sanity check")
 
-	require.NoError(t, pool.FetchFromOrigin(ctx, source), "second fetch")
+	require.NoError(t, pool.FetchFromOrigin(ctx, source), "second fetch (should remove dangling refs)")
 
-	// We expect this second run to remove all refs under refs/dangling
-	require.NoError(t, pool.FetchFromOrigin(ctx, source), "second fetch")
 	require.Empty(t, listDanglingRefs(t, pool), "dangling refs should be gone")
 }
 
