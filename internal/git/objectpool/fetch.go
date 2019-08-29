@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
@@ -75,7 +74,7 @@ func (o *ObjectPool) FetchFromOrigin(ctx context.Context, origin *gitalypb.Repos
 		return err
 	}
 
-	if err := rescueDanglingObjects(ctx, o); err != nil {
+	if err := removeDanglingRefs(ctx, o); err != nil {
 		return err
 	}
 
@@ -92,16 +91,13 @@ func (o *ObjectPool) FetchFromOrigin(ctx context.Context, origin *gitalypb.Repos
 
 const danglingObjectNamespace = "refs/dangling"
 
-// rescueDanglingObjects creates refs for all dangling objects if finds
-// with `git fsck`, which converts those objects from "dangling" to
-// "not-dangling". This guards against any object ever being deleted from
-// a pool repository. This is a defense in depth against accidental use
-// of `git prune`, which could remove Git objects that a pool member
-// relies on. There is currently no way for us to reliably determine if
-// an object is still used anywhere, so the only safe thing to do is to
-// assume that every object _is_ used.
-func rescueDanglingObjects(ctx context.Context, repo repository.GitRepo) error {
-	fsck, err := git.Command(ctx, repo, "fsck", "--connectivity-only", "--dangling")
+// In https://gitlab.com/gitlab-org/gitaly/merge_requests/1297 we
+// introduced a mechanism to protect dangling objects in a pool from
+// being removed by a manual 'git prune' command. It turned out that
+// created way too many refs, so now we want to make sure no such refs
+// are left behind.
+func removeDanglingRefs(ctx context.Context, repo repository.GitRepo) error {
+	forEachRef, err := git.Command(ctx, repo, "for-each-ref", "--format=%(refname)", danglingObjectNamespace)
 	if err != nil {
 		return err
 	}
@@ -111,19 +107,9 @@ func rescueDanglingObjects(ctx context.Context, repo repository.GitRepo) error {
 		return err
 	}
 
-	scanner := bufio.NewScanner(fsck)
+	scanner := bufio.NewScanner(forEachRef)
 	for scanner.Scan() {
-		split := strings.SplitN(scanner.Text(), " ", 3)
-		if len(split) != 3 {
-			continue
-		}
-
-		if split[0] != "dangling" {
-			continue
-		}
-
-		ref := danglingObjectNamespace + "/" + split[2]
-		if err := updater.Create(ref, split[2]); err != nil {
+		if err := updater.Delete(scanner.Text()); err != nil {
 			return err
 		}
 	}
@@ -132,8 +118,8 @@ func rescueDanglingObjects(ctx context.Context, repo repository.GitRepo) error {
 		return err
 	}
 
-	if err := fsck.Wait(); err != nil {
-		return fmt.Errorf("git fsck: %v", err)
+	if err := forEachRef.Wait(); err != nil {
+		return fmt.Errorf("git for-each-ref: %v", err)
 	}
 
 	return updater.Wait()
