@@ -101,19 +101,8 @@ func TestFetchFromOriginKeepUnreachableObjects(t *testing.T) {
 		require.Contains(t, fsckBeforeLines, l, "test setup sanity check")
 	}
 
-	unreachableObjectsExist := func(msg string) {
-		for _, oid := range []string{newBlob, newTree, newCommit, newTag} {
-			check := exec.Command("git", "cat-file", "-e", oid)
-			check.Dir = pool.FullPath()
-			require.NoError(t, check.Run(), "%s: object %s must still exist", msg, oid)
-		}
-	}
-
-	unreachableObjectsExist("setup, before repack")
-
 	// Make sure dangling objects are not loose
 	testhelper.MustRunCommand(t, nil, "git", append(baseArgs, "repack", "-adk")...)
-	unreachableObjectsExist("setup, after repack")
 
 	objectsDir := filepath.Join(pool.FullPath(), "objects")
 	packRegex, err := regexp.Compile("^" + filepath.Join(objectsDir, "pack/pack-"))
@@ -127,6 +116,16 @@ func TestFetchFromOriginKeepUnreachableObjects(t *testing.T) {
 
 		require.Regexp(t, packRegex, f, "expect only packfiles")
 	}
+
+	unreachableObjectsExist := func(msg string) {
+		for _, oid := range []string{newBlob, newTree, newCommit, newTag} {
+			check := exec.Command("git", "cat-file", "-e", oid)
+			check.Dir = pool.FullPath()
+			require.NoError(t, check.Run(), "%s: object %s must still exist", msg, oid)
+		}
+	}
+
+	unreachableObjectsExist("verify test setup")
 
 	// Call function twice in case ordering effects hide deletion
 	for i := 0; i < 2; i++ {
