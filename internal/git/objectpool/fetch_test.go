@@ -90,6 +90,17 @@ func TestFetchFromOriginKeepUnreachableObjects(t *testing.T) {
 	// Deleting the ref should fix that.
 	testhelper.MustRunCommand(t, nil, "git", append(baseArgs, "update-ref", "-d", "refs/tags/"+newTagName)...)
 
+	fsckBefore := testhelper.MustRunCommand(t, nil, "git", append(baseArgs, "fsck", "--connectivity-only", "--dangling")...)
+	fsckBeforeLines := strings.Split(string(fsckBefore), "\n")
+	for _, l := range []string{
+		fmt.Sprintf("dangling blob %s", newBlob),
+		fmt.Sprintf("dangling tree %s", newTree),
+		fmt.Sprintf("dangling commit %s", newCommit),
+		fmt.Sprintf("dangling tag %s", newTag),
+	} {
+		require.Contains(t, fsckBeforeLines, l, "test setup sanity check")
+	}
+
 	unreachableObjectsExist := func(msg string) {
 		for _, oid := range []string{newBlob, newTree, newCommit, newTag} {
 			check := exec.Command("git", "cat-file", "-e", oid)
