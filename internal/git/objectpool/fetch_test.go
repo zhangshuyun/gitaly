@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -114,8 +115,20 @@ func TestFetchFromOriginKeepUnreachableObjects(t *testing.T) {
 
 	// Make sure dangling objects are not loose
 	testhelper.MustRunCommand(t, nil, "git", append(baseArgs, "repack", "-adk")...)
-
 	unreachableObjectsExist("setup, after repack")
+
+	objectsDir := filepath.Join(pool.FullPath(), "objects")
+	packRegex, err := regexp.Compile("^" + filepath.Join(objectsDir, "pack/pack-"))
+	require.NoError(t, err)
+
+	findOut := text.ChompBytes(testhelper.MustRunCommand(t, nil, "find", objectsDir, "-type", "f"))
+	for _, f := range strings.Split(findOut, "\n") {
+		if strings.Contains(f, "/info/") {
+			continue
+		}
+
+		require.Regexp(t, packRegex, f, "expect only packfiles")
+	}
 
 	// Call function twice in case ordering effects hide deletion
 	for i := 0; i < 2; i++ {
