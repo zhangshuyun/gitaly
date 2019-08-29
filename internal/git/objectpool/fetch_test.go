@@ -92,6 +92,7 @@ func TestFetchFromOriginKeepUnreachableObjects(t *testing.T) {
 
 	fsckBefore := testhelper.MustRunCommand(t, nil, "git", append(baseArgs, "fsck", "--connectivity-only", "--dangling")...)
 	fsckBeforeLines := strings.Split(string(fsckBefore), "\n")
+
 	for _, l := range []string{
 		fmt.Sprintf("dangling blob %s", newBlob),
 		fmt.Sprintf("dangling tree %s", newTree),
