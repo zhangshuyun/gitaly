@@ -70,6 +70,7 @@ func TestFetchFromOriginKeepUnreachableObjects(t *testing.T) {
 	// A blob with random contents should be unique.
 	newBlobArgs := append(baseArgs, "hash-object", "-t", "blob", "-w", "--stdin")
 	newBlob := text.ChompBytes(testhelper.MustRunCommand(t, strings.NewReader(nonce), "git", newBlobArgs...))
+
 	// A tree with a randomly named blob entry should be unique.
 	newTreeArgs := append(baseArgs, "mktree")
 	newTreeStdin := strings.NewReader(fmt.Sprintf("100644 blob %s	%s\n", existingBlob, nonce))
