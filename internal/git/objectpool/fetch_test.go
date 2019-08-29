@@ -43,8 +43,7 @@ func TestFetchFromOriginRemoveDanglingRefs(t *testing.T) {
 
 	require.NoError(t, pool.FetchFromOrigin(ctx, source), "second fetch")
 
-	// We expect this second run to convert the dangling objects into
-	// non-dangling objects.
+	// We expect this second run to remove all refs under refs/dangling
 	require.NoError(t, pool.FetchFromOrigin(ctx, source), "second fetch")
 	require.Empty(t, listDanglingRefs(t, pool), "dangling refs should be gone")
 }
