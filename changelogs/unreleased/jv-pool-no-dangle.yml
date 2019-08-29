@@ -2,4 +2,4 @@
 title: 'FetchIntoObjectPool: stop creating dangling refs, and remove existing'
 merge_request: 1459
 author:
-type: bug
+type: fixed
