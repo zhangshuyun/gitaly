@@ -5,7 +5,6 @@ import (
 	"io/ioutil"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"testing"
 
@@ -105,16 +104,16 @@ func TestFetchFromOriginKeepUnreachableObjects(t *testing.T) {
 	testhelper.MustRunCommand(t, nil, "git", append(baseArgs, "repack", "-adk")...)
 
 	objectsDir := filepath.Join(pool.FullPath(), "objects")
-	packRegex, err := regexp.Compile("^" + filepath.Join(objectsDir, "pack/pack-"))
-	require.NoError(t, err)
+	packPrefix := filepath.Join(objectsDir, "pack/pack-")
+	infoPrefix := filepath.Join(objectsDir, "info")
 
 	findOut := text.ChompBytes(testhelper.MustRunCommand(t, nil, "find", objectsDir, "-type", "f"))
 	for _, f := range strings.Split(findOut, "\n") {
-		if strings.Contains(f, "/info/") {
+		if strings.HasPrefix(f, packPrefix) || strings.HasPrefix(f, infoPrefix) {
 			continue
 		}
 
-		require.Regexp(t, packRegex, f, "expect only packfiles")
+		t.Fatalf("%s does not look like a packfile or info file", f)
 	}
 
 	unreachableObjectsExist := func(msg string) {
