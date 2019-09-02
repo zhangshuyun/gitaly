@@ -135,3 +135,32 @@ func TestPreventingRedirect(t *testing.T) {
 
 	require.Error(t, err)
 }
+
+func TestAddingGitSuffix(t *testing.T) {
+	server, serverSocketPath := runRepoServer(t)
+	defer server.Stop()
+
+	client, conn := newRepositoryClient(t, serverSocketPath)
+	defer conn.Close()
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	importedRepo := &gitalypb.Repository{
+		RelativePath: "imports/test-repo-import",
+		StorageName:  testhelper.DefaultStorageName,
+	}
+
+	httpServerState, redirectingServer := StartRedirectingTestServer()
+	defer redirectingServer.Close()
+
+	req := &gitalypb.CreateRepositoryFromURLRequest{
+		Repository: importedRepo,
+		Url:        redirectingServer.URL + "/repo",
+	}
+
+	_, err := client.CreateRepositoryFromURL(ctx, req)
+
+	require.Error(t, err)
+	require.Equal(t, httpServerState.requestedPaths, []string{"/repo/info/refs", "/repo.git/info/refs"})
+}

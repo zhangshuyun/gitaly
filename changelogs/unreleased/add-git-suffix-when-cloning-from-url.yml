@@ -1,0 +1,5 @@
+---
+title: Try adding .git suffix to the URL when cloning from remote fails
+merge_request: 1467
+author:
+type: changed

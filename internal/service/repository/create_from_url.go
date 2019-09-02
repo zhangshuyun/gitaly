@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
@@ -28,22 +29,14 @@ func (s *server) CreateRepositoryFromURL(ctx context.Context, req *gitalypb.Crea
 		return nil, status.Errorf(codes.InvalidArgument, "CreateRepositoryFromURL: dest dir exists")
 	}
 
-	args := []string{
-		"-c",
-		"http.followRedirects=false",
-		"clone",
-		"--bare",
-		"--",
-		req.Url,
-		repositoryFullPath,
-	}
-	cmd, err := git.CommandWithoutRepo(ctx, args...)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "CreateRepositoryFromURL: clone cmd start: %v", err)
-	}
-	if err := cmd.Wait(); err != nil {
-		os.RemoveAll(repositoryFullPath)
-		return nil, status.Errorf(codes.Internal, "CreateRepositoryFromURL: clone cmd wait: %v", err)
+	if _, err = cloneRepositoryFromURL(ctx, req.Url, repositoryFullPath); err != nil {
+		if !strings.HasSuffix(strings.ToLower(req.Url), ".git") {
+			if _, err = cloneRepositoryFromURL(ctx, req.Url+".git", repositoryFullPath); err != nil {
+				return cloneErrorMessage(err)
+			}
+		} else {
+			return cloneErrorMessage(err)
+		}
 	}
 
 	// CreateRepository is harmless on existing repositories with the side effect that it creates the hook symlink.
@@ -68,4 +61,31 @@ func validateCreateRepositoryFromURLRequest(req *gitalypb.CreateRepositoryFromUR
 	}
 
 	return nil
+}
+
+func cloneRepositoryFromURL(ctx context.Context, url string, repositoryFullPath string) (*gitalypb.CreateRepositoryFromURLResponse, error) {
+	args := []string{
+		"-c",
+		"http.followRedirects=false",
+		"clone",
+		"--bare",
+		"--",
+		url,
+		repositoryFullPath,
+	}
+
+	cmd, err := git.CommandWithoutRepo(ctx, args...)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "CreateRepositoryFromURL: clone cmd start: %v", err)
+	}
+
+	if err := cmd.Wait(); err != nil {
+		os.RemoveAll(repositoryFullPath)
+		return nil, status.Errorf(codes.Internal, "CreateRepositoryFromURL: clone cmd wait: %v", err)
+	}
+	return &gitalypb.CreateRepositoryFromURLResponse{}, nil
+}
+
+func cloneErrorMessage(err error) (*gitalypb.CreateRepositoryFromURLResponse, error) {
+	return nil, status.Errorf(codes.Internal, "CreateRepositoryFromURL: clone failed: %v", err)
 }

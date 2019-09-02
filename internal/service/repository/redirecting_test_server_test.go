@@ -18,6 +18,7 @@ const redirectURL = "/redirect_url"
 type RedirectingTestServerState struct {
 	serverVisited              bool
 	serverVisitedAfterRedirect bool
+	requestedPaths             []string
 }
 
 // StartRedirectingTestServer starts the test server with initial state
@@ -25,6 +26,7 @@ func StartRedirectingTestServer() (*RedirectingTestServerState, *httptest.Server
 	state := &RedirectingTestServerState{}
 	server := httptest.NewServer(
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			state.requestedPaths = append(state.requestedPaths, r.URL.Path)
 			if r.URL.Path == redirectURL {
 				state.serverVisitedAfterRedirect = true
 			} else {
