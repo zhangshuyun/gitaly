@@ -1,16 +1,13 @@
 package commit
 
 import (
-	"context"
 	"io"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/metadata"
 )
 
 func TestSuccessfulGetCommitSignaturesRequest(t *testing.T) {
@@ -55,23 +52,11 @@ func TestSuccessfulGetCommitSignaturesRequest(t *testing.T) {
 		},
 	}
 
-	flagDisabled := metadata.New(map[string]string{featureflag.HeaderKey(getCommitSignaturesFeatureFlag): "false"})
-	ctxWithFlagDisabled := metadata.NewOutgoingContext(ctx, flagDisabled)
+	c, err := client.GetCommitSignatures(ctx, request)
+	require.NoError(t, err)
+	fetchedSignatures := readAllSignaturesFromClient(t, c)
 
-	flagEnabled := metadata.New(map[string]string{featureflag.HeaderKey(getCommitSignaturesFeatureFlag): "true"})
-	ctxWithFlagEnabled := metadata.NewOutgoingContext(ctx, flagEnabled)
-
-	// Test contexts with feature flag nil, enabled and disabled
-	testContexts := []context.Context{ctx, ctxWithFlagEnabled, ctxWithFlagDisabled}
-
-	for _, context := range testContexts {
-		c, err := client.GetCommitSignatures(context, request)
-		require.NoError(t, err)
-
-		fetchedSignatures := readAllSignaturesFromClient(t, c)
-
-		require.Equal(t, expectedSignautes, fetchedSignatures)
-	}
+	require.Equal(t, expectedSignautes, fetchedSignatures)
 }
 
 func TestFailedGetCommitSignaturesRequest(t *testing.T) {

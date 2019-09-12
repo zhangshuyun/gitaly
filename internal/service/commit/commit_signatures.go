@@ -10,15 +10,12 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/streamio"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
-
-const getCommitSignaturesFeatureFlag = "get-commit-signatures"
 
 var gpgSiganturePrefix = []byte("gpgsig")
 
@@ -27,11 +24,7 @@ func (s *server) GetCommitSignatures(request *gitalypb.GetCommitSignaturesReques
 		return status.Errorf(codes.InvalidArgument, "GetCommitSignatures: %v", err)
 	}
 
-	if featureflag.IsEnabled(stream.Context(), getCommitSignaturesFeatureFlag) {
-		return getCommitSignatures(s, request, stream)
-	}
-
-	return rubyGetCommitSignatures(s, request, stream)
+	return getCommitSignatures(s, request, stream)
 }
 
 func getCommitSignatures(s *server, request *gitalypb.GetCommitSignaturesRequest, stream gitalypb.CommitService_GetCommitSignaturesServer) error {
