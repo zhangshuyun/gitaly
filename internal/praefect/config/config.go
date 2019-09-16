@@ -12,13 +12,27 @@ import (
 
 // Config is a container for everything found in the TOML config file
 type Config struct {
-	ListenAddr string `toml:"listen_addr"`
-	SocketPath string `toml:"socket_path"`
+	ListenAddr    string `toml:"listen_addr"`
+	TLSListenAddr string `toml:"tls_listen_addr"`
+	SocketPath    string `toml:"socket_path"`
 
 	Nodes []*models.Node `toml:"node"`
 
 	Logging              config.Logging `toml:"logging"`
 	PrometheusListenAddr string         `toml:"prometheus_listen_addr"`
+	Auth                 Auth           `toml:"auth"`
+	TLS                  TLS            `toml:"tls"`
+}
+
+// TLS contains details about the tls configuration
+type TLS struct {
+	CertificatePath string `toml:"certificate_path"`
+	KeyPath         string `toml:"key_path"`
+}
+
+// Auth contains details about the authentication configuration
+type Auth struct {
+	Token string `toml:"token"`
 }
 
 // FromFile loads the config for the passed file path

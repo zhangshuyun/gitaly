@@ -7,7 +7,8 @@ listen_addr = "127.0.0.1:2305"
 # socket_path = "/home/git/gitlab/tmp/sockets/private/praefect.socket"
 # # Optional: export metrics via Prometheus
 # prometheus_listen_addr = "127.0.01:10101"
-
+# listen_addr = "127.0.0.1:9999"
+# tls_listen_addr = "127.0.0.1:8888"
 # # You can optionally configure Praefect to output JSON-formatted log messages to stdout
 # [logging]
 #   format = "json"
@@ -15,7 +16,13 @@ listen_addr = "127.0.0.1:2305"
 # # One of, in order: debug, info, warn, errror, fatal, panic
 # # Defaults to "info"
 #   level = "warn"
-
+# [tls]
+#   certificate_path = '/home/git/cert.cert'
+#   key_path = '/home/git/key.pem'
+#
+# [auth]
+#   token = 'abc123secret'
+#
 # # One or more Gitaly servers need to be configured to be managed. The names
 # of each server are used to link multiple nodes, or `gitaly_server`s together
 # as shard. listen_addr should be unique for all nodes.
@@ -25,11 +32,15 @@ listen_addr = "127.0.0.1:2305"
   storage = "praefect-git-0"
   address = "tcp://praefect-git-0.internal"
   primary = true
+  token = 'token1'
 
 [[node]]
   storage = "praefect-git-1"
   address = "tcp://praefect-git-1.internal"
+  token = 'token2'
 
 [[node]]
   storage = "praefect-git-2"
   address = "tcp://praefect-git-2.internal"
+  token = 'token3'
+

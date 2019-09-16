@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"flag"
 	"fmt"
@@ -15,6 +16,9 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 
 	"gitlab.com/gitlab-org/gitaly/internal/log"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect"
@@ -45,7 +49,7 @@ func main() {
 		logger.Fatal(err)
 	}
 
-	listeners, err := getListeners(conf.SocketPath, conf.ListenAddr)
+	listeners, err := getInsecureListeners(conf.SocketPath, conf.ListenAddr)
 	if err != nil {
 		logger.Fatalf("%s", err)
 	}
@@ -106,8 +110,27 @@ func run(listeners []net.Listener, conf config.Config) error {
 
 	signal.Notify(termCh, signals...)
 
+	servers := []*praefect.Server{srv}
+
 	for _, l := range listeners {
 		go func(lis net.Listener) { serverErrors <- srv.Start(lis) }(l)
+	}
+
+	if conf.TLSListenAddr != "" {
+		cert, err := tls.LoadX509KeyPair(conf.TLS.CertificatePath, conf.TLS.KeyPath)
+		if err != nil {
+			logger.Fatal(err)
+		}
+
+		secureSrv := praefect.NewServer(coordinator, repl, []grpc.ServerOption{grpc.Creds(credentials.NewServerTLSFromCert(&cert))}, logger)
+
+		secureListener, err := getSecureListener(conf.TLSListenAddr)
+		if err != nil {
+			logger.Fatal(err)
+		}
+		go func() { serverErrors <- secureSrv.Start(secureListener) }()
+
+		servers = append(servers, secureSrv)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -131,9 +154,22 @@ func run(listeners []net.Listener, conf config.Config) error {
 		cancel() // cancels the replicator job processing
 
 		ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
-		if shutdownErr := srv.Shutdown(ctx); shutdownErr != nil {
-			logger.Warnf("error received during shutting down: %v", shutdownErr)
-			return shutdownErr
+
+		g, ctx := errgroup.WithContext(ctx)
+
+		for _, srv := range servers {
+			g.Go(func() error {
+				if shutdownErr := srv.Shutdown(ctx); shutdownErr != nil {
+					logger.Warnf("error received during shutting down: %v", shutdownErr)
+					return shutdownErr
+				}
+
+				return nil
+			})
+		}
+
+		if err := g.Wait(); err != nil {
+			return err
 		}
 	case err := <-serverErrors:
 		return err
@@ -142,7 +178,7 @@ func run(listeners []net.Listener, conf config.Config) error {
 	return nil
 }
 
-func getListeners(socketPath, listenAddr string) ([]net.Listener, error) {
+func getInsecureListeners(socketPath, listenAddr string) ([]net.Listener, error) {
 	var listeners []net.Listener
 
 	if socketPath != "" {
@@ -172,6 +208,20 @@ func getListeners(socketPath, listenAddr string) ([]net.Listener, error) {
 	}
 
 	return listeners, nil
+}
+
+func getSecureListener(tlsListenAddr string) (net.Listener, error) {
+	if tlsListenAddr != "" {
+		l, err := net.Listen("tcp", tlsListenAddr)
+		if err != nil {
+			return nil, err
+		}
+
+		logger.WithField("address", tlsListenAddr).Info("listening at tcp address")
+		return l, nil
+	}
+
+	return nil, errors.New("listen address empty")
 }
 
 // registerServerVersionPromGauge registers a label with the current server version
