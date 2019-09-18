@@ -58,7 +58,7 @@ type key struct {
 
 type entry struct {
 	key
-	value  *Batch
+	value  *batchCore
 	expiry time.Time
 }
 
@@ -105,7 +105,7 @@ func (bc *batchCache) monitor(refreshInterval time.Duration) {
 
 // Add adds a key, value pair to bc. If there are too many keys in bc
 // already Add will evict old keys until the length is OK again.
-func (bc *batchCache) Add(k key, b *Batch) {
+func (bc *batchCache) Add(k key, core *batchCore) {
 	bc.Lock()
 	defer bc.Unlock()
 
@@ -114,7 +114,7 @@ func (bc *batchCache) Add(k key, b *Batch) {
 		bc.delete(i, true)
 	}
 
-	ent := &entry{key: k, value: b, expiry: time.Now().Add(bc.ttl)}
+	ent := &entry{key: k, value: core, expiry: time.Now().Add(bc.ttl)}
 	bc.entries = append(bc.entries, ent)
 
 	for bc.len() > bc.maxLen {
@@ -129,7 +129,7 @@ func (bc *batchCache) evictHead()   { bc.delete(0, true) }
 func (bc *batchCache) len() int     { return len(bc.entries) }
 
 // Checkout removes a value from bc. After use the caller can re-add the value with bc.Add.
-func (bc *batchCache) Checkout(k key) (*Batch, bool) {
+func (bc *batchCache) Checkout(k key) (*batchCore, bool) {
 	bc.Lock()
 	defer bc.Unlock()
 

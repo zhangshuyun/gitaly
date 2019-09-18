@@ -28,6 +28,8 @@ type batchProcess struct {
 	// instead of doing unsafe memory writes (to n) and failing in some
 	// unpredictable way.
 	sync.Mutex
+
+	token int
 }
 
 func newBatchProcess(ctx context.Context, repoPath string, env []string) (*batchProcess, error) {
@@ -62,7 +64,23 @@ func newBatchProcess(ctx context.Context, repoPath string, env []string) (*batch
 	return b, nil
 }
 
-func (b *batchProcess) reader(revspec string, expectedType string) (io.Reader, error) {
+func (b *batchProcess) setToken(token int) {
+	b.Lock()
+	b.token = token
+	b.Unlock()
+}
+
+func (b *batchProcess) lockWithToken(token int) (func(), error) {
+	b.Lock()
+	if b.token != token {
+		b.Unlock()
+		return nil, errBatchTokenExpired
+	}
+
+	return b.Unlock, nil
+}
+
+func (b *batchProcess) reader(currentToken int, revspec string, expectedType string) (io.Reader, error) {
 	b.Lock()
 	defer b.Unlock()
 
@@ -103,6 +121,7 @@ func (b *batchProcess) reader(revspec string, expectedType string) (io.Reader, e
 	return &batchReader{
 		batchProcess: b,
 		r:            io.LimitReader(b.r, oi.Size),
+		token:        currentToken,
 	}, nil
 }
 
@@ -122,12 +141,16 @@ func (b *batchProcess) hasUnreadData() bool {
 
 type batchReader struct {
 	*batchProcess
-	r io.Reader
+	r     io.Reader
+	token int
 }
 
 func (br *batchReader) Read(p []byte) (int, error) {
-	br.batchProcess.Lock()
-	defer br.batchProcess.Unlock()
+	unlock, err := br.batchProcess.lockWithToken(br.token)
+	if err != nil {
+		return 0, err
+	}
+	defer unlock()
 
 	n, err := br.r.Read(p)
 	br.batchProcess.consume(n)
