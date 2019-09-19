@@ -217,6 +217,9 @@ func TestSearchFilesByContentFailure(t *testing.T) {
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
 
+	testRepo, _, cleanupRepo := testhelper.NewTestRepo(t)
+	defer cleanupRepo()
+
 	testCases := []struct {
 		desc  string
 		repo  *gitalypb.Repository
@@ -242,6 +245,14 @@ func TestSearchFilesByContentFailure(t *testing.T) {
 			ref:   "master",
 			code:  codes.InvalidArgument,
 			msg:   "empty Repo",
+		},
+		{
+			desc:  "invalid ref argument",
+			repo:  testRepo,
+			query: ".",
+			ref:   "--no-index",
+			code:  codes.InvalidArgument,
+			msg:   "invalid ref argument",
 		},
 	}
 
