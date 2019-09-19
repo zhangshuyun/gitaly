@@ -134,5 +134,9 @@ func validateSearchFilesRequest(req searchFilesRequest) error {
 		return errors.New("no ref given")
 	}
 
+	if bytes.HasPrefix(req.GetRef(), []byte("-")) {
+		return errors.New("invalid ref argument")
+	}
+
 	return nil
 }
