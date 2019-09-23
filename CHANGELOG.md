@@ -1,5 +1,11 @@
 # Gitaly changelog
 
+## v1.47.4
+
+#### Security
+- Backport !39 into 1-47-stable
+  https://dev.gitlab.org/gitlab/gitaly/merge_requests/42
+
 ## v1.47.3
 
 #### Fixed
