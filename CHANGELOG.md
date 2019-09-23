@@ -1,5 +1,11 @@
 # Gitaly changelog
 
+## v1.65.1
+
+#### Security
+- Backport !39 into 1-65-stable
+  https://gitlab.com/gitlab-org/gitaly/merge_requests/
+
 ## v1.65.0
 
 #### Fixed
