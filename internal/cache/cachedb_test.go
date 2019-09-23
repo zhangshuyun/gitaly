@@ -101,9 +101,4 @@ func TestStreamDBNaiveKeyer(t *testing.T) {
 	// only completing/removing the pending generation file will allow access
 	require.NoError(t, repo1Lease.EndLease(ctx))
 	expectGetMiss(req1)
-
-	// creating a lease on a repo that doesn't exist yet should succeed
-	req1.Repository.RelativePath += "-does-not-exist"
-	_, err = keyer.StartLease(req1.Repository)
-	require.NoError(t, err)
 }

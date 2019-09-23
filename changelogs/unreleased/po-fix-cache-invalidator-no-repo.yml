@@ -1,5 +1,0 @@
----
-title: Fix cache invalidator for Create* RPCs and health checks
-merge_request: 1494
-author:
-type: fixed

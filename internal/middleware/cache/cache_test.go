@@ -19,8 +19,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/health"
-	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/metadata"
 )
 
@@ -51,7 +49,7 @@ func TestInvalidators(t *testing.T) {
 
 	svc := &testSvc{}
 
-	cli, cc, cleanup := newTestSvc(t, ctx, srvr, svc)
+	cli, cleanup := newTestSvc(t, ctx, srvr, svc)
 	defer cleanup()
 
 	repo1 := &gitalypb.Repository{
@@ -120,12 +118,6 @@ func TestInvalidators(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// Health checks should NOT trigger cache invalidation
-	hcr := &grpc_health_v1.HealthCheckRequest{Service: "TestService"}
-	_, err = grpc_health_v1.NewHealthClient(cc).Check(ctx, hcr)
-	require.NoError(t, err)
-	require.Equal(t, 0, cache.MethodErrCount.Method["/grpc.health.v1.Health/Check"])
-
 	require.Equal(t, expectedInvalidations, mCache.(*mockCache).invalidatedRepos)
 	require.Equal(t, expectedSvcRequests, svc.repoRequests)
 	require.Equal(t, 3, mCache.(*mockCache).endedLeases.count)
@@ -175,10 +167,7 @@ func streamFileDesc(t testing.TB) *descriptor.FileDescriptorProto {
 	return fdp
 }
 
-func newTestSvc(t testing.TB, ctx context.Context, srvr *grpc.Server, svc testdata.TestServiceServer) (testdata.TestServiceClient, *grpc.ClientConn, func()) {
-	healthSrvr := health.NewServer()
-	grpc_health_v1.RegisterHealthServer(srvr, healthSrvr)
-	healthSrvr.SetServingStatus("TestService", grpc_health_v1.HealthCheckResponse_SERVING)
+func newTestSvc(t testing.TB, ctx context.Context, srvr *grpc.Server, svc testdata.TestServiceServer) (testdata.TestServiceClient, func()) {
 	testdata.RegisterTestServiceServer(srvr, svc)
 
 	lis, err := net.Listen("tcp", ":0")
@@ -203,7 +192,7 @@ func newTestSvc(t testing.TB, ctx context.Context, srvr *grpc.Server, svc testda
 	)
 	require.NoError(t, err)
 
-	return testdata.NewTestServiceClient(cc), cc, cleanup
+	return testdata.NewTestServiceClient(cc), cleanup
 }
 
 type testSvc struct {

@@ -76,7 +76,7 @@ func (l lease) EndLease(ctx context.Context) error {
 }
 
 func updateLatest(repo *gitalypb.Repository) (string, error) {
-	repoPath, err := helper.GetPath(repo)
+	repoPath, err := helper.GetRepoPath(repo)
 	if err != nil {
 		return "", err
 	}
@@ -141,7 +141,7 @@ func (LeaseKeyer) KeyPath(ctx context.Context, repo *gitalypb.Repository, req pr
 		return "", err
 	}
 
-	repoPath, err := helper.GetPath(repo)
+	repoPath, err := helper.GetRepoPath(repo)
 	if err != nil {
 		return "", err
 	}
@@ -190,7 +190,7 @@ func radixPath(root, key string) (string, error) {
 }
 
 func newPendingLease(repo *gitalypb.Repository) (string, error) {
-	repoPath, err := helper.GetPath(repo)
+	repoPath, err := helper.GetRepoPath(repo)
 	if err != nil {
 		return "", err
 	}
@@ -223,7 +223,7 @@ func cacheDir(repo *gitalypb.Repository) (string, error) {
 }
 
 func currentLeases(repo *gitalypb.Repository) ([]os.FileInfo, error) {
-	repoPath, err := helper.GetPath(repo)
+	repoPath, err := helper.GetRepoPath(repo)
 	if err != nil {
 		return nil, err
 	}
@@ -243,7 +243,7 @@ func currentLeases(repo *gitalypb.Repository) ([]os.FileInfo, error) {
 }
 
 func currentGenID(repo *gitalypb.Repository) (string, error) {
-	repoPath, err := helper.GetPath(repo)
+	repoPath, err := helper.GetRepoPath(repo)
 	if err != nil {
 		return "", err
 	}
