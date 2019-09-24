@@ -16,7 +16,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/chunk"
-	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -130,48 +129,17 @@ func init() {
 }
 
 func (s *server) GetAllLFSPointers(in *gitalypb.GetAllLFSPointersRequest, stream gitalypb.BlobService_GetAllLFSPointersServer) error {
-	ctx := stream.Context()
-
 	if err := validateGetLfsPointersByRevisionRequest(in); err != nil {
 		return helper.ErrInvalidArgument(err)
 	}
 
-	if featureflag.IsEnabled(stream.Context(), featureflag.GetAllLFSPointersGo) {
-		getAllLFSPointersRequests.WithLabelValues("go").Inc()
+	getAllLFSPointersRequests.WithLabelValues("go").Inc()
 
-		if err := getAllLFSPointersRubyScript(in.GetRepository(), stream); err != nil {
-			return helper.ErrInternal(err)
-		}
-
-		return nil
+	if err := getAllLFSPointersRubyScript(in.GetRepository(), stream); err != nil {
+		return helper.ErrInternal(err)
 	}
 
-	getAllLFSPointersRequests.WithLabelValues("ruby").Inc()
-
-	client, err := s.BlobServiceClient(ctx)
-	if err != nil {
-		return err
-	}
-
-	clientCtx, err := rubyserver.SetHeaders(ctx, in.GetRepository())
-	if err != nil {
-		return err
-	}
-
-	rubyStream, err := client.GetAllLFSPointers(clientCtx, in)
-	if err != nil {
-		return err
-	}
-
-	return rubyserver.Proxy(func() error {
-		resp, err := rubyStream.Recv()
-		if err != nil {
-			md := rubyStream.Trailer()
-			stream.SetTrailer(md)
-			return err
-		}
-		return stream.Send(resp)
-	})
+	return nil
 }
 
 func validateGetLfsPointersByRevisionRequest(in getLFSPointerByRevisionRequest) error {
