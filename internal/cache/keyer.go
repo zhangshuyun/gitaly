@@ -76,7 +76,7 @@ func (l lease) EndLease(ctx context.Context) error {
 }
 
 func updateLatest(repo *gitalypb.Repository) (string, error) {
-	repoPath, err := helper.GetPath(repo)
+	repoPath, err := getRepoPath(repo)
 	if err != nil {
 		return "", err
 	}
@@ -141,7 +141,7 @@ func (LeaseKeyer) KeyPath(ctx context.Context, repo *gitalypb.Repository, req pr
 		return "", err
 	}
 
-	repoPath, err := helper.GetPath(repo)
+	repoPath, err := getRepoPath(repo)
 	if err != nil {
 		return "", err
 	}
@@ -190,7 +190,7 @@ func radixPath(root, key string) (string, error) {
 }
 
 func newPendingLease(repo *gitalypb.Repository) (string, error) {
-	repoPath, err := helper.GetPath(repo)
+	repoPath, err := getRepoPath(repo)
 	if err != nil {
 		return "", err
 	}
@@ -222,8 +222,30 @@ func cacheDir(repo *gitalypb.Repository) (string, error) {
 	return tempdir.CacheDir(storage), nil
 }
 
+func getRepoPath(repo *gitalypb.Repository) (string, error) {
+	storagePath, err := helper.GetStorageByName(repo.GetStorageName())
+	if err != nil {
+		return "", err
+	}
+
+	if _, err := os.Stat(storagePath); err != nil {
+		return "", fmt.Errorf("getRepoPath: storage path: %v", err)
+	}
+
+	relativePath := repo.GetRelativePath()
+	if len(relativePath) == 0 {
+		return "", fmt.Errorf("getRepoPath: relative path missing from %+v", repo)
+	}
+
+	if helper.ContainsPathTraversal(relativePath) {
+		return "", fmt.Errorf("getRepoPath: relative path can't contain directory traversal")
+	}
+
+	return filepath.Join(storagePath, tempdir.GitalyDataPrefix, relativePath), nil
+}
+
 func currentLeases(repo *gitalypb.Repository) ([]os.FileInfo, error) {
-	repoPath, err := helper.GetPath(repo)
+	repoPath, err := getRepoPath(repo)
 	if err != nil {
 		return nil, err
 	}
@@ -243,7 +265,7 @@ func currentLeases(repo *gitalypb.Repository) ([]os.FileInfo, error) {
 }
 
 func currentGenID(repo *gitalypb.Repository) (string, error) {
-	repoPath, err := helper.GetPath(repo)
+	repoPath, err := getRepoPath(repo)
 	if err != nil {
 		return "", err
 	}
