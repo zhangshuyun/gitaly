@@ -19,8 +19,6 @@ func init() {
 	config.RegisterHook(LoadColors)
 }
 
-var exportedEnvVars = []string{"HOME", "PATH", "GEM_HOME", "BUNDLE_PATH", "BUNDLE_APP_CONFIG"}
-
 var (
 	colorMap = make(map[string]Language)
 )
@@ -106,8 +104,7 @@ func startGitLinguist(ctx context.Context, repoPath string, commitID string, lin
 	cmd := exec.Command("bundle", "exec", "bin/ruby-cd", repoPath, "git-linguist", "--commit="+commitID, linguistCommand)
 	cmd.Dir = config.Config.Ruby.Dir
 
-	var env []string
-	reader, err := command.New(ctx, cmd, nil, nil, nil, exportEnvironment(env)...)
+	reader, err := command.New(ctx, cmd, nil, nil, nil, os.Environ()...)
 	if err != nil {
 		return nil, err
 	}
@@ -153,14 +150,4 @@ func openLanguagesJSON(cfg config.Cfg) (io.ReadCloser, error) {
 	}
 
 	return os.Open(path.Join(linguistPathSymlink.Name(), "lib/linguist/languages.json"))
-}
-
-func exportEnvironment(env []string) []string {
-	for _, envVarName := range exportedEnvVars {
-		if val, ok := os.LookupEnv(envVarName); ok {
-			env = append(env, fmt.Sprintf("%s=%s", envVarName, val))
-		}
-	}
-
-	return env
 }
