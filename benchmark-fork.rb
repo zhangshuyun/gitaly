@@ -3,10 +3,12 @@ require 'socket'
 require 'fileutils'
 
 DEPS = %w[rugged linguist]
-N = 10
-SOCKET = 'fork.socket'
+N = 100
+FORK_SOCKET = 'fork.socket'
+THREAD_SOCKET = 'thread.socket'
+OID_REGEX = /^[a-f0-9]{40}$/
 
-class Server
+class ForkServer
   def run
     DEPS.each { |dep| require(dep) }
 
@@ -20,8 +22,8 @@ class Server
       end
     end
 
-    FileUtils.rm_f(SOCKET)
-    l = Socket.unix_server_socket(SOCKET)
+    FileUtils.rm_f(FORK_SOCKET)
+    l = Socket.unix_server_socket(FORK_SOCKET)
 
     loop do
       conn, _addrinfo = l.accept
@@ -37,15 +39,42 @@ class Server
   end
 end
 
-def main
-  fork { Server.new.run }
+class ThreadServer
+  def run
+    DEPS.each { |dep| require(dep) }
 
-  puts "reps: #{N}"
-  puts
-  Benchmark.bm(7) do |x|
-    x.report('spawn:') { N.times { benchmark_spawn } }
-    x.report('fork:') { N.times { benchmark_fork } }
+    FileUtils.rm_f(THREAD_SOCKET)
+    l = Socket.unix_server_socket(THREAD_SOCKET)
+
+    loop do
+      conn, _addrinfo = l.accept
+
+      Thread.new do
+        repo = Rugged::Repository.new('.')
+        conn.write(repo.head.target.oid)
+        repo.close # simulate cleanup, needed in multi-threaded process
+        conn.close
+      end
+    end
   end
+end
+
+def main
+  pids = [
+    fork { ForkServer.new.run },
+    fork { ThreadServer.new.run }
+  ]
+
+
+  Benchmark.bm(15) do |x|
+    n_spawn = N / 10
+    x.report("spawn (#{n_spawn}):") { n_spawn.times { benchmark_spawn } }
+    x.report("fork (#{N}):") { N.times { benchmark_socket(FORK_SOCKET) } }
+    x.report("thread (#{N}):") { N.times { benchmark_socket(THREAD_SOCKET) } }
+  end
+
+ensure
+  pids.each { |pid| Process.kill('KILL', pid) }
 end
 
 def benchmark_spawn
@@ -56,13 +85,13 @@ def benchmark_spawn
   ]
   out = IO.popen(cmd, 'r', &:read)
   raise 'command failed' unless $?.success?
-  raise "bad output #{out.inspect}" unless /^[a-f0-9]{40}$/ =~ out
+  raise "bad output #{out.inspect}" unless OID_REGEX =~ out
 end
 
-def benchmark_fork
-  Socket.unix(SOCKET) do |conn|
+def benchmark_socket(socket)
+  Socket.unix(socket) do |conn|
     out = conn.read
-    raise "bad output #{out.inspect}" unless /^[a-f0-9]{40}$/ =~ out
+    raise "bad output #{out.inspect}" unless OID_REGEX =~ out
   end
 end
 
