@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package gitaly;
+
+option go_package = "gitlab.com/gitlab-org/gitaly/proto/go/gitalypb";
+
+import "shared.proto";
+
+service HACleanupServie {
+  rpc CleanupOrphanedRepos(CleanupOrphanedReposRequest) returns (CleanupOrphanedReposResponse) {
+     option (op_type) = {
+      op: MUTATOR
+      scope_level: SERVER
+    };
+  }
+}
+
+message CleanupOrphanedReposRequest {
+  repeated Repository valid_repositories = 1;
+}
+
+message CleanupOrphanedReposResponse{}
+

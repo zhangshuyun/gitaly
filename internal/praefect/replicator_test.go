@@ -15,6 +15,7 @@ import (
 	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
 	gitaly_config "gitlab.com/gitlab-org/gitaly/internal/config"
 	gitaly_log "gitlab.com/gitlab-org/gitaly/internal/log"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/models"
 	"gitlab.com/gitlab-org/gitaly/internal/rubyserver"
 	serverPkg "gitlab.com/gitlab-org/gitaly/internal/server"
@@ -68,9 +69,9 @@ func TestProceessReplicationJob(t *testing.T) {
 		},
 	)
 
-	job := jobRecord{state: JobStateReady}
+	job := jobRecord{state: datastore.JobStateReady}
 
-	m := &MemoryDatastore{
+	m := &datastore.MemoryDatastore{
 		jobs: &struct {
 			sync.RWMutex
 			records map[uint64]jobRecord // all jobs indexed by ID
@@ -79,11 +80,11 @@ func TestProceessReplicationJob(t *testing.T) {
 		},
 	}
 
-	replJob := ReplJob{ID: 1,
+	replJob := datastore.ReplJob{ID: 1,
 		TargetNode: models.Node{Storage: backupStorageName, Address: srvSocketPath},
 		SourceNode: models.Node{Storage: "default", Address: srvSocketPath, Token: testhelper.RepositoryAuthToken},
 		Repository: models.Repository{Primary: models.Node{Storage: "default", Address: srvSocketPath}, RelativePath: testRepo.GetRelativePath()},
-		State:      JobStateReady,
+		State:      datastore.JobStateReady,
 	}
 
 	ctx, cancel := testhelper.Context()

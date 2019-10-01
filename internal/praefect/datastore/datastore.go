@@ -1,9 +1,9 @@
-// Package praefect provides data models and datastore persistence abstractions
+// Package datastore provides data models and datastore persistence abstractions
 // for tracking the state of repository replicas.
 //
 // See original design discussion:
 // https://gitlab.com/gitlab-org/gitaly/issues/1495
-package praefect
+package datastore
 
 import (
 	"errors"
@@ -86,6 +86,8 @@ type ReplicasDatastore interface {
 	RemoveReplica(relativePath string, storageNodeID int) error
 
 	GetRepository(relativePath string) (*models.Repository, error)
+
+	GetRepositories() ([]*models.Repository, error)
 }
 
 // ReplJobsDatastore represents the behavior needed for fetching and updating
@@ -311,6 +313,21 @@ func (md *MemoryDatastore) GetRepository(relativePath string) (*models.Repositor
 	}
 
 	return &repository, nil
+}
+
+// GetRepositories gets the repository for a repository relative path
+func (md *MemoryDatastore) GetRepositories() ([]*models.Repository, error) {
+	md.repositories.Lock()
+	defer md.repositories.Unlock()
+
+	var repositories []*models.Repository
+
+	for _, repository := range md.repositories.m {
+		repositories = append(repositories, &repository)
+
+	}
+
+	return repositories, nil
 }
 
 // ErrReplicasMissing indicates the repository does not have any backup

@@ -92,6 +92,7 @@ func TestServerSimpleUnaryUnary(t *testing.T) {
 			)
 			prf := NewServer(
 				coordinator,
+				datastore,
 				replmgr,
 				nil,
 				logEntry,

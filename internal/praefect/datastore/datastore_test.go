@@ -1,4 +1,4 @@
-package praefect
+package datastore
 
 import (
 	"testing"

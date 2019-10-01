@@ -13,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/metadatahandler"
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/panichandler"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/grpc-proxy/proxy"
 	server "gitlab.com/gitlab-org/gitaly/internal/praefect/service/info"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -27,17 +28,18 @@ type Server struct {
 	repl        ReplMgr
 	s           *grpc.Server
 	conf        config.Config
+	d           datastore.ReplicasDatastore
 }
 
 // NewServer returns an initialized praefect gPRC proxy server configured
 // with the provided gRPC server options
-func NewServer(c *Coordinator, repl ReplMgr, grpcOpts []grpc.ServerOption, l *logrus.Entry, conf config.Config) *Server {
+func NewServer(c *Coordinator, replicasDatastore datastore.ReplicasDatastore, repl ReplMgr, grpcOpts []grpc.ServerOption, l *logrus.Entry, conf config.Config) *Server {
 	grpcOpts = append(grpcOpts, proxyRequiredOpts(c.streamDirector)...)
 	grpcOpts = append(grpcOpts, []grpc.ServerOption{
 		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
 			grpccorrelation.StreamServerCorrelationInterceptor(), // Must be above the metadata handler
 			grpc_prometheus.StreamServerInterceptor,
-			cancelhandler.Stream, // Should be below LogHandler
+			cancelhandler.Stream, // Should
 			grpctracing.StreamServerTracingInterceptor(),
 			// Panic handler should remain last so that application panics will be
 			// converted to errors and logged
@@ -60,6 +62,7 @@ func NewServer(c *Coordinator, repl ReplMgr, grpcOpts []grpc.ServerOption, l *lo
 		coordinator: c,
 		repl:        repl,
 		conf:        conf,
+		d:           replicasDatastore,
 	}
 }
 
@@ -82,7 +85,7 @@ func (srv *Server) Start(lis net.Listener) error {
 // registerServices will register any services praefect needs to handle rpcs on its own
 func (srv *Server) registerServices() {
 	// ServerServiceServer is necessary for the ServerInfo RPC
-	gitalypb.RegisterServerServiceServer(srv.s, server.NewServer(srv.conf))
+	gitalypb.RegisterServerServiceServer(srv.s, server.NewServer(srv.conf, srv.d))
 }
 
 // Shutdown will attempt a graceful shutdown of the grpc server. If unable

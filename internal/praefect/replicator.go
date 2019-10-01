@@ -11,6 +11,7 @@ import (
 	"google.golang.org/grpc"
 
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/models"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
@@ -53,14 +54,14 @@ func init() {
 
 // Replicator performs the actual replication logic between two nodes
 type Replicator interface {
-	Replicate(ctx context.Context, job ReplJob, source, target *grpc.ClientConn) error
+	Replicate(ctx context.Context, job datastore.ReplJob, source, target *grpc.ClientConn) error
 }
 
 type defaultReplicator struct {
 	log *logrus.Entry
 }
 
-func (dr defaultReplicator) Replicate(ctx context.Context, job ReplJob, sourceCC, targetCC *grpc.ClientConn) error {
+func (dr defaultReplicator) Replicate(ctx context.Context, job datastore.ReplJob, sourceCC, targetCC *grpc.ClientConn) error {
 	repository := &gitalypb.Repository{
 		StorageName:  job.TargetNode.Storage,
 		RelativePath: job.Repository.RelativePath,
@@ -149,7 +150,7 @@ func (dr defaultReplicator) confirmChecksums(ctx context.Context, primaryClient,
 // ReplMgr is a replication manager for handling replication jobs
 type ReplMgr struct {
 	log         *logrus.Entry
-	datastore   Datastore
+	datastore   datastore.Datastore
 	coordinator *Coordinator
 	targetNode  string     // which replica is this replicator responsible for?
 	replicator  Replicator // does the actual replication logic
@@ -163,7 +164,7 @@ type ReplMgrOpt func(*ReplMgr)
 
 // NewReplMgr initializes a replication manager with the provided dependencies
 // and options
-func NewReplMgr(targetNode string, log *logrus.Entry, datastore Datastore, c *Coordinator, opts ...ReplMgrOpt) ReplMgr {
+func NewReplMgr(targetNode string, log *logrus.Entry, datastore datastore.Datastore, c *Coordinator, opts ...ReplMgrOpt) ReplMgr {
 	r := ReplMgr{
 		log:         log,
 		datastore:   datastore,
@@ -234,7 +235,7 @@ func (r ReplMgr) ProcessBacklog(ctx context.Context) error {
 		}
 
 		for _, node := range nodes {
-			jobs, err := r.datastore.GetJobs(JobStateReady, node.ID, 10)
+			jobs, err := r.datastore.GetJobs(datastore.JobStateReady, node.ID, 10)
 			if err != nil {
 				return err
 			}
@@ -270,8 +271,8 @@ func (r ReplMgr) ProcessBacklog(ctx context.Context) error {
 	}
 }
 
-func (r ReplMgr) processReplJob(ctx context.Context, job ReplJob) error {
-	if err := r.datastore.UpdateReplJob(job.ID, JobStateInProgress); err != nil {
+func (r ReplMgr) processReplJob(ctx context.Context, job datastore.ReplJob) error {
+	if err := r.datastore.UpdateReplJob(job.ID, datastore.JobStateInProgress); err != nil {
 		return err
 	}
 
@@ -302,7 +303,7 @@ func (r ReplMgr) processReplJob(ctx context.Context, job ReplJob) error {
 	replDuration := time.Since(replStart)
 	recordReplicationLatency(float64(replDuration / time.Millisecond))
 
-	if err := r.datastore.UpdateReplJob(job.ID, JobStateComplete); err != nil {
+	if err := r.datastore.UpdateReplJob(job.ID, datastore.JobStateComplete); err != nil {
 		return err
 	}
 	return nil

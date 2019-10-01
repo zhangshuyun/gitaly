@@ -21,7 +21,7 @@ func (s *server) DeleteAllRepositories(ctx context.Context, req *gitalypb.Delete
 		return nil, status.Errorf(codes.InvalidArgument, "storage lookup failed: %v", err)
 	}
 
-	trashDir, err := tempdir.ForDeleteAllRepositories(req.StorageName)
+	trashDir, err := tempdir.ForDeletedRepositories(req.StorageName)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "create trash dir: %v", err)
 	}

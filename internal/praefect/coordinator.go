@@ -12,6 +12,7 @@ import (
 	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
 	gitalyconfig "gitlab.com/gitlab-org/gitaly/internal/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/models"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -32,14 +33,14 @@ type Coordinator struct {
 	failoverMutex sync.RWMutex
 	connMutex     sync.RWMutex
 
-	datastore Datastore
+	datastore datastore.Datastore
 
 	nodes    map[string]*grpc.ClientConn
 	registry *protoregistry.Registry
 }
 
 // NewCoordinator returns a new Coordinator that utilizes the provided logger
-func NewCoordinator(l *logrus.Entry, datastore Datastore, fileDescriptors ...*descriptor.FileDescriptorProto) *Coordinator {
+func NewCoordinator(l *logrus.Entry, datastore datastore.Datastore, fileDescriptors ...*descriptor.FileDescriptorProto) *Coordinator {
 	registry := protoregistry.New()
 	registry.RegisterFiles(fileDescriptors...)
 
@@ -155,7 +156,7 @@ func (c *Coordinator) selectPrimary(mi protoregistry.MethodInfo, targetRepo *git
 	primary, err = c.datastore.GetPrimary(targetRepo.GetRelativePath())
 
 	if err != nil {
-		if err != ErrPrimaryNotSet {
+		if err != datastore.ErrPrimaryNotSet {
 			return nil, err
 		}
 		// if there are no primaries for this repository, pick one
@@ -216,8 +217,8 @@ func (c *Coordinator) createReplicaJobs(targetRepo *gitalypb.Repository) (func()
 
 	return func() {
 		for _, jobID := range jobIDs {
-			if err := c.datastore.UpdateReplJob(jobID, JobStateReady); err != nil {
-				c.log.WithField("job_id", jobID).WithError(err).Errorf("error when updating replication job to %d", JobStateReady)
+			if err := c.datastore.UpdateReplJob(jobID, datastore.JobStateReady); err != nil {
+				c.log.WithField("job_id", jobID).WithError(err).Errorf("error when updating replication job to %d", datastore.JobStateReady)
 			}
 		}
 	}, nil

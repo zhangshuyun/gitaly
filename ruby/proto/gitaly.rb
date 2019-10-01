@@ -13,6 +13,8 @@ require 'gitaly/conflicts_services_pb'
 
 require 'gitaly/diff_services_pb'
 
+require 'gitaly/ha-cleanup_services_pb'
+
 require 'gitaly/namespace_services_pb'
 
 require 'gitaly/objectpool_services_pb'

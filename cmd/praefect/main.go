@@ -19,6 +19,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/log"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/protoregistry"
 	"gitlab.com/gitlab-org/labkit/tracing"
 )
@@ -94,10 +95,10 @@ func run(listeners []net.Listener, conf config.Config) error {
 
 	var (
 		// top level server dependencies
-		datastore   = praefect.NewMemoryDatastore(conf)
+		datastore   = datastore.NewMemoryDatastore(conf)
 		coordinator = praefect.NewCoordinator(logger, datastore, protoregistry.GitalyProtoFileDescriptors...)
 		repl        = praefect.NewReplMgr("default", logger, datastore, coordinator)
-		srv         = praefect.NewServer(coordinator, repl, nil, logger, conf)
+		srv         = praefect.NewServer(coordinator, datastore, repl, nil, logger, conf)
 		// signal related
 		signals      = []os.Signal{syscall.SIGTERM, syscall.SIGINT}
 		termCh       = make(chan os.Signal, len(signals))
