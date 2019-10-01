@@ -57,7 +57,7 @@ func TestServerSimpleUnaryUnary(t *testing.T) {
 				storagePrimary = "default"
 			)
 
-			datastore := NewMemoryDatastore(config.Config{
+			conf := config.Config{
 				Nodes: []*models.Node{
 					&models.Node{
 						ID:             1,
@@ -68,7 +68,9 @@ func TestServerSimpleUnaryUnary(t *testing.T) {
 						ID:      2,
 						Storage: "praefect-internal-2",
 					}},
-			})
+			}
+
+			datastore := NewMemoryDatastore(conf)
 
 			logEntry := log.Default()
 			coordinator := NewCoordinator(logEntry, datastore, fd)
@@ -93,6 +95,7 @@ func TestServerSimpleUnaryUnary(t *testing.T) {
 				replmgr,
 				nil,
 				logEntry,
+				conf,
 			)
 
 			listener, port := listenAvailPort(t)

@@ -12,7 +12,10 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/cancelhandler"
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/metadatahandler"
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/panichandler"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/grpc-proxy/proxy"
+	server "gitlab.com/gitlab-org/gitaly/internal/praefect/service/info"
+	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	grpccorrelation "gitlab.com/gitlab-org/labkit/correlation/grpc"
 	grpctracing "gitlab.com/gitlab-org/labkit/tracing/grpc"
 	"google.golang.org/grpc"
@@ -23,11 +26,12 @@ type Server struct {
 	coordinator *Coordinator
 	repl        ReplMgr
 	s           *grpc.Server
+	conf        config.Config
 }
 
 // NewServer returns an initialized praefect gPRC proxy server configured
 // with the provided gRPC server options
-func NewServer(c *Coordinator, repl ReplMgr, grpcOpts []grpc.ServerOption, l *logrus.Entry) *Server {
+func NewServer(c *Coordinator, repl ReplMgr, grpcOpts []grpc.ServerOption, l *logrus.Entry, conf config.Config) *Server {
 	grpcOpts = append(grpcOpts, proxyRequiredOpts(c.streamDirector)...)
 	grpcOpts = append(grpcOpts, []grpc.ServerOption{
 		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
@@ -55,6 +59,7 @@ func NewServer(c *Coordinator, repl ReplMgr, grpcOpts []grpc.ServerOption, l *lo
 		s:           grpc.NewServer(grpcOpts...),
 		coordinator: c,
 		repl:        repl,
+		conf:        conf,
 	}
 }
 
@@ -69,7 +74,15 @@ func proxyRequiredOpts(director proxy.StreamDirector) []grpc.ServerOption {
 // listener. Function will block until the server is stopped or an
 // unrecoverable error occurs.
 func (srv *Server) Start(lis net.Listener) error {
+	srv.registerServices()
+
 	return srv.s.Serve(lis)
+}
+
+// registerServices will register any services praefect needs to handle rpcs on its own
+func (srv *Server) registerServices() {
+	// ServerServiceServer is necessary for the ServerInfo RPC
+	gitalypb.RegisterServerServiceServer(srv.s, server.NewServer(srv.conf))
 }
 
 // Shutdown will attempt a graceful shutdown of the grpc server. If unable
