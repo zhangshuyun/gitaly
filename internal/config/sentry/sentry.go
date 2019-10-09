@@ -1,4 +1,4 @@
-package config
+package sentry
 
 import (
 	"fmt"
@@ -8,20 +8,26 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/panichandler"
 )
 
+// Config contains configuration for sentry
+type Config struct {
+	DSN         string `toml:"sentry_dsn"`
+	Environment string `toml:"sentry_environment"`
+}
+
 // ConfigureSentry configures the sentry DSN
-func ConfigureSentry(version string) {
-	if Config.Logging.SentryDSN == "" {
+func ConfigureSentry(version string, sentryConf Config) {
+	if sentryConf.DSN == "" {
 		return
 	}
 
 	log.Debug("Using sentry logging")
-	raven.SetDSN(Config.Logging.SentryDSN)
+	raven.SetDSN(sentryConf.DSN)
 	if version != "" {
 		raven.SetRelease("v" + version)
 	}
 
-	if Config.Logging.SentryEnvironment != "" {
-		raven.SetEnvironment(Config.Logging.SentryEnvironment)
+	if sentryConf.Environment != "" {
+		raven.SetEnvironment(sentryConf.Environment)
 	}
 
 	panichandler.InstallPanicHandler(func(grpcMethod string, _err interface{}) {

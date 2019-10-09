@@ -6,8 +6,9 @@ import (
 
 	"github.com/BurntSushi/toml"
 
-	"gitlab.com/gitlab-org/gitaly/internal/auth"
-	"gitlab.com/gitlab-org/gitaly/internal/config"
+	"gitlab.com/gitlab-org/gitaly/internal/config/auth"
+	"gitlab.com/gitlab-org/gitaly/internal/config/log"
+	"gitlab.com/gitlab-org/gitaly/internal/config/sentry"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/models"
 )
 
@@ -19,9 +20,10 @@ type Config struct {
 
 	Nodes []*models.Node `toml:"node"`
 
-	Logging              config.Logging `toml:"logging"`
-	PrometheusListenAddr string         `toml:"prometheus_listen_addr"`
-	Auth                 auth.Config    `toml:"auth"`
+	Logging              log.Config    `toml:"logging"`
+	Sentry               sentry.Config `toml:"sentry"`
+	PrometheusListenAddr string        `toml:"prometheus_listen_addr"`
+	Auth                 auth.Config   `toml:"auth"`
 }
 
 // FromFile loads the config for the passed file path

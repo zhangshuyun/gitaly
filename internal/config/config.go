@@ -12,7 +12,9 @@ import (
 	"github.com/BurntSushi/toml"
 	"github.com/kelseyhightower/envconfig"
 	log "github.com/sirupsen/logrus"
-	"gitlab.com/gitlab-org/gitaly/internal/auth"
+	"gitlab.com/gitlab-org/gitaly/internal/config/auth"
+	internallog "gitlab.com/gitlab-org/gitaly/internal/config/log"
+	"gitlab.com/gitlab-org/gitaly/internal/config/sentry"
 )
 
 const (
@@ -84,14 +86,16 @@ type Storage struct {
 	Path string
 }
 
+// Sentry is a sentry.Config. We redefine this type to a different name so
+// we can embed both structs into Logging
+type Sentry sentry.Config
+
 // Logging contains the logging configuration for Gitaly
 type Logging struct {
-	Dir               string `toml:"dir"`
-	Format            string `toml:"format"`
-	SentryDSN         string `toml:"sentry_dsn"`
-	RubySentryDSN     string `toml:"ruby_sentry_dsn"`
-	SentryEnvironment string `toml:"sentry_environment"`
-	Level             string `toml:"level"`
+	internallog.Config
+	Sentry
+
+	RubySentryDSN string `toml:"ruby_sentry_dsn"`
 }
 
 // Prometheus contains additional configuration data for prometheus

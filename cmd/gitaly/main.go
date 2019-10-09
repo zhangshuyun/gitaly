@@ -11,6 +11,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/internal/bootstrap"
 	"gitlab.com/gitlab-org/gitaly/internal/config"
+	"gitlab.com/gitlab-org/gitaly/internal/config/sentry"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/server"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
@@ -96,7 +97,7 @@ func main() {
 	}
 
 	config.ConfigureLogging()
-	config.ConfigureSentry(version.GetVersion())
+	sentry.ConfigureSentry(version.GetVersion(), sentry.Config(config.Config.Logging.Sentry))
 	config.ConfigurePrometheus()
 	config.ConfigureConcurrencyLimits()
 	tracing.Initialize(tracing.WithServiceName("gitaly"))

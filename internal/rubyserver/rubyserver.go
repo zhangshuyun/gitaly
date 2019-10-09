@@ -129,7 +129,7 @@ func (s *Server) start() error {
 		env = append(env, "SENTRY_DSN="+dsn)
 	}
 
-	if sentryEnvironment := cfg.Logging.SentryEnvironment; sentryEnvironment != "" {
+	if sentryEnvironment := cfg.Logging.Sentry.Environment; sentryEnvironment != "" {
 		env = append(env, "SENTRY_ENVIRONMENT="+sentryEnvironment)
 	}
 

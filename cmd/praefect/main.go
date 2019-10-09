@@ -16,11 +16,13 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
+	"gitlab.com/gitlab-org/gitaly/internal/config/sentry"
 	"gitlab.com/gitlab-org/gitaly/internal/log"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/conn"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/protoregistry"
+	"gitlab.com/gitlab-org/gitaly/internal/version"
 	"gitlab.com/gitlab-org/labkit/tracing"
 )
 
@@ -87,6 +89,8 @@ func configure() (config.Config, error) {
 
 	registerServerVersionPromGauge()
 	logger.WithField("version", praefect.GetVersionString()).Info("Starting Praefect")
+
+	sentry.ConfigureSentry(version.GetVersion(), conf.Sentry)
 
 	return conf, nil
 }

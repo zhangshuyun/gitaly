@@ -7,8 +7,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
-	internalauth "gitlab.com/gitlab-org/gitaly/internal/auth"
 	"gitlab.com/gitlab-org/gitaly/internal/config"
+	internalauth "gitlab.com/gitlab-org/gitaly/internal/config/auth"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/server/auth"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"

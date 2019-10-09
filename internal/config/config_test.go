@@ -14,6 +14,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"gitlab.com/gitlab-org/gitaly/internal/config/sentry"
 )
 
 func configFileReader(content string) io.Reader {
@@ -91,6 +93,29 @@ path="/tmp/repos2"`)
 
 		assert.Equal(t, expectedConf, Config)
 	}
+}
+
+func TestLoadSentry(t *testing.T) {
+	tmpFile := configFileReader(`[logging]
+sentry_environment = "production"
+sentry_dsn = "abc123"
+ruby_sentry_dsn = "xyz456"`)
+
+	err := Load(tmpFile)
+	assert.NoError(t, err)
+
+	expectedConf := Cfg{
+		Logging: Logging{
+			Sentry: Sentry(sentry.Config{
+				Environment: "production",
+				DSN:         "abc123",
+			}),
+			RubySentryDSN: "xyz456",
+		},
+	}
+	expectedConf.setDefaults()
+
+	assert.Equal(t, expectedConf, Config)
 }
 
 func TestLoadPrometheus(t *testing.T) {

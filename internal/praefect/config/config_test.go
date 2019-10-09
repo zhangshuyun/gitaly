@@ -5,6 +5,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/config/log"
+	"gitlab.com/gitlab-org/gitaly/internal/config/sentry"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/models"
 )
 
@@ -74,6 +76,14 @@ func TestConfigParsing(t *testing.T) {
 			filePath: "testdata/config.toml",
 			expected: Config{
 				VirtualStorageName: "praefect",
+				Logging: log.Config{
+					Level:  "info",
+					Format: "json",
+				},
+				Sentry: sentry.Config{
+					DSN:         "abcd123",
+					Environment: "production",
+				},
 				Nodes: []*models.Node{
 					&models.Node{
 						Address:        "tcp://gitaly-internal-1.example.com",

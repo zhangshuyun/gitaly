@@ -15,6 +15,9 @@ listen_addr = "127.0.0.1:2305"
 # # One of, in order: debug, info, warn, errror, fatal, panic
 # # Defaults to "info"
 #   level = "warn"
+# [sentry]
+#   sentry_environment = ""
+#   sentry_dsn = ""
 #
 #  Optional: authenticate Gitaly requests using a shared secret. This token works the same way as a gitaly token
 # [auth]
