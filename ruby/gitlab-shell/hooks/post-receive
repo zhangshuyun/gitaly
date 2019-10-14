@@ -6,7 +6,7 @@
 refs = $stdin.read
 key_id = ENV.delete('GL_ID')
 gl_repository = ENV['GL_REPOSITORY']
-repo_path = Dir.pwd
+repo_path = ENV['GL_REPO_PATH'] || Dir.pwd
 
 require_relative '../lib/gitlab_custom_hook'
 require_relative '../lib/hooks_utils'

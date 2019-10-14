@@ -6,6 +6,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/config"
 	"gitlab.com/gitlab-org/gitaly/internal/git/hooks"
 	"gitlab.com/gitlab-org/gitaly/internal/gitlabshell"
+	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
 // ReceivePackRequest abstracts away the different requests that end up
@@ -14,6 +15,7 @@ type ReceivePackRequest interface {
 	GetGlId() string
 	GetGlUsername() string
 	GetGlRepository() string
+	GetRepository() *gitalypb.Repository
 }
 
 // HookEnv is information we pass down to the Git hooks during
@@ -23,7 +25,10 @@ func HookEnv(req ReceivePackRequest) []string {
 		fmt.Sprintf("GL_ID=%s", req.GetGlId()),
 		fmt.Sprintf("GL_USERNAME=%s", req.GetGlUsername()),
 		fmt.Sprintf("GL_REPOSITORY=%s", req.GetGlRepository()),
-		fmt.Sprintf("GITLAB_SHELL_DIR=%s", config.Config.GitlabShell.Dir),
+		fmt.Sprintf("GL_REPO_STORAGE=%s", req.GetRepository().GetStorageName()),
+		fmt.Sprintf("GL_REPO_RELATIVE_PATH=%s", req.GetRepository().GetRelativePath()),
+		fmt.Sprintf("GITALY_SOCKET=%s", config.GitalyInternalSocketPath()),
+		fmt.Sprintf("GITALY_TOKEN=%s", config.Config.Auth.Token),
 	}, gitlabshell.Env()...)
 }
 

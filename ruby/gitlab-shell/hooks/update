@@ -6,7 +6,7 @@
 ref_name  = ARGV[0]
 old_value = ARGV[1]
 new_value = ARGV[2]
-repo_path = Dir.pwd
+repo_path = ENV['GL_REPO_PATH'] || Dir.pwd
 key_id    = ENV.delete('GL_ID')
 
 require_relative '../lib/gitlab_custom_hook'

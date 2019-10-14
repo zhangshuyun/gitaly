@@ -7,6 +7,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/service/commit"
 	"gitlab.com/gitlab-org/gitaly/internal/service/conflicts"
 	"gitlab.com/gitlab-org/gitaly/internal/service/diff"
+	hook "gitlab.com/gitlab-org/gitaly/internal/service/hooks"
 	"gitlab.com/gitlab-org/gitaly/internal/service/namespace"
 	"gitlab.com/gitlab-org/gitaly/internal/service/objectpool"
 	"gitlab.com/gitlab-org/gitaly/internal/service/operations"
@@ -41,6 +42,7 @@ func RegisterAll(grpcServer *grpc.Server, rubyServer *rubyserver.Server) {
 	gitalypb.RegisterRemoteServiceServer(grpcServer, remote.NewServer(rubyServer))
 	gitalypb.RegisterServerServiceServer(grpcServer, server.NewServer())
 	gitalypb.RegisterObjectPoolServiceServer(grpcServer, objectpool.NewServer())
+	gitalypb.RegisterHookServiceServer(grpcServer, hook.NewServer())
 
 	healthpb.RegisterHealthServer(grpcServer, health.NewServer())
 }
