@@ -1,13 +1,20 @@
 package ssh
 
 import (
+	"context"
 	"fmt"
+	"time"
 
 	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/pktline"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/streamio"
+)
+
+var (
+	uploadArchiveRequestTimeout = time.Minute
 )
 
 func (s *server) SSHUploadArchive(stream gitalypb.SSHService_SSHUploadArchiveServer) error {
@@ -27,10 +34,14 @@ func (s *server) SSHUploadArchive(stream gitalypb.SSHService_SSHUploadArchiveSer
 }
 
 func sshUploadArchive(stream gitalypb.SSHService_SSHUploadArchiveServer, req *gitalypb.SSHUploadArchiveRequest) error {
+	ctx, cancelCtx := context.WithCancel(stream.Context())
+	defer cancelCtx()
+
 	repoPath, err := helper.GetRepoPath(req.Repository)
 	if err != nil {
 		return err
 	}
+
 	stdin := streamio.NewReader(func() ([]byte, error) {
 		request, err := stream.Recv()
 		return request.GetStdin(), err
@@ -42,14 +53,20 @@ func sshUploadArchive(stream gitalypb.SSHService_SSHUploadArchiveServer, req *gi
 		return stream.Send(&gitalypb.SSHUploadArchiveResponse{Stderr: p})
 	})
 
-	cmd, err := git.SafeBareCmd(stream.Context(), stdin, stdout, stderr, nil, nil, git.SubCmd{
+	cmd, monitor, err := monitorStdinCommand(ctx, stdin, stdout, stderr, nil, nil, git.SubCmd{
 		Name: "upload-archive",
 		Args: []string{repoPath},
 	})
-
 	if err != nil {
-		return fmt.Errorf("start cmd: %v", err)
+		return err
 	}
+
+	// upload-archive expects a list of options terminated by a flush packet:
+	// https://github.com/git/git/blob/v2.22.0/builtin/upload-archive.c#L38
+	//
+	// Place a timeout on receiving the flush packet to mitigate use-after-check
+	// attacks
+	go monitor.Monitor(pktline.PktFlush(), uploadArchiveRequestTimeout, cancelCtx)
 
 	if err := cmd.Wait(); err != nil {
 		if status, ok := command.ExitStatus(err); ok {
