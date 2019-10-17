@@ -38,6 +38,7 @@ module Gitaly
       rpc :DeleteConfig, DeleteConfigRequest, DeleteConfigResponse
       rpc :FindLicense, FindLicenseRequest, FindLicenseResponse
       rpc :GetInfoAttributes, GetInfoAttributesRequest, stream(GetInfoAttributesResponse)
+      rpc :SetInfoAttributes, stream(SetInfoAttributesRequest), SetInfoAttributesResponse
       rpc :CalculateChecksum, CalculateChecksumRequest, CalculateChecksumResponse
       rpc :Cleanup, CleanupRequest, CleanupResponse
       rpc :GetSnapshot, GetSnapshotRequest, stream(GetSnapshotResponse)

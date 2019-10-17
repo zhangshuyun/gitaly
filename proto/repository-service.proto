@@ -152,6 +152,12 @@ service RepositoryService {
       target_repository_field: "1"
     };
   }
+  rpc SetInfoAttributes(stream SetInfoAttributesRequest) returns (SetInfoAttributesResponse) {
+    option (op_type) = {
+      op: ACCESSOR
+      target_repository_field: "1"
+    };
+  }
   rpc CalculateChecksum(CalculateChecksumRequest) returns (CalculateChecksumResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -496,6 +502,13 @@ message GetInfoAttributesRequest {
 message GetInfoAttributesResponse {
   bytes attributes = 1;
 }
+
+message SetInfoAttributesRequest {
+  Repository repository = 1;
+  bytes attributes = 2;
+}
+
+message SetInfoAttributesResponse {}
 
 message CalculateChecksumRequest {
   Repository repository = 1;
