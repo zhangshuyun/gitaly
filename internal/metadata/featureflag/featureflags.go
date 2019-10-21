@@ -1,6 +1,9 @@
 package featureflag
 
 const (
+	// AddRemoteGo will cause the AddRemote RPC to use the go implementation when set
+	AddRemoteGo = "add_remote_go"
+
 	// GetAllLFSPointersGo will cause the GetAllLFSPointers RPC to use the go implementation when set
 	GetAllLFSPointersGo = "get_all_lfs_pointers_go"
 
