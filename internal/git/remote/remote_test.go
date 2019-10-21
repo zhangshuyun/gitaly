@@ -9,6 +9,79 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 )
 
+func TestAddRemote(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	defer cleanupFn()
+
+	repoPath, err := helper.GetRepoPath(testRepo)
+	require.NoError(t, err)
+
+	testCases := []struct {
+		description           string
+		remoteName            string
+		url                   string
+		mirrorRefmaps         []string
+		resolvedMirrorRefmaps []string
+	}{
+		{
+			description: "creates remote with no refmaps",
+			remoteName:  "no-refmap",
+			url:         "https://gitlab.com/gitlab-org/git.git",
+		},
+		{
+			description: "updates url when remote exists",
+			remoteName:  "no-refmap",
+			url:         "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git",
+		},
+		{
+			description:           "resolves abbreviated refmap",
+			remoteName:            "abbrev-refmap",
+			url:                   "https://gitlab.com/gitlab-org/git.git",
+			mirrorRefmaps:         []string{"heads"},
+			resolvedMirrorRefmaps: []string{"+refs/heads/*:refs/heads/*"},
+		},
+		{
+			description:           "adds multiple refmaps",
+			remoteName:            "multiple-refmaps",
+			url:                   "https://gitlab.com/gitlab-org/git.git",
+			mirrorRefmaps:         []string{"tags", "+refs/heads/*:refs/remotes/origin/*"},
+			resolvedMirrorRefmaps: []string{"+refs/tags/*:refs/tags/*", "+refs/heads/*:refs/remotes/origin/*"},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.description, func(t *testing.T) {
+			err := Add(ctx, testRepo, tc.remoteName, tc.url, tc.mirrorRefmaps)
+			require.NoError(t, err)
+
+			found, err := Exists(ctx, testRepo, tc.remoteName)
+			require.NoError(t, err)
+			require.True(t, found)
+
+			url := string(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "remote", "get-url", tc.remoteName))
+			require.Contains(t, url, tc.url)
+
+			mirrorRegex := "remote." + tc.remoteName
+			mirrorConfig := string(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "--get-regexp", mirrorRegex))
+			if len(tc.resolvedMirrorRefmaps) > 0 {
+				require.Contains(t, mirrorConfig, "mirror true")
+				require.Contains(t, mirrorConfig, "prune true")
+			} else {
+				require.NotContains(t, mirrorConfig, "mirror true")
+			}
+
+			mirrorFetch := mirrorRegex + ".fetch"
+			fetch := string(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "--get-all", mirrorFetch))
+			for _, resolvedMirrorRefmap := range tc.resolvedMirrorRefmaps {
+				require.Contains(t, fetch, resolvedMirrorRefmap)
+			}
+		})
+	}
+}
+
 func TestRemoveRemote(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
