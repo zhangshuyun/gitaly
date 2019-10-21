@@ -11,18 +11,40 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/remote"
 	"gitlab.com/gitlab-org/gitaly/internal/rubyserver"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/chunk"
+	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
+
+var addRemoteRequests = prometheus.NewCounterVec(
+	prometheus.CounterOpts{
+		Name: "gitaly_add_remote_total",
+		Help: "Counter of go vs ruby implementation of AddRemote",
+	},
+	[]string{"implementation"},
+)
+
+func init() {
+	prometheus.MustRegister(addRemoteRequests)
+}
 
 // AddRemote adds a remote to the repository
 func (s *server) AddRemote(ctx context.Context, req *gitalypb.AddRemoteRequest) (*gitalypb.AddRemoteResponse, error) {
 	if err := validateAddRemoteRequest(req); err != nil {
 		return nil, status.Errorf(codes.InvalidArgument, "AddRemote: %v", err)
 	}
+
+	if featureflag.IsEnabled(ctx, featureflag.AddRemoteGo) {
+		addRemoteRequests.WithLabelValues("go").Inc()
+
+		return addRemote(ctx, req)
+	}
+
+	addRemoteRequests.WithLabelValues("ruby").Inc()
 
 	client, err := s.ruby.RemoteServiceClient(ctx)
 	if err != nil {
@@ -35,6 +57,15 @@ func (s *server) AddRemote(ctx context.Context, req *gitalypb.AddRemoteRequest) 
 	}
 
 	return client.AddRemote(clientCtx, req)
+}
+
+func addRemote(ctx context.Context, req *gitalypb.AddRemoteRequest) (*gitalypb.AddRemoteResponse, error) {
+	err := remote.Add(ctx, req.GetRepository(), req.Name, req.Url, req.GetMirrorRefmaps())
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "AddRemote: %v", err)
+	}
+
+	return &gitalypb.AddRemoteResponse{}, nil
 }
 
 func validateAddRemoteRequest(req *gitalypb.AddRemoteRequest) error {
