@@ -3,12 +3,16 @@ package objectpool
 import (
 	"fmt"
 	"io/ioutil"
+	"os"
+	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 )
@@ -190,4 +194,66 @@ func TestFetchFromOriginRefUpdates(t *testing.T) {
 func resolveRef(t *testing.T, repo string, ref string) string {
 	out := testhelper.MustRunCommand(t, nil, "git", "-C", repo, "rev-parse", ref)
 	return text.ChompBytes(out)
+}
+
+func TestFetchFromOriginNoUnreachableObjects(t *testing.T) {
+	source, sourcePath, cleanup := testhelper.NewTestRepo(t)
+	defer cleanup()
+
+	baseArgs := []string{"-C", sourcePath}
+	testhelper.MustRunCommand(t, nil, "git", append(baseArgs, "repack", "-ad")...)
+
+	pool, err := NewObjectPool(source.StorageName, testhelper.NewTestObjectPoolName(t))
+	require.NoError(t, err)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	require.NoError(t, pool.FetchFromOrigin(ctx, source), "seed pool")
+
+	nonce, err := text.RandomHex(4)
+	require.NoError(t, err)
+
+	newCommitArgs := append(baseArgs, "commit-tree", "master^{tree}")
+	unreachableCommit := text.ChompBytes(testhelper.MustRunCommand(t, strings.NewReader(nonce), "git", newCommitArgs...))
+
+	var reachableCommits []string
+	for i := 0; i < 1000; i++ {
+		reachableCommits = append(reachableCommits,
+			text.ChompBytes(testhelper.MustRunCommand(t,
+				strings.NewReader(nonce+strconv.Itoa(i)),
+				"git", newCommitArgs...,
+			)),
+		)
+	}
+
+	updater, err := updateref.New(ctx, source)
+	require.NoError(t, err)
+
+	for _, oid := range reachableCommits {
+		require.NoError(t, updater.Create("refs/heads/reachable/"+oid, oid))
+	}
+	tmpRef := "refs/heads/unreachable/" + unreachableCommit
+	require.NoError(t, updater.Create(tmpRef, unreachableCommit))
+
+	require.NoError(t, updater.Wait())
+
+	// Create an incremental pack that contains a reachable and soon unreachable commit
+	testhelper.MustRunCommand(t, nil, "git", append(baseArgs, "repack", "-d")...)
+
+	testhelper.MustRunCommand(t, nil, "git", "-C", sourcePath, "update-ref", "-d", tmpRef)
+
+	require.NoError(t, pool.FetchFromOrigin(ctx, source), "update pool")
+
+	find := exec.Command("find", sourcePath+"/objects", "-type", "f")
+	find.Stdout = os.Stdout
+	find.Stderr = os.Stderr
+	find.Run()
+
+	existenceCheck := text.ChompBytes(testhelper.MustRunCommand(t,
+		strings.NewReader(unreachableCommit),
+		"git", "-C", pool.FullPath(), "cat-file", "--batch-check",
+	))
+	require.Equal(t, unreachableCommit+" zmissing", existenceCheck)
+
 }
