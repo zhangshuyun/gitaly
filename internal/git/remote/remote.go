@@ -8,7 +8,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
 )
 
-var REFMAPS = map[string]string{
+var stdRefmaps = map[string]string{
 	"allRefs": "+refs/*:refs/*",
 	"heads":   "+refs/heads/*:refs/heads/*",
 	"tags":    "+refs/tags/*:refs/tags/*",
@@ -147,7 +147,7 @@ func parseRefmaps(refmaps []string) []string {
 			continue
 		}
 
-		expanded, ok := REFMAPS[refmap]
+		expanded, ok := stdRefmaps[refmap]
 		if ok {
 			parsedMaps = append(parsedMaps, expanded)
 		} else {
