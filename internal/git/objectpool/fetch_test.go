@@ -20,32 +20,6 @@ const (
 	existingBlob   = "c60514b6d3d6bf4bec1030f70026e34dfbd69ad5"
 )
 
-func TestFetchFromOriginRemoveDanglingRefs(t *testing.T) {
-	source, _, cleanup := testhelper.NewTestRepo(t)
-	defer cleanup()
-
-	pool, err := NewObjectPool(source.StorageName, testhelper.NewTestObjectPoolName(t))
-	require.NoError(t, err)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-
-	require.NoError(t, pool.FetchFromOrigin(ctx, source), "seed pool")
-
-	baseArgs := []string{"-C", pool.FullPath()}
-
-	// Simulate "dangling refs" as created by https://gitlab.com/gitlab-org/gitaly/merge_requests/1297
-	for _, oid := range []string{existingTree, existingCommit, existingBlob} {
-		args := append(baseArgs, "update-ref", "refs/dangling/"+oid, oid)
-		testhelper.MustRunCommand(t, nil, "git", args...)
-	}
-	require.Len(t, listDanglingRefs(t, pool), 3, "test setup sanity check")
-
-	require.NoError(t, pool.FetchFromOrigin(ctx, source), "second fetch (should remove dangling refs)")
-
-	require.Empty(t, listDanglingRefs(t, pool), "dangling refs should be gone")
-}
-
 func TestFetchFromOriginKeepUnreachableObjects(t *testing.T) {
 	source, _, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()

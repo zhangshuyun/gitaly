@@ -8,7 +8,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
-	"gitlab.com/gitlab-org/gitaly/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
@@ -74,10 +73,6 @@ func (o *ObjectPool) FetchFromOrigin(ctx context.Context, origin *gitalypb.Repos
 		return err
 	}
 
-	if err := removeDanglingRefs(ctx, o); err != nil {
-		return err
-	}
-
 	packRefs, err := git.Command(ctx, o, "pack-refs", "--all")
 	if err != nil {
 		return err
@@ -91,48 +86,22 @@ func (o *ObjectPool) FetchFromOrigin(ctx context.Context, origin *gitalypb.Repos
 
 const danglingObjectNamespace = "refs/dangling"
 
-// In https://gitlab.com/gitlab-org/gitaly/merge_requests/1297 we
-// introduced a mechanism to protect dangling objects in a pool from
-// being removed by a manual 'git prune' command. It turned out that
-// created way too many refs, so now we want to make sure no such refs
-// are left behind.
-func removeDanglingRefs(ctx context.Context, repo repository.GitRepo) error {
-	forEachRef, err := git.Command(ctx, repo, "for-each-ref", "--format=%(refname)", danglingObjectNamespace)
-	if err != nil {
-		return err
-	}
-
-	updater, err := updateref.New(ctx, repo)
-	if err != nil {
-		return err
-	}
-
-	scanner := bufio.NewScanner(forEachRef)
-	for scanner.Scan() {
-		if err := updater.Delete(scanner.Text()); err != nil {
-			return err
-		}
-	}
-
-	if err := scanner.Err(); err != nil {
-		return err
-	}
-
-	if err := forEachRef.Wait(); err != nil {
-		return fmt.Errorf("git for-each-ref: %v", err)
-	}
-
-	return updater.Wait()
-}
-
 func repackPool(ctx context.Context, pool repository.GitRepo) error {
-	repackArgs := []string{
-		"-c", "pack.island=" + sourceRefNamespace + "/heads",
-		"-c", "pack.island=" + sourceRefNamespace + "/tags",
-		"-c", "pack.writeBitmapHashCache=true",
-		"repack", "-aidbk",
+	globalOpts := []git.Option{
+		git.ValueFlag{"-c", "pack.island=" + sourceRefNamespace + "/heads"},
+		git.ValueFlag{"-c", "pack.island=" + sourceRefNamespace + "/tags"},
+		git.ValueFlag{"-c", "pack.writeBitmapHashCache=true"},
 	}
-	repackCmd, err := git.Command(ctx, pool, repackArgs...)
+
+	repackCmd, err := git.SafeCmd(ctx, pool, globalOpts, git.SubCmd{
+		Name: "repack",
+		Flags: []git.Option{
+			git.Flag{"-ad"},
+			git.Flag{"--keep-unreachable"},   // Prevent data loss
+			git.Flag{"--delta-islands"},      // Performance
+			git.Flag{"--write-bitmap-index"}, // Performance
+		},
+	})
 	if err != nil {
 		return err
 	}

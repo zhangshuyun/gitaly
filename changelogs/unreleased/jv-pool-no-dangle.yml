@@ -1,5 +1,5 @@
 ---
-title: 'FetchIntoObjectPool: stop creating dangling refs, and remove existing'
+title: 'FetchIntoObjectPool: stop creating dangling refs'
 merge_request: 1459
 author:
 type: fixed
