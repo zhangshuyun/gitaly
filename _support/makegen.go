@@ -577,8 +577,8 @@ proto: {{ .ProtoC }} {{ .ProtoCGenGo }} {{ .ProtoCGenGitaly }} {{ .GrpcToolsRuby
 	go get github.com/golang/protobuf/protoc-gen-go@v1.3.2
 
 {{ .ProtoCGenGitaly }}:
-	# Todo fix protoc-gen-gitaly versioning
-	go install gitlab.com/gitlab-org/gitaly-proto/go/internal/cmd/protoc-gen-gitaly
+	git clone --quiet -b v1.39.0 https://gitlab.com/gitlab-org/gitaly-proto.git {{ .BuildDir }}/gitaly-proto
+	cd {{ .BuildDir }}/gitaly-proto/go/internal/cmd/protoc-gen-gitaly && go build -o $@
 
 {{ .GrpcToolsRuby }}:
 	gem install --bindir {{ .BuildDir }}/bin -v 1.0.1 grpc-tools
