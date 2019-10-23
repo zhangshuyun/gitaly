@@ -120,4 +120,5 @@ _build/makegen: _support/makegen.go $(BUILD_DIR)/go.mod
 	cd $(BUILD_DIR) && go build -o $(CURDIR)/$@ $(SOURCE_DIR)/_support/makegen.go
 
 clean:
+	rm -rf $(BUILD_DIR)
 	git clean -fdX
