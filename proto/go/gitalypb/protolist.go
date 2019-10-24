@@ -13,6 +13,7 @@ var GitalyProtos = []string{
 	"namespace.proto",
 	"objectpool.proto",
 	"operations.proto",
+	"praefect.proto",
 	"ref.proto",
 	"remote.proto",
 	"repository-service.proto",

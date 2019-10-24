@@ -21,6 +21,8 @@ require 'gitaly/objectpool_services_pb'
 
 require 'gitaly/operations_services_pb'
 
+require 'gitaly/praefect_services_pb'
+
 require 'gitaly/ref_services_pb'
 
 require 'gitaly/remote_services_pb'
