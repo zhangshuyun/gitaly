@@ -9,9 +9,9 @@ import (
 )
 
 var stdRefmaps = map[string]string{
-	"allRefs": "+refs/*:refs/*",
-	"heads":   "+refs/heads/*:refs/heads/*",
-	"tags":    "+refs/tags/*:refs/tags/*",
+	"all_refs": "+refs/*:refs/*",
+	"heads":    "+refs/heads/*:refs/heads/*",
+	"tags":     "+refs/tags/*:refs/tags/*",
 }
 
 //Add remote to repository
@@ -148,11 +148,10 @@ func parseRefmaps(refmaps []string) []string {
 		}
 
 		expanded, ok := stdRefmaps[refmap]
-		if ok {
-			parsedMaps = append(parsedMaps, expanded)
-		} else {
-			parsedMaps = append(parsedMaps, refmap)
+		if !ok {
+			expanded = refMap
 		}
+		parsedMaps = append(parsedMaps, expanded)
 	}
 
 	return parsedMaps
