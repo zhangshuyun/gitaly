@@ -91,6 +91,12 @@ func Exists(ctx context.Context, repo repository.GitRepo, name string) (bool, er
 }
 
 func setMirror(ctx context.Context, repo repository.GitRepo, name string, refmaps []string) error {
+	parsedMaps := parseRefmaps(refmaps)
+
+	if len(parsedMaps) == 0 {
+		return nil
+	}
+
 	for _, configOption := range []string{"mirror", "prune"} {
 		cmd, err := git.SafeCmd(ctx, repo, nil, git.SubCmd{
 			Name: "config",
@@ -107,13 +113,12 @@ func setMirror(ctx context.Context, repo repository.GitRepo, name string, refmap
 		}
 	}
 
-	return setRefmaps(ctx, repo, name, refmaps)
+	return setRefmaps(ctx, repo, name, parsedMaps)
 }
 
 func setRefmaps(ctx context.Context, repo repository.GitRepo, name string, refmaps []string) error {
-	parsedMaps := parseRefmaps(refmaps)
 
-	for i, refmap := range parsedMaps {
+	for i, refmap := range refmaps {
 		var flag git.Flag
 		if i == 0 {
 			flag = git.Flag{"--replace-all"}
@@ -140,7 +145,7 @@ func setRefmaps(ctx context.Context, repo repository.GitRepo, name string, refma
 }
 
 func parseRefmaps(refmaps []string) []string {
-	parsedMaps := make([]string, len(refmaps))
+	var parsedMaps []string
 
 	for _, refmap := range refmaps {
 		if len(refmap) == 0 {
