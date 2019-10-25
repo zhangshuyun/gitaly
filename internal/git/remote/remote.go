@@ -149,7 +149,7 @@ func parseRefmaps(refmaps []string) []string {
 
 		expanded, ok := stdRefmaps[refmap]
 		if !ok {
-			expanded = refMap
+			expanded = refmap
 		}
 		parsedMaps = append(parsedMaps, expanded)
 	}
