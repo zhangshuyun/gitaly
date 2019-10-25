@@ -40,8 +40,8 @@ func TestAddRemote(t *testing.T) {
 			description:           "resolves abbreviated refmap",
 			remoteName:            "abbrev-refmap",
 			url:                   "https://gitlab.com/gitlab-org/git.git",
-			mirrorRefmaps:         []string{"heads"},
-			resolvedMirrorRefmaps: []string{"+refs/heads/*:refs/heads/*"},
+			mirrorRefmaps:         []string{"all_refs", "heads", "tags"},
+			resolvedMirrorRefmaps: []string{"+refs/*:refs/*", "+refs/heads/*:refs/heads/*", "+refs/tags/*:refs/tags/*"},
 		},
 		{
 			description:           "adds multiple refmaps",
