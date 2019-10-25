@@ -117,7 +117,6 @@ func setMirror(ctx context.Context, repo repository.GitRepo, name string, refmap
 }
 
 func setRefmaps(ctx context.Context, repo repository.GitRepo, name string, refmaps []string) error {
-
 	for i, refmap := range refmaps {
 		var flag git.Flag
 		if i == 0 {
