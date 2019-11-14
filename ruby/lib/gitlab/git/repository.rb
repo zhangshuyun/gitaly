@@ -685,12 +685,12 @@ module Gitlab
         Gitlab::Git::Blob.find(self, sha, path) unless Gitlab::Git.blank_ref?(sha)
       end
 
-      def fetch_repository_as_mirror(repository)
+      def fetch_repository_as_mirror(repository, git_config_options: [])
         remote_name = "tmp-#{SecureRandom.hex}"
         repository = RemoteRepository.new(repository) unless repository.is_a?(RemoteRepository)
 
         add_remote(remote_name, GITALY_INTERNAL_URL, mirror_refmap: :all_refs)
-        fetch_remote(remote_name, env: repository.fetch_env)
+        fetch_remote(remote_name, env: repository.fetch_env(git_config_options: git_config_options))
       ensure
         remove_remote(remote_name)
       end

@@ -16,7 +16,7 @@ module GitalyServer
       repo = Gitlab::Git::Repository.from_gitaly(request.repository, call)
       remote_repo = Gitlab::Git::GitalyRemoteRepository.new(request.remote_repository, call)
 
-      result = repo.fetch_repository_as_mirror(remote_repo)
+      result = repo.fetch_repository_as_mirror(remote_repo, git_config_options: ["'transfer.hideRefs=!refs'"])
 
       Gitaly::FetchInternalRemoteResponse.new(result: result)
     end
