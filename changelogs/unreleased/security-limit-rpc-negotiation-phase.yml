@@ -1,5 +1,0 @@
----
-title: Limit the negotiation phase for certain Gitaly RPCs
-merge_request:
-author:
-type: security
