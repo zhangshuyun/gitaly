@@ -4,11 +4,13 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/stretchr/testify/require"
@@ -17,6 +19,34 @@ import (
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
+
+var (
+	originalUploadPackRequestTimeout = uploadPackRequestTimeout
+)
+
+func TestFailedUploadPackRequestDueToTimeout(t *testing.T) {
+	uploadPackRequestTimeout = time.Millisecond
+	defer func() { uploadPackRequestTimeout = originalUploadPackRequestTimeout }()
+
+	server, serverSocketPath := runSSHServer(t)
+	defer server.Stop()
+
+	client, conn := newSSHClient(t, serverSocketPath)
+	defer conn.Close()
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	stream, err := client.SSHUploadPack(ctx)
+	require.NoError(t, err)
+
+	// The first request is not limited by timeout, but also not under attacker control
+	require.NoError(t, stream.Send(&gitalypb.SSHUploadPackRequest{Repository: testRepo}))
+
+	// The RPC should time out after a short period of sending no data
+	err = testPostUploadPackFailedResponse(t, stream)
+	require.Equal(t, io.EOF, err)
+}
 
 func TestFailedUploadPackRequestDueToValidationError(t *testing.T) {
 	server, serverSocketPath := runSSHServer(t)
@@ -61,7 +91,7 @@ func TestFailedUploadPackRequestDueToValidationError(t *testing.T) {
 			}
 			stream.CloseSend()
 
-			err = drainPostUploadPackResponse(stream)
+			err = testPostUploadPackFailedResponse(t, stream)
 			testhelper.RequireGrpcError(t, err, test.Code)
 		})
 	}
@@ -211,10 +241,14 @@ func testClone(t *testing.T, serverSocketPath, storageName, relativePath, localR
 	return string(localHead), string(remoteHead), string(localTags), string(remoteTags), nil
 }
 
-func drainPostUploadPackResponse(stream gitalypb.SSHService_SSHUploadPackClient) error {
+func testPostUploadPackFailedResponse(t *testing.T, stream gitalypb.SSHService_SSHUploadPackClient) error {
 	var err error
+	var res *gitalypb.SSHUploadPackResponse
+
 	for err == nil {
-		_, err = stream.Recv()
+		res, err = stream.Recv()
+		require.Nil(t, res.GetStdout())
 	}
+
 	return err
 }

@@ -16,10 +16,6 @@ const (
 	pktDelim   = "0001"
 )
 
-var (
-	flush = []byte("0000")
-)
-
 // NewScanner returns a bufio.Scanner that splits on Git pktline boundaries
 func NewScanner(r io.Reader) *bufio.Scanner {
 	scanner := bufio.NewScanner(r)
@@ -37,7 +33,7 @@ func Data(pkt []byte) []byte {
 
 // IsFlush detects the special flush packet '0000'
 func IsFlush(pkt []byte) bool {
-	return bytes.Equal(pkt, flush)
+	return bytes.Equal(pkt, PktFlush())
 }
 
 // WriteString writes a string with pkt-line framing
@@ -53,7 +49,7 @@ func WriteString(w io.Writer, str string) (int, error) {
 
 // WriteFlush writes a pkt flush packet.
 func WriteFlush(w io.Writer) error {
-	_, err := w.Write(flush)
+	_, err := w.Write(PktFlush())
 	return err
 }
 
@@ -61,6 +57,16 @@ func WriteFlush(w io.Writer) error {
 func WriteDelim(w io.Writer) error {
 	_, err := fmt.Fprint(w, pktDelim)
 	return err
+}
+
+// PktDone returns the bytes for a "done" packet.
+func PktDone() []byte {
+	return []byte("0009done\n")
+}
+
+// PktFlush returns the bytes for a "flush" packet.
+func PktFlush() []byte {
+	return []byte("0000")
 }
 
 func pktLineSplitter(data []byte, atEOF bool) (advance int, token []byte, err error) {
