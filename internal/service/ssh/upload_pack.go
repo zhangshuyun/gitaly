@@ -1,13 +1,20 @@
 package ssh
 
 import (
+	"context"
 	"fmt"
+	"time"
 
 	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/pktline"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/streamio"
+)
+
+var (
+	uploadPackRequestTimeout = 10 * time.Minute
 )
 
 func (s *server) SSHUploadPack(stream gitalypb.SSHService_SSHUploadPackServer) error {
@@ -28,7 +35,8 @@ func (s *server) SSHUploadPack(stream gitalypb.SSHService_SSHUploadPackServer) e
 }
 
 func sshUploadPack(stream gitalypb.SSHService_SSHUploadPackServer, req *gitalypb.SSHUploadPackRequest) error {
-	ctx := stream.Context()
+	ctx, cancelCtx := context.WithCancel(stream.Context())
+	defer cancelCtx()
 
 	stdin := streamio.NewReader(func() ([]byte, error) {
 		request, err := stream.Recv()
@@ -55,13 +63,21 @@ func sshUploadPack(stream gitalypb.SSHService_SSHUploadPackServer, req *gitalypb
 		globalOpts = append(globalOpts, git.ValueFlag{"-c", o})
 	}
 
-	cmd, err := git.SafeBareCmd(ctx, stdin, stdout, stderr, env, globalOpts, git.SubCmd{
+	cmd, monitor, err := monitorStdinCommand(ctx, stdin, stdout, stderr, env, globalOpts, git.SubCmd{
 		Name: "upload-pack",
 		Args: []string{repoPath},
 	})
 	if err != nil {
-		return fmt.Errorf("start cmd: %v", err)
+		return err
 	}
+
+	// upload-pack negotiation is terminated by either a flush, or the "done"
+	// packet: https://github.com/git/git/blob/v2.20.0/Documentation/technical/pack-protocol.txt#L335
+	//
+	// "flush" tells the server it can terminate, while "done" tells it to start
+	// generating a packfile. Add a timeout to the second case to mitigate
+	// use-after-check attacks.
+	go monitor.Monitor(pktline.PktDone(), uploadPackRequestTimeout, cancelCtx)
 
 	if err := cmd.Wait(); err != nil {
 		if status, ok := command.ExitStatus(err); ok {

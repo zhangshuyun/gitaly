@@ -3,9 +3,11 @@ package ssh
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"testing"
+	"time"
 
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/stretchr/testify/require"
@@ -13,6 +15,34 @@ import (
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
+
+var (
+	originalUploadArchiveRequestTimeout = uploadArchiveRequestTimeout
+)
+
+func TestFailedUploadArchiveRequestDueToTimeout(t *testing.T) {
+	uploadArchiveRequestTimeout = time.Millisecond
+	defer func() { uploadArchiveRequestTimeout = originalUploadArchiveRequestTimeout }()
+
+	server, serverSocketPath := runSSHServer(t)
+	defer server.Stop()
+
+	client, conn := newSSHClient(t, serverSocketPath)
+	defer conn.Close()
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	stream, err := client.SSHUploadArchive(ctx)
+	require.NoError(t, err)
+
+	// The first request is not limited by timeout, but also not under attacker control
+	require.NoError(t, stream.Send(&gitalypb.SSHUploadArchiveRequest{Repository: testRepo}))
+
+	// The RPC should time out after a short period of sending no data
+	err = testUploadArchiveFailedResponse(t, stream)
+	require.Equal(t, io.EOF, err)
+}
 
 func TestFailedUploadArchiveRequestDueToValidationError(t *testing.T) {
 	server, serverSocketPath := runSSHServer(t)
@@ -57,7 +87,7 @@ func TestFailedUploadArchiveRequestDueToValidationError(t *testing.T) {
 			}
 			stream.CloseSend()
 
-			err = drainUploadArchiveResponse(stream)
+			err = testUploadArchiveFailedResponse(t, stream)
 			testhelper.RequireGrpcError(t, err, test.Code)
 		})
 	}
@@ -98,10 +128,14 @@ func testArchive(t *testing.T, serverSocketPath string, testRepo *gitalypb.Repos
 	return nil
 }
 
-func drainUploadArchiveResponse(stream gitalypb.SSHService_SSHUploadArchiveClient) error {
+func testUploadArchiveFailedResponse(t *testing.T, stream gitalypb.SSHService_SSHUploadArchiveClient) error {
 	var err error
+	var res *gitalypb.SSHUploadArchiveResponse
+
 	for err == nil {
-		_, err = stream.Recv()
+		res, err = stream.Recv()
+		require.Nil(t, res.GetStdout())
 	}
+
 	return err
 }
