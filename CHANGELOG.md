@@ -1,5 +1,11 @@
 # Gitaly changelog
 
+## v1.65.2
+
+#### Security
+- Limit the negotiation phase for certain Gitaly RPCs
+  https://gitlab.com/gitlab-org/gitaly/merge_requests/
+
 ## v1.65.1
 
 #### Security
