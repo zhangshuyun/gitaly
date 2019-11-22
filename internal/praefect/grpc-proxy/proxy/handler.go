@@ -10,10 +10,17 @@ package proxy
 import (
 	"io"
 
+	gitaly_metadata "gitlab.com/gitlab-org/gitaly/internal/metadata"
+	"gitlab.com/gitlab-org/gitaly/internal/middleware/proxytime"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+)
+
+const (
+	// RequestIDKey is the key for a unique request id generated upon every rpc request that goes through praefect
+	RequestIDKey = "proxy-request-id"
 )
 
 var (
@@ -28,7 +35,7 @@ var (
 //
 // This can *only* be used if the `server` also uses grpcproxy.CodecForServer() ServerOption.
 func RegisterService(server *grpc.Server, director StreamDirector, serviceName string, methodNames ...string) {
-	streamer := &handler{director}
+	streamer := &handler{director: director, trailerTracker: proxytime.NewTrailerTracker()}
 	fakeDesc := &grpc.ServiceDesc{
 		ServiceName: serviceName,
 		HandlerType: (*interface{})(nil),
@@ -50,13 +57,14 @@ func RegisterService(server *grpc.Server, director StreamDirector, serviceName s
 // backends. It should be used as a `grpc.UnknownServiceHandler`.
 //
 // This can *only* be used if the `server` also uses grpcproxy.CodecForServer() ServerOption.
-func TransparentHandler(director StreamDirector) grpc.StreamHandler {
-	streamer := &handler{director}
+func TransparentHandler(director StreamDirector, tt proxytime.TrailerTracker) grpc.StreamHandler {
+	streamer := &handler{director: director, trailerTracker: tt}
 	return streamer.handler
 }
 
 type handler struct {
-	director StreamDirector
+	director       StreamDirector
+	trailerTracker proxytime.TrailerTracker
 }
 
 // handler is where the real magic of proxying happens.
@@ -70,6 +78,13 @@ func (s *handler) handler(srv interface{}, serverStream grpc.ServerStream) error
 	}
 
 	peeker := newPeeker(serverStream)
+
+	opts := []grpc.CallOption{}
+
+	proxyRequestID := gitaly_metadata.GetValue(serverStream.Context(), RequestIDKey)
+	if proxyRequestID != "" {
+		opts = append(opts, s.trailerTracker.Trailer(proxyRequestID))
+	}
 
 	// We require that the director's returned context inherits from the serverStream.Context().
 	outgoingCtx, backendConn, requestFinalizer, err := s.director(serverStream.Context(), fullMethodName, peeker)
@@ -85,7 +100,7 @@ func (s *handler) handler(srv interface{}, serverStream grpc.ServerStream) error
 
 	clientCtx, clientCancel := context.WithCancel(outgoingCtx)
 	// TODO(mwitkow): Add a `forwarded` header to metadata, https://en.wikipedia.org/wiki/X-Forwarded-For.
-	clientStream, err := grpc.NewClientStream(clientCtx, clientStreamDescForProxying, backendConn, fullMethodName)
+	clientStream, err := grpc.NewClientStream(clientCtx, clientStreamDescForProxying, backendConn, fullMethodName, opts...)
 	if err != nil {
 		return err
 	}
@@ -94,6 +109,7 @@ func (s *handler) handler(srv interface{}, serverStream grpc.ServerStream) error
 	// https://groups.google.com/forum/#!msg/golang-nuts/pZwdYRGxCIk/qpbHxRRPJdUJ
 	s2cErrChan := s.forwardServerToClient(serverStream, clientStream, peeker.consumedStream)
 	c2sErrChan := s.forwardClientToServer(clientStream, serverStream)
+
 	// We don't know which side is going to stop sending first, so we need a select between the two.
 	for i := 0; i < 2; i++ {
 		select {
@@ -114,10 +130,12 @@ func (s *handler) handler(srv interface{}, serverStream grpc.ServerStream) error
 			// cases we may have received Trailers as part of the call. In case of other errors (stream closed) the trailers
 			// will be nil.
 			serverStream.SetTrailer(clientStream.Trailer())
+
 			// c2sErr will contain RPC error from client code. If not io.EOF return the RPC error as server stream error.
 			if c2sErr != io.EOF {
 				return c2sErr
 			}
+
 			return nil
 		}
 	}

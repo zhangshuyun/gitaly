@@ -10,6 +10,7 @@ package proxy_test
 import (
 	"strings"
 
+	"gitlab.com/gitlab-org/gitaly/internal/middleware/proxytime"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/grpc-proxy/proxy"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -33,7 +34,7 @@ func ExampleRegisterService() {
 func ExampleTransparentHandler() {
 	grpc.NewServer(
 		grpc.CustomCodec(proxy.Codec()),
-		grpc.UnknownServiceHandler(proxy.TransparentHandler(director)))
+		grpc.UnknownServiceHandler(proxy.TransparentHandler(director, proxytime.NewTrailerTracker())))
 }
 
 // Provide sa simple example of a director that shields internal services and dials a staging or production backend.

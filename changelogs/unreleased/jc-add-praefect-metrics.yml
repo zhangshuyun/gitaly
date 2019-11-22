@@ -1,0 +1,5 @@
+---
+title: Add Praefect summary for how much latency praefect adds to gitaly calls
+merge_request: 1655
+author:
+type: other

@@ -22,6 +22,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/conn"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/metrics"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/internal/version"
 	"gitlab.com/gitlab-org/labkit/tracing"
@@ -82,6 +83,8 @@ func configure() (config.Config, error) {
 		logger.WithField("address", conf.PrometheusListenAddr).Info("Starting prometheus listener")
 		promMux := http.NewServeMux()
 		promMux.Handle("/metrics", promhttp.Handler())
+
+		metrics.Register(conf)
 
 		go func() {
 			http.ListenAndServe(conf.PrometheusListenAddr, promMux)

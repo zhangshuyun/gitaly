@@ -14,16 +14,14 @@ import (
 
 // Config is a container for everything found in the TOML config file
 type Config struct {
-	VirtualStorageName string `toml:"virtual_storage_name"`
-	ListenAddr         string `toml:"listen_addr"`
-	SocketPath         string `toml:"socket_path"`
-
-	Nodes []*models.Node `toml:"node"`
-
-	Logging              log.Config    `toml:"logging"`
-	Sentry               sentry.Config `toml:"sentry"`
-	PrometheusListenAddr string        `toml:"prometheus_listen_addr"`
-	Auth                 auth.Config   `toml:"auth"`
+	VirtualStorageName   string         `toml:"virtual_storage_name"`
+	ListenAddr           string         `toml:"listen_addr"`
+	SocketPath           string         `toml:"socket_path"`
+	Nodes                []*models.Node `toml:"node"`
+	Logging              log.Config     `toml:"logging"`
+	Sentry               sentry.Config  `toml:"sentry"`
+	Auth                 auth.Config    `toml:"auth"`
+	PrometheusListenAddr string         `toml:"prometheus_listen_addr"`
 }
 
 // FromFile loads the config for the passed file path

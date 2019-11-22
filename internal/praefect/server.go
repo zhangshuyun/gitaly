@@ -13,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/cancelhandler"
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/metadatahandler"
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/panichandler"
+	"gitlab.com/gitlab-org/gitaly/internal/middleware/proxytime"
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/sentryhandler"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/conn"
@@ -55,10 +56,12 @@ func (srv *Server) warnDupeAddrs(c config.Config) {
 // NewServer returns an initialized praefect gPRC proxy server configured
 // with the provided gRPC server options
 func NewServer(c *Coordinator, repl ReplMgr, grpcOpts []grpc.ServerOption, l *logrus.Entry, clientConnections *conn.ClientConnections, conf config.Config) *Server {
-	grpcOpts = append(grpcOpts, proxyRequiredOpts(c.streamDirector)...)
+	trailerTracker := proxytime.NewTrailerTracker()
+	grpcOpts = append(grpcOpts, proxyRequiredOpts(c.streamDirector, trailerTracker)...)
 	grpcOpts = append(grpcOpts, []grpc.ServerOption{
 		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
 			grpccorrelation.StreamServerCorrelationInterceptor(), // Must be above the metadata handler
+			proxytime.Stream(trailerTracker),
 			grpc_prometheus.StreamServerInterceptor,
 			grpc_logrus.StreamServerInterceptor(l),
 			sentryhandler.StreamLogHandler,
@@ -72,6 +75,7 @@ func NewServer(c *Coordinator, repl ReplMgr, grpcOpts []grpc.ServerOption, l *lo
 		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(
 			grpccorrelation.UnaryServerCorrelationInterceptor(), // Must be above the metadata handler
 			metadatahandler.UnaryInterceptor,
+			proxytime.Unary(trailerTracker),
 			grpc_prometheus.UnaryServerInterceptor,
 			grpc_logrus.UnaryServerInterceptor(l),
 			sentryhandler.UnaryLogHandler,
@@ -97,10 +101,10 @@ func NewServer(c *Coordinator, repl ReplMgr, grpcOpts []grpc.ServerOption, l *lo
 	return s
 }
 
-func proxyRequiredOpts(director proxy.StreamDirector) []grpc.ServerOption {
+func proxyRequiredOpts(director proxy.StreamDirector, tt proxytime.TrailerTracker) []grpc.ServerOption {
 	return []grpc.ServerOption{
 		grpc.CustomCodec(proxy.Codec()),
-		grpc.UnknownServiceHandler(proxy.TransparentHandler(director)),
+		grpc.UnknownServiceHandler(proxy.TransparentHandler(director, tt)),
 	}
 }
 
