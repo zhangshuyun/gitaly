@@ -37,16 +37,17 @@ func init() {
 // counter functions are package vars to allow for overriding in tests
 var (
 	countMethodErr = func(method string) { methodErrTotals.WithLabelValues(method).Inc() }
-	countRPCType   = func(mInfo protoregistry.MethodInfo) {
-		rpcTotal.Inc()
-
-		switch mInfo.Operation {
-		case protoregistry.OpAccessor:
-			rpcOpTypes.WithLabelValues("accessor").Inc()
-		case protoregistry.OpMutator:
-			rpcOpTypes.WithLabelValues("mutator").Inc()
-		default:
-			rpcOpTypes.WithLabelValues("unknown").Inc()
-		}
-	}
 )
+
+func countRPCType(mInfo protoregistry.MethodInfo) {
+	rpcTotal.Inc()
+
+	switch mInfo.Operation {
+	case protoregistry.OpAccessor:
+		rpcOpTypes.WithLabelValues("accessor").Inc()
+	case protoregistry.OpMutator:
+		rpcOpTypes.WithLabelValues("mutator").Inc()
+	default:
+		rpcOpTypes.WithLabelValues("unknown").Inc()
+	}
+}
