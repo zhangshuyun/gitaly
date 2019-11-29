@@ -58,7 +58,11 @@ func configure() (config.Config, error) {
 	var conf config.Config
 
 	if *flagConfig == "" {
-		return conf, errNoConfigFile
+		if len(os.Args) < 2 {
+			return conf, errNoConfigFile
+		}
+
+		*flagConfig = os.Args[1]
 	}
 
 	conf, err := config.FromFile(*flagConfig)
