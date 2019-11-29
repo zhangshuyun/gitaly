@@ -21,13 +21,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 )
 
-const (
-	// EnvPidFile is the name of the environment variable containing the pid file path
-	EnvPidFile = "GITALY_PID_FILE"
-	// EnvUpgradesEnabled is an environment variable that when defined gitaly must enable graceful upgrades on SIGHUP
-	EnvUpgradesEnabled = "GITALY_UPGRADES_ENABLED"
-)
-
 var (
 	// Config stores the global configuration
 	Config Cfg

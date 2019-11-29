@@ -53,8 +53,7 @@ func main() {
 	config.ConfigureLogging()
 
 	// gitaly-wrapper is supposed to set config.EnvUpgradesEnabled in order to enable graceful upgrades
-	_, isWrapped := os.LookupEnv(config.EnvUpgradesEnabled)
-	b, err := bootstrap.New(os.Getenv(config.EnvPidFile), isWrapped)
+	b, err := bootstrap.New(bootstrap.PidFile(), bootstrap.UpgradesEnabled())
 	if err != nil {
 		log.WithError(err).Fatal("init bootstrap")
 	}

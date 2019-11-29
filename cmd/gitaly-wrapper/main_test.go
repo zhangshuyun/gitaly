@@ -8,20 +8,20 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/config"
+	"gitlab.com/gitlab-org/gitaly/internal/bootstrap"
 )
 
 // TestStolenPid tests for regressions in https://gitlab.com/gitlab-org/gitaly/issues/1661
 func TestStolenPid(t *testing.T) {
 	defer func(oldValue string) {
-		os.Setenv(config.EnvPidFile, oldValue)
-	}(os.Getenv(config.EnvPidFile))
+		os.Setenv(bootstrap.PidFileEnvVar, oldValue)
+	}(os.Getenv(bootstrap.PidFileEnvVar))
 
 	pidFile, err := ioutil.TempFile("", "pidfile")
 	require.NoError(t, err)
 	defer os.Remove(pidFile.Name())
 
-	os.Setenv(config.EnvPidFile, pidFile.Name())
+	os.Setenv(bootstrap.PidFileEnvVar, pidFile.Name())
 
 	cmd := exec.Command("tail", "-f")
 	require.NoError(t, cmd.Start())

@@ -120,9 +120,7 @@ func run(cfgs []starter.Config, conf config.Config) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	_, isWrapped := os.LookupEnv(config.EnvUpgradesEnabled)
-
-	b, err := bootstrap.New(os.Getenv(config.EnvPidFile), isWrapped)
+	b, err := bootstrap.New(bootstrap.PidFile(), bootstrap.UpgradesEnabled())
 	if err != nil {
 		return fmt.Errorf("unable to create a bootstrap: %v", err)
 	}

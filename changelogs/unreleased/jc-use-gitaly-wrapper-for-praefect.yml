@@ -1,0 +1,5 @@
+---
+title: Refactor EnvPidFile and EnvUpgradesEnabled into bootstrap package
+merge_request: 1665
+author:
+type: other

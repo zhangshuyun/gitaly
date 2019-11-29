@@ -13,6 +13,41 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/config"
 )
 
+const (
+	// PidFileEnvVar is the environment variable name for setting the pid file path
+	PidFileEnvVar = "PID_FILE"
+
+	// UpgradesEnabledEnvVar is the environment variable that controls whether or not upgrades are enabled
+	UpgradesEnabledEnvVar = "UPGRADES_ENABLED"
+)
+
+// PidFile retrieves the pid file path determined by the environment variable PidFileEnvVar
+func PidFile() string {
+	pidFile := os.Getenv(PidFileEnvVar)
+	// TODO: Remove this fallback logic in 12.7 once we have renamed GITALY_PID_FILE to PID_FILE in
+	// production environments
+	// https://gitlab.com/gitlab-org/gitaly/issues/2223
+	if pidFile == "" {
+		pidFile = os.Getenv("GITALY_PID_FILE")
+	}
+
+	return pidFile
+}
+
+// UpgradesEnabled retrieves whether or not upgrades are enabled as determined by the environment
+// variable UpgradesEnabledEnvVar
+func UpgradesEnabled() bool {
+	_, isWrapped := os.LookupEnv(UpgradesEnabledEnvVar)
+	// TODO: Remove this fallback logic in 12.7 once we have renamed GITALY_UPGRADES_ENABLED to
+	// UPGRADES_ENABLED in production environments
+	// https://gitlab.com/gitlab-org/gitaly/issues/2223
+	if !isWrapped {
+		_, isWrapped = os.LookupEnv("GITALY_UPGRADES_ENABLED")
+	}
+
+	return isWrapped
+}
+
 // Bootstrap handles graceful upgrades
 type Bootstrap struct {
 	// StopAction will be invoked during a graceful stop. It must wait until the shutdown is completed

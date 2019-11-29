@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	"gitlab.com/gitlab-org/gitaly/internal/config"
+	"gitlab.com/gitlab-org/gitaly/internal/bootstrap"
 	"gitlab.com/gitlab-org/gitaly/internal/ps"
 )
 
@@ -34,11 +34,11 @@ func main() {
 	log := logrus.WithField("wrapper", os.Getpid())
 	log.Info("Wrapper started")
 
-	if pidFile() == "" {
-		log.Fatalf("missing pid file ENV variable %q", config.EnvPidFile)
+	if bootstrap.PidFile() == "" {
+		log.Fatalf("missing pid file ENV variable %q", bootstrap.PidFileEnvVar)
 	}
 
-	log.WithField("pid_file", pidFile()).Info("finding gitaly")
+	log.WithField("pid_file", bootstrap.PidFile()).Info("finding gitaly")
 	gitaly, err := findGitaly()
 	if err != nil {
 		log.WithError(err).Fatal("find gitaly")
@@ -91,7 +91,7 @@ func findGitaly() (*os.Process, error) {
 
 func spawnGitaly(bin string, args []string) (*os.Process, error) {
 	cmd := exec.Command(bin, args...)
-	cmd.Env = append(os.Environ(), fmt.Sprintf("%s=true", config.EnvUpgradesEnabled))
+	cmd.Env = append(os.Environ(), fmt.Sprintf("%s=true", bootstrap.UpgradesEnabledEnvVar))
 
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
@@ -123,7 +123,7 @@ func forwardSignals(gitaly *os.Process, log *logrus.Entry) {
 }
 
 func getPid() (int, error) {
-	data, err := ioutil.ReadFile(pidFile())
+	data, err := ioutil.ReadFile(bootstrap.PidFile())
 	if err != nil {
 		return 0, err
 	}
@@ -150,10 +150,6 @@ func isGitaly(p *os.Process, gitalyBin string) bool {
 	}
 
 	return false
-}
-
-func pidFile() string {
-	return os.Getenv(config.EnvPidFile)
 }
 
 func jsonLogging() bool {

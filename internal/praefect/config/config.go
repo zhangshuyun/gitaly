@@ -13,13 +13,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/models"
 )
 
-const (
-	// EnvPidFile is the name of the environment variable containing the pid file path
-	EnvPidFile = "PRAEFECT_PID_FILE"
-	// EnvUpgradesEnabled is an environment variable that when defined gitaly must enable graceful upgrades on SIGHUP
-	EnvUpgradesEnabled = "PRAEFECT_UPGRADES_ENABLED"
-)
-
 // Config is a container for everything found in the TOML config file
 type Config struct {
 	ListenAddr      string            `toml:"listen_addr"`
