@@ -29,67 +29,67 @@ func main() {
 		logrus.Fatalf("usage: %s forking_binary [args]", os.Args[0])
 	}
 
-	gitalyBin, gitalyArgs := os.Args[1], os.Args[2:]
+	bin, args := os.Args[1], os.Args[2:]
 
-	log := logrus.WithField("wrapper", os.Getpid())
+	log := logrus.WithField("wrapper", os.Getpid()).WithField("binary", bin)
 	log.Info("Wrapper started")
 
 	if bootstrap.PidFile() == "" {
 		log.Fatalf("missing pid file ENV variable %q", bootstrap.PidFileEnvVar)
 	}
 
-	log.WithField("pid_file", bootstrap.PidFile()).Info("finding gitaly")
-	gitaly, err := findGitaly()
+	log.WithField("pid_file", bootstrap.PidFile()).Info("finding process")
+	proc, err := findProcess()
 	if err != nil {
-		log.WithError(err).Fatal("find gitaly")
+		log.WithError(err).Fatal("find process")
 	}
 
-	if gitaly != nil && isGitaly(gitaly, gitalyBin) {
+	if proc != nil && matches(proc, bin) {
 		log.Info("adopting a process")
 	} else {
 		log.Info("spawning a process")
 
-		proc, err := spawnGitaly(gitalyBin, gitalyArgs)
+		newProc, err := spawn(bin, args)
 		if err != nil {
-			log.WithError(err).Fatal("spawn gitaly")
+			log.WithError(err).Fatal("spawn process")
 		}
 
-		gitaly = proc
+		proc = newProc
 	}
 
-	log = log.WithField("gitaly", gitaly.Pid)
-	log.Info("monitoring gitaly")
+	log = log.WithField("process", proc.Pid)
+	log.Info("monitoring process")
 
-	forwardSignals(gitaly, log)
+	forwardSignals(proc, log)
 
 	// wait
-	for isAlive(gitaly) {
+	for isAlive(proc) {
 		time.Sleep(1 * time.Second)
 	}
 
-	log.Error("wrapper for gitaly shutting down")
+	log.Error("wrapper for process shutting down")
 }
 
-func findGitaly() (*os.Process, error) {
+func findProcess() (*os.Process, error) {
 	pid, err := getPid()
 	if err != nil && !os.IsNotExist(err) {
 		return nil, err
 	}
 
 	// os.FindProcess on unix do not return an error if the process does not exist
-	gitaly, err := os.FindProcess(pid)
+	process, err := os.FindProcess(pid)
 	if err != nil {
 		return nil, err
 	}
 
-	if isAlive(gitaly) {
-		return gitaly, nil
+	if isAlive(process) {
+		return process, nil
 	}
 
 	return nil, nil
 }
 
-func spawnGitaly(bin string, args []string) (*os.Process, error) {
+func spawn(bin string, args []string) (*os.Process, error) {
 	cmd := exec.Command(bin, args...)
 	cmd.Env = append(os.Environ(), fmt.Sprintf("%s=true", bootstrap.UpgradesEnabledEnvVar))
 
@@ -107,13 +107,13 @@ func spawnGitaly(bin string, args []string) (*os.Process, error) {
 	return cmd.Process, nil
 }
 
-func forwardSignals(gitaly *os.Process, log *logrus.Entry) {
+func forwardSignals(proc *os.Process, log *logrus.Entry) {
 	sigs := make(chan os.Signal, 1)
 	go func() {
 		for sig := range sigs {
 			log.WithField("signal", sig).Warning("forwarding signal")
 
-			if err := gitaly.Signal(sig); err != nil {
+			if err := proc.Signal(sig); err != nil {
 				log.WithField("signal", sig).WithError(err).Error("can't forward the signal")
 			}
 		}
@@ -139,13 +139,13 @@ func isAlive(p *os.Process) bool {
 	return p.Signal(syscall.Signal(0)) == nil
 }
 
-func isGitaly(p *os.Process, gitalyBin string) bool {
+func matches(p *os.Process, bin string) bool {
 	command, err := ps.Comm(p.Pid)
 	if err != nil {
 		return false
 	}
 
-	if path.Base(command) == path.Base(gitalyBin) {
+	if path.Base(command) == path.Base(bin) {
 		return true
 	}
 

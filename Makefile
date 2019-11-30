@@ -23,6 +23,9 @@ all: build
 .PHONY: build
 build: prepare-build
 	cd $(BUILD_DIR) && $(MAKE) install INSTALL_DEST_DIR=$(CURDIR)
+	# Remove this in 12.7 once wrapper is used in place of gitaly-wrapper
+	# https://gitlab.com/gitlab-org/gitaly/issues/2232
+	cp "$(BUILD_DIR)/bin/wrapper" "$(BUILD_DIR)/bin/gitaly-wrapper"
 
 .PHONY: build-gitaly-remote
 build-gitaly-remote: prepare-build
@@ -43,6 +46,7 @@ assemble: prepare-build
 .PHONY: binaries
 binaries: prepare-build
 	cd $(BUILD_DIR) && $(MAKE) $@
+	cd $(BULLD_DIR) && cp wrapper gitaly-wrapper
 
 .PHONY: prepare-tests
 prepare-tests: prepare-build

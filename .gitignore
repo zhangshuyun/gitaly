@@ -3,8 +3,9 @@
 /gitaly-hooks
 cmd/gitaly-ssh/gitaly-ssh
 /gitaly-ssh
-cmd/gitaly-wrapper/gitaly-wrapper
+cmd/wrapper/wrapper
 /gitaly-wrapper
+/wrapper
 cmd/gitaly-remote/gitaly-remote
 /gitaly-remote
 **/testdata/gitaly-libexec/

@@ -31,16 +31,16 @@ func TestStolenPid(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, pidFile.Close())
 
-	tail, err := findGitaly()
+	tail, err := findProcess()
 	require.NoError(t, err)
 	require.NotNil(t, tail)
 	require.Equal(t, cmd.Process.Pid, tail.Pid)
 
 	t.Run("stolen", func(t *testing.T) {
-		require.False(t, isGitaly(tail, "/path/to/gitaly"))
+		require.False(t, matches(tail, "/path/to/gitaly"))
 	})
 
 	t.Run("not stolen", func(t *testing.T) {
-		require.True(t, isGitaly(tail, "/path/to/tail"))
+		require.True(t, matches(tail, "/path/to/tail"))
 	})
 }
