@@ -1,8 +1,11 @@
 package metrics
 
 import (
+	"sync"
+
 	"github.com/prometheus/client_golang/prometheus"
 	promconfig "gitlab.com/gitlab-org/gitaly/internal/config/prometheus"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
 )
 
 // RegisterReplicationLatency creates and registers a prometheus histogram
@@ -42,4 +45,26 @@ type Gauge interface {
 // Histogram is a subset of a prometheus Histogram
 type Histogram interface {
 	Observe(float64)
+}
+
+var once sync.Once
+
+var (
+	// ProxyTime monitors the latency added by praefect to each request
+	ProxyTime prometheus.Histogram
+)
+
+// Register registers praefect prometheus metrics
+func Register(c config.Config) {
+	once.Do(func() { register(c) })
+}
+
+func register(c config.Config) {
+	ProxyTime = prometheus.NewHistogram(prometheus.HistogramOpts{
+		Name:    "praefect_proxy_time",
+		Help:    "Latency added by praefect",
+		Buckets: c.Prometheus.GRPCLatencyBuckets,
+	})
+
+	prometheus.MustRegister(ProxyTime)
 }
