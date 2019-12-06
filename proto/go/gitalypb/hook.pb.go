@@ -390,33 +390,34 @@ func init() {
 func init() { proto.RegisterFile("hook.proto", fileDescriptor_3eef30da1c11ee1b) }
 
 var fileDescriptor_3eef30da1c11ee1b = []byte{
-	// 415 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xb4, 0x53, 0xcd, 0x6e, 0xd3, 0x40,
-	0x10, 0x96, 0x13, 0x12, 0xe2, 0x69, 0xc4, 0xcf, 0x8a, 0x06, 0x63, 0x04, 0x44, 0x3e, 0xf9, 0x82,
-	0x0d, 0xe1, 0x0d, 0x38, 0xc1, 0x05, 0x55, 0x8b, 0xe0, 0x50, 0x09, 0x2a, 0xdb, 0x3b, 0xa4, 0x96,
-	0x8d, 0xc7, 0xec, 0xae, 0x53, 0xf9, 0x3d, 0x90, 0xe0, 0x19, 0x78, 0x44, 0x4e, 0xc8, 0xbb, 0x4e,
-	0x1a, 0xea, 0xf4, 0xd6, 0xde, 0xf6, 0x9b, 0x6f, 0x67, 0xe6, 0xfb, 0x66, 0x76, 0x01, 0xce, 0x89,
-	0x8a, 0xa8, 0x96, 0xa4, 0x89, 0x4d, 0xd7, 0xb9, 0x4e, 0xca, 0xd6, 0x9f, 0xab, 0xf3, 0x44, 0xa2,
-	0xb0, 0xd1, 0xe0, 0xa7, 0x03, 0xc7, 0x27, 0x12, 0x39, 0x66, 0x98, 0x6f, 0xf0, 0x1d, 0x51, 0xc1,
-	0xf1, 0x47, 0x83, 0x4a, 0xb3, 0x15, 0x80, 0xc4, 0x9a, 0x54, 0xae, 0x49, 0xb6, 0x9e, 0xb3, 0x74,
-	0xc2, 0xa3, 0x15, 0x8b, 0x6c, 0x91, 0x88, 0xef, 0x18, 0xbe, 0x77, 0x8b, 0x1d, 0xc3, 0xb4, 0xc0,
-	0xf6, 0x2c, 0x17, 0xde, 0x68, 0xe9, 0x84, 0x2e, 0x9f, 0x14, 0xd8, 0xbe, 0x17, 0xcc, 0x87, 0x99,
-	0xe9, 0x96, 0x51, 0xe9, 0x8d, 0x0d, 0xb1, 0xc3, 0xec, 0x11, 0x4c, 0x94, 0x16, 0x79, 0xe5, 0xdd,
-	0x59, 0x3a, 0xe1, 0x9c, 0x5b, 0x10, 0xa4, 0xb0, 0xb8, 0xaa, 0x4a, 0xd5, 0x54, 0x29, 0x64, 0x0b,
-	0x98, 0x2a, 0x2d, 0xa8, 0xd1, 0x46, 0xd2, 0x9c, 0xf7, 0xa8, 0x8f, 0xa3, 0x94, 0xa6, 0xb5, 0x8d,
-	0xa3, 0x94, 0xcc, 0x83, 0xbb, 0xaa, 0xc9, 0x32, 0x54, 0xca, 0xb4, 0x9e, 0xf1, 0x2d, 0x0c, 0x5a,
-	0x58, 0x9c, 0x90, 0xd2, 0xb7, 0x6b, 0x7d, 0x67, 0x6f, 0xbc, 0x6f, 0x2f, 0x83, 0xc7, 0x83, 0xd6,
-	0x37, 0xee, 0xef, 0x8f, 0x03, 0x0f, 0x3f, 0xd5, 0x22, 0xd1, 0xb7, 0xe5, 0xed, 0x01, 0x8c, 0x25,
-	0x7e, 0xeb, 0x9d, 0x75, 0x47, 0xf6, 0x14, 0x5c, 0x2a, 0xc5, 0xd9, 0x26, 0x29, 0x1b, 0x34, 0x0b,
-	0x75, 0xf9, 0x8c, 0x4a, 0xf1, 0xb9, 0xc3, 0x1d, 0x59, 0xe1, 0x45, 0x4f, 0x4e, 0x2c, 0x59, 0xe1,
-	0x85, 0x21, 0x83, 0xaf, 0xc0, 0xf6, 0xb5, 0xde, 0xf4, 0x30, 0x56, 0xbf, 0x47, 0x70, 0xd4, 0x95,
-	0xfe, 0x88, 0x72, 0x93, 0x67, 0xc8, 0x4e, 0xe1, 0xde, 0xff, 0x0f, 0x8c, 0x3d, 0xdb, 0x0e, 0xe1,
-	0xe0, 0x77, 0xf0, 0x9f, 0x5f, 0x47, 0x5b, 0xa9, 0x81, 0xfb, 0xf7, 0x57, 0x38, 0x99, 0x8d, 0x7c,
-	0xe7, 0x35, 0xfb, 0x02, 0xf7, 0xaf, 0x6c, 0x97, 0x5d, 0x66, 0x1f, 0x7c, 0x71, 0xfe, 0x8b, 0x6b,
-	0xf9, 0x61, 0xf9, 0x0f, 0x00, 0x97, 0xa3, 0x62, 0x4f, 0xb6, 0x99, 0x83, 0x55, 0xfb, 0xfe, 0x21,
-	0x6a, 0x50, 0xef, 0xed, 0xab, 0xd3, 0xee, 0x5e, 0x99, 0xa4, 0x51, 0x46, 0xdf, 0x63, 0x7b, 0x7c,
-	0x49, 0x72, 0x1d, 0xdb, 0xec, 0xd8, 0x7c, 0xd5, 0x78, 0x4d, 0x3d, 0xae, 0xd3, 0x74, 0x6a, 0x42,
-	0x6f, 0xfe, 0x05, 0x00, 0x00, 0xff, 0xff, 0x74, 0x46, 0x6b, 0x70, 0x5f, 0x04, 0x00, 0x00,
+	// 419 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xb4, 0x53, 0x4d, 0x8f, 0xd3, 0x30,
+	0x10, 0x95, 0x5b, 0x5a, 0xda, 0xd9, 0x8a, 0x0f, 0x8b, 0x2d, 0x21, 0x08, 0xa8, 0x72, 0xca, 0x85,
+	0xb6, 0x94, 0x7f, 0xc0, 0x09, 0x6e, 0x95, 0x11, 0x1c, 0x38, 0xec, 0x2a, 0x89, 0x87, 0x6e, 0x94,
+	0x90, 0x09, 0xb6, 0xd3, 0x55, 0xfe, 0x07, 0x12, 0x77, 0x8e, 0xfc, 0x44, 0x4e, 0x28, 0x76, 0xda,
+	0xed, 0x6e, 0xb3, 0xb7, 0xdd, 0x9b, 0xdf, 0x3c, 0x7b, 0xde, 0xbc, 0x19, 0x0f, 0xc0, 0x05, 0x51,
+	0x36, 0x2f, 0x15, 0x19, 0xe2, 0xc3, 0x4d, 0x6a, 0xa2, 0xbc, 0xf6, 0x27, 0xfa, 0x22, 0x52, 0x28,
+	0x5d, 0x34, 0xf8, 0xc5, 0xe0, 0x74, 0xad, 0x50, 0x60, 0x82, 0xe9, 0x16, 0x3f, 0x12, 0x65, 0x02,
+	0x7f, 0x56, 0xa8, 0x0d, 0x5f, 0x01, 0x28, 0x2c, 0x49, 0xa7, 0x86, 0x54, 0xed, 0xb1, 0x19, 0x0b,
+	0x4f, 0x56, 0x7c, 0xee, 0x92, 0xcc, 0xc5, 0x9e, 0x11, 0x07, 0xb7, 0xf8, 0x29, 0x0c, 0x33, 0xac,
+	0xcf, 0x53, 0xe9, 0xf5, 0x66, 0x2c, 0x1c, 0x8b, 0x41, 0x86, 0xf5, 0x27, 0xc9, 0x7d, 0x18, 0x59,
+	0xb5, 0x84, 0x72, 0xaf, 0x6f, 0x89, 0x3d, 0xe6, 0xcf, 0x60, 0xa0, 0x8d, 0x4c, 0x0b, 0xef, 0xc1,
+	0x8c, 0x85, 0x13, 0xe1, 0x40, 0x10, 0xc3, 0xf4, 0x66, 0x55, 0xba, 0xa4, 0x42, 0x23, 0x9f, 0xc2,
+	0x50, 0x1b, 0x49, 0x95, 0xb1, 0x25, 0x4d, 0x44, 0x8b, 0xda, 0x38, 0x2a, 0x65, 0xa5, 0x5d, 0x1c,
+	0x95, 0xe2, 0x1e, 0x3c, 0xd4, 0x55, 0x92, 0xa0, 0xd6, 0x56, 0x7a, 0x24, 0x76, 0x30, 0xa8, 0x61,
+	0xba, 0x26, 0x6d, 0xee, 0xd7, 0xfa, 0xde, 0x5e, 0xff, 0xd0, 0x5e, 0x02, 0xcf, 0x8f, 0xa4, 0xef,
+	0xdc, 0xdf, 0x5f, 0x06, 0x4f, 0xbf, 0x94, 0x32, 0x32, 0xf7, 0xe5, 0xed, 0x09, 0xf4, 0x15, 0x7e,
+	0x6f, 0x9d, 0x35, 0x47, 0xfe, 0x12, 0xc6, 0x94, 0xcb, 0xf3, 0x6d, 0x94, 0x57, 0x68, 0x07, 0x3a,
+	0x16, 0x23, 0xca, 0xe5, 0xd7, 0x06, 0x37, 0x64, 0x81, 0x97, 0x2d, 0x39, 0x70, 0x64, 0x81, 0x97,
+	0x96, 0x0c, 0xce, 0x80, 0x1f, 0xd6, 0x7a, 0xd7, 0xcd, 0x58, 0xfd, 0xe9, 0xc1, 0x49, 0x93, 0xfa,
+	0x33, 0xaa, 0x6d, 0x9a, 0x20, 0x3f, 0x83, 0x47, 0xd7, 0x3f, 0x18, 0x7f, 0xb5, 0x6b, 0x42, 0xe7,
+	0x3a, 0xf8, 0xaf, 0x6f, 0xa3, 0x5d, 0xa9, 0xc1, 0xf8, 0xdf, 0xef, 0x70, 0x30, 0xea, 0xf9, 0xec,
+	0x5d, 0xc8, 0x96, 0x8c, 0x47, 0xf0, 0xf8, 0xc6, 0x84, 0xf9, 0x55, 0x86, 0xce, 0x5f, 0xe7, 0xbf,
+	0xb9, 0x95, 0xef, 0x96, 0x58, 0x03, 0x5c, 0xb5, 0x8c, 0xbf, 0xd8, 0xbd, 0x3e, 0x1a, 0xb9, 0xef,
+	0x77, 0x51, 0x47, 0x39, 0x97, 0xec, 0xc3, 0xf2, 0x5b, 0x73, 0x33, 0x8f, 0xe2, 0x79, 0x42, 0x3f,
+	0x16, 0xee, 0xf8, 0x96, 0xd4, 0x66, 0xe1, 0xde, 0x2f, 0xec, 0xd2, 0x2e, 0x36, 0xd4, 0xe2, 0x32,
+	0x8e, 0x87, 0x36, 0xf4, 0xfe, 0x7f, 0x00, 0x00, 0x00, 0xff, 0xff, 0xa5, 0xca, 0x64, 0xd9, 0x69,
+	0x04, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -431,9 +432,9 @@ const _ = grpc.SupportPackageIsVersion4
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type HookServiceClient interface {
-	PreReceiveHook(ctx context.Context, in *PreReceiveHookRequest, opts ...grpc.CallOption) (*PreReceiveHookResponse, error)
-	PostReceiveHook(ctx context.Context, in *PostReceiveHookRequest, opts ...grpc.CallOption) (*PostReceiveHookResponse, error)
-	UpdateHook(ctx context.Context, in *UpdateHookRequest, opts ...grpc.CallOption) (*UpdateHookResponse, error)
+	PreReceiveHook(ctx context.Context, opts ...grpc.CallOption) (HookService_PreReceiveHookClient, error)
+	PostReceiveHook(ctx context.Context, opts ...grpc.CallOption) (HookService_PostReceiveHookClient, error)
+	UpdateHook(ctx context.Context, in *UpdateHookRequest, opts ...grpc.CallOption) (HookService_UpdateHookClient, error)
 }
 
 type hookServiceClient struct {
@@ -444,129 +445,220 @@ func NewHookServiceClient(cc *grpc.ClientConn) HookServiceClient {
 	return &hookServiceClient{cc}
 }
 
-func (c *hookServiceClient) PreReceiveHook(ctx context.Context, in *PreReceiveHookRequest, opts ...grpc.CallOption) (*PreReceiveHookResponse, error) {
-	out := new(PreReceiveHookResponse)
-	err := c.cc.Invoke(ctx, "/gitaly.HookService/PreReceiveHook", in, out, opts...)
+func (c *hookServiceClient) PreReceiveHook(ctx context.Context, opts ...grpc.CallOption) (HookService_PreReceiveHookClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_HookService_serviceDesc.Streams[0], "/gitaly.HookService/PreReceiveHook", opts...)
 	if err != nil {
 		return nil, err
 	}
-	return out, nil
+	x := &hookServicePreReceiveHookClient{stream}
+	return x, nil
 }
 
-func (c *hookServiceClient) PostReceiveHook(ctx context.Context, in *PostReceiveHookRequest, opts ...grpc.CallOption) (*PostReceiveHookResponse, error) {
-	out := new(PostReceiveHookResponse)
-	err := c.cc.Invoke(ctx, "/gitaly.HookService/PostReceiveHook", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
+type HookService_PreReceiveHookClient interface {
+	Send(*PreReceiveHookRequest) error
+	Recv() (*PreReceiveHookResponse, error)
+	grpc.ClientStream
 }
 
-func (c *hookServiceClient) UpdateHook(ctx context.Context, in *UpdateHookRequest, opts ...grpc.CallOption) (*UpdateHookResponse, error) {
-	out := new(UpdateHookResponse)
-	err := c.cc.Invoke(ctx, "/gitaly.HookService/UpdateHook", in, out, opts...)
+type hookServicePreReceiveHookClient struct {
+	grpc.ClientStream
+}
+
+func (x *hookServicePreReceiveHookClient) Send(m *PreReceiveHookRequest) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *hookServicePreReceiveHookClient) Recv() (*PreReceiveHookResponse, error) {
+	m := new(PreReceiveHookResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *hookServiceClient) PostReceiveHook(ctx context.Context, opts ...grpc.CallOption) (HookService_PostReceiveHookClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_HookService_serviceDesc.Streams[1], "/gitaly.HookService/PostReceiveHook", opts...)
 	if err != nil {
 		return nil, err
 	}
-	return out, nil
+	x := &hookServicePostReceiveHookClient{stream}
+	return x, nil
+}
+
+type HookService_PostReceiveHookClient interface {
+	Send(*PostReceiveHookRequest) error
+	Recv() (*PostReceiveHookResponse, error)
+	grpc.ClientStream
+}
+
+type hookServicePostReceiveHookClient struct {
+	grpc.ClientStream
+}
+
+func (x *hookServicePostReceiveHookClient) Send(m *PostReceiveHookRequest) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *hookServicePostReceiveHookClient) Recv() (*PostReceiveHookResponse, error) {
+	m := new(PostReceiveHookResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *hookServiceClient) UpdateHook(ctx context.Context, in *UpdateHookRequest, opts ...grpc.CallOption) (HookService_UpdateHookClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_HookService_serviceDesc.Streams[2], "/gitaly.HookService/UpdateHook", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &hookServiceUpdateHookClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type HookService_UpdateHookClient interface {
+	Recv() (*UpdateHookResponse, error)
+	grpc.ClientStream
+}
+
+type hookServiceUpdateHookClient struct {
+	grpc.ClientStream
+}
+
+func (x *hookServiceUpdateHookClient) Recv() (*UpdateHookResponse, error) {
+	m := new(UpdateHookResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 // HookServiceServer is the server API for HookService service.
 type HookServiceServer interface {
-	PreReceiveHook(context.Context, *PreReceiveHookRequest) (*PreReceiveHookResponse, error)
-	PostReceiveHook(context.Context, *PostReceiveHookRequest) (*PostReceiveHookResponse, error)
-	UpdateHook(context.Context, *UpdateHookRequest) (*UpdateHookResponse, error)
+	PreReceiveHook(HookService_PreReceiveHookServer) error
+	PostReceiveHook(HookService_PostReceiveHookServer) error
+	UpdateHook(*UpdateHookRequest, HookService_UpdateHookServer) error
 }
 
 // UnimplementedHookServiceServer can be embedded to have forward compatible implementations.
 type UnimplementedHookServiceServer struct {
 }
 
-func (*UnimplementedHookServiceServer) PreReceiveHook(ctx context.Context, req *PreReceiveHookRequest) (*PreReceiveHookResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method PreReceiveHook not implemented")
+func (*UnimplementedHookServiceServer) PreReceiveHook(srv HookService_PreReceiveHookServer) error {
+	return status.Errorf(codes.Unimplemented, "method PreReceiveHook not implemented")
 }
-func (*UnimplementedHookServiceServer) PostReceiveHook(ctx context.Context, req *PostReceiveHookRequest) (*PostReceiveHookResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method PostReceiveHook not implemented")
+func (*UnimplementedHookServiceServer) PostReceiveHook(srv HookService_PostReceiveHookServer) error {
+	return status.Errorf(codes.Unimplemented, "method PostReceiveHook not implemented")
 }
-func (*UnimplementedHookServiceServer) UpdateHook(ctx context.Context, req *UpdateHookRequest) (*UpdateHookResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method UpdateHook not implemented")
+func (*UnimplementedHookServiceServer) UpdateHook(req *UpdateHookRequest, srv HookService_UpdateHookServer) error {
+	return status.Errorf(codes.Unimplemented, "method UpdateHook not implemented")
 }
 
 func RegisterHookServiceServer(s *grpc.Server, srv HookServiceServer) {
 	s.RegisterService(&_HookService_serviceDesc, srv)
 }
 
-func _HookService_PreReceiveHook_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(PreReceiveHookRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(HookServiceServer).PreReceiveHook(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/gitaly.HookService/PreReceiveHook",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(HookServiceServer).PreReceiveHook(ctx, req.(*PreReceiveHookRequest))
-	}
-	return interceptor(ctx, in, info, handler)
+func _HookService_PreReceiveHook_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(HookServiceServer).PreReceiveHook(&hookServicePreReceiveHookServer{stream})
 }
 
-func _HookService_PostReceiveHook_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(PostReceiveHookRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(HookServiceServer).PostReceiveHook(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/gitaly.HookService/PostReceiveHook",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(HookServiceServer).PostReceiveHook(ctx, req.(*PostReceiveHookRequest))
-	}
-	return interceptor(ctx, in, info, handler)
+type HookService_PreReceiveHookServer interface {
+	Send(*PreReceiveHookResponse) error
+	Recv() (*PreReceiveHookRequest, error)
+	grpc.ServerStream
 }
 
-func _HookService_UpdateHook_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(UpdateHookRequest)
-	if err := dec(in); err != nil {
+type hookServicePreReceiveHookServer struct {
+	grpc.ServerStream
+}
+
+func (x *hookServicePreReceiveHookServer) Send(m *PreReceiveHookResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *hookServicePreReceiveHookServer) Recv() (*PreReceiveHookRequest, error) {
+	m := new(PreReceiveHookRequest)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
-	if interceptor == nil {
-		return srv.(HookServiceServer).UpdateHook(ctx, in)
+	return m, nil
+}
+
+func _HookService_PostReceiveHook_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(HookServiceServer).PostReceiveHook(&hookServicePostReceiveHookServer{stream})
+}
+
+type HookService_PostReceiveHookServer interface {
+	Send(*PostReceiveHookResponse) error
+	Recv() (*PostReceiveHookRequest, error)
+	grpc.ServerStream
+}
+
+type hookServicePostReceiveHookServer struct {
+	grpc.ServerStream
+}
+
+func (x *hookServicePostReceiveHookServer) Send(m *PostReceiveHookResponse) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *hookServicePostReceiveHookServer) Recv() (*PostReceiveHookRequest, error) {
+	m := new(PostReceiveHookRequest)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
 	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/gitaly.HookService/UpdateHook",
+	return m, nil
+}
+
+func _HookService_UpdateHook_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(UpdateHookRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
 	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(HookServiceServer).UpdateHook(ctx, req.(*UpdateHookRequest))
-	}
-	return interceptor(ctx, in, info, handler)
+	return srv.(HookServiceServer).UpdateHook(m, &hookServiceUpdateHookServer{stream})
+}
+
+type HookService_UpdateHookServer interface {
+	Send(*UpdateHookResponse) error
+	grpc.ServerStream
+}
+
+type hookServiceUpdateHookServer struct {
+	grpc.ServerStream
+}
+
+func (x *hookServiceUpdateHookServer) Send(m *UpdateHookResponse) error {
+	return x.ServerStream.SendMsg(m)
 }
 
 var _HookService_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "gitaly.HookService",
 	HandlerType: (*HookServiceServer)(nil),
-	Methods: []grpc.MethodDesc{
+	Methods:     []grpc.MethodDesc{},
+	Streams: []grpc.StreamDesc{
 		{
-			MethodName: "PreReceiveHook",
-			Handler:    _HookService_PreReceiveHook_Handler,
+			StreamName:    "PreReceiveHook",
+			Handler:       _HookService_PreReceiveHook_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
 		},
 		{
-			MethodName: "PostReceiveHook",
-			Handler:    _HookService_PostReceiveHook_Handler,
+			StreamName:    "PostReceiveHook",
+			Handler:       _HookService_PostReceiveHook_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
 		},
 		{
-			MethodName: "UpdateHook",
-			Handler:    _HookService_UpdateHook_Handler,
+			StreamName:    "UpdateHook",
+			Handler:       _HookService_UpdateHook_Handler,
+			ServerStreams: true,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
 	Metadata: "hook.proto",
 }

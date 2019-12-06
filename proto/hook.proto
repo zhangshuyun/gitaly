@@ -7,19 +7,19 @@ option go_package = "gitlab.com/gitlab-org/gitaly/proto/go/gitalypb";
 import "shared.proto";
 
 service HookService {
-  rpc PreReceiveHook(PreReceiveHookRequest) returns (PreReceiveHookResponse) {
+  rpc PreReceiveHook(stream PreReceiveHookRequest) returns (stream PreReceiveHookResponse) {
     option (op_type) = {
       op: ACCESSOR
       target_repository_field: "1"
     };
   }
-  rpc PostReceiveHook(PostReceiveHookRequest) returns  (PostReceiveHookResponse) {
+  rpc PostReceiveHook(stream PostReceiveHookRequest) returns  (stream PostReceiveHookResponse) {
     option (op_type) = {
       op: ACCESSOR
       target_repository_field: "1"
     };
   }
-  rpc UpdateHook(UpdateHookRequest) returns (UpdateHookResponse) {
+  rpc UpdateHook(UpdateHookRequest) returns (stream UpdateHookResponse) {
     option (op_type) = {
       op: ACCESSOR
       target_repository_field: "1"
