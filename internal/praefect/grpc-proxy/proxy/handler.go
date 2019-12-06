@@ -83,9 +83,7 @@ func (s *handler) handler(srv interface{}, serverStream grpc.ServerStream) error
 	}
 
 	defer func() {
-		if streamParams.RequestFinalizer != nil {
-			streamParams.RequestFinalizer()
-		}
+		streamParams.RequestFinalizer()
 	}()
 
 	clientCtx, clientCancel := context.WithCancel(streamParams.Context())

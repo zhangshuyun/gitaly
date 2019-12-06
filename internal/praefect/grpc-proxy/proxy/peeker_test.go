@@ -8,7 +8,6 @@ import (
 	"github.com/golang/protobuf/proto"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/grpc-proxy/proxy"
 	"golang.org/x/net/context"
-	"google.golang.org/grpc"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -28,7 +27,7 @@ func TestStreamPeeking(t *testing.T) {
 	pingReqSent := &testservice.PingRequest{Value: "hi"}
 
 	// director will peek into stream before routing traffic
-	director := func(ctx context.Context, fullMethodName string, peeker proxy.StreamModifier) (context.Context, *grpc.ClientConn, func(), error) {
+	director := func(ctx context.Context, fullMethodName string, peeker proxy.StreamModifier) (StreamParamters, error) {
 		t.Logf("director routing method %s to backend", fullMethodName)
 
 		peekedMsg, err := peeker.Peek()
@@ -39,7 +38,7 @@ func TestStreamPeeking(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, pingReqSent, peekedRequest)
 
-		return ctx, backendCC, nil, nil
+		return &testStreamParameters{ctx: ctx, conn: backendCC}, nil
 	}
 
 	pingResp := &testservice.PingResponse{
@@ -87,7 +86,7 @@ func TestStreamInjecting(t *testing.T) {
 	newValue := "bye"
 
 	// director will peek into stream and change some frames
-	director := func(ctx context.Context, fullMethodName string, peeker proxy.StreamModifier) (context.Context, *grpc.ClientConn, func(), error) {
+	director := func(ctx context.Context, fullMethodName string, peeker proxy.StreamModifier) (StreamParameters, func(), error) {
 		t.Logf("modifying request for method %s", fullMethodName)
 
 		peekedMsg, err := peeker.Peek()
@@ -104,7 +103,7 @@ func TestStreamInjecting(t *testing.T) {
 
 		require.NoError(t, peeker.Modify(newPayload))
 
-		return ctx, backendCC, nil, nil
+		return testStreamParameters{ctx: ctx, conn: backendCC}, nil
 	}
 
 	pingResp := &testservice.PingResponse{

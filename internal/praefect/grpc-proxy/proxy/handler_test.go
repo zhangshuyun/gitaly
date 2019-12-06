@@ -21,7 +21,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
-	"gitlab.com/gitlab-org/gitaly/internal/middleware/proxytime"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/grpc-proxy/proxy"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -186,6 +185,29 @@ func (s *ProxyHappySuite) TestPingStream_FullDuplexWorks() {
 	assert.Len(s.T(), trailerMd, 1, "PingList trailer headers user contain metadata")
 }
 
+type testStreamParameters struct {
+	ctx          context.Context
+	conn         *grpc.ClientConn
+	reqFinalizer func()
+	callOptions  []grpc.CallOption
+}
+
+func (s *testStreamParameters) Context() context.Context {
+	return s.ctx
+}
+
+func (s *testStreamParameters) Conn() *grpc.ClientConn {
+	return s.conn
+}
+
+func (s *testStreamParameters) RequestFinalizer() func() {
+	return s.reqFinalizer
+}
+
+func (s *testStreamParameters) CallOptions() []grpc.CallOption {
+	return s.callOptions
+}
+
 func (s *ProxyHappySuite) TestPingStream_StressTest() {
 	for i := 0; i < 50; i++ {
 		s.TestPingStream_FullDuplexWorks()
@@ -208,21 +230,21 @@ func (s *ProxyHappySuite) SetupSuite() {
 	// Setup of the proxy's Director.
 	s.serverClientConn, err = grpc.Dial(s.serverListener.Addr().String(), grpc.WithInsecure(), grpc.WithCodec(proxy.Codec()))
 	require.NoError(s.T(), err, "must not error on deferred client Dial")
-	director := func(ctx context.Context, fullName string, _ proxy.StreamModifier) (context.Context, *grpc.ClientConn, func(), error) {
+	director := func(ctx context.Context, fullName string, _ proxy.StreamModifier) (proxy.StreamParameters, func(), error) {
 		md, ok := metadata.FromIncomingContext(ctx)
 		if ok {
 			if _, exists := md[rejectingMdKey]; exists {
-				return ctx, nil, nil, grpc.Errorf(codes.PermissionDenied, "testing rejection")
+				return &testStreamParameters{ctx: ctx}, grpc.Errorf(codes.PermissionDenied, "testing rejection")
 			}
 		}
 		// Explicitly copy the metadata, otherwise the tests will fail.
 		outCtx, _ := context.WithCancel(ctx)
 		outCtx = metadata.NewOutgoingContext(outCtx, md.Copy())
-		return outCtx, s.serverClientConn, nil, nil
+		return &testStreamParameters{ctx: outCtx, conn: s.serverClientConn}, nil
 	}
 	s.proxy = grpc.NewServer(
 		grpc.CustomCodec(proxy.Codec()),
-		grpc.UnknownServiceHandler(proxy.TransparentHandler(director, proxytime.NewTrailerTracker())),
+		grpc.UnknownServiceHandler(proxy.TransparentHandler(director)),
 	)
 	// Ping handler is handled as an explicit registration and not as a TransparentHandler.
 	proxy.RegisterService(s.proxy, director,
