@@ -21,4 +21,11 @@ import (
 // are invoked. So decisions around authorization, monitoring etc. are better to be handled there.
 //
 // See the rather rich example.
-type StreamDirector func(ctx context.Context, fullMethodName string, peeker StreamModifier) (context.Context, *grpc.ClientConn, func(), error)
+type StreamDirector func(ctx context.Context, fullMethodName string, peeker StreamModifier) (StreamParameters, error)
+
+type StreamParameters interface {
+	Context() context.Context
+	Conn() *grpc.ClientConn
+	RequestFinalizer() func()
+	CallOptions() []grpc.CallOption
+}

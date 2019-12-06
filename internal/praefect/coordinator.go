@@ -10,6 +10,8 @@ import (
 	"syscall"
 
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/internal/metadata"
+	"gitlab.com/gitlab-org/gitaly/internal/middleware/proxytime"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/conn"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
@@ -40,8 +42,9 @@ type Coordinator struct {
 
 	datastore datastore.Datastore
 
-	registry *protoregistry.Registry
-	conf     config.Config
+	registry       *protoregistry.Registry
+	conf           config.Config
+	trailerTracker proxytime.TrailerTracker
 }
 
 // NewCoordinator returns a new Coordinator that utilizes the provided logger
@@ -50,11 +53,12 @@ func NewCoordinator(l *logrus.Entry, ds datastore.Datastore, clientConnections *
 	registry.RegisterFiles(fileDescriptors...)
 
 	return &Coordinator{
-		log:         l,
-		datastore:   ds,
-		registry:    registry,
-		connections: clientConnections,
-		conf:        conf,
+		log:            l,
+		datastore:      ds,
+		registry:       registry,
+		connections:    clientConnections,
+		conf:           conf,
+		trailerTracker: proxytime.NewTrailerTracker(),
 	}
 }
 
@@ -64,7 +68,7 @@ func (c *Coordinator) RegisterProtos(protos ...*descriptor.FileDescriptorProto) 
 }
 
 // streamDirector determines which downstream servers receive requests
-func (c *Coordinator) streamDirector(ctx context.Context, fullMethodName string, peeker proxy.StreamModifier) (context.Context, *grpc.ClientConn, func(), error) {
+func (c *Coordinator) streamDirector(ctx context.Context, fullMethodName string, peeker proxy.StreamModifier) (proxy.StreamParameters, error) {
 	// For phase 1, we need to route messages based on the storage location
 	// to the appropriate Gitaly node.
 	c.log.Debugf("Stream director received method %s", fullMethodName)
@@ -74,12 +78,12 @@ func (c *Coordinator) streamDirector(ctx context.Context, fullMethodName string,
 
 	mi, err := c.registry.LookupMethod(fullMethodName)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 
 	m, err := protoMessageFromPeeker(mi, peeker)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
 
 	var requestFinalizer func()
@@ -88,22 +92,56 @@ func (c *Coordinator) streamDirector(ctx context.Context, fullMethodName string,
 	if mi.Scope == protoregistry.ScopeRepository {
 		storage, requestFinalizer, err = c.getStorageForRepositoryMessage(mi, m, peeker, fullMethodName)
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, err
 		}
 	} else {
 		storage, requestFinalizer, err = c.getAnyStorageNode()
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, err
 		}
 	}
 	// We only need the primary node, as there's only one primary storage
 	// location per praefect at this time
 	cc, err := c.connections.GetConnection(storage)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("unable to find existing client connection for %s", storage)
+		return nil, fmt.Errorf("unable to find existing client connection for %s", storage)
 	}
 
-	return helper.IncomingToOutgoing(ctx), cc, requestFinalizer, nil
+	var opts []grpc.CallOption
+	proxyRequestID := metadata.GetValue(ctx, proxytime.RequestIDKey)
+	if proxyRequestID != "" {
+		opts = append(opts, c.trailerTracker.Trailer(proxyRequestID))
+	}
+
+	return &StreamParameters{
+		ctx:          helper.IncomingToOutgoing(ctx),
+		conn:         cc,
+		reqFinalizer: requestFinalizer,
+		callOptions:  opts,
+	}, nil
+}
+
+type StreamParameters struct {
+	ctx          context.Context
+	conn         *grpc.ClientConn
+	reqFinalizer func()
+	callOptions  []grpc.CallOption
+}
+
+func (s *StreamParameters) Context() context.Context {
+	return s.ctx
+}
+
+func (s *StreamParameters) Conn() *grpc.ClientConn {
+	return s.conn
+}
+
+func (s *StreamParameters) RequestFinalizer() func() {
+	return s.reqFinalizer
+}
+
+func (s *StreamParameters) CallOptions() []grpc.CallOption {
+	return s.callOptions
 }
 
 var noopRequestFinalizer = func() {}

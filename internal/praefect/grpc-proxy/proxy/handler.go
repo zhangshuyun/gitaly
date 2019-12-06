@@ -10,8 +10,6 @@ package proxy
 import (
 	"io"
 
-	gitaly_metadata "gitlab.com/gitlab-org/gitaly/internal/metadata"
-	"gitlab.com/gitlab-org/gitaly/internal/middleware/proxytime"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -35,7 +33,7 @@ var (
 //
 // This can *only* be used if the `server` also uses grpcproxy.CodecForServer() ServerOption.
 func RegisterService(server *grpc.Server, director StreamDirector, serviceName string, methodNames ...string) {
-	streamer := &handler{director: director, trailerTracker: proxytime.NewTrailerTracker()}
+	streamer := &handler{director: director}
 	fakeDesc := &grpc.ServiceDesc{
 		ServiceName: serviceName,
 		HandlerType: (*interface{})(nil),
@@ -57,14 +55,13 @@ func RegisterService(server *grpc.Server, director StreamDirector, serviceName s
 // backends. It should be used as a `grpc.UnknownServiceHandler`.
 //
 // This can *only* be used if the `server` also uses grpcproxy.CodecForServer() ServerOption.
-func TransparentHandler(director StreamDirector, tt proxytime.TrailerTracker) grpc.StreamHandler {
-	streamer := &handler{director: director, trailerTracker: tt}
+func TransparentHandler(director StreamDirector) grpc.StreamHandler {
+	streamer := &handler{director: director}
 	return streamer.handler
 }
 
 type handler struct {
-	director       StreamDirector
-	trailerTracker proxytime.TrailerTracker
+	director StreamDirector
 }
 
 // handler is where the real magic of proxying happens.
@@ -79,28 +76,21 @@ func (s *handler) handler(srv interface{}, serverStream grpc.ServerStream) error
 
 	peeker := newPeeker(serverStream)
 
-	opts := []grpc.CallOption{}
-
-	proxyRequestID := gitaly_metadata.GetValue(serverStream.Context(), RequestIDKey)
-	if proxyRequestID != "" {
-		opts = append(opts, s.trailerTracker.Trailer(proxyRequestID))
-	}
-
 	// We require that the director's returned context inherits from the serverStream.Context().
-	outgoingCtx, backendConn, requestFinalizer, err := s.director(serverStream.Context(), fullMethodName, peeker)
+	streamParams, err := s.director(serverStream.Context(), fullMethodName, peeker)
 	if err != nil {
 		return err
 	}
 
 	defer func() {
-		if requestFinalizer != nil {
-			requestFinalizer()
+		if streamParams.RequestFinalizer != nil {
+			streamParams.RequestFinalizer()
 		}
 	}()
 
-	clientCtx, clientCancel := context.WithCancel(outgoingCtx)
+	clientCtx, clientCancel := context.WithCancel(streamParams.Context())
 	// TODO(mwitkow): Add a `forwarded` header to metadata, https://en.wikipedia.org/wiki/X-Forwarded-For.
-	clientStream, err := grpc.NewClientStream(clientCtx, clientStreamDescForProxying, backendConn, fullMethodName, opts...)
+	clientStream, err := grpc.NewClientStream(clientCtx, clientStreamDescForProxying, streamParams.Conn(), fullMethodName, streamParams.CallOptions()...)
 	if err != nil {
 		return err
 	}
