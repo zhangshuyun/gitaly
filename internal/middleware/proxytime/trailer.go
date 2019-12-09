@@ -9,6 +9,9 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
+// MaxTrailers is the cap for number of trailers the trailer tracker can track
+const MaxTrailers = 100000
+
 // TrailerTracker is an interface that tracks trailers to allow other components to access grpc trailer metadata.
 type TrailerTracker struct {
 	mutex    sync.Mutex
@@ -26,6 +29,10 @@ func NewTrailerTracker() *TrailerTracker {
 func (t *TrailerTracker) Trailer(id string) (grpc.CallOption, error) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
+
+	if len(t.trailers) > MaxTrailers {
+		return nil, errors.New("maximum number of trailers reached")
+	}
 
 	if _, ok := t.trailers[id]; ok {
 		return nil, errors.New("a trailer with the same id is already in flight")
