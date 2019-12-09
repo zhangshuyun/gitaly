@@ -34,10 +34,10 @@ func TestTrailerTracker(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, *trailer, 1)
 	require.Len(t, trailer.Get("gitaly-time"), 1)
-	gitalyTime, err := strconv.Atoi(trailer.Get("gitaly-time")[0])
+	gitalyTime, err := strconv.ParseFloat(trailer.Get("gitaly-time")[0], 64)
 	require.NoError(t, err)
 
-	require.Greater(t, gitalyTime, 0)
+	require.Greater(t, gitalyTime, 0.0)
 }
 
 func newHealthConnection(t *testing.T, serverSocketPath string) grpc_health_v1.HealthClient {
