@@ -2,7 +2,7 @@ package proxytime
 
 import (
 	"context"
-	"fmt"
+	"strconv"
 	"time"
 
 	"google.golang.org/grpc"
@@ -16,7 +16,7 @@ const gitalyTimeTrailerKey = "gitaly-time"
 func StreamGitalyTime(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 	startTime := time.Now()
 	defer func() {
-		ss.SetTrailer(metadata.New(map[string]string{gitalyTimeTrailerKey: fmt.Sprintf("%d", int64(time.Since(startTime)))}))
+		ss.SetTrailer(metadata.New(map[string]string{gitalyTimeTrailerKey: strconv.FormatInt(int64(time.Since(startTime).Seconds()), 10)}))
 	}()
 
 	return handler(srv, ss)
@@ -26,7 +26,7 @@ func StreamGitalyTime(srv interface{}, ss grpc.ServerStream, info *grpc.StreamSe
 func UnaryGitalyTime(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 	startTime := time.Now()
 	defer func() {
-		grpc.SetTrailer(ctx, metadata.Pairs(gitalyTimeTrailerKey, fmt.Sprintf("%d", int64(time.Since(startTime)))))
+		grpc.SetTrailer(ctx, metadata.Pairs(gitalyTimeTrailerKey, strconv.FormatInt(int64(time.Since(startTime).Seconds()), 10)))
 	}()
 
 	return handler(ctx, req)

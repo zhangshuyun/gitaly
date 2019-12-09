@@ -20,7 +20,7 @@ const (
 )
 
 // Unary is a gRPC server-side interceptor that provides a prometheus metric for the latency praefect adds to every gitaly request.
-func Unary(tracker TrailerTracker) grpc.UnaryServerInterceptor {
+func Unary(tracker *TrailerTracker) grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 		startTime := time.Now()
 
@@ -48,7 +48,7 @@ func Unary(tracker TrailerTracker) grpc.UnaryServerInterceptor {
 }
 
 // Stream is a gRPC server-side interceptor that provides a prometheus metric for the latency praefect adds to every gitaly request.
-func Stream(tracker TrailerTracker) grpc.StreamServerInterceptor {
+func Stream(tracker *TrailerTracker) grpc.StreamServerInterceptor {
 	return func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 		startTime := time.Now()
 
