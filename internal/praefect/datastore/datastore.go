@@ -97,6 +97,8 @@ type ReplicasDatastore interface {
 	RemoveReplica(relativePath, nodeStorage string) error
 
 	GetRepository(relativePath string) (*models.Repository, error)
+
+	GetRepositories() ([]models.Repository, error)
 }
 
 // ReplJobsDatastore represents the behavior needed for fetching and updating
@@ -334,6 +336,20 @@ func (md *MemoryDatastore) GetRepository(relativePath string) (*models.Repositor
 	}
 
 	return &repository, nil
+}
+
+// GetRepositories gets all repositories
+func (md *MemoryDatastore) GetRepositories() ([]models.Repository, error) {
+	md.repositories.RLock()
+	defer md.repositories.RUnlock()
+
+	var repositories []models.Repository
+
+	for _, repository := range md.repositories.m {
+		repositories = append(repositories, repository)
+	}
+
+	return repositories, nil
 }
 
 // ErrReplicasMissing indicates the repository does not have any backup

@@ -114,7 +114,7 @@ func run(cfgs []starter.Config, conf config.Config) error {
 		ds           = datastore.NewInMemory(conf)
 		coordinator  = praefect.NewCoordinator(logger, ds, clientConnections, conf, protoregistry.GitalyProtoFileDescriptors...)
 		repl         = praefect.NewReplMgr("default", logger, ds, clientConnections)
-		srv          = praefect.NewServer(coordinator, repl, nil, logger, clientConnections, conf)
+		srv          = praefect.NewServer(ds, coordinator, repl, logger, clientConnections, conf)
 		serverErrors = make(chan error, 1)
 	)
 

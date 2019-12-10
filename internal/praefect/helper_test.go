@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	gitalyconfig "gitlab.com/gitlab-org/gitaly/internal/config"
+
 	"github.com/golang/protobuf/protoc-gen-go/descriptor"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
@@ -90,9 +92,9 @@ func setupServer(t testing.TB, conf config.Config, clientCC *conn.ClientConnecti
 		clientCC,
 	)
 	server := NewServer(
+		ds,
 		coordinator,
 		replmgr,
-		nil,
 		l,
 		clientCC,
 		conf,
@@ -187,9 +189,9 @@ func runPraefectServerWithGitaly(t *testing.T, conf config.Config) (*grpc.Client
 	)
 
 	prf := NewServer(
+		ds,
 		coordinator,
 		replmgr,
-		nil,
 		logEntry,
 		clientCC,
 		conf,
@@ -316,4 +318,33 @@ func newMockDownstream(tb testing.TB, token string, m mock.SimpleServiceServer) 
 	}
 
 	return fmt.Sprintf("tcp://localhost:%d", port), cleanup
+}
+
+// CreateNodeStorages creates a storage location for each praefect node and modifies the gitaly singleton
+// config with the paths. It returns a cleanup function that cleans up all the temp directories as well as restores
+// the original gitaly config
+func CreateNodeStorages(t *testing.T, nodes []*models.Node) func() {
+	oldConfig := gitalyconfig.Config
+
+	var tempDirCleanups []func() error
+	// for storages other than default, create a tempdir to store the repositories
+	for _, node := range nodes {
+		if node.Storage == "default" {
+			continue
+		}
+		path, cleanup := testhelper.TempDir(t, "", node.Storage)
+		tempDirCleanups = append(tempDirCleanups, cleanup)
+
+		gitalyconfig.Config.Storages = append(gitalyconfig.Config.Storages, gitalyconfig.Storage{
+			Name: node.Storage,
+			Path: path,
+		})
+	}
+
+	return func() {
+		gitalyconfig.Config = oldConfig
+		for _, cleanup := range tempDirCleanups {
+			cleanup()
+		}
+	}
 }

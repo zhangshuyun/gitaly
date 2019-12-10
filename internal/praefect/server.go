@@ -16,7 +16,9 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/sentryhandler"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/conn"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/grpc-proxy/proxy"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/service/info"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/service/server"
 	"gitlab.com/gitlab-org/gitaly/internal/server/auth"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -34,6 +36,7 @@ type Server struct {
 	s                 *grpc.Server
 	conf              config.Config
 	l                 *logrus.Entry
+	ds                datastore.Datastore
 }
 
 func (srv *Server) warnDupeAddrs(c config.Config) {
@@ -58,7 +61,15 @@ func (srv *Server) warnDupeAddrs(c config.Config) {
 
 // NewServer returns an initialized praefect gPRC proxy server configured
 // with the provided gRPC server options
-func NewServer(c *Coordinator, repl ReplMgr, grpcOpts []grpc.ServerOption, l *logrus.Entry, clientConnections *conn.ClientConnections, conf config.Config) *Server {
+func NewServer(
+	datastore datastore.Datastore,
+	c *Coordinator,
+	repl ReplMgr,
+	l *logrus.Entry,
+	clientConnections *conn.ClientConnections,
+	conf config.Config,
+	grpcOpts ...grpc.ServerOption,
+) *Server {
 	grpcOpts = append(grpcOpts, proxyRequiredOpts(c.streamDirector)...)
 	grpcOpts = append(grpcOpts, []grpc.ServerOption{
 		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
@@ -94,6 +105,7 @@ func NewServer(c *Coordinator, repl ReplMgr, grpcOpts []grpc.ServerOption, l *lo
 		clientConnections: clientConnections,
 		conf:              conf,
 		l:                 l,
+		ds:                datastore,
 	}
 
 	s.warnDupeAddrs(conf)
@@ -117,6 +129,7 @@ func (srv *Server) Serve(l net.Listener, secure bool) error {
 func (srv *Server) RegisterServices() {
 	// ServerServiceServer is necessary for the ServerInfo RPC
 	gitalypb.RegisterServerServiceServer(srv.s, server.NewServer(srv.conf, srv.clientConnections))
+	gitalypb.RegisterInfoServiceServer(srv.s, info.NewServer(srv.conf, srv.ds, srv.clientConnections))
 
 	healthpb.RegisterHealthServer(srv.s, health.NewServer())
 }

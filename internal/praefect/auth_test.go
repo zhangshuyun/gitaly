@@ -197,7 +197,7 @@ func runServer(t *testing.T, token string, required bool) (*Server, string, func
 
 	replMgr := NewReplMgr("praefect-internal-0", logEntry, ds, clientConnections)
 
-	srv := NewServer(coordinator, replMgr, nil, logEntry, clientConnections, conf)
+	srv := NewServer(ds, coordinator, replMgr, logEntry, clientConnections, conf)
 
 	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName()
 
