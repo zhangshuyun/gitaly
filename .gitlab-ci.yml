@@ -185,6 +185,6 @@ include:
 license_management:
   before_script:
     - sudo apt-get update
-    - sudo apt-get install -y libicu-dev libgit2-dev cmake
+    - sudo apt-get install -y libicu-dev libgit2-dev libicu-dev cmake
   variables:
     LICENSE_FINDER_CLI_OPTS: '--aggregate-paths=. ruby'
