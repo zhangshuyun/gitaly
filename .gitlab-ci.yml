@@ -183,6 +183,7 @@ include:
   template: Security/License-Management.gitlab-ci.yml
 
 license_management:
+  image: "registry.gitlab.com/gitlab-org/security-products/license-management/tmp:a4bd4a2f2ea4ae3a73633b08adf0c042353ec24c"
   before_script:
     - sudo apt-get update
     - sudo apt-get install -y libicu-dev libgit2-dev libicu-dev cmake
