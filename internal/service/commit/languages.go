@@ -3,14 +3,16 @@ package commit
 import (
 	"context"
 	"io/ioutil"
+	"os"
+	"path/filepath"
 	"sort"
+	"time"
 
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/linguist"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
-	"gitlab.com/gitlab-org/gitaly/internal/service/ref"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -19,18 +21,11 @@ import (
 func (*server) CommitLanguages(ctx context.Context, req *gitalypb.CommitLanguagesRequest) (*gitalypb.CommitLanguagesResponse, error) {
 	repo := req.Repository
 
-	if err := git.ValidateRevisionAllowEmpty(req.Revision); err != nil {
+	if err := git.ValidateRevision(req.Revision); err != nil {
 		return nil, helper.ErrInvalidArgument(err)
 	}
 
 	revision := string(req.Revision)
-	if revision == "" {
-		defaultBranch, err := ref.DefaultBranchName(ctx, req.Repository)
-		if err != nil {
-			return nil, err
-		}
-		revision = string(defaultBranch)
-	}
 
 	commitID, err := lookupRevision(ctx, repo, revision)
 	if err != nil {
@@ -41,6 +36,11 @@ func (*server) CommitLanguages(ctx context.Context, req *gitalypb.CommitLanguage
 	if err != nil {
 		return nil, err
 	}
+
+	if cacheRecentlyUpdated(repoPath) {
+		return nil, helper.ErrPreconditionFailedf("repository languages recently scanned")
+	}
+
 	stats, err := linguist.Stats(ctx, repoPath, commitID)
 	if err != nil {
 		return nil, err
@@ -103,4 +103,19 @@ func lookupRevision(ctx context.Context, repo *gitalypb.Repository, revision str
 	}
 
 	return text.ChompBytes(revParseBytes), nil
+}
+
+// Gitaly uses Linguist to detect the languages, and to improve performance, the
+// results will be cached. If the modified time is later than a trashold it's
+// considered recently updated enough that we do not scan again
+func cacheRecentlyUpdated(path string) bool {
+	fullPath := filepath.Join(path, "language-stats.cache")
+
+	fi, err := os.Stat(fullPath)
+	if err != nil {
+		return false
+	}
+
+	const sentinal = -time.Hour * 24 * 7
+	return fi.ModTime().After(time.Now().Add(sentinal))
 }

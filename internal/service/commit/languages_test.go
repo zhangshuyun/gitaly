@@ -53,6 +53,12 @@ func TestLanguages(t *testing.T) {
 		actualLanguage := resp.Languages[i]
 		requireLanguageEqual(t, &el, actualLanguage)
 	}
+
+	// if another request is made within short succession (1 week), the second
+	// one is rejected
+	_, err = client.CommitLanguages(ctx, request)
+	require.Error(t, err)
+	testhelper.RequireGrpcError(t, err, codes.FailedPrecondition)
 }
 
 func TestFileCountIsZeroWhenFeatureIsDisabled(t *testing.T) {
@@ -90,36 +96,6 @@ func requireLanguageEqual(t *testing.T, expected, actual *gitalypb.CommitLanguag
 	require.False(t, (expected.Share-actual.Share)*(expected.Share-actual.Share) >= 1.0, "shares do not match")
 	require.Equal(t, expected.FileCount, actual.FileCount)
 	require.Equal(t, expected.Bytes, actual.Bytes)
-}
-
-func TestLanguagesEmptyRevision(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
-
-	client, conn := newCommitServiceClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
-	defer cleanupFn()
-
-	request := &gitalypb.CommitLanguagesRequest{
-		Repository: testRepo,
-	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	resp, err := client.CommitLanguages(ctx, request)
-	require.NoError(t, err)
-
-	require.NotZero(t, len(resp.Languages), "number of languages in response")
-
-	foundRuby := false
-	for _, l := range resp.Languages {
-		if l.Name == "Ruby" {
-			foundRuby = true
-		}
-	}
-	require.True(t, foundRuby, "expected to find Ruby as a language on HEAD")
 }
 
 func TestInvalidCommitLanguagesRequestRevision(t *testing.T) {
