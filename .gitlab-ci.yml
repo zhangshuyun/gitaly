@@ -189,3 +189,7 @@ license_management:
     - sudo apt-get install -y libicu-dev libgit2-dev libicu-dev cmake
   variables:
     LICENSE_FINDER_CLI_OPTS: '--aggregate-paths=. ruby'
+  artifacts:
+    reports:
+      license_management: gl-license-management-report.json
+
