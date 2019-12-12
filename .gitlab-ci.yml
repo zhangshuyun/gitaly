@@ -188,4 +188,5 @@ license_management:
     - sudo apt-get update
     - sudo apt-get install -y libicu-dev libgit2-dev cmake
   variables:
+    LM_REPORT_VERSION: '2.0'
     LICENSE_FINDER_CLI_OPTS: '--aggregate-paths=. ruby'
