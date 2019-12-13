@@ -116,6 +116,6 @@ func cacheRecentlyUpdated(path string) bool {
 		return false
 	}
 
-	const sentinal = -time.Hour * 24 * 7
-	return fi.ModTime().After(time.Now().Add(sentinal))
+	const sentinel = -time.Hour * 24 * 7
+	return fi.ModTime().After(time.Now().Add(sentinel))
 }
