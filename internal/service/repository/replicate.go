@@ -8,11 +8,11 @@ import (
 	"os"
 	"path/filepath"
 
-	"gitlab.com/gitlab-org/gitaly/internal/safe"
-
 	"gitlab.com/gitlab-org/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/config"
+	"gitlab.com/gitlab-org/gitaly/internal/git/objectpool"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/internal/safe"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/streamio"
 	"golang.org/x/sync/errgroup"
@@ -35,6 +35,7 @@ func (s *server) ReplicateRepository(ctx context.Context, in *gitalypb.Replicate
 	for _, f := range []func(context.Context, *gitalypb.ReplicateRepositoryRequest) error{
 		syncRepository,
 		syncInfoAttributes,
+		s.syncObjectPool,
 	} {
 		f := f // rescoping f
 		g.Go(func() error { return f(outgoingCtx, in) })
@@ -132,6 +133,38 @@ func syncInfoAttributes(ctx context.Context, in *gitalypb.ReplicateRepositoryReq
 	return os.Rename(attributesPath, attributesPath)
 }
 
+func (s *server) syncObjectPool(ctx context.Context, in *gitalypb.ReplicateRepositoryRequest) error {
+	objectPoolClient, err := newObjectPoolClient(ctx, in.GetSource().GetStorageName())
+	if err != nil {
+		return err
+	}
+
+	resp, err := objectPoolClient.GetObjectPool(ctx, &gitalypb.GetObjectPoolRequest{
+		Repository: in.GetSource(),
+	})
+	if err != nil {
+		return err
+	}
+
+	if resp.GetObjectPool() == nil {
+		return nil
+	}
+
+	targetObjectPool, err := objectpool.NewObjectPool(
+		in.GetRepository().GetStorageName(),
+		resp.GetObjectPool().GetRepository().GetRelativePath(),
+	)
+	if err != nil {
+		return err
+	}
+
+	if targetObjectPool.Exists() && targetObjectPool.IsValid() {
+		return targetObjectPool.Link(ctx, in.GetRepository())
+	}
+
+	return targetObjectPool.Init(ctx)
+}
+
 // newRemoteClient creates a new RemoteClient that talks to the same gitaly server
 func newRemoteClient() (gitalypb.RemoteServiceClient, error) {
 	conn, err := client.Dial(fmt.Sprintf("unix:%s", config.GitalyInternalSocketPath()), nil)
@@ -150,4 +183,14 @@ func newRepoClient(ctx context.Context, storageName string) (gitalypb.Repository
 	}
 
 	return gitalypb.NewRepositoryServiceClient(conn), nil
+}
+
+// newObjectPoolClient creates a new RepositoryClient that talks to the gitaly of the source repository
+func newObjectPoolClient(ctx context.Context, storageName string) (gitalypb.ObjectPoolServiceClient, error) {
+	conn, err := helper.ClientConnection(ctx, storageName)
+	if err != nil {
+		return nil, err
+	}
+
+	return gitalypb.NewObjectPoolServiceClient(conn), nil
 }

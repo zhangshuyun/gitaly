@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"gitlab.com/gitlab-org/gitaly/internal/git/objectpool"
+
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
@@ -25,9 +27,10 @@ func TestReplicateRepository(t *testing.T) {
 	replicaPath := filepath.Join(tmpPath, "replica")
 	require.NoError(t, os.MkdirAll(replicaPath, 0755))
 
+	storages := config.Config.Storages
 	defer func(storages []config.Storage) {
 		config.Config.Storages = storages
-	}(config.Config.Storages)
+	}(storages)
 
 	config.Config.Storages = []config.Storage{
 		config.Storage{
@@ -91,6 +94,98 @@ func TestReplicateRepository(t *testing.T) {
 		testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "show-ref", "--hash", "--verify", fmt.Sprintf("refs/heads/%s", anotherNewBranch)),
 		testhelper.MustRunCommand(t, nil, "git", "-C", targetRepoPath, "show-ref", "--hash", "--verify", fmt.Sprintf("refs/heads/%s", anotherNewBranch)),
 	)
+}
+
+func TestReplicateRepositoryObjectPool(t *testing.T) {
+	tmpPath, cleanup := testhelper.TempDir(t, testhelper.GitlabTestStoragePath(), t.Name())
+	defer require.NoError(t, cleanup())
+
+	replicaPath := filepath.Join(tmpPath, "replica")
+	require.NoError(t, os.MkdirAll(replicaPath, 0755))
+
+	storages := config.Config.Storages
+	defer func(storages []config.Storage) {
+		config.Config.Storages = storages
+	}(storages)
+
+	config.Config.Storages = []config.Storage{
+		config.Storage{
+			Name: "default",
+			Path: testhelper.GitlabTestStoragePath(),
+		},
+		config.Storage{
+			Name: "replica",
+			Path: replicaPath,
+		},
+	}
+
+	server, serverSocketPath := runFullServer(t)
+	defer server.Stop()
+
+	testRepo, _, cleanupRepo := testhelper.NewTestRepo(t)
+	defer cleanupRepo()
+
+	config.Config.SocketPath = serverSocketPath
+
+	repoClient, conn := repository.NewRepositoryClient(t, serverSocketPath)
+	defer conn.Close()
+
+	// create object pool on the source
+	objectPoolPath := testhelper.NewTestObjectPoolName(t)
+	pool, err := objectpool.NewObjectPool(testRepo.GetStorageName(), objectPoolPath)
+	require.NoError(t, err)
+
+	poolCtx, cancel := testhelper.Context()
+
+	require.NoError(t, pool.Create(poolCtx, testRepo))
+	require.NoError(t, pool.Link(poolCtx, testRepo))
+	cancel()
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+	md := testhelper.GitalyServersMetadata(t, serverSocketPath)
+	injectedCtx := metadata.NewOutgoingContext(ctx, md)
+
+	targetRepo := *testRepo
+	targetRepo.StorageName = "replica"
+
+	_, err = repoClient.ReplicateRepository(injectedCtx, &gitalypb.ReplicateRepositoryRequest{
+		Repository: &targetRepo,
+		Source:     testRepo,
+	})
+	require.NoError(t, err)
+
+	targetRepoPath, err := helper.GetRepoPath(&targetRepo)
+	require.NoError(t, err)
+
+	testhelper.MustRunCommand(t, nil, "git", "-C", targetRepoPath, "fsck")
+
+	// replicate object pool repository
+	targetObjectPoolRepo := *pool.ToProto().GetRepository()
+	targetObjectPoolRepo.StorageName = "replica"
+
+	ctx, cancel = testhelper.Context()
+	defer cancel()
+	injectedCtx = metadata.NewOutgoingContext(ctx, md)
+
+	_, err = repoClient.ReplicateRepository(injectedCtx, &gitalypb.ReplicateRepositoryRequest{
+		Repository: &targetObjectPoolRepo,
+		Source:     pool.ToProto().GetRepository(),
+	})
+	require.NoError(t, err)
+
+	ctx, cancel = testhelper.Context()
+	defer cancel()
+	injectedCtx = metadata.NewOutgoingContext(ctx, md)
+
+	_, err = repoClient.ReplicateRepository(injectedCtx, &gitalypb.ReplicateRepositoryRequest{
+		Repository: &targetRepo,
+		Source:     testRepo,
+	})
+	require.NoError(t, err)
+
+	testhelper.MustRunCommand(t, nil, "git", "-C", targetRepoPath, "gc")
+	require.True(t, getGitObjectDirSize(t, targetRepoPath) < 100, "expect a small object directory size")
 }
 
 func TestReplicateRepositoryInvalidArguments(t *testing.T) {
