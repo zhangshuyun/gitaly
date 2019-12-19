@@ -1,0 +1,5 @@
+---
+title: Fix cache invalidator feature flag
+merge_request: 1714
+author:
+type: fixed
