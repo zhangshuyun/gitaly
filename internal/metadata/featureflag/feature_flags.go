@@ -19,7 +19,7 @@ var (
 	UploadPackFilter       = mustValidateFF("upload_pack_filter")
 	LinguistFileCountStats = mustValidateFF("linguist_file_count_stats")
 	HooksRPC               = mustValidateFF("hooks_rpc")
-	CacheInvalidator       = mustValidateFF("cache-invalidator")
+	CacheInvalidator       = mustValidateFF("cache_invalidator")
 )
 
 const (
