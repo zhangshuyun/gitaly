@@ -292,7 +292,7 @@ func dialLocalPort(tb testing.TB, port int, backend bool) *grpc.ClientConn {
 	if backend {
 		opts = append(
 			opts,
-			grpc.WithDefaultCallOptions(grpc.CallCustomCodec(proxy.Codec())),
+			grpc.WithDefaultCallOptions(grpc.ForceCodec(proxy.Codec())),
 		)
 	}
 
