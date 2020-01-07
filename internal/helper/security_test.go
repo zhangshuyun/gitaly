@@ -19,7 +19,7 @@ func TestContainsPathTraversal(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		assert.Equal(t, tc.containsTraversal, ContainsPathTraversal(tc.path))
+		assert.Equal(t, tc.containsTraversal, ContainsPathTraversal("/repo/storage/path", tc.path))
 	}
 }
 

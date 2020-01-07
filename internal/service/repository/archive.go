@@ -67,7 +67,8 @@ func validateGetArchiveRequest(in *gitalypb.GetArchiveRequest, format string, pa
 		return helper.ErrInvalidArgumentf("invalid format")
 	}
 
-	if helper.ContainsPathTraversal(path) {
+	repoPath, _ := helper.GetRepoPath(in.GetRepository())
+	if helper.ContainsPathTraversal(repoPath, path) {
 		return helper.ErrInvalidArgumentf("path can't contain directory traversal")
 	}
 

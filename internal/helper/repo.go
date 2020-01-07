@@ -50,7 +50,7 @@ func GetPath(repo repository.GitRepo) (string, error) {
 		return "", err
 	}
 
-	if ContainsPathTraversal(relativePath) {
+	if ContainsPathTraversal(storagePath, relativePath) {
 		return "", status.Errorf(codes.InvalidArgument, "GetRepoPath: relative path can't contain directory traversal")
 	}
 
@@ -109,7 +109,7 @@ func GetObjectDirectoryPath(repo repository.GitRepo) (string, error) {
 		return "", status.Errorf(codes.InvalidArgument, "GetObjectDirectoryPath: empty directory")
 	}
 
-	if ContainsPathTraversal(objectDirectoryPath) {
+	if ContainsPathTraversal(repoPath, objectDirectoryPath) {
 		return "", status.Errorf(codes.InvalidArgument, "GetObjectDirectoryPath: relative path can't contain directory traversal")
 	}
 

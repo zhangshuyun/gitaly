@@ -240,7 +240,7 @@ func getRepoStatePath(repo *gitalypb.Repository) (string, error) {
 		return "", fmt.Errorf("getRepoStatePath: relative path missing from %+v", repo)
 	}
 
-	if helper.ContainsPathTraversal(relativePath) {
+	if helper.ContainsPathTraversal(stateDir, relativePath) {
 		return "", fmt.Errorf("getRepoStatePath: relative path can't contain directory traversal")
 	}
 

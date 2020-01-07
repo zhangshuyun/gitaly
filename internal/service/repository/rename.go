@@ -49,9 +49,5 @@ func validateRenameRepositoryRequest(in *gitalypb.RenameRepositoryRequest) error
 		return errors.New("destination relative path is empty")
 	}
 
-	if helper.ContainsPathTraversal(in.GetRelativePath()) {
-		return errors.New("relative_path contains path traversal")
-	}
-
 	return nil
 }

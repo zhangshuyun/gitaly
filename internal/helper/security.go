@@ -2,18 +2,16 @@ package helper
 
 import (
 	"errors"
-	"os"
+	"path"
 	"regexp"
 	"strings"
 )
 
-// ContainsPathTraversal checks if the path contains any traversal
-func ContainsPathTraversal(path string) bool {
+// ContainsPathTraversal checks if relPath contains any traversal
+func ContainsPathTraversal(baseDir string, relPath string) bool {
 	// Disallow directory traversal for security
-	separator := string(os.PathSeparator)
-	return strings.HasPrefix(path, ".."+separator) ||
-		strings.Contains(path, separator+".."+separator) ||
-		strings.HasSuffix(path, separator+"..")
+	absPath := path.Clean((path.Join(baseDir, relPath)))
+	return !strings.HasPrefix(absPath, baseDir)
 }
 
 // Pattern taken from Regular Expressions Cookbook, slightly modified though
