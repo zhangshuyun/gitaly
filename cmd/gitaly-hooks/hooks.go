@@ -4,14 +4,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
-	"os/exec"
-	"path/filepath"
 	"strings"
 
-	"gitlab.com/gitlab-org/gitaly/internal/command"
+	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
+	"gitlab.com/gitlab-org/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/log"
+	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
+	"gitlab.com/gitlab-org/gitaly/streamio"
+	"google.golang.org/grpc"
 	"gopkg.in/yaml.v2"
 )
 
@@ -36,17 +39,17 @@ func main() {
 		os.Exit(0)
 	}
 
-	gitlabRubyDir := os.Getenv("GITALY_RUBY_DIR")
-	if gitlabRubyDir == "" {
-		logger.Fatal(errors.New("GITALY_RUBY_DIR not set"))
-	}
-
-	rubyHookPath := filepath.Join(gitlabRubyDir, "gitlab-shell", "hooks", subCmd)
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	var hookCmd *exec.Cmd
+	conn, err := client.Dial(os.Getenv("GITALY_SOCKET"), dialOpts())
+	if err != nil {
+		logger.Fatalf("error when dialing: %v", err)
+	}
+
+	c := gitalypb.NewHookServiceClient(conn)
+
+	var hookSuccess bool
 
 	switch subCmd {
 	case "update":
@@ -54,23 +57,154 @@ func main() {
 		if len(args) != 3 {
 			logger.Fatal(errors.New("update hook missing required arguments"))
 		}
+		ref, oldValue, newValue := args[0], args[1], args[2]
 
-		hookCmd = exec.Command(rubyHookPath, args...)
-	case "pre-receive", "post-receive":
-		hookCmd = exec.Command(rubyHookPath)
+		req := &gitalypb.UpdateHookRequest{
+			Repository: &gitalypb.Repository{
+				StorageName:  os.Getenv("GL_REPO_STORAGE"),
+				RelativePath: os.Getenv("GL_REPO_RELATIVE_PATH"),
+				GlRepository: os.Getenv("GL_REPOSITORY"),
+			},
+			KeyId:    os.Getenv("GL_ID"),
+			Ref:      []byte(ref),
+			OldValue: oldValue,
+			NewValue: newValue,
+		}
 
+		stream, err := c.UpdateHook(ctx, req)
+		if err != nil {
+			logger.Fatalf("error when starting command for %v: %v", subCmd, err)
+		}
+
+		if hookSuccess, err = recvHookResponse(stream, new(gitalypb.UpdateHookResponse), os.Stdout, os.Stderr); err != nil {
+			logger.Fatalf("error when receiving data for %v: %v", subCmd, err)
+		}
+	case "pre-receive":
+		stream, err := c.PreReceiveHook(ctx)
+		if err != nil {
+			logger.Fatalf("error when getting stream client: %v", err)
+		}
+
+		if err = sendRequest(stream, preReceiveHookRequest, os.Stdin); err != nil {
+			logger.Fatalf("error when sending data for %v: %v", subCmd, err)
+		}
+		if err = stream.CloseSend(); err != nil {
+			logger.Fatalf("error when closing sending stream for %v: %v", subCmd, err)
+		}
+
+		if hookSuccess, err = recvHookResponse(stream, new(gitalypb.PreReceiveHookResponse), os.Stdout, os.Stderr); err != nil {
+			logger.Fatalf("error when receiving data for %v: %v", subCmd, err)
+		}
+	case "post-receive":
+		stream, err := c.PostReceiveHook(ctx)
+		if err != nil {
+			logger.Fatalf("error when getting stream client: %v", err)
+		}
+
+		if err = sendRequest(stream, postReceiveHookRequest, os.Stdin); err != nil {
+			logger.Fatalf("error when sending data for %v: %v", subCmd, err)
+		}
+		if err = stream.CloseSend(); err != nil {
+			logger.Fatalf("error when closing sending stream for %v: %v", subCmd, err)
+		}
+
+		if hookSuccess, err = recvHookResponse(stream, new(gitalypb.PostReceiveHookResponse), os.Stdout, os.Stderr); err != nil {
+			logger.Fatalf("error when receiving data for %v: %v", subCmd, err)
+		}
 	default:
-		logger.Fatal(errors.New("hook name invalid"))
+		logger.Fatal(errors.New("subcommand name invalid"))
 	}
 
-	cmd, err := command.New(ctx, hookCmd, os.Stdin, os.Stdout, os.Stderr, os.Environ()...)
-	if err != nil {
-		logger.Fatalf("error when starting command for %v: %v", rubyHookPath, err)
-	}
-
-	if err = cmd.Wait(); err != nil {
+	if !hookSuccess {
 		os.Exit(1)
 	}
+
+	os.Exit(0)
+}
+
+func dialOpts() []grpc.DialOption {
+	return append(client.DefaultDialOpts, grpc.WithPerRPCCredentials(gitalyauth.RPCCredentials(os.Getenv("GITALY_TOKEN"))))
+}
+
+// streamRequestGenerator is a function that generates requests for sending to a stream
+type streamRequestGenerator func(firstRequest bool, p []byte) interface{}
+
+// SendRequest streams requests using a reader
+func sendRequest(stream grpc.ClientStream, g streamRequestGenerator, r io.Reader) error {
+	if err := stream.SendMsg(g(true, nil)); err != nil {
+		return err
+	}
+
+	w := streamio.NewWriter(func(p []byte) error {
+		return stream.SendMsg(g(false, p))
+	})
+
+	if _, err := io.Copy(w, r); err != nil {
+		return err
+	}
+
+	return stream.CloseSend()
+}
+
+func postReceiveHookRequest(first bool, p []byte) interface{} {
+	if first {
+		return &gitalypb.PostReceiveHookRequest{
+			Repository: &gitalypb.Repository{
+				StorageName:  os.Getenv("GL_REPO_STORAGE"),
+				RelativePath: os.Getenv("GL_REPO_RELATIVE_PATH"),
+				GlRepository: os.Getenv("GL_REPOSITORY"),
+			},
+			KeyId: os.Getenv("GL_ID"),
+		}
+	}
+
+	return &gitalypb.PostReceiveHookRequest{Stdin: p}
+}
+
+func preReceiveHookRequest(first bool, p []byte) interface{} {
+	if first {
+		return &gitalypb.PreReceiveHookRequest{
+			Repository: &gitalypb.Repository{
+				StorageName:  os.Getenv("GL_REPO_STORAGE"),
+				RelativePath: os.Getenv("GL_REPO_RELATIVE_PATH"),
+				GlRepository: os.Getenv("GL_REPOSITORY"),
+			},
+			KeyId:    os.Getenv("GL_ID"),
+			Protocol: os.Getenv("GL_PROTOCOL"),
+		}
+	}
+	return &gitalypb.PreReceiveHookRequest{Stdin: p}
+}
+
+type hookResponse interface {
+	GetStdout() []byte
+	GetStderr() []byte
+	GetSuccess() bool
+}
+
+func recvHookResponse(stream grpc.ClientStream, resp hookResponse, stdout, stderr io.Writer) (bool, error) {
+	var err error
+	var success bool
+	for {
+		err = stream.RecvMsg(resp)
+		if err != nil {
+			break
+		}
+
+		if _, err = stdout.Write(resp.GetStdout()); err != nil {
+			return false, err
+		}
+		if _, err = stderr.Write(resp.GetStderr()); err != nil {
+			return false, err
+		}
+		success = resp.GetSuccess()
+	}
+
+	if err != io.EOF {
+		return false, err
+	}
+
+	return success, nil
 }
 
 // GitlabShellConfig contains a subset of gitlabshell's config.yml

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -20,7 +21,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/config"
+	serverPkg "gitlab.com/gitlab-org/gitaly/internal/server"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"google.golang.org/grpc"
 	"gopkg.in/yaml.v2"
 )
 
@@ -41,33 +44,44 @@ func TestHooksPrePostReceive(t *testing.T) {
 	key := 1234
 	glRepository := "some_repo"
 
+	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	defer cleanupFn()
+
 	tempGitlabShellDir, cleanup := createTempGitlabShellDir(t)
 	defer cleanup()
 
 	changes := "abc"
 
+	gitlabShellDir := config.Config.GitlabShell.Dir
+	defer func() {
+		config.Config.GitlabShell.Dir = gitlabShellDir
+	}()
+
+	config.Config.GitlabShell.Dir = tempGitlabShellDir
+
 	ts := gitlabTestServer(t, "", "", secretToken, key, glRepository, changes, true)
 	defer ts.Close()
 
 	writeTemporaryConfigFile(t, tempGitlabShellDir, GitlabShellConfig{GitlabURL: ts.URL})
+	srv, socket := runFullServer(t)
+	defer srv.Stop()
+
 	writeShellSecretFile(t, tempGitlabShellDir, secretToken)
 
 	for _, hook := range []string{"pre-receive", "post-receive"} {
-		for envName, env := range map[string][]string{"new": env(t, glRepository, tempGitlabShellDir, key), "old": oldEnv(t, glRepository, tempGitlabShellDir, key)} {
-			t.Run(hook+"."+envName, func(t *testing.T) {
-				var stderr, stdout bytes.Buffer
-				stdin := bytes.NewBuffer([]byte(changes))
-				cmd := exec.Command(fmt.Sprintf("../../ruby/git-hooks/%s", hook))
-				cmd.Stderr = &stderr
-				cmd.Stdout = &stdout
-				cmd.Stdin = stdin
-				cmd.Env = env
+		t.Run(hook, func(t *testing.T) {
+			var stderr, stdout bytes.Buffer
+			stdin := bytes.NewBuffer([]byte(changes))
+			cmd := exec.Command(fmt.Sprintf("../../ruby/git-hooks/%s", hook))
+			cmd.Stderr = &stderr
+			cmd.Stdout = &stdout
+			cmd.Stdin = stdin
+			cmd.Env = env(t, glRepository, tempGitlabShellDir, testRepo.GetStorageName(), testRepo.GetRelativePath(), socket, key)
 
-				require.NoError(t, cmd.Run())
-				require.Empty(t, stderr.String())
-				require.Empty(t, stdout.String())
-			})
-		}
+			require.NoError(t, cmd.Run())
+			require.Empty(t, stderr.String())
+			require.Empty(t, stdout.String())
+		})
 	}
 }
 
@@ -79,35 +93,47 @@ func TestHooksUpdate(t *testing.T) {
 	defer cleanup()
 
 	writeTemporaryConfigFile(t, tempGitlabShellDir, GitlabShellConfig{GitlabURL: "http://www.example.com"})
+	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	defer cleanupFn()
+
+	os.Symlink(filepath.Join(config.Config.GitlabShell.Dir, "config.yml"), filepath.Join(tempGitlabShellDir, "config.yml"))
+
 	writeShellSecretFile(t, tempGitlabShellDir, "the wrong token")
+
+	gitlabShellDir := config.Config.GitlabShell.Dir
+	defer func() {
+		config.Config.GitlabShell.Dir = gitlabShellDir
+	}()
+
+	config.Config.GitlabShell.Dir = tempGitlabShellDir
+
+	srv, socket := runFullServer(t)
+	defer srv.Stop()
 
 	require.NoError(t, os.MkdirAll(filepath.Join(tempGitlabShellDir, "hooks", "update.d"), 0755))
 	testhelper.MustRunCommand(t, nil, "cp", "testdata/update", filepath.Join(tempGitlabShellDir, "hooks", "update.d", "update"))
+	tempFilePath := filepath.Join(testRepoPath, "tempfile")
 
-	for envName, env := range map[string][]string{"new": env(t, glRepository, tempGitlabShellDir, key), "old": oldEnv(t, glRepository, tempGitlabShellDir, key)} {
-		t.Run(envName, func(t *testing.T) {
-			refval, oldval, newval := "refval", "oldval", "newval"
-			var stdout, stderr bytes.Buffer
+	refval, oldval, newval := "refval", "oldval", "newval"
+	var stdout, stderr bytes.Buffer
 
-			cmd := exec.Command(fmt.Sprintf("../../ruby/git-hooks/%s", "update"), refval, oldval, newval)
-			cmd.Env = env
-			cmd.Stdout = &stdout
-			cmd.Stderr = &stderr
+	cmd := exec.Command("../../ruby/git-hooks/update", refval, oldval, newval)
+	cmd.Env = env(t, glRepository, tempGitlabShellDir, testRepo.GetStorageName(), testRepo.GetRelativePath(), socket, key)
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
 
-			require.NoError(t, cmd.Run())
-			require.FileExists(t, "testdata/tempfile")
-			require.Empty(t, stdout.String())
-			require.Empty(t, stderr.String())
+	require.NoError(t, cmd.Run())
+	require.Empty(t, stdout.String())
+	require.Empty(t, stderr.String())
+	require.FileExists(t, tempFilePath)
 
-			var inputs []string
+	var inputs []string
 
-			f, err := os.Open("testdata/tempfile")
-			require.NoError(t, err)
-			require.NoError(t, json.NewDecoder(f).Decode(&inputs))
-			require.Equal(t, []string{refval, oldval, newval}, inputs)
-			require.NoError(t, os.Remove("testdata/tempfile"))
-		})
-	}
+	f, err := os.Open(tempFilePath)
+	require.NoError(t, err)
+	require.NoError(t, json.NewDecoder(f).Decode(&inputs))
+	require.Equal(t, []string{refval, oldval, newval}, inputs)
+	require.NoError(t, f.Close())
 }
 
 func TestHooksPostReceiveFailed(t *testing.T) {
@@ -117,6 +143,9 @@ func TestHooksPostReceiveFailed(t *testing.T) {
 
 	tempGitlabShellDir, cleanup := createTempGitlabShellDir(t)
 	defer cleanup()
+
+	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	defer cleanupFn()
 
 	// By setting the last parameter to false, the post-receive API call will
 	// send back {"reference_counter_increased": false}, indicating something went wrong
@@ -128,24 +157,30 @@ func TestHooksPostReceiveFailed(t *testing.T) {
 	writeTemporaryConfigFile(t, tempGitlabShellDir, GitlabShellConfig{GitlabURL: ts.URL})
 	writeShellSecretFile(t, tempGitlabShellDir, secretToken)
 
-	for envName, env := range map[string][]string{"new": env(t, glRepository, tempGitlabShellDir, key), "old": oldEnv(t, glRepository, tempGitlabShellDir, key)} {
-		t.Run(envName, func(t *testing.T) {
-			var stdout, stderr bytes.Buffer
+	gitlabShellDir := config.Config.GitlabShell.Dir
+	defer func() {
+		config.Config.GitlabShell.Dir = gitlabShellDir
+	}()
 
-			cmd := exec.Command(fmt.Sprintf("../../ruby/git-hooks/%s", "post-receive"))
-			cmd.Env = env
-			cmd.Stdout = &stdout
-			cmd.Stderr = &stderr
+	config.Config.GitlabShell.Dir = tempGitlabShellDir
 
-			err := cmd.Run()
-			code, ok := command.ExitStatus(err)
+	srv, socket := runFullServer(t)
+	defer srv.Stop()
 
-			require.True(t, ok, "expect exit status in %v", err)
-			require.Equal(t, 1, code, "exit status")
-			require.Empty(t, stdout.String())
-			require.Empty(t, stderr.String())
-		})
-	}
+	var stdout, stderr bytes.Buffer
+
+	cmd := exec.Command(fmt.Sprintf("../../ruby/git-hooks/%s", "post-receive"))
+	cmd.Env = env(t, glRepository, tempGitlabShellDir, testRepo.GetStorageName(), testRepo.GetRelativePath(), socket, key)
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
+	code, ok := command.ExitStatus(err)
+
+	require.True(t, ok, "expect exit status in %v", err)
+	require.Equal(t, 1, code, "exit status")
+	require.Empty(t, stdout.String())
+	require.Empty(t, stderr.String())
 }
 
 func TestHooksNotAllowed(t *testing.T) {
@@ -157,25 +192,33 @@ func TestHooksNotAllowed(t *testing.T) {
 	defer cleanup()
 
 	ts := gitlabTestServer(t, "", "", secretToken, key, glRepository, "", true)
+	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	defer cleanupFn()
+
 	defer ts.Close()
 
 	writeTemporaryConfigFile(t, tempGitlabShellDir, GitlabShellConfig{GitlabURL: ts.URL})
 	writeShellSecretFile(t, tempGitlabShellDir, "the wrong token")
 
-	for envName, env := range map[string][]string{"new": env(t, glRepository, tempGitlabShellDir, key), "old": oldEnv(t, glRepository, tempGitlabShellDir, key)} {
-		t.Run(envName, func(t *testing.T) {
-			var stderr, stdout bytes.Buffer
+	gitlabShellDir := config.Config.GitlabShell.Dir
+	defer func() {
+		config.Config.GitlabShell.Dir = gitlabShellDir
+	}()
 
-			cmd := exec.Command(fmt.Sprintf("../../ruby/git-hooks/%s", "pre-receive"))
-			cmd.Stderr = &stderr
-			cmd.Stdout = &stdout
-			cmd.Env = env
+	config.Config.GitlabShell.Dir = tempGitlabShellDir
+	srv, socket := runFullServer(t)
+	defer srv.Stop()
 
-			require.Error(t, cmd.Run())
-			require.Equal(t, "GitLab: 401 Unauthorized\n", stderr.String())
-			require.Equal(t, "", stdout.String())
-		})
-	}
+	var stderr, stdout bytes.Buffer
+
+	cmd := exec.Command(fmt.Sprintf("../../ruby/git-hooks/%s", "pre-receive"))
+	cmd.Stderr = &stderr
+	cmd.Stdout = &stdout
+	cmd.Env = env(t, glRepository, tempGitlabShellDir, testRepo.GetStorageName(), testRepo.GetRelativePath(), socket, key)
+
+	require.Error(t, cmd.Run())
+	require.Equal(t, "GitLab: 401 Unauthorized\n", stderr.String())
+	require.Equal(t, "", stdout.String())
 }
 
 func TestCheckOK(t *testing.T) {
@@ -226,6 +269,20 @@ func TestCheckBadCreds(t *testing.T) {
 	require.Error(t, cmd.Run())
 	require.Equal(t, "FAILED. code: 401", stderr.String())
 	require.Empty(t, stdout.String())
+}
+
+func runFullServer(t *testing.T) (*grpc.Server, string) {
+	server := serverPkg.NewInsecure(nil)
+	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName()
+
+	listener, err := net.Listen("unix", serverSocketPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	go server.Serve(listener)
+
+	return server, "unix://" + serverSocketPath
 }
 
 func handleAllowed(t *testing.T, secretToken string, key int, glRepository, changes string) func(w http.ResponseWriter, r *http.Request) {
@@ -332,13 +389,12 @@ func writeTemporaryConfigFile(t *testing.T, dir string, config GitlabShellConfig
 	return path
 }
 
-func env(t *testing.T, glRepo, gitlabShellDir string, key int) []string {
-	rubyDir, err := filepath.Abs("../../ruby")
-	require.NoError(t, err)
-
+func env(t *testing.T, glRepo, gitlabShellDir, glStorage, glRelativePath, gitalySocket string, key int) []string {
 	return append(oldEnv(t, glRepo, gitlabShellDir, key), []string{
 		"GITALY_BIN_DIR=testdata/gitaly-libexec",
-		fmt.Sprintf("GITALY_RUBY_DIR=%s", rubyDir),
+		fmt.Sprintf("GL_REPO_STORAGE=%s", glStorage),
+		fmt.Sprintf("GL_REPO_RELATIVE_PATH=%s", glRelativePath),
+		fmt.Sprintf("GITALY_SOCKET=%s", gitalySocket),
 	}...)
 }
 
@@ -351,7 +407,6 @@ func oldEnv(t *testing.T, glRepo, gitlabShellDir string, key int) []string {
 		fmt.Sprintf("GITALY_LOG_DIR=%s", gitlabShellDir),
 		"GITALY_LOG_LEVEL=info",
 		"GITALY_LOG_FORMAT=json",
-		fmt.Sprintf("GITALY_LOG_DIR=%s", gitlabShellDir),
 	}, os.Environ()...)
 }
 
