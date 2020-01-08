@@ -1,6 +1,8 @@
 package gitlabshell
 
-import "gitlab.com/gitlab-org/gitaly/internal/config"
+import (
+	"gitlab.com/gitlab-org/gitaly/internal/config"
+)
 
 // Env is a helper that returns a slice with environment variables used by gitlab shell
 func Env() []string {

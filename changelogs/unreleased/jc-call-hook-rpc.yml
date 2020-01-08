@@ -1,0 +1,5 @@
+---
+title: Call Hook RPCs from gitaly-hooks binary
+merge_request: 1740
+author:
+type: performance

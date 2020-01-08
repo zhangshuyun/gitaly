@@ -28,7 +28,7 @@ func UploadArchive(ctx context.Context, conn *grpc.ClientConn, stdin io.Reader, 
 		return stream.Send(&gitalypb.SSHUploadArchiveRequest{Stdin: p})
 	})
 
-	return streamHandler(func() (stdoutStderrResponse, error) {
+	return StreamHandler(func() (StdoutStderrResponse, error) {
 		return stream.Recv()
 	}, func(errC chan error) {
 		_, errRecv := io.Copy(inWriter, stdin)
