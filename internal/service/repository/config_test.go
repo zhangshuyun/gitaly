@@ -14,8 +14,8 @@ import (
 )
 
 func TestDeleteConfig(t *testing.T) {
-	server, serverSocketPath := runRepoServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRepoServer(t)
+	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
@@ -74,8 +74,8 @@ func TestDeleteConfig(t *testing.T) {
 }
 
 func TestSetConfig(t *testing.T) {
-	server, serverSocketPath := runRepoServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRepoServer(t)
+	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()

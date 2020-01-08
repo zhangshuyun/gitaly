@@ -16,8 +16,8 @@ func TestFsckSuccess(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	server, serverSocketPath := runRepoServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRepoServer(t)
+	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
@@ -35,8 +35,8 @@ func TestFsckFailureSeverelyBrokenRepo(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	server, serverSocketPath := runRepoServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRepoServer(t)
+	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
@@ -61,8 +61,8 @@ func TestFsckFailureSlightlyBrokenRepo(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	server, serverSocketPath := runRepoServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRepoServer(t)
+	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()

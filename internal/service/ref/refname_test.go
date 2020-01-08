@@ -13,8 +13,8 @@ import (
 )
 
 func TestFindRefNameSuccess(t *testing.T) {
-	server, serverSocketPath := runRefServiceServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRefServiceServer(t)
+	defer stop()
 
 	client, conn := newRefServiceClient(t, serverSocketPath)
 	defer conn.Close()
@@ -43,8 +43,8 @@ func TestFindRefNameSuccess(t *testing.T) {
 }
 
 func TestFindRefNameEmptyCommit(t *testing.T) {
-	server, serverSocketPath := runRefServiceServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRefServiceServer(t)
+	defer stop()
 
 	client, conn := newRefServiceClient(t, serverSocketPath)
 	defer conn.Close()
@@ -75,8 +75,8 @@ func TestFindRefNameEmptyCommit(t *testing.T) {
 }
 
 func TestFindRefNameInvalidRepo(t *testing.T) {
-	server, serverSocketPath := runRefServiceServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRefServiceServer(t)
+	defer stop()
 
 	client, conn := newRefServiceClient(t, serverSocketPath)
 	defer conn.Close()
@@ -104,8 +104,8 @@ func TestFindRefNameInvalidRepo(t *testing.T) {
 }
 
 func TestFindRefNameInvalidPrefix(t *testing.T) {
-	server, serverSocketPath := runRefServiceServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRefServiceServer(t)
+	defer stop()
 
 	client, conn := newRefServiceClient(t, serverSocketPath)
 	defer conn.Close()
@@ -131,8 +131,8 @@ func TestFindRefNameInvalidPrefix(t *testing.T) {
 }
 
 func TestFindRefNameInvalidObject(t *testing.T) {
-	server, serverSocketPath := runRefServiceServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRefServiceServer(t)
+	defer stop()
 
 	client, conn := newRefServiceClient(t, serverSocketPath)
 	defer conn.Close()

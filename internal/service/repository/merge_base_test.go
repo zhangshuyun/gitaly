@@ -10,8 +10,8 @@ import (
 )
 
 func TestSuccessfulFindFindMergeBaseRequest(t *testing.T) {
-	server, serverSocketPath := runRepoServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRepoServer(t)
+	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
@@ -86,8 +86,8 @@ func TestSuccessfulFindFindMergeBaseRequest(t *testing.T) {
 }
 
 func TestFailedFindMergeBaseRequestDueToValidations(t *testing.T) {
-	server, serverSocketPath := runRepoServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRepoServer(t)
+	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()

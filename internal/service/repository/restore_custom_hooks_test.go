@@ -15,8 +15,8 @@ import (
 )
 
 func TestSuccessfullRestoreCustomHooksRequest(t *testing.T) {
-	server, serverSocketPath := runRepoServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRepoServer(t)
+	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
@@ -59,8 +59,8 @@ func TestSuccessfullRestoreCustomHooksRequest(t *testing.T) {
 }
 
 func TestFailedRestoreCustomHooksDueToValidations(t *testing.T) {
-	server, serverSocketPath := runRepoServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRepoServer(t)
+	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
@@ -78,8 +78,8 @@ func TestFailedRestoreCustomHooksDueToValidations(t *testing.T) {
 }
 
 func TestFailedRestoreCustomHooksDueToBadTar(t *testing.T) {
-	server, serverSocketPath := runRepoServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRepoServer(t)
+	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()

@@ -13,8 +13,8 @@ import (
 )
 
 func TestSuccessfulGetTagMessagesRequest(t *testing.T) {
-	server, serverSocketPath := runRefServiceServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRefServiceServer(t)
+	defer stop()
 
 	client, conn := newRefServiceClient(t, serverSocketPath)
 	defer conn.Close()
@@ -55,8 +55,8 @@ func TestSuccessfulGetTagMessagesRequest(t *testing.T) {
 }
 
 func TestFailedGetTagMessagesRequest(t *testing.T) {
-	server, serverSocketPath := runRefServiceServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRefServiceServer(t)
+	defer stop()
 
 	client, conn := newRefServiceClient(t, serverSocketPath)
 	defer conn.Close()

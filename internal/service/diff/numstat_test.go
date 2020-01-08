@@ -13,8 +13,8 @@ import (
 )
 
 func TestSuccessfulDiffStatsRequest(t *testing.T) {
-	server, serverSocketPath := runDiffServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runDiffServer(t)
+	defer stop()
 
 	client, conn := newDiffClient(t, serverSocketPath)
 	defer conn.Close()
@@ -128,8 +128,8 @@ func TestSuccessfulDiffStatsRequest(t *testing.T) {
 }
 
 func TestFailedDiffStatsRequest(t *testing.T) {
-	server, serverSocketPath := runDiffServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runDiffServer(t)
+	defer stop()
 
 	client, conn := newDiffClient(t, serverSocketPath)
 	defer conn.Close()

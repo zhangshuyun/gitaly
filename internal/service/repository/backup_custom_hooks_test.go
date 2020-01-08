@@ -18,8 +18,8 @@ import (
 )
 
 func TestSuccessfullBackupCustomHooksRequest(t *testing.T) {
-	server, serverSocketPath := runRepoServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRepoServer(t)
+	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
@@ -67,8 +67,8 @@ func TestSuccessfullBackupCustomHooksRequest(t *testing.T) {
 }
 
 func TestSuccessfullBackupCustomHooksSymlink(t *testing.T) {
-	server, serverSocketPath := runRepoServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRepoServer(t)
+	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
@@ -106,8 +106,8 @@ func TestSuccessfullBackupCustomHooksSymlink(t *testing.T) {
 }
 
 func TestSuccessfullBackupCustomHooksRequestWithNoHooks(t *testing.T) {
-	server, serverSocketPath := runRepoServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRepoServer(t)
+	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()

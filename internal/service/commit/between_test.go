@@ -13,8 +13,8 @@ import (
 )
 
 func TestSuccessfulCommitsBetween(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
+	stop, serverSocketPath := startTestServices(t)
+	defer stop()
 
 	client, conn := newCommitServiceClient(t, serverSocketPath)
 	defer conn.Close()
@@ -198,8 +198,8 @@ func TestSuccessfulCommitsBetween(t *testing.T) {
 }
 
 func TestFailedCommitsBetweenRequest(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
+	stop, serverSocketPath := startTestServices(t)
+	defer stop()
 
 	client, conn := newCommitServiceClient(t, serverSocketPath)
 	defer conn.Close()

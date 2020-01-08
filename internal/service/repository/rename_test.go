@@ -12,8 +12,8 @@ import (
 )
 
 func TestRenameRepositorySuccess(t *testing.T) {
-	server, serverSocketPath := runRepoServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRepoServer(t)
+	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
@@ -45,8 +45,8 @@ func TestRenameRepositorySuccess(t *testing.T) {
 }
 
 func TestRenameRepositoryDestinationExists(t *testing.T) {
-	server, serverSocketPath := runRepoServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRepoServer(t)
+	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
@@ -72,8 +72,8 @@ func TestRenameRepositoryDestinationExists(t *testing.T) {
 }
 
 func TestRenameRepositoryInvalidRequest(t *testing.T) {
-	server, serverSocketPath := runRepoServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRepoServer(t)
+	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()

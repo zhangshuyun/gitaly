@@ -13,8 +13,8 @@ import (
 )
 
 func TestSuccessfulGetCommitMessagesRequest(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
+	stop, serverSocketPath := startTestServices(t)
+	defer stop()
 
 	client, conn := newCommitServiceClient(t, serverSocketPath)
 	defer conn.Close()
@@ -55,8 +55,8 @@ func TestSuccessfulGetCommitMessagesRequest(t *testing.T) {
 }
 
 func TestFailedGetCommitMessagesRequest(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
+	stop, serverSocketPath := startTestServices(t)
+	defer stop()
 
 	client, conn := newCommitServiceClient(t, serverSocketPath)
 	defer conn.Close()

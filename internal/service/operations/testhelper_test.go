@@ -3,7 +3,6 @@ package operations
 import (
 	"fmt"
 	"io/ioutil"
-	"net"
 	"os"
 	"path/filepath"
 	"testing"
@@ -67,21 +66,15 @@ func testMain(m *testing.M) int {
 	return m.Run()
 }
 
-func runOperationServiceServer(t *testing.T) (*grpc.Server, string) {
-	grpcServer := testhelper.NewTestGrpcServer(t, nil, nil)
-	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName()
+func runOperationServiceServer(t *testing.T) (func(), string) {
+	srv := testhelper.NewServer(t, nil, nil)
 
-	listener, err := net.Listen("unix", serverSocketPath)
-	if err != nil {
-		t.Fatal(err)
-	}
+	gitalypb.RegisterOperationServiceServer(srv.GrpcServer(), &server{ruby: RubyServer})
+	reflection.Register(srv.GrpcServer())
 
-	gitalypb.RegisterOperationServiceServer(grpcServer, &server{ruby: RubyServer})
-	reflection.Register(grpcServer)
+	require.NoError(t, srv.Start())
 
-	go grpcServer.Serve(listener)
-
-	return grpcServer, "unix://" + serverSocketPath
+	return srv.Stop, "unix://" + srv.Socket()
 }
 
 func newOperationClient(t *testing.T, serverSocketPath string) (gitalypb.OperationServiceClient, *grpc.ClientConn) {

@@ -80,8 +80,8 @@ func TestSearchFilesByContentSuccessful(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	server, serverSocketPath := runRepoServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRepoServer(t)
+	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
@@ -152,8 +152,8 @@ func TestSearchFilesByContentLargeFile(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	server, serverSocketPath := runRepoServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRepoServer(t)
+	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
@@ -220,25 +220,21 @@ func TestSearchFilesByContentFailure(t *testing.T) {
 		query string
 		ref   string
 		code  codes.Code
-		msg   string
 	}{
 		{
 			desc: "empty request",
 			code: codes.InvalidArgument,
-			msg:  "no query given",
 		},
 		{
 			desc:  "only query given",
 			query: "foo",
 			code:  codes.InvalidArgument,
-			msg:   "no ref given",
 		},
 		{
 			desc:  "no repo",
 			query: "foo",
 			ref:   "master",
 			code:  codes.InvalidArgument,
-			msg:   "empty Repo",
 		},
 		{
 			desc:  "invalid ref argument",
@@ -246,7 +242,6 @@ func TestSearchFilesByContentFailure(t *testing.T) {
 			query: ".",
 			ref:   "--no-index",
 			code:  codes.InvalidArgument,
-			msg:   "invalid ref argument",
 		},
 	}
 
@@ -259,7 +254,6 @@ func TestSearchFilesByContentFailure(t *testing.T) {
 			}, nil)
 
 			testhelper.RequireGrpcError(t, err, tc.code)
-			require.Contains(t, err.Error(), tc.msg)
 		})
 	}
 }
@@ -268,8 +262,8 @@ func TestSearchFilesByNameSuccessful(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	server, serverSocketPath := runRepoServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRepoServer(t)
+	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
@@ -318,8 +312,8 @@ func TestSearchFilesByNameFailure(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	server, serverSocketPath := runRepoServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRepoServer(t)
+	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
@@ -330,25 +324,21 @@ func TestSearchFilesByNameFailure(t *testing.T) {
 		query string
 		ref   string
 		code  codes.Code
-		msg   string
 	}{
 		{
 			desc: "empty request",
 			code: codes.InvalidArgument,
-			msg:  "no query given",
 		},
 		{
 			desc:  "only query given",
 			query: "foo",
 			code:  codes.InvalidArgument,
-			msg:   "no ref given",
 		},
 		{
 			desc:  "no repo",
 			query: "foo",
 			ref:   "master",
 			code:  codes.InvalidArgument,
-			msg:   "empty Repo",
 		},
 	}
 
@@ -363,7 +353,6 @@ func TestSearchFilesByNameFailure(t *testing.T) {
 
 			_, err = consumeFilenameByName(stream)
 			testhelper.RequireGrpcError(t, err, tc.code)
-			require.Contains(t, err.Error(), tc.msg)
 		})
 	}
 }

@@ -21,8 +21,8 @@ type treeEntry struct {
 }
 
 func TestSuccessfulTreeEntry(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
+	stop, serverSocketPath := startTestServices(t)
+	defer stop()
 
 	client, conn := newCommitServiceClient(t, serverSocketPath)
 	defer conn.Close()
@@ -160,8 +160,8 @@ func TestSuccessfulTreeEntry(t *testing.T) {
 }
 
 func TestFailedTreeEntryRequestDueToValidationError(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
+	stop, serverSocketPath := startTestServices(t)
+	defer stop()
 
 	client, conn := newCommitServiceClient(t, serverSocketPath)
 	defer conn.Close()

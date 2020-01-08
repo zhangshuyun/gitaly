@@ -16,8 +16,8 @@ import (
 )
 
 func TestLink(t *testing.T) {
-	server, serverSocketPath := runObjectPoolServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runObjectPoolServer(t)
+	defer stop()
 
 	client, conn := newObjectPoolClient(t, serverSocketPath)
 	defer conn.Close()
@@ -89,8 +89,8 @@ func TestLink(t *testing.T) {
 }
 
 func TestLinkIdempotent(t *testing.T) {
-	server, serverSocketPath := runObjectPoolServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runObjectPoolServer(t)
+	defer stop()
 
 	client, conn := newObjectPoolClient(t, serverSocketPath)
 	defer conn.Close()
@@ -119,8 +119,8 @@ func TestLinkIdempotent(t *testing.T) {
 }
 
 func TestLinkNoClobber(t *testing.T) {
-	server, serverSocketPath := runObjectPoolServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runObjectPoolServer(t)
+	defer stop()
 
 	client, conn := newObjectPoolClient(t, serverSocketPath)
 	defer conn.Close()
@@ -158,8 +158,8 @@ func TestLinkNoClobber(t *testing.T) {
 }
 
 func TestLinkNoPool(t *testing.T) {
-	server, serverSocketPath := runObjectPoolServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runObjectPoolServer(t)
+	defer stop()
 
 	client, conn := newObjectPoolClient(t, serverSocketPath)
 	defer conn.Close()
@@ -190,8 +190,8 @@ func TestLinkNoPool(t *testing.T) {
 }
 
 func TestUnlink(t *testing.T) {
-	server, serverSocketPath := runObjectPoolServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runObjectPoolServer(t)
+	defer stop()
 
 	client, conn := newObjectPoolClient(t, serverSocketPath)
 	defer conn.Close()
@@ -302,8 +302,8 @@ func TestUnlink(t *testing.T) {
 }
 
 func TestUnlinkIdempotent(t *testing.T) {
-	server, serverSocketPath := runObjectPoolServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runObjectPoolServer(t)
+	defer stop()
 
 	client, conn := newObjectPoolClient(t, serverSocketPath)
 	defer conn.Close()

@@ -22,11 +22,14 @@ import (
 	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
+	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
 	"gitlab.com/gitlab-org/gitaly/internal/config"
+	"gitlab.com/gitlab-org/gitaly/internal/config/auth"
 	"gitlab.com/gitlab-org/gitaly/internal/git/hooks"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/fieldextractors"
 	praefectconfig "gitlab.com/gitlab-org/gitaly/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/models"
+	serverauth "gitlab.com/gitlab-org/gitaly/internal/server/auth"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
@@ -34,11 +37,62 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+// PraefectEnabled returns whether or not tests should use a praefect proxy
+func PraefectEnabled() bool {
+	_, ok := os.LookupEnv("GITALY_TEST_PRAEFECT_BIN")
+	return ok
+}
+
+// TestServerOpt is an option for TestServer
+type TestServerOpt func(t *TestServer)
+
+// WithToken is a TestServerOpt that provides a security token
+func WithToken(token string) TestServerOpt {
+	return func(t *TestServer) {
+		t.token = token
+	}
+}
+
+// WithStorages is a TestServerOpt that sets the storages for a TestServer
+func WithStorages(storages []string) TestServerOpt {
+	return func(t *TestServer) {
+		t.storages = storages
+	}
+}
+
 // NewTestServer instantiates a new TestServer
-func NewTestServer(srv *grpc.Server) *TestServer {
-	return &TestServer{
+func NewTestServer(srv *grpc.Server, opts ...TestServerOpt) *TestServer {
+	ts := &TestServer{
 		grpcServer: srv,
 	}
+
+	for _, opt := range opts {
+		opt(ts)
+	}
+
+	if len(ts.storages) == 0 {
+		ts.storages = []string{"default"}
+	}
+
+	return ts
+}
+
+// NewServerWithAuth creates a new test server with authentication
+func NewServerWithAuth(tb testing.TB, streamInterceptors []grpc.StreamServerInterceptor, unaryInterceptors []grpc.UnaryServerInterceptor, token string, opts ...TestServerOpt) *TestServer {
+	if token != "" {
+		if PraefectEnabled() {
+			opts = append(opts, WithToken(token))
+		}
+		streamInterceptors = append(streamInterceptors, serverauth.StreamServerInterceptor(auth.Config{Token: token}))
+		unaryInterceptors = append(unaryInterceptors, serverauth.UnaryServerInterceptor(auth.Config{Token: token}))
+	}
+
+	return NewServer(
+		tb,
+		streamInterceptors,
+		unaryInterceptors,
+		opts...,
+	)
 }
 
 // TestServer wraps a grpc Server and handles automatically putting a praefect in front of a gitaly instance
@@ -47,6 +101,8 @@ type TestServer struct {
 	grpcServer *grpc.Server
 	socket     string
 	process    *os.Process
+	token      string
+	storages   []string
 }
 
 // GrpcServer returns the underlying grpc.Server
@@ -101,18 +157,23 @@ func (p *TestServer) Start() error {
 
 	c := praefectconfig.Config{
 		SocketPath: praefectServerSocketPath,
-		VirtualStorages: []*praefectconfig.VirtualStorage{
-			{
-				Name: "default",
-				Nodes: []*models.Node{
-					{
-						Storage:        "default",
-						Address:        "unix:/" + gitalyServerSocketPath,
-						DefaultPrimary: true,
-					},
+		Auth: auth.Config{
+			Token: p.token,
+		},
+	}
+
+	for _, storage := range p.storages {
+		c.VirtualStorages = append(c.VirtualStorages, &praefectconfig.VirtualStorage{
+			Name: storage,
+			Nodes: []*models.Node{
+				{
+					Storage:        storage,
+					Address:        "unix:/" + gitalyServerSocketPath,
+					DefaultPrimary: true,
+					Token:          p.token,
 				},
 			},
-		},
+		})
 	}
 
 	if err := toml.NewEncoder(configFile).Encode(&c); err != nil {
@@ -134,7 +195,12 @@ func (p *TestServer) Start() error {
 	}
 	go cmd.Wait()
 
-	conn, err := grpc.Dial("unix://"+praefectServerSocketPath, grpc.WithInsecure())
+	opts := []grpc.DialOption{grpc.WithInsecure()}
+	if p.token != "" {
+		opts = append(opts, grpc.WithPerRPCCredentials(gitalyauth.RPCCredentials(p.token)))
+	}
+
+	conn, err := grpc.Dial("unix://"+praefectServerSocketPath, opts...)
 
 	if err != nil {
 		return fmt.Errorf("dial: %v", err)
@@ -169,7 +235,7 @@ func waitForPraefectStartup(conn *grpc.ClientConn) error {
 }
 
 // NewServer creates a Server for testing purposes
-func NewServer(tb testing.TB, streamInterceptors []grpc.StreamServerInterceptor, unaryInterceptors []grpc.UnaryServerInterceptor) *TestServer {
+func NewServer(tb testing.TB, streamInterceptors []grpc.StreamServerInterceptor, unaryInterceptors []grpc.UnaryServerInterceptor, opts ...TestServerOpt) *TestServer {
 	logger := NewTestLogger(tb)
 	logrusEntry := log.NewEntry(logger).WithField("test", tb.Name())
 
@@ -184,7 +250,9 @@ func NewServer(tb testing.TB, streamInterceptors []grpc.StreamServerInterceptor,
 		grpc.NewServer(
 			grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(streamInterceptors...)),
 			grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(unaryInterceptors...)),
-		))
+		),
+		opts...,
+	)
 }
 
 var changeLineRegex = regexp.MustCompile("^[a-f0-9]{40} [a-f0-9]{40} refs/[^ ]+$")

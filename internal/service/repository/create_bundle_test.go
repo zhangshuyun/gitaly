@@ -15,8 +15,8 @@ import (
 )
 
 func TestSuccessfulCreateBundleRequest(t *testing.T) {
-	server, serverSocketPath := runRepoServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRepoServer(t)
+	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
@@ -53,8 +53,8 @@ func TestSuccessfulCreateBundleRequest(t *testing.T) {
 }
 
 func TestFailedCreateBundleRequestDueToValidations(t *testing.T) {
-	server, serverSocketPath := runRepoServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRepoServer(t)
+	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()

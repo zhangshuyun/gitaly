@@ -16,8 +16,8 @@ func TestSuccessfulUserDeleteTagRequest(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	server, serverSocketPath := runOperationServiceServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runOperationServiceServer(t)
+	defer stop()
 
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
@@ -54,8 +54,8 @@ func TestSuccessfulUserDeleteTagRequest(t *testing.T) {
 }
 
 func TestSuccessfulGitHooksForUserDeleteTagRequest(t *testing.T) {
-	server, serverSocketPath := runOperationServiceServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runOperationServiceServer(t)
+	defer stop()
 
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
@@ -105,8 +105,8 @@ func TestSuccessfulUserCreateTagRequest(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	server, serverSocketPath := runOperationServiceServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runOperationServiceServer(t)
+	defer stop()
 
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
@@ -188,8 +188,8 @@ func TestSuccessfulUserCreateTagRequest(t *testing.T) {
 }
 
 func TestSuccessfulGitHooksForUserCreateTagRequest(t *testing.T) {
-	server, serverSocketPath := runOperationServiceServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runOperationServiceServer(t)
+	defer stop()
 
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
@@ -236,8 +236,8 @@ func TestSuccessfulGitHooksForUserCreateTagRequest(t *testing.T) {
 }
 
 func TestFailedUserDeleteTagRequestDueToValidation(t *testing.T) {
-	server, serverSocketPath := runOperationServiceServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runOperationServiceServer(t)
+	defer stop()
 
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
@@ -295,8 +295,8 @@ func TestFailedUserDeleteTagRequestDueToValidation(t *testing.T) {
 }
 
 func TestFailedUserDeleteTagDueToHooks(t *testing.T) {
-	server, serverSocketPath := runOperationServiceServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runOperationServiceServer(t)
+	defer stop()
 
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
@@ -345,8 +345,8 @@ func TestFailedUserDeleteTagDueToHooks(t *testing.T) {
 }
 
 func TestFailedUserCreateTagDueToHooks(t *testing.T) {
-	server, serverSocketPath := runOperationServiceServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runOperationServiceServer(t)
+	defer stop()
 
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
@@ -388,8 +388,8 @@ func TestFailedUserCreateTagDueToHooks(t *testing.T) {
 }
 
 func TestFailedUserCreateTagRequestDueToTagExistence(t *testing.T) {
-	server, serverSocketPath := runOperationServiceServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runOperationServiceServer(t)
+	defer stop()
 
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
@@ -432,8 +432,8 @@ func TestFailedUserCreateTagRequestDueToTagExistence(t *testing.T) {
 }
 
 func TestFailedUserCreateTagRequestDueToValidation(t *testing.T) {
-	server, serverSocketPath := runOperationServiceServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runOperationServiceServer(t)
+	defer stop()
 
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()

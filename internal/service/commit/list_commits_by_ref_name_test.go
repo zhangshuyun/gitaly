@@ -10,8 +10,8 @@ import (
 )
 
 func TestSuccessfulListCommitsByRefNameRequest(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
+	stop, serverSocketPath := startTestServices(t)
+	defer stop()
 
 	client, conn := newCommitServiceClient(t, serverSocketPath)
 	defer conn.Close()
@@ -189,8 +189,8 @@ var repositoryRefNames = map[string]string{
 }
 
 func TestSuccessfulListCommitsByRefNameLargeRequest(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
+	stop, serverSocketPath := startTestServices(t)
+	defer stop()
 
 	client, conn := newCommitServiceClient(t, serverSocketPath)
 	defer conn.Close()

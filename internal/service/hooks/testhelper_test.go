@@ -1,12 +1,11 @@
 package hook
 
 import (
-	"net"
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
 	"gitlab.com/gitlab-org/gitaly/internal/config"
-	"gitlab.com/gitlab-org/gitaly/internal/server/auth"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
@@ -26,22 +25,13 @@ func newHooksClient(t *testing.T, serverSocketPath string) (gitalypb.HookService
 	return gitalypb.NewHookServiceClient(conn), conn
 }
 
-func runHooksServer(t *testing.T) (*grpc.Server, string) {
-	streamInt := []grpc.StreamServerInterceptor{auth.StreamServerInterceptor(config.Config.Auth)}
-	unaryInt := []grpc.UnaryServerInterceptor{auth.UnaryServerInterceptor(config.Config.Auth)}
+func runHooksServer(t *testing.T) (func(), string) {
+	srv := testhelper.NewServer(t, nil, nil)
 
-	server := testhelper.NewTestGrpcServer(t, streamInt, unaryInt)
-	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName()
+	gitalypb.RegisterHookServiceServer(srv.GrpcServer(), NewServer())
+	reflection.Register(srv.GrpcServer())
 
-	listener, err := net.Listen("unix", serverSocketPath)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, srv.Start())
 
-	gitalypb.RegisterHookServiceServer(server, NewServer())
-	reflection.Register(server)
-
-	go server.Serve(listener)
-
-	return server, "unix://" + serverSocketPath
+	return srv.Stop, "unix://" + srv.Socket()
 }

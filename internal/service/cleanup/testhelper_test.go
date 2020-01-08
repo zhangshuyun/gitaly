@@ -1,30 +1,24 @@
 package cleanup
 
 import (
-	"net"
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 )
 
-func runCleanupServiceServer(t *testing.T) (*grpc.Server, string) {
-	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName()
-	grpcServer := testhelper.NewTestGrpcServer(t, nil, nil)
+func runCleanupServiceServer(t *testing.T) (func(), string) {
+	srv := testhelper.NewServer(t, nil, nil)
 
-	listener, err := net.Listen("unix", serverSocketPath)
-	if err != nil {
-		t.Fatal(err)
-	}
+	gitalypb.RegisterCleanupServiceServer(srv.GrpcServer(), NewServer())
+	reflection.Register(srv.GrpcServer())
 
-	gitalypb.RegisterCleanupServiceServer(grpcServer, NewServer())
-	reflection.Register(grpcServer)
+	require.NoError(t, srv.Start())
 
-	go grpcServer.Serve(listener)
-
-	return grpcServer, "unix://" + serverSocketPath
+	return srv.Stop, "unix://" + srv.Socket()
 }
 
 func newCleanupServiceClient(t *testing.T, serverSocketPath string) (gitalypb.CleanupServiceClient, *grpc.ClientConn) {

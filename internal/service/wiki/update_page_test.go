@@ -18,8 +18,8 @@ func TestSuccessfulWikiUpdatePageRequest(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	server, serverSocketPath := runWikiServiceServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runWikiServiceServer(t)
+	defer stop()
 
 	client, conn := newWikiClient(t, serverSocketPath)
 	defer conn.Close()
@@ -114,8 +114,8 @@ func TestFailedWikiUpdatePageDueToValidations(t *testing.T) {
 	wikiRepo, _, cleanupFunc := setupWikiRepo(t)
 	defer cleanupFunc()
 
-	server, serverSocketPath := runWikiServiceServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runWikiServiceServer(t)
+	defer stop()
 
 	client, conn := newWikiClient(t, serverSocketPath)
 	defer conn.Close()

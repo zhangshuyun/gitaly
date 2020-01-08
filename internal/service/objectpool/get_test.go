@@ -13,8 +13,8 @@ import (
 )
 
 func TestGetObjectPoolSuccess(t *testing.T) {
-	server, serverSocketPath := runObjectPoolServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runObjectPoolServer(t)
+	defer stop()
 
 	client, conn := newObjectPoolClient(t, serverSocketPath)
 	defer conn.Close()
@@ -45,8 +45,8 @@ func TestGetObjectPoolSuccess(t *testing.T) {
 }
 
 func TestGetObjectPoolNoFile(t *testing.T) {
-	server, serverSocketPath := runObjectPoolServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runObjectPoolServer(t)
+	defer stop()
 
 	client, conn := newObjectPoolClient(t, serverSocketPath)
 	defer conn.Close()
@@ -66,8 +66,8 @@ func TestGetObjectPoolNoFile(t *testing.T) {
 }
 
 func TestGetObjectPoolBadFile(t *testing.T) {
-	server, serverSocketPath := runObjectPoolServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runObjectPoolServer(t)
+	defer stop()
 
 	client, conn := newObjectPoolClient(t, serverSocketPath)
 	defer conn.Close()

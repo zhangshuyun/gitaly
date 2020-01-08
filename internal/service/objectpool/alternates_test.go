@@ -14,8 +14,8 @@ import (
 )
 
 func TestDisconnectGitAlternates(t *testing.T) {
-	server, serverSocketPath := runObjectPoolServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runObjectPoolServer(t)
+	defer stop()
 
 	client, conn := newObjectPoolClient(t, serverSocketPath)
 	defer conn.Close()
@@ -63,8 +63,8 @@ func TestDisconnectGitAlternates(t *testing.T) {
 }
 
 func TestDisconnectGitAlternatesNoAlternates(t *testing.T) {
-	server, serverSocketPath := runObjectPoolServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runObjectPoolServer(t)
+	defer stop()
 
 	client, conn := newObjectPoolClient(t, serverSocketPath)
 	defer conn.Close()
@@ -86,8 +86,8 @@ func TestDisconnectGitAlternatesNoAlternates(t *testing.T) {
 }
 
 func TestDisconnectGitAlternatesUnexpectedAlternates(t *testing.T) {
-	server, serverSocketPath := runObjectPoolServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runObjectPoolServer(t)
+	defer stop()
 
 	client, conn := newObjectPoolClient(t, serverSocketPath)
 	defer conn.Close()

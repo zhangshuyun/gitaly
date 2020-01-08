@@ -15,8 +15,8 @@ import (
 )
 
 func TestSuccessfulCommitDiffRequest(t *testing.T) {
-	server, serverSocketPath := runDiffServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runDiffServer(t)
+	defer stop()
 
 	client, conn := newDiffClient(t, serverSocketPath)
 	defer conn.Close()
@@ -192,8 +192,8 @@ func TestSuccessfulCommitDiffRequest(t *testing.T) {
 }
 
 func TestSuccessfulCommitDiffRequestWithPaths(t *testing.T) {
-	server, serverSocketPath := runDiffServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runDiffServer(t)
+	defer stop()
 
 	client, conn := newDiffClient(t, serverSocketPath)
 	defer conn.Close()
@@ -270,8 +270,8 @@ func TestSuccessfulCommitDiffRequestWithPaths(t *testing.T) {
 }
 
 func TestSuccessfulCommitDiffRequestWithTypeChangeDiff(t *testing.T) {
-	server, serverSocketPath := runDiffServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runDiffServer(t)
+	defer stop()
 
 	client, conn := newDiffClient(t, serverSocketPath)
 	defer conn.Close()
@@ -321,8 +321,8 @@ func TestSuccessfulCommitDiffRequestWithTypeChangeDiff(t *testing.T) {
 }
 
 func TestSuccessfulCommitDiffRequestWithIgnoreWhitespaceChange(t *testing.T) {
-	server, serverSocketPath := runDiffServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runDiffServer(t)
+	defer stop()
 
 	client, conn := newDiffClient(t, serverSocketPath)
 	defer conn.Close()
@@ -435,8 +435,8 @@ func TestSuccessfulCommitDiffRequestWithIgnoreWhitespaceChange(t *testing.T) {
 }
 
 func TestSuccessfulCommitDiffRequestWithLimits(t *testing.T) {
-	server, serverSocketPath := runDiffServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runDiffServer(t)
+	defer stop()
 
 	client, conn := newDiffClient(t, serverSocketPath)
 	defer conn.Close()
@@ -657,8 +657,8 @@ func TestSuccessfulCommitDiffRequestWithLimits(t *testing.T) {
 }
 
 func TestFailedCommitDiffRequestDueToValidationError(t *testing.T) {
-	server, serverSocketPath := runDiffServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runDiffServer(t)
+	defer stop()
 
 	client, conn := newDiffClient(t, serverSocketPath)
 	defer conn.Close()
@@ -692,8 +692,8 @@ func TestFailedCommitDiffRequestDueToValidationError(t *testing.T) {
 }
 
 func TestFailedCommitDiffRequestWithNonExistentCommit(t *testing.T) {
-	server, serverSocketPath := runDiffServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runDiffServer(t)
+	defer stop()
 
 	client, conn := newDiffClient(t, serverSocketPath)
 	defer conn.Close()
@@ -717,8 +717,8 @@ func TestFailedCommitDiffRequestWithNonExistentCommit(t *testing.T) {
 }
 
 func TestSuccessfulCommitDeltaRequest(t *testing.T) {
-	server, serverSocketPath := runDiffServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runDiffServer(t)
+	defer stop()
 
 	client, conn := newDiffClient(t, serverSocketPath)
 	defer conn.Close()
@@ -840,8 +840,8 @@ func TestSuccessfulCommitDeltaRequest(t *testing.T) {
 }
 
 func TestSuccessfulCommitDeltaRequestWithPaths(t *testing.T) {
-	server, serverSocketPath := runDiffServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runDiffServer(t)
+	defer stop()
 
 	client, conn := newDiffClient(t, serverSocketPath)
 	defer conn.Close()
@@ -909,8 +909,8 @@ func TestSuccessfulCommitDeltaRequestWithPaths(t *testing.T) {
 }
 
 func TestFailedCommitDeltaRequestDueToValidationError(t *testing.T) {
-	server, serverSocketPath := runDiffServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runDiffServer(t)
+	defer stop()
 
 	client, conn := newDiffClient(t, serverSocketPath)
 	defer conn.Close()
@@ -944,8 +944,8 @@ func TestFailedCommitDeltaRequestDueToValidationError(t *testing.T) {
 }
 
 func TestFailedCommitDeltaRequestWithNonExistentCommit(t *testing.T) {
-	server, serverSocketPath := runDiffServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runDiffServer(t)
+	defer stop()
 
 	client, conn := newDiffClient(t, serverSocketPath)
 	defer conn.Close()

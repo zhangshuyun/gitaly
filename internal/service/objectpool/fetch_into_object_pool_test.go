@@ -20,8 +20,8 @@ import (
 )
 
 func TestFetchIntoObjectPool_Success(t *testing.T) {
-	server, serverSocketPath := runObjectPoolServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runObjectPoolServer(t)
+	defer stop()
 
 	client, conn := newObjectPoolClient(t, serverSocketPath)
 	defer conn.Close()
@@ -78,8 +78,8 @@ func TestFetchIntoObjectPool_CollectLogStatistics(t *testing.T) {
 	defer cancel()
 	ctx = ctxlogrus.ToContext(ctx, log.WithField("test", "logging"))
 
-	server, serverSocketPath := runObjectPoolServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runObjectPoolServer(t)
+	defer stop()
 
 	client, conn := newObjectPoolClient(t, serverSocketPath)
 	defer conn.Close()
@@ -135,32 +135,28 @@ func TestFetchIntoObjectPool_Failure(t *testing.T) {
 		description string
 		request     *gitalypb.FetchIntoObjectPoolRequest
 		code        codes.Code
-		errMsg      string
 	}{
-		{
-			description: "empty origin",
-			request: &gitalypb.FetchIntoObjectPoolRequest{
-				ObjectPool: pool.ToProto(),
-			},
-			code:   codes.InvalidArgument,
-			errMsg: "origin is empty",
-		},
-		{
-			description: "empty pool",
-			request: &gitalypb.FetchIntoObjectPoolRequest{
-				Origin: testRepo,
-			},
-			code:   codes.InvalidArgument,
-			errMsg: "object pool is empty",
-		},
 		{
 			description: "origin and pool do not share the same storage",
 			request: &gitalypb.FetchIntoObjectPoolRequest{
 				Origin:     testRepo,
 				ObjectPool: poolWithDifferentStorage,
 			},
-			code:   codes.InvalidArgument,
-			errMsg: "origin has different storage than object pool",
+			code: codes.InvalidArgument,
+		},
+		{
+			description: "empty origin",
+			request: &gitalypb.FetchIntoObjectPoolRequest{
+				ObjectPool: pool.ToProto(),
+			},
+			code: codes.InvalidArgument,
+		},
+		{
+			description: "empty pool",
+			request: &gitalypb.FetchIntoObjectPoolRequest{
+				Origin: testRepo,
+			},
+			code: codes.InvalidArgument,
 		},
 	}
 	for _, tc := range testCases {
@@ -168,7 +164,6 @@ func TestFetchIntoObjectPool_Failure(t *testing.T) {
 			_, err := server.FetchIntoObjectPool(ctx, tc.request)
 			require.Error(t, err)
 			testhelper.RequireGrpcError(t, err, tc.code)
-			assert.Contains(t, err.Error(), tc.errMsg)
 		})
 	}
 }

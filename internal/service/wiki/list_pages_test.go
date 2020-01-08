@@ -13,8 +13,8 @@ func TestSuccessfulWikiListPagesRequest(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	server, serverSocketPath := runWikiServiceServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runWikiServiceServer(t)
+	defer stop()
 
 	client, conn := newWikiClient(t, serverSocketPath)
 	defer conn.Close()
@@ -70,8 +70,8 @@ func TestWikiListPagesSorting(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	server, serverSocketPath := runWikiServiceServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runWikiServiceServer(t)
+	defer stop()
 
 	client, conn := newWikiClient(t, serverSocketPath)
 	defer conn.Close()

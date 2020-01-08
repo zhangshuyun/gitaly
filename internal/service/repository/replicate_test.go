@@ -179,8 +179,8 @@ func TestReplicateRepositoryInvalidArguments(t *testing.T) {
 		},
 	}
 
-	server, serverSocketPath := repository.RunRepoServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := repository.RunRepoServer(t)
+	defer stop()
 
 	client, conn := repository.NewRepositoryClient(t, serverSocketPath)
 	defer conn.Close()

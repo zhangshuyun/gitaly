@@ -25,8 +25,8 @@ func TestSuccessfulFindAllCommitsRequest(t *testing.T) {
 		}, nil
 	}
 
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
+	stop, serverSocketPath := startTestServices(t)
+	defer stop()
 
 	client, conn := newCommitServiceClient(t, serverSocketPath)
 	defer conn.Close()
@@ -285,8 +285,8 @@ func TestSuccessfulFindAllCommitsRequest(t *testing.T) {
 }
 
 func TestFailedFindAllCommitsRequest(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
+	stop, serverSocketPath := startTestServices(t)
+	defer stop()
 
 	client, conn := newCommitServiceClient(t, serverSocketPath)
 	defer conn.Close()

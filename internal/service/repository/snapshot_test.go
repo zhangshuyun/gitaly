@@ -25,8 +25,8 @@ import (
 )
 
 func getSnapshot(t *testing.T, req *gitalypb.GetSnapshotRequest) ([]byte, error) {
-	server, serverSocketPath := runRepoServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRepoServer(t)
+	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()

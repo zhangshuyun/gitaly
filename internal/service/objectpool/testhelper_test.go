@@ -1,11 +1,12 @@
 package objectpool
 
 import (
-	"context"
-	"net"
 	"os"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
+	"gitlab.com/gitlab-org/gitaly/internal/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
@@ -22,30 +23,21 @@ func testMain(m *testing.M) int {
 	return m.Run()
 }
 
-func runObjectPoolServer(t *testing.T) (*grpc.Server, string) {
-	server := testhelper.NewTestGrpcServer(t, nil, nil)
+func runObjectPoolServer(t *testing.T) (func(), string) {
+	srv := testhelper.NewServer(t, nil, nil)
 
-	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName()
-	listener, err := net.Listen("unix", serverSocketPath)
-	if err != nil {
-		t.Fatal(err)
-	}
+	gitalypb.RegisterObjectPoolServiceServer(srv.GrpcServer(), NewServer())
+	reflection.Register(srv.GrpcServer())
 
-	gitalypb.RegisterObjectPoolServiceServer(server, NewServer())
-	reflection.Register(server)
+	require.NoError(t, srv.Start())
 
-	go server.Serve(listener)
-
-	return server, serverSocketPath
+	return srv.Stop, "unix://" + srv.Socket()
 }
 
 func newObjectPoolClient(t *testing.T, serverSocketPath string) (gitalypb.ObjectPoolServiceClient, *grpc.ClientConn) {
 	connOpts := []grpc.DialOption{
 		grpc.WithInsecure(),
-		grpc.WithContextDialer(func(ctx context.Context, addr string) (conn net.Conn, err error) {
-			d := net.Dialer{}
-			return d.DialContext(ctx, "unix", addr)
-		}),
+		grpc.WithPerRPCCredentials(gitalyauth.RPCCredentials(config.Config.Auth.Token)),
 	}
 
 	conn, err := grpc.Dial(serverSocketPath, connOpts...)

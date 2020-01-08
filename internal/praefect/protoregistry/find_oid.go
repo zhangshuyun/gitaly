@@ -3,6 +3,7 @@ package protoregistry
 import (
 	"errors"
 	"fmt"
+	"math"
 	"reflect"
 	"regexp"
 	"strconv"
@@ -22,6 +23,9 @@ var ErrTargetRepoMissing = errors.New("empty Repository")
 func reflectFindRepoTarget(pbMsg proto.Message, targetOID []int) (*gitalypb.Repository, error) {
 	msgV, e := reflectFindOID(pbMsg, targetOID)
 	if e != nil {
+		if e == ErrProtoFieldEmpty {
+			return nil, ErrTargetRepoMissing
+		}
 		return nil, e
 	}
 
@@ -47,6 +51,9 @@ func reflectFindStorage(pbMsg proto.Message, targetOID []int) (string, error) {
 	return targetRepo, nil
 }
 
+// ErrProtoFieldEmpty indicates the protobuf field is empty
+var ErrProtoFieldEmpty = errors.New("proto field is empty")
+
 // reflectFindOID finds the target repository by using the OID to
 // navigate the struct tags
 // Warning: this reflection filled function is full of forbidden dark elf magic
@@ -57,10 +64,7 @@ func reflectFindOID(pbMsg proto.Message, targetOID []int) (reflect.Value, error)
 
 		msgV, err = findProtoField(msgV, fieldNo)
 		if err != nil {
-			return reflect.Value{}, fmt.Errorf(
-				"unable to descend OID %+v into message %s: %v",
-				targetOID, proto.MessageName(pbMsg), err,
-			)
+			return reflect.Value{}, err
 		}
 	}
 	return msgV, nil
@@ -74,7 +78,49 @@ const (
 	protobufTagRegexFieldGroup = 2
 )
 
+func isZero(v reflect.Value) bool {
+	switch v.Kind() {
+	case reflect.Bool:
+		return !v.Bool()
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return v.Int() == 0
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		return v.Uint() == 0
+	case reflect.Float32, reflect.Float64:
+		return math.Float64bits(v.Float()) == 0
+	case reflect.Complex64, reflect.Complex128:
+		c := v.Complex()
+		return math.Float64bits(real(c)) == 0 && math.Float64bits(imag(c)) == 0
+	case reflect.Array:
+		for i := 0; i < v.Len(); i++ {
+			if !isZero(v.Index(i)) {
+				return false
+			}
+		}
+		return true
+	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Ptr, reflect.Slice, reflect.UnsafePointer:
+		return v.IsNil()
+	case reflect.String:
+		return v.Len() == 0
+	case reflect.Struct:
+		for i := 0; i < v.NumField(); i++ {
+			if !isZero(v.Field(i)) {
+				return false
+			}
+		}
+		return true
+	default:
+		// This should never happens, but will act as a safeguard for
+		// later, as a default value doesn't makes sense here.
+		panic(&reflect.ValueError{"reflect.Value.IsZero", v.Kind()})
+	}
+}
+
 func findProtoField(msgV reflect.Value, protoField int) (reflect.Value, error) {
+	if isZero(msgV) {
+		return reflect.Value{}, ErrProtoFieldEmpty
+	}
+
 	msgV = reflect.Indirect(msgV)
 	for i := 0; i < msgV.NumField(); i++ {
 		field := msgV.Type().Field(i)
@@ -115,6 +161,10 @@ func tryNumberedField(field reflect.StructField, protoField int) (bool, error) {
 }
 
 func tryOneOfField(msgV reflect.Value, field reflect.StructField, protoField int) (reflect.Value, bool) {
+	if isZero(msgV) {
+		return reflect.Value{}, false
+	}
+
 	oneOfTag := field.Tag.Get(protobufOneOfTag)
 	if oneOfTag == "" {
 		return reflect.Value{}, false // empty tag means this is not a oneOf field

@@ -14,8 +14,8 @@ import (
 )
 
 func TestSuccessfulIsRebaseInProgressRequest(t *testing.T) {
-	server, serverSocketPath := runRepoServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRepoServer(t)
+	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
@@ -94,8 +94,8 @@ func TestSuccessfulIsRebaseInProgressRequest(t *testing.T) {
 }
 
 func TestFailedIsRebaseInProgressRequestDueToValidations(t *testing.T) {
-	server, serverSocketPath := runRepoServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRepoServer(t)
+	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()

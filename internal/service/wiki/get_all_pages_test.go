@@ -14,8 +14,8 @@ func TestSuccessfulWikiGetAllPagesRequest(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	server, serverSocketPath := runWikiServiceServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runWikiServiceServer(t)
+	defer stop()
 
 	client, conn := newWikiClient(t, serverSocketPath)
 	defer conn.Close()
@@ -69,8 +69,8 @@ func TestWikiGetAllPagesSorting(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	server, serverSocketPath := runWikiServiceServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runWikiServiceServer(t)
+	defer stop()
 
 	client, conn := newWikiClient(t, serverSocketPath)
 	defer conn.Close()
@@ -177,8 +177,8 @@ func TestWikiGetAllPagesSorting(t *testing.T) {
 }
 
 func TestFailedWikiGetAllPagesDueToValidation(t *testing.T) {
-	server, serverSocketPath := runWikiServiceServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runWikiServiceServer(t)
+	defer stop()
 
 	client, conn := newWikiClient(t, serverSocketPath)
 	defer conn.Close()

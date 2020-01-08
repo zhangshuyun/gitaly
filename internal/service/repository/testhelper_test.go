@@ -3,13 +3,13 @@ package repository
 import (
 	"crypto/x509"
 	"log"
-	"net"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
 	"gitlab.com/gitlab-org/gitaly/client"
 	dcache "gitlab.com/gitlab-org/gitaly/internal/cache"
@@ -17,7 +17,6 @@ import (
 	mcache "gitlab.com/gitlab-org/gitaly/internal/middleware/cache"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/internal/rubyserver"
-	"gitlab.com/gitlab-org/gitaly/internal/server/auth"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
@@ -37,8 +36,9 @@ var (
 func newRepositoryClient(t *testing.T, serverSocketPath string) (gitalypb.RepositoryServiceClient, *grpc.ClientConn) {
 	connOpts := []grpc.DialOption{
 		grpc.WithInsecure(),
-		grpc.WithPerRPCCredentials(gitalyauth.RPCCredentials(testhelper.RepositoryAuthToken)),
+		grpc.WithPerRPCCredentials(gitalyauth.RPCCredentials(config.Config.Auth.Token)),
 	}
+
 	conn, err := grpc.Dial(serverSocketPath, connOpts...)
 	if err != nil {
 		t.Fatal(err)
@@ -53,7 +53,7 @@ var RunRepoServer = runRepoServer
 func newSecureRepoClient(t *testing.T, serverSocketPath string, pool *x509.CertPool) (gitalypb.RepositoryServiceClient, *grpc.ClientConn) {
 	connOpts := []grpc.DialOption{
 		grpc.WithTransportCredentials(credentials.NewClientTLSFromCert(pool, "")),
-		grpc.WithPerRPCCredentials(gitalyauth.RPCCredentials(testhelper.RepositoryAuthToken)),
+		grpc.WithPerRPCCredentials(gitalyauth.RPCCredentials(config.Config.Auth.Token)),
 	}
 
 	conn, err := client.Dial(serverSocketPath, connOpts)
@@ -66,35 +66,27 @@ func newSecureRepoClient(t *testing.T, serverSocketPath string, pool *x509.CertP
 
 var NewSecureRepoClient = newSecureRepoClient
 
-func runRepoServer(t *testing.T) (*grpc.Server, string) {
+func runRepoServer(t *testing.T, opts ...testhelper.TestServerOpt) (func(), string) {
 	streamInt := []grpc.StreamServerInterceptor{
-		auth.StreamServerInterceptor(config.Config.Auth),
 		mcache.StreamInvalidator(dcache.LeaseKeyer{}, protoregistry.GitalyProtoPreregistered),
 	}
 	unaryInt := []grpc.UnaryServerInterceptor{
-		auth.UnaryServerInterceptor(config.Config.Auth),
 		mcache.UnaryInvalidator(dcache.LeaseKeyer{}, protoregistry.GitalyProtoPreregistered),
 	}
 
-	server := testhelper.NewTestGrpcServer(t, streamInt, unaryInt)
-	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName()
+	srv := testhelper.NewServerWithAuth(t, streamInt, unaryInt, config.Config.Auth.Token, opts...)
 
-	listener, err := net.Listen("unix", serverSocketPath)
-	if err != nil {
-		t.Fatal(err)
-	}
+	gitalypb.RegisterRepositoryServiceServer(srv.GrpcServer(), NewServer(RubyServer, config.GitalyInternalSocketPath()))
+	reflection.Register(srv.GrpcServer())
 
-	gitalypb.RegisterRepositoryServiceServer(server, NewServer(RubyServer, config.GitalyInternalSocketPath()))
-	reflection.Register(server)
+	require.NoError(t, srv.Start())
 
-	go server.Serve(listener)
-
-	return server, "unix://" + serverSocketPath
+	return srv.Stop, "unix://" + srv.Socket()
 }
 
 func TestRepoNoAuth(t *testing.T) {
-	srv, path := runRepoServer(t)
-	defer srv.Stop()
+	stop, path := runRepoServer(t)
+	defer stop()
 
 	connOpts := []grpc.DialOption{
 		grpc.WithInsecure(),

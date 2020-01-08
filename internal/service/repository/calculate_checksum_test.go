@@ -13,8 +13,8 @@ import (
 )
 
 func TestSuccessfulCalculateChecksum(t *testing.T) {
-	server, serverSocketPath := runRepoServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRepoServer(t)
+	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
@@ -70,8 +70,8 @@ func TestRefWhitelist(t *testing.T) {
 }
 
 func TestEmptyRepositoryCalculateChecksum(t *testing.T) {
-	server, serverSocketPath := runRepoServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRepoServer(t)
+	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
@@ -89,8 +89,8 @@ func TestEmptyRepositoryCalculateChecksum(t *testing.T) {
 }
 
 func TestBrokenRepositoryCalculateChecksum(t *testing.T) {
-	server, serverSocketPath := runRepoServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRepoServer(t)
+	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
@@ -110,8 +110,8 @@ func TestBrokenRepositoryCalculateChecksum(t *testing.T) {
 }
 
 func TestFailedCalculateChecksum(t *testing.T) {
-	server, serverSocketPath := runRepoServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRepoServer(t)
+	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
@@ -145,8 +145,8 @@ func TestFailedCalculateChecksum(t *testing.T) {
 }
 
 func TestInvalidRefsCalculateChecksum(t *testing.T) {
-	server, serverSocketPath := runRepoServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRepoServer(t)
+	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()

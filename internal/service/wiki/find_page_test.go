@@ -14,8 +14,8 @@ func TestSuccessfulWikiFindPageRequest(t *testing.T) {
 	wikiRepo, _, cleanupFunc := setupWikiRepo(t)
 	defer cleanupFunc()
 
-	server, serverSocketPath := runWikiServiceServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runWikiServiceServer(t)
+	defer stop()
 
 	client, conn := newWikiClient(t, serverSocketPath)
 	defer conn.Close()
@@ -190,8 +190,8 @@ func TestSuccessfulWikiFindPageSameTitleDifferentPathRequest(t *testing.T) {
 	wikiRepo, _, cleanupFunc := setupWikiRepo(t)
 	defer cleanupFunc()
 
-	server, serverSocketPath := runWikiServiceServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runWikiServiceServer(t)
+	defer stop()
 
 	client, conn := newWikiClient(t, serverSocketPath)
 	defer conn.Close()
@@ -306,8 +306,8 @@ func TestFailedWikiFindPageDueToValidation(t *testing.T) {
 	wikiRepo, _, cleanupFunc := setupWikiRepo(t)
 	defer cleanupFunc()
 
-	server, serverSocketPath := runWikiServiceServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runWikiServiceServer(t)
+	defer stop()
 
 	client, conn := newWikiClient(t, serverSocketPath)
 	defer conn.Close()
@@ -372,8 +372,8 @@ func readFullWikiPageFromWikiFindPageClient(t *testing.T, c gitalypb.WikiService
 }
 
 func TestInvalidWikiFindPageRequestRevision(t *testing.T) {
-	server, serverSocketPath := runWikiServiceServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runWikiServiceServer(t)
+	defer stop()
 
 	client, conn := newWikiClient(t, serverSocketPath)
 	defer conn.Close()

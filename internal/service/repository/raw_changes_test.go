@@ -13,8 +13,8 @@ import (
 )
 
 func TestGetRawChanges(t *testing.T) {
-	server, serverSocketPath := runRepoServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRepoServer(t)
+	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
@@ -130,8 +130,8 @@ func TestGetRawChangesSpecialCharacters(t *testing.T) {
 	// This test looks for a specific path known to contain special
 	// characters.
 
-	server, serverSocketPath := runRepoServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRepoServer(t)
+	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
@@ -174,8 +174,8 @@ func collectChanges(t *testing.T, stream gitalypb.RepositoryService_GetRawChange
 }
 
 func TestGetRawChangesFailures(t *testing.T) {
-	server, serverSocketPath := runRepoServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRepoServer(t)
+	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
@@ -236,8 +236,8 @@ func TestGetRawChangesFailures(t *testing.T) {
 }
 
 func TestGetRawChangesManyFiles(t *testing.T) {
-	server, serverSocketPath := runRepoServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRepoServer(t)
+	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
@@ -264,8 +264,8 @@ func TestGetRawChangesManyFiles(t *testing.T) {
 }
 
 func TestGetRawChangesMappingOperations(t *testing.T) {
-	server, serverSocketPath := runRepoServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRepoServer(t)
+	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
@@ -315,8 +315,8 @@ func TestGetRawChangesMappingOperations(t *testing.T) {
 }
 
 func TestGetRawChangesInvalidUTF8Paths(t *testing.T) {
-	server, serverSocketPath := runRepoServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRepoServer(t)
+	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()

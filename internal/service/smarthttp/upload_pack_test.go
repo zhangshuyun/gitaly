@@ -29,8 +29,8 @@ const (
 )
 
 func TestSuccessfulUploadPackRequest(t *testing.T) {
-	server, serverSocketPath := runSmartHTTPServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runSmartHTTPServer(t)
+	defer stop()
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -95,8 +95,8 @@ func TestSuccessfulUploadPackRequest(t *testing.T) {
 }
 
 func TestUploadPackRequestWithGitConfigOptions(t *testing.T) {
-	server, serverSocketPath := runSmartHTTPServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runSmartHTTPServer(t)
+	defer stop()
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -167,8 +167,8 @@ func TestUploadPackRequestWithGitProtocol(t *testing.T) {
 	restore := testhelper.EnableGitProtocolV2Support()
 	defer restore()
 
-	server, serverSocketPath := runSmartHTTPServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runSmartHTTPServer(t)
+	defer stop()
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -213,8 +213,8 @@ func TestUploadPackRequestWithGitProtocol(t *testing.T) {
 // on 'deepen' requests even though the request is being handled just
 // fine from the client perspective.
 func TestSuccessfulUploadPackDeepenRequest(t *testing.T) {
-	server, serverSocketPath := runSmartHTTPServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runSmartHTTPServer(t)
+	defer stop()
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -235,8 +235,8 @@ func TestSuccessfulUploadPackDeepenRequest(t *testing.T) {
 }
 
 func TestFailedUploadPackRequestDueToValidationError(t *testing.T) {
-	server, serverSocketPath := runSmartHTTPServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runSmartHTTPServer(t)
+	defer stop()
 
 	rpcRequests := []gitalypb.PostUploadPackRequest{
 		{Repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}}, // Repository doesn't exist
@@ -324,8 +324,8 @@ func extractPackDataFromResponse(t *testing.T, buf *bytes.Buffer) ([]byte, int, 
 }
 
 func TestUploadPackRequestForPartialCloneSuccess(t *testing.T) {
-	server, serverSocketPath := runSmartHTTPServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runSmartHTTPServer(t)
+	defer stop()
 
 	testRepo := testhelper.TestRepository()
 	testRepoPath, err := helper.GetRepoPath(testRepo)

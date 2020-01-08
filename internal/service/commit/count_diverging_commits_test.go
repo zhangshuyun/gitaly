@@ -59,8 +59,8 @@ func createRepoWithDivergentBranches(t *testing.T, leftCommits, rightCommits int
 }
 
 func TestSuccessfulCountDivergentCommitsRequest(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
+	stop, serverSocketPath := startTestServices(t)
+	defer stop()
 
 	client, conn := newCommitServiceClient(t, serverSocketPath)
 	defer conn.Close()
@@ -137,8 +137,8 @@ func TestSuccessfulCountDivergentCommitsRequest(t *testing.T) {
 }
 
 func TestSuccessfulCountDivergentCommitsRequestWithMaxCount(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
+	stop, serverSocketPath := startTestServices(t)
+	defer stop()
 
 	client, conn := newCommitServiceClient(t, serverSocketPath)
 	defer conn.Close()
@@ -186,8 +186,8 @@ func TestSuccessfulCountDivergentCommitsRequestWithMaxCount(t *testing.T) {
 }
 
 func TestFailedCountDivergentCommitsRequestDueToValidationError(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
+	stop, serverSocketPath := startTestServices(t)
+	defer stop()
 
 	client, conn := newCommitServiceClient(t, serverSocketPath)
 	defer conn.Close()

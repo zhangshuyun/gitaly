@@ -2,10 +2,10 @@ package remote
 
 import (
 	"log"
-	"net"
 	"os"
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -32,21 +32,15 @@ func testMain(m *testing.M) int {
 	return m.Run()
 }
 
-func runRemoteServiceServer(t *testing.T) (*grpc.Server, string) {
-	grpcServer := testhelper.NewTestGrpcServer(t, nil, nil)
-	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName()
+func runRemoteServiceServer(t *testing.T) (func(), string) {
+	srv := testhelper.NewServer(t, nil, nil)
 
-	listener, err := net.Listen("unix", serverSocketPath)
-	if err != nil {
-		t.Fatal(err)
-	}
+	gitalypb.RegisterRemoteServiceServer(srv.GrpcServer(), &server{ruby: RubyServer})
+	reflection.Register(srv.GrpcServer())
 
-	gitalypb.RegisterRemoteServiceServer(grpcServer, &server{ruby: RubyServer})
-	reflection.Register(grpcServer)
+	require.NoError(t, srv.Start())
 
-	go grpcServer.Serve(listener)
-
-	return grpcServer, "unix://" + serverSocketPath
+	return srv.Stop, "unix://" + srv.Socket()
 }
 
 func NewRemoteClient(t *testing.T, serverSocketPath string) (gitalypb.RemoteServiceClient, *grpc.ClientConn) {

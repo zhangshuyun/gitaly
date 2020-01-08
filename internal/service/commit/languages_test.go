@@ -13,8 +13,8 @@ import (
 )
 
 func TestLanguages(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
+	stop, serverSocketPath := startTestServices(t)
+	defer stop()
 
 	client, conn := newCommitServiceClient(t, serverSocketPath)
 	defer conn.Close()
@@ -56,8 +56,8 @@ func TestLanguages(t *testing.T) {
 }
 
 func TestFileCountIsZeroWhenFeatureIsDisabled(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
+	stop, serverSocketPath := startTestServices(t)
+	defer stop()
 
 	client, conn := newCommitServiceClient(t, serverSocketPath)
 	defer conn.Close()
@@ -93,8 +93,8 @@ func requireLanguageEqual(t *testing.T, expected, actual *gitalypb.CommitLanguag
 }
 
 func TestLanguagesEmptyRevision(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
+	stop, serverSocketPath := startTestServices(t)
+	defer stop()
 
 	client, conn := newCommitServiceClient(t, serverSocketPath)
 	defer conn.Close()
@@ -123,8 +123,8 @@ func TestLanguagesEmptyRevision(t *testing.T) {
 }
 
 func TestInvalidCommitLanguagesRequestRevision(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
+	stop, serverSocketPath := startTestServices(t)
+	defer stop()
 
 	client, conn := newCommitServiceClient(t, serverSocketPath)
 	defer conn.Close()
@@ -143,8 +143,8 @@ func TestInvalidCommitLanguagesRequestRevision(t *testing.T) {
 }
 
 func TestAmbiguousRefCommitLanguagesRequestRevision(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
+	stop, serverSocketPath := startTestServices(t)
+	defer stop()
 
 	client, conn := newCommitServiceClient(t, serverSocketPath)
 	defer conn.Close()

@@ -14,8 +14,8 @@ import (
 )
 
 func TestGetInfoAttributesExisting(t *testing.T) {
-	server, serverSocketPath := runRepoServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRepoServer(t)
+	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
@@ -49,8 +49,8 @@ func TestGetInfoAttributesExisting(t *testing.T) {
 }
 
 func TestGetInfoAttributesNonExisting(t *testing.T) {
-	server, serverSocketPath := runRepoServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRepoServer(t)
+	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()

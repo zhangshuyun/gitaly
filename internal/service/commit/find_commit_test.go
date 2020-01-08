@@ -24,8 +24,8 @@ func TestSuccessfulFindCommitRequest(t *testing.T) {
 	windows1251Message, err := ioutil.ReadFile("testdata/commit-c809470461118b7bcab850f6e9a7ca97ac42f8ea-message.txt")
 	require.NoError(t, err)
 
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
+	stop, serverSocketPath := startTestServices(t)
+	defer stop()
 
 	client, conn := newCommitServiceClient(t, serverSocketPath)
 	defer conn.Close()
@@ -270,8 +270,8 @@ func TestSuccessfulFindCommitRequest(t *testing.T) {
 }
 
 func TestFailedFindCommitRequest(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
+	stop, serverSocketPath := startTestServices(t)
+	defer stop()
 
 	client, conn := newCommitServiceClient(t, serverSocketPath)
 	defer conn.Close()
@@ -320,8 +320,8 @@ func benchmarkFindCommit(withCache bool, b *testing.B) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	server, serverSocketPath := startTestServices(b)
-	defer server.Stop()
+	stop, serverSocketPath := startTestServices(b)
+	defer stop()
 
 	client, conn := newCommitServiceClient(b, serverSocketPath)
 	defer conn.Close()
@@ -367,8 +367,8 @@ func TestFindCommitWithCache(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
+	stop, serverSocketPath := startTestServices(t)
+	defer stop()
 
 	client, conn := newCommitServiceClient(t, serverSocketPath)
 	defer conn.Close()

@@ -17,8 +17,8 @@ import (
 )
 
 func TestApplyBfgObjectMapStreamSuccess(t *testing.T) {
-	server, serverSocketPath := runCleanupServiceServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runCleanupServiceServer(t)
+	defer stop()
 
 	client, conn := newCleanupServiceClient(t, serverSocketPath)
 	defer conn.Close()
@@ -81,8 +81,8 @@ func requireEntry(t *testing.T, entry *gitalypb.ApplyBfgObjectMapStreamResponse_
 }
 
 func TestApplyBfgObjectMapStreamFailsOnInvalidInput(t *testing.T) {
-	server, serverSocketPath := runCleanupServiceServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runCleanupServiceServer(t)
+	defer stop()
 
 	client, conn := newCleanupServiceClient(t, serverSocketPath)
 	defer conn.Close()

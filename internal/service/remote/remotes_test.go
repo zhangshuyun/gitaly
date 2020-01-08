@@ -16,8 +16,8 @@ import (
 )
 
 func TestSuccessfulAddRemote(t *testing.T) {
-	server, serverSocketPath := runRemoteServiceServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRemoteServiceServer(t)
+	defer stop()
 
 	client, conn := NewRemoteClient(t, serverSocketPath)
 	defer conn.Close()
@@ -100,8 +100,8 @@ func TestSuccessfulAddRemote(t *testing.T) {
 }
 
 func TestFailedAddRemoteDueToValidation(t *testing.T) {
-	server, serverSocketPath := runRemoteServiceServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRemoteServiceServer(t)
+	defer stop()
 
 	client, conn := NewRemoteClient(t, serverSocketPath)
 	defer conn.Close()
@@ -147,8 +147,8 @@ func TestFailedAddRemoteDueToValidation(t *testing.T) {
 }
 
 func TestSuccessfulRemoveRemote(t *testing.T) {
-	server, serverSocketPath := runRemoteServiceServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRemoteServiceServer(t)
+	defer stop()
 
 	client, conn := NewRemoteClient(t, serverSocketPath)
 	defer conn.Close()
@@ -197,8 +197,8 @@ func TestSuccessfulRemoveRemote(t *testing.T) {
 }
 
 func TestFailedRemoveRemoteDueToValidation(t *testing.T) {
-	server, serverSocketPath := runRemoteServiceServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRemoteServiceServer(t)
+	defer stop()
 
 	client, conn := NewRemoteClient(t, serverSocketPath)
 	defer conn.Close()
@@ -216,8 +216,8 @@ func TestFailedRemoveRemoteDueToValidation(t *testing.T) {
 }
 
 func TestFindRemoteRepository(t *testing.T) {
-	server, serverSocketPath := runRemoteServiceServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRemoteServiceServer(t)
+	defer stop()
 
 	client, conn := NewRemoteClient(t, serverSocketPath)
 	defer conn.Close()
@@ -239,8 +239,8 @@ func TestFindRemoteRepository(t *testing.T) {
 }
 
 func TestFailedFindRemoteRepository(t *testing.T) {
-	server, serverSocketPath := runRemoteServiceServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRemoteServiceServer(t)
+	defer stop()
 
 	client, conn := NewRemoteClient(t, serverSocketPath)
 	defer conn.Close()
@@ -272,8 +272,8 @@ func TestFailedFindRemoteRepository(t *testing.T) {
 }
 
 func TestListDifferentPushUrlRemote(t *testing.T) {
-	server, serverSocketPath := runRemoteServiceServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRemoteServiceServer(t)
+	defer stop()
 
 	client, conn := NewRemoteClient(t, serverSocketPath)
 	defer conn.Close()
@@ -319,8 +319,8 @@ func TestListDifferentPushUrlRemote(t *testing.T) {
 }
 
 func TestListRemotes(t *testing.T) {
-	server, serverSocketPath := runRemoteServiceServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRemoteServiceServer(t)
+	defer stop()
 
 	client, conn := NewRemoteClient(t, serverSocketPath)
 	defer conn.Close()

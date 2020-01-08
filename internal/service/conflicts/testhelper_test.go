@@ -2,11 +2,11 @@ package conflicts
 
 import (
 	"io/ioutil"
-	"net"
 	"os"
 	"testing"
 
 	log "github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/config"
 	"gitlab.com/gitlab-org/gitaly/internal/git/hooks"
 	"gitlab.com/gitlab-org/gitaly/internal/rubyserver"
@@ -42,21 +42,15 @@ func testMain(m *testing.M) int {
 	return m.Run()
 }
 
-func runConflictsServer(t *testing.T) (*grpc.Server, string) {
-	server := testhelper.NewTestGrpcServer(t, nil, nil)
+func runConflictsServer(t *testing.T) (func(), string) {
+	srv := testhelper.NewServer(t, nil, nil)
 
-	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName()
-	listener, err := net.Listen("unix", serverSocketPath)
-	if err != nil {
-		t.Fatal(err)
-	}
+	gitalypb.RegisterConflictsServiceServer(srv.GrpcServer(), NewServer(RubyServer))
+	reflection.Register(srv.GrpcServer())
 
-	gitalypb.RegisterConflictsServiceServer(server, NewServer(RubyServer))
-	reflection.Register(server)
+	require.NoError(t, srv.Start())
 
-	go server.Serve(listener)
-
-	return server, "unix://" + serverSocketPath
+	return srv.Stop, "unix://" + srv.Socket()
 }
 
 func NewConflictsClient(t *testing.T, serverSocketPath string) (gitalypb.ConflictsServiceClient, *grpc.ClientConn) {

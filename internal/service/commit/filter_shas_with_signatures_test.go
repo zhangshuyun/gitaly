@@ -13,8 +13,8 @@ func TestFilterShasWithSignaturesSuccessful(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
+	stop, serverSocketPath := startTestServices(t)
+	defer stop()
 
 	client, conn := newCommitServiceClient(t, serverSocketPath)
 	defer conn.Close()
@@ -66,7 +66,7 @@ func TestFilterShasWithSignaturesSuccessful(t *testing.T) {
 
 func TestFilterShasWithSignaturesValidationError(t *testing.T) {
 	err := validateFirstFilterShasWithSignaturesRequest(&gitalypb.FilterShasWithSignaturesRequest{})
-	require.Contains(t, err.Error(), "no repository given")
+	require.Contains(t, err.Error(), "empty Repository")
 }
 
 func recvFSWS(stream gitalypb.CommitService_FilterShasWithSignaturesClient) ([][]byte, error) {

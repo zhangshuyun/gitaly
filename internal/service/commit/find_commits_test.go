@@ -20,8 +20,8 @@ func TestFindCommitsFields(t *testing.T) {
 	windows1251Message, err := ioutil.ReadFile("testdata/commit-c809470461118b7bcab850f6e9a7ca97ac42f8ea-message.txt")
 	require.NoError(t, err)
 
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
+	stop, serverSocketPath := startTestServices(t)
+	defer stop()
 
 	client, conn := newCommitServiceClient(t, serverSocketPath)
 	defer conn.Close()
@@ -179,8 +179,8 @@ func TestFindCommitsFields(t *testing.T) {
 }
 
 func TestSuccessfulFindCommitsRequest(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
+	stop, serverSocketPath := startTestServices(t)
+	defer stop()
 
 	client, conn := newCommitServiceClient(t, serverSocketPath)
 	defer conn.Close()
@@ -422,8 +422,8 @@ func TestSuccessfulFindCommitsRequest(t *testing.T) {
 }
 
 func TestSuccessfulFindCommitsRequestWithAltGitObjectDirs(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
+	stop, serverSocketPath := startTestServices(t)
+	defer stop()
 
 	client, conn := newCommitServiceClient(t, serverSocketPath)
 	defer conn.Close()
@@ -492,8 +492,8 @@ func TestSuccessfulFindCommitsRequestWithAltGitObjectDirs(t *testing.T) {
 }
 
 func TestSuccessfulFindCommitsRequestWithAmbiguousRef(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
+	stop, serverSocketPath := startTestServices(t)
+	defer stop()
 
 	client, conn := newCommitServiceClient(t, serverSocketPath)
 	defer conn.Close()
@@ -538,8 +538,8 @@ func TestSuccessfulFindCommitsRequestWithAmbiguousRef(t *testing.T) {
 }
 
 func TestFailureFindCommitsRequest(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
+	stop, serverSocketPath := startTestServices(t)
+	defer stop()
 
 	client, conn := newCommitServiceClient(t, serverSocketPath)
 	defer conn.Close()
@@ -589,8 +589,8 @@ func TestFailureFindCommitsRequest(t *testing.T) {
 }
 
 func TestFindCommitsRequestWithFollowAndOffset(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
+	stop, serverSocketPath := startTestServices(t)
+	defer stop()
 
 	client, conn := newCommitServiceClient(t, serverSocketPath)
 	defer conn.Close()

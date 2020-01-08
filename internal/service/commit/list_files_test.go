@@ -49,8 +49,8 @@ func TestListFilesSuccess(t *testing.T) {
 		defaultBranchName = ref.DefaultBranchName
 	}()
 
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
+	stop, serverSocketPath := startTestServices(t)
+	defer stop()
 
 	client, conn := newCommitServiceClient(t, serverSocketPath)
 	defer conn.Close()
@@ -136,8 +136,8 @@ func TestListFilesSuccess(t *testing.T) {
 }
 
 func TestListFilesFailure(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
+	stop, serverSocketPath := startTestServices(t)
+	defer stop()
 
 	client, conn := newCommitServiceClient(t, serverSocketPath)
 	defer conn.Close()
@@ -186,8 +186,8 @@ func drainListFilesResponse(c gitalypb.CommitService_ListFilesClient) error {
 }
 
 func TestInvalidListFilesRequestRevision(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
+	stop, serverSocketPath := startTestServices(t)
+	defer stop()
 
 	client, conn := newCommitServiceClient(t, serverSocketPath)
 	defer conn.Close()

@@ -2,7 +2,6 @@ package ref
 
 import (
 	"bytes"
-	"net"
 	"os"
 	"testing"
 
@@ -92,21 +91,15 @@ func testMain(m *testing.M) int {
 	return m.Run()
 }
 
-func runRefServiceServer(t *testing.T) (*grpc.Server, string) {
-	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName()
-	grpcServer := testhelper.NewTestGrpcServer(t, nil, nil)
+func runRefServiceServer(t *testing.T) (func(), string) {
+	srv := testhelper.NewServer(t, nil, nil)
 
-	listener, err := net.Listen("unix", serverSocketPath)
-	if err != nil {
-		t.Fatal(err)
-	}
+	gitalypb.RegisterRefServiceServer(srv.GrpcServer(), &server{})
+	reflection.Register(srv.GrpcServer())
 
-	gitalypb.RegisterRefServiceServer(grpcServer, &server{})
-	reflection.Register(grpcServer)
+	require.NoError(t, srv.Start())
 
-	go grpcServer.Serve(listener)
-
-	return grpcServer, "unix://" + serverSocketPath
+	return srv.Stop, "unix://" + srv.Socket()
 }
 
 func newRefServiceClient(t *testing.T, serverSocketPath string) (gitalypb.RefServiceClient, *grpc.ClientConn) {

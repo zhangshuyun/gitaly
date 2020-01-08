@@ -31,8 +31,8 @@ func TestSuccessfulReceivePackRequest(t *testing.T) {
 	hookOutputFile, cleanup := testhelper.CaptureHookEnv(t)
 	defer cleanup()
 
-	server, serverSocketPath := runSmartHTTPServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runSmartHTTPServer(t)
+	defer stop()
 
 	repo, repoPath, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
@@ -73,8 +73,8 @@ func TestSuccessfulReceivePackRequestWithGitProtocol(t *testing.T) {
 	restore := testhelper.EnableGitProtocolV2Support()
 	defer restore()
 
-	server, serverSocketPath := runSmartHTTPServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runSmartHTTPServer(t)
+	defer stop()
 
 	repo, repoPath, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
@@ -102,8 +102,8 @@ func TestSuccessfulReceivePackRequestWithGitProtocol(t *testing.T) {
 }
 
 func TestFailedReceivePackRequestWithGitOpts(t *testing.T) {
-	server, serverSocketPath := runSmartHTTPServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runSmartHTTPServer(t)
+	defer stop()
 
 	repo, _, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
@@ -138,8 +138,8 @@ func TestFailedReceivePackRequestDueToHooksFailure(t *testing.T) {
 	hookContent := []byte("#!/bin/sh\nexit 1")
 	ioutil.WriteFile(path.Join(hooks.Path(), "pre-receive"), hookContent, 0755)
 
-	server, serverSocketPath := runSmartHTTPServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runSmartHTTPServer(t)
+	defer stop()
 
 	repo, _, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
@@ -244,8 +244,8 @@ func createCommit(t *testing.T, repoPath string, fileContents []byte) (oldHead s
 }
 
 func TestFailedReceivePackRequestDueToValidationError(t *testing.T) {
-	server, serverSocketPath := runSmartHTTPServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runSmartHTTPServer(t)
+	defer stop()
 
 	client, conn := newSmartHTTPClient(t, serverSocketPath)
 	defer conn.Close()
@@ -278,8 +278,8 @@ func TestPostReceivePackToHooks(t *testing.T) {
 	glRepository := "some_repo"
 	glID := "key-123"
 
-	server, socket := runSmartHTTPServer(t)
-	defer server.Stop()
+	stop, socket := runSmartHTTPServer(t)
+	defer stop()
 
 	client, conn := newSmartHTTPClient(t, "unix://"+socket)
 	defer conn.Close()

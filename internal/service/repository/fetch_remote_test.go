@@ -44,8 +44,8 @@ func TestFetchRemoteSuccess(t *testing.T) {
 	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
-	server, serverSocketPath := runRepoServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRepoServer(t)
+	defer stop()
 
 	client, _ := newRepositoryClient(t, serverSocketPath)
 
@@ -74,13 +74,11 @@ func TestFetchRemoteFailure(t *testing.T) {
 		desc string
 		req  *gitalypb.FetchRemoteRequest
 		code codes.Code
-		err  string
 	}{
 		{
 			desc: "invalid storage",
 			req:  &gitalypb.FetchRemoteRequest{Repository: &gitalypb.Repository{StorageName: "invalid", RelativePath: "foobar.git"}},
 			code: codes.InvalidArgument,
-			err:  "Storage can not be found by name 'invalid'",
 		},
 	}
 
@@ -91,7 +89,6 @@ func TestFetchRemoteFailure(t *testing.T) {
 
 			resp, err := server.FetchRemote(ctx, tc.req)
 			testhelper.RequireGrpcError(t, err, tc.code)
-			require.Contains(t, err.Error(), tc.err)
 			assert.Nil(t, resp)
 		})
 	}
@@ -130,8 +127,8 @@ func getRefnames(t *testing.T, repoPath string) []string {
 }
 
 func TestFetchRemoteOverHTTP(t *testing.T) {
-	server, serverSocketPath := runRepoServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRepoServer(t)
+	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
@@ -186,8 +183,8 @@ func TestFetchRemoteOverHTTP(t *testing.T) {
 }
 
 func TestFetchRemoteOverHTTPWithRedirect(t *testing.T) {
-	server, serverSocketPath := runRepoServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRepoServer(t)
+	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
@@ -217,8 +214,8 @@ func TestFetchRemoteOverHTTPWithRedirect(t *testing.T) {
 }
 
 func TestFetchRemoteOverHTTPError(t *testing.T) {
-	server, serverSocketPath := runRepoServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRepoServer(t)
+	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()

@@ -62,9 +62,15 @@ func (c *Coordinator) directRepositoryScopedMessage(ctx context.Context, mi prot
 		}
 		return nil, err
 	}
+	if targetRepo.StorageName == "" || targetRepo.RelativePath == "" {
+		return nil, status.Error(codes.InvalidArgument, "target repo is invalid")
+	}
 
 	shard, err := c.nodeMgr.GetShard(targetRepo.GetStorageName())
 	if err != nil {
+		if err == nodes.ErrVirtualStorageNotExist {
+			return nil, status.Errorf(codes.InvalidArgument, err.Error())
+		}
 		return nil, err
 	}
 
@@ -127,6 +133,9 @@ func (c *Coordinator) StreamDirector(ctx context.Context, fullMethodName string,
 	// any RPC that gets proxied through praefect must be repository scoped.
 	shard, err := c.nodeMgr.GetShard(c.conf.VirtualStorages[0].Name)
 	if err != nil {
+		if err == nodes.ErrVirtualStorageNotExist {
+			return nil, status.Errorf(codes.InvalidArgument, err.Error())
+		}
 		return nil, err
 	}
 

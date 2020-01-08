@@ -11,8 +11,8 @@ import (
 )
 
 func TestSuccessfulIsSquashInProgressRequest(t *testing.T) {
-	server, serverSocketPath := runRepoServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRepoServer(t)
+	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
@@ -62,8 +62,8 @@ func TestSuccessfulIsSquashInProgressRequest(t *testing.T) {
 }
 
 func TestFailedIsSquashInProgressRequestDueToValidations(t *testing.T) {
-	server, serverSocketPath := runRepoServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRepoServer(t)
+	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
