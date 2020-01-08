@@ -1,4 +1,4 @@
 #!/usr/bin/env ruby
 require 'json'
 
-open('testdata/tempfile', 'w') { |f| f.puts(JSON.dump(ARGV)) }
+open('tempfile', 'w') { |f| f.puts(JSON.dump(ARGV)) }
