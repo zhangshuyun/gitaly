@@ -52,12 +52,6 @@ var (
 			Help: "Total number of events during diskcache filesystem walks",
 		},
 	)
-	walkerErrorTotal = prometheus.NewCounter(
-		prometheus.CounterOpts{
-			Name: "gitaly_diskcache_walker_error_total",
-			Help: "Total number of errors during diskcache filesystem walks",
-		},
-	)
 )
 
 func init() {
@@ -69,7 +63,6 @@ func init() {
 	prometheus.MustRegister(errTotal)
 	prometheus.MustRegister(walkerCheckTotal)
 	prometheus.MustRegister(walkerRemovalTotal)
-	prometheus.MustRegister(walkerErrorTotal)
 }
 
 func countErr(err error) error {
@@ -90,5 +83,4 @@ var (
 	countLoserBytes  = func(n float64) { bytesLoserTotals.Add(n) }
 	countWalkRemoval = func() { walkerRemovalTotal.Inc() }
 	countWalkCheck   = func() { walkerCheckTotal.Inc() }
-	countWalkError   = func() { walkerErrorTotal.Inc() }
 )

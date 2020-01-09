@@ -14,72 +14,46 @@ import (
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/internal/config"
 	"gitlab.com/gitlab-org/gitaly/internal/dontpanic"
-	"gitlab.com/gitlab-org/gitaly/internal/log"
 	"gitlab.com/gitlab-org/gitaly/internal/tempdir"
 )
 
-func logWalkErr(err error, path, msg string) {
-	countWalkError()
-	log.Default().
-		WithField("path", path).
-		WithError(err).
-		Warn(msg)
-}
-
-func cleanWalk(path string) error {
-	defer time.Sleep(100 * time.Microsecond) // relieve pressure
-
-	countWalkCheck()
-	entries, err := ioutil.ReadDir(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			logWalkErr(err, path, "unable to stat directory")
-			return nil
+func cleanWalk(walkPath string) error {
+	walkErr := filepath.Walk(walkPath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
 		}
-		return err
-	}
 
-	for _, e := range entries {
-		ePath := filepath.Join(path, e.Name())
-
-		if e.IsDir() {
-			if err := cleanWalk(ePath); err != nil {
-				return err
-			}
-			continue
+		if info.IsDir() {
+			return nil
 		}
 
 		countWalkCheck()
-		if time.Since(e.ModTime()) >= staleAge {
-			if err := os.Remove(ePath); err != nil {
-				if os.IsNotExist(err) {
-					continue
-				}
-				logWalkErr(err, ePath, "unable to remove file")
-				return err
-			}
-			countWalkRemoval()
+
+		threshold := time.Now().Add(-1 * staleAge)
+		if info.ModTime().After(threshold) {
+			return nil
 		}
-	}
 
-	files, err := ioutil.ReadDir(path)
-	if err != nil {
-		logWalkErr(err, path, "unable to stat directory after walk")
-		return err
-	}
-
-	if len(files) == 0 {
 		if err := os.Remove(path); err != nil {
 			if os.IsNotExist(err) {
+				// race condition: another file walker on the same storage may
+				// have deleted the file already
 				return nil
 			}
-			logWalkErr(err, path, "unable to remove empty directory")
+
 			return err
 		}
+
 		countWalkRemoval()
+
+		return nil
+	})
+
+	if os.IsNotExist(walkErr) {
+		return nil
 	}
 
-	return nil
+	return walkErr
 }
 
 const cleanWalkFrequency = 10 * time.Minute

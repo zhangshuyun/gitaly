@@ -49,7 +49,8 @@ func TestDiskCacheObjectWalker(t *testing.T) {
 		}
 	}
 
-	expectRemovals := cache.ExportMockRemovalCounter.Count() + 4
+	expectChecks := cache.ExportMockCheckCounter.Count() + 4
+	expectRemovals := cache.ExportMockRemovalCounter.Count() + 2
 
 	// disable the initial move-and-clear function since we are only
 	// evaluating the walker
@@ -58,7 +59,7 @@ func TestDiskCacheObjectWalker(t *testing.T) {
 
 	require.NoError(t, config.Validate()) // triggers walker
 
-	pollCountersUntil(t, expectRemovals)
+	pollCountersUntil(t, expectChecks, expectRemovals)
 
 	for _, p := range shouldExist {
 		assert.FileExists(t, p)
@@ -147,20 +148,22 @@ func satisfyConfigValidation(tmpPath string) error {
 	return nil
 }
 
-func pollCountersUntil(t testing.TB, expectRemovals int) {
+func pollCountersUntil(t testing.TB, expectChecks, expectRemovals int) {
 	// poll injected mock prometheus counters until expected events occur
 	timeout := time.After(time.Second)
 	for {
 		select {
 		case <-timeout:
 			t.Fatalf(
-				"timed out polling prometheus stats; removals: %d",
+				"timed out polling prometheus stats; checks: %d removals: %d",
+				cache.ExportMockCheckCounter.Count(),
 				cache.ExportMockRemovalCounter.Count(),
 			)
 		default:
 			// keep on truckin'
 		}
-		if cache.ExportMockRemovalCounter.Count() == expectRemovals {
+		if cache.ExportMockCheckCounter.Count() == expectChecks &&
+			cache.ExportMockRemovalCounter.Count() == expectRemovals {
 			break
 		}
 		time.Sleep(time.Millisecond)
