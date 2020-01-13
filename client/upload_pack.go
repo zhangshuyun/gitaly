@@ -28,7 +28,7 @@ func UploadPack(ctx context.Context, conn *grpc.ClientConn, stdin io.Reader, std
 		return stream.Send(&gitalypb.SSHUploadPackRequest{Stdin: p})
 	})
 
-	return streamHandler(func() (stdoutStderrResponse, error) {
+	return StreamHandler(func() (StdoutStderrResponse, error) {
 		return stream.Recv()
 	}, func(errC chan error) {
 		_, errRecv := io.Copy(inWriter, stdin)

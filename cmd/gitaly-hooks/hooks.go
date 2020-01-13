@@ -47,9 +47,9 @@ func main() {
 		logger.Fatalf("error when dialing: %v", err)
 	}
 
-	c := gitalypb.NewHookServiceClient(conn)
+	client := gitalypb.NewHookServiceClient(conn)
 
-	var hookSuccess bool
+	var hookStatus int32
 
 	switch subCmd {
 	case "update":
@@ -71,99 +71,21 @@ func main() {
 			NewValue: newValue,
 		}
 
-		stream, err := c.UpdateHook(ctx, req)
+		stream, err := client.UpdateHook(ctx, req)
 		if err != nil {
 			logger.Fatalf("error when starting command for %v: %v", subCmd, err)
 		}
 
-		if hookSuccess, err = recvHookResponse(stream, new(gitalypb.UpdateHookResponse), os.Stdout, os.Stderr); err != nil {
+		if hookStatus, err = sendAndRecv(stream, new(gitalypb.UpdateHookResponse), nil, os.Stdout, os.Stderr); err != nil {
 			logger.Fatalf("error when receiving data for %v: %v", subCmd, err)
 		}
 	case "pre-receive":
-		stream, err := c.PreReceiveHook(ctx)
+		stream, err := client.PreReceiveHook(ctx)
 		if err != nil {
 			logger.Fatalf("error when getting stream client: %v", err)
 		}
 
-		if err = sendRequest(stream, preReceiveHookRequest, os.Stdin); err != nil {
-			logger.Fatalf("error when sending data for %v: %v", subCmd, err)
-		}
-		if err = stream.CloseSend(); err != nil {
-			logger.Fatalf("error when closing sending stream for %v: %v", subCmd, err)
-		}
-
-		if hookSuccess, err = recvHookResponse(stream, new(gitalypb.PreReceiveHookResponse), os.Stdout, os.Stderr); err != nil {
-			logger.Fatalf("error when receiving data for %v: %v", subCmd, err)
-		}
-	case "post-receive":
-		stream, err := c.PostReceiveHook(ctx)
-		if err != nil {
-			logger.Fatalf("error when getting stream client: %v", err)
-		}
-
-		if err = sendRequest(stream, postReceiveHookRequest, os.Stdin); err != nil {
-			logger.Fatalf("error when sending data for %v: %v", subCmd, err)
-		}
-		if err = stream.CloseSend(); err != nil {
-			logger.Fatalf("error when closing sending stream for %v: %v", subCmd, err)
-		}
-
-		if hookSuccess, err = recvHookResponse(stream, new(gitalypb.PostReceiveHookResponse), os.Stdout, os.Stderr); err != nil {
-			logger.Fatalf("error when receiving data for %v: %v", subCmd, err)
-		}
-	default:
-		logger.Fatal(errors.New("subcommand name invalid"))
-	}
-
-	if !hookSuccess {
-		os.Exit(1)
-	}
-
-	os.Exit(0)
-}
-
-func dialOpts() []grpc.DialOption {
-	return append(client.DefaultDialOpts, grpc.WithPerRPCCredentials(gitalyauth.RPCCredentials(os.Getenv("GITALY_TOKEN"))))
-}
-
-// streamRequestGenerator is a function that generates requests for sending to a stream
-type streamRequestGenerator func(firstRequest bool, p []byte) interface{}
-
-// SendRequest streams requests using a reader
-func sendRequest(stream grpc.ClientStream, g streamRequestGenerator, r io.Reader) error {
-	if err := stream.SendMsg(g(true, nil)); err != nil {
-		return err
-	}
-
-	w := streamio.NewWriter(func(p []byte) error {
-		return stream.SendMsg(g(false, p))
-	})
-
-	if _, err := io.Copy(w, r); err != nil {
-		return err
-	}
-
-	return stream.CloseSend()
-}
-
-func postReceiveHookRequest(first bool, p []byte) interface{} {
-	if first {
-		return &gitalypb.PostReceiveHookRequest{
-			Repository: &gitalypb.Repository{
-				StorageName:  os.Getenv("GL_REPO_STORAGE"),
-				RelativePath: os.Getenv("GL_REPO_RELATIVE_PATH"),
-				GlRepository: os.Getenv("GL_REPOSITORY"),
-			},
-			KeyId: os.Getenv("GL_ID"),
-		}
-	}
-
-	return &gitalypb.PostReceiveHookRequest{Stdin: p}
-}
-
-func preReceiveHookRequest(first bool, p []byte) interface{} {
-	if first {
-		return &gitalypb.PreReceiveHookRequest{
+		if err := stream.Send(&gitalypb.PreReceiveHookRequest{
 			Repository: &gitalypb.Repository{
 				StorageName:  os.Getenv("GL_REPO_STORAGE"),
 				RelativePath: os.Getenv("GL_REPO_RELATIVE_PATH"),
@@ -171,40 +93,68 @@ func preReceiveHookRequest(first bool, p []byte) interface{} {
 			},
 			KeyId:    os.Getenv("GL_ID"),
 			Protocol: os.Getenv("GL_PROTOCOL"),
+		}); err != nil {
+			logger.Fatalf("error when sending request: %v", err)
 		}
-	}
-	return &gitalypb.PreReceiveHookRequest{Stdin: p}
-}
 
-type hookResponse interface {
-	GetStdout() []byte
-	GetStderr() []byte
-	GetSuccess() bool
-}
+		f := sendFunc(streamio.NewWriter(func(p []byte) error {
+			return stream.Send(&gitalypb.PreReceiveHookRequest{Stdin: p})
+		}), stream, os.Stdin)
 
-func recvHookResponse(stream grpc.ClientStream, resp hookResponse, stdout, stderr io.Writer) (bool, error) {
-	var err error
-	var success bool
-	for {
-		err = stream.RecvMsg(resp)
+		if hookStatus, err = sendAndRecv(stream, new(gitalypb.PreReceiveHookResponse), f, os.Stdout, os.Stderr); err != nil {
+			logger.Fatalf("error when receiving data for %v: %v", subCmd, err)
+		}
+	case "post-receive":
+		stream, err := client.PostReceiveHook(ctx)
 		if err != nil {
-			break
+			logger.Fatalf("error when getting stream client: %v", err)
 		}
 
-		if _, err = stdout.Write(resp.GetStdout()); err != nil {
-			return false, err
+		if err := stream.Send(&gitalypb.PostReceiveHookRequest{
+			Repository: &gitalypb.Repository{
+				StorageName:  os.Getenv("GL_REPO_STORAGE"),
+				RelativePath: os.Getenv("GL_REPO_RELATIVE_PATH"),
+				GlRepository: os.Getenv("GL_REPOSITORY"),
+			},
+			KeyId: os.Getenv("GL_ID"),
+		}); err != nil {
+			logger.Fatalf("error when sending request: %v", err)
 		}
-		if _, err = stderr.Write(resp.GetStderr()); err != nil {
-			return false, err
+
+		f := sendFunc(streamio.NewWriter(func(p []byte) error {
+			return stream.Send(&gitalypb.PostReceiveHookRequest{Stdin: p})
+		}), stream, os.Stdin)
+
+		if hookStatus, err = sendAndRecv(stream, new(gitalypb.PostReceiveHookResponse), f, os.Stdout, os.Stderr); err != nil {
+			logger.Fatalf("error when receiving data for %v: %v", subCmd, err)
 		}
-		success = resp.GetSuccess()
+	default:
+		logger.Fatal(errors.New("subcommand name invalid"))
 	}
 
-	if err != io.EOF {
-		return false, err
-	}
+	os.Exit(int(hookStatus))
+}
 
-	return success, nil
+func dialOpts() []grpc.DialOption {
+	return append(client.DefaultDialOpts, grpc.WithPerRPCCredentials(gitalyauth.RPCCredentials(os.Getenv("GITALY_TOKEN"))))
+}
+
+func sendFunc(reqWriter io.Writer, stream grpc.ClientStream, stdin io.Reader) func(errC chan error) {
+	return func(errC chan error) {
+		_, errSend := io.Copy(reqWriter, stdin)
+		stream.CloseSend()
+		errC <- errSend
+	}
+}
+
+func sendAndRecv(stream grpc.ClientStream, resp client.StdoutStderrResponse, sender client.Sender, stdout, stderr io.Writer) (int32, error) {
+	if sender == nil {
+		sender = func(err chan error) {}
+	}
+	return client.StreamHandler(func() (client.StdoutStderrResponse, error) {
+		err := stream.RecvMsg(resp)
+		return resp, err
+	}, sender, stdout, stderr)
 }
 
 // GitlabShellConfig contains a subset of gitlabshell's config.yml
