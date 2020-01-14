@@ -1,6 +1,7 @@
 package hooks
 
 import (
+	"fmt"
 	"os"
 	"path"
 
@@ -24,4 +25,16 @@ func Path() string {
 	}
 
 	return path.Join(config.Config.Ruby.Dir, "git-hooks")
+}
+
+// GitPushOptions turns a slice of git push option values into a GIT_PUSH_OPTION_COUNT and individual
+// GIT_PUSH_OPTION_0, GIT_PUSH_OPTION_1 etc.
+func GitPushOptions(options []string) []string {
+	envVars := []string{fmt.Sprintf("GIT_PUSH_OPTION_COUNT=%d", len(options))}
+
+	for i, pushOption := range options {
+		envVars = append(envVars, fmt.Sprintf("GIT_PUSH_OPTION_%d=%s", i, pushOption))
+	}
+
+	return envVars
 }

@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 
 	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
@@ -116,7 +117,8 @@ func main() {
 				RelativePath: os.Getenv("GL_REPO_RELATIVE_PATH"),
 				GlRepository: os.Getenv("GL_REPOSITORY"),
 			},
-			KeyId: os.Getenv("GL_ID"),
+			KeyId:          os.Getenv("GL_ID"),
+			GitPushOptions: gitPushOptions(),
 		}); err != nil {
 			logger.Fatalf("error when sending request: %v", err)
 		}
@@ -155,6 +157,21 @@ func sendAndRecv(stream grpc.ClientStream, resp client.StdoutStderrResponse, sen
 		err := stream.RecvMsg(resp)
 		return resp, err
 	}, sender, stdout, stderr)
+}
+
+func gitPushOptions() []string {
+	gitPushOptionCount, err := strconv.Atoi(os.Getenv("GIT_PUSH_OPTION_COUNT"))
+	if err != nil {
+		return []string{}
+	}
+
+	var gitPushOptions []string
+
+	for i := 0; i < gitPushOptionCount; i++ {
+		gitPushOptions = append(gitPushOptions, os.Getenv(fmt.Sprintf("GIT_PUSH_OPTION_%d", i)))
+	}
+
+	return gitPushOptions
 }
 
 // GitlabShellConfig contains a subset of gitlabshell's config.yml

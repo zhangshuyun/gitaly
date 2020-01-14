@@ -20,6 +20,7 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
     optional :repository, :message, 1, "gitaly.Repository"
     optional :key_id, :string, 2
     optional :stdin, :bytes, 3
+    repeated :git_push_options, :string, 4
   end
   add_message "gitaly.PostReceiveHookResponse" do
     optional :stdout, :bytes, 1

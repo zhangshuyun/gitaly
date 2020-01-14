@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os/exec"
 
+	"gitlab.com/gitlab-org/gitaly/internal/git/hooks"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/streamio"
@@ -23,6 +24,8 @@ func (s *server) PostReceiveHook(stream gitalypb.HookService_PostReceiveHookServ
 	if err != nil {
 		return helper.ErrInternal(err)
 	}
+
+	hookEnv = append(hookEnv, hooks.GitPushOptions(firstRequest.GetGitPushOptions())...)
 
 	stdin := streamio.NewReader(func() ([]byte, error) {
 		req, err := stream.Recv()

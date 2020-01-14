@@ -44,6 +44,7 @@ message PostReceiveHookRequest {
   Repository repository = 1;
   string key_id = 2;
   bytes stdin = 3;
+  repeated string git_push_options = 4;
 }
 
 message PostReceiveHookResponse{

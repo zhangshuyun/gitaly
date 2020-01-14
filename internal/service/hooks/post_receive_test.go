@@ -65,7 +65,7 @@ func TestPostReceive(t *testing.T) {
 		{
 			desc:   "valid stdin",
 			stdin:  bytes.NewBufferString("a\nb\nc\nd\ne\nf\ng"),
-			req:    gitalypb.PostReceiveHookRequest{Repository: testRepo, KeyId: "key_id"},
+			req:    gitalypb.PostReceiveHookRequest{Repository: testRepo, KeyId: "key_id", GitPushOptions: []string{"option0", "option1"}},
 			status: 0,
 			stdout: "OK",
 			stderr: "",
@@ -73,7 +73,7 @@ func TestPostReceive(t *testing.T) {
 		{
 			desc:   "missing stdin",
 			stdin:  bytes.NewBuffer(nil),
-			req:    gitalypb.PostReceiveHookRequest{Repository: testRepo, KeyId: "key_id"},
+			req:    gitalypb.PostReceiveHookRequest{Repository: testRepo, KeyId: "key_id", GitPushOptions: []string{"option0"}},
 			status: 1,
 			stdout: "",
 			stderr: "FAIL",
@@ -81,7 +81,15 @@ func TestPostReceive(t *testing.T) {
 		{
 			desc:   "missing key_id",
 			stdin:  bytes.NewBuffer(nil),
-			req:    gitalypb.PostReceiveHookRequest{Repository: testRepo},
+			req:    gitalypb.PostReceiveHookRequest{Repository: testRepo, GitPushOptions: []string{"option0"}},
+			status: 1,
+			stdout: "",
+			stderr: "FAIL",
+		},
+		{
+			desc:   "missing git push option",
+			stdin:  bytes.NewBuffer(nil),
+			req:    gitalypb.PostReceiveHookRequest{Repository: testRepo, KeyId: "key_id"},
 			status: 1,
 			stdout: "",
 			stderr: "FAIL",
