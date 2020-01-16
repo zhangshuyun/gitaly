@@ -300,7 +300,7 @@ func (r ReplMgr) processReplJob(ctx context.Context, job datastore.ReplJob) {
 		return
 	}
 
-	sourceCC, err := r.clientConnections.GetConnection(job.SourceNode.Storage)
+	sourceCC, err := r.clientConnections.GetConnection(job.TargetNode.Storage)
 	if err != nil {
 		l.WithError(err).Error("unable to obtain client connection for primary node in replication job")
 		return
