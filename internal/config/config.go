@@ -46,8 +46,9 @@ type Cfg struct {
 	GitlabShell                GitlabShell       `toml:"gitlab-shell"`
 	Concurrency                []Concurrency     `toml:"concurrency"`
 	GracefulRestartTimeout     time.Duration
-	GracefulRestartTimeoutToml duration `toml:"graceful_restart_timeout"`
-	InternalSocketDir          string   `toml:"internal_socket_dir"`
+	GracefulRestartTimeoutToml duration    `toml:"graceful_restart_timeout"`
+	InternalSocketDir          string      `toml:"internal_socket_dir"`
+	GitlabRails                GitlabRails `toml:"gitlab-rails"`
 }
 
 // TLS configuration
@@ -59,6 +60,11 @@ type TLS struct {
 // GitlabShell contains the settings required for executing `gitlab-shell`
 type GitlabShell struct {
 	Dir string `toml:"dir"`
+}
+
+// GitlabRails bla
+type GitlabRails struct {
+	URL string `toml:"url"`
 }
 
 // Git contains the settings for the Git executable

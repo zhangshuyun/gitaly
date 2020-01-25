@@ -19,6 +19,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/cancelhandler"
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/limithandler"
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/metadatahandler"
+	"gitlab.com/gitlab-org/gitaly/internal/middleware/notifier"
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/panichandler"
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/sentryhandler"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/protoregistry"
@@ -75,6 +76,7 @@ func createNewServer(rubyServer *rubyserver.Server, secure bool) *grpc.Server {
 	}
 
 	lh := limithandler.New(concurrencyKeyFn)
+	gitlabRails := config.Config.GitlabRails
 
 	opts := []grpc.ServerOption{
 		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
@@ -89,6 +91,7 @@ func createNewServer(rubyServer *rubyserver.Server, secure bool) *grpc.Server {
 			auth.StreamServerInterceptor(config.Config.Auth),
 			grpctracing.StreamServerTracingInterceptor(),
 			cache.StreamInvalidator(diskcache.LeaseKeyer{}, protoregistry.GitalyProtoPreregistered),
+			notifier.StreamNotifier(gitlabRails, protoregistry.GitalyProtoPreregistered),
 			// Panic handler should remain last so that application panics will be
 			// converted to errors and logged
 			panichandler.StreamPanicHandler,
@@ -105,6 +108,7 @@ func createNewServer(rubyServer *rubyserver.Server, secure bool) *grpc.Server {
 			auth.UnaryServerInterceptor(config.Config.Auth),
 			grpctracing.UnaryServerTracingInterceptor(),
 			cache.UnaryInvalidator(diskcache.LeaseKeyer{}, protoregistry.GitalyProtoPreregistered),
+			notifier.UnaryNotifier(gitlabRails, protoregistry.GitalyProtoPreregistered),
 			// Panic handler should remain last so that application panics will be
 			// converted to errors and logged
 			panichandler.UnaryPanicHandler,
