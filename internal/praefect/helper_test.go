@@ -2,23 +2,28 @@ package praefect
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"testing"
 	"time"
 
+	"google.golang.org/grpc/health"
+	healthpb "google.golang.org/grpc/health/grpc_health_v1"
+
 	"github.com/golang/protobuf/protoc-gen-go/descriptor"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
+	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
 	"gitlab.com/gitlab-org/gitaly/client"
 	internalauth "gitlab.com/gitlab-org/gitaly/internal/config/auth"
 	"gitlab.com/gitlab-org/gitaly/internal/log"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/conn"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/grpc-proxy/proxy"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/mock"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/models"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/nodes"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/internal/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/server/auth"
@@ -70,10 +75,10 @@ func testConfig(backends int) config.Config {
 
 // setupServer wires all praefect dependencies together via dependency
 // injection
-func setupServer(t testing.TB, conf config.Config, clientCC *conn.ClientConnections, l *logrus.Entry, fds []*descriptor.FileDescriptorProto) (*datastore.MemoryDatastore, *Server) {
+func setupServer(t testing.TB, conf config.Config, nodeMgr nodes.Manager, l *logrus.Entry, fds []*descriptor.FileDescriptorProto) (*datastore.MemoryDatastore, *Server) {
 	var (
 		ds          = datastore.NewInMemory(conf)
-		coordinator = NewCoordinator(l, ds, clientCC, conf, fds...)
+		coordinator = NewCoordinator(l, ds, nodeMgr, conf, fds...)
 	)
 
 	var defaultNode *models.Node
@@ -88,14 +93,14 @@ func setupServer(t testing.TB, conf config.Config, clientCC *conn.ClientConnecti
 		defaultNode.Storage,
 		l,
 		ds,
-		clientCC,
+		nodeMgr,
 	)
 	server := NewServer(
 		coordinator,
 		replmgr,
 		nil,
 		l,
-		clientCC,
+		nodeMgr,
 		conf,
 	)
 
@@ -108,7 +113,6 @@ func setupServer(t testing.TB, conf config.Config, clientCC *conn.ClientConnecti
 // configured storage node.
 // requires there to be only 1 virtual storage
 func runPraefectServerWithMock(t *testing.T, conf config.Config, backends map[string]mock.SimpleServiceServer) (mock.SimpleServiceClient, *Server, testhelper.Cleanup) {
-	clientCC := conn.NewClientConnections()
 
 	require.Len(t, conf.VirtualStorages, 1)
 	require.Equal(t, len(backends), len(conf.VirtualStorages[0].Nodes),
@@ -123,12 +127,15 @@ func runPraefectServerWithMock(t *testing.T, conf config.Config, backends map[st
 		backendAddr, cleanup := newMockDownstream(t, node.Token, backend)
 		cleanups = append(cleanups, cleanup)
 
-		clientCC.RegisterNode(node.Storage, backendAddr, node.Token)
 		node.Address = backendAddr
 		conf.VirtualStorages[0].Nodes[i] = node
 	}
 
-	_, prf := setupServer(t, conf, clientCC, log.Default(), []*descriptor.FileDescriptorProto{mustLoadProtoReg(t)})
+	nodeMgr, err := nodes.NewManager(log.Default(), conf.VirtualStorages)
+	require.NoError(t, err)
+	nodeMgr.Start(1*time.Millisecond, 5*time.Millisecond)
+
+	_, prf := setupServer(t, conf, nodeMgr, log.Default(), []*descriptor.FileDescriptorProto{mustLoadProtoReg(t)})
 
 	listener, port := listenAvailPort(t)
 	t.Logf("praefect listening on port %d", port)
@@ -163,14 +170,12 @@ func runPraefectServerWithMock(t *testing.T, conf config.Config, backends map[st
 // requires exactly 1 virtual storage
 func runPraefectServerWithGitaly(t *testing.T, conf config.Config) (*grpc.ClientConn, *Server, testhelper.Cleanup) {
 	require.Len(t, conf.VirtualStorages, 1)
-	clientCC := conn.NewClientConnections()
 	var cleanups []testhelper.Cleanup
 
 	for i, node := range conf.VirtualStorages[0].Nodes {
 		_, backendAddr, cleanup := runInternalGitalyServer(t, node.Token)
 		cleanups = append(cleanups, cleanup)
 
-		clientCC.RegisterNode(node.Storage, backendAddr, node.Token)
 		node.Address = backendAddr
 		conf.VirtualStorages[0].Nodes[i] = node
 	}
@@ -178,13 +183,17 @@ func runPraefectServerWithGitaly(t *testing.T, conf config.Config) (*grpc.Client
 	ds := datastore.NewInMemory(conf)
 	logEntry := log.Default()
 
-	coordinator := NewCoordinator(logEntry, ds, clientCC, conf, protoregistry.GitalyProtoFileDescriptors...)
+	nodeMgr, err := nodes.NewManager(log.Default(), conf.VirtualStorages)
+	require.NoError(t, err)
+	nodeMgr.Start(1*time.Millisecond, 5*time.Millisecond)
+
+	coordinator := NewCoordinator(logEntry, ds, nodeMgr, conf, protoregistry.GitalyProtoFileDescriptors...)
 
 	replmgr := NewReplMgr(
 		"",
 		logEntry,
 		ds,
-		clientCC,
+		nodeMgr,
 		WithQueueMetric(&promtest.MockGauge{}),
 		WithLatencyMetric(&promtest.MockHistogram{}),
 	)
@@ -193,7 +202,7 @@ func runPraefectServerWithGitaly(t *testing.T, conf config.Config) (*grpc.Client
 		replmgr,
 		nil,
 		logEntry,
-		clientCC,
+		nodeMgr,
 		conf,
 	)
 
@@ -243,6 +252,7 @@ func runInternalGitalyServer(t *testing.T, token string) (*grpc.Server, string, 
 
 	gitalypb.RegisterServerServiceServer(server, gitalyserver.NewServer())
 	gitalypb.RegisterRepositoryServiceServer(server, repository.NewServer(rubyServer))
+	healthpb.RegisterHealthServer(server, health.NewServer())
 
 	errQ := make(chan error)
 
@@ -318,4 +328,85 @@ func newMockDownstream(tb testing.TB, token string, m mock.SimpleServiceServer) 
 	}
 
 	return fmt.Sprintf("tcp://localhost:%d", port), cleanup
+}
+
+type mockNodeMgr struct {
+	shards map[string]mockShard
+}
+
+type mockShard struct {
+	primary     mockNode
+	secondaries []mockNode
+}
+
+func (m *mockShard) GetPrimary() (nodes.Node, error) {
+	return &m.primary, nil
+}
+
+func (m *mockShard) GetSecondaries() ([]nodes.Node, error) {
+	var nodes []nodes.Node
+	for _, n := range m.secondaries {
+		nodes = append(nodes, &n)
+	}
+
+	return nodes, nil
+}
+
+type mockNode struct {
+	storage, address, token string
+	conn                    *grpc.ClientConn
+}
+
+func (m *mockNode) GetStorage() string {
+	return m.storage
+}
+
+func (m *mockNode) GetAddress() string {
+	return m.address
+}
+
+func (m *mockNode) GetToken() string {
+	return m.token
+}
+
+func (m *mockNode) GetConnection() *grpc.ClientConn {
+	return m.conn
+}
+
+func (m *mockNodeMgr) GetShard(virtualStorageName string) (nodes.Shard, error) {
+	s, ok := m.shards[virtualStorageName]
+	if !ok {
+		return nil, errors.New("virtual storage not found")
+	}
+
+	return &s, nil
+}
+
+// NewMockNodeManager creates a nodes.Manager that doesn't check the health of its nodes
+func NewMockNodeManager(virtualStorages []*config.VirtualStorage) *mockNodeMgr {
+	m := &mockNodeMgr{shards: make(map[string]mockShard)}
+
+	for _, virtualStorage := range virtualStorages {
+		var s mockShard
+
+		for _, node := range virtualStorage.Nodes {
+			conn, _ := client.Dial(node.Address,
+				[]grpc.DialOption{
+					grpc.WithDefaultCallOptions(grpc.CallCustomCodec(proxy.Codec())),
+					grpc.WithPerRPCCredentials(gitalyauth.RPCCredentials(node.Token)),
+				},
+			)
+			n := mockNode{storage: node.Storage, address: node.Address, token: node.Token, conn: conn}
+			if node.DefaultPrimary {
+				s.primary = n
+				continue
+			}
+			s.secondaries = append(s.secondaries, n)
+		}
+
+		m.shards[virtualStorage.Name] = s
+
+	}
+
+	return m
 }

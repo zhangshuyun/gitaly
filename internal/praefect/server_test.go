@@ -18,7 +18,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/log"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/conn"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/mock"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/models"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/protoregistry"
@@ -130,9 +129,9 @@ func TestGitalyServerInfoBadNode(t *testing.T) {
 		},
 	}
 
-	clientCC := conn.NewClientConnections()
-	clientCC.RegisterNode(conf.VirtualStorages[0].Nodes[0].Storage, conf.VirtualStorages[0].Nodes[0].Address, conf.VirtualStorages[0].Nodes[0].Token)
-	_, srv := setupServer(t, conf, clientCC, log.Default(), protoregistry.GitalyProtoFileDescriptors)
+	nodeMgr := NewMockNodeManager(conf.VirtualStorages)
+
+	_, srv := setupServer(t, conf, nodeMgr, log.Default(), protoregistry.GitalyProtoFileDescriptors)
 
 	listener, port := listenAvailPort(t)
 	go func() {
@@ -154,7 +153,7 @@ func TestGitalyServerInfoBadNode(t *testing.T) {
 func TestGitalyDiskStatistics(t *testing.T) {
 	conf := config.Config{
 		VirtualStorages: []*config.VirtualStorage{
-			&config.VirtualStorage{
+			{
 				Nodes: []*models.Node{
 					{
 						Storage:        "praefect-internal-1",
@@ -168,6 +167,7 @@ func TestGitalyDiskStatistics(t *testing.T) {
 			},
 		},
 	}
+
 	cc, _, cleanup := runPraefectServerWithGitaly(t, conf)
 	defer cleanup()
 
@@ -178,7 +178,7 @@ func TestGitalyDiskStatistics(t *testing.T) {
 
 	metadata, err := client.DiskStatistics(ctx, &gitalypb.DiskStatisticsRequest{})
 	require.NoError(t, err)
-	require.Len(t, metadata.GetStorageStatuses(), len(conf.Nodes))
+	require.Len(t, metadata.GetStorageStatuses(), len(conf.VirtualStorages[0].Nodes))
 
 	for _, storageStatus := range metadata.GetStorageStatuses() {
 		require.NotNil(t, storageStatus, "none of the storage statuses should be nil")

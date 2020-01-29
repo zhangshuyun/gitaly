@@ -1,4 +1,4 @@
-package praefect
+package nodes
 
 import (
 	"net"
@@ -28,7 +28,7 @@ func TestNodeStatus(t *testing.T) {
 	}
 	require.True(t, cs.isHealthy())
 
-	healthSvr.SetServingStatus("TestService", grpc_health_v1.HealthCheckResponse_NOT_SERVING)
+	healthSvr.SetServingStatus("", grpc_health_v1.HealthCheckResponse_NOT_SERVING)
 
 	require.NoError(t, cs.check())
 	require.False(t, cs.isHealthy())
@@ -38,7 +38,7 @@ func TestNodeManager(t *testing.T) {
 	internalSocket0 := testhelper.GetTemporaryGitalySocketFileName()
 	internalSocket1 := testhelper.GetTemporaryGitalySocketFileName()
 
-	virtualStorages := []config.VirtualStorage{
+	virtualStorages := []*config.VirtualStorage{
 		{
 			Name: "virtual-storage-0",
 			Nodes: []*models.Node{
@@ -61,7 +61,7 @@ func TestNodeManager(t *testing.T) {
 	_, _, cancel1 := newHealthServer(t, internalSocket1)
 	defer cancel1()
 
-	nm, err := NewNodeManager(log.Default(), virtualStorages)
+	nm, err := NewManager(log.Default(), virtualStorages)
 	require.NoError(t, err)
 
 	_, err = nm.GetShard("virtual-storage-0")
@@ -82,7 +82,7 @@ func TestNodeManager(t *testing.T) {
 	require.Equal(t, virtualStorages[0].Nodes[1].Storage, secondaries[0].GetStorage())
 	require.Equal(t, virtualStorages[0].Nodes[1].Address, secondaries[0].GetAddress())
 
-	srv0.SetServingStatus("TestService", grpc_health_v1.HealthCheckResponse_UNKNOWN)
+	srv0.SetServingStatus("", grpc_health_v1.HealthCheckResponse_UNKNOWN)
 	nm.checkShards()
 
 	// since the primary is unhealthy, we expect checkShards to demote primary to secondary, and promote the healthy

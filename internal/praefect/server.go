@@ -17,8 +17,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/panichandler"
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/sentryhandler"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/conn"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/grpc-proxy/proxy"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/nodes"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/service/server"
 	"gitlab.com/gitlab-org/gitaly/internal/server/auth"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -31,11 +31,11 @@ import (
 
 // Server is a praefect server
 type Server struct {
-	clientConnections *conn.ClientConnections
-	repl              ReplMgr
-	s                 *grpc.Server
-	conf              config.Config
-	l                 *logrus.Entry
+	nodeManager nodes.Manager
+	repl        ReplMgr
+	s           *grpc.Server
+	conf        config.Config
+	l           *logrus.Entry
 }
 
 func (srv *Server) warnDupeAddrs(c config.Config) {
@@ -60,7 +60,7 @@ func (srv *Server) warnDupeAddrs(c config.Config) {
 
 // NewServer returns an initialized praefect gPRC proxy server configured
 // with the provided gRPC server options
-func NewServer(c *Coordinator, repl ReplMgr, grpcOpts []grpc.ServerOption, l *logrus.Entry, clientConnections *conn.ClientConnections, conf config.Config) *Server {
+func NewServer(c *Coordinator, repl ReplMgr, grpcOpts []grpc.ServerOption, l *logrus.Entry, nodeManager nodes.Manager, conf config.Config) *Server {
 	ctxTagOpts := []grpc_ctxtags.Option{
 		grpc_ctxtags.WithFieldExtractorForInitialReq(fieldextractors.FieldExtractor),
 	}
@@ -98,11 +98,11 @@ func NewServer(c *Coordinator, repl ReplMgr, grpcOpts []grpc.ServerOption, l *lo
 	}...)
 
 	s := &Server{
-		s:                 grpc.NewServer(grpcOpts...),
-		repl:              repl,
-		clientConnections: clientConnections,
-		conf:              conf,
-		l:                 l,
+		s:           grpc.NewServer(grpcOpts...),
+		repl:        repl,
+		nodeManager: nodeManager,
+		conf:        conf,
+		l:           l,
 	}
 
 	s.warnDupeAddrs(conf)
@@ -125,7 +125,7 @@ func (srv *Server) Serve(l net.Listener, secure bool) error {
 // RegisterServices will register any services praefect needs to handle rpcs on its own
 func (srv *Server) RegisterServices() {
 	// ServerServiceServer is necessary for the ServerInfo RPC
-	gitalypb.RegisterServerServiceServer(srv.s, server.NewServer(srv.conf, srv.clientConnections))
+	gitalypb.RegisterServerServiceServer(srv.s, server.NewServer(srv.conf, srv.nodeManager))
 
 	healthpb.RegisterHealthServer(srv.s, health.NewServer())
 

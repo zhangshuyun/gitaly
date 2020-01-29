@@ -102,7 +102,7 @@ type ReplJobsDatastore interface {
 	// CreateReplicaReplJobs will create replication jobs for each secondary
 	// replica of a repository known to the datastore. A set of replication job
 	// ID's for the created jobs will be returned upon success.
-	CreateReplicaReplJobs(relativePath string, primary models.Node, secondaries []models.Node, change ChangeType) ([]uint64, error)
+	CreateReplicaReplJobs(relativePath string, primaryStorage string, secondaryStorages []string, change ChangeType) ([]uint64, error)
 
 	// UpdateReplJob updates the state of an existing replication job
 	UpdateReplJob(jobID uint64, newState JobState) error
@@ -292,7 +292,7 @@ var ErrInvalidReplTarget = errors.New("targetStorage repository fails preconditi
 
 // CreateReplicaReplJobs creates a replication job for each secondary that
 // backs the specified repository. Upon success, the job IDs will be returned.
-func (md *MemoryDatastore) CreateReplicaReplJobs(relativePath string, primary models.Node, secondaries []models.Node, change ChangeType) ([]uint64, error) {
+func (md *MemoryDatastore) CreateReplicaReplJobs(relativePath string, primaryStorage string, secondaryStorages []string, change ChangeType) ([]uint64, error) {
 	md.jobs.Lock()
 	defer md.jobs.Unlock()
 
@@ -302,15 +302,15 @@ func (md *MemoryDatastore) CreateReplicaReplJobs(relativePath string, primary mo
 
 	var jobIDs []uint64
 
-	for _, secondary := range secondaries {
+	for _, secondaryStorage := range secondaryStorages {
 		nextID := uint64(len(md.jobs.records) + 1)
 
 		md.jobs.records[nextID] = jobRecord{
 			change:            change,
-			targetNodeStorage: secondary.Storage,
+			targetNodeStorage: secondaryStorage,
 			state:             JobStatePending,
 			relativePath:      relativePath,
-			sourceNodeStorage: primary.Storage,
+			sourceNodeStorage: primaryStorage,
 		}
 
 		jobIDs = append(jobIDs, nextID)

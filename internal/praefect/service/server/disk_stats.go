@@ -4,41 +4,38 @@ import (
 	"context"
 	"fmt"
 
-	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
-	"golang.org/x/sync/errgroup"
 )
 
 // DiskStatistics sends DiskStatisticsRequest to all of a praefect server's internal gitaly nodes and aggregates the
 // results into a response
 func (s *Server) DiskStatistics(ctx context.Context, _ *gitalypb.DiskStatisticsRequest) (*gitalypb.DiskStatisticsResponse, error) {
-	storageStatuses := make([][]*gitalypb.DiskStatisticsResponse_StorageStatus, len(s.conf.Nodes))
+	var storageStatuses [][]*gitalypb.DiskStatisticsResponse_StorageStatus
 
-	g, ctx := errgroup.WithContext(ctx)
-
-	for i, node := range s.conf.Nodes {
-		i := i // necessary since it will be used in a goroutine below
-		node := node
-		cc, err := s.clientCC.GetConnection(node.Storage)
+	for _, virtualStorage := range s.conf.VirtualStorages {
+		shard, err := s.nodeMgr.GetShard(virtualStorage.Name)
 		if err != nil {
-			return nil, helper.ErrInternalf("error getting client connection for %s: %v", node.Storage, err)
+			return nil, err
 		}
 
-		g.Go(func() error {
-			client := gitalypb.NewServerServiceClient(cc)
+		primary, err := shard.GetPrimary()
+		if err != nil {
+			return nil, err
+		}
+		secondaries, err := shard.GetSecondaries()
+		if err != nil {
+			return nil, err
+		}
+
+		for _, node := range append(secondaries, primary) {
+			client := gitalypb.NewServerServiceClient(node.GetConnection())
 			resp, err := client.DiskStatistics(ctx, &gitalypb.DiskStatisticsRequest{})
 			if err != nil {
-				return fmt.Errorf("error when requesting disk statistics from internal storage %v", node.Storage)
+				return nil, fmt.Errorf("error when requesting disk statistics from internal storage %v", node.GetStorage())
 			}
 
-			storageStatuses[i] = resp.GetStorageStatuses()
-
-			return nil
-		})
-	}
-
-	if err := g.Wait(); err != nil {
-		return nil, helper.ErrInternal(err)
+			storageStatuses = append(storageStatuses, resp.GetStorageStatuses())
+		}
 	}
 
 	var response gitalypb.DiskStatisticsResponse

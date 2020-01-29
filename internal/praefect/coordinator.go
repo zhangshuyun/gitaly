@@ -3,20 +3,24 @@ package praefect
 import (
 	"context"
 	"errors"
-	"fmt"
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
 
+	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
+	"gitlab.com/gitlab-org/gitaly/client"
+
+	"google.golang.org/grpc"
+
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/nodes"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/protoc-gen-go/descriptor"
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/conn"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/grpc-proxy/proxy"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/models"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -31,7 +35,7 @@ func isDestructive(methodName string) bool {
 // downstream server. The coordinator is thread safe; concurrent calls to
 // register nodes are safe.
 type Coordinator struct {
-	connections   *conn.ClientConnections
+	nodeMgr       nodes.Manager
 	log           *logrus.Entry
 	failoverMutex sync.RWMutex
 
@@ -42,16 +46,16 @@ type Coordinator struct {
 }
 
 // NewCoordinator returns a new Coordinator that utilizes the provided logger
-func NewCoordinator(l *logrus.Entry, ds datastore.Datastore, clientConnections *conn.ClientConnections, conf config.Config, fileDescriptors ...*descriptor.FileDescriptorProto) *Coordinator {
+func NewCoordinator(l *logrus.Entry, ds datastore.Datastore, nodeMgr nodes.Manager, conf config.Config, fileDescriptors ...*descriptor.FileDescriptorProto) *Coordinator {
 	registry := protoregistry.New()
 	registry.RegisterFiles(fileDescriptors...)
 
 	return &Coordinator{
-		log:         l,
-		datastore:   ds,
-		registry:    registry,
-		connections: clientConnections,
-		conf:        conf,
+		log:       l,
+		datastore: ds,
+		registry:  registry,
+		nodeMgr:   nodeMgr,
+		conf:      conf,
 	}
 }
 
@@ -80,107 +84,118 @@ func (c *Coordinator) streamDirector(ctx context.Context, fullMethodName string,
 	}
 
 	var requestFinalizer func()
-	var storage string
+
+	var conn *grpc.ClientConn
 
 	if mi.Scope == protoregistry.ScopeRepository {
-		var getRepoErr error
-		storage, requestFinalizer, getRepoErr = c.getStorageForRepositoryMessage(mi, m, peeker, fullMethodName)
-
-		if getRepoErr == protoregistry.ErrTargetRepoMissing {
-			return nil, status.Errorf(codes.InvalidArgument, getRepoErr.Error())
-		}
-
-		if getRepoErr != nil {
-			return nil, getRepoErr
-		}
-
-		if storage == "" {
-			return nil, status.Error(codes.InvalidArgument, "storage not found")
-		}
-	} else {
-		storage, requestFinalizer, err = c.getAnyStorageNode()
+		targetRepo, err := mi.TargetRepo(m)
 		if err != nil {
 			return nil, err
 		}
-	}
-	// We only need the primary node, as there's only one primary storage
-	// location per praefect at this time
-	cc, err := c.connections.GetConnection(storage)
-	if err != nil {
-		return nil, fmt.Errorf("unable to find existing client connection for %s", storage)
+
+		shard, err := c.nodeMgr.GetShard(targetRepo.GetStorageName())
+		if err != nil {
+			return nil, err
+		}
+
+		primary, err := shard.GetPrimary()
+
+		if err != nil {
+			return nil, err
+		}
+
+		if err = c.rewriteStorageForRepositoryMessage(mi, m, peeker, primary.GetStorage()); err != nil {
+			if err == protoregistry.ErrTargetRepoMissing {
+				return nil, status.Errorf(codes.InvalidArgument, err.Error())
+			}
+
+			return nil, err
+		}
+
+		if mi.Operation == protoregistry.OpMutator {
+			change := datastore.UpdateRepo
+			if isDestructive(fullMethodName) {
+				change = datastore.DeleteRepo
+			}
+
+			secondaries, err := shard.GetSecondaries()
+			if err != nil {
+				return nil, err
+			}
+
+			if requestFinalizer, err = c.createReplicaJobs(targetRepo, primary, secondaries, change); err != nil {
+				return nil, err
+			}
+		}
+
+		return proxy.NewStreamParameters(ctx, primary.GetConnection(), requestFinalizer, nil), nil
 	}
 
-	return proxy.NewStreamParameters(ctx, cc, requestFinalizer, nil), nil
+	conn, err = c.getAnyStorageNode()
+	if err != nil {
+		return nil, err
+	}
+
+	if requestFinalizer == nil {
+		requestFinalizer = noopRequestFinalizer
+	}
+
+	return proxy.NewStreamParameters(ctx, conn, requestFinalizer, nil), nil
 }
 
 var noopRequestFinalizer = func() {}
 
-func (c *Coordinator) getAnyStorageNode() (string, func(), error) {
+func (c *Coordinator) getAnyStorageNode() (*grpc.ClientConn, error) {
 	//TODO: For now we just pick a random storage node for a non repository scoped RPC, but we will need to figure out exactly how to
 	// proxy requests that are not repository scoped
-	node, err := c.datastore.GetStorageNodes()
+	nodes, err := c.datastore.GetStorageNodes()
 	if err != nil {
-		return "", nil, err
+		return nil, err
 	}
-	if len(node) == 0 {
-		return "", nil, errors.New("no node storages found")
+	if len(nodes) == 0 {
+		return nil, errors.New("no node storages found")
 	}
 
-	return node[0].Storage, noopRequestFinalizer, nil
+	node := nodes[0]
+
+	conn, err := client.Dial(node.Address,
+		[]grpc.DialOption{
+			grpc.WithDefaultCallOptions(grpc.CallCustomCodec(proxy.Codec())),
+			grpc.WithPerRPCCredentials(gitalyauth.RPCCredentials(node.Token)),
+		},
+	)
+
+	return conn, nil
 }
 
-func (c *Coordinator) getStorageForRepositoryMessage(mi protoregistry.MethodInfo, m proto.Message, peeker proxy.StreamModifier, method string) (string, func(), error) {
+func (c *Coordinator) rewriteStorageForRepositoryMessage(mi protoregistry.MethodInfo, m proto.Message, peeker proxy.StreamModifier, primaryStorage string) error {
 	targetRepo, err := mi.TargetRepo(m)
 	if err != nil {
-		return "", nil, err
-	}
-
-	primary, err := c.datastore.GetPrimary(targetRepo.GetStorageName())
-	if err != nil {
-		return "", nil, err
-	}
-
-	secondaries, err := c.datastore.GetSecondaries(targetRepo.GetStorageName())
-	if err != nil {
-		return "", nil, err
+		return err
 	}
 
 	// rewrite storage name
-	targetRepo.StorageName = primary.Storage
+	targetRepo.StorageName = primaryStorage
 
 	additionalRepo, ok, err := mi.AdditionalRepo(m)
 	if err != nil {
-		return "", nil, err
+		return err
 	}
 
 	if ok {
-		additionalRepo.StorageName = primary.Storage
+		additionalRepo.StorageName = primaryStorage
 	}
 
 	b, err := proxy.Codec().Marshal(m)
 	if err != nil {
-		return "", nil, err
+		return err
 	}
 
 	if err = peeker.Modify(b); err != nil {
-		return "", nil, err
+		return err
 	}
 
-	requestFinalizer := noopRequestFinalizer
-
-	// TODO: move the logic of creating replication jobs to the streamDirector method
-	if mi.Operation == protoregistry.OpMutator {
-		change := datastore.UpdateRepo
-		if isDestructive(method) {
-			change = datastore.DeleteRepo
-		}
-
-		if requestFinalizer, err = c.createReplicaJobs(targetRepo, primary, secondaries, change); err != nil {
-			return "", nil, err
-		}
-	}
-
-	return primary.Storage, requestFinalizer, nil
+	return nil
 }
 
 func protoMessageFromPeeker(mi protoregistry.MethodInfo, peeker proxy.StreamModifier) (proto.Message, error) {
@@ -197,8 +212,12 @@ func protoMessageFromPeeker(mi protoregistry.MethodInfo, peeker proxy.StreamModi
 	return m, nil
 }
 
-func (c *Coordinator) createReplicaJobs(targetRepo *gitalypb.Repository, primary models.Node, secondaries []models.Node, change datastore.ChangeType) (func(), error) {
-	jobIDs, err := c.datastore.CreateReplicaReplJobs(targetRepo.RelativePath, primary, secondaries, change)
+func (c *Coordinator) createReplicaJobs(targetRepo *gitalypb.Repository, primary nodes.Node, secondaries []nodes.Node, change datastore.ChangeType) (func(), error) {
+	var secondaryStorages []string
+	for _, secondary := range secondaries {
+		secondaryStorages = append(secondaryStorages, secondary.GetStorage())
+	}
+	jobIDs, err := c.datastore.CreateReplicaReplJobs(targetRepo.RelativePath, primary.GetStorage(), secondaryStorages, change)
 	if err != nil {
 		return nil, err
 	}

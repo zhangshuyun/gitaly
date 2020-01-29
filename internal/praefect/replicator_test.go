@@ -9,13 +9,14 @@ import (
 	"testing"
 	"time"
 
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/nodes"
+
 	"github.com/stretchr/testify/require"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
 	gitaly_config "gitlab.com/gitlab-org/gitaly/internal/config"
 	"gitlab.com/gitlab-org/gitaly/internal/git/objectpool"
 	gitaly_log "gitlab.com/gitlab-org/gitaly/internal/log"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/conn"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/models"
 	"gitlab.com/gitlab-org/gitaly/internal/rubyserver"
@@ -115,7 +116,11 @@ func TestProcessReplicationJob(t *testing.T) {
 	secondaries, err := ds.GetSecondaries(config.VirtualStorages[0].Name)
 	require.NoError(t, err)
 
-	_, err = ds.CreateReplicaReplJobs(testRepo.GetRelativePath(), primary, secondaries, datastore.UpdateRepo)
+	var secondaryStorages []string
+	for _, secondary := range secondaries {
+		secondaryStorages = append(secondaryStorages, secondary.Storage)
+	}
+	_, err = ds.CreateReplicaReplJobs(testRepo.GetRelativePath(), primary.Storage, secondaryStorages, datastore.UpdateRepo)
 	require.NoError(t, err)
 
 	jobs, err := ds.GetJobs(datastore.JobStateReady|datastore.JobStatePending, backupStorageName, 1)
@@ -129,14 +134,14 @@ func TestProcessReplicationJob(t *testing.T) {
 	var replicator defaultReplicator
 	replicator.log = gitaly_log.Default()
 
-	clientCC := conn.NewClientConnections()
-	require.NoError(t, clientCC.RegisterNode("default", srvSocketPath, gitaly_config.Config.Auth.Token))
-	require.NoError(t, clientCC.RegisterNode("backup", srvSocketPath, gitaly_config.Config.Auth.Token))
+	nodeMgr, err := nodes.NewManager(gitaly_log.Default(), config.VirtualStorages)
+	require.NoError(t, err)
+	nodeMgr.Start(1*time.Millisecond, 5*time.Millisecond)
 
 	var mockReplicationGauge promtest.MockGauge
 	var mockReplicationHistogram promtest.MockHistogram
 
-	replMgr := NewReplMgr("", gitaly_log.Default(), ds, clientCC, WithLatencyMetric(&mockReplicationHistogram), WithQueueMetric(&mockReplicationGauge))
+	replMgr := NewReplMgr("", gitaly_log.Default(), ds, nodeMgr, WithLatencyMetric(&mockReplicationHistogram), WithQueueMetric(&mockReplicationGauge))
 	replMgr.replicator = replicator
 
 	replMgr.processReplJob(ctx, jobs[0])
@@ -212,6 +217,7 @@ func TestBackoff(t *testing.T) {
 
 func runFullGitalyServer(t *testing.T) (*grpc.Server, string) {
 	server := serverPkg.NewInsecure(RubyServer)
+
 	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName()
 
 	listener, err := net.Listen("unix", serverSocketPath)

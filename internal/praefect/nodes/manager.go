@@ -1,4 +1,4 @@
-package praefect
+package nodes
 
 import (
 	"bytes"
@@ -23,8 +23,8 @@ type Shard interface {
 	GetSecondaries() ([]Node, error)
 }
 
-// NodeManager is responsible for returning shards for virtual storages
-type NodeManager interface {
+// Manager is responsible for returning shards for virtual storages
+type Manager interface {
 	GetShard(virtualStorageName string) (Shard, error)
 }
 
@@ -63,8 +63,8 @@ func (s *shard) GetSecondaries() ([]Node, error) {
 	return secondaries, nil
 }
 
-// NodeMgr is a concrete type that adheres to the NodeManager interface
-type NodeMgr struct {
+// Mgr is a concrete type that adheres to the Manager interface
+type Mgr struct {
 	shards map[string]*shard
 	log    *logrus.Entry
 }
@@ -73,8 +73,8 @@ type NodeMgr struct {
 // should not be used for a new request
 var ErrPrimaryNotHealthy = errors.New("primary is not healthy")
 
-// NewNodeManager creates a new NodeMgr based on virtual storage configs
-func NewNodeManager(log *logrus.Entry, virtualStorages []config.VirtualStorage) (*NodeMgr, error) {
+// NewManager creates a new Mgr based on virtual storage configs
+func NewManager(log *logrus.Entry, virtualStorages []*config.VirtualStorage) (*Mgr, error) {
 	shards := make(map[string]*shard)
 
 	for _, virtualStorage := range virtualStorages {
@@ -105,7 +105,7 @@ func NewNodeManager(log *logrus.Entry, virtualStorages []config.VirtualStorage) 
 		}
 	}
 
-	return &NodeMgr{
+	return &Mgr{
 		shards: shards,
 		log:    log,
 	}, nil
@@ -115,7 +115,7 @@ func NewNodeManager(log *logrus.Entry, virtualStorages []config.VirtualStorage) 
 // for deeming a node "healthy"
 const healthcheckThreshold = 3
 
-func (n *NodeMgr) bootstrap(d time.Duration) error {
+func (n *Mgr) bootstrap(d time.Duration) error {
 	timer := time.NewTimer(d)
 	defer timer.Stop()
 
@@ -130,7 +130,7 @@ func (n *NodeMgr) bootstrap(d time.Duration) error {
 	return nil
 }
 
-func (n *NodeMgr) monitor(d time.Duration) {
+func (n *Mgr) monitor(d time.Duration) {
 	ticker := time.NewTicker(d)
 	defer ticker.Stop()
 
@@ -143,14 +143,14 @@ func (n *NodeMgr) monitor(d time.Duration) {
 }
 
 // Start will bootstrap the node manager by calling healthcheck on the nodes as well as kicking off
-// the monitoring process. Start must be called before NodeMgr can be used.
-func (n *NodeMgr) Start(bootstrapInterval, monitorInterval time.Duration) {
+// the monitoring process. Start must be called before Mgr can be used.
+func (n *Mgr) Start(bootstrapInterval, monitorInterval time.Duration) {
 	n.bootstrap(bootstrapInterval)
 	go n.monitor(monitorInterval)
 }
 
 // GetShard retrieves a shard for a virtual storage name
-func (n *NodeMgr) GetShard(virtualStorageName string) (Shard, error) {
+func (n *Mgr) GetShard(virtualStorageName string) (Shard, error) {
 	shard, ok := n.shards[virtualStorageName]
 	if !ok {
 		return nil, errors.New("virtual storage does not exist")
@@ -175,7 +175,7 @@ func (e errCollection) Error() string {
 	return sb.String()
 }
 
-func (n *NodeMgr) checkShards() error {
+func (n *Mgr) checkShards() error {
 	var errs errCollection
 	for _, shard := range n.shards {
 		if err := shard.primary.check(); err != nil {
@@ -271,7 +271,7 @@ func (n *nodeStatus) check() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
 
-	resp, err := client.Check(ctx, &healthpb.HealthCheckRequest{Service: "TestService"})
+	resp, err := client.Check(ctx, &healthpb.HealthCheckRequest{Service: ""})
 	if err != nil {
 		resp = &healthpb.HealthCheckResponse{
 			Status: healthpb.HealthCheckResponse_UNKNOWN,
