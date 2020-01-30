@@ -66,15 +66,8 @@ type Git struct {
 	BinPath string `toml:"bin_path"`
 
 	// ProtocolV2Enabled can be set to true to enable the newer Git protocol
-	// version. This should not be enabled until GitLab *either* stops
-	// using transfer.hideRefs for security purposes, *or* Git protocol v2
-	// respects this setting:
-	//
-	// https://public-inbox.org/git/20181213155817.27666-1-avarab@gmail.com/T/
-	//
-	// This is not user-configurable. Once a new Git version has been released,
-	// we can add code to enable it if the detected git binary is new enough
-	ProtocolV2Enabled bool
+	// version.
+	ProtocolV2Enabled bool `toml:"protocol_v2_enabled"`
 
 	CatfileCacheSize int `toml:"catfile_cache_size"`
 }
