@@ -12,10 +12,6 @@ import (
 	"google.golang.org/grpc/reflection"
 )
 
-const (
-	pktFlushStr = "0000"
-)
-
 func TestMain(m *testing.M) {
 	os.Exit(testMain(m))
 }

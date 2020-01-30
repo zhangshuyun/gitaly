@@ -18,6 +18,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitlabshell"
 	gitalylog "gitlab.com/gitlab-org/gitaly/internal/log"
+	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/streamio"
 	"google.golang.org/grpc"
@@ -45,6 +46,10 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	if os.Getenv(featureflag.HooksRPCEnvVar) != "true" {
+		executeScript(ctx, subCmd, logger)
+	}
 
 	gitalySocket, ok := os.LookupEnv("GITALY_SOCKET")
 	if !ok {
@@ -221,4 +226,41 @@ func check(configPath string) (int, error) {
 	}
 
 	return 0, nil
+}
+
+func executeScript(ctx context.Context, subCmd string, logger *gitalylog.HookLogger) {
+	gitalyRubyDir := os.Getenv("GITALY_RUBY_DIR")
+	if gitalyRubyDir == "" {
+		logger.Fatal(errors.New("GITALY_RUBY_DIR not set"))
+	}
+
+	rubyHookPath := filepath.Join(gitalyRubyDir, "gitlab-shell", "hooks", subCmd)
+
+	var hookCmd *exec.Cmd
+
+	switch subCmd {
+	case "update":
+		args := os.Args[2:]
+		if len(args) != 3 {
+			logger.Fatal(errors.New("update hook missing required arguments"))
+		}
+
+		hookCmd = exec.Command(rubyHookPath, args...)
+	case "pre-receive", "post-receive":
+		hookCmd = exec.Command(rubyHookPath)
+
+	default:
+		logger.Fatal(errors.New("hook name invalid"))
+	}
+
+	cmd, err := command.New(ctx, hookCmd, os.Stdin, os.Stdout, os.Stderr, os.Environ()...)
+	if err != nil {
+		logger.Fatalf("error when starting command for %v: %v", rubyHookPath, err)
+	}
+
+	if err = cmd.Wait(); err != nil {
+		os.Exit(1)
+	}
+
+	os.Exit(0)
 }

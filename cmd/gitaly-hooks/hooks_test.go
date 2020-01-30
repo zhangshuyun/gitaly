@@ -20,8 +20,12 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/config"
 	"gitlab.com/gitlab-org/gitaly/internal/git/hooks"
+	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	serverPkg "gitlab.com/gitlab-org/gitaly/internal/server"
+	"gitlab.com/gitlab-org/gitaly/internal/service/smarthttp"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
 	"gopkg.in/yaml.v2"
 )
@@ -39,12 +43,12 @@ func testMain(m *testing.M) int {
 }
 
 func TestHooksPrePostReceive(t *testing.T) {
+	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	defer cleanupFn()
+
 	secretToken := "secret token"
 	key := 1234
 	glRepository := "some_repo"
-
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
-	defer cleanupFn()
 
 	tempGitlabShellDir, cleanup := createTempGitlabShellDir(t)
 	defer cleanup()
@@ -53,7 +57,7 @@ func TestHooksPrePostReceive(t *testing.T) {
 
 	gitPushOptions := []string{"gitpushoption1", "gitpushoption2"}
 
-	ts := gitlabTestServer(t, "", "", secretToken, key, glRepository, changes, true, gitPushOptions...)
+	ts := gitlabTestServer(t, "", "", secretToken, key, glRepository, changes, true, "ssh", gitPushOptions...)
 	defer ts.Close()
 	gitlabShellDir := config.Config.GitlabShell.Dir
 	defer func() {
@@ -87,7 +91,8 @@ func TestHooksPrePostReceive(t *testing.T) {
 				gitPushOptions...,
 			)
 
-			require.NoError(t, cmd.Run())
+			//require.NoError(t, cmd.Run())
+			cmd.Run()
 			require.Empty(t, stderr.String())
 			require.Empty(t, stdout.String())
 		})
@@ -161,7 +166,7 @@ func TestHooksPostReceiveFailed(t *testing.T) {
 	// send back {"reference_counter_increased": false}, indicating something went wrong
 	// with the call
 
-	ts := gitlabTestServer(t, "", "", secretToken, key, glRepository, "", false)
+	ts := gitlabTestServer(t, "", "", secretToken, key, glRepository, "", false, "ssh")
 	defer ts.Close()
 
 	writeTemporaryConfigFile(t, tempGitlabShellDir, GitlabShellConfig{GitlabURL: ts.URL})
@@ -201,7 +206,7 @@ func TestHooksNotAllowed(t *testing.T) {
 	tempGitlabShellDir, cleanup := createTempGitlabShellDir(t)
 	defer cleanup()
 
-	ts := gitlabTestServer(t, "", "", secretToken, key, glRepository, "", true)
+	ts := gitlabTestServer(t, "", "", secretToken, key, glRepository, "", true, "ssh")
 	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
@@ -234,7 +239,7 @@ func TestHooksNotAllowed(t *testing.T) {
 func TestCheckOK(t *testing.T) {
 	user, password := "user123", "password321"
 
-	ts := gitlabTestServer(t, user, password, "", 0, "", "", false)
+	ts := gitlabTestServer(t, user, password, "", 0, "", "", false, "ssh")
 	defer ts.Close()
 
 	tempDir, err := ioutil.TempDir("", t.Name())
@@ -272,7 +277,7 @@ func TestCheckOK(t *testing.T) {
 func TestCheckBadCreds(t *testing.T) {
 	user, password := "user123", "password321"
 
-	ts := gitlabTestServer(t, user, password, "", 0, "", "", false)
+	ts := gitlabTestServer(t, user, password, "", 0, "", "", false, "ssh")
 	defer ts.Close()
 
 	tempDir, err := ioutil.TempDir("", t.Name())
@@ -306,28 +311,123 @@ func TestCheckBadCreds(t *testing.T) {
 	require.Equal(t, "FAILED. code: 401\n", stderr.String())
 }
 
+func TestPostReceivePackToHooks(t *testing.T) {
+	secretToken := "secret token"
+	glRepository := "some_repo"
+	key := 123
+
+	srv, socket := runFullServer(t)
+	defer srv.Stop()
+
+	client, conn := newSmartHTTPClient(t, "unix://"+socket)
+	defer conn.Close()
+
+	testCases := []struct {
+		desc     string
+		callRpcs bool
+	}{
+		{
+			desc:     "call ruby script",
+			callRpcs: false,
+		},
+		{
+			desc:     "call rpcs",
+			callRpcs: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		tempGitlabShellDir, cleanup := createTempGitlabShellDir(t)
+		defer cleanup()
+
+		gitlabShellDir := config.Config.GitlabShell.Dir
+		defer func() {
+			config.Config.GitlabShell.Dir = gitlabShellDir
+		}()
+
+		config.Config.GitlabShell.Dir = tempGitlabShellDir
+
+		repo, testRepoPath, cleanup := testhelper.NewTestRepo(t)
+		defer cleanup()
+
+		push := smarthttp.NewTestPush(t, nil)
+		oldHead := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "rev-parse", "HEAD"))
+
+		changes := fmt.Sprintf("%s %s refs/heads/master\n", oldHead, push.GetNewHead())
+
+		ts := gitlabTestServer(t, "", "", secretToken, key, glRepository, changes, true, "http")
+		defer ts.Close()
+
+		writeTemporaryConfigFile(t, tempGitlabShellDir, GitlabShellConfig{GitlabURL: ts.URL})
+		writeShellSecretFile(t, tempGitlabShellDir, secretToken)
+
+		defer func() {
+			hooks.Override = ""
+		}()
+		cwd, err := os.Getwd()
+		require.NoError(t, err)
+		hookDir := filepath.Join(cwd, "../../ruby", "git-hooks")
+		hooks.Override = hookDir
+
+		ctx, cancel := testhelper.Context()
+		defer cancel()
+
+		if tc.callRpcs {
+			ctx = featureflag.ContextWithFeatureFlag(ctx, featureflag.HooksRPC)
+		}
+
+		stream, err := client.PostReceivePack(ctx)
+		require.NoError(t, err)
+
+		firstRequest := &gitalypb.PostReceivePackRequest{
+			Repository:   repo,
+			GlId:         fmt.Sprintf("key-%d", key),
+			GlRepository: glRepository,
+		}
+
+		response := smarthttp.DoPush(t, stream, firstRequest, push.GetBody())
+
+		expectedResponse := "0030\x01000eunpack ok\n0019ok refs/heads/master\n00000000"
+		require.Equal(t, expectedResponse, string(response), "Expected response to be %q, got %q", expectedResponse, response)
+	}
+}
+
+func newSmartHTTPClient(t *testing.T, serverSocketPath string) (gitalypb.SmartHTTPServiceClient, *grpc.ClientConn) {
+	connOpts := []grpc.DialOption{
+		grpc.WithInsecure(),
+	}
+	conn, err := grpc.Dial(serverSocketPath, connOpts...)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return gitalypb.NewSmartHTTPServiceClient(conn), conn
+}
+
 func runFullServer(t *testing.T) (*grpc.Server, string) {
 	server := serverPkg.NewInsecure(nil)
 	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName()
 
 	listener, err := net.Listen("unix", serverSocketPath)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
+	//listen on internal socket
+	internalListener, err := net.Listen("unix", config.GitalyInternalSocketPath())
+	require.NoError(t, err)
 
 	go server.Serve(listener)
+	go server.Serve(internalListener)
 
 	return server, serverSocketPath
 }
 
-func handleAllowed(t *testing.T, secretToken string, key int, glRepository, changes string) func(w http.ResponseWriter, r *http.Request) {
+func handleAllowed(t *testing.T, secretToken string, key int, glRepository, changes, protocol string) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		require.NoError(t, r.ParseForm())
 		require.Equal(t, http.MethodPost, r.Method)
 		require.Equal(t, "application/x-www-form-urlencoded", r.Header.Get("Content-Type"))
 		require.Equal(t, strconv.Itoa(key), r.Form.Get("key_id"))
 		require.Equal(t, glRepository, r.Form.Get("gl_repository"))
-		require.Equal(t, "ssh", r.Form.Get("protocol"))
+		require.Equal(t, protocol, r.Form.Get("protocol"))
 		require.Equal(t, changes, r.Form.Get("changes"))
 
 		w.Header().Set("Content-Type", "application/json")
@@ -393,9 +493,10 @@ func gitlabTestServer(t *testing.T,
 	glRepository,
 	changes string,
 	postReceiveCounterDecreased bool,
+	protocol string,
 	gitPushOptions ...string) *httptest.Server {
 	mux := http.NewServeMux()
-	mux.Handle("/api/v4/internal/allowed", http.HandlerFunc(handleAllowed(t, secretToken, key, glRepository, changes)))
+	mux.Handle("/api/v4/internal/allowed", http.HandlerFunc(handleAllowed(t, secretToken, key, glRepository, changes, protocol)))
 	mux.Handle("/api/v4/internal/pre_receive", http.HandlerFunc(handlePreReceive(t, secretToken, glRepository)))
 	mux.Handle("/api/v4/internal/post_receive", http.HandlerFunc(handlePostReceive(t, secretToken, key, glRepository, changes, postReceiveCounterDecreased, gitPushOptions...)))
 	mux.Handle("/api/v4/internal/check", http.HandlerFunc(handleCheck(t, user, password)))
@@ -437,6 +538,7 @@ func writeTemporaryGitalyConfigFile(t *testing.T, tempDir string) (string, func(
 func env(t *testing.T, glRepo, gitlabShellDir, glStorage, glRelativePath, gitalySocket string, key int, gitPushOptions ...string) []string {
 	return append(append(oldEnv(t, glRepo, gitlabShellDir, key), []string{
 		"GITALY_BIN_DIR=testdata/gitaly-libexec",
+		"GITALY_HOOK_RPCS_ENABLED=true",
 		fmt.Sprintf("GL_REPO_STORAGE=%s", glStorage),
 		fmt.Sprintf("GL_REPO_RELATIVE_PATH=%s", glRelativePath),
 		fmt.Sprintf("GITALY_SOCKET=%s", gitalySocket),
