@@ -7,8 +7,11 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
+	"github.com/sirupsen/logrus"
+	"gitlab.com/gitlab-org/gitaly/internal/config"
 	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 )
@@ -48,28 +51,41 @@ func ValidateRevision(revision []byte) error {
 	return validateRevision(revision, false)
 }
 
-// Version returns the used git version.
+var gitVer = struct {
+	detect sync.Once
+	verStr string
+	err    error
+}{}
+
+// Version returns the used git version. The version is lazily loaded on the
+// first call, and then a memoized result is returned for subsequent calls.
 func Version() (string, error) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	gitVer.detect.Do(func() {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
 
-	var buf bytes.Buffer
-	cmd, err := unsafeBareCmd(ctx, nil, &buf, nil, nil, "version")
-	if err != nil {
-		return "", err
-	}
+		var buf bytes.Buffer
+		cmd, err := unsafeBareCmd(ctx, nil, &buf, nil, nil, "version")
+		if err != nil {
+			gitVer.err = err
+			return
+		}
 
-	if err = cmd.Wait(); err != nil {
-		return "", err
-	}
+		if err = cmd.Wait(); err != nil {
+			gitVer.err = err
+			return
+		}
 
-	out := strings.Trim(buf.String(), " \n")
-	ver := strings.SplitN(out, " ", 3)
-	if len(ver) != 3 {
-		return "", fmt.Errorf("invalid version format: %q", buf.String())
-	}
+		out := strings.Trim(buf.String(), " \n")
+		ver := strings.SplitN(out, " ", 3)
+		if len(ver) != 3 {
+			gitVer.err = fmt.Errorf("invalid version format: %q", buf.String())
+			return
+		}
 
-	return ver[2], nil
+		gitVer.verStr = ver[2]
+	})
+	return gitVer.verStr, gitVer.err
 }
 
 // VersionLessThan returns true if the parsed version value of v1Str is less
@@ -156,6 +172,15 @@ func SupportsDeltaIslands(versionStr string) (bool, error) {
 	return !versionLessThan(v, version{2, 20, 0}), nil
 }
 
+func supportsSafeV2(versionStr string) (bool, error) {
+	v, err := parseVersion(versionStr)
+	if err != nil {
+		return false, err
+	}
+
+	return !versionLessThan(v, version{2, 24, 0}), nil
+}
+
 // NoMissingWantErrMessage checks if the git version is before Git 2.22,
 // in which versions the missing objects in the wants didn't yield an explicit
 // error message, but no output at all.
@@ -190,4 +215,33 @@ func InfoAlternatesPath(repo repository.GitRepo) (string, error) {
 	}
 
 	return filepath.Join(repoPath, "objects", "info", "alternates"), nil
+}
+
+func init() {
+	config.RegisterHook(func(c config.Cfg) error {
+		if !c.Git.ProtocolV2Enabled {
+			return nil
+		}
+
+		v, err := Version()
+		if err != nil {
+			logrus.WithError(err).
+				Warn("unable to detect git version")
+			return nil
+		}
+
+		ok, err := supportsSafeV2(v)
+		if err != nil {
+			logrus.WithError(err).
+				Warn("cannot detect git version is safe for protocol version 2")
+			return nil
+		}
+
+		if !ok {
+			logrus.Warnf(
+				"the detected version of git does not safely support protocol version 2")
+		}
+
+		return nil
+	})
 }
