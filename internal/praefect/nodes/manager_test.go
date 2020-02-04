@@ -1,4 +1,4 @@
-package praefect
+package nodes
 
 import (
 	"net"
@@ -24,13 +24,13 @@ func TestNodeStatus(t *testing.T) {
 	require.False(t, cs.isHealthy())
 
 	for i := 0; i < healthcheckThreshold; i++ {
-		require.NoError(t, cs.check())
+		cs.check()
 	}
 	require.True(t, cs.isHealthy())
 
-	healthSvr.SetServingStatus("TestService", grpc_health_v1.HealthCheckResponse_NOT_SERVING)
+	healthSvr.SetServingStatus("", grpc_health_v1.HealthCheckResponse_NOT_SERVING)
 
-	require.NoError(t, cs.check())
+	cs.check()
 	require.False(t, cs.isHealthy())
 }
 
@@ -70,10 +70,10 @@ func TestNodeManager(t *testing.T) {
 	_, _, cancel1 := newHealthServer(t, internalSocket1)
 	defer cancel1()
 
-	nm, err := NewNodeManager(log.Default(), confWithFailover)
+	nm, err := NewManager(log.Default(), confWithFailover)
 	require.NoError(t, err)
 
-	nmWithoutFailover, err := NewNodeManager(log.Default(), confWithoutFailover)
+	nmWithoutFailover, err := NewManager(log.Default(), confWithoutFailover)
 	require.NoError(t, err)
 
 	nm.Start(1*time.Millisecond, 5*time.Second)
@@ -109,7 +109,7 @@ func TestNodeManager(t *testing.T) {
 	require.Equal(t, virtualStorages[0].Nodes[1].Storage, secondaries[0].GetStorage())
 	require.Equal(t, virtualStorages[0].Nodes[1].Address, secondaries[0].GetAddress())
 
-	srv0.SetServingStatus("TestService", grpc_health_v1.HealthCheckResponse_UNKNOWN)
+	srv0.SetServingStatus("", grpc_health_v1.HealthCheckResponse_UNKNOWN)
 	nm.checkShards()
 
 	// since the primary is unhealthy, we expect checkShards to demote primary to secondary, and promote the healthy
@@ -160,7 +160,7 @@ func newHealthServer(t testing.TB, socketName string) (*grpc.ClientConn, *health
 	srv := testhelper.NewTestGrpcServer(t, nil, nil)
 	healthSrvr := health.NewServer()
 	grpc_health_v1.RegisterHealthServer(srv, healthSrvr)
-	healthSrvr.SetServingStatus("TestService", grpc_health_v1.HealthCheckResponse_SERVING)
+	healthSrvr.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
 
 	lis, err := net.Listen("unix", socketName)
 	require.NoError(t, err)

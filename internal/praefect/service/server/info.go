@@ -6,7 +6,7 @@ import (
 
 	grpc_logrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/models"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/nodes"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"golang.org/x/sync/errgroup"
 )
@@ -15,20 +15,26 @@ import (
 // a response
 func (s *Server) ServerInfo(ctx context.Context, in *gitalypb.ServerInfoRequest) (*gitalypb.ServerInfoResponse, error) {
 	var once sync.Once
-	nodesChecked := make(map[string]struct{})
 
-	var nodes []*models.Node
+	var nodes []nodes.Node
 	for _, virtualStorage := range s.conf.VirtualStorages {
-		for _, node := range virtualStorage.Nodes {
-			if _, ok := nodesChecked[node.Storage]; ok {
-				continue
-			}
-
-			nodesChecked[node.Storage] = struct{}{}
-			nodes = append(nodes, node)
+		shard, err := s.nodeMgr.GetShard(virtualStorage.Name)
+		if err != nil {
+			return nil, err
 		}
-	}
 
+		primary, err := shard.GetPrimary()
+		if err != nil {
+			return nil, err
+		}
+
+		secondaries, err := shard.GetSecondaries()
+		if err != nil {
+			return nil, err
+		}
+
+		nodes = append(append(nodes, primary), secondaries...)
+	}
 	var gitVersion, serverVersion string
 
 	g, ctx := errgroup.WithContext(ctx)
@@ -38,26 +44,20 @@ func (s *Server) ServerInfo(ctx context.Context, in *gitalypb.ServerInfoRequest)
 	for i, node := range nodes {
 		i := i
 		node := node
-		cc, err := s.clientCC.GetConnection(node.Storage)
-		if err != nil {
-			grpc_logrus.Extract(ctx).WithField("storage", node.Storage).WithError(err).Error("error getting client connection")
-			continue
-		}
+
 		g.Go(func() error {
-			client := gitalypb.NewServerServiceClient(cc)
+			client := gitalypb.NewServerServiceClient(node.GetConnection())
 			resp, err := client.ServerInfo(ctx, &gitalypb.ServerInfoRequest{})
 			if err != nil {
-				grpc_logrus.Extract(ctx).WithField("storage", node.Storage).WithError(err).Error("error getting sever info")
+				grpc_logrus.Extract(ctx).WithField("storage", node.GetStorage()).WithError(err).Error("error getting sever info")
 				return nil
 			}
 
 			storageStatuses[i] = resp.GetStorageStatuses()
 
-			if node.DefaultPrimary {
-				once.Do(func() {
-					gitVersion, serverVersion = resp.GetGitVersion(), resp.GetServerVersion()
-				})
-			}
+			once.Do(func() {
+				gitVersion, serverVersion = resp.GetGitVersion(), resp.GetServerVersion()
+			})
 
 			return nil
 		})

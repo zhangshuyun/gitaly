@@ -44,7 +44,7 @@ var operations = []struct {
 	{
 		desc: "insert replication job",
 		opFn: func(t *testing.T, ds Datastore) {
-			_, err := ds.CreateReplicaReplJobs(repo1Repository.RelativePath, stor1, []models.Node{stor2}, UpdateRepo)
+			_, err := ds.CreateReplicaReplJobs(repo1Repository.RelativePath, stor1.Storage, []string{stor2.Storage}, UpdateRepo)
 			require.NoError(t, err)
 		},
 	},

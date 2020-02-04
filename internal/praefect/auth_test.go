@@ -12,10 +12,10 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/config/auth"
 	"gitlab.com/gitlab-org/gitaly/internal/log"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/conn"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/mock"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/models"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/nodes"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"google.golang.org/grpc"
@@ -168,13 +168,14 @@ func runServer(t *testing.T, token string, required bool) (*Server, string, func
 	conf := config.Config{
 		Auth: auth.Config{Token: token, Transitioning: !required},
 		VirtualStorages: []*config.VirtualStorage{
-			&config.VirtualStorage{
+			{
 				Name: "praefect",
 				Nodes: []*models.Node{
-					&models.Node{
+					{
 						Storage:        "praefect-internal-0",
 						DefaultPrimary: true,
 						Address:        backend,
+						Token:          backendToken,
 					},
 				},
 			},
@@ -190,14 +191,14 @@ func runServer(t *testing.T, token string, required bool) (*Server, string, func
 	logEntry := log.Default()
 	ds := datastore.NewInMemory(conf)
 
-	clientConnections := conn.NewClientConnections()
-	clientConnections.RegisterNode("praefect-internal-0", backend, backendToken)
+	nodeMgr, err := nodes.NewManager(logEntry, conf)
+	require.NoError(t, err)
 
-	coordinator := NewCoordinator(logEntry, ds, clientConnections, conf, fd)
+	coordinator := NewCoordinator(logEntry, ds, nodeMgr, conf, fd)
 
-	replMgr := NewReplMgr("praefect-internal-0", logEntry, ds, clientConnections)
+	replMgr := NewReplMgr("praefect-internal-0", logEntry, ds, nodeMgr)
 
-	srv := NewServer(coordinator, replMgr, nil, logEntry, clientConnections, conf)
+	srv := NewServer(coordinator, replMgr, nil, logEntry, nodeMgr, conf)
 
 	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName()
 

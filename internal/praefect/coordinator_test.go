@@ -1,7 +1,6 @@
 package praefect
 
 import (
-	"fmt"
 	"io/ioutil"
 	"testing"
 
@@ -10,9 +9,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/log"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/conn"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/models"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/nodes"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -57,10 +56,11 @@ func TestStreamDirector(t *testing.T) {
 	defer cancel()
 
 	address := "gitaly-primary.example.com"
-	clientConnections := conn.NewClientConnections()
-	clientConnections.RegisterNode("praefect-internal-1", fmt.Sprintf("tcp://%s", address), "token")
 
-	coordinator := NewCoordinator(log.Default(), ds, clientConnections, conf)
+	nodeMgr, err := nodes.NewManager(log.Default(), conf)
+	require.NoError(t, err)
+
+	coordinator := NewCoordinator(log.Default(), ds, nodeMgr, conf)
 	require.NoError(t, coordinator.RegisterProtos(protoregistry.GitalyProtoFileDescriptors...))
 
 	frame, err := proto.Marshal(&gitalypb.FetchIntoObjectPoolRequest{
