@@ -4,6 +4,8 @@ import (
 	"errors"
 	"sync"
 
+	"gitlab.com/gitlab-org/gitaly/internal/middleware/proxytime"
+
 	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
 	"gitlab.com/gitlab-org/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/grpc-proxy/proxy"
@@ -36,6 +38,8 @@ func (c *ClientConnections) RegisterNode(storageName, listenAddr, token string) 
 		[]grpc.DialOption{
 			grpc.WithDefaultCallOptions(grpc.CallCustomCodec(proxy.Codec())),
 			grpc.WithPerRPCCredentials(gitalyauth.RPCCredentials(token)),
+			grpc.WithUnaryInterceptor(proxytime.UnaryProxyTime),
+			grpc.WithStreamInterceptor(proxytime.StreamProxyTime),
 		},
 	)
 	if err != nil {

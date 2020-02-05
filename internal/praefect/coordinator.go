@@ -10,7 +10,6 @@ import (
 	"syscall"
 
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/proxytime"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/conn"
@@ -107,17 +106,20 @@ func (c *Coordinator) streamDirector(ctx context.Context, fullMethodName string,
 		return nil, fmt.Errorf("unable to find existing client connection for %s", storage)
 	}
 
-	var opts []grpc.CallOption
-	proxyRequestID := metadata.GetValue(ctx, proxytime.RequestIDKey)
-	if proxyRequestID != "" {
-		opts = append(opts, c.trailerTracker.Trailer(proxyRequestID))
-	}
+	/*
+		var opts []grpc.CallOption
+		proxyRequestID := metadata.GetValue(ctx, proxytime.RequestIDKey)
+		if proxyRequestID != "" {
+			opts = append(opts, c.trailerTracker.Trailer(proxyRequestID))
+		}
+
+	*/
 
 	return &StreamParameters{
 		ctx:          helper.IncomingToOutgoing(ctx),
 		conn:         cc,
 		reqFinalizer: requestFinalizer,
-		callOptions:  opts,
+		//	callOptions:  opts,
 	}, nil
 }
 
