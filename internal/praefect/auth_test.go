@@ -11,6 +11,7 @@ import (
 	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
 	"gitlab.com/gitlab-org/gitaly/internal/config/auth"
 	"gitlab.com/gitlab-org/gitaly/internal/log"
+	"gitlab.com/gitlab-org/gitaly/internal/middleware/proxytime"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/conn"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
@@ -189,15 +190,16 @@ func runServer(t *testing.T, token string, required bool) (*Server, string, func
 
 	logEntry := log.Default()
 	ds := datastore.NewInMemory(conf)
+	tt := proxytime.NewTrailerTracker()
 
 	clientConnections := conn.NewClientConnections()
 	clientConnections.RegisterNode("praefect-internal-0", backend, backendToken)
 
-	coordinator := NewCoordinator(logEntry, ds, clientConnections, conf, fd)
+	coordinator := NewCoordinator(logEntry, ds, clientConnections, conf, tt, fd)
 
 	replMgr := NewReplMgr("praefect-internal-0", logEntry, ds, clientConnections)
 
-	srv := NewServer(coordinator, replMgr, nil, logEntry, clientConnections, conf)
+	srv := NewServer(coordinator, replMgr, nil, logEntry, clientConnections, conf, tt)
 
 	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName()
 

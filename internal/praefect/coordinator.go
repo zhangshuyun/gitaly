@@ -12,6 +12,8 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/protoc-gen-go/descriptor"
 	"github.com/sirupsen/logrus"
+	"gitlab.com/gitlab-org/gitaly/internal/metadata"
+	"gitlab.com/gitlab-org/gitaly/internal/middleware/proxytime"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/conn"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
@@ -19,6 +21,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/models"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -37,21 +40,23 @@ type Coordinator struct {
 
 	datastore datastore.Datastore
 
-	registry *protoregistry.Registry
-	conf     config.Config
+	registry       *protoregistry.Registry
+	conf           config.Config
+	trailerTracker *proxytime.TrailerTracker
 }
 
 // NewCoordinator returns a new Coordinator that utilizes the provided logger
-func NewCoordinator(l *logrus.Entry, ds datastore.Datastore, clientConnections *conn.ClientConnections, conf config.Config, fileDescriptors ...*descriptor.FileDescriptorProto) *Coordinator {
+func NewCoordinator(l *logrus.Entry, ds datastore.Datastore, clientConnections *conn.ClientConnections, conf config.Config, trailerTracker *proxytime.TrailerTracker, fileDescriptors ...*descriptor.FileDescriptorProto) *Coordinator {
 	registry := protoregistry.New()
 	registry.RegisterFiles(fileDescriptors...)
 
 	return &Coordinator{
-		log:         l,
-		datastore:   ds,
-		registry:    registry,
-		connections: clientConnections,
-		conf:        conf,
+		log:            l,
+		datastore:      ds,
+		registry:       registry,
+		connections:    clientConnections,
+		conf:           conf,
+		trailerTracker: trailerTracker,
 	}
 }
 
@@ -110,7 +115,16 @@ func (c *Coordinator) streamDirector(ctx context.Context, fullMethodName string,
 		return nil, fmt.Errorf("unable to find existing client connection for %s", storage)
 	}
 
-	return proxy.NewStreamParameters(ctx, cc, requestFinalizer, nil), nil
+	var opts []grpc.CallOption
+	proxyRequestID := metadata.GetValue(ctx, proxytime.RequestIDKey)
+	if proxyRequestID != "" {
+		trailer, err := c.trailerTracker.Trailer(proxyRequestID)
+		if err == nil {
+			opts = append(opts, trailer)
+		}
+	}
+
+	return proxy.NewStreamParameters(ctx, cc, requestFinalizer, opts), nil
 }
 
 var noopRequestFinalizer = func() {}

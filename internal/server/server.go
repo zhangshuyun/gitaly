@@ -20,6 +20,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/limithandler"
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/metadatahandler"
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/panichandler"
+	"gitlab.com/gitlab-org/gitaly/internal/middleware/proxytime"
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/sentryhandler"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/internal/rubyserver"
@@ -78,6 +79,7 @@ func createNewServer(rubyServer *rubyserver.Server, secure bool) *grpc.Server {
 
 	opts := []grpc.ServerOption{
 		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
+			proxytime.StreamGitalyTime,
 			grpc_ctxtags.StreamServerInterceptor(ctxTagOpts...),
 			grpccorrelation.StreamServerCorrelationInterceptor(), // Must be above the metadata handler
 			metadatahandler.StreamInterceptor,
@@ -94,6 +96,7 @@ func createNewServer(rubyServer *rubyserver.Server, secure bool) *grpc.Server {
 			panichandler.StreamPanicHandler,
 		)),
 		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(
+			proxytime.UnaryGitalyTime,
 			grpc_ctxtags.UnaryServerInterceptor(ctxTagOpts...),
 			grpccorrelation.UnaryServerCorrelationInterceptor(), // Must be above the metadata handler
 			metadatahandler.UnaryInterceptor,

@@ -15,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/cancelhandler"
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/metadatahandler"
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/panichandler"
+	"gitlab.com/gitlab-org/gitaly/internal/middleware/proxytime"
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/sentryhandler"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/conn"
@@ -60,7 +61,7 @@ func (srv *Server) warnDupeAddrs(c config.Config) {
 
 // NewServer returns an initialized praefect gPRC proxy server configured
 // with the provided gRPC server options
-func NewServer(c *Coordinator, repl ReplMgr, grpcOpts []grpc.ServerOption, l *logrus.Entry, clientConnections *conn.ClientConnections, conf config.Config) *Server {
+func NewServer(c *Coordinator, repl ReplMgr, grpcOpts []grpc.ServerOption, l *logrus.Entry, clientConnections *conn.ClientConnections, conf config.Config, tt *proxytime.TrailerTracker) *Server {
 	ctxTagOpts := []grpc_ctxtags.Option{
 		grpc_ctxtags.WithFieldExtractorForInitialReq(fieldextractors.FieldExtractor),
 	}
@@ -68,6 +69,7 @@ func NewServer(c *Coordinator, repl ReplMgr, grpcOpts []grpc.ServerOption, l *lo
 	grpcOpts = append(grpcOpts, proxyRequiredOpts(c.streamDirector)...)
 	grpcOpts = append(grpcOpts, []grpc.ServerOption{
 		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
+			proxytime.Stream(tt),
 			grpc_ctxtags.StreamServerInterceptor(ctxTagOpts...),
 			grpccorrelation.StreamServerCorrelationInterceptor(), // Must be above the metadata handler
 			metadatahandler.StreamInterceptor,
@@ -82,6 +84,7 @@ func NewServer(c *Coordinator, repl ReplMgr, grpcOpts []grpc.ServerOption, l *lo
 			panichandler.StreamPanicHandler,
 		)),
 		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(
+			proxytime.Unary(tt),
 			grpc_ctxtags.UnaryServerInterceptor(ctxTagOpts...),
 			grpccorrelation.UnaryServerCorrelationInterceptor(), // Must be above the metadata handler
 			metadatahandler.UnaryInterceptor,

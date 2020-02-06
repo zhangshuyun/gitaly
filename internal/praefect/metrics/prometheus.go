@@ -54,12 +54,12 @@ var (
 	ProxyTime prometheus.Histogram
 )
 
-// Register registers praefect prometheus metrics
-func Register(c config.Config) {
-	once.Do(func() { register(c) })
+// RegisterProxyTime registers praefect prometheus metrics
+func RegisterProxyTime(c config.Config) {
+	once.Do(func() { registerProxyTime(c) })
 }
 
-func register(c config.Config) {
+func registerProxyTime(c config.Config) {
 	ProxyTime = prometheus.NewHistogram(prometheus.HistogramOpts{
 		Name:    "praefect_proxy_time",
 		Help:    "Latency added by praefect",

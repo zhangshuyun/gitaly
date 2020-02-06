@@ -13,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/client"
 	internalauth "gitlab.com/gitlab-org/gitaly/internal/config/auth"
 	"gitlab.com/gitlab-org/gitaly/internal/log"
+	"gitlab.com/gitlab-org/gitaly/internal/middleware/proxytime"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/conn"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
@@ -72,8 +73,9 @@ func testConfig(backends int) config.Config {
 // injection
 func setupServer(t testing.TB, conf config.Config, clientCC *conn.ClientConnections, l *logrus.Entry, fds []*descriptor.FileDescriptorProto) (*datastore.MemoryDatastore, *Server) {
 	var (
+		tt          = proxytime.NewTrailerTracker()
 		ds          = datastore.NewInMemory(conf)
-		coordinator = NewCoordinator(l, ds, clientCC, conf, fds...)
+		coordinator = NewCoordinator(l, ds, clientCC, conf, tt, fds...)
 	)
 
 	var defaultNode *models.Node
@@ -97,6 +99,7 @@ func setupServer(t testing.TB, conf config.Config, clientCC *conn.ClientConnecti
 		l,
 		clientCC,
 		conf,
+		tt,
 	)
 
 	return ds, server
@@ -177,8 +180,9 @@ func runPraefectServerWithGitaly(t *testing.T, conf config.Config) (*grpc.Client
 
 	ds := datastore.NewInMemory(conf)
 	logEntry := log.Default()
+	tt := proxytime.NewTrailerTracker()
 
-	coordinator := NewCoordinator(logEntry, ds, clientCC, conf, protoregistry.GitalyProtoFileDescriptors...)
+	coordinator := NewCoordinator(logEntry, ds, clientCC, conf, tt, protoregistry.GitalyProtoFileDescriptors...)
 
 	replmgr := NewReplMgr(
 		"",
@@ -195,6 +199,7 @@ func runPraefectServerWithGitaly(t *testing.T, conf config.Config) (*grpc.Client
 		logEntry,
 		clientCC,
 		conf,
+		tt,
 	)
 
 	listener, port := listenAvailPort(t)

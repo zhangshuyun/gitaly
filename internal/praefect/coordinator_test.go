@@ -9,6 +9,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/log"
+	"gitlab.com/gitlab-org/gitaly/internal/middleware/proxytime"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/conn"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
@@ -60,7 +61,7 @@ func TestStreamDirector(t *testing.T) {
 	clientConnections := conn.NewClientConnections()
 	clientConnections.RegisterNode("praefect-internal-1", fmt.Sprintf("tcp://%s", address), "token")
 
-	coordinator := NewCoordinator(log.Default(), ds, clientConnections, conf)
+	coordinator := NewCoordinator(log.Default(), ds, clientConnections, conf, proxytime.NewTrailerTracker())
 	require.NoError(t, coordinator.RegisterProtos(protoregistry.GitalyProtoFileDescriptors...))
 
 	frame, err := proto.Marshal(&gitalypb.FetchIntoObjectPoolRequest{

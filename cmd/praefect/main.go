@@ -39,6 +39,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/bootstrap/starter"
 	"gitlab.com/gitlab-org/gitaly/internal/config/sentry"
 	"gitlab.com/gitlab-org/gitaly/internal/log"
+	"gitlab.com/gitlab-org/gitaly/internal/middleware/proxytime"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/conn"
@@ -113,6 +114,8 @@ func configure() (config.Config, error) {
 		logger.WithField("address", conf.PrometheusListenAddr).Info("Starting prometheus listener")
 		conf.Prometheus.Configure()
 
+		metrics.RegisterProxyTime(conf)
+
 		go func() {
 			if err := monitoring.Serve(
 				monitoring.WithListenerAddress(conf.PrometheusListenAddr),
@@ -154,9 +157,10 @@ func run(cfgs []starter.Config, conf config.Config) error {
 	}
 
 	var (
+		tt = proxytime.NewTrailerTracker()
 		// top level server dependencies
 		ds          = datastore.NewInMemory(conf)
-		coordinator = praefect.NewCoordinator(logger, ds, clientConnections, conf, protoregistry.GitalyProtoFileDescriptors...)
+		coordinator = praefect.NewCoordinator(logger, ds, clientConnections, conf, tt, protoregistry.GitalyProtoFileDescriptors...)
 		repl        = praefect.NewReplMgr(
 			"default",
 			logger,
@@ -164,7 +168,7 @@ func run(cfgs []starter.Config, conf config.Config) error {
 			clientConnections,
 			praefect.WithLatencyMetric(latencyMetric),
 			praefect.WithQueueMetric(queueMetric))
-		srv          = praefect.NewServer(coordinator, repl, nil, logger, clientConnections, conf)
+		srv          = praefect.NewServer(coordinator, repl, nil, logger, clientConnections, conf, tt)
 		serverErrors = make(chan error, 1)
 	)
 
