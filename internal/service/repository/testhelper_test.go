@@ -153,3 +153,7 @@ func testMain(m *testing.M) int {
 
 	return m.Run()
 }
+
+const (
+	ReplicationLockFileName = replicationLockFileName
+)

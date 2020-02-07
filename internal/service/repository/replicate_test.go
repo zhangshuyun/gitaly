@@ -248,3 +248,75 @@ func TestReplicateRepository_BadRepository(t *testing.T) {
 
 	testhelper.MustRunCommand(t, nil, "git", "-C", targetRepoPath, "fsck")
 }
+
+func TestReplicateRepositoryConcurrent(t *testing.T) {
+	tmpPath, cleanup := testhelper.TempDir(t, t.Name())
+	defer cleanup()
+
+	replicaPath := filepath.Join(tmpPath, "replica")
+	require.NoError(t, os.MkdirAll(replicaPath, 0755))
+
+	defer func(storages []config.Storage) {
+		config.Config.Storages = storages
+	}(config.Config.Storages)
+
+	config.Config.Storages = []config.Storage{
+		config.Storage{
+			Name: "default",
+			Path: testhelper.GitlabTestStoragePath(),
+		},
+		config.Storage{
+			Name: "replica",
+			Path: replicaPath,
+		},
+	}
+
+	server, serverSocketPath := runFullServer(t)
+	defer server.Stop()
+
+	testRepo, _, cleanupRepo := testhelper.NewTestRepo(t)
+	defer cleanupRepo()
+
+	config.Config.SocketPath = serverSocketPath
+
+	repoClient, conn := repository.NewRepositoryClient(t, serverSocketPath)
+	defer conn.Close()
+
+	targetRepo := *testRepo
+	targetRepo.StorageName = "replica"
+
+	targetRepoPath, err := helper.GetPath(&targetRepo)
+	require.NoError(t, err)
+
+	require.NoError(t, os.MkdirAll(targetRepoPath, 0755))
+
+	lockfilePath := filepath.Join(targetRepoPath, repository.ReplicationLockFileName)
+
+	// write a lockfile in the repository directory
+	f, err := os.OpenFile(lockfilePath, os.O_EXCL|os.O_CREATE, 0)
+	require.NoError(t, err)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+	md := testhelper.GitalyServersMetadata(t, serverSocketPath)
+	injectedCtx := metadata.NewOutgoingContext(ctx, md)
+
+	_, err = repoClient.ReplicateRepository(injectedCtx, &gitalypb.ReplicateRepositoryRequest{
+		Repository: &targetRepo,
+		Source:     testRepo,
+	})
+	require.NoError(t, err)
+
+	require.False(t, helper.IsGitDirectory(targetRepoPath), "replication should not have happened")
+
+	// remove lockfile
+	require.NoError(t, f.Close())
+	require.NoError(t, os.Remove(lockfilePath))
+
+	_, err = repoClient.ReplicateRepository(injectedCtx, &gitalypb.ReplicateRepositoryRequest{
+		Repository: &targetRepo,
+		Source:     testRepo,
+	})
+	require.NoError(t, err)
+	require.True(t, helper.IsGitDirectory(targetRepoPath), "replication should have happened")
+}

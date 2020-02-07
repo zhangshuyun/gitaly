@@ -23,6 +23,10 @@ import (
 	"google.golang.org/grpc"
 )
 
+const (
+	replicationLockFileName = "replication.lock"
+)
+
 func (s *server) ReplicateRepository(ctx context.Context, in *gitalypb.ReplicateRepositoryRequest) (*gitalypb.ReplicateRepositoryResponse, error) {
 	if err := validateReplicateRepository(in); err != nil {
 		return nil, helper.ErrInvalidArgument(err)
@@ -36,6 +40,21 @@ func (s *server) ReplicateRepository(ctx context.Context, in *gitalypb.Replicate
 	if err != nil {
 		return nil, helper.ErrInternal(err)
 	}
+
+	// hold lockfile
+	lockfilePath := filepath.Join(repoPath, replicationLockFileName)
+	lockFile, err := os.OpenFile(lockfilePath, os.O_EXCL|os.O_CREATE, 0)
+	if err != nil {
+		if os.IsExist(err) {
+			return &gitalypb.ReplicateRepositoryResponse{}, nil
+		}
+		return nil, helper.ErrInternal(err)
+	}
+
+	defer func() {
+		os.Remove(lockfilePath)
+		lockFile.Close()
+	}()
 
 	if helper.IsGitDirectory(repoPath) {
 		syncFuncs = append(syncFuncs, s.syncRepository)
