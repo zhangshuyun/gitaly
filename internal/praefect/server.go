@@ -77,6 +77,7 @@ func NewServer(c *Coordinator, repl ReplMgr, grpcOpts []grpc.ServerOption, l *lo
 			cancelhandler.Stream, // Should be below LogHandler
 			grpctracing.StreamServerTracingInterceptor(),
 			auth.StreamServerInterceptor(conf.Auth),
+			grpctracing.StreamServerTracingInterceptor(),
 			// Panic handler should remain last so that application panics will be
 			// converted to errors and logged
 			panichandler.StreamPanicHandler,
@@ -91,6 +92,7 @@ func NewServer(c *Coordinator, repl ReplMgr, grpcOpts []grpc.ServerOption, l *lo
 			cancelhandler.Unary, // Should be below LogHandler
 			grpctracing.UnaryServerTracingInterceptor(),
 			auth.UnaryServerInterceptor(conf.Auth),
+			grpctracing.UnaryServerTracingInterceptor(),
 			// Panic handler should remain last so that application panics will be
 			// converted to errors and logged
 			panichandler.UnaryPanicHandler,
