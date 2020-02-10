@@ -2,6 +2,7 @@ package praefect
 
 import (
 	"context"
+	"errors"
 	"os"
 	"os/signal"
 	"sync"
@@ -78,53 +79,19 @@ func (c *Coordinator) streamDirector(ctx context.Context, fullMethodName string,
 
 	var requestFinalizer func()
 
-	if mi.Scope == protoregistry.ScopeRepository {
-		targetRepo, err := mi.TargetRepo(m)
-		if err != nil {
-			if err == protoregistry.ErrTargetRepoMissing {
-				return nil, status.Errorf(codes.InvalidArgument, err.Error())
-			}
-			return nil, err
-		}
-
-		shard, err := c.nodeMgr.GetShard(targetRepo.GetStorageName())
-		if err != nil {
-			return nil, err
-		}
-
-		primary, err := shard.GetPrimary()
-		if err != nil {
-			return nil, err
-		}
-
-		if err = c.rewriteStorageForRepositoryMessage(mi, m, peeker, primary.GetStorage()); err != nil {
-			if err == protoregistry.ErrTargetRepoMissing {
-				return nil, status.Errorf(codes.InvalidArgument, err.Error())
-			}
-
-			return nil, err
-		}
-
-		if mi.Operation == protoregistry.OpMutator {
-			change := datastore.UpdateRepo
-			if isDestructive(fullMethodName) {
-				change = datastore.DeleteRepo
-			}
-
-			secondaries, err := shard.GetSecondaries()
-			if err != nil {
-				return nil, err
-			}
-
-			if requestFinalizer, err = c.createReplicaJobs(targetRepo, primary, secondaries, change); err != nil {
-				return nil, err
-			}
-		}
-
-		return proxy.NewStreamParameters(ctx, primary.GetConnection(), requestFinalizer, nil), nil
+	if mi.Scope != protoregistry.ScopeRepository {
+		return nil, errors.New("only repository scoped requests are allowed")
 	}
 
-	shard, err := c.nodeMgr.GetShard(c.conf.VirtualStorages[0].Name)
+	targetRepo, err := mi.TargetRepo(m)
+	if err != nil {
+		if err == protoregistry.ErrTargetRepoMissing {
+			return nil, status.Errorf(codes.InvalidArgument, err.Error())
+		}
+		return nil, err
+	}
+
+	shard, err := c.nodeMgr.GetShard(targetRepo.GetStorageName())
 	if err != nil {
 		return nil, err
 	}
@@ -134,10 +101,32 @@ func (c *Coordinator) streamDirector(ctx context.Context, fullMethodName string,
 		return nil, err
 	}
 
-	return proxy.NewStreamParameters(ctx, primary.GetConnection(), noopRequestFinalizer, nil), nil
-}
+	if err = c.rewriteStorageForRepositoryMessage(mi, m, peeker, primary.GetStorage()); err != nil {
+		if err == protoregistry.ErrTargetRepoMissing {
+			return nil, status.Errorf(codes.InvalidArgument, err.Error())
+		}
 
-var noopRequestFinalizer = func() {}
+		return nil, err
+	}
+
+	if mi.Operation == protoregistry.OpMutator {
+		change := datastore.UpdateRepo
+		if isDestructive(fullMethodName) {
+			change = datastore.DeleteRepo
+		}
+
+		secondaries, err := shard.GetSecondaries()
+		if err != nil {
+			return nil, err
+		}
+
+		if requestFinalizer, err = c.createReplicaJobs(targetRepo, primary, secondaries, change); err != nil {
+			return nil, err
+		}
+	}
+
+	return proxy.NewStreamParameters(ctx, primary.GetConnection(), requestFinalizer, nil), nil
+}
 
 func (c *Coordinator) rewriteStorageForRepositoryMessage(mi protoregistry.MethodInfo, m proto.Message, peeker proxy.StreamModifier, primaryStorage string) error {
 	targetRepo, err := mi.TargetRepo(m)

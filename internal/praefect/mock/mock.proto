@@ -12,6 +12,7 @@ import "google/protobuf/empty.proto";
 
 message SimpleRequest {
 	int32 value = 1;
+    gitaly.Repository repo = 2;
 }
 
 message SimpleResponse {
@@ -27,7 +28,8 @@ service SimpleService {
   rpc ServerAccessor(SimpleRequest) returns (SimpleResponse) {
     option (gitaly.op_type) = {
       op: ACCESSOR
-      scope_level: SERVER
+      scope_level: REPOSITORY
+      target_repository_field: "2"
     };
   }
 	

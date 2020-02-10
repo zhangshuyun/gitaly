@@ -51,13 +51,14 @@ func TestServerRouteServerAccessor(t *testing.T) {
 	cli, _, cleanup := runPraefectServerWithMock(t, conf, backends)
 	defer cleanup()
 
-	expectReq := &mock.SimpleRequest{Value: 1}
+	expectReq := &mock.SimpleRequest{Value: 1, Repo: &gitalypb.Repository{StorageName: "praefect", RelativePath: "/doesnt/actually/exist"}}
 
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
 
 		actualReq := <-reqQ
+		actualReq.Repo.StorageName = "praefect"
 		assert.True(t, proto.Equal(expectReq, actualReq),
 			"received unexpected request value: %+v instead of %+v", actualReq, expectReq)
 	}()

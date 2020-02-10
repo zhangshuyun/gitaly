@@ -5,6 +5,8 @@ import (
 	"net"
 	"testing"
 
+	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -136,6 +138,7 @@ func TestAuthSuccess(t *testing.T) {
 
 			_, err = cli.ServerAccessor(ctx, &mock.SimpleRequest{
 				Value: 1,
+				Repo:  &gitalypb.Repository{StorageName: "praefect", RelativePath: "/doesnt/actually/exist"},
 			})
 
 			assert.NoError(t, err, tc.desc)
@@ -168,10 +171,10 @@ func runServer(t *testing.T, token string, required bool) (*Server, string, func
 	conf := config.Config{
 		Auth: auth.Config{Token: token, Transitioning: !required},
 		VirtualStorages: []*config.VirtualStorage{
-			{
+			&config.VirtualStorage{
 				Name: "praefect",
 				Nodes: []*models.Node{
-					{
+					&models.Node{
 						Storage:        "praefect-internal-0",
 						DefaultPrimary: true,
 						Address:        backend,
