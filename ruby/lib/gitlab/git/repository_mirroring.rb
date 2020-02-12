@@ -32,23 +32,43 @@ module Gitlab
       end
 
       def push_remote_branches(remote_name, branch_names, forced: true, env: {})
-        success = @gitlab_projects.push_branches(remote_name, GITLAB_PROJECTS_TIMEOUT, forced, branch_names, env: env)
+        success = @gitlab_projects.push_branches(
+          remote_name,
+          GITLAB_PROJECTS_TIMEOUT,
+          forced,
+          branch_names,
+          env: env
+        )
 
         begin
           success || gitlab_projects_error
         rescue CommandError => ex
           results = PushResults.new(ex.message)
 
-          accepted_branches = results.accepted_branches.join(', ')
-          rejected_branches = results.rejected_branches.join(', ')
+          accepted_branches = results.accepted_branches
+          rejected_branches = results.rejected_branches
 
           @gitlab_projects.logger.info(
             "Failed to push to remote #{remote_name}. " \
-            "Accepted: #{accepted_branches} / " \
-            "Rejected: #{rejected_branches}"
+            "Accepted: #{accepted_branches.join(', ')} / " \
+            "Rejected: #{rejected_branches.join(', ')}"
           )
 
-          raise ex
+          raise ex unless accepted_branches.any? &&
+            @gitlab_projects.features.enabled?(:push_mirror_retry)
+
+          @gitlab_projects.logger.info("Retrying failed push to #{remote_name} with limited branches: #{accepted_branches}")
+
+          # Try one more push without branches that failed
+          success = @gitlab_projects.push_branches(
+            remote_name,
+            GITLAB_PROJECTS_TIMEOUT,
+            forced,
+            accepted_branches,
+            env: env
+          )
+
+          success || gitlab_projects_error
         end
       end
 

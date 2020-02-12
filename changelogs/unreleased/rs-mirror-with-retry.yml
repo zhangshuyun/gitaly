@@ -1,0 +1,5 @@
+---
+title: If a push mirror fails, try again with the refs that would have succeeded
+merge_request: 1823
+author:
+type: added
