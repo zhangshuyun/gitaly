@@ -73,6 +73,7 @@ module Gitlab
           logger.info "Pushing #{branches.count} branches from #{repository_absolute_path} to remote #{remote_name}"
 
           cmd = %W(#{Gitlab.config.git.bin_path} push)
+          cmd << '--porcelain'
           cmd << '--force' if force
           cmd += %W(-- #{remote_name}).concat(branches)
 

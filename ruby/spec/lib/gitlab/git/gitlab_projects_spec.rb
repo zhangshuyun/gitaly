@@ -60,10 +60,10 @@ describe Gitlab::Git::GitlabProjects do
     let(:force) { false }
     let(:branch_names) { 20.times.map { |i| "branch#{i}" } }
     let(:cmd1) do
-      %W(#{Gitlab.config.git.bin_path} push -- #{remote_name}) + branch_names[0, 10]
+      %W(#{Gitlab.config.git.bin_path} push --porcelain -- #{remote_name}) + branch_names[0, 10]
     end
     let(:cmd2) do
-      %W(#{Gitlab.config.git.bin_path} push -- #{remote_name}) + branch_names[10, 10]
+      %W(#{Gitlab.config.git.bin_path} push --porcelain -- #{remote_name}) + branch_names[10, 10]
     end
 
     subject { gl_projects.push_branches(remote_name, 600, force, branch_names, env: env) }
@@ -84,7 +84,7 @@ describe Gitlab::Git::GitlabProjects do
 
     context 'with --force' do
       let(:branch_names) { ['master'] }
-      let(:cmd) { %W(#{Gitlab.config.git.bin_path} push --force -- #{remote_name} #{branch_names[0]}) }
+      let(:cmd) { %W(#{Gitlab.config.git.bin_path} push --porcelain --force -- #{remote_name} #{branch_names[0]}) }
       let(:force) { true }
 
       it 'executes the command' do
