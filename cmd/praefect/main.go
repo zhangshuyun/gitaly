@@ -139,7 +139,11 @@ func run(cfgs []starter.Config, conf config.Config) error {
 	if err != nil {
 		return err
 	}
-	nodeManager.Start(1*time.Second, 3*time.Second)
+
+	if conf.FailoverEnabled {
+		go nodeManager.Start()
+	}
+	//	nodeManager.Start(1*time.Second, 3*time.Second)
 
 	latencyMetric, err := metrics.RegisterReplicationLatency(conf.Prometheus)
 	if err != nil {

@@ -48,6 +48,7 @@ type Cfg struct {
 	GracefulRestartTimeout     time.Duration
 	GracefulRestartTimeoutToml duration `toml:"graceful_restart_timeout"`
 	InternalSocketDir          string   `toml:"internal_socket_dir"`
+	ConsulAddr                 string   `toml:"consul_addr"`
 }
 
 // TLS configuration

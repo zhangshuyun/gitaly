@@ -2,17 +2,22 @@ package nodes
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"strings"
 	"sync"
 	"time"
 
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	"github.com/hashicorp/consul/api"
 	"github.com/sirupsen/logrus"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
 	"gitlab.com/gitlab-org/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/grpc-proxy/proxy"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/models"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
@@ -70,6 +75,7 @@ type Mgr struct {
 	// VirtualStorages
 	failoverEnabled bool
 	log             *logrus.Entry
+	consulClient    *api.Client
 }
 
 // ErrPrimaryNotHealthy indicates the primary of a shard is not in a healthy state and hence
@@ -78,6 +84,15 @@ var ErrPrimaryNotHealthy = errors.New("primary is not healthy")
 
 // NewNodeManager creates a new NodeMgr based on virtual storage configs
 func NewManager(log *logrus.Entry, c config.Config, dialOpts ...grpc.DialOption) (*Mgr, error) {
+	consulClient, err := api.NewClient(&api.Config{
+		Address: c.ConsulAddress,
+		Scheme:  "http",
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
 	shards := make(map[string]*shard)
 	for _, virtualStorage := range c.VirtualStorages {
 		var secondaries []*nodeStatus
@@ -115,43 +130,42 @@ func NewManager(log *logrus.Entry, c config.Config, dialOpts ...grpc.DialOption)
 		shards:          shards,
 		log:             log,
 		failoverEnabled: c.FailoverEnabled,
+		consulClient:    consulClient,
 	}, nil
 }
 
-// healthcheckThreshold is the number of consecutive healthpb.HealthCheckResponse_SERVING necessary
-// for deeming a node "healthy"
-const healthcheckThreshold = 3
-
-func (n *Mgr) bootstrap(d time.Duration) error {
-	timer := time.NewTimer(d)
-	defer timer.Stop()
-
-	for i := 0; i < healthcheckThreshold; i++ {
-		<-timer.C
-		n.checkShards()
-		timer.Reset(d)
-	}
-
-	return nil
-}
-
-func (n *Mgr) monitor(d time.Duration) {
-	ticker := time.NewTicker(d)
-	defer ticker.Stop()
-
+func (n *Mgr) Start() {
+	ticker := time.NewTicker(3 * time.Second)
+	tries := 5
 	for {
 		<-ticker.C
-		n.checkShards()
+		tries--
+		if tries == 0 {
+			n.log.Error("maximum number of tries reached when registering nodes")
+		}
+		err := n.registerNodes()
+		if err != nil {
+			n.log.WithError(err).Warn("error when registering nodes")
+			continue
+		}
+
+		return
 	}
 }
 
-// Start will bootstrap the node manager by calling healthcheck on the nodes as well as kicking off
-// the monitoring process. Start must be called before NodeMgr can be used.
-func (n *Mgr) Start(bootstrapInterval, monitorInterval time.Duration) {
-	if n.failoverEnabled {
-		n.bootstrap(bootstrapInterval)
-		go n.monitor(monitorInterval)
+func (n *Mgr) registerNodes() error {
+	var g errgroup.Group
+
+	for virtualStorageName, shard := range n.shards {
+		for _, node := range append(shard.secondaries, shard.primary) {
+			node := node
+			g.Go(func() error {
+				return n.registerConsulAndPoll(virtualStorageName, node.Storage, node.Address, node.GetConnection())
+			})
+		}
 	}
+
+	return g.Wait()
 }
 
 // GetShard retrieves a shard for a virtual storage name
@@ -161,43 +175,49 @@ func (n *Mgr) GetShard(virtualStorageName string) (Shard, error) {
 		return nil, errors.New("virtual storage does not exist")
 	}
 
-	if n.failoverEnabled {
-		if !shard.primary.isHealthy() {
-			return nil, ErrPrimaryNotHealthy
-		}
+	if !n.failoverEnabled {
+		return shard, nil
 	}
+
+	key := getKey(virtualStorageName)
+
+	kv, _, err := n.consulClient.KV().Get(key, nil)
+	if err != nil {
+		logrus.WithError(err).Error("error when getting leader")
+		return nil, err
+	}
+
+	var leader Value
+
+	if kv == nil || kv.Value == nil {
+		return nil, errors.New("no primary has been elected")
+	}
+
+	if err := json.Unmarshal(kv.Value, &leader); err != nil {
+		return nil, err
+	}
+
+	nodes := append(shard.secondaries, shard.primary)
+
+	var secondaries []*nodeStatus
+
+	for _, node := range nodes {
+		if node.Storage == leader.Storage {
+			shard.primary = node
+			continue
+		}
+		secondaries = append(secondaries, node)
+	}
+
+	shard.secondaries = secondaries
 
 	return shard, nil
 }
 
 func (n *Mgr) checkShards() {
 	for _, shard := range n.shards {
-		shard.primary.check()
-		for _, secondary := range shard.secondaries {
-			secondary.check()
-		}
-
-		if shard.primary.isHealthy() {
-			continue
-		}
-
-		newPrimaryIndex := -1
-		for i, secondary := range shard.secondaries {
-			if secondary.isHealthy() {
-				newPrimaryIndex = i
-				break
-			}
-		}
-
-		if newPrimaryIndex < 0 {
-			// no healthy secondaries exist
-			continue
-		}
 		shard.m.Lock()
-		newPrimary := shard.secondaries[newPrimaryIndex]
-		shard.secondaries = append(shard.secondaries[:newPrimaryIndex], shard.secondaries[newPrimaryIndex+1:]...)
-		shard.secondaries = append(shard.secondaries, shard.primary)
-		shard.primary = newPrimary
+
 		shard.m.Unlock()
 	}
 }
@@ -206,7 +226,6 @@ func newConnectionStatus(node models.Node, cc *grpc.ClientConn, l *logrus.Entry)
 	return &nodeStatus{
 		Node:       node,
 		ClientConn: cc,
-		statuses:   make([]healthpb.HealthCheckResponse_ServingStatus, 0),
 		log:        l,
 	}
 }
@@ -214,8 +233,7 @@ func newConnectionStatus(node models.Node, cc *grpc.ClientConn, l *logrus.Entry)
 type nodeStatus struct {
 	models.Node
 	*grpc.ClientConn
-	statuses []healthpb.HealthCheckResponse_ServingStatus
-	log      *logrus.Entry
+	log *logrus.Entry
 }
 
 // GetStorage gets the storage name of a node
@@ -238,35 +256,142 @@ func (n *nodeStatus) GetConnection() *grpc.ClientConn {
 	return n.ClientConn
 }
 
-func (n *nodeStatus) isHealthy() bool {
-	if len(n.statuses) < healthcheckThreshold {
-		return false
+func (n *Mgr) registerConsulAndPoll(virtualStorageName, internalStorageName, address string, cc *grpc.ClientConn) error {
+	key := getKey(virtualStorageName)
+	value, err := getValue(internalStorageName)
+	if err != nil {
+		return err
+	}
+	isLeader, sessionID, err := n.registerConsul(key, value, address)
+	if err != nil {
+		return err
 	}
 
-	for _, status := range n.statuses[len(n.statuses)-healthcheckThreshold:] {
-		if status != healthpb.HealthCheckResponse_SERVING {
-			return false
-		}
-	}
+	go n.keepTryingToBePrimary(cc, key, sessionID, isLeader, value)
 
-	return true
+	return nil
 }
 
-func (n *nodeStatus) check() {
-	client := healthpb.NewHealthClient(n.ClientConn)
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-	defer cancel()
+func getValue(internalStorageName string) ([]byte, error) {
+	b, err := json.Marshal(&Value{Storage: internalStorageName})
 
-	resp, err := client.Check(ctx, &healthpb.HealthCheckRequest{Service: ""})
 	if err != nil {
-		n.log.WithError(err).WithField("address", n.Address).Warn("error when pinging healthcheck")
-		resp = &healthpb.HealthCheckResponse{
-			Status: healthpb.HealthCheckResponse_UNKNOWN,
-		}
+		return nil, err
 	}
 
-	n.statuses = append(n.statuses, resp.Status)
-	if len(n.statuses) > healthcheckThreshold {
-		n.statuses = n.statuses[1:]
+	return b, nil
+}
+
+func getKey(virtualStorageName string) string {
+	return fmt.Sprintf("service/%s/primary", virtualStorageName)
+}
+
+func (n *Mgr) registerConsul(key string, value []byte, address string) (bool, string, error) {
+	addressWithoutScheme := strings.TrimPrefix(address, "tcp://")
+	if err := n.consulClient.Agent().ServiceRegister(&api.AgentServiceRegistration{
+		Address: addressWithoutScheme,
+		ID:      addressWithoutScheme,
+		Name:    "monitoring",
+		Tags:    []string{"monitoring"},
+		Check: &api.AgentServiceCheck{
+			Name:     "Service health status",
+			GRPC:     addressWithoutScheme,
+			Interval: "10s",
+		},
+	}); err != nil {
+		return false, "", err
+	}
+
+	sessionID, _, err := n.consulClient.Session().Create(&api.SessionEntry{
+		Name:     key, // distributed lock
+		Behavior: "delete",
+		TTL:      "10s",
+	}, nil)
+
+	isLeader, _, err := n.consulClient.KV().Acquire(&api.KVPair{
+		Key:     key, // distributed lock
+		Value:   value,
+		Session: sessionID,
+	}, nil)
+
+	if err != nil {
+		return false, "", err
+	}
+
+	if isLeader {
+		n.log.WithField("internal_storage", address).Info("I am the leader!! 👑")
+	}
+
+	return isLeader, sessionID, nil
+}
+
+type Value struct {
+	Storage string `json:"storage"`
+}
+
+func (n *Mgr) keepTryingToBePrimary(cc *grpc.ClientConn, key, sessionID string, isLeader bool, b []byte) {
+	doneChan := make(chan struct{})
+
+	if isLeader {
+		go n.consulClient.Session().RenewPeriodic(
+			"10s",
+			sessionID,
+			nil,
+			doneChan,
+		)
+	}
+
+	for {
+		<-time.Tick(5 * time.Second)
+		var err error
+
+		client := healthpb.NewHealthClient(cc)
+		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+		defer cancel()
+
+		resp, err := client.Check(ctx, &healthpb.HealthCheckRequest{Service: ""})
+		if err != nil {
+			n.log.WithError(err).WithField("storage", string(b)).Error("error when pinging healthcheck")
+		}
+		if err != nil || resp.Status != healthpb.HealthCheckResponse_SERVING {
+			if isLeader {
+				n.log.Error("CLOSING CHANNEL")
+				close(doneChan)
+				isLeader = false
+			}
+			continue
+		}
+
+		if !isLeader {
+			n.log.WithField("value", string(b)).Info("I'm not the primary but I really want to be")
+
+			sessionID, _, err := n.consulClient.Session().Create(&api.SessionEntry{
+				Name:     key, // distributed lock
+				Behavior: "delete",
+				TTL:      "10s",
+			}, nil)
+			if err != nil {
+				n.log.WithField("value", string(b)).WithError(err).Error("couldn't get session")
+				continue
+			}
+
+			isLeader, _, err = n.consulClient.KV().Acquire(&api.KVPair{
+				Key:     key, // distributed lock
+				Value:   b,
+				Session: sessionID,
+			}, nil)
+
+			if isLeader {
+				n.log.WithField("value", string(b)).Info("I'm the new leader 😈!")
+				doneChan = make(chan struct{})
+
+				go n.consulClient.Session().RenewPeriodic(
+					"10s",
+					sessionID,
+					nil,
+					doneChan,
+				)
+			}
+		}
 	}
 }
