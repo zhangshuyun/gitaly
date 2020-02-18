@@ -1,0 +1,5 @@
+---
+title: Push with the --porcelain flag and parse output of failed pushes
+merge_request: 1845
+author:
+type: added
