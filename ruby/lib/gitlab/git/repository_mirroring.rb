@@ -1,3 +1,5 @@
+require_relative 'push_results'
+
 module Gitlab
   module Git
     module RepositoryMirroring
@@ -32,7 +34,22 @@ module Gitlab
       def push_remote_branches(remote_name, branch_names, forced: true, env: {})
         success = @gitlab_projects.push_branches(remote_name, GITLAB_PROJECTS_TIMEOUT, forced, branch_names, env: env)
 
-        success || gitlab_projects_error
+        begin
+          success || gitlab_projects_error
+        rescue CommandError => ex
+          results = PushResults.new(ex.message)
+
+          accepted_branches = results.accepted_branches.join(', ')
+          rejected_branches = results.rejected_branches.join(', ')
+
+          @gitlab_projects.logger.info(
+            "Failed to push to remote #{remote_name}. " \
+            "Accepted: #{accepted_branches} / " \
+            "Rejected: #{rejected_branches}"
+          )
+
+          raise ex
+        end
       end
 
       def delete_remote_branches(remote_name, branch_names, env: {})
