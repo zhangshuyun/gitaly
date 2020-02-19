@@ -106,6 +106,7 @@ func NewServer(c *Coordinator, repl ReplMgr, grpcOpts []grpc.ServerOption, l *lo
 	}
 
 	s.warnDupeAddrs(conf)
+	proxy.RegisterService(s.s, c.HandleWriteRef, "gitaly.RepositoryService", "WriteRef")
 
 	return s
 }

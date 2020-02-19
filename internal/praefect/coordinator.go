@@ -2,10 +2,13 @@ package praefect
 
 import (
 	"context"
+	"errors"
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
+
+	"google.golang.org/grpc"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/protoc-gen-go/descriptor"
@@ -142,6 +145,83 @@ func (c *Coordinator) streamDirector(ctx context.Context, fullMethodName string,
 	}
 
 	return proxy.NewStreamParameters(ctx, primary.GetConnection(), func() {}, nil), nil
+}
+
+func (s *Coordinator) HandleWriteRef(srv interface{}, serverStream grpc.ServerStream) error {
+	s.log.Error("I'm here!!!!")
+
+	peeker := proxy.NewPeeker(serverStream)
+
+	mi, err := s.registry.LookupMethod("/gitaly.RepositoryService/WriteRef")
+	if err != nil {
+		return err
+	}
+
+	frame, err := peeker.Peek()
+
+	m, err := mi.UnmarshalRequestProto(frame)
+	if err != nil {
+		return err
+	}
+
+	writeRefReq, ok := m.(*gitalypb.WriteRefRequest)
+	if !ok {
+		return errors.New("sholud have been write ref request!")
+	}
+
+	shard, err := s.nodeMgr.GetShard(writeRefReq.GetRepository().GetStorageName())
+	if err != nil {
+		return err
+	}
+
+	primary, err := shard.GetPrimary()
+	if err != nil {
+		return err
+	}
+
+	secondaries, err := shard.GetSecondaries()
+	if err != nil {
+		return err
+	}
+
+	primaryRepo := &gitalypb.Repository{
+		StorageName:  primary.GetStorage(),
+		RelativePath: writeRefReq.GetRepository().GetRelativePath(),
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	primaryRepoClient := gitalypb.NewRepositoryServiceClient(primary.GetConnection())
+	if _, err = primaryRepoClient.WriteRef(ctx, &gitalypb.WriteRefRequest{
+		Repository:  primaryRepo,
+		Ref:         writeRefReq.Ref,
+		Revision:    writeRefReq.Revision,
+		OldRevision: writeRefReq.OldRevision,
+		Force:       writeRefReq.Force,
+	}); err != nil {
+		return err
+	}
+
+	for _, secondary := range secondaries {
+		secondaryRepo := &gitalypb.Repository{
+			StorageName:  secondary.GetStorage(),
+			RelativePath: writeRefReq.GetRepository().GetRelativePath(),
+		}
+		secondaryRepoClient := gitalypb.NewRepositoryServiceClient(secondary.GetConnection())
+
+		if _, err = secondaryRepoClient.WriteRef(ctx, &gitalypb.WriteRefRequest{
+			Repository:  secondaryRepo,
+			Ref:         writeRefReq.Ref,
+			Revision:    writeRefReq.Revision,
+			OldRevision: writeRefReq.OldRevision,
+			Force:       writeRefReq.Force,
+		}); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (c *Coordinator) rewriteStorageForRepositoryMessage(mi protoregistry.MethodInfo, m proto.Message, peeker proxy.StreamModifier, primaryStorage string) error {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 
+	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -15,6 +16,7 @@ type server struct {
 	gitalypb.UnimplementedRepositoryServiceServer
 	connsByAddress map[string]*grpc.ClientConn
 	connsMtx       sync.RWMutex
+	repoLock       repository.RepoLock
 }
 
 // NewServer creates a new instance of a gRPC repo server
