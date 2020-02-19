@@ -1,0 +1,6 @@
+---
+title: Add FetchInternalRemoteErrorOnFailure as an RPC that throws an error when the
+  result is false
+merge_request: 1848
+author:
+type: changed

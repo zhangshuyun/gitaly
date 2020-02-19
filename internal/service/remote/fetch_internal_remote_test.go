@@ -77,6 +77,34 @@ func TestFailedFetchInternalRemote(t *testing.T) {
 	require.False(t, c.GetResult())
 }
 
+func TestFailedFetchInternalRemoteOnError(t *testing.T) {
+	server, serverSocketPath := runFullServer(t)
+	defer server.Stop()
+
+	client, conn := remote.NewRemoteClient(t, serverSocketPath)
+	defer conn.Close()
+
+	repo, _, cleanupFn := testhelper.InitBareRepo(t)
+	defer cleanupFn()
+
+	ctxOuter, cancel := testhelper.Context()
+	defer cancel()
+
+	md := testhelper.GitalyServersMetadata(t, serverSocketPath)
+	ctx := metadata.NewOutgoingContext(ctxOuter, md)
+
+	// Non-existing remote repo
+	remoteRepo := &gitalypb.Repository{StorageName: "default", RelativePath: "fake.git"}
+
+	request := &gitalypb.FetchInternalRemoteRequest{
+		Repository:       repo,
+		RemoteRepository: remoteRepo,
+	}
+
+	_, err := client.FetchInternalRemoteErrorOnFailure(ctx, request)
+	require.Error(t, err)
+}
+
 func TestFailedFetchInternalRemoteDueToValidations(t *testing.T) {
 	server, serverSocketPath := runFullServer(t)
 	defer server.Stop()

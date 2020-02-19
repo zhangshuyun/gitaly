@@ -17,6 +17,11 @@ service RemoteService {
         op: MUTATOR
       };
     }
+    rpc FetchInternalRemoteErrorOnFailure(FetchInternalRemoteRequest) returns (FetchInternalRemoteResponse) {
+        option (op_type) = {
+        op: MUTATOR
+      };
+    }
     rpc RemoveRemote(RemoveRemoteRequest) returns (RemoveRemoteResponse) {
       option (op_type) = {
         op: MUTATOR

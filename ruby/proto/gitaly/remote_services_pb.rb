@@ -16,6 +16,7 @@ module Gitaly
 
       rpc :AddRemote, AddRemoteRequest, AddRemoteResponse
       rpc :FetchInternalRemote, FetchInternalRemoteRequest, FetchInternalRemoteResponse
+      rpc :FetchInternalRemoteErrorOnFailure, FetchInternalRemoteRequest, FetchInternalRemoteResponse
       rpc :RemoveRemote, RemoveRemoteRequest, RemoveRemoteResponse
       rpc :UpdateRemoteMirror, stream(UpdateRemoteMirrorRequest), UpdateRemoteMirrorResponse
       rpc :FindRemoteRepository, FindRemoteRepositoryRequest, FindRemoteRepositoryResponse

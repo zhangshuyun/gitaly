@@ -2,8 +2,10 @@ package remote
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
+	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -39,4 +41,15 @@ func validateFetchInternalRemoteRequest(req *gitalypb.FetchInternalRemoteRequest
 	}
 
 	return nil
+}
+
+// FetchInternalRemoteErrorOnFailure fetches another Gitaly repository set as a remote
+func (s *server) FetchInternalRemoteErrorOnFailure(ctx context.Context, req *gitalypb.FetchInternalRemoteRequest) (*gitalypb.FetchInternalRemoteResponse, error) {
+	resp, err := s.FetchInternalRemote(ctx, req)
+
+	if !resp.Result {
+		return nil, helper.ErrInternal(errors.New("fetch failed"))
+	}
+
+	return resp, err
 }
