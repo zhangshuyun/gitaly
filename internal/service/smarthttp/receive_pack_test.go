@@ -276,7 +276,7 @@ func TestFailedReceivePackRequestDueToValidationError(t *testing.T) {
 func TestPostReceivePackToHooks(t *testing.T) {
 	secretToken := "secret token"
 	glRepository := "some_repo"
-	key := 123
+	glID := "key-123"
 
 	server, socket := runSmartHTTPServer(t)
 	defer server.Stop()
@@ -284,7 +284,7 @@ func TestPostReceivePackToHooks(t *testing.T) {
 	client, conn := newSmartHTTPClient(t, "unix://"+socket)
 	defer conn.Close()
 
-	tempGitlabShellDir, cleanup := testhelper.CreateTemporaryGitlabShellDir(t)
+	tempGitlabShellDir, cleanup := testhelper.CreateTemporaryGitlabShellDir()
 	defer cleanup()
 
 	gitlabShellDir := config.Config.GitlabShell.Dir
@@ -306,18 +306,18 @@ func TestPostReceivePackToHooks(t *testing.T) {
 		User:                        "",
 		Password:                    "",
 		SecretToken:                 secretToken,
-		Key:                         key,
+		GLID:                        glID,
 		GLRepository:                glRepository,
 		Changes:                     changes,
 		PostReceiveCounterDecreased: true,
 		Protocol:                    "http",
 	}
 
-	ts := testhelper.NewGitlabTestServer(t, c)
+	ts := testhelper.NewGitlabTestServer(c)
 	defer ts.Close()
 
-	testhelper.WriteTemporaryGitlabShellConfigFile(t, tempGitlabShellDir, testhelper.GitlabShellConfig{GitlabURL: ts.URL})
-	testhelper.WriteShellSecretFile(t, tempGitlabShellDir, secretToken)
+	testhelper.WriteTemporaryGitlabShellConfigFile(tempGitlabShellDir, testhelper.GitlabShellConfig{GitlabURL: ts.URL})
+	testhelper.WriteShellSecretFile(tempGitlabShellDir, secretToken)
 
 	defer func(override string) {
 		hooks.Override = override
@@ -336,7 +336,7 @@ func TestPostReceivePackToHooks(t *testing.T) {
 
 	firstRequest := &gitalypb.PostReceivePackRequest{
 		Repository:   repo,
-		GlId:         fmt.Sprintf("key-%d", key),
+		GlId:         glID,
 		GlRepository: glRepository,
 	}
 

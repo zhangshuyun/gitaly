@@ -208,7 +208,7 @@ func TestObjectPoolRefAdvertisementHidingSSH(t *testing.T) {
 func TestSSHReceivePackToHooks(t *testing.T) {
 	secretToken := "secret token"
 	glRepository := "some_repo"
-	key := 123
+	glID := "key-123"
 
 	restore := testhelper.EnableGitProtocolV2Support()
 	defer restore()
@@ -216,7 +216,7 @@ func TestSSHReceivePackToHooks(t *testing.T) {
 	server, serverSocketPath := runSSHServer(t)
 	defer server.Stop()
 
-	tempGitlabShellDir, cleanup := testhelper.CreateTemporaryGitlabShellDir(t)
+	tempGitlabShellDir, cleanup := testhelper.CreateTemporaryGitlabShellDir()
 	defer cleanup()
 
 	gitlabShellDir := config.Config.GitlabShell.Dir
@@ -233,17 +233,17 @@ func TestSSHReceivePackToHooks(t *testing.T) {
 		User:                        "",
 		Password:                    "",
 		SecretToken:                 secretToken,
-		Key:                         key,
+		GLID:                        glID,
 		GLRepository:                glRepository,
 		Changes:                     fmt.Sprintf("%s %s refs/heads/master\n", string(cloneDetails.OldHead), string(cloneDetails.NewHead)),
 		PostReceiveCounterDecreased: true,
 		Protocol:                    "ssh",
 	}
-	ts := testhelper.NewGitlabTestServer(t, c)
+	ts := testhelper.NewGitlabTestServer(c)
 	defer ts.Close()
 
-	testhelper.WriteTemporaryGitlabShellConfigFile(t, tempGitlabShellDir, testhelper.GitlabShellConfig{GitlabURL: ts.URL})
-	testhelper.WriteShellSecretFile(t, tempGitlabShellDir, secretToken)
+	testhelper.WriteTemporaryGitlabShellConfigFile(tempGitlabShellDir, testhelper.GitlabShellConfig{GitlabURL: ts.URL})
+	testhelper.WriteShellSecretFile(tempGitlabShellDir, secretToken)
 
 	defer func(override string) {
 		hooks.Override = override
@@ -256,7 +256,7 @@ func TestSSHReceivePackToHooks(t *testing.T) {
 
 	lHead, rHead, err := sshPush(t, cloneDetails, serverSocketPath, pushParams{
 		storageName:  testRepo.GetStorageName(),
-		glID:         fmt.Sprintf("key-%d", key),
+		glID:         glID,
 		glRepository: glRepository,
 		gitProtocol:  git.ProtocolV2,
 	})

@@ -11,7 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -186,33 +186,95 @@ func NewServer(tb testing.TB, streamInterceptors []grpc.StreamServerInterceptor,
 		))
 }
 
-func handleAllowed(t *testing.T, secretToken string, key int, glRepository, changes, protocol string) func(w http.ResponseWriter, r *http.Request) {
+func handleAllowed(secretToken, glID, glRepository, changes, protocol string) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		require.NoError(t, r.ParseForm())
-		require.Equal(t, http.MethodPost, r.Method)
-		require.Equal(t, "application/x-www-form-urlencoded", r.Header.Get("Content-Type"))
-		require.Equal(t, strconv.Itoa(key), r.Form.Get("key_id"))
-		require.Equal(t, glRepository, r.Form.Get("gl_repository"))
-		require.Equal(t, protocol, r.Form.Get("protocol"))
-		require.Equal(t, changes, r.Form.Get("changes"))
+		if err := r.ParseForm(); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		if http.MethodPost != r.Method {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+
+		if r.Header.Get("Content-Type") != "application/x-www-form-urlencoded" {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+
+		var idFound bool
+		var id string
+		for _, v := range []string{r.Form.Get("key_id"), r.Form.Get("user_id"), r.Form.Get("username")} {
+			if v != "" {
+				idFound = true
+				id = v
+				break
+			}
+		}
+
+		switch {
+		case strings.HasPrefix(glID, "user-"):
+			glID = strings.TrimPrefix(glID, "user-")
+		case strings.HasPrefix(glID, "key-"):
+			glID = strings.TrimPrefix(glID, "key-")
+		case strings.HasPrefix(glID, "username-"):
+			glID = strings.TrimPrefix(glID, "username-")
+		}
+
+		if !idFound || (glID != "" && glID != id) {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+
+		if r.Form.Get("gl_repository") == "" || glRepository != "" && glRepository != r.Form.Get("gl_repository") {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+
+		if r.Form.Get("protocol") == "" || protocol != "" && protocol != r.Form.Get("protocol") {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+
+		if r.Form.Get("changes") == "" || changes != "" && changes != r.Form.Get("changes") {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
 
 		w.Header().Set("Content-Type", "application/json")
 		if r.Form.Get("secret_token") == secretToken {
 			w.Write([]byte(`{"status":true}`))
 			return
 		}
+
 		w.WriteHeader(http.StatusUnauthorized)
 		w.Write([]byte(`{"message":"401 Unauthorized"}`))
 	}
 }
 
-func handlePreReceive(t *testing.T, secretToken, glRepository string) func(w http.ResponseWriter, r *http.Request) {
+func handlePreReceive(secretToken, glRepository string) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		require.NoError(t, r.ParseForm())
-		require.Equal(t, http.MethodPost, r.Method)
-		require.Equal(t, "application/x-www-form-urlencoded", r.Header.Get("Content-Type"))
-		require.Equal(t, glRepository, r.Form.Get("gl_repository"))
-		require.Equal(t, secretToken, r.Form.Get("secret_token"))
+		if err := r.ParseForm(); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		if r.Header.Get("Content-Type") != "application/x-www-form-urlencoded" {
+			w.WriteHeader(http.StatusNotAcceptable)
+			return
+		}
+		if r.Form.Get("gl_repository") == "" || (glRepository != "" && r.Form.Get("gl_repository") != glRepository) {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		if r.Form.Get("secret_token") != secretToken {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
@@ -220,18 +282,47 @@ func handlePreReceive(t *testing.T, secretToken, glRepository string) func(w htt
 	}
 }
 
-func handlePostReceive(t *testing.T, secretToken string, key int, glRepository, changes string, counterDecreased bool, gitPushOptions ...string) func(w http.ResponseWriter, r *http.Request) {
+func handlePostReceive(secretToken, userID, glRepository, changes string, counterDecreased bool, gitPushOptions ...string) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		require.NoError(t, r.ParseForm())
-		require.Equal(t, http.MethodPost, r.Method)
-		require.Equal(t, "application/x-www-form-urlencoded", r.Header.Get("Content-Type"))
-		require.Equal(t, glRepository, r.Form.Get("gl_repository"))
-		require.Equal(t, secretToken, r.Form.Get("secret_token"))
-		require.Equal(t, fmt.Sprintf("key-%d", key), r.Form.Get("identifier"))
-		require.Equal(t, changes, r.Form.Get("changes"))
+		if err := r.ParseForm(); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		if r.Header.Get("Content-Type") != "application/x-www-form-urlencoded" {
+			w.WriteHeader(http.StatusNotAcceptable)
+			return
+		}
+		if r.Form.Get("gl_repository") == "" || (glRepository != "" && r.Form.Get("gl_repository") != glRepository) {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		if r.Form.Get("secret_token") != secretToken {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+
+		if r.Form.Get("identifier") == "" || (r.Form.Get("identifier") != userID) {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		if r.Form.Get("changes") == "" || changes != "" && changes != r.Form.Get("changes") {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
 
 		if len(gitPushOptions) > 0 {
-			require.Equal(t, gitPushOptions, r.Form["push_options[]"])
+			options := r.Form["push_options[]"]
+			for i, option := range options {
+				if gitPushOptions[i] != option {
+					w.WriteHeader(http.StatusInternalServerError)
+					return
+				}
+			}
 		}
 
 		w.Header().Set("Content-Type", "application/json")
@@ -256,7 +347,7 @@ func handleCheck(user, password string) func(w http.ResponseWriter, r *http.Requ
 // GitlabServerConfig is a config for a mock gitlab server
 type GitlabServerConfig struct {
 	User, Password, SecretToken string
-	Key                         int
+	GLID                        string
 	GLRepository                string
 	Changes                     string
 	PostReceiveCounterDecreased bool
@@ -265,11 +356,11 @@ type GitlabServerConfig struct {
 }
 
 // NewGitlabTestServer returns a mock gitlab server that responds to the hook api endpoints
-func NewGitlabTestServer(t *testing.T, c GitlabServerConfig) *httptest.Server {
+func NewGitlabTestServer(c GitlabServerConfig) *httptest.Server {
 	mux := http.NewServeMux()
-	mux.Handle("/api/v4/internal/allowed", http.HandlerFunc(handleAllowed(t, c.SecretToken, c.Key, c.GLRepository, c.Changes, c.Protocol)))
-	mux.Handle("/api/v4/internal/pre_receive", http.HandlerFunc(handlePreReceive(t, c.SecretToken, c.GLRepository)))
-	mux.Handle("/api/v4/internal/post_receive", http.HandlerFunc(handlePostReceive(t, c.SecretToken, c.Key, c.GLRepository, c.Changes, c.PostReceiveCounterDecreased, c.GitPushOptions...)))
+	mux.Handle("/api/v4/internal/allowed", http.HandlerFunc(handleAllowed(c.SecretToken, c.GLID, c.GLRepository, c.Changes, c.Protocol)))
+	mux.Handle("/api/v4/internal/pre_receive", http.HandlerFunc(handlePreReceive(c.SecretToken, c.GLRepository)))
+	mux.Handle("/api/v4/internal/post_receive", http.HandlerFunc(handlePostReceive(c.SecretToken, c.GLID, c.GLRepository, c.Changes, c.PostReceiveCounterDecreased, c.GitPushOptions...)))
 	mux.Handle("/api/v4/internal/check", http.HandlerFunc(handleCheck(c.User, c.Password)))
 
 	return httptest.NewServer(mux)
@@ -277,22 +368,28 @@ func NewGitlabTestServer(t *testing.T, c GitlabServerConfig) *httptest.Server {
 
 // CreateTemporaryGitlabShellDir creates a temporary gitlab shell directory. It returns the path to the directory
 // and a cleanup function
-func CreateTemporaryGitlabShellDir(t *testing.T) (string, func()) {
+func CreateTemporaryGitlabShellDir() (string, func()) {
 	tempDir, err := ioutil.TempDir("", "gitlab-shell")
-	require.NoError(t, err)
+	if err != nil {
+		log.Fatal(err)
+	}
 	return tempDir, func() {
-		require.NoError(t, os.RemoveAll(tempDir))
+		os.RemoveAll(tempDir)
 	}
 }
 
 // WriteTemporaryGitlabShellConfigFile writes a gitlab shell config.yml in a temporary directory. It returns the path
 // and a cleanup function
-func WriteTemporaryGitlabShellConfigFile(t *testing.T, dir string, config GitlabShellConfig) (string, func()) {
+func WriteTemporaryGitlabShellConfigFile(dir string, config GitlabShellConfig) (string, func()) {
 	out, err := yaml.Marshal(&config)
-	require.NoError(t, err)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	path := filepath.Join(dir, "config.yml")
-	require.NoError(t, ioutil.WriteFile(path, out, 0644))
+	if err := ioutil.WriteFile(path, out, 0644); err != nil {
+		log.Fatal(err)
+	}
 
 	return path, func() {
 		os.RemoveAll(path)
@@ -301,13 +398,16 @@ func WriteTemporaryGitlabShellConfigFile(t *testing.T, dir string, config Gitlab
 
 // WriteTemporaryGitalyConfigFile writes a gitaly toml file into a temporary directory. It returns the path to
 // the file as well as a cleanup function
-func WriteTemporaryGitalyConfigFile(t *testing.T, tempDir string) (string, func()) {
+func WriteTemporaryGitalyConfigFile(tempDir string) (string, func()) {
 	path := filepath.Join(tempDir, "config.toml")
 	contents := fmt.Sprintf(`
 [gitlab-shell]
   dir = "%s/gitlab-shell"
 `, tempDir)
-	require.NoError(t, ioutil.WriteFile(path, []byte(contents), 0644))
+
+	if err := ioutil.WriteFile(path, []byte(contents), 0644); err != nil {
+		log.Fatal(err)
+	}
 
 	return path, func() {
 		os.RemoveAll(path)
@@ -315,19 +415,21 @@ func WriteTemporaryGitalyConfigFile(t *testing.T, tempDir string) (string, func(
 }
 
 // EnvForHooks generates a set of environment variables for gitaly hooks
-func EnvForHooks(t *testing.T, glRepo, gitlabShellDir string, key int, gitPushOptions ...string) []string {
+func EnvForHooks(glRepo, gitlabShellDir, glID string, gitPushOptions ...string) []string {
 	rubyDir, err := filepath.Abs("../../ruby")
-	require.NoError(t, err)
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	return append(append(oldEnv(t, glRepo, gitlabShellDir, key), []string{
+	return append(append(oldEnv(glRepo, gitlabShellDir, glID), []string{
 		fmt.Sprintf("GITALY_BIN_DIR=%s", config.Config.BinDir),
 		fmt.Sprintf("GITALY_RUBY_DIR=%s", rubyDir),
 	}...), hooks.GitPushOptions(gitPushOptions)...)
 }
 
-func oldEnv(t *testing.T, glRepo, gitlabShellDir string, key int) []string {
+func oldEnv(glRepo, gitlabShellDir, glID string) []string {
 	return append([]string{
-		fmt.Sprintf("GL_ID=key-%d", key),
+		fmt.Sprintf("GL_ID=%s", glID),
 		fmt.Sprintf("GL_REPOSITORY=%s", glRepo),
 		"GL_PROTOCOL=ssh",
 		fmt.Sprintf("GITALY_GITLAB_SHELL_DIR=%s", gitlabShellDir),
@@ -338,8 +440,10 @@ func oldEnv(t *testing.T, glRepo, gitlabShellDir string, key int) []string {
 }
 
 // WriteShellSecretFile writes a .gitlab_shell_secret file in the specified directory
-func WriteShellSecretFile(t *testing.T, dir, secretToken string) {
-	require.NoError(t, ioutil.WriteFile(filepath.Join(dir, ".gitlab_shell_secret"), []byte(secretToken), 0644))
+func WriteShellSecretFile(dir, secretToken string) {
+	if err := ioutil.WriteFile(filepath.Join(dir, ".gitlab_shell_secret"), []byte(secretToken), 0644); err != nil {
+		log.Fatal(err)
+	}
 }
 
 // GitlabShellConfig contains a subset of gitlabshell's config.yml
