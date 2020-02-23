@@ -197,6 +197,7 @@ func TestSuccessfulCommitDiffRequestWithPaths(t *testing.T) {
 		IgnoreWhitespaceChange: false,
 		Paths: [][]byte{
 			[]byte("CONTRIBUTING.md"),
+			[]byte("/MAINTENANCE.md"),
 			[]byte("README.md"),
 			[]byte("gitaly/named-file-with-mods"),
 			[]byte("gitaly/mode-file-with-mods"),
@@ -220,6 +221,16 @@ func TestSuccessfulCommitDiffRequestWithPaths(t *testing.T) {
 			ToPath:   []byte("CONTRIBUTING.md"),
 			Binary:   false,
 			Patch:    testhelper.MustReadFile(t, "testdata/contributing-md-chunks.txt"),
+		},
+		{
+			FromID:   "95d9f0a5e7bb054e9dd3975589b8dfc689e20e88",
+			ToID:     "5d9c7c0470bf368d61d9b6cd076300dc9d061f14",
+			OldMode:  0100644,
+			NewMode:  0100644,
+			FromPath: []byte("MAINTENANCE.md"),
+			ToPath:   []byte("MAINTENANCE.md"),
+			Binary:   false,
+			Patch:    testhelper.MustReadFile(t, "testdata/maintenance-file-with-mods-chunks.txt"),
 		},
 		{
 			FromID:   "faaf198af3a36dbf41961466703cc1d47c61d051",

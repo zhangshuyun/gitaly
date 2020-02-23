@@ -3,6 +3,7 @@ package diff
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	grpc_logrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
 	log "github.com/sirupsen/logrus"
@@ -52,7 +53,8 @@ func (s *server) CommitDiff(in *gitalypb.CommitDiffRequest, stream gitalypb.Diff
 	}
 	if len(paths) > 0 {
 		for _, path := range paths {
-			cmd.PostSepArgs = append(cmd.PostSepArgs, string(path))
+			s := strings.TrimPrefix(string(path), "/")
+			cmd.PostSepArgs = append(cmd.PostSepArgs, s)
 		}
 	}
 
