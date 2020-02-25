@@ -5,21 +5,64 @@ import (
 	"context"
 	"fmt"
 
+	"gitlab.com/gitlab-org/gitaly/internal/command"
+
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
-func (s *server) WriteRef(ctx context.Context, req *gitalypb.WriteRefRequest) (*gitalypb.WriteRefResponse, error) {
-	if err := validateWriteRefRequest(req); err != nil {
-		return nil, helper.ErrInvalidArgument(err)
-	}
+func nonTransactionalWriteRef(ctx context.Context, req *gitalypb.WriteRefRequest) (*gitalypb.WriteRefResponse, error) {
 	if err := writeRef(ctx, req); err != nil {
 		return nil, helper.ErrInternal(err)
 	}
 
 	return &gitalypb.WriteRefResponse{}, nil
+}
+
+func (s *server) transactionalWriteRef(ctx context.Context, req *gitalypb.WriteRefRequest) (*gitalypb.WriteRefResponse, error) {
+	var resp gitalypb.WriteRefResponse
+
+	switch req.TransactionStep.Step {
+	case gitalypb.TransactionStep_PRECOMMIT:
+		if err := writeRef(ctx, req); err != nil {
+			return nil, helper.ErrInternal(err)
+		}
+
+		rollback, err := rollbackRef(req)
+		if err != nil {
+			return nil, err
+		}
+		transactionID := s.transactions.StartTransaction(req.GetRepository(), rollback)
+		resp.TransactionStep.Id = transactionID
+	case gitalypb.TransactionStep_COMMIT:
+		if err := s.transactions.Commit(req.TransactionStep.Id); err != nil {
+			return nil, err
+		}
+	case gitalypb.TransactionStep_ROLLBACK:
+		if err := s.transactions.Rollback(req.TransactionStep.Id); err != nil {
+			return nil, err
+		}
+	}
+
+	return &resp, nil
+}
+
+func (s *server) WriteRef(ctx context.Context, req *gitalypb.WriteRefRequest) (*gitalypb.WriteRefResponse, error) {
+	if err := validateWriteRefRequest(req); err != nil {
+		return nil, helper.ErrInvalidArgument(err)
+	}
+
+	if req.TransactionStep == nil {
+		return nonTransactionalWriteRef(ctx, req)
+	}
+
+	return s.transactionalWriteRef(ctx, req)
+}
+
+func rollbackSymbolicRef(req *gitalypb.WriteRefRequest) (*command.Command, error) {
+	return git.SafeCmd(context.Background(), req.GetRepository(), nil, git.SubCmd{Name: "symbolic-ref", Args: []string{string(req.GetRef()), string(req.GetOldRevision())}})
 }
 
 func writeRef(ctx context.Context, req *gitalypb.WriteRefRequest) error {
@@ -38,6 +81,22 @@ func updateSymbolicRef(ctx context.Context, req *gitalypb.WriteRefRequest) error
 		return fmt.Errorf("error when running symbolic-ref command: %v", err)
 	}
 	return nil
+}
+
+func rollbackRef(req *gitalypb.WriteRefRequest) (command.Cmd, error) {
+	if string(req.Ref) == "HEAD" {
+		return rollbackSymbolicRef(req)
+	}
+
+	u, err := updateref.New(context.Background(), req.GetRepository())
+	if err != nil {
+		return nil, fmt.Errorf("error when running creating new updater: %v", err)
+	}
+	if err = u.Update(string(req.GetRef()), string(req.GetOldRevision()), string(req.GetRevision())); err != nil {
+		return nil, fmt.Errorf("error when creating rollback-ref command: %v", err)
+	}
+
+	return u, nil
 }
 
 func updateRef(ctx context.Context, req *gitalypb.WriteRefRequest) error {

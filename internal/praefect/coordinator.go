@@ -184,39 +184,56 @@ func (s *Coordinator) HandleWriteRef(srv interface{}, serverStream grpc.ServerSt
 		return err
 	}
 
-	primaryRepo := &gitalypb.Repository{
-		StorageName:  primary.GetStorage(),
-		RelativePath: writeRefReq.GetRepository().GetRelativePath(),
-	}
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	primaryRepoClient := gitalypb.NewRepositoryServiceClient(primary.GetConnection())
-	if _, err = primaryRepoClient.WriteRef(ctx, &gitalypb.WriteRefRequest{
-		Repository:  primaryRepo,
-		Ref:         writeRefReq.Ref,
-		Revision:    writeRefReq.Revision,
-		OldRevision: writeRefReq.OldRevision,
-		Force:       writeRefReq.Force,
-	}); err != nil {
-		return err
-	}
+	var errs []error
+	transactionIDs := make(map[string]nodes.Node)
 
-	for _, secondary := range secondaries {
-		secondaryRepo := &gitalypb.Repository{
-			StorageName:  secondary.GetStorage(),
+	for _, node := range append(secondaries, primary) {
+		client := gitalypb.NewRepositoryServiceClient(node.GetConnection())
+		targetRepo := &gitalypb.Repository{
+			StorageName:  node.GetStorage(),
 			RelativePath: writeRefReq.GetRepository().GetRelativePath(),
 		}
-		secondaryRepoClient := gitalypb.NewRepositoryServiceClient(secondary.GetConnection())
-
-		if _, err = secondaryRepoClient.WriteRef(ctx, &gitalypb.WriteRefRequest{
-			Repository:  secondaryRepo,
+		resp, err := client.WriteRef(ctx, &gitalypb.WriteRefRequest{
+			Repository:  targetRepo,
 			Ref:         writeRefReq.Ref,
 			Revision:    writeRefReq.Revision,
 			OldRevision: writeRefReq.OldRevision,
 			Force:       writeRefReq.Force,
-		}); err != nil {
+			TransactionStep: &gitalypb.TransactionStep{
+				Id:   "",
+				Step: gitalypb.TransactionStep_PRECOMMIT,
+			}})
+		if err != nil {
+			errs = append(errs, err)
+		}
+		transactionIDs[resp.TransactionStep.Id] = node
+	}
+
+	if len(errs) == 0 {
+		for transactionID, node := range transactionIDs {
+			client := gitalypb.NewRepositoryServiceClient(node.GetConnection())
+			if _, err = client.WriteRef(ctx, &gitalypb.WriteRefRequest{
+				TransactionStep: &gitalypb.TransactionStep{
+					Id:   transactionID,
+					Step: gitalypb.TransactionStep_COMMIT,
+				}}); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	}
+
+	for transactionID, node := range transactionIDs {
+		client := gitalypb.NewRepositoryServiceClient(node.GetConnection())
+		if _, err = client.WriteRef(ctx, &gitalypb.WriteRefRequest{
+			TransactionStep: &gitalypb.TransactionStep{
+				Id:   transactionID,
+				Step: gitalypb.TransactionStep_ROLLBACK,
+			}}); err != nil {
 			return err
 		}
 	}

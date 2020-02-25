@@ -336,12 +336,14 @@ message WriteRefRequest {
   // This used to be a boolean indicating whether or not to shell out or use
   // the rugged implementation
   reserved 6;
+  TransactionStep transaction_step = 7;
 }
 
 message WriteRefResponse {
   // This used to contain an error message. Since we're shelling out
   // all exceptions are wrapped in GRPC errors.
   reserved 1;
+  TransactionStep transaction_step = 2;
 }
 
 message FindMergeBaseRequest {

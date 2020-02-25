@@ -63,6 +63,10 @@ const (
 	StderrBufferSize = 4096
 )
 
+type Cmd interface {
+	Wait() error
+}
+
 // Command encapsulates a running exec.Cmd. The embedded exec.Cmd is
 // terminated and reaped automatically when the context.Context that
 // created it is canceled.
