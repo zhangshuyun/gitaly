@@ -8,6 +8,8 @@ import (
 	"sync"
 	"syscall"
 
+	"google.golang.org/grpc/metadata"
+
 	"google.golang.org/grpc"
 
 	"github.com/golang/protobuf/proto"
@@ -148,25 +150,10 @@ func (c *Coordinator) streamDirector(ctx context.Context, fullMethodName string,
 }
 
 func (s *Coordinator) HandleWriteRef(srv interface{}, serverStream grpc.ServerStream) error {
-	s.log.Error("I'm here!!!!")
+	var writeRefReq gitalypb.WriteRefRequest
 
-	peeker := proxy.NewPeeker(serverStream)
-
-	mi, err := s.registry.LookupMethod("/gitaly.RepositoryService/WriteRef")
-	if err != nil {
+	if err := serverStream.RecvMsg(&writeRefReq); err != nil {
 		return err
-	}
-
-	frame, err := peeker.Peek()
-
-	m, err := mi.UnmarshalRequestProto(frame)
-	if err != nil {
-		return err
-	}
-
-	writeRefReq, ok := m.(*gitalypb.WriteRefRequest)
-	if !ok {
-		return errors.New("sholud have been write ref request!")
 	}
 
 	shard, err := s.nodeMgr.GetShard(writeRefReq.GetRepository().GetStorageName())
@@ -190,35 +177,42 @@ func (s *Coordinator) HandleWriteRef(srv interface{}, serverStream grpc.ServerSt
 	var errs []error
 	transactionIDs := make(map[string]nodes.Node)
 
+	// PreCommit
 	for _, node := range append(secondaries, primary) {
 		client := gitalypb.NewRepositoryServiceClient(node.GetConnection())
 		targetRepo := &gitalypb.Repository{
 			StorageName:  node.GetStorage(),
 			RelativePath: writeRefReq.GetRepository().GetRelativePath(),
 		}
-		resp, err := client.WriteRef(ctx, &gitalypb.WriteRefRequest{
+		var trailer metadata.MD
+
+		if _, err := client.WriteRef(ctx, &gitalypb.WriteRefRequest{
 			Repository:  targetRepo,
 			Ref:         writeRefReq.Ref,
 			Revision:    writeRefReq.Revision,
 			OldRevision: writeRefReq.OldRevision,
 			Force:       writeRefReq.Force,
-			TransactionStep: &gitalypb.TransactionStep{
-				Id:   "",
-				Step: gitalypb.TransactionStep_PRECOMMIT,
-			}})
-		if err != nil {
+			Transaction: &gitalypb.Transaction{
+				Step: gitalypb.Transaction_PRECOMMIT,
+			}}, grpc.Trailer(&trailer)); err != nil {
 			errs = append(errs, err)
 		}
-		transactionIDs[resp.TransactionStep.Id] = node
+
+		if len(trailer.Get("transaction_id")) == 0 {
+			return errors.New("transaction id not found")
+		}
+
+		transactionID := trailer.Get("transaction_id")[0]
+		transactionIDs[transactionID] = node
 	}
 
+	// Commit
 	if len(errs) == 0 {
 		for transactionID, node := range transactionIDs {
 			client := gitalypb.NewRepositoryServiceClient(node.GetConnection())
-			if _, err = client.WriteRef(ctx, &gitalypb.WriteRefRequest{
-				TransactionStep: &gitalypb.TransactionStep{
-					Id:   transactionID,
-					Step: gitalypb.TransactionStep_COMMIT,
+			if _, err = client.WriteRef(metadata.AppendToOutgoingContext(ctx, "transaction_id", transactionID), &gitalypb.WriteRefRequest{
+				Transaction: &gitalypb.Transaction{
+					Step: gitalypb.Transaction_COMMIT,
 				}}); err != nil {
 				return err
 			}
@@ -227,12 +221,12 @@ func (s *Coordinator) HandleWriteRef(srv interface{}, serverStream grpc.ServerSt
 		return nil
 	}
 
+	// Rollback
 	for transactionID, node := range transactionIDs {
 		client := gitalypb.NewRepositoryServiceClient(node.GetConnection())
-		if _, err = client.WriteRef(ctx, &gitalypb.WriteRefRequest{
-			TransactionStep: &gitalypb.TransactionStep{
-				Id:   transactionID,
-				Step: gitalypb.TransactionStep_ROLLBACK,
+		if _, err = client.WriteRef(metadata.AppendToOutgoingContext(ctx, "transaction_id", transactionID), &gitalypb.WriteRefRequest{
+			Transaction: &gitalypb.Transaction{
+				Step: gitalypb.Transaction_ROLLBACK,
 			}}); err != nil {
 			return err
 		}

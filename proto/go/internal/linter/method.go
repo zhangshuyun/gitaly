@@ -105,42 +105,33 @@ func (ml methodLinter) ensureValidStorage(expected int) error {
 }
 
 func (ml methodLinter) ensureValidTargetRepository(expected int) error {
-	/*
-		topLevelMsgs, err := ml.getTopLevelMsgs()
-		if err != nil {
-			return err
-		}
+	topLevelMsgs, err := ml.getTopLevelMsgs()
+	if err != nil {
+		return err
+	}
 
-		reqMsgName, err := lastName(ml.methodDesc.GetInputType())
-		if err != nil {
-			return err
-		}
+	reqMsgName, err := lastName(ml.methodDesc.GetInputType())
+	if err != nil {
+		return err
+	}
 
-		msgT := topLevelMsgs[reqMsgName]
+	msgT := topLevelMsgs[reqMsgName]
 
-		m := matcher{
-			match:        internal.GetTargetRepositoryExtension,
-			subMatch:     internal.GetRepositoryExtension,
-			expectedType: ".gitaly.Repository",
-			topLevelMsgs: topLevelMsgs,
-		}
+	m := matcher{
+		match:        internal.GetTargetRepositoryExtension,
+		subMatch:     internal.GetRepositoryExtension,
+		expectedType: ".gitaly.Repository",
+		topLevelMsgs: topLevelMsgs,
+	}
 
-	*/
+	storageFields, err := m.findMatchingFields(reqMsgName, msgT)
+	if err != nil {
+		return err
+	}
 
-	/*
-		storageFields, err := m.findMatchingFields(reqMsgName, msgT)
-		if err != nil {
-			return err
-		}
-
-	*/
-
-	/*
-		if len(storageFields) != expected {
-			return fmt.Errorf("unexpected count of target_repository fields %d, expected %d, found target_repository label at: %v", len(storageFields), expected, storageFields)
-		}
-
-	*/
+	if len(storageFields) != expected {
+		return fmt.Errorf("unexpected count of target_repository fields %d, expected %d, found target_repository label at: %v", len(storageFields), expected, storageFields)
+	}
 
 	return nil
 }

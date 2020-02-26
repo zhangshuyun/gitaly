@@ -19,11 +19,10 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
     value :SERVER, 1
     value :STORAGE, 2
   end
-  add_message "gitaly.TransactionStep" do
-    optional :id, :string, 1
-    optional :step, :enum, 2, "gitaly.TransactionStep.TransactionStep"
+  add_message "gitaly.Transaction" do
+    optional :step, :enum, 1, "gitaly.Transaction.TransactionStep"
   end
-  add_enum "gitaly.TransactionStep.TransactionStep" do
+  add_enum "gitaly.Transaction.TransactionStep" do
     value :PRECOMMIT, 0
     value :COMMIT, 1
     value :ROLLBACK, 2
@@ -95,8 +94,8 @@ module Gitaly
   OperationMsg = Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.OperationMsg").msgclass
   OperationMsg::Operation = Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.OperationMsg.Operation").enummodule
   OperationMsg::Scope = Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.OperationMsg.Scope").enummodule
-  TransactionStep = Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.TransactionStep").msgclass
-  TransactionStep::TransactionStep = Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.TransactionStep.TransactionStep").enummodule
+  Transaction = Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.Transaction").msgclass
+  Transaction::TransactionStep = Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.Transaction.TransactionStep").enummodule
   Repository = Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.Repository").msgclass
   GitCommit = Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.GitCommit").msgclass
   CommitAuthor = Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.CommitAuthor").msgclass

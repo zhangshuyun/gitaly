@@ -1,6 +1,7 @@
 package service
 
 import (
+	repo "gitlab.com/gitlab-org/gitaly/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/internal/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/service/blob"
 	"gitlab.com/gitlab-org/gitaly/internal/service/cleanup"
@@ -26,7 +27,7 @@ import (
 
 // RegisterAll will register all the known grpc services with
 // the specified grpc service instance
-func RegisterAll(grpcServer *grpc.Server, rubyServer *rubyserver.Server) {
+func RegisterAll(grpcServer *grpc.Server, rubyServer *rubyserver.Server, transactions *repo.Transactions) {
 	gitalypb.RegisterBlobServiceServer(grpcServer, blob.NewServer(rubyServer))
 	gitalypb.RegisterCleanupServiceServer(grpcServer, cleanup.NewServer())
 	gitalypb.RegisterCommitServiceServer(grpcServer, commit.NewServer())
@@ -34,7 +35,7 @@ func RegisterAll(grpcServer *grpc.Server, rubyServer *rubyserver.Server) {
 	gitalypb.RegisterNamespaceServiceServer(grpcServer, namespace.NewServer())
 	gitalypb.RegisterOperationServiceServer(grpcServer, operations.NewServer(rubyServer))
 	gitalypb.RegisterRefServiceServer(grpcServer, ref.NewServer())
-	gitalypb.RegisterRepositoryServiceServer(grpcServer, repository.NewServer(rubyServer))
+	gitalypb.RegisterRepositoryServiceServer(grpcServer, repository.NewServer(transactions, rubyServer))
 	gitalypb.RegisterSSHServiceServer(grpcServer, ssh.NewServer())
 	gitalypb.RegisterSmartHTTPServiceServer(grpcServer, smarthttp.NewServer())
 	gitalypb.RegisterWikiServiceServer(grpcServer, wiki.NewServer(rubyServer))

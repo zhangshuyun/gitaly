@@ -3,7 +3,10 @@ package repository
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
+
+	"google.golang.org/grpc/metadata"
 
 	"gitlab.com/gitlab-org/gitaly/internal/command"
 
@@ -24,8 +27,18 @@ func nonTransactionalWriteRef(ctx context.Context, req *gitalypb.WriteRefRequest
 func (s *server) transactionalWriteRef(ctx context.Context, req *gitalypb.WriteRefRequest) (*gitalypb.WriteRefResponse, error) {
 	var resp gitalypb.WriteRefResponse
 
-	switch req.TransactionStep.Step {
-	case gitalypb.TransactionStep_PRECOMMIT:
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return nil, helper.ErrInternal(errors.New("couldn't get metadata"))
+	}
+	if len(md.Get("transaction_id")) == 0 {
+		return nil, helper.ErrInternal(errors.New("expected request_id"))
+	}
+
+	transactionID := md.Get("transaction_id")[0]
+
+	switch req.Transaction.Step {
+	case gitalypb.Transaction_PRECOMMIT:
 		if err := writeRef(ctx, req); err != nil {
 			return nil, helper.ErrInternal(err)
 		}
@@ -34,14 +47,14 @@ func (s *server) transactionalWriteRef(ctx context.Context, req *gitalypb.WriteR
 		if err != nil {
 			return nil, err
 		}
-		transactionID := s.transactions.StartTransaction(req.GetRepository(), rollback)
-		resp.TransactionStep.Id = transactionID
-	case gitalypb.TransactionStep_COMMIT:
-		if err := s.transactions.Commit(req.TransactionStep.Id); err != nil {
+		s.transactions.Start(transactionID, rollback)
+
+	case gitalypb.Transaction_COMMIT:
+		if err := s.transactions.Commit(transactionID); err != nil {
 			return nil, err
 		}
-	case gitalypb.TransactionStep_ROLLBACK:
-		if err := s.transactions.Rollback(req.TransactionStep.Id); err != nil {
+	case gitalypb.Transaction_ROLLBACK:
+		if err := s.transactions.Rollback(transactionID); err != nil {
 			return nil, err
 		}
 	}
@@ -54,7 +67,7 @@ func (s *server) WriteRef(ctx context.Context, req *gitalypb.WriteRefRequest) (*
 		return nil, helper.ErrInvalidArgument(err)
 	}
 
-	if req.TransactionStep == nil {
+	if req.Transaction == nil {
 		return nonTransactionalWriteRef(ctx, req)
 	}
 

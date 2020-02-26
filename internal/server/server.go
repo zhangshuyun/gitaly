@@ -5,6 +5,12 @@ import (
 	"crypto/tls"
 	"os"
 
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/grpc-proxy/proxy"
+
+	"gitlab.com/gitlab-org/gitaly/internal/middleware/repositoryhandler"
+
+	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
+
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_logrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
 	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
@@ -76,7 +82,12 @@ func createNewServer(rubyServer *rubyserver.Server, secure bool) *grpc.Server {
 
 	lh := limithandler.New(concurrencyKeyFn)
 
+	transactions := repository.NewTransactions()
+	registry := protoregistry.New()
+	registry.RegisterFiles(protoregistry.GitalyProtoFileDescriptors...)
+
 	opts := []grpc.ServerOption{
+		grpc.CustomCodec(proxy.Codec()),
 		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
 			grpc_ctxtags.StreamServerInterceptor(ctxTagOpts...),
 			grpccorrelation.StreamServerCorrelationInterceptor(), // Must be above the metadata handler
@@ -92,6 +103,7 @@ func createNewServer(rubyServer *rubyserver.Server, secure bool) *grpc.Server {
 			// Panic handler should remain last so that application panics will be
 			// converted to errors and logged
 			panichandler.StreamPanicHandler,
+			repositoryhandler.RepositoryTransactionServerInterceptor(transactions, registry),
 		)),
 		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(
 			grpc_ctxtags.UnaryServerInterceptor(ctxTagOpts...),
@@ -108,6 +120,7 @@ func createNewServer(rubyServer *rubyserver.Server, secure bool) *grpc.Server {
 			// Panic handler should remain last so that application panics will be
 			// converted to errors and logged
 			panichandler.UnaryPanicHandler,
+			repositoryhandler.RepositoryTransactionUnaryInterceptor(transactions, registry),
 		)),
 	}
 
@@ -123,7 +136,7 @@ func createNewServer(rubyServer *rubyserver.Server, secure bool) *grpc.Server {
 
 	server := grpc.NewServer(opts...)
 
-	service.RegisterAll(server, rubyServer)
+	service.RegisterAll(server, rubyServer, transactions)
 	reflection.Register(server)
 
 	grpc_prometheus.Register(server)

@@ -8,7 +8,6 @@ import (
 
 	"github.com/sirupsen/logrus"
 
-	"github.com/google/uuid"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 
 	"gitlab.com/gitlab-org/gitaly/internal/command"
@@ -37,13 +36,10 @@ type Transactions struct {
 	log                *logrus.Entry
 }
 
-func (t *Transactions) StartTransaction(repo *gitalypb.Repository, rollback command.Cmd) string {
+func (t *Transactions) NewTransaction(transactionID string, repo *gitalypb.Repository) {
 	tx := Transaction{
-		Repo:     repo,
-		Rollback: rollback,
+		Repo: repo,
 	}
-
-	transactionID := uuid.New().String()
 
 	t.txMutex.Lock()
 	defer t.txMutex.Unlock()
@@ -58,14 +54,38 @@ func (t *Transactions) StartTransaction(repo *gitalypb.Repository, rollback comm
 	t.repositories[repo.RelativePath].Lock()
 	t.repoMutex.Unlock()
 
-	t.log.WithField("relative_path", repo.RelativePath)
+	t.log.WithField("relative_path", repo.RelativePath).Info("transaction created")
+}
 
-	t.transactions[transactionID].Commit = t.repositories[repo.RelativePath].Unlock
+func (t *Transactions) Start(transactionID string, rollback command.Cmd) {
+	t.txMutex.Lock()
+	defer t.txMutex.Unlock()
 
-	return transactionID
+	_, ok := t.transactions[transactionID]
+	if !ok {
+		return
+	}
+
+	t.transactions[transactionID].inProgress = true
+	t.transactions[transactionID].Rollback = rollback
 }
 
 func (t *Transactions) Commit(transactionID string) error {
+	t.txMutex.Lock()
+	defer t.txMutex.Unlock()
+
+	_, ok := t.transactions[transactionID]
+	if !ok {
+		return errors.New("request_id not found")
+	}
+
+	t.transactions[transactionID].inProgress = false
+
+	t.log.WithField("transaction_id", transactionID).Info("commited")
+	return nil
+}
+
+func (t *Transactions) Unlock(transactionID string) error {
 	t.txMutex.Lock()
 	defer t.txMutex.Unlock()
 
@@ -74,11 +94,20 @@ func (t *Transactions) Commit(transactionID string) error {
 		return errors.New("request_id not found")
 	}
 
-	t.repoMutex.Lock()
-	tx.Commit()
-	t.repoMutex.Unlock()
+	if !tx.inProgress {
+		t.repoMutex.Lock()
+		defer t.repoMutex.Unlock()
 
-	delete(t.transactions, transactionID)
+		repoLock, ok := t.repositories[tx.Repo.GetRelativePath()]
+		if !ok {
+			return nil
+		}
+		repoLock.Unlock()
+
+		delete(t.transactions, transactionID)
+		t.log.WithField("transaction_id", transactionID).Info("unlocked")
+	}
+
 	return nil
 }
 
@@ -98,13 +127,24 @@ func (t *Transactions) Rollback(transactionID string) error {
 	return nil
 }
 
+func (t *Transactions) TransactionStarted(transactionID string) bool {
+	t.txMutex.Lock()
+	defer t.txMutex.Unlock()
+
+	_, ok := t.transactions[transactionID]
+	if !ok {
+		return false
+	}
+	return true
+}
+
 type Transaction struct {
 	//	serviceName string
 	//	methodName  string
 	//	transactionID   string
-	Repo     GitRepo
-	Rollback command.Cmd
-	Commit   func()
+	Repo       GitRepo
+	Rollback   command.Cmd
+	inProgress bool
 }
 
 type RepoLock interface {

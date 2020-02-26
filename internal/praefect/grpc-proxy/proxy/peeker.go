@@ -31,8 +31,6 @@ type peeker struct {
 	consumedStream *partialStream
 }
 
-var NewPeeker = newPeeker
-
 func newPeeker(stream grpc.ServerStream) *peeker {
 	return &peeker{
 		srcStream:      stream,

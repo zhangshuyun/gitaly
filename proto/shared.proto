@@ -29,18 +29,15 @@ message OperationMsg {
   Scope scope_level = 2;
 }
 
-message TransactionStep {
+message Transaction {
     enum TransactionStep {
         PRECOMMIT = 0;
         COMMIT = 1;
         ROLLBACK = 2;
     }
 
-    string id = 1;
-    TransactionStep step = 2;
+    TransactionStep step = 1;
 }
-
-
 
 enum ObjectType {
   UNKNOWN = 0;

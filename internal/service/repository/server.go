@@ -20,8 +20,8 @@ type server struct {
 }
 
 // NewServer creates a new instance of a gRPC repo server
-func NewServer(rs *rubyserver.Server) gitalypb.RepositoryServiceServer {
-	return &server{ruby: rs, connsByAddress: make(map[string]*grpc.ClientConn), transactions: repository.NewTransactions()}
+func NewServer(transactions *repository.Transactions, rs *rubyserver.Server) gitalypb.RepositoryServiceServer {
+	return &server{ruby: rs, connsByAddress: make(map[string]*grpc.ClientConn), transactions: transactions}
 }
 
 func (*server) FetchHTTPRemote(context.Context, *gitalypb.FetchHTTPRemoteRequest) (*gitalypb.FetchHTTPRemoteResponse, error) {
