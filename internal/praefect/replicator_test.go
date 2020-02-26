@@ -13,6 +13,7 @@ import (
 	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
 	gitaly_config "gitlab.com/gitlab-org/gitaly/internal/config"
 	"gitlab.com/gitlab-org/gitaly/internal/git/objectpool"
+	repo "gitlab.com/gitlab-org/gitaly/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/models"
@@ -449,7 +450,7 @@ func newReplicationService(tb testing.TB) (*grpc.Server, string) {
 
 	svr := testhelper.NewTestGrpcServer(tb, nil, nil)
 
-	gitalypb.RegisterRepositoryServiceServer(svr, repository.NewServer(&rubyserver.Server{}))
+	gitalypb.RegisterRepositoryServiceServer(svr, repository.NewServer(repo.NewTransactions(), &rubyserver.Server{}))
 	gitalypb.RegisterObjectPoolServiceServer(svr, objectpoolservice.NewServer())
 	gitalypb.RegisterRemoteServiceServer(svr, remote.NewServer(&rubyserver.Server{}))
 	reflection.Register(svr)

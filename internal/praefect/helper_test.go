@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/client"
 	internalauth "gitlab.com/gitlab-org/gitaly/internal/config/auth"
+	repo "gitlab.com/gitlab-org/gitaly/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/internal/log"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
@@ -253,7 +254,7 @@ func runInternalGitalyServer(t *testing.T, token string) (*grpc.Server, string, 
 	require.NoError(t, rubyServer.Start())
 
 	gitalypb.RegisterServerServiceServer(server, gitalyserver.NewServer())
-	gitalypb.RegisterRepositoryServiceServer(server, repository.NewServer(rubyServer))
+	gitalypb.RegisterRepositoryServiceServer(server, repository.NewServer(repo.NewTransactions(), rubyServer))
 	healthpb.RegisterHealthServer(server, health.NewServer())
 
 	errQ := make(chan error)

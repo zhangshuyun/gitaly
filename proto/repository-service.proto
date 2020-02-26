@@ -72,6 +72,11 @@ service RepositoryService {
       op: MUTATOR
     };
   }
+  rpc WriteRefTx(WriteRefTxRequest) returns (WriteRefTxResponse) {
+      option (op_type) = {
+      op: MUTATOR
+    };
+  }
   rpc FindMergeBase(FindMergeBaseRequest) returns (FindMergeBaseResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -336,14 +341,30 @@ message WriteRefRequest {
   // This used to be a boolean indicating whether or not to shell out or use
   // the rugged implementation
   reserved 6;
-  Transaction transaction = 7;
 }
 
 message WriteRefResponse {
+    // This used to contain an error message. Since we're shelling out
+    // all exceptions are wrapped in GRPC errors.
+    reserved 1;
+}
+
+message WriteRefTxRequest {
+    Repository repository = 1 [(target_repository)=true];
+    bytes ref = 2;
+    bytes revision = 3;
+    bytes old_revision = 4;
+    bool force = 5;
+    // This used to be a boolean indicating whether or not to shell out or use
+    // the rugged implementation
+    reserved 6;
+    Transaction transaction = 7;
+}
+
+message WriteRefTxResponse {
   // This used to contain an error message. Since we're shelling out
   // all exceptions are wrapped in GRPC errors.
-  reserved 1;
-  Transaction transaction = 2;
+  Transaction transaction = 1;
 }
 
 message FindMergeBaseRequest {

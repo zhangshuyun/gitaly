@@ -27,6 +27,7 @@ module Gitaly
       rpc :FetchSourceBranch, FetchSourceBranchRequest, FetchSourceBranchResponse
       rpc :Fsck, FsckRequest, FsckResponse
       rpc :WriteRef, WriteRefRequest, WriteRefResponse
+      rpc :WriteRefTx, WriteRefTxRequest, WriteRefTxResponse
       rpc :FindMergeBase, FindMergeBaseRequest, FindMergeBaseResponse
       rpc :CreateFork, CreateForkRequest, CreateForkResponse
       rpc :IsRebaseInProgress, IsRebaseInProgressRequest, IsRebaseInProgressResponse

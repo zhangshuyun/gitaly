@@ -27,7 +27,7 @@ var (
 // The behaviour is the same as if you were registering a handler method, e.g. from a codegenerated pb.go file.
 //
 // This can *only* be used if the `server` also uses grpcproxy.CodecForServer() ServerOption.
-func RegisterService(server *grpc.Server, streamer grpc.StreamHandler, serviceName string, methodNames ...string) {
+func RegisterMutator(server *grpc.Server, streamer grpc.StreamHandler, serviceName string, methodNames ...string) {
 	fakeDesc := &grpc.ServiceDesc{
 		ServiceName: serviceName,
 		HandlerType: (*interface{})(nil),
@@ -36,6 +36,24 @@ func RegisterService(server *grpc.Server, streamer grpc.StreamHandler, serviceNa
 		streamDesc := grpc.StreamDesc{
 			StreamName:    m,
 			Handler:       streamer,
+			ServerStreams: true,
+			ClientStreams: true,
+		}
+		fakeDesc.Streams = append(fakeDesc.Streams, streamDesc)
+	}
+	server.RegisterService(fakeDesc, streamer)
+}
+
+func RegisterService(server *grpc.Server, director StreamDirector, serviceName string, methodNames ...string) {
+	streamer := &handler{director}
+	fakeDesc := &grpc.ServiceDesc{
+		ServiceName: serviceName,
+		HandlerType: (*interface{})(nil),
+	}
+	for _, m := range methodNames {
+		streamDesc := grpc.StreamDesc{
+			StreamName:    m,
+			Handler:       streamer.handler,
 			ServerStreams: true,
 			ClientStreams: true,
 		}

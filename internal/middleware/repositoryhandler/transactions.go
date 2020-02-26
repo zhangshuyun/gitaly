@@ -6,16 +6,12 @@ import (
 	"fmt"
 	"reflect"
 
-	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
-
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/protoregistry"
-
 	"github.com/google/uuid"
-	"google.golang.org/grpc/metadata"
-
 	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
-
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/protoregistry"
+	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 )
 
 type RepositoryRequest interface {
@@ -26,7 +22,7 @@ func RepositoryTransactionUnaryInterceptor(transactions *repository.Transactions
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 		mi, err := registry.LookupMethod(info.FullMethod)
 		if err != nil {
-			return nil, err
+			return handler(ctx, req)
 		}
 
 		if mi.Scope == protoregistry.ScopeRepository && mi.Operation == protoregistry.OpMutator {
@@ -37,7 +33,6 @@ func RepositoryTransactionUnaryInterceptor(transactions *repository.Transactions
 				transactionID = md.Get("transaction_id")[0]
 			} else {
 				transactionID = uuid.New().String()
-
 			}
 
 			if !transactions.TransactionStarted(transactionID) {
@@ -45,20 +40,20 @@ func RepositoryTransactionUnaryInterceptor(transactions *repository.Transactions
 				if !ok {
 					return nil, errors.New("not a repository request")
 				}
-
-				transactions.NewTransaction(transactionID, repoReq.GetRepository())
+				if repoReq.GetRepository() != nil {
+					transactions.NewTransaction(transactionID, repoReq.GetRepository())
+				}
 			}
 
 			defer transactions.Unlock(transactionID)
 
-			ctx = metadata.NewIncomingContext(ctx, metadata.New(map[string]string{"transaction_id": transactionID}))
+			md.Set("transaction_id", transactionID)
+			ctx = metadata.NewIncomingContext(ctx, md)
 
 			grpc.SetTrailer(ctx, metadata.New(map[string]string{"transaction_id": transactionID}))
 		}
 
-		res, err := handler(ctx, req)
-
-		return res, err
+		return handler(ctx, req)
 	}
 }
 
@@ -102,7 +97,7 @@ func (t TransactionServerStream) RecvMsg(m interface{}) error {
 	if !t.transactions.TransactionStarted(t.transactionID) {
 		fmt.Printf("Receiving Message: type=%s\n", reflect.TypeOf(m).String())
 		repoReq, ok := m.(RepositoryRequest)
-		if ok {
+		if ok && repoReq.GetRepository() != nil {
 			t.transactions.NewTransaction(t.transactionID, repoReq.GetRepository())
 		}
 	}
@@ -115,17 +110,15 @@ func (t TransactionServerStream) RecvMsg(m interface{}) error {
 // StreamInterceptor returns a Stream Interceptor
 func RepositoryTransactionServerInterceptor(transactions *repository.Transactions, registry *protoregistry.Registry) grpc.StreamServerInterceptor {
 	return func(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
-		ctx := stream.Context()
-
 		mi, err := registry.LookupMethod(info.FullMethod)
 		if err != nil {
-			return err
+			return handler(srv, stream)
 		}
 
 		if mi.Scope == protoregistry.ScopeRepository && mi.Operation == protoregistry.OpMutator {
 			var transactionID string
 
-			md, ok := metadata.FromIncomingContext(ctx)
+			md, ok := metadata.FromIncomingContext(stream.Context())
 			if ok && len(md.Get("transaction_id")) > 0 {
 				transactionID = md.Get("transaction_id")[0]
 			} else {

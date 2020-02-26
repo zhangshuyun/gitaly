@@ -8,10 +8,6 @@ import (
 	"sync"
 	"syscall"
 
-	"google.golang.org/grpc/metadata"
-
-	"google.golang.org/grpc"
-
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/protoc-gen-go/descriptor"
 	"github.com/sirupsen/logrus"
@@ -21,7 +17,9 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/nodes"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
 
@@ -114,7 +112,7 @@ func (c *Coordinator) directRepositoryScopedMessage(ctx context.Context, mi prot
 func (c *Coordinator) streamDirector(ctx context.Context, fullMethodName string, peeker proxy.StreamModifier) (*proxy.StreamParameters, error) {
 	// For phase 1, we need to route messages based on the storage location
 	// to the appropriate Gitaly node.
-	c.log.Debugf("Stream director received method %s", fullMethodName)
+	c.log.Infof("Stream director received method %s", fullMethodName)
 
 	c.failoverMutex.RLock()
 	defer c.failoverMutex.RUnlock()
@@ -149,14 +147,14 @@ func (c *Coordinator) streamDirector(ctx context.Context, fullMethodName string,
 	return proxy.NewStreamParameters(ctx, primary.GetConnection(), func() {}, nil), nil
 }
 
-func (s *Coordinator) HandleWriteRef(srv interface{}, serverStream grpc.ServerStream) error {
+func (c *Coordinator) HandleWriteRef(srv interface{}, serverStream grpc.ServerStream) error {
 	var writeRefReq gitalypb.WriteRefRequest
 
 	if err := serverStream.RecvMsg(&writeRefReq); err != nil {
 		return err
 	}
 
-	shard, err := s.nodeMgr.GetShard(writeRefReq.GetRepository().GetStorageName())
+	shard, err := c.nodeMgr.GetShard(writeRefReq.GetRepository().GetStorageName())
 	if err != nil {
 		return err
 	}
@@ -186,7 +184,7 @@ func (s *Coordinator) HandleWriteRef(srv interface{}, serverStream grpc.ServerSt
 		}
 		var trailer metadata.MD
 
-		if _, err := client.WriteRef(ctx, &gitalypb.WriteRefRequest{
+		if _, err := client.WriteRefTx(ctx, &gitalypb.WriteRefTxRequest{
 			Repository:  targetRepo,
 			Ref:         writeRefReq.Ref,
 			Revision:    writeRefReq.Revision,
@@ -210,7 +208,7 @@ func (s *Coordinator) HandleWriteRef(srv interface{}, serverStream grpc.ServerSt
 	if len(errs) == 0 {
 		for transactionID, node := range transactionIDs {
 			client := gitalypb.NewRepositoryServiceClient(node.GetConnection())
-			if _, err = client.WriteRef(metadata.AppendToOutgoingContext(ctx, "transaction_id", transactionID), &gitalypb.WriteRefRequest{
+			if _, err = client.WriteRefTx(metadata.AppendToOutgoingContext(ctx, "transaction_id", transactionID), &gitalypb.WriteRefTxRequest{
 				Transaction: &gitalypb.Transaction{
 					Step: gitalypb.Transaction_COMMIT,
 				}}); err != nil {
@@ -224,7 +222,7 @@ func (s *Coordinator) HandleWriteRef(srv interface{}, serverStream grpc.ServerSt
 	// Rollback
 	for transactionID, node := range transactionIDs {
 		client := gitalypb.NewRepositoryServiceClient(node.GetConnection())
-		if _, err = client.WriteRef(metadata.AppendToOutgoingContext(ctx, "transaction_id", transactionID), &gitalypb.WriteRefRequest{
+		if _, err = client.WriteRefTx(metadata.AppendToOutgoingContext(ctx, "transaction_id", transactionID), &gitalypb.WriteRefTxRequest{
 			Transaction: &gitalypb.Transaction{
 				Step: gitalypb.Transaction_ROLLBACK,
 			}}); err != nil {

@@ -14,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/client"
 	dcache "gitlab.com/gitlab-org/gitaly/internal/cache"
 	"gitlab.com/gitlab-org/gitaly/internal/config"
+	repo "gitlab.com/gitlab-org/gitaly/internal/git/repository"
 	mcache "gitlab.com/gitlab-org/gitaly/internal/middleware/cache"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/internal/rubyserver"
@@ -84,7 +85,7 @@ func runRepoServer(t *testing.T) (*grpc.Server, string) {
 		t.Fatal(err)
 	}
 
-	gitalypb.RegisterRepositoryServiceServer(server, NewServer(RubyServer))
+	gitalypb.RegisterRepositoryServiceServer(server, NewServer(repo.NewTransactions(), RubyServer))
 	reflection.Register(server)
 
 	go server.Serve(listener)

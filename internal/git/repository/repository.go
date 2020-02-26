@@ -4,13 +4,10 @@ import (
 	"errors"
 	"sync"
 
-	"gitlab.com/gitlab-org/gitaly/internal/log"
-
 	"github.com/sirupsen/logrus"
-
-	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
-
 	"gitlab.com/gitlab-org/gitaly/internal/command"
+	"gitlab.com/gitlab-org/gitaly/internal/log"
+	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
 // GitRepo supplies an interface for executing `git.Command`s
@@ -37,6 +34,7 @@ type Transactions struct {
 }
 
 func (t *Transactions) NewTransaction(transactionID string, repo *gitalypb.Repository) {
+	logrus.WithField("transaction_id", transactionID).Info("creating new transaction")
 	tx := Transaction{
 		Repo: repo,
 	}
@@ -46,15 +44,15 @@ func (t *Transactions) NewTransaction(transactionID string, repo *gitalypb.Repos
 	t.transactions[transactionID] = &tx
 
 	t.repoMutex.Lock()
+
 	_, ok := t.repositories[repo.RelativePath]
 	if !ok {
 		t.repositories[repo.RelativePath] = &sync.Mutex{}
 	}
 
 	t.repositories[repo.RelativePath].Lock()
-	t.repoMutex.Unlock()
 
-	t.log.WithField("relative_path", repo.RelativePath).Info("transaction created")
+	t.repoMutex.Unlock()
 }
 
 func (t *Transactions) Start(transactionID string, rollback command.Cmd) {
@@ -132,51 +130,12 @@ func (t *Transactions) TransactionStarted(transactionID string) bool {
 	defer t.txMutex.Unlock()
 
 	_, ok := t.transactions[transactionID]
-	if !ok {
-		return false
-	}
-	return true
+
+	return ok
 }
 
 type Transaction struct {
-	//	serviceName string
-	//	methodName  string
-	//	transactionID   string
 	Repo       GitRepo
 	Rollback   command.Cmd
 	inProgress bool
-}
-
-type RepoLock interface {
-	Lock(relativePath string)
-	Unlock(relativePath string)
-}
-
-type repoLock struct {
-	m     sync.RWMutex
-	locks map[string]sync.RWMutex
-}
-
-func (r *repoLock) Lock(relativePath string) {
-	l, ok := r.locks[relativePath]
-	if !ok {
-		l = sync.RWMutex{}
-		r.m.Lock()
-		defer r.m.Unlock()
-		r.locks[relativePath] = l
-	}
-	l.Lock()
-}
-
-func (r *repoLock) Unlock(relativePath string) {
-	l, ok := r.locks[relativePath]
-	if ok {
-		l.Lock()
-	}
-}
-
-func NewRepoLock() *repoLock {
-	return &repoLock{
-		locks: make(map[string]sync.RWMutex),
-	}
 }

@@ -106,10 +106,19 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
     optional :revision, :bytes, 3
     optional :old_revision, :bytes, 4
     optional :force, :bool, 5
-    optional :transaction, :message, 7, "gitaly.Transaction"
   end
   add_message "gitaly.WriteRefResponse" do
-    optional :transaction, :message, 2, "gitaly.Transaction"
+  end
+  add_message "gitaly.WriteRefTxRequest" do
+    optional :repository, :message, 1, "gitaly.Repository"
+    optional :ref, :bytes, 2
+    optional :revision, :bytes, 3
+    optional :old_revision, :bytes, 4
+    optional :force, :bool, 5
+    optional :transaction, :message, 7, "gitaly.Transaction"
+  end
+  add_message "gitaly.WriteRefTxResponse" do
+    optional :transaction, :message, 1, "gitaly.Transaction"
   end
   add_message "gitaly.FindMergeBaseRequest" do
     optional :repository, :message, 1, "gitaly.Repository"
@@ -349,6 +358,8 @@ module Gitaly
   FsckResponse = Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.FsckResponse").msgclass
   WriteRefRequest = Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.WriteRefRequest").msgclass
   WriteRefResponse = Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.WriteRefResponse").msgclass
+  WriteRefTxRequest = Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.WriteRefTxRequest").msgclass
+  WriteRefTxResponse = Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.WriteRefTxResponse").msgclass
   FindMergeBaseRequest = Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.FindMergeBaseRequest").msgclass
   FindMergeBaseResponse = Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.FindMergeBaseResponse").msgclass
   CreateForkRequest = Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.CreateForkRequest").msgclass

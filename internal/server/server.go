@@ -5,12 +5,6 @@ import (
 	"crypto/tls"
 	"os"
 
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/grpc-proxy/proxy"
-
-	"gitlab.com/gitlab-org/gitaly/internal/middleware/repositoryhandler"
-
-	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
-
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_logrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
 	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
@@ -18,6 +12,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	diskcache "gitlab.com/gitlab-org/gitaly/internal/cache"
 	"gitlab.com/gitlab-org/gitaly/internal/config"
+	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/fieldextractors"
 	gitalylog "gitlab.com/gitlab-org/gitaly/internal/log"
 	"gitlab.com/gitlab-org/gitaly/internal/logsanitizer"
@@ -26,7 +21,9 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/limithandler"
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/metadatahandler"
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/panichandler"
+	"gitlab.com/gitlab-org/gitaly/internal/middleware/repositoryhandler"
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/sentryhandler"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/grpc-proxy/proxy"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/internal/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/server/auth"
