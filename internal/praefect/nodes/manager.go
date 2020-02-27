@@ -1,7 +1,6 @@
 package nodes
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -19,7 +18,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/models"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
-	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
 
 // Shard is a primary with a set of secondaries
@@ -168,6 +166,24 @@ func (n *Mgr) registerNodes() error {
 	return g.Wait()
 }
 
+func (n *Mgr) getPrimary(virtualStorageName string) (*Value, error) {
+	kv, _, err := n.consulClient.KV().Get(getKey(virtualStorageName), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var value Value
+
+	if kv == nil || kv.Value == nil {
+		return nil, errors.New("no primary has been elected")
+	}
+
+	if err := json.Unmarshal(kv.Value, &value); err != nil {
+		return nil, err
+	}
+	return &value, nil
+}
+
 // GetShard retrieves a shard for a virtual storage name
 func (n *Mgr) GetShard(virtualStorageName string) (Shard, error) {
 	shard, ok := n.shards[virtualStorageName]
@@ -176,24 +192,12 @@ func (n *Mgr) GetShard(virtualStorageName string) (Shard, error) {
 	}
 
 	if !n.failoverEnabled {
+		panic("no failover")
 		return shard, nil
 	}
 
-	key := getKey(virtualStorageName)
-
-	kv, _, err := n.consulClient.KV().Get(key, nil)
+	leader, err := n.getPrimary(virtualStorageName)
 	if err != nil {
-		logrus.WithError(err).Error("error when getting leader")
-		return nil, err
-	}
-
-	var leader Value
-
-	if kv == nil || kv.Value == nil {
-		return nil, errors.New("no primary has been elected")
-	}
-
-	if err := json.Unmarshal(kv.Value, &leader); err != nil {
 		return nil, err
 	}
 
@@ -262,12 +266,13 @@ func (n *Mgr) registerConsulAndPoll(virtualStorageName, internalStorageName, add
 	if err != nil {
 		return err
 	}
-	isLeader, sessionID, err := n.registerConsul(key, value, address)
+
+	checkID, err := n.registerConsul(internalStorageName, key, value, address)
 	if err != nil {
 		return err
 	}
 
-	go n.keepTryingToBePrimary(cc, key, sessionID, isLeader, value)
+	go n.keepTryingToBePrimary(virtualStorageName, internalStorageName, key, value, checkID)
 
 	return nil
 }
@@ -286,112 +291,96 @@ func getKey(virtualStorageName string) string {
 	return fmt.Sprintf("service/%s/primary", virtualStorageName)
 }
 
-func (n *Mgr) registerConsul(key string, value []byte, address string) (bool, string, error) {
+func (n *Mgr) registerConsul(nodeName string, key string, value []byte, address string) (string, error) {
 	addressWithoutScheme := strings.TrimPrefix(address, "tcp://")
-	if err := n.consulClient.Agent().ServiceRegister(&api.AgentServiceRegistration{
+	checkID := fmt.Sprintf("gitaly-internal-%s", addressWithoutScheme)
+
+	agent := n.consulClient.Agent()
+	if err := agent.ServiceRegister(&api.AgentServiceRegistration{
 		Address: addressWithoutScheme,
 		ID:      addressWithoutScheme,
-		Name:    "monitoring",
+		Name:    nodeName,
 		Tags:    []string{"monitoring"},
 		Check: &api.AgentServiceCheck{
-			Name:     "Service health status",
+			CheckID:  checkID,
+			Name:     "gitaly internal grpc health",
 			GRPC:     addressWithoutScheme,
-			Interval: "10s",
+			Interval: "1s",
 		},
 	}); err != nil {
-		return false, "", err
+		return "", err
 	}
 
-	sessionID, _, err := n.consulClient.Session().Create(&api.SessionEntry{
-		Name:     key, // distributed lock
-		Behavior: "delete",
-		TTL:      "10s",
-	}, nil)
-
-	isLeader, _, err := n.consulClient.KV().Acquire(&api.KVPair{
-		Key:     key, // distributed lock
-		Value:   value,
-		Session: sessionID,
-	}, nil)
-
-	if err != nil {
-		return false, "", err
-	}
-
-	if isLeader {
-		n.log.WithField("internal_storage", address).Info("I am the leader!! 👑")
-	}
-
-	return isLeader, sessionID, nil
+	return checkID, nil
 }
 
 type Value struct {
 	Storage string `json:"storage"`
 }
 
-func (n *Mgr) keepTryingToBePrimary(cc *grpc.ClientConn, key, sessionID string, isLeader bool, b []byte) {
-	doneChan := make(chan struct{})
+func (n *Mgr) checkHealth(serviceName string) error {
+	checks, _, err := n.consulClient.Health().Checks(serviceName, nil)
+	if err != nil {
+		return err
+	}
+	if status := checks.AggregatedStatus(); status != "passing" {
+		return fmt.Errorf("service %s unhealthy: %s", serviceName, status)
+	}
+	return nil
+}
 
-	if isLeader {
-		go n.consulClient.Session().RenewPeriodic(
-			"10s",
-			sessionID,
-			nil,
-			doneChan,
-		)
+func (n *Mgr) becomePrimary(serviceName string, checkID string, key string, b []byte) {
+	sessionID, _, err := n.consulClient.Session().Create(&api.SessionEntry{
+		// Sessions are scoped to a node. This session is for an internal Gitaly
+		// service. The session should be scoped to the node that internal
+		// service is running on.
+		//	Node:          internalNodeName,
+		Behavior:      "delete",
+		ServiceChecks: []api.ServiceCheck{api.ServiceCheck{ID: checkID}},
+	}, nil)
+	if err != nil {
+		n.log.WithField("nodeName", serviceName).WithError(err).Error("couldn't get session")
+		return
 	}
 
-	for {
-		<-time.Tick(5 * time.Second)
-		var err error
-
-		client := healthpb.NewHealthClient(cc)
-		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-		defer cancel()
-
-		resp, err := client.Check(ctx, &healthpb.HealthCheckRequest{Service: ""})
-		if err != nil {
-			n.log.WithError(err).WithField("storage", string(b)).Error("error when pinging healthcheck")
-		}
-		if err != nil || resp.Status != healthpb.HealthCheckResponse_SERVING {
-			if isLeader {
-				n.log.Error("CLOSING CHANNEL")
-				close(doneChan)
-				isLeader = false
+	isLeader := false
+	defer func() {
+		if !isLeader {
+			if _, err := n.consulClient.Session().Destroy(sessionID, nil); err != nil {
+				n.log.WithField("nodeName", serviceName).WithError(err).Error("couldn't destroy session")
 			}
+		}
+	}()
+
+	isLeader, _, err = n.consulClient.KV().Acquire(&api.KVPair{
+		Key:     key, // distributed lock
+		Value:   b,
+		Session: sessionID,
+	}, nil)
+	if err != nil {
+		n.log.WithField("nodeName", serviceName).WithField("session", sessionID).WithError(err).Error("couldn't update leader key")
+		return
+	}
+
+	if isLeader {
+		n.log.WithField("nodeName", serviceName).Info("I'm the new leader 😈!")
+	} else {
+		n.log.WithField("nodeName", serviceName).Info("failed to become leader")
+	}
+}
+
+func (n *Mgr) keepTryingToBePrimary(virtualStorageName, serviceName string, key string, b []byte, checkID string) {
+	for ; ; time.Sleep(1 * time.Second) {
+		if _, err := n.getPrimary(virtualStorageName); err == nil {
+			// no failover required
 			continue
 		}
 
-		if !isLeader {
-			n.log.WithField("value", string(b)).Info("I'm not the primary but I really want to be")
-
-			sessionID, _, err := n.consulClient.Session().Create(&api.SessionEntry{
-				Name:     key, // distributed lock
-				Behavior: "delete",
-				TTL:      "10s",
-			}, nil)
-			if err != nil {
-				n.log.WithField("value", string(b)).WithError(err).Error("couldn't get session")
-				continue
-			}
-
-			isLeader, _, err = n.consulClient.KV().Acquire(&api.KVPair{
-				Key:     key, // distributed lock
-				Value:   b,
-				Session: sessionID,
-			}, nil)
-
-			if isLeader {
-				n.log.WithField("value", string(b)).Info("I'm the new leader 😈!")
-				doneChan = make(chan struct{})
-
-				go n.consulClient.Session().RenewPeriodic(
-					"10s",
-					sessionID,
-					nil,
-					doneChan,
-				)
-			}
+		if err := n.checkHealth(serviceName); err != nil {
+			n.log.WithField("nodeName", serviceName).WithError(err).Error("node is not healthy or health check failed")
+			continue
 		}
+
+		n.becomePrimary(serviceName, checkID, key, b)
 	}
 }

@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	grpc_auth "github.com/grpc-ecosystem/go-grpc-middleware/auth"
@@ -41,6 +42,11 @@ func checkFunc(conf internalauth.Config) func(ctx context.Context) (context.Cont
 	return func(ctx context.Context) (context.Context, error) {
 		if len(conf.Token) == 0 {
 			countStatus("server disabled authentication", conf.Transitioning).Inc()
+			return ctx, nil
+		}
+
+		if m, ok := grpc.Method(ctx); ok && strings.HasPrefix(m, "/grpc.health.v1.Health/") {
+			countStatus("health check (bypass auth)", conf.Transitioning).Inc()
 			return ctx, nil
 		}
 
