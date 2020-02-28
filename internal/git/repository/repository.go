@@ -2,11 +2,11 @@ package repository
 
 import (
 	"errors"
+	"os/exec"
 	"sync"
 	"time"
 
 	"github.com/sirupsen/logrus"
-	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/log"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
@@ -19,25 +19,26 @@ type GitRepo interface {
 	GetGitAlternateObjectDirectories() []string
 }
 
-func NewTransactions() *Transactions {
-	return &Transactions{
+func NewTransactionManager() *TransactionManager {
+	return &TransactionManager{
 		transactions: make(map[string]*Transaction),
 		repositories: make(map[string]*sync.Mutex),
 		log:          log.Default(),
 	}
 }
 
-type Transactions struct {
+type TransactionManager struct {
 	txMutex, repoMutex sync.RWMutex
 	transactions       map[string]*Transaction
 	repositories       map[string]*sync.Mutex
 	log                *logrus.Entry
 }
 
-func (t *Transactions) NewTransaction(transactionID string, repo *gitalypb.Repository) {
+func (t *TransactionManager) NewTransaction(transactionID string, repo *gitalypb.Repository) {
 	logrus.WithField("transaction_id", transactionID).Info("creating new transaction")
 	tx := Transaction{
-		Repo: repo,
+		repo:     repo,
+		commitCh: make(chan error),
 	}
 
 	t.txMutex.Lock()
@@ -45,47 +46,47 @@ func (t *Transactions) NewTransaction(transactionID string, repo *gitalypb.Repos
 	t.transactions[transactionID] = &tx
 
 	t.repoMutex.Lock()
-
-	_, ok := t.repositories[repo.RelativePath]
+	_, ok := t.repositories[tx.repo.GetRelativePath()]
 	if !ok {
-		t.repositories[repo.RelativePath] = &sync.Mutex{}
+		t.repositories[tx.repo.GetRelativePath()] = &sync.Mutex{}
 	}
-
-	t.repositories[repo.RelativePath].Lock()
-
+	t.repositories[tx.repo.GetRelativePath()].Lock()
 	t.repoMutex.Unlock()
 }
 
-func (t *Transactions) Start(transactionID string) {
+func (t *TransactionManager) Begin(transactionID string) {
 	t.txMutex.Lock()
 	defer t.txMutex.Unlock()
 
-	_, ok := t.transactions[transactionID]
+	tx, ok := t.transactions[transactionID]
 	if !ok {
 		return
 	}
 
-	t.transactions[transactionID].inProgress = true
+	tx.inProgress = true
 
 	go func() {
-		<-time.NewTimer(1 * time.Second).C
+		<-time.NewTimer(2 * time.Second).C
 		t.txMutex.Lock()
+
 		tx, ok := t.transactions[transactionID]
 		if !ok {
+			t.txMutex.Unlock()
 			return
 		}
 		if tx.prepared {
 			t.log.WithField("transaction_id", transactionID).Info("transaction has already been prepared")
+			t.txMutex.Unlock()
 			return
 		}
-		t.txMutex.Unlock()
 
+		t.txMutex.Unlock()
 		t.log.WithField("transaction_id", transactionID).Info("transaction has not been prepared and is timing out")
-		t.Unlock(transactionID)
+		t.Release(transactionID)
 	}()
 }
 
-func (t *Transactions) PreCommit(transactionID string, c command.Cmd) {
+func (t *TransactionManager) PreCommit(transactionID string, c *exec.Cmd) {
 	t.txMutex.Lock()
 	defer t.txMutex.Unlock()
 
@@ -94,10 +95,13 @@ func (t *Transactions) PreCommit(transactionID string, c command.Cmd) {
 		return
 	}
 
-	go tx.PrepareCommitAndWait(c, 2*time.Second)
+	go func() {
+		tx.PrepareCommitAndWait(c, 2*time.Second)
+		t.Release(transactionID)
+	}()
 }
 
-func (t *Transactions) SetRollback(transactionID string, rollback command.Cmd) {
+func (t *TransactionManager) SetRollback(transactionID string, rollback *exec.Cmd) {
 	t.txMutex.Lock()
 	defer t.txMutex.Unlock()
 	tx, ok := t.transactions[transactionID]
@@ -105,10 +109,10 @@ func (t *Transactions) SetRollback(transactionID string, rollback command.Cmd) {
 		return
 	}
 
-	tx.Rollback = rollback
+	tx.rollback = rollback
 }
 
-func (t *Transactions) Commit(transactionID string) error {
+func (t *TransactionManager) Commit(transactionID string) error {
 	t.txMutex.Lock()
 	defer t.txMutex.Unlock()
 
@@ -117,13 +121,12 @@ func (t *Transactions) Commit(transactionID string) error {
 		return errors.New("request_id not found")
 	}
 
-	tx.Commit()
-
 	t.log.WithField("transaction_id", transactionID).Info("commited")
-	return nil
+	return tx.Commit()
 }
 
-func (t *Transactions) Unlock(transactionID string) error {
+func (t *TransactionManager) Release(transactionID string) error {
+	t.log.WithField("transaction_id", transactionID).Info("unlocking")
 	t.txMutex.Lock()
 	defer t.txMutex.Unlock()
 
@@ -136,7 +139,7 @@ func (t *Transactions) Unlock(transactionID string) error {
 		t.repoMutex.Lock()
 		defer t.repoMutex.Unlock()
 
-		repoLock, ok := t.repositories[tx.Repo.GetRelativePath()]
+		repoLock, ok := t.repositories[tx.repo.GetRelativePath()]
 		if !ok {
 			return nil
 		}
@@ -149,7 +152,7 @@ func (t *Transactions) Unlock(transactionID string) error {
 	return nil
 }
 
-func (t *Transactions) Rollback(transactionID string) error {
+func (t *TransactionManager) Rollback(transactionID string) error {
 	t.txMutex.Lock()
 	defer t.txMutex.Unlock()
 
@@ -158,14 +161,14 @@ func (t *Transactions) Rollback(transactionID string) error {
 		return errors.New("request_id not found")
 	}
 
-	if err := tx.Rollback.Wait(); err != nil {
+	if err := tx.rollback.Run(); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (t *Transactions) TransactionStarted(transactionID string) bool {
+func (t *TransactionManager) TransactionStarted(transactionID string) bool {
 	t.txMutex.Lock()
 	defer t.txMutex.Unlock()
 
@@ -174,26 +177,51 @@ func (t *Transactions) TransactionStarted(transactionID string) bool {
 	return ok
 }
 
-func (t *Transaction) PrepareCommitAndWait(c command.Cmd, d time.Duration) {
+func (t *Transaction) PrepareCommitAndWait(c *exec.Cmd, d time.Duration) {
+	logrus.WithError(t.commitErr).Info("precommit started")
 	t.prepared = true
+	t.commit = c
 
-	select {
-	case <-time.NewTimer(d).C:
-	case <-t.commitCh:
+	<-time.NewTimer(d).C
+	if !t.inProgress {
+		return
 	}
+	logrus.Info("timer went off...i'm doin it!")
+	t.Commit()
 
-	t.commitErr = c.Wait()
-	t.inProgress = false
+	logrus.WithError(t.commitErr).Info("precommit completed")
 }
 
-func (t *Transaction) Commit() {
-	close(t.commitCh)
+func (t *Transaction) Commit() error {
+	if t.commitErr != nil {
+		return t.commitErr
+	}
+	if !t.inProgress {
+		return nil
+	}
+
+	defer func() {
+		t.inProgress = false
+	}()
+
+	if t.commitErr = t.commit.Start(); t.commitErr != nil {
+		return t.commitErr
+	}
+
+	if t.commitErr = t.commit.Wait(); t.commitErr != nil {
+		return t.commitErr
+	}
+
+	logrus.WithError(t.commitErr).WithField("args", t.commit.Args).Info("Finished Commit")
+
+	return nil
 }
 
 type Transaction struct {
-	Repo                 GitRepo
-	Rollback             command.Cmd
+	repo                 GitRepo
+	commit               *exec.Cmd
+	rollback             *exec.Cmd
 	commitErr            error
-	commitCh             chan struct{}
+	commitCh             chan error
 	inProgress, prepared bool
 }

@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/google/uuid"
 	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/protoregistry"
@@ -18,7 +20,7 @@ type RepositoryRequest interface {
 	GetRepository() *gitalypb.Repository
 }
 
-func RepositoryTransactionUnaryInterceptor(transactions *repository.Transactions, registry *protoregistry.Registry) grpc.UnaryServerInterceptor {
+func RepositoryTransactionUnaryInterceptor(transactions *repository.TransactionManager, registry *protoregistry.Registry) grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 		mi, err := registry.LookupMethod(info.FullMethod)
 		if err != nil {
@@ -41,11 +43,14 @@ func RepositoryTransactionUnaryInterceptor(transactions *repository.Transactions
 					return nil, errors.New("not a repository request")
 				}
 				if repoReq.GetRepository() != nil {
+
+					logrus.WithField("repository", repoReq.GetRepository()).Info("trying to start new transaction")
 					transactions.NewTransaction(transactionID, repoReq.GetRepository())
+					logrus.WithField("repository", repoReq.GetRepository()).Info("started new transaction")
 				}
 			}
 
-			defer transactions.Unlock(transactionID)
+			defer transactions.Release(transactionID)
 
 			md.Set("transaction_id", transactionID)
 			ctx = metadata.NewIncomingContext(ctx, md)
@@ -57,7 +62,7 @@ func RepositoryTransactionUnaryInterceptor(transactions *repository.Transactions
 	}
 }
 
-func NewTransactionServerStream(ss grpc.ServerStream, methodInfo protoregistry.MethodInfo, transactions *repository.Transactions, transactionID string) TransactionServerStream {
+func NewTransactionServerStream(ss grpc.ServerStream, methodInfo protoregistry.MethodInfo, transactions *repository.TransactionManager, transactionID string) TransactionServerStream {
 	return TransactionServerStream{
 		transactionID: transactionID,
 		ss:            ss,
@@ -70,7 +75,7 @@ type TransactionServerStream struct {
 	transactionID string
 	ss            grpc.ServerStream
 	mi            protoregistry.MethodInfo
-	transactions  *repository.Transactions
+	transactions  *repository.TransactionManager
 }
 
 func (t TransactionServerStream) SetHeader(m metadata.MD) error {
@@ -98,7 +103,9 @@ func (t TransactionServerStream) RecvMsg(m interface{}) error {
 		fmt.Printf("Receiving Message: type=%s\n", reflect.TypeOf(m).String())
 		repoReq, ok := m.(RepositoryRequest)
 		if ok && repoReq.GetRepository() != nil {
+			logrus.WithField("repository", repoReq.GetRepository()).Info("trying to start new transaction")
 			t.transactions.NewTransaction(t.transactionID, repoReq.GetRepository())
+			logrus.WithField("repository", repoReq.GetRepository()).Info("started new transaction")
 		}
 	}
 
@@ -108,7 +115,7 @@ func (t TransactionServerStream) RecvMsg(m interface{}) error {
 }
 
 // StreamInterceptor returns a Stream Interceptor
-func RepositoryTransactionServerInterceptor(transactions *repository.Transactions, registry *protoregistry.Registry) grpc.StreamServerInterceptor {
+func RepositoryTransactionStreamInterceptor(transactions *repository.TransactionManager, registry *protoregistry.Registry) grpc.StreamServerInterceptor {
 	return func(srv interface{}, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 		mi, err := registry.LookupMethod(info.FullMethod)
 		if err != nil {
@@ -125,7 +132,7 @@ func RepositoryTransactionServerInterceptor(transactions *repository.Transaction
 				transactionID = uuid.New().String()
 			}
 
-			defer transactions.Unlock(transactionID)
+			defer transactions.Release(transactionID)
 
 			return handler(srv, NewTransactionServerStream(stream, mi, transactions, transactionID))
 		}

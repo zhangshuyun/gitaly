@@ -6,7 +6,8 @@ import (
 	"io/ioutil"
 	"os/exec"
 
-	"gitlab.com/gitlab-org/gitaly/internal/command"
+	"github.com/sirupsen/logrus"
+
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
@@ -28,13 +29,18 @@ func (s *server) WriteRefTx(ctx context.Context, req *gitalypb.WriteRefTxRequest
 	}
 
 	transactionSteps := md.Get("transaction_step")
+
+	logrus.WithField("transaction_steps", transactionSteps).Info("got transaction steps")
 	if len(transactionSteps) == 0 {
 		return nil, nil
 	}
 
+	logrus.WithField("transaction_steps", transactionSteps).Info("got transaction steps")
+
 	transactionStep := transactionSteps[len(transactionSteps)-1]
 
 	if transactionStep == "precommit" {
+		logrus.WithField("relative_path", req.GetRepository().GetRelativePath()).WithField("ref", string(req.GetRef())).WithField("rev", string(req.GetRevision())).WithField("old_rev", string(req.GetOldRevision())).Info("WriteRefReqTx")
 		if err := validateWriteRefRequest(req); err != nil {
 			return nil, helper.ErrInvalidArgument(err)
 		}
@@ -57,14 +63,16 @@ func (s *server) transactionalWriteRef(ctx context.Context, req *gitalypb.WriteR
 	transactionID := md.Get("transaction_id")[0]
 
 	switch transactionStep {
-	case "prepare":
-		err := prepare(ctx, req)
+	case "vote":
+		logrus.WithField("transaction_step", "vote").Info("transaction!")
+
+		s.transactions.Begin(transactionID)
+		err := vote(ctx, req)
 		if err != nil {
 			return nil, err
 		}
-
-		s.transactions.Start(transactionID)
 	case "precommit":
+		logrus.WithField("transaction_step", "precommit").Info("transaction!")
 		rollback, err := rollbackRef(req)
 		if err != nil {
 			return nil, err
@@ -77,10 +85,12 @@ func (s *server) transactionalWriteRef(ctx context.Context, req *gitalypb.WriteR
 		s.transactions.SetRollback(transactionID, rollback)
 		s.transactions.PreCommit(transactionID, commit)
 	case "commit":
+		logrus.WithField("transaction_step", "commit").Info("transaction!")
 		if err := s.transactions.Commit(transactionID); err != nil {
 			return nil, err
 		}
 	case "rollback":
+		logrus.WithField("transaction_step", "rollback").Info("transaction!")
 		if err := s.transactions.Rollback(transactionID); err != nil {
 			return nil, err
 		}
@@ -91,7 +101,7 @@ func (s *server) transactionalWriteRef(ctx context.Context, req *gitalypb.WriteR
 	return &resp, nil
 }
 
-func prepare(ctx context.Context, req *gitalypb.WriteRefTxRequest) error {
+func vote(ctx context.Context, req *gitalypb.WriteRefTxRequest) error {
 	if req.GetOldRevision() == nil {
 		return nil
 	}
@@ -120,7 +130,7 @@ func prepare(ctx context.Context, req *gitalypb.WriteRefTxRequest) error {
 	return nil
 }
 
-func rollbackSymbolicRef(req *gitalypb.WriteRefTxRequest) (command.Cmd, error) {
+func rollbackSymbolicRef(req *gitalypb.WriteRefTxRequest) (*exec.Cmd, error) {
 	repoPath, err := helper.GetRepoPath(req.GetRepository())
 	if err != nil {
 		return nil, err
@@ -129,7 +139,7 @@ func rollbackSymbolicRef(req *gitalypb.WriteRefTxRequest) (command.Cmd, error) {
 	return exec.Command("git", "-C", repoPath, "symoblic-ref", string(req.GetRef()), string(req.GetOldRevision())), nil
 }
 
-func rollbackRef(req *gitalypb.WriteRefTxRequest) (command.Cmd, error) {
+func rollbackRef(req *gitalypb.WriteRefTxRequest) (*exec.Cmd, error) {
 	if string(req.Ref) == "HEAD" {
 		return rollbackSymbolicRef(req)
 	}
@@ -152,7 +162,7 @@ func rollbackRef(req *gitalypb.WriteRefTxRequest) (command.Cmd, error) {
 	return c, nil
 }
 
-func preCommit(req *gitalypb.WriteRefTxRequest) (command.Cmd, error) {
+func preCommit(req *gitalypb.WriteRefTxRequest) (*exec.Cmd, error) {
 	if string(req.Ref) == "HEAD" {
 		return preCommitSymbolicRef(req)
 	}
@@ -162,7 +172,7 @@ func preCommit(req *gitalypb.WriteRefTxRequest) (command.Cmd, error) {
 		return nil, err
 	}
 
-	args := []string{"-C", repoPath, "update-ref", string(req.GetRevision())}
+	args := []string{"-C", repoPath, "update-ref", string(req.GetRef()), string(req.GetRevision())}
 
 	if req.GetOldRevision() != nil {
 		args = append(args, string(req.GetOldRevision()))
@@ -170,10 +180,12 @@ func preCommit(req *gitalypb.WriteRefTxRequest) (command.Cmd, error) {
 
 	c := exec.Command("git", args...)
 
+	logrus.WithField("DA COMMAND ARGS!!!", args).Info("1234567")
+
 	return c, nil
 }
 
-func preCommitSymbolicRef(req *gitalypb.WriteRefTxRequest) (command.Cmd, error) {
+func preCommitSymbolicRef(req *gitalypb.WriteRefTxRequest) (*exec.Cmd, error) {
 	repoPath, err := helper.GetRepoPath(req.GetRepository())
 	if err != nil {
 		return nil, err

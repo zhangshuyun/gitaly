@@ -16,11 +16,11 @@ type server struct {
 	gitalypb.UnimplementedRepositoryServiceServer
 	connsByAddress map[string]*grpc.ClientConn
 	connsMtx       sync.RWMutex
-	transactions   *repository.Transactions
+	transactions   *repository.TransactionManager
 }
 
 // NewServer creates a new instance of a gRPC repo server
-func NewServer(transactions *repository.Transactions, rs *rubyserver.Server) gitalypb.RepositoryServiceServer {
+func NewServer(transactions *repository.TransactionManager, rs *rubyserver.Server) gitalypb.RepositoryServiceServer {
 	return &server{ruby: rs, connsByAddress: make(map[string]*grpc.ClientConn), transactions: transactions}
 }
 

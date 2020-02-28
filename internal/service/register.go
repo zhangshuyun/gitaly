@@ -27,7 +27,7 @@ import (
 
 // RegisterAll will register all the known grpc services with
 // the specified grpc service instance
-func RegisterAll(grpcServer *grpc.Server, rubyServer *rubyserver.Server, transactions *repo.Transactions) {
+func RegisterAll(grpcServer *grpc.Server, rubyServer *rubyserver.Server, transactionMgr *repo.TransactionManager) {
 	gitalypb.RegisterBlobServiceServer(grpcServer, blob.NewServer(rubyServer))
 	gitalypb.RegisterCleanupServiceServer(grpcServer, cleanup.NewServer())
 	gitalypb.RegisterCommitServiceServer(grpcServer, commit.NewServer())
@@ -35,7 +35,7 @@ func RegisterAll(grpcServer *grpc.Server, rubyServer *rubyserver.Server, transac
 	gitalypb.RegisterNamespaceServiceServer(grpcServer, namespace.NewServer())
 	gitalypb.RegisterOperationServiceServer(grpcServer, operations.NewServer(rubyServer))
 	gitalypb.RegisterRefServiceServer(grpcServer, ref.NewServer())
-	gitalypb.RegisterRepositoryServiceServer(grpcServer, repository.NewServer(transactions, rubyServer))
+	gitalypb.RegisterRepositoryServiceServer(grpcServer, repository.NewServer(transactionMgr, rubyServer))
 	gitalypb.RegisterSSHServiceServer(grpcServer, ssh.NewServer())
 	gitalypb.RegisterSmartHTTPServiceServer(grpcServer, smarthttp.NewServer())
 	gitalypb.RegisterWikiServiceServer(grpcServer, wiki.NewServer(rubyServer))

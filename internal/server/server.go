@@ -79,7 +79,7 @@ func createNewServer(rubyServer *rubyserver.Server, secure bool) *grpc.Server {
 
 	lh := limithandler.New(concurrencyKeyFn)
 
-	transactions := repository.NewTransactions()
+	transactionMgr := repository.NewTransactionManager()
 	registry := protoregistry.New()
 	registry.RegisterFiles(protoregistry.GitalyProtoFileDescriptors...)
 
@@ -100,7 +100,7 @@ func createNewServer(rubyServer *rubyserver.Server, secure bool) *grpc.Server {
 			// Panic handler should remain last so that application panics will be
 			// converted to errors and logged
 			panichandler.StreamPanicHandler,
-			repositoryhandler.RepositoryTransactionServerInterceptor(transactions, registry),
+			repositoryhandler.RepositoryTransactionStreamInterceptor(transactionMgr, registry),
 		)),
 		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(
 			grpc_ctxtags.UnaryServerInterceptor(ctxTagOpts...),
@@ -117,7 +117,7 @@ func createNewServer(rubyServer *rubyserver.Server, secure bool) *grpc.Server {
 			// Panic handler should remain last so that application panics will be
 			// converted to errors and logged
 			panichandler.UnaryPanicHandler,
-			repositoryhandler.RepositoryTransactionUnaryInterceptor(transactions, registry),
+			repositoryhandler.RepositoryTransactionUnaryInterceptor(transactionMgr, registry),
 		)),
 	}
 
@@ -133,7 +133,7 @@ func createNewServer(rubyServer *rubyserver.Server, secure bool) *grpc.Server {
 
 	server := grpc.NewServer(opts...)
 
-	service.RegisterAll(server, rubyServer, transactions)
+	service.RegisterAll(server, rubyServer, transactionMgr)
 	reflection.Register(server)
 
 	grpc_prometheus.Register(server)
