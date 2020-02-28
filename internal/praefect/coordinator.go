@@ -175,7 +175,7 @@ func (c *Coordinator) HandleWriteRef(srv interface{}, serverStream grpc.ServerSt
 	var errs []error
 	transactionIDs := make(map[string]nodes.Node)
 
-	// PreCommit
+	// Prepare
 	for _, node := range append(secondaries, primary) {
 		client := gitalypb.NewRepositoryServiceClient(node.GetConnection())
 		targetRepo := &gitalypb.Repository{
@@ -184,15 +184,15 @@ func (c *Coordinator) HandleWriteRef(srv interface{}, serverStream grpc.ServerSt
 		}
 		var trailer metadata.MD
 
+		metadata.AppendToOutgoingContext(ctx, "transaction_step", "prepare")
+
 		if _, err := client.WriteRefTx(ctx, &gitalypb.WriteRefTxRequest{
 			Repository:  targetRepo,
 			Ref:         writeRefReq.Ref,
 			Revision:    writeRefReq.Revision,
 			OldRevision: writeRefReq.OldRevision,
 			Force:       writeRefReq.Force,
-			Transaction: &gitalypb.Transaction{
-				Step: gitalypb.Transaction_PRECOMMIT,
-			}}, grpc.Trailer(&trailer)); err != nil {
+		}, grpc.Trailer(&trailer)); err != nil {
 			errs = append(errs, err)
 		}
 
@@ -204,14 +204,35 @@ func (c *Coordinator) HandleWriteRef(srv interface{}, serverStream grpc.ServerSt
 		transactionIDs[transactionID] = node
 	}
 
+	if len(errs) > 0 {
+		return errors.New("votes failed")
+	}
+
+	// PreCommit
+	for _, node := range transactionIDs {
+		client := gitalypb.NewRepositoryServiceClient(node.GetConnection())
+		targetRepo := &gitalypb.Repository{
+			StorageName:  node.GetStorage(),
+			RelativePath: writeRefReq.GetRepository().GetRelativePath(),
+		}
+
+		metadata.AppendToOutgoingContext(ctx, "transaction_step", "precommit")
+		if _, err := client.WriteRefTx(ctx, &gitalypb.WriteRefTxRequest{
+			Repository:  targetRepo,
+			Ref:         writeRefReq.Ref,
+			Revision:    writeRefReq.Revision,
+			OldRevision: writeRefReq.OldRevision,
+			Force:       writeRefReq.Force,
+		}); err != nil {
+			errs = append(errs, err)
+		}
+	}
+
 	// Commit
 	if len(errs) == 0 {
-		for transactionID, node := range transactionIDs {
+		for _, node := range transactionIDs {
 			client := gitalypb.NewRepositoryServiceClient(node.GetConnection())
-			if _, err = client.WriteRefTx(metadata.AppendToOutgoingContext(ctx, "transaction_id", transactionID), &gitalypb.WriteRefTxRequest{
-				Transaction: &gitalypb.Transaction{
-					Step: gitalypb.Transaction_COMMIT,
-				}}); err != nil {
+			if _, err = client.WriteRefTx(metadata.AppendToOutgoingContext(ctx, "transaction_step", "commit"), &gitalypb.WriteRefTxRequest{}); err != nil {
 				return err
 			}
 		}
@@ -219,13 +240,14 @@ func (c *Coordinator) HandleWriteRef(srv interface{}, serverStream grpc.ServerSt
 		return nil
 	}
 
+	if len(errs) == 0 {
+		return nil
+	}
+
 	// Rollback
-	for transactionID, node := range transactionIDs {
+	for _, node := range transactionIDs {
 		client := gitalypb.NewRepositoryServiceClient(node.GetConnection())
-		if _, err = client.WriteRefTx(metadata.AppendToOutgoingContext(ctx, "transaction_id", transactionID), &gitalypb.WriteRefTxRequest{
-			Transaction: &gitalypb.Transaction{
-				Step: gitalypb.Transaction_ROLLBACK,
-			}}); err != nil {
+		if _, err = client.WriteRefTx(metadata.AppendToOutgoingContext(ctx, "transaction_step", "rollback"), &gitalypb.WriteRefTxRequest{}); err != nil {
 			return err
 		}
 	}

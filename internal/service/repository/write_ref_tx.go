@@ -22,20 +22,28 @@ type writeRefRequest interface {
 }
 
 func (s *server) WriteRefTx(ctx context.Context, req *gitalypb.WriteRefTxRequest) (*gitalypb.WriteRefTxResponse, error) {
-	if req.GetTransaction().Step == gitalypb.Transaction_PRECOMMIT {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return nil, helper.ErrInternal(errors.New("could not get metadata from context"))
+	}
+
+	transactionSteps := md.Get("transaction_step")
+	if len(transactionSteps) == 0 {
+		return nil, nil
+	}
+
+	transactionStep := transactionSteps[len(transactionSteps)-1]
+
+	if transactionStep == "precommit" {
 		if err := validateWriteRefRequest(req); err != nil {
 			return nil, helper.ErrInvalidArgument(err)
 		}
 	}
 
-	if req.Transaction == nil {
-		return nil, helper.ErrInvalidArgument(errors.New("transaction is empty"))
-	}
-
-	return s.transactionalWriteRef(ctx, req)
+	return s.transactionalWriteRef(ctx, req, transactionStep)
 }
 
-func (s *server) transactionalWriteRef(ctx context.Context, req *gitalypb.WriteRefTxRequest) (*gitalypb.WriteRefTxResponse, error) {
+func (s *server) transactionalWriteRef(ctx context.Context, req *gitalypb.WriteRefTxRequest, transactionStep string) (*gitalypb.WriteRefTxResponse, error) {
 	var resp gitalypb.WriteRefTxResponse
 
 	md, ok := metadata.FromIncomingContext(ctx)
@@ -48,28 +56,31 @@ func (s *server) transactionalWriteRef(ctx context.Context, req *gitalypb.WriteR
 
 	transactionID := md.Get("transaction_id")[0]
 
-	switch req.Transaction.Step {
-	case gitalypb.Transaction_PRECOMMIT:
-		err := preCommit(ctx, req)
+	switch transactionStep {
+	case "prepare":
+		err := prepare(ctx, req)
 		if err != nil {
 			return nil, err
 		}
 
+		s.transactions.Start(transactionID)
+	case "precommit":
 		rollback, err := rollbackRef(req)
 		if err != nil {
 			return nil, err
 		}
-
-		s.transactions.Start(transactionID, rollback)
-	case gitalypb.Transaction_COMMIT:
-		if err := writeRef(ctx, req); err != nil {
-			return nil, helper.ErrInternal(err)
+		commit, err := preCommit(req)
+		if err != nil {
+			return nil, err
 		}
 
+		s.transactions.SetRollback(transactionID, rollback)
+		s.transactions.PreCommit(transactionID, commit)
+	case "commit":
 		if err := s.transactions.Commit(transactionID); err != nil {
 			return nil, err
 		}
-	case gitalypb.Transaction_ROLLBACK:
+	case "rollback":
 		if err := s.transactions.Rollback(transactionID); err != nil {
 			return nil, err
 		}
@@ -80,7 +91,7 @@ func (s *server) transactionalWriteRef(ctx context.Context, req *gitalypb.WriteR
 	return &resp, nil
 }
 
-func preCommit(ctx context.Context, req *gitalypb.WriteRefTxRequest) error {
+func prepare(ctx context.Context, req *gitalypb.WriteRefTxRequest) error {
 	if req.GetOldRevision() == nil {
 		return nil
 	}
@@ -109,8 +120,13 @@ func preCommit(ctx context.Context, req *gitalypb.WriteRefTxRequest) error {
 	return nil
 }
 
-func rollbackSymbolicRef(req *gitalypb.WriteRefTxRequest) (*command.Command, error) {
-	return git.SafeCmd(context.Background(), req.GetRepository(), nil, git.SubCmd{Name: "symbolic-ref", Args: []string{string(req.GetRef()), string(req.GetOldRevision())}})
+func rollbackSymbolicRef(req *gitalypb.WriteRefTxRequest) (command.Cmd, error) {
+	repoPath, err := helper.GetRepoPath(req.GetRepository())
+	if err != nil {
+		return nil, err
+	}
+
+	return exec.Command("git", "-C", repoPath, "symoblic-ref", string(req.GetRef()), string(req.GetOldRevision())), nil
 }
 
 func rollbackRef(req *gitalypb.WriteRefTxRequest) (command.Cmd, error) {
@@ -134,4 +150,34 @@ func rollbackRef(req *gitalypb.WriteRefTxRequest) (command.Cmd, error) {
 	c := exec.Command("git", args...)
 
 	return c, nil
+}
+
+func preCommit(req *gitalypb.WriteRefTxRequest) (command.Cmd, error) {
+	if string(req.Ref) == "HEAD" {
+		return preCommitSymbolicRef(req)
+	}
+
+	repoPath, err := helper.GetRepoPath(req.GetRepository())
+	if err != nil {
+		return nil, err
+	}
+
+	args := []string{"-C", repoPath, "update-ref", string(req.GetRevision())}
+
+	if req.GetOldRevision() != nil {
+		args = append(args, string(req.GetOldRevision()))
+	}
+
+	c := exec.Command("git", args...)
+
+	return c, nil
+}
+
+func preCommitSymbolicRef(req *gitalypb.WriteRefTxRequest) (command.Cmd, error) {
+	repoPath, err := helper.GetRepoPath(req.GetRepository())
+	if err != nil {
+		return nil, err
+	}
+
+	return exec.Command("git", "-C", repoPath, "symoblic-ref", string(req.GetRef()), string(req.GetRevision())), nil
 }

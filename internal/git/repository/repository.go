@@ -3,6 +3,7 @@ package repository
 import (
 	"errors"
 	"sync"
+	"time"
 
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/internal/command"
@@ -55,7 +56,7 @@ func (t *Transactions) NewTransaction(transactionID string, repo *gitalypb.Repos
 	t.repoMutex.Unlock()
 }
 
-func (t *Transactions) Start(transactionID string, rollback command.Cmd) {
+func (t *Transactions) Start(transactionID string) {
 	t.txMutex.Lock()
 	defer t.txMutex.Unlock()
 
@@ -65,19 +66,58 @@ func (t *Transactions) Start(transactionID string, rollback command.Cmd) {
 	}
 
 	t.transactions[transactionID].inProgress = true
-	t.transactions[transactionID].Rollback = rollback
+
+	go func() {
+		<-time.NewTimer(1 * time.Second).C
+		t.txMutex.Lock()
+		tx, ok := t.transactions[transactionID]
+		if !ok {
+			return
+		}
+		if tx.prepared {
+			t.log.WithField("transaction_id", transactionID).Info("transaction has already been prepared")
+			return
+		}
+		t.txMutex.Unlock()
+
+		t.log.WithField("transaction_id", transactionID).Info("transaction has not been prepared and is timing out")
+		t.Unlock(transactionID)
+	}()
+}
+
+func (t *Transactions) PreCommit(transactionID string, c command.Cmd) {
+	t.txMutex.Lock()
+	defer t.txMutex.Unlock()
+
+	tx, ok := t.transactions[transactionID]
+	if !ok {
+		return
+	}
+
+	go tx.PrepareCommitAndWait(c, 2*time.Second)
+}
+
+func (t *Transactions) SetRollback(transactionID string, rollback command.Cmd) {
+	t.txMutex.Lock()
+	defer t.txMutex.Unlock()
+	tx, ok := t.transactions[transactionID]
+	if !ok {
+		return
+	}
+
+	tx.Rollback = rollback
 }
 
 func (t *Transactions) Commit(transactionID string) error {
 	t.txMutex.Lock()
 	defer t.txMutex.Unlock()
 
-	_, ok := t.transactions[transactionID]
+	tx, ok := t.transactions[transactionID]
 	if !ok {
 		return errors.New("request_id not found")
 	}
 
-	t.transactions[transactionID].inProgress = false
+	tx.Commit()
 
 	t.log.WithField("transaction_id", transactionID).Info("commited")
 	return nil
@@ -134,8 +174,26 @@ func (t *Transactions) TransactionStarted(transactionID string) bool {
 	return ok
 }
 
+func (t *Transaction) PrepareCommitAndWait(c command.Cmd, d time.Duration) {
+	t.prepared = true
+
+	select {
+	case <-time.NewTimer(d).C:
+	case <-t.commitCh:
+	}
+
+	t.commitErr = c.Wait()
+	t.inProgress = false
+}
+
+func (t *Transaction) Commit() {
+	close(t.commitCh)
+}
+
 type Transaction struct {
-	Repo       GitRepo
-	Rollback   command.Cmd
-	inProgress bool
+	Repo                 GitRepo
+	Rollback             command.Cmd
+	commitErr            error
+	commitCh             chan struct{}
+	inProgress, prepared bool
 }
