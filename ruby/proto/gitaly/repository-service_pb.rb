@@ -115,10 +115,8 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
     optional :revision, :bytes, 3
     optional :old_revision, :bytes, 4
     optional :force, :bool, 5
-    optional :transaction, :message, 7, "gitaly.Transaction"
   end
   add_message "gitaly.WriteRefTxResponse" do
-    optional :transaction, :message, 1, "gitaly.Transaction"
   end
   add_message "gitaly.FindMergeBaseRequest" do
     optional :repository, :message, 1, "gitaly.Repository"
