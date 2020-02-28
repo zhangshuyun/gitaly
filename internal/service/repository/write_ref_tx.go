@@ -7,7 +7,6 @@ import (
 	"os/exec"
 
 	"github.com/sirupsen/logrus"
-
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"

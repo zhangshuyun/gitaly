@@ -85,7 +85,7 @@ func runRepoServer(t *testing.T) (*grpc.Server, string) {
 		t.Fatal(err)
 	}
 
-	gitalypb.RegisterRepositoryServiceServer(server, NewServer(repo.NewTransactions(), RubyServer))
+	gitalypb.RegisterRepositoryServiceServer(server, NewServer(repo.NewTransactionManager(), RubyServer))
 	reflection.Register(server)
 
 	go server.Serve(listener)

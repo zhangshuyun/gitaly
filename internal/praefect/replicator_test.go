@@ -450,7 +450,7 @@ func newReplicationService(tb testing.TB) (*grpc.Server, string) {
 
 	svr := testhelper.NewTestGrpcServer(tb, nil, nil)
 
-	gitalypb.RegisterRepositoryServiceServer(svr, repository.NewServer(repo.NewTransactions(), &rubyserver.Server{}))
+	gitalypb.RegisterRepositoryServiceServer(svr, repository.NewServer(repo.NewTransactionManager(), &rubyserver.Server{}))
 	gitalypb.RegisterObjectPoolServiceServer(svr, objectpoolservice.NewServer())
 	gitalypb.RegisterRemoteServiceServer(svr, remote.NewServer(&rubyserver.Server{}))
 	reflection.Register(svr)

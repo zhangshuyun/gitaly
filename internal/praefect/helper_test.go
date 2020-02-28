@@ -254,7 +254,7 @@ func runInternalGitalyServer(t *testing.T, token string) (*grpc.Server, string, 
 	require.NoError(t, rubyServer.Start())
 
 	gitalypb.RegisterServerServiceServer(server, gitalyserver.NewServer())
-	gitalypb.RegisterRepositoryServiceServer(server, repository.NewServer(repo.NewTransactions(), rubyServer))
+	gitalypb.RegisterRepositoryServiceServer(server, repository.NewServer(repo.NewTransactionManager(), rubyServer))
 	healthpb.RegisterHealthServer(server, health.NewServer())
 
 	errQ := make(chan error)

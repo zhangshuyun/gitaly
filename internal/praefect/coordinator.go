@@ -11,6 +11,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/protoc-gen-go/descriptor"
 	"github.com/sirupsen/logrus"
+	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/grpc-proxy/proxy"
@@ -37,8 +38,9 @@ type Coordinator struct {
 
 	datastore datastore.Datastore
 
-	registry *protoregistry.Registry
-	conf     config.Config
+	registry   *protoregistry.Registry
+	conf       config.Config
+	replicator Replicator
 }
 
 // NewCoordinator returns a new Coordinator that utilizes the provided logger
@@ -53,6 +55,10 @@ func NewCoordinator(l *logrus.Entry, ds datastore.Datastore, nodeMgr nodes.Manag
 		nodeMgr:   nodeMgr,
 		conf:      conf,
 	}
+}
+
+func (c *Coordinator) SetReplicator(replicator Replicator) {
+	c.replicator = replicator
 }
 
 // RegisterProtos allows coordinator to register new protos on the fly
@@ -148,7 +154,6 @@ func (c *Coordinator) streamDirector(ctx context.Context, fullMethodName string,
 }
 
 func (c *Coordinator) HandleWriteRef(srv interface{}, serverStream grpc.ServerStream) error {
-	c.log.Info("I'm in Handle write rEFFFFFFFFFFFFFFFFFFFFFF!!!!!!!!!!!!!!")
 	var writeRefReq gitalypb.WriteRefRequest
 
 	if err := serverStream.RecvMsg(&writeRefReq); err != nil {
@@ -194,6 +199,7 @@ func (c *Coordinator) HandleWriteRef(srv interface{}, serverStream grpc.ServerSt
 			Force:       writeRefReq.Force,
 		}, grpc.Trailer(&trailer)); err != nil {
 			errs = append(errs, err)
+			continue
 		}
 
 		if len(trailer.Get("transaction_id")) == 0 {
@@ -235,26 +241,43 @@ func (c *Coordinator) HandleWriteRef(srv interface{}, serverStream grpc.ServerSt
 		for transactionID, node := range transactionIDs {
 			client := gitalypb.NewRepositoryServiceClient(node.GetConnection())
 			if _, err = client.WriteRefTx(metadata.AppendToOutgoingContext(ctx, "transaction_step", "commit", "transaction_id", transactionID), &gitalypb.WriteRefTxRequest{}); err != nil {
+				if node == primary {
+					return errors.New("primary write failed")
+				}
+
+				injectedCtx, err := helper.InjectGitalyServers(metadata.AppendToOutgoingContext(ctx, "transaction_step", "recover", "transaction_id", transactionID), primary.GetStorage(), primary.GetAddress(), primary.GetToken())
+				if err != nil {
+					return err
+				}
+				client.ReplicateRepository(injectedCtx, &gitalypb.ReplicateRepositoryRequest{
+					Repository: &gitalypb.Repository{
+						StorageName:  node.GetStorage(),
+						RelativePath: writeRefReq.GetRepository().GetRelativePath(),
+					},
+					Source: &gitalypb.Repository{
+						StorageName:  primary.GetStorage(),
+						RelativePath: writeRefReq.GetRepository().GetRelativePath(),
+					},
+				})
+			}
+		}
+	}
+	/*
+
+		if len(errs) == 0 {
+			return nil
+		}
+
+		c.log.Info("about to rollback")
+		// rollback
+		for _, node := range transactionIDs {
+			client := gitalypb.NewRepositoryServiceClient(node.GetConnection())
+			if _, err = client.WriteRefTx(metadata.AppendToOutgoingContext(ctx, "transaction_step", "rollback"), &gitalypb.WriteRefTxRequest{}); err != nil {
 				return err
 			}
 		}
 
-		return nil
-	}
-
-	if len(errs) == 0 {
-		return nil
-	}
-
-	c.log.Info("about to rollback")
-	// rollback
-	for _, node := range transactionIDs {
-		client := gitalypb.NewRepositoryServiceClient(node.GetConnection())
-		if _, err = client.WriteRefTx(metadata.AppendToOutgoingContext(ctx, "transaction_step", "rollback"), &gitalypb.WriteRefTxRequest{}); err != nil {
-			return err
-		}
-	}
-
+	*/
 	return nil
 }
 

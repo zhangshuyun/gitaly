@@ -6,9 +6,8 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/sirupsen/logrus"
-
 	"github.com/google/uuid"
+	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -43,7 +42,6 @@ func RepositoryTransactionUnaryInterceptor(transactions *repository.TransactionM
 					return nil, errors.New("not a repository request")
 				}
 				if repoReq.GetRepository() != nil {
-
 					logrus.WithField("repository", repoReq.GetRepository()).Info("trying to start new transaction")
 					transactions.NewTransaction(transactionID, repoReq.GetRepository())
 					logrus.WithField("repository", repoReq.GetRepository()).Info("started new transaction")
