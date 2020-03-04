@@ -2,6 +2,7 @@ package nodes
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"sync"
 	"time"
@@ -11,6 +12,7 @@ import (
 	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
 	"gitlab.com/gitlab-org/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/grpc-proxy/proxy"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/models"
 	"google.golang.org/grpc"
@@ -37,9 +39,9 @@ type Node interface {
 }
 
 type shard struct {
-	m           sync.RWMutex
-	primary     *nodeStatus
-	secondaries []*nodeStatus
+	m        sync.RWMutex
+	primary  *nodeStatus
+	allNodes []*nodeStatus
 }
 
 // GetPrimary gets the primary of a shard
@@ -56,8 +58,10 @@ func (s *shard) GetSecondaries() ([]Node, error) {
 	defer s.m.RUnlock()
 
 	var secondaries []Node
-	for _, secondary := range s.secondaries {
-		secondaries = append(secondaries, secondary)
+	for _, node := range s.allNodes {
+		if s.primary != node {
+			secondaries = append(secondaries, node)
+		}
 	}
 
 	return secondaries, nil
@@ -70,18 +74,24 @@ type Mgr struct {
 	// VirtualStorages
 	failoverEnabled bool
 	log             *logrus.Entry
+	db              *sql.DB
 }
 
 // ErrPrimaryNotHealthy indicates the primary of a shard is not in a healthy state and hence
 // should not be used for a new request
 var ErrPrimaryNotHealthy = errors.New("primary is not healthy")
 
-// NewNodeManager creates a new NodeMgr based on virtual storage configs
+// NewManager creates a new NodeMgr based on virtual storage configs
 func NewManager(log *logrus.Entry, c config.Config, dialOpts ...grpc.DialOption) (*Mgr, error) {
+	db, err := glsql.OpenDB(c.DB)
+	if err != nil {
+		return nil, err
+	}
+
 	shards := make(map[string]*shard)
 	for _, virtualStorage := range c.VirtualStorages {
-		var secondaries []*nodeStatus
 		var primary *nodeStatus
+		var nodes []*nodeStatus
 		for _, node := range virtualStorage.Nodes {
 			conn, err := client.Dial(node.Address,
 				append(
@@ -97,17 +107,16 @@ func NewManager(log *logrus.Entry, c config.Config, dialOpts ...grpc.DialOption)
 			}
 			ns := newConnectionStatus(*node, conn, log)
 
+			nodes = append(nodes, ns)
+
 			if node.DefaultPrimary {
 				primary = ns
-				continue
 			}
-
-			secondaries = append(secondaries, ns)
 		}
 
 		shards[virtualStorage.Name] = &shard{
-			primary:     primary,
-			secondaries: secondaries,
+			primary:  primary,
+			allNodes: nodes,
 		}
 	}
 
@@ -115,6 +124,7 @@ func NewManager(log *logrus.Entry, c config.Config, dialOpts ...grpc.DialOption)
 		shards:          shards,
 		log:             log,
 		failoverEnabled: c.FailoverEnabled,
+		db:              db,
 	}, nil
 }
 
@@ -140,6 +150,8 @@ func (n *Mgr) monitor(d time.Duration) {
 	defer ticker.Stop()
 
 	for {
+		n.log.Info("starting health checks!")
+
 		<-ticker.C
 		n.checkShards()
 	}
@@ -162,43 +174,75 @@ func (n *Mgr) GetShard(virtualStorageName string) (Shard, error) {
 	}
 
 	if n.failoverEnabled {
-		if !shard.primary.isHealthy() {
-			return nil, ErrPrimaryNotHealthy
-		}
+		//		if !shard.primary.isHealthy() {
+		//			return nil, ErrPrimaryNotHealthy
+		//		}
 	}
 
 	return shard, nil
 }
 
+func (n *Mgr) updateLeader(shardName string, storageName string) {
+	n.db.Exec("INSERT INTO shard_elections (is_primary, shard_name, node_name, last_seen_active) " +
+		"VALUES ('t', " + "'" + shardName + "'," + "'" + storageName + "', now()) ON CONFLICT (is_primary, shard_name) " +
+		"DO UPDATE SET " +
+		"node_name = " +
+		"CASE WHEN (shard_elections.last_seen_active < now() - interval '20 seconds') THEN " +
+		"shard_elections.node_name " +
+		"ELSE " +
+		"excluded.node_name " +
+		"END, " +
+		"last_seen_active = " +
+		"CASE WHEN (shard_elections.last_seen_active < now() - interval '20 seconds') THEN " +
+		"	 shard_elections.last_seen_active " +
+		"ELSE " +
+		"excluded.last_seen_active " +
+		"END")
+}
+
+func (n *Mgr) LookupPrimary(shardName string) (*nodeStatus, error) {
+	rows, err := n.db.Query("SELECT node_name FROM shard_elections WHERE is_primary IS TRUE AND shard_name = '" + shardName + "'")
+
+	if err != nil {
+		return nil, err
+	}
+
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, err
+		}
+
+		shard := n.shards[shardName]
+
+		for _, node := range shard.allNodes {
+			if node.GetStorage() == name {
+				return node, nil
+			}
+		}
+	}
+
+	return nil, err
+}
+
 func (n *Mgr) checkShards() {
-	for _, shard := range n.shards {
-		shard.primary.check()
-		for _, secondary := range shard.secondaries {
-			secondary.check()
-		}
-
-		if shard.primary.isHealthy() {
-			continue
-		}
-
-		newPrimaryIndex := -1
-		for i, secondary := range shard.secondaries {
-			if secondary.isHealthy() {
-				newPrimaryIndex = i
-				break
+	for shardName, shard := range n.shards {
+		for _, node := range shard.allNodes {
+			if node.check() {
+				n.log.Info("health check good for " + node.GetStorage())
+				n.updateLeader(shardName, node.GetStorage())
+			} else {
+				n.log.Info("health check failed for " + node.GetStorage())
 			}
 		}
 
-		if newPrimaryIndex < 0 {
-			// no healthy secondaries exist
-			continue
+		primary, err := n.LookupPrimary(shardName)
+
+		if err != nil {
+			shard.m.Lock()
+			shard.primary = primary
+			shard.m.Unlock()
 		}
-		shard.m.Lock()
-		newPrimary := shard.secondaries[newPrimaryIndex]
-		shard.secondaries = append(shard.secondaries[:newPrimaryIndex], shard.secondaries[newPrimaryIndex+1:]...)
-		shard.secondaries = append(shard.secondaries, shard.primary)
-		shard.primary = newPrimary
-		shard.m.Unlock()
 	}
 }
 
@@ -252,9 +296,10 @@ func (n *nodeStatus) isHealthy() bool {
 	return true
 }
 
-func (n *nodeStatus) check() {
+func (n *nodeStatus) check() bool {
 	client := healthpb.NewHealthClient(n.ClientConn)
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	success := false
 	defer cancel()
 
 	resp, err := client.Check(ctx, &healthpb.HealthCheckRequest{Service: ""})
@@ -263,10 +308,14 @@ func (n *nodeStatus) check() {
 		resp = &healthpb.HealthCheckResponse{
 			Status: healthpb.HealthCheckResponse_UNKNOWN,
 		}
+	} else {
+		success = resp.Status == healthpb.HealthCheckResponse_SERVING
 	}
 
 	n.statuses = append(n.statuses, resp.Status)
 	if len(n.statuses) > healthcheckThreshold {
 		n.statuses = n.statuses[1:]
 	}
+
+	return success
 }
