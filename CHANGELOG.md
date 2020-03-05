@@ -1,5 +1,9 @@
 # Gitaly changelog
 
+## 12.6.8
+
+- No changes.
+
 ## v1.77.1
 
 
