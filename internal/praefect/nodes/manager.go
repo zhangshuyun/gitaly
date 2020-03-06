@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -150,8 +151,6 @@ func (n *Mgr) monitor(d time.Duration) {
 	defer ticker.Stop()
 
 	for {
-		n.log.Info("starting health checks!")
-
 		<-ticker.C
 		n.checkShards()
 	}
@@ -182,28 +181,40 @@ func (n *Mgr) GetShard(virtualStorageName string) (Shard, error) {
 	return shard, nil
 }
 
-func (n *Mgr) updateLeader(shardName string, storageName string) {
-	n.db.Exec("INSERT INTO shard_elections (is_primary, shard_name, node_name, last_seen_active) " +
-		"VALUES ('t', " + "'" + shardName + "'," + "'" + storageName + "', now()) ON CONFLICT (is_primary, shard_name) " +
-		"DO UPDATE SET " +
-		"node_name = " +
-		"CASE WHEN (shard_elections.last_seen_active < now() - interval '20 seconds') THEN " +
-		"shard_elections.node_name " +
-		"ELSE " +
-		"excluded.node_name " +
-		"END, " +
-		"last_seen_active = " +
-		"CASE WHEN (shard_elections.last_seen_active < now() - interval '20 seconds') THEN " +
-		"	 shard_elections.last_seen_active " +
-		"ELSE " +
-		"excluded.last_seen_active " +
-		"END")
-}
+func (n *Mgr) updateLeader(shardName string, storageName string) error {
+	q := `INSERT INTO shard_elections (is_primary, shard_name, node_name, last_seen_active)
+	VALUES ('t', '%s', '%s', now()) ON CONFLICT (is_primary, shard_name)
+	DO UPDATE SET
+	node_name =
+	  CASE WHEN (shard_elections.last_seen_active < now() - interval '20 seconds') THEN
+  	    excluded.node_name
+	  ELSE
+	    shard_elections.node_name
+	  END,
+	last_seen_active =
+	  CASE WHEN (shard_elections.last_seen_active < now() - interval '20 seconds') THEN
+	    now()
+	  ELSE
+   		shard_elections.last_seen_active
+	  END`
 
-func (n *Mgr) LookupPrimary(shardName string) (*nodeStatus, error) {
-	rows, err := n.db.Query("SELECT node_name FROM shard_elections WHERE is_primary IS TRUE AND shard_name = '" + shardName + "'")
+	_, err := n.db.Exec(fmt.Sprintf(q, shardName, storageName))
 
 	if err != nil {
+		n.log.Errorf("Error updating leader: %s", err)
+	}
+	return err
+}
+
+func (n *Mgr) lookupPrimary(shardName string) (*nodeStatus, error) {
+	q := fmt.Sprintf(`SELECT node_name FROM shard_elections
+	WHERE last_seen_active > now() - interval '20 seconds'
+	AND is_primary IS TRUE
+	AND shard_name = '%s'`, shardName)
+
+	rows, err := n.db.Query(q)
+	if err != nil {
+		n.log.Errorf("Error looking up primary: %s", err)
 		return nil, err
 	}
 
@@ -229,16 +240,18 @@ func (n *Mgr) checkShards() {
 	for shardName, shard := range n.shards {
 		for _, node := range shard.allNodes {
 			if node.check() {
-				n.log.Info("health check good for " + node.GetStorage())
 				n.updateLeader(shardName, node.GetStorage())
-			} else {
-				n.log.Info("health check failed for " + node.GetStorage())
 			}
 		}
 
-		primary, err := n.LookupPrimary(shardName)
+		primary, err := n.lookupPrimary(shardName)
 
-		if err != nil {
+		if err == nil && primary != shard.primary {
+			n.log.WithFields(log.Fields{
+				"old_primary": shard.primary,
+				"new_primary": primary,
+				"shard":       shardName}).Info("primary node changed")
+
 			shard.m.Lock()
 			shard.primary = primary
 			shard.m.Unlock()
