@@ -21,6 +21,8 @@ import (
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
 
+var failoverThresholdSeconds = 20
+
 // Shard is a primary with a set of secondaries
 type Shard interface {
 	GetPrimary() (Node, error)
@@ -187,19 +189,19 @@ func (n *Mgr) updateLeader(shardName string, storageName string) error {
 	VALUES ('t', '%s', '%s', now()) ON CONFLICT (is_primary, shard_name)
 	DO UPDATE SET
 	node_name =
-	  CASE WHEN (shard_elections.last_seen_active < now() - interval '20 seconds') THEN
+	  CASE WHEN (shard_elections.last_seen_active < now() - interval '%d seconds') THEN
   	    excluded.node_name
 	  ELSE
 	    shard_elections.node_name
 	  END,
 	last_seen_active =
-	  CASE WHEN (shard_elections.last_seen_active < now() - interval '20 seconds') THEN
+	  CASE WHEN (shard_elections.last_seen_active < now() - interval '%d seconds') THEN
 	    now()
 	  ELSE
    		shard_elections.last_seen_active
 	  END`
 
-	_, err := n.db.Exec(fmt.Sprintf(q, shardName, storageName))
+	_, err := n.db.Exec(fmt.Sprintf(q, shardName, storageName, failoverThresholdSeconds, failoverThresholdSeconds))
 
 	if err != nil {
 		n.log.Errorf("Error updating leader: %s", err)
@@ -209,9 +211,9 @@ func (n *Mgr) updateLeader(shardName string, storageName string) error {
 
 func (n *Mgr) lookupPrimary(shardName string) (*nodeStatus, error) {
 	q := fmt.Sprintf(`SELECT node_name FROM shard_elections
-	WHERE last_seen_active > now() - interval '20 seconds'
+	WHERE last_seen_active > now() - interval '%d seconds'
 	AND is_primary IS TRUE
-	AND shard_name = '%s'`, shardName)
+	AND shard_name = '%s'`, failoverThresholdSeconds, shardName)
 
 	rows, err := n.db.Query(q)
 	if err != nil {
@@ -239,13 +241,25 @@ func (n *Mgr) lookupPrimary(shardName string) (*nodeStatus, error) {
 }
 
 func (n *Mgr) checkShards() {
+	var wg sync.WaitGroup
+
 	for shardName, shard := range n.shards {
 		for _, node := range shard.allNodes {
-			if node.check() {
-				n.updateLeader(shardName, node.GetStorage())
-			}
+			n.log.Info("checking node " + node.GetStorage() + ": " + node.GetAddress())
+
+			wg.Add(1)
+			go func(node *nodeStatus) {
+				defer wg.Done()
+
+				if node.check() {
+					n.updateLeader(shardName, node.GetStorage())
+				} else {
+					n.log.Info("No response from " + node.GetStorage())
+				}
+			}(node)
 		}
 
+		wg.Wait()
 		primary, err := n.lookupPrimary(shardName)
 
 		if err == nil && primary != shard.primary {
