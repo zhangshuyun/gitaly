@@ -218,6 +218,7 @@ func (n *Mgr) lookupPrimary(shardName string) (*nodeStatus, error) {
 		n.log.Errorf("Error looking up primary: %s", err)
 		return nil, err
 	}
+	defer rows.Close()
 
 	for rows.Next() {
 		var name string
