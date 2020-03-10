@@ -184,6 +184,7 @@ func run(cfgs []starter.Config, conf config.Config) error {
 	}
 
 	srv.RegisterServices(nodeManager, conf)
+	srv.RegisterMutatorMethods(nodeManager, ds)
 
 	b.StopAction = srv.GracefulStop
 	for _, cfg := range cfgs {

@@ -22,8 +22,12 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/internal/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/server/auth"
+	"gitlab.com/gitlab-org/gitaly/internal/service/objectpool"
+	"gitlab.com/gitlab-org/gitaly/internal/service/ref"
+	"gitlab.com/gitlab-org/gitaly/internal/service/remote"
 	"gitlab.com/gitlab-org/gitaly/internal/service/repository"
 	gitalyserver "gitlab.com/gitlab-org/gitaly/internal/service/server"
+	"gitlab.com/gitlab-org/gitaly/internal/service/ssh"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/promtest"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -158,9 +162,14 @@ func noopBackoffFunc() (backoff, backoffReset) {
 	}, func() {}
 }
 
+type PraefectComponents struct {
+	NodeManager nodes.Manager
+	Datastore   datastore.Datastore
+}
+
 // runPraefectServerWithGitaly runs a praefect server with actual Gitaly nodes
 // requires exactly 1 virtual storage
-func runPraefectServerWithGitaly(t *testing.T, conf config.Config) (*grpc.ClientConn, *Server, testhelper.Cleanup) {
+func runPraefectServerWithGitaly(t *testing.T, conf config.Config) (*grpc.ClientConn, PraefectComponents, testhelper.Cleanup) {
 	require.Len(t, conf.VirtualStorages, 1)
 	var cleanups []testhelper.Cleanup
 
@@ -205,6 +214,8 @@ func runPraefectServerWithGitaly(t *testing.T, conf config.Config) (*grpc.Client
 	ctx, cancel := testhelper.Context()
 
 	prf.RegisterServices(nodeMgr, conf)
+	prf.RegisterMutatorMethods(nodeMgr, ds)
+
 	go func() { errQ <- prf.Serve(listener, false) }()
 	go func() { errQ <- replmgr.ProcessBacklog(ctx, noopBackoffFunc) }()
 
@@ -224,7 +235,10 @@ func runPraefectServerWithGitaly(t *testing.T, conf config.Config) (*grpc.Client
 		require.Error(t, context.Canceled, <-errQ)
 	}
 
-	return cc, prf, cleanup
+	return cc, PraefectComponents{
+		NodeManager: nodeMgr,
+		Datastore:   ds,
+	}, cleanup
 }
 
 func runInternalGitalyServer(t *testing.T, token string) (*grpc.Server, string, func()) {
@@ -246,6 +260,10 @@ func runInternalGitalyServer(t *testing.T, token string) (*grpc.Server, string, 
 
 	gitalypb.RegisterServerServiceServer(server, gitalyserver.NewServer())
 	gitalypb.RegisterRepositoryServiceServer(server, repository.NewServer(rubyServer, internalSocket))
+	gitalypb.RegisterRefServiceServer(server, ref.NewServer())
+	gitalypb.RegisterRemoteServiceServer(server, remote.NewServer(rubyServer))
+	gitalypb.RegisterObjectPoolServiceServer(server, objectpool.NewServer())
+	gitalypb.RegisterSSHServiceServer(server, ssh.NewServer())
 	healthpb.RegisterHealthServer(server, health.NewServer())
 
 	errQ := make(chan error)

@@ -17,11 +17,13 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/panichandler"
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/sentryhandler"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/grpc-proxy/proxy"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/middleware"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/nodes"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/service/info"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/service/repository"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/service/server"
 	"gitlab.com/gitlab-org/gitaly/internal/server/auth"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -129,6 +131,13 @@ func (srv *Server) RegisterServices(nm nodes.Manager, conf config.Config) {
 	healthpb.RegisterHealthServer(srv.s, health.NewServer())
 
 	grpc_prometheus.Register(srv.s)
+}
+
+func (srv *Server) RegisterMutatorMethods(nm nodes.Manager, datastore datastore.ReplJobsDatastore) {
+	repoServer := repository.NewServer(nm, datastore)
+	proxy.RegisterStreamHandlers(srv.s, "gitaly.RepositoryService", map[string]grpc.StreamHandler{
+		"WriteRef": repoServer.WriteRef,
+	})
 }
 
 // Shutdown will attempt a graceful shutdown of the grpc server. If unable

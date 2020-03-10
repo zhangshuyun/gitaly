@@ -48,7 +48,7 @@ func (dr defaultReplicator) Replicate(ctx context.Context, job datastore.ReplJob
 		Source:     sourceRepository,
 		Repository: targetRepository,
 	}); err != nil {
-		return fmt.Errorf("failed to create repository: %v", err)
+		return fmt.Errorf("failed to replicate repository: %v", err)
 	}
 
 	// check if the repository has an object pool
