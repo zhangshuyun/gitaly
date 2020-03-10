@@ -73,7 +73,7 @@ describe Gitlab::Git::PushResults do
   describe Gitlab::Git::PushResults::Result do
     describe '#ref_name' do
       it 'deletes only one prefix' do
-        # It's  valid (albeit insane) for a branch to be named `refs/tags/foo`
+        # It's valid (albeit insane) for a branch to be named `refs/tags/foo`
         ref_name = 'refs/heads/refs/tags/branch'
         result = described_class.new('!', ref_name, ref_name, '')
 

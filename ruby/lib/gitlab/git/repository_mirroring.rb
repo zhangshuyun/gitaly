@@ -37,16 +37,20 @@ module Gitlab
         return true if success
 
         results = PushResults.new(@gitlab_projects.output)
+        accepted_refs = results.accepted_refs
+        rejected_refs = results.rejected_refs
 
-        accepted_refs = results.accepted_refs.join(', ')
-        rejected_refs = results.rejected_refs.join(', ')
+        if @gitlab_projects.feature_flags.enabled?(:push_mirror_retry) && accepted_refs.any?
+          @gitlab_projects.push_branches(remote_name, GITLAB_PROJECTS_TIMEOUT, forced, accepted_refs, env: env)
+        else
+          @gitlab_projects.logger.info(
+            "Failed to push to remote #{remote_name}. " \
+            "Accepted: #{accepted_refs.join(', ')} / " \
+            "Rejected: #{rejected_refs.join(', ')}"
+          )
+        end
 
-        @gitlab_projects.logger.info(
-          "Failed to push to remote #{remote_name}. " \
-          "Accepted: #{accepted_refs} / " \
-          "Rejected: #{rejected_refs}"
-        )
-
+        # NOTE: Even with retry, the initial push still failed, so error out
         gitlab_projects_error
       end
 
