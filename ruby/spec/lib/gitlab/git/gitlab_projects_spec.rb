@@ -9,6 +9,7 @@ describe Gitlab::Git::GitlabProjects do
   let(:hooks_path) { File.join(tmp_repo_path, 'hooks') }
   let(:tmp_repo_path) { TEST_REPO_PATH }
   let(:tmp_repos_path) { DEFAULT_STORAGE_DIR }
+  let(:feature_flags) { double.as_null_object }
 
   if $VERBOSE
     let(:logger) { Logger.new(STDOUT) }
@@ -20,7 +21,8 @@ describe Gitlab::Git::GitlabProjects do
     described_class.new(
       *args,
       global_hooks_path: hooks_path,
-      logger: logger
+      logger: logger,
+      feature_flags: feature_flags
     )
   end
 
@@ -52,6 +54,7 @@ describe Gitlab::Git::GitlabProjects do
     it { expect(gl_projects.repository_relative_path).to eq(repo_name) }
     it { expect(gl_projects.repository_absolute_path).to eq(File.join(tmp_repos_path, repo_name)) }
     it { expect(gl_projects.logger).to eq(logger) }
+    it { expect(gl_projects.feature_flags).to eq(feature_flags) }
   end
 
   describe '#push_branches' do

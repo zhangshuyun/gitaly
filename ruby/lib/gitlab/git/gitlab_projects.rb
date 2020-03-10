@@ -19,6 +19,9 @@ module Gitlab
 
       attr_reader :logger
 
+      # GitalyServer::FeatureFlags instance for the current call
+      attr_reader :feature_flags
+
       def self.from_gitaly(gitaly_repository, call)
         storage_path = GitalyServer.storage_path(call)
 
@@ -26,16 +29,19 @@ module Gitlab
           storage_path,
           gitaly_repository.relative_path,
           global_hooks_path: Gitlab::Git::Hook.directory,
-          logger: Rails.logger
+          logger: Rails.logger,
+          feature_flags: GitalyServer.feature_flags(call)
         )
       end
 
-      def initialize(shard_path, repository_relative_path, global_hooks_path:, logger:)
+      def initialize(shard_path, repository_relative_path, global_hooks_path:, logger:, feature_flags: nil)
         @shard_path = shard_path
         @repository_relative_path = repository_relative_path
 
-        @logger = logger
         @global_hooks_path = global_hooks_path
+        @logger = logger
+        @feature_flags = feature_flags || GitalyServer::FeatureFlags.new({})
+
         @output = StringIO.new
       end
 
