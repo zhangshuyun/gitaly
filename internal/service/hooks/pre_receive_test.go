@@ -51,6 +51,11 @@ func TestPreReceive(t *testing.T) {
 	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
+	gitObjectDir := "/some/dir"
+	gitAlternateObjectDirs := []string{"a", "b", "c"}
+	testRepo.GitObjectDirectory = gitObjectDir
+	testRepo.GitAlternateObjectDirectories = gitAlternateObjectDirs
+
 	client, conn := newHooksClient(t, serverSocketPath)
 	defer conn.Close()
 

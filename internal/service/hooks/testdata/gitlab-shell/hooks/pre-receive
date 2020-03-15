@@ -3,7 +3,7 @@
 # Tests inputs to pre-receive
 
 abort("FAIL") if $stdin.read.empty?
-abort("FAIL") if %w[GL_ID GL_REPOSITORY GL_PROTOCOL].any? { |k| ENV[k].empty? }
+abort("FAIL") if %w[GL_ID GL_REPOSITORY GL_PROTOCOL GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES].any? { |k| ENV[k].empty? }
 
 puts "OK"
 

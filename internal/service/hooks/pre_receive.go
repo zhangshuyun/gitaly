@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/internal/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitlabshell"
@@ -22,6 +23,13 @@ func hookRequestEnv(req hookRequest) ([]string, error) {
 	return append(gitlabshell.Env(),
 		fmt.Sprintf("GL_ID=%s", req.GetKeyId()),
 		fmt.Sprintf("GL_REPOSITORY=%s", req.GetRepository().GetGlRepository())), nil
+}
+
+func preReceiveEnv(repo *gitalypb.Repository) []string {
+	return []string{
+		fmt.Sprintf("GIT_OBJECT_DIRECTORY=%s", repo.GetGitObjectDirectory()),
+		fmt.Sprintf("GIT_ALTERNATE_OBJECT_DIRECTORIES=%s", strings.Join(repo.GitAlternateObjectDirectories, ":")),
+	}
 }
 
 func gitlabShellHook(hookName string) string {
@@ -43,6 +51,7 @@ func (s *server) PreReceiveHook(stream gitalypb.HookService_PreReceiveHookServer
 		return helper.ErrInternal(err)
 	}
 
+	hookEnv = append(hookEnv, preReceiveEnv(firstRequest.GetRepository())...)
 	hookEnv = append(hookEnv, fmt.Sprintf("GL_PROTOCOL=%s", firstRequest.GetProtocol()))
 
 	stdin := streamio.NewReader(func() ([]byte, error) {
