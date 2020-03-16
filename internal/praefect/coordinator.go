@@ -58,10 +58,7 @@ func NewCoordinator(l logrus.FieldLogger, ds datastore.Datastore, nodeMgr nodes.
 func (c *Coordinator) directRepositoryScopedMessage(ctx context.Context, mi protoregistry.MethodInfo, peeker proxy.StreamModifier, fullMethodName string, m proto.Message) (*proxy.StreamParameters, error) {
 	targetRepo, err := mi.TargetRepo(m)
 	if err != nil {
-		if err == protoregistry.ErrTargetRepoMissing {
-			return nil, helper.ErrInvalidArgument(err)
-		}
-		return nil, err
+		return nil, helper.ErrInvalidArgument(err)
 	}
 
 	if targetRepo.StorageName == "" || targetRepo.RelativePath == "" {
@@ -82,10 +79,6 @@ func (c *Coordinator) directRepositoryScopedMessage(ctx context.Context, mi prot
 	}
 
 	if err = c.rewriteStorageForRepositoryMessage(mi, m, peeker, primary.GetStorage()); err != nil {
-		if err == protoregistry.ErrTargetRepoMissing {
-			return nil, helper.ErrInvalidArgument(err)
-		}
-
 		return nil, err
 	}
 
@@ -152,7 +145,7 @@ func (c *Coordinator) StreamDirector(ctx context.Context, fullMethodName string,
 func (c *Coordinator) rewriteStorageForRepositoryMessage(mi protoregistry.MethodInfo, m proto.Message, peeker proxy.StreamModifier, primaryStorage string) error {
 	targetRepo, err := mi.TargetRepo(m)
 	if err != nil {
-		return err
+		return helper.ErrInvalidArgument(err)
 	}
 
 	// rewrite storage name
@@ -160,7 +153,7 @@ func (c *Coordinator) rewriteStorageForRepositoryMessage(mi protoregistry.Method
 
 	additionalRepo, ok, err := mi.AdditionalRepo(m)
 	if err != nil {
-		return err
+		return helper.ErrInvalidArgument(err)
 	}
 
 	if ok {
