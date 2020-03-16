@@ -35,8 +35,8 @@ func TestSuccessfulMerge(t *testing.T) {
 	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
-	server, serverSocketPath := runOperationServiceServer(t)
-	defer server.Stop()
+	serverSocketPath, stop := runOperationServiceServer(t)
+	defer stop()
 
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
@@ -50,7 +50,7 @@ func TestSuccessfulMerge(t *testing.T) {
 	hookTempfiles := make([]string, len(hooks))
 	for i, h := range hooks {
 		var cleanup func()
-		hookTempfiles[i], cleanup = testhelper.WriteEnvToCustomHook(t, testRepoPath, h)
+		hookTempfiles[i], cleanup = WriteEnvToCustomHook(t, testRepoPath, h)
 		defer cleanup()
 	}
 
@@ -111,8 +111,8 @@ func TestAbortedMerge(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	server, serverSocketPath := runOperationServiceServer(t)
-	defer server.Stop()
+	serverSocketPath, stop := runOperationServiceServer(t)
+	defer stop()
 
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
@@ -182,8 +182,8 @@ func TestFailedMergeConcurrentUpdate(t *testing.T) {
 	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
-	server, serverSocketPath := runOperationServiceServer(t)
-	defer server.Stop()
+	serverSocketPath, stop := runOperationServiceServer(t)
+	defer stop()
 
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
@@ -226,8 +226,8 @@ func TestFailedMergeDueToHooks(t *testing.T) {
 	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
-	server, serverSocketPath := runOperationServiceServer(t)
-	defer server.Stop()
+	serverSocketPath, stop := runOperationServiceServer(t)
+	defer stop()
 
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
@@ -241,7 +241,7 @@ func TestFailedMergeDueToHooks(t *testing.T) {
 
 	for _, hookName := range gitlabPreHooks {
 		t.Run(hookName, func(t *testing.T) {
-			remove, err := testhelper.WriteCustomHook(testRepoPath, hookName, hookContent)
+			remove, err := WriteCustomHook(testRepoPath, hookName, hookContent)
 			require.NoError(t, err)
 			defer remove()
 
@@ -288,8 +288,8 @@ func TestSuccessfulUserFFBranchRequest(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	server, serverSocketPath := runOperationServiceServer(t)
-	defer server.Stop()
+	serverSocketPath, stop := runOperationServiceServer(t)
+	defer stop()
 
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
@@ -327,8 +327,8 @@ func TestSuccessfulUserFFBranchRequest(t *testing.T) {
 }
 
 func TestFailedUserFFBranchRequest(t *testing.T) {
-	server, serverSocketPath := runOperationServiceServer(t)
-	defer server.Stop()
+	serverSocketPath, stop := runOperationServiceServer(t)
+	defer stop()
 
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
@@ -422,8 +422,8 @@ func TestFailedUserFFBranchRequest(t *testing.T) {
 }
 
 func TestFailedUserFFBranchDueToHooks(t *testing.T) {
-	server, serverSocketPath := runOperationServiceServer(t)
-	defer server.Stop()
+	serverSocketPath, stop := runOperationServiceServer(t)
+	defer stop()
 
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
@@ -450,7 +450,7 @@ func TestFailedUserFFBranchDueToHooks(t *testing.T) {
 
 	for _, hookName := range gitlabPreHooks {
 		t.Run(hookName, func(t *testing.T) {
-			remove, err := testhelper.WriteCustomHook(testRepoPath, hookName, hookContent)
+			remove, err := WriteCustomHook(testRepoPath, hookName, hookContent)
 			require.NoError(t, err)
 			defer remove()
 
@@ -465,8 +465,8 @@ func TestFailedUserFFBranchDueToHooks(t *testing.T) {
 }
 
 func TestSuccessfulUserMergeToRefRequest(t *testing.T) {
-	server, serverSocketPath := runOperationServiceServer(t)
-	defer server.Stop()
+	serverSocketPath, stop := runOperationServiceServer(t)
+	defer stop()
 
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
@@ -574,8 +574,8 @@ func TestSuccessfulUserMergeToRefRequest(t *testing.T) {
 }
 
 func TestFailedUserMergeToRefRequest(t *testing.T) {
-	server, serverSocketPath := runOperationServiceServer(t)
-	defer server.Stop()
+	serverSocketPath, stop := runOperationServiceServer(t)
+	defer stop()
 
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
@@ -676,8 +676,8 @@ func TestFailedUserMergeToRefRequest(t *testing.T) {
 }
 
 func TestUserMergeToRefIgnoreHooksRequest(t *testing.T) {
-	server, serverSocketPath := runOperationServiceServer(t)
-	defer server.Stop()
+	serverSocketPath, stop := runOperationServiceServer(t)
+	defer stop()
 
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
@@ -703,7 +703,7 @@ func TestUserMergeToRefIgnoreHooksRequest(t *testing.T) {
 
 	for _, hookName := range gitlabPreHooks {
 		t.Run(hookName, func(t *testing.T) {
-			remove, err := testhelper.WriteCustomHook(testRepoPath, hookName, hookContent)
+			remove, err := WriteCustomHook(testRepoPath, hookName, hookContent)
 			require.NoError(t, err)
 			defer remove()
 

@@ -10,7 +10,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/pktline"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/streamio"
 	"google.golang.org/grpc/codes"
@@ -55,11 +54,6 @@ func handleInfoRefs(ctx context.Context, service string, req *gitalypb.InfoRefsR
 	if service == "receive-pack" {
 		globalOpts = append(globalOpts, git.ReceivePackConfig()...)
 	}
-
-	if service == "upload-pack" && featureflag.IsEnabled(ctx, featureflag.UploadPackFilter) {
-		globalOpts = append(globalOpts, git.UploadPackFilterConfig()...)
-	}
-
 	for _, o := range req.GitConfigOptions {
 		globalOpts = append(globalOpts, git.ValueFlag{"-c", o})
 	}

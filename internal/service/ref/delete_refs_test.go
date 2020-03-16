@@ -11,8 +11,8 @@ import (
 )
 
 func TestSuccessfulDeleteRefs(t *testing.T) {
-	server, serverSocketPath := runRefServiceServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRefServiceServer(t)
+	defer stop()
 
 	client, conn := newRefServiceClient(t, serverSocketPath)
 	defer conn.Close()
@@ -64,8 +64,8 @@ func TestSuccessfulDeleteRefs(t *testing.T) {
 }
 
 func TestFailedDeleteRefsRequestDueToGitError(t *testing.T) {
-	server, serverSocketPath := runRefServiceServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRefServiceServer(t)
+	defer stop()
 
 	client, conn := newRefServiceClient(t, serverSocketPath)
 	defer conn.Close()
@@ -88,8 +88,8 @@ func TestFailedDeleteRefsRequestDueToGitError(t *testing.T) {
 }
 
 func TestFailedDeleteRefsDueToValidation(t *testing.T) {
-	server, serverSocketPath := runRefServiceServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRefServiceServer(t)
+	defer stop()
 
 	client, conn := newRefServiceClient(t, serverSocketPath)
 	defer conn.Close()

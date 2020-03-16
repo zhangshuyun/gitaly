@@ -17,8 +17,8 @@ type conflictFile struct {
 }
 
 func TestSuccessfulListConflictFilesRequest(t *testing.T) {
-	server, serverSocketPath := runConflictsServer(t)
-	defer server.Stop()
+	serverSocketPath, stop := runConflictsServer(t)
+	defer stop()
 
 	client, conn := NewConflictsClient(t, serverSocketPath)
 	defer conn.Close()
@@ -93,8 +93,8 @@ end
 }
 
 func TestListConflictFilesFailedPrecondition(t *testing.T) {
-	server, serverSocketPath := runConflictsServer(t)
-	defer server.Stop()
+	serverSocketPath, stop := runConflictsServer(t)
+	defer stop()
 
 	client, conn := NewConflictsClient(t, serverSocketPath)
 	defer conn.Close()
@@ -158,8 +158,8 @@ func TestListConflictFilesFailedPrecondition(t *testing.T) {
 }
 
 func TestFailedListConflictFilesRequestDueToValidation(t *testing.T) {
-	server, serverSocketPath := runConflictsServer(t)
-	defer server.Stop()
+	serverSocketPath, stop := runConflictsServer(t)
+	defer stop()
 
 	client, conn := NewConflictsClient(t, serverSocketPath)
 	defer conn.Close()

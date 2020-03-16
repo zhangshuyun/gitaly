@@ -30,8 +30,8 @@ func TestSuccessfulUserSquashRequest(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	server, serverSocketPath := runOperationServiceServer(t)
-	defer server.Stop()
+	serverSocketPath, stop := runOperationServiceServer(t)
+	defer stop()
 
 	client, conn := NewOperationClient(t, serverSocketPath)
 	defer conn.Close()
@@ -80,8 +80,8 @@ func TestSuccessfulUserSquashRequestWith3wayMerge(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	server, serverSocketPath := runOperationServiceServer(t)
-	defer server.Stop()
+	serverSocketPath, stop := runOperationServiceServer(t)
+	defer stop()
 
 	client, conn := NewOperationClient(t, serverSocketPath)
 	defer conn.Close()
@@ -128,8 +128,8 @@ func TestSplitIndex(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	server, serverSocketPath := runOperationServiceServer(t)
-	defer server.Stop()
+	serverSocketPath, stop := runOperationServiceServer(t)
+	defer stop()
 
 	client, conn := NewOperationClient(t, serverSocketPath)
 	defer conn.Close()
@@ -159,8 +159,8 @@ func TestSquashRequestWithRenamedFiles(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	server, serverSocketPath := runOperationServiceServer(t)
-	defer server.Stop()
+	serverSocketPath, stop := runOperationServiceServer(t)
+	defer stop()
 
 	client, conn := NewOperationClient(t, serverSocketPath)
 	defer conn.Close()
@@ -221,8 +221,8 @@ func TestSuccessfulUserSquashRequestWithMissingFileOnTargetBranch(t *testing.T) 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	server, serverSocketPath := runOperationServiceServer(t)
-	defer server.Stop()
+	serverSocketPath, stop := runOperationServiceServer(t)
+	defer stop()
 
 	client, conn := NewOperationClient(t, serverSocketPath)
 	defer conn.Close()
@@ -248,8 +248,8 @@ func TestSuccessfulUserSquashRequestWithMissingFileOnTargetBranch(t *testing.T) 
 }
 
 func TestFailedUserSquashRequestDueToValidations(t *testing.T) {
-	server, serverSocketPath := runOperationServiceServer(t)
-	defer server.Stop()
+	serverSocketPath, stop := runOperationServiceServer(t)
+	defer stop()
 
 	client, conn := NewOperationClient(t, serverSocketPath)
 	defer conn.Close()

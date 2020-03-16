@@ -1,7 +1,6 @@
 package smarthttp
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -16,7 +15,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/config"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/objectpool"
-	"gitlab.com/gitlab-org/gitaly/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/tempdir"
@@ -28,8 +26,8 @@ import (
 )
 
 func TestSuccessfulInfoRefsUploadPack(t *testing.T) {
-	server, serverSocketPath := runSmartHTTPServer(t)
-	defer server.Stop()
+	serverSocketPath, stop := runSmartHTTPServer(t)
+	defer stop()
 
 	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
@@ -44,44 +42,9 @@ func TestSuccessfulInfoRefsUploadPack(t *testing.T) {
 	})
 }
 
-func TestSuccessfulInfoRefsUploadWithPartialClone(t *testing.T) {
-	server, serverSocketPath := runSmartHTTPServer(t)
-	defer server.Stop()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-
-	testRepo := testhelper.TestRepository()
-
-	request := &gitalypb.InfoRefsRequest{
-		Repository: testRepo,
-	}
-
-	fullResponse, err := makeInfoRefsUploadPackRequest(ctx, t, serverSocketPath, request)
-	require.NoError(t, err)
-	fullRefs := stats.Get{}
-	err = fullRefs.Parse(bytes.NewReader(fullResponse))
-	require.NoError(t, err)
-
-	ctx = featureflag.OutgoingCtxWithFeatureFlag(ctx, featureflag.UploadPackFilter)
-
-	partialResponse, err := makeInfoRefsUploadPackRequest(ctx, t, serverSocketPath, request)
-	require.NoError(t, err)
-	partialRefs := stats.Get{}
-	err = partialRefs.Parse(bytes.NewReader(partialResponse))
-	require.NoError(t, err)
-
-	require.Equal(t, fullRefs.Refs(), partialRefs.Refs())
-
-	for _, c := range []string{"allow-tip-sha1-in-want", "allow-reachable-sha1-in-want", "filter"} {
-		require.Contains(t, partialRefs.Caps(), c)
-		require.NotContains(t, fullRefs.Caps(), c)
-	}
-}
-
 func TestSuccessfulInfoRefsUploadPackWithGitConfigOptions(t *testing.T) {
-	server, serverSocketPath := runSmartHTTPServer(t)
-	defer server.Stop()
+	serverSocketPath, stop := runSmartHTTPServer(t)
+	defer stop()
 
 	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
@@ -102,8 +65,8 @@ func TestSuccessfulInfoRefsUploadPackWithGitProtocol(t *testing.T) {
 	restore := testhelper.EnableGitProtocolV2Support()
 	defer restore()
 
-	server, serverSocketPath := runSmartHTTPServer(t)
-	defer server.Stop()
+	serverSocketPath, stop := runSmartHTTPServer(t)
+	defer stop()
 
 	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
@@ -153,8 +116,8 @@ func makeInfoRefsUploadPackRequest(ctx context.Context, t *testing.T, serverSock
 }
 
 func TestSuccessfulInfoRefsReceivePack(t *testing.T) {
-	server, serverSocketPath := runSmartHTTPServer(t)
-	defer server.Stop()
+	serverSocketPath, stop := runSmartHTTPServer(t)
+	defer stop()
 
 	client, conn := newSmartHTTPClient(t, serverSocketPath)
 	defer conn.Close()
@@ -186,8 +149,8 @@ func TestSuccessfulInfoRefsReceivePack(t *testing.T) {
 }
 
 func TestObjectPoolRefAdvertisementHiding(t *testing.T) {
-	server, serverSocketPath := runSmartHTTPServer(t)
-	defer server.Stop()
+	serverSocketPath, stop := runSmartHTTPServer(t)
+	defer stop()
 
 	client, conn := newSmartHTTPClient(t, serverSocketPath)
 	defer conn.Close()
@@ -223,8 +186,8 @@ func TestObjectPoolRefAdvertisementHiding(t *testing.T) {
 }
 
 func TestFailureRepoNotFoundInfoRefsReceivePack(t *testing.T) {
-	server, serverSocketPath := runSmartHTTPServer(t)
-	defer server.Stop()
+	serverSocketPath, stop := runSmartHTTPServer(t)
+	defer stop()
 
 	client, conn := newSmartHTTPClient(t, serverSocketPath)
 	defer conn.Close()
@@ -245,8 +208,8 @@ func TestFailureRepoNotFoundInfoRefsReceivePack(t *testing.T) {
 }
 
 func TestFailureRepoNotSetInfoRefsReceivePack(t *testing.T) {
-	server, serverSocketPath := runSmartHTTPServer(t)
-	defer server.Stop()
+	serverSocketPath, stop := runSmartHTTPServer(t)
+	defer stop()
 
 	client, conn := newSmartHTTPClient(t, serverSocketPath)
 	defer conn.Close()
@@ -287,8 +250,8 @@ func assertGitRefAdvertisement(t *testing.T, rpc, responseBody string, firstLine
 func TestCacheInfoRefsUploadPack(t *testing.T) {
 	clearCache(t)
 
-	server, serverSocketPath := runSmartHTTPServer(t)
-	defer server.Stop()
+	serverSocketPath, stop := runSmartHTTPServer(t)
+	defer stop()
 
 	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()

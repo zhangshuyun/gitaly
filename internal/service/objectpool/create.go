@@ -4,13 +4,10 @@ import (
 	"context"
 
 	"gitlab.com/gitlab-org/gitaly/internal/git/objectpool"
-	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
-
-var errInvalidPoolDir = helper.ErrInvalidArgument(objectpool.ErrInvalidPoolDir)
 
 func (s *server) CreateObjectPool(ctx context.Context, in *gitalypb.CreateObjectPoolRequest) (*gitalypb.CreateObjectPoolResponse, error) {
 	if in.GetOrigin() == nil {
@@ -58,14 +55,5 @@ func poolForRequest(req poolRequest) (*objectpool.ObjectPool, error) {
 		return nil, status.Errorf(codes.InvalidArgument, "no object pool repository")
 	}
 
-	pool, err := objectpool.NewObjectPool(poolRepo.GetStorageName(), poolRepo.GetRelativePath())
-	if err != nil {
-		if err == objectpool.ErrInvalidPoolDir {
-			return nil, errInvalidPoolDir
-		}
-
-		return nil, helper.ErrInternal(err)
-	}
-
-	return pool, nil
+	return objectpool.NewObjectPool(poolRepo.GetStorageName(), poolRepo.GetRelativePath())
 }

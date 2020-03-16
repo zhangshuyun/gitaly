@@ -27,8 +27,8 @@ import (
 )
 
 func TestFailedReceivePackRequestDueToValidationError(t *testing.T) {
-	server, serverSocketPath := runSSHServer(t)
-	defer server.Stop()
+	serverSocketPath, stop := runSSHServer(t)
+	defer stop()
 
 	client, conn := newSSHClient(t, serverSocketPath)
 	defer conn.Close()
@@ -84,8 +84,8 @@ func TestReceivePackPushSuccess(t *testing.T) {
 	hookOutputFile, cleanup := testhelper.CaptureHookEnv(t)
 	defer cleanup()
 
-	server, serverSocketPath := runSSHServer(t)
-	defer server.Stop()
+	serverSocketPath, stop := runSSHServer(t)
+	defer stop()
 
 	glRepository := "project-456"
 
@@ -112,8 +112,8 @@ func TestReceivePackPushSuccessWithGitProtocol(t *testing.T) {
 	restore := testhelper.EnableGitProtocolV2Support()
 	defer restore()
 
-	server, serverSocketPath := runSSHServer(t)
-	defer server.Stop()
+	serverSocketPath, stop := runSSHServer(t)
+	defer stop()
 
 	lHead, rHead, err := testCloneAndPush(t, serverSocketPath, pushParams{storageName: testRepo.GetStorageName(), glID: "1", gitProtocol: git.ProtocolV2})
 	if err != nil {
@@ -129,8 +129,8 @@ func TestReceivePackPushSuccessWithGitProtocol(t *testing.T) {
 }
 
 func TestReceivePackPushFailure(t *testing.T) {
-	server, serverSocketPath := runSSHServer(t)
-	defer server.Stop()
+	serverSocketPath, stop := runSSHServer(t)
+	defer stop()
 
 	_, _, err := testCloneAndPush(t, serverSocketPath, pushParams{storageName: "foobar", glID: "1"})
 	require.Error(t, err, "local and remote head equal. push did not fail")
@@ -140,8 +140,8 @@ func TestReceivePackPushFailure(t *testing.T) {
 }
 
 func TestReceivePackPushHookFailure(t *testing.T) {
-	server, serverSocketPath := runSSHServer(t)
-	defer server.Stop()
+	serverSocketPath, stop := runSSHServer(t)
+	defer stop()
 
 	hookDir, err := ioutil.TempDir("", "gitaly-tmp-hooks")
 	require.NoError(t, err)
@@ -161,8 +161,8 @@ func TestReceivePackPushHookFailure(t *testing.T) {
 }
 
 func TestObjectPoolRefAdvertisementHidingSSH(t *testing.T) {
-	server, serverSocketPath := runSSHServer(t)
-	defer server.Stop()
+	serverSocketPath, stop := runSSHServer(t)
+	defer stop()
 
 	client, conn := newSSHClient(t, serverSocketPath)
 	defer conn.Close()
@@ -213,8 +213,8 @@ func TestSSHReceivePackToHooks(t *testing.T) {
 	restore := testhelper.EnableGitProtocolV2Support()
 	defer restore()
 
-	server, serverSocketPath := runSSHServer(t)
-	defer server.Stop()
+	serverSocketPath, stop := runSSHServer(t)
+	defer stop()
 
 	tempGitlabShellDir, cleanup := testhelper.CreateTemporaryGitlabShellDir(t)
 	defer cleanup()

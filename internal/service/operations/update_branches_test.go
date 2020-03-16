@@ -29,8 +29,8 @@ func TestSuccessfulUserUpdateBranchRequest(t *testing.T) {
 	cleanupSrv := SetupAndStartGitlabServer(t, user.GlId, testRepo.GlRepository)
 	defer cleanupSrv()
 
-	server, serverSocketPath := runOperationServiceServer(t)
-	defer server.Stop()
+	serverSocketPath, stop := runOperationServiceServer(t)
+	defer stop()
 
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
@@ -55,8 +55,8 @@ func TestSuccessfulUserUpdateBranchRequest(t *testing.T) {
 }
 
 func TestSuccessfulGitHooksForUserUpdateBranchRequest(t *testing.T) {
-	server, serverSocketPath := runOperationServiceServer(t)
-	defer server.Stop()
+	serverSocketPath, stop := runOperationServiceServer(t)
+	defer stop()
 
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
@@ -69,7 +69,7 @@ func TestSuccessfulGitHooksForUserUpdateBranchRequest(t *testing.T) {
 			cleanupSrv := SetupAndStartGitlabServer(t, user.GlId, testRepo.GlRepository)
 			defer cleanupSrv()
 
-			hookOutputTempPath, cleanup := testhelper.WriteEnvToCustomHook(t, testRepoPath, hookName)
+			hookOutputTempPath, cleanup := WriteEnvToCustomHook(t, testRepoPath, hookName)
 			defer cleanup()
 
 			ctx, cancel := testhelper.Context()
@@ -100,8 +100,8 @@ func TestFailedUserUpdateBranchDueToHooks(t *testing.T) {
 	cleanupSrv := SetupAndStartGitlabServer(t, user.GlId, testRepo.GlRepository)
 	defer cleanupSrv()
 
-	server, serverSocketPath := runOperationServiceServer(t)
-	defer server.Stop()
+	serverSocketPath, stop := runOperationServiceServer(t)
+	defer stop()
 
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
@@ -118,7 +118,7 @@ func TestFailedUserUpdateBranchDueToHooks(t *testing.T) {
 	hookContent := []byte("#!/bin/sh\nprintenv | paste -sd ' ' -\nexit 1")
 
 	for _, hookName := range gitlabPreHooks {
-		remove, err := testhelper.WriteCustomHook(testRepoPath, hookName, hookContent)
+		remove, err := WriteCustomHook(testRepoPath, hookName, hookContent)
 		require.NoError(t, err)
 		defer remove()
 
@@ -133,8 +133,8 @@ func TestFailedUserUpdateBranchDueToHooks(t *testing.T) {
 }
 
 func TestFailedUserUpdateBranchRequest(t *testing.T) {
-	server, serverSocketPath := runOperationServiceServer(t)
-	defer server.Stop()
+	serverSocketPath, stop := runOperationServiceServer(t)
+	defer stop()
 
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()

@@ -57,8 +57,8 @@ func TestSuccessfulUserRebaseConfirmableRequest(t *testing.T) {
 	rebaseStream, err := client.UserRebaseConfirmable(ctx)
 	require.NoError(t, err)
 
-	preReceiveHookOutputPath, removePreReceive := testhelper.WriteEnvToCustomHook(t, testRepoPath, "pre-receive")
-	postReceiveHookOutputPath, removePostReceive := testhelper.WriteEnvToCustomHook(t, testRepoPath, "post-receive")
+	preReceiveHookOutputPath, removePreReceive := operations.WriteEnvToCustomHook(t, testRepoPath, "pre-receive")
+	postReceiveHookOutputPath, removePostReceive := operations.WriteEnvToCustomHook(t, testRepoPath, "post-receive")
 	defer removePreReceive()
 	defer removePostReceive()
 
@@ -317,7 +317,7 @@ func TestFailedUserRebaseConfirmableRequestDueToPreReceiveError(t *testing.T) {
 
 	for i, hookName := range operations.GitlabPreHooks {
 		t.Run(hookName, func(t *testing.T) {
-			remove, err := testhelper.WriteCustomHook(testRepoPath, hookName, hookContent)
+			remove, err := operations.WriteCustomHook(testRepoPath, hookName, hookContent)
 			require.NoError(t, err, "set up hooks override")
 			defer remove()
 

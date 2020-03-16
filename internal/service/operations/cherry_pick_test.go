@@ -165,7 +165,7 @@ func TestSuccessfulGitHooksForUserCherryPickRequest(t *testing.T) {
 
 	var hookOutputFiles []string
 	for _, hookName := range operations.GitlabHooks {
-		hookOutputTempPath, cleanup := testhelper.WriteEnvToCustomHook(t, testRepoPath, hookName)
+		hookOutputTempPath, cleanup := operations.WriteEnvToCustomHook(t, testRepoPath, hookName)
 		defer cleanup()
 		hookOutputFiles = append(hookOutputFiles, hookOutputTempPath)
 	}
@@ -309,7 +309,7 @@ func TestFailedUserCherryPickRequestDueToPreReceiveError(t *testing.T) {
 
 	for _, hookName := range operations.GitlabPreHooks {
 		t.Run(hookName, func(t *testing.T) {
-			remove, err := testhelper.WriteCustomHook(testRepoPath, hookName, hookContent)
+			remove, err := operations.WriteCustomHook(testRepoPath, hookName, hookContent)
 			require.NoError(t, err)
 			defer remove()
 

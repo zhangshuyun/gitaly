@@ -19,8 +19,8 @@ func TestSuccessfulUserCreateBranchRequest(t *testing.T) {
 	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
-	server, serverSocketPath := runOperationServiceServer(t)
-	defer server.Stop()
+	serverSocketPath, stop := runOperationServiceServer(t)
+	defer stop()
 
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
@@ -84,8 +84,8 @@ func TestSuccessfulGitHooksForUserCreateBranchRequest(t *testing.T) {
 	cleanupSrv := SetupAndStartGitlabServer(t, user.GlId, testRepo.GlRepository)
 	defer cleanupSrv()
 
-	server, serverSocketPath := runOperationServiceServer(t)
-	defer server.Stop()
+	serverSocketPath, stop := runOperationServiceServer(t)
+	defer stop()
 
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
@@ -102,7 +102,7 @@ func TestSuccessfulGitHooksForUserCreateBranchRequest(t *testing.T) {
 		t.Run(hookName, func(t *testing.T) {
 			defer exec.Command("git", "-C", testRepoPath, "branch", "-D", branchName).Run()
 
-			hookOutputTempPath, cleanup := testhelper.WriteEnvToCustomHook(t, testRepoPath, hookName)
+			hookOutputTempPath, cleanup := WriteEnvToCustomHook(t, testRepoPath, hookName)
 			defer cleanup()
 
 			ctx, cancel := testhelper.Context()
@@ -125,8 +125,8 @@ func TestFailedUserCreateBranchDueToHooks(t *testing.T) {
 	cleanupSrv := SetupAndStartGitlabServer(t, user.GlId, testRepo.GlRepository)
 	defer cleanupSrv()
 
-	server, serverSocketPath := runOperationServiceServer(t)
-	defer server.Stop()
+	serverSocketPath, stop := runOperationServiceServer(t)
+	defer stop()
 
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
@@ -142,7 +142,7 @@ func TestFailedUserCreateBranchDueToHooks(t *testing.T) {
 	hookContent := []byte("#!/bin/sh\nprintenv | paste -sd ' ' -\nexit 1")
 
 	for _, hookName := range gitlabPreHooks {
-		remove, err := testhelper.WriteCustomHook(testRepoPath, hookName, hookContent)
+		remove, err := WriteCustomHook(testRepoPath, hookName, hookContent)
 		require.NoError(t, err)
 		defer remove()
 
@@ -156,8 +156,8 @@ func TestFailedUserCreateBranchDueToHooks(t *testing.T) {
 }
 
 func TestFailedUserCreateBranchRequest(t *testing.T) {
-	server, serverSocketPath := runOperationServiceServer(t)
-	defer server.Stop()
+	serverSocketPath, stop := runOperationServiceServer(t)
+	defer stop()
 
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
@@ -231,8 +231,8 @@ func TestSuccessfulUserDeleteBranchRequest(t *testing.T) {
 	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
-	server, serverSocketPath := runOperationServiceServer(t)
-	defer server.Stop()
+	serverSocketPath, stop := runOperationServiceServer(t)
+	defer stop()
 
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
@@ -269,8 +269,8 @@ func TestSuccessfulGitHooksForUserDeleteBranchRequest(t *testing.T) {
 	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
-	server, serverSocketPath := runOperationServiceServer(t)
-	defer server.Stop()
+	serverSocketPath, stop := runOperationServiceServer(t)
+	defer stop()
 
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
@@ -298,7 +298,7 @@ func TestSuccessfulGitHooksForUserDeleteBranchRequest(t *testing.T) {
 		t.Run(hookName, func(t *testing.T) {
 			testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", branchNameInput)
 
-			hookOutputTempPath, cleanup := testhelper.WriteEnvToCustomHook(t, testRepoPath, hookName)
+			hookOutputTempPath, cleanup := WriteEnvToCustomHook(t, testRepoPath, hookName)
 			defer cleanup()
 
 			ctx, cancel := testhelper.Context()
@@ -314,8 +314,8 @@ func TestSuccessfulGitHooksForUserDeleteBranchRequest(t *testing.T) {
 }
 
 func TestFailedUserDeleteBranchDueToValidation(t *testing.T) {
-	server, serverSocketPath := runOperationServiceServer(t)
-	defer server.Stop()
+	serverSocketPath, stop := runOperationServiceServer(t)
+	defer stop()
 
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
@@ -376,8 +376,8 @@ func TestFailedUserDeleteBranchDueToHooks(t *testing.T) {
 	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
-	server, serverSocketPath := runOperationServiceServer(t)
-	defer server.Stop()
+	serverSocketPath, stop := runOperationServiceServer(t)
+	defer stop()
 
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
@@ -405,7 +405,7 @@ func TestFailedUserDeleteBranchDueToHooks(t *testing.T) {
 
 	for _, hookName := range gitlabPreHooks {
 		t.Run(hookName, func(t *testing.T) {
-			remove, err := testhelper.WriteCustomHook(testRepoPath, hookName, hookContent)
+			remove, err := WriteCustomHook(testRepoPath, hookName, hookContent)
 			require.NoError(t, err)
 			defer remove()
 

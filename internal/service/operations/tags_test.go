@@ -16,8 +16,8 @@ func TestSuccessfulUserDeleteTagRequest(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	server, serverSocketPath := runOperationServiceServer(t)
-	defer server.Stop()
+	serverSocketPath, stop := runOperationServiceServer(t)
+	defer stop()
 
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
@@ -54,8 +54,8 @@ func TestSuccessfulUserDeleteTagRequest(t *testing.T) {
 }
 
 func TestSuccessfulGitHooksForUserDeleteTagRequest(t *testing.T) {
-	server, serverSocketPath := runOperationServiceServer(t)
-	defer server.Stop()
+	serverSocketPath, stop := runOperationServiceServer(t)
+	defer stop()
 
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
@@ -86,7 +86,7 @@ func TestSuccessfulGitHooksForUserDeleteTagRequest(t *testing.T) {
 		t.Run(hookName, func(t *testing.T) {
 			testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "tag", tagNameInput)
 
-			hookOutputTempPath, cleanup := testhelper.WriteEnvToCustomHook(t, testRepoPath, hookName)
+			hookOutputTempPath, cleanup := WriteEnvToCustomHook(t, testRepoPath, hookName)
 			defer cleanup()
 
 			ctx, cancel := testhelper.Context()
@@ -105,8 +105,8 @@ func TestSuccessfulUserCreateTagRequest(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	server, serverSocketPath := runOperationServiceServer(t)
-	defer server.Stop()
+	serverSocketPath, stop := runOperationServiceServer(t)
+	defer stop()
 
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
@@ -188,8 +188,8 @@ func TestSuccessfulUserCreateTagRequest(t *testing.T) {
 }
 
 func TestSuccessfulGitHooksForUserCreateTagRequest(t *testing.T) {
-	server, serverSocketPath := runOperationServiceServer(t)
-	defer server.Stop()
+	serverSocketPath, stop := runOperationServiceServer(t)
+	defer stop()
 
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
@@ -219,7 +219,7 @@ func TestSuccessfulGitHooksForUserCreateTagRequest(t *testing.T) {
 		t.Run(hookName, func(t *testing.T) {
 			defer exec.Command("git", "-C", testRepoPath, "tag", "-d", tagName).Run()
 
-			hookOutputTempPath, cleanup := testhelper.WriteEnvToCustomHook(t, testRepoPath, hookName)
+			hookOutputTempPath, cleanup := WriteEnvToCustomHook(t, testRepoPath, hookName)
 			defer cleanup()
 
 			ctx, cancel := testhelper.Context()
@@ -236,8 +236,8 @@ func TestSuccessfulGitHooksForUserCreateTagRequest(t *testing.T) {
 }
 
 func TestFailedUserDeleteTagRequestDueToValidation(t *testing.T) {
-	server, serverSocketPath := runOperationServiceServer(t)
-	defer server.Stop()
+	serverSocketPath, stop := runOperationServiceServer(t)
+	defer stop()
 
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
@@ -295,8 +295,8 @@ func TestFailedUserDeleteTagRequestDueToValidation(t *testing.T) {
 }
 
 func TestFailedUserDeleteTagDueToHooks(t *testing.T) {
-	server, serverSocketPath := runOperationServiceServer(t)
-	defer server.Stop()
+	serverSocketPath, stop := runOperationServiceServer(t)
+	defer stop()
 
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
@@ -327,7 +327,7 @@ func TestFailedUserDeleteTagDueToHooks(t *testing.T) {
 
 	for _, hookName := range gitlabPreHooks {
 		t.Run(hookName, func(t *testing.T) {
-			remove, err := testhelper.WriteCustomHook(testRepoPath, hookName, hookContent)
+			remove, err := WriteCustomHook(testRepoPath, hookName, hookContent)
 			require.NoError(t, err)
 			defer remove()
 
@@ -345,8 +345,8 @@ func TestFailedUserDeleteTagDueToHooks(t *testing.T) {
 }
 
 func TestFailedUserCreateTagDueToHooks(t *testing.T) {
-	server, serverSocketPath := runOperationServiceServer(t)
-	defer server.Stop()
+	serverSocketPath, stop := runOperationServiceServer(t)
+	defer stop()
 
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
@@ -374,7 +374,7 @@ func TestFailedUserCreateTagDueToHooks(t *testing.T) {
 	hookContent := []byte("#!/bin/sh\necho GL_ID=$GL_ID\nexit 1")
 
 	for _, hookName := range gitlabPreHooks {
-		remove, err := testhelper.WriteCustomHook(testRepoPath, hookName, hookContent)
+		remove, err := WriteCustomHook(testRepoPath, hookName, hookContent)
 		require.NoError(t, err)
 		defer remove()
 
@@ -388,8 +388,8 @@ func TestFailedUserCreateTagDueToHooks(t *testing.T) {
 }
 
 func TestFailedUserCreateTagRequestDueToTagExistence(t *testing.T) {
-	server, serverSocketPath := runOperationServiceServer(t)
-	defer server.Stop()
+	serverSocketPath, stop := runOperationServiceServer(t)
+	defer stop()
 
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
@@ -432,8 +432,8 @@ func TestFailedUserCreateTagRequestDueToTagExistence(t *testing.T) {
 }
 
 func TestFailedUserCreateTagRequestDueToValidation(t *testing.T) {
-	server, serverSocketPath := runOperationServiceServer(t)
-	defer server.Stop()
+	serverSocketPath, stop := runOperationServiceServer(t)
+	defer stop()
 
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()

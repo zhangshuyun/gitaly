@@ -3,7 +3,6 @@ package wiki
 import (
 	"bytes"
 	"io/ioutil"
-	"net"
 	"os"
 	"path"
 	"strings"
@@ -58,21 +57,15 @@ func testMain(m *testing.M) int {
 	return m.Run()
 }
 
-func runWikiServiceServer(t *testing.T) (*grpc.Server, string) {
-	grpcServer := testhelper.NewTestGrpcServer(t, nil, nil)
-	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName()
+func runWikiServiceServer(t *testing.T) (func(), string) {
+	srv := testhelper.NewServer(t, nil, nil)
 
-	listener, err := net.Listen("unix", serverSocketPath)
-	if err != nil {
-		t.Fatal(err)
-	}
+	gitalypb.RegisterWikiServiceServer(srv.GrpcServer(), &server{ruby: rubyServer})
+	reflection.Register(srv.GrpcServer())
 
-	gitalypb.RegisterWikiServiceServer(grpcServer, &server{ruby: rubyServer})
-	reflection.Register(grpcServer)
+	require.NoError(t, srv.Start())
 
-	go grpcServer.Serve(listener)
-
-	return grpcServer, "unix://" + serverSocketPath
+	return srv.Stop, "unix://" + srv.Socket()
 }
 
 func newWikiClient(t *testing.T, serverSocketPath string) (gitalypb.WikiServiceClient, *grpc.ClientConn) {

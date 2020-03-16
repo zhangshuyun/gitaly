@@ -1,12 +1,12 @@
 package ssh
 
 import (
-	"net"
 	"os"
 	"path"
 	"testing"
 
 	log "github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/config"
 	"gitlab.com/gitlab-org/gitaly/internal/git/hooks"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -58,21 +58,15 @@ func mustGetCwd() string {
 	return wd
 }
 
-func runSSHServer(t *testing.T, serverOpts ...ServerOpt) (*grpc.Server, string) {
-	server := testhelper.NewTestGrpcServer(t, nil, nil)
+func runSSHServer(t *testing.T, serverOpts ...ServerOpt) (string, func()) {
+	srv := testhelper.NewServer(t, nil, nil)
 
-	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName()
-	listener, err := net.Listen("unix", serverSocketPath)
-	if err != nil {
-		t.Fatal(err)
-	}
+	gitalypb.RegisterSSHServiceServer(srv.GrpcServer(), NewServer(serverOpts...))
+	reflection.Register(srv.GrpcServer())
 
-	gitalypb.RegisterSSHServiceServer(server, NewServer(serverOpts...))
-	reflection.Register(server)
+	require.NoError(t, srv.Start())
 
-	go server.Serve(listener)
-
-	return server, "unix://" + serverSocketPath
+	return "unix://" + srv.Socket(), srv.Stop
 }
 
 func newSSHClient(t *testing.T, serverSocketPath string) (gitalypb.SSHServiceClient, *grpc.ClientConn) {

@@ -32,8 +32,8 @@ func containsRef(refs [][]byte, ref string) bool {
 }
 
 func TestSuccessfulFindAllBranchNames(t *testing.T) {
-	server, serverSocketPath := runRefServiceServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRefServiceServer(t)
+	defer stop()
 
 	client, conn := newRefServiceClient(t, serverSocketPath)
 	defer conn.Close()
@@ -68,8 +68,8 @@ func TestSuccessfulFindAllBranchNames(t *testing.T) {
 }
 
 func TestFindAllBranchNamesVeryLargeResponse(t *testing.T) {
-	server, serverSocketPath := runRefServiceServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRefServiceServer(t)
+	defer stop()
 
 	client, conn := newRefServiceClient(t, serverSocketPath)
 	defer conn.Close()
@@ -124,8 +124,8 @@ func TestFindAllBranchNamesVeryLargeResponse(t *testing.T) {
 }
 
 func TestEmptyFindAllBranchNamesRequest(t *testing.T) {
-	server, serverSocketPath := runRefServiceServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRefServiceServer(t)
+	defer stop()
 
 	client, conn := newRefServiceClient(t, serverSocketPath)
 	defer conn.Close()
@@ -149,8 +149,8 @@ func TestEmptyFindAllBranchNamesRequest(t *testing.T) {
 }
 
 func TestInvalidRepoFindAllBranchNamesRequest(t *testing.T) {
-	server, serverSocketPath := runRefServiceServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRefServiceServer(t)
+	defer stop()
 
 	client, conn := newRefServiceClient(t, serverSocketPath)
 	defer conn.Close()
@@ -175,8 +175,8 @@ func TestInvalidRepoFindAllBranchNamesRequest(t *testing.T) {
 }
 
 func TestSuccessfulFindAllTagNames(t *testing.T) {
-	server, serverSocketPath := runRefServiceServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRefServiceServer(t)
+	defer stop()
 
 	client, conn := newRefServiceClient(t, serverSocketPath)
 	defer conn.Close()
@@ -213,8 +213,8 @@ func TestSuccessfulFindAllTagNames(t *testing.T) {
 }
 
 func TestEmptyFindAllTagNamesRequest(t *testing.T) {
-	server, serverSocketPath := runRefServiceServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRefServiceServer(t)
+	defer stop()
 
 	client, conn := newRefServiceClient(t, serverSocketPath)
 	defer conn.Close()
@@ -238,8 +238,8 @@ func TestEmptyFindAllTagNamesRequest(t *testing.T) {
 }
 
 func TestInvalidRepoFindAllTagNamesRequest(t *testing.T) {
-	server, serverSocketPath := runRefServiceServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRefServiceServer(t)
+	defer stop()
 
 	client, conn := newRefServiceClient(t, serverSocketPath)
 	defer conn.Close()
@@ -374,8 +374,8 @@ func TestDefaultBranchName(t *testing.T) {
 }
 
 func TestSuccessfulFindDefaultBranchName(t *testing.T) {
-	server, serverSocketPath := runRefServiceServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRefServiceServer(t)
+	defer stop()
 
 	client, conn := newRefServiceClient(t, serverSocketPath)
 	defer conn.Close()
@@ -398,8 +398,8 @@ func TestSuccessfulFindDefaultBranchName(t *testing.T) {
 }
 
 func TestEmptyFindDefaultBranchNameRequest(t *testing.T) {
-	server, serverSocketPath := runRefServiceServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRefServiceServer(t)
+	defer stop()
 
 	client, conn := newRefServiceClient(t, serverSocketPath)
 	defer conn.Close()
@@ -415,8 +415,8 @@ func TestEmptyFindDefaultBranchNameRequest(t *testing.T) {
 }
 
 func TestInvalidRepoFindDefaultBranchNameRequest(t *testing.T) {
-	server, serverSocketPath := runRefServiceServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRefServiceServer(t)
+	defer stop()
 
 	client, conn := newRefServiceClient(t, serverSocketPath)
 	defer conn.Close()
@@ -433,8 +433,8 @@ func TestInvalidRepoFindDefaultBranchNameRequest(t *testing.T) {
 }
 
 func TestSuccessfulFindAllTagsRequest(t *testing.T) {
-	server, serverSocketPath := runRefServiceServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRefServiceServer(t)
+	defer stop()
 
 	testRepoCopy, testRepoCopyPath, cleanupFn := testhelper.NewTestRepoWithWorktree(t)
 	defer cleanupFn()
@@ -671,8 +671,8 @@ func TestSuccessfulFindAllTagsRequest(t *testing.T) {
 }
 
 func TestFindAllTagNestedTags(t *testing.T) {
-	server, serverSocketPath := runRefServiceServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRefServiceServer(t)
+	defer stop()
 
 	testRepoCopy, testRepoCopyPath, cleanupFn := testhelper.NewTestRepoWithWorktree(t)
 	defer cleanupFn()
@@ -779,8 +779,8 @@ func TestFindAllTagNestedTags(t *testing.T) {
 }
 
 func TestInvalidFindAllTagsRequest(t *testing.T) {
-	server, serverSocketPath := runRefServiceServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRefServiceServer(t)
+	defer stop()
 
 	client, conn := newRefServiceClient(t, serverSocketPath)
 	defer conn.Close()
@@ -823,8 +823,8 @@ func TestInvalidFindAllTagsRequest(t *testing.T) {
 }
 
 func TestSuccessfulFindLocalBranches(t *testing.T) {
-	server, serverSocketPath := runRefServiceServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRefServiceServer(t)
+	defer stop()
 
 	client, conn := newRefServiceClient(t, serverSocketPath)
 	defer conn.Close()
@@ -916,8 +916,8 @@ func TestFindLocalBranchesSort(t *testing.T) {
 		},
 	}
 
-	server, serverSocketPath := runRefServiceServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRefServiceServer(t)
+	defer stop()
 
 	client, conn := newRefServiceClient(t, serverSocketPath)
 	defer conn.Close()
@@ -958,8 +958,8 @@ func TestFindLocalBranchesSort(t *testing.T) {
 }
 
 func TestEmptyFindLocalBranchesRequest(t *testing.T) {
-	server, serverSocketPath := runRefServiceServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRefServiceServer(t)
+	defer stop()
 
 	client, conn := newRefServiceClient(t, serverSocketPath)
 	defer conn.Close()
@@ -983,8 +983,8 @@ func TestEmptyFindLocalBranchesRequest(t *testing.T) {
 }
 
 func TestSuccessfulFindAllBranchesRequest(t *testing.T) {
-	server, serverSocketPath := runRefServiceServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRefServiceServer(t)
+	defer stop()
 
 	remoteBranch := &gitalypb.FindAllBranchesResponse_Branch{
 		Name: []byte("refs/remotes/origin/fake-remote-branch"),
@@ -1042,8 +1042,8 @@ func TestSuccessfulFindAllBranchesRequest(t *testing.T) {
 }
 
 func TestSuccessfulFindAllBranchesRequestWithMergedBranches(t *testing.T) {
-	server, serverSocketPath := runRefServiceServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRefServiceServer(t)
+	defer stop()
 
 	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
@@ -1135,8 +1135,8 @@ func TestSuccessfulFindAllBranchesRequestWithMergedBranches(t *testing.T) {
 }
 
 func TestInvalidFindAllBranchesRequest(t *testing.T) {
-	server, serverSocketPath := runRefServiceServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRefServiceServer(t)
+	defer stop()
 
 	client, conn := newRefServiceClient(t, serverSocketPath)
 	defer conn.Close()
@@ -1193,8 +1193,8 @@ func readFindAllBranchesResponsesFromClient(t *testing.T, c gitalypb.RefService_
 }
 
 func TestListTagNamesContainingCommit(t *testing.T) {
-	server, serverSocketPath := runRefServiceServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRefServiceServer(t)
+	defer stop()
 
 	client, conn := newRefServiceClient(t, serverSocketPath)
 	defer conn.Close()
@@ -1270,8 +1270,8 @@ func TestListTagNamesContainingCommit(t *testing.T) {
 }
 
 func TestListBranchNamesContainingCommit(t *testing.T) {
-	server, serverSocketPath := runRefServiceServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRefServiceServer(t)
+	defer stop()
 
 	client, conn := newRefServiceClient(t, serverSocketPath)
 	defer conn.Close()
@@ -1364,8 +1364,8 @@ func TestListBranchNamesContainingCommit(t *testing.T) {
 }
 
 func TestSuccessfulFindTagRequest(t *testing.T) {
-	server, serverSocketPath := runRefServiceServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRefServiceServer(t)
+	defer stop()
 
 	testRepoCopy, testRepoCopyPath, cleanupFn := testhelper.NewTestRepoWithWorktree(t)
 	defer cleanupFn()
@@ -1591,8 +1591,8 @@ func TestSuccessfulFindTagRequest(t *testing.T) {
 }
 
 func TestFindTagNestedTag(t *testing.T) {
-	server, serverSocketPath := runRefServiceServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRefServiceServer(t)
+	defer stop()
 
 	testRepoCopy, testRepoCopyPath, cleanupFn := testhelper.NewTestRepoWithWorktree(t)
 	defer cleanupFn()
@@ -1680,8 +1680,8 @@ func TestFindTagNestedTag(t *testing.T) {
 }
 
 func TestInvalidFindTagRequest(t *testing.T) {
-	server, serverSocketPath := runRefServiceServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRefServiceServer(t)
+	defer stop()
 
 	client, conn := newRefServiceClient(t, serverSocketPath)
 	defer conn.Close()

@@ -20,10 +20,10 @@ type commitInfo struct {
 }
 
 func TestSuccessfulListLastCommitsForTreeRequest(t *testing.T) {
-	server, serverSockerPath := startTestServices(t)
-	defer server.Stop()
+	serverSocketPath, stop := startTestServices(t)
+	defer stop()
 
-	client, conn := newCommitServiceClient(t, serverSockerPath)
+	client, conn := newCommitServiceClient(t, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
@@ -210,8 +210,8 @@ func TestSuccessfulListLastCommitsForTreeRequest(t *testing.T) {
 }
 
 func TestFailedListLastCommitsForTreeRequest(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
+	serverSocketPath, stop := startTestServices(t)
+	defer stop()
 
 	client, conn := newCommitServiceClient(t, serverSocketPath)
 	defer conn.Close()
@@ -306,10 +306,10 @@ func TestFailedListLastCommitsForTreeRequest(t *testing.T) {
 }
 
 func TestNonUtf8ListLastCommitsForTreeRequest(t *testing.T) {
-	server, serverSockerPath := startTestServices(t)
-	defer server.Stop()
+	serverSocketPath, stop := startTestServices(t)
+	defer stop()
 
-	client, conn := newCommitServiceClient(t, serverSockerPath)
+	client, conn := newCommitServiceClient(t, serverSocketPath)
 	defer conn.Close()
 
 	ctx, cancel := testhelper.Context()

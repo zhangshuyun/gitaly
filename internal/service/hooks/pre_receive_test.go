@@ -18,8 +18,8 @@ import (
 )
 
 func TestPreReceiveInvalidArgument(t *testing.T) {
-	server, serverSocketPath := runHooksServer(t)
-	defer server.Stop()
+	serverSocketPath, stop := runHooksServer(t)
+	defer stop()
 
 	client, conn := newHooksClient(t, serverSocketPath)
 	defer conn.Close()
@@ -45,8 +45,8 @@ func TestPreReceive(t *testing.T) {
 	require.NoError(t, err)
 	config.Config.Ruby.Dir = filepath.Join(cwd, "testdata")
 
-	server, serverSocketPath := runHooksServer(t)
-	defer server.Stop()
+	serverSocketPath, stop := runHooksServer(t)
+	defer stop()
 
 	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()

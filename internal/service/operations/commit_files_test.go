@@ -434,7 +434,7 @@ func TestFailedUserCommitFilesRequestDueToHooks(t *testing.T) {
 
 	for _, hookName := range operations.GitlabPreHooks {
 		t.Run(hookName, func(t *testing.T) {
-			remove, err := testhelper.WriteCustomHook(testRepoPath, hookName, hookContent)
+			remove, err := operations.WriteCustomHook(testRepoPath, hookName, hookContent)
 			require.NoError(t, err)
 			defer remove()
 			md := testhelper.GitalyServersMetadata(t, serverSocketPath)

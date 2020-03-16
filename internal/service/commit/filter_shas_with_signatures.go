@@ -1,9 +1,9 @@
 package commit
 
 import (
-	"errors"
 	"io"
 
+	"gitlab.com/gitlab-org/gitaly/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
@@ -28,7 +28,7 @@ func (s *server) FilterShasWithSignatures(bidi gitalypb.CommitService_FilterShas
 
 func validateFirstFilterShasWithSignaturesRequest(in *gitalypb.FilterShasWithSignaturesRequest) error {
 	if in.Repository == nil {
-		return errors.New("no repository given")
+		return errors.ErrEmptyRepository
 	}
 	return nil
 }

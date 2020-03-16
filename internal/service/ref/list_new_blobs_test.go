@@ -15,8 +15,8 @@ func TestListNewBlobs(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	server, serverSocketPath := runRefServiceServer(t)
-	defer server.Stop()
+	stop, serverSocketPath := runRefServiceServer(t)
+	defer stop()
 
 	client, conn := newRefServiceClient(t, serverSocketPath)
 	defer conn.Close()
