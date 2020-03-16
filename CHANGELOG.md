@@ -1,5 +1,9 @@
 # Gitaly changelog
 
+## 12.8.7
+
+- No changes.
+
 ## 12.8.6
 
 - No changes.
