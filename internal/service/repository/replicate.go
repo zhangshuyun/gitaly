@@ -44,8 +44,8 @@ func (s *server) ReplicateRepository(ctx context.Context, in *gitalypb.Replicate
 		}
 	}
 
-	g, ctx := errgroup.WithContext(ctx)
-	outgoingCtx := helper.IncomingToOutgoing(ctx)
+	g, replCtx := errgroup.WithContext(ctx)
+	outgoingCtx := helper.IncomingToOutgoing(replCtx)
 
 	for _, f := range syncFuncs {
 		f := f // rescoping f
@@ -54,6 +54,15 @@ func (s *server) ReplicateRepository(ctx context.Context, in *gitalypb.Replicate
 
 	if err := g.Wait(); err != nil {
 		return nil, helper.ErrInternal(err)
+	}
+
+	checksumsMatch, err := s.verifyChecksums(ctx, in)
+	if err != nil {
+		return nil, helper.ErrInternal(err)
+	}
+
+	if !checksumsMatch {
+		return nil, helper.ErrInternal(errors.New("checksums do not match after replication"))
 	}
 
 	return &gitalypb.ReplicateRepositoryResponse{}, nil
@@ -223,6 +232,68 @@ func (s *server) syncInfoAttributes(ctx context.Context, in *gitalypb.ReplicateR
 	return os.Rename(attributesPath, attributesPath)
 }
 
+func (s *server) verifyChecksums(ctx context.Context, in *gitalypb.ReplicateRepositoryRequest) (bool, error) {
+	g, checksumCtx := errgroup.WithContext(ctx)
+	outgoingCtx := helper.IncomingToOutgoing(checksumCtx)
+
+	var checksums [2]string
+	if !in.GetSkipChecksum() {
+		g.Go(func() error {
+			client, err := s.newInternalRepoClient()
+			if err != nil {
+				return err
+			}
+
+			checksum, err := getChecksum(outgoingCtx, client, in.GetRepository())
+			if err != nil {
+				return err
+			}
+
+			checksums[0] = checksum
+			return nil
+		})
+		g.Go(func() error {
+			client, err := s.newRepoClient(outgoingCtx, in.GetSource().GetStorageName())
+			if err != nil {
+				return err
+			}
+
+			checksum, err := getChecksum(outgoingCtx, client, in.GetSource())
+			if err != nil {
+				return err
+			}
+
+			checksums[1] = checksum
+			return nil
+		})
+	}
+
+	if err := g.Wait(); err != nil {
+		return false, err
+	}
+
+	return checksumsMatch(checksums), nil
+}
+
+func checksumsMatch(checksums [2]string) bool {
+	if checksums[0] == "" || checksums[1] == "" {
+		return false
+	}
+
+	return checksums[0] == checksums[1]
+}
+
+func getChecksum(ctx context.Context, client gitalypb.RepositoryServiceClient, repository *gitalypb.Repository) (string, error) {
+	resp, err := client.CalculateChecksum(ctx, &gitalypb.CalculateChecksumRequest{
+		Repository: repository,
+	})
+	if err != nil {
+		return "", err
+	}
+
+	return resp.Checksum, nil
+}
+
 // newRemoteClient creates a new RemoteClient that talks to the same gitaly server
 func (s *server) newRemoteClient() (gitalypb.RemoteServiceClient, error) {
 	cc, err := s.getOrCreateConnection(fmt.Sprintf("unix:%s", s.internalGitalySocket), "")
@@ -231,6 +302,15 @@ func (s *server) newRemoteClient() (gitalypb.RemoteServiceClient, error) {
 	}
 
 	return gitalypb.NewRemoteServiceClient(cc), nil
+}
+
+func (s *server) newInternalRepoClient() (gitalypb.RepositoryServiceClient, error) {
+	cc, err := s.getOrCreateConnection(fmt.Sprintf("unix:%s", s.internalGitalySocket), "")
+	if err != nil {
+		return nil, err
+	}
+
+	return gitalypb.NewRepositoryServiceClient(cc), nil
 }
 
 // newRepoClient creates a new RepositoryClient that talks to the gitaly of the source repository

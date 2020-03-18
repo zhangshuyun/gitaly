@@ -3,6 +3,7 @@ package repository_test
 import (
 	"bytes"
 	"context"
+	"crypto/sha1"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -15,6 +16,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/internal/rubyserver"
+	"gitlab.com/gitlab-org/gitaly/internal/service/remote"
 	"gitlab.com/gitlab-org/gitaly/internal/service/repository"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -315,6 +318,58 @@ func TestReplicateRepository_FailedFetchInternalRemote(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestReplicateRepository_BadChecksum(t *testing.T) {
+	tmpPath, cleanup := testhelper.TempDir(t, t.Name())
+	defer cleanup()
+
+	replicaPath := filepath.Join(tmpPath, "replica")
+	require.NoError(t, os.MkdirAll(replicaPath, 0755))
+
+	defer func(storages []config.Storage) {
+		config.Config.Storages = storages
+	}(config.Config.Storages)
+
+	config.Config.Storages = []config.Storage{
+		config.Storage{
+			Name: "default",
+			Path: testhelper.GitlabTestStoragePath(),
+		},
+		config.Storage{
+			Name: "replica",
+			Path: replicaPath,
+		},
+	}
+
+	server, serverSocketPath := runServerWithBadChecksum(t)
+	defer server.Stop()
+
+	testRepo, _, cleanupRepo := testhelper.NewTestRepo(t)
+	defer cleanupRepo()
+
+	config.Config.SocketPath = serverSocketPath
+
+	repoClient, conn := repository.NewRepositoryClient(t, serverSocketPath)
+	defer conn.Close()
+
+	targetRepo := *testRepo
+	targetRepo.StorageName = "replica"
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	md := testhelper.GitalyServersMetadata(t, serverSocketPath)
+	injectedCtx := metadata.NewOutgoingContext(ctx, md)
+
+	// first ReplicateRepository call will replicate via snapshot
+	_, err := repoClient.ReplicateRepository(injectedCtx, &gitalypb.ReplicateRepositoryRequest{
+		Repository: &targetRepo,
+		Source:     testRepo,
+	})
+	require.Error(t, err)
+	testhelper.RequireGrpcError(t, err, codes.Internal)
+	testhelper.GrpcErrorHasMessage(err, "checksums do not match after replication")
+}
+
 func runServerWithBadFetchInternalRemote(t *testing.T) (*grpc.Server, string) {
 	server := testhelper.NewTestGrpcServer(t, nil, nil)
 	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName()
@@ -333,6 +388,61 @@ func runServerWithBadFetchInternalRemote(t *testing.T) (*grpc.Server, string) {
 	go server.Serve(internalListener)
 
 	return server, "unix://" + serverSocketPath
+}
+
+func runServerWithBadChecksum(t *testing.T) (*grpc.Server, string) {
+	server := testhelper.NewTestGrpcServer(t, nil, nil)
+	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName()
+
+	listener, err := net.Listen("unix", serverSocketPath)
+	require.NoError(t, err)
+	internalListener, err := net.Listen("unix", config.GitalyInternalSocketPath())
+	require.NoError(t, err)
+
+	repositoryServer := repository.NewServer(repository.RubyServer, config.GitalyInternalSocketPath())
+
+	gitalypb.RegisterRepositoryServiceServer(server, &mockRepoServer{
+		repositoryServer: repositoryServer,
+	})
+	gitalypb.RegisterRemoteServiceServer(server, remote.NewServer(&rubyserver.Server{}))
+	reflection.Register(server)
+
+	go server.Serve(listener)
+	go server.Serve(internalListener)
+
+	return server, "unix://" + serverSocketPath
+}
+
+type mockRepoServer struct {
+	repositoryServer gitalypb.RepositoryServiceServer
+	gitalypb.UnimplementedRepositoryServiceServer
+}
+
+func (m *mockRepoServer) GetSnapshot(in *gitalypb.GetSnapshotRequest, stream gitalypb.RepositoryService_GetSnapshotServer) error {
+	return m.repositoryServer.GetSnapshot(in, stream)
+}
+
+func (m *mockRepoServer) GetInfoAttributes(in *gitalypb.GetInfoAttributesRequest, stream gitalypb.RepositoryService_GetInfoAttributesServer) error {
+	return m.repositoryServer.GetInfoAttributes(in, stream)
+}
+
+func (m *mockRepoServer) ReplicateRepository(ctx context.Context, in *gitalypb.ReplicateRepositoryRequest) (*gitalypb.ReplicateRepositoryResponse, error) {
+	return m.repositoryServer.ReplicateRepository(ctx, in)
+}
+
+// CalculateChecksum returns random checksums
+func (m *mockRepoServer) CalculateChecksum(ctx context.Context, in *gitalypb.CalculateChecksumRequest) (*gitalypb.CalculateChecksumResponse, error) {
+	// generate a random checksum
+	h := sha1.New()
+	rand, err := text.RandomHex(2)
+	if err != nil {
+		return nil, err
+	}
+	h.Write([]byte(rand))
+
+	return &gitalypb.CalculateChecksumResponse{
+		Checksum: fmt.Sprintf("%x", h.Sum(nil)),
+	}, nil
 }
 
 type mockRemoteServer struct {

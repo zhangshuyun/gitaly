@@ -313,6 +313,7 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
   add_message "gitaly.ReplicateRepositoryRequest" do
     optional :repository, :message, 1, "gitaly.Repository"
     optional :source, :message, 2, "gitaly.Repository"
+    optional :skip_checksum, :bool, 3
   end
   add_message "gitaly.ReplicateRepositoryResponse" do
   end

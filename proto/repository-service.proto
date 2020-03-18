@@ -602,6 +602,7 @@ message RenameRepositoryResponse{
 message ReplicateRepositoryRequest {
   Repository repository = 1 [(target_repository)=true];
   Repository source = 2;
+  bool skip_checksum = 3;
 }
 
 message ReplicateRepositoryResponse{}
