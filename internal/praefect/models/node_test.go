@@ -1,6 +1,7 @@
 package models
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -33,4 +34,19 @@ func TestRepository_Clone(t *testing.T) {
 
 	clone.Replicas[0].Address = "0.0.0.3"
 	require.Equal(t, "0.0.0.1", src.Replicas[0].Address)
+}
+
+func TestNode_MarshalJSON(t *testing.T) {
+	token := "secretToken"
+	node := &Node{
+		Storage:        "storage",
+		Address:        "address",
+		Token:          token,
+		DefaultPrimary: true,
+	}
+
+	b, err := json.Marshal(node)
+	require.NoError(t, err)
+	require.NotContains(t, string(b), "token")
+	require.NotContains(t, string(b), token)
 }

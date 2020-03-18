@@ -1,6 +1,7 @@
 package models
 
 import (
+	"encoding/json"
 	"fmt"
 )
 
@@ -10,6 +11,18 @@ type Node struct {
 	Address        string `toml:"address"`
 	Token          string `toml:"token"`
 	DefaultPrimary bool   `toml:"primary"`
+}
+
+func (n Node) MarshalJSON() ([]byte, error) {
+	return json.Marshal(&struct {
+		Storage string `json:"storage"`
+		Address string `json:"address"`
+		Primary bool   `json:"primary"`
+	}{
+		Storage: n.Storage,
+		Address: n.Address,
+		Primary: n.DefaultPrimary,
+	})
 }
 
 // String prints out the node attributes but hiding the token
