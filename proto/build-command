@@ -1,0 +1,1 @@
+../_build/protoc/bin/protoc --doc_out'=.' --doc_opt'=markdown,API.md' --plugin'=protoc-gen-doc=../_build/bin/protoc-gen-doc' *.proto
