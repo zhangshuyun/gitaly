@@ -198,3 +198,80 @@ func TestAbsentCorrelationID(t *testing.T) {
 	require.NotZero(t, jobs[0].CorrelationID,
 		"the coordinator should have generated a random ID")
 }
+
+func TestStreamDirector_SkipReplication(t *testing.T) {
+	conf := config.Config{
+		VirtualStorages: []*config.VirtualStorage{
+			&config.VirtualStorage{
+				Name: "praefect",
+				Nodes: []*models.Node{
+					&models.Node{
+						Address:        "tcp://gitaly-primary.example.com",
+						Storage:        "default",
+						DefaultPrimary: true,
+					},
+					&models.Node{
+						Address: "tcp://gitaly-backup1.example.com",
+						Storage: "backup",
+					}},
+			},
+		},
+	}
+
+	logEntry := testhelper.DiscardTestEntry(t)
+	ds := datastore.NewInMemory(conf)
+
+	nodeMgr, err := nodes.NewManager(testhelper.DiscardTestEntry(t), conf, promtest.NewMockHistogramVec())
+	require.NoError(t, err)
+
+	registry := protoregistry.New()
+	require.NoError(t, registry.RegisterFiles(protoregistry.GitalyProtoFileDescriptors...))
+
+	coordinator := NewCoordinator(logEntry, ds, nodeMgr, conf, registry)
+
+	prf := NewServer(
+		coordinator.StreamDirector,
+		logEntry,
+		registry,
+		conf,
+	)
+	defer prf.Stop()
+
+	listener, port := listenAvailPort(t)
+	go prf.Serve(listener, false)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	repositoryClient := gitalypb.NewRepositoryServiceClient(dialLocalPort(t, port, false))
+
+	testRepo, _, cleanup := testhelper.NewTestRepo(t)
+	defer cleanup()
+	testRepo.StorageName = "praefect"
+
+	// since we have no gitaly backends configured, these requests will all fail.
+	repositoryClient.GarbageCollect(ctx, &gitalypb.GarbageCollectRequest{
+		Repository: testRepo,
+	})
+	repositoryClient.RepackFull(ctx, &gitalypb.RepackFullRequest{
+		Repository: testRepo,
+	})
+	repositoryClient.RepackIncremental(ctx, &gitalypb.RepackIncrementalRequest{
+		Repository: testRepo,
+	})
+
+	jobs, err := ds.GetJobs([]datastore.JobState{datastore.JobStateReady}, "backup", 10)
+	require.NoError(t, err)
+	require.Len(t, jobs, 0)
+
+	repositoryClient.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{
+		Repository: testRepo,
+	})
+
+	jobs, err = ds.GetJobs([]datastore.JobState{datastore.JobStateReady}, "backup", 10)
+	require.NoError(t, err)
+	require.Len(t, jobs, 1)
+
+	// since the above requests failed, the jobs should be in JobStatePending rather than
+	// JobStateReady. This is a bug and is tracked via https://gitlab.com/gitlab-org/gitaly/-/issues/2566
+}

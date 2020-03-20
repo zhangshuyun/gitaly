@@ -34,6 +34,17 @@ func getReplicationDetails(methodName string, m proto.Message) (datastore.Change
 	}
 }
 
+var doNotReplicate = map[string]struct{}{
+	"/gitaly.RepositoryService/GarbageCollect":    struct{}{},
+	"/gitaly.RepositoryService/RepackFull":        struct{}{},
+	"/gitaly.RepositoryService/RepackIncremental": struct{}{},
+}
+
+func skipReplication(fullMethodName string) bool {
+	_, ok := doNotReplicate[fullMethodName]
+	return ok
+}
+
 // Coordinator takes care of directing client requests to the appropriate
 // downstream server. The coordinator is thread safe; concurrent calls to
 // register nodes are safe.
@@ -84,6 +95,10 @@ func (c *Coordinator) directRepositoryScopedMessage(ctx context.Context, mi prot
 	}
 
 	var requestFinalizer func()
+
+	if skipReplication(fullMethodName) {
+		return proxy.NewStreamParameters(ctx, primary.GetConnection(), requestFinalizer, nil), nil
+	}
 
 	if mi.Operation == protoregistry.OpMutator {
 		change, params, err := getReplicationDetails(fullMethodName, m)
