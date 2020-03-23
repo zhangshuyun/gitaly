@@ -30,21 +30,17 @@ func TestNodeStatus(t *testing.T) {
 	storageName := "default"
 	cs := newConnectionStatus(models.Node{Storage: storageName}, cc, testhelper.DiscardTestEntry(t), mockHistogramVec)
 
-	require.False(t, cs.isHealthy())
-
 	var expectedLabels [][]string
 	for i := 0; i < healthcheckThreshold; i++ {
-		cs.check()
+		require.True(t, cs.check())
 		expectedLabels = append(expectedLabels, []string{storageName})
 	}
-	require.True(t, cs.isHealthy())
+
 	require.Equal(t, expectedLabels, mockHistogramVec.LabelsCalled())
 	require.Len(t, mockHistogramVec.Observer().Observed(), healthcheckThreshold)
 
 	healthSvr.SetServingStatus("", grpc_health_v1.HealthCheckResponse_NOT_SERVING)
-
-	cs.check()
-	require.False(t, cs.isHealthy())
+	require.False(t, cs.check())
 }
 
 func TestNodeManager(t *testing.T) {
@@ -122,7 +118,7 @@ func TestNodeManager(t *testing.T) {
 	require.Equal(t, virtualStorages[0].Nodes[1].Address, secondaries[0].GetAddress())
 
 	healthSrv0.SetServingStatus("", grpc_health_v1.HealthCheckResponse_UNKNOWN)
-	nm.checkShards()
+	nm.CheckShards()
 
 	labelsCalled := mockHistogram.LabelsCalled()
 	for _, node := range virtualStorages[0].Nodes {
@@ -167,7 +163,7 @@ func TestNodeManager(t *testing.T) {
 	require.Equal(t, virtualStorages[0].Nodes[0].Address, secondaries[0].GetAddress())
 
 	healthSrv1.SetServingStatus("", grpc_health_v1.HealthCheckResponse_UNKNOWN)
-	nm.checkShards()
+	nm.CheckShards()
 
 	_, err = nm.GetShard("virtual-storage-0")
 	require.Error(t, err, "should return error since no nodes are healthy")
