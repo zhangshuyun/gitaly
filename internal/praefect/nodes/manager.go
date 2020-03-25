@@ -71,7 +71,12 @@ func NewManager(log *logrus.Entry, c config.Config, latencyHistogram metrics.His
 	mgr.strategies = make(map[string]LeaderElectionStrategy)
 
 	for _, virtualStorage := range c.VirtualStorages {
-		strategy := newLocalMemoryElectionStrategy(virtualStorage.Name, c.FailoverEnabled)
+		strategy, err := mgr.createElectionStrategy(virtualStorage.Name, c)
+
+		if err != nil {
+			return nil, err
+		}
+
 		mgr.strategies[virtualStorage.Name] = strategy
 
 		for _, node := range virtualStorage.Nodes {
@@ -102,6 +107,20 @@ func NewManager(log *logrus.Entry, c config.Config, latencyHistogram metrics.His
 	}
 
 	return &mgr, nil
+}
+
+func (n *Mgr) createElectionStrategy(shardName string, c config.Config) (LeaderElectionStrategy, error) {
+	if c.ElectionStrategy == "sql" {
+		strategy, err := newSqlElectionStrategy(shardName, c, n.log)
+
+		if err != nil {
+			return nil, err
+		}
+
+		return strategy, err
+	}
+
+	return newLocalMemoryElectionStrategy(shardName, c.FailoverEnabled), nil
 }
 
 // Start will bootstrap the node manager by calling healthcheck on the nodes as well as kicking off
