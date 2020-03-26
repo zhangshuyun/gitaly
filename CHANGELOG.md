@@ -1,5 +1,9 @@
 # Gitaly changelog
 
+## 12.9.1
+
+- No changes.
+
 ## 12.9.0
 
 ### Security (1 change)
