@@ -125,11 +125,14 @@ test: test-go rspec rspec-gitlab-shell
 test-go: prepare-tests
 	@cd {{ .SourceDir }} && go test -tags "$(BUILD_TAGS)" -count=1 {{ join .AllPackages " " }} # count=1 bypasses go 1.10 test caching
 
+.PHONY: test-go-flaky
+test-go-flaky: prepare-tests
+	@cd {{ .SourceDir }} && ENABLE_FLAKY_TESTS=1 go test -run=TestFlaky -tags "$(BUILD_TAGS)" -count=1 {{ join .AllPackages " " }} # count=1 bypasses go 1.10 test caching
+
 .PHONY: test-with-proxies
 test-with-proxies: prepare-tests
 	@cd {{ .SourceDir }} &&\
 		go test -tags "$(BUILD_TAGS)" -count=1  -exec {{ .SourceDir }}/_support/bad-proxies {{ .Pkg }}/internal/rubyserver/
-
 
 .PHONY: test-with-praefect
 test-with-praefect: build prepare-tests

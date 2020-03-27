@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/buildhelper"
 )
 
 type counter struct {
@@ -67,7 +68,9 @@ func (c *counter) Exit(ctx context.Context) {
 	c.exit++
 }
 
-func TestLimiter(t *testing.T) {
+func TestFlakyLimiter(t *testing.T) {
+	buildhelper.SkipFlakyTest(t)
+
 	tests := []struct {
 		name             string
 		concurrency      int

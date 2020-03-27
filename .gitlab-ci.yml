@@ -77,6 +77,14 @@ danger-review:
     - make test
     - echo 'make test-gitaly-remote   TODO https://gitlab.com/gitlab-org/gitaly/issues/1706'
 
+.test_flaky_template: &test_flaky_definition
+  <<: *go_test_definition
+  script:
+    - go version
+    - git version
+    - make test-go-flaky
+  allow_failure: true
+
 verify:
   <<: *ruby_definition
   stage: test
@@ -136,6 +144,31 @@ test:go1.13-git-2.24-ruby-2.6:
 test:go1.12-git-2.24-ruby-2.6:
   image: registry.gitlab.com/gitlab-org/gitlab-build-images:ruby-2.6-golang-1.12-git-2.24
   <<: *test_definition
+
+# Flaky tests
+test-flaky:go1.14-git-2.21-ruby-2.6:
+  image: registry.gitlab.com/gitlab-org/gitlab-build-images:ruby-2.6-golang-1.13-git-2.24
+  <<: *test_flaky_definition
+
+test-flaky:go1.13-git-2.21-ruby-2.6:
+  image: registry.gitlab.com/gitlab-org/gitlab-build-images:ruby-2.6-golang-1.13-git-2.21
+  <<: *test_flaky_definition
+
+test-flaky:go1.13-git-2.22-ruby-2.6:
+  image: registry.gitlab.com/gitlab-org/gitlab-build-images:ruby-2.6-golang-1.13-git-2.22
+  <<: *test_flaky_definition
+
+test-flaky:go1.12-git-2.22-ruby-2.6:
+  image: registry.gitlab.com/gitlab-org/gitlab-build-images:ruby-2.6-golang-1.12-git-2.22
+  <<: *test_flaky_definition
+
+test-flaky:go1.13-git-2.24-ruby-2.6:
+  image: registry.gitlab.com/gitlab-org/gitlab-build-images:ruby-2.6-golang-1.13-git-2.24
+  <<: *test_flaky_definition
+
+test-flaky:go1.12-git-2.24-ruby-2.6:
+  image: registry.gitlab.com/gitlab-org/gitlab-build-images:ruby-2.6-golang-1.12-git-2.24
+  <<: *test_flaky_definition
 
 test:proxy:
   <<: *test_definition

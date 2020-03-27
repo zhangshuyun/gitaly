@@ -60,6 +60,10 @@ prepare-tests: prepare-build
 test: prepare-build
 	cd $(BUILD_DIR) && $(MAKE) $@
 
+.PHONY: test-go-flaky
+test-go-flaky: prepare-build
+	cd $(BUILD_DIR) && $(MAKE) $@
+
 .PHONY: test-with-praefect
 test-with-praefect: prepare-build
 	cd $(BUILD_DIR) && $(MAKE) $@
