@@ -191,8 +191,8 @@ update-downstream-server-version:
 
 include:
   - template: Security/License-Management.gitlab-ci.yml
-  - template: SAST.gitlab-ci.yml
-  - template: Dependency-Scanning.gitlab-ci.yml
+  - template: Security/SAST.gitlab-ci.yml
+  - template: Security/Dependency-Scanning.gitlab-ci.yml
 
 gosec-sast:
   before_script:
