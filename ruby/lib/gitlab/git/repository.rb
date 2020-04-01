@@ -371,7 +371,7 @@ module Gitlab
 
         with_worktree(worktree, branch, sparse_checkout_files: diff_files, env: env) do
           run_git!(
-            %W[pull --rebase #{remote_repo_path} #{remote_branch}],
+            %W[-c advice.objectNameWarning=false pull --rebase #{remote_repo_path} #{remote_branch}],
             chdir: worktree.path, env: env, include_stderr: true
           )
 

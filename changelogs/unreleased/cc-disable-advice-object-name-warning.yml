@@ -1,0 +1,5 @@
+---
+title: Disable advice.objectNameWarning when rebasing
+merge_request: 2001
+author:
+type: fixed
