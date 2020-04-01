@@ -15,8 +15,8 @@ import (
 )
 
 func TestCreate(t *testing.T) {
-	server, serverSocketPath := runObjectPoolServer(t)
-	defer server.Stop()
+	serverSocketPath, stop := runObjectPoolServer(t)
+	defer stop()
 
 	client, conn := newObjectPoolClient(t, serverSocketPath)
 	defer conn.Close()
@@ -61,11 +61,7 @@ func TestCreate(t *testing.T) {
 }
 
 func TestUnsuccessfulCreate(t *testing.T) {
-	server, serverSocketPath := runObjectPoolServer(t)
-	defer server.Stop()
-
-	client, conn := newObjectPoolClient(t, serverSocketPath)
-	defer conn.Close()
+	server := NewServer()
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -153,15 +149,15 @@ func TestUnsuccessfulCreate(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			_, err := client.CreateObjectPool(ctx, tc.request)
+			_, err := server.CreateObjectPool(ctx, tc.request)
 			require.Equal(t, tc.error, err)
 		})
 	}
 }
 
 func TestDelete(t *testing.T) {
-	server, serverSocketPath := runObjectPoolServer(t)
-	defer server.Stop()
+	serverSocketPath, stop := runObjectPoolServer(t)
+	defer stop()
 
 	client, conn := newObjectPoolClient(t, serverSocketPath)
 	defer conn.Close()

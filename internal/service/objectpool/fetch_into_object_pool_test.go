@@ -20,8 +20,8 @@ import (
 )
 
 func TestFetchIntoObjectPool_Success(t *testing.T) {
-	server, serverSocketPath := runObjectPoolServer(t)
-	defer server.Stop()
+	serverSocketPath, stop := runObjectPoolServer(t)
+	defer stop()
 
 	client, conn := newObjectPoolClient(t, serverSocketPath)
 	defer conn.Close()
@@ -78,8 +78,8 @@ func TestFetchIntoObjectPool_CollectLogStatistics(t *testing.T) {
 	defer cancel()
 	ctx = ctxlogrus.ToContext(ctx, log.WithField("test", "logging"))
 
-	server, serverSocketPath := runObjectPoolServer(t)
-	defer server.Stop()
+	serverSocketPath, stop := runObjectPoolServer(t)
+	defer stop()
 
 	client, conn := newObjectPoolClient(t, serverSocketPath)
 	defer conn.Close()
