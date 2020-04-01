@@ -108,10 +108,19 @@ func createLimiterConfig() map[string]*ConcurrencyLimiter {
 		result[fullMethodName] = NewLimiter(max, NewPromMonitor("gitaly", fullMethodName))
 	}
 
+	for fullMethodName, _ := range idempotentRPCs {
+		result[fullMethodName] = NewIdempotentLimiter(NewPromMonitor("gitaly", fullMethodName))
+	}
+
 	return result
 }
 
 // SetMaxRepoConcurrency Configures the max concurrency per repo per RPC
 func SetMaxRepoConcurrency(config map[string]int) {
 	maxConcurrencyPerRepoPerRPC = config
+}
+
+var idempotentRPCs = map[string]struct{}{
+	"/gitaly.RepositoryService/ReplicateRepository": {},
+	"/gitaly.RepositoryService/OptimizeRepository":  {},
 }
