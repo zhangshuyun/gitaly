@@ -13,8 +13,8 @@ func TestFilterShasWithSignaturesSuccessful(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
+	serverSocketPath, stop := startTestServices(t)
+	defer stop()
 
 	client, conn := newCommitServiceClient(t, serverSocketPath)
 	defer conn.Close()

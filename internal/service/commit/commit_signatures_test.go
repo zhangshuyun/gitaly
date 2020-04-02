@@ -13,8 +13,8 @@ import (
 )
 
 func TestSuccessfulGetCommitSignaturesRequest(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
+	serverSocketPath, stop := startTestServices(t)
+	defer stop()
 
 	client, conn := newCommitServiceClient(t, serverSocketPath)
 	defer conn.Close()
@@ -73,8 +73,8 @@ func TestSuccessfulGetCommitSignaturesRequest(t *testing.T) {
 }
 
 func TestFailedGetCommitSignaturesRequest(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
+	serverSocketPath, stop := startTestServices(t)
+	defer stop()
 
 	client, conn := newCommitServiceClient(t, serverSocketPath)
 	defer conn.Close()

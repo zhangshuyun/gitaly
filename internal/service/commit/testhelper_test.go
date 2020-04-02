@@ -1,9 +1,10 @@
 package commit
 
 import (
-	"net"
 	"os"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -23,20 +24,15 @@ func testMain(m *testing.M) int {
 	return m.Run()
 }
 
-func startTestServices(t testing.TB) (*grpc.Server, string) {
-	server := testhelper.NewTestGrpcServer(t, nil, nil)
-	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName()
+func startTestServices(t testing.TB) (string, func()) {
+	server := testhelper.NewServer(t, nil, nil)
 
-	listener, err := net.Listen("unix", serverSocketPath)
-	if err != nil {
-		t.Fatal("failed to start server")
-	}
+	gitalypb.RegisterCommitServiceServer(server.GrpcServer(), NewServer())
+	reflection.Register(server.GrpcServer())
 
-	gitalypb.RegisterCommitServiceServer(server, NewServer())
-	reflection.Register(server)
+	require.NoError(t, server.Start())
 
-	go server.Serve(listener)
-	return server, "unix://" + serverSocketPath
+	return "unix://" + server.Socket(), server.Stop
 }
 
 func newCommitServiceClient(t testing.TB, serviceSocketPath string) (gitalypb.CommitServiceClient, *grpc.ClientConn) {
