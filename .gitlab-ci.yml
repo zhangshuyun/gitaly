@@ -214,9 +214,11 @@ gosec-sast:
     - apk add pkgconfig libgit2-dev gcc libc-dev
 
 license_scanning:
+  image:
+    name: registry.gitlab.com/gitlab-org/security-products/license-management/tmp:bfd7459419921ff37ee500f0698862eea6788675
   before_script:
-    - apt-get update
-    - apt-get install -y libicu-dev libgit2-dev cmake
+    - sudo apt-get update
+    - sudo apt-get install -y libicu-dev libgit2-dev cmake
   variables:
     LICENSE_FINDER_CLI_OPTS: '--aggregate-paths=. ruby'
 
