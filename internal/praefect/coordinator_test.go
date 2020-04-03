@@ -75,7 +75,7 @@ func TestStreamDirector(t *testing.T) {
 
 	entry := testhelper.DiscardTestEntry(t)
 
-	nodeMgr, err := nodes.NewManager(entry, conf, promtest.NewMockHistogramVec())
+	nodeMgr, err := nodes.NewManager(entry, conf, nil, promtest.NewMockHistogramVec())
 	require.NoError(t, err)
 	r := protoregistry.New()
 	require.NoError(t, r.RegisterFiles(protoregistry.GitalyProtoFileDescriptors...))
@@ -200,7 +200,7 @@ func TestAbsentCorrelationID(t *testing.T) {
 
 	entry := testhelper.DiscardTestEntry(t)
 
-	nodeMgr, err := nodes.NewManager(entry, conf, promtest.NewMockHistogramVec())
+	nodeMgr, err := nodes.NewManager(entry, conf, nil, promtest.NewMockHistogramVec())
 	require.NoError(t, err)
 
 	coordinator := NewCoordinator(entry, ds, nodeMgr, conf, protoregistry.GitalyProtoPreregistered)

@@ -24,12 +24,14 @@ func TestPrimaryAndSecondaries(t *testing.T) {
 	require.NoError(t, err)
 
 	storageName := "default"
-	mockHistogramVec := promtest.NewMockHistogramVec()
+	mockHistogramVec0, mockHistogramVec1 := promtest.NewMockHistogramVec(), promtest.NewMockHistogramVec()
 
-	cs := newConnectionStatus(models.Node{Storage: storageName}, cc, testhelper.DiscardTestEntry(t), mockHistogramVec)
-	strategy := newLocalElector(storageName, true)
+	cs := newConnectionStatus(models.Node{Storage: storageName}, cc, testhelper.DiscardTestEntry(t), mockHistogramVec0)
+	secondary := newConnectionStatus(models.Node{Storage: storageName}, cc, testhelper.DiscardTestEntry(t), mockHistogramVec1)
+	ns := []*nodeStatus{cs, secondary}
+	logger := testhelper.NewTestLogger(t).WithField("test", t.Name())
+	strategy := newLocalElector(storageName, true, logger, ns)
 
-	strategy.addNode(cs, true)
 	strategy.bootstrap(time.Second)
 
 	primary, err := strategy.GetPrimary()
@@ -38,14 +40,6 @@ func TestPrimaryAndSecondaries(t *testing.T) {
 	require.Equal(t, primary, cs)
 
 	secondaries, err := strategy.GetSecondaries()
-
-	require.NoError(t, err)
-	require.Equal(t, 0, len(secondaries))
-
-	secondary := newConnectionStatus(models.Node{Storage: storageName}, cc, testhelper.DiscardTestEntry(t), nil)
-	strategy.addNode(secondary, false)
-
-	secondaries, err = strategy.GetSecondaries()
 
 	require.NoError(t, err)
 	require.Equal(t, 1, len(secondaries))

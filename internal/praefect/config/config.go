@@ -14,6 +14,11 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/models"
 )
 
+type Failover struct {
+	Enabled          bool   `toml:"enabled"`
+	ElectionStrategy string `toml:"election_strategy"`
+}
+
 // Config is a container for everything found in the TOML config file
 type Config struct {
 	ListenAddr      string            `toml:"listen_addr"`
@@ -29,6 +34,8 @@ type Config struct {
 	Prometheus           prometheus.Config `toml:"prometheus"`
 	Auth                 auth.Config       `toml:"auth"`
 	DB                   `toml:"database"`
+	Failover             Failover `toml:"failover"`
+	// Keep for legacy reasons: remove after Omnibus has switched
 	FailoverEnabled      bool `toml:"failover_enabled"`
 	PostgresQueueEnabled bool `toml:"postgres_queue_enabled"`
 }
@@ -61,6 +68,12 @@ func FromFile(filePath string) (Config, error) {
 		}
 		config.VirtualStorageName = ""
 		config.Nodes = nil
+	}
+
+	// TODO: Remove this after failover_enabled has moved under a separate failover section. This is for
+	// backwards compatibility only
+	if config.FailoverEnabled {
+		config.Failover.Enabled = true
 	}
 
 	return *config, err
@@ -142,6 +155,11 @@ func (c Config) Validate() error {
 	}
 
 	return nil
+}
+
+// NeedsSQL returns true if the driver for SQL needs to be initialized
+func (c Config) NeedsSQL() bool {
+	return c.PostgresQueueEnabled || (c.Failover.Enabled && c.Failover.ElectionStrategy == "sql")
 }
 
 // DB holds Postgres client configuration data.

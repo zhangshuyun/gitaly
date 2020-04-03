@@ -26,6 +26,10 @@ listen_addr = "127.0.0.1:2305"
 # as shard. listen_addr should be unique for all nodes.
 # Requires the protocol to be defined, e.g. tcp://host.tld:1234
 
+[failover]
+enabled = true
+election_strategy = "local" # Options: local, sql
+
 [[virtual_storage]]
 name = 'praefect'
 

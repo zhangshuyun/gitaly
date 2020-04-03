@@ -54,6 +54,8 @@ func (db DB) TruncateAll(t testing.TB) {
 		"replication_queue_job_lock",
 		"replication_queue",
 		"replication_queue_lock",
+		"node_status",
+		"shard_primaries",
 	)
 }
 

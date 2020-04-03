@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metrics"
 )
 
@@ -24,6 +25,7 @@ type localElector struct {
 	shardName       string
 	nodes           []*nodeCandidate
 	primaryNode     *nodeCandidate
+	log             logrus.FieldLogger
 }
 
 // healthcheckThreshold is the number of consecutive healthpb.HealthCheckResponse_SERVING necessary
@@ -44,39 +46,29 @@ func (n *nodeCandidate) isHealthy() bool {
 	return true
 }
 
-func newLocalElector(name string, failoverEnabled bool) *localElector {
+func newLocalElector(name string, failoverEnabled bool, log logrus.FieldLogger, ns []*nodeStatus) *localElector {
+	nodes := make([]*nodeCandidate, len(ns))
+	for i, n := range ns {
+		nodes[i] = &nodeCandidate{
+			node:    n,
+			primary: i == 0,
+		}
+	}
+
 	return &localElector{
 		shardName:       name,
 		failoverEnabled: failoverEnabled,
+		log:             log,
+		nodes:           nodes,
+		primaryNode:     nodes[0],
 	}
-}
-
-// addNode registers a primary or secondary in the internal
-// datastore.
-func (s *localElector) addNode(node Node, primary bool) {
-	localNode := nodeCandidate{
-		node:     node,
-		primary:  primary,
-		statuses: make([]bool, 0),
-	}
-
-	s.m.Lock()
-	defer s.m.Unlock()
-
-	if primary {
-		s.primaryNode = &localNode
-	}
-
-	s.nodes = append(s.nodes, &localNode)
 }
 
 // Start launches a Goroutine to check the state of the nodes and
 // continuously monitor their health via gRPC health checks.
-func (s *localElector) start(bootstrapInterval, monitorInterval time.Duration) error {
+func (s *localElector) start(bootstrapInterval, monitorInterval time.Duration) {
 	s.bootstrap(bootstrapInterval)
 	go s.monitor(monitorInterval)
-
-	return nil
 }
 
 func (s *localElector) bootstrap(d time.Duration) {
@@ -96,17 +88,22 @@ func (s *localElector) monitor(d time.Duration) {
 	ticker := time.NewTicker(d)
 	defer ticker.Stop()
 
+	ctx := context.Background()
+
 	for {
 		<-ticker.C
 
-		ctx := context.Background()
-		s.checkNodes(ctx)
+		err := s.checkNodes(ctx)
+
+		if err != nil {
+			s.log.WithError(err).Warn("error checking nodes")
+		}
 	}
 }
 
 // checkNodes issues a gRPC health check for each node managed by the
 // shard.
-func (s *localElector) checkNodes(ctx context.Context) {
+func (s *localElector) checkNodes(ctx context.Context) error {
 	s.m.Lock()
 	defer s.updateMetrics()
 	defer s.m.Unlock()
@@ -121,7 +118,7 @@ func (s *localElector) checkNodes(ctx context.Context) {
 	}
 
 	if s.primaryNode != nil && s.primaryNode.isHealthy() {
-		return
+		return nil
 	}
 
 	var newPrimary *nodeCandidate
@@ -134,12 +131,14 @@ func (s *localElector) checkNodes(ctx context.Context) {
 	}
 
 	if newPrimary == nil {
-		return
+		return ErrPrimaryNotHealthy
 	}
 
 	s.primaryNode.primary = false
 	s.primaryNode = newPrimary
 	newPrimary.primary = true
+
+	return nil
 }
 
 // GetPrimary gets the primary of a shard. If no primary exists, it will

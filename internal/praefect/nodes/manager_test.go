@@ -52,6 +52,52 @@ func TestNodeStatus(t *testing.T) {
 	require.False(t, status)
 }
 
+func TestPrimaryIsSecond(t *testing.T) {
+	virtualStorages := []*config.VirtualStorage{
+		{
+			Name: "virtual-storage-0",
+			Nodes: []*models.Node{
+				{
+					Storage:        "praefect-internal-0",
+					Address:        "unix://socket0",
+					DefaultPrimary: false,
+				},
+				{
+					Storage:        "praefect-internal-1",
+					Address:        "unix://socket1",
+					DefaultPrimary: true,
+				},
+			},
+		},
+	}
+
+	conf := config.Config{
+		VirtualStorages: virtualStorages,
+		Failover:        config.Failover{Enabled: false},
+	}
+
+	mockHistogram := promtest.NewMockHistogramVec()
+	nm, err := NewManager(testhelper.DiscardTestEntry(t), conf, nil, mockHistogram)
+	require.NoError(t, err)
+
+	shard, err := nm.GetShard("virtual-storage-0")
+	require.NoError(t, err)
+
+	primary, err := shard.GetPrimary()
+	require.NoError(t, err)
+
+	secondaries, err := shard.GetSecondaries()
+	require.Len(t, secondaries, 1)
+	require.NoError(t, err)
+
+	require.Equal(t, virtualStorages[0].Nodes[1].Storage, primary.GetStorage())
+	require.Equal(t, virtualStorages[0].Nodes[1].Address, primary.GetAddress())
+
+	require.Len(t, secondaries, 1)
+	require.Equal(t, virtualStorages[0].Nodes[0].Storage, secondaries[0].GetStorage())
+	require.Equal(t, virtualStorages[0].Nodes[0].Address, secondaries[0].GetAddress())
+}
+
 func TestNodeManager(t *testing.T) {
 	internalSocket0, internalSocket1 := testhelper.GetTemporaryGitalySocketFileName(), testhelper.GetTemporaryGitalySocketFileName()
 	srv0, healthSrv0 := testhelper.NewServerWithHealth(t, internalSocket0)
@@ -79,18 +125,18 @@ func TestNodeManager(t *testing.T) {
 
 	confWithFailover := config.Config{
 		VirtualStorages: virtualStorages,
-		FailoverEnabled: true,
+		Failover:        config.Failover{Enabled: true},
 	}
 	confWithoutFailover := config.Config{
 		VirtualStorages: virtualStorages,
-		FailoverEnabled: false,
+		Failover:        config.Failover{Enabled: false},
 	}
 
 	mockHistogram := promtest.NewMockHistogramVec()
-	nm, err := NewManager(testhelper.DiscardTestEntry(t), confWithFailover, mockHistogram)
+	nm, err := NewManager(testhelper.DiscardTestEntry(t), confWithFailover, nil, mockHistogram)
 	require.NoError(t, err)
 
-	nmWithoutFailover, err := NewManager(testhelper.DiscardTestEntry(t), confWithoutFailover, mockHistogram)
+	nmWithoutFailover, err := NewManager(testhelper.DiscardTestEntry(t), confWithoutFailover, nil, mockHistogram)
 	require.NoError(t, err)
 
 	nm.Start(1*time.Millisecond, 5*time.Second)

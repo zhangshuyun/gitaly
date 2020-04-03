@@ -134,7 +134,7 @@ func TestGitalyServerInfoBadNode(t *testing.T) {
 	}
 
 	entry := testhelper.DiscardTestEntry(t)
-	nodeMgr, err := nodes.NewManager(entry, conf, promtest.NewMockHistogramVec())
+	nodeMgr, err := nodes.NewManager(entry, conf, nil, promtest.NewMockHistogramVec())
 	require.NoError(t, err)
 
 	registry := protoregistry.New()

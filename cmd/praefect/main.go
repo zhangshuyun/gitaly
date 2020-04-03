@@ -187,7 +187,18 @@ func run(cfgs []starter.Config, conf config.Config) error {
 		return err
 	}
 
-	nodeManager, err := nodes.NewManager(logger, conf, nodeLatencyHistogram)
+	var db *sql.DB
+
+	if conf.NeedsSQL() {
+		dbConn, closedb, err := initDatabase(logger, conf)
+		if err != nil {
+			return err
+		}
+		defer closedb()
+		db = dbConn
+	}
+
+	nodeManager, err := nodes.NewManager(logger, conf, db, nodeLatencyHistogram)
 	if err != nil {
 		return err
 	}
@@ -203,11 +214,6 @@ func run(cfgs []starter.Config, conf config.Config) error {
 	}
 
 	if conf.PostgresQueueEnabled {
-		db, closedb, err := initDatabase(logger, conf)
-		if err != nil {
-			return err
-		}
-		defer closedb()
 		ds.ReplicationEventQueue = datastore.NewPostgresReplicationEventQueue(db)
 	} else {
 		ds.ReplicationEventQueue = datastore.NewMemoryReplicationEventQueue()

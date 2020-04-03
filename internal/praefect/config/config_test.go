@@ -265,3 +265,48 @@ func TestToPQString(t *testing.T) {
 		})
 	}
 }
+
+func TestNeedsSQL(t *testing.T) {
+	testCases := []struct {
+		desc     string
+		config   Config
+		expected bool
+	}{
+		{
+			desc:     "default",
+			config:   Config{},
+			expected: false,
+		},
+		{
+			desc:     "PostgreSQL queue enabled",
+			config:   Config{PostgresQueueEnabled: true},
+			expected: true,
+		},
+		{
+			desc:     "Failover enabled with default election strategy",
+			config:   Config{Failover: Failover{Enabled: true}},
+			expected: false,
+		},
+		{
+			desc:     "Failover enabled with SQL election strategy",
+			config:   Config{Failover: Failover{Enabled: true, ElectionStrategy: "sql"}},
+			expected: true,
+		},
+		{
+			desc:     "Both PostgresQL and SQL election strategy enabled",
+			config:   Config{PostgresQueueEnabled: true, Failover: Failover{Enabled: true, ElectionStrategy: "sql"}},
+			expected: true,
+		},
+		{
+			desc:     "Both PostgresQL and SQL election strategy enabled but failover disabled",
+			config:   Config{PostgresQueueEnabled: true, Failover: Failover{Enabled: false, ElectionStrategy: "sql"}},
+			expected: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			require.Equal(t, tc.expected, tc.config.NeedsSQL())
+		})
+	}
+}

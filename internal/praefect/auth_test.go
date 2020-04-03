@@ -194,7 +194,7 @@ func runServer(t *testing.T, token string, required bool) (*Server, string, func
 		ReplicationEventQueue: datastore.NewMemoryReplicationEventQueue(),
 	}
 
-	nodeMgr, err := nodes.NewManager(logEntry, conf, promtest.NewMockHistogramVec())
+	nodeMgr, err := nodes.NewManager(logEntry, conf, nil, promtest.NewMockHistogramVec())
 	require.NoError(t, err)
 
 	registry := protoregistry.New()

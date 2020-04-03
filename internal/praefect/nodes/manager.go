@@ -2,6 +2,7 @@ package nodes
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"time"
 
@@ -46,14 +47,14 @@ type Mgr struct {
 	log             *logrus.Entry
 	// strategies is a map of strategies keyed on virtual storage name
 	strategies map[string]leaderElectionStrategy
+	db         *sql.DB
 }
 
 // leaderElectionStrategy defines the interface by which primary and
 // secondaries are managed.
 type leaderElectionStrategy interface {
-	start(bootstrapInterval, monitorInterval time.Duration) error
-	addNode(node Node, primary bool)
-	checkNodes(context.Context)
+	start(bootstrapInterval, monitorInterval time.Duration)
+	checkNodes(context.Context) error
 
 	Shard
 }
@@ -63,17 +64,11 @@ type leaderElectionStrategy interface {
 var ErrPrimaryNotHealthy = errors.New("primary is not healthy")
 
 // NewManager creates a new NodeMgr based on virtual storage configs
-func NewManager(log *logrus.Entry, c config.Config, latencyHistogram prommetrics.HistogramVec, dialOpts ...grpc.DialOption) (*Mgr, error) {
-	mgr := Mgr{
-		log:             log,
-		failoverEnabled: c.FailoverEnabled}
-
-	mgr.strategies = make(map[string]leaderElectionStrategy)
+func NewManager(log *logrus.Entry, c config.Config, db *sql.DB, latencyHistogram prommetrics.HistogramVec, dialOpts ...grpc.DialOption) (*Mgr, error) {
+	strategies := make(map[string]leaderElectionStrategy, len(c.VirtualStorages))
 
 	for _, virtualStorage := range c.VirtualStorages {
-		strategy := newLocalElector(virtualStorage.Name, c.FailoverEnabled)
-		mgr.strategies[virtualStorage.Name] = strategy
-
+		ns := make([]*nodeStatus, 1, len(virtualStorage.Nodes))
 		for _, node := range virtualStorage.Nodes {
 			conn, err := client.Dial(node.Address,
 				append(
@@ -95,22 +90,40 @@ func NewManager(log *logrus.Entry, c config.Config, latencyHistogram prommetrics
 			if err != nil {
 				return nil, err
 			}
-			ns := newConnectionStatus(*node, conn, log, latencyHistogram)
+			cs := newConnectionStatus(*node, conn, log, latencyHistogram)
+			if node.DefaultPrimary {
+				ns[0] = cs
+			} else {
+				ns = append(ns, cs)
+			}
+		}
 
-			strategy.addNode(ns, node.DefaultPrimary)
+		if c.Failover.ElectionStrategy == "sql" {
+			strategies[virtualStorage.Name] = newSQLElector(virtualStorage.Name, c, defaultFailoverTimeoutSeconds, defaultActivePraefectSeconds, db, log, ns)
+		} else {
+			strategies[virtualStorage.Name] = newLocalElector(virtualStorage.Name, c.Failover.Enabled, log, ns)
 		}
 	}
 
-	return &mgr, nil
+	return &Mgr{
+		log:             log,
+		db:              db,
+		failoverEnabled: c.Failover.Enabled,
+		strategies:      strategies,
+	}, nil
 }
 
 // Start will bootstrap the node manager by calling healthcheck on the nodes as well as kicking off
 // the monitoring process. Start must be called before NodeMgr can be used.
 func (n *Mgr) Start(bootstrapInterval, monitorInterval time.Duration) {
 	if n.failoverEnabled {
+		n.log.Info("Starting failover checks")
+
 		for _, strategy := range n.strategies {
 			strategy.start(bootstrapInterval, monitorInterval)
 		}
+	} else {
+		n.log.Info("Failover checks are disabled")
 	}
 }
 

@@ -128,7 +128,7 @@ rspec-gitlab-shell: {{ .GitlabShellDir }}/config.yml assemble-go prepare-tests
 
 .PHONY: test-postgres
 test-postgres: prepare-tests
-	@cd {{ .SourceDir }} && go test -tags postgres -count=1 gitlab.com/gitlab-org/gitaly/internal/praefect/datastore/...
+	@cd {{ .SourceDir }} && go test -tags postgres -count=1 gitlab.com/gitlab-org/gitaly/internal/praefect/...
 
 .PHONY: verify
 verify: check-mod-tidy check-formatting notice-up-to-date check-proto rubocop

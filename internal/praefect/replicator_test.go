@@ -148,7 +148,7 @@ func TestProcessReplicationJob(t *testing.T) {
 	entry := testhelper.DiscardTestEntry(t)
 	replicator.log = entry
 
-	nodeMgr, err := nodes.NewManager(entry, conf, promtest.NewMockHistogramVec())
+	nodeMgr, err := nodes.NewManager(entry, conf, nil, promtest.NewMockHistogramVec())
 	require.NoError(t, err)
 	nodeMgr.Start(1*time.Millisecond, 5*time.Millisecond)
 
@@ -225,7 +225,7 @@ func TestPropagateReplicationJob(t *testing.T) {
 	}
 	logEntry := testhelper.DiscardTestEntry(t)
 
-	nodeMgr, err := nodes.NewManager(logEntry, conf, promtest.NewMockHistogramVec())
+	nodeMgr, err := nodes.NewManager(logEntry, conf, nil, promtest.NewMockHistogramVec())
 	require.NoError(t, err)
 	nodeMgr.Start(1*time.Millisecond, 5*time.Millisecond)
 
@@ -526,7 +526,7 @@ func TestProcessBacklog_FailedJobs(t *testing.T) {
 
 	logEntry := testhelper.DiscardTestEntry(t)
 
-	nodeMgr, err := nodes.NewManager(logEntry, conf, promtest.NewMockHistogramVec())
+	nodeMgr, err := nodes.NewManager(logEntry, conf, nil, promtest.NewMockHistogramVec())
 	require.NoError(t, err)
 
 	replMgr := NewReplMgr("default", logEntry, ds, nodeMgr)
@@ -664,7 +664,7 @@ func TestProcessBacklog_Success(t *testing.T) {
 
 	logEntry := testhelper.DiscardTestEntry(t)
 
-	nodeMgr, err := nodes.NewManager(logEntry, conf, promtest.NewMockHistogramVec())
+	nodeMgr, err := nodes.NewManager(logEntry, conf, nil, promtest.NewMockHistogramVec())
 	require.NoError(t, err)
 
 	replMgr := NewReplMgr(conf.VirtualStorages[0].Name, logEntry, ds, nodeMgr)
