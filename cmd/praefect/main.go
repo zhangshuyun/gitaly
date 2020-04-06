@@ -83,6 +83,17 @@ var (
 const progname = "praefect"
 
 func main() {
+	flag.Usage = func() {
+		cmds := []string{}
+		for k, _ := range subcommands {
+			cmds = append(cmds, k)
+		}
+
+		printfErr("Usage of %s:\n", progname)
+		flag.PrintDefaults()
+		printfErr("  subcommand (optional)\n")
+		printfErr("\tOne of %s\n", strings.Join(cmds, ", "))
+	}
 	flag.Parse()
 
 	// If invoked with -version
