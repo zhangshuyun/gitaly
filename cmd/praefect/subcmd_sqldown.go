@@ -14,14 +14,12 @@ type sqlMigrateDownSubcommand struct {
 	force bool
 }
 
-func (*sqlMigrateDownSubcommand) prefix() string { return progname + " sql-migrate-down" }
-
-func (*sqlMigrateDownSubcommand) invocation() string { return invocationPrefix + " sql-migrate-down" }
-
 func (s *sqlMigrateDownSubcommand) FlagSet() *flag.FlagSet {
-	flags := flag.NewFlagSet(s.prefix(), flag.ExitOnError)
+	flags := flag.NewFlagSet("sql-migrate-down", flag.ExitOnError)
 	flags.Usage = func() {
-		printfErr("usage:  %s [-f] MAX_MIGRATIONS\n", s.invocation())
+		flag.PrintDefaults()
+		printfErr("  MAX_MIGRATIONS\n")
+		printfErr("\tNumber of migrations to roll back\n")
 	}
 	flags.BoolVar(&s.force, "f", false, "apply down-migrations (default is dry run)")
 	return flags
@@ -48,7 +46,7 @@ func (s *sqlMigrateDownSubcommand) Exec(flags *flag.FlagSet, conf config.Config)
 			return err
 		}
 
-		fmt.Printf("%s: OK (applied %d \"down\" migrations)\n", s.prefix(), n)
+		fmt.Printf("OK (applied %d \"down\" migrations)\n", n)
 		return nil
 	}
 
@@ -57,11 +55,11 @@ func (s *sqlMigrateDownSubcommand) Exec(flags *flag.FlagSet, conf config.Config)
 		return err
 	}
 
-	fmt.Printf("%s: DRY RUN -- would roll back:\n\n", s.prefix())
+	fmt.Printf("DRY RUN -- would roll back:\n\n")
 	for _, id := range planned {
 		fmt.Printf("- %s\n", id)
 	}
-	fmt.Printf("\nTo apply these migrations run: %s -f %d\n", s.invocation(), maxMigrations)
+	fmt.Printf("\nTo apply these migrations run with -f\n")
 
 	return nil
 }
