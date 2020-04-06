@@ -19,32 +19,33 @@ type nodeReconciler struct {
 	referenceStorage string
 }
 
-func reconcile(conf config.Config, subCmdArgs []string) int {
-	var (
-		fs = flag.NewFlagSet("reconcile", flag.ExitOnError)
-		vs = fs.String("virtual", "", "virtual storage for target storage")
-		t  = fs.String("target", "", "target storage to reconcile")
-		r  = fs.String("reference", "", "reference storage to reconcile (optional)")
-	)
+type reconcileSubcommand struct {
+	virtual   string
+	target    string
+	reference string
+}
 
-	if err := fs.Parse(subCmdArgs); err != nil {
-		log.Printf("unable to parse args %v: %s", subCmdArgs, err)
-		return 1
-	}
+func (s *reconcileSubcommand) FlagSet() *flag.FlagSet {
+	fs := flag.NewFlagSet("reconcile", flag.ExitOnError)
+	fs.StringVar(&s.virtual, "virtual", "", "virtual storage for target storage")
+	fs.StringVar(&s.target, "target", "", "target storage to reconcile")
+	fs.StringVar(&s.reference, "reference", "", "reference storage to reconcile (optional)")
+	return fs
+}
 
+func (s *reconcileSubcommand) Exec(flags *flag.FlagSet, conf config.Config) error {
 	nr := nodeReconciler{
 		conf:             conf,
-		virtualStorage:   *vs,
-		targetStorage:    *t,
-		referenceStorage: *r,
+		virtualStorage:   s.virtual,
+		targetStorage:    s.target,
+		referenceStorage: s.reference,
 	}
 
 	if err := nr.reconcile(); err != nil {
-		log.Print("unable to reconcile: ", err)
-		return 1
+		return fmt.Errorf("unable to reconcile: %s", err)
 	}
 
-	return 0
+	return nil
 }
 
 func (nr nodeReconciler) reconcile() error {

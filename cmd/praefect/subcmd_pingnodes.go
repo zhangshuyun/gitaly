@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"flag"
 	"fmt"
 	"log"
 	"sync"
@@ -45,7 +46,13 @@ func flattenNodes(conf config.Config) map[string]*nodePing {
 	return nodeByAddress
 }
 
-func dialNodes(conf config.Config) int {
+type dialNodesSubcommand struct{}
+
+func (s *dialNodesSubcommand) FlagSet() *flag.FlagSet {
+	return flag.NewFlagSet("dial-nodes", flag.ExitOnError)
+}
+
+func (s *dialNodesSubcommand) Exec(flags *flag.FlagSet, conf config.Config) error {
 	nodes := flattenNodes(conf)
 
 	var wg sync.WaitGroup
@@ -58,14 +65,14 @@ func dialNodes(conf config.Config) int {
 	}
 	wg.Wait()
 
-	exitCode := 0
+	var err error
 	for _, n := range nodes {
 		if n.err != nil {
-			exitCode = 1
+			err = n.err
 		}
 	}
 
-	return exitCode
+	return err
 }
 
 func (npr *nodePing) dial() (*grpc.ClientConn, error) {

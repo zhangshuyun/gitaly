@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"strconv"
@@ -9,43 +10,30 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
 )
 
-const subCmdSQLMigrateDown = "sql-migrate-down"
-
-func sqlMigrateDown(conf config.Config, args []string) int {
-	cmd := &sqlMigrateDownCmd{Config: conf}
-	return cmd.Run(args)
+type sqlMigrateDownSubcommand struct {
+	force bool
 }
 
-type sqlMigrateDownCmd struct{ config.Config }
+func (*sqlMigrateDownSubcommand) prefix() string { return progname + " sql-migrate-down" }
 
-func (*sqlMigrateDownCmd) prefix() string { return progname + " " + subCmdSQLMigrateDown }
+func (*sqlMigrateDownSubcommand) invocation() string { return invocationPrefix + " sql-migrate-down" }
 
-func (*sqlMigrateDownCmd) invocation() string { return invocationPrefix + " " + subCmdSQLMigrateDown }
-
-func (smd *sqlMigrateDownCmd) Run(args []string) int {
-	flagset := flag.NewFlagSet(smd.prefix(), flag.ExitOnError)
-	flagset.Usage = func() {
-		printfErr("usage:  %s [-f] MAX_MIGRATIONS\n", smd.invocation())
+func (s *sqlMigrateDownSubcommand) FlagSet() *flag.FlagSet {
+	flags := flag.NewFlagSet(s.prefix(), flag.ExitOnError)
+	flags.Usage = func() {
+		printfErr("usage:  %s [-f] MAX_MIGRATIONS\n", s.invocation())
 	}
-	force := flagset.Bool("f", false, "apply down-migrations (default is dry run)")
-
-	_ = flagset.Parse(args) // No error check because flagset is set to ExitOnError
-
-	if flagset.NArg() != 1 {
-		flagset.Usage()
-		return 1
-	}
-
-	if err := smd.run(*force, flagset.Arg(0)); err != nil {
-		printfErr("%s: fail: %v\n", smd.prefix(), err)
-		return 1
-	}
-
-	return 0
+	flags.BoolVar(&s.force, "f", false, "apply down-migrations (default is dry run)")
+	return flags
 }
 
-func (smd *sqlMigrateDownCmd) run(force bool, maxString string) error {
-	maxMigrations, err := strconv.Atoi(maxString)
+func (s *sqlMigrateDownSubcommand) Exec(flags *flag.FlagSet, conf config.Config) error {
+	if flags.NArg() != 1 {
+		flags.Usage()
+		return errors.New("invalid usage")
+	}
+
+	maxMigrations, err := strconv.Atoi(flags.Arg(0))
 	if err != nil {
 		return err
 	}
@@ -54,26 +42,26 @@ func (smd *sqlMigrateDownCmd) run(force bool, maxString string) error {
 		return fmt.Errorf("number of migrations to roll back must be 1 or more")
 	}
 
-	if force {
-		n, err := datastore.MigrateDown(smd.Config, maxMigrations)
+	if s.force {
+		n, err := datastore.MigrateDown(conf, maxMigrations)
 		if err != nil {
 			return err
 		}
 
-		fmt.Printf("%s: OK (applied %d \"down\" migrations)\n", smd.prefix(), n)
+		fmt.Printf("%s: OK (applied %d \"down\" migrations)\n", s.prefix(), n)
 		return nil
 	}
 
-	planned, err := datastore.MigrateDownPlan(smd.Config, maxMigrations)
+	planned, err := datastore.MigrateDownPlan(conf, maxMigrations)
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("%s: DRY RUN -- would roll back:\n\n", smd.prefix())
+	fmt.Printf("%s: DRY RUN -- would roll back:\n\n", s.prefix())
 	for _, id := range planned {
 		fmt.Printf("- %s\n", id)
 	}
-	fmt.Printf("\nTo apply these migrations run: %s -f %d\n", smd.invocation(), maxMigrations)
+	fmt.Printf("\nTo apply these migrations run: %s -f %d\n", s.invocation(), maxMigrations)
 
 	return nil
 }
