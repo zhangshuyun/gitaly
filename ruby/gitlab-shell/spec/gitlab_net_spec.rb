@@ -41,58 +41,6 @@ describe GitlabNet, vcr: true do
     end
   end
 
-  describe '#broadcast_message' do
-    context "broadcast message exists" do
-      it 'should return message' do
-        VCR.use_cassette("broadcast_message-ok") do
-          result = gitlab_net.broadcast_message
-          expect(result["message"]).to eq("Message")
-        end
-      end
-    end
-
-    context "broadcast message doesn't exist" do
-      it 'should return nil' do
-        VCR.use_cassette("broadcast_message-none") do
-          result = gitlab_net.broadcast_message
-          expect(result).to eq({})
-        end
-      end
-    end
-  end
-
-  describe '#merge_request_urls' do
-    let(:gl_repository) { "project-1" }
-    let(:changes) { "123456 789012 refs/heads/test\n654321 210987 refs/tags/tag" }
-    let(:encoded_changes) { "123456%20789012%20refs/heads/test%0A654321%20210987%20refs/tags/tag" }
-
-    it "sends the given arguments as encoded URL parameters" do
-      expect(gitlab_net).to receive(:get).with("#{internal_api_endpoint}/merge_request_urls?project=#{project}&changes=#{encoded_changes}&gl_repository=#{gl_repository}")
-
-      gitlab_net.merge_request_urls(gl_repository, project, changes)
-    end
-
-    it "omits the gl_repository parameter if it's nil" do
-      expect(gitlab_net).to receive(:get).with("#{internal_api_endpoint}/merge_request_urls?project=#{project}&changes=#{encoded_changes}")
-
-      gitlab_net.merge_request_urls(nil, project, changes)
-    end
-
-    it "returns an empty array when the result cannot be parsed as JSON" do
-      response = double(:response, code: '200', body: '')
-      allow(gitlab_net).to receive(:get).and_return(response)
-
-      expect(gitlab_net.merge_request_urls(gl_repository, project, changes)).to eq([])
-    end
-
-    it "returns an empty array when the result's status is not 200" do
-      response = double(:response, code: '500', body: '[{}]')
-      allow(gitlab_net).to receive(:get).and_return(response)
-
-      expect(gitlab_net.merge_request_urls(gl_repository, project, changes)).to eq([])
-    end
-  end
-
   describe '#pre_receive' do
     let(:gl_repository) { "project-1" }
     let(:params) { { gl_repository: gl_repository } }
@@ -156,27 +104,6 @@ describe GitlabNet, vcr: true do
     it 'throws a NotFound error when post-receive is not available' do
       VCR.use_cassette("post-receive-not-found") do
         expect { subject }.to raise_error(GitlabNet::NotFound)
-      end
-    end
-  end
-
-  describe '#notify_post_receive' do
-    let(:gl_repository) { 'project-1' }
-    let(:repo_path) { '/path/to/my/repo.git' }
-    let(:params) do
-      { gl_repository: gl_repository, project: repo_path }
-    end
-
-    it 'sets the arguments as form parameters' do
-      VCR.use_cassette('notify-post-receive') do
-        expect_any_instance_of(Net::HTTP::Post).to receive(:set_form_data).with(hash_including(params))
-        gitlab_net.notify_post_receive(gl_repository, repo_path)
-      end
-    end
-
-    it 'returns true if notification was succesful' do
-      VCR.use_cassette('notify-post-receive') do
-        expect(gitlab_net.notify_post_receive(gl_repository, repo_path)).to be_truthy
       end
     end
   end
