@@ -41,7 +41,8 @@ module Gitlab
             GitalyServer.repo_path(call),
             GitalyServer.gl_repository(call),
             Gitlab::Git::GitlabProjects.from_gitaly(gitaly_repository, call),
-            GitalyServer.repo_alt_dirs(call)
+            GitalyServer.repo_alt_dirs(call),
+            feature_flags: GitalyServer.feature_flags(call)
           )
         end
 
@@ -61,9 +62,9 @@ module Gitlab
       # Directory name of repo
       attr_reader :name
 
-      attr_reader :gitlab_projects, :storage, :gl_repository, :relative_path
+      attr_reader :gitlab_projects, :storage, :gl_repository, :relative_path, :feature_flags
 
-      def initialize(gitaly_repository, path, gl_repository, gitlab_projects, combined_alt_dirs = "")
+      def initialize(gitaly_repository, path, gl_repository, gitlab_projects, combined_alt_dirs = "", feature_flags: GitalyServer::FeatureFlags.new({}))
         @gitaly_repository = gitaly_repository
 
         @alternate_object_directories = combined_alt_dirs
@@ -75,6 +76,7 @@ module Gitlab
         @path = path
         @gl_repository = gl_repository
         @gitlab_projects = gitlab_projects
+        @feature_flags = feature_flags
       end
 
       def ==(other)

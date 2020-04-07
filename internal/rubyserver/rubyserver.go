@@ -96,6 +96,7 @@ func (s *Server) start() error {
 		"GITALY_RUBY_DIR="+cfg.Ruby.Dir,
 		"GITALY_VERSION="+version.GetVersion(),
 		"GITALY_GIT_HOOKS_DIR="+hooks.Path(),
+		"GITALY_SOCKET="+config.GitalyInternalSocketPath(),
 		"GITALY_RUGGED_GIT_CONFIG_SEARCH_PATH="+cfg.Ruby.RuggedGitConfigSearchPath)
 	env = append(env, gitlabshell.Env()...)
 

@@ -14,10 +14,15 @@ module Gitlab
       GL_PROTOCOL = 'web'
       attr_reader :name, :path, :repository
 
-      def initialize(name, repository)
+      def initialize(name, repository, call_rpc: false)
         @name = name
         @repository = repository
         @path = File.join(self.class.directory, name)
+        @call_rpc = call_rpc
+      end
+
+      def call_rpc
+        @call_rpc == true
       end
 
       def repo_path
@@ -115,7 +120,10 @@ module Gitlab
           'GL_REPOSITORY' => repository.gl_repository,
           'GL_PROTOCOL' => GL_PROTOCOL,
           'PWD' => repo_path,
-          'GIT_DIR' => repo_path
+          'GIT_DIR' => repo_path,
+          'GITALY_REPO' => repository.gitaly_repository.to_json,
+          'GITALY_SOCKET' => Gitlab.config.gitaly.internal_socket,
+          'GITALY_HOOK_RPCS_ENABLED' => call_rpc.to_s
         }
       end
     end

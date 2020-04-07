@@ -209,6 +209,14 @@ func TestSuccessfulUserCreateTagRequest(t *testing.T) {
 }
 
 func TestSuccessfulGitHooksForUserCreateTagRequest(t *testing.T) {
+	testSuccessfulGitHooksForUserCreateTagRequest(t, false)
+}
+
+func TestSuccessfulGitHooksForUserCreateTagRequestWithHookRPCs(t *testing.T) {
+	testSuccessfulGitHooksForUserCreateTagRequest(t, true)
+}
+
+func testSuccessfulGitHooksForUserCreateTagRequest(t *testing.T, callHookRPC bool) {
 	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()
 
@@ -236,15 +244,19 @@ func TestSuccessfulGitHooksForUserCreateTagRequest(t *testing.T) {
 		User:           user,
 	}
 
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	if callHookRPC {
+		ctx = outgoingCtxWithRubyFeatureFlag(ctx, "call-hook-rpc")
+	}
+
 	for _, hookName := range GitlabHooks {
 		t.Run(hookName, func(t *testing.T) {
 			defer exec.Command("git", "-C", testRepoPath, "tag", "-d", tagName).Run()
 
 			hookOutputTempPath, cleanup := testhelper.WriteEnvToCustomHook(t, testRepoPath, hookName)
 			defer cleanup()
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
 
 			response, err := client.UserCreateTag(ctx, request)
 			require.NoError(t, err)

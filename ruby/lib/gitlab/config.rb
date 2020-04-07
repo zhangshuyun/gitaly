@@ -64,6 +64,10 @@ module Gitlab
         @ruby_dir ||= ENV['GITALY_RUBY_DIR']
       end
 
+      def internal_socket
+        @internal_socket ||= ENV['GITALY_SOCKET']
+      end
+
       def rbtrace_enabled?
         @rbtrace_enabled ||= enabled?(ENV['GITALY_RUBY_RBTRACE_ENABLED'])
       end
