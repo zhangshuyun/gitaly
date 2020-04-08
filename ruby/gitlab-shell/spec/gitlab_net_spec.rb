@@ -160,27 +160,6 @@ describe GitlabNet, vcr: true do
     end
   end
 
-  describe '#notify_post_receive' do
-    let(:gl_repository) { 'project-1' }
-    let(:repo_path) { '/path/to/my/repo.git' }
-    let(:params) do
-      { gl_repository: gl_repository, project: repo_path }
-    end
-
-    it 'sets the arguments as form parameters' do
-      VCR.use_cassette('notify-post-receive') do
-        expect_any_instance_of(Net::HTTP::Post).to receive(:set_form_data).with(hash_including(params))
-        gitlab_net.notify_post_receive(gl_repository, repo_path)
-      end
-    end
-
-    it 'returns true if notification was succesful' do
-      VCR.use_cassette('notify-post-receive') do
-        expect(gitlab_net.notify_post_receive(gl_repository, repo_path)).to be_truthy
-      end
-    end
-  end
-
   describe '#check_access' do
     context 'ssh key with access nil, to project' do
       it 'should allow push access for host' do

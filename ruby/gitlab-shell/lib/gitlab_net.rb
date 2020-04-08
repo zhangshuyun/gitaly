@@ -66,15 +66,6 @@ class GitlabNet # rubocop:disable Metrics/ClassLength
     get("#{internal_api_endpoint}/check", options: { read_timeout: CHECK_TIMEOUT })
   end
 
-  def notify_post_receive(gl_repository, repo_path)
-    params = { gl_repository: gl_repository, project: repo_path }
-    resp = post("#{internal_api_endpoint}/notify_post_receive", params)
-
-    resp.code == '200'
-  rescue
-    false
-  end
-
   def post_receive(gl_repository, gl_id, changes, push_options)
     params = {
       gl_repository: gl_repository,
