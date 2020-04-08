@@ -46,22 +46,6 @@ class GitlabNet # rubocop:disable Metrics/ClassLength
     JSON.parse(resp.body) rescue {}
   end
 
-  def merge_request_urls(gl_repository, repo_path, changes)
-    changes = changes.join("\n") unless changes.is_a?(String)
-    changes = changes.encode('UTF-8', 'ASCII', invalid: :replace, replace: '')
-    url = "#{internal_api_endpoint}/merge_request_urls?project=#{URI.escape(repo_path)}&changes=#{URI.escape(changes)}"
-    url += "&gl_repository=#{URI.escape(gl_repository)}" if gl_repository
-    resp = get(url)
-
-    if resp.code == '200'
-      JSON.parse(resp.body)
-    else
-      []
-    end
-  rescue
-    []
-  end
-
   def check
     get("#{internal_api_endpoint}/check", options: { read_timeout: CHECK_TIMEOUT })
   end
