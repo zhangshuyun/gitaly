@@ -41,11 +41,6 @@ class GitlabNet # rubocop:disable Metrics/ClassLength
     GitAccessStatus.new(false, resp.code, API_INACCESSIBLE_MESSAGE)
   end
 
-  def broadcast_message
-    resp = get("#{internal_api_endpoint}/broadcast_message")
-    JSON.parse(resp.body) rescue {}
-  end
-
   def check
     get("#{internal_api_endpoint}/check", options: { read_timeout: CHECK_TIMEOUT })
   end

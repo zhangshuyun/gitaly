@@ -41,26 +41,6 @@ describe GitlabNet, vcr: true do
     end
   end
 
-  describe '#broadcast_message' do
-    context "broadcast message exists" do
-      it 'should return message' do
-        VCR.use_cassette("broadcast_message-ok") do
-          result = gitlab_net.broadcast_message
-          expect(result["message"]).to eq("Message")
-        end
-      end
-    end
-
-    context "broadcast message doesn't exist" do
-      it 'should return nil' do
-        VCR.use_cassette("broadcast_message-none") do
-          result = gitlab_net.broadcast_message
-          expect(result).to eq({})
-        end
-      end
-    end
-  end
-
   describe '#pre_receive' do
     let(:gl_repository) { "project-1" }
     let(:params) { { gl_repository: gl_repository } }
