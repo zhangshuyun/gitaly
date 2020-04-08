@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"time"
 
-	"gitlab.com/gitlab-org/gitaly/internal/helper"
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore/glsql"
 )
 
@@ -152,8 +152,41 @@ type PostgresReplicationEventQueue struct {
 	qc glsql.Querier
 }
 
+// CountDeadReplicationJobs returns the dead replication job counts by relative path within the
+// given timerange. The timerange beginning is inclusive and ending is exclusive.
 func (rq PostgresReplicationEventQueue) CountDeadReplicationJobs(ctx context.Context, from, to time.Time) (map[string]int64, error) {
-	return nil, helper.Unimplemented
+	const q = `
+		SELECT job->>'relative_path', count(*)
+		FROM replication_queue
+		WHERE	state 		= 'dead'
+			AND created_at >= $1
+			AND created_at  < $2
+		GROUP BY job->>'relative_path';
+	`
+
+	rows, err := rq.qc.QueryContext(ctx, q, from.UTC(), to.UTC())
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err := rows.Close(); err != nil {
+			ctxlogrus.Extract(ctx).WithError(err).Error("error closing database rows")
+		}
+	}()
+
+	out := map[string]int64{}
+	for rows.Next() {
+		var relativePath string
+		var count int64
+
+		if err := rows.Scan(&relativePath, &count); err != nil {
+			return nil, err
+		}
+
+		out[relativePath] = count
+	}
+
+	return out, rows.Err()
 }
 
 func (rq PostgresReplicationEventQueue) Enqueue(ctx context.Context, event ReplicationEvent) (ReplicationEvent, error) {

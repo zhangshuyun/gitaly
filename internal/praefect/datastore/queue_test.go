@@ -12,6 +12,10 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 )
 
+func TestPostgresReplicationEventQueue_CountDeadReplicationJobs(t *testing.T) {
+	ContractTestCountDeadReplicationJobs(t, PostgresReplicationEventQueue{getDB(t).DB})
+}
+
 func TestPostgresReplicationEventQueue_Enqueue(t *testing.T) {
 	db := getDB(t)
 
