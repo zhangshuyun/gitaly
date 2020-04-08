@@ -3,7 +3,7 @@ package commit
 import (
 	"context"
 
-	grpc_logrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/chunk"
@@ -39,7 +39,7 @@ func sendCommits(ctx context.Context, sender chunk.Sender, repo *gitalypb.Reposi
 	if err := cmd.Wait(); err != nil {
 		// We expect this error to be caused by non-existing references. In that
 		// case, we just log the error and send no commits to the `sender`.
-		grpc_logrus.Extract(ctx).WithError(err).Info("ignoring git-log error")
+		ctxlogrus.Extract(ctx).WithError(err).Info("ignoring git-log error")
 	}
 
 	return nil

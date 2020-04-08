@@ -8,7 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
-	grpc_logrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
@@ -20,7 +20,7 @@ import (
 )
 
 func (*server) GarbageCollect(ctx context.Context, in *gitalypb.GarbageCollectRequest) (*gitalypb.GarbageCollectResponse, error) {
-	ctxlogger := grpc_logrus.Extract(ctx)
+	ctxlogger := ctxlogrus.Extract(ctx)
 	ctxlogger.WithFields(log.Fields{
 		"WriteBitmaps": in.GetCreateBitmap(),
 	}).Debug("GarbageCollect")

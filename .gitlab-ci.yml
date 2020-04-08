@@ -253,15 +253,12 @@ praefect_sql_test:
     - make test-postgres
 
 lint:
+  # Only Go 1.13 currently officially supported
+  image: registry.gitlab.com/gitlab-org/gitlab-build-images:ruby-2.6-golang-1.13-git-2.24
   stage: test
   script:
     - go version
     - make lint
-  # Temporary allowed to fail because https://github.com/golangci/golangci-lint/issues/896
-  # The job fails frequently https://gitlab.com/gitlab-org/gitaly/-/jobs/494211383
-  # and it stops further development process, so it is temporary measure.
-  # Must be fixed under: https://gitlab.com/gitlab-org/gitaly/-/issues/2605
-  allow_failure: true
 
 code_navigation:
   allow_failure: true

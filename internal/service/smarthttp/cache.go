@@ -5,7 +5,7 @@ import (
 	"io"
 	"sync"
 
-	grpc_logrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/internal/cache"
@@ -56,7 +56,7 @@ func tryCache(ctx context.Context, in *gitalypb.InfoRefsRequest, w io.Writer, mi
 		return missFn(w)
 	}
 
-	logger := grpc_logrus.Extract(ctx).WithFields(log.Fields{"service": uploadPackSvc})
+	logger := ctxlogrus.Extract(ctx).WithFields(log.Fields{"service": uploadPackSvc})
 	logger.Debug("Attempting to fetch cached response")
 	countAttempt()
 

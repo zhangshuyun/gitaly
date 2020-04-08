@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io"
 
-	grpc_logrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/lstree"
@@ -15,7 +15,7 @@ import (
 )
 
 func (s *server) ListFiles(in *gitalypb.ListFilesRequest, stream gitalypb.CommitService_ListFilesServer) error {
-	grpc_logrus.Extract(stream.Context()).WithFields(log.Fields{
+	ctxlogrus.Extract(stream.Context()).WithFields(log.Fields{
 		"Revision": in.GetRevision(),
 	}).Debug("ListFiles")
 

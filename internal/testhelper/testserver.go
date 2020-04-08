@@ -34,7 +34,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
-	"google.golang.org/grpc/health/grpc_health_v1"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	"gopkg.in/yaml.v2"
 )
@@ -521,8 +520,8 @@ type HTTPSettings struct {
 func NewServerWithHealth(t TB, socketName string) (*grpc.Server, *health.Server) {
 	srv := NewTestGrpcServer(t, nil, nil)
 	healthSrvr := health.NewServer()
-	grpc_health_v1.RegisterHealthServer(srv, healthSrvr)
-	healthSrvr.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
+	healthpb.RegisterHealthServer(srv, healthSrvr)
+	healthSrvr.SetServingStatus("", healthpb.HealthCheckResponse_SERVING)
 
 	lis, err := net.Listen("unix", socketName)
 	require.NoError(t, err)

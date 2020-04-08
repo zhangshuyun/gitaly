@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io"
 
-	grpc_logrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/streamio"
@@ -44,7 +44,7 @@ func (s *server) RawBlame(in *gitalypb.RawBlameRequest, stream gitalypb.CommitSe
 	}
 
 	if err := cmd.Wait(); err != nil {
-		grpc_logrus.Extract(ctx).WithError(err).Info("ignoring git-blame error")
+		ctxlogrus.Extract(ctx).WithError(err).Info("ignoring git-blame error")
 	}
 
 	return nil

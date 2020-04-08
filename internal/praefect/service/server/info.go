@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync"
 
-	grpc_logrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/nodes"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -49,7 +49,7 @@ func (s *Server) ServerInfo(ctx context.Context, in *gitalypb.ServerInfoRequest)
 			client := gitalypb.NewServerServiceClient(node.GetConnection())
 			resp, err := client.ServerInfo(ctx, &gitalypb.ServerInfoRequest{})
 			if err != nil {
-				grpc_logrus.Extract(ctx).WithField("storage", node.GetStorage()).WithError(err).Error("error getting sever info")
+				ctxlogrus.Extract(ctx).WithField("storage", node.GetStorage()).WithError(err).Error("error getting sever info")
 				return nil
 			}
 

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	grpc_logrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -80,5 +80,5 @@ func logTime(ctx context.Context, start time.Time, msg string) {
 		return
 	}
 
-	grpc_logrus.Extract(ctx).WithField("spawn_queue_ms", delta.Seconds()*1000).Info(msg)
+	ctxlogrus.Extract(ctx).WithField("spawn_queue_ms", delta.Seconds()*1000).Info(msg)
 }

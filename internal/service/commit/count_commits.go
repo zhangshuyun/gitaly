@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"time"
 
-	grpc_logrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -55,11 +55,11 @@ func (s *server) CountCommits(ctx context.Context, in *gitalypb.CountCommitsRequ
 	var count int64
 	countStr, readAllErr := ioutil.ReadAll(cmd)
 	if readAllErr != nil {
-		grpc_logrus.Extract(ctx).WithError(err).Info("ignoring git rev-list error")
+		ctxlogrus.Extract(ctx).WithError(err).Info("ignoring git rev-list error")
 	}
 
 	if err := cmd.Wait(); err != nil {
-		grpc_logrus.Extract(ctx).WithError(err).Info("ignoring git rev-list error")
+		ctxlogrus.Extract(ctx).WithError(err).Info("ignoring git rev-list error")
 		count = 0
 	} else if readAllErr == nil {
 		var err error

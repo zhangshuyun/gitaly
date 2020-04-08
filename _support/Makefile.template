@@ -141,9 +141,8 @@ check-mod-tidy:
 .PHONY: lint
 lint: {{ .GoLint }}
 	@cd {{ .SourceDir }} && \
-	{{ .GoLint }} run --out-format tab --config .golangci.yml; \
-	EXIT_CODE=$$?;\
-	exit $$EXIT_CODE
+	{{ .GoLint }} cache clean; \
+	{{ .GoLint }} run --out-format tab --config .golangci.yml
 
 .PHONY: check-formatting
 check-formatting: {{ .GitalyFmt }}

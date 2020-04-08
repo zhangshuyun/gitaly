@@ -6,7 +6,7 @@ import (
 	"io"
 	"sync"
 
-	grpc_logrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
@@ -30,7 +30,7 @@ func (s *server) SSHUploadPack(stream gitalypb.SSHService_SSHUploadPackServer) e
 		repository = req.Repository.GlRepository
 	}
 
-	grpc_logrus.Extract(stream.Context()).WithFields(log.Fields{
+	ctxlogrus.Extract(stream.Context()).WithFields(log.Fields{
 		"GlRepository":     repository,
 		"GitConfigOptions": req.GitConfigOptions,
 		"GitProtocol":      req.GitProtocol,
@@ -100,7 +100,7 @@ func (s *server) sshUploadPack(stream gitalypb.SSHService_SSHUploadPackServer, r
 
 		stats, err := stats.ParsePackfileNegotiation(pr)
 		if err != nil {
-			grpc_logrus.Extract(stream.Context()).WithError(err).Debug("failed parsing packfile negotiation")
+			ctxlogrus.Extract(stream.Context()).WithError(err).Debug("failed parsing packfile negotiation")
 			return
 		}
 		stats.UpdateMetrics(s.packfileNegotiationMetrics)

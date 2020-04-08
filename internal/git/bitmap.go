@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	grpc_logrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/internal/git/packfile"
@@ -28,7 +28,7 @@ func init() { prometheus.MustRegister(badBitmapRequestCount) }
 // repoPath, and if it finds any, it logs a warning. This is to help us
 // investigate https://gitlab.com/gitlab-org/gitaly/issues/1728.
 func WarnIfTooManyBitmaps(ctx context.Context, repo repository.GitRepo) {
-	logEntry := grpc_logrus.Extract(ctx)
+	logEntry := ctxlogrus.Extract(ctx)
 
 	storageRoot, err := helper.GetStorageByName(repo.GetStorageName())
 	if err != nil {

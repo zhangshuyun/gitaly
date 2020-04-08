@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	grpc_logrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/internal/git/objectpool"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -18,7 +18,7 @@ func (s *server) GetObjectPool(ctx context.Context, in *gitalypb.GetObjectPoolRe
 	objectPool, err := objectpool.FromRepo(in.GetRepository())
 
 	if err != nil {
-		grpc_logrus.Extract(ctx).
+		ctxlogrus.Extract(ctx).
 			WithError(err).
 			WithField("storage", in.GetRepository().GetStorageName()).
 			WithField("storage", in.GetRepository().GetRelativePath()).

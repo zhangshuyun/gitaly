@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	grpc_logrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -64,7 +64,7 @@ func Perform(ctx context.Context, repoPath string) error {
 }
 
 func myLogger(ctx context.Context) *log.Entry {
-	return grpc_logrus.Extract(ctx).WithField("system", "housekeeping")
+	return ctxlogrus.Extract(ctx).WithField("system", "housekeeping")
 }
 
 // FixDirectoryPermissions does a recursive directory walk to look for

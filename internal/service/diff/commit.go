@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	grpc_logrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/internal/diff"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
@@ -19,7 +19,7 @@ type requestWithLeftRightCommitIds interface {
 }
 
 func (s *server) CommitDiff(in *gitalypb.CommitDiffRequest, stream gitalypb.DiffService_CommitDiffServer) error {
-	grpc_logrus.Extract(stream.Context()).WithFields(log.Fields{
+	ctxlogrus.Extract(stream.Context()).WithFields(log.Fields{
 		"LeftCommitId":           in.LeftCommitId,
 		"RightCommitId":          in.RightCommitId,
 		"IgnoreWhitespaceChange": in.IgnoreWhitespaceChange,
@@ -117,7 +117,7 @@ func (s *server) CommitDiff(in *gitalypb.CommitDiffRequest, stream gitalypb.Diff
 }
 
 func (s *server) CommitDelta(in *gitalypb.CommitDeltaRequest, stream gitalypb.DiffService_CommitDeltaServer) error {
-	grpc_logrus.Extract(stream.Context()).WithFields(log.Fields{
+	ctxlogrus.Extract(stream.Context()).WithFields(log.Fields{
 		"LeftCommitId":  in.LeftCommitId,
 		"RightCommitId": in.RightCommitId,
 		"Paths":         logPaths(in.Paths),

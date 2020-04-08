@@ -18,7 +18,7 @@ func newListener(tb testing.TB) net.Listener {
 	return listener
 }
 
-func newBackendPinger(tb testing.TB, ctx context.Context) (*grpc.ClientConn, *interceptPinger, func()) { //nolint:golint
+func newBackendPinger(tb testing.TB, ctx context.Context) (*grpc.ClientConn, *interceptPinger, func()) {
 	ip := &interceptPinger{}
 
 	done := make(chan struct{})
@@ -52,7 +52,7 @@ func newBackendPinger(tb testing.TB, ctx context.Context) (*grpc.ClientConn, *in
 	return cc, ip, cleanup
 }
 
-func newProxy(tb testing.TB, ctx context.Context, director proxy.StreamDirector, svc, method string) (*grpc.ClientConn, func()) { //nolint:golint
+func newProxy(tb testing.TB, ctx context.Context, director proxy.StreamDirector, svc, method string) (*grpc.ClientConn, func()) {
 	proxySrvr := grpc.NewServer(
 		grpc.CustomCodec(proxy.NewCodec()),
 		grpc.UnknownServiceHandler(proxy.TransparentHandler(director)),

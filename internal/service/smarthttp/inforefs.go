@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 
-	grpc_logrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/pktline"
@@ -40,7 +40,7 @@ func (s *server) InfoRefsReceivePack(in *gitalypb.InfoRefsRequest, stream gitaly
 }
 
 func handleInfoRefs(ctx context.Context, service string, req *gitalypb.InfoRefsRequest, w io.Writer) error {
-	grpc_logrus.Extract(ctx).WithFields(log.Fields{
+	ctxlogrus.Extract(ctx).WithFields(log.Fields{
 		"service": service,
 	}).Debug("handleInfoRefs")
 

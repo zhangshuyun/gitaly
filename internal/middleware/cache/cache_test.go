@@ -168,7 +168,7 @@ func streamFileDesc(t testing.TB) *descriptor.FileDescriptorProto {
 	return fdp
 }
 
-func newTestSvc(t testing.TB, ctx context.Context, srvr *grpc.Server, svc testdata.TestServiceServer) (testdata.TestServiceClient, *grpc.ClientConn, func()) { //nolint:golint
+func newTestSvc(t testing.TB, ctx context.Context, srvr *grpc.Server, svc testdata.TestServiceServer) (testdata.TestServiceClient, *grpc.ClientConn, func()) {
 	healthSrvr := health.NewServer()
 	grpc_health_v1.RegisterHealthServer(srvr, healthSrvr)
 	healthSrvr.SetServingStatus("TestService", grpc_health_v1.HealthCheckResponse_SERVING)

@@ -4,22 +4,17 @@ run:
   timeout: 5m
   modules-download-mode: readonly
 
-# all available settings of specific linters
-linters-settings:
-  staticcheck:
-    checks:
-      - inherit
-
 # list of useful linters could be found at https://github.com/golangci/awesome-go-linters
 linters:
   disable-all: true
   enable:
-    - golint
-    - goimports # https://godoc.org/golang.org/x/tools/cmd/goimports
-    - staticcheck # https://github.com/dominikh/go-tools/tree/master/cmd/staticcheck
-    - gosimple # https://github.com/dominikh/go-tools/tree/master/cmd/gosimple
-    - unused
+    - goimports
+    - stylecheck
+    - deadcode
     - govet
+    - ineffassign
+    - megacheck
+    - varcheck
 
 issues:
   # Excluding configuration per-path, per-linter, per-text and per-source

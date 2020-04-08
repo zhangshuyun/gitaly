@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	grpc_logrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -82,7 +82,7 @@ func (c *promMonitor) Enter(ctx context.Context, acquireTime time.Duration) {
 	c.inprogressGauge.Inc()
 
 	if acquireTime > acquireDurationLogThreshold {
-		logger := grpc_logrus.Extract(ctx)
+		logger := ctxlogrus.Extract(ctx)
 		logger.WithField("acquire_ms", acquireTime.Seconds()*1000).Info("Rate limit acquire wait")
 	}
 

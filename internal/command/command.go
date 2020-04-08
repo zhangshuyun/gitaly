@@ -14,9 +14,8 @@ import (
 	"syscall"
 	"time"
 
-	grpc_logrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/sirupsen/logrus"
-	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/internal/config"
 )
 
@@ -127,7 +126,7 @@ func GitPath() string {
 		// This shouldn't happen outside of testing, SetGitPath should be called by
 		// main.go to ensure correctness of the configuration on start-up.
 		if err := config.SetGitPath(); err != nil {
-			log.Fatal(err) // Bail out.
+			logrus.Fatal(err) // Bail out.
 		}
 	}
 
@@ -182,7 +181,7 @@ func New(ctx context.Context, cmd *exec.Cmd, stdin io.Reader, stdout, stderr io.
 
 	logPid := -1
 	defer func() {
-		grpc_logrus.Extract(ctx).WithFields(log.Fields{
+		ctxlogrus.Extract(ctx).WithFields(logrus.Fields{
 			"pid":  logPid,
 			"path": cmd.Path,
 			"args": cmd.Args,
@@ -235,7 +234,7 @@ func New(ctx context.Context, cmd *exec.Cmd, stdin io.Reader, stdout, stderr io.
 		command.stderrCloser = &noopWriteCloser{stderr}
 		close(command.stderrDone)
 	} else {
-		command.stderrCloser = escapeNewlineWriter(grpc_logrus.Extract(ctx).WriterLevel(log.ErrorLevel), command.stderrDone, MaxStderrBytes)
+		command.stderrCloser = escapeNewlineWriter(ctxlogrus.Extract(ctx).WriterLevel(logrus.ErrorLevel), command.stderrDone, MaxStderrBytes)
 	}
 
 	cmd.Stderr = command.stderrCloser
@@ -392,7 +391,7 @@ func (c *Command) logProcessComplete(ctx context.Context, exitCode int) {
 	userTime := cmd.ProcessState.UserTime()
 	realTime := time.Since(c.startTime)
 
-	entry := grpc_logrus.Extract(ctx).WithFields(log.Fields{
+	entry := ctxlogrus.Extract(ctx).WithFields(logrus.Fields{
 		"pid":                    cmd.ProcessState.Pid(),
 		"path":                   cmd.Path,
 		"args":                   cmd.Args,
@@ -403,7 +402,7 @@ func (c *Command) logProcessComplete(ctx context.Context, exitCode int) {
 	})
 
 	if rusage, ok := cmd.ProcessState.SysUsage().(*syscall.Rusage); ok {
-		entry = entry.WithFields(log.Fields{
+		entry = entry.WithFields(logrus.Fields{
 			"command.maxrss":  rusage.Maxrss,
 			"command.inblock": rusage.Inblock,
 			"command.oublock": rusage.Oublock,

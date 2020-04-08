@@ -9,7 +9,7 @@ import (
 	"sync"
 
 	"github.com/golang/protobuf/proto"
-	grpc_logrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/internal/safe"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
@@ -85,7 +85,7 @@ func (sdb *StreamDB) GetStream(ctx context.Context, repo *gitalypb.Repository, r
 		return nil, err
 	}
 
-	grpc_logrus.Extract(ctx).
+	ctxlogrus.Extract(ctx).
 		WithField("stream_path", respPath).
 		Info("getting stream")
 
@@ -120,7 +120,7 @@ func (sdb *StreamDB) PutStream(ctx context.Context, repo *gitalypb.Repository, r
 		return err
 	}
 
-	grpc_logrus.Extract(ctx).
+	ctxlogrus.Extract(ctx).
 		WithField("stream_path", reqPath).
 		Info("putting stream")
 

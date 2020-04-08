@@ -7,7 +7,7 @@ import (
 	"io"
 	"strings"
 
-	grpc_logrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/updateref"
@@ -96,7 +96,7 @@ func (c *Cleaner) processEntry(oldSHA, newSHA string) error {
 		return nil
 	}
 
-	grpc_logrus.Extract(c.ctx).WithFields(log.Fields{
+	ctxlogrus.Extract(c.ctx).WithFields(log.Fields{
 		"sha":  oldSHA,
 		"refs": refs,
 	}).Info("removing internal references")
@@ -128,7 +128,7 @@ func buildLookupTable(ctx context.Context, repo *gitalypb.Repository) (map[strin
 		return nil, err
 	}
 
-	logger := grpc_logrus.Extract(ctx)
+	logger := ctxlogrus.Extract(ctx)
 	out := make(map[string][]string)
 	scanner := bufio.NewScanner(cmd)
 

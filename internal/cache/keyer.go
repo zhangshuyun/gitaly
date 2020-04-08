@@ -13,7 +13,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/google/uuid"
-	grpc_logrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/internal/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/safe"
@@ -106,7 +106,7 @@ func updateLatest(ctx context.Context, repo *gitalypb.Repository) (string, error
 		return "", err
 	}
 
-	grpc_logrus.Extract(ctx).
+	ctxlogrus.Extract(ctx).
 		WithField("diskcache", nextGenID).
 		Infof("diskcache state change")
 

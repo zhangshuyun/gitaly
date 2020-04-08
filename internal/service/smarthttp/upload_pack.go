@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 
-	grpc_logrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/stats"
@@ -47,7 +47,7 @@ func (s *server) PostUploadPack(stream gitalypb.SmartHTTPService_PostUploadPackS
 
 		stats, err := stats.ParsePackfileNegotiation(pr)
 		if err != nil {
-			grpc_logrus.Extract(stream.Context()).WithError(err).Debug("failed parsing packfile negotiation")
+			ctxlogrus.Extract(stream.Context()).WithError(err).Debug("failed parsing packfile negotiation")
 			return
 		}
 		stats.UpdateMetrics(s.packfileNegotiationMetrics)
@@ -109,7 +109,7 @@ func (s *server) PostUploadPack(stream gitalypb.SmartHTTPService_PostUploadPackS
 		return status.Errorf(codes.Unavailable, "PostUploadPack: %v", err)
 	}
 
-	grpc_logrus.Extract(ctx).WithField("request_sha", fmt.Sprintf("%x", h.Sum(nil))).WithField("response_bytes", respBytes).Info("request details")
+	ctxlogrus.Extract(ctx).WithField("request_sha", fmt.Sprintf("%x", h.Sum(nil))).WithField("response_bytes", respBytes).Info("request details")
 
 	return nil
 }
