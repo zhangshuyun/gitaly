@@ -48,17 +48,30 @@ type Cfg struct {
 	GracefulRestartTimeout     time.Duration
 	GracefulRestartTimeoutToml duration `toml:"graceful_restart_timeout"`
 	InternalSocketDir          string   `toml:"internal_socket_dir"`
+	GitlabURL                  string   `toml:"gitlab_url"`
+	HTTP                       HTTP     `toml:"http"`
+	SecretFile                 string   `toml:"secret_file"`
+}
+
+type HTTP struct {
+	User       string `toml:"user"`
+	Password   string `toml:"password"`
+	SelfSigned bool   `toml:"self_signed"`
+	CAFile     string `toml:"ca_file"`
+	CAPath     string `toml:"ca_path"`
 }
 
 // TLS configuration
 type TLS struct {
-	CertPath string `toml:"certificate_path"`
-	KeyPath  string `toml:"key_path"`
+	CertPath   string `toml:"certificate_path"`
+	KeyPath    string `toml:"key_path"`
+	SelfSigned bool   `toml:"self_signed"`
 }
 
 // GitlabShell contains the settings required for executing `gitlab-shell`
 type GitlabShell struct {
-	Dir string `toml:"dir"`
+	Dir        string `toml:"dir"`
+	SecretFile string `toml:"secret_file"`
 }
 
 // Git contains the settings for the Git executable

@@ -2,6 +2,7 @@ package hook
 
 import (
 	"errors"
+	"io/ioutil"
 	"os/exec"
 	"path/filepath"
 
@@ -44,29 +45,49 @@ func (s *server) PreReceiveHook(stream gitalypb.HookService_PreReceiveHookServer
 		return helper.ErrInvalidArgument(err)
 	}
 
-	stdin := streamio.NewReader(func() ([]byte, error) {
-		req, err := stream.Recv()
-		return req.GetStdin(), err
-	})
-	stdout := streamio.NewWriter(func(p []byte) error { return stream.Send(&gitalypb.PreReceiveHookResponse{Stdout: p}) })
-	stderr := streamio.NewWriter(func(p []byte) error { return stream.Send(&gitalypb.PreReceiveHookResponse{Stderr: p}) })
-
 	repoPath, err := helper.GetRepoPath(firstRequest.GetRepository())
 	if err != nil {
 		return helper.ErrInternal(err)
 	}
 
-	c := exec.Command(gitlabShellHook("pre-receive"))
-	c.Dir = repoPath
+	stdin := streamio.NewReader(func() ([]byte, error) {
+		req, err := stream.Recv()
+		return req.GetStdin(), err
+	})
+
+	stdout := streamio.NewWriter(func(p []byte) error { return stream.Send(&gitalypb.PreReceiveHookResponse{Stdout: p}) })
+	stderr := streamio.NewWriter(func(p []byte) error { return stream.Send(&gitalypb.PreReceiveHookResponse{Stderr: p}) })
 
 	env, err := preReceiveEnv(firstRequest)
 	if err != nil {
 		return helper.ErrInternal(err)
 	}
 
+	changes, err := ioutil.ReadAll(stdin)
+	if err != nil {
+		return helper.ErrInternal(err)
+	}
+
+	ok, msg, err := s.internalClient.checkAccess(repoPath, string(changes), env)
+	if err != nil {
+		return helper.ErrInternal(err)
+	}
+
+	if !ok {
+		if err := stream.SendMsg(&gitalypb.PreReceiveHookResponse{
+			ExitStatus: &gitalypb.ExitStatus{Value: 1},
+			Stderr:     []byte(msg),
+		}); err != nil {
+			return helper.ErrInternal(err)
+		}
+	}
+
+	c := exec.Command(gitlabShellHook("pre-receive"))
+	c.Dir = repoPath
+
 	status, err := streamCommandResponse(
 		stream.Context(),
-		stdin,
+		nil,
 		stdout, stderr,
 		c,
 		env,

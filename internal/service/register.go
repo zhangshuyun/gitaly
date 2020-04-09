@@ -1,6 +1,8 @@
 package service
 
 import (
+	"log"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"gitlab.com/gitlab-org/gitaly/internal/config"
@@ -72,7 +74,11 @@ func RegisterAll(grpcServer *grpc.Server, cfg config.Cfg, rubyServer *rubyserver
 	gitalypb.RegisterRemoteServiceServer(grpcServer, remote.NewServer(rubyServer))
 	gitalypb.RegisterServerServiceServer(grpcServer, server.NewServer(cfg.Storages))
 	gitalypb.RegisterObjectPoolServiceServer(grpcServer, objectpool.NewServer())
-	gitalypb.RegisterHookServiceServer(grpcServer, hook.NewServer())
+	hooksService, err := hook.NewServer(cfg)
+	if err != nil {
+		log.Fatal(err)
+	}
+	gitalypb.RegisterHookServiceServer(grpcServer, hooksService)
 	gitalypb.RegisterInternalGitalyServer(grpcServer, internalgitaly.NewServer(config.Config.Storages))
 
 	healthpb.RegisterHealthServer(grpcServer, health.NewServer())
