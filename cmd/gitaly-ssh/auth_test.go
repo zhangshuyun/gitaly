@@ -39,13 +39,13 @@ func TestConnectivity(t *testing.T) {
 	require.NoError(t, os.RemoveAll(relativeSocketPath))
 	require.NoError(t, os.Symlink(socketPath, relativeSocketPath))
 
-	tcpServer, tcpPort := runServer(t, server.NewInsecure, "tcp", "localhost:0")
+	tcpServer, tcpPort := runServer(t, server.NewInsecure, config.Config, "tcp", "localhost:0")
 	defer tcpServer.Stop()
 
-	tlsServer, tlsPort := runServer(t, server.NewSecure, "tcp", "localhost:0")
+	tlsServer, tlsPort := runServer(t, server.NewSecure, config.Config, "tcp", "localhost:0")
 	defer tlsServer.Stop()
 
-	unixServer, _ := runServer(t, server.NewInsecure, "unix", socketPath)
+	unixServer, _ := runServer(t, server.NewInsecure, config.Config, "unix", socketPath)
 	defer unixServer.Stop()
 
 	testCases := []struct {
@@ -116,8 +116,8 @@ func TestConnectivity(t *testing.T) {
 	}
 }
 
-func runServer(t *testing.T, newServer func(rubyServer *rubyserver.Server) *grpc.Server, connectionType string, addr string) (*grpc.Server, int) {
-	srv := newServer(nil)
+func runServer(t *testing.T, newServer func(rubyServer *rubyserver.Server, cfg config.Cfg) *grpc.Server, cfg config.Cfg, connectionType string, addr string) (*grpc.Server, int) {
+	srv := newServer(nil, cfg)
 
 	listener, err := net.Listen(connectionType, addr)
 	require.NoError(t, err)

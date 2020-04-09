@@ -21,7 +21,13 @@ import (
 )
 
 func TestGitalyServerInfo(t *testing.T) {
-	server, serverSocketPath := runServer(t)
+	// Setup storage paths
+	testStorages := []config.Storage{
+		{Name: "default", Path: testhelper.GitlabTestStoragePath()},
+		{Name: "broken", Path: "/does/not/exist"},
+	}
+
+	server, serverSocketPath := runServer(t, testStorages)
 	defer server.Stop()
 
 	client, conn := newServerClient(t, serverSocketPath)
@@ -30,11 +36,6 @@ func TestGitalyServerInfo(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	// Setup storage paths
-	testStorages := []config.Storage{
-		{Name: "default", Path: testhelper.GitlabTestStoragePath()},
-		{Name: "broken", Path: "/does/not/exist"},
-	}
 	defer func(oldStorages []config.Storage) {
 		config.Config.Storages = oldStorages
 	}(config.Config.Storages)
@@ -68,7 +69,7 @@ func TestGitalyServerInfo(t *testing.T) {
 	require.Equal(t, metadata.GitalyFilesystemID, c.GetStorageStatuses()[0].FilesystemId)
 }
 
-func runServer(t *testing.T) (*grpc.Server, string) {
+func runServer(t *testing.T, storages []config.Storage) (*grpc.Server, string) {
 	authConfig := internalauth.Config{Token: testhelper.RepositoryAuthToken}
 	streamInt := []grpc.StreamServerInterceptor{auth.StreamServerInterceptor(authConfig)}
 	unaryInt := []grpc.UnaryServerInterceptor{auth.UnaryServerInterceptor(authConfig)}
@@ -81,7 +82,7 @@ func runServer(t *testing.T) (*grpc.Server, string) {
 		t.Fatal(err)
 	}
 
-	gitalypb.RegisterServerServiceServer(server, NewServer())
+	gitalypb.RegisterServerServiceServer(server, NewServer(storages))
 	reflection.Register(server)
 
 	go server.Serve(listener)
@@ -90,7 +91,7 @@ func runServer(t *testing.T) (*grpc.Server, string) {
 }
 
 func TestServerNoAuth(t *testing.T) {
-	srv, path := runServer(t)
+	srv, path := runServer(t, config.Config.Storages)
 	defer srv.Stop()
 
 	connOpts := []grpc.DialOption{

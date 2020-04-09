@@ -12,7 +12,7 @@ import (
 )
 
 func TestStorageDiskStatistics(t *testing.T) {
-	server, serverSocketPath := runServer(t)
+	server, serverSocketPath := runServer(t, config.Config.Storages)
 	defer server.Stop()
 
 	client, conn := newServerClient(t, serverSocketPath)

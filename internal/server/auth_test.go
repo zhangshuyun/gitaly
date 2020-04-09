@@ -187,7 +187,7 @@ func healthCheck(conn *grpc.ClientConn) error {
 }
 
 func runServer(t *testing.T) (*grpc.Server, string) {
-	srv := NewInsecure(nil)
+	srv := NewInsecure(nil, config.Config)
 
 	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName()
 
@@ -204,7 +204,7 @@ func runSecureServer(t *testing.T) (*grpc.Server, string) {
 		KeyPath:  "testdata/gitalykey.pem",
 	}
 
-	srv := NewSecure(nil)
+	srv := NewSecure(nil, config.Config)
 
 	listener, err := net.Listen("tcp", "localhost:9999")
 	require.NoError(t, err)

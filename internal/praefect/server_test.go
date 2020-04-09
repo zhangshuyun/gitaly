@@ -105,7 +105,8 @@ func TestGitalyServerInfo(t *testing.T) {
 
 	metadata, err := client.ServerInfo(ctx, &gitalypb.ServerInfoRequest{})
 	require.NoError(t, err)
-	require.Len(t, metadata.GetStorageStatuses(), len(conf.VirtualStorages[0].Nodes))
+	require.Len(t, metadata.GetStorageStatuses(), len(conf.VirtualStorages))
+	require.Equal(t, conf.VirtualStorages[0].Name, metadata.GetStorageStatuses()[0].StorageName)
 	require.Equal(t, version.GetVersion(), metadata.GetServerVersion())
 
 	gitVersion, err := git.Version()

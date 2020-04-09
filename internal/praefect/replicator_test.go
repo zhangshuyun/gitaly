@@ -706,7 +706,7 @@ func TestBackoff(t *testing.T) {
 }
 
 func runFullGitalyServer(t *testing.T) (*grpc.Server, string) {
-	server := serverPkg.NewInsecure(RubyServer)
+	server := serverPkg.NewInsecure(RubyServer, gitaly_config.Config)
 
 	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName()
 

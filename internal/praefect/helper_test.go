@@ -167,7 +167,15 @@ func runPraefectServerWithGitaly(t *testing.T, conf config.Config) (*grpc.Client
 	require.Len(t, conf.VirtualStorages, 1)
 	var cleanups []testhelper.Cleanup
 
-	_, backendAddr, cleanupGitaly := runInternalGitalyServer(t, conf.VirtualStorages[0].Nodes[0].Token)
+	var storages []gconfig.Storage
+	for _, node := range conf.VirtualStorages[0].Nodes {
+		storages = append(storages, gconfig.Storage{
+			Name: node.Storage,
+			Path: testhelper.GitlabTestStoragePath(),
+		})
+	}
+
+	_, backendAddr, cleanupGitaly := runInternalGitalyServer(t, storages, conf.VirtualStorages[0].Nodes[0].Token)
 	cleanups = append(cleanups, cleanupGitaly)
 
 	for i, node := range conf.VirtualStorages[0].Nodes {
@@ -233,7 +241,7 @@ func runPraefectServerWithGitaly(t *testing.T, conf config.Config) (*grpc.Client
 	return cc, prf, cleanup
 }
 
-func runInternalGitalyServer(t *testing.T, token string) (*grpc.Server, string, func()) {
+func runInternalGitalyServer(t *testing.T, storages []gconfig.Storage, token string) (*grpc.Server, string, func()) {
 	streamInt := []grpc.StreamServerInterceptor{auth.StreamServerInterceptor(internalauth.Config{Token: token})}
 	unaryInt := []grpc.UnaryServerInterceptor{auth.UnaryServerInterceptor(internalauth.Config{Token: token})}
 
@@ -247,7 +255,7 @@ func runInternalGitalyServer(t *testing.T, token string) (*grpc.Server, string, 
 	internalListener, err := net.Listen("unix", internalSocket)
 	require.NoError(t, err)
 
-	gitalypb.RegisterServerServiceServer(server, gitalyserver.NewServer())
+	gitalypb.RegisterServerServiceServer(server, gitalyserver.NewServer(storages))
 	gitalypb.RegisterRepositoryServiceServer(server, repository.NewServer(RubyServer, internalSocket))
 	gitalypb.RegisterInternalGitalyServer(server, internalgitaly.NewServer(gconfig.Config.Storages))
 	healthpb.RegisterHealthServer(server, health.NewServer())

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/config"
 	serverPkg "gitlab.com/gitlab-org/gitaly/internal/server"
 	"gitlab.com/gitlab-org/gitaly/internal/service/remote"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -114,7 +115,7 @@ func TestFailedFetchInternalRemoteDueToValidations(t *testing.T) {
 }
 
 func runFullServer(t *testing.T) (*grpc.Server, string) {
-	server := serverPkg.NewInsecure(remote.RubyServer)
+	server := serverPkg.NewInsecure(remote.RubyServer, config.Config)
 	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName()
 
 	listener, err := net.Listen("unix", serverSocketPath)

@@ -8,6 +8,7 @@ import (
 
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/config"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/internal/server"
@@ -41,7 +42,7 @@ func TestVisibilityOfHiddenRefs(t *testing.T) {
 
 	socketPath := testhelper.GetTemporaryGitalySocketFileName()
 
-	unixServer, _ := runServer(t, server.NewInsecure, "unix", socketPath)
+	unixServer, _ := runServer(t, server.NewInsecure, config.Config, "unix", socketPath)
 	defer unixServer.Stop()
 
 	wd, err := os.Getwd()

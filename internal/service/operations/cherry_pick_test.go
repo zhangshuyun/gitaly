@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/config"
 	"gitlab.com/gitlab-org/gitaly/internal/git/log"
 	serverPkg "gitlab.com/gitlab-org/gitaly/internal/server"
 	"gitlab.com/gitlab-org/gitaly/internal/service/operations"
@@ -411,7 +412,7 @@ func TestFailedUserCherryPickRequestDueToCommitError(t *testing.T) {
 }
 
 func runFullServerWithHooks(t *testing.T) (*grpc.Server, string) {
-	server := serverPkg.NewInsecure(operations.RubyServer)
+	server := serverPkg.NewInsecure(operations.RubyServer, config.Config)
 	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName()
 
 	listener, err := net.Listen("unix", serverSocketPath)

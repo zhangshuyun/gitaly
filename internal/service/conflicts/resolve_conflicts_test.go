@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/config"
 	"gitlab.com/gitlab-org/gitaly/internal/git/log"
 	serverPkg "gitlab.com/gitlab-org/gitaly/internal/server"
 	"gitlab.com/gitlab-org/gitaly/internal/service/conflicts"
@@ -308,7 +309,7 @@ func TestFailedResolveConflictsRequestDueToValidation(t *testing.T) {
 }
 
 func runFullServer(t *testing.T) (*grpc.Server, string) {
-	server := serverPkg.NewInsecure(conflicts.RubyServer)
+	server := serverPkg.NewInsecure(conflicts.RubyServer, config.Config)
 	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName()
 
 	listener, err := net.Listen("unix", serverSocketPath)

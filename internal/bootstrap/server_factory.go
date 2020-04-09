@@ -4,6 +4,7 @@ import (
 	"net"
 	"sync"
 
+	"gitlab.com/gitlab-org/gitaly/internal/config"
 	"gitlab.com/gitlab-org/gitaly/internal/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/server"
 	"google.golang.org/grpc"
@@ -68,14 +69,14 @@ func (s *GitalyServerFactory) Serve(l net.Listener, secure bool) error {
 func (s *GitalyServerFactory) get(secure bool) *grpc.Server {
 	if secure {
 		if s.secure == nil {
-			s.secure = server.NewSecure(s.ruby)
+			s.secure = server.NewSecure(s.ruby, config.Config)
 		}
 
 		return s.secure
 	}
 
 	if s.insecure == nil {
-		s.insecure = server.NewInsecure(s.ruby)
+		s.insecure = server.NewInsecure(s.ruby, config.Config)
 	}
 
 	return s.insecure

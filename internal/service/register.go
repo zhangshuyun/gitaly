@@ -52,7 +52,7 @@ var (
 
 // RegisterAll will register all the known grpc services with
 // the specified grpc service instance
-func RegisterAll(grpcServer *grpc.Server, rubyServer *rubyserver.Server) {
+func RegisterAll(grpcServer *grpc.Server, cfg config.Cfg, rubyServer *rubyserver.Server) {
 	gitalypb.RegisterBlobServiceServer(grpcServer, blob.NewServer(rubyServer))
 	gitalypb.RegisterCleanupServiceServer(grpcServer, cleanup.NewServer())
 	gitalypb.RegisterCommitServiceServer(grpcServer, commit.NewServer())
@@ -70,7 +70,7 @@ func RegisterAll(grpcServer *grpc.Server, rubyServer *rubyserver.Server) {
 	gitalypb.RegisterWikiServiceServer(grpcServer, wiki.NewServer(rubyServer))
 	gitalypb.RegisterConflictsServiceServer(grpcServer, conflicts.NewServer(rubyServer))
 	gitalypb.RegisterRemoteServiceServer(grpcServer, remote.NewServer(rubyServer))
-	gitalypb.RegisterServerServiceServer(grpcServer, server.NewServer())
+	gitalypb.RegisterServerServiceServer(grpcServer, server.NewServer(cfg.Storages))
 	gitalypb.RegisterObjectPoolServiceServer(grpcServer, objectpool.NewServer())
 	gitalypb.RegisterHookServiceServer(grpcServer, hook.NewServer())
 	gitalypb.RegisterInternalGitalyServer(grpcServer, internalgitaly.NewServer(config.Config.Storages))

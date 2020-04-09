@@ -69,7 +69,7 @@ func init() {
 
 // createNewServer returns a GRPC server with all Gitaly services and interceptors set up.
 // allows for specifying secure = true to enable tls credentials
-func createNewServer(rubyServer *rubyserver.Server, secure bool) *grpc.Server {
+func createNewServer(rubyServer *rubyserver.Server, cfg config.Cfg, secure bool) *grpc.Server {
 	ctxTagOpts := []grpc_ctxtags.Option{
 		grpc_ctxtags.WithFieldExtractorForInitialReq(fieldextractors.FieldExtractor),
 	}
@@ -123,7 +123,7 @@ func createNewServer(rubyServer *rubyserver.Server, secure bool) *grpc.Server {
 
 	server := grpc.NewServer(opts...)
 
-	service.RegisterAll(server, rubyServer)
+	service.RegisterAll(server, cfg, rubyServer)
 	reflection.Register(server)
 
 	grpc_prometheus.Register(server)
@@ -132,13 +132,13 @@ func createNewServer(rubyServer *rubyserver.Server, secure bool) *grpc.Server {
 }
 
 // NewInsecure returns a GRPC server with all Gitaly services and interceptors set up.
-func NewInsecure(rubyServer *rubyserver.Server) *grpc.Server {
-	return createNewServer(rubyServer, false)
+func NewInsecure(rubyServer *rubyserver.Server, cfg config.Cfg) *grpc.Server {
+	return createNewServer(rubyServer, cfg, false)
 }
 
 // NewSecure returns a GRPC server enabling TLS credentials
-func NewSecure(rubyServer *rubyserver.Server) *grpc.Server {
-	return createNewServer(rubyServer, true)
+func NewSecure(rubyServer *rubyserver.Server, cfg config.Cfg) *grpc.Server {
+	return createNewServer(rubyServer, cfg, true)
 }
 
 // CleanupInternalSocketDir will clean up the directory for internal sockets if it is a generated temp dir
