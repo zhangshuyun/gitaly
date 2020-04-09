@@ -185,15 +185,10 @@ module Gitlab
           oldrev,
           newrev,
           ref,
-          push_options: push_options,
-          call_rpc: feature_flags.enabled?('call-hook-rpc')
+          push_options: push_options
         ) do |service|
           yield(service)
         end
-      end
-
-      def feature_flags
-        repository.feature_flags
       end
 
       def update_ref(ref, newrev, oldrev)
