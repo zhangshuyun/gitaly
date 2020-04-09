@@ -256,6 +256,7 @@ lint:
   # Only Go 1.13 currently officially supported
   image: registry.gitlab.com/gitlab-org/gitlab-build-images:ruby-2.6-golang-1.13-git-2.24
   stage: test
+  retry: 2
   script:
     - go version
     - make lint
