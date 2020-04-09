@@ -85,7 +85,7 @@ const progname = "praefect"
 func main() {
 	flag.Usage = func() {
 		cmds := []string{}
-		for k, _ := range subcommands {
+		for k := range subcommands {
 			cmds = append(cmds, k)
 		}
 

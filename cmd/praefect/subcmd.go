@@ -32,8 +32,6 @@ var (
 	}
 )
 
-const invocationPrefix = progname + " -config CONFIG_TOML"
-
 // subCommand returns an exit code, to be fed into os.Exit.
 func subCommand(conf config.Config, arg0 string, argRest []string) int {
 	interrupt := make(chan os.Signal)
@@ -81,7 +79,7 @@ func (s *sqlPingSubcommand) Exec(flags *flag.FlagSet, conf config.Config) error 
 	defer clean()
 
 	if err := datastore.CheckPostgresVersion(db); err != nil {
-		return fmt.Errorf("%s: fail: %v\n", subCmd, err)
+		return fmt.Errorf("%s: fail: %v", subCmd, err)
 	}
 
 	fmt.Printf("%s: OK\n", subCmd)
@@ -105,7 +103,7 @@ func (s *sqlMigrateSubcommand) Exec(flags *flag.FlagSet, conf config.Config) err
 
 	n, err := glsql.Migrate(db)
 	if err != nil {
-		return fmt.Errorf("%s: fail: %v\n", subCmd, err)
+		return fmt.Errorf("%s: fail: %v", subCmd, err)
 	}
 
 	fmt.Printf("%s: OK (applied %d migrations)\n", subCmd, n)
@@ -115,7 +113,7 @@ func (s *sqlMigrateSubcommand) Exec(flags *flag.FlagSet, conf config.Config) err
 func openDB(conf config.DB) (*sql.DB, func(), error) {
 	db, err := glsql.OpenDB(conf)
 	if err != nil {
-		return nil, nil, fmt.Errorf("sql open: %v\n", err)
+		return nil, nil, fmt.Errorf("sql open: %v", err)
 	}
 
 	clean := func() {
