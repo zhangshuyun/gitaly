@@ -288,23 +288,10 @@ func ConfigureGit() error {
 		return fmt.Errorf("could not get caller info")
 	}
 
-	goenvCmd := exec.Command("go", "env", "GOCACHE")
-	goCacheBytes, err := goenvCmd.Output()
-	goCache := strings.TrimSpace(string(goCacheBytes))
-	if err != nil {
-		return err
-	}
+	testConfig := filepath.Join(filepath.Dir(currentFile), "testdata/home/.gitconfig")
 
-	// set GOCACHE env to current go cache location, otherwise if it's default it would be overwritten by setting HOME
-	err = os.Setenv("GOCACHE", goCache)
-	if err != nil {
-		return err
-	}
-
-	testHome := filepath.Join(filepath.Dir(currentFile), "testdata/home")
-
-	// overwrite HOME env variable so user global .gitconfig doesn't influence tests
-	return os.Setenv("HOME", testHome)
+	// overwrite GIT_CONFIG so user .gitconfig doesn't influence tests
+	return os.Setenv("GIT_CONFIG", testConfig)
 }
 
 // ConfigureRuby configures Ruby settings for test purposes at run time.
