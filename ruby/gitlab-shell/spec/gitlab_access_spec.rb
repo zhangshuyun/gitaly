@@ -5,6 +5,7 @@ describe GitlabAccess do
   let(:repository_path) { "/home/git/repositories" }
   let(:repo_name) { 'dzaporozhets/gitlab-ci' }
   let(:repo_path) { File.join(repository_path, repo_name) + ".git" }
+  let(:changes) { 'wow' }
   let(:api) do
     double(GitlabNet).tap do |api|
       allow(api).to receive(:check_access).and_return(GitAccessStatus.new(true,
@@ -20,7 +21,7 @@ describe GitlabAccess do
     end
   end
   subject do
-    GitlabAccess.new(nil, repo_path, 'key-123', 'wow', 'ssh').tap do |access|
+    GitlabAccess.new(nil, repo_path, 'key-123', changes, 'ssh').tap do |access|
       allow(access).to receive(:exec_cmd).and_return(:exec_called)
       allow(access).to receive(:api).and_return(api)
     end
@@ -40,6 +41,16 @@ describe GitlabAccess do
     context "access is granted" do
       it "returns true" do
         expect(subject.exec).to be_truthy
+      end
+    end
+
+    context 'number of changes is too large' do
+      let(:changes) { "1\n" * 1001 }
+
+      it 'returns false' do
+        expect($stderr).to receive(:puts).with('GitLab: Exceeded the max number of allowed refs to push')
+
+        expect(subject.exec).to be_falsey
       end
     end
 
