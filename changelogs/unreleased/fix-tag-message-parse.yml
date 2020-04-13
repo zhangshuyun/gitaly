@@ -1,0 +1,5 @@
+---
+title: Fix signature detection for tags
+merge_request: 2045
+author: Roger Meier
+type: fixed
