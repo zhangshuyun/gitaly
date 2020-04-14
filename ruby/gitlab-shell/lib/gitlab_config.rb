@@ -1,4 +1,5 @@
 require 'yaml'
+require 'json'
 
 class GitlabConfig
   def secret_file
