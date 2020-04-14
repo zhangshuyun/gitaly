@@ -18,8 +18,12 @@ type hookRequest interface {
 	GetRepository() *gitalypb.Repository
 }
 
-func hookRequestEnv(req hookRequest) []string {
-	return append(gitlabshell.Env(), req.GetEnvironmentVariables()...)
+func hookRequestEnv(req hookRequest) ([]string, error) {
+	gitlabshellEnv, err := gitlabshell.Env()
+	if err != nil {
+		return nil, err
+	}
+	return append(gitlabshellEnv, req.GetEnvironmentVariables()...), nil
 }
 
 func preReceiveEnv(req hookRequest) ([]string, error) {
@@ -27,7 +31,13 @@ func preReceiveEnv(req hookRequest) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	return append(hookRequestEnv(req), env...), nil
+
+	hookEnv, err := hookRequestEnv(req)
+	if err != nil {
+		return nil, err
+	}
+
+	return append(hookEnv, env...), nil
 }
 
 func gitlabShellHook(hookName string) string {

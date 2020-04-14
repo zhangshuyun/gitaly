@@ -446,12 +446,16 @@ func WriteTemporaryGitlabShellConfigFile(t TB, dir string, config GitlabShellCon
 
 // WriteTemporaryGitalyConfigFile writes a gitaly toml file into a temporary directory. It returns the path to
 // the file as well as a cleanup function
-func WriteTemporaryGitalyConfigFile(t TB, tempDir string) (string, func()) {
+func WriteTemporaryGitalyConfigFile(t TB, tempDir, gitlabURL, user, password string) (string, func()) {
 	path := filepath.Join(tempDir, "config.toml")
 	contents := fmt.Sprintf(`
 [gitlab-shell]
   dir = "%s/gitlab-shell"
-`, tempDir)
+  gitlab_url = "%s"
+  [gitlab-shell.http-settings]
+    user = "%s"
+    password = "%s"
+`, tempDir, gitlabURL, user, password)
 	require.NoError(t, ioutil.WriteFile(path, []byte(contents), 0644))
 
 	return path, func() {

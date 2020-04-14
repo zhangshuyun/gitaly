@@ -25,12 +25,17 @@ func (s *server) UpdateHook(in *gitalypb.UpdateHookRequest, stream gitalypb.Hook
 	c := exec.Command(gitlabShellHook("update"), string(in.GetRef()), in.GetOldValue(), in.GetNewValue())
 	c.Dir = repoPath
 
+	updateEnv, err := hookRequestEnv(in)
+	if err != nil {
+		return helper.ErrInternal(err)
+	}
+
 	status, err := streamCommandResponse(
 		stream.Context(),
 		nil,
 		stdout, stderr,
 		c,
-		hookRequestEnv(in),
+		updateEnv,
 	)
 
 	if err != nil {

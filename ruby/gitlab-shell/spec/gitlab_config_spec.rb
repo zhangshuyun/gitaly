@@ -24,11 +24,11 @@ describe GitlabConfig do
     end
   end
 
-  describe '#log_format' do
-    subject { config.log_format }
+  describe '#secret_file' do
+    subject { config.secret_file }
 
-    it 'returns "text" by default' do
-      is_expected.to eq('text')
+    it 'returns ".gitlab_shell_secret" by default' do
+      is_expected.to eq(File.join(File.expand_path('..', __dir__),'.gitlab_shell_secret'))
     end
   end
 

@@ -29,13 +29,17 @@ func HookEnv(req ReceivePackRequest) ([]string, error) {
 		return nil, err
 	}
 
+	gitlabshellEnv, err := gitlabshell.Env()
+	if err != nil {
+		return nil, err
+	}
 	return append([]string{
 		fmt.Sprintf("GL_ID=%s", req.GetGlId()),
 		fmt.Sprintf("GL_USERNAME=%s", req.GetGlUsername()),
 		fmt.Sprintf("GL_REPOSITORY=%s", req.GetGlRepository()),
 		fmt.Sprintf("GITALY_SOCKET=" + config.GitalyInternalSocketPath()),
 		fmt.Sprintf("GITALY_REPO=%s", repo),
-	}, gitlabshell.Env()...), nil
+	}, gitlabshellEnv...), nil
 }
 
 // ReceivePackConfig contains config options we want to enforce when

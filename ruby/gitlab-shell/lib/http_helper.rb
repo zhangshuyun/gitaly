@@ -120,6 +120,9 @@ module HTTPHelper
   end
 
   def read_timeout
-    config.http_settings['read_timeout'] || READ_TIMEOUT
+    read_timeout = config.http_settings['read_timeout']
+    return read_timeout unless read_timeout == 0
+
+    READ_TIMEOUT
   end
 end

@@ -20,7 +20,10 @@ func (s *server) PostReceiveHook(stream gitalypb.HookService_PostReceiveHookServ
 		return helper.ErrInvalidArgument(err)
 	}
 
-	hookEnv := append(hookRequestEnv(firstRequest), hooks.GitPushOptions(firstRequest.GetGitPushOptions())...)
+	hookEnv, err := hookRequestEnv(firstRequest)
+	if err != nil {
+		return helper.ErrInternal(err)
+	}
 
 	stdin := streamio.NewReader(func() ([]byte, error) {
 		req, err := stream.Recv()
@@ -42,7 +45,7 @@ func (s *server) PostReceiveHook(stream gitalypb.HookService_PostReceiveHookServ
 		stdin,
 		stdout, stderr,
 		c,
-		hookEnv,
+		append(hookEnv, hooks.GitPushOptions(firstRequest.GetGitPushOptions())...),
 	)
 
 	if err != nil {

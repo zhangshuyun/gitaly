@@ -426,7 +426,7 @@ func TestCheckOK(t *testing.T) {
 	testhelper.WriteShellSecretFile(t, gitlabShellDir, "the secret")
 	testhelper.WriteTemporaryGitlabShellConfigFile(t, gitlabShellDir, testhelper.GitlabShellConfig{GitlabURL: ts.URL, HTTPSettings: testhelper.HTTPSettings{User: user, Password: password}})
 
-	configPath, cleanup := testhelper.WriteTemporaryGitalyConfigFile(t, tempDir)
+	configPath, cleanup := testhelper.WriteTemporaryGitalyConfigFile(t, tempDir, ts.URL, user, password)
 	defer cleanup()
 
 	cmd := exec.Command(fmt.Sprintf("%s/gitaly-hooks", config.Config.BinDir), "check", configPath)
@@ -436,6 +436,7 @@ func TestCheckOK(t *testing.T) {
 	cmd.Stdout = &stdout
 
 	require.NoError(t, cmd.Run())
+
 	require.Empty(t, stderr.String())
 	expectedCheckOutput := "Check GitLab API access: OK\nRedis available via internal API: OK\n"
 	require.Equal(t, expectedCheckOutput, stdout.String())
@@ -474,7 +475,7 @@ func TestCheckBadCreds(t *testing.T) {
 	testhelper.WriteTemporaryGitlabShellConfigFile(t, gitlabShellDir, testhelper.GitlabShellConfig{GitlabURL: ts.URL, HTTPSettings: testhelper.HTTPSettings{User: user + "wrong", Password: password}})
 	testhelper.WriteShellSecretFile(t, gitlabShellDir, "the secret")
 
-	configPath, cleanup := testhelper.WriteTemporaryGitalyConfigFile(t, tempDir)
+	configPath, cleanup := testhelper.WriteTemporaryGitalyConfigFile(t, tempDir, ts.URL, user+"wrong", password)
 	defer cleanup()
 
 	cmd := exec.Command(fmt.Sprintf("%s/gitaly-hooks", config.Config.BinDir), "check", configPath)

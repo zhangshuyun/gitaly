@@ -1,45 +1,50 @@
 require 'yaml'
+require 'json'
 
 class GitlabConfig
   def secret_file
-    fetch_from_legacy_config('secret_file',File.join(ROOT_PATH, '.gitlab_shell_secret'))
+    fetch_from_config('secret_file', fetch_from_legacy_config('secret_file', File.join(ROOT_PATH, '.gitlab_shell_secret')))
   end
 
   # Pass a default value because this is called from a repo's context; in which
   # case, the repo's hooks directory should be the default.
   #
   def custom_hooks_dir(default: nil)
-    fetch_from_legacy_config('custom_hooks_dir', File.join(ROOT_PATH, 'hooks'))
+    fetch_from_config('custom_hooks_dir', fetch_from_legacy_config('custom_hooks_dir', File.join(ROOT_PATH, 'hooks')))
   end
 
   def gitlab_url
-    fetch_from_legacy_config('gitlab_url',"http://localhost:8080").sub(%r{/*$}, '')
+    fetch_from_config('gitlab_url', fetch_from_legacy_config('gitlab_url',"http://localhost:8080").sub(%r{/*$}, ''))
   end
 
   def http_settings
-    fetch_from_legacy_config('http_settings', {})
+    fetch_from_config('http_settings', fetch_from_legacy_config('http_settings', {}))
   end
 
   def log_file
-    return File.join(LOG_PATH, 'gitlab-shell.log') unless LOG_PATH.empty?
+    log_path = fetch_from_config('log_path', LOG_PATH)
 
-    fetch_from_legacy_config('log_file', File.join(ROOT_PATH, 'gitlab-shell.log'))
+    return File.join(log_path, 'gitlab-shell.log') unless log_path.empty?
+
+    File.join(ROOT_PATH, 'gitlab-shell.log')
   end
 
   def log_level
-    return LOG_LEVEL unless LOG_LEVEL.empty?
+    log_level = fetch_from_config('log_level', LOG_LEVEL)
 
-    fetch_from_legacy_config('log_level', 'INFO')
+    log_level = LOG_LEVEL if log_level.empty?
+
+    return log_level unless log_level.empty?
+
+    'INFO'
   end
 
   def log_format
-    return LOG_FORMAT unless LOG_FORMAT.empty?
+    log_format = fetch_from_config('log_format', LOG_FORMAT)
 
-    fetch_from_legacy_config('log_format', 'text')
-  end
+    return log_format unless log_format.empty?
 
-  def metrics_log_file
-    fetch_from_legacy_config('metrics_log_file', File.join(ROOT_PATH, 'gitlab-shell-metrics.log'))
+    'text'
   end
 
   def to_json
@@ -51,7 +56,6 @@ class GitlabConfig
       log_file: log_file,
       log_level: log_level,
       log_format: log_format,
-      metrics_log_file: metrics_log_file
     }.to_json
   end
 
@@ -61,8 +65,22 @@ class GitlabConfig
 
   private
 
+  def fetch_from_config(key, default='')
+    value = config[key]
+    return value unless value.nil? || value.empty?
+
+    default
+  end
+
+  def config
+    @config ||= JSON.parse(ENV.fetch('GITALY_GITLAB_SHELL_CONFIG', '{}'))
+  end
+
   def legacy_config
     # TODO: deprecate @legacy_config that is parsing the gitlab-shell config.yml
-    @legacy_config ||= YAML.load_file(File.join(ROOT_PATH, 'config.yml'))
+    legacy_file = File.join(ROOT_PATH, 'config.yml')
+    return {} unless File.exist?(legacy_file)
+
+    @legacy_config ||= YAML.load_file(legacy_file)
   end
 end
