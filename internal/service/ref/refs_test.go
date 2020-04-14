@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"os"
 	"strings"
 	"testing"
 
@@ -439,6 +440,16 @@ func TestSuccessfulFindAllTagsRequest(t *testing.T) {
 	testRepoCopy, testRepoCopyPath, cleanupFn := testhelper.NewTestRepoWithWorktree(t)
 	defer cleanupFn()
 
+	// reconstruct the v1.1.2 tag from pack file and add them to packed-refs file
+	// TODO: remove as soon as v1.1.2 tag is added to gitlab-test repo again
+	file, err := os.Open("testdata/v1.1.2.pack")
+	require.NoError(t, err)
+	testhelper.MustRunCommand(t, bufio.NewReader(file), "git", "-C", testRepoCopyPath, "unpack-objects", "-q")
+	f, err := os.OpenFile(testRepoCopyPath+"/.git/packed-refs", os.O_APPEND|os.O_WRONLY, 0644)
+	require.NoError(t, err)
+	f.Write([]byte("55a0e7891308870bc72db811ec1a81bd34e07993 refs/tags/v1.1.2\n^f794c60eefa9525829a9140ec238e5fa468ec460\n"))
+	f.Close()
+
 	blobID := "faaf198af3a36dbf41961466703cc1d47c61d051"
 	commitID := "6f6d7e7ed97bb5f0054f2b1df789b39ca89b6ff9"
 
@@ -616,6 +627,39 @@ func TestSuccessfulFindAllTagsRequest(t *testing.T) {
 				Timezone: []byte("+0100"),
 			},
 			SignatureType: gitalypb.SignatureType_X509,
+		},
+		{
+			Name: []byte("v1.1.2"),
+			Id:   "55a0e7891308870bc72db811ec1a81bd34e07993",
+			TargetCommit: &gitalypb.GitCommit{
+				Id:      "f794c60eefa9525829a9140ec238e5fa468ec460",
+				Subject: []byte("Add a change with a GPG signature"),
+				Body:    []byte("Add a change with a GPG signature\n"),
+				Author: &gitalypb.CommitAuthor{
+					Name:     []byte("Stan Hu"),
+					Email:    []byte("stanhu@gmail.com"),
+					Date:     &timestamp.Timestamp{Seconds: 1586615220},
+					Timezone: []byte("-0700"),
+				},
+				Committer: &gitalypb.CommitAuthor{
+					Name:     []byte("Stan Hu"),
+					Email:    []byte("stanhu@gmail.com"),
+					Date:     &timestamp.Timestamp{Seconds: 1586615315},
+					Timezone: []byte("-0700"),
+				},
+				ParentIds:     []string{"ddd0f15ae83993f5cb66a927a28673882e99100b"},
+				BodySize:      34,
+				SignatureType: gitalypb.SignatureType_NONE,
+			},
+			Message:     []byte("Lorem ipsum dolor sit amet, consectetur adipiscing elit. Donec viverra\nelit magna, eu molestie tellus interdum in. Nunc consequat maximus\nmagna, at sollicitudin augue pharetra a. Proin feugiat ac ex ac\ndignissim. In euismod urna sed elit ultrices, ac ultrices erat\ntempor. Nam odio dui, tincidunt nec lectus nec, consequat rhoncus\nquam. Vestibulum porttitor ex mi, at vehicula urna faucibus vitae. Fusce\nvel diam nisl. Donec eu velit quam. Suspendisse in enim maximus,\nlobortis orci id, feugiat erat. Maecenas ullamcorper posuere urna eu\nvenenatis. Etiam pulvinar posuere enim, eget placerat erat eleifend\nid. Curabitur bibendum consequat metus id gravida. Aenean fringilla id\nmauris quis bibendum. Nunc nec massa vel arcu volutpat maximus vel ac\ndui. Cras eget odio turpis. Sed lacinia, felis sed porta sodales, tortor\nlacus pharetra odio, eget elementum odio velit id ex.\n\nMorbi sagittis felis ex, id placerat libero euismod in. Integer\nvenenatis id odio at vulputate. Nulla et tortor vel augue placerat\nmattis nec non libero. Ut pellentesque feugiat leo, ac pretium lorem\nimperdiet vel. Morbi tincidunt blandit enim. Curabitur volutpat eu metus\nat consequat. Donec quis dictum diam, at condimentum arcu. Morbi quis\nfacilisis lorem. Vivamus posuere sed lectus vestibulum posuere. Fusce id\nest dignissim, sodales sapien ut, consequat lacus. Aenean eu est et quam\ntempus scelerisque cursus rhoncus orci. Morbi vitae tempus\nlorem. Aliquam viverra purus dolor, id gravida erat eleifend id. Ut\nporta volutpat vestibulum. Mauris cursus scelerisque leo. Morbi id ipsum\nlobortis, vulputate arcu eu, porta nulla.\n\nFusce in est justo. Suspendisse erat nulla, volutpat sed ligula quis,\nvestibulum mollis arcu. Curabitur pellentesque vel ligula eu\nfacilisis. Nunc eget augue sapien. Nullam sed elit dolor. Ut diam arcu,\nmollis id condimentum sit amet, luctus sit amet turpis. Praesent quis\nerat quis quam aliquet placerat et sed nulla. Nulla eu tincidunt\nleo. Nulla vel ante nulla. Donec purus dui, ullamcorper in metus non,\naliquam suscipit tellus.\n\nAliquam ut neque ornare, scelerisque enim vitae, semper\naugue. Suspendisse potenti. Class aptent taciti sociosqu ad litora\ntorquent per conubia nostra, per inceptos himenaeos. Morbi posuere elit\nac dolor ullamcorper, sed euismod ex molestie. Integer scelerisque diam\neu sapien luctus scelerisque. Integer cursus elit et sapien rhoncus,\neget pharetra ex cursus. In blandit ipsum neque, sed tincidunt sapien\ninterdum non. Nulla eget porttitor eros. Quisque ut luctus nisi. Duis\nefficitur sollicitudin vulputate.\n\nPraesent tellus magna, sagittis quis tortor quis, porta convallis\nmagna. Sed placerat, justo id ultricies scelerisque, dolor augue\nmolestie massa, non malesuada ex purus in ex. Nullam porttitor in massa\nid sollicitudin. Donec scelerisque at ante ac tempus. Proin malesuada\nmetus lacus, non lacinia nibh volutpat et. Integer molestie nunc vel\nodio dignissim tincidunt. Vestibulum tortor libero, sollicitudin cursus\nelit eu, finibus tempus libero. Sed malesuada nisl sed quam molestie\ncongue.\n\nIn ac lectus vel libero condimentum auctor. Morbi sit amet augue\ndiam. Mauris ut varius neque. Proin vitae pulvinar erat, nec mollis\nnulla. Nunc magna eros, vulputate ac nisi molestie, bibendum sagittis\neros. Praesent porttitor magna tortor, ac aliquam purus suscipit sit\namet. Curabitur sed justo nulla. Sed convallis eros sit amet porta\nmollis. Sed ac gravida eros, in laoreet nisl.\n\nAliquam non nisi eu nisi commodo commodo. Proin ullamcorper, libero sit\namet dignissim placerat, dui lectus faucibus enim, pharetra dignissim\nnisl ex vel ipsum. Suspendisse tempus at dolor vitae mattis. Mauris eu\nfaucibus tortor. Curabitur ex massa, efficitur a massa vitae, pretium\nluctus ipsum. Pellentesque dignissim bibendum lorem, at fermentum ligula\nfacilisis vel. Proin pretium leo pulvinar enim aliquet, placerat finibus\ndiam porttitor. Phasellus tempus porttitor risus, ac pellentesque risus\nconvallis vitae. In congue nibh quis egestas commodo. Sed vitae diam\nfinibus, mattis nisi et, accumsan orci. Nulla sit amet tellus sodales,\nfaucibus leo nec, dictum arcu.\n\nInteger et quam eget est congue luctus. Aliquam vestibulum feugiat\nlorem, blandit ultricies nulla scelerisque sit amet. Curabitur quis\nlacus ut enim ultricies aliquet. Nam iaculis ipsum sit amet facilisis\ngravida. Proin gravida elementum metus, pretium commodo risus egestas\nin. Nunc luctus tempus mauris, in dictum tortor volutpat sit\namet. Curabitur eu ex lectus. Aenean ornare est sed consectetur\ntempor. Sed lorem ligula, lacinia eget elit sed, ornare feugiat\nlorem. Maecenas condimentum vehicula arcu, ut vehicula metus iaculis\nac. Aliquam eu sem magna.\n\nCurabitur facilisis nisl non porttitor pellentesque. Aliquam vel magna\nnec risus placerat aliquet. Sed quis ultrices elit. Cras tempor arcu nec\nerat elementum placerat. Nunc eu elit vel ante pulvinar efficitur a\npulvinar dui. Sed sit amet elit vel augue efficitur malesuada a nec\nex. Curabitur gravida ipsum eros, quis tempor erat fringilla euismod.\n\nSed tempus metus at metus bibendum faucibus. Quisque placerat dignissim\nultrices. Praesent at ultricies risus, sit amet vulputate neque. Morbi\nid quam leo. Etiam quis consectetur enim. Donec vestibulum, ipsum in\nfaucibus vestibulum, tellus lectus aliquet odio, sit amet tristique\nfelis dui ac mauris. Nunc venenatis facilisis mollis. Vivamus luctus\nporttitor dolor et condimentum. Integer rhoncus convallis lorem at\npretium. Proin et mauris mi. Vivamus magna ante, aliquet id blandit\nvitae, ultricies eu turpis.\n\nClass aptent taciti sociosqu ad litora torquent per conubia nostra, per\ninceptos himenaeos. Donec sit amet varius velit. Fusce egestas dui ut\naliquam molestie. Donec sodales mauris eget commodo hendrerit. Mauris\neget nibh augue. Integer venenatis, enim ac commodo tincidunt, massa\nelit lobortis enim, a malesuada libero neque nec nunc. Aliquam vitae\ntellus leo. Proin ligula purus, finibus eget felis sit amet, sagittis\nfermentum sem. Etiam erat metus, mattis a tellus at, porta pellentesque\ndiam. Mauris sem libero, ornare vel euismod et, porttitor nec nulla. Nam\nauctor lobortis purus semper euismod. Integer faucibus diam pharetra,\nsagittis lectus ut, imperdiet lorem.\n\nVivamus molestie lectus eu viverra consequat. Maecenas pellentesque\nornare ipsum sed facilisis. Nulla rhoncus quam id nisl rutrum pharetra\nin in ligula. Etiam eu mattis felis. Integer non viverra magna. Donec\nlacus tellus, pulvinar non porta non, euismod eget turpis. Interdum et\nmalesuada fames ac ante ipsum primis in faucibus. Curabitur ultrices\nfelis erat. In hac habitasse platea dictumst. Donec rutrum, mi eu\nelementum mattis, nisl tortor rhoncus felis, sit amet lobortis urna dui\neget erat. Cras ullamcorper hendrerit arcu et sodales. Curabitur ut\naugue fermentum dui fermentum consequat quis eu velit.\n\nVivamus sed odio nec eros finibus convallis. Maecenas porttitor orci in\njusto posuere blandit. Etiam non mi dictum, luctus sem eu, tempor\njusto. Nunc in bibendum massa. Ut laoreet suscipit neque, ac laoreet\nlacus luctus quis. Vestibulum ex ligula, condimentum nec nibh nec,\ndictum tempor nisi. Sed sit amet malesuada risus. Etiam a ipsum\nvulputate, tempus mi in, posuere felis. Integer vitae lorem a elit\npretium blandit vel vel est. Nulla porttitor scelerisque felis sit amet\neleifend.\n\nNulla in venenatis eros. Pellentesque pretium nulla mi, at malesuada\nmetus porta ullamcorper. Nunc non metus lorem. Pellentesque habitant\nmorbi tristique senectus et netus et malesuada fames ac turpis\negestas. In tristique consectetur venenatis. Proin vehicula tortor vitae\nmauris rutrum rutrum. Nulla nec tempus libero. Donec at condimentum\nfelis. Etiam in nibh accumsan mi tincidunt sodales ut a massa. Quisque\nsit amet velit felis. Proin id sodales erat. Praesent viverra sagittis\nsem sit amet hendrerit. Donec egestas, sem in egestas sagittis, quam\nmauris vestibulum nulla, sed cursus leo nulla ac lacus. Phasellus\nconsequat tempor gravida.\n\nSed nibh nisi, malesuada eu fermentum nec, dignissim eget velit. Donec\nrutrum ex diam, sit amet sagittis diam semper et. Etiam quis lacinia\nnunc, at faucibus lorem. Fusce imperdiet nulla quis risus ornare\nullamcorper. Nullam vehicula sollicitudin leo, nec gravida arcu\nmalesuada at. Nunc tempor sem vitae elit ultricies, sit amet sodales\nneque ornare. Quisque bibendum iaculis magna ut cursus. Proin at ipsum\niaculis augue laoreet tempus.\n\nPellentesque nec tellus ut magna posuere mattis tempor vel augue. Etiam\nnec eleifend lacus. Proin quis euismod urna. Aliquam egestas mi eu velit\nconsectetur, quis lobortis massa imperdiet. Ut non nunc at ex hendrerit\naccumsan. Morbi a arcu tortor. Etiam convallis tellus et ullamcorper\nelementum. Sed sollicitudin lacus nec ultricies vehicula. Vivamus\nconsequat leo eu risus euismod, in cursus nisl semper. Morbi vitae\npellentesque magna. Vivamus hendrerit sapien et ligula posuere\nsemper. Maecenas ac tempus nisl. Suspendisse dictum dignissim orci vel\nrhoncus. In a tortor enim. Morbi enim ante, vulputate vitae tortor\neuismod, maximus feugiat magna. Mauris sit amet enim quis ante mattis\nmaximus.\n\nDuis aliquam ligula fringilla bibendum auctor. Donec malesuada lacus\nviverra gravida dignissim. Vestibulum maximus porta purus, ut venenatis\nlorem euismod in. Duis maximus massa sit amet neque rhoncus\nfinibus. Donec euismod tristique odio, pulvinar blandit orci fringilla\nin. Vestibulum egestas, est at tristique aliquet, mauris lorem\nvestibulum massa, tristique pellentesque ex nulla sed nisl. Maecenas\ndignissim vitae nibh vel facilisis. Nam molestie, ex vel efficitur\ndignissim, mauris nisl porta tellus, et molestie lacus nulla a\nex. Vestibulum nisl ex, elementum ac ullamcorper at, posuere non\njusto. In quis dignissim justo, non elementum nisl.\n\nDonec in interdum odio. Aliquam condimentum lectus orci, quis gravida\nfelis vehicula quis. Nam vel lorem id leo mattis posuere a in dui. Fusce\nnon interdum odio. Proin metus eros, euismod ut tempor sit amet,\nsagittis a erat. Integer sem leo, accumsan vitae odio eget, sagittis\nrutrum enim. Aliquam sollicitudin velit nulla, vitae tempor metus\naccumsan pretium. Orci varius natoque penatibus et magnis dis parturient\nmontes, nascetur ridiculus mus. Praesent vel nulla mi. Lorem ipsum dolor.\n-----BEGIN PG"), //nolint
+			MessageSize: 11045,
+			Tagger: &gitalypb.CommitAuthor{
+				Name:     []byte("Stan Hu"),
+				Email:    []byte("stanhu@gmail.com"),
+				Date:     &timestamp.Timestamp{Seconds: 1586616653},
+				Timezone: []byte("-0700"),
+			},
+			SignatureType: gitalypb.SignatureType_PGP,
 		},
 		{
 			Name:        []byte("v1.2.0"),
