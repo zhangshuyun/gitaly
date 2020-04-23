@@ -156,6 +156,7 @@ race:
       - _build/reports/go-tests-report-${CI_JOB_NAME}.xml
     reports:
       junit: _build/reports/go-tests-report-${CI_JOB_NAME}.xml
+  allow_failure: true
 
 cover:
   <<: *ruby_definition
