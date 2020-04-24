@@ -157,9 +157,24 @@ func noopBackoffFunc() (backoff, backoffReset) {
 	}, func() {}
 }
 
+type runPraefectServerWithGitalyOption func(*testServerOptions)
+
+func withReplicator(r Replicator) runPraefectServerWithGitalyOption {
+	return func(tso *testServerOptions) { tso.replicator = r }
+}
+
+type testServerOptions struct {
+	replicator Replicator
+}
+
 // runPraefectServerWithGitaly runs a praefect server with actual Gitaly nodes
 // requires exactly 1 virtual storage
-func runPraefectServerWithGitaly(t *testing.T, conf config.Config) (*grpc.ClientConn, *Server, testhelper.Cleanup) {
+func runPraefectServerWithGitaly(t *testing.T, conf config.Config, opts ...runPraefectServerWithGitalyOption) (*grpc.ClientConn, *Server, testhelper.Cleanup) {
+	options := testServerOptions{}
+	for _, opt := range opts {
+		opt(&options)
+	}
+
 	require.Len(t, conf.VirtualStorages, 1)
 	var cleanups []testhelper.Cleanup
 
@@ -193,12 +208,17 @@ func runPraefectServerWithGitaly(t *testing.T, conf config.Config) (*grpc.Client
 	require.NoError(t, registry.RegisterFiles(protoregistry.GitalyProtoFileDescriptors...))
 	coordinator := NewCoordinator(logEntry, ds, nodeMgr, conf, registry)
 
+	replMgrOpts := []ReplMgrOpt{WithQueueMetric(&promtest.MockGauge{})}
+	if options.replicator != nil {
+		replMgrOpts = append(replMgrOpts, WithReplicator(options.replicator))
+	}
+
 	replmgr := NewReplMgr(
 		conf.VirtualStorages[0].Name,
 		logEntry,
 		ds,
 		nodeMgr,
-		WithQueueMetric(&promtest.MockGauge{}),
+		replMgrOpts...,
 	)
 	prf := NewServer(
 		coordinator.StreamDirector,

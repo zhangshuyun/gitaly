@@ -3,6 +3,7 @@ package praefect
 import (
 	"context"
 	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -28,6 +29,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/promtest"
 	"gitlab.com/gitlab-org/gitaly/internal/version"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
+	"google.golang.org/grpc"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
 
@@ -372,6 +374,15 @@ func TestWarnDuplicateAddrs(t *testing.T) {
 	}
 }
 
+type replicatorWrapper struct {
+	Replicator
+}
+
+func (r replicatorWrapper) Destroy(ctx context.Context, job datastore.ReplJob, target *grpc.ClientConn) error {
+	log.Printf("replicatorWrapper: %+v", job)
+	return r.Replicator.Destroy(ctx, job, target)
+}
+
 func TestRepoRemoval(t *testing.T) {
 	conf := config.Config{
 		VirtualStorages: []*config.VirtualStorage{
@@ -428,7 +439,7 @@ func TestRepoRemoval(t *testing.T) {
 	require.DirExists(t, path1)
 	require.DirExists(t, path2)
 
-	cc, _, cleanup := runPraefectServerWithGitaly(t, conf)
+	cc, _, cleanup := runPraefectServerWithGitaly(t, conf, withReplicator(replicatorWrapper{defaultReplicator{}}))
 	defer cleanup()
 
 	ctx, cancel := testhelper.Context()
