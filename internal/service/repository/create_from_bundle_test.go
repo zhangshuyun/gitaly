@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/config"
 	"gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/tempdir"
@@ -18,7 +19,7 @@ import (
 )
 
 func TestSuccessfulCreateRepositoryFromBundleRequest(t *testing.T) {
-	serverSocketPath, stop := runRepoServer(t)
+	serverSocketPath, stop := runRepoServer(t, config.Config.Storages)
 	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
@@ -46,7 +47,7 @@ func TestSuccessfulCreateRepositoryFromBundleRequest(t *testing.T) {
 		StorageName:  testhelper.DefaultStorageName,
 		RelativePath: "a-repo-from-bundle",
 	}
-	importedRepoPath, err := helper.GetPath(importedRepo)
+	importedRepoPath, err := helper.GetRepositoryPath(importedRepo, config.Config.Storages)
 	require.NoError(t, err)
 	defer os.RemoveAll(importedRepoPath)
 
@@ -85,7 +86,7 @@ func TestSuccessfulCreateRepositoryFromBundleRequest(t *testing.T) {
 }
 
 func TestFailedCreateRepositoryFromBundleRequestDueToValidations(t *testing.T) {
-	serverSocketPath, stop := runRepoServer(t)
+	serverSocketPath, stop := runRepoServer(t, config.Config.Storages)
 	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
@@ -104,7 +105,7 @@ func TestFailedCreateRepositoryFromBundleRequestDueToValidations(t *testing.T) {
 }
 
 func TestFailedCreateRepositoryFromBundle_ExistingDirectory(t *testing.T) {
-	serverSocketPath, stop := runRepoServer(t)
+	serverSocketPath, stop := runRepoServer(t, config.Config.Storages)
 	defer stop()
 
 	testRepo, _, cleanup := testhelper.NewTestRepo(t)

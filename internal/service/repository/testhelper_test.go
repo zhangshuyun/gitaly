@@ -65,7 +65,7 @@ func newSecureRepoClient(t *testing.T, serverSocketPath string, pool *x509.CertP
 
 var NewSecureRepoClient = newSecureRepoClient
 
-func runRepoServer(t *testing.T, opts ...testhelper.TestServerOpt) (string, func()) {
+func runRepoServer(t *testing.T, storages config.Storages) (string, func()) {
 	streamInt := []grpc.StreamServerInterceptor{
 		mcache.StreamInvalidator(dcache.LeaseKeyer{}, protoregistry.GitalyProtoPreregistered),
 	}
@@ -73,9 +73,9 @@ func runRepoServer(t *testing.T, opts ...testhelper.TestServerOpt) (string, func
 		mcache.UnaryInvalidator(dcache.LeaseKeyer{}, protoregistry.GitalyProtoPreregistered),
 	}
 
-	srv := testhelper.NewServerWithAuth(t, streamInt, unaryInt, config.Config.Auth.Token, opts...)
+	srv := testhelper.NewServerWithAuth(t, streamInt, unaryInt, config.Config.Auth.Token, testhelper.WithStorages(storages))
 
-	gitalypb.RegisterRepositoryServiceServer(srv.GrpcServer(), NewServer(RubyServer, config.GitalyInternalSocketPath()))
+	gitalypb.RegisterRepositoryServiceServer(srv.GrpcServer(), NewServer(RubyServer, storages, config.GitalyInternalSocketPath()))
 	reflection.Register(srv.GrpcServer())
 
 	require.NoError(t, srv.Start())
@@ -84,7 +84,7 @@ func runRepoServer(t *testing.T, opts ...testhelper.TestServerOpt) (string, func
 }
 
 func TestRepoNoAuth(t *testing.T) {
-	socket, stop := runRepoServer(t)
+	socket, stop := runRepoServer(t, config.Config.Storages)
 	defer stop()
 
 	connOpts := []grpc.DialOption{

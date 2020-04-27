@@ -6,13 +6,14 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
 
 func TestWriteRefSuccessful(t *testing.T) {
-	serverSocketPath, stop := runRepoServer(t)
+	serverSocketPath, stop := runRepoServer(t, config.Config.Storages)
 	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
@@ -78,7 +79,7 @@ func TestWriteRefSuccessful(t *testing.T) {
 }
 
 func TestWriteRefValidationError(t *testing.T) {
-	serverSocketPath, stop := runRepoServer(t)
+	serverSocketPath, stop := runRepoServer(t, config.Config.Storages)
 	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)

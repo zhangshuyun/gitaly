@@ -25,7 +25,7 @@ var refWhitelist = regexp.MustCompile(`HEAD|(refs/(heads|tags|keep-around|merge-
 func (s *server) CalculateChecksum(ctx context.Context, in *gitalypb.CalculateChecksumRequest) (*gitalypb.CalculateChecksumResponse, error) {
 	repo := in.GetRepository()
 
-	repoPath, err := helper.GetRepoPath(repo)
+	repoPath, err := helper.GetValidatedRepoPath(repo, s.storages)
 	if err != nil {
 		return nil, err
 	}

@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
@@ -16,7 +17,7 @@ func TestFsckSuccess(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	serverSocketPath, stop := runRepoServer(t)
+	serverSocketPath, stop := runRepoServer(t, config.Config.Storages)
 	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
@@ -35,7 +36,7 @@ func TestFsckFailureSeverelyBrokenRepo(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	serverSocketPath, stop := runRepoServer(t)
+	serverSocketPath, stop := runRepoServer(t, config.Config.Storages)
 	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
@@ -61,7 +62,7 @@ func TestFsckFailureSlightlyBrokenRepo(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	serverSocketPath, stop := runRepoServer(t)
+	serverSocketPath, stop := runRepoServer(t, config.Config.Storages)
 	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)

@@ -19,11 +19,11 @@ func (s *server) CloneFromPoolInternal(ctx context.Context, req *gitalypb.CloneF
 		return nil, helper.ErrInvalidArgument(err)
 	}
 
-	if err := validateCloneFromPoolInternalRequestRepositoryState(req); err != nil {
+	if err := s.validateCloneFromPoolInternalRequestRepositoryState(req); err != nil {
 		return nil, helper.ErrInternal(err)
 	}
 
-	if err := cloneFromPool(ctx, req.GetPool(), req.GetRepository()); err != nil {
+	if err := s.cloneFromPool(ctx, req.GetPool(), req.GetRepository()); err != nil {
 		return nil, helper.ErrInternal(err)
 	}
 
@@ -58,8 +58,8 @@ func (s *server) CloneFromPoolInternal(ctx context.Context, req *gitalypb.CloneF
 	return &gitalypb.CloneFromPoolInternalResponse{}, nil
 }
 
-func validateCloneFromPoolInternalRequestRepositoryState(req *gitalypb.CloneFromPoolInternalRequest) error {
-	targetRepositoryFullPath, err := helper.GetPath(req.GetRepository())
+func (s *server) validateCloneFromPoolInternalRequestRepositoryState(req *gitalypb.CloneFromPoolInternalRequest) error {
+	targetRepositoryFullPath, err := helper.GetRepositoryPath(req.GetRepository(), s.storages)
 	if err != nil {
 		return fmt.Errorf("getting target repository path: %v", err)
 	}
@@ -109,12 +109,12 @@ func validateCloneFromPoolInternalRequestArgs(req *gitalypb.CloneFromPoolInterna
 	return nil
 }
 
-func cloneFromPool(ctx context.Context, objectPoolRepo *gitalypb.ObjectPool, repo repository.GitRepo) error {
-	objectPoolPath, err := helper.GetPath(objectPoolRepo.GetRepository())
+func (s *server) cloneFromPool(ctx context.Context, objectPoolRepo *gitalypb.ObjectPool, repo repository.GitRepo) error {
+	objectPoolPath, err := helper.GetRepositoryPath(objectPoolRepo.GetRepository(), s.storages)
 	if err != nil {
 		return fmt.Errorf("could not get object pool path: %v", err)
 	}
-	repositoryPath, err := helper.GetPath(repo)
+	repositoryPath, err := helper.GetRepositoryPath(repo, s.storages)
 	if err != nil {
 		return fmt.Errorf("could not get object pool path: %v", err)
 	}

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -18,7 +19,7 @@ func TestNewAsRepositorySuccess(t *testing.T) {
 	defer cancel()
 	repo := testhelper.TestRepository()
 
-	tempRepo, tempDir, err := NewAsRepository(ctx, repo)
+	tempRepo, tempDir, err := NewAsRepository(ctx, config.Config.Storages, repo)
 	require.NoError(t, err)
 	require.NotEqual(t, repo, tempRepo)
 	require.Equal(t, repo.StorageName, tempRepo.StorageName)

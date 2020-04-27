@@ -26,7 +26,7 @@ func (s *server) IsRebaseInProgress(ctx context.Context, req *gitalypb.IsRebaseI
 		return nil, status.Errorf(codes.InvalidArgument, "IsRebaseInProgress: %v", err)
 	}
 
-	repoPath, err := helper.GetRepoPath(req.GetRepository())
+	repoPath, err := helper.GetValidatedRepoPath(req.GetRepository(), s.storages)
 	if err != nil {
 		return nil, err
 	}

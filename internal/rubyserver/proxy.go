@@ -6,9 +6,12 @@ import (
 	"os"
 	"strings"
 
+	"gitlab.com/gitlab-org/gitaly/internal/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 )
 
 // Headers prefixed with this string get whitelisted automatically
@@ -34,17 +37,27 @@ func SetHeaders(ctx context.Context, repo *gitalypb.Repository) (context.Context
 	return setHeaders(ctx, repo, true)
 }
 
+// SetHeaders adds headers that tell gitaly-ruby the full path to the repository.
+func SetHeadersWithStorages(ctx context.Context, storages config.Storages, repo *gitalypb.Repository) (context.Context, error) {
+	return setHeadersWithStorages(ctx, storages, repo, true)
+}
+
 func setHeaders(ctx context.Context, repo *gitalypb.Repository, mustExist bool) (context.Context, error) {
-	storagePath, err := helper.GetStorageByName(repo.GetStorageName())
-	if err != nil {
-		return nil, err
+	return setHeadersWithStorages(ctx, config.Config.Storages, repo, mustExist)
+}
+
+func setHeadersWithStorages(ctx context.Context, storages config.Storages, repo *gitalypb.Repository, mustExist bool) (context.Context, error) {
+	storagePath, ok := storages.GetPath(repo.GetStorageName())
+	if !ok {
+		return nil, status.Errorf(codes.InvalidArgument, "Storage can not be found by name '%s'", repo.GetStorageName())
 	}
 
+	var err error
 	var repoPath string
 	if mustExist {
-		repoPath, err = helper.GetRepoPath(repo)
+		repoPath, err = helper.GetValidatedRepoPath(repo, storages)
 	} else {
-		repoPath, err = helper.GetPath(repo)
+		repoPath, err = helper.GetRepositoryPath(repo, storages)
 	}
 	if err != nil {
 		return nil, err

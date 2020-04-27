@@ -75,7 +75,7 @@ func untar(ctx context.Context, path string, in *gitalypb.CreateRepositoryFromSn
 }
 
 func (s *server) CreateRepositoryFromSnapshot(ctx context.Context, in *gitalypb.CreateRepositoryFromSnapshotRequest) (*gitalypb.CreateRepositoryFromSnapshotResponse, error) {
-	realPath, err := helper.GetPath(in.Repository)
+	realPath, err := helper.GetRepositoryPath(in.Repository, s.storages)
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +87,7 @@ func (s *server) CreateRepositoryFromSnapshot(ctx context.Context, in *gitalypb.
 	// Perform all operations against a temporary directory, only moving it to
 	// the canonical location if retrieving and unpacking the snapshot is a
 	// success
-	tempRepo, tempPath, err := tempdir.NewAsRepository(ctx, in.Repository)
+	tempRepo, tempPath, err := tempdir.NewAsRepository(ctx, s.storages, in.Repository)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "couldn't create temporary directory: %v", err)
 	}

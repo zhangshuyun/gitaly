@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/config"
 	"gitlab.com/gitlab-org/gitaly/internal/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -33,10 +34,10 @@ func testMain(m *testing.M) int {
 	return m.Run()
 }
 
-func runRemoteServiceServer(t *testing.T) (string, func()) {
+func runRemoteServiceServer(t *testing.T, storages config.Storages) (string, func()) {
 	srv := testhelper.NewServer(t, nil, nil)
 
-	gitalypb.RegisterRemoteServiceServer(srv.GrpcServer(), &server{ruby: RubyServer})
+	gitalypb.RegisterRemoteServiceServer(srv.GrpcServer(), NewServer(RubyServer, storages))
 	reflection.Register(srv.GrpcServer())
 
 	require.NoError(t, srv.Start())

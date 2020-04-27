@@ -79,9 +79,9 @@ func applyGitattributes(c *catfile.Batch, repoPath string, revision []byte) erro
 	return os.Rename(tempFile.Name(), attributesPath)
 }
 
-func (*server) ApplyGitattributes(ctx context.Context, in *gitalypb.ApplyGitattributesRequest) (*gitalypb.ApplyGitattributesResponse, error) {
+func (s *server) ApplyGitattributes(ctx context.Context, in *gitalypb.ApplyGitattributesRequest) (*gitalypb.ApplyGitattributesResponse, error) {
 	repo := in.GetRepository()
-	repoPath, err := helper.GetRepoPath(repo)
+	repoPath, err := helper.GetValidatedRepoPath(repo, s.storages)
 	if err != nil {
 		return nil, err
 	}

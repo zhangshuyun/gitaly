@@ -20,7 +20,7 @@ import (
 )
 
 func TestFetchSourceBranchSourceRepositorySuccess(t *testing.T) {
-	server, serverSocketPath := runFullServer(t)
+	server, serverSocketPath := runFullServer(t, config.Config.Storages)
 	defer server.Stop()
 
 	client, conn := repository.NewRepositoryClient(t, serverSocketPath)
@@ -59,7 +59,7 @@ func TestFetchSourceBranchSourceRepositorySuccess(t *testing.T) {
 }
 
 func TestFetchSourceBranchSameRepositorySuccess(t *testing.T) {
-	server, serverSocketPath := runFullServer(t)
+	server, serverSocketPath := runFullServer(t, config.Config.Storages)
 	defer server.Stop()
 
 	client, conn := repository.NewRepositoryClient(t, serverSocketPath)
@@ -95,7 +95,7 @@ func TestFetchSourceBranchSameRepositorySuccess(t *testing.T) {
 }
 
 func TestFetchSourceBranchBranchNotFound(t *testing.T) {
-	server, serverSocketPath := runFullServer(t)
+	server, serverSocketPath := runFullServer(t, config.Config.Storages)
 	defer server.Stop()
 
 	client, conn := repository.NewRepositoryClient(t, serverSocketPath)
@@ -156,7 +156,7 @@ func TestFetchFullServerRequiresAuthentication(t *testing.T) {
 	// we want to be sure that authentication is handled correctly. If the
 	// tests in this file were using a server without authentication we could
 	// not be confident that authentication is done right.
-	server, serverSocketPath := runFullServer(t)
+	server, serverSocketPath := runFullServer(t, config.Config.Storages)
 	defer server.Stop()
 
 	connOpts := []grpc.DialOption{
@@ -181,7 +181,7 @@ func newTestRepo(t *testing.T, relativePath string) (*gitalypb.Repository, strin
 
 	repo := &gitalypb.Repository{StorageName: "default", RelativePath: relativePath}
 
-	repoPath, err := helper.GetPath(repo)
+	repoPath, err := helper.GetRepositoryPath(repo, config.Config.Storages)
 	require.NoError(t, err)
 
 	require.NoError(t, os.RemoveAll(repoPath))
@@ -190,8 +190,11 @@ func newTestRepo(t *testing.T, relativePath string) (*gitalypb.Repository, strin
 	return repo, repoPath, func() { require.NoError(t, os.RemoveAll(repoPath)) }
 }
 
-func runFullServer(t *testing.T) (*grpc.Server, string) {
-	server := serverPkg.NewInsecure(repository.RubyServer, config.Config)
+func runFullServer(t *testing.T, storages config.Storages) (*grpc.Server, string) {
+	cfg := config.Config
+	cfg.Storages = storages
+
+	server := serverPkg.NewInsecure(repository.RubyServer, cfg)
 	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName()
 
 	listener, err := net.Listen("unix", serverSocketPath)

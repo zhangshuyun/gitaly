@@ -33,7 +33,7 @@ func (s *server) RestoreCustomHooks(stream gitalypb.RepositoryService_RestoreCus
 		return request.GetData(), err
 	})
 
-	repoPath, err := helper.GetPath(repo)
+	repoPath, err := helper.GetRepositoryPath(repo, s.storages)
 	if err != nil {
 		return status.Errorf(codes.Internal, "RestoreCustomHooks: getting repo path failed %v", err)
 	}

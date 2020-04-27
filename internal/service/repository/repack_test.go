@@ -15,6 +15,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/config"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -23,7 +24,7 @@ import (
 )
 
 func TestRepackIncrementalSuccess(t *testing.T) {
-	serverSocketPath, stop := runRepoServer(t)
+	serverSocketPath, stop := runRepoServer(t, config.Config.Storages)
 	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
@@ -63,7 +64,7 @@ func TestRepackIncrementalCollectLogStatistics(t *testing.T) {
 	defer cancel()
 	ctx = ctxlogrus.ToContext(ctx, log.WithField("test", "logging"))
 
-	serverSocketPath, stop := runRepoServer(t)
+	serverSocketPath, stop := runRepoServer(t, config.Config.Storages)
 	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
@@ -79,7 +80,7 @@ func TestRepackIncrementalCollectLogStatistics(t *testing.T) {
 }
 
 func TestRepackLocal(t *testing.T) {
-	serverSocketPath, stop := runRepoServer(t)
+	serverSocketPath, stop := runRepoServer(t, config.Config.Storages)
 	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
@@ -118,7 +119,7 @@ func TestRepackLocal(t *testing.T) {
 }
 
 func TestRepackIncrementalFailure(t *testing.T) {
-	serverSocketPath, stop := runRepoServer(t)
+	serverSocketPath, stop := runRepoServer(t, config.Config.Storages)
 	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
@@ -146,7 +147,7 @@ func TestRepackIncrementalFailure(t *testing.T) {
 }
 
 func TestRepackFullSuccess(t *testing.T) {
-	serverSocketPath, stop := runRepoServer(t)
+	serverSocketPath, stop := runRepoServer(t, config.Config.Storages)
 	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
@@ -212,7 +213,7 @@ func TestRepackFullCollectLogStatistics(t *testing.T) {
 	defer cancel()
 	ctx = ctxlogrus.ToContext(ctx, log.WithField("test", "logging"))
 
-	serverSocketPath, stop := runRepoServer(t)
+	serverSocketPath, stop := runRepoServer(t, config.Config.Storages)
 	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
@@ -254,7 +255,7 @@ func doBitmapsContainHashCache(t *testing.T, bitmapPaths []string) {
 }
 
 func TestRepackFullFailure(t *testing.T) {
-	serverSocketPath, stop := runRepoServer(t)
+	serverSocketPath, stop := runRepoServer(t, config.Config.Storages)
 	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
@@ -282,7 +283,7 @@ func TestRepackFullFailure(t *testing.T) {
 }
 
 func TestRepackFullDeltaIslands(t *testing.T) {
-	serverSocketPath, stop := runRepoServer(t)
+	serverSocketPath, stop := runRepoServer(t, config.Config.Storages)
 	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)

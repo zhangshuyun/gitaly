@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -18,7 +19,7 @@ import (
 )
 
 func TestSuccessfullBackupCustomHooksRequest(t *testing.T) {
-	serverSocketPath, stop := runRepoServer(t)
+	serverSocketPath, stop := runRepoServer(t, config.Config.Storages)
 	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
@@ -30,7 +31,7 @@ func TestSuccessfullBackupCustomHooksRequest(t *testing.T) {
 	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
-	repoPath, err := helper.GetPath(testRepo)
+	repoPath, err := helper.GetRepositoryPath(testRepo, config.Config.Storages)
 	require.NoError(t, err)
 
 	expectedTarResponse := []string{
@@ -67,7 +68,7 @@ func TestSuccessfullBackupCustomHooksRequest(t *testing.T) {
 }
 
 func TestSuccessfullBackupCustomHooksSymlink(t *testing.T) {
-	serverSocketPath, stop := runRepoServer(t)
+	serverSocketPath, stop := runRepoServer(t, config.Config.Storages)
 	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
@@ -79,7 +80,7 @@ func TestSuccessfullBackupCustomHooksSymlink(t *testing.T) {
 	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
-	repoPath, err := helper.GetPath(testRepo)
+	repoPath, err := helper.GetRepositoryPath(testRepo, config.Config.Storages)
 	require.NoError(t, err)
 
 	linkTarget := "/var/empty"
@@ -106,7 +107,7 @@ func TestSuccessfullBackupCustomHooksSymlink(t *testing.T) {
 }
 
 func TestSuccessfullBackupCustomHooksRequestWithNoHooks(t *testing.T) {
-	serverSocketPath, stop := runRepoServer(t)
+	serverSocketPath, stop := runRepoServer(t, config.Config.Storages)
 	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)

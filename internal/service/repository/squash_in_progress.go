@@ -20,7 +20,7 @@ func (s *server) IsSquashInProgress(ctx context.Context, req *gitalypb.IsSquashI
 		return nil, status.Errorf(codes.InvalidArgument, "IsSquashInProgress: %v", err)
 	}
 
-	repoPath, err := helper.GetRepoPath(req.GetRepository())
+	repoPath, err := helper.GetValidatedRepoPath(req.GetRepository(), s.storages)
 	if err != nil {
 		return nil, err
 	}

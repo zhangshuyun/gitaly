@@ -26,7 +26,7 @@ func (s *server) CreateFork(ctx context.Context, req *gitalypb.CreateForkRequest
 		return nil, status.Errorf(codes.InvalidArgument, "CreateFork: empty Repository")
 	}
 
-	targetRepositoryFullPath, err := helper.GetPath(targetRepository)
+	targetRepositoryFullPath, err := helper.GetRepositoryPath(targetRepository, s.storages)
 	if err != nil {
 		return nil, err
 	}

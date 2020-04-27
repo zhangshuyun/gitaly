@@ -21,7 +21,7 @@ var objectFiles = []*regexp.Regexp{
 }
 
 func (s *server) GetSnapshot(in *gitalypb.GetSnapshotRequest, stream gitalypb.RepositoryService_GetSnapshotServer) error {
-	path, err := helper.GetRepoPath(in.Repository)
+	path, err := helper.GetValidatedRepoPath(in.Repository, s.storages)
 	if err != nil {
 		return err
 	}
@@ -66,7 +66,7 @@ func (s *server) GetSnapshot(in *gitalypb.GetSnapshotRequest, stream gitalypb.Re
 	// safe than sorry.
 	builder.FileIfExist("shallow")
 
-	if err := addAlternateFiles(stream.Context(), in.GetRepository(), builder); err != nil {
+	if err := s.addAlternateFiles(stream.Context(), in.GetRepository(), builder); err != nil {
 		return helper.ErrInternal(err)
 	}
 
@@ -77,13 +77,13 @@ func (s *server) GetSnapshot(in *gitalypb.GetSnapshotRequest, stream gitalypb.Re
 	return nil
 }
 
-func addAlternateFiles(ctx context.Context, repository *gitalypb.Repository, builder *archive.TarBuilder) error {
+func (s *server) addAlternateFiles(ctx context.Context, repository *gitalypb.Repository, builder *archive.TarBuilder) error {
 	storageRoot, err := helper.GetStorageByName(repository.GetStorageName())
 	if err != nil {
 		return err
 	}
 
-	repoPath, err := helper.GetRepoPath(repository)
+	repoPath, err := helper.GetValidatedRepoPath(repository, s.storages)
 	if err != nil {
 		return err
 	}

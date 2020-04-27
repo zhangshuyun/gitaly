@@ -17,7 +17,7 @@ func (s *server) Exists(ctx context.Context, in *gitalypb.RepositoryExistsReques
 }
 
 func (s *server) RepositoryExists(ctx context.Context, in *gitalypb.RepositoryExistsRequest) (*gitalypb.RepositoryExistsResponse, error) {
-	path, err := helper.GetPath(in.Repository)
+	path, err := helper.GetRepositoryPath(in.Repository, s.storages)
 	if err != nil {
 		return nil, err
 	}

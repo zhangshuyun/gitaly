@@ -5,13 +5,14 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
 func TestSuccessfulFindLicenseRequest(t *testing.T) {
-	serverSocketPath, stop := runRepoServer(t)
+	serverSocketPath, stop := runRepoServer(t, config.Config.Storages)
 	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
@@ -32,7 +33,7 @@ func TestSuccessfulFindLicenseRequest(t *testing.T) {
 }
 
 func TestFindLicenseRequestEmptyRepo(t *testing.T) {
-	serverSocketPath, stop := runRepoServer(t)
+	serverSocketPath, stop := runRepoServer(t, config.Config.Storages)
 	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
@@ -49,7 +50,7 @@ func TestFindLicenseRequestEmptyRepo(t *testing.T) {
 	_, err := client.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{Repository: emptyRepo})
 	require.NoError(t, err)
 
-	emptyRepoPath, err := helper.GetRepoPath(emptyRepo)
+	emptyRepoPath, err := helper.GetValidatedRepoPath(emptyRepo, config.Config.Storages)
 	require.NoError(t, err)
 	defer os.RemoveAll(emptyRepoPath)
 

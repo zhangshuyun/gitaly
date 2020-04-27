@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/config"
 	"gitlab.com/gitlab-org/gitaly/internal/git/objectpool"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/service/repository"
@@ -38,7 +39,7 @@ func getForkDestination(t *testing.T) (*gitalypb.Repository, string, func()) {
 }
 
 func TestCloneFromPoolInternal(t *testing.T) {
-	server, serverSocketPath := runFullServer(t)
+	server, serverSocketPath := runFullServer(t, config.Config.Storages)
 	defer server.Stop()
 
 	ctxOuter, cancel := testhelper.Context()

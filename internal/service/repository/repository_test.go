@@ -16,27 +16,22 @@ import (
 )
 
 func TestRepositoryExists(t *testing.T) {
-	serverSocketPath, stop := runRepoServer(t, testhelper.WithStorages([]string{"default", "other", "broken"}))
-	defer stop()
-
+	// Setup storage paths
 	storageOtherDir, err := ioutil.TempDir("", "gitaly-repository-exists-test")
 	require.NoError(t, err, "tempdir")
 	defer os.Remove(storageOtherDir)
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
-
-	// Setup storage paths
 	testStorages := []config.Storage{
 		{Name: "default", Path: testhelper.GitlabTestStoragePath()},
 		{Name: "other", Path: storageOtherDir},
 		{Name: "broken", Path: "/does/not/exist"},
 	}
 
-	defer func(oldStorages []config.Storage) {
-		config.Config.Storages = oldStorages
-	}(config.Config.Storages)
-	config.Config.Storages = testStorages
+	serverSocketPath, stop := runRepoServer(t, testStorages)
+	defer stop()
+
+	client, conn := newRepositoryClient(t, serverSocketPath)
+	defer conn.Close()
 
 	queries := []struct {
 		desc      string
@@ -122,7 +117,7 @@ func TestRepositoryExists(t *testing.T) {
 }
 
 func TestSuccessfulHasLocalBranches(t *testing.T) {
-	serverSocketPath, stop := runRepoServer(t)
+	serverSocketPath, stop := runRepoServer(t, config.Config.Storages)
 	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
@@ -177,7 +172,7 @@ func TestSuccessfulHasLocalBranches(t *testing.T) {
 }
 
 func TestFailedHasLocalBranches(t *testing.T) {
-	serverSocketPath, stop := runRepoServer(t)
+	serverSocketPath, stop := runRepoServer(t, config.Config.Storages)
 	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)

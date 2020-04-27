@@ -55,8 +55,17 @@ func WithToken(token string) TestServerOpt {
 	}
 }
 
+/*
 // WithStorages is a TestServerOpt that sets the storages for a TestServer
 func WithStorages(storages []string) TestServerOpt {
+	return func(t *TestServer) {
+		t.storages = storages
+	}
+}
+
+*/
+
+func WithStorages(storages config.Storages) TestServerOpt {
 	return func(t *TestServer) {
 		t.storages = storages
 	}
@@ -66,7 +75,7 @@ func WithStorages(storages []string) TestServerOpt {
 func NewTestServer(srv *grpc.Server, opts ...TestServerOpt) *TestServer {
 	ts := &TestServer{
 		grpcServer: srv,
-		storages:   []string{"default"},
+		storages:   config.Config.Storages,
 	}
 
 	for _, opt := range opts {
@@ -101,7 +110,7 @@ type TestServer struct {
 	socket     string
 	process    *os.Process
 	token      string
-	storages   []string
+	storages   config.Storages
 	waitCh     chan struct{}
 }
 
@@ -165,10 +174,10 @@ func (p *TestServer) Start() error {
 
 	for _, storage := range p.storages {
 		c.VirtualStorages = append(c.VirtualStorages, &praefectconfig.VirtualStorage{
-			Name: storage,
+			Name: storage.Name,
 			Nodes: []*models.Node{
 				{
-					Storage:        storage,
+					Storage:        storage.Name,
 					Address:        "unix:/" + gitalyServerSocketPath,
 					DefaultPrimary: true,
 					Token:          p.token,

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -12,7 +13,7 @@ import (
 )
 
 func TestRenameRepositorySuccess(t *testing.T) {
-	serverSocketPath, stop := runRepoServer(t)
+	serverSocketPath, stop := runRepoServer(t, config.Config.Storages)
 	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
@@ -29,7 +30,7 @@ func TestRenameRepositorySuccess(t *testing.T) {
 	_, err := client.RenameRepository(ctx, req)
 	require.NoError(t, err)
 
-	newDirectory, err := helper.GetPath(&gitalypb.Repository{StorageName: "default", RelativePath: req.RelativePath})
+	newDirectory, err := helper.GetRepositoryPath(&gitalypb.Repository{StorageName: "default", RelativePath: req.RelativePath}, config.Config.Storages)
 	require.NoError(t, err)
 	require.DirExists(t, newDirectory)
 	defer func() { require.NoError(t, os.RemoveAll(newDirectory)) }()
@@ -41,7 +42,7 @@ func TestRenameRepositorySuccess(t *testing.T) {
 }
 
 func TestRenameRepositoryDestinationExists(t *testing.T) {
-	serverSocketPath, stop := runRepoServer(t)
+	serverSocketPath, stop := runRepoServer(t, config.Config.Storages)
 	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
@@ -68,7 +69,7 @@ func TestRenameRepositoryDestinationExists(t *testing.T) {
 }
 
 func TestRenameRepositoryInvalidRequest(t *testing.T) {
-	serverSocketPath, stop := runRepoServer(t)
+	serverSocketPath, stop := runRepoServer(t, config.Config.Storages)
 	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)

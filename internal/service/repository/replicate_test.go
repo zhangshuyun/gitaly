@@ -31,11 +31,7 @@ func TestReplicateRepository(t *testing.T) {
 	replicaPath := filepath.Join(tmpPath, "replica")
 	require.NoError(t, os.MkdirAll(replicaPath, 0755))
 
-	defer func(storages []config.Storage) {
-		config.Config.Storages = storages
-	}(config.Config.Storages)
-
-	config.Config.Storages = []config.Storage{
+	storages := []config.Storage{
 		config.Storage{
 			Name: "default",
 			Path: testhelper.GitlabTestStoragePath(),
@@ -46,7 +42,7 @@ func TestReplicateRepository(t *testing.T) {
 		},
 	}
 
-	server, serverSocketPath := runFullServer(t)
+	server, serverSocketPath := runFullServer(t, storages)
 	defer server.Stop()
 
 	testRepo, testRepoPath, cleanupRepo := testhelper.NewTestRepo(t)
@@ -81,7 +77,7 @@ func TestReplicateRepository(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	targetRepoPath, err := helper.GetRepoPath(&targetRepo)
+	targetRepoPath, err := helper.GetValidatedRepoPath(&targetRepo, storages)
 	require.NoError(t, err)
 
 	testhelper.MustRunCommand(t, nil, "git", "-C", targetRepoPath, "fsck")
@@ -179,7 +175,7 @@ func TestReplicateRepositoryInvalidArguments(t *testing.T) {
 		},
 	}
 
-	serverSocketPath, stop := repository.RunRepoServer(t)
+	serverSocketPath, stop := repository.RunRepoServer(t, config.Config.Storages)
 	defer stop()
 
 	client, conn := repository.NewRepositoryClient(t, serverSocketPath)
@@ -203,11 +199,7 @@ func TestReplicateRepository_BadRepository(t *testing.T) {
 	replicaPath := filepath.Join(tmpPath, "replica")
 	require.NoError(t, os.MkdirAll(replicaPath, 0755))
 
-	defer func(storages []config.Storage) {
-		config.Config.Storages = storages
-	}(config.Config.Storages)
-
-	config.Config.Storages = []config.Storage{
+	storages := []config.Storage{
 		config.Storage{
 			Name: "default",
 			Path: testhelper.GitlabTestStoragePath(),
@@ -218,7 +210,7 @@ func TestReplicateRepository_BadRepository(t *testing.T) {
 		},
 	}
 
-	server, serverSocketPath := runFullServer(t)
+	server, serverSocketPath := runFullServer(t, storages)
 	defer server.Stop()
 
 	testRepo, _, cleanupRepo := testhelper.NewTestRepo(t)
@@ -232,7 +224,7 @@ func TestReplicateRepository_BadRepository(t *testing.T) {
 	targetRepo := *testRepo
 	targetRepo.StorageName = "replica"
 
-	targetRepoPath, err := helper.GetPath(&targetRepo)
+	targetRepoPath, err := helper.GetRepositoryPath(&targetRepo, storages)
 	require.NoError(t, err)
 
 	require.NoError(t, os.MkdirAll(targetRepoPath, 0755))
@@ -260,11 +252,7 @@ func TestReplicateRepository_FailedFetchInternalRemote(t *testing.T) {
 	replicaPath := filepath.Join(tmpPath, "replica")
 	require.NoError(t, os.MkdirAll(replicaPath, 0755))
 
-	defer func(storages []config.Storage) {
-		config.Config.Storages = storages
-	}(config.Config.Storages)
-
-	config.Config.Storages = []config.Storage{
+	storages := []config.Storage{
 		config.Storage{
 			Name: "default",
 			Path: testhelper.GitlabTestStoragePath(),
@@ -275,7 +263,7 @@ func TestReplicateRepository_FailedFetchInternalRemote(t *testing.T) {
 		},
 	}
 
-	server, serverSocketPath := runServerWithBadFetchInternalRemote(t)
+	server, serverSocketPath := runServerWithBadFetchInternalRemote(t, storages)
 	defer server.Stop()
 
 	testRepo, _, cleanupRepo := testhelper.NewTestRepo(t)
@@ -289,7 +277,7 @@ func TestReplicateRepository_FailedFetchInternalRemote(t *testing.T) {
 	targetRepo := *testRepo
 	targetRepo.StorageName = "replica"
 
-	targetRepoPath, err := helper.GetPath(&targetRepo)
+	targetRepoPath, err := helper.GetRepositoryPath(&targetRepo, storages)
 	require.NoError(t, err)
 
 	require.NoError(t, os.MkdirAll(targetRepoPath, 0755))
@@ -315,7 +303,7 @@ func TestReplicateRepository_FailedFetchInternalRemote(t *testing.T) {
 	require.Error(t, err)
 }
 
-func runServerWithBadFetchInternalRemote(t *testing.T) (*grpc.Server, string) {
+func runServerWithBadFetchInternalRemote(t *testing.T, storages config.Storages) (*grpc.Server, string) {
 	server := testhelper.NewTestGrpcServer(t, nil, nil)
 	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName()
 
@@ -325,7 +313,7 @@ func runServerWithBadFetchInternalRemote(t *testing.T) (*grpc.Server, string) {
 	internalListener, err := net.Listen("unix", config.GitalyInternalSocketPath())
 	require.NoError(t, err)
 
-	gitalypb.RegisterRepositoryServiceServer(server, repository.NewServer(repository.RubyServer, config.GitalyInternalSocketPath()))
+	gitalypb.RegisterRepositoryServiceServer(server, repository.NewServer(repository.RubyServer, storages, config.GitalyInternalSocketPath()))
 	gitalypb.RegisterRemoteServiceServer(server, &mockRemoteServer{})
 	reflection.Register(server)
 

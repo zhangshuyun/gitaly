@@ -16,7 +16,7 @@ import (
 const customHooksDir = "custom_hooks"
 
 func (s *server) BackupCustomHooks(in *gitalypb.BackupCustomHooksRequest, stream gitalypb.RepositoryService_BackupCustomHooksServer) error {
-	repoPath, err := helper.GetPath(in.Repository)
+	repoPath, err := helper.GetRepositoryPath(in.Repository, s.storages)
 	if err != nil {
 		return status.Errorf(codes.Internal, "BackupCustomHooks: getting repo path failed %v", err)
 	}

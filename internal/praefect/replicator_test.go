@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
+	gconfig "gitlab.com/gitlab-org/gitaly/internal/config"
 	gitaly_config "gitlab.com/gitlab-org/gitaly/internal/config"
 	"gitlab.com/gitlab-org/gitaly/internal/git/objectpool"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
@@ -733,9 +734,9 @@ func newReplicationService(tb testing.TB) (*grpc.Server, string) {
 
 	svr := testhelper.NewTestGrpcServer(tb, nil, nil)
 
-	gitalypb.RegisterRepositoryServiceServer(svr, repository.NewServer(RubyServer, internalSocketName))
+	gitalypb.RegisterRepositoryServiceServer(svr, repository.NewServer(RubyServer, gconfig.Config.Storages, internalSocketName))
 	gitalypb.RegisterObjectPoolServiceServer(svr, objectpoolservice.NewServer())
-	gitalypb.RegisterRemoteServiceServer(svr, remote.NewServer(RubyServer))
+	gitalypb.RegisterRemoteServiceServer(svr, remote.NewServer(RubyServer, gconfig.Config.Storages))
 	gitalypb.RegisterSSHServiceServer(svr, ssh.NewServer())
 	reflection.Register(svr)
 

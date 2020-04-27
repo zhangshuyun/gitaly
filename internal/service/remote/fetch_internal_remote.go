@@ -35,7 +35,7 @@ func (s *server) FetchInternalRemote(ctx context.Context, req *gitalypb.FetchInt
 		return nil, err
 	}
 
-	repoPath, err := helper.GetRepoPath(req.Repository)
+	repoPath, err := helper.GetValidatedRepoPath(req.Repository, s.storages)
 	if err != nil {
 		return nil, err
 	}
@@ -66,7 +66,7 @@ func (s *server) rubyFetchInternalRemote(ctx context.Context, req *gitalypb.Fetc
 		return nil, err
 	}
 
-	clientCtx, err := rubyserver.SetHeaders(ctx, req.GetRepository())
+	clientCtx, err := rubyserver.SetHeadersWithStorages(ctx, s.storages, req.GetRepository())
 	if err != nil {
 		return nil, err
 	}

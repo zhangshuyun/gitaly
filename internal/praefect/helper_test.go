@@ -257,7 +257,7 @@ func runInternalGitalyServer(t *testing.T, storages []gconfig.Storage, token str
 	require.NoError(t, err)
 
 	gitalypb.RegisterServerServiceServer(server, gitalyserver.NewServer(storages))
-	gitalypb.RegisterRepositoryServiceServer(server, repository.NewServer(RubyServer, internalSocket))
+	gitalypb.RegisterRepositoryServiceServer(server, repository.NewServer(RubyServer, storages, internalSocket))
 	gitalypb.RegisterInternalGitalyServer(server, internalgitaly.NewServer(gconfig.Config.Storages))
 	healthpb.RegisterHealthServer(server, health.NewServer())
 

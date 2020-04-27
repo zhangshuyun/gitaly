@@ -80,7 +80,7 @@ func TestSearchFilesByContentSuccessful(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	serverSocketPath, stop := runRepoServer(t)
+	serverSocketPath, stop := runRepoServer(t, config.Config.Storages)
 	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
@@ -152,7 +152,7 @@ func TestSearchFilesByContentLargeFile(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	serverSocketPath, stop := runRepoServer(t)
+	serverSocketPath, stop := runRepoServer(t, config.Config.Storages)
 	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
@@ -209,7 +209,7 @@ func TestSearchFilesByContentLargeFile(t *testing.T) {
 }
 
 func TestSearchFilesByContentFailure(t *testing.T) {
-	server := NewServer(RubyServer, config.GitalyInternalSocketPath())
+	server := NewServer(RubyServer, config.Config.Storages, config.GitalyInternalSocketPath())
 
 	testRepo, _, cleanupRepo := testhelper.NewTestRepo(t)
 	defer cleanupRepo()
@@ -268,7 +268,7 @@ func TestSearchFilesByNameSuccessful(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	serverSocketPath, stop := runRepoServer(t)
+	serverSocketPath, stop := runRepoServer(t, config.Config.Storages)
 	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
@@ -315,7 +315,7 @@ func TestSearchFilesByNameSuccessful(t *testing.T) {
 }
 
 func TestSearchFilesByNameFailure(t *testing.T) {
-	server := NewServer(RubyServer, config.GitalyInternalSocketPath())
+	server := NewServer(RubyServer, config.Config.Storages, config.GitalyInternalSocketPath())
 
 	testCases := []struct {
 		desc  string

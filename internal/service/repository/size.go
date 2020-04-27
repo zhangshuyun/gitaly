@@ -15,7 +15,7 @@ import (
 )
 
 func (s *server) RepositorySize(ctx context.Context, in *gitalypb.RepositorySizeRequest) (*gitalypb.RepositorySizeResponse, error) {
-	path, err := helper.GetPath(in.Repository)
+	path, err := helper.GetRepositoryPath(in.Repository, s.storages)
 	if err != nil {
 		return nil, err
 	}

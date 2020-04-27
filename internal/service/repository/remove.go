@@ -12,7 +12,7 @@ import (
 )
 
 func (s *server) RemoveRepository(ctx context.Context, in *gitalypb.RemoveRepositoryRequest) (*gitalypb.RemoveRepositoryResponse, error) {
-	path, err := helper.GetPath(in.Repository)
+	path, err := helper.GetRepositoryPath(in.Repository, s.storages)
 	if err != nil {
 		return nil, helper.ErrInternal(err)
 	}

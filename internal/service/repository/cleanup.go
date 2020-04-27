@@ -17,16 +17,16 @@ import (
 
 var lockFiles = []string{"config.lock", "HEAD.lock"}
 
-func (*server) Cleanup(ctx context.Context, in *gitalypb.CleanupRequest) (*gitalypb.CleanupResponse, error) {
-	if err := cleanupRepo(ctx, in.GetRepository()); err != nil {
+func (s *server) Cleanup(ctx context.Context, in *gitalypb.CleanupRequest) (*gitalypb.CleanupResponse, error) {
+	if err := s.cleanupRepo(ctx, in.GetRepository()); err != nil {
 		return nil, err
 	}
 
 	return &gitalypb.CleanupResponse{}, nil
 }
 
-func cleanupRepo(ctx context.Context, repo *gitalypb.Repository) error {
-	repoPath, err := helper.GetRepoPath(repo)
+func (s *server) cleanupRepo(ctx context.Context, repo *gitalypb.Repository) error {
+	repoPath, err := helper.GetValidatedRepoPath(repo, s.storages)
 	if err != nil {
 		return err
 	}

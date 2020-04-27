@@ -10,7 +10,7 @@ import (
 )
 
 func (s *server) CreateRepository(ctx context.Context, req *gitalypb.CreateRepositoryRequest) (*gitalypb.CreateRepositoryResponse, error) {
-	diskPath, err := helper.GetPath(req.GetRepository())
+	diskPath, err := helper.GetRepositoryPath(req.GetRepository(), s.storages)
 	if err != nil {
 		return nil, helper.ErrInvalidArgument(err)
 	}

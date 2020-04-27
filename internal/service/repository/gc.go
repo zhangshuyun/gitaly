@@ -19,23 +19,23 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func (*server) GarbageCollect(ctx context.Context, in *gitalypb.GarbageCollectRequest) (*gitalypb.GarbageCollectResponse, error) {
+func (s *server) GarbageCollect(ctx context.Context, in *gitalypb.GarbageCollectRequest) (*gitalypb.GarbageCollectResponse, error) {
 	ctxlogger := ctxlogrus.Extract(ctx)
 	ctxlogger.WithFields(log.Fields{
 		"WriteBitmaps": in.GetCreateBitmap(),
 	}).Debug("GarbageCollect")
 
 	repo := in.GetRepository()
-	repoPath, err := helper.GetRepoPath(repo)
+	repoPath, err := helper.GetValidatedRepoPath(repo, s.storages)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := cleanupRepo(ctx, in.GetRepository()); err != nil {
+	if err := s.cleanupRepo(ctx, in.GetRepository()); err != nil {
 		return nil, err
 	}
 
-	if err := cleanupKeepArounds(ctx, in.GetRepository()); err != nil {
+	if err := s.cleanupKeepArounds(ctx, in.GetRepository()); err != nil {
 		return nil, err
 	}
 
@@ -109,8 +109,8 @@ func configureCommitGraph(ctx context.Context, in *gitalypb.GarbageCollectReques
 	return nil
 }
 
-func cleanupKeepArounds(ctx context.Context, repo *gitalypb.Repository) error {
-	repoPath, err := helper.GetRepoPath(repo)
+func (s *server) cleanupKeepArounds(ctx context.Context, repo *gitalypb.Repository) error {
+	repoPath, err := helper.GetValidatedRepoPath(repo, s.storages)
 	if err != nil {
 		return nil
 	}

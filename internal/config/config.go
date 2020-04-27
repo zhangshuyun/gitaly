@@ -37,7 +37,7 @@ type Cfg struct {
 	PrometheusListenAddr       string            `toml:"prometheus_listen_addr" split_words:"true"`
 	BinDir                     string            `toml:"bin_dir"`
 	Git                        Git               `toml:"git" envconfig:"git"`
-	Storages                   []Storage         `toml:"storage" envconfig:"storage"`
+	Storages                   Storages          `toml:"storage" envconfig:"storage"`
 	Logging                    Logging           `toml:"logging" envconfig:"logging"`
 	Prometheus                 prometheus.Config `toml:"prometheus"`
 	Auth                       auth.Config       `toml:"auth"`
@@ -429,4 +429,23 @@ func trySocketCreation(dir string) error {
 	}
 
 	return l.Close()
+}
+
+type Storages []Storage
+
+// StoragePath looks up the base path for storageName. The second boolean
+// return value indicates if anything was found.
+func (s Storages) GetPath(storageName string) (string, bool) {
+	storage, ok := s.Get(storageName)
+	return storage.Path, ok
+}
+
+// Storage looks up storageName.
+func (s Storages) Get(storageName string) (Storage, bool) {
+	for _, storage := range s {
+		if storage.Name == storageName {
+			return storage, true
+		}
+	}
+	return Storage{}, false
 }

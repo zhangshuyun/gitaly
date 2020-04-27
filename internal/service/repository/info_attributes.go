@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"path"
@@ -13,8 +14,9 @@ import (
 )
 
 func (s *server) GetInfoAttributes(in *gitalypb.GetInfoAttributesRequest, stream gitalypb.RepositoryService_GetInfoAttributesServer) error {
-	repoPath, err := helper.GetRepoPath(in.GetRepository())
+	repoPath, err := helper.GetValidatedRepoPath(in.GetRepository(), s.storages)
 	if err != nil {
+		fmt.Printf("\n WHA??? %v\n", err)
 		return err
 	}
 

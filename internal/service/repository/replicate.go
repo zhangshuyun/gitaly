@@ -31,7 +31,7 @@ func (s *server) ReplicateRepository(ctx context.Context, in *gitalypb.Replicate
 		s.syncInfoAttributes,
 	}
 
-	repoPath, err := helper.GetPath(in.GetRepository())
+	repoPath, err := helper.GetRepositoryPath(in.GetRepository(), s.storages)
 	if err != nil {
 		return nil, helper.ErrInternal(err)
 	}
@@ -82,7 +82,7 @@ func validateReplicateRepository(in *gitalypb.ReplicateRepositoryRequest) error 
 func (s *server) create(ctx context.Context, in *gitalypb.ReplicateRepositoryRequest, repoPath string) error {
 	// if the directory exists, remove it
 	if _, err := os.Stat(repoPath); err == nil {
-		tempDir, err := tempdir.ForDeleteAllRepositories(in.GetRepository().GetStorageName())
+		tempDir, err := tempdir.ForDeleteAllRepositories(s.storages, in.GetRepository().GetStorageName())
 		if err != nil {
 			return err
 		}
@@ -102,7 +102,7 @@ func (s *server) create(ctx context.Context, in *gitalypb.ReplicateRepositoryReq
 }
 
 func (s *server) createFromSnapshot(ctx context.Context, in *gitalypb.ReplicateRepositoryRequest) error {
-	tempRepo, tempPath, err := tempdir.NewAsRepository(ctx, in.GetRepository())
+	tempRepo, tempPath, err := tempdir.NewAsRepository(ctx, s.storages, in.GetRepository())
 	if err != nil {
 		return err
 	}
@@ -137,7 +137,7 @@ func (s *server) createFromSnapshot(ctx context.Context, in *gitalypb.ReplicateR
 		return err
 	}
 
-	targetPath, err := helper.GetPath(in.GetRepository())
+	targetPath, err := helper.GetRepositoryPath(in.GetRepository(), s.storages)
 	if err != nil {
 		return err
 	}
@@ -180,7 +180,7 @@ func (s *server) syncInfoAttributes(ctx context.Context, in *gitalypb.ReplicateR
 		return err
 	}
 
-	repoPath, err := helper.GetRepoPath(in.GetRepository())
+	repoPath, err := helper.GetValidatedRepoPath(in.GetRepository(), s.storages)
 	if err != nil {
 		return err
 	}

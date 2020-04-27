@@ -31,6 +31,26 @@ func GetRepoPath(repo repository.GitRepo) (string, error) {
 	return "", status.Errorf(codes.NotFound, "GetRepoPath: not a git repository '%s'", repoPath)
 }
 
+// GetValidatedRepoPath is functionally the same as GetRepoPath except that the storage gets passed in.
+// This is for migrating away from using the global config.Config singleton.
+// TODO: remove GetRepoPath completely once all usages have been switched over to GetValidatedRepoPath
+func GetValidatedRepoPath(repo repository.GitRepo, storages config.Storages) (string, error) {
+	repoPath, err := GetRepositoryPath(repo, storages)
+	if err != nil {
+		return "", err
+	}
+
+	if repoPath == "" {
+		return "", status.Errorf(codes.InvalidArgument, "GetRepoPath: empty repo")
+	}
+
+	if IsGitDirectory(repoPath) {
+		return repoPath, nil
+	}
+
+	return "", status.Errorf(codes.NotFound, "GetRepoPath: not a git repository '%s'", repoPath)
+}
+
 // GetPath returns the path of the repo passed as first argument. An error is
 // returned when either the storage can't be found or the path includes
 // constructs trying to perform directory traversal.
@@ -38,6 +58,32 @@ func GetPath(repo repository.GitRepo) (string, error) {
 	storagePath, err := GetStorageByName(repo.GetStorageName())
 	if err != nil {
 		return "", err
+	}
+
+	if _, err := os.Stat(storagePath); err != nil {
+		return "", status.Errorf(codes.Internal, "GetPath: storage path: %v", err)
+	}
+
+	relativePath := repo.GetRelativePath()
+	if len(relativePath) == 0 {
+		err := status.Errorf(codes.InvalidArgument, "GetPath: relative path missing from %+v", repo)
+		return "", err
+	}
+
+	if ContainsPathTraversal(relativePath) {
+		return "", status.Errorf(codes.InvalidArgument, "GetRepoPath: relative path can't contain directory traversal")
+	}
+
+	return path.Join(storagePath, relativePath), nil
+}
+
+// GetRepositoryPath is functionally the same as GetPath except that the storage gets passed in.
+// This is for migrating away from using the global config.Config singleton.
+// TODO: remove GetPath completely once all usages have been switched over to GetRepositoryPath
+func GetRepositoryPath(repo repository.GitRepo, storages config.Storages) (string, error) {
+	storagePath, ok := storages.GetPath(repo.GetStorageName())
+	if !ok {
+		return "", status.Errorf(codes.InvalidArgument, "Storage can not be found by name '%s'", repo.GetStorageName())
 	}
 
 	if _, err := os.Stat(storagePath); err != nil {

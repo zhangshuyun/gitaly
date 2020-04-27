@@ -21,7 +21,7 @@ import (
 )
 
 func copyRepoWithNewRemote(t *testing.T, repo *gitalypb.Repository, remote string) *gitalypb.Repository {
-	repoPath, err := helper.GetRepoPath(repo)
+	repoPath, err := helper.GetRepositoryPath(repo, config.Config.Storages)
 	require.NoError(t, err)
 
 	cloneRepo := &gitalypb.Repository{StorageName: repo.GetStorageName(), RelativePath: "fetch-remote-clone.git"}
@@ -44,14 +44,14 @@ func TestFetchRemoteSuccess(t *testing.T) {
 	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
-	serverSocketPath, stop := runRepoServer(t)
+	serverSocketPath, stop := runRepoServer(t, config.Config.Storages)
 	defer stop()
 
 	client, _ := newRepositoryClient(t, serverSocketPath)
 
 	cloneRepo := copyRepoWithNewRemote(t, testRepo, "my-remote")
 	defer func(r *gitalypb.Repository) {
-		path, err := helper.GetRepoPath(r)
+		path, err := helper.GetValidatedRepoPath(r, config.Config.Storages)
 		if err != nil {
 			panic(err)
 		}
@@ -68,7 +68,7 @@ func TestFetchRemoteSuccess(t *testing.T) {
 }
 
 func TestFetchRemoteFailure(t *testing.T) {
-	server := NewServer(RubyServer, config.GitalyInternalSocketPath())
+	server := NewServer(RubyServer, config.Config.Storages, config.GitalyInternalSocketPath())
 
 	tests := []struct {
 		desc string
@@ -130,7 +130,7 @@ func getRefnames(t *testing.T, repoPath string) []string {
 }
 
 func TestFetchRemoteOverHTTP(t *testing.T) {
-	serverSocketPath, stop := runRepoServer(t)
+	serverSocketPath, stop := runRepoServer(t, config.Config.Storages)
 	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
@@ -186,7 +186,7 @@ func TestFetchRemoteOverHTTP(t *testing.T) {
 }
 
 func TestFetchRemoteOverHTTPWithRedirect(t *testing.T) {
-	serverSocketPath, stop := runRepoServer(t)
+	serverSocketPath, stop := runRepoServer(t, config.Config.Storages)
 	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
@@ -217,7 +217,7 @@ func TestFetchRemoteOverHTTPWithRedirect(t *testing.T) {
 }
 
 func TestFetchRemoteOverHTTPError(t *testing.T) {
-	serverSocketPath, stop := runRepoServer(t)
+	serverSocketPath, stop := runRepoServer(t, config.Config.Storages)
 	defer stop()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)

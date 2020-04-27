@@ -51,7 +51,7 @@ func (s *server) CreateRepositoryFromURL(ctx context.Context, req *gitalypb.Crea
 
 	repository := req.Repository
 
-	repositoryFullPath, err := helper.GetPath(repository)
+	repositoryFullPath, err := helper.GetRepositoryPath(repository, s.storages)
 	if err != nil {
 		return nil, err
 	}

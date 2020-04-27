@@ -54,7 +54,7 @@ func TestSuccessfulCreateForkRequest(t *testing.T) {
 				client, conn = repository.NewSecureRepoClient(t, serverSocketPath, testPool)
 				defer conn.Close()
 			} else {
-				server, serverSocketPath = runFullServer(t)
+				server, serverSocketPath = runFullServer(t, config.Config.Storages)
 				defer server.Stop()
 
 				client, conn = repository.NewRepositoryClient(t, serverSocketPath)
@@ -75,7 +75,7 @@ func TestSuccessfulCreateForkRequest(t *testing.T) {
 				StorageName:  testRepo.StorageName,
 			}
 
-			forkedRepoPath, err := helper.GetPath(forkedRepo)
+			forkedRepoPath, err := helper.GetRepositoryPath(forkedRepo, config.Config.Storages)
 			require.NoError(t, err)
 			require.NoError(t, os.RemoveAll(forkedRepoPath))
 
@@ -101,7 +101,7 @@ func TestSuccessfulCreateForkRequest(t *testing.T) {
 }
 
 func TestFailedCreateForkRequestDueToExistingTarget(t *testing.T) {
-	server, serverSocketPath := runFullServer(t)
+	server, serverSocketPath := runFullServer(t, config.Config.Storages)
 	defer server.Stop()
 
 	client, conn := repository.NewRepositoryClient(t, serverSocketPath)
@@ -140,7 +140,7 @@ func TestFailedCreateForkRequestDueToExistingTarget(t *testing.T) {
 				StorageName:  testRepo.StorageName,
 			}
 
-			forkedRepoPath, err := helper.GetPath(forkedRepo)
+			forkedRepoPath, err := helper.GetRepositoryPath(forkedRepo, config.Config.Storages)
 			require.NoError(t, err)
 
 			if testCase.isDir {

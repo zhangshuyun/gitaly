@@ -62,9 +62,9 @@ func TempDir(storage config.Storage) string { return AppendTempDir(storage.Path)
 func AppendTempDir(storagePath string) string { return filepath.Join(storagePath, tmpRootPrefix) }
 
 // ForDeleteAllRepositories returns a temporary directory for the given storage. It is not context-scoped but it will get removed eventuall (after MaxAge).
-func ForDeleteAllRepositories(storageName string) (string, error) {
+func ForDeleteAllRepositories(storages config.Storages, storageName string) (string, error) {
 	prefix := fmt.Sprintf("%s-repositories.old.%d.", storageName, time.Now().Unix())
-	_, path, err := newAsRepository(context.Background(), storageName, prefix)
+	_, path, err := newAsRepository(context.Background(), storages, storageName, prefix)
 
 	return path, err
 }
@@ -73,7 +73,7 @@ func ForDeleteAllRepositories(storageName string) (string, error) {
 // repository. The directory is removed with os.RemoveAll when ctx
 // expires.
 func New(ctx context.Context, repo *gitalypb.Repository) (string, error) {
-	_, path, err := NewAsRepository(ctx, repo)
+	_, path, err := NewAsRepository(ctx, config.Config.Storages, repo)
 	if err != nil {
 		return "", err
 	}
@@ -83,12 +83,12 @@ func New(ctx context.Context, repo *gitalypb.Repository) (string, error) {
 
 // NewAsRepository is the same as New, but it returns a *gitalypb.Repository for the
 // created directory as well as the bare path as a string
-func NewAsRepository(ctx context.Context, repo *gitalypb.Repository) (*gitalypb.Repository, string, error) {
-	return newAsRepository(ctx, repo.StorageName, "repo")
+func NewAsRepository(ctx context.Context, storages config.Storages, repo *gitalypb.Repository) (*gitalypb.Repository, string, error) {
+	return newAsRepository(ctx, storages, repo.GetStorageName(), "repo")
 }
 
-func newAsRepository(ctx context.Context, storageName string, prefix string) (*gitalypb.Repository, string, error) {
-	storage, ok := config.Config.Storage(storageName)
+func newAsRepository(ctx context.Context, storages config.Storages, storageName string, prefix string) (*gitalypb.Repository, string, error) {
+	storage, ok := storages.Get(storageName)
 	if !ok {
 		return nil, "", fmt.Errorf("storage not found: %v", storageName)
 	}

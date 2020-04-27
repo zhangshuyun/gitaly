@@ -28,7 +28,7 @@ func (s *server) CreateRepositoryFromBundle(stream gitalypb.RepositoryService_Cr
 		return status.Errorf(codes.InvalidArgument, "CreateRepositoryFromBundle: empty Repository")
 	}
 
-	repoPath, err := helper.GetPath(repo)
+	repoPath, err := helper.GetRepositoryPath(repo, s.storages)
 	if err != nil {
 		return helper.ErrInternal(err)
 	}
