@@ -1,0 +1,25 @@
+listen_addr = ""
+socket_path = ""
+prometheus_listen_addr = ""
+virtual_storage_name = "praefect"
+
+[logging]
+  format = "json"
+  level = "info"
+
+[sentry]
+  sentry_environment = "production"
+  sentry_dsn = "abcd123"
+
+[[node]]
+  address = "tcp://gitaly-internal-1.example.com"
+  storage = "praefect-internal-1"
+  primary = true
+
+[[node]]
+  address = "tcp://gitaly-internal-2.example.com"
+  storage = "praefect-internal-2"
+
+[[node]]
+  address = "tcp://gitaly-internal-3.example.com"
+  storage = "praefect-internal-3"

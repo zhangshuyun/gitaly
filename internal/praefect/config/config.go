@@ -21,9 +21,12 @@ type Failover struct {
 
 // Config is a container for everything found in the TOML config file
 type Config struct {
-	ListenAddr           string            `toml:"listen_addr"`
-	SocketPath           string            `toml:"socket_path"`
-	VirtualStorages      []*VirtualStorage `toml:"virtual_storage"`
+	ListenAddr      string            `toml:"listen_addr"`
+	SocketPath      string            `toml:"socket_path"`
+	VirtualStorages []*VirtualStorage `toml:"virtual_storage"`
+	//TODO: Remove VirtualStorageName and Nodes once omnibus and gdk are updated with support for
+	// VirtualStorages
+	VirtualStorageName   string            `toml:"virtual_storage_name"`
 	Nodes                []*models.Node    `toml:"node"`
 	Logging              log.Config        `toml:"logging"`
 	Sentry               sentry.Config     `toml:"sentry"`
@@ -53,6 +56,19 @@ func FromFile(filePath string) (Config, error) {
 	defer cfgFile.Close()
 
 	_, err = toml.DecodeReader(cfgFile, config)
+
+	// TODO: Remove this after the virtual storages change is merged in omnibus
+	// and gdk. This is for backwards compatibility purposes only
+	if len(config.VirtualStorages) == 0 && config.VirtualStorageName != "" && len(config.Nodes) > 0 {
+		config.VirtualStorages = []*VirtualStorage{
+			&VirtualStorage{
+				Name:  config.VirtualStorageName,
+				Nodes: config.Nodes,
+			},
+		}
+		config.VirtualStorageName = ""
+		config.Nodes = nil
+	}
 
 	// TODO: Remove this after failover_enabled has moved under a separate failover section. This is for
 	// backwards compatibility only

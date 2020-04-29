@@ -182,6 +182,41 @@ func TestConfigParsing(t *testing.T) {
 				PostgresQueueEnabled: true,
 			},
 		},
+		//TODO: Remove this test, as well as the fixture in testdata/single-virtual-storage.config.toml
+		// once omnibus and gdk are updated with support for VirtualStorages
+		{
+			filePath: "testdata/single-virtual-storage.config.toml",
+			expected: Config{
+				Logging: log.Config{
+					Level:  "info",
+					Format: "json",
+				},
+				Sentry: sentry.Config{
+					DSN:         "abcd123",
+					Environment: "production",
+				},
+				VirtualStorages: []*VirtualStorage{
+					&VirtualStorage{
+						Name: "praefect",
+						Nodes: []*models.Node{
+							&models.Node{
+								Address:        "tcp://gitaly-internal-1.example.com",
+								Storage:        "praefect-internal-1",
+								DefaultPrimary: true,
+							},
+							{
+								Address: "tcp://gitaly-internal-2.example.com",
+								Storage: "praefect-internal-2",
+							},
+							{
+								Address: "tcp://gitaly-internal-3.example.com",
+								Storage: "praefect-internal-3",
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 
 	for _, tc := range testCases {
