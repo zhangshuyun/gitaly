@@ -1,5 +1,12 @@
 # Gitaly changelog
 
+## 12.10.2
+
+### Security (1 change)
+
+- gems: Upgrade nokogiri to > 1.10.7. !2128
+
+
 ## 12.10.1
 
 - No changes.
