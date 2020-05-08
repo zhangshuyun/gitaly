@@ -4,12 +4,14 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"gitlab.com/gitlab-org/gitaly/internal/config"
+	"gitlab.com/gitlab-org/gitaly/internal/middleware/errorhandler"
 	"gitlab.com/gitlab-org/gitaly/internal/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/service/blob"
 	"gitlab.com/gitlab-org/gitaly/internal/service/cleanup"
 	"gitlab.com/gitlab-org/gitaly/internal/service/commit"
 	"gitlab.com/gitlab-org/gitaly/internal/service/conflicts"
 	"gitlab.com/gitlab-org/gitaly/internal/service/diff"
+	"gitlab.com/gitlab-org/gitaly/internal/service/health"
 	hook "gitlab.com/gitlab-org/gitaly/internal/service/hooks"
 	"gitlab.com/gitlab-org/gitaly/internal/service/internalgitaly"
 	"gitlab.com/gitlab-org/gitaly/internal/service/namespace"
@@ -24,8 +26,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/service/wiki"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/health"
-	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
 
 var (
@@ -52,7 +52,7 @@ var (
 
 // RegisterAll will register all the known grpc services with
 // the specified grpc service instance
-func RegisterAll(grpcServer *grpc.Server, cfg config.Cfg, rubyServer *rubyserver.Server) {
+func RegisterAll(grpcServer *grpc.Server, cfg config.Cfg, errorTracker *errorhandler.Errors, rubyServer *rubyserver.Server) {
 	gitalypb.RegisterBlobServiceServer(grpcServer, blob.NewServer(rubyServer))
 	gitalypb.RegisterCleanupServiceServer(grpcServer, cleanup.NewServer())
 	gitalypb.RegisterCommitServiceServer(grpcServer, commit.NewServer())
@@ -75,5 +75,5 @@ func RegisterAll(grpcServer *grpc.Server, cfg config.Cfg, rubyServer *rubyserver
 	gitalypb.RegisterHookServiceServer(grpcServer, hook.NewServer())
 	gitalypb.RegisterInternalGitalyServer(grpcServer, internalgitaly.NewServer(config.Config.Storages))
 
-	healthpb.RegisterHealthServer(grpcServer, health.NewServer())
+	gitalypb.RegisterHealthServer(grpcServer, health.NewServer(errorTracker))
 }

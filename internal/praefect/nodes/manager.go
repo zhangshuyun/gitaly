@@ -6,6 +6,8 @@ import (
 	"errors"
 	"time"
 
+	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
+
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/sirupsen/logrus"
@@ -19,7 +21,6 @@ import (
 	correlation "gitlab.com/gitlab-org/labkit/correlation/grpc"
 	grpctracing "gitlab.com/gitlab-org/labkit/tracing/grpc"
 	"google.golang.org/grpc"
-	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
 
 // Shard is a primary with a set of secondaries
@@ -211,16 +212,16 @@ func (n *nodeStatus) GetConnection() *grpc.ClientConn {
 const checkTimeout = 1 * time.Second
 
 func (n *nodeStatus) check(ctx context.Context) (bool, error) {
-	client := healthpb.NewHealthClient(n.ClientConn)
+	client := gitalypb.NewHealthClient(n.ClientConn)
 	ctx, cancel := context.WithTimeout(ctx, checkTimeout)
 	defer cancel()
 	status := false
 
 	start := time.Now()
-	resp, err := client.Check(ctx, &healthpb.HealthCheckRequest{Service: ""})
+	resp, err := client.Check(ctx, &gitalypb.HealthCheckRequest{Service: ""})
 	n.latencyHist.WithLabelValues(n.Storage).Observe(time.Since(start).Seconds())
 
-	if err == nil && resp.Status == healthpb.HealthCheckResponse_SERVING {
+	if err == nil && resp.Status == gitalypb.HealthCheckResponse_SERVING {
 		status = true
 	} else {
 		n.log.WithError(err).WithFields(logrus.Fields{

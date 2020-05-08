@@ -13,6 +13,8 @@ require 'gitaly/conflicts_services_pb'
 
 require 'gitaly/diff_services_pb'
 
+require 'gitaly/health_services_pb'
+
 require 'gitaly/hook_services_pb'
 
 require 'gitaly/internal_services_pb'

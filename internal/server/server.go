@@ -5,6 +5,8 @@ import (
 	"crypto/tls"
 	"os"
 
+	"gitlab.com/gitlab-org/gitaly/internal/middleware/errorhandler"
+
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_logrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
 	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
@@ -75,6 +77,9 @@ func createNewServer(rubyServer *rubyserver.Server, cfg config.Cfg, secure bool)
 	}
 
 	lh := limithandler.New(concurrencyKeyFn)
+	var errorTracker errorhandler.Errors
+
+	registry := protoregistry.New()
 
 	opts := []grpc.ServerOption{
 		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
@@ -89,6 +94,7 @@ func createNewServer(rubyServer *rubyserver.Server, cfg config.Cfg, secure bool)
 			auth.StreamServerInterceptor(config.Config.Auth),
 			grpctracing.StreamServerTracingInterceptor(),
 			cache.StreamInvalidator(diskcache.LeaseKeyer{}, protoregistry.GitalyProtoPreregistered),
+			errorhandler.StreamErrorHandler(&errorTracker, registry),
 			// Panic handler should remain last so that application panics will be
 			// converted to errors and logged
 			panichandler.StreamPanicHandler,
@@ -107,6 +113,7 @@ func createNewServer(rubyServer *rubyserver.Server, cfg config.Cfg, secure bool)
 			cache.UnaryInvalidator(diskcache.LeaseKeyer{}, protoregistry.GitalyProtoPreregistered),
 			// Panic handler should remain last so that application panics will be
 			// converted to errors and logged
+			errorhandler.UnaryErrorHandler(&errorTracker, registry),
 			panichandler.UnaryPanicHandler,
 		)),
 	}
@@ -123,7 +130,7 @@ func createNewServer(rubyServer *rubyserver.Server, cfg config.Cfg, secure bool)
 
 	server := grpc.NewServer(opts...)
 
-	service.RegisterAll(server, cfg, rubyServer)
+	service.RegisterAll(server, cfg, &errorTracker, rubyServer)
 	reflection.Register(server)
 
 	grpc_prometheus.Register(server)

@@ -1,0 +1,37 @@
+syntax = "proto3";
+
+package gitaly;
+
+option go_package = "gitlab.com/gitlab-org/gitaly/proto/go/gitalypb";
+
+import "lint.proto";
+import "shared.proto";
+
+service Health {
+  rpc Check(HealthCheckRequest) returns (HealthCheckResponse){
+    option (op_type) = {
+      op: ACCESSOR
+      scope_level: SERVER
+    };
+  };
+
+  rpc Watch(HealthCheckRequest) returns (stream HealthCheckResponse){
+    option (op_type) = {
+      op: ACCESSOR
+      scope_level: SERVER
+    };
+  };
+}
+
+message HealthCheckRequest {
+  string service = 1;
+}
+
+message HealthCheckResponse {
+  enum ServingStatus {
+    UNKNOWN = 0;
+    SERVING = 1;
+    NOT_SERVING = 2;
+  }
+  ServingStatus status = 1;
+}
