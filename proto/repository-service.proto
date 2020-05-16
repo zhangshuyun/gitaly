@@ -214,6 +214,11 @@ service RepositoryService {
       op: MUTATOR
     };
   }
+  rpc CreateFullBackup(CreateFullBackupRequest) returns (CreateFullBackupResponse) {
+    option (op_type)  = {
+      op: ACCESSOR
+    };
+  }
 }
 
 message RepositoryExistsRequest {
@@ -616,3 +621,10 @@ message OptimizeRepositoryRequest {
 }
 
 message OptimizeRepositoryResponse{}
+
+message CreateFullBackupRequest {
+  Repository repository = 1 [(target_repository)=true];
+  string post_url = 2;
+}
+
+message CreateFullBackupResponse{}

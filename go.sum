@@ -49,6 +49,7 @@ github.com/chzyer/test v0.0.0-20180213035817-a1ea475d72b1/go.mod h1:Q3SI9o4m/ZMn
 github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDkc90ppPyw=
 github.com/client9/reopen v1.0.0 h1:8tpLVR74DLpLObrn2KvsyxJY++2iORGR17WLUdSzUws=
 github.com/client9/reopen v1.0.0/go.mod h1:caXVCEr+lUtoN1FlsRiOWdfQtdRHIYfcb0ai8qKWtkQ=
+github.com/cloudflare/tableflip v0.0.0-20190329062924-8392f1641731/go.mod h1:erh4dYezoMVbIa52pi7i1Du7+cXOgqNuTamt10qvMoA=
 github.com/cloudflare/tableflip v1.2.1-0.20200514155827-4baec9811f2b h1:PF1TsqplD1wyV3nBSzRHP3teTQFtaWl3jaENrGqZ+lI=
 github.com/cloudflare/tableflip v1.2.1-0.20200514155827-4baec9811f2b/go.mod h1:vhhSlJqV8uUnxGkRSgyvGthfGlkAwJ4UuSV51fSrCQY=
 github.com/codahale/hdrhistogram v0.0.0-20161010025455-3a0bb77429bd h1:qMd81Ts1T2OTKmB4acZcyKaMtRnY5Y44NuXGX2GFJ1w=

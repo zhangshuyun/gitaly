@@ -55,6 +55,7 @@ module Gitaly
       rpc :RenameRepository, RenameRepositoryRequest, RenameRepositoryResponse
       rpc :ReplicateRepository, ReplicateRepositoryRequest, ReplicateRepositoryResponse
       rpc :OptimizeRepository, OptimizeRepositoryRequest, OptimizeRepositoryResponse
+      rpc :CreateFullBackup, CreateFullBackupRequest, CreateFullBackupResponse
     end
 
     Stub = Service.rpc_stub_class
