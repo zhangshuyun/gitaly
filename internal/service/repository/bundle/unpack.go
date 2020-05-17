@@ -2,7 +2,6 @@ package bundle
 
 import (
 	"bufio"
-	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -13,8 +12,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
-func Unpack(ctx context.Context, repo *gitalypb.Repository, bundle []byte) error {
-	r := bufio.NewReader(bytes.NewReader(bundle))
+func Unpack(ctx context.Context, repo *gitalypb.Repository, bundle io.Reader) error {
+	r := bufio.NewReader(bundle)
 
 	line, err := readLine(r)
 	if err != nil {
@@ -97,7 +96,6 @@ func Unpack(ctx context.Context, repo *gitalypb.Repository, bundle []byte) error
 	}
 
 	return nil
-
 }
 
 func refMapFromReader(r *bufio.Reader) (map[string]string, error) {

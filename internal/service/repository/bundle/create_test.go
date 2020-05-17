@@ -1,7 +1,6 @@
 package bundle
 
 import (
-	"bytes"
 	"os"
 	"testing"
 
@@ -16,8 +15,9 @@ func TestCreateFull(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	_, err := Create(ctx, testRepo)
+	_, bundleRefWriter, err := Create(ctx, testRepo)
 	require.NoError(t, err)
+	require.NoError(t, bundleRefWriter.Commit())
 }
 
 func TestCreateIncremental(t *testing.T) {
@@ -27,14 +27,14 @@ func TestCreateIncremental(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	_, err := Create(ctx, testRepo)
+	_, bundleRefWriter, err := Create(ctx, testRepo)
+	require.NoError(t, err)
+	require.NoError(t, bundleRefWriter.Commit())
+
+	b, _, err := Create(ctx, testRepo)
 	require.NoError(t, err)
 
-	b, err := Create(ctx, testRepo)
-	require.NoError(t, err)
-
-	bytes := bytes.SplitN(b, []byte("\n\n"), 2)
-	require.Empty(t, bytes[1])
+	require.Nil(t, b)
 }
 
 func TestUnpack(t *testing.T) {
@@ -44,13 +44,13 @@ func TestUnpack(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	b, err := Create(ctx, testRepo)
+	b, bundleRefWriter, err := Create(ctx, testRepo)
 	require.NoError(t, err)
+	require.NoError(t, bundleRefWriter.Commit())
 
-	emptyRepo, emptyRepoPath, _ := testhelper.InitBareRepo(t)
-	//	defer cleanup()
+	emptyRepo, _, cleanup := testhelper.InitBareRepo(t)
+	defer cleanup()
 
-	t.Logf("EMPTY REPO: %v\n", emptyRepoPath)
 	require.NoError(t, Unpack(ctx, emptyRepo, b))
 }
 

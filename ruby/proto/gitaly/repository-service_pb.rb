@@ -321,11 +321,19 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
   end
   add_message "gitaly.OptimizeRepositoryResponse" do
   end
-  add_message "gitaly.CreateFullBackupRequest" do
+  add_message "gitaly.CreateBackupRequest" do
     optional :repository, :message, 1, "gitaly.Repository"
     optional :post_url, :string, 2
+    optional :token, :string, 3
   end
-  add_message "gitaly.CreateFullBackupResponse" do
+  add_message "gitaly.CreateBackupResponse" do
+  end
+  add_message "gitaly.RestoreFromBackupRequest" do
+    optional :repository, :message, 1, "gitaly.Repository"
+    optional :url, :string, 2
+    optional :token, :string, 3
+  end
+  add_message "gitaly.RestoreFromBackupResponse" do
   end
 end
 
@@ -417,6 +425,8 @@ module Gitaly
   ReplicateRepositoryResponse = Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.ReplicateRepositoryResponse").msgclass
   OptimizeRepositoryRequest = Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.OptimizeRepositoryRequest").msgclass
   OptimizeRepositoryResponse = Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.OptimizeRepositoryResponse").msgclass
-  CreateFullBackupRequest = Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.CreateFullBackupRequest").msgclass
-  CreateFullBackupResponse = Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.CreateFullBackupResponse").msgclass
+  CreateBackupRequest = Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.CreateBackupRequest").msgclass
+  CreateBackupResponse = Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.CreateBackupResponse").msgclass
+  RestoreFromBackupRequest = Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.RestoreFromBackupRequest").msgclass
+  RestoreFromBackupResponse = Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.RestoreFromBackupResponse").msgclass
 end

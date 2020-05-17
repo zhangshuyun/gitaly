@@ -214,9 +214,14 @@ service RepositoryService {
       op: MUTATOR
     };
   }
-  rpc CreateFullBackup(CreateFullBackupRequest) returns (CreateFullBackupResponse) {
+  rpc CreateBackup(CreateBackupRequest) returns (CreateBackupResponse) {
     option (op_type)  = {
       op: ACCESSOR
+    };
+  }
+  rpc RestoreFromBackup(RestoreFromBackupRequest) returns (RestoreFromBackupResponse)  {
+    option (op_type)  = {
+      op: MUTATOR
     };
   }
 }
@@ -622,9 +627,18 @@ message OptimizeRepositoryRequest {
 
 message OptimizeRepositoryResponse{}
 
-message CreateFullBackupRequest {
+message CreateBackupRequest {
   Repository repository = 1 [(target_repository)=true];
   string post_url = 2;
+  string token = 3;
 }
 
-message CreateFullBackupResponse{}
+message CreateBackupResponse{}
+
+message RestoreFromBackupRequest {
+  Repository repository = 1 [(target_repository)=true];
+  string url = 2;
+  string token = 3;
+}
+
+message RestoreFromBackupResponse{}
