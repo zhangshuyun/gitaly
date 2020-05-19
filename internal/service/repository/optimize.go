@@ -31,8 +31,8 @@ func init() {
 
 func removeEmptyDirs(ctx context.Context, target string) error {
 	if err := ctx.Err(); err != nil {
-                return err
-        }
+		return err
+	}
 
 	entries, err := ioutil.ReadDir(target)
 	switch {

@@ -12,9 +12,9 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/lib/pq"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/metrics"
 )
 
 const (
@@ -84,6 +84,9 @@ type sqlElector struct {
 	failoverSeconds       int
 	activePraefectSeconds int
 	readOnlyAfterFailover bool
+
+	getShardTotal prometheus.Counter
+	neverSet      prometheus.Gauge
 }
 
 func newSQLElector(name string, c config.Config, failoverTimeoutSeconds int, activePraefectSeconds int, db *sql.DB, log logrus.FieldLogger, ns []*nodeStatus) *sqlElector {
@@ -107,6 +110,25 @@ func newSQLElector(name string, c config.Config, failoverTimeoutSeconds int, act
 		nodes:                 nodes,
 		primaryNode:           nodes[0],
 		readOnlyAfterFailover: c.Failover.ReadOnlyAfterFailover,
+
+		// We create the counter here with all the label values already set. This means the time series
+		// shows up immediately after registration in Prometheus without any prior observations being made.
+		// The metric is defined where it is used, reducing the need to jump around the code base.
+		getShardTotal: prometheus.NewCounter(prometheus.CounterOpts{
+			Name: "gitaly_get_shard_total",
+			Help: "Total count of GetShard calls",
+			ConstLabels: prometheus.Labels{
+				"virtual_storage": name,
+			},
+		}),
+
+		neverSet: prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: "gitaly_never_set_gauge",
+			Help: "This is never touched, yet is visible in scrape",
+			ConstLabels: prometheus.Labels{
+				"virtual_storage": name,
+			},
+		}),
 	}
 }
 
@@ -159,8 +181,6 @@ func (s *sqlElector) monitor(d time.Duration) {
 
 func (s *sqlElector) checkNodes(ctx context.Context) error {
 	var wg sync.WaitGroup
-
-	defer s.updateMetrics()
 
 	for _, n := range s.nodes {
 		wg.Add(1)
@@ -256,6 +276,12 @@ last_contact_attempt_at = NOW()`
 // GetShard gets the current status of the shard. ErrPrimaryNotHealthy
 // is returned if a primary does not exist.
 func (s *sqlElector) GetShard() (Shard, error) {
+	// Since we set the constant labels when we created the counter,
+	// we can simply increment here without worrying about the labels.
+	// Since the metric is always created, we do not need to nil check
+	// either.
+	s.getShardTotal.Inc()
+
 	primary, readOnly, err := s.lookupPrimary()
 	if err != nil {
 		return Shard{}, err
@@ -280,19 +306,49 @@ func (s *sqlElector) GetShard() (Shard, error) {
 	}, nil
 }
 
-func (s *sqlElector) updateMetrics() {
-	s.m.RLock()
-	primary := s.primaryNode
-	s.m.RUnlock()
+func (s *sqlElector) Describe(descs chan<- *prometheus.Desc) {
+	// DescribeByCollect is a convenience method from prometheus that allows us to avoid
+	// explicitly listing every metric here and only focus on the Collect method.
+	prometheus.DescribeByCollect(s, descs)
+}
+
+func (s *sqlElector) Collect(metrics chan<- prometheus.Metric) {
+	// First we collect every concrete metric we have
+	s.getShardTotal.Collect(metrics)
+	s.neverSet.Collect(metrics)
+
+	// Then we collect metrics that do not directly map to a persistent
+	// metric. In this case, the primary information comes from the database
+	// and could have been modified by another praefect node. We get the value
+	// when it is needed for a scrape, guaranteeing it is always up to date.
+	// This is also useful if we have other derived metrics that we do not hold
+	// in the memory.
+	shard, err := s.GetShard()
+	if err != nil {
+		// In the example, we only log the error. We could also expose a metric
+		// indicating the scrape's failure: https://prometheus.io/docs/instrumenting/writing_exporters/#failed-scrapes
+		s.log.WithFields(logrus.Fields{
+			"error":           err,
+			"virtual-storage": s.shardName,
+		}).Error("prometheus scrape failed")
+		return
+	}
 
 	for _, node := range s.nodes {
 		var val float64
-
-		if primary == node {
+		if node == shard.Primary {
 			val = 1
 		}
 
-		metrics.PrimaryGauge.WithLabelValues(s.shardName, node.GetStorage()).Set(val)
+		// Since the information about the primary is derived from GetShard during scrape, we do not have a persistent
+		// gauge for it. Instead, we just give the derived value directly to Prometheus via a ConstMetric. Since there
+		// are no gauges that could be set from the outside during a scrape, the view is always consistent.
+		metrics <- prometheus.MustNewConstMetric(prometheus.NewDesc(
+			"gitaly_praefect_primaries",
+			"Primary/Secondary statuses of Gitaly nodes.",
+			[]string{"virtual_storage", "gitaly_storage"},
+			nil,
+		), prometheus.GaugeValue, val, s.shardName, node.GetStorage())
 	}
 }
 

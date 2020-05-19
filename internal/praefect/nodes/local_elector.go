@@ -5,8 +5,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/metrics"
 )
 
 type nodeCandidate struct {
@@ -119,11 +119,24 @@ func (s *localElector) monitor(d time.Duration) {
 	}
 }
 
+func (*localElector) Describe(chan<- *prometheus.Desc) {
+	// ignored in the example
+}
+
+func (*localElector) Collect(chan<- prometheus.Metric) {
+	// ignored in the example.
+	//
+	// If you look at the implementation of sqlElector.Collect, we can
+	// see that it would be straightforward to extract the instrumentation
+	// code in to a wrapper that wraps a leaderElectionStrategy and instruments
+	// the calls to GetShard and uses GetShard to fetch the current primaries
+	// and secondaries, reducing code duplication between the local and the sql
+	// elector
+}
+
 // checkNodes issues a gRPC health check for each node managed by the
 // shard.
 func (s *localElector) checkNodes(ctx context.Context) error {
-	defer s.updateMetrics()
-
 	for _, n := range s.nodes {
 		n.checkNode(ctx)
 	}
@@ -194,20 +207,4 @@ func (s *localElector) enableWrites(context.Context) error {
 
 	s.isReadOnly = false
 	return nil
-}
-
-func (s *localElector) updateMetrics() {
-	s.m.RLock()
-	primary := s.primaryNode
-	s.m.RUnlock()
-
-	for _, n := range s.nodes {
-		var val float64
-
-		if n == primary {
-			val = 1
-		}
-
-		metrics.PrimaryGauge.WithLabelValues(s.shardName, n.node.GetStorage()).Set(val)
-	}
 }

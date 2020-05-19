@@ -11,6 +11,7 @@ import (
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
 	"gitlab.com/gitlab-org/gitaly/client"
@@ -89,6 +90,7 @@ type leaderElectionStrategy interface {
 	checkNodes(context.Context) error
 	GetShard() (Shard, error)
 	enableWrites(context.Context) error
+	prometheus.Collector
 }
 
 // ErrPrimaryNotHealthy indicates the primary of a shard is not in a healthy state and hence
@@ -150,6 +152,16 @@ func NewManager(log *logrus.Entry, c config.Config, db *sql.DB, ds datastore.Dat
 		strategies:      strategies,
 		ds:              ds,
 	}, nil
+}
+
+func (n *Mgr) Describe(descs chan<- *prometheus.Desc) {
+	prometheus.DescribeByCollect(n, descs)
+}
+
+func (n *Mgr) Collect(metrics chan<- prometheus.Metric) {
+	for _, vs := range n.strategies {
+		vs.Collect(metrics)
+	}
 }
 
 // Start will bootstrap the node manager by calling healthcheck on the nodes as well as kicking off

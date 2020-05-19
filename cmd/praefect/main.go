@@ -91,6 +91,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/internal/bootstrap"
 	"gitlab.com/gitlab-org/gitaly/internal/bootstrap/starter"
@@ -243,6 +244,13 @@ func run(cfgs []starter.Config, conf config.Config) error {
 		return err
 	}
 	nodeManager.Start(1*time.Second, 3*time.Second)
+
+	// We register the component directly with Prometheus, in this case with
+	// prometheus.DefaultRegisterer. During the scrape the describe method in nodeMgr
+	// relays the call to the configured strategies. The strategies then describe their
+	// own metrics which include the counters and the const metrics. The metrics are
+	// collected via the Collect method, giving us better control on the metric collection.
+	prometheus.MustRegister(nodeManager)
 
 	transactionCounterMetric, err := metrics.RegisterTransactionCounter()
 	if err != nil {

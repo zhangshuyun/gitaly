@@ -3,13 +3,16 @@
 package nodes
 
 import (
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/models"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -19,6 +22,69 @@ import (
 )
 
 var shardName string = "test-shard-0"
+
+func TestMetrics(t *testing.T) {
+	db := getDB(t)
+
+	// set up copied from below
+	const virtualStorageName = "virtual-storage-0"
+	const primaryStorage = "praefect-internal-0"
+	socket0, socket1 := testhelper.GetTemporaryGitalySocketFileName(), testhelper.GetTemporaryGitalySocketFileName()
+	virtualStorage := &config.VirtualStorage{
+		Name: virtualStorageName,
+		Nodes: []*models.Node{
+			{
+				Storage:        primaryStorage,
+				Address:        "unix://" + socket0,
+				DefaultPrimary: true,
+			},
+			{
+				Storage: "praefect-internal-1",
+				Address: "unix://" + socket1,
+			},
+		},
+	}
+
+	srv0, _ := testhelper.NewServerWithHealth(t, socket0)
+	defer srv0.Stop()
+
+	srv1, _ := testhelper.NewServerWithHealth(t, socket1)
+	defer srv1.Stop()
+
+	conf := config.Config{
+		Failover:        config.Failover{Enabled: true, ElectionStrategy: "sql"},
+		VirtualStorages: []*config.VirtualStorage{virtualStorage},
+	}
+	nm, err := NewManager(testhelper.DiscardTestEntry(t), conf, db.DB, datastore.Datastore{}, promtest.NewMockHistogramVec())
+	require.NoError(t, err)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+	err = nm.strategies[virtualStorageName].checkNodes(ctx)
+	db.RequireRowsInTable(t, "shard_primaries", 1)
+
+	// the actual test code
+	expected := strings.NewReader(`
+# HELP gitaly_get_shard_total Total count of GetShard calls
+# TYPE gitaly_get_shard_total counter
+gitaly_get_shard_total{virtual_storage="virtual-storage-0"} 2
+
+# HELP gitaly_never_set_gauge This is never touched, yet is visible in scrape
+# TYPE gitaly_never_set_gauge gauge
+gitaly_never_set_gauge{virtual_storage="virtual-storage-0"} 0
+
+# HELP gitaly_praefect_primaries Primary/Secondary statuses of Gitaly nodes.
+# TYPE gitaly_praefect_primaries gauge
+gitaly_praefect_primaries{gitaly_storage="praefect-internal-0",virtual_storage="virtual-storage-0"} 1
+gitaly_praefect_primaries{gitaly_storage="praefect-internal-1",virtual_storage="virtual-storage-0"} 0
+`)
+
+	// Multiple tests can now use the metrics as the metrics are per elector instance.
+	// The metrics are not registered in the tests, so there won't be duplicate registrations
+	// in the global registry. Alternatively, if the test does not care about metrics, it can
+	// just completely ignore them without having to provide mock metrics.
+	require.NoError(t, testutil.CollectAndCompare(nm, expected))
+}
 
 func TestGetPrimaryAndSecondaries(t *testing.T) {
 	db := getDB(t)
