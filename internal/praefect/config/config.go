@@ -16,9 +16,12 @@ import (
 )
 
 type Failover struct {
-	Enabled               bool   `toml:"enabled"`
-	ElectionStrategy      string `toml:"election_strategy"`
-	ReadOnlyAfterFailover bool   `toml:"read_only_after_failover"`
+	Enabled                     bool   `toml:"enabled"`
+	ElectionStrategy            string `toml:"election_strategy"`
+	ReadOnlyAfterFailover       bool   `toml:"read_only_after_failover"`
+	ErrorThresholdWindowSeconds int    `toml:"error_threshold_time_seconds"`
+	WriteErrorThreshold         int    `toml:"write_error_threshold"`
+	ReadErrorThreshold          int    `toml:"read_error_threshold"`
 }
 
 // Config is a container for everything found in the TOML config file

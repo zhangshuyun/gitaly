@@ -17,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/grpc-proxy/proxy"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/middleware"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/mock"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/models"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/nodes"
@@ -206,7 +207,7 @@ func defaultTxMgr() *transactions.Manager {
 }
 
 func defaultNodeMgr(t testing.TB, conf config.Config, queue datastore.ReplicationEventQueue) nodes.Manager {
-	nodeMgr, err := nodes.NewManager(testhelper.DiscardTestEntry(t), conf, nil, queue, promtest.NewMockHistogramVec())
+	nodeMgr, err := nodes.NewManager(testhelper.DiscardTestEntry(t), conf, nil, queue, middleware.NewErrors(0, 0, 0), promtest.NewMockHistogramVec())
 	require.NoError(t, err)
 	nodeMgr.Start(1*time.Millisecond, 5*time.Millisecond)
 	return nodeMgr

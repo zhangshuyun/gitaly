@@ -12,6 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/config/auth"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/middleware"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/mock"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/models"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/nodes"
@@ -171,7 +172,7 @@ func runServer(t *testing.T, token string, required bool) (*Server, string, func
 	logEntry := testhelper.DiscardTestEntry(t)
 	queue := datastore.NewMemoryReplicationEventQueue(conf)
 
-	nodeMgr, err := nodes.NewManager(logEntry, conf, nil, queue, promtest.NewMockHistogramVec())
+	nodeMgr, err := nodes.NewManager(logEntry, conf, nil, queue, middleware.NewErrors(0, 0, 0), promtest.NewMockHistogramVec())
 	require.NoError(t, err)
 
 	txMgr := transactions.NewManager()

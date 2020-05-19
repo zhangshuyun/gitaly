@@ -19,7 +19,9 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/grpc-proxy/proxy"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metrics"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/middleware"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/models"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/protoregistry"
 	prommetrics "gitlab.com/gitlab-org/gitaly/internal/prometheus/metrics"
 	correlation "gitlab.com/gitlab-org/labkit/correlation/grpc"
 	grpctracing "gitlab.com/gitlab-org/labkit/tracing/grpc"
@@ -98,7 +100,15 @@ var ErrPrimaryNotHealthy = errors.New("primary is not healthy")
 const dialTimeout = 10 * time.Second
 
 // NewManager creates a new NodeMgr based on virtual storage configs
-func NewManager(log *logrus.Entry, c config.Config, db *sql.DB, queue datastore.ReplicationEventQueue, latencyHistogram prommetrics.HistogramVec, dialOpts ...grpc.DialOption) (*Mgr, error) {
+func NewManager(
+	log *logrus.Entry,
+	c config.Config,
+	db *sql.DB,
+	queue datastore.ReplicationEventQueue,
+	errTracker *middleware.Errors,
+	latencyHistogram prommetrics.HistogramVec,
+	dialOpts ...grpc.DialOption,
+) (*Mgr, error) {
 	strategies := make(map[string]leaderElectionStrategy, len(c.VirtualStorages))
 
 	ctx, cancel := context.WithTimeout(context.Background(), dialTimeout)
@@ -117,6 +127,7 @@ func NewManager(log *logrus.Entry, c config.Config, db *sql.DB, queue datastore.
 							grpc_prometheus.StreamClientInterceptor,
 							grpctracing.StreamClientTracingInterceptor(),
 							correlation.StreamClientCorrelationInterceptor(),
+							middleware.StreamErrorHandler(protoregistry.GitalyProtoPreregistered, errTracker, node.Storage),
 						)),
 						grpc.WithUnaryInterceptor(grpc_middleware.ChainUnaryClient(
 							grpc_prometheus.UnaryClientInterceptor,
@@ -128,7 +139,7 @@ func NewManager(log *logrus.Entry, c config.Config, db *sql.DB, queue datastore.
 			if err != nil {
 				return nil, err
 			}
-			cs := newConnectionStatus(*node, conn, log, latencyHistogram)
+			cs := newConnectionStatus(*node, conn, log, errTracker, latencyHistogram)
 			if node.DefaultPrimary {
 				ns[0] = cs
 			} else {
@@ -229,11 +240,12 @@ func (n *Mgr) GetSyncedNode(ctx context.Context, virtualStorageName, repoPath st
 	return shard.Primary, nil // there is no matched secondaries, maybe because of re-configuration
 }
 
-func newConnectionStatus(node models.Node, cc *grpc.ClientConn, l *logrus.Entry, latencyHist prommetrics.HistogramVec) *nodeStatus {
+func newConnectionStatus(node models.Node, cc *grpc.ClientConn, l *logrus.Entry, errTracker *middleware.Errors, latencyHist prommetrics.HistogramVec) *nodeStatus {
 	return &nodeStatus{
 		Node:        node,
 		ClientConn:  cc,
 		log:         l,
+		errTracker:  errTracker,
 		latencyHist: latencyHist,
 	}
 }
@@ -241,6 +253,7 @@ func newConnectionStatus(node models.Node, cc *grpc.ClientConn, l *logrus.Entry,
 type nodeStatus struct {
 	models.Node
 	*grpc.ClientConn
+	errTracker  *middleware.Errors
 	log         *logrus.Entry
 	latencyHist prommetrics.HistogramVec
 }
@@ -268,6 +281,14 @@ func (n *nodeStatus) GetConnection() *grpc.ClientConn {
 const checkTimeout = 1 * time.Second
 
 func (n *nodeStatus) check(ctx context.Context) (bool, error) {
+	if n.errTracker.WriteThresholdReached(n.Storage) {
+		return false, errors.New("too many write errors")
+	}
+
+	if n.errTracker.ReadThresholdReached(n.Storage) {
+		return false, errors.New("too many read errors")
+	}
+
 	client := healthpb.NewHealthClient(n.ClientConn)
 	ctx, cancel := context.WithTimeout(ctx, checkTimeout)
 	defer cancel()

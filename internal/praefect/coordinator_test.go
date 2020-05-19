@@ -15,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/metadatahandler"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/middleware"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/models"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/nodes"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/protoregistry"
@@ -182,7 +183,7 @@ func TestStreamDirectorMutator(t *testing.T) {
 
 	entry := testhelper.DiscardTestEntry(t)
 
-	nodeMgr, err := nodes.NewManager(entry, conf, nil, queueInterceptor, promtest.NewMockHistogramVec())
+	nodeMgr, err := nodes.NewManager(entry, conf, nil, queueInterceptor, middleware.NewErrors(0, 0, 0), promtest.NewMockHistogramVec())
 	require.NoError(t, err)
 
 	txMgr := transactions.NewManager()
@@ -284,7 +285,7 @@ func TestStreamDirectorAccessor(t *testing.T) {
 
 	entry := testhelper.DiscardTestEntry(t)
 
-	nodeMgr, err := nodes.NewManager(entry, conf, nil, queue, promtest.NewMockHistogramVec())
+	nodeMgr, err := nodes.NewManager(entry, conf, nil, queue, middleware.NewErrors(0, 0, 0), promtest.NewMockHistogramVec())
 	require.NoError(t, err)
 
 	txMgr := transactions.NewManager()
@@ -377,7 +378,7 @@ func TestAbsentCorrelationID(t *testing.T) {
 
 	entry := testhelper.DiscardTestEntry(t)
 
-	nodeMgr, err := nodes.NewManager(entry, conf, nil, queueInterceptor, promtest.NewMockHistogramVec())
+	nodeMgr, err := nodes.NewManager(entry, conf, nil, queueInterceptor, middleware.NewErrors(0, 0, 0), promtest.NewMockHistogramVec())
 	require.NoError(t, err)
 	txMgr := transactions.NewManager()
 

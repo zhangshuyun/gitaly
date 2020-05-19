@@ -11,6 +11,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/middleware"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/models"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/promtest"
@@ -34,7 +35,7 @@ func TestNodeStatus(t *testing.T) {
 	mockHistogramVec := promtest.NewMockHistogramVec()
 
 	storageName := "default"
-	cs := newConnectionStatus(models.Node{Storage: storageName}, cc, testhelper.DiscardTestEntry(t), mockHistogramVec)
+	cs := newConnectionStatus(models.Node{Storage: storageName}, cc, testhelper.DiscardTestEntry(t), middleware.NewErrors(0, 0, 0), mockHistogramVec)
 
 	var expectedLabels [][]string
 	for i := 0; i < healthcheckThreshold; i++ {
@@ -86,7 +87,7 @@ func TestManagerFailoverDisabledElectionStrategySQL(t *testing.T) {
 		Failover:        config.Failover{Enabled: false, ElectionStrategy: "sql"},
 		VirtualStorages: []*config.VirtualStorage{virtualStorage},
 	}
-	nm, err := NewManager(testhelper.DiscardTestEntry(t), conf, nil, nil, promtest.NewMockHistogramVec())
+	nm, err := NewManager(testhelper.DiscardTestEntry(t), conf, nil, nil, middleware.NewErrors(0, 0, 0), promtest.NewMockHistogramVec())
 	require.NoError(t, err)
 
 	nm.Start(time.Millisecond, time.Millisecond)
@@ -134,7 +135,7 @@ func TestPrimaryIsSecond(t *testing.T) {
 	}
 
 	mockHistogram := promtest.NewMockHistogramVec()
-	nm, err := NewManager(testhelper.DiscardTestEntry(t), conf, nil, nil, mockHistogram)
+	nm, err := NewManager(testhelper.DiscardTestEntry(t), conf, nil, nil, middleware.NewErrors(0, 0, 0), mockHistogram)
 	require.NoError(t, err)
 
 	shard, err := nm.GetShard("virtual-storage-0")
@@ -184,7 +185,7 @@ func TestBlockingDial(t *testing.T) {
 		healthSrv0.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
 	}()
 
-	mgr, err := NewManager(testhelper.DiscardTestEntry(t), conf, nil, nil, promtest.NewMockHistogramVec())
+	mgr, err := NewManager(testhelper.DiscardTestEntry(t), conf, nil, nil, middleware.NewErrors(0, 0, 0), promtest.NewMockHistogramVec())
 	require.NoError(t, err)
 
 	mgr.Start(1*time.Millisecond, 1*time.Millisecond)
@@ -230,10 +231,10 @@ func TestNodeManager(t *testing.T) {
 	}
 
 	mockHistogram := promtest.NewMockHistogramVec()
-	nm, err := NewManager(testhelper.DiscardTestEntry(t), confWithFailover, nil, nil, mockHistogram)
+	nm, err := NewManager(testhelper.DiscardTestEntry(t), confWithFailover, nil, nil, middleware.NewErrors(0, 0, 0), mockHistogram)
 	require.NoError(t, err)
 
-	nmWithoutFailover, err := NewManager(testhelper.DiscardTestEntry(t), confWithoutFailover, nil, nil, mockHistogram)
+	nmWithoutFailover, err := NewManager(testhelper.DiscardTestEntry(t), confWithoutFailover, nil, nil, middleware.NewErrors(0, 0, 0), mockHistogram)
 	require.NoError(t, err)
 
 	nm.Start(1*time.Millisecond, 5*time.Second)
@@ -394,7 +395,7 @@ func TestMgr_GetSyncedNode(t *testing.T) {
 	verify := func(scenario func(t *testing.T, nm Manager, queue datastore.ReplicationEventQueue)) func(*testing.T) {
 		queue := datastore.NewMemoryReplicationEventQueue(conf)
 
-		nm, err := NewManager(testhelper.DiscardTestEntry(t), conf, nil, queue, mockHistogram)
+		nm, err := NewManager(testhelper.DiscardTestEntry(t), conf, nil, queue, middleware.NewErrors(0, 0, 0), mockHistogram)
 		require.NoError(t, err)
 
 		nm.Start(time.Duration(0), time.Hour)

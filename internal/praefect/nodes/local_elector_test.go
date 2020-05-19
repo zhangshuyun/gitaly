@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/middleware"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/models"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/promtest"
@@ -26,8 +27,9 @@ func setupElector(t *testing.T) (*localElector, []*nodeStatus, *grpc.ClientConn,
 	storageName := "default"
 	mockHistogramVec0, mockHistogramVec1 := promtest.NewMockHistogramVec(), promtest.NewMockHistogramVec()
 
-	cs := newConnectionStatus(models.Node{Storage: storageName}, cc, testhelper.DiscardTestEntry(t), mockHistogramVec0)
-	secondary := newConnectionStatus(models.Node{Storage: storageName}, cc, testhelper.DiscardTestEntry(t), mockHistogramVec1)
+	errTracker := middleware.NewErrors(0, 0, 0)
+	cs := newConnectionStatus(models.Node{Storage: storageName}, cc, testhelper.DiscardTestEntry(t), errTracker, mockHistogramVec0)
+	secondary := newConnectionStatus(models.Node{Storage: storageName}, cc, testhelper.DiscardTestEntry(t), errTracker, mockHistogramVec1)
 	ns := []*nodeStatus{cs, secondary}
 	logger := testhelper.NewTestLogger(t).WithField("test", t.Name())
 	strategy := newLocalElector(storageName, true, true, logger, ns)

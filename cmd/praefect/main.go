@@ -101,6 +101,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metrics"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/middleware"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/nodes"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/transactions"
@@ -238,7 +239,15 @@ func run(cfgs []starter.Config, conf config.Config) error {
 		queue = datastore.NewPostgresReplicationEventQueue(db)
 	}
 
-	nodeManager, err := nodes.NewManager(logger, conf, db, queue, nodeLatencyHistogram)
+	nodeManager, err := nodes.NewManager(
+		logger,
+		conf,
+		db,
+		queue,
+		middleware.NewErrors(conf.Failover.ErrorThresholdWindowSeconds, conf.Failover.ReadErrorThreshold, conf.Failover.WriteErrorThreshold),
+		nodeLatencyHistogram,
+	)
+
 	if err != nil {
 		return err
 	}

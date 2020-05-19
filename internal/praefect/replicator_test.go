@@ -19,6 +19,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/metadatahandler"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/middleware"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/models"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/nodes"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/protoregistry"
@@ -122,7 +123,7 @@ func TestProcessReplicationJob(t *testing.T) {
 
 	entry := testhelper.DiscardTestEntry(t)
 
-	nodeMgr, err := nodes.NewManager(entry, conf, nil, queue, promtest.NewMockHistogramVec())
+	nodeMgr, err := nodes.NewManager(entry, conf, nil, queue, middleware.NewErrors(0, 0, 0), promtest.NewMockHistogramVec())
 	require.NoError(t, err)
 	nodeMgr.Start(1*time.Millisecond, 5*time.Millisecond)
 
@@ -215,7 +216,7 @@ func TestPropagateReplicationJob(t *testing.T) {
 	queue := datastore.NewMemoryReplicationEventQueue(conf)
 	logEntry := testhelper.DiscardTestEntry(t)
 
-	nodeMgr, err := nodes.NewManager(logEntry, conf, nil, queue, promtest.NewMockHistogramVec())
+	nodeMgr, err := nodes.NewManager(logEntry, conf, nil, queue, middleware.NewErrors(0, 0, 0), promtest.NewMockHistogramVec())
 	require.NoError(t, err)
 	nodeMgr.Start(1*time.Millisecond, 5*time.Millisecond)
 
@@ -507,7 +508,7 @@ func TestProcessBacklog_FailedJobs(t *testing.T) {
 
 	logEntry := testhelper.DiscardTestEntry(t)
 
-	nodeMgr, err := nodes.NewManager(logEntry, conf, nil, queueInterceptor, promtest.NewMockHistogramVec())
+	nodeMgr, err := nodes.NewManager(logEntry, conf, nil, queueInterceptor, middleware.NewErrors(0, 0, 0), promtest.NewMockHistogramVec())
 	require.NoError(t, err)
 
 	replMgr := NewReplMgr(logEntry, conf.VirtualStorageNames(), queueInterceptor, nodeMgr)
@@ -640,7 +641,7 @@ func TestProcessBacklog_Success(t *testing.T) {
 
 	logEntry := testhelper.DiscardTestEntry(t)
 
-	nodeMgr, err := nodes.NewManager(logEntry, conf, nil, queueInterceptor, promtest.NewMockHistogramVec())
+	nodeMgr, err := nodes.NewManager(logEntry, conf, nil, queueInterceptor, middleware.NewErrors(0, 0, 0), promtest.NewMockHistogramVec())
 	require.NoError(t, err)
 
 	replMgr := NewReplMgr(logEntry, conf.VirtualStorageNames(), queueInterceptor, nodeMgr)
