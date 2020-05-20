@@ -134,11 +134,11 @@ test:go1.13-git-2.26-ruby-2.6:
   <<: *test_definition
 
 test:go1.13-git-2.24-ruby-2.6:
-  image: registry.gitlab.com/gitlab-org/gitlab-build-images:ruby-2.6-golang-1.13-git-2.22
+  image: registry.gitlab.com/gitlab-org/gitlab-build-images:ruby-2.6-golang-1.13-git-2.24
   <<: *test_definition
 
 test:go1.13-git-2.22-ruby-2.6:
-  image: registry.gitlab.com/gitlab-org/gitlab-build-images:ruby-2.6-golang-1.13-git-2.24
+  image: registry.gitlab.com/gitlab-org/gitlab-build-images:ruby-2.6-golang-1.13-git-2.22
   <<: *test_definition
 
 test:proxy:
