@@ -83,7 +83,7 @@ func (s *server) UpdateHook(in *gitalypb.UpdateHookRequest, stream gitalypb.Hook
 	if err != nil {
 		return err
 	}
-	executor, err := newCustomHooksExecutor(repoPath, config.Config.GitlabShell.CustomHooksDir, "update")
+	executor, err := newCustomHooksExecutor(repoPath, config.Config.Hooks.CustomHooksDir, "update")
 	if err != nil {
 		return helper.ErrInternal(err)
 	}

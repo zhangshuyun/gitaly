@@ -43,7 +43,9 @@ type Cfg struct {
 	Auth                       auth.Config       `toml:"auth"`
 	TLS                        TLS               `toml:"tls"`
 	Ruby                       Ruby              `toml:"gitaly-ruby"`
+	Gitlab                     Gitlab            `toml:"gitlab"`
 	GitlabShell                GitlabShell       `toml:"gitlab-shell"`
+	Hooks                      Hooks             `toml:"hooks"`
 	Concurrency                []Concurrency     `toml:"concurrency"`
 	GracefulRestartTimeout     time.Duration
 	GracefulRestartTimeoutToml duration `toml:"graceful_restart_timeout"`
@@ -58,11 +60,19 @@ type TLS struct {
 
 // GitlabShell contains the settings required for executing `gitlab-shell`
 type GitlabShell struct {
-	CustomHooksDir string       `toml:"custom_hooks_dir" json:"custom_hooks_dir"`
-	Dir            string       `toml:"dir" json:"dir"`
-	GitlabURL      string       `toml:"gitlab_url" json:"gitlab_url"`
-	HTTPSettings   HTTPSettings `toml:"http-settings" json:"http_settings"`
-	SecretFile     string       `toml:"secret_file" json:"secret_file"`
+	Dir string `toml:"dir" json:"dir"`
+}
+
+// Gitlab contains settings required to connect to the Gitlab api
+type Gitlab struct {
+	URL          string       `toml:"url" json:"url"`
+	HTTPSettings HTTPSettings `toml:"http-settings" json:"http_settings"`
+	SecretFile   string       `toml:"secret_file" json:"secret_file"`
+}
+
+// Hooks contains the settings required for hooks
+type Hooks struct {
+	CustomHooksDir string `toml:"custom_hooks_dir" json:"custom_hooks_dir"`
 }
 
 type HTTPSettings struct {
@@ -164,12 +174,12 @@ func (c *Cfg) setDefaults() {
 		c.GracefulRestartTimeout = 1 * time.Minute
 	}
 
-	if c.GitlabShell.SecretFile == "" {
-		c.GitlabShell.SecretFile = filepath.Join(c.GitlabShell.Dir, ".gitlab_shell_secret")
+	if c.Gitlab.SecretFile == "" {
+		c.Gitlab.SecretFile = filepath.Join(c.GitlabShell.Dir, ".gitlab_shell_secret")
 	}
 
-	if c.GitlabShell.CustomHooksDir == "" {
-		c.GitlabShell.CustomHooksDir = filepath.Join(c.GitlabShell.Dir, "hooks")
+	if c.Hooks.CustomHooksDir == "" {
+		c.Hooks.CustomHooksDir = filepath.Join(c.GitlabShell.Dir, "hooks")
 	}
 }
 

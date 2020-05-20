@@ -2,6 +2,7 @@ package gitlabshell
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"gitlab.com/gitlab-org/gitaly/internal/config"
 )
@@ -26,15 +27,16 @@ type Config struct {
 
 // EnvFromConfig returns a set of environment variables from a config struct relevant to gitlab shell
 func EnvFromConfig(cfg config.Cfg) ([]string, error) {
+	fmt.Printf("\n GITLAB SHELL DIR FROM ENV: %v\n", cfg.GitlabShell.Dir)
 	gitlabShellConfig := Config{
-		CustomHooksDir: cfg.GitlabShell.CustomHooksDir,
-		GitlabURL:      cfg.GitlabShell.GitlabURL,
-		HTTPSettings:   cfg.GitlabShell.HTTPSettings,
+		CustomHooksDir: cfg.Hooks.CustomHooksDir,
+		GitlabURL:      cfg.Gitlab.URL,
+		HTTPSettings:   cfg.Gitlab.HTTPSettings,
 		LogFormat:      cfg.Logging.Format,
 		LogLevel:       cfg.Logging.Level,
 		LogPath:        cfg.Logging.Dir,
 		RootPath:       cfg.GitlabShell.Dir, //GITLAB_SHELL_DIR has been deprecated
-		SecretFile:     cfg.GitlabShell.SecretFile,
+		SecretFile:     cfg.Gitlab.SecretFile,
 	}
 
 	gitlabShellConfigString, err := json.Marshal(&gitlabShellConfig)

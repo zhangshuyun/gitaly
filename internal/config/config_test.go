@@ -647,18 +647,20 @@ func TestLoadGracefulRestartTimeout(t *testing.T) {
 }
 
 func TestGitlabShellDefaults(t *testing.T) {
-	expectedDefault := GitlabShell{
-		Dir:            "/dir",
-		SecretFile:     "/dir/.gitlab_shell_secret",
+	gitlabShellDir := "/gitlab_shell_dir"
+	expectedHooks := Hooks{
 		CustomHooksDir: "/dir/hooks",
+	}
+	expectedGitlab := Gitlab{
+		SecretFile: "/dir/.gitlab_shell_secret",
 	}
 
 	tmpFile := configFileReader(fmt.Sprintf(`[gitlab-shell]
-dir = '%s'`, expectedDefault.Dir))
+dir = '%s'`, gitlabShellDir))
 	require.NoError(t, Load(tmpFile))
 
-	require.Equal(t, expectedDefault.SecretFile, Config.GitlabShell.SecretFile)
-	require.Equal(t, expectedDefault.CustomHooksDir, Config.GitlabShell.CustomHooksDir)
+	require.Equal(t, expectedHooks, Config.Hooks)
+	require.Equal(t, expectedGitlab, Config.Gitlab)
 }
 
 func TestValidateInternalSocketDir(t *testing.T) {

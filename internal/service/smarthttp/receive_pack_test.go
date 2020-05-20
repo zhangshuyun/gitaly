@@ -403,8 +403,8 @@ func testPostReceivePackToHooks(t *testing.T, callRPC bool) {
 
 	testhelper.WriteCustomHook(testRepoPath, "pre-receive", []byte(testhelper.CheckNewObjectExists))
 
-	config.Config.GitlabShell.GitlabURL = ts.URL
-	config.Config.GitlabShell.SecretFile = filepath.Join(tempGitlabShellDir, ".gitlab_shell_secret")
+	config.Config.Gitlab.URL = ts.URL
+	config.Config.Gitlab.SecretFile = filepath.Join(tempGitlabShellDir, ".gitlab_shell_secret")
 
 	defer func(override string) {
 		hooks.Override = override
@@ -462,6 +462,7 @@ func runSmartHTTPHookServiceServer(t *testing.T) (*grpc.Server, string) {
 }
 
 func TestPostReceiveWithTransactions(t *testing.T) {
+	fmt.Printf("\nSTARTING TestPostReceiveWithTransactions: %v\n", config.Config.GitlabShell.Dir)
 	defer func(cfg config.Cfg) {
 		config.Config = cfg
 	}(config.Config)
@@ -499,7 +500,11 @@ func TestPostReceiveWithTransactions(t *testing.T) {
 
 			gitlabShellDir, cleanup := testhelper.CreateTemporaryGitlabShellDir(t)
 			defer cleanup()
+
 			config.Config.GitlabShell.Dir = gitlabShellDir
+
+			fmt.Printf("\nINSIDE TestPostReceiveWithTransactions: %v\n", config.Config.GitlabShell.Dir)
+
 			testhelper.WriteTemporaryGitlabShellConfigFile(t,
 				gitlabShellDir,
 				testhelper.GitlabShellConfig{

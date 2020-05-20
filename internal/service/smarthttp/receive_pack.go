@@ -1,9 +1,12 @@
 package smarthttp
 
 import (
+	"fmt"
+
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/internal/command"
+	"gitlab.com/gitlab-org/gitaly/internal/config"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -38,6 +41,7 @@ func (s *server) PostReceivePack(stream gitalypb.SmartHTTPService_PostReceivePac
 		return stream.Send(&gitalypb.PostReceivePackResponse{Data: p})
 	})
 
+	fmt.Printf("\nINSIDE PostReceiveWithTransactions: %v\n", config.Config.GitlabShell.Dir)
 	hookEnv, err := git.ReceivePackHookEnv(ctx, req)
 	if err != nil {
 		return err

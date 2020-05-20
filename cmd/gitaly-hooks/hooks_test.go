@@ -123,10 +123,10 @@ func TestHooksPrePostReceive(t *testing.T) {
 				defer cleanup()
 
 				if featureSet.IsEnabled("use_gitaly_gitlabshell_config") {
-					config.Config.GitlabShell.GitlabURL = ts.URL
-					config.Config.GitlabShell.SecretFile = filepath.Join(tempGitlabShellDir, ".gitlab_shell_secret")
-					config.Config.GitlabShell.HTTPSettings.User = gitlabUser
-					config.Config.GitlabShell.HTTPSettings.Password = gitlabPassword
+					config.Config.Gitlab.URL = ts.URL
+					config.Config.Gitlab.SecretFile = filepath.Join(tempGitlabShellDir, ".gitlab_shell_secret")
+					config.Config.Gitlab.HTTPSettings.User = gitlabUser
+					config.Config.Gitlab.HTTPSettings.Password = gitlabPassword
 				}
 
 				var stderr, stdout bytes.Buffer
@@ -218,7 +218,7 @@ func TestHooksUpdate(t *testing.T) {
 	for _, featureSet := range featureSets {
 		t.Run(fmt.Sprintf("enabled features: %v", featureSet), func(t *testing.T) {
 			if featureSet.IsEnabled("use_gitaly_gitlabshell_config") {
-				config.Config.GitlabShell.CustomHooksDir = customHooksDir
+				config.Config.Hooks.CustomHooksDir = customHooksDir
 			}
 
 			testHooksUpdate(t, tempGitlabShellDir, socket, token, testhelper.GlHookValues{
@@ -332,8 +332,8 @@ func TestHooksPostReceiveFailed(t *testing.T) {
 	testhelper.WriteShellSecretFile(t, tempGitlabShellDir, secretToken)
 
 	config.Config.GitlabShell.Dir = tempGitlabShellDir
-	config.Config.GitlabShell.GitlabURL = ts.URL
-	config.Config.GitlabShell.SecretFile = filepath.Join(tempGitlabShellDir, ".gitlab_shell_secret")
+	config.Config.Gitlab.URL = ts.URL
+	config.Config.Gitlab.SecretFile = filepath.Join(tempGitlabShellDir, ".gitlab_shell_secret")
 
 	featureSets, err := testhelper.NewFeatureSets([]string{featureflag.HooksRPC})
 	require.NoError(t, err)
@@ -416,9 +416,7 @@ func TestHooksNotAllowed(t *testing.T) {
 	testhelper.WriteShellSecretFile(t, tempGitlabShellDir, "the wrong token")
 
 	config.Config.GitlabShell.Dir = tempGitlabShellDir
-
-	config.Config.GitlabShell.Dir = tempGitlabShellDir
-	config.Config.GitlabShell.GitlabURL = ts.URL
+	config.Config.Gitlab.URL = ts.URL
 
 	customHookOutputPath, cleanup := testhelper.WriteEnvToCustomHook(t, testRepoPath, "post-receive")
 	defer cleanup()
