@@ -8,6 +8,8 @@ import (
 	"math/rand"
 	"time"
 
+	"gitlab.com/gitlab-org/gitaly/internal/middleware/errorhandler"
+
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
@@ -84,7 +86,7 @@ var ErrPrimaryNotHealthy = errors.New("primary is not healthy")
 const dialTimeout = 10 * time.Second
 
 // NewManager creates a new NodeMgr based on virtual storage configs
-func NewManager(log *logrus.Entry, c config.Config, db *sql.DB, ds datastore.Datastore, latencyHistogram prommetrics.HistogramVec, dialOpts ...grpc.DialOption) (*Mgr, error) {
+func NewManager(log *logrus.Entry, c config.Config, db *sql.DB, ds datastore.Datastore, errTracker *errorhandler.Errors, latencyHistogram prommetrics.HistogramVec, dialOpts ...grpc.DialOption) (*Mgr, error) {
 	strategies := make(map[string]leaderElectionStrategy, len(c.VirtualStorages))
 
 	ctx, cancel := context.WithTimeout(context.Background(), dialTimeout)
@@ -114,7 +116,7 @@ func NewManager(log *logrus.Entry, c config.Config, db *sql.DB, ds datastore.Dat
 			if err != nil {
 				return nil, err
 			}
-			cs := newConnectionStatus(*node, conn, log, latencyHistogram)
+			cs := newConnectionStatus(*node, conn, log, errTracker, latencyHistogram)
 			if node.DefaultPrimary {
 				ns[0] = cs
 			} else {
@@ -216,11 +218,12 @@ func (n *Mgr) GetSyncedNode(ctx context.Context, virtualStorageName, repoPath st
 	return shard.Primary, nil // there is no matched secondaries, maybe because of re-configuration
 }
 
-func newConnectionStatus(node models.Node, cc *grpc.ClientConn, l *logrus.Entry, latencyHist prommetrics.HistogramVec) *nodeStatus {
+func newConnectionStatus(node models.Node, cc *grpc.ClientConn, l *logrus.Entry, errTracker *errorhandler.Errors, latencyHist prommetrics.HistogramVec) *nodeStatus {
 	return &nodeStatus{
 		Node:        node,
 		ClientConn:  cc,
 		log:         l,
+		errTracker:  errTracker,
 		latencyHist: latencyHist,
 	}
 }
@@ -228,6 +231,7 @@ func newConnectionStatus(node models.Node, cc *grpc.ClientConn, l *logrus.Entry,
 type nodeStatus struct {
 	models.Node
 	*grpc.ClientConn
+	errTracker  *errorhandler.Errors
 	log         *logrus.Entry
 	latencyHist prommetrics.HistogramVec
 }

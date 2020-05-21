@@ -6,6 +6,8 @@ import (
 	"context"
 	"net"
 
+	"gitlab.com/gitlab-org/gitaly/internal/middleware/errorhandler"
+
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_logrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
 	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
@@ -63,7 +65,7 @@ func (srv *Server) warnDupeAddrs(c config.Config) {
 
 // NewServer returns an initialized praefect gPRC proxy server configured
 // with the provided gRPC server options
-func NewServer(director proxy.StreamDirector, l *logrus.Entry, r *protoregistry.Registry, conf config.Config, grpcOpts ...grpc.ServerOption) *Server {
+func NewServer(director proxy.StreamDirector, l *logrus.Entry, r *protoregistry.Registry, conf config.Config, errTracker *errorhandler.Errors, grpcOpts ...grpc.ServerOption) *Server {
 	ctxTagOpts := []grpc_ctxtags.Option{
 		grpc_ctxtags.WithFieldExtractorForInitialReq(fieldextractors.FieldExtractor),
 	}
@@ -81,6 +83,7 @@ func NewServer(director proxy.StreamDirector, l *logrus.Entry, r *protoregistry.
 			cancelhandler.Stream, // Should be below LogHandler
 			grpctracing.StreamServerTracingInterceptor(),
 			auth.StreamServerInterceptor(conf.Auth),
+			errorhandler.StreamErrorHandler(errTracker, r),
 			// Panic handler should remain last so that application panics will be
 			// converted to errors and logged
 			panichandler.StreamPanicHandler,
@@ -96,6 +99,7 @@ func NewServer(director proxy.StreamDirector, l *logrus.Entry, r *protoregistry.
 			cancelhandler.Unary, // Should be below LogHandler
 			grpctracing.UnaryServerTracingInterceptor(),
 			auth.UnaryServerInterceptor(conf.Auth),
+			errorhandler.UnaryErrorHandler(errTracker, r),
 			// Panic handler should remain last so that application panics will be
 			// converted to errors and logged
 			panichandler.UnaryPanicHandler,
