@@ -201,16 +201,16 @@ func TestStreamDirectorMutator(t *testing.T) {
 	peeker := &mockPeeker{frame}
 	streamParams, err := coordinator.StreamDirector(correlation.ContextWithCorrelation(ctx, "my-correlation-id"), fullMethod, peeker)
 	require.NoError(t, err)
-	require.Equal(t, primaryAddress, streamParams.Conn().Target())
+	require.Equal(t, primaryAddress, streamParams.Primary().Conn.Target())
 
-	md, ok := metadata.FromOutgoingContext(streamParams.Context())
+	md, ok := metadata.FromOutgoingContext(streamParams.Primary().Ctx)
 	require.True(t, ok)
 	require.Contains(t, md, "praefect-server")
 
 	mi, err := coordinator.registry.LookupMethod(fullMethod)
 	require.NoError(t, err)
 
-	m, err := protoMessageFromPeeker(mi, peeker)
+	m, err := mi.UnmarshalRequestProto(streamParams.Primary().Msg)
 	require.NoError(t, err)
 
 	rewrittenTargetRepo, err := mi.TargetRepo(m)
@@ -294,9 +294,9 @@ func TestStreamDirectorAccessor(t *testing.T) {
 	peeker := &mockPeeker{frame: frame}
 	streamParams, err := coordinator.StreamDirector(correlation.ContextWithCorrelation(ctx, "my-correlation-id"), fullMethod, peeker)
 	require.NoError(t, err)
-	require.Equal(t, gitalyAddress, streamParams.Conn().Target())
+	require.Equal(t, gitalyAddress, streamParams.Primary().Conn.Target())
 
-	md, ok := metadata.FromOutgoingContext(streamParams.Context())
+	md, ok := metadata.FromOutgoingContext(streamParams.Primary().Ctx)
 	require.True(t, ok)
 	require.Contains(t, md, "praefect-server")
 
@@ -305,7 +305,7 @@ func TestStreamDirectorAccessor(t *testing.T) {
 	require.Equal(t, protoregistry.ScopeRepository, mi.Scope, "method must be repository scoped")
 	require.Equal(t, protoregistry.OpAccessor, mi.Operation, "method must be an accessor")
 
-	m, err := protoMessageFromPeeker(mi, peeker)
+	m, err := mi.UnmarshalRequestProto(streamParams.Primary().Msg)
 	require.NoError(t, err)
 
 	rewrittenTargetRepo, err := mi.TargetRepo(m)
@@ -373,9 +373,9 @@ func TestCoordinatorStreamDirector_distributesReads(t *testing.T) {
 		peeker := &mockPeeker{frame: frame}
 		streamParams, err := coordinator.StreamDirector(correlation.ContextWithCorrelation(ctx, "my-correlation-id"), fullMethod, peeker)
 		require.NoError(t, err)
-		require.Equal(t, secondaryNodeConf.Address, streamParams.Conn().Target(), "must be redirected to secondary")
+		require.Equal(t, secondaryNodeConf.Address, streamParams.Primary().Conn.Target(), "must be redirected to secondary")
 
-		md, ok := metadata.FromOutgoingContext(streamParams.Context())
+		md, ok := metadata.FromOutgoingContext(streamParams.Primary().Ctx)
 		require.True(t, ok)
 		require.Contains(t, md, "praefect-server")
 
@@ -383,7 +383,7 @@ func TestCoordinatorStreamDirector_distributesReads(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, protoregistry.OpAccessor, mi.Operation, "method must be an accessor")
 
-		m, err := protoMessageFromPeeker(mi, peeker)
+		m, err := protoMessage(mi, streamParams.Primary().Msg)
 		require.NoError(t, err)
 
 		rewrittenTargetRepo, err := mi.TargetRepo(m)
@@ -413,9 +413,9 @@ func TestCoordinatorStreamDirector_distributesReads(t *testing.T) {
 		peeker := &mockPeeker{frame: frame}
 		streamParams, err := coordinator.StreamDirector(correlation.ContextWithCorrelation(ctx, "my-correlation-id"), fullMethod, peeker)
 		require.NoError(t, err)
-		require.Equal(t, primaryNodeConf.Address, streamParams.Conn().Target(), "must be redirected to primary")
+		require.Equal(t, primaryNodeConf.Address, streamParams.Primary().Conn.Target(), "must be redirected to primary")
 
-		md, ok := metadata.FromOutgoingContext(streamParams.Context())
+		md, ok := metadata.FromOutgoingContext(streamParams.Primary().Ctx)
 		require.True(t, ok)
 		require.Contains(t, md, "praefect-server")
 
@@ -423,7 +423,7 @@ func TestCoordinatorStreamDirector_distributesReads(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, protoregistry.OpAccessor, mi.Operation, "method must be an accessor")
 
-		m, err := protoMessageFromPeeker(mi, peeker)
+		m, err := protoMessage(mi, streamParams.Primary().Msg)
 		require.NoError(t, err)
 
 		rewrittenTargetRepo, err := mi.TargetRepo(m)
@@ -440,9 +440,9 @@ func TestCoordinatorStreamDirector_distributesReads(t *testing.T) {
 		peeker := &mockPeeker{frame: frame}
 		streamParams, err := coordinator.StreamDirector(correlation.ContextWithCorrelation(ctx, "my-correlation-id"), fullMethod, peeker)
 		require.NoError(t, err)
-		require.Equal(t, primaryNodeConf.Address, streamParams.Conn().Target(), "must be redirected to primary")
+		require.Equal(t, primaryNodeConf.Address, streamParams.Primary().Conn.Target(), "must be redirected to primary")
 
-		md, ok := metadata.FromOutgoingContext(streamParams.Context())
+		md, ok := metadata.FromOutgoingContext(streamParams.Primary().Ctx)
 		require.True(t, ok)
 		require.Contains(t, md, "praefect-server")
 
@@ -450,7 +450,7 @@ func TestCoordinatorStreamDirector_distributesReads(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, protoregistry.OpMutator, mi.Operation, "method must be a mutator")
 
-		m, err := protoMessageFromPeeker(mi, peeker)
+		m, err := protoMessage(mi, streamParams.Primary().Msg)
 		require.NoError(t, err)
 
 		rewrittenTargetRepo, err := mi.TargetRepo(m)
@@ -546,7 +546,7 @@ func TestAbsentCorrelationID(t *testing.T) {
 	peeker := &mockPeeker{frame}
 	streamParams, err := coordinator.StreamDirector(ctx, fullMethod, peeker)
 	require.NoError(t, err)
-	require.Equal(t, primaryAddress, streamParams.Conn().Target())
+	require.Equal(t, primaryAddress, streamParams.Primary().Conn.Target())
 
 	replEventWait.Add(1) // expected only one event to be created
 	// must be run as it adds replication events to the queue

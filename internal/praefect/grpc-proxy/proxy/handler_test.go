@@ -25,6 +25,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	"gitlab.com/gitlab-org/gitaly/client"
+	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/fieldextractors"
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/sentryhandler"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/grpc-proxy/proxy"
@@ -252,15 +253,21 @@ func (s *ProxyHappySuite) SetupSuite() {
 	// Setup of the proxy's Director.
 	s.serverClientConn, err = grpc.Dial(s.serverListener.Addr().String(), grpc.WithInsecure(), grpc.WithDefaultCallOptions(grpc.ForceCodec(proxy.NewCodec())))
 	require.NoError(s.T(), err, "must not error on deferred client Dial")
-	director := func(ctx context.Context, fullName string, _ proxy.StreamModifier) (*proxy.StreamParameters, error) {
+	director := func(ctx context.Context, fullName string, peeker proxy.StreamPeeker) (*proxy.StreamParameters, error) {
+		payload, err := peeker.Peek()
+		if err != nil {
+			return nil, err
+		}
+
 		md, ok := metadata.FromIncomingContext(ctx)
 		if ok {
 			if _, exists := md[rejectingMdKey]; exists {
-				return proxy.NewStreamParameters(ctx, nil, nil, nil), status.Errorf(codes.PermissionDenied, "testing rejection")
+				return proxy.NewStreamParameters(proxy.Destination{Ctx: helper.IncomingToOutgoing(ctx), Msg: payload}, nil, nil, nil), status.Errorf(codes.PermissionDenied, "testing rejection")
 			}
 		}
+
 		// Explicitly copy the metadata, otherwise the tests will fail.
-		return proxy.NewStreamParameters(ctx, s.serverClientConn, nil, nil), nil
+		return proxy.NewStreamParameters(proxy.Destination{Ctx: helper.IncomingToOutgoing(ctx), Conn: s.serverClientConn, Msg: payload}, nil, nil, nil), nil
 	}
 
 	s.proxy = grpc.NewServer(
@@ -326,7 +333,7 @@ func TestRegisterStreamHandlers(t *testing.T) {
 
 	server := grpc.NewServer(
 		grpc.CustomCodec(proxy.NewCodec()),
-		grpc.UnknownServiceHandler(proxy.TransparentHandler(func(ctx context.Context, fullMethodName string, peeker proxy.StreamModifier) (*proxy.StreamParameters, error) {
+		grpc.UnknownServiceHandler(proxy.TransparentHandler(func(ctx context.Context, fullMethodName string, peeker proxy.StreamPeeker) (*proxy.StreamParameters, error) {
 			return nil, directorCalledError
 		})),
 	)

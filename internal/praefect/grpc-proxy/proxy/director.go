@@ -6,7 +6,6 @@ package proxy
 import (
 	"context"
 
-	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"google.golang.org/grpc"
 )
 
@@ -23,35 +22,40 @@ import (
 // are invoked. So decisions around authorization, monitoring etc. are better to be handled there.
 //
 // See the rather rich example.
-type StreamDirector func(ctx context.Context, fullMethodName string, peeker StreamModifier) (*StreamParameters, error)
+type StreamDirector func(ctx context.Context, fullMethodName string, peeker StreamPeeker) (*StreamParameters, error)
 
 // StreamParameters encapsulates streaming parameters the praefect coordinator returns to the
 // proxy handler
 type StreamParameters struct {
-	ctx          context.Context
-	conn         *grpc.ClientConn
+	primary      Destination
 	reqFinalizer func()
 	callOptions  []grpc.CallOption
+	secondaries  []Destination
+}
+
+// Destination contains a client connection as well as a rewritten protobuf message
+type Destination struct {
+	Ctx  context.Context
+	Conn *grpc.ClientConn
+	Msg  []byte
 }
 
 // NewStreamParameters returns a new instance of StreamParameters
-func NewStreamParameters(ctx context.Context, conn *grpc.ClientConn, reqFinalizer func(), callOpts []grpc.CallOption) *StreamParameters {
+func NewStreamParameters(primary Destination, secondaries []Destination, reqFinalizer func(), callOpts []grpc.CallOption) *StreamParameters {
 	return &StreamParameters{
-		ctx:          helper.IncomingToOutgoing(ctx),
-		conn:         conn,
+		primary:      primary,
+		secondaries:  secondaries,
 		reqFinalizer: reqFinalizer,
 		callOptions:  callOpts,
 	}
 }
 
-// Context returns the outgoing context
-func (s *StreamParameters) Context() context.Context {
-	return s.ctx
+func (s *StreamParameters) Primary() Destination {
+	return s.primary
 }
 
-// Conn returns a grpc client connection
-func (s *StreamParameters) Conn() *grpc.ClientConn {
-	return s.conn
+func (s *StreamParameters) Secondaries() []Destination {
+	return s.secondaries
 }
 
 // RequestFinalizer calls the request finalizer

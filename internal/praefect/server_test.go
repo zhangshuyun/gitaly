@@ -2,7 +2,9 @@ package praefect
 
 import (
 	"context"
+	"io"
 	"io/ioutil"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,6 +13,8 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
+	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
@@ -18,14 +22,24 @@ import (
 	gconfig "gitlab.com/gitlab-org/gitaly/internal/config"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/internal/helper/fieldextractors"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
+	"gitlab.com/gitlab-org/gitaly/internal/middleware/sentryhandler"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/grpc-proxy/proxy"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/mock"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/nodes"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/protoregistry"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/transactions"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/promtest"
 	"gitlab.com/gitlab-org/gitaly/internal/version"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/reflection"
 )
 
 func TestServerRouteServerAccessor(t *testing.T) {
@@ -633,6 +647,191 @@ func TestRepoRename(t *testing.T) {
 	pollUntilRemoved(t, path2, time.After(10*time.Second))
 	require.DirExists(t, expNewPath2, "must be renamed on secondary from %q to %q", path2, expNewPath2)
 	defer func() { require.NoError(t, os.RemoveAll(expNewPath2)) }()
+}
+
+type mockSmartHttp struct {
+	m             sync.Mutex
+	methodsCalled map[string]int
+}
+
+func (m *mockSmartHttp) InfoRefsUploadPack(req *gitalypb.InfoRefsRequest, stream gitalypb.SmartHTTPService_InfoRefsUploadPackServer) error {
+	m.m.Lock()
+	defer m.m.Unlock()
+	if m.methodsCalled == nil {
+		m.methodsCalled = make(map[string]int)
+	}
+
+	m.methodsCalled["InfoRefsUploadPack"] += 1
+
+	stream.Send(&gitalypb.InfoRefsResponse{})
+	return nil
+}
+
+func (m *mockSmartHttp) InfoRefsReceivePack(req *gitalypb.InfoRefsRequest, stream gitalypb.SmartHTTPService_InfoRefsReceivePackServer) error {
+	m.m.Lock()
+	defer m.m.Unlock()
+	if m.methodsCalled == nil {
+		m.methodsCalled = make(map[string]int)
+	}
+
+	m.methodsCalled["InfoRefsReceivePack"] += 1
+
+	stream.Send(&gitalypb.InfoRefsResponse{})
+	return nil
+}
+
+func (m *mockSmartHttp) PostUploadPack(stream gitalypb.SmartHTTPService_PostUploadPackServer) error {
+	m.m.Lock()
+	defer m.m.Unlock()
+	if m.methodsCalled == nil {
+		m.methodsCalled = make(map[string]int)
+	}
+
+	m.methodsCalled["PostUploadPack"] += 1
+
+	stream.Send(&gitalypb.PostUploadPackResponse{})
+	return nil
+}
+
+func (m *mockSmartHttp) PostReceivePack(stream gitalypb.SmartHTTPService_PostReceivePackServer) error {
+	m.m.Lock()
+	defer m.m.Unlock()
+	if m.methodsCalled == nil {
+		m.methodsCalled = make(map[string]int)
+	}
+
+	m.methodsCalled["PostReceivePack"] += 1
+
+	stream.Send(&gitalypb.PostReceivePackResponse{})
+	return nil
+}
+
+func (m *mockSmartHttp) Called(method string) int {
+	m.m.Lock()
+	defer m.m.Unlock()
+
+	return m.methodsCalled[method]
+}
+
+func newGrpcServer(t *testing.T, srv gitalypb.SmartHTTPServiceServer) (string, *grpc.Server) {
+	grpcSrv := testhelper.NewTestGrpcServer(t, nil, nil)
+	socketPath := testhelper.GetTemporaryGitalySocketFileName()
+
+	gitalypb.RegisterSmartHTTPServiceServer(grpcSrv, srv)
+	reflection.Register(grpcSrv)
+
+	listener, err := net.Listen("unix", socketPath)
+	require.NoError(t, err)
+
+	go func() { grpcSrv.Serve(listener) }()
+
+	return socketPath, grpcSrv
+}
+
+func TestProxyWrites(t *testing.T) {
+	smartHttp0, smartHttp1, smartHttp2 := &mockSmartHttp{}, &mockSmartHttp{}, &mockSmartHttp{}
+
+	socket0, srv0 := newGrpcServer(t, smartHttp0)
+	defer srv0.Stop()
+	socket1, srv1 := newGrpcServer(t, smartHttp1)
+	defer srv1.Stop()
+	socket2, srv2 := newGrpcServer(t, smartHttp2)
+	defer srv2.Stop()
+
+	conf := config.Config{
+		VirtualStorages: []*config.VirtualStorage{
+			{
+				Name: "default",
+				Nodes: []*config.Node{
+					{
+						DefaultPrimary: true,
+						Storage:        "praefect-internal-0",
+						Address:        "unix://" + socket0,
+					},
+					{
+						Storage: "praefect-internal-1",
+						Address: "unix://" + socket1,
+					},
+					{
+						Storage: "praefect-internal-2",
+						Address: "unix://" + socket2,
+					},
+				},
+			},
+		},
+	}
+
+	queue := datastore.NewMemoryReplicationEventQueue(conf)
+	entry := testhelper.DiscardTestEntry(t)
+
+	nodeMgr, err := nodes.NewManager(entry, conf, nil, queue, promtest.NewMockHistogramVec())
+	require.NoError(t, err)
+	txMgr := transactions.NewManager()
+
+	coordinator := NewCoordinator(queue, nodeMgr, txMgr, conf, protoregistry.GitalyProtoPreregistered)
+
+	server := grpc.NewServer(
+		grpc.CustomCodec(proxy.NewCodec()),
+		grpc.StreamInterceptor(
+			grpc_middleware.ChainStreamServer(
+				// context tags usage is required by sentryhandler.StreamLogHandler
+				grpc_ctxtags.StreamServerInterceptor(grpc_ctxtags.WithFieldExtractorForInitialReq(fieldextractors.FieldExtractor)),
+				// sentry middleware to capture errors
+				sentryhandler.StreamLogHandler,
+			),
+		),
+		grpc.UnknownServiceHandler(proxy.TransparentHandler(coordinator.StreamDirector)),
+	)
+
+	socket := testhelper.GetTemporaryGitalySocketFileName()
+	listener, err := net.Listen("unix", socket)
+	require.NoError(t, err)
+
+	go server.Serve(listener)
+	defer server.Stop()
+
+	client, _ := newSmartHTTPClient(t, "unix://"+socket)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	ctx = featureflag.OutgoingCtxWithFeatureFlag(ctx, featureflag.ReferenceTransactions)
+
+	testRepo, _, cleanup := testhelper.NewTestRepo(t)
+	defer cleanup()
+
+	stream, err := client.PostReceivePack(ctx)
+	require.NoError(t, err)
+	require.NoError(t, stream.Send(&gitalypb.PostReceivePackRequest{
+		Repository: testRepo,
+	}))
+	require.NoError(t, stream.CloseSend())
+
+	for {
+		_, err = stream.Recv()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			require.FailNowf(t, "unexpected non io.EOF error: %v", err.Error())
+		}
+	}
+
+	assert.Equal(t, 1, smartHttp0.Called("PostReceivePack"))
+	assert.Equal(t, 1, smartHttp1.Called("PostReceivePack"))
+	assert.Equal(t, 1, smartHttp2.Called("PostReceivePack"))
+}
+
+func newSmartHTTPClient(t *testing.T, serverSocketPath string) (gitalypb.SmartHTTPServiceClient, *grpc.ClientConn) {
+	connOpts := []grpc.DialOption{
+		grpc.WithInsecure(),
+	}
+	conn, err := grpc.Dial(serverSocketPath, connOpts...)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return gitalypb.NewSmartHTTPServiceClient(conn), conn
 }
 
 func tempStoragePath(t testing.TB) string {
