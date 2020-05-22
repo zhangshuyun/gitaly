@@ -15,7 +15,7 @@ type StreamModifier interface {
 	// the backend server.
 	Peek() (frame []byte, _ error)
 
-	// Modify replaces the peeked payload in the stream with the provided frame.
+	// Modify replaces the peeked payload in the strea with the provided frame.
 	// If no payload was peeked, an error will be returned.
 	// Note: Modify cannot be called after the director returns.
 	Modify(payload []byte) error
@@ -23,7 +23,6 @@ type StreamModifier interface {
 
 type partialStream struct {
 	frames []*frame // frames encountered in partial stream
-	err    error    // error returned by partial stream
 }
 
 type peeker struct {
@@ -70,8 +69,7 @@ func (p peeker) peek(n uint) ([][]byte, error) {
 	for i := 0; i < len(p.consumedStream.frames); i++ {
 		f := &frame{}
 		if err := p.srcStream.RecvMsg(f); err != nil {
-			p.consumedStream.err = err
-			break
+			return nil, err
 		}
 		p.consumedStream.frames[i] = f
 		peekedFrames[i] = f.payload

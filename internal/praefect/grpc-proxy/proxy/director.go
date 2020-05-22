@@ -6,7 +6,6 @@ package proxy
 import (
 	"context"
 
-	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"google.golang.org/grpc"
 )
 
@@ -28,30 +27,35 @@ type StreamDirector func(ctx context.Context, fullMethodName string, peeker Stre
 // StreamParameters encapsulates streaming parameters the praefect coordinator returns to the
 // proxy handler
 type StreamParameters struct {
-	ctx          context.Context
-	conn         *grpc.ClientConn
-	reqFinalizer func()
-	callOptions  []grpc.CallOption
+	primaryConn    Destination
+	reqFinalizer   func()
+	callOptions    []grpc.CallOption
+	secondaryConns []Destination
+}
+
+// Destination contains a client connection as well as a rewritten protobuf message
+type Destination struct {
+	Ctx  context.Context
+	Conn *grpc.ClientConn
+	Msg  []byte
 }
 
 // NewStreamParameters returns a new instance of StreamParameters
-func NewStreamParameters(ctx context.Context, conn *grpc.ClientConn, reqFinalizer func(), callOpts []grpc.CallOption) *StreamParameters {
+func NewStreamParameters(primaryConn Destination, secondaryConns []Destination, reqFinalizer func(), callOpts []grpc.CallOption) *StreamParameters {
 	return &StreamParameters{
-		ctx:          helper.IncomingToOutgoing(ctx),
-		conn:         conn,
-		reqFinalizer: reqFinalizer,
-		callOptions:  callOpts,
+		primaryConn:    primaryConn,
+		reqFinalizer:   reqFinalizer,
+		callOptions:    callOpts,
+		secondaryConns: secondaryConns,
 	}
 }
 
-// Context returns the outgoing context
-func (s *StreamParameters) Context() context.Context {
-	return s.ctx
+func (s *StreamParameters) PrimaryConn() Destination {
+	return s.primaryConn
 }
 
-// Conn returns a grpc client connection
-func (s *StreamParameters) Conn() *grpc.ClientConn {
-	return s.conn
+func (s *StreamParameters) SecondaryConns() []Destination {
+	return s.secondaryConns
 }
 
 // RequestFinalizer calls the request finalizer

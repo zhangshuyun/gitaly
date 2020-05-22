@@ -200,16 +200,16 @@ func TestStreamDirectorMutator(t *testing.T) {
 	peeker := &mockPeeker{frame}
 	streamParams, err := coordinator.StreamDirector(correlation.ContextWithCorrelation(ctx, "my-correlation-id"), fullMethod, peeker)
 	require.NoError(t, err)
-	require.Equal(t, primaryAddress, streamParams.Conn().Target())
+	require.Equal(t, primaryAddress, streamParams.PrimaryConn().Conn.Target())
 
-	md, ok := metadata.FromOutgoingContext(streamParams.Context())
+	md, ok := metadata.FromOutgoingContext(streamParams.PrimaryConn().Ctx)
 	require.True(t, ok)
 	require.Contains(t, md, "praefect-server")
 
 	mi, err := coordinator.registry.LookupMethod(fullMethod)
 	require.NoError(t, err)
 
-	m, err := protoMessageFromPeeker(mi, peeker)
+	m, err := mi.UnmarshalRequestProto(streamParams.PrimaryConn().Msg)
 	require.NoError(t, err)
 
 	rewrittenTargetRepo, err := mi.TargetRepo(m)
@@ -298,16 +298,16 @@ func TestStreamDirectorAccessor(t *testing.T) {
 	peeker := &mockPeeker{frame: frame}
 	streamParams, err := coordinator.StreamDirector(correlation.ContextWithCorrelation(ctx, "my-correlation-id"), fullMethod, peeker)
 	require.NoError(t, err)
-	require.Equal(t, secondaryAddress, streamParams.Conn().Target())
+	require.Equal(t, secondaryAddress, streamParams.PrimaryConn().Conn.Target())
 
-	md, ok := metadata.FromOutgoingContext(streamParams.Context())
+	md, ok := metadata.FromOutgoingContext(streamParams.PrimaryConn().Ctx)
 	require.True(t, ok)
 	require.Contains(t, md, "praefect-server")
 
 	mi, err := coordinator.registry.LookupMethod(fullMethod)
 	require.NoError(t, err)
 
-	m, err := protoMessageFromPeeker(mi, peeker)
+	m, err := mi.UnmarshalRequestProto(streamParams.PrimaryConn().Msg)
 	require.NoError(t, err)
 
 	rewrittenTargetRepo, err := mi.TargetRepo(m)
@@ -393,7 +393,7 @@ func TestAbsentCorrelationID(t *testing.T) {
 	peeker := &mockPeeker{frame}
 	streamParams, err := coordinator.StreamDirector(ctx, fullMethod, peeker)
 	require.NoError(t, err)
-	require.Equal(t, primaryAddress, streamParams.Conn().Target())
+	require.Equal(t, primaryAddress, streamParams.PrimaryConn().Conn.Target())
 
 	replEventWait.Add(1) // expected only one event to be created
 	// must be run as it adds replication events to the queue
