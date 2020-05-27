@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"time"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
@@ -150,6 +151,8 @@ func (s *server) createFromSnapshot(ctx context.Context, in *gitalypb.ReplicateR
 		return err
 	}
 
+	time.Sleep(1 * time.Minute)
+
 	return nil
 }
 
@@ -158,6 +161,13 @@ func (s *server) syncRepository(ctx context.Context, in *gitalypb.ReplicateRepos
 	if err != nil {
 		return err
 	}
+
+	servers, err := helper.ExtractGitalyServers(ctx)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("\n\nSERVERSZZ: %v\n", servers)
 
 	resp, err := remoteClient.FetchInternalRemote(ctx, &gitalypb.FetchInternalRemoteRequest{
 		Repository:       in.GetRepository(),

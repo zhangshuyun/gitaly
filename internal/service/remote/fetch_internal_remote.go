@@ -26,13 +26,15 @@ func (s *server) FetchInternalRemote(ctx context.Context, req *gitalypb.FetchInt
 		return nil, status.Errorf(codes.InvalidArgument, "FetchInternalRemote: %v", err)
 	}
 
-	if featureflag.IsDisabled(ctx, featureflag.GoFetchInternalRemote) {
-		return s.rubyFetchInternalRemote(ctx, req)
-	}
-
 	env, err := gitalyssh.UploadPackEnv(ctx, &gitalypb.SSHUploadPackRequest{Repository: req.RemoteRepository})
 	if err != nil {
 		return nil, err
+	}
+
+	fmt.Printf("\n\nENV: %+v\n\n", env)
+
+	if featureflag.IsDisabled(ctx, featureflag.GoFetchInternalRemote) {
+		return s.rubyFetchInternalRemote(ctx, req)
 	}
 
 	repoPath, err := helper.GetRepoPath(req.Repository)
