@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	timestampThreshold = 30 * time.Second
+	TimestampThreshold = 30 * time.Second
 )
 
 var (
@@ -58,7 +58,7 @@ func CheckToken(ctx context.Context, secret string, targetTime time.Time) error 
 	}
 
 	if authInfo.Version == "v2" {
-		if v2HmacInfoValid(authInfo.Message, authInfo.SignedMessage, []byte(secret), targetTime, timestampThreshold) {
+		if v2HmacInfoValid(authInfo.Message, authInfo.SignedMessage, []byte(secret), targetTime, TimestampThreshold) {
 			return nil
 		}
 	}

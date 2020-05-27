@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"time"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
@@ -261,8 +262,8 @@ func (s *server) getOrCreateConnection(address, token string) (*grpc.ClientConn,
 	cc, ok := s.connsByAddress[address]
 	s.connsMtx.RUnlock()
 
-	if ok {
-		return cc, nil
+	if ok && time.Since(cc.issuedAt) < gitalyauth.TimestampThreshold {
+		return cc.conn, nil
 	}
 
 	s.connsMtx.Lock()
@@ -274,17 +275,17 @@ func (s *server) getOrCreateConnection(address, token string) (*grpc.ClientConn,
 		connOpts = append(connOpts, grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(token)))
 	}
 
-	cc, ok = s.connsByAddress[address]
-	if ok {
-		return cc, nil
-	}
-
-	cc, err := client.Dial(address, connOpts)
+	clientConn, err := client.Dial(address, connOpts)
 	if err != nil {
 		return nil, fmt.Errorf("could not dial source: %v", err)
 	}
 
-	s.connsByAddress[address] = cc
+	s.connsByAddress[address] = &cachedConn{conn: clientConn, issuedAt: time.Now()}
 
-	return cc, nil
+	return clientConn, nil
+}
+
+type cachedConn struct {
+	conn     *grpc.ClientConn
+	issuedAt time.Time
 }
