@@ -2,24 +2,25 @@ package cache
 
 import (
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/protoregistry"
 )
 
 var (
-	rpcTotal = prometheus.NewCounter(
+	rpcTotal = promauto.NewCounter(
 		prometheus.CounterOpts{
 			Name: "gitaly_cacheinvalidator_rpc_total",
 			Help: "Total number of RPCs encountered by cache invalidator",
 		},
 	)
-	rpcOpTypes = prometheus.NewCounterVec(
+	rpcOpTypes = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "gitaly_cacheinvalidator_optype_total",
 			Help: "Total number of operation types encountered by cache invalidator",
 		},
 		[]string{"type"},
 	)
-	methodErrTotals = prometheus.NewCounterVec(
+	methodErrTotals = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "gitaly_cacheinvalidator_error_total",
 			Help: "Total number of cache invalidation errors by method",
@@ -27,12 +28,6 @@ var (
 		[]string{"method"},
 	)
 )
-
-func init() {
-	prometheus.MustRegister(rpcTotal)
-	prometheus.MustRegister(rpcOpTypes)
-	prometheus.MustRegister(methodErrTotals)
-}
 
 // counter functions are package vars to allow for overriding in tests
 var (

@@ -2,91 +2,78 @@ package cache
 
 import (
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 var (
-	requestTotals = prometheus.NewCounter(
+	requestTotals = promauto.NewCounter(
 		prometheus.CounterOpts{
 			Name: "gitaly_diskcache_requests_total",
 			Help: "Total number of disk cache requests",
 		},
 	)
-	missTotals = prometheus.NewCounter(
+	missTotals = promauto.NewCounter(
 		prometheus.CounterOpts{
 			Name: "gitaly_diskcache_miss_total",
 			Help: "Total number of disk cache misses",
 		},
 	)
-	bytesStoredtotals = prometheus.NewCounter(
+	bytesStoredtotals = promauto.NewCounter(
 		prometheus.CounterOpts{
 			Name: "gitaly_diskcache_bytes_stored_total",
 			Help: "Total number of disk cache bytes stored",
 		},
 	)
-	bytesFetchedtotals = prometheus.NewCounter(
+	bytesFetchedtotals = promauto.NewCounter(
 		prometheus.CounterOpts{
 			Name: "gitaly_diskcache_bytes_fetched_total",
 			Help: "Total number of disk cache bytes fetched",
 		},
 	)
-	bytesLoserTotals = prometheus.NewCounter(
+	bytesLoserTotals = promauto.NewCounter(
 		prometheus.CounterOpts{
 			Name: "gitaly_diskcache_bytes_loser_total",
 			Help: "Total number of disk cache bytes from losing writes",
 		},
 	)
-	errTotal = prometheus.NewCounterVec(
+	errTotal = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "gitaly_diskcache_errors_total",
 			Help: "Total number of errors encountered by disk cache",
 		},
 		[]string{"error"},
 	)
-	walkerCheckTotal = prometheus.NewCounter(
+	walkerCheckTotal = promauto.NewCounter(
 		prometheus.CounterOpts{
 			Name: "gitaly_diskcache_walker_check_total",
 			Help: "Total number of events during diskcache filesystem walks",
 		},
 	)
-	walkerRemovalTotal = prometheus.NewCounter(
+	walkerRemovalTotal = promauto.NewCounter(
 		prometheus.CounterOpts{
 			Name: "gitaly_diskcache_walker_removal_total",
 			Help: "Total number of events during diskcache filesystem walks",
 		},
 	)
-	walkerErrorTotal = prometheus.NewCounter(
+	walkerErrorTotal = promauto.NewCounter(
 		prometheus.CounterOpts{
 			Name: "gitaly_diskcache_walker_error_total",
 			Help: "Total number of errors during diskcache filesystem walks",
 		},
 	)
-	walkerEmptyDirTotal = prometheus.NewCounter(
+	walkerEmptyDirTotal = promauto.NewCounter(
 		prometheus.CounterOpts{
 			Name: "gitaly_diskcache_walker_empty_dir_total",
 			Help: "Total number of empty directories encountered",
 		},
 	)
-	walkerEmptyDirRemovalTotal = prometheus.NewCounter(
+	walkerEmptyDirRemovalTotal = promauto.NewCounter(
 		prometheus.CounterOpts{
 			Name: "gitaly_diskcache_walker_empty_dir_removal_total",
 			Help: "Total number of empty directories removed",
 		},
 	)
 )
-
-func init() {
-	prometheus.MustRegister(requestTotals)
-	prometheus.MustRegister(missTotals)
-	prometheus.MustRegister(bytesStoredtotals)
-	prometheus.MustRegister(bytesFetchedtotals)
-	prometheus.MustRegister(bytesLoserTotals)
-	prometheus.MustRegister(errTotal)
-	prometheus.MustRegister(walkerCheckTotal)
-	prometheus.MustRegister(walkerRemovalTotal)
-	prometheus.MustRegister(walkerErrorTotal)
-	prometheus.MustRegister(walkerEmptyDirTotal)
-	prometheus.MustRegister(walkerEmptyDirRemovalTotal)
-}
 
 func countErr(err error) error {
 	switch err {

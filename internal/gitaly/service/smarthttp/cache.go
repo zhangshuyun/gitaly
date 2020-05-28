@@ -9,6 +9,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/internal/cache"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -35,13 +36,13 @@ func newInfoRefCache(streamer streamer) infoRefCache {
 
 var (
 	// prometheus counters
-	cacheAttemptTotal = prometheus.NewCounter(
+	cacheAttemptTotal = promauto.NewCounter(
 		prometheus.CounterOpts{
 			Name: "gitaly_inforef_cache_attempt_total",
 			Help: "Total number of smarthttp info-ref RPCs accessing the cache",
 		},
 	)
-	hitMissTotals = prometheus.NewCounterVec(
+	hitMissTotals = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "gitaly_inforef_cache_hit_miss_total",
 			Help: "Total number of smarthttp info-ref RPCs accessing the cache",
@@ -55,11 +56,6 @@ var (
 	countMiss    = func() { hitMissTotals.WithLabelValues("miss").Inc() }
 	countErr     = func() { hitMissTotals.WithLabelValues("err").Inc() }
 )
-
-func init() {
-	prometheus.MustRegister(cacheAttemptTotal)
-	prometheus.MustRegister(hitMissTotals)
-}
 
 func (c infoRefCache) tryCache(ctx context.Context, in *gitalypb.InfoRefsRequest, w io.Writer, missFn func(io.Writer) error) error {
 	if len(in.GetGitConfigOptions()) > 0 ||

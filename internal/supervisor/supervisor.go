@@ -10,6 +10,7 @@ import (
 
 	"github.com/kelseyhightower/envconfig"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/labkit/tracing"
 )
@@ -25,7 +26,7 @@ type Config struct {
 }
 
 var (
-	startCounter = prometheus.NewCounterVec(
+	startCounter = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "gitaly_supervisor_starts_total",
 			Help: "Number of starts of supervised processes.",
@@ -39,7 +40,6 @@ var (
 
 func init() {
 	envconfig.MustProcess("gitaly_supervisor", &config)
-	prometheus.MustRegister(startCounter)
 }
 
 // Process represents a running process.

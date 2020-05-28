@@ -2,6 +2,7 @@ package metrics
 
 import (
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	promconfig "gitlab.com/gitlab-org/gitaly/internal/gitaly/config/prometheus"
 	"gitlab.com/gitlab-org/gitaly/internal/prometheus/metrics"
 )
@@ -53,7 +54,7 @@ func RegisterNodeLatency(conf promconfig.Config) (metrics.HistogramVec, error) {
 	return nodeLatency, prometheus.Register(nodeLatency)
 }
 
-var MethodTypeCounter = prometheus.NewCounterVec(
+var MethodTypeCounter = promauto.NewCounterVec(
 	prometheus.CounterOpts{
 		Namespace: "gitaly",
 		Subsystem: "praefect",
@@ -61,7 +62,7 @@ var MethodTypeCounter = prometheus.NewCounterVec(
 	}, []string{"method_type"},
 )
 
-var PrimaryGauge = prometheus.NewGaugeVec(
+var PrimaryGauge = promauto.NewGaugeVec(
 	prometheus.GaugeOpts{
 		Namespace: "gitaly",
 		Subsystem: "praefect",
@@ -69,7 +70,7 @@ var PrimaryGauge = prometheus.NewGaugeVec(
 	}, []string{"virtual_storage", "gitaly_storage"},
 )
 
-var NodeLastHealthcheckGauge = prometheus.NewGaugeVec(
+var NodeLastHealthcheckGauge = promauto.NewGaugeVec(
 	prometheus.GaugeOpts{
 		Namespace: "gitaly",
 		Subsystem: "praefect",
@@ -77,7 +78,7 @@ var NodeLastHealthcheckGauge = prometheus.NewGaugeVec(
 	}, []string{"gitaly_storage"},
 )
 
-var ChecksumMismatchCounter = prometheus.NewCounterVec(
+var ChecksumMismatchCounter = promauto.NewCounterVec(
 	prometheus.CounterOpts{
 		Namespace: "gitaly",
 		Subsystem: "praefect",
@@ -86,7 +87,7 @@ var ChecksumMismatchCounter = prometheus.NewCounterVec(
 )
 
 // ReadDistribution counts how many read operations was routed to each storage.
-var ReadDistribution = prometheus.NewCounterVec(
+var ReadDistribution = promauto.NewCounterVec(
 	prometheus.CounterOpts{
 		Namespace: "gitaly",
 		Subsystem: "praefect",
@@ -95,13 +96,3 @@ var ReadDistribution = prometheus.NewCounterVec(
 	},
 	[]string{"virtual_storage", "storage"},
 )
-
-func init() {
-	prometheus.MustRegister(
-		MethodTypeCounter,
-		PrimaryGauge,
-		ChecksumMismatchCounter,
-		NodeLastHealthcheckGauge,
-		ReadDistribution,
-	)
-}

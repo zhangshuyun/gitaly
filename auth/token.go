@@ -12,6 +12,7 @@ import (
 
 	grpc_auth "github.com/grpc-ecosystem/go-grpc-middleware/auth"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -27,7 +28,7 @@ var (
 	errUnauthenticated = status.Errorf(codes.Unauthenticated, "authentication required")
 	errDenied          = status.Errorf(codes.PermissionDenied, "permission denied")
 
-	authErrors = prometheus.NewCounterVec(
+	authErrors = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "gitaly_authentication_errors_total",
 			Help: "Counts of of Gitaly request authentication errors",
@@ -46,10 +47,6 @@ func TokenValidityDuration() time.Duration {
 // valid. It only applies to newly created tokens.
 func SetTokenValidityDuration(d time.Duration) {
 	tokenValidityDuration = d
-}
-
-func init() {
-	prometheus.MustRegister(authErrors)
 }
 
 // AuthInfo contains the authentication information coming from a request

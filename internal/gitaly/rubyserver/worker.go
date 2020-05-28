@@ -6,13 +6,14 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver/balancer"
 	"gitlab.com/gitlab-org/gitaly/internal/supervisor"
 )
 
 var (
-	terminationCounter = prometheus.NewCounterVec(
+	terminationCounter = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "gitaly_ruby_memory_terminations_total",
 			Help: "Number of times gitaly-ruby has been terminated because of excessive memory use.",
@@ -20,10 +21,6 @@ var (
 		[]string{"name"},
 	)
 )
-
-func init() {
-	prometheus.MustRegister(terminationCounter)
-}
 
 // worker observes the event stream of a supervised process and restarts
 // it if necessary, in cooperation with the balancer.
