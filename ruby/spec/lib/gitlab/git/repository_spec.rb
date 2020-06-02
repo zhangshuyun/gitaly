@@ -643,7 +643,8 @@ describe Gitlab::Git::Repository do # rubocop:disable Metrics/BlockLength
       it 'lists files modified in source branch in sparse-checkout' do
         allow(repository).to receive(:with_worktree).and_wrap_original do |m, *args|
           m.call(*args) do
-            sparse = repository.path + "/worktrees/rebase-#{rebase_id}/info/sparse-checkout"
+            worktree = args[0]
+            sparse = repository.path + "/worktrees/#{worktree.name}/info/sparse-checkout"
             diff_files = IO.readlines(sparse, chomp: true)
 
             expect(diff_files).to eq(expected_files)
