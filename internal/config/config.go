@@ -119,6 +119,10 @@ func Load(file io.Reader) error {
 
 	Config.setDefaults()
 
+	for i := range Config.Storages {
+		Config.Storages[i].Path = filepath.Clean(Config.Storages[i].Path)
+	}
+
 	return nil
 }
 
@@ -277,22 +281,19 @@ func validateStorages() error {
 			return fmt.Errorf("storage %+v path must be a dir", storage)
 		}
 
-		stPath := filepath.Clean(storage.Path)
-		for j := 0; j < i; j++ {
-			other := Config.Storages[j]
+		for _, other := range Config.Storages[:i] {
 			if other.Name == storage.Name {
 				return fmt.Errorf("storage %q is defined more than once", storage.Name)
 			}
 
-			otherPath := filepath.Clean(other.Path)
-			if stPath == otherPath {
+			if storage.Path == other.Path {
 				// This is weird but we allow it for legacy gitlab.com reasons.
 				continue
 			}
 
-			if strings.HasPrefix(stPath, otherPath) || strings.HasPrefix(otherPath, stPath) {
+			if strings.HasPrefix(storage.Path, other.Path) || strings.HasPrefix(other.Path, storage.Path) {
 				// If storages have the same sub directory, that is allowed
-				if filepath.Dir(stPath) == filepath.Dir(otherPath) {
+				if filepath.Dir(storage.Path) == filepath.Dir(other.Path) {
 					continue
 				}
 				return fmt.Errorf("storage paths may not nest: %q and %q", storage.Name, other.Name)

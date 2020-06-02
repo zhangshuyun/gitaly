@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -52,7 +53,7 @@ func TestLoadEmptyConfig(t *testing.T) {
 func TestLoadStorage(t *testing.T) {
 	tmpFile := configFileReader(`[[storage]]
 name = "default"
-path = "/tmp"`)
+path = "/tmp/"`)
 
 	err := Load(tmpFile)
 	assert.NoError(t, err)
@@ -69,6 +70,22 @@ path = "/tmp"`)
 	}
 }
 
+func TestUncleanStoragePaths(t *testing.T) {
+	require.NoError(t, Load(strings.NewReader(`[[storage]]
+name="unclean-path-1"
+path="/tmp/repos1//"
+
+[[storage]]
+name="unclean-path-2"
+path="/tmp/repos2/subfolder/.."
+`)))
+
+	require.Equal(t, []Storage{
+		{Name: "unclean-path-1", Path: "/tmp/repos1"},
+		{Name: "unclean-path-2", Path: "/tmp/repos2"},
+	}, Config.Storages)
+}
+
 func TestLoadMultiStorage(t *testing.T) {
 	tmpFile := configFileReader(`[[storage]]
 name="default"
@@ -76,7 +93,7 @@ path="/tmp/repos1"
 
 [[storage]]
 name="other"
-path="/tmp/repos2"`)
+path="/tmp/repos2/"`)
 
 	err := Load(tmpFile)
 	assert.NoError(t, err)
