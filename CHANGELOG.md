@@ -1,5 +1,12 @@
 # Gitaly changelog
 
+## 13.0.4
+
+### Fixed (1 change)
+
+- Clean configured storage paths. !2223
+
+
 ## 13.0.3
 
 - No changes.
