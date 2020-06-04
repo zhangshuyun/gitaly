@@ -6,9 +6,11 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
+	"github.com/lib/pq"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore/glsql"
 )
 
@@ -25,6 +27,9 @@ type ReplicationEventQueue interface {
 	// CountDeadReplicationJobs returns the dead replication job counts by relative path within the
 	// given timerange. The timerange beginning is inclusive and ending is exclusive.
 	CountDeadReplicationJobs(ctx context.Context, from, to time.Time) (map[string]int64, error)
+	// GetOutdatedRepositories returns repositories with storages which have uncompleted replication jobs from the
+	// reference storage.
+	GetOutdatedRepositories(ctx context.Context, virtualStorage string, referenceStorage string) (map[string][]string, error)
 	// GetUpToDateStorages returns list of target storages where latest replication job is in 'completed' state.
 	// It returns no results if there is no up to date storages or there were no replication events yet.
 	GetUpToDateStorages(ctx context.Context, virtualStorage, repoPath string) ([]string, error)
@@ -343,6 +348,106 @@ func (rq PostgresReplicationEventQueue) Acknowledge(ctx context.Context, state J
 	}
 
 	return acknowledged.Values(), nil
+}
+
+// GetOutdatedRepositories gets repositories which have not replicated all writes from reference node.
+func (rq PostgresReplicationEventQueue) GetOutdatedRepositories(ctx context.Context, virtualStorage, reference string) (map[string][]string, error) {
+	// This query searches the replication graph for a path from a repository to the repository on the reference storage.
+	// If it does not find a path to the reference storage, the repository's copy on the storage is reported as outdated.
+	//
+	// The path is constructed by following the chain of replication jobs. `latest_job` CTE queries for the latest
+	// 'meaningful' jobs for each repository and storage. Job is considered meaningful in two cases:
+	//   1. Jobs which originate from the reference are meaningful as if they are 'completed', they indicate the
+	//      repository is up to date on the node. If they are in any other state, the job indicates the repository
+	//      is missing some writes from the reference storage.
+	//   2. Jobs which originate from other nodes than the reference are only considered meaningful if they are
+	//      in 'completed' state. If the job is 'completed', then the repository contains the latest changes from
+	//      the given non-reference node and we have to then follow the chain to verify the non-reference node is
+	//      up to date with the reference. In other states, the node does not contain the non-reference node's
+	//      changes and the job does not give any information on whether the currently checked node is missing
+	//      writes from the reference.
+	//
+	// Taking the meaningful jobs as starting points, `intermediate_job` CTE then follows the replication job chain
+	// until it finds the path to the reference storage or runs in to a cycle. The next job to follow in the chain
+	// is decided using the same meaningful job criteria as in `latest_job` CTE.
+	//
+	// As `intermediate_job` returns every path segment, `full_path` CTE finally selects the full (longest) path for
+	// each repository and node pair.
+	//
+	// Finally we select the repository/node pairs which do not have reach the reference repository or reach it but
+	// did not successfully complete the replication job from it.
+	const q = `
+WITH RECURSIVE latest_job AS (
+	SELECT DISTINCT ON (repository, target)
+		job->>'relative_path' AS repository,
+		job->>'target_node_storage' AS target,
+		job->>'source_node_storage' AS source,
+		state
+	FROM replication_queue
+	WHERE
+		job->>'virtual_storage' = $1 AND
+		(job->>'source_node_storage' = $2 OR
+		job->>'source_node_storage' != $2 AND state = 'completed')
+	ORDER BY repository, target, updated_at DESC NULLS FIRST
+), intermediate_job AS (
+	SELECT
+		repository,
+		target,
+		state,
+		ARRAY[source] AS path
+	FROM latest_job
+	UNION
+		SELECT
+			intermediate_job.repository,
+			intermediate_job.target,
+			next_job.state,
+			intermediate_job.path || (job->>'source_node_storage')
+		FROM replication_queue AS next_job, intermediate_job
+		WHERE
+			job->>'source_node_storage' != ALL(intermediate_job.path) AND
+			job->>'virtual_storage' = $1 AND
+			job->>'relative_path' = intermediate_job.repository AND
+			job->>'target_node_storage' = intermediate_job.path[array_length(intermediate_job.path, 1)] AND
+			(
+				job->>'source_node_storage' = $2 OR
+				job->>'source_node_storage' != $2 AND next_job.state = 'completed'
+			)
+), full_path AS (
+	SELECT DISTINCT ON (repository, target)
+		repository,
+		target,
+		state,
+		path
+	FROM intermediate_job
+	ORDER BY repository, target, array_length(path, 1) DESC
+)
+
+SELECT repository, target, state, path
+FROM full_path
+WHERE state != 'completed' OR path[array_length(path, 1)] != $2
+ORDER BY repository, target
+`
+
+	rows, err := rq.qc.QueryContext(ctx, q, virtualStorage, reference)
+	if err != nil {
+		return nil, err
+	}
+
+	repos := map[string][]string{}
+	for rows.Next() {
+		var repo, node, state string
+		var path []string
+		if err := rows.Scan(&repo, &node, &state, (*pq.StringArray)(&path)); err != nil {
+			return nil, err
+		}
+
+		repos[repo] = append(repos[repo], node)
+		log.Printf("repo: %s, node: %s, state: %s, path: %s", repo, node, state, path)
+	}
+
+	defer rows.Close()
+
+	return repos, rows.Err()
 }
 
 func (rq PostgresReplicationEventQueue) GetUpToDateStorages(ctx context.Context, virtualStorage, repoPath string) ([]string, error) {

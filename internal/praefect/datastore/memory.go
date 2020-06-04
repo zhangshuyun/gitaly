@@ -60,6 +60,10 @@ func (s *memoryReplicationEventQueue) nextID() uint64 {
 	return s.seq
 }
 
+func (s *memoryReplicationEventQueue) GetOutdatedRepositories(ctx context.Context, virtualStorage string, referenceStorage string) (map[string][]string, error) {
+	return nil, errors.New("unimplemented")
+}
+
 func (s *memoryReplicationEventQueue) Enqueue(_ context.Context, event ReplicationEvent) (ReplicationEvent, error) {
 	event.Attempt = 3
 	event.State = JobStateReady
