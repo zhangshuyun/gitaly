@@ -253,7 +253,7 @@ func (s *ProxyHappySuite) SetupSuite() {
 	// Setup of the proxy's Director.
 	s.serverClientConn, err = grpc.Dial(s.serverListener.Addr().String(), grpc.WithInsecure(), grpc.WithDefaultCallOptions(grpc.ForceCodec(proxy.NewCodec())))
 	require.NoError(s.T(), err, "must not error on deferred client Dial")
-	director := func(ctx context.Context, fullName string, peeker proxy.StreamModifier) (*proxy.StreamParameters, error) {
+	director := func(ctx context.Context, fullName string, peeker proxy.StreamPeeker) (*proxy.StreamParameters, error) {
 		payload, err := peeker.Peek()
 		if err != nil {
 			return nil, err
@@ -333,7 +333,7 @@ func TestRegisterStreamHandlers(t *testing.T) {
 
 	server := grpc.NewServer(
 		grpc.CustomCodec(proxy.NewCodec()),
-		grpc.UnknownServiceHandler(proxy.TransparentHandler(func(ctx context.Context, fullMethodName string, peeker proxy.StreamModifier) (*proxy.StreamParameters, error) {
+		grpc.UnknownServiceHandler(proxy.TransparentHandler(func(ctx context.Context, fullMethodName string, peeker proxy.StreamPeeker) (*proxy.StreamParameters, error) {
 			return nil, directorCalledError
 		})),
 	)

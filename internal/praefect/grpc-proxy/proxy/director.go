@@ -22,7 +22,7 @@ import (
 // are invoked. So decisions around authorization, monitoring etc. are better to be handled there.
 //
 // See the rather rich example.
-type StreamDirector func(ctx context.Context, fullMethodName string, peeker StreamModifier) (*StreamParameters, error)
+type StreamDirector func(ctx context.Context, fullMethodName string, peeker StreamPeeker) (*StreamParameters, error)
 
 // StreamParameters encapsulates streaming parameters the praefect coordinator returns to the
 // proxy handler

@@ -41,7 +41,7 @@ func ExampleTransparentHandler() {
 // Provide sa simple example of a director that shields internal services and dials a staging or production backend.
 // This is a *very naive* implementation that creates a new connection on every request. Consider using pooling.
 func ExampleStreamDirector() {
-	director = func(ctx context.Context, fullMethodName string, _ proxy.StreamModifier) (*proxy.StreamParameters, error) {
+	director = func(ctx context.Context, fullMethodName string, _ proxy.StreamPeeker) (*proxy.StreamParameters, error) {
 		// Make sure we never forward internal services.
 		if strings.HasPrefix(fullMethodName, "/com.example.internal.") {
 			return nil, status.Errorf(codes.Unimplemented, "Unknown method")

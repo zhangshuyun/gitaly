@@ -27,7 +27,7 @@ func TestStreamPeeking(t *testing.T) {
 	pingReqSent := &testservice.PingRequest{Value: "hi"}
 
 	// director will peek into stream before routing traffic
-	director := func(ctx context.Context, fullMethodName string, peeker proxy.StreamModifier) (*proxy.StreamParameters, error) {
+	director := func(ctx context.Context, fullMethodName string, peeker proxy.StreamPeeker) (*proxy.StreamParameters, error) {
 		t.Logf("director routing method %s to backend", fullMethodName)
 
 		peekedMsg, err := peeker.Peek()
@@ -86,7 +86,7 @@ func TestStreamInjecting(t *testing.T) {
 	newValue := "bye"
 
 	// director will peek into stream and change some frames
-	director := func(ctx context.Context, fullMethodName string, peeker proxy.StreamModifier) (*proxy.StreamParameters, error) {
+	director := func(ctx context.Context, fullMethodName string, peeker proxy.StreamPeeker) (*proxy.StreamParameters, error) {
 		t.Logf("modifying request for method %s", fullMethodName)
 
 		peekedMsg, err := peeker.Peek()

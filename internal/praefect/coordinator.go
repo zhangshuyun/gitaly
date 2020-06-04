@@ -72,7 +72,7 @@ type grpcCall struct {
 	fullMethodName string
 	methodInfo     protoregistry.MethodInfo
 	msg            proto.Message
-	peeker         proxy.StreamModifier
+	peeker         proxy.StreamPeeker
 	targetRepo     *gitalypb.Repository
 }
 
@@ -259,7 +259,7 @@ func (c *Coordinator) mutatorStreamParameters(ctx context.Context, call grpcCall
 }
 
 // streamDirector determines which downstream servers receive requests
-func (c *Coordinator) StreamDirector(ctx context.Context, fullMethodName string, peeker proxy.StreamModifier) (*proxy.StreamParameters, error) {
+func (c *Coordinator) StreamDirector(ctx context.Context, fullMethodName string, peeker proxy.StreamPeeker) (*proxy.StreamParameters, error) {
 	// For phase 1, we need to route messages based on the storage location
 	// to the appropriate Gitaly node.
 	ctxlogrus.Extract(ctx).Debugf("Stream director received method %s", fullMethodName)
