@@ -105,13 +105,17 @@ module HTTPHelper
       store.set_default_paths
 
       ca_file = config.http_settings.ca_file
-      store.add_file(ca_file) if ca_file
+      store.add_file(ca_file) if present?(ca_file)
 
       ca_path = config.http_settings.ca_path
-      store.add_path(ca_path) if ca_path
+      store.add_path(ca_path) if present?(ca_path)
 
       store
     end
+  end
+
+  def present?(str)
+    !str.nil? && !str.empty?
   end
 
   def secret_token
