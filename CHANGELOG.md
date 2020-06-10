@@ -1,5 +1,9 @@
 # Gitaly changelog
 
+## 12.10.11
+
+- No changes.
+
 ## 12.10.10
 
 - No changes.
