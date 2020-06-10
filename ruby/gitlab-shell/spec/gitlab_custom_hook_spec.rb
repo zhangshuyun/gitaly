@@ -3,13 +3,14 @@ require 'spec_helper'
 require 'gitlab_custom_hook'
 
 describe GitlabCustomHook do
-  let(:original_root_path) { ROOT_PATH }
-  let(:tmp_repo_path) { File.join(original_root_path, 'tmp', 'repo.git') }
-  let(:tmp_root_path) { File.join(original_root_path, 'tmp') }
+  let(:root_path) { File.expand_path('..', __dir__) }
+  let(:tmp_repo_path) { File.join(root_path, 'tmp', 'repo.git') }
+  let(:tmp_root_path) { File.join(root_path, 'tmp') }
+  let(:gitaly_config_data) { {'dir' => root_path, 'custom_hooks_dir' => File.join(tmp_root_path, 'hooks') } }
   let(:global_custom_hooks_path) { global_hook_path('custom_global_hooks') }
-  let(:hook_ok) { File.join(original_root_path, 'spec', 'support', 'hook_ok') }
-  let(:hook_fail) { File.join(original_root_path, 'spec', 'support', 'hook_fail') }
-  let(:hook_gl_id) { File.join(original_root_path, 'spec', 'support', 'gl_id_test_hook') }
+  let(:hook_ok) { File.join(root_path, 'spec', 'support', 'hook_ok') }
+  let(:hook_fail) { File.join(root_path, 'spec', 'support', 'hook_fail') }
+  let(:hook_gl_id) { File.join(root_path, 'spec', 'support', 'gl_id_test_hook') }
 
   let(:vars) { { "GL_ID" => "key_1" } }
   let(:old_value) { "old-value" }
@@ -18,6 +19,10 @@ describe GitlabCustomHook do
   let(:changes) { "#{old_value} #{new_value} #{ref_name}\n" }
 
   let(:gitlab_custom_hook) { GitlabCustomHook.new(tmp_repo_path, 'key_1') }
+
+  before do
+    allow(ENV).to receive(:fetch).with('GITALY_GITLAB_SHELL_CONFIG', '{}').and_return(gitaly_config_data.to_json)
+  end
 
   def hook_path(path)
     File.join(tmp_repo_path, path.split('/'))
@@ -97,9 +102,6 @@ describe GitlabCustomHook do
     end
 
     FileUtils.symlink(File.join(tmp_root_path, 'hooks'), File.join(tmp_repo_path, 'hooks'))
-    FileUtils.symlink(File.join(ROOT_PATH, 'config.yml.example'), File.join(tmp_root_path, 'config.yml'))
-
-    stub_const('ROOT_PATH', Pathname.new(tmp_root_path))
   end
 
   after do

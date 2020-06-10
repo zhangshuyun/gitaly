@@ -102,7 +102,6 @@ func TestReceivePackPushSuccess(t *testing.T) {
 		"GL_ID=user-123",
 		fmt.Sprintf("GL_REPOSITORY=%s", glRepository),
 		"GL_PROTOCOL=ssh",
-		"GITALY_GITLAB_SHELL_DIR=" + "/foo/bar/gitlab-shell",
 	} {
 		require.Contains(t, strings.Split(string(envData), "\n"), env)
 	}
@@ -240,7 +239,6 @@ func TestSSHReceivePackToHooks(t *testing.T) {
 	})
 	defer ts.Close()
 
-	testhelper.WriteTemporaryGitlabShellConfigFile(t, tempGitlabShellDir, testhelper.GitlabShellConfig{GitlabURL: ts.URL})
 	testhelper.WriteShellSecretFile(t, tempGitlabShellDir, secretToken)
 
 	config.Config.Gitlab.URL = ts.URL

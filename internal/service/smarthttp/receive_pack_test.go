@@ -68,7 +68,6 @@ func TestSuccessfulReceivePackRequest(t *testing.T) {
 		"GL_ID=user-123",
 		"GL_REPOSITORY=project-456",
 		"GL_PROTOCOL=http",
-		"GITALY_GITLAB_SHELL_DIR=" + "/foo/bar/gitlab-shell",
 	} {
 		require.Contains(t, strings.Split(string(envData), "\n"), env)
 	}
@@ -395,7 +394,6 @@ func testPostReceivePackToHooks(t *testing.T, callRPC bool) {
 	})
 	defer ts.Close()
 
-	testhelper.WriteTemporaryGitlabShellConfigFile(t, tempGitlabShellDir, testhelper.GitlabShellConfig{GitlabURL: ts.URL})
 	testhelper.WriteShellSecretFile(t, tempGitlabShellDir, secretToken)
 
 	testhelper.WriteCustomHook(testRepoPath, "pre-receive", []byte(testhelper.CheckNewObjectExists))
@@ -497,15 +495,6 @@ func TestPostReceiveWithTransactions(t *testing.T) {
 			gitlabShellDir, cleanup := testhelper.CreateTemporaryGitlabShellDir(t)
 			defer cleanup()
 			config.Config.GitlabShell.Dir = gitlabShellDir
-			testhelper.WriteTemporaryGitlabShellConfigFile(t,
-				gitlabShellDir,
-				testhelper.GitlabShellConfig{
-					GitlabURL: gitlabServer.URL,
-					HTTPSettings: testhelper.HTTPSettings{
-						User:     gitlabUser,
-						Password: gitlabPassword,
-					},
-				})
 
 			config.Config.Gitlab.URL = gitlabServer.URL
 			config.Config.Gitlab.HTTPSettings.User = gitlabUser

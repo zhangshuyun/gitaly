@@ -14,13 +14,13 @@ func Env() ([]string, error) {
 }
 
 type Config struct {
+	GitlabDir      string              `json:"dir"`
 	CustomHooksDir string              `json:"custom_hooks_dir"`
 	GitlabURL      string              `json:"gitlab_url"`
 	HTTPSettings   config.HTTPSettings `json:"http_settings"`
 	LogFormat      string              `json:"log_format"`
 	LogLevel       string              `json:"log_level"`
 	LogPath        string              `json:"log_path"`
-	RootPath       string              `json:"root_path"`
 	SecretFile     string              `json:"secret_file"`
 }
 
@@ -30,10 +30,10 @@ func EnvFromConfig(cfg config.Cfg) ([]string, error) {
 		CustomHooksDir: cfg.Hooks.CustomHooksDir,
 		GitlabURL:      cfg.Gitlab.URL,
 		HTTPSettings:   cfg.Gitlab.HTTPSettings,
+		GitlabDir:      cfg.GitlabShell.Dir,
 		LogFormat:      cfg.Logging.Format,
 		LogLevel:       cfg.Logging.Level,
 		LogPath:        cfg.Logging.Dir,
-		RootPath:       cfg.GitlabShell.Dir, //GITLAB_SHELL_DIR has been deprecated
 		SecretFile:     cfg.Gitlab.SecretFile,
 	}
 
@@ -43,11 +43,6 @@ func EnvFromConfig(cfg config.Cfg) ([]string, error) {
 	}
 
 	return []string{
-		//TODO: remove GITALY_GITLAB_SHELL_DIR: https://gitlab.com/gitlab-org/gitaly/-/issues/2679
-		"GITALY_GITLAB_SHELL_DIR=" + cfg.GitlabShell.Dir,
-		"GITALY_LOG_DIR=" + cfg.Logging.Dir,
-		"GITALY_LOG_FORMAT=" + cfg.Logging.Format,
-		"GITALY_LOG_LEVEL=" + cfg.Logging.Level,
 		"GITALY_BIN_DIR=" + cfg.BinDir,
 		"GITALY_RUBY_DIR=" + cfg.Ruby.Dir,
 		"GITALY_GITLAB_SHELL_CONFIG=" + string(gitlabShellConfigString),

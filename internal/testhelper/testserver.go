@@ -38,7 +38,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
-	"gopkg.in/yaml.v2"
 )
 
 // PraefectEnabled returns whether or not tests should use a praefect proxy
@@ -684,24 +683,6 @@ func CreateTemporaryGitlabShellDir(t testing.TB) (string, func()) {
 	}
 }
 
-// WriteTemporaryGitlabShellConfigFile writes a gitlab shell config.yml in a temporary directory. It returns the path
-// and a cleanup function
-func WriteTemporaryGitlabShellConfigFile(t FatalLogger, dir string, config GitlabShellConfig) (string, func()) {
-	out, err := yaml.Marshal(&config)
-	if err != nil {
-		t.Fatalf("error marshalling config", err)
-	}
-
-	path := filepath.Join(dir, "config.yml")
-	if err = ioutil.WriteFile(path, out, 0644); err != nil {
-		t.Fatalf("error writing gitlab shell config", err)
-	}
-
-	return path, func() {
-		os.RemoveAll(path)
-	}
-}
-
 // WriteTemporaryGitalyConfigFile writes a gitaly toml file into a temporary directory. It returns the path to
 // the file as well as a cleanup function
 func WriteTemporaryGitalyConfigFile(t testing.TB, tempDir, gitlabURL, user, password string) (string, func()) {
@@ -709,10 +690,11 @@ func WriteTemporaryGitalyConfigFile(t testing.TB, tempDir, gitlabURL, user, pass
 	contents := fmt.Sprintf(`
 [gitlab-shell]
   dir = "%s/gitlab-shell"
-  gitlab_url = %q
-  [gitlab-shell.http-settings]
-    user = %q
-    password = %q
+[gitlab]
+url = %q
+[gitlab.http-settings]
+  user = %q
+  password = %q
 `, tempDir, gitlabURL, user, password)
 
 	require.NoError(t, ioutil.WriteFile(path, []byte(contents), 0644))
@@ -809,7 +791,6 @@ func NewHealthServerWithListener(t testing.TB, listener net.Listener) (*grpc.Ser
 func SetupAndStartGitlabServer(t FatalLogger, c *GitlabTestServerOptions) (string, func()) {
 	ts := NewGitlabTestServer(*c)
 
-	WriteTemporaryGitlabShellConfigFile(t, config.Config.GitlabShell.Dir, GitlabShellConfig{GitlabURL: ts.URL})
 	WriteShellSecretFile(t, config.Config.GitlabShell.Dir, c.SecretToken)
 
 	return ts.URL, func() {

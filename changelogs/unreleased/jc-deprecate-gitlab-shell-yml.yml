@@ -1,0 +1,5 @@
+---
+title: Remove usage of gitlab shell yml
+merge_request: 2243
+author:
+type: deprecated
