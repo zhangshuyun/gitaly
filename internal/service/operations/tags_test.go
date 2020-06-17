@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
-	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -50,17 +49,10 @@ func TestSuccessfulUserDeleteTagRequest(t *testing.T) {
 }
 
 func TestSuccessfulGitHooksForUserDeleteTagRequest(t *testing.T) {
-	featureSet, err := testhelper.NewFeatureSets(nil, featureflag.GoUpdateHook)
-	require.NoError(t, err)
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	for _, features := range featureSet {
-		t.Run(features.String(), func(t *testing.T) {
-			ctx = features.WithParent(ctx)
-			testSuccessfulGitHooksForUserDeleteTagRequest(t, ctx)
-		})
-	}
+	testSuccessfulGitHooksForUserDeleteTagRequest(t, ctx)
 }
 
 func testSuccessfulGitHooksForUserDeleteTagRequest(t *testing.T, ctx context.Context) {
@@ -195,17 +187,9 @@ func TestSuccessfulUserCreateTagRequest(t *testing.T) {
 }
 
 func TestSuccessfulGitHooksForUserCreateTagRequest(t *testing.T) {
-	featureSet, err := testhelper.NewFeatureSets(nil, featureflag.GoUpdateHook)
-	require.NoError(t, err)
-
 	ctx, cancel := testhelper.Context()
 	defer cancel()
-	for _, features := range featureSet {
-		t.Run(features.String(), func(t *testing.T) {
-			ctx = features.WithParent(ctx)
-			testSuccessfulGitHooksForUserCreateTagRequest(t, ctx)
-		})
-	}
+	testSuccessfulGitHooksForUserCreateTagRequest(t, ctx)
 }
 
 func testSuccessfulGitHooksForUserCreateTagRequest(t *testing.T, ctx context.Context) {
@@ -298,17 +282,10 @@ func TestFailedUserDeleteTagRequestDueToValidation(t *testing.T) {
 }
 
 func TestFailedUserDeleteTagDueToHooks(t *testing.T) {
-	featureSet, err := testhelper.NewFeatureSets(nil, featureflag.GoUpdateHook)
-	require.NoError(t, err)
-
 	ctx, cancel := testhelper.Context()
 	defer cancel()
-	for _, features := range featureSet {
-		t.Run(features.String(), func(t *testing.T) {
-			ctx = features.WithParent(ctx)
-			testFailedUserDeleteTagDueToHooks(t, ctx)
-		})
-	}
+
+	testFailedUserDeleteTagDueToHooks(t, ctx)
 }
 
 func testFailedUserDeleteTagDueToHooks(t *testing.T, ctx context.Context) {

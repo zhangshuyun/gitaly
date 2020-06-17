@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
-	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -29,17 +28,10 @@ var (
 )
 
 func TestSuccessfulUserSquashRequest(t *testing.T) {
-	featureSet, err := testhelper.NewFeatureSets(nil, featureflag.GoUpdateHook)
-	require.NoError(t, err)
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	for _, features := range featureSet {
-		t.Run(features.String(), func(t *testing.T) {
-			ctx = features.WithParent(ctx)
-			testSuccessfulUserSquashRequest(t, ctx)
-		})
-	}
+	testSuccessfulUserSquashRequest(t, ctx)
 }
 
 func testSuccessfulUserSquashRequest(t *testing.T, ctx context.Context) {

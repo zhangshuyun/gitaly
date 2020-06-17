@@ -8,7 +8,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git/log"
-	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -53,17 +52,10 @@ func TestSuccessfulUserUpdateBranchRequest(t *testing.T) {
 }
 
 func TestSuccessfulGitHooksForUserUpdateBranchRequest(t *testing.T) {
-	featureSet, err := testhelper.NewFeatureSets(nil, featureflag.GoUpdateHook)
-	require.NoError(t, err)
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	for _, features := range featureSet {
-		t.Run(features.String(), func(t *testing.T) {
-			ctx = features.WithParent(ctx)
-			testSuccessfulGitHooksForUserUpdateBranchRequest(t, ctx)
-		})
-	}
+	testSuccessfulGitHooksForUserUpdateBranchRequest(t, ctx)
 }
 
 func testSuccessfulGitHooksForUserUpdateBranchRequest(t *testing.T, ctx context.Context) {
@@ -100,17 +92,10 @@ func testSuccessfulGitHooksForUserUpdateBranchRequest(t *testing.T, ctx context.
 }
 
 func TestFailedUserUpdateBranchDueToHooks(t *testing.T) {
-	featureSet, err := testhelper.NewFeatureSets(nil, featureflag.GoUpdateHook)
-	require.NoError(t, err)
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	for _, features := range featureSet {
-		t.Run(features.String(), func(t *testing.T) {
-			ctx = features.WithParent(ctx)
-			testFailedUserUpdateBranchDueToHooks(t, ctx)
-		})
-	}
+	testFailedUserUpdateBranchDueToHooks(t, ctx)
 }
 
 func testFailedUserUpdateBranchDueToHooks(t *testing.T, ctx context.Context) {

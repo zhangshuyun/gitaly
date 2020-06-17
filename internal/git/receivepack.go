@@ -46,7 +46,7 @@ func ReceivePackHookEnv(ctx context.Context, req ReceivePackRequest) ([]string, 
 		fmt.Sprintf("GITALY_SOCKET=" + config.GitalyInternalSocketPath()),
 		fmt.Sprintf("GITALY_REPO=%s", repo),
 		fmt.Sprintf("GITALY_TOKEN=%s", config.Config.Auth.Token),
-		fmt.Sprintf("%s=%s", featureflag.GoUpdateHookEnvVar, strconv.FormatBool(featureflag.IsEnabled(ctx, featureflag.GoUpdateHook))),
+		fmt.Sprintf("%s=%s", featureflag.GoUpdateHookEnvVar, strconv.FormatBool(!featureflag.IsDisabled(ctx, featureflag.GoUpdateHook))), // default on
 		fmt.Sprintf("%s=%s", featureflag.GoPreReceiveHookEnvVar, strconv.FormatBool(featureflag.IsEnabled(ctx, featureflag.GoPreReceiveHook))),
 	}, gitlabshellEnv...)
 

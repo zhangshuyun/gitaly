@@ -220,26 +220,15 @@ func TestHooksUpdate(t *testing.T) {
 	socket, stop := runHookServiceServer(t, token)
 	defer stop()
 
-	featureSets, err := testhelper.NewFeatureSets([]string{featureflag.GoUpdateHook})
-	require.NoError(t, err)
-
-	for _, featureSet := range featureSets {
-		t.Run(fmt.Sprintf("enabled features: %v", featureSet), func(t *testing.T) {
-			if featureSet.IsEnabled("use_gitaly_gitlabshell_config") {
-				config.Config.Hooks.CustomHooksDir = customHooksDir
-			}
-
-			testHooksUpdate(t, tempGitlabShellDir, socket, token, testhelper.GlHookValues{
-				GLID:       glID,
-				GLUsername: glUsername,
-				GLRepo:     glRepository,
-				GLProtocol: glProtocol,
-			}, featureSet)
-		})
-	}
+	testHooksUpdate(t, tempGitlabShellDir, socket, token, testhelper.GlHookValues{
+		GLID:       glID,
+		GLUsername: glUsername,
+		GLRepo:     glRepository,
+		GLProtocol: glProtocol,
+	})
 }
 
-func testHooksUpdate(t *testing.T, gitlabShellDir, socket, token string, glValues testhelper.GlHookValues, features testhelper.FeatureSet) {
+func testHooksUpdate(t *testing.T, gitlabShellDir, socket, token string, glValues testhelper.GlHookValues) {
 	defer func(cfg config.Cfg) {
 		config.Config = cfg
 	}(config.Config)
@@ -273,9 +262,7 @@ open('%s', 'w') { |f| f.puts(JSON.dump(ARGV)) }
 
 	var stdout, stderr bytes.Buffer
 
-	if features.IsEnabled(featureflag.GoUpdateHook) {
-		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=true", featureflag.GoUpdateHookEnvVar))
-	}
+	cmd.Env = append(cmd.Env, fmt.Sprintf("%s=true", featureflag.GoUpdateHookEnvVar))
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	cmd.Dir = testRepoPath
