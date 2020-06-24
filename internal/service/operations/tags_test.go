@@ -218,6 +218,9 @@ func testSuccessfulGitHooksForUserCreateTagRequest(t *testing.T, ctx context.Con
 	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
+	projectPath := "project/path"
+	testRepo.GlProjectPath = projectPath
+
 	tagName := "new-tag"
 
 	request := &gitalypb.UserCreateTagRequest{
@@ -240,6 +243,7 @@ func testSuccessfulGitHooksForUserCreateTagRequest(t *testing.T, ctx context.Con
 
 			output := string(testhelper.MustReadFile(t, hookOutputTempPath))
 			require.Contains(t, output, "GL_USERNAME="+testhelper.TestUser.GlUsername)
+			require.Contains(t, output, "GL_PROJECT_PATH="+projectPath)
 		})
 	}
 }

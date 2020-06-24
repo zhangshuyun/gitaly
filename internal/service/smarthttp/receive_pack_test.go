@@ -52,6 +52,10 @@ func TestSuccessfulReceivePackRequest(t *testing.T) {
 	require.NoError(t, err)
 
 	push := newTestPush(t, nil)
+
+	projectPath := "project/path"
+
+	repo.GlProjectPath = projectPath
 	firstRequest := &gitalypb.PostReceivePackRequest{Repository: repo, GlId: "user-123", GlRepository: "project-456"}
 	response := doPush(t, stream, firstRequest, push.body)
 
@@ -68,6 +72,7 @@ func TestSuccessfulReceivePackRequest(t *testing.T) {
 		"GL_ID=user-123",
 		"GL_REPOSITORY=project-456",
 		"GL_PROTOCOL=http",
+		"GL_PROJECT_PATH=" + projectPath,
 		"GITALY_GITLAB_SHELL_DIR=" + "/foo/bar/gitlab-shell",
 	} {
 		require.Contains(t, strings.Split(string(envData), "\n"), env)
