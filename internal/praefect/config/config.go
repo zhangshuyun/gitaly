@@ -23,6 +23,10 @@ type Failover struct {
 	ReadErrorThresholdCount  uint32          `toml:"read_error_threshold_count"`
 }
 
+func (f Failover) ValidErrorThresholds() bool {
+	return f.ErrorThresholdWindow > 0 && f.WriteErrorThresholdCount > 0 && f.ReadErrorThresholdCount > 0
+}
+
 const sqlFailoverValue = "sql"
 
 // Config is a container for everything found in the TOML config file

@@ -12,6 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/promtest"
 	"google.golang.org/grpc"
@@ -73,7 +74,7 @@ func TestNodeStatus(t *testing.T) {
 	mockHistogramVec := promtest.NewMockHistogramVec()
 
 	storageName := "default"
-	cs := newConnectionStatus(config.Node{Storage: storageName}, cc, testhelper.DiscardTestEntry(t), mockHistogramVec)
+	cs := newConnectionStatus(config.Node{Storage: storageName}, cc, testhelper.DiscardTestEntry(t), mockHistogramVec, nil)
 
 	var expectedLabels [][]string
 	for i := 0; i < healthcheckThreshold; i++ {
@@ -124,7 +125,7 @@ func TestManagerFailoverDisabledElectionStrategySQL(t *testing.T) {
 		Failover:        config.Failover{Enabled: false, ElectionStrategy: "sql"},
 		VirtualStorages: []*config.VirtualStorage{virtualStorage},
 	}
-	nm, err := NewManager(testhelper.DiscardTestEntry(t), conf, nil, nil, promtest.NewMockHistogramVec())
+	nm, err := NewManager(testhelper.DiscardTestEntry(t), conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil)
 	require.NoError(t, err)
 
 	nm.Start(time.Millisecond, time.Millisecond)
@@ -175,7 +176,7 @@ func TestBlockingDial(t *testing.T) {
 		healthSrv0.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
 	}()
 
-	mgr, err := NewManager(testhelper.DiscardTestEntry(t), conf, nil, nil, promtest.NewMockHistogramVec())
+	mgr, err := NewManager(testhelper.DiscardTestEntry(t), conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil)
 	require.NoError(t, err)
 
 	mgr.Start(1*time.Millisecond, 1*time.Millisecond)
@@ -221,10 +222,10 @@ func TestNodeManager(t *testing.T) {
 	}
 
 	mockHistogram := promtest.NewMockHistogramVec()
-	nm, err := NewManager(testhelper.DiscardTestEntry(t), confWithFailover, nil, nil, mockHistogram)
+	nm, err := NewManager(testhelper.DiscardTestEntry(t), confWithFailover, nil, nil, mockHistogram, protoregistry.GitalyProtoPreregistered, nil)
 	require.NoError(t, err)
 
-	nmWithoutFailover, err := NewManager(testhelper.DiscardTestEntry(t), confWithoutFailover, nil, nil, mockHistogram)
+	nmWithoutFailover, err := NewManager(testhelper.DiscardTestEntry(t), confWithoutFailover, nil, nil, mockHistogram, protoregistry.GitalyProtoPreregistered, nil)
 	require.NoError(t, err)
 
 	nm.Start(1*time.Millisecond, 5*time.Second)
@@ -401,7 +402,7 @@ func TestMgr_GetSyncedNode(t *testing.T) {
 	verify := func(scenario func(t *testing.T, nm Manager, queue datastore.ReplicationEventQueue)) func(*testing.T) {
 		queue := datastore.NewMemoryReplicationEventQueue(conf)
 
-		nm, err := NewManager(testhelper.DiscardTestEntry(t), conf, nil, queue, mockHistogram)
+		nm, err := NewManager(testhelper.DiscardTestEntry(t), conf, nil, queue, mockHistogram, protoregistry.GitalyProtoPreregistered, nil)
 		require.NoError(t, err)
 
 		nm.Start(time.Duration(0), time.Hour)
@@ -567,12 +568,12 @@ func TestNodeStatus_IsHealthy(t *testing.T) {
 	latencyHistMock := &promtest.MockHistogramVec{}
 
 	t.Run("unchecked node is unhealthy", func(t *testing.T) {
-		ns := newConnectionStatus(node, clientConn, logger, latencyHistMock)
+		ns := newConnectionStatus(node, clientConn, logger, latencyHistMock, nil)
 		require.False(t, ns.IsHealthy())
 	})
 
 	t.Run("not enough check to consider it healthy", func(t *testing.T) {
-		ns := newConnectionStatus(node, clientConn, logger, latencyHistMock)
+		ns := newConnectionStatus(node, clientConn, logger, latencyHistMock, nil)
 		healthSrv.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
 		checkNTimes(ctx, t, ns, healthcheckThreshold-1)
 
@@ -580,7 +581,7 @@ func TestNodeStatus_IsHealthy(t *testing.T) {
 	})
 
 	t.Run("healthy", func(t *testing.T) {
-		ns := newConnectionStatus(node, clientConn, logger, latencyHistMock)
+		ns := newConnectionStatus(node, clientConn, logger, latencyHistMock, nil)
 		healthSrv.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
 		checkNTimes(ctx, t, ns, healthcheckThreshold)
 
@@ -588,7 +589,7 @@ func TestNodeStatus_IsHealthy(t *testing.T) {
 	})
 
 	t.Run("healthy turns into unhealthy after single failed check", func(t *testing.T) {
-		ns := newConnectionStatus(node, clientConn, logger, latencyHistMock)
+		ns := newConnectionStatus(node, clientConn, logger, latencyHistMock, nil)
 		healthSrv.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
 		checkNTimes(ctx, t, ns, healthcheckThreshold)
 
@@ -601,7 +602,7 @@ func TestNodeStatus_IsHealthy(t *testing.T) {
 	})
 
 	t.Run("unhealthy turns into healthy after pre-define threshold of checks", func(t *testing.T) {
-		ns := newConnectionStatus(node, clientConn, logger, latencyHistMock)
+		ns := newConnectionStatus(node, clientConn, logger, latencyHistMock, nil)
 		healthSrv.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
 		checkNTimes(ctx, t, ns, healthcheckThreshold)
 
@@ -623,7 +624,7 @@ func TestNodeStatus_IsHealthy(t *testing.T) {
 	})
 
 	t.Run("concurrent access has no races", func(t *testing.T) {
-		ns := newConnectionStatus(node, clientConn, logger, latencyHistMock)
+		ns := newConnectionStatus(node, clientConn, logger, latencyHistMock, nil)
 		healthSrv.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
 
 		t.Run("continuously does health checks - 1", func(t *testing.T) {

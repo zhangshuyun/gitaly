@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
@@ -31,6 +32,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/mock"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/nodes"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/nodes/tracker"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/transactions"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -40,7 +42,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
-	"google.golang.org/grpc/reflection"
+	grpc_metadata "google.golang.org/grpc/metadata"
 )
 
 func TestServerRouteServerAccessor(t *testing.T) {
@@ -731,7 +733,7 @@ func (m *mockSmartHTTP) Called(method string) int {
 	return m.methodsCalled[method]
 }
 
-func newGrpcServer(t *testing.T, srv gitalypb.SmartHTTPServiceServer) (string, *grpc.Server) {
+func newSmartHTTPGrpcServer(t *testing.T, srv gitalypb.SmartHTTPServiceServer) (string, *grpc.Server) {
 	socketPath := testhelper.GetTemporaryGitalySocketFileName()
 	listener, err := net.Listen("unix", socketPath)
 	require.NoError(t, err)
@@ -742,7 +744,6 @@ func newGrpcServer(t *testing.T, srv gitalypb.SmartHTTPServiceServer) (string, *
 	grpc_health_v1.RegisterHealthServer(grpcServer, healthSrvr)
 	healthSrvr.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
 	gitalypb.RegisterSmartHTTPServiceServer(grpcServer, srv)
-	reflection.Register(grpcServer)
 
 	go grpcServer.Serve(listener)
 
@@ -754,11 +755,11 @@ func TestProxyWrites(t *testing.T) {
 
 	smartHTTP0, smartHTTP1, smartHTTP2 := &mockSmartHTTP{txMgr: txMgr}, &mockSmartHTTP{txMgr: txMgr}, &mockSmartHTTP{txMgr: txMgr}
 
-	socket0, srv0 := newGrpcServer(t, smartHTTP0)
+	socket0, srv0 := newSmartHTTPGrpcServer(t, smartHTTP0)
 	defer srv0.Stop()
-	socket1, srv1 := newGrpcServer(t, smartHTTP1)
+	socket1, srv1 := newSmartHTTPGrpcServer(t, smartHTTP1)
 	defer srv1.Stop()
-	socket2, srv2 := newGrpcServer(t, smartHTTP2)
+	socket2, srv2 := newSmartHTTPGrpcServer(t, smartHTTP2)
 	defer srv2.Stop()
 
 	conf := config.Config{
@@ -786,7 +787,7 @@ func TestProxyWrites(t *testing.T) {
 	queue := datastore.NewMemoryReplicationEventQueue(conf)
 	entry := testhelper.DiscardTestEntry(t)
 
-	nodeMgr, err := nodes.NewManager(entry, conf, nil, queue, promtest.NewMockHistogramVec())
+	nodeMgr, err := nodes.NewManager(entry, conf, nil, queue, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil)
 	require.NoError(t, err)
 
 	coordinator := NewCoordinator(queue, nodeMgr, txMgr, conf, protoregistry.GitalyProtoPreregistered)
@@ -853,6 +854,155 @@ func TestProxyWrites(t *testing.T) {
 	assert.Equal(t, 1, smartHTTP1.Called("PostReceivePack"))
 	assert.Equal(t, 1, smartHTTP2.Called("PostReceivePack"))
 	assert.Equal(t, bytes.Repeat([]byte(payload), 10), receivedData.Bytes())
+}
+
+type errorSimpleService struct {
+}
+
+// ServerAccessor is implemented by a callback
+func (m *errorSimpleService) ServerAccessor(ctx context.Context, req *mock.SimpleRequest) (*mock.SimpleResponse, error) {
+	return nil, helper.ErrInternalf("something went wrong")
+}
+
+// RepoAccessorUnary is implemented by a callback
+func (m *errorSimpleService) RepoAccessorUnary(ctx context.Context, req *mock.RepoRequest) (*empty.Empty, error) {
+	md, ok := grpc_metadata.FromIncomingContext(ctx)
+	if !ok {
+		return &empty.Empty{}, errors.New("couldn't read metadata")
+	}
+
+	if md.Get("bad-header")[0] == "true" {
+		return &empty.Empty{}, helper.ErrInternalf("something went wrong")
+	}
+
+	return &empty.Empty{}, nil
+}
+
+// RepoMutatorUnary is implemented by a callback
+func (m *errorSimpleService) RepoMutatorUnary(ctx context.Context, req *mock.RepoRequest) (*empty.Empty, error) {
+	md, ok := grpc_metadata.FromIncomingContext(ctx)
+	if !ok {
+		return &empty.Empty{}, errors.New("couldn't read metadata")
+	}
+
+	if md.Get("bad-header")[0] == "true" {
+		return &empty.Empty{}, helper.ErrInternalf("something went wrong")
+	}
+
+	return &empty.Empty{}, nil
+}
+
+func TestErrorTreshold(t *testing.T) {
+	simple := &errorSimpleService{}
+
+	backendToken := ""
+	backend, cleanup := newMockDownstream(t, backendToken, simple)
+	defer cleanup()
+
+	conf := config.Config{
+		VirtualStorages: []*config.VirtualStorage{
+			{
+				Name: "default",
+				Nodes: []*config.Node{
+					{
+						Storage: "praefect-internal-0",
+						Address: backend,
+					},
+				},
+			},
+		},
+		Failover: config.Failover{
+			Enabled: true,
+		},
+	}
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	queue := datastore.NewMemoryReplicationEventQueue(conf)
+	entry := testhelper.DiscardTestEntry(t)
+
+	testCases := []struct {
+		desc           string
+		readThreshold  uint32
+		writeThreshold uint32
+	}{
+		{
+			desc:           "read threshold reached",
+			readThreshold:  5,
+			writeThreshold: 10000,
+		},
+		{
+			desc:           "write threshold reached",
+			readThreshold:  10000,
+			writeThreshold: 5,
+		},
+	}
+
+	gz := proto.FileDescriptor("mock.proto")
+	fd, err := protoregistry.ExtractFileDescriptor(gz)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	registry, err := protoregistry.New(fd)
+	require.NoError(t, err)
+
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			errorTracker, err := tracker.NewErrors(ctx, 10*time.Second, tc.readThreshold, tc.writeThreshold)
+			require.NoError(t, err)
+
+			nodeMgr, err := nodes.NewManager(entry, conf, nil, queue, promtest.NewMockHistogramVec(), registry, errorTracker)
+			require.NoError(t, err)
+
+			coordinator := NewCoordinator(queue, nodeMgr, nil, conf, registry)
+
+			server := grpc.NewServer(
+				grpc.CustomCodec(proxy.NewCodec()),
+				grpc.UnknownServiceHandler(proxy.TransparentHandler(coordinator.StreamDirector)),
+			)
+
+			socket := testhelper.GetTemporaryGitalySocketFileName()
+			listener, err := net.Listen("unix", socket)
+			require.NoError(t, err)
+
+			go server.Serve(listener)
+			defer server.Stop()
+
+			conn, err := dial("unix://"+socket, []grpc.DialOption{grpc.WithInsecure()})
+			require.NoError(t, err)
+			cli := mock.NewSimpleServiceClient(conn)
+
+			nodeMgr.Start(0, 5*time.Millisecond)
+			repo, _, cleanup := testhelper.NewTestRepo(t)
+			defer cleanup()
+
+			calls := 6
+
+			for i := 0; i < calls; i++ {
+				ctx := grpc_metadata.AppendToOutgoingContext(ctx, "bad-header", "true")
+
+				_, err = cli.RepoAccessorUnary(ctx, &mock.RepoRequest{Repo: repo})
+				require.Error(t, err)
+
+				_, err = cli.RepoMutatorUnary(ctx, &mock.RepoRequest{Repo: repo})
+				require.Error(t, err)
+			}
+
+			time.Sleep(5 * time.Millisecond)
+
+			_, accessorErr := cli.RepoAccessorUnary(ctx, &mock.RepoRequest{Repo: repo})
+			_, mutatorErr := cli.RepoMutatorUnary(ctx, &mock.RepoRequest{Repo: repo})
+
+			if calls >= int(tc.readThreshold) {
+				require.Error(t, accessorErr)
+			}
+			if calls >= int(tc.writeThreshold) {
+				require.Error(t, mutatorErr)
+			}
+		})
+	}
 }
 
 func newSmartHTTPClient(t *testing.T, serverSocketPath string) (gitalypb.SmartHTTPServiceClient, *grpc.ClientConn) {

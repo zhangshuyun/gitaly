@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"io"
 
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/nodes"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/nodes/tracker"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/protoregistry"
 	"google.golang.org/grpc"
 )
 
 // StreamErrorHandler returns a client interceptor that will track accessor/mutator errors from internal gitaly nodes
-func StreamErrorHandler(registry *protoregistry.Registry, errorTracker nodes.ErrorTracker, nodeStorage string) grpc.StreamClientInterceptor {
+func StreamErrorHandler(registry *protoregistry.Registry, errorTracker tracker.ErrorTracker, nodeStorage string) grpc.StreamClientInterceptor {
 	return func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
 		stream, err := streamer(ctx, desc, cc, method, opts...)
 
@@ -27,12 +27,12 @@ func StreamErrorHandler(registry *protoregistry.Registry, errorTracker nodes.Err
 // catchErrorSteamer is a custom ClientStream that adheres to grpc.ClientStream but keeps track of accessor/mutator errors
 type catchErrorStreamer struct {
 	grpc.ClientStream
-	errors      nodes.ErrorTracker
+	errors      tracker.ErrorTracker
 	operation   protoregistry.OpType
 	nodeStorage string
 }
 
-func newCatchErrorStreamer(streamer grpc.ClientStream, errors nodes.ErrorTracker, operation protoregistry.OpType, nodeStorage string) *catchErrorStreamer {
+func newCatchErrorStreamer(streamer grpc.ClientStream, errors tracker.ErrorTracker, operation protoregistry.OpType, nodeStorage string) *catchErrorStreamer {
 	return &catchErrorStreamer{
 		ClientStream: streamer,
 		errors:       errors,

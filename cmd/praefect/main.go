@@ -101,6 +101,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metrics"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/nodes"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/nodes/tracker"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/transactions"
 	"gitlab.com/gitlab-org/gitaly/internal/version"
@@ -232,7 +233,21 @@ func run(cfgs []starter.Config, conf config.Config) error {
 		queue = datastore.NewPostgresReplicationEventQueue(db)
 	}
 
-	nodeManager, err := nodes.NewManager(logger, conf, db, queue, nodeLatencyHistogram)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	var errTracker tracker.ErrorTracker
+
+	if conf.Failover.Enabled && conf.Failover.ValidErrorThresholds() {
+		errTracker, err = tracker.NewErrors(ctx, conf.Failover.ErrorThresholdWindow.Duration(), conf.Failover.ReadErrorThresholdCount, conf.Failover.WriteErrorThresholdCount)
+		if err != nil {
+			return err
+		}
+	} else {
+		logger.Warn("skipping read/write error threshold failover. To enable read/write error threshold failover, provide non-zero values for error_threshold_window, write_error_threshold_count, read_error_threshold_count")
+	}
+
+	nodeManager, err := nodes.NewManager(logger, conf, db, queue, nodeLatencyHistogram, protoregistry.GitalyProtoPreregistered, errTracker)
 	if err != nil {
 		return err
 	}
@@ -282,9 +297,6 @@ func run(cfgs []starter.Config, conf config.Config) error {
 	)
 
 	prometheus.MustRegister(repl)
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 
 	b, err := bootstrap.New()
 	if err != nil {

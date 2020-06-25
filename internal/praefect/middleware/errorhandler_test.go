@@ -13,7 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/grpc-proxy/proxy"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/mock"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/nodes"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/nodes/tracker"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"google.golang.org/grpc"
@@ -47,7 +47,7 @@ func TestStreamInterceptor(t *testing.T) {
 
 	window := 1 * time.Second
 	threshold := 5
-	errTracker, err := nodes.NewErrors(ctx, window, uint32(threshold), uint32(threshold))
+	errTracker, err := tracker.NewErrors(ctx, window, uint32(threshold), uint32(threshold))
 	require.NoError(t, err)
 	nodeName := "node-1"
 

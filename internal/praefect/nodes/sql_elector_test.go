@@ -42,7 +42,7 @@ func TestGetPrimaryAndSecondaries(t *testing.T) {
 
 	storageName := "default"
 	mockHistogramVec0 := promtest.NewMockHistogramVec()
-	cs0 := newConnectionStatus(config.Node{Storage: storageName + "-0"}, cc0, testhelper.DiscardTestEntry(t), mockHistogramVec0)
+	cs0 := newConnectionStatus(config.Node{Storage: storageName + "-0"}, cc0, testhelper.DiscardTestEntry(t), mockHistogramVec0, nil)
 
 	ns := []*nodeStatus{cs0}
 	elector := newSQLElector(shardName, conf, db.DB, logger, ns)
@@ -99,8 +99,8 @@ func TestBasicFailover(t *testing.T) {
 
 	storageName := "default"
 
-	cs0 := newConnectionStatus(config.Node{Storage: storageName + "-0", Address: addr0}, cc0, logger, promtest.NewMockHistogramVec())
-	cs1 := newConnectionStatus(config.Node{Storage: storageName + "-1", Address: addr1}, cc1, logger, promtest.NewMockHistogramVec())
+	cs0 := newConnectionStatus(config.Node{Storage: storageName + "-0", Address: addr0}, cc0, logger, promtest.NewMockHistogramVec(), nil)
+	cs1 := newConnectionStatus(config.Node{Storage: storageName + "-1", Address: addr1}, cc1, logger, promtest.NewMockHistogramVec(), nil)
 
 	ns := []*nodeStatus{cs0, cs1}
 	elector := newSQLElector(shardName, conf, db.DB, logger, ns)
