@@ -1,0 +1,5 @@
+---
+title: Add random suffix to worktree paths to obstruct path traversal
+merge_request:
+author:
+type: security
