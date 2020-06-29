@@ -207,7 +207,7 @@ update-downstream-server-version:
   allow_failure: true
 
 include:
-  - template: Security/License-Management.gitlab-ci.yml
+  - template: Security/License-Scanning.gitlab-ci.yml
   - template: Security/SAST.gitlab-ci.yml
   - template: Security/Dependency-Scanning.gitlab-ci.yml
 
@@ -215,7 +215,7 @@ gosec-sast:
   before_script:
     - apk add pkgconfig libgit2-dev gcc libc-dev
 
-license_management:
+license_scanning:
   before_script:
     - sudo apt-get update
     - sudo apt-get install -y libicu-dev libgit2-dev cmake
