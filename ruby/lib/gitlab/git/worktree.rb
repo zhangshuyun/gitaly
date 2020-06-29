@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require 'securerandom'
+
 module Gitlab
   module Git
     class Worktree
@@ -8,8 +10,9 @@ module Gitlab
       def initialize(repo_path, prefix, id)
         @repo_path = repo_path
         @prefix = prefix
+        @suffix = SecureRandom.hex
         @id = id.to_s
-        @name = "#{prefix}-#{id}"
+        @name = "#{prefix}-#{id}-#{@suffix}"
         @path = worktree_path
       end
 

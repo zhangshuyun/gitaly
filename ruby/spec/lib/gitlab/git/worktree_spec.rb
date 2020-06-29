@@ -10,7 +10,7 @@ describe Gitlab::Git::Worktree do
     it 'generates valid path' do
       worktree = described_class.new(repo_path, prefix, 12345)
 
-      expect(worktree.path).to eq('/tmp/test/gitlab-worktree/rebase-12345')
+      expect(worktree.path).to match('/tmp/test/gitlab-worktree/rebase-12345-.{16}')
     end
 
     it 'rejects bad IDs' do
