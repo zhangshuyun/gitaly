@@ -113,6 +113,7 @@ module Gitlab
           'GL_ID' => gl_id,
           'GL_USERNAME' => gl_username,
           'GL_REPOSITORY' => repository.gl_repository,
+          'GL_PROJECT_PATH' => repository.gl_project_path,
           'GL_PROTOCOL' => GL_PROTOCOL,
           'PWD' => repo_path,
           'GIT_DIR' => repo_path,

@@ -88,8 +88,9 @@ func TestReceivePackPushSuccess(t *testing.T) {
 	defer stop()
 
 	glRepository := "project-456"
+	glProjectPath := "project/path"
 
-	lHead, rHead, err := testCloneAndPush(t, serverSocketPath, pushParams{storageName: testRepo.GetStorageName(), glID: "user-123", glRepository: glRepository})
+	lHead, rHead, err := testCloneAndPush(t, serverSocketPath, pushParams{storageName: testRepo.GetStorageName(), glID: "user-123", glRepository: glRepository, glProjectPath: glProjectPath})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -101,6 +102,7 @@ func TestReceivePackPushSuccess(t *testing.T) {
 	for _, env := range []string{
 		"GL_ID=user-123",
 		fmt.Sprintf("GL_REPOSITORY=%s", glRepository),
+		fmt.Sprintf("GL_PROJECT_PATH=%s", glProjectPath),
 		"GL_PROTOCOL=ssh",
 		"GITALY_GITLAB_SHELL_DIR=" + "/foo/bar/gitlab-shell",
 	} {
@@ -305,7 +307,7 @@ func setupSSHClone(t *testing.T) (SSHCloneDetails, func()) {
 }
 
 func sshPush(t *testing.T, cloneDetails SSHCloneDetails, serverSocketPath string, params pushParams) (string, string, error) {
-	pbTempRepo := &gitalypb.Repository{StorageName: params.storageName, RelativePath: cloneDetails.TempRepo}
+	pbTempRepo := &gitalypb.Repository{StorageName: params.storageName, RelativePath: cloneDetails.TempRepo, GlProjectPath: params.glProjectPath}
 	pbMarshaler := &jsonpb.Marshaler{}
 	payload, err := pbMarshaler.MarshalToString(&gitalypb.SSHReceivePackRequest{
 		Repository:       pbTempRepo,
@@ -385,6 +387,7 @@ type pushParams struct {
 	storageName      string
 	glID             string
 	glRepository     string
+	glProjectPath    string
 	gitConfigOptions []string
 	gitProtocol      string
 }

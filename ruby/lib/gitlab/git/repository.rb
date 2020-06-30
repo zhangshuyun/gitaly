@@ -62,7 +62,7 @@ module Gitlab
       # Directory name of repo
       attr_reader :name
 
-      attr_reader :gitlab_projects, :storage, :gl_repository, :relative_path
+      attr_reader :gitlab_projects, :storage, :gl_repository, :gl_project_path, :relative_path
 
       def initialize(gitaly_repository, path, gl_repository, gitlab_projects, combined_alt_dirs = "", feature_flags = GitalyServer::FeatureFlags.new({}))
         @gitaly_repository = gitaly_repository
@@ -75,6 +75,7 @@ module Gitlab
         @relative_path = gitaly_repository.relative_path
         @path = path
         @gl_repository = gl_repository
+        @gl_project_path = gitaly_repository.gl_project_path
         @gitlab_projects = gitlab_projects
         @feature_flags = feature_flags
       end
