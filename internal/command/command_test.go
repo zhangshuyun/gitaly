@@ -83,6 +83,10 @@ func TestNewCommandProxyEnv(t *testing.T) {
 			key:   "no_proxy",
 			value: "https://excluded:5000",
 		},
+		{
+			key:   "NO_PROXY",
+			value: "https://excluded:5000",
+		},
 	}
 
 	for _, tc := range testCases {
