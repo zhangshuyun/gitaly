@@ -1,5 +1,12 @@
 # Gitaly changelog
 
+## 12.10.13
+
+### Security (1 change)
+
+- Add random suffix to worktree paths to obstruct path traversal.
+
+
 ## 12.10.12
 
 - No changes.
