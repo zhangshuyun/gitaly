@@ -230,7 +230,8 @@ func gitalyFromEnv() (*grpc.ClientConn, error) {
 }
 
 func glValues() []string {
-	var glEnvVars []string
+	glEnvVars := command.AllowedEnvironment()
+
 	for _, kv := range os.Environ() {
 		if strings.HasPrefix(kv, "GL_") {
 			glEnvVars = append(glEnvVars, kv)

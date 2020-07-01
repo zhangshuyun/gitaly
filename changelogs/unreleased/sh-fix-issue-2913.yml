@@ -1,0 +1,5 @@
+---
+title: Fix HTTP proxies not working in Gitaly hooks
+merge_request: 2325
+author:
+type: fixed

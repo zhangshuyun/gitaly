@@ -72,6 +72,7 @@ func TestHooksPrePostReceive(t *testing.T) {
 	gitAlternateObjectDirs := []string{(filepath.Join(testRepoPath, "objects"))}
 
 	gitlabUser, gitlabPassword := "gitlab_user-1234", "gitlabsecret9887"
+	httpProxy, httpsProxy, noProxy := "http://test.example.com:8080", "https://test.example.com:8080", "*"
 
 	c := testhelper.GitlabTestServerOptions{
 		User:                        gitlabUser,
@@ -158,6 +159,11 @@ func TestHooksPrePostReceive(t *testing.T) {
 						GitObjectDir:           c.GitObjectDir,
 						GitAlternateObjectDirs: c.GitAlternateObjectDirs,
 					},
+					testhelper.ProxyValues{
+						HTTPProxy:  httpProxy,
+						HTTPSProxy: httpsProxy,
+						NoProxy:    noProxy,
+					},
 					gitPushOptions...,
 				)
 
@@ -172,9 +178,15 @@ func TestHooksPrePostReceive(t *testing.T) {
 				require.Empty(t, stdout.String())
 
 				output := string(testhelper.MustReadFile(t, customHookOutputPath))
-				require.Contains(t, output, "GL_USERNAME="+glUsername)
-				require.Contains(t, output, "GL_ID="+glID)
-				require.Contains(t, output, "GL_REPOSITORY="+glRepository)
+				requireContainsOnce(t, output, "GL_USERNAME="+glUsername)
+				requireContainsOnce(t, output, "GL_ID="+glID)
+				requireContainsOnce(t, output, "GL_REPOSITORY="+glRepository)
+				requireContainsOnce(t, output, "HTTP_PROXY="+httpProxy)
+				requireContainsOnce(t, output, "http_proxy="+httpProxy)
+				requireContainsOnce(t, output, "HTTPS_PROXY="+httpsProxy)
+				requireContainsOnce(t, output, "https_proxy="+httpsProxy)
+				requireContainsOnce(t, output, "no_proxy="+noProxy)
+				requireContainsOnce(t, output, "NO_PROXY="+noProxy)
 
 				if hookName == "pre-receive" {
 					gitObjectDirMatches := gitObjectDirRegex.FindStringSubmatch(output)
@@ -251,7 +263,7 @@ func testHooksUpdate(t *testing.T, gitlabShellDir, socket, token string, glValue
 	updateHookPath, err := filepath.Abs("../../ruby/git-hooks/update")
 	require.NoError(t, err)
 	cmd := exec.Command(updateHookPath, refval, oldval, newval)
-	cmd.Env = testhelper.EnvForHooks(t, gitlabShellDir, socket, token, testRepo, glValues)
+	cmd.Env = testhelper.EnvForHooks(t, gitlabShellDir, socket, token, testRepo, glValues, testhelper.ProxyValues{})
 	cmd.Dir = testRepoPath
 
 	tempDir, cleanup := testhelper.TempDir(t)
@@ -356,12 +368,14 @@ func TestHooksPostReceiveFailed(t *testing.T) {
 	postReceiveHookPath, err := filepath.Abs("../../ruby/git-hooks/post-receive")
 	require.NoError(t, err)
 	cmd := exec.Command(postReceiveHookPath)
-	cmd.Env = testhelper.EnvForHooks(t, tempGitlabShellDir, socket, token, testRepo, testhelper.GlHookValues{
-		GLID:       glID,
-		GLUsername: glUsername,
-		GLRepo:     glRepository,
-		GLProtocol: glProtocol,
-	})
+	cmd.Env = testhelper.EnvForHooks(t, tempGitlabShellDir, socket, token, testRepo,
+		testhelper.GlHookValues{
+			GLID:       glID,
+			GLUsername: glUsername,
+			GLRepo:     glRepository,
+			GLProtocol: glProtocol,
+		},
+		testhelper.ProxyValues{})
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	cmd.Stdin = bytes.NewBuffer([]byte(changes))
@@ -436,12 +450,14 @@ func TestHooksNotAllowed(t *testing.T) {
 	cmd.Stderr = &stderr
 	cmd.Stdout = &stdout
 	cmd.Stdin = strings.NewReader(changes)
-	cmd.Env = testhelper.EnvForHooks(t, tempGitlabShellDir, socket, token, testRepo, testhelper.GlHookValues{
-		GLID:       glID,
-		GLUsername: glUsername,
-		GLRepo:     glRepository,
-		GLProtocol: glProtocol,
-	})
+	cmd.Env = testhelper.EnvForHooks(t, tempGitlabShellDir, socket, token, testRepo,
+		testhelper.GlHookValues{
+			GLID:       glID,
+			GLUsername: glUsername,
+			GLRepo:     glRepository,
+			GLProtocol: glProtocol,
+		},
+		testhelper.ProxyValues{})
 	cmd.Dir = testRepoPath
 
 	require.Error(t, cmd.Run())
@@ -559,4 +575,10 @@ func runHookServiceServerWithAPI(t *testing.T, token string, gitlabAPI hook.Gitl
 	require.NoError(t, server.Start())
 
 	return server.Socket(), server.Stop
+}
+
+func requireContainsOnce(t *testing.T, s string, contains string) {
+	r := regexp.MustCompile(contains)
+	matches := r.FindAllStringIndex(s, -1)
+	require.Equal(t, 1, len(matches))
 }

@@ -726,10 +726,14 @@ type GlHookValues struct {
 	GitAlternateObjectDirs                             []string
 }
 
+type ProxyValues struct {
+	HTTPProxy, HTTPSProxy, NoProxy string
+}
+
 var jsonpbMarshaller jsonpb.Marshaler
 
 // EnvForHooks generates a set of environment variables for gitaly hooks
-func EnvForHooks(t testing.TB, gitlabShellDir, gitalySocket, gitalyToken string, repo *gitalypb.Repository, glHookValues GlHookValues, gitPushOptions ...string) []string {
+func EnvForHooks(t testing.TB, gitlabShellDir, gitalySocket, gitalyToken string, repo *gitalypb.Repository, glHookValues GlHookValues, proxyValues ProxyValues, gitPushOptions ...string) []string {
 	rubyDir, err := filepath.Abs("../../ruby")
 	require.NoError(t, err)
 
@@ -753,6 +757,19 @@ func EnvForHooks(t testing.TB, gitlabShellDir, gitalySocket, gitalyToken string,
 		fmt.Sprintf("GITALY_LOG_DIR=%s", gitlabShellDir),
 	}...)
 	env = append(env, hooks.GitPushOptions(gitPushOptions)...)
+
+	if proxyValues.HTTPProxy != "" {
+		env = append(env, fmt.Sprintf("HTTP_PROXY=%s", proxyValues.HTTPProxy))
+		env = append(env, fmt.Sprintf("http_proxy=%s", proxyValues.HTTPProxy))
+	}
+	if proxyValues.HTTPSProxy != "" {
+		env = append(env, fmt.Sprintf("HTTPS_PROXY=%s", proxyValues.HTTPSProxy))
+		env = append(env, fmt.Sprintf("https_proxy=%s", proxyValues.HTTPSProxy))
+	}
+	if proxyValues.NoProxy != "" {
+		env = append(env, fmt.Sprintf("NO_PROXY=%s", proxyValues.NoProxy))
+		env = append(env, fmt.Sprintf("no_proxy=%s", proxyValues.NoProxy))
+	}
 
 	if glHookValues.GitObjectDir != "" {
 		env = append(env, fmt.Sprintf("GIT_OBJECT_DIRECTORY=%s", glHookValues.GitObjectDir))

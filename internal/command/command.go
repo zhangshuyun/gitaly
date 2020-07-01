@@ -52,6 +52,7 @@ var exportedEnvVars = []string{
 	"HTTPS_PROXY",
 	// libcurl settings: https://curl.haxx.se/libcurl/c/CURLOPT_NOPROXY.html
 	"no_proxy",
+	"NO_PROXY",
 }
 
 const (
@@ -197,7 +198,7 @@ func New(ctx context.Context, cmd *exec.Cmd, stdin io.Reader, stdout, stderr io.
 	env = append(env, "GIT_TERMINAL_PROMPT=0")
 
 	// Export env vars
-	cmd.Env = exportEnvironment(env)
+	cmd.Env = append(env, AllowedEnvironment()...)
 
 	// Start the command in its own process group (nice for signalling)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
@@ -261,14 +262,19 @@ func New(ctx context.Context, cmd *exec.Cmd, stdin io.Reader, stdout, stderr io.
 	return command, nil
 }
 
-func exportEnvironment(env []string) []string {
+// AllowedEnvironment returns an environment based on the allowed
+// variables defined above. This is useful for constructing a base
+// environment in which a command can be run.
+func AllowedEnvironment() []string {
+	var filtered []string
+
 	for _, envVarName := range exportedEnvVars {
 		if val, ok := os.LookupEnv(envVarName); ok {
-			env = append(env, fmt.Sprintf("%s=%s", envVarName, val))
+			filtered = append(filtered, fmt.Sprintf("%s=%s", envVarName, val))
 		}
 	}
 
-	return env
+	return filtered
 }
 
 func escapeNewlineWriter(outbound io.WriteCloser, done chan struct{}, maxBytes int) io.WriteCloser {
