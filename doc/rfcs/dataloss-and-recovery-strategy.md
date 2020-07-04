@@ -2,15 +2,34 @@
 
 ## Abstract
 
-Praefect needs to know which Gitaly nodes contain up to date version of a given repository for various tasks including reporting, automatic repair and distributing workload. The current approach is very simple and is prone to problems leading to misleading reporting and not being able to utilize all up to date nodes. 
+This RFC proposes a strategy for Praefect to prevent, detect, and recover from dataloss.
 
-This RFC proposes augmenting the database with more accurate versioning information that solves the existing problems. 
+## Dataloss Prevention
 
-## Current Approach and Problems
+To reduce potential dataloss and conflicts, Praefect puts repositories into read-only mode when a primary-failover occurs.
 
-### Determining Repository Versions
+A primary-failover happens when a primary node is no longer considered healthy by a Praefect cluster. The Praefect cluster will then designate a new Primary from one of the remaining nodes in order to continue serving requests.
 
-The current approach for determining outdated repositories gleans the information from the replication queue. We check for two things:
+Once a new primary has been designated, a repository is in one of the following possible modes:
+
+- **Read-Write mode**
+	- Happens when the new primary replica has the latest changes
+	- Praefect will schedule new replications from the primary to any replicas missing the latest changes.
+	- Praefect will continue to process both mutator and accessor RPCs for the repository
+- **Recovery mode**
+	- Happens when the new primary replica is missing the latest changes but the latest changes exist on another replica
+	- Praefect will only process accessor RPCs until the primary receives the latest changes
+	- Praefect will attempt to propagate changes from repos with the latest changes to the repos missing them
+	- Once the primary is repaired, Praefect will start processing mutator RPCs again. This will put the repository into read-write mode.
+- **Read-only mode**
+  - Happens when none of the remaining replicas have the latest changes
+  - Praefect will only process accessor RPCs
+  - Read-only mode can be overridden manually by an administrator
+  - Read-only mode can be resolved when a node containing the latest changes becomes healthy again. This will put the repository into recovery mode.
+
+## Stateless Strategy
+
+In the stateless design, the approach for determining outdated repositories gleans the information from the replication queue. We check for two things:
 
 1. The latest replication job must be in `completed` state. Other states indicate possible unreplicated writes.
 
