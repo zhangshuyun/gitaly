@@ -1,5 +1,9 @@
 # Gitaly changelog
 
+## 12.10.14
+
+- No changes.
+
 ## 12.10.13
 
 ### Security (1 change)
