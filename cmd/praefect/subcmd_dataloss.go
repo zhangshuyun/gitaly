@@ -74,27 +74,24 @@ func (cmd *datalossSubcommand) Exec(flags *flag.FlagSet, cfg config.Config) erro
 			return fmt.Errorf("error checking: %v", err)
 		}
 
-		mode := "write-enabled"
-		if resp.IsReadOnly {
-			mode = "read-only"
-		}
-
 		cmd.println(0, "Virtual storage: %s", vs)
-		cmd.println(1, "Current %s primary: %s", mode, resp.CurrentPrimary)
-		if resp.PreviousWritablePrimary == "" {
-			fmt.Fprintln(cmd.output, "    No data loss as the virtual storage has not encountered a failover")
-			continue
+		cmd.println(1, "Primary: %s", resp.Primary)
+		if len(resp.Repositories) == 0 {
+			cmd.println(1, "All repositories are consistent!")
+			return nil
 		}
 
-		cmd.println(1, "Previous write-enabled primary: %s", resp.PreviousWritablePrimary)
-		if len(resp.OutdatedNodes) == 0 {
-			cmd.println(2, "No data loss from failing over from %s", resp.PreviousWritablePrimary)
-			continue
-		}
+		cmd.println(1, "Outdated repositories:")
+		for _, r := range resp.Repositories {
+			cmd.println(2, "%s:", r.RelativePath)
+			for _, s := range r.Storages {
+				plural := ""
+				if s.BehindBy > 1 {
+					plural = "s"
+				}
 
-		cmd.println(2, "Nodes with data loss from failing over from %s:", resp.PreviousWritablePrimary)
-		for _, odn := range resp.OutdatedNodes {
-			cmd.println(3, "%s: %s", odn.RelativePath, strings.Join(odn.Nodes, ", "))
+				cmd.println(3, "%s is behind by %d generation%s or less", s.Name, s.BehindBy, plural)
+			}
 		}
 	}
 

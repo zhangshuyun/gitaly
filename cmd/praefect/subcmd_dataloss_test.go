@@ -5,9 +5,12 @@ import (
 	"context"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/nodes"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/service/info"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
@@ -26,107 +29,81 @@ func (m mockPraefectInfoService) EnableWrites(ctx context.Context, r *gitalypb.E
 }
 
 func TestDatalossSubcommand(t *testing.T) {
-	mockSvc := &mockPraefectInfoService{}
-	ln, clean := listenAndServe(t, []svcRegistrar{registerPraefectInfoServer(mockSvc)})
+	mgr := &nodes.MockManager{
+		GetShardFunc: func(vs string) (nodes.Shard, error) {
+			var primary string
+			switch vs {
+			case "virtual-storage-1":
+				primary = "gitaly-1"
+			case "virtual-storage-2":
+				primary = "gitaly-4"
+			default:
+				t.Error("unexpected virtual storage")
+			}
+
+			return nodes.Shard{Primary: &nodes.MockNode{StorageName: primary}}, nil
+		},
+	}
+
+	gs := datastore.NewLocalGenerationStore(map[string][]string{
+		"virtual-storage-1": {"gitaly-1", "gitaly-2", "gitaly-3"},
+		"virtual-storage-2": {"gitaly-4"},
+	})
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	require.NoError(t, gs.SetGeneration(ctx, "virtual-storage-1", "gitaly-1", "repository-1", 1))
+	require.NoError(t, gs.SetGeneration(ctx, "virtual-storage-1", "gitaly-2", "repository-1", 0))
+
+	require.NoError(t, gs.SetGeneration(ctx, "virtual-storage-1", "gitaly-2", "repository-2", 0))
+	require.NoError(t, gs.SetGeneration(ctx, "virtual-storage-1", "gitaly-3", "repository-2", 0))
+
+	ln, clean := listenAndServe(t, []svcRegistrar{
+		registerPraefectInfoServer(info.NewServer(mgr, config.Config{}, nil, gs))})
 	defer clean()
 	for _, tc := range []struct {
 		desc            string
 		args            []string
 		virtualStorages []*config.VirtualStorage
-		datalossCheck   func(context.Context, *gitalypb.DatalossCheckRequest) (*gitalypb.DatalossCheckResponse, error)
 		output          string
 		error           error
 	}{
 		{
 			desc:  "positional arguments",
-			args:  []string{"-virtual-storage=test-virtual-storage", "positional-arg"},
+			args:  []string{"-virtual-storage=virtual-storage-1", "positional-arg"},
 			error: UnexpectedPositionalArgsError{Command: "dataloss"},
 		},
 		{
-			desc: "no failover",
-			args: []string{"-virtual-storage=test-virtual-storage"},
-			datalossCheck: func(ctx context.Context, req *gitalypb.DatalossCheckRequest) (*gitalypb.DatalossCheckResponse, error) {
-				assert.Equal(t, "test-virtual-storage", req.GetVirtualStorage())
-				return &gitalypb.DatalossCheckResponse{
-					CurrentPrimary: "test-current-primary",
-				}, nil
-			},
-			output: `Virtual storage: test-virtual-storage
-  Current write-enabled primary: test-current-primary
-    No data loss as the virtual storage has not encountered a failover
-`,
-		},
-		{
-			desc: "no data loss",
-			args: []string{"-virtual-storage=test-virtual-storage"},
-			datalossCheck: func(ctx context.Context, req *gitalypb.DatalossCheckRequest) (*gitalypb.DatalossCheckResponse, error) {
-				assert.Equal(t, "test-virtual-storage", req.GetVirtualStorage())
-				return &gitalypb.DatalossCheckResponse{
-					PreviousWritablePrimary: "test-previous-primary",
-					IsReadOnly:              false,
-					CurrentPrimary:          "test-current-primary",
-				}, nil
-			},
-			output: `Virtual storage: test-virtual-storage
-  Current write-enabled primary: test-current-primary
-  Previous write-enabled primary: test-previous-primary
-    No data loss from failing over from test-previous-primary
-`,
-		},
-		{
 			desc: "data loss",
-			args: []string{"-virtual-storage=test-virtual-storage"},
-			datalossCheck: func(ctx context.Context, req *gitalypb.DatalossCheckRequest) (*gitalypb.DatalossCheckResponse, error) {
-				assert.Equal(t, "test-virtual-storage", req.GetVirtualStorage())
-				return &gitalypb.DatalossCheckResponse{
-					PreviousWritablePrimary: "test-previous-primary",
-					IsReadOnly:              true,
-					CurrentPrimary:          "test-current-primary",
-					OutdatedNodes: []*gitalypb.DatalossCheckResponse_Nodes{
-						{RelativePath: "repository-1", Nodes: []string{"gitaly-2", "gitaly-3"}},
-						{RelativePath: "repository-2", Nodes: []string{"gitaly-1"}},
-					},
-				}, nil
-			},
-			output: `Virtual storage: test-virtual-storage
-  Current read-only primary: test-current-primary
-  Previous write-enabled primary: test-previous-primary
-    Nodes with data loss from failing over from test-previous-primary:
-      repository-1: gitaly-2, gitaly-3
-      repository-2: gitaly-1
+			args: []string{"-virtual-storage=virtual-storage-1"}, output: `Virtual storage: virtual-storage-1
+  Primary: gitaly-1
+  Outdated repositories:
+    repository-1:
+      gitaly-2 is behind by 1 generation or less
+      gitaly-3 is behind by 2 generations or less
+    repository-2:
+      gitaly-1 is behind by 1 generation or less
 `,
 		},
 		{
 			desc:            "multiple virtual storages",
-			virtualStorages: []*config.VirtualStorage{{Name: "test-virtual-storage-2"}, {Name: "test-virtual-storage-1"}},
-			datalossCheck: func(ctx context.Context, req *gitalypb.DatalossCheckRequest) (*gitalypb.DatalossCheckResponse, error) {
-				return &gitalypb.DatalossCheckResponse{
-					PreviousWritablePrimary: "test-previous-primary",
-					IsReadOnly:              true,
-					CurrentPrimary:          "test-current-primary",
-					OutdatedNodes: []*gitalypb.DatalossCheckResponse_Nodes{
-						{RelativePath: "repository-1", Nodes: []string{"gitaly-2", "gitaly-3"}},
-						{RelativePath: "repository-2", Nodes: []string{"gitaly-1"}},
-					},
-				}, nil
-			},
-			output: `Virtual storage: test-virtual-storage-1
-  Current read-only primary: test-current-primary
-  Previous write-enabled primary: test-previous-primary
-    Nodes with data loss from failing over from test-previous-primary:
-      repository-1: gitaly-2, gitaly-3
-      repository-2: gitaly-1
-Virtual storage: test-virtual-storage-2
-  Current read-only primary: test-current-primary
-  Previous write-enabled primary: test-previous-primary
-    Nodes with data loss from failing over from test-previous-primary:
-      repository-1: gitaly-2, gitaly-3
-      repository-2: gitaly-1
+			virtualStorages: []*config.VirtualStorage{{Name: "virtual-storage-2"}, {Name: "virtual-storage-1"}},
+			output: `Virtual storage: virtual-storage-1
+  Primary: gitaly-1
+  Outdated repositories:
+    repository-1:
+      gitaly-2 is behind by 1 generation or less
+      gitaly-3 is behind by 2 generations or less
+    repository-2:
+      gitaly-1 is behind by 1 generation or less
+Virtual storage: virtual-storage-2
+  Primary: gitaly-4
+  All repositories are consistent!
 `,
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			mockSvc.DatalossCheckFunc = tc.datalossCheck
 			cmd := newDatalossSubcommand()
 			output := &bytes.Buffer{}
 			cmd.output = output

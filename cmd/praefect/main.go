@@ -230,10 +230,13 @@ func run(cfgs []starter.Config, conf config.Config) error {
 	}
 
 	var queue datastore.ReplicationEventQueue
+	var gs datastore.GenerationStore
 	if conf.MemoryQueueEnabled {
 		queue = datastore.NewMemoryReplicationEventQueue(conf)
+		gs = datastore.NewLocalGenerationStore(conf.StorageNames())
 	} else {
 		queue = datastore.NewPostgresReplicationEventQueue(db)
+		gs = datastore.NewPostgresGenerationStore(db, conf.StorageNames())
 	}
 
 	nodeManager, err := nodes.NewManager(logger, conf, db, queue, nodeLatencyHistogram)
@@ -259,11 +262,19 @@ func run(cfgs []starter.Config, conf config.Config) error {
 
 	var (
 		// top level server dependencies
-		coordinator = praefect.NewCoordinator(queue, nodeManager, transactionManager, conf, protoregistry.GitalyProtoPreregistered)
-		repl        = praefect.NewReplMgr(
+		coordinator = praefect.NewCoordinator(
+			queue,
+			gs,
+			nodeManager,
+			transactionManager,
+			conf,
+			protoregistry.GitalyProtoPreregistered,
+		)
+		repl = praefect.NewReplMgr(
 			logger,
 			conf.VirtualStorageNames(),
 			queue,
+			gs,
 			nodeManager,
 			praefect.WithDelayMetric(delayMetric),
 			praefect.WithLatencyMetric(latencyMetric),
@@ -276,6 +287,7 @@ func run(cfgs []starter.Config, conf config.Config) error {
 			nodeManager,
 			transactionManager,
 			queue,
+			gs,
 			protoregistry.GitalyProtoPreregistered,
 		)
 	)

@@ -781,7 +781,14 @@ func TestProxyWrites(t *testing.T) {
 	require.NoError(t, err)
 	txMgr := transactions.NewManager()
 
-	coordinator := NewCoordinator(queue, nodeMgr, txMgr, conf, protoregistry.GitalyProtoPreregistered)
+	coordinator := NewCoordinator(
+		queue,
+		datastore.NewLocalGenerationStore(conf.StorageNames()),
+		nodeMgr,
+		txMgr,
+		conf,
+		protoregistry.GitalyProtoPreregistered,
+	)
 
 	server := grpc.NewServer(
 		grpc.CustomCodec(proxy.NewCodec()),

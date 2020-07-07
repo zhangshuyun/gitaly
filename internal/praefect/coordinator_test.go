@@ -87,6 +87,7 @@ func TestStreamDirectorReadOnlyEnforcement(t *testing.T) {
 			const storageName = "test-storage"
 			coordinator := NewCoordinator(
 				datastore.NewMemoryReplicationEventQueue(conf),
+				nil,
 				&nodes.MockManager{GetShardFunc: func(storage string) (nodes.Shard, error) {
 					return nodes.Shard{
 						IsReadOnly: tc.readOnly,
@@ -160,7 +161,14 @@ func TestStreamDirectorMutator(t *testing.T) {
 
 	txMgr := transactions.NewManager()
 
-	coordinator := NewCoordinator(queueInterceptor, nodeMgr, txMgr, conf, protoregistry.GitalyProtoPreregistered)
+	coordinator := NewCoordinator(
+		queueInterceptor,
+		datastore.NewLocalGenerationStore(conf.StorageNames()),
+		nodeMgr,
+		txMgr,
+		conf,
+		protoregistry.GitalyProtoPreregistered,
+	)
 
 	frame, err := proto.Marshal(&gitalypb.FetchIntoObjectPoolRequest{
 		Origin:     &targetRepo,
@@ -212,6 +220,9 @@ func TestStreamDirectorMutator(t *testing.T) {
 			RelativePath:      targetRepo.RelativePath,
 			TargetNodeStorage: secondaryNode.Storage,
 			SourceNodeStorage: primaryNode.Storage,
+			Params: datastore.Params{
+				"generation": 0,
+			},
 		},
 		Meta: datastore.Params{metadatahandler.CorrelationIDKey: "my-correlation-id"},
 	}
@@ -257,7 +268,14 @@ func TestStreamDirectorAccessor(t *testing.T) {
 
 	txMgr := transactions.NewManager()
 
-	coordinator := NewCoordinator(queue, nodeMgr, txMgr, conf, protoregistry.GitalyProtoPreregistered)
+	coordinator := NewCoordinator(
+		queue,
+		datastore.NewLocalGenerationStore(conf.StorageNames()),
+		nodeMgr,
+		txMgr,
+		conf,
+		protoregistry.GitalyProtoPreregistered,
+	)
 
 	frame, err := proto.Marshal(&gitalypb.FindAllBranchesRequest{Repository: &targetRepo})
 	require.NoError(t, err)
@@ -335,7 +353,14 @@ func TestCoordinatorStreamDirector_distributesReads(t *testing.T) {
 
 	txMgr := transactions.NewManager()
 
-	coordinator := NewCoordinator(queue, nodeMgr, txMgr, conf, protoregistry.GitalyProtoPreregistered)
+	coordinator := NewCoordinator(
+		queue,
+		datastore.NewLocalGenerationStore(conf.StorageNames()),
+		nodeMgr,
+		txMgr,
+		conf,
+		protoregistry.GitalyProtoPreregistered,
+	)
 
 	t.Run("forwards accessor operations", func(t *testing.T) {
 		var primaryChosen int
@@ -526,7 +551,14 @@ func TestAbsentCorrelationID(t *testing.T) {
 	require.NoError(t, err)
 	txMgr := transactions.NewManager()
 
-	coordinator := NewCoordinator(queueInterceptor, nodeMgr, txMgr, conf, protoregistry.GitalyProtoPreregistered)
+	coordinator := NewCoordinator(
+		queueInterceptor,
+		datastore.NewLocalGenerationStore(conf.StorageNames()),
+		nodeMgr,
+		txMgr,
+		conf,
+		protoregistry.GitalyProtoPreregistered,
+	)
 
 	frame, err := proto.Marshal(&gitalypb.FetchIntoObjectPoolRequest{
 		Origin:     &targetRepo,

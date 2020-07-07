@@ -8,37 +8,38 @@ import (
 )
 
 func (s *Server) DatalossCheck(ctx context.Context, req *gitalypb.DatalossCheckRequest) (*gitalypb.DatalossCheckResponse, error) {
-	shard, err := s.nodeMgr.GetShard(req.VirtualStorage)
+	shard, err := s.nodeMgr.GetShard(req.GetVirtualStorage())
 	if err != nil {
 		return nil, err
 	}
 
-	if shard.PreviousWritablePrimary == nil {
-		return &gitalypb.DatalossCheckResponse{
-			CurrentPrimary: shard.Primary.GetStorage(),
-			IsReadOnly:     shard.IsReadOnly,
-		}, nil
-	}
-
-	repos, err := s.queue.GetOutdatedRepositories(ctx, req.GetVirtualStorage(), shard.PreviousWritablePrimary.GetStorage())
+	outdatedRepos, err := s.gs.GetOutdatedRepositories(ctx, req.GetVirtualStorage())
 	if err != nil {
 		return nil, err
 	}
 
-	outdatedNodes := make([]*gitalypb.DatalossCheckResponse_Nodes, 0, len(repos))
-	for repo, nodes := range repos {
-		outdatedNodes = append(outdatedNodes, &gitalypb.DatalossCheckResponse_Nodes{
-			RelativePath: repo,
-			Nodes:        nodes,
+	pbRepos := make([]*gitalypb.DatalossCheckResponse_Repository, 0, len(outdatedRepos))
+	for relativePath, storages := range outdatedRepos {
+		pbStorages := make([]*gitalypb.DatalossCheckResponse_Repository_Storage, 0, len(storages))
+		for name, behindBy := range storages {
+			pbStorages = append(pbStorages, &gitalypb.DatalossCheckResponse_Repository_Storage{
+				Name:     name,
+				BehindBy: int64(behindBy),
+			})
+		}
+
+		sort.Slice(pbStorages, func(i, j int) bool { return pbStorages[i].Name < pbStorages[j].Name })
+
+		pbRepos = append(pbRepos, &gitalypb.DatalossCheckResponse_Repository{
+			RelativePath: relativePath,
+			Storages:     pbStorages,
 		})
 	}
 
-	sort.Slice(outdatedNodes, func(i, j int) bool { return outdatedNodes[i].RelativePath < outdatedNodes[j].RelativePath })
+	sort.Slice(pbRepos, func(i, j int) bool { return pbRepos[i].RelativePath < pbRepos[j].RelativePath })
 
 	return &gitalypb.DatalossCheckResponse{
-		PreviousWritablePrimary: shard.PreviousWritablePrimary.GetStorage(),
-		CurrentPrimary:          shard.Primary.GetStorage(),
-		IsReadOnly:              shard.IsReadOnly,
-		OutdatedNodes:           outdatedNodes,
+		Primary:      shard.Primary.GetStorage(),
+		Repositories: pbRepos,
 	}, nil
 }

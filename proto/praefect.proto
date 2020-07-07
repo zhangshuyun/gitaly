@@ -57,19 +57,25 @@ message DatalossCheckRequest {
 }
 
 message DatalossCheckResponse {
-  message Nodes {
-    // relative path of the repository with outdated nodes
+  message Repository {
+    message Storage {
+      // name of the storage
+      string name = 1;
+      // behind_by indicates how many generations this storage is behind.
+      int64 behind_by = 2;
+    }
+
+    // relative path of the repository with outdated replicas
     string relative_path = 1;
-    // nodes whose copy of the repository is not up to date
-    repeated string nodes = 2;
+    // storages on which the repository is outdated
+    repeated Storage storages = 2;
   }
 
-  string virtual_storage = 1;
-  string previous_writable_primary = 2;
-  string current_primary = 3;
-  // whether the virtual storage is currently in read-only mode
-  bool is_read_only = 4;
-  repeated Nodes outdated_nodes = 5;
+  // current primary storage
+  string primary = 1;
+
+  // repositories with data loss
+  repeated Repository repositories = 2;
 }
 
 message RepositoryReplicasRequest{

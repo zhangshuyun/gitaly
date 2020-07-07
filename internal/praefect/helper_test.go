@@ -235,8 +235,11 @@ func runPraefectServer(t testing.TB, conf config.Config, opt buildOptions) (*grp
 		opt.withNodeMgr = defaultNodeMgr(t, conf, opt.withQueue)
 	}
 
+	gs := datastore.NewLocalGenerationStore(conf.StorageNames())
+
 	coordinator := NewCoordinator(
 		opt.withQueue,
+		gs,
 		opt.withNodeMgr,
 		opt.withTxMgr,
 		conf,
@@ -248,10 +251,11 @@ func runPraefectServer(t testing.TB, conf config.Config, opt buildOptions) (*grp
 		opt.withLogger,
 		conf.VirtualStorageNames(),
 		opt.withQueue,
+		gs,
 		opt.withNodeMgr,
 	)
 
-	prf := NewGRPCServer(conf, opt.withLogger, protoregistry.GitalyProtoPreregistered, coordinator.StreamDirector, opt.withNodeMgr, opt.withTxMgr, opt.withQueue)
+	prf := NewGRPCServer(conf, opt.withLogger, protoregistry.GitalyProtoPreregistered, coordinator.StreamDirector, opt.withNodeMgr, opt.withTxMgr, opt.withQueue, gs)
 
 	listener, port := listenAvailPort(t)
 	t.Logf("proxy listening on port %d", port)

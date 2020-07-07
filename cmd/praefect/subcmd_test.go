@@ -41,7 +41,7 @@ func listenAndServe(t testing.TB, svcs []svcRegistrar) (net.Listener, testhelper
 
 	tmp, clean := testhelper.TempDir(t)
 
-	ln, err := net.Listen("unix", filepath.Join(tmp, "gitaly.sock"))
+	ln, err := net.Listen("unix", filepath.Join(tmp, "lollero"))
 	require.NoError(t, err)
 
 	srv := grpc.NewServer()

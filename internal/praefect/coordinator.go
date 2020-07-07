@@ -60,9 +60,8 @@ func getReplicationDetails(methodName string, m proto.Message) (datastore.Change
 			return "", nil, fmt.Errorf("protocol changed: for method %q expected  message type '%T', got '%T'", methodName, req, m)
 		}
 		return datastore.RepackIncremental, nil, nil
-
 	default:
-		return datastore.UpdateRepo, nil, nil
+		return datastore.UpdateRepo, datastore.Params{}, nil
 	}
 }
 
@@ -81,6 +80,7 @@ type Coordinator struct {
 	nodeMgr  nodes.Manager
 	txMgr    *transactions.Manager
 	queue    datastore.ReplicationEventQueue
+	gs       datastore.GenerationStore
 	registry *protoregistry.Registry
 	conf     config.Config
 }
@@ -88,6 +88,7 @@ type Coordinator struct {
 // NewCoordinator returns a new Coordinator that utilizes the provided logger
 func NewCoordinator(
 	queue datastore.ReplicationEventQueue,
+	gs datastore.GenerationStore,
 	nodeMgr nodes.Manager,
 	txMgr *transactions.Manager,
 	conf config.Config,
@@ -95,6 +96,7 @@ func NewCoordinator(
 ) *Coordinator {
 	return &Coordinator{
 		queue:    queue,
+		gs:       gs,
 		registry: r,
 		nodeMgr:  nodeMgr,
 		txMgr:    txMgr,
@@ -237,7 +239,7 @@ func (c *Coordinator) mutatorStreamParameters(ctx context.Context, call grpcCall
 			})
 		}
 	} else {
-		finalizers = append(finalizers, c.createReplicaJobs(ctx, virtualStorage, call.targetRepo, shard.Primary, shard.Secondaries, change, params))
+		finalizers = append(finalizers, c.newRequestFinalizer(ctx, virtualStorage, call.targetRepo, shard.Primary, shard.Secondaries, change, params))
 	}
 
 	reqFinalizer := func() error {
@@ -363,7 +365,7 @@ func protoMessage(mi protoregistry.MethodInfo, frame []byte) (proto.Message, err
 	return m, nil
 }
 
-func (c *Coordinator) createReplicaJobs(
+func (c *Coordinator) newRequestFinalizer(
 	ctx context.Context,
 	virtualStorage string,
 	targetRepo *gitalypb.Repository,
@@ -373,6 +375,14 @@ func (c *Coordinator) createReplicaJobs(
 	params datastore.Params,
 ) func() error {
 	return func() error {
+		if change == datastore.UpdateRepo {
+			var err error
+			params["generation"], err = c.gs.IncrementGeneration(ctx, virtualStorage, primary.GetStorage(), targetRepo.GetRelativePath())
+			if err != nil {
+				return fmt.Errorf("failed incrementing primary's generation: %w", err)
+			}
+		}
+
 		correlationID := c.ensureCorrelationID(ctx, targetRepo)
 
 		g, ctx := errgroup.WithContext(ctx)

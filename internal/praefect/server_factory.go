@@ -25,6 +25,7 @@ func NewServerFactory(
 	nodeMgr nodes.Manager,
 	txMgr *transactions.Manager,
 	queue datastore.ReplicationEventQueue,
+	gs datastore.GenerationStore,
 	registry *protoregistry.Registry,
 ) *ServerFactory {
 	return &ServerFactory{
@@ -34,6 +35,7 @@ func NewServerFactory(
 		nodeMgr:  nodeMgr,
 		txMgr:    txMgr,
 		queue:    queue,
+		gs:       gs,
 		registry: registry,
 	}
 }
@@ -47,6 +49,7 @@ type ServerFactory struct {
 	nodeMgr          nodes.Manager
 	txMgr            *transactions.Manager
 	queue            datastore.ReplicationEventQueue
+	gs               datastore.GenerationStore
 	registry         *protoregistry.Registry
 	secure, insecure []*grpc.Server
 }
@@ -112,6 +115,7 @@ func (s *ServerFactory) createGRPC(grpcOpts ...grpc.ServerOption) *grpc.Server {
 		s.nodeMgr,
 		s.txMgr,
 		s.queue,
+		s.gs,
 		grpcOpts...,
 	)
 }

@@ -145,8 +145,10 @@ func TestProcessReplicationJob(t *testing.T) {
 		Message: "a commit",
 	})
 
-	var replicator defaultReplicator
-	replicator.log = entry
+	replicator := defaultReplicator{
+		log: entry,
+		gs:  datastore.NewLocalGenerationStore(conf.StorageNames()),
+	}
 
 	mockReplicationGauge := promtest.NewMockStorageGauge()
 
@@ -157,6 +159,7 @@ func TestProcessReplicationJob(t *testing.T) {
 		testhelper.DiscardTestEntry(t),
 		conf.VirtualStorageNames(),
 		queue,
+		datastore.NewLocalGenerationStore(conf.StorageNames()),
 		nodeMgr,
 		WithLatencyMetric(&mockReplicationLatencyHistogramVec),
 		WithDelayMetric(&mockReplicationDelayHistogramVec),
@@ -217,11 +220,13 @@ func TestPropagateReplicationJob(t *testing.T) {
 
 	txMgr := transactions.NewManager()
 
-	coordinator := NewCoordinator(queue, nodeMgr, txMgr, conf, protoregistry.GitalyProtoPreregistered)
+	gs := datastore.NewLocalGenerationStore(conf.StorageNames())
 
-	replmgr := NewReplMgr(logEntry, conf.VirtualStorageNames(), queue, nodeMgr)
+	coordinator := NewCoordinator(queue, gs, nodeMgr, txMgr, conf, protoregistry.GitalyProtoPreregistered)
 
-	prf := NewGRPCServer(conf, logEntry, protoregistry.GitalyProtoPreregistered, coordinator.StreamDirector, nodeMgr, txMgr, queue)
+	replmgr := NewReplMgr(logEntry, conf.VirtualStorageNames(), queue, gs, nodeMgr)
+
+	prf := NewGRPCServer(conf, logEntry, protoregistry.GitalyProtoPreregistered, coordinator.StreamDirector, nodeMgr, txMgr, queue, gs)
 
 	listener, port := listenAvailPort(t)
 	ctx, cancel := testhelper.Context()
@@ -499,7 +504,13 @@ func TestProcessBacklog_FailedJobs(t *testing.T) {
 	nodeMgr, err := nodes.NewManager(logEntry, conf, nil, queueInterceptor, promtest.NewMockHistogramVec())
 	require.NoError(t, err)
 
-	replMgr := NewReplMgr(logEntry, conf.VirtualStorageNames(), queueInterceptor, nodeMgr)
+	replMgr := NewReplMgr(
+		logEntry,
+		conf.VirtualStorageNames(),
+		queueInterceptor,
+		datastore.NewLocalGenerationStore(conf.StorageNames()),
+		nodeMgr,
+	)
 	replMgr.ProcessBacklog(ctx, noopBackoffFunc)
 
 	select {
@@ -639,7 +650,13 @@ func TestProcessBacklog_Success(t *testing.T) {
 	nodeMgr, err := nodes.NewManager(logEntry, conf, nil, queueInterceptor, promtest.NewMockHistogramVec())
 	require.NoError(t, err)
 
-	replMgr := NewReplMgr(logEntry, conf.VirtualStorageNames(), queueInterceptor, nodeMgr)
+	replMgr := NewReplMgr(
+		logEntry,
+		conf.VirtualStorageNames(),
+		queueInterceptor,
+		datastore.NewLocalGenerationStore(conf.StorageNames()),
+		nodeMgr,
+	)
 	replMgr.ProcessBacklog(ctx, noopBackoffFunc)
 
 	select {
@@ -703,6 +720,7 @@ func TestProcessBacklog_ReplicatesToReadOnlyPrimary(t *testing.T) {
 		testhelper.DiscardTestEntry(t),
 		conf.VirtualStorageNames(),
 		queue,
+		datastore.NewLocalGenerationStore(conf.StorageNames()),
 		&nodes.MockManager{
 			GetShardFunc: func(vs string) (nodes.Shard, error) {
 				require.Equal(t, virtualStorage, vs)

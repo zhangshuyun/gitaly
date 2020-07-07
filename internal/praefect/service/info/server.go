@@ -11,23 +11,27 @@ import (
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
+type GenerationStore interface {
+	GetOutdatedRepositories(ctx context.Context, virtualStorage string) (map[string]map[string]int, error)
+}
+
 // Server is a InfoService server
 type Server struct {
 	gitalypb.UnimplementedPraefectInfoServiceServer
 	nodeMgr nodes.Manager
 	conf    config.Config
+	gs      GenerationStore
 	queue   datastore.ReplicationEventQueue
 }
 
 // NewServer creates a new instance of a grpc InfoServiceServer
-func NewServer(nodeMgr nodes.Manager, conf config.Config, queue datastore.ReplicationEventQueue) gitalypb.PraefectInfoServiceServer {
-	s := &Server{
+func NewServer(nodeMgr nodes.Manager, conf config.Config, queue datastore.ReplicationEventQueue, gs GenerationStore) gitalypb.PraefectInfoServiceServer {
+	return &Server{
 		nodeMgr: nodeMgr,
 		conf:    conf,
+		gs:      gs,
 		queue:   queue,
 	}
-
-	return s
 }
 
 func (s *Server) EnableWrites(ctx context.Context, req *gitalypb.EnableWritesRequest) (*gitalypb.EnableWritesResponse, error) {

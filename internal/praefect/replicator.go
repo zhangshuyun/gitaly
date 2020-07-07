@@ -38,6 +38,7 @@ type Replicator interface {
 
 type defaultReplicator struct {
 	log *logrus.Entry
+	gs  datastore.GenerationStore
 }
 
 func (dr defaultReplicator) Replicate(ctx context.Context, event datastore.ReplicationEvent, sourceCC, targetCC *grpc.ClientConn) error {
@@ -49,6 +50,17 @@ func (dr defaultReplicator) Replicate(ctx context.Context, event datastore.Repli
 	sourceRepository := &gitalypb.Repository{
 		StorageName:  event.Job.SourceNodeStorage,
 		RelativePath: event.Job.RelativePath,
+	}
+
+	// Old instances might produce replication jobs which do not have a generation number. Such replication jobs
+	// are processed if the target repository does not have a known generation yet.
+	generation := datastore.GenerationUnknown
+	if evtGen, ok := event.Job.Params["generation"]; ok {
+		generation = int(evtGen.(float64))
+	}
+
+	if err := dr.gs.EnsureUpgrade(ctx, event.Job.VirtualStorage, event.Job.TargetNodeStorage, event.Job.RelativePath, generation); err != nil {
+		return fmt.Errorf("ensure upgrade: %w", err)
 	}
 
 	targetRepositoryClient := gitalypb.NewRepositoryServiceClient(targetCC)
@@ -101,6 +113,15 @@ func (dr defaultReplicator) Replicate(ctx context.Context, event datastore.Repli
 		}).Error("checksums do not match")
 	}
 
+	if generation >= 0 {
+		return dr.gs.SetGeneration(ctx,
+			event.Job.VirtualStorage,
+			event.Job.TargetNodeStorage,
+			event.Job.RelativePath,
+			generation,
+		)
+	}
+
 	return nil
 }
 
@@ -111,6 +132,13 @@ func (dr defaultReplicator) Destroy(ctx context.Context, event datastore.Replica
 	}
 
 	repoSvcClient := gitalypb.NewRepositoryServiceClient(targetCC)
+
+	// This might succeed and the repository removal fail. The repository removal will be reattempted as long
+	// as the replication job is still alive. We'll need an additional field later to separate this case from
+	// a missing repository record and to reattempt the removal even after the original replication job is dead.
+	if err := dr.gs.DeleteRecord(ctx, event.Job.VirtualStorage, event.Job.TargetNodeStorage, event.Job.RelativePath); err != nil {
+		return err
+	}
 
 	_, err := repoSvcClient.RemoveRepository(ctx, &gitalypb.RemoveRepositoryRequest{
 		Repository: targetRepo,
@@ -294,12 +322,12 @@ func WithDelayMetric(h prommetrics.HistogramVec) func(*ReplMgr) {
 
 // NewReplMgr initializes a replication manager with the provided dependencies
 // and options
-func NewReplMgr(log *logrus.Entry, virtualStorages []string, queue datastore.ReplicationEventQueue, nodeMgr nodes.Manager, opts ...ReplMgrOpt) ReplMgr {
+func NewReplMgr(log *logrus.Entry, virtualStorages []string, queue datastore.ReplicationEventQueue, gs datastore.GenerationStore, nodeMgr nodes.Manager, opts ...ReplMgrOpt) ReplMgr {
 	r := ReplMgr{
 		log:               log.WithField("component", "replication_manager"),
 		queue:             queue,
 		whitelist:         map[string]struct{}{},
-		replicator:        defaultReplicator{log},
+		replicator:        defaultReplicator{log, gs},
 		virtualStorages:   virtualStorages,
 		nodeManager:       nodeMgr,
 		replLatencyMetric: prometheus.NewHistogramVec(prometheus.HistogramOpts{}, []string{"type"}),

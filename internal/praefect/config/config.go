@@ -172,6 +172,21 @@ func (c *Config) VirtualStorageNames() []string {
 	return names
 }
 
+// StorageNames returns storage names by virtual storage.
+func (c *Config) StorageNames() map[string][]string {
+	storages := make(map[string][]string, len(c.VirtualStorages))
+	for _, vs := range c.VirtualStorages {
+		nodes := make([]string, len(vs.Nodes))
+		for i, n := range vs.Nodes {
+			nodes[i] = n.Storage
+		}
+
+		storages[vs.Name] = nodes
+	}
+
+	return storages
+}
+
 // DB holds Postgres client configuration data.
 type DB struct {
 	Host                         string `toml:"host"`

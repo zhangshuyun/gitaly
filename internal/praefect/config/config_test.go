@@ -336,6 +336,18 @@ func TestVirtualStorageNames(t *testing.T) {
 	require.Equal(t, []string{"praefect-1", "praefect-2"}, conf.VirtualStorageNames())
 }
 
+func TestStorageNames(t *testing.T) {
+	conf := Config{
+		VirtualStorages: []*VirtualStorage{
+			{Name: "virtual-storage-1", Nodes: []*Node{{Storage: "gitaly-1"}, {Storage: "gitaly-2"}}},
+			{Name: "virtual-storage-2", Nodes: []*Node{{Storage: "gitaly-3"}, {Storage: "gitaly-4"}}},
+		}}
+	require.Equal(t, map[string][]string{
+		"virtual-storage-1": {"gitaly-1", "gitaly-2"},
+		"virtual-storage-2": {"gitaly-3", "gitaly-4"},
+	}, conf.StorageNames())
+}
+
 func TestToPQString(t *testing.T) {
 	testCases := []struct {
 		desc string
