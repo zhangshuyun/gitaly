@@ -1,5 +1,12 @@
 # Gitaly changelog
 
+## 13.1.4
+
+### Changed (1 change)
+
+- Add GL_PROJECT_PATH for custom hooks. !2313
+
+
 ## 13.1.3
 
 ### Fixed (1 change)
