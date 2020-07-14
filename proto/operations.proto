@@ -244,6 +244,7 @@ message UserRevertRequest {
   bytes message = 5;
   bytes start_branch_name = 6;
   Repository start_repository = 7;
+  bool dry_run = 8;
 }
 
 message UserRevertResponse {
