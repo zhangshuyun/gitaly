@@ -321,7 +321,7 @@ module Gitlab
         raise ArgumentError, 'Invalid merge source'
       end
 
-      def revert(user:, commit:, branch_name:, message:, start_branch_name:, start_repository:)
+      def revert(user:, commit:, branch_name:, message:, start_branch_name:, start_repository:, dry_run: false)
         OperationService.new(user, self).with_branch(
           branch_name,
           start_branch_name: start_branch_name,
@@ -330,24 +330,35 @@ module Gitlab
 
           revert_tree_id = check_revert_content(commit, start_commit.sha)
 
-          committer = user_to_committer(user)
+          if dry_run
+            rugged.reset('HEAD', :soft)
 
-          create_commit(message: message,
-                        author: committer,
-                        committer: committer,
-                        tree: revert_tree_id,
-                        parents: [start_commit.sha])
+            # Response expects a commit SHA. Since we're not actually
+            # committing anything, just return the starting SHA
+            start_commit.sha
+          else
+            committer = user_to_committer(user)
+
+            create_commit(
+              message: message,
+              author: committer,
+              committer: committer,
+              tree: revert_tree_id,
+              parents: [start_commit.sha]
+            )
+          end
         end
       end
 
-      def cherry_pick(user:, commit:, branch_name:, message:, start_branch_name:, start_repository:)
+      def cherry_pick(user:, commit:, branch_name:, message:, start_branch_name:, start_repository:, dry_run: false)
         args = {
           user: user,
           commit: commit,
           branch_name: branch_name,
           message: message,
           start_branch_name: start_branch_name,
-          start_repository: start_repository
+          start_repository: start_repository,
+          dry_run: dry_run
         }
 
         rugged_cherry_pick(args)
@@ -822,7 +833,7 @@ module Gitlab
         raise GitError, "Could not delete refs #{ref_names}: #{message}" unless status.zero?
       end
 
-      def rugged_cherry_pick(user:, commit:, branch_name:, message:, start_branch_name:, start_repository:)
+      def rugged_cherry_pick(user:, commit:, branch_name:, message:, start_branch_name:, start_repository:, dry_run: false)
         OperationService.new(user, self).with_branch(
           branch_name,
           start_branch_name: start_branch_name,
@@ -831,17 +842,27 @@ module Gitlab
 
           cherry_pick_tree_id = check_cherry_pick_content(commit, start_commit.sha)
 
-          committer = user_to_committer(user)
+          if dry_run
+            rugged.reset('HEAD', :soft)
 
-          create_commit(message: message,
-                        author: {
-                          email: commit.author_email,
-                          name: commit.author_name,
-                          time: commit.authored_date
-                        },
-                        committer: committer,
-                        tree: cherry_pick_tree_id,
-                        parents: [start_commit.sha])
+            # Response expects a commit SHA. Since we're not actually
+            # committing anything, just return the starting SHA
+            start_commit.sha
+          else
+            committer = user_to_committer(user)
+
+            create_commit(
+              message: message,
+              author: {
+                email: commit.author_email,
+                name: commit.author_name,
+                time: commit.authored_date
+              },
+              committer: committer,
+              tree: cherry_pick_tree_id,
+              parents: [start_commit.sha]
+            )
+          end
         end
       end
 

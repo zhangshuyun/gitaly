@@ -168,7 +168,8 @@ module GitalyServer
         branch_name: request.branch_name,
         message: request.message.dup,
         start_branch_name: request.start_branch_name.presence,
-        start_repository: start_repository
+        start_repository: start_repository,
+        dry_run: request.dry_run
       )
 
       branch_update = branch_update_result(result)
@@ -196,7 +197,8 @@ module GitalyServer
         branch_name: request.branch_name,
         message: request.message.dup,
         start_branch_name: request.start_branch_name.presence,
-        start_repository: start_repository
+        start_repository: start_repository,
+        dry_run: request.dry_run
       )
 
       branch_update = branch_update_result(result)

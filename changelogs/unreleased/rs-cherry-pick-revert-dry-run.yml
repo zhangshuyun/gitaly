@@ -1,0 +1,5 @@
+---
+title: Support dry-run cherry-picks and reverts
+merge_request: 2382
+author:
+type: added
