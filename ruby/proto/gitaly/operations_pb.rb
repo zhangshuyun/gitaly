@@ -103,6 +103,7 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
     optional :message, :bytes, 5
     optional :start_branch_name, :bytes, 6
     optional :start_repository, :message, 7, "gitaly.Repository"
+    optional :dry_run, :bool, 8
   end
   add_message "gitaly.UserCherryPickResponse" do
     optional :branch_update, :message, 1, "gitaly.OperationBranchUpdate"
