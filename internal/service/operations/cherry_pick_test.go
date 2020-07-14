@@ -115,6 +115,115 @@ func TestSuccessfulUserCherryPickRequest(t *testing.T) {
 	}
 }
 
+func TestSuccessfulUserCherryPickRequestWithDryRun(t *testing.T) {
+	ctxOuter, cancel := testhelper.Context()
+	defer cancel()
+
+	serverSocketPath, stop := runOperationServiceServer(t)
+	defer stop()
+
+	client, conn := newOperationClient(t, serverSocketPath)
+	defer conn.Close()
+
+	testRepo, testRepoPath, cleanup := testhelper.NewTestRepo(t)
+	defer cleanup()
+
+	destinationBranch := "cherry-picking-dst"
+	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", destinationBranch, "master")
+
+	masterHeadCommit, err := log.GetCommit(ctxOuter, testRepo, "master")
+	require.NoError(t, err)
+
+	cherryPickedCommit, err := log.GetCommit(ctxOuter, testRepo, "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab")
+	require.NoError(t, err)
+
+	testRepoCopy, _, cleanup := testhelper.NewTestRepo(t)
+	defer cleanup()
+
+	testCases := []struct {
+		desc         string
+		request      *gitalypb.UserCherryPickRequest
+		branchUpdate *gitalypb.OperationBranchUpdate
+	}{
+		{
+			desc: "branch exists",
+			request: &gitalypb.UserCherryPickRequest{
+				Repository: testRepo,
+				User:       testhelper.TestUser,
+				Commit:     cherryPickedCommit,
+				BranchName: []byte(destinationBranch),
+				Message:    []byte("Cherry-picking " + cherryPickedCommit.Id),
+				DryRun:     true,
+			},
+			branchUpdate: &gitalypb.OperationBranchUpdate{},
+		},
+		{
+			desc: "nonexistent branch + start_repository == repository",
+			request: &gitalypb.UserCherryPickRequest{
+				Repository:      testRepo,
+				User:            testhelper.TestUser,
+				Commit:          cherryPickedCommit,
+				BranchName:      []byte("to-be-cherry-picked-into-1"),
+				Message:         []byte("Cherry-picking " + cherryPickedCommit.Id),
+				StartBranchName: []byte("master"),
+				DryRun:          true,
+			},
+			branchUpdate: &gitalypb.OperationBranchUpdate{BranchCreated: true},
+		},
+		{
+			desc: "nonexistent branch + start_repository != repository",
+			request: &gitalypb.UserCherryPickRequest{
+				Repository:      testRepo,
+				User:            testhelper.TestUser,
+				Commit:          cherryPickedCommit,
+				BranchName:      []byte("to-be-cherry-picked-into-2"),
+				Message:         []byte("Cherry-picking " + cherryPickedCommit.Id),
+				StartRepository: testRepoCopy,
+				StartBranchName: []byte("master"),
+				DryRun:          true,
+			},
+			branchUpdate: &gitalypb.OperationBranchUpdate{BranchCreated: true},
+		},
+		{
+			desc: "nonexistent branch + empty start_repository",
+			request: &gitalypb.UserCherryPickRequest{
+				Repository:      testRepo,
+				User:            testhelper.TestUser,
+				Commit:          cherryPickedCommit,
+				BranchName:      []byte("to-be-cherry-picked-into-3"),
+				Message:         []byte("Cherry-picking " + cherryPickedCommit.Id),
+				StartBranchName: []byte("master"),
+				DryRun:          true,
+			},
+			branchUpdate: &gitalypb.OperationBranchUpdate{BranchCreated: true},
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.desc, func(t *testing.T) {
+			md := testhelper.GitalyServersMetadata(t, serverSocketPath)
+			ctx := metadata.NewOutgoingContext(ctxOuter, md)
+
+			response, err := client.UserCherryPick(ctx, testCase.request)
+			require.NoError(t, err)
+
+			headCommit, err := log.GetCommit(ctx, testRepo, string(testCase.request.BranchName))
+			require.NoError(t, err)
+
+			expectedBranchUpdate := testCase.branchUpdate
+			expectedBranchUpdate.CommitId = headCommit.Id
+
+			require.Equal(t, expectedBranchUpdate, response.BranchUpdate)
+			require.Empty(t, response.CreateTreeError)
+			require.Empty(t, response.CreateTreeErrorCode)
+
+			// These shouldn't have changed, since it was a dry-run
+			require.Equal(t, masterHeadCommit.Subject, headCommit.Subject)
+			require.Equal(t, masterHeadCommit.Id, headCommit.Id)
+		})
+	}
+}
+
 func TestSuccessfulGitHooksForUserCherryPickRequest(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
