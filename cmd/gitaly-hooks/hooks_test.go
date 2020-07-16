@@ -48,7 +48,27 @@ func testMain(m *testing.M) int {
 	return m.Run()
 }
 
+func TestHooksPrePostWithSymlinkedStoragePath(t *testing.T) {
+	tempDir, cleanup := testhelper.TempDir(t)
+	defer cleanup()
+
+	originalStoragePath := config.Config.Storages[0].Path
+	symlinkedStoragePath := filepath.Join(tempDir, "storage")
+	require.NoError(t, os.Symlink(originalStoragePath, symlinkedStoragePath))
+
+	defer func() {
+		config.Config.Storages[0].Path = originalStoragePath
+	}()
+	config.Config.Storages[0].Path = symlinkedStoragePath
+
+	testHooksPrePostReceive(t)
+}
+
 func TestHooksPrePostReceive(t *testing.T) {
+	testHooksPrePostReceive(t)
+}
+
+func testHooksPrePostReceive(t *testing.T) {
 	defer func(cfg config.Cfg) {
 		config.Config = cfg
 	}(config.Config)

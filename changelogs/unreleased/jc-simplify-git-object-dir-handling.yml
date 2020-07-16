@@ -1,0 +1,6 @@
+---
+title: Fix pre-receive hooks not working with symlinked paths
+  variable field
+merge_request: 2381
+author:
+type: fixed
