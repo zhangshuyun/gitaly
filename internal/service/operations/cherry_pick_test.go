@@ -34,8 +34,9 @@ func TestSuccessfulUserCherryPickRequest(t *testing.T) {
 	cherryPickedCommit, err := log.GetCommit(ctxOuter, testRepo, "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab")
 	require.NoError(t, err)
 
-	testRepoCopy, _, cleanup := testhelper.NewTestRepo(t) // read-only repo
+	testRepoCopy, testRepoCopyPath, cleanup := testhelper.NewTestRepo(t) // read-only repo
 	defer cleanup()
+	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoCopyPath, "branch", destinationBranch, "master")
 
 	testCases := []struct {
 		desc         string
