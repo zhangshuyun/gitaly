@@ -103,6 +103,7 @@ func main() {
 		}
 
 		environment := glValues()
+		environment = append(environment, gitObjectDirs()...)
 
 		for _, key := range []string{metadata.PraefectEnvKey, metadata.TransactionEnvKey} {
 			if value, ok := os.LookupEnv(key); ok {
@@ -175,33 +176,6 @@ func repositoryFromEnv() (*gitalypb.Repository, error) {
 		return nil, fmt.Errorf("unmarshal JSON %q: %w", repoString, err)
 	}
 
-	pwd, err := os.Getwd()
-	if err != nil {
-		return nil, fmt.Errorf("can't define working directory: %w", err)
-	}
-
-	gitObjDirAbs, ok := os.LookupEnv("GIT_OBJECT_DIRECTORY")
-	if ok {
-		gitObjDir, err := filepath.Rel(pwd, gitObjDirAbs)
-		if err != nil {
-			return nil, fmt.Errorf("can't define rel path %q: %w", gitObjDirAbs, err)
-		}
-		repo.GitObjectDirectory = gitObjDir
-	}
-	gitAltObjDirsAbs, ok := os.LookupEnv("GIT_ALTERNATE_OBJECT_DIRECTORIES")
-	if ok {
-		var gitAltObjDirs []string
-		for _, gitAltObjDirAbs := range strings.Split(gitAltObjDirsAbs, ":") {
-			gitAltObjDir, err := filepath.Rel(pwd, gitAltObjDirAbs)
-			if err != nil {
-				return nil, fmt.Errorf("can't define rel path %q: %w", gitAltObjDirAbs, err)
-			}
-			gitAltObjDirs = append(gitAltObjDirs, gitAltObjDir)
-		}
-
-		repo.GitAlternateObjectDirectories = gitAltObjDirs
-	}
-
 	return &repo, nil
 }
 
@@ -239,6 +213,20 @@ func glValues() []string {
 	}
 
 	return glEnvVars
+}
+
+func gitObjectDirs() []string {
+	var objectDirs []string
+	gitObjectDirectory, ok := os.LookupEnv("GIT_OBJECT_DIRECTORY")
+	if ok {
+		objectDirs = append(objectDirs, "GIT_OBJECT_DIRECTORY="+gitObjectDirectory)
+	}
+	gitAlternateObjectDirectories, ok := os.LookupEnv("GIT_ALTERNATE_OBJECT_DIRECTORIES")
+	if ok {
+		objectDirs = append(objectDirs, "GIT_ALTERNATE_OBJECT_DIRECTORIES="+gitAlternateObjectDirectories)
+	}
+
+	return objectDirs
 }
 
 func gitPushOptions() []string {
