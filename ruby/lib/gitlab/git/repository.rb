@@ -331,10 +331,10 @@ module Gitlab
           revert_tree_id = check_revert_content(commit, start_commit.sha)
 
           if dry_run
-            rugged.reset('HEAD', :soft)
-
-            # Response expects a commit SHA. Since we're not actually
-            # committing anything, just return the starting SHA
+            # At this point the tree has been written to the index but not
+            # committed and will be cleaned up by `gc`.
+            #
+            # The response expects a SHA, so just return the starting one.
             start_commit.sha
           else
             committer = user_to_committer(user)
@@ -843,10 +843,10 @@ module Gitlab
           cherry_pick_tree_id = check_cherry_pick_content(commit, start_commit.sha)
 
           if dry_run
-            rugged.reset('HEAD', :soft)
-
-            # Response expects a commit SHA. Since we're not actually
-            # committing anything, just return the starting SHA
+            # At this point the tree has been written to the index but not
+            # committed and will be cleaned up by `gc`.
+            #
+            # The response expects a SHA, so just return the starting one.
             start_commit.sha
           else
             committer = user_to_committer(user)
