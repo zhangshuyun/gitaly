@@ -1,0 +1,4 @@
+#!/usr/bin/env sh
+
+ansible-playbook -i hosts local_env.yml
+

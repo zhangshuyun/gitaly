@@ -1,0 +1,48 @@
+# Disable all other services on the Praefect node
+postgresql['enable'] = false
+redis['enable'] = false
+nginx['enable'] = false
+grafana['enable'] = false
+puma['enable'] = false
+sidekiq['enable'] = false
+gitlab_workhorse['enable'] = false
+prometheus_monitoring['enable'] = false
+
+# Enable only the Gitaly service
+gitaly['enable'] = true
+
+# Enable Prometheus if needed
+prometheus['enable'] = false
+
+# Prevent database connections during 'gitlab-ctl reconfigure'
+gitlab_rails['rake_cache_clear'] = false
+gitlab_rails['auto_migrate'] = false
+
+# Make Gitaly accept connections on all network interfaces.
+# Use firewalls to restrict access to this address/port.
+gitaly['listen_addr'] = '0.0.0.0:8075'
+
+# Enable Prometheus metrics access to Gitaly. You must use firewalls
+# to restrict access to this address/port.
+gitaly['prometheus_listen_addr'] = '0.0.0.0:9236'
+
+gitaly['auth_token'] = 'PRAEFECT_INTERNAL_TOKEN'
+
+gitlab_shell['secret_token'] = 'GITLAB_SHELL_SECRET_TOKEN'
+
+# Configure the gitlab-shell API callback URL. Without this, `git push` will
+# fail. This can be your front door GitLab URL or an internal load balancer.
+# Examples: 'https://example.gitlab.com', 'http://1.2.3.4'
+gitlab_rails['internal_api_url'] = 'http://{{ groups['gitlabs'][0] }}'
+
+# You can include the data dirs for all nodes in the same config, because
+# Praefect will only route requests according to the addresses provided in the
+# prior step.
+git_data_dirs({
+  {% for host in groups['gitalies'] %}
+    '{{ hostvars[host]['ansible_facts']['default_ipv4']['address'] }}' => {
+      "path" => "/var/opt/gitlab/git-data"
+    },
+  {% endfor %}
+})
+

@@ -1,0 +1,34 @@
+- name: Ensure Postgresql connection
+  shell:
+    cmd: "PGPASSWORD=PRAEFECT_SQL_PASSWORD /opt/gitlab/embedded/bin/psql -w -U praefect -d template1 -h {{ groups['databases'][0] }} --command='select 1'"
+
+- name: Set GitLab.rb file
+  become: yes
+  template:
+    src: praefect-gitlab.rb.j2
+    dest: /etc/gitlab/gitlab.rb
+
+- name: Reconfigure GitLab
+  become: yes
+  command:
+    cmd: gitlab-ctl reconfigure
+  
+# Reconfigure is not good enough to start prometheus, see:
+# https://docs.gitlab.com/ee/administration/gitaly/praefect.html#gitaly
+- name: Restart Praefect for Prometheus listeners
+  become: yes
+  command:
+    cmd: gitlab-ctl restart
+  
+- name: SQL Ping verification
+  become: yes
+  become_user: git
+  command:
+    cmd: /opt/gitlab/embedded/bin/praefect -config /var/opt/gitlab/praefect/config.toml sql-ping
+
+- name: Dial nodes verification
+  become: yes
+  command:
+    cmd: /opt/gitlab/embedded/bin/praefect -config /var/opt/gitlab/praefect/config.toml dial-nodes
+
+

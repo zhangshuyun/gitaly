@@ -1,0 +1,18 @@
+- name: Set GitLab.rb file
+  become: yes
+  template: 
+    src: gitaly-gitlab.rb.j2
+    dest: /etc/gitlab/gitlab.rb
+
+- name: Reconfigure GitLab
+  become: yes
+  command:
+    cmd: gitlab-ctl reconfigure
+  
+# Reconfigure is not good enough to start prometheus, see:
+# https://docs.gitlab.com/ee/administration/gitaly/praefect.html#gitaly
+- name: Restart Gitaly for Prometheus listeners
+  become: yes
+  command:
+    cmd: gitlab-ctl restart
+  

@@ -1,0 +1,17 @@
+- name: Get GitLab-EE setup script
+  get_url:
+    url: https://packages.gitlab.com/install/repositories/gitlab/nightly-builds/script.deb.sh
+    dest: /tmp/gitlab-nightly-script.deb.sh
+    mode: '0755'
+
+- name: Install GitLab-EE nightly repositories
+  become: yes
+  shell:
+    cmd: /tmp/gitlab-nightly-script.deb.sh
+
+- name: Install latest GitLab-EE
+  become: yes
+  package: 
+    name: gitlab-ee
+    state: latest
+

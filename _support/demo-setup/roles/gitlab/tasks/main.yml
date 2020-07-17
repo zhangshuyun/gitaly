@@ -1,0 +1,21 @@
+- name: Set GitLab.rb file
+  become: yes
+  template:
+    src: gitlab-gitlab.rb.j2
+    dest: /etc/gitlab/gitlab.rb
+
+- name: Reconfigure GitLab
+  become: yes
+  command:
+    cmd: gitlab-ctl reconfigure
+  
+- name: Restart GitLab
+  become: yes
+  command:
+    cmd: gitlab-ctl restart
+
+- name: Rake Gitaly verification
+  become: yes
+  command:
+    cmd: gitlab-rake gitlab:gitaly:check
+

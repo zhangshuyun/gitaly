@@ -1,0 +1,45 @@
+# Disable all other services on the Praefect node
+postgresql['enable'] = false
+redis['enable'] = false
+nginx['enable'] = false
+prometheus['enable'] = false
+grafana['enable'] = false
+puma['enable'] = false
+sidekiq['enable'] = false
+gitlab_workhorse['enable'] = false
+gitaly['enable'] = false
+
+# Enable only the Praefect service
+praefect['enable'] = true
+
+# Prevent database connections during 'gitlab-ctl reconfigure'
+gitlab_rails['rake_cache_clear'] = false
+gitlab_rails['auto_migrate'] = false
+
+praefect['listen_addr'] = '0.0.0.0:2305'
+
+# Enable Prometheus metrics access to Praefect. You must use firewalls
+# to restrict access to this address/port.
+praefect['prometheus_listen_addr'] = '0.0.0.0:9652'
+
+praefect['auth_token'] = 'PRAEFECT_EXTERNAL_TOKEN'
+
+praefect['database_host'] = '{{ groups['databases'][0] }}'
+praefect['database_port'] = 5432
+praefect['database_user'] = 'praefect'
+praefect['database_password'] = 'PRAEFECT_SQL_PASSWORD'
+praefect['database_dbname'] = 'praefect_production'
+
+# Name of storage hash must match storage name in git_data_dirs on GitLab
+# server ('praefect') and in git_data_dirs on Gitaly nodes ('gitaly-1')
+praefect['virtual_storages'] = {
+	'default' => {
+		{% for host in groups['gitalies'] %}
+		'{{ hostvars[host]['ansible_facts']['default_ipv4']['address'] }}' => {
+			'address' => 'tcp://{{ hostvars[host]['ansible_facts']['default_ipv4']['address'] }}:8075',
+				'token'   => 'PRAEFECT_INTERNAL_TOKEN',
+				'primary' => {{ (loop.index0 == 0)|string|lower }},
+		},
+		{% endfor %}
+	}
+}

@@ -1,0 +1,17 @@
+- name: Gitaly setup
+  hosts: gitalies
+  roles:
+    - base
+    - gitaly
+
+- name: Praefect setup
+  hosts: praefects
+  roles:
+    - base
+    - praefect
+
+- name: GitLab Application server setup
+  hosts: gitlabs
+  roles:
+    - base
+    - gitlab
