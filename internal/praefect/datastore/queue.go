@@ -206,18 +206,20 @@ func (rq PostgresReplicationEventQueue) Dequeue(ctx context.Context, virtualStor
 			FOR UPDATE SKIP LOCKED
 		)
 		, candidate AS (
-			SELECT id
-			FROM replication_queue
-			WHERE id IN (
-				SELECT DISTINCT FIRST_VALUE(queue.id) OVER (PARTITION BY lock_id, job->>'change'  ORDER BY queue.created_at)
+			SELECT collapse_to AS id
+			FROM (
+				SELECT
+					row_number() OVER repo_change = 1 AS first_in_partition,
+					max(queue.id) OVER repo_change AS collapse_to
 				FROM replication_queue AS queue
 				JOIN lock ON queue.lock_id = lock.id
-				WHERE queue.state IN ('ready', 'failed' )
+				WHERE queue.state IN ('ready', 'failed')
 					AND NOT EXISTS (SELECT 1 FROM replication_queue_job_lock WHERE lock_id = queue.lock_id)
-			)
-			ORDER BY created_at
+				WINDOW repo_change AS (PARTITION BY lock_id, job->>'change')
+				ORDER BY created_at
+			) AS repo_changes
+			WHERE first_in_partition
 			LIMIT $3
-			FOR UPDATE
 		)
 		, job AS (
 			UPDATE replication_queue AS queue
@@ -241,8 +243,7 @@ func (rq PostgresReplicationEventQueue) Dequeue(ctx context.Context, virtualStor
 			WHERE lock.id = tracked.lock_id
 		)
 		SELECT id, state, created_at, updated_at, lock_id, attempt, job, meta
-		FROM job
-		ORDER BY id`
+		FROM job`
 	rows, err := rq.qc.QueryContext(ctx, query, virtualStorage, nodeStorage, count)
 	if err != nil {
 		return nil, fmt.Errorf("query: %w", err)
@@ -272,7 +273,7 @@ func (rq PostgresReplicationEventQueue) Acknowledge(ctx context.Context, state J
 
 	query := `
 		WITH existing AS (
-			SELECT id, lock_id, updated_at, job
+			SELECT id, lock_id, created_at, updated_at, job
 			FROM replication_queue
 			WHERE id = ANY($1)
 			AND state = 'in_progress'
@@ -295,10 +296,9 @@ func (rq PostgresReplicationEventQueue) Acknowledge(ctx context.Context, state J
 			WHERE existing.id = queue.id
 				OR (
 					    queue.state = 'ready'
-					AND queue.created_at < existing.updated_at
+					AND queue.created_at < existing.created_at
 					AND queue.lock_id = existing.lock_id
 					AND queue.job->>'change' = existing.job->>'change'
-					AND queue.job->>'source_node_storage' = existing.job->>'source_node_storage'
 				)
 			RETURNING queue.id, queue.lock_id
 		)
