@@ -27,14 +27,14 @@ func init() {
 // IsEnabled checks if the feature flag is enabled for the passed context.
 // Only returns true if the metadata for the feature flag is set to "true"
 func IsEnabled(ctx context.Context, flag FeatureFlag) bool {
-	val, ok := getFlagVal(ctx, flag.Name)
+	val, ok := getFlagVal(ctx, flag.GetName())
 	if !ok {
-		return flag.OnByDefault
+		return flag.IsOnByDefault()
 	}
 
 	enabled := val == "true"
 
-	flagChecks.WithLabelValues(flag.Name, strconv.FormatBool(enabled)).Inc()
+	flagChecks.WithLabelValues(flag.GetName(), strconv.FormatBool(enabled)).Inc()
 
 	return enabled
 }

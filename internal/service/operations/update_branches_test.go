@@ -102,12 +102,12 @@ func testSuccessfulGitHooksForUserUpdateBranchRequest(t *testing.T, ctx context.
 }
 
 func TestFailedUserUpdateBranchDueToHooks(t *testing.T) {
-	featureSet, err := testhelper.NewFeatureSets(nil, featureflag.GoUpdateHook)
+	featureSets, err := testhelper.NewFeatureSets([]featureflag.FeatureFlag{featureflag.RubyFeatureFlag{featureflag.GoUpdateHook}})
 	require.NoError(t, err)
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	for _, features := range featureSet {
+	for _, features := range featureSets {
 		t.Run(features.String(), func(t *testing.T) {
 			ctx = features.WithParent(ctx)
 			testFailedUserUpdateBranchDueToHooks(t, ctx)

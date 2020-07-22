@@ -90,7 +90,7 @@ func (cmd gitalySSHCommand) run() (int, error) {
 			if len(flagPairSplit) != 2 {
 				continue
 			}
-			ctx = featureflag.OutgoingCtxWithFeatureFlagValue(ctx, featureflag.FeatureFlag{Name: flagPairSplit[0]}, flagPairSplit[1])
+			ctx = featureflag.OutgoingCtxWithFeatureFlagValue(ctx, featureflag.NewGoFeatureFlag(flagPairSplit[0], false), flagPairSplit[1])
 		}
 	}
 
