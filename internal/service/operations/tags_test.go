@@ -62,7 +62,7 @@ func TestSuccessfulGitHooksForUserDeleteTagRequest(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	featureSets, err := testhelper.NewFeatureSets(nil, featureflag.GoPostReceiveHook)
+	featureSets, err := testhelper.NewFeatureSets([]featureflag.FeatureFlag{featureflag.RubyFeatureFlag{featureflag.GoPostReceiveHook}})
 	require.NoError(t, err)
 
 	for _, featureSet := range featureSets {

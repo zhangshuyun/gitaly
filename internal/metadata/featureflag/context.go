@@ -18,7 +18,7 @@ func OutgoingCtxWithFeatureFlags(ctx context.Context, flags ...FeatureFlag) cont
 	}
 
 	for _, flag := range flags {
-		md.Set(HeaderKey(flag.Name), "true")
+		md.Set(HeaderKey(flag.GetName()), "true")
 	}
 
 	return metadata.NewOutgoingContext(ctx, md)
@@ -35,7 +35,7 @@ func OutgoingCtxWithDisabledFeatureFlags(ctx context.Context, flags ...FeatureFl
 	}
 
 	for _, flag := range flags {
-		md.Set(HeaderKey(flag.Name), "false")
+		md.Set(HeaderKey(flag.GetName()), "false")
 	}
 
 	return metadata.NewOutgoingContext(ctx, md)
@@ -53,7 +53,7 @@ func OutgoingCtxWithFeatureFlagValue(ctx context.Context, flag FeatureFlag, val 
 		md = metadata.New(map[string]string{})
 	}
 
-	md.Set(HeaderKey(flag.Name), val)
+	md.Set(HeaderKey(flag.GetName()), val)
 
 	return metadata.NewOutgoingContext(ctx, md)
 }
@@ -66,7 +66,7 @@ func IncomingCtxWithFeatureFlag(ctx context.Context, flag FeatureFlag) context.C
 	if !ok {
 		md = metadata.New(map[string]string{})
 	}
-	md.Set(HeaderKey(flag.Name), "true")
+	md.Set(HeaderKey(flag.GetName()), "true")
 	return metadata.NewIncomingContext(ctx, md)
 }
 
@@ -77,7 +77,7 @@ func OutgoingCtxWithRubyFeatureFlags(ctx context.Context, flags ...FeatureFlag) 
 	}
 
 	for _, flag := range flags {
-		md.Set(rubyHeaderKey(flag.Name), "true")
+		md.Set(rubyHeaderKey(flag.GetName()), "true")
 	}
 
 	return metadata.NewOutgoingContext(ctx, md)

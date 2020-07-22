@@ -24,7 +24,7 @@ var (
 )
 
 func TestSuccessfulUserRebaseConfirmableRequest(t *testing.T) {
-	featureSets, err := testhelper.NewFeatureSets(nil, featureflag.GoPostReceiveHook)
+	featureSets, err := testhelper.NewFeatureSets([]featureflag.FeatureFlag{featureflag.RubyFeatureFlag{featureflag.GoPostReceiveHook}})
 	require.NoError(t, err)
 
 	ctx, cancel := testhelper.Context()

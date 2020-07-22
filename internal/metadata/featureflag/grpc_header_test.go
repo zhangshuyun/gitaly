@@ -31,7 +31,7 @@ func TestGRPCMetadataFeatureFlag(t *testing.T) {
 			md := metadata.New(tc.headers)
 			ctx := metadata.NewIncomingContext(context.Background(), md)
 
-			assert.Equal(t, tc.enabled, IsEnabled(ctx, FeatureFlag{tc.flag, tc.onByDefault}))
+			assert.Equal(t, tc.enabled, IsEnabled(ctx, GoFeatureFlag{tc.flag, tc.onByDefault}))
 		})
 	}
 }

@@ -8,7 +8,7 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
-var mockFeatureFlag = FeatureFlag{"turn meow on", false}
+var mockFeatureFlag = GoFeatureFlag{"turn meow on", false}
 
 func TestIncomingCtxWithFeatureFlag(t *testing.T) {
 	ctx := context.Background()

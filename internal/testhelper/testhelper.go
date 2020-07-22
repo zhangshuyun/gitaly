@@ -736,23 +736,23 @@ func WriteBlobs(t testing.TB, testRepoPath string, n int) []string {
 // FeatureSet is a representation of a set of features that are enabled
 // This is useful in situations where a test needs to test any combination of features toggled on and off
 type FeatureSet struct {
-	features     map[featureflag.FeatureFlag]bool
-	rubyFeatures map[featureflag.FeatureFlag]bool
+	featureValues map[featureflag.FeatureFlag]int
+	features      int
 }
 
-func (f FeatureSet) IsEnabled(flag featureflag.FeatureFlag) bool {
-	on, ok := f.features[flag]
-	if !ok {
-		return flag.OnByDefault
-	}
-
-	return on
+func (f FeatureSet) IsEnabled(feature featureflag.FeatureFlag) bool {
+	return f.featureValues[feature]&f.features > 0
 }
 
 func (f FeatureSet) String() string {
 	features := make([]string, 0, len(f.enabledFeatures()))
 	for _, feature := range f.enabledFeatures() {
-		features = append(features, feature.Name)
+		switch feature.(type) {
+		case featureflag.GoFeatureFlag:
+			features = append(features, feature.GetName())
+		case featureflag.RubyFeatureFlag:
+			features = append(features, feature.GetName()+"(ruby)")
+		}
 	}
 
 	return strings.Join(features, ",")
@@ -761,20 +761,27 @@ func (f FeatureSet) String() string {
 func (f FeatureSet) enabledFeatures() []featureflag.FeatureFlag {
 	var enabled []featureflag.FeatureFlag
 
-	for feature := range f.features {
-		enabled = append(enabled, feature)
+	for feature, featureVal := range f.featureValues {
+		if featureVal&f.features > 0 {
+			enabled = append(enabled, feature)
+		}
 	}
 
 	return enabled
 }
 
 func (f FeatureSet) WithParent(ctx context.Context) context.Context {
-	for _, enabledFeature := range f.enabledFeatures() {
-		if _, ok := f.rubyFeatures[enabledFeature]; ok {
-			ctx = featureflag.OutgoingCtxWithRubyFeatureFlags(ctx, enabledFeature)
+	for feature, featureVal := range f.featureValues {
+		if f.features&featureVal == 0 {
 			continue
 		}
-		ctx = featureflag.OutgoingCtxWithFeatureFlags(ctx, enabledFeature)
+
+		switch feature.(type) {
+		case featureflag.GoFeatureFlag:
+			ctx = featureflag.OutgoingCtxWithRubyFeatureFlags(ctx, feature)
+		case featureflag.RubyFeatureFlag:
+			ctx = featureflag.OutgoingCtxWithFeatureFlags(ctx, feature)
+		}
 	}
 
 	return ctx
@@ -785,27 +792,21 @@ type FeatureSets []FeatureSet
 
 // NewFeatureSets takes a slice of go feature flags, and an optional variadic set of ruby feature flags
 // and returns a FeatureSets slice
-func NewFeatureSets(goFeatures []featureflag.FeatureFlag, rubyFeatures ...featureflag.FeatureFlag) (FeatureSets, error) {
-	rubyFeatureMap := make(map[featureflag.FeatureFlag]bool)
-	for _, rubyFeature := range rubyFeatures {
-		rubyFeatureMap[rubyFeature] = true
+func NewFeatureSets(features []featureflag.FeatureFlag) (FeatureSets, error) {
+	featureValues := make(map[featureflag.FeatureFlag]int)
+
+	featureVal := 1
+	for _, feature := range features {
+		featureValues[feature] = featureVal
+		featureVal <<= 1
 	}
 
-	// start with an empty feature set
-	f := []FeatureSet{{features: make(map[featureflag.FeatureFlag]bool), rubyFeatures: rubyFeatureMap}}
-
-	allFeatures := append(goFeatures, rubyFeatures...)
-
-	for i := range allFeatures {
-		featureMap := make(map[featureflag.FeatureFlag]bool)
-		for j := 0; j <= i; j++ {
-			featureMap[allFeatures[j]] = true
-		}
-
-		f = append(f, FeatureSet{features: featureMap, rubyFeatures: rubyFeatureMap})
+	featureSets := make([]FeatureSet, featureVal)
+	for i := 0; i < featureVal; i++ {
+		featureSets[i] = FeatureSet{featureValues: featureValues, features: i}
 	}
 
-	return f, nil
+	return featureSets, nil
 }
 
 // ModifyEnvironment will change an environment variable and return a func suitable
