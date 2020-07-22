@@ -37,6 +37,8 @@ danger-review:
   <<: *ruby_definition
   stage: build
   script:
+    - git config -l
+    - exit 1
     - go version
     - make
     - _support/test-boot .
