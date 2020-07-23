@@ -1,5 +1,9 @@
 # Gitaly changelog
 
+## 13.2.1
+
+- No changes.
+
 ## 13.2.0
 
 ### Fixed (13 changes)
