@@ -1,5 +1,12 @@
 # Gitaly changelog
 
+## 13.1.5
+
+### Fixed (1 change)
+
+- Fix pre-receive hooks not working with symlinked paths variable field. !2381
+
+
 ## 13.1.4
 
 ### Changed (1 change)
