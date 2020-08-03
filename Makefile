@@ -50,13 +50,13 @@ BUILD_TIME      := $(shell date +"%Y%m%d.%H%M%S")
 GITALY_VERSION  := $(shell git describe --match v* 2>/dev/null | sed 's/^v//' || cat ${SOURCE_DIR}/VERSION 2>/dev/null || echo unknown)
 GO_LDFLAGS      := -ldflags '-X ${GITALY_PACKAGE}/internal/version.version=${GITALY_VERSION} -X ${GITALY_PACKAGE}/internal/version.buildtime=${BUILD_TIME}'
 GO_TEST_LDFLAGS := -X gitlab.com/gitlab-org/gitaly/auth.timestampThreshold=5s
-GO_BUILD_TAGS   := tracer_static tracer_static_jaeger continuous_profiler_stackdriver
 
 # Dependency versions
 GOLANGCI_LINT_VERSION ?= 1.27.0
 PROTOC_VERSION        ?= 3.6.1
 PROTOC_GEN_GO_VERSION ?= 1.3.2
 GIT_VERSION           ?= v2.27.0
+LIBGIT2_VERSION       ?= v1.0.1
 
 # Dependency downloads
 ifeq (${OS},Darwin)
@@ -90,6 +90,30 @@ ifeq (${GIT_BUILD_OPTIONS},)
     GIT_BUILD_OPTIONS += NO_R_TO_GCC_LINKER=YesPlease
 endif
 
+# libgit2 target
+LIBGIT2_REPO_URL    ?= https://gitlab.com/libgit2/libgit2
+LIBGIT2_SOURCE_DIR  ?= ${BUILD_DIR}/src/libgit2
+LIBGIT2_BUILD_DIR   ?= ${LIBGIT2_SOURCE_DIR}/build
+LIBGIT2_INSTALL_DIR ?= ${BUILD_DIR}/libgit2
+
+ifeq (${LIBGIT2_BUILD_OPTIONS},)
+    LIBGIT2_BUILD_OPTIONS += -DTHREADSAFE=ON
+    LIBGIT2_BUILD_OPTIONS += -DBUILD_CLAR=OFF
+    LIBGIT2_BUILD_OPTIONS += -DBUILD_SHARED_LIBS=OFF
+    LIBGIT2_BUILD_OPTIONS += -DCMAKE_C_FLAGS=-fPIC
+    LIBGIT2_BUILD_OPTIONS += -DCMAKE_BUILD_TYPE=Release
+    LIBGIT2_BUILD_OPTIONS += -DCMAKE_INSTALL_PREFIX=${LIBGIT2_INSTALL_DIR}
+    LIBGIT2_BUILD_OPTIONS += -DCMAKE_INSTALL_LIBDIR=lib
+    LIBGIT2_BUILD_OPTIONS += -DENABLE_TRACE=OFF
+    LIBGIT2_BUILD_OPTIONS += -DUSE_SSH=OFF
+    LIBGIT2_BUILD_OPTIONS += -DUSE_HTTPS=OFF
+    LIBGIT2_BUILD_OPTIONS += -DUSE_ICONV=OFF
+    LIBGIT2_BUILD_OPTIONS += -DUSE_NTLMCLIENT=OFF
+    LIBGIT2_BUILD_OPTIONS += -DUSE_BUNDLED_ZLIB=ON
+    LIBGIT2_BUILD_OPTIONS += -DUSE_HTTP_PARSER=builtin
+    LIBGIT2_BUILD_OPTIONS += -DREGEX_BACKEND=builtin
+endif
+
 # These variables control test options and artifacts
 TEST_OPTIONS    ?=
 TEST_REPORT_DIR ?= ${BUILD_DIR}/reports
@@ -111,9 +135,10 @@ find_go_sources  = $(shell find ${SOURCE_DIR} -type d \( -name ruby -o -name ven
 find_go_packages = $(dir $(call find_go_sources, 's|[^/]*\.go||'))
 
 unexport GOROOT
-export GOBIN        = ${BUILD_DIR}/bin
-export GOPROXY     ?= https://proxy.golang.org
-export PATH        := ${BUILD_DIR}/bin:${PATH}
+export GOBIN            = ${BUILD_DIR}/bin
+export GOPROXY         ?= https://proxy.golang.org
+export PATH            := ${BUILD_DIR}/bin:${PATH}
+export PKG_CONFIG_PATH := ${LIBGIT2_INSTALL_DIR}/lib/pkgconfig
 
 .NOTPARALLEL:
 
@@ -122,8 +147,8 @@ all: INSTALL_DEST_DIR = ${SOURCE_DIR}
 all: install
 
 .PHONY: build
-build: ${SOURCE_DIR}/.ruby-bundle
-	go install ${GO_LDFLAGS} -tags "${GO_BUILD_TAGS}" $(addprefix ${GITALY_PACKAGE}/cmd/, $(call find_commands))
+build: ${SOURCE_DIR}/.ruby-bundle libgit2
+	go install ${GO_LDFLAGS} $(addprefix ${GITALY_PACKAGE}/cmd/, $(call find_commands))
 
 .PHONY: install
 install: build
@@ -169,20 +194,20 @@ prepare-tests: ${GITLAB_SHELL_DIR}/config.yml ${TEST_REPO} ${TEST_REPO_GIT} ${SO
 test: test-go rspec rspec-gitlab-shell
 
 .PHONY: test-go
-test-go: prepare-tests ${GO_JUNIT_REPORT}
+test-go: prepare-tests ${GO_JUNIT_REPORT} libgit2
 	${Q}mkdir -p ${TEST_REPORT_DIR}
 	${Q}echo 0>${TEST_EXIT}
-	${Q}go test ${TEST_OPTIONS} -v -tags "${GO_BUILD_TAGS}" -ldflags='${GO_TEST_LDFLAGS}' -count=1 $(call find_go_packages) 2>&1 | tee ${TEST_OUTPUT} || echo $$? >${TEST_EXIT}
+	${Q}go test ${TEST_OPTIONS} -v -ldflags='${GO_TEST_LDFLAGS}' -count=1 $(call find_go_packages) 2>&1 | tee ${TEST_OUTPUT} || echo $$? >${TEST_EXIT}
 	${Q}${GO_JUNIT_REPORT} <${TEST_OUTPUT} >${TEST_REPORT}
 	${Q}exit `cat ${TEST_EXIT}`
 
 .PHONY: test-with-proxies
 test-with-proxies: prepare-tests
-	${Q}go test -tags "${GO_BUILD_TAGS}" -count=1  -exec ${SOURCE_DIR}/_support/bad-proxies ${GITALY_PACKAGE}/internal/rubyserver/
+	${Q}go test -count=1  -exec ${SOURCE_DIR}/_support/bad-proxies ${GITALY_PACKAGE}/internal/rubyserver/
 
 .PHONY: test-with-praefect
 test-with-praefect: build prepare-tests
-	${Q}GITALY_TEST_PRAEFECT_BIN=${BUILD_DIR}/bin/praefect go test -tags "${GO_BUILD_TAGS}" -ldflags='${GO_TEST_LDFLAGS}' -count=1 $(call find_go_packages) # count=1 bypasses go 1.10 test caching
+	${Q}GITALY_TEST_PRAEFECT_BIN=${BUILD_DIR}/bin/praefect go test -ldflags='${GO_TEST_LDFLAGS}' -count=1 $(call find_go_packages) # count=1 bypasses go 1.10 test caching
 
 .PHONY: race-go
 race-go: TEST_OPTIONS = -race
@@ -208,7 +233,7 @@ check-mod-tidy:
 	${Q}${SOURCE_DIR}/_support/check-mod-tidy
 
 .PHONY: lint
-lint: ${GOLANGCI_LINT}
+lint: ${GOLANGCI_LINT} libgit2
 	${Q}${GOLANGCI_LINT} cache clean && ${GOLANGCI_LINT} run --out-format tab --config ${SOURCE_DIR}/.golangci.yml
 
 .PHONY: check-formatting
@@ -251,7 +276,7 @@ rubocop: ${SOURCE_DIR}/.ruby-bundle
 	${Q}cd ${GITALY_RUBY_DIR} && bundle exec rubocop --parallel
 
 .PHONY: cover
-cover: prepare-tests
+cover: prepare-tests libgit2
 	${Q}echo "NOTE: make cover does not exit 1 on failure, don't use it to check for tests success!"
 	${Q}mkdir -p "${COVERAGE_DIR}"
 	${Q}rm -f "${COVERAGE_DIR}/all.merged" "${COVERAGE_DIR}/all.html"
@@ -270,7 +295,7 @@ docker:
 	cp -r  ${GITALY_RUBY_DIR} ${BUILD_DIR}/docker/ruby
 	${Q}rm -rf ${BUILD_DIR}/docker/ruby/vendor/bundle
 	for command in $(call find_commands); do \
-		GOOS=linux GOARCH=amd64 go build -tags "${GO_BUILD_TAGS}" ${GO_LDFLAGS} -o "${BUILD_DIR}/docker/bin/$${command}" ${GITALY_PACKAGE}/cmd/$${command}; \
+		GOOS=linux GOARCH=amd64 go build ${GO_LDFLAGS} -o "${BUILD_DIR}/docker/bin/$${command}" ${GITALY_PACKAGE}/cmd/$${command}; \
 	done
 	cp ${SOURCE_DIR}/Dockerfile ${BUILD_DIR}/docker/
 	docker build -t gitlab/gitaly:v${GITALY_VERSION} -t gitlab/gitaly:latest ${BUILD_DIR}/docker/
@@ -312,6 +337,9 @@ build-git:
 	${Q}mkdir -p ${GIT_INSTALL_DIR}
 	${MAKE} -C ${GIT_SOURCE_DIR} -j$(shell nproc) prefix=${GIT_PREFIX} ${GIT_BUILD_OPTIONS} install
 
+.PHONY: libgit2
+libgit2: ${LIBGIT2_INSTALL_DIR}/lib/libgit2.a
+
 # This file is used by Omnibus and CNG to skip the "bundle install"
 # step. Both Omnibus and CNG assume it is in the Gitaly root, not in
 # _build. Hence the '../' in front.
@@ -352,6 +380,13 @@ ${BUILD_DIR}/git_full_bins.tgz: | ${BUILD_DIR}
 	curl -o $@.tmp --silent --show-error -L ${GIT_BINARIES_URL}
 	${Q}printf '${GIT_BINARIES_HASH}  $@.tmp' | shasum -a256 -c -
 	${Q}mv $@.tmp $@
+
+${LIBGIT2_INSTALL_DIR}/lib/libgit2.a:
+	${Q}rm -rf ${LIBGIT2_SOURCE_DIR}
+	git clone --depth 1 --branch ${LIBGIT2_VERSION} --quiet ${LIBGIT2_REPO_URL} ${LIBGIT2_SOURCE_DIR}
+	${Q}mkdir -p ${LIBGIT2_BUILD_DIR}
+	${Q}cd ${LIBGIT2_BUILD_DIR} && cmake ${LIBGIT2_SOURCE_DIR} ${LIBGIT2_BUILD_OPTIONS}
+	${Q}cmake --build ${LIBGIT2_BUILD_DIR} --target install
 
 ${GOIMPORTS}: ${BUILD_DIR}/go.mod | ${BUILD_DIR}/bin
 	${Q}cd ${BUILD_DIR} && go get golang.org/x/tools/cmd/goimports@2538eef75904eff384a2551359968e40c207d9d2

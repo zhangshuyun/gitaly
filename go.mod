@@ -11,6 +11,7 @@ require (
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 	github.com/kelseyhightower/envconfig v1.3.0
 	github.com/lib/pq v1.2.0
+	github.com/libgit2/git2go/v30 v30.0.5
 	github.com/olekukonko/tablewriter v0.0.2
 	github.com/otiai10/curr v1.0.0 // indirect
 	github.com/prometheus/client_golang v1.0.0
