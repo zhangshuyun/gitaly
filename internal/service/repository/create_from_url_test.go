@@ -77,7 +77,7 @@ func TestCloneRepositoryFromUrlCommand(t *testing.T) {
 
 	expectedScrubbedURL := "https://www.example.com/secretrepo.git"
 	expectedBasicAuthHeader := fmt.Sprintf("Authorization: Basic %s", base64.StdEncoding.EncodeToString([]byte("user:pass!?@")))
-	expectedHeader := fmt.Sprintf("http.%s.extraHeader=%s", expectedScrubbedURL, expectedBasicAuthHeader)
+	expectedHeader := fmt.Sprintf("http.extraHeader=%s", expectedBasicAuthHeader)
 
 	var args = cmd.Args()
 	require.Contains(t, args, expectedScrubbedURL)
