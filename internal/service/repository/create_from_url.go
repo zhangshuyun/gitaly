@@ -23,10 +23,13 @@ func cloneFromURLCommand(ctx context.Context, repoURL, repositoryFullPath string
 		return nil, helper.ErrInternal(err)
 	}
 
-	flags := []git.Option{
+	globalFlags := []git.Option{
+		git.ValueFlag{Name: "-c", Value: "http.followRedirects=false"},
+	}
+
+	cloneFlags := []git.Option{
 		git.Flag{Name: "--bare"},
 		git.Flag{Name: "--quiet"},
-		git.ValueFlag{Name: "-c", Value: "http.followRedirects=false"},
 	}
 
 	if u.User != nil {
@@ -41,12 +44,12 @@ func cloneFromURLCommand(ctx context.Context, repoURL, repositoryFullPath string
 
 		u.User = nil
 		authHeader := fmt.Sprintf("Authorization: Basic %s", base64.StdEncoding.EncodeToString([]byte(creds)))
-		flags = append(flags, git.ValueFlag{Name: "-c", Value: fmt.Sprintf("http.%s.extraHeader=%s", u.String(), authHeader)})
+		globalFlags = append(globalFlags, git.ValueFlag{Name: "-c", Value: fmt.Sprintf("http.extraHeader=%s", authHeader)})
 	}
 
-	return git.SafeBareCmd(ctx, git.CmdStream{Err: stderr}, nil, nil, git.SubCmd{
+	return git.SafeBareCmd(ctx, git.CmdStream{Err: stderr}, nil, globalFlags, git.SubCmd{
 		Name:        "clone",
-		Flags:       flags,
+		Flags:       cloneFlags,
 		PostSepArgs: []string{u.String(), repositoryFullPath},
 	})
 }
