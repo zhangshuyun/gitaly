@@ -1,5 +1,0 @@
----
-title: Fix injection of arbitrary `http.*` options
-merge_request:
-author:
-type: security
