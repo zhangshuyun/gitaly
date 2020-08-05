@@ -1,5 +1,9 @@
 # Gitaly changelog
 
+## 13.0.12
+
+- No changes.
+
 ## 13.0.11
 
 ### Security (1 change)
