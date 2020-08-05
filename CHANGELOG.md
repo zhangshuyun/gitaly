@@ -2,14 +2,14 @@
 
 ## 13.0.12
 
-- No changes.
-
-## 13.0.11
-
 ### Security (1 change)
 
 - Fix injection of arbitrary `http.*` options.
 
+
+## 13.0.11
+
+This version has been skipped due to packaging problems.
 
 ## 13.0.10
 
