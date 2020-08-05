@@ -1,5 +1,12 @@
 # Gitaly changelog
 
+## 13.2.3
+
+### Security (1 change)
+
+- Fix injection of arbitrary `http.*` options.
+
+
 ## 13.2.2
 
 - No changes.
