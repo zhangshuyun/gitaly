@@ -2,9 +2,11 @@ package client
 
 import (
 	"context"
+	_ "crypto/x509" // ensure x509 package init happens after this package
 	"fmt"
 	"net"
 	"net/url"
+	"os"
 	"time"
 
 	gitaly_x509 "gitlab.com/gitlab-org/gitaly/internal/x509"
@@ -109,4 +111,17 @@ func getConnectionType(rawAddress string) connectionType {
 	default:
 		return invalidConnection
 	}
+}
+
+// respectCommonName ensures that the deprecated common name field is not
+// ignored.
+// For more info: https://golang.org/doc/go1.15#commonname
+// TODO: remove this hack in
+func respectCommonName() {
+	godebug := "GODEBUG"
+	os.Setenv(godebug, os.Getenv(godebug)+",x509ignoreCN=0")
+}
+
+func init() {
+	respectCommonName()
 }
