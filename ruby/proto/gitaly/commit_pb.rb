@@ -49,6 +49,7 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       optional :repository, :message, 1, "gitaly.Repository"
       optional :from, :bytes, 2
       optional :to, :bytes, 3
+      optional :pagination_params, :message, 4, "gitaly.PaginationParameter"
     end
     add_message "gitaly.CommitsBetweenResponse" do
       repeated :commits, :message, 1, "gitaly.GitCommit"

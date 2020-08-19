@@ -23,10 +23,11 @@ func TestSuccessfulCommitsBetween(t *testing.T) {
 		testhelper.GitLabTestCommit("ba3343bc4fa403a8dfbfcab7fc1a8c29ee34bd69"),
 	}
 	testCases := []struct {
-		description     string
-		from            []byte
-		to              []byte
-		expectedCommits []*gitalypb.GitCommit
+		description      string
+		from             []byte
+		to               []byte
+		paginationParams *gitalypb.PaginationParameter
+		expectedCommits  []*gitalypb.GitCommit
 	}{
 		{
 			description:     "From hash to hash",
@@ -38,7 +39,7 @@ func TestSuccessfulCommitsBetween(t *testing.T) {
 			description:     "From hash to ref",
 			from:            from,
 			to:              []byte("gitaly-test-ref"),
-			expectedCommits: expectedCommits,
+			expectedCommits: expectedCommits[:3],
 		},
 		{
 			description:     "From ref to hash",
@@ -50,7 +51,7 @@ func TestSuccessfulCommitsBetween(t *testing.T) {
 			description:     "From ref to ref",
 			from:            []byte("branch-merged"),
 			to:              []byte("gitaly-test-ref"),
-			expectedCommits: expectedCommits,
+			expectedCommits: expectedCommits[:3],
 		},
 		{
 			description:     "To hash doesn't exist",
@@ -76,11 +77,21 @@ func TestSuccessfulCommitsBetween(t *testing.T) {
 			to:              to,
 			expectedCommits: []*gitalypb.GitCommit{},
 		},
+		{
+			description: "using pagination to limit and offset results",
+			from:        from,
+			to:          to,
+			paginationParams: &gitalypb.PaginationParameter{
+				Limit:     3,
+				PageToken: "b83d6e391c22777fca1ed3012fce84f633d7fed0",
+			},
+			expectedCommits: expectedCommits[1:4],
+		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.description, func(t *testing.T) {
 			rpcRequest := gitalypb.CommitsBetweenRequest{
-				Repository: repo, From: tc.from, To: tc.to,
+				Repository: repo, From: tc.from, To: tc.to, PaginationParams: tc.paginationParams,
 			}
 
 			ctx, cancel := testhelper.Context()
@@ -91,8 +102,9 @@ func TestSuccessfulCommitsBetween(t *testing.T) {
 
 			commits := getAllCommits(t, func() (gitCommitsGetter, error) { return c.Recv() })
 
+			require.Len(t, commits, len(tc.expectedCommits))
 			for i, commit := range commits {
-				testhelper.ProtoEqual(t, expectedCommits[i], commit)
+				testhelper.ProtoEqual(t, tc.expectedCommits[i], commit)
 			}
 		})
 	}
