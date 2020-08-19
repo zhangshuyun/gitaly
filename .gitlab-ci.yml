@@ -202,6 +202,7 @@ include:
   - template: Security/License-Scanning.gitlab-ci.yml
   - template: Security/SAST.gitlab-ci.yml
   - template: Security/Dependency-Scanning.gitlab-ci.yml
+  - template: Security/Coverage-Fuzzing.gitlab-ci.yml
 
 gosec-sast:
   before_script:
@@ -257,6 +258,17 @@ lint:
   script:
     - go version
     - make lint
+
+objectinfo_fuzz_test:
+  image: registry.gitlab.com/gitlab-org/gitlab-build-images:ruby-2.6-golang-1.13-git-2.26
+  extends: .fuzz_base
+  stage: test
+  script:
+    - apt update && apt install -y clang
+    - go get github.com/dvyukov/go-fuzz/go-fuzz && go get github.com/dvyukov/go-fuzz/go-fuzz-build
+    - go-fuzz-build -libfuzzer -o objectinfo_fuzzer.a ./internal/git/catfile
+    - clang -fsanitize=fuzzer objectinfo_fuzzer.a -o objectinfo_fuzzer
+    - ./gitlab-cov-fuzz run -- ./objectinfo_fuzzer -max_total_time=300
 
 code_navigation:
   allow_failure: true
