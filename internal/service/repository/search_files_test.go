@@ -11,7 +11,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -129,7 +128,7 @@ func TestSearchFilesByContentSuccessful(t *testing.T) {
 			ref:    "many_files",
 			output: contentOutputLines,
 			skip: func(t *testing.T) {
-				cmd := exec.Command(command.GitPath(), "-C", testRepoPath, "grep", "--perl-regexp", "(*LIMIT_MATCH=1)foobar", "many_files")
+				cmd := exec.Command("git", "-C", testRepoPath, "grep", "--perl-regexp", "(*LIMIT_MATCH=1)foobar", "many_files")
 				err := cmd.Run()
 				if exitError, ok := err.(*exec.ExitError); ok && exitError.ExitCode() == 128 {
 					t.Skip("Git does not seem to be compiled with support for PCRE2")

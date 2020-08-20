@@ -168,7 +168,7 @@ func TestUploadPackRequestWithGitConfigOptions(t *testing.T) {
 }
 
 func TestUploadPackRequestWithGitProtocol(t *testing.T) {
-	restore := testhelper.EnableGitProtocolV2Support(t)
+	restore := testhelper.EnableGitProtocolV2Support()
 	defer restore()
 
 	serverSocketPath, stop := runSmartHTTPServer(t)

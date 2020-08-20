@@ -34,7 +34,6 @@ ASSEMBLY_ROOT    ?= ${BUILD_DIR}/assembly
 GIT_PREFIX       ?= ${GIT_INSTALL_DIR}
 
 # Tools
-GIT               := $(shell which git)
 GOIMPORTS         := ${BUILD_DIR}/bin/goimports
 GITALYFMT         := ${BUILD_DIR}/bin/gitalyfmt
 GOLANGCI_LINT     := ${BUILD_DIR}/bin/golangci-lint
@@ -112,10 +111,9 @@ find_go_sources  = $(shell find ${SOURCE_DIR} -type d \( -name ruby -o -name ven
 find_go_packages = $(dir $(call find_go_sources, 's|[^/]*\.go||'))
 
 unexport GOROOT
-export GOBIN                      = ${BUILD_DIR}/bin
-export GOPROXY                   ?= https://proxy.golang.org
-export PATH                      := ${SOURCE_DIR}/internal/testhelper/testdata/home/bin:${BUILD_DIR}/bin:${PATH}
-export GITALY_TESTING_GIT_BINARY ?= ${GIT}
+export GOBIN        = ${BUILD_DIR}/bin
+export GOPROXY     ?= https://proxy.golang.org
+export PATH        := ${BUILD_DIR}/bin:${PATH}
 
 .NOTPARALLEL:
 
@@ -207,9 +205,7 @@ verify: check-mod-tidy check-formatting notice-up-to-date check-proto rubocop
 
 .PHONY: check-mod-tidy
 check-mod-tidy:
-	${Q}${GIT} diff --quiet --exit-code go.mod go.sum || (echo "error: uncommitted changes in go.mod or go.sum" && exit 1)
-	${Q}go mod tidy
-	${Q}${GIT} diff --quiet --exit-code go.mod go.sum || (echo "error: uncommitted changes in go.mod or go.sum" && exit 1)
+	${Q}${SOURCE_DIR}/_support/check-mod-tidy
 
 .PHONY: lint
 lint: ${GOLANGCI_LINT}
@@ -294,7 +290,7 @@ proto-lint: ${PROTOC} ${PROTOC_GEN_GO}
 
 .PHONY: no-changes
 no-changes:
-	${Q}${GIT} status --porcelain | awk '{ print } END { if (NR > 0) { exit 1 } }'
+	${Q}git status --porcelain | awk '{ print } END { if (NR > 0) { exit 1 } }'
 
 .PHONY: smoke-test
 smoke-test: all rspec
@@ -310,8 +306,8 @@ download-git: ${BUILD_DIR}/git_full_bins.tgz
 build-git:
 	${Q}echo "Getting Git from ${GIT_REPO_URL}"
 	${Q}rm -rf ${GIT_SOURCE_DIR} ${GIT_INSTALL_DIR}
-	${GIT} clone ${GIT_REPO_URL} ${GIT_SOURCE_DIR}
-	${GIT} -C ${GIT_SOURCE_DIR} checkout ${GIT_VERSION}
+	git clone ${GIT_REPO_URL} ${GIT_SOURCE_DIR}
+	git -C ${GIT_SOURCE_DIR} checkout ${GIT_VERSION}
 	${Q}rm -rf ${GIT_INSTALL_DIR}
 	${Q}mkdir -p ${GIT_INSTALL_DIR}
 	${MAKE} -C ${GIT_SOURCE_DIR} -j$(shell nproc) prefix=${GIT_PREFIX} ${GIT_BUILD_OPTIONS} install
@@ -379,20 +375,20 @@ ${GOLANGCI_LINT}: Makefile ${BUILD_DIR}/go.mod | ${BUILD_DIR}/bin
 	${Q}cd ${BUILD_DIR} && go get github.com/golangci/golangci-lint/cmd/golangci-lint@v${GOLANGCI_LINT_VERSION}
 
 ${TEST_REPO}:
-	${GIT} clone --bare --quiet https://gitlab.com/gitlab-org/gitlab-test.git $@
+	git clone --bare --quiet https://gitlab.com/gitlab-org/gitlab-test.git $@
 	# Git notes aren't fetched by default with git clone
-	${GIT} -C $@ fetch origin refs/notes/*:refs/notes/*
+	git -C $@ fetch origin refs/notes/*:refs/notes/*
 	rm -rf $@/refs
 	mkdir -p $@/refs/heads $@/refs/tags
 	cp ${SOURCE_DIR}/_support/gitlab-test.git-packed-refs $@/packed-refs
-	${GIT} -C $@ fsck --no-progress
+	git -C $@ fsck --no-progress
 
 ${TEST_REPO_GIT}:
-	${GIT} clone --bare --quiet https://gitlab.com/gitlab-org/gitlab-git-test.git $@
+	git clone --bare --quiet https://gitlab.com/gitlab-org/gitlab-git-test.git $@
 	rm -rf $@/refs
 	mkdir -p $@/refs/heads $@/refs/tags
 	cp ${SOURCE_DIR}/_support/gitlab-git-test.git-packed-refs $@/packed-refs
-	${GIT} -C $@ fsck --no-progress
+	git -C $@ fsck --no-progress
 
 ${GITLAB_SHELL_DIR}/config.yml: ${GITLAB_SHELL_DIR}/config.yml.example
 	cp $< $@

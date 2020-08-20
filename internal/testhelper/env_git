@@ -1,0 +1,4 @@
+#!/bin/sh
+mkdir -p testdata
+env | grep ^GIT_PROTOCOL= > testdata/git-env
+exec git "$@"

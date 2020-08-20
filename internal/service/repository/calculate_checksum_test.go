@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -29,7 +28,7 @@ func TestSuccessfulCalculateChecksum(t *testing.T) {
 		require.NoError(t, os.MkdirAll(path.Join(testRepoPath, d), 0755))
 	}
 	require.NoError(t, exec.Command("cp", "testdata/checksum-test-packed-refs", path.Join(testRepoPath, "packed-refs")).Run())
-	require.NoError(t, exec.Command(command.GitPath(), "-C", testRepoPath, "symbolic-ref", "HEAD", "refs/heads/feature").Run())
+	require.NoError(t, exec.Command("git", "-C", testRepoPath, "symbolic-ref", "HEAD", "refs/heads/feature").Run())
 
 	request := &gitalypb.CalculateChecksumRequest{Repository: testRepo}
 	testCtx, cancelCtx := testhelper.Context()

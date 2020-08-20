@@ -13,7 +13,6 @@ import (
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/git/updateref"
@@ -771,7 +770,7 @@ func TestFindAllTagNestedTags(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.description, func(t *testing.T) {
 			tags := bytes.NewReader(testhelper.MustRunCommand(t, nil, "git", "-C", testRepoCopyPath, "tag"))
-			testhelper.MustRunCommand(t, tags, "xargs", command.GitPath(), "-C", testRepoCopyPath, "tag", "-d")
+			testhelper.MustRunCommand(t, tags, "xargs", "git", "-C", testRepoCopyPath, "tag", "-d")
 
 			batch, err := catfile.New(ctx, testRepoCopy)
 			require.NoError(t, err)
@@ -1757,7 +1756,7 @@ func TestFindTagNestedTag(t *testing.T) {
 
 		t.Run(tc.description, func(t *testing.T) {
 			tags := bytes.NewReader(testhelper.MustRunCommand(t, nil, "git", "-C", testRepoCopyPath, "tag"))
-			testhelper.MustRunCommand(t, tags, "xargs", command.GitPath(), "-C", testRepoCopyPath, "tag", "-d")
+			testhelper.MustRunCommand(t, tags, "xargs", "git", "-C", testRepoCopyPath, "tag", "-d")
 
 			batch, err := catfile.New(ctx, testRepoCopy)
 			require.NoError(t, err)

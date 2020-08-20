@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/command"
 	gitlog "gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -308,7 +307,7 @@ func TestSuccessfulUserFFBranchRequest(t *testing.T) {
 	}
 
 	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", "-f", branchName, "6d394385cf567f80a8fd85055db1ab4c5295806f")
-	defer exec.Command(command.GitPath(), "-C", testRepoPath, "branch", "-d", branchName).Run()
+	defer exec.Command("git", "-C", testRepoPath, "branch", "-d", branchName).Run()
 
 	resp, err := client.UserFFBranch(ctx, request)
 	require.NoError(t, err)
@@ -331,7 +330,7 @@ func TestFailedUserFFBranchRequest(t *testing.T) {
 	branchName := "test-ff-target-branch"
 
 	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", "-f", branchName, "6d394385cf567f80a8fd85055db1ab4c5295806f")
-	defer exec.Command(command.GitPath(), "-C", testRepoPath, "branch", "-d", branchName).Run()
+	defer exec.Command("git", "-C", testRepoPath, "branch", "-d", branchName).Run()
 
 	testCases := []struct {
 		desc     string
@@ -432,7 +431,7 @@ func TestFailedUserFFBranchDueToHooks(t *testing.T) {
 	}
 
 	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", "-f", branchName, "6d394385cf567f80a8fd85055db1ab4c5295806f")
-	defer exec.Command(command.GitPath(), "-C", testRepoPath, "branch", "-d", branchName).Run()
+	defer exec.Command("git", "-C", testRepoPath, "branch", "-d", branchName).Run()
 
 	hookContent := []byte("#!/bin/sh\necho 'failure'\nexit 1")
 
@@ -470,7 +469,7 @@ func TestSuccessfulUserMergeToRefRequest(t *testing.T) {
 
 	// Writes in existingTargetRef
 	beforeRefreshCommitSha := "a5391128b0ef5d21df5dd23d98557f4ef12fae20"
-	out, err := exec.Command(command.GitPath(), "-C", testRepoPath, "update-ref", string(existingTargetRef), beforeRefreshCommitSha).CombinedOutput()
+	out, err := exec.Command("git", "-C", testRepoPath, "update-ref", string(existingTargetRef), beforeRefreshCommitSha).CombinedOutput()
 	require.NoError(t, err, "give an existing state to the target ref: %s", out)
 
 	testCases := []struct {
@@ -707,12 +706,12 @@ func TestUserMergeToRefIgnoreHooksRequest(t *testing.T) {
 
 func prepareMergeBranch(t *testing.T, testRepoPath string) {
 	deleteBranch(testRepoPath, mergeBranchName)
-	out, err := exec.Command(command.GitPath(), "-C", testRepoPath, "branch", mergeBranchName, mergeBranchHeadBefore).CombinedOutput()
+	out, err := exec.Command("git", "-C", testRepoPath, "branch", mergeBranchName, mergeBranchHeadBefore).CombinedOutput()
 	require.NoError(t, err, "set up branch to merge into: %s", out)
 }
 
 func deleteBranch(testRepoPath, branchName string) {
-	exec.Command(command.GitPath(), "-C", testRepoPath, "branch", "-D", branchName).Run()
+	exec.Command("git", "-C", testRepoPath, "branch", "-D", branchName).Run()
 }
 
 // This error is used as a sentinel value

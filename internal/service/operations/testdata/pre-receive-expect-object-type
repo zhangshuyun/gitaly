@@ -1,0 +1,12 @@
+#!/usr/bin/env ruby
+require_relative 'assert_git_object_type.rb'
+
+commands = STDIN.each_line.map(&:chomp)
+unless commands.size == 1
+  abort "expected 1 ref update command, got #{commands.size}"
+end
+
+new_value = commands[0].split(' ', 3)[1]
+abort 'missing new_value' unless new_value
+
+assert_git_object_type!(new_value, ARGV[0])

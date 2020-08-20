@@ -1,0 +1,19 @@
+#!/usr/bin/env ruby
+
+require_relative 'run.rb'
+
+def main
+  mod_not_changed!
+  run!(%w[go mod tidy])
+  mod_not_changed!
+end
+
+def mod_not_changed!
+  %w[go.mod go.sum].each do |f|
+    unless system(*%W[git diff --quiet --exit-code #{f}])
+      abort "error: uncommitted changes in #{f}"
+    end
+  end
+end
+
+main

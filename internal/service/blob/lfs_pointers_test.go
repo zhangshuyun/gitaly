@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -138,7 +137,7 @@ func TestSuccessfulGetNewLFSPointersRequest(t *testing.T) {
 	revision := []byte("46abbb087fcc0fd02c340f0f2f052bd2c7708da3")
 	commiterArgs := []string{"-c", "user.name=Scrooge McDuck", "-c", "user.email=scrooge@mcduck.com"}
 	cmdArgs := append(commiterArgs, "-C", testRepoPath, "cherry-pick", string(revision))
-	cmd := exec.Command(command.GitPath(), cmdArgs...)
+	cmd := exec.Command("git", cmdArgs...)
 	// Skip smudge since it doesn't work with file:// remotes and we don't need it
 	cmd.Env = append(cmd.Env, "GIT_LFS_SKIP_SMUDGE=1")
 	altDirs := "./alt-objects"

@@ -1,41 +1,20 @@
 package testhelper
 
 import (
-	"fmt"
-	"io/ioutil"
-	"os"
-	"path"
-	"testing"
-
-	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/config"
 )
 
-// EnableGitProtocolV2Support replaces the git binary in config with a
-// wrapper that allows the protocol to be tested. It returns a function that
-// restores the given settings as well as an array of environment variables
-// which need to be set when invoking Git with this setup.
-func EnableGitProtocolV2Support(t *testing.T) func() {
-	script := fmt.Sprintf(`#!/bin/sh
-mkdir -p testdata
-env | grep ^GIT_PROTOCOL= >>testdata/git-env
-exec "%s" "$@"
-`, command.GitPath())
-
-	dir, err := ioutil.TempDir("", "gitaly-test-*")
-	require.NoError(t, err)
-
-	path := path.Join(dir, "git")
-
-	cleanup, err := WriteExecutable(path, []byte(script))
-	require.NoError(t, err)
-
+// EnableGitProtocolV2Support replaces the git binary in config with an
+// `env_git` wrapper that allows the protocol to be tested. It returns a
+// function that restores the given settings.
+//
+// Because we don't know how to get to that wrapper script from the current
+// working directory, callers must create a symbolic link to the `env_git` file
+// in their own `testdata` directories.
+func EnableGitProtocolV2Support() func() {
 	oldGitBinPath := config.Config.Git.BinPath
-	config.Config.Git.BinPath = path
+	config.Config.Git.BinPath = "testdata/env_git"
 	return func() {
-		os.Remove("testdata/git-env")
 		config.Config.Git.BinPath = oldGitBinPath
-		cleanup()
 	}
 }

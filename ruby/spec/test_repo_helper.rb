@@ -5,10 +5,6 @@ require 'rugged'
 $:.unshift(File.expand_path('../proto', __dir__))
 require 'gitaly'
 
-Gitlab.config.git.test_global_ivar_override(:bin_path, ENV.fetch('GITALY_TESTING_GIT_BINARY', 'git'))
-Gitlab.config.git.test_global_ivar_override(:hooks_directory, File.join(Gitlab.config.gitlab_shell.path.to_s, "hooks"))
-Gitlab.config.gitaly.test_global_ivar_override(:bin_dir, __dir__)
-
 DEFAULT_STORAGE_DIR = File.expand_path('../tmp/repositories', __dir__)
 DEFAULT_STORAGE_NAME = 'default'.freeze
 TEST_REPO_PATH = File.join(DEFAULT_STORAGE_DIR, 'gitlab-test.git')
@@ -108,13 +104,13 @@ module TestRepo
   end
 
   def self.clone_new_repo!(origin, destination)
-    return if system(Gitlab.config.git.bin_path, "clone", "--quiet", "--bare", origin.to_s, destination.to_s)
+    return if system("git", "clone", "--quiet", "--bare", origin.to_s, destination.to_s)
 
     abort "Failed to clone test repo. Try running 'make prepare-tests' and try again."
   end
 
   def self.init_new_repo!(destination)
-    return if system(Gitlab.config.git.bin_path, "init", "--quiet", "--bare", destination.to_s)
+    return if system("git", "init", "--quiet", "--bare", destination.to_s)
 
     abort "Failed to init test repo."
   end

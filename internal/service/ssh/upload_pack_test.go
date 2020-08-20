@@ -14,7 +14,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	promtest "github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -206,12 +205,12 @@ func TestUploadPackCloneSuccess(t *testing.T) {
 		deepen float64
 	}{
 		{
-			cmd:    exec.Command(command.GitPath(), "clone", "git@localhost:test/test.git", localRepoPath),
+			cmd:    exec.Command("git", "clone", "git@localhost:test/test.git", localRepoPath),
 			desc:   "full clone",
 			deepen: 0,
 		},
 		{
-			cmd:    exec.Command(command.GitPath(), "clone", "--depth", "1", "git@localhost:test/test.git", localRepoPath),
+			cmd:    exec.Command("git", "clone", "--depth", "1", "git@localhost:test/test.git", localRepoPath),
 			desc:   "shallow clone",
 			deepen: 1,
 		},
@@ -272,7 +271,7 @@ func TestUploadPackCloneWithPartialCloneFilter(t *testing.T) {
 			localPath := path.Join(testRepoRoot, fmt.Sprintf("gitlab-test-upload-pack-local-%s", tc.desc))
 			cmd := cloneCommand{
 				repository: testRepo,
-				command:    exec.Command(command.GitPath(), append(tc.cloneArgs, localPath)...),
+				command:    exec.Command("git", append(tc.cloneArgs, localPath)...),
 				server:     serverSocketPath,
 			}
 			err := cmd.execute(t)
@@ -286,6 +285,12 @@ func TestUploadPackCloneWithPartialCloneFilter(t *testing.T) {
 }
 
 func TestUploadPackCloneSuccessWithGitProtocol(t *testing.T) {
+	restore := testhelper.EnableGitProtocolV2Support()
+	defer restore()
+
+	serverSocketPath, stop := runSSHServer(t)
+	defer stop()
+
 	localRepoPath := path.Join(testRepoRoot, "gitlab-test-upload-pack-local")
 
 	tests := []struct {
@@ -293,23 +298,17 @@ func TestUploadPackCloneSuccessWithGitProtocol(t *testing.T) {
 		desc string
 	}{
 		{
-			cmd:  exec.Command(command.GitPath(), "clone", "git@localhost:test/test.git", localRepoPath),
+			cmd:  exec.Command("git", "clone", "git@localhost:test/test.git", localRepoPath),
 			desc: "full clone",
 		},
 		{
-			cmd:  exec.Command(command.GitPath(), "clone", "--depth", "1", "git@localhost:test/test.git", localRepoPath),
+			cmd:  exec.Command("git", "clone", "--depth", "1", "git@localhost:test/test.git", localRepoPath),
 			desc: "shallow clone",
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.desc, func(t *testing.T) {
-			restore := testhelper.EnableGitProtocolV2Support(t)
-			defer restore()
-
-			serverSocketPath, stop := runSSHServer(t)
-			defer stop()
-
 			cmd := cloneCommand{
 				repository:  testRepo,
 				command:     tc.cmd,
@@ -323,7 +322,7 @@ func TestUploadPackCloneSuccessWithGitProtocol(t *testing.T) {
 			envData, err := testhelper.GetGitEnvData()
 
 			require.NoError(t, err)
-			require.Contains(t, envData, fmt.Sprintf("GIT_PROTOCOL=%s\n", git.ProtocolV2))
+			require.Equal(t, fmt.Sprintf("GIT_PROTOCOL=%s\n", git.ProtocolV2), envData)
 		})
 	}
 }
@@ -336,7 +335,7 @@ func TestUploadPackCloneHideTags(t *testing.T) {
 
 	cmd := cloneCommand{
 		repository: testRepo,
-		command:    exec.Command(command.GitPath(), "clone", "--mirror", "git@localhost:test/test.git", localRepoPath),
+		command:    exec.Command("git", "clone", "--mirror", "git@localhost:test/test.git", localRepoPath),
 		server:     serverSocketPath,
 		gitConfig:  "transfer.hideRefs=refs/tags",
 	}
@@ -361,7 +360,7 @@ func TestUploadPackCloneFailure(t *testing.T) {
 			StorageName:  "foobar",
 			RelativePath: testRepo.GetRelativePath(),
 		},
-		command: exec.Command(command.GitPath(), "clone", "git@localhost:test/test.git", localRepoPath),
+		command: exec.Command("git", "clone", "git@localhost:test/test.git", localRepoPath),
 		server:  serverSocketPath,
 	}
 	err := cmd.execute(t)

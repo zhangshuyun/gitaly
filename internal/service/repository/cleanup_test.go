@@ -9,7 +9,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -240,7 +239,7 @@ func TestCleanupDisconnectedWorktrees(t *testing.T) {
 
 	if !pre2_20_0 {
 		err := exec.Command(
-			command.GitPath(),
+			"git",
 			testhelper.AddWorktreeArgs(testRepoPath, worktreePath)...,
 		).Run()
 		require.Error(t, err,

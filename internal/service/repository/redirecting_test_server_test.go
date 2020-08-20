@@ -44,7 +44,7 @@ func TestRedirectingServerRedirects(t *testing.T) {
 	httpServerState, redirectingServer := StartRedirectingTestServer()
 
 	// we only test for redirection, this command can fail after that
-	cmd := exec.Command(command.GitPath(), "-c", "http.followRedirects=true", "clone", "--bare", redirectingServer.URL, dir)
+	cmd := exec.Command("git", "-c", "http.followRedirects=true", "clone", "--bare", redirectingServer.URL, dir)
 	cmd.Env = append(command.GitEnv, cmd.Env...)
 	cmd.Run()
 

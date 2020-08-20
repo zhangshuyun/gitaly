@@ -323,11 +323,6 @@ func SetGitPath() error {
 		return nil
 	}
 
-	if path, ok := os.LookupEnv("GITALY_TESTING_GIT_BINARY"); ok {
-		Config.Git.BinPath = path
-		return nil
-	}
-
 	resolvedPath, err := exec.LookPath("git")
 	if err != nil {
 		return err

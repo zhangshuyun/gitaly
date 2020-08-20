@@ -74,32 +74,7 @@ func LoadColors(cfg config.Cfg) error {
 }
 
 func startGitLinguist(ctx context.Context, repoPath string, commitID string, linguistCommand string) (*command.Command, error) {
-	args := []string{
-		"bundle",
-		"exec",
-		"bin/ruby-cd",
-		repoPath,
-		"git-linguist",
-		"--commit=" + commitID,
-		linguistCommand,
-	}
-
-	// This is a horrible hack. git-linguist will execute `git rev-parse
-	// --git-dir` to check whether it is in a Git directory or not. We don't
-	// want to use the one provided by PATH, but instead the one specified
-	// via the configuration. git-linguist doesn't specify any way to choose
-	// a different Git implementation, so we need to prepend the configured
-	// Git's directory to PATH. But as our internal command interface will
-	// overwrite PATH even if we pass it in here, we need to work around it
-	// and instead execute the command with `env PATH=$GITDIR:$PATH`.
-	gitDir := path.Dir(command.GitPath())
-	if path, ok := os.LookupEnv("PATH"); ok && gitDir != "." {
-		args = append([]string{
-			"env", fmt.Sprintf("PATH=%s:%s", gitDir, path),
-		}, args...)
-	}
-
-	cmd := exec.Command(args[0], args[1:]...)
+	cmd := exec.Command("bundle", "exec", "bin/ruby-cd", repoPath, "git-linguist", "--commit="+commitID, linguistCommand)
 	cmd.Dir = config.Config.Ruby.Dir
 
 	internalCmd, err := command.New(ctx, cmd, nil, nil, nil, exportEnvironment()...)

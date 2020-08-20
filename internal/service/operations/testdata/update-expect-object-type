@@ -1,0 +1,9 @@
+#!/usr/bin/env ruby
+require_relative 'assert_git_object_type.rb'
+
+expected_object_type = ARGV.shift
+new_value = ARGV[2]
+
+abort "missing new_value" unless new_value
+
+assert_git_object_type!(new_value, expected_object_type)

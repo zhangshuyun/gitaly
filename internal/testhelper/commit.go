@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 )
 
@@ -81,7 +80,7 @@ func CreateCommitInAlternateObjectDirectory(t testing.TB, repoPath, altObjectsDi
 		t.Fatalf("stdout: %s, stderr: %s", output, stderr)
 	}
 
-	cmd = exec.Command(command.GitPath(), "-C", repoPath, "rev-parse", "HEAD")
+	cmd = exec.Command("git", "-C", repoPath, "rev-parse", "HEAD")
 	cmd.Env = gitObjectEnv
 	currentHead, err := cmd.Output()
 	require.NoError(t, err)
