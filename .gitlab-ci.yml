@@ -1,4 +1,5 @@
 stages:
+  - fuzz
   - build
   - test
   - publish
@@ -262,7 +263,6 @@ lint:
 objectinfo_fuzz_test:
   image: registry.gitlab.com/gitlab-org/gitlab-build-images:ruby-2.6-golang-1.13-git-2.26
   extends: .fuzz_base
-  stage: test
   script:
     - apt update && apt install -y clang
     - go get github.com/dvyukov/go-fuzz/go-fuzz && go get github.com/dvyukov/go-fuzz/go-fuzz-build
