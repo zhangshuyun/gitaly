@@ -1,5 +1,0 @@
----
-title: Update gRPC to v1.30.2 and google-protobuf to v3.12.4
-merge_request: 2442
-author:
-type: changed

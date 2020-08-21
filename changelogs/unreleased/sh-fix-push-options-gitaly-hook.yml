@@ -1,5 +1,0 @@
----
-title: Fix push options not working with Gitaly post-receive hook
-merge_request: 2394
-author:
-type: fixed

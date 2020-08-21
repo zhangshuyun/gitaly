@@ -1,5 +1,0 @@
----
-title: 'Praefect: replication processing should omit unhealthy nodes'
-merge_request: 2464
-author:
-type: added

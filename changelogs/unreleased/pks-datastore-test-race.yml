@@ -1,5 +1,0 @@
----
-title: Fix detection of context cancellation for health updater
-merge_request: 2397
-author:
-type: fixed

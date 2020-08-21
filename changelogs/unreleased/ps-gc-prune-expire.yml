@@ -1,5 +1,0 @@
----
-title: Prune objects older than 24h on garbage collection
-merge_request: 2469
-author:
-type: added

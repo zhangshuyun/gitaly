@@ -1,5 +1,0 @@
----
-title: Log cumulative per-request rusage ("command stats")
-merge_request: 2368
-author:
-type: performance

@@ -1,5 +1,0 @@
----
-title: Improve query to identify up to date storages for reads distribution
-merge_request: 2372
-author:
-type: changed

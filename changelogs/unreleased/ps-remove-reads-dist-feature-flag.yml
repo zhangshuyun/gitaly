@@ -1,5 +1,0 @@
----
-title: Enable distributed_reads feature flag by default
-merge_request: 2470
-author:
-type: changed

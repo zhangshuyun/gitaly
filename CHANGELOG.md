@@ -1,5 +1,67 @@
 # Gitaly changelog
 
+## 13.3.0 (2020-08-22)
+
+### Removed (1 change)
+
+- Remove Praefect primary from config. !2392
+
+### Fixed (12 changes)
+
+- Praefect: storage scoped RPCs not handled properly. !2234
+- Fix parsing of Git release-candidate versions. !2389
+- Fix push options not working with Gitaly post-receive hook. !2394
+- Fix detection of context cancellation for health updater. !2397
+- lines.Send() only support byte delimiter. !2402
+- Fix Praefect not starting with unhealthy Gitalys. !2422
+- Nodes elector for configuration with disabled failover. !2444
+- Fix connecting to Praefect service from Ruby sidecar. !2451
+- Fix transaction voting delay metric for pre-receive hook. !2458
+- Fix accessors mislabeled as mutators. !2466
+- Fix registration of Gitaly metrics dependent on config. !2467
+- Fix post-receive hooks with reference transactions. !2471
+
+### Changed (12 changes)
+
+- Improve query to identify up to date storages for reads distribution. !2372
+- Add old path to NumStats protobuf output. !2395
+- Generate data loss report from repository generation info. !2403
+- Enforce read-only mode per repository. !2405
+- Remove remote_branches_ls_remote feature flag. !2417
+- Remove virtual storage wide read-only mode. !2431
+- Update gRPC to v1.30.2 and google-protobuf to v3.12.4. !2442
+- Report only read-only repositories by default in dataloss. !2449
+- Configurable replication queue batch size. !2450
+- Use repository generations to determine the best leader to elect. !2459
+- Default-enable primary-wins reference transaction. !2460
+- Enable distributed_reads feature flag by default. !2470
+
+### Performance (1 change)
+
+- Log cumulative per-request rusage ("command stats"). !2368
+
+### Added (13 changes, 1 of them is from the community)
+
+- GetArchive: Support path elision. !2342 (Ethan Reesor (@firelizzard))
+- Praefect: include PgBouncer in CI. !2378
+- Support dry-run cherry-picks and reverts. !2382
+- Add subtransactions histogram metric. !2390
+- Export connection pool and support setting DialOptions. !2401
+- Queue replication jobs in case a transaction is unused. !2404
+- Add support for primary-wins voting strategy. !2408
+- Add accept-dataloss sub-command. !2415
+- Metric for the number of read-only repositories. !2426
+- Improve transaction metrics. !2441
+- Praefect: replication processing should omit unhealthy nodes. !2464
+- Log transaction state when cancelling them. !2465
+- Prune objects older than 24h on garbage collection. !2469
+
+### Other (2 changes)
+
+- Update mime-types for Ruby 2.7. !2456
+- Pass CORRELATION_ID env variable to spawned git subprocesses. !2478
+
+
 ## 13.2.6
 
 - No changes.

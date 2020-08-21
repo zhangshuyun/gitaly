@@ -1,5 +1,0 @@
----
-title: Fix parsing of Git release-candidate versions
-merge_request: 2389
-author:
-type: fixed

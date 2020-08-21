@@ -1,5 +1,0 @@
----
-title: Fix registration of Gitaly metrics dependent on config
-merge_request: 2467
-author:
-type: fixed

@@ -1,5 +1,0 @@
----
-title: Fix transaction voting delay metric for pre-receive hook
-merge_request: 2458
-author:
-type: fixed

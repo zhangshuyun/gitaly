@@ -1,5 +1,0 @@
----
-title: Pass CORRELATION_ID env variable to spawned git subprocesses
-merge_request: 2478
-author:
-type: other

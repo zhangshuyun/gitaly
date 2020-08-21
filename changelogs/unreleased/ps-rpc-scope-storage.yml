@@ -1,5 +1,0 @@
----
-title: 'Praefect: storage scoped RPCs not handled properly'
-merge_request: 2234
-author:
-type: fixed

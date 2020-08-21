@@ -1,5 +1,0 @@
----
-title: Report only read-only repositories by default in dataloss
-merge_request: 2449
-author:
-type: changed
