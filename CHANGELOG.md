@@ -1,5 +1,9 @@
 # Gitaly changelog
 
+## 13.3.1 (2020-08-25)
+
+- No changes.
+
 ## 13.3.0 (2020-08-22)
 
 ### Removed (1 change)
