@@ -3,6 +3,7 @@ package smarthttp
 import (
 	"context"
 	"io"
+	"io/ioutil"
 	"sync"
 
 	"github.com/golang/protobuf/proto"
@@ -92,6 +93,14 @@ func tryCache(ctx context.Context, in *gitalypb.InfoRefsRequest, w io.Writer, mi
 			tr := io.TeeReader(pr, w)
 			if err := infoRefCache.PutStream(ctx, in.Repository, in, tr); err != nil {
 				logger.Errorf("unable to store InfoRefsUploadPack response in cache: %q", err)
+
+				// discard remaining bytes if caching stream
+				// failed so that tee reader is not blocked
+				_, err = io.Copy(ioutil.Discard, tr)
+				if err != nil {
+					logger.WithError(err).
+						Error("unable to discard remaining InfoRefsUploadPack cache stream")
+				}
 			}
 		}()
 

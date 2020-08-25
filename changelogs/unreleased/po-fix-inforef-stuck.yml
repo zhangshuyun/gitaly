@@ -1,0 +1,5 @@
+---
+title: Fix hanging info refs cache when error occurs
+merge_request: 2497
+author:
+type: fixed
