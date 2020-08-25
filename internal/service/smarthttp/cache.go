@@ -5,6 +5,7 @@ import (
 	"io"
 	"sync"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
@@ -14,8 +15,15 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// streamer abstracts away the cache concrete type so that it can be override
+// in tests
+type streamer interface {
+	GetStream(ctx context.Context, repo *gitalypb.Repository, req proto.Message) (_ io.ReadCloser, err error)
+	PutStream(ctx context.Context, repo *gitalypb.Repository, req proto.Message, src io.Reader) error
+}
+
 var (
-	infoRefCache = cache.NewStreamDB(cache.LeaseKeyer{})
+	infoRefCache streamer = cache.NewStreamDB(cache.LeaseKeyer{})
 
 	// prometheus counters
 	cacheAttemptTotal = prometheus.NewCounter(
