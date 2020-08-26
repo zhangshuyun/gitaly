@@ -98,7 +98,7 @@ func (s *server) sshUploadPack(stream gitalypb.SSHService_SSHUploadPackServer, r
 			ctxlogrus.Extract(stream.Context()).WithError(err).Debug("failed parsing packfile negotiation")
 			return
 		}
-		stats.UpdateMetrics(s.packfileNegotiationMetrics)
+		stats.UpdateMetrics(ctx, s.packfileNegotiationMetrics)
 	}()
 
 	cmd, monitor, err := monitorStdinCommand(ctx, stdin, stdout, stderr, env, globalOpts, git.SubCmd{

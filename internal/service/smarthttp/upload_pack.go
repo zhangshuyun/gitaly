@@ -49,7 +49,7 @@ func (s *server) PostUploadPack(stream gitalypb.SmartHTTPService_PostUploadPackS
 			ctxlogrus.Extract(stream.Context()).WithError(err).Debug("failed parsing packfile negotiation")
 			return
 		}
-		stats.UpdateMetrics(s.packfileNegotiationMetrics)
+		stats.UpdateMetrics(ctx, s.packfileNegotiationMetrics)
 
 		statsCh <- stats
 	}()

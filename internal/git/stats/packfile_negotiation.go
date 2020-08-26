@@ -1,6 +1,7 @@
 package stats
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -8,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/git/pktline"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 )
@@ -106,7 +108,7 @@ func (n *PackfileNegotiation) Parse(body io.Reader) error {
 
 // UpdateMetrics updates Prometheus counters with features that have been used
 // during a packfile negotiation.
-func (n *PackfileNegotiation) UpdateMetrics(metrics *prometheus.CounterVec) {
+func (n *PackfileNegotiation) UpdateMetrics(ctx context.Context, metrics *prometheus.CounterVec) {
 	if n.Deepen != "" {
 		metrics.WithLabelValues("deepen").Inc()
 	}
@@ -117,4 +119,13 @@ func (n *PackfileNegotiation) UpdateMetrics(metrics *prometheus.CounterVec) {
 		metrics.WithLabelValues("have").Inc()
 	}
 	metrics.WithLabelValues("total").Inc()
+
+	stats := command.StatsFromContext(ctx)
+	if n.Deepen != "" {
+		stats.RecordSum("packfile_negotiation.deepen", 1)
+	}
+	if n.Filter != "" {
+		stats.RecordSum("packfile_negotiation.filter", 1)
+	}
+	stats.RecordSum("packfile_negotiation.haves", n.Haves)
 }
