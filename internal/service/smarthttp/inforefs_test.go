@@ -3,6 +3,7 @@ package smarthttp
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -10,7 +11,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/cache"
 	"gitlab.com/gitlab-org/gitaly/internal/config"
@@ -277,6 +280,18 @@ func assertGitRefAdvertisement(t *testing.T, rpc, responseBody string, firstLine
 	}
 }
 
+type mockStreamer struct {
+	streamer
+	putStream func(context.Context, *gitalypb.Repository, proto.Message, io.Reader) error
+}
+
+func (ms mockStreamer) PutStream(ctx context.Context, repo *gitalypb.Repository, req proto.Message, src io.Reader) error {
+	if ms.putStream != nil {
+		return ms.putStream(ctx, repo, req, src)
+	}
+	return ms.streamer.PutStream(ctx, repo, req, src)
+}
+
 func TestCacheInfoRefsUploadPack(t *testing.T) {
 	clearCache(t)
 
@@ -292,6 +307,9 @@ func TestCacheInfoRefsUploadPack(t *testing.T) {
 	defer cancel()
 
 	assertNormalResponse := func() {
+		ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		defer cancel()
+
 		response, err := makeInfoRefsUploadPackRequest(ctx, t, serverSocketPath, rpcRequest)
 		require.NoError(t, err)
 
@@ -322,10 +340,13 @@ func TestCacheInfoRefsUploadPack(t *testing.T) {
 		replacedContents[0], replacedContents[3], replacedContents[1:3],
 	)
 
-	// invalidate cache for repository
-	ender, err := cache.LeaseKeyer{}.StartLease(rpcRequest.Repository)
-	require.NoError(t, err)
-	require.NoError(t, ender.EndLease(setInfoRefsUploadPackMethod(ctx)))
+	invalidateCacheForRepo := func() {
+		ender, err := cache.LeaseKeyer{}.StartLease(rpcRequest.Repository)
+		require.NoError(t, err)
+		require.NoError(t, ender.EndLease(setInfoRefsUploadPackMethod(ctx)))
+	}
+
+	invalidateCacheForRepo()
 
 	// replaced cache response is no longer valid
 	assertNormalResponse()
@@ -343,6 +364,21 @@ func TestCacheInfoRefsUploadPack(t *testing.T) {
 	_, err = makeInfoRefsUploadPackRequest(ctx, t, serverSocketPath, invalidReq)
 	testhelper.RequireGrpcError(t, err, codes.Internal)
 	testhelper.AssertPathNotExists(t, pathToCachedResponse(t, ctx, invalidReq))
+
+	// if an error occurs while putting stream, it should not interrupt
+	// request from being served
+	happened := false
+	defer func(old streamer) { infoRefCache = old }(infoRefCache)
+	infoRefCache = mockStreamer{
+		streamer: infoRefCache,
+		putStream: func(context.Context, *gitalypb.Repository, proto.Message, io.Reader) error {
+			happened = true
+			return errors.New("oh nos!")
+		},
+	}
+	invalidateCacheForRepo()
+	assertNormalResponse()
+	require.True(t, happened)
 }
 
 func createInvalidRepo(t testing.TB, repo *gitalypb.Repository) func() {
