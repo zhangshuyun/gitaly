@@ -17,4 +17,31 @@ module Gollum
       Gitlab::EncodingHelper.encode!(data)
     end
   end
+
+  # Override BlobEntry.normalize_dir to remove the call to File.expand_path,
+  # which also expands `~` and `~username` paths, and can raise exceptions for
+  # invalid users.
+  #
+  # We don't need to worry about symlinks or Windows paths, we only need to
+  # normalize the slashes in the path, and return an empty string for toplevel
+  # paths.
+  class BlobEntry
+    def self.normalize_dir(dir)
+      # Return empty string for nil and paths that point to the toplevel
+      # ('.', '/', '..' etc.)
+      return '' if !dir || dir =~ %r{\A[\./]*\z}
+
+      # Normalize the path:
+      # - Add exactly one leading slash
+      # - Remove trailing slashes
+      # - Remove repeated slashes
+      dir.sub(%r{
+        \A
+        /*            # leading slashes
+        (?<path>.*?)  # the actual path
+        /*            # trailing slashes
+        \z
+      }x, '/\k<path>').gsub(%r{//+}, '/')
+    end
+  end
 end
