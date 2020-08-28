@@ -1,5 +1,12 @@
 # Gitaly changelog
 
+## 13.3.2 (2020-08-28)
+
+### Fixed (1 change)
+
+- Fix hanging info refs cache when error occurs. !2497
+
+
 ## 13.3.1 (2020-08-25)
 
 - No changes.
