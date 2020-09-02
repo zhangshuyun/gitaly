@@ -1,5 +1,12 @@
 # Gitaly changelog
 
+## 13.2.7 (2020-09-02)
+
+### Security (1 change)
+
+- Don't expand filesystem paths of wiki pages.
+
+
 ## 13.2.6
 
 - No changes.
