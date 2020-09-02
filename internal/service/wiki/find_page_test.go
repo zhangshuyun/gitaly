@@ -25,12 +25,19 @@ func TestSuccessfulWikiFindPageRequest(t *testing.T) {
 	page3Name := "Installing/Step 133-c"
 	page4Name := "Encoding is fun"
 	page5Name := "Empty file"
+	page6Name := "~/Tilde in directory"
+	page7Name := "~Tilde in filename"
+	page8Name := "~!/Tilde with invalid user"
+
 	page1Commit := createTestWikiPage(t, client, wikiRepo, createWikiPageOpts{title: page1Name})
 	createTestWikiPage(t, client, wikiRepo, createWikiPageOpts{title: page2Name})
 	createTestWikiPage(t, client, wikiRepo, createWikiPageOpts{title: page3Name})
 	createTestWikiPage(t, client, wikiRepo, createWikiPageOpts{title: page4Name, content: []byte("f\xFCr")})
-	page5Commit := createTestWikiPage(t, client, wikiRepo, createWikiPageOpts{title: page5Name, forceContentEmpty: true})
-	latestCommit := page5Commit
+	createTestWikiPage(t, client, wikiRepo, createWikiPageOpts{title: page5Name, forceContentEmpty: true})
+	createTestWikiPage(t, client, wikiRepo, createWikiPageOpts{title: page6Name})
+	createTestWikiPage(t, client, wikiRepo, createWikiPageOpts{title: page7Name})
+	page8Commit := createTestWikiPage(t, client, wikiRepo, createWikiPageOpts{title: page8Name})
+	latestCommit := page8Commit
 
 	testCases := []struct {
 		desc            string
@@ -157,6 +164,66 @@ func TestSuccessfulWikiFindPageRequest(t *testing.T) {
 				Historical: false,
 			},
 			expectedContent: nil,
+		},
+		{
+			desc: "title for file with tilde in directory",
+			request: &gitalypb.WikiFindPageRequest{
+				Repository: wikiRepo,
+				Title:      []byte(page6Name),
+			},
+			expectedPage: &gitalypb.WikiPage{
+				Version: &gitalypb.WikiPageVersion{
+					Commit: latestCommit,
+					Format: "markdown",
+				},
+				Title:      []byte("Tilde in directory"),
+				Format:     "markdown",
+				UrlPath:    "~/Tilde-in-directory",
+				Path:       []byte("~/Tilde-in-directory.md"),
+				Name:       []byte("Tilde in directory"),
+				Historical: false,
+			},
+			expectedContent: mockPageContent,
+		},
+		{
+			desc: "title for file with tilde in filename",
+			request: &gitalypb.WikiFindPageRequest{
+				Repository: wikiRepo,
+				Title:      []byte(page7Name),
+			},
+			expectedPage: &gitalypb.WikiPage{
+				Version: &gitalypb.WikiPageVersion{
+					Commit: latestCommit,
+					Format: "markdown",
+				},
+				Title:      []byte(page7Name),
+				Format:     "markdown",
+				UrlPath:    "~Tilde-in-filename",
+				Path:       []byte("~Tilde-in-filename.md"),
+				Name:       []byte(page7Name),
+				Historical: false,
+			},
+			expectedContent: mockPageContent,
+		},
+		{
+			desc: "title for file with tilde and invalid user",
+			request: &gitalypb.WikiFindPageRequest{
+				Repository: wikiRepo,
+				Title:      []byte(page8Name),
+			},
+			expectedPage: &gitalypb.WikiPage{
+				Version: &gitalypb.WikiPageVersion{
+					Commit: latestCommit,
+					Format: "markdown",
+				},
+				Title:      []byte("Tilde with invalid user"),
+				Format:     "markdown",
+				UrlPath:    "~!/Tilde-with-invalid-user",
+				Path:       []byte("~!/Tilde-with-invalid-user.md"),
+				Name:       []byte("Tilde with invalid user"),
+				Historical: false,
+			},
+			expectedContent: mockPageContent,
 		},
 	}
 
