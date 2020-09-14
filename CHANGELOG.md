@@ -1,5 +1,9 @@
 # Gitaly changelog
 
+## 13.3.6
+
+- No changes.
+
 ## 13.3.5
 
 - No changes.
