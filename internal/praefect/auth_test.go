@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
@@ -61,9 +62,7 @@ func TestAuthFailures(t *testing.T) {
 
 			cli := mock.NewSimpleServiceClient(conn)
 
-			_, err = cli.ServerAccessor(ctx, &mock.SimpleRequest{
-				Value: 1,
-			})
+			_, err = cli.RepoAccessorUnary(ctx, &mock.RepoRequest{})
 
 			testhelper.RequireGrpcError(t, err, tc.code)
 		})
@@ -135,10 +134,8 @@ func dial(serverSocketPath string, opts []grpc.DialOption) (*grpc.ClientConn, er
 func runServer(t *testing.T, token string, required bool) (*grpc.Server, string, func()) {
 	backendToken := "abcxyz"
 	mockServer := &mockSvc{
-		serverAccessor: func(_ context.Context, req *mock.SimpleRequest) (*mock.SimpleResponse, error) {
-			return &mock.SimpleResponse{
-				Value: req.Value + 1,
-			}, nil
+		repoAccessorUnary: func(_ context.Context, req *mock.RepoRequest) (*empty.Empty, error) {
+			return &empty.Empty{}, nil
 		},
 	}
 	backend, cleanup := newMockDownstream(t, backendToken, mockServer)
