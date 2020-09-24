@@ -238,7 +238,7 @@ func SafeBareCmd(ctx context.Context, stream CmdStream, env []string, globals []
 		return nil, err
 	}
 
-	return unsafeBareCmd(ctx, stream, env, args...)
+	return unsafeBareCmd(ctx, nil, stream, env, args...)
 }
 
 // SafeStdinCmd creates a git.Command with the given args and Repository that is

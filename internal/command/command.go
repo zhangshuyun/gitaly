@@ -463,3 +463,8 @@ func (c *Command) Args() []string {
 func (c *Command) Env() []string {
 	return c.cmd.Env
 }
+
+// Pid is an accessor for the pid
+func (c *Command) Pid() int {
+	return c.cmd.ProcessState.Pid()
+}
