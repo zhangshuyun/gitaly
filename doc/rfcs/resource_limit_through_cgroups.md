@@ -14,7 +14,7 @@ requests obtained the vast majority of resources requiring the operating system
 to free up resources. Meanwhile a degraded service is experienced for end-users.
 
 When a Gitaly host runs out of memory, the operating system will first use swap,
-than free file mapped resources, but ultimately it will have to use the OOM Killer.
+then free file mapped resources, but ultimately it will have to use the OOM Killer.
 More or less randomly killing processes randomly until enough memory is
 available again. Gitaly does not control this process, and cannot hint to the
 OOM Killer which processes might be worth killing.
