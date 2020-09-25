@@ -40,4 +40,5 @@ For configuration please read [praefects configuration documentation](doc/config
 #### RFCs
 
 - [Praefect Queue storage](rfcs/praefect-queue-storage.md)
+- [Resource limits through cgroups](rfcs/resource_limit_through_cgroups.md)
 - [Snapshot storage](rfcs/snapshot-storage.md)
