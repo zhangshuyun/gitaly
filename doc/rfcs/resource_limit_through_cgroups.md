@@ -77,7 +77,7 @@ subgroup. A group get created when executing a sub process, and each sub group
 has the same limits. Let's consider this grouping for both memory and CPU.
 
 In the case of a limitation on a maximum of allocated bytes this strategy is
-viable. Even when the total of of maximum allocatable bytes of each subgroup
+viable. Even when the total of maximum allocatable bytes of each subgroup
 exceeds the parent group maximum of allocatable bytes, this works in cases where
 the parents limit vastly exceeds each subgroups limit. When the parent group limit
 is exceeded, out of memory events will be send to subgroups, much like the
