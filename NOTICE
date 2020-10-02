@@ -3153,7 +3153,7 @@ LICENSE - github.com/uber/jaeger-lib/metrics
    limitations under the License.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-LICENSE - gitlab.com/gitlab-org/gitaly/internal/middleware/panichandler
+LICENSE - gitlab.com/gitlab-org/gitaly/v13/internal/middleware/panichandler
 Copyright (c) 2016 Masahiro Sano
 
 MIT License
@@ -3178,7 +3178,7 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-LICENSE.txt - gitlab.com/gitlab-org/gitaly/internal/praefect/grpc-proxy/proxy
+LICENSE.txt - gitlab.com/gitlab-org/gitaly/v13/internal/praefect/grpc-proxy/proxy
                                 Apache License
                            Version 2.0, January 2004
                         http://www.apache.org/licenses/
