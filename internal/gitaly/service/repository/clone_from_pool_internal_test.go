@@ -8,12 +8,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/git/objectpool"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/repository"
-	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
-	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/git/objectpool"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/gitaly/service/repository"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v13/proto/go/gitalypb"
 	"google.golang.org/grpc/metadata"
 )
 

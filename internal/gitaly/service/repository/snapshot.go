@@ -8,11 +8,11 @@ import (
 	"regexp"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
-	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/archive"
-	"gitlab.com/gitlab-org/gitaly/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
-	"gitlab.com/gitlab-org/gitaly/streamio"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/gitaly/archive"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v13/proto/go/gitalypb"
+	"gitlab.com/gitlab-org/gitaly/v13/streamio"
 )
 
 var objectFiles = []*regexp.Regexp{

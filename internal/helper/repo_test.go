@@ -6,9 +6,9 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v13/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
 

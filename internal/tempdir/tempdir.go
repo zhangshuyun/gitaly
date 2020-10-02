@@ -10,10 +10,10 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
-	"gitlab.com/gitlab-org/gitaly/internal/dontpanic"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/internal/helper/housekeeping"
-	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/dontpanic"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/helper/housekeeping"
+	"gitlab.com/gitlab-org/gitaly/v13/proto/go/gitalypb"
 )
 
 const (

@@ -47,7 +47,7 @@ GOCOVER_COBERTURA := ${BUILD_DIR}/bin/gocover-cobertura
 
 # Build information
 BUNDLE_FLAGS    ?= $(shell test -f ${SOURCE_DIR}/../.gdk-install-root && echo --no-deployment || echo --deployment)
-GITALY_PACKAGE  := gitlab.com/gitlab-org/gitaly
+GITALY_PACKAGE  := gitlab.com/gitlab-org/gitaly/v13
 BUILD_TIME      := $(shell date +"%Y%m%d.%H%M%S")
 GITALY_VERSION  := $(shell git describe --match v* 2>/dev/null | sed 's/^v//' || cat ${SOURCE_DIR}/VERSION 2>/dev/null || echo unknown)
 GO_LDFLAGS      := -ldflags '-X ${GITALY_PACKAGE}/internal/version.version=${GITALY_VERSION} -X ${GITALY_PACKAGE}/internal/version.buildtime=${BUILD_TIME}'

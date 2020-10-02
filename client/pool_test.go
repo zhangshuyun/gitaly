@@ -9,9 +9,9 @@ import (
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/stretchr/testify/require"
-	gitaly_auth "gitlab.com/gitlab-org/gitaly/internal/gitaly/config/auth"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/server/auth"
-	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	gitaly_auth "gitlab.com/gitlab-org/gitaly/v13/internal/gitaly/config/auth"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/gitaly/server/auth"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/testhelper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/health"

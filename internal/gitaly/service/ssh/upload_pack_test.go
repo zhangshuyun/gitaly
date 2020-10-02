@@ -14,11 +14,11 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	promtest "github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/command"
-	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
-	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/command"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v13/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
 

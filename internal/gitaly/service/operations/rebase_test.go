@@ -9,11 +9,11 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
-	gitlog "gitlab.com/gitlab-org/gitaly/internal/git/log"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
-	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/git/catfile"
+	gitlog "gitlab.com/gitlab-org/gitaly/v13/internal/git/log"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/gitaly/rubyserver"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v13/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 )

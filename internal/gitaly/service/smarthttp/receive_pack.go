@@ -3,11 +3,11 @@ package smarthttp
 import (
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	log "github.com/sirupsen/logrus"
-	"gitlab.com/gitlab-org/gitaly/internal/command"
-	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
-	"gitlab.com/gitlab-org/gitaly/streamio"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/command"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v13/proto/go/gitalypb"
+	"gitlab.com/gitlab-org/gitaly/v13/streamio"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )

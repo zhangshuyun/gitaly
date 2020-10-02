@@ -6,9 +6,9 @@ import (
 	"os"
 	"strings"
 
-	"gitlab.com/gitlab-org/gitaly/internal/helper"
-	praefect_metadata "gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
-	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/helper"
+	praefect_metadata "gitlab.com/gitlab-org/gitaly/v13/internal/praefect/metadata"
+	"gitlab.com/gitlab-org/gitaly/v13/proto/go/gitalypb"
 	"google.golang.org/grpc/metadata"
 )
 

@@ -1,11 +1,11 @@
 package operations
 
 import (
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
-	"gitlab.com/gitlab-org/gitaly/internal/storage"
-	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/gitaly/hook"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/gitaly/rubyserver"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/storage"
+	"gitlab.com/gitlab-org/gitaly/v13/proto/go/gitalypb"
 )
 
 type server struct {

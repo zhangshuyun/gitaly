@@ -77,6 +77,7 @@ github.com/fsnotify/fsnotify v1.4.7 h1:IXs+QLmnXW2CcXuY+8Mzv/fWEsPGWxqefPtCP5CnV
 github.com/fsnotify/fsnotify v1.4.7/go.mod h1:jwhsz4b93w/PPRr/qN1Yymfu8t87LnFCMoQvtojpjFo=
 github.com/gavv/httpexpect v2.0.0+incompatible/go.mod h1:x+9tiU1YnrOvnB725RkpoLv1M62hOWzwo5OXotisrKc=
 github.com/getsentry/raven-go v0.1.0/go.mod h1:KungGk8q33+aIAZUIVWZDr2OfAEBsO49PX4NzFV5kcQ=
+github.com/getsentry/raven-go v0.1.2 h1:4V0z512S5mZXiBvmW2RbuZBSIY1sEdMNsPjpx2zwtSE=
 github.com/getsentry/raven-go v0.1.2/go.mod h1:KungGk8q33+aIAZUIVWZDr2OfAEBsO49PX4NzFV5kcQ=
 github.com/getsentry/sentry-go v0.5.1 h1:MIPe7ScHADsrK2vznqmhksIUFxq7m0JfTh+ZIMkI+VQ=
 github.com/getsentry/sentry-go v0.5.1/go.mod h1:B8H7x8TYDPkeWPRzGpIiFO97LZP6rL8A3hEt8lUItMw=
@@ -356,7 +357,9 @@ github.com/yudai/golcs v0.0.0-20170316035057-ecda9a501e82/go.mod h1:lgjkn3NuSvDf
 github.com/yudai/pp v2.0.1+incompatible/go.mod h1:PuxR/8QJ7cyCkFp/aUDS+JY727OFEZkTdatxwunjIkc=
 github.com/ziutek/mymysql v1.5.4 h1:GB0qdRGsTwQSBVYuVShFBKaXSnSnYYC2d9knnE1LHFs=
 github.com/ziutek/mymysql v1.5.4/go.mod h1:LMSpPZ6DbqWFxNCHW77HeMg9I646SAhApZ/wKdgO/C0=
+gitlab.com/gitlab-org/gitaly v1.68.0 h1:VlcJs1+PrhW7lqJUU7Fh1q8FMJujmbbivdfde/cwB98=
 gitlab.com/gitlab-org/gitaly v1.68.0/go.mod h1:/pCsB918Zu5wFchZ9hLYin9WkJ2yQqdVNz0zlv5HbXg=
+gitlab.com/gitlab-org/gitaly v1.87.0 h1:iTR1CslbK6F3vKe8yPqb5OQ+Pnrj/bl8ded5dPMU79s=
 gitlab.com/gitlab-org/gitlab-shell v0.0.0-20200921044701-1a2bfecd2f0e h1:kqUd95SLY+StJ14/rJdFwurKword02z9oGxEcDJH7gg=
 gitlab.com/gitlab-org/gitlab-shell v0.0.0-20200921044701-1a2bfecd2f0e/go.mod h1:RABblvnnhHpFU/lexlwGqpKgZsLV3RGA2D/Elp5/KEA=
 gitlab.com/gitlab-org/labkit v0.0.0-20190221122536-0c3fc7cdd57c/go.mod h1:rYhLgfrbEcyfinG+R3EvKu6bZSsmwQqcXzLfHWSfUKM=

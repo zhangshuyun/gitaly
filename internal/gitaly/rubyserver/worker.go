@@ -7,9 +7,9 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver/balancer"
-	"gitlab.com/gitlab-org/gitaly/internal/supervisor"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/gitaly/rubyserver/balancer"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/supervisor"
 )
 
 var (

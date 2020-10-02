@@ -5,7 +5,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
-	"gitlab.com/gitlab-org/gitaly/internal/ps"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/ps"
 )
 
 var (

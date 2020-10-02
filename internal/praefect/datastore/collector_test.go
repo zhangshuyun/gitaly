@@ -7,7 +7,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/testhelper"
 )
 
 type primaryGetterFunc func(context.Context) (map[string]string, error)

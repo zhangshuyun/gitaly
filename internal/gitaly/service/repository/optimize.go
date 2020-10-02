@@ -8,10 +8,10 @@ import (
 	"path/filepath"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/stats"
-	"gitlab.com/gitlab-org/gitaly/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/git/stats"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v13/proto/go/gitalypb"
 )
 
 var (

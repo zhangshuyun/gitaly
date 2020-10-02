@@ -12,9 +12,9 @@ import (
 	"regexp"
 	"strings"
 
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v13/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitlab-shell/client"
 )
 

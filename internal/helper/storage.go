@@ -7,7 +7,7 @@ import (
 	"errors"
 	"fmt"
 
-	"gitlab.com/gitlab-org/gitaly/internal/storage"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/storage"
 	"google.golang.org/grpc/metadata"
 )
 

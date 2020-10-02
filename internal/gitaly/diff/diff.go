@@ -9,7 +9,7 @@ import (
 	"regexp"
 	"strconv"
 
-	"gitlab.com/gitlab-org/gitaly/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/helper"
 )
 
 const blankID = "0000000000000000000000000000000000000000"

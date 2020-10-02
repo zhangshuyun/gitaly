@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
-	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
+	"gitlab.com/gitlab-org/gitaly/v13/proto/go/gitalypb"
 )
 
 // ServerInfo sends ServerInfoRequest to all of a praefect server's internal gitaly nodes and aggregates the results into

@@ -1,9 +1,9 @@
 package commit
 
 import (
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/ref"
-	"gitlab.com/gitlab-org/gitaly/internal/storage"
-	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/gitaly/service/ref"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/storage"
+	"gitlab.com/gitlab-org/gitaly/v13/proto/go/gitalypb"
 )
 
 type server struct {

@@ -9,8 +9,8 @@ import (
 	plugin "github.com/golang/protobuf/protoc-gen-go/plugin"
 	"github.com/stretchr/testify/require"
 
-	"gitlab.com/gitlab-org/gitaly/proto/go/internal"
-	_ "gitlab.com/gitlab-org/gitaly/proto/go/internal/linter/testdata"
+	"gitlab.com/gitlab-org/gitaly/v13/proto/go/internal"
+	_ "gitlab.com/gitlab-org/gitaly/v13/proto/go/internal/linter/testdata"
 )
 
 func TestLintFile(t *testing.T) {

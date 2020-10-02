@@ -9,9 +9,9 @@ import (
 	"strconv"
 	"time"
 
-	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
-	"gitlab.com/gitlab-org/gitaly/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/git/repository"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/helper"
 )
 
 // HasBitmap returns whether or not the repository contains an object bitmap.

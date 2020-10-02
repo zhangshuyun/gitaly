@@ -10,8 +10,8 @@ import (
 	"net/url"
 	"strings"
 
-	"gitlab.com/gitlab-org/gitaly/internal/bootstrap/starter"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/bootstrap/starter"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/praefect/config"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"

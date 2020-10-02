@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	"gitlab.com/gitlab-org/gitaly/internal/bootstrap"
-	"gitlab.com/gitlab-org/gitaly/internal/ps"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/bootstrap"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/ps"
 )
 
 const (

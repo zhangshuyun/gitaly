@@ -15,11 +15,11 @@ import (
 	"github.com/BurntSushi/toml"
 	"github.com/kelseyhightower/envconfig"
 	log "github.com/sirupsen/logrus"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config/auth"
-	internallog "gitlab.com/gitlab-org/gitaly/internal/gitaly/config/log"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config/prometheus"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config/sentry"
-	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/gitaly/config/auth"
+	internallog "gitlab.com/gitlab-org/gitaly/v13/internal/gitaly/config/log"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/gitaly/config/prometheus"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/gitaly/config/sentry"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/helper/text"
 )
 
 var (

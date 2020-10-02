@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"github.com/lib/pq"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore/glsql"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/praefect/datastore/glsql"
 )
 
 // GenerationUnknown is used to indicate lack of generation number in

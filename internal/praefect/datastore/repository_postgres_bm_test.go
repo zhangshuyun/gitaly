@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/testhelper"
 )
 
 // The test setup takes a lot of time, so it is better to run each sub-benchmark separately with limit on number of repeats.

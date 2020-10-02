@@ -8,9 +8,9 @@ import (
 	"os/exec"
 	"time"
 
-	"gitlab.com/gitlab-org/gitaly/internal/command"
-	"gitlab.com/gitlab-org/gitaly/internal/tempdir"
-	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/command"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/tempdir"
+	"gitlab.com/gitlab-org/gitaly/v13/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/labkit/correlation"
 	"gitlab.com/gitlab-org/labkit/tracing"
 	"google.golang.org/grpc/codes"

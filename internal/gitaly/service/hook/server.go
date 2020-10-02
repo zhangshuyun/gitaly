@@ -1,8 +1,8 @@
 package hook
 
 import (
-	gitalyhook "gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
-	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
+	gitalyhook "gitlab.com/gitlab-org/gitaly/v13/internal/gitaly/hook"
+	"gitlab.com/gitlab-org/gitaly/v13/proto/go/gitalypb"
 )
 
 type server struct {

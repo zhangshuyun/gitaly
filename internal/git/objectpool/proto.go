@@ -1,8 +1,8 @@
 package objectpool
 
 import (
-	"gitlab.com/gitlab-org/gitaly/internal/storage"
-	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/storage"
+	"gitlab.com/gitlab-org/gitaly/v13/proto/go/gitalypb"
 )
 
 // FromProto returns an object pool object from a git repository object

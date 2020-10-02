@@ -8,8 +8,8 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/stretchr/testify/require"
-	test "gitlab.com/gitlab-org/gitaly/internal/helper/chunk/pb"
-	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	test "gitlab.com/gitlab-org/gitaly/v13/internal/helper/chunk/pb"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/testhelper"
 	"google.golang.org/grpc"
 )
 

@@ -6,8 +6,8 @@ import (
 
 	grpc_auth "github.com/grpc-ecosystem/go-grpc-middleware/auth"
 	"github.com/prometheus/client_golang/prometheus"
-	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
-	internalauth "gitlab.com/gitlab-org/gitaly/internal/gitaly/config/auth"
+	gitalyauth "gitlab.com/gitlab-org/gitaly/v13/auth"
+	internalauth "gitlab.com/gitlab-org/gitaly/v13/internal/gitaly/config/auth"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"

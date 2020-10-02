@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"os/exec"
 
-	"gitlab.com/gitlab-org/gitaly/internal/git/hooks"
-	"gitlab.com/gitlab-org/gitaly/internal/gitlabshell"
-	"gitlab.com/gitlab-org/gitaly/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
-	"gitlab.com/gitlab-org/gitaly/streamio"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/git/hooks"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/gitlabshell"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v13/proto/go/gitalypb"
+	"gitlab.com/gitlab-org/gitaly/v13/streamio"
 )
 
 type hookRequest interface {

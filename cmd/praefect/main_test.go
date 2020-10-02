@@ -6,8 +6,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/bootstrap/starter"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/bootstrap/starter"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/praefect/config"
 )
 
 func TestNoConfigFlag(t *testing.T) {

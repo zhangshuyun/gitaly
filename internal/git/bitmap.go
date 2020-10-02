@@ -9,9 +9,9 @@ import (
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	"github.com/prometheus/client_golang/prometheus"
-	"gitlab.com/gitlab-org/gitaly/internal/git/packfile"
-	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
-	"gitlab.com/gitlab-org/gitaly/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/git/packfile"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/git/repository"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/helper"
 )
 
 var badBitmapRequestCount = prometheus.NewCounterVec(

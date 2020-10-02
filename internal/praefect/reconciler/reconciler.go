@@ -7,9 +7,9 @@ import (
 	"github.com/lib/pq"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
-	"gitlab.com/gitlab-org/gitaly/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore/glsql"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/nodes"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/praefect/datastore/glsql"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/praefect/nodes"
 )
 
 // Reconciler implements reconciliation logic for repairing outdated repository replicas.

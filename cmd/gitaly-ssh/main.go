@@ -7,9 +7,9 @@ import (
 	"os"
 	"strings"
 
-	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
-	"gitlab.com/gitlab-org/gitaly/client"
-	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
+	gitalyauth "gitlab.com/gitlab-org/gitaly/v13/auth"
+	"gitlab.com/gitlab-org/gitaly/v13/client"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/labkit/tracing"
 	"google.golang.org/grpc"
 )

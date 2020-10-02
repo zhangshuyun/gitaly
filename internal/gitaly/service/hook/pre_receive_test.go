@@ -12,13 +12,13 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
-	gitalyhook "gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
-	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
-	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
-	"gitlab.com/gitlab-org/gitaly/streamio"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/gitaly/config"
+	gitalyhook "gitlab.com/gitlab-org/gitaly/v13/internal/gitaly/hook"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/praefect/metadata"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v13/proto/go/gitalypb"
+	"gitlab.com/gitlab-org/gitaly/v13/streamio"
 	"google.golang.org/grpc/codes"
 )
 

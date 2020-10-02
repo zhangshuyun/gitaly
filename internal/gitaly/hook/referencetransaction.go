@@ -6,7 +6,7 @@ import (
 	"io"
 	"io/ioutil"
 
-	"gitlab.com/gitlab-org/gitaly/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/helper"
 )
 
 func (m *GitLabHookManager) ReferenceTransactionHook(ctx context.Context, env []string, stdin io.Reader) error {

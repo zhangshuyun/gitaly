@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/command"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/command"
 )
 
 // RemoteUploadPackServer implements two HTTP routes for git-upload-pack by copying stdin and stdout into and out of the git upload-pack command

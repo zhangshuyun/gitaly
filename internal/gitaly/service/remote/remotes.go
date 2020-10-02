@@ -9,11 +9,11 @@ import (
 	"strings"
 
 	"github.com/golang/protobuf/proto"
-	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/remote"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
-	"gitlab.com/gitlab-org/gitaly/internal/helper/chunk"
-	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/git/remote"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/gitaly/rubyserver"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/helper/chunk"
+	"gitlab.com/gitlab-org/gitaly/v13/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )

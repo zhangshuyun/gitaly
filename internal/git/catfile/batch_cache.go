@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/git/repository"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/gitaly/config"
 )
 
 const (

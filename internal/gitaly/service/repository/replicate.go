@@ -10,13 +10,13 @@ import (
 	"path/filepath"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
-	"gitlab.com/gitlab-org/gitaly/internal/command"
-	"gitlab.com/gitlab-org/gitaly/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/internal/safe"
-	"gitlab.com/gitlab-org/gitaly/internal/storage"
-	"gitlab.com/gitlab-org/gitaly/internal/tempdir"
-	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
-	"gitlab.com/gitlab-org/gitaly/streamio"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/command"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/safe"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/storage"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/tempdir"
+	"gitlab.com/gitlab-org/gitaly/v13/proto/go/gitalypb"
+	"gitlab.com/gitlab-org/gitaly/v13/streamio"
 	"golang.org/x/sync/errgroup"
 )
 

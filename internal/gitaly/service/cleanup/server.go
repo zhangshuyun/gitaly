@@ -1,7 +1,7 @@
 package cleanup
 
 import (
-	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
+	"gitlab.com/gitlab-org/gitaly/v13/proto/go/gitalypb"
 )
 
 type server struct {

@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
-	"gitlab.com/gitlab-org/gitaly/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/git/repository"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/helper"
 )
 
 // FallbackTimeValue is the value returned by `SafeTimeParse` in case it

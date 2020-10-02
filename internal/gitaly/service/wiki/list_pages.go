@@ -1,8 +1,8 @@
 package wiki
 
 import (
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
-	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/gitaly/rubyserver"
+	"gitlab.com/gitlab-org/gitaly/v13/proto/go/gitalypb"
 )
 
 func (s *server) WikiListPages(request *gitalypb.WikiListPagesRequest, stream gitalypb.WikiService_WikiListPagesServer) error {

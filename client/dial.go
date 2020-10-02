@@ -7,7 +7,7 @@ import (
 	"net/url"
 	"time"
 
-	gitaly_x509 "gitlab.com/gitlab-org/gitaly/internal/x509"
+	gitaly_x509 "gitlab.com/gitlab-org/gitaly/v13/internal/x509"
 	grpccorrelation "gitlab.com/gitlab-org/labkit/correlation/grpc"
 	grpctracing "gitlab.com/gitlab-org/labkit/tracing/grpc"
 	"google.golang.org/grpc"

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"gitlab.com/gitlab-org/gitaly/internal/git/stats"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/git/stats"
 )
 
 func analyzeHTTPClone(cloneURL string) {

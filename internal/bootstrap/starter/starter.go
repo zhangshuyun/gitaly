@@ -7,8 +7,8 @@ import (
 	"strings"
 
 	"github.com/sirupsen/logrus"
-	"gitlab.com/gitlab-org/gitaly/internal/bootstrap"
-	"gitlab.com/gitlab-org/gitaly/internal/connectioncounter"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/bootstrap"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/connectioncounter"
 )
 
 const (

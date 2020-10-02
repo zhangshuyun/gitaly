@@ -10,7 +10,7 @@ import (
 
 	proto "github.com/golang/protobuf/proto"
 	empty "github.com/golang/protobuf/ptypes/empty"
-	gitalypb "gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
+	gitalypb "gitlab.com/gitlab-org/gitaly/v13/proto/go/gitalypb"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"

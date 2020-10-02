@@ -7,12 +7,12 @@ import (
 	"strconv"
 
 	"github.com/golang/protobuf/jsonpb"
-	"gitlab.com/gitlab-org/gitaly/internal/git/hooks"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/internal/gitlabshell"
-	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
-	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/git/hooks"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/gitlabshell"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/metadata/featureflag"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/praefect/metadata"
+	"gitlab.com/gitlab-org/gitaly/v13/proto/go/gitalypb"
 )
 
 // ReceivePackRequest abstracts away the different requests that end up

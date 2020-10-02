@@ -1,7 +1,7 @@
 package config
 
 import (
-	"gitlab.com/gitlab-org/gitaly/internal/middleware/limithandler"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/middleware/limithandler"
 )
 
 // ConfigureConcurrencyLimits configures the per-repo, per RPC rate limits

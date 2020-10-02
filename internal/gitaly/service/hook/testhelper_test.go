@@ -5,11 +5,11 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
-	gitalyhook "gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
-	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
+	gitalyauth "gitlab.com/gitlab-org/gitaly/v13/auth"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/gitaly/config"
+	gitalyhook "gitlab.com/gitlab-org/gitaly/v13/internal/gitaly/hook"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v13/proto/go/gitalypb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 )

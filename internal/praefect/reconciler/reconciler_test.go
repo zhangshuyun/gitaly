@@ -10,12 +10,12 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/internal/middleware/metadatahandler"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore/glsql"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/nodes"
-	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/middleware/metadatahandler"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/praefect/datastore"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/praefect/datastore/glsql"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/praefect/nodes"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/testhelper"
 )
 
 func TestMain(m *testing.M) {

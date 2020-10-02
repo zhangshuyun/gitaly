@@ -11,8 +11,8 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	"gitlab.com/gitlab-org/gitaly/internal/command"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/command"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/gitaly/config"
 )
 
 func init() {

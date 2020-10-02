@@ -1,4 +1,4 @@
-module gitlab.com/gitlab-org/gitaly
+module gitlab.com/gitlab-org/gitaly/v13
 
 require (
 	github.com/BurntSushi/toml v0.3.1

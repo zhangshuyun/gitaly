@@ -12,10 +12,10 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	"gitlab.com/gitlab-org/gitaly/internal/dontpanic"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/internal/log"
-	"gitlab.com/gitlab-org/gitaly/internal/tempdir"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/dontpanic"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/log"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/tempdir"
 )
 
 func logWalkErr(err error, path, msg string) {

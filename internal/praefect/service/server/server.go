@@ -1,9 +1,9 @@
 package server
 
 import (
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/nodes"
-	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/praefect/config"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/praefect/nodes"
+	"gitlab.com/gitlab-org/gitaly/v13/proto/go/gitalypb"
 )
 
 // Server is a ServerService server

@@ -4,8 +4,8 @@ import (
 	"bufio"
 	"context"
 
-	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/git/repository"
 )
 
 //Remove removes the remote from repository

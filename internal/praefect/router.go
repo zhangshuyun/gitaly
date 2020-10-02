@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/nodes"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/praefect/datastore"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/praefect/nodes"
 	"google.golang.org/grpc"
 )
 

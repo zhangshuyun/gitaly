@@ -34,14 +34,14 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/command"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/internal/helper/fieldextractors"
-	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
-	gitalylog "gitlab.com/gitlab-org/gitaly/internal/log"
-	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
-	"gitlab.com/gitlab-org/gitaly/internal/storage"
-	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/command"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/helper/fieldextractors"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/helper/text"
+	gitalylog "gitlab.com/gitlab-org/gitaly/v13/internal/log"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/metadata/featureflag"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/storage"
+	"gitlab.com/gitlab-org/gitaly/v13/proto/go/gitalypb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -604,7 +604,7 @@ func ConfigureGitalySSH() {
 		"build",
 		"-o",
 		filepath.Join(config.Config.BinDir, "gitaly-ssh"),
-		"gitlab.com/gitlab-org/gitaly/cmd/gitaly-ssh",
+		"gitlab.com/gitlab-org/gitaly/v13/cmd/gitaly-ssh",
 	}
 	MustRunCommand(nil, nil, "go", goBuildArgs...)
 }
@@ -619,7 +619,7 @@ func ConfigureGitalyGit2Go() {
 		"build",
 		"-tags", "static,system_libgit2",
 		"-o", filepath.Join(config.Config.BinDir, "gitaly-git2go"),
-		"gitlab.com/gitlab-org/gitaly/cmd/gitaly-git2go",
+		"gitlab.com/gitlab-org/gitaly/v13/cmd/gitaly-git2go",
 	}
 	MustRunCommand(nil, nil, "go", goBuildArgs...)
 }

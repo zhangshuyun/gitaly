@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/testhelper"
 )
 
 type requireState func(t *testing.T, ctx context.Context, vss virtualStorageState, ss storageState)

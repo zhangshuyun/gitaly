@@ -4,10 +4,10 @@ import (
 	"context"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
-	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/log"
-	"gitlab.com/gitlab-org/gitaly/internal/helper/chunk"
-	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/git/log"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/helper/chunk"
+	"gitlab.com/gitlab-org/gitaly/v13/proto/go/gitalypb"
 )
 
 func sendCommits(ctx context.Context, sender chunk.Sender, repo *gitalypb.Repository, revisionRange []string, paths []string, options *gitalypb.GlobalOptions, extraArgs ...git.Option) error {

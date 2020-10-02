@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/testhelper"
 )
 
 var gitalySSHPath string

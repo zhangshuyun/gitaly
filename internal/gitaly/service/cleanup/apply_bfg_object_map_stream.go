@@ -5,12 +5,12 @@ import (
 	"io"
 
 	"github.com/golang/protobuf/proto"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/cleanup/internalrefs"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/cleanup/notifier"
-	"gitlab.com/gitlab-org/gitaly/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/internal/helper/chunk"
-	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
-	"gitlab.com/gitlab-org/gitaly/streamio"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/gitaly/service/cleanup/internalrefs"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/gitaly/service/cleanup/notifier"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/helper/chunk"
+	"gitlab.com/gitlab-org/gitaly/v13/proto/go/gitalypb"
+	"gitlab.com/gitlab-org/gitaly/v13/streamio"
 )
 
 type bfgStreamReader struct {

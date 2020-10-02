@@ -7,9 +7,9 @@ import (
 	"os"
 
 	"github.com/sirupsen/logrus"
-	"gitlab.com/gitlab-org/gitaly/internal/blackbox"
-	"gitlab.com/gitlab-org/gitaly/internal/log"
-	"gitlab.com/gitlab-org/gitaly/internal/version"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/blackbox"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/log"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/version"
 )
 
 var (

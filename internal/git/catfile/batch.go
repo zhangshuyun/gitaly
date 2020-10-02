@@ -8,9 +8,9 @@ import (
 	"io/ioutil"
 	"sync"
 
-	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/alternates"
-	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/git/alternates"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/git/repository"
 )
 
 // batch encapsulates a 'git cat-file --batch' process

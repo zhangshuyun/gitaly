@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/gitaly/config"
 )
 
 func GitServer(t testing.TB, repoPath string, middleware func(http.ResponseWriter, *http.Request, http.Handler)) (int, func() error) {

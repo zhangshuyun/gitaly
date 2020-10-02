@@ -3,7 +3,7 @@ package gitlabshell
 import (
 	"encoding/json"
 
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/gitaly/config"
 )
 
 // Env is a helper that returns a slice with environment variables used by gitlab shell

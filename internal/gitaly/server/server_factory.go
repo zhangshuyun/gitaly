@@ -8,13 +8,13 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
-	"gitlab.com/gitlab-org/gitaly/client"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/maintenance"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
-	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
+	gitalyauth "gitlab.com/gitlab-org/gitaly/v13/auth"
+	"gitlab.com/gitlab-org/gitaly/v13/client"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/gitaly/hook"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/gitaly/maintenance"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/gitaly/rubyserver"
+	"gitlab.com/gitlab-org/gitaly/v13/proto/go/gitalypb"
 	"google.golang.org/grpc"
 )
 

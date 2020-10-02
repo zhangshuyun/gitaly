@@ -3,9 +3,9 @@ package info
 import (
 	"context"
 
-	"gitlab.com/gitlab-org/gitaly/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/nodes"
-	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/v13/internal/praefect/nodes"
+	"gitlab.com/gitlab-org/gitaly/v13/proto/go/gitalypb"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 )
