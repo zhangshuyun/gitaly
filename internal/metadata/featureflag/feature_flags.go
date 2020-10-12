@@ -38,6 +38,8 @@ var (
 	GoUserSquash = FeatureFlag{Name: "go_user_squash", OnByDefault: false}
 	// GoListConflictFiles enables the Go implementation of ListConflictFiles
 	GoListConflictFiles = FeatureFlag{Name: "go_list_conflict_files", OnByDefault: false}
+	// GoResolveConflicts enables the Go implementation of ResolveConflicts
+	GoResolveConflicts = FeatureFlag{Name: "go_resolve_conflicts", OnByDefault: false}
 )
 
 // All includes all feature flags.
