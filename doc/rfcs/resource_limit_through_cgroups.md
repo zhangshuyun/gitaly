@@ -191,7 +191,7 @@ When new behaviours are rolled out with increased memory consumption there's no
 effect on users, as the nodes have plenty resources for day-to-day operations.
 In effect buying time to remove the overhead which is now absorbed by over
 provisioning. It's equally fair to flip this on it's head to reason bugs are 
-sometimes not found as these are absorbed by over provisioning.
+sometimes not found as these are absorbed by over-provisioning.
 
 However, with cgroups it could create a process that now runs into a memory
 limit and an OOM event is triggered, meaning the user action won't be completed.
