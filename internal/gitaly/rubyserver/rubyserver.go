@@ -290,7 +290,7 @@ func requestLogEntry(ctx context.Context) *logrus.Entry {
 var grpcLogrusOptions = []grpc_logrus.Option{
 	// By default, the client side grpc_logrus logs less than the server side
 	// middleware. This option gives us the server side behavior. In
-	// particular this causes succesful requests to get logged, which the
+	// particular this causes successful requests to get logged, which the
 	// client side middleware does not do by default.
 	grpc_logrus.WithLevels(grpc_logrus.DefaultCodeToLevel),
 }
