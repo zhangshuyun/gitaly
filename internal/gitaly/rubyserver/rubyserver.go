@@ -11,7 +11,10 @@ import (
 	"time"
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	grpc_logrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/git/hooks"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
@@ -263,6 +266,7 @@ func dialOptions() []grpc.DialOption {
 				grpc_prometheus.UnaryClientInterceptor,
 				grpctracing.UnaryClientTracingInterceptor(),
 				grpccorrelation.UnaryClientCorrelationInterceptor(),
+				unaryLogger,
 			),
 		),
 		grpc.WithStreamInterceptor(
@@ -270,7 +274,33 @@ func dialOptions() []grpc.DialOption {
 				grpc_prometheus.StreamClientInterceptor,
 				grpctracing.StreamClientTracingInterceptor(),
 				grpccorrelation.StreamClientCorrelationInterceptor(),
+				streamLogger,
 			),
 		),
 	}
+}
+
+// The server side grpc_logrus middleware extracts interesting context
+// metadata and puts them in log fields. The client middleware does not
+// do this. We use requestLogEntry to add that metadata anyway.
+func requestLogEntry(ctx context.Context) *logrus.Entry {
+	return ctxlogrus.Extract(ctx).WithField("type", "gitaly-ruby")
+}
+
+var grpcLogrusOptions = []grpc_logrus.Option{
+	// By default, the client side grpc_logrus logs less than the server side
+	// middleware. This option gives us the server side behavior. In
+	// particular this causes succesful requests to get logged, which the
+	// client side middleware does not do by default.
+	grpc_logrus.WithLevels(grpc_logrus.DefaultCodeToLevel),
+}
+
+func unaryLogger(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
+	interceptor := grpc_logrus.UnaryClientInterceptor(requestLogEntry(ctx), grpcLogrusOptions...)
+	return interceptor(ctx, method, req, reply, cc, invoker, opts...)
+}
+
+func streamLogger(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
+	interceptor := grpc_logrus.StreamClientInterceptor(requestLogEntry(ctx), grpcLogrusOptions...)
+	return interceptor(ctx, desc, cc, method, streamer, opts...)
 }
