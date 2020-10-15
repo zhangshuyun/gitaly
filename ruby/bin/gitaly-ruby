@@ -117,7 +117,10 @@ end
 def build_server_interceptor_chain
   chain = []
   chain << Labkit::Correlation::GRPC::ServerInterceptor.new
-  chain << GitalyServer::LoggingInterceptor.new
+  chain << GitalyServer::LoggingInterceptor.new(
+    File.open(File.join(ENV['GITALY_LOG_DIR'], 'gitaly_ruby_json.log'), 'a'),
+    { type: 'gitaly-ruby' }
+  )
   chain << GitalyServer::SentryInterceptor.new
   chain << Labkit::Tracing::GRPC::ServerInterceptor.new if Labkit::Tracing.enabled?
   chain << GitalyServer::ExceptionSanitizerInterceptor.new

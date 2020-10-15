@@ -26,9 +26,12 @@ module GitalyServer
       GRPC::Core::StatusCodes::UNAUTHENTICATED => 'Unauthenticated'
     }.freeze
 
-    def initialize
-      @log_mutex = Mutex.new
-      super
+    def initialize(log_file, default_tags)
+      @log_file = log_file
+      @log_file.sync = true if @log_file.respond_to?(:sync=)
+      @default_tags = default_tags
+
+      super()
     end
 
     def request_response(request: nil, call: nil, method: nil)
@@ -79,9 +82,8 @@ module GitalyServer
     private
 
     def log_request(method, call, code, start)
-      log(
+      message = @default_tags.merge(
         {
-          type: 'gitaly-ruby',
           duration: (Time.now - start).to_f,
           code: CODE_STRINGS[code] || code.to_s,
           method: method.name.to_s.camelize,
@@ -91,14 +93,11 @@ module GitalyServer
           time: Time.now.utc.strftime('%Y-%m-%dT%H:%M:%S.%LZ')
         }
       )
+      log(message)
     end
 
-    def log(msg)
-      @log_mutex.synchronize do
-        @log_file ||= File.open(File.join(ENV['GITALY_LOG_DIR'], 'gitaly_ruby_json.log'), 'a')
-        @log_file.sync = true
-        @log_file.puts(JSON.dump(msg))
-      end
+    def log(message)
+      @log_file.puts(JSON.dump(message))
     end
   end
 end
