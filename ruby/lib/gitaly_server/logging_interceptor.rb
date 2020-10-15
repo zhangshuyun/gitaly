@@ -1,12 +1,12 @@
 # frozen_string_literal: truer
 
-equire 'grpc'
+require 'grpc'
 require 'active_support/core_ext/string/inflections'
 require 'json'
 
 module GitalyServer
   class LoggingInterceptor < GRPC::ServerInterceptor
-    CodeStrings = {
+    CODE_STRINGS = {
       GRPC::Core::StatusCodes::OK => 'OK',
       GRPC::Core::StatusCodes::CANCELLED => 'Canceled',
       GRPC::Core::StatusCodes::UNKNOWN => 'Unknown',
@@ -36,8 +36,8 @@ module GitalyServer
       code = GRPC::Core::StatusCodes::OK
 
       yield
-    rescue => e
-      code = e.code if e.is_a?(GRPC::BadStatus)
+    rescue GRPC::BadStatus => e
+      code = e.code
       raise
     ensure
       log_request(method, call, code, start)
@@ -48,8 +48,8 @@ module GitalyServer
       code = GRPC::Core::StatusCodes::OK
 
       yield
-    rescue => e
-      code = e.code if e.is_a?(GRPC::BadStatus)
+    rescue GRPC::BadStatus => e
+      code = e.code
       raise
     ensure
       log_request(method, call, code, start)
@@ -60,8 +60,8 @@ module GitalyServer
       code = GRPC::Core::StatusCodes::OK
 
       yield
-    rescue => e
-      code = e.code if e.is_a?(GRPC::BadStatus)
+    rescue GRPC::BadStatus => e
+      code = e.code
       raise
     ensure
       log_request(method, call, code, start)
@@ -69,8 +69,8 @@ module GitalyServer
 
     def bidi_streamer(requests: nil, call: nil, method: nil)
       yield
-    rescue => e
-      code = e.code if e.is_a?(GRPC::BadStatus)
+    rescue GRPC::BadStatus => e
+      code = e.code
       raise
     ensure
       log_request(method, call, code, start)
@@ -79,16 +79,18 @@ module GitalyServer
     private
 
     def log_request(method, call, code, start)
-      log({
-        type: 'gitaly-ruby',
-        duration: (Time.now - start).to_f,
-        code: CodeStrings[code] || code,
-        method: method.name.to_s.camelize,
-        service: method.owner.service_name,
-        pid: Process.pid,
-        correlation_id: call.metadata['x-gitlab-correlation-id'],
-        time: Time.now.utc.strftime('%Y-%m-%dT%H:%M:%S.%LZ')
-      })
+      log(
+        {
+          type: 'gitaly-ruby',
+          duration: (Time.now - start).to_f,
+          code: CODE_STRINGS[code] || code,
+          method: method.name.to_s.camelize,
+          service: method.owner.service_name,
+          pid: Process.pid,
+          correlation_id: call.metadata['x-gitlab-correlation-id'],
+          time: Time.now.utc.strftime('%Y-%m-%dT%H:%M:%S.%LZ')
+        }
+      )
     end
 
     def log(msg)

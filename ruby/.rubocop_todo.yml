@@ -74,6 +74,7 @@ Lint/SuppressedException:
 # Configuration parameters: AllowUnusedKeywordArguments, IgnoreEmptyMethods, IgnoreNotImplementedMethods.
 Lint/UnusedMethodArgument:
   Exclude:
+    - 'lib/gitaly_server/logging_interceptor.rb'
     - 'lib/gitaly_server/sentry_interceptor.rb'
     - 'lib/gitlab/git/conflict/parser.rb'
 
