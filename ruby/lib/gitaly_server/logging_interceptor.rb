@@ -1,4 +1,4 @@
-# frozen_string_literal: truer
+# frozen_string_literal: true
 
 require 'grpc'
 require 'active_support/core_ext/string/inflections'
