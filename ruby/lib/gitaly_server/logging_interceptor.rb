@@ -1,4 +1,6 @@
-require 'grpc'
+# frozen_string_literal: truer
+
+equire 'grpc'
 require 'active_support/core_ext/string/inflections'
 require 'json'
 
