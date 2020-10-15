@@ -71,6 +71,9 @@ module GitalyServer
     end
 
     def bidi_streamer(requests: nil, call: nil, method: nil)
+      start = Time.now
+      code = GRPC::Core::StatusCodes::OK
+
       yield
     rescue GRPC::BadStatus => e
       code = e.code
