@@ -35,56 +35,33 @@ module GitalyServer
     end
 
     def request_response(request: nil, call: nil, method: nil)
-      start = Time.now
-      code = GRPC::Core::StatusCodes::OK
-
-      yield
-    rescue => e
-      code = e.code if e.is_a?(GRPC::BadStatus)
-      raise
-    ensure
-      log_request(method, call, code, start)
+      log_request(method, call) { yield }
     end
 
     def server_streamer(request: nil, call: nil, method: nil)
-      start = Time.now
-      code = GRPC::Core::StatusCodes::OK
-
-      yield
-    rescue => e
-      code = e.code if e.is_a?(GRPC::BadStatus)
-      raise
-    ensure
-      log_request(method, call, code, start)
+      log_request(method, call) { yield }
     end
 
     def client_streamer(call: nil, method: nil)
-      start = Time.now
-      code = GRPC::Core::StatusCodes::OK
-
-      yield
-    rescue => e
-      code = e.code if e.is_a?(GRPC::BadStatus)
-      raise
-    ensure
-      log_request(method, call, code, start)
+      log_request(method, call) { yield }
     end
 
     def bidi_streamer(requests: nil, call: nil, method: nil)
-      start = Time.now
-      code = GRPC::Core::StatusCodes::OK
-
-      yield
-    rescue => e
-      code = e.code if e.is_a?(GRPC::BadStatus)
-      raise
-    ensure
-      log_request(method, call, code, start)
+      log_request(method, call) { yield }
     end
 
     private
 
-    def log_request(method, call, code, start)
+    def log_request(method, call, &block)
+      start = Time.now
+      code = GRPC::Core::StatusCodes::OK
+
+      block.call
+    rescue => ex
+      code = ex.is_a?(GRPC::BadStatus) ? ex.code : GRPC::Core::StatusCodes::UNAVAILABLE
+
+      raise
+    ensure
       message = @default_tags.merge(
         {
           duration: (Time.now - start).to_f,
@@ -96,6 +73,7 @@ module GitalyServer
           time: Time.now.utc.strftime('%Y-%m-%dT%H:%M:%S.%LZ')
         }
       )
+
       log(message)
     end
 
