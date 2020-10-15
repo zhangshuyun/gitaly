@@ -234,6 +234,7 @@ Style/RedundantSelf:
 Style/RescueStandardError:
   Exclude:
     - 'lib/gitaly_server/exception_sanitizer_interceptor.rb'
+    - 'lib/gitaly_server/logging_interceptor.rb'
     - 'lib/gitaly_server/sentry_interceptor.rb'
     - 'spec/lib/gitaly_server/exception_sanitizer_interceptor_spec.rb'
     - 'spec/lib/gitaly_server/sentry/url_sanitizer_spec.rb'

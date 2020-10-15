@@ -39,8 +39,8 @@ module GitalyServer
       code = GRPC::Core::StatusCodes::OK
 
       yield
-    rescue GRPC::BadStatus => e
-      code = e.code
+    rescue => e
+      code = e.code if e.is_a?(GRPC::BadStatus)
       raise
     ensure
       log_request(method, call, code, start)
@@ -51,8 +51,8 @@ module GitalyServer
       code = GRPC::Core::StatusCodes::OK
 
       yield
-    rescue GRPC::BadStatus => e
-      code = e.code
+    rescue => e
+      code = e.code if e.is_a?(GRPC::BadStatus)
       raise
     ensure
       log_request(method, call, code, start)
@@ -63,8 +63,8 @@ module GitalyServer
       code = GRPC::Core::StatusCodes::OK
 
       yield
-    rescue GRPC::BadStatus => e
-      code = e.code
+    rescue => e
+      code = e.code if e.is_a?(GRPC::BadStatus)
       raise
     ensure
       log_request(method, call, code, start)
@@ -75,8 +75,8 @@ module GitalyServer
       code = GRPC::Core::StatusCodes::OK
 
       yield
-    rescue GRPC::BadStatus => e
-      code = e.code
+    rescue => e
+      code = e.code if e.is_a?(GRPC::BadStatus)
       raise
     ensure
       log_request(method, call, code, start)
