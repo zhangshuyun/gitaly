@@ -83,7 +83,7 @@ module GitalyServer
         {
           type: 'gitaly-ruby',
           duration: (Time.now - start).to_f,
-          code: CODE_STRINGS[code] || code,
+          code: CODE_STRINGS[code] || code.to_s,
           method: method.name.to_s.camelize,
           service: method.owner.service_name,
           pid: Process.pid,
