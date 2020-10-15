@@ -13,6 +13,7 @@ require 'gitlab-labkit'
 require 'rugged'
 
 require_relative '../lib/gitaly_server.rb'
+require_relative '../lib/gitaly_server/logging_interceptor.rb'
 require_relative '../lib/gitaly_server/sentry_interceptor.rb'
 require_relative '../lib/gitaly_server/exception_sanitizer_interceptor.rb'
 require_relative '../lib/gitaly_server/rugged_interceptor.rb'
@@ -116,6 +117,7 @@ end
 def build_server_interceptor_chain
   chain = []
   chain << Labkit::Correlation::GRPC::ServerInterceptor.new
+  chain << GitalyServer::LoggingInterceptor.new
   chain << GitalyServer::SentryInterceptor.new
   chain << Labkit::Tracing::GRPC::ServerInterceptor.new if Labkit::Tracing.enabled?
   chain << GitalyServer::ExceptionSanitizerInterceptor.new
