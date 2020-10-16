@@ -65,7 +65,7 @@ module GitalyServer
         {
           'grpc.time_ms': ((Time.now - start) * 1000.0).truncate(3),
           'grpc.code': CODE_STRINGS[code] || code.to_s,
-          'grpc.method':  method_name(method) || '(Unknown)',
+          'grpc.method': method_name(method) || '(Unknown)',
           'grpc.service': method.owner.service_name,
           pid: Process.pid,
           correlation_id: call.metadata['x-gitlab-correlation-id'],
@@ -77,7 +77,7 @@ module GitalyServer
     end
 
     def method_name(method)
-      result, _ = method.owner.rpc_descs.find do |k, _|
+      result, = method.owner.rpc_descs.find do |k, _|
         GRPC::GenericService.underscore(k.to_s) == method.name.to_s
       end
 
