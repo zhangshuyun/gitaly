@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require 'grpc'
-require 'active_support/core_ext/string/inflections'
 require 'json'
 
 module GitalyServer
@@ -28,7 +27,7 @@ module GitalyServer
 
     def initialize(log_file, default_tags)
       @log_file = log_file
-      @log_file.sync = true if @log_file.respond_to?(:sync=)
+      @log_file.sync = true
       @default_tags = default_tags
 
       super()
@@ -64,21 +63,25 @@ module GitalyServer
     ensure
       message = @default_tags.merge(
         {
-          duration: (Time.now - start).to_f,
-          code: CODE_STRINGS[code] || code.to_s,
-          method: method.name.to_s.camelize,
-          service: method.owner.service_name,
+          'grpc.time_ms': ((Time.now - start) * 1000.0).truncate(3),
+          'grpc.code': CODE_STRINGS[code] || code.to_s,
+          'grpc.method':  method_name(method) || '(Unknown)',
+          'grpc.service': method.owner.service_name,
           pid: Process.pid,
           correlation_id: call.metadata['x-gitlab-correlation-id'],
           time: Time.now.utc.strftime('%Y-%m-%dT%H:%M:%S.%LZ')
         }
       )
 
-      log(message)
+      @log_file.puts(JSON.dump(message))
     end
 
-    def log(message)
-      @log_file.puts(JSON.dump(message))
+    def method_name(method)
+      result, _ = method.owner.rpc_descs.find do |k, _|
+        GRPC::GenericService.underscore(k.to_s) == method.name.to_s
+      end
+
+      result
     end
   end
 end
