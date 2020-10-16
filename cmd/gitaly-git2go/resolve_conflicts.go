@@ -7,6 +7,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -147,6 +148,32 @@ func (cmd resolveSubcommand) Run() error {
 			"Missing resolutions for the following files: %s",
 			strings.Join(conflictPaths, ", "),
 		)
+	}
+
+	tree, err := index.WriteTreeTo(repo)
+	if err != nil {
+		return err
+	}
+
+	committer := git.Signature{
+		Name:  sanitizeSignatureInfo(request.AuthorName),
+		Email: sanitizeSignatureInfo(request.AuthorMail),
+		When:  request.AuthorDate,
+	}
+
+	commit, err := repo.CreateCommitFromIds("", &committer, &committer, request.Message, tree, ours.Id(), theirs.Id())
+	if err != nil {
+		return fmt.Errorf("could not create resolve conflict commit: %w", err)
+	}
+
+	response := git2go.ResolveResult{
+		git2go.MergeResult{
+			CommitID: commit.String(),
+		},
+	}
+
+	if err := response.SerializeTo(os.Stdout); err != nil {
+		return err
 	}
 
 	return nil

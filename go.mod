@@ -34,6 +34,7 @@ require (
 	golang.org/x/sys v0.0.0-20200918174421-af09f7315aff
 	golang.org/x/text v0.3.3 // indirect
 	google.golang.org/grpc v1.24.0
+	gopkg.in/errgo.v2 v2.1.0
 	gopkg.in/yaml.v2 v2.3.0
 )
 

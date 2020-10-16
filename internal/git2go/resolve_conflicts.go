@@ -13,7 +13,9 @@ type ResolveCommand struct {
 	Resolutions  []conflict.Resolution `json:"conflict_files"`
 }
 
-type ResolveResult struct{}
+type ResolveResult struct {
+	MergeResult `json:"merge_result"`
+}
 
 func ResolveCommandFromSerialized(serialized string) (ResolveCommand, error) {
 	var request ResolveCommand
