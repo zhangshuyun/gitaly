@@ -1,5 +1,0 @@
----
-title: 'transactions: Remove voting via pre-receive hook'
-merge_request: 2578
-author:
-type: changed

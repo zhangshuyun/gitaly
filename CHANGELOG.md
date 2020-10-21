@@ -1,5 +1,55 @@
 # Gitaly changelog
 
+## 13.5.0 (2020-10-22)
+
+### Fixed (9 changes)
+
+- Pass correlation ID to hooks. !2576
+- transactions: Correctly handle cancellation of empty transactions. !2594
+- Ensure local branches are current when syncing remote mirrors. !2606
+- Fix injection of gitaly servers info. !2615
+- Verification of gitaly-ssh runs. !2616
+- git: Fix parsing of dashed -rc versions. !2639
+- hook: Stop transactions on pre-receive hook failure. !2643
+- Doubled invocation of gitaly-ssh on upload pack cmd. !2645
+- operations: Fix PostReceive hook receiving no input. !2653
+
+### Changed (6 changes)
+
+- transactions: Only vote when reftx hook is in prepared state. !2571
+- transactions: Remove voting via pre-receive hook. !2578
+- linguist: Bump version for better detection. !2591
+- transactions: Remove service-specific feature flags. !2599
+- Disabling of reads distribution feature. !2619
+- Send CORRELATION_ID to gitaly-lfs-smudge filter. !2662
+
+### Performance (2 changes)
+
+- Port operations.UserMergeToRef to Go. !2580
+- conflicts: Port ListConflictFiles to Go. !2598
+
+### Added (9 changes)
+
+- transactions: Implement RPC to gracefully stop transactions. !2532
+- Add Git LFS smudge filter. !2577
+- git2go: Implement new command to list merge conflicts. !2587
+- PostgreSQL notifications listener. !2603
+- Add include_lfs_blobs flag in GetArchiveRequest RPC. !2607
+- Add support for using LFS smudge filter. !2621
+- Port UserSquash to Go. !2623
+- Add option to include conflict markers to merge commit. !2626
+- Per-connection gRPC options in client. !2630
+
+### Other (6 changes)
+
+- Reference hook option for Git command DSL. !2596
+- Update json gem to v2.3.1. !2610
+- Fix Ruby 2.7 keyword deprecation deprecation warnings. !2611
+- Refactor server metadata to be more type safe. !2624
+- Remote repository abstraction for resolving refish. !2629
+- Upgrade Rubocop to 0.86.0. !2634
+
+
 ## 13.4.4 (2020-10-15)
 
 - No changes.

@@ -1,5 +1,0 @@
----
-title: 'transactions: Only vote when reftx hook is in prepared state'
-merge_request: 2571
-author:
-type: changed

@@ -1,5 +1,0 @@
----
-title: Send CORRELATION_ID to gitaly-lfs-smudge filter
-merge_request: 2662
-author:
-type: changed

@@ -1,5 +1,0 @@
----
-title: Fix injection of gitaly servers info
-merge_request: 2615
-author:
-type: fixed

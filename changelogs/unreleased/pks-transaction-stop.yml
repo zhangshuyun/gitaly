@@ -1,5 +1,0 @@
----
-title: 'transactions: Implement RPC to gracefully stop transactions'
-merge_request: 2532
-author:
-type: added

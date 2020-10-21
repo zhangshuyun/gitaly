@@ -1,5 +1,0 @@
----
-title: Per-connection gRPC options in client
-merge_request: 2630
-author:
-type: added

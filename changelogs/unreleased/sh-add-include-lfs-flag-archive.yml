@@ -1,5 +1,0 @@
----
-title: Add include_lfs_blobs flag in GetArchiveRequest RPC
-merge_request: 2607
-author:
-type: added

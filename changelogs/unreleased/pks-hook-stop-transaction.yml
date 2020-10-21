@@ -1,5 +1,0 @@
----
-title: 'hook: Stop transactions on pre-receive hook failure'
-merge_request: 2643
-author:
-type: fixed

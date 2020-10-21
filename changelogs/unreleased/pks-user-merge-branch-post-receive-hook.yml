@@ -1,5 +1,0 @@
----
-title: 'operations: Fix PostReceive hook receiving no input'
-merge_request: 2653
-author:
-type: fixed

@@ -1,5 +1,0 @@
----
-title: Doubled invocation of gitaly-ssh on upload pack cmd.
-merge_request: 2645
-author:
-type: fixed

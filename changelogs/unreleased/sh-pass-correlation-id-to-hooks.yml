@@ -1,5 +1,0 @@
----
-title: Pass correlation ID to hooks
-merge_request: 2576
-author:
-type: fixed
