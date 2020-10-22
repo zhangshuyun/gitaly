@@ -1,5 +1,9 @@
 # Gitaly changelog
 
+## 13.5.1 (2020-10-22)
+
+- No changes.
+
 ## 13.5.0 (2020-10-22)
 
 ### Fixed (9 changes)
