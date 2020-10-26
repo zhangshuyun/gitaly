@@ -270,7 +270,6 @@ lint:
     - make lint
 
 objectinfo_fuzz_test:
-  image: registry.gitlab.com/gitlab-org/gitlab-build-images:ruby-${RUBY_VERSION}-golang-1.13-git-2.26
   extends: .fuzz_base
   stage: test
   script:
