@@ -1,12 +1,10 @@
-package git2go
+package git2go_test
 
 import (
 	"bytes"
 	"context"
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -14,31 +12,27 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 )
 
-func TestMain(m *testing.M) {
-	testhelper.Configure()
-	testhelper.ConfigureGitalyGit2Go()
-	os.Exit(m.Run())
-}
-
 type commit struct {
 	Parent    string
-	Author    Signature
-	Committer Signature
+	Author    git2go.Signature
+	Committer git2go.Signature
 	Message   string
 }
 
-func TestExecutor_Commit(t *testing.T) {
+func TestExecutor_Commit(t *testing.T) { testExecutors(t, testExecutor_Commit) }
+
+func testExecutor_Commit(t *testing.T, executor git2go.Executor) {
 	const (
 		DefaultMode    = "100644"
 		ExecutableMode = "100755"
 	)
 
 	type step struct {
-		actions     []Action
+		actions     []git2go.Action
 		error       error
 		treeEntries []testhelper.TreeEntry
 	}
@@ -57,8 +51,6 @@ func TestExecutor_Commit(t *testing.T) {
 	updatedFile, err := repo.WriteBlob(ctx, "file", bytes.NewBufferString("updated"))
 	require.NoError(t, err)
 
-	executor := New(filepath.Join(config.Config.BinDir, "gitaly-git2go"))
-
 	for _, tc := range []struct {
 		desc  string
 		steps []step
@@ -67,8 +59,8 @@ func TestExecutor_Commit(t *testing.T) {
 			desc: "create directory",
 			steps: []step{
 				{
-					actions: []Action{
-						CreateDirectory{Path: "directory"},
+					actions: []git2go.Action{
+						git2go.CreateDirectory{Path: "directory"},
 					},
 					treeEntries: []testhelper.TreeEntry{
 						{Mode: DefaultMode, Path: "directory/.gitkeep"},
@@ -80,11 +72,11 @@ func TestExecutor_Commit(t *testing.T) {
 			desc: "create directory created duplicate",
 			steps: []step{
 				{
-					actions: []Action{
-						CreateDirectory{Path: "directory"},
-						CreateDirectory{Path: "directory"},
+					actions: []git2go.Action{
+						git2go.CreateDirectory{Path: "directory"},
+						git2go.CreateDirectory{Path: "directory"},
 					},
-					error: DirectoryExistsError("directory"),
+					error: git2go.DirectoryExistsError("directory"),
 				},
 			},
 		},
@@ -92,18 +84,18 @@ func TestExecutor_Commit(t *testing.T) {
 			desc: "create directory existing duplicate",
 			steps: []step{
 				{
-					actions: []Action{
-						CreateDirectory{Path: "directory"},
+					actions: []git2go.Action{
+						git2go.CreateDirectory{Path: "directory"},
 					},
 					treeEntries: []testhelper.TreeEntry{
 						{Mode: DefaultMode, Path: "directory/.gitkeep"},
 					},
 				},
 				{
-					actions: []Action{
-						CreateDirectory{Path: "directory"},
+					actions: []git2go.Action{
+						git2go.CreateDirectory{Path: "directory"},
 					},
-					error: DirectoryExistsError("directory"),
+					error: git2go.DirectoryExistsError("directory"),
 				},
 			},
 		},
@@ -111,18 +103,18 @@ func TestExecutor_Commit(t *testing.T) {
 			desc: "create directory with a files name",
 			steps: []step{
 				{
-					actions: []Action{
-						CreateFile{Path: "file", OID: originalFile},
+					actions: []git2go.Action{
+						git2go.CreateFile{Path: "file", OID: originalFile},
 					},
 					treeEntries: []testhelper.TreeEntry{
 						{Mode: DefaultMode, Path: "file", Content: "original"},
 					},
 				},
 				{
-					actions: []Action{
-						CreateDirectory{Path: "file"},
+					actions: []git2go.Action{
+						git2go.CreateDirectory{Path: "file"},
 					},
-					error: FileExistsError("file"),
+					error: git2go.FileExistsError("file"),
 				},
 			},
 		},
@@ -130,8 +122,8 @@ func TestExecutor_Commit(t *testing.T) {
 			desc: "create file",
 			steps: []step{
 				{
-					actions: []Action{
-						CreateFile{Path: "file", OID: originalFile},
+					actions: []git2go.Action{
+						git2go.CreateFile{Path: "file", OID: originalFile},
 					},
 					treeEntries: []testhelper.TreeEntry{
 						{Mode: DefaultMode, Path: "file", Content: "original"},
@@ -143,11 +135,11 @@ func TestExecutor_Commit(t *testing.T) {
 			desc: "create duplicate file",
 			steps: []step{
 				{
-					actions: []Action{
-						CreateFile{Path: "file", OID: originalFile},
-						CreateFile{Path: "file", OID: updatedFile},
+					actions: []git2go.Action{
+						git2go.CreateFile{Path: "file", OID: originalFile},
+						git2go.CreateFile{Path: "file", OID: updatedFile},
 					},
-					error: FileExistsError("file"),
+					error: git2go.FileExistsError("file"),
 				},
 			},
 		},
@@ -155,9 +147,9 @@ func TestExecutor_Commit(t *testing.T) {
 			desc: "create file overwrites directory",
 			steps: []step{
 				{
-					actions: []Action{
-						CreateDirectory{Path: "directory"},
-						CreateFile{Path: "directory", OID: originalFile},
+					actions: []git2go.Action{
+						git2go.CreateDirectory{Path: "directory"},
+						git2go.CreateFile{Path: "directory", OID: originalFile},
 					},
 					treeEntries: []testhelper.TreeEntry{
 						{Mode: DefaultMode, Path: "directory", Content: "original"},
@@ -169,9 +161,9 @@ func TestExecutor_Commit(t *testing.T) {
 			desc: "update created file",
 			steps: []step{
 				{
-					actions: []Action{
-						CreateFile{Path: "file", OID: originalFile},
-						UpdateFile{Path: "file", OID: updatedFile},
+					actions: []git2go.Action{
+						git2go.CreateFile{Path: "file", OID: originalFile},
+						git2go.UpdateFile{Path: "file", OID: updatedFile},
 					},
 					treeEntries: []testhelper.TreeEntry{
 						{Mode: DefaultMode, Path: "file", Content: "updated"},
@@ -183,16 +175,16 @@ func TestExecutor_Commit(t *testing.T) {
 			desc: "update existing file",
 			steps: []step{
 				{
-					actions: []Action{
-						CreateFile{Path: "file", OID: originalFile},
+					actions: []git2go.Action{
+						git2go.CreateFile{Path: "file", OID: originalFile},
 					},
 					treeEntries: []testhelper.TreeEntry{
 						{Mode: DefaultMode, Path: "file", Content: "original"},
 					},
 				},
 				{
-					actions: []Action{
-						UpdateFile{Path: "file", OID: updatedFile},
+					actions: []git2go.Action{
+						git2go.UpdateFile{Path: "file", OID: updatedFile},
 					},
 					treeEntries: []testhelper.TreeEntry{
 						{Mode: DefaultMode, Path: "file", Content: "updated"},
@@ -204,10 +196,10 @@ func TestExecutor_Commit(t *testing.T) {
 			desc: "update non-existing file",
 			steps: []step{
 				{
-					actions: []Action{
-						UpdateFile{Path: "non-existing", OID: updatedFile},
+					actions: []git2go.Action{
+						git2go.UpdateFile{Path: "non-existing", OID: updatedFile},
 					},
-					error: FileNotFoundError("non-existing"),
+					error: git2go.FileNotFoundError("non-existing"),
 				},
 			},
 		},
@@ -215,9 +207,9 @@ func TestExecutor_Commit(t *testing.T) {
 			desc: "move created file",
 			steps: []step{
 				{
-					actions: []Action{
-						CreateFile{Path: "original-file", OID: originalFile},
-						MoveFile{Path: "original-file", NewPath: "moved-file", OID: originalFile},
+					actions: []git2go.Action{
+						git2go.CreateFile{Path: "original-file", OID: originalFile},
+						git2go.MoveFile{Path: "original-file", NewPath: "moved-file", OID: originalFile},
 					},
 					treeEntries: []testhelper.TreeEntry{
 						{Mode: DefaultMode, Path: "moved-file", Content: "original"},
@@ -229,11 +221,11 @@ func TestExecutor_Commit(t *testing.T) {
 			desc: "moving directory fails",
 			steps: []step{
 				{
-					actions: []Action{
-						CreateDirectory{Path: "directory"},
-						MoveFile{Path: "directory", NewPath: "moved-directory"},
+					actions: []git2go.Action{
+						git2go.CreateDirectory{Path: "directory"},
+						git2go.MoveFile{Path: "directory", NewPath: "moved-directory"},
 					},
-					error: FileNotFoundError("directory"),
+					error: git2go.FileNotFoundError("directory"),
 				},
 			},
 		},
@@ -241,16 +233,16 @@ func TestExecutor_Commit(t *testing.T) {
 			desc: "move file inferring content",
 			steps: []step{
 				{
-					actions: []Action{
-						CreateFile{Path: "original-file", OID: originalFile},
+					actions: []git2go.Action{
+						git2go.CreateFile{Path: "original-file", OID: originalFile},
 					},
 					treeEntries: []testhelper.TreeEntry{
 						{Mode: DefaultMode, Path: "original-file", Content: "original"},
 					},
 				},
 				{
-					actions: []Action{
-						MoveFile{Path: "original-file", NewPath: "moved-file"},
+					actions: []git2go.Action{
+						git2go.MoveFile{Path: "original-file", NewPath: "moved-file"},
 					},
 					treeEntries: []testhelper.TreeEntry{
 						{Mode: DefaultMode, Path: "moved-file", Content: "original"},
@@ -262,10 +254,10 @@ func TestExecutor_Commit(t *testing.T) {
 			desc: "move file with non-existing source",
 			steps: []step{
 				{
-					actions: []Action{
-						MoveFile{Path: "non-existing", NewPath: "destination-file"},
+					actions: []git2go.Action{
+						git2go.MoveFile{Path: "non-existing", NewPath: "destination-file"},
 					},
-					error: FileNotFoundError("non-existing"),
+					error: git2go.FileNotFoundError("non-existing"),
 				},
 			},
 		},
@@ -273,12 +265,12 @@ func TestExecutor_Commit(t *testing.T) {
 			desc: "move file with already existing destination file",
 			steps: []step{
 				{
-					actions: []Action{
-						CreateFile{Path: "source-file", OID: originalFile},
-						CreateFile{Path: "already-existing", OID: updatedFile},
-						MoveFile{Path: "source-file", NewPath: "already-existing"},
+					actions: []git2go.Action{
+						git2go.CreateFile{Path: "source-file", OID: originalFile},
+						git2go.CreateFile{Path: "already-existing", OID: updatedFile},
+						git2go.MoveFile{Path: "source-file", NewPath: "already-existing"},
 					},
-					error: FileExistsError("already-existing"),
+					error: git2go.FileExistsError("already-existing"),
 				},
 			},
 		},
@@ -288,10 +280,10 @@ func TestExecutor_Commit(t *testing.T) {
 			desc: "move file with already existing destination directory",
 			steps: []step{
 				{
-					actions: []Action{
-						CreateFile{Path: "file", OID: originalFile},
-						CreateDirectory{Path: "already-existing"},
-						MoveFile{Path: "file", NewPath: "already-existing"},
+					actions: []git2go.Action{
+						git2go.CreateFile{Path: "file", OID: originalFile},
+						git2go.CreateDirectory{Path: "already-existing"},
+						git2go.MoveFile{Path: "file", NewPath: "already-existing"},
 					},
 					treeEntries: []testhelper.TreeEntry{
 						{Mode: DefaultMode, Path: "already-existing", Content: "original"},
@@ -303,16 +295,16 @@ func TestExecutor_Commit(t *testing.T) {
 			desc: "move file providing content",
 			steps: []step{
 				{
-					actions: []Action{
-						CreateFile{Path: "original-file", OID: originalFile},
+					actions: []git2go.Action{
+						git2go.CreateFile{Path: "original-file", OID: originalFile},
 					},
 					treeEntries: []testhelper.TreeEntry{
 						{Mode: DefaultMode, Path: "original-file", Content: "original"},
 					},
 				},
 				{
-					actions: []Action{
-						MoveFile{Path: "original-file", NewPath: "moved-file", OID: updatedFile},
+					actions: []git2go.Action{
+						git2go.MoveFile{Path: "original-file", NewPath: "moved-file", OID: updatedFile},
 					},
 					treeEntries: []testhelper.TreeEntry{
 						{Mode: DefaultMode, Path: "moved-file", Content: "updated"},
@@ -324,10 +316,10 @@ func TestExecutor_Commit(t *testing.T) {
 			desc: "mark non-existing file executable",
 			steps: []step{
 				{
-					actions: []Action{
-						ChangeFileMode{Path: "non-existing"},
+					actions: []git2go.Action{
+						git2go.ChangeFileMode{Path: "non-existing"},
 					},
-					error: FileNotFoundError("non-existing"),
+					error: git2go.FileNotFoundError("non-existing"),
 				},
 			},
 		},
@@ -335,17 +327,17 @@ func TestExecutor_Commit(t *testing.T) {
 			desc: "mark executable file executable",
 			steps: []step{
 				{
-					actions: []Action{
-						CreateFile{Path: "file-1", OID: originalFile},
-						ChangeFileMode{Path: "file-1", ExecutableMode: true},
+					actions: []git2go.Action{
+						git2go.CreateFile{Path: "file-1", OID: originalFile},
+						git2go.ChangeFileMode{Path: "file-1", ExecutableMode: true},
 					},
 					treeEntries: []testhelper.TreeEntry{
 						{Mode: ExecutableMode, Path: "file-1", Content: "original"},
 					},
 				},
 				{
-					actions: []Action{
-						ChangeFileMode{Path: "file-1", ExecutableMode: true},
+					actions: []git2go.Action{
+						git2go.ChangeFileMode{Path: "file-1", ExecutableMode: true},
 					},
 					treeEntries: []testhelper.TreeEntry{
 						{Mode: ExecutableMode, Path: "file-1", Content: "original"},
@@ -357,9 +349,9 @@ func TestExecutor_Commit(t *testing.T) {
 			desc: "mark created file executable",
 			steps: []step{
 				{
-					actions: []Action{
-						CreateFile{Path: "file-1", OID: originalFile},
-						ChangeFileMode{Path: "file-1", ExecutableMode: true},
+					actions: []git2go.Action{
+						git2go.CreateFile{Path: "file-1", OID: originalFile},
+						git2go.ChangeFileMode{Path: "file-1", ExecutableMode: true},
 					},
 					treeEntries: []testhelper.TreeEntry{
 						{Mode: ExecutableMode, Path: "file-1", Content: "original"},
@@ -371,16 +363,16 @@ func TestExecutor_Commit(t *testing.T) {
 			desc: "mark existing file executable",
 			steps: []step{
 				{
-					actions: []Action{
-						CreateFile{Path: "file-1", OID: originalFile},
+					actions: []git2go.Action{
+						git2go.CreateFile{Path: "file-1", OID: originalFile},
 					},
 					treeEntries: []testhelper.TreeEntry{
 						{Mode: DefaultMode, Path: "file-1", Content: "original"},
 					},
 				},
 				{
-					actions: []Action{
-						ChangeFileMode{Path: "file-1", ExecutableMode: true},
+					actions: []git2go.Action{
+						git2go.ChangeFileMode{Path: "file-1", ExecutableMode: true},
 					},
 					treeEntries: []testhelper.TreeEntry{
 						{Mode: ExecutableMode, Path: "file-1", Content: "original"},
@@ -392,10 +384,10 @@ func TestExecutor_Commit(t *testing.T) {
 			desc: "move non-existing file",
 			steps: []step{
 				{
-					actions: []Action{
-						MoveFile{Path: "non-existing", NewPath: "destination"},
+					actions: []git2go.Action{
+						git2go.MoveFile{Path: "non-existing", NewPath: "destination"},
 					},
-					error: FileNotFoundError("non-existing"),
+					error: git2go.FileNotFoundError("non-existing"),
 				},
 			},
 		},
@@ -403,12 +395,12 @@ func TestExecutor_Commit(t *testing.T) {
 			desc: "move doesn't overwrite a file",
 			steps: []step{
 				{
-					actions: []Action{
-						CreateFile{Path: "file-1", OID: originalFile},
-						CreateFile{Path: "file-2", OID: updatedFile},
-						MoveFile{Path: "file-1", NewPath: "file-2"},
+					actions: []git2go.Action{
+						git2go.CreateFile{Path: "file-1", OID: originalFile},
+						git2go.CreateFile{Path: "file-2", OID: updatedFile},
+						git2go.MoveFile{Path: "file-1", NewPath: "file-2"},
 					},
-					error: FileExistsError("file-2"),
+					error: git2go.FileExistsError("file-2"),
 				},
 			},
 		},
@@ -416,10 +408,10 @@ func TestExecutor_Commit(t *testing.T) {
 			desc: "delete non-existing file",
 			steps: []step{
 				{
-					actions: []Action{
-						DeleteFile{Path: "non-existing"},
+					actions: []git2go.Action{
+						git2go.DeleteFile{Path: "non-existing"},
 					},
-					error: FileNotFoundError("non-existing"),
+					error: git2go.FileNotFoundError("non-existing"),
 				},
 			},
 		},
@@ -427,9 +419,9 @@ func TestExecutor_Commit(t *testing.T) {
 			desc: "delete created file",
 			steps: []step{
 				{
-					actions: []Action{
-						CreateFile{Path: "file-1", OID: originalFile},
-						DeleteFile{Path: "file-1"},
+					actions: []git2go.Action{
+						git2go.CreateFile{Path: "file-1", OID: originalFile},
+						git2go.DeleteFile{Path: "file-1"},
 					},
 				},
 			},
@@ -438,27 +430,27 @@ func TestExecutor_Commit(t *testing.T) {
 			desc: "delete existing file",
 			steps: []step{
 				{
-					actions: []Action{
-						CreateFile{Path: "file-1", OID: originalFile},
+					actions: []git2go.Action{
+						git2go.CreateFile{Path: "file-1", OID: originalFile},
 					},
 					treeEntries: []testhelper.TreeEntry{
 						{Mode: DefaultMode, Path: "file-1", Content: "original"},
 					},
 				},
 				{
-					actions: []Action{
-						DeleteFile{Path: "file-1"},
+					actions: []git2go.Action{
+						git2go.DeleteFile{Path: "file-1"},
 					},
 				},
 			},
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			author := NewSignature("Author Name", "author.email@example.com", time.Now())
+			author := git2go.NewSignature("Author Name", "author.email@example.com", time.Now())
 			var parentCommit string
 			for i, step := range tc.steps {
 				message := fmt.Sprintf("commit %d", i+1)
-				commitID, err := executor.Commit(ctx, CommitParams{
+				commitID, err := executor.Commit(ctx, git2go.CommitParams{
 					Repository: repoPath,
 					Author:     author,
 					Message:    message,
@@ -522,7 +514,7 @@ func getCommit(t testing.TB, ctx context.Context, repo git.Repository, oid strin
 	return commit
 }
 
-func unmarshalSignature(t testing.TB, data string) Signature {
+func unmarshalSignature(t testing.TB, data string) git2go.Signature {
 	t.Helper()
 
 	// Format: NAME <EMAIL> DATE_UNIX DATE_TIMEZONE
@@ -538,7 +530,7 @@ func unmarshalSignature(t testing.TB, data string) Signature {
 	timestamp, err := strconv.ParseInt(split3[0], 10, 64)
 	require.NoError(t, err)
 
-	return Signature{
+	return git2go.Signature{
 		Name:  split1[0],
 		Email: split2[0],
 		When:  time.Unix(timestamp, 0),

@@ -1,13 +1,13 @@
 // +build static,system_libgit2
 
-package main
+package command
 
 import (
 	"context"
 	"flag"
 	"io"
 
-	"gitlab.com/gitlab-org/gitaly/cmd/gitaly-git2go/commit"
+	"gitlab.com/gitlab-org/gitaly/cmd/gitaly-git2go/command/commit"
 )
 
 type commitSubcommand struct{}

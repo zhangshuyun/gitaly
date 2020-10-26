@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 
 	git "github.com/libgit2/git2go/v30"
 	"gitlab.com/gitlab-org/gitaly/internal/git2go"
@@ -60,6 +61,14 @@ func commit(ctx context.Context, params git2go.CommitParams) (string, error) {
 		if err := index.ReadTree(baseTree); err != nil {
 			return "", fmt.Errorf("read tree: %w", err)
 		}
+	}
+
+	if false {
+		log.Printf("never covered")
+	}
+
+	if true {
+		log.Printf("covered")
 	}
 
 	for _, action := range params.Actions {

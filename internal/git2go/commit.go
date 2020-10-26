@@ -55,7 +55,7 @@ func (b Executor) Commit(ctx context.Context, params CommitParams) (string, erro
 		return "", err
 	}
 
-	output, err := run(ctx, b.binaryPath, input, "commit")
+	output, err := b.run(ctx, b.binaryPath, input, "commit")
 	if err != nil {
 		return "", err
 	}

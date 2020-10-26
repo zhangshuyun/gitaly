@@ -1,6 +1,6 @@
 // +build static,system_libgit2
 
-package main
+package command
 
 import (
 	"context"
