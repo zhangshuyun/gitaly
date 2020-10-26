@@ -83,7 +83,7 @@ module Gitlab
 
     class Logging
       def dir
-        @dir ||= ENV['GITALY_LOG_DIR']
+        @dir ||= (ENV['GITALY_LOG_DIR'].presence || Dir.mktmpdir(["gitaly_", "_logs"]))
       end
 
       def level
