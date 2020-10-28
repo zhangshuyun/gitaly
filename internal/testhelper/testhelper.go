@@ -660,7 +660,7 @@ func ListenGitalySSHCalls(t *testing.T, conf config.Cfg) (config.Cfg, func() []G
 					return nil
 				}
 
-				idx, err := strconv.Atoi(strings.TrimPrefix(filename, prefix))
+				idx, err := strconv.Atoi(strings.TrimSpace(strings.TrimPrefix(filename, prefix)))
 				if err != nil {
 					return err
 				}
