@@ -13,6 +13,9 @@ const (
 	scDiff           = "diff"
 	scPackRefs       = "pack-refs"
 	scMergeBase      = "merge-base"
+	scWorktree       = "worktree"
+	scHashObject     = "hash-object"
+	scShowRef        = "show-ref"
 )
 
 var knownReadOnlyCmds = map[string]struct{}{
@@ -23,6 +26,7 @@ var knownReadOnlyCmds = map[string]struct{}{
 	scCountObjects: struct{}{},
 	scDiff:         struct{}{},
 	scMergeBase:    struct{}{},
+	scShowRef:      struct{}{},
 }
 
 // knownNoRefUpdates indicates all repo mutating commands where it is known
@@ -32,6 +36,8 @@ var knownNoRefUpdates = map[string]struct{}{
 	scMultiPackIndex: struct{}{},
 	scRepack:         struct{}{},
 	scPackRefs:       struct{}{},
+	scWorktree:       struct{}{},
+	scHashObject:     struct{}{},
 }
 
 // mayUpdateRef indicates if a subcommand is known to update references.
