@@ -15,22 +15,28 @@ func (s *server) WriteRef(ctx context.Context, req *gitalypb.WriteRefRequest) (*
 	if err := validateWriteRefRequest(req); err != nil {
 		return nil, helper.ErrInvalidArgument(err)
 	}
-	if err := writeRef(ctx, req); err != nil {
+	if err := s.writeRef(ctx, req); err != nil {
 		return nil, helper.ErrInternal(err)
 	}
 
 	return &gitalypb.WriteRefResponse{}, nil
 }
 
-func writeRef(ctx context.Context, req *gitalypb.WriteRefRequest) error {
+func (s *server) writeRef(ctx context.Context, req *gitalypb.WriteRefRequest) error {
 	if string(req.Ref) == "HEAD" {
-		return updateSymbolicRef(ctx, req)
+		return s.updateSymbolicRef(ctx, req)
 	}
 	return updateRef(ctx, req)
 }
 
-func updateSymbolicRef(ctx context.Context, req *gitalypb.WriteRefRequest) error {
-	cmd, err := git.SafeCmd(ctx, req.GetRepository(), nil, git.SubCmd{Name: "symbolic-ref", Args: []string{string(req.GetRef()), string(req.GetRevision())}})
+func (s *server) updateSymbolicRef(ctx context.Context, req *gitalypb.WriteRefRequest) error {
+	cmd, err := git.SafeCmd(ctx, req.GetRepository(), nil,
+		git.SubCmd{
+			Name: "symbolic-ref",
+			Args: []string{string(req.GetRef()), string(req.GetRevision())},
+		},
+		git.WithRefTxHook(ctx, req.GetRepository(), s.cfg),
+	)
 	if err != nil {
 		return fmt.Errorf("error when creating symbolic-ref command: %v", err)
 	}

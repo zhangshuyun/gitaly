@@ -8,6 +8,7 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/ref"
 	"gitlab.com/gitlab-org/gitaly/internal/gitalyssh"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
@@ -37,6 +38,7 @@ func (s *server) FetchInternalRemote(ctx context.Context, req *gitalypb.FetchInt
 			Flags: []git.Option{git.Flag{Name: "--prune"}},
 			Args:  []string{gitalyssh.GitalyInternalURL, mirrorRefSpec},
 		},
+		git.WithRefTxHook(ctx, req.Repository, config.Config),
 	)
 	if err != nil {
 		return nil, err

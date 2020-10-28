@@ -7,6 +7,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/internal/helper"
 )
 
 // Updater wraps a `git update-ref --stdin` process, presenting an interface
@@ -24,10 +26,13 @@ type Updater struct {
 // It is important that ctx gets canceled somewhere. If it doesn't, the process
 // spawned by New() may never terminate.
 func New(ctx context.Context, repo repository.GitRepo) (*Updater, error) {
-	cmd, err := git.SafeStdinCmd(ctx, repo, nil, git.SubCmd{
-		Name:  "update-ref",
-		Flags: []git.Option{git.Flag{Name: "-z"}, git.Flag{Name: "--stdin"}},
-	})
+	cmd, err := git.SafeStdinCmd(ctx, repo, nil,
+		git.SubCmd{
+			Name:  "update-ref",
+			Flags: []git.Option{git.Flag{Name: "-z"}, git.Flag{Name: "--stdin"}},
+		},
+		git.WithRefTxHook(ctx, helper.ProtoRepoFromRepo(repo), config.Config),
+	)
 	if err != nil {
 		return nil, err
 	}

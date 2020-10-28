@@ -12,6 +12,8 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 )
 
@@ -388,10 +390,14 @@ func (repo *localRepository) GetBranches(ctx context.Context) ([]Reference, erro
 }
 
 func (repo *localRepository) UpdateRef(ctx context.Context, reference, newrev, oldrev string) error {
-	cmd, err := repo.command(ctx, nil, SubCmd{
-		Name:  "update-ref",
-		Flags: []Option{Flag{Name: "-z"}, Flag{Name: "--stdin"}},
-	}, WithStdin(strings.NewReader(fmt.Sprintf("update %s\x00%s\x00%s\x00", reference, newrev, oldrev))))
+	cmd, err := repo.command(ctx, nil,
+		SubCmd{
+			Name:  "update-ref",
+			Flags: []Option{Flag{Name: "-z"}, Flag{Name: "--stdin"}},
+		},
+		WithStdin(strings.NewReader(fmt.Sprintf("update %s\x00%s\x00%s\x00", reference, newrev, oldrev))),
+		WithRefTxHook(ctx, helper.ProtoRepoFromRepo(repo.repo), config.Config),
+	)
 	if err != nil {
 		return err
 	}

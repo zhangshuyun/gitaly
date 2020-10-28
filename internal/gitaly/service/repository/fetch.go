@@ -52,6 +52,7 @@ func (s *server) FetchSourceBranch(ctx context.Context, req *gitalypb.FetchSourc
 			Flags: []git.Option{git.Flag{Name: "--prune"}},
 			Args:  []string{remote, refspec},
 		},
+		git.WithRefTxHook(ctx, req.Repository, s.cfg),
 	)
 	if err != nil {
 		return nil, err

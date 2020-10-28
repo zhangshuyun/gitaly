@@ -13,7 +13,7 @@ type server struct {
 	conns                *client.Pool
 	internalGitalySocket string
 	locator              storage.Locator
-	cfg                  config.Gitlab
+	cfg                  config.Cfg
 	binDir               string
 	loggingCfg           config.Logging
 }
@@ -25,7 +25,7 @@ func NewServer(cfg config.Cfg, rs *rubyserver.Server, locator storage.Locator, i
 		locator:              locator,
 		conns:                client.NewPool(),
 		internalGitalySocket: internalGitalySocket,
-		cfg:                  cfg.Gitlab,
+		cfg:                  cfg,
 		binDir:               cfg.BinDir,
 		loggingCfg:           cfg.Logging,
 	}

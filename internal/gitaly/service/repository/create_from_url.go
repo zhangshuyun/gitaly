@@ -17,7 +17,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func cloneFromURLCommand(ctx context.Context, repoURL, repositoryFullPath string, stderr io.Writer) (*command.Command, error) {
+func (s *server) cloneFromURLCommand(ctx context.Context, repo *gitalypb.Repository, repoURL, repositoryFullPath string, stderr io.Writer) (*command.Command, error) {
 	u, err := url.Parse(repoURL)
 	if err != nil {
 		return nil, helper.ErrInternal(err)
@@ -47,11 +47,14 @@ func cloneFromURLCommand(ctx context.Context, repoURL, repositoryFullPath string
 		globalFlags = append(globalFlags, git.ValueFlag{Name: "-c", Value: fmt.Sprintf("http.extraHeader=%s", authHeader)})
 	}
 
-	return git.SafeBareCmd(ctx, git.CmdStream{Err: stderr}, nil, globalFlags, git.SubCmd{
-		Name:        "clone",
-		Flags:       cloneFlags,
-		PostSepArgs: []string{u.String(), repositoryFullPath},
-	})
+	return git.SafeBareCmd(ctx, git.CmdStream{Err: stderr}, nil, globalFlags,
+		git.SubCmd{
+			Name:        "clone",
+			Flags:       cloneFlags,
+			PostSepArgs: []string{u.String(), repositoryFullPath},
+		},
+		git.WithRefTxHook(ctx, repo, s.cfg),
+	)
 }
 
 func (s *server) CreateRepositoryFromURL(ctx context.Context, req *gitalypb.CreateRepositoryFromURLRequest) (*gitalypb.CreateRepositoryFromURLResponse, error) {
@@ -71,7 +74,7 @@ func (s *server) CreateRepositoryFromURL(ctx context.Context, req *gitalypb.Crea
 	}
 
 	stderr := bytes.Buffer{}
-	cmd, err := cloneFromURLCommand(ctx, req.GetUrl(), repositoryFullPath, &stderr)
+	cmd, err := s.cloneFromURLCommand(ctx, repository, req.GetUrl(), repositoryFullPath, &stderr)
 	if err != nil {
 		return nil, helper.ErrInternal(err)
 	}
@@ -86,7 +89,7 @@ func (s *server) CreateRepositoryFromURL(ctx context.Context, req *gitalypb.Crea
 		return nil, status.Errorf(codes.Internal, "CreateRepositoryFromURL: create hooks failed: %v", err)
 	}
 
-	if err := removeOriginInRepo(ctx, repository); err != nil {
+	if err := s.removeOriginInRepo(ctx, repository); err != nil {
 		return nil, status.Errorf(codes.Internal, "CreateRepositoryFromURL: %v", err)
 	}
 

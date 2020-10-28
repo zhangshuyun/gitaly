@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/tempdir"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -17,7 +16,7 @@ func (s *server) RemoveRepository(ctx context.Context, in *gitalypb.RemoveReposi
 		return nil, helper.ErrInternal(err)
 	}
 
-	storage, ok := config.Config.Storage(in.GetRepository().GetStorageName())
+	storage, ok := s.cfg.Storage(in.GetRepository().GetStorageName())
 	if !ok {
 		return nil, helper.ErrInvalidArgumentf("storage %v not found", in.GetRepository().GetStorageName())
 	}

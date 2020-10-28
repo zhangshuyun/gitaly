@@ -14,15 +14,15 @@ const (
 )
 
 // WriteCommitGraph write or update commit-graph file in a repository
-func (*server) WriteCommitGraph(ctx context.Context, in *gitalypb.WriteCommitGraphRequest) (*gitalypb.WriteCommitGraphResponse, error) {
-	if err := writeCommitGraph(ctx, in); err != nil {
+func (s *server) WriteCommitGraph(ctx context.Context, in *gitalypb.WriteCommitGraphRequest) (*gitalypb.WriteCommitGraphResponse, error) {
+	if err := s.writeCommitGraph(ctx, in); err != nil {
 		return nil, helper.ErrInternal(fmt.Errorf("WriteCommitGraph: gitCommand: %v", err))
 	}
 
 	return &gitalypb.WriteCommitGraphResponse{}, nil
 }
 
-func writeCommitGraph(ctx context.Context, in *gitalypb.WriteCommitGraphRequest) error {
+func (s *server) writeCommitGraph(ctx context.Context, in *gitalypb.WriteCommitGraphRequest) error {
 	cmd, err := git.SafeCmd(ctx, in.GetRepository(), nil,
 		git.SubCmd{
 			Name: "commit-graph",
@@ -31,6 +31,7 @@ func writeCommitGraph(ctx context.Context, in *gitalypb.WriteCommitGraphRequest)
 				git.Flag{Name: "--reachable"},
 			},
 		},
+		git.WithRefTxHook(ctx, in.Repository, s.cfg),
 	)
 	if err != nil {
 		return err

@@ -20,6 +20,7 @@ func (s *server) Fsck(ctx context.Context, req *gitalypb.FsckRequest) (*gitalypb
 	cmd, err := git.SafeBareCmd(ctx, git.CmdStream{Out: &stdout, Err: &stderr}, env,
 		[]git.Option{git.ValueFlag{"--git-dir", repoPath}},
 		git.SubCmd{Name: "fsck"},
+		git.WithRefTxHook(ctx, req.GetRepository(), s.cfg),
 	)
 	if err != nil {
 		return nil, err

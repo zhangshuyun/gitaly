@@ -39,11 +39,11 @@ func (s *server) cleanupRepo(ctx context.Context, repo *gitalypb.Repository) err
 	}
 
 	worktreeThreshold := time.Now().Add(-6 * time.Hour)
-	if err := cleanStaleWorktrees(ctx, repo, repoPath, worktreeThreshold); err != nil {
+	if err := s.cleanStaleWorktrees(ctx, repo, repoPath, worktreeThreshold); err != nil {
 		return status.Errorf(codes.Internal, "Cleanup: cleanStaleWorktrees: %v", err)
 	}
 
-	if err := cleanDisconnectedWorktrees(ctx, repo); err != nil {
+	if err := s.cleanDisconnectedWorktrees(ctx, repo); err != nil {
 		return status.Errorf(codes.Internal, "Cleanup: cleanDisconnectedWorktrees: %v", err)
 	}
 
@@ -104,7 +104,7 @@ func cleanPackedRefsLock(repoPath string, threshold time.Time) error {
 	return nil
 }
 
-func cleanStaleWorktrees(ctx context.Context, repo *gitalypb.Repository, repoPath string, threshold time.Time) error {
+func (s *server) cleanStaleWorktrees(ctx context.Context, repo *gitalypb.Repository, repoPath string, threshold time.Time) error {
 	worktreePath := filepath.Join(repoPath, worktreePrefix)
 
 	dirInfo, err := os.Stat(worktreePath)
@@ -143,7 +143,7 @@ func cleanStaleWorktrees(ctx context.Context, repo *gitalypb.Repository, repoPat
 	return nil
 }
 
-func cleanDisconnectedWorktrees(ctx context.Context, repo *gitalypb.Repository) error {
+func (s *server) cleanDisconnectedWorktrees(ctx context.Context, repo *gitalypb.Repository) error {
 	cmd, err := git.SafeCmd(ctx, repo, nil, git.SubCmd{
 		Name:  "worktree",
 		Flags: []git.Option{git.SubSubCmd{"prune"}},

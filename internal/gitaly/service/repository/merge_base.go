@@ -21,10 +21,12 @@ func (s *server) FindMergeBase(ctx context.Context, req *gitalypb.FindMergeBaseR
 		return nil, status.Errorf(codes.InvalidArgument, "FindMergeBase: at least 2 revisions are required")
 	}
 
-	cmd, err := git.SafeCmd(ctx, req.GetRepository(), nil, git.SubCmd{
-		Name: "merge-base",
-		Args: revisions,
-	})
+	cmd, err := git.SafeCmd(ctx, req.GetRepository(), nil,
+		git.SubCmd{
+			Name: "merge-base",
+			Args: revisions,
+		},
+	)
 	if err != nil {
 		if _, ok := status.FromError(err); ok {
 			return nil, err

@@ -4,6 +4,7 @@ import (
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/streamio"
@@ -47,11 +48,16 @@ func (s *server) PostReceivePack(stream gitalypb.SmartHTTPService_PostReceivePac
 		globalOpts = append(globalOpts, git.ValueFlag{"-c", o})
 	}
 
-	cmd, err := git.SafeBareCmd(ctx, git.CmdStream{In: stdin, Out: stdout}, nil, globalOpts, git.SubCmd{
-		Name:  "receive-pack",
-		Flags: []git.Option{git.Flag{Name: "--stateless-rpc"}},
-		Args:  []string{repoPath},
-	}, git.WithReceivePackHooks(ctx, req, "http"), git.WithGitProtocol(ctx, req))
+	cmd, err := git.SafeBareCmd(ctx, git.CmdStream{In: stdin, Out: stdout}, nil, globalOpts,
+		git.SubCmd{
+			Name:  "receive-pack",
+			Flags: []git.Option{git.Flag{Name: "--stateless-rpc"}},
+			Args:  []string{repoPath},
+		},
+		git.WithReceivePackHooks(ctx, req, "http"),
+		git.WithGitProtocol(ctx, req),
+		git.WithRefTxHook(ctx, req.Repository, config.Config),
+	)
 
 	if err != nil {
 		return status.Errorf(codes.Unavailable, "PostReceivePack: %v", err)

@@ -8,8 +8,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
-func removeOriginInRepo(ctx context.Context, repository *gitalypb.Repository) error {
-	cmd, err := git.SafeCmd(ctx, repository, nil, git.SubCmd{Name: "remote", Args: []string{"remove", "origin"}})
+func (s *server) removeOriginInRepo(ctx context.Context, repository *gitalypb.Repository) error {
+	cmd, err := git.SafeCmd(ctx, repository, nil, git.SubCmd{Name: "remote", Args: []string{"remove", "origin"}}, git.WithRefTxHook(ctx, repository, s.cfg))
 
 	if err != nil {
 		return fmt.Errorf("remote cmd start: %v", err)

@@ -3,6 +3,7 @@ package ref
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 

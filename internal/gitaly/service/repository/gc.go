@@ -39,7 +39,7 @@ func (s *server) GarbageCollect(ctx context.Context, in *gitalypb.GarbageCollect
 		return nil, err
 	}
 
-	if err := gc(ctx, in); err != nil {
+	if err := s.gc(ctx, in); err != nil {
 		return nil, err
 	}
 
@@ -47,7 +47,7 @@ func (s *server) GarbageCollect(ctx context.Context, in *gitalypb.GarbageCollect
 		return nil, err
 	}
 
-	if err := writeCommitGraph(ctx, &gitalypb.WriteCommitGraphRequest{Repository: repo}); err != nil {
+	if err := s.writeCommitGraph(ctx, &gitalypb.WriteCommitGraphRequest{Repository: repo}); err != nil {
 		return nil, err
 	}
 
@@ -62,7 +62,7 @@ func (s *server) GarbageCollect(ctx context.Context, in *gitalypb.GarbageCollect
 	return &gitalypb.GarbageCollectResponse{}, nil
 }
 
-func gc(ctx context.Context, in *gitalypb.GarbageCollectRequest) error {
+func (s *server) gc(ctx context.Context, in *gitalypb.GarbageCollectRequest) error {
 	args := repackConfig(ctx, in.CreateBitmap)
 
 	var flags []git.Option
@@ -72,6 +72,7 @@ func gc(ctx context.Context, in *gitalypb.GarbageCollectRequest) error {
 
 	cmd, err := git.SafeCmd(ctx, in.GetRepository(), args,
 		git.SubCmd{Name: "gc", Flags: flags},
+		git.WithRefTxHook(ctx, in.GetRepository(), s.cfg),
 	)
 
 	if err != nil {
@@ -148,7 +149,7 @@ func (s *server) cleanupKeepArounds(ctx context.Context, repo *gitalypb.Reposito
 			continue
 		}
 
-		if err := fixRef(ctx, repo, batch, path, refName, info.Name()); err != nil {
+		if err := s.fixRef(ctx, repo, batch, path, refName, info.Name()); err != nil {
 			return err
 		}
 	}
@@ -165,7 +166,7 @@ func checkRef(batch *catfile.Batch, refName string, info os.FileInfo) error {
 	return err
 }
 
-func fixRef(ctx context.Context, repo *gitalypb.Repository, batch *catfile.Batch, refPath string, name string, sha string) error {
+func (s *server) fixRef(ctx context.Context, repo *gitalypb.Repository, batch *catfile.Batch, refPath string, name string, sha string) error {
 	// So the ref is broken, let's get rid of it
 	if err := os.RemoveAll(refPath); err != nil {
 		return err
@@ -177,10 +178,13 @@ func fixRef(ctx context.Context, repo *gitalypb.Repository, batch *catfile.Batch
 	}
 
 	// The name is a valid sha, recreate the ref
-	cmd, err := git.SafeCmd(ctx, repo, nil, git.SubCmd{
-		Name: "update-ref",
-		Args: []string{name, sha},
-	})
+	cmd, err := git.SafeCmd(ctx, repo, nil,
+		git.SubCmd{
+			Name: "update-ref",
+			Args: []string{name, sha},
+		},
+		git.WithRefTxHook(ctx, repo, s.cfg),
+	)
 	if err != nil {
 		return err
 	}

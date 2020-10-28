@@ -41,14 +41,20 @@ func (s *server) CreateFork(ctx context.Context, req *gitalypb.CreateForkRequest
 		return nil, err
 	}
 
-	cmd, err := git.SafeBareCmd(ctx, git.CmdStream{}, env, nil, git.SubCmd{
-		Name:  "clone",
-		Flags: []git.Option{git.Flag{Name: "--bare"}, git.Flag{Name: "--no-local"}},
-		PostSepArgs: []string{
-			fmt.Sprintf("%s:%s", gitalyssh.GitalyInternalURL, sourceRepository.RelativePath),
-			targetRepositoryFullPath,
+	cmd, err := git.SafeBareCmd(ctx, git.CmdStream{}, env, nil,
+		git.SubCmd{
+			Name: "clone",
+			Flags: []git.Option{
+				git.Flag{Name: "--bare"},
+				git.Flag{Name: "--no-local"},
+			},
+			PostSepArgs: []string{
+				fmt.Sprintf("%s:%s", gitalyssh.GitalyInternalURL, sourceRepository.RelativePath),
+				targetRepositoryFullPath,
+			},
 		},
-	})
+		git.WithRefTxHook(ctx, req.Repository, s.cfg),
+	)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "CreateFork: clone cmd start: %v", err)
 	}
@@ -56,7 +62,7 @@ func (s *server) CreateFork(ctx context.Context, req *gitalypb.CreateForkRequest
 		return nil, status.Errorf(codes.Internal, "CreateFork: clone cmd wait: %v", err)
 	}
 
-	if err := removeOriginInRepo(ctx, targetRepository); err != nil {
+	if err := s.removeOriginInRepo(ctx, targetRepository); err != nil {
 		return nil, status.Errorf(codes.Internal, "CreateFork: %v", err)
 	}
 

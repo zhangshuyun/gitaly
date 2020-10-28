@@ -13,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	gitlog "gitlab.com/gitlab-org/gitaly/internal/git/log"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/chunk"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/lines"
@@ -217,7 +218,7 @@ func SetDefaultBranchRef(ctx context.Context, repo *gitalypb.Repository, ref str
 	cmd, err := git.SafeCmd(ctx, repo, nil, git.SubCmd{
 		Name: "symbolic-ref",
 		Args: []string{"HEAD", ref},
-	})
+	}, git.WithRefTxHook(ctx, repo, config.Config))
 	if err != nil {
 		return err
 	}

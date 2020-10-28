@@ -81,7 +81,7 @@ func (s *server) GetArchive(in *gitalypb.GetArchiveRequest, stream gitalypb.Repo
 		return stream.Send(&gitalypb.GetArchiveResponse{Data: p})
 	})
 
-	gitlabConfig, err := json.Marshal(s.cfg)
+	gitlabConfig, err := json.Marshal(s.cfg.Gitlab)
 	if err != nil {
 		return err
 	}

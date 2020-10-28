@@ -385,6 +385,7 @@ func (s *server) fetchRemoteObject(ctx context.Context, local, remote *gitalypb.
 			Args:  []string{"ssh://gitaly/internal.git", sha},
 		},
 		git.WithStderr(stderr),
+		git.WithRefTxHook(ctx, local, s.cfg),
 	)
 	if err != nil {
 		return err
