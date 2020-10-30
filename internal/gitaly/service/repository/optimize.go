@@ -1,11 +1,16 @@
 package repository
 
 import (
+	"bufio"
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
@@ -130,6 +135,12 @@ func (s *server) optimizeRepository(ctx context.Context, repository *gitalypb.Re
 		return fmt.Errorf("OptimizeRepository: remove empty refs: %w", err)
 	}
 
+	// TODO: https://gitlab.com/gitlab-org/gitaly/-/issues/3138
+	// This is a temporary code and needs to be removed once it will be run on all repositories at least once.
+	if err := s.unsetAllConfigsByRegexp(ctx, repository, "^http\\..+\\.extraHeader$"); err != nil {
+		return fmt.Errorf("OptimizeRepository: unset all configs by regexp: %w", err)
+	}
+
 	return nil
 }
 
@@ -153,6 +164,95 @@ func (s *server) validateOptimizeRepositoryRequest(in *gitalypb.OptimizeReposito
 	_, err := s.locator.GetRepoPath(in.GetRepository())
 	if err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func (s *server) unsetAllConfigsByRegexp(ctx context.Context, repository *gitalypb.Repository, regexp string) error {
+	keys, err := getConfigKeys(ctx, repository, regexp)
+	if err != nil {
+		return fmt.Errorf("get config keys: %w", err)
+	}
+
+	if err := unsetConfigKeys(ctx, repository, keys); err != nil {
+		return fmt.Errorf("unset all keys: %w", err)
+	}
+
+	return nil
+}
+
+func getConfigKeys(ctx context.Context, repository *gitalypb.Repository, regexp string) ([]string, error) {
+	cmd, err := git.SafeCmd(ctx, repository, nil, git.SubCmd{
+		Name: "config",
+		Flags: []git.Option{
+			git.Flag{Name: "--name-only"},
+			git.ValueFlag{Name: "--get-regexp", Value: regexp},
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("creation of 'git config': %w", err)
+	}
+
+	keys, err := parseConfigKeys(cmd)
+	if err != nil {
+		return nil, fmt.Errorf("parse config keys: %w", err)
+	}
+
+	if err := cmd.Wait(); err != nil {
+		var termErr *exec.ExitError
+		if errors.As(err, &termErr) {
+			if termErr.ExitCode() == 1 {
+				// https://git-scm.com/docs/git-config#_description: The section or key is invalid (ret=1)
+				// This means no matching values were found.
+				return nil, nil
+			}
+		}
+		return nil, fmt.Errorf("wait for 'git config': %w", err)
+	}
+
+	return keys, nil
+}
+
+func parseConfigKeys(reader io.Reader) ([]string, error) {
+	var keys []string
+
+	scanner := bufio.NewScanner(reader)
+	for scanner.Scan() {
+		keys = append(keys, scanner.Text())
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+
+	return keys, nil
+}
+
+func unsetConfigKeys(ctx context.Context, repository *gitalypb.Repository, names []string) error {
+	for _, name := range names {
+		if err := unsetAll(ctx, repository, name); err != nil {
+			return fmt.Errorf("unset all: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func unsetAll(ctx context.Context, repository *gitalypb.Repository, name string) error {
+	if strings.TrimSpace(name) == "" {
+		return nil
+	}
+
+	cmd, err := git.SafeCmd(ctx, repository, nil, git.SubCmd{
+		Name:  "config",
+		Flags: []git.Option{git.ValueFlag{Name: "--unset-all", Value: name}},
+	})
+	if err != nil {
+		return fmt.Errorf("creation of 'git config': %w", err)
+	}
+
+	if err := cmd.Wait(); err != nil {
+		return fmt.Errorf("wait for 'git config': %w", err)
 	}
 
 	return nil
