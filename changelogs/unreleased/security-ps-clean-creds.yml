@@ -1,0 +1,5 @@
+---
+title: Removal of all http.*.extraHeader config values
+merge_request:
+author:
+type: security
