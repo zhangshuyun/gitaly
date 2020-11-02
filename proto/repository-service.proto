@@ -219,6 +219,11 @@ service RepositoryService {
       op: MUTATOR
     };
   }
+  rpc FetchRemoteWithStatus(FetchRemoteRequest) returns (stream FetchRemoteWithStatusResponse) {
+    option(op_type) = {
+      op: MUTATOR
+    };
+  }
 }
 
 message RepositoryExistsRequest {
@@ -646,3 +651,26 @@ message OptimizeRepositoryRequest {
 }
 
 message OptimizeRepositoryResponse{}
+
+message FetchRemoteWithStatusResponse {
+  // Per `git fetch` manpage, OUTPUT section
+  enum UpdateType {
+    FAST_FORWARD_UPDATE = 0; // ' '
+    FORCED_UPDATE = 1;       // '+'
+    PRUNED = 2;              // '-'
+    TAG_UPDATE = 3;          // 't'
+    FETCHED = 4;             // '*'
+    UPDATE_FAILED = 5;       // '!'
+    UNCHANGED = 6;           // '='
+  }
+
+  message Update {
+    UpdateType update_type = 1;
+    string summary = 2;
+    string from_ref = 3;
+    string to_ref = 4;
+    string reason = 5;
+  }
+
+  repeated Update ref_updates = 1;
+}
