@@ -20,7 +20,11 @@ type FeatureSet struct {
 // Desc describes the feature such that it is suitable as a testcase description.
 func (f FeatureSet) Desc() string {
 	features := make([]string, 0, len(f.features))
+
 	for feature := range f.features {
+		features = append(features, feature.Name)
+	}
+	for feature := range f.rubyFeatures {
 		features = append(features, feature.Name)
 	}
 
@@ -37,13 +41,11 @@ func (f FeatureSet) Desc() string {
 // treated as an outgoing context.
 func (f FeatureSet) Disable(ctx context.Context) context.Context {
 	for feature := range f.features {
-		if _, ok := f.rubyFeatures[feature]; ok {
-			ctx = featureflag.OutgoingCtxWithRubyFeatureFlagValue(ctx, feature, "false")
-			continue
-		}
 		ctx = featureflag.OutgoingCtxWithFeatureFlagValue(ctx, feature, "false")
 	}
-
+	for feature := range f.rubyFeatures {
+		ctx = featureflag.OutgoingCtxWithRubyFeatureFlagValue(ctx, feature, "false")
+	}
 	return ctx
 }
 
@@ -53,26 +55,36 @@ type FeatureSets []FeatureSet
 // NewFeatureSets takes a slice of go feature flags, and an optional variadic set of ruby feature flags
 // and returns a FeatureSets slice
 func NewFeatureSets(goFeatures []featureflag.FeatureFlag, rubyFeatures ...featureflag.FeatureFlag) FeatureSets {
-	rubyFeatureMap := make(map[featureflag.FeatureFlag]struct{})
-	for _, rubyFeature := range rubyFeatures {
-		rubyFeatureMap[rubyFeature] = struct{}{}
-	}
+	var sets FeatureSets
 
-	// start with an empty feature set
-	f := []FeatureSet{{features: make(map[featureflag.FeatureFlag]struct{}), rubyFeatures: rubyFeatureMap}}
+	length := len(goFeatures) + len(rubyFeatures)
 
-	allFeatures := append(goFeatures, rubyFeatures...)
-
-	for i := range allFeatures {
-		featureMap := make(map[featureflag.FeatureFlag]struct{})
-		for j := 0; j <= i; j++ {
-			featureMap[allFeatures[j]] = struct{}{}
+	// We want to generate all combinations of Go and Ruby features, which is 2^len(flags). To
+	// do so, we simply iterate through all numbers from [0,len(flags)-1]. For each iteration, a
+	// feature flag is added if its corresponding bit at the current iteration counter is 1,
+	// otherwise it's left out of the set. Note that this also includes the empty set.
+	for i := uint(0); i < uint(1<<length); i++ {
+		set := FeatureSet{
+			features:     make(map[featureflag.FeatureFlag]struct{}),
+			rubyFeatures: make(map[featureflag.FeatureFlag]struct{}),
 		}
 
-		f = append(f, FeatureSet{features: featureMap, rubyFeatures: rubyFeatureMap})
+		for j, feature := range goFeatures {
+			if (i>>uint(j))&1 == 1 {
+				set.features[feature] = struct{}{}
+			}
+		}
+
+		for j, feature := range rubyFeatures {
+			if (i>>uint(j+len(goFeatures)))&1 == 1 {
+				set.rubyFeatures[feature] = struct{}{}
+			}
+		}
+
+		sets = append(sets, set)
 	}
 
-	return f
+	return sets
 }
 
 // Run executes the given test function for each of the FeatureSets. The passed in context has the
