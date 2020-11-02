@@ -9,6 +9,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -16,9 +17,10 @@ import (
 )
 
 func TestServer_UserCherryPick_successful(t *testing.T) {
-	ctxOuter, cancel := testhelper.Context()
-	defer cancel()
+	testWithFeature(t, featureflag.GoUserCherryPick, testServerUserCherryPickSuccessful)
+}
 
+func testServerUserCherryPickSuccessful(t *testing.T, ctxOuter context.Context) {
 	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()
 
@@ -153,6 +155,12 @@ func TestServer_UserCherryPick_successful(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
 			md := testhelper.GitalyServersMetadata(t, serverSocketPath)
+
+			mdFromCtx, ok := metadata.FromOutgoingContext(ctxOuter)
+			if ok {
+				md = metadata.Join(md, mdFromCtx)
+			}
+
 			ctx := metadata.NewOutgoingContext(ctxOuter, md)
 
 			response, err := client.UserCherryPick(ctx, testCase.request)
@@ -180,10 +188,7 @@ func TestServer_UserCherryPick_successful(t *testing.T) {
 }
 
 func TestServer_UserCherryPick_successful_git_hooks(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-
-	testServerUserCherryPickSuccessfulGitHooks(t, ctx)
+	testWithFeature(t, featureflag.GoUserCherryPick, testServerUserCherryPickSuccessfulGitHooks)
 }
 
 func testServerUserCherryPickSuccessfulGitHooks(t *testing.T, ctxOuter context.Context) {
@@ -232,6 +237,10 @@ func testServerUserCherryPickSuccessfulGitHooks(t *testing.T, ctxOuter context.C
 }
 
 func TestServer_UserCherryPick_stableID(t *testing.T) {
+	testWithFeature(t, featureflag.GoUserCherryPick, testServerUserCherryPickStableID)
+}
+
+func testServerUserCherryPickStableID(t *testing.T, ctx context.Context) {
 	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()
 
@@ -241,9 +250,6 @@ func TestServer_UserCherryPick_stableID(t *testing.T) {
 	repoProto, repoPath, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
 	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
 	destinationBranch := "cherry-picking-dst"
 	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", destinationBranch, "master")
@@ -297,9 +303,10 @@ func TestServer_UserCherryPick_stableID(t *testing.T) {
 }
 
 func TestServer_UserCherryPick_failed_validations(t *testing.T) {
-	ctxOuter, cancel := testhelper.Context()
-	defer cancel()
+	testWithFeature(t, featureflag.GoUserCherryPick, testServerUserCherryPickFailedValidations)
+}
 
+func testServerUserCherryPickFailedValidations(t *testing.T, ctxOuter context.Context) {
 	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()
 
@@ -378,9 +385,10 @@ func TestServer_UserCherryPick_failed_validations(t *testing.T) {
 }
 
 func TestServer_UserCherryPick_failed_with_PreReceiveError(t *testing.T) {
-	ctxOuter, cancel := testhelper.Context()
-	defer cancel()
+	testWithFeature(t, featureflag.GoUserCherryPick, testServerUserCherryPickFailedWithPreReceiveError)
+}
 
+func testServerUserCherryPickFailedWithPreReceiveError(t *testing.T, ctxOuter context.Context) {
 	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()
 
@@ -423,9 +431,10 @@ func TestServer_UserCherryPick_failed_with_PreReceiveError(t *testing.T) {
 }
 
 func TestServer_UserCherryPick_failed_with_CreateTreeError(t *testing.T) {
-	ctxOuter, cancel := testhelper.Context()
-	defer cancel()
+	testWithFeature(t, featureflag.GoUserCherryPick, testServerUserCherryPickFailedWithCreateTreeError)
+}
 
+func testServerUserCherryPickFailedWithCreateTreeError(t *testing.T, ctxOuter context.Context) {
 	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()
 
@@ -461,9 +470,10 @@ func TestServer_UserCherryPick_failed_with_CreateTreeError(t *testing.T) {
 }
 
 func TestServer_UserCherryPick_failed_with_CommitError(t *testing.T) {
-	ctxOuter, cancel := testhelper.Context()
-	defer cancel()
+	testWithFeature(t, featureflag.GoUserCherryPick, testServerUserCherryPickFailedWithCommitError)
+}
 
+func testServerUserCherryPickFailedWithCommitError(t *testing.T, ctxOuter context.Context) {
 	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()
 
