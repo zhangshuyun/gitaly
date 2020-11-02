@@ -1,5 +1,12 @@
 # Gitaly changelog
 
+## 13.5.2 (2020-11-02)
+
+### Security (1 change)
+
+- Removal of all http.*.extraHeader config values.
+
+
 ## 13.5.1 (2020-10-22)
 
 - No changes.
