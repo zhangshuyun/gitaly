@@ -439,6 +439,24 @@ func TestToPQString(t *testing.T) {
 			out:    `port=2345 host=1.2.3.4 user=praefect-user password=secret dbname=praefect_production sslmode=require sslcert=/path/to/cert sslkey=/path/to/key sslrootcert=/path/to/root-cert binary_parameters=yes`,
 		},
 		{
+			desc: "direct connection host not set",
+			in: DB{
+				HostNoProxy: "",
+				PortNoProxy: 2345,
+			},
+			direct: true,
+			out:    "",
+		},
+		{
+			desc: "direct connection port not set",
+			in: DB{
+				HostNoProxy: "localhost",
+				PortNoProxy: 0,
+			},
+			direct: true,
+			out:    "",
+		},
+		{
 			desc: "with spaces and quotes",
 			in: DB{
 				Password: "secret foo'bar",

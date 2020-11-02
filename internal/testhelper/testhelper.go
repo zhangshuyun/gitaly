@@ -29,6 +29,7 @@ import (
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_logrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
@@ -492,6 +493,13 @@ type ContextOpt func(context.Context) (context.Context, func())
 func ContextWithTimeout(duration time.Duration) ContextOpt {
 	return func(ctx context.Context) (context.Context, func()) {
 		return context.WithTimeout(ctx, duration)
+	}
+}
+
+// ContextWithLogger allows to inject provided logger into the context.
+func ContextWithLogger(logger *log.Entry) ContextOpt {
+	return func(ctx context.Context) (context.Context, func()) {
+		return ctxlogrus.ToContext(ctx, logger), func() {}
 	}
 }
 

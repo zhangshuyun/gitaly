@@ -298,6 +298,9 @@ func (db DB) ToPQString(direct bool) string {
 	var portVal int
 
 	if direct {
+		if db.HostNoProxy == "" || db.PortNoProxy == 0 {
+			return ""
+		}
 		hostVal = db.HostNoProxy
 		portVal = db.PortNoProxy
 	} else {

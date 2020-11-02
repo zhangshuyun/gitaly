@@ -231,18 +231,53 @@ func run(cfgs []starter.Config, conf config.Config) error {
 		db = dbConn
 	}
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	var queue datastore.ReplicationEventQueue
 	var rs datastore.RepositoryStore
+	var sp nodes.StorageProvider
+	var metricsCollectors []prometheus.Collector
+
 	if conf.MemoryQueueEnabled {
 		queue = datastore.NewMemoryReplicationEventQueue(conf)
 		rs = datastore.NewMemoryRepositoryStore(conf.StorageNames())
+		storagesDirect := datastore.NewDirectStorageProvider(rs)
+		metricsCollectors = append(metricsCollectors, storagesDirect)
+		sp = storagesDirect
 	} else {
 		queue = datastore.NewPostgresReplicationEventQueue(db)
 		rs = datastore.NewPostgresRepositoryStore(db, conf.StorageNames())
-	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+		if conf.DB.ToPQString(true) == "" {
+			storagesDirect := datastore.NewDirectStorageProvider(rs)
+			metricsCollectors = append(metricsCollectors, storagesDirect)
+			sp = storagesDirect
+		} else {
+			listenerOpts := datastore.DefaultPostgresListenerOpts
+			listenerOpts.Addr = conf.DB.ToPQString(true)
+			listenerOpts.Channels = []string{"repositories_updates", "storage_repositories_updates"}
+
+			storagesCached, err := datastore.NewCachingStorageProvider(logger, rs, conf.VirtualStorageNames())
+			if err != nil {
+				return fmt.Errorf("caching storage provider: %w", err)
+			}
+
+			postgresListener, err := datastore.NewPostgresListener(logger, listenerOpts, storagesCached)
+			if err != nil {
+				return err
+			}
+
+			defer func() {
+				if err := postgresListener.Close(); err != nil {
+					logger.WithError(err).Error("error on closing Postgres notifications listener")
+				}
+			}()
+
+			metricsCollectors = append(metricsCollectors, storagesCached, postgresListener)
+			sp = storagesCached
+		}
+	}
 
 	var errTracker tracker.ErrorTracker
 
@@ -259,8 +294,6 @@ func run(cfgs []starter.Config, conf config.Config) error {
 			}
 		}
 	}
-
-	sp := datastore.NewDirectStorageProvider(rs)
 
 	nodeManager, err := nodes.NewManager(logger, conf, db, rs, sp, nodeLatencyHistogram, protoregistry.GitalyProtoPreregistered, errTracker)
 	if err != nil {
@@ -348,13 +381,7 @@ func run(cfgs []starter.Config, conf config.Config) error {
 			protoregistry.GitalyProtoPreregistered,
 		)
 	)
-
-	prometheus.MustRegister(
-		transactionManager,
-		coordinator,
-		repl,
-	)
-
+	metricsCollectors = append(metricsCollectors, transactionManager, coordinator, repl)
 	if db != nil {
 		prometheus.MustRegister(
 			datastore.NewRepositoryStoreCollector(
@@ -365,6 +392,7 @@ func run(cfgs []starter.Config, conf config.Config) error {
 			),
 		)
 	}
+	prometheus.MustRegister(metricsCollectors...)
 
 	b, err := bootstrap.New()
 	if err != nil {

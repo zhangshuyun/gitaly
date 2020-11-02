@@ -317,11 +317,10 @@ func TestMgr_GetSyncedNode(t *testing.T) {
 
 	verify := func(failover bool, scenario func(t *testing.T, nm Manager, rs datastore.RepositoryStore)) func(*testing.T) {
 		conf.Failover.Enabled = failover
-		loggingEntry := testhelper.DiscardTestEntry(t)
 		rs := datastore.NewMemoryRepositoryStore(conf.StorageNames())
 		sp := datastore.NewDirectStorageProvider(rs)
 
-		nm, err := NewManager(loggingEntry, conf, nil, rs, sp, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil)
+		nm, err := NewManager(testhelper.DiscardTestEntry(t), conf, nil, rs, sp, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil)
 		require.NoError(t, err)
 
 		for i := range healthSrvs {
