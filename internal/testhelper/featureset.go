@@ -16,11 +16,6 @@ type FeatureSet struct {
 	rubyFeatures map[featureflag.FeatureFlag]struct{}
 }
 
-func (f FeatureSet) IsDisabled(flag featureflag.FeatureFlag) bool {
-	_, ok := f.features[flag]
-	return ok
-}
-
 func (f FeatureSet) String() string {
 	features := make([]string, 0, len(f.features))
 	for feature := range f.features {
