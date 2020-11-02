@@ -33,6 +33,8 @@ func (f FeatureSet) Desc() string {
 	return "disabled " + strings.Join(features, ",")
 }
 
+// Disable disables all feature flags in the given FeatureSet in the given context. The context is
+// treated as an outgoing context.
 func (f FeatureSet) Disable(ctx context.Context) context.Context {
 	for feature := range f.features {
 		if _, ok := f.rubyFeatures[feature]; ok {
