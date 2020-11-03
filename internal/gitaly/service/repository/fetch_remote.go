@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/url"
 	"os"
@@ -62,7 +63,7 @@ func (s *server) FetchRemote(ctx context.Context, req *gitalypb.FetchRemoteReque
 	}
 
 	var stderr bytes.Buffer
-	opts := git.FetchOpts{Stderr: &stderr, Force: req.Force, Prune: true, Tags: git.FetchOptsTagsAll}
+	opts := git.FetchOpts{Stderr: &stderr, Force: req.Force, Prune: true, Tags: git.FetchOptsTagsAll, Verbose: req.GetCheckTagsChanged()}
 
 	if req.GetNoTags() {
 		opts.Tags = git.FetchOptsTagsNone
@@ -177,7 +178,29 @@ func (s *server) FetchRemote(ctx context.Context, req *gitalypb.FetchRemoteReque
 		return nil, fmt.Errorf("fetch remote: %w", err)
 	}
 
-	return &gitalypb.FetchRemoteResponse{}, nil
+	out := &gitalypb.FetchRemoteResponse{TagsChanged: true}
+	if req.GetCheckTagsChanged() {
+		out.TagsChanged = didTagsChange(&stderr)
+	}
+
+	return out, nil
+}
+
+func didTagsChange(r io.Reader) bool {
+	scanner := git.NewFetchScanner(r)
+	for scanner.Scan() {
+		status := scanner.StatusLine()
+
+		// We can't detect if tags have been deleted, but we never call fetch
+		// with --prune-tags at the moment, so it should never happen.
+		if status.IsTagAdded() || status.IsTagUpdated() {
+			return true
+		}
+	}
+
+	// If the scanner fails for some reason, we don't know if tags changed, so
+	// assume they did for safety reasons.
+	return scanner.Err() != nil
 }
 
 func (s *server) validateFetchRemoteRequest(req *gitalypb.FetchRemoteRequest) error {
