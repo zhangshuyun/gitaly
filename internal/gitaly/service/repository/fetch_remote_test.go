@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
@@ -24,7 +26,7 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
-func copyRepoWithNewRemote(t *testing.T, repo *gitalypb.Repository, locator storage.Locator, remote string) *gitalypb.Repository {
+func copyRepoWithNewRemote(t *testing.T, repo *gitalypb.Repository, locator storage.Locator, remote string) (*gitalypb.Repository, string) {
 	repoPath, err := locator.GetRepoPath(repo)
 	require.NoError(t, err)
 
@@ -37,7 +39,7 @@ func copyRepoWithNewRemote(t *testing.T, repo *gitalypb.Repository, locator stor
 
 	testhelper.MustRunCommand(t, nil, "git", "-C", clonePath, "remote", "add", remote, repoPath)
 
-	return cloneRepo
+	return cloneRepo, clonePath
 }
 
 func TestFetchRemoteSuccess(t *testing.T) {
@@ -54,11 +56,9 @@ func TestFetchRemoteSuccess(t *testing.T) {
 		testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
 		defer cleanupFn()
 
-		cloneRepo := copyRepoWithNewRemote(t, testRepo, locator, "my-remote")
+		cloneRepo, cloneRepoPath := copyRepoWithNewRemote(t, testRepo, locator, "my-remote")
 		defer func() {
-			path, err := locator.GetRepoPath(cloneRepo)
-			require.NoError(t, err)
-			require.NoError(t, os.RemoveAll(path))
+			require.NoError(t, os.RemoveAll(cloneRepoPath))
 		}()
 
 		resp, err := client.FetchRemote(ctx, &gitalypb.FetchRemoteRequest{
@@ -69,6 +69,99 @@ func TestFetchRemoteSuccess(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NotNil(t, resp)
 	})
+}
+
+func TestFetchRemoteWithStatusSuccess(t *testing.T) {
+	locator := config.NewLocator(config.Config)
+	serverSocketPath, stop := runRepoServer(t, locator, testhelper.WithInternalSocket(config.Config))
+	defer stop()
+
+	client, conn := newRepositoryClient(t, serverSocketPath)
+	defer conn.Close()
+
+	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	defer cleanupFn()
+
+	cloneRepo, cloneRepoPath := copyRepoWithNewRemote(t, testRepo, locator, "my-remote")
+	defer func() {
+		require.NoError(t, os.RemoveAll(cloneRepoPath))
+	}()
+
+	oldMasterSHA := "1e292f8"
+
+	// Set up state for refs that will be overwritten
+	testhelper.CreateTag(t, cloneRepoPath, "modified-tag", "master", nil)
+	testhelper.CreateRemoteBranch(t, cloneRepoPath, "my-remote", "master", "master")
+
+	// Make some updates to the source repo that we want to be pulled
+	newMasterSHA := testhelper.CreateCommit(t, testRepoPath, "master", nil)
+	newBranchSHA, newBranchName := testhelper.CreateCommitOnNewBranch(t, testRepoPath)
+	newTagSHA := testhelper.CreateTag(t, testRepoPath, "new-tag", newBranchSHA, nil)
+	modifiedTagSHA := testhelper.CreateTag(t, testRepoPath, "modified-tag", newBranchSHA, nil)
+
+	stream, err := client.FetchRemoteWithStatus(context.Background(), &gitalypb.FetchRemoteRequest{
+		Repository: cloneRepo,
+		Force:      true,
+		Remote:     "my-remote",
+		Timeout:    120,
+	})
+	require.NoError(t, err)
+
+	// Collect all status updates
+	var updates []*gitalypb.FetchRemoteWithStatusResponse_Update
+	for {
+		rsp, err := stream.Recv()
+		if rsp != nil {
+			updates = append(updates, rsp.GetRefUpdates()...)
+		}
+
+		if err == io.EOF {
+			break
+		}
+
+		require.NoError(t, err)
+	}
+
+	gitCloneRepo := git.NewRepository(cloneRepo)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	newTagRef, err := gitCloneRepo.GetReference(ctx, "refs/tags/new-tag")
+	require.NoError(t, err, "New tag wasn't mirrored")
+	assert.Equal(t, newTagSHA, newTagRef.Target, "New tag has the wrong SHA")
+	assert.Contains(t, updates, refUpdateStruct('*', "[new tag]", "new-tag", "new-tag", ""))
+
+	modifiedTagRef, err := gitCloneRepo.GetReference(ctx, "refs/tags/modified-tag")
+	require.NoError(t, err, "Modified tag wasn't mirrored")
+	assert.Equal(t, modifiedTagSHA, modifiedTagRef.Target, "Modified tag has the wrong SHA")
+	assert.Contains(t, updates, refUpdateStruct('t', "[tag update]", "modified-tag", "modified-tag", ""))
+
+	masterRef, err := gitCloneRepo.GetReference(ctx, "refs/remotes/my-remote/master")
+	require.NoError(t, err, "Update to master wasn't mirrored")
+	assert.Equal(t, newMasterSHA, masterRef.Target)
+	assert.Contains(t, updates, refUpdateStruct('+', shortRevRange(oldMasterSHA, newMasterSHA), "master", "my-remote/master", "(forced update)"))
+
+	newBranchRef, err := gitCloneRepo.GetReference(ctx, "refs/remotes/my-remote/"+newBranchName)
+	require.NoError(t, err, "New branch "+newBranchName+" wasn't mirrored")
+	assert.Equal(t, newBranchSHA, newBranchRef.Target)
+	assert.Contains(t, updates, refUpdateStruct('*', "[new branch]", newBranchName, "my-remote/"+newBranchName, ""))
+}
+
+func refUpdateStruct(updateType byte, summary, from, to, reason string) *gitalypb.FetchRemoteWithStatusResponse_Update {
+	realUpdateType, _ := convertRefUpdateType(git.RefUpdateType(updateType))
+
+	return &gitalypb.FetchRemoteWithStatusResponse_Update{
+		UpdateType: realUpdateType,
+		Summary:    summary,
+		FromRef:    from,
+		ToRef:      to,
+		Reason:     reason,
+	}
+}
+
+func shortRevRange(from, to string) string {
+	return fmt.Sprintf("%s...%s", from[0:7], to[0:7])
 }
 
 func TestFetchRemoteFailure(t *testing.T) {

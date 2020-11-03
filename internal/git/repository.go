@@ -64,6 +64,10 @@ type FetchOpts struct {
 	// doesn't have the previous commit as an ancestor.
 	// https://git-scm.com/docs/git-fetch#Documentation/git-fetch.txt---force
 	Force bool
+	// Verbose controls how much information is written to stderr. The list of
+	// refs updated by the fetch will only be listed if verbose is true.
+	// https://git-scm.com/docs/git-fetch#Documentation/git-fetch.txt---verbose
+	Verbose bool
 	// Tags controls whether tags will be fetched as part of the remote or not.
 	// https://git-scm.com/docs/git-fetch#Documentation/git-fetch.txt---tags
 	// https://git-scm.com/docs/git-fetch#Documentation/git-fetch.txt---no-tags
@@ -81,6 +85,10 @@ func (opts FetchOpts) buildFlags() []Option {
 
 	if opts.Force {
 		flags = append(flags, Flag{Name: "--force"})
+	}
+
+	if opts.Verbose {
+		flags = append(flags, Flag{Name: "--verbose"})
 	}
 
 	if opts.Tags != FetchOptsTagsDefault {

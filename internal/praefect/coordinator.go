@@ -68,6 +68,7 @@ var transactionRPCs = map[string]transactionsCondition{
 	"/gitaly.RepositoryService/CreateRepositoryFromSnapshot": transactionsFlag(featureflag.TxCreateRepositoryFromSnapshot),
 	"/gitaly.RepositoryService/CreateRepositoryFromURL":      transactionsFlag(featureflag.TxCreateRepositoryFromURL),
 	"/gitaly.RepositoryService/FetchRemote":                  transactionsFlag(featureflag.TxFetchRemote),
+	"/gitaly.RepositoryService/FetchRemoteWithStatus":        transactionsFlag(featureflag.TxFetchRemote),
 	"/gitaly.RepositoryService/FetchSourceBranch":            transactionsFlag(featureflag.TxFetchSourceBranch),
 	"/gitaly.RepositoryService/ReplicateRepository":          transactionsFlag(featureflag.TxReplicateRepository),
 	"/gitaly.RepositoryService/WriteRef":                     transactionsFlag(featureflag.TxWriteRef),

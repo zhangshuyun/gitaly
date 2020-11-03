@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/url"
 	"os"
@@ -11,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
@@ -19,6 +21,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/internal/helper/chunk"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/status"
@@ -38,8 +41,55 @@ func init() {
 	prometheus.MustRegister(fetchRemoteImplCounter)
 }
 
+func (s *server) FetchRemoteWithStatus(in *gitalypb.FetchRemoteRequest, stream gitalypb.RepositoryService_FetchRemoteWithStatusServer) error {
+	ctx, cancel := context.WithCancel(stream.Context())
+	defer cancel()
+
+	sender := chunk.New(&fetchRemoteWithStatusSender{stream: stream})
+	_, err := s.fetchRemote(ctx, in, func(line git.FetchStatusLine) {
+		updateType, ok := convertRefUpdateType(line.Type)
+		if !ok {
+			// FIXME: log an error here
+			cancel()
+			return
+		}
+
+		// Only report refs that have changed for now
+		if updateType == gitalypb.FetchRemoteWithStatusResponse_UNCHANGED {
+			return
+		}
+
+		update := &gitalypb.FetchRemoteWithStatusResponse_Update{
+			UpdateType: updateType,
+			Summary:    line.Summary,
+			FromRef:    line.From,
+			ToRef:      line.To,
+			Reason:     line.Reason,
+		}
+
+		if err := sender.Send(&gitalypb.FetchRemoteWithStatusResponse{RefUpdates: []*gitalypb.FetchRemoteWithStatusResponse_Update{update}}); err != nil {
+			// FIXME: log an error here
+			cancel()
+		}
+	})
+
+	if err != nil {
+		return err
+	}
+
+	return sender.Flush()
+}
+
 func (s *server) FetchRemote(ctx context.Context, req *gitalypb.FetchRemoteRequest) (*gitalypb.FetchRemoteResponse, error) {
+	return s.fetchRemote(ctx, req, nil)
+}
+
+func (s *server) fetchRemote(ctx context.Context, req *gitalypb.FetchRemoteRequest, refUpdatesFunc func(git.FetchStatusLine)) (*gitalypb.FetchRemoteResponse, error) {
 	if featureflag.IsDisabled(ctx, featureflag.GoFetchRemote) {
+		if refUpdatesFunc != nil {
+			return nil, helper.Unimplemented
+		}
+
 		fetchRemoteImplCounter.WithLabelValues("ruby").Inc()
 
 		client, err := s.ruby.RepositoryServiceClient(ctx)
@@ -62,7 +112,33 @@ func (s *server) FetchRemote(ctx context.Context, req *gitalypb.FetchRemoteReque
 	}
 
 	var stderr bytes.Buffer
-	opts := git.FetchOpts{Stderr: &stderr, Force: req.Force, Prune: true, Tags: git.FetchOptsTagsAll}
+	opts := git.FetchOpts{
+		Stderr: &stderr,
+		Force:  req.Force,
+		Prune:  true,
+		Tags:   git.FetchOptsTagsAll,
+	}
+
+	if refUpdatesFunc != nil {
+		pr, pw := io.Pipe()
+
+		opts.Stderr = io.MultiWriter(&stderr, pw)
+		opts.Verbose = true
+
+		go func() {
+			defer pr.Close()
+			defer pw.Close()
+
+			scanner := git.NewFetchScanner(pr)
+			for scanner.Scan() {
+				refUpdatesFunc(scanner.StatusLine())
+			}
+
+			if err := scanner.Err(); err != nil {
+				logrus.Warnf("Scanner failed: %v", err)
+			}
+		}()
+	}
 
 	if req.GetNoTags() {
 		opts.Tags = git.FetchOptsTagsNone
@@ -296,4 +372,40 @@ func (s *server) configureSSH(ctx context.Context, sshKey, knownHosts string) (s
 	}
 
 	return "GIT_SSH_COMMAND=ssh " + strings.Join(conf, " "), cleanup, nil
+}
+
+type fetchRemoteWithStatusSender struct {
+	stream   gitalypb.RepositoryService_FetchRemoteWithStatusServer
+	response *gitalypb.FetchRemoteWithStatusResponse
+}
+
+func (s *fetchRemoteWithStatusSender) Reset()      { s.response = &gitalypb.FetchRemoteWithStatusResponse{} }
+func (s *fetchRemoteWithStatusSender) Send() error { return s.stream.Send(s.response) }
+func (s *fetchRemoteWithStatusSender) Append(m proto.Message) {
+	s.response.RefUpdates = append(s.response.RefUpdates, m.(*gitalypb.FetchRemoteWithStatusResponse).RefUpdates...)
+}
+
+func convertRefUpdateType(t git.RefUpdateType) (gitalypb.FetchRemoteWithStatusResponse_UpdateType, bool) {
+	var updateType gitalypb.FetchRemoteWithStatusResponse_UpdateType
+
+	switch t {
+	case git.RefUpdateTypeFastForwardUpdate:
+		updateType = gitalypb.FetchRemoteWithStatusResponse_FAST_FORWARD_UPDATE
+	case git.RefUpdateTypeForcedUpdate:
+		updateType = gitalypb.FetchRemoteWithStatusResponse_FORCED_UPDATE
+	case git.RefUpdateTypePruned:
+		updateType = gitalypb.FetchRemoteWithStatusResponse_PRUNED
+	case git.RefUpdateTypeTagUpdate:
+		updateType = gitalypb.FetchRemoteWithStatusResponse_TAG_UPDATE
+	case git.RefUpdateTypeFetched:
+		updateType = gitalypb.FetchRemoteWithStatusResponse_FETCHED
+	case git.RefUpdateTypeUpdateFailed:
+		updateType = gitalypb.FetchRemoteWithStatusResponse_UPDATE_FAILED
+	case git.RefUpdateTypeUnchanged:
+		updateType = gitalypb.FetchRemoteWithStatusResponse_UNCHANGED
+	default:
+		return updateType, false
+	}
+
+	return updateType, true
 }
