@@ -99,20 +99,11 @@ func testSuccessfulCreateBranchRequest(t *testing.T, ctx context.Context) {
 }
 
 func TestSuccessfulGitHooksForUserCreateBranchRequest(t *testing.T) {
-	featureSets := testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.GoUserCreateBranch,
+	}).Run(t, func(t *testing.T, ctx context.Context) {
+		testSuccessfulGitHooksForUserCreateBranchRequest(t, ctx)
 	})
-
-	for _, featureSet := range featureSets {
-		t.Run(featureSet.Desc(), func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
-
-			ctx = featureSet.Disable(ctx)
-
-			testSuccessfulGitHooksForUserCreateBranchRequest(t, ctx)
-		})
-	}
 }
 
 func TestUserCreateBranchWithTransaction(t *testing.T) {
@@ -366,45 +357,36 @@ func testFailedUserCreateBranchRequest(t *testing.T, ctx context.Context) {
 }
 
 func TestSuccessfulUserDeleteBranchRequest(t *testing.T) {
-	featureSets := testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.GoUserDeleteBranch,
+	}).Run(t, func(t *testing.T, ctx context.Context) {
+		testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+		defer cleanupFn()
+
+		serverSocketPath, stop := runOperationServiceServer(t)
+		defer stop()
+
+		client, conn := newOperationClient(t, serverSocketPath)
+		defer conn.Close()
+
+		branchNameInput := "to-be-deleted-soon-branch"
+
+		defer exec.Command(command.GitPath(), "-C", testRepoPath, "branch", "-d", branchNameInput).Run()
+
+		testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", branchNameInput)
+
+		request := &gitalypb.UserDeleteBranchRequest{
+			Repository: testRepo,
+			BranchName: []byte(branchNameInput),
+			User:       testhelper.TestUser,
+		}
+
+		_, err := client.UserDeleteBranch(ctx, request)
+		require.NoError(t, err)
+
+		branches := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch")
+		require.NotContains(t, string(branches), branchNameInput, "branch name still exists in branches list")
 	})
-
-	for _, featureSet := range featureSets {
-		t.Run(featureSet.Desc(), func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
-
-			ctx = featureSet.Disable(ctx)
-
-			testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
-			defer cleanupFn()
-
-			serverSocketPath, stop := runOperationServiceServer(t)
-			defer stop()
-
-			client, conn := newOperationClient(t, serverSocketPath)
-			defer conn.Close()
-
-			branchNameInput := "to-be-deleted-soon-branch"
-
-			defer exec.Command(command.GitPath(), "-C", testRepoPath, "branch", "-d", branchNameInput).Run()
-
-			testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", branchNameInput)
-
-			request := &gitalypb.UserDeleteBranchRequest{
-				Repository: testRepo,
-				BranchName: []byte(branchNameInput),
-				User:       testhelper.TestUser,
-			}
-
-			_, err := client.UserDeleteBranch(ctx, request)
-			require.NoError(t, err)
-
-			branches := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch")
-			require.NotContains(t, string(branches), branchNameInput, "branch name still exists in branches list")
-		})
-	}
 }
 
 func TestSuccessfulGitHooksForUserDeleteBranchRequest(t *testing.T) {
@@ -455,10 +437,6 @@ func TestFailedUserDeleteBranchDueToValidation(t *testing.T) {
 	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
-	featureSets := testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.GoUserDeleteBranch,
-	})
-
 	testCases := []struct {
 		desc    string
 		request *gitalypb.UserDeleteBranchRequest
@@ -491,21 +469,16 @@ func TestFailedUserDeleteBranchDueToValidation(t *testing.T) {
 		},
 	}
 
-	for _, featureSet := range featureSets {
-		t.Run(featureSet.Desc(), func(t *testing.T) {
-			for _, testCase := range testCases {
-				t.Run(testCase.desc, func(t *testing.T) {
-					ctx, cancel := testhelper.Context()
-					defer cancel()
-
-					ctx = featureSet.Disable(ctx)
-
-					_, err := client.UserDeleteBranch(ctx, testCase.request)
-					testhelper.RequireGrpcError(t, err, testCase.code)
-				})
-			}
-		})
-	}
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.GoUserDeleteBranch,
+	}).Run(t, func(t *testing.T, ctx context.Context) {
+		for _, testCase := range testCases {
+			t.Run(testCase.desc, func(t *testing.T) {
+				_, err := client.UserDeleteBranch(ctx, testCase.request)
+				testhelper.RequireGrpcError(t, err, testCase.code)
+			})
+		}
+	})
 }
 
 func TestFailedUserDeleteBranchDueToHooks(t *testing.T) {
@@ -522,10 +495,6 @@ func TestFailedUserDeleteBranchDueToHooks(t *testing.T) {
 	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", branchNameInput)
 	defer exec.Command(command.GitPath(), "-C", testRepoPath, "branch", "-d", branchNameInput).Run()
 
-	featureSets := testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.GoUserDeleteBranch,
-	})
-
 	request := &gitalypb.UserDeleteBranchRequest{
 		Repository: testRepo,
 		BranchName: []byte(branchNameInput),
@@ -534,27 +503,22 @@ func TestFailedUserDeleteBranchDueToHooks(t *testing.T) {
 
 	hookContent := []byte("#!/bin/sh\necho GL_ID=$GL_ID\nexit 1")
 
-	for _, featureSet := range featureSets {
-		t.Run(featureSet.Desc(), func(t *testing.T) {
-			for _, hookName := range gitlabPreHooks {
-				t.Run(hookName, func(t *testing.T) {
-					remove, err := testhelper.WriteCustomHook(testRepoPath, hookName, hookContent)
-					require.NoError(t, err)
-					defer remove()
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.GoUserDeleteBranch,
+	}).Run(t, func(t *testing.T, ctx context.Context) {
+		for _, hookName := range gitlabPreHooks {
+			t.Run(hookName, func(t *testing.T) {
+				remove, err := testhelper.WriteCustomHook(testRepoPath, hookName, hookContent)
+				require.NoError(t, err)
+				defer remove()
 
-					ctx, cancel := testhelper.Context()
-					defer cancel()
+				response, err := client.UserDeleteBranch(ctx, request)
+				require.NoError(t, err)
+				require.Contains(t, response.PreReceiveError, "GL_ID="+testhelper.TestUser.GlId)
 
-					ctx = featureSet.Disable(ctx)
-
-					response, err := client.UserDeleteBranch(ctx, request)
-					require.NoError(t, err)
-					require.Contains(t, response.PreReceiveError, "GL_ID="+testhelper.TestUser.GlId)
-
-					branches := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch")
-					require.Contains(t, string(branches), branchNameInput, "branch name does not exist in branches list")
-				})
-			}
-		})
-	}
+				branches := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch")
+				require.Contains(t, string(branches), branchNameInput, "branch name does not exist in branches list")
+			})
+		}
+	})
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"sort"
 	"strings"
+	"testing"
 
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 )
@@ -70,4 +71,20 @@ func NewFeatureSets(goFeatures []featureflag.FeatureFlag, rubyFeatures ...featur
 	}
 
 	return f
+}
+
+// Run executes the given test function for each of the FeatureSets. The passed in context has the
+// feature flags set accordingly.
+func (s FeatureSets) Run(t *testing.T, test func(t *testing.T, ctx context.Context)) {
+	t.Helper()
+
+	for _, featureSet := range s {
+		t.Run(featureSet.Desc(), func(t *testing.T) {
+			ctx, cancel := Context()
+			defer cancel()
+			ctx = featureSet.Disable(ctx)
+
+			test(t, ctx)
+		})
+	}
 }
