@@ -104,12 +104,14 @@ func TestSuccessfulGitHooksForUserCreateBranchRequest(t *testing.T) {
 	})
 
 	for _, featureSet := range featureSets {
-		ctx, cancel := testhelper.Context()
-		defer cancel()
+		t.Run(featureSet.Desc(), func(t *testing.T) {
+			ctx, cancel := testhelper.Context()
+			defer cancel()
 
-		ctx = featureSet.Disable(ctx)
+			ctx = featureSet.Disable(ctx)
 
-		testSuccessfulGitHooksForUserCreateBranchRequest(t, ctx)
+			testSuccessfulGitHooksForUserCreateBranchRequest(t, ctx)
+		})
 	}
 }
 
@@ -369,7 +371,7 @@ func TestSuccessfulUserDeleteBranchRequest(t *testing.T) {
 	})
 
 	for _, featureSet := range featureSets {
-		t.Run("disabled "+featureSet.String(), func(t *testing.T) {
+		t.Run(featureSet.Desc(), func(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
@@ -490,7 +492,7 @@ func TestFailedUserDeleteBranchDueToValidation(t *testing.T) {
 	}
 
 	for _, featureSet := range featureSets {
-		t.Run("disabled "+featureSet.String(), func(t *testing.T) {
+		t.Run(featureSet.Desc(), func(t *testing.T) {
 			for _, testCase := range testCases {
 				t.Run(testCase.desc, func(t *testing.T) {
 					ctx, cancel := testhelper.Context()
@@ -533,7 +535,7 @@ func TestFailedUserDeleteBranchDueToHooks(t *testing.T) {
 	hookContent := []byte("#!/bin/sh\necho GL_ID=$GL_ID\nexit 1")
 
 	for _, featureSet := range featureSets {
-		t.Run("disabled "+featureSet.String(), func(t *testing.T) {
+		t.Run(featureSet.Desc(), func(t *testing.T) {
 			for _, hookName := range gitlabPreHooks {
 				t.Run(hookName, func(t *testing.T) {
 					remove, err := testhelper.WriteCustomHook(testRepoPath, hookName, hookContent)

@@ -33,7 +33,7 @@ func testWithFeature(t *testing.T, feature featureflag.FeatureFlag, testcase fun
 	})
 
 	for _, featureSet := range featureSets {
-		t.Run("disabled "+featureSet.String(), func(t *testing.T) {
+		t.Run(featureSet.Desc(), func(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
@@ -321,7 +321,7 @@ func TestSuccessfulUserFFBranchRequest(t *testing.T) {
 	})
 
 	for _, featureSet := range featureSets {
-		t.Run("disabled "+featureSet.String(), func(t *testing.T) {
+		t.Run(featureSet.Desc(), func(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
@@ -447,7 +447,7 @@ func TestFailedUserFFBranchRequest(t *testing.T) {
 	}
 
 	for _, featureSet := range featureSets {
-		t.Run("disabled "+featureSet.String(), func(t *testing.T) {
+		t.Run(featureSet.Desc(), func(t *testing.T) {
 			for _, testCase := range testCases {
 				t.Run(testCase.desc, func(t *testing.T) {
 					ctx, cancel := testhelper.Context()
@@ -498,7 +498,7 @@ func TestFailedUserFFBranchDueToHooks(t *testing.T) {
 	})
 
 	for _, featureSet := range featureSets {
-		t.Run("disabled "+featureSet.String(), func(t *testing.T) {
+		t.Run(featureSet.Desc(), func(t *testing.T) {
 			for _, hookName := range gitlabPreHooks {
 				t.Run(hookName, func(t *testing.T) {
 					remove, err := testhelper.WriteCustomHook(testRepoPath, hookName, hookContent)

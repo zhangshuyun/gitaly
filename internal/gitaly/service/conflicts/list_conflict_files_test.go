@@ -27,7 +27,7 @@ func testListConflictFiles(t *testing.T, testcase func(t *testing.T, ctx context
 	})
 
 	for _, featureSet := range featureSets {
-		t.Run("disabled "+featureSet.String(), func(t *testing.T) {
+		t.Run(featureSet.Desc(), func(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 

@@ -16,19 +16,20 @@ type FeatureSet struct {
 	rubyFeatures map[featureflag.FeatureFlag]struct{}
 }
 
-func (f FeatureSet) String() string {
+// Desc describes the feature such that it is suitable as a testcase description.
+func (f FeatureSet) Desc() string {
 	features := make([]string, 0, len(f.features))
 	for feature := range f.features {
 		features = append(features, feature.Name)
 	}
 
 	if len(features) == 0 {
-		return "none"
+		return "all features enabled"
 	}
 
 	sort.Strings(features)
 
-	return strings.Join(features, ",")
+	return "disabled " + strings.Join(features, ",")
 }
 
 func (f FeatureSet) Disable(ctx context.Context) context.Context {
