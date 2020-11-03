@@ -330,6 +330,25 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
     end
     add_message "gitaly.OptimizeRepositoryResponse" do
     end
+    add_message "gitaly.FetchRemoteWithStatusResponse" do
+      repeated :ref_updates, :message, 1, "gitaly.FetchRemoteWithStatusResponse.Update"
+    end
+    add_message "gitaly.FetchRemoteWithStatusResponse.Update" do
+      optional :update_type, :enum, 1, "gitaly.FetchRemoteWithStatusResponse.UpdateType"
+      optional :summary, :string, 2
+      optional :from_ref, :string, 3
+      optional :to_ref, :string, 4
+      optional :reason, :string, 5
+    end
+    add_enum "gitaly.FetchRemoteWithStatusResponse.UpdateType" do
+      value :FAST_FORWARD_UPDATE, 0
+      value :FORCED_UPDATE, 1
+      value :PRUNED, 2
+      value :TAG_UPDATE, 3
+      value :FETCHED, 4
+      value :UPDATE_FAILED, 5
+      value :UNCHANGED, 6
+    end
   end
 end
 
@@ -423,4 +442,7 @@ module Gitaly
   ReplicateRepositoryResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.ReplicateRepositoryResponse").msgclass
   OptimizeRepositoryRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.OptimizeRepositoryRequest").msgclass
   OptimizeRepositoryResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.OptimizeRepositoryResponse").msgclass
+  FetchRemoteWithStatusResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.FetchRemoteWithStatusResponse").msgclass
+  FetchRemoteWithStatusResponse::Update = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.FetchRemoteWithStatusResponse.Update").msgclass
+  FetchRemoteWithStatusResponse::UpdateType = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.FetchRemoteWithStatusResponse.UpdateType").enummodule
 end

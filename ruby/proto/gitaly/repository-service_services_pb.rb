@@ -56,6 +56,7 @@ module Gitaly
       rpc :RenameRepository, Gitaly::RenameRepositoryRequest, Gitaly::RenameRepositoryResponse
       rpc :ReplicateRepository, Gitaly::ReplicateRepositoryRequest, Gitaly::ReplicateRepositoryResponse
       rpc :OptimizeRepository, Gitaly::OptimizeRepositoryRequest, Gitaly::OptimizeRepositoryResponse
+      rpc :FetchRemoteWithStatus, Gitaly::FetchRemoteRequest, stream(Gitaly::FetchRemoteWithStatusResponse)
     end
 
     Stub = Service.rpc_stub_class
