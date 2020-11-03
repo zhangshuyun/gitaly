@@ -28,10 +28,9 @@ var (
 )
 
 func testWithFeature(t *testing.T, feature featureflag.FeatureFlag, testcase func(*testing.T, context.Context)) {
-	featureSets, err := testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+	featureSets := testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		feature,
 	})
-	require.NoError(t, err)
 
 	for _, featureSet := range featureSets {
 		t.Run("disabled "+featureSet.String(), func(t *testing.T) {
@@ -317,10 +316,9 @@ func testFailedMergeDueToHooks(t *testing.T, ctx context.Context) {
 }
 
 func TestSuccessfulUserFFBranchRequest(t *testing.T) {
-	featureSets, err := testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+	featureSets := testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.GoUserFFBranch,
 	})
-	require.NoError(t, err)
 
 	for _, featureSet := range featureSets {
 		t.Run("disabled "+featureSet.String(), func(t *testing.T) {
@@ -382,10 +380,9 @@ func TestFailedUserFFBranchRequest(t *testing.T) {
 	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", "-f", branchName, "6d394385cf567f80a8fd85055db1ab4c5295806f")
 	defer exec.Command(command.GitPath(), "-C", testRepoPath, "branch", "-d", branchName).Run()
 
-	featureSets, err := testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+	featureSets := testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.GoUserFFBranch,
 	})
-	require.NoError(t, err)
 
 	testCases := []struct {
 		desc     string
@@ -496,10 +493,9 @@ func TestFailedUserFFBranchDueToHooks(t *testing.T) {
 
 	hookContent := []byte("#!/bin/sh\necho 'failure'\nexit 1")
 
-	featureSets, err := testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+	featureSets := testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.GoUserFFBranch,
 	})
-	require.NoError(t, err)
 
 	for _, featureSet := range featureSets {
 		t.Run("disabled "+featureSet.String(), func(t *testing.T) {

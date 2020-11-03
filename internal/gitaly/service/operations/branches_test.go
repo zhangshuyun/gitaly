@@ -99,10 +99,9 @@ func testSuccessfulCreateBranchRequest(t *testing.T, ctx context.Context) {
 }
 
 func TestSuccessfulGitHooksForUserCreateBranchRequest(t *testing.T) {
-	featureSets, err := testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+	featureSets := testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.GoUserCreateBranch,
 	})
-	require.NoError(t, err)
 
 	for _, featureSet := range featureSets {
 		ctx, cancel := testhelper.Context()
@@ -365,10 +364,9 @@ func testFailedUserCreateBranchRequest(t *testing.T, ctx context.Context) {
 }
 
 func TestSuccessfulUserDeleteBranchRequest(t *testing.T) {
-	featureSets, err := testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+	featureSets := testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.GoUserDeleteBranch,
 	})
-	require.NoError(t, err)
 
 	for _, featureSet := range featureSets {
 		t.Run("disabled "+featureSet.String(), func(t *testing.T) {
@@ -455,10 +453,9 @@ func TestFailedUserDeleteBranchDueToValidation(t *testing.T) {
 	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
-	featureSets, err := testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+	featureSets := testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.GoUserDeleteBranch,
 	})
-	require.NoError(t, err)
 
 	testCases := []struct {
 		desc    string
@@ -523,10 +520,9 @@ func TestFailedUserDeleteBranchDueToHooks(t *testing.T) {
 	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", branchNameInput)
 	defer exec.Command(command.GitPath(), "-C", testRepoPath, "branch", "-d", branchNameInput).Run()
 
-	featureSets, err := testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+	featureSets := testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.GoUserDeleteBranch,
 	})
-	require.NoError(t, err)
 
 	request := &gitalypb.UserDeleteBranchRequest{
 		Repository: testRepo,

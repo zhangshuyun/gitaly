@@ -31,8 +31,8 @@ var (
 )
 
 func TestSuccessfulUserSquashRequest(t *testing.T) {
-	featureSets, err := testhelper.NewFeatureSets([]featureflag.FeatureFlag{featureflag.GoUserSquash})
-	require.NoError(t, err)
+	featureSets := testhelper.NewFeatureSets([]featureflag.FeatureFlag{featureflag.GoUserSquash})
+
 	for _, featureSet := range featureSets {
 		t.Run("with sparse checkout: disabled "+featureSet.String(), func(t *testing.T) {
 			ctx, cancel := testhelper.Context()

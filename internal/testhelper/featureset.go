@@ -53,7 +53,7 @@ type FeatureSets []FeatureSet
 
 // NewFeatureSets takes a slice of go feature flags, and an optional variadic set of ruby feature flags
 // and returns a FeatureSets slice
-func NewFeatureSets(goFeatures []featureflag.FeatureFlag, rubyFeatures ...featureflag.FeatureFlag) (FeatureSets, error) {
+func NewFeatureSets(goFeatures []featureflag.FeatureFlag, rubyFeatures ...featureflag.FeatureFlag) FeatureSets {
 	rubyFeatureMap := make(map[featureflag.FeatureFlag]struct{})
 	for _, rubyFeature := range rubyFeatures {
 		rubyFeatureMap[rubyFeature] = struct{}{}
@@ -73,5 +73,5 @@ func NewFeatureSets(goFeatures []featureflag.FeatureFlag, rubyFeatures ...featur
 		f = append(f, FeatureSet{features: featureMap, rubyFeatures: rubyFeatureMap})
 	}
 
-	return f, nil
+	return f
 }
