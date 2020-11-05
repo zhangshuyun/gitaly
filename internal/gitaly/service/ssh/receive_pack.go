@@ -9,6 +9,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/streamio"
@@ -65,10 +66,15 @@ func (s *server) sshReceivePack(stream gitalypb.SSHService_SSHReceivePackServer,
 		globalOpts = append(globalOpts, git.ValueFlag{"-c", o})
 	}
 
-	cmd, err := git.SafeBareCmd(ctx, git.CmdStream{In: stdin, Out: stdout, Err: stderr}, nil, globalOpts, git.SubCmd{
-		Name: "receive-pack",
-		Args: []string{repoPath},
-	}, git.WithReceivePackHooks(ctx, req, "ssh"), git.WithGitProtocol(ctx, req))
+	cmd, err := git.SafeBareCmd(ctx, git.CmdStream{In: stdin, Out: stdout, Err: stderr}, nil, globalOpts,
+		git.SubCmd{
+			Name: "receive-pack",
+			Args: []string{repoPath},
+		},
+		git.WithReceivePackHooks(ctx, req, "ssh"),
+		git.WithGitProtocol(ctx, req),
+		git.WithRefTxHook(ctx, req.Repository, config.Config),
+	)
 
 	if err != nil {
 		return fmt.Errorf("start cmd: %v", err)

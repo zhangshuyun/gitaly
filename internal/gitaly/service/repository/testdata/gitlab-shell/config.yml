@@ -1,0 +1,5 @@
+gitlab_url: http://127.0.0.1:51256
+http_settings:
+  user: ""
+  password: ""
+custom_hooks_dir: ""
