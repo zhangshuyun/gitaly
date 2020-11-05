@@ -1,4 +1,4 @@
-gitlab_url: http://127.0.0.1:51256
+gitlab_url: http://127.0.0.1:53058
 http_settings:
   user: ""
   password: ""
