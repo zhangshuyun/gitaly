@@ -313,7 +313,11 @@ func (s *server) addWorktree(ctx context.Context, repo *gitalypb.Repository, wor
 	}
 
 	var stderr bytes.Buffer
-	cmd, err := git.SafeCmd(ctx, repo, nil, git.SubCmd{Name: "worktree", Flags: flags, Args: args}, git.WithStderr(&stderr))
+	cmd, err := git.SafeCmd(ctx, repo, nil,
+		git.SubCmd{Name: "worktree", Flags: flags, Args: args},
+		git.WithStderr(&stderr),
+		git.WithRefTxHook(ctx, repo, s.cfg),
+	)
 	if err != nil {
 		return fmt.Errorf("creation of 'git worktree add': %w", gitError{ErrMsg: stderr.String(), Err: err})
 	}
@@ -326,11 +330,14 @@ func (s *server) addWorktree(ctx context.Context, repo *gitalypb.Repository, wor
 }
 
 func (s *server) removeWorktree(ctx context.Context, repo *gitalypb.Repository, worktreeName string) error {
-	cmd, err := git.SafeCmd(ctx, repo, nil, git.SubCmd{
-		Name:  "worktree",
-		Flags: []git.Option{git.SubSubCmd{Name: "remove"}, git.Flag{Name: "--force"}},
-		Args:  []string{worktreeName},
-	})
+	cmd, err := git.SafeCmd(ctx, repo, nil,
+		git.SubCmd{
+			Name:  "worktree",
+			Flags: []git.Option{git.SubSubCmd{Name: "remove"}, git.Flag{Name: "--force"}},
+			Args:  []string{worktreeName},
+		},
+		git.WithRefTxHook(ctx, repo, s.cfg),
+	)
 	if err != nil {
 		return fmt.Errorf("creation of 'worktree remove': %w", err)
 	}

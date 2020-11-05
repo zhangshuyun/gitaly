@@ -13,7 +13,6 @@ const (
 	scDiff           = "diff"
 	scPackRefs       = "pack-refs"
 	scMergeBase      = "merge-base"
-	scWorktree       = "worktree"
 	scHashObject     = "hash-object"
 	scShowRef        = "show-ref"
 )
@@ -36,7 +35,6 @@ var knownNoRefUpdates = map[string]struct{}{
 	scMultiPackIndex: struct{}{},
 	scRepack:         struct{}{},
 	scPackRefs:       struct{}{},
-	scWorktree:       struct{}{},
 	scHashObject:     struct{}{},
 }
 
