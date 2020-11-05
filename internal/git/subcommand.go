@@ -15,17 +15,21 @@ const (
 	scMergeBase      = "merge-base"
 	scHashObject     = "hash-object"
 	scShowRef        = "show-ref"
+	scUploadPack     = "upload-pack"
+	scUploadArchive  = "upload-archive"
 )
 
 var knownReadOnlyCmds = map[string]struct{}{
-	scCatFile:      struct{}{},
-	scLog:          struct{}{},
-	scForEachRef:   struct{}{},
-	scRevParse:     struct{}{},
-	scCountObjects: struct{}{},
-	scDiff:         struct{}{},
-	scMergeBase:    struct{}{},
-	scShowRef:      struct{}{},
+	scCatFile:       struct{}{},
+	scLog:           struct{}{},
+	scForEachRef:    struct{}{},
+	scRevParse:      struct{}{},
+	scCountObjects:  struct{}{},
+	scDiff:          struct{}{},
+	scMergeBase:     struct{}{},
+	scShowRef:       struct{}{},
+	scUploadPack:    struct{}{},
+	scUploadArchive: struct{}{},
 }
 
 // knownNoRefUpdates indicates all repo mutating commands where it is known
