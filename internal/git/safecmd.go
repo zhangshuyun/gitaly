@@ -274,7 +274,7 @@ func handleOpts(ctx context.Context, sc Cmd, cc *cmdCfg, opts []CmdOpt) error {
 		}
 	}
 
-	if IsRefHookRequired(ctx) && !cc.refHookConfigured && mayUpdateRef(sc.Subcommand()) {
+	if !cc.refHookConfigured && mayUpdateRef(sc.Subcommand()) {
 		return fmt.Errorf("subcommand %q: %w", sc.Subcommand(), ErrRefHookRequired)
 	}
 	if cc.refHookConfigured && !mayUpdateRef(sc.Subcommand()) {

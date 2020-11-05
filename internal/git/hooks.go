@@ -51,20 +51,6 @@ func refHookEnv(ctx context.Context, repo *gitalypb.Repository, cfg config.Cfg) 
 	}, nil
 }
 
-type refHookRequired struct{}
-
-// RequireRefHook updates the context to indicate a ref hook is required for
-// the current operation
-func RequireRefHook(ctx context.Context) context.Context {
-	return context.WithValue(ctx, refHookRequired{}, true)
-}
-
-// IsRefHookRequired returns true if the context has been marked to indicate a
-// ref hook may be required
-func IsRefHookRequired(ctx context.Context) bool {
-	return ctx.Value(refHookRequired{}) != nil
-}
-
 // ReceivePackRequest abstracts away the different requests that end up
 // spawning git-receive-pack.
 type ReceivePackRequest interface {
