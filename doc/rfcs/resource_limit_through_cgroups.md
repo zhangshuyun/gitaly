@@ -218,7 +218,7 @@ of the noisy neighbours to meet a service level as expected by GitLab users.
 
 The Ruby sidecar for Gitaly, Gitaly-Ruby, has soft limits applied to the workers,
 usually around 300MB. These workers are managed by a
-[supervisor][../internal/supervisor], which can remove workers from the load balancer
+[supervisor](https://gitlab.com/gitlab-org/gitaly/-/blob/f4922bb91de88ffb476a06bba15b7828f25fe127/internal/supervisor/supervisor.go), which can remove workers from the load balancer
 if these are consuming too much memory. Than each process will be killed after
 60 seconds to reclaim the memory, and allow the currently handled requests to
 finish.
