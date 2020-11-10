@@ -421,6 +421,7 @@ func (repo *localRepository) FetchRemote(ctx context.Context, remoteName string,
 			Args:  []string{remoteName},
 		},
 		WithStderr(opts.Stderr),
+		WithRefTxHook(ctx, helper.ProtoRepoFromRepo(repo.repo), config.Config),
 	)
 	if err != nil {
 		return err

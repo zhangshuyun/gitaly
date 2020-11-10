@@ -112,6 +112,7 @@ func TestSafeCmdInvalidArg(t *testing.T) {
 			&gitalypb.Repository{},
 			tt.globals,
 			tt.subCmd,
+			git.WithRefTxHook(context.Background(), &gitalypb.Repository{}, config.Config),
 		)
 		require.EqualError(t, err, tt.errMsg)
 		require.True(t, git.IsInvalidArgErr(err))
@@ -198,21 +199,22 @@ func TestSafeCmdValid(t *testing.T) {
 			expectArgs: []string{"--contributing", "--author", "a-gopher", "accept", "--is-important", "--why", "looking-for-first-contribution", "mr", endOfOptions},
 		},
 	} {
-		cmd, err := git.SafeCmd(ctx, testRepo, tt.globals, tt.subCmd)
+		opts := []git.CmdOpt{git.WithRefTxHook(ctx, &gitalypb.Repository{}, config.Config)}
+		cmd, err := git.SafeCmd(ctx, testRepo, tt.globals, tt.subCmd, opts...)
 		require.NoError(t, err)
 		// ignore first 3 indeterministic args (executable path and repo args)
 		require.Equal(t, tt.expectArgs, cmd.Args()[3:])
 
-		cmd, err = git.SafeCmdWithEnv(ctx, nil, testRepo, tt.globals, tt.subCmd)
+		cmd, err = git.SafeCmdWithEnv(ctx, nil, testRepo, tt.globals, tt.subCmd, opts...)
 		require.NoError(t, err)
 		// ignore first 3 indeterministic args (executable path and repo args)
 		require.Equal(t, tt.expectArgs, cmd.Args()[3:])
 
-		cmd, err = git.SafeStdinCmd(ctx, testRepo, tt.globals, tt.subCmd)
+		cmd, err = git.SafeStdinCmd(ctx, testRepo, tt.globals, tt.subCmd, opts...)
 		require.NoError(t, err)
 		require.Equal(t, tt.expectArgs, cmd.Args()[3:])
 
-		cmd, err = git.SafeBareCmd(ctx, git.CmdStream{}, nil, tt.globals, tt.subCmd)
+		cmd, err = git.SafeBareCmd(ctx, git.CmdStream{}, nil, tt.globals, tt.subCmd, opts...)
 		require.NoError(t, err)
 		// ignore first indeterministic arg (executable path)
 		require.Equal(t, tt.expectArgs, cmd.Args()[1:])
@@ -243,7 +245,8 @@ func TestSafeCmdWithEnv(t *testing.T) {
 
 	env := []string{"TEST_VAR1=1", "TEST_VAR2=2"}
 
-	cmd, err := git.SafeCmdWithEnv(ctx, env, testRepo, globals, subCmd)
+	opts := []git.CmdOpt{git.WithRefTxHook(ctx, &gitalypb.Repository{}, config.Config)}
+	cmd, err := git.SafeCmdWithEnv(ctx, env, testRepo, globals, subCmd, opts...)
 	require.NoError(t, err)
 	// ignore first 3 indeterministic args (executable path and repo args)
 	require.Equal(t, expectArgs, cmd.Args()[3:])

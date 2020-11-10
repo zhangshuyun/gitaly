@@ -413,13 +413,16 @@ func parseTagLine(c *catfile.Batch, tagLine string) (*gitalypb.Tag, error) {
 }
 
 func findTag(ctx context.Context, repository *gitalypb.Repository, tagName []byte) (*gitalypb.Tag, error) {
-	tagCmd, err := git.SafeCmd(ctx, repository, nil, git.SubCmd{
-		Name: "tag",
-		Flags: []git.Option{
-			git.Flag{Name: "-l"}, git.ValueFlag{"--format", tagFormat},
+	tagCmd, err := git.SafeCmd(ctx, repository, nil,
+		git.SubCmd{
+			Name: "tag",
+			Flags: []git.Option{
+				git.Flag{Name: "-l"}, git.ValueFlag{"--format", tagFormat},
+			},
+			Args: []string{string(tagName)},
 		},
-		Args: []string{string(tagName)},
-	})
+		git.WithRefTxHook(ctx, repository, config.Config),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("for-each-ref error: %v", err)
 	}
