@@ -46,7 +46,7 @@ func (s *server) CloneFromPoolInternal(ctx context.Context, req *gitalypb.CloneF
 		return nil, helper.ErrInternalf("fetch internal remote failed")
 	}
 
-	objectPool, err := objectpool.FromProto(s.locator, req.GetPool())
+	objectPool, err := objectpool.FromProto(s.cfg, req.GetPool())
 	if err != nil {
 		return nil, helper.ErrInternalf("get object pool from request: %v", err)
 	}
@@ -68,7 +68,7 @@ func (s *server) validateCloneFromPoolInternalRequestRepositoryState(req *gitaly
 		return errors.New("target reopsitory already exists")
 	}
 
-	objectPool, err := objectpool.FromProto(s.locator, req.GetPool())
+	objectPool, err := objectpool.FromProto(s.cfg, req.GetPool())
 	if err != nil {
 		return fmt.Errorf("getting object pool from repository: %v", err)
 	}

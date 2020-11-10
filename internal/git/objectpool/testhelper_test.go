@@ -16,7 +16,7 @@ func TestMain(m *testing.M) {
 }
 
 func NewTestObjectPool(ctx context.Context, t *testing.T, storageName string) (*ObjectPool, func()) {
-	pool, err := NewObjectPool(config.NewLocator(config.Config), storageName, testhelper.NewTestObjectPoolName(t))
+	pool, err := NewObjectPool(config.Config, storageName, testhelper.NewTestObjectPoolName(t))
 	require.NoError(t, err)
 	return pool, func() {
 		require.NoError(t, pool.Remove(ctx))

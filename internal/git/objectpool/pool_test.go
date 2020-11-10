@@ -14,10 +14,10 @@ import (
 )
 
 func TestNewObjectPool(t *testing.T) {
-	_, err := NewObjectPool(nil, "default", testhelper.NewTestObjectPoolName(t))
+	_, err := NewObjectPool(config.Config, "default", testhelper.NewTestObjectPoolName(t))
 	require.NoError(t, err)
 
-	_, err = NewObjectPool(nil, "mepmep", testhelper.NewTestObjectPoolName(t))
+	_, err = NewObjectPool(config.Config, "mepmep", testhelper.NewTestObjectPoolName(t))
 	require.Error(t, err, "creating pool in storage that does not exist should fail")
 }
 
@@ -27,9 +27,8 @@ func TestNewFromRepoSuccess(t *testing.T) {
 	defer cleanup()
 
 	relativePoolPath := testhelper.NewTestObjectPoolName(t)
-	locator := config.NewLocator(config.Config)
 
-	pool, err := NewObjectPool(locator, testRepo.GetStorageName(), relativePoolPath)
+	pool, err := NewObjectPool(config.Config, testRepo.GetStorageName(), relativePoolPath)
 	require.NoError(t, err)
 	defer pool.Remove(ctx)
 
@@ -37,7 +36,7 @@ func TestNewFromRepoSuccess(t *testing.T) {
 	require.NoError(t, pool.Create(ctx, testRepo))
 	require.NoError(t, pool.Link(ctx, testRepo))
 
-	poolFromRepo, err := FromRepo(locator, testRepo)
+	poolFromRepo, err := FromRepo(config.Config, testRepo)
 	require.NoError(t, err)
 	require.Equal(t, relativePoolPath, poolFromRepo.relativePath)
 	require.Equal(t, pool.storageName, poolFromRepo.storageName)
@@ -47,10 +46,8 @@ func TestNewFromRepoNoObjectPool(t *testing.T) {
 	testRepo, testRepoPath, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
 
-	locator := config.NewLocator(config.Config)
-
 	// no alternates file
-	poolFromRepo, err := FromRepo(locator, testRepo)
+	poolFromRepo, err := FromRepo(config.Config, testRepo)
 	require.Equal(t, ErrAlternateObjectDirNotExist, err)
 	require.Nil(t, poolFromRepo)
 
@@ -83,7 +80,7 @@ func TestNewFromRepoNoObjectPool(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			alternateFilePath := filepath.Join(testRepoPath, "objects", "info", "alternates")
 			require.NoError(t, ioutil.WriteFile(alternateFilePath, tc.fileContent, 0644))
-			poolFromRepo, err := FromRepo(locator, testRepo)
+			poolFromRepo, err := FromRepo(config.Config, testRepo)
 			require.Equal(t, tc.expectedErr, err)
 			require.Nil(t, poolFromRepo)
 
@@ -101,7 +98,7 @@ func TestCreate(t *testing.T) {
 
 	masterSha := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "show-ref", "master")
 
-	pool, err := NewObjectPool(config.NewLocator(config.Config), testRepo.GetStorageName(), testhelper.NewTestObjectPoolName(t))
+	pool, err := NewObjectPool(config.Config, testRepo.GetStorageName(), testhelper.NewTestObjectPoolName(t))
 	require.NoError(t, err)
 
 	err = pool.Create(ctx, testRepo)
@@ -134,7 +131,7 @@ func TestCreateSubDirsExist(t *testing.T) {
 	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
-	pool, err := NewObjectPool(config.NewLocator(config.Config), testRepo.GetStorageName(), testhelper.NewTestObjectPoolName(t))
+	pool, err := NewObjectPool(config.Config, testRepo.GetStorageName(), testhelper.NewTestObjectPoolName(t))
 	defer pool.Remove(ctx)
 	require.NoError(t, err)
 
@@ -155,7 +152,7 @@ func TestRemove(t *testing.T) {
 	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
-	pool, err := NewObjectPool(config.NewLocator(config.Config), testRepo.GetStorageName(), testhelper.NewTestObjectPoolName(t))
+	pool, err := NewObjectPool(config.Config, testRepo.GetStorageName(), testhelper.NewTestObjectPoolName(t))
 	require.NoError(t, err)
 
 	err = pool.Create(ctx, testRepo)

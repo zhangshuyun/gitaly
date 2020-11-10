@@ -96,7 +96,7 @@ func TestReplMgr_ProcessBacklog(t *testing.T) {
 
 	// create object pool on the source
 	objectPoolPath := testhelper.NewTestObjectPoolName(t)
-	pool, err := objectpool.NewObjectPool(gitaly_config.NewLocator(gitaly_config.Config), testRepo.GetStorageName(), objectPoolPath)
+	pool, err := objectpool.NewObjectPool(gitaly_config.Config, testRepo.GetStorageName(), objectPoolPath)
 	require.NoError(t, err)
 
 	poolCtx, cancel := testhelper.Context()

@@ -6,6 +6,7 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/internal/git/objectpool"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
@@ -15,7 +16,7 @@ func (s *server) GetObjectPool(ctx context.Context, in *gitalypb.GetObjectPoolRe
 		return nil, helper.ErrInternal(errors.New("repository is empty"))
 	}
 
-	objectPool, err := objectpool.FromRepo(s.locator, in.GetRepository())
+	objectPool, err := objectpool.FromRepo(config.Config, in.GetRepository())
 
 	if err != nil {
 		ctxlogrus.Extract(ctx).

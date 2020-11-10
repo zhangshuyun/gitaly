@@ -18,7 +18,7 @@ func TestFetchFromOriginDangling(t *testing.T) {
 	source, _, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
 
-	pool, err := NewObjectPool(config.NewLocator(config.Config), source.StorageName, testhelper.NewTestObjectPoolName(t))
+	pool, err := NewObjectPool(config.Config, source.StorageName, testhelper.NewTestObjectPoolName(t))
 	require.NoError(t, err)
 
 	ctx, cancel := testhelper.Context()
@@ -90,7 +90,7 @@ func TestFetchFromOriginDeltaIslands(t *testing.T) {
 	source, sourcePath, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
 
-	pool, err := NewObjectPool(config.NewLocator(config.Config), source.StorageName, testhelper.NewTestObjectPoolName(t))
+	pool, err := NewObjectPool(config.Config, source.StorageName, testhelper.NewTestObjectPoolName(t))
 	require.NoError(t, err)
 
 	ctx, cancel := testhelper.Context()
@@ -116,7 +116,7 @@ func TestFetchFromOriginBitmapHashCache(t *testing.T) {
 	source, _, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
 
-	pool, err := NewObjectPool(config.NewLocator(config.Config), source.StorageName, testhelper.NewTestObjectPoolName(t))
+	pool, err := NewObjectPool(config.Config, source.StorageName, testhelper.NewTestObjectPoolName(t))
 	require.NoError(t, err)
 
 	ctx, cancel := testhelper.Context()
@@ -145,7 +145,7 @@ func TestFetchFromOriginRefUpdates(t *testing.T) {
 	source, sourcePath, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
 
-	pool, err := NewObjectPool(config.NewLocator(config.Config), source.StorageName, testhelper.NewTestObjectPoolName(t))
+	pool, err := NewObjectPool(config.Config, source.StorageName, testhelper.NewTestObjectPoolName(t))
 	require.NoError(t, err)
 	poolPath := pool.FullPath()
 

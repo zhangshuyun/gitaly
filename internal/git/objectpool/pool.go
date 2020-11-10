@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -32,6 +33,7 @@ const ErrInvalidPoolDir errString = "invalid object pool directory"
 // live in a pool in a distinct repository which is used as an alternate object
 // store for other repositories.
 type ObjectPool struct {
+	cfg         config.Cfg
 	locator     storage.Locator
 	storageName string
 	storagePath string
@@ -42,7 +44,7 @@ type ObjectPool struct {
 // NewObjectPool will initialize the object with the required data on the storage
 // shard. Relative path is validated to match the expected naming and directory
 // structure. If the shard cannot be found, this function returns an error.
-func NewObjectPool(locator storage.Locator, storageName, relativePath string) (pool *ObjectPool, err error) {
+func NewObjectPool(cfg config.Cfg, storageName, relativePath string) (pool *ObjectPool, err error) {
 	storagePath, err := helper.GetStorageByName(storageName)
 	if err != nil {
 		return nil, err
@@ -53,7 +55,7 @@ func NewObjectPool(locator storage.Locator, storageName, relativePath string) (p
 		return nil, ErrInvalidPoolDir
 	}
 
-	return &ObjectPool{locator: locator, storageName: storageName, storagePath: storagePath, relativePath: relativePath}, nil
+	return &ObjectPool{cfg: cfg, locator: config.NewLocator(cfg), storageName: storageName, storagePath: storagePath, relativePath: relativePath}, nil
 }
 
 // GetGitAlternateObjectDirectories for object pools are empty, given pools are
@@ -140,7 +142,9 @@ func (o *ObjectPool) Init(ctx context.Context) (err error) {
 }
 
 // FromRepo returns an instance of ObjectPool that the repository points to
-func FromRepo(locator storage.Locator, repo *gitalypb.Repository) (*ObjectPool, error) {
+func FromRepo(cfg config.Cfg, repo *gitalypb.Repository) (*ObjectPool, error) {
+	locator := config.NewLocator(cfg)
+
 	dir, err := getAlternateObjectDir(locator, repo)
 	if err != nil {
 		return nil, err
@@ -160,7 +164,7 @@ func FromRepo(locator storage.Locator, repo *gitalypb.Repository) (*ObjectPool, 
 		return nil, err
 	}
 
-	return NewObjectPool(locator, repo.GetStorageName(), filepath.Dir(altPathRelativeToStorage))
+	return NewObjectPool(cfg, repo.GetStorageName(), filepath.Dir(altPathRelativeToStorage))
 }
 
 var (

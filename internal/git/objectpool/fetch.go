@@ -17,7 +17,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/internal/git/updateref"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
@@ -39,7 +38,11 @@ func (o *ObjectPool) FetchFromOrigin(ctx context.Context, origin *gitalypb.Repos
 		return err
 	}
 
-	getRemotes, err := git.SafeCmd(ctx, o, nil, git.SubCmd{Name: "remote"})
+	opts := []git.CmdOpt{
+		git.WithRefTxHook(ctx, helper.ProtoRepoFromRepo(o), o.cfg),
+	}
+
+	getRemotes, err := git.SafeCmd(ctx, o, nil, git.SubCmd{Name: "remote"}, opts...)
 	if err != nil {
 		return err
 	}
@@ -61,7 +64,7 @@ func (o *ObjectPool) FetchFromOrigin(ctx context.Context, origin *gitalypb.Repos
 		setOriginCmd, err = git.SafeCmd(ctx, o, nil, git.SubCmd{
 			Name: "remote",
 			Args: []string{"set-url", sourceRemote, originPath},
-		}, git.WithRefTxHook(ctx, helper.ProtoRepoFromRepo(o), config.Config))
+		}, opts...)
 		if err != nil {
 			return err
 		}
@@ -69,7 +72,7 @@ func (o *ObjectPool) FetchFromOrigin(ctx context.Context, origin *gitalypb.Repos
 		setOriginCmd, err = git.SafeCmd(ctx, o, nil, git.SubCmd{
 			Name: "remote",
 			Args: []string{"add", sourceRemote, originPath},
-		}, git.WithRefTxHook(ctx, helper.ProtoRepoFromRepo(o), config.Config))
+		}, opts...)
 		if err != nil {
 			return err
 		}
@@ -84,11 +87,14 @@ func (o *ObjectPool) FetchFromOrigin(ctx context.Context, origin *gitalypb.Repos
 	}
 
 	refSpec := fmt.Sprintf("+refs/*:%s/*", sourceRefNamespace)
-	fetchCmd, err := git.SafeCmd(ctx, o, nil, git.SubCmd{
-		Name:  "fetch",
-		Flags: []git.Option{git.Flag{Name: "--quiet"}},
-		Args:  []string{sourceRemote, refSpec},
-	})
+	fetchCmd, err := git.SafeCmd(ctx, o, nil,
+		git.SubCmd{
+			Name:  "fetch",
+			Flags: []git.Option{git.Flag{Name: "--quiet"}},
+			Args:  []string{sourceRemote, refSpec},
+		},
+		opts...,
+	)
 	if err != nil {
 		return err
 	}

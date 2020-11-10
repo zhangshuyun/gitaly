@@ -22,7 +22,7 @@ func NewTestObjectPool(t *testing.T) (*objectpool.ObjectPool, *gitalypb.Reposito
 	relativePath := testhelper.NewTestObjectPoolName(t)
 	repo := testhelper.CreateRepo(t, storagePath, relativePath)
 
-	pool, err := objectpool.NewObjectPool(config.NewLocator(config.Config), repo.GetStorageName(), relativePath)
+	pool, err := objectpool.NewObjectPool(config.Config, repo.GetStorageName(), relativePath)
 	require.NoError(t, err)
 
 	return pool, repo
