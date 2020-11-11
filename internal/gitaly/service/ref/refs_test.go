@@ -17,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/git/updateref"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -328,7 +329,7 @@ func TestSetDefaultBranchRef(t *testing.T) {
 			testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
 			defer cleanupFn()
 
-			err := SetDefaultBranchRef(ctx, testRepo, tc.ref)
+			err := SetDefaultBranchRef(ctx, testRepo, tc.ref, config.Config)
 			require.NoError(t, err)
 
 			newRef, err := DefaultBranchName(ctx, testRepo)

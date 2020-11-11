@@ -214,11 +214,11 @@ func _headReference(ctx context.Context, repo *gitalypb.Repository) ([]byte, err
 }
 
 // SetDefaultBranchRef overwrites the default branch ref for the repository
-func SetDefaultBranchRef(ctx context.Context, repo *gitalypb.Repository, ref string) error {
+func SetDefaultBranchRef(ctx context.Context, repo *gitalypb.Repository, ref string, cfg config.Cfg) error {
 	cmd, err := git.SafeCmd(ctx, repo, nil, git.SubCmd{
 		Name: "symbolic-ref",
 		Args: []string{"HEAD", ref},
-	}, git.WithRefTxHook(ctx, repo, config.Config))
+	}, git.WithRefTxHook(ctx, repo, cfg))
 	if err != nil {
 		return err
 	}
