@@ -20,6 +20,10 @@ var jsonpbMarshaller = &jsonpb.Marshaler{}
 // repository changes that may possibly update references
 func WithRefTxHook(ctx context.Context, repo *gitalypb.Repository, cfg config.Cfg) CmdOpt {
 	return func(cc *cmdCfg) error {
+		if cc.refHookOverriden {
+			return errors.New("ref tx hook provided, but already overriden")
+		}
+
 		if repo == nil {
 			return fmt.Errorf("missing repo: %w", ErrInvalidArg)
 		}
@@ -32,6 +36,19 @@ func WithRefTxHook(ctx context.Context, repo *gitalypb.Repository, cfg config.Cf
 		cc.env = append(cc.env, rfEnvs...)
 		cc.refHookConfigured = true
 
+		return nil
+	}
+}
+
+// WithOverrideRefTxHook returns an option that indicates the command should not
+// require a ref hook. This option should only be used in cases where the git
+// command does not alter references.
+func WithOverrideRefTxHook() CmdOpt {
+	return func(cc *cmdCfg) error {
+		if cc.refHookConfigured {
+			return errors.New("ref tx hook override provided, but already configured")
+		}
+		cc.refHookOverriden = true
 		return nil
 	}
 }
