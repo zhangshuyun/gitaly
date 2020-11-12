@@ -103,12 +103,14 @@ type Repository interface {
 // LocalRepository represents a local Git repository.
 type LocalRepository struct {
 	repo repository.GitRepo
+	cfg  config.Cfg
 }
 
 // NewRepository creates a new Repository from its protobuf representation.
-func NewRepository(repo repository.GitRepo) *LocalRepository {
+func NewRepository(repo repository.GitRepo, cfg config.Cfg) *LocalRepository {
 	return &LocalRepository{
 		repo: repo,
+		cfg:  cfg,
 	}
 }
 
