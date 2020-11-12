@@ -39,7 +39,7 @@ func (s *server) UserCreateBranch(ctx context.Context, req *gitalypb.UserCreateB
 		return nil, helper.ErrPreconditionFailed(err)
 	}
 
-	_, err = git.NewRepository(req.Repository).GetBranch(ctx, string(req.BranchName))
+	_, err = git.NewRepository(req.Repository, s.cfg).GetBranch(ctx, string(req.BranchName))
 	if err == nil {
 		return nil, status.Errorf(codes.FailedPrecondition, "Bad Request (branch exists)")
 	} else if !errors.Is(err, git.ErrReferenceNotFound) {
@@ -118,7 +118,7 @@ func (s *server) UserDeleteBranch(ctx context.Context, req *gitalypb.UserDeleteB
 
 	// Implement UserDeleteBranch in Go
 
-	revision, err := git.NewRepository(req.Repository).GetBranch(ctx, string(req.BranchName))
+	revision, err := git.NewRepository(req.Repository, s.cfg).GetBranch(ctx, string(req.BranchName))
 	if err != nil {
 		return nil, helper.ErrPreconditionFailed(err)
 	}

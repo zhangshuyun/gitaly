@@ -55,7 +55,7 @@ func TestExecutor_Commit(t *testing.T) {
 	pbRepo, repoPath, clean := testhelper.InitBareRepo(t)
 	defer clean()
 
-	repo := git.NewRepository(pbRepo)
+	repo := git.NewRepository(pbRepo, config.Config)
 
 	originalFile, err := repo.WriteBlob(ctx, "file", bytes.NewBufferString("original"))
 	require.NoError(t, err)

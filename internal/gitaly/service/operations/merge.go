@@ -209,7 +209,7 @@ func (s *server) userMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 		return err
 	}
 
-	revision, err := git.NewRepository(repo).ResolveRefish(ctx, string(firstRequest.Branch))
+	revision, err := git.NewRepository(repo, s.cfg).ResolveRefish(ctx, string(firstRequest.Branch))
 	if err != nil {
 		return err
 	}
@@ -300,7 +300,7 @@ func (s *server) UserFFBranch(ctx context.Context, in *gitalypb.UserFFBranchRequ
 		return s.userFFBranchRuby(ctx, in)
 	}
 
-	revision, err := git.NewRepository(in.Repository).ResolveRefish(ctx, string(in.Branch))
+	revision, err := git.NewRepository(in.Repository, s.cfg).ResolveRefish(ctx, string(in.Branch))
 	if err != nil {
 		return nil, helper.ErrInvalidArgument(err)
 	}
@@ -400,7 +400,7 @@ func (s *server) userMergeToRef(ctx context.Context, request *gitalypb.UserMerge
 		return nil, err
 	}
 
-	repo := git.NewRepository(request.Repository)
+	repo := git.NewRepository(request.Repository, s.cfg)
 
 	refName := string(request.Branch)
 	if request.FirstParentRef != nil {

@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -220,7 +221,7 @@ func buildCommit(t *testing.T, ctx context.Context, repo *gitalypb.Repository, r
 
 	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "commit", "-m", "message")
 
-	oid, err := git.NewRepository(repo).ResolveRefish(ctx, "HEAD")
+	oid, err := git.NewRepository(repo, config.Config).ResolveRefish(ctx, "HEAD")
 	require.NoError(t, err)
 
 	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "reset", "--hard", "HEAD~")

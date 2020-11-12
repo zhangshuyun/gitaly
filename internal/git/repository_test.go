@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/command"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
@@ -27,7 +28,7 @@ const (
 func TestLocalRepository(t *testing.T) {
 	TestRepository(t, func(t testing.TB, pbRepo *gitalypb.Repository) Repository {
 		t.Helper()
-		return NewRepository(pbRepo)
+		return NewRepository(pbRepo, config.Config)
 	})
 }
 
@@ -38,7 +39,7 @@ func TestLocalRepository_ContainsRef(t *testing.T) {
 	testRepo, _, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
 
-	repo := NewRepository(testRepo)
+	repo := NewRepository(testRepo, config.Config)
 
 	testcases := []struct {
 		desc      string
@@ -78,7 +79,7 @@ func TestLocalRepository_GetReference(t *testing.T) {
 	testRepo, _, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
 
-	repo := NewRepository(testRepo)
+	repo := NewRepository(testRepo, config.Config)
 
 	testcases := []struct {
 		desc     string
@@ -127,7 +128,7 @@ func TestLocalRepository_GetBranch(t *testing.T) {
 	testRepo, _, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
 
-	repo := NewRepository(testRepo)
+	repo := NewRepository(testRepo, config.Config)
 
 	testcases := []struct {
 		desc     string
@@ -176,7 +177,7 @@ func TestLocalRepository_GetReferences(t *testing.T) {
 	testRepo, _, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
 
-	repo := NewRepository(testRepo)
+	repo := NewRepository(testRepo, config.Config)
 
 	testcases := []struct {
 		desc    string
@@ -242,7 +243,7 @@ crlf binary
 lf   text
 	`), os.ModePerm))
 
-	repo := NewRepository(pbRepo)
+	repo := NewRepository(pbRepo, config.Config)
 
 	for _, tc := range []struct {
 		desc    string
@@ -306,7 +307,7 @@ func TestLocalRepository_ReadObject(t *testing.T) {
 	testRepo, _, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
 
-	repo := NewRepository(testRepo)
+	repo := NewRepository(testRepo, config.Config)
 
 	for _, tc := range []struct {
 		desc    string
@@ -341,7 +342,7 @@ func TestLocalRepository_GetBranches(t *testing.T) {
 	testRepo, _, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
 
-	repo := NewRepository(testRepo)
+	repo := NewRepository(testRepo, config.Config)
 
 	refs, err := repo.GetBranches(ctx)
 	require.NoError(t, err)
@@ -355,7 +356,7 @@ func TestLocalRepository_UpdateRef(t *testing.T) {
 	testRepo, _, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
 
-	otherRef, err := NewRepository(testRepo).GetReference(ctx, "refs/heads/gitaly-test-ref")
+	otherRef, err := NewRepository(testRepo, config.Config).GetReference(ctx, "refs/heads/gitaly-test-ref")
 	require.NoError(t, err)
 
 	testcases := []struct {
@@ -456,7 +457,7 @@ func TestLocalRepository_UpdateRef(t *testing.T) {
 			testRepo, _, cleanup := testhelper.NewTestRepo(t)
 			defer cleanup()
 
-			repo := NewRepository(testRepo)
+			repo := NewRepository(testRepo, config.Config)
 			err := repo.UpdateRef(ctx, tc.ref, tc.newrev, tc.oldrev)
 
 			tc.verify(t, repo, err)
@@ -484,11 +485,11 @@ func TestLocalRepository_FetchRemote(t *testing.T) {
 			t.FailNow()
 		}
 
-		return NewRepository(testRepo), testRepoPath, cleanup
+		return NewRepository(testRepo, config.Config), testRepoPath, cleanup
 	}
 
 	t.Run("invalid name", func(t *testing.T) {
-		repo := NewRepository(nil)
+		repo := NewRepository(nil, config.Config)
 
 		err := repo.FetchRemote(ctx, " ", FetchOpts{})
 		require.True(t, errors.Is(err, ErrInvalidArg))
@@ -499,7 +500,7 @@ func TestLocalRepository_FetchRemote(t *testing.T) {
 		testRepo, _, cleanup := testhelper.InitBareRepo(t)
 		defer cleanup()
 
-		repo := NewRepository(testRepo)
+		repo := NewRepository(testRepo, config.Config)
 		var stderr bytes.Buffer
 		err := repo.FetchRemote(ctx, "stub", FetchOpts{Stderr: &stderr})
 		require.Error(t, err)
@@ -534,7 +535,7 @@ func TestLocalRepository_FetchRemote(t *testing.T) {
 		testRepo, testRepoPath, testCleanup := testhelper.NewTestRepo(t)
 		defer testCleanup()
 
-		repo := NewRepository(testRepo)
+		repo := NewRepository(testRepo, config.Config)
 		testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "remote", "add", "source", sourceRepoPath)
 
 		var stderr bytes.Buffer
@@ -549,7 +550,7 @@ func TestLocalRepository_FetchRemote(t *testing.T) {
 		testRepo, testRepoPath, testCleanup := testhelper.NewTestRepo(t)
 		defer testCleanup()
 
-		repo := NewRepository(testRepo)
+		repo := NewRepository(testRepo, config.Config)
 		testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "remote", "add", "source", sourceRepoPath)
 
 		require.NoError(t, repo.FetchRemote(ctx, "source", FetchOpts{}))
@@ -577,7 +578,7 @@ func TestLocalRepository_FetchRemote(t *testing.T) {
 		testRepo, testRepoPath, testCleanup := testhelper.NewTestRepo(t)
 		defer testCleanup()
 
-		repo := NewRepository(testRepo)
+		repo := NewRepository(testRepo, config.Config)
 
 		testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "remote", "add", "source", sourceRepoPath)
 		require.NoError(t, repo.FetchRemote(ctx, "source", FetchOpts{}))

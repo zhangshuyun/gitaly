@@ -25,7 +25,7 @@ func (s *server) listConflictFiles(request *gitalypb.ListConflictFilesRequest, s
 		return helper.ErrInvalidArgument(err)
 	}
 
-	repo := git.NewRepository(request.Repository)
+	repo := git.NewRepository(request.Repository, s.cfg)
 
 	ours, err := repo.ResolveRefish(ctx, request.OurCommitOid+"^{commit}")
 	if err != nil {

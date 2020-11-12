@@ -162,7 +162,7 @@ func (s *server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommi
 		return fmt.Errorf("get repo path: %w", err)
 	}
 
-	localRepo := git.NewRepository(header.Repository)
+	localRepo := git.NewRepository(header.Repository, s.cfg)
 
 	targetBranchName := "refs/heads/" + string(header.BranchName)
 	targetBranchCommit, err := localRepo.ResolveRefish(ctx, targetBranchName+"^{commit}")
@@ -375,7 +375,7 @@ func (s *server) resolveParentCommit(ctx context.Context, local git.Repository, 
 }
 
 func (s *server) fetchMissingCommit(ctx context.Context, local, remote *gitalypb.Repository, commitID string) error {
-	if _, err := git.NewRepository(local).ResolveRefish(ctx, commitID+"^{commit}"); err != nil {
+	if _, err := git.NewRepository(local, s.cfg).ResolveRefish(ctx, commitID+"^{commit}"); err != nil {
 		if !errors.Is(err, git.ErrReferenceNotFound) || remote == nil {
 			return fmt.Errorf("lookup parent commit: %w", err)
 		}

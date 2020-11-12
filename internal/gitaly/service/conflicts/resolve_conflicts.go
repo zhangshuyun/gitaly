@@ -15,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/conflict"
 	"gitlab.com/gitlab-org/gitaly/internal/git/remoterepo"
 	"gitlab.com/gitlab-org/gitaly/internal/git2go"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/gitalyssh"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
@@ -209,7 +210,7 @@ func (s *server) resolveConflicts(header *gitalypb.ResolveConflictsRequestHeader
 		return err
 	}
 
-	if err := git.NewRepository(header.GetRepository()).UpdateRef(
+	if err := git.NewRepository(header.GetRepository(), config.Config).UpdateRef(
 		stream.Context(),
 		"refs/heads/"+string(header.GetSourceBranch()),
 		result.CommitID,
@@ -253,7 +254,7 @@ func sameRepo(left, right *gitalypb.Repository) bool {
 func (s *server) repoWithBranchCommit(ctx context.Context, srcRepo, targetRepo *gitalypb.Repository, srcBranch, targetBranch []byte) error {
 	const peelCommit = "^{commit}"
 
-	src := git.NewRepository(srcRepo)
+	src := git.NewRepository(srcRepo, s.cfg)
 	if sameRepo(srcRepo, targetRepo) {
 		_, err := src.ResolveRefish(ctx, string(targetBranch)+peelCommit)
 		return err

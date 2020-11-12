@@ -9,6 +9,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/lstree"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/chunk"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -44,7 +45,7 @@ func (s *server) ListFiles(in *gitalypb.ListFilesRequest, stream gitalypb.Commit
 		revision = string(defaultBranch)
 	}
 
-	containsRef, err := git.NewRepository(in.Repository).ContainsRef(stream.Context(), revision)
+	containsRef, err := git.NewRepository(in.Repository, config.Config).ContainsRef(stream.Context(), revision)
 	if err != nil {
 		return helper.ErrInternal(err)
 	}
