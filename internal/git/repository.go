@@ -316,7 +316,7 @@ func (repo *LocalRepository) UpdateRef(ctx context.Context, reference, newrev, o
 			Flags: []Option{Flag{Name: "-z"}, Flag{Name: "--stdin"}},
 		},
 		WithStdin(strings.NewReader(fmt.Sprintf("update %s\x00%s\x00%s\x00", reference, newrev, oldrev))),
-		WithRefTxHook(ctx, helper.ProtoRepoFromRepo(repo.repo), config.Config),
+		WithRefTxHook(ctx, helper.ProtoRepoFromRepo(repo.repo), repo.cfg),
 	)
 	if err != nil {
 		return err
@@ -342,7 +342,7 @@ func (repo *LocalRepository) FetchRemote(ctx context.Context, remoteName string,
 			Args:  []string{remoteName},
 		},
 		WithStderr(opts.Stderr),
-		WithRefTxHook(ctx, helper.ProtoRepoFromRepo(repo.repo), config.Config),
+		WithRefTxHook(ctx, helper.ProtoRepoFromRepo(repo.repo), repo.cfg),
 	)
 	if err != nil {
 		return err
