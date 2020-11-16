@@ -41,6 +41,10 @@ var (
 	GoUserUpdateSubmodule = FeatureFlag{Name: "go_user_update_submodule", OnByDefault: false}
 	// GoFetchRemote enables the Go implementation of FetchRemote
 	GoFetchRemote = FeatureFlag{Name: "go_fetch_remote", OnByDefault: false}
+	// GoUserDeleteTag enables the Go implementation of UserDeleteTag
+	GoUserDeleteTag = FeatureFlag{Name: "go_user_delete_tag", OnByDefault: false}
+	// GoUserCreateTag enables the Go implementation of UserCreateTag
+	GoUserCreateTag = FeatureFlag{Name: "go_user_create_tag", OnByDefault: false}
 )
 
 // All includes all feature flags.
@@ -60,6 +64,8 @@ var All = []FeatureFlag{
 	GoResolveConflicts,
 	GoUserUpdateSubmodule,
 	GoFetchRemote,
+	GoUserDeleteTag,
+	GoUserCreateTag,
 }
 
 const (
