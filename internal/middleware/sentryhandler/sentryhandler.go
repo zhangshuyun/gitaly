@@ -100,7 +100,7 @@ func generateSentryEvent(ctx context.Context, method string, start time.Time, er
 	for k, v := range map[string]string{
 		"grpc.code":    grpcErrorCode.String(),
 		"grpc.method":  method,
-		"grpc.time_ms": fmt.Sprintf("%.0f", time.Since(start).Seconds()*1000),
+		"grpc.time_ms": fmt.Sprintf("%d", time.Since(start).Milliseconds()),
 		"system":       "grpc",
 	} {
 		event.Tags[k] = v

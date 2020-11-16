@@ -83,7 +83,7 @@ func (c *promMonitor) Enter(ctx context.Context, acquireTime time.Duration) {
 
 	if acquireTime > acquireDurationLogThreshold {
 		logger := ctxlogrus.Extract(ctx)
-		logger.WithField("acquire_ms", acquireTime.Seconds()*1000).Info("Rate limit acquire wait")
+		logger.WithField("acquire_ms", acquireTime.Milliseconds()).Info("Rate limit acquire wait")
 	}
 
 	if c.histogram != nil {

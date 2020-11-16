@@ -80,5 +80,5 @@ func logTime(ctx context.Context, start time.Time, msg string) {
 		return
 	}
 
-	ctxlogrus.Extract(ctx).WithField("spawn_queue_ms", delta.Seconds()*1000).Info(msg)
+	ctxlogrus.Extract(ctx).WithField("spawn_queue_ms", delta.Milliseconds()).Info(msg)
 }

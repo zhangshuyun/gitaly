@@ -415,9 +415,9 @@ func (c *Command) logProcessComplete(ctx context.Context, exitCode int) {
 		"path":                   cmd.Path,
 		"args":                   cmd.Args,
 		"command.exitCode":       exitCode,
-		"command.system_time_ms": systemTime.Seconds() * 1000,
-		"command.user_time_ms":   userTime.Seconds() * 1000,
-		"command.real_time_ms":   realTime.Seconds() * 1000,
+		"command.system_time_ms": systemTime.Milliseconds(),
+		"command.user_time_ms":   userTime.Milliseconds(),
+		"command.real_time_ms":   realTime.Milliseconds(),
 	})
 
 	rusage, ok := cmd.ProcessState.SysUsage().(*syscall.Rusage)
@@ -435,9 +435,9 @@ func (c *Command) logProcessComplete(ctx context.Context, exitCode int) {
 		stats := StatsFromContext(ctx)
 
 		stats.RecordSum("command.count", 1)
-		stats.RecordSum("command.system_time_ms", int(systemTime.Seconds()*1000))
-		stats.RecordSum("command.user_time_ms", int(userTime.Seconds()*1000))
-		stats.RecordSum("command.real_time_ms", int(realTime.Seconds()*1000))
+		stats.RecordSum("command.system_time_ms", int(systemTime.Milliseconds()))
+		stats.RecordSum("command.user_time_ms", int(userTime.Milliseconds()))
+		stats.RecordSum("command.real_time_ms", int(realTime.Milliseconds()))
 
 		if ok {
 			stats.RecordMax("command.maxrss", int(rusage.Maxrss))
@@ -451,9 +451,9 @@ func (c *Command) logProcessComplete(ctx context.Context, exitCode int) {
 	c.span.LogKV(
 		"pid", cmd.ProcessState.Pid(),
 		"exit_code", exitCode,
-		"system_time_ms", int(systemTime.Seconds()*1000),
-		"user_time_ms", int(userTime.Seconds()*1000),
-		"real_time_ms", int(realTime.Seconds()*1000),
+		"system_time_ms", int(systemTime.Milliseconds()),
+		"user_time_ms", int(userTime.Milliseconds()),
+		"real_time_ms", int(realTime.Milliseconds()),
 	)
 	if ok {
 		c.span.LogKV(
