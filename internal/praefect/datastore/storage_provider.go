@@ -205,42 +205,56 @@ func (c *CachingStorageProvider) getCache(virtualStorage string) (*lru.Cache, bo
 	return val, found
 }
 
-func (c *CachingStorageProvider) GetSyncedNodes(ctx context.Context, virtualStorage, relativePath, primaryStorage string) []string {
-	if atomic.LoadInt32(&c.access) == 0 {
-		c.cacheAccessTotal.WithLabelValues(virtualStorage, "miss").Inc()
-		storages, _ := c.getSyncedNodes(ctx, virtualStorage, relativePath, primaryStorage)
-		return storages
-	}
+func (c *CachingStorageProvider) cacheMiss(ctx context.Context, virtualStorage, relativePath, primaryStorage string) ([]string, bool) {
+	c.cacheAccessTotal.WithLabelValues(virtualStorage, "miss").Inc()
+	return c.getSyncedNodes(ctx, virtualStorage, relativePath, primaryStorage)
+}
+
+func (c *CachingStorageProvider) tryCache(ctx context.Context, virtualStorage, relativePath, primaryStorage string) (func(), *lru.Cache, []string, bool) {
+	populateDone := func() {} // should be called AFTER any cache population is done
 
 	cache, found := c.getCache(virtualStorage)
 	if !found {
-		ctxlogrus.Extract(ctx).WithError(errNotExistingVirtualStorage).WithField("virtual_storage", virtualStorage).Error("cache not found")
-		c.cacheAccessTotal.WithLabelValues(virtualStorage, "miss").Inc()
-		storages, _ := c.getSyncedNodes(ctx, virtualStorage, relativePath, primaryStorage)
-		return storages
+		return populateDone, nil, nil, false
 	}
 
 	if storages, found := getStringSlice(cache, relativePath); found {
-		c.cacheAccessTotal.WithLabelValues(virtualStorage, "hit").Inc()
-		return storages
+		return populateDone, cache, storages, true
 	}
 
 	// synchronises concurrent attempts to update cache for the same key.
-	defer c.syncer.await(relativePath)()
+	populateDone = c.syncer.await(relativePath)
 
-	storages, found := getStringSlice(cache, relativePath)
-	if found {
-		c.cacheAccessTotal.WithLabelValues(virtualStorage, "hit").Inc()
-		return storages
+	if storages, found := getStringSlice(cache, relativePath); found {
+		return populateDone, cache, storages, true
 	}
 
-	c.cacheAccessTotal.WithLabelValues(virtualStorage, "miss").Inc()
-	storages, ok := c.getSyncedNodes(ctx, virtualStorage, relativePath, primaryStorage)
-	if ok {
+	return populateDone, cache, nil, false
+}
+
+func (c *CachingStorageProvider) isCacheEnabled() bool { return atomic.LoadInt32(&c.access) != 0 }
+
+func (c *CachingStorageProvider) GetSyncedNodes(ctx context.Context, virtualStorage, relativePath, primaryStorage string) []string {
+	var cache *lru.Cache
+
+	if c.isCacheEnabled() {
+		var storages []string
+		var ok bool
+		var populationDone func()
+
+		populationDone, cache, storages, ok = c.tryCache(ctx, virtualStorage, relativePath, primaryStorage)
+		defer populationDone()
+		if ok {
+			c.cacheAccessTotal.WithLabelValues(virtualStorage, "hit").Inc()
+			return storages
+		}
+	}
+
+	storages, ok := c.cacheMiss(ctx, virtualStorage, relativePath, primaryStorage)
+	if ok && cache != nil {
 		cache.Add(relativePath, storages)
 		c.cacheAccessTotal.WithLabelValues(virtualStorage, "populate").Inc()
 	}
-
 	return storages
 }
 
