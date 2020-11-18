@@ -508,6 +508,10 @@ func testFailedUserCreateTagRequestDueToValidation(t *testing.T, ctx context.Con
 }
 
 func TestTagHookOutput(t *testing.T) {
+	testWithFeature(t, featureflag.GoUserDeleteTag, testTagHookOutput)
+}
+
+func testTagHookOutput(t *testing.T, ctx context.Context) {
 	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()
 
@@ -557,11 +561,11 @@ func TestTagHookOutput(t *testing.T) {
 	for _, hookName := range gitlabPreHooks {
 		for _, testCase := range testCases {
 			t.Run(hookName+"/"+testCase.desc, func(t *testing.T) {
-				request := &gitalypb.UserCreateTagRequest{
-					Repository:     testRepo,
-					TagName:        []byte("some-tag"),
-					TargetRevision: []byte("master"),
-					User:           testhelper.TestUser,
+				tagNameInput := "some-tag"
+				request := &gitalypb.UserDeleteTagRequest{
+					Repository: testRepo,
+					TagName:    []byte(tagNameInput),
+					User:       testhelper.TestUser,
 				}
 
 				ctx, cancel := testhelper.Context()
@@ -571,9 +575,11 @@ func TestTagHookOutput(t *testing.T) {
 				require.NoError(t, err)
 				defer remove()
 
-				response, err := client.UserCreateTag(ctx, request)
+				defer exec.Command(command.GitPath(), "-C", testRepoPath, "tag", "-d", tagNameInput).Run()
+				testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "tag", tagNameInput)
+
+				response, err := client.UserDeleteTag(ctx, request)
 				require.NoError(t, err)
-				require.Equal(t, false, response.Exists)
 				require.Equal(t, testCase.output, response.PreReceiveError)
 			})
 		}
