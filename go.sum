@@ -427,8 +427,8 @@ gitlab.com/gitlab-org/labkit v0.0.0-20190221122536-0c3fc7cdd57c/go.mod h1:rYhLgf
 gitlab.com/gitlab-org/labkit v0.0.0-20190221122536-0c3fc7cdd57c/go.mod h1:rYhLgfrbEcyfinG+R3EvKu6bZSsmwQqcXzLfHWSfUKM=
 gitlab.com/gitlab-org/labkit v0.0.0-20200908084045-45895e129029 h1:L7b9YLsU3zBfTShAPl4fjhgFdfSvuo9tu4VobJdcKDs=
 gitlab.com/gitlab-org/labkit v0.0.0-20200908084045-45895e129029/go.mod h1:SNfxkfUwVNECgtmluVayv0GWFgEjjBs5AzgsowPQuo0=
-gitlab.com/gitlab-org/labkit v0.0.0-20201113080642-40dcf811328c h1:ohBeINHT6jMF4U8DjnqyhUvENU3jK19JnOXN51Oa4o4=
-gitlab.com/gitlab-org/labkit v0.0.0-20201113080642-40dcf811328c/go.mod h1:nohrYTSLDnZix0ebXZrbZJjymRar8HeV2roWL5/jw2U=
+gitlab.com/gitlab-org/labkit v0.0.0-20201119110232-8aa91c8f706b h1:OND71Ut+5vQpAs+lzefv4xgBnC6GTXmVo7PsJau0cLQ=
+gitlab.com/gitlab-org/labkit v0.0.0-20201119110232-8aa91c8f706b/go.mod h1:nohrYTSLDnZix0ebXZrbZJjymRar8HeV2roWL5/jw2U=
 go.opencensus.io v0.21.0/go.mod h1:mSImk1erAIZhrmZN+AvHh14ztQfjbGwt4TtuofqLduU=
 go.opencensus.io v0.22.0/go.mod h1:+kGneAE2xo2IficOXnaByMWTGM9T73dGwxeWcUqIpI8=
 go.opencensus.io v0.22.2 h1:75k/FF0Q2YM8QYo07VPddOLBslDt1MZOdEslOHvmzAs=
