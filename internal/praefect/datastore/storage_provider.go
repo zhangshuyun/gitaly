@@ -221,7 +221,7 @@ func (c *CachingStorageProvider) tryCache(ctx context.Context, virtualStorage, r
 	}
 
 	// synchronises concurrent attempts to update cache for the same key.
-	defer c.syncer.await(relativePath)()
+	defer c.syncer.await(ctx, relativePath)()
 
 	if storages, found := getStringSlice(cache, relativePath); found {
 		return cache, storages, true
@@ -268,13 +268,16 @@ type syncer struct {
 
 // await acquires lock for provided key and returns a callback to invoke once the key could be released.
 // If key is already acquired the call will be blocked until callback for that key won't be called.
-func (sc *syncer) await(key string) func() {
+func (sc *syncer) await(ctx context.Context, key string) func() {
 	sc.mtx.Lock()
 
 	if cond, found := sc.inflight[key]; found {
 		sc.mtx.Unlock()
 
-		<-cond // the key is acquired, wait until it is released
+		select {
+		case <-cond: // the key is acquired, wait until it is released
+		case <-ctx.Done():
+		}
 
 		return func() {}
 	}
