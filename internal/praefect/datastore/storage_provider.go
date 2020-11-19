@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"strings"
-	"sync"
 	"sync/atomic"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
@@ -90,8 +89,6 @@ type CachingStorageProvider struct {
 	caches map[string]*lru.Cache
 	// access is access method to use: 0 - without caching; 1 - with caching.
 	access int32
-	// syncer allows to sync retrieval operations to omit unnecessary runs.
-	syncer syncer
 	// callbackLogger should be used only inside of the methods used as callbacks.
 	callbackLogger   logrus.FieldLogger
 	cacheAccessTotal *prometheus.CounterVec
@@ -102,7 +99,6 @@ func NewCachingStorageProvider(logger logrus.FieldLogger, sp SecondariesProvider
 	csp := &CachingStorageProvider{
 		DirectStorageProvider: NewDirectStorageProvider(sp),
 		caches:                make(map[string]*lru.Cache, len(virtualStorages)),
-		syncer:                syncer{inflight: map[string]chan struct{}{}},
 		callbackLogger:        logger.WithField("component", "caching_storage_provider"),
 		cacheAccessTotal: prometheus.NewCounterVec(
 			prometheus.CounterOpts{
@@ -210,26 +206,17 @@ func (c *CachingStorageProvider) cacheMiss(ctx context.Context, virtualStorage, 
 	return c.getSyncedNodes(ctx, virtualStorage, relativePath, primaryStorage)
 }
 
-func (c *CachingStorageProvider) tryCache(ctx context.Context, virtualStorage, relativePath, primaryStorage string) (func(), *lru.Cache, []string, bool) {
-	populateDone := func() {} // should be called AFTER any cache population is done
-
+func (c *CachingStorageProvider) tryCache(ctx context.Context, virtualStorage, relativePath, primaryStorage string) (*lru.Cache, []string, bool) {
 	cache, found := c.getCache(virtualStorage)
 	if !found {
-		return populateDone, nil, nil, false
+		return nil, nil, false
 	}
 
 	if storages, found := getStringSlice(cache, relativePath); found {
-		return populateDone, cache, storages, true
+		return cache, storages, true
 	}
 
-	// synchronises concurrent attempts to update cache for the same key.
-	populateDone = c.syncer.await(relativePath)
-
-	if storages, found := getStringSlice(cache, relativePath); found {
-		return populateDone, cache, storages, true
-	}
-
-	return populateDone, cache, nil, false
+	return cache, nil, false
 }
 
 func (c *CachingStorageProvider) isCacheEnabled() bool { return atomic.LoadInt32(&c.access) != 0 }
@@ -240,10 +227,8 @@ func (c *CachingStorageProvider) GetSyncedNodes(ctx context.Context, virtualStor
 	if c.isCacheEnabled() {
 		var storages []string
 		var ok bool
-		var populationDone func()
 
-		populationDone, cache, storages, ok = c.tryCache(ctx, virtualStorage, relativePath, primaryStorage)
-		defer populationDone()
+		cache, storages, ok = c.tryCache(ctx, virtualStorage, relativePath, primaryStorage)
 		if ok {
 			c.cacheAccessTotal.WithLabelValues(virtualStorage, "hit").Inc()
 			return storages
@@ -262,39 +247,4 @@ func getStringSlice(cache *lru.Cache, key string) ([]string, bool) {
 	val, found := cache.Get(key)
 	vals, _ := val.([]string)
 	return vals, found
-}
-
-// syncer allows to sync access to a particular key.
-type syncer struct {
-	// inflight contains set of keys already acquired for sync.
-	inflight map[string]chan struct{}
-	mtx      sync.Mutex
-}
-
-// await acquires lock for provided key and returns a callback to invoke once the key could be released.
-// If key is already acquired the call will be blocked until callback for that key won't be called.
-func (sc *syncer) await(key string) func() {
-	sc.mtx.Lock()
-
-	if cond, found := sc.inflight[key]; found {
-		sc.mtx.Unlock()
-
-		<-cond // the key is acquired, wait until it is released
-
-		return func() {}
-	}
-
-	defer sc.mtx.Unlock()
-
-	cond := make(chan struct{})
-	sc.inflight[key] = cond
-
-	return func() {
-		sc.mtx.Lock()
-		defer sc.mtx.Unlock()
-
-		delete(sc.inflight, key)
-
-		close(cond)
-	}
 }

@@ -6,7 +6,6 @@ import (
 	"strings"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
@@ -428,38 +427,4 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 		close(start)
 		wg.Wait()
 	})
-}
-
-func TestSyncer_await(t *testing.T) {
-	sc := syncer{inflight: map[string]chan struct{}{}}
-
-	const dur = 50 * time.Millisecond
-
-	var wg sync.WaitGroup
-	begin := make(chan struct{})
-
-	awaitKey := func(key string) {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-
-			<-begin
-
-			defer sc.await(key)()
-			time.Sleep(dur)
-		}()
-	}
-
-	keys := []string{"a", "a", "b", "c", "d"}
-	for _, key := range keys {
-		awaitKey(key)
-	}
-
-	start := time.Now()
-	close(begin)
-	wg.Wait()
-	duration := time.Since(start).Milliseconds()
-
-	require.GreaterOrEqual(t, duration, 2*dur.Milliseconds(), "we use same key twice, so it should take at least 2 durations")
-	require.Less(t, duration, int64(len(keys))*dur.Milliseconds(), "it should take less time as sequential processing")
 }
