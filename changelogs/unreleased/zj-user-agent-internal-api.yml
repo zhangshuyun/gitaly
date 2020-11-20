@@ -1,5 +1,0 @@
----
-title: 'hooks: Set Gitaly as user agent for API calls'
-merge_request: 2663
-author:
-type: added

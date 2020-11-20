@@ -1,5 +1,0 @@
----
-title: Fall back to /dev/null when opening gitaly_ruby_json.log
-merge_request: 2708
-author:
-type: fixed

@@ -1,5 +1,0 @@
----
-title: 'featureflag: Enable Go implementation of UserMergeToRef'
-merge_request: 2783
-author:
-type: performance

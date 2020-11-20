@@ -1,5 +1,0 @@
----
-title: 'hooks: Always consume stdin for reference transaction hook'
-merge_request: 2719
-author:
-type: fixed

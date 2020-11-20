@@ -1,5 +1,0 @@
----
-title: 'operations: Fix feature flag for UserMergeToRef'
-merge_request: 2689
-author:
-type: fixed

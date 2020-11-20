@@ -1,5 +1,0 @@
----
-title: Log LFS smudge activity to gitaly_lfs_smudge.log
-merge_request: 2734
-author:
-type: added

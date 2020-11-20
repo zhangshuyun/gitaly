@@ -1,5 +1,0 @@
----
-title: Fix handling of symlinks in custom hooks directory
-merge_request: 2790
-author:
-type: fixed

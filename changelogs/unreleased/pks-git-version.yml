@@ -1,5 +1,0 @@
----
-title: 'git: Recognize "vX.Y.GIT" versions'
-merge_request: 2714
-author:
-type: fixed

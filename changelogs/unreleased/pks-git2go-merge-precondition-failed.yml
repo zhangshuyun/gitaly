@@ -1,5 +1,0 @@
----
-title: 'operations: Return correct error code when merge fails'
-merge_request: 2690
-author:
-type: fixed

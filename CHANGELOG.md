@@ -1,5 +1,67 @@
 # Gitaly changelog
 
+## 13.6.0 (2020-11-22)
+
+### Security (1 change)
+
+- Configure the GitLab internal API client to provide client certificates when using TLS. !2794
+
+### Fixed (12 changes)
+
+- config: Fix check for executability on systems with strict permissions. !2668
+- Create missing directories in CreateRepositoryFromSnapshot. !2683
+- operations: Fix feature flag for UserMergeToRef. !2689
+- operations: Return correct error code when merge fails. !2690
+- Fall back to /dev/null when opening gitaly_ruby_json.log. !2708
+- git: Recognize "vX.Y.GIT" versions. !2714
+- hooks: Always consume stdin for reference transaction hook. !2719
+- gitaly: Fix deadlock when writing to gRPC streams concurrently. !2723
+- Use new correlation ID generator. !2746
+- operations: Always set GL_PROTOCOL in hooks. !2753
+- operations: Fix error message when UserMergeToRef conflicts. !2756
+- Fix handling of symlinks in custom hooks directory. !2790
+
+### Changed (6 changes)
+
+- hooks: Check command ported to Go. !2650
+- Expose ancestor path in Conflicts RPC. !2672
+- Remove primary-wins and reference-transaction-hook feature flags. !2681
+- featureflag: Enable Ruby reference transaction hooks by default. !2717
+- featureflag: Remove reference transaction feature flag. !2725
+- git: Upgrade minimum required version to v2.29.0. !2727
+
+### Performance (4 changes)
+
+- Port UserCommitFiles to Go. !2655
+- Port ResolveConflicts from Ruby to Go. !2693
+- featureflag: Enable Go implementation of ListConflictFiles. !2782
+- featureflag: Enable Go implementation of UserMergeToRef. !2783
+
+### Added (8 changes)
+
+- Port UserCreateBranch to go. !2613
+- Receiving notifications on changes in database. !2631
+- hooks: Set Gitaly as user agent for API calls. !2663
+- Add JSON request logging for gitaly-ruby. !2678
+- Enforce minimum required Git version. !2701
+- proto: Add Tree ID to GitCommit structure. !2703
+- Log LFS smudge activity to gitaly_lfs_smudge.log. !2734
+- Create database records for repositories missing them. !2749
+
+### Other (10 changes)
+
+- Ensure reference hooks are used in valid commands. !2583
+- Update Ruby to v2.7.2. !2633
+- docs: remove feature flag references for hooks. !2658
+- Instrument git commands for tracing. !2685
+- Update ruby parser for Ruby v2.7.2. !2699
+- Update to bundler v2.1.4. !2733
+- Store repository host node assignments. !2737
+- Use labkit-ruby 0.13.2. !2743
+- Remove the RepositoryService.FetchHTTPRemote RPC. !2744
+- Improve logging in ReplicateRepository. !2767
+
+
 ## 13.5.4 (2020-11-13)
 
 - No changes.

@@ -1,5 +1,0 @@
----
-title: 'config: Fix check for executability on systems with strict permissions'
-merge_request: 2668
-author:
-type: fixed

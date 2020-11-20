@@ -1,6 +1,0 @@
----
-title: Configure the GitLab internal API client to provide client certificates when
-  using TLS
-merge_request: 2794
-author:
-type: security
