@@ -1,6 +1,7 @@
 package smarthttp
 
 import (
+	"net"
 	"os"
 	"path/filepath"
 	"testing"
@@ -11,6 +12,8 @@ import (
 	diskcache "gitlab.com/gitlab-org/gitaly/internal/cache"
 	"gitlab.com/gitlab-org/gitaly/internal/git/hooks"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	gitalyhook "gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/hook"
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/cache"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -62,9 +65,16 @@ func runSmartHTTPServer(t *testing.T, serverOpts ...ServerOpt) (string, func()) 
 
 	serverOpts = append([]ServerOpt{WithConfig(config.Config)}, serverOpts...)
 	gitalypb.RegisterSmartHTTPServiceServer(srv.GrpcServer(), NewServer(config.NewLocator(config.Config), serverOpts...))
+	gitalypb.RegisterHookServiceServer(srv.GrpcServer(), hook.NewServer(gitalyhook.NewManager(gitalyhook.GitlabAPIStub, config.Config)))
 	reflection.Register(srv.GrpcServer())
 
+	internalListener, err := net.Listen("unix", config.Config.GitalyInternalSocketPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	require.NoError(t, srv.Start())
+	go srv.GrpcServer().Serve(internalListener)
 
 	return "unix://" + srv.Socket(), srv.Stop
 }

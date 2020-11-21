@@ -28,6 +28,11 @@ service HookService {
       op: ACCESSOR
     };
   }
+  rpc PackObjectsHook(stream PackObjectsHookRequest) returns  (stream PackObjectsHookResponse) {
+    option (op_type) = {
+      op: ACCESSOR
+    };
+  }
 }
 
 message PreReceiveHookRequest {
@@ -83,6 +88,18 @@ message ReferenceTransactionHookRequest {
 }
 
 message ReferenceTransactionHookResponse {
+  bytes stdout = 1;
+  bytes stderr = 2;
+  ExitStatus exit_status = 3;
+}
+
+message PackObjectsHookRequest {
+  Repository repository = 1 [(target_repository)=true];
+  repeated string args = 2;
+  bytes stdin = 3;
+}
+
+message PackObjectsHookResponse{
   bytes stdout = 1;
   bytes stderr = 2;
   ExitStatus exit_status = 3;

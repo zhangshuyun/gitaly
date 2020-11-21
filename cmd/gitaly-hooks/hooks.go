@@ -7,7 +7,6 @@ import (
 	"io"
 	"log"
 	"os"
-	"os/exec"
 	"strconv"
 	"strings"
 
@@ -229,14 +228,26 @@ func main() {
 			logger.Fatalf("error when receiving data for %q: %v", subCmd, err)
 		}
 	case "git":
-		cmd := exec.Command("git", os.Args[2:]...)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		cmd.Stdin = os.Stdin
-		err := cmd.Run()
-		hello.Print(err)
-		if err == nil {
-			hookStatus = 0
+		packObjectsHookStream, err := hookClient.PackObjectsHook(ctx)
+		if err != nil {
+			hello.Fatalf("error when getting stream client for %q: %v", subCmd, err)
+		}
+
+		if err := packObjectsHookStream.Send(&gitalypb.PackObjectsHookRequest{
+			Repository: repository,
+			Args:       os.Args[2:],
+		}); err != nil {
+			hello.Fatalf("error when sending request for %q: %v", subCmd, err)
+		}
+
+		f := sendFunc(streamio.NewWriter(func(p []byte) error {
+			return packObjectsHookStream.Send(&gitalypb.PackObjectsHookRequest{Stdin: p})
+		}), packObjectsHookStream, os.Stdin)
+
+		if hookStatus, err = stream.Handler(func() (stream.StdoutStderrResponse, error) {
+			return packObjectsHookStream.Recv()
+		}, f, os.Stdout, os.Stderr); err != nil {
+			hello.Fatalf("error when receiving data for %q: %v", subCmd, err)
 		}
 	default:
 		logger.Fatalf("subcommand name invalid: %q", subCmd)
