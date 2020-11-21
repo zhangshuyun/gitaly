@@ -122,18 +122,28 @@ func (c *cache) key(args []string, stdin []byte) string {
 }
 
 func (c *cache) newEntry(key string) *entry {
-	e := &entry{}
+	e := &entry{c: c, key: key}
 	e.Cond = sync.NewCond(e)
 	return e
 }
 
 type entry struct {
+	c   *cache
+	key string
 	sync.Mutex
 	*sync.Cond
 	done   bool
 	err    error
 	stderr []byte
 	stdout []byte
+}
+
+func (e *entry) delete() {
+	e.c.Lock()
+	if e.c.entries[e.key] == e {
+		delete(e.c.entries, e.key)
+	}
+	e.c.Unlock()
 }
 
 func (e *entry) NOut() int { return len(e.stdout) }
@@ -203,8 +213,9 @@ func (e *entry) generateResponse(repoPath string, args []string, stdin []byte, s
 
 	e.Lock()
 	e.done = true
+	e.err = err
 	if err != nil {
-		e.err = err
+		e.delete()
 	}
 	e.Unlock()
 	e.Broadcast()
