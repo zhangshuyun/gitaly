@@ -1,6 +1,7 @@
 package hook
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"crypto/rand"
@@ -21,10 +22,13 @@ import (
 
 	"gocloud.dev/blob"
 	_ "gocloud.dev/blob/fileblob"
+	_ "gocloud.dev/blob/gcsblob"
 )
 
 var packCache *cache
 var hello *log.Logger
+
+const chunkSize = 20 * 1000 * 1000
 
 func init() {
 	var err error
@@ -41,6 +45,7 @@ func init() {
 }
 
 func (s *server) PackObjectsHook(stream gitalypb.HookService_PackObjectsHookServer) error {
+	ctx := stream.Context()
 	firstRequest, err := stream.Recv()
 	if err != nil {
 		return helper.ErrInternal(err)
@@ -87,11 +92,14 @@ func (s *server) PackObjectsHook(stream gitalypb.HookService_PackObjectsHookServ
 		done = e.done
 		e.Unlock()
 
-		if err := e.SendErr(stderr, &iErr); err != nil {
+		var err error
+		iErr, err = e.SendErr(ctx, stderr, iErr)
+		if err != nil {
 			return err
 		}
 
-		if err := e.SendOut(stdout, &iOut); err != nil {
+		iOut, err = e.SendOut(ctx, stdout, iOut)
+		if err != nil {
 			return err
 		}
 	}
@@ -108,6 +116,7 @@ type cache struct {
 	cacheID string
 	entries map[string]*entry
 	sync.Mutex
+	nextEntryID int
 }
 
 func (c *cache) key(args []string, stdin []byte) string {
@@ -122,8 +131,13 @@ func (c *cache) key(args []string, stdin []byte) string {
 }
 
 func (c *cache) newEntry(key string) *entry {
-	e := &entry{c: c, key: key}
+	e := &entry{
+		c:   c,
+		key: key,
+		id:  c.nextEntryID,
+	}
 	e.Cond = sync.NewCond(e)
+	c.nextEntryID++
 	return e
 }
 
@@ -132,10 +146,37 @@ type entry struct {
 	key string
 	sync.Mutex
 	*sync.Cond
-	done   bool
-	err    error
-	stderr []byte
-	stdout []byte
+	done             bool
+	err              error
+	stderr           []byte
+	nOutChunks       int
+	currentChunkSize int
+	outWriter        *blob.Writer
+	id               int
+}
+
+func (e *entry) CloseWriter() error {
+	e.Lock()
+	defer e.Unlock()
+
+	if e.outWriter == nil {
+		return nil
+	}
+
+	if err := e.outWriter.Close(); err != nil {
+		return err
+	}
+
+	e.outWriter = nil
+	e.nOutChunks++
+	e.currentChunkSize = 0
+	e.Broadcast()
+	return nil
+}
+
+func (e *entry) chunkKey(i int) string {
+	chunk := fmt.Sprintf("%02x", i)
+	return fmt.Sprintf("%s/%s/%s.%d", e.key, chunk[len(chunk)-2:], chunk, e.id)
 }
 
 func (e *entry) delete() {
@@ -146,31 +187,38 @@ func (e *entry) delete() {
 	e.c.Unlock()
 }
 
-func (e *entry) NOut() int { return len(e.stdout) }
+func (e *entry) NOut() int { return e.nOutChunks }
 func (e *entry) NErr() int { return len(e.stderr) }
 
-func (e *entry) SendOut(w io.Writer, pos *int) error {
+func (e *entry) SendOut(ctx context.Context, w io.Writer, pos int) (int, error) {
 	e.Lock()
-	buf := e.stdout
+	nOut := e.NOut()
 	e.Unlock()
-	if *pos > len(buf) {
-		return errors.New("stdout: invalid pos")
+
+	for i := pos; i < nOut; i++ {
+		r, err := e.c.Bucket.NewReader(ctx, e.chunkKey(i), nil)
+		if err != nil {
+			return i, err
+		}
+		defer r.Close()
+
+		if _, err := io.Copy(w, r); err != nil {
+			return i, err
+		}
 	}
-	n, err := w.Write(buf[*pos:])
-	*pos += n
-	return err
+	return nOut, nil
 }
 
-func (e *entry) SendErr(w io.Writer, pos *int) error {
+func (e *entry) SendErr(ctx context.Context, w io.Writer, pos int) (int, error) {
 	e.Lock()
 	buf := e.stderr
 	e.Unlock()
-	if *pos > len(buf) {
-		return errors.New("stderrt: invalid pos")
+	if pos > len(buf) {
+		return 0, errors.New("stderrt: invalid pos")
 	}
-	n, err := w.Write(buf[*pos:])
-	*pos += n
-	return err
+
+	n, err := w.Write(buf[pos:])
+	return pos + n, err
 }
 
 func newCache() (*cache, error) {
@@ -183,8 +231,13 @@ func newCache() (*cache, error) {
 	}
 	c.cacheID = fmt.Sprintf("%x", buf)
 
+	cacheURL := "file:///tmp/gitaly-cache"
+	if v := os.Getenv("GITALY_CACHE_BUCKET"); v != "" {
+		cacheURL = v
+	}
+
 	var err error
-	c.Bucket, err = blob.OpenBucket(context.Background(), "file:///tmp/gitaly-cache")
+	c.Bucket, err = blob.OpenBucket(context.Background(), cacheURL)
 	if err != nil {
 		return nil, err
 	}
@@ -197,18 +250,26 @@ func (e *entry) generateResponse(repoPath string, args []string, stdin []byte, s
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
+		stdout := bufio.NewWriter(WriterFunc(e.WriteStdout))
 		cmd, err := command.New(
 			ctx,
 			exec.Command("git", append([]string{"-C", repoPath}, args...)...),
 			bytes.NewReader(stdin),
-			WriterFunc(e.WriteStdout),
+			stdout,
 			WriterFunc(e.WriteStderr),
 		)
 		if err != nil {
 			return err
 		}
 
-		return cmd.Wait()
+		if err := cmd.Wait(); err != nil {
+			return err
+		}
+		if err := stdout.Flush(); err != nil {
+			return err
+		}
+
+		return e.CloseWriter()
 	}()
 
 	e.Lock()
@@ -230,9 +291,41 @@ func (e *entry) WriteStderr(p []byte) (int, error) {
 }
 
 func (e *entry) WriteStdout(p []byte) (int, error) {
+	w, err := e.getOutWriter()
+	if err != nil {
+		return 0, err
+	}
+	n, err := w.Write(p)
+	if err != nil {
+		return n, err
+	}
+
 	e.Lock()
-	e.stdout = append(e.stdout, p...)
+	e.currentChunkSize += n
 	e.Unlock()
-	e.Broadcast()
-	return len(p), nil
+
+	if e.chunkIsFull() {
+		return n, e.CloseWriter()
+	}
+
+	return n, nil
+}
+
+func (e *entry) getOutWriter() (io.Writer, error) {
+	e.Lock()
+	defer e.Unlock()
+	if e.outWriter == nil {
+		var err error
+		e.outWriter, err = e.c.Bucket.NewWriter(context.Background(), e.chunkKey(e.nOutChunks), nil)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return e.outWriter, nil
+}
+
+func (e *entry) chunkIsFull() bool {
+	e.Lock()
+	defer e.Unlock()
+	return e.currentChunkSize > chunkSize
 }
