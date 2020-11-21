@@ -6,7 +6,7 @@ require (
 	github.com/getsentry/sentry-go v0.7.0
 	github.com/git-lfs/git-lfs v1.5.1-0.20200916154635-9ea4eed5b112
 	github.com/gogo/protobuf v1.2.1 // indirect
-	github.com/golang/protobuf v1.3.2
+	github.com/golang/protobuf v1.4.2
 	github.com/google/uuid v1.1.1
 	github.com/grpc-ecosystem/go-grpc-middleware v1.0.0
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
@@ -28,12 +28,13 @@ require (
 	gitlab.com/gitlab-org/gitlab-shell v1.9.8-0.20201117050822-3f9890ef73dc
 	gitlab.com/gitlab-org/labkit v0.0.0-20201113080642-40dcf811328c
 	go.uber.org/atomic v1.4.0 // indirect
+	gocloud.dev v0.20.0
 	golang.org/x/crypto v0.0.0-20200820211705-5c72a883971a // indirect
 	golang.org/x/net v0.0.0-20200904194848-62affa334b73 // indirect
 	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208
 	golang.org/x/sys v0.0.0-20201015000850-e3ed0017c211
 	golang.org/x/text v0.3.3 // indirect
-	google.golang.org/grpc v1.24.0
+	google.golang.org/grpc v1.29.1
 	gopkg.in/yaml.v2 v2.3.0
 )
 
