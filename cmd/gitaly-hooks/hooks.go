@@ -228,6 +228,12 @@ func main() {
 			logger.Fatalf("error when receiving data for %q: %v", subCmd, err)
 		}
 	case "git":
+		args := os.Args[2:]
+		// Silly workaround for Git quoting bug: --filter='limit=200' should not contain single quotes.
+		for i, a := range args {
+			args[i] = strings.Replace(a, "'", "", -1)
+		}
+
 		packObjectsHookStream, err := hookClient.PackObjectsHook(ctx)
 		if err != nil {
 			hello.Fatalf("error when getting stream client for %q: %v", subCmd, err)
@@ -235,7 +241,7 @@ func main() {
 
 		if err := packObjectsHookStream.Send(&gitalypb.PackObjectsHookRequest{
 			Repository: repository,
-			Args:       os.Args[2:],
+			Args:       args,
 		}); err != nil {
 			hello.Fatalf("error when sending request for %q: %v", subCmd, err)
 		}
