@@ -60,6 +60,7 @@ func runSmartHTTPServer(t *testing.T, serverOpts ...ServerOpt) (string, func()) 
 		},
 	)
 
+	serverOpts = append([]ServerOpt{WithConfig(config.Config)}, serverOpts...)
 	gitalypb.RegisterSmartHTTPServiceServer(srv.GrpcServer(), NewServer(config.NewLocator(config.Config), serverOpts...))
 	reflection.Register(srv.GrpcServer())
 

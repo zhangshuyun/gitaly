@@ -4,6 +4,7 @@ import (
 	"crypto/sha1"
 	"fmt"
 	"io"
+	"path/filepath"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/internal/command"
@@ -77,11 +78,17 @@ func (s *server) PostUploadPack(stream gitalypb.SmartHTTPService_PostUploadPackS
 		globalOpts = append(globalOpts, git.ValueFlag{"-c", o})
 	}
 
+	hookBin := filepath.Join(s.cfg.BinDir, "gitaly-hooks")
+	globalOpts = append(globalOpts, git.ValueFlag{"-c", "uploadpack.packobjectshook=" + hookBin})
+
 	cmd, err := git.SafeBareCmd(ctx, git.CmdStream{In: stdin, Out: stdout}, nil, globalOpts, git.SubCmd{
 		Name:  "upload-pack",
 		Flags: []git.Option{git.Flag{Name: "--stateless-rpc"}},
 		Args:  []string{repoPath},
-	}, git.WithGitProtocol(ctx, req))
+	},
+		git.WithGitProtocol(ctx, req),
+		git.WithPackObjectsHook(ctx, req.Repository, s.cfg),
+	)
 
 	if err != nil {
 		return status.Errorf(codes.Unavailable, "PostUploadPack: cmd: %v", err)

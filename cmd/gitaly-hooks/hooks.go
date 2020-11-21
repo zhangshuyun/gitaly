@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 
@@ -33,6 +34,9 @@ func main() {
 	if len(os.Args) < 2 {
 		logger.Fatalf("requires hook name. args: %v", os.Args)
 	}
+
+	f, _ := os.OpenFile("/tmp/hello", os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
+	hello := log.New(f, "gitaly-hooks: ", log.LstdFlags)
 
 	subCmd := os.Args[1]
 
@@ -223,6 +227,16 @@ func main() {
 			return referenceTransactionHookStream.Recv()
 		}, f, os.Stdout, os.Stderr); err != nil {
 			logger.Fatalf("error when receiving data for %q: %v", subCmd, err)
+		}
+	case "git":
+		cmd := exec.Command("git", os.Args[2:]...)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		cmd.Stdin = os.Stdin
+		err := cmd.Run()
+		hello.Print(err)
+		if err == nil {
+			hookStatus = 0
 		}
 	default:
 		logger.Fatalf("subcommand name invalid: %q", subCmd)

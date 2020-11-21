@@ -36,6 +36,23 @@ func WithRefTxHook(ctx context.Context, repo *gitalypb.Repository, cfg config.Cf
 	}
 }
 
+func WithPackObjectsHook(ctx context.Context, repo *gitalypb.Repository, cfg config.Cfg) CmdOpt {
+	return func(cc *cmdCfg) error {
+		if repo == nil {
+			return fmt.Errorf("missing repo: %w", ErrInvalidArg)
+		}
+
+		rfEnvs, err := refHookEnv(ctx, repo, cfg)
+		if err != nil {
+			return fmt.Errorf("ref hook env var: %w", err)
+		}
+
+		cc.env = append(cc.env, rfEnvs...)
+
+		return nil
+	}
+}
+
 // refHookEnv returns all env vars required by the reference transaction hook
 func refHookEnv(ctx context.Context, repo *gitalypb.Repository, cfg config.Cfg) ([]string, error) {
 	repoJSON, err := jsonpbMarshaller.MarshalToString(repo)
