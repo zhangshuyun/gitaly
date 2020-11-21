@@ -83,23 +83,20 @@ func (s *server) PackObjectsHook(stream gitalypb.HookService_PackObjectsHookServ
 	}
 	packCache.Unlock()
 
-	var iErr, iOut int
+	var posErr, posOut int
 	for done := false; !done; {
 		e.Lock()
-		for !e.done && iErr == e.NErr() && iOut == e.NOut() {
+		for !e.done && posErr == e.stderr.SizeLocked() && posOut == e.stdout.SizeLocked() {
 			e.Wait()
 		}
 		done = e.done
 		e.Unlock()
 
-		var err error
-		iErr, err = e.SendErr(ctx, stderr, iErr)
-		if err != nil {
+		if err := e.stderr.Send(ctx, stderr, &posErr); err != nil {
 			return err
 		}
 
-		iOut, err = e.SendOut(ctx, stdout, iOut)
-		if err != nil {
+		if err := e.stdout.Send(ctx, stdout, &posOut); err != nil {
 			return err
 		}
 	}
@@ -137,6 +134,8 @@ func (c *cache) newEntry(key string) *entry {
 		id:  c.nextEntryID,
 	}
 	e.Cond = sync.NewCond(e)
+	e.stderr = &memBuffer{entry: e}
+	e.stdout = &blobBuffer{entry: e}
 	c.nextEntryID++
 	return e
 }
@@ -146,32 +145,11 @@ type entry struct {
 	key string
 	sync.Mutex
 	*sync.Cond
-	done             bool
-	err              error
-	stderr           []byte
-	nOutChunks       int
-	currentChunkSize int
-	outWriter        *blob.Writer
-	id               int
-}
-
-func (e *entry) CloseWriter() error {
-	e.Lock()
-	defer e.Unlock()
-
-	if e.outWriter == nil {
-		return nil
-	}
-
-	if err := e.outWriter.Close(); err != nil {
-		return err
-	}
-
-	e.outWriter = nil
-	e.nOutChunks++
-	e.currentChunkSize = 0
-	e.Broadcast()
-	return nil
+	done   bool
+	err    error
+	stderr *memBuffer
+	stdout *blobBuffer
+	id     int
 }
 
 func (e *entry) chunkKey(i int) string {
@@ -187,38 +165,32 @@ func (e *entry) delete() {
 	e.c.Unlock()
 }
 
-func (e *entry) NOut() int { return e.nOutChunks }
-func (e *entry) NErr() int { return len(e.stderr) }
-
-func (e *entry) SendOut(ctx context.Context, w io.Writer, pos int) (int, error) {
-	e.Lock()
-	nOut := e.NOut()
-	e.Unlock()
-
-	for i := pos; i < nOut; i++ {
-		r, err := e.c.Bucket.NewReader(ctx, e.chunkKey(i), nil)
-		if err != nil {
-			return i, err
-		}
-		defer r.Close()
-
-		if _, err := io.Copy(w, r); err != nil {
-			return i, err
-		}
-	}
-	return nOut, nil
+type memBuffer struct {
+	buf []byte
+	*entry
 }
 
-func (e *entry) SendErr(ctx context.Context, w io.Writer, pos int) (int, error) {
-	e.Lock()
-	buf := e.stderr
-	e.Unlock()
-	if pos > len(buf) {
-		return 0, errors.New("stderrt: invalid pos")
+func (mb *memBuffer) Write(p []byte) (int, error) {
+	mb.Lock()
+	mb.buf = append(mb.buf, p...)
+	mb.Unlock()
+	mb.Broadcast()
+	return len(p), nil
+}
+
+func (mb *memBuffer) SizeLocked() int { return len(mb.buf) }
+
+func (mb *memBuffer) Send(ctx context.Context, w io.Writer, pos *int) error {
+	mb.Lock()
+	buf := mb.buf
+	mb.Unlock()
+	if *pos > len(buf) {
+		return errors.New("memBuffer: invalid pos")
 	}
 
-	n, err := w.Write(buf[pos:])
-	return pos + n, err
+	n, err := w.Write(buf[*pos:])
+	*pos += n
+	return err
 }
 
 func newCache() (*cache, error) {
@@ -250,13 +222,13 @@ func (e *entry) generateResponse(repoPath string, args []string, stdin []byte, s
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
-		stdout := bufio.NewWriter(WriterFunc(e.WriteStdout))
+		stdout := bufio.NewWriter(e.stdout)
 		cmd, err := command.New(
 			ctx,
 			exec.Command("git", append([]string{"-C", repoPath}, args...)...),
 			bytes.NewReader(stdin),
 			stdout,
-			WriterFunc(e.WriteStderr),
+			e.stderr,
 		)
 		if err != nil {
 			return err
@@ -269,7 +241,7 @@ func (e *entry) generateResponse(repoPath string, args []string, stdin []byte, s
 			return err
 		}
 
-		return e.CloseWriter()
+		return e.stdout.CloseWriter()
 	}()
 
 	e.Lock()
@@ -282,16 +254,58 @@ func (e *entry) generateResponse(repoPath string, args []string, stdin []byte, s
 	e.Broadcast()
 }
 
-func (e *entry) WriteStderr(p []byte) (int, error) {
-	e.Lock()
-	e.stderr = append(e.stderr, p...)
-	e.Unlock()
-	e.Broadcast()
-	return len(p), nil
+type blobBuffer struct {
+	*entry
+	w                *blob.Writer
+	nChunks          int
+	currentChunkSize int
 }
 
-func (e *entry) WriteStdout(p []byte) (int, error) {
-	w, err := e.getOutWriter()
+func (bb *blobBuffer) CloseWriter() error {
+	bb.Lock()
+	defer bb.Unlock()
+
+	if bb.w == nil {
+		return nil
+	}
+
+	if err := bb.w.Close(); err != nil {
+		return err
+	}
+
+	bb.w = nil
+	bb.nChunks++
+	bb.currentChunkSize = 0
+	bb.Broadcast()
+	return nil
+}
+
+func (bb *blobBuffer) SizeLocked() int { return bb.nChunks }
+
+func (bb *blobBuffer) Send(ctx context.Context, w io.Writer, pos *int) error {
+	bb.Lock()
+	nChunks := bb.SizeLocked()
+	bb.Unlock()
+
+	var err error
+	for ; *pos < nChunks && err == nil; *pos++ {
+		err = func() error {
+			r, err := bb.c.Bucket.NewReader(ctx, bb.chunkKey(*pos), nil)
+			if err != nil {
+				return err
+			}
+			defer r.Close()
+
+			_, err = io.Copy(w, r)
+			return err
+		}()
+	}
+
+	return err
+}
+
+func (bb *blobBuffer) Write(p []byte) (int, error) {
+	w, err := bb.writer()
 	if err != nil {
 		return 0, err
 	}
@@ -300,32 +314,32 @@ func (e *entry) WriteStdout(p []byte) (int, error) {
 		return n, err
 	}
 
-	e.Lock()
-	e.currentChunkSize += n
-	e.Unlock()
+	bb.Lock()
+	bb.currentChunkSize += n
+	bb.Unlock()
 
-	if e.chunkIsFull() {
-		return n, e.CloseWriter()
+	if bb.chunkIsFull() {
+		return n, bb.CloseWriter()
 	}
 
 	return n, nil
 }
 
-func (e *entry) getOutWriter() (io.Writer, error) {
-	e.Lock()
-	defer e.Unlock()
-	if e.outWriter == nil {
+func (bb *blobBuffer) writer() (io.Writer, error) {
+	bb.Lock()
+	defer bb.Unlock()
+	if bb.w == nil {
 		var err error
-		e.outWriter, err = e.c.Bucket.NewWriter(context.Background(), e.chunkKey(e.nOutChunks), nil)
+		bb.w, err = bb.entry.c.Bucket.NewWriter(context.Background(), bb.chunkKey(bb.nChunks), nil)
 		if err != nil {
 			return nil, err
 		}
 	}
-	return e.outWriter, nil
+	return bb.w, nil
 }
 
-func (e *entry) chunkIsFull() bool {
-	e.Lock()
-	defer e.Unlock()
-	return e.currentChunkSize > chunkSize
+func (bb *blobBuffer) chunkIsFull() bool {
+	bb.Lock()
+	defer bb.Unlock()
+	return bb.currentChunkSize > chunkSize
 }
