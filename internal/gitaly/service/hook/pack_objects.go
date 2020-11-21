@@ -86,17 +86,17 @@ func (s *server) PackObjectsHook(stream gitalypb.HookService_PackObjectsHookServ
 	var posErr, posOut int
 	for done := false; !done; {
 		e.Lock()
-		for !e.done && posErr == e.stderr.SizeLocked() && posOut == e.stdout.SizeLocked() {
+		for !e.done && posErr == e.stderr.len() && posOut == e.stdout.len() {
 			e.Wait()
 		}
 		done = e.done
 		e.Unlock()
 
-		if err := e.stderr.Send(ctx, stderr, &posErr); err != nil {
+		if err := e.stderr.send(ctx, stderr, &posErr); err != nil {
 			return err
 		}
 
-		if err := e.stdout.Send(ctx, stdout, &posOut); err != nil {
+		if err := e.stdout.send(ctx, stdout, &posOut); err != nil {
 			return err
 		}
 	}
@@ -174,9 +174,10 @@ func (mb *memBuffer) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-func (mb *memBuffer) SizeLocked() int { return len(mb.buf) }
+// Caller must hold lock when calling len.
+func (mb *memBuffer) len() int { return len(mb.buf) }
 
-func (mb *memBuffer) Send(ctx context.Context, w io.Writer, pos *int) error {
+func (mb *memBuffer) send(ctx context.Context, w io.Writer, pos *int) error {
 	mb.Lock()
 	buf := mb.buf
 	mb.Unlock()
@@ -237,7 +238,7 @@ func (e *entry) generateResponse(repoPath string, args []string, stdin []byte, s
 			return err
 		}
 
-		return e.stdout.FlushChunk()
+		return e.stdout.flushChunk()
 	}()
 
 	e.Lock()
@@ -257,7 +258,7 @@ type blobBuffer struct {
 	currentChunkSize int
 }
 
-func (bb *blobBuffer) FlushChunk() error {
+func (bb *blobBuffer) flushChunk() error {
 	bb.Lock()
 	defer bb.Unlock()
 
@@ -276,11 +277,12 @@ func (bb *blobBuffer) FlushChunk() error {
 	return nil
 }
 
-func (bb *blobBuffer) SizeLocked() int { return bb.nChunks }
+// Caller must hold lock when calling len.
+func (bb *blobBuffer) len() int { return bb.nChunks }
 
-func (bb *blobBuffer) Send(ctx context.Context, w io.Writer, pos *int) error {
+func (bb *blobBuffer) send(ctx context.Context, w io.Writer, pos *int) error {
 	bb.Lock()
-	nChunks := bb.SizeLocked()
+	nChunks := bb.len()
 	bb.Unlock()
 
 	var err error
@@ -315,7 +317,7 @@ func (bb *blobBuffer) Write(p []byte) (int, error) {
 	bb.Unlock()
 
 	if bb.chunkIsFull() {
-		return n, bb.FlushChunk()
+		return n, bb.flushChunk()
 	}
 
 	return n, nil
@@ -326,7 +328,7 @@ func (bb *blobBuffer) writer() (io.Writer, error) {
 	defer bb.Unlock()
 	if bb.w == nil {
 		var err error
-		bb.w, err = bb.entry.c.Bucket.NewWriter(context.Background(), bb.chunkKey(bb.nChunks), nil)
+		bb.w, err = bb.entry.c.Bucket.NewWriter(context.Background(), bb.chunkKey(bb.len()), nil)
 		if err != nil {
 			return nil, err
 		}
