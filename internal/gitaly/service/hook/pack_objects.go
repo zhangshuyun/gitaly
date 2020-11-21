@@ -104,10 +104,6 @@ func (s *server) PackObjectsHook(stream gitalypb.HookService_PackObjectsHookServ
 	return e.err
 }
 
-type WriterFunc func([]byte) (int, error)
-
-func (f WriterFunc) Write(p []byte) (int, error) { return f(p) }
-
 type cache struct {
 	*blob.Bucket
 	cacheID string
@@ -241,7 +237,7 @@ func (e *entry) generateResponse(repoPath string, args []string, stdin []byte, s
 			return err
 		}
 
-		return e.stdout.CloseWriter()
+		return e.stdout.FlushChunk()
 	}()
 
 	e.Lock()
@@ -261,7 +257,7 @@ type blobBuffer struct {
 	currentChunkSize int
 }
 
-func (bb *blobBuffer) CloseWriter() error {
+func (bb *blobBuffer) FlushChunk() error {
 	bb.Lock()
 	defer bb.Unlock()
 
@@ -319,7 +315,7 @@ func (bb *blobBuffer) Write(p []byte) (int, error) {
 	bb.Unlock()
 
 	if bb.chunkIsFull() {
-		return n, bb.CloseWriter()
+		return n, bb.FlushChunk()
 	}
 
 	return n, nil
