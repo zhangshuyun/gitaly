@@ -40,13 +40,6 @@ func (s *server) PackObjectsHook(stream gitalypb.HookService_PackObjectsHookServ
 	if err != nil {
 		return err
 	}
-	lastResponse := &gitalypb.PackObjectsHookResponse{
-		ExitStatus: &gitalypb.ExitStatus{Value: 0},
-	}
-	if err := cmd.Wait(); err != nil {
-		lastResponse.ExitStatus.Value = 1
-	}
 
-	return stream.Send(lastResponse)
-
+	return cmd.Wait()
 }
