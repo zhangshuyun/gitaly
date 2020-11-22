@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
@@ -18,6 +19,7 @@ type server struct {
 	uploadPackRequestTimeout    time.Duration
 	uploadArchiveRequestTimeout time.Duration
 	packfileNegotiationMetrics  *prometheus.CounterVec
+	cfg                         config.Cfg
 }
 
 // NewServer creates a new instance of a grpc SSHServer
@@ -59,5 +61,11 @@ func WithArchiveRequestTimeout(d time.Duration) ServerOpt {
 func WithPackfileNegotiationMetrics(c *prometheus.CounterVec) ServerOpt {
 	return func(s *server) {
 		s.packfileNegotiationMetrics = c
+	}
+}
+
+func WithConfig(cfg config.Cfg) ServerOpt {
+	return func(s *server) {
+		s.cfg = cfg
 	}
 }

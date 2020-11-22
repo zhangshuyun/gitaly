@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"path/filepath"
 	"sync"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
@@ -79,6 +80,8 @@ func (s *server) sshUploadPack(stream gitalypb.SSHService_SSHUploadPackServer, r
 	git.WarnIfTooManyBitmaps(ctx, req.GetRepository())
 
 	globalOpts := git.UploadPackFilterConfig()
+	hookBin := filepath.Join(s.cfg.BinDir, "gitaly-hooks")
+	globalOpts = append(globalOpts, git.ValueFlag{"-c", "uploadpack.packobjectshook=" + hookBin})
 	for _, o := range req.GitConfigOptions {
 		globalOpts = append(globalOpts, git.ValueFlag{"-c", o})
 	}
@@ -106,7 +109,10 @@ func (s *server) sshUploadPack(stream gitalypb.SSHService_SSHUploadPackServer, r
 	cmd, monitor, err := monitorStdinCommand(ctx, stdin, stdout, stderr, nil, globalOpts, git.SubCmd{
 		Name: "upload-pack",
 		Args: []string{repoPath},
-	}, git.WithGitProtocol(ctx, req))
+	},
+		git.WithGitProtocol(ctx, req),
+		git.WithPackObjectsHookEnv(ctx, req.Repository, s.cfg),
+	)
 
 	if err != nil {
 		return err

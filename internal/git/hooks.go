@@ -36,7 +36,7 @@ func WithRefTxHook(ctx context.Context, repo *gitalypb.Repository, cfg config.Cf
 	}
 }
 
-func WithPackObjectsHook(ctx context.Context, repo *gitalypb.Repository, cfg config.Cfg) CmdOpt {
+func WithPackObjectsHookEnv(ctx context.Context, repo *gitalypb.Repository, cfg config.Cfg) CmdOpt {
 	return func(cc *cmdCfg) error {
 		if repo == nil {
 			return fmt.Errorf("missing repo: %w", ErrInvalidArg)

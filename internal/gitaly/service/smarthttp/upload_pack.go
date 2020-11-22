@@ -87,7 +87,7 @@ func (s *server) PostUploadPack(stream gitalypb.SmartHTTPService_PostUploadPackS
 		Args:  []string{repoPath},
 	},
 		git.WithGitProtocol(ctx, req),
-		git.WithPackObjectsHook(ctx, req.Repository, s.cfg),
+		git.WithPackObjectsHookEnv(ctx, req.Repository, s.cfg),
 	)
 
 	if err != nil {

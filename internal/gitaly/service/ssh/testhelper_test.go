@@ -1,12 +1,15 @@
 package ssh
 
 import (
+	"net"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	gitalyhook "gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/hook"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
@@ -42,10 +45,18 @@ func testMain(m *testing.M) int {
 func runSSHServer(t *testing.T, serverOpts ...ServerOpt) (string, func()) {
 	srv := testhelper.NewServer(t, nil, nil)
 
+	serverOpts = append([]ServerOpt{WithConfig(config.Config)}, serverOpts...)
 	gitalypb.RegisterSSHServiceServer(srv.GrpcServer(), NewServer(config.NewLocator(config.Config), serverOpts...))
+	gitalypb.RegisterHookServiceServer(srv.GrpcServer(), hook.NewServer(gitalyhook.NewManager(gitalyhook.GitlabAPIStub, config.Config)))
 	reflection.Register(srv.GrpcServer())
 
+	internalListener, err := net.Listen("unix", config.Config.GitalyInternalSocketPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	require.NoError(t, srv.Start())
+	go srv.GrpcServer().Serve(internalListener)
 
 	return "unix://" + srv.Socket(), srv.Stop
 }
