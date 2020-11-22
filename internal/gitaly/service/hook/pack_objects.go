@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"os"
 	"os/exec"
 	"sync"
@@ -19,15 +18,15 @@ import (
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/streamio"
 
+	"github.com/golang/groupcache/lru"
 	"gocloud.dev/blob"
+	_ "gocloud.dev/blob/azureblob"
 	_ "gocloud.dev/blob/fileblob"
 	_ "gocloud.dev/blob/gcsblob"
+	_ "gocloud.dev/blob/s3blob"
 )
 
 var packCache *cache
-var hello *log.Logger
-
-const chunkSize = 50 * 1000 * 1000
 
 func init() {
 	var err error
@@ -35,12 +34,6 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-
-	f, err := os.OpenFile("/tmp/hello", os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
-	if err != nil {
-		panic(err)
-	}
-	hello = log.New(f, "", log.LstdFlags)
 }
 
 func (s *server) PackObjectsHook(stream gitalypb.HookService_PackObjectsHookServer) error {
@@ -77,17 +70,17 @@ func (s *server) PackObjectsHook(stream gitalypb.HookService_PackObjectsHookServ
 		return stream.Send(&gitalypb.PackObjectsHookResponse{Stderr: p})
 	})
 
-	var e *entry
 	key, err := packCache.key(repoPath, firstRequest.Args, stdin)
 	if err != nil {
 		return err
 	}
 
+	var e *entry
 	packCache.Lock()
-	e = packCache.entries[key]
-	if e == nil {
-		e = packCache.newEntry(key)
-		packCache.entries[key] = e
+	if lruEntry, ok := packCache.entries.Get(key); ok {
+		e = lruEntry.(*entry)
+	} else {
+		e = packCache.createEntry(key)
 		stdinHandoff = true
 		go e.fill(repoPath, firstRequest.Args, stdin, stdout, stderr)
 	}
@@ -142,9 +135,34 @@ func readPackObjectsStdin(stream gitalypb.HookService_PackObjectsHookServer) (_ 
 type cache struct {
 	*blob.Bucket
 	cacheID string
-	entries map[string]*entry
+	entries *lru.Cache
 	sync.Mutex
 	nextEntryID int
+	chunkSize   int
+}
+
+func newCache(cacheURL string) (*cache, error) {
+	c := &cache{
+		entries:   lru.New(10000),
+		chunkSize: 50 * 1024 * 1024,
+	}
+	buf := make([]byte, 8)
+	if _, err := io.ReadFull(rand.Reader, buf); err != nil {
+		return nil, err
+	}
+	c.cacheID = fmt.Sprintf("%x", buf)
+
+	if v := os.Getenv("GITALY_CACHE_BUCKET"); v != "" {
+		cacheURL = v
+	}
+
+	var err error
+	c.Bucket, err = blob.OpenBucket(context.Background(), cacheURL)
+	if err != nil {
+		return nil, err
+	}
+
+	return c, nil
 }
 
 func (c *cache) key(repoPath string, args []string, stdin io.ReadSeeker) (string, error) {
@@ -165,7 +183,8 @@ func (c *cache) key(repoPath string, args []string, stdin io.ReadSeeker) (string
 	return fmt.Sprintf("%x", h.Sum(nil)), nil
 }
 
-func (c *cache) newEntry(key string) *entry {
+// createEntry expects caller to lock/unlock cache.
+func (c *cache) createEntry(key string) *entry {
 	e := &entry{
 		c:   c,
 		key: key,
@@ -173,8 +192,11 @@ func (c *cache) newEntry(key string) *entry {
 	e.Cond = sync.NewCond(e)
 	e.stderr = &memBuffer{entry: e}
 	e.stdout = &blobBuffer{entry: e}
+
 	e.id = c.nextEntryID
 	c.nextEntryID++
+
+	c.entries.Add(key, e)
 
 	return e
 }
@@ -198,10 +220,11 @@ func (e *entry) chunkKey(i int) string {
 
 func (e *entry) delete() {
 	e.c.Lock()
-	if e.c.entries[e.key] == e {
-		delete(e.c.entries, e.key)
+	defer e.c.Unlock()
+
+	if lruEntry, ok := e.c.entries.Get(e.key); ok && lruEntry.(*entry) == e {
+		e.c.entries.Remove(e.key)
 	}
-	e.c.Unlock()
 }
 
 type memBuffer struct {
@@ -231,29 +254,6 @@ func (mb *memBuffer) send(ctx context.Context, w io.Writer, pos *int) error {
 	n, err := w.Write(buf[*pos:])
 	*pos += n
 	return err
-}
-
-func newCache(cacheURL string) (*cache, error) {
-	c := &cache{
-		entries: make(map[string]*entry),
-	}
-	buf := make([]byte, 8)
-	if _, err := io.ReadFull(rand.Reader, buf); err != nil {
-		return nil, err
-	}
-	c.cacheID = fmt.Sprintf("%x", buf)
-
-	if v := os.Getenv("GITALY_CACHE_BUCKET"); v != "" {
-		cacheURL = v
-	}
-
-	var err error
-	c.Bucket, err = blob.OpenBucket(context.Background(), cacheURL)
-	if err != nil {
-		return nil, err
-	}
-
-	return c, nil
 }
 
 type readSeekCloser interface {
@@ -403,5 +403,5 @@ func (bb *blobBuffer) writer() (io.Writer, error) {
 func (bb *blobBuffer) chunkIsFull() bool {
 	bb.Lock()
 	defer bb.Unlock()
-	return bb.currentChunkSize > chunkSize
+	return bb.currentChunkSize > bb.c.chunkSize
 }

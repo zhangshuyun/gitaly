@@ -6,6 +6,7 @@ require (
 	github.com/getsentry/sentry-go v0.7.0
 	github.com/git-lfs/git-lfs v1.5.1-0.20200916154635-9ea4eed5b112
 	github.com/gogo/protobuf v1.2.1 // indirect
+	github.com/golang/groupcache v0.0.0-20200121045136-8c9f03a8e57e
 	github.com/golang/protobuf v1.4.2
 	github.com/google/uuid v1.1.1
 	github.com/grpc-ecosystem/go-grpc-middleware v1.0.0
