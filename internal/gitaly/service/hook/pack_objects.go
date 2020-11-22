@@ -2,7 +2,6 @@ package hook
 
 import (
 	"context"
-	"crypto/rand"
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
@@ -12,9 +11,11 @@ import (
 	"os"
 	"os/exec"
 	"sync"
+	"time"
 
 	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/streamio"
 
@@ -57,9 +58,11 @@ func (s *server) PackObjectsHook(stream gitalypb.HookService_PackObjectsHookServ
 		// If we have a cache miss and we win the race to spawn a goroutine that
 		// fills the cache, that goroutine becomes responsible for closing the
 		// stdin tempfile.
-		if !stdinHandoff {
-			stdin.Close()
+		if stdinHandoff {
+			return
 		}
+
+		stdin.Close()
 	}()
 
 	var m sync.Mutex
@@ -77,7 +80,7 @@ func (s *server) PackObjectsHook(stream gitalypb.HookService_PackObjectsHookServ
 
 	var e *entry
 	packCache.Lock()
-	if lruEntry, ok := packCache.entries.Get(key); ok {
+	if lruEntry, ok := packCache.entries.Get(key); ok && !lruEntry.(*entry).isStale() {
 		e = lruEntry.(*entry)
 	} else {
 		e = packCache.createEntry(key)
@@ -139,24 +142,26 @@ type cache struct {
 	sync.Mutex
 	nextEntryID int
 	chunkSize   int
+	maxAge      time.Duration
 }
 
 func newCache(cacheURL string) (*cache, error) {
 	c := &cache{
 		entries:   lru.New(10000),
 		chunkSize: 50 * 1024 * 1024,
+		maxAge:    15 * time.Minute,
 	}
-	buf := make([]byte, 8)
-	if _, err := io.ReadFull(rand.Reader, buf); err != nil {
+
+	var err error
+	c.cacheID, err = text.RandomHex(8)
+	if err != nil {
 		return nil, err
 	}
-	c.cacheID = fmt.Sprintf("%x", buf)
 
 	if v := os.Getenv("GITALY_CACHE_BUCKET"); v != "" {
 		cacheURL = v
 	}
 
-	var err error
 	c.Bucket, err = blob.OpenBucket(context.Background(), cacheURL)
 	if err != nil {
 		return nil, err
@@ -186,8 +191,9 @@ func (c *cache) key(repoPath string, args []string, stdin io.ReadSeeker) (string
 // createEntry expects caller to lock/unlock cache.
 func (c *cache) createEntry(key string) *entry {
 	e := &entry{
-		c:   c,
-		key: key,
+		c:       c,
+		key:     key,
+		created: time.Now(),
 	}
 	e.Cond = sync.NewCond(e)
 	e.stderr = &memBuffer{entry: e}
@@ -206,12 +212,15 @@ type entry struct {
 	key string
 	sync.Mutex
 	*sync.Cond
-	done   bool
-	err    error
-	stderr *memBuffer
-	stdout *blobBuffer
-	id     int
+	done    bool
+	err     error
+	stderr  *memBuffer
+	stdout  *blobBuffer
+	id      int
+	created time.Time
 }
+
+func (e *entry) isStale() bool { return time.Since(e.created) > e.c.maxAge }
 
 func (e *entry) chunkKey(i int) string {
 	chunk := fmt.Sprintf("%02x", i)
