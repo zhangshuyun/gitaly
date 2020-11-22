@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -180,7 +181,7 @@ func (c *cache) key(repoPath string, args []string, stdin io.ReadSeeker) (string
 	}
 
 	enc := json.NewEncoder(h)
-	for _, v := range []interface{}{c.cacheID, args, repoPath} {
+	for _, v := range []interface{}{c.cacheID, args, filepath.Clean(repoPath)} {
 		if err := enc.Encode(v); err != nil {
 			return "", err
 		}
