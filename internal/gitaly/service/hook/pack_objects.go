@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -28,7 +29,7 @@ import (
 var packCache *cache
 var hello *log.Logger
 
-const chunkSize = 20 * 1000 * 1000
+const chunkSize = 50 * 1000 * 1000
 
 func init() {
 	var err error
@@ -73,7 +74,11 @@ func (s *server) PackObjectsHook(stream gitalypb.HookService_PackObjectsHookServ
 	})
 
 	var e *entry
-	key := packCache.key(firstRequest.Args, stdin)
+	key, err := packCache.key(firstRequest.Args, stdin)
+	if err != nil {
+		return err
+	}
+
 	packCache.Lock()
 	e = packCache.entries[key]
 	if e == nil {
@@ -112,15 +117,16 @@ type cache struct {
 	nextEntryID int
 }
 
-func (c *cache) key(args []string, stdin []byte) string {
+func (c *cache) key(args []string, stdin []byte) (string, error) {
 	h := sha256.New()
-	h.Write([]byte(c.cacheID))
-	fmt.Fprintf(h, "%d\x00", len(args))
-	for _, a := range args {
-		fmt.Fprintf(h, "%s\x00", a)
-	}
 	h.Write(stdin)
-	return fmt.Sprintf("%x", h.Sum(nil))
+	enc := json.NewEncoder(h)
+	for _, v := range []interface{}{c.cacheID, args} {
+		if err := enc.Encode(v); err != nil {
+			return "", err
+		}
+	}
+	return fmt.Sprintf("%x", h.Sum(nil)), nil
 }
 
 func (c *cache) newEntry(key string) *entry {
