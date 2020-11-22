@@ -34,9 +34,6 @@ func main() {
 		logger.Fatalf("requires hook name. args: %v", os.Args)
 	}
 
-	f, _ := os.OpenFile("/tmp/hello", os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
-	hello := log.New(f, "gitaly-hooks: ", log.LstdFlags)
-
 	subCmd := os.Args[1]
 
 	if subCmd == "check" {
@@ -236,14 +233,14 @@ func main() {
 
 		packObjectsHookStream, err := hookClient.PackObjectsHook(ctx)
 		if err != nil {
-			hello.Fatalf("error when getting stream client for %q: %v", subCmd, err)
+			logger.Fatalf("error when getting stream client for %q: %v", subCmd, err)
 		}
 
 		if err := packObjectsHookStream.Send(&gitalypb.PackObjectsHookRequest{
 			Repository: repository,
 			Args:       args,
 		}); err != nil {
-			hello.Fatalf("error when sending request for %q: %v", subCmd, err)
+			logger.Fatalf("error when sending request for %q: %v", subCmd, err)
 		}
 
 		f := sendFunc(streamio.NewWriter(func(p []byte) error {
@@ -253,7 +250,7 @@ func main() {
 		if hookStatus, err = stream.Handler(func() (stream.StdoutStderrResponse, error) {
 			return packObjectsHookStream.Recv()
 		}, f, os.Stdout, os.Stderr); err != nil {
-			hello.Fatalf("error when receiving data for %q: %v", subCmd, err)
+			logger.Fatalf("error when receiving data for %q: %v", subCmd, err)
 		}
 	default:
 		logger.Fatalf("subcommand name invalid: %q", subCmd)
