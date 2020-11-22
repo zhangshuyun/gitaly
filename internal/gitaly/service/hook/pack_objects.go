@@ -1,8 +1,6 @@
 package hook
 
 import (
-	"bufio"
-	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
@@ -33,7 +31,7 @@ const chunkSize = 50 * 1000 * 1000
 
 func init() {
 	var err error
-	packCache, err = newCache()
+	packCache, err = newCache("file:///tmp/gitaly-cache")
 	if err != nil {
 		panic(err)
 	}
@@ -57,13 +55,16 @@ func (s *server) PackObjectsHook(stream gitalypb.HookService_PackObjectsHookServ
 		return err
 	}
 
-	stdin, err := ioutil.ReadAll(streamio.NewReader(func() ([]byte, error) {
-		req, err := stream.Recv()
-		return req.GetStdin(), err
-	}))
+	stdinHandoff := false
+	stdin, err := readPackObjectsStdin(stream)
 	if err != nil {
 		return err
 	}
+	defer func() {
+		if !stdinHandoff {
+			stdin.Close()
+		}
+	}()
 
 	var m sync.Mutex
 	stdout := streamio.NewSyncWriter(&m, func(p []byte) error {
@@ -74,7 +75,7 @@ func (s *server) PackObjectsHook(stream gitalypb.HookService_PackObjectsHookServ
 	})
 
 	var e *entry
-	key, err := packCache.key(firstRequest.Args, stdin)
+	key, err := packCache.key(repoPath, firstRequest.Args, stdin)
 	if err != nil {
 		return err
 	}
@@ -84,7 +85,8 @@ func (s *server) PackObjectsHook(stream gitalypb.HookService_PackObjectsHookServ
 	if e == nil {
 		e = packCache.newEntry(key)
 		packCache.entries[key] = e
-		go e.generateResponse(repoPath, firstRequest.Args, stdin, stdout, stderr)
+		stdinHandoff = true
+		go e.fill(repoPath, firstRequest.Args, stdin, stdout, stderr)
 	}
 	packCache.Unlock()
 
@@ -109,6 +111,29 @@ func (s *server) PackObjectsHook(stream gitalypb.HookService_PackObjectsHookServ
 	return e.err
 }
 
+func readPackObjectsStdin(stream gitalypb.HookService_PackObjectsHookServer) (f *os.File, err error) {
+	defer func() {
+		if f != nil && err != nil {
+			f.Close()
+		}
+	}()
+
+	f, err = ioutil.TempFile("", "")
+	if err != nil {
+		return nil, err
+	}
+	if err := os.Remove(f.Name()); err != nil {
+		return nil, err
+	}
+
+	_, err = io.Copy(f, streamio.NewReader(func() ([]byte, error) {
+		req, err := stream.Recv()
+		return req.GetStdin(), err
+	}))
+
+	return f, err
+}
+
 type cache struct {
 	*blob.Bucket
 	cacheID string
@@ -117,11 +142,17 @@ type cache struct {
 	nextEntryID int
 }
 
-func (c *cache) key(args []string, stdin []byte) (string, error) {
+func (c *cache) key(repoPath string, args []string, stdin io.ReadSeeker) (string, error) {
 	h := sha256.New()
-	h.Write(stdin)
+	if _, err := stdin.Seek(0, io.SeekStart); err != nil {
+		return "", err
+	}
+	if _, err := io.Copy(h, stdin); err != nil {
+		return "", err
+	}
+
 	enc := json.NewEncoder(h)
-	for _, v := range []interface{}{c.cacheID, args} {
+	for _, v := range []interface{}{c.cacheID, args, repoPath} {
 		if err := enc.Encode(v); err != nil {
 			return "", err
 		}
@@ -133,12 +164,13 @@ func (c *cache) newEntry(key string) *entry {
 	e := &entry{
 		c:   c,
 		key: key,
-		id:  c.nextEntryID,
 	}
 	e.Cond = sync.NewCond(e)
 	e.stderr = &memBuffer{entry: e}
 	e.stdout = &blobBuffer{entry: e}
+	e.id = c.nextEntryID
 	c.nextEntryID++
+
 	return e
 }
 
@@ -156,7 +188,7 @@ type entry struct {
 
 func (e *entry) chunkKey(i int) string {
 	chunk := fmt.Sprintf("%02x", i)
-	return fmt.Sprintf("%s/%s/%s.%d", e.key, chunk[len(chunk)-2:], chunk, e.id)
+	return fmt.Sprintf("%s/%s/%s/%d", e.key, chunk[len(chunk)-2:], chunk, e.id)
 }
 
 func (e *entry) delete() {
@@ -196,7 +228,7 @@ func (mb *memBuffer) send(ctx context.Context, w io.Writer, pos *int) error {
 	return err
 }
 
-func newCache() (*cache, error) {
+func newCache(cacheURL string) (*cache, error) {
 	c := &cache{
 		entries: make(map[string]*entry),
 	}
@@ -206,7 +238,6 @@ func newCache() (*cache, error) {
 	}
 	c.cacheID = fmt.Sprintf("%x", buf)
 
-	cacheURL := "file:///tmp/gitaly-cache"
 	if v := os.Getenv("GITALY_CACHE_BUCKET"); v != "" {
 		cacheURL = v
 	}
@@ -220,32 +251,45 @@ func newCache() (*cache, error) {
 	return c, nil
 }
 
-func (e *entry) generateResponse(repoPath string, args []string, stdin []byte, stdout io.Writer, stderr io.Writer) {
-	err := func() error {
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
+type readSeekCloser interface {
+	io.ReadSeeker
+	io.Closer
+}
 
-		stdout := bufio.NewWriter(e.stdout)
-		cmd, err := command.New(
-			ctx,
-			exec.Command("git", append([]string{"-C", repoPath}, args...)...),
-			bytes.NewReader(stdin),
-			stdout,
-			e.stderr,
-		)
-		if err != nil {
-			return err
-		}
+type writeFlusher interface {
+	io.Writer
+	Flush() error
+}
 
-		if err := cmd.Wait(); err != nil {
-			return err
-		}
-		if err := stdout.Flush(); err != nil {
-			return err
-		}
+func runPackObjects(ctx context.Context, repoPath string, args []string, stdin readSeekCloser, stdout writeFlusher, stderr io.Writer) error {
+	defer stdin.Close()
+	if _, err := stdin.Seek(0, io.SeekStart); err != nil {
+		return err
+	}
 
-		return e.stdout.flushChunk()
-	}()
+	cmd, err := command.New(
+		ctx,
+		exec.Command("git", append([]string{"-C", repoPath}, args...)...),
+		stdin,
+		stdout,
+		stderr,
+	)
+	if err != nil {
+		return err
+	}
+
+	if err := cmd.Wait(); err != nil {
+		return err
+	}
+
+	return stdout.Flush()
+}
+
+func (e *entry) fill(repoPath string, args []string, stdin readSeekCloser, stdout io.Writer, stderr io.Writer) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	err := runPackObjects(ctx, repoPath, args, stdin, e.stdout, e.stderr)
 
 	e.Lock()
 	e.done = true
@@ -254,6 +298,7 @@ func (e *entry) generateResponse(repoPath string, args []string, stdin []byte, s
 		e.delete()
 	}
 	e.Unlock()
+
 	e.Broadcast()
 }
 
@@ -264,7 +309,7 @@ type blobBuffer struct {
 	currentChunkSize int
 }
 
-func (bb *blobBuffer) flushChunk() error {
+func (bb *blobBuffer) Flush() error {
 	bb.Lock()
 	defer bb.Unlock()
 
@@ -323,7 +368,7 @@ func (bb *blobBuffer) Write(p []byte) (int, error) {
 	bb.Unlock()
 
 	if bb.chunkIsFull() {
-		return n, bb.flushChunk()
+		return n, bb.Flush()
 	}
 
 	return n, nil
