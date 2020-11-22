@@ -61,6 +61,9 @@ func (s *server) PackObjectsHook(stream gitalypb.HookService_PackObjectsHookServ
 		return err
 	}
 	defer func() {
+		// If we have a cache miss and we win the race to spawn a goroutine that
+		// fills the cache, that goroutine becomes responsible for closing the
+		// stdin tempfile.
 		if !stdinHandoff {
 			stdin.Close()
 		}
@@ -111,27 +114,29 @@ func (s *server) PackObjectsHook(stream gitalypb.HookService_PackObjectsHookServ
 	return e.err
 }
 
-func readPackObjectsStdin(stream gitalypb.HookService_PackObjectsHookServer) (f *os.File, err error) {
+func readPackObjectsStdin(stream gitalypb.HookService_PackObjectsHookServer) (_ *os.File, err error) {
+	f, err := ioutil.TempFile("", "")
+	if err != nil {
+		return nil, err
+	}
 	defer func() {
-		if f != nil && err != nil {
+		if err != nil {
 			f.Close()
 		}
 	}()
 
-	f, err = ioutil.TempFile("", "")
-	if err != nil {
-		return nil, err
-	}
 	if err := os.Remove(f.Name()); err != nil {
 		return nil, err
 	}
 
-	_, err = io.Copy(f, streamio.NewReader(func() ([]byte, error) {
+	if _, err := io.Copy(f, streamio.NewReader(func() ([]byte, error) {
 		req, err := stream.Recv()
 		return req.GetStdin(), err
-	}))
+	})); err != nil {
+		return nil, err
+	}
 
-	return f, err
+	return f, nil
 }
 
 type cache struct {
@@ -309,6 +314,7 @@ type blobBuffer struct {
 	currentChunkSize int
 }
 
+// Flush finishes the current chunk.
 func (bb *blobBuffer) Flush() error {
 	bb.Lock()
 	defer bb.Unlock()
@@ -377,13 +383,20 @@ func (bb *blobBuffer) Write(p []byte) (int, error) {
 func (bb *blobBuffer) writer() (io.Writer, error) {
 	bb.Lock()
 	defer bb.Unlock()
-	if bb.w == nil {
-		var err error
-		bb.w, err = bb.entry.c.Bucket.NewWriter(context.Background(), bb.chunkKey(bb.len()), nil)
-		if err != nil {
-			return nil, err
-		}
+
+	if bb.w != nil {
+		return bb.w, nil
 	}
+
+	var err error
+	if bb.w, err = bb.entry.c.Bucket.NewWriter(
+		context.Background(),
+		bb.chunkKey(bb.len()),
+		&blob.WriterOptions{ContentType: "application/octet-stream"},
+	); err != nil {
+		return nil, err
+	}
+
 	return bb.w, nil
 }
 
