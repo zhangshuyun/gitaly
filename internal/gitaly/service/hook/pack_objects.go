@@ -88,12 +88,13 @@ func (s *server) PackObjectsHook(stream gitalypb.HookService_PackObjectsHookServ
 		stdinHandoff = true
 		go e.fill(repoPath, firstRequest.Args, stdin, stdout, stderr)
 	}
+	defer e.consumerDone()
 	packCache.Unlock()
 
 	var posErr, posOut int
 	for done := false; !done; {
 		e.Lock()
-		for !e.done && posErr == e.stderr.len() && posOut == e.stdout.len() {
+		for !e.done && !e.stderr.updatedAfter(posErr) && !e.stdout.updatedAfter(posOut) {
 			e.Wait()
 		}
 		done = e.done
@@ -192,13 +193,15 @@ func (c *cache) key(repoPath string, args []string, stdin io.ReadSeeker) (string
 // createEntry expects caller to lock/unlock cache.
 func (c *cache) createEntry(key string) *entry {
 	e := &entry{
-		c:       c,
-		key:     key,
-		created: time.Now(),
+		c:         c,
+		key:       key,
+		created:   time.Now(),
+		consumers: 1,
 	}
+
 	e.Cond = sync.NewCond(e)
 	e.stderr = &memBuffer{entry: e}
-	e.stdout = &blobBuffer{entry: e}
+	e.stdout = newBlobBuffer(e)
 
 	e.id = c.nextEntryID
 	c.nextEntryID++
@@ -213,13 +216,34 @@ type entry struct {
 	key string
 	sync.Mutex
 	*sync.Cond
-	done    bool
-	err     error
-	stderr  *memBuffer
-	stdout  *blobBuffer
-	id      int
-	created time.Time
+	done      bool
+	err       error
+	stderr    *memBuffer
+	stdout    *blobBuffer
+	id        int
+	created   time.Time
+	consumers int
 }
+
+func (e *entry) consumerDone() {
+	e.Lock()
+	defer e.Unlock()
+
+	e.consumers--
+	if e.consumers < 0 {
+		panic("pack-objects: negative reference count")
+	}
+}
+
+func (e *entry) allConsumersGone() bool {
+	e.Lock()
+	defer e.Unlock()
+	return e.consumers == 0
+}
+
+var errAllConsumersGone = errors.New("pack-objects: all consumers are gone")
+
+func (e *entry) notifyConsumers() { e.Cond.Broadcast() }
 
 func (e *entry) isStale() bool { return time.Since(e.created) > e.c.maxAge }
 
@@ -243,15 +267,20 @@ type memBuffer struct {
 }
 
 func (mb *memBuffer) Write(p []byte) (int, error) {
+	if mb.allConsumersGone() {
+		return 0, errAllConsumersGone
+	}
+
 	mb.Lock()
 	mb.buf = append(mb.buf, p...)
 	mb.Unlock()
-	mb.Broadcast()
+
+	mb.notifyConsumers()
 	return len(p), nil
 }
 
 // Caller must hold lock when calling len.
-func (mb *memBuffer) len() int { return len(mb.buf) }
+func (mb *memBuffer) updatedAfter(pos int) bool { return pos < len(mb.buf) }
 
 func (mb *memBuffer) send(ctx context.Context, w io.Writer, pos *int) error {
 	mb.Lock()
@@ -304,24 +333,53 @@ func (e *entry) fill(repoPath string, args []string, stdin readSeekCloser, stdou
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	err := runPackObjects(ctx, repoPath, args, stdin, e.stdout, e.stderr)
+	err := func() (err error) {
+		defer func() {
+			if p := recover(); p != nil {
+				err = fmt.Errorf("recovered panic: %v", err)
+			}
+		}()
+
+		return runPackObjects(ctx, repoPath, args, stdin, e.stdout, e.stderr)
+	}()
 
 	e.Lock()
+	defer e.Unlock()
+
 	e.done = true
 	e.err = err
 	if err != nil {
 		e.delete()
 	}
-	e.Unlock()
 
-	e.Broadcast()
+	e.notifyConsumers()
 }
 
 type blobBuffer struct {
 	*entry
-	w                *blob.Writer
-	nChunks          int
-	currentChunkSize int
+	w                    *blob.Writer
+	nChunks              int
+	currentChunkSize     int
+	highestReceivedChunk int
+	*sync.Cond
+}
+
+func newBlobBuffer(e *entry) *blobBuffer {
+	bb := &blobBuffer{entry: e}
+	bb.Cond = sync.NewCond(e)
+	return bb
+}
+
+func (bb *blobBuffer) oneConsumerCaughtUp() bool { return bb.highestReceivedChunk == bb.nChunks-1 }
+
+func (bb *blobBuffer) notifyReceivedChunk(i int) {
+	bb.Lock()
+	defer bb.Unlock()
+
+	if i > bb.highestReceivedChunk {
+		bb.highestReceivedChunk = i
+	}
+	bb.Cond.Broadcast()
 }
 
 // Flush finishes the current chunk.
@@ -340,20 +398,30 @@ func (bb *blobBuffer) Flush() error {
 	bb.w = nil
 	bb.nChunks++
 	bb.currentChunkSize = 0
-	bb.Broadcast()
+	bb.notifyConsumers()
+
+	for !bb.oneConsumerCaughtUp() && bb.entry.consumers > 0 {
+		bb.Cond.Wait()
+	}
+
+	if bb.entry.consumers == 0 {
+		return errAllConsumersGone
+	}
+
 	return nil
 }
 
-// Caller must hold lock when calling len.
-func (bb *blobBuffer) len() int { return bb.nChunks }
+func (bb *blobBuffer) updatedAfter(pos int) bool { return pos < bb.nChunks }
 
 func (bb *blobBuffer) send(ctx context.Context, w io.Writer, pos *int) error {
 	bb.Lock()
-	nChunks := bb.len()
+	nChunks := bb.nChunks
 	bb.Unlock()
 
 	var err error
 	for ; *pos < nChunks && err == nil; *pos++ {
+		bb.notifyReceivedChunk(*pos)
+
 		err = func() error {
 			r, err := bb.c.Bucket.NewReader(ctx, bb.chunkKey(*pos), nil)
 			if err != nil {
@@ -370,6 +438,10 @@ func (bb *blobBuffer) send(ctx context.Context, w io.Writer, pos *int) error {
 }
 
 func (bb *blobBuffer) Write(p []byte) (int, error) {
+	if bb.allConsumersGone() {
+		return 0, errAllConsumersGone
+	}
+
 	w, err := bb.writer()
 	if err != nil {
 		return 0, err
@@ -380,10 +452,10 @@ func (bb *blobBuffer) Write(p []byte) (int, error) {
 	}
 
 	bb.Lock()
-	bb.currentChunkSize += n
-	bb.Unlock()
+	defer bb.Unlock()
 
-	if bb.chunkIsFull() {
+	bb.currentChunkSize += n
+	if bb.currentChunkSize > bb.c.chunkSize {
 		return n, bb.Flush()
 	}
 
@@ -401,17 +473,11 @@ func (bb *blobBuffer) writer() (io.Writer, error) {
 	var err error
 	if bb.w, err = bb.entry.c.Bucket.NewWriter(
 		context.Background(),
-		bb.chunkKey(bb.len()),
+		bb.chunkKey(bb.nChunks),
 		&blob.WriterOptions{ContentType: "application/octet-stream"},
 	); err != nil {
 		return nil, err
 	}
 
 	return bb.w, nil
-}
-
-func (bb *blobBuffer) chunkIsFull() bool {
-	bb.Lock()
-	defer bb.Unlock()
-	return bb.currentChunkSize > bb.c.chunkSize
 }
