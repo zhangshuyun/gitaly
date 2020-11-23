@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"time"
+	"fmt"
 
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
@@ -16,10 +18,13 @@ import (
 func (repo *LocalRepository) MkTag(ctx context.Context, oid string, objectType string, tag string, tagger string, message []byte) (string, error) {
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
+	now := time.Now()
+	secs := now.Unix();
+	secs_str := fmt.Sprintf("%d", secs)
 	buf := "object " + oid + "\n"
 	buf += "type " + objectType + "\n"
 	buf += "tag " + tag + "\n"
-	buf += "tagger " + tagger + "\n"
+	buf += "tagger " + tagger + " " + secs_str + " +0000\n"
 	buf += "\n"
 	buf += string(message)
 	

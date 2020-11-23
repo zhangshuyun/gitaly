@@ -157,11 +157,12 @@ func (s *server) UserCreateTagGo(ctx context.Context, req *gitalypb.UserCreateTa
 	tag := fmt.Sprintf("refs/tags/%s", req.TagName)
 
 	if req.Message != nil {
-		annotatedTagObj, err := localRepo.MkTag(ctx, targetOid, "commit", tag, ". <> 0 +0000", req.Message);
+		tagger := string(req.User.Name) + " <" + string(req.User.Email) + ">"
+		annotatedTagObj, err := localRepo.MkTag(ctx, targetOid, "commit", string(req.TagName), tagger, req.Message);
 		if err != nil {
 			return nil, status.Error(codes.Internal, err.Error())
 		}
-		panic("created " + annotatedTagObj + " referencing " + targetOid)
+		panic(req.User)
 		targetOid = annotatedTagObj
 	}
 
