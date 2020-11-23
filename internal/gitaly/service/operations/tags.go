@@ -186,7 +186,7 @@ func (s *server) UserCreateTagGo(ctx context.Context, req *gitalypb.UserCreateTa
 	// resp, err := client.FindTag(ctx, rpcRequest)
 
 	var tagObj *gitalypb.Tag
-	if tagObj, err = ref.RawFindTag(ctx, req.Repository, []byte(tag)); err != nil {
+	if tagObj, err = ref.RawFindTag(ctx, req.Repository, req.TagName); err != nil {
 		return nil, helper.ErrInternal(err)
 	}
 	return &gitalypb.UserCreateTagResponse{
