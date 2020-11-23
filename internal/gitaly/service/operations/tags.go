@@ -62,10 +62,15 @@ func (s *server) UserDeleteTagGo(ctx context.Context, req *gitalypb.UserDeleteTa
 
 		var updateRefError updateRefError
 		if errors.As(err, &updateRefError) {
-			// TODO: COpy/pasted from branches.go. See
-			// "When an error happens[...]". Does it apply
-			// here too?
-			return &gitalypb.UserDeleteTagResponse{}, nil
+			// TODO: Copy/pasted from branches.go. See
+			// "When an error happens[...]". But I'm
+			// returning the error, TODO: Need a test for
+			// this.
+			return &gitalypb.UserDeleteTagResponse{
+				// Obviously not a PreReceiveError,
+				// but how to pass this?
+				PreReceiveError: updateRefError.reference,
+			}, nil
 		}
 
 		return nil, err
@@ -156,17 +161,19 @@ func (s *server) UserCreateTagGo(ctx context.Context, req *gitalypb.UserCreateTa
 
 	tag := fmt.Sprintf("refs/tags/%s", req.TagName)
 
-	if req.Message != nil {
+	ourTagOid := ""
+	if req.Message == nil {
+		ourTagOid = targetOid
+	} else {
 		tagger := string(req.User.Name) + " <" + string(req.User.Email) + ">"
 		annotatedTagObj, err := localRepo.MkTag(ctx, targetOid, "commit", string(req.TagName), tagger, req.Message);
 		if err != nil {
 			return nil, status.Error(codes.Internal, err.Error())
 		}
-		panic(req.User)
-		targetOid = annotatedTagObj
+		ourTagOid = annotatedTagObj
 	}
 
-	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, tag, targetOid, git.NullSHA); err != nil {
+	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, tag, ourTagOid, git.NullSHA); err != nil {
 		var preReceiveError preReceiveError
 		if errors.As(err, &preReceiveError) {
 			return &gitalypb.UserCreateTagResponse{
@@ -184,13 +191,6 @@ func (s *server) UserCreateTagGo(ctx context.Context, req *gitalypb.UserCreateTa
 
 		return nil, err
 	}
-
-	// rpcRequest := &gitalypb.FindTagRequest{
-	// 	Repository: req.Repository,
-	// 	TagName:    []byte(tag),
-	// }
-
-	// resp, err := client.FindTag(ctx, rpcRequest)
 
 	var tagObj *gitalypb.Tag
 	if tagObj, err = ref.RawFindTag(ctx, req.Repository, req.TagName); err != nil {
