@@ -461,12 +461,12 @@ func (bb *blobBuffer) Write(p []byte) (int, error) {
 	}
 
 	bb.Lock()
-	defer bb.Unlock()
-
 	bb.currentChunkSize += n
 	if bb.currentChunkSize > bb.c.chunkSize {
+		bb.Unlock()
 		return n, bb.Flush()
 	}
+	bb.Unlock()
 
 	return n, nil
 }
