@@ -258,7 +258,7 @@ func (e *entry) isStale() bool { return time.Since(e.created) > e.c.maxAge }
 
 func (e *entry) chunkKey(i int) string {
 	chunk := fmt.Sprintf("%02x", i)
-	return fmt.Sprintf("%s/%s/%s/%d", e.key, chunk[len(chunk)-2:], chunk, e.id)
+	return fmt.Sprintf("%s/%s/%s/%s/%s/%d", e.key[:2], e.key[2:4], e.key[4:], chunk[len(chunk)-2:], chunk, e.id)
 }
 
 func (e *entry) delete() {
