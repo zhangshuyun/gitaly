@@ -79,11 +79,9 @@ func (s *server) PackObjectsHook(stream gitalypb.HookService_PackObjectsHookServ
 		return err
 	}
 
-	var e *entry
 	packCache.Lock()
-	if lruEntry, ok := packCache.entries.Get(key); ok && !lruEntry.(*entry).isStale() {
-		e = lruEntry.(*entry)
-	} else {
+	e := packCache.getEntry(key)
+	if e == nil {
 		e = packCache.createEntry(key)
 		stdinHandoff = true
 		go e.fill(repoPath, firstRequest.Args, stdin, stdout, stderr)
@@ -209,6 +207,17 @@ func (c *cache) createEntry(key string) *entry {
 	c.entries.Add(key, e)
 
 	return e
+}
+
+func (c *cache) getEntry(key string) *entry {
+	if lruEntry, ok := packCache.entries.Get(key); ok && !lruEntry.(*entry).isStale() {
+		e := lruEntry.(*entry)
+		e.Lock()
+		e.consumers++
+		e.Unlock()
+		return e
+	}
+	return nil
 }
 
 type entry struct {
