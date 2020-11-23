@@ -1,18 +1,29 @@
 package git
 
 import (
+	"bytes"
 	"context"
+	"io"
 
-	"gitlab.com/gitlab-org/gitaly/internal/command"
+	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/internal/helper"
 )
 
 
 // MkTag writes a tag with git-mktag. The code is mostly stolen from
 // git::WriteBlob()
-func (repo *LocalRepository) MkTag(ctx context.Context, oid string, objectType string, tag string, tagger string) (string, error) {
+func (repo *LocalRepository) MkTag(ctx context.Context, oid string, objectType string, tag string, tagger string, message []byte) (string, error) {
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
-	content "hello world"
+	buf := "object " + oid + "\n"
+	buf += "type " + objectType + "\n"
+	buf += "tag " + tag + "\n"
+	buf += "tagger " + tagger + "\n"
+	buf += "\n"
+	buf += string(message)
+	
+	content := io.Reader(bytes.NewReader([]byte(buf)))
 
 	cmd, err := repo.command(ctx, nil,
 		SubCmd{
@@ -21,6 +32,7 @@ func (repo *LocalRepository) MkTag(ctx context.Context, oid string, objectType s
 		WithStdin(content),
 		WithStdout(stdout),
 		WithStderr(stderr),
+		WithRefTxHook(ctx, helper.ProtoRepoFromRepo(repo.repo), config.Config),
 	)
 	if err != nil {
 		return "", err

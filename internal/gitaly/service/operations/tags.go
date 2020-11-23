@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/mktag"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/ref"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
@@ -149,7 +148,8 @@ func (s *server) UserCreateTagGo(ctx context.Context, req *gitalypb.UserCreateTa
 		return nil, status.Errorf(codes.InvalidArgument, "Bad Request (empty target revision)")
 	}
 
-	targetOid, err := git.NewRepository(req.Repository).ResolveRefish(ctx, string(req.TargetRevision))
+	localRepo := git.NewRepository(req.Repository)
+	targetOid, err := localRepo.ResolveRefish(ctx, string(req.TargetRevision))
 	if err != nil {
 		return nil, status.Errorf(codes.FailedPrecondition, "Bad Request (target does not exist)")
 	}
@@ -157,10 +157,12 @@ func (s *server) UserCreateTagGo(ctx context.Context, req *gitalypb.UserCreateTa
 	tag := fmt.Sprintf("refs/tags/%s", req.TagName)
 
 	if req.Message != nil {
-		annotatedTagObj, err := mktag.MkTag(ctx, targetOid, "commit", tag, ". <> 0 +0000");
+		annotatedTagObj, err := localRepo.MkTag(ctx, targetOid, "commit", tag, ". <> 0 +0000", req.Message);
 		if err != nil {
 			return nil, status.Error(codes.Internal, err.Error())
 		}
+		panic("created " + annotatedTagObj + " referencing " + targetOid)
+		targetOid = annotatedTagObj
 	}
 
 	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, tag, targetOid, git.NullSHA); err != nil {

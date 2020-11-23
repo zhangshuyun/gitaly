@@ -66,7 +66,7 @@ func (sc SubCmd) Subcommand() string { return sc.Name }
 
 func (sc SubCmd) supportsEndOfOptions() bool {
 	switch sc.Name {
-	case "checkout", "linguist", "for-each-ref", "archive", "upload-archive", "grep", "clone", "config", "rev-parse", "remote", "blame", "ls-tree":
+	case "checkout", "linguist", "for-each-ref", "archive", "upload-archive", "grep", "clone", "config", "rev-parse", "remote", "blame", "ls-tree", "mktag":
 		return false
 	}
 	return true
