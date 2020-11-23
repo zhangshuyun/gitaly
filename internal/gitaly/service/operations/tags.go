@@ -166,6 +166,9 @@ func (s *server) UserCreateTagGo(ctx context.Context, req *gitalypb.UserCreateTa
 		ourTagOid = targetOid
 	} else {
 		tagger := string(req.User.Name) + " <" + string(req.User.Email) + ">"
+		// TODO: Need to support more than just "commit",
+		// e.g. "blob", "tree". The web UI allows you to tag
+		// trees at least, presumably blobs too. Needs tests.
 		annotatedTagObj, err := localRepo.MkTag(ctx, targetOid, "commit", string(req.TagName), tagger, req.Message);
 		if err != nil {
 			return nil, status.Error(codes.Internal, err.Error())
