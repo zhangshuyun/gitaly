@@ -490,6 +490,7 @@ func testFailedUserCreateTagRequestDueToValidation(t *testing.T, ctx context.Con
 			user:           testhelper.TestUser,
 			code:           codes.FailedPrecondition,
 		},
+		// TODO: Test for TagExistsError
 	}
 
 	for _, testCase := range testCases {

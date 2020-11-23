@@ -371,7 +371,7 @@ func (s *server) FindTag(ctx context.Context, in *gitalypb.FindTagRequest) (*git
 
 	var tag *gitalypb.Tag
 
-	if tag, err = findTag(ctx, in.GetRepository(), in.GetTagName()); err != nil {
+	if tag, err = RawFindTag(ctx, in.GetRepository(), in.GetTagName()); err != nil {
 		return nil, helper.ErrInternal(err)
 	}
 
@@ -412,7 +412,7 @@ func parseTagLine(c *catfile.Batch, tagLine string) (*gitalypb.Tag, error) {
 	}
 }
 
-func findTag(ctx context.Context, repository *gitalypb.Repository, tagName []byte) (*gitalypb.Tag, error) {
+func RawFindTag(ctx context.Context, repository *gitalypb.Repository, tagName []byte) (*gitalypb.Tag, error) {
 	tagCmd, err := git.SafeCmd(ctx, repository, nil,
 		git.SubCmd{
 			Name: "tag",

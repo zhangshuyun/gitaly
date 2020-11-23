@@ -7,6 +7,7 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/ref"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -78,7 +79,7 @@ func (s *server) UserCreateTag(ctx context.Context, req *gitalypb.UserCreateTagR
 		return s.UserCreateTagRuby(ctx, req)
 	}
 	// TODO: Implement GoUserCreateTag
-	return s.UserCreateTagRuby(ctx, req)
+	return s.UserCreateTagGo(ctx, req)
 }
 
 func (s *server) UserCreateTagRuby(ctx context.Context, req *gitalypb.UserCreateTagRequest) (*gitalypb.UserCreateTagResponse, error) {
@@ -93,4 +94,102 @@ func (s *server) UserCreateTagRuby(ctx context.Context, req *gitalypb.UserCreate
 	}
 
 	return client.UserCreateTag(clientCtx, req)
+}
+
+// Relvant Ruby code:
+
+//           repository: @gitaly_repo,
+//           user: Gitlab::Git::User.from_gitlab(user).to_gitaly,
+//           tag_name: encode_binary(tag_name),
+//           target_revision: encode_binary(target),
+//           message: encode_binary(message.to_s)
+
+//     def user_create_tag(request, call)
+//       repo = Gitlab::Git::Repository.from_gitaly(request.repository, call)
+//       transaction = Praefect::Transaction.from_metadata(call.metadata)
+
+//       gitaly_user = get_param!(request, :user)
+//       user = Gitlab::Git::User.from_gitaly(gitaly_user)
+
+//       tag_name = get_param!(request, :tag_name)
+
+//       target_revision = get_param!(request, :target_revision)
+
+//       created_tag = repo.add_tag(tag_name, user: user, target: target_revision, message: request.message.presence, transaction: transaction)
+//       Gitaly::UserCreateTagResponse.new unless created_tag
+
+//       rugged_commit = created_tag.dereferenced_target.rugged_commit
+//       commit = gitaly_commit_from_rugged(rugged_commit)
+//       tag = gitaly_tag_from_gitlab_tag(created_tag, commit)
+
+//       Gitaly::UserCreateTagResponse.new(tag: tag)
+//     rescue Gitlab::Git::Repository::InvalidRef => e
+//       raise GRPC::FailedPrecondition.new(e.message)
+//     rescue Gitlab::Git::Repository::TagExistsError
+//       Gitaly::UserCreateTagResponse.new(exists: true)
+//     rescue Gitlab::Git::PreReceiveError => e
+//       Gitaly::UserCreateTagResponse.new(pre_receive_error: set_utf8!(e.message))
+//     end
+
+
+func (s *server) UserCreateTagGo(ctx context.Context, req *gitalypb.UserCreateTagRequest) (*gitalypb.UserCreateTagResponse, error) {
+	if len(req.TagName) == 0 {
+		return nil, status.Errorf(codes.InvalidArgument, "Bad Request (empty tag name)")
+	}
+
+	if req.User == nil {
+		return nil, status.Errorf(codes.InvalidArgument, "Bad Request (empty user)")
+	}
+
+	// Note that "TargetRevision" isn't just a "type commit", we
+	// also accept any other SHA-1 (tree, blob) when creating
+	// tags.
+	if len(req.TargetRevision) == 0 {
+		return nil, status.Errorf(codes.InvalidArgument, "Bad Request (empty target revision)")
+	}
+
+	targetOid, err := git.NewRepository(req.Repository).ResolveRefish(ctx, string(req.TargetRevision))
+	if err != nil {
+		return nil, status.Errorf(codes.FailedPrecondition, "Bad Request (target does not exist)")
+	}
+
+	tag := fmt.Sprintf("refs/tags/%s", req.TagName)
+
+	if req.Message != nil {
+		return nil, status.Errorf(codes.InvalidArgument, "Bad Request (we don't handle annotated yet)")
+	}
+
+	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, tag, targetOid, git.NullSHA); err != nil {
+		var preReceiveError preReceiveError
+		if errors.As(err, &preReceiveError) {
+			return &gitalypb.UserCreateTagResponse{
+				PreReceiveError: preReceiveError.message,
+			}, nil
+		}
+
+		var updateRefError updateRefError
+		if errors.As(err, &updateRefError) {
+			return &gitalypb.UserCreateTagResponse{
+				Exists: true,
+			}, nil
+		}
+
+
+		return nil, err
+	}
+
+	// rpcRequest := &gitalypb.FindTagRequest{
+	// 	Repository: req.Repository,
+	// 	TagName:    []byte(tag),
+	// }
+
+	// resp, err := client.FindTag(ctx, rpcRequest)
+
+	var tagObj *gitalypb.Tag
+	if tagObj, err = ref.RawFindTag(ctx, req.Repository, []byte(tag)); err != nil {
+		return nil, helper.ErrInternal(err)
+	}
+	return &gitalypb.UserCreateTagResponse{
+		Tag: tagObj,
+	}, nil
 }
