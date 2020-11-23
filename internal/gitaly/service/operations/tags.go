@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/mktag"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/ref"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
@@ -156,7 +157,10 @@ func (s *server) UserCreateTagGo(ctx context.Context, req *gitalypb.UserCreateTa
 	tag := fmt.Sprintf("refs/tags/%s", req.TagName)
 
 	if req.Message != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "Bad Request (we don't handle annotated yet)")
+		annotatedTagObj, err := mktag.MkTag(ctx, targetOid, "commit", tag, ". <> 0 +0000");
+		if err != nil {
+			return nil, status.Error(codes.Internal, err.Error())
+		}
 	}
 
 	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, tag, targetOid, git.NullSHA); err != nil {
