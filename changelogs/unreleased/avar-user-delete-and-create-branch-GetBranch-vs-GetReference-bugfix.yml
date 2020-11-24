@@ -1,0 +1,5 @@
+---
+title: 'Branch: fix API use bug in User(Create|Delete)Branch'
+merge_request: 2838
+author:
+type: fixed

@@ -39,16 +39,15 @@ func (s *server) UserCreateBranch(ctx context.Context, req *gitalypb.UserCreateB
 		return nil, helper.ErrPreconditionFailed(err)
 	}
 
-	_, err = git.NewRepository(req.Repository).GetBranch(ctx, string(req.BranchName))
+	referenceName := fmt.Sprintf("refs/heads/%s", req.BranchName)
+	_, err = git.NewRepository(req.Repository).GetReference(ctx, referenceName)
 	if err == nil {
 		return nil, status.Errorf(codes.FailedPrecondition, "Bad Request (branch exists)")
 	} else if !errors.Is(err, git.ErrReferenceNotFound) {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	branch := fmt.Sprintf("refs/heads/%s", req.BranchName)
-
-	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, branch, string(req.StartPoint), git.NullSHA); err != nil {
+	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, referenceName, string(req.StartPoint), git.NullSHA); err != nil {
 		var preReceiveError preReceiveError
 		if errors.As(err, &preReceiveError) {
 			return &gitalypb.UserCreateBranchResponse{
@@ -118,14 +117,13 @@ func (s *server) UserDeleteBranch(ctx context.Context, req *gitalypb.UserDeleteB
 
 	// Implement UserDeleteBranch in Go
 
-	revision, err := git.NewRepository(req.Repository).GetBranch(ctx, string(req.BranchName))
+	referenceName := fmt.Sprintf("refs/heads/%s", req.BranchName)
+	revision, err := git.NewRepository(req.Repository).GetReference(ctx, referenceName)
 	if err != nil {
 		return nil, helper.ErrPreconditionFailed(err)
 	}
 
-	branch := fmt.Sprintf("refs/heads/%s", req.BranchName)
-
-	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, branch, git.NullSHA, revision.Name); err != nil {
+	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, referenceName, git.NullSHA, revision.Name); err != nil {
 		var preReceiveError preReceiveError
 		if errors.As(err, &preReceiveError) {
 			return &gitalypb.UserDeleteBranchResponse{
