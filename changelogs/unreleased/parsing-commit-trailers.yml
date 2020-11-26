@@ -1,0 +1,5 @@
+---
+title: Parse Git commit trailers when processing commits
+merge_request: 2842
+author:
+type: added

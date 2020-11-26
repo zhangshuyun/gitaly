@@ -13,7 +13,8 @@ module GitalyServer
         author: gitaly_commit_author_from_rugged(rugged_commit.author),
         committer: gitaly_commit_author_from_rugged(rugged_commit.committer),
         body_size: rugged_commit.message.bytesize,
-        tree_id: rugged_commit.tree.oid
+        tree_id: rugged_commit.tree.oid,
+        trailers: gitaly_trailers_from_rugged(rugged_commit)
       )
       truncate_gitaly_commit_body!(gitaly_commit) if gitaly_commit.body.bytesize > Gitlab.config.git.max_commit_or_tag_message_size
 
@@ -52,6 +53,12 @@ module GitalyServer
       truncate_gitaly_tag_message!(tag) if tag.message.bytesize > Gitlab.config.git.max_commit_or_tag_message_size
 
       tag
+    end
+
+    def gitaly_trailers_from_rugged(rugged_commit)
+      rugged_commit.trailers.map do |(key, value)|
+        Gitaly::CommitTrailer.new(key: key, value: value)
+      end
     end
 
     def truncate_gitaly_commit_body!(gitaly_commit)

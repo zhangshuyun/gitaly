@@ -48,6 +48,15 @@ message Repository {
   string gl_project_path = 8;
 }
 
+// A single Git trailer (https://git-scm.com/docs/git-interpret-trailers)
+// key-value pair.
+message CommitTrailer {
+  // The key of the trailer, such as `Signed-off-by`.
+  bytes key = 1;
+  // The value of the trailer, such as `Alice <alice@gmail.com>`.
+  bytes value = 2;
+}
+
 // Corresponds to Gitlab::Git::Commit
 message GitCommit {
   string id = 1;
@@ -66,6 +75,11 @@ message GitCommit {
   // the value will be `4b825dc642cb6eb9a060e54bf8d69288fbee4904`.
   // That value is equivalent to `git hash-object -t tree /dev/null`
   string tree_id = 9;
+  // The list of Git trailers (https://git-scm.com/docs/git-interpret-trailers)
+  // found in this commit's message. The number of trailers and their key/value
+  // sizes are limited. If a trailer exceeds these size limits, it and any
+  // trailers that follow it are not included.
+  repeated CommitTrailer trailers = 10;
 }
 
 message CommitAuthor {
