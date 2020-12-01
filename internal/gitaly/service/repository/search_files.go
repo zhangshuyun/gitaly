@@ -30,7 +30,7 @@ var contentDelimiter = []byte("--\n")
 
 func (s *server) SearchFilesByContent(req *gitalypb.SearchFilesByContentRequest, stream gitalypb.RepositoryService_SearchFilesByContentServer) error {
 	if err := validateSearchFilesRequest(req); err != nil {
-		return helper.DecorateError(codes.InvalidArgument, err)
+		return status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
 	repo := req.GetRepository()
@@ -106,7 +106,7 @@ func sendSearchFilesResultChunked(cmd *command.Command, stream gitalypb.Reposito
 
 func (s *server) SearchFilesByName(req *gitalypb.SearchFilesByNameRequest, stream gitalypb.RepositoryService_SearchFilesByNameServer) error {
 	if err := validateSearchFilesRequest(req); err != nil {
-		return helper.DecorateError(codes.InvalidArgument, err)
+		return status.Errorf(codes.InvalidArgument, err.Error())
 	}
 
 	var filter *regexp.Regexp
