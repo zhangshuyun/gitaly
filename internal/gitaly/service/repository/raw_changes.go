@@ -20,7 +20,7 @@ func (s *server) GetRawChanges(req *gitalypb.GetRawChangesRequest, stream gitaly
 	repo := req.Repository
 	batch, err := catfile.New(stream.Context(), repo)
 	if err != nil {
-		return helper.ErrInternal(err)
+		return err
 	}
 
 	if err := validateRawChangesRequest(req, batch); err != nil {
