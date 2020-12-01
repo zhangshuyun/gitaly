@@ -14,12 +14,18 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/chunk"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func (s *server) GetRawChanges(req *gitalypb.GetRawChangesRequest, stream gitalypb.RepositoryService_GetRawChangesServer) error {
 	repo := req.Repository
 	batch, err := catfile.New(stream.Context(), repo)
 	if err != nil {
+		_, ok := status.FromError(err)
+		if !ok {
+			return status.Errorf(codes.Internal, "%s", err.Error())
+		}
 		return err
 	}
 
