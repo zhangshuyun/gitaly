@@ -11,7 +11,7 @@ import (
 
 // Deprecated
 func (s *server) Exists(ctx context.Context, in *gitalypb.RepositoryExistsRequest) (*gitalypb.RepositoryExistsResponse, error) {
-	return nil, helper.Unimplemented
+	return nil, status.Error(codes.Unimplemented, "this rpc is not implemented")
 }
 
 func (s *server) RepositoryExists(ctx context.Context, in *gitalypb.RepositoryExistsRequest) (*gitalypb.RepositoryExistsResponse, error) {
