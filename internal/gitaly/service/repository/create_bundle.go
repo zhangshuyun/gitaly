@@ -20,7 +20,7 @@ func (s *server) CreateBundle(req *gitalypb.CreateBundleRequest, stream gitalypb
 	ctx := stream.Context()
 
 	if _, err := s.Cleanup(ctx, &gitalypb.CleanupRequest{Repository: req.GetRepository()}); err != nil {
-		return helper.ErrInternalf("running Cleanup on repository: %w", err)
+		return helper.ErrInternalf("running Cleanup on repository: %v", err)
 	}
 
 	cmd, err := git.SafeCmd(ctx, repo, nil, git.SubCmd{

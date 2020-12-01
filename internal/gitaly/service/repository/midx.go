@@ -30,7 +30,7 @@ func (s *server) MidxRepack(ctx context.Context, in *gitalypb.MidxRepackRequest)
 	for _, cmd := range []midxSubCommand{midxWrite, midxExpire, s.midxRepack} {
 		if err := s.safeMidxCommand(ctx, repo, cmd); err != nil {
 			if git.IsInvalidArgErr(err) {
-				return nil, helper.ErrInvalidArgumentf("MidxRepack: %w", err)
+				return nil, helper.ErrInvalidArgumentf("MidxRepack: %v", err)
 			}
 
 			return nil, helper.ErrInternal(fmt.Errorf("...%v", err))

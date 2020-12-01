@@ -67,7 +67,7 @@ func (s *server) GetSnapshot(in *gitalypb.GetSnapshotRequest, stream gitalypb.Re
 	builder.FileIfExist("shallow")
 
 	if err := s.addAlternateFiles(stream.Context(), in.GetRepository(), builder); err != nil {
-		return helper.ErrInternalf("add alternates: %w", err)
+		return helper.ErrInternalf("add alternates: %v", err)
 	}
 
 	if err := builder.Close(); err != nil {
