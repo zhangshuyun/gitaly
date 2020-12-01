@@ -7,9 +7,6 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// Unimplemented is a Go error with gRPC error code 'Unimplemented'
-var Unimplemented = status.Error(codes.Unimplemented, "this rpc is not implemented")
-
 type statusWrapper struct {
 	error
 	status *status.Status
