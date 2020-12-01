@@ -34,7 +34,11 @@ func (s *server) ReplicateRepository(ctx context.Context, in *gitalypb.Replicate
 
 	repoPath, err := s.locator.GetPath(in.GetRepository())
 	if err != nil {
-		return nil, helper.ErrInternal(err)
+		_, ok := status.FromError(err)
+		if !ok {
+			return nil, status.Errorf(codes.Internal, "%s", err.Error())
+		}
+		return nil, err
 	}
 
 	if !storage.IsGitDirectory(repoPath) {
