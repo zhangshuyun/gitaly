@@ -285,6 +285,39 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 		})
 	})
 
+	t.Run("CreateRepository", func(t *testing.T) {
+		t.Run("create", func(t *testing.T) {
+			rs, requireState := newStore(t, nil)
+
+			require.NoError(t, rs.CreateRepository(ctx, vs, repo, stor))
+
+			requireState(t, ctx,
+				virtualStorageState{
+					vs: {
+						repo: struct{}{},
+					},
+				},
+				storageState{
+					vs: {
+						repo: {
+							stor: 0,
+						},
+					},
+				},
+			)
+		})
+
+		t.Run("conflict", func(t *testing.T) {
+			rs, _ := newStore(t, nil)
+
+			require.NoError(t, rs.CreateRepository(ctx, vs, repo, stor))
+			require.Equal(t,
+				RepositoryExistsError{vs, repo, stor},
+				rs.CreateRepository(ctx, vs, repo, stor),
+			)
+		})
+	})
+
 	t.Run("DeleteRepository", func(t *testing.T) {
 		t.Run("delete non-existing", func(t *testing.T) {
 			rs, _ := newStore(t, nil)

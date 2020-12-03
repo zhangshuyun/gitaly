@@ -10,6 +10,7 @@ type MockRepositoryStore struct {
 	IsLatestGenerationFunc                 func(ctx context.Context, virtualStorage, relativePath, storage string) (bool, error)
 	GetReplicatedGenerationFunc            func(ctx context.Context, virtualStorage, relativePath, source, target string) (int, error)
 	SetGenerationFunc                      func(ctx context.Context, virtualStorage, relativePath, storage string, generation int) error
+	CreateRepositoryFunc                   func(ctx context.Context, virtualStorage, relativePath, storage string) error
 	DeleteRepositoryFunc                   func(ctx context.Context, virtualStorage, relativePath, storage string) error
 	RenameRepositoryFunc                   func(ctx context.Context, virtualStorage, relativePath, storage, newRelativePath string) error
 	GetConsistentSecondariesFunc           func(ctx context.Context, virtualStorage, relativePath, primary string) (map[string]struct{}, error)
@@ -56,6 +57,14 @@ func (m MockRepositoryStore) SetGeneration(ctx context.Context, virtualStorage, 
 	}
 
 	return m.SetGenerationFunc(ctx, virtualStorage, relativePath, storage, generation)
+}
+
+func (m MockRepositoryStore) CreateRepository(ctx context.Context, virtualStorage, relativePath, storage string) error {
+	if m.CreateRepositoryFunc == nil {
+		return nil
+	}
+
+	return m.CreateRepositoryFunc(ctx, virtualStorage, relativePath, storage)
 }
 
 func (m MockRepositoryStore) DeleteRepository(ctx context.Context, virtualStorage, relativePath, storage string) error {
