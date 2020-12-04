@@ -69,6 +69,13 @@ func (s *Server) UserDeleteTagGo(ctx context.Context, req *gitalypb.UserDeleteTa
 }
 
 func (s *Server) UserCreateTag(ctx context.Context, req *gitalypb.UserCreateTagRequest) (*gitalypb.UserCreateTagResponse, error) {
+	if featureflag.IsDisabled(ctx, featureflag.GoUserCreateTag) {
+		return s.userCreateTagRuby(ctx, req)
+	}
+	return s.userCreateTagRuby(ctx, req)
+}
+
+func (s *Server) userCreateTagRuby(ctx context.Context, req *gitalypb.UserCreateTagRequest) (*gitalypb.UserCreateTagResponse, error) {
 	client, err := s.ruby.OperationServiceClient(ctx)
 	if err != nil {
 		return nil, err

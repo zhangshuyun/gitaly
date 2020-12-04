@@ -38,6 +38,8 @@ var (
 	GoFetchRemote = FeatureFlag{Name: "go_fetch_remote", OnByDefault: true}
 	// GoUserDeleteTag enables the Go implementation of UserDeleteTag
 	GoUserDeleteTag = FeatureFlag{Name: "go_user_delete_tag", OnByDefault: false}
+	// GoUserCreateTag enables the Go implementation of UserCreateTag
+	GoUserCreateTag = FeatureFlag{Name: "go_user_create_tag", OnByDefault: false}
 	// GoUserRevert enables the Go implementation of UserRevert
 	GoUserRevert = FeatureFlag{Name: "go_user_revert", OnByDefault: false}
 
@@ -121,6 +123,7 @@ var All = []FeatureFlag{
 	GoUserUpdateSubmodule,
 	GoFetchRemote,
 	GoUserDeleteTag,
+	GoUserCreateTag,
 	GoUserRevert,
 	TxApplyBfgObjectMapStream,
 	TxResolveConflicts,

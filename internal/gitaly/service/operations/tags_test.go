@@ -170,6 +170,7 @@ end`, config.Config.Git.BinPath)
 func TestSuccessfulUserCreateTagRequest(t *testing.T) {
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.ReferenceTransactions,
+		featureflag.GoUserCreateTag,
 	}).Run(t, testSuccessfulUserCreateTagRequest)
 }
 
@@ -277,6 +278,7 @@ func testSuccessfulUserCreateTagRequest(t *testing.T, ctx context.Context) {
 func TestSuccessfulUserCreateTagRequestAnnotatedLightweightDisambiguation(t *testing.T) {
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.ReferenceTransactions,
+		featureflag.GoUserCreateTag,
 	}).Run(t, testSuccessfulUserCreateTagRequestAnnotatedLightweightDisambiguation)
 }
 
@@ -382,6 +384,7 @@ func testSuccessfulUserCreateTagRequestAnnotatedLightweightDisambiguation(t *tes
 func TestSuccessfulUserCreateTagRequestWithParsedTargetRevision(t *testing.T) {
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.ReferenceTransactions,
+		featureflag.GoUserCreateTag,
 	}).Run(t, testSuccessfulUserCreateTagRequestWithParsedTargetRevision)
 }
 
@@ -471,9 +474,11 @@ func testSuccessfulUserCreateTagRequestWithParsedTargetRevision(t *testing.T, ct
 }
 
 func TestSuccessfulUserCreateTagRequestToNonCommit(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	testWithFeature(t, featureflag.GoUserCreateTag, testSuccessfulUserCreateTagRequestToNonCommit)
+}
 
+//nolint:golint
+func testSuccessfulUserCreateTagRequestToNonCommit(t *testing.T, ctx context.Context) {
 	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()
 
@@ -593,9 +598,11 @@ func TestSuccessfulUserCreateTagRequestToNonCommit(t *testing.T) {
 }
 
 func TestSuccessfulUserCreateTagNestedTags(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	testWithFeature(t, featureflag.GoUserCreateTag, testSuccessfulUserCreateTagNestedTags)
+}
 
+//nolint:golint
+func testSuccessfulUserCreateTagNestedTags(t *testing.T, ctx context.Context) {
 	locator := config.NewLocator(config.Config)
 
 	serverSocketPath, stop := runOperationServiceServer(t)
@@ -789,6 +796,11 @@ func testUserDeleteTagsuccessfulDeletionOfPrefixedTag(t *testing.T, ctx context.
 }
 
 func TestUserCreateTagsuccessfulCreationOfPrefixedTag(t *testing.T) {
+	testWithFeature(t, featureflag.GoUserCreateTag, testUserCreateTagsuccessfulCreationOfPrefixedTag)
+}
+
+//nolint:golint
+func testUserCreateTagsuccessfulCreationOfPrefixedTag(t *testing.T, ctx context.Context) {
 	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
@@ -827,9 +839,6 @@ func TestUserCreateTagsuccessfulCreationOfPrefixedTag(t *testing.T) {
 				User:           testCase.user,
 			}
 
-			ctx, cancel := testhelper.Context()
-			defer cancel()
-
 			response, err := client.UserCreateTag(ctx, request)
 			require.Equal(t, testCase.err, err)
 			commitOk, err := log.GetCommit(ctx, locator, testRepo, testCase.tagTargetRevisionInput)
@@ -852,10 +861,7 @@ func TestUserCreateTagsuccessfulCreationOfPrefixedTag(t *testing.T) {
 }
 
 func TestSuccessfulGitHooksForUserCreateTagRequest(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-
-	testSuccessfulGitHooksForUserCreateTagRequest(t, ctx)
+	testWithFeature(t, featureflag.GoUserCreateTag, testSuccessfulGitHooksForUserCreateTagRequest)
 }
 
 func testSuccessfulGitHooksForUserCreateTagRequest(t *testing.T, ctx context.Context) {
@@ -1026,6 +1032,11 @@ func testFailedUserDeleteTagDueToHooks(t *testing.T, ctx context.Context) {
 }
 
 func TestFailedUserCreateTagDueToHooks(t *testing.T) {
+	testWithFeature(t, featureflag.GoUserCreateTag, testFailedUserCreateTagDueToHooks)
+}
+
+//nolint:golint
+func testFailedUserCreateTagDueToHooks(t *testing.T, ctx context.Context) {
 	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()
 
@@ -1049,9 +1060,6 @@ func TestFailedUserCreateTagDueToHooks(t *testing.T) {
 		require.NoError(t, err)
 		defer remove()
 
-		ctx, cancel := testhelper.Context()
-		defer cancel()
-
 		response, err := client.UserCreateTag(ctx, request)
 		require.Nil(t, err)
 		require.Contains(t, response.PreReceiveError, "GL_ID="+testhelper.TestUser.GlId)
@@ -1059,6 +1067,11 @@ func TestFailedUserCreateTagDueToHooks(t *testing.T) {
 }
 
 func TestFailedUserCreateTagRequestDueToTagExistence(t *testing.T) {
+	testWithFeature(t, featureflag.GoUserCreateTag, testFailedUserCreateTagRequestDueToTagExistence)
+}
+
+//nolint:golint
+func testFailedUserCreateTagRequestDueToTagExistence(t *testing.T, ctx context.Context) {
 	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()
 
@@ -1067,9 +1080,6 @@ func TestFailedUserCreateTagRequestDueToTagExistence(t *testing.T) {
 
 	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
 	testCases := []struct {
 		desc           string
@@ -1117,6 +1127,11 @@ func TestFailedUserCreateTagRequestDueToTagExistence(t *testing.T) {
 }
 
 func TestFailedUserCreateTagRequestDueToValidation(t *testing.T) {
+	testWithFeature(t, featureflag.GoUserCreateTag, testFailedUserCreateTagRequestDueToValidation)
+}
+
+//nolint:golint
+func testFailedUserCreateTagRequestDueToValidation(t *testing.T, ctx context.Context) {
 	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()
 
@@ -1231,9 +1246,6 @@ func TestFailedUserCreateTagRequestDueToValidation(t *testing.T) {
 				Message:        []byte(testCase.message),
 			}
 
-			ctx, cancel := testhelper.Context()
-			defer cancel()
-
 			response, err := client.UserCreateTag(ctx, request)
 			require.Equal(t, testCase.err, err)
 			require.Equal(t, testCase.response, response)
@@ -1245,6 +1257,7 @@ func TestTagHookOutput(t *testing.T) {
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.GoUserDeleteTag,
 		featureflag.ReferenceTransactions,
+		featureflag.GoUserCreateTag,
 	}).Run(t, testTagHookOutput)
 }
 
