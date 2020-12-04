@@ -100,6 +100,9 @@ var gitCommands = map[string]gitCommand{
 	"merge-base": gitCommand{
 		flags: scReadOnly,
 	},
+	"mktag": gitCommand{
+		flags: scNoRefUpdates | scNoEndOfOptions,
+	},
 	"multi-pack-index": gitCommand{
 		flags: scNoRefUpdates,
 	},

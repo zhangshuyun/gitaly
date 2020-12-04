@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
@@ -295,6 +296,94 @@ lf   text
 			content, err := repo.ReadObject(ctx, sha)
 			require.NoError(t, err)
 			assert.Equal(t, tc.content, string(content))
+		})
+	}
+}
+
+func TestLocalRepository_FormatTag(t *testing.T) {
+	for _, tc := range []struct {
+		desc       string
+		objectID   string
+		objectType string
+		tagName    []byte
+		userName   []byte
+		userEmail  []byte
+		tagBody    []byte
+		err        error
+	}{
+		// Just trivial tests here, most of this is tested in
+		// internal/gitaly/service/operations/tags_test.go
+		{
+			desc:       "basic signature",
+			objectID:   "0000000000000000000000000000000000000000",
+			objectType: "commit",
+			tagName:    []byte("my-tag"),
+			userName:   []byte("root"),
+			userEmail:  []byte("root@localhost"),
+			tagBody:    []byte(""),
+		},
+		{
+			desc:       "basic signature",
+			objectID:   "0000000000000000000000000000000000000000",
+			objectType: "commit",
+			tagName:    []byte("my-tag\ninjection"),
+			userName:   []byte("root"),
+			userEmail:  []byte("root@localhost"),
+			tagBody:    []byte(""),
+			err:        FormatTagError{expectedLines: 4, actualLines: 5},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			signature, err := FormatTag(tc.objectID, tc.objectType, tc.tagName, tc.userName, tc.userEmail, tc.tagBody)
+			if err != nil {
+				require.Equal(t, tc.err, err)
+				require.Equal(t, "", signature)
+			} else {
+				require.NoError(t, err)
+				require.Contains(t, signature, "object ")
+				require.Contains(t, signature, "tag ")
+				require.Contains(t, signature, "tagger ")
+			}
+		})
+	}
+}
+
+func TestLocalRepository_WriteTag(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	pbRepo, repoPath, clean := testhelper.NewTestRepo(t)
+	defer clean()
+
+	repo := NewRepository(pbRepo)
+
+	for _, tc := range []struct {
+		desc       string
+		objectID   string
+		objectType string
+		tagName    []byte
+		userName   []byte
+		userEmail  []byte
+		tagBody    []byte
+	}{
+		// Just trivial tests here, most of this is tested in
+		// internal/gitaly/service/operations/tags_test.go
+		{
+			desc:       "basic signature",
+			objectID:   "c7fbe50c7c7419d9701eebe64b1fdacc3df5b9dd",
+			objectType: "commit",
+			tagName:    []byte("my-tag"),
+			userName:   []byte("root"),
+			userEmail:  []byte("root@localhost"),
+			tagBody:    []byte(""),
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			tagObjID, err := repo.WriteTag(ctx, tc.objectID, tc.objectType, tc.tagName, tc.userName, tc.userEmail, tc.tagBody)
+			require.NoError(t, err)
+
+			repoTagObjID := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", tagObjID)
+			require.Equal(t, text.ChompBytes(repoTagObjID), tagObjID)
 		})
 	}
 }

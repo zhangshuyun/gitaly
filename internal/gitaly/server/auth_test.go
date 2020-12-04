@@ -16,6 +16,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config/auth"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -197,7 +198,7 @@ func newOperationClient(t *testing.T, serverSocketPath string) (gitalypb.Operati
 
 func runServerWithRuby(t *testing.T, ruby *rubyserver.Server) (string, func()) {
 	conns := client.NewPool()
-	srv := NewInsecure(ruby, nil, config.Config, conns)
+	srv := NewInsecure(ruby, hook.NewManager(config.NewLocator(config.Config), hook.GitlabAPIStub, config.Config), config.Config, conns)
 
 	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName()
 
