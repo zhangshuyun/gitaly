@@ -1,5 +1,12 @@
 # Gitaly changelog
 
+## 13.6.3 (2020-12-10)
+
+### Fixed (1 change)
+
+- Update github-linguist to v7.12.1. !2908
+
+
 ## 13.6.2 (2020-12-07)
 
 - No changes.
