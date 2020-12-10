@@ -53,57 +53,33 @@ func (c *RepositoryStoreCollector) Collect(ch chan<- prometheus.Metric) {
 
 // queryMetrics queries the number of read-only repositories from the database.
 // A repository is in read-only mode when its primary storage is not on the latest
-// generation.
-//
-// There are two variants on the query:
-//
-// 1. virtualStorageScopedQuery considers virtual storage scoped primaries. Virtual storage's
-//    primary is stored in the `shard_primaries` table in the `node_name` column.
-// 2. repositoryScopedQuery considers repository specific primaries. Repository scoped
-//    primaries are stored in the `primary` column in the `repositories` table.
-//
-// Both queries cross-reference the `repositories` and `storage_repositories` tables
-// to see if the primary storage of the repository is on the latest generation. If not,
-// it's added to the returned count.
-//
-// The query operating on virtual storage scoped primaries will be dropped once the migration
-// to repository scoped primaries is finished.
+// generation. If `repositoryScoped` was passed set to true in the constructor, the
+// query considers repository specific primaries. Otherwise, virtual storage scoped
+// primaries are considered.
 func (c *RepositoryStoreCollector) queryMetrics(ctx context.Context) (map[string]int, error) {
-	const virtualStorageScopedQuery = `
-SELECT repositories.virtual_storage, COUNT(*)
-FROM repositories
-LEFT JOIN shard_primaries ON
-	shard_primaries.shard_name = repositories.virtual_storage AND
-	shard_primaries.demoted = false
-LEFT JOIN storage_repositories ON
-	repositories.virtual_storage = storage_repositories.virtual_storage AND
-	repositories.relative_path = storage_repositories.relative_path AND
-	shard_primaries.node_name = storage_repositories.storage
-WHERE 
-	COALESCE(storage_repositories.generation, -1) < repositories.generation AND
-	repositories.virtual_storage = ANY($1)
-GROUP BY repositories.virtual_storage;
-	`
-
-	const repositoryScopedQuery = `
-SELECT repositories.virtual_storage, COUNT(*)
-FROM repositories
-LEFT JOIN storage_repositories ON 
-	repositories.virtual_storage = storage_repositories.virtual_storage AND
-	repositories.relative_path = storage_repositories.relative_path AND
-	repositories.primary = storage_repositories.storage
-WHERE
-	COALESCE(storage_repositories.generation, -1) < repositories.generation AND
-	repositories.virtual_storage = ANY($1)
-GROUP BY repositories.virtual_storage
-`
-
-	query := virtualStorageScopedQuery
-	if c.repositoryScoped {
-		query = repositoryScopedQuery
-	}
-
-	rows, err := c.db.QueryContext(ctx, query, pq.StringArray(c.virtualStorages))
+	rows, err := c.db.QueryContext(ctx, `
+SELECT virtual_storage, COUNT(*)
+FROM (
+	SELECT
+		virtual_storage,
+		relative_path,
+		CASE WHEN $2
+			THEN "primary"
+			ELSE node_name
+		END	AS storage
+	FROM repositories
+	LEFT JOIN shard_primaries ON NOT $2 AND shard_name = virtual_storage AND NOT demoted
+	WHERE virtual_storage = ANY($1)
+) AS repositories
+JOIN (
+	SELECT virtual_storage, relative_path, max(generation) AS latest_generation
+	FROM storage_repositories
+	GROUP BY virtual_storage, relative_path
+) AS latest_generations USING (virtual_storage, relative_path)
+LEFT JOIN storage_repositories USING (virtual_storage, relative_path, storage)
+WHERE latest_generation > COALESCE(generation, -1)
+GROUP BY virtual_storage
+	`, pq.StringArray(c.virtualStorages), c.repositoryScoped)
 	if err != nil {
 		return nil, fmt.Errorf("query: %w", err)
 	}
