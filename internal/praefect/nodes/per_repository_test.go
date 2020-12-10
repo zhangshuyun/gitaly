@@ -253,13 +253,6 @@ func TestPerRepositoryElector(t *testing.T) {
 				elector := NewPerRepositoryElector(testhelper.DiscardTestLogger(t), db,
 					HealthCheckerFunc(func() map[string][]string { return step.healthyNodes }),
 				)
-				elector.handleError = func(err error) error { return err }
-
-				trigger := make(chan struct{}, 1)
-				trigger <- struct{}{}
-				close(trigger)
-
-				require.NoError(t, elector.Run(ctx, trigger))
 
 				primary, err := elector.GetPrimary(ctx, "virtual-storage-1", "relative-path-1")
 				require.Equal(t, step.error, err)
