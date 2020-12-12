@@ -42,13 +42,6 @@ func (s *server) CreateFork(ctx context.Context, req *gitalypb.CreateForkRequest
 		return nil, err
 	}
 
-	ctxlogrus.AddFields(ctx, logrus.Fields{
-		"source_storage": sourceRepository.GetStorageName(),
-		"source_path":    sourceRepository.GetRelativePath(),
-		"target_storage": targetRepository.GetStorageName(),
-		"target_path":    targetRepository.GetRelativePath(),
-	})
-
 	objectPool, sourceObjectPoolPath, err := s.getObjectPool(req)
 	if err != nil {
 		return nil, err
@@ -162,6 +155,13 @@ func (s *server) getObjectPool(req *gitalypb.CreateForkRequest) (*objectpool.Obj
 }
 
 func (s *server) cloneCommand(a commandArgs) (*command.Command, error) {
+	ctxlogrus.AddFields(a.ctx, logrus.Fields{
+		"source_storage": a.sourceRepository.GetStorageName(),
+		"source_path":    a.sourceRepository.GetRelativePath(),
+		"target_storage": a.targetRepository.GetStorageName(),
+		"target_path":    a.targetRepository.GetRelativePath(),
+	})
+
 	flags := []git.Option{
 		git.Flag{Name: "--bare"},
 	}
