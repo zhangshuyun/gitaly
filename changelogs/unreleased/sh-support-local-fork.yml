@@ -1,0 +1,5 @@
+---
+title: Speed up cloning of local forks
+merge_request: 2915
+author:
+type: performance

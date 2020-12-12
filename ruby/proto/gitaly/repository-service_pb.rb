@@ -136,6 +136,7 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       optional :repository, :message, 1, "gitaly.Repository"
       optional :source_repository, :message, 2, "gitaly.Repository"
       optional :pool, :message, 3, "gitaly.ObjectPool"
+      optional :allow_local, :bool, 4
     end
     add_message "gitaly.CreateForkResponse" do
     end

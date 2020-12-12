@@ -401,6 +401,10 @@ message CreateForkRequest {
   // This pool repository must reside on the same storage shard
   // as the target repository.
   ObjectPool pool = 3 [(additional_repository)=true];
+  // Clone using --local and --no-hardlinks flags if possible. This is faster
+  // than going through the normal git transport, but both
+  // source and target repositories must reside on the same storage shard.
+  bool allow_local = 4;
 }
 
 message CreateForkResponse {}

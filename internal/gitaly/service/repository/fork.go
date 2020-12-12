@@ -58,7 +58,31 @@ func (s *server) CreateFork(ctx context.Context, req *gitalypb.CreateForkRequest
 
 	flags := []git.Option{
 		git.Flag{Name: "--bare"},
-		git.Flag{Name: "--no-local"},
+	}
+	var args []string
+	var postSepArgs []string
+
+	if req.GetAllowLocal() && sourceRepository.GetStorageName() == targetRepository.GetStorageName() {
+		sourceRepositoryFullPath, err := s.locator.GetPath(sourceRepository)
+		if err != nil {
+			return nil, err
+		}
+
+		if _, err := os.Stat(sourceRepositoryFullPath); err != nil {
+			if !os.IsNotExist(err) {
+				return nil, status.Errorf(codes.Internal, "CreateFork: check source path: %v", err)
+			}
+		}
+
+		flags = append(flags, git.Flag{Name: "--local"}, git.Flag{Name: "--no-hardlinks"})
+		args = []string{sourceRepositoryFullPath}
+		postSepArgs = []string{targetRepositoryFullPath}
+	} else {
+		flags = append(flags, git.Flag{Name: "--no-local"})
+		postSepArgs = []string{
+			fmt.Sprintf("%s:%s", gitalyssh.GitalyInternalURL, sourceRepository.RelativePath),
+			targetRepositoryFullPath,
+		}
 	}
 
 	if objectPool != nil {
@@ -80,12 +104,10 @@ func (s *server) CreateFork(ctx context.Context, req *gitalypb.CreateForkRequest
 
 	cmd, err := git.SafeBareCmd(ctx, git.CmdStream{}, env, nil,
 		git.SubCmd{
-			Name:  "clone",
-			Flags: flags,
-			PostSepArgs: []string{
-				fmt.Sprintf("%s:%s", gitalyssh.GitalyInternalURL, sourceRepository.RelativePath),
-				targetRepositoryFullPath,
-			},
+			Name:        "clone",
+			Flags:       flags,
+			Args:        args,
+			PostSepArgs: postSepArgs,
 		},
 		git.WithRefTxHook(ctx, req.Repository, s.cfg),
 	)
