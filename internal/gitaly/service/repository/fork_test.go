@@ -38,10 +38,13 @@ func TestSuccessfulCreateForkRequest(t *testing.T) {
 		name          string
 		secure        bool
 		withPool      bool
+		local         bool
 		beforeRequest func(repoPath string)
 	}{
 		{name: "secure", secure: true},
 		{name: "insecure"},
+		{name: "secure in local mode", secure: true, local: true},
+		{name: "insecure in local mode", local: true},
 		{name: "existing empty directory target", beforeRequest: createEmptyTarget},
 		{name: "secure with pool", secure: true, withPool: true},
 		{name: "insecure with pool", withPool: true},
@@ -101,6 +104,7 @@ func TestSuccessfulCreateForkRequest(t *testing.T) {
 			req := &gitalypb.CreateForkRequest{
 				Repository:       forkedRepo,
 				SourceRepository: testRepo,
+				AllowLocal:       tt.local,
 			}
 
 			if tt.withPool {

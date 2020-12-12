@@ -8,6 +8,7 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/sirupsen/logrus"
+	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/objectpool"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
@@ -18,6 +19,16 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+type commandArgs struct {
+	ctx                      context.Context
+	req                      *gitalypb.CreateForkRequest
+	sourceRepository         *gitalypb.Repository
+	targetRepository         *gitalypb.Repository
+	targetRepositoryFullPath string
+	objectPool               *objectpool.ObjectPool
+	sourceObjectPoolPath     string
+}
+
 func (s *server) CreateFork(ctx context.Context, req *gitalypb.CreateForkRequest) (*gitalypb.CreateForkResponse, error) {
 	targetRepository := req.Repository
 	sourceRepository := req.SourceRepository
@@ -26,68 +37,9 @@ func (s *server) CreateFork(ctx context.Context, req *gitalypb.CreateForkRequest
 		return nil, helper.ErrInvalidArgument(err)
 	}
 
-	targetRepositoryFullPath, err := s.locator.GetPath(targetRepository)
+	targetRepositoryFullPath, err := s.cleanTargetRepository(targetRepository)
 	if err != nil {
 		return nil, err
-	}
-
-	if info, err := os.Stat(targetRepositoryFullPath); err != nil {
-		if !os.IsNotExist(err) {
-			return nil, status.Errorf(codes.Internal, "CreateFork: check destination path: %v", err)
-		}
-
-		// directory does not exist, proceed
-	} else {
-		if !info.IsDir() {
-			return nil, status.Errorf(codes.InvalidArgument, "CreateFork: destination path exists")
-		}
-
-		if err := os.Remove(targetRepositoryFullPath); err != nil {
-			return nil, status.Errorf(codes.InvalidArgument, "CreateFork: destination directory is not empty")
-		}
-	}
-
-	if err := os.MkdirAll(targetRepositoryFullPath, 0770); err != nil {
-		return nil, status.Errorf(codes.Internal, "CreateFork: create dest dir: %v", err)
-	}
-
-	objectPool, sourceObjectPoolPath, err := s.getObjectPool(req)
-	if err != nil {
-		return nil, err
-	}
-
-	flags := []git.Option{
-		git.Flag{Name: "--bare"},
-	}
-	var args []string
-	var postSepArgs []string
-
-	if req.GetAllowLocal() && sourceRepository.GetStorageName() == targetRepository.GetStorageName() {
-		sourceRepositoryFullPath, err := s.locator.GetPath(sourceRepository)
-		if err != nil {
-			return nil, err
-		}
-
-		if _, err := os.Stat(sourceRepositoryFullPath); err != nil {
-			if !os.IsNotExist(err) {
-				return nil, status.Errorf(codes.Internal, "CreateFork: check source path: %v", err)
-			}
-		}
-
-		flags = append(flags, git.Flag{Name: "--local"}, git.Flag{Name: "--no-hardlinks"})
-		args = []string{sourceRepositoryFullPath}
-		postSepArgs = []string{targetRepositoryFullPath}
-	} else {
-		flags = append(flags, git.Flag{Name: "--no-local"})
-		postSepArgs = []string{
-			fmt.Sprintf("%s:%s", gitalyssh.GitalyInternalURL, sourceRepository.RelativePath),
-			targetRepositoryFullPath,
-		}
-	}
-
-	if objectPool != nil {
-		flags = append(flags, git.ValueFlag{Name: "--reference", Value: sourceObjectPoolPath})
-		ctxlogrus.AddFields(ctx, logrus.Fields{"object_pool_path": sourceObjectPoolPath})
 	}
 
 	ctxlogrus.AddFields(ctx, logrus.Fields{
@@ -97,20 +49,19 @@ func (s *server) CreateFork(ctx context.Context, req *gitalypb.CreateForkRequest
 		"target_path":    targetRepository.GetRelativePath(),
 	})
 
-	env, err := gitalyssh.UploadPackEnv(ctx, &gitalypb.SSHUploadPackRequest{Repository: sourceRepository})
+	objectPool, sourceObjectPoolPath, err := s.getObjectPool(req)
 	if err != nil {
 		return nil, err
 	}
 
-	cmd, err := git.SafeBareCmd(ctx, git.CmdStream{}, env, nil,
-		git.SubCmd{
-			Name:        "clone",
-			Flags:       flags,
-			Args:        args,
-			PostSepArgs: postSepArgs,
-		},
-		git.WithRefTxHook(ctx, req.Repository, s.cfg),
-	)
+	cmd, err := s.cloneCommand(commandArgs{
+		ctx:                      ctx,
+		req:                      req,
+		sourceRepository:         sourceRepository,
+		targetRepository:         targetRepository,
+		targetRepositoryFullPath: targetRepositoryFullPath,
+		objectPool:               objectPool,
+		sourceObjectPoolPath:     sourceObjectPoolPath})
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "CreateFork: clone cmd start: %v", err)
 	}
@@ -161,6 +112,35 @@ func validateCreateForkRequest(req *gitalypb.CreateForkRequest) error {
 	return nil
 }
 
+func (s *server) cleanTargetRepository(targetRepository *gitalypb.Repository) (string, error) {
+	targetRepositoryFullPath, err := s.locator.GetPath(targetRepository)
+	if err != nil {
+		return "", err
+	}
+
+	if info, err := os.Stat(targetRepositoryFullPath); err != nil {
+		if !os.IsNotExist(err) {
+			return "", status.Errorf(codes.Internal, "CreateFork: check destination path: %v", err)
+		}
+
+		// directory does not exist, proceed
+	} else {
+		if !info.IsDir() {
+			return "", status.Errorf(codes.InvalidArgument, "CreateFork: destination path exists")
+		}
+
+		if err := os.Remove(targetRepositoryFullPath); err != nil {
+			return "", status.Errorf(codes.InvalidArgument, "CreateFork: destination directory is not empty")
+		}
+	}
+
+	if err := os.MkdirAll(targetRepositoryFullPath, 0770); err != nil {
+		return "", status.Errorf(codes.Internal, "CreateFork: create dest dir: %v", err)
+	}
+
+	return targetRepositoryFullPath, nil
+}
+
 func (s *server) getObjectPool(req *gitalypb.CreateForkRequest) (*objectpool.ObjectPool, string, error) {
 	repository := req.GetPool().GetRepository()
 
@@ -179,4 +159,57 @@ func (s *server) getObjectPool(req *gitalypb.CreateForkRequest) (*objectpool.Obj
 	}
 
 	return objectPool, sourceObjectPoolPath, nil
+}
+
+func (s *server) cloneCommand(a commandArgs) (*command.Command, error) {
+	flags := []git.Option{
+		git.Flag{Name: "--bare"},
+	}
+	var args []string
+	var postSepArgs []string
+
+	if a.objectPool != nil {
+		flags = append(flags, git.ValueFlag{Name: "--reference", Value: a.sourceObjectPoolPath})
+		ctxlogrus.AddFields(a.ctx, logrus.Fields{"object_pool_path": a.sourceObjectPoolPath})
+	}
+
+	if a.req.GetAllowLocal() && a.sourceRepository.GetStorageName() == a.targetRepository.GetStorageName() {
+		sourceRepositoryFullPath, err := s.locator.GetPath(a.sourceRepository)
+		if err != nil {
+			return nil, err
+		}
+
+		if _, err := os.Stat(sourceRepositoryFullPath); err != nil {
+			if !os.IsNotExist(err) {
+				return nil, status.Errorf(codes.Internal, "CreateFork: check source path: %v", err)
+			}
+		}
+
+		flags = append(flags, git.Flag{Name: "--local"}, git.Flag{Name: "--no-hardlinks"})
+		args = []string{sourceRepositoryFullPath}
+		postSepArgs = []string{a.targetRepositoryFullPath}
+	} else {
+		flags = append(flags, git.Flag{Name: "--no-local"})
+		postSepArgs = []string{
+			fmt.Sprintf("%s:%s", gitalyssh.GitalyInternalURL, a.sourceRepository.RelativePath),
+			a.targetRepositoryFullPath,
+		}
+	}
+
+	env, err := gitalyssh.UploadPackEnv(a.ctx, &gitalypb.SSHUploadPackRequest{Repository: a.sourceRepository})
+	if err != nil {
+		return nil, err
+	}
+
+	cmd, err := git.SafeBareCmd(a.ctx, git.CmdStream{}, env, nil,
+		git.SubCmd{
+			Name:        "clone",
+			Flags:       flags,
+			Args:        args,
+			PostSepArgs: postSepArgs,
+		},
+		git.WithRefTxHook(a.ctx, a.req.Repository, s.cfg),
+	)
+
+	return cmd, err
 }
