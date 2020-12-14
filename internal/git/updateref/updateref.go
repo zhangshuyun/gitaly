@@ -65,6 +65,20 @@ func New(ctx context.Context, repo repository.GitRepo, opts ...UpdaterOpt) (*Upd
 	return &Updater{repo: repo, cmd: cmd}, nil
 }
 
+// CreateUpdateDelete dispatches to Create()/Update()/Delete() as needed
+//
+// The underlying "update-ref" does the same dispatching depending on
+// what it get passed.
+func (u *Updater) CreateUpdateDelete(ref, newvalue, oldvalue string) error {
+	if newvalue == git.NullSHA {
+		return u.Delete(ref, oldvalue)
+	} else if oldvalue == git.NullSHA {
+		return u.Create(ref, newvalue)
+	} else {
+		return u.Update(ref, newvalue, oldvalue)
+	}
+}
+
 // Create commands the reference to be created with the sha specified in value
 func (u *Updater) Create(ref, value string) error {
 	_, err := fmt.Fprintf(u.cmd, "create %s\x00%s\x00", ref, value)

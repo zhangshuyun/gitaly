@@ -1,0 +1,5 @@
+---
+title: 'Cleaner & DeleteRefs: use safer ''update-ref delete'' with <oldvalue> argument'
+merge_request: 2929
+author:
+type: fixed
