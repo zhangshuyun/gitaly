@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 
 	"gitlab.com/gitlab-org/gitaly/internal/git/hooks"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
@@ -79,8 +80,12 @@ type ReceivePackRequest interface {
 // git-receive-pack(1).
 func WithReceivePackHooks(ctx context.Context, cfg config.Cfg, req ReceivePackRequest, protocol string) CmdOpt {
 	return func(cc *cmdCfg) error {
+		userId, err := strconv.ParseInt(req.GetGlId(), 10, 0)
+		if err != nil {
+			return err
+		}
 		if err := cc.configureHooks(ctx, req.GetRepository(), config.Config, &ReceiveHooksPayload{
-			UserID:   req.GetGlId(),
+			UserID:   userId,
 			Username: req.GetGlUsername(),
 			Protocol: protocol,
 		}); err != nil {

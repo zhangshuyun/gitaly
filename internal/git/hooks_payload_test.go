@@ -237,7 +237,7 @@ func TestHooksPayload(t *testing.T) {
 			InternalSocket:      "/path/to/socket",
 			InternalSocketToken: "secret",
 			ReceiveHooksPayload: &ReceiveHooksPayload{
-				UserID:   "1234",
+				UserID:   1234,
 				Username: "user",
 				Protocol: "ssh",
 			},
@@ -262,7 +262,7 @@ func TestHooksPayload(t *testing.T) {
 			InternalSocket:      config.Config.GitalyInternalSocketPath(),
 			InternalSocketToken: config.Config.Auth.Token,
 			ReceiveHooksPayload: &ReceiveHooksPayload{
-				UserID:   "1234",
+				UserID:   1234,
 				Username: "user",
 				Protocol: "ssh",
 			},
@@ -279,12 +279,26 @@ func TestHooksPayload(t *testing.T) {
 			"GL_PROTOCOL=ssh",
 		})
 		require.Error(t, err)
-		require.Contains(t, "no user ID found in hooks environment", err.Error())
+		require.Equal(t, "no user ID found in hooks environment", err.Error())
+	})
+
+	t.Run("payload with non-numeric GL_ID", func(t *testing.T) {
+		env, err := NewHooksPayload(config.Config, repo, nil, nil, nil).Env()
+		require.NoError(t, err)
+
+		_, err = HooksPayloadFromEnv([]string{
+			env,
+			"GL_USERNAME=user",
+			"GL_ID=1234xyz",
+			"GL_PROTOCOL=ssh",
+		})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "user ID found in hooks is non-numeric")
 	})
 
 	t.Run("receive hooks payload", func(t *testing.T) {
 		env, err := NewHooksPayload(config.Config, repo, nil, nil, &ReceiveHooksPayload{
-			UserID:   "1234",
+			UserID:   1234,
 			Username: "user",
 			Protocol: "ssh",
 		}).Env()
@@ -304,7 +318,7 @@ func TestHooksPayload(t *testing.T) {
 			InternalSocket:      config.Config.GitalyInternalSocketPath(),
 			InternalSocketToken: config.Config.Auth.Token,
 			ReceiveHooksPayload: &ReceiveHooksPayload{
-				UserID:   "1234",
+				UserID:   1234,
 				Username: "user",
 				Protocol: "ssh",
 			},

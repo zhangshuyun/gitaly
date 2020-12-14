@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"strconv"
 
 	"github.com/golang/protobuf/jsonpb"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
@@ -59,7 +60,7 @@ type ReceiveHooksPayload struct {
 	// Username contains the name of the user who has caused the hook to be executed.
 	Username string `json:"username"`
 	// UserID contains the ID of the user who has caused the hook to be executed.
-	UserID string `json:"userid"`
+	UserID int64 `json:"userid"`
 	// Protocol contains the protocol via which the hook was executed. This
 	// can be one of "web", "ssh" or "smarthttp".
 	Protocol string `json:"protocol"`
@@ -233,6 +234,10 @@ func fallbackReceiveHooksPayloadFromEnv(envs []string) (*ReceiveHooksPayload, er
 	if !ok {
 		return nil, errors.New("no user ID found in hooks environment")
 	}
+	userIDint, err := strconv.ParseInt(userID, 10, 0)
+	if err != nil {
+		return nil, fmt.Errorf("user ID found in hooks is non-numeric: %w", err)
+	}
 
 	username, ok := lookupEnv(envs, "GL_USERNAME")
 	if !ok {
@@ -241,7 +246,7 @@ func fallbackReceiveHooksPayloadFromEnv(envs []string) (*ReceiveHooksPayload, er
 
 	return &ReceiveHooksPayload{
 		Protocol: protocol,
-		UserID:   userID,
+		UserID:   userIDint,
 		Username: username,
 	}, nil
 }
