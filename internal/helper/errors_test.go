@@ -46,6 +46,7 @@ func TestError(t *testing.T) {
 }
 
 func TestErrorf(t *testing.T) {
+	input := errors.New("sentinel error")
 	for _, tc := range []struct {
 		desc   string
 		errorf func(format string, a ...interface{}) error
@@ -68,8 +69,8 @@ func TestErrorf(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			err := tc.errorf("expected %s", "message")
-			require.EqualError(t, err, "expected message")
+			err := tc.errorf("expected %s", input)
+			require.EqualError(t, err, "expected sentinel error")
 			require.Equal(t, tc.code, status.Code(err))
 		})
 	}
