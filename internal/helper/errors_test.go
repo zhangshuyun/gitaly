@@ -10,12 +10,18 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// MockErrNotFoundf wraps error with codes.NotFound, unless err is already a grpc error
+func MockErrNotFoundf(format string, a ...interface{}) error {
+	return DecorateError(codes.NotFound, fmt.Errorf(format, a...))
+}
+
 func TestError(t *testing.T) {
 	errorFormat := "expected %s"
 	errorMessage := "sentinel error"
 	input := errors.New(errorMessage)
-	inputGRPC := status.Error(codes.Unauthenticated, errorMessage)
-	inputGRPCFmt := status.Errorf(codes.Unauthenticated, errorFormat, errorMessage)
+	inputGRPCCode := codes.Unauthenticated
+	inputGRPC := status.Error(inputGRPCCode, errorMessage)
+	inputGRPCFmt := status.Errorf(inputGRPCCode, errorFormat, errorMessage)
 
 	for _, tc := range []struct {
 		desc      string
@@ -77,31 +83,54 @@ func TestError(t *testing.T) {
 			format:    true,
 			wrapped:   false,
 		},
+		{
+			desc:      "MockErrNotFoundf",
+			functionf: MockErrNotFoundf,
+			code:      codes.NotFound,
+			format:    true,
+			wrapped:   true,
+		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
+			// assert: tc.code and our test code must not
+			// clash.
+			require.NotEqual(t, tc.code, inputGRPCCode)
+
 			var err error
+			errorMessageFormatted := errorMessage
 			if tc.format {
+				errorMessageFormatted = fmt.Sprintf(errorFormat, errorMessage)
 				err = tc.functionf(errorFormat, input)
-				require.EqualError(t, err, fmt.Sprintf(errorFormat, errorMessage))
-				require.False(t, errors.Is(err, input))
 			} else {
 				err = tc.function(input)
-				require.EqualError(t, err, errorMessage)
-				require.True(t, errors.Is(err, input))
+				require.True(t, tc.wrapped)
+			}
+			require.EqualError(t, err, errorMessageFormatted)
+			if tc.wrapped {
+				require.False(t, errors.Is(err, inputGRPC))
+			} else {
+				require.Equal(t, errors.Is(err, input), tc.wrapped)
 			}
 			require.Equal(t, tc.code, status.Code(err))
 
 			// Does an existing GRPC's error's code get
 			// preserved?
+			expectedCode := inputGRPCCode
 			if tc.format {
 				err = tc.functionf(errorFormat, inputGRPCFmt)
-				require.Equal(t, tc.code, status.Code(err))
+				expectedCode = tc.code
 			} else {
 				err = tc.function(inputGRPC)
 				require.True(t, errors.Is(err, inputGRPC))
-				require.NotEqual(t, tc.code, status.Code(inputGRPC))
-				require.Equal(t, status.Code(inputGRPC), status.Code(err))
+				require.True(t, tc.wrapped)
 			}
+			if tc.wrapped {
+				require.NotEqual(t, errors.Is(err, input), tc.wrapped)
+			} else {
+				require.Equal(t, errors.Is(err, input), tc.wrapped)
+			}
+			require.Equal(t, expectedCode, status.Code(err))
+			require.NotEqual(t, tc.code, status.Code(inputGRPC))
 		})
 	}
 }
