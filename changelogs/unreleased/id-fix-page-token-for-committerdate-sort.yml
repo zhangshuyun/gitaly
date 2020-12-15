@@ -1,0 +1,5 @@
+---
+title: Fix refs pagination for updated-at sort
+merge_request: 2932
+author:
+type: fixed

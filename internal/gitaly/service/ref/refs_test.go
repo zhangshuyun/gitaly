@@ -898,54 +898,86 @@ func TestFindLocalBranchesPagination(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	limit := 1
-	rpcRequest := &gitalypb.FindLocalBranchesRequest{
-		Repository: testRepo,
-		PaginationParams: &gitalypb.PaginationParameter{
-			Limit:     int32(limit),
-			PageToken: "refs/heads/gitaly/squash-test",
+	testCases := []struct {
+		desc           string
+		sortBy         gitalypb.FindLocalBranchesRequest_SortBy
+		pageToken      string
+		limit          int32
+		expectedBranch string
+	}{
+		{
+			desc:           "sorted by name",
+			sortBy:         gitalypb.FindLocalBranchesRequest_NAME,
+			pageToken:      "refs/heads/gitaly/squash-test",
+			limit:          1,
+			expectedBranch: "refs/heads/improve/awesome",
+		},
+		{
+			desc:           "sorted by committer date asc",
+			sortBy:         gitalypb.FindLocalBranchesRequest_UPDATED_ASC,
+			pageToken:      "refs/heads/feature_conflict",
+			limit:          1,
+			expectedBranch: "refs/heads/'test'",
+		},
+		{
+			desc:           "sorted by committer date desc",
+			sortBy:         gitalypb.FindLocalBranchesRequest_UPDATED_DESC,
+			pageToken:      "refs/heads/empty-branch",
+			limit:          1,
+			expectedBranch: "refs/heads/'test'",
 		},
 	}
-	c, err := client.FindLocalBranches(ctx, rpcRequest)
-	if err != nil {
-		t.Fatal(err)
+
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			rpcRequest := &gitalypb.FindLocalBranchesRequest{
+				Repository: testRepo,
+				SortBy:     tc.sortBy,
+				PaginationParams: &gitalypb.PaginationParameter{
+					Limit:     tc.limit,
+					PageToken: tc.pageToken,
+				},
+			}
+			c, err := client.FindLocalBranches(ctx, rpcRequest)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			var branches []*gitalypb.FindLocalBranchResponse
+			for {
+				r, err := c.Recv()
+				if err == io.EOF {
+					break
+				}
+				require.NoError(t, err)
+				if err != nil {
+					t.Fatal(err)
+				}
+				branches = append(branches, r.GetBranches()...)
+			}
+
+			require.Len(t, branches, int(tc.limit))
+
+			target := localBranches[tc.expectedBranch]
+			branch := &gitalypb.FindLocalBranchResponse{
+				Name:          []byte(tc.expectedBranch),
+				CommitId:      target.Id,
+				CommitSubject: target.Subject,
+				CommitAuthor: &gitalypb.FindLocalBranchCommitAuthor{
+					Name:  target.Author.Name,
+					Email: target.Author.Email,
+					Date:  target.Author.Date,
+				},
+				CommitCommitter: &gitalypb.FindLocalBranchCommitAuthor{
+					Name:  target.Committer.Name,
+					Email: target.Committer.Email,
+					Date:  target.Committer.Date,
+				},
+				Commit: target,
+			}
+			assertContainsLocalBranch(t, branches, branch)
+		})
 	}
-
-	var branches []*gitalypb.FindLocalBranchResponse
-	for {
-		r, err := c.Recv()
-		if err == io.EOF {
-			break
-		}
-		require.NoError(t, err)
-		if err != nil {
-			t.Fatal(err)
-		}
-		branches = append(branches, r.GetBranches()...)
-	}
-
-	require.Len(t, branches, limit)
-
-	expectedBranch := "refs/heads/improve/awesome"
-	target := localBranches[expectedBranch]
-
-	branch := &gitalypb.FindLocalBranchResponse{
-		Name:          []byte(expectedBranch),
-		CommitId:      target.Id,
-		CommitSubject: target.Subject,
-		CommitAuthor: &gitalypb.FindLocalBranchCommitAuthor{
-			Name:  target.Author.Name,
-			Email: target.Author.Email,
-			Date:  target.Author.Date,
-		},
-		CommitCommitter: &gitalypb.FindLocalBranchCommitAuthor{
-			Name:  target.Committer.Name,
-			Email: target.Committer.Email,
-			Date:  target.Committer.Date,
-		},
-		Commit: target,
-	}
-	assertContainsLocalBranch(t, branches, branch)
 }
 
 // Test that `s` contains the elements in `relativeOrder` in that order
