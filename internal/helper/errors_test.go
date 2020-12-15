@@ -2,6 +2,7 @@ package helper
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -10,68 +11,97 @@ import (
 )
 
 func TestError(t *testing.T) {
-	input := errors.New("sentinel error")
+	errorFormat := "expected %s"
+	errorMessage := "sentinel error"
+	input := errors.New(errorMessage)
+	inputGRPC := status.Error(codes.Unauthenticated, errorMessage)
+	inputGRPCFmt := status.Errorf(codes.Unauthenticated, errorFormat, errorMessage)
+
 	for _, tc := range []struct {
-		desc     string
-		decorate func(err error) error
-		code     codes.Code
+		desc      string
+		function  func(err error) error
+		functionf func(format string, a ...interface{}) error
+		code      codes.Code
+		format    bool
+		wrapped   bool
 	}{
+		// Format-less functions
 		{
 			desc:     "Internal",
-			decorate: ErrInternal,
+			function: ErrInternal,
 			code:     codes.Internal,
+			format:   false,
+			wrapped:  true,
 		},
 		{
 			desc:     "InvalidArgument",
-			decorate: ErrInvalidArgument,
+			function: ErrInvalidArgument,
 			code:     codes.InvalidArgument,
+			format:   false,
+			wrapped:  true,
 		},
 		{
 			desc:     "PreconditionFailed",
-			decorate: ErrPreconditionFailed,
+			function: ErrPreconditionFailed,
 			code:     codes.FailedPrecondition,
+			format:   false,
+			wrapped:  true,
 		},
 		{
 			desc:     "NotFound",
-			decorate: ErrNotFound,
+			function: ErrNotFound,
 			code:     codes.NotFound,
+			format:   false,
+			wrapped:  true,
 		},
-	} {
-		t.Run(tc.desc, func(t *testing.T) {
-			err := tc.decorate(input)
-			require.True(t, errors.Is(err, input))
-			require.Equal(t, tc.code, status.Code(err))
-		})
-	}
-}
 
-func TestErrorf(t *testing.T) {
-	input := errors.New("sentinel error")
-	for _, tc := range []struct {
-		desc     string
-		decorate func(format string, a ...interface{}) error
-		code     codes.Code
-	}{
+		// Format-y functions
 		{
-			desc:     "Internalf",
-			decorate: ErrInternalf,
-			code:     codes.Internal,
+			desc:      "Internalf",
+			functionf: ErrInternalf,
+			code:      codes.Internal,
+			format:    true,
+			wrapped:   false,
 		},
 		{
-			desc:     "InvalidArgumentf",
-			decorate: ErrInvalidArgumentf,
-			code:     codes.InvalidArgument,
+			desc:      "InvalidArgumentf",
+			functionf: ErrInvalidArgumentf,
+			code:      codes.InvalidArgument,
+			format:    true,
+			wrapped:   false,
 		},
 		{
-			desc:     "PreconditionFailedf",
-			decorate: ErrPreconditionFailedf,
-			code:     codes.FailedPrecondition,
+			desc:      "PreconditionFailedf",
+			functionf: ErrPreconditionFailedf,
+			code:      codes.FailedPrecondition,
+			format:    true,
+			wrapped:   false,
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			err := tc.decorate("expected %s", input)
-			require.EqualError(t, err, "expected sentinel error")
+			var err error
+			if tc.format {
+				err = tc.functionf(errorFormat, input)
+				require.EqualError(t, err, fmt.Sprintf(errorFormat, errorMessage))
+				require.False(t, errors.Is(err, input))
+			} else {
+				err = tc.function(input)
+				require.EqualError(t, err, errorMessage)
+				require.True(t, errors.Is(err, input))
+			}
 			require.Equal(t, tc.code, status.Code(err))
+
+			// Does an existing GRPC's error's code get
+			// preserved?
+			if tc.format {
+				err = tc.functionf(errorFormat, inputGRPCFmt)
+				require.Equal(t, tc.code, status.Code(err))
+			} else {
+				err = tc.function(inputGRPC)
+				require.True(t, errors.Is(err, inputGRPC))
+				require.NotEqual(t, tc.code, status.Code(inputGRPC))
+				require.Equal(t, status.Code(inputGRPC), status.Code(err))
+			}
 		})
 	}
 }
