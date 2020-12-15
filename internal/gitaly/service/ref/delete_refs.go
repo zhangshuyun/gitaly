@@ -34,7 +34,11 @@ func (s *server) DeleteRefs(ctx context.Context, in *gitalypb.DeleteRefsRequest)
 	}
 
 	for _, ref := range refnames {
-		if err := updater.Delete(ref); err != nil {
+		refValue, err := git.NewRepository(in.Repository).GetReference(ctx, ref)
+		if err != nil {
+			return &gitalypb.DeleteRefsResponse{GitError: err.Error()}, nil
+		}
+		if err := updater.Update(ref, git.NullSHA, refValue.Target); err != nil {
 			return &gitalypb.DeleteRefsResponse{GitError: err.Error()}, nil
 		}
 	}

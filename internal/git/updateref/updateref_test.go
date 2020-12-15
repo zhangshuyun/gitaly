@@ -105,7 +105,9 @@ func TestDelete(t *testing.T) {
 
 	ref := "refs/heads/feature"
 
-	require.NoError(t, updater.Delete(ref))
+	refValue, err := git.NewRepository(testRepo).GetReference(ctx, ref)
+	require.NoError(t, err)
+	require.NoError(t, updater.Delete(ref, refValue.Target))
 	require.NoError(t, updater.Wait())
 
 	// check the ref was removed
