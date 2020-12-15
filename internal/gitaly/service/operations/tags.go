@@ -8,6 +8,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
+	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -36,11 +37,28 @@ func (s *Server) UserDeleteTagRuby(ctx context.Context, req *gitalypb.UserDelete
 
 func (s *Server) UserDeleteTagGo(ctx context.Context, req *gitalypb.UserDeleteTagRequest) (*gitalypb.UserDeleteTagResponse, error) {
 	if len(req.TagName) == 0 {
-		return nil, status.Errorf(codes.InvalidArgument, "empty tag name")
+		// This one gets a new Internal error code. Then try
+		// it with:
+		//
+		//     git checkout 495a384d4 -- internal/helper/error.go
+		//
+		// And it does not, but the message is mangled to:
+		//
+		//    rpc error: code = Internal desc = empty user
+		return nil, helper.ErrInvalidArgument(status.Error(codes.Internal, "empty tag name"))
 	}
 
 	if req.User == nil {
-		return nil, status.Errorf(codes.InvalidArgument, "empty user")
+		// This does not get a new error code, but the message
+		// is mangled to:
+		//
+		//    rpc error: code = Internal desc = empty user
+		//
+		//     git checkout 495a384d4 -- internal/helper/error.go
+		//
+		// And the message is the same, but we mangle the
+		// error code to InvalidArgument.
+		return nil, helper.ErrInvalidArgumentf("%w", status.Error(codes.Internal, "empty user"))
 	}
 
 	referenceName := fmt.Sprintf("refs/tags/%s", req.TagName)
