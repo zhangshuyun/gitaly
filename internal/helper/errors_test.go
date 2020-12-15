@@ -47,28 +47,28 @@ func TestError(t *testing.T) {
 
 func TestErrorf(t *testing.T) {
 	for _, tc := range []struct {
-		desc   string
-		errorf func(format string, a ...interface{}) error
-		code   codes.Code
+		desc     string
+		decorate func(format string, a ...interface{}) error
+		code     codes.Code
 	}{
 		{
-			desc:   "Internalf",
-			errorf: ErrInternalf,
-			code:   codes.Internal,
+			desc:     "Internalf",
+			decorate: ErrInternalf,
+			code:     codes.Internal,
 		},
 		{
-			desc:   "InvalidArgumentf",
-			errorf: ErrInvalidArgumentf,
-			code:   codes.InvalidArgument,
+			desc:     "InvalidArgumentf",
+			decorate: ErrInvalidArgumentf,
+			code:     codes.InvalidArgument,
 		},
 		{
-			desc:   "PreconditionFailedf",
-			errorf: ErrPreconditionFailedf,
-			code:   codes.FailedPrecondition,
+			desc:     "PreconditionFailedf",
+			decorate: ErrPreconditionFailedf,
+			code:     codes.FailedPrecondition,
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			err := tc.errorf("expected %s", "message")
+			err := tc.decorate("expected %s", "message")
 			require.EqualError(t, err, "expected message")
 			require.Equal(t, tc.code, status.Code(err))
 		})
