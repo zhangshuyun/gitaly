@@ -79,8 +79,8 @@ func (u *Updater) Update(ref, newvalue, oldvalue string) error {
 }
 
 // Delete commands the reference to be removed from the repository
-func (u *Updater) Delete(ref string) error {
-	_, err := fmt.Fprintf(u.cmd, "delete %s\x00\x00", ref)
+func (u *Updater) Delete(ref string, oldvalue string) error {
+	_, err := fmt.Fprintf(u.cmd, "delete %s\x00%s\x00", ref, oldvalue)
 	return err
 }
 

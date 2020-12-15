@@ -123,7 +123,7 @@ func (c *Cleaner) processEntry(ctx context.Context, oldSHA, newSHA string) error
 		if err != nil {
 			return err
 		}
-		if err := c.updater.Update(ref, git.NullSHA, refValue.Target); err != nil {
+		if err := c.updater.Delete(ref, refValue.Target); err != nil {
 			return err
 		}
 	}
