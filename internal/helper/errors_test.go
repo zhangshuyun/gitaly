@@ -16,12 +16,14 @@ func MockErrNotFoundf(format string, a ...interface{}) error {
 }
 
 func TestError(t *testing.T) {
-	errorFormat := "expected %s"
+	errorFormat := "expected %v"
+	errorFormatW := "expected %v"
 	errorMessage := "sentinel error"
 	input := errors.New(errorMessage)
 	inputGRPCCode := codes.Unauthenticated
 	inputGRPC := status.Error(inputGRPCCode, errorMessage)
 	inputGRPCFmt := status.Errorf(inputGRPCCode, errorFormat, errorMessage)
+	inputGRPCFmtW := status.Errorf(inputGRPCCode, errorFormatW, errorMessage)
 
 	for _, tc := range []struct {
 		desc      string
@@ -96,16 +98,23 @@ func TestError(t *testing.T) {
 			// clash.
 			require.NotEqual(t, tc.code, inputGRPCCode)
 
-			var err error
+			var err, errW error
 			errorMessageFormatted := errorMessage
+			errorMessageFormattedW := errorMessage
 			if tc.format {
 				errorMessageFormatted = fmt.Sprintf(errorFormat, errorMessage)
+				errorMessageFormattedW = fmt.Sprintf(errorFormatW, errorMessage)
 				err = tc.functionf(errorFormat, input)
+				errW = tc.functionf(errorFormatW, input)
+				require.EqualError(t, errW, errorMessageFormatted)
+				require.EqualError(t, errW, errorMessageFormattedW)
 			} else {
 				err = tc.function(input)
 				require.True(t, tc.wrapped)
 			}
 			require.EqualError(t, err, errorMessageFormatted)
+			require.EqualError(t, err, errorMessageFormattedW)
+
 			if tc.wrapped {
 				require.False(t, errors.Is(err, inputGRPC))
 			} else {
@@ -118,16 +127,20 @@ func TestError(t *testing.T) {
 			expectedCode := inputGRPCCode
 			if tc.format {
 				err = tc.functionf(errorFormat, inputGRPCFmt)
+				errW = tc.functionf(errorFormat, inputGRPCFmtW)
 				expectedCode = tc.code
 			} else {
 				err = tc.function(inputGRPC)
+				errW = nil
 				require.True(t, errors.Is(err, inputGRPC))
 				require.True(t, tc.wrapped)
 			}
 			if tc.wrapped {
 				require.NotEqual(t, errors.Is(err, input), tc.wrapped)
+				require.NotEqual(t, errors.Is(errW, input), tc.wrapped)
 			} else {
 				require.Equal(t, errors.Is(err, input), tc.wrapped)
+				require.Equal(t, errors.Is(errW, input), tc.wrapped)
 			}
 			require.Equal(t, expectedCode, status.Code(err))
 			require.NotEqual(t, tc.code, status.Code(inputGRPC))
