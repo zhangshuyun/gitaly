@@ -37,6 +37,9 @@ type MergeCommand struct {
 	Ours string `json:"ours"`
 	// Theirs is the commit into which ours is to be merged.
 	Theirs string `json:"theirs"`
+	// AllowConflicts resolves conflicts that occurred on merge commit and
+	// overrides the conflicts with our changes.
+	AllowConflicts bool `json:"allow_conflicts"`
 }
 
 // MergeResult contains results from a merge.

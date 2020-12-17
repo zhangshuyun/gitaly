@@ -1,0 +1,5 @@
+---
+title: Allow to resolve conflicts on UserMergeToRef
+merge_request: 2642
+author:
+type: performance

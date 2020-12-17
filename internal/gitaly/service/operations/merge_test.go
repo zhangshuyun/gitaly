@@ -1,7 +1,6 @@
 package operations
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io/ioutil"
@@ -718,25 +717,20 @@ func TestConflictsOnUserMergeToRefRequest(t *testing.T) {
 		FirstParentRef: []byte("refs/heads/" + mergeBranchName),
 	}
 
-	t.Run("allow conflicts to be merged with markers", func(t *testing.T) {
+	t.Run("resolves conflicts and overrides them with our changes", func(t *testing.T) {
 		request.AllowConflicts = true
 
 		resp, err := client.UserMergeToRef(ctx, request)
 		require.NoError(t, err)
 
-		var buf bytes.Buffer
-		cmd := exec.Command(config.Config.Git.BinPath, "-C", testRepoPath, "show", resp.CommitId)
-		cmd.Stdout = &buf
-		require.NoError(t, cmd.Run())
+		output := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "show", resp.CommitId))
 
-		bufStr := buf.String()
-		require.Contains(t, bufStr, "+<<<<<<< files/ruby/popen.rb")
-		require.Contains(t, bufStr, "+>>>>>>> files/ruby/popen.rb")
-		require.Contains(t, bufStr, "+<<<<<<< files/ruby/regex.rb")
-		require.Contains(t, bufStr, "+>>>>>>> files/ruby/regex.rb")
+		// Overrides conflicts with our changes
+		require.Contains(t, output, `/(zip|tar|7z|tar\.gz|tgz|gz|tar\.bz2|tbz|tbz2|tb2|bz2)/`)
+		require.Contains(t, output, "options = { chdir: path }")
 	})
 
-	t.Run("disallow conflicts to be merged", func(t *testing.T) {
+	t.Run("disallow to be merged due to the conflicts", func(t *testing.T) {
 		request.AllowConflicts = false
 
 		_, err := client.UserMergeToRef(ctx, request)

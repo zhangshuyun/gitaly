@@ -318,12 +318,13 @@ func (s *Server) userMergeToRef(ctx context.Context, request *gitalypb.UserMerge
 
 	// Now, we create the merge commit...
 	merge, err := git2go.MergeCommand{
-		Repository: repoPath,
-		AuthorName: string(request.User.Name),
-		AuthorMail: string(request.User.Email),
-		Message:    string(request.Message),
-		Ours:       ref,
-		Theirs:     sourceRef,
+		Repository:     repoPath,
+		AuthorName:     string(request.User.Name),
+		AuthorMail:     string(request.User.Email),
+		Message:        string(request.Message),
+		Ours:           ref,
+		Theirs:         sourceRef,
+		AllowConflicts: request.AllowConflicts,
 	}.Run(ctx, s.cfg)
 	if err != nil {
 		if errors.Is(err, git2go.ErrInvalidArgument) {
@@ -350,23 +351,7 @@ func (s *Server) UserMergeToRef(ctx context.Context, in *gitalypb.UserMergeToRef
 		return nil, helper.ErrInvalidArgument(err)
 	}
 
-	// Ruby has grown a new feature since being ported to Go, and we don't
-	// handle that yet.
-	if !in.AllowConflicts {
-		return s.userMergeToRef(ctx, in)
-	}
-
-	client, err := s.ruby.OperationServiceClient(ctx)
-	if err != nil {
-		return nil, helper.ErrInternal(err)
-	}
-
-	clientCtx, err := rubyserver.SetHeaders(ctx, s.locator, in.GetRepository())
-	if err != nil {
-		return nil, err
-	}
-
-	return client.UserMergeToRef(clientCtx, in)
+	return s.userMergeToRef(ctx, in)
 }
 
 func isAncestor(ctx context.Context, repo repository.GitRepo, ancestor, descendant string) (bool, error) {

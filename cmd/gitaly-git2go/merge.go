@@ -57,6 +57,10 @@ func (cmd *mergeSubcommand) Run(context.Context, io.Reader, io.Writer) error {
 	}
 	mergeOpts.RecursionLimit = git2go.MergeRecursionLimit
 
+	if request.AllowConflicts {
+		mergeOpts.FileFavor = git.MergeFileFavorOurs
+	}
+
 	index, err := repo.MergeCommits(ours, theirs, &mergeOpts)
 	if err != nil {
 		return fmt.Errorf("could not merge commits: %w", err)
