@@ -99,6 +99,60 @@ func TestUpdate(t *testing.T) {
 	require.NotEqual(t, commit.Id, parentCommit.Id, "reference was updated when it shouldn't have been")
 }
 
+func TestUpdateFake(t *testing.T) {
+	ctx, testRepo, _, teardown := setup(t)
+	defer teardown()
+
+	locator := config.NewLocator(config.Config)
+	masterCommit, err := log.GetCommit(ctx, locator, testRepo, "refs/heads/master")
+	require.NoError(t, err)
+
+	updater, err := New(ctx, testRepo)
+	require.NoError(t, err)
+
+	ref := "refs/heads/fix"
+
+	// Sanity check: ensure the ref exists before we start
+	fixCommit, logErr := log.GetCommit(ctx, locator, testRepo, ref)
+	require.NoError(t, logErr)
+	require.NotEqual(t, masterCommit.Id, fixCommit.Id, "%s points to %s in the test repository", ref, fixCommit.Id)
+
+	// Updating it from fix->master with a bad oldvalue fails
+	updateErr := updater.Update(ref, masterCommit.Id, masterCommit.Id)
+	require.NoError(t, updateErr)
+	require.Error(t, updater.Wait())  // the error is deferred
+	updater, err = New(ctx, testRepo) // .Wait() closes it, create a new one
+	require.NoError(t, err)
+
+	// check that the ref was not updated
+	fixCommitTwo, logErr := log.GetCommit(ctx, locator, testRepo, ref)
+	require.NoError(t, logErr)
+	require.Equal(t, fixCommit.Id, fixCommitTwo.Id)
+
+	// Now fake up the oldvalue
+	MungeMapForTestingAdd(masterCommit.Id, fixCommit.Id)
+
+	// Updating it from fix->master with a bad oldvalue works,
+	// since we're lying via MungeMapForTesting
+	updateErr = updater.Update(ref, masterCommit.Id, masterCommit.Id)
+	require.NoError(t, updateErr)
+	require.NoError(t, updater.Wait()) // the error is deferred
+	updater, err = New(ctx, testRepo)  // .Wait() closes it, create a new one
+	require.NoError(t, err)
+
+	// check that the ref was updated
+	fixCommitThree, logErr := log.GetCommit(ctx, locator, testRepo, ref)
+	require.NoError(t, logErr)
+	require.Equal(t, masterCommit.Id, fixCommitThree.Id)
+
+	// Updating it with masterCommit.Id does not error, since the
+	// MungeMapForTesting is one-use (it deleted the key after it
+	// was used) (it would if Del() wasn't called)
+	updateErr = updater.Update(ref, fixCommit.Id, masterCommit.Id)
+	require.NoError(t, updateErr)
+	require.NoError(t, updater.Wait()) // the error is deferred
+}
+
 func TestDelete(t *testing.T) {
 	ctx, testRepo, _, teardown := setup(t)
 	defer teardown()

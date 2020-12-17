@@ -77,10 +77,35 @@ func (u *Updater) Create(ref, value string) error {
 	return err
 }
 
+var mungeMapForTesting = make(map[string]string)
+
+// MungeMapForTestingAdd is a test-only interface to the private
+// mungeMapForTesting. Use it for ad-hoc mapping the Update()
+// "oldvalue" to some fake value. The munged value will only be used
+// once, it's delete()-ed on retrieval.
+func MungeMapForTestingAdd(key, value string) {
+	mungeMapForTesting[key] = value
+}
+
+func fakeOldValueForTesting(oldValue string) string {
+	fakeOldValue := mungeMapForTesting[oldValue]
+	if len(fakeOldValue) != 0 {
+		// Don't persist the value, it's one-use. If we had a
+		// Del() interface and the test died and forgot to
+		// cleanup later tests might die at a distance.
+		delete(mungeMapForTesting, oldValue)
+		return fakeOldValue
+	}
+	return oldValue
+}
+
 // Update commands the reference to be updated to point at the sha specified in
 // newvalue
-func (u *Updater) Update(ref, newvalue, oldvalue string) error {
-	_, err := fmt.Fprintf(u.cmd, "update %s\x00%s\x00%s\x00", ref, newvalue, oldvalue)
+func (u *Updater) Update(ref, newvalue, oldValue string) error {
+	if len(mungeMapForTesting) != 0 {
+		oldValue = fakeOldValueForTesting(oldValue)
+	}
+	_, err := fmt.Fprintf(u.cmd, "update %s\x00%s\x00%s\x00", ref, newvalue, oldValue)
 	return err
 }
 
