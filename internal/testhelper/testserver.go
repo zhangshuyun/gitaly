@@ -135,9 +135,7 @@ func (p *TestServer) Socket() string {
 func (p *TestServer) Start(t testing.TB) {
 	praefectBinPath, ok := os.LookupEnv("GITALY_TEST_PRAEFECT_BIN")
 	if !ok {
-		gitalyServerSocketPath, err := p.listen()
-		require.NoError(t, err)
-		p.socket = gitalyServerSocketPath
+		p.socket = p.listen(t)
 		return
 	}
 
@@ -168,8 +166,7 @@ func (p *TestServer) Start(t testing.TB) {
 	}
 
 	for _, storage := range p.storages {
-		gitalyServerSocketPath, err := p.listen()
-		require.NoError(t, err)
+		gitalyServerSocketPath := p.listen(t)
 
 		c.VirtualStorages = append(c.VirtualStorages, &praefectconfig.VirtualStorage{
 			Name: storage,
@@ -214,7 +211,7 @@ func (p *TestServer) Start(t testing.TB) {
 	p.process = cmd.Process
 }
 
-func (p *TestServer) listen() (string, error) {
+func (p *TestServer) listen(t testing.TB) string {
 	gitalyServerSocketPath := GetTemporaryGitalySocketFileName()
 
 	sockets := []string{
@@ -227,9 +224,7 @@ func (p *TestServer) listen() (string, error) {
 
 	for _, socket := range sockets {
 		listener, err := net.Listen("unix", socket)
-		if err != nil {
-			return "", err
-		}
+		require.NoError(t, err)
 
 		go p.grpcServer.Serve(listener)
 
@@ -239,18 +234,13 @@ func (p *TestServer) listen() (string, error) {
 		}
 
 		conn, err := grpc.Dial("unix://"+socket, opts...)
-
-		if err != nil {
-			return "", err
-		}
+		require.NoError(t, err)
 		defer conn.Close()
 
-		if err := WaitHealthy(conn, 3, time.Second); err != nil {
-			return "", err
-		}
+		require.NoError(t, WaitHealthy(conn, 3, time.Second))
 	}
 
-	return gitalyServerSocketPath, nil
+	return gitalyServerSocketPath
 }
 
 // WaitHealthy executes health check request `retries` times and awaits each `timeout` period to respond.
