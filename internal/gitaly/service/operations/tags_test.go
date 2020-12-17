@@ -9,7 +9,9 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/log"
+	"gitlab.com/gitlab-org/gitaly/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
@@ -1251,6 +1253,82 @@ func testFailedUserCreateTagRequestDueToValidation(t *testing.T, ctx context.Con
 			require.Equal(t, testCase.response, response)
 		})
 	}
+}
+
+//nolint: errcheck
+func TestFailedUserDeleteTagRequestDueToUpdateRef(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	ctx = featureflag.OutgoingCtxWithFeatureFlagValue(ctx, featureflag.GoUserDeleteTag, "true")
+
+	serverSocketPath, stop := runOperationServiceServer(t)
+	defer stop()
+
+	client, conn := newOperationClient(t, serverSocketPath)
+	defer conn.Close()
+
+	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	defer cleanupFn()
+
+	tagName := "my-new-tag"
+	targetRevision := "c7fbe50c7c7419d9701eebe64b1fdacc3df5b9dd"
+	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "tag", tagName, targetRevision)
+
+	tagID := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "rev-parse", tagName)
+	require.Equal(t, targetRevision, text.ChompBytes(tagID))
+
+	updateref.MungeMapForTestingAdd(targetRevision, "612036fac47c5d31c212b17268e2f3ba807bce1e")
+	request := &gitalypb.UserDeleteTagRequest{
+		Repository: testRepo,
+		TagName:    []byte(tagName),
+		User:       testhelper.TestUser,
+	}
+	response, err := client.UserDeleteTag(ctx, request)
+	require.Equal(t, status.Errorf(codes.FailedPrecondition, "Could not update refs/tags/%s. Please refresh and try again.", tagName), err)
+	require.Nil(t, response)
+
+	tags := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "for-each-ref", "--", "refs/tags/"+tagName)
+	require.Contains(t, string(tags), targetRevision)
+}
+
+//nolint: errcheck
+func TestFailedUserCreateTagRequestDueToUpdateRef(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	ctx = featureflag.OutgoingCtxWithFeatureFlagValue(ctx, featureflag.GoUserCreateTag, "true")
+
+	serverSocketPath, stop := runOperationServiceServer(t)
+	defer stop()
+
+	client, conn := newOperationClient(t, serverSocketPath)
+	defer conn.Close()
+
+	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	defer cleanupFn()
+
+	targetRevision := "c7fbe50c7c7419d9701eebe64b1fdacc3df5b9dd"
+	updateref.MungeMapForTestingAdd(git.NullSHA, "612036fac47c5d31c212b17268e2f3ba807bce1e")
+
+	tagName := "my-new-tag"
+	request := &gitalypb.UserCreateTagRequest{
+		Repository:     testRepo,
+		TagName:        []byte(tagName),
+		TargetRevision: []byte(targetRevision),
+		User:           testhelper.TestUser,
+	}
+	response, err := client.UserCreateTag(ctx, request)
+	require.NoError(t, err)
+	require.Empty(t, response.PreReceiveError)
+	responseOk := &gitalypb.UserCreateTagResponse{
+		Tag:    nil,
+		Exists: true,
+	}
+	require.Equal(t, responseOk, response)
+
+	tags := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "for-each-ref", "--", "refs/tags/"+tagName)
+	require.Equal(t, string(tags), "")
 }
 
 func TestTagHookOutput(t *testing.T) {
