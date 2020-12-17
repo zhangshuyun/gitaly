@@ -132,31 +132,24 @@ func (p *TestServer) Socket() string {
 }
 
 // Start will start the grpc server as well as spawn a praefect instance if GITALY_TEST_PRAEFECT_BIN is enabled
-func (p *TestServer) Start() error {
+func (p *TestServer) Start(t testing.TB) {
 	praefectBinPath, ok := os.LookupEnv("GITALY_TEST_PRAEFECT_BIN")
 	if !ok {
 		gitalyServerSocketPath, err := p.listen()
-		if err != nil {
-			return err
-		}
-
+		require.NoError(t, err)
 		p.socket = gitalyServerSocketPath
-		return nil
+		return
 	}
 
 	tempDir, err := ioutil.TempDir("", "praefect-test-server")
-	if err != nil {
-		return err
-	}
+	require.NoError(t, err)
 	defer os.RemoveAll(tempDir)
 
 	praefectServerSocketPath := GetTemporaryGitalySocketFileName()
 
 	configFilePath := filepath.Join(tempDir, "config.toml")
 	configFile, err := os.Create(configFilePath)
-	if err != nil {
-		return err
-	}
+	require.NoError(t, err)
 	defer configFile.Close()
 
 	c := praefectconfig.Config{
@@ -176,9 +169,7 @@ func (p *TestServer) Start() error {
 
 	for _, storage := range p.storages {
 		gitalyServerSocketPath, err := p.listen()
-		if err != nil {
-			return err
-		}
+		require.NoError(t, err)
 
 		c.VirtualStorages = append(c.VirtualStorages, &praefectconfig.VirtualStorage{
 			Name: storage,
@@ -192,13 +183,8 @@ func (p *TestServer) Start() error {
 		})
 	}
 
-	if err := toml.NewEncoder(configFile).Encode(&c); err != nil {
-		return err
-	}
-	if err = configFile.Sync(); err != nil {
-		return err
-	}
-	configFile.Close()
+	require.NoError(t, toml.NewEncoder(configFile).Encode(&c))
+	require.NoError(t, configFile.Close())
 
 	cmd := exec.Command(praefectBinPath, "-config", configFilePath)
 	cmd.Stderr = os.Stderr
@@ -206,9 +192,7 @@ func (p *TestServer) Start() error {
 
 	p.socket = praefectServerSocketPath
 
-	if err := cmd.Start(); err != nil {
-		return err
-	}
+	require.NoError(t, cmd.Start())
 
 	p.waitCh = make(chan struct{})
 	go func() {
@@ -222,19 +206,12 @@ func (p *TestServer) Start() error {
 	}
 
 	conn, err := grpc.Dial("unix://"+praefectServerSocketPath, opts...)
-
-	if err != nil {
-		return fmt.Errorf("dial to praefect: %v", err)
-	}
+	require.NoError(t, err)
 	defer conn.Close()
 
-	if err = WaitHealthy(conn, 3, time.Second); err != nil {
-		return err
-	}
+	require.NoError(t, WaitHealthy(conn, 3, time.Second))
 
 	p.process = cmd.Process
-
-	return nil
 }
 
 func (p *TestServer) listen() (string, error) {

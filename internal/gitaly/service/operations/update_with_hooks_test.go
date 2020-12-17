@@ -114,7 +114,7 @@ func TestUpdateReferenceWithHooks(t *testing.T) {
 	// We need to set up a separate "real" hook service here, as it will be used in
 	// git-update-ref(1) spawned by `updateRefWithHooks()`
 	gitalypb.RegisterHookServiceServer(server.GrpcServer(), hookservice.NewServer(config.Config, hook.NewManager(config.NewLocator(config.Config), hook.GitlabAPIStub, config.Config)))
-	require.NoError(t, server.Start())
+	server.Start(t)
 
 	user := &gitalypb.User{
 		GlId:       "1234",

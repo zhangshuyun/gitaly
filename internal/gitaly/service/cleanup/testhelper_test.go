@@ -4,7 +4,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
 	hookservice "gitlab.com/gitlab-org/gitaly/internal/gitaly/service/hook"
@@ -34,7 +33,7 @@ func runCleanupServiceServer(t *testing.T, cfg config.Cfg) (string, func()) {
 	gitalypb.RegisterHookServiceServer(srv.GrpcServer(), hookservice.NewServer(cfg, hook.NewManager(locator, hook.GitlabAPIStub, cfg)))
 	reflection.Register(srv.GrpcServer())
 
-	require.NoError(t, srv.Start())
+	srv.Start(t)
 
 	return "unix://" + srv.Socket(), srv.Stop
 }

@@ -424,7 +424,7 @@ func runFullSecureServer(t *testing.T, locator storage.Locator) (*grpc.Server, s
 	// protected by the same TLS certificate.
 	internalServer := testhelper.NewServer(t, nil, nil, testhelper.WithInternalSocket(config.Config))
 	gitalypb.RegisterHookServiceServer(internalServer.GrpcServer(), hookservice.NewServer(config.Config, hookManager))
-	require.NoError(t, internalServer.Start())
+	internalServer.Start(t)
 
 	go func() { errQ <- server.Serve(listener) }()
 

@@ -509,7 +509,7 @@ func testPostReceiveWithTransactionsViaPraefect(t *testing.T, ctx context.Contex
 	gitalypb.RegisterSmartHTTPServiceServer(gitalyServer.GrpcServer(), NewServer(locator))
 	gitalypb.RegisterHookServiceServer(gitalyServer.GrpcServer(), hook.NewServer(config.Config, gitalyhook.NewManager(locator, gitalyhook.GitlabAPIStub, config.Config)))
 	reflection.Register(gitalyServer.GrpcServer())
-	require.NoError(t, gitalyServer.Start())
+	gitalyServer.Start(t)
 	defer gitalyServer.Stop()
 
 	internalSocket := config.Config.GitalyInternalSocketPath()

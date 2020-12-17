@@ -146,7 +146,7 @@ func TestUserCreateBranchWithTransaction(t *testing.T) {
 	gitalypb.RegisterHookServiceServer(srv.GrpcServer(), hook.NewServer(config.Config, hookManager))
 	gitalypb.RegisterRefTransactionServer(srv.GrpcServer(), transactionServer)
 
-	require.NoError(t, srv.Start())
+	srv.Start(t)
 	defer srv.Stop()
 
 	go srv.GrpcServer().Serve(internalListener)

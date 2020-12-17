@@ -644,7 +644,7 @@ func runHookServiceServerWithAPI(t *testing.T, gitlabAPI gitalyhook.GitlabAPI) f
 
 	gitalypb.RegisterHookServiceServer(server.GrpcServer(), hook.NewServer(config.Config, gitalyhook.NewManager(config.NewLocator(config.Config), gitlabAPI, config.Config)))
 	reflection.Register(server.GrpcServer())
-	require.NoError(t, server.Start())
+	server.Start(t)
 
 	return server.Stop
 }

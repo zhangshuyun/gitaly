@@ -68,7 +68,7 @@ func runWikiServiceServer(t *testing.T, locator storage.Locator) (func(), string
 	gitalypb.RegisterWikiServiceServer(srv.GrpcServer(), NewServer(rubyServer, locator))
 	reflection.Register(srv.GrpcServer())
 
-	require.NoError(t, srv.Start())
+	srv.Start(t)
 
 	return srv.Stop, "unix://" + srv.Socket()
 }

@@ -5,7 +5,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
 	hookservice "gitlab.com/gitlab-org/gitaly/internal/gitaly/service/hook"
@@ -49,7 +48,7 @@ func runRefServiceServer(t *testing.T) (func(), string) {
 	gitalypb.RegisterRefServiceServer(srv.GrpcServer(), NewServer(locator))
 	gitalypb.RegisterHookServiceServer(srv.GrpcServer(), hookservice.NewServer(config.Config, hook.NewManager(locator, hook.GitlabAPIStub, config.Config)))
 
-	require.NoError(t, srv.Start())
+	srv.Start(t)
 
 	return srv.Stop, "unix://" + srv.Socket()
 }

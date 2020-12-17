@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	log "github.com/sirupsen/logrus"
-	"github.com/stretchr/testify/require"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
 	"gitlab.com/gitlab-org/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
@@ -97,7 +96,7 @@ func runOperationServiceServerWithRubyServer(t *testing.T, ruby *rubyserver.Serv
 	gitalypb.RegisterSSHServiceServer(srv.GrpcServer(), ssh.NewServer(locator))
 	reflection.Register(srv.GrpcServer())
 
-	require.NoError(t, srv.Start())
+	srv.Start(t)
 
 	return "unix://" + srv.Socket(), srv.Stop
 }

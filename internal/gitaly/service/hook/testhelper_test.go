@@ -4,7 +4,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/stretchr/testify/require"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	gitalyhook "gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
@@ -48,7 +47,7 @@ func runHooksServerWithAPI(t *testing.T, gitlabAPI gitalyhook.GitlabAPI, cfg con
 	gitalypb.RegisterHookServiceServer(srv.GrpcServer(), NewServer(cfg, gitalyhook.NewManager(config.NewLocator(cfg), gitlabAPI, cfg)))
 	reflection.Register(srv.GrpcServer())
 
-	require.NoError(t, srv.Start())
+	srv.Start(t)
 
 	return "unix://" + srv.Socket(), srv.Stop
 }

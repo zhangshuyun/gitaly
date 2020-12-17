@@ -51,7 +51,7 @@ func TestSuccessfulFetchInternalRemote(t *testing.T) {
 	gitalypb.RegisterSSHServiceServer(gitaly0Server.GrpcServer(), ssh.NewServer(locator))
 	gitalypb.RegisterRefServiceServer(gitaly0Server.GrpcServer(), ref.NewServer(config.NewLocator(config.Config)))
 	reflection.Register(gitaly0Server.GrpcServer())
-	require.NoError(t, gitaly0Server.Start())
+	gitaly0Server.Start(t)
 	defer gitaly0Server.Stop()
 
 	gitaly1Socket, cleanup := remote.RunRemoteServiceServer(t, testhelper.WithStorages([]string{"gitaly-1"}))
