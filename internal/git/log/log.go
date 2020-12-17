@@ -7,7 +7,6 @@ import (
 	"io"
 
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
-	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
@@ -23,8 +22,8 @@ type Parser struct {
 }
 
 // NewLogParser returns a new Parser
-func NewLogParser(ctx context.Context, locator storage.Locator, repo *gitalypb.Repository, src io.Reader) (*Parser, error) {
-	c, err := catfile.New(ctx, locator, repo)
+func NewLogParser(ctx context.Context, repo *gitalypb.Repository, src io.Reader) (*Parser, error) {
+	c, err := catfile.New(ctx, repo)
 	if err != nil {
 		return nil, err
 	}

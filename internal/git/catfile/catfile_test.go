@@ -13,7 +13,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/command"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -27,7 +26,7 @@ func TestInfo(t *testing.T) {
 	testRepository, _, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
 
-	c, err := New(ctx, config.NewLocator(config.Config), testRepository)
+	c, err := New(ctx, testRepository)
 	require.NoError(t, err)
 
 	testCases := []struct {
@@ -63,7 +62,7 @@ func TestBlob(t *testing.T) {
 	testRepository, _, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
 
-	c, err := New(ctx, config.NewLocator(config.Config), testRepository)
+	c, err := New(ctx, testRepository)
 	require.NoError(t, err)
 
 	gitignoreBytes, err := ioutil.ReadFile("testdata/blob-dfaa3f97ca337e20154a98ac9d0be76ddd1fcc82")
@@ -130,7 +129,7 @@ func TestCommit(t *testing.T) {
 	testRepository, _, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
 
-	c, err := New(ctx, config.NewLocator(config.Config), testRepository)
+	c, err := New(ctx, testRepository)
 	require.NoError(t, err)
 
 	commitBytes, err := ioutil.ReadFile("testdata/commit-e63f41fe459e62e1228fcef60d7189127aeba95a")
@@ -168,7 +167,7 @@ func TestTag(t *testing.T) {
 	testRepository, _, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
 
-	c, err := New(ctx, config.NewLocator(config.Config), testRepository)
+	c, err := New(ctx, testRepository)
 	require.NoError(t, err)
 
 	tagBytes, err := ioutil.ReadFile("testdata/tag-a509fa67c27202a2bc9dd5e014b4af7e6063ac76")
@@ -235,7 +234,7 @@ func TestTree(t *testing.T) {
 	testRepository, _, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
 
-	c, err := New(ctx, config.NewLocator(config.Config), testRepository)
+	c, err := New(ctx, testRepository)
 	require.NoError(t, err)
 
 	treeBytes, err := ioutil.ReadFile("testdata/tree-7e2f26d033ee47cd0745649d1a28277c56197921")
@@ -302,7 +301,7 @@ func TestRepeatedCalls(t *testing.T) {
 	testRepository, _, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
 
-	c, err := New(ctx, config.NewLocator(config.Config), testRepository)
+	c, err := New(ctx, testRepository)
 	require.NoError(t, err)
 
 	treeOid := "7e2f26d033ee47cd0745649d1a28277c56197921"
@@ -417,7 +416,7 @@ func catfileWithFreshSessionID(ctx context.Context, repo *gitalypb.Repository) (
 		SessionIDField: id,
 	})
 
-	return New(metadata.NewIncomingContext(ctx, md), config.NewLocator(config.Config), repo)
+	return New(metadata.NewIncomingContext(ctx, md), repo)
 }
 
 func waitTrue(callback func() bool) bool {

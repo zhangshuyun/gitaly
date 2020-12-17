@@ -62,7 +62,7 @@ func (s *server) GetArchive(in *gitalypb.GetArchiveRequest, stream gitalypb.Repo
 		return err
 	}
 
-	if err := s.validateGetArchivePrecondition(ctx, in, path, exclude); err != nil {
+	if err := validateGetArchivePrecondition(ctx, in, path, exclude); err != nil {
 		return err
 	}
 
@@ -134,8 +134,8 @@ func validateGetArchiveRequest(in *gitalypb.GetArchiveRequest, format string, pa
 	return nil
 }
 
-func (s *server) validateGetArchivePrecondition(ctx context.Context, in *gitalypb.GetArchiveRequest, path string, exclude []string) error {
-	c, err := catfile.New(ctx, s.locator, in.GetRepository())
+func validateGetArchivePrecondition(ctx context.Context, in *gitalypb.GetArchiveRequest, path string, exclude []string) error {
+	c, err := catfile.New(ctx, in.GetRepository())
 	if err != nil {
 		return err
 	}

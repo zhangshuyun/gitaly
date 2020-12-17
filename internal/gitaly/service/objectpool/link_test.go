@@ -82,7 +82,7 @@ func TestLink(t *testing.T) {
 
 			require.NoError(t, err, "error from LinkRepositoryToObjectPool")
 
-			commit, err := log.GetCommit(ctx, locator, testRepo, poolCommitID)
+			commit, err := log.GetCommit(ctx, testRepo, poolCommitID)
 			require.NoError(t, err)
 			require.NotNil(t, commit)
 			require.Equal(t, poolCommitID, commit.Id)

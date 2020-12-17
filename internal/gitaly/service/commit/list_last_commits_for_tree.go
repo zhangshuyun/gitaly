@@ -30,14 +30,14 @@ func (s *server) ListLastCommitsForTree(in *gitalypb.ListLastCommitsForTreeReque
 		return helper.ErrInvalidArgument(err)
 	}
 
-	if err := s.listLastCommitsForTree(in, stream); err != nil {
+	if err := listLastCommitsForTree(in, stream); err != nil {
 		return helper.ErrInternal(err)
 	}
 
 	return nil
 }
 
-func (s *server) listLastCommitsForTree(in *gitalypb.ListLastCommitsForTreeRequest, stream gitalypb.CommitService_ListLastCommitsForTreeServer) error {
+func listLastCommitsForTree(in *gitalypb.ListLastCommitsForTreeRequest, stream gitalypb.CommitService_ListLastCommitsForTreeServer) error {
 	cmd, parser, err := newLSTreeParser(in, stream)
 	if err != nil {
 		return err
@@ -45,7 +45,7 @@ func (s *server) listLastCommitsForTree(in *gitalypb.ListLastCommitsForTreeReque
 
 	ctx := stream.Context()
 	repo := in.GetRepository()
-	c, err := catfile.New(ctx, s.locator, repo)
+	c, err := catfile.New(ctx, repo)
 	if err != nil {
 		return err
 	}

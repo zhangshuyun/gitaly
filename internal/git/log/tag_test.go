@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 )
@@ -47,7 +46,7 @@ func TestGetTag(t *testing.T) {
 		},
 	}
 
-	c, err := catfile.New(ctx, config.NewLocator(config.Config), testRepo)
+	c, err := catfile.New(ctx, testRepo)
 	require.NoError(t, err)
 	for _, testCase := range testCases {
 		t.Run(testCase.tagName, func(t *testing.T) {

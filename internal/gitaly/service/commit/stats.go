@@ -18,7 +18,7 @@ func (s *server) CommitStats(ctx context.Context, in *gitalypb.CommitStatsReques
 		return nil, helper.ErrInvalidArgument(err)
 	}
 
-	resp, err := s.commitStats(ctx, in)
+	resp, err := commitStats(ctx, in)
 	if err != nil {
 		return nil, helper.ErrInternal(err)
 	}
@@ -26,8 +26,8 @@ func (s *server) CommitStats(ctx context.Context, in *gitalypb.CommitStatsReques
 	return resp, nil
 }
 
-func (s *server) commitStats(ctx context.Context, in *gitalypb.CommitStatsRequest) (*gitalypb.CommitStatsResponse, error) {
-	commit, err := log.GetCommit(ctx, s.locator, in.Repository, string(in.Revision))
+func commitStats(ctx context.Context, in *gitalypb.CommitStatsRequest) (*gitalypb.CommitStatsResponse, error) {
+	commit, err := log.GetCommit(ctx, in.Repository, string(in.Revision))
 	if err != nil {
 		return nil, err
 	}

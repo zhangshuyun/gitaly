@@ -16,16 +16,16 @@ func (s *server) GetCommitMessages(request *gitalypb.GetCommitMessagesRequest, s
 	if err := validateGetCommitMessagesRequest(request); err != nil {
 		return helper.ErrInvalidArgument(err)
 	}
-	if err := s.getAndStreamCommitMessages(request, stream); err != nil {
+	if err := getAndStreamCommitMessages(request, stream); err != nil {
 		return helper.ErrInternal(err)
 	}
 
 	return nil
 }
 
-func (s *server) getAndStreamCommitMessages(request *gitalypb.GetCommitMessagesRequest, stream gitalypb.CommitService_GetCommitMessagesServer) error {
+func getAndStreamCommitMessages(request *gitalypb.GetCommitMessagesRequest, stream gitalypb.CommitService_GetCommitMessagesServer) error {
 	ctx := stream.Context()
-	c, err := catfile.New(ctx, s.locator, request.GetRepository())
+	c, err := catfile.New(ctx, request.GetRepository())
 	if err != nil {
 		return err
 	}

@@ -134,13 +134,13 @@ func TestGetSnapshotWithDedupe(t *testing.T) {
 			commitSha := testhelper.CreateCommitInAlternateObjectDirectory(t, repoPath, alternateObjDir, cmd)
 			originalAlternatesCommit := string(commitSha)
 
-			locator := config.NewLocator(config.Config)
-
 			// ensure commit cannot be found in current repository
-			c, err := catfile.New(ctx, locator, testRepo)
+			c, err := catfile.New(ctx, testRepo)
 			require.NoError(t, err)
 			_, err = c.Info(ctx, originalAlternatesCommit)
 			require.True(t, catfile.IsNotFound(err))
+
+			locator := config.NewLocator(config.Config)
 
 			// write alternates file to point to alt objects folder
 			alternatesPath, err := locator.InfoAlternatesPath(testRepo)
@@ -154,7 +154,7 @@ func TestGetSnapshotWithDedupe(t *testing.T) {
 				"commit", "--allow-empty", "-m", "Another empty commit")
 			commitSha = testhelper.CreateCommitInAlternateObjectDirectory(t, repoPath, alternateObjDir, cmd)
 
-			c, err = catfile.New(ctx, locator, testRepo)
+			c, err = catfile.New(ctx, testRepo)
 			require.NoError(t, err)
 			_, err = c.Info(ctx, string(commitSha))
 			require.NoError(t, err)

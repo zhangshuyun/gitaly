@@ -11,7 +11,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/git/log"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -36,14 +35,12 @@ func TestSuccessfulFindCommitRequest(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	locator := config.NewLocator(config.Config)
-
 	bigMessage := "An empty commit with REALLY BIG message\n\n" + strings.Repeat("MOAR!\n", 20*1024)
 	bigCommitID := testhelper.CreateCommit(t, testRepoPath, "local-big-commits", &testhelper.CreateCommitOpts{
 		Message:  bigMessage,
 		ParentID: "60ecb67744cb56576c30214ff52294f8ce2def98",
 	})
-	bigCommit, err := log.GetCommit(ctx, locator, testRepo, bigCommitID)
+	bigCommit, err := log.GetCommit(ctx, testRepo, bigCommitID)
 	require.NoError(t, err)
 
 	testCases := []struct {

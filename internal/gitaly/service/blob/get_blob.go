@@ -19,7 +19,7 @@ func (s *server) GetBlob(in *gitalypb.GetBlobRequest, stream gitalypb.BlobServic
 		return status.Errorf(codes.InvalidArgument, "GetBlob: %v", err)
 	}
 
-	c, err := catfile.New(stream.Context(), s.locator, in.Repository)
+	c, err := catfile.New(stream.Context(), in.Repository)
 	if err != nil {
 		return status.Errorf(codes.Internal, "GetBlob: %v", err)
 	}

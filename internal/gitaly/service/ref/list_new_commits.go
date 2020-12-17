@@ -16,14 +16,14 @@ func (s *server) ListNewCommits(in *gitalypb.ListNewCommitsRequest, stream gital
 		return helper.ErrInvalidArgument(err)
 	}
 
-	if err := s.listNewCommits(in, stream, oid); err != nil {
+	if err := listNewCommits(in, stream, oid); err != nil {
 		return helper.ErrInternal(err)
 	}
 
 	return nil
 }
 
-func (s *server) listNewCommits(in *gitalypb.ListNewCommitsRequest, stream gitalypb.RefService_ListNewCommitsServer, oid string) error {
+func listNewCommits(in *gitalypb.ListNewCommitsRequest, stream gitalypb.RefService_ListNewCommitsServer, oid string) error {
 	ctx := stream.Context()
 
 	revList, err := git.SafeCmd(ctx, in.GetRepository(), nil, git.SubCmd{
@@ -35,7 +35,7 @@ func (s *server) listNewCommits(in *gitalypb.ListNewCommitsRequest, stream gital
 		return err
 	}
 
-	batch, err := catfile.New(ctx, s.locator, in.GetRepository())
+	batch, err := catfile.New(ctx, in.GetRepository())
 	if err != nil {
 		return err
 	}

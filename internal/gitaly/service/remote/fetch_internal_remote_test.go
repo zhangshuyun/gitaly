@@ -13,7 +13,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/remote"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/ssh"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -60,12 +59,12 @@ func TestSuccessfulFetchInternalRemote(t *testing.T) {
 	repo, _, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
 
-	gitaly0Repo, gitaly0RepoPath, cleanup := cloneRepoAtStorage(t, locator, repo, "gitaly-0")
+	gitaly0Repo, gitaly0RepoPath, cleanup := cloneRepoAtStorage(t, repo, "gitaly-0")
 	defer cleanup()
 
 	testhelper.CreateCommit(t, gitaly0RepoPath, "master", nil)
 
-	gitaly1Repo, gitaly1RepoPath, cleanup := cloneRepoAtStorage(t, locator, repo, "gitaly-1")
+	gitaly1Repo, gitaly1RepoPath, cleanup := cloneRepoAtStorage(t, repo, "gitaly-1")
 	defer cleanup()
 
 	testhelper.MustRunCommand(t, nil, "git", "-C", gitaly1RepoPath, "symbolic-ref", "HEAD", "refs/heads/feature")
@@ -188,14 +187,14 @@ func runFullServer(t *testing.T) (string, func()) {
 	}
 }
 
-func cloneRepoAtStorage(t testing.TB, locator storage.Locator, src *gitalypb.Repository, storageName string) (*gitalypb.Repository, string, func()) {
+func cloneRepoAtStorage(t testing.TB, src *gitalypb.Repository, storageName string) (*gitalypb.Repository, string, func()) {
 	dst := *src
 	dst.StorageName = storageName
 
-	dstP, err := locator.GetPath(&dst)
+	dstP, err := helper.GetPath(&dst)
 	require.NoError(t, err)
 
-	srcP, err := locator.GetPath(src)
+	srcP, err := helper.GetPath(src)
 	require.NoError(t, err)
 
 	require.NoError(t, os.MkdirAll(dstP, 0755))

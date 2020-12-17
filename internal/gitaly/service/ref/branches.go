@@ -34,7 +34,7 @@ func (s *server) FindBranch(ctx context.Context, req *gitalypb.FindBranchRequest
 		return nil, err
 	}
 
-	commit, err := log.GetCommit(ctx, s.locator, repo, branch.Target)
+	commit, err := log.GetCommit(ctx, repo, branch.Target)
 	if err != nil {
 		return nil, err
 	}

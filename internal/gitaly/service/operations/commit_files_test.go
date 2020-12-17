@@ -12,7 +12,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git/log"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -842,8 +841,6 @@ func testSuccessfulUserCommitFilesRequest(t *testing.T, ctx context.Context) {
 	testRepo, testRepoPath, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
 
-	locator := config.NewLocator(config.Config)
-
 	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()
 
@@ -923,7 +920,7 @@ func testSuccessfulUserCommitFilesRequest(t *testing.T, ctx context.Context) {
 			require.Equal(t, tc.repoCreated, resp.GetBranchUpdate().GetRepoCreated())
 			require.Equal(t, tc.branchCreated, resp.GetBranchUpdate().GetBranchCreated())
 
-			headCommit, err := log.GetCommit(ctx, locator, tc.repo, tc.branchName)
+			headCommit, err := log.GetCommit(ctx, tc.repo, tc.branchName)
 			require.NoError(t, err)
 			require.Equal(t, authorName, headCommit.Author.Name)
 			require.Equal(t, testhelper.TestUser.Name, headCommit.Committer.Name)
@@ -1011,8 +1008,6 @@ func TestSuccessfulUserCommitFilesRequestForceCommit(t *testing.T) {
 }
 
 func testSuccessfulUserCommitFilesRequestForceCommit(t *testing.T, ctx context.Context) {
-	locator := config.NewLocator(config.Config)
-
 	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()
 
@@ -1027,10 +1022,10 @@ func testSuccessfulUserCommitFilesRequestForceCommit(t *testing.T, ctx context.C
 	targetBranchName := "feature"
 	startBranchName := []byte("master")
 
-	startBranchCommit, err := log.GetCommit(ctx, locator, testRepo, string(startBranchName))
+	startBranchCommit, err := log.GetCommit(ctx, testRepo, string(startBranchName))
 	require.NoError(t, err)
 
-	targetBranchCommit, err := log.GetCommit(ctx, locator, testRepo, targetBranchName)
+	targetBranchCommit, err := log.GetCommit(ctx, testRepo, targetBranchName)
 	require.NoError(t, err)
 
 	mergeBaseOut := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "merge-base", targetBranchCommit.Id, startBranchCommit.Id)
@@ -1052,7 +1047,7 @@ func testSuccessfulUserCommitFilesRequestForceCommit(t *testing.T, ctx context.C
 	require.NoError(t, err)
 
 	update := resp.GetBranchUpdate()
-	newTargetBranchCommit, err := log.GetCommit(ctx, locator, testRepo, targetBranchName)
+	newTargetBranchCommit, err := log.GetCommit(ctx, testRepo, targetBranchName)
 	require.NoError(t, err)
 
 	require.Equal(t, newTargetBranchCommit.Id, update.CommitId)
@@ -1064,8 +1059,6 @@ func TestSuccessfulUserCommitFilesRequestStartSha(t *testing.T) {
 }
 
 func testSuccessfulUserCommitFilesRequestStartSha(t *testing.T, ctx context.Context) {
-	locator := config.NewLocator(config.Config)
-
 	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()
 
@@ -1077,7 +1070,7 @@ func testSuccessfulUserCommitFilesRequestStartSha(t *testing.T, ctx context.Cont
 
 	targetBranchName := "new"
 
-	startCommit, err := log.GetCommit(ctx, locator, testRepo, "master")
+	startCommit, err := log.GetCommit(ctx, testRepo, "master")
 	require.NoError(t, err)
 
 	headerRequest := headerRequest(testRepo, testhelper.TestUser, targetBranchName, commitFilesMessage)
@@ -1093,7 +1086,7 @@ func testSuccessfulUserCommitFilesRequestStartSha(t *testing.T, ctx context.Cont
 	require.NoError(t, err)
 
 	update := resp.GetBranchUpdate()
-	newTargetBranchCommit, err := log.GetCommit(ctx, locator, testRepo, targetBranchName)
+	newTargetBranchCommit, err := log.GetCommit(ctx, testRepo, targetBranchName)
 	require.NoError(t, err)
 
 	require.Equal(t, newTargetBranchCommit.Id, update.CommitId)
@@ -1116,8 +1109,6 @@ func testSuccessfulUserCommitFilesRemoteRepositoryRequest(setHeader func(header 
 	// Regular table driven test did not work here as there is some state shared in the helpers between the subtests.
 	// Running them in different top level tests works, so we use a parameterized function instead to share the code.
 	return func(t *testing.T, ctx context.Context) {
-		locator := config.NewLocator(config.Config)
-
 		serverSocketPath, stop := runOperationServiceServer(t)
 		defer stop()
 
@@ -1138,7 +1129,7 @@ func testSuccessfulUserCommitFilesRemoteRepositoryRequest(setHeader func(header 
 
 		targetBranchName := "new"
 
-		startCommit, err := log.GetCommit(ctx, locator, testRepo, "master")
+		startCommit, err := log.GetCommit(ctx, testRepo, "master")
 		require.NoError(t, err)
 
 		headerRequest := headerRequest(newRepo, testhelper.TestUser, targetBranchName, commitFilesMessage)
@@ -1155,7 +1146,7 @@ func testSuccessfulUserCommitFilesRemoteRepositoryRequest(setHeader func(header 
 		require.NoError(t, err)
 
 		update := resp.GetBranchUpdate()
-		newTargetBranchCommit, err := log.GetCommit(ctx, locator, newRepo, targetBranchName)
+		newTargetBranchCommit, err := log.GetCommit(ctx, newRepo, targetBranchName)
 		require.NoError(t, err)
 
 		require.Equal(t, newTargetBranchCommit.Id, update.CommitId)
@@ -1168,8 +1159,6 @@ func TestSuccessfulUserCommitFilesRequestWithSpecialCharactersInSignature(t *tes
 }
 
 func testSuccessfulUserCommitFilesRequestWithSpecialCharactersInSignature(t *testing.T, ctx context.Context) {
-	locator := config.NewLocator(config.Config)
-
 	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()
 
@@ -1210,7 +1199,7 @@ func testSuccessfulUserCommitFilesRequestWithSpecialCharactersInSignature(t *tes
 			_, err = stream.CloseAndRecv()
 			require.NoError(t, err)
 
-			newCommit, err := log.GetCommit(ctx, locator, testRepo, targetBranchName)
+			newCommit, err := log.GetCommit(ctx, testRepo, targetBranchName)
 			require.NoError(t, err)
 
 			require.Equal(t, tc.author.Name, newCommit.Author.Name, "author name")

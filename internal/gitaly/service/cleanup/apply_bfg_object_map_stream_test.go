@@ -18,8 +18,6 @@ import (
 )
 
 func TestApplyBfgObjectMapStreamSuccess(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-
 	serverSocketPath, stop := runCleanupServiceServer(t, config.Config)
 	defer stop()
 
@@ -32,7 +30,7 @@ func TestApplyBfgObjectMapStreamSuccess(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	headCommit, err := log.GetCommit(ctx, locator, testRepo, "HEAD")
+	headCommit, err := log.GetCommit(ctx, testRepo, "HEAD")
 	require.NoError(t, err)
 
 	// A known blob: the CHANGELOG in the test repository

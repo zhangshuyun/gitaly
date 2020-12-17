@@ -17,14 +17,14 @@ func (s *server) ListNewBlobs(in *gitalypb.ListNewBlobsRequest, stream gitalypb.
 		return helper.ErrInvalidArgument(err)
 	}
 
-	if err := s.listNewBlobs(in, stream, oid); err != nil {
+	if err := listNewBlobs(in, stream, oid); err != nil {
 		return helper.ErrInternal(err)
 	}
 
 	return nil
 }
 
-func (s *server) listNewBlobs(in *gitalypb.ListNewBlobsRequest, stream gitalypb.RefService_ListNewBlobsServer, oid string) error {
+func listNewBlobs(in *gitalypb.ListNewBlobsRequest, stream gitalypb.RefService_ListNewBlobsServer, oid string) error {
 	ctx := stream.Context()
 	cmdFlags := []git.Option{git.Flag{Name: "--objects"}, git.Flag{Name: "--not"}, git.Flag{Name: "--all"}}
 
@@ -38,7 +38,7 @@ func (s *server) listNewBlobs(in *gitalypb.ListNewBlobsRequest, stream gitalypb.
 		return err
 	}
 
-	batch, err := catfile.New(ctx, s.locator, in.GetRepository())
+	batch, err := catfile.New(ctx, in.GetRepository())
 	if err != nil {
 		return err
 	}

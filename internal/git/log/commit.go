@@ -13,14 +13,13 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
 // GetCommit tries to resolve revision to a Git commit. Returns nil if
 // no object is found at revision.
-func GetCommit(ctx context.Context, locator storage.Locator, repo *gitalypb.Repository, revision string) (*gitalypb.GitCommit, error) {
-	c, err := catfile.New(ctx, locator, repo)
+func GetCommit(ctx context.Context, repo *gitalypb.Repository, revision string) (*gitalypb.GitCommit, error) {
+	c, err := catfile.New(ctx, repo)
 	if err != nil {
 		return nil, err
 	}

@@ -101,7 +101,7 @@ func TestSubmodule(t *testing.T) {
 			}
 			require.NoError(t, err)
 
-			commit, err := log.GetCommit(ctx, config.NewLocator(config.Config), testRepo, response.CommitID)
+			commit, err := log.GetCommit(ctx, testRepo, response.CommitID)
 			require.NoError(t, err)
 			require.Equal(t, commit.Author.Email, testhelper.TestUser.Email)
 			require.Equal(t, commit.Committer.Email, testhelper.TestUser.Email)

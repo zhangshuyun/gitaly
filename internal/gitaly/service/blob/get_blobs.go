@@ -139,12 +139,12 @@ func sendBlobTreeEntry(response *gitalypb.GetBlobsResponse, stream gitalypb.Blob
 	return nil
 }
 
-func (s *server) GetBlobs(req *gitalypb.GetBlobsRequest, stream gitalypb.BlobService_GetBlobsServer) error {
+func (*server) GetBlobs(req *gitalypb.GetBlobsRequest, stream gitalypb.BlobService_GetBlobsServer) error {
 	if err := validateGetBlobsRequest(req); err != nil {
 		return err
 	}
 
-	c, err := catfile.New(stream.Context(), s.locator, req.Repository)
+	c, err := catfile.New(stream.Context(), req.Repository)
 	if err != nil {
 		return err
 	}

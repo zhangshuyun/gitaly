@@ -50,17 +50,15 @@ func TestInfoService_RepositoryReplicas(t *testing.T) {
 	testRepo, _, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
 
-	locator := gconfig.NewLocator(gconfig.Config)
-
 	cc, _, cleanup := runPraefectServerWithGitaly(t, gconfig.Config, conf)
 	defer cleanup()
 
-	testRepoPrimary, _, cleanup := cloneRepoAtStorage(t, locator, testRepo, conf.VirtualStorages[0].Nodes[0].Storage)
+	testRepoPrimary, _, cleanup := cloneRepoAtStorage(t, testRepo, conf.VirtualStorages[0].Nodes[0].Storage)
 	defer cleanup()
 
-	_, _, cleanup = cloneRepoAtStorage(t, locator, testRepo, conf.VirtualStorages[0].Nodes[1].Storage)
+	_, _, cleanup = cloneRepoAtStorage(t, testRepo, conf.VirtualStorages[0].Nodes[1].Storage)
 	defer cleanup()
-	_, testRepoSecondary2Path, cleanup := cloneRepoAtStorage(t, locator, testRepo, conf.VirtualStorages[0].Nodes[2].Storage)
+	_, testRepoSecondary2Path, cleanup := cloneRepoAtStorage(t, testRepo, conf.VirtualStorages[0].Nodes[2].Storage)
 	defer cleanup()
 
 	// create a commit in the second replica so we can check that its checksum is different than the primary

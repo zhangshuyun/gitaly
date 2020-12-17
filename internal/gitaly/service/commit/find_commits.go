@@ -40,21 +40,21 @@ func (s *server) FindCommits(req *gitalypb.FindCommitsRequest, stream gitalypb.C
 		}
 	}
 
-	if err := s.findCommits(ctx, req, stream); err != nil {
+	if err := findCommits(ctx, req, stream); err != nil {
 		return helper.ErrInternal(err)
 	}
 
 	return nil
 }
 
-func (s *server) findCommits(ctx context.Context, req *gitalypb.FindCommitsRequest, stream gitalypb.CommitService_FindCommitsServer) error {
+func findCommits(ctx context.Context, req *gitalypb.FindCommitsRequest, stream gitalypb.CommitService_FindCommitsServer) error {
 	globals := git.ConvertGlobalOptions(req.GetGlobalOptions())
 	logCmd, err := git.SafeCmd(ctx, req.GetRepository(), globals, getLogCommandSubCmd(req))
 	if err != nil {
 		return fmt.Errorf("error when creating git log command: %v", err)
 	}
 
-	batch, err := catfile.New(ctx, s.locator, req.GetRepository())
+	batch, err := catfile.New(ctx, req.GetRepository())
 	if err != nil {
 		return fmt.Errorf("creating catfile: %v", err)
 	}

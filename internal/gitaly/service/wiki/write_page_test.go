@@ -102,7 +102,7 @@ func TestSuccessfulWikiWritePageRequest(t *testing.T) {
 			require.Empty(t, resp.DuplicateError, "DuplicateError must be empty")
 
 			headID := testhelper.MustRunCommand(t, nil, "git", "-C", wikiRepoPath, "show", "--format=format:%H", "--no-patch", "HEAD")
-			commit, err := gitlog.GetCommit(ctx, locator, wikiRepo, string(headID))
+			commit, err := gitlog.GetCommit(ctx, wikiRepo, string(headID))
 			require.NoError(t, err, "look up git commit after writing a wiki page")
 
 			require.Equal(t, authorName, commit.Author.Name, "author name mismatched")

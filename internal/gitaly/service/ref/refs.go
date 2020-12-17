@@ -87,7 +87,7 @@ func (t *tagSender) Send() error {
 	})
 }
 
-func (s *server) parseAndReturnTags(ctx context.Context, repo *gitalypb.Repository, stream gitalypb.RefService_FindAllTagsServer) error {
+func parseAndReturnTags(ctx context.Context, repo *gitalypb.Repository, stream gitalypb.RefService_FindAllTagsServer) error {
 	tagsCmd, err := git.SafeCmd(ctx, repo, nil, git.SubCmd{
 		Name: "for-each-ref",
 		Flags: []git.Option{
@@ -99,7 +99,7 @@ func (s *server) parseAndReturnTags(ctx context.Context, repo *gitalypb.Reposito
 		return fmt.Errorf("for-each-ref error: %v", err)
 	}
 
-	c, err := catfile.New(ctx, s.locator, repo)
+	c, err := catfile.New(ctx, repo)
 	if err != nil {
 		return fmt.Errorf("error creating catfile: %v", err)
 	}
@@ -136,7 +136,7 @@ func (s *server) FindAllTags(in *gitalypb.FindAllTagsRequest, stream gitalypb.Re
 		return helper.ErrInvalidArgument(err)
 	}
 
-	if err := s.parseAndReturnTags(ctx, in.GetRepository(), stream); err != nil {
+	if err := parseAndReturnTags(ctx, in.GetRepository(), stream); err != nil {
 		return helper.ErrInternal(err)
 	}
 	return nil
@@ -291,16 +291,16 @@ func parseSortKey(sortKey gitalypb.FindLocalBranchesRequest_SortBy) string {
 
 // FindLocalBranches creates a stream of branches for all local branches in the given repository
 func (s *server) FindLocalBranches(in *gitalypb.FindLocalBranchesRequest, stream gitalypb.RefService_FindLocalBranchesServer) error {
-	if err := s.findLocalBranches(in, stream); err != nil {
+	if err := findLocalBranches(in, stream); err != nil {
 		return helper.ErrInternal(err)
 	}
 
 	return nil
 }
 
-func (s *server) findLocalBranches(in *gitalypb.FindLocalBranchesRequest, stream gitalypb.RefService_FindLocalBranchesServer) error {
+func findLocalBranches(in *gitalypb.FindLocalBranchesRequest, stream gitalypb.RefService_FindLocalBranchesServer) error {
 	ctx := stream.Context()
-	c, err := catfile.New(ctx, s.locator, in.Repository)
+	c, err := catfile.New(ctx, in.Repository)
 	if err != nil {
 		return err
 	}
@@ -317,14 +317,14 @@ func (s *server) findLocalBranches(in *gitalypb.FindLocalBranchesRequest, stream
 }
 
 func (s *server) FindAllBranches(in *gitalypb.FindAllBranchesRequest, stream gitalypb.RefService_FindAllBranchesServer) error {
-	if err := s.findAllBranches(in, stream); err != nil {
+	if err := findAllBranches(in, stream); err != nil {
 		return helper.ErrInternal(err)
 	}
 
 	return nil
 }
 
-func (s *server) findAllBranches(in *gitalypb.FindAllBranchesRequest, stream gitalypb.RefService_FindAllBranchesServer) error {
+func findAllBranches(in *gitalypb.FindAllBranchesRequest, stream gitalypb.RefService_FindAllBranchesServer) error {
 	args := []git.Option{
 		// %00 inserts the null character into the output (see for-each-ref docs)
 		git.Flag{Name: "--format=" + strings.Join(localBranchFormatFields, "%00")},
@@ -350,7 +350,7 @@ func (s *server) findAllBranches(in *gitalypb.FindAllBranchesRequest, stream git
 	}
 
 	ctx := stream.Context()
-	c, err := catfile.New(ctx, s.locator, in.Repository)
+	c, err := catfile.New(ctx, in.Repository)
 	if err != nil {
 		return err
 	}
@@ -371,7 +371,7 @@ func (s *server) FindTag(ctx context.Context, in *gitalypb.FindTagRequest) (*git
 
 	var tag *gitalypb.Tag
 
-	if tag, err = s.findTag(ctx, in.GetRepository(), in.GetTagName()); err != nil {
+	if tag, err = findTag(ctx, in.GetRepository(), in.GetTagName()); err != nil {
 		return nil, helper.ErrInternal(err)
 	}
 
@@ -412,7 +412,7 @@ func parseTagLine(ctx context.Context, c catfile.Batch, tagLine string) (*gitaly
 	}
 }
 
-func (s *server) findTag(ctx context.Context, repository *gitalypb.Repository, tagName []byte) (*gitalypb.Tag, error) {
+func findTag(ctx context.Context, repository *gitalypb.Repository, tagName []byte) (*gitalypb.Tag, error) {
 	tagCmd, err := git.SafeCmd(ctx, repository, nil,
 		git.SubCmd{
 			Name: "tag",
@@ -427,7 +427,7 @@ func (s *server) findTag(ctx context.Context, repository *gitalypb.Repository, t
 		return nil, fmt.Errorf("for-each-ref error: %v", err)
 	}
 
-	c, err := catfile.New(ctx, s.locator, repository)
+	c, err := catfile.New(ctx, repository)
 	if err != nil {
 		return nil, err
 	}

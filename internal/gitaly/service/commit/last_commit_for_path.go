@@ -15,7 +15,7 @@ func (s *server) LastCommitForPath(ctx context.Context, in *gitalypb.LastCommitF
 		return nil, helper.ErrInvalidArgument(err)
 	}
 
-	resp, err := s.lastCommitForPath(ctx, in)
+	resp, err := lastCommitForPath(ctx, in)
 	if err != nil {
 		return nil, helper.ErrInternal(err)
 	}
@@ -23,14 +23,14 @@ func (s *server) LastCommitForPath(ctx context.Context, in *gitalypb.LastCommitF
 	return resp, nil
 }
 
-func (s *server) lastCommitForPath(ctx context.Context, in *gitalypb.LastCommitForPathRequest) (*gitalypb.LastCommitForPathResponse, error) {
+func lastCommitForPath(ctx context.Context, in *gitalypb.LastCommitForPathRequest) (*gitalypb.LastCommitForPathResponse, error) {
 	path := string(in.GetPath())
 	if len(path) == 0 || path == "/" {
 		path = "."
 	}
 
 	repo := in.GetRepository()
-	c, err := catfile.New(ctx, s.locator, repo)
+	c, err := catfile.New(ctx, repo)
 	if err != nil {
 		return nil, err
 	}

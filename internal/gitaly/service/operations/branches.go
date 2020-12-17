@@ -40,7 +40,7 @@ func (s *Server) UserCreateBranch(ctx context.Context, req *gitalypb.UserCreateB
 	//
 	// startPointReference, err := git.NewRepository(req.Repository).GetReference(ctx, "refs/heads/"+string(req.StartPoint))
 	// startPointCommit, err := log.GetCommit(ctx, req.Repository, startPointReference.Target)
-	startPointCommit, err := log.GetCommit(ctx, s.locator, req.Repository, string(req.StartPoint))
+	startPointCommit, err := log.GetCommit(ctx, req.Repository, string(req.StartPoint))
 	// END TODO
 	if err != nil {
 		return nil, status.Errorf(codes.FailedPrecondition, "revspec '%s' not found", req.StartPoint)

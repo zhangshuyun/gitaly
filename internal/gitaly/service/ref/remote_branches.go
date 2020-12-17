@@ -15,14 +15,14 @@ func (s *server) FindAllRemoteBranches(req *gitalypb.FindAllRemoteBranchesReques
 		return helper.ErrInvalidArgument(err)
 	}
 
-	if err := s.findAllRemoteBranches(req, stream); err != nil {
+	if err := findAllRemoteBranches(req, stream); err != nil {
 		return helper.ErrInternal(err)
 	}
 
 	return nil
 }
 
-func (s *server) findAllRemoteBranches(req *gitalypb.FindAllRemoteBranchesRequest, stream gitalypb.RefService_FindAllRemoteBranchesServer) error {
+func findAllRemoteBranches(req *gitalypb.FindAllRemoteBranchesRequest, stream gitalypb.RefService_FindAllRemoteBranchesServer) error {
 	args := []git.Option{
 		git.Flag{Name: "--format=" + strings.Join(localBranchFormatFields, "%00")},
 	}
@@ -30,7 +30,7 @@ func (s *server) findAllRemoteBranches(req *gitalypb.FindAllRemoteBranchesReques
 	patterns := []string{"refs/remotes/" + req.GetRemoteName()}
 
 	ctx := stream.Context()
-	c, err := catfile.New(ctx, s.locator, req.GetRepository())
+	c, err := catfile.New(ctx, req.GetRepository())
 	if err != nil {
 		return err
 	}

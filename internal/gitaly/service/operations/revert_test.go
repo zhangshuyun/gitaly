@@ -6,7 +6,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git/log"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -18,8 +17,6 @@ func TestServer_UserRevert_successful(t *testing.T) {
 }
 
 func testServerUserRevertSuccessful(t *testing.T, ctxOuter context.Context) {
-	locator := config.NewLocator(config.Config)
-
 	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()
 
@@ -32,10 +29,10 @@ func testServerUserRevertSuccessful(t *testing.T, ctxOuter context.Context) {
 	destinationBranch := "revert-dst"
 	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", destinationBranch, "master")
 
-	masterHeadCommit, err := log.GetCommit(ctxOuter, locator, testRepo, "master")
+	masterHeadCommit, err := log.GetCommit(ctxOuter, testRepo, "master")
 	require.NoError(t, err)
 
-	revertedCommit, err := log.GetCommit(ctxOuter, locator, testRepo, "d59c60028b053793cecfb4022de34602e1a9218e")
+	revertedCommit, err := log.GetCommit(ctxOuter, testRepo, "d59c60028b053793cecfb4022de34602e1a9218e")
 	require.NoError(t, err)
 
 	testRepoCopy, testRepoCopyPath, cleanup := testhelper.NewTestRepo(t) // read-only repo
@@ -158,7 +155,7 @@ func testServerUserRevertSuccessful(t *testing.T, ctxOuter context.Context) {
 			response, err := client.UserRevert(ctx, testCase.request)
 			require.NoError(t, err)
 
-			headCommit, err := log.GetCommit(ctx, locator, testCase.request.Repository, string(testCase.request.BranchName))
+			headCommit, err := log.GetCommit(ctx, testCase.request.Repository, string(testCase.request.BranchName))
 			require.NoError(t, err)
 
 			expectedBranchUpdate := testCase.branchUpdate
@@ -184,8 +181,6 @@ func TestServer_UserRevert_successful_into_empty_repo(t *testing.T) {
 }
 
 func testServerUserRevertSuccessfulIntoNewRepo(t *testing.T, ctxOuter context.Context) {
-	locator := config.NewLocator(config.Config)
-
 	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()
 
@@ -195,10 +190,10 @@ func testServerUserRevertSuccessfulIntoNewRepo(t *testing.T, ctxOuter context.Co
 	startRepo, _, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
 
-	revertedCommit, err := log.GetCommit(ctxOuter, locator, startRepo, "d59c60028b053793cecfb4022de34602e1a9218e")
+	revertedCommit, err := log.GetCommit(ctxOuter, startRepo, "d59c60028b053793cecfb4022de34602e1a9218e")
 	require.NoError(t, err)
 
-	masterHeadCommit, err := log.GetCommit(ctxOuter, locator, startRepo, "master")
+	masterHeadCommit, err := log.GetCommit(ctxOuter, startRepo, "master")
 	require.NoError(t, err)
 
 	testRepo, _, cleanup := testhelper.InitBareRepo(t)
@@ -220,7 +215,7 @@ func testServerUserRevertSuccessfulIntoNewRepo(t *testing.T, ctxOuter context.Co
 	response, err := client.UserRevert(ctx, request)
 	require.NoError(t, err)
 
-	headCommit, err := log.GetCommit(ctx, locator, testRepo, string(request.BranchName))
+	headCommit, err := log.GetCommit(ctx, testRepo, string(request.BranchName))
 	require.NoError(t, err)
 
 	expectedBranchUpdate := &gitalypb.OperationBranchUpdate{
@@ -241,8 +236,6 @@ func TestServer_UserRevert_successful_git_hooks(t *testing.T) {
 }
 
 func testServerUserRevertSuccessfulGitHooks(t *testing.T, ctxOuter context.Context) {
-	locator := config.NewLocator(config.Config)
-
 	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()
 
@@ -255,7 +248,7 @@ func testServerUserRevertSuccessfulGitHooks(t *testing.T, ctxOuter context.Conte
 	destinationBranch := "revert-dst"
 	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", destinationBranch, "master")
 
-	revertedCommit, err := log.GetCommit(ctxOuter, locator, testRepo, "d59c60028b053793cecfb4022de34602e1a9218e")
+	revertedCommit, err := log.GetCommit(ctxOuter, testRepo, "d59c60028b053793cecfb4022de34602e1a9218e")
 	require.NoError(t, err)
 
 	request := &gitalypb.UserRevertRequest{
@@ -291,8 +284,6 @@ func TestServer_UserRevert_failued_due_to_validations(t *testing.T) {
 }
 
 func testServerUserRevertFailuedDueToValidations(t *testing.T, ctxOuter context.Context) {
-	locator := config.NewLocator(config.Config)
-
 	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()
 
@@ -302,7 +293,7 @@ func testServerUserRevertFailuedDueToValidations(t *testing.T, ctxOuter context.
 	testRepo, _, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
 
-	revertedCommit, err := log.GetCommit(ctxOuter, locator, testRepo, "d59c60028b053793cecfb4022de34602e1a9218e")
+	revertedCommit, err := log.GetCommit(ctxOuter, testRepo, "d59c60028b053793cecfb4022de34602e1a9218e")
 	require.NoError(t, err)
 
 	destinationBranch := "revert-dst"
@@ -374,8 +365,6 @@ func TestServer_UserRevert_failed_due_to_pre_receive_error(t *testing.T) {
 }
 
 func testServerUserRevertFailedDueToPreReceiveError(t *testing.T, ctxOuter context.Context) {
-	locator := config.NewLocator(config.Config)
-
 	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()
 
@@ -388,7 +377,7 @@ func testServerUserRevertFailedDueToPreReceiveError(t *testing.T, ctxOuter conte
 	destinationBranch := "revert-dst"
 	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", destinationBranch, "master")
 
-	revertedCommit, err := log.GetCommit(ctxOuter, locator, testRepo, "d59c60028b053793cecfb4022de34602e1a9218e")
+	revertedCommit, err := log.GetCommit(ctxOuter, testRepo, "d59c60028b053793cecfb4022de34602e1a9218e")
 	require.NoError(t, err)
 
 	request := &gitalypb.UserRevertRequest{
@@ -422,8 +411,6 @@ func TestServer_UserRevert_failed_due_to_create_tree_error(t *testing.T) {
 }
 
 func testServerUserRevertFailedDueToCreateTreeError(t *testing.T, ctxOuter context.Context) {
-	locator := config.NewLocator(config.Config)
-
 	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()
 
@@ -437,7 +424,7 @@ func testServerUserRevertFailedDueToCreateTreeError(t *testing.T, ctxOuter conte
 	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", destinationBranch, "master")
 
 	// This revert patch of the following commit cannot be applied to the destinationBranch above
-	revertedCommit, err := log.GetCommit(ctxOuter, locator, testRepo, "372ab6950519549b14d220271ee2322caa44d4eb")
+	revertedCommit, err := log.GetCommit(ctxOuter, testRepo, "372ab6950519549b14d220271ee2322caa44d4eb")
 	require.NoError(t, err)
 
 	request := &gitalypb.UserRevertRequest{
@@ -462,8 +449,6 @@ func TestServer_UserRevert_failed_due_to_commit_error(t *testing.T) {
 }
 
 func testServerUserRevertFailedDueToCommitError(t *testing.T, ctxOuter context.Context) {
-	locator := config.NewLocator(config.Config)
-
 	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()
 
@@ -478,7 +463,7 @@ func testServerUserRevertFailedDueToCommitError(t *testing.T, ctxOuter context.C
 	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", destinationBranch, "master")
 	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", sourceBranch, "a5391128b0ef5d21df5dd23d98557f4ef12fae20")
 
-	revertedCommit, err := log.GetCommit(ctxOuter, locator, testRepo, sourceBranch)
+	revertedCommit, err := log.GetCommit(ctxOuter, testRepo, sourceBranch)
 	require.NoError(t, err)
 
 	request := &gitalypb.UserRevertRequest{

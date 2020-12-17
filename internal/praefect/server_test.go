@@ -34,7 +34,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/nodes/tracker"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/transactions"
-	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/promtest"
 	"gitlab.com/gitlab-org/gitaly/internal/version"
@@ -390,14 +389,12 @@ func TestRepoRemoval(t *testing.T) {
 		}
 	}()
 
-	locator := gconfig.NewLocator(gconfig.Config)
-
 	tRepo, _, tCleanup := testhelper.NewTestRepo(t)
 	defer tCleanup()
 
-	_, path1, cleanup1 := cloneRepoAtStorage(t, locator, tRepo, conf.VirtualStorages[0].Nodes[1].Storage)
+	_, path1, cleanup1 := cloneRepoAtStorage(t, tRepo, conf.VirtualStorages[0].Nodes[1].Storage)
 	defer cleanup1()
-	_, path2, cleanup2 := cloneRepoAtStorage(t, locator, tRepo, conf.VirtualStorages[0].Nodes[2].Storage)
+	_, path2, cleanup2 := cloneRepoAtStorage(t, tRepo, conf.VirtualStorages[0].Nodes[2].Storage)
 	defer cleanup2()
 
 	// prerequisite: repos should exist at expected paths
@@ -514,16 +511,14 @@ func TestRepoRename(t *testing.T) {
 
 	require.Len(t, gconfig.Config.Storages, 3, "1 default storage and 2 replicas of it")
 
-	locator := gconfig.NewLocator(gconfig.Config)
-
 	// repo0 is a template that is used to create replica set by cloning it into other storage (directories)
 	repo0, path0, cleanup0 := testhelper.NewTestRepo(t)
 	defer cleanup0()
 
-	_, path1, cleanup1 := cloneRepoAtStorage(t, locator, repo0, virtualStorage.Nodes[1].Storage)
+	_, path1, cleanup1 := cloneRepoAtStorage(t, repo0, virtualStorage.Nodes[1].Storage)
 	defer cleanup1()
 
-	_, path2, cleanup2 := cloneRepoAtStorage(t, locator, repo0, virtualStorage.Nodes[2].Storage)
+	_, path2, cleanup2 := cloneRepoAtStorage(t, repo0, virtualStorage.Nodes[2].Storage)
 	defer cleanup2()
 
 	var canCheckRepo sync.WaitGroup
@@ -1009,14 +1004,14 @@ func tempStoragePath(t testing.TB) string {
 	return p
 }
 
-func cloneRepoAtStorage(t testing.TB, locator storage.Locator, src *gitalypb.Repository, storageName string) (*gitalypb.Repository, string, func()) {
+func cloneRepoAtStorage(t testing.TB, src *gitalypb.Repository, storageName string) (*gitalypb.Repository, string, func()) {
 	dst := *src
 	dst.StorageName = storageName
 
-	dstP, err := locator.GetPath(&dst)
+	dstP, err := helper.GetPath(&dst)
 	require.NoError(t, err)
 
-	srcP, err := locator.GetPath(src)
+	srcP, err := helper.GetPath(src)
 	require.NoError(t, err)
 
 	require.NoError(t, os.MkdirAll(dstP, 0755))

@@ -12,7 +12,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/alternates"
 	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
-	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"gitlab.com/gitlab-org/labkit/correlation"
 )
 
@@ -35,13 +34,11 @@ type batchProcess struct {
 	sync.Mutex
 }
 
-func newBatchProcess(ctx context.Context, locator storage.Locator, repo repository.GitRepo) (*batchProcess, error) {
-	repoPath, err := locator.GetRepoPath(repo)
+func newBatchProcess(ctx context.Context, repo repository.GitRepo) (*batchProcess, error) {
+	repoPath, env, err := alternates.PathAndEnv(repo)
 	if err != nil {
 		return nil, err
 	}
-
-	env := alternates.Env(repoPath, repo.GetGitObjectDirectory(), repo.GetGitAlternateObjectDirectories())
 
 	totalCatfileProcesses.Inc()
 	b := &batchProcess{}

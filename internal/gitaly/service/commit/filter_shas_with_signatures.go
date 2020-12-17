@@ -36,7 +36,7 @@ func validateFirstFilterShasWithSignaturesRequest(in *gitalypb.FilterShasWithSig
 
 func (s *server) filterShasWithSignatures(bidi gitalypb.CommitService_FilterShasWithSignaturesServer, firstRequest *gitalypb.FilterShasWithSignaturesRequest) error {
 	ctx := bidi.Context()
-	c, err := catfile.New(ctx, s.locator, firstRequest.GetRepository())
+	c, err := catfile.New(ctx, firstRequest.GetRepository())
 	if err != nil {
 		return err
 	}
