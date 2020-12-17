@@ -16,7 +16,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/ref"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/repository"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/ssh"
-	gitalylog "gitlab.com/gitlab-org/gitaly/internal/log"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
@@ -62,9 +61,6 @@ func testMain(m *testing.M) int {
 		config.Config.Auth.Token = token
 	}(config.Config.Auth.Token)
 	config.Config.Auth.Token = testhelper.RepositoryAuthToken
-
-	cleanupSrv := setupAndStartGitlabServer(gitalylog.Default(), testhelper.TestUser.GlId, testhelper.GlRepository)
-	defer cleanupSrv()
 
 	if err := RubyServer.Start(); err != nil {
 		log.Error(err)
@@ -114,7 +110,7 @@ func newOperationClient(t *testing.T, serverSocketPath string) (gitalypb.Operati
 	return gitalypb.NewOperationServiceClient(conn), conn
 }
 
-func setupAndStartGitlabServer(t testhelper.FatalLogger, glID, glRepository string, gitPushOptions ...string) func() {
+func setupAndStartGitlabServer(t testing.TB, glID, glRepository string, gitPushOptions ...string) func() {
 	url, cleanup := testhelper.SetupAndStartGitlabServer(t, &testhelper.GitlabTestServerOptions{
 		SecretToken:                 "secretToken",
 		GLID:                        glID,
