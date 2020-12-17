@@ -6,7 +6,6 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -206,7 +205,7 @@ func (p *TestServer) Start(t testing.TB) {
 	require.NoError(t, err)
 	defer conn.Close()
 
-	require.NoError(t, WaitHealthy(conn, 3, time.Second))
+	waitHealthy(t, conn, 3, time.Second)
 
 	p.process = cmd.Process
 }
@@ -237,23 +236,23 @@ func (p *TestServer) listen(t testing.TB) string {
 		require.NoError(t, err)
 		defer conn.Close()
 
-		require.NoError(t, WaitHealthy(conn, 3, time.Second))
+		waitHealthy(t, conn, 3, time.Second)
 	}
 
 	return gitalyServerSocketPath
 }
 
-// WaitHealthy executes health check request `retries` times and awaits each `timeout` period to respond.
+// waitHealthy executes health check request `retries` times and awaits each `timeout` period to respond.
 // After `retries` unsuccessful attempts it returns an error.
 // Returns immediately without an error once get a successful health check response.
-func WaitHealthy(conn *grpc.ClientConn, retries int, timeout time.Duration) error {
+func waitHealthy(t testing.TB, conn *grpc.ClientConn, retries int, timeout time.Duration) {
 	for i := 0; i < retries; i++ {
 		if IsHealthy(conn, timeout) {
-			return nil
+			return
 		}
 	}
 
-	return errors.New("server not yet ready to serve")
+	require.FailNow(t, "server not yet ready to serve")
 }
 
 // IsHealthy creates a health client to passed in connection and send `Check` request.
