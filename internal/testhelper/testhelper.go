@@ -87,8 +87,7 @@ func GitalyServersMetadata(t testing.TB, serverSocketPath string) metadata.MD {
 	return metadata.Pairs("gitaly-servers", base64.StdEncoding.EncodeToString(gitalyServersJSON))
 }
 
-// MustRunCommand runs a command with an optional standard input and returns the standard output, or fails.
-func MustRunCommand(t testing.TB, stdin io.Reader, name string, args ...string) []byte {
+func testRunCommandInternal(t testing.TB, failOk bool, stdin io.Reader, name string, args ...string) []byte {
 	if t != nil {
 		t.Helper()
 	}
@@ -111,7 +110,7 @@ func MustRunCommand(t testing.TB, stdin io.Reader, name string, args ...string) 
 	}
 
 	output, err := cmd.Output()
-	if err != nil {
+	if err != nil && !failOk {
 		stderr := err.(*exec.ExitError).Stderr
 		if t == nil {
 			log.Print(name, args)
@@ -125,6 +124,21 @@ func MustRunCommand(t testing.TB, stdin io.Reader, name string, args ...string) 
 	}
 
 	return output
+}
+
+// MustRunCommand runs a command with an optional standard input and returns the standard output, or fails.
+func MustRunCommand(t testing.TB, stdin io.Reader, name string, args ...string) []byte {
+	return testRunCommandInternal(t, false, stdin, name, args...)
+}
+
+// MayFailRunCommand is MustRunCommand which ignores failures.
+//
+// Useful e.g. for normally redundant teardown if a test doesn't die,
+// but which should run in a "defer" block to cleanup things for the
+// next test if the current test were to die in the middle of its own
+// setup/testing/teardown.
+func MayFailRunCommand(t testing.TB, stdin io.Reader, name string, args ...string) []byte {
+	return testRunCommandInternal(t, true, stdin, name, args...)
 }
 
 // GetTemporaryGitalySocketFileName will return a unique, useable socket file name
