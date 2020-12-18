@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -38,7 +37,7 @@ func testSuccessfulUserDeleteTagRequest(t *testing.T, ctx context.Context) {
 
 	tagNameInput := "to-be-deleted-soon-tag"
 
-	defer exec.Command(config.Config.Git.BinPath, "-C", testRepoPath, "tag", "-d", tagNameInput).Run()
+	defer testhelper.MayFailRunCommand(t, nil, "git", "-C", testRepoPath, "tag", "-d", tagNameInput)
 
 	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "tag", tagNameInput)
 
@@ -73,7 +72,6 @@ func testSuccessfulGitHooksForUserDeleteTagRequest(t *testing.T, ctx context.Con
 	defer cleanupFn()
 
 	tagNameInput := "to-be-déleted-soon-tag"
-	defer exec.Command(config.Config.Git.BinPath, "-C", testRepoPath, "tag", "-d", tagNameInput).Run()
 
 	request := &gitalypb.UserDeleteTagRequest{
 		Repository: testRepo,
@@ -84,6 +82,7 @@ func testSuccessfulGitHooksForUserDeleteTagRequest(t *testing.T, ctx context.Con
 	for _, hookName := range GitlabHooks {
 		t.Run(hookName, func(t *testing.T) {
 			testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "tag", tagNameInput)
+			defer testhelper.MayFailRunCommand(t, nil, "git", "-C", testRepoPath, "tag", "-d", tagNameInput)
 
 			hookOutputTempPath, cleanup := testhelper.WriteEnvToCustomHook(t, testRepoPath, hookName)
 			defer cleanup()
@@ -523,7 +522,7 @@ func testUserDeleteTagsuccessfulDeletionOfPrefixedTag(t *testing.T, ctx context.
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
 			testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "tag", testCase.tagNameInput, testCase.tagCommit)
-			defer exec.Command(config.Config.Git.BinPath, "-C", testRepoPath, "tag", "-d", testCase.tagNameInput).Run()
+			defer testhelper.MayFailRunCommand(t, nil, "git", "-C", testRepoPath, "tag", "-d", testCase.tagNameInput)
 
 			request := &gitalypb.UserDeleteTagRequest{
 				Repository: testRepo,
