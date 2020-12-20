@@ -100,8 +100,8 @@ func (c *promMonitor) Exit(ctx context.Context) {
 func NewPromMonitor(system string, fullMethod string) ConcurrencyMonitor {
 	serviceName, methodName := splitMethodName(fullMethod)
 
-	queuedGauge := queuedGaugeVec.WithLabelValues(serviceName, methodName, system)
-	inprogressGauge := inprogressGaugeVec.WithLabelValues(serviceName, methodName, system)
+	queuedGauge := queuedGaugeVec.WithLabelValues(system, serviceName, methodName)
+	inprogressGauge := inprogressGaugeVec.WithLabelValues(system, serviceName, methodName)
 
 	var histogram prometheus.Observer
 	if histogramVec != nil {
