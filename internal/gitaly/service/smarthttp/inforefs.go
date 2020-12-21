@@ -48,13 +48,12 @@ func (s *server) handleInfoRefs(ctx context.Context, service string, req *gitaly
 		return err
 	}
 
-	var globalOpts []git.GlobalOption
 	cmdOpts := []git.CmdOpt{git.WithGitProtocol(ctx, req)}
 	if service == "receive-pack" {
-		globalOpts = append(globalOpts, git.ReceivePackConfig()...)
 		cmdOpts = append(cmdOpts, git.WithRefTxHook(ctx, req.Repository, config.Config))
 	}
 
+	var globalOpts []git.GlobalOption
 	if service == "upload-pack" {
 		globalOpts = append(globalOpts, git.UploadPackFilterConfig()...)
 	}
