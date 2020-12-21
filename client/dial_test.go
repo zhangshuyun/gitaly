@@ -353,9 +353,10 @@ func TestDial_Tracing(t *testing.T) {
 		span.Finish()
 
 		spans := reporter.GetSpans()
-		require.Len(t, spans, 2)
-		require.Equal(t, "", spans[0].BaggageItem("service"))
-		require.Equal(t, "stub", spans[1].BaggageItem("service"))
+		require.Len(t, spans, 3)
+		require.Equal(t, "stub", spans[0].BaggageItem("service"))
+		require.Equal(t, "", spans[1].BaggageItem("service"))
+		require.Equal(t, "stub", spans[2].BaggageItem("service"))
 	})
 }
 
