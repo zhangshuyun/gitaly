@@ -1,5 +1,0 @@
----
-title: 'command: Fix panics and segfaults caused by LogCommandStats'
-merge_request: 2791
-author:
-type: fixed

@@ -1,5 +1,0 @@
----
-title: Run sql electors checks in a transaction
-merge_request: 2869
-author:
-type: fixed

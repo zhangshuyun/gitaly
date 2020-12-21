@@ -1,5 +1,0 @@
----
-title: 'UserCreateBranch: unify API responses between Go & Ruby response paths'
-merge_request: 2857
-author:
-type: fixed

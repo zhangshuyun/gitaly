@@ -1,5 +1,0 @@
----
-title: Add initial implementation of spawning git inside cgroups
-merge_request: 2819
-author:
-type: added

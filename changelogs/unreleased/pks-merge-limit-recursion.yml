@@ -1,5 +1,0 @@
----
-title: 'git2go: Restrict number of computed virtual merge bases'
-merge_request: 2860
-author:
-type: performance

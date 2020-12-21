@@ -1,5 +1,0 @@
----
-title: Fix missing cgroups after upgrading Gitaly
-merge_request: 2914
-author:
-type: fixed

@@ -1,5 +1,0 @@
----
-title: Reintroduce assignment schema change without dropping the old column
-merge_request: 2867
-author:
-type: changed

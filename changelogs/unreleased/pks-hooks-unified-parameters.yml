@@ -1,5 +1,0 @@
----
-title: 'hooks: Fix ambiguous envvars conflicting with gitaly-ssh'
-merge_request: 2874
-author:
-type: fixed

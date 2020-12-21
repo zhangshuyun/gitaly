@@ -1,5 +1,77 @@
 # Gitaly changelog
 
+## 13.7.0 (2020-12-22)
+
+### Removed (1 change)
+
+- Remove MemoryRepositoryStore. !2845
+
+### Fixed (22 changes)
+
+- command: Fix panics and segfaults caused by LogCommandStats. !2791
+- Praefect reconcile hangs and fails in case of an error during processing. !2795
+- nodes: Use context to perform database queries. !2796
+- Fix `updateReferenceWithHooks()` not forwarding stderr. !2804
+- Discard git-rev-parse error messages in. !2809
+- hooks: Improved validation and testing. !2824
+- Remove records of invalid repositories. !2833
+- User{Branch,Submodule}: remove erroneously copy/pasted error handling. !2841
+- Evict broken connections from the pool. !2849
+- UserCreateBranch: unify API responses between Go & Ruby response paths. !2857
+- UserDeleteBranch: unify API responses between Go & Ruby response paths. !2864
+- operations: Fix wrong ordering of merge parents for UserMergeBranch. !2868
+- Run sql electors checks in a transaction. !2869
+- hooks: Fix ambiguous envvars conflicting with gitaly-ssh. !2874
+- UserCreateTag: stop dying when a tag pointing to tree or blob is created + test fixes. !2881
+- CreateFork recovers when encountering existing empty directory target. !2886
+- Handle nil index entries in resolve conflicts. !2895
+- Update github-linguist to v7.12.1. !2897
+- Update resolve conflict command to use gob over stdin. !2903
+- Fix missing cgroups after upgrading Gitaly. !2914
+- Run housekeeping on pool repository. !2916
+- User{Branch,Tag,Submodule}: ferry update-ref errors upwards. !2926
+
+### Changed (9 changes)
+
+- Make git gc --prune more aggressive. !2758
+- featureflag: Enable Go implementation of UserSquash. !2807
+- Port UserDeleteTag to Go. !2839
+- Print host assignments and primary per repository in `praefect dataloss`. !2843
+- transactions: Allow disabling with an env var. !2853
+- No longer compare checksums after replication. !2861
+- Reintroduce assignment schema change without dropping the old column. !2867
+- Revert featureflag: Remove reference transaction feature flag. !2884
+- Cleanup redundant data from notification events. !2893
+
+### Performance (3 changes)
+
+- git: Speed up creation of packfiles via pack window memory limit. !2856
+- git2go: Restrict number of computed virtual merge bases. !2860
+- Disable hooks when fetching. !2923
+
+### Added (11 changes)
+
+- Introduction of in-memory cache for reads distribution. !2738
+- Support for logging propagated client identity. !2802
+- Add initial implementation of spawning git inside cgroups. !2819
+- Tell Git where to find reference-transaction hooks. !2834
+- Conditionally enable use of transactions for all reference-modifying RPCs. !2850
+- Set replication factor for a repository. !2851
+- hooks: Remove the Ruby reference-transaction hook feature flag. !2866
+- Enable feature flag gitaly_go_fetch_remote by default. !2872
+- conflicts: Remove GoListConflictFiles feature flag. !2878
+- operations: Remove GoUserMergeToRef feature flag. !2879
+- Perform housekeeping for object pools. !2885
+
+### Other (5 changes)
+
+- Instrument git-cat-file's batch commands for more granular tracing. !2687
+- Update LabKit to v1.0.0. !2827
+- Update Rouge gem to v3.25.0. !2829
+- Support Golang v1.15.5 in CI. !2858
+- Update Rouge gem to v3.26.0. !2927
+
+
 ## 13.6.3 (2020-12-10)
 
 - No changes.

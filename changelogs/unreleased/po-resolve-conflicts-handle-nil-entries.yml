@@ -1,5 +1,0 @@
----
-title: Handle nil index entries in resolve conflicts
-merge_request: 2895
-author:
-type: fixed

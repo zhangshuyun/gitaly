@@ -1,5 +1,0 @@
----
-title: 'User{Branch,Tag,Submodule}: ferry update-ref errors upwards'
-merge_request: 2926
-author:
-type: fixed

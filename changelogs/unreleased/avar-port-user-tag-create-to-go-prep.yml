@@ -1,5 +1,0 @@
----
-title: 'UserCreateTag: stop dying when a tag pointing to tree or blob is created + test fixes'
-merge_request: 2881
-author:
-type: fixed

@@ -1,5 +1,0 @@
----
-title: 'transactions: Allow disabling with an env var'
-merge_request: 2853
-author:
-type: changed

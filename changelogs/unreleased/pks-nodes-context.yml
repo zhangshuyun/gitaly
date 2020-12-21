@@ -1,5 +1,0 @@
----
-title: 'nodes: Use context to perform database queries'
-merge_request: 2796
-author:
-type: fixed

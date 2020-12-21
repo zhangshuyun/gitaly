@@ -1,5 +1,0 @@
----
-title: 'operations: Fix wrong ordering of merge parents for UserMergeBranch'
-merge_request: 2868
-author:
-type: fixed

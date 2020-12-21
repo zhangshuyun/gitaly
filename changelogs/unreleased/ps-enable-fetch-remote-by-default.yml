@@ -1,5 +1,0 @@
----
-title: Enable feature flag gitaly_go_fetch_remote by default
-merge_request: 2872
-author:
-type: added

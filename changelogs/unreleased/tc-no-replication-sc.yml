@@ -1,5 +1,0 @@
----
-title: No longer compare checksums after replication
-merge_request: 2861
-author:
-type: changed

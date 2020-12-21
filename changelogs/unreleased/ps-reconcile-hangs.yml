@@ -1,5 +1,0 @@
----
-title: Praefect reconcile hangs and fails in case of an error during processing
-merge_request: 2795
-author:
-type: fixed

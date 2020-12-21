@@ -1,5 +1,0 @@
----
-title: Fix `updateReferenceWithHooks()` not forwarding stderr
-merge_request: 2804
-author:
-type: fixed

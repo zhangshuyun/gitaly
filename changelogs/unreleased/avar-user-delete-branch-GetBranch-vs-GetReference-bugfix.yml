@@ -1,5 +1,0 @@
----
-title: 'UserDeleteBranch: unify API responses between Go & Ruby response paths'
-merge_request: 2864
-author:
-type: fixed

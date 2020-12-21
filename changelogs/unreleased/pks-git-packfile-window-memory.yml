@@ -1,5 +1,0 @@
----
-title: 'git: Speed up creation of packfiles via pack window memory limit'
-merge_request: 2856
-author:
-type: performance

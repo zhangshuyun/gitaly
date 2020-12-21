@@ -1,5 +1,0 @@
----
-title: Evict broken connections from the pool
-merge_request: 2849
-author:
-type: fixed
