@@ -47,7 +47,7 @@ func (s *server) ApplyBfgObjectMapStream(server gitalypb.CleanupService_ApplyBfg
 
 	// It doesn't matter if new internal references are added after this RPC
 	// starts running - they shouldn't point to the objects removed by the BFG
-	cleaner, err := internalrefs.NewCleaner(ctx, repo, notifier.Notify)
+	cleaner, err := internalrefs.NewCleaner(ctx, s.cfg, repo, notifier.Notify)
 	if err != nil {
 		return helper.ErrInternal(err)
 	}

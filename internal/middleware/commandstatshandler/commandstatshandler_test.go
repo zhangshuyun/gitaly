@@ -37,7 +37,7 @@ func createNewServer(t *testing.T) *grpc.Server {
 
 	server := grpc.NewServer(opts...)
 
-	gitalypb.RegisterRefServiceServer(server, ref.NewServer(config.NewLocator(config.Config)))
+	gitalypb.RegisterRefServiceServer(server, ref.NewServer(config.Config, config.NewLocator(config.Config)))
 
 	return server
 }
