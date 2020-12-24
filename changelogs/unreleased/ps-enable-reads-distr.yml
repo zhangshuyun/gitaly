@@ -1,0 +1,5 @@
+---
+title: Feature flag gitaly_distributed_reads enabled by default
+merge_request: 2960
+author:
+type: performance
