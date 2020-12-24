@@ -118,12 +118,12 @@ func main() {
 
 	tempdir.StartCleaning(time.Hour)
 
-	log.WithError(run(b)).Error("shutting down")
+	log.WithError(run(config.Config, b)).Error("shutting down")
 }
 
 // Inside here we can use deferred functions. This is needed because
 // log.Fatal bypasses deferred functions.
-func run(b *bootstrap.Bootstrap) error {
+func run(cfg config.Cfg, b *bootstrap.Bootstrap) error {
 	var gitlabAPI hook.GitlabAPI
 	var err error
 
@@ -148,7 +148,7 @@ func run(b *bootstrap.Bootstrap) error {
 	)
 	defer conns.Close()
 
-	servers := server.NewGitalyServerFactory(hookManager, conns)
+	servers := server.NewGitalyServerFactory(cfg, hookManager, conns)
 	defer servers.Stop()
 
 	b.StopAction = servers.GracefulStop
