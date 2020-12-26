@@ -26,7 +26,7 @@ var (
 	// GoUserDeleteBranch enables the Go implementation of UserDeleteBranch
 	GoUserDeleteBranch = FeatureFlag{Name: "go_user_delete_branch", OnByDefault: true}
 	// GoUserCommitFiles enables the Go implementation of UserCommitFiles
-	GoUserCommitFiles = FeatureFlag{Name: "go_user_commit_files", OnByDefault: false}
+	GoUserCommitFiles = FeatureFlag{Name: "go_user_commit_files", OnByDefault: true}
 	// GoResolveConflicts enables the Go implementation of ResolveConflicts
 	GoResolveConflicts = FeatureFlag{Name: "go_resolve_conflicts", OnByDefault: false}
 	// GoUserUpdateSubmodule enables the Go implementation of

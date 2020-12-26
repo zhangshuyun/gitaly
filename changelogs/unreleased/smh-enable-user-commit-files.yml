@@ -1,0 +1,5 @@
+---
+title: Enable Go port of UserCommitFiles by default
+merge_request: 2922
+author:
+type: performance
