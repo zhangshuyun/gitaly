@@ -31,8 +31,6 @@ var (
 	GoUserCommitFiles = FeatureFlag{Name: "go_user_commit_files", OnByDefault: false}
 	// GoResolveConflicts enables the Go implementation of ResolveConflicts
 	GoResolveConflicts = FeatureFlag{Name: "go_resolve_conflicts", OnByDefault: true}
-	// GoFetchRemote enables the Go implementation of FetchRemote
-	GoFetchRemote = FeatureFlag{Name: "go_fetch_remote", OnByDefault: true}
 	// GoUserDeleteTag enables the Go implementation of UserDeleteTag
 	GoUserDeleteTag = FeatureFlag{Name: "go_user_delete_tag", OnByDefault: true}
 	// GoUserCreateTag enables the Go implementation of UserCreateTag
@@ -117,7 +115,6 @@ var All = []FeatureFlag{
 	GoUserSquash,
 	GoUserCommitFiles,
 	GoResolveConflicts,
-	GoFetchRemote,
 	GoUserDeleteTag,
 	GoUserCreateTag,
 	GoUserRevert,

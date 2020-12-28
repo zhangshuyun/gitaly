@@ -1,0 +1,5 @@
+---
+title: Removal of ruby implementation of the FetchRemote
+merge_request: 2967
+author:
+type: removed
