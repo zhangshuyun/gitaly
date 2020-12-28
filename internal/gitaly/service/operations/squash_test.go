@@ -14,7 +14,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
-	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -33,17 +32,16 @@ var (
 )
 
 func TestSuccessfulUserSquashRequest(t *testing.T) {
-	testhelper.NewFeatureSets(
-		[]featureflag.FeatureFlag{featureflag.GoUserSquash},
-	).Run(t, func(t *testing.T, ctx context.Context) {
-		t.Run("with sparse checkout", func(t *testing.T) {
-			testSuccessfulUserSquashRequest(t, ctx, startSha, endSha)
-		})
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-		t.Run("without sparse checkout", func(t *testing.T) {
-			// there are no files that could be used for sparse checkout for those two commits
-			testSuccessfulUserSquashRequest(t, ctx, "60ecb67744cb56576c30214ff52294f8ce2def98", "c84ff944ff4529a70788a5e9003c2b7feae29047")
-		})
+	t.Run("with sparse checkout", func(t *testing.T) {
+		testSuccessfulUserSquashRequest(t, ctx, startSha, endSha)
+	})
+
+	t.Run("without sparse checkout", func(t *testing.T) {
+		// there are no files that could be used for sparse checkout for those two commits
+		testSuccessfulUserSquashRequest(t, ctx, "60ecb67744cb56576c30214ff52294f8ce2def98", "c84ff944ff4529a70788a5e9003c2b7feae29047")
 	})
 }
 

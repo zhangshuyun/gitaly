@@ -10,10 +10,9 @@ module Gitlab
       include Gitlab::Utils::StrongMemoize
 
       # In https://gitlab.com/gitlab-org/gitaly/merge_requests/698
-      # We copied these two prefixes into gitaly-go, so don't change these
-      # or things will break! (REBASE_WORKTREE_PREFIX and SQUASH_WORKTREE_PREFIX)
+      # We copied this prefix into gitaly-go, so don't change it
+      # or things will break! (REBASE_WORKTREE_PREFIX)
       REBASE_WORKTREE_PREFIX = 'rebase'.freeze
-      SQUASH_WORKTREE_PREFIX = 'squash'.freeze
       AM_WORKTREE_PREFIX = 'am'.freeze
       GITALY_INTERNAL_URL = 'ssh://gitaly/internal.git'.freeze
       AUTOCRLF_VALUES = { 'true' => true, 'false' => false, 'input' => :input }.freeze
@@ -396,38 +395,6 @@ module Gitlab
 
             rebase_sha
           end
-        end
-      end
-
-      def squash(user, squash_id, start_sha:, end_sha:, author:, message:)
-        worktree = Gitlab::Git::Worktree.new(path, SQUASH_WORKTREE_PREFIX, squash_id)
-        env = git_env.merge(user.git_env).merge(
-          'GIT_AUTHOR_NAME' => author.name,
-          'GIT_AUTHOR_EMAIL' => author.email
-        )
-        diff_range = "#{start_sha}...#{end_sha}"
-        diff_files = run_git!(
-          %W[diff --name-only --diff-filter=ar --binary #{diff_range}]
-        ).chomp
-
-        with_worktree(worktree, start_sha, sparse_checkout_files: diff_files, env: env) do
-          # Apply diff of the `diff_range` to the worktree
-          diff = run_git!(%W[diff --binary #{diff_range}])
-          run_git!(%w[apply --index --3way --whitespace=nowarn], chdir: worktree.path, env: env, include_stderr: true) do |stdin|
-            stdin.binmode
-            stdin.write(diff)
-          end
-
-          # Commit the `diff_range` diff
-          run_git!(%W[commit --no-verify --message #{message}], chdir: worktree.path, env: env, include_stderr: true)
-
-          # Return the squash sha. May print a warning for ambiguous refs, but
-          # we can ignore that with `--quiet` and just take the SHA, if present.
-          # HEAD here always refers to the current HEAD commit, even if there is
-          # another ref called HEAD.
-          run_git!(
-            %w[rev-parse --quiet --verify HEAD], chdir: worktree.path, env: env
-          ).chomp
         end
       end
 
