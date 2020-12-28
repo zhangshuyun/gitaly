@@ -78,6 +78,8 @@ func main() {
 		log.WithError(err).WithField("config_path", configPath).Fatal("load config")
 	}
 
+	glog.Configure(config.Config.Logging.Format, config.Config.Logging.Level)
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -103,8 +105,6 @@ func main() {
 	if !supported {
 		log.Fatalf("unsupported Git version: %q", gitVersion)
 	}
-
-	config.ConfigureLogging()
 
 	b, err := bootstrap.New()
 	if err != nil {
