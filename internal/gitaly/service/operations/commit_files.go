@@ -429,7 +429,7 @@ func (s *Server) fetchMissingCommit(ctx context.Context, local, remote *gitalypb
 }
 
 func (s *Server) fetchRemoteObject(ctx context.Context, local, remote *gitalypb.Repository, sha string) error {
-	env, err := gitalyssh.UploadPackEnv(ctx, &gitalypb.SSHUploadPackRequest{
+	env, err := gitalyssh.UploadPackEnv(ctx, s.cfg, &gitalypb.SSHUploadPackRequest{
 		Repository:       remote,
 		GitConfigOptions: []string{"uploadpack.allowAnySHA1InWant=true"},
 	})

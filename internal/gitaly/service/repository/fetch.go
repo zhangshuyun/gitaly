@@ -76,7 +76,7 @@ func (s *server) FetchSourceBranch(ctx context.Context, req *gitalypb.FetchSourc
 	// There's no need to perform the fetch if we already have the object
 	// available.
 	if !containsObject {
-		env, err := gitalyssh.UploadPackEnv(ctx, &gitalypb.SSHUploadPackRequest{Repository: req.SourceRepository})
+		env, err := gitalyssh.UploadPackEnv(ctx, s.cfg, &gitalypb.SSHUploadPackRequest{Repository: req.SourceRepository})
 		if err != nil {
 			return nil, err
 		}
