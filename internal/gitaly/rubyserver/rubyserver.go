@@ -120,7 +120,7 @@ func (s *Server) start() error {
 			return err
 		}
 
-		s.workers = append(s.workers, newWorker(p, socketPath, events, false))
+		s.workers = append(s.workers, newWorker(p, socketPath, cfg.Ruby.RestartDelay.Duration(), events, false))
 	}
 
 	return nil

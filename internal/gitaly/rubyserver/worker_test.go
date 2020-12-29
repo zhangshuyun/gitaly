@@ -6,21 +6,15 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/supervisor"
 )
 
 func TestWorker(t *testing.T) {
 	restartDelay := 10 * time.Millisecond
 
-	defer func(old time.Duration) {
-		config.Config.Ruby.RestartDelay = config.Duration(old)
-	}(config.Config.Ruby.RestartDelay.Duration())
-	config.Config.Ruby.RestartDelay = config.Duration(restartDelay)
-
 	events := make(chan supervisor.Event)
 	addr := "the address"
-	w := newWorker(&supervisor.Process{Name: "testing"}, addr, events, true)
+	w := newWorker(&supervisor.Process{Name: "testing"}, addr, restartDelay, events, true)
 	defer w.stopMonitor()
 
 	t.Log("ignore health failures during startup")
@@ -90,7 +84,7 @@ func TestWorkerHealthChecks(t *testing.T) {
 
 	events := make(chan supervisor.Event)
 	addr := "the address"
-	w := newWorker(&supervisor.Process{Name: "testing"}, addr, events, true)
+	w := newWorker(&supervisor.Process{Name: "testing"}, addr, 10*time.Millisecond, events, true)
 	defer w.stopMonitor()
 
 	t.Log("ignore health failures during startup")
