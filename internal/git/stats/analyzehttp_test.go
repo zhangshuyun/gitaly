@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 )
 
@@ -18,7 +19,7 @@ func TestClone(t *testing.T) {
 	_, repoPath, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
 
-	serverPort, stopGitServer := testhelper.GitServer(t, repoPath, nil)
+	serverPort, stopGitServer := testhelper.GitServer(t, config.Config, repoPath, nil)
 	defer stopGitServer()
 
 	clone := Clone{URL: fmt.Sprintf("http://localhost:%d/%s", serverPort, filepath.Base(repoPath))}
@@ -84,7 +85,7 @@ func TestCloneWithAuth(t *testing.T) {
 
 	authWasChecked := false
 
-	serverPort, stopGitServer := testhelper.GitServer(t, repoPath, func(w http.ResponseWriter, r *http.Request, next http.Handler) {
+	serverPort, stopGitServer := testhelper.GitServer(t, config.Config, repoPath, func(w http.ResponseWriter, r *http.Request, next http.Handler) {
 		authWasChecked = true
 
 		actualUser, actualPassword, ok := r.BasicAuth()

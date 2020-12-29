@@ -37,7 +37,7 @@ func TestSuccessfulCreateRepositoryFromURLRequest(t *testing.T) {
 
 	user := "username123"
 	password := "password321localhost"
-	port, stopGitServer := gitServerWithBasicAuth(t, user, password, testRepoPath)
+	port, stopGitServer := gitServerWithBasicAuth(t, config.Config, user, password, testRepoPath)
 	defer stopGitServer()
 
 	url := fmt.Sprintf("http://%s:%s@localhost:%d/%s", user, password, port, filepath.Base(testRepoPath))
@@ -175,8 +175,8 @@ func TestPreventingRedirect(t *testing.T) {
 	require.Contains(t, err.Error(), "The requested URL returned error: 301")
 }
 
-func gitServerWithBasicAuth(t testing.TB, user, pass, repoPath string) (int, func() error) {
-	return testhelper.GitServer(t, repoPath, basicAuthMiddleware(t, user, pass))
+func gitServerWithBasicAuth(t testing.TB, cfg config.Cfg, user, pass, repoPath string) (int, func() error) {
+	return testhelper.GitServer(t, cfg, repoPath, basicAuthMiddleware(t, user, pass))
 }
 
 func basicAuthMiddleware(t testing.TB, user, pass string) func(http.ResponseWriter, *http.Request, http.Handler) {
