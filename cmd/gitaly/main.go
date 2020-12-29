@@ -116,7 +116,7 @@ func main() {
 	config.ConfigureConcurrencyLimits(config.Config)
 	tracing.Initialize(tracing.WithServiceName("gitaly"))
 
-	tempdir.StartCleaning(time.Hour)
+	tempdir.StartCleaning(config.Config.Storages, time.Hour)
 
 	log.WithError(run(b)).Error("shutting down")
 }
