@@ -12,15 +12,6 @@ import (
 )
 
 func TestStorageDiskStatistics(t *testing.T) {
-	server, serverSocketPath := runServer(t, config.Config.Storages)
-	defer server.Stop()
-
-	client, conn := newServerClient(t, serverSocketPath)
-	defer conn.Close()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-
 	// Setup storage paths
 	testStorages := []config.Storage{
 		{Name: "default", Path: testhelper.GitlabTestStoragePath()},
@@ -30,6 +21,15 @@ func TestStorageDiskStatistics(t *testing.T) {
 		config.Config.Storages = oldStorages
 	}(config.Config.Storages)
 	config.Config.Storages = testStorages
+
+	server, serverSocketPath := runServer(t, config.Config.Storages)
+	defer server.Stop()
+
+	client, conn := newServerClient(t, serverSocketPath)
+	defer conn.Close() // nolint: errcheck
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
 	c, err := client.DiskStatistics(ctx, &gitalypb.DiskStatisticsRequest{})
 	require.NoError(t, err)
