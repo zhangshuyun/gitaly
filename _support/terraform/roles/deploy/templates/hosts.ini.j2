@@ -10,6 +10,7 @@
 
 [databases]
 {{ tfstate.outputs.praefect_pgbouncer_ip.value }}
+{{ tfstate.outputs.praefect_postgres_ip.value }}
 
 [gitlabs]
 {{ tfstate.outputs.gitlab_external_ip.value }} internal={{ tfstate.outputs.gitlab_internal_ip.value }}

@@ -31,6 +31,8 @@ praefect['database_user'] = 'praefect'
 praefect['database_password'] = '{{ praefect_sql_password }}'
 praefect['database_dbname'] = 'praefect_production'
 praefect['database_sslmode'] = 'disable'
+praefect['database_host_no_proxy'] = '{{ groups['databases'][1] }}'
+praefect['database_port_no_proxy'] = 5432
 
 # Name of storage hash must match storage name in git_data_dirs on GitLab
 # server ('praefect') and in git_data_dirs on Gitaly nodes ('gitaly-1')

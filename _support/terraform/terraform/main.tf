@@ -51,8 +51,18 @@ resource "google_sql_database_instance" "praefect_sql" {
       ipv4_enabled = true
 
       authorized_networks {
-        name  = "allow-all-inbound"
+        name  = "allow-${google_compute_address.pgbouncer.name}"
         value = google_compute_address.pgbouncer.address
+      }
+
+      dynamic authorized_networks {
+        for_each = google_compute_instance.praefect
+        iterator = praefects
+
+        content {
+          name = "allow-${praefects.value.name}"
+          value = praefects.value.network_interface.0.access_config.0.nat_ip
+        }
       }
     }
   }
@@ -60,6 +70,10 @@ resource "google_sql_database_instance" "praefect_sql" {
 
 output "praefect_pgbouncer_ip" {
   value = module.pgbouncer.private_ip_address
+}
+
+output "praefect_postgres_ip" {
+  value = google_sql_database_instance.praefect_sql.public_ip_address
 }
 
 resource "google_sql_user" "users" {
