@@ -32,6 +32,9 @@ func init() {
 	prometheus.MustRegister(flagChecks)
 }
 
+// Delim is a delimiter used between a feature flag name and its value.
+const Delim = ":"
+
 // IsEnabled checks if the feature flag is enabled for the passed context.
 // Only returns true if the metadata for the feature flag is set to "true"
 func IsEnabled(ctx context.Context, flag FeatureFlag) bool {
@@ -100,7 +103,7 @@ func AllFlags(ctx context.Context) []string {
 			continue
 		}
 		if len(v) > 0 {
-			ffs = append(ffs, fmt.Sprintf("%s:%s", strings.TrimPrefix(k, ffPrefix), v[0]))
+			ffs = append(ffs, fmt.Sprintf("%s%s%s", strings.TrimPrefix(k, ffPrefix), Delim, v[0]))
 		}
 	}
 
