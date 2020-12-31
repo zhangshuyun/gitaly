@@ -1,0 +1,5 @@
+---
+title: Drop unused assigned column
+merge_request: 2972
+author:
+type: changed
