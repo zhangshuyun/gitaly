@@ -64,6 +64,26 @@ func (err RepositoryNotExistsError) Error() string {
 	)
 }
 
+// RepositoryExistsError is returned when trying to create a repository that already exists.
+type RepositoryExistsError struct {
+	virtualStorage string
+	relativePath   string
+	storage        string
+}
+
+// Is checks whether the other errors is of the same type.
+func (err RepositoryExistsError) Is(other error) bool {
+	_, ok := other.(RepositoryExistsError)
+	return ok
+}
+
+// Error returns the errors message.
+func (err RepositoryExistsError) Error() string {
+	return fmt.Sprintf("repository %q -> %q -> %q already exists",
+		err.virtualStorage, err.relativePath, err.storage,
+	)
+}
+
 // RepositoryStore provides access to repository state.
 type RepositoryStore interface {
 	// GetGeneration gets the repository's generation on a given storage.
@@ -76,6 +96,9 @@ type RepositoryStore interface {
 	// GetReplicatedGeneration returns the generation propagated by applying the replication. If the generation would
 	// downgrade, a DowngradeAttemptedError is returned.
 	GetReplicatedGeneration(ctx context.Context, virtualStorage, relativePath, source, target string) (int, error)
+	// CreateRepository creates the repository for the virtual storage and the storage. Returns
+	// RepositoryExistsError when trying to create a repository which already has a matching record.
+	CreateRepository(ctx context.Context, virtualStorage, relativePath, storage string) error
 	// DeleteRepository deletes the repository from the virtual storage and the storage. Returns
 	// RepositoryNotExistsError when trying to delete a repository which has no record in the virtual storage
 	// or the storage.
@@ -269,6 +292,38 @@ AND storage = ANY($3)
 	}
 
 	return sourceGeneration, nil
+}
+
+func (rs *PostgresRepositoryStore) CreateRepository(ctx context.Context, virtualStorage, relativePath, storage string) error {
+	const q = `
+WITH repo AS (
+	INSERT INTO repositories (
+		virtual_storage,
+		relative_path,
+		generation
+	) VALUES ($1, $2, 0)
+)
+INSERT INTO storage_repositories (
+	virtual_storage,
+	relative_path,
+	storage,
+	generation
+)
+VALUES ($1, $2, $3, 0)
+`
+
+	_, err := rs.db.ExecContext(ctx, q, virtualStorage, relativePath, storage)
+
+	var pqerr *pq.Error
+	if errors.As(err, &pqerr) && pqerr.Code.Name() == "unique_violation" {
+		return RepositoryExistsError{
+			virtualStorage: virtualStorage,
+			relativePath:   relativePath,
+			storage:        storage,
+		}
+	}
+
+	return err
 }
 
 func (rs *PostgresRepositoryStore) DeleteRepository(ctx context.Context, virtualStorage, relativePath, storage string) error {

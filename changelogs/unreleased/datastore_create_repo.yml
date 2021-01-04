@@ -1,0 +1,5 @@
+---
+title: 'praefect: intercept CreateRepository* RPCs to populate database'
+merge_request: 2873
+author:
+type: changed

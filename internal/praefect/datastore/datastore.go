@@ -41,6 +41,8 @@ type ChangeType string
 const (
 	// UpdateRepo is when a replication updates a repository in place
 	UpdateRepo = ChangeType("update")
+	// CreateRepo is when a replication creates a repo
+	CreateRepo = ChangeType("create")
 	// DeleteRepo is when a replication deletes a repo
 	DeleteRepo = ChangeType("delete")
 	// RenameRepo is when a replication renames repo

@@ -160,6 +160,13 @@ func getReplicationDetails(methodName string, m proto.Message) (datastore.Change
 	switch methodName {
 	case "/gitaly.RepositoryService/RemoveRepository":
 		return datastore.DeleteRepo, nil, nil
+	case "/gitaly.RepositoryService/CreateFork",
+		"/gitaly.RepositoryService/CreateRepository",
+		"/gitaly.RepositoryService/CreateRepositoryFromBundle",
+		"/gitaly.RepositoryService/CreateRepositoryFromSnapshot",
+		"/gitaly.RepositoryService/CreateRepositoryFromURL",
+		"/gitaly.RepositoryService/ReplicateRepository":
+		return datastore.CreateRepo, nil, nil
 	case "/gitaly.RepositoryService/RenameRepository":
 		req, ok := m.(*gitalypb.RenameRepositoryRequest)
 		if !ok {
@@ -738,6 +745,15 @@ func (c *Coordinator) newRequestFinalizer(
 
 				ctxlogrus.Extract(ctx).WithError(err).Info("deleted repository does not have a store entry")
 			}
+		case datastore.CreateRepo:
+			if err := c.rs.CreateRepository(ctx, virtualStorage, targetRepo.GetRelativePath(), primary); err != nil {
+				if !errors.Is(err, datastore.RepositoryExistsError{}) {
+					return fmt.Errorf("create repository: %w", err)
+				}
+
+				ctxlogrus.Extract(ctx).WithError(err).Info("create repository already has a store entry")
+			}
+			change = datastore.UpdateRepo
 		}
 
 		correlationID := correlation.ExtractFromContextOrGenerate(ctx)

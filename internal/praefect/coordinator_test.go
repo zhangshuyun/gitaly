@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io/ioutil"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -589,6 +590,125 @@ func TestCoordinatorStreamDirector_distributesReads(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, "gitaly-1", rewrittenTargetRepo.GetStorageName(), "stream director must rewrite the storage name")
 	})
+}
+
+func TestStreamDirector_repo_creation(t *testing.T) {
+	gitalySocket0, gitalySocket1 := testhelper.GetTemporaryGitalySocketFileName(), testhelper.GetTemporaryGitalySocketFileName()
+	srv1, _ := testhelper.NewServerWithHealth(t, gitalySocket0)
+	defer srv1.Stop()
+	srv2, _ := testhelper.NewServerWithHealth(t, gitalySocket1)
+	defer srv2.Stop()
+
+	primaryAddress, secondaryAddress := "unix://"+gitalySocket0, "unix://"+gitalySocket1
+	primaryNode := &config.Node{Address: primaryAddress, Storage: "praefect-internal-1"}
+	secondaryNode := &config.Node{Address: secondaryAddress, Storage: "praefect-internal-2"}
+	conf := config.Config{
+		VirtualStorages: []*config.VirtualStorage{
+			&config.VirtualStorage{
+				Name:  "praefect",
+				Nodes: []*config.Node{primaryNode, secondaryNode},
+			},
+		},
+	}
+
+	var replEventWait sync.WaitGroup
+
+	queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewMemoryReplicationEventQueue(conf))
+	queueInterceptor.OnEnqueue(func(ctx context.Context, event datastore.ReplicationEvent, queue datastore.ReplicationEventQueue) (datastore.ReplicationEvent, error) {
+		defer replEventWait.Done()
+		return queue.Enqueue(ctx, event)
+	})
+
+	rewrittenStorage := primaryNode.Storage
+	targetRepo := gitalypb.Repository{
+		StorageName:  "praefect",
+		RelativePath: "/path/to/hashed/storage",
+	}
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	entry := testhelper.DiscardTestEntry(t)
+
+	nodeMgr, err := nodes.NewManager(entry, conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil)
+	require.NoError(t, err)
+	nodeMgr.Start(0, time.Hour)
+
+	txMgr := transactions.NewManager(conf)
+
+	var createRepositoryCalled int64
+	rs := datastore.MockRepositoryStore{
+		CreateRepositoryFunc: func(ctx context.Context, virtualStorage, relativePath, storage string) error {
+			atomic.AddInt64(&createRepositoryCalled, 1)
+			assert.Equal(t, targetRepo.StorageName, virtualStorage)
+			assert.Equal(t, targetRepo.RelativePath, relativePath)
+			assert.Equal(t, rewrittenStorage, storage)
+			return nil
+		},
+	}
+
+	coordinator := NewCoordinator(
+		queueInterceptor,
+		rs,
+		NewNodeManagerRouter(nodeMgr, rs),
+		txMgr,
+		conf,
+		protoregistry.GitalyProtoPreregistered,
+	)
+
+	frame, err := proto.Marshal(&gitalypb.CreateRepositoryRequest{
+		Repository: &targetRepo,
+	})
+	require.NoError(t, err)
+
+	fullMethod := "/gitaly.RepositoryService/CreateRepository"
+
+	peeker := &mockPeeker{frame}
+	streamParams, err := coordinator.StreamDirector(correlation.ContextWithCorrelation(ctx, "my-correlation-id"), fullMethod, peeker)
+	require.NoError(t, err)
+	require.Equal(t, primaryAddress, streamParams.Primary().Conn.Target())
+
+	md, ok := metadata.FromOutgoingContext(streamParams.Primary().Ctx)
+	require.True(t, ok)
+	require.Contains(t, md, praefect_metadata.PraefectMetadataKey)
+
+	mi, err := coordinator.registry.LookupMethod(fullMethod)
+	require.NoError(t, err)
+
+	m, err := mi.UnmarshalRequestProto(streamParams.Primary().Msg)
+	require.NoError(t, err)
+
+	rewrittenTargetRepo, err := mi.TargetRepo(m)
+	require.NoError(t, err)
+	require.Equal(t, rewrittenStorage, rewrittenTargetRepo.GetStorageName(), "stream director should have rewritten the storage name")
+
+	replEventWait.Add(1) // expected only one event to be created
+	// this call creates new events in the queue and simulates usual flow of the update operation
+	streamParams.RequestFinalizer()
+
+	replEventWait.Wait() // wait until event persisted (async operation)
+	events, err := queueInterceptor.Dequeue(ctx, "praefect", "praefect-internal-2", 10)
+	require.NoError(t, err)
+	require.Len(t, events, 1)
+
+	expectedEvent := datastore.ReplicationEvent{
+		ID:        1,
+		State:     datastore.JobStateInProgress,
+		Attempt:   2,
+		LockID:    "praefect|praefect-internal-2|/path/to/hashed/storage",
+		CreatedAt: events[0].CreatedAt,
+		UpdatedAt: events[0].UpdatedAt,
+		Job: datastore.ReplicationJob{
+			Change:            datastore.UpdateRepo,
+			VirtualStorage:    conf.VirtualStorages[0].Name,
+			RelativePath:      targetRepo.RelativePath,
+			TargetNodeStorage: secondaryNode.Storage,
+			SourceNodeStorage: primaryNode.Storage,
+		},
+		Meta: datastore.Params{metadatahandler.CorrelationIDKey: "my-correlation-id"},
+	}
+	require.Equal(t, expectedEvent, events[0], "ensure replication job created by stream director is correct")
+	require.EqualValues(t, 1, atomic.LoadInt64(&createRepositoryCalled), "ensure CreateRepository is called on datastore")
 }
 
 func waitNodeToChangeHealthStatus(ctx context.Context, t *testing.T, node nodes.Node, health bool) {
