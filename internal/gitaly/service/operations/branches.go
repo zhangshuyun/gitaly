@@ -17,7 +17,7 @@ import (
 
 func (s *Server) UserCreateBranch(ctx context.Context, req *gitalypb.UserCreateBranchRequest) (*gitalypb.UserCreateBranchResponse, error) {
 	if featureflag.IsDisabled(ctx, featureflag.GoUserCreateBranch) {
-		return s.UserCreateBranchRuby(ctx, req)
+		return s.userCreateBranchRuby(ctx, req)
 	}
 
 	// Implement UserCreateBranch in Go
@@ -78,7 +78,7 @@ func (s *Server) UserCreateBranch(ctx context.Context, req *gitalypb.UserCreateB
 	}, nil
 }
 
-func (s *Server) UserCreateBranchRuby(ctx context.Context, req *gitalypb.UserCreateBranchRequest) (*gitalypb.UserCreateBranchResponse, error) {
+func (s *Server) userCreateBranchRuby(ctx context.Context, req *gitalypb.UserCreateBranchRequest) (*gitalypb.UserCreateBranchResponse, error) {
 	client, err := s.ruby.OperationServiceClient(ctx)
 	if err != nil {
 		return nil, err
@@ -120,7 +120,7 @@ func (s *Server) UserDeleteBranch(ctx context.Context, req *gitalypb.UserDeleteB
 
 	// Implement UserDeleteBranch in Go
 	if featureflag.IsDisabled(ctx, featureflag.GoUserDeleteBranch) {
-		return s.UserDeleteBranchRuby(ctx, req)
+		return s.userDeleteBranchRuby(ctx, req)
 	}
 
 	referenceFmt := "refs/heads/%s"
@@ -155,7 +155,7 @@ func (s *Server) UserDeleteBranch(ctx context.Context, req *gitalypb.UserDeleteB
 	return &gitalypb.UserDeleteBranchResponse{}, nil
 }
 
-func (s *Server) UserDeleteBranchRuby(ctx context.Context, req *gitalypb.UserDeleteBranchRequest) (*gitalypb.UserDeleteBranchResponse, error) {
+func (s *Server) userDeleteBranchRuby(ctx context.Context, req *gitalypb.UserDeleteBranchRequest) (*gitalypb.UserDeleteBranchResponse, error) {
 	client, err := s.ruby.OperationServiceClient(ctx)
 	if err != nil {
 		return nil, err
