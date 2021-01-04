@@ -49,7 +49,7 @@ issues:
     - linters:
         - errcheck
       path: "_test.go"
-      text: "Error return value of `conns?.Close` is not checked"
+      text: "Error return value of `(cc|con(ns?)?|db|closer|lis(tener)?).Close` is not checked"
     - linters:
         - golint
       path: "_test.go"
