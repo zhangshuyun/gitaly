@@ -684,7 +684,8 @@ func TestStreamDirector_repo_creation(t *testing.T) {
 
 	replEventWait.Add(1) // expected only one event to be created
 	// this call creates new events in the queue and simulates usual flow of the update operation
-	streamParams.RequestFinalizer()
+	err = streamParams.RequestFinalizer()
+	require.NoError(t, err)
 
 	replEventWait.Wait() // wait until event persisted (async operation)
 	events, err := queueInterceptor.Dequeue(ctx, "praefect", "praefect-internal-2", 10)

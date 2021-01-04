@@ -73,6 +73,7 @@ type RepositoryExistsError struct {
 
 // Is checks whether the other errors is of the same type.
 func (err RepositoryExistsError) Is(other error) bool {
+	//nolint:errorlint
 	_, ok := other.(RepositoryExistsError)
 	return ok
 }
@@ -294,6 +295,8 @@ AND storage = ANY($3)
 	return sourceGeneration, nil
 }
 
+//nolint:stylecheck
+//nolint:golint
 func (rs *PostgresRepositoryStore) CreateRepository(ctx context.Context, virtualStorage, relativePath, storage string) error {
 	const q = `
 WITH repo AS (

@@ -50,6 +50,8 @@ func (m MockRepositoryStore) SetGeneration(ctx context.Context, virtualStorage, 
 	return m.SetGenerationFunc(ctx, virtualStorage, relativePath, storage, generation)
 }
 
+//nolint:stylecheck
+//nolint:golint
 func (m MockRepositoryStore) CreateRepository(ctx context.Context, virtualStorage, relativePath, storage string) error {
 	if m.CreateRepositoryFunc == nil {
 		return nil
