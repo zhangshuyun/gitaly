@@ -118,12 +118,12 @@ func main() {
 
 	tempdir.StartCleaning(time.Hour)
 
-	log.WithError(run(b)).Error("shutting down")
+	log.WithError(run(config.Config, b)).Error("shutting down")
 }
 
 // Inside here we can use deferred functions. This is needed because
 // log.Fatal bypasses deferred functions.
-func run(b *bootstrap.Bootstrap) error {
+func run(cfg config.Cfg, b *bootstrap.Bootstrap) error {
 	var gitlabAPI hook.GitlabAPI
 	var err error
 
@@ -131,12 +131,12 @@ func run(b *bootstrap.Bootstrap) error {
 	if config.SkipHooks() {
 		log.Warn("skipping GitLab API client creation since hooks are bypassed via GITALY_TESTING_NO_GIT_HOOKS")
 	} else {
-		gitlabAPI, err = hook.NewGitlabAPI(config.Config.Gitlab, config.Config.TLS)
+		gitlabAPI, err = hook.NewGitlabAPI(cfg.Gitlab, cfg.TLS)
 		if err != nil {
 			log.Fatalf("could not create GitLab API client: %v", err)
 		}
 
-		hm := hook.NewManager(config.NewLocator(config.Config), gitlabAPI, config.Config)
+		hm := hook.NewManager(config.NewLocator(cfg), gitlabAPI, cfg)
 		prometheus.MustRegister(hm)
 
 		hookManager = hm
@@ -148,16 +148,16 @@ func run(b *bootstrap.Bootstrap) error {
 	)
 	defer conns.Close()
 
-	servers := server.NewGitalyServerFactory(hookManager, conns)
+	servers := server.NewGitalyServerFactory(cfg, hookManager, conns)
 	defer servers.Stop()
 
 	b.StopAction = servers.GracefulStop
 
 	for _, c := range []starter.Config{
-		{starter.Unix, config.Config.SocketPath},
-		{starter.Unix, config.Config.GitalyInternalSocketPath()},
-		{starter.TCP, config.Config.ListenAddr},
-		{starter.TLS, config.Config.TLSListenAddr},
+		{starter.Unix, cfg.SocketPath},
+		{starter.Unix, cfg.GitalyInternalSocketPath()},
+		{starter.TCP, cfg.ListenAddr},
+		{starter.TLS, cfg.TLSListenAddr},
 	} {
 		if c.Addr == "" {
 			continue
@@ -166,7 +166,7 @@ func run(b *bootstrap.Bootstrap) error {
 		b.RegisterStarter(starter.New(c, servers))
 	}
 
-	if addr := config.Config.PrometheusListenAddr; addr != "" {
+	if addr := cfg.PrometheusListenAddr; addr != "" {
 		b.RegisterStarter(func(listen bootstrap.ListenFunc, _ chan<- error) error {
 			l, err := listen("tcp", addr)
 			if err != nil {
@@ -200,7 +200,7 @@ func run(b *bootstrap.Bootstrap) error {
 		})
 	}
 
-	for _, shard := range config.Config.Storages {
+	for _, shard := range cfg.Storages {
 		if err := storage.WriteMetadataFile(shard.Path); err != nil {
 			// TODO should this be a return? https://gitlab.com/gitlab-org/gitaly/issues/1893
 			log.WithError(err).Error("Unable to write gitaly metadata file")
@@ -216,11 +216,11 @@ func run(b *bootstrap.Bootstrap) error {
 	}
 
 	ctx := context.Background()
-	shutdownWorkers, err := servers.StartWorkers(ctx, glog.Default(), config.Config)
+	shutdownWorkers, err := servers.StartWorkers(ctx, glog.Default(), cfg)
 	if err != nil {
 		return fmt.Errorf("initialize auxiliary workers: %v", err)
 	}
 	defer shutdownWorkers()
 
-	return b.Wait(config.Config.GracefulRestartTimeout.Duration())
+	return b.Wait(cfg.GracefulRestartTimeout.Duration())
 }

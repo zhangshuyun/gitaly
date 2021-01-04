@@ -29,7 +29,7 @@ import (
 )
 
 func TestServerFactory(t *testing.T) {
-	gitalyServerFactory := server.NewGitalyServerFactory(nil, nil)
+	gitalyServerFactory := server.NewGitalyServerFactory(gconfig.Config, nil, nil)
 	defer gitalyServerFactory.Stop()
 
 	// start gitaly serving on public endpoint
