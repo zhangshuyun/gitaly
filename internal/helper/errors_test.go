@@ -12,33 +12,33 @@ import (
 func TestError(t *testing.T) {
 	input := errors.New("sentinel error")
 	for _, tc := range []struct {
-		desc     string
-		decorate func(err error) error
-		code     codes.Code
+		desc   string
+		errorf func(err error) error
+		code   codes.Code
 	}{
 		{
-			desc:     "Internal",
-			decorate: ErrInternal,
-			code:     codes.Internal,
+			desc:   "Internal",
+			errorf: ErrInternal,
+			code:   codes.Internal,
 		},
 		{
-			desc:     "InvalidArgument",
-			decorate: ErrInvalidArgument,
-			code:     codes.InvalidArgument,
+			desc:   "InvalidArgument",
+			errorf: ErrInvalidArgument,
+			code:   codes.InvalidArgument,
 		},
 		{
-			desc:     "PreconditionFailed",
-			decorate: ErrPreconditionFailed,
-			code:     codes.FailedPrecondition,
+			desc:   "PreconditionFailed",
+			errorf: ErrPreconditionFailed,
+			code:   codes.FailedPrecondition,
 		},
 		{
-			desc:     "NotFound",
-			decorate: ErrNotFound,
-			code:     codes.NotFound,
+			desc:   "NotFound",
+			errorf: ErrNotFound,
+			code:   codes.NotFound,
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			err := tc.decorate(input)
+			err := tc.errorf(input)
 			require.True(t, errors.Is(err, input))
 			require.Equal(t, tc.code, status.Code(err))
 		})
