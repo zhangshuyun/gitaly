@@ -7,10 +7,10 @@ module Gitlab
 
       MAX_COMMIT_MESSAGE_DISPLAY_SIZE = 10.megabytes
       MIN_SHA_LENGTH = 7
-      SERIALIZE_KEYS = [
-        :id, :message, :parent_ids,
-        :authored_date, :author_name, :author_email,
-        :committed_date, :committer_name, :committer_email
+      SERIALIZE_KEYS = %i[
+        id message parent_ids
+        authored_date author_name author_email
+        committed_date committer_name committer_email trailers
       ].freeze
 
       attr_accessor *SERIALIZE_KEYS # rubocop:disable Lint/AmbiguousOperator
@@ -163,7 +163,8 @@ module Gitlab
           body: raw_commit.message.b,
           parent_ids: raw_commit.parent_ids,
           author: gitaly_commit_author_from_rugged(raw_commit.author),
-          committer: gitaly_commit_author_from_rugged(raw_commit.committer)
+          committer: gitaly_commit_author_from_rugged(raw_commit.committer),
+          trailers: gitaly_trailers_from_rugged(raw_commit)
         )
       end
 
@@ -202,6 +203,7 @@ module Gitlab
         @committer_name = committer[:name]
         @committer_email = committer[:email]
         @parent_ids = commit.parents.map(&:oid)
+        @trailers = Hash[commit.trailers]
       end
 
       def init_from_gitaly(commit)
@@ -218,6 +220,7 @@ module Gitlab
         @committer_name = commit.committer.name.dup
         @committer_email = commit.committer.email.dup
         @parent_ids = Array(commit.parent_ids)
+        @trailers = Hash[commit.trailers.map { |t| [t.key, t.value] }]
       end
 
       def serialize_keys
@@ -230,6 +233,12 @@ module Gitlab
           email: author_or_committer[:email].b,
           date: Google::Protobuf::Timestamp.new(seconds: author_or_committer[:time].to_i)
         )
+      end
+
+      def gitaly_trailers_from_rugged(rugged_commit)
+        rugged_commit.trailers.map do |(key, value)|
+          Gitaly::CommitTrailer.new(key: key, value: value)
+        end
       end
 
       def message_from_gitaly_body

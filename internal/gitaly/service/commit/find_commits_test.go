@@ -73,6 +73,59 @@ func TestFindCommitsFields(t *testing.T) {
 			id:     "189a6c924013fc3fe40d6f1ec1dc20214183bc97",
 			commit: testhelper.GitLabTestCommit("189a6c924013fc3fe40d6f1ec1dc20214183bc97"),
 		},
+		{
+			id: "5937ac0a7beb003549fc5fd26fc247adbce4a52e",
+			commit: &gitalypb.GitCommit{
+				Id:      "5937ac0a7beb003549fc5fd26fc247adbce4a52e",
+				Subject: []byte("Add submodule from gitlab.com"),
+				Body:    []byte("Add submodule from gitlab.com\n\nSigned-off-by: Dmitriy Zaporozhets <dmitriy.zaporozhets@gmail.com>\n"),
+				Author: &gitalypb.CommitAuthor{
+					Name:     []byte("Dmitriy Zaporozhets"),
+					Email:    []byte("dmitriy.zaporozhets@gmail.com"),
+					Date:     &timestamp.Timestamp{Seconds: 1393491698},
+					Timezone: []byte("+0200"),
+				},
+				Committer: &gitalypb.CommitAuthor{
+					Name:     []byte("Dmitriy Zaporozhets"),
+					Email:    []byte("dmitriy.zaporozhets@gmail.com"),
+					Date:     &timestamp.Timestamp{Seconds: 1393491698},
+					Timezone: []byte("+0200"),
+				},
+				ParentIds:     []string{"570e7b2abdd848b95f2f578043fc23bd6f6fd24d"},
+				BodySize:      98,
+				SignatureType: gitalypb.SignatureType_PGP,
+				TreeId:        "a6973545d42361b28bfba5ced3b75dba5848b955",
+				Trailers: []*gitalypb.CommitTrailer{
+					&gitalypb.CommitTrailer{
+						Key:   []byte("Signed-off-by"),
+						Value: []byte("Dmitriy Zaporozhets <dmitriy.zaporozhets@gmail.com>"),
+					},
+				},
+			},
+		},
+		{
+			id: "c1c67abbaf91f624347bb3ae96eabe3a1b742478",
+			commit: &gitalypb.GitCommit{
+				Id:      "c1c67abbaf91f624347bb3ae96eabe3a1b742478",
+				Subject: []byte("Add file with a _flattable_ path"),
+				Body:    []byte("Add file with a _flattable_ path\n\n\n(cherry picked from commit ce369011c189f62c815f5971d096b26759bab0d1)"),
+				Author: &gitalypb.CommitAuthor{
+					Name:     []byte("Alejandro Rodríguez"),
+					Email:    []byte("alejorro70@gmail.com"),
+					Date:     &timestamp.Timestamp{Seconds: 1504382739},
+					Timezone: []byte("+0000"),
+				},
+				Committer: &gitalypb.CommitAuthor{
+					Name:     []byte("Drew Blessing"),
+					Email:    []byte("drew@blessing.io"),
+					Date:     &timestamp.Timestamp{Seconds: 1540823671},
+					Timezone: []byte("+0000"),
+				},
+				ParentIds: []string{"7975be0116940bf2ad4321f79d02a55c5f7779aa"},
+				BodySize:  103,
+				TreeId:    "07f8147e8e73aab6c935c296e8cdc5194dee729b",
+			},
+		},
 	}
 
 	for _, tc := range testCases {

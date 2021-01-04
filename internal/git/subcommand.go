@@ -47,6 +47,7 @@ var subcommands = map[string]uint{
 	"repack":           scNoRefUpdates | scGeneratesPackfiles,
 	"rev-list":         scReadOnly,
 	"rev-parse":        scReadOnly | scNoEndOfOptions,
+	"show":             scReadOnly,
 	"show-ref":         scReadOnly,
 	"symbolic-ref":     0,
 	"tag":              0,

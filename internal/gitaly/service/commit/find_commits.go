@@ -12,6 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/git/log"
+	"gitlab.com/gitlab-org/gitaly/internal/git/trailerparser"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/chunk"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -111,11 +112,17 @@ func (g *GetCommits) Offset(offset int) error {
 
 // Commit returns the current commit
 func (g *GetCommits) Commit(ctx context.Context) (*gitalypb.GitCommit, error) {
-	revision := strings.TrimSpace(g.scanner.Text())
+	revAndTrailers := strings.SplitN(strings.TrimSpace(g.scanner.Text()), "\000", 2)
+	revision := revAndTrailers[0]
 	commit, err := log.GetCommitCatfile(ctx, g.batch, revision)
 	if err != nil {
 		return nil, fmt.Errorf("cat-file get commit %q: %v", revision, err)
 	}
+
+	if len(revAndTrailers) == 2 {
+		commit.Trailers = trailerparser.Parse([]byte(revAndTrailers[1]))
+	}
+
 	return commit, nil
 }
 
@@ -156,7 +163,7 @@ func streamCommits(getCommits *GetCommits, stream gitalypb.CommitService_FindCom
 }
 
 func getLogCommandSubCmd(req *gitalypb.FindCommitsRequest) git.SubCmd {
-	subCmd := git.SubCmd{Name: "log", Flags: []git.Option{git.Flag{Name: "--format=format:%H"}}}
+	subCmd := git.SubCmd{Name: "log", Flags: []git.Option{git.Flag{Name: "--format=%H%x00%(trailers:unfold,separator=%x00)"}}}
 
 	//  We will perform the offset in Go because --follow doesn't play well with --skip.
 	//  See: https://gitlab.com/gitlab-org/gitlab-ce/issues/3574#note_3040520

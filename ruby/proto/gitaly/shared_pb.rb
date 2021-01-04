@@ -15,6 +15,10 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       optional :gl_repository, :string, 6
       optional :gl_project_path, :string, 8
     end
+    add_message "gitaly.CommitTrailer" do
+      optional :key, :bytes, 1
+      optional :value, :bytes, 2
+    end
     add_message "gitaly.GitCommit" do
       optional :id, :string, 1
       optional :subject, :bytes, 2
@@ -25,6 +29,7 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       optional :body_size, :int64, 7
       optional :signature_type, :enum, 8, "gitaly.SignatureType"
       optional :tree_id, :string, 9
+      repeated :trailers, :message, 10, "gitaly.CommitTrailer"
     end
     add_message "gitaly.CommitAuthor" do
       optional :name, :bytes, 1
@@ -81,6 +86,7 @@ end
 
 module Gitaly
   Repository = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.Repository").msgclass
+  CommitTrailer = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.CommitTrailer").msgclass
   GitCommit = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.GitCommit").msgclass
   CommitAuthor = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.CommitAuthor").msgclass
   ExitStatus = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.ExitStatus").msgclass

@@ -56,11 +56,36 @@ func TestSuccessfulFindCommitRequest(t *testing.T) {
 			revision:    "branch-merged",
 			commit:      testhelper.GitLabTestCommit("498214de67004b1da3d820901307bed2a68a8ef6"),
 		},
-
 		{
 			description: "With a tag name",
 			revision:    "v1.0.0",
-			commit:      testhelper.GitLabTestCommit("6f6d7e7ed97bb5f0054f2b1df789b39ca89b6ff9"),
+			commit: &gitalypb.GitCommit{
+				Id:      "6f6d7e7ed97bb5f0054f2b1df789b39ca89b6ff9",
+				Subject: []byte("More submodules"),
+				Body:    []byte("More submodules\n\nSigned-off-by: Dmitriy Zaporozhets <dmitriy.zaporozhets@gmail.com>\n"),
+				Author: &gitalypb.CommitAuthor{
+					Name:     []byte("Dmitriy Zaporozhets"),
+					Email:    []byte("dmitriy.zaporozhets@gmail.com"),
+					Date:     &timestamp.Timestamp{Seconds: 1393491261},
+					Timezone: []byte("+0200"),
+				},
+				Committer: &gitalypb.CommitAuthor{
+					Name:     []byte("Dmitriy Zaporozhets"),
+					Email:    []byte("dmitriy.zaporozhets@gmail.com"),
+					Date:     &timestamp.Timestamp{Seconds: 1393491261},
+					Timezone: []byte("+0200"),
+				},
+				ParentIds:     []string{"d14d6c0abdd253381df51a723d58691b2ee1ab08"},
+				BodySize:      84,
+				SignatureType: gitalypb.SignatureType_PGP,
+				TreeId:        "70d69cce111b0e1f54f7e5438bbbba9511a8e23c",
+				Trailers: []*gitalypb.CommitTrailer{
+					&gitalypb.CommitTrailer{
+						Key:   []byte("Signed-off-by"),
+						Value: []byte("Dmitriy Zaporozhets <dmitriy.zaporozhets@gmail.com>"),
+					},
+				},
+			},
 		},
 		{
 			description: "With a hash",
@@ -71,6 +96,37 @@ func TestSuccessfulFindCommitRequest(t *testing.T) {
 			description: "With an initial commit",
 			revision:    "1a0b36b3cdad1d2ee32457c102a8c0b7056fa863",
 			commit:      testhelper.GitLabTestCommit("1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"),
+		},
+		{
+			description: "More submodules",
+			revision:    "6f6d7e7ed97bb5f0054f2b1df789b39ca89b6ff9",
+			commit: &gitalypb.GitCommit{
+				Id:      "6f6d7e7ed97bb5f0054f2b1df789b39ca89b6ff9",
+				Subject: []byte("More submodules"),
+				Body:    []byte("More submodules\n\nSigned-off-by: Dmitriy Zaporozhets <dmitriy.zaporozhets@gmail.com>\n"),
+				Author: &gitalypb.CommitAuthor{
+					Name:     []byte("Dmitriy Zaporozhets"),
+					Email:    []byte("dmitriy.zaporozhets@gmail.com"),
+					Date:     &timestamp.Timestamp{Seconds: 1393491261},
+					Timezone: []byte("+0200"),
+				},
+				Committer: &gitalypb.CommitAuthor{
+					Name:     []byte("Dmitriy Zaporozhets"),
+					Email:    []byte("dmitriy.zaporozhets@gmail.com"),
+					Date:     &timestamp.Timestamp{Seconds: 1393491261},
+					Timezone: []byte("+0200"),
+				},
+				ParentIds:     []string{"d14d6c0abdd253381df51a723d58691b2ee1ab08"},
+				BodySize:      84,
+				SignatureType: gitalypb.SignatureType_PGP,
+				TreeId:        "70d69cce111b0e1f54f7e5438bbbba9511a8e23c",
+				Trailers: []*gitalypb.CommitTrailer{
+					&gitalypb.CommitTrailer{
+						Key:   []byte("Signed-off-by"),
+						Value: []byte("Dmitriy Zaporozhets <dmitriy.zaporozhets@gmail.com>"),
+					},
+				},
+			},
 		},
 		{
 			description: "with non-utf8 message encoding, recognized by Git",

@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"strconv"
@@ -12,6 +13,7 @@ import (
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
+	"gitlab.com/gitlab-org/gitaly/internal/git/trailerparser"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -28,6 +30,17 @@ func GetCommit(ctx context.Context, locator storage.Locator, repo *gitalypb.Repo
 	return GetCommitCatfile(ctx, c, revision)
 }
 
+// GetCommitWithTrailers tries to resolve a revision to a Git commit, including
+// Git trailers in its output.
+func GetCommitWithTrailers(ctx context.Context, locator storage.Locator, repo *gitalypb.Repository, revision string) (*gitalypb.GitCommit, error) {
+	c, err := catfile.New(ctx, locator, repo)
+	if err != nil {
+		return nil, err
+	}
+
+	return GetCommitCatfileWithTrailers(ctx, repo, c, revision)
+}
+
 // GetCommitCatfile looks up a commit by revision using an existing catfile.Batch instance.
 func GetCommitCatfile(ctx context.Context, c catfile.Batch, revision string) (*gitalypb.GitCommit, error) {
 	obj, err := c.Commit(ctx, revision+"^{commit}")
@@ -36,6 +49,45 @@ func GetCommitCatfile(ctx context.Context, c catfile.Batch, revision string) (*g
 	}
 
 	return parseRawCommit(obj.Reader, &obj.ObjectInfo)
+}
+
+// GetCommitCatfileWithTrailers looks up a commit by revision using an existing
+// catfile.Batch instance, and includes Git trailers in the returned commit.
+func GetCommitCatfileWithTrailers(ctx context.Context, repo *gitalypb.Repository, c catfile.Batch, revision string) (*gitalypb.GitCommit, error) {
+	commit, err := GetCommitCatfile(ctx, c, revision)
+
+	if err != nil {
+		return nil, err
+	}
+
+	// We use the commit ID here instead of revision. This way we still get
+	// trailers if the revision is not a SHA but e.g. a tag name.
+	showCmd, err := git.SafeCmd(ctx, repo, nil, git.SubCmd{
+		Name: "show",
+		Args: []string{commit.Id},
+		Flags: []git.Option{
+			git.Flag{Name: "--format=%(trailers:unfold,separator=%x00)"},
+			git.Flag{Name: "--no-patch"},
+		},
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("error when creating git show command: %w", err)
+	}
+
+	scanner := bufio.NewScanner(showCmd)
+
+	if scanner.Scan() {
+		if len(scanner.Text()) > 0 {
+			commit.Trailers = trailerparser.Parse([]byte(scanner.Text()))
+		}
+
+		if scanner.Scan() {
+			return nil, fmt.Errorf("git show produced more than one line of output, the second line is: %v", scanner.Text())
+		}
+	}
+
+	return commit, nil
 }
 
 // GetCommitMessage looks up a commit message and returns it in its entirety.

@@ -166,3 +166,28 @@ func TestGetCommitCatfile(t *testing.T) {
 		})
 	}
 }
+
+func TestGetCommitCatfileWithTrailers(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	ctx = metadata.NewIncomingContext(ctx, metadata.MD{})
+	defer cancel()
+
+	testRepo, _, cleanup := testhelper.NewTestRepo(t)
+	defer cleanup()
+
+	locator := config.NewLocator(config.Config)
+	catfile, err := catfile.New(ctx, locator, testRepo)
+
+	require.NoError(t, err)
+
+	commit, err := GetCommitCatfileWithTrailers(ctx, testRepo, catfile, "5937ac0a7beb003549fc5fd26fc247adbce4a52e")
+
+	require.NoError(t, err)
+
+	require.Equal(t, commit.Trailers, []*gitalypb.CommitTrailer{
+		&gitalypb.CommitTrailer{
+			Key:   []byte("Signed-off-by"),
+			Value: []byte("Dmitriy Zaporozhets <dmitriy.zaporozhets@gmail.com>"),
+		},
+	})
+}
