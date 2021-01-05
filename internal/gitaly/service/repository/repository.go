@@ -7,11 +7,13 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // Deprecated
 func (s *server) Exists(ctx context.Context, in *gitalypb.RepositoryExistsRequest) (*gitalypb.RepositoryExistsResponse, error) {
-	return nil, helper.Unimplemented
+	return nil, status.Error(codes.Unimplemented, "this rpc is not implemented")
 }
 
 func (s *server) RepositoryExists(ctx context.Context, in *gitalypb.RepositoryExistsRequest) (*gitalypb.RepositoryExistsResponse, error) {
