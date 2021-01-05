@@ -32,7 +32,7 @@ func DecorateError(code codes.Code, err error) error {
 // ErrInternal wraps err with codes.Internal, unless err is already a grpc error
 func ErrInternal(err error) error { return DecorateError(codes.Internal, err) }
 
-// ErrInternalf wrapps a formatted error with codes.Internal, unless err is already a grpc error
+// ErrInternalf wrapps a formatted error with codes.Internal, clobbering any existing grpc error
 func ErrInternalf(format string, a ...interface{}) error {
 	return ErrInternal(fmt.Errorf(format, a...))
 }
@@ -40,7 +40,7 @@ func ErrInternalf(format string, a ...interface{}) error {
 // ErrInvalidArgument wraps err with codes.InvalidArgument, unless err is already a grpc error
 func ErrInvalidArgument(err error) error { return DecorateError(codes.InvalidArgument, err) }
 
-// ErrInvalidArgumentf wraps a formatted error with codes.InvalidArgument, unless err is already a grpc error
+// ErrInvalidArgumentf wraps a formatted error with codes.InvalidArgument, clobbering any existing grpc error
 func ErrInvalidArgumentf(format string, a ...interface{}) error {
 	return ErrInvalidArgument(fmt.Errorf(format, a...))
 }
@@ -48,7 +48,7 @@ func ErrInvalidArgumentf(format string, a ...interface{}) error {
 // ErrPreconditionFailed wraps err with codes.FailedPrecondition, unless err is already a grpc error
 func ErrPreconditionFailed(err error) error { return DecorateError(codes.FailedPrecondition, err) }
 
-// ErrPreconditionFailedf wraps a formatted error with codes.FailedPrecondition, unless err is already a grpc error
+// ErrPreconditionFailedf wraps a formatted error with codes.FailedPrecondition, clobbering any existing grpc error
 func ErrPreconditionFailedf(format string, a ...interface{}) error {
 	return ErrPreconditionFailed(fmt.Errorf(format, a...))
 }
