@@ -13,6 +13,7 @@ const (
 
 type gitCommand struct {
 	flags uint
+	opts  []GlobalOption
 }
 
 // gitCommands is a curated list of Git command names for special git.SafeCmd

@@ -464,16 +464,23 @@ func combineArgs(globals []GlobalOption, sc Cmd, cc *cmdCfg) (_ []string, err er
 		}
 	}()
 
+	gitCommand, ok := gitCommands[sc.Subcommand()]
+	if !ok {
+		return nil, fmt.Errorf("invalid sub command name %q: %w", sc.Subcommand(), ErrInvalidArg)
+	}
+
 	// As global options may cancel out each other, we have a clearly
 	// defined order in which globals get applied. The order is similar to
 	// how git handles configuration options from most general to most
 	// specific. This allows callsites to override options which would
 	// otherwise be set up automatically.
 	//
-	// 1. Globals passed via command options, e.g. as set up by
+	// 1. Globals which get set up by default for a given git command.
+	// 2. Globals passed via command options, e.g. as set up by
 	//    `WithReftxHook()`.
-	// 2. Globals passed directly to the command at the site of execution.
+	// 3. Globals passed directly to the command at the site of execution.
 	var combinedGlobals []GlobalOption
+	combinedGlobals = append(combinedGlobals, gitCommand.opts...)
 	combinedGlobals = append(combinedGlobals, cc.globals...)
 	combinedGlobals = append(combinedGlobals, globals...)
 
