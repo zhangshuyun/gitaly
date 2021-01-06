@@ -274,7 +274,7 @@ func TestSafeCmdValid(t *testing.T) {
 				Flag{Name: "--aaaa-bbbb"},
 			},
 			subCmd:     SubCmd{Name: "update-ref"},
-			expectArgs: []string{"--aaaa-bbbb", "-c", hooksPath, "update-ref", endOfOptions},
+			expectArgs: []string{"-c", hooksPath, "--aaaa-bbbb", "update-ref", endOfOptions},
 		},
 		{
 			desc: "empty arg and postsep args",
@@ -301,7 +301,7 @@ func TestSafeCmdValid(t *testing.T) {
 				Args:        []string{"1", "2"},
 				PostSepArgs: []string{"3", "4", "5"},
 			},
-			expectArgs: []string{"-a", "-b", "c", "-c", hooksPath, "update-ref", "-e", "-f", "g", "-h=i", "1", "2", endOfOptions, "--", "3", "4", "5"},
+			expectArgs: []string{"-c", hooksPath, "-a", "-b", "c", "update-ref", "-e", "-f", "g", "-h=i", "1", "2", endOfOptions, "--", "3", "4", "5"},
 		},
 		{
 			desc: "output to stdout",
@@ -329,7 +329,7 @@ func TestSafeCmdValid(t *testing.T) {
 					ValueFlag{"--why", "looking-for-first-contribution"},
 				},
 			},
-			expectArgs: []string{"--contributing", "--author", "a-gopher", "-c", hooksPath, "update-ref", "--is-important", "--why", "looking-for-first-contribution", "mr", endOfOptions},
+			expectArgs: []string{"-c", hooksPath, "--contributing", "--author", "a-gopher", "update-ref", "--is-important", "--why", "looking-for-first-contribution", "mr", endOfOptions},
 		},
 	} {
 		t.Run(tt.desc, func(t *testing.T) {
@@ -381,7 +381,7 @@ func TestSafeCmdWithEnv(t *testing.T) {
 
 	subCmd := SubCmd{Name: "update-ref"}
 	endOfOptions := "--end-of-options"
-	expectArgs := []string{"--aaaa-bbbb", "-c", "core.hooksPath=" + hooks.Path(config.Config), "update-ref", endOfOptions}
+	expectArgs := []string{"-c", "core.hooksPath=" + hooks.Path(config.Config), "--aaaa-bbbb", "update-ref", endOfOptions}
 
 	env := []string{"TEST_VAR1=1", "TEST_VAR2=2"}
 
