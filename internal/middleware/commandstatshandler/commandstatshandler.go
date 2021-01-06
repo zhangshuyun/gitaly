@@ -47,8 +47,7 @@ func CommandStatsMessageProducer(ctx context.Context, format string, level logru
 	entry := ctxlogrus.Extract(ctx).WithContext(ctx).WithFields(fields)
 
 	// safely inject commandstats
-	stats := command.StatsFromContext(ctx)
-	if stats != nil {
+	if stats := command.StatsFromContext(ctx); stats != nil {
 		entry = entry.WithFields(stats.Fields())
 	}
 
