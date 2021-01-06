@@ -44,6 +44,9 @@ PROTOC_GEN_GITALY := ${BUILD_DIR}/bin/protoc-gen-gitaly
 GO_JUNIT_REPORT   := ${BUILD_DIR}/bin/go-junit-report
 GOCOVER_COBERTURA := ${BUILD_DIR}/bin/gocover-cobertura
 
+# Tool options
+GOLANGCI_LINT_OPTIONS ?=
+
 # Build information
 BUNDLE_FLAGS    ?= $(shell test -f ${SOURCE_DIR}/../.gdk-install-root && echo --no-deployment || echo --deployment)
 GITALY_PACKAGE  := gitlab.com/gitlab-org/gitaly
@@ -259,7 +262,7 @@ check-mod-tidy:
 
 .PHONY: lint
 lint: ${GOLANGCI_LINT} libgit2
-	${Q}${GOLANGCI_LINT} cache clean && ${GOLANGCI_LINT} run --build-tags "${GO_BUILD_TAGS}" --out-format tab --config ${SOURCE_DIR}/.golangci.yml
+	${Q}${GOLANGCI_LINT} cache clean && ${GOLANGCI_LINT} run --build-tags "${GO_BUILD_TAGS}" --out-format tab --config ${SOURCE_DIR}/.golangci.yml ${GOLANGCI_LINT_OPTIONS}
 
 .PHONY: check-formatting
 check-formatting: ${GOIMPORTS} ${GITALYFMT}
