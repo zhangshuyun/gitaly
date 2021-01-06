@@ -170,8 +170,7 @@ func TestSuccessfulUserCherryPickRequest(t *testing.T) {
 			require.Empty(t, response.CreateTreeErrorCode)
 
 			if testCase.request.DryRun {
-				require.Equal(t, masterHeadCommit.Subject, headCommit.Subject)
-				require.Equal(t, masterHeadCommit.Id, headCommit.Id)
+				testhelper.ProtoEqual(t, masterHeadCommit, headCommit)
 			} else {
 				require.Equal(t, testCase.request.Message, headCommit.Subject)
 				require.Equal(t, masterHeadCommit.Id, headCommit.ParentIds[0])
