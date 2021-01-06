@@ -16,7 +16,8 @@ func TestServiceConfig(t *testing.T) {
 	configureBuilderTest(3)
 
 	tcc := &testClientConn{}
-	_, _ = lbBuilder.Build(resolver.Target{}, tcc, resolver.BuildOptions{})
+	_, err = lbBuilder.Build(resolver.Target{}, tcc, resolver.BuildOptions{})
+	require.NoError(t, err)
 
 	configUpdates := tcc.ConfigUpdates()
 	require.Len(t, configUpdates, 1, "expect exactly one config update")
