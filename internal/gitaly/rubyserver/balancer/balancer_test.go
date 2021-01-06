@@ -16,7 +16,7 @@ func TestServiceConfig(t *testing.T) {
 	configureBuilderTest(3)
 
 	tcc := &testClientConn{}
-	_, err = lbBuilder.Build(resolver.Target{}, tcc, resolver.BuildOptions{})
+	_, err := lbBuilder.Build(resolver.Target{}, tcc, resolver.BuildOptions{})
 	require.NoError(t, err)
 
 	configUpdates := tcc.ConfigUpdates()
@@ -32,7 +32,7 @@ func TestAddressUpdatesSmallestPool(t *testing.T) {
 	addrs := configureBuilderTest(2)
 
 	tcc := &testClientConn{}
-	_, err = lbBuilder.Build(resolver.Target{}, tcc, resolver.BuildOptions{})
+	_, err := lbBuilder.Build(resolver.Target{}, tcc, resolver.BuildOptions{})
 	require.NoError(t, err)
 
 	// Simulate some random updates
@@ -63,7 +63,7 @@ func TestAddressUpdatesRoundRobinPool(t *testing.T) {
 	addrs := configureBuilderTest(3)
 
 	tcc := &testClientConn{}
-	_, err = lbBuilder.Build(resolver.Target{}, tcc, resolver.BuildOptions{})
+	_, err := lbBuilder.Build(resolver.Target{}, tcc, resolver.BuildOptions{})
 	require.NoError(t, err)
 
 	// Simulate some random updates
