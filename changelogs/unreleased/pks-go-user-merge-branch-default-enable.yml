@@ -1,0 +1,5 @@
+---
+title: 'featureflags: Enable Go implementation of UserMergeBranch by default'
+merge_request: 2976
+author:
+type: performance
