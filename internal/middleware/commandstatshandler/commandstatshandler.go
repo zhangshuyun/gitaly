@@ -51,18 +51,5 @@ func CommandStatsMessageProducer(ctx context.Context, format string, level logru
 		entry = entry.WithFields(stats.Fields())
 	}
 
-	switch level {
-	case logrus.DebugLevel:
-		entry.Debugf(format)
-	case logrus.InfoLevel:
-		entry.Infof(format)
-	case logrus.WarnLevel:
-		entry.Warningf(format)
-	case logrus.ErrorLevel:
-		entry.Errorf(format)
-	case logrus.FatalLevel:
-		entry.Fatalf(format)
-	case logrus.PanicLevel:
-		entry.Panicf(format)
-	}
+	entry.Logf(level, format)
 }
