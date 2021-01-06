@@ -31,7 +31,8 @@ func TestAddressUpdatesSmallestPool(t *testing.T) {
 	addrs := configureBuilderTest(2)
 
 	tcc := &testClientConn{}
-	_, _ = lbBuilder.Build(resolver.Target{}, tcc, resolver.BuildOptions{})
+	_, err = lbBuilder.Build(resolver.Target{}, tcc, resolver.BuildOptions{})
+	require.NoError(t, err)
 
 	// Simulate some random updates
 	RemoveAddress(addrs[0])
@@ -61,7 +62,8 @@ func TestAddressUpdatesRoundRobinPool(t *testing.T) {
 	addrs := configureBuilderTest(3)
 
 	tcc := &testClientConn{}
-	_, _ = lbBuilder.Build(resolver.Target{}, tcc, resolver.BuildOptions{})
+	_, err = lbBuilder.Build(resolver.Target{}, tcc, resolver.BuildOptions{})
+	require.NoError(t, err)
 
 	// Simulate some random updates
 	RemoveAddress(addrs[0])
