@@ -5,7 +5,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
 	hookservice "gitlab.com/gitlab-org/gitaly/internal/gitaly/service/hook"
@@ -46,7 +45,7 @@ func runSSHServer(t *testing.T, serverOpts ...ServerOpt) (string, func()) {
 	gitalypb.RegisterSSHServiceServer(srv.GrpcServer(), NewServer(locator, serverOpts...))
 	gitalypb.RegisterHookServiceServer(srv.GrpcServer(), hookservice.NewServer(config.Config, hook.NewManager(locator, hook.GitlabAPIStub, config.Config)))
 
-	require.NoError(t, srv.Start())
+	srv.Start(t)
 
 	return "unix://" + srv.Socket(), srv.Stop
 }

@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	log "github.com/sirupsen/logrus"
-	"github.com/stretchr/testify/require"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
 	"gitlab.com/gitlab-org/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
@@ -17,7 +16,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/ref"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/repository"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/ssh"
-	gitalylog "gitlab.com/gitlab-org/gitaly/internal/log"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
@@ -64,9 +62,6 @@ func testMain(m *testing.M) int {
 	}(config.Config.Auth.Token)
 	config.Config.Auth.Token = testhelper.RepositoryAuthToken
 
-	cleanupSrv := setupAndStartGitlabServer(gitalylog.Default(), testhelper.TestUser.GlId, testhelper.GlRepository)
-	defer cleanupSrv()
-
 	if err := RubyServer.Start(); err != nil {
 		log.Error(err)
 		return 1
@@ -97,7 +92,7 @@ func runOperationServiceServerWithRubyServer(t *testing.T, ruby *rubyserver.Serv
 	gitalypb.RegisterSSHServiceServer(srv.GrpcServer(), ssh.NewServer(locator))
 	reflection.Register(srv.GrpcServer())
 
-	require.NoError(t, srv.Start())
+	srv.Start(t)
 
 	return "unix://" + srv.Socket(), srv.Stop
 }
@@ -115,7 +110,7 @@ func newOperationClient(t *testing.T, serverSocketPath string) (gitalypb.Operati
 	return gitalypb.NewOperationServiceClient(conn), conn
 }
 
-func setupAndStartGitlabServer(t testhelper.FatalLogger, glID, glRepository string, gitPushOptions ...string) func() {
+func setupAndStartGitlabServer(t testing.TB, glID, glRepository string, gitPushOptions ...string) func() {
 	url, cleanup := testhelper.SetupAndStartGitlabServer(t, &testhelper.GitlabTestServerOptions{
 		SecretToken:                 "secretToken",
 		GLID:                        glID,

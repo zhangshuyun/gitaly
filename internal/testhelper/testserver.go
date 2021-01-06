@@ -6,7 +6,6 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -132,31 +131,22 @@ func (p *TestServer) Socket() string {
 }
 
 // Start will start the grpc server as well as spawn a praefect instance if GITALY_TEST_PRAEFECT_BIN is enabled
-func (p *TestServer) Start() error {
+func (p *TestServer) Start(t testing.TB) {
 	praefectBinPath, ok := os.LookupEnv("GITALY_TEST_PRAEFECT_BIN")
 	if !ok {
-		gitalyServerSocketPath, err := p.listen()
-		if err != nil {
-			return err
-		}
-
-		p.socket = gitalyServerSocketPath
-		return nil
+		p.socket = p.listen(t)
+		return
 	}
 
 	tempDir, err := ioutil.TempDir("", "praefect-test-server")
-	if err != nil {
-		return err
-	}
+	require.NoError(t, err)
 	defer os.RemoveAll(tempDir)
 
 	praefectServerSocketPath := GetTemporaryGitalySocketFileName()
 
 	configFilePath := filepath.Join(tempDir, "config.toml")
 	configFile, err := os.Create(configFilePath)
-	if err != nil {
-		return err
-	}
+	require.NoError(t, err)
 	defer configFile.Close()
 
 	c := praefectconfig.Config{
@@ -175,10 +165,7 @@ func (p *TestServer) Start() error {
 	}
 
 	for _, storage := range p.storages {
-		gitalyServerSocketPath, err := p.listen()
-		if err != nil {
-			return err
-		}
+		gitalyServerSocketPath := p.listen(t)
 
 		c.VirtualStorages = append(c.VirtualStorages, &praefectconfig.VirtualStorage{
 			Name: storage,
@@ -192,13 +179,8 @@ func (p *TestServer) Start() error {
 		})
 	}
 
-	if err := toml.NewEncoder(configFile).Encode(&c); err != nil {
-		return err
-	}
-	if err = configFile.Sync(); err != nil {
-		return err
-	}
-	configFile.Close()
+	require.NoError(t, toml.NewEncoder(configFile).Encode(&c))
+	require.NoError(t, configFile.Close())
 
 	cmd := exec.Command(praefectBinPath, "-config", configFilePath)
 	cmd.Stderr = os.Stderr
@@ -206,9 +188,7 @@ func (p *TestServer) Start() error {
 
 	p.socket = praefectServerSocketPath
 
-	if err := cmd.Start(); err != nil {
-		return err
-	}
+	require.NoError(t, cmd.Start())
 
 	p.waitCh = make(chan struct{})
 	go func() {
@@ -222,22 +202,15 @@ func (p *TestServer) Start() error {
 	}
 
 	conn, err := grpc.Dial("unix://"+praefectServerSocketPath, opts...)
-
-	if err != nil {
-		return fmt.Errorf("dial to praefect: %v", err)
-	}
+	require.NoError(t, err)
 	defer conn.Close()
 
-	if err = WaitHealthy(conn, 3, time.Second); err != nil {
-		return err
-	}
+	waitHealthy(t, conn, 3, time.Second)
 
 	p.process = cmd.Process
-
-	return nil
 }
 
-func (p *TestServer) listen() (string, error) {
+func (p *TestServer) listen(t testing.TB) string {
 	gitalyServerSocketPath := GetTemporaryGitalySocketFileName()
 
 	sockets := []string{
@@ -250,9 +223,7 @@ func (p *TestServer) listen() (string, error) {
 
 	for _, socket := range sockets {
 		listener, err := net.Listen("unix", socket)
-		if err != nil {
-			return "", err
-		}
+		require.NoError(t, err)
 
 		go p.grpcServer.Serve(listener)
 
@@ -262,31 +233,26 @@ func (p *TestServer) listen() (string, error) {
 		}
 
 		conn, err := grpc.Dial("unix://"+socket, opts...)
-
-		if err != nil {
-			return "", err
-		}
+		require.NoError(t, err)
 		defer conn.Close()
 
-		if err := WaitHealthy(conn, 3, time.Second); err != nil {
-			return "", err
-		}
+		waitHealthy(t, conn, 3, time.Second)
 	}
 
-	return gitalyServerSocketPath, nil
+	return gitalyServerSocketPath
 }
 
-// WaitHealthy executes health check request `retries` times and awaits each `timeout` period to respond.
+// waitHealthy executes health check request `retries` times and awaits each `timeout` period to respond.
 // After `retries` unsuccessful attempts it returns an error.
 // Returns immediately without an error once get a successful health check response.
-func WaitHealthy(conn *grpc.ClientConn, retries int, timeout time.Duration) error {
+func waitHealthy(t testing.TB, conn *grpc.ClientConn, retries int, timeout time.Duration) {
 	for i := 0; i < retries; i++ {
 		if IsHealthy(conn, timeout) {
-			return nil
+			return
 		}
 	}
 
-	return errors.New("server not yet ready to serve")
+	require.FailNow(t, "server not yet ready to serve")
 }
 
 // IsHealthy creates a health client to passed in connection and send `Check` request.
@@ -840,7 +806,7 @@ type GitlabTestServerOptions struct {
 }
 
 // NewGitlabTestServer returns a mock gitlab server that responds to the hook api endpoints
-func NewGitlabTestServer(t FatalLogger, options GitlabTestServerOptions) (url string, cleanup func()) {
+func NewGitlabTestServer(t testing.TB, options GitlabTestServerOptions) (url string, cleanup func()) {
 	mux := http.NewServeMux()
 	prefix := strings.TrimRight(options.RelativeURLRoot, "/") + "/api/v4/internal"
 	mux.Handle(prefix+"/allowed", http.HandlerFunc(handleAllowed(options)))
@@ -852,19 +818,14 @@ func NewGitlabTestServer(t FatalLogger, options GitlabTestServerOptions) (url st
 	var tlsCfg *tls.Config
 	if options.ClientCACertPath != "" {
 		caCertPEM, err := ioutil.ReadFile(options.ClientCACertPath)
-		if err != nil {
-			t.Fatalf("reading client CA file: %v", err)
-		}
+		require.NoError(t, err)
 
 		certPool := x509.NewCertPool()
-		if !certPool.AppendCertsFromPEM(caCertPEM) {
-			t.Fatalf("unable to add client CA cert to pool")
-		}
+		require.True(t, certPool.AppendCertsFromPEM(caCertPEM))
 
 		serverCert, err := tls.LoadX509KeyPair(options.ServerCertPath, options.ServerKeyPath)
-		if err != nil {
-			t.Fatalf("unable to load x509 key pair: %v", err)
-		}
+		require.NoError(t, err)
+
 		tlsCfg = &tls.Config{
 			ClientCAs:    certPool,
 			ClientAuth:   tls.RequireAndVerifyClientCert,
@@ -887,19 +848,16 @@ func NewGitlabTestServer(t FatalLogger, options GitlabTestServerOptions) (url st
 	}
 }
 
-func startSocketHTTPServer(t FatalLogger, mux *http.ServeMux, tlsCfg *tls.Config) (string, func()) {
+func startSocketHTTPServer(t testing.TB, mux *http.ServeMux, tlsCfg *tls.Config) (string, func()) {
 	tmpFile, err := ioutil.TempFile(os.TempDir(), "http-test-server")
-	if err != nil {
-		t.Fatalf("Cannot create temporary file", err)
-	}
+	require.NoError(t, err)
+
 	filename := tmpFile.Name()
 	tmpFile.Close()
 	os.Remove(filename)
 
 	socketListener, err := net.Listen("unix", filename)
-	if err != nil {
-		t.Fatalf("Cannot listen to socket", err)
-	}
+	require.NoError(t, err)
 
 	server := http.Server{
 		Handler:   mux,
@@ -935,19 +893,10 @@ func WriteTemporaryGitalyConfigFile(t testing.TB, tempDir, gitlabURL, user, pass
 	}
 }
 
-type FatalLogger interface {
-	Fatalf(string, ...interface{})
-}
-
 // WriteShellSecretFile writes a .gitlab_shell_secret file in the specified directory
-func WriteShellSecretFile(t FatalLogger, dir, secretToken string) {
-	if err := os.MkdirAll(dir, os.ModeDir); err != nil {
-		t.Fatalf("error creating gitlab shell secret directory", err)
-	}
-
-	if err := ioutil.WriteFile(filepath.Join(dir, ".gitlab_shell_secret"), []byte(secretToken), 0644); err != nil {
-		t.Fatalf("writing shell secret file: %v", err)
-	}
+func WriteShellSecretFile(t testing.TB, dir, secretToken string) {
+	require.NoError(t, os.MkdirAll(dir, os.ModeDir))
+	require.NoError(t, ioutil.WriteFile(filepath.Join(dir, ".gitlab_shell_secret"), []byte(secretToken), 0644))
 }
 
 // HTTPSettings contains fields for http settings
@@ -974,7 +923,9 @@ func NewHealthServerWithListener(t testing.TB, listener net.Listener) (*grpc.Ser
 	return srv, healthSrvr
 }
 
-func SetupAndStartGitlabServer(t FatalLogger, c *GitlabTestServerOptions) (string, func()) {
+// SetupAndStartGitlabServer creates a new GitlabTestServer, starts it and sets
+// up the gitlab-shell secret.
+func SetupAndStartGitlabServer(t testing.TB, c *GitlabTestServerOptions) (string, func()) {
 	url, cleanup := NewGitlabTestServer(t, *c)
 
 	WriteShellSecretFile(t, config.Config.GitlabShell.Dir, c.SecretToken)

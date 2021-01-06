@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	log "github.com/sirupsen/logrus"
-	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
@@ -46,7 +45,7 @@ func runBlobServer(t *testing.T, locator storage.Locator) (func(), string) {
 	gitalypb.RegisterBlobServiceServer(srv.GrpcServer(), NewServer(rubyServer, locator))
 	reflection.Register(srv.GrpcServer())
 
-	require.NoError(t, srv.Start())
+	srv.Start(t)
 
 	return srv.Stop, "unix://" + srv.Socket()
 }
