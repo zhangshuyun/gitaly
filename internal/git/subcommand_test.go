@@ -7,7 +7,11 @@ import (
 )
 
 func TestSubcommand_mayGeneratePackfiles(t *testing.T) {
-	require.True(t, mayGeneratePackfiles("gc"))
-	require.False(t, mayGeneratePackfiles("apply"))
-	require.False(t, mayGeneratePackfiles("nonexistent"))
+	gcCmd, ok := gitCommands["gc"]
+	require.True(t, ok)
+	require.True(t, gcCmd.mayGeneratePackfiles())
+
+	applyCmd, ok := gitCommands["apply"]
+	require.True(t, ok)
+	require.False(t, applyCmd.mayGeneratePackfiles())
 }
