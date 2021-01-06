@@ -154,6 +154,12 @@ var gitCommands = map[string]gitCommand{
 	},
 	"upload-pack": gitCommand{
 		flags: scReadOnly | scGeneratesPackfiles,
+		opts: []GlobalOption{
+			ConfigPair{Key: "uploadpack.allowFilter", Value: "true"},
+			// Enables the capability to request individual SHA1's from the
+			// remote repo.
+			ConfigPair{Key: "uploadpack.allowAnySHA1InWant", Value: "true"},
+		},
 	},
 	"worktree": gitCommand{
 		flags: 0,
