@@ -2,10 +2,11 @@ package repository
 
 import (
 	"context"
-	"fmt"
+	"errors"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/remoterepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/gitalyssh"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
@@ -31,7 +32,20 @@ func (s *server) FetchSourceBranch(ctx context.Context, req *gitalypb.FetchSourc
 		return nil, err
 	}
 
-	refspec := fmt.Sprintf("%s:%s", req.GetSourceBranch(), req.GetTargetRef())
+	targetRepo := git.NewRepository(req.GetRepository())
+
+	sourceRepo, err := remoterepo.New(ctx, req.GetSourceRepository(), s.conns)
+	if err != nil {
+		return nil, helper.ErrInternal(err)
+	}
+
+	sourceOid, err := sourceRepo.ResolveRefish(ctx, string(req.GetSourceBranch()))
+	if err != nil {
+		if errors.Is(err, git.ErrReferenceNotFound) {
+			return &gitalypb.FetchSourceBranchResponse{Result: false}, nil
+		}
+		return nil, helper.ErrInternal(err)
+	}
 
 	var remote string
 	var env []string
@@ -48,8 +62,8 @@ func (s *server) FetchSourceBranch(ctx context.Context, req *gitalypb.FetchSourc
 	cmd, err := git.SafeCmdWithEnv(ctx, env, req.Repository, nil,
 		git.SubCmd{
 			Name:  "fetch",
-			Flags: []git.Option{git.Flag{Name: "--prune"}},
-			Args:  []string{remote, refspec},
+			Args:  []string{remote, sourceOid},
+			Flags: []git.Option{git.Flag{Name: "--no-tags"}},
 		},
 		git.WithRefTxHook(ctx, req.Repository, s.cfg),
 	)
@@ -61,9 +75,13 @@ func (s *server) FetchSourceBranch(ctx context.Context, req *gitalypb.FetchSourc
 		ctxlogrus.Extract(ctx).
 			WithField("repo_path", repoPath).
 			WithField("remote", remote).
-			WithField("refspec", refspec).
+			WithField("oid", sourceOid).
 			WithError(err).Warn("git fetch failed")
 		return &gitalypb.FetchSourceBranchResponse{Result: false}, nil
+	}
+
+	if err := targetRepo.UpdateRef(ctx, string(req.GetTargetRef()), sourceOid, ""); err != nil {
+		return nil, err
 	}
 
 	return &gitalypb.FetchSourceBranchResponse{Result: true}, nil
