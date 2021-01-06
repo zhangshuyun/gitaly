@@ -68,6 +68,9 @@ service RepositoryService {
       op: ACCESSOR
     };
   }
+
+  // FetchSourceBranch fetches a branch from a second (potentially remote)
+  // repository into the given repository.
   rpc FetchSourceBranch(FetchSourceBranchRequest) returns (FetchSourceBranchResponse) {
     option (op_type) = {
       op: MUTATOR
@@ -347,13 +350,22 @@ message HasLocalBranchesResponse {
 }
 
 message FetchSourceBranchRequest {
+  // Repository into which the reference shall be fetched. After a successful
+  // call, it should contain the target reference which points to the same
+  // commit as the source repository's source branch.
   Repository repository = 1 [(target_repository)=true];
+  // Repository from which to fetch the source branch from.
   Repository source_repository = 2;
+  // Name of the branch in the source repository which should be fetched.
   bytes source_branch = 3;
+  // Name of the reference which shall be newly created in the target
+  // repository.
   bytes target_ref = 4;
 }
 
 message FetchSourceBranchResponse {
+  // True if the source branch was successfully fetched into the target
+  // repository, false if resolving the remote reference or fetching it failed.
   bool result = 1;
 }
 
