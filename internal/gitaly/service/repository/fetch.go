@@ -27,11 +27,6 @@ func (s *server) FetchSourceBranch(ctx context.Context, req *gitalypb.FetchSourc
 		return nil, helper.ErrInvalidArgument(err)
 	}
 
-	repoPath, err := s.locator.GetRepoPath(req.Repository)
-	if err != nil {
-		return nil, err
-	}
-
 	targetRepo := git.NewRepository(req.GetRepository())
 
 	sourceRepo, err := remoterepo.New(ctx, req.GetSourceRepository(), s.conns)
@@ -47,37 +42,32 @@ func (s *server) FetchSourceBranch(ctx context.Context, req *gitalypb.FetchSourc
 		return nil, helper.ErrInternal(err)
 	}
 
-	var remote string
-	var env []string
-	if helper.RepoPathEqual(req.GetRepository(), req.GetSourceRepository()) {
-		remote = "file://" + repoPath
-	} else {
-		remote = gitalyssh.GitalyInternalURL
-		env, err = gitalyssh.UploadPackEnv(ctx, &gitalypb.SSHUploadPackRequest{Repository: req.SourceRepository})
+	// In case source and target repository refer to the same repository,
+	// then we can simply skip the fetch.
+	if !helper.RepoPathEqual(req.GetRepository(), req.GetSourceRepository()) {
+		env, err := gitalyssh.UploadPackEnv(ctx, &gitalypb.SSHUploadPackRequest{Repository: req.SourceRepository})
 		if err != nil {
 			return nil, err
 		}
-	}
 
-	cmd, err := git.SafeCmdWithEnv(ctx, env, req.Repository, nil,
-		git.SubCmd{
-			Name:  "fetch",
-			Args:  []string{remote, sourceOid},
-			Flags: []git.Option{git.Flag{Name: "--no-tags"}},
-		},
-		git.WithRefTxHook(ctx, req.Repository, s.cfg),
-	)
-	if err != nil {
-		return nil, err
-	}
-	if err := cmd.Wait(); err != nil {
-		// Design quirk: if the fetch fails, this RPC returns Result: false, but no error.
-		ctxlogrus.Extract(ctx).
-			WithField("repo_path", repoPath).
-			WithField("remote", remote).
-			WithField("oid", sourceOid).
-			WithError(err).Warn("git fetch failed")
-		return &gitalypb.FetchSourceBranchResponse{Result: false}, nil
+		cmd, err := git.SafeCmdWithEnv(ctx, env, req.Repository, nil,
+			git.SubCmd{
+				Name:  "fetch",
+				Args:  []string{gitalyssh.GitalyInternalURL, sourceOid},
+				Flags: []git.Option{git.Flag{Name: "--no-tags"}},
+			},
+			git.WithRefTxHook(ctx, req.Repository, s.cfg),
+		)
+		if err != nil {
+			return nil, err
+		}
+		if err := cmd.Wait(); err != nil {
+			// Design quirk: if the fetch fails, this RPC returns Result: false, but no error.
+			ctxlogrus.Extract(ctx).
+				WithField("oid", sourceOid).
+				WithError(err).Warn("git fetch failed")
+			return &gitalypb.FetchSourceBranchResponse{Result: false}, nil
+		}
 	}
 
 	if err := targetRepo.UpdateRef(ctx, string(req.GetTargetRef()), sourceOid, ""); err != nil {
