@@ -34,17 +34,48 @@ func (s *server) FetchSourceBranch(ctx context.Context, req *gitalypb.FetchSourc
 		return nil, helper.ErrInternal(err)
 	}
 
-	sourceOid, err := sourceRepo.ResolveRefish(ctx, string(req.GetSourceBranch()))
-	if err != nil {
-		if errors.Is(err, git.ErrReferenceNotFound) {
-			return &gitalypb.FetchSourceBranchResponse{Result: false}, nil
+	var sourceOid string
+	var containsObject bool
+
+	// If source and target repository are the same, then we know that both
+	// are local. We can thus optimize and locally resolve the reference
+	// instead of using an RPC call. We also know that we can always skip
+	// the fetch as the object will be available.
+	if helper.RepoPathEqual(req.GetRepository(), req.GetSourceRepository()) {
+		var err error
+
+		sourceOid, err = targetRepo.ResolveRefish(ctx, string(req.GetSourceBranch()))
+		if err != nil {
+			if errors.Is(err, git.ErrReferenceNotFound) {
+				return &gitalypb.FetchSourceBranchResponse{Result: false}, nil
+			}
+			return nil, helper.ErrInternal(err)
 		}
-		return nil, helper.ErrInternal(err)
+
+		containsObject = true
+	} else {
+		var err error
+
+		sourceOid, err = sourceRepo.ResolveRefish(ctx, string(req.GetSourceBranch()))
+		if err != nil {
+			if errors.Is(err, git.ErrReferenceNotFound) {
+				return &gitalypb.FetchSourceBranchResponse{Result: false}, nil
+			}
+			return nil, helper.ErrInternal(err)
+		}
+
+		// Otherwise, if the source is a remote repository, we check
+		// whether the target repo already contains the desired object.
+		// If so, we can skip the fetch.
+		containsObject, err = targetRepo.ContainsRef(ctx, sourceOid+"^{commit}")
+		if err != nil {
+			return nil, helper.ErrInternal(err)
+		}
 	}
 
-	// In case source and target repository refer to the same repository,
-	// then we can simply skip the fetch.
-	if !helper.RepoPathEqual(req.GetRepository(), req.GetSourceRepository()) {
+	// There's no need to perform the fetch if we already have the object
+	// available.
+	if !containsObject {
 		env, err := gitalyssh.UploadPackEnv(ctx, &gitalypb.SSHUploadPackRequest{Repository: req.SourceRepository})
 		if err != nil {
 			return nil, err
