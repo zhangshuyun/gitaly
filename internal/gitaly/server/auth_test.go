@@ -361,11 +361,9 @@ func TestAuthBeforeLimit(t *testing.T) {
 	}(gitalyauth.TokenValidityDuration())
 	gitalyauth.SetTokenValidityDuration(5 * time.Second)
 
-	cleanupCustomHook, err := testhelper.WriteCustomHook(testRepoPath, "pre-receive", []byte(fmt.Sprintf(`#!/bin/bash
+	cleanupCustomHook := testhelper.WriteCustomHook(t, testRepoPath, "pre-receive", []byte(fmt.Sprintf(`#!/bin/bash
 sleep %vs
 `, gitalyauth.TokenValidityDuration().Seconds())))
-
-	require.NoError(t, err)
 	defer cleanupCustomHook()
 
 	errChan := make(chan error)

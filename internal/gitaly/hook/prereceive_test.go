@@ -160,8 +160,7 @@ func TestPrereceive_customHooks(t *testing.T) {
 			ctx, cleanup := testhelper.Context()
 			defer cleanup()
 
-			cleanup, err := testhelper.WriteCustomHook(repoPath, "pre-receive", []byte(tc.hook))
-			require.NoError(t, err)
+			cleanup = testhelper.WriteCustomHook(t, repoPath, "pre-receive", []byte(tc.hook))
 			defer cleanup()
 
 			var stdout, stderr bytes.Buffer
@@ -304,8 +303,7 @@ func TestPrereceive_gitlab(t *testing.T) {
 
 			hookManager := NewManager(config.NewLocator(config.Config), &gitlabAPI, config.Config)
 
-			cleanup, err := testhelper.WriteCustomHook(testRepoPath, "pre-receive", []byte("#!/bin/sh\necho called\n"))
-			require.NoError(t, err)
+			cleanup = testhelper.WriteCustomHook(t, testRepoPath, "pre-receive", []byte("#!/bin/sh\necho called\n"))
 			defer cleanup()
 
 			var stdout, stderr bytes.Buffer

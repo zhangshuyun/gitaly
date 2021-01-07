@@ -239,8 +239,7 @@ func testSuccessfulUserCreateTagRequest(t *testing.T, ctx context.Context) {
 				"pre-receive": fmt.Sprintf("#!/bin/sh\n%s %s \"$@\"", preReceiveHook, testCase.expectedObjectType),
 				"update":      fmt.Sprintf("#!/bin/sh\n%s %s \"$@\"", updateHook, testCase.expectedObjectType),
 			} {
-				hookCleanup, err := testhelper.WriteCustomHook(testRepoPath, hook, []byte(content))
-				require.NoError(t, err)
+				hookCleanup := testhelper.WriteCustomHook(t, testRepoPath, hook, []byte(content))
 				defer hookCleanup()
 			}
 
@@ -354,8 +353,7 @@ func testSuccessfulUserCreateTagRequestAnnotatedLightweightDisambiguation(t *tes
 				"pre-receive": fmt.Sprintf("#!/bin/sh\n%s %s \"$@\"", preReceiveHook, testCase.objType),
 				"update":      fmt.Sprintf("#!/bin/sh\n%s %s \"$@\"", updateHook, testCase.objType),
 			} {
-				hookCleanup, err := testhelper.WriteCustomHook(testRepoPath, hook, []byte(content))
-				require.NoError(t, err)
+				hookCleanup := testhelper.WriteCustomHook(t, testRepoPath, hook, []byte(content))
 				defer hookCleanup()
 			}
 
@@ -560,8 +558,7 @@ func testSuccessfulUserCreateTagRequestToNonCommit(t *testing.T, ctx context.Con
 				"pre-receive": fmt.Sprintf("#!/bin/sh\n%s %s \"$@\"", preReceiveHook, testCase.expectedObjectType),
 				"update":      fmt.Sprintf("#!/bin/sh\n%s %s \"$@\"", updateHook, testCase.expectedObjectType),
 			} {
-				hookCleanup, err := testhelper.WriteCustomHook(testRepoPath, hook, []byte(content))
-				require.NoError(t, err)
+				hookCleanup := testhelper.WriteCustomHook(t, testRepoPath, hook, []byte(content))
 				defer hookCleanup()
 			}
 
@@ -652,8 +649,7 @@ func testSuccessfulUserCreateTagNestedTags(t *testing.T, ctx context.Context) {
 				"pre-receive": fmt.Sprintf("#!/bin/sh\n%s %s \"$@\"", preReceiveHook, hookObjectType),
 				"update":      fmt.Sprintf("#!/bin/sh\n%s %s \"$@\"", updateHook, hookObjectType),
 			} {
-				hookCleanup, err := testhelper.WriteCustomHook(testRepoPath, hook, []byte(content))
-				require.NoError(t, err)
+				hookCleanup := testhelper.WriteCustomHook(t, testRepoPath, hook, []byte(content))
 				defer hookCleanup()
 			}
 
@@ -1017,8 +1013,7 @@ func testFailedUserDeleteTagDueToHooks(t *testing.T, ctx context.Context) {
 
 	for _, hookName := range gitlabPreHooks {
 		t.Run(hookName, func(t *testing.T) {
-			remove, err := testhelper.WriteCustomHook(testRepoPath, hookName, hookContent)
-			require.NoError(t, err)
+			remove := testhelper.WriteCustomHook(t, testRepoPath, hookName, hookContent)
 			defer remove()
 
 			response, err := client.UserDeleteTag(ctx, request)
@@ -1056,8 +1051,7 @@ func testFailedUserCreateTagDueToHooks(t *testing.T, ctx context.Context) {
 	hookContent := []byte("#!/bin/sh\necho GL_ID=$GL_ID\nexit 1")
 
 	for _, hookName := range gitlabPreHooks {
-		remove, err := testhelper.WriteCustomHook(testRepoPath, hookName, hookContent)
-		require.NoError(t, err)
+		remove := testhelper.WriteCustomHook(t, testRepoPath, hookName, hookContent)
 		defer remove()
 
 		response, err := client.UserCreateTag(ctx, request)
@@ -1324,8 +1318,7 @@ func testTagHookOutput(t *testing.T, ctx context.Context) {
 					User:       testhelper.TestUser,
 				}
 
-				remove, err := testhelper.WriteCustomHook(testRepoPath, hookName, []byte(testCase.hookContent))
-				require.NoError(t, err)
+				remove := testhelper.WriteCustomHook(t, testRepoPath, hookName, []byte(testCase.hookContent))
 				defer remove()
 
 				createResponse, err := client.UserCreateTag(ctx, createRequest)

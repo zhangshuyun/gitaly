@@ -68,8 +68,7 @@ func testSuccessfulMerge(t *testing.T, ctx context.Context) {
 		defer os.Remove(outputFile.Name())
 
 		script := fmt.Sprintf("#!/bin/sh\n(cat && env) >%s \n", outputFile.Name())
-		cleanup, err := testhelper.WriteCustomHook(testRepoPath, hook, []byte(script))
-		require.NoError(t, err)
+		cleanup := testhelper.WriteCustomHook(t, testRepoPath, hook, []byte(script))
 		defer cleanup()
 
 		hookTempfiles[i] = outputFile.Name()
@@ -354,8 +353,7 @@ func testFailedMergeDueToHooks(t *testing.T, ctx context.Context) {
 
 	for _, hookName := range gitlabPreHooks {
 		t.Run(hookName, func(t *testing.T) {
-			remove, err := testhelper.WriteCustomHook(testRepoPath, hookName, hookContent)
-			require.NoError(t, err)
+			remove := testhelper.WriteCustomHook(t, testRepoPath, hookName, hookContent)
 			defer remove()
 
 			ctx, cancel := context.WithCancel(ctx)
@@ -565,8 +563,7 @@ func TestFailedUserFFBranchDueToHooks(t *testing.T) {
 		t.Run(featureSet.Desc(), func(t *testing.T) {
 			for _, hookName := range gitlabPreHooks {
 				t.Run(hookName, func(t *testing.T) {
-					remove, err := testhelper.WriteCustomHook(testRepoPath, hookName, hookContent)
-					require.NoError(t, err)
+					remove := testhelper.WriteCustomHook(t, testRepoPath, hookName, hookContent)
 					defer remove()
 
 					ctx, cancel := testhelper.Context()
@@ -877,8 +874,7 @@ func TestUserMergeToRefIgnoreHooksRequest(t *testing.T) {
 
 	for _, hookName := range gitlabPreHooks {
 		t.Run(hookName, func(t *testing.T) {
-			remove, err := testhelper.WriteCustomHook(testRepoPath, hookName, hookContent)
-			require.NoError(t, err)
+			remove := testhelper.WriteCustomHook(t, testRepoPath, hookName, hookContent)
 			defer remove()
 
 			resp, err := client.UserMergeToRef(ctx, request)

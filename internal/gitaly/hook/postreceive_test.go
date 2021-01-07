@@ -199,8 +199,7 @@ func TestPostReceive_customHook(t *testing.T) {
 			ctx, cleanup := testhelper.Context()
 			defer cleanup()
 
-			cleanup, err := testhelper.WriteCustomHook(repoPath, "post-receive", []byte(tc.hook))
-			require.NoError(t, err)
+			cleanup = testhelper.WriteCustomHook(t, repoPath, "post-receive", []byte(tc.hook))
 			defer cleanup()
 
 			var stdout, stderr bytes.Buffer
@@ -340,8 +339,7 @@ func TestPostReceive_gitlab(t *testing.T) {
 
 			hookManager := NewManager(config.NewLocator(config.Config), &gitlabAPI, config.Config)
 
-			cleanup, err := testhelper.WriteCustomHook(testRepoPath, "post-receive", []byte("#!/bin/sh\necho hook called\n"))
-			require.NoError(t, err)
+			cleanup = testhelper.WriteCustomHook(t, testRepoPath, "post-receive", []byte("#!/bin/sh\necho hook called\n"))
 			defer cleanup()
 
 			var stdout, stderr bytes.Buffer

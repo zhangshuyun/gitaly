@@ -403,8 +403,7 @@ func testServerUserRevertFailedDueToPreReceiveError(t *testing.T, ctxOuter conte
 
 	for _, hookName := range GitlabPreHooks {
 		t.Run(hookName, func(t *testing.T) {
-			remove, err := testhelper.WriteCustomHook(testRepoPath, hookName, hookContent)
-			require.NoError(t, err)
+			remove := testhelper.WriteCustomHook(t, testRepoPath, hookName, hookContent)
 			defer remove()
 
 			md := testhelper.GitalyServersMetadata(t, serverSocketPath)

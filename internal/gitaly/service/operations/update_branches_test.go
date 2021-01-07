@@ -123,8 +123,7 @@ func TestFailedUserUpdateBranchDueToHooks(t *testing.T) {
 	hookContent := []byte("#!/bin/sh\nprintenv | paste -sd ' ' - >&2\nexit 1")
 
 	for _, hookName := range gitlabPreHooks {
-		remove, err := testhelper.WriteCustomHook(testRepoPath, hookName, hookContent)
-		require.NoError(t, err)
+		remove := testhelper.WriteCustomHook(t, testRepoPath, hookName, hookContent)
 		defer remove()
 
 		response, err := client.UserUpdateBranch(ctx, request)

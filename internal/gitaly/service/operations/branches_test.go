@@ -361,8 +361,7 @@ func testFailedUserCreateBranchDueToHooks(t *testing.T, ctx context.Context) {
 	hookContent := []byte("#!/bin/sh\nprintenv | paste -sd ' ' -\nexit 1")
 
 	for _, hookName := range gitlabPreHooks {
-		remove, err := testhelper.WriteCustomHook(testRepoPath, hookName, hookContent)
-		require.NoError(t, err)
+		remove := testhelper.WriteCustomHook(t, testRepoPath, hookName, hookContent)
 		defer remove()
 
 		response, err := client.UserCreateBranch(ctx, request)
@@ -683,8 +682,7 @@ func testFailedUserDeleteBranchDueToHooks(t *testing.T, ctx context.Context) {
 
 	for _, hookName := range gitlabPreHooks {
 		t.Run(hookName, func(t *testing.T) {
-			remove, err := testhelper.WriteCustomHook(testRepoPath, hookName, hookContent)
-			require.NoError(t, err)
+			remove := testhelper.WriteCustomHook(t, testRepoPath, hookName, hookContent)
 			defer remove()
 
 			response, err := client.UserDeleteBranch(ctx, request)
@@ -764,8 +762,7 @@ func testBranchHookOutput(t *testing.T, ctx context.Context) {
 					User:       testhelper.TestUser,
 				}
 
-				remove, err := testhelper.WriteCustomHook(testRepoPath, hookName, []byte(testCase.hookContent))
-				require.NoError(t, err)
+				remove := testhelper.WriteCustomHook(t, testRepoPath, hookName, []byte(testCase.hookContent))
 				defer remove()
 
 				createResponse, err := client.UserCreateBranch(ctx, createRequest)
