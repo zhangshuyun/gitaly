@@ -431,7 +431,7 @@ func GenerateTestCerts(t *testing.T) (string, string, Cleanup) {
 	entityCert, err := x509.CreateCertificate(rand.Reader, rootCA, entityX509, &entityKey.PublicKey, caKey)
 	require.NoError(t, err)
 
-	certFile, err := ioutil.TempFile("", "")
+	certFile, err := ioutil.TempFile(testDirectory, "")
 	require.NoError(t, err)
 	defer MustClose(t, certFile)
 
@@ -445,7 +445,7 @@ func GenerateTestCerts(t *testing.T) (string, string, Cleanup) {
 		)
 	}
 
-	keyFile, err := ioutil.TempFile("", "")
+	keyFile, err := ioutil.TempFile(testDirectory, "")
 	require.NoError(t, err)
 	defer MustClose(t, keyFile)
 
