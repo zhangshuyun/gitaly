@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 )
 
@@ -30,7 +31,7 @@ exec "%s" "$@"
 	oldGitBinPath := config.Config.Git.BinPath
 	config.Config.Git.BinPath = path
 	return func() {
-		os.Remove(envPath)
+		assert.NoError(t, os.Remove(envPath))
 		config.Config.Git.BinPath = oldGitBinPath
 		cleanupExe()
 		cleanupDir()

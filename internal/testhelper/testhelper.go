@@ -371,7 +371,7 @@ func WriteExecutable(t testing.TB, path string, content []byte) func() {
 	require.NoError(t, ioutil.WriteFile(path, content, 0755))
 
 	return func() {
-		os.RemoveAll(dir)
+		assert.NoError(t, os.RemoveAll(dir))
 	}
 }
 

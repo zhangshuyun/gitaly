@@ -25,7 +25,7 @@ func WriteEnvToCustomHook(t testing.TB, repoPath, hookName string) (string, func
 
 	return hookOutputTemp.Name(), func() {
 		cleanupCustomHook()
-		os.Remove(hookOutputTemp.Name())
+		assert.NoError(t, os.Remove(hookOutputTemp.Name()))
 	}
 }
 

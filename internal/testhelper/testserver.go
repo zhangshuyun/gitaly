@@ -138,9 +138,8 @@ func (p *TestServer) Start(t testing.TB) {
 		return
 	}
 
-	tempDir, err := ioutil.TempDir("", "praefect-test-server")
-	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	tempDir, cleanup := TempDir(t)
+	defer cleanup()
 
 	praefectServerSocketPath := GetTemporaryGitalySocketFileName(t)
 
@@ -850,13 +849,9 @@ func NewGitlabTestServer(t testing.TB, options GitlabTestServerOptions) (url str
 }
 
 func startSocketHTTPServer(t testing.TB, mux *http.ServeMux, tlsCfg *tls.Config) (string, func()) {
-	tmpFile, err := ioutil.TempFile(os.TempDir(), "http-test-server")
-	require.NoError(t, err)
+	tempDir, cleanupDir := TempDir(t)
 
-	filename := tmpFile.Name()
-	tmpFile.Close()
-	os.Remove(filename)
-
+	filename := filepath.Join(tempDir, "http-test-server")
 	socketListener, err := net.Listen("unix", filename)
 	require.NoError(t, err)
 
@@ -869,7 +864,8 @@ func startSocketHTTPServer(t testing.TB, mux *http.ServeMux, tlsCfg *tls.Config)
 
 	url := "http+unix://" + filename
 	cleanup := func() {
-		server.Close()
+		require.NoError(t, server.Close())
+		cleanupDir()
 	}
 
 	return url, cleanup
@@ -890,7 +886,7 @@ func WriteTemporaryGitalyConfigFile(t testing.TB, tempDir, gitlabURL, user, pass
 
 	require.NoError(t, ioutil.WriteFile(path, []byte(contents), 0644))
 	return path, func() {
-		os.RemoveAll(path)
+		require.NoError(t, os.RemoveAll(path))
 	}
 }
 
