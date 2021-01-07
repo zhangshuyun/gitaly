@@ -843,17 +843,17 @@ func NewGitlabTestServer(t testing.TB, options GitlabTestServerOptions) (url str
 
 	if options.UnixSocket {
 		return startSocketHTTPServer(t, mux, tlsCfg)
-	} else {
-		var server *httptest.Server
-		if tlsCfg == nil {
-			server = httptest.NewServer(mux)
-		} else {
-			server = httptest.NewUnstartedServer(mux)
-			server.TLS = tlsCfg
-			server.StartTLS()
-		}
-		return server.URL, server.Close
 	}
+
+	var server *httptest.Server
+	if tlsCfg == nil {
+		server = httptest.NewServer(mux)
+	} else {
+		server = httptest.NewUnstartedServer(mux)
+		server.TLS = tlsCfg
+		server.StartTLS()
+	}
+	return server.URL, server.Close
 }
 
 func startSocketHTTPServer(t testing.TB, mux *http.ServeMux, tlsCfg *tls.Config) (string, func()) {
