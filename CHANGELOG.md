@@ -1,5 +1,9 @@
 # Gitaly changelog
 
+## 13.7.2 (2021-01-07)
+
+- No changes.
+
 ## 13.7.1 (2020-12-23)
 
 - No changes.
