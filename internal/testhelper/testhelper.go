@@ -207,7 +207,7 @@ func mustFindNoRunningChildProcess() {
 		return
 	}
 
-	panic(fmt.Errorf("%s: %v", desc, err))
+	panic(fmt.Errorf("%s: %w", desc, err))
 }
 
 // ContextOpt returns a new context instance with the new additions to it.
