@@ -127,6 +127,14 @@ func MustRunCommand(t testing.TB, stdin io.Reader, name string, args ...string) 
 	return output
 }
 
+// MustClose calls Close() on the Closer and fails the test in case it returns
+// an error. This function is useful when closing via `defer`, as a simple
+// `defer require.NoError(t, closer.Close())` would cause `closer.Close()` to
+// be executed early already.
+func MustClose(t testing.TB, closer io.Closer) {
+	require.NoError(t, closer.Close())
+}
+
 // GetTemporaryGitalySocketFileName will return a unique, useable socket file name
 func GetTemporaryGitalySocketFileName(t testing.TB) string {
 	require.NotEmpty(t, testDirectory, "you must call testhelper.Configure() before GetTemporaryGitalySocketFileName()")
@@ -425,7 +433,7 @@ func GenerateTestCerts(t *testing.T) (string, string, Cleanup) {
 
 	certFile, err := ioutil.TempFile("", "")
 	require.NoError(t, err)
-	defer certFile.Close()
+	defer MustClose(t, certFile)
 
 	// create chained PEM file with CA and entity cert
 	for _, cert := range [][]byte{entityCert, caCert} {
@@ -439,7 +447,7 @@ func GenerateTestCerts(t *testing.T) (string, string, Cleanup) {
 
 	keyFile, err := ioutil.TempFile("", "")
 	require.NoError(t, err)
-	defer keyFile.Close()
+	defer MustClose(t, keyFile)
 
 	entityKeyBytes, err := x509.MarshalECPrivateKey(entityKey)
 	require.NoError(t, err)

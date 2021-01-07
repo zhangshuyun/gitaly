@@ -143,11 +143,6 @@ func (p *TestServer) Start(t testing.TB) {
 
 	praefectServerSocketPath := GetTemporaryGitalySocketFileName(t)
 
-	configFilePath := filepath.Join(tempDir, "config.toml")
-	configFile, err := os.Create(configFilePath)
-	require.NoError(t, err)
-	defer configFile.Close()
-
 	c := praefectconfig.Config{
 		SocketPath: praefectServerSocketPath,
 		Auth: auth.Config{
@@ -178,8 +173,13 @@ func (p *TestServer) Start(t testing.TB) {
 		})
 	}
 
+	configFilePath := filepath.Join(tempDir, "config.toml")
+	configFile, err := os.Create(configFilePath)
+	require.NoError(t, err)
+	defer MustClose(t, configFile)
+
 	require.NoError(t, toml.NewEncoder(configFile).Encode(&c))
-	require.NoError(t, configFile.Close())
+	require.NoError(t, configFile.Sync())
 
 	cmd := exec.Command(praefectBinPath, "-config", configFilePath)
 	cmd.Stderr = os.Stderr
@@ -202,7 +202,7 @@ func (p *TestServer) Start(t testing.TB) {
 
 	conn, err := grpc.Dial("unix://"+praefectServerSocketPath, opts...)
 	require.NoError(t, err)
-	defer conn.Close()
+	defer MustClose(t, conn)
 
 	waitHealthy(t, conn, 3, time.Second)
 
@@ -233,7 +233,7 @@ func (p *TestServer) listen(t testing.TB) string {
 
 		conn, err := grpc.Dial("unix://"+socket, opts...)
 		require.NoError(t, err)
-		defer conn.Close()
+		defer MustClose(t, conn)
 
 		waitHealthy(t, conn, 3, time.Second)
 	}
