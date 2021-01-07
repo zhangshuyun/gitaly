@@ -34,6 +34,9 @@ var gitCommands = map[string]gitCommand{
 	"cat-file": gitCommand{
 		flags: scReadOnly,
 	},
+	"check-ref-format": gitCommand{
+		flags: scReadOnly | scNoRefUpdates | scNoEndOfOptions,
+	},
 	"checkout": gitCommand{
 		flags: scNoEndOfOptions,
 	},
