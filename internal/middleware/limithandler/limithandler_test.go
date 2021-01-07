@@ -210,7 +210,7 @@ func TestStreamLimitHandler(t *testing.T) {
 }
 
 func runServer(t *testing.T, s *server, opt ...grpc.ServerOption) (*grpc.Server, string) {
-	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName()
+	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
 	grpcServer := grpc.NewServer(opt...)
 	pb.RegisterTestServer(grpcServer, s)
 

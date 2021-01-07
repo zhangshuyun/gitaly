@@ -170,7 +170,7 @@ func (ts *testSvc) PingStream(stream proxytestdata.TestService_PingStreamServer)
 
 func TestDial_Correlation(t *testing.T) {
 	t.Run("unary", func(t *testing.T) {
-		serverSocketPath := testhelper.GetTemporaryGitalySocketFileName()
+		serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
 
 		listener, err := net.Listen("unix", serverSocketPath)
 		require.NoError(t, err)
@@ -204,7 +204,7 @@ func TestDial_Correlation(t *testing.T) {
 	})
 
 	t.Run("stream", func(t *testing.T) {
-		serverSocketPath := testhelper.GetTemporaryGitalySocketFileName()
+		serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
 
 		listener, err := net.Listen("unix", serverSocketPath)
 		require.NoError(t, err)
@@ -247,7 +247,7 @@ func TestDial_Correlation(t *testing.T) {
 
 func TestDial_Tracing(t *testing.T) {
 	t.Run("unary", func(t *testing.T) {
-		serverSocketPath := testhelper.GetTemporaryGitalySocketFileName()
+		serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
 
 		listener, err := net.Listen("unix", serverSocketPath)
 		require.NoError(t, err)
@@ -298,7 +298,7 @@ func TestDial_Tracing(t *testing.T) {
 	})
 
 	t.Run("stream", func(t *testing.T) {
-		serverSocketPath := testhelper.GetTemporaryGitalySocketFileName()
+		serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
 
 		listener, err := net.Listen("unix", serverSocketPath)
 		require.NoError(t, err)
@@ -389,7 +389,7 @@ func startTCPListener(t testing.TB) (func(), string) {
 
 // startUnixListener will start a unix socket listener using a temporary file
 func startUnixListener(t testing.TB) (func(), string) {
-	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName()
+	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
 
 	listener, err := net.Listen("unix", serverSocketPath)
 	require.NoError(t, err)

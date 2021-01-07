@@ -53,7 +53,7 @@ func TestStreamInterceptor(t *testing.T) {
 
 	internalSrv := grpc.NewServer()
 
-	internalServerSocketPath := testhelper.GetTemporaryGitalySocketFileName()
+	internalServerSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
 	lis, err := net.Listen("unix", internalServerSocketPath)
 	require.NoError(t, err)
 
@@ -88,7 +88,7 @@ func TestStreamInterceptor(t *testing.T) {
 		})),
 	}
 
-	praefectSocket := testhelper.GetTemporaryGitalySocketFileName()
+	praefectSocket := testhelper.GetTemporaryGitalySocketFileName(t)
 	praefectLis, err := net.Listen("unix", praefectSocket)
 	require.NoError(t, err)
 

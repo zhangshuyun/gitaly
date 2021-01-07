@@ -26,7 +26,7 @@ func testMain(m *testing.M) int {
 func runDiffServer(t *testing.T) (*grpc.Server, string) {
 	server := testhelper.NewTestGrpcServer(t, nil, nil)
 
-	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName()
+	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
 	listener, err := net.Listen("unix", serverSocketPath)
 	if err != nil {
 		t.Fatal(err)

@@ -111,7 +111,7 @@ func TestGitalyServerFactory(t *testing.T) {
 		tcpHealthClient, tcpCleanup := checkHealth(t, sf, starter.TCP, "localhost:0")
 		defer tcpCleanup()
 
-		socket := testhelper.GetTemporaryGitalySocketFileName()
+		socket := testhelper.GetTemporaryGitalySocketFileName(t)
 		defer func() { require.NoError(t, os.RemoveAll(socket)) }()
 
 		socketHealthClient, unixCleanup := checkHealth(t, sf, starter.Unix, socket)

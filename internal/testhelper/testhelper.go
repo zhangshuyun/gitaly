@@ -128,20 +128,15 @@ func MustRunCommand(t testing.TB, stdin io.Reader, name string, args ...string) 
 }
 
 // GetTemporaryGitalySocketFileName will return a unique, useable socket file name
-func GetTemporaryGitalySocketFileName() string {
-	if testDirectory == "" {
-		log.Fatal("you must call testhelper.Configure() before GetTemporaryGitalySocketFileName()")
-	}
+func GetTemporaryGitalySocketFileName(t testing.TB) string {
+	require.NotEmpty(t, testDirectory, "you must call testhelper.Configure() before GetTemporaryGitalySocketFileName()")
 
 	tmpfile, err := ioutil.TempFile(testDirectory, "gitaly.socket.")
-	if err != nil {
-		// No point in handling this error, panic
-		panic(err)
-	}
+	require.NoError(t, err)
 
 	name := tmpfile.Name()
-	tmpfile.Close()
-	os.Remove(name)
+	require.NoError(t, tmpfile.Close())
+	require.NoError(t, os.Remove(name))
 
 	return name
 }

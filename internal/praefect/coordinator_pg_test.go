@@ -107,7 +107,7 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			storageNodes := make([]*config.Node, 0, len(tc.nodes))
 			for i := range tc.nodes {
-				socket := testhelper.GetTemporaryGitalySocketFileName()
+				socket := testhelper.GetTemporaryGitalySocketFileName(t)
 				server, _ := testhelper.NewServerWithHealth(t, socket)
 				defer server.Stop()
 				node := &config.Node{Address: "unix://" + socket, Storage: fmt.Sprintf("node-%d", i)}

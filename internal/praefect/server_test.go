@@ -111,7 +111,7 @@ func TestGitalyServerInfo(t *testing.T) {
 }
 
 func TestGitalyServerInfoBadNode(t *testing.T) {
-	gitalySocket := testhelper.GetTemporaryGitalySocketFileName()
+	gitalySocket := testhelper.GetTemporaryGitalySocketFileName(t)
 	_, healthSrv := testhelper.NewServerWithHealth(t, gitalySocket)
 	healthSrv.SetServingStatus("", grpc_health_v1.HealthCheckResponse_UNKNOWN)
 
@@ -693,7 +693,7 @@ func (m *mockSmartHTTP) Called(method string) int {
 }
 
 func newSmartHTTPGrpcServer(t *testing.T, srv gitalypb.SmartHTTPServiceServer) (string, *grpc.Server) {
-	socketPath := testhelper.GetTemporaryGitalySocketFileName()
+	socketPath := testhelper.GetTemporaryGitalySocketFileName(t)
 	listener, err := net.Listen("unix", socketPath)
 	require.NoError(t, err)
 
@@ -776,7 +776,7 @@ func TestProxyWrites(t *testing.T) {
 		grpc.UnknownServiceHandler(proxy.TransparentHandler(coordinator.StreamDirector)),
 	)
 
-	socket := testhelper.GetTemporaryGitalySocketFileName()
+	socket := testhelper.GetTemporaryGitalySocketFileName(t)
 	listener, err := net.Listen("unix", socket)
 	require.NoError(t, err)
 
@@ -947,7 +947,7 @@ func TestErrorThreshold(t *testing.T) {
 				grpc.UnknownServiceHandler(proxy.TransparentHandler(coordinator.StreamDirector)),
 			)
 
-			socket := testhelper.GetTemporaryGitalySocketFileName()
+			socket := testhelper.GetTemporaryGitalySocketFileName(t)
 			listener, err := net.Listen("unix", socket)
 			require.NoError(t, err)
 

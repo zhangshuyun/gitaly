@@ -203,7 +203,7 @@ func runServerWithRuby(t *testing.T, ruby *rubyserver.Server) (string, func()) {
 	conns := client.NewPool()
 	srv := NewInsecure(ruby, hook.NewManager(config.NewLocator(config.Config), hook.GitlabAPIStub, config.Config), config.Config, conns)
 
-	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName()
+	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
 
 	listener, err := net.Listen("unix", serverSocketPath)
 	require.NoError(t, err)

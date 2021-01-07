@@ -17,7 +17,7 @@ func TestRun(t *testing.T) {
 	var errorPacker packFn = func(_ context.Context, _ *grpc.ClientConn, _ string) (int32, error) { return 1, fmt.Errorf("fail") }
 
 	gitalyTCPAddress := "tcp://localhost:9999"
-	gitalyUnixAddress := fmt.Sprintf("unix://%s", testhelper.GetTemporaryGitalySocketFileName())
+	gitalyUnixAddress := fmt.Sprintf("unix://%s", testhelper.GetTemporaryGitalySocketFileName(t))
 
 	tests := []struct {
 		name          string

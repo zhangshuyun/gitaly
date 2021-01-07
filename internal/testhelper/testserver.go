@@ -142,7 +142,7 @@ func (p *TestServer) Start(t testing.TB) {
 	require.NoError(t, err)
 	defer os.RemoveAll(tempDir)
 
-	praefectServerSocketPath := GetTemporaryGitalySocketFileName()
+	praefectServerSocketPath := GetTemporaryGitalySocketFileName(t)
 
 	configFilePath := filepath.Join(tempDir, "config.toml")
 	configFile, err := os.Create(configFilePath)
@@ -211,7 +211,7 @@ func (p *TestServer) Start(t testing.TB) {
 }
 
 func (p *TestServer) listen(t testing.TB) string {
-	gitalyServerSocketPath := GetTemporaryGitalySocketFileName()
+	gitalyServerSocketPath := GetTemporaryGitalySocketFileName(t)
 
 	sockets := []string{
 		gitalyServerSocketPath,

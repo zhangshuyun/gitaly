@@ -23,7 +23,7 @@ func TestGetPrimaryAndSecondaries(t *testing.T) {
 	db := getDB(t)
 
 	logger := testhelper.NewTestLogger(t).WithField("test", t.Name())
-	praefectSocket := testhelper.GetTemporaryGitalySocketFileName()
+	praefectSocket := testhelper.GetTemporaryGitalySocketFileName(t)
 	socketName := "unix://" + praefectSocket
 
 	conf := config.Config{
@@ -31,7 +31,7 @@ func TestGetPrimaryAndSecondaries(t *testing.T) {
 		Failover:   config.Failover{Enabled: true},
 	}
 
-	internalSocket0 := testhelper.GetTemporaryGitalySocketFileName()
+	internalSocket0 := testhelper.GetTemporaryGitalySocketFileName(t)
 	srv0, _ := testhelper.NewServerWithHealth(t, internalSocket0)
 	defer srv0.Stop()
 
@@ -65,10 +65,10 @@ func TestGetPrimaryAndSecondaries(t *testing.T) {
 func TestSqlElector_slow_execution(t *testing.T) {
 	db := getDB(t)
 
-	praefectSocket := "unix://" + testhelper.GetTemporaryGitalySocketFileName()
+	praefectSocket := "unix://" + testhelper.GetTemporaryGitalySocketFileName(t)
 	logger := testhelper.NewTestLogger(t).WithField("test", t.Name())
 
-	gitalySocket := testhelper.GetTemporaryGitalySocketFileName()
+	gitalySocket := testhelper.GetTemporaryGitalySocketFileName(t)
 	gitalySrv, _ := testhelper.NewServerWithHealth(t, gitalySocket)
 	defer gitalySrv.Stop()
 
@@ -104,12 +104,12 @@ func TestBasicFailover(t *testing.T) {
 	db := getDB(t)
 
 	logger := testhelper.NewTestLogger(t).WithField("test", t.Name())
-	praefectSocket := testhelper.GetTemporaryGitalySocketFileName()
+	praefectSocket := testhelper.GetTemporaryGitalySocketFileName(t)
 	socketName := "unix://" + praefectSocket
 
 	conf := config.Config{SocketPath: socketName}
 
-	internalSocket0, internalSocket1 := testhelper.GetTemporaryGitalySocketFileName(), testhelper.GetTemporaryGitalySocketFileName()
+	internalSocket0, internalSocket1 := testhelper.GetTemporaryGitalySocketFileName(t), testhelper.GetTemporaryGitalySocketFileName(t)
 	srv0, healthSrv0 := testhelper.NewServerWithHealth(t, internalSocket0)
 	defer srv0.Stop()
 

@@ -357,7 +357,7 @@ func TestReplicateRepository_FailedFetchInternalRemote(t *testing.T) {
 
 func runServerWithBadFetchInternalRemote(t *testing.T) (*grpc.Server, string) {
 	server := testhelper.NewTestGrpcServer(t, nil, nil)
-	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName()
+	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
 
 	listener, err := net.Listen("unix", serverSocketPath)
 	require.NoError(t, err)

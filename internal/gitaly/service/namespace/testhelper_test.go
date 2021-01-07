@@ -13,7 +13,7 @@ import (
 
 func runNamespaceServer(t *testing.T, locator storage.Locator) (*grpc.Server, string) {
 	server := testhelper.NewTestGrpcServer(t, nil, nil)
-	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName()
+	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
 
 	listener, err := net.Listen("unix", serverSocketPath)
 	if err != nil {

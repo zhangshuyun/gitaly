@@ -31,7 +31,7 @@ func testMain(m *testing.M) int {
 func runObjectPoolServer(t *testing.T, cfg config.Cfg, locator storage.Locator) (*grpc.Server, string) {
 	server := testhelper.NewTestGrpcServer(t, nil, nil)
 
-	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName()
+	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
 	listener, err := net.Listen("unix", serverSocketPath)
 	require.NoError(t, err)
 

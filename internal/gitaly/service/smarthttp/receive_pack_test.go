@@ -441,7 +441,7 @@ func TestPostReceivePackToHooks(t *testing.T) {
 func runSmartHTTPHookServiceServer(t *testing.T) (*grpc.Server, string) {
 	server := testhelper.NewTestGrpcServer(t, nil, nil)
 
-	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName()
+	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
 	listener, err := net.Listen("unix", serverSocketPath)
 	if err != nil {
 		t.Fatal(err)
@@ -557,7 +557,7 @@ func TestPostReceiveWithReferenceTransactionHook(t *testing.T) {
 	healthpb.RegisterHealthServer(gitalyServer, health.NewServer())
 	reflection.Register(gitalyServer)
 
-	gitalySocketPath := testhelper.GetTemporaryGitalySocketFileName()
+	gitalySocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
 	listener, err := net.Listen("unix", gitalySocketPath)
 	require.NoError(t, err)
 

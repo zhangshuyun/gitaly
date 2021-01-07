@@ -38,7 +38,7 @@ func TestConnectivity(t *testing.T) {
 	testRepo, _, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
 
-	socketPath := testhelper.GetTemporaryGitalySocketFileName()
+	socketPath := testhelper.GetTemporaryGitalySocketFileName(t)
 
 	tempDir, cleanup := testhelper.TempDir(t)
 	defer cleanup()

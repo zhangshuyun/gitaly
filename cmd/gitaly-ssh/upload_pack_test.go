@@ -25,7 +25,7 @@ func TestVisibilityOfHiddenRefs(t *testing.T) {
 	testRepo, testRepoPath, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
 
-	socketPath := testhelper.GetTemporaryGitalySocketFileName()
+	socketPath := testhelper.GetTemporaryGitalySocketFileName(t)
 
 	_, clean := runServer(t, server.NewInsecure, config.Config, "unix", socketPath)
 	defer clean()
