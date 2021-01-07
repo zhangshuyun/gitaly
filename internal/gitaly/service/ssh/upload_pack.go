@@ -78,9 +78,9 @@ func (s *server) sshUploadPack(stream gitalypb.SSHService_SSHUploadPackServer, r
 
 	git.WarnIfTooManyBitmaps(ctx, s.locator, req.GetRepository().StorageName, repoPath)
 
-	globalOpts := git.UploadPackFilterConfig()
-	for _, o := range req.GitConfigOptions {
-		globalOpts = append(globalOpts, git.ValueFlag{"-c", o})
+	globalOpts := make([]git.GlobalOption, len(req.GitConfigOptions))
+	for i, o := range req.GitConfigOptions {
+		globalOpts[i] = git.ValueFlag{"-c", o}
 	}
 
 	pr, pw := io.Pipe()

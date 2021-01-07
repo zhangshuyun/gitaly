@@ -62,12 +62,13 @@ func (sc SubCmd) Subcommand() string { return sc.Name }
 func (sc SubCmd) CommandArgs() ([]string, error) {
 	var safeArgs []string
 
-	if _, ok := subcommands[sc.Name]; !ok {
+	gitCommand, ok := gitCommands[sc.Name]
+	if !ok {
 		return nil, fmt.Errorf("invalid sub command name %q: %w", sc.Name, ErrInvalidArg)
 	}
 	safeArgs = append(safeArgs, sc.Name)
 
-	commandArgs, err := assembleCommandArgs(sc.Name, sc.Flags, sc.Args, sc.PostSepArgs)
+	commandArgs, err := assembleCommandArgs(gitCommand, sc.Flags, sc.Args, sc.PostSepArgs)
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +77,7 @@ func (sc SubCmd) CommandArgs() ([]string, error) {
 	return safeArgs, nil
 }
 
-func assembleCommandArgs(command string, flags []Option, args []string, postSepArgs []string) ([]string, error) {
+func assembleCommandArgs(gitCommand gitCommand, flags []Option, args []string, postSepArgs []string) ([]string, error) {
 	var commandArgs []string
 
 	for _, o := range flags {
@@ -94,7 +95,7 @@ func assembleCommandArgs(command string, flags []Option, args []string, postSepA
 		commandArgs = append(commandArgs, a)
 	}
 
-	if supportsEndOfOptions(command) {
+	if gitCommand.supportsEndOfOptions() {
 		commandArgs = append(commandArgs, "--end-of-options")
 	}
 
@@ -144,7 +145,8 @@ var actionRegex = regexp.MustCompile(`^[[:alnum:]]+[-[:alnum:]]*$`)
 func (sc SubSubCmd) CommandArgs() ([]string, error) {
 	var safeArgs []string
 
-	if _, ok := subcommands[sc.Name]; !ok {
+	gitCommand, ok := gitCommands[sc.Name]
+	if !ok {
 		return nil, fmt.Errorf("invalid sub command name %q: %w", sc.Name, ErrInvalidArg)
 	}
 	safeArgs = append(safeArgs, sc.Name)
@@ -154,7 +156,7 @@ func (sc SubSubCmd) CommandArgs() ([]string, error) {
 	}
 	safeArgs = append(safeArgs, sc.Action)
 
-	commandArgs, err := assembleCommandArgs(sc.Name, sc.Flags, sc.Args, sc.PostSepArgs)
+	commandArgs, err := assembleCommandArgs(gitCommand, sc.Flags, sc.Args, sc.PostSepArgs)
 	if err != nil {
 		return nil, err
 	}
@@ -316,19 +318,24 @@ var (
 )
 
 func handleOpts(ctx context.Context, sc Cmd, cc *cmdCfg, opts []CmdOpt) error {
+	gitCommand, ok := gitCommands[sc.Subcommand()]
+	if !ok {
+		return fmt.Errorf("invalid sub command name %q: %w", sc.Subcommand(), ErrInvalidArg)
+	}
+
 	for _, opt := range opts {
 		if err := opt(cc); err != nil {
 			return err
 		}
 	}
 
-	if !cc.hooksConfigured && mayUpdateRef(sc.Subcommand()) {
+	if !cc.hooksConfigured && gitCommand.mayUpdateRef() {
 		return fmt.Errorf("subcommand %q: %w", sc.Subcommand(), ErrRefHookRequired)
 	}
-	if cc.hooksConfigured && !mayUpdateRef(sc.Subcommand()) {
+	if cc.hooksConfigured && !gitCommand.mayUpdateRef() {
 		return fmt.Errorf("subcommand %q: %w", sc.Subcommand(), ErrRefHookNotRequired)
 	}
-	if mayGeneratePackfiles(sc.Subcommand()) {
+	if gitCommand.mayGeneratePackfiles() {
 		cc.globals = append(cc.globals, ConfigPair{
 			Key: "pack.windowMemory", Value: "100m",
 		})
@@ -457,7 +464,27 @@ func combineArgs(globals []GlobalOption, sc Cmd, cc *cmdCfg) (_ []string, err er
 		}
 	}()
 
-	for _, global := range append(globals, cc.globals...) {
+	gitCommand, ok := gitCommands[sc.Subcommand()]
+	if !ok {
+		return nil, fmt.Errorf("invalid sub command name %q: %w", sc.Subcommand(), ErrInvalidArg)
+	}
+
+	// As global options may cancel out each other, we have a clearly
+	// defined order in which globals get applied. The order is similar to
+	// how git handles configuration options from most general to most
+	// specific. This allows callsites to override options which would
+	// otherwise be set up automatically.
+	//
+	// 1. Globals which get set up by default for a given git command.
+	// 2. Globals passed via command options, e.g. as set up by
+	//    `WithReftxHook()`.
+	// 3. Globals passed directly to the command at the site of execution.
+	var combinedGlobals []GlobalOption
+	combinedGlobals = append(combinedGlobals, gitCommand.opts...)
+	combinedGlobals = append(combinedGlobals, cc.globals...)
+	combinedGlobals = append(combinedGlobals, globals...)
+
+	for _, global := range combinedGlobals {
 		globalArgs, err := global.GlobalArgs()
 		if err != nil {
 			return nil, err
