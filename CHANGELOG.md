@@ -1,5 +1,9 @@
 # Gitaly changelog
 
+## 13.7.2 (2021-01-07)
+
+- No changes.
+
 ## 13.7.1 (2020-12-23)
 
 - No changes.
@@ -76,6 +80,10 @@
 - Update Rouge gem to v3.26.0. !2927
 
 
+## 13.6.4 (2021-01-07)
+
+- No changes.
+
 ## 13.6.3 (2020-12-10)
 
 - No changes.
@@ -149,6 +157,10 @@
 - Remove the RepositoryService.FetchHTTPRemote RPC. !2744
 - Improve logging in ReplicateRepository. !2767
 
+
+## 13.5.6 (2021-01-07)
+
+- No changes.
 
 ## 13.5.5 (2020-12-07)
 
