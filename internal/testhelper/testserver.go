@@ -357,7 +357,7 @@ func parsePostReceiveForm(u url.Values) postReceiveForm {
 	}
 }
 
-func handleAllowed(options GitlabTestServerOptions) func(w http.ResponseWriter, r *http.Request) {
+func handleAllowed(t testing.TB, options GitlabTestServerOptions) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if err := r.ParseForm(); err != nil {
 			http.Error(w, "could not parse form", http.StatusBadRequest)
@@ -479,7 +479,8 @@ func handleAllowed(options GitlabTestServerOptions) func(w http.ResponseWriter, 
 				return
 			}
 			if relObjectDir != gitVars.GitObjectDirRel {
-				w.Write([]byte(`{"status":false}`))
+				_, err := w.Write([]byte(`{"status":false}`))
+				require.NoError(t, err)
 				return
 			}
 		}
@@ -498,7 +499,8 @@ func handleAllowed(options GitlabTestServerOptions) func(w http.ResponseWriter, 
 				}
 
 				if relAltObjectDir != gitVars.GitAlternateObjectDirsRel[i] {
-					w.Write([]byte(`{"status":false}`))
+					_, err := w.Write([]byte(`{"status":false}`))
+					require.NoError(t, err)
 					return
 				}
 			}
@@ -517,15 +519,18 @@ func handleAllowed(options GitlabTestServerOptions) func(w http.ResponseWriter, 
 		}
 
 		if authenticated {
-			w.Write([]byte(`{"status":true}`))
+			_, err := w.Write([]byte(`{"status":true}`))
+			require.NoError(t, err)
 			return
 		}
 		w.WriteHeader(http.StatusUnauthorized)
-		w.Write([]byte(`{"message":"401 Unauthorized\n"}`))
+
+		_, err = w.Write([]byte(`{"message":"401 Unauthorized\n"}`))
+		require.NoError(t, err)
 	}
 }
 
-func handlePreReceive(options GitlabTestServerOptions) func(w http.ResponseWriter, r *http.Request) {
+func handlePreReceive(t testing.TB, options GitlabTestServerOptions) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if err := r.ParseForm(); err != nil {
 			http.Error(w, "could not parse form", http.StatusBadRequest)
@@ -600,7 +605,9 @@ func handlePreReceive(options GitlabTestServerOptions) func(w http.ResponseWrite
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"reference_counter_increased": true}`))
+
+		_, err = w.Write([]byte(`{"reference_counter_increased": true}`))
+		require.NoError(t, err)
 	}
 }
 
@@ -725,7 +732,7 @@ type postReceiveMessage struct {
 	Type    string `json:"type"`
 }
 
-func handleLfs(options GitlabTestServerOptions) func(w http.ResponseWriter, r *http.Request) {
+func handleLfs(t testing.TB, options GitlabTestServerOptions) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if err := r.ParseForm(); err != nil {
 			http.Error(w, "couldn't parse form", http.StatusBadRequest)
@@ -758,19 +765,20 @@ func handleLfs(options GitlabTestServerOptions) func(w http.ResponseWriter, r *h
 		}
 
 		if options.LfsBody != "" {
-			w.Write([]byte(options.LfsBody))
+			_, err := w.Write([]byte(options.LfsBody))
+			require.NoError(t, err)
 		}
 	}
 }
 
-func handleCheck(options GitlabTestServerOptions) func(w http.ResponseWriter, r *http.Request) {
+func handleCheck(t testing.TB, options GitlabTestServerOptions) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		u, p, ok := r.BasicAuth()
 		if !ok || u != options.User || p != options.Password {
 			w.WriteHeader(http.StatusUnauthorized)
-			json.NewEncoder(w).Encode(struct {
+			require.NoError(t, json.NewEncoder(w).Encode(struct {
 				Message string `json:"message"`
-			}{Message: "authorization failed"})
+			}{Message: "authorization failed"}))
 			return
 		}
 
@@ -808,11 +816,11 @@ type GitlabTestServerOptions struct {
 func NewGitlabTestServer(t testing.TB, options GitlabTestServerOptions) (url string, cleanup func()) {
 	mux := http.NewServeMux()
 	prefix := strings.TrimRight(options.RelativeURLRoot, "/") + "/api/v4/internal"
-	mux.Handle(prefix+"/allowed", http.HandlerFunc(handleAllowed(options)))
-	mux.Handle(prefix+"/pre_receive", http.HandlerFunc(handlePreReceive(options)))
+	mux.Handle(prefix+"/allowed", http.HandlerFunc(handleAllowed(t, options)))
+	mux.Handle(prefix+"/pre_receive", http.HandlerFunc(handlePreReceive(t, options)))
 	mux.Handle(prefix+"/post_receive", http.HandlerFunc(handlePostReceive(options)))
-	mux.Handle(prefix+"/check", http.HandlerFunc(handleCheck(options)))
-	mux.Handle(prefix+"/lfs", http.HandlerFunc(handleLfs(options)))
+	mux.Handle(prefix+"/check", http.HandlerFunc(handleCheck(t, options)))
+	mux.Handle(prefix+"/lfs", http.HandlerFunc(handleLfs(t, options)))
 
 	var tlsCfg *tls.Config
 	if options.ClientCACertPath != "" {
