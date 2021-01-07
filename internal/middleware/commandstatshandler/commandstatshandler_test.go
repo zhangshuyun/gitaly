@@ -26,12 +26,12 @@ func createNewServer(t *testing.T) *grpc.Server {
 
 	opts := []grpc.ServerOption{
 		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
-			grpc_logrus.StreamServerInterceptor(logrusEntry),
 			StreamInterceptor,
+			grpc_logrus.StreamServerInterceptor(logrusEntry, grpc_logrus.WithMessageProducer(CommandStatsMessageProducer)),
 		)),
 		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(
-			grpc_logrus.UnaryServerInterceptor(logrusEntry),
 			UnaryInterceptor,
+			grpc_logrus.UnaryServerInterceptor(logrusEntry, grpc_logrus.WithMessageProducer(CommandStatsMessageProducer)),
 		)),
 	}
 

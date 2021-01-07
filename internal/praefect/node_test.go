@@ -68,7 +68,7 @@ func TestDialNodes(t *testing.T) {
 
 	expectedNodes = append(expectedNodes, nodeAssertion{
 		storage: "invalid",
-		error:   status.Error(codes.Unavailable, `all SubConns are in TransientFailure, latest connection error: connection error: desc = "transport: Error while dialing dial unix non-existent-socket: connect: no such file or directory"`),
+		error:   status.Error(codes.Unavailable, `connection error: desc = "transport: Error while dialing dial unix non-existent-socket: connect: no such file or directory"`),
 	})
 
 	nodeSet, err := DialNodes(ctx,
