@@ -81,12 +81,8 @@ env | grep -e ^GIT -e ^GL_ > ` + hookOutputFile + "\n")
 }
 
 // GetGitEnvData reads and returns the content of testGitEnv
-func GetGitEnvData() (string, error) {
+func GetGitEnvData(t testing.TB) string {
 	gitEnvBytes, err := ioutil.ReadFile(filepath.Join(testDirectory, "git-env"))
-
-	if err != nil {
-		return "", err
-	}
-
-	return string(gitEnvBytes), nil
+	require.NoError(t, err)
+	return string(gitEnvBytes)
 }

@@ -384,9 +384,7 @@ func TestUploadPackCloneSuccessWithGitProtocol(t *testing.T) {
 			lHead, rHead, _, _ := cmd.test(t, localRepoPath)
 			require.Equal(t, lHead, rHead, "local and remote head not equal")
 
-			envData, err := testhelper.GetGitEnvData()
-
-			require.NoError(t, err)
+			envData := testhelper.GetGitEnvData(t)
 			require.Contains(t, envData, fmt.Sprintf("GIT_PROTOCOL=%s\n", git.ProtocolV2))
 		})
 	}

@@ -125,9 +125,7 @@ func TestSuccessfulInfoRefsUploadPackWithGitProtocol(t *testing.T) {
 
 	require.NoError(t, err)
 
-	envData, err := testhelper.GetGitEnvData()
-
-	require.NoError(t, err)
+	envData := testhelper.GetGitEnvData(t)
 	require.Contains(t, envData, fmt.Sprintf("GIT_PROTOCOL=%s\n", git.ProtocolV2))
 }
 
