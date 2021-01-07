@@ -96,11 +96,10 @@ func testSuccessfulMerge(t *testing.T, ctx context.Context) {
 	secondResponse, err := mergeBidi.Recv()
 	require.NoError(t, err, "receive second response")
 
-	err = testhelper.ReceiveEOFWithTimeout(func() error {
+	testhelper.ReceiveEOFWithTimeout(t, func() error {
 		_, err = mergeBidi.Recv()
 		return err
 	})
-	require.NoError(t, err, "consume EOF")
 
 	commit, err := gitlog.GetCommit(ctx, locator, testRepo, mergeBranchName)
 	require.NoError(t, err, "look up git commit after call has finished")
@@ -306,10 +305,11 @@ func testUserMergeBranchAmbiguousReference(t *testing.T, ctx context.Context) {
 
 	response, err := merge.Recv()
 	require.NoError(t, err, "receive second response")
-	require.NoError(t, testhelper.ReceiveEOFWithTimeout(func() error {
+
+	testhelper.ReceiveEOFWithTimeout(t, func() error {
 		_, err = merge.Recv()
 		return err
-	}))
+	})
 
 	locator := config.NewLocator(config.Config)
 
@@ -383,11 +383,10 @@ func testFailedMergeDueToHooks(t *testing.T, ctx context.Context) {
 			require.NoError(t, err, "receive second response")
 			require.Contains(t, secondResponse.PreReceiveError, "failure")
 
-			err = testhelper.ReceiveEOFWithTimeout(func() error {
+			testhelper.ReceiveEOFWithTimeout(t, func() error {
 				_, err = mergeBidi.Recv()
 				return err
 			})
-			require.NoError(t, err, "consume EOF")
 
 			currentBranchHead := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "rev-parse", mergeBranchName)
 			require.Equal(t, mergeBranchHeadBefore, text.ChompBytes(currentBranchHead), "branch head updated")

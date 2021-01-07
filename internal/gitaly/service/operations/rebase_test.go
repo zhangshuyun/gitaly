@@ -85,11 +85,10 @@ func TestSuccessfulUserRebaseConfirmableRequest(t *testing.T) {
 	secondResponse, err := rebaseStream.Recv()
 	require.NoError(t, err, "receive second response")
 
-	err = testhelper.ReceiveEOFWithTimeout(func() error {
+	testhelper.ReceiveEOFWithTimeout(t, func() error {
 		_, err = rebaseStream.Recv()
 		return err
 	})
-	require.NoError(t, err, "consume EOF")
 
 	newBranchSha := getBranchSha(t, testRepoPath, rebaseBranchName)
 
@@ -342,11 +341,10 @@ func TestFailedUserRebaseConfirmableRequestDueToPreReceiveError(t *testing.T) {
 			require.NoError(t, err, "receive second response")
 			require.Contains(t, secondResponse.PreReceiveError, "failure")
 
-			err = testhelper.ReceiveEOFWithTimeout(func() error {
+			testhelper.ReceiveEOFWithTimeout(t, func() error {
 				_, err = rebaseStream.Recv()
 				return err
 			})
-			require.NoError(t, err, "consume EOF")
 
 			newBranchSha := getBranchSha(t, testRepoPath, rebaseBranchName)
 			require.Equal(t, branchSha, newBranchSha, "branch should not change when the rebase fails due to PreReceiveError")
@@ -387,11 +385,10 @@ func TestFailedUserRebaseConfirmableDueToGitError(t *testing.T) {
 	require.NoError(t, err, "receive first response")
 	require.Contains(t, firstResponse.GitError, "CONFLICT (content): Merge conflict in README.md")
 
-	err = testhelper.ReceiveEOFWithTimeout(func() error {
+	testhelper.ReceiveEOFWithTimeout(t, func() error {
 		_, err = rebaseStream.Recv()
 		return err
 	})
-	require.NoError(t, err, "consume EOF")
 
 	newBranchSha := getBranchSha(t, testRepoPath, failedBranchName)
 	require.Equal(t, branchSha, newBranchSha, "branch should not change when the rebase fails due to GitError")
@@ -451,11 +448,10 @@ func TestRebaseRequestWithDeletedFile(t *testing.T) {
 	secondResponse, err := rebaseStream.Recv()
 	require.NoError(t, err, "receive second response")
 
-	err = testhelper.ReceiveEOFWithTimeout(func() error {
+	testhelper.ReceiveEOFWithTimeout(t, func() error {
 		_, err = rebaseStream.Recv()
 		return err
 	})
-	require.NoError(t, err, "consume EOF")
 
 	newBranchSha := getBranchSha(t, testRepoPath, branch)
 
@@ -518,11 +514,10 @@ func TestRebaseOntoRemoteBranch(t *testing.T) {
 	secondResponse, err := rebaseStream.Recv()
 	require.NoError(t, err, "receive second response")
 
-	err = testhelper.ReceiveEOFWithTimeout(func() error {
+	testhelper.ReceiveEOFWithTimeout(t, func() error {
 		_, err = rebaseStream.Recv()
 		return err
 	})
-	require.NoError(t, err, "consume EOF")
 
 	rebasedBranchHash := getBranchSha(t, localRepoPath, localBranch)
 
