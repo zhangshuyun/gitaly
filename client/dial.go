@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net"
 	"net/url"
@@ -47,8 +48,9 @@ func DialContext(ctx context.Context, rawAddress string, connOpts []grpc.DialOpt
 			return nil, fmt.Errorf("failed to get system certificat pool for 'tls' connection: %w", err)
 		}
 
-		creds := credentials.NewClientTLSFromCert(certPool, "")
-		connOpts = append(connOpts, grpc.WithTransportCredentials(creds))
+		connOpts = append(connOpts, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{
+			RootCAs: certPool,
+		})))
 
 	case tcpConnection:
 		canonicalAddress, err = extractHostFromRemoteURL(rawAddress) // Ensure the form: "host:port" ...
