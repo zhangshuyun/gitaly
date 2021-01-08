@@ -168,7 +168,8 @@ func TestServerFactory(t *testing.T) {
 		require.True(t, certPool.AppendCertsFromPEM(pem))
 
 		creds := credentials.NewTLS(&tls.Config{
-			RootCAs: certPool,
+			RootCAs:    certPool,
+			MinVersion: tls.VersionTLS12,
 		})
 
 		cc, err := grpc.DialContext(ctx, listener.Addr().String(), grpc.WithTransportCredentials(creds))

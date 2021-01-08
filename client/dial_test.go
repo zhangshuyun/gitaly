@@ -425,6 +425,7 @@ func startTLSListener() (func(), string, error) {
 
 	grpcServer := grpc.NewServer(grpc.Creds(credentials.NewTLS(&tls.Config{
 		Certificates: []tls.Certificate{cert},
+		MinVersion:   tls.VersionTLS12,
 	})))
 	healthpb.RegisterHealthServer(grpcServer, &healthServer{})
 	go grpcServer.Serve(listener)

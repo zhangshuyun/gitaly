@@ -68,7 +68,8 @@ func TestTLSSanity(t *testing.T) {
 
 	connOpts := []grpc.DialOption{
 		grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{
-			RootCAs: certPool,
+			RootCAs:    certPool,
+			MinVersion: tls.VersionTLS12,
 		})),
 	}
 

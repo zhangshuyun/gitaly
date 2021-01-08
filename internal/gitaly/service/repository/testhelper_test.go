@@ -85,7 +85,8 @@ var RunRepoServer = runRepoServer
 func newSecureRepoClient(t *testing.T, serverSocketPath string, pool *x509.CertPool) (gitalypb.RepositoryServiceClient, *grpc.ClientConn) {
 	connOpts := []grpc.DialOption{
 		grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{
-			RootCAs: pool,
+			RootCAs:    pool,
+			MinVersion: tls.VersionTLS12,
 		})),
 		grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(config.Config.Auth.Token)),
 	}

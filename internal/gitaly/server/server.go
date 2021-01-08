@@ -132,6 +132,7 @@ func createNewServer(rubyServer *rubyserver.Server, hookManager hook.Manager, cf
 		}
 		opts = append(opts, grpc.Creds(credentials.NewTLS(&tls.Config{
 			Certificates: []tls.Certificate{cert},
+			MinVersion:   tls.VersionTLS12,
 		})))
 	}
 

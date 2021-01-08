@@ -49,7 +49,8 @@ func DialContext(ctx context.Context, rawAddress string, connOpts []grpc.DialOpt
 		}
 
 		connOpts = append(connOpts, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{
-			RootCAs: certPool,
+			RootCAs:    certPool,
+			MinVersion: tls.VersionTLS12,
 		})))
 
 	case tcpConnection:
