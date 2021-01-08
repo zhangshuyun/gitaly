@@ -105,7 +105,9 @@ func (s *ServerFactory) create(secure bool) (*grpc.Server, error) {
 		return nil, fmt.Errorf("load certificate key pair: %w", err)
 	}
 
-	s.secure = append(s.secure, s.createGRPC(grpc.Creds(credentials.NewServerTLSFromCert(&cert))))
+	s.secure = append(s.secure, s.createGRPC(grpc.Creds(credentials.NewTLS(&tls.Config{
+		Certificates: []tls.Certificate{cert},
+	}))))
 
 	return s.secure[len(s.secure)-1], nil
 }
