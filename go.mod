@@ -1,5 +1,14 @@
 module gitlab.com/gitlab-org/gitaly
 
+exclude (
+	// grpc-go version v1.34.0 and v1.35.0-dev have a bug that affects unix domain docket
+	// dialing. It should be avoided until upgraded to a newer fixed
+	// version. More details:
+	// https://github.com/grpc/grpc-go/issues/3990
+	github.com/grpc/grpc-go v1.34.0
+	github.com/grpc/grpc-go v1.35.0-dev
+)
+
 require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cloudflare/tableflip v1.2.1-0.20200514155827-4baec9811f2b
