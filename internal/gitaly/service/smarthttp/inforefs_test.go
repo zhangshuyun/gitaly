@@ -366,17 +366,28 @@ func TestCacheInfoRefsUploadPack(t *testing.T) {
 	// if an error occurs while putting stream, it should not interrupt
 	// request from being served
 	happened := false
-	defer func(old streamer) { infoRefCache = old }(infoRefCache)
-	infoRefCache = mockStreamer{
-		streamer: infoRefCache,
+
+	mockInfoRefCache := newInfoRefCache(mockStreamer{
+		streamer: cache.NewStreamDB(cache.LeaseKeyer{}),
 		putStream: func(context.Context, *gitalypb.Repository, proto.Message, io.Reader) error {
 			happened = true
 			return errors.New("oh nos!")
 		},
-	}
+	})
+
+	stop()
+	serverSocketPath, stop = runSmartHTTPServer(t, withInfoRefCache(mockInfoRefCache))
+	defer stop()
+
 	invalidateCacheForRepo()
 	assertNormalResponse()
 	require.True(t, happened)
+}
+
+func withInfoRefCache(cache infoRefCache) ServerOpt {
+	return func(s *server) {
+		s.infoRefCache = cache
+	}
 }
 
 func createInvalidRepo(t testing.TB, repoDir string) func() {

@@ -26,7 +26,7 @@ func (s *server) InfoRefsUploadPack(in *gitalypb.InfoRefsRequest, stream gitalyp
 		return stream.Send(&gitalypb.InfoRefsResponse{Data: p})
 	})
 
-	return tryCache(stream.Context(), in, w, func(w io.Writer) error {
+	return s.infoRefCache.tryCache(stream.Context(), in, w, func(w io.Writer) error {
 		return s.handleInfoRefs(stream.Context(), uploadPackSvc, in, w)
 	})
 }

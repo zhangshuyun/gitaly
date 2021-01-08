@@ -23,9 +23,17 @@ type streamer interface {
 	PutStream(ctx context.Context, repo *gitalypb.Repository, req proto.Message, src io.Reader) error
 }
 
-var (
-	infoRefCache streamer = cache.NewStreamDB(cache.LeaseKeyer{})
+type infoRefCache struct {
+	streamer streamer
+}
 
+func newInfoRefCache(streamer streamer) infoRefCache {
+	return infoRefCache{
+		streamer: streamer,
+	}
+}
+
+var (
 	// prometheus counters
 	cacheAttemptTotal = prometheus.NewCounter(
 		prometheus.CounterOpts{
@@ -53,7 +61,7 @@ func init() {
 	prometheus.MustRegister(hitMissTotals)
 }
 
-func tryCache(ctx context.Context, in *gitalypb.InfoRefsRequest, w io.Writer, missFn func(io.Writer) error) error {
+func (c infoRefCache) tryCache(ctx context.Context, in *gitalypb.InfoRefsRequest, w io.Writer, missFn func(io.Writer) error) error {
 	if len(in.GetGitConfigOptions()) > 0 ||
 		len(in.GetGitProtocol()) > 0 {
 		return missFn(w)
@@ -63,7 +71,7 @@ func tryCache(ctx context.Context, in *gitalypb.InfoRefsRequest, w io.Writer, mi
 	logger.Debug("Attempting to fetch cached response")
 	countAttempt()
 
-	stream, err := infoRefCache.GetStream(ctx, in.GetRepository(), in)
+	stream, err := c.streamer.GetStream(ctx, in.GetRepository(), in)
 	switch err {
 	case nil:
 		defer stream.Close()
@@ -91,7 +99,7 @@ func tryCache(ctx context.Context, in *gitalypb.InfoRefsRequest, w io.Writer, mi
 			defer wg.Done()
 
 			tr := io.TeeReader(pr, w)
-			if err := infoRefCache.PutStream(ctx, in.Repository, in, tr); err != nil {
+			if err := c.streamer.PutStream(ctx, in.Repository, in, tr); err != nil {
 				logger.Errorf("unable to store InfoRefsUploadPack response in cache: %q", err)
 
 				// discard remaining bytes if caching stream
