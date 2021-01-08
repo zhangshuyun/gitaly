@@ -149,12 +149,12 @@ func injectTempStorage(t testing.TB) (string, testhelper.Cleanup) {
 }
 
 func TestLoserCount(t *testing.T) {
-	db := cache.NewStreamDB(cache.NewLeaseKeyer(config.NewLocator(config.Config)))
-
 	// the test can be contaminate by other tests using the cache, so a
 	// dedicated storage location should be used
 	storageName, storageCleanup := injectTempStorage(t)
 	defer storageCleanup()
+
+	db := cache.NewStreamDB(cache.NewLeaseKeyer(config.NewLocator(config.Config)))
 
 	req := &gitalypb.InfoRefsRequest{
 		Repository: &gitalypb.Repository{
