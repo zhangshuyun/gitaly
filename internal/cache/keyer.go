@@ -54,11 +54,15 @@ type Keyer interface {
 // the repo's cache. It uses a strategy that avoids file locks in favor of
 // atomically created/renamed files. Read more about LeaseKeyer's design:
 // https://gitlab.com/gitlab-org/gitaly/issues/1745
-type LeaseKeyer struct{}
+type LeaseKeyer struct {
+	locator storage.Locator
+}
 
 // NewLeaseKeyer initializes a new LeaseKeyer
-func NewLeaseKeyer() LeaseKeyer {
-	return LeaseKeyer{}
+func NewLeaseKeyer(locator storage.Locator) LeaseKeyer {
+	return LeaseKeyer{
+		locator: locator,
+	}
 }
 
 type lease struct {

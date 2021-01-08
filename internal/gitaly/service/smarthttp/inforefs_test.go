@@ -339,7 +339,7 @@ func TestCacheInfoRefsUploadPack(t *testing.T) {
 	)
 
 	invalidateCacheForRepo := func() {
-		ender, err := cache.NewLeaseKeyer().StartLease(rpcRequest.Repository)
+		ender, err := cache.NewLeaseKeyer(config.NewLocator(config.Config)).StartLease(rpcRequest.Repository)
 		require.NoError(t, err)
 		require.NoError(t, ender.EndLease(setInfoRefsUploadPackMethod(ctx)))
 	}
@@ -368,7 +368,7 @@ func TestCacheInfoRefsUploadPack(t *testing.T) {
 	happened := false
 
 	mockInfoRefCache := newInfoRefCache(mockStreamer{
-		streamer: cache.NewStreamDB(cache.NewLeaseKeyer()),
+		streamer: cache.NewStreamDB(cache.NewLeaseKeyer(config.NewLocator(config.Config))),
 		putStream: func(context.Context, *gitalypb.Repository, proto.Message, io.Reader) error {
 			happened = true
 			return errors.New("oh nos!")
@@ -414,7 +414,7 @@ func setInfoRefsUploadPackMethod(ctx context.Context) context.Context {
 
 func pathToCachedResponse(t testing.TB, ctx context.Context, req *gitalypb.InfoRefsRequest) string {
 	ctx = setInfoRefsUploadPackMethod(ctx)
-	path, err := cache.NewLeaseKeyer().KeyPath(ctx, req.GetRepository(), req)
+	path, err := cache.NewLeaseKeyer(config.NewLocator(config.Config)).KeyPath(ctx, req.GetRepository(), req)
 	require.NoError(t, err)
 	return path
 }

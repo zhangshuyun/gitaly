@@ -31,7 +31,7 @@ func testMain(m *testing.M) int {
 }
 
 func TestStreamDBNaiveKeyer(t *testing.T) {
-	keyer := cache.NewLeaseKeyer()
+	keyer := cache.NewLeaseKeyer(config.NewLocator(config.Config))
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
@@ -44,7 +44,7 @@ func TestStreamDBNaiveKeyer(t *testing.T) {
 	testRepo2, _, cleanup2 := testhelper.NewTestRepo(t)
 	defer cleanup2()
 
-	db := cache.NewStreamDB(cache.NewLeaseKeyer())
+	db := cache.NewStreamDB(cache.NewLeaseKeyer(config.NewLocator(config.Config)))
 
 	req1 := &gitalypb.InfoRefsRequest{
 		Repository: testRepo1,
@@ -149,7 +149,7 @@ func injectTempStorage(t testing.TB) (string, testhelper.Cleanup) {
 }
 
 func TestLoserCount(t *testing.T) {
-	db := cache.NewStreamDB(cache.NewLeaseKeyer())
+	db := cache.NewStreamDB(cache.NewLeaseKeyer(config.NewLocator(config.Config)))
 
 	// the test can be contaminate by other tests using the cache, so a
 	// dedicated storage location should be used
