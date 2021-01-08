@@ -1202,13 +1202,20 @@ func (m *HasLocalBranchesResponse) GetValue() bool {
 }
 
 type FetchSourceBranchRequest struct {
-	Repository           *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	SourceRepository     *Repository `protobuf:"bytes,2,opt,name=source_repository,json=sourceRepository,proto3" json:"source_repository,omitempty"`
-	SourceBranch         []byte      `protobuf:"bytes,3,opt,name=source_branch,json=sourceBranch,proto3" json:"source_branch,omitempty"`
-	TargetRef            []byte      `protobuf:"bytes,4,opt,name=target_ref,json=targetRef,proto3" json:"target_ref,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
-	XXX_unrecognized     []byte      `json:"-"`
-	XXX_sizecache        int32       `json:"-"`
+	// Repository into which the reference shall be fetched. After a successful
+	// call, it should contain the target reference which points to the same
+	// commit as the source repository's source branch.
+	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
+	// Repository from which to fetch the source branch from.
+	SourceRepository *Repository `protobuf:"bytes,2,opt,name=source_repository,json=sourceRepository,proto3" json:"source_repository,omitempty"`
+	// Name of the branch in the source repository which should be fetched.
+	SourceBranch []byte `protobuf:"bytes,3,opt,name=source_branch,json=sourceBranch,proto3" json:"source_branch,omitempty"`
+	// Name of the reference which shall be newly created in the target
+	// repository.
+	TargetRef            []byte   `protobuf:"bytes,4,opt,name=target_ref,json=targetRef,proto3" json:"target_ref,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *FetchSourceBranchRequest) Reset()         { *m = FetchSourceBranchRequest{} }
@@ -1265,6 +1272,8 @@ func (m *FetchSourceBranchRequest) GetTargetRef() []byte {
 }
 
 type FetchSourceBranchResponse struct {
+	// True if the source branch was successfully fetched into the target
+	// repository, false if resolving the remote reference or fetching it failed.
 	Result               bool     `protobuf:"varint,1,opt,name=result,proto3" json:"result,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -4228,6 +4237,8 @@ type RepositoryServiceClient interface {
 	CreateRepository(ctx context.Context, in *CreateRepositoryRequest, opts ...grpc.CallOption) (*CreateRepositoryResponse, error)
 	GetArchive(ctx context.Context, in *GetArchiveRequest, opts ...grpc.CallOption) (RepositoryService_GetArchiveClient, error)
 	HasLocalBranches(ctx context.Context, in *HasLocalBranchesRequest, opts ...grpc.CallOption) (*HasLocalBranchesResponse, error)
+	// FetchSourceBranch fetches a branch from a second (potentially remote)
+	// repository into the given repository.
 	FetchSourceBranch(ctx context.Context, in *FetchSourceBranchRequest, opts ...grpc.CallOption) (*FetchSourceBranchResponse, error)
 	Fsck(ctx context.Context, in *FsckRequest, opts ...grpc.CallOption) (*FsckResponse, error)
 	WriteRef(ctx context.Context, in *WriteRefRequest, opts ...grpc.CallOption) (*WriteRefResponse, error)
@@ -4894,6 +4905,8 @@ type RepositoryServiceServer interface {
 	CreateRepository(context.Context, *CreateRepositoryRequest) (*CreateRepositoryResponse, error)
 	GetArchive(*GetArchiveRequest, RepositoryService_GetArchiveServer) error
 	HasLocalBranches(context.Context, *HasLocalBranchesRequest) (*HasLocalBranchesResponse, error)
+	// FetchSourceBranch fetches a branch from a second (potentially remote)
+	// repository into the given repository.
 	FetchSourceBranch(context.Context, *FetchSourceBranchRequest) (*FetchSourceBranchResponse, error)
 	Fsck(context.Context, *FsckRequest) (*FsckResponse, error)
 	WriteRef(context.Context, *WriteRefRequest) (*WriteRefResponse, error)

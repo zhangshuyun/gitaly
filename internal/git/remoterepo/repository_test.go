@@ -1,4 +1,4 @@
-package remoterepo
+package remoterepo_test
 
 import (
 	"testing"
@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/remoterepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -29,7 +30,7 @@ func TestRepository(t *testing.T) {
 	git.TestRepository(t, func(t testing.TB, pbRepo *gitalypb.Repository) git.Repository {
 		t.Helper()
 
-		r, err := New(helper.OutgoingToIncoming(ctx), pbRepo, pool)
+		r, err := remoterepo.New(helper.OutgoingToIncoming(ctx), pbRepo, pool)
 		require.NoError(t, err)
 		return r
 	})

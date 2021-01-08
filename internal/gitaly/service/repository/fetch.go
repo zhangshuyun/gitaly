@@ -2,10 +2,11 @@ package repository
 
 import (
 	"context"
-	"fmt"
+	"errors"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/remoterepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/gitalyssh"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
@@ -26,45 +27,82 @@ func (s *server) FetchSourceBranch(ctx context.Context, req *gitalypb.FetchSourc
 		return nil, helper.ErrInvalidArgument(err)
 	}
 
-	repoPath, err := s.locator.GetRepoPath(req.Repository)
+	targetRepo := git.NewRepository(req.GetRepository())
+
+	sourceRepo, err := remoterepo.New(ctx, req.GetSourceRepository(), s.conns)
 	if err != nil {
-		return nil, err
+		return nil, helper.ErrInternal(err)
 	}
 
-	refspec := fmt.Sprintf("%s:%s", req.GetSourceBranch(), req.GetTargetRef())
+	var sourceOid string
+	var containsObject bool
 
-	var remote string
-	var env []string
+	// If source and target repository are the same, then we know that both
+	// are local. We can thus optimize and locally resolve the reference
+	// instead of using an RPC call. We also know that we can always skip
+	// the fetch as the object will be available.
 	if helper.RepoPathEqual(req.GetRepository(), req.GetSourceRepository()) {
-		remote = "file://" + repoPath
-	} else {
-		remote = gitalyssh.GitalyInternalURL
-		env, err = gitalyssh.UploadPackEnv(ctx, &gitalypb.SSHUploadPackRequest{Repository: req.SourceRepository})
+		var err error
+
+		sourceOid, err = targetRepo.ResolveRefish(ctx, string(req.GetSourceBranch()))
 		if err != nil {
-			return nil, err
+			if errors.Is(err, git.ErrReferenceNotFound) {
+				return &gitalypb.FetchSourceBranchResponse{Result: false}, nil
+			}
+			return nil, helper.ErrInternal(err)
+		}
+
+		containsObject = true
+	} else {
+		var err error
+
+		sourceOid, err = sourceRepo.ResolveRefish(ctx, string(req.GetSourceBranch()))
+		if err != nil {
+			if errors.Is(err, git.ErrReferenceNotFound) {
+				return &gitalypb.FetchSourceBranchResponse{Result: false}, nil
+			}
+			return nil, helper.ErrInternal(err)
+		}
+
+		// Otherwise, if the source is a remote repository, we check
+		// whether the target repo already contains the desired object.
+		// If so, we can skip the fetch.
+		containsObject, err = targetRepo.ContainsRef(ctx, sourceOid+"^{commit}")
+		if err != nil {
+			return nil, helper.ErrInternal(err)
 		}
 	}
 
-	cmd, err := git.SafeBareCmd(ctx, env,
-		[]git.GlobalOption{git.ValueFlag{"--git-dir", repoPath}},
-		git.SubCmd{
-			Name:  "fetch",
-			Flags: []git.Option{git.Flag{Name: "--prune"}},
-			Args:  []string{remote, refspec},
-		},
-		git.WithRefTxHook(ctx, req.Repository, s.cfg),
-	)
-	if err != nil {
-		return nil, err
+	// There's no need to perform the fetch if we already have the object
+	// available.
+	if !containsObject {
+		env, err := gitalyssh.UploadPackEnv(ctx, &gitalypb.SSHUploadPackRequest{Repository: req.SourceRepository})
+		if err != nil {
+			return nil, err
+		}
+
+		cmd, err := git.SafeCmdWithEnv(ctx, env, req.Repository, nil,
+			git.SubCmd{
+				Name:  "fetch",
+				Args:  []string{gitalyssh.GitalyInternalURL, sourceOid},
+				Flags: []git.Option{git.Flag{Name: "--no-tags"}},
+			},
+			git.WithRefTxHook(ctx, req.Repository, s.cfg),
+		)
+		if err != nil {
+			return nil, err
+		}
+		if err := cmd.Wait(); err != nil {
+			// Design quirk: if the fetch fails, this RPC returns Result: false, but no error.
+			ctxlogrus.Extract(ctx).
+				WithField("oid", sourceOid).
+				WithError(err).Warn("git fetch failed")
+			return &gitalypb.FetchSourceBranchResponse{Result: false}, nil
+		}
 	}
-	if err := cmd.Wait(); err != nil {
-		// Design quirk: if the fetch fails, this RPC returns Result: false, but no error.
-		ctxlogrus.Extract(ctx).
-			WithField("repo_path", repoPath).
-			WithField("remote", remote).
-			WithField("refspec", refspec).
-			WithError(err).Warn("git fetch failed")
-		return &gitalypb.FetchSourceBranchResponse{Result: false}, nil
+
+	if err := targetRepo.UpdateRef(ctx, string(req.GetTargetRef()), sourceOid, ""); err != nil {
+		return nil, err
 	}
 
 	return &gitalypb.FetchSourceBranchResponse{Result: true}, nil

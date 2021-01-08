@@ -26,6 +26,8 @@ module Gitaly
       rpc :CreateRepository, Gitaly::CreateRepositoryRequest, Gitaly::CreateRepositoryResponse
       rpc :GetArchive, Gitaly::GetArchiveRequest, stream(Gitaly::GetArchiveResponse)
       rpc :HasLocalBranches, Gitaly::HasLocalBranchesRequest, Gitaly::HasLocalBranchesResponse
+      # FetchSourceBranch fetches a branch from a second (potentially remote)
+      # repository into the given repository.
       rpc :FetchSourceBranch, Gitaly::FetchSourceBranchRequest, Gitaly::FetchSourceBranchResponse
       rpc :Fsck, Gitaly::FsckRequest, Gitaly::FsckResponse
       rpc :WriteRef, Gitaly::WriteRefRequest, Gitaly::WriteRefResponse
