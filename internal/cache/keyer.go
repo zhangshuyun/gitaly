@@ -215,7 +215,7 @@ func newPendingLease(repo *gitalypb.Repository) (string, error) {
 
 	f, err := ioutil.TempFile(pDir, "")
 	if err != nil {
-		err = fmt.Errorf("creating pending lease failed: %v", err)
+		err = fmt.Errorf("creating pending lease failed: %w", err)
 		return "", err
 	}
 
@@ -250,7 +250,7 @@ func getRepoStatePath(repo *gitalypb.Repository) (string, error) {
 	}
 
 	if _, err := storage.ValidateRelativePath(s.Path, relativePath); err != nil {
-		return "", fmt.Errorf("getRepoStatePath: %s", err)
+		return "", fmt.Errorf("getRepoStatePath: %w", err)
 	}
 
 	return filepath.Join(stateDir, relativePath), nil
