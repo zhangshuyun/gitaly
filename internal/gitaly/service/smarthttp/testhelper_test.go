@@ -46,7 +46,7 @@ func testMain(m *testing.M) int {
 }
 
 func runSmartHTTPServer(t *testing.T, serverOpts ...ServerOpt) (string, func()) {
-	keyer := diskcache.LeaseKeyer{}
+	keyer := diskcache.NewLeaseKeyer()
 
 	srv := testhelper.NewServer(t,
 		[]grpc.StreamServerInterceptor{

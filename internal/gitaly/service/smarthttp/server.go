@@ -21,7 +21,7 @@ func NewServer(locator storage.Locator, serverOpts ...ServerOpt) gitalypb.SmartH
 			prometheus.CounterOpts{},
 			[]string{"git_negotiation_feature"},
 		),
-		infoRefCache: newInfoRefCache(cache.NewStreamDB(cache.LeaseKeyer{})),
+		infoRefCache: newInfoRefCache(cache.NewStreamDB(cache.NewLeaseKeyer())),
 	}
 
 	for _, serverOpt := range serverOpts {

@@ -56,6 +56,11 @@ type Keyer interface {
 // https://gitlab.com/gitlab-org/gitaly/issues/1745
 type LeaseKeyer struct{}
 
+// NewLeaseKeyer initializes a new LeaseKeyer
+func NewLeaseKeyer() LeaseKeyer {
+	return LeaseKeyer{}
+}
+
 type lease struct {
 	pendingPath string
 	repo        *gitalypb.Repository
