@@ -248,7 +248,7 @@ func TestPrereceive_gitlab(t *testing.T) {
 				return false, "you shall not pass", nil
 			},
 			expectHookCall: false,
-			expectedErr:    errors.New("you shall not pass"),
+			expectedErr:    NotAllowedError{Message: "you shall not pass"},
 		},
 		{
 			desc:    "allowed returns error",
@@ -258,7 +258,7 @@ func TestPrereceive_gitlab(t *testing.T) {
 				return false, "", errors.New("oops")
 			},
 			expectHookCall: false,
-			expectedErr:    errors.New("GitLab: oops"),
+			expectedErr:    NotAllowedError{Message: "GitLab: oops"},
 		},
 		{
 			desc:    "prereceive rejects",

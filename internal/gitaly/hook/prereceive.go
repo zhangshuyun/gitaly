@@ -15,6 +15,16 @@ import (
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
+// NotAllowedError is needed to report internal API errors that
+// are made by the pre-receive hook.
+type NotAllowedError struct {
+	Message string
+}
+
+func (e NotAllowedError) Error() string {
+	return e.Message
+}
+
 func getRelativeObjectDirs(repoPath, gitObjectDir, gitAlternateObjectDirs string) (string, []string, error) {
 	repoPathReal, err := filepath.EvalSymlinks(repoPath)
 	if err != nil {
@@ -112,11 +122,10 @@ func (m *GitLabHookManager) preReceiveHook(ctx context.Context, payload git.Hook
 
 	allowed, message, err := m.gitlabAPI.Allowed(ctx, params)
 	if err != nil {
-		return fmt.Errorf("GitLab: %v", err)
+		return NotAllowedError{Message: fmt.Sprintf("GitLab: %v", err)}
 	}
-
 	if !allowed {
-		return errors.New(message)
+		return NotAllowedError{Message: message}
 	}
 
 	executor, err := m.newCustomHooksExecutor(repo, "pre-receive")
