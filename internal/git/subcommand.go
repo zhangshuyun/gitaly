@@ -34,6 +34,9 @@ var gitCommands = map[string]gitCommand{
 	"cat-file": gitCommand{
 		flags: scReadOnly,
 	},
+	"check-ref-format": gitCommand{
+		flags: scReadOnly | scNoRefUpdates | scNoEndOfOptions,
+	},
 	"checkout": gitCommand{
 		flags: scNoEndOfOptions,
 	},
@@ -96,6 +99,9 @@ var gitCommands = map[string]gitCommand{
 	},
 	"merge-base": gitCommand{
 		flags: scReadOnly,
+	},
+	"mktag": gitCommand{
+		flags: scNoRefUpdates | scNoEndOfOptions,
 	},
 	"multi-pack-index": gitCommand{
 		flags: scNoRefUpdates,

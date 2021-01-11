@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"os/exec"
 	"strings"
+	"time"
 
 	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
@@ -146,6 +147,97 @@ func (repo *LocalRepository) WriteBlob(ctx context.Context, path string, content
 
 	if err := cmd.Wait(); err != nil {
 		return "", errorWithStderr(err, stderr.Bytes())
+	}
+
+	return text.ChompBytes(stdout.Bytes()), nil
+}
+
+// FormatTagError is used by FormatTag() below
+type FormatTagError struct {
+	expectedLines int
+	actualLines   int
+}
+
+func (e FormatTagError) Error() string {
+	return fmt.Sprintf("should have %d tag header lines, got %d", e.expectedLines, e.actualLines)
+}
+
+// FormatTag is used by WriteTag (or for testing) to make the tag
+// signature to feed to git-mktag, i.e. the plain-text mktag
+// format. This does not create an object, just crafts input for "git
+// mktag" to consume.
+//
+// We are not being paranoid about exhaustive input validation here
+// because we're just about to run git's own "fsck" check on this.
+//
+// However, if someone injected parameters with extra newlines they
+// could cause subsequent values to be ignore via a crafted
+// message. This someone could also locally craft a tag locally and
+// "git push" it. But allowing e.g. someone to provide their own
+// timestamp here would at best be annoying, and at worst run up
+// against some other assumption (e.g. that some hook check isn't as
+// strict on locally generated data).
+func FormatTag(objectID, objectType string, tagName, userName, userEmail, tagBody []byte) (string, error) {
+	unixEpoch := time.Now().Unix()
+	tagHeaderFormat := "object %s\n" +
+		"type %s\n" +
+		"tag %s\n" +
+		"tagger %s <%s> %d +0000\n"
+	tagBuf := fmt.Sprintf(tagHeaderFormat, objectID, objectType, tagName, userName, userEmail, unixEpoch)
+
+	maxHeaderLines := 4
+	actualHeaderLines := strings.Count(tagBuf, "\n")
+	if actualHeaderLines != maxHeaderLines {
+		return "", FormatTagError{expectedLines: maxHeaderLines, actualLines: actualHeaderLines}
+	}
+
+	tagBuf += "\n"
+	tagBuf += string(tagBody)
+
+	return tagBuf, nil
+}
+
+// MktagError is used by WriteTag() below
+type MktagError struct {
+	tagName []byte
+	stderr  string
+}
+
+func (e MktagError) Error() string {
+	// TODO: Upper-case error message purely for transitory backwards compatibility
+	return fmt.Sprintf("Could not update refs/tags/%s. Please refresh and try again.", e.tagName)
+}
+
+// WriteTag writes a tag to the repository's object database with
+// git-mktag and returns its object ID.
+//
+// It's important that this be git-mktag and not git-hash-object due
+// to its fsck sanity checking semantics.
+func (repo *LocalRepository) WriteTag(ctx context.Context, objectID, objectType string, tagName, userName, userEmail, tagBody []byte) (string, error) {
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+
+	tagBuf, err := FormatTag(objectID, objectType, tagName, userName, userEmail, tagBody)
+	if err != nil {
+		return "", err
+	}
+
+	content := strings.NewReader(tagBuf)
+
+	cmd, err := repo.command(ctx, nil,
+		SubCmd{
+			Name: "mktag",
+		},
+		WithStdin(content),
+		WithStdout(stdout),
+		WithStderr(stderr),
+	)
+	if err != nil {
+		return "", err
+	}
+
+	if err := cmd.Wait(); err != nil {
+		return "", MktagError{tagName: tagName, stderr: stderr.String()}
 	}
 
 	return text.ChompBytes(stdout.Bytes()), nil
