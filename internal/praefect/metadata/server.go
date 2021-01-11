@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"net"
 	"net/url"
-	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/internal/bootstrap/starter"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
@@ -21,9 +20,6 @@ const (
 	// PraefectMetadataKey is the key used to store Praefect server
 	// information in the gRPC metadata.
 	PraefectMetadataKey = "gitaly-praefect-server"
-	// PraefectEnvKey is the key used to store Praefect server information
-	// in environment variables.
-	PraefectEnvKey = "GITALY_PRAEFECT_SERVER"
 )
 
 var (
@@ -222,35 +218,6 @@ func praefectFromSerialized(serialized string) (*PraefectServer, error) {
 	}
 
 	return &server, nil
-}
-
-// PraefectFromEnv extracts `PraefectServer` from the environment variable
-// `PraefectEnvKey`. In case the variable is not set, the function will return
-// `ErrPraefectServerNotFound`.
-func PraefectFromEnv(envvars []string) (*PraefectServer, error) {
-	praefectKey := fmt.Sprintf("%s=", PraefectEnvKey)
-	praefectEnv := ""
-	for _, envvar := range envvars {
-		if strings.HasPrefix(envvar, praefectKey) {
-			praefectEnv = envvar[len(praefectKey):]
-			break
-		}
-	}
-	if praefectEnv == "" {
-		return nil, ErrPraefectServerNotFound
-	}
-
-	return praefectFromSerialized(praefectEnv)
-}
-
-// Env encodes the `PraefectServer` and returns an environment variable.
-func (p *PraefectServer) Env() (string, error) {
-	serialized, err := p.serialize()
-	if err != nil {
-		return "", err
-	}
-
-	return fmt.Sprintf("%s=%s", PraefectEnvKey, serialized), nil
 }
 
 func (p *PraefectServer) Address() (string, error) {
