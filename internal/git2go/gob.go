@@ -1,9 +1,14 @@
 package git2go
 
 import (
+	"bytes"
+	"context"
 	"encoding/gob"
 	"errors"
+	"fmt"
 	"reflect"
+
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 )
 
 func init() {
@@ -68,4 +73,29 @@ func SerializableError(err error) error {
 	}
 
 	return err
+}
+
+// runWithGob runs the specified gitaly-git2go cmd with the request gob-encoded
+// as input and returns the commit ID as string or an error.
+func runWithGob(ctx context.Context, cfg config.Cfg, cmd string, request interface{}) (string, error) {
+	input := &bytes.Buffer{}
+	if err := gob.NewEncoder(input).Encode(request); err != nil {
+		return "", fmt.Errorf("%s: %w", cmd, err)
+	}
+
+	output, err := run(ctx, binaryPathFromCfg(cfg), input, cmd)
+	if err != nil {
+		return "", fmt.Errorf("%s: %w", cmd, err)
+	}
+
+	var result Result
+	if err := gob.NewDecoder(output).Decode(&result); err != nil {
+		return "", fmt.Errorf("%s: %w", cmd, err)
+	}
+
+	if result.Error != nil {
+		return "", fmt.Errorf("%s: %w", cmd, result.Error)
+	}
+
+	return result.CommitID, nil
 }

@@ -1,10 +1,7 @@
 package git2go
 
 import (
-	"bytes"
 	"context"
-	"encoding/gob"
-	"fmt"
 	"time"
 
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
@@ -36,24 +33,5 @@ type RevertCommand struct {
 }
 
 func (r RevertCommand) Run(ctx context.Context, cfg config.Cfg) (string, error) {
-	input := &bytes.Buffer{}
-	if err := gob.NewEncoder(input).Encode(r); err != nil {
-		return "", fmt.Errorf("revert: %w", err)
-	}
-
-	output, err := run(ctx, binaryPathFromCfg(cfg), input, "revert")
-	if err != nil {
-		return "", fmt.Errorf("revert: %w", err)
-	}
-
-	var result Result
-	if err := gob.NewDecoder(output).Decode(&result); err != nil {
-		return "", fmt.Errorf("revert: %w", err)
-	}
-
-	if result.Error != nil {
-		return "", fmt.Errorf("revert: %w", result.Error)
-	}
-
-	return result.CommitID, nil
+	return runWithGob(ctx, cfg, "revert", r)
 }
