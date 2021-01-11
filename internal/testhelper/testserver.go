@@ -830,6 +830,7 @@ func NewGitlabTestServer(t testing.TB, options GitlabTestServerOptions) (url str
 			ClientCAs:    certPool,
 			ClientAuth:   tls.RequireAndVerifyClientCert,
 			Certificates: []tls.Certificate{serverCert},
+			MinVersion:   tls.VersionTLS12,
 		}
 	}
 

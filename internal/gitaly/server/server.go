@@ -130,7 +130,10 @@ func createNewServer(rubyServer *rubyserver.Server, hookManager hook.Manager, cf
 		if err != nil {
 			log.Fatalf("error reading certificate and key paths: %v", err)
 		}
-		opts = append(opts, grpc.Creds(credentials.NewServerTLSFromCert(&cert)))
+		opts = append(opts, grpc.Creds(credentials.NewTLS(&tls.Config{
+			Certificates: []tls.Certificate{cert},
+			MinVersion:   tls.VersionTLS12,
+		})))
 	}
 
 	server := grpc.NewServer(opts...)

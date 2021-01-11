@@ -2,6 +2,7 @@ package praefect
 
 import (
 	"context"
+	"crypto/tls"
 	"crypto/x509"
 	"io/ioutil"
 	"net"
@@ -166,7 +167,10 @@ func TestServerFactory(t *testing.T) {
 
 		require.True(t, certPool.AppendCertsFromPEM(pem))
 
-		creds := credentials.NewClientTLSFromCert(certPool, "")
+		creds := credentials.NewTLS(&tls.Config{
+			RootCAs:    certPool,
+			MinVersion: tls.VersionTLS12,
+		})
 
 		cc, err := grpc.DialContext(ctx, listener.Addr().String(), grpc.WithTransportCredentials(creds))
 		require.NoError(t, err)

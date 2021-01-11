@@ -2,6 +2,7 @@ package server
 
 import (
 	netctx "context"
+	"crypto/tls"
 	"crypto/x509"
 	"fmt"
 	"io/ioutil"
@@ -66,9 +67,11 @@ func TestTLSSanity(t *testing.T) {
 	ok := certPool.AppendCertsFromPEM(cert)
 	require.True(t, ok)
 
-	creds := credentials.NewClientTLSFromCert(certPool, "")
 	connOpts := []grpc.DialOption{
-		grpc.WithTransportCredentials(creds),
+		grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{
+			RootCAs:    certPool,
+			MinVersion: tls.VersionTLS12,
+		})),
 	}
 
 	conn, err := grpc.Dial(addr, connOpts...)

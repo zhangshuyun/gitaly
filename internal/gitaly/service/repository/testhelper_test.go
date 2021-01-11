@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"crypto/tls"
 	"crypto/x509"
 	"os"
 	"path/filepath"
@@ -83,7 +84,10 @@ var RunRepoServer = runRepoServer
 
 func newSecureRepoClient(t *testing.T, serverSocketPath string, pool *x509.CertPool) (gitalypb.RepositoryServiceClient, *grpc.ClientConn) {
 	connOpts := []grpc.DialOption{
-		grpc.WithTransportCredentials(credentials.NewClientTLSFromCert(pool, "")),
+		grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{
+			RootCAs:    pool,
+			MinVersion: tls.VersionTLS12,
+		})),
 		grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(config.Config.Auth.Token)),
 	}
 
