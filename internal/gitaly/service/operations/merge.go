@@ -89,13 +89,6 @@ func validateMergeBranchRequest(request *gitalypb.UserMergeBranchRequest) error 
 	return nil
 }
 
-func hookErrorFromStdoutAndStderr(sout string, serr string) string {
-	if len(strings.TrimSpace(serr)) > 0 {
-		return serr
-	}
-	return sout
-}
-
 func (s *Server) userMergeBranch(stream gitalypb.OperationService_UserMergeBranchServer) error {
 	ctx := stream.Context()
 

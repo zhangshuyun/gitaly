@@ -30,6 +30,13 @@ func (e updateRefError) Error() string {
 	return fmt.Sprintf("Could not update %s. Please refresh and try again.", e.reference)
 }
 
+func hookErrorFromStdoutAndStderr(sout string, serr string) string {
+	if len(strings.TrimSpace(serr)) > 0 {
+		return serr
+	}
+	return sout
+}
+
 func (s *Server) updateReferenceWithHooks(ctx context.Context, repo *gitalypb.Repository, user *gitalypb.User, reference, newrev, oldrev string) error {
 	transaction, praefect, err := metadata.TransactionMetadataFromContext(ctx)
 	if err != nil {
