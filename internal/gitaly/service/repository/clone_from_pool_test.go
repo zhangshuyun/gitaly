@@ -44,7 +44,7 @@ func TestCloneFromPoolHTTP(t *testing.T) {
 	defer forkRepoCleanup()
 
 	authorizationHeader := "ABCefg0999182"
-	_, remoteURL := gittest.RemoteUploadPackServer(ctx, t, "my-repo", authorizationHeader, testRepoPath)
+	_, remoteURL := gittest.RemoteUploadPackServer(ctx, t, config.Config.Git.BinPath, "my-repo", authorizationHeader, testRepoPath)
 
 	req := &gitalypb.CloneFromPoolRequest{
 		Repository: forkedRepo,

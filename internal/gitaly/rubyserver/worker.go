@@ -30,10 +30,11 @@ func init() {
 // it if necessary, in cooperation with the balancer.
 type worker struct {
 	*supervisor.Process
-	address     string
-	events      <-chan supervisor.Event
-	shutdown    chan struct{}
-	monitorDone chan struct{}
+	address      string
+	restartDelay time.Duration
+	events       <-chan supervisor.Event
+	shutdown     chan struct{}
+	monitorDone  chan struct{}
 
 	// This is for testing only, so that we can inject a fake balancer
 	balancerUpdate chan balancerProxy
@@ -41,10 +42,11 @@ type worker struct {
 	testing bool
 }
 
-func newWorker(p *supervisor.Process, address string, events <-chan supervisor.Event, testing bool) *worker {
+func newWorker(p *supervisor.Process, address string, restartDelay time.Duration, events <-chan supervisor.Event, testing bool) *worker {
 	w := &worker{
 		Process:        p,
 		address:        address,
+		restartDelay:   restartDelay,
 		events:         events,
 		shutdown:       make(chan struct{}),
 		monitorDone:    make(chan struct{}),
@@ -123,7 +125,7 @@ func (w *worker) monitor() {
 				}
 
 				swMem.mark()
-				if swMem.elapsed() <= config.Config.Ruby.RestartDelay.Duration() {
+				if swMem.elapsed() <= w.restartDelay {
 					break nextEvent
 				}
 

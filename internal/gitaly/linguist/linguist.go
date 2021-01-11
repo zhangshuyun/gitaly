@@ -105,7 +105,7 @@ func startGitLinguist(ctx context.Context, cfg config.Cfg, repoPath string, comm
 	}
 
 	cmd := exec.Command(args[0], args[1:]...)
-	cmd.Dir = config.Config.Ruby.Dir
+	cmd.Dir = cfg.Ruby.Dir
 
 	internalCmd, err := command.New(ctx, cmd, nil, nil, nil, exportEnvironment()...)
 	if err != nil {

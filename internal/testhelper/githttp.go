@@ -12,14 +12,15 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 )
 
-func GitServer(t testing.TB, repoPath string, middleware func(http.ResponseWriter, *http.Request, http.Handler)) (int, func() error) {
+// GitServer establishes a cgi git server.
+func GitServer(t testing.TB, cfg config.Cfg, repoPath string, middleware func(http.ResponseWriter, *http.Request, http.Handler)) (int, func() error) {
 	require.NoError(t, ioutil.WriteFile(filepath.Join(repoPath, "git-daemon-export-ok"), nil, 0644))
 
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 
 	gitHTTPBackend := &cgi.Handler{
-		Path: config.Config.Git.BinPath,
+		Path: cfg.Git.BinPath,
 		Dir:  "/",
 		Args: []string{"http-backend"},
 		Env: []string{

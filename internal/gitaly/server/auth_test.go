@@ -325,7 +325,7 @@ func TestAuthBeforeLimit(t *testing.T) {
 		RPC:        "/gitaly.OperationService/UserCreateTag",
 		MaxPerRepo: 1,
 	}}
-	config.ConfigureConcurrencyLimits()
+	config.ConfigureConcurrencyLimits(config.Config)
 
 	config.Config.Gitlab.URL = url
 	var RubyServer rubyserver.Server

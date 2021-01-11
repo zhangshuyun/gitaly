@@ -5,10 +5,10 @@ import (
 )
 
 // ConfigureConcurrencyLimits configures the per-repo, per RPC rate limits
-func ConfigureConcurrencyLimits() {
+func ConfigureConcurrencyLimits(cfg Cfg) {
 	maxConcurrencyPerRepoPerRPC := make(map[string]int)
 
-	for _, v := range Config.Concurrency {
+	for _, v := range cfg.Concurrency {
 		maxConcurrencyPerRepoPerRPC[v.RPC] = v.MaxPerRepo
 	}
 

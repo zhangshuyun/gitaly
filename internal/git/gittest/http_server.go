@@ -11,11 +11,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/command"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 )
 
 // RemoteUploadPackServer implements two HTTP routes for git-upload-pack by copying stdin and stdout into and out of the git upload-pack command
-func RemoteUploadPackServer(ctx context.Context, t *testing.T, repoName, httpToken, repoPath string) (*httptest.Server, string) {
+func RemoteUploadPackServer(ctx context.Context, t *testing.T, gitPath, repoName, httpToken, repoPath string) (*httptest.Server, string) {
 	s := httptest.NewServer(
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			switch r.URL.String() {
@@ -31,7 +30,7 @@ func RemoteUploadPackServer(ctx context.Context, t *testing.T, repoName, httpTok
 				}
 				defer r.Body.Close()
 
-				cmd, err := command.New(ctx, exec.Command(config.Config.Git.BinPath, "-C", repoPath, "upload-pack", "--stateless-rpc", "."), reader, w, nil)
+				cmd, err := command.New(ctx, exec.Command(gitPath, "-C", repoPath, "upload-pack", "--stateless-rpc", "."), reader, w, nil)
 				require.NoError(t, err)
 				require.NoError(t, cmd.Wait())
 			case fmt.Sprintf("/%s.git/info/refs?service=git-upload-pack", repoName):
@@ -45,7 +44,7 @@ func RemoteUploadPackServer(ctx context.Context, t *testing.T, repoName, httpTok
 				w.Write([]byte("001e# service=git-upload-pack\n"))
 				w.Write([]byte("0000"))
 
-				cmd, err := command.New(ctx, exec.Command(config.Config.Git.BinPath, "-C", repoPath, "upload-pack", "--advertise-refs", "."), nil, w, nil)
+				cmd, err := command.New(ctx, exec.Command(gitPath, "-C", repoPath, "upload-pack", "--advertise-refs", "."), nil, w, nil)
 				require.NoError(t, err)
 				require.NoError(t, cmd.Wait())
 			default:

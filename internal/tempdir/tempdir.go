@@ -116,17 +116,17 @@ func newAsRepository(ctx context.Context, storageName string, prefix string, loc
 }
 
 // StartCleaning starts tempdir cleanup in a goroutine.
-func StartCleaning(d time.Duration) {
+func StartCleaning(storages []config.Storage, d time.Duration) {
 	dontpanic.Go(func() {
 		for {
-			cleanTempDir()
+			cleanTempDir(storages)
 			time.Sleep(d)
 		}
 	})
 }
 
-func cleanTempDir() {
-	for _, storage := range config.Config.Storages {
+func cleanTempDir(storages []config.Storage) {
+	for _, storage := range storages {
 		start := time.Now()
 		err := clean(TempDir(storage))
 

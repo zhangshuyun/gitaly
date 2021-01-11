@@ -169,7 +169,8 @@ func TestGitalyDiskStatistics(t *testing.T) {
 
 	metadata, err := client.DiskStatistics(ctx, &gitalypb.DiskStatisticsRequest{})
 	require.NoError(t, err)
-	require.Len(t, metadata.GetStorageStatuses(), len(conf.VirtualStorages[0].Nodes))
+	// flattenVirtualStoragesToStoragePath flattens nodes to gitaly storages causing each of two gitaly instances to have 2 storages
+	require.Len(t, metadata.GetStorageStatuses(), 4)
 
 	for _, storageStatus := range metadata.GetStorageStatuses() {
 		require.NotNil(t, storageStatus, "none of the storage statuses should be nil")

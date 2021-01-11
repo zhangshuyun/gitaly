@@ -113,10 +113,10 @@ func main() {
 
 	sentry.ConfigureSentry(version.GetVersion(), sentry.Config(config.Config.Logging.Sentry))
 	config.Config.Prometheus.Configure()
-	config.ConfigureConcurrencyLimits()
+	config.ConfigureConcurrencyLimits(config.Config)
 	tracing.Initialize(tracing.WithServiceName("gitaly"))
 
-	tempdir.StartCleaning(time.Hour)
+	tempdir.StartCleaning(config.Config.Storages, time.Hour)
 
 	log.WithError(run(config.Config, b)).Error("shutting down")
 }

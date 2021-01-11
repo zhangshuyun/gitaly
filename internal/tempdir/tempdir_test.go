@@ -104,17 +104,12 @@ func TestCleanSuccess(t *testing.T) {
 func TestCleanTempDir(t *testing.T) {
 	hook := test.NewGlobal()
 
-	oldStorages := config.Config.Storages
-	defer func() {
-		config.Config.Storages = oldStorages
-	}()
-
-	config.Config.Storages = append(config.Config.Storages, config.Storage{
+	storages := append(config.Config.Storages[:], config.Storage{
 		Name: "default",
 		Path: "testdata/clean",
 	})
 
-	cleanTempDir()
+	cleanTempDir(storages)
 
 	require.Equal(t, 2, len(hook.Entries))
 	require.Equal(t, "finished tempdir cleaner walk", hook.LastEntry().Message)
