@@ -23,7 +23,7 @@ func testMain(m *testing.M) int {
 }
 
 func runInternalGitalyServer(t *testing.T, srv gitalypb.InternalGitalyServer) (*grpc.Server, string) {
-	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName()
+	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
 	grpcServer := testhelper.NewTestGrpcServer(t, nil, nil)
 
 	listener, err := net.Listen("unix", serverSocketPath)

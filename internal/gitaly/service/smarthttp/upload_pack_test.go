@@ -202,9 +202,7 @@ func TestUploadPackRequestWithGitProtocol(t *testing.T) {
 	_, err = makePostUploadPackRequest(ctx, t, serverSocketPath, rpcRequest, requestBody)
 	require.NoError(t, err)
 
-	envData, err := testhelper.GetGitEnvData()
-
-	require.NoError(t, err)
+	envData := testhelper.GetGitEnvData(t)
 	require.Equal(t, fmt.Sprintf("GIT_PROTOCOL=%s\n", git.ProtocolV2), envData)
 }
 

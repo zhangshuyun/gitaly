@@ -173,7 +173,7 @@ func TestFailedFetchInternalRemoteDueToValidations(t *testing.T) {
 func runFullServer(t *testing.T) (string, func()) {
 	conns := client.NewPool()
 	server := serverPkg.NewInsecure(remote.RubyServer, nil, config.Config, conns)
-	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName()
+	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
 
 	listener, err := net.Listen("unix", serverSocketPath)
 	if err != nil {

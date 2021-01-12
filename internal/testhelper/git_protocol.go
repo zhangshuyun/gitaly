@@ -14,7 +14,7 @@ import (
 // wrapper that allows the protocol to be tested. It returns a function that
 // restores the given settings as well as an array of environment variables
 // which need to be set when invoking Git with this setup.
-func EnableGitProtocolV2Support(t *testing.T) func() {
+func EnableGitProtocolV2Support(t testing.TB) func() {
 	envPath := filepath.Join(testDirectory, "git-env")
 
 	script := fmt.Sprintf(`#!/bin/sh
@@ -25,16 +25,13 @@ exec "%s" "$@"
 	dir, cleanupDir := TempDir(t)
 
 	path := filepath.Join(dir, "git")
-	cleanupExe, err := WriteExecutable(path, []byte(script))
-	if !assert.NoError(t, err) {
-		cleanupDir()
-		t.FailNow()
-	}
+
+	cleanupExe := WriteExecutable(t, path, []byte(script))
 
 	oldGitBinPath := config.Config.Git.BinPath
 	config.Config.Git.BinPath = path
 	return func() {
-		os.Remove(envPath)
+		assert.NoError(t, os.Remove(envPath))
 		config.Config.Git.BinPath = oldGitBinPath
 		cleanupExe()
 		cleanupDir()

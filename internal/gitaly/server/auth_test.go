@@ -203,7 +203,7 @@ func runServerWithRuby(t *testing.T, ruby *rubyserver.Server) (string, func()) {
 	conns := client.NewPool()
 	srv := NewInsecure(ruby, hook.NewManager(config.NewLocator(config.Config), hook.GitlabAPIStub, config.Config), config.Config, conns)
 
-	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName()
+	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
 
 	listener, err := net.Listen("unix", serverSocketPath)
 	require.NoError(t, err)
@@ -361,11 +361,9 @@ func TestAuthBeforeLimit(t *testing.T) {
 	}(gitalyauth.TokenValidityDuration())
 	gitalyauth.SetTokenValidityDuration(5 * time.Second)
 
-	cleanupCustomHook, err := testhelper.WriteCustomHook(testRepoPath, "pre-receive", []byte(fmt.Sprintf(`#!/bin/bash
+	cleanupCustomHook := testhelper.WriteCustomHook(t, testRepoPath, "pre-receive", []byte(fmt.Sprintf(`#!/bin/bash
 sleep %vs
 `, gitalyauth.TokenValidityDuration().Seconds())))
-
-	require.NoError(t, err)
 	defer cleanupCustomHook()
 
 	errChan := make(chan error)

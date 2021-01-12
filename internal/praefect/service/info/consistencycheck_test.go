@@ -52,10 +52,10 @@ func TestServer_ConsistencyCheck(t *testing.T) {
 			Name: "vs",
 			Nodes: []*config.Node{{
 				Storage: "reference",
-				Address: testhelper.GetTemporaryGitalySocketFileName(),
+				Address: testhelper.GetTemporaryGitalySocketFileName(t),
 			}, {
 				Storage: "target",
-				Address: testhelper.GetTemporaryGitalySocketFileName(),
+				Address: testhelper.GetTemporaryGitalySocketFileName(t),
 			}},
 		}},
 	}
@@ -102,7 +102,7 @@ func TestServer_ConsistencyCheck(t *testing.T) {
 		},
 	}
 
-	praefectAddr := testhelper.GetTemporaryGitalySocketFileName()
+	praefectAddr := testhelper.GetTemporaryGitalySocketFileName(t)
 	praefectListener, err := net.Listen("unix", praefectAddr)
 	require.NoError(t, err)
 	defer praefectListener.Close()

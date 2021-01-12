@@ -338,7 +338,7 @@ func runFullServer(t *testing.T) (string, func()) {
 	conns := client.NewPool()
 
 	server := serverPkg.NewInsecure(conflicts.RubyServer, nil, config.Config, conns)
-	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName()
+	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
 
 	listener, err := net.Listen("unix", serverSocketPath)
 	if err != nil {

@@ -7,12 +7,18 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TreeEntry represents an entry of a git tree object.
 type TreeEntry struct {
-	Mode    string
-	Path    string
+	// Mode is the file mode of the tree entry.
+	Mode string
+	// Path is the full path of the tree entry.
+	Path string
+	// Content is the content of the tree entry.
 	Content string
 }
 
+// RequireTree looks up the given treeish and asserts that its entries match
+// the given expected entries. Tree entries are checked recursively.
 func RequireTree(t testing.TB, repoPath, treeish string, expectedEntries []TreeEntry) {
 	t.Helper()
 

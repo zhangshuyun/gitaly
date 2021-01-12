@@ -225,7 +225,7 @@ func TestServerFactory(t *testing.T) {
 		tlsHealthClient := checkOwnRegisteredServices(ctx, t, tlsCC)
 
 		// start with socket address
-		socketPath := testhelper.GetTemporaryGitalySocketFileName()
+		socketPath := testhelper.GetTemporaryGitalySocketFileName(t)
 		defer func() { require.NoError(t, os.RemoveAll(socketPath)) }()
 		socketListener, err := net.Listen(starter.Unix, socketPath)
 		require.NoError(t, err)

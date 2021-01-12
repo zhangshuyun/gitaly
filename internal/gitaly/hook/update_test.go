@@ -186,8 +186,7 @@ func TestUpdate_customHooks(t *testing.T) {
 			ctx, cleanup := testhelper.Context()
 			defer cleanup()
 
-			cleanup, err := testhelper.WriteCustomHook(repoPath, "update", []byte(tc.hook))
-			require.NoError(t, err)
+			cleanup = testhelper.WriteCustomHook(t, repoPath, "update", []byte(tc.hook))
 			defer cleanup()
 
 			var stdout, stderr bytes.Buffer

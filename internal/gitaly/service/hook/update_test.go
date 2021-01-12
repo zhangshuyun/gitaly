@@ -66,11 +66,10 @@ func TestUpdate_CustomHooks(t *testing.T) {
 	}
 
 	errorMsg := "error123"
-	cleanup, err := testhelper.WriteCustomHook(testRepoPath, "update", []byte(fmt.Sprintf(`#!/bin/bash
+	cleanup := testhelper.WriteCustomHook(t, testRepoPath, "update", []byte(fmt.Sprintf(`#!/bin/bash
 echo %s 1>&2
 exit 1
 `, errorMsg)))
-	require.NoError(t, err)
 	defer cleanup()
 
 	stream, err := client.UpdateHook(ctx, &req)

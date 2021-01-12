@@ -12,7 +12,9 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 )
 
-// GitServer establishes a cgi git server.
+// GitServer starts an HTTP server with git-http-backend(1) as CGI handler. The
+// repository is prepared such that git-http-backend(1) will serve it by
+// creating the "git-daemon-export-ok" magic file.
 func GitServer(t testing.TB, cfg config.Cfg, repoPath string, middleware func(http.ResponseWriter, *http.Request, http.Handler)) (int, func() error) {
 	require.NoError(t, ioutil.WriteFile(filepath.Join(repoPath, "git-daemon-export-ok"), nil, 0644))
 

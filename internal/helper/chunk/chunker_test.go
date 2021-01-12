@@ -83,7 +83,7 @@ func (s *server) StreamOutput(req *test.StreamOutputRequest, srv test.Test_Strea
 }
 
 func runServer(t *testing.T, s *server, opt ...grpc.ServerOption) (*grpc.Server, string) {
-	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName()
+	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
 	grpcServer := grpc.NewServer(opt...)
 	test.RegisterTestServer(grpcServer, s)
 

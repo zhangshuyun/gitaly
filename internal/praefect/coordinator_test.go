@@ -118,7 +118,7 @@ func TestStreamDirectorReadOnlyEnforcement(t *testing.T) {
 }
 
 func TestStreamDirectorMutator(t *testing.T) {
-	gitalySocket0, gitalySocket1 := testhelper.GetTemporaryGitalySocketFileName(), testhelper.GetTemporaryGitalySocketFileName()
+	gitalySocket0, gitalySocket1 := testhelper.GetTemporaryGitalySocketFileName(t), testhelper.GetTemporaryGitalySocketFileName(t)
 	srv1, _ := testhelper.NewServerWithHealth(t, gitalySocket0)
 	defer srv1.Stop()
 	srv2, _ := testhelper.NewServerWithHealth(t, gitalySocket1)
@@ -228,7 +228,7 @@ func TestStreamDirectorMutator(t *testing.T) {
 }
 
 func TestStreamDirectorMutator_StopTransaction(t *testing.T) {
-	socket := testhelper.GetTemporaryGitalySocketFileName()
+	socket := testhelper.GetTemporaryGitalySocketFileName(t)
 	server, _ := testhelper.NewServerWithHealth(t, socket)
 	defer server.Stop()
 
@@ -338,7 +338,7 @@ func TestStreamDirectorMutator_StopTransaction(t *testing.T) {
 }
 
 func TestStreamDirectorAccessor(t *testing.T) {
-	gitalySocket := testhelper.GetTemporaryGitalySocketFileName()
+	gitalySocket := testhelper.GetTemporaryGitalySocketFileName(t)
 	srv, _ := testhelper.NewServerWithHealth(t, gitalySocket)
 	defer srv.Stop()
 
@@ -415,7 +415,7 @@ func TestStreamDirectorAccessor(t *testing.T) {
 }
 
 func TestCoordinatorStreamDirector_distributesReads(t *testing.T) {
-	gitalySocket0, gitalySocket1 := testhelper.GetTemporaryGitalySocketFileName(), testhelper.GetTemporaryGitalySocketFileName()
+	gitalySocket0, gitalySocket1 := testhelper.GetTemporaryGitalySocketFileName(t), testhelper.GetTemporaryGitalySocketFileName(t)
 	srv1, _ := testhelper.NewServerWithHealth(t, gitalySocket0)
 	defer srv1.Stop()
 	srv2, healthSrv := testhelper.NewServerWithHealth(t, gitalySocket1)
@@ -593,7 +593,7 @@ func TestCoordinatorStreamDirector_distributesReads(t *testing.T) {
 }
 
 func TestStreamDirector_repo_creation(t *testing.T) {
-	gitalySocket0, gitalySocket1 := testhelper.GetTemporaryGitalySocketFileName(), testhelper.GetTemporaryGitalySocketFileName()
+	gitalySocket0, gitalySocket1 := testhelper.GetTemporaryGitalySocketFileName(t), testhelper.GetTemporaryGitalySocketFileName(t)
 	srv1, _ := testhelper.NewServerWithHealth(t, gitalySocket0)
 	defer srv1.Stop()
 	srv2, _ := testhelper.NewServerWithHealth(t, gitalySocket1)
@@ -739,7 +739,7 @@ func (m *mockPeeker) Modify(payload []byte) error {
 }
 
 func TestAbsentCorrelationID(t *testing.T) {
-	gitalySocket0, gitalySocket1 := testhelper.GetTemporaryGitalySocketFileName(), testhelper.GetTemporaryGitalySocketFileName()
+	gitalySocket0, gitalySocket1 := testhelper.GetTemporaryGitalySocketFileName(t), testhelper.GetTemporaryGitalySocketFileName(t)
 	_, healthSrv0 := testhelper.NewServerWithHealth(t, gitalySocket0)
 	_, healthSrv1 := testhelper.NewServerWithHealth(t, gitalySocket1)
 	healthSrv0.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
@@ -890,7 +890,7 @@ func TestCoordinatorEnqueueFailure(t *testing.T) {
 
 func TestStreamDirectorStorageScope(t *testing.T) {
 	// stubs health-check requests because nodes.NewManager establishes connection on creation
-	gitalySocket0, gitalySocket1 := testhelper.GetTemporaryGitalySocketFileName(), testhelper.GetTemporaryGitalySocketFileName()
+	gitalySocket0, gitalySocket1 := testhelper.GetTemporaryGitalySocketFileName(t), testhelper.GetTemporaryGitalySocketFileName(t)
 	srv1, _ := testhelper.NewServerWithHealth(t, gitalySocket0)
 	defer srv1.Stop()
 	srv2, _ := testhelper.NewServerWithHealth(t, gitalySocket1)

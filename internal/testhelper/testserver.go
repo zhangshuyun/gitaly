@@ -138,16 +138,10 @@ func (p *TestServer) Start(t testing.TB) {
 		return
 	}
 
-	tempDir, err := ioutil.TempDir("", "praefect-test-server")
-	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	tempDir, cleanup := TempDir(t)
+	defer cleanup()
 
-	praefectServerSocketPath := GetTemporaryGitalySocketFileName()
-
-	configFilePath := filepath.Join(tempDir, "config.toml")
-	configFile, err := os.Create(configFilePath)
-	require.NoError(t, err)
-	defer configFile.Close()
+	praefectServerSocketPath := GetTemporaryGitalySocketFileName(t)
 
 	c := praefectconfig.Config{
 		SocketPath: praefectServerSocketPath,
@@ -179,8 +173,13 @@ func (p *TestServer) Start(t testing.TB) {
 		})
 	}
 
+	configFilePath := filepath.Join(tempDir, "config.toml")
+	configFile, err := os.Create(configFilePath)
+	require.NoError(t, err)
+	defer MustClose(t, configFile)
+
 	require.NoError(t, toml.NewEncoder(configFile).Encode(&c))
-	require.NoError(t, configFile.Close())
+	require.NoError(t, configFile.Sync())
 
 	cmd := exec.Command(praefectBinPath, "-config", configFilePath)
 	cmd.Stderr = os.Stderr
@@ -203,7 +202,7 @@ func (p *TestServer) Start(t testing.TB) {
 
 	conn, err := grpc.Dial("unix://"+praefectServerSocketPath, opts...)
 	require.NoError(t, err)
-	defer conn.Close()
+	defer MustClose(t, conn)
 
 	waitHealthy(t, conn, 3, time.Second)
 
@@ -211,7 +210,7 @@ func (p *TestServer) Start(t testing.TB) {
 }
 
 func (p *TestServer) listen(t testing.TB) string {
-	gitalyServerSocketPath := GetTemporaryGitalySocketFileName()
+	gitalyServerSocketPath := GetTemporaryGitalySocketFileName(t)
 
 	sockets := []string{
 		gitalyServerSocketPath,
@@ -234,7 +233,7 @@ func (p *TestServer) listen(t testing.TB) string {
 
 		conn, err := grpc.Dial("unix://"+socket, opts...)
 		require.NoError(t, err)
-		defer conn.Close()
+		defer MustClose(t, conn)
 
 		waitHealthy(t, conn, 3, time.Second)
 	}
@@ -358,7 +357,7 @@ func parsePostReceiveForm(u url.Values) postReceiveForm {
 	}
 }
 
-func handleAllowed(options GitlabTestServerOptions) func(w http.ResponseWriter, r *http.Request) {
+func handleAllowed(t testing.TB, options GitlabTestServerOptions) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if err := r.ParseForm(); err != nil {
 			http.Error(w, "could not parse form", http.StatusBadRequest)
@@ -480,7 +479,8 @@ func handleAllowed(options GitlabTestServerOptions) func(w http.ResponseWriter, 
 				return
 			}
 			if relObjectDir != gitVars.GitObjectDirRel {
-				w.Write([]byte(`{"status":false}`))
+				_, err := w.Write([]byte(`{"status":false}`))
+				require.NoError(t, err)
 				return
 			}
 		}
@@ -499,7 +499,8 @@ func handleAllowed(options GitlabTestServerOptions) func(w http.ResponseWriter, 
 				}
 
 				if relAltObjectDir != gitVars.GitAlternateObjectDirsRel[i] {
-					w.Write([]byte(`{"status":false}`))
+					_, err := w.Write([]byte(`{"status":false}`))
+					require.NoError(t, err)
 					return
 				}
 			}
@@ -518,15 +519,18 @@ func handleAllowed(options GitlabTestServerOptions) func(w http.ResponseWriter, 
 		}
 
 		if authenticated {
-			w.Write([]byte(`{"status":true}`))
+			_, err := w.Write([]byte(`{"status":true}`))
+			require.NoError(t, err)
 			return
 		}
 		w.WriteHeader(http.StatusUnauthorized)
-		w.Write([]byte(`{"message":"401 Unauthorized\n"}`))
+
+		_, err = w.Write([]byte(`{"message":"401 Unauthorized\n"}`))
+		require.NoError(t, err)
 	}
 }
 
-func handlePreReceive(options GitlabTestServerOptions) func(w http.ResponseWriter, r *http.Request) {
+func handlePreReceive(t testing.TB, options GitlabTestServerOptions) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if err := r.ParseForm(); err != nil {
 			http.Error(w, "could not parse form", http.StatusBadRequest)
@@ -601,7 +605,9 @@ func handlePreReceive(options GitlabTestServerOptions) func(w http.ResponseWrite
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"reference_counter_increased": true}`))
+
+		_, err = w.Write([]byte(`{"reference_counter_increased": true}`))
+		require.NoError(t, err)
 	}
 }
 
@@ -726,7 +732,7 @@ type postReceiveMessage struct {
 	Type    string `json:"type"`
 }
 
-func handleLfs(options GitlabTestServerOptions) func(w http.ResponseWriter, r *http.Request) {
+func handleLfs(t testing.TB, options GitlabTestServerOptions) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if err := r.ParseForm(); err != nil {
 			http.Error(w, "couldn't parse form", http.StatusBadRequest)
@@ -759,19 +765,20 @@ func handleLfs(options GitlabTestServerOptions) func(w http.ResponseWriter, r *h
 		}
 
 		if options.LfsBody != "" {
-			w.Write([]byte(options.LfsBody))
+			_, err := w.Write([]byte(options.LfsBody))
+			require.NoError(t, err)
 		}
 	}
 }
 
-func handleCheck(options GitlabTestServerOptions) func(w http.ResponseWriter, r *http.Request) {
+func handleCheck(t testing.TB, options GitlabTestServerOptions) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		u, p, ok := r.BasicAuth()
 		if !ok || u != options.User || p != options.Password {
 			w.WriteHeader(http.StatusUnauthorized)
-			json.NewEncoder(w).Encode(struct {
+			require.NoError(t, json.NewEncoder(w).Encode(struct {
 				Message string `json:"message"`
-			}{Message: "authorization failed"})
+			}{Message: "authorization failed"}))
 			return
 		}
 
@@ -809,11 +816,11 @@ type GitlabTestServerOptions struct {
 func NewGitlabTestServer(t testing.TB, options GitlabTestServerOptions) (url string, cleanup func()) {
 	mux := http.NewServeMux()
 	prefix := strings.TrimRight(options.RelativeURLRoot, "/") + "/api/v4/internal"
-	mux.Handle(prefix+"/allowed", http.HandlerFunc(handleAllowed(options)))
-	mux.Handle(prefix+"/pre_receive", http.HandlerFunc(handlePreReceive(options)))
+	mux.Handle(prefix+"/allowed", http.HandlerFunc(handleAllowed(t, options)))
+	mux.Handle(prefix+"/pre_receive", http.HandlerFunc(handlePreReceive(t, options)))
 	mux.Handle(prefix+"/post_receive", http.HandlerFunc(handlePostReceive(options)))
-	mux.Handle(prefix+"/check", http.HandlerFunc(handleCheck(options)))
-	mux.Handle(prefix+"/lfs", http.HandlerFunc(handleLfs(options)))
+	mux.Handle(prefix+"/check", http.HandlerFunc(handleCheck(t, options)))
+	mux.Handle(prefix+"/lfs", http.HandlerFunc(handleLfs(t, options)))
 
 	var tlsCfg *tls.Config
 	if options.ClientCACertPath != "" {
@@ -836,27 +843,23 @@ func NewGitlabTestServer(t testing.TB, options GitlabTestServerOptions) (url str
 
 	if options.UnixSocket {
 		return startSocketHTTPServer(t, mux, tlsCfg)
-	} else {
-		var server *httptest.Server
-		if tlsCfg == nil {
-			server = httptest.NewServer(mux)
-		} else {
-			server = httptest.NewUnstartedServer(mux)
-			server.TLS = tlsCfg
-			server.StartTLS()
-		}
-		return server.URL, server.Close
 	}
+
+	var server *httptest.Server
+	if tlsCfg == nil {
+		server = httptest.NewServer(mux)
+	} else {
+		server = httptest.NewUnstartedServer(mux)
+		server.TLS = tlsCfg
+		server.StartTLS()
+	}
+	return server.URL, server.Close
 }
 
 func startSocketHTTPServer(t testing.TB, mux *http.ServeMux, tlsCfg *tls.Config) (string, func()) {
-	tmpFile, err := ioutil.TempFile(os.TempDir(), "http-test-server")
-	require.NoError(t, err)
+	tempDir, cleanupDir := TempDir(t)
 
-	filename := tmpFile.Name()
-	tmpFile.Close()
-	os.Remove(filename)
-
+	filename := filepath.Join(tempDir, "http-test-server")
 	socketListener, err := net.Listen("unix", filename)
 	require.NoError(t, err)
 
@@ -869,7 +872,8 @@ func startSocketHTTPServer(t testing.TB, mux *http.ServeMux, tlsCfg *tls.Config)
 
 	url := "http+unix://" + filename
 	cleanup := func() {
-		server.Close()
+		require.NoError(t, server.Close())
+		cleanupDir()
 	}
 
 	return url, cleanup
@@ -890,7 +894,7 @@ func WriteTemporaryGitalyConfigFile(t testing.TB, tempDir, gitlabURL, user, pass
 
 	require.NoError(t, ioutil.WriteFile(path, []byte(contents), 0644))
 	return path, func() {
-		os.RemoveAll(path)
+		require.NoError(t, os.RemoveAll(path))
 	}
 }
 
@@ -906,6 +910,8 @@ type HTTPSettings struct {
 	Password string `yaml:"password"`
 }
 
+// NewServerWithHealth creates a new GRPC server with the health server set up.
+// It will listen on the socket identified by `socketName`.
 func NewServerWithHealth(t testing.TB, socketName string) (*grpc.Server, *health.Server) {
 	lis, err := net.Listen("unix", socketName)
 	require.NoError(t, err)
@@ -913,6 +919,8 @@ func NewServerWithHealth(t testing.TB, socketName string) (*grpc.Server, *health
 	return NewHealthServerWithListener(t, lis)
 }
 
+// NewHealthServerWithListener creates a new GRPC server with the health server
+// set up. It will listen on the given listener.
 func NewHealthServerWithListener(t testing.TB, listener net.Listener) (*grpc.Server, *health.Server) {
 	srv := NewTestGrpcServer(t, nil, nil)
 	healthSrvr := health.NewServer()

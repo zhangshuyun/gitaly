@@ -469,7 +469,7 @@ func (m *mockRepositoryServer) RepackIncremental(ctx context.Context, in *gitaly
 
 func runMockRepositoryServer(t *testing.T) (*mockRepositoryServer, string, func()) {
 	server := testhelper.NewTestGrpcServer(t, nil, nil)
-	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName()
+	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
 
 	listener, err := net.Listen("unix", serverSocketPath)
 	require.NoError(t, err)
@@ -1003,7 +1003,7 @@ func runFullGitalyServer(t *testing.T) (string, func()) {
 	conns := client.NewPool()
 	server := serverPkg.NewInsecure(RubyServer, hook.NewManager(gitaly_config.NewLocator(gitaly_config.Config), hook.GitlabAPIStub, gitaly_config.Config), gitaly_config.Config, conns)
 
-	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName()
+	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
 
 	listener, err := net.Listen("unix", serverSocketPath)
 	if err != nil {
@@ -1025,7 +1025,7 @@ func runFullGitalyServer(t *testing.T) (string, func()) {
 // newReplicationService is a grpc service that has the SSH, Repository, Remote and ObjectPool services, which
 // are the only ones needed for replication
 func newReplicationService(tb testing.TB) (*grpc.Server, string) {
-	socketName := testhelper.GetTemporaryGitalySocketFileName()
+	socketName := testhelper.GetTemporaryGitalySocketFileName(tb)
 	internalSocketName := gitaly_config.Config.GitalyInternalSocketPath()
 	require.NoError(tb, os.RemoveAll(internalSocketName))
 

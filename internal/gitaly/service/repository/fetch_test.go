@@ -392,7 +392,7 @@ func runFullServer(t *testing.T, locator storage.Locator) (string, func()) {
 
 	server := serverPkg.NewInsecure(repository.RubyServer, hookManager, config.Config, conns)
 
-	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName()
+	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
 
 	listener, err := net.Listen("unix", serverSocketPath)
 	require.NoError(t, err)

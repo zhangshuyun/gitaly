@@ -3,12 +3,15 @@ package testhelper
 import (
 	"fmt"
 	"io"
+	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 )
 
 // ReceiveEOFWithTimeout reads to the end of the stream and will throw an
 // error if a deadlock is suspected
-func ReceiveEOFWithTimeout(errorFunc func() error) error {
+func ReceiveEOFWithTimeout(t testing.TB, errorFunc func() error) {
 	errCh := make(chan error, 1)
 	go func() {
 		errCh <- errorFunc()
@@ -21,9 +24,7 @@ func ReceiveEOFWithTimeout(errorFunc func() error) error {
 		err = fmt.Errorf("timed out waiting for EOF")
 	}
 
-	if err == io.EOF {
-		err = nil
+	if err != nil {
+		require.Equal(t, io.EOF, err)
 	}
-
-	return err
 }

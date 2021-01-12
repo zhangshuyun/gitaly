@@ -154,9 +154,7 @@ func TestReceivePackPushSuccessWithGitProtocol(t *testing.T) {
 
 	require.Equal(t, lHead, rHead, "local and remote head not equal. push failed")
 
-	envData, err := testhelper.GetGitEnvData()
-
-	require.NoError(t, err)
+	envData := testhelper.GetGitEnvData(t)
 	require.Contains(t, envData, fmt.Sprintf("GIT_PROTOCOL=%s\n", git.ProtocolV2))
 }
 
@@ -288,9 +286,7 @@ func TestSSHReceivePackToHooks(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, lHead, rHead, "local and remote head not equal. push failed")
 
-	envData, err := testhelper.GetGitEnvData()
-
-	require.NoError(t, err)
+	envData := testhelper.GetGitEnvData(t)
 	require.Contains(t, envData, fmt.Sprintf("GIT_PROTOCOL=%s\n", git.ProtocolV2))
 }
 

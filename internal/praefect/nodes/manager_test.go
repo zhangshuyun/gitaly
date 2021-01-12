@@ -56,7 +56,7 @@ func assertShard(t *testing.T, exp shardAssertion, act Shard) {
 }
 
 func TestNodeStatus(t *testing.T) {
-	socket := testhelper.GetTemporaryGitalySocketFileName()
+	socket := testhelper.GetTemporaryGitalySocketFileName(t)
 	svr, healthSvr := testhelper.NewServerWithHealth(t, socket)
 	defer svr.Stop()
 
@@ -97,7 +97,7 @@ func TestNodeStatus(t *testing.T) {
 func TestManagerFailoverDisabledElectionStrategySQL(t *testing.T) {
 	const virtualStorageName = "virtual-storage-0"
 	const primaryStorage = "praefect-internal-0"
-	socket0, socket1 := testhelper.GetTemporaryGitalySocketFileName(), testhelper.GetTemporaryGitalySocketFileName()
+	socket0, socket1 := testhelper.GetTemporaryGitalySocketFileName(t), testhelper.GetTemporaryGitalySocketFileName(t)
 	virtualStorage := &config.VirtualStorage{
 		Name: virtualStorageName,
 		Nodes: []*config.Node{
@@ -143,7 +143,7 @@ func TestManagerFailoverDisabledElectionStrategySQL(t *testing.T) {
 }
 
 func TestDialWithUnhealthyNode(t *testing.T) {
-	primaryLn, err := net.Listen("unix", testhelper.GetTemporaryGitalySocketFileName())
+	primaryLn, err := net.Listen("unix", testhelper.GetTemporaryGitalySocketFileName(t))
 	require.NoError(t, err)
 
 	primaryAddress := "unix://" + primaryLn.Addr().String()
@@ -188,7 +188,7 @@ func TestDialWithUnhealthyNode(t *testing.T) {
 }
 
 func TestNodeManager(t *testing.T) {
-	internalSocket0, internalSocket1 := testhelper.GetTemporaryGitalySocketFileName(), testhelper.GetTemporaryGitalySocketFileName()
+	internalSocket0, internalSocket1 := testhelper.GetTemporaryGitalySocketFileName(t), testhelper.GetTemporaryGitalySocketFileName(t)
 	srv0, healthSrv0 := testhelper.NewServerWithHealth(t, internalSocket0)
 	defer srv0.Stop()
 
@@ -311,7 +311,7 @@ func TestMgr_GetSyncedNode(t *testing.T) {
 	var healthSrvs [count]*health.Server
 	var nodes [count]*config.Node
 	for i := 0; i < count; i++ {
-		socket := testhelper.GetTemporaryGitalySocketFileName()
+		socket := testhelper.GetTemporaryGitalySocketFileName(t)
 		srvs[i], healthSrvs[i] = testhelper.NewServerWithHealth(t, socket)
 		defer srvs[i].Stop()
 		nodes[i] = &config.Node{Storage: fmt.Sprintf("gitaly-%d", i), Address: "unix://" + socket}
@@ -470,7 +470,7 @@ func TestNodeStatus_IsHealthy(t *testing.T) {
 		}
 	}
 
-	socket := testhelper.GetTemporaryGitalySocketFileName()
+	socket := testhelper.GetTemporaryGitalySocketFileName(t)
 	address := "unix://" + socket
 
 	srv, healthSrv := testhelper.NewServerWithHealth(t, socket)

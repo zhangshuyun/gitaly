@@ -13,7 +13,7 @@ import (
 )
 
 func setupElector(t *testing.T) (*localElector, []*nodeStatus, *grpc.ClientConn, *grpc.Server) {
-	socket := testhelper.GetTemporaryGitalySocketFileName()
+	socket := testhelper.GetTemporaryGitalySocketFileName(t)
 	svr, _ := testhelper.NewServerWithHealth(t, socket)
 
 	cc, err := grpc.Dial(

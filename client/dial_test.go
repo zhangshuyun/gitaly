@@ -35,8 +35,7 @@ func TestDial(t *testing.T) {
 		t.Log("WARNING. Proxy configuration detected from environment settings. This test failure may be related to proxy configuration. Please process with caution")
 	}
 
-	stop, connectionMap, err := startListeners()
-	require.NoError(t, err, "start listeners: %v. %s", err)
+	stop, connectionMap := startListeners(t)
 	defer stop()
 
 	unixSocketAbsPath := connectionMap["unix"]
@@ -45,7 +44,6 @@ func TestDial(t *testing.T) {
 	defer cleanup()
 
 	unixSocketPath := filepath.Join(tempDir, "gitaly.socket")
-	require.NoError(t, err)
 	require.NoError(t, os.Symlink(unixSocketAbsPath, unixSocketPath))
 
 	tests := []struct {
@@ -172,7 +170,7 @@ func (ts *testSvc) PingStream(stream proxytestdata.TestService_PingStreamServer)
 
 func TestDial_Correlation(t *testing.T) {
 	t.Run("unary", func(t *testing.T) {
-		serverSocketPath := testhelper.GetTemporaryGitalySocketFileName()
+		serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
 
 		listener, err := net.Listen("unix", serverSocketPath)
 		require.NoError(t, err)
@@ -206,7 +204,7 @@ func TestDial_Correlation(t *testing.T) {
 	})
 
 	t.Run("stream", func(t *testing.T) {
-		serverSocketPath := testhelper.GetTemporaryGitalySocketFileName()
+		serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
 
 		listener, err := net.Listen("unix", serverSocketPath)
 		require.NoError(t, err)
@@ -249,7 +247,7 @@ func TestDial_Correlation(t *testing.T) {
 
 func TestDial_Tracing(t *testing.T) {
 	t.Run("unary", func(t *testing.T) {
-		serverSocketPath := testhelper.GetTemporaryGitalySocketFileName()
+		serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
 
 		listener, err := net.Listen("unix", serverSocketPath)
 		require.NoError(t, err)
@@ -300,7 +298,7 @@ func TestDial_Tracing(t *testing.T) {
 	})
 
 	t.Run("stream", func(t *testing.T) {
-		serverSocketPath := testhelper.GetTemporaryGitalySocketFileName()
+		serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
 
 		listener, err := net.Listen("unix", serverSocketPath)
 		require.NoError(t, err)
@@ -373,11 +371,10 @@ func (*healthServer) Watch(*healthpb.HealthCheckRequest, healthpb.Health_WatchSe
 }
 
 // startTCPListener will start a insecure TCP listener on a random unused port
-func startTCPListener() (func(), string, error) {
+func startTCPListener(t testing.TB) (func(), string) {
 	listener, err := net.Listen("tcp", "localhost:0")
-	if err != nil {
-		return nil, "", err
-	}
+	require.NoError(t, err)
+
 	tcpPort := listener.Addr().(*net.TCPAddr).Port
 	address := fmt.Sprintf("%d", tcpPort)
 
@@ -387,17 +384,15 @@ func startTCPListener() (func(), string, error) {
 
 	return func() {
 		grpcServer.Stop()
-	}, address, nil
+	}, address
 }
 
 // startUnixListener will start a unix socket listener using a temporary file
-func startUnixListener() (func(), string, error) {
-	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName()
+func startUnixListener(t testing.TB) (func(), string) {
+	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
 
 	listener, err := net.Listen("unix", serverSocketPath)
-	if err != nil {
-		return nil, "", err
-	}
+	require.NoError(t, err)
 
 	grpcServer := grpc.NewServer()
 	healthpb.RegisterHealthServer(grpcServer, &healthServer{})
@@ -405,23 +400,20 @@ func startUnixListener() (func(), string, error) {
 
 	return func() {
 		grpcServer.Stop()
-	}, serverSocketPath, nil
+	}, serverSocketPath
 }
 
 // startTLSListener will start a secure TLS listener on a random unused port
 //go:generate openssl req -newkey rsa:4096 -new -nodes -x509 -days 3650 -out testdata/gitalycert.pem -keyout testdata/gitalykey.pem -subj "/C=US/ST=California/L=San Francisco/O=GitLab/OU=GitLab-Shell/CN=localhost" -addext "subjectAltName = IP:127.0.0.1, DNS:localhost"
-func startTLSListener() (func(), string, error) {
+func startTLSListener(t testing.TB) (func(), string) {
 	listener, err := net.Listen("tcp", "localhost:0")
-	if err != nil {
-		return nil, "", err
-	}
+	require.NoError(t, err)
+
 	tcpPort := listener.Addr().(*net.TCPAddr).Port
 	address := fmt.Sprintf("%d", tcpPort)
 
 	cert, err := tls.LoadX509KeyPair("testdata/gitalycert.pem", "testdata/gitalykey.pem")
-	if err != nil {
-		return nil, "", err
-	}
+	require.NoError(t, err)
 
 	grpcServer := grpc.NewServer(grpc.Creds(credentials.NewTLS(&tls.Config{
 		Certificates: []tls.Certificate{cert},
@@ -432,24 +424,21 @@ func startTLSListener() (func(), string, error) {
 
 	return func() {
 		grpcServer.Stop()
-	}, address, nil
+	}, address
 }
 
-var listeners = map[string]func() (func(), string, error){
+var listeners = map[string]func(testing.TB) (func(), string){
 	"tcp":  startTCPListener,
 	"unix": startUnixListener,
 	"tls":  startTLSListener,
 }
 
 // startListeners will start all the different listeners used in this test
-func startListeners() (func(), map[string]string, error) {
+func startListeners(t testing.TB) (func(), map[string]string) {
 	var closers []func()
 	connectionMap := map[string]string{}
 	for k, v := range listeners {
-		closer, address, err := v()
-		if err != nil {
-			return nil, nil, err
-		}
+		closer, address := v(t)
 		closers = append(closers, closer)
 		connectionMap[k] = address
 	}
@@ -458,7 +447,7 @@ func startListeners() (func(), map[string]string, error) {
 		for _, v := range closers {
 			v()
 		}
-	}, connectionMap, nil
+	}, connectionMap
 }
 
 func emitProxyWarning() bool {

@@ -122,9 +122,7 @@ func TestSuccessfulReceivePackRequestWithGitProtocol(t *testing.T) {
 	firstRequest := &gitalypb.PostReceivePackRequest{Repository: repo, GlId: "user-123", GlRepository: "project-123", GitProtocol: git.ProtocolV2}
 	doPush(t, stream, firstRequest, push.body)
 
-	envData, err := testhelper.GetGitEnvData()
-
-	require.NoError(t, err)
+	envData := testhelper.GetGitEnvData(t)
 	require.Equal(t, fmt.Sprintf("GIT_PROTOCOL=%s\n", git.ProtocolV2), envData)
 
 	// The fact that this command succeeds means that we got the commit correctly, no further checks should be needed.
@@ -441,7 +439,7 @@ func TestPostReceivePackToHooks(t *testing.T) {
 func runSmartHTTPHookServiceServer(t *testing.T) (*grpc.Server, string) {
 	server := testhelper.NewTestGrpcServer(t, nil, nil)
 
-	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName()
+	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
 	listener, err := net.Listen("unix", serverSocketPath)
 	if err != nil {
 		t.Fatal(err)
@@ -557,7 +555,7 @@ func TestPostReceiveWithReferenceTransactionHook(t *testing.T) {
 	healthpb.RegisterHealthServer(gitalyServer, health.NewServer())
 	reflection.Register(gitalyServer)
 
-	gitalySocketPath := testhelper.GetTemporaryGitalySocketFileName()
+	gitalySocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
 	listener, err := net.Listen("unix", gitalySocketPath)
 	require.NoError(t, err)
 

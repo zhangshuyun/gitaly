@@ -63,7 +63,7 @@ func RunInternalGitalyServer(t testing.TB, internalSocketPath string, storages [
 	unaryInt := []grpc.UnaryServerInterceptor{auth.UnaryServerInterceptor(internalauth.Config{Token: token})}
 
 	server := testhelper.NewTestGrpcServer(t, streamInt, unaryInt)
-	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName()
+	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
 
 	listener, err := net.Listen("unix", serverSocketPath)
 	require.NoError(t, err)

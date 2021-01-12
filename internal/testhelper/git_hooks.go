@@ -21,12 +21,11 @@ func WriteEnvToCustomHook(t testing.TB, repoPath, hookName string) (string, func
 
 	hookContent := fmt.Sprintf("#!/bin/sh\n/usr/bin/env > %s\n", hookOutputTemp.Name())
 
-	cleanupCustomHook, err := WriteCustomHook(repoPath, hookName, []byte(hookContent))
-	require.NoError(t, err)
+	cleanupCustomHook := WriteCustomHook(t, repoPath, hookName, []byte(hookContent))
 
 	return hookOutputTemp.Name(), func() {
 		cleanupCustomHook()
-		os.Remove(hookOutputTemp.Name())
+		assert.NoError(t, os.Remove(hookOutputTemp.Name()))
 	}
 }
 
@@ -34,7 +33,7 @@ func WriteEnvToCustomHook(t testing.TB, repoPath, hookName string) (string, func
 // if it can find the object in the quarantine directory. if
 // GIT_OBJECT_DIRECTORY and GIT_ALTERNATE_OBJECT_DIRECTORIES were not passed
 // through correctly to the hooks, it will fail
-func WriteCheckNewObjectExistsHook(t *testing.T, repoPath string) func() {
+func WriteCheckNewObjectExistsHook(t testing.TB, repoPath string) func() {
 	hook := fmt.Sprintf(`#!/usr/bin/env ruby
 STDIN.each_line do |line|
   new_object = line.split(' ')[1]
@@ -43,16 +42,13 @@ STDIN.each_line do |line|
 end
 `, config.Config.Git.BinPath)
 
-	cleanup, err := WriteCustomHook(repoPath, "pre-receive", []byte(hook))
-	require.NoError(t, err)
-
-	return cleanup
+	return WriteCustomHook(t, repoPath, "pre-receive", []byte(hook))
 }
 
 // WriteCustomHook writes a hook in the repo/path.git/custom_hooks directory
-func WriteCustomHook(repoPath, name string, content []byte) (func(), error) {
+func WriteCustomHook(t testing.TB, repoPath, name string, content []byte) func() {
 	fullPath := filepath.Join(repoPath, "custom_hooks", name)
-	return WriteExecutable(fullPath, content)
+	return WriteExecutable(t, fullPath, content)
 }
 
 // CaptureHookEnv creates a bogus 'update' Git hook to sniff out what
@@ -85,12 +81,8 @@ env | grep -e ^GIT -e ^GL_ > ` + hookOutputFile + "\n")
 }
 
 // GetGitEnvData reads and returns the content of testGitEnv
-func GetGitEnvData() (string, error) {
+func GetGitEnvData(t testing.TB) string {
 	gitEnvBytes, err := ioutil.ReadFile(filepath.Join(testDirectory, "git-env"))
-
-	if err != nil {
-		return "", err
-	}
-
-	return string(gitEnvBytes), nil
+	require.NoError(t, err)
+	return string(gitEnvBytes)
 }

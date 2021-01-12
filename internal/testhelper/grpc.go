@@ -44,6 +44,8 @@ func RequireGrpcError(t testing.TB, err error, expectedCode codes.Code) {
 	}
 }
 
+// GrpcErrorHasMessage checks whether the GRPC error's message matches the
+// given message.
 func GrpcErrorHasMessage(grpcError error, msg string) bool {
 	status, ok := status.FromError(grpcError)
 	if !ok {
@@ -72,6 +74,9 @@ func MergeIncomingMetadata(ctx context.Context, md ...metadata.MD) context.Conte
 	return metadata.NewIncomingContext(ctx, metadata.Join(append(md, ctxmd)...))
 }
 
+// ProtoEqual asserts that expected and actual protobuf messages are equal.
+// This is required as comparing messages directly with `require.Equal` doesn't
+// work.
 func ProtoEqual(t testing.TB, expected proto.Message, actual proto.Message) {
 	require.True(t, proto.Equal(expected, actual), "proto messages not equal\nexpected: %v\ngot:      %v", expected, actual)
 }

@@ -37,12 +37,18 @@ import (
 )
 
 const (
+	// RepositoryAuthToken is the default token used to authenticate
+	// against other Gitaly servers. It is inject as part of the
+	// GitalyServers metadata.
 	RepositoryAuthToken = "the-secret-token"
-	DefaultStorageName  = "default"
-	GlID                = "user-123"
+	// DefaultStorageName is the default name of the Gitaly storage.
+	DefaultStorageName = "default"
+	// GlID is the ID of the default user.
+	GlID = "user-123"
 )
 
 var (
+	// TestUser is the default user for tests.
 	TestUser = &gitalypb.User{
 		Name:       []byte("Jane Doe"),
 		Email:      []byte("janedoe@gitlab.com"),
@@ -127,21 +133,24 @@ func MustRunCommand(t testing.TB, stdin io.Reader, name string, args ...string) 
 	return output
 }
 
+// MustClose calls Close() on the Closer and fails the test in case it returns
+// an error. This function is useful when closing via `defer`, as a simple
+// `defer require.NoError(t, closer.Close())` would cause `closer.Close()` to
+// be executed early already.
+func MustClose(t testing.TB, closer io.Closer) {
+	require.NoError(t, closer.Close())
+}
+
 // GetTemporaryGitalySocketFileName will return a unique, useable socket file name
-func GetTemporaryGitalySocketFileName() string {
-	if testDirectory == "" {
-		log.Fatal("you must call testhelper.Configure() before GetTemporaryGitalySocketFileName()")
-	}
+func GetTemporaryGitalySocketFileName(t testing.TB) string {
+	require.NotEmpty(t, testDirectory, "you must call testhelper.Configure() before GetTemporaryGitalySocketFileName()")
 
 	tmpfile, err := ioutil.TempFile(testDirectory, "gitaly.socket.")
-	if err != nil {
-		// No point in handling this error, panic
-		panic(err)
-	}
+	require.NoError(t, err)
 
 	name := tmpfile.Name()
-	tmpfile.Close()
-	os.Remove(name)
+	require.NoError(t, tmpfile.Close())
+	require.NoError(t, os.Remove(name))
 
 	return name
 }
@@ -204,7 +213,7 @@ func mustFindNoRunningChildProcess() {
 		return
 	}
 
-	panic(fmt.Errorf("%s: %v", desc, err))
+	panic(fmt.Errorf("%s: %w", desc, err))
 }
 
 // ContextOpt returns a new context instance with the new additions to it.
@@ -369,15 +378,15 @@ func TempDir(t testing.TB) (string, func()) {
 type Cleanup func()
 
 // WriteExecutable ensures that the parent directory exists, and writes an executable with provided content
-func WriteExecutable(path string, content []byte) (func(), error) {
+func WriteExecutable(t testing.TB, path string, content []byte) func() {
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return func() {}, err
-	}
+
+	require.NoError(t, os.MkdirAll(dir, 0755))
+	require.NoError(t, ioutil.WriteFile(path, content, 0755))
 
 	return func() {
-		os.RemoveAll(dir)
-	}, ioutil.WriteFile(path, content, 0755)
+		assert.NoError(t, os.RemoveAll(dir))
+	}
 }
 
 // ModifyEnvironment will change an environment variable and return a func suitable
@@ -428,9 +437,9 @@ func GenerateTestCerts(t *testing.T) (string, string, Cleanup) {
 	entityCert, err := x509.CreateCertificate(rand.Reader, rootCA, entityX509, &entityKey.PublicKey, caKey)
 	require.NoError(t, err)
 
-	certFile, err := ioutil.TempFile("", "")
+	certFile, err := ioutil.TempFile(testDirectory, "")
 	require.NoError(t, err)
-	defer certFile.Close()
+	defer MustClose(t, certFile)
 
 	// create chained PEM file with CA and entity cert
 	for _, cert := range [][]byte{entityCert, caCert} {
@@ -442,9 +451,9 @@ func GenerateTestCerts(t *testing.T) (string, string, Cleanup) {
 		)
 	}
 
-	keyFile, err := ioutil.TempFile("", "")
+	keyFile, err := ioutil.TempFile(testDirectory, "")
 	require.NoError(t, err)
-	defer keyFile.Close()
+	defer MustClose(t, keyFile)
 
 	entityKeyBytes, err := x509.MarshalECPrivateKey(entityKey)
 	require.NoError(t, err)
@@ -464,6 +473,7 @@ func GenerateTestCerts(t *testing.T) (string, string, Cleanup) {
 	return certFile.Name(), keyFile.Name(), cleanup
 }
 
+// DefaultLocator returns a locater for the default storage.
 func DefaultLocator() storage.Locator {
-	return config.NewLocator(config.Cfg{Storages: []config.Storage{{Name: "default", Path: GitlabTestStoragePath()}}})
+	return config.NewLocator(config.Cfg{Storages: []config.Storage{{Name: DefaultStorageName, Path: GitlabTestStoragePath()}}})
 }

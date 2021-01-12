@@ -380,7 +380,7 @@ func TestRegisterStreamHandlers(t *testing.T) {
 
 	proxy.RegisterStreamHandlers(server, "mwitkow.testproto.TestService", streamers)
 
-	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName()
+	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
 
 	listener, err := net.Listen("unix", serverSocketPath)
 	if err != nil {
