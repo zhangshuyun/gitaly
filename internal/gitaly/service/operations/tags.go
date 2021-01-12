@@ -48,7 +48,7 @@ func (s *Server) UserDeleteTagGo(ctx context.Context, req *gitalypb.UserDeleteTa
 	}
 
 	referenceName := fmt.Sprintf("refs/tags/%s", req.TagName)
-	revision, err := git.NewRepository(req.Repository).GetReference(ctx, referenceName)
+	revision, err := git.NewRepository(req.Repository).GetReference(ctx, git.ReferenceName(referenceName))
 	if err != nil {
 		return nil, status.Errorf(codes.FailedPrecondition, "tag not found: %s", req.TagName)
 	}

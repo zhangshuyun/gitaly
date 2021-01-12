@@ -110,7 +110,7 @@ func TestLocalRepository_GetReference(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.desc, func(t *testing.T) {
-			ref, err := repo.GetReference(ctx, tc.ref)
+			ref, err := repo.GetReference(ctx, ReferenceName(tc.ref))
 			if tc.expected.Name == "" {
 				require.True(t, errors.Is(err, ErrReferenceNotFound))
 			} else {

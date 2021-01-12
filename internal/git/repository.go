@@ -332,8 +332,8 @@ func (repo *LocalRepository) ContainsRef(ctx context.Context, ref string) (bool,
 
 // GetReference looks up and returns the given reference. Returns a
 // ReferenceNotFound error if the reference was not found.
-func (repo *LocalRepository) GetReference(ctx context.Context, ref string) (Reference, error) {
-	refs, err := repo.GetReferences(ctx, ref)
+func (repo *LocalRepository) GetReference(ctx context.Context, reference ReferenceName) (Reference, error) {
+	refs, err := repo.GetReferences(ctx, reference.String())
 	if err != nil {
 		return Reference{}, err
 	}
@@ -405,13 +405,13 @@ func (repo *LocalRepository) getReferences(ctx context.Context, pattern string, 
 // ErrReferenceNotFound if it wasn't found.
 func (repo *LocalRepository) GetBranch(ctx context.Context, branch string) (Reference, error) {
 	if strings.HasPrefix(branch, "refs/heads/") {
-		return repo.GetReference(ctx, branch)
+		return repo.GetReference(ctx, ReferenceName(branch))
 	}
 
 	if strings.HasPrefix(branch, "heads/") {
 		branch = strings.TrimPrefix(branch, "heads/")
 	}
-	return repo.GetReference(ctx, "refs/heads/"+branch)
+	return repo.GetReference(ctx, ReferenceName("refs/heads/"+branch))
 }
 
 // GetBranches returns all branches.
