@@ -1010,14 +1010,22 @@ func (m *OperationBranchUpdate) GetBranchCreated() bool {
 	return false
 }
 
+// UserFFBranchRequest contains parameters for the UserFFBranch RPC.
 type UserFFBranchRequest struct {
-	Repository           *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	User                 *User       `protobuf:"bytes,2,opt,name=user,proto3" json:"user,omitempty"`
-	CommitId             string      `protobuf:"bytes,3,opt,name=commit_id,json=commitId,proto3" json:"commit_id,omitempty"`
-	Branch               []byte      `protobuf:"bytes,4,opt,name=branch,proto3" json:"branch,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
-	XXX_unrecognized     []byte      `json:"-"`
-	XXX_sizecache        int32       `json:"-"`
+	// repository is the repository for which to perform the fast-forward merge.
+	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
+	// user is the user which to perform the fast-forward merge as. This is used
+	// for authorization checks.
+	User *User `protobuf:"bytes,2,opt,name=user,proto3" json:"user,omitempty"`
+	// commit_id is the commit ID to update the branch to.
+	CommitId string `protobuf:"bytes,3,opt,name=commit_id,json=commitId,proto3" json:"commit_id,omitempty"`
+	// branch is the name of the branch that shall be update. This must be the
+	// branch name only and not a fully qualified reference, e.g. "master"
+	// instead of "refs/heads/master".
+	Branch               []byte   `protobuf:"bytes,4,opt,name=branch,proto3" json:"branch,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *UserFFBranchRequest) Reset()         { *m = UserFFBranchRequest{} }
@@ -2822,6 +2830,10 @@ type OperationServiceClient interface {
 	UserDeleteTag(ctx context.Context, in *UserDeleteTagRequest, opts ...grpc.CallOption) (*UserDeleteTagResponse, error)
 	UserMergeToRef(ctx context.Context, in *UserMergeToRefRequest, opts ...grpc.CallOption) (*UserMergeToRefResponse, error)
 	UserMergeBranch(ctx context.Context, opts ...grpc.CallOption) (OperationService_UserMergeBranchClient, error)
+	// UserFFBranch tries to perform a fast-forward merge of the given branch to
+	// the given commit. If the merge is not a fast-forward merge, the request
+	// will fail. The RPC will return an empty response in case updating the
+	// reference fails e.g. because of a race.
 	UserFFBranch(ctx context.Context, in *UserFFBranchRequest, opts ...grpc.CallOption) (*UserFFBranchResponse, error)
 	UserCherryPick(ctx context.Context, in *UserCherryPickRequest, opts ...grpc.CallOption) (*UserCherryPickResponse, error)
 	// UserCommitFiles builds a commit from a stream of actions and updates the target branch to point to it.
@@ -3082,6 +3094,10 @@ type OperationServiceServer interface {
 	UserDeleteTag(context.Context, *UserDeleteTagRequest) (*UserDeleteTagResponse, error)
 	UserMergeToRef(context.Context, *UserMergeToRefRequest) (*UserMergeToRefResponse, error)
 	UserMergeBranch(OperationService_UserMergeBranchServer) error
+	// UserFFBranch tries to perform a fast-forward merge of the given branch to
+	// the given commit. If the merge is not a fast-forward merge, the request
+	// will fail. The RPC will return an empty response in case updating the
+	// reference fails e.g. because of a race.
 	UserFFBranch(context.Context, *UserFFBranchRequest) (*UserFFBranchResponse, error)
 	UserCherryPick(context.Context, *UserCherryPickRequest) (*UserCherryPickResponse, error)
 	// UserCommitFiles builds a commit from a stream of actions and updates the target branch to point to it.

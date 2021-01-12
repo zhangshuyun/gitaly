@@ -43,11 +43,17 @@ service OperationService {
       op: MUTATOR
     };
   }
+
+  // UserFFBranch tries to perform a fast-forward merge of the given branch to
+  // the given commit. If the merge is not a fast-forward merge, the request
+  // will fail. The RPC will return an empty response in case updating the
+  // reference fails e.g. because of a race.
   rpc UserFFBranch(UserFFBranchRequest) returns (UserFFBranchResponse) {
     option (op_type) = {
       op: MUTATOR
     };
   }
+
   rpc UserCherryPick(UserCherryPickRequest) returns (UserCherryPickResponse) {
     option (op_type) = {
       op: MUTATOR
@@ -56,8 +62,8 @@ service OperationService {
 
   // UserCommitFiles builds a commit from a stream of actions and updates the target branch to point to it.
   // UserCommitFilesRequest with a UserCommitFilesRequestHeader must be sent as the first message of the stream.
-  // Following that, a variable number of actions can be sent to build a new commit. Each action consists of 
-  // a header followed by content if used by the action. 
+  // Following that, a variable number of actions can be sent to build a new commit. Each action consists of
+  // a header followed by content if used by the action.
   rpc UserCommitFiles(stream UserCommitFilesRequest) returns (UserCommitFilesResponse) {
     option (op_type) = {
       op: MUTATOR
@@ -203,17 +209,25 @@ message OperationBranchUpdate {
   // commit_id is set to the OID of the created commit if a branch was created or updated.
   string commit_id = 1;
   // repo_created indicates whether the branch created was the first one in the repository.
-  // Used for cache invalidation in GitLab. 
+  // Used for cache invalidation in GitLab.
   bool repo_created = 2;
   // branch_created indicates whether the branch already existed in the repository
-  // and was updated or whether it was created. Used for cache invalidation in GitLab. 
+  // and was updated or whether it was created. Used for cache invalidation in GitLab.
   bool branch_created = 3;
 }
 
+// UserFFBranchRequest contains parameters for the UserFFBranch RPC.
 message UserFFBranchRequest {
+  // repository is the repository for which to perform the fast-forward merge.
   Repository repository = 1 [(target_repository)=true];
+  // user is the user which to perform the fast-forward merge as. This is used
+  // for authorization checks.
   User user = 2;
+  // commit_id is the commit ID to update the branch to.
   string commit_id = 3;
+  // branch is the name of the branch that shall be update. This must be the
+  // branch name only and not a fully qualified reference, e.g. "master"
+  // instead of "refs/heads/master".
   bytes branch = 4;
 }
 
@@ -328,7 +342,7 @@ message UserCommitFilesAction {
 }
 
 // UserCommitFilesRequestHeader is the header of the UserCommitFiles that defines the commit details,
-// parent and other information related to the call. 
+// parent and other information related to the call.
 message UserCommitFilesRequestHeader {
   // repository is the target repository where to apply the commit.
   Repository repository = 1 [(target_repository)=true];
@@ -346,7 +360,7 @@ message UserCommitFilesRequestHeader {
   // used instead.
   bytes commit_author_email = 6;
   // start_branch_name specifies the branch whose commit to use as the parent commit. Takes priority
-  // over branch_name. Optional. 
+  // over branch_name. Optional.
   bytes start_branch_name = 7;
   // start_repository specifies which contains the parent commit. If not specified, repository itself
   // is used to look up the parent commit. Optional.
@@ -355,7 +369,7 @@ message UserCommitFilesRequestHeader {
   // point to the new commit.
   bool force = 9;
   // start_sha specifies the SHA of the commit to use as the parent of new commit. Takes priority
-  // over start_branch_name and branc_name. Optional. 
+  // over start_branch_name and branc_name. Optional.
   string start_sha = 10;
 }
 
@@ -374,7 +388,7 @@ message UserCommitFilesRequest {
 message UserCommitFilesResponse {
   // branch_update contains the details of the commit and the branch update.
   OperationBranchUpdate branch_update = 1;
-  // index_error is set to the error message when an invalid action was attempted, such as 
+  // index_error is set to the error message when an invalid action was attempted, such as
   // trying to create a file that already existed.
   string index_error = 2;
   // pre_receive_error is set when the pre-receive hook errored.
