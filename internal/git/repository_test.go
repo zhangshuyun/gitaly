@@ -65,7 +65,7 @@ func TestLocalRepository_ContainsRef(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.desc, func(t *testing.T) {
-			contained, err := repo.ContainsRef(ctx, tc.ref)
+			contained, err := repo.HasRevision(ctx, Revision(tc.ref))
 			require.NoError(t, err)
 			require.Equal(t, tc.contained, contained)
 		})
@@ -664,7 +664,7 @@ func TestLocalRepository_FetchRemote(t *testing.T) {
 			}),
 		)
 
-		contains, err := repo.ContainsRef(ctx, "refs/remotes/source/markdown")
+		contains, err := repo.HasRevision(ctx, Revision("refs/remotes/source/markdown"))
 		require.NoError(t, err)
 		require.False(t, contains, "remote tracking branch should be pruned as it no longer exists on the remote")
 	})
@@ -686,7 +686,7 @@ func TestLocalRepository_FetchRemote(t *testing.T) {
 
 		require.NoError(t, repo.FetchRemote(ctx, "source", FetchOpts{Prune: true}))
 
-		contains, err := repo.ContainsRef(ctx, "refs/remotes/source/markdown")
+		contains, err := repo.HasRevision(ctx, Revision("refs/remotes/source/markdown"))
 		require.NoError(t, err)
 		require.False(t, contains, "remote tracking branch should be pruned as it no longer exists on the remote")
 	})
@@ -703,11 +703,11 @@ func TestLocalRepository_FetchRemote(t *testing.T) {
 		tagsAfter := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "tag", "--list")
 		require.Empty(t, tagsAfter)
 
-		containsBranches, err := repo.ContainsRef(ctx, "'test'")
+		containsBranches, err := repo.HasRevision(ctx, Revision("'test'"))
 		require.NoError(t, err)
 		require.False(t, containsBranches)
 
-		containsTags, err := repo.ContainsRef(ctx, "v1.1.0")
+		containsTags, err := repo.HasRevision(ctx, Revision("v1.1.0"))
 		require.NoError(t, err)
 		require.False(t, containsTags)
 	})

@@ -67,7 +67,7 @@ func (s *server) FetchSourceBranch(ctx context.Context, req *gitalypb.FetchSourc
 		// Otherwise, if the source is a remote repository, we check
 		// whether the target repo already contains the desired object.
 		// If so, we can skip the fetch.
-		containsObject, err = targetRepo.ContainsRef(ctx, sourceOid+"^{commit}")
+		containsObject, err = targetRepo.HasRevision(ctx, git.Revision(sourceOid+"^{commit}"))
 		if err != nil {
 			return nil, helper.ErrInternal(err)
 		}

@@ -269,7 +269,7 @@ func (s *server) repoWithBranchCommit(ctx context.Context, srcRepo, targetRepo *
 		return err
 	}
 
-	ok, err := src.ContainsRef(ctx, oid)
+	ok, err := src.HasRevision(ctx, git.Revision(oid))
 	if err != nil {
 		return err
 	}

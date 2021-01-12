@@ -321,12 +321,11 @@ func (repo *LocalRepository) ResolveRevision(ctx context.Context, revision Revis
 	return oid, nil
 }
 
-// ContainsRef checks if a ref in the repository exists. This will not
-// verify whether the target object exists. To do so, you can peel the
-// reference to a given object type, e.g. by passing
-// `refs/heads/master^{commit}`.
-func (repo *LocalRepository) ContainsRef(ctx context.Context, ref string) (bool, error) {
-	if _, err := repo.ResolveRevision(ctx, Revision(ref)); err != nil {
+// HasRevision checks if a revision in the repository exists. This will not
+// verify whether the target object exists. To do so, you can peel the revision
+// to a given object type, e.g. by passing `refs/heads/master^{commit}`.
+func (repo *LocalRepository) HasRevision(ctx context.Context, revision Revision) (bool, error) {
+	if _, err := repo.ResolveRevision(ctx, revision); err != nil {
 		if errors.Is(err, ErrReferenceNotFound) {
 			return false, nil
 		}
