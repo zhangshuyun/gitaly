@@ -5,6 +5,33 @@ import (
 	"context"
 )
 
+// Revision represents anything that resolves to either a commit, multiple
+// commits or to an object different than a commit. This could be e.g.
+// "master", "master^{commit}", an object hash or similar. See gitrevisions(1)
+// for supported syntax.
+type Revision string
+
+// String returns the string representation of the Revision.
+func (r Revision) String() string {
+	return string(r)
+}
+
+// ReferenceName represents the name of a git reference, e.g.
+// "refs/heads/master". It does not support extended revision notation like a
+// Revision does and must always contain a fully qualified reference.
+type ReferenceName string
+
+// String returns the string representation of the ReferenceName.
+func (r ReferenceName) String() string {
+	return string(r)
+}
+
+// Revision converts the ReferenceName to a Revision. This is safe to do as a
+// reference is always also a revision.
+func (r ReferenceName) Revision() Revision {
+	return Revision(r)
+}
+
 // Reference represents a Git reference.
 type Reference struct {
 	// Name is the name of the reference
