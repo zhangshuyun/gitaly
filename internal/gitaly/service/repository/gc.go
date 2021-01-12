@@ -161,7 +161,7 @@ func checkRef(ctx context.Context, batch catfile.Batch, refName string, info os.
 		return errors.New("checkRef: Ref file is empty")
 	}
 
-	_, err := batch.Info(ctx, refName)
+	_, err := batch.Info(ctx, git.Revision(refName))
 	return err
 }
 
@@ -172,7 +172,7 @@ func (s *server) fixRef(ctx context.Context, repo *gitalypb.Repository, batch ca
 	}
 
 	// If the sha is not in the the repository, we can't fix it
-	if _, err := batch.Info(ctx, sha); err != nil {
+	if _, err := batch.Info(ctx, git.Revision(sha)); err != nil {
 		return nil
 	}
 

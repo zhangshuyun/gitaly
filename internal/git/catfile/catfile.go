@@ -6,6 +6,7 @@ import (
 
 	"github.com/opentracing/opentracing-go"
 	"github.com/prometheus/client_golang/prometheus"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
@@ -63,11 +64,11 @@ func init() {
 // A Batch instance can only serve single request at a time. If you want to
 // use it across multiple goroutines you need to add your own locking.
 type Batch interface {
-	Info(ctx context.Context, revspec string) (*ObjectInfo, error)
-	Tree(ctx context.Context, revspec string) (*Object, error)
-	Commit(ctx context.Context, revspec string) (*Object, error)
-	Blob(ctx context.Context, revspec string) (*Object, error)
-	Tag(ctx context.Context, revspec string) (*Object, error)
+	Info(ctx context.Context, revision git.Revision) (*ObjectInfo, error)
+	Tree(ctx context.Context, revision git.Revision) (*Object, error)
+	Commit(ctx context.Context, revision git.Revision) (*Object, error)
+	Blob(ctx context.Context, revision git.Revision) (*Object, error)
+	Tag(ctx context.Context, revision git.Revision) (*Object, error)
 }
 
 type batch struct {
@@ -78,41 +79,41 @@ type batch struct {
 	closed bool
 }
 
-// Info returns an ObjectInfo if spec exists. If spec does not exist the
-// error is of type NotFoundError.
-func (c *batch) Info(ctx context.Context, revspec string) (*ObjectInfo, error) {
-	return c.batchCheck.info(revspec)
+// Info returns an ObjectInfo if spec exists. If the revision does not exist
+// the error is of type NotFoundError.
+func (c *batch) Info(ctx context.Context, revision git.Revision) (*ObjectInfo, error) {
+	return c.batchCheck.info(revision)
 }
 
-// Tree returns a raw tree object. It is an error if revspec does not
-// point to a tree. To prevent this firstuse Info to resolve the revspec
-// and check the object type. Caller must consume the Reader before
-// making another call on C.
-func (c *batch) Tree(ctx context.Context, revspec string) (*Object, error) {
-	return c.batchProcess.reader(revspec, "tree")
+// Tree returns a raw tree object. It is an error if the revision does not
+// point to a tree. To prevent this, use Info to resolve the revision and check
+// the object type. Caller must consume the Reader before making another call
+// on C.
+func (c *batch) Tree(ctx context.Context, revision git.Revision) (*Object, error) {
+	return c.batchProcess.reader(revision, "tree")
 }
 
-// Commit returns a raw commit object. It is an error if revspec does not
-// point to a commit. To prevent this first use Info to resolve the revspec
-// and check the object type. Caller must consume the Reader before
-// making another call on C.
-func (c *batch) Commit(ctx context.Context, revspec string) (*Object, error) {
-	return c.batchProcess.reader(revspec, "commit")
+// Commit returns a raw commit object. It is an error if the revision does not
+// point to a commit. To prevent this, use Info to resolve the revision and
+// check the object type. Caller must consume the Reader before making another
+// call on C.
+func (c *batch) Commit(ctx context.Context, revision git.Revision) (*Object, error) {
+	return c.batchProcess.reader(revision, "commit")
 }
 
 // Blob returns a reader for the requested blob. The entire blob must be
 // read before any new objects can be requested from this Batch instance.
 //
-// It is an error if revspec does not point to a blob. To prevent this
-// first use Info to resolve the revspec and check the object type.
-func (c *batch) Blob(ctx context.Context, revspec string) (*Object, error) {
-	return c.batchProcess.reader(revspec, "blob")
+// It is an error if the revision does not point to a blob. To prevent this,
+// use Info to resolve the revision and check the object type.
+func (c *batch) Blob(ctx context.Context, revision git.Revision) (*Object, error) {
+	return c.batchProcess.reader(revision, "blob")
 }
 
 // Tag returns a raw tag object. Caller must consume the Reader before
 // making another call on C.
-func (c *batch) Tag(ctx context.Context, revspec string) (*Object, error) {
-	return c.batchProcess.reader(revspec, "tag")
+func (c *batch) Tag(ctx context.Context, revision git.Revision) (*Object, error) {
+	return c.batchProcess.reader(revision, "tag")
 }
 
 // Close closes the writers for batchCheck and batch. This is only used for
@@ -230,47 +231,47 @@ type instrumentedBatch struct {
 	Batch
 }
 
-func (ib *instrumentedBatch) Info(ctx context.Context, revspec string) (*ObjectInfo, error) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "Batch.Info", opentracing.Tag{"revspec", revspec})
+func (ib *instrumentedBatch) Info(ctx context.Context, revision git.Revision) (*ObjectInfo, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "Batch.Info", opentracing.Tag{"revision", revision})
 	defer span.Finish()
 
 	catfileLookupCounter.WithLabelValues("info").Inc()
 
-	return ib.Batch.Info(ctx, revspec)
+	return ib.Batch.Info(ctx, revision)
 }
 
-func (ib *instrumentedBatch) Tree(ctx context.Context, revspec string) (*Object, error) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "Batch.Tree", opentracing.Tag{"revspec", revspec})
+func (ib *instrumentedBatch) Tree(ctx context.Context, revision git.Revision) (*Object, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "Batch.Tree", opentracing.Tag{"revision", revision})
 	defer span.Finish()
 
 	catfileLookupCounter.WithLabelValues("tree").Inc()
 
-	return ib.Batch.Tree(ctx, revspec)
+	return ib.Batch.Tree(ctx, revision)
 }
 
-func (ib *instrumentedBatch) Commit(ctx context.Context, revspec string) (*Object, error) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "Batch.Commit", opentracing.Tag{"revspec", revspec})
+func (ib *instrumentedBatch) Commit(ctx context.Context, revision git.Revision) (*Object, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "Batch.Commit", opentracing.Tag{"revision", revision})
 	defer span.Finish()
 
 	catfileLookupCounter.WithLabelValues("commit").Inc()
 
-	return ib.Batch.Commit(ctx, revspec)
+	return ib.Batch.Commit(ctx, revision)
 }
 
-func (ib *instrumentedBatch) Blob(ctx context.Context, revspec string) (*Object, error) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "Batch.Blob", opentracing.Tag{"revspec", revspec})
+func (ib *instrumentedBatch) Blob(ctx context.Context, revision git.Revision) (*Object, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "Batch.Blob", opentracing.Tag{"revision", revision})
 	defer span.Finish()
 
 	catfileLookupCounter.WithLabelValues("blob").Inc()
 
-	return ib.Batch.Blob(ctx, revspec)
+	return ib.Batch.Blob(ctx, revision)
 }
 
-func (ib *instrumentedBatch) Tag(ctx context.Context, revspec string) (*Object, error) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "Batch.Tag", opentracing.Tag{"revspec", revspec})
+func (ib *instrumentedBatch) Tag(ctx context.Context, revision git.Revision) (*Object, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "Batch.Tag", opentracing.Tag{"revision", revision})
 	defer span.Finish()
 
 	catfileLookupCounter.WithLabelValues("tag").Inc()
 
-	return ib.Batch.Tag(ctx, revspec)
+	return ib.Batch.Tag(ctx, revision)
 }

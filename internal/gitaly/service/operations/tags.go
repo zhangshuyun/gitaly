@@ -140,7 +140,7 @@ func (s *Server) userCreateTagGo(ctx context.Context, req *gitalypb.UserCreateTa
 
 	// We allow all ways to name a revision that cat-file
 	// supports, not just OID. Resolve it.
-	targetRevision := string(req.TargetRevision)
+	targetRevision := git.Revision(req.TargetRevision)
 	targetInfo, err := catFile.Info(ctx, targetRevision)
 	if err != nil {
 		return nil, status.Errorf(codes.FailedPrecondition, "revspec '%s' not found", targetRevision)

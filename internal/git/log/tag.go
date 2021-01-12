@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"strings"
 
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -25,7 +26,7 @@ const (
 // note: we pass in the tagName because the tag name from refs/tags may be different
 // than the name found in the actual tag object. We want to use the tagName found in refs/tags
 func GetTagCatfile(ctx context.Context, c catfile.Batch, tagID, tagName string, trimLen, trimRightNewLine bool) (*gitalypb.Tag, error) {
-	tagObj, err := c.Tag(ctx, tagID)
+	tagObj, err := c.Tag(ctx, git.Revision(tagID))
 	if err != nil {
 		return nil, err
 	}
@@ -142,17 +143,16 @@ func buildAnnotatedTag(ctx context.Context, b catfile.Batch, tagID, name string,
 // This matches the original behavior in the ruby implementation.
 // we also protect against circular tag references. Even though this is not possible in git,
 // we still want to protect against an infinite looop
-
-func dereferenceTag(ctx context.Context, b catfile.Batch, Oid string) (*gitalypb.GitCommit, error) {
+func dereferenceTag(ctx context.Context, b catfile.Batch, oid string) (*gitalypb.GitCommit, error) {
 	for depth := 0; depth < MaxTagReferenceDepth; depth++ {
-		i, err := b.Info(ctx, Oid)
+		i, err := b.Info(ctx, git.Revision(oid))
 		if err != nil {
 			return nil, err
 		}
 
 		switch i.Type {
 		case "tag":
-			tagObj, err := b.Tag(ctx, Oid)
+			tagObj, err := b.Tag(ctx, git.Revision(oid))
 			if err != nil {
 				return nil, err
 			}
@@ -162,10 +162,10 @@ func dereferenceTag(ctx context.Context, b catfile.Batch, Oid string) (*gitalypb
 				return nil, err
 			}
 
-			Oid = header.oid
+			oid = header.oid
 			continue
 		case "commit":
-			return GetCommitCatfile(ctx, b, Oid)
+			return GetCommitCatfile(ctx, b, oid)
 		default: // This current tag points to a tree or a blob
 			return nil, nil
 		}

@@ -722,7 +722,7 @@ func TestFindAllTagNestedTags(t *testing.T) {
 			batch, err := catfile.New(ctx, locator, testRepoCopy)
 			require.NoError(t, err)
 
-			info, err := batch.Info(ctx, tc.originalOid)
+			info, err := batch.Info(ctx, git.Revision(tc.originalOid))
 			require.NoError(t, err)
 
 			expectedTags := make(map[string]*gitalypb.Tag)
@@ -1656,7 +1656,7 @@ func TestFindTagNestedTag(t *testing.T) {
 			batch, err := catfile.New(ctx, locator, testRepoCopy)
 			require.NoError(t, err)
 
-			info, err := batch.Info(ctx, tc.originalOid)
+			info, err := batch.Info(ctx, git.Revision(tc.originalOid))
 			require.NoError(t, err)
 
 			tagID := tc.originalOid

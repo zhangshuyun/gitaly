@@ -14,6 +14,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/archive"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
@@ -139,7 +140,7 @@ func TestGetSnapshotWithDedupe(t *testing.T) {
 			// ensure commit cannot be found in current repository
 			c, err := catfile.New(ctx, locator, testRepo)
 			require.NoError(t, err)
-			_, err = c.Info(ctx, originalAlternatesCommit)
+			_, err = c.Info(ctx, git.Revision(originalAlternatesCommit))
 			require.True(t, catfile.IsNotFound(err))
 
 			// write alternates file to point to alt objects folder
@@ -156,7 +157,7 @@ func TestGetSnapshotWithDedupe(t *testing.T) {
 
 			c, err = catfile.New(ctx, locator, testRepo)
 			require.NoError(t, err)
-			_, err = c.Info(ctx, string(commitSha))
+			_, err = c.Info(ctx, git.Revision(commitSha))
 			require.NoError(t, err)
 
 			_, repoCopyPath, cleanupCopy := copyRepoUsingSnapshot(t, locator, testRepo)
