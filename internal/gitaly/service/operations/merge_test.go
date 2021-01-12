@@ -427,7 +427,6 @@ func TestSuccessfulUserFFBranchRequest(t *testing.T) {
 		}
 
 		testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", "-f", branchName, "6d394385cf567f80a8fd85055db1ab4c5295806f")
-		defer exec.Command(config.Config.Git.BinPath, "-C", testRepoPath, "branch", "-d", branchName).Run()
 
 		resp, err := client.UserFFBranch(ctx, request)
 		require.NoError(t, err)
@@ -451,7 +450,6 @@ func TestFailedUserFFBranchRequest(t *testing.T) {
 	branchName := "test-ff-target-branch"
 
 	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", "-f", branchName, "6d394385cf567f80a8fd85055db1ab4c5295806f")
-	defer exec.Command(config.Config.Git.BinPath, "-C", testRepoPath, "branch", "-d", branchName).Run()
 
 	testCases := []struct {
 		desc     string
@@ -553,7 +551,6 @@ func TestFailedUserFFBranchDueToHooks(t *testing.T) {
 	}
 
 	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", "-f", branchName, "6d394385cf567f80a8fd85055db1ab4c5295806f")
-	defer exec.Command(config.Config.Git.BinPath, "-C", testRepoPath, "branch", "-d", branchName).Run()
 
 	hookContent := []byte("#!/bin/sh\necho 'failure'\nexit 1")
 
