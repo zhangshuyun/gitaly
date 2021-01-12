@@ -1,0 +1,5 @@
+---
+title: Add information about whether tags were updated to the FetchRemote RPC
+merge_request: 2901
+author:
+type: added

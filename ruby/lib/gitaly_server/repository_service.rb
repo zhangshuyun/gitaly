@@ -43,7 +43,12 @@ module GitalyServer
 
       raise GRPC::Unknown.new("Fetching remote #{request.remote} failed: #{gitlab_projects.output}") unless success
 
-      Gitaly::FetchRemoteResponse.new
+      # This implementation is being replaced with a Go implementation, which
+      # correctly implements the tags_changed parameter. Pretending the tags
+      # have always changed here retains the semantics of this implementation,
+      # which will be removed once the rollout is complete:
+      # https://gitlab.com/gitlab-org/gitaly/-/issues/3307
+      Gitaly::FetchRemoteResponse.new(tags_changed: true)
     ensure
       repository&.remove_remote(remote_name)
     end

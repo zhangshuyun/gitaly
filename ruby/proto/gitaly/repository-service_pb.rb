@@ -68,8 +68,10 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       optional :known_hosts, :string, 7
       optional :no_prune, :bool, 9
       optional :remote_params, :message, 10, "gitaly.Remote"
+      optional :check_tags_changed, :bool, 11
     end
     add_message "gitaly.FetchRemoteResponse" do
+      optional :tags_changed, :bool, 1
     end
     add_message "gitaly.CreateRepositoryRequest" do
       optional :repository, :message, 1, "gitaly.Repository"

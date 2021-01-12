@@ -303,9 +303,18 @@ message FetchRemoteRequest {
   reserved 8;
   bool no_prune = 9;
   Remote remote_params = 10;
+  // If check_tags_changed is true, the FetchRemote RPC will check whether any
+  // tags were modified, returning the result in the tags_changed field of
+  // FetchRemoteResponse
+  bool check_tags_changed = 11;
 }
 
-message FetchRemoteResponse {}
+message FetchRemoteResponse {
+  // If check_tags_changed was set in the FetchRemoteRequest, the FetchRemote
+  // RPC will return false when no tags were changed, and true if tags were
+  // changed or answer cannot be determined.
+  bool tags_changed = 1;
+}
 
 message CreateRepositoryRequest {
   Repository repository = 1 [(target_repository)=true];

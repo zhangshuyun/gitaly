@@ -24,7 +24,7 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
-func copyRepoWithNewRemote(t *testing.T, repo *gitalypb.Repository, locator storage.Locator, remote string) *gitalypb.Repository {
+func copyRepoWithNewRemote(t *testing.T, repo *gitalypb.Repository, locator storage.Locator, remote string) (*gitalypb.Repository, string) {
 	repoPath, err := locator.GetRepoPath(repo)
 	require.NoError(t, err)
 
@@ -37,7 +37,7 @@ func copyRepoWithNewRemote(t *testing.T, repo *gitalypb.Repository, locator stor
 
 	testhelper.MustRunCommand(t, nil, "git", "-C", clonePath, "remote", "add", remote, repoPath)
 
-	return cloneRepo
+	return cloneRepo, clonePath
 }
 
 func TestFetchRemoteSuccess(t *testing.T) {
@@ -51,23 +51,36 @@ func TestFetchRemoteSuccess(t *testing.T) {
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.GoFetchRemote,
 	}).Run(t, func(t *testing.T, ctx context.Context) {
-		testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+		testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
 		defer cleanupFn()
 
-		cloneRepo := copyRepoWithNewRemote(t, testRepo, locator, "my-remote")
+		cloneRepo, cloneRepoPath := copyRepoWithNewRemote(t, testRepo, locator, "my-remote")
 		defer func() {
-			path, err := locator.GetRepoPath(cloneRepo)
-			require.NoError(t, err)
-			require.NoError(t, os.RemoveAll(path))
+			require.NoError(t, os.RemoveAll(cloneRepoPath))
 		}()
 
-		resp, err := client.FetchRemote(ctx, &gitalypb.FetchRemoteRequest{
-			Repository: cloneRepo,
-			Remote:     "my-remote",
-			Timeout:    120,
-		})
-		assert.NoError(t, err)
-		assert.NotNil(t, resp)
+		// Ensure there's a new tag to fetch
+		testhelper.CreateTag(t, testRepoPath, "testtag", "master", nil)
+
+		// On the first run, TagsChanged will be true for both implementations
+		req := &gitalypb.FetchRemoteRequest{Repository: cloneRepo, Remote: "my-remote", Timeout: 120, CheckTagsChanged: true}
+		resp, err := client.FetchRemote(ctx, req)
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		require.Equal(t, resp.TagsChanged, true)
+
+		// On the second run, TagsChanged will be false for the Go implementation only
+		resp, err = client.FetchRemote(ctx, req)
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		require.Equal(t, resp.TagsChanged, !isFeatureEnabled(ctx, featureflag.GoFetchRemote))
+
+		// Finally, ensure that it returns true if we're asked not to check
+		req.CheckTagsChanged = false
+		resp, err = client.FetchRemote(ctx, req)
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		require.Equal(t, resp.TagsChanged, true)
 	})
 }
 
