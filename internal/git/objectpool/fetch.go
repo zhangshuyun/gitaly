@@ -234,6 +234,7 @@ func (o *ObjectPool) logStats(ctx context.Context, when string) error {
 	}
 
 	danglingRefsByType := make(map[string]int)
+	normalRefsByType := make(map[string]int)
 
 	scanner := bufio.NewScanner(forEachRef)
 	for scanner.Scan() {
@@ -247,6 +248,8 @@ func (o *ObjectPool) logStats(ctx context.Context, when string) error {
 
 		if strings.HasPrefix(refname, danglingObjectNamespace) {
 			danglingRefsByType[objectType]++
+		} else {
+			normalRefsByType[objectType]++
 		}
 	}
 
@@ -259,6 +262,7 @@ func (o *ObjectPool) logStats(ctx context.Context, when string) error {
 
 	for _, key := range []string{"blob", "commit", "tag", "tree"} {
 		fields["dangling."+key+".ref"] = danglingRefsByType[key]
+		fields["normal."+key+".ref"] = normalRefsByType[key]
 	}
 
 	ctxlogrus.Extract(ctx).WithFields(fields).Info("pool dangling ref stats")
