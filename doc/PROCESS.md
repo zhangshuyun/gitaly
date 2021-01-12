@@ -185,6 +185,27 @@ Nobody's better off if you wait 10 hours at 1% to get error data you
 could have waited 1 hour at 10% to get, or just over 10 minutes with
 close monitoring at 50%.
 
+#### Feature lifecycle after it is live
+
+##### Discussion
+
+After a feature is running at `100%` for what ever's deemed to be a
+safe amount of time we should change it to be `OnByDefault: true`. See
+[this MR for an example][example-on-by-default-mr].
+
+[example-on-by-default-mr]: https://gitlab.com/gitlab-org/gitaly/-/merge_requests/2994
+
+##### Two phase Ruby to Go rollouts
+
+Depending on what the feature does it may be bad to remove the `else`
+branch where we have the feature disabled at this point. E.g. if it's
+a rewrite of Ruby code in Go.
+
+As we deploy the Ruby code might be in the middle of auto-restarting,
+so we could remove its code before the Go code has a chance to update
+with its default, and would still want to call it. So therefore you
+need to do any such removal in two gitlab.com release cycles.
+
 ### Gitaly Releases
 
 Gitaly releases are tagged automatically by
