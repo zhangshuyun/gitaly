@@ -63,6 +63,12 @@ you'll likely need to file some access requests.
 
 #### Is the required code deployed?
 
+A quick way to see if your MR is deployed is to check if [the release
+bot][release-bot] has deployed it to staging, canary or production by
+checking if the MR has [a `workflow::staging`][deployed-staging],
+[`workflow::canary`][deployed-canary] or
+[`workflow::production`][deployed-production] label.
+
 The [/help action on gitlab.com][help-action] shows the currently
 deployed hash. Copy that `HASH` and look at `GITALY_SERVER_VERSION` in
 [gitlab-org/gitlab.git][gitlab-git] to see what the embedded gitaly
@@ -75,6 +81,10 @@ what commits aren't deployed yet:
 See the [documentation on releases below](#gitaly-releases) for more
 details on the tagging and release process.
 
+[release-bot]: https://gitlab.com/gitlab-release-tools-bot
+[deployed-staging]: https://gitlab.com/gitlab-org/gitaly/-/merge_requests?state=merged&label_name=workflow%3A%3Aproduction
+[deployed-canary]: https://gitlab.com/gitlab-org/gitaly/-/merge_requests?state=merged&label_name=workflow%3A%3Aproduction
+[deployed-production]: https://gitlab.com/gitlab-org/gitaly/-/merge_requests?state=merged&label_name=workflow%3A%3Aproduction
 [help-action]: https://gitlab.com/help
 [gitlab-git]: https://gitlab.com/gitlab-org/gitlab/
 [gitaly-git]: https://gitlab.com/gitlab-org/gitaly/
