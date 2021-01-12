@@ -24,7 +24,7 @@ var (
 	// GoUserCreateBranch enables the Go implementation of UserCreateBranch
 	GoUserCreateBranch = FeatureFlag{Name: "go_user_create_branch", OnByDefault: false}
 	// GoUserDeleteBranch enables the Go implementation of UserDeleteBranch
-	GoUserDeleteBranch = FeatureFlag{Name: "go_user_delete_branch", OnByDefault: false}
+	GoUserDeleteBranch = FeatureFlag{Name: "go_user_delete_branch", OnByDefault: true}
 	// GoUserSquash enables the Go implementation of UserSquash
 	GoUserSquash = FeatureFlag{Name: "go_user_squash", OnByDefault: true}
 	// GoUserCommitFiles enables the Go implementation of UserCommitFiles
@@ -37,7 +37,7 @@ var (
 	// GoFetchRemote enables the Go implementation of FetchRemote
 	GoFetchRemote = FeatureFlag{Name: "go_fetch_remote", OnByDefault: true}
 	// GoUserDeleteTag enables the Go implementation of UserDeleteTag
-	GoUserDeleteTag = FeatureFlag{Name: "go_user_delete_tag", OnByDefault: false}
+	GoUserDeleteTag = FeatureFlag{Name: "go_user_delete_tag", OnByDefault: true}
 	// GoUserCreateTag enables the Go implementation of UserCreateTag
 	GoUserCreateTag = FeatureFlag{Name: "go_user_create_tag", OnByDefault: false}
 	// GoUserRevert enables the Go implementation of UserRevert
