@@ -85,7 +85,7 @@ func (s *server) FetchSourceBranch(ctx context.Context, req *gitalypb.FetchSourc
 			git.SubCmd{
 				Name:  "fetch",
 				Args:  []string{gitalyssh.GitalyInternalURL, sourceOid},
-				Flags: []git.Option{git.Flag{Name: "--no-tags"}},
+				Flags: []git.Option{git.Flag{Name: "--no-tags"}, git.Flag{Name: "--quiet"}},
 			},
 			git.WithEnv(env...),
 			git.WithRefTxHook(ctx, req.Repository, s.cfg),
