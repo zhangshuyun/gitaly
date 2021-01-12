@@ -35,7 +35,7 @@ func (r ReferenceName) Revision() Revision {
 // Reference represents a Git reference.
 type Reference struct {
 	// Name is the name of the reference
-	Name string
+	Name ReferenceName
 	// Target is the target of the reference. For direct references it
 	// contains the object ID, for symbolic references it contains the
 	// target branch name.
@@ -45,7 +45,7 @@ type Reference struct {
 }
 
 // NewReference creates a direct reference to an object.
-func NewReference(name, target string) Reference {
+func NewReference(name ReferenceName, target string) Reference {
 	return Reference{
 		Name:       name,
 		Target:     target,
@@ -54,7 +54,7 @@ func NewReference(name, target string) Reference {
 }
 
 // NewSymbolicReference creates a symbolic reference to another reference.
-func NewSymbolicReference(name, target string) Reference {
+func NewSymbolicReference(name ReferenceName, target string) Reference {
 	return Reference{
 		Name:       name,
 		Target:     target,

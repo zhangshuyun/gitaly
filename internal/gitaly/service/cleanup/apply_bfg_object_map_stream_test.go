@@ -76,7 +76,7 @@ func TestApplyBfgObjectMapStreamSuccess(t *testing.T) {
 
 	refNames := make([]string, len(refs))
 	for i, branch := range refs {
-		refNames[i] = branch.Name
+		refNames[i] = branch.Name.String()
 	}
 
 	assert.NotContains(t, refNames, "refs/environments/1")

@@ -385,9 +385,9 @@ func (repo *LocalRepository) getReferences(ctx context.Context, pattern string, 
 		}
 
 		if len(line[2]) == 0 {
-			refs = append(refs, NewReference(string(line[0]), string(line[1])))
+			refs = append(refs, NewReference(ReferenceName(line[0]), string(line[1])))
 		} else {
-			refs = append(refs, NewSymbolicReference(string(line[0]), string(line[1])))
+			refs = append(refs, NewSymbolicReference(ReferenceName(line[0]), string(line[1])))
 		}
 	}
 

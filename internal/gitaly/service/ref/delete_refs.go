@@ -66,11 +66,11 @@ func refsToRemove(ctx context.Context, req *gitalypb.DeleteRefsRequest) ([]strin
 
 	var refs []string
 	for _, existingRef := range existingRefs {
-		if hasAnyPrefix(existingRef.Name, prefixes) {
+		if hasAnyPrefix(existingRef.Name.String(), prefixes) {
 			continue
 		}
 
-		refs = append(refs, existingRef.Name)
+		refs = append(refs, existingRef.Name.String())
 	}
 
 	return refs, nil
