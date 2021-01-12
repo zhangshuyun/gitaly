@@ -14,7 +14,11 @@ import (
 )
 
 const (
-	GlRepository  = "project-1"
+	// GlRepository is the default repository name for newly created test
+	// repos.
+	GlRepository = "project-1"
+	// GlProjectPath is the default project path for newly created test
+	// repos.
 	GlProjectPath = "gitlab-org/gitlab-test"
 )
 

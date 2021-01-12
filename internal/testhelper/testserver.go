@@ -910,6 +910,8 @@ type HTTPSettings struct {
 	Password string `yaml:"password"`
 }
 
+// NewServerWithHealth creates a new GRPC server with the health server set up.
+// It will listen on the socket identified by `socketName`.
 func NewServerWithHealth(t testing.TB, socketName string) (*grpc.Server, *health.Server) {
 	lis, err := net.Listen("unix", socketName)
 	require.NoError(t, err)
@@ -917,6 +919,8 @@ func NewServerWithHealth(t testing.TB, socketName string) (*grpc.Server, *health
 	return NewHealthServerWithListener(t, lis)
 }
 
+// NewHealthServerWithListener creates a new GRPC server with the health server
+// set up. It will listen on the given listener.
 func NewHealthServerWithListener(t testing.TB, listener net.Listener) (*grpc.Server, *health.Server) {
 	srv := NewTestGrpcServer(t, nil, nil)
 	healthSrvr := health.NewServer()

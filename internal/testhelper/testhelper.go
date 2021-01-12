@@ -37,12 +37,18 @@ import (
 )
 
 const (
+	// RepositoryAuthToken is the default token used to authenticate
+	// against other Gitaly servers. It is inject as part of the
+	// GitalyServers metadata.
 	RepositoryAuthToken = "the-secret-token"
-	DefaultStorageName  = "default"
-	GlID                = "user-123"
+	// DefaultStorageName is the default name of the Gitaly storage.
+	DefaultStorageName = "default"
+	// GlID is the ID of the default user.
+	GlID = "user-123"
 )
 
 var (
+	// TestUser is the default user for tests.
 	TestUser = &gitalypb.User{
 		Name:       []byte("Jane Doe"),
 		Email:      []byte("janedoe@gitlab.com"),
@@ -467,6 +473,7 @@ func GenerateTestCerts(t *testing.T) (string, string, Cleanup) {
 	return certFile.Name(), keyFile.Name(), cleanup
 }
 
+// DefaultLocator returns a locater for the default storage.
 func DefaultLocator() storage.Locator {
-	return config.NewLocator(config.Cfg{Storages: []config.Storage{{Name: "default", Path: GitlabTestStoragePath()}}})
+	return config.NewLocator(config.Cfg{Storages: []config.Storage{{Name: DefaultStorageName, Path: GitlabTestStoragePath()}}})
 }
