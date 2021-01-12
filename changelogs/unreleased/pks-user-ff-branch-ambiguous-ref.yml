@@ -1,0 +1,5 @@
+---
+title: 'operations: Fix UserFFBranch if called on an ambiguous reference'
+merge_request: 2992
+author:
+type: fixed

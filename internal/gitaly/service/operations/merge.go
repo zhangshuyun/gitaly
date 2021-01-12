@@ -205,7 +205,8 @@ func (s *Server) UserFFBranch(ctx context.Context, in *gitalypb.UserFFBranchRequ
 		return s.userFFBranchRuby(ctx, in)
 	}
 
-	revision, err := git.NewRepository(in.Repository).ResolveRefish(ctx, string(in.Branch))
+	branch := fmt.Sprintf("refs/heads/%s", in.Branch)
+	revision, err := git.NewRepository(in.Repository).ResolveRefish(ctx, branch)
 	if err != nil {
 		return nil, helper.ErrInvalidArgument(err)
 	}
@@ -218,7 +219,6 @@ func (s *Server) UserFFBranch(ctx context.Context, in *gitalypb.UserFFBranchRequ
 		return nil, helper.ErrPreconditionFailedf("not fast forward")
 	}
 
-	branch := fmt.Sprintf("refs/heads/%s", in.Branch)
 	if err := s.updateReferenceWithHooks(ctx, in.Repository, in.User, branch, in.CommitId, revision); err != nil {
 		var preReceiveError preReceiveError
 		if errors.As(err, &preReceiveError) {
