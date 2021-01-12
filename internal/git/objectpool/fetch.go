@@ -226,17 +226,28 @@ func (o *ObjectPool) logStats(ctx context.Context, when string) error {
 
 	forEachRef, err := git.NewCommand(ctx, o, nil, git.SubCmd{
 		Name:  "for-each-ref",
-		Flags: []git.Option{git.Flag{Name: "--format=%(objecttype)"}},
-		Args:  []string{danglingObjectNamespace},
+		Flags: []git.Option{git.Flag{Name: "--format=%(objecttype)%00%(refname)"}},
+		Args:  []string{"refs/"},
 	})
 	if err != nil {
 		return err
 	}
 
-	counts := make(map[string]int)
+	danglingRefsByType := make(map[string]int)
+
 	scanner := bufio.NewScanner(forEachRef)
 	for scanner.Scan() {
-		counts[scanner.Text()]++
+		line := bytes.SplitN(scanner.Bytes(), []byte{0}, 2)
+		if len(line) != 2 {
+			continue
+		}
+
+		objectType := string(line[0])
+		refname := string(line[1])
+
+		if strings.HasPrefix(refname, danglingObjectNamespace) {
+			danglingRefsByType[objectType]++
+		}
 	}
 
 	if err := scanner.Err(); err != nil {
@@ -247,7 +258,7 @@ func (o *ObjectPool) logStats(ctx context.Context, when string) error {
 	}
 
 	for _, key := range []string{"blob", "commit", "tag", "tree"} {
-		fields["dangling."+key+".ref"] = counts[key]
+		fields["dangling."+key+".ref"] = danglingRefsByType[key]
 	}
 
 	ctxlogrus.Extract(ctx).WithFields(fields).Info("pool dangling ref stats")
