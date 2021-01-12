@@ -405,19 +405,6 @@ func (repo *LocalRepository) getReferences(ctx context.Context, pattern string, 
 	return refs, nil
 }
 
-// GetBranch looks up and returns the given branch. Returns a
-// ErrReferenceNotFound if it wasn't found.
-func (repo *LocalRepository) GetBranch(ctx context.Context, branch string) (Reference, error) {
-	if strings.HasPrefix(branch, "refs/heads/") {
-		return repo.GetReference(ctx, ReferenceName(branch))
-	}
-
-	if strings.HasPrefix(branch, "heads/") {
-		branch = strings.TrimPrefix(branch, "heads/")
-	}
-	return repo.GetReference(ctx, ReferenceName("refs/heads/"+branch))
-}
-
 // GetBranches returns all branches.
 func (repo *LocalRepository) GetBranches(ctx context.Context) ([]Reference, error) {
 	return repo.GetReferences(ctx, "refs/heads/")

@@ -121,55 +121,6 @@ func TestLocalRepository_GetReference(t *testing.T) {
 	}
 }
 
-func TestLocalRepository_GetBranch(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-
-	testRepo, _, cleanup := testhelper.NewTestRepo(t)
-	defer cleanup()
-
-	repo := NewRepository(testRepo)
-
-	testcases := []struct {
-		desc     string
-		ref      string
-		expected Reference
-	}{
-		{
-			desc:     "fully qualified master branch",
-			ref:      "refs/heads/master",
-			expected: NewReference("refs/heads/master", MasterID),
-		},
-		{
-			desc:     "half-qualified master branch",
-			ref:      "heads/master",
-			expected: NewReference("refs/heads/master", MasterID),
-		},
-		{
-			desc:     "fully qualified master branch",
-			ref:      "master",
-			expected: NewReference("refs/heads/master", MasterID),
-		},
-		{
-			desc:     "nonexistent branch",
-			ref:      "nonexistent",
-			expected: Reference{},
-		},
-	}
-
-	for _, tc := range testcases {
-		t.Run(tc.desc, func(t *testing.T) {
-			ref, err := repo.GetBranch(ctx, tc.ref)
-			if tc.expected.Name == "" {
-				require.True(t, errors.Is(err, ErrReferenceNotFound))
-			} else {
-				require.NoError(t, err)
-				require.Equal(t, tc.expected, ref)
-			}
-		})
-	}
-}
-
 func TestLocalRepository_GetReferences(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()

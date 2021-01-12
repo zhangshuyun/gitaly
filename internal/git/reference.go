@@ -3,6 +3,7 @@ package git
 import (
 	"bytes"
 	"context"
+	"strings"
 )
 
 // Revision represents anything that resolves to either a commit, multiple
@@ -21,6 +22,21 @@ func (r Revision) String() string {
 // Revision does and must always contain a fully qualified reference.
 type ReferenceName string
 
+// NewBranchReferenceName returns a new ReferenceName for the given branch. The
+// branch may either be a fully qualified branch name ("refs/heads/master") or
+// an unqualified name ("master"). In the latter case, the returned
+// ReferenceName will still be a fully qualified reference by prepending
+// "refs/heads".
+func NewBranchReferenceName(branch string) ReferenceName {
+	if strings.HasPrefix(branch, "refs/heads/") {
+		return ReferenceName(branch)
+	}
+	if strings.HasPrefix(branch, "heads/") {
+		return ReferenceName("refs/" + branch)
+	}
+	return ReferenceName("refs/heads/" + branch)
+}
+
 // String returns the string representation of the ReferenceName.
 func (r ReferenceName) String() string {
 	return string(r)
@@ -30,6 +46,16 @@ func (r ReferenceName) String() string {
 // reference is always also a revision.
 func (r ReferenceName) Revision() Revision {
 	return Revision(r)
+}
+
+// Branch returns `true` and the branch name if the reference is a branch. E.g.
+// if ReferenceName is "refs/heads/master", it will return "master". If it is
+// not a branch, `false` is returned.
+func (r ReferenceName) Branch() (string, bool) {
+	if strings.HasPrefix(r.String(), "refs/heads/") {
+		return r.String()[len("refs/heads/"):], true
+	}
+	return "", false
 }
 
 // Reference represents a Git reference.
