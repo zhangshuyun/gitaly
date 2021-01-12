@@ -33,7 +33,7 @@ func (s *server) DeleteRefs(ctx context.Context, in *gitalypb.DeleteRefsRequest)
 	}
 
 	for _, ref := range refnames {
-		if err := updater.Delete(ref.String()); err != nil {
+		if err := updater.Delete(ref); err != nil {
 			return &gitalypb.DeleteRefsResponse{GitError: err.Error()}, nil
 		}
 	}

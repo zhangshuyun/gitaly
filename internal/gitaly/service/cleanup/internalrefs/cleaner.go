@@ -117,7 +117,7 @@ func (c *Cleaner) processEntry(ctx context.Context, oldSHA, newSHA string) error
 
 	// Remove the internal refs pointing to oldSHA
 	for _, ref := range refs {
-		if err := c.updater.Delete(ref.String()); err != nil {
+		if err := c.updater.Delete(ref); err != nil {
 			return err
 		}
 	}

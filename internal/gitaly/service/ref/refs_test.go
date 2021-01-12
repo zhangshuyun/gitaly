@@ -13,6 +13,7 @@ import (
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/git/updateref"
@@ -97,7 +98,7 @@ func TestFindAllBranchNamesVeryLargeResponse(t *testing.T) {
 		refName := fmt.Sprintf("refs/heads/test-%0100d", i)
 		require.True(t, len(refName) > refSizeLowerBound, "ref %q must be larger than %d", refName, refSizeLowerBound)
 
-		require.NoError(t, updater.Create(refName, "HEAD"))
+		require.NoError(t, updater.Create(git.ReferenceName(refName), "HEAD"))
 		testRefs = append(testRefs, refName)
 	}
 

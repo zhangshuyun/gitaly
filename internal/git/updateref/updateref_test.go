@@ -52,7 +52,7 @@ func TestCreate(t *testing.T) {
 	ref := "refs/heads/_create"
 	sha := headCommit.Id
 
-	require.NoError(t, updater.Create(ref, sha))
+	require.NoError(t, updater.Create(git.ReferenceName(ref), sha))
 	require.NoError(t, updater.Wait())
 
 	// check the ref was created
@@ -80,7 +80,7 @@ func TestUpdate(t *testing.T) {
 	require.NoError(t, logErr)
 	require.NotEqual(t, commit.Id, sha, "%s points to HEAD: %s in the test repository", ref, sha)
 
-	require.NoError(t, updater.Update(ref, sha, ""))
+	require.NoError(t, updater.Update(git.ReferenceName(ref), sha, ""))
 	require.NoError(t, updater.Wait())
 
 	// check the ref was updated
@@ -91,7 +91,7 @@ func TestUpdate(t *testing.T) {
 	// since ref has been updated to HEAD, we know that it does not point to HEAD^. So, HEAD^ is an invalid "old value" for updating ref
 	parentCommit, err := log.GetCommit(ctx, locator, testRepo, "HEAD^")
 	require.NoError(t, err)
-	require.Error(t, updater.Update(ref, parentCommit.Id, parentCommit.Id))
+	require.Error(t, updater.Update(git.ReferenceName(ref), parentCommit.Id, parentCommit.Id))
 
 	// check the ref was not updated
 	commit, logErr = log.GetCommit(ctx, locator, testRepo, ref)
@@ -108,7 +108,7 @@ func TestDelete(t *testing.T) {
 
 	ref := "refs/heads/feature"
 
-	require.NoError(t, updater.Delete(ref))
+	require.NoError(t, updater.Delete(git.ReferenceName(ref)))
 	require.NoError(t, updater.Wait())
 
 	locator := config.NewLocator(config.Config)
@@ -132,7 +132,7 @@ func TestBulkOperation(t *testing.T) {
 
 	for i := 0; i < 1000; i++ {
 		ref := fmt.Sprintf("refs/head/_test_%d", i)
-		require.NoError(t, updater.Create(ref, headCommit.Id), "Failed to create ref %d", i)
+		require.NoError(t, updater.Create(git.ReferenceName(ref), headCommit.Id), "Failed to create ref %d", i)
 	}
 
 	require.NoError(t, updater.Wait())
@@ -157,7 +157,7 @@ func TestContextCancelAbortsRefChanges(t *testing.T) {
 
 	ref := "refs/heads/_shouldnotexist"
 
-	require.NoError(t, updater.Create(ref, headCommit.Id))
+	require.NoError(t, updater.Create(git.ReferenceName(ref), headCommit.Id))
 
 	// Force the update-ref process to terminate early
 	childCancel()
@@ -184,7 +184,7 @@ func TestUpdater_closingStdinAbortsChanges(t *testing.T) {
 
 	updater, err := New(ctx, testRepo)
 	require.NoError(t, err)
-	require.NoError(t, updater.Create(ref, headCommit.Id))
+	require.NoError(t, updater.Create(git.ReferenceName(ref), headCommit.Id))
 
 	// Note that we call `Wait()` on the command, not on the updater. This
 	// circumvents our usual semantics of sending "commit" and thus

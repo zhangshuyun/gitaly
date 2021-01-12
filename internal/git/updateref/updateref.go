@@ -73,21 +73,21 @@ func New(ctx context.Context, repo repository.GitRepo, opts ...UpdaterOpt) (*Upd
 }
 
 // Create commands the reference to be created with the sha specified in value
-func (u *Updater) Create(ref, value string) error {
-	_, err := fmt.Fprintf(u.cmd, "create %s\x00%s\x00", ref, value)
+func (u *Updater) Create(reference git.ReferenceName, value string) error {
+	_, err := fmt.Fprintf(u.cmd, "create %s\x00%s\x00", reference.String(), value)
 	return err
 }
 
 // Update commands the reference to be updated to point at the sha specified in
 // newvalue
-func (u *Updater) Update(ref, newvalue, oldvalue string) error {
-	_, err := fmt.Fprintf(u.cmd, "update %s\x00%s\x00%s\x00", ref, newvalue, oldvalue)
+func (u *Updater) Update(reference git.ReferenceName, newvalue, oldvalue string) error {
+	_, err := fmt.Fprintf(u.cmd, "update %s\x00%s\x00%s\x00", reference.String(), newvalue, oldvalue)
 	return err
 }
 
 // Delete commands the reference to be removed from the repository
-func (u *Updater) Delete(ref string) error {
-	_, err := fmt.Fprintf(u.cmd, "delete %s\x00\x00", ref)
+func (u *Updater) Delete(reference git.ReferenceName) error {
+	_, err := fmt.Fprintf(u.cmd, "delete %s\x00\x00", reference.String())
 	return err
 }
 

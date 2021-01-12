@@ -51,7 +51,7 @@ func updateRef(ctx context.Context, req *gitalypb.WriteRefRequest) error {
 	if err != nil {
 		return fmt.Errorf("error when running creating new updater: %v", err)
 	}
-	if err = u.Update(string(req.GetRef()), string(req.GetRevision()), string(req.GetOldRevision())); err != nil {
+	if err = u.Update(git.ReferenceName(req.GetRef()), string(req.GetRevision()), string(req.GetOldRevision())); err != nil {
 		return fmt.Errorf("error when creating update-ref command: %v", err)
 	}
 	if err = u.Wait(); err != nil {
