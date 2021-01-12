@@ -284,7 +284,7 @@ func testUserMergeBranchAmbiguousReference(t *testing.T, ctx context.Context) {
 		"refs/tags/heads/" + mergeBranchName,
 		"refs/tags/refs/heads/" + mergeBranchName,
 	} {
-		require.NoError(t, repo.UpdateRef(ctx, reference, master.Target, git.NullSHA))
+		require.NoError(t, repo.UpdateRef(ctx, git.ReferenceName(reference), master.Target, git.NullSHA))
 	}
 
 	mergeCommitMessage := "Merged by Gitaly"

@@ -211,7 +211,7 @@ func (s *server) resolveConflicts(header *gitalypb.ResolveConflictsRequestHeader
 
 	if err := git.NewRepository(header.GetRepository()).UpdateRef(
 		stream.Context(),
-		"refs/heads/"+string(header.GetSourceBranch()),
+		git.ReferenceName("refs/heads/"+string(header.GetSourceBranch())),
 		result.CommitID,
 		"",
 	); err != nil {

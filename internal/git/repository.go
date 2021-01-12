@@ -424,7 +424,7 @@ func (repo *LocalRepository) GetBranches(ctx context.Context) ([]Reference, erro
 // currently at that revision. If newrev is the zero OID, the reference
 // will be deleted. If oldrev is the zero OID, the reference will
 // created.
-func (repo *LocalRepository) UpdateRef(ctx context.Context, reference, newrev, oldrev string) error {
+func (repo *LocalRepository) UpdateRef(ctx context.Context, reference ReferenceName, newrev, oldrev string) error {
 	cmd, err := repo.command(ctx, nil,
 		SubCmd{
 			Name:  "update-ref",

@@ -305,7 +305,7 @@ func (s *Server) userMergeToRef(ctx context.Context, request *gitalypb.UserMerge
 	}
 
 	// First, overwrite the reference with the target reference.
-	if err := repo.UpdateRef(ctx, string(request.TargetRef), ref, ""); err != nil {
+	if err := repo.UpdateRef(ctx, git.ReferenceName(request.TargetRef), ref, ""); err != nil {
 		return nil, updateRefError{reference: string(request.TargetRef)}
 	}
 
@@ -328,7 +328,7 @@ func (s *Server) userMergeToRef(ctx context.Context, request *gitalypb.UserMerge
 
 	// ... and move branch from target ref to the merge commit. The Ruby
 	// implementation doesn't invoke hooks, so we don't either.
-	if err := repo.UpdateRef(ctx, string(request.TargetRef), merge.CommitID, ref); err != nil {
+	if err := repo.UpdateRef(ctx, git.ReferenceName(request.TargetRef), merge.CommitID, ref); err != nil {
 		//nolint:stylecheck
 		return nil, helper.ErrPreconditionFailed(fmt.Errorf("Could not update %s. Please refresh and try again", string(request.TargetRef)))
 	}

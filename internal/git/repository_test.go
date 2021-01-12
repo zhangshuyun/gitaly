@@ -551,7 +551,7 @@ func TestLocalRepository_UpdateRef(t *testing.T) {
 			defer cleanup()
 
 			repo := NewRepository(testRepo)
-			err := repo.UpdateRef(ctx, tc.ref, tc.newrev, tc.oldrev)
+			err := repo.UpdateRef(ctx, ReferenceName(tc.ref), tc.newrev, tc.oldrev)
 
 			tc.verify(t, repo, err)
 		})
