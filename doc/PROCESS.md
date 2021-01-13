@@ -129,7 +129,15 @@ As of December 2020 clicking "Sign in" on
 https://about.staging.gitlab.com will redirect to https://gitlab.com,
 so make sure to use the `/users` link.
 
+As of writing signing in at [that link][staging-users-link] will land
+you on the `/users` 404 page once you're logged in. You should then
+typically manually modify the URL
+`https://staging.gitlab.com/YOURUSER`
+(e.g. https://staging.gitlab.com/avar) or another way to get at a test
+repository, and manually test from there.
+
 [staging-access-request]: https://gitlab.com/gitlab-com/team-member-epics/access-requests/-/issues/new?issuable_template=Individual_Bulk_Access_Request
+[staging-users-link]: https://staging.gitlab.com/users
 
 ##### Steps
 
