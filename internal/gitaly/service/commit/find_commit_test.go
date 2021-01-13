@@ -49,6 +49,7 @@ func TestSuccessfulFindCommitRequest(t *testing.T) {
 	testCases := []struct {
 		description string
 		revision    string
+		trailers    bool
 		commit      *gitalypb.GitCommit
 	}{
 		{
@@ -57,8 +58,35 @@ func TestSuccessfulFindCommitRequest(t *testing.T) {
 			commit:      testhelper.GitLabTestCommit("498214de67004b1da3d820901307bed2a68a8ef6"),
 		},
 		{
-			description: "With a tag name",
+			description: "With a tag name no trailers",
 			revision:    "v1.0.0",
+			trailers:    false,
+			commit: &gitalypb.GitCommit{
+				Id:      "6f6d7e7ed97bb5f0054f2b1df789b39ca89b6ff9",
+				Subject: []byte("More submodules"),
+				Body:    []byte("More submodules\n\nSigned-off-by: Dmitriy Zaporozhets <dmitriy.zaporozhets@gmail.com>\n"),
+				Author: &gitalypb.CommitAuthor{
+					Name:     []byte("Dmitriy Zaporozhets"),
+					Email:    []byte("dmitriy.zaporozhets@gmail.com"),
+					Date:     &timestamp.Timestamp{Seconds: 1393491261},
+					Timezone: []byte("+0200"),
+				},
+				Committer: &gitalypb.CommitAuthor{
+					Name:     []byte("Dmitriy Zaporozhets"),
+					Email:    []byte("dmitriy.zaporozhets@gmail.com"),
+					Date:     &timestamp.Timestamp{Seconds: 1393491261},
+					Timezone: []byte("+0200"),
+				},
+				ParentIds:     []string{"d14d6c0abdd253381df51a723d58691b2ee1ab08"},
+				BodySize:      84,
+				SignatureType: gitalypb.SignatureType_PGP,
+				TreeId:        "70d69cce111b0e1f54f7e5438bbbba9511a8e23c",
+			},
+		},
+		{
+			description: "With a tag name and trailers",
+			revision:    "v1.0.0",
+			trailers:    true,
 			commit: &gitalypb.GitCommit{
 				Id:      "6f6d7e7ed97bb5f0054f2b1df789b39ca89b6ff9",
 				Subject: []byte("More submodules"),
@@ -100,6 +128,7 @@ func TestSuccessfulFindCommitRequest(t *testing.T) {
 		{
 			description: "More submodules",
 			revision:    "6f6d7e7ed97bb5f0054f2b1df789b39ca89b6ff9",
+			trailers:    true,
 			commit: &gitalypb.GitCommit{
 				Id:      "6f6d7e7ed97bb5f0054f2b1df789b39ca89b6ff9",
 				Subject: []byte("More submodules"),
@@ -223,6 +252,7 @@ func TestSuccessfulFindCommitRequest(t *testing.T) {
 			request := &gitalypb.FindCommitRequest{
 				Repository: testRepo,
 				Revision:   []byte(testCase.revision),
+				Trailers:   testCase.trailers,
 			}
 
 			ctx, cancel := testhelper.Context()

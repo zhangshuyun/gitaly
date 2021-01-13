@@ -261,6 +261,7 @@ message ListFilesResponse {
 message FindCommitRequest {
   Repository repository = 1 [(target_repository)=true];
   bytes revision = 2;
+  bool trailers = 3;
 }
 
 message FindCommitResponse {
@@ -333,6 +334,7 @@ message FindCommitsRequest {
   }
   Order order = 14;
   GlobalOptions global_options = 15;
+  bool trailers = 16;
 }
 
 // A single 'page' of the result set
