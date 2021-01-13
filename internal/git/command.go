@@ -34,8 +34,8 @@ func (cf *CommandFactory) gitPath() string {
 	return cf.cfg.Git.BinPath
 }
 
-// unsafeCmdWithEnv creates a git.unsafeCmd with the given args, environment, and Repository
-func (cf *CommandFactory) unsafeCmdWithEnv(ctx context.Context, extraEnv []string, stream cmdStream, repo repository.GitRepo, args ...string) (*command.Command, error) {
+// unsafeCmd creates a git.unsafeCmd with the given args, environment, and Repository
+func (cf *CommandFactory) unsafeCmd(ctx context.Context, extraEnv []string, stream cmdStream, repo repository.GitRepo, args ...string) (*command.Command, error) {
 	args, env, err := cf.argsAndEnv(repo, args...)
 	if err != nil {
 		return nil, err

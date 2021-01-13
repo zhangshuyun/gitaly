@@ -35,12 +35,6 @@ func TestWithRefHook(t *testing.T) {
 			},
 		},
 		{
-			name: "SafeCmdWithEnv",
-			fn: func() (*command.Command, error) {
-				return SafeCmdWithEnv(ctx, nil, testRepo, nil, subCmd, opt)
-			},
-		},
-		{
 			name: "SafeStdinCmd",
 			fn: func() (*command.Command, error) {
 				return SafeStdinCmd(ctx, testRepo, nil, subCmd, opt)

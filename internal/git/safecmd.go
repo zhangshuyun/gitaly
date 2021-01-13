@@ -355,12 +355,6 @@ func handleOpts(ctx context.Context, sc Cmd, cc *cmdCfg, opts []CmdOpt) error {
 // SafeCmd creates a command.Command with the given args and Repository. It
 // validates the arguments in the command before executing.
 func SafeCmd(ctx context.Context, repo repository.GitRepo, globals []GlobalOption, sc Cmd, opts ...CmdOpt) (*command.Command, error) {
-	return SafeCmdWithEnv(ctx, nil, repo, globals, sc, opts...)
-}
-
-// SafeCmdWithEnv creates a command.Command with the given args, environment, and Repository. It
-// validates the arguments in the command before executing.
-func SafeCmdWithEnv(ctx context.Context, env []string, repo repository.GitRepo, globals []GlobalOption, sc Cmd, opts ...CmdOpt) (*command.Command, error) {
 	cc := &cmdCfg{}
 
 	if err := handleOpts(ctx, sc, cc, opts); err != nil {
@@ -372,7 +366,7 @@ func SafeCmdWithEnv(ctx context.Context, env []string, repo repository.GitRepo, 
 		return nil, err
 	}
 
-	return NewCommandFactory().unsafeCmdWithEnv(ctx, append(env, cc.env...), cmdStream{
+	return NewCommandFactory().unsafeCmd(ctx, cc.env, cmdStream{
 		In:  cc.stdin,
 		Out: cc.stdout,
 		Err: cc.stderr,
