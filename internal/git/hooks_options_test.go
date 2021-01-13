@@ -34,12 +34,6 @@ func TestWithRefHook(t *testing.T) {
 				return SafeCmd(ctx, testRepo, nil, subCmd, opt)
 			},
 		},
-		{
-			name: "SafeStdinCmd",
-			fn: func() (*command.Command, error) {
-				return SafeStdinCmd(ctx, testRepo, nil, subCmd, opt)
-			},
-		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			cmd, err := tt.fn()

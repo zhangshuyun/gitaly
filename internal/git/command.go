@@ -46,19 +46,6 @@ func (cf *CommandFactory) unsafeCmd(ctx context.Context, extraEnv []string, stre
 	return cf.unsafeBareCmd(ctx, stream, env, args...)
 }
 
-// unsafeStdinCmd creates a git.Command with the given args and Repository that is
-// suitable for Write()ing to
-func (cf *CommandFactory) unsafeStdinCmd(ctx context.Context, extraEnv []string, repo repository.GitRepo, args ...string) (*command.Command, error) {
-	args, env, err := cf.argsAndEnv(repo, args...)
-	if err != nil {
-		return nil, err
-	}
-
-	env = append(env, extraEnv...)
-
-	return cf.unsafeBareCmd(ctx, cmdStream{In: command.SetupStdin}, env, args...)
-}
-
 func (cf *CommandFactory) argsAndEnv(repo repository.GitRepo, args ...string) ([]string, []string, error) {
 	repoPath, err := cf.locator.GetRepoPath(repo)
 	if err != nil {

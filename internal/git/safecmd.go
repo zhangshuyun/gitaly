@@ -419,24 +419,6 @@ func SafeBareCmdInDir(ctx context.Context, dir string, globals []GlobalOption, s
 	}, cc.env, args...)
 }
 
-// SafeStdinCmd creates a git.Command with the given args and Repository that is
-// suitable for Write()ing to. It validates the arguments in the command before
-// executing.
-func SafeStdinCmd(ctx context.Context, repo repository.GitRepo, globals []GlobalOption, sc Cmd, opts ...CmdOpt) (*command.Command, error) {
-	cc := &cmdCfg{}
-
-	if err := handleOpts(ctx, sc, cc, opts); err != nil {
-		return nil, err
-	}
-
-	args, err := combineArgs(globals, sc, cc)
-	if err != nil {
-		return nil, err
-	}
-
-	return NewCommandFactory().unsafeStdinCmd(ctx, cc.env, repo, args...)
-}
-
 func combineArgs(globals []GlobalOption, sc Cmd, cc *cmdCfg) (_ []string, err error) {
 	var args []string
 
