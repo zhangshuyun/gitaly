@@ -51,7 +51,6 @@ If applicable, any groups/projects that are happy to have this feature turned on
 - [ ] Is the required code deployed? ([howto](https://gitlab.com/gitlab-org/gitaly/-/blob/master/doc/PROCESS.md#is-the-required-code-deployed))
 - [ ] Enable on staging ([howto](https://gitlab.com/gitlab-org/gitaly/-/blob/master/doc/PROCESS.md#enable-on-staging))
 - [ ] Test on staging ([howto](https://gitlab.com/gitlab-org/gitaly/-/blob/master/doc/PROCESS.md#test-on-staging))
-- [ ] Ensure that documentation has been updated
 - [ ] Announce on this issue an estimated time this will be enabled on GitLab.com
 - [ ] Add ~"featureflag::production" to this issue
 - [ ] Enable on GitLab.com by running chatops command in `#production` ([howto](https://gitlab.com/gitlab-org/gitaly/-/blob/master/doc/PROCESS.md#enable-in-production))
