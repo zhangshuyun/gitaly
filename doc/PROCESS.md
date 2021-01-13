@@ -103,6 +103,8 @@ details on the tagging and release process.
 [gitlab-git]: https://gitlab.com/gitlab-org/gitlab/
 [gitaly-git]: https://gitlab.com/gitlab-org/gitaly/
 
+#### Do we need a change management issue?
+
 #### Enable on staging
 
 ##### Prerequisites
