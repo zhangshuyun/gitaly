@@ -32,9 +32,6 @@ var gitCommands = map[string]gitCommand{
 	"cat-file": gitCommand{
 		flags: scNoRefUpdates,
 	},
-	"check-ref-format": gitCommand{
-		flags: scNoRefUpdates | scNoEndOfOptions,
-	},
 	"checkout": gitCommand{
 		flags: scNoEndOfOptions,
 	},

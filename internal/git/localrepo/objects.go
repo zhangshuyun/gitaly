@@ -52,16 +52,6 @@ func (repo *Repo) WriteBlob(ctx context.Context, path string, content io.Reader)
 	return text.ChompBytes(stdout.Bytes()), nil
 }
 
-// FormatTagError is used by FormatTag() below
-type FormatTagError struct {
-	expectedLines int
-	actualLines   int
-}
-
-func (e FormatTagError) Error() string {
-	return fmt.Sprintf("should have %d tag header lines, got %d", e.expectedLines, e.actualLines)
-}
-
 // FormatTag is used by WriteTag (or for testing) to make the tag
 // signature to feed to git-mktag, i.e. the plain-text mktag
 // format. This does not create an object, just crafts input for "git
@@ -91,24 +81,13 @@ func FormatTag(objectID, objectType string, tagName, userName, userEmail, tagBod
 	maxHeaderLines := 4
 	actualHeaderLines := strings.Count(tagBuf, "\n")
 	if actualHeaderLines != maxHeaderLines {
-		return "", FormatTagError{expectedLines: maxHeaderLines, actualLines: actualHeaderLines}
+		return "", fmt.Errorf("got %d lines when trying to format a tag, max is %d, \\n overflow!", actualHeaderLines, maxHeaderLines)
 	}
 
 	tagBuf += "\n"
 	tagBuf += string(tagBody)
 
 	return tagBuf, nil
-}
-
-// MktagError is used by WriteTag() below
-type MktagError struct {
-	tagName []byte
-	stderr  string
-}
-
-func (e MktagError) Error() string {
-	// TODO: Upper-case error message purely for transitory backwards compatibility
-	return fmt.Sprintf("Could not update refs/tags/%s. Please refresh and try again.", e.tagName)
 }
 
 // WriteTag writes a tag to the repository's object database with
@@ -140,7 +119,7 @@ func (repo *Repo) WriteTag(ctx context.Context, objectID, objectType string, tag
 	}
 
 	if err := cmd.Wait(); err != nil {
-		return "", MktagError{tagName: tagName, stderr: stderr.String()}
+		return "", fmt.Errorf("mktag failed to create %s: %s", tagName, stderr.String())
 	}
 
 	return text.ChompBytes(stdout.Bytes()), nil

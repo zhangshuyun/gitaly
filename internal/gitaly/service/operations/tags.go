@@ -1,11 +1,10 @@
 package operations
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
-	"regexp"
+	"strings"
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
@@ -61,20 +60,12 @@ func validateUserCreateTag(req *gitalypb.UserCreateTagRequest) error {
 		return status.Errorf(codes.InvalidArgument, "empty tag name")
 	}
 
-	if bytes.Contains(req.TagName, []byte(" ")) {
-		return status.Errorf(codes.Unknown, "Gitlab::Git::CommitError: Could not update refs/tags/%s. Please refresh and try again.", req.TagName)
-	}
-
 	if req.User == nil {
 		return status.Errorf(codes.InvalidArgument, "empty user")
 	}
 
 	if len(req.TargetRevision) == 0 {
 		return status.Error(codes.InvalidArgument, "empty target revision")
-	}
-
-	if bytes.Contains(req.Message, []byte("\000")) {
-		return status.Errorf(codes.Unknown, "ArgumentError: string contains null byte")
 	}
 
 	// Our own Go-specific validation
@@ -108,11 +99,8 @@ func (s *Server) UserCreateTag(ctx context.Context, req *gitalypb.UserCreateTagR
 	targetObjectID, targetObjectType := targetInfo.Oid, targetInfo.Type
 
 	// Whether we have a "message" parameter tells us if we're
-	// making a lightweight tag or an annotated tag. Maybe we can
-	// use strings.TrimSpace() eventually, but as the tests show
-	// the Ruby idea of Unicode whitespace is different than its
-	// idea.
-	makingTag := regexp.MustCompile(`\S`).Match(req.Message)
+	// making a lightweight tag or an annotated tag.
+	makingTag := len(strings.TrimSpace(string(req.Message))) > 0
 
 	// If we're creating a tag to another "tag" we'll need to peel
 	// (possibly recursively) all the way down to the
@@ -156,15 +144,6 @@ func (s *Server) UserCreateTag(ctx context.Context, req *gitalypb.UserCreateTagR
 
 		tagObjectID, err := localRepo.WriteTag(ctx, targetObjectID, targetObjectType, req.TagName, req.User.Name, req.User.Email, req.Message, committerTime)
 		if err != nil {
-			var FormatTagError localrepo.FormatTagError
-			if errors.As(err, &FormatTagError) {
-				return nil, status.Errorf(codes.Unknown, "Rugged::InvalidError: failed to parse signature - expected prefix doesn't match actual")
-			}
-
-			var MktagError localrepo.MktagError
-			if errors.As(err, &MktagError) {
-				return nil, status.Errorf(codes.NotFound, "Gitlab::Git::CommitError: %s", err.Error())
-			}
 			return nil, status.Error(codes.Internal, err.Error())
 		}
 
@@ -201,49 +180,18 @@ func (s *Server) UserCreateTag(ctx context.Context, req *gitalypb.UserCreateTagR
 
 		var updateRefError updateRefError
 		if errors.As(err, &updateRefError) {
-			refNameOK, err := git.CheckRefFormat(ctx, s.gitCmdFactory, referenceName)
-			if refNameOK {
-				// The tag might not actually exist,
-				// perhaps update-ref died for some
-				// other reason. But saying that it
-				// does is what the Ruby code used to
-				// do, so let's follow it off that
-				// cliff.
-				return &gitalypb.UserCreateTagResponse{
-					Tag:    nil,
-					Exists: true,
-				}, nil
-			}
-
-			var CheckRefFormatError git.CheckRefFormatError
-			if errors.As(err, &CheckRefFormatError) {
-				// It doesn't make sense either to
-				// tell the user to retry with an
-				// invalid ref name, but ditto on the
-				// Ruby bug-for-bug emulation.
-				return &gitalypb.UserCreateTagResponse{
-					Tag:    nil,
-					Exists: true,
-				}, status.Errorf(codes.Unknown, "Gitlab::Git::CommitError: Could not update refs/tags/%s. Please refresh and try again.", req.TagName)
-			}
-
-			// Should only be reachable if "git
-			// check-ref-format"'s invocation is
-			// incorrect, or if it segfaults on startup
-			// etc.
-			return nil, status.Error(codes.Internal, err.Error())
+			// Most likely a race condition where the
+			// branch was concurrently
+			// updated. Unavailable = "try again" (per
+			// https://godoc.org/google.golang.org/grpc/codes)
+			return nil, status.Error(codes.Unavailable, err.Error())
 		}
 
-		// The Ruby code did not return this, but always an
-		// "Exists: true" on update-ref failure without any
-		// meaningful error. This is our "PANIC" response, if
-		// we've got an unknown error (it should all be
-		// updateRefError above) let's relay it to the
-		// caller. This should not happen.
-		return &gitalypb.UserCreateTagResponse{
-			Tag:    nil,
-			Exists: true,
-		}, status.Error(codes.Internal, err.Error())
+		// This is our "PANIC" response, if we've got an
+		// unknown error (it should all be updateRefError
+		// above) let's relay it to the caller. This should
+		// not happen.
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 
 	// Save ourselves looking this up earlier in case update-ref
