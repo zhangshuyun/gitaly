@@ -508,3 +508,42 @@ func testServerUserCherryPickFailedWithCommitError(t *testing.T, ctxOuter contex
 	require.NoError(t, err)
 	require.Equal(t, "Branch diverged", response.CommitError)
 }
+
+func TestServer_UserCherryPick_failed_with_conflict(t *testing.T) {
+	testWithFeature(t, featureflag.GoUserCherryPick, testServerUserCherryPickFailedWithConflict)
+}
+
+func testServerUserCherryPickFailedWithConflict(t *testing.T, ctxOuter context.Context) {
+	serverSocketPath, stop := runOperationServiceServer(t)
+	defer stop()
+
+	client, conn := newOperationClient(t, serverSocketPath)
+	defer conn.Close()
+
+	repoProto, repoPath, cleanup := testhelper.NewTestRepo(t)
+	defer cleanup()
+	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
+
+	destinationBranch := "cherry-picking-dst"
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", destinationBranch, "conflict_branch_a")
+
+	// This commit cannot be applied to the destinationBranch above
+	cherryPickedCommit, err := repo.ReadCommit(ctxOuter, git.Revision("f0f390655872bb2772c85a0128b2fbc2d88670cb"))
+	require.NoError(t, err)
+
+	request := &gitalypb.UserCherryPickRequest{
+		Repository: repoProto,
+		User:       testhelper.TestUser,
+		Commit:     cherryPickedCommit,
+		BranchName: []byte(destinationBranch),
+		Message:    []byte("Cherry-picking " + cherryPickedCommit.Id),
+	}
+
+	md := testhelper.GitalyServersMetadata(t, serverSocketPath)
+	ctx := testhelper.MergeOutgoingMetadata(ctxOuter, md)
+
+	response, err := client.UserCherryPick(ctx, request)
+	require.NoError(t, err)
+	require.NotEmpty(t, response.CreateTreeError)
+	require.Equal(t, gitalypb.UserCherryPickResponse_CONFLICT, response.CreateTreeErrorCode)
+}
