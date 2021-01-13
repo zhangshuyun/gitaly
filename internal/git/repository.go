@@ -450,12 +450,13 @@ func (repo *LocalRepository) FetchRemote(ctx context.Context, remoteName string,
 		return err
 	}
 
-	cmd, err := SafeCmdWithEnv(ctx, opts.Env, repo.repo, opts.Global,
+	cmd, err := SafeCmd(ctx, repo.repo, opts.Global,
 		SubCmd{
 			Name:  "fetch",
 			Flags: opts.buildFlags(),
 			Args:  []string{remoteName},
 		},
+		WithEnv(opts.Env...),
 		WithStderr(opts.Stderr),
 		WithRefTxHook(ctx, helper.ProtoRepoFromRepo(repo.repo), config.Config),
 	)
