@@ -47,7 +47,7 @@ If applicable, any groups/projects that are happy to have this feature turned on
 ## Roll Out Steps
 
 - [ ] [Read the documentation of feature flags](https://gitlab.com/gitlab-org/gitaly/-/blob/master/doc/PROCESS.md#feature-flags)
-- [ ] Add ~"featureflag::staging" to this issue
+- [ ] Add ~"featureflag::staging" to this issue ([howto](https://gitlab.com/gitlab-org/gitaly/-/blob/master/doc/PROCESS.md#feature-flag-labels))
 - [ ] Is the required code deployed? ([howto](https://gitlab.com/gitlab-org/gitaly/-/blob/master/doc/PROCESS.md#is-the-required-code-deployed))
 - [ ] Enable on staging ([howto](https://gitlab.com/gitlab-org/gitaly/-/blob/master/doc/PROCESS.md#enable-on-staging))
 - [ ] Test on staging ([howto](https://gitlab.com/gitlab-org/gitaly/-/blob/master/doc/PROCESS.md#test-on-staging))

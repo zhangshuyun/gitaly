@@ -61,6 +61,20 @@ The rest of this section is help for the individual checklist steps in
 time doing this you might want to first skip ahead to the help below,
 you'll likely need to file some access requests.
 
+#### Feature flag labels
+
+The lifecycle of feature flags is monitored via issue labels.
+
+When the issue is created from a template it'll be created with
+[`featureflag::disabled`][featureflag-disabled]. Then as part of the
+checklist the person rolling it out will add
+[`featureflag::staging`][featureflag-staging] and
+[`featureflag::production`][featureflag-production] flags to it.
+
+[featureflag-disabled]: https://gitlab.com/gitlab-org/gitaly/-/issues?label_name[]=featureflag%3A%3Adisabled
+[featureflag-staging]: https://gitlab.com/gitlab-org/gitaly/-/issues?label_name[]=featureflag%3A%3Astaging
+[featureflag-production]: https://gitlab.com/gitlab-org/gitaly/-/issues?label_name[]=featureflag%3A%3Aproduction
+
 #### Is the required code deployed?
 
 A quick way to see if your MR is deployed is to check if [the release
