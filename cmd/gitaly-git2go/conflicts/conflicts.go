@@ -38,7 +38,9 @@ func conflictEntryFromIndex(entry *git.IndexEntry) git2go.ConflictEntry {
 	}
 }
 
-func conflictContent(repo *git.Repository, conflict git.IndexConflict) ([]byte, error) {
+// Merge will merge the given index conflict and produce a file with conflict
+// markers.
+func Merge(repo *git.Repository, conflict git.IndexConflict) (*git.MergeFileResult, error) {
 	var ancestor, our, their git.MergeFileInput
 
 	for entry, input := range map[*git.IndexEntry]*git.MergeFileInput{
@@ -65,7 +67,7 @@ func conflictContent(repo *git.Repository, conflict git.IndexConflict) ([]byte, 
 		return nil, fmt.Errorf("could not compute conflicts: %w", err)
 	}
 
-	return merge.Contents, nil
+	return merge, nil
 }
 
 func conflictError(code codes.Code, message string) error {
@@ -136,7 +138,7 @@ func (cmd *Subcommand) Run(context.Context, io.Reader, io.Writer) error {
 			break
 		}
 
-		content, err := conflictContent(repo, conflict)
+		merge, err := Merge(repo, conflict)
 		if err != nil {
 			if status, ok := status.FromError(err); ok {
 				return conflictError(status.Code(), status.Message())
@@ -148,7 +150,7 @@ func (cmd *Subcommand) Run(context.Context, io.Reader, io.Writer) error {
 			Ancestor: conflictEntryFromIndex(conflict.Ancestor),
 			Our:      conflictEntryFromIndex(conflict.Our),
 			Their:    conflictEntryFromIndex(conflict.Their),
-			Content:  content,
+			Content:  merge.Contents,
 		})
 	}
 
