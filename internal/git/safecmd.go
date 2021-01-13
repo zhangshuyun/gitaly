@@ -284,7 +284,8 @@ type cmdCfg struct {
 // CmdOpt is an option for running a command
 type CmdOpt func(*cmdCfg) error
 
-// WithStdin sets the command's stdin.
+// WithStdin sets the command's stdin. Pass `command.SetupStdin` to make the
+// command suitable for `Write()`ing to.
 func WithStdin(r io.Reader) CmdOpt {
 	return func(c *cmdCfg) error {
 		c.stdin = r
