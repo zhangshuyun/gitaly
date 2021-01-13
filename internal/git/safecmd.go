@@ -308,6 +308,14 @@ func WithStderr(w io.Writer) CmdOpt {
 	}
 }
 
+// WithEnv adds environment variables to the command.
+func WithEnv(envs ...string) CmdOpt {
+	return func(c *cmdCfg) error {
+		c.env = append(c.env, envs...)
+		return nil
+	}
+}
+
 var (
 	// ErrRefHookRequired indicates a ref hook configuration is needed but
 	// absent from the command
