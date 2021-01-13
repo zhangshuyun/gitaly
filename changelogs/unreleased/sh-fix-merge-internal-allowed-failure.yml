@@ -1,0 +1,5 @@
+---
+title: Fix internal API errors not being passed back to UserMergeBranch
+merge_request: 2987
+author:
+type: fixed

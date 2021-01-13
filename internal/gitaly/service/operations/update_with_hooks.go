@@ -3,6 +3,7 @@ package operations
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -28,6 +29,18 @@ type updateRefError struct {
 
 func (e updateRefError) Error() string {
 	return fmt.Sprintf("Could not update %s. Please refresh and try again.", e.reference)
+}
+
+func hookErrorMessage(sout string, serr string, err error) string {
+	if err != nil && errors.As(err, &hook.NotAllowedError{}) {
+		return err.Error()
+	}
+
+	if len(strings.TrimSpace(serr)) > 0 {
+		return serr
+	}
+
+	return sout
 }
 
 func (s *Server) updateReferenceWithHooks(ctx context.Context, repo *gitalypb.Repository, user *gitalypb.User, reference, newrev, oldrev string) error {
@@ -63,11 +76,11 @@ func (s *Server) updateReferenceWithHooks(ctx context.Context, repo *gitalypb.Re
 	var stdout, stderr bytes.Buffer
 
 	if err := s.hookManager.PreReceiveHook(ctx, repo, nil, env, strings.NewReader(changes), &stdout, &stderr); err != nil {
-		msg := hookErrorFromStdoutAndStderr(stdout.String(), stderr.String())
+		msg := hookErrorMessage(stdout.String(), stderr.String(), err)
 		return preReceiveError{message: msg}
 	}
 	if err := s.hookManager.UpdateHook(ctx, repo, reference, oldrev, newrev, env, &stdout, &stderr); err != nil {
-		msg := hookErrorFromStdoutAndStderr(stdout.String(), stderr.String())
+		msg := hookErrorMessage(stdout.String(), stderr.String(), err)
 		return preReceiveError{message: msg}
 	}
 
@@ -89,7 +102,7 @@ func (s *Server) updateReferenceWithHooks(ctx context.Context, repo *gitalypb.Re
 	}
 
 	if err := s.hookManager.PostReceiveHook(ctx, repo, nil, env, strings.NewReader(changes), &stdout, &stderr); err != nil {
-		msg := hookErrorFromStdoutAndStderr(stdout.String(), stderr.String())
+		msg := hookErrorMessage(stdout.String(), stderr.String(), err)
 		return preReceiveError{message: msg}
 	}
 

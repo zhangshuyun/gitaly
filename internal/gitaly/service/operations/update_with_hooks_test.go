@@ -196,6 +196,13 @@ func TestUpdateReferenceWithHooks(t *testing.T) {
 			expectedErr: "prereceive failure",
 		},
 		{
+			desc: "prereceive error from GitLab API response",
+			preReceive: func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error {
+				return hook.NotAllowedError{Message: "GitLab: file is locked"}
+			},
+			expectedErr: "GitLab: file is locked",
+		},
+		{
 			desc: "update error",
 			preReceive: func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error {
 				return nil
