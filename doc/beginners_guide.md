@@ -89,7 +89,7 @@ implementation or adding test cases and re-running the tests. The cycle
 is "edit code, run tests".
 
 This is many times faster than "edit gitaly, reinstall Gitaly into GDK,
-restart, reload localhost:3000".
+restart, reload `localhost:3000`".
 
 Regardless, if you do want to see your locally changed Gitaly in
 action on `localhost:3000`, you can. Run the following commands in
