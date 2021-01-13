@@ -138,10 +138,14 @@ type SubSubCmd struct {
 	PostSepArgs []string
 }
 
+// Subcommand returns the name of the given git command which this SubSubCmd
+// executes. E.g. for `git remote add`, it would return "remote".
 func (sc SubSubCmd) Subcommand() string { return sc.Name }
 
 var actionRegex = regexp.MustCompile(`^[[:alnum:]]+[-[:alnum:]]*$`)
 
+// CommandArgs checks all arguments in the SubSubCommand and validates them,
+// returning the array of all arguments required to execute it.
 func (sc SubSubCmd) CommandArgs() ([]string, error) {
 	var safeArgs []string
 
@@ -212,6 +216,8 @@ type Flag struct {
 	Name string
 }
 
+// GlobalArgs returns the arguments for the given flag, which should typically
+// only be the flag itself. It returns an error if the flag is not sanitary.
 func (f Flag) GlobalArgs() ([]string, error) {
 	return f.OptionArgs()
 }
@@ -231,6 +237,8 @@ type ValueFlag struct {
 	Value string
 }
 
+// GlobalArgs returns the arguments for the given value flag, which should
+// typically be two arguments: the flag and its value. It returns an error if the value flag is not sanitary.
 func (vf ValueFlag) GlobalArgs() ([]string, error) {
 	return vf.OptionArgs()
 }
