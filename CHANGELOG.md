@@ -88,6 +88,10 @@
 - Update Rouge gem to v3.26.0. !2927
 
 
+## 13.6.5 (2021-01-13)
+
+- No changes.
+
 ## 13.6.4 (2021-01-07)
 
 - No changes.
