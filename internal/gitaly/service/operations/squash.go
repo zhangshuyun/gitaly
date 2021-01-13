@@ -167,7 +167,7 @@ func (s *Server) runUserSquashGo(ctx context.Context, req *gitalypb.UserSquashRe
 
 func (s *Server) diffFiles(ctx context.Context, env []string, repoPath string, req *gitalypb.UserSquashRequest) ([]byte, error) {
 	var stdout, stderr bytes.Buffer
-	cmd, err := git.SafeBareCmd(ctx, nil,
+	cmd, err := git.SafeBareCmd(ctx,
 		[]git.GlobalOption{git.ValueFlag{Name: "--git-dir", Value: repoPath}},
 		git.SubCmd{
 			Name:  "diff",
@@ -246,7 +246,7 @@ func (s *Server) userSquashWithDiffInFiles(ctx context.Context, req *gitalypb.Us
 
 func (s *Server) checkout(ctx context.Context, repo *gitalypb.Repository, worktreePath string, req *gitalypb.UserSquashRequest) error {
 	var stderr bytes.Buffer
-	checkoutCmd, err := git.SafeBareCmdInDir(ctx, worktreePath, nil, nil,
+	checkoutCmd, err := git.SafeBareCmdInDir(ctx, worktreePath, nil,
 		git.SubCmd{
 			Name:  "checkout",
 			Flags: []git.Option{git.Flag{Name: "--detach"}},
@@ -272,7 +272,7 @@ func (s *Server) checkout(ctx context.Context, repo *gitalypb.Repository, worktr
 
 func (s *Server) revParseGitDir(ctx context.Context, worktreePath string) (string, error) {
 	var stdout, stderr bytes.Buffer
-	cmd, err := git.SafeBareCmdInDir(ctx, worktreePath, nil, nil,
+	cmd, err := git.SafeBareCmdInDir(ctx, worktreePath, nil,
 		git.SubCmd{
 			Name:  "rev-parse",
 			Flags: []git.Option{git.Flag{Name: "--git-dir"}},
@@ -391,7 +391,7 @@ func (s *Server) applyDiff(ctx context.Context, repo *gitalypb.Repository, req *
 	}
 
 	var applyStderr bytes.Buffer
-	cmdApply, err := git.SafeBareCmdInDir(ctx, worktreePath, nil, nil,
+	cmdApply, err := git.SafeBareCmdInDir(ctx, worktreePath, nil,
 		git.SubCmd{
 			Name: "apply",
 			Flags: []git.Option{
@@ -428,7 +428,7 @@ func (s *Server) applyDiff(ctx context.Context, repo *gitalypb.Repository, req *
 	)
 
 	var commitStderr bytes.Buffer
-	cmdCommit, err := git.SafeBareCmdInDir(ctx, worktreePath, nil, nil, git.SubCmd{
+	cmdCommit, err := git.SafeBareCmdInDir(ctx, worktreePath, nil, git.SubCmd{
 		Name: "commit",
 		Flags: []git.Option{
 			git.Flag{Name: "--no-verify"},
@@ -445,7 +445,7 @@ func (s *Server) applyDiff(ctx context.Context, repo *gitalypb.Repository, req *
 	}
 
 	var revParseStdout, revParseStderr bytes.Buffer
-	revParseCmd, err := git.SafeBareCmdInDir(ctx, worktreePath, nil, nil, git.SubCmd{
+	revParseCmd, err := git.SafeBareCmdInDir(ctx, worktreePath, nil, git.SubCmd{
 		Name: "rev-parse",
 		Flags: []git.Option{
 			git.Flag{Name: "--quiet"},

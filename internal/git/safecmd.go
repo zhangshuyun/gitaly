@@ -373,9 +373,9 @@ func SafeCmd(ctx context.Context, repo repository.GitRepo, globals []GlobalOptio
 	}, repo, args...)
 }
 
-// SafeBareCmd creates a git.Command with the given args and env. It
+// SafeBareCmd creates a git.Command with the given args. It
 // validates the arguments in the command before executing.
-func SafeBareCmd(ctx context.Context, env []string, globals []GlobalOption, sc Cmd, opts ...CmdOpt) (*command.Command, error) {
+func SafeBareCmd(ctx context.Context, globals []GlobalOption, sc Cmd, opts ...CmdOpt) (*command.Command, error) {
 	cc := &cmdCfg{}
 
 	if err := handleOpts(ctx, sc, cc, opts); err != nil {
@@ -391,11 +391,11 @@ func SafeBareCmd(ctx context.Context, env []string, globals []GlobalOption, sc C
 		In:  cc.stdin,
 		Out: cc.stdout,
 		Err: cc.stderr,
-	}, append(env, cc.env...), args...)
+	}, cc.env, args...)
 }
 
 // SafeBareCmdInDir runs SafeBareCmd in the dir.
-func SafeBareCmdInDir(ctx context.Context, dir string, env []string, globals []GlobalOption, sc Cmd, opts ...CmdOpt) (*command.Command, error) {
+func SafeBareCmdInDir(ctx context.Context, dir string, globals []GlobalOption, sc Cmd, opts ...CmdOpt) (*command.Command, error) {
 	if dir == "" {
 		return nil, errors.New("no 'dir' provided")
 	}
@@ -415,7 +415,7 @@ func SafeBareCmdInDir(ctx context.Context, dir string, env []string, globals []G
 		In:  cc.stdin,
 		Out: cc.stdout,
 		Err: cc.stderr,
-	}, append(env, cc.env...), args...)
+	}, cc.env, args...)
 }
 
 // SafeStdinCmd creates a git.Command with the given args and Repository that is

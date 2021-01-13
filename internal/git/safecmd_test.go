@@ -344,7 +344,7 @@ func TestSafeCmdValid(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, tt.expectArgs, cmd.Args()[3:])
 
-			cmd, err = SafeBareCmd(ctx, nil, tt.globals, tt.subCmd, opts...)
+			cmd, err = SafeBareCmd(ctx, tt.globals, tt.subCmd, opts...)
 			require.NoError(t, err)
 			// ignore first indeterministic arg (executable path)
 			require.Equal(t, tt.expectArgs, cmd.Args()[1:])
@@ -353,7 +353,7 @@ func TestSafeCmdValid(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, tt.expectArgs, cmd.Args()[1:])
 
-			cmd, err = SafeBareCmdInDir(ctx, testRepoPath, nil, tt.globals, tt.subCmd, opts...)
+			cmd, err = SafeBareCmdInDir(ctx, testRepoPath, tt.globals, tt.subCmd, opts...)
 			require.NoError(t, err)
 			require.Equal(t, tt.expectArgs, cmd.Args()[1:])
 		})
@@ -384,7 +384,7 @@ func TestSafeBareCmdInDir(t *testing.T) {
 		defer cancel()
 
 		var stderr bytes.Buffer
-		cmd, err := SafeBareCmdInDir(ctx, repoPath, nil, nil, SubCmd{
+		cmd, err := SafeBareCmdInDir(ctx, repoPath, nil, SubCmd{
 			Name: "rev-parse",
 			Args: []string{"master"},
 		}, WithStderr(&stderr))
@@ -403,7 +403,7 @@ func TestSafeBareCmdInDir(t *testing.T) {
 		defer cancel()
 
 		var stderr bytes.Buffer
-		_, err := SafeBareCmdInDir(ctx, "non-existing-dir", nil, nil, SubCmd{
+		_, err := SafeBareCmdInDir(ctx, "non-existing-dir", nil, SubCmd{
 			Name: "rev-parse",
 			Args: []string{"master"},
 		}, WithStderr(&stderr))
