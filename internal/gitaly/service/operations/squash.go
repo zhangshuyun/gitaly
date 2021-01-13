@@ -167,7 +167,7 @@ func (s *Server) runUserSquashGo(ctx context.Context, req *gitalypb.UserSquashRe
 
 func (s *Server) diffFiles(ctx context.Context, env []string, repoPath string, req *gitalypb.UserSquashRequest) ([]byte, error) {
 	var stdout, stderr bytes.Buffer
-	cmd, err := git.SafeBareCmd(ctx,
+	cmd, err := git.NewCommandWithoutRepo(ctx,
 		[]git.GlobalOption{git.ValueFlag{Name: "--git-dir", Value: repoPath}},
 		git.SubCmd{
 			Name:  "diff",

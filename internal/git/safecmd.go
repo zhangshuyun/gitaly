@@ -374,9 +374,11 @@ func SafeCmd(ctx context.Context, repo repository.GitRepo, globals []GlobalOptio
 	}, repo, args...)
 }
 
-// SafeBareCmd creates a git.Command with the given args. It
-// validates the arguments in the command before executing.
-func SafeBareCmd(ctx context.Context, globals []GlobalOption, sc Cmd, opts ...CmdOpt) (*command.Command, error) {
+// NewCommandWithoutRepo creates a command.Command with the given args. It is not
+// connected to any specific git repository. It should only be used for
+// commands which do not require a git repository or which accept a repository
+// path as parameter like e.g. git-upload-pack(1).
+func NewCommandWithoutRepo(ctx context.Context, globals []GlobalOption, sc Cmd, opts ...CmdOpt) (*command.Command, error) {
 	cc := &cmdCfg{}
 
 	if err := handleOpts(ctx, sc, cc, opts); err != nil {
