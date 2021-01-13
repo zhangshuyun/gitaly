@@ -16,7 +16,7 @@ type gitCommand struct {
 	opts  []GlobalOption
 }
 
-// gitCommands is a curated list of Git command names for special git.SafeCmd
+// gitCommands is a curated list of Git command names for special git.NewCommand
 // validation logic
 var gitCommands = map[string]gitCommand{
 	"apply": gitCommand{

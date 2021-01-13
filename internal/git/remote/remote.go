@@ -12,7 +12,7 @@ import (
 
 //Remove removes the remote from repository
 func Remove(ctx context.Context, cfg config.Cfg, repo repository.GitRepo, name string) error {
-	cmd, err := git.SafeCmd(ctx, repo, nil, git.SubSubCmd{
+	cmd, err := git.NewCommand(ctx, repo, nil, git.SubSubCmd{
 		Name:   "remote",
 		Action: "remove",
 		Args:   []string{name},
@@ -27,7 +27,7 @@ func Remove(ctx context.Context, cfg config.Cfg, repo repository.GitRepo, name s
 // Exists will always return a boolean value, but should only be depended on
 // when the error value is nil
 func Exists(ctx context.Context, cfg config.Cfg, repo repository.GitRepo, name string) (bool, error) {
-	cmd, err := git.SafeCmd(ctx, repo, nil,
+	cmd, err := git.NewCommand(ctx, repo, nil,
 		git.SubCmd{Name: "remote"},
 		git.WithRefTxHook(ctx, helper.ProtoRepoFromRepo(repo), cfg),
 	)

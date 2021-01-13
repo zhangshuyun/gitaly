@@ -40,7 +40,7 @@ func TestReduplicate(t *testing.T) {
 	require.NoError(t, err, "find info/alternates")
 	require.NoError(t, os.RemoveAll(altPath))
 
-	cmd, err := git.SafeCmd(ctx, testRepo, nil,
+	cmd, err := git.NewCommand(ctx, testRepo, nil,
 		git.SubCmd{Name: "cat-file", Flags: []git.Option{git.Flag{Name: "-e"}}, Args: []string{existingObjectID}})
 	require.NoError(t, err)
 	require.Error(t, cmd.Wait())

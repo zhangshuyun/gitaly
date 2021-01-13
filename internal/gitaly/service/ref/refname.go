@@ -43,7 +43,7 @@ func findRefName(ctx context.Context, repo *gitalypb.Repository, commitID, prefi
 	subCmd.Flags = flags
 	subCmd.Args = []string{prefix}
 
-	cmd, err := git.SafeCmd(ctx, repo, nil, subCmd)
+	cmd, err := git.NewCommand(ctx, repo, nil, subCmd)
 	if err != nil {
 		return "", err
 	}

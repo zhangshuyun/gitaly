@@ -330,7 +330,7 @@ func (s *Server) addWorktree(ctx context.Context, repo *gitalypb.Repository, wor
 	}
 
 	var stderr bytes.Buffer
-	cmd, err := git.SafeCmd(ctx, repo, nil,
+	cmd, err := git.NewCommand(ctx, repo, nil,
 		git.SubSubCmd{
 			Name:   "worktree",
 			Action: "add",
@@ -352,7 +352,7 @@ func (s *Server) addWorktree(ctx context.Context, repo *gitalypb.Repository, wor
 }
 
 func (s *Server) removeWorktree(ctx context.Context, repo *gitalypb.Repository, worktreeName string) error {
-	cmd, err := git.SafeCmd(ctx, repo, nil,
+	cmd, err := git.NewCommand(ctx, repo, nil,
 		git.SubSubCmd{
 			Name:   "worktree",
 			Action: "remove",
@@ -376,7 +376,7 @@ func (s *Server) applyDiff(ctx context.Context, repo *gitalypb.Repository, req *
 	diffRange := diffRange(req)
 
 	var diffStderr bytes.Buffer
-	cmdDiff, err := git.SafeCmd(ctx, req.GetRepository(), nil,
+	cmdDiff, err := git.NewCommand(ctx, req.GetRepository(), nil,
 		git.SubCmd{
 			Name: "diff",
 			Flags: []git.Option{
@@ -490,7 +490,7 @@ func newSquashWorktreePath(repoPath, squashID string) string {
 
 func runCmd(ctx context.Context, repo *gitalypb.Repository, cmd string, opts []git.Option, args []string) error {
 	var stderr bytes.Buffer
-	safeCmd, err := git.SafeCmd(ctx, repo, nil, git.SubCmd{Name: cmd, Flags: opts, Args: args}, git.WithStderr(&stderr))
+	safeCmd, err := git.NewCommand(ctx, repo, nil, git.SubCmd{Name: cmd, Flags: opts, Args: args}, git.WithStderr(&stderr))
 	if err != nil {
 		return fmt.Errorf("create safe cmd %q: %w", cmd, gitError{ErrMsg: stderr.String(), Err: err})
 	}

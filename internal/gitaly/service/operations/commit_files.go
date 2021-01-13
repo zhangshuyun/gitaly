@@ -438,7 +438,7 @@ func (s *Server) fetchRemoteObject(ctx context.Context, local, remote *gitalypb.
 	}
 
 	stderr := &bytes.Buffer{}
-	cmd, err := git.SafeCmd(ctx, local, nil,
+	cmd, err := git.NewCommand(ctx, local, nil,
 		git.SubCmd{
 			Name:  "fetch",
 			Flags: []git.Option{git.Flag{Name: "--no-tags"}},

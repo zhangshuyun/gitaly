@@ -199,7 +199,7 @@ func TestGlobalOption(t *testing.T) {
 	}
 }
 
-func TestSafeCmdInvalidArg(t *testing.T) {
+func TestNewCommandInvalidArg(t *testing.T) {
 	for _, tt := range []struct {
 		globals []GlobalOption
 		subCmd  Cmd
@@ -231,7 +231,7 @@ func TestSafeCmdInvalidArg(t *testing.T) {
 			errMsg: `invalid sub command action "-invalid": invalid argument`,
 		},
 	} {
-		_, err := SafeCmd(
+		_, err := NewCommand(
 			context.Background(),
 			&gitalypb.Repository{},
 			tt.globals,
@@ -243,7 +243,7 @@ func TestSafeCmdInvalidArg(t *testing.T) {
 	}
 }
 
-func TestSafeCmdValid(t *testing.T) {
+func TestNewCommandValid(t *testing.T) {
 	testRepo, testRepoPath, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
 
@@ -335,7 +335,7 @@ func TestSafeCmdValid(t *testing.T) {
 		t.Run(tt.desc, func(t *testing.T) {
 			opts := []CmdOpt{WithRefTxHook(ctx, &gitalypb.Repository{}, config.Config)}
 
-			cmd, err := SafeCmd(ctx, testRepo, tt.globals, tt.subCmd, opts...)
+			cmd, err := NewCommand(ctx, testRepo, tt.globals, tt.subCmd, opts...)
 			require.NoError(t, err)
 			// ignore first 3 indeterministic args (executable path and repo args)
 			require.Equal(t, tt.expectArgs, cmd.Args()[3:])
@@ -404,7 +404,7 @@ func TestNewCommandWithDir(t *testing.T) {
 	})
 }
 
-func TestSafeCmd(t *testing.T) {
+func TestNewCommand(t *testing.T) {
 	t.Run("stderr is empty if no error", func(t *testing.T) {
 		repo, _, cleanup := testhelper.NewTestRepoWithWorktree(t)
 		defer cleanup()
@@ -413,7 +413,7 @@ func TestSafeCmd(t *testing.T) {
 		defer cancel()
 
 		var stderr bytes.Buffer
-		cmd, err := SafeCmd(ctx, repo, nil,
+		cmd, err := NewCommand(ctx, repo, nil,
 			SubCmd{
 				Name: "rev-parse",
 				Args: []string{"master"},
@@ -439,7 +439,7 @@ func TestSafeCmd(t *testing.T) {
 		defer cancel()
 
 		var stderr bytes.Buffer
-		cmd, err := SafeCmd(ctx, repo, nil, SubCmd{
+		cmd, err := NewCommand(ctx, repo, nil, SubCmd{
 			Name: "rev-parse",
 			Args: []string{"invalid-ref"},
 		},

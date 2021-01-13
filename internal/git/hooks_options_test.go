@@ -29,9 +29,9 @@ func TestWithRefHook(t *testing.T) {
 		fn   func() (*command.Command, error)
 	}{
 		{
-			name: "SafeCmd",
+			name: "NewCommand",
 			fn: func() (*command.Command, error) {
-				return SafeCmd(ctx, testRepo, nil, subCmd, opt)
+				return NewCommand(ctx, testRepo, nil, subCmd, opt)
 			},
 		},
 	} {

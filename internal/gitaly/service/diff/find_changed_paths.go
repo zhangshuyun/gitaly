@@ -26,7 +26,7 @@ func (s *server) FindChangedPaths(in *gitalypb.FindChangedPathsRequest, stream g
 
 	diffChunker := chunk.New(&findChangedPathsSender{stream: stream})
 
-	cmd, err := git.SafeCmd(stream.Context(), in.Repository, nil, git.SubCmd{
+	cmd, err := git.NewCommand(stream.Context(), in.Repository, nil, git.SubCmd{
 		Name: "diff-tree",
 		Flags: []git.Option{
 			git.Flag{Name: "-z"},

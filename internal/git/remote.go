@@ -119,7 +119,7 @@ func (repo RepositoryRemote) Add(ctx context.Context, name, url string, opts Rem
 	}
 
 	stderr := bytes.Buffer{}
-	cmd, err := SafeCmd(ctx, repo.repo, nil,
+	cmd, err := NewCommand(ctx, repo.repo, nil,
 		SubSubCmd{
 			Name:   "remote",
 			Action: "add",
@@ -158,7 +158,7 @@ func (repo RepositoryRemote) Remove(ctx context.Context, name string) error {
 	}
 
 	var stderr bytes.Buffer
-	cmd, err := SafeCmd(ctx, repo.repo, nil,
+	cmd, err := NewCommand(ctx, repo.repo, nil,
 		SubSubCmd{
 			Name:   "remote",
 			Action: "remove",
@@ -214,7 +214,7 @@ func (repo RepositoryRemote) SetURL(ctx context.Context, name, url string, opts 
 	}
 
 	var stderr bytes.Buffer
-	cmd, err := SafeCmd(ctx, repo.repo, nil,
+	cmd, err := NewCommand(ctx, repo.repo, nil,
 		SubSubCmd{
 			Name:   "remote",
 			Action: "set-url",

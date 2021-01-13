@@ -54,7 +54,7 @@ func (s *server) safeMidxCommand(ctx context.Context, repo repository.GitRepo, c
 }
 
 func midxSetConfig(ctx context.Context, repo repository.GitRepo) error {
-	cmd, err := git.SafeCmd(ctx, repo, nil, git.SubCmd{
+	cmd, err := git.NewCommand(ctx, repo, nil, git.SubCmd{
 		Name: "config",
 		Flags: []git.Option{
 			git.ConfigPair{
@@ -75,7 +75,7 @@ func midxSetConfig(ctx context.Context, repo repository.GitRepo) error {
 }
 
 func midxWrite(ctx context.Context, repo repository.GitRepo) error {
-	cmd, err := git.SafeCmd(ctx, repo, nil,
+	cmd, err := git.NewCommand(ctx, repo, nil,
 		git.SubSubCmd{
 			Name:   "multi-pack-index",
 			Action: "write",
@@ -111,7 +111,7 @@ func (s *server) midxEnsureExists(ctx context.Context, repo repository.GitRepo) 
 func midxVerify(ctx context.Context, repo repository.GitRepo) error {
 	ctxlogger := ctxlogrus.Extract(ctx)
 
-	cmd, err := git.SafeCmd(ctx, repo, nil,
+	cmd, err := git.NewCommand(ctx, repo, nil,
 		git.SubSubCmd{
 			Name:   "multi-pack-index",
 			Action: "verify",
@@ -147,7 +147,7 @@ func (s *server) midxRewrite(ctx context.Context, repo repository.GitRepo) error
 }
 
 func midxExpire(ctx context.Context, repo repository.GitRepo) error {
-	cmd, err := git.SafeCmd(ctx, repo, nil,
+	cmd, err := git.NewCommand(ctx, repo, nil,
 		git.SubSubCmd{
 			Name:   "multi-pack-index",
 			Action: "expire",
@@ -188,7 +188,7 @@ func (s *server) midxRepack(ctx context.Context, repo repository.GitRepo) error 
 	//   - repack.useDeltaIslands
 	// will only be respected if git version is >=2.28.0.
 	// Bitmap index 'repack.writeBitmaps' is not yet supported.
-	cmd, err := git.SafeCmd(ctx, repo,
+	cmd, err := git.NewCommand(ctx, repo,
 		repackConfig(ctx, false),
 		git.SubSubCmd{
 			Name:   "multi-pack-index",

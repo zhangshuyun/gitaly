@@ -32,7 +32,7 @@ func newBatchCheck(ctx context.Context, locator storage.Locator, repo repository
 	ctx = correlation.ContextWithCorrelation(ctx, "")
 	ctx = opentracing.ContextWithSpan(ctx, nil)
 
-	batchCmd, err := git.SafeCmd(ctx, repo, nil,
+	batchCmd, err := git.NewCommand(ctx, repo, nil,
 		git.SubCmd{
 			Name: "cat-file",
 			Flags: []git.Option{

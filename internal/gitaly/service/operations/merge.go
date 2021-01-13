@@ -363,7 +363,7 @@ func (s *Server) UserMergeToRef(ctx context.Context, in *gitalypb.UserMergeToRef
 }
 
 func isAncestor(ctx context.Context, repo repository.GitRepo, ancestor, descendant string) (bool, error) {
-	cmd, err := git.SafeCmd(ctx, repo, nil, git.SubCmd{
+	cmd, err := git.NewCommand(ctx, repo, nil, git.SubCmd{
 		Name:  "merge-base",
 		Flags: []git.Option{git.Flag{Name: "--is-ancestor"}},
 		Args:  []string{ancestor, descendant},

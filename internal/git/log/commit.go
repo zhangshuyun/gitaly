@@ -62,7 +62,7 @@ func GetCommitCatfileWithTrailers(ctx context.Context, repo *gitalypb.Repository
 
 	// We use the commit ID here instead of revision. This way we still get
 	// trailers if the revision is not a SHA but e.g. a tag name.
-	showCmd, err := git.SafeCmd(ctx, repo, nil, git.SubCmd{
+	showCmd, err := git.NewCommand(ctx, repo, nil, git.SubCmd{
 		Name: "show",
 		Args: []string{commit.Id},
 		Flags: []git.Option{

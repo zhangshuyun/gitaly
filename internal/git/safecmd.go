@@ -353,9 +353,9 @@ func handleOpts(ctx context.Context, sc Cmd, cc *cmdCfg, opts []CmdOpt) error {
 	return nil
 }
 
-// SafeCmd creates a command.Command with the given args and Repository. It
+// NewCommand creates a command.Command with the given args and Repository. It
 // validates the arguments in the command before executing.
-func SafeCmd(ctx context.Context, repo repository.GitRepo, globals []GlobalOption, sc Cmd, opts ...CmdOpt) (*command.Command, error) {
+func NewCommand(ctx context.Context, repo repository.GitRepo, globals []GlobalOption, sc Cmd, opts ...CmdOpt) (*command.Command, error) {
 	cc := &cmdCfg{}
 
 	if err := handleOpts(ctx, sc, cc, opts); err != nil {

@@ -81,7 +81,7 @@ func (s *server) FetchSourceBranch(ctx context.Context, req *gitalypb.FetchSourc
 			return nil, err
 		}
 
-		cmd, err := git.SafeCmd(ctx, req.Repository, nil,
+		cmd, err := git.NewCommand(ctx, req.Repository, nil,
 			git.SubCmd{
 				Name:  "fetch",
 				Args:  []string{gitalyssh.GitalyInternalURL, sourceOid},

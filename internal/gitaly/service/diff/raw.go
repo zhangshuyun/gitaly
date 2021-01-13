@@ -48,7 +48,7 @@ func (s *server) RawPatch(in *gitalypb.RawPatchRequest, stream gitalypb.DiffServ
 }
 
 func sendRawOutput(ctx context.Context, rpc string, repo *gitalypb.Repository, sender io.Writer, subCmd git.SubCmd) error {
-	cmd, err := git.SafeCmd(ctx, repo, nil, subCmd)
+	cmd, err := git.NewCommand(ctx, repo, nil, subCmd)
 	if err != nil {
 		if _, ok := status.FromError(err); ok {
 			return err

@@ -80,7 +80,7 @@ func (repo RepositoryConfig) Add(ctx context.Context, name, value string, opts C
 		return err
 	}
 
-	cmd, err := SafeCmd(ctx, repo.repo, nil, SubCmd{
+	cmd, err := NewCommand(ctx, repo.repo, nil, SubCmd{
 		Name:  "config",
 		Flags: append(opts.buildFlags(), Flag{Name: "--add"}),
 		Args:  []string{name, value},
@@ -148,7 +148,7 @@ func (repo RepositoryConfig) GetRegexp(ctx context.Context, nameRegexp string, o
 
 func (repo RepositoryConfig) getRegexp(ctx context.Context, nameRegexp string, opts ConfigGetRegexpOpts) ([]byte, error) {
 	var stderr bytes.Buffer
-	cmd, err := SafeCmd(ctx, repo.repo, nil,
+	cmd, err := NewCommand(ctx, repo.repo, nil,
 		SubCmd{
 			Name: "config",
 			// '--null' is used to support proper parsing of the multiline config values
@@ -250,7 +250,7 @@ func (opts ConfigUnsetOpts) buildFlags() []Option {
 }
 
 func (repo RepositoryConfig) Unset(ctx context.Context, name string, opts ConfigUnsetOpts) error {
-	cmd, err := SafeCmd(ctx, repo.repo, nil, SubCmd{
+	cmd, err := NewCommand(ctx, repo.repo, nil, SubCmd{
 		Name:  "config",
 		Flags: opts.buildFlags(),
 		Args:  []string{name},

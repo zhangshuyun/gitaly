@@ -30,7 +30,7 @@ func commitIsAncestorName(ctx context.Context, repo *gitalypb.Repository, ancest
 		"childSha":    childID,
 	}).Debug("commitIsAncestor")
 
-	cmd, err := git.SafeCmd(ctx, repo, nil, git.SubCmd{Name: "merge-base",
+	cmd, err := git.NewCommand(ctx, repo, nil, git.SubCmd{Name: "merge-base",
 		Flags: []git.Option{git.Flag{Name: "--is-ancestor"}}, Args: []string{ancestorID, childID}})
 	if err != nil {
 		if _, ok := status.FromError(err); ok {

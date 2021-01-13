@@ -31,7 +31,7 @@ func validatePackRefsRequest(in *gitalypb.PackRefsRequest) error {
 }
 
 func packRefs(ctx context.Context, repository repository.GitRepo, all bool) error {
-	cmd, err := git.SafeCmd(ctx, repository, nil, git.SubCmd{
+	cmd, err := git.NewCommand(ctx, repository, nil, git.SubCmd{
 		Name:  "pack-refs",
 		Flags: []git.Option{git.Flag{Name: "--all"}},
 	})

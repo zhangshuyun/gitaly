@@ -123,7 +123,7 @@ func newLSTreeParser(in *gitalypb.ListLastCommitsForTreeRequest, stream gitalypb
 	}
 
 	globals := git.ConvertGlobalOptions(in.GetGlobalOptions())
-	cmd, err := git.SafeCmd(stream.Context(), in.GetRepository(), globals, git.SubCmd{
+	cmd, err := git.NewCommand(stream.Context(), in.GetRepository(), globals, git.SubCmd{
 		Name:  "ls-tree",
 		Flags: []git.Option{git.Flag{Name: "-z"}, git.Flag{Name: "--full-name"}},
 		Args:  []string{in.GetRevision(), path},
