@@ -246,7 +246,7 @@ func (s *Server) userSquashWithDiffInFiles(ctx context.Context, req *gitalypb.Us
 
 func (s *Server) checkout(ctx context.Context, repo *gitalypb.Repository, worktreePath string, req *gitalypb.UserSquashRequest) error {
 	var stderr bytes.Buffer
-	checkoutCmd, err := git.SafeBareCmdInDir(ctx, worktreePath, nil,
+	checkoutCmd, err := git.NewCommandWithDir(ctx, worktreePath, nil,
 		git.SubCmd{
 			Name:  "checkout",
 			Flags: []git.Option{git.Flag{Name: "--detach"}},
@@ -272,7 +272,7 @@ func (s *Server) checkout(ctx context.Context, repo *gitalypb.Repository, worktr
 
 func (s *Server) revParseGitDir(ctx context.Context, worktreePath string) (string, error) {
 	var stdout, stderr bytes.Buffer
-	cmd, err := git.SafeBareCmdInDir(ctx, worktreePath, nil,
+	cmd, err := git.NewCommandWithDir(ctx, worktreePath, nil,
 		git.SubCmd{
 			Name:  "rev-parse",
 			Flags: []git.Option{git.Flag{Name: "--git-dir"}},
@@ -391,7 +391,7 @@ func (s *Server) applyDiff(ctx context.Context, repo *gitalypb.Repository, req *
 	}
 
 	var applyStderr bytes.Buffer
-	cmdApply, err := git.SafeBareCmdInDir(ctx, worktreePath, nil,
+	cmdApply, err := git.NewCommandWithDir(ctx, worktreePath, nil,
 		git.SubCmd{
 			Name: "apply",
 			Flags: []git.Option{
@@ -428,7 +428,7 @@ func (s *Server) applyDiff(ctx context.Context, repo *gitalypb.Repository, req *
 	)
 
 	var commitStderr bytes.Buffer
-	cmdCommit, err := git.SafeBareCmdInDir(ctx, worktreePath, nil, git.SubCmd{
+	cmdCommit, err := git.NewCommandWithDir(ctx, worktreePath, nil, git.SubCmd{
 		Name: "commit",
 		Flags: []git.Option{
 			git.Flag{Name: "--no-verify"},
@@ -445,7 +445,7 @@ func (s *Server) applyDiff(ctx context.Context, repo *gitalypb.Repository, req *
 	}
 
 	var revParseStdout, revParseStderr bytes.Buffer
-	revParseCmd, err := git.SafeBareCmdInDir(ctx, worktreePath, nil, git.SubCmd{
+	revParseCmd, err := git.NewCommandWithDir(ctx, worktreePath, nil, git.SubCmd{
 		Name: "rev-parse",
 		Flags: []git.Option{
 			git.Flag{Name: "--quiet"},

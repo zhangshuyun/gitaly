@@ -345,7 +345,7 @@ func TestSafeCmdValid(t *testing.T) {
 			// ignore first indeterministic arg (executable path)
 			require.Equal(t, tt.expectArgs, cmd.Args()[1:])
 
-			cmd, err = SafeBareCmdInDir(ctx, testRepoPath, tt.globals, tt.subCmd, opts...)
+			cmd, err = NewCommandWithDir(ctx, testRepoPath, tt.globals, tt.subCmd, opts...)
 			require.NoError(t, err)
 			require.Equal(t, tt.expectArgs, cmd.Args()[1:])
 		})
@@ -358,12 +358,12 @@ func disableGitCmd() testhelper.Cleanup {
 	return func() { config.Config.Git.BinPath = oldBinPath }
 }
 
-func TestSafeBareCmdInDir(t *testing.T) {
+func TestNewCommandWithDir(t *testing.T) {
 	t.Run("no dir specified", func(t *testing.T) {
 		ctx, cancel := testhelper.Context()
 		defer cancel()
 
-		_, err := SafeBareCmdInDir(ctx, "", nil, nil, nil)
+		_, err := NewCommandWithDir(ctx, "", nil, nil, nil)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "no 'dir' provided")
 	})
@@ -376,7 +376,7 @@ func TestSafeBareCmdInDir(t *testing.T) {
 		defer cancel()
 
 		var stderr bytes.Buffer
-		cmd, err := SafeBareCmdInDir(ctx, repoPath, nil, SubCmd{
+		cmd, err := NewCommandWithDir(ctx, repoPath, nil, SubCmd{
 			Name: "rev-parse",
 			Args: []string{"master"},
 		}, WithStderr(&stderr))
@@ -395,7 +395,7 @@ func TestSafeBareCmdInDir(t *testing.T) {
 		defer cancel()
 
 		var stderr bytes.Buffer
-		_, err := SafeBareCmdInDir(ctx, "non-existing-dir", nil, SubCmd{
+		_, err := NewCommandWithDir(ctx, "non-existing-dir", nil, SubCmd{
 			Name: "rev-parse",
 			Args: []string{"master"},
 		}, WithStderr(&stderr))

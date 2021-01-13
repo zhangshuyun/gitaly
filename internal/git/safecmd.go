@@ -395,8 +395,10 @@ func SafeBareCmd(ctx context.Context, globals []GlobalOption, sc Cmd, opts ...Cm
 	}, cc.env, args...)
 }
 
-// SafeBareCmdInDir runs SafeBareCmd in the dir.
-func SafeBareCmdInDir(ctx context.Context, dir string, globals []GlobalOption, sc Cmd, opts ...CmdOpt) (*command.Command, error) {
+// NewCommandWithDir creates a new command.Command whose working directory is set
+// to dir. Arguments are validated before the command is being run. It is
+// invalid to use an empty directory.
+func NewCommandWithDir(ctx context.Context, dir string, globals []GlobalOption, sc Cmd, opts ...CmdOpt) (*command.Command, error) {
 	if dir == "" {
 		return nil, errors.New("no 'dir' provided")
 	}
