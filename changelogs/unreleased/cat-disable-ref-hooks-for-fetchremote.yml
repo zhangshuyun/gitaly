@@ -1,0 +1,5 @@
+---
+title: Disable ref tx hooks for FetchRemote calls
+merge_request: 3002
+author:
+type: performance
