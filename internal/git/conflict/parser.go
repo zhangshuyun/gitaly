@@ -144,7 +144,8 @@ func Parse(src io.Reader, ourPath, theirPath, parentPath string) (File, error) {
 	s.Buffer(make([]byte, 4096), fileLimit) // allow for line scanning up to the file limit
 
 	s.Split(func(data []byte, atEOF bool) (advance int, token []byte, err error) {
-		bytesRead += len(data)
+		defer func() { bytesRead += advance }()
+
 		if bytesRead >= fileLimit {
 			return 0, nil, ErrUnmergeableFile
 		}
@@ -212,6 +213,9 @@ func Parse(src io.Reader, ourPath, theirPath, parentPath string) (File, error) {
 	}
 
 	if err := s.Err(); err != nil {
+		if errors.Is(err, bufio.ErrTooLong) {
+			return File{}, ErrUnmergeableFile
+		}
 		return File{}, err
 	}
 

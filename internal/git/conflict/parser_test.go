@@ -99,6 +99,13 @@ we can both agree on this line though
 			parseErr: ErrMissingEndDelimiter,
 		},
 		{
+			name:         "Conflict file under file limit",
+			ourPath:      "conflict.txt",
+			theirPath:    "conflict.txt",
+			parentPath:   "conflict.txt",
+			conflictFile: strings.NewReader(strings.Repeat("x", fileLimit-2) + "\n"),
+		},
+		{
 			name:         "ErrUnmergeableFile over file limit",
 			ourPath:      "conflict.txt",
 			theirPath:    "conflict.txt",
