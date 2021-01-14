@@ -62,7 +62,7 @@ func UnpackedObjects(repoPath string) (int64, error) {
 
 // LooseObjects returns the number of loose objects that are not in a packfile.
 func LooseObjects(ctx context.Context, repository repository.GitRepo) (int64, error) {
-	cmd, err := git.SafeCmd(ctx, repository, nil, git.SubCmd{Name: "count-objects", Flags: []git.Option{git.Flag{Name: "--verbose"}}})
+	cmd, err := git.NewCommand(ctx, repository, nil, git.SubCmd{Name: "count-objects", Flags: []git.Option{git.Flag{Name: "--verbose"}}})
 	if err != nil {
 		return 0, err
 	}

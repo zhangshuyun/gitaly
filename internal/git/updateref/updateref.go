@@ -51,12 +51,13 @@ func New(ctx context.Context, repo repository.GitRepo, opts ...UpdaterOpt) (*Upd
 		txOption = git.WithDisabledHooks()
 	}
 
-	cmd, err := git.SafeStdinCmd(ctx, repo, nil,
+	cmd, err := git.NewCommand(ctx, repo, nil,
 		git.SubCmd{
 			Name:  "update-ref",
 			Flags: []git.Option{git.Flag{Name: "-z"}, git.Flag{Name: "--stdin"}},
 		},
 		txOption,
+		git.WithStdin(command.SetupStdin),
 	)
 	if err != nil {
 		return nil, err

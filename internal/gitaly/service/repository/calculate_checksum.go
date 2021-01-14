@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/alternates"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -29,7 +28,7 @@ func (s *server) CalculateChecksum(ctx context.Context, in *gitalypb.CalculateCh
 		return nil, err
 	}
 
-	cmd, err := git.SafeCmd(ctx, repo, nil, git.SubCmd{Name: "show-ref", Flags: []git.Option{git.Flag{Name: "--head"}}})
+	cmd, err := git.NewCommand(ctx, repo, nil, git.SubCmd{Name: "show-ref", Flags: []git.Option{git.Flag{Name: "--head"}}})
 	if err != nil {
 		if _, ok := status.FromError(err); ok {
 			return nil, err
@@ -77,20 +76,12 @@ func (s *server) CalculateChecksum(ctx context.Context, in *gitalypb.CalculateCh
 }
 
 func (s *server) isValidRepo(ctx context.Context, repo *gitalypb.Repository) bool {
-	repoPath, err := s.locator.GetRepoPath(repo)
-	if err != nil {
-		return false
-	}
-
-	env := alternates.Env(repoPath, repo.GetGitObjectDirectory(), repo.GetGitAlternateObjectDirectories())
-
 	stdout := &bytes.Buffer{}
-	globals := []git.GlobalOption{git.ValueFlag{"-C", repoPath}}
-	cmd, err := git.SafeBareCmd(ctx, env, globals,
+	cmd, err := git.NewCommand(ctx, repo, nil,
 		git.SubCmd{
 			Name: "rev-parse",
 			Flags: []git.Option{
-				git.Flag{Name: "--is-inside-git-dir"},
+				git.Flag{Name: "--is-bare-repository"},
 			},
 		},
 		git.WithStdout(stdout),

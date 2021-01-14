@@ -128,7 +128,7 @@ func NewRepository(repo repository.GitRepo) *LocalRepository {
 // in the Repository. It validates the arguments in the command before
 // executing.
 func (repo *LocalRepository) command(ctx context.Context, globals []GlobalOption, cmd SubCmd, opts ...CmdOpt) (*command.Command, error) {
-	return SafeCmd(ctx, repo.repo, globals, cmd, opts...)
+	return NewCommand(ctx, repo.repo, globals, cmd, opts...)
 }
 
 // WriteBlob writes a blob to the repository's object database and
@@ -450,12 +450,13 @@ func (repo *LocalRepository) FetchRemote(ctx context.Context, remoteName string,
 		return err
 	}
 
-	cmd, err := SafeCmdWithEnv(ctx, opts.Env, repo.repo, opts.Global,
+	cmd, err := NewCommand(ctx, repo.repo, opts.Global,
 		SubCmd{
 			Name:  "fetch",
 			Flags: opts.buildFlags(),
 			Args:  []string{remoteName},
 		},
+		WithEnv(opts.Env...),
 		WithStderr(opts.Stderr),
 		WithRefTxHook(ctx, helper.ProtoRepoFromRepo(repo.repo), config.Config),
 	)

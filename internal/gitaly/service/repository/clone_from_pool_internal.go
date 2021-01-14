@@ -125,7 +125,7 @@ func (s *server) cloneFromPool(ctx context.Context, objectPoolRepo *gitalypb.Obj
 		return fmt.Errorf("expected *gitlaypb.Repository but got %T", repo)
 	}
 
-	cmd, err := git.SafeBareCmd(ctx, nil, nil,
+	cmd, err := git.NewCommandWithoutRepo(ctx, nil,
 		git.SubCmd{
 			Name:        "clone",
 			Flags:       []git.Option{git.Flag{Name: "--bare"}, git.Flag{Name: "--shared"}},

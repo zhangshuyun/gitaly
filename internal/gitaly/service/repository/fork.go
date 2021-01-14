@@ -53,7 +53,7 @@ func (s *server) CreateFork(ctx context.Context, req *gitalypb.CreateForkRequest
 		return nil, err
 	}
 
-	cmd, err := git.SafeBareCmd(ctx, env, nil,
+	cmd, err := git.NewCommandWithoutRepo(ctx, nil,
 		git.SubCmd{
 			Name: "clone",
 			Flags: []git.Option{
@@ -65,6 +65,7 @@ func (s *server) CreateFork(ctx context.Context, req *gitalypb.CreateForkRequest
 				targetRepositoryFullPath,
 			},
 		},
+		git.WithEnv(env...),
 		git.WithRefTxHook(ctx, req.Repository, s.cfg),
 	)
 	if err != nil {

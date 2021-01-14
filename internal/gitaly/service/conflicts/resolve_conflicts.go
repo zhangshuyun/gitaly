@@ -284,18 +284,13 @@ func (s *server) repoWithBranchCommit(ctx context.Context, srcRepo, targetRepo *
 		return err
 	}
 
-	srcRepoPath, err := s.locator.GetRepoPath(srcRepo)
-	if err != nil {
-		return err
-	}
-
-	cmd, err := git.SafeBareCmd(ctx, env,
-		[]git.GlobalOption{git.ValueFlag{"--git-dir", srcRepoPath}},
+	cmd, err := git.NewCommand(ctx, srcRepo, nil,
 		git.SubCmd{
 			Name:  "fetch",
 			Flags: []git.Option{git.Flag{Name: "--no-tags"}},
 			Args:  []string{gitalyssh.GitalyInternalURL, oid},
 		},
+		git.WithEnv(env...),
 	)
 	if err != nil {
 		return err

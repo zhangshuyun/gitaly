@@ -33,7 +33,7 @@ altered.
 
 #### Executing Git commands
 
-When executing Git, developers should always use the `git.SafeCmd()` and sibling
+When executing Git, developers should always use the `git.NewCommand()` and sibling
 interfaces. These make sure Gitaly is protected against command injection, the
 correct `git` is used, and correct setup for observable command invocations are
 used. When working with `git(1)` in Ruby, please be sure to read the

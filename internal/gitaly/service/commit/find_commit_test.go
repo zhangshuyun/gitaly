@@ -299,7 +299,7 @@ func benchmarkFindCommit(withCache bool, b *testing.B) {
 
 	// get a list of revisions
 
-	logCmd, err := git.SafeCmd(ctx, testRepo, nil,
+	logCmd, err := git.NewCommand(ctx, testRepo, nil,
 		git.SubCmd{Name: "log", Flags: []git.Option{git.Flag{Name: "--format=format:%H"}}})
 	require.NoError(b, err)
 
@@ -346,7 +346,7 @@ func TestFindCommitWithCache(t *testing.T) {
 
 	// get a list of revisions
 
-	logCmd, err := git.SafeCmd(ctx, testRepo, nil,
+	logCmd, err := git.NewCommand(ctx, testRepo, nil,
 		git.SubCmd{Name: "log", Flags: []git.Option{git.Flag{Name: "--format=format:%H"}}})
 	require.NoError(t, err)
 

@@ -47,7 +47,7 @@ func (*server) RepackIncremental(ctx context.Context, in *gitalypb.RepackIncreme
 }
 
 func repackCommand(ctx context.Context, repo repository.GitRepo, bitmap bool, args ...git.Option) error {
-	cmd, err := git.SafeCmd(ctx, repo,
+	cmd, err := git.NewCommand(ctx, repo,
 		repackConfig(ctx, bitmap), // global configs
 		git.SubCmd{
 			Name:  "repack",

@@ -75,7 +75,7 @@ func (s *server) FindRemoteRepository(ctx context.Context, req *gitalypb.FindRem
 		return nil, status.Error(codes.InvalidArgument, "FindRemoteRepository: empty remote can't be checked.")
 	}
 
-	cmd, err := git.SafeCmdWithoutRepo(ctx, nil,
+	cmd, err := git.NewCommandWithoutRepo(ctx, nil,
 		git.SubCmd{
 			Name: "ls-remote",
 			Args: []string{
@@ -118,7 +118,7 @@ func (s *server) ListRemotes(req *gitalypb.ListRemotesRequest, stream gitalypb.R
 	repo := req.GetRepository()
 
 	ctx := stream.Context()
-	cmd, err := git.SafeCmd(ctx, repo, nil, git.SubCmd{Name: "remote", Flags: []git.Option{git.Flag{Name: "-v"}}},
+	cmd, err := git.NewCommand(ctx, repo, nil, git.SubCmd{Name: "remote", Flags: []git.Option{git.Flag{Name: "-v"}}},
 		git.WithRefTxHook(ctx, repo, config.Config),
 	)
 	if err != nil {

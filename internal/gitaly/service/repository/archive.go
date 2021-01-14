@@ -207,12 +207,12 @@ func handleArchive(p archiveParams) error {
 		globals = append(globals, git.ConfigPair{Key: "filter.lfs.smudge", Value: binary})
 	}
 
-	archiveCommand, err := git.SafeCmdWithEnv(p.ctx, env, p.in.GetRepository(), globals, git.SubCmd{
+	archiveCommand, err := git.NewCommand(p.ctx, p.in.GetRepository(), globals, git.SubCmd{
 		Name:        "archive",
 		Flags:       []git.Option{git.ValueFlag{"--format", p.format}, git.ValueFlag{"--prefix", p.in.GetPrefix() + "/"}},
 		Args:        args,
 		PostSepArgs: pathspecs,
-	})
+	}, git.WithEnv(env...))
 	if err != nil {
 		return err
 	}

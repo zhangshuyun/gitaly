@@ -124,7 +124,7 @@ func (o *ObjectPool) Init(ctx context.Context) (err error) {
 		return nil
 	}
 
-	cmd, err := git.SafeCmdWithoutRepo(ctx, nil,
+	cmd, err := git.NewCommandWithoutRepo(ctx, nil,
 		git.SubCmd{
 			Name: "init",
 			Flags: []git.Option{

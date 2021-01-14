@@ -167,13 +167,14 @@ func (s *Server) runUserSquashGo(ctx context.Context, req *gitalypb.UserSquashRe
 
 func (s *Server) diffFiles(ctx context.Context, env []string, repoPath string, req *gitalypb.UserSquashRequest) ([]byte, error) {
 	var stdout, stderr bytes.Buffer
-	cmd, err := git.SafeBareCmd(ctx, env,
+	cmd, err := git.NewCommandWithoutRepo(ctx,
 		[]git.GlobalOption{git.ValueFlag{Name: "--git-dir", Value: repoPath}},
 		git.SubCmd{
 			Name:  "diff",
 			Flags: []git.Option{git.Flag{Name: "--name-only"}, git.Flag{Name: "--diff-filter=ar"}, git.Flag{Name: "--binary"}},
 			Args:  []string{diffRange(req)},
 		},
+		git.WithEnv(env...),
 		git.WithStdout(&stdout),
 		git.WithStderr(&stderr),
 	)
@@ -245,7 +246,7 @@ func (s *Server) userSquashWithDiffInFiles(ctx context.Context, req *gitalypb.Us
 
 func (s *Server) checkout(ctx context.Context, repo *gitalypb.Repository, worktreePath string, req *gitalypb.UserSquashRequest) error {
 	var stderr bytes.Buffer
-	checkoutCmd, err := git.SafeBareCmdInDir(ctx, worktreePath, nil, nil,
+	checkoutCmd, err := git.NewCommandWithDir(ctx, worktreePath, nil,
 		git.SubCmd{
 			Name:  "checkout",
 			Flags: []git.Option{git.Flag{Name: "--detach"}},
@@ -271,7 +272,7 @@ func (s *Server) checkout(ctx context.Context, repo *gitalypb.Repository, worktr
 
 func (s *Server) revParseGitDir(ctx context.Context, worktreePath string) (string, error) {
 	var stdout, stderr bytes.Buffer
-	cmd, err := git.SafeBareCmdInDir(ctx, worktreePath, nil, nil,
+	cmd, err := git.NewCommandWithDir(ctx, worktreePath, nil,
 		git.SubCmd{
 			Name:  "rev-parse",
 			Flags: []git.Option{git.Flag{Name: "--git-dir"}},
@@ -329,7 +330,7 @@ func (s *Server) addWorktree(ctx context.Context, repo *gitalypb.Repository, wor
 	}
 
 	var stderr bytes.Buffer
-	cmd, err := git.SafeCmd(ctx, repo, nil,
+	cmd, err := git.NewCommand(ctx, repo, nil,
 		git.SubSubCmd{
 			Name:   "worktree",
 			Action: "add",
@@ -351,7 +352,7 @@ func (s *Server) addWorktree(ctx context.Context, repo *gitalypb.Repository, wor
 }
 
 func (s *Server) removeWorktree(ctx context.Context, repo *gitalypb.Repository, worktreeName string) error {
-	cmd, err := git.SafeCmd(ctx, repo, nil,
+	cmd, err := git.NewCommand(ctx, repo, nil,
 		git.SubSubCmd{
 			Name:   "worktree",
 			Action: "remove",
@@ -375,7 +376,7 @@ func (s *Server) applyDiff(ctx context.Context, repo *gitalypb.Repository, req *
 	diffRange := diffRange(req)
 
 	var diffStderr bytes.Buffer
-	cmdDiff, err := git.SafeCmd(ctx, req.GetRepository(), nil,
+	cmdDiff, err := git.NewCommand(ctx, req.GetRepository(), nil,
 		git.SubCmd{
 			Name: "diff",
 			Flags: []git.Option{
@@ -390,7 +391,7 @@ func (s *Server) applyDiff(ctx context.Context, repo *gitalypb.Repository, req *
 	}
 
 	var applyStderr bytes.Buffer
-	cmdApply, err := git.SafeBareCmdInDir(ctx, worktreePath, env, nil,
+	cmdApply, err := git.NewCommandWithDir(ctx, worktreePath, nil,
 		git.SubCmd{
 			Name: "apply",
 			Flags: []git.Option{
@@ -399,6 +400,7 @@ func (s *Server) applyDiff(ctx context.Context, repo *gitalypb.Repository, req *
 				git.Flag{Name: "--whitespace=nowarn"},
 			},
 		},
+		git.WithEnv(env...),
 		git.WithStdin(command.SetupStdin),
 		git.WithStderr(&applyStderr),
 	)
@@ -426,14 +428,14 @@ func (s *Server) applyDiff(ctx context.Context, repo *gitalypb.Repository, req *
 	)
 
 	var commitStderr bytes.Buffer
-	cmdCommit, err := git.SafeBareCmdInDir(ctx, worktreePath, commitEnv, nil, git.SubCmd{
+	cmdCommit, err := git.NewCommandWithDir(ctx, worktreePath, nil, git.SubCmd{
 		Name: "commit",
 		Flags: []git.Option{
 			git.Flag{Name: "--no-verify"},
 			git.Flag{Name: "--quiet"},
 			git.ValueFlag{Name: "--message", Value: string(req.GetCommitMessage())},
 		},
-	}, git.WithStderr(&commitStderr), git.WithRefTxHook(ctx, repo, s.cfg))
+	}, git.WithEnv(commitEnv...), git.WithStderr(&commitStderr), git.WithRefTxHook(ctx, repo, s.cfg))
 	if err != nil {
 		return "", fmt.Errorf("creation of 'git commit': %w", gitError{ErrMsg: commitStderr.String(), Err: err})
 	}
@@ -443,14 +445,14 @@ func (s *Server) applyDiff(ctx context.Context, repo *gitalypb.Repository, req *
 	}
 
 	var revParseStdout, revParseStderr bytes.Buffer
-	revParseCmd, err := git.SafeBareCmdInDir(ctx, worktreePath, env, nil, git.SubCmd{
+	revParseCmd, err := git.NewCommandWithDir(ctx, worktreePath, nil, git.SubCmd{
 		Name: "rev-parse",
 		Flags: []git.Option{
 			git.Flag{Name: "--quiet"},
 			git.Flag{Name: "--verify"},
 		},
 		Args: []string{"HEAD^{commit}"},
-	}, git.WithStdout(&revParseStdout), git.WithStderr(&revParseStderr))
+	}, git.WithEnv(env...), git.WithStdout(&revParseStdout), git.WithStderr(&revParseStderr))
 	if err != nil {
 		return "", fmt.Errorf("creation of 'git rev-parse': %w", gitError{ErrMsg: revParseStderr.String(), Err: err})
 	}
@@ -488,7 +490,7 @@ func newSquashWorktreePath(repoPath, squashID string) string {
 
 func runCmd(ctx context.Context, repo *gitalypb.Repository, cmd string, opts []git.Option, args []string) error {
 	var stderr bytes.Buffer
-	safeCmd, err := git.SafeCmd(ctx, repo, nil, git.SubCmd{Name: cmd, Flags: opts, Args: args}, git.WithStderr(&stderr))
+	safeCmd, err := git.NewCommand(ctx, repo, nil, git.SubCmd{Name: cmd, Flags: opts, Args: args}, git.WithStderr(&stderr))
 	if err != nil {
 		return fmt.Errorf("create safe cmd %q: %w", cmd, gitError{ErrMsg: stderr.String(), Err: err})
 	}

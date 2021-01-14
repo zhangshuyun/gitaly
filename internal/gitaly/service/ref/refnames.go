@@ -62,7 +62,7 @@ func listRefNames(ctx context.Context, chunker *chunk.Chunker, prefix string, re
 		flags = append(flags, git.Flag{arg})
 	}
 
-	cmd, err := git.SafeCmd(ctx, repo, nil, git.SubCmd{
+	cmd, err := git.NewCommand(ctx, repo, nil, git.SubCmd{
 		Name:  "for-each-ref",
 		Flags: flags,
 		Args:  []string{prefix},

@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/alternates"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/linguist"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/ref"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
@@ -88,14 +87,7 @@ func (ls languageSorter) Swap(i, j int)      { ls[i], ls[j] = ls[j], ls[i] }
 func (ls languageSorter) Less(i, j int) bool { return ls[i].Share > ls[j].Share }
 
 func (s *server) lookupRevision(ctx context.Context, repo *gitalypb.Repository, revision string) (string, error) {
-	repoPath, err := s.locator.GetRepoPath(repo)
-	if err != nil {
-		return "", err
-	}
-
-	env := alternates.Env(repoPath, repo.GetGitObjectDirectory(), repo.GetGitAlternateObjectDirectories())
-
-	rev, err := checkRevision(ctx, repoPath, env, revision)
+	rev, err := checkRevision(ctx, repo, revision)
 	if err != nil {
 		switch err {
 		case errAmbigRef:
@@ -104,7 +96,7 @@ func (s *server) lookupRevision(ctx context.Context, repo *gitalypb.Repository, 
 				return "", err
 			}
 
-			rev, err = checkRevision(ctx, repoPath, env, fullRev)
+			rev, err = checkRevision(ctx, repo, fullRev)
 			if err != nil {
 				return "", err
 			}
@@ -116,11 +108,10 @@ func (s *server) lookupRevision(ctx context.Context, repo *gitalypb.Repository, 
 	return rev, nil
 }
 
-func checkRevision(ctx context.Context, repoPath string, env []string, revision string) (string, error) {
-	opts := []git.GlobalOption{git.ValueFlag{"-C", repoPath}}
+func checkRevision(ctx context.Context, repo *gitalypb.Repository, revision string) (string, error) {
 	var stdout, stderr bytes.Buffer
 
-	revParse, err := git.SafeBareCmd(ctx, env, opts,
+	revParse, err := git.NewCommand(ctx, repo, nil,
 		git.SubCmd{Name: "rev-parse", Args: []string{revision}},
 		git.WithStdout(&stdout),
 		git.WithStderr(&stderr),
@@ -143,7 +134,7 @@ func checkRevision(ctx context.Context, repoPath string, env []string, revision 
 }
 
 func disambiguateRevision(ctx context.Context, repo *gitalypb.Repository, revision string) (string, error) {
-	cmd, err := git.SafeCmd(ctx, repo, nil, git.SubCmd{
+	cmd, err := git.NewCommand(ctx, repo, nil, git.SubCmd{
 		Name:  "for-each-ref",
 		Flags: []git.Option{git.Flag{Name: "--format=%(refname)"}},
 		Args:  []string{"**/" + revision},

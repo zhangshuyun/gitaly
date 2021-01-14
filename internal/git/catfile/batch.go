@@ -10,7 +10,6 @@ import (
 
 	"github.com/opentracing/opentracing-go"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/alternates"
 	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"gitlab.com/gitlab-org/labkit/correlation"
@@ -36,13 +35,6 @@ type batchProcess struct {
 }
 
 func newBatchProcess(ctx context.Context, locator storage.Locator, repo repository.GitRepo) (*batchProcess, error) {
-	repoPath, err := locator.GetRepoPath(repo)
-	if err != nil {
-		return nil, err
-	}
-
-	env := alternates.Env(repoPath, repo.GetGitObjectDirectory(), repo.GetGitAlternateObjectDirectories())
-
 	totalCatfileProcesses.Inc()
 	b := &batchProcess{}
 
@@ -54,10 +46,7 @@ func newBatchProcess(ctx context.Context, locator storage.Locator, repo reposito
 	ctx = correlation.ContextWithCorrelation(ctx, "")
 	ctx = opentracing.ContextWithSpan(ctx, nil)
 
-	batchCmd, err := git.SafeBareCmd(ctx, env,
-		[]git.GlobalOption{
-			git.ValueFlag{Name: "--git-dir", Value: repoPath},
-		},
+	batchCmd, err := git.NewCommand(ctx, repo, nil,
 		git.SubCmd{
 			Name: "cat-file",
 			Flags: []git.Option{

@@ -71,7 +71,7 @@ func (s *server) CreateRepositoryFromBundle(stream gitalypb.RepositoryService_Cr
 	}
 
 	stderr := bytes.Buffer{}
-	cmd, err := git.SafeCmdWithoutRepo(ctx, nil,
+	cmd, err := git.NewCommandWithoutRepo(ctx, nil,
 		git.SubCmd{
 			Name: "clone",
 			Flags: []git.Option{
@@ -94,7 +94,7 @@ func (s *server) CreateRepositoryFromBundle(stream gitalypb.RepositoryService_Cr
 
 	// We do a fetch to get all refs including keep-around refs
 	stderr.Reset()
-	cmd, err = git.SafeCmdWithoutRepo(ctx,
+	cmd, err = git.NewCommandWithoutRepo(ctx,
 		[]git.GlobalOption{git.ValueFlag{Name: "-C", Value: repoPath}},
 		git.SubCmd{
 			Name:  "fetch",

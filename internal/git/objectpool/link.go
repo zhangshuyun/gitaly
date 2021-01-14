@@ -185,7 +185,7 @@ func (o *ObjectPool) Unlink(ctx context.Context, repo *gitalypb.Repository) erro
 // this function not suitable for general usage, and scoped to this package.
 // To be corrected in: https://gitlab.com/gitlab-org/gitaly/issues/1430
 func (o *ObjectPool) setConfig(ctx context.Context, key, value string) error {
-	cmd, err := git.SafeCmd(ctx, o, nil, git.SubCmd{
+	cmd, err := git.NewCommand(ctx, o, nil, git.SubCmd{
 		Name:  "config",
 		Flags: []git.Option{git.ConfigPair{Key: key, Value: value}},
 	})

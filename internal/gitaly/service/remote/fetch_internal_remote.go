@@ -33,12 +33,13 @@ func (s *server) FetchInternalRemote(ctx context.Context, req *gitalypb.FetchInt
 	}
 
 	stderr := &bytes.Buffer{}
-	cmd, err := git.SafeCmdWithEnv(ctx, env, req.Repository, nil,
+	cmd, err := git.NewCommand(ctx, req.Repository, nil,
 		git.SubCmd{
 			Name:  "fetch",
 			Flags: []git.Option{git.Flag{Name: "--prune"}},
 			Args:  []string{gitalyssh.GitalyInternalURL, mirrorRefSpec},
 		},
+		git.WithEnv(env...),
 		git.WithStderr(stderr),
 		git.WithDisabledHooks(),
 	)

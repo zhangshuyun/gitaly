@@ -200,7 +200,7 @@ func removeAlternatesIfOk(ctx context.Context, repo *gitalypb.Repository, altFil
 		}
 	}()
 
-	cmd, err := git.SafeCmd(ctx, repo, nil, git.SubCmd{
+	cmd, err := git.NewCommand(ctx, repo, nil, git.SubCmd{
 		Name:  "fsck",
 		Flags: []git.Option{git.Flag{Name: "--connectivity-only"}},
 	})

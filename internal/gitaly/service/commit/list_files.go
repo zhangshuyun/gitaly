@@ -68,7 +68,7 @@ func validateListFilesRequest(in *gitalypb.ListFilesRequest) error {
 }
 
 func listFiles(repo *gitalypb.Repository, revision string, stream gitalypb.CommitService_ListFilesServer) error {
-	cmd, err := git.SafeCmd(stream.Context(), repo, nil, git.SubCmd{Name: "ls-tree",
+	cmd, err := git.NewCommand(stream.Context(), repo, nil, git.SubCmd{Name: "ls-tree",
 		Flags:       []git.Option{git.Flag{Name: "-z"}, git.Flag{Name: "-r"}, git.Flag{Name: "--full-tree"}, git.Flag{Name: "--full-name"}},
 		PostSepArgs: []string{revision},
 	})

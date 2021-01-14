@@ -64,7 +64,7 @@ func getRawChanges(stream gitalypb.RepositoryService_GetRawChangesServer, repo *
 
 	ctx := stream.Context()
 
-	diffCmd, err := git.SafeCmd(ctx, repo, nil, git.SubCmd{
+	diffCmd, err := git.NewCommand(ctx, repo, nil, git.SubCmd{
 		Name:  "diff",
 		Flags: []git.Option{git.Flag{Name: "--raw"}, git.Flag{Name: "-z"}},
 		Args:  []string{from, to},

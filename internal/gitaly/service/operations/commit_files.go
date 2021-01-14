@@ -438,12 +438,13 @@ func (s *Server) fetchRemoteObject(ctx context.Context, local, remote *gitalypb.
 	}
 
 	stderr := &bytes.Buffer{}
-	cmd, err := git.SafeCmdWithEnv(ctx, env, local, nil,
+	cmd, err := git.NewCommand(ctx, local, nil,
 		git.SubCmd{
 			Name:  "fetch",
 			Flags: []git.Option{git.Flag{Name: "--no-tags"}},
 			Args:  []string{"ssh://gitaly/internal.git", sha},
 		},
+		git.WithEnv(env...),
 		git.WithStderr(stderr),
 		git.WithRefTxHook(ctx, local, s.cfg),
 	)

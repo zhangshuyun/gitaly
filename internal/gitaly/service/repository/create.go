@@ -21,7 +21,7 @@ func (s *server) CreateRepository(ctx context.Context, req *gitalypb.CreateRepos
 	}
 
 	stderr := &bytes.Buffer{}
-	cmd, err := git.SafeCmdWithoutRepo(ctx, nil,
+	cmd, err := git.NewCommandWithoutRepo(ctx, nil,
 		git.SubCmd{
 			Name: "init",
 			Flags: []git.Option{

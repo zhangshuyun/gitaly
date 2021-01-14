@@ -58,7 +58,7 @@ func (s *server) handleInfoRefs(ctx context.Context, service string, req *gitaly
 		globalOpts[i] = git.ValueFlag{"-c", o}
 	}
 
-	cmd, err := git.SafeBareCmd(ctx, nil, globalOpts, git.SubCmd{
+	cmd, err := git.NewCommandWithoutRepo(ctx, globalOpts, git.SubCmd{
 		Name:  service,
 		Flags: []git.Option{git.Flag{Name: "--stateless-rpc"}, git.Flag{Name: "--advertise-refs"}},
 		Args:  []string{repoPath},

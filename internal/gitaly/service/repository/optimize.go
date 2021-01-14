@@ -187,7 +187,7 @@ func (s *server) unsetAllConfigsByRegexp(ctx context.Context, repository *gitaly
 }
 
 func getConfigKeys(ctx context.Context, repository *gitalypb.Repository, regexp string) ([]string, error) {
-	cmd, err := git.SafeCmd(ctx, repository, nil, git.SubCmd{
+	cmd, err := git.NewCommand(ctx, repository, nil, git.SubCmd{
 		Name: "config",
 		Flags: []git.Option{
 			git.Flag{Name: "--name-only"},
@@ -247,7 +247,7 @@ func unsetAll(ctx context.Context, repository *gitalypb.Repository, name string)
 		return nil
 	}
 
-	cmd, err := git.SafeCmd(ctx, repository, nil, git.SubCmd{
+	cmd, err := git.NewCommand(ctx, repository, nil, git.SubCmd{
 		Name:  "config",
 		Flags: []git.Option{git.ValueFlag{Name: "--unset-all", Value: name}},
 	})

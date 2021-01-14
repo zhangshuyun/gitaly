@@ -48,7 +48,7 @@ func CheckRefFormat(ctx context.Context, refName string) (bool, error) {
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
 
-	cmd, err := SafeCmdWithoutRepo(ctx, nil,
+	cmd, err := NewCommandWithoutRepo(ctx, nil,
 		SubCmd{
 			Name: "check-ref-format",
 			Args: []string{refName},

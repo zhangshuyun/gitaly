@@ -81,12 +81,13 @@ func (s *server) FetchSourceBranch(ctx context.Context, req *gitalypb.FetchSourc
 			return nil, err
 		}
 
-		cmd, err := git.SafeCmdWithEnv(ctx, env, req.Repository, nil,
+		cmd, err := git.NewCommand(ctx, req.Repository, nil,
 			git.SubCmd{
 				Name:  "fetch",
 				Args:  []string{gitalyssh.GitalyInternalURL, sourceOid},
 				Flags: []git.Option{git.Flag{Name: "--no-tags"}},
 			},
+			git.WithEnv(env...),
 			git.WithRefTxHook(ctx, req.Repository, s.cfg),
 		)
 		if err != nil {
