@@ -136,6 +136,7 @@ func NewGitlabAPI(gitlabCfg config.Gitlab, tlsCfg config.TLS) (GitlabAPI, error)
 	if err != nil {
 		return nil, err
 	}
+	client.SetUserAgent(version.GetVersion())
 
 	return &gitlabAPI{client: client}, nil
 }

@@ -1,0 +1,5 @@
+---
+title: 'hooks: Override the user agent to Gitaly'
+merge_request: 3008
+author:
+type: changed
