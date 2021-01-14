@@ -1,0 +1,5 @@
+---
+title: Remove Ruby implementation of UserUpdateSubmodule
+merge_request: 3005
+author:
+type: performance
