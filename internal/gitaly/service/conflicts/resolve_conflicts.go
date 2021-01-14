@@ -255,7 +255,7 @@ func (s *server) repoWithBranchCommit(ctx context.Context, srcRepo, targetRepo *
 
 	src := git.NewRepository(srcRepo)
 	if sameRepo(srcRepo, targetRepo) {
-		_, err := src.ResolveRefish(ctx, string(targetBranch)+peelCommit)
+		_, err := src.ResolveRevision(ctx, git.Revision(string(targetBranch)+peelCommit))
 		return err
 	}
 
@@ -264,7 +264,7 @@ func (s *server) repoWithBranchCommit(ctx context.Context, srcRepo, targetRepo *
 		return err
 	}
 
-	oid, err := target.ResolveRefish(ctx, string(targetBranch)+peelCommit)
+	oid, err := target.ResolveRevision(ctx, git.Revision(string(targetBranch)+peelCommit))
 	if err != nil {
 		return err
 	}

@@ -32,13 +32,13 @@ func New(ctx context.Context, repo *gitalypb.Repository, pool *client.Pool) (Rep
 	return Repository{repo: repo, conn: cc}, nil
 }
 
-// ResolveRefish will dial to the remote repository and attempt to resolve the
-// refish string via the gRPC interface
-func (rr Repository) ResolveRefish(ctx context.Context, ref string) (string, error) {
+// ResolveRevision will dial to the remote repository and attempt to resolve the
+// revision string via the gRPC interface.
+func (rr Repository) ResolveRevision(ctx context.Context, revision git.Revision) (string, error) {
 	cli := gitalypb.NewCommitServiceClient(rr.conn)
 	resp, err := cli.FindCommit(ctx, &gitalypb.FindCommitRequest{
 		Repository: rr.repo,
-		Revision:   []byte(ref),
+		Revision:   []byte(revision.String()),
 	})
 	if err != nil {
 		return "", err

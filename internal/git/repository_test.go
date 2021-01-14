@@ -621,7 +621,7 @@ func TestLocalRepository_FetchRemote(t *testing.T) {
 		require.Contains(t, fetchHead, "e56497bb5f03a90a51293fc6d516788730953899	not-for-merge	branch ''test''")
 		require.Contains(t, fetchHead, "8a2a6eb295bb170b34c24c76c49ed0e9b2eaf34b	not-for-merge	tag 'v1.1.0'")
 
-		sha, err := repo.ResolveRefish(ctx, "refs/remotes/origin/master^{commit}")
+		sha, err := repo.ResolveRevision(ctx, Revision("refs/remotes/origin/master^{commit}"))
 		require.NoError(t, err, "the object from remote should exists in local after fetch done")
 		require.Equal(t, "1e292f8fedd741b75372e19097c76d327140c312", sha)
 	})

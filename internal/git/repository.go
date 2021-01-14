@@ -102,12 +102,12 @@ func (opts FetchOpts) buildFlags() []Option {
 
 // Repository is the common interface of different repository implementations.
 type Repository interface {
-	// ResolveRef resolves the given refish to its object ID. This uses the
-	// typical DWIM mechanism of Git to resolve the reference. See
-	// gitrevisions(1) for accepted syntax. This will not verify whether the
-	// object ID exists. To do so, you can peel the reference to a given
-	// object type, e.g. by passing `refs/heads/master^{commit}`.
-	ResolveRefish(ctx context.Context, ref string) (string, error)
+	// ResolveRevision tries to resolve the given revision to its object
+	// ID. This uses the typical DWIM mechanism of git, see gitrevisions(1)
+	// for accepted syntax. This will not verify whether the object ID
+	// exists. To do so, you can peel the reference to a given object type,
+	// e.g. by passing `refs/heads/master^{commit}`.
+	ResolveRevision(ctx context.Context, revision Revision) (string, error)
 	// HasBranches returns whether the repository has branches.
 	HasBranches(ctx context.Context) (bool, error)
 }
@@ -284,15 +284,20 @@ func (repo *LocalRepository) ReadObject(ctx context.Context, oid string) ([]byte
 	return stdout.Bytes(), nil
 }
 
-func (repo *LocalRepository) ResolveRefish(ctx context.Context, refish string) (string, error) {
-	if refish == "" {
+// ResolveRevision resolves the given revision to its object ID. This will not
+// verify whether the target object exists. To do so, you can peel the
+// reference to a given object type, e.g. by passing
+// `refs/heads/master^{commit}`. Returns an ErrReferenceNotFound error in case
+// the revision does not exist.
+func (repo *LocalRepository) ResolveRevision(ctx context.Context, revision Revision) (string, error) {
+	if revision.String() == "" {
 		return "", errors.New("repository cannot contain empty reference name")
 	}
 
 	cmd, err := repo.command(ctx, nil, SubCmd{
 		Name:  "rev-parse",
 		Flags: []Option{Flag{Name: "--verify"}},
-		Args:  []string{refish},
+		Args:  []string{revision.String()},
 	}, WithStderr(ioutil.Discard))
 	if err != nil {
 		return "", err
@@ -321,7 +326,7 @@ func (repo *LocalRepository) ResolveRefish(ctx context.Context, refish string) (
 // reference to a given object type, e.g. by passing
 // `refs/heads/master^{commit}`.
 func (repo *LocalRepository) ContainsRef(ctx context.Context, ref string) (bool, error) {
-	if _, err := repo.ResolveRefish(ctx, ref); err != nil {
+	if _, err := repo.ResolveRevision(ctx, Revision(ref)); err != nil {
 		if errors.Is(err, ErrReferenceNotFound) {
 			return false, nil
 		}

@@ -44,7 +44,7 @@ func (s *server) FetchSourceBranch(ctx context.Context, req *gitalypb.FetchSourc
 	if helper.RepoPathEqual(req.GetRepository(), req.GetSourceRepository()) {
 		var err error
 
-		sourceOid, err = targetRepo.ResolveRefish(ctx, string(req.GetSourceBranch()))
+		sourceOid, err = targetRepo.ResolveRevision(ctx, git.Revision(req.GetSourceBranch()))
 		if err != nil {
 			if errors.Is(err, git.ErrReferenceNotFound) {
 				return &gitalypb.FetchSourceBranchResponse{Result: false}, nil
@@ -56,7 +56,7 @@ func (s *server) FetchSourceBranch(ctx context.Context, req *gitalypb.FetchSourc
 	} else {
 		var err error
 
-		sourceOid, err = sourceRepo.ResolveRefish(ctx, string(req.GetSourceBranch()))
+		sourceOid, err = sourceRepo.ResolveRevision(ctx, git.Revision(req.GetSourceBranch()))
 		if err != nil {
 			if errors.Is(err, git.ErrReferenceNotFound) {
 				return &gitalypb.FetchSourceBranchResponse{Result: false}, nil
