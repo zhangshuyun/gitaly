@@ -375,11 +375,11 @@ func NewCommand(ctx context.Context, repo repository.GitRepo, globals []GlobalOp
 		return nil, err
 	}
 
-	return NewCommandFactory().unsafeCmd(ctx, cc.env, cmdStream{
+	return NewCommandFactory().newCommand(ctx, repo, cmdStream{
 		In:  cc.stdin,
 		Out: cc.stdout,
 		Err: cc.stderr,
-	}, repo, args...)
+	}, "", cc.env, args...)
 }
 
 // NewCommandWithoutRepo creates a command.Command with the given args. It is not
@@ -398,11 +398,11 @@ func NewCommandWithoutRepo(ctx context.Context, globals []GlobalOption, sc Cmd, 
 		return nil, err
 	}
 
-	return NewCommandFactory().unsafeBareCmd(ctx, cmdStream{
+	return NewCommandFactory().newCommand(ctx, nil, cmdStream{
 		In:  cc.stdin,
 		Out: cc.stdout,
 		Err: cc.stderr,
-	}, cc.env, args...)
+	}, "", cc.env, args...)
 }
 
 // NewCommandWithDir creates a new command.Command whose working directory is set
@@ -424,11 +424,11 @@ func NewCommandWithDir(ctx context.Context, dir string, globals []GlobalOption, 
 		return nil, err
 	}
 
-	return NewCommandFactory().unsafeBareCmdInDir(ctx, dir, cmdStream{
+	return NewCommandFactory().newCommand(ctx, nil, cmdStream{
 		In:  cc.stdin,
 		Out: cc.stdout,
 		Err: cc.stderr,
-	}, cc.env, args...)
+	}, dir, cc.env, args...)
 }
 
 func combineArgs(globals []GlobalOption, sc Cmd, cc *cmdCfg) (_ []string, err error) {

@@ -34,21 +34,11 @@ func (cf *CommandFactory) gitPath() string {
 	return cf.cfg.Git.BinPath
 }
 
-// unsafeCmd creates a git.unsafeCmd with the given args, environment, and Repository
-func (cf *CommandFactory) unsafeCmd(ctx context.Context, extraEnv []string, stream cmdStream, repo repository.GitRepo, args ...string) (*command.Command, error) {
-	return cf.newCommand(ctx, repo, stream, "", extraEnv, args...)
-}
-
-// unsafeBareCmd creates a git.Command with the given args, stdin/stdout/stderr, and env
-func (cf *CommandFactory) unsafeBareCmd(ctx context.Context, stream cmdStream, env []string, args ...string) (*command.Command, error) {
-	return cf.newCommand(ctx, nil, stream, "", env, args...)
-}
-
-// unsafeBareCmdInDir call sunsafeBareCmd in dir.
-func (cf *CommandFactory) unsafeBareCmdInDir(ctx context.Context, dir string, stream cmdStream, env []string, args ...string) (*command.Command, error) {
-	return cf.newCommand(ctx, nil, stream, dir, env, args...)
-}
-
+// newCommand creates a new command.Command for the given git command and
+// global options. If a repo is given, then the command will be run in the
+// context of that repository. Note that this sets up arguments and environment
+// variables for git, but doesn't run in the directory itself. If a directory
+// is given, then the command will be run in that directory.
 func (cf *CommandFactory) newCommand(ctx context.Context, repo repository.GitRepo, stream cmdStream, dir string, env []string, args ...string) (*command.Command, error) {
 	if repo != nil {
 		repoPath, err := cf.locator.GetRepoPath(repo)
