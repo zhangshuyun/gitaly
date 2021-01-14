@@ -1,0 +1,5 @@
+---
+title: Fix ResolveConflicts file limit error
+merge_request: 3004
+author:
+type: fixed
