@@ -21,12 +21,16 @@ module Gitaly
       rpc :UserDeleteTag, Gitaly::UserDeleteTagRequest, Gitaly::UserDeleteTagResponse
       rpc :UserMergeToRef, Gitaly::UserMergeToRefRequest, Gitaly::UserMergeToRefResponse
       rpc :UserMergeBranch, stream(Gitaly::UserMergeBranchRequest), stream(Gitaly::UserMergeBranchResponse)
+      # UserFFBranch tries to perform a fast-forward merge of the given branch to
+      # the given commit. If the merge is not a fast-forward merge, the request
+      # will fail. The RPC will return an empty response in case updating the
+      # reference fails e.g. because of a race.
       rpc :UserFFBranch, Gitaly::UserFFBranchRequest, Gitaly::UserFFBranchResponse
       rpc :UserCherryPick, Gitaly::UserCherryPickRequest, Gitaly::UserCherryPickResponse
       # UserCommitFiles builds a commit from a stream of actions and updates the target branch to point to it.
       # UserCommitFilesRequest with a UserCommitFilesRequestHeader must be sent as the first message of the stream.
-      # Following that, a variable number of actions can be sent to build a new commit. Each action consists of 
-      # a header followed by content if used by the action. 
+      # Following that, a variable number of actions can be sent to build a new commit. Each action consists of
+      # a header followed by content if used by the action.
       rpc :UserCommitFiles, stream(Gitaly::UserCommitFilesRequest), Gitaly::UserCommitFilesResponse
       rpc :UserRebaseConfirmable, stream(Gitaly::UserRebaseConfirmableRequest), stream(Gitaly::UserRebaseConfirmableResponse)
       rpc :UserRevert, Gitaly::UserRevertRequest, Gitaly::UserRevertResponse
