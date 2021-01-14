@@ -3,6 +3,7 @@ package commit
 import (
 	"github.com/golang/protobuf/proto"
 	"github.com/prometheus/client_golang/prometheus"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	gitlog "gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/chunk"
@@ -38,7 +39,7 @@ func (s *server) ListCommitsByOid(in *gitalypb.ListCommitsByOidRequest, stream g
 	listCommitsbyOidHistogram.Observe(float64(len(in.Oid)))
 
 	for _, oid := range in.Oid {
-		commit, err := gitlog.GetCommitCatfile(ctx, c, oid)
+		commit, err := gitlog.GetCommitCatfile(ctx, c, git.Revision(oid))
 		if catfile.IsNotFound(err) {
 			continue
 		}

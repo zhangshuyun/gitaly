@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
@@ -187,7 +188,7 @@ func testSuccessfulUserCreateTagRequest(t *testing.T, ctx context.Context) {
 	defer cleanupFn()
 
 	targetRevision := "c7fbe50c7c7419d9701eebe64b1fdacc3df5b9dd"
-	targetRevisionCommit, err := log.GetCommit(ctx, locator, testRepo, targetRevision)
+	targetRevisionCommit, err := log.GetCommit(ctx, locator, testRepo, git.Revision(targetRevision))
 	require.NoError(t, err)
 
 	inputTagName := "to-be-créated-soon"
@@ -684,7 +685,7 @@ func testSuccessfulUserCreateTagNestedTags(t *testing.T, ctx context.Context) {
 				// Fake it up for all levels, except for ^{} == "commit"
 				responseOk.Tag.TargetCommit = response.Tag.TargetCommit
 				if testCase.targetObjectType == "commit" {
-					responseOk.Tag.TargetCommit, err = log.GetCommit(ctx, locator, testRepo, testCase.targetObject)
+					responseOk.Tag.TargetCommit, err = log.GetCommit(ctx, locator, testRepo, git.Revision(testCase.targetObject))
 					require.NoError(t, err)
 				}
 				require.Equal(t, responseOk, response)
@@ -837,7 +838,7 @@ func testUserCreateTagsuccessfulCreationOfPrefixedTag(t *testing.T, ctx context.
 
 			response, err := client.UserCreateTag(ctx, request)
 			require.Equal(t, testCase.err, err)
-			commitOk, err := log.GetCommit(ctx, locator, testRepo, testCase.tagTargetRevisionInput)
+			commitOk, err := log.GetCommit(ctx, locator, testRepo, git.Revision(testCase.tagTargetRevisionInput))
 			require.NoError(t, err)
 
 			responseOk := &gitalypb.UserCreateTagResponse{

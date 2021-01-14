@@ -25,8 +25,8 @@ const (
 // When 'trimRightNewLine' is 'true', the tag message will be trimmed to remove all '\n' characters from right.
 // note: we pass in the tagName because the tag name from refs/tags may be different
 // than the name found in the actual tag object. We want to use the tagName found in refs/tags
-func GetTagCatfile(ctx context.Context, c catfile.Batch, tagID, tagName string, trimLen, trimRightNewLine bool) (*gitalypb.Tag, error) {
-	tagObj, err := c.Tag(ctx, git.Revision(tagID))
+func GetTagCatfile(ctx context.Context, c catfile.Batch, tagID git.Revision, tagName string, trimLen, trimRightNewLine bool) (*gitalypb.Tag, error) {
+	tagObj, err := c.Tag(ctx, tagID)
 	if err != nil {
 		return nil, err
 	}
@@ -37,7 +37,7 @@ func GetTagCatfile(ctx context.Context, c catfile.Batch, tagID, tagName string, 
 	}
 
 	// the tagID is the oid of the tag object
-	tag, err := buildAnnotatedTag(ctx, c, tagID, tagName, header, body, trimLen, trimRightNewLine)
+	tag, err := buildAnnotatedTag(ctx, c, tagID.String(), tagName, header, body, trimLen, trimRightNewLine)
 	if err != nil {
 		return nil, err
 	}
@@ -109,13 +109,13 @@ func buildAnnotatedTag(ctx context.Context, b catfile.Batch, tagID, name string,
 	var err error
 	switch header.tagType {
 	case "commit":
-		tag.TargetCommit, err = GetCommitCatfile(ctx, b, header.oid)
+		tag.TargetCommit, err = GetCommitCatfile(ctx, b, git.Revision(header.oid))
 		if err != nil {
 			return nil, fmt.Errorf("buildAnnotatedTag error when getting target commit: %v", err)
 		}
 
 	case "tag":
-		tag.TargetCommit, err = dereferenceTag(ctx, b, header.oid)
+		tag.TargetCommit, err = dereferenceTag(ctx, b, git.Revision(header.oid))
 		if err != nil {
 			return nil, fmt.Errorf("buildAnnotatedTag error when dereferencing tag: %v", err)
 		}
@@ -143,16 +143,16 @@ func buildAnnotatedTag(ctx context.Context, b catfile.Batch, tagID, name string,
 // This matches the original behavior in the ruby implementation.
 // we also protect against circular tag references. Even though this is not possible in git,
 // we still want to protect against an infinite looop
-func dereferenceTag(ctx context.Context, b catfile.Batch, oid string) (*gitalypb.GitCommit, error) {
+func dereferenceTag(ctx context.Context, b catfile.Batch, oid git.Revision) (*gitalypb.GitCommit, error) {
 	for depth := 0; depth < MaxTagReferenceDepth; depth++ {
-		i, err := b.Info(ctx, git.Revision(oid))
+		i, err := b.Info(ctx, oid)
 		if err != nil {
 			return nil, err
 		}
 
 		switch i.Type {
 		case "tag":
-			tagObj, err := b.Tag(ctx, git.Revision(oid))
+			tagObj, err := b.Tag(ctx, oid)
 			if err != nil {
 				return nil, err
 			}
@@ -162,7 +162,7 @@ func dereferenceTag(ctx context.Context, b catfile.Batch, oid string) (*gitalypb
 				return nil, err
 			}
 
-			oid = header.oid
+			oid = git.Revision(header.oid)
 			continue
 		case "commit":
 			return GetCommitCatfile(ctx, b, oid)

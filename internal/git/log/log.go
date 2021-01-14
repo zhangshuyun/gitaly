@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -47,7 +48,7 @@ func (parser *Parser) Parse(ctx context.Context) bool {
 
 	commitID := parser.scanner.Text()
 
-	commit, err := GetCommitCatfile(ctx, parser.c, commitID)
+	commit, err := GetCommitCatfile(ctx, parser.c, git.Revision(commitID))
 	if err != nil {
 		parser.err = err
 		return false

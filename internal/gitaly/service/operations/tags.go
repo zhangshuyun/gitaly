@@ -199,7 +199,7 @@ func (s *Server) userCreateTagGo(ctx context.Context, req *gitalypb.UserCreateTa
 			return nil, status.Error(codes.Internal, err.Error())
 		}
 
-		createdTag, err := log.GetTagCatfile(ctx, catFile, tagObjectID, string(req.TagName), false, false)
+		createdTag, err := log.GetTagCatfile(ctx, catFile, git.Revision(tagObjectID), string(req.TagName), false, false)
 		if err != nil {
 			return nil, status.Error(codes.Internal, err.Error())
 		}
@@ -280,7 +280,7 @@ func (s *Server) userCreateTagGo(ctx context.Context, req *gitalypb.UserCreateTa
 	// Save ourselves looking this up earlier in case update-ref
 	// died
 	if peeledTargetObjectType == "commit" {
-		peeledTargetCommit, err := log.GetCommitCatfile(ctx, catFile, peeledTargetObjectID)
+		peeledTargetCommit, err := log.GetCommitCatfile(ctx, catFile, git.Revision(peeledTargetObjectID))
 		if err != nil {
 			return nil, status.Error(codes.Internal, err.Error())
 		}

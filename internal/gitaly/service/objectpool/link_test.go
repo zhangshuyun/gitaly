@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/git/objectpool"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
@@ -82,7 +83,7 @@ func TestLink(t *testing.T) {
 
 			require.NoError(t, err, "error from LinkRepositoryToObjectPool")
 
-			commit, err := log.GetCommit(ctx, locator, testRepo, poolCommitID)
+			commit, err := log.GetCommit(ctx, locator, testRepo, git.Revision(poolCommitID))
 			require.NoError(t, err)
 			require.NotNil(t, commit)
 			require.Equal(t, poolCommitID, commit.Id)

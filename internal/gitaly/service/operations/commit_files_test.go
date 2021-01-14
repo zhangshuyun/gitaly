@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
@@ -943,7 +944,7 @@ func testSuccessfulUserCommitFilesRequest(t *testing.T, ctx context.Context) {
 			require.Equal(t, tc.repoCreated, resp.GetBranchUpdate().GetRepoCreated())
 			require.Equal(t, tc.branchCreated, resp.GetBranchUpdate().GetBranchCreated())
 
-			headCommit, err := log.GetCommit(ctx, locator, tc.repo, tc.branchName)
+			headCommit, err := log.GetCommit(ctx, locator, tc.repo, git.Revision(tc.branchName))
 			require.NoError(t, err)
 			require.Equal(t, authorName, headCommit.Author.Name)
 			require.Equal(t, testhelper.TestUser.Name, headCommit.Committer.Name)
@@ -1047,10 +1048,10 @@ func testSuccessfulUserCommitFilesRequestForceCommit(t *testing.T, ctx context.C
 	targetBranchName := "feature"
 	startBranchName := []byte("master")
 
-	startBranchCommit, err := log.GetCommit(ctx, locator, testRepo, string(startBranchName))
+	startBranchCommit, err := log.GetCommit(ctx, locator, testRepo, git.Revision(startBranchName))
 	require.NoError(t, err)
 
-	targetBranchCommit, err := log.GetCommit(ctx, locator, testRepo, targetBranchName)
+	targetBranchCommit, err := log.GetCommit(ctx, locator, testRepo, git.Revision(targetBranchName))
 	require.NoError(t, err)
 
 	mergeBaseOut := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "merge-base", targetBranchCommit.Id, startBranchCommit.Id)
@@ -1072,7 +1073,7 @@ func testSuccessfulUserCommitFilesRequestForceCommit(t *testing.T, ctx context.C
 	require.NoError(t, err)
 
 	update := resp.GetBranchUpdate()
-	newTargetBranchCommit, err := log.GetCommit(ctx, locator, testRepo, targetBranchName)
+	newTargetBranchCommit, err := log.GetCommit(ctx, locator, testRepo, git.Revision(targetBranchName))
 	require.NoError(t, err)
 
 	require.Equal(t, newTargetBranchCommit.Id, update.CommitId)
@@ -1113,7 +1114,7 @@ func testSuccessfulUserCommitFilesRequestStartSha(t *testing.T, ctx context.Cont
 	require.NoError(t, err)
 
 	update := resp.GetBranchUpdate()
-	newTargetBranchCommit, err := log.GetCommit(ctx, locator, testRepo, targetBranchName)
+	newTargetBranchCommit, err := log.GetCommit(ctx, locator, testRepo, git.Revision(targetBranchName))
 	require.NoError(t, err)
 
 	require.Equal(t, newTargetBranchCommit.Id, update.CommitId)
@@ -1175,7 +1176,7 @@ func testSuccessfulUserCommitFilesRemoteRepositoryRequest(setHeader func(header 
 		require.NoError(t, err)
 
 		update := resp.GetBranchUpdate()
-		newTargetBranchCommit, err := log.GetCommit(ctx, locator, newRepo, targetBranchName)
+		newTargetBranchCommit, err := log.GetCommit(ctx, locator, newRepo, git.Revision(targetBranchName))
 		require.NoError(t, err)
 
 		require.Equal(t, newTargetBranchCommit.Id, update.CommitId)
@@ -1230,7 +1231,7 @@ func testSuccessfulUserCommitFilesRequestWithSpecialCharactersInSignature(t *tes
 			_, err = stream.CloseAndRecv()
 			require.NoError(t, err)
 
-			newCommit, err := log.GetCommit(ctx, locator, testRepo, targetBranchName)
+			newCommit, err := log.GetCommit(ctx, locator, testRepo, git.Revision(targetBranchName))
 			require.NoError(t, err)
 
 			require.Equal(t, tc.author.Name, newCommit.Author.Name, "author name")

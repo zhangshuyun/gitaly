@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
@@ -53,7 +54,7 @@ func TestGetTag(t *testing.T) {
 		t.Run(testCase.tagName, func(t *testing.T) {
 			tagID := testhelper.CreateTag(t, testRepoPath, testCase.tagName, testCase.rev, &testhelper.CreateTagOpts{Message: testCase.message})
 
-			tag, err := GetTagCatfile(ctx, c, tagID, testCase.tagName, testCase.trim, true)
+			tag, err := GetTagCatfile(ctx, c, git.Revision(tagID), testCase.tagName, testCase.trim, true)
 			require.NoError(t, err)
 			if testCase.trim && len(testCase.message) >= helper.MaxCommitOrTagMessageSize {
 				testCase.message = testCase.message[:helper.MaxCommitOrTagMessageSize]

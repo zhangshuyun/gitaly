@@ -114,7 +114,7 @@ func (g *GetCommits) Offset(offset int) error {
 func (g *GetCommits) Commit(ctx context.Context) (*gitalypb.GitCommit, error) {
 	revAndTrailers := strings.SplitN(strings.TrimSpace(g.scanner.Text()), "\000", 2)
 	revision := revAndTrailers[0]
-	commit, err := log.GetCommitCatfile(ctx, g.batch, revision)
+	commit, err := log.GetCommitCatfile(ctx, g.batch, git.Revision(revision))
 	if err != nil {
 		return nil, fmt.Errorf("cat-file get commit %q: %v", revision, err)
 	}

@@ -395,13 +395,13 @@ func parseTagLine(ctx context.Context, c catfile.Batch, tagLine string) (*gitaly
 	switch refType {
 	// annotated tag
 	case "tag":
-		tag, err := gitlog.GetTagCatfile(ctx, c, tagID, refName, true, true)
+		tag, err := gitlog.GetTagCatfile(ctx, c, git.Revision(tagID), refName, true, true)
 		if err != nil {
 			return nil, fmt.Errorf("getting annotated tag: %v", err)
 		}
 		return tag, nil
 	case "commit":
-		commit, err := gitlog.GetCommitCatfile(ctx, c, tagID)
+		commit, err := gitlog.GetCommitCatfile(ctx, c, git.Revision(tagID))
 		if err != nil {
 			return nil, fmt.Errorf("getting commit catfile: %v", err)
 		}

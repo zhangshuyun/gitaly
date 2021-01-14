@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	gitlog "gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -73,7 +74,7 @@ func TestSuccessfulWikiDeletePageRequest(t *testing.T) {
 			require.NoError(t, err)
 
 			headID := testhelper.MustRunCommand(t, nil, "git", "-C", wikiRepoPath, "show", "--format=format:%H", "--no-patch", "HEAD")
-			commit, err := gitlog.GetCommit(ctx, locator, wikiRepo, string(headID))
+			commit, err := gitlog.GetCommit(ctx, locator, wikiRepo, git.Revision(headID))
 			require.NoError(t, err, "look up git commit after deleting a wiki page")
 
 			require.Equal(t, authorName, commit.Author.Name, "author name mismatched")

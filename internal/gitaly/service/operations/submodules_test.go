@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/git/lstree"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
@@ -72,7 +73,7 @@ func testSuccessfulUserUpdateSubmoduleRequest(t *testing.T, ctx context.Context)
 			require.Empty(t, response.GetCommitError())
 			require.Empty(t, response.GetPreReceiveError())
 
-			commit, err := log.GetCommit(ctx, locator, testRepo, response.BranchUpdate.CommitId)
+			commit, err := log.GetCommit(ctx, locator, testRepo, git.Revision(response.BranchUpdate.CommitId))
 			require.NoError(t, err)
 			require.Equal(t, commit.Author.Email, testhelper.TestUser.Email)
 			require.Equal(t, commit.Committer.Email, testhelper.TestUser.Email)

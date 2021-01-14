@@ -500,7 +500,7 @@ func TestSuccessfulFindAllTagsRequest(t *testing.T) {
 		Message:  "An empty commit with REALLY BIG message\n\n" + strings.Repeat("a", helper.MaxCommitOrTagMessageSize+1),
 		ParentID: "60ecb67744cb56576c30214ff52294f8ce2def98",
 	})
-	bigCommit, err := log.GetCommit(ctx, locator, testRepoCopy, bigCommitID)
+	bigCommit, err := log.GetCommit(ctx, locator, testRepoCopy, git.Revision(bigCommitID))
 	require.NoError(t, err)
 
 	annotatedTagID := testhelper.CreateTag(t, testRepoCopyPath, "v1.2.0", blobID, &testhelper.CreateTagOpts{Message: "Blob tag"})
@@ -748,7 +748,7 @@ func TestFindAllTagNestedTags(t *testing.T) {
 
 				// only expect the TargetCommit to be populated if it is a commit and if its less than 10 tags deep
 				if info.Type == "commit" && depth < log.MaxTagReferenceDepth {
-					commit, err := log.GetCommitCatfile(ctx, batch, tc.originalOid)
+					commit, err := log.GetCommitCatfile(ctx, batch, git.Revision(tc.originalOid))
 					require.NoError(t, err)
 					expectedTag.TargetCommit = commit
 				}
@@ -1453,7 +1453,7 @@ func TestSuccessfulFindTagRequest(t *testing.T) {
 		Message:  "An empty commit with REALLY BIG message\n\n" + strings.Repeat("a", helper.MaxCommitOrTagMessageSize+1),
 		ParentID: "60ecb67744cb56576c30214ff52294f8ce2def98",
 	})
-	bigCommit, err := log.GetCommit(ctx, locator, testRepoCopy, bigCommitID)
+	bigCommit, err := log.GetCommit(ctx, locator, testRepoCopy, git.Revision(bigCommitID))
 	require.NoError(t, err)
 
 	annotatedTagID := testhelper.CreateTag(t, testRepoCopyPath, "v1.2.0", blobID, &testhelper.CreateTagOpts{Message: "Blob tag"})
@@ -1681,7 +1681,7 @@ func TestFindTagNestedTag(t *testing.T) {
 			}
 			// only expect the TargetCommit to be populated if it is a commit and if its less than 10 tags deep
 			if info.Type == "commit" && tc.depth < log.MaxTagReferenceDepth {
-				commit, err := log.GetCommitCatfile(ctx, batch, tc.originalOid)
+				commit, err := log.GetCommitCatfile(ctx, batch, git.Revision(tc.originalOid))
 				require.NoError(t, err)
 				expectedTag.TargetCommit = commit
 			}

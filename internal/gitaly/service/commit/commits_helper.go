@@ -12,7 +12,12 @@ import (
 )
 
 func sendCommits(ctx context.Context, sender chunk.Sender, locator storage.Locator, repo *gitalypb.Repository, revisionRange []string, paths []string, options *gitalypb.GlobalOptions, extraArgs ...git.Option) error {
-	cmd, err := log.GitLogCommand(ctx, repo, revisionRange, paths, options, extraArgs...)
+	revisions := make([]git.Revision, len(revisionRange))
+	for i, revision := range revisionRange {
+		revisions[i] = git.Revision(revision)
+	}
+
+	cmd, err := log.GitLogCommand(ctx, repo, revisions, paths, options, extraArgs...)
 	if err != nil {
 		return err
 	}

@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/client"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	gitalyhook "gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
@@ -50,7 +51,7 @@ func testSuccessfulCreateBranchRequest(t *testing.T, ctx context.Context) {
 
 	locator := config.NewLocator(config.Config)
 	startPoint := "c7fbe50c7c7419d9701eebe64b1fdacc3df5b9dd"
-	startPointCommit, err := log.GetCommit(ctx, locator, testRepo, startPoint)
+	startPointCommit, err := log.GetCommit(ctx, locator, testRepo, git.Revision(startPoint))
 	require.NoError(t, err)
 
 	testCases := []struct {

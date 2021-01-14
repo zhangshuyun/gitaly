@@ -17,7 +17,7 @@ func (s *server) FindCommit(ctx context.Context, in *gitalypb.FindCommitRequest)
 
 	repo := in.GetRepository()
 
-	commit, err := log.GetCommitWithTrailers(ctx, s.locator, repo, string(revision))
+	commit, err := log.GetCommitWithTrailers(ctx, s.locator, repo, git.Revision(revision))
 	if log.IsNotFound(err) {
 		return &gitalypb.FindCommitResponse{}, nil
 	}

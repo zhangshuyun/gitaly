@@ -11,6 +11,7 @@ import (
 	"testing/iotest"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -126,7 +127,7 @@ func testSuccessfulUserApplyPatch(t *testing.T, ctx context.Context) {
 
 			for index, sha := range shas {
 				locator := config.NewLocator(config.Config)
-				commit, err := log.GetCommit(ctx, locator, testRepo, sha)
+				commit, err := log.GetCommit(ctx, locator, testRepo, git.Revision(sha))
 				require.NoError(t, err)
 
 				require.NotNil(t, commit)

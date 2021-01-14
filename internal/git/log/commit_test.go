@@ -7,6 +7,7 @@ import (
 
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -155,7 +156,7 @@ func TestGetCommitCatfile(t *testing.T) {
 	require.NoError(t, err)
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			c, err := GetCommitCatfile(ctx, c, tc.revision)
+			c, err := GetCommitCatfile(ctx, c, git.Revision(tc.revision))
 
 			if tc.errStr == "" {
 				require.NoError(t, err)

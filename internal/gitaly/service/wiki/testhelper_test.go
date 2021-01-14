@@ -10,6 +10,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/hooks"
 	gitlog "gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
@@ -197,7 +198,7 @@ func createTestWikiPage(t *testing.T, locator storage.Locator, client gitalypb.W
 	require.NoError(t, err)
 	writeWikiPage(t, client, wikiRepo, opts)
 	head1ID := testhelper.MustRunCommand(t, nil, "git", "-C", wikiRepoPath, "show", "--format=format:%H", "--no-patch", "HEAD")
-	pageCommit, err := gitlog.GetCommit(ctx, locator, wikiRepo, string(head1ID))
+	pageCommit, err := gitlog.GetCommit(ctx, locator, wikiRepo, git.Revision(head1ID))
 	require.NoError(t, err, "look up git commit after writing a wiki page")
 
 	return pageCommit
