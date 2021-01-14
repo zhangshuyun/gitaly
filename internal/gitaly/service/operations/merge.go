@@ -108,7 +108,7 @@ func (s *Server) userMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 	}
 
 	branch := "refs/heads/" + text.ChompBytes(firstRequest.Branch)
-	revision, err := git.NewRepository(repo).ResolveRefish(ctx, branch)
+	revision, err := git.NewRepository(repo).ResolveRevision(ctx, git.Revision(branch))
 	if err != nil {
 		return err
 	}
@@ -199,7 +199,7 @@ func (s *Server) UserFFBranch(ctx context.Context, in *gitalypb.UserFFBranchRequ
 	}
 
 	branch := fmt.Sprintf("refs/heads/%s", in.Branch)
-	revision, err := git.NewRepository(in.Repository).ResolveRefish(ctx, branch)
+	revision, err := git.NewRepository(in.Repository).ResolveRevision(ctx, git.Revision(branch))
 	if err != nil {
 		return nil, helper.ErrInvalidArgument(err)
 	}
@@ -287,25 +287,25 @@ func (s *Server) userMergeToRef(ctx context.Context, request *gitalypb.UserMerge
 
 	repo := git.NewRepository(request.Repository)
 
-	refName := string(request.Branch)
+	revision := git.Revision(request.Branch)
 	if request.FirstParentRef != nil {
-		refName = string(request.FirstParentRef)
+		revision = git.Revision(request.FirstParentRef)
 	}
 
-	ref, err := repo.ResolveRefish(ctx, refName)
+	oid, err := repo.ResolveRevision(ctx, revision)
 	if err != nil {
 		//nolint:stylecheck
 		return nil, helper.ErrInvalidArgument(errors.New("Invalid merge source"))
 	}
 
-	sourceRef, err := repo.ResolveRefish(ctx, request.SourceSha)
+	sourceRef, err := repo.ResolveRevision(ctx, git.Revision(request.SourceSha))
 	if err != nil {
 		//nolint:stylecheck
 		return nil, helper.ErrInvalidArgument(errors.New("Invalid merge source"))
 	}
 
 	// First, overwrite the reference with the target reference.
-	if err := repo.UpdateRef(ctx, string(request.TargetRef), ref, ""); err != nil {
+	if err := repo.UpdateRef(ctx, git.ReferenceName(request.TargetRef), oid, ""); err != nil {
 		return nil, updateRefError{reference: string(request.TargetRef)}
 	}
 
@@ -315,7 +315,7 @@ func (s *Server) userMergeToRef(ctx context.Context, request *gitalypb.UserMerge
 		AuthorName: string(request.User.Name),
 		AuthorMail: string(request.User.Email),
 		Message:    string(request.Message),
-		Ours:       ref,
+		Ours:       oid,
 		Theirs:     sourceRef,
 	}.Run(ctx, s.cfg)
 	if err != nil {
@@ -323,12 +323,12 @@ func (s *Server) userMergeToRef(ctx context.Context, request *gitalypb.UserMerge
 			return nil, helper.ErrInvalidArgument(err)
 		}
 		//nolint:stylecheck
-		return nil, helper.ErrPreconditionFailedf("Failed to create merge commit for source_sha %s and target_sha %s at %s", sourceRef, ref, string(request.TargetRef))
+		return nil, helper.ErrPreconditionFailedf("Failed to create merge commit for source_sha %s and target_sha %s at %s", sourceRef, oid, string(request.TargetRef))
 	}
 
 	// ... and move branch from target ref to the merge commit. The Ruby
 	// implementation doesn't invoke hooks, so we don't either.
-	if err := repo.UpdateRef(ctx, string(request.TargetRef), merge.CommitID, ref); err != nil {
+	if err := repo.UpdateRef(ctx, git.ReferenceName(request.TargetRef), merge.CommitID, oid); err != nil {
 		//nolint:stylecheck
 		return nil, helper.ErrPreconditionFailed(fmt.Errorf("Could not update %s. Please refresh and try again", string(request.TargetRef)))
 	}

@@ -39,13 +39,13 @@ func (s *server) GetRawChanges(req *gitalypb.GetRawChangesRequest, stream gitaly
 
 func validateRawChangesRequest(ctx context.Context, req *gitalypb.GetRawChangesRequest, batch catfile.Batch) error {
 	if from := req.FromRevision; from != git.NullSHA {
-		if _, err := batch.Info(ctx, from); err != nil {
+		if _, err := batch.Info(ctx, git.Revision(from)); err != nil {
 			return fmt.Errorf("invalid 'from' revision: %q", from)
 		}
 	}
 
 	if to := req.ToRevision; to != git.NullSHA {
-		if _, err := batch.Info(ctx, to); err != nil {
+		if _, err := batch.Info(ctx, git.Revision(to)); err != nil {
 			return fmt.Errorf("invalid 'to' revision: %q", to)
 		}
 	}
@@ -153,7 +153,7 @@ func changeFromDiff(ctx context.Context, batch catfile.Batch, d *rawdiff.Diff) (
 	}
 
 	if blobMode != submoduleTreeEntryMode {
-		info, err := batch.Info(ctx, shortBlobID)
+		info, err := batch.Info(ctx, git.Revision(shortBlobID))
 		if err != nil {
 			return nil, fmt.Errorf("find %q: %v", shortBlobID, err)
 		}

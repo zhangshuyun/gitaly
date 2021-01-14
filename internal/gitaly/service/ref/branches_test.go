@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -26,7 +27,7 @@ func TestSuccessfulFindBranchRequest(t *testing.T) {
 	defer cleanupFn()
 
 	branchNameInput := "master"
-	branchTarget, err := log.GetCommit(ctx, locator, testRepo, branchNameInput)
+	branchTarget, err := log.GetCommit(ctx, locator, testRepo, git.Revision(branchNameInput))
 	require.NoError(t, err)
 
 	branch := &gitalypb.Branch{

@@ -45,11 +45,11 @@ func (s *server) DeleteRefs(ctx context.Context, in *gitalypb.DeleteRefsRequest)
 	return &gitalypb.DeleteRefsResponse{}, nil
 }
 
-func refsToRemove(ctx context.Context, req *gitalypb.DeleteRefsRequest) ([]string, error) {
+func refsToRemove(ctx context.Context, req *gitalypb.DeleteRefsRequest) ([]git.ReferenceName, error) {
 	if len(req.Refs) > 0 {
-		refs := make([]string, len(req.Refs))
+		refs := make([]git.ReferenceName, len(req.Refs))
 		for i, ref := range req.Refs {
-			refs[i] = string(ref)
+			refs[i] = git.ReferenceName(ref)
 		}
 		return refs, nil
 	}
@@ -64,9 +64,9 @@ func refsToRemove(ctx context.Context, req *gitalypb.DeleteRefsRequest) ([]strin
 		return nil, err
 	}
 
-	var refs []string
+	var refs []git.ReferenceName
 	for _, existingRef := range existingRefs {
-		if hasAnyPrefix(existingRef.Name, prefixes) {
+		if hasAnyPrefix(existingRef.Name.String(), prefixes) {
 			continue
 		}
 

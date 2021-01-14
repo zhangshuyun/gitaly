@@ -77,7 +77,7 @@ func newBatchProcess(ctx context.Context, locator storage.Locator, repo reposito
 	return b, nil
 }
 
-func (b *batchProcess) reader(revspec string, expectedType string) (*Object, error) {
+func (b *batchProcess) reader(revision git.Revision, expectedType string) (*Object, error) {
 	b.Lock()
 	defer b.Unlock()
 
@@ -93,7 +93,7 @@ func (b *batchProcess) reader(revspec string, expectedType string) (*Object, err
 		return nil, fmt.Errorf("cannot create new Object: batch contains %d unread bytes", b.n)
 	}
 
-	if _, err := fmt.Fprintln(b.w, revspec); err != nil {
+	if _, err := fmt.Fprintln(b.w, revision.String()); err != nil {
 		return nil, err
 	}
 

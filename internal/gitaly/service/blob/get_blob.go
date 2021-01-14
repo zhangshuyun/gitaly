@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -24,7 +25,7 @@ func (s *server) GetBlob(in *gitalypb.GetBlobRequest, stream gitalypb.BlobServic
 		return status.Errorf(codes.Internal, "GetBlob: %v", err)
 	}
 
-	objectInfo, err := c.Info(ctx, in.Oid)
+	objectInfo, err := c.Info(ctx, git.Revision(in.Oid))
 	if err != nil && !catfile.IsNotFound(err) {
 		return status.Errorf(codes.Internal, "GetBlob: %v", err)
 	}
@@ -45,7 +46,7 @@ func (s *server) GetBlob(in *gitalypb.GetBlobRequest, stream gitalypb.BlobServic
 		return helper.DecorateError(codes.Unavailable, stream.Send(firstMessage))
 	}
 
-	blobObj, err := c.Blob(ctx, objectInfo.Oid)
+	blobObj, err := c.Blob(ctx, git.Revision(objectInfo.Oid))
 	if err != nil {
 		return status.Errorf(codes.Internal, "GetBlob: %v", err)
 	}

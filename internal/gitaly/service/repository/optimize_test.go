@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
@@ -105,7 +106,7 @@ func TestOptimizeRepository(t *testing.T) {
 
 	for _, blobID := range blobIDs {
 		commitID := testhelper.CommitBlobWithName(t, testRepoPath, blobID, blobID, "adding another blob....")
-		require.NoError(t, updater.Create("refs/heads/"+blobID, commitID))
+		require.NoError(t, updater.Create(git.ReferenceName("refs/heads/"+blobID), commitID))
 	}
 
 	require.NoError(t, updater.Wait())

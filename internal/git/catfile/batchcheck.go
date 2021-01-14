@@ -60,11 +60,11 @@ func newBatchCheck(ctx context.Context, locator storage.Locator, repo repository
 	return bc, nil
 }
 
-func (bc *batchCheck) info(spec string) (*ObjectInfo, error) {
+func (bc *batchCheck) info(revision git.Revision) (*ObjectInfo, error) {
 	bc.Lock()
 	defer bc.Unlock()
 
-	if _, err := fmt.Fprintln(bc.w, spec); err != nil {
+	if _, err := fmt.Fprintln(bc.w, revision.String()); err != nil {
 		return nil, err
 	}
 

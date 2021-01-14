@@ -93,7 +93,7 @@ func (s *Server) updateReferenceWithHooks(ctx context.Context, repo *gitalypb.Re
 		return err
 	}
 
-	if err := updater.Update(reference, newrev, oldrev); err != nil {
+	if err := updater.Update(git.ReferenceName(reference), newrev, oldrev); err != nil {
 		return err
 	}
 

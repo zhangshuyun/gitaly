@@ -16,8 +16,8 @@ func TestRepository(t *testing.T, getRepository func(testing.TB, *gitalypb.Repos
 		test func(*testing.T, func(testing.TB, *gitalypb.Repository) Repository)
 	}{
 		{
-			desc: "ResolveRefish",
-			test: testRepositoryResolveRefish,
+			desc: "ResolveRevision",
+			test: testRepositoryResolveRevision,
 		},
 		{
 			desc: "HasBranches",
@@ -30,7 +30,7 @@ func TestRepository(t *testing.T, getRepository func(testing.TB, *gitalypb.Repos
 	}
 }
 
-func testRepositoryResolveRefish(t *testing.T, getRepository func(testing.TB, *gitalypb.Repository) Repository) {
+func testRepositoryResolveRevision(t *testing.T, getRepository func(testing.TB, *gitalypb.Repository) Repository) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -39,40 +39,40 @@ func testRepositoryResolveRefish(t *testing.T, getRepository func(testing.TB, *g
 
 	for _, tc := range []struct {
 		desc     string
-		refish   string
+		revision string
 		expected string
 	}{
 		{
 			desc:     "unqualified master branch",
-			refish:   "master",
+			revision: "master",
 			expected: "1e292f8fedd741b75372e19097c76d327140c312",
 		},
 		{
 			desc:     "fully qualified master branch",
-			refish:   "refs/heads/master",
+			revision: "refs/heads/master",
 			expected: "1e292f8fedd741b75372e19097c76d327140c312",
 		},
 		{
 			desc:     "typed commit",
-			refish:   "refs/heads/master^{commit}",
+			revision: "refs/heads/master^{commit}",
 			expected: "1e292f8fedd741b75372e19097c76d327140c312",
 		},
 		{
 			desc:     "extended SHA notation",
-			refish:   "refs/heads/master^2",
+			revision: "refs/heads/master^2",
 			expected: "c1c67abbaf91f624347bb3ae96eabe3a1b742478",
 		},
 		{
-			desc:   "nonexistent branch",
-			refish: "refs/heads/foobar",
+			desc:     "nonexistent branch",
+			revision: "refs/heads/foobar",
 		},
 		{
-			desc:   "SHA notation gone wrong",
-			refish: "refs/heads/master^3",
+			desc:     "SHA notation gone wrong",
+			revision: "refs/heads/master^3",
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			oid, err := getRepository(t, pbRepo).ResolveRefish(ctx, tc.refish)
+			oid, err := getRepository(t, pbRepo).ResolveRevision(ctx, Revision(tc.revision))
 			if tc.expected == "" {
 				require.Equal(t, err, ErrReferenceNotFound)
 				return

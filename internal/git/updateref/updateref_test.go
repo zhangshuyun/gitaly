@@ -49,14 +49,14 @@ func TestCreate(t *testing.T) {
 	updater, err := New(ctx, testRepo)
 	require.NoError(t, err)
 
-	ref := "refs/heads/_create"
+	ref := git.ReferenceName("refs/heads/_create")
 	sha := headCommit.Id
 
 	require.NoError(t, updater.Create(ref, sha))
 	require.NoError(t, updater.Wait())
 
 	// check the ref was created
-	commit, logErr := log.GetCommit(ctx, locator, testRepo, ref)
+	commit, logErr := log.GetCommit(ctx, locator, testRepo, ref.Revision())
 	require.NoError(t, logErr)
 	require.Equal(t, commit.Id, sha, "reference was created with the wrong SHA")
 }
@@ -72,19 +72,19 @@ func TestUpdate(t *testing.T) {
 	updater, err := New(ctx, testRepo)
 	require.NoError(t, err)
 
-	ref := "refs/heads/feature"
+	ref := git.ReferenceName("refs/heads/feature")
 	sha := headCommit.Id
 
 	// Sanity check: ensure the ref exists before we start
-	commit, logErr := log.GetCommit(ctx, locator, testRepo, ref)
+	commit, logErr := log.GetCommit(ctx, locator, testRepo, ref.Revision())
 	require.NoError(t, logErr)
-	require.NotEqual(t, commit.Id, sha, "%s points to HEAD: %s in the test repository", ref, sha)
+	require.NotEqual(t, commit.Id, sha, "%s points to HEAD: %s in the test repository", ref.String(), sha)
 
 	require.NoError(t, updater.Update(ref, sha, ""))
 	require.NoError(t, updater.Wait())
 
 	// check the ref was updated
-	commit, logErr = log.GetCommit(ctx, locator, testRepo, ref)
+	commit, logErr = log.GetCommit(ctx, locator, testRepo, ref.Revision())
 	require.NoError(t, logErr)
 	require.Equal(t, commit.Id, sha, "reference was not updated")
 
@@ -94,7 +94,7 @@ func TestUpdate(t *testing.T) {
 	require.Error(t, updater.Update(ref, parentCommit.Id, parentCommit.Id))
 
 	// check the ref was not updated
-	commit, logErr = log.GetCommit(ctx, locator, testRepo, ref)
+	commit, logErr = log.GetCommit(ctx, locator, testRepo, ref.Revision())
 	require.NoError(t, logErr)
 	require.NotEqual(t, commit.Id, parentCommit.Id, "reference was updated when it shouldn't have been")
 }
@@ -106,7 +106,7 @@ func TestDelete(t *testing.T) {
 	updater, err := New(ctx, testRepo)
 	require.NoError(t, err)
 
-	ref := "refs/heads/feature"
+	ref := git.ReferenceName("refs/heads/feature")
 
 	require.NoError(t, updater.Delete(ref))
 	require.NoError(t, updater.Wait())
@@ -114,7 +114,7 @@ func TestDelete(t *testing.T) {
 	locator := config.NewLocator(config.Config)
 
 	// check the ref was removed
-	_, err = log.GetCommit(ctx, locator, testRepo, ref)
+	_, err = log.GetCommit(ctx, locator, testRepo, ref.Revision())
 	require.True(t, log.IsNotFound(err), "expected 'not found' error got %v", err)
 }
 
@@ -132,7 +132,7 @@ func TestBulkOperation(t *testing.T) {
 
 	for i := 0; i < 1000; i++ {
 		ref := fmt.Sprintf("refs/head/_test_%d", i)
-		require.NoError(t, updater.Create(ref, headCommit.Id), "Failed to create ref %d", i)
+		require.NoError(t, updater.Create(git.ReferenceName(ref), headCommit.Id), "Failed to create ref %d", i)
 	}
 
 	require.NoError(t, updater.Wait())
@@ -155,7 +155,7 @@ func TestContextCancelAbortsRefChanges(t *testing.T) {
 	updater, err := New(childCtx, testRepo)
 	require.NoError(t, err)
 
-	ref := "refs/heads/_shouldnotexist"
+	ref := git.ReferenceName("refs/heads/_shouldnotexist")
 
 	require.NoError(t, updater.Create(ref, headCommit.Id))
 
@@ -164,7 +164,7 @@ func TestContextCancelAbortsRefChanges(t *testing.T) {
 	require.Error(t, updater.Wait())
 
 	// check the ref doesn't exist
-	_, err = log.GetCommit(ctx, locator, testRepo, ref)
+	_, err = log.GetCommit(ctx, locator, testRepo, ref.Revision())
 	require.True(t, log.IsNotFound(err), "expected 'not found' error got %v", err)
 }
 
@@ -180,7 +180,7 @@ func TestUpdater_closingStdinAbortsChanges(t *testing.T) {
 	headCommit, err := log.GetCommit(ctx, locator, testRepo, "HEAD")
 	require.NoError(t, err)
 
-	ref := "refs/heads/shouldnotexist"
+	ref := git.ReferenceName("refs/heads/shouldnotexist")
 
 	updater, err := New(ctx, testRepo)
 	require.NoError(t, err)
@@ -195,6 +195,6 @@ func TestUpdater_closingStdinAbortsChanges(t *testing.T) {
 
 	// ... but as we now use explicit transactional behaviour, this is no
 	// longer the case.
-	_, err = log.GetCommit(ctx, locator, testRepo, ref)
+	_, err = log.GetCommit(ctx, locator, testRepo, ref.Revision())
 	require.True(t, log.IsNotFound(err), "expected 'not found' error got %v", err)
 }

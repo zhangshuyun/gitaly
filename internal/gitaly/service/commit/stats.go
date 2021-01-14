@@ -27,7 +27,7 @@ func (s *server) CommitStats(ctx context.Context, in *gitalypb.CommitStatsReques
 }
 
 func (s *server) commitStats(ctx context.Context, in *gitalypb.CommitStatsRequest) (*gitalypb.CommitStatsResponse, error) {
-	commit, err := log.GetCommit(ctx, s.locator, in.Repository, string(in.Revision))
+	commit, err := log.GetCommit(ctx, s.locator, in.Repository, git.Revision(in.Revision))
 	if err != nil {
 		return nil, err
 	}

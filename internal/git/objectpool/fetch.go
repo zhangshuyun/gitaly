@@ -168,7 +168,7 @@ func rescueDanglingObjects(ctx context.Context, repo repository.GitRepo) error {
 			continue
 		}
 
-		ref := danglingObjectNamespace + "/" + split[2]
+		ref := git.ReferenceName(danglingObjectNamespace + "/" + split[2])
 		if err := updater.Create(ref, split[2]); err != nil {
 			return err
 		}

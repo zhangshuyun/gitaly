@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
@@ -52,7 +53,7 @@ func testSuccessfulUserUpdateBranchRequest(t *testing.T, ctx context.Context) {
 	require.NoError(t, err)
 	require.Empty(t, response.PreReceiveError)
 
-	branchCommit, err := log.GetCommit(ctx, locator, testRepo, updateBranchName)
+	branchCommit, err := log.GetCommit(ctx, locator, testRepo, git.Revision(updateBranchName))
 
 	require.NoError(t, err)
 	require.Equal(t, string(newrev), branchCommit.Id)

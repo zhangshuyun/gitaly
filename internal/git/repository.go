@@ -102,12 +102,12 @@ func (opts FetchOpts) buildFlags() []Option {
 
 // Repository is the common interface of different repository implementations.
 type Repository interface {
-	// ResolveRef resolves the given refish to its object ID. This uses the
-	// typical DWIM mechanism of Git to resolve the reference. See
-	// gitrevisions(1) for accepted syntax. This will not verify whether the
-	// object ID exists. To do so, you can peel the reference to a given
-	// object type, e.g. by passing `refs/heads/master^{commit}`.
-	ResolveRefish(ctx context.Context, ref string) (string, error)
+	// ResolveRevision tries to resolve the given revision to its object
+	// ID. This uses the typical DWIM mechanism of git, see gitrevisions(1)
+	// for accepted syntax. This will not verify whether the object ID
+	// exists. To do so, you can peel the reference to a given object type,
+	// e.g. by passing `refs/heads/master^{commit}`.
+	ResolveRevision(ctx context.Context, revision Revision) (string, error)
 	// HasBranches returns whether the repository has branches.
 	HasBranches(ctx context.Context) (bool, error)
 }
@@ -284,15 +284,20 @@ func (repo *LocalRepository) ReadObject(ctx context.Context, oid string) ([]byte
 	return stdout.Bytes(), nil
 }
 
-func (repo *LocalRepository) ResolveRefish(ctx context.Context, refish string) (string, error) {
-	if refish == "" {
+// ResolveRevision resolves the given revision to its object ID. This will not
+// verify whether the target object exists. To do so, you can peel the
+// reference to a given object type, e.g. by passing
+// `refs/heads/master^{commit}`. Returns an ErrReferenceNotFound error in case
+// the revision does not exist.
+func (repo *LocalRepository) ResolveRevision(ctx context.Context, revision Revision) (string, error) {
+	if revision.String() == "" {
 		return "", errors.New("repository cannot contain empty reference name")
 	}
 
 	cmd, err := repo.command(ctx, nil, SubCmd{
 		Name:  "rev-parse",
 		Flags: []Option{Flag{Name: "--verify"}},
-		Args:  []string{refish},
+		Args:  []string{revision.String()},
 	}, WithStderr(ioutil.Discard))
 	if err != nil {
 		return "", err
@@ -316,12 +321,11 @@ func (repo *LocalRepository) ResolveRefish(ctx context.Context, refish string) (
 	return oid, nil
 }
 
-// ContainsRef checks if a ref in the repository exists. This will not
-// verify whether the target object exists. To do so, you can peel the
-// reference to a given object type, e.g. by passing
-// `refs/heads/master^{commit}`.
-func (repo *LocalRepository) ContainsRef(ctx context.Context, ref string) (bool, error) {
-	if _, err := repo.ResolveRefish(ctx, ref); err != nil {
+// HasRevision checks if a revision in the repository exists. This will not
+// verify whether the target object exists. To do so, you can peel the revision
+// to a given object type, e.g. by passing `refs/heads/master^{commit}`.
+func (repo *LocalRepository) HasRevision(ctx context.Context, revision Revision) (bool, error) {
+	if _, err := repo.ResolveRevision(ctx, revision); err != nil {
 		if errors.Is(err, ErrReferenceNotFound) {
 			return false, nil
 		}
@@ -332,8 +336,8 @@ func (repo *LocalRepository) ContainsRef(ctx context.Context, ref string) (bool,
 
 // GetReference looks up and returns the given reference. Returns a
 // ReferenceNotFound error if the reference was not found.
-func (repo *LocalRepository) GetReference(ctx context.Context, ref string) (Reference, error) {
-	refs, err := repo.GetReferences(ctx, ref)
+func (repo *LocalRepository) GetReference(ctx context.Context, reference ReferenceName) (Reference, error) {
+	refs, err := repo.GetReferences(ctx, reference.String())
 	if err != nil {
 		return Reference{}, err
 	}
@@ -385,9 +389,9 @@ func (repo *LocalRepository) getReferences(ctx context.Context, pattern string, 
 		}
 
 		if len(line[2]) == 0 {
-			refs = append(refs, NewReference(string(line[0]), string(line[1])))
+			refs = append(refs, NewReference(ReferenceName(line[0]), string(line[1])))
 		} else {
-			refs = append(refs, NewSymbolicReference(string(line[0]), string(line[1])))
+			refs = append(refs, NewSymbolicReference(ReferenceName(line[0]), string(line[1])))
 		}
 	}
 
@@ -401,19 +405,6 @@ func (repo *LocalRepository) getReferences(ctx context.Context, pattern string, 
 	return refs, nil
 }
 
-// GetBranch looks up and returns the given branch. Returns a
-// ErrReferenceNotFound if it wasn't found.
-func (repo *LocalRepository) GetBranch(ctx context.Context, branch string) (Reference, error) {
-	if strings.HasPrefix(branch, "refs/heads/") {
-		return repo.GetReference(ctx, branch)
-	}
-
-	if strings.HasPrefix(branch, "heads/") {
-		branch = strings.TrimPrefix(branch, "heads/")
-	}
-	return repo.GetReference(ctx, "refs/heads/"+branch)
-}
-
 // GetBranches returns all branches.
 func (repo *LocalRepository) GetBranches(ctx context.Context) ([]Reference, error) {
 	return repo.GetReferences(ctx, "refs/heads/")
@@ -424,7 +415,7 @@ func (repo *LocalRepository) GetBranches(ctx context.Context) ([]Reference, erro
 // currently at that revision. If newrev is the zero OID, the reference
 // will be deleted. If oldrev is the zero OID, the reference will
 // created.
-func (repo *LocalRepository) UpdateRef(ctx context.Context, reference, newrev, oldrev string) error {
+func (repo *LocalRepository) UpdateRef(ctx context.Context, reference ReferenceName, newrev, oldrev string) error {
 	cmd, err := repo.command(ctx, nil,
 		SubCmd{
 			Name:  "update-ref",

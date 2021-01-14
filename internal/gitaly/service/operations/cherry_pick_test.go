@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -157,7 +158,7 @@ func TestSuccessfulUserCherryPickRequest(t *testing.T) {
 			response, err := client.UserCherryPick(ctx, testCase.request)
 			require.NoError(t, err)
 
-			headCommit, err := log.GetCommit(ctx, locator, testCase.request.Repository, string(testCase.request.BranchName))
+			headCommit, err := log.GetCommit(ctx, locator, testCase.request.Repository, git.Revision(testCase.request.BranchName))
 			require.NoError(t, err)
 
 			expectedBranchUpdate := testCase.branchUpdate
@@ -418,7 +419,7 @@ func TestFailedUserCherryPickRequestDueToCommitError(t *testing.T) {
 	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", destinationBranch, "master")
 	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", sourceBranch, "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab")
 
-	cherryPickedCommit, err := log.GetCommit(ctxOuter, locator, testRepo, sourceBranch)
+	cherryPickedCommit, err := log.GetCommit(ctxOuter, locator, testRepo, git.Revision(sourceBranch))
 	require.NoError(t, err)
 
 	request := &gitalypb.UserCherryPickRequest{

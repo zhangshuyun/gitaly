@@ -44,7 +44,7 @@ func (s *server) FetchSourceBranch(ctx context.Context, req *gitalypb.FetchSourc
 	if helper.RepoPathEqual(req.GetRepository(), req.GetSourceRepository()) {
 		var err error
 
-		sourceOid, err = targetRepo.ResolveRefish(ctx, string(req.GetSourceBranch()))
+		sourceOid, err = targetRepo.ResolveRevision(ctx, git.Revision(req.GetSourceBranch()))
 		if err != nil {
 			if errors.Is(err, git.ErrReferenceNotFound) {
 				return &gitalypb.FetchSourceBranchResponse{Result: false}, nil
@@ -56,7 +56,7 @@ func (s *server) FetchSourceBranch(ctx context.Context, req *gitalypb.FetchSourc
 	} else {
 		var err error
 
-		sourceOid, err = sourceRepo.ResolveRefish(ctx, string(req.GetSourceBranch()))
+		sourceOid, err = sourceRepo.ResolveRevision(ctx, git.Revision(req.GetSourceBranch()))
 		if err != nil {
 			if errors.Is(err, git.ErrReferenceNotFound) {
 				return &gitalypb.FetchSourceBranchResponse{Result: false}, nil
@@ -67,7 +67,7 @@ func (s *server) FetchSourceBranch(ctx context.Context, req *gitalypb.FetchSourc
 		// Otherwise, if the source is a remote repository, we check
 		// whether the target repo already contains the desired object.
 		// If so, we can skip the fetch.
-		containsObject, err = targetRepo.ContainsRef(ctx, sourceOid+"^{commit}")
+		containsObject, err = targetRepo.HasRevision(ctx, git.Revision(sourceOid+"^{commit}"))
 		if err != nil {
 			return nil, helper.ErrInternal(err)
 		}
@@ -102,7 +102,7 @@ func (s *server) FetchSourceBranch(ctx context.Context, req *gitalypb.FetchSourc
 		}
 	}
 
-	if err := targetRepo.UpdateRef(ctx, string(req.GetTargetRef()), sourceOid, ""); err != nil {
+	if err := targetRepo.UpdateRef(ctx, git.ReferenceName(req.GetTargetRef()), sourceOid, ""); err != nil {
 		return nil, err
 	}
 

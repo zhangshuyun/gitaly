@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
@@ -115,7 +116,7 @@ func treeEntries(ctx context.Context, c catfile.Batch, revision, path string, ro
 	}
 
 	if len(rootOid) == 0 {
-		rootTreeInfo, err := c.Info(ctx, revision+"^{tree}")
+		rootTreeInfo, err := c.Info(ctx, git.Revision(revision+"^{tree}"))
 		if err != nil {
 			if catfile.IsNotFound(err) {
 				return nil, nil
@@ -127,7 +128,7 @@ func treeEntries(ctx context.Context, c catfile.Batch, revision, path string, ro
 		rootOid = rootTreeInfo.Oid
 	}
 
-	treeObj, err := c.Tree(ctx, fmt.Sprintf("%s:%s", revision, path))
+	treeObj, err := c.Tree(ctx, git.Revision(fmt.Sprintf("%s:%s", revision, path)))
 	if err != nil {
 		if catfile.IsNotFound(err) {
 			return nil, nil

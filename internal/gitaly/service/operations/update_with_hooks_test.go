@@ -271,7 +271,7 @@ func TestUpdateReferenceWithHooks(t *testing.T) {
 			}
 
 			if tc.expectedRefDeletion {
-				contained, err := git.NewRepository(repo).ContainsRef(ctx, "refs/heads/master")
+				contained, err := git.NewRepository(repo).HasRevision(ctx, git.Revision("refs/heads/master"))
 				require.NoError(t, err)
 				require.False(t, contained, "branch should have been deleted")
 				testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", "master", oldRev)

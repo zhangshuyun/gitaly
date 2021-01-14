@@ -3,7 +3,6 @@ package ref
 import (
 	"context"
 	"errors"
-	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/log"
@@ -13,20 +12,14 @@ import (
 )
 
 func (s *server) FindBranch(ctx context.Context, req *gitalypb.FindBranchRequest) (*gitalypb.FindBranchResponse, error) {
-	refName := string(req.GetName())
-	if len(refName) == 0 {
+	if len(req.GetName()) == 0 {
 		return nil, status.Errorf(codes.InvalidArgument, "Branch name cannot be empty")
-	}
-
-	if strings.HasPrefix(refName, "refs/heads/") {
-		refName = strings.TrimPrefix(refName, "refs/heads/")
-	} else if strings.HasPrefix(refName, "heads/") {
-		refName = strings.TrimPrefix(refName, "heads/")
 	}
 
 	repo := req.GetRepository()
 
-	branch, err := git.NewRepository(repo).GetBranch(ctx, refName)
+	branchName := git.NewBranchReferenceName(string(req.GetName()))
+	branchRef, err := git.NewRepository(repo).GetReference(ctx, branchName)
 	if err != nil {
 		if errors.Is(err, git.ErrReferenceNotFound) {
 			return &gitalypb.FindBranchResponse{}, nil
@@ -34,14 +27,19 @@ func (s *server) FindBranch(ctx context.Context, req *gitalypb.FindBranchRequest
 		return nil, err
 	}
 
-	commit, err := log.GetCommit(ctx, s.locator, repo, branch.Target)
+	commit, err := log.GetCommit(ctx, s.locator, repo, git.Revision(branchRef.Target))
 	if err != nil {
 		return nil, err
 	}
 
+	branch, ok := branchName.Branch()
+	if !ok {
+		return nil, status.Errorf(codes.InvalidArgument, "reference is not a branch")
+	}
+
 	return &gitalypb.FindBranchResponse{
 		Branch: &gitalypb.Branch{
-			Name:         []byte(refName),
+			Name:         []byte(branch),
 			TargetCommit: commit,
 		},
 	}, nil

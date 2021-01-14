@@ -68,7 +68,7 @@ func (s *server) listLastCommitsForTree(in *gitalypb.ListLastCommitsForTreeReque
 	}
 
 	for _, entry := range entries[offset:limit] {
-		commit, err := log.LastCommitForPath(ctx, c, repo, in.GetRevision(), entry.Path, in.GetGlobalOptions())
+		commit, err := log.LastCommitForPath(ctx, c, repo, git.Revision(in.GetRevision()), entry.Path, in.GetGlobalOptions())
 		if err != nil {
 			return err
 		}

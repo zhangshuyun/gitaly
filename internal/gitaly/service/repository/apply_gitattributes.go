@@ -21,7 +21,7 @@ func applyGitattributes(ctx context.Context, c catfile.Batch, repoPath string, r
 	infoPath := filepath.Join(repoPath, "info")
 	attributesPath := filepath.Join(infoPath, "attributes")
 
-	_, err := c.Info(ctx, string(revision))
+	_, err := c.Info(ctx, git.Revision(revision))
 	if err != nil {
 		if catfile.IsNotFound(err) {
 			return status.Errorf(codes.InvalidArgument, "Revision doesn't exist")
@@ -30,7 +30,7 @@ func applyGitattributes(ctx context.Context, c catfile.Batch, repoPath string, r
 		return err
 	}
 
-	blobInfo, err := c.Info(ctx, fmt.Sprintf("%s:.gitattributes", revision))
+	blobInfo, err := c.Info(ctx, git.Revision(fmt.Sprintf("%s:.gitattributes", revision)))
 	if err != nil && !catfile.IsNotFound(err) {
 		return err
 	}
@@ -55,7 +55,7 @@ func applyGitattributes(ctx context.Context, c catfile.Batch, repoPath string, r
 	}
 	defer os.Remove(tempFile.Name())
 
-	blobObj, err := c.Blob(ctx, blobInfo.Oid)
+	blobObj, err := c.Blob(ctx, git.Revision(blobInfo.Oid))
 	if err != nil {
 		return err
 	}

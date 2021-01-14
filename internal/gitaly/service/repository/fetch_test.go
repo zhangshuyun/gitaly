@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/client"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	gitLog "gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
@@ -75,7 +76,7 @@ func TestFetchSourceBranchSourceRepositorySuccess(t *testing.T) {
 			require.NoError(t, err)
 			require.True(t, resp.Result, "response.Result should be true")
 
-			fetchedCommit, err := gitLog.GetCommit(ctx, locator, targetRepo, targetRef)
+			fetchedCommit, err := gitLog.GetCommit(ctx, locator, targetRepo, git.Revision(targetRef))
 			require.NoError(t, err)
 			require.Equal(t, newCommitID, fetchedCommit.GetId())
 		})
@@ -132,7 +133,7 @@ func TestFetchSourceBranchSameRepositorySuccess(t *testing.T) {
 			require.NoError(t, err)
 			require.True(t, resp.Result, "response.Result should be true")
 
-			fetchedCommit, err := gitLog.GetCommit(ctx, locator, repo, targetRef)
+			fetchedCommit, err := gitLog.GetCommit(ctx, locator, repo, git.Revision(targetRef))
 			require.NoError(t, err)
 			require.Equal(t, newCommitID, fetchedCommit.GetId())
 		})

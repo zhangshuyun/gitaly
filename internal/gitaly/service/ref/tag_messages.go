@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
@@ -42,7 +43,7 @@ func (s *server) getAndStreamTagMessages(request *gitalypb.GetTagMessagesRequest
 	}
 
 	for _, tagID := range request.GetTagIds() {
-		tag, err := log.GetTagCatfile(ctx, c, tagID, "", false, false)
+		tag, err := log.GetTagCatfile(ctx, c, git.Revision(tagID), "", false, false)
 		if err != nil {
 			return fmt.Errorf("failed to get tag: %v", err)
 		}

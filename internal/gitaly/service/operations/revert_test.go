@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
@@ -158,7 +159,7 @@ func testServerUserRevertSuccessful(t *testing.T, ctxOuter context.Context) {
 			response, err := client.UserRevert(ctx, testCase.request)
 			require.NoError(t, err)
 
-			headCommit, err := log.GetCommit(ctx, locator, testCase.request.Repository, string(testCase.request.BranchName))
+			headCommit, err := log.GetCommit(ctx, locator, testCase.request.Repository, git.Revision(testCase.request.BranchName))
 			require.NoError(t, err)
 
 			expectedBranchUpdate := testCase.branchUpdate
@@ -220,7 +221,7 @@ func testServerUserRevertSuccessfulIntoNewRepo(t *testing.T, ctxOuter context.Co
 	response, err := client.UserRevert(ctx, request)
 	require.NoError(t, err)
 
-	headCommit, err := log.GetCommit(ctx, locator, testRepo, string(request.BranchName))
+	headCommit, err := log.GetCommit(ctx, locator, testRepo, git.Revision(request.BranchName))
 	require.NoError(t, err)
 
 	expectedBranchUpdate := &gitalypb.OperationBranchUpdate{
@@ -477,7 +478,7 @@ func testServerUserRevertFailedDueToCommitError(t *testing.T, ctxOuter context.C
 	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", destinationBranch, "master")
 	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", sourceBranch, "a5391128b0ef5d21df5dd23d98557f4ef12fae20")
 
-	revertedCommit, err := log.GetCommit(ctxOuter, locator, testRepo, sourceBranch)
+	revertedCommit, err := log.GetCommit(ctxOuter, locator, testRepo, git.Revision(sourceBranch))
 	require.NoError(t, err)
 
 	request := &gitalypb.UserRevertRequest{

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	gitlog "gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
@@ -76,7 +77,7 @@ func TestSuccessfulUserRebaseConfirmableRequest(t *testing.T) {
 	firstResponse, err := rebaseStream.Recv()
 	require.NoError(t, err, "receive first response")
 
-	_, err = gitlog.GetCommit(ctx, locator, testRepo, firstResponse.GetRebaseSha())
+	_, err = gitlog.GetCommit(ctx, locator, testRepo, git.Revision(firstResponse.GetRebaseSha()))
 	require.NoError(t, err, "look up git commit before rebase is applied")
 
 	applyRequest := buildApplyRequest(true)
@@ -275,7 +276,7 @@ func TestFailedUserRebaseConfirmableDueToApplyBeingFalse(t *testing.T) {
 	firstResponse, err := rebaseStream.Recv()
 	require.NoError(t, err, "receive first response")
 
-	_, err = gitlog.GetCommit(ctx, locator, testRepo, firstResponse.GetRebaseSha())
+	_, err = gitlog.GetCommit(ctx, locator, testRepo, git.Revision(firstResponse.GetRebaseSha()))
 	require.NoError(t, err, "look up git commit before rebase is applied")
 
 	applyRequest := buildApplyRequest(false)
@@ -330,7 +331,7 @@ func TestFailedUserRebaseConfirmableRequestDueToPreReceiveError(t *testing.T) {
 			firstResponse, err := rebaseStream.Recv()
 			require.NoError(t, err, "receive first response")
 
-			_, err = gitlog.GetCommit(ctx, locator, testRepo, firstResponse.GetRebaseSha())
+			_, err = gitlog.GetCommit(ctx, locator, testRepo, git.Revision(firstResponse.GetRebaseSha()))
 			require.NoError(t, err, "look up git commit before rebase is applied")
 
 			applyRequest := buildApplyRequest(true)
@@ -439,7 +440,7 @@ func TestRebaseRequestWithDeletedFile(t *testing.T) {
 	firstResponse, err := rebaseStream.Recv()
 	require.NoError(t, err, "receive first response")
 
-	_, err = gitlog.GetCommit(ctx, locator, testRepo, firstResponse.GetRebaseSha())
+	_, err = gitlog.GetCommit(ctx, locator, testRepo, git.Revision(firstResponse.GetRebaseSha()))
 	require.NoError(t, err, "look up git commit before rebase is applied")
 
 	applyRequest := buildApplyRequest(true)
@@ -496,7 +497,7 @@ func TestRebaseOntoRemoteBranch(t *testing.T) {
 	rebaseStream, err := client.UserRebaseConfirmable(ctx)
 	require.NoError(t, err)
 
-	_, err = gitlog.GetCommit(ctx, locator, localRepo, remoteBranchHash)
+	_, err = gitlog.GetCommit(ctx, locator, localRepo, git.Revision(remoteBranchHash))
 	require.True(t, catfile.IsNotFound(err), "remote commit does not yet exist in local repository")
 
 	headerRequest := buildHeaderRequest(localRepo, testhelper.TestUser, "1", localBranch, localBranchHash, remoteRepo, remoteBranch)
@@ -505,7 +506,7 @@ func TestRebaseOntoRemoteBranch(t *testing.T) {
 	firstResponse, err := rebaseStream.Recv()
 	require.NoError(t, err, "receive first response")
 
-	_, err = gitlog.GetCommit(ctx, locator, localRepo, remoteBranchHash)
+	_, err = gitlog.GetCommit(ctx, locator, localRepo, git.Revision(remoteBranchHash))
 	require.NoError(t, err, "remote commit does now exist in local repository")
 
 	applyRequest := buildApplyRequest(true)

@@ -21,7 +21,7 @@ import (
 
 // GetCommit tries to resolve revision to a Git commit. Returns nil if
 // no object is found at revision.
-func GetCommit(ctx context.Context, locator storage.Locator, repo *gitalypb.Repository, revision string) (*gitalypb.GitCommit, error) {
+func GetCommit(ctx context.Context, locator storage.Locator, repo *gitalypb.Repository, revision git.Revision) (*gitalypb.GitCommit, error) {
 	c, err := catfile.New(ctx, locator, repo)
 	if err != nil {
 		return nil, err
@@ -32,7 +32,7 @@ func GetCommit(ctx context.Context, locator storage.Locator, repo *gitalypb.Repo
 
 // GetCommitWithTrailers tries to resolve a revision to a Git commit, including
 // Git trailers in its output.
-func GetCommitWithTrailers(ctx context.Context, locator storage.Locator, repo *gitalypb.Repository, revision string) (*gitalypb.GitCommit, error) {
+func GetCommitWithTrailers(ctx context.Context, locator storage.Locator, repo *gitalypb.Repository, revision git.Revision) (*gitalypb.GitCommit, error) {
 	c, err := catfile.New(ctx, locator, repo)
 	if err != nil {
 		return nil, err
@@ -42,7 +42,7 @@ func GetCommitWithTrailers(ctx context.Context, locator storage.Locator, repo *g
 }
 
 // GetCommitCatfile looks up a commit by revision using an existing catfile.Batch instance.
-func GetCommitCatfile(ctx context.Context, c catfile.Batch, revision string) (*gitalypb.GitCommit, error) {
+func GetCommitCatfile(ctx context.Context, c catfile.Batch, revision git.Revision) (*gitalypb.GitCommit, error) {
 	obj, err := c.Commit(ctx, revision+"^{commit}")
 	if err != nil {
 		return nil, err
@@ -53,7 +53,7 @@ func GetCommitCatfile(ctx context.Context, c catfile.Batch, revision string) (*g
 
 // GetCommitCatfileWithTrailers looks up a commit by revision using an existing
 // catfile.Batch instance, and includes Git trailers in the returned commit.
-func GetCommitCatfileWithTrailers(ctx context.Context, repo *gitalypb.Repository, c catfile.Batch, revision string) (*gitalypb.GitCommit, error) {
+func GetCommitCatfileWithTrailers(ctx context.Context, repo *gitalypb.Repository, c catfile.Batch, revision git.Revision) (*gitalypb.GitCommit, error) {
 	commit, err := GetCommitCatfile(ctx, c, revision)
 
 	if err != nil {
@@ -91,7 +91,7 @@ func GetCommitCatfileWithTrailers(ctx context.Context, repo *gitalypb.Repository
 }
 
 // GetCommitMessage looks up a commit message and returns it in its entirety.
-func GetCommitMessage(ctx context.Context, c catfile.Batch, repo *gitalypb.Repository, revision string) ([]byte, error) {
+func GetCommitMessage(ctx context.Context, c catfile.Batch, repo *gitalypb.Repository, revision git.Revision) ([]byte, error) {
 	obj, err := c.Commit(ctx, revision+"^{commit}")
 	if err != nil {
 		return nil, err

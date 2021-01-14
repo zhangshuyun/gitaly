@@ -68,7 +68,7 @@ func (s *Server) UserRevert(ctx context.Context, req *gitalypb.UserRevertRequest
 	branch := fmt.Sprintf("refs/heads/%s", req.BranchName)
 
 	branchCreated := false
-	oldrev, err := localRepo.ResolveRefish(ctx, fmt.Sprintf("%s^{commit}", branch))
+	oldrev, err := localRepo.ResolveRevision(ctx, git.Revision(fmt.Sprintf("%s^{commit}", branch)))
 	if errors.Is(err, git.ErrReferenceNotFound) {
 		branchCreated = true
 		oldrev = git.NullSHA
@@ -141,7 +141,7 @@ func (s *Server) fetchStartRevision(ctx context.Context, req *gitalypb.UserRever
 	if err != nil {
 		return "", helper.ErrInternal(err)
 	}
-	startRevision, err := remote.ResolveRefish(ctx, fmt.Sprintf("%s^{commit}", startBranchName))
+	startRevision, err := remote.ResolveRevision(ctx, git.Revision(fmt.Sprintf("%s^{commit}", startBranchName)))
 	if err != nil {
 		return "", helper.ErrInvalidArgumentf("resolve start ref: %w", err)
 	}
@@ -150,7 +150,7 @@ func (s *Server) fetchStartRevision(ctx context.Context, req *gitalypb.UserRever
 		return startRevision, nil
 	}
 
-	_, err = git.NewRepository(req.Repository).ResolveRefish(ctx, fmt.Sprintf("%s^{commit}", startRevision))
+	_, err = git.NewRepository(req.Repository).ResolveRevision(ctx, git.Revision(fmt.Sprintf("%s^{commit}", startRevision)))
 	if errors.Is(err, git.ErrReferenceNotFound) {
 		if err := s.fetchRemoteObject(ctx, req.Repository, req.StartRepository, startRevision); err != nil {
 			return "", helper.ErrInternalf("fetch start: %w", err)

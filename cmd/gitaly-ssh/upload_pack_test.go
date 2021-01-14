@@ -40,7 +40,7 @@ func TestVisibilityOfHiddenRefs(t *testing.T) {
 	updater, err := updateref.New(ctx, testRepo)
 
 	require.NoError(t, err)
-	require.NoError(t, updater.Create(keepAroundRef, existingSha))
+	require.NoError(t, updater.Create(git.ReferenceName(keepAroundRef), existingSha))
 	require.NoError(t, updater.Wait())
 
 	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "config", "transfer.hideRefs", keepAroundNamespace)

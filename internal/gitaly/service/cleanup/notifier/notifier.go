@@ -3,6 +3,7 @@ package notifier
 import (
 	"context"
 
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/chunk"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
@@ -44,7 +45,7 @@ func (n *Notifier) lookupType(ctx context.Context, oid string, isInternalRef boo
 		return gitalypb.ObjectType_COMMIT
 	}
 
-	info, err := n.catfile.Info(ctx, oid)
+	info, err := n.catfile.Info(ctx, git.Revision(oid))
 	if err != nil {
 		return gitalypb.ObjectType_UNKNOWN
 	}

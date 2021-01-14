@@ -36,7 +36,7 @@ type Cleaner struct {
 	forEach ForEachFunc
 
 	// Map of SHA -> reference names
-	table   map[string][]string
+	table   map[string][]git.ReferenceName
 	updater *updateref.Updater
 }
 
@@ -132,7 +132,7 @@ func (c *Cleaner) processEntry(ctx context.Context, oldSHA, newSHA string) error
 // an object that has been rewritten by the filter-repo or BFG (and so require
 // action). It is consulted once per line in the object map. Git is optimized
 // for ref -> SHA lookups, but we want the opposite!
-func buildLookupTable(ctx context.Context, repo *gitalypb.Repository) (map[string][]string, error) {
+func buildLookupTable(ctx context.Context, repo *gitalypb.Repository) (map[string][]git.ReferenceName, error) {
 	cmd, err := git.NewCommand(ctx, repo, nil, git.SubCmd{
 		Name:  "for-each-ref",
 		Flags: []git.Option{git.ValueFlag{Name: "--format", Value: "%(objectname) %(refname)"}},
@@ -143,7 +143,7 @@ func buildLookupTable(ctx context.Context, repo *gitalypb.Repository) (map[strin
 	}
 
 	logger := ctxlogrus.Extract(ctx)
-	out := make(map[string][]string)
+	out := make(map[string][]git.ReferenceName)
 	scanner := bufio.NewScanner(cmd)
 
 	for scanner.Scan() {
@@ -154,7 +154,7 @@ func buildLookupTable(ctx context.Context, repo *gitalypb.Repository) (map[strin
 			return nil, fmt.Errorf("failed to parse git refs")
 		}
 
-		out[parts[0]] = append(out[parts[0]], parts[1])
+		out[parts[0]] = append(out[parts[0]], git.ReferenceName(parts[1]))
 	}
 
 	if err := cmd.Wait(); err != nil {

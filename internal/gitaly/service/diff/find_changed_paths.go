@@ -141,7 +141,7 @@ func (s *server) validateFindChangedPathsRequestParams(ctx context.Context, in *
 			return status.Errorf(codes.InvalidArgument, "FindChangedPaths: commits cannot contain an empty commit")
 		}
 
-		containsRef, err := gitRepo.ContainsRef(ctx, commit+"^{commit}")
+		containsRef, err := gitRepo.HasRevision(ctx, git.Revision(commit+"^{commit}"))
 		if err != nil {
 			return fmt.Errorf("contains ref err: %w", err)
 		}

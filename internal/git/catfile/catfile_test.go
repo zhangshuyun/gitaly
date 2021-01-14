@@ -13,6 +13,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/command"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -31,13 +32,13 @@ func TestInfo(t *testing.T) {
 	require.NoError(t, err)
 
 	testCases := []struct {
-		desc   string
-		spec   string
-		output *ObjectInfo
+		desc     string
+		revision string
+		output   *ObjectInfo
 	}{
 		{
-			desc: "gitignore",
-			spec: "60ecb67744cb56576c30214ff52294f8ce2def98:.gitignore",
+			desc:     "gitignore",
+			revision: "60ecb67744cb56576c30214ff52294f8ce2def98:.gitignore",
 			output: &ObjectInfo{
 				Oid:  "dfaa3f97ca337e20154a98ac9d0be76ddd1fcc82",
 				Type: "blob",
@@ -48,7 +49,7 @@ func TestInfo(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			oi, err := c.Info(ctx, tc.spec)
+			oi, err := c.Info(ctx, git.Revision(tc.revision))
 			require.NoError(t, err)
 
 			require.Equal(t, tc.output, oi)
@@ -71,14 +72,14 @@ func TestBlob(t *testing.T) {
 
 	testCases := []struct {
 		desc       string
-		spec       string
+		revision   string
 		objInfo    ObjectInfo
 		content    []byte
 		requireErr func(*testing.T, error)
 	}{
 		{
-			desc: "gitignore",
-			spec: "60ecb67744cb56576c30214ff52294f8ce2def98:.gitignore",
+			desc:     "gitignore",
+			revision: "60ecb67744cb56576c30214ff52294f8ce2def98:.gitignore",
 			objInfo: ObjectInfo{
 				Oid:  "dfaa3f97ca337e20154a98ac9d0be76ddd1fcc82",
 				Type: "blob",
@@ -87,16 +88,16 @@ func TestBlob(t *testing.T) {
 			content: gitignoreBytes,
 		},
 		{
-			desc: "not existing ref",
-			spec: "stub",
+			desc:     "not existing ref",
+			revision: "stub",
 			requireErr: func(t *testing.T, err error) {
 				require.True(t, IsNotFound(err), "the error must be from 'not found' family")
 				require.EqualError(t, err, "object not found")
 			},
 		},
 		{
-			desc: "wrong object type",
-			spec: "1e292f8fedd741b75372e19097c76d327140c312", // is commit SHA1
+			desc:     "wrong object type",
+			revision: "1e292f8fedd741b75372e19097c76d327140c312", // is commit SHA1
 			requireErr: func(t *testing.T, err error) {
 				require.True(t, IsNotFound(err), "the error must be from 'not found' family")
 				require.EqualError(t, err, "expected 1e292f8fedd741b75372e19097c76d327140c312 to be a blob, got commit")
@@ -106,7 +107,7 @@ func TestBlob(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			blobObj, err := c.Blob(ctx, tc.spec)
+			blobObj, err := c.Blob(ctx, git.Revision(tc.revision))
 
 			if tc.requireErr != nil {
 				tc.requireErr(t, err)
@@ -137,20 +138,20 @@ func TestCommit(t *testing.T) {
 	require.NoError(t, err)
 
 	testCases := []struct {
-		desc   string
-		spec   string
-		output string
+		desc     string
+		revision string
+		output   string
 	}{
 		{
-			desc:   "commit with non-oid spec",
-			spec:   "60ecb67744cb56576c30214ff52294f8ce2def98^",
-			output: string(commitBytes),
+			desc:     "commit with non-oid spec",
+			revision: "60ecb67744cb56576c30214ff52294f8ce2def98^",
+			output:   string(commitBytes),
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			commitReader, err := c.Commit(ctx, tc.spec)
+			commitReader, err := c.Commit(ctx, git.Revision(tc.revision))
 			require.NoError(t, err)
 
 			contents, err := ioutil.ReadAll(commitReader)
@@ -176,14 +177,14 @@ func TestTag(t *testing.T) {
 
 	testCases := []struct {
 		desc       string
-		spec       string
+		revision   string
 		objInfo    ObjectInfo
 		content    []byte
 		requireErr func(*testing.T, error)
 	}{
 		{
-			desc: "tag",
-			spec: "f4e6814c3e4e7a0de82a9e7cd20c626cc963a2f8",
+			desc:     "tag",
+			revision: "f4e6814c3e4e7a0de82a9e7cd20c626cc963a2f8",
 			objInfo: ObjectInfo{
 				Oid:  "f4e6814c3e4e7a0de82a9e7cd20c626cc963a2f8",
 				Type: "tag",
@@ -192,16 +193,16 @@ func TestTag(t *testing.T) {
 			content: tagBytes,
 		},
 		{
-			desc: "not existing ref",
-			spec: "stub",
+			desc:     "not existing ref",
+			revision: "stub",
 			requireErr: func(t *testing.T, err error) {
 				require.True(t, IsNotFound(err), "the error must be from 'not found' family")
 				require.EqualError(t, err, "object not found")
 			},
 		},
 		{
-			desc: "wrong object type",
-			spec: "1e292f8fedd741b75372e19097c76d327140c312", // is commit SHA1
+			desc:     "wrong object type",
+			revision: "1e292f8fedd741b75372e19097c76d327140c312", // is commit SHA1
 			requireErr: func(t *testing.T, err error) {
 				require.True(t, IsNotFound(err), "the error must be from 'not found' family")
 				require.EqualError(t, err, "expected 1e292f8fedd741b75372e19097c76d327140c312 to be a tag, got commit")
@@ -211,7 +212,7 @@ func TestTag(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			tagObj, err := c.Tag(ctx, tc.spec)
+			tagObj, err := c.Tag(ctx, git.Revision(tc.revision))
 
 			if tc.requireErr != nil {
 				tc.requireErr(t, err)
@@ -243,14 +244,14 @@ func TestTree(t *testing.T) {
 
 	testCases := []struct {
 		desc       string
-		spec       string
+		revision   string
 		objInfo    ObjectInfo
 		content    []byte
 		requireErr func(*testing.T, error)
 	}{
 		{
-			desc: "tree with non-oid spec",
-			spec: "60ecb67744cb56576c30214ff52294f8ce2def98^{tree}",
+			desc:     "tree with non-oid spec",
+			revision: "60ecb67744cb56576c30214ff52294f8ce2def98^{tree}",
 			objInfo: ObjectInfo{
 				Oid:  "7e2f26d033ee47cd0745649d1a28277c56197921",
 				Type: "tree",
@@ -259,16 +260,16 @@ func TestTree(t *testing.T) {
 			content: treeBytes,
 		},
 		{
-			desc: "not existing ref",
-			spec: "stud",
+			desc:     "not existing ref",
+			revision: "stud",
 			requireErr: func(t *testing.T, err error) {
 				require.True(t, IsNotFound(err), "the error must be from 'not found' family")
 				require.EqualError(t, err, "object not found")
 			},
 		},
 		{
-			desc: "wrong object type",
-			spec: "1e292f8fedd741b75372e19097c76d327140c312", // is commit SHA1
+			desc:     "wrong object type",
+			revision: "1e292f8fedd741b75372e19097c76d327140c312", // is commit SHA1
 			requireErr: func(t *testing.T, err error) {
 				require.True(t, IsNotFound(err), "the error must be from 'not found' family")
 				require.EqualError(t, err, "expected 1e292f8fedd741b75372e19097c76d327140c312 to be a tree, got commit")
@@ -278,7 +279,7 @@ func TestTree(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			treeObj, err := c.Tree(ctx, tc.spec)
+			treeObj, err := c.Tree(ctx, git.Revision(tc.revision))
 
 			if tc.requireErr != nil {
 				tc.requireErr(t, err)
@@ -305,7 +306,7 @@ func TestRepeatedCalls(t *testing.T) {
 	c, err := New(ctx, config.NewLocator(config.Config), testRepository)
 	require.NoError(t, err)
 
-	treeOid := "7e2f26d033ee47cd0745649d1a28277c56197921"
+	treeOid := git.Revision("7e2f26d033ee47cd0745649d1a28277c56197921")
 	treeBytes, err := ioutil.ReadFile("testdata/tree-7e2f26d033ee47cd0745649d1a28277c56197921")
 	require.NoError(t, err)
 

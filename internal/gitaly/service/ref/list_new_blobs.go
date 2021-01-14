@@ -53,7 +53,7 @@ func (s *server) listNewBlobs(in *gitalypb.ListNewBlobsRequest, stream gitalypb.
 			continue
 		}
 
-		info, err := batch.Info(ctx, parts[0])
+		info, err := batch.Info(ctx, git.Revision(parts[0]))
 		if err != nil {
 			return err
 		}

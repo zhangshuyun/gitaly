@@ -173,7 +173,7 @@ func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommi
 	localRepo := git.NewRepository(header.Repository)
 
 	targetBranchName := "refs/heads/" + string(header.BranchName)
-	targetBranchCommit, err := localRepo.ResolveRefish(ctx, targetBranchName+"^{commit}")
+	targetBranchCommit, err := localRepo.ResolveRevision(ctx, git.Revision(targetBranchName+"^{commit}"))
 	if err != nil {
 		if !errors.Is(err, git.ErrReferenceNotFound) {
 			return fmt.Errorf("resolve target branch commit: %w", err)
@@ -406,7 +406,7 @@ func (s *Server) resolveParentCommit(ctx context.Context, local git.Repository, 
 	}
 	refish := branch + "^{commit}"
 
-	commit, err := repo.ResolveRefish(ctx, refish)
+	commit, err := repo.ResolveRevision(ctx, git.Revision(refish))
 	if err != nil {
 		return "", fmt.Errorf("resolving refish %q in %T: %w", refish, repo, err)
 	}
@@ -415,7 +415,7 @@ func (s *Server) resolveParentCommit(ctx context.Context, local git.Repository, 
 }
 
 func (s *Server) fetchMissingCommit(ctx context.Context, local, remote *gitalypb.Repository, commitID string) error {
-	if _, err := git.NewRepository(local).ResolveRefish(ctx, commitID+"^{commit}"); err != nil {
+	if _, err := git.NewRepository(local).ResolveRevision(ctx, git.Revision(commitID+"^{commit}")); err != nil {
 		if !errors.Is(err, git.ErrReferenceNotFound) || remote == nil {
 			return fmt.Errorf("lookup parent commit: %w", err)
 		}

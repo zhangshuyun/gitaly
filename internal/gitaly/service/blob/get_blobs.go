@@ -61,7 +61,7 @@ func sendGetBlobsResponse(req *gitalypb.GetBlobsRequest, stream gitalypb.BlobSer
 			continue
 		}
 
-		objectInfo, err := c.Info(ctx, treeEntry.Oid)
+		objectInfo, err := c.Info(ctx, git.Revision(treeEntry.Oid))
 		if err != nil {
 			return status.Errorf(codes.Internal, "GetBlobs: %v", err)
 		}
@@ -110,7 +110,7 @@ func sendBlobTreeEntry(response *gitalypb.GetBlobsResponse, stream gitalypb.Blob
 		return nil
 	}
 
-	blobObj, err := c.Blob(ctx, response.Oid)
+	blobObj, err := c.Blob(ctx, git.Revision(response.Oid))
 	if err != nil {
 		return status.Errorf(codes.Internal, "GetBlobs: %v", err)
 	}

@@ -88,7 +88,7 @@ func testSuccessfulMerge(t *testing.T, ctx context.Context) {
 	firstResponse, err := mergeBidi.Recv()
 	require.NoError(t, err, "receive first response")
 
-	_, err = gitlog.GetCommit(ctx, locator, testRepo, firstResponse.CommitId)
+	_, err = gitlog.GetCommit(ctx, locator, testRepo, git.Revision(firstResponse.CommitId))
 	require.NoError(t, err, "look up git commit before merge is applied")
 
 	require.NoError(t, mergeBidi.Send(&gitalypb.UserMergeBranchRequest{Apply: true}), "apply merge")
@@ -101,7 +101,7 @@ func testSuccessfulMerge(t *testing.T, ctx context.Context) {
 		return err
 	})
 
-	commit, err := gitlog.GetCommit(ctx, locator, testRepo, mergeBranchName)
+	commit, err := gitlog.GetCommit(ctx, locator, testRepo, git.Revision(mergeBranchName))
 	require.NoError(t, err, "look up git commit after call has finished")
 
 	require.Equal(t, gitalypb.OperationBranchUpdate{CommitId: commit.Id}, *(secondResponse.BranchUpdate))
@@ -192,7 +192,7 @@ func testAbortedMerge(t *testing.T, ctx context.Context) {
 			require.Equal(t, "", secondResponse.GetBranchUpdate().GetCommitId(), "merge should not have been applied")
 			require.Error(t, err)
 
-			commit, err := gitlog.GetCommit(ctx, locator, testRepo, mergeBranchName)
+			commit, err := gitlog.GetCommit(ctx, locator, testRepo, git.Revision(mergeBranchName))
 			require.NoError(t, err, "look up git commit after call has finished")
 
 			require.Equal(t, mergeBranchHeadBefore, commit.Id, "branch should not change when the merge is aborted")
@@ -245,7 +245,7 @@ func testFailedMergeConcurrentUpdate(t *testing.T, ctx context.Context) {
 	require.NoError(t, err, "receive second response")
 	testhelper.ProtoEqual(t, secondResponse, &gitalypb.UserMergeBranchResponse{})
 
-	commit, err := gitlog.GetCommit(ctx, locator, testRepo, mergeBranchName)
+	commit, err := gitlog.GetCommit(ctx, locator, testRepo, git.Revision(mergeBranchName))
 	require.NoError(t, err, "get commit after RPC finished")
 	require.Equal(t, commit.Id, concurrentCommitID, "RPC should not have trampled concurrent update")
 }
@@ -284,7 +284,7 @@ func testUserMergeBranchAmbiguousReference(t *testing.T, ctx context.Context) {
 		"refs/tags/heads/" + mergeBranchName,
 		"refs/tags/refs/heads/" + mergeBranchName,
 	} {
-		require.NoError(t, repo.UpdateRef(ctx, reference, master.Target, git.NullSHA))
+		require.NoError(t, repo.UpdateRef(ctx, git.ReferenceName(reference), master.Target, git.NullSHA))
 	}
 
 	mergeCommitMessage := "Merged by Gitaly"
@@ -313,10 +313,10 @@ func testUserMergeBranchAmbiguousReference(t *testing.T, ctx context.Context) {
 
 	locator := config.NewLocator(config.Config)
 
-	commit, err := gitlog.GetCommit(ctx, locator, testRepo, "refs/heads/"+mergeBranchName)
+	commit, err := gitlog.GetCommit(ctx, locator, testRepo, git.Revision("refs/heads/"+mergeBranchName))
 	require.NoError(t, err, "look up git commit after call has finished")
 
-	tag, err := gitlog.GetCommit(ctx, locator, testRepo, "refs/tags/"+mergeBranchName)
+	tag, err := gitlog.GetCommit(ctx, locator, testRepo, git.Revision("refs/tags/"+mergeBranchName))
 	require.NoError(t, err, "look up git tag after call has finished")
 
 	require.Equal(t, gitalypb.OperationBranchUpdate{CommitId: commit.Id}, *(response.BranchUpdate))
@@ -705,7 +705,7 @@ func TestSuccessfulUserMergeToRefRequest(t *testing.T) {
 				FirstParentRef: testCase.firstParentRef,
 			}
 
-			commitBeforeRefMerge, fetchRefBeforeMergeErr := gitlog.GetCommit(ctx, locator, testRepo, string(testCase.targetRef))
+			commitBeforeRefMerge, fetchRefBeforeMergeErr := gitlog.GetCommit(ctx, locator, testRepo, git.Revision(testCase.targetRef))
 			if testCase.emptyRef {
 				require.Error(t, fetchRefBeforeMergeErr, "error when fetching empty ref commit")
 			} else {
@@ -715,7 +715,7 @@ func TestSuccessfulUserMergeToRefRequest(t *testing.T) {
 			resp, err := client.UserMergeToRef(ctx, request)
 			require.NoError(t, err)
 
-			commit, err := gitlog.GetCommit(ctx, locator, testRepo, string(testCase.targetRef))
+			commit, err := gitlog.GetCommit(ctx, locator, testRepo, git.Revision(testCase.targetRef))
 			require.NoError(t, err, "look up git commit after call has finished")
 
 			// Asserts commit parent SHAs
