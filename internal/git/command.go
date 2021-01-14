@@ -11,6 +11,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
@@ -331,7 +332,7 @@ var (
 // NewCommand creates a command.Command with the given args and Repository. It
 // validates the arguments in the command before executing.
 func NewCommand(ctx context.Context, repo repository.GitRepo, globals []GlobalOption, sc Cmd, opts ...CmdOpt) (*command.Command, error) {
-	return NewCommandFactory().newCommand(ctx, repo, "", globals, sc, opts...)
+	return NewCommandFactory(config.Config).newCommand(ctx, repo, "", globals, sc, opts...)
 }
 
 // NewCommandWithoutRepo creates a command.Command with the given args. It is not
@@ -339,7 +340,7 @@ func NewCommand(ctx context.Context, repo repository.GitRepo, globals []GlobalOp
 // commands which do not require a git repository or which accept a repository
 // path as parameter like e.g. git-upload-pack(1).
 func NewCommandWithoutRepo(ctx context.Context, globals []GlobalOption, sc Cmd, opts ...CmdOpt) (*command.Command, error) {
-	return NewCommandFactory().newCommand(ctx, nil, "", globals, sc, opts...)
+	return NewCommandFactory(config.Config).newCommand(ctx, nil, "", globals, sc, opts...)
 }
 
 // NewCommandWithDir creates a new command.Command whose working directory is set
@@ -350,5 +351,5 @@ func NewCommandWithDir(ctx context.Context, dir string, globals []GlobalOption, 
 		return nil, errors.New("no 'dir' provided")
 	}
 
-	return NewCommandFactory().newCommand(ctx, nil, dir, globals, sc, opts...)
+	return NewCommandFactory(config.Config).newCommand(ctx, nil, dir, globals, sc, opts...)
 }

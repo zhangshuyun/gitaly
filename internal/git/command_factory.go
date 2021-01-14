@@ -23,11 +23,11 @@ type CommandFactory struct {
 // NewCommandFactory returns a new instance of initialized CommandFactory.
 // Current implementation relies on the global var 'config.Config' and a single type of 'Locator' we currently have.
 // This dependency will be removed on the next iterations in scope of: https://gitlab.com/gitlab-org/gitaly/-/issues/2699
-func NewCommandFactory() *CommandFactory {
+func NewCommandFactory(cfg config.Cfg) *CommandFactory {
 	return &CommandFactory{
-		cfg:            config.Config,
-		locator:        config.NewLocator(config.Config),
-		cgroupsManager: cgroups.NewManager(config.Config.Cgroups),
+		cfg:            cfg,
+		locator:        config.NewLocator(cfg),
+		cgroupsManager: cgroups.NewManager(cfg.Cgroups),
 	}
 }
 
