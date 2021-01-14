@@ -133,7 +133,7 @@ func (o *ObjectPool) FetchFromOrigin(ctx context.Context, origin *gitalypb.Repos
 	return repackPool(ctx, o)
 }
 
-const danglingObjectNamespace = "refs/dangling"
+const danglingObjectNamespace = "refs/dangling/"
 
 // rescueDanglingObjects creates refs for all dangling objects if finds
 // with `git fsck`, which converts those objects from "dangling" to
@@ -168,7 +168,7 @@ func rescueDanglingObjects(ctx context.Context, repo repository.GitRepo) error {
 			continue
 		}
 
-		ref := git.ReferenceName(danglingObjectNamespace + "/" + split[2])
+		ref := git.ReferenceName(danglingObjectNamespace + split[2])
 		if err := updater.Create(ref, split[2]); err != nil {
 			return err
 		}
