@@ -339,7 +339,7 @@ func TestCacheInfoRefsUploadPack(t *testing.T) {
 	)
 
 	invalidateCacheForRepo := func() {
-		ender, err := cache.LeaseKeyer{}.StartLease(rpcRequest.Repository)
+		ender, err := cache.NewLeaseKeyer(config.NewLocator(config.Config)).StartLease(rpcRequest.Repository)
 		require.NoError(t, err)
 		require.NoError(t, ender.EndLease(setInfoRefsUploadPackMethod(ctx)))
 	}
@@ -366,17 +366,28 @@ func TestCacheInfoRefsUploadPack(t *testing.T) {
 	// if an error occurs while putting stream, it should not interrupt
 	// request from being served
 	happened := false
-	defer func(old streamer) { infoRefCache = old }(infoRefCache)
-	infoRefCache = mockStreamer{
-		streamer: infoRefCache,
+
+	mockInfoRefCache := newInfoRefCache(mockStreamer{
+		streamer: cache.NewStreamDB(cache.NewLeaseKeyer(config.NewLocator(config.Config))),
 		putStream: func(context.Context, *gitalypb.Repository, proto.Message, io.Reader) error {
 			happened = true
 			return errors.New("oh nos!")
 		},
-	}
+	})
+
+	stop()
+	serverSocketPath, stop = runSmartHTTPServer(t, withInfoRefCache(mockInfoRefCache))
+	defer stop()
+
 	invalidateCacheForRepo()
 	assertNormalResponse()
 	require.True(t, happened)
+}
+
+func withInfoRefCache(cache infoRefCache) ServerOpt {
+	return func(s *server) {
+		s.infoRefCache = cache
+	}
 }
 
 func createInvalidRepo(t testing.TB, repoDir string) func() {
@@ -403,7 +414,7 @@ func setInfoRefsUploadPackMethod(ctx context.Context) context.Context {
 
 func pathToCachedResponse(t testing.TB, ctx context.Context, req *gitalypb.InfoRefsRequest) string {
 	ctx = setInfoRefsUploadPackMethod(ctx)
-	path, err := cache.LeaseKeyer{}.KeyPath(ctx, req.GetRepository(), req)
+	path, err := cache.NewLeaseKeyer(config.NewLocator(config.Config)).KeyPath(ctx, req.GetRepository(), req)
 	require.NoError(t, err)
 	return path
 }

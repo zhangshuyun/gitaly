@@ -46,7 +46,8 @@ func testMain(m *testing.M) int {
 }
 
 func runSmartHTTPServer(t *testing.T, serverOpts ...ServerOpt) (string, func()) {
-	keyer := diskcache.LeaseKeyer{}
+	locator := config.NewLocator(config.Config)
+	keyer := diskcache.NewLeaseKeyer(locator)
 
 	srv := testhelper.NewServer(t,
 		[]grpc.StreamServerInterceptor{
@@ -57,7 +58,6 @@ func runSmartHTTPServer(t *testing.T, serverOpts ...ServerOpt) (string, func()) 
 		},
 		testhelper.WithInternalSocket(config.Config))
 
-	locator := config.NewLocator(config.Config)
 	gitalypb.RegisterSmartHTTPServiceServer(srv.GrpcServer(), NewServer(locator, serverOpts...))
 	gitalypb.RegisterHookServiceServer(srv.GrpcServer(), hookservice.NewServer(config.Config, hook.NewManager(locator, hook.GitlabAPIStub, config.Config)))
 	srv.Start(t)

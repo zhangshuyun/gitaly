@@ -95,7 +95,7 @@ func createNewServer(rubyServer *rubyserver.Server, hookManager hook.Manager, cf
 			auth.StreamServerInterceptor(cfg.Auth),
 			lh.StreamInterceptor(), // Should be below auth handler to prevent v2 hmac tokens from timing out while queued
 			grpctracing.StreamServerTracingInterceptor(),
-			cache.StreamInvalidator(diskcache.LeaseKeyer{}, protoregistry.GitalyProtoPreregistered),
+			cache.StreamInvalidator(diskcache.NewLeaseKeyer(storageLocator), protoregistry.GitalyProtoPreregistered),
 			// Panic handler should remain last so that application panics will be
 			// converted to errors and logged
 			panichandler.StreamPanicHandler,
@@ -112,7 +112,7 @@ func createNewServer(rubyServer *rubyserver.Server, hookManager hook.Manager, cf
 			auth.UnaryServerInterceptor(cfg.Auth),
 			lh.UnaryInterceptor(), // Should be below auth handler to prevent v2 hmac tokens from timing out while queued
 			grpctracing.UnaryServerTracingInterceptor(),
-			cache.UnaryInvalidator(diskcache.LeaseKeyer{}, protoregistry.GitalyProtoPreregistered),
+			cache.UnaryInvalidator(diskcache.NewLeaseKeyer(storageLocator), protoregistry.GitalyProtoPreregistered),
 			// Panic handler should remain last so that application panics will be
 			// converted to errors and logged
 			panichandler.UnaryPanicHandler,

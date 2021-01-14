@@ -103,10 +103,10 @@ var NewSecureRepoClient = newSecureRepoClient
 
 func runRepoServerWithConfig(t *testing.T, cfg config.Cfg, locator storage.Locator, opts ...testhelper.TestServerOpt) (string, func()) {
 	streamInt := []grpc.StreamServerInterceptor{
-		mcache.StreamInvalidator(dcache.LeaseKeyer{}, protoregistry.GitalyProtoPreregistered),
+		mcache.StreamInvalidator(dcache.NewLeaseKeyer(locator), protoregistry.GitalyProtoPreregistered),
 	}
 	unaryInt := []grpc.UnaryServerInterceptor{
-		mcache.UnaryInvalidator(dcache.LeaseKeyer{}, protoregistry.GitalyProtoPreregistered),
+		mcache.UnaryInvalidator(dcache.NewLeaseKeyer(locator), protoregistry.GitalyProtoPreregistered),
 	}
 
 	srv := testhelper.NewServerWithAuth(t, streamInt, unaryInt, cfg.Auth.Token, opts...)
