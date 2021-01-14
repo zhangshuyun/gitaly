@@ -36,59 +36,43 @@ func (cf *CommandFactory) gitPath() string {
 
 // unsafeCmd creates a git.unsafeCmd with the given args, environment, and Repository
 func (cf *CommandFactory) unsafeCmd(ctx context.Context, extraEnv []string, stream cmdStream, repo repository.GitRepo, args ...string) (*command.Command, error) {
-	args, env, err := cf.argsAndEnv(repo, args...)
-	if err != nil {
-		return nil, err
-	}
-
-	env = append(env, extraEnv...)
-
-	return cf.unsafeBareCmd(ctx, stream, env, args...)
-}
-
-func (cf *CommandFactory) argsAndEnv(repo repository.GitRepo, args ...string) ([]string, []string, error) {
-	repoPath, err := cf.locator.GetRepoPath(repo)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	env := alternates.Env(repoPath, repo.GetGitObjectDirectory(), repo.GetGitAlternateObjectDirectories())
-	args = append([]string{"--git-dir", repoPath}, args...)
-
-	return args, env, nil
+	return cf.newCommand(ctx, repo, stream, "", extraEnv, args...)
 }
 
 // unsafeBareCmd creates a git.Command with the given args, stdin/stdout/stderr, and env
 func (cf *CommandFactory) unsafeBareCmd(ctx context.Context, stream cmdStream, env []string, args ...string) (*command.Command, error) {
-	env = append(env, command.GitEnv...)
-
-	cmd, err := command.New(ctx, exec.Command(cf.gitPath(), args...), stream.In, stream.Out, stream.Err, env...)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := cf.cgroupsManager.AddCommand(cmd); err != nil {
-		return nil, err
-	}
-
-	return cmd, err
+	return cf.newCommand(ctx, nil, stream, "", env, args...)
 }
 
-// unsafeBareCmdInDir calls unsafeBareCmd in dir.
+// unsafeBareCmdInDir call sunsafeBareCmd in dir.
 func (cf *CommandFactory) unsafeBareCmdInDir(ctx context.Context, dir string, stream cmdStream, env []string, args ...string) (*command.Command, error) {
+	return cf.newCommand(ctx, nil, stream, dir, env, args...)
+}
+
+func (cf *CommandFactory) newCommand(ctx context.Context, repo repository.GitRepo, stream cmdStream, dir string, env []string, args ...string) (*command.Command, error) {
+	if repo != nil {
+		repoPath, err := cf.locator.GetRepoPath(repo)
+		if err != nil {
+			return nil, err
+		}
+
+		env = append(alternates.Env(repoPath, repo.GetGitObjectDirectory(), repo.GetGitAlternateObjectDirectories()), env...)
+		args = append([]string{"--git-dir", repoPath}, args...)
+	}
+
 	env = append(env, command.GitEnv...)
 
-	cmd1 := exec.Command(cf.gitPath(), args...)
-	cmd1.Dir = dir
+	execCommand := exec.Command(cf.gitPath(), args...)
+	execCommand.Dir = dir
 
-	cmd2, err := command.New(ctx, cmd1, stream.In, stream.Out, stream.Err, env...)
+	command, err := command.New(ctx, execCommand, stream.In, stream.Out, stream.Err, env...)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := cf.cgroupsManager.AddCommand(cmd2); err != nil {
+	if err := cf.cgroupsManager.AddCommand(command); err != nil {
 		return nil, err
 	}
 
-	return cmd2, nil
+	return command, nil
 }
