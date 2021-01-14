@@ -1,0 +1,5 @@
+---
+title: 'objectpool: Count normal references when collecting stats'
+merge_request: 2993
+author:
+type: added
