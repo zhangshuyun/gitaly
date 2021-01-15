@@ -42,24 +42,6 @@ module GitalyServer
       Gitaly::UserCreateTagResponse.new(pre_receive_error: set_utf8!(e.message))
     end
 
-    def user_delete_tag(request, call)
-      repo = Gitlab::Git::Repository.from_gitaly(request.repository, call)
-      transaction = Praefect::Transaction.from_metadata(call.metadata)
-
-      gitaly_user = get_param!(request, :user)
-      user = Gitlab::Git::User.from_gitaly(gitaly_user)
-
-      tag_name = get_param!(request, :tag_name)
-
-      repo.rm_tag(tag_name, user: user, transaction: transaction)
-
-      Gitaly::UserDeleteTagResponse.new
-    rescue Gitlab::Git::PreReceiveError => e
-      Gitaly::UserDeleteTagResponse.new(pre_receive_error: set_utf8!(e.message))
-    rescue Gitlab::Git::Repository::InvalidRef, Gitlab::Git::CommitError => e
-      raise GRPC::FailedPrecondition.new(e.message)
-    end
-
     def user_create_branch(request, call)
       repo = Gitlab::Git::Repository.from_gitaly(request.repository, call)
       target = get_param!(request, :start_point)
@@ -97,20 +79,6 @@ module GitalyServer
       raise GRPC::FailedPrecondition.new(ex.message)
     rescue Gitlab::Git::PreReceiveError => ex
       Gitaly::UserUpdateBranchResponse.new(pre_receive_error: set_utf8!(ex.message))
-    end
-
-    def user_delete_branch(request, call)
-      repo = Gitlab::Git::Repository.from_gitaly(request.repository, call)
-      user = Gitlab::Git::User.from_gitaly(request.user)
-      transaction = Praefect::Transaction.from_metadata(call.metadata)
-
-      repo.rm_branch(request.branch_name, user: user, transaction: transaction)
-
-      Gitaly::UserDeleteBranchResponse.new
-    rescue Gitlab::Git::PreReceiveError => e
-      Gitaly::UserDeleteBranchResponse.new(pre_receive_error: set_utf8!(e.message))
-    rescue Gitlab::Git::Repository::InvalidRef, Gitlab::Git::CommitError => e
-      raise GRPC::FailedPrecondition.new(e.message)
     end
 
     def user_merge_to_ref(request, call)

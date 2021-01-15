@@ -442,7 +442,6 @@ func testFailedUserCreateBranchRequest(t *testing.T, ctx context.Context) {
 func TestSuccessfulUserDeleteBranchRequest(t *testing.T) {
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.ReferenceTransactions,
-		featureflag.GoUserDeleteBranch,
 	}).Run(t, testSuccessfulUserDeleteBranchRequest)
 }
 
@@ -542,10 +541,9 @@ func TestSuccessfulGitHooksForUserDeleteBranchRequest(t *testing.T) {
 }
 
 func TestFailedUserDeleteBranchDueToValidation(t *testing.T) {
-	testWithFeature(t, featureflag.GoUserDeleteBranch, testFailedUserDeleteBranchDueToValidation)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testFailedUserDeleteBranchDueToValidation(t *testing.T, ctx context.Context) {
 	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()
 
@@ -600,11 +598,10 @@ func testFailedUserDeleteBranchDueToValidation(t *testing.T, ctx context.Context
 	}
 }
 
-func TestUserDeleteBranch_failedDueToRefsHeadsPrefix(t *testing.T) {
-	testWithFeature(t, featureflag.GoUserDeleteBranch, testUserDeleteBranchFailedDueToRefsHeadsPrefix)
-}
+func TestUserDeleteBranchFailedDueToRefsHeadsPrefix(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testUserDeleteBranchFailedDueToRefsHeadsPrefix(t *testing.T, ctx context.Context) {
 	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
@@ -656,10 +653,9 @@ func testUserDeleteBranchFailedDueToRefsHeadsPrefix(t *testing.T, ctx context.Co
 }
 
 func TestFailedUserDeleteBranchDueToHooks(t *testing.T) {
-	testWithFeature(t, featureflag.GoUserDeleteBranch, testFailedUserDeleteBranchDueToHooks)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testFailedUserDeleteBranchDueToHooks(t *testing.T, ctx context.Context) {
 	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 

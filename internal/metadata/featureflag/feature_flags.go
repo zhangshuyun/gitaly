@@ -23,8 +23,6 @@ var (
 	GoUserFFBranch = FeatureFlag{Name: "go_user_ff_branch", OnByDefault: false}
 	// GoUserCreateBranch enables the Go implementation of UserCreateBranch
 	GoUserCreateBranch = FeatureFlag{Name: "go_user_create_branch", OnByDefault: false}
-	// GoUserDeleteBranch enables the Go implementation of UserDeleteBranch
-	GoUserDeleteBranch = FeatureFlag{Name: "go_user_delete_branch", OnByDefault: true}
 	// GoUserCommitFiles enables the Go implementation of UserCommitFiles
 	GoUserCommitFiles = FeatureFlag{Name: "go_user_commit_files", OnByDefault: false}
 	// GoResolveConflicts enables the Go implementation of ResolveConflicts
@@ -32,8 +30,6 @@ var (
 	// GoUserUpdateSubmodule enables the Go implementation of
 	// UserUpdateSubmodules
 	GoUserUpdateSubmodule = FeatureFlag{Name: "go_user_update_submodule", OnByDefault: false}
-	// GoUserDeleteTag enables the Go implementation of UserDeleteTag
-	GoUserDeleteTag = FeatureFlag{Name: "go_user_delete_tag", OnByDefault: true}
 	// GoUserCreateTag enables the Go implementation of UserCreateTag
 	GoUserCreateTag = FeatureFlag{Name: "go_user_create_tag", OnByDefault: false}
 	// GoUserRevert enables the Go implementation of UserRevert
@@ -112,11 +108,9 @@ var All = []FeatureFlag{
 	GoUserMergeBranch,
 	GoUserFFBranch,
 	GoUserCreateBranch,
-	GoUserDeleteBranch,
 	GoUserCommitFiles,
 	GoResolveConflicts,
 	GoUserUpdateSubmodule,
-	GoUserDeleteTag,
 	GoUserCreateTag,
 	GoUserRevert,
 	TxApplyBfgObjectMapStream,
