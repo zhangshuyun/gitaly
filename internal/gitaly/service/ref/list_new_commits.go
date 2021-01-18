@@ -12,7 +12,7 @@ import (
 
 func (s *server) ListNewCommits(in *gitalypb.ListNewCommitsRequest, stream gitalypb.RefService_ListNewCommitsServer) error {
 	oid := in.GetCommitId()
-	if err := git.ValidateCommitID(oid); err != nil {
+	if err := git.ValidateObjectID(oid); err != nil {
 		return helper.ErrInvalidArgument(err)
 	}
 

@@ -13,7 +13,7 @@ import (
 
 func (s *server) ListNewBlobs(in *gitalypb.ListNewBlobsRequest, stream gitalypb.RefService_ListNewBlobsServer) error {
 	oid := in.GetCommitId()
-	if err := git.ValidateCommitID(oid); err != nil {
+	if err := git.ValidateObjectID(oid); err != nil {
 		return helper.ErrInvalidArgument(err)
 	}
 

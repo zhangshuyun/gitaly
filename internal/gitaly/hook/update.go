@@ -22,10 +22,10 @@ func (m *GitLabHookManager) UpdateHook(ctx context.Context, repo *gitalypb.Repos
 	if ref == "" {
 		return helper.ErrInternalf("hook got no reference")
 	}
-	if err := git.ValidateCommitID(oldValue); err != nil {
+	if err := git.ValidateObjectID(oldValue); err != nil {
 		return helper.ErrInternalf("hook got invalid old value: %w", err)
 	}
-	if err := git.ValidateCommitID(newValue); err != nil {
+	if err := git.ValidateObjectID(newValue); err != nil {
 		return helper.ErrInternalf("hook got invalid new value: %w", err)
 	}
 	if payload.ReceiveHooksPayload == nil {

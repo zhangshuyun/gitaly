@@ -61,10 +61,10 @@ func (s *Server) updateReferenceWithHooks(ctx context.Context, repo *gitalypb.Re
 	if reference == "" {
 		return helper.ErrInternalf("updateReferenceWithHooks: got no reference")
 	}
-	if err := git.ValidateCommitID(oldrev); err != nil {
+	if err := git.ValidateObjectID(oldrev); err != nil {
 		return helper.ErrInternalf("updateReferenceWithHooks: got invalid old value: %w", err)
 	}
-	if err := git.ValidateCommitID(newrev); err != nil {
+	if err := git.ValidateObjectID(newrev); err != nil {
 		return helper.ErrInternalf("updateReferenceWithHooks: got invalid new value: %w", err)
 	}
 

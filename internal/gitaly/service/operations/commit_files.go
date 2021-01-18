@@ -475,7 +475,7 @@ func validateUserCommitFilesHeader(header *gitalypb.UserCommitFilesRequestHeader
 
 	startSha := header.GetStartSha()
 	if len(startSha) > 0 {
-		err := git.ValidateCommitID(startSha)
+		err := git.ValidateObjectID(startSha)
 		if err != nil {
 			return err
 		}

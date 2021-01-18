@@ -1391,7 +1391,7 @@ func testFailedUserCommitFilesRequest(t *testing.T, ctx context.Context) {
 			req:  headerRequest(testRepo, testhelper.TestUser, branchName, nil),
 		},
 		{
-			desc: "invalid commit ID: \"foobar\"",
+			desc: "invalid object ID: \"foobar\"",
 			req:  setStartSha(headerRequest(testRepo, testhelper.TestUser, branchName, commitFilesMessage), "foobar"),
 		},
 		{
