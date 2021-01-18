@@ -264,6 +264,11 @@ check-mod-tidy:
 lint: ${GOLANGCI_LINT} libgit2
 	${Q}${GOLANGCI_LINT} cache clean && ${GOLANGCI_LINT} run --build-tags "${GO_BUILD_TAGS}" --out-format tab --config ${SOURCE_DIR}/.golangci.yml ${GOLANGCI_LINT_OPTIONS}
 
+.PHONY: lint-strict
+lint-strict:
+	# b7e24f70b (Add graph from graffle, 2016-11-14) is the root commit
+	${Q}GOLANGCI_LINT_OPTIONS="--new-from-rev='b7e24f70b71ae8aeb0b6a0d91bf49960e17cb3a3'" $(MAKE) lint
+
 .PHONY: check-formatting
 check-formatting: ${GOIMPORTS} ${GITALYFMT}
 	${Q}${GOIMPORTS} -l $(call find_go_sources) | awk '{ print } END { if(NR>0) { print "goimports error, run make format"; exit(1) } }'
