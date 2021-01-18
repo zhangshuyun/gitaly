@@ -3,7 +3,6 @@ package gitalyssh
 import (
 	"encoding/base64"
 	"fmt"
-	"path/filepath"
 	"testing"
 
 	"github.com/golang/protobuf/jsonpb"
@@ -34,11 +33,11 @@ func TestUploadPackEnv(t *testing.T) {
 	expectedPayload, err := pbMarshaler.MarshalToString(&req)
 	require.NoError(t, err)
 
-	env, err := UploadPackEnv(ctx, &req)
+	env, err := UploadPackEnv(ctx, config.Cfg{BinDir: "/path/bin"}, &req)
 
 	require.NoError(t, err)
 	require.Subset(t, env, []string{
-		fmt.Sprintf("GIT_SSH_COMMAND=%s upload-pack", filepath.Join(config.Config.BinDir, "gitaly-ssh")),
+		"GIT_SSH_COMMAND=/path/bin/gitaly-ssh upload-pack",
 		fmt.Sprintf("GITALY_PAYLOAD=%s", expectedPayload),
 		"CORRELATION_ID=correlation-id-1",
 		"GIT_SSH_VARIANT=simple",
