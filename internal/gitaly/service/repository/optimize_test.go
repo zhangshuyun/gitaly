@@ -101,7 +101,7 @@ func TestOptimizeRepository(t *testing.T) {
 	blobs := 10
 	blobIDs := testhelper.WriteBlobs(t, testRepoPath, blobs)
 
-	updater, err := updateref.New(ctx, testRepo)
+	updater, err := updateref.New(ctx, config.Config, testRepo)
 	require.NoError(t, err)
 
 	for _, blobID := range blobIDs {

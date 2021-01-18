@@ -11,6 +11,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/updateref"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
@@ -46,13 +47,13 @@ type ErrInvalidObjectMap error
 
 // NewCleaner builds a new instance of Cleaner, which is used to apply a
 // filter-repo or BFG object map to a repository.
-func NewCleaner(ctx context.Context, repo *gitalypb.Repository, forEach ForEachFunc) (*Cleaner, error) {
+func NewCleaner(ctx context.Context, cfg config.Cfg, repo *gitalypb.Repository, forEach ForEachFunc) (*Cleaner, error) {
 	table, err := buildLookupTable(ctx, repo)
 	if err != nil {
 		return nil, err
 	}
 
-	updater, err := updateref.New(ctx, repo)
+	updater, err := updateref.New(ctx, cfg, repo)
 	if err != nil {
 		return nil, err
 	}

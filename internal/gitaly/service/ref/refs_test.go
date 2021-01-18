@@ -82,7 +82,7 @@ func TestFindAllBranchNamesVeryLargeResponse(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	updater, err := updateref.New(ctx, testRepo)
+	updater, err := updateref.New(ctx, config.Config, testRepo)
 	require.NoError(t, err)
 
 	// We want to create enough refs to overflow the default bufio.Scanner

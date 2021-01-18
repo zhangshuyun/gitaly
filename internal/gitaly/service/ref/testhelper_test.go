@@ -45,7 +45,7 @@ func runRefServiceServer(t *testing.T) (func(), string) {
 	srv := testhelper.NewServer(t, nil, nil, testhelper.WithInternalSocket(config.Config))
 
 	locator := config.NewLocator(config.Config)
-	gitalypb.RegisterRefServiceServer(srv.GrpcServer(), NewServer(locator))
+	gitalypb.RegisterRefServiceServer(srv.GrpcServer(), NewServer(config.Config, locator))
 	gitalypb.RegisterHookServiceServer(srv.GrpcServer(), hookservice.NewServer(config.Config, hook.NewManager(locator, hook.GitlabAPIStub, config.Config)))
 
 	srv.Start(t)

@@ -46,7 +46,7 @@ func TestCreate(t *testing.T) {
 	headCommit, err := log.GetCommit(ctx, locator, testRepo, "HEAD")
 	require.NoError(t, err)
 
-	updater, err := New(ctx, testRepo)
+	updater, err := New(ctx, config.Config, testRepo)
 	require.NoError(t, err)
 
 	ref := git.ReferenceName("refs/heads/_create")
@@ -69,7 +69,7 @@ func TestUpdate(t *testing.T) {
 	headCommit, err := log.GetCommit(ctx, locator, testRepo, "HEAD")
 	require.NoError(t, err)
 
-	updater, err := New(ctx, testRepo)
+	updater, err := New(ctx, config.Config, testRepo)
 	require.NoError(t, err)
 
 	ref := git.ReferenceName("refs/heads/feature")
@@ -103,7 +103,7 @@ func TestDelete(t *testing.T) {
 	ctx, testRepo, _, teardown := setup(t)
 	defer teardown()
 
-	updater, err := New(ctx, testRepo)
+	updater, err := New(ctx, config.Config, testRepo)
 	require.NoError(t, err)
 
 	ref := git.ReferenceName("refs/heads/feature")
@@ -127,7 +127,7 @@ func TestBulkOperation(t *testing.T) {
 	headCommit, err := log.GetCommit(ctx, locator, testRepo, "HEAD")
 	require.NoError(t, err)
 
-	updater, err := New(ctx, testRepo)
+	updater, err := New(ctx, config.Config, testRepo)
 	require.NoError(t, err)
 
 	for i := 0; i < 1000; i++ {
@@ -152,7 +152,7 @@ func TestContextCancelAbortsRefChanges(t *testing.T) {
 	require.NoError(t, err)
 
 	childCtx, childCancel := context.WithCancel(ctx)
-	updater, err := New(childCtx, testRepo)
+	updater, err := New(childCtx, config.Config, testRepo)
 	require.NoError(t, err)
 
 	ref := git.ReferenceName("refs/heads/_shouldnotexist")
@@ -182,7 +182,7 @@ func TestUpdater_closingStdinAbortsChanges(t *testing.T) {
 
 	ref := git.ReferenceName("refs/heads/shouldnotexist")
 
-	updater, err := New(ctx, testRepo)
+	updater, err := New(ctx, config.Config, testRepo)
 	require.NoError(t, err)
 	require.NoError(t, updater.Create(ref, headCommit.Id))
 

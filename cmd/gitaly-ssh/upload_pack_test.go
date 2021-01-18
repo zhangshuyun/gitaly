@@ -37,7 +37,7 @@ func TestVisibilityOfHiddenRefs(t *testing.T) {
 	existingSha := "1e292f8fedd741b75372e19097c76d327140c312"
 	keepAroundRef := fmt.Sprintf("%s/%s", keepAroundNamespace, existingSha)
 
-	updater, err := updateref.New(ctx, testRepo)
+	updater, err := updateref.New(ctx, config.Config, testRepo)
 
 	require.NoError(t, err)
 	require.NoError(t, updater.Create(git.ReferenceName(keepAroundRef), existingSha))
