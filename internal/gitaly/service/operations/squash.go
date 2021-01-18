@@ -13,32 +13,15 @@ import (
 	"strings"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
-	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/alternates"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
-	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
-
-var (
-	userSquashImplCounter = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "gitaly_user_squash_counter",
-			Help: "Number of calls to UserSquash rpc for each implementation (ruby/go)",
-		},
-		[]string{"impl"},
-	)
-)
-
-func init() {
-	prometheus.MustRegister(userSquashImplCounter)
-}
 
 const (
 	squashWorktreePrefix  = "squash"
@@ -50,24 +33,32 @@ func (s *Server) UserSquash(ctx context.Context, req *gitalypb.UserSquashRequest
 		return nil, status.Errorf(codes.InvalidArgument, "UserSquash: %v", err)
 	}
 
-	if featureflag.IsEnabled(ctx, featureflag.GoUserSquash) {
-		userSquashImplCounter.WithLabelValues("go").Inc()
-		return s.userSquashGo(ctx, req)
+	if strings.Contains(req.GetSquashId(), "/") {
+		return nil, helper.ErrInvalidArgument(errors.New("worktree id can't contain slashes"))
 	}
 
-	userSquashImplCounter.WithLabelValues("ruby").Inc()
-
-	client, err := s.ruby.OperationServiceClient(ctx)
+	repo := req.GetRepository()
+	repoPath, err := s.locator.GetRepoPath(repo)
 	if err != nil {
-		return nil, err
+		return nil, helper.ErrInternal(fmt.Errorf("repo path: %w", err))
 	}
+	env := alternates.Env(repoPath, repo.GetGitObjectDirectory(), repo.GetGitAlternateObjectDirectories())
 
-	clientCtx, err := rubyserver.SetHeaders(ctx, s.locator, req.GetRepository())
+	sha, err := s.userSquash(ctx, req, env, repoPath)
 	if err != nil {
-		return nil, err
+		var gitErr gitError
+		if errors.As(err, &gitErr) {
+			if gitErr.ErrMsg != "" {
+				// we log an actual error as it would be lost otherwise (it is not sent back to the client)
+				ctxlogrus.Extract(ctx).WithError(err).Error("user squash")
+				return &gitalypb.UserSquashResponse{GitError: gitErr.ErrMsg}, nil
+			}
+		}
+
+		return nil, helper.ErrInternal(err)
 	}
 
-	return client.UserSquash(clientCtx, req)
+	return &gitalypb.UserSquashResponse{SquashSha: sha}, nil
 }
 
 func validateUserSquashRequest(req *gitalypb.UserSquashRequest) error {
@@ -113,36 +104,7 @@ func (er gitError) Error() string {
 	return er.ErrMsg + ": " + er.Err.Error()
 }
 
-func (s *Server) userSquashGo(ctx context.Context, req *gitalypb.UserSquashRequest) (*gitalypb.UserSquashResponse, error) {
-	if strings.Contains(req.GetSquashId(), "/") {
-		return nil, helper.ErrInvalidArgument(errors.New("worktree id can't contain slashes"))
-	}
-
-	repo := req.GetRepository()
-	repoPath, err := s.locator.GetRepoPath(repo)
-	if err != nil {
-		return nil, helper.ErrInternal(fmt.Errorf("repo path: %w", err))
-	}
-	env := alternates.Env(repoPath, repo.GetGitObjectDirectory(), repo.GetGitAlternateObjectDirectories())
-
-	sha, err := s.runUserSquashGo(ctx, req, env, repoPath)
-	if err != nil {
-		var gitErr gitError
-		if errors.As(err, &gitErr) {
-			if gitErr.ErrMsg != "" {
-				// we log an actual error as it would be lost otherwise (it is not sent back to the client)
-				ctxlogrus.Extract(ctx).WithError(err).Error("user squash")
-				return &gitalypb.UserSquashResponse{GitError: gitErr.ErrMsg}, nil
-			}
-		}
-
-		return nil, helper.ErrInternal(err)
-	}
-
-	return &gitalypb.UserSquashResponse{SquashSha: sha}, nil
-}
-
-func (s *Server) runUserSquashGo(ctx context.Context, req *gitalypb.UserSquashRequest, env []string, repoPath string) (string, error) {
+func (s *Server) userSquash(ctx context.Context, req *gitalypb.UserSquashRequest, env []string, repoPath string) (string, error) {
 	sparseDiffFiles, err := s.diffFiles(ctx, env, repoPath, req)
 	if err != nil {
 		return "", fmt.Errorf("define diff files: %w", err)

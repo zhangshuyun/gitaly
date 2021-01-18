@@ -293,22 +293,6 @@ module GitalyServer
       raise GRPC::InvalidArgument.new(e.message)
     end
 
-    def user_squash(request, call)
-      repo = Gitlab::Git::Repository.from_gitaly(request.repository, call)
-      user = Gitlab::Git::User.from_gitaly(request.user)
-      author = Gitlab::Git::User.from_gitaly(request.author)
-
-      squash_sha = repo.squash(user, request.squash_id,
-                               start_sha: request.start_sha,
-                               end_sha: request.end_sha,
-                               author: author,
-                               message: request.commit_message)
-
-      Gitaly::UserSquashResponse.new(squash_sha: squash_sha)
-    rescue Gitlab::Git::Repository::GitError => e
-      Gitaly::UserSquashResponse.new(git_error: set_utf8!(e.message))
-    end
-
     def user_apply_patch(call)
       stream = call.each_remote_read
       first_request = stream.next
