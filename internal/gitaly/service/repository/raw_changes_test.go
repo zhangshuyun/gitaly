@@ -7,6 +7,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -54,7 +55,7 @@ func TestGetRawChanges(t *testing.T) {
 			},
 		},
 		{
-			oldRev: "0000000000000000000000000000000000000000",
+			oldRev: git.ZeroOID.String(),
 			newRev: "1a0b36b3cdad1d2ee32457c102a8c0b7056fa863",
 			changes: []*gitalypb.GetRawChangesResponse_RawChange{
 				{
