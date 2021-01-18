@@ -93,6 +93,13 @@ func (s *Server) userCreateBranchRuby(ctx context.Context, req *gitalypb.UserCre
 }
 
 func (s *Server) UserUpdateBranch(ctx context.Context, req *gitalypb.UserUpdateBranchRequest) (*gitalypb.UserUpdateBranchResponse, error) {
+	if featureflag.IsDisabled(ctx, featureflag.GoUserUpdateBranch) {
+		return s.userUpdateBranchRuby(ctx, req)
+	}
+	return s.userUpdateBranchRuby(ctx, req)
+}
+
+func (s *Server) userUpdateBranchRuby(ctx context.Context, req *gitalypb.UserUpdateBranchRequest) (*gitalypb.UserUpdateBranchResponse, error) {
 	client, err := s.ruby.OperationServiceClient(ctx)
 	if err != nil {
 		return nil, err

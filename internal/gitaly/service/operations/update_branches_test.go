@@ -26,6 +26,7 @@ var (
 func TestSuccessfulUserUpdateBranchRequest(t *testing.T) {
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.ReferenceTransactions,
+		featureflag.GoUserUpdateBranch,
 	}).Run(t, testSuccessfulUserUpdateBranchRequest)
 }
 
@@ -109,9 +110,10 @@ func testSuccessfulUserUpdateBranchRequest(t *testing.T, ctx context.Context) {
 }
 
 func TestSuccessfulUserUpdateBranchRequestToDelete(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	testWithFeature(t, featureflag.GoUserUpdateBranch, testSuccessfulUserUpdateBranchRequestToDelete)
+}
 
+func testSuccessfulUserUpdateBranchRequestToDelete(t *testing.T, ctx context.Context) {
 	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()
 
@@ -185,10 +187,7 @@ func TestSuccessfulUserUpdateBranchRequestToDelete(t *testing.T) {
 }
 
 func TestSuccessfulGitHooksForUserUpdateBranchRequest(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-
-	testSuccessfulGitHooksForUserUpdateBranchRequest(t, ctx)
+	testWithFeature(t, featureflag.GoUserUpdateBranch, testSuccessfulGitHooksForUserUpdateBranchRequest)
 }
 
 func testSuccessfulGitHooksForUserUpdateBranchRequest(t *testing.T, ctx context.Context) {
@@ -227,9 +226,10 @@ func testSuccessfulGitHooksForUserUpdateBranchRequest(t *testing.T, ctx context.
 }
 
 func TestFailedUserUpdateBranchDueToHooks(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	testWithFeature(t, featureflag.GoUserUpdateBranch, testFailedUserUpdateBranchDueToHooks)
+}
 
+func testFailedUserUpdateBranchDueToHooks(t *testing.T, ctx context.Context) {
 	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
@@ -267,6 +267,10 @@ func TestFailedUserUpdateBranchDueToHooks(t *testing.T) {
 }
 
 func TestFailedUserUpdateBranchRequest(t *testing.T) {
+	testWithFeature(t, featureflag.GoUserUpdateBranch, testFailedUserUpdateBranchRequest)
+}
+
+func testFailedUserUpdateBranchRequest(t *testing.T, ctx context.Context) {
 	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()
 
@@ -397,9 +401,6 @@ func TestFailedUserUpdateBranchRequest(t *testing.T) {
 				Oldrev:     testCase.oldrev,
 				User:       testCase.user,
 			}
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
 
 			response, err := client.UserUpdateBranch(ctx, request)
 			require.Equal(t, testCase.response, response)
