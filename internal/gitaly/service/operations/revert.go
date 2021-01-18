@@ -71,7 +71,7 @@ func (s *Server) UserRevert(ctx context.Context, req *gitalypb.UserRevertRequest
 	oldrev, err := localRepo.ResolveRevision(ctx, git.Revision(fmt.Sprintf("%s^{commit}", branch)))
 	if errors.Is(err, git.ErrReferenceNotFound) {
 		branchCreated = true
-		oldrev = git.NullSHA
+		oldrev = git.ZeroOID.String()
 	} else if err != nil {
 		return nil, helper.ErrInvalidArgumentf("resolve ref: %w", err)
 	}

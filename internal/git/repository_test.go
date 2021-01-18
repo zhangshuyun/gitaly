@@ -356,8 +356,8 @@ func TestLocalRepository_ReadObject(t *testing.T) {
 	}{
 		{
 			desc:  "invalid object",
-			oid:   NullSHA,
-			error: InvalidObjectError(NullSHA),
+			oid:   ZeroOID.String(),
+			error: InvalidObjectError(ZeroOID.String()),
 		},
 		{
 			desc: "valid object",

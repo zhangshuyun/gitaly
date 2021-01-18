@@ -6,6 +6,14 @@ import (
 	"regexp"
 )
 
+const (
+	// EmptyTreeOID is the Git tree object hash that corresponds to an empty tree (directory)
+	EmptyTreeOID = ObjectID("4b825dc642cb6eb9a060e54bf8d69288fbee4904")
+
+	// ZeroOID is the special value that Git uses to signal a ref or object does not exist
+	ZeroOID = ObjectID("0000000000000000000000000000000000000000")
+)
+
 var (
 	// ErrInvalidObjectID is returned in case an object ID's string
 	// representation is not a valid one.

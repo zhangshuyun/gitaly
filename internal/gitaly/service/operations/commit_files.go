@@ -341,7 +341,7 @@ func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommi
 
 	oldRevision := parentCommitOID
 	if targetBranchCommit == "" {
-		oldRevision = git.NullSHA
+		oldRevision = git.ZeroOID.String()
 	} else if header.Force {
 		oldRevision = targetBranchCommit
 	}

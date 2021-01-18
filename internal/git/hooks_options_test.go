@@ -22,7 +22,7 @@ func TestWithRefHook(t *testing.T) {
 	config.Config.Auth.Token = token
 
 	opt := WithRefTxHook(ctx, testRepo, config.Config)
-	subCmd := SubCmd{Name: "update-ref", Args: []string{"refs/heads/master", NullSHA}}
+	subCmd := SubCmd{Name: "update-ref", Args: []string{"refs/heads/master", ZeroOID.String()}}
 
 	for _, tt := range []struct {
 		name string
