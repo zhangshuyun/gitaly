@@ -30,7 +30,7 @@ var (
 	// GoUserCommitFiles enables the Go implementation of UserCommitFiles
 	GoUserCommitFiles = FeatureFlag{Name: "go_user_commit_files", OnByDefault: false}
 	// GoResolveConflicts enables the Go implementation of ResolveConflicts
-	GoResolveConflicts = FeatureFlag{Name: "go_resolve_conflicts", OnByDefault: true}
+	GoResolveConflicts = FeatureFlag{Name: "go_resolve_conflicts", OnByDefault: false}
 	// GoUserDeleteTag enables the Go implementation of UserDeleteTag
 	GoUserDeleteTag = FeatureFlag{Name: "go_user_delete_tag", OnByDefault: true}
 	// GoUserCreateTag enables the Go implementation of UserCreateTag
