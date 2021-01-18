@@ -41,24 +41,40 @@ func testSuccessfulUserUpdateBranchRequest(t *testing.T, ctx context.Context) {
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	responseOk := &gitalypb.UserUpdateBranchResponse{}
-	request := &gitalypb.UserUpdateBranchRequest{
-		Repository: testRepo,
-		BranchName: []byte(updateBranchName),
-		Newrev:     newrev,
-		Oldrev:     oldrev,
-		User:       testhelper.TestUser,
+	testCases := []struct {
+		desc             string
+		updateBranchName string
+		oldRev           []byte
+		newRev           []byte
+	}{
+		{
+			desc:             "short name fast-forward update",
+			updateBranchName: updateBranchName,
+			oldRev:           []byte("0b4bc9a49b562e85de7cc9e834518ea6828729b9"),
+			newRev:           []byte("1a35b5a77cf6af7edf6703f88e82f6aff613666f"),
+		},
 	}
 
-	response, err := client.UserUpdateBranch(ctx, request)
+	for _, testCase := range testCases {
+		t.Run(testCase.desc, func(t *testing.T) {
+			responseOk := &gitalypb.UserUpdateBranchResponse{}
+			request := &gitalypb.UserUpdateBranchRequest{
+				Repository: testRepo,
+				BranchName: []byte(testCase.updateBranchName),
+				Newrev:     testCase.newRev,
+				Oldrev:     testCase.oldRev,
+				User:       testhelper.TestUser,
+			}
+			response, err := client.UserUpdateBranch(ctx, request)
+			require.NoError(t, err)
+			require.Equal(t, responseOk, response)
 
-	require.NoError(t, err)
-	require.Equal(t, responseOk, response)
+			branchCommit, err := log.GetCommit(ctx, locator, testRepo, git.Revision(testCase.updateBranchName))
 
-	branchCommit, err := log.GetCommit(ctx, locator, testRepo, git.Revision(updateBranchName))
-
-	require.NoError(t, err)
-	require.Equal(t, string(newrev), branchCommit.Id)
+			require.NoError(t, err)
+			require.Equal(t, string(testCase.newRev), branchCommit.Id)
+		})
+	}
 }
 
 func TestSuccessfulGitHooksForUserUpdateBranchRequest(t *testing.T) {
