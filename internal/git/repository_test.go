@@ -194,6 +194,7 @@ func TestLocalRepository_WriteBlob(t *testing.T) {
 		attributes string
 		config     string
 		input      io.Reader
+		options    WriteBlobOptions
 		sha        string
 		error      error
 		content    string
@@ -222,15 +223,23 @@ func TestLocalRepository_WriteBlob(t *testing.T) {
 			desc:       "line endings normalized due to attributes",
 			attributes: "file-path text",
 			input:      strings.NewReader("\r\n"),
+			options:    WriteBlobOptions{Path: "file-path"},
 			content:    "\n",
 		},
 		{
-			desc: "line endings normalized due to config",
+			desc:    "line endings normalized due to config",
+			options: WriteBlobOptions{Path: "file-path"},
 			config: `
 [core]
 autocrlf = input
 			`,
 			input:   strings.NewReader("\r\n"),
+			content: "\n",
+		},
+		{
+			desc:    "line endings normalized due to options",
+			input:   strings.NewReader("\r\n"),
+			options: WriteBlobOptions{Path: "file-path", NormalizeLineEndings: true},
 			content: "\n",
 		},
 	} {
@@ -242,7 +251,7 @@ autocrlf = input
 				require.NoError(t, ioutil.WriteFile(path, []byte(content), os.ModePerm))
 			}
 
-			sha, err := repo.WriteBlob(ctx, "file-path", tc.input)
+			sha, err := repo.WriteBlob(ctx, tc.input, tc.options)
 			require.Equal(t, tc.error, err)
 			if tc.error != nil {
 				return

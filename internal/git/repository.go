@@ -131,20 +131,39 @@ func (repo *LocalRepository) command(ctx context.Context, globals []GlobalOption
 	return NewCommand(ctx, repo.repo, globals, cmd, opts...)
 }
 
+// WriteBlobOptions contains options that can be set to influence how the blob
+// is written to the object database.
+type WriteBlobOptions struct {
+	// Path is the path of the written file. It is used to determine which
+	// filter to run on the written blob.
+	Path string
+	// NormalizeLineEndings when set configures `core.autocrlf=input`
+	// to normalize the line endings of the blob. If not set, the decision
+	// is deferred to git by using existing configuration and attributes.
+	NormalizeLineEndings bool
+}
+
 // WriteBlob writes a blob to the repository's object database and
 // returns its object ID. Path is used by git to decide which filters to
 // run on the content.
-func (repo *LocalRepository) WriteBlob(ctx context.Context, path string, content io.Reader) (string, error) {
+func (repo *LocalRepository) WriteBlob(ctx context.Context, content io.Reader, opts WriteBlobOptions) (string, error) {
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
 
-	cmd, err := repo.command(ctx, nil,
+	var globalOpts []GlobalOption
+	if opts.NormalizeLineEndings {
+		globalOpts = append(globalOpts, ValueFlag{Name: "-c", Value: "core.autocrlf=input"})
+	}
+
+	cmdOpts := []Option{Flag{Name: "--stdin"}, Flag{Name: "-w"}}
+	if opts.Path != "" {
+		cmdOpts = append(cmdOpts, ValueFlag{Name: "--path", Value: opts.Path})
+	}
+
+	cmd, err := repo.command(ctx, globalOpts,
 		SubCmd{
-			Name: "hash-object",
-			Flags: []Option{
-				ValueFlag{Name: "--path", Value: path},
-				Flag{Name: "--stdin"}, Flag{Name: "-w"},
-			},
+			Name:  "hash-object",
+			Flags: cmdOpts,
 		},
 		WithStdin(content),
 		WithStdout(stdout),

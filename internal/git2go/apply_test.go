@@ -23,13 +23,13 @@ func TestExecutor_Apply(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	oidBase, err := repo.WriteBlob(ctx, "file", strings.NewReader("base"))
+	oidBase, err := repo.WriteBlob(ctx, strings.NewReader("base"), git.WriteBlobOptions{})
 	require.NoError(t, err)
 
-	oidA, err := repo.WriteBlob(ctx, "file", strings.NewReader("a"))
+	oidA, err := repo.WriteBlob(ctx, strings.NewReader("a"), git.WriteBlobOptions{})
 	require.NoError(t, err)
 
-	oidB, err := repo.WriteBlob(ctx, "file", strings.NewReader("b"))
+	oidB, err := repo.WriteBlob(ctx, strings.NewReader("b"), git.WriteBlobOptions{})
 	require.NoError(t, err)
 
 	author := NewSignature("Test Author", "test.author@example.com", time.Now())

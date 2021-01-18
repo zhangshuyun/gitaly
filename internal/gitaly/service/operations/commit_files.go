@@ -254,7 +254,10 @@ func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommi
 
 		switch pbAction.header.Action {
 		case gitalypb.UserCommitFilesActionHeader_CREATE:
-			blobID, err := localRepo.WriteBlob(ctx, path, content)
+			blobID, err := localRepo.WriteBlob(ctx, content, git.WriteBlobOptions{
+				Path:                 path,
+				NormalizeLineEndings: true,
+			})
 			if err != nil {
 				return fmt.Errorf("write created blob: %w", err)
 			}
@@ -278,7 +281,10 @@ func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommi
 			var oid string
 			if !pbAction.header.InferContent {
 				var err error
-				oid, err = localRepo.WriteBlob(ctx, path, content)
+				oid, err = localRepo.WriteBlob(ctx, content, git.WriteBlobOptions{
+					Path:                 path,
+					NormalizeLineEndings: true,
+				})
 				if err != nil {
 					return err
 				}
@@ -290,7 +296,10 @@ func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommi
 				OID:     oid,
 			})
 		case gitalypb.UserCommitFilesActionHeader_UPDATE:
-			oid, err := localRepo.WriteBlob(ctx, path, content)
+			oid, err := localRepo.WriteBlob(ctx, content, git.WriteBlobOptions{
+				Path:                 path,
+				NormalizeLineEndings: true,
+			})
 			if err != nil {
 				return fmt.Errorf("write updated blob: %w", err)
 			}

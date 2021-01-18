@@ -57,10 +57,10 @@ func TestExecutor_Commit(t *testing.T) {
 
 	repo := git.NewRepository(pbRepo)
 
-	originalFile, err := repo.WriteBlob(ctx, "file", bytes.NewBufferString("original"))
+	originalFile, err := repo.WriteBlob(ctx, bytes.NewBufferString("original"), git.WriteBlobOptions{})
 	require.NoError(t, err)
 
-	updatedFile, err := repo.WriteBlob(ctx, "file", bytes.NewBufferString("updated"))
+	updatedFile, err := repo.WriteBlob(ctx, bytes.NewBufferString("updated"), git.WriteBlobOptions{})
 	require.NoError(t, err)
 
 	executor := New(filepath.Join(config.Config.BinDir, "gitaly-git2go"), config.Config.Git.BinPath)
