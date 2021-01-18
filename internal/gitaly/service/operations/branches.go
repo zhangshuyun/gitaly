@@ -96,7 +96,75 @@ func (s *Server) UserUpdateBranch(ctx context.Context, req *gitalypb.UserUpdateB
 	if featureflag.IsDisabled(ctx, featureflag.GoUserUpdateBranch) {
 		return s.userUpdateBranchRuby(ctx, req)
 	}
-	return s.userUpdateBranchRuby(ctx, req)
+	return s.userUpdateBranchGo(ctx, req)
+}
+
+func validateUserUpdateBranchGo(req *gitalypb.UserUpdateBranchRequest) error {
+	if req.User == nil {
+		return status.Errorf(codes.InvalidArgument, "empty user")
+	}
+
+	if len(req.BranchName) == 0 {
+		return status.Errorf(codes.InvalidArgument, "empty branch name")
+	}
+
+	if len(req.Oldrev) == 0 {
+		return status.Errorf(codes.InvalidArgument, "empty oldrev")
+	}
+
+	if len(req.Newrev) == 0 {
+		return status.Errorf(codes.InvalidArgument, "empty newrev")
+	}
+
+	return nil
+}
+
+func (s *Server) userUpdateBranchGo(ctx context.Context, req *gitalypb.UserUpdateBranchRequest) (*gitalypb.UserUpdateBranchResponse, error) {
+	// Validate the request
+	if err := validateUserUpdateBranchGo(req); err != nil {
+		return nil, err
+	}
+
+	referenceName := fmt.Sprintf("refs/heads/%s", req.BranchName)
+	referenceValue, err := git.NewRepository(req.Repository, s.cfg).GetReference(ctx, git.ReferenceName(referenceName))
+	if err != nil && !errors.Is(err, git.ErrReferenceNotFound) {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+
+	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, referenceName, string(req.Newrev), string(req.Oldrev)); err != nil {
+		var preReceiveError preReceiveError
+		if errors.As(err, &preReceiveError) {
+			return &gitalypb.UserUpdateBranchResponse{
+				PreReceiveError: preReceiveError.message,
+			}, nil
+		}
+
+		couldNotUpdateError := status.Errorf(codes.FailedPrecondition, "Could not update %s. Please refresh and try again.", req.BranchName)
+		var updateRefError updateRefError
+		if errors.As(err, &updateRefError) {
+			if !git.ObjectID(req.Oldrev).IsZeroOID() &&
+				!git.ObjectID(referenceValue.Target).IsZeroOID() {
+				// An oddball response for
+				// compatibility with the old Ruby
+				// code. The "Could not update..."
+				// message is exactly like the default
+				// updateRefError, except we say
+				// "branch-name", not
+				// "refs/heads/branch-name". See the
+				// "Gitlab::Git::CommitError" case in
+				// the Ruby code.
+				return nil, couldNotUpdateError
+			}
+
+			// Ditto Gitlab::Git::CommitError case in Ruby
+			return nil, couldNotUpdateError
+		}
+
+		// Ditto Gitlab::Git::CommitError case in Ruby
+		return nil, couldNotUpdateError
+	}
+
+	return &gitalypb.UserUpdateBranchResponse{}, nil
 }
 
 func (s *Server) userUpdateBranchRuby(ctx context.Context, req *gitalypb.UserUpdateBranchRequest) (*gitalypb.UserUpdateBranchResponse, error) {
