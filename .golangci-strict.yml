@@ -8,41 +8,22 @@ run:
 linters:
   disable-all: true
   enable:
-    - deadcode
-    - gci
-    - goimports
-    - gosimple
-    - govet
-    - ineffassign
-    - maligned
-    - megacheck
-    - misspell
-    - noctx
-    - nolintlint
-    - rowserrcheck
-    - sqlclosecheck
-    - staticcheck
-    - structcheck
-    - stylecheck
-    - unconvert
-    - unused
-    - varcheck
+    - errcheck
+    - errorlint
+    - golint
 
 issues:
   exclude-use-default: false
   # Excluding configuration per-path, per-linter, per-text and per-source
   exclude-rules:
-    # govet checks all struct initializations must be keyed by field names
     - linters:
-        - govet
-      text: "composite literal uses unkeyed fields"
+        - errcheck
+      path: "_test.go"
+      text: "Error return value of `(cc|con(ns?)?|db|closer|lis(tener)?).Close` is not checked"
     - linters:
-        - stylecheck
-      text: "at least one file in a package should have a package comment"
-    - path: "_test.go"
-      linters:
-        - maligned
-        - noctx
+        - golint
+      path: "_test.go"
+      text: "context.Context should be the first parameter of a function"
   # Maximum issues count per one linter. Set to 0 to disable. Default is 50.
   max-issues-per-linter: 0
   # Maximum count of issues with the same text. Set to 0 to disable. Default is 3.

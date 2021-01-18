@@ -46,6 +46,7 @@ GOCOVER_COBERTURA := ${BUILD_DIR}/bin/gocover-cobertura
 
 # Tool options
 GOLANGCI_LINT_OPTIONS ?=
+GOLANGCI_LINT_CONFIG  ?= ${SOURCE_DIR}/.golangci.yml
 
 # Build information
 BUNDLE_FLAGS    ?= $(shell test -f ${SOURCE_DIR}/../.gdk-install-root && echo --no-deployment || echo --deployment)
@@ -265,12 +266,11 @@ check-mod-tidy:
 
 .PHONY: lint
 lint: ${GOLANGCI_LINT} libgit2
-	${Q}${GOLANGCI_LINT} run --build-tags "${GO_BUILD_TAGS}" --out-format tab --config ${SOURCE_DIR}/.golangci.yml ${GOLANGCI_LINT_OPTIONS}
+	${Q}${GOLANGCI_LINT} run --build-tags "${GO_BUILD_TAGS}" --out-format tab --config ${GOLANGCI_LINT_CONFIG} ${GOLANGCI_LINT_OPTIONS}
 
 .PHONY: lint-strict
 lint-strict:
-	# b7e24f70b (Add graph from graffle, 2016-11-14) is the root commit
-	${Q}GOLANGCI_LINT_OPTIONS="--new-from-rev='b7e24f70b71ae8aeb0b6a0d91bf49960e17cb3a3'" $(MAKE) lint
+	${Q}GOLANGCI_LINT_CONFIG=$(SOURCE_DIR)/.golangci-strict.yml $(MAKE) lint
 
 .PHONY: check-formatting
 check-formatting: ${GOIMPORTS} ${GITALYFMT}
