@@ -159,7 +159,7 @@ func runServer(t *testing.T, token string, required bool) (*grpc.Server, string,
 		},
 	}
 
-	gz := proto.FileDescriptor("mock.proto")
+	gz := proto.FileDescriptor("praefect/mock/mock.proto")
 	fd, err := protoregistry.ExtractFileDescriptor(gz)
 	if err != nil {
 		t.Fatal(err)

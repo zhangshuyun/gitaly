@@ -14,9 +14,7 @@ type (
 )
 
 // mockSvc is an implementation of mock.SimpleServer for testing purposes. The
-// gRPC stub can be updated via go generate:
-//
-//go:generate make mock/mock.pb.go
+// gRPC stub can be updated by running `make proto`.
 type mockSvc struct {
 	serverAccessor    serverAccessorFunc
 	repoAccessorUnary repoAccessorUnaryFunc

@@ -57,7 +57,7 @@ func TestStreamInterceptor(t *testing.T) {
 	lis, err := net.Listen("unix", internalServerSocketPath)
 	require.NoError(t, err)
 
-	gz := proto.FileDescriptor("mock.proto")
+	gz := proto.FileDescriptor("praefect/mock/mock.proto")
 	fd, err := protoregistry.ExtractFileDescriptor(gz)
 	require.NoError(t, err)
 
