@@ -14,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 var (
@@ -40,6 +41,7 @@ func testSuccessfulUserUpdateBranchRequest(t *testing.T, ctx context.Context) {
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
+	responseOk := &gitalypb.UserUpdateBranchResponse{}
 	request := &gitalypb.UserUpdateBranchRequest{
 		Repository: testRepo,
 		BranchName: []byte(updateBranchName),
@@ -51,7 +53,7 @@ func testSuccessfulUserUpdateBranchRequest(t *testing.T, ctx context.Context) {
 	response, err := client.UserUpdateBranch(ctx, request)
 
 	require.NoError(t, err)
-	require.Empty(t, response.PreReceiveError)
+	require.Equal(t, responseOk, response)
 
 	branchCommit, err := log.GetCommit(ctx, locator, testRepo, git.Revision(updateBranchName))
 
@@ -89,10 +91,12 @@ func testSuccessfulGitHooksForUserUpdateBranchRequest(t *testing.T, ctx context.
 				User:       testhelper.TestUser,
 			}
 
+			responseOk := &gitalypb.UserUpdateBranchResponse{}
 			response, err := client.UserUpdateBranch(ctx, request)
 			require.NoError(t, err)
 			require.Empty(t, response.PreReceiveError)
 
+			require.Equal(t, responseOk, response)
 			output := string(testhelper.MustReadFile(t, hookOutputTempPath))
 			require.Contains(t, output, "GL_USERNAME="+testhelper.TestUser.GlUsername)
 		})
@@ -131,6 +135,11 @@ func TestFailedUserUpdateBranchDueToHooks(t *testing.T) {
 		require.Nil(t, err)
 		require.Contains(t, response.PreReceiveError, "GL_USERNAME="+testhelper.TestUser.GlUsername)
 		require.Contains(t, response.PreReceiveError, "PWD="+testRepoPath)
+
+		responseOk := &gitalypb.UserUpdateBranchResponse{
+			PreReceiveError: response.PreReceiveError,
+		}
+		require.Equal(t, responseOk, response)
 	}
 }
 
@@ -152,7 +161,7 @@ func TestFailedUserUpdateBranchRequest(t *testing.T) {
 		newrev     []byte
 		oldrev     []byte
 		user       *gitalypb.User
-		code       codes.Code
+		err        error
 	}{
 		{
 			desc:       "empty branch name",
@@ -160,7 +169,7 @@ func TestFailedUserUpdateBranchRequest(t *testing.T) {
 			newrev:     newrev,
 			oldrev:     oldrev,
 			user:       testhelper.TestUser,
-			code:       codes.InvalidArgument,
+			err:        status.Error(codes.InvalidArgument, "empty branch name"),
 		},
 		{
 			desc:       "empty newrev",
@@ -168,7 +177,7 @@ func TestFailedUserUpdateBranchRequest(t *testing.T) {
 			newrev:     nil,
 			oldrev:     oldrev,
 			user:       testhelper.TestUser,
-			code:       codes.InvalidArgument,
+			err:        status.Error(codes.InvalidArgument, "empty newrev"),
 		},
 		{
 			desc:       "empty oldrev",
@@ -176,7 +185,7 @@ func TestFailedUserUpdateBranchRequest(t *testing.T) {
 			newrev:     newrev,
 			oldrev:     nil,
 			user:       testhelper.TestUser,
-			code:       codes.InvalidArgument,
+			err:        status.Error(codes.InvalidArgument, "empty oldrev"),
 		},
 		{
 			desc:       "empty user",
@@ -184,7 +193,7 @@ func TestFailedUserUpdateBranchRequest(t *testing.T) {
 			newrev:     newrev,
 			oldrev:     oldrev,
 			user:       nil,
-			code:       codes.InvalidArgument,
+			err:        status.Error(codes.InvalidArgument, "empty user"),
 		},
 		{
 			desc:       "non-existing branch",
@@ -192,7 +201,7 @@ func TestFailedUserUpdateBranchRequest(t *testing.T) {
 			newrev:     newrev,
 			oldrev:     oldrev,
 			user:       testhelper.TestUser,
-			code:       codes.FailedPrecondition,
+			err:        status.Errorf(codes.FailedPrecondition, "Could not update %v. Please refresh and try again.", "i-dont-exist"),
 		},
 		{
 			desc:       "non-existing newrev",
@@ -200,7 +209,7 @@ func TestFailedUserUpdateBranchRequest(t *testing.T) {
 			newrev:     []byte(revDoesntExist),
 			oldrev:     oldrev,
 			user:       testhelper.TestUser,
-			code:       codes.FailedPrecondition,
+			err:        status.Errorf(codes.FailedPrecondition, "Could not update %v. Please refresh and try again.", updateBranchName),
 		},
 		{
 			desc:       "non-existing oldrev",
@@ -208,7 +217,7 @@ func TestFailedUserUpdateBranchRequest(t *testing.T) {
 			newrev:     newrev,
 			oldrev:     []byte(revDoesntExist),
 			user:       testhelper.TestUser,
-			code:       codes.FailedPrecondition,
+			err:        status.Errorf(codes.FailedPrecondition, "Could not update %v. Please refresh and try again.", updateBranchName),
 		},
 	}
 
@@ -225,8 +234,9 @@ func TestFailedUserUpdateBranchRequest(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			_, err := client.UserUpdateBranch(ctx, request)
-			testhelper.RequireGrpcError(t, err, testCase.code)
+			response, err := client.UserUpdateBranch(ctx, request)
+			require.Nil(t, response)
+			require.Equal(t, testCase.err, err)
 		})
 	}
 }
