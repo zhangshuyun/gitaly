@@ -1,7 +1,6 @@
 package repository
 
 import (
-	"context"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -16,12 +15,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
-	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/metadata"
 )
 
 func copyRepoWithNewRemote(t *testing.T, repo *gitalypb.Repository, locator storage.Locator, remote string) (*gitalypb.Repository, string) {
@@ -48,40 +45,32 @@ func TestFetchRemoteSuccess(t *testing.T) {
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.GoFetchRemote,
-	}).Run(t, func(t *testing.T, ctx context.Context) {
-		testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
-		defer cleanupFn()
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-		cloneRepo, cloneRepoPath := copyRepoWithNewRemote(t, testRepo, locator, "my-remote")
-		defer func() {
-			require.NoError(t, os.RemoveAll(cloneRepoPath))
-		}()
+	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	defer cleanupFn()
 
-		// Ensure there's a new tag to fetch
-		testhelper.CreateTag(t, testRepoPath, "testtag", "master", nil)
+	cloneRepo, cloneRepoPath := copyRepoWithNewRemote(t, testRepo, locator, "my-remote")
+	defer func() {
+		require.NoError(t, os.RemoveAll(cloneRepoPath))
+	}()
 
-		// On the first run, TagsChanged will be true for both implementations
-		req := &gitalypb.FetchRemoteRequest{Repository: cloneRepo, Remote: "my-remote", Timeout: 120, CheckTagsChanged: true}
-		resp, err := client.FetchRemote(ctx, req)
-		require.NoError(t, err)
-		require.NotNil(t, resp)
-		require.Equal(t, resp.TagsChanged, true)
+	// Ensure there's a new tag to fetch
+	testhelper.CreateTag(t, testRepoPath, "testtag", "master", nil)
 
-		// On the second run, TagsChanged will be false for the Go implementation only
-		resp, err = client.FetchRemote(ctx, req)
-		require.NoError(t, err)
-		require.NotNil(t, resp)
-		require.Equal(t, resp.TagsChanged, !isFeatureEnabled(ctx, featureflag.GoFetchRemote))
+	req := &gitalypb.FetchRemoteRequest{Repository: cloneRepo, Remote: "my-remote", Timeout: 120, CheckTagsChanged: true}
+	resp, err := client.FetchRemote(ctx, req)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	require.Equal(t, resp.TagsChanged, true)
 
-		// Finally, ensure that it returns true if we're asked not to check
-		req.CheckTagsChanged = false
-		resp, err = client.FetchRemote(ctx, req)
-		require.NoError(t, err)
-		require.NotNil(t, resp)
-		require.Equal(t, resp.TagsChanged, true)
-	})
+	// Ensure that it returns true if we're asked not to check
+	req.CheckTagsChanged = false
+	resp, err = client.FetchRemote(ctx, req)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	require.Equal(t, resp.TagsChanged, true)
 }
 
 func TestFetchRemoteFailure(t *testing.T) {
@@ -98,139 +87,117 @@ func TestFetchRemoteFailure(t *testing.T) {
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.GoFetchRemote,
-	}).Run(t, func(t *testing.T, ctx context.Context) {
-		tests := []struct {
-			desc       string
-			req        *gitalypb.FetchRemoteRequest
-			goCode     codes.Code
-			goErrMsg   string
-			rubyCode   codes.Code
-			rubyErrMsg string
-		}{
-			{
-				desc: "no repository",
-				req: &gitalypb.FetchRemoteRequest{
-					Repository: nil,
-					Remote:     remoteName,
-					Timeout:    1000,
-				},
-				goCode:     codes.InvalidArgument,
-				goErrMsg:   "empty Repository",
-				rubyCode:   codes.InvalidArgument,
-				rubyErrMsg: "",
-			},
-			{
-				desc: "invalid storage",
-				req: &gitalypb.FetchRemoteRequest{
-					Repository: &gitalypb.Repository{
-						StorageName:  "invalid",
-						RelativePath: "foobar.git",
-					},
-					Remote:  remoteName,
-					Timeout: 1000,
-				},
-				// the error text is shortened to only a single word as requests to gitaly done via praefect returns different error messages
-				goCode:     codes.InvalidArgument,
-				goErrMsg:   "invalid",
-				rubyCode:   codes.InvalidArgument,
-				rubyErrMsg: "invalid",
-			},
-			{
-				desc: "invalid remote",
-				req: &gitalypb.FetchRemoteRequest{
-					Repository: repo,
-					Remote:     "",
-					Timeout:    1000,
-				},
-				goCode:     codes.InvalidArgument,
-				goErrMsg:   `blank or empty "remote"`,
-				rubyCode:   codes.Unknown,
-				rubyErrMsg: `fatal: no path specified`,
-			},
-			{
-				desc: "invalid remote url: bad format",
-				req: &gitalypb.FetchRemoteRequest{
-					Repository: repo,
-					RemoteParams: &gitalypb.Remote{
-						Url:                     "not a url",
-						Name:                    remoteName,
-						HttpAuthorizationHeader: httpToken,
-					},
-					Timeout: 1000,
-				},
-				goCode:     codes.InvalidArgument,
-				goErrMsg:   `invalid "remote_params.url"`,
-				rubyCode:   codes.InvalidArgument,
-				rubyErrMsg: "invalid remote url",
-			},
-			{
-				desc: "invalid remote url: no host",
-				req: &gitalypb.FetchRemoteRequest{
-					Repository: repo,
-					RemoteParams: &gitalypb.Remote{
-						Url:                     "/not/a/url",
-						Name:                    remoteName,
-						HttpAuthorizationHeader: httpToken,
-					},
-					Timeout: 1000,
-				},
-				goCode:     codes.InvalidArgument,
-				goErrMsg:   `invalid "remote_params.url"`,
-				rubyCode:   codes.Unknown,
-				rubyErrMsg: "fatal: '/not/a/url' does not appear to be a git repository",
-			},
-			{
-				desc: "no name",
-				req: &gitalypb.FetchRemoteRequest{
-					Repository: repo,
-					RemoteParams: &gitalypb.Remote{
-						Name:                    "",
-						Url:                     url,
-						HttpAuthorizationHeader: httpToken,
-					},
-					Timeout: 1000,
-				},
-				goCode:     codes.InvalidArgument,
-				goErrMsg:   `blank or empty "remote_params.name"`,
-				rubyCode:   codes.Unknown,
-				rubyErrMsg: "Rugged::ConfigError: '' is not a valid remote name",
-			},
-			{
-				desc: "not existing repo via http",
-				req: &gitalypb.FetchRemoteRequest{
-					Repository: repo,
-					RemoteParams: &gitalypb.Remote{
-						Url:                     httpSrv.URL + "/invalid/repo/path.git",
-						Name:                    remoteName,
-						HttpAuthorizationHeader: httpToken,
-						MirrorRefmaps:           []string{"all_refs"},
-					},
-					Timeout: 1000,
-				},
-				goCode:     codes.Unknown,
-				goErrMsg:   "invalid/repo/path.git/' not found",
-				rubyCode:   codes.Unknown,
-				rubyErrMsg: "/invalid/repo/path.git/' not found",
-			},
-		}
-		for _, tc := range tests {
-			t.Run(tc.desc, func(t *testing.T) {
-				resp, err := client.FetchRemote(ctx, tc.req)
-				require.Error(t, err)
-				require.Nil(t, resp)
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-				if isFeatureEnabled(ctx, featureflag.GoFetchRemote) {
-					require.Contains(t, err.Error(), tc.goErrMsg)
-					testhelper.RequireGrpcError(t, err, tc.goCode)
-				} else {
-					require.Contains(t, err.Error(), tc.rubyErrMsg)
-					testhelper.RequireGrpcError(t, err, tc.rubyCode)
-				}
-			})
-		}
-	})
+	tests := []struct {
+		desc   string
+		req    *gitalypb.FetchRemoteRequest
+		code   codes.Code
+		errMsg string
+	}{
+		{
+			desc: "no repository",
+			req: &gitalypb.FetchRemoteRequest{
+				Repository: nil,
+				Remote:     remoteName,
+				Timeout:    1000,
+			},
+			code:   codes.InvalidArgument,
+			errMsg: "empty Repository",
+		},
+		{
+			desc: "invalid storage",
+			req: &gitalypb.FetchRemoteRequest{
+				Repository: &gitalypb.Repository{
+					StorageName:  "invalid",
+					RelativePath: "foobar.git",
+				},
+				Remote:  remoteName,
+				Timeout: 1000,
+			},
+			// the error text is shortened to only a single word as requests to gitaly done via praefect returns different error messages
+			code:   codes.InvalidArgument,
+			errMsg: "invalid",
+		},
+		{
+			desc: "invalid remote",
+			req: &gitalypb.FetchRemoteRequest{
+				Repository: repo,
+				Remote:     "",
+				Timeout:    1000,
+			},
+			code:   codes.InvalidArgument,
+			errMsg: `blank or empty "remote"`,
+		},
+		{
+			desc: "invalid remote url: bad format",
+			req: &gitalypb.FetchRemoteRequest{
+				Repository: repo,
+				RemoteParams: &gitalypb.Remote{
+					Url:                     "not a url",
+					Name:                    remoteName,
+					HttpAuthorizationHeader: httpToken,
+				},
+				Timeout: 1000,
+			},
+			code:   codes.InvalidArgument,
+			errMsg: `invalid "remote_params.url"`,
+		},
+		{
+			desc: "invalid remote url: no host",
+			req: &gitalypb.FetchRemoteRequest{
+				Repository: repo,
+				RemoteParams: &gitalypb.Remote{
+					Url:                     "/not/a/url",
+					Name:                    remoteName,
+					HttpAuthorizationHeader: httpToken,
+				},
+				Timeout: 1000,
+			},
+			code:   codes.InvalidArgument,
+			errMsg: `invalid "remote_params.url"`,
+		},
+		{
+			desc: "no name",
+			req: &gitalypb.FetchRemoteRequest{
+				Repository: repo,
+				RemoteParams: &gitalypb.Remote{
+					Name:                    "",
+					Url:                     url,
+					HttpAuthorizationHeader: httpToken,
+				},
+				Timeout: 1000,
+			},
+			code:   codes.InvalidArgument,
+			errMsg: `blank or empty "remote_params.name"`,
+		},
+		{
+			desc: "not existing repo via http",
+			req: &gitalypb.FetchRemoteRequest{
+				Repository: repo,
+				RemoteParams: &gitalypb.Remote{
+					Url:                     httpSrv.URL + "/invalid/repo/path.git",
+					Name:                    remoteName,
+					HttpAuthorizationHeader: httpToken,
+					MirrorRefmaps:           []string{"all_refs"},
+				},
+				Timeout: 1000,
+			},
+			code:   codes.Unknown,
+			errMsg: "invalid/repo/path.git/' not found",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.desc, func(t *testing.T) {
+			resp, err := client.FetchRemote(ctx, tc.req)
+			require.Error(t, err)
+			require.Nil(t, resp)
+
+			require.Contains(t, err.Error(), tc.errMsg)
+			testhelper.RequireGrpcError(t, err, tc.code)
+		})
+	}
 }
 
 const (
@@ -275,59 +242,58 @@ func TestFetchRemoteOverHTTP(t *testing.T) {
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.GoFetchRemote,
-	}).Run(t, func(t *testing.T, ctx context.Context) {
-		testCases := []struct {
-			description string
-			httpToken   string
-			remoteURL   string
-		}{
-			{
-				description: "with http token",
-				httpToken:   httpToken,
-			},
-			{
-				description: "without http token",
-				httpToken:   "",
-			},
-		}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-		for _, tc := range testCases {
-			t.Run(tc.description, func(t *testing.T) {
-				forkedRepo, forkedRepoPath, forkedRepoCleanup := testhelper.NewTestRepo(t)
-				defer forkedRepoCleanup()
+	testCases := []struct {
+		description string
+		httpToken   string
+		remoteURL   string
+	}{
+		{
+			description: "with http token",
+			httpToken:   httpToken,
+		},
+		{
+			description: "without http token",
+			httpToken:   "",
+		},
+	}
 
-				s, remoteURL := remoteHTTPServer(t, "my-repo", tc.httpToken)
-				defer s.Close()
+	for _, tc := range testCases {
+		t.Run(tc.description, func(t *testing.T) {
+			forkedRepo, forkedRepoPath, forkedRepoCleanup := testhelper.NewTestRepo(t)
+			defer forkedRepoCleanup()
 
-				req := &gitalypb.FetchRemoteRequest{
-					Repository: forkedRepo,
-					RemoteParams: &gitalypb.Remote{
-						Url:                     remoteURL,
-						Name:                    "geo",
-						HttpAuthorizationHeader: tc.httpToken,
-						MirrorRefmaps:           []string{"all_refs"},
-					},
-					Timeout: 1000,
-				}
-				if tc.remoteURL != "" {
-					req.RemoteParams.Url = s.URL + tc.remoteURL
-				}
+			s, remoteURL := remoteHTTPServer(t, "my-repo", tc.httpToken)
+			defer s.Close()
 
-				refs := getRefnames(t, forkedRepoPath)
-				require.True(t, len(refs) > 1, "the advertisement.txt should have deleted all refs except for master")
+			req := &gitalypb.FetchRemoteRequest{
+				Repository: forkedRepo,
+				RemoteParams: &gitalypb.Remote{
+					Url:                     remoteURL,
+					Name:                    "geo",
+					HttpAuthorizationHeader: tc.httpToken,
+					MirrorRefmaps:           []string{"all_refs"},
+				},
+				Timeout: 1000,
+			}
+			if tc.remoteURL != "" {
+				req.RemoteParams.Url = s.URL + tc.remoteURL
+			}
 
-				_, err := client.FetchRemote(ctx, req)
-				require.NoError(t, err)
+			refs := getRefnames(t, forkedRepoPath)
+			require.True(t, len(refs) > 1, "the advertisement.txt should have deleted all refs except for master")
 
-				refs = getRefnames(t, forkedRepoPath)
+			_, err := client.FetchRemote(ctx, req)
+			require.NoError(t, err)
 
-				require.Len(t, refs, 1)
-				assert.Equal(t, "master", refs[0])
-			})
-		}
-	})
+			refs = getRefnames(t, forkedRepoPath)
+
+			require.Len(t, refs, 1)
+			assert.Equal(t, "master", refs[0])
+		})
+	}
 }
 
 func TestFetchRemoteOverHTTPWithRedirect(t *testing.T) {
@@ -345,22 +311,21 @@ func TestFetchRemoteOverHTTPWithRedirect(t *testing.T) {
 	)
 	defer s.Close()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.GoFetchRemote,
-	}).Run(t, func(t *testing.T, ctx context.Context) {
-		testRepo, _, cleanup := testhelper.NewTestRepo(t)
-		defer cleanup()
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-		req := &gitalypb.FetchRemoteRequest{
-			Repository:   testRepo,
-			RemoteParams: &gitalypb.Remote{Url: s.URL, Name: "geo"},
-			Timeout:      1000,
-		}
+	testRepo, _, cleanup := testhelper.NewTestRepo(t)
+	defer cleanup()
 
-		_, err := client.FetchRemote(ctx, req)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "The requested URL returned error: 303")
-	})
+	req := &gitalypb.FetchRemoteRequest{
+		Repository:   testRepo,
+		RemoteParams: &gitalypb.Remote{Url: s.URL, Name: "geo"},
+		Timeout:      1000,
+	}
+
+	_, err := client.FetchRemote(ctx, req)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "The requested URL returned error: 303")
 }
 
 func TestFetchRemoteOverHTTPWithTimeout(t *testing.T) {
@@ -379,30 +344,20 @@ func TestFetchRemoteOverHTTPWithTimeout(t *testing.T) {
 	)
 	defer s.Close()
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.GoFetchRemote,
-	}).Run(t, func(t *testing.T, ctx context.Context) {
-		testRepo, _, cleanup := testhelper.NewTestRepo(t)
-		defer cleanup()
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-		req := &gitalypb.FetchRemoteRequest{
-			Repository:   testRepo,
-			RemoteParams: &gitalypb.Remote{Url: s.URL, Name: "geo"},
-			Timeout:      1,
-		}
+	testRepo, _, cleanup := testhelper.NewTestRepo(t)
+	defer cleanup()
 
-		_, err := client.FetchRemote(ctx, req)
-		require.Error(t, err)
+	req := &gitalypb.FetchRemoteRequest{
+		Repository:   testRepo,
+		RemoteParams: &gitalypb.Remote{Url: s.URL, Name: "geo"},
+		Timeout:      1,
+	}
 
-		if isFeatureEnabled(ctx, featureflag.GoFetchRemote) {
-			require.Contains(t, err.Error(), "fetch remote: signal: terminated")
-		} else {
-			require.Contains(t, err.Error(), "failed: Timed out")
-		}
-	})
-}
+	_, err := client.FetchRemote(ctx, req)
+	require.Error(t, err)
 
-func isFeatureEnabled(ctx context.Context, flag featureflag.FeatureFlag) bool {
-	md, _ := metadata.FromOutgoingContext(ctx)
-	return featureflag.IsEnabled(metadata.NewIncomingContext(ctx, md), flag)
+	require.Contains(t, err.Error(), "fetch remote: signal: terminated")
 }
