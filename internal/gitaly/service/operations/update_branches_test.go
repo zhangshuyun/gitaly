@@ -175,6 +175,8 @@ func TestFailedUserUpdateBranchRequest(t *testing.T) {
 	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()
 
+	locator := config.NewLocator(config.Config)
+
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
@@ -184,20 +186,24 @@ func TestFailedUserUpdateBranchRequest(t *testing.T) {
 	revDoesntExist := fmt.Sprintf("%x", sha1.Sum([]byte("we need a non existent sha")))
 
 	testCases := []struct {
-		desc       string
-		branchName string
-		newrev     []byte
-		oldrev     []byte
-		user       *gitalypb.User
-		err        error
+		desc                string
+		branchName          string
+		newrev              []byte
+		oldrev              []byte
+		gotrev              []byte
+		expectNotFoundError bool
+		user                *gitalypb.User
+		response            *gitalypb.UserUpdateBranchResponse
+		err                 error
 	}{
 		{
-			desc:       "empty branch name",
-			branchName: "",
-			newrev:     newrev,
-			oldrev:     oldrev,
-			user:       testhelper.TestUser,
-			err:        status.Error(codes.InvalidArgument, "empty branch name"),
+			desc:                "empty branch name",
+			branchName:          "",
+			newrev:              newrev,
+			oldrev:              oldrev,
+			expectNotFoundError: true,
+			user:                testhelper.TestUser,
+			err:                 status.Error(codes.InvalidArgument, "empty branch name"),
 		},
 		{
 			desc:       "empty newrev",
@@ -212,6 +218,7 @@ func TestFailedUserUpdateBranchRequest(t *testing.T) {
 			branchName: updateBranchName,
 			newrev:     newrev,
 			oldrev:     nil,
+			gotrev:     oldrev,
 			user:       testhelper.TestUser,
 			err:        status.Error(codes.InvalidArgument, "empty oldrev"),
 		},
@@ -224,12 +231,13 @@ func TestFailedUserUpdateBranchRequest(t *testing.T) {
 			err:        status.Error(codes.InvalidArgument, "empty user"),
 		},
 		{
-			desc:       "non-existing branch",
-			branchName: "i-dont-exist",
-			newrev:     newrev,
-			oldrev:     oldrev,
-			user:       testhelper.TestUser,
-			err:        status.Errorf(codes.FailedPrecondition, "Could not update %v. Please refresh and try again.", "i-dont-exist"),
+			desc:                "non-existing branch",
+			branchName:          "i-dont-exist",
+			newrev:              newrev,
+			oldrev:              oldrev,
+			expectNotFoundError: true,
+			user:                testhelper.TestUser,
+			err:                 status.Errorf(codes.FailedPrecondition, "Could not update %v. Please refresh and try again.", "i-dont-exist"),
 		},
 		{
 			desc:       "non-existing newrev",
@@ -244,8 +252,35 @@ func TestFailedUserUpdateBranchRequest(t *testing.T) {
 			branchName: updateBranchName,
 			newrev:     newrev,
 			oldrev:     []byte(revDoesntExist),
+			gotrev:     oldrev,
 			user:       testhelper.TestUser,
 			err:        status.Errorf(codes.FailedPrecondition, "Could not update %v. Please refresh and try again.", updateBranchName),
+		},
+		{
+			desc:       "existing branch, but unsupported heads/* name",
+			branchName: "heads/feature",
+			newrev:     []byte("1a35b5a77cf6af7edf6703f88e82f6aff613666f"),
+			oldrev:     []byte("0b4bc9a49b562e85de7cc9e834518ea6828729b9"),
+			user:       testhelper.TestUser,
+			err:        status.Errorf(codes.FailedPrecondition, "Could not update %v. Please refresh and try again.", "heads/feature"),
+		},
+		{
+			desc:       "delete existing branch, but unsupported refs/heads/* name",
+			branchName: "refs/heads/crlf-diff",
+			newrev:     []byte(git.ZeroOID.String()),
+			oldrev:     []byte("593890758a6f845c600f38ffa05be2749211caee"),
+			user:       testhelper.TestUser,
+			err:        status.Errorf(codes.FailedPrecondition, "Could not update %v. Please refresh and try again.", "refs/heads/crlf-diff"),
+		},
+		{
+			desc:                "short name branch deletion",
+			branchName:          "csv",
+			oldrev:              []byte("3dd08961455abf80ef9115f4afdc1c6f968b503c"),
+			newrev:              []byte(git.ZeroOID.String()),
+			expectNotFoundError: true,
+			user:                testhelper.TestUser,
+			err:                 nil,
+			response:            &gitalypb.UserUpdateBranchResponse{},
 		},
 	}
 
@@ -263,8 +298,21 @@ func TestFailedUserUpdateBranchRequest(t *testing.T) {
 			defer cancel()
 
 			response, err := client.UserUpdateBranch(ctx, request)
-			require.Nil(t, response)
+			require.Equal(t, testCase.response, response)
 			require.Equal(t, testCase.err, err)
+
+			branchCommit, err := log.GetCommit(ctx, locator, testRepo, git.Revision(testCase.branchName))
+			if testCase.expectNotFoundError {
+				require.True(t, log.IsNotFound(err), "expected 'not found' error got %v", err)
+				return
+			}
+			require.NoError(t, err)
+
+			if len(testCase.gotrev) == 0 {
+				// The common case is the update didn't succeed
+				testCase.gotrev = testCase.oldrev
+			}
+			require.Equal(t, string(testCase.gotrev), branchCommit.Id)
 		})
 	}
 }
