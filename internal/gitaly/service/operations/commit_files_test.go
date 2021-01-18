@@ -298,6 +298,23 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 			},
 		},
 		{
+			desc: "create file normalizes line endings",
+			steps: []step{
+				{
+					actions: []*gitalypb.UserCommitFilesRequest{
+						createFileHeaderRequest("file-1"),
+						actionContentRequest("content-1\r\n"),
+						actionContentRequest(" content-2\r\n"),
+					},
+					repoCreated:   true,
+					branchCreated: true,
+					treeEntries: []testhelper.TreeEntry{
+						{Mode: DefaultMode, Path: "file-1", Content: "content-1\n content-2\n"},
+					},
+				},
+			},
+		},
+		{
 			desc: "create duplicate file",
 			steps: []step{
 				{
@@ -341,6 +358,24 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					branchCreated: true,
 					treeEntries: []testhelper.TreeEntry{
 						{Mode: DefaultMode, Path: "file-1", Content: "content-2"},
+					},
+				},
+			},
+		},
+		{
+			desc: "update file normalizes line endings",
+			steps: []step{
+				{
+					actions: []*gitalypb.UserCommitFilesRequest{
+						createFileHeaderRequest("file-1"),
+						actionContentRequest("content-1"),
+						updateFileHeaderRequest("file-1"),
+						actionContentRequest("content-2\r\n"),
+					},
+					repoCreated:   true,
+					branchCreated: true,
+					treeEntries: []testhelper.TreeEntry{
+						{Mode: DefaultMode, Path: "file-1", Content: "content-2\n"},
 					},
 				},
 			},
@@ -594,6 +629,31 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					},
 					treeEntries: []testhelper.TreeEntry{
 						{Mode: DefaultMode, Path: "moved-file", Content: "new-content"},
+					},
+				},
+			},
+		},
+		{
+			desc: "move file normalizes line endings",
+			steps: []step{
+				{
+					actions: []*gitalypb.UserCommitFilesRequest{
+						createFileHeaderRequest("original-file"),
+						actionContentRequest("original-content"),
+					},
+					repoCreated:   true,
+					branchCreated: true,
+					treeEntries: []testhelper.TreeEntry{
+						{Mode: DefaultMode, Path: "original-file", Content: "original-content"},
+					},
+				},
+				{
+					actions: []*gitalypb.UserCommitFilesRequest{
+						moveFileHeaderRequest("original-file", "moved-file", false),
+						actionContentRequest("new-content\r\n"),
+					},
+					treeEntries: []testhelper.TreeEntry{
+						{Mode: DefaultMode, Path: "moved-file", Content: "new-content\n"},
 					},
 				},
 			},
