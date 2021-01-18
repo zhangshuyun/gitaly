@@ -26,7 +26,7 @@ func TestStorageDiskStatistics(t *testing.T) {
 	defer server.Stop()
 
 	client, conn := newServerClient(t, serverSocketPath)
-	defer conn.Close() // nolint: errcheck
+	defer conn.Close()
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
