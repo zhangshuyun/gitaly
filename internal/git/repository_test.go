@@ -206,26 +206,22 @@ func TestLocalRepository_WriteBlob(t *testing.T) {
 		{
 			desc:    "successful empty blob",
 			input:   strings.NewReader(""),
-			sha:     "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
 			content: "",
 		},
 		{
 			desc:    "successful blob",
 			input:   strings.NewReader("some content"),
-			sha:     "f0eec86f614944a81f87d879ebdc9a79aea0d7ea",
 			content: "some content",
 		},
 		{
 			desc:    "line endings not normalized without attributes or config",
 			input:   strings.NewReader("\r\n"),
-			sha:     "d3f5a12faa99758192ecc4ed3fc22c9249232e86",
 			content: "\r\n",
 		},
 		{
 			desc:       "line endings normalized due to attributes",
 			attributes: "file-path text",
 			input:      strings.NewReader("\r\n"),
-			sha:        "8b137891791fe96927ad78e64b0aad7bded08bdc",
 			content:    "\n",
 		},
 		{
@@ -235,7 +231,6 @@ func TestLocalRepository_WriteBlob(t *testing.T) {
 autocrlf = input
 			`,
 			input:   strings.NewReader("\r\n"),
-			sha:     "8b137891791fe96927ad78e64b0aad7bded08bdc",
 			content: "\n",
 		},
 	} {
@@ -253,7 +248,6 @@ autocrlf = input
 				return
 			}
 
-			assert.Equal(t, tc.sha, sha)
 			content, err := repo.ReadObject(ctx, sha)
 			require.NoError(t, err)
 			assert.Equal(t, tc.content, string(content))
