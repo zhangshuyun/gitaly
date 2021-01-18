@@ -187,22 +187,16 @@ func TestLocalRepository_WriteBlob(t *testing.T) {
 	pbRepo, repoPath, clean := testhelper.InitBareRepo(t)
 	defer clean()
 
-	// write attributes file so we can verify WriteBlob runs the files through filters as
-	// appropriate
-	require.NoError(t, ioutil.WriteFile(filepath.Join(repoPath, "info", "attributes"), []byte(`
-crlf binary
-lf   text
-	`), os.ModePerm))
-
 	repo := NewRepository(pbRepo)
 
 	for _, tc := range []struct {
-		desc    string
-		path    string
-		input   io.Reader
-		sha     string
-		error   error
-		content string
+		desc       string
+		attributes string
+		config     string
+		input      io.Reader
+		sha        string
+		error      error
+		content    string
 	}{
 		{
 			desc:  "error reading",
@@ -222,22 +216,38 @@ lf   text
 			content: "some content",
 		},
 		{
-			desc:    "line endings not normalized",
-			path:    "crlf",
+			desc:    "line endings not normalized without attributes or config",
 			input:   strings.NewReader("\r\n"),
 			sha:     "d3f5a12faa99758192ecc4ed3fc22c9249232e86",
 			content: "\r\n",
 		},
 		{
-			desc:    "line endings normalized",
-			path:    "lf",
+			desc:       "line endings normalized due to attributes",
+			attributes: "file-path text",
+			input:      strings.NewReader("\r\n"),
+			sha:        "8b137891791fe96927ad78e64b0aad7bded08bdc",
+			content:    "\n",
+		},
+		{
+			desc: "line endings normalized due to config",
+			config: `
+[core]
+autocrlf = input
+			`,
 			input:   strings.NewReader("\r\n"),
 			sha:     "8b137891791fe96927ad78e64b0aad7bded08bdc",
 			content: "\n",
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			sha, err := repo.WriteBlob(ctx, tc.path, tc.input)
+			for path, content := range map[string]string{
+				filepath.Join(repoPath, "info", "attributes"): tc.attributes,
+				filepath.Join(repoPath, "config"):             tc.config,
+			} {
+				require.NoError(t, ioutil.WriteFile(path, []byte(content), os.ModePerm))
+			}
+
+			sha, err := repo.WriteBlob(ctx, "file-path", tc.input)
 			require.Equal(t, tc.error, err)
 			if tc.error != nil {
 				return
