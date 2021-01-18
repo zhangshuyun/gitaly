@@ -1,5 +1,0 @@
----
-title: Enable Go version of ResolveConflicts by default
-merge_request: 3007
-author:
-type: performance
