@@ -13,51 +13,17 @@ import (
 	"time"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/status"
 )
 
-var (
-	fetchRemoteImplCounter = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "gitaly_fetch_remote_counter",
-			Help: "Number of calls to FetchRemote rpc for each implementation (ruby/go)",
-		},
-		[]string{"impl"},
-	)
-)
-
-func init() {
-	prometheus.MustRegister(fetchRemoteImplCounter)
-}
-
 func (s *server) FetchRemote(ctx context.Context, req *gitalypb.FetchRemoteRequest) (*gitalypb.FetchRemoteResponse, error) {
-	if featureflag.IsDisabled(ctx, featureflag.GoFetchRemote) {
-		fetchRemoteImplCounter.WithLabelValues("ruby").Inc()
-
-		client, err := s.ruby.RepositoryServiceClient(ctx)
-		if err != nil {
-			return nil, err
-		}
-
-		clientCtx, err := rubyserver.SetHeaders(ctx, s.locator, req.GetRepository())
-		if err != nil {
-			return nil, err
-		}
-
-		return client.FetchRemote(clientCtx, req)
-	}
-
-	fetchRemoteImplCounter.WithLabelValues("go").Inc()
-
 	if err := s.validateFetchRemoteRequest(req); err != nil {
 		return nil, err
 	}

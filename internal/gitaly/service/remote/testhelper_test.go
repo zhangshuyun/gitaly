@@ -38,7 +38,7 @@ func testMain(m *testing.M) int {
 func RunRemoteServiceServer(t *testing.T, opts ...testhelper.TestServerOpt) (string, func()) {
 	srv := testhelper.NewServer(t, nil, nil, opts...)
 
-	gitalypb.RegisterRemoteServiceServer(srv.GrpcServer(), NewServer(RubyServer, config.NewLocator(config.Config)))
+	gitalypb.RegisterRemoteServiceServer(srv.GrpcServer(), NewServer(config.Config, RubyServer, config.NewLocator(config.Config)))
 	reflection.Register(srv.GrpcServer())
 
 	srv.Start(t)

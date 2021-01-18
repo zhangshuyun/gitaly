@@ -59,15 +59,6 @@ module Gitlab
         end
       end
 
-      def fetch_remote(name, timeout, force:, tags:, env: {}, prune: true)
-        logger.info "Fetching remote #{name} for repository #{repository_absolute_path}."
-        cmd = fetch_remote_command(name, tags, prune, force)
-
-        run_with_timeout(cmd, timeout, repository_absolute_path, env).tap do |success|
-          logger.error "Fetching remote #{name} for repository #{repository_absolute_path} failed." unless success
-        end
-      end
-
       def push_branches(remote_name, timeout, force, branch_names, env: {})
         branch_names.each_slice(BRANCHES_PER_PUSH) do |branches|
           logger.info "Pushing #{branches.count} branches from #{repository_absolute_path} to remote #{remote_name}"
@@ -124,16 +115,6 @@ module Gitlab
       def remove_origin_in_repo
         cmd = %W(#{Gitlab.config.git.bin_path} remote rm origin)
         run(cmd, repository_absolute_path)
-      end
-
-      private
-
-      def fetch_remote_command(name, tags, prune, force)
-        %W(#{Gitlab.config.git.bin_path} -c http.followRedirects=false fetch #{name} --quiet).tap do |cmd|
-          cmd << '--prune' if prune
-          cmd << '--force' if force
-          cmd << (tags ? '--tags' : '--no-tags')
-        end
       end
     end
   end

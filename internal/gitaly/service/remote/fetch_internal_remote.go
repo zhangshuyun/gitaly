@@ -27,7 +27,7 @@ func (s *server) FetchInternalRemote(ctx context.Context, req *gitalypb.FetchInt
 		return nil, status.Errorf(codes.InvalidArgument, "FetchInternalRemote: %v", err)
 	}
 
-	env, err := gitalyssh.UploadPackEnv(ctx, &gitalypb.SSHUploadPackRequest{Repository: req.RemoteRepository})
+	env, err := gitalyssh.UploadPackEnv(ctx, s.cfg, &gitalypb.SSHUploadPackRequest{Repository: req.RemoteRepository})
 	if err != nil {
 		return nil, fmt.Errorf("upload pack environment: %w", err)
 	}

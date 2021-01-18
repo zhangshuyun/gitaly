@@ -30,15 +30,16 @@ var (
 	envInjector = tracing.NewEnvInjector()
 )
 
-func UploadPackEnv(ctx context.Context, req *gitalypb.SSHUploadPackRequest) ([]string, error) {
-	env, err := commandEnv(ctx, req.Repository.StorageName, "upload-pack", req)
+// UploadPackEnv returns a list of the key=val pairs required to set proper configuration options for upload-pack command.
+func UploadPackEnv(ctx context.Context, cfg config.Cfg, req *gitalypb.SSHUploadPackRequest) ([]string, error) {
+	env, err := commandEnv(ctx, cfg, req.Repository.StorageName, "upload-pack", req)
 	if err != nil {
 		return nil, err
 	}
 	return envInjector(ctx, env), nil
 }
 
-func commandEnv(ctx context.Context, storageName, command string, message proto.Message) ([]string, error) {
+func commandEnv(ctx context.Context, cfg config.Cfg, storageName, command string, message proto.Message) ([]string, error) {
 	var pbMarshaler jsonpb.Marshaler
 	payload, err := pbMarshaler.MarshalToString(message)
 	if err != nil {
@@ -63,7 +64,7 @@ func commandEnv(ctx context.Context, storageName, command string, message proto.
 
 	return []string{
 		fmt.Sprintf("GITALY_PAYLOAD=%s", payload),
-		fmt.Sprintf("GIT_SSH_COMMAND=%s %s", gitalySSHPath(), command),
+		fmt.Sprintf("GIT_SSH_COMMAND=%s %s", filepath.Join(cfg.BinDir, "gitaly-ssh"), command),
 		fmt.Sprintf("GITALY_ADDRESS=%s", storageInfo.Address),
 		fmt.Sprintf("GITALY_TOKEN=%s", storageInfo.Token),
 		fmt.Sprintf("GITALY_FEATUREFLAGS=%s", strings.Join(featureFlagPairs, ",")),
@@ -75,8 +76,4 @@ func commandEnv(ctx context.Context, storageName, command string, message proto.
 		fmt.Sprintf("%s=%s", gitaly_x509.SSLCertDir, os.Getenv(gitaly_x509.SSLCertDir)),
 		fmt.Sprintf("%s=%s", gitaly_x509.SSLCertFile, os.Getenv(gitaly_x509.SSLCertFile)),
 	}, nil
-}
-
-func gitalySSHPath() string {
-	return filepath.Join(config.Config.BinDir, "gitaly-ssh")
 }

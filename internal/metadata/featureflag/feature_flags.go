@@ -117,7 +117,6 @@ var All = []FeatureFlag{
 	GoUserSquash,
 	GoUserCommitFiles,
 	GoResolveConflicts,
-	GoFetchRemote,
 	GoUserDeleteTag,
 	GoUserCreateTag,
 	GoUserRevert,
