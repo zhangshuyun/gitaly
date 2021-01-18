@@ -411,18 +411,17 @@ func (repo *LocalRepository) GetBranches(ctx context.Context) ([]Reference, erro
 	return repo.GetReferences(ctx, "refs/heads/")
 }
 
-// UpdateRef updates reference from oldrev to newrev. If oldrev is a
-// non-empty string, the update will fail it the reference is not
-// currently at that revision. If newrev is the zero OID, the reference
-// will be deleted. If oldrev is the zero OID, the reference will
-// created.
-func (repo *LocalRepository) UpdateRef(ctx context.Context, reference ReferenceName, newrev, oldrev string) error {
+// UpdateRef updates reference from oldValue to newValue. If oldValue is a
+// non-empty string, the update will fail it the reference is not currently at
+// that revision. If newValue is the ZeroOID, the reference will be deleted.
+// If oldValue is the ZeroOID, the reference will created.
+func (repo *LocalRepository) UpdateRef(ctx context.Context, reference ReferenceName, newValue, oldValue ObjectID) error {
 	cmd, err := repo.command(ctx, nil,
 		SubCmd{
 			Name:  "update-ref",
 			Flags: []Option{Flag{Name: "-z"}, Flag{Name: "--stdin"}},
 		},
-		WithStdin(strings.NewReader(fmt.Sprintf("update %s\x00%s\x00%s\x00", reference, newrev, oldrev))),
+		WithStdin(strings.NewReader(fmt.Sprintf("update %s\x00%s\x00%s\x00", reference, newValue.String(), oldValue.String()))),
 		WithRefTxHook(ctx, helper.ProtoRepoFromRepo(repo.repo), config.Config),
 	)
 	if err != nil {
@@ -430,7 +429,7 @@ func (repo *LocalRepository) UpdateRef(ctx context.Context, reference ReferenceN
 	}
 
 	if err := cmd.Wait(); err != nil {
-		return fmt.Errorf("UpdateRef: failed updating reference %q from %q to %q: %v", reference, newrev, oldrev, err)
+		return fmt.Errorf("UpdateRef: failed updating reference %q from %q to %q: %w", reference, newValue, oldValue, err)
 	}
 
 	return nil

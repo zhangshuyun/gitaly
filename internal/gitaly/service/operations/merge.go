@@ -305,7 +305,7 @@ func (s *Server) userMergeToRef(ctx context.Context, request *gitalypb.UserMerge
 	}
 
 	// First, overwrite the reference with the target reference.
-	if err := repo.UpdateRef(ctx, git.ReferenceName(request.TargetRef), oid.String(), ""); err != nil {
+	if err := repo.UpdateRef(ctx, git.ReferenceName(request.TargetRef), oid, ""); err != nil {
 		return nil, updateRefError{reference: string(request.TargetRef)}
 	}
 
@@ -326,15 +326,20 @@ func (s *Server) userMergeToRef(ctx context.Context, request *gitalypb.UserMerge
 		return nil, helper.ErrPreconditionFailedf("Failed to create merge commit for source_sha %s and target_sha %s at %s", sourceRef, oid, string(request.TargetRef))
 	}
 
+	mergeOID, err := git.NewObjectIDFromHex(merge.CommitID)
+	if err != nil {
+		return nil, err
+	}
+
 	// ... and move branch from target ref to the merge commit. The Ruby
 	// implementation doesn't invoke hooks, so we don't either.
-	if err := repo.UpdateRef(ctx, git.ReferenceName(request.TargetRef), merge.CommitID, oid.String()); err != nil {
+	if err := repo.UpdateRef(ctx, git.ReferenceName(request.TargetRef), mergeOID, oid); err != nil {
 		//nolint:stylecheck
 		return nil, helper.ErrPreconditionFailed(fmt.Errorf("Could not update %s. Please refresh and try again", string(request.TargetRef)))
 	}
 
 	return &gitalypb.UserMergeToRefResponse{
-		CommitId: merge.CommitID,
+		CommitId: mergeOID.String(),
 	}, nil
 }
 

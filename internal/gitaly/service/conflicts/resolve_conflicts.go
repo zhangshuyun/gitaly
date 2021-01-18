@@ -209,10 +209,15 @@ func (s *server) resolveConflicts(header *gitalypb.ResolveConflictsRequestHeader
 		return err
 	}
 
+	commitOID, err := git.NewObjectIDFromHex(result.CommitID)
+	if err != nil {
+		return err
+	}
+
 	if err := git.NewRepository(header.GetRepository()).UpdateRef(
 		stream.Context(),
 		git.ReferenceName("refs/heads/"+string(header.GetSourceBranch())),
-		result.CommitID,
+		commitOID,
 		"",
 	); err != nil {
 		return err

@@ -102,7 +102,7 @@ func (s *server) FetchSourceBranch(ctx context.Context, req *gitalypb.FetchSourc
 		}
 	}
 
-	if err := targetRepo.UpdateRef(ctx, git.ReferenceName(req.GetTargetRef()), sourceOid.String(), ""); err != nil {
+	if err := targetRepo.UpdateRef(ctx, git.ReferenceName(req.GetTargetRef()), sourceOid, ""); err != nil {
 		return nil, err
 	}
 
