@@ -66,7 +66,7 @@ func (s *server) findCommits(ctx context.Context, req *gitalypb.FindCommitsReque
 		getCommits.Offset(int(req.GetOffset()))
 	}
 
-	if err := streamCommits(getCommits, stream); err != nil {
+	if err := streamCommits(getCommits, stream, req.GetTrailers()); err != nil {
 		return fmt.Errorf("error streaming commits: %v", err)
 	}
 	return nil
@@ -111,15 +111,23 @@ func (g *GetCommits) Offset(offset int) error {
 }
 
 // Commit returns the current commit
-func (g *GetCommits) Commit(ctx context.Context) (*gitalypb.GitCommit, error) {
-	revAndTrailers := strings.SplitN(strings.TrimSpace(g.scanner.Text()), "\000", 2)
-	revision := revAndTrailers[0]
+func (g *GetCommits) Commit(ctx context.Context, trailers bool) (*gitalypb.GitCommit, error) {
+	logOutput := strings.TrimSpace(g.scanner.Text())
+	var revAndTrailers []string
+	var revision string
+
+	if trailers {
+		revAndTrailers = strings.SplitN(logOutput, "\000", 2)
+		revision = revAndTrailers[0]
+	} else {
+		revision = logOutput
+	}
 	commit, err := log.GetCommitCatfile(ctx, g.batch, git.Revision(revision))
 	if err != nil {
 		return nil, fmt.Errorf("cat-file get commit %q: %v", revision, err)
 	}
 
-	if len(revAndTrailers) == 2 {
+	if trailers && len(revAndTrailers) == 2 {
 		commit.Trailers = trailerparser.Parse([]byte(revAndTrailers[1]))
 	}
 
@@ -140,13 +148,13 @@ func (s *findCommitsSender) Send() error {
 	return s.stream.Send(&gitalypb.FindCommitsResponse{Commits: s.commits})
 }
 
-func streamCommits(getCommits *GetCommits, stream gitalypb.CommitService_FindCommitsServer) error {
+func streamCommits(getCommits *GetCommits, stream gitalypb.CommitService_FindCommitsServer, trailers bool) error {
 	ctx := stream.Context()
 
 	chunker := chunk.New(&findCommitsSender{stream: stream})
 
 	for getCommits.Scan() {
-		commit, err := getCommits.Commit(ctx)
+		commit, err := getCommits.Commit(ctx, trailers)
 		if err != nil {
 			return err
 		}
@@ -163,7 +171,11 @@ func streamCommits(getCommits *GetCommits, stream gitalypb.CommitService_FindCom
 }
 
 func getLogCommandSubCmd(req *gitalypb.FindCommitsRequest) git.SubCmd {
-	subCmd := git.SubCmd{Name: "log", Flags: []git.Option{git.Flag{Name: "--format=%H%x00%(trailers:unfold,separator=%x00)"}}}
+	logFormatOption := "--format=%H"
+	if req.GetTrailers() {
+		logFormatOption += "%x00%(trailers:unfold,separator=%x00)"
+	}
+	subCmd := git.SubCmd{Name: "log", Flags: []git.Option{git.Flag{Name: logFormatOption}}}
 
 	//  We will perform the offset in Go because --follow doesn't play well with --skip.
 	//  See: https://gitlab.com/gitlab-org/gitlab-ce/issues/3574#note_3040520

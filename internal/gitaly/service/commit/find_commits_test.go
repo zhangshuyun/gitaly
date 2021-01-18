@@ -31,8 +31,9 @@ func TestFindCommitsFields(t *testing.T) {
 	defer cleanupFn()
 
 	testCases := []struct {
-		id     string
-		commit *gitalypb.GitCommit
+		id       string
+		trailers bool
+		commit   *gitalypb.GitCommit
 	}{
 		{
 			id:     "b83d6e391c22777fca1ed3012fce84f633d7fed0",
@@ -74,7 +75,33 @@ func TestFindCommitsFields(t *testing.T) {
 			commit: testhelper.GitLabTestCommit("189a6c924013fc3fe40d6f1ec1dc20214183bc97"),
 		},
 		{
-			id: "5937ac0a7beb003549fc5fd26fc247adbce4a52e",
+			id:       "5937ac0a7beb003549fc5fd26fc247adbce4a52e",
+			trailers: false,
+			commit: &gitalypb.GitCommit{
+				Id:      "5937ac0a7beb003549fc5fd26fc247adbce4a52e",
+				Subject: []byte("Add submodule from gitlab.com"),
+				Body:    []byte("Add submodule from gitlab.com\n\nSigned-off-by: Dmitriy Zaporozhets <dmitriy.zaporozhets@gmail.com>\n"),
+				Author: &gitalypb.CommitAuthor{
+					Name:     []byte("Dmitriy Zaporozhets"),
+					Email:    []byte("dmitriy.zaporozhets@gmail.com"),
+					Date:     &timestamp.Timestamp{Seconds: 1393491698},
+					Timezone: []byte("+0200"),
+				},
+				Committer: &gitalypb.CommitAuthor{
+					Name:     []byte("Dmitriy Zaporozhets"),
+					Email:    []byte("dmitriy.zaporozhets@gmail.com"),
+					Date:     &timestamp.Timestamp{Seconds: 1393491698},
+					Timezone: []byte("+0200"),
+				},
+				ParentIds:     []string{"570e7b2abdd848b95f2f578043fc23bd6f6fd24d"},
+				BodySize:      98,
+				SignatureType: gitalypb.SignatureType_PGP,
+				TreeId:        "a6973545d42361b28bfba5ced3b75dba5848b955",
+			},
+		},
+		{
+			id:       "5937ac0a7beb003549fc5fd26fc247adbce4a52e",
+			trailers: true,
 			commit: &gitalypb.GitCommit{
 				Id:      "5937ac0a7beb003549fc5fd26fc247adbce4a52e",
 				Subject: []byte("Add submodule from gitlab.com"),
@@ -133,6 +160,7 @@ func TestFindCommitsFields(t *testing.T) {
 			request := &gitalypb.FindCommitsRequest{
 				Repository: testRepo,
 				Revision:   []byte(tc.id),
+				Trailers:   tc.trailers,
 				Limit:      1,
 			}
 

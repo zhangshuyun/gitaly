@@ -1,0 +1,5 @@
+---
+title: 'FindCommit[s]: add a Trailers boolean flag to do %(trailers) work'
+merge_request: 2999
+author:
+type: changed

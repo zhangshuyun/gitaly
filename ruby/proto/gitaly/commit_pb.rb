@@ -110,6 +110,7 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
     add_message "gitaly.FindCommitRequest" do
       optional :repository, :message, 1, "gitaly.Repository"
       optional :revision, :bytes, 2
+      optional :trailers, :bool, 3
     end
     add_message "gitaly.FindCommitResponse" do
       optional :commit, :message, 1, "gitaly.GitCommit"
@@ -163,6 +164,7 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       optional :author, :bytes, 13
       optional :order, :enum, 14, "gitaly.FindCommitsRequest.Order"
       optional :global_options, :message, 15, "gitaly.GlobalOptions"
+      optional :trailers, :bool, 16
     end
     add_enum "gitaly.FindCommitsRequest.Order" do
       value :NONE, 0
