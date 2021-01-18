@@ -53,6 +53,18 @@ func testSuccessfulUserUpdateBranchRequest(t *testing.T, ctx context.Context) {
 			oldRev:           []byte("0b4bc9a49b562e85de7cc9e834518ea6828729b9"),
 			newRev:           []byte("1a35b5a77cf6af7edf6703f88e82f6aff613666f"),
 		},
+		{
+			desc:             "short name non-fast-forward update",
+			updateBranchName: "fix",
+			oldRev:           []byte("48f0be4bd10c1decee6fae52f9ae6d10f77b60f4"),
+			newRev:           []byte("12d65c8dd2b2676fa3ac47d955accc085a37a9c1"),
+		},
+		{
+			desc:             "short name branch creation",
+			updateBranchName: "a-new-branch",
+			oldRev:           []byte(git.ZeroOID.String()),
+			newRev:           []byte("845009f4d7bdc9e0d8f26b1c6fb6e108aaff9314"),
+		},
 	}
 
 	for _, testCase := range testCases {
