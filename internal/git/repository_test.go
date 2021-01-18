@@ -574,7 +574,7 @@ func TestLocalRepository_FetchRemote(t *testing.T) {
 
 		sha, err := repo.ResolveRevision(ctx, Revision("refs/remotes/origin/master^{commit}"))
 		require.NoError(t, err, "the object from remote should exists in local after fetch done")
-		require.Equal(t, "1e292f8fedd741b75372e19097c76d327140c312", sha)
+		require.Equal(t, ObjectID("1e292f8fedd741b75372e19097c76d327140c312"), sha)
 	})
 
 	t.Run("with env", func(t *testing.T) {

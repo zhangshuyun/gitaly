@@ -34,7 +34,7 @@ func New(ctx context.Context, repo *gitalypb.Repository, pool *client.Pool) (Rep
 
 // ResolveRevision will dial to the remote repository and attempt to resolve the
 // revision string via the gRPC interface.
-func (rr Repository) ResolveRevision(ctx context.Context, revision git.Revision) (string, error) {
+func (rr Repository) ResolveRevision(ctx context.Context, revision git.Revision) (git.ObjectID, error) {
 	cli := gitalypb.NewCommitServiceClient(rr.conn)
 	resp, err := cli.FindCommit(ctx, &gitalypb.FindCommitRequest{
 		Repository: rr.repo,
@@ -44,9 +44,14 @@ func (rr Repository) ResolveRevision(ctx context.Context, revision git.Revision)
 		return "", err
 	}
 
-	oid := resp.GetCommit().GetId()
-	if oid == "" {
+	oidHex := resp.GetCommit().GetId()
+	if oidHex == "" {
 		return "", git.ErrReferenceNotFound
+	}
+
+	oid, err := git.NewObjectIDFromHex(oidHex)
+	if err != nil {
+		return "", err
 	}
 
 	return oid, nil

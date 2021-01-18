@@ -288,7 +288,7 @@ func (s *server) repoWithBranchCommit(ctx context.Context, srcRepo, targetRepo *
 		git.SubCmd{
 			Name:  "fetch",
 			Flags: []git.Option{git.Flag{Name: "--no-tags"}},
-			Args:  []string{gitalyssh.GitalyInternalURL, oid},
+			Args:  []string{gitalyssh.GitalyInternalURL, oid.String()},
 		},
 		git.WithEnv(env...),
 	)

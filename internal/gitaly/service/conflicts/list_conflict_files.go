@@ -40,8 +40,8 @@ func (s *server) ListConflictFiles(request *gitalypb.ListConflictFilesRequest, s
 
 	conflicts, err := git2go.ConflictsCommand{
 		Repository: repoPath,
-		Ours:       ours,
-		Theirs:     theirs,
+		Ours:       ours.String(),
+		Theirs:     theirs.String(),
 	}.Run(ctx, s.cfg)
 	if err != nil {
 		if errors.Is(err, git2go.ErrInvalidArgument) {

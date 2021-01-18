@@ -107,7 +107,7 @@ type Repository interface {
 	// for accepted syntax. This will not verify whether the object ID
 	// exists. To do so, you can peel the reference to a given object type,
 	// e.g. by passing `refs/heads/master^{commit}`.
-	ResolveRevision(ctx context.Context, revision Revision) (string, error)
+	ResolveRevision(ctx context.Context, revision Revision) (ObjectID, error)
 	// HasBranches returns whether the repository has branches.
 	HasBranches(ctx context.Context) (bool, error)
 }
@@ -289,7 +289,7 @@ func (repo *LocalRepository) ReadObject(ctx context.Context, oid string) ([]byte
 // reference to a given object type, e.g. by passing
 // `refs/heads/master^{commit}`. Returns an ErrReferenceNotFound error in case
 // the revision does not exist.
-func (repo *LocalRepository) ResolveRevision(ctx context.Context, revision Revision) (string, error) {
+func (repo *LocalRepository) ResolveRevision(ctx context.Context, revision Revision) (ObjectID, error) {
 	if revision.String() == "" {
 		return "", errors.New("repository cannot contain empty reference name")
 	}
@@ -313,9 +313,10 @@ func (repo *LocalRepository) ResolveRevision(ctx context.Context, revision Revis
 		return "", err
 	}
 
-	oid := strings.TrimSpace(stdout.String())
-	if len(oid) != 40 {
-		return "", fmt.Errorf("unsupported object hash %q", oid)
+	hex := strings.TrimSpace(stdout.String())
+	oid, err := NewObjectIDFromHex(hex)
+	if err != nil {
+		return "", fmt.Errorf("unsupported object hash %q: %w", hex, err)
 	}
 
 	return oid, nil
