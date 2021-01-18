@@ -47,16 +47,19 @@ If applicable, any groups/projects that are happy to have this feature turned on
 ## Roll Out Steps
 
 - [ ] [Read the documentation of feature flags](https://gitlab.com/gitlab-org/gitaly/-/blob/master/doc/PROCESS.md#feature-flags)
-- [ ] Add ~"featureflag::staging" to this issue
+- [ ] Add ~"featureflag::staging" to this issue ([howto](https://gitlab.com/gitlab-org/gitaly/-/blob/master/doc/PROCESS.md#feature-flag-labels))
 - [ ] Is the required code deployed? ([howto](https://gitlab.com/gitlab-org/gitaly/-/blob/master/doc/PROCESS.md#is-the-required-code-deployed))
+- [ ] Do we need to create a [change management issue](https://about.gitlab.com/handbook/engineering/infrastructure/change-management/#feature-flags-and-the-change-management-process)? ([howto](https://gitlab.com/gitlab-org/gitaly/-/blob/master/doc/PROCESS.md#do-we-need-a-change-management-issue))
 - [ ] Enable on staging ([howto](https://gitlab.com/gitlab-org/gitaly/-/blob/master/doc/PROCESS.md#enable-on-staging))
 - [ ] Test on staging ([howto](https://gitlab.com/gitlab-org/gitaly/-/blob/master/doc/PROCESS.md#test-on-staging))
-- [ ] Ensure that documentation has been updated
 - [ ] Announce on this issue an estimated time this will be enabled on GitLab.com
 - [ ] Add ~"featureflag::production" to this issue
 - [ ] Enable on GitLab.com by running chatops command in `#production` ([howto](https://gitlab.com/gitlab-org/gitaly/-/blob/master/doc/PROCESS.md#enable-in-production))
 - [ ] Cross post chatops slack command to `#support_gitlab-com` and in your team channel
 - [ ] Announce on the issue that the flag has been enabled
+- [ ] Submit a MR to have the feature `OnByDefault: true` and add changelog entry ([howto](https://gitlab.com/gitlab-org/gitaly/-/blob/master/doc/PROCESS.md#feature-lifecycle-after-it-is-live))
+- [ ] Have that MR merged
+- [ ] Possibly wait for at least one deployment cycle ([howto](https://gitlab.com/gitlab-org/gitaly/-/blob/master/doc/PROCESS.md#two-phase-ruby-to-go-rollouts))
 - [ ] Remove feature flag and add changelog entry
 - [ ] Close this issue
 

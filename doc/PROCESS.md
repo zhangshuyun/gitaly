@@ -61,7 +61,27 @@ The rest of this section is help for the individual checklist steps in
 time doing this you might want to first skip ahead to the help below,
 you'll likely need to file some access requests.
 
+#### Feature flag labels
+
+The lifecycle of feature flags is monitored via issue labels.
+
+When the issue is created from a template it'll be created with
+[`featureflag::disabled`][featureflag-disabled]. Then as part of the
+checklist the person rolling it out will add
+[`featureflag::staging`][featureflag-staging] and
+[`featureflag::production`][featureflag-production] flags to it.
+
+[featureflag-disabled]: https://gitlab.com/gitlab-org/gitaly/-/issues?label_name[]=featureflag%3A%3Adisabled
+[featureflag-staging]: https://gitlab.com/gitlab-org/gitaly/-/issues?label_name[]=featureflag%3A%3Astaging
+[featureflag-production]: https://gitlab.com/gitlab-org/gitaly/-/issues?label_name[]=featureflag%3A%3Aproduction
+
 #### Is the required code deployed?
+
+A quick way to see if your MR is deployed is to check if [the release
+bot][release-bot] has deployed it to staging, canary or production by
+checking if the MR has [a `workflow::staging`][deployed-staging],
+[`workflow::canary`][deployed-canary] or
+[`workflow::production`][deployed-production] label.
 
 The [/help action on gitlab.com][help-action] shows the currently
 deployed hash. Copy that `HASH` and look at `GITALY_SERVER_VERSION` in
@@ -75,9 +95,15 @@ what commits aren't deployed yet:
 See the [documentation on releases below](#gitaly-releases) for more
 details on the tagging and release process.
 
+[release-bot]: https://gitlab.com/gitlab-release-tools-bot
+[deployed-staging]: https://gitlab.com/gitlab-org/gitaly/-/merge_requests?state=merged&label_name=workflow%3A%3Aproduction
+[deployed-canary]: https://gitlab.com/gitlab-org/gitaly/-/merge_requests?state=merged&label_name=workflow%3A%3Aproduction
+[deployed-production]: https://gitlab.com/gitlab-org/gitaly/-/merge_requests?state=merged&label_name=workflow%3A%3Aproduction
 [help-action]: https://gitlab.com/help
 [gitlab-git]: https://gitlab.com/gitlab-org/gitlab/
 [gitaly-git]: https://gitlab.com/gitlab-org/gitaly/
+
+#### Do we need a change management issue?
 
 #### Enable on staging
 
@@ -105,7 +131,15 @@ As of December 2020 clicking "Sign in" on
 https://about.staging.gitlab.com will redirect to https://gitlab.com,
 so make sure to use the `/users` link.
 
+As of writing signing in at [that link][staging-users-link] will land
+you on the `/users` 404 page once you're logged in. You should then
+typically manually modify the URL
+`https://staging.gitlab.com/YOURUSER`
+(e.g. https://staging.gitlab.com/avar) or another way to get at a test
+repository, and manually test from there.
+
 [staging-access-request]: https://gitlab.com/gitlab-com/team-member-epics/access-requests/-/issues/new?issuable_template=Individual_Bulk_Access_Request
+[staging-users-link]: https://staging.gitlab.com/users
 
 ##### Steps
 
@@ -174,6 +208,27 @@ it works properly.
 Nobody's better off if you wait 10 hours at 1% to get error data you
 could have waited 1 hour at 10% to get, or just over 10 minutes with
 close monitoring at 50%.
+
+#### Feature lifecycle after it is live
+
+##### Discussion
+
+After a feature is running at `100%` for what ever's deemed to be a
+safe amount of time we should change it to be `OnByDefault: true`. See
+[this MR for an example][example-on-by-default-mr].
+
+[example-on-by-default-mr]: https://gitlab.com/gitlab-org/gitaly/-/merge_requests/2994
+
+##### Two phase Ruby to Go rollouts
+
+Depending on what the feature does it may be bad to remove the `else`
+branch where we have the feature disabled at this point. E.g. if it's
+a rewrite of Ruby code in Go.
+
+As we deploy the Ruby code might be in the middle of auto-restarting,
+so we could remove its code before the Go code has a chance to update
+with its default, and would still want to call it. So therefore you
+need to do any such removal in two gitlab.com release cycles.
 
 ### Gitaly Releases
 
