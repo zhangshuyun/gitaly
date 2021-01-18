@@ -309,6 +309,8 @@ lint-strict:
   script:
     - go version
     - make lint-strict
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
 
 objectinfo_fuzz_test:
   extends: .fuzz_base
