@@ -265,7 +265,7 @@ check-mod-tidy:
 
 .PHONY: lint
 lint: ${GOLANGCI_LINT} libgit2
-	${Q}${GOLANGCI_LINT} cache clean && ${GOLANGCI_LINT} run --build-tags "${GO_BUILD_TAGS}" --out-format tab --config ${SOURCE_DIR}/.golangci.yml ${GOLANGCI_LINT_OPTIONS}
+	${Q}${GOLANGCI_LINT} run --build-tags "${GO_BUILD_TAGS}" --out-format tab --config ${SOURCE_DIR}/.golangci.yml ${GOLANGCI_LINT_OPTIONS}
 
 .PHONY: check-formatting
 check-formatting: ${GOIMPORTS} ${GITALYFMT}
