@@ -46,7 +46,7 @@ func (cmd *submoduleSubcommand) Run(_ context.Context, _ io.Reader, w io.Writer)
 	fullBranchRefName := "refs/heads/" + request.Branch
 	o, err := repo.RevparseSingle(fullBranchRefName)
 	if err != nil {
-		return fmt.Errorf("%s: %w", git2go.LegacyErrPrefixInvalidBranch, err) //nolint
+		return fmt.Errorf("%s: %w", git2go.LegacyErrPrefixInvalidBranch, err)
 	}
 
 	startCommit, err := o.AsCommit()
@@ -73,7 +73,7 @@ func (cmd *submoduleSubcommand) Run(_ context.Context, _ io.Reader, w io.Writer)
 		return fmt.Errorf(
 			"%s: %w",
 			git2go.LegacyErrPrefixInvalidSubmodulePath, err,
-		) //nolint
+		)
 	}
 
 	if smEntry.Id.Cmp(smCommitOID) == 0 {
@@ -88,7 +88,7 @@ func (cmd *submoduleSubcommand) Run(_ context.Context, _ io.Reader, w io.Writer)
 		return fmt.Errorf(
 			"%s: %w",
 			git2go.LegacyErrPrefixInvalidSubmodulePath, err,
-		) //nolint
+		)
 	}
 
 	newEntry := *smEntry      // copy by value
@@ -123,7 +123,6 @@ func (cmd *submoduleSubcommand) Run(_ context.Context, _ io.Reader, w io.Writer)
 		startCommit,
 	)
 	if err != nil {
-		// nolint
 		return fmt.Errorf(
 			"%s: %w",
 			git2go.LegacyErrPrefixFailedCommit, err,
