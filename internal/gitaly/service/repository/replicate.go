@@ -47,7 +47,13 @@ func (s *server) ReplicateRepository(ctx context.Context, in *gitalypb.Replicate
 		}
 	}
 
-	g, ctx := errgroup.WithContext(ctx)
+	// We're not using the context of the errgroup here, as an error
+	// returned by either of the called functions would cancel the
+	// respective other function. Given that we're doing RPC calls in
+	// them, cancellation of the calls would mean that the remote side
+	// may still modify the repository even though the local side has
+	// returned already.
+	g, _ := errgroup.WithContext(ctx)
 	outgoingCtx := helper.IncomingToOutgoing(ctx)
 
 	syncFuncs := []func(context.Context, *gitalypb.ReplicateRepositoryRequest) error{
