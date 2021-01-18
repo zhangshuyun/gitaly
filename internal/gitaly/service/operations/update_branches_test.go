@@ -89,6 +89,82 @@ func testSuccessfulUserUpdateBranchRequest(t *testing.T, ctx context.Context) {
 	}
 }
 
+func TestSuccessfulUserUpdateBranchRequestToDelete(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	serverSocketPath, stop := runOperationServiceServer(t)
+	defer stop()
+
+	locator := config.NewLocator(config.Config)
+
+	client, conn := newOperationClient(t, serverSocketPath)
+	defer conn.Close()
+
+	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	defer cleanupFn()
+
+	testCases := []struct {
+		desc             string
+		updateBranchName string
+		oldRev           []byte
+		newRev           []byte
+		err              error
+		createBranch     bool
+	}{
+		{
+			desc:             "short name branch deletion",
+			updateBranchName: "csv",
+			oldRev:           []byte("3dd08961455abf80ef9115f4afdc1c6f968b503c"),
+			newRev:           []byte(git.ZeroOID.String()),
+			err:              status.Error(codes.InvalidArgument, "object not found"),
+		},
+		// We test for the failed heads/* and refs/heads/* cases below in TestFailedUserUpdateBranchRequest
+		{
+			desc:             "heads/* name branch deletion",
+			updateBranchName: "heads/my-test-branch",
+			createBranch:     true,
+			oldRev:           []byte("689600b91aabec706e657e38ea706ece1ee8268f"),
+			newRev:           []byte(git.ZeroOID.String()),
+			err:              status.Error(codes.InvalidArgument, "object not found"),
+		},
+		{
+			desc:             "refs/heads/* name branch deletion",
+			updateBranchName: "refs/heads/my-other-test-branch",
+			createBranch:     true,
+			oldRev:           []byte("db46a1c5a5e474aa169b6cdb7a522d891bc4c5f9"),
+			newRev:           []byte(git.ZeroOID.String()),
+			err:              status.Error(codes.InvalidArgument, "object not found"),
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.desc, func(t *testing.T) {
+			if testCase.createBranch {
+				testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", "--", testCase.updateBranchName, string(testCase.oldRev))
+			}
+
+			responseOk := &gitalypb.UserUpdateBranchResponse{}
+			request := &gitalypb.UserUpdateBranchRequest{
+				Repository: testRepo,
+				BranchName: []byte(testCase.updateBranchName),
+				Newrev:     testCase.newRev,
+				Oldrev:     testCase.oldRev,
+				User:       testhelper.TestUser,
+			}
+			response, err := client.UserUpdateBranch(ctx, request)
+			require.Nil(t, err)
+			require.Equal(t, responseOk, response)
+
+			_, err = log.GetCommit(ctx, locator, testRepo, git.Revision(testCase.updateBranchName))
+			require.True(t, log.IsNotFound(err), "expected 'not found' error got %v", err)
+
+			refs := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "for-each-ref", "--", "refs/heads/"+testCase.updateBranchName)
+			require.NotContains(t, string(refs), testCase.oldRev, "branch deleted from refs")
+		})
+	}
+}
+
 func TestSuccessfulGitHooksForUserUpdateBranchRequest(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -238,6 +314,15 @@ func TestFailedUserUpdateBranchRequest(t *testing.T) {
 			expectNotFoundError: true,
 			user:                testhelper.TestUser,
 			err:                 status.Errorf(codes.FailedPrecondition, "Could not update %v. Please refresh and try again.", "i-dont-exist"),
+		},
+		{
+			desc:       "existing branch failed deletion attempt",
+			branchName: "csv",
+			newrev:     []byte(git.ZeroOID.String()),
+			oldrev:     oldrev,
+			gotrev:     []byte("3dd08961455abf80ef9115f4afdc1c6f968b503c"),
+			user:       testhelper.TestUser,
+			err:        status.Errorf(codes.FailedPrecondition, "Could not update %v. Please refresh and try again.", "csv"),
 		},
 		{
 			desc:       "non-existing newrev",
