@@ -74,13 +74,6 @@ service ValidService {
     };
   }
 
-  rpc TestMethod4(ValidRequestWithoutRepo) returns (ValidResponse) {
-    option (gitaly.op_type) = {
-      op: MUTATOR
-      scope_level: SERVER
-    };
-  }
-
   rpc TestMethod5(ValidNestedRequest) returns (ValidResponse) {
     option (gitaly.op_type) = {
       op: MUTATOR
