@@ -61,10 +61,7 @@ func TestAuthFailures(t *testing.T) {
 
 			cli := mock.NewSimpleServiceClient(conn)
 
-			_, err = cli.ServerAccessor(ctx, &mock.SimpleRequest{
-				Value: 1,
-			})
-
+			_, err = cli.RepoAccessorUnary(ctx, &mock.RepoRequest{})
 			testhelper.RequireGrpcError(t, err, tc.code)
 		})
 	}
