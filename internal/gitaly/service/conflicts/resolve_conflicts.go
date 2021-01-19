@@ -209,10 +209,15 @@ func (s *server) resolveConflicts(header *gitalypb.ResolveConflictsRequestHeader
 		return err
 	}
 
+	commitOID, err := git.NewObjectIDFromHex(result.CommitID)
+	if err != nil {
+		return err
+	}
+
 	if err := git.NewRepository(header.GetRepository()).UpdateRef(
 		stream.Context(),
 		git.ReferenceName("refs/heads/"+string(header.GetSourceBranch())),
-		result.CommitID,
+		commitOID,
 		"",
 	); err != nil {
 		return err
@@ -288,7 +293,7 @@ func (s *server) repoWithBranchCommit(ctx context.Context, srcRepo, targetRepo *
 		git.SubCmd{
 			Name:  "fetch",
 			Flags: []git.Option{git.Flag{Name: "--no-tags"}},
-			Args:  []string{gitalyssh.GitalyInternalURL, oid},
+			Args:  []string{gitalyssh.GitalyInternalURL, oid.String()},
 		},
 		git.WithEnv(env...),
 	)

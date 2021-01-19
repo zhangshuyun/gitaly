@@ -71,7 +71,7 @@ func (s *Server) UserRevert(ctx context.Context, req *gitalypb.UserRevertRequest
 	oldrev, err := localRepo.ResolveRevision(ctx, git.Revision(fmt.Sprintf("%s^{commit}", branch)))
 	if errors.Is(err, git.ErrReferenceNotFound) {
 		branchCreated = true
-		oldrev = git.NullSHA
+		oldrev = git.ZeroOID
 	} else if err != nil {
 		return nil, helper.ErrInvalidArgumentf("resolve ref: %w", err)
 	}
@@ -81,7 +81,7 @@ func (s *Server) UserRevert(ctx context.Context, req *gitalypb.UserRevertRequest
 	}
 
 	if !branchCreated {
-		ancestor, err := isAncestor(ctx, req.Repository, oldrev, newrev)
+		ancestor, err := isAncestor(ctx, req.Repository, oldrev.String(), newrev)
 		if err != nil {
 			return nil, err
 		}
@@ -92,7 +92,7 @@ func (s *Server) UserRevert(ctx context.Context, req *gitalypb.UserRevertRequest
 		}
 	}
 
-	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, branch, newrev, oldrev); err != nil {
+	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, branch, newrev, oldrev.String()); err != nil {
 		var preReceiveError preReceiveError
 		if errors.As(err, &preReceiveError) {
 			return &gitalypb.UserRevertResponse{
@@ -147,17 +147,17 @@ func (s *Server) fetchStartRevision(ctx context.Context, req *gitalypb.UserRever
 	}
 
 	if req.StartRepository == nil {
-		return startRevision, nil
+		return startRevision.String(), nil
 	}
 
-	_, err = git.NewRepository(req.Repository).ResolveRevision(ctx, git.Revision(fmt.Sprintf("%s^{commit}", startRevision)))
+	_, err = git.NewRepository(req.Repository).ResolveRevision(ctx, startRevision.Revision()+"^{commit}")
 	if errors.Is(err, git.ErrReferenceNotFound) {
-		if err := s.fetchRemoteObject(ctx, req.Repository, req.StartRepository, startRevision); err != nil {
+		if err := s.fetchRemoteObject(ctx, req.Repository, req.StartRepository, startRevision.String()); err != nil {
 			return "", helper.ErrInternalf("fetch start: %w", err)
 		}
 	} else if err != nil {
 		return "", helper.ErrInvalidArgumentf("resolve start: %w", err)
 	}
 
-	return startRevision, nil
+	return startRevision.String(), nil
 }

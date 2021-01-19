@@ -21,8 +21,8 @@ import (
 )
 
 const (
-	MasterID      = "1e292f8fedd741b75372e19097c76d327140c312"
-	NonexistentID = "ba4f184e126b751d1bffad5897f263108befc780"
+	masterOID      = ObjectID("1e292f8fedd741b75372e19097c76d327140c312")
+	nonexistentOID = ObjectID("ba4f184e126b751d1bffad5897f263108befc780")
 )
 
 func TestLocalRepository(t *testing.T) {
@@ -89,7 +89,7 @@ func TestLocalRepository_GetReference(t *testing.T) {
 		{
 			desc:     "fully qualified master branch",
 			ref:      "refs/heads/master",
-			expected: NewReference("refs/heads/master", MasterID),
+			expected: NewReference("refs/heads/master", masterOID.String()),
 		},
 		{
 			desc:     "unqualified master branch fails",
@@ -140,7 +140,7 @@ func TestLocalRepository_GetReferences(t *testing.T) {
 			pattern: "refs/heads/master",
 			match: func(t *testing.T, refs []Reference) {
 				require.Equal(t, []Reference{
-					NewReference("refs/heads/master", MasterID),
+					NewReference("refs/heads/master", masterOID.String()),
 				}, refs)
 			},
 		},
@@ -356,8 +356,8 @@ func TestLocalRepository_ReadObject(t *testing.T) {
 	}{
 		{
 			desc:  "invalid object",
-			oid:   NullSHA,
-			error: InvalidObjectError(NullSHA),
+			oid:   ZeroOID.String(),
+			error: InvalidObjectError(ZeroOID.String()),
 		},
 		{
 			desc: "valid object",
@@ -404,17 +404,17 @@ func TestLocalRepository_UpdateRef(t *testing.T) {
 	require.NoError(t, err)
 
 	testcases := []struct {
-		desc   string
-		ref    string
-		newrev string
-		oldrev string
-		verify func(t *testing.T, repo *LocalRepository, err error)
+		desc     string
+		ref      string
+		newValue ObjectID
+		oldValue ObjectID
+		verify   func(t *testing.T, repo *LocalRepository, err error)
 	}{
 		{
-			desc:   "successfully update master",
-			ref:    "refs/heads/master",
-			newrev: otherRef.Target,
-			oldrev: MasterID,
+			desc:     "successfully update master",
+			ref:      "refs/heads/master",
+			newValue: ObjectID(otherRef.Target),
+			oldValue: masterOID,
 			verify: func(t *testing.T, repo *LocalRepository, err error) {
 				require.NoError(t, err)
 				ref, err := repo.GetReference(ctx, "refs/heads/master")
@@ -423,34 +423,34 @@ func TestLocalRepository_UpdateRef(t *testing.T) {
 			},
 		},
 		{
-			desc:   "update fails with stale oldrev",
-			ref:    "refs/heads/master",
-			newrev: otherRef.Target,
-			oldrev: NonexistentID,
+			desc:     "update fails with stale oldValue",
+			ref:      "refs/heads/master",
+			newValue: ObjectID(otherRef.Target),
+			oldValue: nonexistentOID,
 			verify: func(t *testing.T, repo *LocalRepository, err error) {
 				require.Error(t, err)
 				ref, err := repo.GetReference(ctx, "refs/heads/master")
 				require.NoError(t, err)
-				require.Equal(t, ref.Target, MasterID)
+				require.Equal(t, ref.Target, masterOID.String())
 			},
 		},
 		{
-			desc:   "update fails with invalid newrev",
-			ref:    "refs/heads/master",
-			newrev: NonexistentID,
-			oldrev: MasterID,
+			desc:     "update fails with invalid newValue",
+			ref:      "refs/heads/master",
+			newValue: nonexistentOID,
+			oldValue: masterOID,
 			verify: func(t *testing.T, repo *LocalRepository, err error) {
 				require.Error(t, err)
 				ref, err := repo.GetReference(ctx, "refs/heads/master")
 				require.NoError(t, err)
-				require.Equal(t, ref.Target, MasterID)
+				require.Equal(t, ref.Target, masterOID.String())
 			},
 		},
 		{
-			desc:   "successfully update master with empty oldrev",
-			ref:    "refs/heads/master",
-			newrev: otherRef.Target,
-			oldrev: "",
+			desc:     "successfully update master with empty oldValue",
+			ref:      "refs/heads/master",
+			newValue: ObjectID(otherRef.Target),
+			oldValue: "",
 			verify: func(t *testing.T, repo *LocalRepository, err error) {
 				require.NoError(t, err)
 				ref, err := repo.GetReference(ctx, "refs/heads/master")
@@ -459,22 +459,22 @@ func TestLocalRepository_UpdateRef(t *testing.T) {
 			},
 		},
 		{
-			desc:   "updating unqualified branch fails",
-			ref:    "master",
-			newrev: otherRef.Target,
-			oldrev: MasterID,
+			desc:     "updating unqualified branch fails",
+			ref:      "master",
+			newValue: ObjectID(otherRef.Target),
+			oldValue: masterOID,
 			verify: func(t *testing.T, repo *LocalRepository, err error) {
 				require.Error(t, err)
 				ref, err := repo.GetReference(ctx, "refs/heads/master")
 				require.NoError(t, err)
-				require.Equal(t, ref.Target, MasterID)
+				require.Equal(t, ref.Target, masterOID.String())
 			},
 		},
 		{
-			desc:   "deleting master succeeds",
-			ref:    "refs/heads/master",
-			newrev: strings.Repeat("0", 40),
-			oldrev: MasterID,
+			desc:     "deleting master succeeds",
+			ref:      "refs/heads/master",
+			newValue: ZeroOID,
+			oldValue: masterOID,
 			verify: func(t *testing.T, repo *LocalRepository, err error) {
 				require.NoError(t, err)
 				_, err = repo.GetReference(ctx, "refs/heads/master")
@@ -482,15 +482,15 @@ func TestLocalRepository_UpdateRef(t *testing.T) {
 			},
 		},
 		{
-			desc:   "creating new branch succeeds",
-			ref:    "refs/heads/new",
-			newrev: MasterID,
-			oldrev: strings.Repeat("0", 40),
+			desc:     "creating new branch succeeds",
+			ref:      "refs/heads/new",
+			newValue: masterOID,
+			oldValue: ZeroOID,
 			verify: func(t *testing.T, repo *LocalRepository, err error) {
 				require.NoError(t, err)
 				ref, err := repo.GetReference(ctx, "refs/heads/new")
 				require.NoError(t, err)
-				require.Equal(t, ref.Target, MasterID)
+				require.Equal(t, ref.Target, masterOID.String())
 			},
 		},
 	}
@@ -502,7 +502,7 @@ func TestLocalRepository_UpdateRef(t *testing.T) {
 			defer cleanup()
 
 			repo := NewRepository(testRepo)
-			err := repo.UpdateRef(ctx, ReferenceName(tc.ref), tc.newrev, tc.oldrev)
+			err := repo.UpdateRef(ctx, ReferenceName(tc.ref), tc.newValue, tc.oldValue)
 
 			tc.verify(t, repo, err)
 		})
@@ -574,7 +574,7 @@ func TestLocalRepository_FetchRemote(t *testing.T) {
 
 		sha, err := repo.ResolveRevision(ctx, Revision("refs/remotes/origin/master^{commit}"))
 		require.NoError(t, err, "the object from remote should exists in local after fetch done")
-		require.Equal(t, "1e292f8fedd741b75372e19097c76d327140c312", sha)
+		require.Equal(t, ObjectID("1e292f8fedd741b75372e19097c76d327140c312"), sha)
 	})
 
 	t.Run("with env", func(t *testing.T) {

@@ -213,7 +213,7 @@ func buildCommit(t *testing.T, ctx context.Context, repo *gitalypb.Repository, r
 
 	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "reset", "--hard", "HEAD~")
 
-	return oid
+	return oid.String()
 }
 
 func TestListConflictFilesFailedPrecondition(t *testing.T) {

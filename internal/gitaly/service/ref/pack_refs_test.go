@@ -36,7 +36,7 @@ func TestPackRefsSuccessfulRequest(t *testing.T) {
 	// creates some new heads
 	newBranches := 10
 	for i := 0; i < newBranches; i++ {
-		require.NoError(t, repo.UpdateRef(ctx, git.ReferenceName(fmt.Sprintf("refs/heads/new-ref-%d", i)), "refs/heads/master", git.NullSHA))
+		require.NoError(t, repo.UpdateRef(ctx, git.ReferenceName(fmt.Sprintf("refs/heads/new-ref-%d", i)), "refs/heads/master", git.ZeroOID))
 	}
 
 	// pack all refs

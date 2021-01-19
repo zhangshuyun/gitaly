@@ -189,7 +189,7 @@ func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommi
 			localRepo,
 			remoteRepo,
 			targetBranchName,
-			targetBranchCommit,
+			targetBranchCommit.String(),
 			string(header.StartBranchName),
 		)
 		if err != nil {
@@ -197,7 +197,7 @@ func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommi
 		}
 	}
 
-	if parentCommitOID != targetBranchCommit {
+	if parentCommitOID != targetBranchCommit.String() {
 		if err := s.fetchMissingCommit(ctx, header.Repository, remoteRepo, parentCommitOID); err != nil {
 			return fmt.Errorf("fetch missing commit: %w", err)
 		}
@@ -341,9 +341,9 @@ func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommi
 
 	oldRevision := parentCommitOID
 	if targetBranchCommit == "" {
-		oldRevision = git.NullSHA
+		oldRevision = git.ZeroOID.String()
 	} else if header.Force {
-		oldRevision = targetBranchCommit
+		oldRevision = targetBranchCommit.String()
 	}
 
 	if err := s.updateReferenceWithHooks(ctx, header.Repository, header.User, targetBranchName, commitID, oldRevision); err != nil {
@@ -411,7 +411,7 @@ func (s *Server) resolveParentCommit(ctx context.Context, local git.Repository, 
 		return "", fmt.Errorf("resolving refish %q in %T: %w", refish, repo, err)
 	}
 
-	return commit, nil
+	return commit.String(), nil
 }
 
 func (s *Server) fetchMissingCommit(ctx context.Context, local, remote *gitalypb.Repository, commitID string) error {
@@ -475,7 +475,7 @@ func validateUserCommitFilesHeader(header *gitalypb.UserCommitFilesRequestHeader
 
 	startSha := header.GetStartSha()
 	if len(startSha) > 0 {
-		err := git.ValidateCommitID(startSha)
+		err := git.ValidateObjectID(startSha)
 		if err != nil {
 			return err
 		}

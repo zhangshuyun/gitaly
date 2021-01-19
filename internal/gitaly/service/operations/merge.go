@@ -118,7 +118,7 @@ func (s *Server) userMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 		AuthorName: string(firstRequest.User.Name),
 		AuthorMail: string(firstRequest.User.Email),
 		Message:    string(firstRequest.Message),
-		Ours:       revision,
+		Ours:       revision.String(),
 		Theirs:     firstRequest.CommitId,
 	}.Run(ctx, s.cfg)
 	if err != nil {
@@ -142,7 +142,7 @@ func (s *Server) userMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 		return helper.ErrPreconditionFailedf("merge aborted by client")
 	}
 
-	if err := s.updateReferenceWithHooks(ctx, firstRequest.Repository, firstRequest.User, branch, merge.CommitID, revision); err != nil {
+	if err := s.updateReferenceWithHooks(ctx, firstRequest.Repository, firstRequest.User, branch, merge.CommitID, revision.String()); err != nil {
 		var preReceiveError preReceiveError
 		var updateRefError updateRefError
 
@@ -204,7 +204,7 @@ func (s *Server) UserFFBranch(ctx context.Context, in *gitalypb.UserFFBranchRequ
 		return nil, helper.ErrInvalidArgument(err)
 	}
 
-	ancestor, err := isAncestor(ctx, in.Repository, revision, in.CommitId)
+	ancestor, err := isAncestor(ctx, in.Repository, revision.String(), in.CommitId)
 	if err != nil {
 		return nil, err
 	}
@@ -212,7 +212,7 @@ func (s *Server) UserFFBranch(ctx context.Context, in *gitalypb.UserFFBranchRequ
 		return nil, helper.ErrPreconditionFailedf("not fast forward")
 	}
 
-	if err := s.updateReferenceWithHooks(ctx, in.Repository, in.User, branch, in.CommitId, revision); err != nil {
+	if err := s.updateReferenceWithHooks(ctx, in.Repository, in.User, branch, in.CommitId, revision.String()); err != nil {
 		var preReceiveError preReceiveError
 		if errors.As(err, &preReceiveError) {
 			return &gitalypb.UserFFBranchResponse{
@@ -315,8 +315,8 @@ func (s *Server) userMergeToRef(ctx context.Context, request *gitalypb.UserMerge
 		AuthorName: string(request.User.Name),
 		AuthorMail: string(request.User.Email),
 		Message:    string(request.Message),
-		Ours:       oid,
-		Theirs:     sourceRef,
+		Ours:       oid.String(),
+		Theirs:     sourceRef.String(),
 	}.Run(ctx, s.cfg)
 	if err != nil {
 		if errors.Is(err, git2go.ErrInvalidArgument) {
@@ -326,15 +326,20 @@ func (s *Server) userMergeToRef(ctx context.Context, request *gitalypb.UserMerge
 		return nil, helper.ErrPreconditionFailedf("Failed to create merge commit for source_sha %s and target_sha %s at %s", sourceRef, oid, string(request.TargetRef))
 	}
 
+	mergeOID, err := git.NewObjectIDFromHex(merge.CommitID)
+	if err != nil {
+		return nil, err
+	}
+
 	// ... and move branch from target ref to the merge commit. The Ruby
 	// implementation doesn't invoke hooks, so we don't either.
-	if err := repo.UpdateRef(ctx, git.ReferenceName(request.TargetRef), merge.CommitID, oid); err != nil {
+	if err := repo.UpdateRef(ctx, git.ReferenceName(request.TargetRef), mergeOID, oid); err != nil {
 		//nolint:stylecheck
 		return nil, helper.ErrPreconditionFailed(fmt.Errorf("Could not update %s. Please refresh and try again", string(request.TargetRef)))
 	}
 
 	return &gitalypb.UserMergeToRefResponse{
-		CommitId: merge.CommitID,
+		CommitId: mergeOID.String(),
 	}, nil
 }
 

@@ -47,7 +47,7 @@ func TestDeltaIslands(t *testing.T, repoPath string, repack func() error) {
 	assert.Equal(t, blob2ID, deltaBase(t, repoPath, blob1ID), "blob 1 delta base should be blob 2 after repack")
 
 	// blob2 is the bigger of the two so it should be the delta base
-	assert.Equal(t, git.NullSHA, deltaBase(t, repoPath, blob2ID), "blob 2 should not be delta compressed after repack")
+	assert.Equal(t, git.ZeroOID.String(), deltaBase(t, repoPath, blob2ID), "blob 2 should not be delta compressed after repack")
 }
 
 func commitBlob(t *testing.T, repoPath, ref string, content []byte) string {

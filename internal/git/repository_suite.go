@@ -40,7 +40,7 @@ func testRepositoryResolveRevision(t *testing.T, getRepository func(testing.TB, 
 	for _, tc := range []struct {
 		desc     string
 		revision string
-		expected string
+		expected ObjectID
 	}{
 		{
 			desc:     "unqualified master branch",
@@ -94,7 +94,7 @@ func testRepositoryHasBranches(t *testing.T, getRepository func(testing.TB, *git
 	repo := getRepository(t, pbRepo)
 
 	emptyCommit := text.ChompBytes(testhelper.MustRunCommand(t, nil,
-		"git", "-C", repoPath, "commit-tree", EmptyTreeID,
+		"git", "-C", repoPath, "commit-tree", EmptyTreeOID.String(),
 	))
 
 	testhelper.MustRunCommand(t, nil,

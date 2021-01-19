@@ -107,7 +107,7 @@ type Repository interface {
 	// for accepted syntax. This will not verify whether the object ID
 	// exists. To do so, you can peel the reference to a given object type,
 	// e.g. by passing `refs/heads/master^{commit}`.
-	ResolveRevision(ctx context.Context, revision Revision) (string, error)
+	ResolveRevision(ctx context.Context, revision Revision) (ObjectID, error)
 	// HasBranches returns whether the repository has branches.
 	HasBranches(ctx context.Context) (bool, error)
 }
@@ -289,7 +289,7 @@ func (repo *LocalRepository) ReadObject(ctx context.Context, oid string) ([]byte
 // reference to a given object type, e.g. by passing
 // `refs/heads/master^{commit}`. Returns an ErrReferenceNotFound error in case
 // the revision does not exist.
-func (repo *LocalRepository) ResolveRevision(ctx context.Context, revision Revision) (string, error) {
+func (repo *LocalRepository) ResolveRevision(ctx context.Context, revision Revision) (ObjectID, error) {
 	if revision.String() == "" {
 		return "", errors.New("repository cannot contain empty reference name")
 	}
@@ -313,9 +313,10 @@ func (repo *LocalRepository) ResolveRevision(ctx context.Context, revision Revis
 		return "", err
 	}
 
-	oid := strings.TrimSpace(stdout.String())
-	if len(oid) != 40 {
-		return "", fmt.Errorf("unsupported object hash %q", oid)
+	hex := strings.TrimSpace(stdout.String())
+	oid, err := NewObjectIDFromHex(hex)
+	if err != nil {
+		return "", fmt.Errorf("unsupported object hash %q: %w", hex, err)
 	}
 
 	return oid, nil
@@ -410,18 +411,17 @@ func (repo *LocalRepository) GetBranches(ctx context.Context) ([]Reference, erro
 	return repo.GetReferences(ctx, "refs/heads/")
 }
 
-// UpdateRef updates reference from oldrev to newrev. If oldrev is a
-// non-empty string, the update will fail it the reference is not
-// currently at that revision. If newrev is the zero OID, the reference
-// will be deleted. If oldrev is the zero OID, the reference will
-// created.
-func (repo *LocalRepository) UpdateRef(ctx context.Context, reference ReferenceName, newrev, oldrev string) error {
+// UpdateRef updates reference from oldValue to newValue. If oldValue is a
+// non-empty string, the update will fail it the reference is not currently at
+// that revision. If newValue is the ZeroOID, the reference will be deleted.
+// If oldValue is the ZeroOID, the reference will created.
+func (repo *LocalRepository) UpdateRef(ctx context.Context, reference ReferenceName, newValue, oldValue ObjectID) error {
 	cmd, err := repo.command(ctx, nil,
 		SubCmd{
 			Name:  "update-ref",
 			Flags: []Option{Flag{Name: "-z"}, Flag{Name: "--stdin"}},
 		},
-		WithStdin(strings.NewReader(fmt.Sprintf("update %s\x00%s\x00%s\x00", reference, newrev, oldrev))),
+		WithStdin(strings.NewReader(fmt.Sprintf("update %s\x00%s\x00%s\x00", reference, newValue.String(), oldValue.String()))),
 		WithRefTxHook(ctx, helper.ProtoRepoFromRepo(repo.repo), config.Config),
 	)
 	if err != nil {
@@ -429,7 +429,7 @@ func (repo *LocalRepository) UpdateRef(ctx context.Context, reference ReferenceN
 	}
 
 	if err := cmd.Wait(); err != nil {
-		return fmt.Errorf("UpdateRef: failed updating reference %q from %q to %q: %v", reference, newrev, oldrev, err)
+		return fmt.Errorf("UpdateRef: failed updating reference %q from %q to %q: %w", reference, newValue, oldValue, err)
 	}
 
 	return nil

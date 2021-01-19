@@ -38,7 +38,7 @@ func (s *server) commitStats(ctx context.Context, in *gitalypb.CommitStatsReques
 	var args []string
 
 	if len(commit.GetParentIds()) == 0 {
-		args = append(args, git.EmptyTreeID, commit.Id)
+		args = append(args, git.EmptyTreeOID.String(), commit.Id)
 	} else {
 		args = append(args, commit.Id+"^", commit.Id)
 	}

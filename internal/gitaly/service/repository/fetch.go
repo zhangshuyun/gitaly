@@ -34,7 +34,7 @@ func (s *server) FetchSourceBranch(ctx context.Context, req *gitalypb.FetchSourc
 		return nil, helper.ErrInternal(err)
 	}
 
-	var sourceOid string
+	var sourceOid git.ObjectID
 	var containsObject bool
 
 	// If source and target repository are the same, then we know that both
@@ -67,7 +67,7 @@ func (s *server) FetchSourceBranch(ctx context.Context, req *gitalypb.FetchSourc
 		// Otherwise, if the source is a remote repository, we check
 		// whether the target repo already contains the desired object.
 		// If so, we can skip the fetch.
-		containsObject, err = targetRepo.HasRevision(ctx, git.Revision(sourceOid+"^{commit}"))
+		containsObject, err = targetRepo.HasRevision(ctx, sourceOid.Revision()+"^{commit}")
 		if err != nil {
 			return nil, helper.ErrInternal(err)
 		}
@@ -84,7 +84,7 @@ func (s *server) FetchSourceBranch(ctx context.Context, req *gitalypb.FetchSourc
 		cmd, err := git.NewCommand(ctx, req.Repository, nil,
 			git.SubCmd{
 				Name:  "fetch",
-				Args:  []string{gitalyssh.GitalyInternalURL, sourceOid},
+				Args:  []string{gitalyssh.GitalyInternalURL, sourceOid.String()},
 				Flags: []git.Option{git.Flag{Name: "--no-tags"}, git.Flag{Name: "--quiet"}},
 			},
 			git.WithEnv(env...),
@@ -96,7 +96,7 @@ func (s *server) FetchSourceBranch(ctx context.Context, req *gitalypb.FetchSourc
 		if err := cmd.Wait(); err != nil {
 			// Design quirk: if the fetch fails, this RPC returns Result: false, but no error.
 			ctxlogrus.Extract(ctx).
-				WithField("oid", sourceOid).
+				WithField("oid", sourceOid.String()).
 				WithError(err).Warn("git fetch failed")
 			return &gitalypb.FetchSourceBranchResponse{Result: false}, nil
 		}

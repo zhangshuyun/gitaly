@@ -233,7 +233,7 @@ func newTestPush(t *testing.T, fileContents []byte) *pushData {
 	pkt := fmt.Sprintf("%s %s refs/heads/master\x00 %s", oldHead, newHead, clientCapabilities)
 	fmt.Fprintf(requestBuffer, "%04x%s", len(pkt)+4, pkt)
 
-	pkt = fmt.Sprintf("%s %s refs/heads/branch", git.NullSHA, newHead)
+	pkt = fmt.Sprintf("%s %s refs/heads/branch", git.ZeroOID, newHead)
 	fmt.Fprintf(requestBuffer, "%04x%s", len(pkt)+4, pkt)
 
 	fmt.Fprintf(requestBuffer, "%s", pktFlushStr)

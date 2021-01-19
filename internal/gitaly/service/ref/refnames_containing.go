@@ -15,7 +15,7 @@ import (
 // ListBranchNamesContainingCommit returns a maximum of in.GetLimit() Branch names
 // which contain the SHA1 passed as argument
 func (*server) ListBranchNamesContainingCommit(in *gitalypb.ListBranchNamesContainingCommitRequest, stream gitalypb.RefService_ListBranchNamesContainingCommitServer) error {
-	if err := git.ValidateCommitID(in.GetCommitId()); err != nil {
+	if err := git.ValidateObjectID(in.GetCommitId()); err != nil {
 		return helper.ErrInvalidArgument(err)
 	}
 
@@ -58,7 +58,7 @@ func (bs *branchNamesContainingCommitSender) Send() error {
 // ListTagNamesContainingCommit returns a maximum of in.GetLimit() Tag names
 // which contain the SHA1 passed as argument
 func (*server) ListTagNamesContainingCommit(in *gitalypb.ListTagNamesContainingCommitRequest, stream gitalypb.RefService_ListTagNamesContainingCommitServer) error {
-	if err := git.ValidateCommitID(in.GetCommitId()); err != nil {
+	if err := git.ValidateObjectID(in.GetCommitId()); err != nil {
 		return helper.ErrInvalidArgument(err)
 	}
 

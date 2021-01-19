@@ -271,7 +271,7 @@ func testUserMergeBranchAmbiguousReference(t *testing.T, ctx context.Context) {
 
 	repo := git.NewRepository(testRepo)
 
-	master, err := repo.GetReference(ctx, "refs/heads/master")
+	masterOID, err := repo.ResolveRevision(ctx, "refs/heads/master")
 	require.NoError(t, err)
 
 	// We're now creating all kinds of potentially ambiguous references in
@@ -284,7 +284,7 @@ func testUserMergeBranchAmbiguousReference(t *testing.T, ctx context.Context) {
 		"refs/tags/heads/" + mergeBranchName,
 		"refs/tags/refs/heads/" + mergeBranchName,
 	} {
-		require.NoError(t, repo.UpdateRef(ctx, git.ReferenceName(reference), master.Target, git.NullSHA))
+		require.NoError(t, repo.UpdateRef(ctx, git.ReferenceName(reference), masterOID, git.ZeroOID))
 	}
 
 	mergeCommitMessage := "Merged by Gitaly"
