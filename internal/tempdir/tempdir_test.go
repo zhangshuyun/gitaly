@@ -52,7 +52,7 @@ func TestNewAsRepositorySuccess(t *testing.T) {
 func TestNewAsRepositoryFailStorageUnknown(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
-	_, err := New(ctx, &gitalypb.Repository{StorageName: "does-not-exist", RelativePath: "foobar.git"})
+	_, err := New(ctx, &gitalypb.Repository{StorageName: "does-not-exist", RelativePath: "foobar.git"}, config.NewLocator(config.Cfg{}))
 	require.Error(t, err)
 }
 

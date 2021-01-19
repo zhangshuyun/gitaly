@@ -32,7 +32,7 @@ func TestServer_CreateRepositoryFromBundle_successful(t *testing.T) {
 	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
-	tmpdir, err := tempdir.New(ctx, testRepo)
+	tmpdir, err := tempdir.New(ctx, testRepo, locator)
 	require.NoError(t, err)
 	bundlePath := filepath.Join(tmpdir, "original.bundle")
 

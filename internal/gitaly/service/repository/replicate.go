@@ -96,7 +96,7 @@ func validateReplicateRepository(in *gitalypb.ReplicateRepositoryRequest) error 
 func (s *server) create(ctx context.Context, in *gitalypb.ReplicateRepositoryRequest, repoPath string) error {
 	// if the directory exists, remove it
 	if _, err := os.Stat(repoPath); err == nil {
-		tempDir, err := tempdir.ForDeleteAllRepositories(in.GetRepository().GetStorageName())
+		tempDir, err := tempdir.ForDeleteAllRepositories(s.locator, in.GetRepository().GetStorageName())
 		if err != nil {
 			return err
 		}
