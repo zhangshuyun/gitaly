@@ -118,7 +118,7 @@ type LocalRepository struct {
 }
 
 // NewRepository creates a new Repository from its protobuf representation.
-func NewRepository(repo repository.GitRepo) *LocalRepository {
+func NewRepository(repo repository.GitRepo, cfg config.Cfg) *LocalRepository {
 	return &LocalRepository{
 		repo: repo,
 	}

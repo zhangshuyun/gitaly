@@ -269,7 +269,7 @@ func testUserMergeBranchAmbiguousReference(t *testing.T, ctx context.Context) {
 
 	prepareMergeBranch(t, testRepoPath)
 
-	repo := git.NewRepository(testRepo)
+	repo := git.NewRepository(testRepo, config.Config)
 
 	masterOID, err := repo.ResolveRevision(ctx, "refs/heads/master")
 	require.NoError(t, err)

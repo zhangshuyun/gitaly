@@ -17,7 +17,7 @@ func TestExecutor_Apply(t *testing.T) {
 	pbRepo, repoPath, clean := testhelper.InitBareRepo(t)
 	defer clean()
 
-	repo := git.NewRepository(pbRepo)
+	repo := git.NewRepository(pbRepo, config.Config)
 	executor := New(filepath.Join(config.Config.BinDir, "gitaly-git2go"), config.Config.Git.BinPath)
 
 	ctx, cancel := testhelper.Context()

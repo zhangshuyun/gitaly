@@ -71,7 +71,7 @@ func TestApplyBfgObjectMapStreamSuccess(t *testing.T) {
 	require.NoError(t, err)
 
 	// Ensure that the internal refs are gone, but the others still exist
-	refs, err := git.NewRepository(testRepo).GetReferences(ctx, "refs/")
+	refs, err := git.NewRepository(testRepo, config.Config).GetReferences(ctx, "refs/")
 	require.NoError(t, err)
 
 	refNames := make([]string, len(refs))

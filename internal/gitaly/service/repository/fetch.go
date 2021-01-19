@@ -27,7 +27,7 @@ func (s *server) FetchSourceBranch(ctx context.Context, req *gitalypb.FetchSourc
 		return nil, helper.ErrInvalidArgument(err)
 	}
 
-	targetRepo := git.NewRepository(req.GetRepository())
+	targetRepo := git.NewRepository(req.GetRepository(), s.cfg)
 
 	sourceRepo, err := remoterepo.New(ctx, req.GetSourceRepository(), s.conns)
 	if err != nil {

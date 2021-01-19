@@ -26,7 +26,7 @@ func (s *server) RepositoryExists(ctx context.Context, in *gitalypb.RepositoryEx
 }
 
 func (s *server) HasLocalBranches(ctx context.Context, in *gitalypb.HasLocalBranchesRequest) (*gitalypb.HasLocalBranchesResponse, error) {
-	hasBranches, err := git.NewRepository(in.Repository).HasBranches(ctx)
+	hasBranches, err := git.NewRepository(in.Repository, s.cfg).HasBranches(ctx)
 	if err != nil {
 		return nil, helper.ErrInternal(err)
 	}

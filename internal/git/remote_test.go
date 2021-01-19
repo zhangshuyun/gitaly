@@ -15,7 +15,7 @@ import (
 func TestLocalRepository_Remote(t *testing.T) {
 	repository := &gitalypb.Repository{StorageName: "stub", RelativePath: "/stub"}
 
-	repo := NewRepository(repository)
+	repo := NewRepository(repository, config.Config)
 	require.Equal(t, RepositoryRemote{repo: repository}, repo.Remote())
 }
 
