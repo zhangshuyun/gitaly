@@ -64,14 +64,10 @@ const (
 	ScopeRepository Scope = iota
 	// ScopeStorage indicates an RPC is scoped to an entire storage location
 	ScopeStorage
-	// ScopeServer indicates an RPC is scoped to an entire server
-	ScopeServer
 )
 
 func (s Scope) String() string {
 	switch s {
-	case ScopeServer:
-		return "server"
 	case ScopeStorage:
 		return "storage"
 	case ScopeRepository:
@@ -82,7 +78,6 @@ func (s Scope) String() string {
 }
 
 var protoScope = map[gitalypb.OperationMsg_Scope]Scope{
-	gitalypb.OperationMsg_SERVER:     ScopeServer,
 	gitalypb.OperationMsg_REPOSITORY: ScopeRepository,
 	gitalypb.OperationMsg_STORAGE:    ScopeStorage,
 }
