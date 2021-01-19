@@ -25,7 +25,7 @@ const (
 	VoteUndecided VoteResult = iota
 	// VoteCommitted means that the voter committed his vote.
 	VoteCommitted
-	// voteAborted means that the voter aborted his vote.
+	// VoteAborted means that the voter aborted his vote.
 	VoteAborted
 	// VoteStopped means that the transaction was gracefully stopped.
 	VoteStopped
