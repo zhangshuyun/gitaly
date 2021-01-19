@@ -10,6 +10,7 @@ linters:
   enable:
     - errcheck
     - errorlint
+    - gochecknoglobals
     - golint
 
 issues:
@@ -20,6 +21,10 @@ issues:
         - errcheck
       path: "_test.go"
       text: "Error return value of `(cc|con(ns?)?|db|closer|lis(tener)?).Close` is not checked"
+    - linters:
+        - gochecknoglobals
+      path: "internal/metadata/featureflag/feature_flags.go"
+      text: "is a global variable"
     - linters:
         - golint
       path: "_test.go"
