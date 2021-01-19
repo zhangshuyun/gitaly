@@ -9,6 +9,7 @@ linters:
   disable-all: true
   enable:
     - deadcode
+    - errcheck
     - gci
     - goimports
     - golint
@@ -769,6 +770,296 @@ issues:
       path: "internal/testhelper/testserver/gitaly.go"
       text: "exported function `RunInternalGitalyServer` should have comment or be unexported"
     ## END golint exclusions
+    ##
+    ## BEGIN errcheck exclusions
+    ##
+    ## errcheck: General (wide) rules in non-*_test.go files
+    - linters:
+        - errcheck
+      text: "Error return value of `[^`]+.(Write|Close|Serve|CloseWithError)` is not checked"
+    - linters:
+        - errcheck
+      text: "Error return value of `(io\\.Copy|out\\.Flush|os\\.Remove(All)?)` is not checked"
+    - linters:
+        - errcheck
+      text: "Error return value of `((uploadPackStream|receivePackStream|stream)\\.CloseSend)` is not checked"
+    ## errcheck: Specific issues in non-*_test.go files
+    - linters:
+        - errcheck
+      path: "internal/gitaly/rubyserver/proxy.go"
+      text: "Error return value of `requestStream.CloseSend` is not checked"
+    - linters:
+        - errcheck
+      path: "cmd/gitaly-git2go/testhelper/testhelper.go"
+      text: "Error return value of `treeBuilder.Insert` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/testhelper/testserver.go"
+      text: "Error return value of `p.process.Kill` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/testhelper/testserver.go"
+      text: "Error return value of `cmd.Wait` is not checked"
+    - linters:
+        - errcheck
+      path: "cmd/gitaly-wrapper/main.go"
+      text: "Error return value of `cmd.Wait` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/praefect/nodes/local_elector.go"
+      text: "Error return value of `s.checkNodes` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/praefect/nodes/manager.go"
+      text: "Error return value of `strategy.checkNodes` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/praefect/nodes/sql_elector.go"
+      text: "Error return value of `s.checkNodes` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/gitaly/hook/prereceive.go"
+      text: "Error return value of `m.stopTransaction` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/gitaly/service/repository/info_attributes.go"
+      text: "Error return value of `stream.Send` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/gitaly/service/repository/repack.go"
+      text: "Error return value of `prometheus.Register` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/gitaly/service/repository/snapshot.go"
+      text: "Error return value of `builder.FileIfExist` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/gitaly/service/repository/snapshot.go"
+      text: "Error return value of `builder.RecursiveDirIfExist` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/gitaly/service/repository/snapshot.go"
+      text: "Error return value of `builder.FileIfExist` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/middleware/limithandler/limithandler.go"
+      text: "Error return value of `limiter.Limit` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/middleware/limithandler/metrics.go"
+      text: "Error return value of `prometheus.Register` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/praefect/transactions/manager.go"
+      text: "Error return value of `cryptorand.Read` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/command/command.go"
+      text: "Error return value of `command.Wait` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/supervisor/supervisor.go"
+      text: "Error return value of `cmd.Process.Kill` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/gitaly/service/commit/find_commits.go"
+      text: "Error return value of `getCommits.Offset` is not checked"
+    - linters:
+        - errcheck
+      path: "cmd/gitaly-git2go/main.go"
+      text: "Error return value of `flags.Parse` is not checked"
+    - linters:
+        - errcheck
+      path: "cmd/gitaly-git2go/main.go"
+      text: "Error return value of `subcmdFlags.Parse` is not checked"
+    - linters:
+        - errcheck
+      path: "cmd/gitaly-hooks/hooks.go"
+      text: "Error return value of `stream.CloseSend` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/storage/locator.go"
+      text: "Error return value of `os.Stat` is not checked"
+    - linters:
+        - errcheck
+      path: "cmd/praefect/main.go"
+      text: "Error return value of `r.Run` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/gitaly/rubyserver/worker.go"
+      text: "Error return value of `syscall.Kill` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/command/command.go"
+      text: "Error return value of `syscall.Kill` is not checked"
+    - linters:
+        - errcheck
+      path: "cmd/praefect/main.go"
+      text: "Error return value of `printfErr` is not checked"
+    - linters:
+        - errcheck
+      path: "cmd/praefect/subcmd.go"
+      text: "Error return value of `printfErr` is not checked"
+    - linters:
+        - errcheck
+      path: "cmd/praefect/subcmd_sqldown.go"
+      text: "Error return value of `printfErr` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/git/stats/analyzehttp.go"
+      text: "Error return value of `cl.printInteractive` is not checked"
+    ## errcheck: General (wide) rules in *_test.go files
+    - linters:
+        - errcheck
+      path: "_test.go"
+      text: "Error return value of `os\\.(Create|Unsetenv|Symlink|SetEnv|Chmod|Chtimes|MkdirAll)` is not checked"
+    - linters:
+        - errcheck
+      path: "_test.go"
+      text: "Error return value of `pktline.Write(String|Flush)` is not checked"
+    - linters:
+        - errcheck
+      path: "_test.go"
+      text: "Error return value of `pool2?\\.Remove` is not checked"
+    - linters:
+        - errcheck
+      path: "_test.go"
+      text: "Error return value of `cancelTransaction` is not checked"
+    - linters:
+        - errcheck
+      path: "_test.go"
+      text: "Error return value of `ioutil\\.WriteFile` is not checked"
+    - linters:
+        - errcheck
+      path: "_test.go"
+      text: "Error return value of `(io\\.Copy|out\\.Flush|syscall\\.Kill|os\\.Remove(All)?|printfErr|cl\\.printInteractive)` is not checked"
+    ## errcheck: Specific issues in *_test.go files
+    - linters:
+        - errcheck
+      path: "internal/praefect/coordinator_test.go"
+      text: "Error return value of `streamParams.RequestFinalizer` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/praefect/replicator_test.go"
+      text: "Error return value of `glsql.Clean` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/praefect/server_test.go"
+      text: "Error return value of `stream.Send` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/praefect/transaction_test.go"
+      text: "Error return value of `cancel` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/git/housekeeping/housekeeping_test.go"
+      text: "Error return value of `FixDirectoryPermissions` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/git/housekeeping/housekeeping_test.go"
+      text: "Error return value of `filepath.Walk` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/gitaly/service/remote/remotes_test.go"
+      text: "Error return value of `client.RemoveRemote` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/command/command_test.go"
+      text: "Error return value of `New` is not checked"
+    - linters:
+        - errcheck
+      path: "cmd/gitaly-wrapper/main_test.go"
+      text: "Error return value of `cmd.Process.Kill` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/praefect/grpc-proxy/proxy/handler_test.go"
+      text: "Error return value of `grpc.SendHeader` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/praefect/grpc-proxy/proxy/handler_test.go"
+      text: "Error return value of `grpc.SetTrailer` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/praefect/grpc-proxy/proxy/handler_test.go"
+      text: "Error return value of `stream.SendHeader` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/praefect/grpc-proxy/proxy/handler_test.go"
+      text: "Error return value of `stream.Send` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/praefect/grpc-proxy/proxy/handler_test.go"
+      text: "Error return value of `stream.SendHeader` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/praefect/grpc-proxy/proxy/peeker_test.go"
+      text: "Error return value of `proxyClientPingStream.CloseSend` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/bootstrap/bootstrap_test.go"
+      text: "Error return value of `server.server.Shutdown` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/bootstrap/bootstrap_test.go"
+      text: "Error return value of `b.upgrader.Upgrade` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/bootstrap/bootstrap_test.go"
+      text: "Error return value of `s.Shutdown` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/gitaly/service/smarthttp/upload_pack_test.go"
+      text: "Error return value of `pktline.WriteDelim` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/middleware/sentryhandler/sentryhandler_test.go"
+      text: "Error return value is not checked"
+    - linters:
+        - errcheck
+      path: "internal/gitaly/service/repository/create_from_url_test.go"
+      text: "Error return value of `stopGitServer` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/gitaly/service/repository/redirecting_test_server_test.go"
+      text: "Error return value of `cmd.Run` is not checked"
+    - linters:
+        - errcheck
+      path: "cmd/praefect/main_test.go"
+      text: "Error return value of `glsql.Clean` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/git/stats/analyzehttp_test.go"
+      text: "Error return value of `stopGitServer` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/praefect/nodes/local_elector_test.go"
+      text: "Error return value of `strategy.checkNodes` is not checked"
+    - linters:
+        - errcheck
+      path: "cmd/gitaly-lfs-smudge/lfs_smudge_test.go"
+      text: "Error return value of `initLogging` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/tempdir/tempdir_test.go"
+      text: "Error return value of `clean` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/middleware/limithandler/concurrency_limiter_test.go"
+      text: "Error return value of `limiter.Limit` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/gitaly/service/operations/branches_test.go"
+      text: "Error return value of `\\(\\*os/exec\\.Cmd\\).Run` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/gitaly/service/operations/merge_test.go"
+      text: "Error return value of `\\(\\*os/exec\\.Cmd\\).Run` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/gitaly/service/operations/tags_test.go"
+      text: "Error return value of `\\(\\*os/exec\\.Cmd\\).Run` is not checked"
+    ## END errcheck exclusions
+    ##
     # govet checks all struct initializations must be keyed by field names
     - linters:
         - govet

@@ -8,7 +8,6 @@ run:
 linters:
   disable-all: true
   enable:
-    - errcheck
     - errorlint
     - gochecknoglobals
 
@@ -16,10 +15,6 @@ issues:
   exclude-use-default: false
   # Excluding configuration per-path, per-linter, per-text and per-source
   exclude-rules:
-    - linters:
-        - errcheck
-      path: "_test.go"
-      text: "Error return value of `(cc|con(ns?)?|db|closer|lis(tener)?).Close` is not checked"
     - linters:
         - gochecknoglobals
       path: "internal/metadata/featureflag/feature_flags.go"
