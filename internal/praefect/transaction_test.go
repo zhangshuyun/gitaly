@@ -181,7 +181,7 @@ func TestTransactionWithMultipleNodes(t *testing.T) {
 			var threshold uint
 			for _, node := range tc.nodes {
 				voters = append(voters, transactions.Voter{Name: node, Votes: 1})
-				threshold += 1
+				threshold++
 			}
 
 			transaction, cancelTransaction, err := txMgr.RegisterTransaction(ctx, voters, threshold)
