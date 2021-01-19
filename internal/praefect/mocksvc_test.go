@@ -2,7 +2,6 @@ package praefect
 
 import (
 	"context"
-	"errors"
 
 	"github.com/golang/protobuf/ptypes/empty"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/mock"
@@ -18,11 +17,6 @@ type (
 type mockSvc struct {
 	repoAccessorUnary repoAccessorUnaryFunc
 	repoMutatorUnary  repoMutatorUnaryFunc
-}
-
-// ServerAccessor is implemented by a callback
-func (m *mockSvc) ServerAccessor(ctx context.Context, req *mock.SimpleRequest) (*mock.SimpleResponse, error) {
-	return nil, errors.New("server accessor unimplemented")
 }
 
 // RepoAccessorUnary is implemented by a callback

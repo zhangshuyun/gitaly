@@ -37,10 +37,6 @@ func (s *simpleService) RepoMutatorUnary(ctx context.Context, in *mock.RepoReque
 	return &empty.Empty{}, nil
 }
 
-func (s *simpleService) ServerAccessor(ctx context.Context, in *mock.SimpleRequest) (*mock.SimpleResponse, error) {
-	return &mock.SimpleResponse{}, nil
-}
-
 func TestStreamInterceptor(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
