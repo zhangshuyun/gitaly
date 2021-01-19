@@ -11,7 +11,6 @@ linters:
     - errcheck
     - errorlint
     - gochecknoglobals
-    - golint
 
 issues:
   exclude-use-default: false
@@ -25,10 +24,6 @@ issues:
         - gochecknoglobals
       path: "internal/metadata/featureflag/feature_flags.go"
       text: "is a global variable"
-    - linters:
-        - golint
-      path: "_test.go"
-      text: "context.Context should be the first parameter of a function"
   # Maximum issues count per one linter. Set to 0 to disable. Default is 50.
   max-issues-per-linter: 0
   # Maximum count of issues with the same text. Set to 0 to disable. Default is 3.
