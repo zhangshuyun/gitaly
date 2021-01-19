@@ -3,6 +3,7 @@ package featureflag
 import (
 	"context"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 
@@ -11,6 +12,13 @@ import (
 )
 
 var (
+	// featureFlagsOverride allows to enable all feature flags with a
+	// single environment variable. If the value of
+	// GITALY_TESTING_ENABLE_ALL_FEATURE_FLAGS is set to "true", then all
+	// feature flags will be enabled. This is only used for testing
+	// purposes such that we can run integration tests with feature flags.
+	featureFlagsOverride = os.Getenv("GITALY_TESTING_ENABLE_ALL_FEATURE_FLAGS")
+
 	flagChecks = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "gitaly_feature_flag_checks_total",
@@ -27,6 +35,10 @@ func init() {
 // IsEnabled checks if the feature flag is enabled for the passed context.
 // Only returns true if the metadata for the feature flag is set to "true"
 func IsEnabled(ctx context.Context, flag FeatureFlag) bool {
+	if featureFlagsOverride == "true" {
+		return true
+	}
+
 	val, ok := getFlagVal(ctx, flag.Name)
 	if !ok {
 		return flag.OnByDefault
