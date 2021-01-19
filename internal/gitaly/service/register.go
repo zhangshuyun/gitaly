@@ -78,10 +78,12 @@ func RegisterAll(grpcServer *grpc.Server, cfg config.Cfg, rubyServer *rubyserver
 	gitalypb.RegisterRefServiceServer(grpcServer, ref.NewServer(cfg, locator))
 	gitalypb.RegisterRepositoryServiceServer(grpcServer, repository.NewServer(cfg, rubyServer, locator))
 	gitalypb.RegisterSSHServiceServer(grpcServer, ssh.NewServer(
+		cfg,
 		locator,
 		ssh.WithPackfileNegotiationMetrics(sshPackfileNegotiationMetrics),
 	))
 	gitalypb.RegisterSmartHTTPServiceServer(grpcServer, smarthttp.NewServer(
+		cfg,
 		locator,
 		smarthttp.WithPackfileNegotiationMetrics(smarthttpPackfileNegotiationMetrics),
 	))

@@ -88,7 +88,7 @@ type ReceivePackRequest interface {
 // git-receive-pack(1).
 func WithReceivePackHooks(ctx context.Context, cfg config.Cfg, req ReceivePackRequest, protocol string) CmdOpt {
 	return func(cc *cmdCfg) error {
-		if err := cc.configureHooks(ctx, req.GetRepository(), config.Config, &ReceiveHooksPayload{
+		if err := cc.configureHooks(ctx, req.GetRepository(), cfg, &ReceiveHooksPayload{
 			UserID:   req.GetGlId(),
 			Username: req.GetGlUsername(),
 			Protocol: protocol,
