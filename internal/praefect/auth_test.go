@@ -131,14 +131,7 @@ func dial(serverSocketPath string, opts []grpc.DialOption) (*grpc.ClientConn, er
 
 func runServer(t *testing.T, token string, required bool) (*grpc.Server, string, func()) {
 	backendToken := "abcxyz"
-	mockServer := &mockSvc{
-		serverAccessor: func(_ context.Context, req *mock.SimpleRequest) (*mock.SimpleResponse, error) {
-			return &mock.SimpleResponse{
-				Value: req.Value + 1,
-			}, nil
-		},
-	}
-	backend, cleanup := newMockDownstream(t, backendToken, mockServer)
+	backend, cleanup := newMockDownstream(t, backendToken, &mockSvc{})
 
 	conf := config.Config{
 		Auth: auth.Config{Token: token, Transitioning: !required},

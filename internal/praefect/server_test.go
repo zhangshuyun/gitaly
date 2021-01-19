@@ -830,9 +830,6 @@ func TestProxyWrites(t *testing.T) {
 func TestErrorThreshold(t *testing.T) {
 	backendToken := ""
 	backend, cleanup := newMockDownstream(t, backendToken, &mockSvc{
-		serverAccessor: func(ctx context.Context, req *mock.SimpleRequest) (*mock.SimpleResponse, error) {
-			return nil, helper.ErrInternalf("something went wrong")
-		},
 		repoMutatorUnary: func(ctx context.Context, req *mock.RepoRequest) (*empty.Empty, error) {
 			md, ok := grpc_metadata.FromIncomingContext(ctx)
 			if !ok {
