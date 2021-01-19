@@ -405,15 +405,7 @@ func testUserCreateTagWithTransaction(t *testing.T, ctx context.Context) {
 				contents := testhelper.MustReadFile(t, hooksOutputPath)
 				require.Equal(t, "pre-receive\nupdate\npost-receive\n", string(contents))
 			} else {
-				if featureflag.IsEnabled(ctx, featureflag.GoUserCreateTag) {
-					testhelper.AssertPathNotExists(t, hooksOutputPath)
-				} else {
-					// There's a bug which causes us to
-					// execute the update hook even on
-					// secondary nodes.
-					contents := testhelper.MustReadFile(t, hooksOutputPath)
-					require.Equal(t, "update\n", string(contents))
-				}
+				testhelper.AssertPathNotExists(t, hooksOutputPath)
 			}
 
 			// The Ruby implementation only calls the
