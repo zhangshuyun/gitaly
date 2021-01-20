@@ -253,7 +253,9 @@ func TestNewCommandValid(t *testing.T) {
 	reenableGitCmd := disableGitCmd()
 	defer reenableGitCmd()
 
-	hooksPath := "core.hooksPath=" + hooks.Path(config.Config)
+	cfg := config.Config
+	hooksPath := "core.hooksPath=" + hooks.Path(cfg)
+	gitCmdFactory := NewExecCommandFactory(cfg)
 
 	endOfOptions := "--end-of-options"
 
@@ -333,7 +335,7 @@ func TestNewCommandValid(t *testing.T) {
 		},
 	} {
 		t.Run(tt.desc, func(t *testing.T) {
-			opts := []CmdOpt{WithRefTxHook(ctx, &gitalypb.Repository{}, config.Config)}
+			opts := []CmdOpt{WithRefTxHook(ctx, &gitalypb.Repository{}, cfg)}
 
 			cmd, err := NewCommand(ctx, testRepo, tt.globals, tt.subCmd, opts...)
 			require.NoError(t, err)
@@ -345,7 +347,7 @@ func TestNewCommandValid(t *testing.T) {
 			// ignore first indeterministic arg (executable path)
 			require.Equal(t, tt.expectArgs, cmd.Args()[1:])
 
-			cmd, err = NewCommandWithDir(ctx, testRepoPath, tt.globals, tt.subCmd, opts...)
+			cmd, err = gitCmdFactory.NewWithDir(ctx, testRepoPath, tt.globals, tt.subCmd, opts...)
 			require.NoError(t, err)
 			require.Equal(t, tt.expectArgs, cmd.Args()[1:])
 		})
@@ -356,52 +358,6 @@ func disableGitCmd() testhelper.Cleanup {
 	oldBinPath := config.Config.Git.BinPath
 	config.Config.Git.BinPath = "/bin/echo"
 	return func() { config.Config.Git.BinPath = oldBinPath }
-}
-
-func TestNewCommandWithDir(t *testing.T) {
-	t.Run("no dir specified", func(t *testing.T) {
-		ctx, cancel := testhelper.Context()
-		defer cancel()
-
-		_, err := NewCommandWithDir(ctx, "", nil, nil, nil)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "no 'dir' provided")
-	})
-
-	t.Run("runs in dir", func(t *testing.T) {
-		_, repoPath, cleanup := testhelper.NewTestRepoWithWorktree(t)
-		defer cleanup()
-
-		ctx, cancel := testhelper.Context()
-		defer cancel()
-
-		var stderr bytes.Buffer
-		cmd, err := NewCommandWithDir(ctx, repoPath, nil, SubCmd{
-			Name: "rev-parse",
-			Args: []string{"master"},
-		}, WithStderr(&stderr))
-		require.NoError(t, err)
-
-		revData, err := ioutil.ReadAll(cmd)
-		require.NoError(t, err)
-
-		require.NoError(t, cmd.Wait(), stderr.String())
-
-		require.Equal(t, "1e292f8fedd741b75372e19097c76d327140c312", text.ChompBytes(revData))
-	})
-
-	t.Run("doesn't runs in non existing dir", func(t *testing.T) {
-		ctx, cancel := testhelper.Context()
-		defer cancel()
-
-		var stderr bytes.Buffer
-		_, err := NewCommandWithDir(ctx, "non-existing-dir", nil, SubCmd{
-			Name: "rev-parse",
-			Args: []string{"master"},
-		}, WithStderr(&stderr))
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "no such file or directory")
-	})
 }
 
 func TestNewCommand(t *testing.T) {

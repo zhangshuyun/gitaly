@@ -342,14 +342,3 @@ func NewCommand(ctx context.Context, repo repository.GitRepo, globals []GlobalOp
 func NewCommandWithoutRepo(ctx context.Context, globals []GlobalOption, sc Cmd, opts ...CmdOpt) (*command.Command, error) {
 	return NewExecCommandFactory(config.Config).newCommand(ctx, nil, "", globals, sc, opts...)
 }
-
-// NewCommandWithDir creates a new command.Command whose working directory is set
-// to dir. Arguments are validated before the command is being run. It is
-// invalid to use an empty directory.
-func NewCommandWithDir(ctx context.Context, dir string, globals []GlobalOption, sc Cmd, opts ...CmdOpt) (*command.Command, error) {
-	if dir == "" {
-		return nil, errors.New("no 'dir' provided")
-	}
-
-	return NewExecCommandFactory(config.Config).newCommand(ctx, nil, dir, globals, sc, opts...)
-}

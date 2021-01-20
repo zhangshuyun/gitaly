@@ -2,6 +2,7 @@ package git
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os/exec"
 
@@ -19,7 +20,7 @@ type CommandFactory interface {
 	New(ctx context.Context, repo repository.GitRepo, globals []GlobalOption, sc Cmd, opts ...CmdOpt) (*command.Command, error)
 	// NewWithoutRepo creates a command without a target repository.
 	NewWithoutRepo(ctx context.Context, globals []GlobalOption, sc Cmd, opts ...CmdOpt) (*command.Command, error)
-	// NewWithDir creates a command without a target repository that would be executed in dir folder.
+	// NewWithDir creates a command without a target repository that would be executed in dir directory.
 	NewWithDir(ctx context.Context, dir string, globals []GlobalOption, sc Cmd, opts ...CmdOpt) (*command.Command, error)
 }
 
@@ -51,9 +52,15 @@ func (cf *ExecCommandFactory) NewWithoutRepo(ctx context.Context, globals []Glob
 	return NewCommandWithoutRepo(ctx, globals, sc, opts...)
 }
 
-// NewWithDir creates a command without a target repository that would be executed in dir folder.
+// NewWithDir creates a new command.Command whose working directory is set
+// to dir. Arguments are validated before the command is being run. It is
+// invalid to use an empty directory.
 func (cf *ExecCommandFactory) NewWithDir(ctx context.Context, dir string, globals []GlobalOption, sc Cmd, opts ...CmdOpt) (*command.Command, error) {
-	return NewCommandWithDir(ctx, dir, globals, sc, opts...)
+	if dir == "" {
+		return nil, errors.New("no 'dir' provided")
+	}
+
+	return cf.newCommand(ctx, nil, dir, globals, sc, opts...)
 }
 
 func (cf *ExecCommandFactory) gitPath() string {
