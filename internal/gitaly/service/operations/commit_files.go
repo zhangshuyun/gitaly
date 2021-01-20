@@ -170,7 +170,7 @@ func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommi
 		remoteRepo = nil
 	}
 
-	localRepo := git.NewRepository(header.Repository)
+	localRepo := git.NewRepository(header.Repository, s.cfg)
 
 	targetBranchName := "refs/heads/" + string(header.BranchName)
 	targetBranchCommit, err := localRepo.ResolveRevision(ctx, git.Revision(targetBranchName+"^{commit}"))
@@ -415,7 +415,7 @@ func (s *Server) resolveParentCommit(ctx context.Context, local git.Repository, 
 }
 
 func (s *Server) fetchMissingCommit(ctx context.Context, local, remote *gitalypb.Repository, commitID string) error {
-	if _, err := git.NewRepository(local).ResolveRevision(ctx, git.Revision(commitID+"^{commit}")); err != nil {
+	if _, err := git.NewRepository(local, s.cfg).ResolveRevision(ctx, git.Revision(commitID+"^{commit}")); err != nil {
 		if !errors.Is(err, git.ErrReferenceNotFound) || remote == nil {
 			return fmt.Errorf("lookup parent commit: %w", err)
 		}

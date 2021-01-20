@@ -108,7 +108,7 @@ func (s *Server) userMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 	}
 
 	branch := "refs/heads/" + text.ChompBytes(firstRequest.Branch)
-	revision, err := git.NewRepository(repo).ResolveRevision(ctx, git.Revision(branch))
+	revision, err := git.NewRepository(repo, s.cfg).ResolveRevision(ctx, git.Revision(branch))
 	if err != nil {
 		return err
 	}
@@ -199,7 +199,7 @@ func (s *Server) UserFFBranch(ctx context.Context, in *gitalypb.UserFFBranchRequ
 	}
 
 	branch := fmt.Sprintf("refs/heads/%s", in.Branch)
-	revision, err := git.NewRepository(in.Repository).ResolveRevision(ctx, git.Revision(branch))
+	revision, err := git.NewRepository(in.Repository, s.cfg).ResolveRevision(ctx, git.Revision(branch))
 	if err != nil {
 		return nil, helper.ErrInvalidArgument(err)
 	}
@@ -285,7 +285,7 @@ func (s *Server) userMergeToRef(ctx context.Context, request *gitalypb.UserMerge
 		return nil, err
 	}
 
-	repo := git.NewRepository(request.Repository)
+	repo := git.NewRepository(request.Repository, s.cfg)
 
 	revision := git.Revision(request.Branch)
 	if request.FirstParentRef != nil {

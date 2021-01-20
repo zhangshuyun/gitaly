@@ -27,7 +27,7 @@ func (s *Server) UserRevert(ctx context.Context, req *gitalypb.UserRevertRequest
 		return nil, err
 	}
 
-	localRepo := git.NewRepository(req.Repository)
+	localRepo := git.NewRepository(req.Repository, s.cfg)
 	repoHadBranches, err := localRepo.HasBranches(ctx)
 	if err != nil {
 		return nil, err
@@ -150,7 +150,7 @@ func (s *Server) fetchStartRevision(ctx context.Context, req *gitalypb.UserRever
 		return startRevision.String(), nil
 	}
 
-	_, err = git.NewRepository(req.Repository).ResolveRevision(ctx, startRevision.Revision()+"^{commit}")
+	_, err = git.NewRepository(req.Repository, s.cfg).ResolveRevision(ctx, startRevision.Revision()+"^{commit}")
 	if errors.Is(err, git.ErrReferenceNotFound) {
 		if err := s.fetchRemoteObject(ctx, req.Repository, req.StartRepository, startRevision.String()); err != nil {
 			return "", helper.ErrInternalf("fetch start: %w", err)

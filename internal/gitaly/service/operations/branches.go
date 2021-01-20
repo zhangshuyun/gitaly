@@ -47,7 +47,7 @@ func (s *Server) UserCreateBranch(ctx context.Context, req *gitalypb.UserCreateB
 	}
 
 	referenceName := fmt.Sprintf("refs/heads/%s", req.BranchName)
-	_, err = git.NewRepository(req.Repository).GetReference(ctx, git.ReferenceName(referenceName))
+	_, err = git.NewRepository(req.Repository, s.cfg).GetReference(ctx, git.ReferenceName(referenceName))
 	if err == nil {
 		return nil, status.Errorf(codes.FailedPrecondition, "Could not update %s. Please refresh and try again.", req.BranchName)
 	} else if !errors.Is(err, git.ErrReferenceNotFound) {
@@ -131,7 +131,7 @@ func (s *Server) UserDeleteBranch(ctx context.Context, req *gitalypb.UserDeleteB
 		referenceFmt = "%s"
 	}
 	referenceName := fmt.Sprintf(referenceFmt, req.BranchName)
-	referenceValue, err := git.NewRepository(req.Repository).GetReference(ctx, git.ReferenceName(referenceName))
+	referenceValue, err := git.NewRepository(req.Repository, s.cfg).GetReference(ctx, git.ReferenceName(referenceName))
 	if err != nil {
 		return nil, status.Errorf(codes.FailedPrecondition, "branch not found: %s", req.BranchName)
 	}

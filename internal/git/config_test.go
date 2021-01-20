@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 )
@@ -16,7 +17,7 @@ func TestLocalRepository_Config(t *testing.T) {
 	bareRepo, _, cleanup := testhelper.InitBareRepo(t)
 	defer cleanup()
 
-	repo := NewRepository(bareRepo)
+	repo := NewRepository(bareRepo, config.Config)
 	require.Equal(t, RepositoryConfig{repo: bareRepo}, repo.Config())
 }
 

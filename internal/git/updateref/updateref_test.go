@@ -137,7 +137,7 @@ func TestBulkOperation(t *testing.T) {
 
 	require.NoError(t, updater.Wait())
 
-	refs, err := git.NewRepository(testRepo).GetReferences(ctx, "refs/")
+	refs, err := git.NewRepository(testRepo, config.Config).GetReferences(ctx, "refs/")
 	require.NoError(t, err)
 	require.Greater(t, len(refs), 1000, "At least 1000 refs should be present")
 }

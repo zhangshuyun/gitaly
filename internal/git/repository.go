@@ -114,13 +114,17 @@ type Repository interface {
 
 // LocalRepository represents a local Git repository.
 type LocalRepository struct {
-	repo repository.GitRepo
+	repo           repository.GitRepo
+	commandFactory *CommandFactory
+	cfg            config.Cfg
 }
 
 // NewRepository creates a new Repository from its protobuf representation.
-func NewRepository(repo repository.GitRepo) *LocalRepository {
+func NewRepository(repo repository.GitRepo, cfg config.Cfg) *LocalRepository {
 	return &LocalRepository{
-		repo: repo,
+		repo:           repo,
+		cfg:            cfg,
+		commandFactory: NewCommandFactory(cfg),
 	}
 }
 
@@ -128,7 +132,7 @@ func NewRepository(repo repository.GitRepo) *LocalRepository {
 // in the Repository. It validates the arguments in the command before
 // executing.
 func (repo *LocalRepository) command(ctx context.Context, globals []GlobalOption, cmd SubCmd, opts ...CmdOpt) (*command.Command, error) {
-	return NewCommand(ctx, repo.repo, globals, cmd, opts...)
+	return repo.commandFactory.newCommand(ctx, repo.repo, "", globals, cmd, opts...)
 }
 
 // WriteBlob writes a blob to the repository's object database and
@@ -422,7 +426,7 @@ func (repo *LocalRepository) UpdateRef(ctx context.Context, reference ReferenceN
 			Flags: []Option{Flag{Name: "-z"}, Flag{Name: "--stdin"}},
 		},
 		WithStdin(strings.NewReader(fmt.Sprintf("update %s\x00%s\x00%s\x00", reference, newValue.String(), oldValue.String()))),
-		WithRefTxHook(ctx, helper.ProtoRepoFromRepo(repo.repo), config.Config),
+		WithRefTxHook(ctx, helper.ProtoRepoFromRepo(repo.repo), repo.cfg),
 	)
 	if err != nil {
 		return err

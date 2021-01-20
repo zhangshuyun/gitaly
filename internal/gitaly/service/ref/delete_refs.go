@@ -8,6 +8,7 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/updateref"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -59,7 +60,7 @@ func refsToRemove(ctx context.Context, req *gitalypb.DeleteRefsRequest) ([]git.R
 		prefixes[i] = string(prefix)
 	}
 
-	existingRefs, err := git.NewRepository(req.GetRepository()).GetReferences(ctx, "")
+	existingRefs, err := git.NewRepository(req.GetRepository(), config.Config).GetReferences(ctx, "")
 	if err != nil {
 		return nil, err
 	}

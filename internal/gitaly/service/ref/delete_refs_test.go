@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -54,7 +55,7 @@ func TestSuccessfulDeleteRefs(t *testing.T) {
 			require.NoError(t, err)
 
 			// Ensure that the internal refs are gone, but the others still exist
-			refs, err := git.NewRepository(repo).GetReferences(ctx, "refs/")
+			refs, err := git.NewRepository(repo, config.Config).GetReferences(ctx, "refs/")
 			require.NoError(t, err)
 
 			refNames := make([]string, len(refs))

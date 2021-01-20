@@ -11,6 +11,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
@@ -47,12 +48,6 @@ type SubCmd struct {
 	Flags       []Option // optional flags before the positional args
 	Args        []string // positional args after all flags
 	PostSepArgs []string // post separator (i.e. "--") positional args
-}
-
-// cmdStream represents standard input/output streams for a command
-type cmdStream struct {
-	In       io.Reader // standard input
-	Out, Err io.Writer // standard output and error
 }
 
 // Subcommand returns the subcommand name
@@ -334,52 +329,10 @@ var (
 	ErrRefHookNotRequired = errors.New("ref hook is configured but not required")
 )
 
-func handleOpts(ctx context.Context, sc Cmd, cc *cmdCfg, opts []CmdOpt) error {
-	gitCommand, ok := gitCommands[sc.Subcommand()]
-	if !ok {
-		return fmt.Errorf("invalid sub command name %q: %w", sc.Subcommand(), ErrInvalidArg)
-	}
-
-	for _, opt := range opts {
-		if err := opt(cc); err != nil {
-			return err
-		}
-	}
-
-	if !cc.hooksConfigured && gitCommand.mayUpdateRef() {
-		return fmt.Errorf("subcommand %q: %w", sc.Subcommand(), ErrRefHookRequired)
-	}
-	if cc.hooksConfigured && !gitCommand.mayUpdateRef() {
-		return fmt.Errorf("subcommand %q: %w", sc.Subcommand(), ErrRefHookNotRequired)
-	}
-	if gitCommand.mayGeneratePackfiles() {
-		cc.globals = append(cc.globals, ConfigPair{
-			Key: "pack.windowMemory", Value: "100m",
-		})
-	}
-
-	return nil
-}
-
 // NewCommand creates a command.Command with the given args and Repository. It
 // validates the arguments in the command before executing.
 func NewCommand(ctx context.Context, repo repository.GitRepo, globals []GlobalOption, sc Cmd, opts ...CmdOpt) (*command.Command, error) {
-	cc := &cmdCfg{}
-
-	if err := handleOpts(ctx, sc, cc, opts); err != nil {
-		return nil, err
-	}
-
-	args, err := combineArgs(globals, sc, cc)
-	if err != nil {
-		return nil, err
-	}
-
-	return NewCommandFactory().unsafeCmd(ctx, cc.env, cmdStream{
-		In:  cc.stdin,
-		Out: cc.stdout,
-		Err: cc.stderr,
-	}, repo, args...)
+	return NewCommandFactory(config.Config).newCommand(ctx, repo, "", globals, sc, opts...)
 }
 
 // NewCommandWithoutRepo creates a command.Command with the given args. It is not
@@ -387,22 +340,7 @@ func NewCommand(ctx context.Context, repo repository.GitRepo, globals []GlobalOp
 // commands which do not require a git repository or which accept a repository
 // path as parameter like e.g. git-upload-pack(1).
 func NewCommandWithoutRepo(ctx context.Context, globals []GlobalOption, sc Cmd, opts ...CmdOpt) (*command.Command, error) {
-	cc := &cmdCfg{}
-
-	if err := handleOpts(ctx, sc, cc, opts); err != nil {
-		return nil, err
-	}
-
-	args, err := combineArgs(globals, sc, cc)
-	if err != nil {
-		return nil, err
-	}
-
-	return NewCommandFactory().unsafeBareCmd(ctx, cmdStream{
-		In:  cc.stdin,
-		Out: cc.stdout,
-		Err: cc.stderr,
-	}, cc.env, args...)
+	return NewCommandFactory(config.Config).newCommand(ctx, nil, "", globals, sc, opts...)
 }
 
 // NewCommandWithDir creates a new command.Command whose working directory is set
@@ -413,65 +351,5 @@ func NewCommandWithDir(ctx context.Context, dir string, globals []GlobalOption, 
 		return nil, errors.New("no 'dir' provided")
 	}
 
-	cc := &cmdCfg{}
-
-	if err := handleOpts(ctx, sc, cc, opts); err != nil {
-		return nil, err
-	}
-
-	args, err := combineArgs(globals, sc, cc)
-	if err != nil {
-		return nil, err
-	}
-
-	return NewCommandFactory().unsafeBareCmdInDir(ctx, dir, cmdStream{
-		In:  cc.stdin,
-		Out: cc.stdout,
-		Err: cc.stderr,
-	}, cc.env, args...)
-}
-
-func combineArgs(globals []GlobalOption, sc Cmd, cc *cmdCfg) (_ []string, err error) {
-	var args []string
-
-	defer func() {
-		if err != nil && IsInvalidArgErr(err) && len(args) > 0 {
-			incrInvalidArg(args[0])
-		}
-	}()
-
-	gitCommand, ok := gitCommands[sc.Subcommand()]
-	if !ok {
-		return nil, fmt.Errorf("invalid sub command name %q: %w", sc.Subcommand(), ErrInvalidArg)
-	}
-
-	// As global options may cancel out each other, we have a clearly
-	// defined order in which globals get applied. The order is similar to
-	// how git handles configuration options from most general to most
-	// specific. This allows callsites to override options which would
-	// otherwise be set up automatically.
-	//
-	// 1. Globals which get set up by default for a given git command.
-	// 2. Globals passed via command options, e.g. as set up by
-	//    `WithReftxHook()`.
-	// 3. Globals passed directly to the command at the site of execution.
-	var combinedGlobals []GlobalOption
-	combinedGlobals = append(combinedGlobals, gitCommand.opts...)
-	combinedGlobals = append(combinedGlobals, cc.globals...)
-	combinedGlobals = append(combinedGlobals, globals...)
-
-	for _, global := range combinedGlobals {
-		globalArgs, err := global.GlobalArgs()
-		if err != nil {
-			return nil, err
-		}
-		args = append(args, globalArgs...)
-	}
-
-	scArgs, err := sc.CommandArgs()
-	if err != nil {
-		return nil, err
-	}
-
-	return append(args, scArgs...), nil
+	return NewCommandFactory(config.Config).newCommand(ctx, nil, dir, globals, sc, opts...)
 }

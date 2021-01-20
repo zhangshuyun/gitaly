@@ -167,6 +167,9 @@ var gitCommands = map[string]gitCommand{
 			ConfigPair{Key: "uploadpack.allowAnySHA1InWant", Value: "true"},
 		},
 	},
+	"version": gitCommand{
+		flags: scReadOnly | scNoEndOfOptions,
+	},
 	"worktree": gitCommand{
 		flags: 0,
 	},
