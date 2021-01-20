@@ -34,7 +34,7 @@ module Gitlab
           when "reference-transaction"
             call_reference_transaction_hook(gl_id, gl_username, oldrev, newrev, ref, transaction)
           when "update"
-            call_update_hook(gl_id, gl_username, oldrev, newrev, ref)
+            call_update_hook(gl_id, gl_username, oldrev, newrev, ref, transaction)
           end
         end
       end
@@ -90,14 +90,14 @@ module Gitlab
         call_stdin_hook(["prepared"], changes, vars)
       end
 
-      def call_update_hook(gl_id, gl_username, oldrev, newrev, ref)
+      def call_update_hook(gl_id, gl_username, oldrev, newrev, ref, transaction)
         options = {
           chdir: repo_path
         }
 
         args = [ref, oldrev, newrev]
 
-        vars = env_base_vars(gl_id, gl_username)
+        vars = env_base_vars(gl_id, gl_username, transaction)
 
         stdout, stderr, status = Open3.capture3(vars, path, *args, options)
         [status.success?, stderr.presence || stdout]

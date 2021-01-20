@@ -232,9 +232,9 @@ module Gitlab
           operation_service.add_annotated_tag(
             tag_name,
             target_oid,
+            transaction,
             message: message,
-            tagger: Gitlab::Git.committer_hash(email: user.email, name: user.name),
-            transaction: transaction
+            tagger: Gitlab::Git.committer_hash(email: user.email, name: user.name)
           )
         else
           operation_service.add_lightweight_tag(tag_name, target_oid, transaction: transaction)

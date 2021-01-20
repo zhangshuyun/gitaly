@@ -4,16 +4,22 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	gitalyhook "gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/hook"
+	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -269,6 +275,164 @@ func testSuccessfulUserCreateTagRequest(t *testing.T, ctx context.Context) {
 
 			tag := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "tag")
 			require.Contains(t, string(tag), inputTagName)
+		})
+	}
+}
+
+func TestUserCreateTag_withTransaction(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.GoUserCreateTag,
+	}).Run(t, testUserCreateTagWithTransaction)
+}
+
+func testUserCreateTagWithTransaction(t *testing.T, ctx context.Context) {
+	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	defer cleanupFn()
+
+	hooksOutputDir, cleanup := testhelper.TempDir(t)
+	defer cleanup()
+	hooksOutputPath := filepath.Join(hooksOutputDir, "output")
+
+	// We're creating a set of custom hooks which simply
+	// write to a file. The intention is that we want to
+	// check that the hooks only run on the primary node.
+	hooks := []string{"pre-receive", "update", "post-receive"}
+	for _, hook := range hooks {
+		testhelper.WriteCustomHook(t, testRepoPath, hook,
+			[]byte(fmt.Sprintf("#!/bin/sh\necho %s >>%s\n", hook, hooksOutputPath)),
+		)
+	}
+
+	// We're creating a custom server with a fake transaction server which
+	// simply returns success for every call, but tracks the number of
+	// calls. The server is then injected into the client's context to make
+	// it available for transactional voting. We cannot use
+	// runOperationServiceServer as it puts a Praefect server in between if
+	// running Praefect tests, which would break our test setup.
+	server := testhelper.NewServerWithAuth(t, nil, nil, config.Config.Auth.Token, testhelper.WithInternalSocket(config.Config))
+
+	locator := config.NewLocator(config.Config)
+	hookManager := gitalyhook.NewManager(locator, gitalyhook.GitlabAPIStub, config.Config)
+	conns := client.NewPool()
+	defer conns.Close()
+
+	operationServer := NewServer(config.Config, RubyServer, hookManager, locator, conns)
+	hookServer := hook.NewServer(config.Config, hookManager)
+	transactionServer := &testTransactionServer{}
+
+	gitalypb.RegisterOperationServiceServer(server.GrpcServer(), operationServer)
+	gitalypb.RegisterHookServiceServer(server.GrpcServer(), hookServer)
+	gitalypb.RegisterRefTransactionServer(server.GrpcServer(), transactionServer)
+
+	server.Start(t)
+	defer server.Stop()
+
+	// We're creating a separate listener here which we use to connect to
+	// the server. This is kind of a hack when running tests with Praefect:
+	// if we directly connect to the server created above, then our call
+	// would be intercepted by Praefect, which would in turn replace the
+	// transaction information we inject further down below. So we instead
+	// create a separate socket so we can circumvent Praefect and just talk
+	// to Gitaly directly.
+	listener, hostPort := testhelper.GetLocalhostListener(t)
+	go func() { require.NoError(t, server.GrpcServer().Serve(listener)) }()
+
+	client, conn := newOperationClient(t, listener.Addr().String())
+	defer conn.Close()
+
+	praefectServer := &metadata.PraefectServer{
+		ListenAddr: "tcp://" + hostPort,
+		Token:      config.Config.Auth.Token,
+	}
+
+	for i, testCase := range []struct {
+		desc    string
+		primary bool
+		message string
+	}{
+		{
+			desc:    "primary creates a lightweight tag",
+			primary: true,
+		},
+		{
+			desc:    "secondary creates a lightweight tag",
+			primary: false,
+		},
+		{
+			desc:    "primary creates an annotated tag",
+			primary: true,
+			message: "foobar",
+		},
+		{
+			desc:    "secondary creates an annotated tag",
+			primary: false,
+			message: "foobar",
+		},
+	} {
+		t.Run(testCase.desc, func(t *testing.T) {
+			if err := os.Remove(hooksOutputPath); err != nil {
+				require.True(t, os.IsNotExist(err), "error when cleaning up work area: %v", err)
+			}
+
+			tagName := fmt.Sprintf("tag-%d", i)
+			targetRevision := "c7fbe50c7c7419d9701eebe64b1fdacc3df5b9dd"
+			targetCommit, err := log.GetCommit(ctx, locator, testRepo, git.Revision(targetRevision))
+			require.NoError(t, err)
+
+			request := &gitalypb.UserCreateTagRequest{
+				Repository:     testRepo,
+				TagName:        []byte(tagName),
+				Message:        []byte(testCase.message),
+				TargetRevision: []byte(targetRevision),
+				User:           testhelper.TestUser,
+			}
+
+			// We need to convert to an incoming context first in
+			// order to preserve the feature flag.
+			ctx = helper.OutgoingToIncoming(ctx)
+			ctx, err = metadata.InjectTransaction(ctx, 1, "node", testCase.primary)
+			require.NoError(t, err)
+			ctx, err = praefectServer.Inject(ctx)
+			require.NoError(t, err)
+			ctx = helper.IncomingToOutgoing(ctx)
+
+			response, err := client.UserCreateTag(ctx, request)
+			require.NoError(t, err)
+
+			targetOID := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "rev-parse", "refs/tags/"+tagName))
+			peeledOID := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "rev-parse", targetOID+"^{commit}"))
+			targetOIDOK := targetOID
+			if len(testCase.message) > 0 {
+				targetOIDOK = peeledOID
+			}
+			require.Equal(t, targetOIDOK, targetRevision)
+
+			testhelper.ProtoEqual(t, &gitalypb.UserCreateTagResponse{
+				Tag: &gitalypb.Tag{
+					Name:         []byte(tagName),
+					Message:      []byte(testCase.message),
+					MessageSize:  int64(len(testCase.message)),
+					Id:           targetOID,
+					TargetCommit: targetCommit,
+				},
+			}, response)
+
+			// Only the primary node should've executed hooks.
+			if testCase.primary {
+				contents := testhelper.MustReadFile(t, hooksOutputPath)
+				require.Equal(t, "pre-receive\nupdate\npost-receive\n", string(contents))
+			} else {
+				testhelper.AssertPathNotExists(t, hooksOutputPath)
+			}
+
+			// The Ruby implementation only calls the
+			// reference-transaction hook once.
+			if featureflag.IsEnabled(ctx, featureflag.GoUserCreateTag) {
+				require.Equal(t, 2, transactionServer.called)
+			} else {
+				require.Equal(t, 1, transactionServer.called)
+			}
+			transactionServer.called = 0
 		})
 	}
 }
