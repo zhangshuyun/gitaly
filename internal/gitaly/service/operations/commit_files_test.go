@@ -217,6 +217,18 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 			},
 		},
 		{
+			desc: "create file with double slash",
+			steps: []step{
+				{
+					actions: []*gitalypb.UserCommitFilesRequest{
+						createFileHeaderRequest("invalid://file/name/here"),
+						actionContentRequest("content-1"),
+					},
+					indexError: "invalid path: 'invalid://file/name/here'",
+				},
+			},
+		},
+		{
 			desc: "create file without content",
 			steps: []step{
 				{
