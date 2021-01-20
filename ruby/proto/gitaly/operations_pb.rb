@@ -79,6 +79,7 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       optional :message, :bytes, 6
       optional :first_parent_ref, :bytes, 7
       optional :allow_conflicts, :bool, 8
+      optional :timestamp, :message, 9, "google.protobuf.Timestamp"
     end
     add_message "gitaly.UserMergeToRefResponse" do
       optional :commit_id, :string, 1

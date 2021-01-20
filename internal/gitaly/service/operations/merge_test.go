@@ -865,6 +865,62 @@ func TestConflictsOnUserMergeToRefRequest(t *testing.T) {
 	})
 }
 
+func TestUserMergeToRef_stableMergeID(t *testing.T) {
+	ctx, cleanup := testhelper.Context()
+	defer cleanup()
+
+	serverSocketPath, stop := runOperationServiceServer(t)
+	defer stop()
+
+	client, conn := newOperationClient(t, serverSocketPath)
+	defer conn.Close()
+
+	testRepo, testRepoPath, cleanup := testhelper.NewTestRepo(t)
+	defer cleanup()
+
+	prepareMergeBranch(t, testRepoPath)
+
+	response, err := client.UserMergeToRef(ctx, &gitalypb.UserMergeToRefRequest{
+		Repository:     testRepo,
+		User:           testhelper.TestUser,
+		FirstParentRef: []byte("refs/heads/" + mergeBranchName),
+		TargetRef:      []byte("refs/merge-requests/x/written"),
+		SourceSha:      "1450cd639e0bc6721eb02800169e464f212cde06",
+		Message:        []byte("Merge message"),
+		Timestamp:      &timestamp.Timestamp{Seconds: 12, Nanos: 34},
+	})
+	require.NoError(t, err)
+	require.Equal(t, "a04514f4e6b4e272989b39cca1ebdbb670abdfd6", response.CommitId)
+
+	commit, err := gitlog.GetCommit(ctx, config.NewLocator(config.Config), testRepo, git.Revision("refs/merge-requests/x/written"))
+	require.NoError(t, err, "look up git commit after call has finished")
+	require.Equal(t, &gitalypb.GitCommit{
+		Subject:  []byte("Merge message"),
+		Body:     []byte("Merge message"),
+		BodySize: 13,
+		Id:       "a04514f4e6b4e272989b39cca1ebdbb670abdfd6",
+		ParentIds: []string{
+			"281d3a76f31c812dbf48abce82ccf6860adedd81",
+			"1450cd639e0bc6721eb02800169e464f212cde06",
+		},
+		TreeId: "3d3c2dd807abaf36d7bd5334bf3f8c5cf61bad75",
+		Author: &gitalypb.CommitAuthor{
+			Name:  testhelper.TestUser.Name,
+			Email: testhelper.TestUser.Email,
+			// Nanoseconds get ignored because commit timestamps aren't that granular.
+			Date:     &timestamp.Timestamp{Seconds: 12},
+			Timezone: []byte("+0000"),
+		},
+		Committer: &gitalypb.CommitAuthor{
+			Name:  testhelper.TestUser.Name,
+			Email: testhelper.TestUser.Email,
+			// Nanoseconds get ignored because commit timestamps aren't that granular.
+			Date:     &timestamp.Timestamp{Seconds: 12},
+			Timezone: []byte("+0000"),
+		},
+	}, commit)
+}
+
 func TestFailedUserMergeToRefRequest(t *testing.T) {
 	ctx, cleanup := testhelper.Context()
 	defer cleanup()

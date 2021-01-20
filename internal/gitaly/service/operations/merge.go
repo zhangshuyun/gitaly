@@ -315,6 +315,14 @@ func (s *Server) userMergeToRef(ctx context.Context, request *gitalypb.UserMerge
 		return nil, helper.ErrInvalidArgument(errors.New("Invalid merge source"))
 	}
 
+	authorDate := time.Now()
+	if request.Timestamp != nil {
+		authorDate, err = ptypes.Timestamp(request.Timestamp)
+		if err != nil {
+			return nil, helper.ErrInvalidArgument(err)
+		}
+	}
+
 	// First, overwrite the reference with the target reference.
 	if err := repo.UpdateRef(ctx, git.ReferenceName(request.TargetRef), oid, ""); err != nil {
 		return nil, updateRefError{reference: string(request.TargetRef)}
@@ -325,6 +333,7 @@ func (s *Server) userMergeToRef(ctx context.Context, request *gitalypb.UserMerge
 		Repository: repoPath,
 		AuthorName: string(request.User.Name),
 		AuthorMail: string(request.User.Email),
+		AuthorDate: authorDate,
 		Message:    string(request.Message),
 		Ours:       oid.String(),
 		Theirs:     sourceRef.String(),
