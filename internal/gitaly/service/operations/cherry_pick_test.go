@@ -15,7 +15,7 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
-func TestSuccessfulUserCherryPickRequest(t *testing.T) {
+func TestServer_UserCherryPick_successful(t *testing.T) {
 	ctxOuter, cancel := testhelper.Context()
 	defer cancel()
 
@@ -179,14 +179,14 @@ func TestSuccessfulUserCherryPickRequest(t *testing.T) {
 	}
 }
 
-func TestSuccessfulGitHooksForUserCherryPickRequest(t *testing.T) {
+func TestServer_UserCherryPick_successful_git_hooks(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testSuccessfulGitHooksForUserCherryPickRequest(t, ctx)
+	testServerUserCherryPickSuccessfulGitHooks(t, ctx)
 }
 
-func testSuccessfulGitHooksForUserCherryPickRequest(t *testing.T, ctxOuter context.Context) {
+func testServerUserCherryPickSuccessfulGitHooks(t *testing.T, ctxOuter context.Context) {
 	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()
 
@@ -231,7 +231,7 @@ func testSuccessfulGitHooksForUserCherryPickRequest(t *testing.T, ctxOuter conte
 	}
 }
 
-func TestUserCherryPick_stableID(t *testing.T) {
+func TestServer_UserCherryPick_stableID(t *testing.T) {
 	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()
 
@@ -296,7 +296,7 @@ func TestUserCherryPick_stableID(t *testing.T) {
 	}, pickedCommit)
 }
 
-func TestFailedUserCherryPickRequestDueToValidations(t *testing.T) {
+func TestServer_UserCherryPick_failed_validations(t *testing.T) {
 	ctxOuter, cancel := testhelper.Context()
 	defer cancel()
 
@@ -377,7 +377,7 @@ func TestFailedUserCherryPickRequestDueToValidations(t *testing.T) {
 	}
 }
 
-func TestFailedUserCherryPickRequestDueToPreReceiveError(t *testing.T) {
+func TestServer_UserCherryPick_failed_with_PreReceiveError(t *testing.T) {
 	ctxOuter, cancel := testhelper.Context()
 	defer cancel()
 
@@ -422,7 +422,7 @@ func TestFailedUserCherryPickRequestDueToPreReceiveError(t *testing.T) {
 	}
 }
 
-func TestFailedUserCherryPickRequestDueToCreateTreeError(t *testing.T) {
+func TestServer_UserCherryPick_failed_with_CreateTreeError(t *testing.T) {
 	ctxOuter, cancel := testhelper.Context()
 	defer cancel()
 
@@ -460,7 +460,7 @@ func TestFailedUserCherryPickRequestDueToCreateTreeError(t *testing.T) {
 	require.Equal(t, gitalypb.UserCherryPickResponse_EMPTY, response.CreateTreeErrorCode)
 }
 
-func TestFailedUserCherryPickRequestDueToCommitError(t *testing.T) {
+func TestServer_UserCherryPick_failed_with_CommitError(t *testing.T) {
 	ctxOuter, cancel := testhelper.Context()
 	defer cancel()
 
