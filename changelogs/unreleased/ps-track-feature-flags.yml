@@ -1,0 +1,5 @@
+---
+title: Track feature flags used for RPC call
+merge_request: 2971
+author:
+type: added
