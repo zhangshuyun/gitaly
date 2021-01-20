@@ -30,7 +30,7 @@ func TestSuccessfulUserUpdateBranchRequest(t *testing.T) {
 }
 
 func testSuccessfulUserUpdateBranchRequest(t *testing.T, ctx context.Context) {
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
 	locator := config.NewLocator(config.Config)
@@ -65,6 +65,22 @@ func testSuccessfulUserUpdateBranchRequest(t *testing.T, ctx context.Context) {
 			oldRev:           []byte(git.ZeroOID.String()),
 			newRev:           []byte("845009f4d7bdc9e0d8f26b1c6fb6e108aaff9314"),
 		},
+		// We create refs/heads/heads/BRANCH and
+		// refs/heads/refs/heads/BRANCH here. See a similar
+		// test for UserCreateBranch in
+		// TestSuccessfulCreateBranchRequest()
+		{
+			desc:             "heads/* branch creation",
+			updateBranchName: "heads/a-new-branch",
+			oldRev:           []byte(git.ZeroOID.String()),
+			newRev:           []byte("845009f4d7bdc9e0d8f26b1c6fb6e108aaff9314"),
+		},
+		{
+			desc:             "refs/heads/* branch creation",
+			updateBranchName: "refs/heads/a-new-branch",
+			oldRev:           []byte(git.ZeroOID.String()),
+			newRev:           []byte("845009f4d7bdc9e0d8f26b1c6fb6e108aaff9314"),
+		},
 	}
 
 	for _, testCase := range testCases {
@@ -85,6 +101,9 @@ func testSuccessfulUserUpdateBranchRequest(t *testing.T, ctx context.Context) {
 
 			require.NoError(t, err)
 			require.Equal(t, string(testCase.newRev), branchCommit.Id)
+
+			branches := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "for-each-ref", "--", "refs/heads/"+branchName)
+			require.Contains(t, string(branches), "refs/heads/"+branchName)
 		})
 	}
 }
