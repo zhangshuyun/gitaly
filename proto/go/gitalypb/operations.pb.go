@@ -24,11 +24,17 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
+// CreateTreeError represents an error which happened when computing the
+// cherry-pick.
 type UserCherryPickResponse_CreateTreeError int32
 
 const (
-	UserCherryPickResponse_NONE     UserCherryPickResponse_CreateTreeError = 0
-	UserCherryPickResponse_EMPTY    UserCherryPickResponse_CreateTreeError = 1
+	// NONE denotes that no error occurred.
+	UserCherryPickResponse_NONE UserCherryPickResponse_CreateTreeError = 0
+	// EMPTY denotes that the cherry-pick would've resulted in an empty commit,
+	// typically because it has already been applied to the target branch.
+	UserCherryPickResponse_EMPTY UserCherryPickResponse_CreateTreeError = 1
+	// CONFLICT denotes that the cherry-pick resulted in a conflict.
 	UserCherryPickResponse_CONFLICT UserCherryPickResponse_CreateTreeError = 2
 )
 
@@ -52,11 +58,17 @@ func (UserCherryPickResponse_CreateTreeError) EnumDescriptor() ([]byte, []int) {
 	return fileDescriptor_1b4a5877375e491e, []int{18, 0}
 }
 
+// CreateTreeError represents an error which happened when computing the
+// revert.
 type UserRevertResponse_CreateTreeError int32
 
 const (
-	UserRevertResponse_NONE     UserRevertResponse_CreateTreeError = 0
-	UserRevertResponse_EMPTY    UserRevertResponse_CreateTreeError = 1
+	// NONE denotes that no error occurred.
+	UserRevertResponse_NONE UserRevertResponse_CreateTreeError = 0
+	// EMPTY denotes that the revert would've resulted in an empty commit,
+	// typically because it has already been applied to the target branch.
+	UserRevertResponse_EMPTY UserRevertResponse_CreateTreeError = 1
+	// CONFLICT denotes that the revert resulted in a conflict.
 	UserRevertResponse_CONFLICT UserRevertResponse_CreateTreeError = 2
 )
 
@@ -534,14 +546,20 @@ func (m *UserDeleteTagResponse) GetPreReceiveError() string {
 }
 
 type UserCreateTagRequest struct {
-	Repository           *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	TagName              []byte      `protobuf:"bytes,2,opt,name=tag_name,json=tagName,proto3" json:"tag_name,omitempty"`
-	User                 *User       `protobuf:"bytes,3,opt,name=user,proto3" json:"user,omitempty"`
-	TargetRevision       []byte      `protobuf:"bytes,4,opt,name=target_revision,json=targetRevision,proto3" json:"target_revision,omitempty"`
-	Message              []byte      `protobuf:"bytes,5,opt,name=message,proto3" json:"message,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
-	XXX_unrecognized     []byte      `json:"-"`
-	XXX_sizecache        int32       `json:"-"`
+	// repository is the repository in which the tag shall be created.
+	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
+	// tag_name is the name of the tag that shall be created.
+	TagName []byte `protobuf:"bytes,2,opt,name=tag_name,json=tagName,proto3" json:"tag_name,omitempty"`
+	// user is the user as which the tag shall be created.
+	User *User `protobuf:"bytes,3,opt,name=user,proto3" json:"user,omitempty"`
+	// target_revision is the revision which the tag should point to.
+	TargetRevision []byte `protobuf:"bytes,4,opt,name=target_revision,json=targetRevision,proto3" json:"target_revision,omitempty"`
+	// message is the message of the tag. If it is empty, a lightweight tag is
+	// created. Otherwise, an annotated tag is created.
+	Message              []byte   `protobuf:"bytes,5,opt,name=message,proto3" json:"message,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *UserCreateTagRequest) Reset()         { *m = UserCreateTagRequest{} }
@@ -605,8 +623,12 @@ func (m *UserCreateTagRequest) GetMessage() []byte {
 }
 
 type UserCreateTagResponse struct {
-	Tag                  *Tag     `protobuf:"bytes,1,opt,name=tag,proto3" json:"tag,omitempty"`
-	Exists               bool     `protobuf:"varint,2,opt,name=exists,proto3" json:"exists,omitempty"`
+	// tag is the newly created tag.
+	Tag *Tag `protobuf:"bytes,1,opt,name=tag,proto3" json:"tag,omitempty"`
+	// exists denotes whether the tag has existed already.
+	Exists bool `protobuf:"varint,2,opt,name=exists,proto3" json:"exists,omitempty"`
+	// pre_receive_error contains an error message if updating the tag failed
+	// because of a pre-receive error.
 	PreReceiveError      string   `protobuf:"bytes,3,opt,name=pre_receive_error,json=preReceiveError,proto3" json:"pre_receive_error,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -660,14 +682,22 @@ func (m *UserCreateTagResponse) GetPreReceiveError() string {
 }
 
 type UserMergeBranchRequest struct {
-	// First message
+	// repository is the repository to compute the merge for.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	User       *User       `protobuf:"bytes,2,opt,name=user,proto3" json:"user,omitempty"`
-	CommitId   string      `protobuf:"bytes,3,opt,name=commit_id,json=commitId,proto3" json:"commit_id,omitempty"`
-	Branch     []byte      `protobuf:"bytes,4,opt,name=branch,proto3" json:"branch,omitempty"`
-	Message    []byte      `protobuf:"bytes,5,opt,name=message,proto3" json:"message,omitempty"`
-	// Second message
-	// Tell the server to apply the merge to the branch
+	// user is the user to compute the merge as. Its name and mail address are
+	// used as author and committer of the merge.
+	User *User `protobuf:"bytes,2,opt,name=user,proto3" json:"user,omitempty"`
+	// commit_id is the object ID (hash) of the object that shall be merged into
+	// the target branch.
+	CommitId string `protobuf:"bytes,3,opt,name=commit_id,json=commitId,proto3" json:"commit_id,omitempty"`
+	// branch is the branch into which the given commit shall be merged and whose
+	// reference is going to be updated.
+	Branch []byte `protobuf:"bytes,4,opt,name=branch,proto3" json:"branch,omitempty"`
+	// message is the message to use for the merge commit.
+	Message []byte `protobuf:"bytes,5,opt,name=message,proto3" json:"message,omitempty"`
+	// apply must only be set in the second message. Only if this second message
+	// is sent and if apply is set to true will the branch be updated to point to
+	// the merge commit.
 	Apply                bool     `protobuf:"varint,6,opt,name=apply,proto3" json:"apply,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -801,17 +831,23 @@ func (m *UserMergeBranchResponse) GetPreReceiveError() string {
 }
 
 type UserMergeToRefRequest struct {
-	// UserMergeRef creates a merge commit and updates target_ref to point to that
-	// new commit. The first parent of the merge commit (the main line) is taken
-	// from first_parent_ref. The second parent is specified by its commit ID in source_sha.
-	// If target_ref already exists it will be overwritten.
+	// repository is the repository in which the merge shall be computed.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	User       *User       `protobuf:"bytes,2,opt,name=user,proto3" json:"user,omitempty"`
-	SourceSha  string      `protobuf:"bytes,3,opt,name=source_sha,json=sourceSha,proto3" json:"source_sha,omitempty"`
-	// branch is deprecated in favor of `first_parent_ref`.
-	Branch         []byte `protobuf:"bytes,4,opt,name=branch,proto3" json:"branch,omitempty"`
-	TargetRef      []byte `protobuf:"bytes,5,opt,name=target_ref,json=targetRef,proto3" json:"target_ref,omitempty"`
-	Message        []byte `protobuf:"bytes,6,opt,name=message,proto3" json:"message,omitempty"`
+	// user is the user as which the merge commit shall be created.
+	User *User `protobuf:"bytes,2,opt,name=user,proto3" json:"user,omitempty"`
+	// source_sha is the object ID of the second parent of the computed merge.
+	SourceSha string `protobuf:"bytes,3,opt,name=source_sha,json=sourceSha,proto3" json:"source_sha,omitempty"`
+	// branch contains the name of the branch which should be used as the first
+	// parent of the computed merge. It is deprecated in favor of
+	// `first_parent_ref` and will be ignored in case it is set.
+	Branch []byte `protobuf:"bytes,4,opt,name=branch,proto3" json:"branch,omitempty"`
+	// target_ref contains the fully qualified reference which should be updated
+	// with the computed merge commit.
+	TargetRef []byte `protobuf:"bytes,5,opt,name=target_ref,json=targetRef,proto3" json:"target_ref,omitempty"`
+	// message is the message to use for the merge commit.
+	Message []byte `protobuf:"bytes,6,opt,name=message,proto3" json:"message,omitempty"`
+	// first_parent_ref is the name of the reference which should be used as the
+	// first parent of the computed merge. Overrides `branch`.
 	FirstParentRef []byte `protobuf:"bytes,7,opt,name=first_parent_ref,json=firstParentRef,proto3" json:"first_parent_ref,omitempty"`
 	// Allow conflicts to occur. Any conflict markers will be part of the merge commit.
 	// Only text conflicts are handled, tree-based conflicts are not supported.
@@ -903,7 +939,9 @@ func (m *UserMergeToRefRequest) GetAllowConflicts() bool {
 }
 
 type UserMergeToRefResponse struct {
-	CommitId             string   `protobuf:"bytes,1,opt,name=commit_id,json=commitId,proto3" json:"commit_id,omitempty"`
+	// commit_id is the object ID of the computed merge commit.
+	CommitId string `protobuf:"bytes,1,opt,name=commit_id,json=commitId,proto3" json:"commit_id,omitempty"`
+	// pre_receive_error contains an error message if the merge failed.
 	PreReceiveError      string   `protobuf:"bytes,2,opt,name=pre_receive_error,json=preReceiveError,proto3" json:"pre_receive_error,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -1129,17 +1167,31 @@ func (m *UserFFBranchResponse) GetPreReceiveError() string {
 }
 
 type UserCherryPickRequest struct {
-	Repository           *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	User                 *User       `protobuf:"bytes,2,opt,name=user,proto3" json:"user,omitempty"`
-	Commit               *GitCommit  `protobuf:"bytes,3,opt,name=commit,proto3" json:"commit,omitempty"`
-	BranchName           []byte      `protobuf:"bytes,4,opt,name=branch_name,json=branchName,proto3" json:"branch_name,omitempty"`
-	Message              []byte      `protobuf:"bytes,5,opt,name=message,proto3" json:"message,omitempty"`
-	StartBranchName      []byte      `protobuf:"bytes,6,opt,name=start_branch_name,json=startBranchName,proto3" json:"start_branch_name,omitempty"`
-	StartRepository      *Repository `protobuf:"bytes,7,opt,name=start_repository,json=startRepository,proto3" json:"start_repository,omitempty"`
-	DryRun               bool        `protobuf:"varint,8,opt,name=dry_run,json=dryRun,proto3" json:"dry_run,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
-	XXX_unrecognized     []byte      `json:"-"`
-	XXX_sizecache        int32       `json:"-"`
+	// repository is the repository into which the cherry-pick shall be
+	// performed.
+	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
+	// user is the user to perform the cherry-pick as. This is used for
+	// authorization checks and as the committer of the computed cherry-pick.
+	User *User `protobuf:"bytes,2,opt,name=user,proto3" json:"user,omitempty"`
+	// commit is the commit to cherry-pick onto the given branch.
+	Commit *GitCommit `protobuf:"bytes,3,opt,name=commit,proto3" json:"commit,omitempty"`
+	// branch_name is the name of the branch onto which the cherry-pick shall be
+	// executed.
+	BranchName []byte `protobuf:"bytes,4,opt,name=branch_name,json=branchName,proto3" json:"branch_name,omitempty"`
+	// message is the message to use for the cherry-picked commit.
+	Message []byte `protobuf:"bytes,5,opt,name=message,proto3" json:"message,omitempty"`
+	// start_branch_name is is used in case the branch_name branch does not
+	// exist. In that case, it will be created from the start_branch_name.
+	StartBranchName []byte `protobuf:"bytes,6,opt,name=start_branch_name,json=startBranchName,proto3" json:"start_branch_name,omitempty"`
+	// start_repository is used in case the branch_name branch does not exist. In
+	// that case, it will be created from start_branch_name in the
+	// start_repository.
+	StartRepository *Repository `protobuf:"bytes,7,opt,name=start_repository,json=startRepository,proto3" json:"start_repository,omitempty"`
+	// dry_run will compute the cherry-pick, but not update the target branch.
+	DryRun               bool     `protobuf:"varint,8,opt,name=dry_run,json=dryRun,proto3" json:"dry_run,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *UserCherryPickRequest) Reset()         { *m = UserCherryPickRequest{} }
@@ -1224,10 +1276,18 @@ func (m *UserCherryPickRequest) GetDryRun() bool {
 }
 
 type UserCherryPickResponse struct {
-	BranchUpdate         *OperationBranchUpdate                 `protobuf:"bytes,1,opt,name=branch_update,json=branchUpdate,proto3" json:"branch_update,omitempty"`
-	CreateTreeError      string                                 `protobuf:"bytes,2,opt,name=create_tree_error,json=createTreeError,proto3" json:"create_tree_error,omitempty"`
-	CommitError          string                                 `protobuf:"bytes,3,opt,name=commit_error,json=commitError,proto3" json:"commit_error,omitempty"`
-	PreReceiveError      string                                 `protobuf:"bytes,4,opt,name=pre_receive_error,json=preReceiveError,proto3" json:"pre_receive_error,omitempty"`
+	// branch_update represents details about the updated branch.
+	BranchUpdate *OperationBranchUpdate `protobuf:"bytes,1,opt,name=branch_update,json=branchUpdate,proto3" json:"branch_update,omitempty"`
+	// create_tree_error contains the error message if creation of the tree
+	// failed.
+	CreateTreeError string `protobuf:"bytes,2,opt,name=create_tree_error,json=createTreeError,proto3" json:"create_tree_error,omitempty"`
+	// commit_error contains the error message if updating the reference failed.
+	CommitError string `protobuf:"bytes,3,opt,name=commit_error,json=commitError,proto3" json:"commit_error,omitempty"`
+	// pre_receive_error contains the error message if the pre-receive hook
+	// failed.
+	PreReceiveError string `protobuf:"bytes,4,opt,name=pre_receive_error,json=preReceiveError,proto3" json:"pre_receive_error,omitempty"`
+	// create_tree_error_code contains the error code if creation of the tree
+	// failed.
 	CreateTreeErrorCode  UserCherryPickResponse_CreateTreeError `protobuf:"varint,5,opt,name=create_tree_error_code,json=createTreeErrorCode,proto3,enum=gitaly.UserCherryPickResponse_CreateTreeError" json:"create_tree_error_code,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                               `json:"-"`
 	XXX_unrecognized     []byte                                 `json:"-"`
@@ -1295,17 +1355,30 @@ func (m *UserCherryPickResponse) GetCreateTreeErrorCode() UserCherryPickResponse
 }
 
 type UserRevertRequest struct {
-	Repository           *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	User                 *User       `protobuf:"bytes,2,opt,name=user,proto3" json:"user,omitempty"`
-	Commit               *GitCommit  `protobuf:"bytes,3,opt,name=commit,proto3" json:"commit,omitempty"`
-	BranchName           []byte      `protobuf:"bytes,4,opt,name=branch_name,json=branchName,proto3" json:"branch_name,omitempty"`
-	Message              []byte      `protobuf:"bytes,5,opt,name=message,proto3" json:"message,omitempty"`
-	StartBranchName      []byte      `protobuf:"bytes,6,opt,name=start_branch_name,json=startBranchName,proto3" json:"start_branch_name,omitempty"`
-	StartRepository      *Repository `protobuf:"bytes,7,opt,name=start_repository,json=startRepository,proto3" json:"start_repository,omitempty"`
-	DryRun               bool        `protobuf:"varint,8,opt,name=dry_run,json=dryRun,proto3" json:"dry_run,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
-	XXX_unrecognized     []byte      `json:"-"`
-	XXX_sizecache        int32       `json:"-"`
+	// repository is the repository in which the revert shall be applied.
+	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
+	// user is the user to perform the revert as. This is used both for
+	// authorization and as author/committer for the revert commit.
+	User *User `protobuf:"bytes,2,opt,name=user,proto3" json:"user,omitempty"`
+	// commit iis the commit to revert.
+	Commit *GitCommit `protobuf:"bytes,3,opt,name=commit,proto3" json:"commit,omitempty"`
+	// branch_name is the name of the branch onto which the reverted commit shall
+	// be committed.
+	BranchName []byte `protobuf:"bytes,4,opt,name=branch_name,json=branchName,proto3" json:"branch_name,omitempty"`
+	// message is the message to use for the revert commit.
+	Message []byte `protobuf:"bytes,5,opt,name=message,proto3" json:"message,omitempty"`
+	// start_branch_name is is used in case the branch_name branch does not
+	// exist. In that case, it will be created from the start_branch_name.
+	StartBranchName []byte `protobuf:"bytes,6,opt,name=start_branch_name,json=startBranchName,proto3" json:"start_branch_name,omitempty"`
+	// start_repository is used in case the branch_name branch does not exist. In
+	// that case, it will be created from start_branch_name in the
+	// start_repository.
+	StartRepository *Repository `protobuf:"bytes,7,opt,name=start_repository,json=startRepository,proto3" json:"start_repository,omitempty"`
+	// dry_run  will compute the revert, but not update the target branch.
+	DryRun               bool     `protobuf:"varint,8,opt,name=dry_run,json=dryRun,proto3" json:"dry_run,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *UserRevertRequest) Reset()         { *m = UserRevertRequest{} }
@@ -1390,10 +1463,18 @@ func (m *UserRevertRequest) GetDryRun() bool {
 }
 
 type UserRevertResponse struct {
-	BranchUpdate         *OperationBranchUpdate             `protobuf:"bytes,1,opt,name=branch_update,json=branchUpdate,proto3" json:"branch_update,omitempty"`
-	CreateTreeError      string                             `protobuf:"bytes,2,opt,name=create_tree_error,json=createTreeError,proto3" json:"create_tree_error,omitempty"`
-	CommitError          string                             `protobuf:"bytes,3,opt,name=commit_error,json=commitError,proto3" json:"commit_error,omitempty"`
-	PreReceiveError      string                             `protobuf:"bytes,4,opt,name=pre_receive_error,json=preReceiveError,proto3" json:"pre_receive_error,omitempty"`
+	// branch_update represents details about the updated branch.
+	BranchUpdate *OperationBranchUpdate `protobuf:"bytes,1,opt,name=branch_update,json=branchUpdate,proto3" json:"branch_update,omitempty"`
+	// create_tree_error contains the error message if creation of the tree
+	// failed.
+	CreateTreeError string `protobuf:"bytes,2,opt,name=create_tree_error,json=createTreeError,proto3" json:"create_tree_error,omitempty"`
+	// commit_error contains the error message if updating the reference failed.
+	CommitError string `protobuf:"bytes,3,opt,name=commit_error,json=commitError,proto3" json:"commit_error,omitempty"`
+	// pre_receive_error contains the error message if the pre-receive hook
+	// failed.
+	PreReceiveError string `protobuf:"bytes,4,opt,name=pre_receive_error,json=preReceiveError,proto3" json:"pre_receive_error,omitempty"`
+	// create_tree_error_code contains the error code if creation of the tree
+	// failed.
 	CreateTreeErrorCode  UserRevertResponse_CreateTreeError `protobuf:"varint,5,opt,name=create_tree_error_code,json=createTreeErrorCode,proto3,enum=gitaly.UserRevertResponse_CreateTreeError" json:"create_tree_error_code,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                           `json:"-"`
 	XXX_unrecognized     []byte                             `json:"-"`
@@ -1993,18 +2074,37 @@ func (*UserRebaseConfirmableRequest) XXX_OneofWrappers() []interface{} {
 	}
 }
 
+// Header contains information to compute the rebase and must be sent as
+// first message.
 type UserRebaseConfirmableRequest_Header struct {
-	Repository           *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	User                 *User       `protobuf:"bytes,2,opt,name=user,proto3" json:"user,omitempty"`
-	RebaseId             string      `protobuf:"bytes,3,opt,name=rebase_id,json=rebaseId,proto3" json:"rebase_id,omitempty"`
-	Branch               []byte      `protobuf:"bytes,4,opt,name=branch,proto3" json:"branch,omitempty"`
-	BranchSha            string      `protobuf:"bytes,5,opt,name=branch_sha,json=branchSha,proto3" json:"branch_sha,omitempty"`
-	RemoteRepository     *Repository `protobuf:"bytes,6,opt,name=remote_repository,json=remoteRepository,proto3" json:"remote_repository,omitempty"`
-	RemoteBranch         []byte      `protobuf:"bytes,7,opt,name=remote_branch,json=remoteBranch,proto3" json:"remote_branch,omitempty"`
-	GitPushOptions       []string    `protobuf:"bytes,8,rep,name=git_push_options,json=gitPushOptions,proto3" json:"git_push_options,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
-	XXX_unrecognized     []byte      `json:"-"`
-	XXX_sizecache        int32       `json:"-"`
+	// repository is the repository in which the rebase will be computed and
+	// applied.
+	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
+	// user is the user to compute the rebase as. It will be used as
+	// "committer" of rebased commits.
+	User *User `protobuf:"bytes,2,opt,name=user,proto3" json:"user,omitempty"`
+	// rebase_id is an ID which uniquely identifies the rebase. Internally, it
+	// is used to identify the worktree in which the rebase shall be computed.
+	// There cannot be two concurrent calls using the same rebase_id.
+	RebaseId string `protobuf:"bytes,3,opt,name=rebase_id,json=rebaseId,proto3" json:"rebase_id,omitempty"`
+	// branch is the branch onto which the rebase shall happen.
+	Branch []byte `protobuf:"bytes,4,opt,name=branch,proto3" json:"branch,omitempty"`
+	// branch_sha is the expected object ID which branch currently points to.
+	// This is used as a safety guard to avoid races when branch has been
+	// updated meanwhile.
+	BranchSha string `protobuf:"bytes,5,opt,name=branch_sha,json=branchSha,proto3" json:"branch_sha,omitempty"`
+	// remote_repository is the repository which contains the branch which
+	// shall be rebased onto the local branch.
+	RemoteRepository *Repository `protobuf:"bytes,6,opt,name=remote_repository,json=remoteRepository,proto3" json:"remote_repository,omitempty"`
+	// remote_branch contains the branch name which shall re rebased onto the
+	// local branch.
+	RemoteBranch []byte `protobuf:"bytes,7,opt,name=remote_branch,json=remoteBranch,proto3" json:"remote_branch,omitempty"`
+	// git_push_options contain options which shall be passed to the git hooks
+	// when the local branch gets updated.
+	GitPushOptions       []string `protobuf:"bytes,8,rep,name=git_push_options,json=gitPushOptions,proto3" json:"git_push_options,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *UserRebaseConfirmableRequest_Header) Reset()         { *m = UserRebaseConfirmableRequest_Header{} }
@@ -2093,11 +2193,14 @@ type UserRebaseConfirmableResponse struct {
 	//	*UserRebaseConfirmableResponse_RebaseSha
 	//	*UserRebaseConfirmableResponse_RebaseApplied
 	UserRebaseConfirmableResponsePayload isUserRebaseConfirmableResponse_UserRebaseConfirmableResponsePayload `protobuf_oneof:"user_rebase_confirmable_response_payload"`
-	PreReceiveError                      string                                                               `protobuf:"bytes,3,opt,name=pre_receive_error,json=preReceiveError,proto3" json:"pre_receive_error,omitempty"`
-	GitError                             string                                                               `protobuf:"bytes,4,opt,name=git_error,json=gitError,proto3" json:"git_error,omitempty"`
-	XXX_NoUnkeyedLiteral                 struct{}                                                             `json:"-"`
-	XXX_unrecognized                     []byte                                                               `json:"-"`
-	XXX_sizecache                        int32                                                                `json:"-"`
+	// pre_receive_error contains an error message if the rebase failed because
+	// of an error raised by hooks.
+	PreReceiveError string `protobuf:"bytes,3,opt,name=pre_receive_error,json=preReceiveError,proto3" json:"pre_receive_error,omitempty"`
+	// git_error contains an error message if git operations have failed.
+	GitError             string   `protobuf:"bytes,4,opt,name=git_error,json=gitError,proto3" json:"git_error,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *UserRebaseConfirmableResponse) Reset()         { *m = UserRebaseConfirmableResponse{} }
@@ -2187,16 +2290,28 @@ func (*UserRebaseConfirmableResponse) XXX_OneofWrappers() []interface{} {
 }
 
 type UserSquashRequest struct {
-	Repository           *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	User                 *User       `protobuf:"bytes,2,opt,name=user,proto3" json:"user,omitempty"`
-	SquashId             string      `protobuf:"bytes,3,opt,name=squash_id,json=squashId,proto3" json:"squash_id,omitempty"`
-	StartSha             string      `protobuf:"bytes,5,opt,name=start_sha,json=startSha,proto3" json:"start_sha,omitempty"`
-	EndSha               string      `protobuf:"bytes,6,opt,name=end_sha,json=endSha,proto3" json:"end_sha,omitempty"`
-	Author               *User       `protobuf:"bytes,7,opt,name=author,proto3" json:"author,omitempty"`
-	CommitMessage        []byte      `protobuf:"bytes,8,opt,name=commit_message,json=commitMessage,proto3" json:"commit_message,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
-	XXX_unrecognized     []byte      `json:"-"`
-	XXX_sizecache        int32       `json:"-"`
+	// repository is the repository into which the squashed commit shall be
+	// written.
+	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
+	// user is used for authorization checks.
+	User *User `protobuf:"bytes,2,opt,name=user,proto3" json:"user,omitempty"`
+	// squash_id is used as a unique identifier for the squash. Internally, this
+	// is used to identify the worktree in which the squash shall be computed. No
+	// two UserSquash RPCs may run with the same ID.
+	SquashId string `protobuf:"bytes,3,opt,name=squash_id,json=squashId,proto3" json:"squash_id,omitempty"`
+	// start_sha is the object ID of the start commit of the range which shall be
+	// squashed.
+	StartSha string `protobuf:"bytes,5,opt,name=start_sha,json=startSha,proto3" json:"start_sha,omitempty"`
+	// end_sha is the object ID of the end commit of the range which shall be
+	// squashed.
+	EndSha string `protobuf:"bytes,6,opt,name=end_sha,json=endSha,proto3" json:"end_sha,omitempty"`
+	// author will be used as the author of the squashed commit.
+	Author *User `protobuf:"bytes,7,opt,name=author,proto3" json:"author,omitempty"`
+	// commit_message is the message to be used for the squashed commit.
+	CommitMessage        []byte   `protobuf:"bytes,8,opt,name=commit_message,json=commitMessage,proto3" json:"commit_message,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *UserSquashRequest) Reset()         { *m = UserSquashRequest{} }
@@ -2274,6 +2389,7 @@ func (m *UserSquashRequest) GetCommitMessage() []byte {
 }
 
 type UserSquashResponse struct {
+	// squash_sha is the object ID of the squashed commit.
 	SquashSha            string   `protobuf:"bytes,1,opt,name=squash_sha,json=squashSha,proto3" json:"squash_sha,omitempty"`
 	GitError             string   `protobuf:"bytes,3,opt,name=git_error,json=gitError,proto3" json:"git_error,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
@@ -2400,13 +2516,17 @@ func (*UserApplyPatchRequest) XXX_OneofWrappers() []interface{} {
 	}
 }
 
+// Header contains information about how to apply the patches.
 type UserApplyPatchRequest_Header struct {
-	Repository           *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	User                 *User       `protobuf:"bytes,2,opt,name=user,proto3" json:"user,omitempty"`
-	TargetBranch         []byte      `protobuf:"bytes,3,opt,name=target_branch,json=targetBranch,proto3" json:"target_branch,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
-	XXX_unrecognized     []byte      `json:"-"`
-	XXX_sizecache        int32       `json:"-"`
+	// repository is the repository to which the patches shall be applied to.
+	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
+	// user is used for authentication.
+	User *User `protobuf:"bytes,2,opt,name=user,proto3" json:"user,omitempty"`
+	// target_branch is the branch onto which the patches shall be applied.
+	TargetBranch         []byte   `protobuf:"bytes,3,opt,name=target_branch,json=targetBranch,proto3" json:"target_branch,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *UserApplyPatchRequest_Header) Reset()         { *m = UserApplyPatchRequest_Header{} }
@@ -2456,6 +2576,7 @@ func (m *UserApplyPatchRequest_Header) GetTargetBranch() []byte {
 }
 
 type UserApplyPatchResponse struct {
+	// branch_update contains information about the updated branch.
 	BranchUpdate         *OperationBranchUpdate `protobuf:"bytes,1,opt,name=branch_update,json=branchUpdate,proto3" json:"branch_update,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}               `json:"-"`
 	XXX_unrecognized     []byte                 `json:"-"`
@@ -2495,15 +2616,22 @@ func (m *UserApplyPatchResponse) GetBranchUpdate() *OperationBranchUpdate {
 }
 
 type UserUpdateSubmoduleRequest struct {
-	Repository           *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	User                 *User       `protobuf:"bytes,2,opt,name=user,proto3" json:"user,omitempty"`
-	CommitSha            string      `protobuf:"bytes,3,opt,name=commit_sha,json=commitSha,proto3" json:"commit_sha,omitempty"`
-	Branch               []byte      `protobuf:"bytes,4,opt,name=branch,proto3" json:"branch,omitempty"`
-	Submodule            []byte      `protobuf:"bytes,5,opt,name=submodule,proto3" json:"submodule,omitempty"`
-	CommitMessage        []byte      `protobuf:"bytes,6,opt,name=commit_message,json=commitMessage,proto3" json:"commit_message,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
-	XXX_unrecognized     []byte      `json:"-"`
-	XXX_sizecache        int32       `json:"-"`
+	// repository is the repository in which the submodule shall be updated.
+	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
+	// user is used both for authorization and as author/committer of the
+	// resulting commit.
+	User *User `protobuf:"bytes,2,opt,name=user,proto3" json:"user,omitempty"`
+	// commit_sha is the object ID the submodule shall be updated to.
+	CommitSha string `protobuf:"bytes,3,opt,name=commit_sha,json=commitSha,proto3" json:"commit_sha,omitempty"`
+	// branch is the branch which shall be updated.
+	Branch []byte `protobuf:"bytes,4,opt,name=branch,proto3" json:"branch,omitempty"`
+	// submodule is the path to the submodule which shall be updated.
+	Submodule []byte `protobuf:"bytes,5,opt,name=submodule,proto3" json:"submodule,omitempty"`
+	// commit_message is the message updating the submodule.
+	CommitMessage        []byte   `protobuf:"bytes,6,opt,name=commit_message,json=commitMessage,proto3" json:"commit_message,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *UserUpdateSubmoduleRequest) Reset()         { *m = UserUpdateSubmoduleRequest{} }
@@ -2574,12 +2702,16 @@ func (m *UserUpdateSubmoduleRequest) GetCommitMessage() []byte {
 }
 
 type UserUpdateSubmoduleResponse struct {
-	BranchUpdate         *OperationBranchUpdate `protobuf:"bytes,1,opt,name=branch_update,json=branchUpdate,proto3" json:"branch_update,omitempty"`
-	PreReceiveError      string                 `protobuf:"bytes,2,opt,name=pre_receive_error,json=preReceiveError,proto3" json:"pre_receive_error,omitempty"`
-	CommitError          string                 `protobuf:"bytes,4,opt,name=commit_error,json=commitError,proto3" json:"commit_error,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}               `json:"-"`
-	XXX_unrecognized     []byte                 `json:"-"`
-	XXX_sizecache        int32                  `json:"-"`
+	// branch_update contains information about the updated branch.
+	BranchUpdate *OperationBranchUpdate `protobuf:"bytes,1,opt,name=branch_update,json=branchUpdate,proto3" json:"branch_update,omitempty"`
+	// pre_receive_error contains an error message if the pre-receive hook
+	// rejects the update.
+	PreReceiveError string `protobuf:"bytes,2,opt,name=pre_receive_error,json=preReceiveError,proto3" json:"pre_receive_error,omitempty"`
+	// commit_error contains an error message if committing the update fails.
+	CommitError          string   `protobuf:"bytes,4,opt,name=commit_error,json=commitError,proto3" json:"commit_error,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *UserUpdateSubmoduleResponse) Reset()         { *m = UserUpdateSubmoduleResponse{} }
@@ -2826,25 +2958,53 @@ type OperationServiceClient interface {
 	UserCreateBranch(ctx context.Context, in *UserCreateBranchRequest, opts ...grpc.CallOption) (*UserCreateBranchResponse, error)
 	UserUpdateBranch(ctx context.Context, in *UserUpdateBranchRequest, opts ...grpc.CallOption) (*UserUpdateBranchResponse, error)
 	UserDeleteBranch(ctx context.Context, in *UserDeleteBranchRequest, opts ...grpc.CallOption) (*UserDeleteBranchResponse, error)
+	// UserCreateTag creates a new tag.
 	UserCreateTag(ctx context.Context, in *UserCreateTagRequest, opts ...grpc.CallOption) (*UserCreateTagResponse, error)
 	UserDeleteTag(ctx context.Context, in *UserDeleteTagRequest, opts ...grpc.CallOption) (*UserDeleteTagResponse, error)
+	// UserMergeRef creates a merge commit and updates target_ref to point to that
+	// new commit. The first parent of the merge commit (the main line) is taken
+	// from first_parent_ref. The second parent is specified by its commit ID in source_sha.
+	// If target_ref already exists it will be overwritten.
 	UserMergeToRef(ctx context.Context, in *UserMergeToRefRequest, opts ...grpc.CallOption) (*UserMergeToRefResponse, error)
+	// UserMergeBranch tries to merge the given commit into the target branch.
+	// The merge commit is created with the given user as author/committer and
+	// the given message.
+	//
+	// This RPC requires confirmation to make any user-visible changes to the
+	// repository. The first request sent shall contain details about the
+	// requested merge, which will result in a response with the created merge
+	// commit ID. Only if a second message with `apply = true` is sent will the
+	// merge be applied.
 	UserMergeBranch(ctx context.Context, opts ...grpc.CallOption) (OperationService_UserMergeBranchClient, error)
 	// UserFFBranch tries to perform a fast-forward merge of the given branch to
 	// the given commit. If the merge is not a fast-forward merge, the request
 	// will fail. The RPC will return an empty response in case updating the
 	// reference fails e.g. because of a race.
 	UserFFBranch(ctx context.Context, in *UserFFBranchRequest, opts ...grpc.CallOption) (*UserFFBranchResponse, error)
+	// UserCherryPick tries to perform a cherry-pick of a given commit onto a
+	// branch.
 	UserCherryPick(ctx context.Context, in *UserCherryPickRequest, opts ...grpc.CallOption) (*UserCherryPickResponse, error)
 	// UserCommitFiles builds a commit from a stream of actions and updates the target branch to point to it.
 	// UserCommitFilesRequest with a UserCommitFilesRequestHeader must be sent as the first message of the stream.
 	// Following that, a variable number of actions can be sent to build a new commit. Each action consists of
 	// a header followed by content if used by the action.
 	UserCommitFiles(ctx context.Context, opts ...grpc.CallOption) (OperationService_UserCommitFilesClient, error)
+	// UserRebaseConfirmable rebases the given remote branch onto a target
+	// branch. The remote branch may be part of another repository.
+	//
+	// This RPC requires confirmation to make any user-visible changes to the
+	// repository. The first request sent shall contains details about the
+	// requested rebase, which will result in a response with the created rebase
+	// commit ID. Only if a second message with `apply = true` is sent will the
+	// rebase be applied.
 	UserRebaseConfirmable(ctx context.Context, opts ...grpc.CallOption) (OperationService_UserRebaseConfirmableClient, error)
+	// UserRevert tries to perform a revert of a given commit onto a branch.
 	UserRevert(ctx context.Context, in *UserRevertRequest, opts ...grpc.CallOption) (*UserRevertResponse, error)
+	// UserSquash squashes a range of commits into a single commit.
 	UserSquash(ctx context.Context, in *UserSquashRequest, opts ...grpc.CallOption) (*UserSquashResponse, error)
+	// UserApplyPatch applies patches to a given branch.
 	UserApplyPatch(ctx context.Context, opts ...grpc.CallOption) (OperationService_UserApplyPatchClient, error)
+	// UserUpdateSubmodule updates a submodule to point to a new commit.
 	UserUpdateSubmodule(ctx context.Context, in *UserUpdateSubmoduleRequest, opts ...grpc.CallOption) (*UserUpdateSubmoduleResponse, error)
 }
 
@@ -3090,25 +3250,53 @@ type OperationServiceServer interface {
 	UserCreateBranch(context.Context, *UserCreateBranchRequest) (*UserCreateBranchResponse, error)
 	UserUpdateBranch(context.Context, *UserUpdateBranchRequest) (*UserUpdateBranchResponse, error)
 	UserDeleteBranch(context.Context, *UserDeleteBranchRequest) (*UserDeleteBranchResponse, error)
+	// UserCreateTag creates a new tag.
 	UserCreateTag(context.Context, *UserCreateTagRequest) (*UserCreateTagResponse, error)
 	UserDeleteTag(context.Context, *UserDeleteTagRequest) (*UserDeleteTagResponse, error)
+	// UserMergeRef creates a merge commit and updates target_ref to point to that
+	// new commit. The first parent of the merge commit (the main line) is taken
+	// from first_parent_ref. The second parent is specified by its commit ID in source_sha.
+	// If target_ref already exists it will be overwritten.
 	UserMergeToRef(context.Context, *UserMergeToRefRequest) (*UserMergeToRefResponse, error)
+	// UserMergeBranch tries to merge the given commit into the target branch.
+	// The merge commit is created with the given user as author/committer and
+	// the given message.
+	//
+	// This RPC requires confirmation to make any user-visible changes to the
+	// repository. The first request sent shall contain details about the
+	// requested merge, which will result in a response with the created merge
+	// commit ID. Only if a second message with `apply = true` is sent will the
+	// merge be applied.
 	UserMergeBranch(OperationService_UserMergeBranchServer) error
 	// UserFFBranch tries to perform a fast-forward merge of the given branch to
 	// the given commit. If the merge is not a fast-forward merge, the request
 	// will fail. The RPC will return an empty response in case updating the
 	// reference fails e.g. because of a race.
 	UserFFBranch(context.Context, *UserFFBranchRequest) (*UserFFBranchResponse, error)
+	// UserCherryPick tries to perform a cherry-pick of a given commit onto a
+	// branch.
 	UserCherryPick(context.Context, *UserCherryPickRequest) (*UserCherryPickResponse, error)
 	// UserCommitFiles builds a commit from a stream of actions and updates the target branch to point to it.
 	// UserCommitFilesRequest with a UserCommitFilesRequestHeader must be sent as the first message of the stream.
 	// Following that, a variable number of actions can be sent to build a new commit. Each action consists of
 	// a header followed by content if used by the action.
 	UserCommitFiles(OperationService_UserCommitFilesServer) error
+	// UserRebaseConfirmable rebases the given remote branch onto a target
+	// branch. The remote branch may be part of another repository.
+	//
+	// This RPC requires confirmation to make any user-visible changes to the
+	// repository. The first request sent shall contains details about the
+	// requested rebase, which will result in a response with the created rebase
+	// commit ID. Only if a second message with `apply = true` is sent will the
+	// rebase be applied.
 	UserRebaseConfirmable(OperationService_UserRebaseConfirmableServer) error
+	// UserRevert tries to perform a revert of a given commit onto a branch.
 	UserRevert(context.Context, *UserRevertRequest) (*UserRevertResponse, error)
+	// UserSquash squashes a range of commits into a single commit.
 	UserSquash(context.Context, *UserSquashRequest) (*UserSquashResponse, error)
+	// UserApplyPatch applies patches to a given branch.
 	UserApplyPatch(OperationService_UserApplyPatchServer) error
+	// UserUpdateSubmodule updates a submodule to point to a new commit.
 	UserUpdateSubmodule(context.Context, *UserUpdateSubmoduleRequest) (*UserUpdateSubmoduleResponse, error)
 }
 

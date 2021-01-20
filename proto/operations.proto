@@ -7,6 +7,10 @@ option go_package = "gitlab.com/gitlab-org/gitaly/proto/go/gitalypb";
 import "lint.proto";
 import "shared.proto";
 
+// OperationService provides an interface for performing mutating git
+// operations on a repository on behalf of a user. The user's operation is
+// treated as untrusted. Any reference update is thus checked against GitLab's
+// '/allowed' endpoint.
 service OperationService {
   rpc UserCreateBranch(UserCreateBranchRequest) returns (UserCreateBranchResponse) {
     option (op_type) = {
@@ -23,6 +27,8 @@ service OperationService {
       op: MUTATOR
     };
   }
+
+  // UserCreateTag creates a new tag.
   rpc UserCreateTag(UserCreateTagRequest) returns (UserCreateTagResponse) {
     option (op_type) = {
       op: MUTATOR
@@ -33,11 +39,26 @@ service OperationService {
       op: MUTATOR
     };
   }
+
+  // UserMergeRef creates a merge commit and updates target_ref to point to that
+  // new commit. The first parent of the merge commit (the main line) is taken
+  // from first_parent_ref. The second parent is specified by its commit ID in source_sha.
+  // If target_ref already exists it will be overwritten.
   rpc UserMergeToRef(UserMergeToRefRequest) returns (UserMergeToRefResponse) {
     option (op_type) = {
       op: MUTATOR
     };
   }
+
+  // UserMergeBranch tries to merge the given commit into the target branch.
+  // The merge commit is created with the given user as author/committer and
+  // the given message.
+  //
+  // This RPC requires confirmation to make any user-visible changes to the
+  // repository. The first request sent shall contain details about the
+  // requested merge, which will result in a response with the created merge
+  // commit ID. Only if a second message with `apply = true` is sent will the
+  // merge be applied.
   rpc UserMergeBranch(stream UserMergeBranchRequest) returns (stream UserMergeBranchResponse) {
     option (op_type) = {
       op: MUTATOR
@@ -54,6 +75,8 @@ service OperationService {
     };
   }
 
+  // UserCherryPick tries to perform a cherry-pick of a given commit onto a
+  // branch.
   rpc UserCherryPick(UserCherryPickRequest) returns (UserCherryPickResponse) {
     option (op_type) = {
       op: MUTATOR
@@ -69,26 +92,43 @@ service OperationService {
       op: MUTATOR
     };
   }
+
+  // UserRebaseConfirmable rebases the given remote branch onto a target
+  // branch. The remote branch may be part of another repository.
+  //
+  // This RPC requires confirmation to make any user-visible changes to the
+  // repository. The first request sent shall contains details about the
+  // requested rebase, which will result in a response with the created rebase
+  // commit ID. Only if a second message with `apply = true` is sent will the
+  // rebase be applied.
   rpc UserRebaseConfirmable(stream UserRebaseConfirmableRequest) returns (stream UserRebaseConfirmableResponse) {
     option (op_type) = {
       op: MUTATOR
     };
   }
+
+  // UserRevert tries to perform a revert of a given commit onto a branch.
   rpc UserRevert(UserRevertRequest) returns (UserRevertResponse) {
     option (op_type) = {
       op: MUTATOR
     };
   }
+
+  // UserSquash squashes a range of commits into a single commit.
   rpc UserSquash(UserSquashRequest) returns (UserSquashResponse) {
     option (op_type) = {
       op: MUTATOR
     };
   }
+
+  // UserApplyPatch applies patches to a given branch.
   rpc UserApplyPatch(stream UserApplyPatchRequest) returns (UserApplyPatchResponse) {
     option (op_type) = {
       op: MUTATOR
     };
   }
+
+  // UserUpdateSubmodule updates a submodule to point to a new commit.
   rpc UserUpdateSubmodule(UserUpdateSubmoduleRequest) returns (UserUpdateSubmoduleResponse) {
     option (op_type) = {
       op: MUTATOR
@@ -143,29 +183,50 @@ message UserDeleteTagResponse {
 }
 
 message UserCreateTagRequest {
+  // repository is the repository in which the tag shall be created.
   Repository repository = 1 [(target_repository)=true];
+  // tag_name is the name of the tag that shall be created.
   bytes tag_name = 2;
+  // user is the user as which the tag shall be created.
   User user = 3;
+  // target_revision is the revision which the tag should point to.
   bytes target_revision = 4;
+  // message is the message of the tag. If it is empty, a lightweight tag is
+  // created. Otherwise, an annotated tag is created.
   bytes message = 5;
 }
 
 message UserCreateTagResponse {
+  // tag is the newly created tag.
   Tag tag = 1;
+  // exists denotes whether the tag has existed already.
   bool exists = 2;
+  // pre_receive_error contains an error message if updating the tag failed
+  // because of a pre-receive error.
   string pre_receive_error = 3;
 }
 
 message UserMergeBranchRequest {
-  // First message
+  // The following parameters must only be set in the first message to declare
+  // parameters for the merge.
+
+  // repository is the repository to compute the merge for.
   Repository repository = 1 [(target_repository)=true];
+  // user is the user to compute the merge as. Its name and mail address are
+  // used as author and committer of the merge.
   User user = 2;
+  // commit_id is the object ID (hash) of the object that shall be merged into
+  // the target branch.
   string commit_id = 3;
+  // branch is the branch into which the given commit shall be merged and whose
+  // reference is going to be updated.
   bytes branch = 4;
+  // message is the message to use for the merge commit.
   bytes message = 5;
 
-  // Second message
-  // Tell the server to apply the merge to the branch
+  // apply must only be set in the second message. Only if this second message
+  // is sent and if apply is set to true will the branch be updated to point to
+  // the merge commit.
   bool apply = 6;
 }
 
@@ -182,17 +243,23 @@ message UserMergeBranchResponse {
 }
 
 message UserMergeToRefRequest {
-  // UserMergeRef creates a merge commit and updates target_ref to point to that
-  // new commit. The first parent of the merge commit (the main line) is taken
-  // from first_parent_ref. The second parent is specified by its commit ID in source_sha.
-  // If target_ref already exists it will be overwritten.
+  // repository is the repository in which the merge shall be computed.
   Repository repository = 1 [(target_repository)=true];
+  // user is the user as which the merge commit shall be created.
   User user = 2;
+  // source_sha is the object ID of the second parent of the computed merge.
   string source_sha = 3;
-  // branch is deprecated in favor of `first_parent_ref`.
+  // branch contains the name of the branch which should be used as the first
+  // parent of the computed merge. It is deprecated in favor of
+  // `first_parent_ref` and will be ignored in case it is set.
   bytes branch = 4;
+  // target_ref contains the fully qualified reference which should be updated
+  // with the computed merge commit.
   bytes target_ref = 5;
+  // message is the message to use for the merge commit.
   bytes message = 6;
+  // first_parent_ref is the name of the reference which should be used as the
+  // first parent of the computed merge. Overrides `branch`.
   bytes first_parent_ref = 7;
   // Allow conflicts to occur. Any conflict markers will be part of the merge commit.
   // Only text conflicts are handled, tree-based conflicts are not supported.
@@ -200,7 +267,9 @@ message UserMergeToRefRequest {
 }
 
 message UserMergeToRefResponse {
+  // commit_id is the object ID of the computed merge commit.
   string commit_id = 1;
+  // pre_receive_error contains an error message if the merge failed.
   string pre_receive_error = 2;
 }
 
@@ -237,52 +306,107 @@ message UserFFBranchResponse {
 }
 
 message UserCherryPickRequest {
+  // repository is the repository into which the cherry-pick shall be
+  // performed.
   Repository repository = 1 [(target_repository)=true];
+  // user is the user to perform the cherry-pick as. This is used for
+  // authorization checks and as the committer of the computed cherry-pick.
   User user = 2;
+  // commit is the commit to cherry-pick onto the given branch.
   GitCommit commit = 3;
+  // branch_name is the name of the branch onto which the cherry-pick shall be
+  // executed.
   bytes branch_name = 4;
+  // message is the message to use for the cherry-picked commit.
   bytes message = 5;
+  // start_branch_name is is used in case the branch_name branch does not
+  // exist. In that case, it will be created from the start_branch_name.
   bytes start_branch_name = 6;
+  // start_repository is used in case the branch_name branch does not exist. In
+  // that case, it will be created from start_branch_name in the
+  // start_repository.
   Repository start_repository = 7;
+  // dry_run will compute the cherry-pick, but not update the target branch.
   bool dry_run = 8;
 }
 
 message UserCherryPickResponse {
+  // CreateTreeError represents an error which happened when computing the
+  // cherry-pick.
   enum CreateTreeError {
+    // NONE denotes that no error occurred.
     NONE = 0;
+    // EMPTY denotes that the cherry-pick would've resulted in an empty commit,
+    // typically because it has already been applied to the target branch.
     EMPTY = 1;
+    // CONFLICT denotes that the cherry-pick resulted in a conflict.
     CONFLICT = 2;
   }
 
+  // branch_update represents details about the updated branch.
   OperationBranchUpdate branch_update = 1;
+  // create_tree_error contains the error message if creation of the tree
+  // failed.
   string create_tree_error = 2;
+  // commit_error contains the error message if updating the reference failed.
   string commit_error = 3;
+  // pre_receive_error contains the error message if the pre-receive hook
+  // failed.
   string pre_receive_error = 4;
+  // create_tree_error_code contains the error code if creation of the tree
+  // failed.
   CreateTreeError create_tree_error_code = 5;
 }
 
 message UserRevertRequest {
+  // repository is the repository in which the revert shall be applied.
   Repository repository = 1 [(target_repository)=true];
+  // user is the user to perform the revert as. This is used both for
+  // authorization and as author/committer for the revert commit.
   User user = 2;
+  // commit iis the commit to revert.
   GitCommit commit = 3;
+  // branch_name is the name of the branch onto which the reverted commit shall
+  // be committed.
   bytes branch_name = 4;
+  // message is the message to use for the revert commit.
   bytes message = 5;
+  // start_branch_name is is used in case the branch_name branch does not
+  // exist. In that case, it will be created from the start_branch_name.
   bytes start_branch_name = 6;
+  // start_repository is used in case the branch_name branch does not exist. In
+  // that case, it will be created from start_branch_name in the
+  // start_repository.
   Repository start_repository = 7;
+  // dry_run  will compute the revert, but not update the target branch.
   bool dry_run = 8;
 }
 
 message UserRevertResponse {
+  // CreateTreeError represents an error which happened when computing the
+  // revert.
   enum CreateTreeError {
+    // NONE denotes that no error occurred.
     NONE = 0;
+    // EMPTY denotes that the revert would've resulted in an empty commit,
+    // typically because it has already been applied to the target branch.
     EMPTY = 1;
+    // CONFLICT denotes that the revert resulted in a conflict.
     CONFLICT = 2;
   }
 
+  // branch_update represents details about the updated branch.
   OperationBranchUpdate branch_update = 1;
+  // create_tree_error contains the error message if creation of the tree
+  // failed.
   string create_tree_error = 2;
+  // commit_error contains the error message if updating the reference failed.
   string commit_error = 3;
+  // pre_receive_error contains the error message if the pre-receive hook
+  // failed.
   string pre_receive_error = 4;
+  // create_tree_error_code contains the error code if creation of the tree
+  // failed.
   CreateTreeError create_tree_error_code = 5;
 }
 
@@ -396,14 +520,33 @@ message UserCommitFilesResponse {
 }
 
 message UserRebaseConfirmableRequest {
+  // Header contains information to compute the rebase and must be sent as
+  // first message.
   message Header {
+    // repository is the repository in which the rebase will be computed and
+    // applied.
     Repository repository = 1 [(target_repository)=true];
+    // user is the user to compute the rebase as. It will be used as
+    // "committer" of rebased commits.
     User user = 2;
+    // rebase_id is an ID which uniquely identifies the rebase. Internally, it
+    // is used to identify the worktree in which the rebase shall be computed.
+    // There cannot be two concurrent calls using the same rebase_id.
     string rebase_id = 3;
+    // branch is the branch onto which the rebase shall happen.
     bytes branch = 4;
+    // branch_sha is the expected object ID which branch currently points to.
+    // This is used as a safety guard to avoid races when branch has been
+    // updated meanwhile.
     string branch_sha = 5;
+    // remote_repository is the repository which contains the branch which
+    // shall be rebased onto the local branch.
     Repository remote_repository = 6;
+    // remote_branch contains the branch name which shall re rebased onto the
+    // local branch.
     bytes remote_branch = 7;
+    // git_push_options contain options which shall be passed to the git hooks
+    // when the local branch gets updated.
     repeated string git_push_options = 8;
   }
 
@@ -426,22 +569,38 @@ message UserRebaseConfirmableResponse {
     // the branch.
     bool rebase_applied = 2;
   }
+  // pre_receive_error contains an error message if the rebase failed because
+  // of an error raised by hooks.
   string pre_receive_error = 3;
+  // git_error contains an error message if git operations have failed.
   string git_error = 4;
 }
 
 message UserSquashRequest {
+  // repository is the repository into which the squashed commit shall be
+  // written.
   Repository repository = 1 [(target_repository)=true];
+  // user is used for authorization checks.
   User user = 2;
+  // squash_id is used as a unique identifier for the squash. Internally, this
+  // is used to identify the worktree in which the squash shall be computed. No
+  // two UserSquash RPCs may run with the same ID.
   string squash_id = 3;
   reserved 4;
+  // start_sha is the object ID of the start commit of the range which shall be
+  // squashed.
   string start_sha = 5;
+  // end_sha is the object ID of the end commit of the range which shall be
+  // squashed.
   string end_sha = 6;
+  // author will be used as the author of the squashed commit.
   User author = 7;
+  // commit_message is the message to be used for the squashed commit.
   bytes commit_message = 8;
 }
 
 message UserSquashResponse {
+  // squash_sha is the object ID of the squashed commit.
   string squash_sha = 1;
   // DEPRECATED: https://gitlab.com/gitlab-org/gitaly/proto/merge_requests/161
   reserved 2;
@@ -450,36 +609,55 @@ message UserSquashResponse {
 }
 
 message UserApplyPatchRequest {
+  // Header contains information about how to apply the patches.
   message Header {
+    // repository is the repository to which the patches shall be applied to.
     Repository repository = 1 [(target_repository)=true];
+    // user is used for authentication.
     User user = 2;
+    // target_branch is the branch onto which the patches shall be applied.
     bytes target_branch = 3;
   }
 
   oneof user_apply_patch_request_payload {
+    // header must be sent as the first message and contains information about
+    // how to apply the patches.
     Header header = 1;
+    // patches contains the patch data.
     bytes patches = 2;
   }
 }
 
 message UserApplyPatchResponse {
+  // branch_update contains information about the updated branch.
   OperationBranchUpdate branch_update = 1;
 }
 
 message UserUpdateSubmoduleRequest {
+  // repository is the repository in which the submodule shall be updated.
   Repository repository = 1 [(target_repository)=true];
+  // user is used both for authorization and as author/committer of the
+  // resulting commit.
   User user = 2;
+  // commit_sha is the object ID the submodule shall be updated to.
   string commit_sha = 3;
+  // branch is the branch which shall be updated.
   bytes branch = 4;
+  // submodule is the path to the submodule which shall be updated.
   bytes submodule = 5;
+  // commit_message is the message updating the submodule.
   bytes commit_message = 6;
 }
 
 message UserUpdateSubmoduleResponse {
+  // branch_update contains information about the updated branch.
   OperationBranchUpdate branch_update = 1;
+  // pre_receive_error contains an error message if the pre-receive hook
+  // rejects the update.
   string pre_receive_error = 2;
   // DEPRECATED: https://gitlab.com/gitlab-org/gitaly/proto/merge_requests/237
   reserved 3;
   reserved "create_tree_error";
+  // commit_error contains an error message if committing the update fails.
   string commit_error = 4;
 }

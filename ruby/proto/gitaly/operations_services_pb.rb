@@ -6,6 +6,10 @@ require 'operations_pb'
 
 module Gitaly
   module OperationService
+    # OperationService provides an interface for performing mutating git
+    # operations on a repository on behalf of a user. The user's operation is
+    # treated as untrusted. Any reference update is thus checked against GitLab's
+    # '/allowed' endpoint.
     class Service
 
       include GRPC::GenericService
@@ -17,25 +21,53 @@ module Gitaly
       rpc :UserCreateBranch, Gitaly::UserCreateBranchRequest, Gitaly::UserCreateBranchResponse
       rpc :UserUpdateBranch, Gitaly::UserUpdateBranchRequest, Gitaly::UserUpdateBranchResponse
       rpc :UserDeleteBranch, Gitaly::UserDeleteBranchRequest, Gitaly::UserDeleteBranchResponse
+      # UserCreateTag creates a new tag.
       rpc :UserCreateTag, Gitaly::UserCreateTagRequest, Gitaly::UserCreateTagResponse
       rpc :UserDeleteTag, Gitaly::UserDeleteTagRequest, Gitaly::UserDeleteTagResponse
+      # UserMergeRef creates a merge commit and updates target_ref to point to that
+      # new commit. The first parent of the merge commit (the main line) is taken
+      # from first_parent_ref. The second parent is specified by its commit ID in source_sha.
+      # If target_ref already exists it will be overwritten.
       rpc :UserMergeToRef, Gitaly::UserMergeToRefRequest, Gitaly::UserMergeToRefResponse
+      # UserMergeBranch tries to merge the given commit into the target branch.
+      # The merge commit is created with the given user as author/committer and
+      # the given message.
+      #
+      # This RPC requires confirmation to make any user-visible changes to the
+      # repository. The first request sent shall contain details about the
+      # requested merge, which will result in a response with the created merge
+      # commit ID. Only if a second message with `apply = true` is sent will the
+      # merge be applied.
       rpc :UserMergeBranch, stream(Gitaly::UserMergeBranchRequest), stream(Gitaly::UserMergeBranchResponse)
       # UserFFBranch tries to perform a fast-forward merge of the given branch to
       # the given commit. If the merge is not a fast-forward merge, the request
       # will fail. The RPC will return an empty response in case updating the
       # reference fails e.g. because of a race.
       rpc :UserFFBranch, Gitaly::UserFFBranchRequest, Gitaly::UserFFBranchResponse
+      # UserCherryPick tries to perform a cherry-pick of a given commit onto a
+      # branch.
       rpc :UserCherryPick, Gitaly::UserCherryPickRequest, Gitaly::UserCherryPickResponse
       # UserCommitFiles builds a commit from a stream of actions and updates the target branch to point to it.
       # UserCommitFilesRequest with a UserCommitFilesRequestHeader must be sent as the first message of the stream.
       # Following that, a variable number of actions can be sent to build a new commit. Each action consists of
       # a header followed by content if used by the action.
       rpc :UserCommitFiles, stream(Gitaly::UserCommitFilesRequest), Gitaly::UserCommitFilesResponse
+      # UserRebaseConfirmable rebases the given remote branch onto a target
+      # branch. The remote branch may be part of another repository.
+      #
+      # This RPC requires confirmation to make any user-visible changes to the
+      # repository. The first request sent shall contains details about the
+      # requested rebase, which will result in a response with the created rebase
+      # commit ID. Only if a second message with `apply = true` is sent will the
+      # rebase be applied.
       rpc :UserRebaseConfirmable, stream(Gitaly::UserRebaseConfirmableRequest), stream(Gitaly::UserRebaseConfirmableResponse)
+      # UserRevert tries to perform a revert of a given commit onto a branch.
       rpc :UserRevert, Gitaly::UserRevertRequest, Gitaly::UserRevertResponse
+      # UserSquash squashes a range of commits into a single commit.
       rpc :UserSquash, Gitaly::UserSquashRequest, Gitaly::UserSquashResponse
+      # UserApplyPatch applies patches to a given branch.
       rpc :UserApplyPatch, stream(Gitaly::UserApplyPatchRequest), Gitaly::UserApplyPatchResponse
+      # UserUpdateSubmodule updates a submodule to point to a new commit.
       rpc :UserUpdateSubmodule, Gitaly::UserUpdateSubmoduleRequest, Gitaly::UserUpdateSubmoduleResponse
     end
 
