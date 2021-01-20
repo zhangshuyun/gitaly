@@ -141,7 +141,7 @@ func TestUserCreateBranchWithTransaction(t *testing.T) {
 	conns := client.NewPool()
 	defer conns.Close()
 
-	server := NewServer(config.Config, RubyServer, hookManager, locator, conns)
+	server := NewServer(config.Config, RubyServer, hookManager, locator, conns, git.NewExecCommandFactory(config.Config))
 
 	gitalypb.RegisterOperationServiceServer(srv.GrpcServer(), server)
 	gitalypb.RegisterHookServiceServer(srv.GrpcServer(), hook.NewServer(config.Config, hookManager))

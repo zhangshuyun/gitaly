@@ -8,6 +8,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
 	"gitlab.com/gitlab-org/gitaly/client"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	gitalyhook "gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
@@ -82,7 +83,7 @@ func runOperationServiceServerWithRubyServer(t *testing.T, ruby *rubyserver.Serv
 
 	locator := config.NewLocator(config.Config)
 	hookManager := gitalyhook.NewManager(locator, gitalyhook.GitlabAPIStub, config.Config)
-	server := NewServer(config.Config, ruby, hookManager, locator, conns)
+	server := NewServer(config.Config, ruby, hookManager, locator, conns, git.NewExecCommandFactory(config.Config))
 
 	gitalypb.RegisterOperationServiceServer(srv.GrpcServer(), server)
 	gitalypb.RegisterHookServiceServer(srv.GrpcServer(), hook.NewServer(config.Config, hookManager))

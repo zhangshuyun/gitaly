@@ -13,7 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
 )
 
-// CommandFactory designed to create and run git commands in a protected and fully managed manner.
+// CommandFactory is designed to create and run git commands in a protected and fully managed manner.
 type CommandFactory interface {
 	// New creates a new command for the repo repository.
 	New(ctx context.Context, repo repository.GitRepo, globals []GlobalOption, sc Cmd, opts ...CmdOpt) (*command.Command, error)
