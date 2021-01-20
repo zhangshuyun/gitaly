@@ -350,14 +350,25 @@ func testUserCreateTagWithTransaction(t *testing.T, ctx context.Context) {
 	for i, testCase := range []struct {
 		desc    string
 		primary bool
+		message string
 	}{
 		{
-			desc:    "primary",
+			desc:    "primary creates a lightweight tag",
 			primary: true,
 		},
 		{
-			desc:    "secondary",
+			desc:    "secondary creates a lightweight tag",
 			primary: false,
+		},
+		{
+			desc:    "primary creates an annotated tag",
+			primary: true,
+			message: "foobar",
+		},
+		{
+			desc:    "secondary creates an annotated tag",
+			primary: false,
+			message: "foobar",
 		},
 	} {
 		t.Run(testCase.desc, func(t *testing.T) {
@@ -373,6 +384,7 @@ func testUserCreateTagWithTransaction(t *testing.T, ctx context.Context) {
 			request := &gitalypb.UserCreateTagRequest{
 				Repository:     testRepo,
 				TagName:        []byte(tagName),
+				Message:        []byte(testCase.message),
 				TargetRevision: []byte(targetRevision),
 				User:           testhelper.TestUser,
 			}
@@ -389,16 +401,23 @@ func testUserCreateTagWithTransaction(t *testing.T, ctx context.Context) {
 			response, err := client.UserCreateTag(ctx, request)
 			require.NoError(t, err)
 
+			targetOID := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "rev-parse", "refs/tags/"+tagName))
+			peeledOID := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "rev-parse", targetOID+"^{commit}"))
+			targetOIDOK := targetOID
+			if len(testCase.message) > 0 {
+				targetOIDOK = peeledOID
+			}
+			require.Equal(t, targetOIDOK, targetRevision)
+
 			testhelper.ProtoEqual(t, &gitalypb.UserCreateTagResponse{
 				Tag: &gitalypb.Tag{
 					Name:         []byte(tagName),
-					Id:           targetRevision,
+					Message:      []byte(testCase.message),
+					MessageSize:  int64(len(testCase.message)),
+					Id:           targetOID,
 					TargetCommit: targetCommit,
 				},
 			}, response)
-
-			tagOID := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "rev-parse", "refs/tags/"+tagName)
-			require.Equal(t, text.ChompBytes(tagOID), targetRevision)
 
 			// Only the primary node should've executed hooks.
 			if testCase.primary {

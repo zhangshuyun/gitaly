@@ -1,0 +1,5 @@
+---
+title: 'operations: Fix hooks running on secondaries when creating annotated tags'
+merge_request: 3022
+author:
+type: fixed

@@ -47,7 +47,7 @@ module Gitlab
         update_ref_in_hooks(ref, tag_target, oldrev, transaction: transaction)
       end
 
-      def add_annotated_tag(tag_name, tag_target, options, transaction: nil)
+      def add_annotated_tag(tag_name, tag_target, transaction, options)
         ref = Gitlab::Git::TAG_REF_PREFIX + tag_name
         oldrev = Gitlab::Git::BLANK_SHA
         annotation = repository.rugged.tags.create_annotation(tag_name, tag_target, options)
