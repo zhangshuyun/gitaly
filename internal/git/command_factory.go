@@ -13,6 +13,16 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
 )
 
+// CommandFactory designed to create and run git commands in a protected and fully managed manner.
+type CommandFactory interface {
+	// New creates a new command for the repo repository.
+	New(ctx context.Context, repo repository.GitRepo, globals []GlobalOption, sc Cmd, opts ...CmdOpt) (*command.Command, error)
+	// NewWithoutRepo creates a command without a target repository.
+	NewWithoutRepo(ctx context.Context, globals []GlobalOption, sc Cmd, opts ...CmdOpt) (*command.Command, error)
+	// NewWithDir creates a command without a target repository that would be executed in dir folder.
+	NewWithDir(ctx context.Context, dir string, globals []GlobalOption, sc Cmd, opts ...CmdOpt) (*command.Command, error)
+}
+
 // ExecCommandFactory knows how to properly construct different types of commands.
 type ExecCommandFactory struct {
 	locator        storage.Locator
@@ -29,6 +39,21 @@ func NewExecCommandFactory(cfg config.Cfg) *ExecCommandFactory {
 		locator:        config.NewLocator(cfg),
 		cgroupsManager: cgroups.NewManager(cfg.Cgroups),
 	}
+}
+
+// New creates a new command for the repo repository.
+func (cf *ExecCommandFactory) New(ctx context.Context, repo repository.GitRepo, globals []GlobalOption, sc Cmd, opts ...CmdOpt) (*command.Command, error) {
+	return NewCommand(ctx, repo, globals, sc, opts...)
+}
+
+// NewWithoutRepo creates a command without a target repository.
+func (cf *ExecCommandFactory) NewWithoutRepo(ctx context.Context, globals []GlobalOption, sc Cmd, opts ...CmdOpt) (*command.Command, error) {
+	return NewCommandWithoutRepo(ctx, globals, sc, opts...)
+}
+
+// NewWithDir creates a command without a target repository that would be executed in dir folder.
+func (cf *ExecCommandFactory) NewWithDir(ctx context.Context, dir string, globals []GlobalOption, sc Cmd, opts ...CmdOpt) (*command.Command, error) {
+	return NewCommandWithDir(ctx, dir, globals, sc, opts...)
 }
 
 func (cf *ExecCommandFactory) gitPath() string {
