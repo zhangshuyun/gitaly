@@ -18,13 +18,14 @@ type subcmd interface {
 }
 
 var subcommands = map[string]subcmd{
-	"apply":     &applySubcommand{},
-	"commit":    commitSubcommand{},
-	"conflicts": &conflicts.Subcommand{},
-	"merge":     &mergeSubcommand{},
-	"revert":    &revertSubcommand{},
-	"resolve":   &resolveSubcommand{},
-	"submodule": &submoduleSubcommand{},
+	"apply":       &applySubcommand{},
+	"cherry-pick": &cherryPickSubcommand{},
+	"commit":      commitSubcommand{},
+	"conflicts":   &conflicts.Subcommand{},
+	"merge":       &mergeSubcommand{},
+	"revert":      &revertSubcommand{},
+	"resolve":     &resolveSubcommand{},
+	"submodule":   &submoduleSubcommand{},
 }
 
 const programName = "gitaly-git2go"
