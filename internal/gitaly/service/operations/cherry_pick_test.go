@@ -2,6 +2,7 @@ package operations
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/golang/protobuf/ptypes/timestamp"
@@ -546,4 +547,75 @@ func testServerUserCherryPickFailedWithConflict(t *testing.T, ctxOuter context.C
 	require.NoError(t, err)
 	require.NotEmpty(t, response.CreateTreeError)
 	require.Equal(t, gitalypb.UserCherryPickResponse_CONFLICT, response.CreateTreeErrorCode)
+}
+
+func TestServer_UserCherryPick_successful_with_given_commits(t *testing.T) {
+	testWithFeature(t, featureflag.GoUserCherryPick, testServerUserCherryPickSuccessfulWithGivenCommits)
+}
+
+func testServerUserCherryPickSuccessfulWithGivenCommits(t *testing.T, ctxOuter context.Context) {
+	serverSocketPath, stop := runOperationServiceServer(t)
+	defer stop()
+
+	client, conn := newOperationClient(t, serverSocketPath)
+	defer conn.Close()
+
+	repoProto, repoPath, cleanup := testhelper.NewTestRepo(t)
+	defer cleanup()
+	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
+
+	testCases := []struct {
+		desc           string
+		startRevision  git.Revision
+		cherryRevision git.Revision
+	}{
+		{
+			desc:           "merge commit",
+			startRevision:  "281d3a76f31c812dbf48abce82ccf6860adedd81",
+			cherryRevision: "6907208d755b60ebeacb2e9dfea74c92c3449a1f",
+		},
+	}
+
+	for i, testCase := range testCases {
+		t.Run(testCase.desc, func(t *testing.T) {
+			md := testhelper.GitalyServersMetadata(t, serverSocketPath)
+
+			mdFromCtx, ok := metadata.FromOutgoingContext(ctxOuter)
+			if ok {
+				md = metadata.Join(md, mdFromCtx)
+			}
+
+			ctx := metadata.NewOutgoingContext(ctxOuter, md)
+
+			destinationBranch := fmt.Sprintf("cherry-picking-%d", i)
+
+			testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", destinationBranch, testCase.startRevision.String())
+
+			commit, err := repo.ReadCommit(ctxOuter, testCase.cherryRevision)
+			require.NoError(t, err)
+
+			request := &gitalypb.UserCherryPickRequest{
+				Repository: repoProto,
+				User:       testhelper.TestUser,
+				Commit:     commit,
+				BranchName: []byte(destinationBranch),
+				Message:    []byte("Cherry-picking " + testCase.cherryRevision.String()),
+			}
+
+			response, err := client.UserCherryPick(ctx, request)
+			require.NoError(t, err)
+
+			newHead, err := repo.ReadCommit(ctx, git.Revision(destinationBranch))
+			require.NoError(t, err)
+
+			expectedResponse := &gitalypb.UserCherryPickResponse{
+				BranchUpdate: &gitalypb.OperationBranchUpdate{CommitId: newHead.Id},
+			}
+
+			testhelper.ProtoEqual(t, expectedResponse, response)
+
+			require.Equal(t, request.Message, newHead.Subject)
+			require.Equal(t, testCase.startRevision.String(), newHead.ParentIds[0])
+		})
+	}
 }
