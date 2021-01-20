@@ -38,13 +38,13 @@ func (s *server) GetRawChanges(req *gitalypb.GetRawChangesRequest, stream gitaly
 }
 
 func validateRawChangesRequest(ctx context.Context, req *gitalypb.GetRawChangesRequest, batch catfile.Batch) error {
-	if from := req.FromRevision; from != git.ZeroOID.String() {
+	if from := req.FromRevision; !git.ObjectID(from).IsZeroOID() {
 		if _, err := batch.Info(ctx, git.Revision(from)); err != nil {
 			return fmt.Errorf("invalid 'from' revision: %q", from)
 		}
 	}
 
-	if to := req.ToRevision; to != git.ZeroOID.String() {
+	if to := req.ToRevision; !git.ObjectID(to).IsZeroOID() {
 		if _, err := batch.Info(ctx, git.Revision(to)); err != nil {
 			return fmt.Errorf("invalid 'to' revision: %q", to)
 		}
@@ -54,11 +54,11 @@ func validateRawChangesRequest(ctx context.Context, req *gitalypb.GetRawChangesR
 }
 
 func getRawChanges(stream gitalypb.RepositoryService_GetRawChangesServer, repo *gitalypb.Repository, batch catfile.Batch, from, to string) error {
-	if to == git.ZeroOID.String() {
+	if git.ObjectID(to).IsZeroOID() {
 		return nil
 	}
 
-	if from == git.ZeroOID.String() {
+	if git.ObjectID(from).IsZeroOID() {
 		from = git.EmptyTreeOID.String()
 	}
 
