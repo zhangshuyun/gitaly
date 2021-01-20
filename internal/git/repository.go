@@ -115,7 +115,7 @@ type Repository interface {
 // LocalRepository represents a local Git repository.
 type LocalRepository struct {
 	repo           repository.GitRepo
-	commandFactory *CommandFactory
+	commandFactory *ExecCommandFactory
 	cfg            config.Cfg
 }
 
@@ -124,7 +124,7 @@ func NewRepository(repo repository.GitRepo, cfg config.Cfg) *LocalRepository {
 	return &LocalRepository{
 		repo:           repo,
 		cfg:            cfg,
-		commandFactory: NewCommandFactory(cfg),
+		commandFactory: NewExecCommandFactory(cfg),
 	}
 }
 

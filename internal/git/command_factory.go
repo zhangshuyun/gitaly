@@ -13,25 +13,25 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
 )
 
-// CommandFactory knows how to properly construct different types of commands.
-type CommandFactory struct {
+// ExecCommandFactory knows how to properly construct different types of commands.
+type ExecCommandFactory struct {
 	locator        storage.Locator
 	cfg            config.Cfg
 	cgroupsManager cgroups.Manager
 }
 
-// NewCommandFactory returns a new instance of initialized CommandFactory.
+// NewExecCommandFactory returns a new instance of initialized ExecCommandFactory.
 // Current implementation relies on the global var 'config.Config' and a single type of 'Locator' we currently have.
 // This dependency will be removed on the next iterations in scope of: https://gitlab.com/gitlab-org/gitaly/-/issues/2699
-func NewCommandFactory(cfg config.Cfg) *CommandFactory {
-	return &CommandFactory{
+func NewExecCommandFactory(cfg config.Cfg) *ExecCommandFactory {
+	return &ExecCommandFactory{
 		cfg:            cfg,
 		locator:        config.NewLocator(cfg),
 		cgroupsManager: cgroups.NewManager(cfg.Cgroups),
 	}
 }
 
-func (cf *CommandFactory) gitPath() string {
+func (cf *ExecCommandFactory) gitPath() string {
 	return cf.cfg.Git.BinPath
 }
 
@@ -40,7 +40,7 @@ func (cf *CommandFactory) gitPath() string {
 // context of that repository. Note that this sets up arguments and environment
 // variables for git, but doesn't run in the directory itself. If a directory
 // is given, then the command will be run in that directory.
-func (cf *CommandFactory) newCommand(ctx context.Context, repo repository.GitRepo, dir string, globals []GlobalOption, sc Cmd, opts ...CmdOpt) (*command.Command, error) {
+func (cf *ExecCommandFactory) newCommand(ctx context.Context, repo repository.GitRepo, dir string, globals []GlobalOption, sc Cmd, opts ...CmdOpt) (*command.Command, error) {
 	cc := &cmdCfg{}
 
 	if err := handleOpts(ctx, sc, cc, opts); err != nil {
