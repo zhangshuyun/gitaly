@@ -119,7 +119,10 @@ func testRepositoryPath(t testing.TB) string {
 
 	path := filepath.Join(filepath.Dir(currentFile), "..", "..", "_build", "testrepos", "gitlab-test.git")
 	if !isValidRepoPath(path) {
-		t.Fatalf("local clone of 'gitlab-org/gitlab-test.git' not found in %q, did you run `make prepare-tests`?", path)
+		makePath := filepath.Join(filepath.Dir(currentFile), "..", "..")
+		makeTarget := "prepare-test-repos"
+		log.Printf("local clone of 'gitlab-org/gitlab-test.git' not found in %q, running `make %v`", path, makeTarget)
+		MustRunCommand(t, nil, "make", "-C", makePath, makeTarget)
 	}
 
 	return path

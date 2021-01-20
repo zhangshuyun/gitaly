@@ -214,7 +214,10 @@ binaries: assemble
 	${Q}cd ${ASSEMBLY_ROOT} && sha256sum bin/* | tee checksums.sha256.txt
 
 .PHONY: prepare-tests
-prepare-tests: git ${TEST_REPO} ${TEST_REPO_GIT} ${SOURCE_DIR}/.ruby-bundle
+prepare-tests: git prepare-test-repos ${SOURCE_DIR}/.ruby-bundle
+
+.PHONY: prepare-test-repos
+prepare-test-repos: ${TEST_REPO} ${TEST_REPO_GIT}
 
 .PHONY: test
 test: test-go rspec
