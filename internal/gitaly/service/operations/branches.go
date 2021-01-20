@@ -118,11 +118,6 @@ func (s *Server) UserDeleteBranch(ctx context.Context, req *gitalypb.UserDeleteB
 		return nil, status.Errorf(codes.InvalidArgument, "Bad Request (empty user)")
 	}
 
-	// Implement UserDeleteBranch in Go
-	if featureflag.IsDisabled(ctx, featureflag.GoUserDeleteBranch) {
-		return s.userDeleteBranchRuby(ctx, req)
-	}
-
 	referenceFmt := "refs/heads/%s"
 	if strings.HasPrefix(string(req.BranchName), "refs/") {
 		// Not the same behavior as UserCreateBranch. This is
@@ -153,18 +148,4 @@ func (s *Server) UserDeleteBranch(ctx context.Context, req *gitalypb.UserDeleteB
 	}
 
 	return &gitalypb.UserDeleteBranchResponse{}, nil
-}
-
-func (s *Server) userDeleteBranchRuby(ctx context.Context, req *gitalypb.UserDeleteBranchRequest) (*gitalypb.UserDeleteBranchResponse, error) {
-	client, err := s.ruby.OperationServiceClient(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	clientCtx, err := rubyserver.SetHeaders(ctx, s.locator, req.GetRepository())
-	if err != nil {
-		return nil, err
-	}
-
-	return client.UserDeleteBranch(clientCtx, req)
 }

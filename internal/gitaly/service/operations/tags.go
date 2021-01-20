@@ -18,27 +18,6 @@ import (
 )
 
 func (s *Server) UserDeleteTag(ctx context.Context, req *gitalypb.UserDeleteTagRequest) (*gitalypb.UserDeleteTagResponse, error) {
-	if featureflag.IsDisabled(ctx, featureflag.GoUserDeleteTag) {
-		return s.UserDeleteTagRuby(ctx, req)
-	}
-	return s.UserDeleteTagGo(ctx, req)
-}
-
-func (s *Server) UserDeleteTagRuby(ctx context.Context, req *gitalypb.UserDeleteTagRequest) (*gitalypb.UserDeleteTagResponse, error) {
-	client, err := s.ruby.OperationServiceClient(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	clientCtx, err := rubyserver.SetHeaders(ctx, s.locator, req.GetRepository())
-	if err != nil {
-		return nil, err
-	}
-
-	return client.UserDeleteTag(clientCtx, req)
-}
-
-func (s *Server) UserDeleteTagGo(ctx context.Context, req *gitalypb.UserDeleteTagRequest) (*gitalypb.UserDeleteTagResponse, error) {
 	if len(req.TagName) == 0 {
 		return nil, status.Errorf(codes.InvalidArgument, "empty tag name")
 	}

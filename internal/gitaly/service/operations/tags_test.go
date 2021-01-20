@@ -23,7 +23,6 @@ import (
 func TestSuccessfulUserDeleteTagRequest(t *testing.T) {
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.ReferenceTransactions,
-		featureflag.GoUserDeleteTag,
 	}).Run(t, testSuccessfulUserDeleteTagRequest)
 }
 
@@ -59,7 +58,6 @@ func testSuccessfulUserDeleteTagRequest(t *testing.T, ctx context.Context) {
 func TestSuccessfulGitHooksForUserDeleteTagRequest(t *testing.T) {
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.ReferenceTransactions,
-		featureflag.GoUserDeleteTag,
 	}).Run(t, testSuccessfulGitHooksForUserDeleteTagRequest)
 }
 
@@ -733,7 +731,6 @@ func testSuccessfulUserCreateTagNestedTags(t *testing.T, ctx context.Context) {
 func TestUserDeleteTagsuccessfulDeletionOfPrefixedTag(t *testing.T) {
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.ReferenceTransactions,
-		featureflag.GoUserDeleteTag,
 	}).Run(t, testUserDeleteTagsuccessfulDeletionOfPrefixedTag)
 }
 
@@ -895,13 +892,9 @@ func testSuccessfulGitHooksForUserCreateTagRequest(t *testing.T, ctx context.Con
 }
 
 func TestFailedUserDeleteTagRequestDueToValidation(t *testing.T) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.GoUserDeleteTag,
-		featureflag.ReferenceTransactions,
-	}).Run(t, testFailedUserDeleteTagRequestDueToValidation)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testFailedUserDeleteTagRequestDueToValidation(t *testing.T, ctx context.Context) {
 	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()
 
@@ -978,7 +971,6 @@ func testFailedUserDeleteTagRequestDueToValidation(t *testing.T, ctx context.Con
 
 func TestFailedUserDeleteTagDueToHooks(t *testing.T) {
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.GoUserDeleteTag,
 		featureflag.ReferenceTransactions,
 	}).Run(t, testFailedUserDeleteTagDueToHooks)
 }
@@ -1240,7 +1232,6 @@ func testFailedUserCreateTagRequestDueToValidation(t *testing.T, ctx context.Con
 
 func TestTagHookOutput(t *testing.T) {
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.GoUserDeleteTag,
 		featureflag.ReferenceTransactions,
 		featureflag.GoUserCreateTag,
 	}).Run(t, testTagHookOutput)
