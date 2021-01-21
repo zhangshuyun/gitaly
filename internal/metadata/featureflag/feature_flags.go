@@ -17,8 +17,6 @@ var (
 	LogCommandStats = FeatureFlag{Name: "log_command_stats", OnByDefault: false}
 	// GoUserFFBranch enables the Go implementation of UserFFBranch
 	GoUserFFBranch = FeatureFlag{Name: "go_user_ff_branch", OnByDefault: false}
-	// GoUserCreateBranch enables the Go implementation of UserCreateBranch
-	GoUserCreateBranch = FeatureFlag{Name: "go_user_create_branch", OnByDefault: true}
 	// GoUserUpdateBranch enables the Go implementation of UserUpdateBranch
 	GoUserUpdateBranch = FeatureFlag{Name: "go_user_update_branch", OnByDefault: false}
 	// GoUserCommitFiles enables the Go implementation of UserCommitFiles
@@ -28,8 +26,6 @@ var (
 	// GoUserUpdateSubmodule enables the Go implementation of
 	// UserUpdateSubmodules
 	GoUserUpdateSubmodule = FeatureFlag{Name: "go_user_update_submodule", OnByDefault: false}
-	// GoUserCreateTag enables the Go implementation of UserCreateTag
-	GoUserCreateTag = FeatureFlag{Name: "go_user_create_tag", OnByDefault: true}
 	// GoUserRevert enables the Go implementation of UserRevert
 	GoUserRevert = FeatureFlag{Name: "go_user_revert", OnByDefault: false}
 
@@ -103,12 +99,10 @@ var All = []FeatureFlag{
 	LogCommandStats,
 	ReferenceTransactions,
 	GoUserFFBranch,
-	GoUserCreateBranch,
 	GoUserUpdateBranch,
 	GoUserCommitFiles,
 	GoResolveConflicts,
 	GoUserUpdateSubmodule,
-	GoUserCreateTag,
 	GoUserRevert,
 	TxApplyBfgObjectMapStream,
 	TxResolveConflicts,

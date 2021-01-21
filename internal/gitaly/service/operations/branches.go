@@ -16,12 +16,6 @@ import (
 )
 
 func (s *Server) UserCreateBranch(ctx context.Context, req *gitalypb.UserCreateBranchRequest) (*gitalypb.UserCreateBranchResponse, error) {
-	if featureflag.IsDisabled(ctx, featureflag.GoUserCreateBranch) {
-		return s.userCreateBranchRuby(ctx, req)
-	}
-
-	// Implement UserCreateBranch in Go
-
 	if len(req.BranchName) == 0 {
 		return nil, status.Errorf(codes.InvalidArgument, "Bad Request (empty branch name)")
 	}
@@ -76,20 +70,6 @@ func (s *Server) UserCreateBranch(ctx context.Context, req *gitalypb.UserCreateB
 			TargetCommit: startPointCommit,
 		},
 	}, nil
-}
-
-func (s *Server) userCreateBranchRuby(ctx context.Context, req *gitalypb.UserCreateBranchRequest) (*gitalypb.UserCreateBranchResponse, error) {
-	client, err := s.ruby.OperationServiceClient(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	clientCtx, err := rubyserver.SetHeaders(ctx, s.locator, req.GetRepository())
-	if err != nil {
-		return nil, err
-	}
-
-	return client.UserCreateBranch(clientCtx, req)
 }
 
 func (s *Server) UserUpdateBranch(ctx context.Context, req *gitalypb.UserUpdateBranchRequest) (*gitalypb.UserUpdateBranchResponse, error) {
