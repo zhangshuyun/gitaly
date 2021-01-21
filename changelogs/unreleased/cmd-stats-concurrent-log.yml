@@ -1,5 +1,0 @@
----
-title: Make command stats logging concurrency-safe
-merge_request: 2956
-author:
-type: other

@@ -1,5 +1,0 @@
----
-title: 'repository: Fix ReplicateRepository returning before RPCs have finished'
-merge_request: 3011
-author:
-type: fixed

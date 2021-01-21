@@ -1,5 +1,0 @@
----
-title: 'operations: Fix Go UserMergeBranch failing with ambiguous references'
-merge_request: 2921
-author:
-type: fixed

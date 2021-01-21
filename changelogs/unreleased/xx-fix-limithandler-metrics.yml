@@ -1,5 +1,0 @@
----
-title: Fix wrongly labeled prometheus metrics for limithandler
-merge_request: 2955
-author:
-type: fixed
