@@ -9,7 +9,10 @@ import (
 	"path/filepath"
 	"strconv"
 	"testing"
+	"time"
 
+	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/log"
@@ -890,6 +893,69 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 	}
 }
 
+func TestUserCommitFiles_stableCommitID(t *testing.T) {
+	testImplementations(t, testUserCommitFilesStableCommitID)
+}
+
+func testUserCommitFilesStableCommitID(t *testing.T, ctx context.Context) {
+	serverSocketPath, stop := runOperationServiceServer(t)
+	defer stop()
+
+	client, conn := newOperationClient(t, serverSocketPath)
+	defer conn.Close()
+
+	repo, repoPath, cleanup := testhelper.InitBareRepo(t)
+	defer cleanup()
+
+	for key, values := range testhelper.GitalyServersMetadata(t, serverSocketPath) {
+		for _, value := range values {
+			ctx = metadata.AppendToOutgoingContext(ctx, key, value)
+		}
+	}
+
+	stream, err := client.UserCommitFiles(ctx)
+	require.NoError(t, err)
+
+	headerRequest := headerRequest(repo, testhelper.TestUser, "master", []byte("commit message"))
+	setAuthorAndEmail(headerRequest, []byte("Author Name"), []byte("author.email@example.com"))
+	setTimestamp(t, headerRequest, time.Unix(12345, 0))
+	require.NoError(t, stream.Send(headerRequest))
+
+	require.NoError(t, stream.Send(createFileHeaderRequest("file.txt")))
+	require.NoError(t, stream.Send(actionContentRequest("content")))
+	resp, err := stream.CloseAndRecv()
+	require.NoError(t, err)
+
+	require.Equal(t, resp.BranchUpdate.CommitId, "4f0ca1fbf05e04dbd5f68d14677034e0afee58ff")
+	require.True(t, resp.BranchUpdate.BranchCreated)
+	require.True(t, resp.BranchUpdate.RepoCreated)
+	testhelper.RequireTree(t, repoPath, "refs/heads/master", []testhelper.TreeEntry{
+		{Mode: "100644", Path: "file.txt", Content: "content"},
+	})
+
+	commit, err := log.GetCommit(ctx, config.NewLocator(config.Config), repo, "refs/heads/master")
+	require.NoError(t, err)
+	require.Equal(t, &gitalypb.GitCommit{
+		Id:       "4f0ca1fbf05e04dbd5f68d14677034e0afee58ff",
+		TreeId:   "541550ddcf8a29bcd80b0800a142a7d47890cfd6",
+		Subject:  []byte("commit message"),
+		Body:     []byte("commit message"),
+		BodySize: 14,
+		Author: &gitalypb.CommitAuthor{
+			Name:     []byte("Author Name"),
+			Email:    []byte("author.email@example.com"),
+			Date:     &timestamp.Timestamp{Seconds: 12345},
+			Timezone: []byte("+0000"),
+		},
+		Committer: &gitalypb.CommitAuthor{
+			Name:     testhelper.TestUser.Name,
+			Email:    testhelper.TestUser.Email,
+			Date:     &timestamp.Timestamp{Seconds: 12345},
+			Timezone: []byte("+0000"),
+		},
+	}, commit)
+}
+
 func TestSuccessfulUserCommitFilesRequest(t *testing.T) {
 	testImplementations(t, testSuccessfulUserCommitFilesRequest)
 }
@@ -1484,6 +1550,12 @@ func setAuthorAndEmail(headerRequest *gitalypb.UserCommitFilesRequest, authorNam
 	header := getHeader(headerRequest)
 	header.CommitAuthorName = authorName
 	header.CommitAuthorEmail = authorEmail
+}
+
+func setTimestamp(t testing.TB, headerRequest *gitalypb.UserCommitFilesRequest, time time.Time) {
+	timestamp, err := ptypes.TimestampProto(time)
+	require.NoError(t, err)
+	getHeader(headerRequest).Timestamp = timestamp
 }
 
 func setStartBranchName(headerRequest *gitalypb.UserCommitFilesRequest, startBranchName []byte) {

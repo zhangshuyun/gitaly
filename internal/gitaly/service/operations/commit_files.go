@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/golang/protobuf/ptypes"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
@@ -323,6 +324,13 @@ func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommi
 	}
 
 	now := time.Now()
+	if header.Timestamp != nil {
+		now, err = ptypes.Timestamp(header.Timestamp)
+		if err != nil {
+			return helper.ErrInvalidArgument(err)
+		}
+	}
+
 	committer := git2go.NewSignature(string(header.User.Name), string(header.User.Email), now)
 	author := committer
 	if len(header.CommitAuthorName) > 0 && len(header.CommitAuthorEmail) > 0 {

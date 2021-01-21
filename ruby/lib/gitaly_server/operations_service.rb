@@ -321,7 +321,8 @@ module GitalyServer
         start_sha: 'start_sha',
         author_name: 'commit_author_name',
         author_email: 'commit_author_email',
-        force: 'force'
+        force: 'force',
+        timestamp: 'timestamp'
       }.transform_values { |v| header[v].presence }
 
       opts.merge(optional_fields)

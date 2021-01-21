@@ -433,7 +433,7 @@ module Gitlab
       # rubocop:disable Metrics/ParameterLists
       def multi_action(user, branch_name:, message:, actions:,
                        author_email: nil, author_name: nil,
-                       start_branch_name: nil, start_sha: nil, start_repository: self, force: false)
+                       start_branch_name: nil, start_sha: nil, start_repository: self, force: false, timestamp: nil)
         OperationService.new(user, self).with_branch(
           branch_name,
           start_branch_name: start_branch_name,
@@ -452,8 +452,8 @@ module Gitlab
 
           actions.each { |opts| index.apply(opts.delete(:action), opts) }
 
-          committer = user_to_committer(user)
-          author = Gitlab::Git.committer_hash(email: author_email, name: author_name) || committer
+          committer = user_to_committer(user, timestamp)
+          author = Gitlab::Git.committer_hash(email: author_email, name: author_name, timestamp: timestamp) || committer
           options = {
             tree: index.write_tree,
             message: message,

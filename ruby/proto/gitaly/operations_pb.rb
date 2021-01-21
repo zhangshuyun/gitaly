@@ -179,6 +179,7 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       optional :start_repository, :message, 8, "gitaly.Repository"
       optional :force, :bool, 9
       optional :start_sha, :string, 10
+      optional :timestamp, :message, 11, "google.protobuf.Timestamp"
     end
     add_message "gitaly.UserCommitFilesRequest" do
       oneof :user_commit_files_request_payload do
