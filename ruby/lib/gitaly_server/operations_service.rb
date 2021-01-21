@@ -2,68 +2,6 @@ module GitalyServer
   class OperationsService < Gitaly::OperationService::Service
     include Utils
 
-    def user_create_tag(request, call)
-      repo = Gitlab::Git::Repository.from_gitaly(request.repository, call)
-      transaction = Praefect::Transaction.from_metadata(call.metadata)
-
-      gitaly_user = get_param!(request, :user)
-      user = Gitlab::Git::User.from_gitaly(gitaly_user)
-
-      tag_name = get_param!(request, :tag_name)
-
-      target_revision = get_param!(request, :target_revision)
-      timestamp = request.timestamp
-
-      created_tag = repo.add_tag(tag_name, user: user, target: target_revision, message: request.message.presence, timestamp: timestamp, transaction: transaction)
-      Gitaly::UserCreateTagResponse.new unless created_tag
-
-      # We can create tags pointing to non-commits, but there is no
-      # space in the UserCreateTagResponse{} for anything except
-      # TargetCommit, which should point to a Commit object.
-      #
-      # So we *do* support creating it. But if we don't have a commit
-      # we limp along here and fake up "commit" to be "nil" in this
-      # case, anything else would be a protocol error. We check that
-      # here because "dereferenced_target" is the equivalent of
-      # ^{commit}.
-      dereferenced_commit = created_tag.dereferenced_target
-      if dereferenced_commit
-        rugged_commit = dereferenced_commit.rugged_commit
-        commit = gitaly_commit_from_rugged(rugged_commit)
-      end
-
-      tag = gitaly_tag_from_gitlab_tag(created_tag, commit)
-
-      Gitaly::UserCreateTagResponse.new(tag: tag)
-    rescue Gitlab::Git::Repository::InvalidRef => e
-      raise GRPC::FailedPrecondition.new(e.message)
-    rescue Gitlab::Git::Repository::TagExistsError
-      Gitaly::UserCreateTagResponse.new(exists: true)
-    rescue Gitlab::Git::PreReceiveError => e
-      Gitaly::UserCreateTagResponse.new(pre_receive_error: set_utf8!(e.message))
-    end
-
-    def user_create_branch(request, call)
-      repo = Gitlab::Git::Repository.from_gitaly(request.repository, call)
-      target = get_param!(request, :start_point)
-      gitaly_user = get_param!(request, :user)
-      transaction = Praefect::Transaction.from_metadata(call.metadata)
-
-      branch_name = request.branch_name
-      user = Gitlab::Git::User.from_gitaly(gitaly_user)
-      created_branch = repo.add_branch(branch_name, user: user, target: target, transaction: transaction)
-      Gitaly::UserCreateBranchResponse.new unless created_branch
-
-      rugged_commit = created_branch.dereferenced_target.rugged_commit
-      commit = gitaly_commit_from_rugged(rugged_commit)
-      branch = Gitaly::Branch.new(name: branch_name, target_commit: commit)
-      Gitaly::UserCreateBranchResponse.new(branch: branch)
-    rescue Gitlab::Git::Repository::InvalidRef, Gitlab::Git::CommitError => ex
-      raise GRPC::FailedPrecondition.new(ex.message)
-    rescue Gitlab::Git::PreReceiveError => ex
-      Gitaly::UserCreateBranchResponse.new(pre_receive_error: set_utf8!(ex.message))
-    end
-
     def user_update_branch(request, call)
       repo = Gitlab::Git::Repository.from_gitaly(request.repository, call)
       branch_name = get_param!(request, :branch_name)
