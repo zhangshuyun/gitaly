@@ -278,13 +278,6 @@ format: ${GOIMPORTS} ${GITALYFMT}
 	${Q}${GITALYFMT} -w $(call find_go_sources)
 	${Q}${GOIMPORTS} -w -l $(call find_go_sources)
 
-.PHONY: staticcheck-deprecations
-staticcheck-deprecations: ${GOLANGCI_LINT}
-	${Q}${GOLANGCI_LINT} run --build-tags "${GO_BUILD_TAGS}" --out-format tab --config ${SOURCE_DIR}/_support/golangci.warnings.yml
-
-.PHONY: lint-warnings
-lint-warnings: staticcheck-deprecations
-
 .PHONY: notice-up-to-date
 notice-up-to-date: ${BUILD_DIR}/NOTICE
 	${Q}(cmp ${BUILD_DIR}/NOTICE ${SOURCE_DIR}/NOTICE) || (echo >&2 "NOTICE requires update: 'make notice'" && false)
