@@ -17,8 +17,8 @@ module Gitlab
           raise ListError, e
         end
 
-        def resolve_conflicts(source_repository, resolution, source_branch:, target_branch:)
-          rugged_resolve_conflicts(source_repository, resolution, source_branch, target_branch)
+        def resolve_conflicts(source_repository, resolution, source_branch:, target_branch:, timestamp: nil)
+          rugged_resolve_conflicts(source_repository, resolution, source_branch, target_branch, timestamp: timestamp)
         end
 
         def conflict_for_path(conflicts, old_path, new_path)
@@ -67,7 +67,7 @@ module Gitlab
           conflict_files(@target_repository, target_index)
         end
 
-        def rugged_resolve_conflicts(source_repository, resolution, source_branch, target_branch)
+        def rugged_resolve_conflicts(source_repository, resolution, source_branch, target_branch, timestamp: nil)
           source_repository.with_repo_branch_commit(@target_repository, target_branch) do
             index = source_repository.rugged.merge_commits(@our_commit_oid, @their_commit_oid)
             conflicts = conflict_files(source_repository, index)
@@ -89,7 +89,7 @@ module Gitlab
               parents: [@our_commit_oid, @their_commit_oid]
             }
 
-            source_repository.commit_index(resolution.user, source_branch, index, commit_params)
+            source_repository.commit_index(resolution.user, source_branch, index, commit_params, timestamp)
           end
         end
       end

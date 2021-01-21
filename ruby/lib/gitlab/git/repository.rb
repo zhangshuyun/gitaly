@@ -596,8 +596,8 @@ module Gitlab
         rugged.rev_parse(oid_or_ref_name)
       end
 
-      def commit_index(user, branch_name, index, options)
-        committer = user_to_committer(user)
+      def commit_index(user, branch_name, index, options, timestamp = nil)
+        committer = user_to_committer(user, timestamp)
 
         OperationService.new(user, self).with_branch(branch_name) do
           commit_params = options.merge(

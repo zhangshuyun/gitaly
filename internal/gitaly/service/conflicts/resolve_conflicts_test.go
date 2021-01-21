@@ -6,6 +6,7 @@ import (
 	"net"
 	"testing"
 
+	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
@@ -27,6 +28,25 @@ var (
 		GlId:  "user-1",
 	}
 	conflictResolutionCommitMessage = "Solve conflicts"
+
+	files = []map[string]interface{}{
+		{
+			"old_path": "files/ruby/popen.rb",
+			"new_path": "files/ruby/popen.rb",
+			"sections": map[string]string{
+				"2f6fcd96b88b36ce98c38da085c795a27d92a3dd_14_14": "head",
+			},
+		},
+		{
+			"old_path": "files/ruby/regex.rb",
+			"new_path": "files/ruby/regex.rb",
+			"sections": map[string]string{
+				"6eb14e00385d2fb284765eb1cd8d420d33d63fc9_9_9":   "head",
+				"6eb14e00385d2fb284765eb1cd8d420d33d63fc9_21_21": "origin",
+				"6eb14e00385d2fb284765eb1cd8d420d33d63fc9_49_49": "origin",
+			},
+		},
+	}
 )
 
 func TestSuccessfulResolveConflictsRequest(t *testing.T) {
@@ -56,24 +76,6 @@ func testSuccessfulResolveConflictsRequest(t *testing.T, ctx context.Context) {
 	mdFF, _ := metadata.FromOutgoingContext(ctx)
 	ctx = metadata.NewOutgoingContext(ctx, metadata.Join(mdGS, mdFF))
 
-	files := []map[string]interface{}{
-		{
-			"old_path": "files/ruby/popen.rb",
-			"new_path": "files/ruby/popen.rb",
-			"sections": map[string]string{
-				"2f6fcd96b88b36ce98c38da085c795a27d92a3dd_14_14": "head",
-			},
-		},
-		{
-			"old_path": "files/ruby/regex.rb",
-			"new_path": "files/ruby/regex.rb",
-			"sections": map[string]string{
-				"6eb14e00385d2fb284765eb1cd8d420d33d63fc9_9_9":   "head",
-				"6eb14e00385d2fb284765eb1cd8d420d33d63fc9_21_21": "origin",
-				"6eb14e00385d2fb284765eb1cd8d420d33d63fc9_49_49": "origin",
-			},
-		},
-	}
 	filesJSON, err := json.Marshal(files)
 	require.NoError(t, err)
 
@@ -120,6 +122,85 @@ func testSuccessfulResolveConflictsRequest(t *testing.T, ctx context.Context) {
 	require.Equal(t, string(headCommit.Author.Email), "johndoe@gitlab.com")
 	require.Equal(t, string(headCommit.Committer.Email), "johndoe@gitlab.com")
 	require.Equal(t, string(headCommit.Subject), conflictResolutionCommitMessage)
+}
+
+func TestResolveConflicts_stableID(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.GoResolveConflicts,
+	}).Run(t, func(t *testing.T, ctx context.Context) {
+		testResolveConflictsStableID(t, ctx)
+	})
+}
+
+func testResolveConflictsStableID(t *testing.T, ctx context.Context) {
+	serverSocketPath, clean := runFullServer(t)
+	defer clean()
+
+	client, conn := conflicts.NewConflictsClient(t, serverSocketPath)
+	defer conn.Close()
+
+	repo, _, cleanupFn := testhelper.NewTestRepo(t)
+	defer cleanupFn()
+
+	md := testhelper.GitalyServersMetadata(t, serverSocketPath)
+	ctx = testhelper.MergeOutgoingMetadata(ctx, md)
+
+	stream, err := client.ResolveConflicts(ctx)
+	require.NoError(t, err)
+
+	require.NoError(t, stream.Send(&gitalypb.ResolveConflictsRequest{
+		ResolveConflictsRequestPayload: &gitalypb.ResolveConflictsRequest_Header{
+			Header: &gitalypb.ResolveConflictsRequestHeader{
+				Repository:       repo,
+				TargetRepository: repo,
+				CommitMessage:    []byte(conflictResolutionCommitMessage),
+				OurCommitOid:     "1450cd639e0bc6721eb02800169e464f212cde06",
+				TheirCommitOid:   "824be604a34828eb682305f0d963056cfac87b2d",
+				SourceBranch:     []byte("conflict-resolvable"),
+				TargetBranch:     []byte("conflict-start"),
+				User:             user,
+				Timestamp:        &timestamp.Timestamp{Seconds: 12345},
+			},
+		},
+	}))
+
+	filesJSON, err := json.Marshal(files)
+	require.NoError(t, err)
+	require.NoError(t, stream.Send(&gitalypb.ResolveConflictsRequest{
+		ResolveConflictsRequestPayload: &gitalypb.ResolveConflictsRequest_FilesJson{
+			FilesJson: filesJSON,
+		},
+	}))
+
+	response, err := stream.CloseAndRecv()
+	require.NoError(t, err)
+	require.Empty(t, response.GetResolutionError())
+
+	resolvedCommit, err := log.GetCommit(ctx, config.NewLocator(config.Config), repo, git.Revision("conflict-resolvable"))
+	require.NoError(t, err)
+	require.Equal(t, &gitalypb.GitCommit{
+		Id:     "a5ad028fd739d7a054b07c293e77c5b7aecc2435",
+		TreeId: "febd97e4a09e71355a513d7e0b0b3808e2dabd28",
+		ParentIds: []string{
+			"1450cd639e0bc6721eb02800169e464f212cde06",
+			"824be604a34828eb682305f0d963056cfac87b2d",
+		},
+		Subject:  []byte(conflictResolutionCommitMessage),
+		Body:     []byte(conflictResolutionCommitMessage),
+		BodySize: 15,
+		Author: &gitalypb.CommitAuthor{
+			Name:     user.Name,
+			Email:    user.Email,
+			Date:     &timestamp.Timestamp{Seconds: 12345},
+			Timezone: []byte("+0000"),
+		},
+		Committer: &gitalypb.CommitAuthor{
+			Name:     user.Name,
+			Email:    user.Email,
+			Date:     &timestamp.Timestamp{Seconds: 12345},
+			Timezone: []byte("+0000"),
+		},
+	}, resolvedCommit)
 }
 
 func TestFailedResolveConflictsRequestDueToResolutionError(t *testing.T) {

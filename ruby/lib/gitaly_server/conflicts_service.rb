@@ -24,7 +24,8 @@ module GitalyServer
         resolution = Gitlab::Git::Conflict::Resolution.new(user, files, header.commit_message.dup)
         params = {
           source_branch: header.source_branch,
-          target_branch: header.target_branch
+          target_branch: header.target_branch,
+          timestamp: header.timestamp
         }
         resolver.resolve_conflicts(repo, resolution, params)
 
