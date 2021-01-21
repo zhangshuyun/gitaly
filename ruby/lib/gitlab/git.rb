@@ -68,7 +68,7 @@ module Gitlab
         self.ref_name(ref) if self.branch_ref?(ref)
       end
 
-      def committer_hash(email:, name:)
+      def committer_hash(email:, name:, timestamp: nil)
         return if email.nil? || name.nil?
 
         # Git strips newlines and angle brackets silently.
@@ -76,11 +76,12 @@ module Gitlab
         # See upstream issue https://github.com/libgit2/libgit2/issues/5342
         email = email.delete("\n<>")
         name = name.delete("\n<>")
+        time = timestamp ? Time.at(timestamp.seconds, timestamp.nanos, :nsec, in: "+00:00") : Time.now
 
         {
           email: email,
           name: name,
-          time: Time.now
+          time: time
         }
       end
 

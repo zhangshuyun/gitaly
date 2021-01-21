@@ -554,8 +554,8 @@ module Gitlab
         nil
       end
 
-      def user_to_committer(user)
-        Gitlab::Git.committer_hash(email: user.email, name: user.name)
+      def user_to_committer(user, timestamp = nil)
+        Gitlab::Git.committer_hash(email: user.email, name: user.name, timestamp: timestamp)
       end
 
       def write_ref(ref_path, ref, old_ref: nil)
