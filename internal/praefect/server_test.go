@@ -613,7 +613,7 @@ func (m *mockSmartHTTP) InfoRefsUploadPack(req *gitalypb.InfoRefsRequest, stream
 		m.methodsCalled = make(map[string]int)
 	}
 
-	m.methodsCalled["InfoRefsUploadPack"] += 1
+	m.methodsCalled["InfoRefsUploadPack"]++
 
 	stream.Send(&gitalypb.InfoRefsResponse{})
 	return nil
@@ -626,7 +626,7 @@ func (m *mockSmartHTTP) InfoRefsReceivePack(req *gitalypb.InfoRefsRequest, strea
 		m.methodsCalled = make(map[string]int)
 	}
 
-	m.methodsCalled["InfoRefsReceivePack"] += 1
+	m.methodsCalled["InfoRefsReceivePack"]++
 
 	stream.Send(&gitalypb.InfoRefsResponse{})
 	return nil
@@ -639,7 +639,7 @@ func (m *mockSmartHTTP) PostUploadPack(stream gitalypb.SmartHTTPService_PostUplo
 		m.methodsCalled = make(map[string]int)
 	}
 
-	m.methodsCalled["PostUploadPack"] += 1
+	m.methodsCalled["PostUploadPack"]++
 
 	stream.Send(&gitalypb.PostUploadPackResponse{})
 	return nil
@@ -652,7 +652,7 @@ func (m *mockSmartHTTP) PostReceivePack(stream gitalypb.SmartHTTPService_PostRec
 		m.methodsCalled = make(map[string]int)
 	}
 
-	m.methodsCalled["PostReceivePack"] += 1
+	m.methodsCalled["PostReceivePack"]++
 
 	var err error
 	var req *gitalypb.PostReceivePackRequest

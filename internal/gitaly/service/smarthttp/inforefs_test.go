@@ -371,7 +371,7 @@ func TestCacheInfoRefsUploadPack(t *testing.T) {
 		streamer: cache.NewStreamDB(cache.NewLeaseKeyer(config.NewLocator(config.Config))),
 		putStream: func(context.Context, *gitalypb.Repository, proto.Message, io.Reader) error {
 			happened = true
-			return errors.New("oh nos!")
+			return errors.New("oopsie")
 		},
 	})
 

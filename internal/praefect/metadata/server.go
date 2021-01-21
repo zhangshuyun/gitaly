@@ -118,7 +118,8 @@ func (p *PraefectServer) resolvePraefectAddress(peer *peer.Peer) error {
 
 		return nil
 	case *net.TCPAddr:
-		if peer.AuthInfo == nil {
+		switch peer.AuthInfo {
+		case nil:
 			// no transport security being used
 			addr, err := substituteListeningWithIP(p.ListenAddr, addr.IP.String())
 			if err != nil {
@@ -130,7 +131,7 @@ func (p *PraefectServer) resolvePraefectAddress(peer *peer.Peer) error {
 			p.SocketPath = ""
 
 			return nil
-		} else {
+		default:
 			authType := peer.AuthInfo.AuthType()
 			if authType != (credentials.TLSInfo{}).AuthType() {
 				return fmt.Errorf("resolvePraefectAddress: got TCP peer but with unknown transport security type %q", authType)

@@ -98,7 +98,7 @@ func (cmd resolveSubcommand) Run(_ context.Context, r io.Reader, w io.Writer) er
 		if !ok {
 			// Note: this emulates the Ruby error that occurs when
 			// there are no conflicts for a resolution
-			return errors.New("NoMethodError: undefined method `resolve_lines' for nil:NilClass") //nolint
+			return errors.New("NoMethodError: undefined method `resolve_lines' for nil:NilClass")
 		}
 
 		switch {

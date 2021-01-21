@@ -322,7 +322,6 @@ func (s *Server) userMergeToRef(ctx context.Context, request *gitalypb.UserMerge
 		if errors.Is(err, git2go.ErrInvalidArgument) {
 			return nil, helper.ErrInvalidArgument(err)
 		}
-		//nolint:stylecheck
 		return nil, helper.ErrPreconditionFailedf("Failed to create merge commit for source_sha %s and target_sha %s at %s", sourceRef, oid, string(request.TargetRef))
 	}
 
