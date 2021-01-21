@@ -1,5 +1,0 @@
----
-title: 'grpc: raise minimum TLS version to 1.2'
-merge_request: 2985
-author:
-type: security

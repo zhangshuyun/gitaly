@@ -1,5 +1,0 @@
----
-title: 'repository: Short-circuit fetches when objects exist already'
-merge_request: 2980
-author:
-type: performance

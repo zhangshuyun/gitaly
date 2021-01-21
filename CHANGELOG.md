@@ -1,5 +1,56 @@
 # Gitaly changelog
 
+## 13.8.0 (2021-01-22)
+
+### Security (2 changes)
+
+- Bump actionpack gem to 6.0.3.4. !2982
+- grpc: raise minimum TLS version to 1.2. !2985
+
+### Removed (2 changes)
+
+- Removal of ruby implementation of the FetchRemote. !2967
+- Removal of ruby implementation of the UserSquash. !2968
+
+### Fixed (8 changes)
+
+- operations: Fix Go UserMergeBranch failing with ambiguous references. !2921
+- hooks: Correctly filter environment variables for custom hooks. !2933
+- Fix wrongly labeled prometheus metrics for limithandler. !2955
+- Fix internal API errors not being passed back to UserMergeBranch. !2987
+- repository: Silence progress meter of FetchSourceBranch. !2991
+- operations: Fix UserFFBranch if called on an ambiguous reference. !2992
+- Fix ResolveConflicts file limit error. !3004
+- repository: Fix ReplicateRepository returning before RPCs have finished. !3011
+
+### Changed (6 changes)
+
+- praefect: intercept CreateRepository* RPCs to populate database. !2873
+- Support repository specific primaries and host assignments in dataloss. !2890
+- Port UserCreateTag to Go. !2911
+- Drop unused assigned column. !2972
+- Enable feature flag go_user_delete_{branch,tag} by default. !2994
+- FindCommit[s]: add a Trailers boolean flag to do %(trailers) work. !2999
+
+### Performance (5 changes)
+
+- Don't query for primary for read operations. !2909
+- Feature flag gitaly_distributed_reads enabled by default. !2960
+- featureflags: Enable Go implementation of UserMergeBranch by default. !2976
+- repository: Short-circuit fetches when objects exist already. !2980
+- Disable ref tx hooks for FetchRemote calls. !3002
+
+### Added (3 changes)
+
+- Parse Git commit trailers when processing commits. !2842
+- Add information about whether tags were updated to the FetchRemote RPC. !2901
+- objectpool: Count normal references when collecting stats. !2993
+
+### Other (1 change)
+
+- Make command stats logging concurrency-safe. !2956
+
+
 ## 13.7.4 (2021-01-13)
 
 - No changes.

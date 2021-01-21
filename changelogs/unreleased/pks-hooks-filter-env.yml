@@ -1,5 +1,0 @@
----
-title: 'hooks: Correctly filter environment variables for custom hooks'
-merge_request: 2933
-author:
-type: fixed

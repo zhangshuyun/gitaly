@@ -1,5 +1,0 @@
----
-title: 'repository: Silence progress meter of FetchSourceBranch'
-merge_request: 2991
-author:
-type: fixed
