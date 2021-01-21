@@ -7,7 +7,9 @@ import (
 	"io"
 	"log"
 	"os"
+	"os/exec"
 	"strconv"
+	"strings"
 
 	"github.com/sirupsen/logrus"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
@@ -23,8 +25,10 @@ import (
 	"google.golang.org/grpc"
 )
 
+var logger *gitalylog.HookLogger
+
 func main() {
-	var logger = gitalylog.NewHookLogger()
+	logger = gitalylog.NewHookLogger()
 
 	if len(os.Args) < 2 {
 		logger.Fatalf("requires hook name. args: %v", os.Args)
@@ -190,6 +194,16 @@ func main() {
 		}, f, os.Stdout, os.Stderr); err != nil {
 			logger.Fatalf("error when receiving data for %q: %v", subCmd, err)
 		}
+	case "git":
+		var args []string
+		for _, a := range os.Args[2:] {
+			args = append(args, fixFilterQuoteBug(a))
+		}
+
+		hookStatus = 0
+		if fallBackGit(args) != nil {
+			hookStatus = 1
+		}
 	default:
 		logger.Fatalf("subcommand name invalid: %q", subCmd)
 	}
@@ -254,4 +268,47 @@ func check(configPath string) (*hook.CheckInfo, error) {
 	}
 
 	return hook.NewManager(config.NewLocator(cfg), gitlabAPI, cfg).Check(context.TODO())
+}
+
+// This is a workaround for a bug in Git:
+// https://gitlab.com/gitlab-org/git/-/issues/82. Once that bug is fixed
+// we should no longer need this. The fix function is harmless if the bug
+// is not present.
+func fixFilterQuoteBug(arg string) string {
+	const prefix = "--filter='"
+
+	if !(strings.HasPrefix(arg, prefix) && strings.HasSuffix(arg, "'")) {
+		return arg
+	}
+
+	filterSpec := arg[len(prefix) : len(arg)-1]
+
+	// Perform the inverse of sq_quote_buf() in quote.c. The surrounding quotes
+	// are already gone, we now need to undo escaping of ! and '. The escape
+	// patterns are '\!' and '\'' respectively.
+	filterSpec = strings.ReplaceAll(filterSpec, `'\!'`, `!`)
+	filterSpec = strings.ReplaceAll(filterSpec, `'\''`, `'`)
+
+	return "--filter=" + filterSpec
+}
+
+func fallBackGit(args []string) error {
+	gitCmd := exec.Command(os.Getenv("GITALY_GIT_BIN_PATH"), args...)
+	gitCmd.Stdin = os.Stdin
+	gitCmd.Stdout = os.Stdout
+	gitCmd.Stderr = os.Stderr
+
+	entry := logger.Logger().WithFields(logrus.Fields{
+		"args": args,
+	})
+	const message = "local git command"
+
+	err := gitCmd.Run()
+	if err != nil {
+		entry.WithError(err).Error(message)
+	} else {
+		entry.Info(message)
+	}
+
+	return err
 }

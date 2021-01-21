@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"path/filepath"
 	"sync"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
@@ -14,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/inspect"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/streamio"
 )
@@ -83,6 +85,11 @@ func (s *server) sshUploadPack(stream gitalypb.SSHService_SSHUploadPackServer, r
 		globalOpts[i] = git.ValueFlag{"-c", o}
 	}
 
+	if featureflag.IsEnabled(ctx, featureflag.UploadPackGitalyHooks) {
+		hookBin := filepath.Join(s.cfg.BinDir, "gitaly-hooks")
+		globalOpts = append(globalOpts, git.ValueFlag{"-c", "uploadpack.packObjectsHook=" + hookBin})
+	}
+
 	pr, pw := io.Pipe()
 	defer pw.Close()
 	stdin = io.TeeReader(stdin, pw)
@@ -106,7 +113,10 @@ func (s *server) sshUploadPack(stream gitalypb.SSHService_SSHUploadPackServer, r
 	cmd, monitor, err := monitorStdinCommand(ctx, stdin, stdout, stderr, globalOpts, git.SubCmd{
 		Name: "upload-pack",
 		Args: []string{repoPath},
-	}, git.WithGitProtocol(ctx, req))
+	},
+		git.WithGitProtocol(ctx, req),
+		git.WithPackObjectsHookEnv(ctx, req.Repository, s.cfg),
+	)
 
 	if err != nil {
 		return err
