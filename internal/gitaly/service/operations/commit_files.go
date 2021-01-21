@@ -322,22 +322,17 @@ func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommi
 		}
 	}
 
-	authorName := header.User.Name
-	if len(header.CommitAuthorName) > 0 {
-		authorName = header.CommitAuthorName
+	now := time.Now()
+	committer := git2go.NewSignature(string(header.User.Name), string(header.User.Email), now)
+	author := committer
+	if len(header.CommitAuthorName) > 0 && len(header.CommitAuthorEmail) > 0 {
+		author = git2go.NewSignature(string(header.CommitAuthorName), string(header.CommitAuthorEmail), now)
 	}
-
-	authorEmail := header.User.Email
-	if len(header.CommitAuthorEmail) > 0 {
-		authorEmail = header.CommitAuthorEmail
-	}
-
-	signature := git2go.NewSignature(string(authorName), string(authorEmail), time.Now())
 
 	commitID, err := s.git2go.Commit(ctx, git2go.CommitParams{
 		Repository: repoPath,
-		Author:     signature,
-		Committer:  signature,
+		Author:     author,
+		Committer:  committer,
 		Message:    string(header.CommitMessage),
 		Parent:     parentCommitOID,
 		Actions:    actions,
