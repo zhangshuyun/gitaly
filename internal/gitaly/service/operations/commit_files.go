@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
@@ -141,6 +142,17 @@ func (s *Server) UserCommitFiles(stream gitalypb.OperationService_UserCommitFile
 func validatePath(rootPath, relPath string) (string, error) {
 	if relPath == "" {
 		return "", indexError("You must provide a file path")
+	} else if strings.Contains(relPath, "//") {
+		// This is a workaround to address a quirk in porting the RPC from Ruby to Go.
+		// GitLab's QA pipeline runs tests with filepath 'invalid://file/name/here'.
+		// Go's filepath.Clean returns 'invalid:/file/name/here'. The Ruby implementation's
+		// filepath normalization accepted the path as is. Adding a file with this path to the
+		// index via Rugged failed with an invalid path error. As Go's cleaning resulted a valid
+		// filepath, adding the file succeeded, which made the QA pipeline's specs fail.
+		//
+		// The Rails code expects to receive an error prefixed with 'invalid path', which is done
+		// here to retain compatibility.
+		return "", indexError(fmt.Sprintf("invalid path: '%s'", relPath))
 	}
 
 	path, err := storage.ValidateRelativePath(rootPath, relPath)
