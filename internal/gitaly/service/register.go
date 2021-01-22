@@ -25,6 +25,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/server"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/smarthttp"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/ssh"
+	txservice "gitlab.com/gitlab-org/gitaly/internal/gitaly/service/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/wiki"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
@@ -96,6 +97,7 @@ func RegisterAll(
 	gitalypb.RegisterObjectPoolServiceServer(grpcServer, objectpool.NewServer(cfg, locator, gitCmdFactory))
 	gitalypb.RegisterHookServiceServer(grpcServer, hook.NewServer(cfg, hookManager, gitCmdFactory))
 	gitalypb.RegisterInternalGitalyServer(grpcServer, internalgitaly.NewServer(cfg.Storages))
+	gitalypb.RegisterRefTransactionServer(grpcServer, txservice.NewServer())
 
 	healthpb.RegisterHealthServer(grpcServer, health.NewServer())
 	reflection.Register(grpcServer)
