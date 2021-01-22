@@ -2,6 +2,7 @@ package git
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os/exec"
 
@@ -13,25 +14,56 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
 )
 
-// CommandFactory knows how to properly construct different types of commands.
-type CommandFactory struct {
+// CommandFactory is designed to create and run git commands in a protected and fully managed manner.
+type CommandFactory interface {
+	// New creates a new command for the repo repository.
+	New(ctx context.Context, repo repository.GitRepo, globals []GlobalOption, sc Cmd, opts ...CmdOpt) (*command.Command, error)
+	// NewWithoutRepo creates a command without a target repository.
+	NewWithoutRepo(ctx context.Context, globals []GlobalOption, sc Cmd, opts ...CmdOpt) (*command.Command, error)
+	// NewWithDir creates a command without a target repository that would be executed in dir directory.
+	NewWithDir(ctx context.Context, dir string, globals []GlobalOption, sc Cmd, opts ...CmdOpt) (*command.Command, error)
+}
+
+// ExecCommandFactory knows how to properly construct different types of commands.
+type ExecCommandFactory struct {
 	locator        storage.Locator
 	cfg            config.Cfg
 	cgroupsManager cgroups.Manager
 }
 
-// NewCommandFactory returns a new instance of initialized CommandFactory.
+// NewExecCommandFactory returns a new instance of initialized ExecCommandFactory.
 // Current implementation relies on the global var 'config.Config' and a single type of 'Locator' we currently have.
 // This dependency will be removed on the next iterations in scope of: https://gitlab.com/gitlab-org/gitaly/-/issues/2699
-func NewCommandFactory(cfg config.Cfg) *CommandFactory {
-	return &CommandFactory{
+func NewExecCommandFactory(cfg config.Cfg) *ExecCommandFactory {
+	return &ExecCommandFactory{
 		cfg:            cfg,
 		locator:        config.NewLocator(cfg),
 		cgroupsManager: cgroups.NewManager(cfg.Cgroups),
 	}
 }
 
-func (cf *CommandFactory) gitPath() string {
+// New creates a new command for the repo repository.
+func (cf *ExecCommandFactory) New(ctx context.Context, repo repository.GitRepo, globals []GlobalOption, sc Cmd, opts ...CmdOpt) (*command.Command, error) {
+	return NewCommand(ctx, repo, globals, sc, opts...)
+}
+
+// NewWithoutRepo creates a command without a target repository.
+func (cf *ExecCommandFactory) NewWithoutRepo(ctx context.Context, globals []GlobalOption, sc Cmd, opts ...CmdOpt) (*command.Command, error) {
+	return NewCommandWithoutRepo(ctx, globals, sc, opts...)
+}
+
+// NewWithDir creates a new command.Command whose working directory is set
+// to dir. Arguments are validated before the command is being run. It is
+// invalid to use an empty directory.
+func (cf *ExecCommandFactory) NewWithDir(ctx context.Context, dir string, globals []GlobalOption, sc Cmd, opts ...CmdOpt) (*command.Command, error) {
+	if dir == "" {
+		return nil, errors.New("no 'dir' provided")
+	}
+
+	return cf.newCommand(ctx, nil, dir, globals, sc, opts...)
+}
+
+func (cf *ExecCommandFactory) gitPath() string {
 	return cf.cfg.Git.BinPath
 }
 
@@ -40,7 +72,7 @@ func (cf *CommandFactory) gitPath() string {
 // context of that repository. Note that this sets up arguments and environment
 // variables for git, but doesn't run in the directory itself. If a directory
 // is given, then the command will be run in that directory.
-func (cf *CommandFactory) newCommand(ctx context.Context, repo repository.GitRepo, dir string, globals []GlobalOption, sc Cmd, opts ...CmdOpt) (*command.Command, error) {
+func (cf *ExecCommandFactory) newCommand(ctx context.Context, repo repository.GitRepo, dir string, globals []GlobalOption, sc Cmd, opts ...CmdOpt) (*command.Command, error) {
 	cc := &cmdCfg{}
 
 	if err := handleOpts(ctx, sc, cc, opts); err != nil {

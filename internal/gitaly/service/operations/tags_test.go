@@ -316,7 +316,7 @@ func testUserCreateTagWithTransaction(t *testing.T, ctx context.Context) {
 	conns := client.NewPool()
 	defer conns.Close()
 
-	operationServer := NewServer(config.Config, RubyServer, hookManager, locator, conns)
+	operationServer := NewServer(config.Config, RubyServer, hookManager, locator, conns, git.NewExecCommandFactory(config.Config))
 	hookServer := hook.NewServer(config.Config, hookManager)
 	transactionServer := &testTransactionServer{}
 

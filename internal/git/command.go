@@ -332,7 +332,7 @@ var (
 // NewCommand creates a command.Command with the given args and Repository. It
 // validates the arguments in the command before executing.
 func NewCommand(ctx context.Context, repo repository.GitRepo, globals []GlobalOption, sc Cmd, opts ...CmdOpt) (*command.Command, error) {
-	return NewCommandFactory(config.Config).newCommand(ctx, repo, "", globals, sc, opts...)
+	return NewExecCommandFactory(config.Config).newCommand(ctx, repo, "", globals, sc, opts...)
 }
 
 // NewCommandWithoutRepo creates a command.Command with the given args. It is not
@@ -340,16 +340,5 @@ func NewCommand(ctx context.Context, repo repository.GitRepo, globals []GlobalOp
 // commands which do not require a git repository or which accept a repository
 // path as parameter like e.g. git-upload-pack(1).
 func NewCommandWithoutRepo(ctx context.Context, globals []GlobalOption, sc Cmd, opts ...CmdOpt) (*command.Command, error) {
-	return NewCommandFactory(config.Config).newCommand(ctx, nil, "", globals, sc, opts...)
-}
-
-// NewCommandWithDir creates a new command.Command whose working directory is set
-// to dir. Arguments are validated before the command is being run. It is
-// invalid to use an empty directory.
-func NewCommandWithDir(ctx context.Context, dir string, globals []GlobalOption, sc Cmd, opts ...CmdOpt) (*command.Command, error) {
-	if dir == "" {
-		return nil, errors.New("no 'dir' provided")
-	}
-
-	return NewCommandFactory(config.Config).newCommand(ctx, nil, dir, globals, sc, opts...)
+	return NewExecCommandFactory(config.Config).newCommand(ctx, nil, "", globals, sc, opts...)
 }

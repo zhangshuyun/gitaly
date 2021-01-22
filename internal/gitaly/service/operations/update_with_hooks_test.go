@@ -55,7 +55,7 @@ func TestUpdateReferenceWithHooks_invalidParameters(t *testing.T) {
 
 	revA, revB := strings.Repeat("a", 40), strings.Repeat("b", 40)
 
-	server := NewServer(config.Config, nil, &mockHookManager{}, nil, nil)
+	server := NewServer(config.Config, nil, &mockHookManager{}, nil, nil, nil)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -261,7 +261,7 @@ func TestUpdateReferenceWithHooks(t *testing.T) {
 				referenceTransaction: tc.referenceTransaction,
 			}
 
-			hookServer := NewServer(config.Config, nil, hookManager, nil, nil)
+			hookServer := NewServer(config.Config, nil, hookManager, nil, nil, nil)
 
 			err := hookServer.updateReferenceWithHooks(ctx, repo, user, "refs/heads/master", git.ZeroOID.String(), oldRev)
 			if tc.expectedErr == "" {

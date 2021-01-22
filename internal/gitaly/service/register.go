@@ -6,6 +6,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"gitlab.com/gitlab-org/gitaly/client"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	gitalyhook "gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
@@ -74,7 +75,7 @@ func RegisterAll(grpcServer *grpc.Server, cfg config.Cfg, rubyServer *rubyserver
 	gitalypb.RegisterCommitServiceServer(grpcServer, commit.NewServer(cfg, locator))
 	gitalypb.RegisterDiffServiceServer(grpcServer, diff.NewServer(locator))
 	gitalypb.RegisterNamespaceServiceServer(grpcServer, namespace.NewServer(locator))
-	gitalypb.RegisterOperationServiceServer(grpcServer, operations.NewServer(cfg, rubyServer, hookManager, locator, conns))
+	gitalypb.RegisterOperationServiceServer(grpcServer, operations.NewServer(cfg, rubyServer, hookManager, locator, conns, git.NewExecCommandFactory(cfg)))
 	gitalypb.RegisterRefServiceServer(grpcServer, ref.NewServer(cfg, locator))
 	gitalypb.RegisterRepositoryServiceServer(grpcServer, repository.NewServer(cfg, rubyServer, locator))
 	gitalypb.RegisterSSHServiceServer(grpcServer, ssh.NewServer(
