@@ -29,17 +29,22 @@ func (s *server) FetchRemote(ctx context.Context, req *gitalypb.FetchRemoteReque
 	}
 
 	var stderr bytes.Buffer
-	opts := git.FetchOpts{Stderr: &stderr, Force: req.Force, Prune: true, Tags: git.FetchOptsTagsAll, Verbose: req.GetCheckTagsChanged()}
+	opts := git.FetchOpts{
+		Stderr:  &stderr,
+		Force:   req.Force,
+		Prune:   !req.NoPrune,
+		Tags:    git.FetchOptsTagsAll,
+		Verbose: req.GetCheckTagsChanged(),
+	}
 
 	if req.GetNoTags() {
 		opts.Tags = git.FetchOptsTagsNone
 	}
 
 	repo := git.NewRepository(req.GetRepository(), s.cfg)
-	params := req.GetRemoteParams()
 	remoteName := req.GetRemote()
 
-	if params != nil {
+	if params := req.GetRemoteParams(); params != nil {
 		remoteName = params.GetName()
 		remoteURL := params.GetUrl()
 		refspecs := s.getRefspecs(params.GetMirrorRefmaps())
@@ -65,10 +70,6 @@ func (s *server) FetchRemote(ctx context.Context, req *gitalypb.FetchRemoteReque
 		for _, refspec := range refspecs {
 			opts.Global = append(opts.Global, git.ConfigPair{Key: "remote." + remoteName + ".fetch", Value: refspec})
 		}
-
-		opts.Global = append(opts.Global,
-			git.ConfigPair{Key: "remote." + remoteName + ".prune", Value: "true"},
-		)
 
 		if params.GetHttpAuthorizationHeader() != "" {
 			client, err := s.ruby.RepositoryServiceClient(ctx)
