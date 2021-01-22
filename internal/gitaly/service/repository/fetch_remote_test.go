@@ -13,6 +13,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
@@ -71,6 +72,52 @@ func TestFetchRemoteSuccess(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	require.Equal(t, resp.TagsChanged, true)
+}
+
+func TestFetchRemote_withDefaultRefmaps(t *testing.T) {
+	locator := config.NewLocator(config.Config)
+	serverSocketPath, stop := runRepoServer(t, locator, testhelper.WithInternalSocket(config.Config))
+	defer stop()
+
+	client, conn := newRepositoryClient(t, serverSocketPath)
+	defer conn.Close()
+
+	sourceRepoProto, sourceRepoPath, cleanup := testhelper.NewTestRepo(t)
+	defer cleanup()
+	sourceRepo := git.NewRepository(sourceRepoProto, config.Config)
+
+	targetRepoProto, targetRepoPath := copyRepoWithNewRemote(t, sourceRepoProto, locator, "my-remote")
+	defer func() {
+		require.NoError(t, os.RemoveAll(targetRepoPath))
+	}()
+	targetRepo := git.NewRepository(targetRepoProto, config.Config)
+
+	port, stopGitServer := testhelper.GitServer(t, config.Config, sourceRepoPath, nil)
+	defer func() { require.NoError(t, stopGitServer()) }()
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	require.NoError(t, sourceRepo.UpdateRef(ctx, "refs/heads/foobar", "refs/heads/master", ""))
+
+	// With no refmap given, FetchRemote should fall back to
+	// "refs/heads/*:refs/heads/*" and thus mirror what's in the source
+	// repository.
+	resp, err := client.FetchRemote(ctx, &gitalypb.FetchRemoteRequest{
+		Repository: targetRepoProto,
+		RemoteParams: &gitalypb.Remote{
+			Url:  fmt.Sprintf("http://127.0.0.1:%d/%s", port, filepath.Base(sourceRepoPath)),
+			Name: "my-remote",
+		},
+	})
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+
+	sourceRefs, err := sourceRepo.GetReferences(ctx, "")
+	require.NoError(t, err)
+	targetRefs, err := targetRepo.GetReferences(ctx, "")
+	require.NoError(t, err)
+	require.Equal(t, sourceRefs, targetRefs)
 }
 
 func TestFetchRemoteFailure(t *testing.T) {

@@ -203,6 +203,10 @@ func (s *server) validateFetchRemoteRequest(req *gitalypb.FetchRemoteRequest) er
 }
 
 func (s *server) getRefspecs(refmaps []string) []string {
+	if len(refmaps) == 0 {
+		return []string{"+refs/*:refs/*"}
+	}
+
 	refspecs := make([]string, 0, len(refmaps))
 
 	for _, refmap := range refmaps {
