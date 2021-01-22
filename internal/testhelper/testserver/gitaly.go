@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	internalauth "gitlab.com/gitlab-org/gitaly/internal/gitaly/config/auth"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
@@ -43,6 +44,8 @@ func registerGitalyServices(server *grpc.Server, pg PartialGitaly) {
 // services. This is intended to be used in integration tests to validate
 // Gitaly services.
 func RealGitaly(storages []config.Storage, authToken, internalSocketPath string) PartialGitaly {
+	locator := config.NewLocator(config.Config)
+	gitCmdFactory := git.NewExecCommandFactory(config.Config)
 	return struct {
 		gitalypb.ServerServiceServer
 		gitalypb.RepositoryServiceServer
@@ -51,9 +54,9 @@ func RealGitaly(storages []config.Storage, authToken, internalSocketPath string)
 		healthpb.HealthServer
 	}{
 		gitalyserver.NewServer(storages),
-		repository.NewServer(config.Config, RubyServer, config.NewLocator(config.Config)),
+		repository.NewServer(config.Config, RubyServer, locator, gitCmdFactory),
 		internalgitaly.NewServer(config.Config.Storages),
-		commit.NewServer(config.Config, config.NewLocator(config.Config)),
+		commit.NewServer(config.Config, locator),
 		health.NewServer(),
 	}
 }

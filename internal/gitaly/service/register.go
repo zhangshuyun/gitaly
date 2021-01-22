@@ -65,7 +65,7 @@ func registerMetrics(cfg config.Cfg) {
 
 // RegisterAll will register all the known grpc services with
 // the specified grpc service instance
-func RegisterAll(grpcServer *grpc.Server, cfg config.Cfg, rubyServer *rubyserver.Server, hookManager gitalyhook.Manager, locator storage.Locator, conns *client.Pool) {
+func RegisterAll(grpcServer *grpc.Server, cfg config.Cfg, rubyServer *rubyserver.Server, hookManager gitalyhook.Manager, locator storage.Locator, conns *client.Pool, gitCmdFactory git.CommandFactory) {
 	once.Do(func() {
 		registerMetrics(cfg)
 	})
@@ -77,7 +77,7 @@ func RegisterAll(grpcServer *grpc.Server, cfg config.Cfg, rubyServer *rubyserver
 	gitalypb.RegisterNamespaceServiceServer(grpcServer, namespace.NewServer(locator))
 	gitalypb.RegisterOperationServiceServer(grpcServer, operations.NewServer(cfg, rubyServer, hookManager, locator, conns, git.NewExecCommandFactory(cfg)))
 	gitalypb.RegisterRefServiceServer(grpcServer, ref.NewServer(cfg, locator))
-	gitalypb.RegisterRepositoryServiceServer(grpcServer, repository.NewServer(cfg, rubyServer, locator))
+	gitalypb.RegisterRepositoryServiceServer(grpcServer, repository.NewServer(cfg, rubyServer, locator, gitCmdFactory))
 	gitalypb.RegisterSSHServiceServer(grpcServer, ssh.NewServer(
 		locator,
 		ssh.WithPackfileNegotiationMetrics(sshPackfileNegotiationMetrics),
@@ -90,7 +90,7 @@ func RegisterAll(grpcServer *grpc.Server, cfg config.Cfg, rubyServer *rubyserver
 	gitalypb.RegisterConflictsServiceServer(grpcServer, conflicts.NewServer(rubyServer, cfg, locator))
 	gitalypb.RegisterRemoteServiceServer(grpcServer, remote.NewServer(cfg, rubyServer, locator))
 	gitalypb.RegisterServerServiceServer(grpcServer, server.NewServer(cfg.Storages))
-	gitalypb.RegisterObjectPoolServiceServer(grpcServer, objectpool.NewServer(cfg, locator))
+	gitalypb.RegisterObjectPoolServiceServer(grpcServer, objectpool.NewServer(cfg, locator, gitCmdFactory))
 	gitalypb.RegisterHookServiceServer(grpcServer, hook.NewServer(cfg, hookManager))
 	gitalypb.RegisterInternalGitalyServer(grpcServer, internalgitaly.NewServer(cfg.Storages))
 

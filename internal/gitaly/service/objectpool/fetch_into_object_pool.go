@@ -16,7 +16,7 @@ func (s *server) FetchIntoObjectPool(ctx context.Context, req *gitalypb.FetchInt
 		return nil, helper.ErrInvalidArgument(err)
 	}
 
-	objectPool, err := objectpool.FromProto(s.cfg, s.locator, req.GetObjectPool())
+	objectPool, err := objectpool.FromProto(s.cfg, s.locator, s.gitCmdFactory, req.GetObjectPool())
 	if err != nil {
 		return nil, helper.ErrInvalidArgument(fmt.Errorf("object pool invalid: %v", err))
 	}

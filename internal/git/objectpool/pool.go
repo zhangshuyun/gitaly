@@ -32,10 +32,11 @@ const ErrInvalidPoolDir errString = "invalid object pool directory"
 // live in a pool in a distinct repository which is used as an alternate object
 // store for other repositories.
 type ObjectPool struct {
-	cfg         config.Cfg
-	locator     storage.Locator
-	storageName string
-	storagePath string
+	cfg           config.Cfg
+	locator       storage.Locator
+	gitCmdFactory git.CommandFactory
+	storageName   string
+	storagePath   string
 
 	relativePath string
 }
@@ -43,7 +44,7 @@ type ObjectPool struct {
 // NewObjectPool will initialize the object with the required data on the storage
 // shard. Relative path is validated to match the expected naming and directory
 // structure. If the shard cannot be found, this function returns an error.
-func NewObjectPool(cfg config.Cfg, locator storage.Locator, storageName, relativePath string) (pool *ObjectPool, err error) {
+func NewObjectPool(cfg config.Cfg, locator storage.Locator, gitCmdFactory git.CommandFactory, storageName, relativePath string) (pool *ObjectPool, err error) {
 	storagePath, err := locator.GetStorageByName(storageName)
 	if err != nil {
 		return nil, err
@@ -54,7 +55,14 @@ func NewObjectPool(cfg config.Cfg, locator storage.Locator, storageName, relativ
 		return nil, ErrInvalidPoolDir
 	}
 
-	return &ObjectPool{cfg: cfg, locator: locator, storageName: storageName, storagePath: storagePath, relativePath: relativePath}, nil
+	return &ObjectPool{
+		cfg:           cfg,
+		locator:       locator,
+		gitCmdFactory: gitCmdFactory,
+		storageName:   storageName,
+		storagePath:   storagePath,
+		relativePath:  relativePath,
+	}, nil
 }
 
 // GetGitAlternateObjectDirectories for object pools are empty, given pools are
@@ -120,7 +128,7 @@ func (o *ObjectPool) Init(ctx context.Context) (err error) {
 		return nil
 	}
 
-	cmd, err := git.NewCommandWithoutRepo(ctx, nil,
+	cmd, err := o.gitCmdFactory.NewWithoutRepo(ctx, nil,
 		git.SubCmd{
 			Name: "init",
 			Flags: []git.Option{
@@ -137,7 +145,7 @@ func (o *ObjectPool) Init(ctx context.Context) (err error) {
 }
 
 // FromRepo returns an instance of ObjectPool that the repository points to
-func FromRepo(cfg config.Cfg, locator storage.Locator, repo *gitalypb.Repository) (*ObjectPool, error) {
+func FromRepo(cfg config.Cfg, locator storage.Locator, gitCmdFactory git.CommandFactory, repo *gitalypb.Repository) (*ObjectPool, error) {
 	dir, err := getAlternateObjectDir(locator, repo)
 	if err != nil {
 		return nil, err
@@ -157,7 +165,7 @@ func FromRepo(cfg config.Cfg, locator storage.Locator, repo *gitalypb.Repository
 		return nil, err
 	}
 
-	return NewObjectPool(cfg, locator, repo.GetStorageName(), filepath.Dir(altPathRelativeToStorage))
+	return NewObjectPool(cfg, locator, gitCmdFactory, repo.GetStorageName(), filepath.Dir(altPathRelativeToStorage))
 }
 
 var (

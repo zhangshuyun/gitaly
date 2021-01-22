@@ -9,7 +9,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/objectpool"
 	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
@@ -47,7 +46,7 @@ func (s *server) CloneFromPoolInternal(ctx context.Context, req *gitalypb.CloneF
 		return nil, helper.ErrInternalf("fetch internal remote failed")
 	}
 
-	objectPool, err := objectpool.FromProto(s.cfg, config.NewLocator(s.cfg), req.GetPool())
+	objectPool, err := objectpool.FromProto(s.cfg, s.locator, s.gitCmdFactory, req.GetPool())
 	if err != nil {
 		return nil, helper.ErrInternalf("get object pool from request: %v", err)
 	}
@@ -69,7 +68,7 @@ func (s *server) validateCloneFromPoolInternalRequestRepositoryState(req *gitaly
 		return errors.New("target reopsitory already exists")
 	}
 
-	objectPool, err := objectpool.FromProto(s.cfg, config.NewLocator(s.cfg), req.GetPool())
+	objectPool, err := objectpool.FromProto(s.cfg, s.locator, s.gitCmdFactory, req.GetPool())
 	if err != nil {
 		return fmt.Errorf("getting object pool from repository: %v", err)
 	}

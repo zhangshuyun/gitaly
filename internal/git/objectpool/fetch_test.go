@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
@@ -18,7 +19,7 @@ func TestFetchFromOriginDangling(t *testing.T) {
 	source, _, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
 
-	pool, err := NewObjectPool(config.Config, config.NewLocator(config.Config), source.StorageName, testhelper.NewTestObjectPoolName(t))
+	pool, err := NewObjectPool(config.Config, config.NewLocator(config.Config), git.NewExecCommandFactory(config.Config), source.StorageName, testhelper.NewTestObjectPoolName(t))
 	require.NoError(t, err)
 
 	ctx, cancel := testhelper.Context()
@@ -90,7 +91,7 @@ func TestFetchFromOriginDeltaIslands(t *testing.T) {
 	source, sourcePath, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
 
-	pool, err := NewObjectPool(config.Config, config.NewLocator(config.Config), source.StorageName, testhelper.NewTestObjectPoolName(t))
+	pool, err := NewObjectPool(config.Config, config.NewLocator(config.Config), git.NewExecCommandFactory(config.Config), source.StorageName, testhelper.NewTestObjectPoolName(t))
 	require.NoError(t, err)
 
 	ctx, cancel := testhelper.Context()
@@ -116,7 +117,7 @@ func TestFetchFromOriginBitmapHashCache(t *testing.T) {
 	source, _, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
 
-	pool, err := NewObjectPool(config.Config, config.NewLocator(config.Config), source.StorageName, testhelper.NewTestObjectPoolName(t))
+	pool, err := NewObjectPool(config.Config, config.NewLocator(config.Config), git.NewExecCommandFactory(config.Config), source.StorageName, testhelper.NewTestObjectPoolName(t))
 	require.NoError(t, err)
 
 	ctx, cancel := testhelper.Context()
@@ -145,7 +146,7 @@ func TestFetchFromOriginRefUpdates(t *testing.T) {
 	source, sourcePath, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
 
-	pool, err := NewObjectPool(config.Config, config.NewLocator(config.Config), source.StorageName, testhelper.NewTestObjectPoolName(t))
+	pool, err := NewObjectPool(config.Config, config.NewLocator(config.Config), git.NewExecCommandFactory(config.Config), source.StorageName, testhelper.NewTestObjectPoolName(t))
 	require.NoError(t, err)
 	poolPath := pool.FullPath()
 
