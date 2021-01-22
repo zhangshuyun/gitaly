@@ -56,7 +56,7 @@ func TestSuccessfulMerge(t *testing.T) {
 	mergeBidi, err := client.UserMergeBranch(ctx)
 	require.NoError(t, err)
 
-	prepareMergeBranch(t, testRepoPath)
+	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", mergeBranchName, mergeBranchHeadBefore)
 
 	hooks := GitlabHooks
 	hookTempfiles := make([]string, len(hooks))
@@ -144,7 +144,7 @@ func TestSuccessfulMerge_stableMergeIDs(t *testing.T) {
 	mergeBidi, err := client.UserMergeBranch(ctx)
 	require.NoError(t, err)
 
-	prepareMergeBranch(t, testRepoPath)
+	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", mergeBranchName, mergeBranchHeadBefore)
 
 	firstRequest := &gitalypb.UserMergeBranchRequest{
 		Repository: testRepo,
@@ -214,7 +214,7 @@ func TestAbortedMerge(t *testing.T) {
 	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
-	prepareMergeBranch(t, testRepoPath)
+	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", mergeBranchName, mergeBranchHeadBefore)
 
 	firstRequest := &gitalypb.UserMergeBranchRequest{
 		Repository: testRepo,
@@ -290,7 +290,7 @@ func TestFailedMergeConcurrentUpdate(t *testing.T) {
 	mergeBidi, err := client.UserMergeBranch(ctx)
 	require.NoError(t, err)
 
-	prepareMergeBranch(t, testRepoPath)
+	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", mergeBranchName, mergeBranchHeadBefore)
 
 	mergeCommitMessage := "Merged by Gitaly"
 	firstRequest := &gitalypb.UserMergeBranchRequest{
@@ -337,7 +337,7 @@ func TestUserMergeBranch_ambiguousReference(t *testing.T) {
 	merge, err := client.UserMergeBranch(ctx)
 	require.NoError(t, err)
 
-	prepareMergeBranch(t, testRepoPath)
+	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", mergeBranchName, mergeBranchHeadBefore)
 
 	repo := git.NewRepository(testRepo, config.Config)
 
@@ -403,7 +403,7 @@ func TestFailedMergeDueToHooks(t *testing.T) {
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	prepareMergeBranch(t, testRepoPath)
+	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", mergeBranchName, mergeBranchHeadBefore)
 
 	hookContent := []byte("#!/bin/sh\necho 'failure'\nexit 1")
 
@@ -699,7 +699,7 @@ func TestSuccessfulUserMergeToRefRequest(t *testing.T) {
 	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
-	prepareMergeBranch(t, testRepoPath)
+	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", mergeBranchName, mergeBranchHeadBefore)
 
 	existingTargetRef := []byte("refs/merge-requests/x/written")
 	emptyTargetRef := []byte("refs/merge-requests/x/merge")
@@ -808,7 +808,7 @@ func TestConflictsOnUserMergeToRefRequest(t *testing.T) {
 	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
-	prepareMergeBranchWithHead(t, testRepoPath, "824be604a34828eb682305f0d963056cfac87b2d")
+	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", mergeBranchName, "824be604a34828eb682305f0d963056cfac87b2d")
 
 	request := &gitalypb.UserMergeToRefRequest{
 		Repository:     testRepo,
@@ -858,7 +858,7 @@ func TestUserMergeToRef_stableMergeID(t *testing.T) {
 	testRepo, testRepoPath, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
 
-	prepareMergeBranch(t, testRepoPath)
+	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", mergeBranchName, mergeBranchHeadBefore)
 
 	response, err := client.UserMergeToRef(ctx, &gitalypb.UserMergeToRefRequest{
 		Repository:     testRepo,
@@ -914,7 +914,7 @@ func TestFailedUserMergeToRefRequest(t *testing.T) {
 	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
-	prepareMergeBranch(t, testRepoPath)
+	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", mergeBranchName, mergeBranchHeadBefore)
 
 	validTargetRef := []byte("refs/merge-requests/x/merge")
 
@@ -1016,7 +1016,7 @@ func TestUserMergeToRefIgnoreHooksRequest(t *testing.T) {
 	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
-	prepareMergeBranch(t, testRepoPath)
+	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", mergeBranchName, mergeBranchHeadBefore)
 
 	targetRef := []byte("refs/merge-requests/x/merge")
 	mergeCommitMessage := "Merged by Gitaly"
@@ -1042,20 +1042,6 @@ func TestUserMergeToRefIgnoreHooksRequest(t *testing.T) {
 			require.Empty(t, resp.PreReceiveError)
 		})
 	}
-}
-
-func prepareMergeBranch(t *testing.T, testRepoPath string) {
-	prepareMergeBranchWithHead(t, testRepoPath, mergeBranchHeadBefore)
-}
-
-func prepareMergeBranchWithHead(t *testing.T, testRepoPath, mergeBranchHead string) {
-	deleteBranch(testRepoPath, mergeBranchName)
-	out, err := exec.Command(config.Config.Git.BinPath, "-C", testRepoPath, "branch", mergeBranchName, mergeBranchHead).CombinedOutput()
-	require.NoError(t, err, "set up branch to merge into: %s", out)
-}
-
-func deleteBranch(testRepoPath, branchName string) {
-	exec.Command(config.Config.Git.BinPath, "-C", testRepoPath, "branch", "-D", branchName).Run()
 }
 
 // This error is used as a sentinel value

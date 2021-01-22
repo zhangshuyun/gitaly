@@ -1046,18 +1046,6 @@ issues:
         - errcheck
       path: "internal/middleware/limithandler/concurrency_limiter_test.go"
       text: "Error return value of `limiter.Limit` is not checked"
-    - linters:
-        - errcheck
-      path: "internal/gitaly/service/operations/branches_test.go"
-      text: "Error return value of `\\(\\*os/exec\\.Cmd\\).Run` is not checked"
-    - linters:
-        - errcheck
-      path: "internal/gitaly/service/operations/merge_test.go"
-      text: "Error return value of `\\(\\*os/exec\\.Cmd\\).Run` is not checked"
-    - linters:
-        - errcheck
-      path: "internal/gitaly/service/operations/tags_test.go"
-      text: "Error return value of `\\(\\*os/exec\\.Cmd\\).Run` is not checked"
     ## END errcheck exclusions
     ##
     # govet checks all struct initializations must be keyed by field names
