@@ -56,3 +56,8 @@ func ValidateObjectID(id string) error {
 
 	return fmt.Errorf("%w: %q", ErrInvalidObjectID, id)
 }
+
+// IsZeroOID is a shortcut for `something == git.ZeroOID.String()`
+func (oid ObjectID) IsZeroOID() bool {
+	return string(oid) == string(ZeroOID)
+}

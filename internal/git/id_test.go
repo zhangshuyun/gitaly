@@ -104,3 +104,26 @@ func TestNewObjectIDFromHex(t *testing.T) {
 		})
 	}
 }
+
+func TestIsZeroOID(t *testing.T) {
+	for _, tc := range []struct {
+		desc   string
+		oid    ObjectID
+		isZero bool
+	}{
+		{
+			desc:   "zero object ID",
+			oid:    ZeroOID,
+			isZero: true,
+		},
+		{
+			desc:   "zero object ID",
+			oid:    EmptyTreeOID,
+			isZero: false,
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			require.Equal(t, tc.isZero, tc.oid.IsZeroOID())
+		})
+	}
+}
