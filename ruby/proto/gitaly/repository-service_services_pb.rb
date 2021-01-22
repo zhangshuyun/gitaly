@@ -22,6 +22,8 @@ module Gitaly
       rpc :WriteCommitGraph, Gitaly::WriteCommitGraphRequest, Gitaly::WriteCommitGraphResponse
       rpc :RepositorySize, Gitaly::RepositorySizeRequest, Gitaly::RepositorySizeResponse
       rpc :ApplyGitattributes, Gitaly::ApplyGitattributesRequest, Gitaly::ApplyGitattributesResponse
+      # FetchRemote fetches references from a remote repository into the local
+      # repository.
       rpc :FetchRemote, Gitaly::FetchRemoteRequest, Gitaly::FetchRemoteResponse
       rpc :CreateRepository, Gitaly::CreateRepositoryRequest, Gitaly::CreateRepositoryResponse
       rpc :GetArchive, Gitaly::GetArchiveRequest, stream(Gitaly::GetArchiveResponse)
