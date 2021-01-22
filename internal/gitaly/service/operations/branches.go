@@ -126,11 +126,6 @@ func (s *Server) userUpdateBranchGo(ctx context.Context, req *gitalypb.UserUpdat
 	}
 
 	referenceName := fmt.Sprintf("refs/heads/%s", req.BranchName)
-	referenceValue, err := git.NewRepository(req.Repository, s.cfg).GetReference(ctx, git.ReferenceName(referenceName))
-	if err != nil && !errors.Is(err, git.ErrReferenceNotFound) {
-		return nil, status.Error(codes.Internal, err.Error())
-	}
-
 	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, referenceName, string(req.Newrev), string(req.Oldrev)); err != nil {
 		var preReceiveError preReceiveError
 		if errors.As(err, &preReceiveError) {
@@ -139,29 +134,13 @@ func (s *Server) userUpdateBranchGo(ctx context.Context, req *gitalypb.UserUpdat
 			}, nil
 		}
 
-		couldNotUpdateError := status.Errorf(codes.FailedPrecondition, "Could not update %s. Please refresh and try again.", req.BranchName)
-		var updateRefError updateRefError
-		if errors.As(err, &updateRefError) {
-			if !git.ObjectID(req.Oldrev).IsZeroOID() &&
-				!git.ObjectID(referenceValue.Target).IsZeroOID() {
-				// An oddball response for
-				// compatibility with the old Ruby
-				// code. The "Could not update..."
-				// message is exactly like the default
-				// updateRefError, except we say
-				// "branch-name", not
-				// "refs/heads/branch-name". See the
-				// "Gitlab::Git::CommitError" case in
-				// the Ruby code.
-				return nil, couldNotUpdateError
-			}
-
-			// Ditto Gitlab::Git::CommitError case in Ruby
-			return nil, couldNotUpdateError
-		}
-
-		// Ditto Gitlab::Git::CommitError case in Ruby
-		return nil, couldNotUpdateError
+		// An oddball response for compatibility with the old
+		// Ruby code. The "Could not update..."  message is
+		// exactly like the default updateRefError, except we
+		// say "branch-name", not
+		// "refs/heads/branch-name". See the
+		// "Gitlab::Git::CommitError" case in the Ruby code.
+		return nil, status.Errorf(codes.FailedPrecondition, "Could not update %s. Please refresh and try again.", req.BranchName)
 	}
 
 	return &gitalypb.UserUpdateBranchResponse{}, nil
