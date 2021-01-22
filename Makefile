@@ -426,9 +426,6 @@ ${LIBGIT2_INSTALL_DIR}/lib/libgit2.a: ${BUILD_DIR}/Makefile.sha256
 	${Q}CMAKE_BUILD_PARALLEL_LEVEL=$(shell nproc) cmake --build ${LIBGIT2_BUILD_DIR} --target install
 	go install -a github.com/libgit2/git2go/${GIT2GO_VERSION}
 
-${GOIMPORTS}: ${BUILD_DIR}/Makefile.sha256 ${BUILD_DIR}/go.mod
-	${Q}cd ${BUILD_DIR} && go get golang.org/x/tools/cmd/goimports@2538eef75904eff384a2551359968e40c207d9d2
-
 ifeq (${GIT_USE_PREBUILT_BINARIES},)
 ${GIT_INSTALL_DIR}/bin/git: ${BUILD_DIR}/Makefile.sha256
 	${Q}rm -rf ${GIT_SOURCE_DIR} ${GIT_INSTALL_DIR}
@@ -453,6 +450,9 @@ ${GITALYFMT}: | ${BUILD_DIR}/bin
 
 ${PROTOC_GEN_GITALY}: proto | ${BUILD_DIR}/bin
 	${Q}go build -o $@ ${SOURCE_DIR}/proto/go/internal/cmd/protoc-gen-gitaly
+
+${GOIMPORTS}: ${BUILD_DIR}/Makefile.sha256 ${BUILD_DIR}/go.mod
+	${Q}cd ${BUILD_DIR} && go get golang.org/x/tools/cmd/goimports@2538eef75904eff384a2551359968e40c207d9d2
 
 ${GOCOVER_COBERTURA}: ${BUILD_DIR}/Makefile.sha256
 	${Q}cd ${BUILD_DIR} && go get github.com/t-yuki/gocover-cobertura@${GOCOVER_COBERTURA_VERSION}
