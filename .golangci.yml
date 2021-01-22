@@ -10,7 +10,6 @@ linters:
   enable:
     - deadcode
     - errcheck
-    - errorlint
     - gci
     - goimports
     - golint
@@ -35,6 +34,1032 @@ issues:
   exclude-use-default: false
   # Excluding configuration per-path, per-linter, per-text and per-source
   exclude-rules:
+    ## BEGIN golint exclusions
+    ##
+    - linters:
+        - golint
+      text: "context.Context should be the first parameter of a function"
+      path: "_test.go"
+    ## golint: Specific issues in non-*_test.go files
+    - linters:
+        - golint
+      path: "client/dial.go"
+      text: "exported function `Dial` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "client/dial.go"
+      text: "exported function `DialContext` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "client/pool_options.go"
+      text: "exported type `PoolOption` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "cmd/gitaly-git2go/conflicts/conflicts.go"
+      text: "exported method `Subcommand.Flags` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "cmd/gitaly-git2go/testhelper/testhelper.go"
+      text: "exported function `BuildCommit` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/blackbox/blackbox.go"
+      text: "exported function `Run` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/blackbox/config.go"
+      text: "exported type `Config` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/blackbox/config.go"
+      text: "exported type `Probe` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/blackbox/config.go"
+      text: "exported function `ParseConfig` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/bootstrap/bootstrap.go"
+      text: "exported const SocketReusePortWarning should have comment \\(or a comment on this block\\) or be unexported"
+    - linters:
+        - golint
+      path: "internal/cgroups/noop.go"
+      text: "exported method `NoopManager.Setup` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/cgroups/noop.go"
+      text: "exported method `NoopManager.AddCommand` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/cgroups/noop.go"
+      text: "exported method `NoopManager.Cleanup` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/cgroups/v1_linux.go"
+      text: "exported method `CGroupV1Manager.Setup` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/cgroups/v1_linux.go"
+      text: "exported method `CGroupV1Manager.AddCommand` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/cgroups/v1_linux.go"
+      text: "exported method `CGroupV1Manager.Cleanup` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/command/stats.go"
+      text: "exported type `Stats` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/command/stats.go"
+      text: "exported method `Stats.RecordSum` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/command/stats.go"
+      text: "exported method `Stats.RecordMax` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/command/stats.go"
+      text: "exported method `Stats.Fields` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/command/stats.go"
+      text: "exported function `StatsFromContext` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/command/stats.go"
+      text: "exported function `InitContextStats` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/git2go/conflicts.go"
+      text: "exported type `ConflictError` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/git2go/revert.go"
+      text: "exported type `RevertConflictError` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/git2go/revert.go"
+      text: "exported type `RevertCommand` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/git2go/revert.go"
+      text: "exported method `RevertCommand.Run` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/gitaly/config/config.go"
+      text: "exported function `SkipHooks` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/gitaly/config/config.go"
+      text: "exported type `HTTPSettings` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/gitaly/config/ruby.go"
+      text: "exported method `Duration.Duration` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/gitaly/config/ruby.go"
+      text: "exported method `Duration.UnmarshalText` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/gitaly/config/ruby.go"
+      text: "exported method `Duration.MarshalText` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/gitaly/hook/check.go"
+      text: "exported method `GitLabHookManager.Check` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/gitaly/hook/manager.go"
+      text: "exported method `GitLabHookManager.Describe` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/gitaly/hook/manager.go"
+      text: "exported method `GitLabHookManager.Collect` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/gitaly/hook/postreceive.go"
+      text: "exported method `GitLabHookManager.PostReceiveHook` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/gitaly/hook/referencetransaction.go"
+      text: "exported method `GitLabHookManager.ReferenceTransactionHook` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/gitaly/hook/update.go"
+      text: "exported method `GitLabHookManager.UpdateHook` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/gitaly/service/internalgitaly/server.go"
+      text: "exported function `NewServer` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/gitaly/service/operations/apply_patch.go"
+      text: "exported method `Server.UserApplyPatch` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/gitaly/service/operations/branches.go"
+      text: "exported method `Server.UserDeleteBranch` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/gitaly/service/operations/branches.go"
+      text: "exported method `Server.UserCreateBranch` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/gitaly/service/operations/branches.go"
+      text: "exported method `Server.UserUpdateBranch` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/gitaly/service/operations/cherry_pick.go"
+      text: "exported method `Server.UserCherryPick` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/gitaly/service/operations/merge.go"
+      text: "exported method `Server.UserFFBranch` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/gitaly/service/operations/merge.go"
+      text: "exported method `Server.UserMergeBranch` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/gitaly/service/operations/merge.go"
+      text: "exported method `Server.UserMergeToRef` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/gitaly/service/operations/rebase.go"
+      text: "exported method `Server.UserRebaseConfirmable` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/gitaly/service/operations/revert.go"
+      text: "exported method `Server.UserRevert` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/gitaly/service/operations/server.go"
+      text: "exported type `Server` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/gitaly/service/operations/squash.go"
+      text: "exported method `Server.UserSquash` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/gitaly/service/operations/submodules.go"
+      text: "exported method `Server.UserUpdateSubmodule` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/gitaly/service/operations/tags.go"
+      text: "exported method `Server.UserDeleteTag` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/gitaly/service/operations/tags.go"
+      text: "exported method `Server.UserCreateTag` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/gitaly/service/repository/commit_graph.go"
+      text: "exported const CommitGraphRelPath should have comment \\(or a comment on this block\\) or be unexported"
+    - linters:
+        - golint
+      path: "internal/gitaly/service/repository/midx.go"
+      text: "exported const MidxRelPath should have comment \\(or a comment on this block\\) or be unexported"
+    - linters:
+        - golint
+      path: "internal/gitaly/service/smarthttp/server.go"
+      text: "exported function `WithPackfileNegotiationMetrics` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/gitaly/service/ssh/server.go"
+      text: "exported function `WithPackfileNegotiationMetrics` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/git/config.go"
+      text: "exported method `RepositoryConfig.GetRegexp` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/git/config.go"
+      text: "exported method `RepositoryConfig.Unset` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/git/config.go"
+      text: "exported method `RepositoryConfig.Add` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/git/remote.go"
+      text: "exported method `RepositoryRemote.Add` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/git/remote.go"
+      text: "exported method `RepositoryRemote.Remove` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/git/remote.go"
+      text: "exported method `RepositoryRemote.SetURL` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/git/remoterepo/repository.go"
+      text: "exported method `Repository.HasBranches` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/git/repository.go"
+      text: "exported var `ErrReferenceNotFound` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/git/repository.go"
+      text: "exported method `LocalRepository.HasBranches` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/git/stats/analyzehttp.go"
+      text: "exported type `Post` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/git/stats/analyzehttp.go"
+      text: "exported method `Post.ResponseHeader` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/git/stats/analyzehttp.go"
+      text: "exported method `Post.HTTPStatus` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/git/stats/analyzehttp.go"
+      text: "exported method `Post.NAK` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/git/stats/analyzehttp.go"
+      text: "exported method `Post.ResponseBody` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/git/stats/analyzehttp.go"
+      text: "exported method `Post.Packets` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/git/stats/analyzehttp.go"
+      text: "exported method `Post.LargestPacketSize` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/git/stats/analyzehttp.go"
+      text: "exported method `Post.BandPackets` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/git/stats/analyzehttp.go"
+      text: "exported method `Post.BandPayloadSize` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/git/stats/analyzehttp.go"
+      text: "exported method `Post.BandFirstPacket` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/git/stats/analyzehttp.go"
+      text: "exported type `Clone` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/git/stats/analyzehttp.go"
+      text: "exported method `Clone.RefsWanted` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/git/stats/analyzehttp.go"
+      text: "exported type `Get` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/git/stats/analyzehttp.go"
+      text: "exported method `Get.ResponseHeader` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/git/stats/analyzehttp.go"
+      text: "exported method `Get.HTTPStatus` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/git/stats/analyzehttp.go"
+      text: "exported method `Get.FirstGitPacket` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/git/stats/analyzehttp.go"
+      text: "exported method `Get.ResponseBody` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/git/stats/packfile_negotiation.go"
+      text: "exported type `PackfileNegotiation` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/git/stats/packfile_negotiation.go"
+      text: "exported function `ParsePackfileNegotiation` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/helper/ticker.go"
+      text: "exported method `ManualTicker.C` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/helper/ticker.go"
+      text: "exported method `ManualTicker.Stop` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/helper/ticker.go"
+      text: "exported method `ManualTicker.Reset` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/helper/ticker.go"
+      text: "exported method `ManualTicker.Tick` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/log/log.go"
+      text: "exported const `GitalyLogDirEnvKey` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/metadata/featureflag/context.go"
+      text: "exported function `OutgoingCtxWithRubyFeatureFlags` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/metadata/featureflag/feature_flags.go"
+      text: "exported type `FeatureFlag` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/config/config.go"
+      text: "exported type `Failover` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/config/node.go"
+      text: "exported method `Node.MarshalJSON` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/coordinator.go"
+      text: "exported method `Coordinator.Describe` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/coordinator.go"
+      text: "exported method `Coordinator.Collect` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/datastore/assignment.go"
+      text: "exported method `AssignmentStore.GetHostAssignments` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/datastore/collector.go"
+      text: "exported method `RepositoryStoreCollector.Describe` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/datastore/collector.go"
+      text: "exported method `RepositoryStoreCollector.Collect` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/datastore/listener_postgres.go"
+      text: "exported method `PostgresListener.Close` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/datastore/listener_postgres.go"
+      text: "exported method `PostgresListener.Describe` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/datastore/listener_postgres.go"
+      text: "exported method `PostgresListener.Collect` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/datastore/mock.go"
+      text: "exported method `MockReplicationEventQueue.Enqueue` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/datastore/queue.go"
+      text: "exported method `PostgresReplicationEventQueue.Enqueue` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/datastore/queue.go"
+      text: "exported method `PostgresReplicationEventQueue.Dequeue` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/datastore/queue.go"
+      text: "exported method `PostgresReplicationEventQueue.Acknowledge` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/datastore/queue.go"
+      text: "exported method `ReplicationJob.Scan` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/datastore/queue.go"
+      text: "exported method `ReplicationJob.Value` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/datastore/repository_store.go"
+      text: "exported method `PostgresRepositoryStore.GetGeneration` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/datastore/repository_store.go"
+      text: "exported method `PostgresRepositoryStore.IncrementGeneration` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/datastore/repository_store.go"
+      text: "exported method `PostgresRepositoryStore.SetGeneration` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/datastore/repository_store.go"
+      text: "exported method `PostgresRepositoryStore.GetReplicatedGeneration` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/datastore/repository_store.go"
+      text: "exported method `PostgresRepositoryStore.DeleteRepository` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/datastore/repository_store.go"
+      text: "exported method `PostgresRepositoryStore.RenameRepository` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/datastore/repository_store.go"
+      text: "exported method `PostgresRepositoryStore.RepositoryExists` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/datastore/repository_store.go"
+      text: "exported method `PostgresRepositoryStore.DeleteInvalidRepository` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/datastore/repository_store.go"
+      text: "exported method `PostgresRepositoryStore.GetPartiallyReplicatedRepositories` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/datastore/repository_store_mock.go"
+      text: "exported method `MockRepositoryStore.RepositoryExists` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/datastore/repository_store_mock.go"
+      text: "exported method `MockRepositoryStore.GetGeneration` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/datastore/repository_store_mock.go"
+      text: "exported method `MockRepositoryStore.IncrementGeneration` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/datastore/repository_store_mock.go"
+      text: "exported method `MockRepositoryStore.GetReplicatedGeneration` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/datastore/repository_store_mock.go"
+      text: "exported method `MockRepositoryStore.SetGeneration` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/datastore/repository_store_mock.go"
+      text: "exported method `MockRepositoryStore.DeleteRepository` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/datastore/repository_store_mock.go"
+      text: "exported method `MockRepositoryStore.RenameRepository` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/datastore/repository_store_mock.go"
+      text: "exported method `MockRepositoryStore.GetPartiallyReplicatedRepositories` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/datastore/repository_store_mock.go"
+      text: "exported method `MockRepositoryStore.DeleteInvalidRepository` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/datastore/storage_provider.go"
+      text: "exported method `CachingStorageProvider.Notification` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/datastore/storage_provider.go"
+      text: "exported method `CachingStorageProvider.Connected` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/datastore/storage_provider.go"
+      text: "exported method `CachingStorageProvider.Disconnect` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/datastore/storage_provider.go"
+      text: "exported method `CachingStorageProvider.Describe` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/datastore/storage_provider.go"
+      text: "exported method `CachingStorageProvider.Collect` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/grpc-proxy/proxy/director.go"
+      text: "exported method `StreamParameters.Primary` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/grpc-proxy/proxy/director.go"
+      text: "exported method `StreamParameters.Secondaries` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/health_checker.go"
+      text: "exported method `StaticHealthChecker.HealthyNodes` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/metadata/server.go"
+      text: "exported method `PraefectServer.Address` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/metrics/prometheus.go"
+      text: "exported var `MethodTypeCounter` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/metrics/prometheus.go"
+      text: "exported var `PrimaryGauge` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/metrics/prometheus.go"
+      text: "exported var `NodeLastHealthcheckGauge` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/metrics/prometheus.go"
+      text: "exported var `ChecksumMismatchCounter` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/nodes/manager.go"
+      text: "exported method `Mgr.GetSyncedNode` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/nodes/manager.go"
+      text: "exported method `Mgr.HealthyNodes` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/nodes/manager.go"
+      text: "exported method `Mgr.Nodes` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/nodes/manager.go"
+      text: "exported method `Shard.GetNode` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/nodes/mock.go"
+      text: "exported method `MockManager.GetShard` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/nodes/mock.go"
+      text: "exported method `MockNode.GetStorage` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/nodes/mock.go"
+      text: "exported method `MockNode.IsHealthy` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/nodes/mock.go"
+      text: "exported method `MockNode.GetConnection` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/nodes/mock.go"
+      text: "exported method `MockNode.GetAddress` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/nodes/mock.go"
+      text: "exported method `MockNode.GetToken` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/protoregistry/protoregistry.go"
+      text: "exported method `MethodInfo.FullMethodName` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/reconciler/reconciler.go"
+      text: "exported method `Reconciler.Describe` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/reconciler/reconciler.go"
+      text: "exported method `Reconciler.Collect` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/replicator.go"
+      text: "exported method `ReplMgr.Describe` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/replicator.go"
+      text: "exported method `ReplMgr.Collect` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/router_per_repository.go"
+      text: "exported method `PerRepositoryRouter.RouteRepositoryAccessor` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/router_per_repository.go"
+      text: "exported method `PerRepositoryRouter.RouteRepositoryMutator` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/router_per_repository.go"
+      text: "exported method `StaticStorageAssignments.GetHostAssignments` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/service/info/consistencycheck.go"
+      text: "exported method `Server.ConsistencyCheck` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/service/info/dataloss.go"
+      text: "exported method `Server.DatalossCheck` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/service/info/replication_factor.go"
+      text: "exported method `Server.SetReplicationFactor` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/service/info/server.go"
+      text: "exported method `Server.SetAuthoritativeStorage` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/service/transaction/server.go"
+      text: "exported type `Server` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/service/transaction/server.go"
+      text: "exported function `NewServer` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/transactions/manager.go"
+      text: "exported method `Manager.Describe` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/transactions/manager.go"
+      text: "exported method `Manager.Collect` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/praefect/transactions/manager.go"
+      text: "exported var `ErrNotFound` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/prometheus/metrics/metrics.go"
+      text: "exported type `HistogramVec` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/storage/locator.go"
+      text: "exported var `ErrRelativePathEscapesRoot` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/testhelper/promtest/counter.go"
+      text: "exported method `MockCounter.Value` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/testhelper/promtest/counter.go"
+      text: "exported method `MockCounter.Inc` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/testhelper/promtest/counter.go"
+      text: "exported method `MockCounter.Add` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/testhelper/promtest/counter.go"
+      text: "exported type `MockCounter` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/testhelper/promtest/histogram.go"
+      text: "exported function `NewMockHistogramVec` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/testhelper/promtest/histogram.go"
+      text: "exported type `MockHistogramVec` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/testhelper/promtest/histogram.go"
+      text: "exported method `MockHistogramVec.LabelsCalled` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/testhelper/promtest/histogram.go"
+      text: "exported method `MockHistogramVec.Observer` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/testhelper/promtest/histogram.go"
+      text: "exported method `MockHistogramVec.WithLabelValues` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/testhelper/promtest/histogram.go"
+      text: "exported type `MockObserver` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/testhelper/promtest/histogram.go"
+      text: "exported method `MockObserver.Observe` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/testhelper/promtest/histogram.go"
+      text: "exported method `MockObserver.Observed` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/testhelper/testserver/gitaly.go"
+      text: "exported var `RubyServer` should have comment or be unexported"
+    - linters:
+        - golint
+      path: "internal/testhelper/testserver/gitaly.go"
+      text: "exported function `RunInternalGitalyServer` should have comment or be unexported"
+    ## END golint exclusions
+    ##
+    ## BEGIN errcheck exclusions
+    ##
+    ## errcheck: General (wide) rules in non-*_test.go files
+    - linters:
+        - errcheck
+      text: "Error return value of `[^`]+.(Write|Close|Serve|CloseWithError)` is not checked"
+    - linters:
+        - errcheck
+      text: "Error return value of `(io\\.Copy|out\\.Flush|os\\.Remove(All)?)` is not checked"
+    - linters:
+        - errcheck
+      text: "Error return value of `((uploadPackStream|receivePackStream|stream)\\.CloseSend)` is not checked"
+    ## errcheck: Specific issues in non-*_test.go files
+    - linters:
+        - errcheck
+      path: "internal/gitaly/rubyserver/proxy.go"
+      text: "Error return value of `requestStream.CloseSend` is not checked"
+    - linters:
+        - errcheck
+      path: "cmd/gitaly-git2go/testhelper/testhelper.go"
+      text: "Error return value of `treeBuilder.Insert` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/testhelper/testserver.go"
+      text: "Error return value of `p.process.Kill` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/testhelper/testserver.go"
+      text: "Error return value of `cmd.Wait` is not checked"
+    - linters:
+        - errcheck
+      path: "cmd/gitaly-wrapper/main.go"
+      text: "Error return value of `cmd.Wait` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/praefect/nodes/local_elector.go"
+      text: "Error return value of `s.checkNodes` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/praefect/nodes/manager.go"
+      text: "Error return value of `strategy.checkNodes` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/praefect/nodes/sql_elector.go"
+      text: "Error return value of `s.checkNodes` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/gitaly/hook/prereceive.go"
+      text: "Error return value of `m.stopTransaction` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/gitaly/service/repository/info_attributes.go"
+      text: "Error return value of `stream.Send` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/gitaly/service/repository/repack.go"
+      text: "Error return value of `prometheus.Register` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/gitaly/service/repository/snapshot.go"
+      text: "Error return value of `builder.FileIfExist` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/gitaly/service/repository/snapshot.go"
+      text: "Error return value of `builder.RecursiveDirIfExist` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/gitaly/service/repository/snapshot.go"
+      text: "Error return value of `builder.FileIfExist` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/middleware/limithandler/limithandler.go"
+      text: "Error return value of `limiter.Limit` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/middleware/limithandler/metrics.go"
+      text: "Error return value of `prometheus.Register` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/praefect/transactions/manager.go"
+      text: "Error return value of `cryptorand.Read` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/command/command.go"
+      text: "Error return value of `command.Wait` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/supervisor/supervisor.go"
+      text: "Error return value of `cmd.Process.Kill` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/gitaly/service/commit/find_commits.go"
+      text: "Error return value of `getCommits.Offset` is not checked"
+    - linters:
+        - errcheck
+      path: "cmd/gitaly-git2go/main.go"
+      text: "Error return value of `flags.Parse` is not checked"
+    - linters:
+        - errcheck
+      path: "cmd/gitaly-git2go/main.go"
+      text: "Error return value of `subcmdFlags.Parse` is not checked"
+    - linters:
+        - errcheck
+      path: "cmd/gitaly-hooks/hooks.go"
+      text: "Error return value of `stream.CloseSend` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/storage/locator.go"
+      text: "Error return value of `os.Stat` is not checked"
+    - linters:
+        - errcheck
+      path: "cmd/praefect/main.go"
+      text: "Error return value of `r.Run` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/gitaly/rubyserver/worker.go"
+      text: "Error return value of `syscall.Kill` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/command/command.go"
+      text: "Error return value of `syscall.Kill` is not checked"
+    - linters:
+        - errcheck
+      path: "cmd/praefect/main.go"
+      text: "Error return value of `printfErr` is not checked"
+    - linters:
+        - errcheck
+      path: "cmd/praefect/subcmd.go"
+      text: "Error return value of `printfErr` is not checked"
+    - linters:
+        - errcheck
+      path: "cmd/praefect/subcmd_sqldown.go"
+      text: "Error return value of `printfErr` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/git/stats/analyzehttp.go"
+      text: "Error return value of `cl.printInteractive` is not checked"
+    ## errcheck: General (wide) rules in *_test.go files
+    - linters:
+        - errcheck
+      path: "_test.go"
+      text: "Error return value of `os\\.(Create|Unsetenv|Symlink|SetEnv|Chmod|Chtimes|MkdirAll)` is not checked"
+    - linters:
+        - errcheck
+      path: "_test.go"
+      text: "Error return value of `pktline.Write(String|Flush)` is not checked"
+    - linters:
+        - errcheck
+      path: "_test.go"
+      text: "Error return value of `pool2?\\.Remove` is not checked"
+    - linters:
+        - errcheck
+      path: "_test.go"
+      text: "Error return value of `cancelTransaction` is not checked"
+    - linters:
+        - errcheck
+      path: "_test.go"
+      text: "Error return value of `ioutil\\.WriteFile` is not checked"
+    - linters:
+        - errcheck
+      path: "_test.go"
+      text: "Error return value of `(io\\.Copy|out\\.Flush|syscall\\.Kill|os\\.Remove(All)?|printfErr|cl\\.printInteractive)` is not checked"
+    ## errcheck: Specific issues in *_test.go files
+    - linters:
+        - errcheck
+      path: "internal/praefect/coordinator_test.go"
+      text: "Error return value of `streamParams.RequestFinalizer` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/praefect/replicator_test.go"
+      text: "Error return value of `glsql.Clean` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/praefect/server_test.go"
+      text: "Error return value of `stream.Send` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/praefect/transaction_test.go"
+      text: "Error return value of `cancel` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/git/housekeeping/housekeeping_test.go"
+      text: "Error return value of `FixDirectoryPermissions` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/git/housekeeping/housekeeping_test.go"
+      text: "Error return value of `filepath.Walk` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/gitaly/service/remote/remotes_test.go"
+      text: "Error return value of `client.RemoveRemote` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/command/command_test.go"
+      text: "Error return value of `New` is not checked"
+    - linters:
+        - errcheck
+      path: "cmd/gitaly-wrapper/main_test.go"
+      text: "Error return value of `cmd.Process.Kill` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/praefect/grpc-proxy/proxy/handler_test.go"
+      text: "Error return value of `grpc.SendHeader` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/praefect/grpc-proxy/proxy/handler_test.go"
+      text: "Error return value of `grpc.SetTrailer` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/praefect/grpc-proxy/proxy/handler_test.go"
+      text: "Error return value of `stream.SendHeader` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/praefect/grpc-proxy/proxy/handler_test.go"
+      text: "Error return value of `stream.Send` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/praefect/grpc-proxy/proxy/handler_test.go"
+      text: "Error return value of `stream.SendHeader` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/praefect/grpc-proxy/proxy/peeker_test.go"
+      text: "Error return value of `proxyClientPingStream.CloseSend` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/bootstrap/bootstrap_test.go"
+      text: "Error return value of `server.server.Shutdown` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/bootstrap/bootstrap_test.go"
+      text: "Error return value of `b.upgrader.Upgrade` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/bootstrap/bootstrap_test.go"
+      text: "Error return value of `s.Shutdown` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/gitaly/service/smarthttp/upload_pack_test.go"
+      text: "Error return value of `pktline.WriteDelim` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/middleware/sentryhandler/sentryhandler_test.go"
+      text: "Error return value is not checked"
+    - linters:
+        - errcheck
+      path: "internal/gitaly/service/repository/create_from_url_test.go"
+      text: "Error return value of `stopGitServer` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/gitaly/service/repository/redirecting_test_server_test.go"
+      text: "Error return value of `cmd.Run` is not checked"
+    - linters:
+        - errcheck
+      path: "cmd/praefect/main_test.go"
+      text: "Error return value of `glsql.Clean` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/git/stats/analyzehttp_test.go"
+      text: "Error return value of `stopGitServer` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/praefect/nodes/local_elector_test.go"
+      text: "Error return value of `strategy.checkNodes` is not checked"
+    - linters:
+        - errcheck
+      path: "cmd/gitaly-lfs-smudge/lfs_smudge_test.go"
+      text: "Error return value of `initLogging` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/tempdir/tempdir_test.go"
+      text: "Error return value of `clean` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/middleware/limithandler/concurrency_limiter_test.go"
+      text: "Error return value of `limiter.Limit` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/gitaly/service/operations/branches_test.go"
+      text: "Error return value of `\\(\\*os/exec\\.Cmd\\).Run` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/gitaly/service/operations/merge_test.go"
+      text: "Error return value of `\\(\\*os/exec\\.Cmd\\).Run` is not checked"
+    - linters:
+        - errcheck
+      path: "internal/gitaly/service/operations/tags_test.go"
+      text: "Error return value of `\\(\\*os/exec\\.Cmd\\).Run` is not checked"
+    ## END errcheck exclusions
+    ##
     # govet checks all struct initializations must be keyed by field names
     - linters:
         - govet
@@ -46,21 +1071,7 @@ issues:
       linters:
         - maligned
         - noctx
-    - linters:
-        - errcheck
-      path: "_test.go"
-      text: "Error return value of `(cc|con(ns?)?|db|closer|lis(tener)?).Close` is not checked"
-    - linters:
-        - golint
-      path: "_test.go"
-      text: "context.Context should be the first parameter of a function"
   # Maximum issues count per one linter. Set to 0 to disable. Default is 50.
   max-issues-per-linter: 0
   # Maximum count of issues with the same text. Set to 0 to disable. Default is 3.
   max-same-issues: 0
-
-  # Only lint newly introduced changes which have been introduced since the
-  # specified revision, which is the current origin/master at the time of
-  # writing this.
-  new: true
-  new-from-rev: b7d42677f27a93b1e6aebb5d571868b9094dc3b2

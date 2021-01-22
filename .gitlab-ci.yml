@@ -269,8 +269,9 @@ lint-strict:
   retry: 2
   script:
     - go version
-    # b7e24f70b (Add graph from graffle, 2016-11-14) is the root commit
-    - GOLANGCI_LINT_OPTIONS="--new-from-rev='b7e24f70b71ae8aeb0b6a0d91bf49960e17cb3a3'" make lint
+    - make lint-strict
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
 
 objectinfo_fuzz_test:
   extends: .fuzz_base
