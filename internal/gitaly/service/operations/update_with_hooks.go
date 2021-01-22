@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
@@ -93,11 +94,14 @@ func (s *Server) updateReferenceWithHooks(ctx context.Context, repo *gitalypb.Re
 		return err
 	}
 
-	if err := updater.Update(git.ReferenceName(reference), newrev, oldrev); err != nil {
+	referenceName := git.ReferenceName(reference)
+	if err := updater.Update(referenceName, newrev, oldrev); err != nil {
+		ctxlogrus.Extract(ctx).WithError(err).Errorf("'git update-ref' in %v failed with args (%v, %v, %v)", repo.GetGlProjectPath(), referenceName, newrev, oldrev)
 		return err
 	}
 
 	if err := updater.Wait(); err != nil {
+		ctxlogrus.Extract(ctx).WithError(err).Errorf("'git update-ref' in %v failed on exit", repo.GetGlProjectPath())
 		return updateRefError{reference: reference}
 	}
 

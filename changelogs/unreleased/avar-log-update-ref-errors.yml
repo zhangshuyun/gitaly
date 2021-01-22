@@ -1,0 +1,5 @@
+---
+title: 'Operations: log failed update-ref commands'
+merge_request: 3044
+author:
+type: fixed
