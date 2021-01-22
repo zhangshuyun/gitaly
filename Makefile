@@ -34,15 +34,15 @@ GIT_PREFIX       ?= ${GIT_INSTALL_DIR}
 
 # Tools
 GIT               := $(shell which git)
-GOIMPORTS         := ${BUILD_DIR}/bin/goimports
-GITALYFMT         := ${BUILD_DIR}/bin/gitalyfmt
-GOLANGCI_LINT     := ${BUILD_DIR}/bin/golangci-lint
-GO_LICENSES       := ${BUILD_DIR}/bin/go-licenses
 PROTOC            := ${BUILD_DIR}/protoc/bin/protoc
-PROTOC_GEN_GO     := ${BUILD_DIR}/bin/protoc-gen-go
-PROTOC_GEN_GITALY := ${BUILD_DIR}/bin/protoc-gen-gitaly
-GO_JUNIT_REPORT   := ${BUILD_DIR}/bin/go-junit-report
-GOCOVER_COBERTURA := ${BUILD_DIR}/bin/gocover-cobertura
+GOIMPORTS         := ${BUILD_DIR}/tools/goimports
+GITALYFMT         := ${BUILD_DIR}/tools/gitalyfmt
+GOLANGCI_LINT     := ${BUILD_DIR}/tools/golangci-lint
+GO_LICENSES       := ${BUILD_DIR}/tools/go-licenses
+PROTOC_GEN_GO     := ${BUILD_DIR}/tools/protoc-gen-go
+PROTOC_GEN_GITALY := ${BUILD_DIR}/tools/protoc-gen-gitaly
+GO_JUNIT_REPORT   := ${BUILD_DIR}/tools/go-junit-report
+GOCOVER_COBERTURA := ${BUILD_DIR}/tools/gocover-cobertura
 
 # Tool options
 GOLANGCI_LINT_OPTIONS ?=
@@ -397,6 +397,9 @@ ${BUILD_DIR}:
 ${BUILD_DIR}/bin: | ${BUILD_DIR}
 	${Q}mkdir -p ${BUILD_DIR}/bin
 
+${BUILD_DIR}/tools: | ${BUILD_DIR}
+	${Q}mkdir -p ${BUILD_DIR}/tools
+
 ${BUILD_DIR}/go.mod: | ${BUILD_DIR}
 	${Q}cd ${BUILD_DIR} && go mod init _build
 
@@ -445,10 +448,12 @@ ${PROTOC}: ${BUILD_DIR}/protoc.zip | ${BUILD_DIR}
 	${Q}mkdir -p ${BUILD_DIR}/protoc
 	cd ${BUILD_DIR}/protoc && unzip ${BUILD_DIR}/protoc.zip
 
-${GITALYFMT}: | ${BUILD_DIR}/bin
+${BUILD_DIR}/tools/%: GOBIN = ${BUILD_DIR}/tools
+
+${GITALYFMT}: | ${BUILD_DIR}/tools
 	${Q}go build -o $@ ${SOURCE_DIR}/internal/cmd/gitalyfmt
 
-${PROTOC_GEN_GITALY}: proto | ${BUILD_DIR}/bin
+${PROTOC_GEN_GITALY}: proto | ${BUILD_DIR}/tools
 	${Q}go build -o $@ ${SOURCE_DIR}/proto/go/internal/cmd/protoc-gen-gitaly
 
 ${GOIMPORTS}: ${BUILD_DIR}/Makefile.sha256 ${BUILD_DIR}/go.mod
