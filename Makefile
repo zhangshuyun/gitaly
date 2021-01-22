@@ -400,9 +400,6 @@ ${BUILD_DIR}/bin: | ${BUILD_DIR}
 ${BUILD_DIR}/tools: | ${BUILD_DIR}
 	${Q}mkdir -p ${BUILD_DIR}/tools
 
-${BUILD_DIR}/go.mod: | ${BUILD_DIR}
-	${Q}cd ${BUILD_DIR} && go mod init _build
-
 # This is a build hack to avoid excessive rebuilding of targets. Instead of
 # depending on the timestamp of the Makefile, which will change e.g. between
 # jobs of a CI pipeline, we start depending on its hash. Like this, we only
@@ -448,9 +445,15 @@ ${PROTOC}: ${BUILD_DIR}/protoc.zip | ${BUILD_DIR}
 	${Q}mkdir -p ${BUILD_DIR}/protoc
 	cd ${BUILD_DIR}/protoc && unzip ${BUILD_DIR}/protoc.zip
 
+# We're using per-tool go.mod files in order to avoid conflicts in the graph in
+# case we used a single go.mod file for all tools.
+${BUILD_DIR}/tools/%/go.mod: | ${BUILD_DIR}/tools
+	${Q}mkdir -p $(dir $@)
+	${Q}cd $(dir $@) && go mod init _build
+
 ${BUILD_DIR}/tools/%: GOBIN = ${BUILD_DIR}/tools
-${BUILD_DIR}/tools/%: ${BUILD_DIR}/Makefile.sha256 ${BUILD_DIR}/go.mod
-	${Q}cd ${BUILD_DIR} && go get ${TOOL_PACKAGE}
+${BUILD_DIR}/tools/%: ${BUILD_DIR}/Makefile.sha256 ${BUILD_DIR}/tools/.%/go.mod
+	${Q}cd ${BUILD_DIR}/tools/.$(notdir $@) && go get ${TOOL_PACKAGE}
 
 # Tools hosted by Gitaly itself
 ${GITALYFMT}: | ${BUILD_DIR}/tools
