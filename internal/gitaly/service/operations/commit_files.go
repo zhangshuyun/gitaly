@@ -386,30 +386,30 @@ func (s *Server) resolveParentCommit(ctx context.Context, local git.Repository, 
 		if err != nil {
 			return "", fmt.Errorf("remote repository: %w", err)
 		}
+	}
 
-		if hasBranches, err := repo.HasBranches(ctx); err != nil {
-			return "", fmt.Errorf("has branches: %w", err)
-		} else if !hasBranches {
-			// GitLab sends requests to UserCommitFiles where target repository
-			// and start repository are the same. If the request hits Gitaly directly,
-			// Gitaly could check if the repos are the same by comparing their storages
-			// and relative paths and simply resolve the branch locally. When request is proxied
-			// through Praefect, the start repository's storage is not rewritten, thus Gitaly can't
-			// identify the repos as being the same.
-			//
-			// If the start repository is set, we have to resolve the branch there as it
-			// might be on a different commit than the local repository. As Gitaly can't identify
-			// the repositories are the same behind Praefect, it has to perform an RPC to resolve
-			// the branch. The resolving would fail as the branch does not yet exist in the start
-			// repository, which is actually the local repository.
-			//
-			// Due to this, we check if the remote has any branches. If not, we likely hit this case
-			// and we're creating the first branch. If so, we'll just return the commit that was
-			// already resolved locally.
-			//
-			// See: https://gitlab.com/gitlab-org/gitaly/-/issues/3294
-			return targetBranchCommit, nil
-		}
+	if hasBranches, err := repo.HasBranches(ctx); err != nil {
+		return "", fmt.Errorf("has branches: %w", err)
+	} else if !hasBranches {
+		// GitLab sends requests to UserCommitFiles where target repository
+		// and start repository are the same. If the request hits Gitaly directly,
+		// Gitaly could check if the repos are the same by comparing their storages
+		// and relative paths and simply resolve the branch locally. When request is proxied
+		// through Praefect, the start repository's storage is not rewritten, thus Gitaly can't
+		// identify the repos as being the same.
+		//
+		// If the start repository is set, we have to resolve the branch there as it
+		// might be on a different commit than the local repository. As Gitaly can't identify
+		// the repositories are the same behind Praefect, it has to perform an RPC to resolve
+		// the branch. The resolving would fail as the branch does not yet exist in the start
+		// repository, which is actually the local repository.
+		//
+		// Due to this, we check if the remote has any branches. If not, we likely hit this case
+		// and we're creating the first branch. If so, we'll just return the commit that was
+		// already resolved locally.
+		//
+		// See: https://gitlab.com/gitlab-org/gitaly/-/issues/3294
+		return targetBranchCommit, nil
 	}
 
 	branch := targetBranch

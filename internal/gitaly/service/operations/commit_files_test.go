@@ -87,6 +87,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 	type step struct {
 		actions         []*gitalypb.UserCommitFilesRequest
 		startRepository *gitalypb.Repository
+		startBranch     string
 		error           error
 		indexError      string
 		repoCreated     bool
@@ -802,13 +803,31 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 			},
 		},
 		{
-			desc: "start repository refers to an empty repository",
+			desc: "empty target repository with start branch set",
 			steps: []step{
 				{
 					actions: []*gitalypb.UserCommitFilesRequest{
 						createFileHeaderRequest("file-1"),
 						actionContentRequest("content-1"),
 					},
+					startBranch:   "master",
+					branchCreated: true,
+					repoCreated:   true,
+					treeEntries: []testhelper.TreeEntry{
+						{Mode: DefaultMode, Path: "file-1", Content: "content-1"},
+					},
+				},
+			},
+		},
+		{
+			desc: "start repository refers to an empty remote repository",
+			steps: []step{
+				{
+					actions: []*gitalypb.UserCommitFilesRequest{
+						createFileHeaderRequest("file-1"),
+						actionContentRequest("content-1"),
+					},
+					startBranch:     "master",
 					startRepository: startRepo,
 					branchCreated:   true,
 					repoCreated:     true,
@@ -838,6 +857,10 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 				if step.startRepository != nil {
 					ctx = ctxWithServerMetadata
 					setStartRepository(headerRequest, step.startRepository)
+				}
+
+				if step.startBranch != "" {
+					setStartBranchName(headerRequest, []byte(step.startBranch))
 				}
 
 				stream, err := client.UserCommitFiles(ctx)
