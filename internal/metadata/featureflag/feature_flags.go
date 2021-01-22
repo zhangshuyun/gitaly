@@ -22,7 +22,7 @@ var (
 	// GoUserFFBranch enables the Go implementation of UserFFBranch
 	GoUserFFBranch = FeatureFlag{Name: "go_user_ff_branch", OnByDefault: false}
 	// GoUserCreateBranch enables the Go implementation of UserCreateBranch
-	GoUserCreateBranch = FeatureFlag{Name: "go_user_create_branch", OnByDefault: false}
+	GoUserCreateBranch = FeatureFlag{Name: "go_user_create_branch", OnByDefault: true}
 	// GoUserCommitFiles enables the Go implementation of UserCommitFiles
 	GoUserCommitFiles = FeatureFlag{Name: "go_user_commit_files", OnByDefault: false}
 	// GoResolveConflicts enables the Go implementation of ResolveConflicts
@@ -31,7 +31,7 @@ var (
 	// UserUpdateSubmodules
 	GoUserUpdateSubmodule = FeatureFlag{Name: "go_user_update_submodule", OnByDefault: false}
 	// GoUserCreateTag enables the Go implementation of UserCreateTag
-	GoUserCreateTag = FeatureFlag{Name: "go_user_create_tag", OnByDefault: false}
+	GoUserCreateTag = FeatureFlag{Name: "go_user_create_tag", OnByDefault: true}
 	// GoUserRevert enables the Go implementation of UserRevert
 	GoUserRevert = FeatureFlag{Name: "go_user_revert", OnByDefault: false}
 
