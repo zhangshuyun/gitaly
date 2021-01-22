@@ -340,22 +340,6 @@ describe Gitlab::Git::Repository do # rubocop:disable Metrics/BlockLength
     end
   end
 
-  describe '#rm_branch' do
-    let(:repository) { mutable_repository }
-    let(:branch_name) { "to-be-deleted-soon" }
-
-    before do
-      # TODO: project.add_developer(user)
-      create_branch(repository, branch_name)
-    end
-
-    it "removes the branch from the repo" do
-      repository.rm_branch(branch_name, user: user)
-
-      expect(repository_rugged.branches[branch_name]).to be_nil
-    end
-  end
-
   describe '#write_ref' do
     let(:repository) { mutable_repository }
 

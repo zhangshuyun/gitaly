@@ -255,22 +255,6 @@ module Gitlab
         OperationService.new(user, self).update_branch(branch_name, newrev, oldrev, push_options: push_options, transaction: transaction)
       end
 
-      def rm_branch(branch_name, user:, transaction: nil)
-        branch = find_branch(branch_name)
-
-        raise InvalidRef, "branch not found: #{branch_name}" unless branch
-
-        OperationService.new(user, self).rm_branch(branch, transaction: transaction)
-      end
-
-      def rm_tag(tag_name, user:, transaction: nil)
-        tag = find_tag(tag_name)
-
-        raise InvalidRef, "tag not found: #{tag_name}" unless tag
-
-        Gitlab::Git::OperationService.new(user, self).rm_tag(tag, transaction: transaction)
-      end
-
       def find_tag(name)
         name_b = name.b
         tags.find { |tag| tag.name.b == name_b }
