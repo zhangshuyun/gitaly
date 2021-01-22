@@ -64,9 +64,9 @@ func TempDir(storage config.Storage) string { return AppendTempDir(storage.Path)
 func AppendTempDir(storagePath string) string { return filepath.Join(storagePath, tmpRootPrefix) }
 
 // ForDeleteAllRepositories returns a temporary directory for the given storage. It is not context-scoped but it will get removed eventuall (after MaxAge).
-func ForDeleteAllRepositories(storageName string) (string, error) {
+func ForDeleteAllRepositories(locator storage.Locator, storageName string) (string, error) {
 	prefix := fmt.Sprintf("%s-repositories.old.%d.", storageName, time.Now().Unix())
-	_, path, err := newAsRepository(context.Background(), storageName, prefix, config.NewLocator(config.Config))
+	_, path, err := newAsRepository(context.Background(), storageName, prefix, locator)
 
 	return path, err
 }
@@ -74,8 +74,8 @@ func ForDeleteAllRepositories(storageName string) (string, error) {
 // New returns the path of a new temporary directory for use with the
 // repository. The directory is removed with os.RemoveAll when ctx
 // expires.
-func New(ctx context.Context, repo *gitalypb.Repository) (string, error) {
-	_, path, err := NewAsRepository(ctx, repo, config.NewLocator(config.Config))
+func New(ctx context.Context, repo *gitalypb.Repository, locator storage.Locator) (string, error) {
+	_, path, err := NewAsRepository(ctx, repo, locator)
 	if err != nil {
 		return "", err
 	}
