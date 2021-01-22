@@ -449,30 +449,23 @@ ${PROTOC}: ${BUILD_DIR}/protoc.zip | ${BUILD_DIR}
 	cd ${BUILD_DIR}/protoc && unzip ${BUILD_DIR}/protoc.zip
 
 ${BUILD_DIR}/tools/%: GOBIN = ${BUILD_DIR}/tools
+${BUILD_DIR}/tools/%: ${BUILD_DIR}/Makefile.sha256 ${BUILD_DIR}/go.mod
+	${Q}cd ${BUILD_DIR} && go get ${TOOL_PACKAGE}
 
+# Tools hosted by Gitaly itself
 ${GITALYFMT}: | ${BUILD_DIR}/tools
 	${Q}go build -o $@ ${SOURCE_DIR}/internal/cmd/gitalyfmt
 
 ${PROTOC_GEN_GITALY}: proto | ${BUILD_DIR}/tools
 	${Q}go build -o $@ ${SOURCE_DIR}/proto/go/internal/cmd/protoc-gen-gitaly
 
-${GOIMPORTS}: ${BUILD_DIR}/Makefile.sha256 ${BUILD_DIR}/go.mod
-	${Q}cd ${BUILD_DIR} && go get golang.org/x/tools/cmd/goimports@2538eef75904eff384a2551359968e40c207d9d2
-
-${GOCOVER_COBERTURA}: ${BUILD_DIR}/Makefile.sha256 ${BUILD_DIR}/go.mod
-	${Q}cd ${BUILD_DIR} && go get github.com/t-yuki/gocover-cobertura@${GOCOVER_COBERTURA_VERSION}
-
-${GO_JUNIT_REPORT}: ${BUILD_DIR}/Makefile.sha256 ${BUILD_DIR}/go.mod
-	${Q}cd ${BUILD_DIR} && go get github.com/jstemmer/go-junit-report@984a47ca6b0a7d704c4b589852051b4d7865aa17
-
-${GO_LICENSES}: ${BUILD_DIR}/Makefile.sha256 ${BUILD_DIR}/go.mod
-	${Q}cd ${BUILD_DIR} && go get github.com/google/go-licenses@73411c8fa237ccc6a75af79d0a5bc021c9487aad
-
-${PROTOC_GEN_GO}: ${BUILD_DIR}/Makefile.sha256 ${BUILD_DIR}/go.mod
-	${Q}cd ${BUILD_DIR} && go get github.com/golang/protobuf/protoc-gen-go@v${PROTOC_GEN_GO_VERSION}
-
-${GOLANGCI_LINT}: ${BUILD_DIR}/Makefile.sha256 ${BUILD_DIR}/go.mod
-	${Q}cd ${BUILD_DIR} && go get github.com/golangci/golangci-lint/cmd/golangci-lint@v${GOLANGCI_LINT_VERSION}
+# External tools
+${GOCOVER_COBERTURA}: TOOL_PACKAGE = github.com/t-yuki/gocover-cobertura@${GOCOVER_COBERTURA_VERSION}
+${GOIMPORTS}:         TOOL_PACKAGE = golang.org/x/tools/cmd/goimports@2538eef75904eff384a2551359968e40c207d9d2
+${GOLANGCI_LINT}:     TOOL_PACKAGE = github.com/golangci/golangci-lint/cmd/golangci-lint@v${GOLANGCI_LINT_VERSION}
+${GO_JUNIT_REPORT}:   TOOL_PACKAGE = github.com/jstemmer/go-junit-report@984a47ca6b0a7d704c4b589852051b4d7865aa17
+${GO_LICENSES}:       TOOL_PACKAGE = github.com/google/go-licenses@73411c8fa237ccc6a75af79d0a5bc021c9487aad
+${PROTOC_GEN_GO}:     TOOL_PACKAGE = github.com/golang/protobuf/protoc-gen-go@v${PROTOC_GEN_GO_VERSION}
 
 ${TEST_REPO}:
 	${GIT} clone --bare --quiet https://gitlab.com/gitlab-org/gitlab-test.git $@
