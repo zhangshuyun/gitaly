@@ -67,7 +67,6 @@ func (s *server) FetchRemote(ctx context.Context, req *gitalypb.FetchRemoteReque
 		}
 
 		opts.Global = append(opts.Global,
-			git.ConfigPair{Key: "remote." + remoteName + ".mirror", Value: "true"},
 			git.ConfigPair{Key: "remote." + remoteName + ".prune", Value: "true"},
 			git.ConfigPair{Key: "http.followRedirects", Value: "false"},
 		)
