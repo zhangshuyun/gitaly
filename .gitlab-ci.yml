@@ -79,11 +79,11 @@ danger-review:
     - postgres:11.8
   variables:
     PGHOST: postgres
-    PGPORT: 5432
+    PGPORT: "5432"
     PGUSER: postgres
     POSTGRES_HOST_AUTH_METHOD: trust
     PGHOST_PGBOUNCER: 0.0.0.0
-    PGPORT_PGBOUNCER: 6432
+    PGPORT_PGBOUNCER: "6432"
   before_script:
     - go version
     - git version
@@ -254,6 +254,18 @@ praefect_sql_test:
   <<: *test_definition
   <<: *postgres_definition
   script:
+    - make test-postgres
+
+backwards_compatibility_test:
+  <<: *test_definition
+  <<: *postgres_definition
+  rules:
+    - changes:
+      - "internal/praefect/datastore/migrations/*"
+  script:
+    - git fetch origin 'refs/tags/*:refs/tags/*'
+    - git checkout $(_support/get-previous-minor-release)
+    - git checkout --no-overlay $CI_COMMIT_SHA -- internal/praefect/datastore/migrations
     - make test-postgres
 
 lint:

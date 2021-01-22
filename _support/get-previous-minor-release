@@ -1,0 +1,6 @@
+#!/usr/bin/env ruby
+
+File.open("VERSION").read.scan(/(\d+)\.(\d+).\d+.*/) { |major_str, minor_str|
+  major, minor = major_str.to_i, minor_str.to_i
+  puts minor - 1 >= 0 ? "v#{major}.#{minor-1}.0" : "v#{major-1}.10.0"
+}
