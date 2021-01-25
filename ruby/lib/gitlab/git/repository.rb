@@ -333,7 +333,8 @@ module Gitlab
         end
       end
 
-      def cherry_pick(user:, commit:, branch_name:, message:, start_branch_name:, start_repository:, dry_run: false)
+      # rubocop:disable Metrics/ParameterLists
+      def cherry_pick(user:, commit:, branch_name:, message:, start_branch_name:, start_repository:, dry_run: false, timestamp: nil)
         args = {
           user: user,
           commit: commit,
@@ -341,11 +342,13 @@ module Gitlab
           message: message,
           start_branch_name: start_branch_name,
           start_repository: start_repository,
-          dry_run: dry_run
+          dry_run: dry_run,
+          timestamp: timestamp
         }
 
         rugged_cherry_pick(args)
       end
+      # rubocop:enable Metrics/ParameterLists
 
       def diff_exists?(sha1, sha2)
         rugged.diff(sha1, sha2).size.positive?
@@ -796,7 +799,8 @@ module Gitlab
         raise GitError, "Could not delete refs #{ref_names}: #{message}" unless status.zero?
       end
 
-      def rugged_cherry_pick(user:, commit:, branch_name:, message:, start_branch_name:, start_repository:, dry_run: false)
+      # rubocop:disable Metrics/ParameterLists
+      def rugged_cherry_pick(user:, commit:, branch_name:, message:, start_branch_name:, start_repository:, dry_run: false, timestamp: nil)
         OperationService.new(user, self).with_branch(
           branch_name,
           start_branch_name: start_branch_name,
@@ -812,7 +816,7 @@ module Gitlab
             # The response expects a SHA, so just return the starting one.
             start_commit.sha
           else
-            committer = user_to_committer(user)
+            committer = user_to_committer(user, timestamp)
 
             create_commit(
               message: message,
@@ -828,6 +832,7 @@ module Gitlab
           end
         end
       end
+      # rubocop:enable Metrics/ParameterLists
 
       def check_cherry_pick_content(target_commit, source_sha)
         args = [target_commit.sha, source_sha]

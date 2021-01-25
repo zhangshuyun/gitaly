@@ -339,6 +339,9 @@ message UserCherryPickRequest {
   Repository start_repository = 7;
   // dry_run will compute the cherry-pick, but not update the target branch.
   bool dry_run = 8;
+  // timestamp is the optional timestamp to use for the created cherry-picked
+  // commit's committer date. If it's not set, the current time will be used.
+  google.protobuf.Timestamp timestamp = 9;
 }
 
 message UserCherryPickResponse {

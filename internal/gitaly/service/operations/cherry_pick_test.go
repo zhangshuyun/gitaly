@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/log"
@@ -230,6 +231,72 @@ func testSuccessfulGitHooksForUserCherryPickRequest(t *testing.T, ctxOuter conte
 		output := string(testhelper.MustReadFile(t, file))
 		require.Contains(t, output, "GL_USERNAME="+testhelper.TestUser.GlUsername)
 	}
+}
+
+func TestUserCherryPick_stableID(t *testing.T) {
+	locator := config.NewLocator(config.Config)
+
+	serverSocketPath, stop := runOperationServiceServer(t)
+	defer stop()
+
+	client, conn := newOperationClient(t, serverSocketPath)
+	defer conn.Close()
+
+	testRepo, testRepoPath, cleanup := testhelper.NewTestRepo(t)
+	defer cleanup()
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	destinationBranch := "cherry-picking-dst"
+	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", destinationBranch, "master")
+
+	commitToPick, err := log.GetCommit(ctx, locator, testRepo, "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab")
+	require.NoError(t, err)
+
+	request := &gitalypb.UserCherryPickRequest{
+		Repository: testRepo,
+		User:       testhelper.TestUser,
+		Commit:     commitToPick,
+		BranchName: []byte(destinationBranch),
+		Message:    []byte("Cherry-picking " + commitToPick.Id),
+		Timestamp:  &timestamp.Timestamp{Seconds: 12345},
+	}
+
+	md := testhelper.GitalyServersMetadata(t, serverSocketPath)
+	ctx = metadata.NewOutgoingContext(ctx, md)
+
+	response, err := client.UserCherryPick(ctx, request)
+	require.NoError(t, err)
+	require.Empty(t, response.PreReceiveError)
+	require.Equal(t, response.BranchUpdate.CommitId, "750e8cf248a67a0be1c5e3b891697d72c19af259")
+
+	pickedCommit, err := log.GetCommit(ctx, locator, testRepo, "750e8cf248a67a0be1c5e3b891697d72c19af259")
+	require.NoError(t, err)
+	require.Equal(t, &gitalypb.GitCommit{
+		Id:        "750e8cf248a67a0be1c5e3b891697d72c19af259",
+		Subject:   []byte("Cherry-picking " + commitToPick.Id),
+		Body:      []byte("Cherry-picking " + commitToPick.Id),
+		BodySize:  55,
+		ParentIds: []string{"1e292f8fedd741b75372e19097c76d327140c312"},
+		TreeId:    "5f1b6bcadf0abc482a19454aeaa219a5998db083",
+		Author: &gitalypb.CommitAuthor{
+			Name:  []byte("Ahmad Sherif"),
+			Email: []byte("me@ahmadsherif.com"),
+			Date: &timestamp.Timestamp{
+				Seconds: 1487337076,
+			},
+			Timezone: []byte("+0000"),
+		},
+		Committer: &gitalypb.CommitAuthor{
+			Name:  testhelper.TestUser.Name,
+			Email: testhelper.TestUser.Email,
+			Date: &timestamp.Timestamp{
+				Seconds: 12345,
+			},
+			Timezone: []byte("+0000"),
+		},
+	}, pickedCommit)
 }
 
 func TestFailedUserCherryPickRequestDueToValidations(t *testing.T) {
