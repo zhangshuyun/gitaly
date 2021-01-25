@@ -9,6 +9,11 @@ import (
 	ff "gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 )
 
+var (
+	featureFlagA = ff.FeatureFlag{Name: "test_feature_flag_a"}
+	featureFlagB = ff.FeatureFlag{Name: "test_feature_flag_b"}
+)
+
 func features(flag ...ff.FeatureFlag) map[ff.FeatureFlag]struct{} {
 	features := make(map[ff.FeatureFlag]struct{}, len(flag))
 	for _, f := range flag {
@@ -26,43 +31,43 @@ func TestNewFeatureSets(t *testing.T) {
 	}{
 		{
 			desc:     "single Go feature flag",
-			features: []ff.FeatureFlag{ff.GoFetchSourceBranch},
+			features: []ff.FeatureFlag{featureFlagA},
 			expected: FeatureSets{
 				FeatureSet{
 					features:     features(),
 					rubyFeatures: features(),
 				},
 				FeatureSet{
-					features:     features(ff.GoFetchSourceBranch),
+					features:     features(featureFlagA),
 					rubyFeatures: features(),
 				},
 			},
 		},
 		{
 			desc:     "two Go feature flags",
-			features: []ff.FeatureFlag{ff.GoFetchSourceBranch, ff.DistributedReads},
+			features: []ff.FeatureFlag{featureFlagA, featureFlagB},
 			expected: FeatureSets{
 				FeatureSet{
 					features:     features(),
 					rubyFeatures: features(),
 				},
 				FeatureSet{
-					features:     features(ff.DistributedReads),
+					features:     features(featureFlagB),
 					rubyFeatures: features(),
 				},
 				FeatureSet{
-					features:     features(ff.GoFetchSourceBranch),
+					features:     features(featureFlagA),
 					rubyFeatures: features(),
 				},
 				FeatureSet{
-					features:     features(ff.DistributedReads, ff.GoFetchSourceBranch),
+					features:     features(featureFlagB, featureFlagA),
 					rubyFeatures: features(),
 				},
 			},
 		},
 		{
 			desc:         "single Ruby feature flag",
-			rubyFeatures: []ff.FeatureFlag{ff.GoFetchSourceBranch},
+			rubyFeatures: []ff.FeatureFlag{featureFlagA},
 			expected: FeatureSets{
 				FeatureSet{
 					features:     features(),
@@ -70,13 +75,13 @@ func TestNewFeatureSets(t *testing.T) {
 				},
 				FeatureSet{
 					features:     features(),
-					rubyFeatures: features(ff.GoFetchSourceBranch),
+					rubyFeatures: features(featureFlagA),
 				},
 			},
 		},
 		{
 			desc:         "two Ruby feature flags",
-			rubyFeatures: []ff.FeatureFlag{ff.GoFetchSourceBranch, ff.DistributedReads},
+			rubyFeatures: []ff.FeatureFlag{featureFlagA, featureFlagB},
 			expected: FeatureSets{
 				FeatureSet{
 					features:     features(),
@@ -84,38 +89,38 @@ func TestNewFeatureSets(t *testing.T) {
 				},
 				FeatureSet{
 					features:     features(),
-					rubyFeatures: features(ff.DistributedReads),
+					rubyFeatures: features(featureFlagB),
 				},
 				FeatureSet{
 					features:     features(),
-					rubyFeatures: features(ff.GoFetchSourceBranch),
+					rubyFeatures: features(featureFlagA),
 				},
 				FeatureSet{
 					features:     features(),
-					rubyFeatures: features(ff.DistributedReads, ff.GoFetchSourceBranch),
+					rubyFeatures: features(featureFlagB, featureFlagA),
 				},
 			},
 		},
 		{
 			desc:         "Go and Ruby feature flag",
-			features:     []ff.FeatureFlag{ff.DistributedReads},
-			rubyFeatures: []ff.FeatureFlag{ff.GoFetchSourceBranch},
+			features:     []ff.FeatureFlag{featureFlagB},
+			rubyFeatures: []ff.FeatureFlag{featureFlagA},
 			expected: FeatureSets{
 				FeatureSet{
 					features:     features(),
 					rubyFeatures: features(),
 				},
 				FeatureSet{
-					features:     features(ff.DistributedReads),
+					features:     features(featureFlagB),
 					rubyFeatures: features(),
 				},
 				FeatureSet{
 					features:     features(),
-					rubyFeatures: features(ff.GoFetchSourceBranch),
+					rubyFeatures: features(featureFlagA),
 				},
 				FeatureSet{
-					features:     features(ff.DistributedReads),
-					rubyFeatures: features(ff.GoFetchSourceBranch),
+					features:     features(featureFlagB),
+					rubyFeatures: features(featureFlagA),
 				},
 			},
 		},
@@ -135,17 +140,27 @@ func TestNewFeatureSets(t *testing.T) {
 func TestFeatureSets_Run(t *testing.T) {
 	var flags [][2]bool
 
+	// This test depends on feature flags being default-enabled in the test
+	// context, which requires those flags to exist in the ff.All slice. So
+	// let's just append them here so we do not need to use a "real"
+	// feature flag, as that would require constant change when we remove
+	// old feature flags.
+	defer func(old []ff.FeatureFlag) {
+		ff.All = old
+	}(ff.All)
+	ff.All = append(ff.All, featureFlagA, featureFlagB)
+
 	NewFeatureSets([]ff.FeatureFlag{
-		ff.DistributedReads, ff.GoFetchSourceBranch,
+		featureFlagB, featureFlagA,
 	}).Run(t, func(t *testing.T, ctx context.Context) {
 		ctx = helper.OutgoingToIncoming(ctx)
 		flags = append(flags, [2]bool{
-			ff.IsDisabled(ctx, ff.DistributedReads),
-			ff.IsDisabled(ctx, ff.GoFetchSourceBranch),
+			ff.IsDisabled(ctx, featureFlagB),
+			ff.IsDisabled(ctx, featureFlagA),
 		})
 	})
 
-	require.Equal(t, flags, [][2]bool{
+	require.ElementsMatch(t, flags, [][2]bool{
 		{false, false},
 		{true, false},
 		{false, true},
