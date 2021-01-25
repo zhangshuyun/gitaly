@@ -620,6 +620,9 @@ message UserSquashRequest {
   User author = 7;
   // commit_message is the message to be used for the squashed commit.
   bytes commit_message = 8;
+  // timestamp is the optional timestamp to use for the squashed commit as
+  // committer date. If it's not set, the current time will be used.
+  google.protobuf.Timestamp timestamp = 9;
 }
 
 message UserSquashResponse {

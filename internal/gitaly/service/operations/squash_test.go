@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
@@ -83,6 +84,58 @@ func testSuccessfulUserSquashRequest(t *testing.T, ctx context.Context, start, e
 	treeData := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "ls-tree", "--name-only", response.SquashSha)
 	files := strings.Fields(text.ChompBytes(treeData))
 	require.Subset(t, files, []string{"VERSION", "README", "files", ".gitattributes"}, "ensure the files remain on their places")
+}
+
+func TestUserSquash_stableID(t *testing.T) {
+	serverSocketPath, stop := runOperationServiceServer(t)
+	defer stop()
+
+	client, conn := newOperationClient(t, serverSocketPath)
+	defer conn.Close()
+
+	repo, _, cleanup := testhelper.NewTestRepo(t)
+	defer cleanup()
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	response, err := client.UserSquash(ctx, &gitalypb.UserSquashRequest{
+		Repository:    repo,
+		User:          testhelper.TestUser,
+		SquashId:      "1",
+		Author:        author,
+		CommitMessage: []byte("Squashed commit"),
+		StartSha:      startSha,
+		EndSha:        endSha,
+		Timestamp:     &timestamp.Timestamp{Seconds: 1234512345},
+	})
+	require.NoError(t, err)
+	require.Empty(t, response.GetGitError())
+
+	commit, err := log.GetCommit(ctx, config.NewLocator(config.Config), repo, git.Revision(response.SquashSha))
+	require.NoError(t, err)
+	require.Equal(t, &gitalypb.GitCommit{
+		Id:     "2773b7aee7d81ea96d2f48aa080cae08eaae26d5",
+		TreeId: "324242f415a3cdbfc088103b496379fd91965854",
+		ParentIds: []string{
+			"b83d6e391c22777fca1ed3012fce84f633d7fed0",
+		},
+		Subject:  []byte("Squashed commit"),
+		Body:     []byte("Squashed commit\n"),
+		BodySize: 16,
+		Author: &gitalypb.CommitAuthor{
+			Name:     author.Name,
+			Email:    author.Email,
+			Date:     &timestamp.Timestamp{Seconds: 1234512345},
+			Timezone: []byte("+0000"),
+		},
+		Committer: &gitalypb.CommitAuthor{
+			Name:     testhelper.TestUser.Name,
+			Email:    testhelper.TestUser.Email,
+			Date:     &timestamp.Timestamp{Seconds: 1234512345},
+			Timezone: []byte("+0000"),
+		},
+	}, commit)
 }
 
 func ensureSplitIndexExists(t *testing.T, repoDir string) bool {

@@ -226,6 +226,7 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       optional :end_sha, :string, 6
       optional :author, :message, 7, "gitaly.User"
       optional :commit_message, :bytes, 8
+      optional :timestamp, :message, 9, "google.protobuf.Timestamp"
     end
     add_message "gitaly.UserSquashResponse" do
       optional :squash_sha, :string, 1
