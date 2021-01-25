@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	gitlog "gitlab.com/gitlab-org/gitaly/internal/git/log"
@@ -127,6 +128,81 @@ func testSuccessfulMerge(t *testing.T, ctx context.Context) {
 			require.Regexp(t, mergeBranchHeadBefore+" .* refs/heads/"+mergeBranchName, lines[0], "expected env of hook %q to contain reference change", h)
 		}
 	}
+}
+
+func TestSuccessfulMerge_stableMergeIDs(t *testing.T) {
+	testWithFeature(t, featureflag.GoUserMergeBranch, testUserMergeBranchStableMergeIDs)
+}
+
+func testUserMergeBranchStableMergeIDs(t *testing.T, ctx context.Context) {
+	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	defer cleanupFn()
+
+	serverSocketPath, stop := runOperationServiceServer(t)
+	defer stop()
+
+	client, conn := newOperationClient(t, serverSocketPath)
+	defer conn.Close()
+
+	mergeBidi, err := client.UserMergeBranch(ctx)
+	require.NoError(t, err)
+
+	prepareMergeBranch(t, testRepoPath)
+
+	firstRequest := &gitalypb.UserMergeBranchRequest{
+		Repository: testRepo,
+		User:       testhelper.TestUser,
+		CommitId:   commitToMerge,
+		Branch:     []byte(mergeBranchName),
+		Message:    []byte("Merged by Gitaly"),
+		Timestamp:  &timestamp.Timestamp{Seconds: 12, Nanos: 34},
+	}
+
+	// Because the timestamp is
+	expectedMergeID := "cd66941816adc76cc31fc6620d7b36a3dcb045e5"
+
+	require.NoError(t, mergeBidi.Send(firstRequest), "send first request")
+	response, err := mergeBidi.Recv()
+	require.NoError(t, err, "receive first response")
+	require.Equal(t, response.CommitId, expectedMergeID)
+
+	require.NoError(t, mergeBidi.Send(&gitalypb.UserMergeBranchRequest{Apply: true}), "apply merge")
+	response, err = mergeBidi.Recv()
+	require.NoError(t, err, "receive second response")
+	require.Equal(t, response.BranchUpdate.CommitId, expectedMergeID)
+
+	testhelper.ReceiveEOFWithTimeout(t, func() error {
+		_, err = mergeBidi.Recv()
+		return err
+	})
+
+	commit, err := gitlog.GetCommit(ctx, config.NewLocator(config.Config), testRepo, git.Revision(mergeBranchName))
+	require.NoError(t, err, "look up git commit after call has finished")
+	require.Equal(t, commit, &gitalypb.GitCommit{
+		Subject:  []byte("Merged by Gitaly"),
+		Body:     []byte("Merged by Gitaly"),
+		BodySize: 16,
+		Id:       expectedMergeID,
+		ParentIds: []string{
+			"281d3a76f31c812dbf48abce82ccf6860adedd81",
+			"e63f41fe459e62e1228fcef60d7189127aeba95a",
+		},
+		TreeId: "86ec18bfe87ad42a782fdabd8310f9b7ac750f51",
+		Author: &gitalypb.CommitAuthor{
+			Name:  testhelper.TestUser.Name,
+			Email: testhelper.TestUser.Email,
+			// Nanoseconds get ignored because commit timestamps aren't that granular.
+			Date:     &timestamp.Timestamp{Seconds: 12},
+			Timezone: []byte("+0000"),
+		},
+		Committer: &gitalypb.CommitAuthor{
+			Name:  testhelper.TestUser.Name,
+			Email: testhelper.TestUser.Email,
+			// Nanoseconds get ignored because commit timestamps aren't that granular.
+			Date:     &timestamp.Timestamp{Seconds: 12},
+			Timezone: []byte("+0000"),
+		},
+	})
 }
 
 func TestAbortedMerge(t *testing.T) {
@@ -787,6 +863,62 @@ func TestConflictsOnUserMergeToRefRequest(t *testing.T) {
 		_, err := client.UserMergeToRef(ctx, request)
 		require.Equal(t, status.Error(codes.FailedPrecondition, "Failed to create merge commit for source_sha 1450cd639e0bc6721eb02800169e464f212cde06 and target_sha 824be604a34828eb682305f0d963056cfac87b2d at refs/merge-requests/x/written"), err)
 	})
+}
+
+func TestUserMergeToRef_stableMergeID(t *testing.T) {
+	ctx, cleanup := testhelper.Context()
+	defer cleanup()
+
+	serverSocketPath, stop := runOperationServiceServer(t)
+	defer stop()
+
+	client, conn := newOperationClient(t, serverSocketPath)
+	defer conn.Close()
+
+	testRepo, testRepoPath, cleanup := testhelper.NewTestRepo(t)
+	defer cleanup()
+
+	prepareMergeBranch(t, testRepoPath)
+
+	response, err := client.UserMergeToRef(ctx, &gitalypb.UserMergeToRefRequest{
+		Repository:     testRepo,
+		User:           testhelper.TestUser,
+		FirstParentRef: []byte("refs/heads/" + mergeBranchName),
+		TargetRef:      []byte("refs/merge-requests/x/written"),
+		SourceSha:      "1450cd639e0bc6721eb02800169e464f212cde06",
+		Message:        []byte("Merge message"),
+		Timestamp:      &timestamp.Timestamp{Seconds: 12, Nanos: 34},
+	})
+	require.NoError(t, err)
+	require.Equal(t, "a04514f4e6b4e272989b39cca1ebdbb670abdfd6", response.CommitId)
+
+	commit, err := gitlog.GetCommit(ctx, config.NewLocator(config.Config), testRepo, git.Revision("refs/merge-requests/x/written"))
+	require.NoError(t, err, "look up git commit after call has finished")
+	require.Equal(t, &gitalypb.GitCommit{
+		Subject:  []byte("Merge message"),
+		Body:     []byte("Merge message"),
+		BodySize: 13,
+		Id:       "a04514f4e6b4e272989b39cca1ebdbb670abdfd6",
+		ParentIds: []string{
+			"281d3a76f31c812dbf48abce82ccf6860adedd81",
+			"1450cd639e0bc6721eb02800169e464f212cde06",
+		},
+		TreeId: "3d3c2dd807abaf36d7bd5334bf3f8c5cf61bad75",
+		Author: &gitalypb.CommitAuthor{
+			Name:  testhelper.TestUser.Name,
+			Email: testhelper.TestUser.Email,
+			// Nanoseconds get ignored because commit timestamps aren't that granular.
+			Date:     &timestamp.Timestamp{Seconds: 12},
+			Timezone: []byte("+0000"),
+		},
+		Committer: &gitalypb.CommitAuthor{
+			Name:  testhelper.TestUser.Name,
+			Email: testhelper.TestUser.Email,
+			// Nanoseconds get ignored because commit timestamps aren't that granular.
+			Date:     &timestamp.Timestamp{Seconds: 12},
+			Timezone: []byte("+0000"),
+		},
+	}, commit)
 }
 
 func TestFailedUserMergeToRefRequest(t *testing.T) {

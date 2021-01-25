@@ -6,6 +6,7 @@ option go_package = "gitlab.com/gitlab-org/gitaly/proto/go/gitalypb";
 
 import "lint.proto";
 import "shared.proto";
+import "google/protobuf/timestamp.proto";
 
 // OperationService provides an interface for performing mutating git
 // operations on a repository on behalf of a user. The user's operation is
@@ -194,6 +195,10 @@ message UserCreateTagRequest {
   // message is the message of the tag. If it is empty, a lightweight tag is
   // created. Otherwise, an annotated tag is created.
   bytes message = 5;
+  // timestamp is the optional timestamp to use for the created tag tags. If
+  // it's not set, the current time will be used. It's only used if an
+  // annotated tag is being created.
+  google.protobuf.Timestamp timestamp = 7;
 }
 
 message UserCreateTagResponse {
@@ -223,6 +228,9 @@ message UserMergeBranchRequest {
   bytes branch = 4;
   // message is the message to use for the merge commit.
   bytes message = 5;
+  // timestamp is the optional timestamp to use for the merge commit. If it's
+  // not set, the current time will be used.
+  google.protobuf.Timestamp timestamp = 7;
 
   // apply must only be set in the second message. Only if this second message
   // is sent and if apply is set to true will the branch be updated to point to
@@ -264,6 +272,9 @@ message UserMergeToRefRequest {
   // Allow conflicts to occur. Any conflict markers will be part of the merge commit.
   // Only text conflicts are handled, tree-based conflicts are not supported.
   bool allow_conflicts = 8;
+  // timestamp is the optional timestamp to use for the merge commit. If it's
+  // not set, the current time will be used.
+  google.protobuf.Timestamp timestamp = 9;
 }
 
 message UserMergeToRefResponse {
@@ -328,6 +339,9 @@ message UserCherryPickRequest {
   Repository start_repository = 7;
   // dry_run will compute the cherry-pick, but not update the target branch.
   bool dry_run = 8;
+  // timestamp is the optional timestamp to use for the created cherry-picked
+  // commit's committer date. If it's not set, the current time will be used.
+  google.protobuf.Timestamp timestamp = 9;
 }
 
 message UserCherryPickResponse {
@@ -380,6 +394,9 @@ message UserRevertRequest {
   Repository start_repository = 7;
   // dry_run  will compute the revert, but not update the target branch.
   bool dry_run = 8;
+  // timestamp is the optional timestamp to use for the created cherry-picked
+  // commit's committer date. If it's not set, the current time will be used.
+  google.protobuf.Timestamp timestamp = 9;
 }
 
 message UserRevertResponse {
@@ -495,6 +512,9 @@ message UserCommitFilesRequestHeader {
   // start_sha specifies the SHA of the commit to use as the parent of new commit. Takes priority
   // over start_branch_name and branc_name. Optional.
   string start_sha = 10;
+  // timestamp is the optional timestamp to use for the commits as author and
+  // committer date. If it's not set, the current time will be used.
+  google.protobuf.Timestamp timestamp = 11;
 }
 
 // UserCommitFiles is the request of UserCommitFiles.
@@ -548,6 +568,9 @@ message UserRebaseConfirmableRequest {
     // git_push_options contain options which shall be passed to the git hooks
     // when the local branch gets updated.
     repeated string git_push_options = 8;
+    // timestamp is the optional timestamp to use for the rebased commits as
+    // committer date. If it's not set, the current time will be used.
+    google.protobuf.Timestamp timestamp = 9;
   }
 
   oneof user_rebase_confirmable_request_payload {
@@ -597,6 +620,9 @@ message UserSquashRequest {
   User author = 7;
   // commit_message is the message to be used for the squashed commit.
   bytes commit_message = 8;
+  // timestamp is the optional timestamp to use for the squashed commit as
+  // committer date. If it's not set, the current time will be used.
+  google.protobuf.Timestamp timestamp = 9;
 }
 
 message UserSquashResponse {
@@ -617,6 +643,9 @@ message UserApplyPatchRequest {
     User user = 2;
     // target_branch is the branch onto which the patches shall be applied.
     bytes target_branch = 3;
+    // timestamp is the optional timestamp to use for the squashed commit as
+    // committer date. If it's not set, the current time will be used.
+    google.protobuf.Timestamp timestamp = 4;
   }
 
   oneof user_apply_patch_request_payload {
@@ -647,6 +676,10 @@ message UserUpdateSubmoduleRequest {
   bytes submodule = 5;
   // commit_message is the message updating the submodule.
   bytes commit_message = 6;
+  // timestamp is the optional timestamp to use for the commit updating the
+  // submodule as committer date. If it's not set, the current time will be
+  // used.
+  google.protobuf.Timestamp timestamp = 7;
 }
 
 message UserUpdateSubmoduleResponse {

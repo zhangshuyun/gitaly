@@ -15,11 +15,11 @@ module Gitlab
         end
       end
 
-      def update(commit_sha, message)
+      def update(commit_sha, message, timestamp = nil)
         validate!
 
         OperationService.new(user, repository).with_branch(branch_name, start_branch_name: branch_name) do
-          committer = repository.user_to_committer(user)
+          committer = repository.user_to_committer(user, timestamp)
 
           repository.update_submodule(submodule_path, commit_sha, branch_name, committer, message)
         end

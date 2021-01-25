@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/golang/protobuf/ptypes"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
@@ -322,22 +323,24 @@ func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommi
 		}
 	}
 
-	authorName := header.User.Name
-	if len(header.CommitAuthorName) > 0 {
-		authorName = header.CommitAuthorName
+	now := time.Now()
+	if header.Timestamp != nil {
+		now, err = ptypes.Timestamp(header.Timestamp)
+		if err != nil {
+			return helper.ErrInvalidArgument(err)
+		}
 	}
 
-	authorEmail := header.User.Email
-	if len(header.CommitAuthorEmail) > 0 {
-		authorEmail = header.CommitAuthorEmail
+	committer := git2go.NewSignature(string(header.User.Name), string(header.User.Email), now)
+	author := committer
+	if len(header.CommitAuthorName) > 0 && len(header.CommitAuthorEmail) > 0 {
+		author = git2go.NewSignature(string(header.CommitAuthorName), string(header.CommitAuthorEmail), now)
 	}
-
-	signature := git2go.NewSignature(string(authorName), string(authorEmail), time.Now())
 
 	commitID, err := s.git2go.Commit(ctx, git2go.CommitParams{
 		Repository: repoPath,
-		Author:     signature,
-		Committer:  signature,
+		Author:     author,
+		Committer:  committer,
 		Message:    string(header.CommitMessage),
 		Parent:     parentCommitOID,
 		Actions:    actions,

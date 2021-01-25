@@ -221,7 +221,7 @@ module Gitlab
         false
       end
 
-      def add_tag(tag_name, user:, target:, message: nil, transaction: nil)
+      def add_tag(tag_name, user:, target:, message: nil, timestamp: nil, transaction: nil)
         target_object = Ref.dereference_object(lookup(target))
         raise InvalidRef, "target not found: #{target}" unless target_object
 
@@ -234,7 +234,7 @@ module Gitlab
             target_oid,
             transaction,
             message: message,
-            tagger: Gitlab::Git.committer_hash(email: user.email, name: user.name)
+            tagger: Gitlab::Git.committer_hash(email: user.email, name: user.name, timestamp: timestamp)
           )
         else
           operation_service.add_lightweight_tag(tag_name, target_oid, transaction: transaction)
@@ -273,18 +273,18 @@ module Gitlab
           our_commit = ref.target
           their_commit = source_sha
 
-          create_merge_commit(user, our_commit, their_commit, message, allow_conflicts)
+          create_merge_commit(user, our_commit, their_commit, message, nil, allow_conflicts)
         end
       rescue Rugged::ReferenceError, InvalidRef
         raise ArgumentError, 'Invalid merge source'
       end
 
-      def merge(user, source_sha, target_branch, message)
+      def merge(user, source_sha, target_branch, message, timestamp = nil)
         OperationService.new(user, self).with_branch(target_branch) do |start_commit|
           our_commit = start_commit.sha
           their_commit = source_sha
 
-          commit_id = create_merge_commit(user, our_commit, their_commit, message)
+          commit_id = create_merge_commit(user, our_commit, their_commit, message, timestamp)
 
           yield commit_id
 
@@ -304,7 +304,8 @@ module Gitlab
         raise ArgumentError, 'Invalid merge source'
       end
 
-      def revert(user:, commit:, branch_name:, message:, start_branch_name:, start_repository:, dry_run: false)
+      # rubocop:disable Metrics/ParameterLists
+      def revert(user:, commit:, branch_name:, message:, start_branch_name:, start_repository:, dry_run: false, timestamp: nil)
         OperationService.new(user, self).with_branch(
           branch_name,
           start_branch_name: start_branch_name,
@@ -320,7 +321,7 @@ module Gitlab
             # The response expects a SHA, so just return the starting one.
             start_commit.sha
           else
-            committer = user_to_committer(user)
+            committer = user_to_committer(user, timestamp)
 
             create_commit(
               message: message,
@@ -332,8 +333,10 @@ module Gitlab
           end
         end
       end
+      # rubocop:enable Metrics/ParameterLists
 
-      def cherry_pick(user:, commit:, branch_name:, message:, start_branch_name:, start_repository:, dry_run: false)
+      # rubocop:disable Metrics/ParameterLists
+      def cherry_pick(user:, commit:, branch_name:, message:, start_branch_name:, start_repository:, dry_run: false, timestamp: nil)
         args = {
           user: user,
           commit: commit,
@@ -341,19 +344,22 @@ module Gitlab
           message: message,
           start_branch_name: start_branch_name,
           start_repository: start_repository,
-          dry_run: dry_run
+          dry_run: dry_run,
+          timestamp: timestamp
         }
 
         rugged_cherry_pick(args)
       end
+      # rubocop:enable Metrics/ParameterLists
 
       def diff_exists?(sha1, sha2)
         rugged.diff(sha1, sha2).size.positive?
       end
 
-      def rebase(user, rebase_id, branch:, branch_sha:, remote_repository:, remote_branch:, push_options: nil)
+      # rubocop:disable Metrics/ParameterLists
+      def rebase(user, rebase_id, branch:, branch_sha:, remote_repository:, remote_branch:, push_options: nil, timestamp: nil)
         worktree = Gitlab::Git::Worktree.new(path, REBASE_WORKTREE_PREFIX, rebase_id)
-        env = git_env.merge(user.git_env)
+        env = git_env.merge(user.git_env(timestamp))
 
         with_repo_branch_commit(remote_repository, remote_branch) do |commit|
           diff_range = "#{commit.sha}...#{branch}"
@@ -381,6 +387,7 @@ module Gitlab
           end
         end
       end
+      # rubocop:enable Metrics/ParameterLists
 
       def commit_patches(start_point, patches, extra_env: {})
         worktree = Gitlab::Git::Worktree.new(path, AM_WORKTREE_PREFIX, SecureRandom.hex)
@@ -428,7 +435,7 @@ module Gitlab
       # rubocop:disable Metrics/ParameterLists
       def multi_action(user, branch_name:, message:, actions:,
                        author_email: nil, author_name: nil,
-                       start_branch_name: nil, start_sha: nil, start_repository: self, force: false)
+                       start_branch_name: nil, start_sha: nil, start_repository: self, force: false, timestamp: nil)
         OperationService.new(user, self).with_branch(
           branch_name,
           start_branch_name: start_branch_name,
@@ -447,8 +454,8 @@ module Gitlab
 
           actions.each { |opts| index.apply(opts.delete(:action), opts) }
 
-          committer = user_to_committer(user)
-          author = Gitlab::Git.committer_hash(email: author_email, name: author_name) || committer
+          committer = user_to_committer(user, timestamp)
+          author = Gitlab::Git.committer_hash(email: author_email, name: author_name, timestamp: timestamp) || committer
           options = {
             tree: index.write_tree,
             message: message,
@@ -554,8 +561,8 @@ module Gitlab
         nil
       end
 
-      def user_to_committer(user)
-        Gitlab::Git.committer_hash(email: user.email, name: user.name)
+      def user_to_committer(user, timestamp = nil)
+        Gitlab::Git.committer_hash(email: user.email, name: user.name, timestamp: timestamp)
       end
 
       def write_ref(ref_path, ref, old_ref: nil)
@@ -589,8 +596,8 @@ module Gitlab
         rugged.rev_parse(oid_or_ref_name)
       end
 
-      def commit_index(user, branch_name, index, options)
-        committer = user_to_committer(user)
+      def commit_index(user, branch_name, index, options, timestamp = nil)
+        committer = user_to_committer(user, timestamp)
 
         OperationService.new(user, self).with_branch(branch_name) do
           commit_params = options.merge(
@@ -696,11 +703,11 @@ module Gitlab
         run_git!(%w[config core.sparseCheckout false], include_stderr: true)
       end
 
-      def create_merge_commit(user, our_commit, their_commit, message, allow_conflicts = false)
+      def create_merge_commit(user, our_commit, their_commit, message, timestamp = nil, allow_conflicts = false)
         raise 'Invalid merge target' unless our_commit
         raise 'Invalid merge source' unless their_commit
 
-        committer = user_to_committer(user)
+        committer = user_to_committer(user, timestamp)
 
         merge_index = rugged.merge_commits(our_commit, their_commit)
         process_conflicts(rugged, merge_index, allow_conflicts)
@@ -794,7 +801,8 @@ module Gitlab
         raise GitError, "Could not delete refs #{ref_names}: #{message}" unless status.zero?
       end
 
-      def rugged_cherry_pick(user:, commit:, branch_name:, message:, start_branch_name:, start_repository:, dry_run: false)
+      # rubocop:disable Metrics/ParameterLists
+      def rugged_cherry_pick(user:, commit:, branch_name:, message:, start_branch_name:, start_repository:, dry_run: false, timestamp: nil)
         OperationService.new(user, self).with_branch(
           branch_name,
           start_branch_name: start_branch_name,
@@ -810,7 +818,7 @@ module Gitlab
             # The response expects a SHA, so just return the starting one.
             start_commit.sha
           else
-            committer = user_to_committer(user)
+            committer = user_to_committer(user, timestamp)
 
             create_commit(
               message: message,
@@ -826,6 +834,7 @@ module Gitlab
           end
         end
       end
+      # rubocop:enable Metrics/ParameterLists
 
       def check_cherry_pick_content(target_commit, source_sha)
         args = [target_commit.sha, source_sha]

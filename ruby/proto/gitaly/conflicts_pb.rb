@@ -5,6 +5,7 @@ require 'google/protobuf'
 
 require 'lint_pb'
 require 'shared_pb'
+require 'google/protobuf/timestamp_pb'
 Google::Protobuf::DescriptorPool.generated_pool.build do
   add_file("conflicts.proto", :syntax => :proto3) do
     add_message "gitaly.ListConflictFilesRequest" do
@@ -37,6 +38,7 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       optional :target_branch, :bytes, 6
       optional :commit_message, :bytes, 7
       optional :user, :message, 8, "gitaly.User"
+      optional :timestamp, :message, 9, "google.protobuf.Timestamp"
     end
     add_message "gitaly.ResolveConflictsRequest" do
       oneof :resolve_conflicts_request_payload do

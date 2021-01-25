@@ -6,11 +6,14 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"time"
 
+	"github.com/golang/protobuf/ptypes"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
+	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -164,7 +167,16 @@ func (s *Server) userCreateTagGo(ctx context.Context, req *gitalypb.UserCreateTa
 	var tagObject *gitalypb.Tag
 	if makingTag {
 		localRepo := git.NewRepository(repo, s.cfg)
-		tagObjectID, err := localRepo.WriteTag(ctx, targetObjectID, targetObjectType, req.TagName, req.User.Name, req.User.Email, req.Message)
+
+		committerTime := time.Now()
+		if req.Timestamp != nil {
+			committerTime, err = ptypes.Timestamp(req.Timestamp)
+			if err != nil {
+				return nil, helper.ErrInvalidArgument(err)
+			}
+		}
+
+		tagObjectID, err := localRepo.WriteTag(ctx, targetObjectID, targetObjectType, req.TagName, req.User.Name, req.User.Email, req.Message, committerTime)
 		if err != nil {
 			var FormatTagError git.FormatTagError
 			if errors.As(err, &FormatTagError) {

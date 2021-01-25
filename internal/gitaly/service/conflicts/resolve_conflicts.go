@@ -9,7 +9,9 @@ import (
 	"io"
 	"sort"
 	"strings"
+	"time"
 
+	"github.com/golang/protobuf/ptypes"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/conflict"
@@ -191,11 +193,20 @@ func (s *server) resolveConflicts(header *gitalypb.ResolveConflictsRequestHeader
 		return err
 	}
 
+	authorDate := time.Now()
+	if header.Timestamp != nil {
+		authorDate, err = ptypes.Timestamp(header.Timestamp)
+		if err != nil {
+			return helper.ErrInvalidArgument(err)
+		}
+	}
+
 	result, err := git2go.ResolveCommand{
 		MergeCommand: git2go.MergeCommand{
 			Repository: repoPath,
 			AuthorName: string(header.User.Name),
 			AuthorMail: string(header.User.Email),
+			AuthorDate: authorDate,
 			Message:    string(header.CommitMessage),
 			Ours:       header.GetOurCommitOid(),
 			Theirs:     header.GetTheirCommitOid(),

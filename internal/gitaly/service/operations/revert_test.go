@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/log"
@@ -178,6 +179,71 @@ func testServerUserRevertSuccessful(t *testing.T, ctxOuter context.Context) {
 			}
 		})
 	}
+}
+
+func TestServer_UserRevert_stableID(t *testing.T) {
+	testWithFeature(t, featureflag.GoUserRevert, testServerUserRevertStableID)
+}
+
+func testServerUserRevertStableID(t *testing.T, ctxOuter context.Context) {
+	locator := config.NewLocator(config.Config)
+
+	serverSocketPath, stop := runOperationServiceServer(t)
+	defer stop()
+
+	client, conn := newOperationClient(t, serverSocketPath)
+	defer conn.Close()
+
+	repo, _, cleanup := testhelper.NewTestRepo(t)
+	defer cleanup()
+
+	md := testhelper.GitalyServersMetadata(t, serverSocketPath)
+	ctx := testhelper.MergeOutgoingMetadata(ctxOuter, md)
+
+	commitToRevert, err := log.GetCommit(ctxOuter, locator, repo, "d59c60028b053793cecfb4022de34602e1a9218e")
+	require.NoError(t, err)
+
+	response, err := client.UserRevert(ctx, &gitalypb.UserRevertRequest{
+		Repository: repo,
+		User:       testhelper.TestUser,
+		Commit:     commitToRevert,
+		BranchName: []byte("master"),
+		Message:    []byte("Reverting commit"),
+		Timestamp:  &timestamp.Timestamp{Seconds: 12345},
+	})
+	require.NoError(t, err)
+
+	require.Equal(t, &gitalypb.OperationBranchUpdate{
+		CommitId: "9ebfd44039a9e36d88dcdfe11550399ec6a212f7",
+	}, response.BranchUpdate)
+	require.Empty(t, response.CreateTreeError)
+	require.Empty(t, response.CreateTreeErrorCode)
+
+	revertedCommit, err := log.GetCommit(ctx, locator, repo, git.Revision("master"))
+	require.NoError(t, err)
+
+	require.Equal(t, &gitalypb.GitCommit{
+		Id: "9ebfd44039a9e36d88dcdfe11550399ec6a212f7",
+		ParentIds: []string{
+			"1e292f8fedd741b75372e19097c76d327140c312",
+		},
+		TreeId:   "3a1de94946517a42fcfe4bf4986b8c61af799bd5",
+		Subject:  []byte("Reverting commit"),
+		Body:     []byte("Reverting commit"),
+		BodySize: 16,
+		Author: &gitalypb.CommitAuthor{
+			Name:     []byte("Jane Doe"),
+			Email:    []byte("janedoe@gitlab.com"),
+			Date:     &timestamp.Timestamp{Seconds: 12345},
+			Timezone: []byte("+0000"),
+		},
+		Committer: &gitalypb.CommitAuthor{
+			Name:     []byte("Jane Doe"),
+			Email:    []byte("janedoe@gitlab.com"),
+			Date:     &timestamp.Timestamp{Seconds: 12345},
+			Timezone: []byte("+0000"),
+		},
+	}, revertedCommit)
 }
 
 func TestServer_UserRevert_successful_into_empty_repo(t *testing.T) {

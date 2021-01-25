@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
@@ -104,6 +105,92 @@ func TestSuccessfulUserRebaseConfirmableRequest(t *testing.T) {
 		require.Contains(t, output, "GIT_PUSH_OPTION_0=ci.skip")
 		require.Contains(t, output, "GIT_PUSH_OPTION_1=test=value")
 	}
+}
+
+func TestUserRebaseConfirmable_stableCommitIDs(t *testing.T) {
+	cleanupSrv := setupAndStartGitlabServer(t, testhelper.GlID, "project-1")
+	defer cleanupSrv()
+
+	var ruby rubyserver.Server
+	require.NoError(t, ruby.Start())
+	defer ruby.Stop()
+
+	serverSocketPath, stop := runOperationServiceServerWithRubyServer(t, &ruby)
+	defer stop()
+
+	client, conn := newOperationClient(t, serverSocketPath)
+	defer conn.Close()
+
+	testRepo, testRepoPath, cleanup := testhelper.NewTestRepo(t)
+	defer cleanup()
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	md := testhelper.GitalyServersMetadata(t, serverSocketPath)
+	ctx = metadata.NewOutgoingContext(ctx, md)
+
+	rebaseStream, err := client.UserRebaseConfirmable(ctx)
+	require.NoError(t, err)
+
+	committerDate := &timestamp.Timestamp{Seconds: 100000000}
+	parentSha := getBranchSha(t, testRepoPath, "master")
+
+	require.NoError(t, rebaseStream.Send(&gitalypb.UserRebaseConfirmableRequest{
+		UserRebaseConfirmableRequestPayload: &gitalypb.UserRebaseConfirmableRequest_Header_{
+			Header: &gitalypb.UserRebaseConfirmableRequest_Header{
+				Repository:       testRepo,
+				User:             testhelper.TestUser,
+				RebaseId:         "1",
+				Branch:           []byte(rebaseBranchName),
+				BranchSha:        getBranchSha(t, testRepoPath, rebaseBranchName),
+				RemoteRepository: testRepo,
+				RemoteBranch:     []byte("master"),
+				Timestamp:        committerDate,
+			},
+		},
+	}), "send header")
+
+	response, err := rebaseStream.Recv()
+	require.NoError(t, err, "receive first response")
+	require.Equal(t, "c52b98024db0d3af0ccb20ed2a3a93a21cfbba87", response.GetRebaseSha())
+
+	applyRequest := buildApplyRequest(true)
+	require.NoError(t, rebaseStream.Send(applyRequest), "apply rebase")
+
+	response, err = rebaseStream.Recv()
+	require.NoError(t, err, "receive second response")
+	require.True(t, response.GetRebaseApplied())
+
+	testhelper.ReceiveEOFWithTimeout(t, func() error {
+		_, err = rebaseStream.Recv()
+		return err
+	})
+
+	commit, err := gitlog.GetCommit(ctx, config.NewLocator(config.Config), testRepo, git.Revision(rebaseBranchName))
+	require.NoError(t, err, "look up git commit")
+	testhelper.ProtoEqual(t, &gitalypb.GitCommit{
+		Subject:   []byte("Add a directory with many files to allow testing of default 1,000 entry limit"),
+		Body:      []byte("Add a directory with many files to allow testing of default 1,000 entry limit\n\nFor performance reasons, GitLab will add a file viewer limit and only show\nthe first 1,000 entries in a directory. Having this directory with many\nempty files in the test project will make the test easy.\n"),
+		BodySize:  283,
+		Id:        "c52b98024db0d3af0ccb20ed2a3a93a21cfbba87",
+		ParentIds: []string{parentSha},
+		TreeId:    "d0305132f880aa0ab4102e56a09cf1343ba34893",
+		Author: &gitalypb.CommitAuthor{
+			Name:  []byte("Drew Blessing"),
+			Email: []byte("drew@gitlab.com"),
+			// Nanoseconds get ignored because commit timestamps aren't that granular.
+			Date:     &timestamp.Timestamp{Seconds: 1510610637},
+			Timezone: []byte("-0600"),
+		},
+		Committer: &gitalypb.CommitAuthor{
+			Name:  testhelper.TestUser.Name,
+			Email: testhelper.TestUser.Email,
+			// Nanoseconds get ignored because commit timestamps aren't that granular.
+			Date:     committerDate,
+			Timezone: []byte("+0000"),
+		},
+	}, commit)
 }
 
 func TestFailedRebaseUserRebaseConfirmableRequestDueToInvalidHeader(t *testing.T) {

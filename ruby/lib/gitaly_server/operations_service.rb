@@ -12,8 +12,9 @@ module GitalyServer
       tag_name = get_param!(request, :tag_name)
 
       target_revision = get_param!(request, :target_revision)
+      timestamp = request.timestamp
 
-      created_tag = repo.add_tag(tag_name, user: user, target: target_revision, message: request.message.presence, transaction: transaction)
+      created_tag = repo.add_tag(tag_name, user: user, target: target_revision, message: request.message.presence, timestamp: timestamp, transaction: transaction)
       Gitaly::UserCreateTagResponse.new unless created_tag
 
       # We can create tags pointing to non-commits, but there is no
@@ -105,9 +106,10 @@ module GitalyServer
         source_sha = first_request.commit_id.dup
         target_branch = first_request.branch.dup
         message = first_request.message.dup
+        timestamp = first_request.timestamp
 
         begin
-          result = repository.merge(user, source_sha, target_branch, message) do |commit_id|
+          result = repository.merge(user, source_sha, target_branch, message, timestamp) do |commit_id|
             y << Gitaly::UserMergeBranchResponse.new(commit_id: commit_id)
 
             second_request = session.next
@@ -150,7 +152,8 @@ module GitalyServer
         message: request.message.dup,
         start_branch_name: request.start_branch_name.presence,
         start_repository: start_repository,
-        dry_run: request.dry_run
+        dry_run: request.dry_run,
+        timestamp: request.timestamp
       )
 
       branch_update = branch_update_result(result)
@@ -179,7 +182,8 @@ module GitalyServer
         message: request.message.dup,
         start_branch_name: request.start_branch_name.presence,
         start_repository: start_repository,
-        dry_run: request.dry_run
+        dry_run: request.dry_run,
+        timestamp: request.timestamp
       )
 
       branch_update = branch_update_result(result)
@@ -211,7 +215,8 @@ module GitalyServer
             branch_sha: header.branch_sha,
             remote_repository: remote_repository,
             remote_branch: header.remote_branch,
-            push_options: Gitlab::Git::PushOptions.new(header.git_push_options)
+            push_options: Gitlab::Git::PushOptions.new(header.git_push_options),
+            timestamp: header.timestamp
           ) do |rebase_sha|
             y << Gitaly::UserRebaseConfirmableResponse.new(rebase_sha: rebase_sha)
 
@@ -272,7 +277,7 @@ module GitalyServer
 
       branch_update = Gitlab::Git::Repository.from_gitaly_with_block(header.repository, call) do |repo|
         begin
-          Gitlab::Git::CommitPatches.new(user, repo, target_branch, patches).commit
+          Gitlab::Git::CommitPatches.new(user, repo, target_branch, patches, header.timestamp).commit
         rescue Gitlab::Git::PatchError => e
           raise GRPC::FailedPrecondition.new(e.message)
         end
@@ -288,7 +293,7 @@ module GitalyServer
         begin
           Gitlab::Git::Submodule
             .new(user, repo, request.submodule, request.branch)
-            .update(request.commit_sha, request.commit_message.dup)
+            .update(request.commit_sha, request.commit_message.dup, request.timestamp)
         rescue ArgumentError => e
           raise GRPC::InvalidArgument.new(e.to_s)
         end
@@ -317,7 +322,8 @@ module GitalyServer
         start_sha: 'start_sha',
         author_name: 'commit_author_name',
         author_email: 'commit_author_email',
-        force: 'force'
+        force: 'force',
+        timestamp: 'timestamp'
       }.transform_values { |v| header[v].presence }
 
       opts.merge(optional_fields)

@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
+	"github.com/golang/protobuf/ptypes"
 	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
@@ -113,10 +115,19 @@ func (s *Server) userMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 		return err
 	}
 
+	authorDate := time.Now()
+	if firstRequest.Timestamp != nil {
+		authorDate, err = ptypes.Timestamp(firstRequest.Timestamp)
+		if err != nil {
+			return helper.ErrInvalidArgument(err)
+		}
+	}
+
 	merge, err := git2go.MergeCommand{
 		Repository: repoPath,
 		AuthorName: string(firstRequest.User.Name),
 		AuthorMail: string(firstRequest.User.Email),
+		AuthorDate: authorDate,
 		Message:    string(firstRequest.Message),
 		Ours:       revision.String(),
 		Theirs:     firstRequest.CommitId,
@@ -304,6 +315,14 @@ func (s *Server) userMergeToRef(ctx context.Context, request *gitalypb.UserMerge
 		return nil, helper.ErrInvalidArgument(errors.New("Invalid merge source"))
 	}
 
+	authorDate := time.Now()
+	if request.Timestamp != nil {
+		authorDate, err = ptypes.Timestamp(request.Timestamp)
+		if err != nil {
+			return nil, helper.ErrInvalidArgument(err)
+		}
+	}
+
 	// First, overwrite the reference with the target reference.
 	if err := repo.UpdateRef(ctx, git.ReferenceName(request.TargetRef), oid, ""); err != nil {
 		return nil, updateRefError{reference: string(request.TargetRef)}
@@ -314,6 +333,7 @@ func (s *Server) userMergeToRef(ctx context.Context, request *gitalypb.UserMerge
 		Repository: repoPath,
 		AuthorName: string(request.User.Name),
 		AuthorMail: string(request.User.Email),
+		AuthorDate: authorDate,
 		Message:    string(request.Message),
 		Ours:       oid.String(),
 		Theirs:     sourceRef.String(),

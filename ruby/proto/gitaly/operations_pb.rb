@@ -5,6 +5,7 @@ require 'google/protobuf'
 
 require 'lint_pb'
 require 'shared_pb'
+require 'google/protobuf/timestamp_pb'
 Google::Protobuf::DescriptorPool.generated_pool.build do
   add_file("operations.proto", :syntax => :proto3) do
     add_message "gitaly.UserCreateBranchRequest" do
@@ -49,6 +50,7 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       optional :user, :message, 3, "gitaly.User"
       optional :target_revision, :bytes, 4
       optional :message, :bytes, 5
+      optional :timestamp, :message, 7, "google.protobuf.Timestamp"
     end
     add_message "gitaly.UserCreateTagResponse" do
       optional :tag, :message, 1, "gitaly.Tag"
@@ -61,6 +63,7 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       optional :commit_id, :string, 3
       optional :branch, :bytes, 4
       optional :message, :bytes, 5
+      optional :timestamp, :message, 7, "google.protobuf.Timestamp"
       optional :apply, :bool, 6
     end
     add_message "gitaly.UserMergeBranchResponse" do
@@ -77,6 +80,7 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       optional :message, :bytes, 6
       optional :first_parent_ref, :bytes, 7
       optional :allow_conflicts, :bool, 8
+      optional :timestamp, :message, 9, "google.protobuf.Timestamp"
     end
     add_message "gitaly.UserMergeToRefResponse" do
       optional :commit_id, :string, 1
@@ -106,6 +110,7 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       optional :start_branch_name, :bytes, 6
       optional :start_repository, :message, 7, "gitaly.Repository"
       optional :dry_run, :bool, 8
+      optional :timestamp, :message, 9, "google.protobuf.Timestamp"
     end
     add_message "gitaly.UserCherryPickResponse" do
       optional :branch_update, :message, 1, "gitaly.OperationBranchUpdate"
@@ -128,6 +133,7 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       optional :start_branch_name, :bytes, 6
       optional :start_repository, :message, 7, "gitaly.Repository"
       optional :dry_run, :bool, 8
+      optional :timestamp, :message, 9, "google.protobuf.Timestamp"
     end
     add_message "gitaly.UserRevertResponse" do
       optional :branch_update, :message, 1, "gitaly.OperationBranchUpdate"
@@ -174,6 +180,7 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       optional :start_repository, :message, 8, "gitaly.Repository"
       optional :force, :bool, 9
       optional :start_sha, :string, 10
+      optional :timestamp, :message, 11, "google.protobuf.Timestamp"
     end
     add_message "gitaly.UserCommitFilesRequest" do
       oneof :user_commit_files_request_payload do
@@ -201,6 +208,7 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       optional :remote_repository, :message, 6, "gitaly.Repository"
       optional :remote_branch, :bytes, 7
       repeated :git_push_options, :string, 8
+      optional :timestamp, :message, 9, "google.protobuf.Timestamp"
     end
     add_message "gitaly.UserRebaseConfirmableResponse" do
       optional :pre_receive_error, :string, 3
@@ -218,6 +226,7 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       optional :end_sha, :string, 6
       optional :author, :message, 7, "gitaly.User"
       optional :commit_message, :bytes, 8
+      optional :timestamp, :message, 9, "google.protobuf.Timestamp"
     end
     add_message "gitaly.UserSquashResponse" do
       optional :squash_sha, :string, 1
@@ -233,6 +242,7 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       optional :repository, :message, 1, "gitaly.Repository"
       optional :user, :message, 2, "gitaly.User"
       optional :target_branch, :bytes, 3
+      optional :timestamp, :message, 4, "google.protobuf.Timestamp"
     end
     add_message "gitaly.UserApplyPatchResponse" do
       optional :branch_update, :message, 1, "gitaly.OperationBranchUpdate"
@@ -244,6 +254,7 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       optional :branch, :bytes, 4
       optional :submodule, :bytes, 5
       optional :commit_message, :bytes, 6
+      optional :timestamp, :message, 7, "google.protobuf.Timestamp"
     end
     add_message "gitaly.UserUpdateSubmoduleResponse" do
       optional :branch_update, :message, 1, "gitaly.OperationBranchUpdate"
