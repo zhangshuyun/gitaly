@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -55,6 +56,10 @@ func (s *server) cleanupRepo(ctx context.Context, repo *gitalypb.Repository) err
 
 	if err := cleanPackedRefsNew(repoPath, older15min); err != nil {
 		return status.Errorf(codes.Internal, "Cleanup: cleanPackedRefsNew: %v", err)
+	}
+
+	if err := housekeeping.Perform(ctx, repoPath); err != nil {
+		return status.Errorf(codes.Internal, "Cleanup: houskeeping: %v", err)
 	}
 
 	return nil
