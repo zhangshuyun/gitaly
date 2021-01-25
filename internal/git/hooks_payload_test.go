@@ -30,7 +30,7 @@ func TestHooksPayload(t *testing.T) {
 	t.Run("envvar has proper name", func(t *testing.T) {
 		env, err := NewHooksPayload(config.Config, repo, nil, nil, nil).Env()
 		require.NoError(t, err)
-		require.True(t, strings.HasPrefix(env, ErrHooksPayloadNotFound+"="))
+		require.True(t, strings.HasPrefix(env, EnvHooksPayload+"="))
 	})
 
 	t.Run("roundtrip succeeds", func(t *testing.T) {
@@ -41,7 +41,7 @@ func TestHooksPayload(t *testing.T) {
 			"UNRELATED=value",
 			env,
 			"ANOTHOR=unrelated-value",
-			ErrHooksPayloadNotFound + "_WITH_SUFFIX=is-ignored",
+			EnvHooksPayload + "_WITH_SUFFIX=is-ignored",
 		})
 		require.NoError(t, err)
 
@@ -75,7 +75,7 @@ func TestHooksPayload(t *testing.T) {
 	})
 
 	t.Run("bogus value", func(t *testing.T) {
-		_, err := HooksPayloadFromEnv([]string{ErrHooksPayloadNotFound + "=foobar"})
+		_, err := HooksPayloadFromEnv([]string{EnvHooksPayload + "=foobar"})
 		require.Error(t, err)
 	})
 

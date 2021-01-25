@@ -14,9 +14,9 @@ import (
 )
 
 const (
-	// ErrHooksPayloadNotFound is the name of the environment variable used
+	// EnvHooksPayload is the name of the environment variable used
 	// to hold the hooks payload.
-	ErrHooksPayloadNotFound = "GITALY_HOOKS_PAYLOAD"
+	EnvHooksPayload = "GITALY_HOOKS_PAYLOAD"
 )
 
 var (
@@ -111,7 +111,7 @@ func lookupEnv(envs []string, key string) (string, bool) {
 // variables. If no HooksPayload exists, it returns a ErrPayloadNotFound
 // error.
 func HooksPayloadFromEnv(envs []string) (HooksPayload, error) {
-	encoded, ok := lookupEnv(envs, ErrHooksPayloadNotFound)
+	encoded, ok := lookupEnv(envs, EnvHooksPayload)
 	if !ok {
 		return HooksPayload{}, ErrPayloadNotFound
 	}
@@ -157,5 +157,5 @@ func (p HooksPayload) Env() (string, error) {
 
 	encoded := base64.StdEncoding.EncodeToString(marshalled)
 
-	return fmt.Sprintf("%s=%s", ErrHooksPayloadNotFound, encoded), nil
+	return fmt.Sprintf("%s=%s", EnvHooksPayload, encoded), nil
 }
