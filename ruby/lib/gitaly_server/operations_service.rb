@@ -293,7 +293,7 @@ module GitalyServer
         begin
           Gitlab::Git::Submodule
             .new(user, repo, request.submodule, request.branch)
-            .update(request.commit_sha, request.commit_message.dup)
+            .update(request.commit_sha, request.commit_message.dup, request.timestamp)
         rescue ArgumentError => e
           raise GRPC::InvalidArgument.new(e.to_s)
         end

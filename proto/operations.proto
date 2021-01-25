@@ -676,6 +676,10 @@ message UserUpdateSubmoduleRequest {
   bytes submodule = 5;
   // commit_message is the message updating the submodule.
   bytes commit_message = 6;
+  // timestamp is the optional timestamp to use for the commit updating the
+  // submodule as committer date. If it's not set, the current time will be
+  // used.
+  google.protobuf.Timestamp timestamp = 7;
 }
 
 message UserUpdateSubmoduleResponse {

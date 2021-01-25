@@ -254,6 +254,7 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       optional :branch, :bytes, 4
       optional :submodule, :bytes, 5
       optional :commit_message, :bytes, 6
+      optional :timestamp, :message, 7, "google.protobuf.Timestamp"
     end
     add_message "gitaly.UserUpdateSubmoduleResponse" do
       optional :branch_update, :message, 1, "gitaly.OperationBranchUpdate"

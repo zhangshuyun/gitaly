@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/log"
@@ -87,6 +88,63 @@ func testSuccessfulUserUpdateSubmoduleRequest(t *testing.T, ctx context.Context)
 			require.Equal(t, testCase.commitSha, parsedEntry.Oid)
 		})
 	}
+}
+
+func TestUserUpdateSubmodule_stableID(t *testing.T) {
+	testhelper.NewFeatureSets(
+		[]featureflag.FeatureFlag{featureflag.GoUserUpdateSubmodule},
+	).Run(t, testUserUpdateSubmoduleStableID)
+}
+
+func testUserUpdateSubmoduleStableID(t *testing.T, ctx context.Context) {
+	locator := config.NewLocator(config.Config)
+
+	serverSocketPath, stop := runOperationServiceServer(t)
+	defer stop()
+
+	client, conn := newOperationClient(t, serverSocketPath)
+	defer conn.Close()
+
+	repo, _, cleanup := testhelper.NewTestRepo(t)
+	defer cleanup()
+
+	response, err := client.UserUpdateSubmodule(ctx, &gitalypb.UserUpdateSubmoduleRequest{
+		Repository:    repo,
+		User:          testhelper.TestUser,
+		Submodule:     []byte("gitlab-grack"),
+		CommitSha:     "41fa1bc9e0f0630ced6a8a211d60c2af425ecc2d",
+		Branch:        []byte("master"),
+		CommitMessage: []byte("Update Submodule message"),
+		Timestamp:     &timestamp.Timestamp{Seconds: 12345},
+	})
+	require.NoError(t, err)
+	require.Empty(t, response.GetCommitError())
+	require.Empty(t, response.GetPreReceiveError())
+
+	commit, err := log.GetCommit(ctx, locator, repo, git.Revision(response.BranchUpdate.CommitId))
+	require.NoError(t, err)
+	require.Equal(t, &gitalypb.GitCommit{
+		Id: "e7752dfc2105bc830f8fa59b19dd4f3e49c8c44e",
+		ParentIds: []string{
+			"1e292f8fedd741b75372e19097c76d327140c312",
+		},
+		TreeId:   "569d23230fd644aaeb2fcb239c52ef1fcaa171c3",
+		Subject:  []byte("Update Submodule message"),
+		Body:     []byte("Update Submodule message"),
+		BodySize: 24,
+		Author: &gitalypb.CommitAuthor{
+			Name:     testhelper.TestUser.Name,
+			Email:    testhelper.TestUser.Email,
+			Date:     &timestamp.Timestamp{Seconds: 12345},
+			Timezone: []byte("+0000"),
+		},
+		Committer: &gitalypb.CommitAuthor{
+			Name:     testhelper.TestUser.Name,
+			Email:    testhelper.TestUser.Email,
+			Date:     &timestamp.Timestamp{Seconds: 12345},
+			Timezone: []byte("+0000"),
+		},
+	}, commit)
 }
 
 func TestFailedUserUpdateSubmoduleRequestDueToValidations(t *testing.T) {
