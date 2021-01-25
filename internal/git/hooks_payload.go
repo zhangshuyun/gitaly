@@ -14,9 +14,9 @@ import (
 )
 
 const (
-	// ErrHooksPayloadNotFound is the name of the environment variable used
+	// EnvHooksPayload is the name of the environment variable used
 	// to hold the hooks payload.
-	ErrHooksPayloadNotFound = "GITALY_HOOKS_PAYLOAD"
+	EnvHooksPayload = "GITALY_HOOKS_PAYLOAD"
 )
 
 var (
@@ -111,139 +111,35 @@ func lookupEnv(envs []string, key string) (string, bool) {
 // variables. If no HooksPayload exists, it returns a ErrPayloadNotFound
 // error.
 func HooksPayloadFromEnv(envs []string) (HooksPayload, error) {
-	var payload HooksPayload
-
-	if encoded, ok := lookupEnv(envs, ErrHooksPayloadNotFound); ok {
-		decoded, err := base64.StdEncoding.DecodeString(encoded)
-		if err != nil {
-			return HooksPayload{}, err
-		}
-
-		var jsonPayload jsonHooksPayload
-		if err := json.Unmarshal(decoded, &jsonPayload); err != nil {
-			return HooksPayload{}, err
-		}
-
-		var repo gitalypb.Repository
-		err = jsonpbUnmarshaller.Unmarshal(strings.NewReader(jsonPayload.Repo), &repo)
-		if err != nil {
-			return HooksPayload{}, err
-		}
-
-		payload = jsonPayload.HooksPayload
-		payload.Repo = &repo
-	} else {
-		fallback, err := fallbackPayloadFromEnv(envs)
-		if err != nil {
-			return HooksPayload{}, err
-		}
-
-		payload = fallback
-	}
-
-	// If we didn't find a transaction, then we need to fall back to the
-	// transaction environment variables with the same reasoning as for
-	// `fallbackPayloadFromEnv()`.
-	if payload.Transaction == nil {
-		tx, err := metadata.TransactionFromEnv(envs)
-		if err == nil {
-			praefect, err := metadata.PraefectFromEnv(envs)
-			if err != nil {
-				return HooksPayload{}, err
-			}
-
-			payload.Transaction = &tx
-			payload.Praefect = praefect
-		} else if err != metadata.ErrTransactionNotFound {
-			return HooksPayload{}, err
-		}
-	}
-
-	// If we didn't find a ReceiveHooksPayload, then we need to fallback to
-	// the GL_ environment values with the same reasoning as for
-	// `fallbackPayloadFromEnv()`.
-	if payload.ReceiveHooksPayload == nil {
-		receiveHooksPayload, err := fallbackReceiveHooksPayloadFromEnv(envs)
-		if err != nil {
-			return HooksPayload{}, err
-		}
-		payload.ReceiveHooksPayload = receiveHooksPayload
-	}
-
-	return payload, nil
-}
-
-// fallbackPayloadFromEnv is a compatibility layer for upgrades where it may
-// happen that the new gitaly-hooks binary has already been installed while the
-// old server is still running. As a result, there'd be some time where we
-// don't yet have GITALY_HOOKS_PAYLOAD set up in our environment, and we'll
-// have to cope with this. We thus fall back to the old envvars here.
-func fallbackPayloadFromEnv(envs []string) (HooksPayload, error) {
-	var payload HooksPayload
-
-	marshalledRepo, ok := lookupEnv(envs, "GITALY_REPOSITORY")
+	encoded, ok := lookupEnv(envs, EnvHooksPayload)
 	if !ok {
-		return payload, ErrPayloadNotFound
+		return HooksPayload{}, ErrPayloadNotFound
+	}
+
+	decoded, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		return HooksPayload{}, err
+	}
+
+	var jsonPayload jsonHooksPayload
+	if err := json.Unmarshal(decoded, &jsonPayload); err != nil {
+		return HooksPayload{}, err
 	}
 
 	var repo gitalypb.Repository
-	if err := jsonpbUnmarshaller.Unmarshal(strings.NewReader(marshalledRepo), &repo); err != nil {
+	err = jsonpbUnmarshaller.Unmarshal(strings.NewReader(jsonPayload.Repo), &repo)
+	if err != nil {
 		return HooksPayload{}, err
 	}
+
+	payload := jsonPayload.HooksPayload
 	payload.Repo = &repo
 
-	binDir, ok := lookupEnv(envs, "GITALY_BIN_DIR")
-	if !ok {
-		return payload, ErrPayloadNotFound
+	if payload.Transaction != nil && payload.Praefect == nil {
+		return HooksPayload{}, metadata.ErrPraefectServerNotFound
 	}
-	payload.BinDir = binDir
-
-	socket, ok := lookupEnv(envs, "GITALY_SOCKET")
-	if !ok {
-		return payload, ErrPayloadNotFound
-	}
-	payload.InternalSocket = socket
-
-	// The token may be unset, which is fine if no authentication is
-	// required.
-	token, _ := lookupEnv(envs, "GITALY_TOKEN")
-	payload.InternalSocketToken = token
 
 	return payload, nil
-}
-
-// fallbackReceiveHooksPayloadFromEnv is a compatibility layer for upgrades
-// where it may happen that the new gitaly-hooks binary has already been
-// installed while the old server is still running.
-//
-// We need to keep in mind that it's perfectly fine for hooks to not have
-// the GL_ values in case we only run the reference-transaction hook. We cannot
-// distinguish those cases, so the best we can do is check for the first value
-// to exist: if it exists, we assume all the others must exist as well.
-// Otherwise, we assume none exist. This should be fine as all three hooks
-// expect those values to be set, while the reference-transaction hook doesn't
-// care at all for them.
-func fallbackReceiveHooksPayloadFromEnv(envs []string) (*ReceiveHooksPayload, error) {
-	protocol, ok := lookupEnv(envs, "GL_PROTOCOL")
-	if !ok {
-		return nil, nil
-	}
-
-	userID, ok := lookupEnv(envs, "GL_ID")
-	if !ok {
-		return nil, errors.New("no user ID found in hooks environment")
-	}
-
-	username, ok := lookupEnv(envs, "GL_USERNAME")
-	if !ok {
-		return nil, errors.New("no user ID found in hooks environment")
-	}
-
-	return &ReceiveHooksPayload{
-		Protocol: protocol,
-		UserID:   userID,
-		Username: username,
-	}, nil
 }
 
 // Env encodes the given HooksPayload into an environment variable.
@@ -261,5 +157,5 @@ func (p HooksPayload) Env() (string, error) {
 
 	encoded := base64.StdEncoding.EncodeToString(marshalled)
 
-	return fmt.Sprintf("%s=%s", ErrHooksPayloadNotFound, encoded), nil
+	return fmt.Sprintf("%s=%s", EnvHooksPayload, encoded), nil
 }

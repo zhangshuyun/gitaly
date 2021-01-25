@@ -5,8 +5,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"fmt"
-	"strings"
 
 	"google.golang.org/grpc/metadata"
 )
@@ -15,9 +13,6 @@ const (
 	// TransactionMetadataKey is the key used to store transaction
 	// information in the gRPC metadata.
 	TransactionMetadataKey = "gitaly-reference-transaction"
-	// TransactionEnvKey is the key used to store transaction information
-	// in environment variables.
-	TransactionEnvKey = "GITALY_REFERENCE_TRANSACTION"
 )
 
 var (
@@ -100,34 +95,6 @@ func TransactionFromContext(ctx context.Context) (Transaction, error) {
 	}
 
 	return transactionFromSerialized(serialized[0])
-}
-
-// Env returns a formatted environment variable mapping `TransactionEnvKey` to
-// the serialized representation of `Transaction`.
-func (t Transaction) Env() (string, error) {
-	serialized, err := t.serialize()
-	if err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("%s=%s", TransactionEnvKey, serialized), nil
-}
-
-// TransactionFromEnv searches the given environment variables for
-// `TransactionEnvKey` and, if present, returns its deserialized `Transaction`.
-func TransactionFromEnv(envvars []string) (Transaction, error) {
-	transactionKey := fmt.Sprintf("%s=", TransactionEnvKey)
-	transactionEnv := ""
-	for _, envvar := range envvars {
-		if strings.HasPrefix(envvar, transactionKey) {
-			transactionEnv = envvar[len(transactionKey):]
-			break
-		}
-	}
-	if transactionEnv == "" {
-		return Transaction{}, ErrTransactionNotFound
-	}
-
-	return transactionFromSerialized(transactionEnv)
 }
 
 // TransactionMetadataFromContext extracts transaction-related metadata from
