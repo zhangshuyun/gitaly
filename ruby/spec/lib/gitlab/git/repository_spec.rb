@@ -88,26 +88,6 @@ describe Gitlab::Git::Repository do # rubocop:disable Metrics/BlockLength
     it { expect(repository).not_to be_empty }
   end
 
-  describe "#delete_branch" do
-    let(:repository) { mutable_repository }
-
-    it "removes the branch from the repo" do
-      branch_name = "to-be-deleted-soon"
-
-      create_branch(repository, branch_name)
-      expect(repository_rugged.branches[branch_name]).not_to be_nil
-
-      repository.delete_branch(branch_name)
-      expect(repository_rugged.branches[branch_name]).to be_nil
-    end
-
-    context "when branch does not exist" do
-      it "raises a DeleteBranchError exception" do
-        expect { repository.delete_branch("this-branch-does-not-exist") }.to raise_error(Gitlab::Git::Repository::DeleteBranchError)
-      end
-    end
-  end
-
   describe '#delete_refs' do
     let(:repository) { mutable_repository }
 

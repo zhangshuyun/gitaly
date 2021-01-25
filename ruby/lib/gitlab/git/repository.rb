@@ -22,7 +22,6 @@ module Gitlab
       NoRepository = Class.new(StandardError)
       InvalidRef = Class.new(StandardError)
       GitError = Class.new(StandardError)
-      DeleteBranchError = Class.new(StandardError)
       TagExistsError = Class.new(StandardError)
 
       class CreateTreeError < StandardError
@@ -519,13 +518,6 @@ module Gitlab
         return unless rugged_ref
 
         Gitlab::Git::Ref.new(self, rugged_ref.canonical_name, rugged_ref.target, rugged_ref.target_id)
-      end
-
-      # Delete the specified branch from the repository
-      def delete_branch(branch_name)
-        rugged.branches.delete(branch_name)
-      rescue Rugged::ReferenceError => e
-        raise DeleteBranchError, e
       end
 
       def delete_refs(*ref_names)
