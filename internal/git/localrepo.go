@@ -39,7 +39,7 @@ func (repo *LocalRepository) Config() Config {
 
 // Remote returns executor of the 'remote' sub-command.
 func (repo *LocalRepository) Remote() Remote {
-	return RepositoryRemote{repo: repo.repo}
+	return LocalRepositoryRemote{repo: repo.repo}
 }
 
 func errorWithStderr(err error, stderr []byte) error {

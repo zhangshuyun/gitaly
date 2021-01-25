@@ -1,14 +1,7 @@
 package git
 
 import (
-	"bytes"
 	"context"
-	"strings"
-
-	"gitlab.com/gitlab-org/gitaly/internal/command"
-	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/internal/helper"
 )
 
 // Remote represents 'remote' sub-command.
@@ -25,11 +18,6 @@ type Remote interface {
 	// If remote doesn't exist it returns an ErrNotFound error.
 	// https://git-scm.com/docs/git-remote#Documentation/git-remote.txt-emset-urlem
 	SetURL(ctx context.Context, name, url string, opts SetURLOpts) error
-}
-
-// RepositoryRemote provides functionality of the 'remote' git sub-command.
-type RepositoryRemote struct {
-	repo repository.GitRepo
 }
 
 // RemoteAddOptsMirror represents possible values for the '--mirror' flag value
@@ -109,87 +97,6 @@ func (opts RemoteAddOpts) buildFlags() []Option {
 	return flags
 }
 
-func (repo RepositoryRemote) Add(ctx context.Context, name, url string, opts RemoteAddOpts) error {
-	if err := validateNotBlank(name, "name"); err != nil {
-		return err
-	}
-
-	if err := validateNotBlank(url, "url"); err != nil {
-		return err
-	}
-
-	stderr := bytes.Buffer{}
-	cmd, err := NewCommand(ctx, repo.repo, nil,
-		SubSubCmd{
-			Name:   "remote",
-			Action: "add",
-			Flags:  opts.buildFlags(),
-			Args:   []string{name, url},
-		},
-		WithStderr(&stderr),
-		WithRefTxHook(ctx, helper.ProtoRepoFromRepo(repo.repo), config.Config),
-	)
-	if err != nil {
-		return err
-	}
-
-	if err := cmd.Wait(); err != nil {
-		status, ok := command.ExitStatus(err)
-		if !ok {
-			return err
-		}
-
-		if status == 3 {
-			// In Git v2.30.0 and newer (https://gitlab.com/git-vcs/git/commit/9144ba4cf52)
-			return ErrAlreadyExists
-		}
-		if status == 128 && bytes.HasPrefix(stderr.Bytes(), []byte("fatal: remote "+name+" already exists")) {
-			// ..in older versions we parse stderr
-			return ErrAlreadyExists
-		}
-	}
-
-	return nil
-}
-
-func (repo RepositoryRemote) Remove(ctx context.Context, name string) error {
-	if err := validateNotBlank(name, "name"); err != nil {
-		return err
-	}
-
-	var stderr bytes.Buffer
-	cmd, err := NewCommand(ctx, repo.repo, nil,
-		SubSubCmd{
-			Name:   "remote",
-			Action: "remove",
-			Args:   []string{name},
-		},
-		WithStderr(&stderr),
-		WithRefTxHook(ctx, helper.ProtoRepoFromRepo(repo.repo), config.Config),
-	)
-	if err != nil {
-		return err
-	}
-
-	if err := cmd.Wait(); err != nil {
-		status, ok := command.ExitStatus(err)
-		if !ok {
-			return err
-		}
-
-		if status == 2 {
-			// In Git v2.30.0 and newer (https://gitlab.com/git-vcs/git/commit/9144ba4cf52)
-			return ErrNotFound
-		}
-		if status == 128 && strings.HasPrefix(stderr.String(), "fatal: No such remote") {
-			// ..in older versions we parse stderr
-			return ErrNotFound
-		}
-	}
-
-	return err
-}
-
 // SetURLOpts are the options for SetURL.
 type SetURLOpts struct {
 	// Push URLs are manipulated instead of fetch URLs.
@@ -202,47 +109,4 @@ func (opts SetURLOpts) buildFlags() []Option {
 	}
 
 	return nil
-}
-
-func (repo RepositoryRemote) SetURL(ctx context.Context, name, url string, opts SetURLOpts) error {
-	if err := validateNotBlank(name, "name"); err != nil {
-		return err
-	}
-
-	if err := validateNotBlank(url, "url"); err != nil {
-		return err
-	}
-
-	var stderr bytes.Buffer
-	cmd, err := NewCommand(ctx, repo.repo, nil,
-		SubSubCmd{
-			Name:   "remote",
-			Action: "set-url",
-			Flags:  opts.buildFlags(),
-			Args:   []string{name, url},
-		},
-		WithStderr(&stderr),
-		WithRefTxHook(ctx, helper.ProtoRepoFromRepo(repo.repo), config.Config),
-	)
-	if err != nil {
-		return err
-	}
-
-	if err := cmd.Wait(); err != nil {
-		status, ok := command.ExitStatus(err)
-		if !ok {
-			return err
-		}
-
-		if status == 2 {
-			// In Git v2.30.0 and newer (https://gitlab.com/git-vcs/git/commit/9144ba4cf52)
-			return ErrNotFound
-		}
-		if status == 128 && strings.HasPrefix(stderr.String(), "fatal: No such remote") {
-			// ..in older versions we parse stderr
-			return ErrNotFound
-		}
-	}
-
-	return err
 }

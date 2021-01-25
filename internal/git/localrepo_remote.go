@@ -1,11 +1,149 @@
 package git
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
 	"strings"
+
+	"gitlab.com/gitlab-org/gitaly/internal/command"
+	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/internal/helper"
 )
+
+// LocalRepositoryRemote provides functionality of the 'remote' git sub-command.
+type LocalRepositoryRemote struct {
+	repo repository.GitRepo
+}
+
+// Add adds a new remote to the repository.
+func (repo LocalRepositoryRemote) Add(ctx context.Context, name, url string, opts RemoteAddOpts) error {
+	if err := validateNotBlank(name, "name"); err != nil {
+		return err
+	}
+
+	if err := validateNotBlank(url, "url"); err != nil {
+		return err
+	}
+
+	stderr := bytes.Buffer{}
+	cmd, err := NewCommand(ctx, repo.repo, nil,
+		SubSubCmd{
+			Name:   "remote",
+			Action: "add",
+			Flags:  opts.buildFlags(),
+			Args:   []string{name, url},
+		},
+		WithStderr(&stderr),
+		WithRefTxHook(ctx, helper.ProtoRepoFromRepo(repo.repo), config.Config),
+	)
+	if err != nil {
+		return err
+	}
+
+	if err := cmd.Wait(); err != nil {
+		status, ok := command.ExitStatus(err)
+		if !ok {
+			return err
+		}
+
+		if status == 3 {
+			// In Git v2.30.0 and newer (https://gitlab.com/git-vcs/git/commit/9144ba4cf52)
+			return ErrAlreadyExists
+		}
+		if status == 128 && bytes.HasPrefix(stderr.Bytes(), []byte("fatal: remote "+name+" already exists")) {
+			// ..in older versions we parse stderr
+			return ErrAlreadyExists
+		}
+	}
+
+	return nil
+}
+
+// Remove removes a named remote from the repository configuration.
+func (repo LocalRepositoryRemote) Remove(ctx context.Context, name string) error {
+	if err := validateNotBlank(name, "name"); err != nil {
+		return err
+	}
+
+	var stderr bytes.Buffer
+	cmd, err := NewCommand(ctx, repo.repo, nil,
+		SubSubCmd{
+			Name:   "remote",
+			Action: "remove",
+			Args:   []string{name},
+		},
+		WithStderr(&stderr),
+		WithRefTxHook(ctx, helper.ProtoRepoFromRepo(repo.repo), config.Config),
+	)
+	if err != nil {
+		return err
+	}
+
+	if err := cmd.Wait(); err != nil {
+		status, ok := command.ExitStatus(err)
+		if !ok {
+			return err
+		}
+
+		if status == 2 {
+			// In Git v2.30.0 and newer (https://gitlab.com/git-vcs/git/commit/9144ba4cf52)
+			return ErrNotFound
+		}
+		if status == 128 && strings.HasPrefix(stderr.String(), "fatal: No such remote") {
+			// ..in older versions we parse stderr
+			return ErrNotFound
+		}
+	}
+
+	return err
+}
+
+// SetURL sets the URL for a given remote.
+func (repo LocalRepositoryRemote) SetURL(ctx context.Context, name, url string, opts SetURLOpts) error {
+	if err := validateNotBlank(name, "name"); err != nil {
+		return err
+	}
+
+	if err := validateNotBlank(url, "url"); err != nil {
+		return err
+	}
+
+	var stderr bytes.Buffer
+	cmd, err := NewCommand(ctx, repo.repo, nil,
+		SubSubCmd{
+			Name:   "remote",
+			Action: "set-url",
+			Flags:  opts.buildFlags(),
+			Args:   []string{name, url},
+		},
+		WithStderr(&stderr),
+		WithRefTxHook(ctx, helper.ProtoRepoFromRepo(repo.repo), config.Config),
+	)
+	if err != nil {
+		return err
+	}
+
+	if err := cmd.Wait(); err != nil {
+		status, ok := command.ExitStatus(err)
+		if !ok {
+			return err
+		}
+
+		if status == 2 {
+			// In Git v2.30.0 and newer (https://gitlab.com/git-vcs/git/commit/9144ba4cf52)
+			return ErrNotFound
+		}
+		if status == 128 && strings.HasPrefix(stderr.String(), "fatal: No such remote") {
+			// ..in older versions we parse stderr
+			return ErrNotFound
+		}
+	}
+
+	return err
+}
 
 // FetchOptsTags controls what tags needs to be imported on fetch.
 type FetchOptsTags string
