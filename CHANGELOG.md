@@ -51,6 +51,13 @@
 - Make command stats logging concurrency-safe. !2956
 
 
+## 13.7.5 (2021-01-25)
+
+### Performance (1 change)
+
+- Disable ref tx hooks for FetchRemote calls. !3006
+
+
 ## 13.7.4 (2021-01-13)
 
 - No changes.
