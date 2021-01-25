@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"strings"
 
+	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
 )
 
@@ -284,4 +285,13 @@ func (repo RepositoryConfig) Unset(ctx context.Context, name string, opts Config
 
 func chompNul(b []byte) string {
 	return string(bytes.Trim(b, "\x00"))
+}
+
+func isExitWithCode(err error, code int) bool {
+	actual, ok := command.ExitStatus(err)
+	if !ok {
+		return false
+	}
+
+	return code == actual
 }
