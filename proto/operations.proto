@@ -555,6 +555,9 @@ message UserRebaseConfirmableRequest {
     // git_push_options contain options which shall be passed to the git hooks
     // when the local branch gets updated.
     repeated string git_push_options = 8;
+    // timestamp is the optional timestamp to use for the rebased commits as
+    // committer date. If it's not set, the current time will be used.
+    google.protobuf.Timestamp timestamp = 9;
   }
 
   oneof user_rebase_confirmable_request_payload {

@@ -204,6 +204,7 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       optional :remote_repository, :message, 6, "gitaly.Repository"
       optional :remote_branch, :bytes, 7
       repeated :git_push_options, :string, 8
+      optional :timestamp, :message, 9, "google.protobuf.Timestamp"
     end
     add_message "gitaly.UserRebaseConfirmableResponse" do
       optional :pre_receive_error, :string, 3

@@ -351,9 +351,10 @@ module Gitlab
         rugged.diff(sha1, sha2).size.positive?
       end
 
-      def rebase(user, rebase_id, branch:, branch_sha:, remote_repository:, remote_branch:, push_options: nil)
+      # rubocop:disable Metrics/ParameterLists
+      def rebase(user, rebase_id, branch:, branch_sha:, remote_repository:, remote_branch:, push_options: nil, timestamp: nil)
         worktree = Gitlab::Git::Worktree.new(path, REBASE_WORKTREE_PREFIX, rebase_id)
-        env = git_env.merge(user.git_env)
+        env = git_env.merge(user.git_env(timestamp))
 
         with_repo_branch_commit(remote_repository, remote_branch) do |commit|
           diff_range = "#{commit.sha}...#{branch}"
@@ -381,6 +382,7 @@ module Gitlab
           end
         end
       end
+      # rubocop:enable Metrics/ParameterLists
 
       def commit_patches(start_point, patches, extra_env: {})
         worktree = Gitlab::Git::Worktree.new(path, AM_WORKTREE_PREFIX, SecureRandom.hex)
