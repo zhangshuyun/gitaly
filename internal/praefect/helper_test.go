@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/protoc-gen-go/descriptor"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
@@ -269,8 +270,7 @@ func runPraefectServer(t testing.TB, conf config.Config, opt buildOptions) (*grp
 }
 
 func mustLoadProtoReg(t testing.TB) *descriptor.FileDescriptorProto {
-	gz, _ := (*mock.SimpleRequest)(nil).Descriptor()
-	fd, err := protoregistry.ExtractFileDescriptor(gz)
+	fd, err := protoregistry.ExtractFileDescriptor(proto.FileDescriptor("praefect/mock/mock.proto"))
 	require.NoError(t, err)
 	return fd
 }

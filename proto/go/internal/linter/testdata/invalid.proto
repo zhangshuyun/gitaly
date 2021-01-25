@@ -89,13 +89,6 @@ service InvalidService {
       op: ACCESSOR
     };
   }
-  // should fail if target repo is provided for server-scoped mutator
-  rpc InvalidMethod3(InvalidMethodRequestWithRepo) returns (InvalidMethodResponse) {
-    option (gitaly.op_type) = {
-      op: MUTATOR
-      scope_level: SERVER
-    };
-  }
   // should fail if missing either target repo or non-repo-scope for mutator
   rpc InvalidMethod4(InvalidMethodRequest) returns (InvalidMethodResponse) {
     option (gitaly.op_type).op = MUTATOR;
@@ -143,14 +136,6 @@ service InvalidService {
     option (gitaly.op_type) = {
       op: MUTATOR
       scope_level: REPOSITORY
-    };
-  }
-
-  // should fail if storage is specified for server scoped RPC
-  rpc InvalidMethod12(RequestWithInnerNestedStorage) returns (InvalidMethodResponse) {
-    option (gitaly.op_type) = {
-      op: MUTATOR
-      scope_level: SERVER
     };
   }
 

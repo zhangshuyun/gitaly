@@ -8,29 +8,14 @@ syntax = "proto3";
 package mock;
 
 import "shared.proto";
+import "lint.proto";
 import "google/protobuf/empty.proto";
-
-message SimpleRequest {
-	int32 value = 1;
-}
-
-message SimpleResponse {
-	int32 value = 2;
-}
 
 message RepoRequest {
 	gitaly.Repository repo = 1 [(gitaly.target_repository)=true];
 }
 
 service SimpleService {
-  // ServerAccessor is a unary RPC that accesses a server
-  rpc ServerAccessor(SimpleRequest) returns (SimpleResponse) {
-    option (gitaly.op_type) = {
-      op: ACCESSOR
-      scope_level: SERVER
-    };
-  }
-	
   // RepoAccessorUnary is a unary RPC that accesses a repo
   rpc RepoAccessorUnary(RepoRequest) returns (google.protobuf.Empty) {
     option (gitaly.op_type) = {
@@ -38,7 +23,7 @@ service SimpleService {
       scope_level: REPOSITORY
     };
   }
-	
+
   // RepoMutatorUnary is a unary RPC that mutates a repo
   rpc RepoMutatorUnary(RepoRequest) returns (google.protobuf.Empty) {
     option (gitaly.op_type) = {

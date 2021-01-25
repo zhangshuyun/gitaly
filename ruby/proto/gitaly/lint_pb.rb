@@ -16,7 +16,6 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
     end
     add_enum "gitaly.OperationMsg.Scope" do
       value :REPOSITORY, 0
-      value :SERVER, 1
       value :STORAGE, 2
     end
   end

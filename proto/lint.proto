@@ -17,8 +17,10 @@ message OperationMsg {
 
   enum Scope {
     REPOSITORY = 0;
-    SERVER = 1;
     STORAGE = 2;
+
+    reserved 1;
+    reserved "SERVER";
   }
 
   // Scope level indicates what level an RPC interacts with a server:

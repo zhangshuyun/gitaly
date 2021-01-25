@@ -61,10 +61,7 @@ func TestAuthFailures(t *testing.T) {
 
 			cli := mock.NewSimpleServiceClient(conn)
 
-			_, err = cli.ServerAccessor(ctx, &mock.SimpleRequest{
-				Value: 1,
-			})
-
+			_, err = cli.RepoAccessorUnary(ctx, &mock.RepoRequest{})
 			testhelper.RequireGrpcError(t, err, tc.code)
 		})
 	}
@@ -134,14 +131,7 @@ func dial(serverSocketPath string, opts []grpc.DialOption) (*grpc.ClientConn, er
 
 func runServer(t *testing.T, token string, required bool) (*grpc.Server, string, func()) {
 	backendToken := "abcxyz"
-	mockServer := &mockSvc{
-		serverAccessor: func(_ context.Context, req *mock.SimpleRequest) (*mock.SimpleResponse, error) {
-			return &mock.SimpleResponse{
-				Value: req.Value + 1,
-			}, nil
-		},
-	}
-	backend, cleanup := newMockDownstream(t, backendToken, mockServer)
+	backend, cleanup := newMockDownstream(t, backendToken, &mockSvc{})
 
 	conf := config.Config{
 		Auth: auth.Config{Token: token, Transitioning: !required},
@@ -159,7 +149,7 @@ func runServer(t *testing.T, token string, required bool) (*grpc.Server, string,
 		},
 	}
 
-	gz := proto.FileDescriptor("mock.proto")
+	gz := proto.FileDescriptor("praefect/mock/mock.proto")
 	fd, err := protoregistry.ExtractFileDescriptor(gz)
 	if err != nil {
 		t.Fatal(err)

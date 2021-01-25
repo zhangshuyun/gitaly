@@ -827,46 +827,34 @@ func TestProxyWrites(t *testing.T) {
 	assert.Equal(t, bytes.Repeat([]byte(payload), 10), receivedData.Bytes())
 }
 
-type errorSimpleService struct{}
-
-// ServerAccessor is implemented by a callback
-func (m *errorSimpleService) ServerAccessor(ctx context.Context, req *mock.SimpleRequest) (*mock.SimpleResponse, error) {
-	return nil, helper.ErrInternalf("something went wrong")
-}
-
-// RepoAccessorUnary is implemented by a callback
-func (m *errorSimpleService) RepoAccessorUnary(ctx context.Context, req *mock.RepoRequest) (*empty.Empty, error) {
-	md, ok := grpc_metadata.FromIncomingContext(ctx)
-	if !ok {
-		return &empty.Empty{}, errors.New("couldn't read metadata")
-	}
-
-	if md.Get("bad-header")[0] == "true" {
-		return &empty.Empty{}, helper.ErrInternalf("something went wrong")
-	}
-
-	return &empty.Empty{}, nil
-}
-
-// RepoMutatorUnary is implemented by a callback
-func (m *errorSimpleService) RepoMutatorUnary(ctx context.Context, req *mock.RepoRequest) (*empty.Empty, error) {
-	md, ok := grpc_metadata.FromIncomingContext(ctx)
-	if !ok {
-		return &empty.Empty{}, errors.New("couldn't read metadata")
-	}
-
-	if md.Get("bad-header")[0] == "true" {
-		return &empty.Empty{}, helper.ErrInternalf("something went wrong")
-	}
-
-	return &empty.Empty{}, nil
-}
-
 func TestErrorThreshold(t *testing.T) {
-	simple := &errorSimpleService{}
-
 	backendToken := ""
-	backend, cleanup := newMockDownstream(t, backendToken, simple)
+	backend, cleanup := newMockDownstream(t, backendToken, &mockSvc{
+		repoMutatorUnary: func(ctx context.Context, req *mock.RepoRequest) (*empty.Empty, error) {
+			md, ok := grpc_metadata.FromIncomingContext(ctx)
+			if !ok {
+				return &empty.Empty{}, errors.New("couldn't read metadata")
+			}
+
+			if md.Get("bad-header")[0] == "true" {
+				return &empty.Empty{}, helper.ErrInternalf("something went wrong")
+			}
+
+			return &empty.Empty{}, nil
+		},
+		repoAccessorUnary: func(ctx context.Context, req *mock.RepoRequest) (*empty.Empty, error) {
+			md, ok := grpc_metadata.FromIncomingContext(ctx)
+			if !ok {
+				return &empty.Empty{}, errors.New("couldn't read metadata")
+			}
+
+			if md.Get("bad-header")[0] == "true" {
+				return &empty.Empty{}, helper.ErrInternalf("something went wrong")
+			}
+
+			return &empty.Empty{}, nil
+		},
+	})
 	defer cleanup()
 
 	conf := config.Config{
@@ -909,7 +897,7 @@ func TestErrorThreshold(t *testing.T) {
 		},
 	}
 
-	gz := proto.FileDescriptor("mock.proto")
+	gz := proto.FileDescriptor("praefect/mock/mock.proto")
 	fd, err := protoregistry.ExtractFileDescriptor(gz)
 	require.NoError(t, err)
 

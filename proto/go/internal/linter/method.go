@@ -40,9 +40,6 @@ func (ml methodLinter) validateMutator() error {
 	case gitalypb.OperationMsg_REPOSITORY:
 		return ml.ensureValidRepoScope()
 
-	case gitalypb.OperationMsg_SERVER:
-		return ml.ensureValidServerScope()
-
 	case gitalypb.OperationMsg_STORAGE:
 		return ml.ensureValidStorageScope()
 
@@ -58,13 +55,6 @@ func (ml methodLinter) ensureValidStorageScope() error {
 	}
 
 	return ml.ensureValidStorage(1)
-}
-
-func (ml methodLinter) ensureValidServerScope() error {
-	if err := ml.ensureValidTargetRepository(0); err != nil {
-		return err
-	}
-	return ml.ensureValidStorage(0)
 }
 
 func (ml methodLinter) ensureValidRepoScope() error {
