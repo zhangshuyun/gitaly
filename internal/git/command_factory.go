@@ -14,6 +14,24 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
 )
 
+var (
+	globalOptions = []GlobalOption{
+		// Synchronize object files to lessen the likelihood of
+		// repository corruption in case the server crashes.
+		ConfigPair{Key: "core.fsyncObjectFiles", Value: "true"},
+
+		// Disable automatic garbage collection as we handle scheduling
+		// of it ourselves.
+		ConfigPair{Key: "gc.auto", Value: "0"},
+
+		// CRLF line endings will get replaced with LF line endings
+		// when writing blobs to the object database. No conversion is
+		// done when reading blobs from the object database. This is
+		// required for the web editor.
+		ConfigPair{Key: "core.autocrlf", Value: "input"},
+	}
+)
+
 // CommandFactory is designed to create and run git commands in a protected and fully managed manner.
 type CommandFactory interface {
 	// New creates a new command for the repo repository.
@@ -160,11 +178,13 @@ func combineArgs(globals []GlobalOption, sc Cmd, cc *cmdCfg) (_ []string, err er
 	// specific. This allows callsites to override options which would
 	// otherwise be set up automatically.
 	//
-	// 1. Globals which get set up by default for a given git command.
-	// 2. Globals passed via command options, e.g. as set up by
+	// 1. Globals which get set up by default for all git commands.
+	// 2. Globals which get set up by default for a given git command.
+	// 3. Globals passed via command options, e.g. as set up by
 	//    `WithReftxHook()`.
-	// 3. Globals passed directly to the command at the site of execution.
+	// 4. Globals passed directly to the command at the site of execution.
 	var combinedGlobals []GlobalOption
+	combinedGlobals = append(combinedGlobals, globalOptions...)
 	combinedGlobals = append(combinedGlobals, gitCommand.opts...)
 	combinedGlobals = append(combinedGlobals, cc.globals...)
 	combinedGlobals = append(combinedGlobals, globals...)

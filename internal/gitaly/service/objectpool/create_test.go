@@ -52,10 +52,6 @@ func TestCreate(t *testing.T) {
 	out := testhelper.MustRunCommand(t, nil, "git", "-C", pool.FullPath(), "cat-file", "-s", "55bc176024cfa3baaceb71db584c7e5df900ea65")
 	assert.Equal(t, "282\n", string(out))
 
-	// No automatic GC
-	gc := testhelper.MustRunCommand(t, nil, "git", "-C", pool.FullPath(), "config", "--get", "gc.auto")
-	assert.Equal(t, "0\n", string(gc))
-
 	// Making the same request twice, should result in an error
 	_, err = client.CreateObjectPool(ctx, poolReq)
 	require.Error(t, err)
