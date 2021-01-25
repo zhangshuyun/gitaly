@@ -10,6 +10,7 @@ import (
 	"testing"
 	"testing/iotest"
 
+	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/log"
@@ -137,6 +138,71 @@ func testSuccessfulUserApplyPatch(t *testing.T, ctx context.Context) {
 			}
 		})
 	}
+}
+
+func TestUserApplyPatch_stableID(t *testing.T) {
+	serverSocketPath, stop := runOperationServiceServer(t)
+	defer stop()
+
+	client, conn := newOperationClient(t, serverSocketPath)
+	defer conn.Close()
+
+	repo, _, cleanupFn := testhelper.NewTestRepo(t)
+	defer cleanupFn()
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	stream, err := client.UserApplyPatch(ctx)
+	require.NoError(t, err)
+
+	require.NoError(t, stream.Send(&gitalypb.UserApplyPatchRequest{
+		UserApplyPatchRequestPayload: &gitalypb.UserApplyPatchRequest_Header_{
+			Header: &gitalypb.UserApplyPatchRequest_Header{
+				Repository:   repo,
+				User:         testhelper.TestUser,
+				TargetBranch: []byte("branch"),
+				Timestamp:    &timestamp.Timestamp{Seconds: 1234512345},
+			},
+		},
+	}))
+
+	patch, err := ioutil.ReadFile("testdata/0001-A-commit-from-a-patch.patch")
+	require.NoError(t, err)
+	require.NoError(t, stream.Send(&gitalypb.UserApplyPatchRequest{
+		UserApplyPatchRequestPayload: &gitalypb.UserApplyPatchRequest_Patches{
+			Patches: patch,
+		},
+	}))
+
+	response, err := stream.CloseAndRecv()
+	require.NoError(t, err)
+	require.True(t, response.BranchUpdate.BranchCreated)
+
+	patchedCommit, err := log.GetCommit(ctx, config.NewLocator(config.Config), repo, git.Revision("branch"))
+	require.NoError(t, err)
+	require.Equal(t, &gitalypb.GitCommit{
+		Id:     "8cd17acdb54178121167078c78d874d3cc09b216",
+		TreeId: "98091f327a9fb132fcb4b490a420c276c653c4c6",
+		ParentIds: []string{
+			"1e292f8fedd741b75372e19097c76d327140c312",
+		},
+		Subject:  []byte("A commit from a patch"),
+		Body:     []byte("A commit from a patch\n"),
+		BodySize: 22,
+		Author: &gitalypb.CommitAuthor{
+			Name:     []byte("Patch User"),
+			Email:    []byte("patchuser@gitlab.org"),
+			Date:     &timestamp.Timestamp{Seconds: 1539862835},
+			Timezone: []byte("+0200"),
+		},
+		Committer: &gitalypb.CommitAuthor{
+			Name:     testhelper.TestUser.Name,
+			Email:    testhelper.TestUser.Email,
+			Date:     &timestamp.Timestamp{Seconds: 1234512345},
+			Timezone: []byte("+0000"),
+		},
+	}, patchedCommit)
 }
 
 func TestFailedPatchApplyPatch(t *testing.T) {

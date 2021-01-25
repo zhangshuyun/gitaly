@@ -277,7 +277,7 @@ module GitalyServer
 
       branch_update = Gitlab::Git::Repository.from_gitaly_with_block(header.repository, call) do |repo|
         begin
-          Gitlab::Git::CommitPatches.new(user, repo, target_branch, patches).commit
+          Gitlab::Git::CommitPatches.new(user, repo, target_branch, patches, header.timestamp).commit
         rescue Gitlab::Git::PatchError => e
           raise GRPC::FailedPrecondition.new(e.message)
         end

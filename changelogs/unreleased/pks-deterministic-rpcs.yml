@@ -1,0 +1,5 @@
+---
+title: 'transactions: Optionally use timestamps for deterministic results'
+merge_request: 3036
+author:
+type: fixed

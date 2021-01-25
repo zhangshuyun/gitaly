@@ -643,6 +643,9 @@ message UserApplyPatchRequest {
     User user = 2;
     // target_branch is the branch onto which the patches shall be applied.
     bytes target_branch = 3;
+    // timestamp is the optional timestamp to use for the squashed commit as
+    // committer date. If it's not set, the current time will be used.
+    google.protobuf.Timestamp timestamp = 4;
   }
 
   oneof user_apply_patch_request_payload {

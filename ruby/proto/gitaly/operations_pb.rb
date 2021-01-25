@@ -242,6 +242,7 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       optional :repository, :message, 1, "gitaly.Repository"
       optional :user, :message, 2, "gitaly.User"
       optional :target_branch, :bytes, 3
+      optional :timestamp, :message, 4, "google.protobuf.Timestamp"
     end
     add_message "gitaly.UserApplyPatchResponse" do
       optional :branch_update, :message, 1, "gitaly.OperationBranchUpdate"
