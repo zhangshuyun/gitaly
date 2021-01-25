@@ -338,7 +338,7 @@ docker:
 proto: ${PROTOC} ${PROTOC_GEN_GO} ${SOURCE_DIR}/.ruby-bundle
 	${Q}mkdir -p ${SOURCE_DIR}/proto/go/gitalypb
 	${Q}rm -f ${SOURCE_DIR}/proto/go/gitalypb/*.pb.go
-	${PROTOC} -I ${SOURCE_DIR}/proto --go_out=paths=source_relative,plugins=grpc:${SOURCE_DIR}/proto/go/gitalypb ${SOURCE_DIR}/proto/*.proto
+	${PROTOC} --plugin=${PROTOC_GEN_GO} -I ${SOURCE_DIR}/proto --go_out=paths=source_relative,plugins=grpc:${SOURCE_DIR}/proto/go/gitalypb ${SOURCE_DIR}/proto/*.proto
 	${SOURCE_DIR}/_support/generate-proto-ruby
 	${Q}# this part is related to the generation of sources from testing proto files
 	${PROTOC} --plugin=${PROTOC_GEN_GO} -I ${SOURCE_DIR}/internal --go_out=path=source_relative,plugins=grpc:${SOURCE_DIR}/internal ${SOURCE_DIR}/internal/praefect/grpc-proxy/testdata/test.proto
@@ -348,7 +348,7 @@ proto: ${PROTOC} ${PROTOC_GEN_GO} ${SOURCE_DIR}/.ruby-bundle
 
 .PHONY: lint-proto
 lint-proto: ${PROTOC} ${PROTOC_GEN_GITALY}
-	${Q}${PROTOC} -I ${SOURCE_DIR}/proto --gitaly_out=proto_dir=${SOURCE_DIR}/proto,gitalypb_dir=${SOURCE_DIR}/proto/go/gitalypb:${SOURCE_DIR} ${SOURCE_DIR}/proto/*.proto
+	${Q}${PROTOC} --plugin=${PROTOC_GEN_GITALY} -I ${SOURCE_DIR}/proto --gitaly_out=proto_dir=${SOURCE_DIR}/proto,gitalypb_dir=${SOURCE_DIR}/proto/go/gitalypb:${SOURCE_DIR} ${SOURCE_DIR}/proto/*.proto
 
 .PHONY: no-changes
 no-changes:
