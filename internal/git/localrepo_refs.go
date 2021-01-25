@@ -80,6 +80,8 @@ func (repo *LocalRepository) GetReference(ctx context.Context, reference Referen
 	return refs[0], nil
 }
 
+// HasBranches determines whether there is at least one branch in the
+// repository.
 func (repo *LocalRepository) HasBranches(ctx context.Context) (bool, error) {
 	refs, err := repo.getReferences(ctx, "refs/heads/", 1)
 	return len(refs) > 0, err
