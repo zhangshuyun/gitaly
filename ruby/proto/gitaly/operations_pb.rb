@@ -133,6 +133,7 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       optional :start_branch_name, :bytes, 6
       optional :start_repository, :message, 7, "gitaly.Repository"
       optional :dry_run, :bool, 8
+      optional :timestamp, :message, 9, "google.protobuf.Timestamp"
     end
     add_message "gitaly.UserRevertResponse" do
       optional :branch_update, :message, 1, "gitaly.OperationBranchUpdate"

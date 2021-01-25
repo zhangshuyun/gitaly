@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
+	"github.com/golang/protobuf/ptypes"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/remoterepo"
 	"gitlab.com/gitlab-org/gitaly/internal/git2go"
@@ -43,10 +45,19 @@ func (s *Server) UserRevert(ctx context.Context, req *gitalypb.UserRevertRequest
 		mainline = 1
 	}
 
+	authorDate := time.Now()
+	if req.Timestamp != nil {
+		authorDate, err = ptypes.Timestamp(req.Timestamp)
+		if err != nil {
+			return nil, helper.ErrInvalidArgument(err)
+		}
+	}
+
 	newrev, err := git2go.RevertCommand{
 		Repository: repoPath,
 		AuthorName: string(req.User.Name),
 		AuthorMail: string(req.User.Email),
+		AuthorDate: authorDate,
 		Message:    string(req.Message),
 		Ours:       startRevision,
 		Revert:     req.Commit.Id,

@@ -304,7 +304,8 @@ module Gitlab
         raise ArgumentError, 'Invalid merge source'
       end
 
-      def revert(user:, commit:, branch_name:, message:, start_branch_name:, start_repository:, dry_run: false)
+      # rubocop:disable Metrics/ParameterLists
+      def revert(user:, commit:, branch_name:, message:, start_branch_name:, start_repository:, dry_run: false, timestamp: nil)
         OperationService.new(user, self).with_branch(
           branch_name,
           start_branch_name: start_branch_name,
@@ -320,7 +321,7 @@ module Gitlab
             # The response expects a SHA, so just return the starting one.
             start_commit.sha
           else
-            committer = user_to_committer(user)
+            committer = user_to_committer(user, timestamp)
 
             create_commit(
               message: message,
@@ -332,6 +333,7 @@ module Gitlab
           end
         end
       end
+      # rubocop:enable Metrics/ParameterLists
 
       # rubocop:disable Metrics/ParameterLists
       def cherry_pick(user:, commit:, branch_name:, message:, start_branch_name:, start_repository:, dry_run: false, timestamp: nil)
