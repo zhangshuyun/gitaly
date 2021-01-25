@@ -12,8 +12,9 @@ module GitalyServer
       tag_name = get_param!(request, :tag_name)
 
       target_revision = get_param!(request, :target_revision)
+      timestamp = request.timestamp
 
-      created_tag = repo.add_tag(tag_name, user: user, target: target_revision, message: request.message.presence, transaction: transaction)
+      created_tag = repo.add_tag(tag_name, user: user, target: target_revision, message: request.message.presence, timestamp: timestamp, transaction: transaction)
       Gitaly::UserCreateTagResponse.new unless created_tag
 
       # We can create tags pointing to non-commits, but there is no

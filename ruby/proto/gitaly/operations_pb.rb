@@ -50,6 +50,7 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       optional :user, :message, 3, "gitaly.User"
       optional :target_revision, :bytes, 4
       optional :message, :bytes, 5
+      optional :timestamp, :message, 7, "google.protobuf.Timestamp"
     end
     add_message "gitaly.UserCreateTagResponse" do
       optional :tag, :message, 1, "gitaly.Tag"

@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
@@ -887,6 +888,40 @@ func testSuccessfulUserCreateTagNestedTags(t *testing.T, ctx context.Context) {
 			}
 		})
 	}
+}
+
+func TestUserCreateTag_stableTagIDs(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.GoUserCreateTag,
+	}).Run(t, testUserCreateTagStableTagIDs)
+}
+
+func testUserCreateTagStableTagIDs(t *testing.T, ctx context.Context) {
+	serverSocketPath, stop := runOperationServiceServer(t)
+	defer stop()
+
+	client, conn := newOperationClient(t, serverSocketPath)
+	defer conn.Close()
+
+	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	defer cleanupFn()
+
+	response, err := client.UserCreateTag(ctx, &gitalypb.UserCreateTagRequest{
+		Repository:     testRepo,
+		TagName:        []byte("happy-tag"),
+		TargetRevision: []byte("dfaa3f97ca337e20154a98ac9d0be76ddd1fcc82"),
+		Message:        []byte("my message"),
+		User:           testhelper.TestUser,
+		Timestamp:      &timestamp.Timestamp{Seconds: 12345},
+	})
+	require.NoError(t, err)
+
+	require.Equal(t, &gitalypb.Tag{
+		Id:          "c0dd712fb40073c287bc69a39ed5e6b6aa524c6c",
+		Name:        []byte("happy-tag"),
+		Message:     []byte("my message"),
+		MessageSize: 10,
+	}, response.Tag)
 }
 
 // TODO: Rename to TestUserDeleteTag_successfulDeletionOfPrefixedTag,

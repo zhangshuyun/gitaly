@@ -221,7 +221,7 @@ module Gitlab
         false
       end
 
-      def add_tag(tag_name, user:, target:, message: nil, transaction: nil)
+      def add_tag(tag_name, user:, target:, message: nil, timestamp: nil, transaction: nil)
         target_object = Ref.dereference_object(lookup(target))
         raise InvalidRef, "target not found: #{target}" unless target_object
 
@@ -234,7 +234,7 @@ module Gitlab
             target_oid,
             transaction,
             message: message,
-            tagger: Gitlab::Git.committer_hash(email: user.email, name: user.name)
+            tagger: Gitlab::Git.committer_hash(email: user.email, name: user.name, timestamp: timestamp)
           )
         else
           operation_service.add_lightweight_tag(tag_name, target_oid, transaction: transaction)

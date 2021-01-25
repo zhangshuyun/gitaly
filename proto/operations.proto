@@ -195,6 +195,10 @@ message UserCreateTagRequest {
   // message is the message of the tag. If it is empty, a lightweight tag is
   // created. Otherwise, an annotated tag is created.
   bytes message = 5;
+  // timestamp is the optional timestamp to use for the created tag tags. If
+  // it's not set, the current time will be used. It's only used if an
+  // annotated tag is being created.
+  google.protobuf.Timestamp timestamp = 7;
 }
 
 message UserCreateTagResponse {

@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -260,6 +261,7 @@ func TestLocalRepository_FormatTag(t *testing.T) {
 		userName   []byte
 		userEmail  []byte
 		tagBody    []byte
+		authorDate time.Time
 		err        error
 	}{
 		// Just trivial tests here, most of this is tested in
@@ -283,9 +285,19 @@ func TestLocalRepository_FormatTag(t *testing.T) {
 			tagBody:    []byte(""),
 			err:        FormatTagError{expectedLines: 4, actualLines: 5},
 		},
+		{
+			desc:       "signature with fixed time",
+			objectID:   "0000000000000000000000000000000000000000",
+			objectType: "commit",
+			tagName:    []byte("my-tag"),
+			userName:   []byte("root"),
+			userEmail:  []byte("root@localhost"),
+			tagBody:    []byte(""),
+			authorDate: time.Unix(12345, 0),
+		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			signature, err := FormatTag(tc.objectID, tc.objectType, tc.tagName, tc.userName, tc.userEmail, tc.tagBody)
+			signature, err := FormatTag(tc.objectID, tc.objectType, tc.tagName, tc.userName, tc.userEmail, tc.tagBody, tc.authorDate)
 			if err != nil {
 				require.Equal(t, tc.err, err)
 				require.Equal(t, "", signature)
@@ -316,6 +328,7 @@ func TestLocalRepository_WriteTag(t *testing.T) {
 		userName   []byte
 		userEmail  []byte
 		tagBody    []byte
+		authorDate time.Time
 	}{
 		// Just trivial tests here, most of this is tested in
 		// internal/gitaly/service/operations/tags_test.go
@@ -328,9 +341,19 @@ func TestLocalRepository_WriteTag(t *testing.T) {
 			userEmail:  []byte("root@localhost"),
 			tagBody:    []byte(""),
 		},
+		{
+			desc:       "signature with time",
+			objectID:   "c7fbe50c7c7419d9701eebe64b1fdacc3df5b9dd",
+			objectType: "commit",
+			tagName:    []byte("tag-with-timestamp"),
+			userName:   []byte("root"),
+			userEmail:  []byte("root@localhost"),
+			tagBody:    []byte(""),
+			authorDate: time.Unix(12345, 0),
+		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			tagObjID, err := repo.WriteTag(ctx, tc.objectID, tc.objectType, tc.tagName, tc.userName, tc.userEmail, tc.tagBody)
+			tagObjID, err := repo.WriteTag(ctx, tc.objectID, tc.objectType, tc.tagName, tc.userName, tc.userEmail, tc.tagBody, tc.authorDate)
 			require.NoError(t, err)
 
 			repoTagObjID := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", tagObjID)
