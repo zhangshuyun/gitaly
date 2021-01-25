@@ -273,18 +273,18 @@ module Gitlab
           our_commit = ref.target
           their_commit = source_sha
 
-          create_merge_commit(user, our_commit, their_commit, message, allow_conflicts)
+          create_merge_commit(user, our_commit, their_commit, message, nil, allow_conflicts)
         end
       rescue Rugged::ReferenceError, InvalidRef
         raise ArgumentError, 'Invalid merge source'
       end
 
-      def merge(user, source_sha, target_branch, message)
+      def merge(user, source_sha, target_branch, message, timestamp = nil)
         OperationService.new(user, self).with_branch(target_branch) do |start_commit|
           our_commit = start_commit.sha
           their_commit = source_sha
 
-          commit_id = create_merge_commit(user, our_commit, their_commit, message)
+          commit_id = create_merge_commit(user, our_commit, their_commit, message, timestamp)
 
           yield commit_id
 
@@ -696,11 +696,11 @@ module Gitlab
         run_git!(%w[config core.sparseCheckout false], include_stderr: true)
       end
 
-      def create_merge_commit(user, our_commit, their_commit, message, allow_conflicts = false)
+      def create_merge_commit(user, our_commit, their_commit, message, timestamp = nil, allow_conflicts = false)
         raise 'Invalid merge target' unless our_commit
         raise 'Invalid merge source' unless their_commit
 
-        committer = user_to_committer(user)
+        committer = user_to_committer(user, timestamp)
 
         merge_index = rugged.merge_commits(our_commit, their_commit)
         process_conflicts(rugged, merge_index, allow_conflicts)

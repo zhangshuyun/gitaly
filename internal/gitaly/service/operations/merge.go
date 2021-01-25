@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
+	"github.com/golang/protobuf/ptypes"
 	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
@@ -113,10 +115,19 @@ func (s *Server) userMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 		return err
 	}
 
+	authorDate := time.Now()
+	if firstRequest.Timestamp != nil {
+		authorDate, err = ptypes.Timestamp(firstRequest.Timestamp)
+		if err != nil {
+			return helper.ErrInvalidArgument(err)
+		}
+	}
+
 	merge, err := git2go.MergeCommand{
 		Repository: repoPath,
 		AuthorName: string(firstRequest.User.Name),
 		AuthorMail: string(firstRequest.User.Email),
+		AuthorDate: authorDate,
 		Message:    string(firstRequest.Message),
 		Ours:       revision.String(),
 		Theirs:     firstRequest.CommitId,

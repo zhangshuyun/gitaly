@@ -105,9 +105,10 @@ module GitalyServer
         source_sha = first_request.commit_id.dup
         target_branch = first_request.branch.dup
         message = first_request.message.dup
+        timestamp = first_request.timestamp
 
         begin
-          result = repository.merge(user, source_sha, target_branch, message) do |commit_id|
+          result = repository.merge(user, source_sha, target_branch, message, timestamp) do |commit_id|
             y << Gitaly::UserMergeBranchResponse.new(commit_id: commit_id)
 
             second_request = session.next

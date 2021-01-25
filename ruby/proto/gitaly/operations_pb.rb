@@ -5,6 +5,7 @@ require 'google/protobuf'
 
 require 'lint_pb'
 require 'shared_pb'
+require 'google/protobuf/timestamp_pb'
 Google::Protobuf::DescriptorPool.generated_pool.build do
   add_file("operations.proto", :syntax => :proto3) do
     add_message "gitaly.UserCreateBranchRequest" do
@@ -61,6 +62,7 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       optional :commit_id, :string, 3
       optional :branch, :bytes, 4
       optional :message, :bytes, 5
+      optional :timestamp, :message, 7, "google.protobuf.Timestamp"
       optional :apply, :bool, 6
     end
     add_message "gitaly.UserMergeBranchResponse" do
