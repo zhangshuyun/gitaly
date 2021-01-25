@@ -17,8 +17,6 @@ var (
 	ReferenceTransactions = FeatureFlag{Name: "reference_transactions", OnByDefault: true}
 	// LogCommandStats will log additional rusage stats for commands
 	LogCommandStats = FeatureFlag{Name: "log_command_stats", OnByDefault: false}
-	// GoUserMergeBranch enables the Go implementation of UserMergeBranch
-	GoUserMergeBranch = FeatureFlag{Name: "go_user_merge_branch", OnByDefault: true}
 	// GoUserFFBranch enables the Go implementation of UserFFBranch
 	GoUserFFBranch = FeatureFlag{Name: "go_user_ff_branch", OnByDefault: false}
 	// GoUserCreateBranch enables the Go implementation of UserCreateBranch
@@ -107,7 +105,6 @@ var All = []FeatureFlag{
 	DistributedReads,
 	LogCommandStats,
 	ReferenceTransactions,
-	GoUserMergeBranch,
 	GoUserFFBranch,
 	GoUserCreateBranch,
 	GoUserUpdateBranch,
