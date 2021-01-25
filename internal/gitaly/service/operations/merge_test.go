@@ -16,7 +16,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	gitlog "gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -40,10 +39,6 @@ func testWithFeature(t *testing.T, feature featureflag.FeatureFlag, testcase fun
 }
 
 func TestSuccessfulMerge(t *testing.T) {
-	testWithFeature(t, featureflag.GoUserMergeBranch, testSuccessfulMerge)
-}
-
-func testSuccessfulMerge(t *testing.T, ctx context.Context) {
 	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
@@ -54,6 +49,9 @@ func testSuccessfulMerge(t *testing.T, ctx context.Context) {
 
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
 	mergeBidi, err := client.UserMergeBranch(ctx)
 	require.NoError(t, err)
@@ -131,10 +129,6 @@ func testSuccessfulMerge(t *testing.T, ctx context.Context) {
 }
 
 func TestSuccessfulMerge_stableMergeIDs(t *testing.T) {
-	testWithFeature(t, featureflag.GoUserMergeBranch, testUserMergeBranchStableMergeIDs)
-}
-
-func testUserMergeBranchStableMergeIDs(t *testing.T, ctx context.Context) {
 	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
@@ -143,6 +137,9 @@ func testUserMergeBranchStableMergeIDs(t *testing.T, ctx context.Context) {
 
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
 	mergeBidi, err := client.UserMergeBranch(ctx)
 	require.NoError(t, err)
@@ -206,10 +203,6 @@ func testUserMergeBranchStableMergeIDs(t *testing.T, ctx context.Context) {
 }
 
 func TestAbortedMerge(t *testing.T) {
-	testWithFeature(t, featureflag.GoUserMergeBranch, testAbortedMerge)
-}
-
-func testAbortedMerge(t *testing.T, ctx context.Context) {
 	locator := config.NewLocator(config.Config)
 
 	serverSocketPath, stop := runOperationServiceServer(t)
@@ -230,6 +223,9 @@ func testAbortedMerge(t *testing.T, ctx context.Context) {
 		Branch:     []byte(mergeBranchName),
 		Message:    []byte("foobar"),
 	}
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
 	testCases := []struct {
 		req       *gitalypb.UserMergeBranchRequest
@@ -277,10 +273,6 @@ func testAbortedMerge(t *testing.T, ctx context.Context) {
 }
 
 func TestFailedMergeConcurrentUpdate(t *testing.T) {
-	testWithFeature(t, featureflag.GoUserMergeBranch, testFailedMergeConcurrentUpdate)
-}
-
-func testFailedMergeConcurrentUpdate(t *testing.T, ctx context.Context) {
 	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
@@ -291,6 +283,9 @@ func testFailedMergeConcurrentUpdate(t *testing.T, ctx context.Context) {
 
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
 	mergeBidi, err := client.UserMergeBranch(ctx)
 	require.NoError(t, err)
@@ -327,10 +322,6 @@ func testFailedMergeConcurrentUpdate(t *testing.T, ctx context.Context) {
 }
 
 func TestUserMergeBranch_ambiguousReference(t *testing.T) {
-	testWithFeature(t, featureflag.GoUserMergeBranch, testUserMergeBranchAmbiguousReference)
-}
-
-func testUserMergeBranchAmbiguousReference(t *testing.T, ctx context.Context) {
 	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
@@ -339,6 +330,9 @@ func testUserMergeBranchAmbiguousReference(t *testing.T, ctx context.Context) {
 
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
 	merge, err := client.UserMergeBranch(ctx)
 	require.NoError(t, err)
@@ -392,28 +386,14 @@ func testUserMergeBranchAmbiguousReference(t *testing.T, ctx context.Context) {
 	commit, err := gitlog.GetCommit(ctx, locator, testRepo, git.Revision("refs/heads/"+mergeBranchName))
 	require.NoError(t, err, "look up git commit after call has finished")
 
-	tag, err := gitlog.GetCommit(ctx, locator, testRepo, git.Revision("refs/tags/"+mergeBranchName))
-	require.NoError(t, err, "look up git tag after call has finished")
-
 	require.Equal(t, gitalypb.OperationBranchUpdate{CommitId: commit.Id}, *(response.BranchUpdate))
 	require.Equal(t, mergeCommitMessage, string(commit.Body))
 	require.Equal(t, testhelper.TestUser.Name, commit.Author.Name)
 	require.Equal(t, testhelper.TestUser.Email, commit.Author.Email)
-
-	if featureflag.IsEnabled(helper.OutgoingToIncoming(ctx), featureflag.GoUserMergeBranch) {
-		require.Equal(t, []string{mergeBranchHeadBefore, commitToMerge}, commit.ParentIds)
-	} else {
-		// The Ruby implementation performs a mismerge with the
-		// ambiguous tag instead of with the branch name.
-		require.Equal(t, []string{tag.Id, commitToMerge}, commit.ParentIds)
-	}
+	require.Equal(t, []string{mergeBranchHeadBefore, commitToMerge}, commit.ParentIds)
 }
 
 func TestFailedMergeDueToHooks(t *testing.T) {
-	testWithFeature(t, featureflag.GoUserMergeBranch, testFailedMergeDueToHooks)
-}
-
-func testFailedMergeDueToHooks(t *testing.T, ctx context.Context) {
 	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
@@ -432,7 +412,7 @@ func testFailedMergeDueToHooks(t *testing.T, ctx context.Context) {
 			remove := testhelper.WriteCustomHook(t, testRepoPath, hookName, hookContent)
 			defer remove()
 
-			ctx, cancel := context.WithCancel(ctx)
+			ctx, cancel := testhelper.Context()
 			defer cancel()
 
 			mergeBidi, err := client.UserMergeBranch(ctx)

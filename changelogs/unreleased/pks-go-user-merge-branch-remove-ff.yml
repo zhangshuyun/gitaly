@@ -1,0 +1,5 @@
+---
+title: 'featureflags: Remove GoUserMergeBranch feature flag'
+merge_request: 3049
+author:
+type: performance

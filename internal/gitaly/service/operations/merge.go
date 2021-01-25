@@ -19,58 +19,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
-func (s *Server) UserMergeBranch(bidi gitalypb.OperationService_UserMergeBranchServer) error {
-	ctx := bidi.Context()
-
-	if featureflag.IsEnabled(ctx, featureflag.GoUserMergeBranch) {
-		return s.userMergeBranch(bidi)
-	}
-
-	firstRequest, err := bidi.Recv()
-	if err != nil {
-		return err
-	}
-
-	client, err := s.ruby.OperationServiceClient(ctx)
-	if err != nil {
-		return err
-	}
-
-	clientCtx, err := rubyserver.SetHeaders(ctx, s.locator, firstRequest.GetRepository())
-	if err != nil {
-		return err
-	}
-
-	rubyBidi, err := client.UserMergeBranch(clientCtx)
-	if err != nil {
-		return err
-	}
-
-	if err := rubyBidi.Send(firstRequest); err != nil {
-		return err
-	}
-
-	return rubyserver.ProxyBidi(
-		func() error {
-			request, err := bidi.Recv()
-			if err != nil {
-				return err
-			}
-
-			return rubyBidi.Send(request)
-		},
-		rubyBidi,
-		func() error {
-			response, err := rubyBidi.Recv()
-			if err != nil {
-				return err
-			}
-
-			return bidi.Send(response)
-		},
-	)
-}
-
 func validateMergeBranchRequest(request *gitalypb.UserMergeBranchRequest) error {
 	if request.User == nil {
 		return fmt.Errorf("empty user")
@@ -91,7 +39,7 @@ func validateMergeBranchRequest(request *gitalypb.UserMergeBranchRequest) error 
 	return nil
 }
 
-func (s *Server) userMergeBranch(stream gitalypb.OperationService_UserMergeBranchServer) error {
+func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranchServer) error {
 	ctx := stream.Context()
 
 	firstRequest, err := stream.Recv()
