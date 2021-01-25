@@ -34,7 +34,7 @@ func (repo *LocalRepository) command(ctx context.Context, globals []GlobalOption
 
 // Config returns executor of the 'config' sub-command.
 func (repo *LocalRepository) Config() Config {
-	return RepositoryConfig{repo: repo.repo}
+	return LocalRepositoryConfig{repo: repo.repo}
 }
 
 // Remote returns executor of the 'remote' sub-command.
