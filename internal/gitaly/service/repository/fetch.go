@@ -7,18 +7,12 @@ import (
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/remoterepo"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/gitalyssh"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
 func (s *server) FetchSourceBranch(ctx context.Context, req *gitalypb.FetchSourceBranchRequest) (*gitalypb.FetchSourceBranchResponse, error) {
-	if featureflag.IsDisabled(ctx, featureflag.GoFetchSourceBranch) {
-		return s.rubyFetchSourceBranch(ctx, req)
-	}
-
 	if err := git.ValidateRevision(req.GetSourceBranch()); err != nil {
 		return nil, helper.ErrInvalidArgument(err)
 	}
@@ -107,18 +101,4 @@ func (s *server) FetchSourceBranch(ctx context.Context, req *gitalypb.FetchSourc
 	}
 
 	return &gitalypb.FetchSourceBranchResponse{Result: true}, nil
-}
-
-func (s *server) rubyFetchSourceBranch(ctx context.Context, req *gitalypb.FetchSourceBranchRequest) (*gitalypb.FetchSourceBranchResponse, error) {
-	client, err := s.ruby.RepositoryServiceClient(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	clientCtx, err := rubyserver.SetHeaders(ctx, s.locator, req.GetRepository())
-	if err != nil {
-		return nil, err
-	}
-
-	return client.FetchSourceBranch(clientCtx, req)
 }
