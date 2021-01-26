@@ -41,6 +41,9 @@ func Perform(ctx context.Context, repoPath string) error {
 	unremovableFiles := 0
 	for _, path := range filesToPrune {
 		if err := os.Remove(path); err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
 			unremovableFiles++
 			// We cannot use `logEntry` here as it's already seeded
 			// with the statistics fields.
