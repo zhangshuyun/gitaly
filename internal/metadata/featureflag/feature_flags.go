@@ -36,6 +36,9 @@ var (
 	GoGetNewLFSPointers = FeatureFlag{Name: "go_get_new_lfs_pointers", OnByDefault: false}
 	// UploadPackGitalyHooks makes git-upload-pack use gitaly-hooks to run pack-objects
 	UploadPackGitalyHooks = FeatureFlag{Name: "upload_pack_gitaly_hooks", OnByDefault: false}
+	// GitalyTxSvc switches from using the Praefect transaction service to
+	// the Gitaly transaction service for an operation
+	GitalyTxSvc = FeatureFlag{Name: "g_tx_svc", OnByDefault: false}
 
 	// TxApplyBfgObjectMapStream enables transactions for ApplyBfgObjectMapStream
 	TxApplyBfgObjectMapStream = FeatureFlag{Name: "tx_apply_bfg_object_map_stream", OnByDefault: true}
@@ -107,6 +110,7 @@ var (
 var All = []FeatureFlag{
 	DistributedReads,
 	LogCommandStats,
+	GitalyTxSvc,
 	ReferenceTransactions,
 	GoUserCherryPick,
 	GoUserUpdateBranch,
