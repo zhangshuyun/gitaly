@@ -235,10 +235,14 @@ func validateUserMergeToRefRequest(in *gitalypb.UserMergeToRefRequest) error {
 	return nil
 }
 
-// userMergeToRef overwrites the given TargetRef to point to either Branch or
+// UserMergeToRef overwrites the given TargetRef to point to either Branch or
 // FirstParentRef. Afterwards, it performs a merge of SourceSHA with either
 // Branch or FirstParentRef and updates TargetRef to the merge commit.
-func (s *Server) userMergeToRef(ctx context.Context, request *gitalypb.UserMergeToRefRequest) (*gitalypb.UserMergeToRefResponse, error) {
+func (s *Server) UserMergeToRef(ctx context.Context, request *gitalypb.UserMergeToRefRequest) (*gitalypb.UserMergeToRefResponse, error) {
+	if err := validateUserMergeToRefRequest(request); err != nil {
+		return nil, helper.ErrInvalidArgument(err)
+	}
+
 	repoPath, err := s.locator.GetPath(request.Repository)
 	if err != nil {
 		return nil, err
@@ -278,13 +282,14 @@ func (s *Server) userMergeToRef(ctx context.Context, request *gitalypb.UserMerge
 
 	// Now, we create the merge commit...
 	merge, err := git2go.MergeCommand{
-		Repository: repoPath,
-		AuthorName: string(request.User.Name),
-		AuthorMail: string(request.User.Email),
-		AuthorDate: authorDate,
-		Message:    string(request.Message),
-		Ours:       oid.String(),
-		Theirs:     sourceRef.String(),
+		Repository:     repoPath,
+		AuthorName:     string(request.User.Name),
+		AuthorMail:     string(request.User.Email),
+		AuthorDate:     authorDate,
+		Message:        string(request.Message),
+		Ours:           oid.String(),
+		Theirs:         sourceRef.String(),
+		AllowConflicts: request.AllowConflicts,
 	}.Run(ctx, s.cfg)
 	if err != nil {
 		if errors.Is(err, git2go.ErrInvalidArgument) {
@@ -308,30 +313,6 @@ func (s *Server) userMergeToRef(ctx context.Context, request *gitalypb.UserMerge
 	return &gitalypb.UserMergeToRefResponse{
 		CommitId: mergeOID.String(),
 	}, nil
-}
-
-func (s *Server) UserMergeToRef(ctx context.Context, in *gitalypb.UserMergeToRefRequest) (*gitalypb.UserMergeToRefResponse, error) {
-	if err := validateUserMergeToRefRequest(in); err != nil {
-		return nil, helper.ErrInvalidArgument(err)
-	}
-
-	// Ruby has grown a new feature since being ported to Go, and we don't
-	// handle that yet.
-	if !in.AllowConflicts {
-		return s.userMergeToRef(ctx, in)
-	}
-
-	client, err := s.ruby.OperationServiceClient(ctx)
-	if err != nil {
-		return nil, helper.ErrInternal(err)
-	}
-
-	clientCtx, err := rubyserver.SetHeaders(ctx, s.locator, in.GetRepository())
-	if err != nil {
-		return nil, err
-	}
-
-	return client.UserMergeToRef(clientCtx, in)
 }
 
 func isAncestor(ctx context.Context, repo repository.GitRepo, ancestor, descendant string) (bool, error) {
