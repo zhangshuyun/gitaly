@@ -780,15 +780,26 @@ func (m *ApplyGitattributesResponse) XXX_DiscardUnknown() {
 var xxx_messageInfo_ApplyGitattributesResponse proto.InternalMessageInfo
 
 type FetchRemoteRequest struct {
-	Repository   *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	Remote       string      `protobuf:"bytes,2,opt,name=remote,proto3" json:"remote,omitempty"`
-	Force        bool        `protobuf:"varint,3,opt,name=force,proto3" json:"force,omitempty"`
-	NoTags       bool        `protobuf:"varint,4,opt,name=no_tags,json=noTags,proto3" json:"no_tags,omitempty"`
-	Timeout      int32       `protobuf:"varint,5,opt,name=timeout,proto3" json:"timeout,omitempty"`
-	SshKey       string      `protobuf:"bytes,6,opt,name=ssh_key,json=sshKey,proto3" json:"ssh_key,omitempty"`
-	KnownHosts   string      `protobuf:"bytes,7,opt,name=known_hosts,json=knownHosts,proto3" json:"known_hosts,omitempty"`
-	NoPrune      bool        `protobuf:"varint,9,opt,name=no_prune,json=noPrune,proto3" json:"no_prune,omitempty"`
-	RemoteParams *Remote     `protobuf:"bytes,10,opt,name=remote_params,json=remoteParams,proto3" json:"remote_params,omitempty"`
+	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
+	// remote is the name of the remote that shall be fetched. This remote must
+	// exist in the repository's configuration already. This parameter is
+	// deprecated in favor of remote_params.
+	Remote string `protobuf:"bytes,2,opt,name=remote,proto3" json:"remote,omitempty"`
+	// force determines if references should be force-updated in case they have
+	// diverged.
+	Force bool `protobuf:"varint,3,opt,name=force,proto3" json:"force,omitempty"`
+	// no_tags determines whether tags should be fetched.
+	NoTags bool `protobuf:"varint,4,opt,name=no_tags,json=noTags,proto3" json:"no_tags,omitempty"`
+	// timeout specifies a timeout for the fetch.
+	Timeout    int32  `protobuf:"varint,5,opt,name=timeout,proto3" json:"timeout,omitempty"`
+	SshKey     string `protobuf:"bytes,6,opt,name=ssh_key,json=sshKey,proto3" json:"ssh_key,omitempty"`
+	KnownHosts string `protobuf:"bytes,7,opt,name=known_hosts,json=knownHosts,proto3" json:"known_hosts,omitempty"`
+	// no_prune will the fetch to not prune remote references which do not exist
+	// in the remote repository anymore.
+	NoPrune bool `protobuf:"varint,9,opt,name=no_prune,json=noPrune,proto3" json:"no_prune,omitempty"`
+	// remote_params specifies the remote repository which should be fetched
+	// from.
+	RemoteParams *Remote `protobuf:"bytes,10,opt,name=remote_params,json=remoteParams,proto3" json:"remote_params,omitempty"`
 	// If check_tags_changed is true, the FetchRemote RPC will check whether any
 	// tags were modified, returning the result in the tags_changed field of
 	// FetchRemoteResponse
@@ -3335,14 +3346,32 @@ func (m *SearchFilesByContentResponse) GetEndOfMatch() bool {
 	return false
 }
 
+// Remote represents a git remote repository.
 type Remote struct {
-	Url                     string   `protobuf:"bytes,1,opt,name=url,proto3" json:"url,omitempty"`
-	Name                    string   `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	HttpAuthorizationHeader string   `protobuf:"bytes,3,opt,name=http_authorization_header,json=httpAuthorizationHeader,proto3" json:"http_authorization_header,omitempty"`
-	MirrorRefmaps           []string `protobuf:"bytes,4,rep,name=mirror_refmaps,json=mirrorRefmaps,proto3" json:"mirror_refmaps,omitempty"`
-	XXX_NoUnkeyedLiteral    struct{} `json:"-"`
-	XXX_unrecognized        []byte   `json:"-"`
-	XXX_sizecache           int32    `json:"-"`
+	// url is the URL of the remote repository.
+	Url string `protobuf:"bytes,1,opt,name=url,proto3" json:"url,omitempty"`
+	// name is the name of the remote repository. This is mainly used to
+	// determine where fetched references should end up, e.g. in
+	// `refs/remotes/$name/`.
+	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// http_authorization_header is the HTTP header which should be added to
+	// the request in order to authenticate against the repository.
+	HttpAuthorizationHeader string `protobuf:"bytes,3,opt,name=http_authorization_header,json=httpAuthorizationHeader,proto3" json:"http_authorization_header,omitempty"`
+	// mirror_refmaps contains the refspecs which shall be fetched. Some special
+	// refspecs are accepted:
+	//
+	// - "all_refs" gets translated to "+refs/*:refs/*", which mirrors all
+	//   references of the source repository.
+	// - "heads" gets translated to "+refs/heads/*:refs/heads/*", which mirrors
+	//   all branches of the source repository.
+	// - "tags" gets translated to "+refs/tags/*:refs/tags/*", which mirrors all
+	//   tags of the source repository.
+	//
+	// If no refspecs are given, this defaults to "all_refs".
+	MirrorRefmaps        []string `protobuf:"bytes,4,rep,name=mirror_refmaps,json=mirrorRefmaps,proto3" json:"mirror_refmaps,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *Remote) Reset()         { *m = Remote{} }
@@ -4257,6 +4286,8 @@ type RepositoryServiceClient interface {
 	WriteCommitGraph(ctx context.Context, in *WriteCommitGraphRequest, opts ...grpc.CallOption) (*WriteCommitGraphResponse, error)
 	RepositorySize(ctx context.Context, in *RepositorySizeRequest, opts ...grpc.CallOption) (*RepositorySizeResponse, error)
 	ApplyGitattributes(ctx context.Context, in *ApplyGitattributesRequest, opts ...grpc.CallOption) (*ApplyGitattributesResponse, error)
+	// FetchRemote fetches references from a remote repository into the local
+	// repository.
 	FetchRemote(ctx context.Context, in *FetchRemoteRequest, opts ...grpc.CallOption) (*FetchRemoteResponse, error)
 	CreateRepository(ctx context.Context, in *CreateRepositoryRequest, opts ...grpc.CallOption) (*CreateRepositoryResponse, error)
 	GetArchive(ctx context.Context, in *GetArchiveRequest, opts ...grpc.CallOption) (RepositoryService_GetArchiveClient, error)
@@ -4925,6 +4956,8 @@ type RepositoryServiceServer interface {
 	WriteCommitGraph(context.Context, *WriteCommitGraphRequest) (*WriteCommitGraphResponse, error)
 	RepositorySize(context.Context, *RepositorySizeRequest) (*RepositorySizeResponse, error)
 	ApplyGitattributes(context.Context, *ApplyGitattributesRequest) (*ApplyGitattributesResponse, error)
+	// FetchRemote fetches references from a remote repository into the local
+	// repository.
 	FetchRemote(context.Context, *FetchRemoteRequest) (*FetchRemoteResponse, error)
 	CreateRepository(context.Context, *CreateRepositoryRequest) (*CreateRepositoryResponse, error)
 	GetArchive(*GetArchiveRequest, RepositoryService_GetArchiveServer) error

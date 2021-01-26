@@ -29,17 +29,22 @@ func (s *server) FetchRemote(ctx context.Context, req *gitalypb.FetchRemoteReque
 	}
 
 	var stderr bytes.Buffer
-	opts := git.FetchOpts{Stderr: &stderr, Force: req.Force, Prune: true, Tags: git.FetchOptsTagsAll, Verbose: req.GetCheckTagsChanged()}
+	opts := git.FetchOpts{
+		Stderr:  &stderr,
+		Force:   req.Force,
+		Prune:   !req.NoPrune,
+		Tags:    git.FetchOptsTagsAll,
+		Verbose: req.GetCheckTagsChanged(),
+	}
 
 	if req.GetNoTags() {
 		opts.Tags = git.FetchOptsTagsNone
 	}
 
 	repo := git.NewRepository(req.GetRepository(), s.cfg)
-	params := req.GetRemoteParams()
 	remoteName := req.GetRemote()
 
-	if params != nil {
+	if params := req.GetRemoteParams(); params != nil {
 		remoteName = params.GetName()
 		remoteURL := params.GetUrl()
 		refspecs := s.getRefspecs(params.GetMirrorRefmaps())
@@ -65,12 +70,6 @@ func (s *server) FetchRemote(ctx context.Context, req *gitalypb.FetchRemoteReque
 		for _, refspec := range refspecs {
 			opts.Global = append(opts.Global, git.ConfigPair{Key: "remote." + remoteName + ".fetch", Value: refspec})
 		}
-
-		opts.Global = append(opts.Global,
-			git.ConfigPair{Key: "remote." + remoteName + ".mirror", Value: "true"},
-			git.ConfigPair{Key: "remote." + remoteName + ".prune", Value: "true"},
-			git.ConfigPair{Key: "http.followRedirects", Value: "false"},
-		)
 
 		if params.GetHttpAuthorizationHeader() != "" {
 			client, err := s.ruby.RepositoryServiceClient(ctx)
@@ -128,6 +127,10 @@ func (s *server) FetchRemote(ctx context.Context, req *gitalypb.FetchRemoteReque
 		ctx, cancel = context.WithTimeout(ctx, time.Duration(req.GetTimeout())*time.Second)
 		defer cancel()
 	}
+
+	opts.Global = append(opts.Global,
+		git.ConfigPair{Key: "http.followRedirects", Value: "false"},
+	)
 
 	if err := repo.FetchRemote(ctx, remoteName, opts); err != nil {
 		if _, ok := status.FromError(err); ok {
@@ -201,6 +204,10 @@ func (s *server) validateFetchRemoteRequest(req *gitalypb.FetchRemoteRequest) er
 }
 
 func (s *server) getRefspecs(refmaps []string) []string {
+	if len(refmaps) == 0 {
+		return []string{"+refs/*:refs/*"}
+	}
+
 	refspecs := make([]string, 0, len(refmaps))
 
 	for _, refmap := range refmaps {

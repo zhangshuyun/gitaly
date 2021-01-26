@@ -48,6 +48,9 @@ service RepositoryService {
       op: MUTATOR
     };
   }
+
+  // FetchRemote fetches references from a remote repository into the local
+  // repository.
   rpc FetchRemote(FetchRemoteRequest) returns (FetchRemoteResponse) {
     option (op_type) = {
       op: MUTATOR
@@ -294,14 +297,25 @@ message ApplyGitattributesResponse {}
 
 message FetchRemoteRequest {
   Repository repository = 1 [(target_repository)=true];
+  // remote is the name of the remote that shall be fetched. This remote must
+  // exist in the repository's configuration already. This parameter is
+  // deprecated in favor of remote_params.
   string remote = 2;
+  // force determines if references should be force-updated in case they have
+  // diverged.
   bool force = 3;
+  // no_tags determines whether tags should be fetched.
   bool no_tags = 4;
+  // timeout specifies a timeout for the fetch.
   int32 timeout = 5;
   string ssh_key = 6;
   string known_hosts = 7;
   reserved 8;
+  // no_prune will the fetch to not prune remote references which do not exist
+  // in the remote repository anymore.
   bool no_prune = 9;
+  // remote_params specifies the remote repository which should be fetched
+  // from.
   Remote remote_params = 10;
   // If check_tags_changed is true, the FetchRemote RPC will check whether any
   // tags were modified, returning the result in the tags_changed field of
@@ -607,10 +621,28 @@ message SearchFilesByContentResponse {
   bool end_of_match = 3;
 }
 
+// Remote represents a git remote repository.
 message Remote {
+  // url is the URL of the remote repository.
   string url = 1;
+  // name is the name of the remote repository. This is mainly used to
+  // determine where fetched references should end up, e.g. in
+  // `refs/remotes/$name/`.
   string name = 2;
+  // http_authorization_header is the HTTP header which should be added to
+  // the request in order to authenticate against the repository.
   string http_authorization_header = 3;
+  // mirror_refmaps contains the refspecs which shall be fetched. Some special
+  // refspecs are accepted:
+  //
+  // - "all_refs" gets translated to "+refs/*:refs/*", which mirrors all
+  //   references of the source repository.
+  // - "heads" gets translated to "+refs/heads/*:refs/heads/*", which mirrors
+  //   all branches of the source repository.
+  // - "tags" gets translated to "+refs/tags/*:refs/tags/*", which mirrors all
+  //   tags of the source repository.
+  //
+  // If no refspecs are given, this defaults to "all_refs".
   repeated string mirror_refmaps = 4;
 }
 

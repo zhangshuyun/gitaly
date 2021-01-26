@@ -1,0 +1,5 @@
+---
+title: 'repository: Fix regressions in FetchRemote'
+merge_request: 3043
+author:
+type: fixed
