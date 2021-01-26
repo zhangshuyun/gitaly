@@ -2,6 +2,7 @@ package housekeeping
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -17,39 +18,41 @@ const (
 	minimumDirPerm                   = 0700
 )
 
+type staleFileFinderFn func(context.Context, string) ([]string, error)
+
 // Perform will perform housekeeping duties on a repository
 func Perform(ctx context.Context, repoPath string) error {
-	logger := myLogger(ctx)
+	logEntry := myLogger(ctx)
+	var filesToPrune []string
 
-	temporaryObjects, err := findTemporaryObjects(ctx, repoPath)
-	if err != nil {
-		return err
+	for field, staleFileFinder := range map[string]staleFileFinderFn{
+		"objects": findTemporaryObjects,
+		"refs":    findBrokenLooseReferences,
+	} {
+		staleFiles, err := staleFileFinder(ctx, repoPath)
+		if err != nil {
+			return fmt.Errorf("housekeeping failed to find %s: %w", field, err)
+		}
+
+		filesToPrune = append(filesToPrune, staleFiles...)
+		logEntry = logEntry.WithField(field, len(staleFiles))
 	}
-
-	brokenRefs, err := findBrokenLooseReferences(ctx, repoPath)
-	if err != nil {
-		return err
-	}
-
-	filesToPrune := append(temporaryObjects, brokenRefs...)
 
 	unremovableFiles := 0
 	for _, path := range filesToPrune {
 		if err := os.Remove(path); err != nil {
 			unremovableFiles++
-			logger.WithError(err).WithField("path", path).Warn("unable to remove stray file")
+			// We cannot use `logEntry` here as it's already seeded
+			// with the statistics fields.
+			myLogger(ctx).WithError(err).WithField("path", path).Warn("unable to remove stale file")
 		}
 	}
 
 	if len(filesToPrune) > 0 {
-		logger.WithFields(log.Fields{
-			"objects":  len(temporaryObjects),
-			"refs":     len(brokenRefs),
-			"failures": unremovableFiles,
-		}).Info("removed files")
+		logEntry.WithField("failures", unremovableFiles).Info("removed files")
 	}
 
-	return err
+	return nil
 }
 
 func findTemporaryObjects(ctx context.Context, repoPath string) ([]string, error) {
