@@ -28,7 +28,7 @@ func (remote LocalRepositoryRemote) Add(ctx context.Context, name, url string, o
 	}
 
 	stderr := bytes.Buffer{}
-	cmd, err := NewCommand(ctx, remote.repo, nil,
+	cmd, err := remote.repo.command(ctx, nil,
 		SubSubCmd{
 			Name:   "remote",
 			Action: "add",
@@ -68,7 +68,7 @@ func (remote LocalRepositoryRemote) Remove(ctx context.Context, name string) err
 	}
 
 	var stderr bytes.Buffer
-	cmd, err := NewCommand(ctx, remote.repo, nil,
+	cmd, err := remote.repo.command(ctx, nil,
 		SubSubCmd{
 			Name:   "remote",
 			Action: "remove",
@@ -111,7 +111,7 @@ func (remote LocalRepositoryRemote) SetURL(ctx context.Context, name, url string
 	}
 
 	var stderr bytes.Buffer
-	cmd, err := NewCommand(ctx, remote.repo, nil,
+	cmd, err := remote.repo.command(ctx, nil,
 		SubSubCmd{
 			Name:   "remote",
 			Action: "set-url",
