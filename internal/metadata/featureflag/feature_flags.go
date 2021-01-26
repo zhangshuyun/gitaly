@@ -9,8 +9,6 @@ type FeatureFlag struct {
 // In order to support coverage of combined features usage all feature flags should be marked as enabled for the test.
 // NOTE: if you add a new feature flag please add it to the `All` list defined below.
 var (
-	// GoFetchSourceBranch enables a go implementation of FetchSourceBranch
-	GoFetchSourceBranch = FeatureFlag{Name: "go_fetch_source_branch", OnByDefault: true}
 	// DistributedReads allows praefect to redirect accessor operations to up-to-date secondaries
 	DistributedReads = FeatureFlag{Name: "distributed_reads", OnByDefault: true}
 	// ReferenceTransactions will handle Git reference updates via the transaction service for strong consistency
@@ -101,7 +99,6 @@ var (
 
 // All includes all feature flags.
 var All = []FeatureFlag{
-	GoFetchSourceBranch,
 	DistributedReads,
 	LogCommandStats,
 	ReferenceTransactions,
