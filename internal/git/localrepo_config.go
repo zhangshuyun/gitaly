@@ -19,12 +19,12 @@ type LocalRepositoryConfig struct {
 }
 
 // Add adds a new entry to the repository's configuration.
-func (repo LocalRepositoryConfig) Add(ctx context.Context, name, value string, opts ConfigAddOpts) error {
+func (cfg LocalRepositoryConfig) Add(ctx context.Context, name, value string, opts ConfigAddOpts) error {
 	if err := validateNotBlank(name, "name"); err != nil {
 		return err
 	}
 
-	cmd, err := NewCommand(ctx, repo.repo, nil, SubCmd{
+	cmd, err := NewCommand(ctx, cfg.repo, nil, SubCmd{
 		Name:  "config",
 		Flags: append(opts.buildFlags(), Flag{Name: "--add"}),
 		Args:  []string{name, value},
@@ -51,22 +51,22 @@ func (repo LocalRepositoryConfig) Add(ctx context.Context, name, value string, o
 }
 
 // GetRegexp gets all config entries which whose keys match the given regexp.
-func (repo LocalRepositoryConfig) GetRegexp(ctx context.Context, nameRegexp string, opts ConfigGetRegexpOpts) ([]ConfigPair, error) {
+func (cfg LocalRepositoryConfig) GetRegexp(ctx context.Context, nameRegexp string, opts ConfigGetRegexpOpts) ([]ConfigPair, error) {
 	if err := validateNotBlank(nameRegexp, "nameRegexp"); err != nil {
 		return nil, err
 	}
 
-	data, err := repo.getRegexp(ctx, nameRegexp, opts)
+	data, err := cfg.getRegexp(ctx, nameRegexp, opts)
 	if err != nil {
 		return nil, err
 	}
 
-	return repo.parseConfig(data, opts)
+	return cfg.parseConfig(data, opts)
 }
 
-func (repo LocalRepositoryConfig) getRegexp(ctx context.Context, nameRegexp string, opts ConfigGetRegexpOpts) ([]byte, error) {
+func (cfg LocalRepositoryConfig) getRegexp(ctx context.Context, nameRegexp string, opts ConfigGetRegexpOpts) ([]byte, error) {
 	var stderr bytes.Buffer
-	cmd, err := NewCommand(ctx, repo.repo, nil,
+	cmd, err := NewCommand(ctx, cfg.repo, nil,
 		SubCmd{
 			Name: "config",
 			// '--null' is used to support proper parsing of the multiline config values
@@ -104,7 +104,7 @@ func (repo LocalRepositoryConfig) getRegexp(ctx context.Context, nameRegexp stri
 	return data, nil
 }
 
-func (repo LocalRepositoryConfig) parseConfig(data []byte, opts ConfigGetRegexpOpts) ([]ConfigPair, error) {
+func (cfg LocalRepositoryConfig) parseConfig(data []byte, opts ConfigGetRegexpOpts) ([]ConfigPair, error) {
 	var res []ConfigPair
 	var err error
 
@@ -151,8 +151,8 @@ func (repo LocalRepositoryConfig) parseConfig(data []byte, opts ConfigGetRegexpO
 }
 
 // Unset unsets the given config entry.
-func (repo LocalRepositoryConfig) Unset(ctx context.Context, name string, opts ConfigUnsetOpts) error {
-	cmd, err := NewCommand(ctx, repo.repo, nil, SubCmd{
+func (cfg LocalRepositoryConfig) Unset(ctx context.Context, name string, opts ConfigUnsetOpts) error {
+	cmd, err := NewCommand(ctx, cfg.repo, nil, SubCmd{
 		Name:  "config",
 		Flags: opts.buildFlags(),
 		Args:  []string{name},
