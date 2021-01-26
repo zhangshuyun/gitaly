@@ -19,7 +19,7 @@ type LocalRepositoryRemote struct {
 }
 
 // Add adds a new remote to the repository.
-func (repo LocalRepositoryRemote) Add(ctx context.Context, name, url string, opts RemoteAddOpts) error {
+func (remote LocalRepositoryRemote) Add(ctx context.Context, name, url string, opts RemoteAddOpts) error {
 	if err := validateNotBlank(name, "name"); err != nil {
 		return err
 	}
@@ -29,7 +29,7 @@ func (repo LocalRepositoryRemote) Add(ctx context.Context, name, url string, opt
 	}
 
 	stderr := bytes.Buffer{}
-	cmd, err := NewCommand(ctx, repo.repo, nil,
+	cmd, err := NewCommand(ctx, remote.repo, nil,
 		SubSubCmd{
 			Name:   "remote",
 			Action: "add",
@@ -37,7 +37,7 @@ func (repo LocalRepositoryRemote) Add(ctx context.Context, name, url string, opt
 			Args:   []string{name, url},
 		},
 		WithStderr(&stderr),
-		WithRefTxHook(ctx, helper.ProtoRepoFromRepo(repo.repo), config.Config),
+		WithRefTxHook(ctx, helper.ProtoRepoFromRepo(remote.repo), config.Config),
 	)
 	if err != nil {
 		return err
@@ -63,20 +63,20 @@ func (repo LocalRepositoryRemote) Add(ctx context.Context, name, url string, opt
 }
 
 // Remove removes a named remote from the repository configuration.
-func (repo LocalRepositoryRemote) Remove(ctx context.Context, name string) error {
+func (remote LocalRepositoryRemote) Remove(ctx context.Context, name string) error {
 	if err := validateNotBlank(name, "name"); err != nil {
 		return err
 	}
 
 	var stderr bytes.Buffer
-	cmd, err := NewCommand(ctx, repo.repo, nil,
+	cmd, err := NewCommand(ctx, remote.repo, nil,
 		SubSubCmd{
 			Name:   "remote",
 			Action: "remove",
 			Args:   []string{name},
 		},
 		WithStderr(&stderr),
-		WithRefTxHook(ctx, helper.ProtoRepoFromRepo(repo.repo), config.Config),
+		WithRefTxHook(ctx, helper.ProtoRepoFromRepo(remote.repo), config.Config),
 	)
 	if err != nil {
 		return err
@@ -102,7 +102,7 @@ func (repo LocalRepositoryRemote) Remove(ctx context.Context, name string) error
 }
 
 // SetURL sets the URL for a given remote.
-func (repo LocalRepositoryRemote) SetURL(ctx context.Context, name, url string, opts SetURLOpts) error {
+func (remote LocalRepositoryRemote) SetURL(ctx context.Context, name, url string, opts SetURLOpts) error {
 	if err := validateNotBlank(name, "name"); err != nil {
 		return err
 	}
@@ -112,7 +112,7 @@ func (repo LocalRepositoryRemote) SetURL(ctx context.Context, name, url string, 
 	}
 
 	var stderr bytes.Buffer
-	cmd, err := NewCommand(ctx, repo.repo, nil,
+	cmd, err := NewCommand(ctx, remote.repo, nil,
 		SubSubCmd{
 			Name:   "remote",
 			Action: "set-url",
@@ -120,7 +120,7 @@ func (repo LocalRepositoryRemote) SetURL(ctx context.Context, name, url string, 
 			Args:   []string{name, url},
 		},
 		WithStderr(&stderr),
-		WithRefTxHook(ctx, helper.ProtoRepoFromRepo(repo.repo), config.Config),
+		WithRefTxHook(ctx, helper.ProtoRepoFromRepo(remote.repo), config.Config),
 	)
 	if err != nil {
 		return err
