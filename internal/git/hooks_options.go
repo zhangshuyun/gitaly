@@ -10,6 +10,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/log"
+	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
@@ -86,6 +87,14 @@ func (cc *cmdCfg) configureHooks(
 	transaction, praefect, err := metadata.TransactionMetadataFromContext(ctx)
 	if err != nil {
 		return err
+	}
+
+	if praefect != nil && featureflag.IsEnabled(ctx, featureflag.GitalyTxSvc) {
+		internalListenAddr := "unix://" + cfg.GitalyInternalSocketPath()
+		praefect = &metadata.PraefectServer{
+			SocketPath: internalListenAddr,
+			Token:      cfg.Auth.Token,
+		}
 	}
 
 	payload, err := NewHooksPayload(cfg, repo, transaction, praefect, receiveHooksPayload, requestedHooks).Env()
