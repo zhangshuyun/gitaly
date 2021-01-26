@@ -35,10 +35,9 @@ func (s *testTransactionServer) VoteTransaction(ctx context.Context, in *gitalyp
 }
 
 func TestSuccessfulCreateBranchRequest(t *testing.T) {
-	testWithFeature(t, featureflag.GoUserCreateBranch, testSuccessfulCreateBranchRequest)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testSuccessfulCreateBranchRequest(t *testing.T, ctx context.Context) {
 	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
@@ -217,7 +216,6 @@ func TestUserCreateBranchWithTransaction(t *testing.T) {
 func TestSuccessfulGitHooksForUserCreateBranchRequest(t *testing.T) {
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.ReferenceTransactions,
-		featureflag.GoUserCreateBranch,
 	}).Run(t, testSuccessfulGitHooksForUserCreateBranchRequest)
 }
 
@@ -256,15 +254,10 @@ func testSuccessfulGitHooksForUserCreateBranchRequest(t *testing.T, ctx context.
 	}
 }
 
-func TestFailedUserCreateBranchDueToHooks(t *testing.T) {
-	testWithFeature(t, featureflag.GoUserCreateBranch, testFailedUserCreateBranchDueToHooks)
-}
-
 func TestSuccessfulCreateBranchRequestWithStartPointRefPrefix(t *testing.T) {
-	testWithFeature(t, featureflag.GoUserCreateBranch, testSuccessfulCreateBranchRequestWithStartPointRefPrefix)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testSuccessfulCreateBranchRequestWithStartPointRefPrefix(t *testing.T, ctx context.Context) {
 	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()
 
@@ -340,7 +333,10 @@ func testSuccessfulCreateBranchRequestWithStartPointRefPrefix(t *testing.T, ctx 
 	}
 }
 
-func testFailedUserCreateBranchDueToHooks(t *testing.T, ctx context.Context) {
+func TestFailedUserCreateBranchDueToHooks(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
 	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
@@ -371,10 +367,9 @@ func testFailedUserCreateBranchDueToHooks(t *testing.T, ctx context.Context) {
 }
 
 func TestFailedUserCreateBranchRequest(t *testing.T) {
-	testWithFeature(t, featureflag.GoUserCreateBranch, testFailedUserCreateBranchRequest)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testFailedUserCreateBranchRequest(t *testing.T, ctx context.Context) {
 	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()
 
@@ -689,10 +684,9 @@ func TestFailedUserDeleteBranchDueToHooks(t *testing.T) {
 }
 
 func TestBranchHookOutput(t *testing.T) {
-	testWithFeature(t, featureflag.GoUserCreateBranch, testBranchHookOutput)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testBranchHookOutput(t *testing.T, ctx context.Context) {
 	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()
 

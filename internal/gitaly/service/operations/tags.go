@@ -12,9 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/git/log"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -54,28 +52,7 @@ func (s *Server) UserDeleteTag(ctx context.Context, req *gitalypb.UserDeleteTagR
 	return &gitalypb.UserDeleteTagResponse{}, nil
 }
 
-func (s *Server) UserCreateTag(ctx context.Context, req *gitalypb.UserCreateTagRequest) (*gitalypb.UserCreateTagResponse, error) {
-	if featureflag.IsDisabled(ctx, featureflag.GoUserCreateTag) {
-		return s.userCreateTagRuby(ctx, req)
-	}
-	return s.userCreateTagGo(ctx, req)
-}
-
-func (s *Server) userCreateTagRuby(ctx context.Context, req *gitalypb.UserCreateTagRequest) (*gitalypb.UserCreateTagResponse, error) {
-	client, err := s.ruby.OperationServiceClient(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	clientCtx, err := rubyserver.SetHeaders(ctx, s.locator, req.GetRepository())
-	if err != nil {
-		return nil, err
-	}
-
-	return client.UserCreateTag(clientCtx, req)
-}
-
-func validateUserCreateTagGo(req *gitalypb.UserCreateTagRequest) error {
+func validateUserCreateTag(req *gitalypb.UserCreateTagRequest) error {
 	// Emulate validations done by Ruby. A lot of these (e.g. the
 	// upper-case error messages) can be simplified once we're not
 	// doing bug-for-bug Ruby emulation anymore)
@@ -107,9 +84,9 @@ func validateUserCreateTagGo(req *gitalypb.UserCreateTagRequest) error {
 	return nil
 }
 
-func (s *Server) userCreateTagGo(ctx context.Context, req *gitalypb.UserCreateTagRequest) (*gitalypb.UserCreateTagResponse, error) {
+func (s *Server) UserCreateTag(ctx context.Context, req *gitalypb.UserCreateTagRequest) (*gitalypb.UserCreateTagResponse, error) {
 	// Validate the request
-	if err := validateUserCreateTagGo(req); err != nil {
+	if err := validateUserCreateTag(req); err != nil {
 		return nil, err
 	}
 
