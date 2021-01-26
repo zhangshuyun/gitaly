@@ -28,7 +28,7 @@ func NewRepository(repo repository.GitRepo, cfg config.Cfg) *LocalRepository {
 // command creates a Git Command with the given args and Repository, executed
 // in the Repository. It validates the arguments in the command before
 // executing.
-func (repo *LocalRepository) command(ctx context.Context, globals []GlobalOption, cmd SubCmd, opts ...CmdOpt) (*command.Command, error) {
+func (repo *LocalRepository) command(ctx context.Context, globals []GlobalOption, cmd Cmd, opts ...CmdOpt) (*command.Command, error) {
 	return repo.commandFactory.newCommand(ctx, repo, "", globals, cmd, opts...)
 }
 
