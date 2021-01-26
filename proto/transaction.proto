@@ -8,21 +8,43 @@ import "lint.proto";
 import "shared.proto";
 
 service RefTransaction {
-
-  rpc VoteTransaction (VoteTransactionRequest) returns (VoteTransactionResponse) {
-    option (op_type) = {
-      op:          MUTATOR
-      scope_level: REPOSITORY
-    };
-  }
-
-  rpc StopTransaction (StopTransactionRequest) returns (StopTransactionResponse) {
-    option (op_type) = {
-      op:          MUTATOR
-      scope_level: REPOSITORY
-    };
-  }
-
+  option (intercepted) = true;
+  rpc VoteTransaction (VoteTransactionRequest) returns (VoteTransactionResponse);
+  rpc StopTransaction (StopTransactionRequest) returns (StopTransactionResponse); 
+  // RouteVote allows Praefect to dial to a remote Gitaly and request
+  // intercepting VoteTransaction and StopTransaction calls made for a specific
+  // route UUID. For example, given a route UUID of 5:
+  //
+  // ┌────────┐                                 ┌──────┐                   ┌────┐
+  // │Praefect│                                 │Gitaly│                   │Hook│
+  // └───┬────┘                                 └──┬───┘                   └─┬──┘
+  //     │           RouteVote open route 5        │                         │   
+  //     │ ────────────────────────────────────────>                         │   
+  //     │                                         │                         │   
+  //     │               Route 5 opened            │                         │   
+  //     │ <────────────────────────────────────────                         │   
+  //     │                                         │                         │   
+  //     │                                         │ VoteTransaction for 5   │   
+  //     │                                         │ <────────────────────────   
+  //     │                                         │                         │   
+  //     │ Forward VoteTransactionRequest for 5    │                         │   
+  //     │ <────────────────────────────────────────                         │   
+  //     │                                         │                         │   
+  //     │ Forward VoteTransactionResponse for 5   │                         │   
+  //     │ ────────────────────────────────────────>                         │   
+  //     │                                         │                         │   
+  //     │                                         │    Response             │   
+  //     │                                         │ ────────────────────────>   
+  //     │                                         │                         │   
+  //     │           RouteVote close route 5       │                         │   
+  //     │ ────────────────────────────────────────>                         │   
+  //     │                                         │                         │   
+  //     │               Route 5 closed            │                         │   
+  //     │ <────────────────────────────────────────                         │   
+  // ┌───┴────┐                                 ┌──┴───┐                   ┌─┴──┐
+  // │Praefect│                                 │Gitaly│                   │Hook│
+  // └────────┘                                 └──────┘                   └────┘
+  rpc RouteVote (stream RouteVoteRequest) returns (stream RouteVoteRequest);
 }
 
 message VoteTransactionRequest {
@@ -33,6 +55,9 @@ message VoteTransactionRequest {
   string node = 3;
   // SHA1 of the references that are to be updated
   bytes reference_updates_hash = 4;
+  // Route UUID is used when the transaction service on Gitaly is used to
+  // route messages back to Praefect clients
+  string route_uuid = 5;
 }
 
 message VoteTransactionResponse {
@@ -51,6 +76,45 @@ message StopTransactionRequest {
   Repository repository = 1[(target_repository)=true];
   // ID of the transaction we're processing
   uint64 transaction_id = 2;
+  // Route UUID is used when the transaction service on Gitaly is used to
+  // route messages back to Praefect clients
+  string route_uuid = 5;
 }
 
 message StopTransactionResponse {}
+
+// RouteVoteRequest wraps Gitaly messages so that they can
+// be properly routed between Praefects. It also allows Praefect to manage
+// transactions.
+message RouteVoteRequest{
+	// The route UUID allows Gitaly messages to be routed to the correct
+	// Praefect client
+	string route_uuid = 1;
+
+	// OpenRoute is sent from Praefect to Gitaly to open a new route
+	// session. All transactions requests from Gitaly with the specified ID will
+	// route to the Praefect that opened the session. Only one route can be
+	// opened per stream. Closing the stream will also close the route.
+	message OpenRoute {}
+		
+	// Status is copy of google.rpc.Status, which represents errors in gRPC
+	message Status {
+		int32 code = 1;
+		string message = 2;
+	}
+
+	oneof msg {
+		// These messages are used by Praefect to manage route sessions
+		OpenRoute open_route_request = 2;
+
+		// error can be sent from Praefect to Gitaly as a response to
+		// any routed RPC
+		Status error = 3;
+		
+		// These messages are wrapped to allow Gitaly RPCs to be routed
+		VoteTransactionRequest vote_tx_request = 5;
+		VoteTransactionResponse vote_tx_response = 6;
+		StopTransactionRequest stop_tx_request = 7;
+		StopTransactionResponse stop_tx_response = 8;
+	}
+}

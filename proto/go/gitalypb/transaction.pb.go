@@ -61,7 +61,10 @@ type VoteTransactionRequest struct {
 	// Name of the Gitaly node that's voting on a transaction.
 	Node string `protobuf:"bytes,3,opt,name=node,proto3" json:"node,omitempty"`
 	// SHA1 of the references that are to be updated
-	ReferenceUpdatesHash []byte   `protobuf:"bytes,4,opt,name=reference_updates_hash,json=referenceUpdatesHash,proto3" json:"reference_updates_hash,omitempty"`
+	ReferenceUpdatesHash []byte `protobuf:"bytes,4,opt,name=reference_updates_hash,json=referenceUpdatesHash,proto3" json:"reference_updates_hash,omitempty"`
+	// Route UUID is used when the transaction service on Gitaly is used to
+	// route messages back to Praefect clients
+	RouteUuid            string   `protobuf:"bytes,5,opt,name=route_uuid,json=routeUuid,proto3" json:"route_uuid,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -120,6 +123,13 @@ func (m *VoteTransactionRequest) GetReferenceUpdatesHash() []byte {
 	return nil
 }
 
+func (m *VoteTransactionRequest) GetRouteUuid() string {
+	if m != nil {
+		return m.RouteUuid
+	}
+	return ""
+}
+
 type VoteTransactionResponse struct {
 	State                VoteTransactionResponse_TransactionState `protobuf:"varint,1,opt,name=state,proto3,enum=gitaly.VoteTransactionResponse_TransactionState" json:"state,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                                 `json:"-"`
@@ -162,7 +172,10 @@ func (m *VoteTransactionResponse) GetState() VoteTransactionResponse_Transaction
 type StopTransactionRequest struct {
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
 	// ID of the transaction we're processing
-	TransactionId        uint64   `protobuf:"varint,2,opt,name=transaction_id,json=transactionId,proto3" json:"transaction_id,omitempty"`
+	TransactionId uint64 `protobuf:"varint,2,opt,name=transaction_id,json=transactionId,proto3" json:"transaction_id,omitempty"`
+	// Route UUID is used when the transaction service on Gitaly is used to
+	// route messages back to Praefect clients
+	RouteUuid            string   `protobuf:"bytes,5,opt,name=route_uuid,json=routeUuid,proto3" json:"route_uuid,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -207,6 +220,13 @@ func (m *StopTransactionRequest) GetTransactionId() uint64 {
 	return 0
 }
 
+func (m *StopTransactionRequest) GetRouteUuid() string {
+	if m != nil {
+		return m.RouteUuid
+	}
+	return ""
+}
+
 type StopTransactionResponse struct {
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -238,42 +258,295 @@ func (m *StopTransactionResponse) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_StopTransactionResponse proto.InternalMessageInfo
 
+// RouteVoteRequest wraps Gitaly messages so that they can
+// be properly routed between Praefects. It also allows Praefect to manage
+// transactions.
+type RouteVoteRequest struct {
+	// The route UUID allows Gitaly messages to be routed to the correct
+	// Praefect client
+	RouteUuid string `protobuf:"bytes,1,opt,name=route_uuid,json=routeUuid,proto3" json:"route_uuid,omitempty"`
+	// Types that are valid to be assigned to Msg:
+	//	*RouteVoteRequest_OpenRouteRequest
+	//	*RouteVoteRequest_Error
+	//	*RouteVoteRequest_VoteTxRequest
+	//	*RouteVoteRequest_VoteTxResponse
+	//	*RouteVoteRequest_StopTxRequest
+	//	*RouteVoteRequest_StopTxResponse
+	Msg                  isRouteVoteRequest_Msg `protobuf_oneof:"msg"`
+	XXX_NoUnkeyedLiteral struct{}               `json:"-"`
+	XXX_unrecognized     []byte                 `json:"-"`
+	XXX_sizecache        int32                  `json:"-"`
+}
+
+func (m *RouteVoteRequest) Reset()         { *m = RouteVoteRequest{} }
+func (m *RouteVoteRequest) String() string { return proto.CompactTextString(m) }
+func (*RouteVoteRequest) ProtoMessage()    {}
+func (*RouteVoteRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_2cc4e03d2c28c490, []int{4}
+}
+
+func (m *RouteVoteRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_RouteVoteRequest.Unmarshal(m, b)
+}
+func (m *RouteVoteRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_RouteVoteRequest.Marshal(b, m, deterministic)
+}
+func (m *RouteVoteRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RouteVoteRequest.Merge(m, src)
+}
+func (m *RouteVoteRequest) XXX_Size() int {
+	return xxx_messageInfo_RouteVoteRequest.Size(m)
+}
+func (m *RouteVoteRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_RouteVoteRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_RouteVoteRequest proto.InternalMessageInfo
+
+func (m *RouteVoteRequest) GetRouteUuid() string {
+	if m != nil {
+		return m.RouteUuid
+	}
+	return ""
+}
+
+type isRouteVoteRequest_Msg interface {
+	isRouteVoteRequest_Msg()
+}
+
+type RouteVoteRequest_OpenRouteRequest struct {
+	OpenRouteRequest *RouteVoteRequest_OpenRoute `protobuf:"bytes,2,opt,name=open_route_request,json=openRouteRequest,proto3,oneof"`
+}
+
+type RouteVoteRequest_Error struct {
+	Error *RouteVoteRequest_Status `protobuf:"bytes,3,opt,name=error,proto3,oneof"`
+}
+
+type RouteVoteRequest_VoteTxRequest struct {
+	VoteTxRequest *VoteTransactionRequest `protobuf:"bytes,5,opt,name=vote_tx_request,json=voteTxRequest,proto3,oneof"`
+}
+
+type RouteVoteRequest_VoteTxResponse struct {
+	VoteTxResponse *VoteTransactionResponse `protobuf:"bytes,6,opt,name=vote_tx_response,json=voteTxResponse,proto3,oneof"`
+}
+
+type RouteVoteRequest_StopTxRequest struct {
+	StopTxRequest *StopTransactionRequest `protobuf:"bytes,7,opt,name=stop_tx_request,json=stopTxRequest,proto3,oneof"`
+}
+
+type RouteVoteRequest_StopTxResponse struct {
+	StopTxResponse *StopTransactionResponse `protobuf:"bytes,8,opt,name=stop_tx_response,json=stopTxResponse,proto3,oneof"`
+}
+
+func (*RouteVoteRequest_OpenRouteRequest) isRouteVoteRequest_Msg() {}
+
+func (*RouteVoteRequest_Error) isRouteVoteRequest_Msg() {}
+
+func (*RouteVoteRequest_VoteTxRequest) isRouteVoteRequest_Msg() {}
+
+func (*RouteVoteRequest_VoteTxResponse) isRouteVoteRequest_Msg() {}
+
+func (*RouteVoteRequest_StopTxRequest) isRouteVoteRequest_Msg() {}
+
+func (*RouteVoteRequest_StopTxResponse) isRouteVoteRequest_Msg() {}
+
+func (m *RouteVoteRequest) GetMsg() isRouteVoteRequest_Msg {
+	if m != nil {
+		return m.Msg
+	}
+	return nil
+}
+
+func (m *RouteVoteRequest) GetOpenRouteRequest() *RouteVoteRequest_OpenRoute {
+	if x, ok := m.GetMsg().(*RouteVoteRequest_OpenRouteRequest); ok {
+		return x.OpenRouteRequest
+	}
+	return nil
+}
+
+func (m *RouteVoteRequest) GetError() *RouteVoteRequest_Status {
+	if x, ok := m.GetMsg().(*RouteVoteRequest_Error); ok {
+		return x.Error
+	}
+	return nil
+}
+
+func (m *RouteVoteRequest) GetVoteTxRequest() *VoteTransactionRequest {
+	if x, ok := m.GetMsg().(*RouteVoteRequest_VoteTxRequest); ok {
+		return x.VoteTxRequest
+	}
+	return nil
+}
+
+func (m *RouteVoteRequest) GetVoteTxResponse() *VoteTransactionResponse {
+	if x, ok := m.GetMsg().(*RouteVoteRequest_VoteTxResponse); ok {
+		return x.VoteTxResponse
+	}
+	return nil
+}
+
+func (m *RouteVoteRequest) GetStopTxRequest() *StopTransactionRequest {
+	if x, ok := m.GetMsg().(*RouteVoteRequest_StopTxRequest); ok {
+		return x.StopTxRequest
+	}
+	return nil
+}
+
+func (m *RouteVoteRequest) GetStopTxResponse() *StopTransactionResponse {
+	if x, ok := m.GetMsg().(*RouteVoteRequest_StopTxResponse); ok {
+		return x.StopTxResponse
+	}
+	return nil
+}
+
+// XXX_OneofWrappers is for the internal use of the proto package.
+func (*RouteVoteRequest) XXX_OneofWrappers() []interface{} {
+	return []interface{}{
+		(*RouteVoteRequest_OpenRouteRequest)(nil),
+		(*RouteVoteRequest_Error)(nil),
+		(*RouteVoteRequest_VoteTxRequest)(nil),
+		(*RouteVoteRequest_VoteTxResponse)(nil),
+		(*RouteVoteRequest_StopTxRequest)(nil),
+		(*RouteVoteRequest_StopTxResponse)(nil),
+	}
+}
+
+// OpenRoute is sent from Praefect to Gitaly to open a new route
+// session. All transactions requests from Gitaly with the specified ID will
+// route to the Praefect that opened the session. Only one route can be
+// opened per stream. Closing the stream will also close the route.
+type RouteVoteRequest_OpenRoute struct {
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *RouteVoteRequest_OpenRoute) Reset()         { *m = RouteVoteRequest_OpenRoute{} }
+func (m *RouteVoteRequest_OpenRoute) String() string { return proto.CompactTextString(m) }
+func (*RouteVoteRequest_OpenRoute) ProtoMessage()    {}
+func (*RouteVoteRequest_OpenRoute) Descriptor() ([]byte, []int) {
+	return fileDescriptor_2cc4e03d2c28c490, []int{4, 0}
+}
+
+func (m *RouteVoteRequest_OpenRoute) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_RouteVoteRequest_OpenRoute.Unmarshal(m, b)
+}
+func (m *RouteVoteRequest_OpenRoute) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_RouteVoteRequest_OpenRoute.Marshal(b, m, deterministic)
+}
+func (m *RouteVoteRequest_OpenRoute) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RouteVoteRequest_OpenRoute.Merge(m, src)
+}
+func (m *RouteVoteRequest_OpenRoute) XXX_Size() int {
+	return xxx_messageInfo_RouteVoteRequest_OpenRoute.Size(m)
+}
+func (m *RouteVoteRequest_OpenRoute) XXX_DiscardUnknown() {
+	xxx_messageInfo_RouteVoteRequest_OpenRoute.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_RouteVoteRequest_OpenRoute proto.InternalMessageInfo
+
+// Status is copy of google.rpc.Status, which represents errors in gRPC
+type RouteVoteRequest_Status struct {
+	Code                 int32    `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"`
+	Message              string   `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *RouteVoteRequest_Status) Reset()         { *m = RouteVoteRequest_Status{} }
+func (m *RouteVoteRequest_Status) String() string { return proto.CompactTextString(m) }
+func (*RouteVoteRequest_Status) ProtoMessage()    {}
+func (*RouteVoteRequest_Status) Descriptor() ([]byte, []int) {
+	return fileDescriptor_2cc4e03d2c28c490, []int{4, 1}
+}
+
+func (m *RouteVoteRequest_Status) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_RouteVoteRequest_Status.Unmarshal(m, b)
+}
+func (m *RouteVoteRequest_Status) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_RouteVoteRequest_Status.Marshal(b, m, deterministic)
+}
+func (m *RouteVoteRequest_Status) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RouteVoteRequest_Status.Merge(m, src)
+}
+func (m *RouteVoteRequest_Status) XXX_Size() int {
+	return xxx_messageInfo_RouteVoteRequest_Status.Size(m)
+}
+func (m *RouteVoteRequest_Status) XXX_DiscardUnknown() {
+	xxx_messageInfo_RouteVoteRequest_Status.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_RouteVoteRequest_Status proto.InternalMessageInfo
+
+func (m *RouteVoteRequest_Status) GetCode() int32 {
+	if m != nil {
+		return m.Code
+	}
+	return 0
+}
+
+func (m *RouteVoteRequest_Status) GetMessage() string {
+	if m != nil {
+		return m.Message
+	}
+	return ""
+}
+
 func init() {
 	proto.RegisterEnum("gitaly.VoteTransactionResponse_TransactionState", VoteTransactionResponse_TransactionState_name, VoteTransactionResponse_TransactionState_value)
 	proto.RegisterType((*VoteTransactionRequest)(nil), "gitaly.VoteTransactionRequest")
 	proto.RegisterType((*VoteTransactionResponse)(nil), "gitaly.VoteTransactionResponse")
 	proto.RegisterType((*StopTransactionRequest)(nil), "gitaly.StopTransactionRequest")
 	proto.RegisterType((*StopTransactionResponse)(nil), "gitaly.StopTransactionResponse")
+	proto.RegisterType((*RouteVoteRequest)(nil), "gitaly.RouteVoteRequest")
+	proto.RegisterType((*RouteVoteRequest_OpenRoute)(nil), "gitaly.RouteVoteRequest.OpenRoute")
+	proto.RegisterType((*RouteVoteRequest_Status)(nil), "gitaly.RouteVoteRequest.Status")
 }
 
 func init() { proto.RegisterFile("transaction.proto", fileDescriptor_2cc4e03d2c28c490) }
 
 var fileDescriptor_2cc4e03d2c28c490 = []byte{
-	// 385 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xc4, 0x52, 0xc1, 0x6e, 0xda, 0x40,
-	0x14, 0xec, 0x52, 0x63, 0xc1, 0x2b, 0xa5, 0xee, 0xaa, 0x02, 0x97, 0x43, 0x6b, 0x59, 0xaa, 0xe4,
-	0x43, 0x6b, 0x23, 0xe8, 0xa1, 0xd7, 0x52, 0xa9, 0x2a, 0x07, 0x44, 0xb5, 0x38, 0x39, 0x70, 0x41,
-	0x0b, 0x5e, 0xb0, 0x25, 0xe2, 0x75, 0x76, 0x97, 0x03, 0x3f, 0x92, 0xe4, 0x7f, 0x22, 0x45, 0xf9,
-	0xa6, 0x9c, 0x22, 0xbc, 0x01, 0x2c, 0x08, 0xca, 0x31, 0xb7, 0x7d, 0x33, 0x6f, 0xc6, 0x6f, 0x46,
-	0x86, 0x8f, 0x4a, 0xd0, 0x54, 0xd2, 0x99, 0x4a, 0x78, 0xea, 0x67, 0x82, 0x2b, 0x8e, 0xcd, 0x45,
-	0xa2, 0xe8, 0x72, 0xdd, 0x82, 0x65, 0x92, 0x2a, 0x8d, 0xb5, 0x6a, 0x32, 0xa6, 0x82, 0x45, 0x7a,
-	0x72, 0x6f, 0x11, 0x34, 0xce, 0xb9, 0x62, 0xe1, 0x5e, 0x4b, 0xd8, 0xe5, 0x8a, 0x49, 0x85, 0x7f,
-	0x01, 0x08, 0x96, 0x71, 0x99, 0x28, 0x2e, 0xd6, 0x36, 0x72, 0x90, 0xf7, 0xae, 0x83, 0x7d, 0xed,
-	0xe8, 0x93, 0x1d, 0xd3, 0x33, 0x6e, 0xee, 0xbe, 0x23, 0x52, 0xd8, 0xc5, 0xdf, 0xa0, 0x5e, 0xb8,
-	0x65, 0x92, 0x44, 0x76, 0xc9, 0x41, 0x9e, 0x41, 0xde, 0x17, 0xd0, 0x7e, 0x84, 0x31, 0x18, 0x29,
-	0x8f, 0x98, 0xfd, 0xd6, 0x41, 0x5e, 0x95, 0xe4, 0x6f, 0xfc, 0x13, 0x1a, 0x82, 0xcd, 0x99, 0x60,
-	0xe9, 0x8c, 0x4d, 0x56, 0x59, 0x44, 0x15, 0x93, 0x93, 0x98, 0xca, 0xd8, 0x36, 0x1c, 0xe4, 0xd5,
-	0xc8, 0xa7, 0x1d, 0x7b, 0xa6, 0xc9, 0x7f, 0x54, 0xc6, 0xee, 0x15, 0x82, 0xe6, 0x51, 0x0a, 0x99,
-	0xf1, 0x54, 0x32, 0xfc, 0x17, 0xca, 0x52, 0x51, 0xc5, 0xf2, 0x04, 0xf5, 0x4e, 0x7b, 0x9b, 0xe0,
-	0xc4, 0xbe, 0x5f, 0xc0, 0x46, 0x1b, 0x1d, 0xd1, 0x72, 0xb7, 0x0b, 0xd6, 0x21, 0x85, 0x01, 0xcc,
-	0x3f, 0xc3, 0xc1, 0xa0, 0x1f, 0x5a, 0x6f, 0x70, 0x15, 0xca, 0xbf, 0x7b, 0x43, 0x12, 0x5a, 0x08,
-	0x57, 0xc0, 0x18, 0x85, 0xc3, 0xff, 0x56, 0xc9, 0x5d, 0x43, 0x63, 0xa4, 0x78, 0xf6, 0x0a, 0xed,
-	0xba, 0x9f, 0xa1, 0x79, 0xf4, 0x69, 0x1d, 0xb1, 0x73, 0x8f, 0xa0, 0x4e, 0xd8, 0xbc, 0x40, 0xe1,
-	0x31, 0x7c, 0x38, 0x28, 0x04, 0x7f, 0x39, 0xd9, 0x54, 0x9e, 0xa0, 0xf5, 0xf5, 0x85, 0x26, 0x5d,
-	0xf3, 0xe1, 0xda, 0x2b, 0x55, 0xd0, 0xc6, 0xfb, 0xe0, 0x92, 0xbd, 0xf7, 0xf3, 0xed, 0xec, 0xbd,
-	0x4f, 0x44, 0xd8, 0x7a, 0xf7, 0xda, 0xe3, 0xcd, 0xe6, 0x92, 0x4e, 0xfd, 0x19, 0xbf, 0x08, 0xf4,
-	0xf3, 0x07, 0x17, 0x8b, 0x40, 0xeb, 0x83, 0xfc, 0x2f, 0x0f, 0x16, 0xfc, 0x69, 0xce, 0xa6, 0x53,
-	0x33, 0x87, 0xba, 0x8f, 0x01, 0x00, 0x00, 0xff, 0xff, 0x5f, 0x19, 0xe6, 0x7d, 0x2f, 0x03, 0x00,
+	// 609 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xc4, 0x54, 0xdf, 0x6e, 0xd3, 0x3e,
+	0x14, 0xae, 0xb7, 0xa4, 0x5b, 0x4f, 0xb7, 0x2e, 0x3f, 0xeb, 0xa7, 0x2d, 0x44, 0x02, 0xaa, 0x4a,
+	0x48, 0xbd, 0x80, 0x74, 0xea, 0x10, 0x70, 0x4b, 0x27, 0xa1, 0x4c, 0x68, 0x2a, 0xf2, 0x3a, 0x2e,
+	0xb8, 0x89, 0xb2, 0xc6, 0x6b, 0x23, 0x6d, 0x71, 0xb0, 0x1d, 0xb4, 0x5d, 0xf3, 0x0e, 0xb0, 0x47,
+	0xe1, 0x09, 0x78, 0x10, 0x9e, 0x80, 0x47, 0x40, 0xb6, 0x97, 0x34, 0xed, 0x88, 0x7a, 0xc9, 0x9d,
+	0x7d, 0xfe, 0x7c, 0xf9, 0xce, 0xf7, 0x1d, 0x07, 0xfe, 0x93, 0x3c, 0x4a, 0x45, 0x34, 0x95, 0x09,
+	0x4b, 0xfd, 0x8c, 0x33, 0xc9, 0x70, 0x73, 0x96, 0xc8, 0xe8, 0xea, 0xd6, 0x83, 0xab, 0x24, 0x95,
+	0x26, 0xe6, 0xed, 0x88, 0x79, 0xc4, 0x69, 0x6c, 0x6e, 0xbd, 0x5f, 0x08, 0xf6, 0x3f, 0x32, 0x49,
+	0x27, 0x8b, 0x5e, 0x42, 0x3f, 0xe7, 0x54, 0x48, 0xfc, 0x06, 0x80, 0xd3, 0x8c, 0x89, 0x44, 0x32,
+	0x7e, 0xeb, 0xa2, 0x2e, 0xea, 0xb7, 0x87, 0xd8, 0x37, 0x88, 0x3e, 0x29, 0x33, 0x23, 0xeb, 0xee,
+	0xe7, 0x73, 0x44, 0x2a, 0xb5, 0xf8, 0x19, 0x74, 0x2a, 0x5c, 0xc2, 0x24, 0x76, 0x37, 0xba, 0xa8,
+	0x6f, 0x91, 0xdd, 0x4a, 0xf4, 0x24, 0xc6, 0x18, 0xac, 0x94, 0xc5, 0xd4, 0xdd, 0xec, 0xa2, 0x7e,
+	0x8b, 0xe8, 0x33, 0x7e, 0x09, 0xfb, 0x9c, 0x5e, 0x52, 0x4e, 0xd3, 0x29, 0x0d, 0xf3, 0x2c, 0x8e,
+	0x24, 0x15, 0xe1, 0x3c, 0x12, 0x73, 0xd7, 0xea, 0xa2, 0xfe, 0x0e, 0xf9, 0xbf, 0xcc, 0x9e, 0x9b,
+	0x64, 0x10, 0x89, 0x39, 0x7e, 0x0c, 0xc0, 0x59, 0x2e, 0x69, 0x98, 0xe7, 0x49, 0xec, 0xda, 0x1a,
+	0xaf, 0xa5, 0x23, 0xe7, 0x79, 0x12, 0xf7, 0xbe, 0x21, 0x38, 0x78, 0x30, 0xa4, 0xc8, 0x58, 0x2a,
+	0x28, 0x7e, 0x07, 0xb6, 0x90, 0x91, 0xa4, 0x7a, 0xc0, 0xce, 0xf0, 0xb0, 0x18, 0xb0, 0xa6, 0xde,
+	0xaf, 0xc4, 0xce, 0x54, 0x1f, 0x31, 0xed, 0xbd, 0x23, 0x70, 0x56, 0x53, 0x18, 0xa0, 0x79, 0x3c,
+	0x3e, 0x3d, 0x3d, 0x99, 0x38, 0x0d, 0xdc, 0x02, 0xfb, 0xed, 0x68, 0x4c, 0x26, 0x0e, 0xc2, 0xdb,
+	0x60, 0x9d, 0x4d, 0xc6, 0x1f, 0x9c, 0x8d, 0xde, 0x1d, 0x82, 0xfd, 0x33, 0xc9, 0xb2, 0x7f, 0xa1,
+	0xfe, 0x1a, 0xcd, 0x1e, 0xc1, 0xc1, 0x03, 0x66, 0x46, 0x82, 0xde, 0x0f, 0x0b, 0x1c, 0xa2, 0x0a,
+	0x95, 0x46, 0x05, 0xdf, 0x65, 0x38, 0xb4, 0x02, 0x87, 0x09, 0x60, 0x96, 0xd1, 0x34, 0x34, 0x35,
+	0xdc, 0x34, 0x69, 0x62, 0xed, 0x61, 0xaf, 0x1c, 0x6b, 0x05, 0xd4, 0x1f, 0x67, 0x34, 0xd5, 0xc1,
+	0xa0, 0x41, 0x1c, 0x56, 0x5c, 0x8a, 0x4f, 0xbe, 0x06, 0x9b, 0x72, 0xce, 0xb8, 0x5e, 0xa0, 0xf6,
+	0xf0, 0x69, 0x2d, 0x8c, 0x72, 0x23, 0x17, 0x41, 0x83, 0x98, 0x7a, 0x1c, 0xc0, 0xde, 0x17, 0x26,
+	0x69, 0x28, 0x6f, 0x4a, 0x26, 0xb6, 0x86, 0x78, 0x52, 0xeb, 0xbe, 0xae, 0x0a, 0x1a, 0x64, 0x57,
+	0x35, 0x4e, 0x6e, 0x0a, 0x0a, 0xef, 0xc1, 0x59, 0x20, 0x19, 0x79, 0xdc, 0xe6, 0x32, 0x9b, 0x9a,
+	0x45, 0x0a, 0x1a, 0xa4, 0x53, 0x60, 0xdd, 0xaf, 0x62, 0x00, 0x7b, 0x42, 0xb2, 0xac, 0x4a, 0x6b,
+	0x6b, 0x99, 0xd6, 0xdf, 0x77, 0x45, 0xd1, 0x52, 0x8d, 0x4b, 0xb4, 0x16, 0x48, 0xf7, 0xb4, 0xb6,
+	0x97, 0x69, 0xd5, 0x98, 0xab, 0x68, 0x15, 0x58, 0x26, 0xe2, 0xb5, 0xa1, 0x55, 0xfa, 0xe0, 0xbd,
+	0x82, 0xa6, 0x51, 0x53, 0xbd, 0xde, 0xa9, 0x7a, 0xbd, 0xca, 0x6a, 0x9b, 0xe8, 0x33, 0x76, 0x61,
+	0xeb, 0x9a, 0x0a, 0x11, 0xcd, 0xa8, 0xb6, 0xb6, 0x45, 0x8a, 0xeb, 0xc8, 0x86, 0xcd, 0x6b, 0x31,
+	0x1b, 0x7e, 0xdd, 0x80, 0x0e, 0xa1, 0x97, 0x95, 0x0f, 0x63, 0x02, 0x7b, 0x2b, 0x12, 0xe1, 0x35,
+	0x36, 0x78, 0xeb, 0xb4, 0x55, 0x98, 0x2b, 0xf3, 0xe1, 0x35, 0x1a, 0x7a, 0xeb, 0x84, 0xc1, 0xc7,
+	0xd0, 0x2a, 0x17, 0x0b, 0xbb, 0x75, 0xbb, 0xe6, 0xd5, 0x66, 0xfa, 0xe8, 0x10, 0x79, 0xd6, 0xef,
+	0xef, 0x7d, 0x34, 0x3a, 0xfc, 0xa4, 0x8a, 0xae, 0xa2, 0x0b, 0x7f, 0xca, 0xae, 0x07, 0xe6, 0xf8,
+	0x82, 0xf1, 0xd9, 0xc0, 0xb4, 0x0e, 0xf4, 0xaf, 0x79, 0x30, 0x63, 0xf7, 0xf7, 0xec, 0xe2, 0xa2,
+	0xa9, 0x43, 0x47, 0x7f, 0x02, 0x00, 0x00, 0xff, 0xff, 0x94, 0x70, 0xdd, 0x7c, 0xe4, 0x05, 0x00,
 	0x00,
 }
 
@@ -291,6 +564,40 @@ const _ = grpc.SupportPackageIsVersion4
 type RefTransactionClient interface {
 	VoteTransaction(ctx context.Context, in *VoteTransactionRequest, opts ...grpc.CallOption) (*VoteTransactionResponse, error)
 	StopTransaction(ctx context.Context, in *StopTransactionRequest, opts ...grpc.CallOption) (*StopTransactionResponse, error)
+	// RouteVote allows Praefect to dial to a remote Gitaly and request
+	// intercepting VoteTransaction and StopTransaction calls made for a specific
+	// route UUID. For example, given a route UUID of 5:
+	//
+	// ┌────────┐                                 ┌──────┐                   ┌────┐
+	// │Praefect│                                 │Gitaly│                   │Hook│
+	// └───┬────┘                                 └──┬───┘                   └─┬──┘
+	//     │           RouteVote open route 5        │                         │
+	//     │ ────────────────────────────────────────>                         │
+	//     │                                         │                         │
+	//     │               Route 5 opened            │                         │
+	//     │ <────────────────────────────────────────                         │
+	//     │                                         │                         │
+	//     │                                         │ VoteTransaction for 5   │
+	//     │                                         │ <────────────────────────
+	//     │                                         │                         │
+	//     │ Forward VoteTransactionRequest for 5    │                         │
+	//     │ <────────────────────────────────────────                         │
+	//     │                                         │                         │
+	//     │ Forward VoteTransactionResponse for 5   │                         │
+	//     │ ────────────────────────────────────────>                         │
+	//     │                                         │                         │
+	//     │                                         │    Response             │
+	//     │                                         │ ────────────────────────>
+	//     │                                         │                         │
+	//     │           RouteVote close route 5       │                         │
+	//     │ ────────────────────────────────────────>                         │
+	//     │                                         │                         │
+	//     │               Route 5 closed            │                         │
+	//     │ <────────────────────────────────────────                         │
+	// ┌───┴────┐                                 ┌──┴───┐                   ┌─┴──┐
+	// │Praefect│                                 │Gitaly│                   │Hook│
+	// └────────┘                                 └──────┘                   └────┘
+	RouteVote(ctx context.Context, opts ...grpc.CallOption) (RefTransaction_RouteVoteClient, error)
 }
 
 type refTransactionClient struct {
@@ -319,10 +626,75 @@ func (c *refTransactionClient) StopTransaction(ctx context.Context, in *StopTran
 	return out, nil
 }
 
+func (c *refTransactionClient) RouteVote(ctx context.Context, opts ...grpc.CallOption) (RefTransaction_RouteVoteClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_RefTransaction_serviceDesc.Streams[0], "/gitaly.RefTransaction/RouteVote", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &refTransactionRouteVoteClient{stream}
+	return x, nil
+}
+
+type RefTransaction_RouteVoteClient interface {
+	Send(*RouteVoteRequest) error
+	Recv() (*RouteVoteRequest, error)
+	grpc.ClientStream
+}
+
+type refTransactionRouteVoteClient struct {
+	grpc.ClientStream
+}
+
+func (x *refTransactionRouteVoteClient) Send(m *RouteVoteRequest) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *refTransactionRouteVoteClient) Recv() (*RouteVoteRequest, error) {
+	m := new(RouteVoteRequest)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // RefTransactionServer is the server API for RefTransaction service.
 type RefTransactionServer interface {
 	VoteTransaction(context.Context, *VoteTransactionRequest) (*VoteTransactionResponse, error)
 	StopTransaction(context.Context, *StopTransactionRequest) (*StopTransactionResponse, error)
+	// RouteVote allows Praefect to dial to a remote Gitaly and request
+	// intercepting VoteTransaction and StopTransaction calls made for a specific
+	// route UUID. For example, given a route UUID of 5:
+	//
+	// ┌────────┐                                 ┌──────┐                   ┌────┐
+	// │Praefect│                                 │Gitaly│                   │Hook│
+	// └───┬────┘                                 └──┬───┘                   └─┬──┘
+	//     │           RouteVote open route 5        │                         │
+	//     │ ────────────────────────────────────────>                         │
+	//     │                                         │                         │
+	//     │               Route 5 opened            │                         │
+	//     │ <────────────────────────────────────────                         │
+	//     │                                         │                         │
+	//     │                                         │ VoteTransaction for 5   │
+	//     │                                         │ <────────────────────────
+	//     │                                         │                         │
+	//     │ Forward VoteTransactionRequest for 5    │                         │
+	//     │ <────────────────────────────────────────                         │
+	//     │                                         │                         │
+	//     │ Forward VoteTransactionResponse for 5   │                         │
+	//     │ ────────────────────────────────────────>                         │
+	//     │                                         │                         │
+	//     │                                         │    Response             │
+	//     │                                         │ ────────────────────────>
+	//     │                                         │                         │
+	//     │           RouteVote close route 5       │                         │
+	//     │ ────────────────────────────────────────>                         │
+	//     │                                         │                         │
+	//     │               Route 5 closed            │                         │
+	//     │ <────────────────────────────────────────                         │
+	// ┌───┴────┐                                 ┌──┴───┐                   ┌─┴──┐
+	// │Praefect│                                 │Gitaly│                   │Hook│
+	// └────────┘                                 └──────┘                   └────┘
+	RouteVote(RefTransaction_RouteVoteServer) error
 }
 
 // UnimplementedRefTransactionServer can be embedded to have forward compatible implementations.
@@ -334,6 +706,9 @@ func (*UnimplementedRefTransactionServer) VoteTransaction(ctx context.Context, r
 }
 func (*UnimplementedRefTransactionServer) StopTransaction(ctx context.Context, req *StopTransactionRequest) (*StopTransactionResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method StopTransaction not implemented")
+}
+func (*UnimplementedRefTransactionServer) RouteVote(srv RefTransaction_RouteVoteServer) error {
+	return status.Errorf(codes.Unimplemented, "method RouteVote not implemented")
 }
 
 func RegisterRefTransactionServer(s *grpc.Server, srv RefTransactionServer) {
@@ -376,6 +751,32 @@ func _RefTransaction_StopTransaction_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RefTransaction_RouteVote_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(RefTransactionServer).RouteVote(&refTransactionRouteVoteServer{stream})
+}
+
+type RefTransaction_RouteVoteServer interface {
+	Send(*RouteVoteRequest) error
+	Recv() (*RouteVoteRequest, error)
+	grpc.ServerStream
+}
+
+type refTransactionRouteVoteServer struct {
+	grpc.ServerStream
+}
+
+func (x *refTransactionRouteVoteServer) Send(m *RouteVoteRequest) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *refTransactionRouteVoteServer) Recv() (*RouteVoteRequest, error) {
+	m := new(RouteVoteRequest)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 var _RefTransaction_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "gitaly.RefTransaction",
 	HandlerType: (*RefTransactionServer)(nil),
@@ -389,6 +790,13 @@ var _RefTransaction_serviceDesc = grpc.ServiceDesc{
 			Handler:    _RefTransaction_StopTransaction_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "RouteVote",
+			Handler:       _RefTransaction_RouteVote_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
+		},
+	},
 	Metadata: "transaction.proto",
 }

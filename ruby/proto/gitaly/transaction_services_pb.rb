@@ -16,6 +16,40 @@ module Gitaly
 
       rpc :VoteTransaction, Gitaly::VoteTransactionRequest, Gitaly::VoteTransactionResponse
       rpc :StopTransaction, Gitaly::StopTransactionRequest, Gitaly::StopTransactionResponse
+      # RouteVote allows Praefect to dial to a remote Gitaly and request
+      # intercepting VoteTransaction and StopTransaction calls made for a specific
+      # route UUID. For example, given a route UUID of 5:
+      #
+      # ┌────────┐                                 ┌──────┐                   ┌────┐
+      # │Praefect│                                 │Gitaly│                   │Hook│
+      # └───┬────┘                                 └──┬───┘                   └─┬──┘
+      #     │           RouteVote open route 5        │                         │   
+      #     │ ────────────────────────────────────────>                         │   
+      #     │                                         │                         │   
+      #     │               Route 5 opened            │                         │   
+      #     │ <────────────────────────────────────────                         │   
+      #     │                                         │                         │   
+      #     │                                         │ VoteTransaction for 5   │   
+      #     │                                         │ <────────────────────────   
+      #     │                                         │                         │   
+      #     │ Forward VoteTransactionRequest for 5    │                         │   
+      #     │ <────────────────────────────────────────                         │   
+      #     │                                         │                         │   
+      #     │ Forward VoteTransactionResponse for 5   │                         │   
+      #     │ ────────────────────────────────────────>                         │   
+      #     │                                         │                         │   
+      #     │                                         │    Response             │   
+      #     │                                         │ ────────────────────────>   
+      #     │                                         │                         │   
+      #     │           RouteVote close route 5       │                         │   
+      #     │ ────────────────────────────────────────>                         │   
+      #     │                                         │                         │   
+      #     │               Route 5 closed            │                         │   
+      #     │ <────────────────────────────────────────                         │   
+      # ┌───┴────┐                                 ┌──┴───┐                   ┌─┴──┐
+      # │Praefect│                                 │Gitaly│                   │Hook│
+      # └────────┘                                 └──────┘                   └────┘
+      rpc :RouteVote, stream(Gitaly::RouteVoteRequest), stream(Gitaly::RouteVoteRequest)
     end
 
     Stub = Service.rpc_stub_class

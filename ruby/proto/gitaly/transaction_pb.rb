@@ -12,6 +12,7 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       optional :transaction_id, :uint64, 2
       optional :node, :string, 3
       optional :reference_updates_hash, :bytes, 4
+      optional :route_uuid, :string, 5
     end
     add_message "gitaly.VoteTransactionResponse" do
       optional :state, :enum, 1, "gitaly.VoteTransactionResponse.TransactionState"
@@ -24,8 +25,26 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
     add_message "gitaly.StopTransactionRequest" do
       optional :repository, :message, 1, "gitaly.Repository"
       optional :transaction_id, :uint64, 2
+      optional :route_uuid, :string, 5
     end
     add_message "gitaly.StopTransactionResponse" do
+    end
+    add_message "gitaly.RouteVoteRequest" do
+      optional :route_uuid, :string, 1
+      oneof :msg do
+        optional :open_route_request, :message, 2, "gitaly.RouteVoteRequest.OpenRoute"
+        optional :error, :message, 3, "gitaly.RouteVoteRequest.Status"
+        optional :vote_tx_request, :message, 5, "gitaly.VoteTransactionRequest"
+        optional :vote_tx_response, :message, 6, "gitaly.VoteTransactionResponse"
+        optional :stop_tx_request, :message, 7, "gitaly.StopTransactionRequest"
+        optional :stop_tx_response, :message, 8, "gitaly.StopTransactionResponse"
+      end
+    end
+    add_message "gitaly.RouteVoteRequest.OpenRoute" do
+    end
+    add_message "gitaly.RouteVoteRequest.Status" do
+      optional :code, :int32, 1
+      optional :message, :string, 2
     end
   end
 end
@@ -36,4 +55,7 @@ module Gitaly
   VoteTransactionResponse::TransactionState = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.VoteTransactionResponse.TransactionState").enummodule
   StopTransactionRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.StopTransactionRequest").msgclass
   StopTransactionResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.StopTransactionResponse").msgclass
+  RouteVoteRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.RouteVoteRequest").msgclass
+  RouteVoteRequest::OpenRoute = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.RouteVoteRequest.OpenRoute").msgclass
+  RouteVoteRequest::Status = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.RouteVoteRequest.Status").msgclass
 end
