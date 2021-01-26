@@ -11,12 +11,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -33,6 +35,7 @@ type Manager struct {
 	counterMetric         *prometheus.CounterVec
 	delayMetric           *prometheus.HistogramVec
 	subtransactionsMetric prometheus.Histogram
+	routeUUID             uuid.UUID
 }
 
 // TransactionIDGenerator is an interface for types that can generate transaction IDs.
@@ -72,6 +75,14 @@ func WithTransactionIDGenerator(generator TransactionIDGenerator) ManagerOpt {
 	}
 }
 
+// WithRouteUUID is an option to manually set the manager's UUID used for
+// routing transaction messages.
+func WithRouteUUID(routeUUID uuid.UUID) ManagerOpt {
+	return func(mgr *Manager) {
+		mgr.routeUUID = routeUUID
+	}
+}
+
 // NewManager creates a new transactions Manager.
 func NewManager(cfg config.Config, opts ...ManagerOpt) *Manager {
 	mgr := &Manager{
@@ -103,6 +114,7 @@ func NewManager(cfg config.Config, opts ...ManagerOpt) *Manager {
 				Buckets: []float64{0.0, 1.0, 2.0, 4.0, 8.0, 16.0, 32.0},
 			},
 		),
+		routeUUID: uuid.New(),
 	}
 
 	for _, opt := range opts {
@@ -131,6 +143,7 @@ func (mgr *Manager) log(ctx context.Context) logrus.FieldLogger {
 // from the transaction manager.
 type CancelFunc func() error
 
+// VoteResponseFor returns the appropriate response based on the provided error
 func VoteResponseFor(err error) (*gitalypb.VoteTransactionResponse, error) {
 	if err != nil {
 		switch {
@@ -156,6 +169,7 @@ func VoteResponseFor(err error) (*gitalypb.VoteTransactionResponse, error) {
 	}, nil
 }
 
+// StopResponseFor will return the appropriate response for the provided error
 func StopResponseFor(err error) (*gitalypb.StopTransactionResponse, error) {
 	if err != nil {
 		switch {
@@ -173,19 +187,135 @@ func StopResponseFor(err error) (*gitalypb.StopTransactionResponse, error) {
 	return &gitalypb.StopTransactionResponse{}, nil
 }
 
-func routeVoteErr(routeUUID string, err error) *gitalypb.RouteVoteRequest {
+func routeVoteErr(routeUUID uuid.UUID, err error) *gitalypb.RouteVoteRequest {
 	c := codes.Unknown
 	if s, ok := status.FromError(err); ok {
 		c = s.Code()
 	}
 	return &gitalypb.RouteVoteRequest{
-		RouteUuid: routeUUID,
+		RouteUuid: routeUUID.String(),
 		Msg: &gitalypb.RouteVoteRequest_Error{
 			&gitalypb.RouteVoteRequest_Status{
 				Code:    int32(c),
 				Message: err.Error(),
 			},
 		},
+	}
+}
+
+// StartRoutingVotes will repeatedly attempt to route votes from a Gitaly hosted
+// transaction service back to this Praefect server. A goroutine is launched for
+// each node and will attempt to recover from errors and reestablish a route
+// stream until the context is cancelled.
+// The connSet param is meant to be provided by praefect.Connections from a
+// praefect.NodeSet. It is keyed first by virtual storage name, then Gitaly
+// storage name.
+func (mgr *Manager) StartRoutingVotes(ctx context.Context, connSet map[string]map[string]*grpc.ClientConn) func() {
+	wg := sync.WaitGroup{}
+
+	for _, vs := range connSet {
+		for nodeName, cc := range vs {
+			wg.Add(1)
+			go func(nodeName string, cc *grpc.ClientConn) {
+				defer wg.Done()
+
+				// only case where we stop attempting to route
+				// votes is when the parent context is
+				// cancelled or the equivalent gRPC error.
+				// All other errors we will log and retry
+				for {
+					err := mgr.routeVotes(ctx, nodeName, cc)
+					if errors.Is(err, context.Canceled) {
+						return
+					}
+					if status.Code(err) == codes.Canceled {
+						return
+					}
+					mgr.log(ctx).
+						WithError(err).
+						WithField("route", mgr.routeUUID).
+						WithField("node", nodeName).
+						Error("vote routing failed, retrying")
+				}
+			}(nodeName, cc)
+		}
+	}
+
+	return wg.Wait
+}
+
+func (mgr *Manager) routeVotes(ctx context.Context, nodeName string, cc *grpc.ClientConn) error {
+	bidi, err := gitalypb.NewRefTransactionClient(cc).RouteVote(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := bidi.CloseSend(); err != nil {
+			mgr.log(ctx).
+				WithError(err).
+				WithField("route", mgr.routeUUID).
+				WithField("node", nodeName).
+				Error("unable to close route session")
+		}
+	}()
+
+	// open transaction on Gitaly node
+	if err := bidi.Send(&gitalypb.RouteVoteRequest{
+		RouteUuid: mgr.routeUUID.String(),
+		Msg: &gitalypb.RouteVoteRequest_OpenRouteRequest{
+			OpenRouteRequest: &gitalypb.RouteVoteRequest_OpenRoute{},
+		},
+	}); err != nil {
+		return err
+	}
+	// wait for confirmation
+	_, err = bidi.Recv()
+	if err != nil {
+		return err
+	}
+
+	for {
+		resp, err := bidi.Recv()
+		if err != nil {
+			return err
+		}
+
+		switch r := resp.Msg.(type) {
+		case *gitalypb.RouteVoteRequest_VoteTxRequest:
+			err := mgr.VoteTransaction(ctx,
+				r.VoteTxRequest.GetTransactionId(),
+				r.VoteTxRequest.GetNode(),
+				r.VoteTxRequest.GetReferenceUpdatesHash(),
+			)
+			resp, err := VoteResponseFor(err)
+			if err != nil {
+				return bidi.Send(routeVoteErr(mgr.routeUUID, err))
+			}
+			if err := bidi.Send(&gitalypb.RouteVoteRequest{
+				RouteUuid: r.VoteTxRequest.GetRouteUuid(),
+				Msg:       &gitalypb.RouteVoteRequest_VoteTxResponse{resp},
+			}); err != nil {
+				return err
+			}
+
+		case *gitalypb.RouteVoteRequest_StopTxRequest:
+			err := mgr.StopTransaction(ctx,
+				r.StopTxRequest.GetTransactionId(),
+			)
+			resp, err := StopResponseFor(err)
+			if err != nil {
+				return bidi.Send(routeVoteErr(mgr.routeUUID, err))
+			}
+			if err := bidi.Send(&gitalypb.RouteVoteRequest{
+				RouteUuid: r.StopTxRequest.GetRouteUuid(),
+				Msg:       &gitalypb.RouteVoteRequest_StopTxResponse{resp},
+			}); err != nil {
+				return err
+			}
+
+		default:
+			return fmt.Errorf("received unexpected type %T", r)
+		}
 	}
 }
 

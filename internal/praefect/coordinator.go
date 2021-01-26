@@ -110,11 +110,6 @@ var transactionRPCs = map[string]transactionsCondition{
 	"/gitaly.RepositoryService/RestoreCustomHooks":             transactionsDisabled,
 	"/gitaly.RepositoryService/SetConfig":                      transactionsDisabled,
 	"/gitaly.RepositoryService/WriteCommitGraph":               transactionsDisabled,
-
-	// These shouldn't ever use transactions for the sake of not creating
-	// cyclic dependencies.
-	"/gitaly.RefTransaction/StopTransaction": transactionsDisabled,
-	"/gitaly.RefTransaction/VoteTransaction": transactionsDisabled,
 }
 
 // forcePrimaryRoutingRPCs tracks RPCs which need to always get routed to the primary. This should
