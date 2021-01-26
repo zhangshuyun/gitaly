@@ -10,7 +10,6 @@ import (
 	"github.com/opentracing/opentracing-go"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
-	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"gitlab.com/gitlab-org/labkit/correlation"
 )
 
@@ -21,7 +20,7 @@ type batchCheck struct {
 	sync.Mutex
 }
 
-func newBatchCheck(ctx context.Context, locator storage.Locator, repo repository.GitRepo) (*batchCheck, error) {
+func newBatchCheck(ctx context.Context, repo repository.GitRepo) (*batchCheck, error) {
 	bc := &batchCheck{}
 
 	var stdinReader io.Reader

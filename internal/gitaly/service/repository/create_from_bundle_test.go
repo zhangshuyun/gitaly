@@ -81,7 +81,7 @@ func TestServer_CreateRepositoryFromBundle_successful(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEqual(t, 0, info.Mode()&os.ModeSymlink)
 
-	commit, err := log.GetCommit(ctx, locator, importedRepo, "refs/custom-refs/ref1")
+	commit, err := log.GetCommit(ctx, importedRepo, "refs/custom-refs/ref1")
 	require.NoError(t, err)
 	require.NotNil(t, commit)
 }

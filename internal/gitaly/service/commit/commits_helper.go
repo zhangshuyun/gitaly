@@ -7,11 +7,10 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/chunk"
-	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
-func sendCommits(ctx context.Context, sender chunk.Sender, locator storage.Locator, repo *gitalypb.Repository, revisionRange []string, paths []string, options *gitalypb.GlobalOptions, extraArgs ...git.Option) error {
+func sendCommits(ctx context.Context, sender chunk.Sender, repo *gitalypb.Repository, revisionRange []string, paths []string, options *gitalypb.GlobalOptions, extraArgs ...git.Option) error {
 	revisions := make([]git.Revision, len(revisionRange))
 	for i, revision := range revisionRange {
 		revisions[i] = git.Revision(revision)
@@ -22,7 +21,7 @@ func sendCommits(ctx context.Context, sender chunk.Sender, locator storage.Locat
 		return err
 	}
 
-	logParser, err := log.NewLogParser(ctx, locator, repo, cmd)
+	logParser, err := log.NewLogParser(ctx, repo, cmd)
 	if err != nil {
 		return err
 	}

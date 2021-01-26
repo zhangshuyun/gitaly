@@ -11,7 +11,6 @@ import (
 	"github.com/opentracing/opentracing-go"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
-	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"gitlab.com/gitlab-org/labkit/correlation"
 )
 
@@ -34,7 +33,7 @@ type batchProcess struct {
 	sync.Mutex
 }
 
-func newBatchProcess(ctx context.Context, locator storage.Locator, repo repository.GitRepo) (*batchProcess, error) {
+func newBatchProcess(ctx context.Context, repo repository.GitRepo) (*batchProcess, error) {
 	totalCatfileProcesses.Inc()
 	b := &batchProcess{}
 
