@@ -22,13 +22,14 @@ func TestLocalRepository_Config(t *testing.T) {
 }
 
 func TestLocalRepositoryConfig_Add(t *testing.T) {
-	repo, repoPath, cleanup := testhelper.InitBareRepo(t)
+	repoProto, repoPath, cleanup := testhelper.InitBareRepo(t)
 	defer cleanup()
+	repo := NewRepository(repoProto, config.Config)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	config := LocalRepositoryConfig{repo: repo}
+	config := repo.Config()
 
 	t.Run("ok", func(t *testing.T) {
 		require.NoError(t, config.Add(ctx, "key.one", "1", ConfigAddOpts{}))
@@ -82,7 +83,7 @@ func TestLocalRepositoryConfig_Add(t *testing.T) {
 				ctx, cancel := testhelper.Context()
 				defer cancel()
 
-				config := LocalRepositoryConfig{repo: repo}
+				config := repo.Config()
 				err := config.Add(ctx, tc.name, "some", ConfigAddOpts{})
 				require.Error(t, err)
 				require.True(t, errors.Is(err, tc.expErr), err.Error())
@@ -93,13 +94,14 @@ func TestLocalRepositoryConfig_Add(t *testing.T) {
 }
 
 func TestLocalRepositoryConfig_GetRegexp(t *testing.T) {
-	repo, repoPath, cleanup := testhelper.InitBareRepo(t)
+	repoProto, repoPath, cleanup := testhelper.InitBareRepo(t)
 	defer cleanup()
+	repo := NewRepository(repoProto, config.Config)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	config := LocalRepositoryConfig{repo: repo}
+	config := repo.Config()
 
 	t.Run("ok", func(t *testing.T) {
 		testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "--add", "key.one", "one")
@@ -180,13 +182,14 @@ func TestLocalRepositoryConfig_UnsetAll(t *testing.T) {
 		}
 	}
 
-	repo, repoPath, cleanup := testhelper.InitBareRepo(t)
+	repoProto, repoPath, cleanup := testhelper.InitBareRepo(t)
 	defer cleanup()
+	repo := NewRepository(repoProto, config.Config)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	config := LocalRepositoryConfig{repo: repo}
+	config := repo.Config()
 
 	t.Run("unset single value", func(t *testing.T) {
 		testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "--add", "key.one", "key-one")

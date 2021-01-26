@@ -8,14 +8,13 @@ import (
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/internal/command"
-	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 )
 
 // LocalRepositoryRemote provides functionality of the 'remote' git sub-command.
 type LocalRepositoryRemote struct {
-	repo repository.GitRepo
+	repo *LocalRepository
 }
 
 // Add adds a new remote to the repository.

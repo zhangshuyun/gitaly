@@ -24,8 +24,9 @@ func TestLocalRepository_Remote(t *testing.T) {
 }
 
 func TestLocalRepositoryRemote_Add(t *testing.T) {
-	repo, repoPath, cleanup := testhelper.NewTestRepo(t)
+	repoProto, repoPath, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
+	repo := NewRepository(repoProto, config.Config)
 
 	_, remoteRepoPath, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
@@ -40,7 +41,7 @@ func TestLocalRepositoryRemote_Add(t *testing.T) {
 	}(config.Config.Ruby.Dir)
 	config.Config.Ruby.Dir = "/var/empty"
 
-	remote := LocalRepositoryRemote{repo: repo}
+	remote := repo.Remote()
 
 	t.Run("invalid argument", func(t *testing.T) {
 		for _, tc := range []struct {
@@ -106,13 +107,14 @@ func TestLocalRepositoryRemote_Add(t *testing.T) {
 }
 
 func TestLocalRepositoryRemote_Remove(t *testing.T) {
-	repo, repoPath, cleanup := testhelper.InitBareRepo(t)
+	repoProto, repoPath, cleanup := testhelper.InitBareRepo(t)
 	defer cleanup()
+	repo := NewRepository(repoProto, config.Config)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	remote := LocalRepositoryRemote{repo: repo}
+	remote := repo.Remote()
 
 	t.Run("ok", func(t *testing.T) {
 		testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "remote", "add", "first", "http://some.com.git")
@@ -137,8 +139,9 @@ func TestLocalRepositoryRemote_Remove(t *testing.T) {
 }
 
 func TestLocalRepositoryRemote_SetURL(t *testing.T) {
-	repo, repoPath, cleanup := testhelper.InitBareRepo(t)
+	repoProto, repoPath, cleanup := testhelper.InitBareRepo(t)
 	defer cleanup()
+	repo := NewRepository(repoProto, config.Config)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -163,7 +166,7 @@ func TestLocalRepositoryRemote_SetURL(t *testing.T) {
 			},
 		} {
 			t.Run(tc.desc, func(t *testing.T) {
-				remote := LocalRepositoryRemote{repo: repo}
+				remote := repo.Remote()
 				err := remote.SetURL(ctx, tc.name, tc.url, SetURLOpts{})
 				require.Error(t, err)
 				assert.True(t, errors.Is(err, ErrInvalidArg))

@@ -10,12 +10,11 @@ import (
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/internal/command"
-	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
 )
 
 // LocalRepositoryConfig provides functionality of the 'config' git sub-command.
 type LocalRepositoryConfig struct {
-	repo repository.GitRepo
+	repo *LocalRepository
 }
 
 // Add adds a new entry to the repository's configuration.
