@@ -14,7 +14,11 @@ import (
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
+	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
+	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 var ErrNotFound = errors.New("transaction not found")
@@ -126,6 +130,64 @@ func (mgr *Manager) log(ctx context.Context) logrus.FieldLogger {
 // `RegisterTransaction`. Calling it will cause the transaction to be removed
 // from the transaction manager.
 type CancelFunc func() error
+
+func VoteResponseFor(err error) (*gitalypb.VoteTransactionResponse, error) {
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrNotFound):
+			return nil, helper.ErrNotFound(err)
+		case errors.Is(err, ErrTransactionCanceled):
+			return nil, helper.DecorateError(codes.Canceled, err)
+		case errors.Is(err, ErrTransactionStopped):
+			return &gitalypb.VoteTransactionResponse{
+				State: gitalypb.VoteTransactionResponse_STOP,
+			}, nil
+		case errors.Is(err, ErrTransactionFailed):
+			return &gitalypb.VoteTransactionResponse{
+				State: gitalypb.VoteTransactionResponse_ABORT,
+			}, nil
+		default:
+			return nil, helper.ErrInternal(err)
+		}
+	}
+
+	return &gitalypb.VoteTransactionResponse{
+		State: gitalypb.VoteTransactionResponse_COMMIT,
+	}, nil
+}
+
+func StopResponseFor(err error) (*gitalypb.StopTransactionResponse, error) {
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrNotFound):
+			return nil, helper.ErrNotFound(err)
+		case errors.Is(err, ErrTransactionCanceled):
+			return nil, helper.DecorateError(codes.Canceled, err)
+		case errors.Is(err, ErrTransactionStopped):
+			return &gitalypb.StopTransactionResponse{}, nil
+		default:
+			return nil, helper.ErrInternal(err)
+		}
+	}
+
+	return &gitalypb.StopTransactionResponse{}, nil
+}
+
+func routeVoteErr(routeUUID string, err error) *gitalypb.RouteVoteRequest {
+	c := codes.Unknown
+	if s, ok := status.FromError(err); ok {
+		c = s.Code()
+	}
+	return &gitalypb.RouteVoteRequest{
+		RouteUuid: routeUUID,
+		Msg: &gitalypb.RouteVoteRequest_Error{
+			&gitalypb.RouteVoteRequest_Status{
+				Code:    int32(c),
+				Message: err.Error(),
+			},
+		},
+	}
+}
 
 // RegisterTransaction registers a new reference transaction for a set of nodes
 // taking part in the transaction. `threshold` is the threshold at which an
