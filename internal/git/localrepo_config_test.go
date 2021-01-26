@@ -18,7 +18,7 @@ func TestLocalRepository_Config(t *testing.T) {
 	defer cleanup()
 
 	repo := NewRepository(bareRepo, config.Config)
-	require.Equal(t, LocalRepositoryConfig{repo: bareRepo}, repo.Config())
+	require.Equal(t, LocalRepositoryConfig{repo: repo}, repo.Config())
 }
 
 func TestLocalRepositoryConfig_Add(t *testing.T) {

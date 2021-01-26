@@ -154,7 +154,7 @@ func (repo *LocalRepository) UpdateRef(ctx context.Context, reference ReferenceN
 			Flags: []Option{Flag{Name: "-z"}, Flag{Name: "--stdin"}},
 		},
 		WithStdin(strings.NewReader(fmt.Sprintf("update %s\x00%s\x00%s\x00", reference, newValue.String(), oldValue.String()))),
-		WithRefTxHook(ctx, helper.ProtoRepoFromRepo(repo.repo), repo.cfg),
+		WithRefTxHook(ctx, helper.ProtoRepoFromRepo(repo), repo.cfg),
 	)
 	if err != nil {
 		return err

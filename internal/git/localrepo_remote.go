@@ -193,7 +193,7 @@ func (repo *LocalRepository) FetchRemote(ctx context.Context, remoteName string,
 		return err
 	}
 
-	cmd, err := NewCommand(ctx, repo.repo, opts.Global,
+	cmd, err := NewCommand(ctx, repo, opts.Global,
 		SubCmd{
 			Name:  "fetch",
 			Flags: opts.buildFlags(),

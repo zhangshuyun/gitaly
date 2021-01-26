@@ -11,7 +11,7 @@ import (
 
 // LocalRepository represents a local Git repository.
 type LocalRepository struct {
-	repo           repository.GitRepo
+	repository.GitRepo
 	commandFactory *ExecCommandFactory
 	cfg            config.Cfg
 }
@@ -19,7 +19,7 @@ type LocalRepository struct {
 // NewRepository creates a new Repository from its protobuf representation.
 func NewRepository(repo repository.GitRepo, cfg config.Cfg) *LocalRepository {
 	return &LocalRepository{
-		repo:           repo,
+		GitRepo:        repo,
 		cfg:            cfg,
 		commandFactory: NewExecCommandFactory(cfg),
 	}
@@ -29,17 +29,17 @@ func NewRepository(repo repository.GitRepo, cfg config.Cfg) *LocalRepository {
 // in the Repository. It validates the arguments in the command before
 // executing.
 func (repo *LocalRepository) command(ctx context.Context, globals []GlobalOption, cmd SubCmd, opts ...CmdOpt) (*command.Command, error) {
-	return repo.commandFactory.newCommand(ctx, repo.repo, "", globals, cmd, opts...)
+	return repo.commandFactory.newCommand(ctx, repo, "", globals, cmd, opts...)
 }
 
 // Config returns executor of the 'config' sub-command.
 func (repo *LocalRepository) Config() Config {
-	return LocalRepositoryConfig{repo: repo.repo}
+	return LocalRepositoryConfig{repo: repo}
 }
 
 // Remote returns executor of the 'remote' sub-command.
 func (repo *LocalRepository) Remote() Remote {
-	return LocalRepositoryRemote{repo: repo.repo}
+	return LocalRepositoryRemote{repo: repo}
 }
 
 func errorWithStderr(err error, stderr []byte) error {
