@@ -51,8 +51,12 @@ danger-review:
       - _build/Makefile.sha256
       - ruby/vendor/bundle
 
+.test_template: &retry_definition
+  retry: 2
+
 .test_template: &test_definition
   <<: *cache_definition
+  <<: *retry_definition
   stage: test
   # Override the cache definition for pull
   cache:
@@ -257,16 +261,16 @@ praefect_sql_test:
     - make test-postgres
 
 lint:
+  <<: *retry_definition
   stage: test
-  retry: 2
   script:
     - go version
     - make lint
 
 lint-strict:
+  <<: *retry_definition
   allow_failure: true
   stage: test
-  retry: 2
   script:
     - go version
     - make lint-strict
