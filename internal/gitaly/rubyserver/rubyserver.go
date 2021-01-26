@@ -38,6 +38,33 @@ func init() {
 	}
 }
 
+func setupEnv(cfg config.Cfg) []string {
+	env := append(
+		os.Environ(),
+		"GITALY_LOG_DIR="+cfg.Logging.Dir,
+		"GITALY_RUBY_GIT_BIN_PATH="+cfg.Git.BinPath,
+		fmt.Sprintf("GITALY_RUBY_WRITE_BUFFER_SIZE=%d", streamio.WriteBufferSize),
+		fmt.Sprintf("GITALY_RUBY_MAX_COMMIT_OR_TAG_MESSAGE_SIZE=%d", helper.MaxCommitOrTagMessageSize),
+		"GITALY_RUBY_GITALY_BIN_DIR="+cfg.BinDir,
+		"GITALY_VERSION="+version.GetVersion(),
+		"GITALY_GIT_HOOKS_DIR="+hooks.Path(cfg),
+		"GITALY_SOCKET="+cfg.GitalyInternalSocketPath(),
+		"GITALY_TOKEN="+cfg.Auth.Token,
+		"GITALY_RUGGED_GIT_CONFIG_SEARCH_PATH="+cfg.Ruby.RuggedGitConfigSearchPath,
+	)
+	env = append(env, command.GitEnv...)
+
+	if dsn := cfg.Logging.RubySentryDSN; dsn != "" {
+		env = append(env, "SENTRY_DSN="+dsn)
+	}
+
+	if sentryEnvironment := cfg.Logging.Sentry.Environment; sentryEnvironment != "" {
+		env = append(env, "SENTRY_ENVIRONMENT="+sentryEnvironment)
+	}
+
+	return env
+}
+
 // Server represents a gitaly-ruby helper process.
 type Server struct {
 	startOnce    sync.Once
@@ -76,28 +103,7 @@ func (s *Server) start() error {
 	}
 
 	cfg := config.Config
-
-	env := append(
-		os.Environ(),
-		"GITALY_RUBY_GIT_BIN_PATH="+cfg.Git.BinPath,
-		fmt.Sprintf("GITALY_RUBY_WRITE_BUFFER_SIZE=%d", streamio.WriteBufferSize),
-		fmt.Sprintf("GITALY_RUBY_MAX_COMMIT_OR_TAG_MESSAGE_SIZE=%d", helper.MaxCommitOrTagMessageSize),
-		"GITALY_RUBY_GITALY_BIN_DIR="+cfg.BinDir,
-		"GITALY_VERSION="+version.GetVersion(),
-		"GITALY_GIT_HOOKS_DIR="+hooks.Path(cfg),
-		"GITALY_SOCKET="+cfg.GitalyInternalSocketPath(),
-		"GITALY_TOKEN="+cfg.Auth.Token,
-		"GITALY_RUGGED_GIT_CONFIG_SEARCH_PATH="+cfg.Ruby.RuggedGitConfigSearchPath,
-	)
-	env = append(env, command.GitEnv...)
-
-	if dsn := cfg.Logging.RubySentryDSN; dsn != "" {
-		env = append(env, "SENTRY_DSN="+dsn)
-	}
-
-	if sentryEnvironment := cfg.Logging.Sentry.Environment; sentryEnvironment != "" {
-		env = append(env, "SENTRY_ENVIRONMENT="+sentryEnvironment)
-	}
+	env := setupEnv(cfg)
 
 	gitalyRuby := filepath.Join(cfg.Ruby.Dir, "bin", "gitaly-ruby")
 
