@@ -100,10 +100,6 @@ func (o *ObjectPool) Create(ctx context.Context, repo *gitalypb.Repository) (err
 		return fmt.Errorf("remove hooks: %v", err)
 	}
 
-	if err := o.setConfig(ctx, "gc.auto", "0"); err != nil {
-		return fmt.Errorf("config gc.auto: %v", err)
-	}
-
 	return nil
 }
 

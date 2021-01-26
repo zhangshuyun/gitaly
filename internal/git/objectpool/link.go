@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/remote"
 	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -179,19 +178,4 @@ func (o *ObjectPool) Unlink(ctx context.Context, repo *gitalypb.Repository) erro
 	}
 
 	return nil
-}
-
-// Config options setting will leak the key value pairs in the logs. This makes
-// this function not suitable for general usage, and scoped to this package.
-// To be corrected in: https://gitlab.com/gitlab-org/gitaly/issues/1430
-func (o *ObjectPool) setConfig(ctx context.Context, key, value string) error {
-	cmd, err := git.NewCommand(ctx, o, nil, git.SubCmd{
-		Name:  "config",
-		Flags: []git.Option{git.ConfigPair{Key: key, Value: value}},
-	})
-	if err != nil {
-		return err
-	}
-
-	return cmd.Wait()
 }

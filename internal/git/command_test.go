@@ -337,19 +337,25 @@ func TestNewCommandValid(t *testing.T) {
 		t.Run(tt.desc, func(t *testing.T) {
 			opts := []CmdOpt{WithRefTxHook(ctx, &gitalypb.Repository{}, cfg)}
 
+			expectArgs := append([]string{
+				"-c", "core.fsyncObjectFiles=true",
+				"-c", "gc.auto=0",
+				"-c", "core.autocrlf=input",
+			}, tt.expectArgs...)
+
 			cmd, err := NewCommand(ctx, testRepo, tt.globals, tt.subCmd, opts...)
 			require.NoError(t, err)
 			// ignore first 3 indeterministic args (executable path and repo args)
-			require.Equal(t, tt.expectArgs, cmd.Args()[3:])
+			require.Equal(t, expectArgs, cmd.Args()[3:])
 
 			cmd, err = NewCommandWithoutRepo(ctx, tt.globals, tt.subCmd, opts...)
 			require.NoError(t, err)
 			// ignore first indeterministic arg (executable path)
-			require.Equal(t, tt.expectArgs, cmd.Args()[1:])
+			require.Equal(t, expectArgs, cmd.Args()[1:])
 
 			cmd, err = gitCmdFactory.NewWithDir(ctx, testRepoPath, tt.globals, tt.subCmd, opts...)
 			require.NoError(t, err)
-			require.Equal(t, tt.expectArgs, cmd.Args()[1:])
+			require.Equal(t, expectArgs, cmd.Args()[1:])
 		})
 	}
 }

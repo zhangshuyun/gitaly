@@ -126,6 +126,10 @@ var gitCommands = map[string]gitCommand{
 			// a commit will be rejected. As this is a mostly harmless
 			// issue, we add the following flag to ignore this check.
 			ConfigPair{Key: "receive.fsck.badTimezone", Value: "ignore"},
+
+			// Make git-receive-pack(1) advertise the push options
+			// capability to clients.
+			ConfigPair{Key: "receive.advertisePushOptions", Value: "true"},
 		},
 	},
 	"remote": gitCommand{
@@ -133,6 +137,11 @@ var gitCommands = map[string]gitCommand{
 	},
 	"repack": gitCommand{
 		flags: scNoRefUpdates | scGeneratesPackfiles,
+		opts: []GlobalOption{
+			// Write bitmap indices when packing objects, which
+			// speeds up packfile creation for fetches.
+			ConfigPair{Key: "repack.writeBitmaps", Value: "true"},
+		},
 	},
 	"rev-list": gitCommand{
 		flags: scReadOnly,
