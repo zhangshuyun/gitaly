@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -20,7 +21,7 @@ func (s *server) FindBranch(ctx context.Context, req *gitalypb.FindBranchRequest
 	repo := req.GetRepository()
 
 	branchName := git.NewBranchReferenceName(string(req.GetName()))
-	branchRef, err := git.NewRepository(repo, config.Config).GetReference(ctx, branchName)
+	branchRef, err := localrepo.New(repo, config.Config).GetReference(ctx, branchName)
 	if err != nil {
 		if errors.Is(err, git.ErrReferenceNotFound) {
 			return &gitalypb.FindBranchResponse{}, nil

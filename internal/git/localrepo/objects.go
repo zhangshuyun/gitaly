@@ -1,4 +1,4 @@
-package git
+package localrepo
 
 import (
 	"bytes"
@@ -8,27 +8,29 @@ import (
 	"strings"
 	"time"
 
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 )
 
 // WriteBlob writes a blob to the repository's object database and
 // returns its object ID. Path is used by git to decide which filters to
 // run on the content.
-func (repo *LocalRepository) WriteBlob(ctx context.Context, path string, content io.Reader) (string, error) {
+func (repo *Repo) WriteBlob(ctx context.Context, path string, content io.Reader) (string, error) {
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
 
 	cmd, err := repo.command(ctx, nil,
-		SubCmd{
+		git.SubCmd{
 			Name: "hash-object",
-			Flags: []Option{
-				ValueFlag{Name: "--path", Value: path},
-				Flag{Name: "--stdin"}, Flag{Name: "-w"},
+			Flags: []git.Option{
+				git.ValueFlag{Name: "--path", Value: path},
+				git.Flag{Name: "--stdin"},
+				git.Flag{Name: "-w"},
 			},
 		},
-		WithStdin(content),
-		WithStdout(stdout),
-		WithStderr(stderr),
+		git.WithStdin(content),
+		git.WithStdout(stdout),
+		git.WithStderr(stderr),
 	)
 	if err != nil {
 		return "", err
@@ -105,7 +107,7 @@ func (e MktagError) Error() string {
 //
 // It's important that this be git-mktag and not git-hash-object due
 // to its fsck sanity checking semantics.
-func (repo *LocalRepository) WriteTag(ctx context.Context, objectID, objectType string, tagName, userName, userEmail, tagBody []byte, committerDate time.Time) (string, error) {
+func (repo *Repo) WriteTag(ctx context.Context, objectID, objectType string, tagName, userName, userEmail, tagBody []byte, committerDate time.Time) (string, error) {
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
 
@@ -117,12 +119,12 @@ func (repo *LocalRepository) WriteTag(ctx context.Context, objectID, objectType 
 	content := strings.NewReader(tagBuf)
 
 	cmd, err := repo.command(ctx, nil,
-		SubCmd{
+		git.SubCmd{
 			Name: "mktag",
 		},
-		WithStdin(content),
-		WithStdout(stdout),
-		WithStderr(stderr),
+		git.WithStdin(content),
+		git.WithStdout(stdout),
+		git.WithStderr(stderr),
 	)
 	if err != nil {
 		return "", err
@@ -142,19 +144,19 @@ func (err InvalidObjectError) Error() string { return fmt.Sprintf("invalid objec
 
 // ReadObject reads an object from the repository's object database. InvalidObjectError
 // is returned if the oid does not refer to a valid object.
-func (repo *LocalRepository) ReadObject(ctx context.Context, oid string) ([]byte, error) {
+func (repo *Repo) ReadObject(ctx context.Context, oid string) ([]byte, error) {
 	const msgInvalidObject = "fatal: Not a valid object name "
 
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
 	cmd, err := repo.command(ctx, nil,
-		SubCmd{
+		git.SubCmd{
 			Name:  "cat-file",
-			Flags: []Option{Flag{"-p"}},
+			Flags: []git.Option{git.Flag{"-p"}},
 			Args:  []string{oid},
 		},
-		WithStdout(stdout),
-		WithStderr(stderr),
+		git.WithStdout(stdout),
+		git.WithStderr(stderr),
 	)
 	if err != nil {
 		return nil, err

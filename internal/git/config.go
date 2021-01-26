@@ -53,15 +53,6 @@ type ConfigAddOpts struct {
 	Type ConfigType
 }
 
-func (opts ConfigAddOpts) buildFlags() []Option {
-	var flags []Option
-	if opts.Type != ConfigTypeDefault {
-		flags = append(flags, Flag{Name: opts.Type.String()})
-	}
-
-	return flags
-}
-
 // ConfigGetRegexpOpts is used to configure invocation of the 'git config --get-regexp' command.
 type ConfigGetRegexpOpts struct {
 	// Type allows to specify an expected type for the configuration.
@@ -72,23 +63,6 @@ type ConfigGetRegexpOpts struct {
 	ShowScope bool
 }
 
-func (opts ConfigGetRegexpOpts) buildFlags() []Option {
-	var flags []Option
-	if opts.Type != ConfigTypeDefault {
-		flags = append(flags, Flag{Name: opts.Type.String()})
-	}
-
-	if opts.ShowOrigin {
-		flags = append(flags, Flag{Name: "--show-origin"})
-	}
-
-	if opts.ShowScope {
-		flags = append(flags, Flag{Name: "--show-scope"})
-	}
-
-	return flags
-}
-
 // ConfigUnsetOpts allows to configure fetching of the configurations using regexp.
 type ConfigUnsetOpts struct {
 	// All controls if all values associated with the key needs to be unset.
@@ -96,12 +70,4 @@ type ConfigUnsetOpts struct {
 	// NotStrict if set to true it won't return an error if the configuration was not found
 	// or in case multiple values exist for a given key and All option is not set.
 	NotStrict bool
-}
-
-func (opts ConfigUnsetOpts) buildFlags() []Option {
-	if opts.All {
-		return []Option{Flag{Name: "--unset-all"}}
-	}
-
-	return []Option{Flag{Name: "--unset"}}
 }

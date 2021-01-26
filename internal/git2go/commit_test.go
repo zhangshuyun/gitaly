@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 )
@@ -55,7 +55,7 @@ func TestExecutor_Commit(t *testing.T) {
 	pbRepo, repoPath, clean := testhelper.InitBareRepo(t)
 	defer clean()
 
-	repo := git.NewRepository(pbRepo, config.Config)
+	repo := localrepo.New(pbRepo, config.Config)
 
 	originalFile, err := repo.WriteBlob(ctx, "file", bytes.NewBufferString("original"))
 	require.NoError(t, err)
@@ -495,7 +495,7 @@ func TestExecutor_Commit(t *testing.T) {
 	}
 }
 
-func getCommit(t testing.TB, ctx context.Context, repo *git.LocalRepository, oid string) commit {
+func getCommit(t testing.TB, ctx context.Context, repo *localrepo.Repo, oid string) commit {
 	t.Helper()
 
 	data, err := repo.ReadObject(ctx, oid)
