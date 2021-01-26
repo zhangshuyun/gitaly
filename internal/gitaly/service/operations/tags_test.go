@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -45,8 +44,6 @@ func testSuccessfulUserDeleteTagRequest(t *testing.T, ctx context.Context) {
 
 	tagNameInput := "to-be-deleted-soon-tag"
 
-	defer exec.Command(config.Config.Git.BinPath, "-C", testRepoPath, "tag", "-d", tagNameInput).Run()
-
 	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "tag", tagNameInput)
 
 	request := &gitalypb.UserDeleteTagRequest{
@@ -79,7 +76,6 @@ func testSuccessfulGitHooksForUserDeleteTagRequest(t *testing.T, ctx context.Con
 	defer cleanupFn()
 
 	tagNameInput := "to-be-déleted-soon-tag"
-	defer exec.Command(config.Config.Git.BinPath, "-C", testRepoPath, "tag", "-d", tagNameInput).Run()
 
 	request := &gitalypb.UserDeleteTagRequest{
 		Repository: testRepo,
@@ -964,7 +960,6 @@ func testUserDeleteTagsuccessfulDeletionOfPrefixedTag(t *testing.T, ctx context.
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
 			testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "tag", testCase.tagNameInput, testCase.tagCommit)
-			defer exec.Command(config.Config.Git.BinPath, "-C", testRepoPath, "tag", "-d", testCase.tagNameInput).Run()
 
 			request := &gitalypb.UserDeleteTagRequest{
 				Repository: testRepo,
