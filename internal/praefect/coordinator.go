@@ -690,6 +690,12 @@ func (c *Coordinator) createTransactionFinalizer(
 			outdatedSecondaries = append(outdatedSecondaries, node)
 		}
 
+		// Replication targets were not added to the transaction, most
+		// likely because they are either not healthy or out of date.
+		// We thus need to make sure to create replication jobs for
+		// them.
+		outdatedSecondaries = append(outdatedSecondaries, route.ReplicationTargets...)
+
 		return c.newRequestFinalizer(
 			ctx, virtualStorage, targetRepo, route.Primary.Storage,
 			updatedSecondaries, outdatedSecondaries, change, params)()

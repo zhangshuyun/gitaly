@@ -80,15 +80,15 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 			nodes: []node{
 				{primary: true, vote: "foobar", shouldSucceed: true, shouldParticipate: true, generation: 1},
 				{primary: false, vote: "foobar", shouldSucceed: true, shouldParticipate: true, generation: 1},
-				{shouldParticipate: false, generation: 0},
-				{shouldParticipate: false, generation: datastore.GenerationUnknown},
+				{shouldParticipate: false, shouldGetRepl: true, generation: 0},
+				{shouldParticipate: false, shouldGetRepl: true, generation: datastore.GenerationUnknown},
 			},
 		},
 		{
 			desc: "secondaries should not participate when primary's generation is unknown",
 			nodes: []node{
 				{primary: true, vote: "foobar", shouldSucceed: true, shouldParticipate: true, generation: datastore.GenerationUnknown},
-				{shouldParticipate: false, generation: datastore.GenerationUnknown},
+				{shouldParticipate: false, shouldGetRepl: true, generation: datastore.GenerationUnknown},
 			},
 		},
 		{
