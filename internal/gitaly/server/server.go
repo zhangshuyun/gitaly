@@ -12,6 +12,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/client"
 	diskcache "gitlab.com/gitlab-org/gitaly/internal/cache"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
@@ -143,7 +144,7 @@ func createNewServer(rubyServer *rubyserver.Server, hookManager hook.Manager, cf
 
 	server := grpc.NewServer(opts...)
 
-	service.RegisterAll(server, cfg, rubyServer, hookManager, storageLocator, conns)
+	service.RegisterAll(server, cfg, rubyServer, hookManager, storageLocator, conns, git.NewExecCommandFactory(cfg))
 	reflection.Register(server)
 
 	grpc_prometheus.Register(server)

@@ -18,6 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
 	"gitlab.com/gitlab-org/gitaly/client"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/objectpool"
 	gitaly_config "gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
@@ -130,7 +131,7 @@ func TestReplMgr_ProcessBacklog(t *testing.T) {
 
 	// create object pool on the source
 	objectPoolPath := testhelper.NewTestObjectPoolName(t)
-	pool, err := objectpool.NewObjectPool(gitaly_config.Config, gitaly_config.NewLocator(gitaly_config.Config), testRepo.GetStorageName(), objectPoolPath)
+	pool, err := objectpool.NewObjectPool(gitaly_config.Config, gitaly_config.NewLocator(gitaly_config.Config), git.NewExecCommandFactory(gitaly_config.Config), testRepo.GetStorageName(), objectPoolPath)
 	require.NoError(t, err)
 
 	poolCtx, cancel := testhelper.Context()
@@ -1032,8 +1033,9 @@ func newReplicationService(tb testing.TB) (*grpc.Server, string) {
 	svr := testhelper.NewTestGrpcServer(tb, nil, nil)
 
 	locator := gitaly_config.NewLocator(gitaly_config.Config)
-	gitalypb.RegisterRepositoryServiceServer(svr, repository.NewServer(gitaly_config.Config, RubyServer, locator))
-	gitalypb.RegisterObjectPoolServiceServer(svr, objectpoolservice.NewServer(gitaly_config.Config, locator))
+	gitCmdFactory := git.NewExecCommandFactory(gitaly_config.Config)
+	gitalypb.RegisterRepositoryServiceServer(svr, repository.NewServer(gitaly_config.Config, RubyServer, locator, gitCmdFactory))
+	gitalypb.RegisterObjectPoolServiceServer(svr, objectpoolservice.NewServer(gitaly_config.Config, locator, gitCmdFactory))
 	gitalypb.RegisterRemoteServiceServer(svr, remote.NewServer(gitaly_config.Config, RubyServer, locator))
 	gitalypb.RegisterSSHServiceServer(svr, ssh.NewServer(locator))
 	gitalypb.RegisterRefServiceServer(svr, ref.NewServer(gitaly_config.Config, locator))

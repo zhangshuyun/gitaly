@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 )
@@ -16,7 +17,7 @@ func TestClone(t *testing.T) {
 	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
-	pool, err := NewObjectPool(config.Config, config.NewLocator(config.Config), testRepo.GetStorageName(), testhelper.NewTestObjectPoolName(t))
+	pool, err := NewObjectPool(config.Config, config.NewLocator(config.Config), git.NewExecCommandFactory(config.Config), testRepo.GetStorageName(), testhelper.NewTestObjectPoolName(t))
 	require.NoError(t, err)
 
 	err = pool.clone(ctx, testRepo)
@@ -34,7 +35,7 @@ func TestCloneExistingPool(t *testing.T) {
 	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
-	pool, err := NewObjectPool(config.Config, config.NewLocator(config.Config), testRepo.GetStorageName(), testhelper.NewTestObjectPoolName(t))
+	pool, err := NewObjectPool(config.Config, config.NewLocator(config.Config), git.NewExecCommandFactory(config.Config), testRepo.GetStorageName(), testhelper.NewTestObjectPoolName(t))
 	require.NoError(t, err)
 
 	err = pool.clone(ctx, testRepo)

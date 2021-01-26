@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/objectpool"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -29,7 +30,7 @@ func TestCreate(t *testing.T) {
 	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
-	pool, err := objectpool.NewObjectPool(config.Config, locator, "default", testhelper.NewTestObjectPoolName(t))
+	pool, err := objectpool.NewObjectPool(config.Config, locator, git.NewExecCommandFactory(config.Config), "default", testhelper.NewTestObjectPoolName(t))
 	require.NoError(t, err)
 
 	poolReq := &gitalypb.CreateObjectPoolRequest{
@@ -73,7 +74,7 @@ func TestUnsuccessfulCreate(t *testing.T) {
 	defer cleanupFn()
 
 	validPoolPath := testhelper.NewTestObjectPoolName(t)
-	pool, err := objectpool.NewObjectPool(config.Config, locator, "default", validPoolPath)
+	pool, err := objectpool.NewObjectPool(config.Config, locator, git.NewExecCommandFactory(config.Config), "default", validPoolPath)
 	require.NoError(t, err)
 	defer pool.Remove(ctx)
 
@@ -173,7 +174,7 @@ func TestDelete(t *testing.T) {
 	defer cleanupFn()
 
 	validPoolPath := testhelper.NewTestObjectPoolName(t)
-	pool, err := objectpool.NewObjectPool(config.Config, locator, "default", validPoolPath)
+	pool, err := objectpool.NewObjectPool(config.Config, locator, git.NewExecCommandFactory(config.Config), "default", validPoolPath)
 	require.NoError(t, err)
 	require.NoError(t, pool.Create(ctx, testRepo))
 

@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/repository"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
@@ -365,7 +366,7 @@ func runServerWithBadFetchInternalRemote(t *testing.T) (*grpc.Server, string) {
 	internalListener, err := net.Listen("unix", config.Config.GitalyInternalSocketPath())
 	require.NoError(t, err)
 
-	gitalypb.RegisterRepositoryServiceServer(server, repository.NewServer(config.Config, repository.RubyServer, config.NewLocator(config.Config)))
+	gitalypb.RegisterRepositoryServiceServer(server, repository.NewServer(config.Config, repository.RubyServer, config.NewLocator(config.Config), git.NewExecCommandFactory(config.Config)))
 	gitalypb.RegisterRemoteServiceServer(server, &mockRemoteServer{})
 	reflection.Register(server)
 

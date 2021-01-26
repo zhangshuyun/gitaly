@@ -14,6 +14,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/hooks"
 	"gitlab.com/gitlab-org/gitaly/internal/git/objectpool"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
@@ -39,7 +40,7 @@ func TestFetchIntoObjectPool_Success(t *testing.T) {
 
 	repoCommit := testhelper.CreateCommit(t, testRepoPath, t.Name(), &testhelper.CreateCommitOpts{Message: t.Name()})
 
-	pool, err := objectpool.NewObjectPool(config.Config, locator, "default", testhelper.NewTestObjectPoolName(t))
+	pool, err := objectpool.NewObjectPool(config.Config, locator, git.NewExecCommandFactory(config.Config), "default", testhelper.NewTestObjectPoolName(t))
 	require.NoError(t, err)
 	defer pool.Remove(ctx)
 
@@ -99,7 +100,7 @@ func TestFetchIntoObjectPool_hooksDisabled(t *testing.T) {
 	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
-	pool, err := objectpool.NewObjectPool(config.Config, locator, "default", testhelper.NewTestObjectPoolName(t))
+	pool, err := objectpool.NewObjectPool(config.Config, locator, git.NewExecCommandFactory(config.Config), "default", testhelper.NewTestObjectPoolName(t))
 	require.NoError(t, err)
 	defer pool.Remove(ctx)
 
@@ -149,7 +150,7 @@ func TestFetchIntoObjectPool_CollectLogStatistics(t *testing.T) {
 	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
-	pool, err := objectpool.NewObjectPool(config.Config, locator, "default", testhelper.NewTestObjectPoolName(t))
+	pool, err := objectpool.NewObjectPool(config.Config, locator, git.NewExecCommandFactory(config.Config), "default", testhelper.NewTestObjectPoolName(t))
 	require.NoError(t, err)
 	defer pool.Remove(ctx)
 
@@ -179,7 +180,8 @@ func TestFetchIntoObjectPool_CollectLogStatistics(t *testing.T) {
 
 func TestFetchIntoObjectPool_Failure(t *testing.T) {
 	locator := config.NewLocator(config.Config)
-	server := NewServer(config.Config, locator)
+	gitCmdFactory := git.NewExecCommandFactory(config.Config)
+	server := NewServer(config.Config, locator, gitCmdFactory)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -187,7 +189,7 @@ func TestFetchIntoObjectPool_Failure(t *testing.T) {
 	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
-	pool, err := objectpool.NewObjectPool(config.Config, locator, "default", testhelper.NewTestObjectPoolName(t))
+	pool, err := objectpool.NewObjectPool(config.Config, locator, gitCmdFactory, "default", testhelper.NewTestObjectPoolName(t))
 	require.NoError(t, err)
 	defer pool.Remove(ctx)
 

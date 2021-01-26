@@ -18,7 +18,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/internal/git/updateref"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
@@ -51,7 +50,7 @@ func (o *ObjectPool) FetchFromOrigin(ctx context.Context, origin *gitalypb.Repos
 		git.WithDisabledHooks(),
 	}
 
-	getRemotes, err := git.NewCommand(ctx, o, nil, git.SubCmd{Name: "remote"}, opts...)
+	getRemotes, err := o.gitCmdFactory.New(ctx, o, nil, git.SubCmd{Name: "remote"}, opts...)
 	if err != nil {
 		return err
 	}
@@ -70,7 +69,7 @@ func (o *ObjectPool) FetchFromOrigin(ctx context.Context, origin *gitalypb.Repos
 
 	var setOriginCmd *command.Command
 	if originExists {
-		setOriginCmd, err = git.NewCommand(ctx, o, nil, git.SubCmd{
+		setOriginCmd, err = o.gitCmdFactory.New(ctx, o, nil, git.SubCmd{
 			Name: "remote",
 			Args: []string{"set-url", sourceRemote, originPath},
 		}, opts...)
@@ -78,7 +77,7 @@ func (o *ObjectPool) FetchFromOrigin(ctx context.Context, origin *gitalypb.Repos
 			return err
 		}
 	} else {
-		setOriginCmd, err = git.NewCommand(ctx, o, nil, git.SubCmd{
+		setOriginCmd, err = o.gitCmdFactory.New(ctx, o, nil, git.SubCmd{
 			Name: "remote",
 			Args: []string{"add", sourceRemote, originPath},
 		}, opts...)
@@ -96,7 +95,7 @@ func (o *ObjectPool) FetchFromOrigin(ctx context.Context, origin *gitalypb.Repos
 	}
 
 	refSpec := fmt.Sprintf("+refs/*:%s/*", sourceRefNamespace)
-	fetchCmd, err := git.NewCommand(ctx, o, nil,
+	fetchCmd, err := o.gitCmdFactory.New(ctx, o, nil,
 		git.SubCmd{
 			Name:  "fetch",
 			Flags: []git.Option{git.Flag{Name: "--quiet"}},
@@ -112,7 +111,7 @@ func (o *ObjectPool) FetchFromOrigin(ctx context.Context, origin *gitalypb.Repos
 		return err
 	}
 
-	if err := rescueDanglingObjects(ctx, o.cfg, o); err != nil {
+	if err := o.rescueDanglingObjects(ctx, o); err != nil {
 		return err
 	}
 
@@ -120,7 +119,7 @@ func (o *ObjectPool) FetchFromOrigin(ctx context.Context, origin *gitalypb.Repos
 		return err
 	}
 
-	packRefs, err := git.NewCommand(ctx, o, nil, git.SubCmd{
+	packRefs, err := o.gitCmdFactory.New(ctx, o, nil, git.SubCmd{
 		Name:  "pack-refs",
 		Flags: []git.Option{git.Flag{Name: "--all"}},
 	})
@@ -131,7 +130,7 @@ func (o *ObjectPool) FetchFromOrigin(ctx context.Context, origin *gitalypb.Repos
 		return err
 	}
 
-	return repackPool(ctx, o)
+	return o.repackPool(ctx, o)
 }
 
 const danglingObjectNamespace = "refs/dangling/"
@@ -144,8 +143,8 @@ const danglingObjectNamespace = "refs/dangling/"
 // relies on. There is currently no way for us to reliably determine if
 // an object is still used anywhere, so the only safe thing to do is to
 // assume that every object _is_ used.
-func rescueDanglingObjects(ctx context.Context, cfg config.Cfg, repo repository.GitRepo) error {
-	fsck, err := git.NewCommand(ctx, repo, nil, git.SubCmd{
+func (o *ObjectPool) rescueDanglingObjects(ctx context.Context, repo repository.GitRepo) error {
+	fsck, err := o.gitCmdFactory.New(ctx, repo, nil, git.SubCmd{
 		Name:  "fsck",
 		Flags: []git.Option{git.Flag{Name: "--connectivity-only"}, git.Flag{Name: "--dangling"}},
 	})
@@ -153,7 +152,7 @@ func rescueDanglingObjects(ctx context.Context, cfg config.Cfg, repo repository.
 		return err
 	}
 
-	updater, err := updateref.New(ctx, cfg, repo, updateref.WithDisabledTransactions())
+	updater, err := updateref.New(ctx, o.cfg, repo, updateref.WithDisabledTransactions())
 	if err != nil {
 		return err
 	}
@@ -186,7 +185,7 @@ func rescueDanglingObjects(ctx context.Context, cfg config.Cfg, repo repository.
 	return updater.Wait()
 }
 
-func repackPool(ctx context.Context, pool repository.GitRepo) error {
+func (o *ObjectPool) repackPool(ctx context.Context, pool repository.GitRepo) error {
 	repackArgs := []git.GlobalOption{
 		git.ConfigPair{Key: "pack.island", Value: sourceRefNamespace + "/he(a)ds"},
 		git.ConfigPair{Key: "pack.island", Value: sourceRefNamespace + "/t(a)gs"},
@@ -194,7 +193,7 @@ func repackPool(ctx context.Context, pool repository.GitRepo) error {
 		git.ConfigPair{Key: "pack.writeBitmapHashCache", Value: "true"},
 	}
 
-	repackCmd, err := git.NewCommand(ctx, pool, repackArgs, git.SubCmd{
+	repackCmd, err := o.gitCmdFactory.New(ctx, pool, repackArgs, git.SubCmd{
 		Name:  "repack",
 		Flags: []git.Option{git.Flag{Name: "-aidb"}},
 	})
@@ -225,7 +224,7 @@ func (o *ObjectPool) logStats(ctx context.Context, when string) error {
 		}
 	}
 
-	forEachRef, err := git.NewCommand(ctx, o, nil, git.SubCmd{
+	forEachRef, err := o.gitCmdFactory.New(ctx, o, nil, git.SubCmd{
 		Name:  "for-each-ref",
 		Flags: []git.Option{git.Flag{Name: "--format=%(objecttype)%00%(refname)"}},
 		Args:  []string{"refs/"},

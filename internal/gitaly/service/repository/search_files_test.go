@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -212,7 +213,7 @@ func TestSearchFilesByContentLargeFile(t *testing.T) {
 }
 
 func TestSearchFilesByContentFailure(t *testing.T) {
-	server := NewServer(config.Config, RubyServer, config.NewLocator(config.Config))
+	server := NewServer(config.Config, RubyServer, config.NewLocator(config.Config), git.NewExecCommandFactory(config.Config))
 
 	testRepo, _, cleanupRepo := testhelper.NewTestRepo(t)
 	defer cleanupRepo()
@@ -334,7 +335,7 @@ func TestSearchFilesByNameSuccessful(t *testing.T) {
 }
 
 func TestSearchFilesByNameFailure(t *testing.T) {
-	server := NewServer(config.Config, RubyServer, config.NewLocator(config.Config))
+	server := NewServer(config.Config, RubyServer, config.NewLocator(config.Config), git.NewExecCommandFactory(config.Config))
 
 	testCases := []struct {
 		desc   string

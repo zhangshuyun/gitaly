@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/client"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	gconfig "gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/internalgitaly"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/repository"
@@ -66,7 +67,7 @@ func TestServer_ConsistencyCheck(t *testing.T) {
 
 		gitalySrv := grpc.NewServer()
 		defer gitalySrv.Stop()
-		gitalypb.RegisterRepositoryServiceServer(gitalySrv, repository.NewServer(gconfig.Config, nil, gconfig.NewLocator(gconfig.Config)))
+		gitalypb.RegisterRepositoryServiceServer(gitalySrv, repository.NewServer(gconfig.Config, nil, gconfig.NewLocator(gconfig.Config), git.NewExecCommandFactory(gconfig.Config)))
 		gitalypb.RegisterInternalGitalyServer(gitalySrv, internalgitaly.NewServer(gconfig.Config.Storages))
 		go func() { gitalySrv.Serve(gitalyListener) }()
 	}
