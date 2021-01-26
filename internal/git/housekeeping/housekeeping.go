@@ -16,6 +16,15 @@ const (
 	deleteTempFilesOlderThanDuration = 7 * 24 * time.Hour
 	brokenRefsGracePeriod            = 24 * time.Hour
 	minimumDirPerm                   = 0700
+	lockfileGracePeriod              = 15 * time.Minute
+)
+
+var (
+	lockfiles = []string{
+		"config.lock",
+		"HEAD.lock",
+		"objects/info/commit-graphs/commit-graph-chain.lock",
+	}
 )
 
 type staleFileFinderFn func(context.Context, string) ([]string, error)
@@ -27,6 +36,7 @@ func Perform(ctx context.Context, repoPath string) error {
 
 	for field, staleFileFinder := range map[string]staleFileFinderFn{
 		"objects": findTemporaryObjects,
+		"locks":   findStaleLockfiles,
 		"refs":    findBrokenLooseReferences,
 	} {
 		staleFiles, err := staleFileFinder(ctx, repoPath)
@@ -56,6 +66,42 @@ func Perform(ctx context.Context, repoPath string) error {
 	}
 
 	return nil
+}
+
+// findStaleFiles determines whether any of the given files rooted at repoPath
+// are stale or not. A file is considered stale if it exists and if it has not
+// been modified during the gracePeriod. A nonexistent file is not considered
+// to be a stale file and will not cause an error.
+func findStaleFiles(repoPath string, gracePeriod time.Duration, files ...string) ([]string, error) {
+	var staleFiles []string
+
+	for _, file := range files {
+		path := filepath.Join(repoPath, file)
+
+		fileInfo, err := os.Stat(path)
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return nil, err
+		}
+
+		if time.Since(fileInfo.ModTime()) < gracePeriod {
+			continue
+		}
+
+		staleFiles = append(staleFiles, path)
+	}
+
+	return staleFiles, nil
+}
+
+// findStaleLockfiles finds a subset of lockfiles which may be created by git
+// commands. We're quite conservative with what we're removing, we certaintly
+// don't just scan the repo for `*.lock` files. Instead, we only remove a known
+// set of lockfiles which have caused problems in the past.
+func findStaleLockfiles(ctx context.Context, repoPath string) ([]string, error) {
+	return findStaleFiles(repoPath, lockfileGracePeriod, lockfiles...)
 }
 
 func findTemporaryObjects(ctx context.Context, repoPath string) ([]string, error) {

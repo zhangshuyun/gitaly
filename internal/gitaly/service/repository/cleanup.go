@@ -15,8 +15,6 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-var lockFiles = []string{"config.lock", "HEAD.lock", "objects/info/commit-graphs/commit-graph-chain.lock"}
-
 func (s *server) Cleanup(ctx context.Context, in *gitalypb.CleanupRequest) (*gitalypb.CleanupResponse, error) {
 	if err := s.cleanupRepo(ctx, in.GetRepository()); err != nil {
 		return nil, err
@@ -49,10 +47,6 @@ func (s *server) cleanupRepo(ctx context.Context, repo *gitalypb.Repository) err
 	}
 
 	older15min := time.Now().Add(-15 * time.Minute)
-
-	if err := cleanFileLocks(repoPath, older15min); err != nil {
-		return status.Errorf(codes.Internal, "Cleanup: cleanupConfigLock: %v", err)
-	}
 
 	if err := cleanPackedRefsNew(repoPath, older15min); err != nil {
 		return status.Errorf(codes.Internal, "Cleanup: cleanPackedRefsNew: %v", err)
@@ -166,28 +160,6 @@ func (s *server) cleanDisconnectedWorktrees(ctx context.Context, repo *gitalypb.
 	}
 
 	return cmd.Wait()
-}
-
-func cleanFileLocks(repoPath string, threshold time.Time) error {
-	for _, fileName := range lockFiles {
-		lockPath := filepath.Join(repoPath, fileName)
-
-		fi, err := os.Stat(lockPath)
-		if err != nil {
-			if os.IsNotExist(err) {
-				continue
-			}
-			return err
-		}
-
-		if fi.ModTime().Before(threshold) {
-			if err := os.Remove(lockPath); err != nil && !os.IsNotExist(err) {
-				return err
-			}
-		}
-	}
-
-	return nil
 }
 
 func cleanPackedRefsNew(repoPath string, threshold time.Time) error {

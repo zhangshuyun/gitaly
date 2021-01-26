@@ -261,7 +261,11 @@ func TestCleanupFileLocks(t *testing.T) {
 
 	req := &gitalypb.CleanupRequest{Repository: testRepo}
 
-	for _, fileName := range lockFiles {
+	for _, fileName := range []string{
+		"config.lock",
+		"HEAD.lock",
+		"objects/info/commit-graphs/commit-graph-chain.lock",
+	} {
 		lockPath := filepath.Join(testRepoPath, fileName)
 		// No file on the lock path
 		_, err := client.Cleanup(ctx, req)
