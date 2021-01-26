@@ -92,7 +92,7 @@ lf   text
 	}
 }
 
-func TestLocalRepository_FormatTag(t *testing.T) {
+func TestFormatTag(t *testing.T) {
 	for _, tc := range []struct {
 		desc       string
 		objectID   string
