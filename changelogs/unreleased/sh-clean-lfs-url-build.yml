@@ -1,0 +1,5 @@
+---
+title: 'gitaly-lfs-smudge: Clean up URL building'
+merge_request: 3058
+author:
+type: changed
