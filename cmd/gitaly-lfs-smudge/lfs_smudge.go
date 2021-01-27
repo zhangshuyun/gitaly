@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"path/filepath"
 
 	"github.com/git-lfs/git-lfs/lfs"
@@ -82,8 +83,12 @@ func handleSmudge(to io.Writer, from io.Reader, config configProvider) (io.Reade
 		return contents, err
 	}
 
-	path := fmt.Sprintf("/lfs?oid=%s&gl_repository=%s", ptr.Oid, glRepository)
-	response, err := client.Get(ctx, path)
+	qs := url.Values{}
+	qs.Set("oid", ptr.Oid)
+	qs.Set("gl_repository", glRepository)
+	u := url.URL{Path: "/lfs", RawQuery: qs.Encode()}
+
+	response, err := client.Get(ctx, u.String())
 	if err != nil {
 		return contents, fmt.Errorf("error loading LFS object: %v", err)
 	}
