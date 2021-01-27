@@ -17,8 +17,8 @@ type Notifier struct {
 }
 
 // New instantiates a new Notifier
-func New(ctx context.Context, repo *gitalypb.Repository, chunker *chunk.Chunker) (*Notifier, error) {
-	catfile, err := catfile.New(ctx, repo)
+func New(ctx context.Context, gitCmdFactory git.CommandFactory, repo *gitalypb.Repository, chunker *chunk.Chunker) (*Notifier, error) {
+	catfile, err := catfile.New(ctx, gitCmdFactory, repo)
 	if err != nil {
 		return nil, err
 	}

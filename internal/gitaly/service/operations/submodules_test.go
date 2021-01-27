@@ -94,7 +94,7 @@ func testSuccessfulUserUpdateSubmoduleRequest(t *testing.T, ctx context.Context)
 			require.Empty(t, response.GetCommitError())
 			require.Empty(t, response.GetPreReceiveError())
 
-			commit, err := log.GetCommit(ctx, testRepoProto, git.Revision(response.BranchUpdate.CommitId))
+			commit, err := log.GetCommit(ctx, git.NewExecCommandFactory(config.Config), testRepoProto, git.Revision(response.BranchUpdate.CommitId))
 			require.NoError(t, err)
 			require.Equal(t, commit.Author.Email, testhelper.TestUser.Email)
 			require.Equal(t, commit.Committer.Email, testhelper.TestUser.Email)
@@ -139,7 +139,7 @@ func testUserUpdateSubmoduleStableID(t *testing.T, ctx context.Context) {
 	require.Empty(t, response.GetCommitError())
 	require.Empty(t, response.GetPreReceiveError())
 
-	commit, err := log.GetCommit(ctx, repo, git.Revision(response.BranchUpdate.CommitId))
+	commit, err := log.GetCommit(ctx, git.NewExecCommandFactory(config.Config), repo, git.Revision(response.BranchUpdate.CommitId))
 	require.NoError(t, err)
 	require.Equal(t, &gitalypb.GitCommit{
 		Id: "e7752dfc2105bc830f8fa59b19dd4f3e49c8c44e",

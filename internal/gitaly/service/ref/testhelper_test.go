@@ -5,6 +5,7 @@ import (
 	"os"
 	"testing"
 
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
 	hookservice "gitlab.com/gitlab-org/gitaly/internal/gitaly/service/hook"
@@ -48,7 +49,7 @@ func runRefServiceServer(t *testing.T) (func(), string) {
 	hookManager := hook.NewManager(locator, txManager, hook.GitlabAPIStub, config.Config)
 
 	srv := testhelper.NewServer(t, nil, nil, testhelper.WithInternalSocket(config.Config))
-	gitalypb.RegisterRefServiceServer(srv.GrpcServer(), NewServer(config.Config, locator))
+	gitalypb.RegisterRefServiceServer(srv.GrpcServer(), NewServer(config.Config, locator, git.NewExecCommandFactory(config.Config)))
 	gitalypb.RegisterHookServiceServer(srv.GrpcServer(), hookservice.NewServer(config.Config, hookManager))
 	srv.Start(t)
 

@@ -27,7 +27,6 @@ func TestSuccessfulFindBranchRequest(t *testing.T) {
 	defer cleanupFn()
 
 	repo := localrepo.New(testRepoProto, config.Config)
-	locator := config.NewLocator(config.Config)
 
 	branchesByName := make(map[git.ReferenceName]*gitalypb.Branch)
 	for branchName, revision := range map[git.ReferenceName]git.Revision{
@@ -41,7 +40,7 @@ func TestSuccessfulFindBranchRequest(t *testing.T) {
 		err = repo.UpdateRef(ctx, branchName, oid, "")
 		require.NoError(t, err)
 
-		commit, err := log.GetCommit(ctx, locator, testRepoProto, branchName.Revision())
+		commit, err := log.GetCommit(ctx, git.NewExecCommandFactory(config.Config), testRepoProto, branchName.Revision())
 		require.NoError(t, err)
 
 		branchesByName[branchName] = &gitalypb.Branch{

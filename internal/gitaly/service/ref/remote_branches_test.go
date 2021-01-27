@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/log"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -53,8 +54,9 @@ func TestSuccessfulFindAllRemoteBranchesRequest(t *testing.T) {
 	branches := readFindAllRemoteBranchesResponsesFromClient(t, c)
 	require.Len(t, branches, len(expectedBranches))
 
+	gitCmdFactory := git.NewExecCommandFactory(config.Config)
 	for branchName, commitID := range expectedBranches {
-		targetCommit, err := log.GetCommit(ctx, testRepo, git.Revision(commitID))
+		targetCommit, err := log.GetCommit(ctx, gitCmdFactory, testRepo, git.Revision(commitID))
 		require.NoError(t, err)
 
 		expectedBranch := &gitalypb.Branch{
@@ -66,7 +68,7 @@ func TestSuccessfulFindAllRemoteBranchesRequest(t *testing.T) {
 	}
 
 	for branchName, commitID := range excludedBranches {
-		targetCommit, err := log.GetCommit(ctx, testRepo, git.Revision(commitID))
+		targetCommit, err := log.GetCommit(ctx, gitCmdFactory, testRepo, git.Revision(commitID))
 		require.NoError(t, err)
 
 		excludedBranch := &gitalypb.Branch{

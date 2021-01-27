@@ -23,8 +23,8 @@ type Parser struct {
 }
 
 // NewLogParser returns a new Parser
-func NewLogParser(ctx context.Context, repo *gitalypb.Repository, src io.Reader) (*Parser, error) {
-	c, err := catfile.New(ctx, repo)
+func NewLogParser(ctx context.Context, gitCmdFactory git.CommandFactory, repo *gitalypb.Repository, src io.Reader) (*Parser, error) {
+	c, err := catfile.New(ctx, gitCmdFactory, repo)
 	if err != nil {
 		return nil, err
 	}

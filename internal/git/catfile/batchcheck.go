@@ -20,7 +20,7 @@ type batchCheck struct {
 	sync.Mutex
 }
 
-func newBatchCheck(ctx context.Context, repo repository.GitRepo) (*batchCheck, error) {
+func newBatchCheck(ctx context.Context, gitCmdFactory git.CommandFactory, repo repository.GitRepo) (*batchCheck, error) {
 	bc := &batchCheck{}
 
 	var stdinReader io.Reader
@@ -31,7 +31,7 @@ func newBatchCheck(ctx context.Context, repo repository.GitRepo) (*batchCheck, e
 	ctx = correlation.ContextWithCorrelation(ctx, "")
 	ctx = opentracing.ContextWithSpan(ctx, nil)
 
-	batchCmd, err := git.NewCommand(ctx, repo, nil,
+	batchCmd, err := gitCmdFactory.New(ctx, repo, nil,
 		git.SubCmd{
 			Name: "cat-file",
 			Flags: []git.Option{

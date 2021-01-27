@@ -499,7 +499,7 @@ func TestSuccessfulFindAllTagsRequest(t *testing.T) {
 		Message:  "An empty commit with REALLY BIG message\n\n" + strings.Repeat("a", helper.MaxCommitOrTagMessageSize+1),
 		ParentID: "60ecb67744cb56576c30214ff52294f8ce2def98",
 	})
-	bigCommit, err := log.GetCommit(ctx, testRepoCopy, git.Revision(bigCommitID))
+	bigCommit, err := log.GetCommit(ctx, git.NewExecCommandFactory(config.Config), testRepoCopy, git.Revision(bigCommitID))
 	require.NoError(t, err)
 
 	annotatedTagID := testhelper.CreateTag(t, testRepoCopyPath, "v1.2.0", blobID, &testhelper.CreateTagOpts{Message: "Blob tag"})
@@ -717,7 +717,7 @@ func TestFindAllTagNestedTags(t *testing.T) {
 			tags := bytes.NewReader(testhelper.MustRunCommand(t, nil, "git", "-C", testRepoCopyPath, "tag"))
 			testhelper.MustRunCommand(t, tags, "xargs", config.Config.Git.BinPath, "-C", testRepoCopyPath, "tag", "-d")
 
-			batch, err := catfile.New(ctx, testRepoCopy)
+			batch, err := catfile.New(ctx, git.NewExecCommandFactory(config.Config), testRepoCopy)
 			require.NoError(t, err)
 
 			info, err := batch.Info(ctx, git.Revision(tc.originalOid))
@@ -1144,7 +1144,7 @@ func TestSuccessfulFindAllBranchesRequestWithMergedBranches(t *testing.T) {
 		expectedBranches = append(expectedBranches, branch)
 	}
 
-	masterCommit, err := log.GetCommit(ctx, testRepo, "master")
+	masterCommit, err := log.GetCommit(ctx, git.NewExecCommandFactory(config.Config), testRepo, "master")
 	require.NoError(t, err)
 	expectedBranches = append(expectedBranches, &gitalypb.FindAllBranchesResponse_Branch{
 		Name:   []byte("refs/heads/master"),
@@ -1449,7 +1449,7 @@ func TestSuccessfulFindTagRequest(t *testing.T) {
 		Message:  "An empty commit with REALLY BIG message\n\n" + strings.Repeat("a", helper.MaxCommitOrTagMessageSize+1),
 		ParentID: "60ecb67744cb56576c30214ff52294f8ce2def98",
 	})
-	bigCommit, err := log.GetCommit(ctx, testRepoCopy, git.Revision(bigCommitID))
+	bigCommit, err := log.GetCommit(ctx, git.NewExecCommandFactory(config.Config), testRepoCopy, git.Revision(bigCommitID))
 	require.NoError(t, err)
 
 	annotatedTagID := testhelper.CreateTag(t, testRepoCopyPath, "v1.2.0", blobID, &testhelper.CreateTagOpts{Message: "Blob tag"})
@@ -1648,7 +1648,7 @@ func TestFindTagNestedTag(t *testing.T) {
 			tags := bytes.NewReader(testhelper.MustRunCommand(t, nil, "git", "-C", testRepoCopyPath, "tag"))
 			testhelper.MustRunCommand(t, tags, "xargs", config.Config.Git.BinPath, "-C", testRepoCopyPath, "tag", "-d")
 
-			batch, err := catfile.New(ctx, testRepoCopy)
+			batch, err := catfile.New(ctx, git.NewExecCommandFactory(config.Config), testRepoCopy)
 			require.NoError(t, err)
 
 			info, err := batch.Info(ctx, git.Revision(tc.originalOid))

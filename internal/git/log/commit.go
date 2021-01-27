@@ -20,8 +20,8 @@ import (
 
 // GetCommit tries to resolve revision to a Git commit. Returns nil if
 // no object is found at revision.
-func GetCommit(ctx context.Context, repo *gitalypb.Repository, revision git.Revision) (*gitalypb.GitCommit, error) {
-	c, err := catfile.New(ctx, repo)
+func GetCommit(ctx context.Context, gitCmdFactory git.CommandFactory, repo *gitalypb.Repository, revision git.Revision) (*gitalypb.GitCommit, error) {
+	c, err := catfile.New(ctx, gitCmdFactory, repo)
 	if err != nil {
 		return nil, err
 	}
@@ -31,8 +31,8 @@ func GetCommit(ctx context.Context, repo *gitalypb.Repository, revision git.Revi
 
 // GetCommitWithTrailers tries to resolve a revision to a Git commit, including
 // Git trailers in its output.
-func GetCommitWithTrailers(ctx context.Context, repo *gitalypb.Repository, revision git.Revision) (*gitalypb.GitCommit, error) {
-	c, err := catfile.New(ctx, repo)
+func GetCommitWithTrailers(ctx context.Context, gitCmdFactory git.CommandFactory, repo *gitalypb.Repository, revision git.Revision) (*gitalypb.GitCommit, error) {
+	c, err := catfile.New(ctx, gitCmdFactory, repo)
 	if err != nil {
 		return nil, err
 	}

@@ -43,7 +43,8 @@ func TestCreate(t *testing.T) {
 	ctx, testRepo, _, teardown := setup(t)
 	defer teardown()
 
-	headCommit, err := log.GetCommit(ctx, testRepo, "HEAD")
+	gitCmdFactory := git.NewExecCommandFactory(config.Config)
+	headCommit, err := log.GetCommit(ctx, gitCmdFactory, testRepo, "HEAD")
 	require.NoError(t, err)
 
 	updater, err := New(ctx, config.Config, testRepo)
@@ -56,7 +57,7 @@ func TestCreate(t *testing.T) {
 	require.NoError(t, updater.Wait())
 
 	// check the ref was created
-	commit, logErr := log.GetCommit(ctx, testRepo, ref.Revision())
+	commit, logErr := log.GetCommit(ctx, gitCmdFactory, testRepo, ref.Revision())
 	require.NoError(t, logErr)
 	require.Equal(t, commit.Id, sha, "reference was created with the wrong SHA")
 }
@@ -65,7 +66,8 @@ func TestUpdate(t *testing.T) {
 	ctx, testRepo, _, teardown := setup(t)
 	defer teardown()
 
-	headCommit, err := log.GetCommit(ctx, testRepo, "HEAD")
+	gitCmdFactory := git.NewExecCommandFactory(config.Config)
+	headCommit, err := log.GetCommit(ctx, gitCmdFactory, testRepo, "HEAD")
 	require.NoError(t, err)
 
 	updater, err := New(ctx, config.Config, testRepo)
@@ -75,7 +77,7 @@ func TestUpdate(t *testing.T) {
 	sha := headCommit.Id
 
 	// Sanity check: ensure the ref exists before we start
-	commit, logErr := log.GetCommit(ctx, testRepo, ref.Revision())
+	commit, logErr := log.GetCommit(ctx, gitCmdFactory, testRepo, ref.Revision())
 	require.NoError(t, logErr)
 	require.NotEqual(t, commit.Id, sha, "%s points to HEAD: %s in the test repository", ref.String(), sha)
 
@@ -83,17 +85,17 @@ func TestUpdate(t *testing.T) {
 	require.NoError(t, updater.Wait())
 
 	// check the ref was updated
-	commit, logErr = log.GetCommit(ctx, testRepo, ref.Revision())
+	commit, logErr = log.GetCommit(ctx, gitCmdFactory, testRepo, ref.Revision())
 	require.NoError(t, logErr)
 	require.Equal(t, commit.Id, sha, "reference was not updated")
 
 	// since ref has been updated to HEAD, we know that it does not point to HEAD^. So, HEAD^ is an invalid "old value" for updating ref
-	parentCommit, err := log.GetCommit(ctx, testRepo, "HEAD^")
+	parentCommit, err := log.GetCommit(ctx, gitCmdFactory, testRepo, "HEAD^")
 	require.NoError(t, err)
 	require.Error(t, updater.Update(ref, parentCommit.Id, parentCommit.Id))
 
 	// check the ref was not updated
-	commit, logErr = log.GetCommit(ctx, testRepo, ref.Revision())
+	commit, logErr = log.GetCommit(ctx, gitCmdFactory, testRepo, ref.Revision())
 	require.NoError(t, logErr)
 	require.NotEqual(t, commit.Id, parentCommit.Id, "reference was updated when it shouldn't have been")
 }
@@ -111,7 +113,7 @@ func TestDelete(t *testing.T) {
 	require.NoError(t, updater.Wait())
 
 	// check the ref was removed
-	_, err = log.GetCommit(ctx, testRepo, ref.Revision())
+	_, err = log.GetCommit(ctx, git.NewExecCommandFactory(config.Config), testRepo, ref.Revision())
 	require.True(t, log.IsNotFound(err), "expected 'not found' error got %v", err)
 }
 
@@ -119,7 +121,7 @@ func TestBulkOperation(t *testing.T) {
 	ctx, testRepo, _, teardown := setup(t)
 	defer teardown()
 
-	headCommit, err := log.GetCommit(ctx, testRepo, "HEAD")
+	headCommit, err := log.GetCommit(ctx, git.NewExecCommandFactory(config.Config), testRepo, "HEAD")
 	require.NoError(t, err)
 
 	updater, err := New(ctx, config.Config, testRepo)
@@ -141,7 +143,8 @@ func TestContextCancelAbortsRefChanges(t *testing.T) {
 	ctx, testRepo, _, teardown := setup(t)
 	defer teardown()
 
-	headCommit, err := log.GetCommit(ctx, testRepo, "HEAD")
+	gitCmdFactory := git.NewExecCommandFactory(config.Config)
+	headCommit, err := log.GetCommit(ctx, gitCmdFactory, testRepo, "HEAD")
 	require.NoError(t, err)
 
 	childCtx, childCancel := context.WithCancel(ctx)
@@ -157,7 +160,7 @@ func TestContextCancelAbortsRefChanges(t *testing.T) {
 	require.Error(t, updater.Wait())
 
 	// check the ref doesn't exist
-	_, err = log.GetCommit(ctx, testRepo, ref.Revision())
+	_, err = log.GetCommit(ctx, gitCmdFactory, testRepo, ref.Revision())
 	require.True(t, log.IsNotFound(err), "expected 'not found' error got %v", err)
 }
 
@@ -168,7 +171,8 @@ func TestUpdater_closingStdinAbortsChanges(t *testing.T) {
 	testRepo, _, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
 
-	headCommit, err := log.GetCommit(ctx, testRepo, "HEAD")
+	gitCmdFactory := git.NewExecCommandFactory(config.Config)
+	headCommit, err := log.GetCommit(ctx, gitCmdFactory, testRepo, "HEAD")
 	require.NoError(t, err)
 
 	ref := git.ReferenceName("refs/heads/shouldnotexist")
@@ -186,6 +190,6 @@ func TestUpdater_closingStdinAbortsChanges(t *testing.T) {
 
 	// ... but as we now use explicit transactional behaviour, this is no
 	// longer the case.
-	_, err = log.GetCommit(ctx, testRepo, ref.Revision())
+	_, err = log.GetCommit(ctx, gitCmdFactory, testRepo, ref.Revision())
 	require.True(t, log.IsNotFound(err), "expected 'not found' error got %v", err)
 }

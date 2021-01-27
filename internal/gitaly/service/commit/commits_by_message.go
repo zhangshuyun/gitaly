@@ -28,14 +28,14 @@ func (s *server) CommitsByMessage(in *gitalypb.CommitsByMessageRequest, stream g
 		return helper.ErrInvalidArgument(err)
 	}
 
-	if err := commitsByMessage(in, stream); err != nil {
+	if err := s.commitsByMessage(in, stream); err != nil {
 		return helper.ErrInternal(err)
 	}
 
 	return nil
 }
 
-func commitsByMessage(in *gitalypb.CommitsByMessageRequest, stream gitalypb.CommitService_CommitsByMessageServer) error {
+func (s *server) commitsByMessage(in *gitalypb.CommitsByMessageRequest, stream gitalypb.CommitService_CommitsByMessageServer) error {
 	ctx := stream.Context()
 	sender := &commitsByMessageSender{stream: stream}
 
@@ -65,7 +65,7 @@ func commitsByMessage(in *gitalypb.CommitsByMessageRequest, stream gitalypb.Comm
 		paths = append(paths, string(path))
 	}
 
-	return sendCommits(stream.Context(), sender, in.GetRepository(), []string{string(revision)}, paths, in.GetGlobalOptions(), gitLogExtraOptions...)
+	return sendCommits(stream.Context(), sender, s.gitCmdFactory, in.GetRepository(), []string{string(revision)}, paths, in.GetGlobalOptions(), gitLogExtraOptions...)
 }
 
 func validateCommitsByMessageRequest(in *gitalypb.CommitsByMessageRequest) error {

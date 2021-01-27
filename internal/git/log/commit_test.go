@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/metadata"
@@ -151,7 +152,7 @@ func TestGetCommitCatfile(t *testing.T) {
 		},
 	}
 
-	c, err := catfile.New(ctx, testRepo)
+	c, err := catfile.New(ctx, git.NewExecCommandFactory(config.Config), testRepo)
 	require.NoError(t, err)
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -175,7 +176,7 @@ func TestGetCommitCatfileWithTrailers(t *testing.T) {
 	testRepo, _, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
 
-	catfile, err := catfile.New(ctx, testRepo)
+	catfile, err := catfile.New(ctx, git.NewExecCommandFactory(config.Config), testRepo)
 
 	require.NoError(t, err)
 

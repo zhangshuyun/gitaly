@@ -1020,7 +1020,7 @@ func newReplicationService(tb testing.TB) (*grpc.Server, string) {
 	gitalypb.RegisterObjectPoolServiceServer(svr, objectpoolservice.NewServer(gitaly_config.Config, locator, gitCmdFactory))
 	gitalypb.RegisterRemoteServiceServer(svr, remote.NewServer(gitaly_config.Config, RubyServer, locator, gitCmdFactory))
 	gitalypb.RegisterSSHServiceServer(svr, ssh.NewServer(gitaly_config.Config, locator, gitCmdFactory))
-	gitalypb.RegisterRefServiceServer(svr, ref.NewServer(gitaly_config.Config, locator))
+	gitalypb.RegisterRefServiceServer(svr, ref.NewServer(gitaly_config.Config, locator, gitCmdFactory))
 	healthpb.RegisterHealthServer(svr, health.NewServer())
 	reflection.Register(svr)
 
