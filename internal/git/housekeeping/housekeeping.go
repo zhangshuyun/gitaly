@@ -2,6 +2,7 @@ package housekeeping
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,41 +16,98 @@ const (
 	deleteTempFilesOlderThanDuration = 7 * 24 * time.Hour
 	brokenRefsGracePeriod            = 24 * time.Hour
 	minimumDirPerm                   = 0700
+	lockfileGracePeriod              = 15 * time.Minute
+	referenceLockfileGracePeriod     = 1 * time.Hour
+	packedRefsLockGracePeriod        = 1 * time.Hour
+	packedRefsNewGracePeriod         = 15 * time.Minute
 )
+
+var (
+	lockfiles = []string{
+		"config.lock",
+		"HEAD.lock",
+		"objects/info/commit-graphs/commit-graph-chain.lock",
+	}
+)
+
+type staleFileFinderFn func(context.Context, string) ([]string, error)
 
 // Perform will perform housekeeping duties on a repository
 func Perform(ctx context.Context, repoPath string) error {
-	logger := myLogger(ctx)
+	logEntry := myLogger(ctx)
+	var filesToPrune []string
 
-	temporaryObjects, err := findTemporaryObjects(ctx, repoPath)
-	if err != nil {
-		return err
+	for field, staleFileFinder := range map[string]staleFileFinderFn{
+		"objects":        findTemporaryObjects,
+		"locks":          findStaleLockfiles,
+		"refs":           findBrokenLooseReferences,
+		"reflocks":       findStaleReferenceLocks,
+		"packedrefslock": findPackedRefsLock,
+		"packedrefsnew":  findPackedRefsNew,
+	} {
+		staleFiles, err := staleFileFinder(ctx, repoPath)
+		if err != nil {
+			return fmt.Errorf("housekeeping failed to find %s: %w", field, err)
+		}
+
+		filesToPrune = append(filesToPrune, staleFiles...)
+		logEntry = logEntry.WithField(field, len(staleFiles))
 	}
-
-	brokenRefs, err := findBrokenLooseReferences(ctx, repoPath)
-	if err != nil {
-		return err
-	}
-
-	filesToPrune := append(temporaryObjects, brokenRefs...)
 
 	unremovableFiles := 0
 	for _, path := range filesToPrune {
 		if err := os.Remove(path); err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
 			unremovableFiles++
-			logger.WithError(err).WithField("path", path).Warn("unable to remove stray file")
+			// We cannot use `logEntry` here as it's already seeded
+			// with the statistics fields.
+			myLogger(ctx).WithError(err).WithField("path", path).Warn("unable to remove stale file")
 		}
 	}
 
 	if len(filesToPrune) > 0 {
-		logger.WithFields(log.Fields{
-			"objects":  len(temporaryObjects),
-			"refs":     len(brokenRefs),
-			"failures": unremovableFiles,
-		}).Info("removed files")
+		logEntry.WithField("failures", unremovableFiles).Info("removed files")
 	}
 
-	return err
+	return nil
+}
+
+// findStaleFiles determines whether any of the given files rooted at repoPath
+// are stale or not. A file is considered stale if it exists and if it has not
+// been modified during the gracePeriod. A nonexistent file is not considered
+// to be a stale file and will not cause an error.
+func findStaleFiles(repoPath string, gracePeriod time.Duration, files ...string) ([]string, error) {
+	var staleFiles []string
+
+	for _, file := range files {
+		path := filepath.Join(repoPath, file)
+
+		fileInfo, err := os.Stat(path)
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return nil, err
+		}
+
+		if time.Since(fileInfo.ModTime()) < gracePeriod {
+			continue
+		}
+
+		staleFiles = append(staleFiles, path)
+	}
+
+	return staleFiles, nil
+}
+
+// findStaleLockfiles finds a subset of lockfiles which may be created by git
+// commands. We're quite conservative with what we're removing, we certaintly
+// don't just scan the repo for `*.lock` files. Instead, we only remove a known
+// set of lockfiles which have caused problems in the past.
+func findStaleLockfiles(ctx context.Context, repoPath string) ([]string, error) {
+	return findStaleFiles(repoPath, lockfileGracePeriod, lockfiles...)
 }
 
 func findTemporaryObjects(ctx context.Context, repoPath string) ([]string, error) {
@@ -124,6 +182,48 @@ func findBrokenLooseReferences(ctx context.Context, repoPath string) ([]string, 
 	}
 
 	return brokenRefs, nil
+}
+
+// findStaleReferenceLocks scans the refdb for stale locks for loose references.
+func findStaleReferenceLocks(ctx context.Context, repoPath string) ([]string, error) {
+	var staleReferenceLocks []string
+
+	err := filepath.Walk(filepath.Join(repoPath, "refs"), func(path string, info os.FileInfo, err error) error {
+		if os.IsNotExist(err) {
+			// Race condition: somebody already deleted the file for us. Ignore this file.
+			return nil
+		}
+
+		if err != nil {
+			return err
+		}
+
+		if info.IsDir() {
+			return nil
+		}
+
+		if !strings.HasSuffix(info.Name(), ".lock") || time.Since(info.ModTime()) < referenceLockfileGracePeriod {
+			return nil
+		}
+
+		staleReferenceLocks = append(staleReferenceLocks, path)
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return staleReferenceLocks, nil
+}
+
+// findPackedRefsLock returns stale lockfiles for the packed-refs file.
+func findPackedRefsLock(ctx context.Context, repoPath string) ([]string, error) {
+	return findStaleFiles(repoPath, packedRefsLockGracePeriod, "packed-refs.lock")
+}
+
+// findPackedRefsNew returns stale temporary packed-refs files.
+func findPackedRefsNew(ctx context.Context, repoPath string) ([]string, error) {
+	return findStaleFiles(repoPath, packedRefsNewGracePeriod, "packed-refs.new")
 }
 
 // FixDirectoryPermissions does a recursive directory walk to look for

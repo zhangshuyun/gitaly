@@ -2,6 +2,7 @@ package housekeeping
 
 import (
 	"bytes"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -307,6 +308,163 @@ func TestPerform_references(t *testing.T) {
 			})
 
 			require.ElementsMatch(t, tc.expected, actual)
+		})
+	}
+}
+
+func TestPerform_withSpecificFile(t *testing.T) {
+	for file, finder := range map[string]staleFileFinderFn{
+		"HEAD.lock":        findStaleLockfiles,
+		"config.lock":      findStaleLockfiles,
+		"packed-refs.lock": findPackedRefsLock,
+		"packed-refs.new":  findPackedRefsNew,
+	} {
+		testPerformWithSpecificFile(t, file, finder)
+	}
+}
+
+func testPerformWithSpecificFile(t *testing.T, file string, finder staleFileFinderFn) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	_, repoPath, cleanup := testhelper.NewTestRepo(t)
+	defer cleanup()
+
+	for _, tc := range []struct {
+		desc          string
+		entries       []entry
+		expectedFiles []string
+	}{
+		{
+			desc: fmt.Sprintf("fresh %s is kept", file),
+			entries: []entry{
+				f(file, 0700, 10*time.Minute, Keep),
+			},
+		},
+		{
+			desc: fmt.Sprintf("stale %s in subdir is kept", file),
+			entries: []entry{
+				d("subdir", 0700, 240*time.Hour, Keep, []entry{
+					f(file, 0700, 24*time.Hour, Keep),
+				}),
+			},
+		},
+		{
+			desc: fmt.Sprintf("stale %s is deleted", file),
+			entries: []entry{
+				f(file, 0700, 61*time.Minute, Delete),
+			},
+			expectedFiles: []string{
+				filepath.Join(repoPath, file),
+			},
+		},
+		{
+			desc: fmt.Sprintf("variations of %s are kept", file),
+			entries: []entry{
+				f(file[:len(file)-1], 0700, 61*time.Minute, Keep),
+				f("~"+file, 0700, 61*time.Minute, Keep),
+				f(file+"~", 0700, 61*time.Minute, Keep),
+			},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			for _, e := range tc.entries {
+				e.create(t, repoPath)
+			}
+
+			staleFiles, err := finder(ctx, repoPath)
+			require.NoError(t, err)
+			require.ElementsMatch(t, tc.expectedFiles, staleFiles)
+
+			require.NoError(t, Perform(ctx, repoPath))
+
+			for _, e := range tc.entries {
+				e.validate(t, repoPath)
+			}
+		})
+	}
+}
+
+func TestPerform_referenceLocks(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	for _, tc := range []struct {
+		desc                   string
+		entries                []entry
+		expectedReferenceLocks []string
+	}{
+		{
+			desc: "fresh lock is kept",
+			entries: []entry{
+				d("refs", 0755, 0*time.Hour, Keep, []entry{
+					f("main", 0755, 10*time.Minute, Keep),
+					f("main.lock", 0755, 10*time.Minute, Keep),
+				}),
+			},
+		},
+		{
+			desc: "stale lock is deleted",
+			entries: []entry{
+				d("refs", 0755, 0*time.Hour, Keep, []entry{
+					f("main", 0755, 1*time.Hour, Keep),
+					f("main.lock", 0755, 1*time.Hour, Delete),
+				}),
+			},
+			expectedReferenceLocks: []string{
+				"refs/main.lock",
+			},
+		},
+		{
+			desc: "nested reference locks are deleted",
+			entries: []entry{
+				d("refs", 0755, 0*time.Hour, Keep, []entry{
+					d("tags", 0755, 0*time.Hour, Keep, []entry{
+						f("main", 0755, 1*time.Hour, Keep),
+						f("main.lock", 0755, 1*time.Hour, Delete),
+					}),
+					d("heads", 0755, 0*time.Hour, Keep, []entry{
+						f("main", 0755, 1*time.Hour, Keep),
+						f("main.lock", 0755, 1*time.Hour, Delete),
+					}),
+					d("foobar", 0755, 0*time.Hour, Keep, []entry{
+						f("main", 0755, 1*time.Hour, Keep),
+						f("main.lock", 0755, 1*time.Hour, Delete),
+					}),
+				}),
+			},
+			expectedReferenceLocks: []string{
+				"refs/tags/main.lock",
+				"refs/heads/main.lock",
+				"refs/foobar/main.lock",
+			},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			repoPath, cleanup := testhelper.TempDir(t)
+			defer cleanup()
+
+			for _, e := range tc.entries {
+				e.create(t, repoPath)
+			}
+
+			// We need to recreate the temporary directory on each
+			// run, so we don't have the full path available when
+			// creating the testcases.
+			var expectedReferenceLocks []string
+			for _, referenceLock := range tc.expectedReferenceLocks {
+				expectedReferenceLocks = append(expectedReferenceLocks, filepath.Join(repoPath, referenceLock))
+			}
+
+			staleLockfiles, err := findStaleReferenceLocks(ctx, repoPath)
+			require.NoError(t, err)
+			require.ElementsMatch(t, expectedReferenceLocks, staleLockfiles)
+
+			require.NoError(t, Perform(ctx, repoPath))
+
+			for _, e := range tc.entries {
+				e.validate(t, repoPath)
+			}
 		})
 	}
 }
