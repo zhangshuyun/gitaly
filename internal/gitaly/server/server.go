@@ -90,10 +90,9 @@ func createNewServer(rubyServer *rubyserver.Server, hookManager hook.Manager, cf
 			grpccorrelation.StreamServerCorrelationInterceptor(), // Must be above the metadata handler
 			metadatahandler.StreamInterceptor,
 			grpc_prometheus.StreamServerInterceptor,
-			grpc_logrus.StreamServerInterceptor(logrusEntry),
-			featureflag.StreamInterceptor,
 			commandstatshandler.StreamInterceptor,
 			grpc_logrus.StreamServerInterceptor(logrusEntry, grpc_logrus.WithMessageProducer(commandstatshandler.CommandStatsMessageProducer)),
+			featureflag.StreamInterceptor,
 			sentryhandler.StreamLogHandler,
 			cancelhandler.Stream, // Should be below LogHandler
 			auth.StreamServerInterceptor(cfg.Auth),
@@ -109,10 +108,9 @@ func createNewServer(rubyServer *rubyserver.Server, hookManager hook.Manager, cf
 			grpccorrelation.UnaryServerCorrelationInterceptor(), // Must be above the metadata handler
 			metadatahandler.UnaryInterceptor,
 			grpc_prometheus.UnaryServerInterceptor,
-			grpc_logrus.UnaryServerInterceptor(logrusEntry),
-			featureflag.UnaryInterceptor,
 			commandstatshandler.UnaryInterceptor,
 			grpc_logrus.UnaryServerInterceptor(logrusEntry, grpc_logrus.WithMessageProducer(commandstatshandler.CommandStatsMessageProducer)),
+			featureflag.UnaryInterceptor,
 			sentryhandler.UnaryLogHandler,
 			cancelhandler.Unary, // Should be below LogHandler
 			auth.UnaryServerInterceptor(cfg.Auth),
