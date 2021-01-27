@@ -19,6 +19,7 @@ const (
 	lockfileGracePeriod              = 15 * time.Minute
 	referenceLockfileGracePeriod     = 1 * time.Hour
 	packedRefsLockGracePeriod        = 1 * time.Hour
+	packedRefsNewGracePeriod         = 15 * time.Minute
 )
 
 var (
@@ -42,6 +43,7 @@ func Perform(ctx context.Context, repoPath string) error {
 		"refs":           findBrokenLooseReferences,
 		"reflocks":       findStaleReferenceLocks,
 		"packedrefslock": findPackedRefsLock,
+		"packedrefsnew":  findPackedRefsNew,
 	} {
 		staleFiles, err := staleFileFinder(ctx, repoPath)
 		if err != nil {
@@ -217,6 +219,11 @@ func findStaleReferenceLocks(ctx context.Context, repoPath string) ([]string, er
 // findPackedRefsLock returns stale lockfiles for the packed-refs file.
 func findPackedRefsLock(ctx context.Context, repoPath string) ([]string, error) {
 	return findStaleFiles(repoPath, packedRefsLockGracePeriod, "packed-refs.lock")
+}
+
+// findPackedRefsNew returns stale temporary packed-refs files.
+func findPackedRefsNew(ctx context.Context, repoPath string) ([]string, error) {
+	return findStaleFiles(repoPath, packedRefsNewGracePeriod, "packed-refs.new")
 }
 
 // FixDirectoryPermissions does a recursive directory walk to look for

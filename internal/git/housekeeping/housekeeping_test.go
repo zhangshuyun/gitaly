@@ -317,6 +317,7 @@ func TestPerform_withSpecificFile(t *testing.T) {
 		"HEAD.lock":        findStaleLockfiles,
 		"config.lock":      findStaleLockfiles,
 		"packed-refs.lock": findPackedRefsLock,
+		"packed-refs.new":  findPackedRefsNew,
 	} {
 		testPerformWithSpecificFile(t, file, finder)
 	}

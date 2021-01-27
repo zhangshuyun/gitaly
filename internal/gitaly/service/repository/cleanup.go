@@ -37,12 +37,6 @@ func (s *server) cleanupRepo(ctx context.Context, repo *gitalypb.Repository) err
 		return status.Errorf(codes.Internal, "Cleanup: cleanDisconnectedWorktrees: %v", err)
 	}
 
-	older15min := time.Now().Add(-15 * time.Minute)
-
-	if err := cleanPackedRefsNew(repoPath, older15min); err != nil {
-		return status.Errorf(codes.Internal, "Cleanup: cleanPackedRefsNew: %v", err)
-	}
-
 	if err := housekeeping.Perform(ctx, repoPath); err != nil {
 		return status.Errorf(codes.Internal, "Cleanup: houskeeping: %v", err)
 	}
@@ -107,29 +101,4 @@ func (s *server) cleanDisconnectedWorktrees(ctx context.Context, repo *gitalypb.
 	}
 
 	return cmd.Wait()
-}
-
-func cleanPackedRefsNew(repoPath string, threshold time.Time) error {
-	path := filepath.Join(repoPath, "packed-refs.new")
-
-	fileInfo, err := os.Stat(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil // file is already gone, nothing to do!
-		}
-		return err
-	}
-
-	if fileInfo.ModTime().After(threshold) {
-		return nil // it is fresh enough
-	}
-
-	if err := os.Remove(path); err != nil {
-		if os.IsNotExist(err) {
-			return nil // file is already gone, nothing to do!
-		}
-		return err
-	}
-
-	return nil
 }
