@@ -4,7 +4,6 @@ import (
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/streamio"
@@ -56,7 +55,7 @@ func (s *server) PostReceivePack(stream gitalypb.SmartHTTPService_PostReceivePac
 		},
 		git.WithStdin(stdin),
 		git.WithStdout(stdout),
-		git.WithReceivePackHooks(ctx, config.Config, req, "http"),
+		git.WithReceivePackHooks(ctx, s.cfg, req, "http"),
 		git.WithGitProtocol(ctx, req),
 	)
 

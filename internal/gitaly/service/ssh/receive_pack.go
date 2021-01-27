@@ -9,7 +9,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/streamio"
@@ -74,7 +73,7 @@ func (s *server) sshReceivePack(stream gitalypb.SSHService_SSHReceivePackServer,
 		git.WithStdin(stdin),
 		git.WithStdout(stdout),
 		git.WithStderr(stderr),
-		git.WithReceivePackHooks(ctx, config.Config, req, "ssh"),
+		git.WithReceivePackHooks(ctx, s.cfg, req, "ssh"),
 		git.WithGitProtocol(ctx, req),
 	)
 
