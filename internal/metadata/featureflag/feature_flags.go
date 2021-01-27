@@ -16,7 +16,7 @@ var (
 	// LogCommandStats will log additional rusage stats for commands
 	LogCommandStats = FeatureFlag{Name: "log_command_stats", OnByDefault: false}
 	// GoUserFFBranch enables the Go implementation of UserFFBranch
-	GoUserFFBranch = FeatureFlag{Name: "go_user_ff_branch", OnByDefault: false}
+	GoUserFFBranch = FeatureFlag{Name: "go_user_ff_branch", OnByDefault: true}
 	// GoUserUpdateBranch enables the Go implementation of UserUpdateBranch
 	GoUserUpdateBranch = FeatureFlag{Name: "go_user_update_branch", OnByDefault: false}
 	// GoUserCommitFiles enables the Go implementation of UserCommitFiles
