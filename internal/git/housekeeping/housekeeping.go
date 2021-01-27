@@ -17,6 +17,7 @@ const (
 	brokenRefsGracePeriod            = 24 * time.Hour
 	minimumDirPerm                   = 0700
 	lockfileGracePeriod              = 15 * time.Minute
+	referenceLockfileGracePeriod     = 1 * time.Hour
 )
 
 var (
@@ -35,9 +36,10 @@ func Perform(ctx context.Context, repoPath string) error {
 	var filesToPrune []string
 
 	for field, staleFileFinder := range map[string]staleFileFinderFn{
-		"objects": findTemporaryObjects,
-		"locks":   findStaleLockfiles,
-		"refs":    findBrokenLooseReferences,
+		"objects":  findTemporaryObjects,
+		"locks":    findStaleLockfiles,
+		"refs":     findBrokenLooseReferences,
+		"reflocks": findStaleReferenceLocks,
 	} {
 		staleFiles, err := staleFileFinder(ctx, repoPath)
 		if err != nil {
@@ -176,6 +178,38 @@ func findBrokenLooseReferences(ctx context.Context, repoPath string) ([]string, 
 	}
 
 	return brokenRefs, nil
+}
+
+// findStaleReferenceLocks scans the refdb for stale locks for loose references.
+func findStaleReferenceLocks(ctx context.Context, repoPath string) ([]string, error) {
+	var staleReferenceLocks []string
+
+	err := filepath.Walk(filepath.Join(repoPath, "refs"), func(path string, info os.FileInfo, err error) error {
+		if os.IsNotExist(err) {
+			// Race condition: somebody already deleted the file for us. Ignore this file.
+			return nil
+		}
+
+		if err != nil {
+			return err
+		}
+
+		if info.IsDir() {
+			return nil
+		}
+
+		if !strings.HasSuffix(info.Name(), ".lock") || time.Since(info.ModTime()) < referenceLockfileGracePeriod {
+			return nil
+		}
+
+		staleReferenceLocks = append(staleReferenceLocks, path)
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return staleReferenceLocks, nil
 }
 
 // FixDirectoryPermissions does a recursive directory walk to look for

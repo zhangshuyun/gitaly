@@ -5,7 +5,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"gitlab.com/gitlab-org/gitaly/internal/git"
@@ -30,9 +29,6 @@ func (s *server) cleanupRepo(ctx context.Context, repo *gitalypb.Repository) err
 	}
 
 	threshold := time.Now().Add(-1 * time.Hour)
-	if err := cleanRefsLocks(filepath.Join(repoPath, "refs"), threshold); err != nil {
-		return status.Errorf(codes.Internal, "Cleanup: cleanRefsLocks: %v", err)
-	}
 	if err := cleanPackedRefsLock(repoPath, threshold); err != nil {
 		return status.Errorf(codes.Internal, "Cleanup: cleanPackedRefsLock: %v", err)
 	}
@@ -57,31 +53,6 @@ func (s *server) cleanupRepo(ctx context.Context, repo *gitalypb.Repository) err
 	}
 
 	return nil
-}
-
-func cleanRefsLocks(rootPath string, threshold time.Time) error {
-	return filepath.Walk(rootPath, func(path string, info os.FileInfo, err error) error {
-		if os.IsNotExist(err) {
-			// Race condition: somebody already deleted the file for us. Ignore this file.
-			return nil
-		}
-
-		if err != nil {
-			return err
-		}
-
-		if info.IsDir() {
-			return nil
-		}
-
-		if strings.HasSuffix(info.Name(), ".lock") && info.ModTime().Before(threshold) {
-			if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
-				return err
-			}
-		}
-
-		return nil
-	})
 }
 
 func cleanPackedRefsLock(repoPath string, threshold time.Time) error {
