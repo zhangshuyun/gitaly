@@ -28,11 +28,6 @@ func (s *server) cleanupRepo(ctx context.Context, repo *gitalypb.Repository) err
 		return err
 	}
 
-	threshold := time.Now().Add(-1 * time.Hour)
-	if err := cleanPackedRefsLock(repoPath, threshold); err != nil {
-		return status.Errorf(codes.Internal, "Cleanup: cleanPackedRefsLock: %v", err)
-	}
-
 	worktreeThreshold := time.Now().Add(-6 * time.Hour)
 	if err := s.cleanStaleWorktrees(ctx, repo, repoPath, worktreeThreshold); err != nil {
 		return status.Errorf(codes.Internal, "Cleanup: cleanStaleWorktrees: %v", err)
@@ -50,25 +45,6 @@ func (s *server) cleanupRepo(ctx context.Context, repo *gitalypb.Repository) err
 
 	if err := housekeeping.Perform(ctx, repoPath); err != nil {
 		return status.Errorf(codes.Internal, "Cleanup: houskeeping: %v", err)
-	}
-
-	return nil
-}
-
-func cleanPackedRefsLock(repoPath string, threshold time.Time) error {
-	path := filepath.Join(repoPath, "packed-refs.lock")
-	fileInfo, err := os.Stat(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil
-		}
-		return err
-	}
-
-	if fileInfo.ModTime().Before(threshold) {
-		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
-			return err
-		}
 	}
 
 	return nil

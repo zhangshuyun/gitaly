@@ -314,8 +314,9 @@ func TestPerform_references(t *testing.T) {
 
 func TestPerform_withSpecificFile(t *testing.T) {
 	for file, finder := range map[string]staleFileFinderFn{
-		"HEAD.lock":   findStaleLockfiles,
-		"config.lock": findStaleLockfiles,
+		"HEAD.lock":        findStaleLockfiles,
+		"config.lock":      findStaleLockfiles,
+		"packed-refs.lock": findPackedRefsLock,
 	} {
 		testPerformWithSpecificFile(t, file, finder)
 	}
