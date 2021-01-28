@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -10,6 +11,8 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
+	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -17,7 +20,7 @@ import (
 
 const attributesFileMode os.FileMode = 0644
 
-func applyGitattributes(ctx context.Context, c catfile.Batch, repoPath string, revision []byte) error {
+func (s *server) applyGitattributes(ctx context.Context, c catfile.Batch, repoPath string, revision []byte) error {
 	infoPath := filepath.Join(repoPath, "info")
 	attributesPath := filepath.Join(infoPath, "attributes")
 
@@ -36,6 +39,12 @@ func applyGitattributes(ctx context.Context, c catfile.Batch, repoPath string, r
 	}
 
 	if catfile.IsNotFound(err) || blobInfo.Type != "blob" {
+		// If there is no gitattributes file, we simply use the ZeroOID
+		// as a placeholder to vote on the removal.
+		if err := s.vote(ctx, git.ZeroOID); err != nil {
+			return fmt.Errorf("could not remove gitattributes: %w", err)
+		}
+
 		// Remove info/attributes file if there's no .gitattributes file
 		if err := os.Remove(attributesPath); err != nil && !os.IsNotExist(err) {
 			return err
@@ -74,8 +83,45 @@ func applyGitattributes(ctx context.Context, c catfile.Batch, repoPath string, r
 		return err
 	}
 
+	blobOID, err := git.NewObjectIDFromHex(blobInfo.Oid)
+	if err != nil {
+		return err
+	}
+
+	// Vote on the contents of the newly written gitattributes file.
+	if err := s.vote(ctx, blobOID); err != nil {
+		return fmt.Errorf("could not commit gitattributes: %w", err)
+	}
+
 	// Rename temp file and return the result
 	return os.Rename(tempFile.Name(), attributesPath)
+}
+
+func (s *server) vote(ctx context.Context, oid git.ObjectID) error {
+	if featureflag.IsDisabled(ctx, featureflag.TxApplyGitattributes) {
+		return nil
+	}
+
+	tx, err := metadata.TransactionFromContext(ctx)
+	if errors.Is(err, metadata.ErrTransactionNotFound) {
+		return nil
+	}
+
+	praefect, err := metadata.PraefectFromContext(ctx)
+	if err != nil {
+		return fmt.Errorf("vote has invalid Praefect info: %w", err)
+	}
+
+	hash, err := oid.Bytes()
+	if err != nil {
+		return fmt.Errorf("vote with invalid object ID: %w", err)
+	}
+
+	if err := s.txManager.Vote(ctx, tx, *praefect, hash); err != nil {
+		return fmt.Errorf("vote failed: %w", err)
+	}
+
+	return nil
 }
 
 func (s *server) ApplyGitattributes(ctx context.Context, in *gitalypb.ApplyGitattributesRequest) (*gitalypb.ApplyGitattributesResponse, error) {
@@ -94,7 +140,7 @@ func (s *server) ApplyGitattributes(ctx context.Context, in *gitalypb.ApplyGitat
 		return nil, err
 	}
 
-	if err := applyGitattributes(ctx, c, repoPath, in.GetRevision()); err != nil {
+	if err := s.applyGitattributes(ctx, c, repoPath, in.GetRevision()); err != nil {
 		return nil, err
 	}
 

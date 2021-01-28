@@ -31,6 +31,8 @@ var (
 
 	// TxApplyBfgObjectMapStream enables transactions for ApplyBfgObjectMapStream
 	TxApplyBfgObjectMapStream = FeatureFlag{Name: "tx_apply_bfg_object_map_stream", OnByDefault: false}
+	// TxApplyGitattributes enables transactions for ApplyGitattributes
+	TxApplyGitattributes = FeatureFlag{Name: "tx_apply_gitattributes", OnByDefault: false}
 	// TxResolveConflicts enables transactions for ResolveConflicts
 	TxResolveConflicts = FeatureFlag{Name: "tx_resolve_conflicts", OnByDefault: false}
 	// TxFetchIntoObjectPool enables transactions for FetchIntoObjectPool
@@ -107,6 +109,7 @@ var All = []FeatureFlag{
 	GoUserUpdateSubmodule,
 	GoUserRevert,
 	TxApplyBfgObjectMapStream,
+	TxApplyGitattributes,
 	TxResolveConflicts,
 	TxFetchIntoObjectPool,
 	TxUserApplyPatch,
