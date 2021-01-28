@@ -103,7 +103,7 @@ func (s *server) sshUploadPack(stream gitalypb.SSHService_SSHUploadPackServer, r
 		stats.UpdateMetrics(s.packfileNegotiationMetrics)
 	}()
 
-	cmd, monitor, err := monitorStdinCommand(ctx, stdin, stdout, stderr, globalOpts, git.SubCmd{
+	cmd, monitor, err := monitorStdinCommand(ctx, s.gitCmdFactory, stdin, stdout, stderr, globalOpts, git.SubCmd{
 		Name: "upload-pack",
 		Args: []string{repoPath},
 	}, git.WithGitProtocol(ctx, req))
