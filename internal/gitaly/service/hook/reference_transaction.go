@@ -50,7 +50,7 @@ func (s *server) ReferenceTransactionHook(stream gitalypb.HookService_ReferenceT
 		request.GetEnvironmentVariables(),
 		stdin,
 	); err != nil {
-		return helper.ErrInternalf("error voting on transaction: %v", err)
+		return helper.ErrInternalf("reference-transaction hook: %v", err)
 	}
 
 	if err := stream.Send(&gitalypb.ReferenceTransactionHookResponse{
