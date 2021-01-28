@@ -1,4 +1,4 @@
-package git
+package localrepo
 
 import (
 	"fmt"
@@ -12,6 +12,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -21,14 +22,14 @@ type ReaderFunc func([]byte) (int, error)
 
 func (fn ReaderFunc) Read(b []byte) (int, error) { return fn(b) }
 
-func TestLocalRepository_WriteBlob(t *testing.T) {
+func TestRepo_WriteBlob(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
 	pbRepo, repoPath, clean := testhelper.InitBareRepo(t)
 	defer clean()
 
-	repo := NewRepository(pbRepo, config.Config)
+	repo := New(pbRepo, config.Config)
 
 	for _, tc := range []struct {
 		desc       string
@@ -147,14 +148,14 @@ func TestFormatTag(t *testing.T) {
 	}
 }
 
-func TestLocalRepository_WriteTag(t *testing.T) {
+func TestRepo_WriteTag(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
 	pbRepo, repoPath, clean := testhelper.NewTestRepo(t)
 	defer clean()
 
-	repo := NewRepository(pbRepo, config.Config)
+	repo := New(pbRepo, config.Config)
 
 	for _, tc := range []struct {
 		desc       string
@@ -198,14 +199,14 @@ func TestLocalRepository_WriteTag(t *testing.T) {
 	}
 }
 
-func TestLocalRepository_ReadObject(t *testing.T) {
+func TestRepo_ReadObject(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
 	testRepo, _, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
 
-	repo := NewRepository(testRepo, config.Config)
+	repo := New(testRepo, config.Config)
 
 	for _, tc := range []struct {
 		desc    string
@@ -215,8 +216,8 @@ func TestLocalRepository_ReadObject(t *testing.T) {
 	}{
 		{
 			desc:  "invalid object",
-			oid:   ZeroOID.String(),
-			error: InvalidObjectError(ZeroOID.String()),
+			oid:   git.ZeroOID.String(),
+			error: InvalidObjectError(git.ZeroOID.String()),
 		},
 		{
 			desc: "valid object",

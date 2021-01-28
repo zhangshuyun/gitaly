@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
@@ -32,7 +33,7 @@ func (s *Server) UserCreateBranch(ctx context.Context, req *gitalypb.UserCreateB
 	// like BranchName. See
 	// https://gitlab.com/gitlab-org/gitaly/-/issues/3331
 	//
-	// startPointReference, err := git.NewRepository(req.Repository).GetReference(ctx, "refs/heads/"+string(req.StartPoint))
+	// startPointReference, err := localrepo.New(req.Repository).GetReference(ctx, "refs/heads/"+string(req.StartPoint))
 	// startPointCommit, err := log.GetCommit(ctx, req.Repository, startPointReference.Target)
 	startPointCommit, err := log.GetCommit(ctx, s.locator, req.Repository, git.Revision(req.StartPoint))
 	// END TODO
@@ -41,7 +42,7 @@ func (s *Server) UserCreateBranch(ctx context.Context, req *gitalypb.UserCreateB
 	}
 
 	referenceName := fmt.Sprintf("refs/heads/%s", req.BranchName)
-	_, err = git.NewRepository(req.Repository, s.cfg).GetReference(ctx, git.ReferenceName(referenceName))
+	_, err = localrepo.New(req.Repository, s.cfg).GetReference(ctx, git.ReferenceName(referenceName))
 	if err == nil {
 		return nil, status.Errorf(codes.FailedPrecondition, "Could not update %s. Please refresh and try again.", req.BranchName)
 	} else if !errors.Is(err, git.ErrReferenceNotFound) {
@@ -160,7 +161,7 @@ func (s *Server) UserDeleteBranch(ctx context.Context, req *gitalypb.UserDeleteB
 		referenceFmt = "%s"
 	}
 	referenceName := fmt.Sprintf(referenceFmt, req.BranchName)
-	referenceValue, err := git.NewRepository(req.Repository, s.cfg).GetReference(ctx, git.ReferenceName(referenceName))
+	referenceValue, err := localrepo.New(req.Repository, s.cfg).GetReference(ctx, git.ReferenceName(referenceName))
 	if err != nil {
 		return nil, status.Errorf(codes.FailedPrecondition, "branch not found: %s", req.BranchName)
 	}

@@ -1,4 +1,4 @@
-package git
+package localrepo
 
 import (
 	"bytes"
@@ -10,22 +10,64 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
-func TestLocalRepository_Remote(t *testing.T) {
+func TestRepo_Remote(t *testing.T) {
 	repository := &gitalypb.Repository{StorageName: "stub", RelativePath: "/stub"}
 
-	repo := NewRepository(repository, config.Config)
-	require.Equal(t, LocalRepositoryRemote{repo: repository}, repo.Remote())
+	repo := New(repository, config.Config)
+	require.Equal(t, Remote{repo: repo}, repo.Remote())
 }
 
-func TestLocalRepositoryRemote_Add(t *testing.T) {
-	repo, repoPath, cleanup := testhelper.NewTestRepo(t)
+func TestBuildRemoteAddOptsFlags(t *testing.T) {
+	for _, tc := range []struct {
+		desc string
+		opts git.RemoteAddOpts
+		exp  []git.Option
+	}{
+		{
+			desc: "none",
+			exp:  nil,
+		},
+		{
+			desc: "all set",
+			opts: git.RemoteAddOpts{
+				Tags:                   git.RemoteAddOptsTagsNone,
+				Fetch:                  true,
+				RemoteTrackingBranches: []string{"branch-1", "branch-2"},
+				DefaultBranch:          "develop",
+				Mirror:                 git.RemoteAddOptsMirrorPush,
+			},
+			exp: []git.Option{
+				git.ValueFlag{Name: "-t", Value: "branch-1"},
+				git.ValueFlag{Name: "-t", Value: "branch-2"},
+				git.ValueFlag{Name: "-m", Value: "develop"},
+				git.Flag{Name: "-f"},
+				git.Flag{Name: "--no-tags"},
+				git.ValueFlag{Name: "--mirror", Value: "push"},
+			},
+		},
+		{
+			desc: "with tags",
+			opts: git.RemoteAddOpts{Tags: git.RemoteAddOptsTagsAll},
+			exp:  []git.Option{git.Flag{Name: "--tags"}},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			require.Equal(t, tc.exp, buildRemoteAddOptsFlags(tc.opts))
+		})
+	}
+}
+
+func TestRemote_Add(t *testing.T) {
+	repoProto, repoPath, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
+	repo := New(repoProto, config.Config)
 
 	_, remoteRepoPath, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
@@ -40,7 +82,7 @@ func TestLocalRepositoryRemote_Add(t *testing.T) {
 	}(config.Config.Ruby.Dir)
 	config.Config.Ruby.Dir = "/var/empty"
 
-	remote := LocalRepositoryRemote{repo: repo}
+	remote := repo.Remote()
 
 	t.Run("invalid argument", func(t *testing.T) {
 		for _, tc := range []struct {
@@ -62,16 +104,16 @@ func TestLocalRepositoryRemote_Add(t *testing.T) {
 			},
 		} {
 			t.Run(tc.desc, func(t *testing.T) {
-				err := remote.Add(ctx, tc.name, tc.url, RemoteAddOpts{})
+				err := remote.Add(ctx, tc.name, tc.url, git.RemoteAddOpts{})
 				require.Error(t, err)
-				assert.True(t, errors.Is(err, ErrInvalidArg))
+				assert.True(t, errors.Is(err, git.ErrInvalidArg))
 				assert.Contains(t, err.Error(), tc.errMsg)
 			})
 		}
 	})
 
 	t.Run("fetch", func(t *testing.T) {
-		require.NoError(t, remote.Add(ctx, "first", remoteRepoPath, RemoteAddOpts{Fetch: true}))
+		require.NoError(t, remote.Add(ctx, "first", remoteRepoPath, git.RemoteAddOpts{Fetch: true}))
 
 		remotes := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "remote", "--verbose"))
 		require.Equal(t,
@@ -84,35 +126,36 @@ func TestLocalRepositoryRemote_Add(t *testing.T) {
 	})
 
 	t.Run("default branch", func(t *testing.T) {
-		require.NoError(t, remote.Add(ctx, "second", "http://some.com.git", RemoteAddOpts{DefaultBranch: "wip"}))
+		require.NoError(t, remote.Add(ctx, "second", "http://some.com.git", git.RemoteAddOpts{DefaultBranch: "wip"}))
 
 		defaultRemote := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "symbolic-ref", "refs/remotes/second/HEAD"))
 		require.Equal(t, "refs/remotes/second/wip", defaultRemote)
 	})
 
 	t.Run("remote tracking branches", func(t *testing.T) {
-		require.NoError(t, remote.Add(ctx, "third", "http://some.com.git", RemoteAddOpts{RemoteTrackingBranches: []string{"a", "b"}}))
+		require.NoError(t, remote.Add(ctx, "third", "http://some.com.git", git.RemoteAddOpts{RemoteTrackingBranches: []string{"a", "b"}}))
 
 		defaultRemote := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "--get-all", "remote.third.fetch"))
 		require.Equal(t, "+refs/heads/a:refs/remotes/third/a\n+refs/heads/b:refs/remotes/third/b", defaultRemote)
 	})
 
 	t.Run("already exists", func(t *testing.T) {
-		require.NoError(t, remote.Add(ctx, "fourth", "http://some.com.git", RemoteAddOpts{}))
+		require.NoError(t, remote.Add(ctx, "fourth", "http://some.com.git", git.RemoteAddOpts{}))
 
-		err := remote.Add(ctx, "fourth", "http://some.com.git", RemoteAddOpts{})
-		require.Equal(t, ErrAlreadyExists, err)
+		err := remote.Add(ctx, "fourth", "http://some.com.git", git.RemoteAddOpts{})
+		require.Equal(t, git.ErrAlreadyExists, err)
 	})
 }
 
-func TestLocalRepositoryRemote_Remove(t *testing.T) {
-	repo, repoPath, cleanup := testhelper.InitBareRepo(t)
+func TestRemote_Remove(t *testing.T) {
+	repoProto, repoPath, cleanup := testhelper.InitBareRepo(t)
 	defer cleanup()
+	repo := New(repoProto, config.Config)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	remote := LocalRepositoryRemote{repo: repo}
+	remote := repo.Remote()
 
 	t.Run("ok", func(t *testing.T) {
 		testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "remote", "add", "first", "http://some.com.git")
@@ -125,20 +168,43 @@ func TestLocalRepositoryRemote_Remove(t *testing.T) {
 
 	t.Run("not found", func(t *testing.T) {
 		err := remote.Remove(ctx, "second")
-		require.Equal(t, ErrNotFound, err)
+		require.Equal(t, git.ErrNotFound, err)
 	})
 
 	t.Run("invalid argument: name", func(t *testing.T) {
 		err := remote.Remove(ctx, " ")
 		require.Error(t, err)
-		assert.True(t, errors.Is(err, ErrInvalidArg))
+		assert.True(t, errors.Is(err, git.ErrInvalidArg))
 		assert.Contains(t, err.Error(), `"name" is blank or empty`)
 	})
 }
 
-func TestLocalRepositoryRemote_SetURL(t *testing.T) {
-	repo, repoPath, cleanup := testhelper.InitBareRepo(t)
+func TestBuildSetURLOptsFlags(t *testing.T) {
+	for _, tc := range []struct {
+		desc string
+		opts git.SetURLOpts
+		exp  []git.Option
+	}{
+		{
+			desc: "none",
+			exp:  nil,
+		},
+		{
+			desc: "all set",
+			opts: git.SetURLOpts{Push: true},
+			exp:  []git.Option{git.Flag{Name: "--push"}},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			require.Equal(t, tc.exp, buildSetURLOptsFlags(tc.opts))
+		})
+	}
+}
+
+func TestRemote_SetURL(t *testing.T) {
+	repoProto, repoPath, cleanup := testhelper.InitBareRepo(t)
 	defer cleanup()
+	repo := New(repoProto, config.Config)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -163,10 +229,10 @@ func TestLocalRepositoryRemote_SetURL(t *testing.T) {
 			},
 		} {
 			t.Run(tc.desc, func(t *testing.T) {
-				remote := LocalRepositoryRemote{repo: repo}
-				err := remote.SetURL(ctx, tc.name, tc.url, SetURLOpts{})
+				remote := repo.Remote()
+				err := remote.SetURL(ctx, tc.name, tc.url, git.SetURLOpts{})
 				require.Error(t, err)
-				assert.True(t, errors.Is(err, ErrInvalidArg))
+				assert.True(t, errors.Is(err, git.ErrInvalidArg))
 				assert.Contains(t, err.Error(), tc.errMsg)
 			})
 		}
@@ -175,8 +241,8 @@ func TestLocalRepositoryRemote_SetURL(t *testing.T) {
 	t.Run("ok", func(t *testing.T) {
 		testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "remote", "add", "first", "file:/"+repoPath)
 
-		remote := LocalRepositoryRemote{repo: repo}
-		require.NoError(t, remote.SetURL(ctx, "first", "http://some.com.git", SetURLOpts{Push: true}))
+		remote := Remote{repo: repo}
+		require.NoError(t, remote.SetURL(ctx, "first", "http://some.com.git", git.SetURLOpts{Push: true}))
 
 		remotes := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "remote", "--verbose"))
 		require.Equal(t,
@@ -187,20 +253,20 @@ func TestLocalRepositoryRemote_SetURL(t *testing.T) {
 	})
 
 	t.Run("doesnt exist", func(t *testing.T) {
-		remote := LocalRepositoryRemote{repo: repo}
-		err := remote.SetURL(ctx, "second", "http://some.com.git", SetURLOpts{})
-		require.True(t, errors.Is(err, ErrNotFound), err)
+		remote := Remote{repo: repo}
+		err := remote.SetURL(ctx, "second", "http://some.com.git", git.SetURLOpts{})
+		require.True(t, errors.Is(err, git.ErrNotFound), err)
 	})
 }
 
-func TestLocalRepository_FetchRemote(t *testing.T) {
+func TestRepo_FetchRemote(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
 	_, remoteRepoPath, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
 
-	initBareWithRemote := func(t *testing.T, remote string) (*LocalRepository, string, testhelper.Cleanup) {
+	initBareWithRemote := func(t *testing.T, remote string) (*Repo, string, testhelper.Cleanup) {
 		t.Helper()
 
 		testRepo, testRepoPath, cleanup := testhelper.InitBareRepo(t)
@@ -213,7 +279,7 @@ func TestLocalRepository_FetchRemote(t *testing.T) {
 			t.FailNow()
 		}
 
-		return NewRepository(testRepo, config.Config), testRepoPath, cleanup
+		return New(testRepo, config.Config), testRepoPath, cleanup
 	}
 
 	defer func(oldValue string) {
@@ -222,10 +288,10 @@ func TestLocalRepository_FetchRemote(t *testing.T) {
 	config.Config.Ruby.Dir = "/var/empty"
 
 	t.Run("invalid name", func(t *testing.T) {
-		repo := NewRepository(nil, config.Config)
+		repo := New(nil, config.Config)
 
 		err := repo.FetchRemote(ctx, " ", FetchOpts{})
-		require.True(t, errors.Is(err, ErrInvalidArg))
+		require.True(t, errors.Is(err, git.ErrInvalidArg))
 		require.Contains(t, err.Error(), `"remoteName" is blank or empty`)
 	})
 
@@ -233,7 +299,7 @@ func TestLocalRepository_FetchRemote(t *testing.T) {
 		testRepo, _, cleanup := testhelper.InitBareRepo(t)
 		defer cleanup()
 
-		repo := NewRepository(testRepo, config.Config)
+		repo := New(testRepo, config.Config)
 		var stderr bytes.Buffer
 		err := repo.FetchRemote(ctx, "stub", FetchOpts{Stderr: &stderr})
 		require.Error(t, err)
@@ -256,9 +322,9 @@ func TestLocalRepository_FetchRemote(t *testing.T) {
 		require.Contains(t, fetchHead, "e56497bb5f03a90a51293fc6d516788730953899	not-for-merge	branch ''test''")
 		require.Contains(t, fetchHead, "8a2a6eb295bb170b34c24c76c49ed0e9b2eaf34b	not-for-merge	tag 'v1.1.0'")
 
-		sha, err := repo.ResolveRevision(ctx, Revision("refs/remotes/origin/master^{commit}"))
+		sha, err := repo.ResolveRevision(ctx, git.Revision("refs/remotes/origin/master^{commit}"))
 		require.NoError(t, err, "the object from remote should exists in local after fetch done")
-		require.Equal(t, ObjectID("1e292f8fedd741b75372e19097c76d327140c312"), sha)
+		require.Equal(t, git.ObjectID("1e292f8fedd741b75372e19097c76d327140c312"), sha)
 	})
 
 	t.Run("with env", func(t *testing.T) {
@@ -268,7 +334,7 @@ func TestLocalRepository_FetchRemote(t *testing.T) {
 		testRepo, testRepoPath, testCleanup := testhelper.NewTestRepo(t)
 		defer testCleanup()
 
-		repo := NewRepository(testRepo, config.Config)
+		repo := New(testRepo, config.Config)
 		testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "remote", "add", "source", sourceRepoPath)
 
 		var stderr bytes.Buffer
@@ -283,7 +349,7 @@ func TestLocalRepository_FetchRemote(t *testing.T) {
 		testRepo, testRepoPath, testCleanup := testhelper.NewTestRepo(t)
 		defer testCleanup()
 
-		repo := NewRepository(testRepo, config.Config)
+		repo := New(testRepo, config.Config)
 		testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "remote", "add", "source", sourceRepoPath)
 
 		require.NoError(t, repo.FetchRemote(ctx, "source", FetchOpts{}))
@@ -295,11 +361,11 @@ func TestLocalRepository_FetchRemote(t *testing.T) {
 			ctx,
 			"source",
 			FetchOpts{
-				Global: []GlobalOption{ConfigPair{Key: "fetch.prune", Value: "true"}},
+				Global: []git.GlobalOption{git.ConfigPair{Key: "fetch.prune", Value: "true"}},
 			}),
 		)
 
-		contains, err := repo.HasRevision(ctx, Revision("refs/remotes/source/markdown"))
+		contains, err := repo.HasRevision(ctx, git.Revision("refs/remotes/source/markdown"))
 		require.NoError(t, err)
 		require.False(t, contains, "remote tracking branch should be pruned as it no longer exists on the remote")
 	})
@@ -311,7 +377,7 @@ func TestLocalRepository_FetchRemote(t *testing.T) {
 		testRepo, testRepoPath, testCleanup := testhelper.NewTestRepo(t)
 		defer testCleanup()
 
-		repo := NewRepository(testRepo, config.Config)
+		repo := New(testRepo, config.Config)
 
 		testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "remote", "add", "source", sourceRepoPath)
 		require.NoError(t, repo.FetchRemote(ctx, "source", FetchOpts{}))
@@ -321,7 +387,7 @@ func TestLocalRepository_FetchRemote(t *testing.T) {
 
 		require.NoError(t, repo.FetchRemote(ctx, "source", FetchOpts{Prune: true}))
 
-		contains, err := repo.HasRevision(ctx, Revision("refs/remotes/source/markdown"))
+		contains, err := repo.HasRevision(ctx, git.Revision("refs/remotes/source/markdown"))
 		require.NoError(t, err)
 		require.False(t, contains, "remote tracking branch should be pruned as it no longer exists on the remote")
 	})
@@ -338,11 +404,11 @@ func TestLocalRepository_FetchRemote(t *testing.T) {
 		tagsAfter := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "tag", "--list")
 		require.Empty(t, tagsAfter)
 
-		containsBranches, err := repo.HasRevision(ctx, Revision("'test'"))
+		containsBranches, err := repo.HasRevision(ctx, git.Revision("'test'"))
 		require.NoError(t, err)
 		require.False(t, containsBranches)
 
-		containsTags, err := repo.HasRevision(ctx, Revision("v1.1.0"))
+		containsTags, err := repo.HasRevision(ctx, git.Revision("v1.1.0"))
 		require.NoError(t, err)
 		require.False(t, containsTags)
 	})

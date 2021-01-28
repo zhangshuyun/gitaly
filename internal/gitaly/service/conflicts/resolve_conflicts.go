@@ -15,6 +15,7 @@ import (
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/conflict"
+	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/git/remoterepo"
 	"gitlab.com/gitlab-org/gitaly/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
@@ -225,7 +226,7 @@ func (s *server) resolveConflicts(header *gitalypb.ResolveConflictsRequestHeader
 		return err
 	}
 
-	if err := git.NewRepository(header.GetRepository(), s.cfg).UpdateRef(
+	if err := localrepo.New(header.GetRepository(), s.cfg).UpdateRef(
 		stream.Context(),
 		git.ReferenceName("refs/heads/"+string(header.GetSourceBranch())),
 		commitOID,
@@ -269,7 +270,7 @@ func sameRepo(left, right *gitalypb.Repository) bool {
 func (s *server) repoWithBranchCommit(ctx context.Context, srcRepo, targetRepo *gitalypb.Repository, srcBranch, targetBranch []byte) error {
 	const peelCommit = "^{commit}"
 
-	src := git.NewRepository(srcRepo, s.cfg)
+	src := localrepo.New(srcRepo, s.cfg)
 	if sameRepo(srcRepo, targetRepo) {
 		_, err := src.ResolveRevision(ctx, git.Revision(string(targetBranch)+peelCommit))
 		return err

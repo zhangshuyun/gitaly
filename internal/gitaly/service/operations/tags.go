@@ -11,6 +11,7 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
+	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -28,7 +29,7 @@ func (s *Server) UserDeleteTag(ctx context.Context, req *gitalypb.UserDeleteTagR
 	}
 
 	referenceName := fmt.Sprintf("refs/tags/%s", req.TagName)
-	revision, err := git.NewRepository(req.Repository, s.cfg).GetReference(ctx, git.ReferenceName(referenceName))
+	revision, err := localrepo.New(req.Repository, s.cfg).GetReference(ctx, git.ReferenceName(referenceName))
 	if err != nil {
 		return nil, status.Errorf(codes.FailedPrecondition, "tag not found: %s", req.TagName)
 	}
@@ -143,7 +144,7 @@ func (s *Server) UserCreateTag(ctx context.Context, req *gitalypb.UserCreateTagR
 	refObjectID := targetObjectID
 	var tagObject *gitalypb.Tag
 	if makingTag {
-		localRepo := git.NewRepository(repo, s.cfg)
+		localRepo := localrepo.New(repo, s.cfg)
 
 		committerTime := time.Now()
 		if req.Timestamp != nil {
@@ -155,12 +156,12 @@ func (s *Server) UserCreateTag(ctx context.Context, req *gitalypb.UserCreateTagR
 
 		tagObjectID, err := localRepo.WriteTag(ctx, targetObjectID, targetObjectType, req.TagName, req.User.Name, req.User.Email, req.Message, committerTime)
 		if err != nil {
-			var FormatTagError git.FormatTagError
+			var FormatTagError localrepo.FormatTagError
 			if errors.As(err, &FormatTagError) {
 				return nil, status.Errorf(codes.Unknown, "Rugged::InvalidError: failed to parse signature - expected prefix doesn't match actual")
 			}
 
-			var MktagError git.MktagError
+			var MktagError localrepo.MktagError
 			if errors.As(err, &MktagError) {
 				return nil, status.Errorf(codes.NotFound, "Gitlab::Git::CommitError: %s", err.Error())
 			}

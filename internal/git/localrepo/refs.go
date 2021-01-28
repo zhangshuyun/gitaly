@@ -1,4 +1,4 @@
-package git
+package localrepo
 
 import (
 	"bufio"
@@ -11,15 +11,16 @@ import (
 	"os/exec"
 	"strings"
 
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 )
 
 // HasRevision checks if a revision in the repository exists. This will not
 // verify whether the target object exists. To do so, you can peel the revision
 // to a given object type, e.g. by passing `refs/heads/master^{commit}`.
-func (repo *LocalRepository) HasRevision(ctx context.Context, revision Revision) (bool, error) {
+func (repo *Repo) HasRevision(ctx context.Context, revision git.Revision) (bool, error) {
 	if _, err := repo.ResolveRevision(ctx, revision); err != nil {
-		if errors.Is(err, ErrReferenceNotFound) {
+		if errors.Is(err, git.ErrReferenceNotFound) {
 			return false, nil
 		}
 		return false, err
@@ -32,16 +33,16 @@ func (repo *LocalRepository) HasRevision(ctx context.Context, revision Revision)
 // reference to a given object type, e.g. by passing
 // `refs/heads/master^{commit}`. Returns an ErrReferenceNotFound error in case
 // the revision does not exist.
-func (repo *LocalRepository) ResolveRevision(ctx context.Context, revision Revision) (ObjectID, error) {
+func (repo *Repo) ResolveRevision(ctx context.Context, revision git.Revision) (git.ObjectID, error) {
 	if revision.String() == "" {
 		return "", errors.New("repository cannot contain empty reference name")
 	}
 
-	cmd, err := repo.command(ctx, nil, SubCmd{
+	cmd, err := repo.command(ctx, nil, git.SubCmd{
 		Name:  "rev-parse",
-		Flags: []Option{Flag{Name: "--verify"}},
+		Flags: []git.Option{git.Flag{Name: "--verify"}},
 		Args:  []string{revision.String()},
-	}, WithStderr(ioutil.Discard))
+	}, git.WithStderr(ioutil.Discard))
 	if err != nil {
 		return "", err
 	}
@@ -51,13 +52,13 @@ func (repo *LocalRepository) ResolveRevision(ctx context.Context, revision Revis
 
 	if err := cmd.Wait(); err != nil {
 		if _, ok := err.(*exec.ExitError); ok {
-			return "", ErrReferenceNotFound
+			return "", git.ErrReferenceNotFound
 		}
 		return "", err
 	}
 
 	hex := strings.TrimSpace(stdout.String())
-	oid, err := NewObjectIDFromHex(hex)
+	oid, err := git.NewObjectIDFromHex(hex)
 	if err != nil {
 		return "", fmt.Errorf("unsupported object hash %q: %w", hex, err)
 	}
@@ -67,14 +68,14 @@ func (repo *LocalRepository) ResolveRevision(ctx context.Context, revision Revis
 
 // GetReference looks up and returns the given reference. Returns a
 // ReferenceNotFound error if the reference was not found.
-func (repo *LocalRepository) GetReference(ctx context.Context, reference ReferenceName) (Reference, error) {
+func (repo *Repo) GetReference(ctx context.Context, reference git.ReferenceName) (git.Reference, error) {
 	refs, err := repo.GetReferences(ctx, reference.String())
 	if err != nil {
-		return Reference{}, err
+		return git.Reference{}, err
 	}
 
 	if len(refs) == 0 {
-		return Reference{}, ErrReferenceNotFound
+		return git.Reference{}, git.ErrReferenceNotFound
 	}
 
 	return refs[0], nil
@@ -82,20 +83,20 @@ func (repo *LocalRepository) GetReference(ctx context.Context, reference Referen
 
 // HasBranches determines whether there is at least one branch in the
 // repository.
-func (repo *LocalRepository) HasBranches(ctx context.Context) (bool, error) {
+func (repo *Repo) HasBranches(ctx context.Context) (bool, error) {
 	refs, err := repo.getReferences(ctx, "refs/heads/", 1)
 	return len(refs) > 0, err
 }
 
 // GetReferences returns references matching the given pattern.
-func (repo *LocalRepository) GetReferences(ctx context.Context, pattern string) ([]Reference, error) {
+func (repo *Repo) GetReferences(ctx context.Context, pattern string) ([]git.Reference, error) {
 	return repo.getReferences(ctx, pattern, 0)
 }
 
-func (repo *LocalRepository) getReferences(ctx context.Context, pattern string, limit uint) ([]Reference, error) {
-	flags := []Option{Flag{Name: "--format=%(refname)%00%(objectname)%00%(symref)"}}
+func (repo *Repo) getReferences(ctx context.Context, pattern string, limit uint) ([]git.Reference, error) {
+	flags := []git.Option{git.Flag{Name: "--format=%(refname)%00%(objectname)%00%(symref)"}}
 	if limit > 0 {
-		flags = append(flags, Flag{Name: fmt.Sprintf("--count=%d", limit)})
+		flags = append(flags, git.Flag{Name: fmt.Sprintf("--count=%d", limit)})
 	}
 
 	var args []string
@@ -103,7 +104,7 @@ func (repo *LocalRepository) getReferences(ctx context.Context, pattern string, 
 		args = []string{pattern}
 	}
 
-	cmd, err := repo.command(ctx, nil, SubCmd{
+	cmd, err := repo.command(ctx, nil, git.SubCmd{
 		Name:  "for-each-ref",
 		Flags: flags,
 		Args:  args,
@@ -114,7 +115,7 @@ func (repo *LocalRepository) getReferences(ctx context.Context, pattern string, 
 
 	scanner := bufio.NewScanner(cmd)
 
-	var refs []Reference
+	var refs []git.Reference
 	for scanner.Scan() {
 		line := bytes.SplitN(scanner.Bytes(), []byte{0}, 3)
 		if len(line) != 3 {
@@ -122,9 +123,9 @@ func (repo *LocalRepository) getReferences(ctx context.Context, pattern string, 
 		}
 
 		if len(line[2]) == 0 {
-			refs = append(refs, NewReference(ReferenceName(line[0]), string(line[1])))
+			refs = append(refs, git.NewReference(git.ReferenceName(line[0]), string(line[1])))
 		} else {
-			refs = append(refs, NewSymbolicReference(ReferenceName(line[0]), string(line[1])))
+			refs = append(refs, git.NewSymbolicReference(git.ReferenceName(line[0]), string(line[1])))
 		}
 	}
 
@@ -139,7 +140,7 @@ func (repo *LocalRepository) getReferences(ctx context.Context, pattern string, 
 }
 
 // GetBranches returns all branches.
-func (repo *LocalRepository) GetBranches(ctx context.Context) ([]Reference, error) {
+func (repo *Repo) GetBranches(ctx context.Context) ([]git.Reference, error) {
 	return repo.GetReferences(ctx, "refs/heads/")
 }
 
@@ -147,14 +148,14 @@ func (repo *LocalRepository) GetBranches(ctx context.Context) ([]Reference, erro
 // non-empty string, the update will fail it the reference is not currently at
 // that revision. If newValue is the ZeroOID, the reference will be deleted.
 // If oldValue is the ZeroOID, the reference will created.
-func (repo *LocalRepository) UpdateRef(ctx context.Context, reference ReferenceName, newValue, oldValue ObjectID) error {
+func (repo *Repo) UpdateRef(ctx context.Context, reference git.ReferenceName, newValue, oldValue git.ObjectID) error {
 	cmd, err := repo.command(ctx, nil,
-		SubCmd{
+		git.SubCmd{
 			Name:  "update-ref",
-			Flags: []Option{Flag{Name: "-z"}, Flag{Name: "--stdin"}},
+			Flags: []git.Option{git.Flag{Name: "-z"}, git.Flag{Name: "--stdin"}},
 		},
-		WithStdin(strings.NewReader(fmt.Sprintf("update %s\x00%s\x00%s\x00", reference, newValue.String(), oldValue.String()))),
-		WithRefTxHook(ctx, helper.ProtoRepoFromRepo(repo.repo), repo.cfg),
+		git.WithStdin(strings.NewReader(fmt.Sprintf("update %s\x00%s\x00%s\x00", reference, newValue.String(), oldValue.String()))),
+		git.WithRefTxHook(ctx, helper.ProtoRepoFromRepo(repo), repo.cfg),
 	)
 	if err != nil {
 		return err

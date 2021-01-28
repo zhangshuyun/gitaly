@@ -17,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -29,19 +30,19 @@ func (s *server) FetchRemote(ctx context.Context, req *gitalypb.FetchRemoteReque
 	}
 
 	var stderr bytes.Buffer
-	opts := git.FetchOpts{
+	opts := localrepo.FetchOpts{
 		Stderr:  &stderr,
 		Force:   req.Force,
 		Prune:   !req.NoPrune,
-		Tags:    git.FetchOptsTagsAll,
+		Tags:    localrepo.FetchOptsTagsAll,
 		Verbose: req.GetCheckTagsChanged(),
 	}
 
 	if req.GetNoTags() {
-		opts.Tags = git.FetchOptsTagsNone
+		opts.Tags = localrepo.FetchOptsTagsNone
 	}
 
-	repo := git.NewRepository(req.GetRepository(), s.cfg)
+	repo := localrepo.New(req.GetRepository(), s.cfg)
 	remoteName := req.GetRemote()
 
 	if params := req.GetRemoteParams(); params != nil {
@@ -226,7 +227,7 @@ func (s *server) getRefspecs(refmaps []string) []string {
 	return refspecs
 }
 
-func (s *server) setRemote(ctx context.Context, repo *git.LocalRepository, name, url string) error {
+func (s *server) setRemote(ctx context.Context, repo *localrepo.Repo, name, url string) error {
 	if err := repo.Remote().Remove(ctx, name); err != nil {
 		if err != git.ErrNotFound {
 			return fmt.Errorf("remove remote: %w", err)
@@ -240,7 +241,7 @@ func (s *server) setRemote(ctx context.Context, repo *git.LocalRepository, name,
 	return nil
 }
 
-func (s *server) removeRemote(ctx context.Context, repo *git.LocalRepository, name string) error {
+func (s *server) removeRemote(ctx context.Context, repo *localrepo.Repo, name string) error {
 	if err := repo.Remote().Remove(ctx, name); err != nil {
 		if err != git.ErrNotFound {
 			return fmt.Errorf("remove remote: %w", err)

@@ -72,41 +72,8 @@ type RemoteAddOpts struct {
 	Mirror RemoteAddOptsMirror
 }
 
-func (opts RemoteAddOpts) buildFlags() []Option {
-	var flags []Option
-	for _, b := range opts.RemoteTrackingBranches {
-		flags = append(flags, ValueFlag{Name: "-t", Value: b})
-	}
-
-	if opts.DefaultBranch != "" {
-		flags = append(flags, ValueFlag{Name: "-m", Value: opts.DefaultBranch})
-	}
-
-	if opts.Fetch {
-		flags = append(flags, Flag{Name: "-f"})
-	}
-
-	if opts.Tags != RemoteAddOptsTagsDefault {
-		flags = append(flags, Flag{Name: opts.Tags.String()})
-	}
-
-	if opts.Mirror != RemoteAddOptsMirrorDefault {
-		flags = append(flags, ValueFlag{Name: "--mirror", Value: opts.Mirror.String()})
-	}
-
-	return flags
-}
-
 // SetURLOpts are the options for SetURL.
 type SetURLOpts struct {
 	// Push URLs are manipulated instead of fetch URLs.
 	Push bool
-}
-
-func (opts SetURLOpts) buildFlags() []Option {
-	if opts.Push {
-		return []Option{Flag{Name: "--push"}}
-	}
-
-	return nil
 }

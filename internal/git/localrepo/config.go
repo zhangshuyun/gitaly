@@ -1,4 +1,4 @@
-package git
+package localrepo
 
 import (
 	"bufio"
@@ -10,23 +10,23 @@ import (
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/internal/command"
-	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 )
 
-// LocalRepositoryConfig provides functionality of the 'config' git sub-command.
-type LocalRepositoryConfig struct {
-	repo repository.GitRepo
+// Config provides functionality of the 'config' git sub-command.
+type Config struct {
+	repo *Repo
 }
 
 // Add adds a new entry to the repository's configuration.
-func (repo LocalRepositoryConfig) Add(ctx context.Context, name, value string, opts ConfigAddOpts) error {
+func (cfg Config) Add(ctx context.Context, name, value string, opts git.ConfigAddOpts) error {
 	if err := validateNotBlank(name, "name"); err != nil {
 		return err
 	}
 
-	cmd, err := NewCommand(ctx, repo.repo, nil, SubCmd{
+	cmd, err := cfg.repo.command(ctx, nil, git.SubCmd{
 		Name:  "config",
-		Flags: append(opts.buildFlags(), Flag{Name: "--add"}),
+		Flags: append(buildConfigAddOptsFlags(opts), git.Flag{Name: "--add"}),
 		Args:  []string{name, value},
 	})
 	if err != nil {
@@ -38,10 +38,10 @@ func (repo LocalRepositoryConfig) Add(ctx context.Context, name, value string, o
 		switch {
 		case isExitWithCode(err, 1):
 			// section or key is invalid
-			return fmt.Errorf("%w: bad section or name", ErrInvalidArg)
+			return fmt.Errorf("%w: bad section or name", git.ErrInvalidArg)
 		case isExitWithCode(err, 2):
 			// no section or name was provided
-			return fmt.Errorf("%w: missing section or name", ErrInvalidArg)
+			return fmt.Errorf("%w: missing section or name", git.ErrInvalidArg)
 		}
 
 		return err
@@ -50,30 +50,39 @@ func (repo LocalRepositoryConfig) Add(ctx context.Context, name, value string, o
 	return nil
 }
 
+func buildConfigAddOptsFlags(opts git.ConfigAddOpts) []git.Option {
+	var flags []git.Option
+	if opts.Type != git.ConfigTypeDefault {
+		flags = append(flags, git.Flag{Name: opts.Type.String()})
+	}
+
+	return flags
+}
+
 // GetRegexp gets all config entries which whose keys match the given regexp.
-func (repo LocalRepositoryConfig) GetRegexp(ctx context.Context, nameRegexp string, opts ConfigGetRegexpOpts) ([]ConfigPair, error) {
+func (cfg Config) GetRegexp(ctx context.Context, nameRegexp string, opts git.ConfigGetRegexpOpts) ([]git.ConfigPair, error) {
 	if err := validateNotBlank(nameRegexp, "nameRegexp"); err != nil {
 		return nil, err
 	}
 
-	data, err := repo.getRegexp(ctx, nameRegexp, opts)
+	data, err := cfg.getRegexp(ctx, nameRegexp, opts)
 	if err != nil {
 		return nil, err
 	}
 
-	return repo.parseConfig(data, opts)
+	return cfg.parseConfig(data, opts)
 }
 
-func (repo LocalRepositoryConfig) getRegexp(ctx context.Context, nameRegexp string, opts ConfigGetRegexpOpts) ([]byte, error) {
+func (cfg Config) getRegexp(ctx context.Context, nameRegexp string, opts git.ConfigGetRegexpOpts) ([]byte, error) {
 	var stderr bytes.Buffer
-	cmd, err := NewCommand(ctx, repo.repo, nil,
-		SubCmd{
+	cmd, err := cfg.repo.command(ctx, nil,
+		git.SubCmd{
 			Name: "config",
 			// '--null' is used to support proper parsing of the multiline config values
-			Flags: append(opts.buildFlags(), Flag{Name: "--null"}, Flag{Name: "--get-regexp"}),
+			Flags: append(buildConfigGetRegexpOptsFlags(opts), git.Flag{Name: "--null"}, git.Flag{Name: "--get-regexp"}),
 			Args:  []string{nameRegexp},
 		},
-		WithStderr(&stderr),
+		git.WithStderr(&stderr),
 	)
 	if err != nil {
 		return nil, err
@@ -91,10 +100,10 @@ func (repo LocalRepositoryConfig) getRegexp(ctx context.Context, nameRegexp stri
 			return nil, nil
 		case isExitWithCode(err, 6):
 			// use of invalid regexp
-			return nil, fmt.Errorf("%w: regexp has a bad format", ErrInvalidArg)
+			return nil, fmt.Errorf("%w: regexp has a bad format", git.ErrInvalidArg)
 		default:
 			if strings.Contains(stderr.String(), "invalid unit") {
-				return nil, fmt.Errorf("%w: fetched result doesn't correspond to requested type", ErrInvalidArg)
+				return nil, fmt.Errorf("%w: fetched result doesn't correspond to requested type", git.ErrInvalidArg)
 			}
 		}
 
@@ -104,8 +113,25 @@ func (repo LocalRepositoryConfig) getRegexp(ctx context.Context, nameRegexp stri
 	return data, nil
 }
 
-func (repo LocalRepositoryConfig) parseConfig(data []byte, opts ConfigGetRegexpOpts) ([]ConfigPair, error) {
-	var res []ConfigPair
+func buildConfigGetRegexpOptsFlags(opts git.ConfigGetRegexpOpts) []git.Option {
+	var flags []git.Option
+	if opts.Type != git.ConfigTypeDefault {
+		flags = append(flags, git.Flag{Name: opts.Type.String()})
+	}
+
+	if opts.ShowOrigin {
+		flags = append(flags, git.Flag{Name: "--show-origin"})
+	}
+
+	if opts.ShowScope {
+		flags = append(flags, git.Flag{Name: "--show-scope"})
+	}
+
+	return flags
+}
+
+func (cfg Config) parseConfig(data []byte, opts git.ConfigGetRegexpOpts) ([]git.ConfigPair, error) {
+	var res []git.ConfigPair
 	var err error
 
 	for reader := bufio.NewReader(bytes.NewReader(data)); ; {
@@ -135,7 +161,7 @@ func (repo LocalRepositoryConfig) parseConfig(data []byte, opts ConfigGetRegexpO
 			return nil, fmt.Errorf("bad format of the config: %q", pair)
 		}
 
-		res = append(res, ConfigPair{
+		res = append(res, git.ConfigPair{
 			Key:    string(parts[0]),
 			Value:  chompNul(parts[1]),
 			Origin: chompNul(origin),
@@ -151,10 +177,10 @@ func (repo LocalRepositoryConfig) parseConfig(data []byte, opts ConfigGetRegexpO
 }
 
 // Unset unsets the given config entry.
-func (repo LocalRepositoryConfig) Unset(ctx context.Context, name string, opts ConfigUnsetOpts) error {
-	cmd, err := NewCommand(ctx, repo.repo, nil, SubCmd{
+func (cfg Config) Unset(ctx context.Context, name string, opts git.ConfigUnsetOpts) error {
+	cmd, err := cfg.repo.command(ctx, nil, git.SubCmd{
 		Name:  "config",
-		Flags: opts.buildFlags(),
+		Flags: buildConfigUnsetOptsFlags(opts),
 		Args:  []string{name},
 	})
 	if err != nil {
@@ -166,22 +192,30 @@ func (repo LocalRepositoryConfig) Unset(ctx context.Context, name string, opts C
 		switch {
 		case isExitWithCode(err, 1):
 			// section or key is invalid
-			return fmt.Errorf("%w: bad section or name", ErrInvalidArg)
+			return fmt.Errorf("%w: bad section or name", git.ErrInvalidArg)
 		case isExitWithCode(err, 2):
 			// no section or name was provided
-			return fmt.Errorf("%w: missing section or name", ErrInvalidArg)
+			return fmt.Errorf("%w: missing section or name", git.ErrInvalidArg)
 		case isExitWithCode(err, 5):
 			// unset an option which does not exist
 			if opts.NotStrict {
 				return nil
 			}
 
-			return ErrNotFound
+			return git.ErrNotFound
 		}
 		return err
 	}
 
 	return nil
+}
+
+func buildConfigUnsetOptsFlags(opts git.ConfigUnsetOpts) []git.Option {
+	if opts.All {
+		return []git.Option{git.Flag{Name: "--unset-all"}}
+	}
+
+	return []git.Option{git.Flag{Name: "--unset"}}
 }
 
 func chompNul(b []byte) string {

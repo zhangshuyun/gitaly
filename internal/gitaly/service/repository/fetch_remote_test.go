@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
@@ -84,13 +85,13 @@ func TestFetchRemote_withDefaultRefmaps(t *testing.T) {
 
 	sourceRepoProto, sourceRepoPath, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
-	sourceRepo := git.NewRepository(sourceRepoProto, config.Config)
+	sourceRepo := localrepo.New(sourceRepoProto, config.Config)
 
 	targetRepoProto, targetRepoPath := copyRepoWithNewRemote(t, sourceRepoProto, locator, "my-remote")
 	defer func() {
 		require.NoError(t, os.RemoveAll(targetRepoPath))
 	}()
-	targetRepo := git.NewRepository(targetRepoProto, config.Config)
+	targetRepo := localrepo.New(targetRepoProto, config.Config)
 
 	port, stopGitServer := testhelper.GitServer(t, config.Config, sourceRepoPath, nil)
 	defer func() { require.NoError(t, stopGitServer()) }()
@@ -214,7 +215,7 @@ func TestFetchRemote_prune(t *testing.T) {
 			defer func() {
 				require.NoError(t, os.RemoveAll(targetRepoPath))
 			}()
-			targetRepo := git.NewRepository(targetRepoProto, config.Config)
+			targetRepo := localrepo.New(targetRepoProto, config.Config)
 
 			ctx, cancel := testhelper.Context()
 			defer cancel()
