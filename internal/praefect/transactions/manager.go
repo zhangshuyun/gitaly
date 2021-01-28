@@ -199,7 +199,7 @@ func (mgr *Manager) voteTransaction(ctx context.Context, transactionID uint64, n
 	mgr.lock.Unlock()
 
 	if !ok {
-		return ErrNotFound
+		return fmt.Errorf("%w: %d", ErrNotFound, transactionID)
 	}
 
 	if err := transaction.vote(ctx, node, hash); err != nil {
@@ -268,7 +268,7 @@ func (mgr *Manager) StopTransaction(ctx context.Context, transactionID uint64) e
 	mgr.lock.Unlock()
 
 	if !ok {
-		return ErrNotFound
+		return fmt.Errorf("%w: %d", ErrNotFound, transactionID)
 	}
 
 	if err := transaction.stop(); err != nil {
