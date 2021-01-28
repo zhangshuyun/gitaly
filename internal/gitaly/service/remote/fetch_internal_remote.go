@@ -33,7 +33,7 @@ func (s *server) FetchInternalRemote(ctx context.Context, req *gitalypb.FetchInt
 	}
 
 	stderr := &bytes.Buffer{}
-	cmd, err := git.NewCommand(ctx, req.Repository, nil,
+	cmd, err := s.gitCmdFactory.New(ctx, req.Repository, nil,
 		git.SubCmd{
 			Name:  "fetch",
 			Flags: []git.Option{git.Flag{Name: "--prune"}},

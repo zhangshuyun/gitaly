@@ -14,8 +14,8 @@ import (
 
 const headPrefix = "HEAD branch: "
 
-func findRemoteRootRef(ctx context.Context, repo *gitalypb.Repository, remote string) (string, error) {
-	cmd, err := git.NewCommand(ctx, repo, nil,
+func (s *server) findRemoteRootRef(ctx context.Context, repo *gitalypb.Repository, remote string) (string, error) {
+	cmd, err := s.gitCmdFactory.New(ctx, repo, nil,
 		git.SubSubCmd{
 			Name:   "remote",
 			Action: "show",
@@ -54,7 +54,7 @@ func (s *server) FindRemoteRootRef(ctx context.Context, in *gitalypb.FindRemoteR
 		return nil, status.Error(codes.InvalidArgument, "empty remote can't be queried")
 	}
 
-	ref, err := findRemoteRootRef(ctx, in.GetRepository(), remote)
+	ref, err := s.findRemoteRootRef(ctx, in.GetRepository(), remote)
 	if err != nil {
 		if _, ok := status.FromError(err); ok {
 			return nil, err
