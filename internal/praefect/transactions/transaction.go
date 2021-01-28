@@ -16,12 +16,12 @@ var (
 	// invalid threshold that may either allow for multiple different
 	// quorums or none at all.
 	ErrInvalidThreshold = errors.New("transaction has invalid threshold")
-	// ErrSubtransactionFailed indicates a vote was cast on an outcome
-	// which didn't reach majority.
-	ErrSubtransactionFailed = errors.New("subtransaction did not reach majority")
-	// ErrSubtransactionCanceled indicates a vote was cast on a
-	// subtransaction which failed already.
-	ErrSubtransactionCanceled = errors.New("subtransaction has been canceled")
+
+	// ErrTransactionFailed indicates the transaction didn't reach quorum.
+	ErrTransactionFailed = errors.New("transaction did not reach quorum")
+	// ErrTransactionCanceled indicates the transaction was canceled before
+	// reaching quorum.
+	ErrTransactionCanceled = errors.New("transaction has been canceled")
 	// ErrTransactionStopped indicates the transaction was gracefully stopped.
 	ErrTransactionStopped = errors.New("transaction has been stopped")
 )
@@ -206,12 +206,12 @@ func (t *Transaction) getOrCreateSubtransaction(node string) (*subtransaction, e
 			// If a vote was cast on a subtransaction which failed
 			// to reach majority, then we cannot proceed with any
 			// subsequent votes anymore.
-			return nil, ErrSubtransactionFailed
+			return nil, ErrTransactionFailed
 		case VoteCanceled:
 			// If the subtransaction was aborted, then we need to
 			// fail as we cannot proceed if the path leading to the
 			// end result has intermittent failures.
-			return nil, ErrSubtransactionCanceled
+			return nil, ErrTransactionCanceled
 		case VoteStopped:
 			// If the transaction was stopped, then we need to fail
 			// with a graceful error.

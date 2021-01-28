@@ -3,17 +3,8 @@ package transactions
 import (
 	"context"
 	"crypto/sha1"
-	"errors"
 	"fmt"
 	"sync"
-)
-
-var (
-	// ErrTransactionVoteFailed indicates the transaction didn't reach quorum.
-	ErrTransactionVoteFailed = errors.New("transaction did not reach quorum")
-	// ErrTransactionCanceled indicates the transaction was canceled before
-	// reaching quorum.
-	ErrTransactionCanceled = errors.New("transaction was canceled")
 )
 
 // VoteResult represents the outcome of a transaction for a single voter.
@@ -230,7 +221,7 @@ func (t *subtransaction) collectVotes(ctx context.Context, node string) error {
 	// exceeding it, we know we're the winner in that case.
 	if t.voteCounts[voter.vote] < t.threshold {
 		voter.result = VoteFailed
-		return fmt.Errorf("%w: got %d/%d votes", ErrTransactionVoteFailed, t.voteCounts[voter.vote], t.threshold)
+		return fmt.Errorf("%w: got %d/%d votes", ErrTransactionFailed, t.voteCounts[voter.vote], t.threshold)
 	}
 
 	voter.result = VoteCommitted

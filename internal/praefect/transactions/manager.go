@@ -229,7 +229,7 @@ func (mgr *Manager) VoteTransaction(ctx context.Context, transactionID uint64, n
 	if err := mgr.voteTransaction(ctx, transactionID, node, hash); err != nil {
 		if errors.Is(err, ErrTransactionStopped) {
 			mgr.counterMetric.WithLabelValues("stopped").Inc()
-		} else if errors.Is(err, ErrTransactionVoteFailed) {
+		} else if errors.Is(err, ErrTransactionFailed) {
 			mgr.counterMetric.WithLabelValues("aborted").Inc()
 
 			mgr.log(ctx).WithFields(logrus.Fields{
