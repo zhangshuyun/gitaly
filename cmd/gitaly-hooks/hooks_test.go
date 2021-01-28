@@ -653,3 +653,71 @@ func requireContainsOnce(t *testing.T, s string, contains string) {
 	matches := r.FindAllStringIndex(s, -1)
 	require.Equal(t, 1, len(matches))
 }
+
+func TestFixFilterQuoteBug(t *testing.T) {
+	testCases := []struct{ in, out string }{
+		{"foo bar", "foo bar"},
+		{"--filter=blob:none", "--filter=blob:none"},
+		{"--filter='blob:none'", "--filter=blob:none"},
+		{`--filter='blob'\'':none'`, `--filter=blob':none`},
+		{`--filter='blob'\!':none'`, `--filter=blob!:none`},
+		{`--filter='blob'\'':none'\!''`, `--filter=blob':none!`},
+	}
+
+	for i, tc := range testCases {
+		t.Run(fmt.Sprintf("%d-%s", i, tc.in), func(t *testing.T) {
+			require.Equal(t, tc.out, fixFilterQuoteBug(tc.in))
+		})
+	}
+}
+
+func TestGitalyHooksPackObjects(t *testing.T) {
+	defer func(cfg config.Cfg) {
+		config.Config = cfg
+	}(config.Config)
+
+	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	defer cleanupFn()
+
+	logDir, err := filepath.Abs("testdata")
+	require.NoError(t, err)
+	require.NoError(t, os.MkdirAll(logDir, 0755))
+
+	env := append(
+		envForHooks(t, logDir, testRepo, glHookValues{}, proxyValues{}),
+		"GITALY_GIT_BIN_PATH=git",
+	)
+
+	baseArgs := []string{
+		config.Config.Git.BinPath,
+		"clone",
+		"-u",
+		"git -c uploadpack.allowFilter -c uploadpack.packObjectsHook=" + config.Config.BinDir + "/gitaly-hooks upload-pack",
+		"--no-local",
+		"--bare",
+	}
+
+	testCases := []struct {
+		desc      string
+		extraArgs []string
+	}{
+		{desc: "regular clone"},
+		{desc: "shallow clone", extraArgs: []string{"--depth=1"}},
+		{desc: "partial clone", extraArgs: []string{"--filter=blob:none"}},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			tempDir, cleanTempDir := testhelper.TempDir(t)
+			defer cleanTempDir()
+
+			args := append(baseArgs[1:], tc.extraArgs...)
+			args = append(args, testRepoPath, tempDir)
+			cmd := exec.Command(baseArgs[0], args...)
+			cmd.Env = env
+			cmd.Stderr = os.Stderr
+
+			require.NoError(t, cmd.Run())
+		})
+	}
+}

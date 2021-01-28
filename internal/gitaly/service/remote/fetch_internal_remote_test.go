@@ -46,6 +46,8 @@ func TestSuccessfulFetchInternalRemote(t *testing.T) {
 		},
 	}...)
 
+	testhelper.ConfigureGitalyHooksBinary()
+
 	locator := config.NewLocator(config.Config)
 	gitaly0Server := testhelper.NewServer(t, nil, nil, testhelper.WithStorages([]string{"gitaly-0"}))
 	gitalypb.RegisterSSHServiceServer(gitaly0Server.GrpcServer(), ssh.NewServer(config.Config, locator))

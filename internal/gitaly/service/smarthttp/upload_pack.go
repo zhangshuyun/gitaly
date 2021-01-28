@@ -4,12 +4,14 @@ import (
 	"crypto/sha1"
 	"fmt"
 	"io"
+	"path/filepath"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/inspect"
+	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/streamio"
 	"google.golang.org/grpc/codes"
@@ -77,11 +79,21 @@ func (s *server) PostUploadPack(stream gitalypb.SmartHTTPService_PostUploadPackS
 		globalOpts[i] = git.ValueFlag{"-c", o}
 	}
 
+	if featureflag.IsEnabled(ctx, featureflag.UploadPackGitalyHooks) {
+		hookBin := filepath.Join(s.cfg.BinDir, "gitaly-hooks")
+		globalOpts = append(globalOpts, git.ValueFlag{"-c", "uploadpack.packObjectsHook=" + hookBin})
+	}
+
 	cmd, err := git.NewCommandWithoutRepo(ctx, globalOpts, git.SubCmd{
 		Name:  "upload-pack",
 		Flags: []git.Option{git.Flag{Name: "--stateless-rpc"}},
 		Args:  []string{repoPath},
-	}, git.WithStdin(stdin), git.WithStdout(stdout), git.WithGitProtocol(ctx, req))
+	},
+		git.WithStdin(stdin),
+		git.WithStdout(stdout),
+		git.WithGitProtocol(ctx, req),
+		git.WithPackObjectsHookEnv(ctx, req.Repository, s.cfg),
+	)
 
 	if err != nil {
 		return status.Errorf(codes.Unavailable, "PostUploadPack: cmd: %v", err)

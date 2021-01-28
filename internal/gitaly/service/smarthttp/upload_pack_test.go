@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/pktline"
+	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/streamio"
@@ -28,15 +29,18 @@ const (
 )
 
 func TestSuccessfulUploadPackRequest(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.UploadPackGitalyHooks,
+	}).Run(t, testSuccessfulUploadPackRequest)
+}
+
+func testSuccessfulUploadPackRequest(t *testing.T, ctx context.Context) {
 	negotiationMetrics := prometheus.NewCounterVec(prometheus.CounterOpts{}, []string{"feature"})
 
 	serverSocketPath, stop := runSmartHTTPServer(
 		t, WithPackfileNegotiationMetrics(negotiationMetrics),
 	)
 	defer stop()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
 	_, testRepoPath, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
@@ -101,11 +105,14 @@ func TestSuccessfulUploadPackRequest(t *testing.T) {
 }
 
 func TestUploadPackRequestWithGitConfigOptions(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.UploadPackGitalyHooks,
+	}).Run(t, testUploadPackRequestWithGitConfigOptions)
+}
+
+func testUploadPackRequestWithGitConfigOptions(t *testing.T, ctx context.Context) {
 	serverSocketPath, stop := runSmartHTTPServer(t)
 	defer stop()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
 	_, testRepoPath, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
@@ -164,14 +171,17 @@ func TestUploadPackRequestWithGitConfigOptions(t *testing.T) {
 }
 
 func TestUploadPackRequestWithGitProtocol(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.UploadPackGitalyHooks,
+	}).Run(t, testUploadPackRequestWithGitProtocol)
+}
+
+func testUploadPackRequestWithGitProtocol(t *testing.T, ctx context.Context) {
 	restore := testhelper.EnableGitProtocolV2Support(t)
 	defer restore()
 
 	serverSocketPath, stop := runSmartHTTPServer(t)
 	defer stop()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
 	_, testRepoPath, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
@@ -210,11 +220,14 @@ func TestUploadPackRequestWithGitProtocol(t *testing.T) {
 // on 'deepen' requests even though the request is being handled just
 // fine from the client perspective.
 func TestSuccessfulUploadPackDeepenRequest(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.UploadPackGitalyHooks,
+	}).Run(t, testSuccessfulUploadPackDeepenRequest)
+}
+
+func testSuccessfulUploadPackDeepenRequest(t *testing.T, ctx context.Context) {
 	serverSocketPath, stop := runSmartHTTPServer(t)
 	defer stop()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
 	testRepo, _, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
@@ -233,6 +246,12 @@ func TestSuccessfulUploadPackDeepenRequest(t *testing.T) {
 }
 
 func TestFailedUploadPackRequestDueToValidationError(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.UploadPackGitalyHooks,
+	}).Run(t, testFailedUploadPackRequestDueToValidationError)
+}
+
+func testFailedUploadPackRequestDueToValidationError(t *testing.T, ctx context.Context) {
 	serverSocketPath, stop := runSmartHTTPServer(t)
 	defer stop()
 
@@ -244,9 +263,6 @@ func TestFailedUploadPackRequestDueToValidationError(t *testing.T) {
 
 	for _, rpcRequest := range rpcRequests {
 		t.Run(fmt.Sprintf("%v", rpcRequest), func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
-
 			_, err := makePostUploadPackRequest(ctx, t, serverSocketPath, &rpcRequest, bytes.NewBuffer(nil))
 			testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
 		})
@@ -322,6 +338,12 @@ func extractPackDataFromResponse(t *testing.T, buf *bytes.Buffer) ([]byte, int, 
 }
 
 func TestUploadPackRequestForPartialCloneSuccess(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.UploadPackGitalyHooks,
+	}).Run(t, testUploadPackRequestForPartialCloneSuccess)
+}
+
+func testUploadPackRequestForPartialCloneSuccess(t *testing.T, ctx context.Context) {
 	negotiationMetrics := prometheus.NewCounterVec(prometheus.CounterOpts{}, []string{"feature"})
 
 	serverSocketPath, stop := runSmartHTTPServer(
@@ -374,9 +396,6 @@ func TestUploadPackRequestForPartialCloneSuccess(t *testing.T) {
 			RelativePath: filepath.Join(remoteRepoRelativePath, ".git"),
 		},
 	}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
 	responseBuffer, err := makePostUploadPackRequest(ctx, t, serverSocketPath, req, &requestBuffer)
 	require.NoError(t, err)

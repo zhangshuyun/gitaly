@@ -49,3 +49,6 @@ func (h *HookLogger) Fatalf(format string, a ...interface{}) {
 func (h *HookLogger) Errorf(format string, a ...interface{}) {
 	h.logger.Errorf(format, a...)
 }
+
+// Logger returns the underlying logrus logger
+func (h *HookLogger) Logger() *logrus.Logger { return h.logger }

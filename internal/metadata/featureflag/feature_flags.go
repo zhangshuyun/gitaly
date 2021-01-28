@@ -91,6 +91,8 @@ var (
 	TxWikiUpdatePage = FeatureFlag{Name: "tx_wiki_update_page", OnByDefault: false}
 	// TxWikiWritePage enables transactions for WikiWritePage
 	TxWikiWritePage = FeatureFlag{Name: "tx_wiki_write_page", OnByDefault: false}
+	// UploadPackGitalyHooks makes git-upload-pack use gitaly-hooks to run pack-objects
+	UploadPackGitalyHooks = FeatureFlag{Name: "upload_pack_gitaly_hooks", OnByDefault: false}
 )
 
 // All includes all feature flags.
@@ -135,4 +137,5 @@ var All = []FeatureFlag{
 	TxWikiDeletePage,
 	TxWikiUpdatePage,
 	TxWikiWritePage,
+	UploadPackGitalyHooks,
 }

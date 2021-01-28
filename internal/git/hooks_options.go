@@ -38,6 +38,30 @@ func WithRefTxHook(ctx context.Context, repo *gitalypb.Repository, cfg config.Cf
 	}
 }
 
+// WithPackObjectsHookEnv provides metadata for gitaly-hooks so it can act as a pack-objects hook.
+func WithPackObjectsHookEnv(ctx context.Context, repo *gitalypb.Repository, cfg config.Cfg) CmdOpt {
+	return func(cc *cmdCfg) error {
+		if repo == nil {
+			return fmt.Errorf("missing repo: %w", ErrInvalidArg)
+		}
+
+		payload, err := NewHooksPayload(cfg, repo, nil, nil, nil).Env()
+		if err != nil {
+			return err
+		}
+
+		cc.env = append(
+			cc.env,
+			payload,
+			"GITALY_BIN_DIR="+cfg.BinDir,
+			"GITALY_GIT_BIN_PATH="+cfg.Git.BinPath,
+			fmt.Sprintf("%s=%s", log.GitalyLogDirEnvKey, cfg.Logging.Dir),
+		)
+
+		return nil
+	}
+}
+
 // configureHooks updates the command configuration to include all environment
 // variables required by the reference transaction hook and any other needed
 // options to successfully execute hooks.
