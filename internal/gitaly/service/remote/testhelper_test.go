@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	log "github.com/sirupsen/logrus"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -38,7 +39,10 @@ func testMain(m *testing.M) int {
 func RunRemoteServiceServer(t *testing.T, opts ...testhelper.TestServerOpt) (string, func()) {
 	srv := testhelper.NewServer(t, nil, nil, opts...)
 
-	gitalypb.RegisterRemoteServiceServer(srv.GrpcServer(), NewServer(config.Config, RubyServer, config.NewLocator(config.Config)))
+	cfg := config.Config
+	locator := config.NewLocator(cfg)
+	gitCmdFactory := git.NewExecCommandFactory(cfg)
+	gitalypb.RegisterRemoteServiceServer(srv.GrpcServer(), NewServer(cfg, RubyServer, locator, gitCmdFactory))
 	reflection.Register(srv.GrpcServer())
 
 	srv.Start(t)
