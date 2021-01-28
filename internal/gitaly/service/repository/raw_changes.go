@@ -30,7 +30,7 @@ func (s *server) GetRawChanges(req *gitalypb.GetRawChangesRequest, stream gitaly
 		return helper.ErrInvalidArgument(err)
 	}
 
-	if err := getRawChanges(stream, repo, batch, req.GetFromRevision(), req.GetToRevision()); err != nil {
+	if err := s.getRawChanges(stream, repo, batch, req.GetFromRevision(), req.GetToRevision()); err != nil {
 		return helper.ErrInternal(err)
 	}
 
@@ -53,7 +53,7 @@ func validateRawChangesRequest(ctx context.Context, req *gitalypb.GetRawChangesR
 	return nil
 }
 
-func getRawChanges(stream gitalypb.RepositoryService_GetRawChangesServer, repo *gitalypb.Repository, batch catfile.Batch, from, to string) error {
+func (s *server) getRawChanges(stream gitalypb.RepositoryService_GetRawChangesServer, repo *gitalypb.Repository, batch catfile.Batch, from, to string) error {
 	if git.ObjectID(to).IsZeroOID() {
 		return nil
 	}
@@ -64,7 +64,7 @@ func getRawChanges(stream gitalypb.RepositoryService_GetRawChangesServer, repo *
 
 	ctx := stream.Context()
 
-	diffCmd, err := git.NewCommand(ctx, repo, nil, git.SubCmd{
+	diffCmd, err := s.gitCmdFactory.New(ctx, repo, nil, git.SubCmd{
 		Name:  "diff",
 		Flags: []git.Option{git.Flag{Name: "--raw"}, git.Flag{Name: "-z"}},
 		Args:  []string{from, to},

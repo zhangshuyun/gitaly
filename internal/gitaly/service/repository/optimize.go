@@ -174,20 +174,20 @@ func (s *server) validateOptimizeRepositoryRequest(in *gitalypb.OptimizeReposito
 }
 
 func (s *server) unsetAllConfigsByRegexp(ctx context.Context, repository *gitalypb.Repository, regexp string) error {
-	keys, err := getConfigKeys(ctx, repository, regexp)
+	keys, err := s.getConfigKeys(ctx, repository, regexp)
 	if err != nil {
 		return fmt.Errorf("get config keys: %w", err)
 	}
 
-	if err := unsetConfigKeys(ctx, repository, keys); err != nil {
+	if err := s.unsetConfigKeys(ctx, repository, keys); err != nil {
 		return fmt.Errorf("unset all keys: %w", err)
 	}
 
 	return nil
 }
 
-func getConfigKeys(ctx context.Context, repository *gitalypb.Repository, regexp string) ([]string, error) {
-	cmd, err := git.NewCommand(ctx, repository, nil, git.SubCmd{
+func (s *server) getConfigKeys(ctx context.Context, repository *gitalypb.Repository, regexp string) ([]string, error) {
+	cmd, err := s.gitCmdFactory.New(ctx, repository, nil, git.SubCmd{
 		Name: "config",
 		Flags: []git.Option{
 			git.Flag{Name: "--name-only"},
@@ -232,9 +232,9 @@ func parseConfigKeys(reader io.Reader) ([]string, error) {
 	return keys, nil
 }
 
-func unsetConfigKeys(ctx context.Context, repository *gitalypb.Repository, names []string) error {
+func (s *server) unsetConfigKeys(ctx context.Context, repository *gitalypb.Repository, names []string) error {
 	for _, name := range names {
-		if err := unsetAll(ctx, repository, name); err != nil {
+		if err := s.unsetAll(ctx, repository, name); err != nil {
 			return fmt.Errorf("unset all: %w", err)
 		}
 	}
@@ -242,12 +242,12 @@ func unsetConfigKeys(ctx context.Context, repository *gitalypb.Repository, names
 	return nil
 }
 
-func unsetAll(ctx context.Context, repository *gitalypb.Repository, name string) error {
+func (s *server) unsetAll(ctx context.Context, repository *gitalypb.Repository, name string) error {
 	if strings.TrimSpace(name) == "" {
 		return nil
 	}
 
-	cmd, err := git.NewCommand(ctx, repository, nil, git.SubCmd{
+	cmd, err := s.gitCmdFactory.New(ctx, repository, nil, git.SubCmd{
 		Name:  "config",
 		Flags: []git.Option{git.ValueFlag{Name: "--unset-all", Value: name}},
 	})

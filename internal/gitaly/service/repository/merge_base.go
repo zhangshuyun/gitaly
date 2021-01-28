@@ -21,7 +21,7 @@ func (s *server) FindMergeBase(ctx context.Context, req *gitalypb.FindMergeBaseR
 		return nil, status.Errorf(codes.InvalidArgument, "FindMergeBase: at least 2 revisions are required")
 	}
 
-	cmd, err := git.NewCommand(ctx, req.GetRepository(), nil,
+	cmd, err := s.gitCmdFactory.New(ctx, req.GetRepository(), nil,
 		git.SubCmd{
 			Name: "merge-base",
 			Args: revisions,

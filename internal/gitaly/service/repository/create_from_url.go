@@ -47,7 +47,7 @@ func (s *server) cloneFromURLCommand(ctx context.Context, repo *gitalypb.Reposit
 		globalFlags = append(globalFlags, git.ConfigPair{Key: "http.extraHeader", Value: authHeader})
 	}
 
-	return git.NewCommandWithoutRepo(ctx, globalFlags,
+	return s.gitCmdFactory.NewWithoutRepo(ctx, globalFlags,
 		git.SubCmd{
 			Name:        "clone",
 			Flags:       cloneFlags,

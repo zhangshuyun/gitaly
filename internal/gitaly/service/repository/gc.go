@@ -43,7 +43,7 @@ func (s *server) GarbageCollect(ctx context.Context, in *gitalypb.GarbageCollect
 		return nil, err
 	}
 
-	if err := configureCommitGraph(ctx, in); err != nil {
+	if err := s.configureCommitGraph(ctx, in); err != nil {
 		return nil, err
 	}
 
@@ -70,7 +70,7 @@ func (s *server) gc(ctx context.Context, in *gitalypb.GarbageCollectRequest) err
 		flags = append(flags, git.Flag{Name: "--prune=30.minutes.ago"})
 	}
 
-	cmd, err := git.NewCommand(ctx, in.GetRepository(), args,
+	cmd, err := s.gitCmdFactory.New(ctx, in.GetRepository(), args,
 		git.SubCmd{Name: "gc", Flags: flags},
 	)
 
@@ -92,8 +92,8 @@ func (s *server) gc(ctx context.Context, in *gitalypb.GarbageCollectRequest) err
 	return nil
 }
 
-func configureCommitGraph(ctx context.Context, in *gitalypb.GarbageCollectRequest) error {
-	cmd, err := git.NewCommand(ctx, in.GetRepository(), nil, git.SubCmd{
+func (s *server) configureCommitGraph(ctx context.Context, in *gitalypb.GarbageCollectRequest) error {
+	cmd, err := s.gitCmdFactory.New(ctx, in.GetRepository(), nil, git.SubCmd{
 		Name: "config",
 		Flags: []git.Option{
 			git.ConfigPair{Key: "core.commitGraph", Value: "true"},
@@ -177,7 +177,7 @@ func (s *server) fixRef(ctx context.Context, repo *gitalypb.Repository, batch ca
 	}
 
 	// The name is a valid sha, recreate the ref
-	cmd, err := git.NewCommand(ctx, repo, nil,
+	cmd, err := s.gitCmdFactory.New(ctx, repo, nil,
 		git.SubCmd{
 			Name: "update-ref",
 			Args: []string{name, sha},
