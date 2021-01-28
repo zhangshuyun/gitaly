@@ -217,8 +217,9 @@ func (t *subtransaction) collectVotes(ctx context.Context, node string) error {
 		return fmt.Errorf("voter is in invalid state %d: %q", voter.result, node)
 	}
 
-	// See if our vote crossed the threshold. As there can be only one vote
-	// exceeding it, we know we're the winner in that case.
+	// See if our vote crossed the threshold. If not, then we know we
+	// cannot have won as the transaction is being wrapped up already and
+	// shouldn't accept any additional votes.
 	if t.voteCounts[voter.vote] < t.threshold {
 		voter.result = VoteFailed
 		return fmt.Errorf("%w: got %d/%d votes", ErrTransactionFailed, t.voteCounts[voter.vote], t.threshold)
