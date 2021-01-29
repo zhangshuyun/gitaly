@@ -18,4 +18,7 @@ Gem::Specification.new do |spec|
   spec.require_paths = [prefix]
 
   spec.add_dependency "grpc", "~> 1.0"
+  # This is locked to ensure CE/EE use the same version to ensure
+  # license key mappings match between gitaly-ruby and GitLab Rails.
+  spec.add_dependency "licensee", "= 9.14.1"
 end
