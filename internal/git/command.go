@@ -26,6 +26,9 @@ var (
 
 	// ErrInvalidArg represent family of errors to report about bad argument used to make a call.
 	ErrInvalidArg = errors.New("invalid argument")
+	// ErrHookPayloadRequired indicates a HookPayload is needed but
+	// absent from the command.
+	ErrHookPayloadRequired = errors.New("hook payload is required but not configured")
 )
 
 func init() {
@@ -319,15 +322,6 @@ func WithEnv(envs ...string) CmdOpt {
 		return nil
 	}
 }
-
-var (
-	// ErrRefHookRequired indicates a ref hook configuration is needed but
-	// absent from the command
-	ErrRefHookRequired = errors.New("ref hook is required but not configured")
-	// ErrRefHookNotRequired indicates an extraneous ref hook option was
-	// provided
-	ErrRefHookNotRequired = errors.New("ref hook is configured but not required")
-)
 
 // NewCommand creates a command.Command with the given args and Repository. It
 // validates the arguments in the command before executing.

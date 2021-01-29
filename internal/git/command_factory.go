@@ -144,10 +144,7 @@ func handleOpts(ctx context.Context, sc Cmd, cc *cmdCfg, opts []CmdOpt) error {
 	}
 
 	if !cc.hooksConfigured && gitCommand.mayUpdateRef() {
-		return fmt.Errorf("subcommand %q: %w", sc.Subcommand(), ErrRefHookRequired)
-	}
-	if cc.hooksConfigured && !gitCommand.mayUpdateRef() {
-		return fmt.Errorf("subcommand %q: %w", sc.Subcommand(), ErrRefHookNotRequired)
+		return fmt.Errorf("subcommand %q: %w", sc.Subcommand(), ErrHookPayloadRequired)
 	}
 	if gitCommand.mayGeneratePackfiles() {
 		cc.globals = append(cc.globals, ConfigPair{
