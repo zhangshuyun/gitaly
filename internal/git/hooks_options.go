@@ -46,17 +46,9 @@ func WithPackObjectsHookEnv(ctx context.Context, repo *gitalypb.Repository, cfg 
 			return fmt.Errorf("missing repo: %w", ErrInvalidArg)
 		}
 
-		payload, err := NewHooksPayload(cfg, repo, nil, nil, nil).Env()
-		if err != nil {
-			return err
+		if err := cc.configureHooks(ctx, repo, cfg, nil); err != nil {
+			return fmt.Errorf("pack-objects hook configuration: %w", err)
 		}
-
-		cc.env = append(
-			cc.env,
-			payload,
-			"GITALY_BIN_DIR="+cfg.BinDir,
-			fmt.Sprintf("%s=%s", log.GitalyLogDirEnvKey, cfg.Logging.Dir),
-		)
 
 		cc.globals = append(cc.globals, ConfigPair{
 			Key:   "uploadpack.packObjectsHook",
