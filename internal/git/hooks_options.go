@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path/filepath"
 
 	"gitlab.com/gitlab-org/gitaly/internal/git/hooks"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
@@ -56,6 +57,11 @@ func WithPackObjectsHookEnv(ctx context.Context, repo *gitalypb.Repository, cfg 
 			"GITALY_BIN_DIR="+cfg.BinDir,
 			fmt.Sprintf("%s=%s", log.GitalyLogDirEnvKey, cfg.Logging.Dir),
 		)
+
+		cc.globals = append(cc.globals, ConfigPair{
+			Key:   "uploadpack.packObjectsHook",
+			Value: filepath.Join(cfg.BinDir, "gitaly-hooks"),
+		})
 
 		return nil
 	}
