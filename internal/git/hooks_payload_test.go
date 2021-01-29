@@ -115,4 +115,21 @@ func TestHooksPayload(t *testing.T) {
 			},
 		}, payload)
 	})
+
+	t.Run("payload with fallback git path", func(t *testing.T) {
+		env, err := NewHooksPayload(config.Config, repo, nil, nil, nil).Env()
+		require.NoError(t, err)
+
+		payload, err := HooksPayloadFromEnv([]string{
+			env,
+			"GITALY_GIT_BIN_PATH=/foo/bar",
+		})
+		require.NoError(t, err)
+		require.Equal(t, HooksPayload{
+			Repo:           repo,
+			BinDir:         config.Config.BinDir,
+			GitPath:        "/foo/bar",
+			InternalSocket: config.Config.GitalyInternalSocketPath(),
+		}, payload)
+	})
 }
