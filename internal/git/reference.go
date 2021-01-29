@@ -37,6 +37,13 @@ func NewBranchReferenceName(branch string) ReferenceName {
 	return ReferenceName("refs/heads/" + branch)
 }
 
+// NewReferenceNameFromBranchName returns a new ReferenceName from a given
+// branch name. Note that branch is treated as an unqualified branch name.
+// This function will thus always prepend "refs/heads/".
+func NewReferenceNameFromBranchName(branch string) ReferenceName {
+	return ReferenceName("refs/heads/" + branch)
+}
+
 // String returns the string representation of the ReferenceName.
 func (r ReferenceName) String() string {
 	return string(r)
