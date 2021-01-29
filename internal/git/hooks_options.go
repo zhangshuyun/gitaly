@@ -54,7 +54,6 @@ func WithPackObjectsHookEnv(ctx context.Context, repo *gitalypb.Repository, cfg 
 			cc.env,
 			payload,
 			"GITALY_BIN_DIR="+cfg.BinDir,
-			"GITALY_GIT_BIN_PATH="+cfg.Git.BinPath,
 			fmt.Sprintf("%s=%s", log.GitalyLogDirEnvKey, cfg.Logging.Dir),
 		)
 

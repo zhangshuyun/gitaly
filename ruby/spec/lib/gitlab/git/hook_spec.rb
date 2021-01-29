@@ -41,6 +41,7 @@ describe Gitlab::Git::Hook do
           'GITALY_HOOKS_PAYLOAD' => Base64.strict_encode64({
             repository: repo.gitaly_repository.to_json,
             binary_directory: Gitlab.config.gitaly.bin_dir,
+            git_path: Gitlab.config.git.bin_path,
             internal_socket: Gitlab.config.gitaly.internal_socket,
             internal_socket_token: nil,
             receive_hooks_payload: {

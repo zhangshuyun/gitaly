@@ -86,6 +86,7 @@ func NewHooksPayload(
 	return HooksPayload{
 		Repo:                repo,
 		BinDir:              cfg.BinDir,
+		GitPath:             cfg.Git.BinPath,
 		InternalSocket:      cfg.GitalyInternalSocketPath(),
 		InternalSocketToken: cfg.Auth.Token,
 		Transaction:         tx,

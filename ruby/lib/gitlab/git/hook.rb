@@ -113,6 +113,7 @@ module Gitlab
         payload = {
           repository: repository.gitaly_repository.to_json,
           binary_directory: Gitlab.config.gitaly.bin_dir,
+          git_path: Gitlab.config.git.bin_path,
           internal_socket: Gitlab.config.gitaly.internal_socket,
           internal_socket_token: ENV['GITALY_TOKEN'],
           receive_hooks_payload: {
