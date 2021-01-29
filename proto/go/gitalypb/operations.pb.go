@@ -2715,7 +2715,8 @@ type UserUpdateSubmoduleRequest struct {
 	User *User `protobuf:"bytes,2,opt,name=user,proto3" json:"user,omitempty"`
 	// commit_sha is the object ID the submodule shall be updated to.
 	CommitSha string `protobuf:"bytes,3,opt,name=commit_sha,json=commitSha,proto3" json:"commit_sha,omitempty"`
-	// branch is the branch which shall be updated.
+	// branch is the branch which shall be updated. This is the unqualified name
+	// of the branch, it must not have a "refs/heads/" prefix.
 	Branch []byte `protobuf:"bytes,4,opt,name=branch,proto3" json:"branch,omitempty"`
 	// submodule is the path to the submodule which shall be updated.
 	Submodule []byte `protobuf:"bytes,5,opt,name=submodule,proto3" json:"submodule,omitempty"`

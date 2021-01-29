@@ -670,7 +670,8 @@ message UserUpdateSubmoduleRequest {
   User user = 2;
   // commit_sha is the object ID the submodule shall be updated to.
   string commit_sha = 3;
-  // branch is the branch which shall be updated.
+  // branch is the branch which shall be updated. This is the unqualified name
+  // of the branch, it must not have a "refs/heads/" prefix.
   bytes branch = 4;
   // submodule is the path to the submodule which shall be updated.
   bytes submodule = 5;

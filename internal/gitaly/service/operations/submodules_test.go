@@ -9,6 +9,7 @@ import (
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/git/lstree"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
@@ -33,8 +34,23 @@ func testSuccessfulUserUpdateSubmoduleRequest(t *testing.T, ctx context.Context)
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanup := testhelper.NewTestRepo(t)
+	testRepoProto, testRepoPath, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
+
+	testRepo := localrepo.New(testRepoProto, config.Config)
+
+	// This reference is created to check that we can correctly commit onto
+	// a branch which has a name starting with "refs/heads/".
+	currentOID, err := testRepo.ResolveRevision(ctx, "refs/heads/master")
+	require.NoError(t, err)
+	require.NoError(t, testRepo.UpdateRef(ctx, "refs/heads/refs/heads/master", currentOID, git.ZeroOID))
+
+	// If something uses the branch name as an unqualified reference, then
+	// git would return the tag instead of the branch. We thus create a tag
+	// with a different OID than the current master branch.
+	prevOID, err := testRepo.ResolveRevision(ctx, "refs/heads/master~")
+	require.NoError(t, err)
+	require.NoError(t, testRepo.UpdateRef(ctx, "refs/tags/master", prevOID, git.ZeroOID))
 
 	commitMessage := []byte("Update Submodule message")
 
@@ -51,6 +67,12 @@ func testSuccessfulUserUpdateSubmoduleRequest(t *testing.T, ctx context.Context)
 			branch:    "master",
 		},
 		{
+			desc:      "Update submodule on weird branch",
+			submodule: "gitlab-grack",
+			commitSha: "41fa1bc9e0f0630ced6a8a211d60c2af425ecc2d",
+			branch:    "refs/heads/master",
+		},
+		{
 			desc:      "Update submodule inside folder",
 			submodule: "test_inside_folder/another_folder/six",
 			commitSha: "e25eda1fece24ac7a03624ed1320f82396f35bd8",
@@ -61,7 +83,7 @@ func testSuccessfulUserUpdateSubmoduleRequest(t *testing.T, ctx context.Context)
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
 			request := &gitalypb.UserUpdateSubmoduleRequest{
-				Repository:    testRepo,
+				Repository:    testRepoProto,
 				User:          testhelper.TestUser,
 				Submodule:     []byte(testCase.submodule),
 				CommitSha:     testCase.commitSha,
@@ -74,7 +96,7 @@ func testSuccessfulUserUpdateSubmoduleRequest(t *testing.T, ctx context.Context)
 			require.Empty(t, response.GetCommitError())
 			require.Empty(t, response.GetPreReceiveError())
 
-			commit, err := log.GetCommit(ctx, locator, testRepo, git.Revision(response.BranchUpdate.CommitId))
+			commit, err := log.GetCommit(ctx, locator, testRepoProto, git.Revision(response.BranchUpdate.CommitId))
 			require.NoError(t, err)
 			require.Equal(t, commit.Author.Email, testhelper.TestUser.Email)
 			require.Equal(t, commit.Committer.Email, testhelper.TestUser.Email)
