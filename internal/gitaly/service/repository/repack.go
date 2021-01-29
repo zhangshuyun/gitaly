@@ -27,27 +27,27 @@ func init() {
 	prometheus.Register(repackCounter)
 }
 
-func (*server) RepackFull(ctx context.Context, in *gitalypb.RepackFullRequest) (*gitalypb.RepackFullResponse, error) {
+func (s *server) RepackFull(ctx context.Context, in *gitalypb.RepackFullRequest) (*gitalypb.RepackFullResponse, error) {
 	options := []git.Option{
 		git.Flag{Name: "-A"},
 		git.Flag{Name: "--pack-kept-objects"},
 		git.Flag{Name: "-l"},
 	}
-	if err := repackCommand(ctx, in.GetRepository(), in.GetCreateBitmap(), options...); err != nil {
+	if err := s.repackCommand(ctx, in.GetRepository(), in.GetCreateBitmap(), options...); err != nil {
 		return nil, err
 	}
 	return &gitalypb.RepackFullResponse{}, nil
 }
 
-func (*server) RepackIncremental(ctx context.Context, in *gitalypb.RepackIncrementalRequest) (*gitalypb.RepackIncrementalResponse, error) {
-	if err := repackCommand(ctx, in.GetRepository(), false); err != nil {
+func (s *server) RepackIncremental(ctx context.Context, in *gitalypb.RepackIncrementalRequest) (*gitalypb.RepackIncrementalResponse, error) {
+	if err := s.repackCommand(ctx, in.GetRepository(), false); err != nil {
 		return nil, err
 	}
 	return &gitalypb.RepackIncrementalResponse{}, nil
 }
 
-func repackCommand(ctx context.Context, repo repository.GitRepo, bitmap bool, args ...git.Option) error {
-	cmd, err := git.NewCommand(ctx, repo,
+func (s *server) repackCommand(ctx context.Context, repo repository.GitRepo, bitmap bool, args ...git.Option) error {
+	cmd, err := s.gitCmdFactory.New(ctx, repo,
 		repackConfig(ctx, bitmap), // global configs
 		git.SubCmd{
 			Name:  "repack",

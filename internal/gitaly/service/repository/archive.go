@@ -92,7 +92,7 @@ func (s *server) GetArchive(in *gitalypb.GetArchiveRequest, stream gitalypb.Repo
 		return err
 	}
 
-	return handleArchive(archiveParams{
+	return s.handleArchive(archiveParams{
 		ctx:         ctx,
 		writer:      writer,
 		in:          in,
@@ -172,7 +172,7 @@ func findGetArchivePath(ctx context.Context, f *commit.TreeEntryFinder, commitID
 	return true, nil
 }
 
-func handleArchive(p archiveParams) error {
+func (s *server) handleArchive(p archiveParams) error {
 	var args []string
 	pathspecs := make([]string, 0, len(p.exclude)+1)
 	if !p.in.GetElidePath() {
@@ -207,7 +207,7 @@ func handleArchive(p archiveParams) error {
 		globals = append(globals, git.ConfigPair{Key: "filter.lfs.smudge", Value: binary})
 	}
 
-	archiveCommand, err := git.NewCommand(p.ctx, p.in.GetRepository(), globals, git.SubCmd{
+	archiveCommand, err := s.gitCmdFactory.New(p.ctx, p.in.GetRepository(), globals, git.SubCmd{
 		Name:        "archive",
 		Flags:       []git.Option{git.ValueFlag{"--format", p.format}, git.ValueFlag{"--prefix", p.in.GetPrefix() + "/"}},
 		Args:        args,

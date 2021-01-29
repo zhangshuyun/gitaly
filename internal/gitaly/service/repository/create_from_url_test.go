@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -72,7 +73,8 @@ func TestCloneRepositoryFromUrlCommand(t *testing.T) {
 	repositoryFullPath := "full/path/to/repository"
 	url := fmt.Sprintf("https://%s@www.example.com/secretrepo.git", userInfo)
 
-	s := &server{cfg: config.Config}
+	cfg := config.Config
+	s := server{cfg: cfg, gitCmdFactory: git.NewExecCommandFactory(cfg)}
 	cmd, err := s.cloneFromURLCommand(ctx, &gitalypb.Repository{}, url, repositoryFullPath, nil)
 	require.NoError(t, err)
 
