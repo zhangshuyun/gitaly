@@ -29,7 +29,7 @@ var registeredTypes = map[interface{}]struct{}{
 	FileExistsError(""):      {},
 	FileNotFoundError(""):    {},
 	InvalidArgumentError(""): {},
-	RevertConflictError{}:    {},
+	HasConflictsError{}:      {},
 }
 
 // Result is the serialized result.
@@ -51,6 +51,14 @@ type wrapError struct {
 func (err wrapError) Error() string { return err.Message }
 
 func (err wrapError) Unwrap() error { return err.Err }
+
+// HasConflictsError is used when a change, for example a revert, could not be
+// applied due to a conflict.
+type HasConflictsError struct{}
+
+func (err HasConflictsError) Error() string {
+	return "could not apply due to conflicts"
+}
 
 // SerializableError returns an error that is Gob serializable.
 // Registered types are serialized directly. Unregistered types

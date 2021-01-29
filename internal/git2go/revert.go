@@ -7,12 +7,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 )
 
-type RevertConflictError struct{}
-
-func (err RevertConflictError) Error() string {
-	return "could not revert due to conflicts"
-}
-
 type RevertCommand struct {
 	// Repository is the path to execute the revert in.
 	Repository string `json:"repository"`

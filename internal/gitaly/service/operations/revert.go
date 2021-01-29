@@ -65,7 +65,7 @@ func (s *Server) UserRevert(ctx context.Context, req *gitalypb.UserRevertRequest
 		Mainline:   mainline,
 	}.Run(ctx, s.cfg)
 	if err != nil {
-		if errors.As(err, &git2go.RevertConflictError{}) {
+		if errors.As(err, &git2go.HasConflictsError{}) {
 			return &gitalypb.UserRevertResponse{
 				CreateTreeError:     err.Error(),
 				CreateTreeErrorCode: gitalypb.UserRevertResponse_CONFLICT,
