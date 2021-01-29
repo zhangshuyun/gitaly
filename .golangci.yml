@@ -40,6 +40,10 @@ issues:
         - golint
       text: "context.Context should be the first parameter of a function"
       path: "_test.go"
+    - linters:
+        - golint
+      text: "don't use underscores in Go names"
+      path: "_test.go"
     ## golint: Specific issues in non-*_test.go files
     - linters:
         - golint
