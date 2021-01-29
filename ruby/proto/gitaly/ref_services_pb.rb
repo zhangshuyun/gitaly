@@ -26,6 +26,8 @@ module Gitaly
       rpc :FindTag, Gitaly::FindTagRequest, Gitaly::FindTagResponse
       rpc :FindAllRemoteBranches, Gitaly::FindAllRemoteBranchesRequest, stream(Gitaly::FindAllRemoteBranchesResponse)
       rpc :RefExists, Gitaly::RefExistsRequest, Gitaly::RefExistsResponse
+      # FindBranch finds a branch by its unqualified name (like "master") and
+      # returns the commit it currently points to.
       rpc :FindBranch, Gitaly::FindBranchRequest, Gitaly::FindBranchResponse
       rpc :DeleteRefs, Gitaly::DeleteRefsRequest, Gitaly::DeleteRefsResponse
       rpc :ListBranchNamesContainingCommit, Gitaly::ListBranchNamesContainingCommitRequest, stream(Gitaly::ListBranchNamesContainingCommitResponse)

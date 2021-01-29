@@ -5,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -16,23 +17,37 @@ func TestSuccessfulFindBranchRequest(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	locator := config.NewLocator(config.Config)
 	stop, serverSocketPath := runRefServiceServer(t)
 	defer stop()
 
 	client, conn := newRefServiceClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepoProto, _, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
-	branchNameInput := "master"
-	branchTarget, err := log.GetCommit(ctx, locator, testRepo, git.Revision(branchNameInput))
-	require.NoError(t, err)
+	repo := localrepo.New(testRepoProto, config.Config)
+	locator := config.NewLocator(config.Config)
 
-	branch := &gitalypb.Branch{
-		Name:         []byte(branchNameInput),
-		TargetCommit: branchTarget,
+	branchesByName := make(map[git.ReferenceName]*gitalypb.Branch)
+	for branchName, revision := range map[git.ReferenceName]git.Revision{
+		"refs/heads/branch":            "refs/heads/master~0",
+		"refs/heads/heads/branch":      "refs/heads/master~1",
+		"refs/heads/refs/heads/branch": "refs/heads/master~2",
+	} {
+		oid, err := repo.ResolveRevision(ctx, revision)
+		require.NoError(t, err)
+
+		err = repo.UpdateRef(ctx, branchName, oid, "")
+		require.NoError(t, err)
+
+		commit, err := log.GetCommit(ctx, locator, testRepoProto, branchName.Revision())
+		require.NoError(t, err)
+
+		branchesByName[branchName] = &gitalypb.Branch{
+			Name:         []byte(branchName.String()[len("refs/heads/"):]),
+			TargetCommit: commit,
+		}
 	}
 
 	testCases := []struct {
@@ -42,18 +57,18 @@ func TestSuccessfulFindBranchRequest(t *testing.T) {
 	}{
 		{
 			desc:           "regular branch name",
-			branchName:     branchNameInput,
-			expectedBranch: branch,
+			branchName:     "branch",
+			expectedBranch: branchesByName["refs/heads/branch"],
 		},
 		{
 			desc:           "absolute reference path",
-			branchName:     "refs/heads/" + branchNameInput,
-			expectedBranch: branch,
+			branchName:     "heads/branch",
+			expectedBranch: branchesByName["refs/heads/heads/branch"],
 		},
 		{
 			desc:           "heads path",
-			branchName:     "heads/" + branchNameInput,
-			expectedBranch: branch,
+			branchName:     "refs/heads/branch",
+			expectedBranch: branchesByName["refs/heads/refs/heads/branch"],
 		},
 		{
 			desc:       "non-existent branch",
@@ -64,7 +79,7 @@ func TestSuccessfulFindBranchRequest(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
 			request := &gitalypb.FindBranchRequest{
-				Repository: testRepo,
+				Repository: testRepoProto,
 				Name:       []byte(testCase.branchName),
 			}
 

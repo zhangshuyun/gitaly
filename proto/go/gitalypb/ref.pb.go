@@ -1328,8 +1328,10 @@ func (m *DeleteBranchResponse) XXX_DiscardUnknown() {
 var xxx_messageInfo_DeleteBranchResponse proto.InternalMessageInfo
 
 type FindBranchRequest struct {
+	// repository is the repository in which the branch should be looked up.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	// Name can be 'master' but also 'refs/heads/master'
+	// name is the name of the branch which should be looked up. This must be the
+	// branch name only, it must not have the "refs/heads/" prefix.
 	Name                 []byte   `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -2237,6 +2239,8 @@ type RefServiceClient interface {
 	FindTag(ctx context.Context, in *FindTagRequest, opts ...grpc.CallOption) (*FindTagResponse, error)
 	FindAllRemoteBranches(ctx context.Context, in *FindAllRemoteBranchesRequest, opts ...grpc.CallOption) (RefService_FindAllRemoteBranchesClient, error)
 	RefExists(ctx context.Context, in *RefExistsRequest, opts ...grpc.CallOption) (*RefExistsResponse, error)
+	// FindBranch finds a branch by its unqualified name (like "master") and
+	// returns the commit it currently points to.
 	FindBranch(ctx context.Context, in *FindBranchRequest, opts ...grpc.CallOption) (*FindBranchResponse, error)
 	DeleteRefs(ctx context.Context, in *DeleteRefsRequest, opts ...grpc.CallOption) (*DeleteRefsResponse, error)
 	ListBranchNamesContainingCommit(ctx context.Context, in *ListBranchNamesContainingCommitRequest, opts ...grpc.CallOption) (RefService_ListBranchNamesContainingCommitClient, error)
@@ -2685,6 +2689,8 @@ type RefServiceServer interface {
 	FindTag(context.Context, *FindTagRequest) (*FindTagResponse, error)
 	FindAllRemoteBranches(*FindAllRemoteBranchesRequest, RefService_FindAllRemoteBranchesServer) error
 	RefExists(context.Context, *RefExistsRequest) (*RefExistsResponse, error)
+	// FindBranch finds a branch by its unqualified name (like "master") and
+	// returns the commit it currently points to.
 	FindBranch(context.Context, *FindBranchRequest) (*FindBranchResponse, error)
 	DeleteRefs(context.Context, *DeleteRefsRequest) (*DeleteRefsResponse, error)
 	ListBranchNamesContainingCommit(*ListBranchNamesContainingCommitRequest, RefService_ListBranchNamesContainingCommitServer) error
