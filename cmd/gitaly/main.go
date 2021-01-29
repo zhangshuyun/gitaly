@@ -18,6 +18,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config/sentry"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/server"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	glog "gitlab.com/gitlab-org/gitaly/internal/log"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/internal/tempdir"
@@ -136,8 +137,9 @@ func run(cfg config.Cfg, b *bootstrap.Bootstrap) error {
 			log.Fatalf("could not create GitLab API client: %v", err)
 		}
 
-		hm := hook.NewManager(config.NewLocator(cfg), gitlabAPI, cfg)
-		prometheus.MustRegister(hm)
+		tm := transaction.NewManager(cfg)
+		prometheus.MustRegister(tm)
+		hm := hook.NewManager(config.NewLocator(cfg), tm, gitlabAPI, cfg)
 
 		hookManager = hm
 	}

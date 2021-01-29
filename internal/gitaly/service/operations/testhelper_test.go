@@ -17,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/ref"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/repository"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/ssh"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
@@ -82,7 +83,8 @@ func runOperationServiceServerWithRubyServer(t *testing.T, ruby *rubyserver.Serv
 	conns := client.NewPool()
 
 	locator := config.NewLocator(config.Config)
-	hookManager := gitalyhook.NewManager(locator, gitalyhook.GitlabAPIStub, config.Config)
+	txManager := transaction.NewManager(config.Config)
+	hookManager := gitalyhook.NewManager(locator, txManager, gitalyhook.GitlabAPIStub, config.Config)
 	gitCmdFactory := git.NewExecCommandFactory(config.Config)
 	server := NewServer(config.Config, ruby, hookManager, locator, conns, gitCmdFactory)
 

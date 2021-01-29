@@ -11,6 +11,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
 	hookservice "gitlab.com/gitlab-org/gitaly/internal/gitaly/service/hook"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/cache"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -48,6 +49,8 @@ func testMain(m *testing.M) int {
 func runSmartHTTPServer(t *testing.T, serverOpts ...ServerOpt) (string, func()) {
 	locator := config.NewLocator(config.Config)
 	keyer := diskcache.NewLeaseKeyer(locator)
+	txManager := transaction.NewManager(config.Config)
+	hookManager := hook.NewManager(locator, txManager, hook.GitlabAPIStub, config.Config)
 
 	srv := testhelper.NewServer(t,
 		[]grpc.StreamServerInterceptor{
@@ -59,7 +62,7 @@ func runSmartHTTPServer(t *testing.T, serverOpts ...ServerOpt) (string, func()) 
 		testhelper.WithInternalSocket(config.Config))
 
 	gitalypb.RegisterSmartHTTPServiceServer(srv.GrpcServer(), NewServer(config.Config, locator, serverOpts...))
-	gitalypb.RegisterHookServiceServer(srv.GrpcServer(), hookservice.NewServer(config.Config, hook.NewManager(locator, hook.GitlabAPIStub, config.Config)))
+	gitalypb.RegisterHookServiceServer(srv.GrpcServer(), hookservice.NewServer(config.Config, hookManager))
 	srv.Start(t)
 
 	return "unix://" + srv.Socket(), srv.Stop

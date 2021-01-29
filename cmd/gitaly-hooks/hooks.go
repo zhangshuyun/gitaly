@@ -267,7 +267,7 @@ func check(configPath string) (*hook.CheckInfo, error) {
 		return nil, err
 	}
 
-	return hook.NewManager(config.NewLocator(cfg), gitlabAPI, cfg).Check(context.TODO())
+	return hook.NewManager(config.NewLocator(cfg), nil, gitlabAPI, cfg).Check(context.TODO())
 }
 
 // This is a workaround for a bug in Git:

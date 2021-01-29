@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 )
@@ -61,7 +62,7 @@ func TestPostReceive_customHook(t *testing.T) {
 	repo, repoPath, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
 
-	hookManager := NewManager(config.NewLocator(config.Config), GitlabAPIStub, config.Config)
+	hookManager := NewManager(config.NewLocator(config.Config), transaction.NewManager(config.Config), GitlabAPIStub, config.Config)
 
 	receiveHooksPayload := &git.ReceiveHooksPayload{
 		UserID:   "1234",
@@ -337,7 +338,7 @@ func TestPostReceive_gitlab(t *testing.T) {
 				},
 			}
 
-			hookManager := NewManager(config.NewLocator(config.Config), &gitlabAPI, config.Config)
+			hookManager := NewManager(config.NewLocator(config.Config), transaction.NewManager(config.Config), &gitlabAPI, config.Config)
 
 			cleanup = testhelper.WriteCustomHook(t, testRepoPath, "post-receive", []byte("#!/bin/sh\necho hook called\n"))
 			defer cleanup()

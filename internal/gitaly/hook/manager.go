@@ -4,7 +4,6 @@ import (
 	"context"
 	"io"
 
-	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
@@ -52,23 +51,15 @@ type GitLabHookManager struct {
 	locator     storage.Locator
 	gitlabAPI   GitlabAPI
 	hooksConfig config.Hooks
-	txManager   *transaction.PoolManager
+	txManager   transaction.Manager
 }
 
 // NewManager returns a new hook manager
-func NewManager(locator storage.Locator, gitlabAPI GitlabAPI, cfg config.Cfg) *GitLabHookManager {
+func NewManager(locator storage.Locator, txManager transaction.Manager, gitlabAPI GitlabAPI, cfg config.Cfg) *GitLabHookManager {
 	return &GitLabHookManager{
 		locator:     locator,
 		gitlabAPI:   gitlabAPI,
 		hooksConfig: cfg.Hooks,
-		txManager:   transaction.NewManager(cfg),
+		txManager:   txManager,
 	}
-}
-
-func (m *GitLabHookManager) Describe(descs chan<- *prometheus.Desc) {
-	prometheus.DescribeByCollect(m.txManager, descs)
-}
-
-func (m *GitLabHookManager) Collect(metrics chan<- prometheus.Metric) {
-	m.txManager.Collect(metrics)
 }

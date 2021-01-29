@@ -7,6 +7,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
 	hookservice "gitlab.com/gitlab-org/gitaly/internal/gitaly/service/hook"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
@@ -30,7 +31,7 @@ func runCleanupServiceServer(t *testing.T, cfg config.Cfg) (string, func()) {
 
 	locator := config.NewLocator(cfg)
 	gitalypb.RegisterCleanupServiceServer(srv.GrpcServer(), NewServer(cfg, locator))
-	gitalypb.RegisterHookServiceServer(srv.GrpcServer(), hookservice.NewServer(cfg, hook.NewManager(locator, hook.GitlabAPIStub, cfg)))
+	gitalypb.RegisterHookServiceServer(srv.GrpcServer(), hookservice.NewServer(cfg, hook.NewManager(locator, transaction.NewManager(cfg), hook.GitlabAPIStub, cfg)))
 	reflection.Register(srv.GrpcServer())
 
 	srv.Start(t)

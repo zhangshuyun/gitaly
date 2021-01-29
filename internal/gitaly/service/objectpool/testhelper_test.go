@@ -11,6 +11,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
 	hookservice "gitlab.com/gitlab-org/gitaly/internal/gitaly/service/hook"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -39,8 +40,11 @@ func runObjectPoolServer(t *testing.T, cfg config.Cfg, locator storage.Locator) 
 	internalListener, err := net.Listen("unix", cfg.GitalyInternalSocketPath())
 	require.NoError(t, err)
 
+	txManager := transaction.NewManager(cfg)
+	hookManager := hook.NewManager(locator, txManager, hook.GitlabAPIStub, cfg)
+
 	gitalypb.RegisterObjectPoolServiceServer(server, NewServer(cfg, locator, git.NewExecCommandFactory(config.Config)))
-	gitalypb.RegisterHookServiceServer(server, hookservice.NewServer(cfg, hook.NewManager(locator, hook.GitlabAPIStub, cfg)))
+	gitalypb.RegisterHookServiceServer(server, hookservice.NewServer(cfg, hookManager))
 
 	go server.Serve(listener)
 	go server.Serve(internalListener)
