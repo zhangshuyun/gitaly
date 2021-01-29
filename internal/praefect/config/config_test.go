@@ -180,6 +180,24 @@ func TestConfigValidation(t *testing.T) {
 			},
 			errMsg: `multiple storages have the same address`,
 		},
+		{
+			desc: "default replication factor too high",
+			changeConfig: func(cfg *Config) {
+				cfg.VirtualStorages = []*VirtualStorage{
+					{
+						Name:                     "default",
+						DefaultReplicationFactor: 2,
+						Nodes: []*Node{
+							{
+								Storage: "storage-1",
+								Address: "localhost:23456",
+							},
+						},
+					},
+				}
+			},
+			errMsg: `virtual storage "default" has a default replication factor (2) which is higher than the number of storages (1)`,
+		},
 	}
 
 	for _, tc := range testCases {
@@ -234,7 +252,8 @@ func TestConfigParsing(t *testing.T) {
 				},
 				VirtualStorages: []*VirtualStorage{
 					&VirtualStorage{
-						Name: "praefect",
+						Name:                     "praefect",
+						DefaultReplicationFactor: 2,
 						Nodes: []*Node{
 							&Node{
 								Address: "tcp://gitaly-internal-1.example.com",
@@ -421,6 +440,38 @@ func TestToPQString(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			require.Equal(t, tc.out, tc.in.ToPQString(tc.direct))
+		})
+	}
+}
+
+func TestDefaultReplicationFactors(t *testing.T) {
+	for _, tc := range []struct {
+		desc                      string
+		virtualStorages           []*VirtualStorage
+		defaultReplicationFactors map[string]int
+	}{
+		{
+			desc: "replication factors set on some",
+			virtualStorages: []*VirtualStorage{
+				{Name: "virtual-storage-1", DefaultReplicationFactor: 0},
+				{Name: "virtual-storage-2", DefaultReplicationFactor: 1},
+			},
+			defaultReplicationFactors: map[string]int{
+				"virtual-storage-1": 0,
+				"virtual-storage-2": 1,
+			},
+		},
+		{
+			desc:                      "returns always initialized map",
+			virtualStorages:           []*VirtualStorage{},
+			defaultReplicationFactors: map[string]int{},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			require.Equal(t,
+				tc.defaultReplicationFactors,
+				Config{VirtualStorages: tc.virtualStorages}.DefaultReplicationFactors(),
+			)
 		})
 	}
 }
