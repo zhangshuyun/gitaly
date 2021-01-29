@@ -18,6 +18,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/server/auth"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/fieldextractors"
 	gitalylog "gitlab.com/gitlab-org/gitaly/internal/log"
 	"gitlab.com/gitlab-org/gitaly/internal/logsanitizer"
@@ -75,7 +76,7 @@ func init() {
 
 // createNewServer returns a GRPC server with all Gitaly services and interceptors set up.
 // allows for specifying secure = true to enable tls credentials
-func createNewServer(rubyServer *rubyserver.Server, hookManager hook.Manager, cfg config.Cfg, secure bool, conns *client.Pool) *grpc.Server {
+func createNewServer(rubyServer *rubyserver.Server, hookManager hook.Manager, txManager transaction.Manager, cfg config.Cfg, secure bool, conns *client.Pool) *grpc.Server {
 	ctxTagOpts := []grpc_ctxtags.Option{
 		grpc_ctxtags.WithFieldExtractorForInitialReq(fieldextractors.FieldExtractor),
 	}
@@ -142,7 +143,7 @@ func createNewServer(rubyServer *rubyserver.Server, hookManager hook.Manager, cf
 
 	server := grpc.NewServer(opts...)
 
-	service.RegisterAll(server, cfg, rubyServer, hookManager, storageLocator, conns, git.NewExecCommandFactory(cfg))
+	service.RegisterAll(server, cfg, rubyServer, hookManager, txManager, storageLocator, conns, git.NewExecCommandFactory(cfg))
 	reflection.Register(server)
 
 	grpc_prometheus.Register(server)
@@ -151,11 +152,11 @@ func createNewServer(rubyServer *rubyserver.Server, hookManager hook.Manager, cf
 }
 
 // NewInsecure returns a GRPC server with all Gitaly services and interceptors set up.
-func NewInsecure(rubyServer *rubyserver.Server, hookManager hook.Manager, cfg config.Cfg, conns *client.Pool) *grpc.Server {
-	return createNewServer(rubyServer, hookManager, cfg, false, conns)
+func NewInsecure(rubyServer *rubyserver.Server, hookManager hook.Manager, txManager transaction.Manager, cfg config.Cfg, conns *client.Pool) *grpc.Server {
+	return createNewServer(rubyServer, hookManager, txManager, cfg, false, conns)
 }
 
 // NewSecure returns a GRPC server enabling TLS credentials
-func NewSecure(rubyServer *rubyserver.Server, hookManager hook.Manager, cfg config.Cfg, conns *client.Pool) *grpc.Server {
-	return createNewServer(rubyServer, hookManager, cfg, true, conns)
+func NewSecure(rubyServer *rubyserver.Server, hookManager hook.Manager, txManager transaction.Manager, cfg config.Cfg, conns *client.Pool) *grpc.Server {
+	return createNewServer(rubyServer, hookManager, txManager, cfg, true, conns)
 }

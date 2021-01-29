@@ -14,6 +14,7 @@ import (
 	gconfig "gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/internalgitaly"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/repository"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/nodes"
@@ -67,7 +68,7 @@ func TestServer_ConsistencyCheck(t *testing.T) {
 
 		gitalySrv := grpc.NewServer()
 		defer gitalySrv.Stop()
-		gitalypb.RegisterRepositoryServiceServer(gitalySrv, repository.NewServer(gconfig.Config, nil, gconfig.NewLocator(gconfig.Config), git.NewExecCommandFactory(gconfig.Config)))
+		gitalypb.RegisterRepositoryServiceServer(gitalySrv, repository.NewServer(gconfig.Config, nil, gconfig.NewLocator(gconfig.Config), transaction.NewManager(gconfig.Config), git.NewExecCommandFactory(gconfig.Config)))
 		gitalypb.RegisterInternalGitalyServer(gitalySrv, internalgitaly.NewServer(gconfig.Config.Storages))
 		go func() { gitalySrv.Serve(gitalyListener) }()
 	}

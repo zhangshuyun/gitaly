@@ -14,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/internalgitaly"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/repository"
 	gitalyserver "gitlab.com/gitlab-org/gitaly/internal/gitaly/service/server"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
@@ -45,6 +46,7 @@ func registerGitalyServices(server *grpc.Server, pg PartialGitaly) {
 // Gitaly services.
 func RealGitaly(storages []config.Storage, authToken, internalSocketPath string) PartialGitaly {
 	locator := config.NewLocator(config.Config)
+	transactionManager := transaction.NewManager(config.Config)
 	gitCmdFactory := git.NewExecCommandFactory(config.Config)
 	return struct {
 		gitalypb.ServerServiceServer
@@ -54,7 +56,7 @@ func RealGitaly(storages []config.Storage, authToken, internalSocketPath string)
 		healthpb.HealthServer
 	}{
 		gitalyserver.NewServer(storages),
-		repository.NewServer(config.Config, RubyServer, locator, gitCmdFactory),
+		repository.NewServer(config.Config, RubyServer, locator, transactionManager, gitCmdFactory),
 		internalgitaly.NewServer(config.Config.Storages),
 		commit.NewServer(config.Config, locator),
 		health.NewServer(),

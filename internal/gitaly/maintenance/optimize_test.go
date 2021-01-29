@@ -11,6 +11,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/repository"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
@@ -27,7 +28,7 @@ func (mo *mockOptimizer) OptimizeRepository(ctx context.Context, req *gitalypb.O
 	cfg := config.Cfg{Storages: mo.storages}
 	l := config.NewLocator(cfg)
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
-	resp, err := repository.NewServer(cfg, nil, l, gitCmdFactory).OptimizeRepository(ctx, req)
+	resp, err := repository.NewServer(cfg, nil, l, transaction.NewManager(cfg), gitCmdFactory).OptimizeRepository(ctx, req)
 	assert.NoError(mo.t, err)
 	return resp, err
 }

@@ -13,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/ref"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/remote"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/ssh"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -176,7 +177,7 @@ func TestFailedFetchInternalRemoteDueToValidations(t *testing.T) {
 
 func runFullServer(t *testing.T) (string, func()) {
 	conns := client.NewPool()
-	server := serverPkg.NewInsecure(remote.RubyServer, nil, config.Config, conns)
+	server := serverPkg.NewInsecure(remote.RubyServer, nil, transaction.NewManager(config.Config), config.Config, conns)
 	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
 
 	listener, err := net.Listen("unix", serverSocketPath)

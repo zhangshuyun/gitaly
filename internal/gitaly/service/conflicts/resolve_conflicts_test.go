@@ -14,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	serverPkg "gitlab.com/gitlab-org/gitaly/internal/gitaly/server"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/conflicts"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -419,7 +420,7 @@ func testFailedResolveConflictsRequestDueToValidation(t *testing.T, ctx context.
 func runFullServer(t *testing.T) (string, func()) {
 	conns := client.NewPool()
 
-	server := serverPkg.NewInsecure(conflicts.RubyServer, nil, config.Config, conns)
+	server := serverPkg.NewInsecure(conflicts.RubyServer, nil, transaction.NewManager(config.Config), config.Config, conns)
 	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
 
 	listener, err := net.Listen("unix", serverSocketPath)

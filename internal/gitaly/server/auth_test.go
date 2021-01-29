@@ -202,7 +202,8 @@ func newOperationClient(t *testing.T, serverSocketPath string) (gitalypb.Operati
 
 func runServerWithRuby(t *testing.T, ruby *rubyserver.Server) (string, func()) {
 	conns := client.NewPool()
-	srv := NewInsecure(ruby, hook.NewManager(config.NewLocator(config.Config), transaction.NewManager(config.Config), hook.GitlabAPIStub, config.Config), config.Config, conns)
+	txManager := transaction.NewManager(config.Config)
+	srv := NewInsecure(ruby, hook.NewManager(config.NewLocator(config.Config), txManager, hook.GitlabAPIStub, config.Config), txManager, config.Config, conns)
 
 	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
 
@@ -229,7 +230,7 @@ func runSecureServer(t *testing.T) (string, func()) {
 	}
 
 	conns := client.NewPool()
-	srv := NewSecure(nil, nil, config.Config, conns)
+	srv := NewSecure(nil, nil, nil, config.Config, conns)
 
 	listener, hostPort := testhelper.GetLocalhostListener(t)
 	go srv.Serve(listener)

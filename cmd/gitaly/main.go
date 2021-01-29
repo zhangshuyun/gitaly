@@ -128,7 +128,11 @@ func run(cfg config.Cfg, b *bootstrap.Bootstrap) error {
 	var gitlabAPI hook.GitlabAPI
 	var err error
 
+	transactionManager := transaction.NewManager(cfg)
+	prometheus.MustRegister(transactionManager)
+
 	hookManager := hook.Manager(hook.DisabledManager{})
+
 	if config.SkipHooks() {
 		log.Warn("skipping GitLab API client creation since hooks are bypassed via GITALY_TESTING_NO_GIT_HOOKS")
 	} else {
@@ -137,9 +141,7 @@ func run(cfg config.Cfg, b *bootstrap.Bootstrap) error {
 			log.Fatalf("could not create GitLab API client: %v", err)
 		}
 
-		tm := transaction.NewManager(cfg)
-		prometheus.MustRegister(tm)
-		hm := hook.NewManager(config.NewLocator(cfg), tm, gitlabAPI, cfg)
+		hm := hook.NewManager(config.NewLocator(cfg), transactionManager, gitlabAPI, cfg)
 
 		hookManager = hm
 	}
@@ -150,7 +152,7 @@ func run(cfg config.Cfg, b *bootstrap.Bootstrap) error {
 	)
 	defer conns.Close()
 
-	servers := server.NewGitalyServerFactory(cfg, hookManager, conns)
+	servers := server.NewGitalyServerFactory(cfg, hookManager, transactionManager, conns)
 	defer servers.Stop()
 
 	b.StopAction = servers.GracefulStop

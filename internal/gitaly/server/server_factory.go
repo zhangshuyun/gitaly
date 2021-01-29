@@ -14,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/maintenance"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
 )
@@ -24,14 +25,21 @@ type GitalyServerFactory struct {
 	cfg              config.Cfg
 	ruby             *rubyserver.Server
 	hookManager      hook.Manager
+	txManager        transaction.Manager
 	secure, insecure []*grpc.Server
 	conns            *client.Pool
 }
 
 // NewGitalyServerFactory allows to create and start secure/insecure 'grpc.Server'-s with gitaly-ruby
 // server shared in between.
-func NewGitalyServerFactory(cfg config.Cfg, hookManager hook.Manager, conns *client.Pool) *GitalyServerFactory {
-	return &GitalyServerFactory{cfg: cfg, ruby: &rubyserver.Server{}, hookManager: hookManager, conns: conns}
+func NewGitalyServerFactory(cfg config.Cfg, hookManager hook.Manager, txManager transaction.Manager, conns *client.Pool) *GitalyServerFactory {
+	return &GitalyServerFactory{
+		cfg:         cfg,
+		ruby:        &rubyserver.Server{},
+		hookManager: hookManager,
+		txManager:   txManager,
+		conns:       conns,
+	}
 }
 
 // StartRuby starts the ruby process
@@ -127,11 +135,11 @@ func (s *GitalyServerFactory) create(secure bool) *grpc.Server {
 	defer s.mtx.Unlock()
 
 	if secure {
-		s.secure = append(s.secure, NewSecure(s.ruby, s.hookManager, s.cfg, s.conns))
+		s.secure = append(s.secure, NewSecure(s.ruby, s.hookManager, s.txManager, s.cfg, s.conns))
 		return s.secure[len(s.secure)-1]
 	}
 
-	s.insecure = append(s.insecure, NewInsecure(s.ruby, s.hookManager, s.cfg, s.conns))
+	s.insecure = append(s.insecure, NewInsecure(s.ruby, s.hookManager, s.txManager, s.cfg, s.conns))
 
 	return s.insecure[len(s.insecure)-1]
 }

@@ -27,6 +27,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/smarthttp"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/ssh"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/wiki"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
@@ -65,7 +66,16 @@ func registerMetrics(cfg config.Cfg) {
 
 // RegisterAll will register all the known grpc services with
 // the specified grpc service instance
-func RegisterAll(grpcServer *grpc.Server, cfg config.Cfg, rubyServer *rubyserver.Server, hookManager gitalyhook.Manager, locator storage.Locator, conns *client.Pool, gitCmdFactory git.CommandFactory) {
+func RegisterAll(
+	grpcServer *grpc.Server,
+	cfg config.Cfg,
+	rubyServer *rubyserver.Server,
+	hookManager gitalyhook.Manager,
+	txManager transaction.Manager,
+	locator storage.Locator,
+	conns *client.Pool,
+	gitCmdFactory git.CommandFactory,
+) {
 	once.Do(func() {
 		registerMetrics(cfg)
 	})
@@ -77,7 +87,7 @@ func RegisterAll(grpcServer *grpc.Server, cfg config.Cfg, rubyServer *rubyserver
 	gitalypb.RegisterNamespaceServiceServer(grpcServer, namespace.NewServer(locator))
 	gitalypb.RegisterOperationServiceServer(grpcServer, operations.NewServer(cfg, rubyServer, hookManager, locator, conns, git.NewExecCommandFactory(cfg)))
 	gitalypb.RegisterRefServiceServer(grpcServer, ref.NewServer(cfg, locator))
-	gitalypb.RegisterRepositoryServiceServer(grpcServer, repository.NewServer(cfg, rubyServer, locator, gitCmdFactory))
+	gitalypb.RegisterRepositoryServiceServer(grpcServer, repository.NewServer(cfg, rubyServer, locator, txManager, gitCmdFactory))
 	gitalypb.RegisterSSHServiceServer(grpcServer, ssh.NewServer(
 		cfg,
 		locator,

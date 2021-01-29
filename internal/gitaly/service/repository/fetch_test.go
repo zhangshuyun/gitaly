@@ -335,7 +335,7 @@ func runFullServer(t *testing.T, locator storage.Locator) (string, func()) {
 	txManager := transaction.NewManager(config.Config)
 	hookManager := hook.NewManager(locator, txManager, hook.GitlabAPIStub, config.Config)
 
-	server := serverPkg.NewInsecure(repository.RubyServer, hookManager, config.Config, conns)
+	server := serverPkg.NewInsecure(repository.RubyServer, hookManager, txManager, config.Config, conns)
 
 	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
 
@@ -360,7 +360,7 @@ func runFullSecureServer(t *testing.T, locator storage.Locator) (*grpc.Server, s
 	txManager := transaction.NewManager(config.Config)
 	hookManager := hook.NewManager(locator, txManager, hook.GitlabAPIStub, config.Config)
 
-	server := serverPkg.NewSecure(repository.RubyServer, hookManager, config.Config, conns)
+	server := serverPkg.NewSecure(repository.RubyServer, hookManager, txManager, config.Config, conns)
 	listener, addr := testhelper.GetLocalhostListener(t)
 
 	errQ := make(chan error)
