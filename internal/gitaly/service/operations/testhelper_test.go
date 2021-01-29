@@ -83,14 +83,15 @@ func runOperationServiceServerWithRubyServer(t *testing.T, ruby *rubyserver.Serv
 
 	locator := config.NewLocator(config.Config)
 	hookManager := gitalyhook.NewManager(locator, gitalyhook.GitlabAPIStub, config.Config)
-	server := NewServer(config.Config, ruby, hookManager, locator, conns, git.NewExecCommandFactory(config.Config))
+	gitCmdFactory := git.NewExecCommandFactory(config.Config)
+	server := NewServer(config.Config, ruby, hookManager, locator, conns, gitCmdFactory)
 
 	gitalypb.RegisterOperationServiceServer(srv.GrpcServer(), server)
 	gitalypb.RegisterHookServiceServer(srv.GrpcServer(), hook.NewServer(config.Config, hookManager))
-	gitalypb.RegisterRepositoryServiceServer(srv.GrpcServer(), repository.NewServer(config.Config, ruby, locator, git.NewExecCommandFactory(config.Config)))
+	gitalypb.RegisterRepositoryServiceServer(srv.GrpcServer(), repository.NewServer(config.Config, ruby, locator, gitCmdFactory))
 	gitalypb.RegisterRefServiceServer(srv.GrpcServer(), ref.NewServer(config.Config, locator))
 	gitalypb.RegisterCommitServiceServer(srv.GrpcServer(), commit.NewServer(config.Config, locator))
-	gitalypb.RegisterSSHServiceServer(srv.GrpcServer(), ssh.NewServer(config.Config, locator))
+	gitalypb.RegisterSSHServiceServer(srv.GrpcServer(), ssh.NewServer(config.Config, locator, gitCmdFactory))
 	reflection.Register(srv.GrpcServer())
 
 	srv.Start(t)

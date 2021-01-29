@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/client"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	serverPkg "gitlab.com/gitlab-org/gitaly/internal/gitaly/server"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/ref"
@@ -49,8 +50,9 @@ func TestSuccessfulFetchInternalRemote(t *testing.T) {
 	testhelper.ConfigureGitalyHooksBinary()
 
 	locator := config.NewLocator(config.Config)
+	gitCmdFactory := git.NewExecCommandFactory(config.Config)
 	gitaly0Server := testhelper.NewServer(t, nil, nil, testhelper.WithStorages([]string{"gitaly-0"}))
-	gitalypb.RegisterSSHServiceServer(gitaly0Server.GrpcServer(), ssh.NewServer(config.Config, locator))
+	gitalypb.RegisterSSHServiceServer(gitaly0Server.GrpcServer(), ssh.NewServer(config.Config, locator, gitCmdFactory))
 	gitalypb.RegisterRefServiceServer(gitaly0Server.GrpcServer(), ref.NewServer(config.Config, locator))
 	reflection.Register(gitaly0Server.GrpcServer())
 	gitaly0Server.Start(t)
