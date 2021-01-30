@@ -23,7 +23,7 @@ func sendTreeEntry(stream gitalypb.CommitService_TreeEntryServer, c catfile.Batc
 	}
 
 	if treeEntry == nil || len(treeEntry.Oid) == 0 {
-		return helper.DecorateError(codes.Unavailable, stream.Send(&gitalypb.TreeEntryResponse{}))
+		return status.Errorf(codes.NotFound, "not found: %s", path)
 	}
 
 	if treeEntry.Type == gitalypb.TreeEntry_COMMIT {
