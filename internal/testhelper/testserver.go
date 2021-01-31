@@ -717,7 +717,7 @@ func handlePostReceive(options GitlabTestServerOptions) func(w http.ResponseWrit
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		if err := json.NewEncoder(w).Encode(&response); err != nil {
-			log.Fatal(err)
+			panic(err)
 		}
 	}
 }

@@ -73,22 +73,19 @@ func main() {
 	}
 
 	log.Info("Starting Gitaly", "version", version.GetVersionString())
-	if err := exec(); err != nil {
+	if err := configure(flag.Arg(0)); err != nil {
 		log.Fatal(err)
 	}
+	log.WithError(run(config.Config)).Error("shutting down")
 	log.Info("Gitaly stopped")
 }
 
-func exec() error {
-	configPath := flag.Arg(0)
+func configure(configPath string) error {
 	if err := loadConfig(configPath); err != nil {
 		return fmt.Errorf("load config: config_path %q: %w", configPath, err)
 	}
 
 	glog.Configure(config.Config.Logging.Format, config.Config.Logging.Level)
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 
 	cgroupsManager := cgroups.NewManager(config.Config.Cgroups)
 	if err := cgroupsManager.Setup(); err != nil {
@@ -100,22 +97,8 @@ func exec() error {
 		}
 	}()
 
-	gitVersion, err := git.Version(ctx)
-	if err != nil {
-		return fmt.Errorf("Git version detection: %w", err)
-	}
-
-	supported, err := git.SupportedVersion(gitVersion)
-	if err != nil {
-		return fmt.Errorf("Git version comparison: %w", err)
-	}
-	if !supported {
-		return fmt.Errorf("unsupported Git version: %q", gitVersion)
-	}
-
-	b, err := bootstrap.New()
-	if err != nil {
-		return fmt.Errorf("init bootstrap: %w", err)
+	if err := verifyGitVersion(); err != nil {
+		return err
 	}
 
 	sentry.ConfigureSentry(version.GetVersion(), sentry.Config(config.Config.Logging.Sentry))
@@ -123,15 +106,38 @@ func exec() error {
 	config.ConfigureConcurrencyLimits(config.Config)
 	tracing.Initialize(tracing.WithServiceName("gitaly"))
 
-	tempdir.StartCleaning(config.Config.Storages, time.Hour)
-
-	log.WithError(run(ctx, config.Config, b)).Error("shutting down")
 	return nil
 }
 
-func run(ctx context.Context, cfg config.Cfg, b *bootstrap.Bootstrap) error {
-	var gitlabAPI hook.GitlabAPI
-	var err error
+func verifyGitVersion() error {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	gitVersion, err := git.Version(ctx)
+	if err != nil {
+		return fmt.Errorf("git version detection: %w", err)
+	}
+
+	supported, err := git.SupportedVersion(gitVersion)
+	if err != nil {
+		return fmt.Errorf("git version comparison: %w", err)
+	}
+	if !supported {
+		return fmt.Errorf("unsupported Git version: %q", gitVersion)
+	}
+	return nil
+}
+
+func run(cfg config.Cfg) error {
+	tempdir.StartCleaning(cfg.Storages, time.Hour)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	b, err := bootstrap.New()
+	if err != nil {
+		return fmt.Errorf("init bootstrap: %w", err)
+	}
 
 	transactionManager := transaction.NewManager(cfg)
 	prometheus.MustRegister(transactionManager)
@@ -143,7 +149,7 @@ func run(ctx context.Context, cfg config.Cfg, b *bootstrap.Bootstrap) error {
 	if config.SkipHooks() {
 		log.Warn("skipping GitLab API client creation since hooks are bypassed via GITALY_TESTING_NO_GIT_HOOKS")
 	} else {
-		gitlabAPI, err = hook.NewGitlabAPI(cfg.Gitlab, cfg.TLS)
+		gitlabAPI, err := hook.NewGitlabAPI(cfg.Gitlab, cfg.TLS)
 		if err != nil {
 			return fmt.Errorf("could not create GitLab API client: %w", err)
 		}
