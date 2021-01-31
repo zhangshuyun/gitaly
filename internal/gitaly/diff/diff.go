@@ -41,6 +41,7 @@ type Parser struct {
 	linesProcessed    int
 	bytesProcessed    int
 	finished          bool
+	wordDiff          bool
 	err               error
 }
 
@@ -91,7 +92,7 @@ var (
 )
 
 // NewDiffParser returns a new Parser
-func NewDiffParser(src io.Reader, limits Limits) *Parser {
+func NewDiffParser(src io.Reader, limits Limits, wordDiff bool) *Parser {
 	limits.enforceUpperBound()
 
 	parser := &Parser{}
@@ -100,6 +101,7 @@ func NewDiffParser(src io.Reader, limits Limits) *Parser {
 	parser.cacheRawLines(reader)
 	parser.patchReader = reader
 	parser.limits = limits
+	parser.wordDiff = wordDiff
 
 	return parser
 }
@@ -156,7 +158,7 @@ func (parser *Parser) Parse() bool {
 			parser.consumeChunkLine(false)
 		} else if helper.ByteSliceHasAnyPrefix(line, "---", "+++") && !parser.isParsingChunkLines() {
 			parser.consumeLine(false)
-		} else if helper.ByteSliceHasAnyPrefix(line, "-", "+", " ", "\\", "Binary") {
+		} else if helper.ByteSliceHasAnyPrefix(line, "~", "-", "+", " ", "\\", "Binary") {
 			parser.consumeChunkLine(true)
 		} else {
 			parser.consumeLine(false)

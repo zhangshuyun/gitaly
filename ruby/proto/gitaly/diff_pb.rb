@@ -15,6 +15,7 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       repeated :paths, :bytes, 5
       optional :collapse_diffs, :bool, 6
       optional :enforce_limits, :bool, 7
+      optional :word_diff, :bool, 15
       optional :max_files, :int32, 8
       optional :max_lines, :int32, 9
       optional :max_bytes, :int32, 10

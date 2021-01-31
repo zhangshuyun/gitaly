@@ -51,6 +51,7 @@ message CommitDiffRequest {
   repeated bytes paths = 5;
   bool collapse_diffs = 6;
   bool enforce_limits = 7;
+  bool word_diff = 15;
 
   // These limits are only enforced when enforce_limits == true.
   int32 max_files = 8;
@@ -176,4 +177,3 @@ message ChangedPaths {
   bytes path = 1;
   Status status = 2;
 }
-

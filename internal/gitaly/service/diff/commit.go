@@ -33,6 +33,7 @@ func (s *server) CommitDiff(in *gitalypb.CommitDiffRequest, stream gitalypb.Diff
 	leftSha := in.LeftCommitId
 	rightSha := in.RightCommitId
 	ignoreWhitespaceChange := in.GetIgnoreWhitespaceChange()
+	wordDiff := in.GetWordDiff()
 	paths := in.GetPaths()
 
 	cmd := git.SubCmd{
@@ -49,6 +50,9 @@ func (s *server) CommitDiff(in *gitalypb.CommitDiffRequest, stream gitalypb.Diff
 
 	if ignoreWhitespaceChange {
 		cmd.Flags = append(cmd.Flags, git.Flag{Name: "--ignore-space-change"})
+	}
+	if wordDiff {
+		cmd.Flags = append(cmd.Flags, git.Flag{Name: "--word-diff=porcelain"})
 	}
 	if len(paths) > 0 {
 		for _, path := range paths {
@@ -69,7 +73,7 @@ func (s *server) CommitDiff(in *gitalypb.CommitDiffRequest, stream gitalypb.Diff
 	limits.SafeMaxLines = int(in.SafeMaxLines)
 	limits.SafeMaxBytes = int(in.SafeMaxBytes)
 
-	return s.eachDiff(stream.Context(), "CommitDiff", in.Repository, cmd, limits, func(diff *diff.Diff) error {
+	return s.eachDiff(stream.Context(), "CommitDiff", in.Repository, cmd, limits, wordDiff, func(diff *diff.Diff) error {
 		response := &gitalypb.CommitDiffResponse{
 			FromPath:       diff.FromPath,
 			ToPath:         diff.ToPath,
@@ -129,6 +133,7 @@ func (s *server) CommitDelta(in *gitalypb.CommitDeltaRequest, stream gitalypb.Di
 
 	leftSha := in.LeftCommitId
 	rightSha := in.RightCommitId
+	wordDiff := false
 	paths := in.GetPaths()
 
 	cmd := git.SubCmd{
@@ -162,7 +167,7 @@ func (s *server) CommitDelta(in *gitalypb.CommitDeltaRequest, stream gitalypb.Di
 		return nil
 	}
 
-	err := s.eachDiff(stream.Context(), "CommitDelta", in.Repository, cmd, diff.Limits{}, func(diff *diff.Diff) error {
+	err := s.eachDiff(stream.Context(), "CommitDelta", in.Repository, cmd, diff.Limits{}, wordDiff, func(diff *diff.Diff) error {
 		delta := &gitalypb.CommitDelta{
 			FromPath: diff.FromPath,
 			ToPath:   diff.ToPath,
@@ -205,7 +210,7 @@ func validateRequest(in requestWithLeftRightCommitIds) error {
 	return nil
 }
 
-func (s *server) eachDiff(ctx context.Context, rpc string, repo *gitalypb.Repository, subCmd git.Cmd, limits diff.Limits, callback func(*diff.Diff) error) error {
+func (s *server) eachDiff(ctx context.Context, rpc string, repo *gitalypb.Repository, subCmd git.Cmd, limits diff.Limits, wordDiff bool, callback func(*diff.Diff) error) error {
 	diffConfig := git.ConfigPair{Key: "diff.noprefix", Value: "false"}
 
 	cmd, err := s.gitCmdFactory.New(ctx, repo, subCmd, git.WithConfig(diffConfig))
@@ -216,7 +221,7 @@ func (s *server) eachDiff(ctx context.Context, rpc string, repo *gitalypb.Reposi
 		return status.Errorf(codes.Internal, "%s: cmd: %v", rpc, err)
 	}
 
-	diffParser := diff.NewDiffParser(cmd, limits)
+	diffParser := diff.NewDiffParser(cmd, limits, wordDiff)
 
 	for diffParser.Parse() {
 		if err := callback(diffParser.Diff()); err != nil {

@@ -1,0 +1,199 @@
+@@ -13,9 +13,10 @@ class Project < ActiveRecord::Base
+   include CaseSensitivity
+~
+   include TokenAuthenticatable
+~
+   include ValidAttribute
+~
+   include 
+-ProjectFeaturesCompatibility
++InvalidAttribute
+~
+   include 
+-SelectForProjectAuthorization
++ProjectFeaturesIncompatibility
+~
+   include 
+-Routable
++SelectForProjectUnauthorization
+~
++  include Unroutable
+~
+ 
+~
+   extend Gitlab::ConfigHelper
+~
+ 
+~
+@@ -115,9 +116,11 @@ class Project < ActiveRecord::Base
+   has_one :external_wiki_service, dependent: :destroy
+~
+   has_one :kubernetes_service, dependent: :destroy, inverse_of: :project
+~
+ 
+~
+   
++has_one :developer
+~
+   has_one  :forked_project_link,  dependent: :destroy, foreign_key: "forked_to_project_id"
+~
+   has_one  :forked_from_project,  through:   :forked_project_link
+~
+ 
+~
+   
++has_many :bug_reporters
+~
+   has_many :forked_project_links, foreign_key: "forked_from_project_id"
+~
+   has_many :forks,                through:     :forked_project_links, source: :forked_to_project
+~
+ 
+~
+@@ -215,7 +218,7 @@ class Project < ActiveRecord::Base
+   default_scope { where(pending_delete: false) }
+~
+ 
+~
+   scope :sorted_by_activity, -> { reorder(last_activity_at: :desc) }
+~
+   scope :sorted_by_stars, -> { reorder('projects.star_count 
+-DESC')
++ASC')
+  } 
++# :troll:
+~
+ 
+~
+   scope :in_namespace, ->(namespace_ids) { where(namespace_id: namespace_ids) }
+~
+   scope :personal, ->(user) { where(namespace_id: user.namespace_id) }
+~
+@@ -304,6 +307,8 @@ class Project < ActiveRecord::Base
+     #
+~
+     # query - The search query as a String.
+~
+     def search(query)
+~
+       
++return []
+~
+~
+       ptable  = arel_table
+~
+       ntable  = Namespace.arel_table
+~
+       pattern = "%#{query}%"
+~
+@@ -402,24 +407,6 @@ class Project < ActiveRecord::Base
+     path_with_namespace.downcase
+~
+   end
+~
+ 
+~
+-  def container_registry_repository
+~
+-    return unless Gitlab.config.registry.enabled
+~
+~
+-    @container_registry_repository ||= begin
+~
+-      token = Auth::ContainerRegistryAuthenticationService.full_access_token(container_registry_path_with_namespace)
+~
+-      url = Gitlab.config.registry.api_url
+~
+-      host_port = Gitlab.config.registry.host_port
+~
+-      registry = ContainerRegistry::Registry.new(url, token: token, path: host_port)
+~
+-      registry.repository(container_registry_path_with_namespace)
+~
+-    end
+~
+-  end
+~
+~
+-  def container_registry_repository_url
+~
+-    if Gitlab.config.registry.enabled
+~
+-      "#{Gitlab.config.registry.host_port}/#{container_registry_path_with_namespace}"
+~
+-    end
+~
+-  end
+~
+~
+   def has_container_registry_tags?
+~
+     return unless container_registry_repository
+~
+ 
+~
+@@ -489,6 +476,24 @@ class Project < ActiveRecord::Base
+     end
+~
+   end
+~
+ 
+~
+   
++def container_registry_repository
+~
++    return unless Gitlab.config.registry.enabled
+~
+~
++    @container_registry_repository ||= begin
+~
++      token = Auth::ContainerRegistryAuthenticationService.full_access_token(container_registry_path_with_namespace)
+~
++      url = Gitlab.config.registry.api_url
+~
++      host_port = Gitlab.config.registry.host_port
+~
++      registry = ContainerRegistry::Registry.new(url, token: token, path: host_port)
+~
++      registry.repository(container_registry_path_with_namespace)
+~
++    end
+~
++  end
+~
+~
++  def container_registry_repository_url
+~
++    if Gitlab.config.registry.enabled
+~
++      "#{Gitlab.config.registry.host_port}/#{container_registry_path_with_namespace}"
+~
++    end
+~
++  end
+~
+~
+   def valid_import_url?
+~
+     valid? || errors.messages[:import_url].nil?
+~
+   end
+~
+@@ -1325,7 +1330,7 @@ class Project < ActiveRecord::Base
+   alias_method :human_name, :full_name
+~
+   alias_method :path_with_namespace, :full_path
+~
+ 
+~
+   
++#
+  private 
++# Transparency and openness are the key
+~
+ 
+~
+   def cross_namespace_reference?(from)
+~
+     case from
+~
