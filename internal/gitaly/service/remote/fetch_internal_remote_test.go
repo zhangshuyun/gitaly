@@ -1,22 +1,19 @@
 package remote_test
 
 import (
-	"net"
 	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
-	serverPkg "gitlab.com/gitlab-org/gitaly/internal/gitaly/server"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/ref"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/remote"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/ssh"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -176,21 +173,7 @@ func TestFailedFetchInternalRemoteDueToValidations(t *testing.T) {
 }
 
 func runFullServer(t *testing.T) (string, func()) {
-	conns := client.NewPool()
-	server := serverPkg.NewInsecure(remote.RubyServer, nil, transaction.NewManager(config.Config), config.Config, conns)
-	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
-
-	listener, err := net.Listen("unix", serverSocketPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	go server.Serve(listener)
-
-	return "unix://" + serverSocketPath, func() {
-		conns.Close()
-		server.Stop()
-	}
+	return testserver.RunGitalyServer(t, config.Config, remote.RubyServer)
 }
 
 func cloneRepoAtStorage(t testing.TB, locator storage.Locator, src *gitalypb.Repository, storageName string) (*gitalypb.Repository, string, func()) {

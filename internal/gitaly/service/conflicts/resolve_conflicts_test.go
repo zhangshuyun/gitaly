@@ -3,20 +3,17 @@ package conflicts_test
 import (
 	"context"
 	"encoding/json"
-	"net"
 	"testing"
 
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
-	serverPkg "gitlab.com/gitlab-org/gitaly/internal/gitaly/server"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/conflicts"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -418,20 +415,5 @@ func testFailedResolveConflictsRequestDueToValidation(t *testing.T, ctx context.
 }
 
 func runFullServer(t *testing.T) (string, func()) {
-	conns := client.NewPool()
-
-	server := serverPkg.NewInsecure(conflicts.RubyServer, nil, transaction.NewManager(config.Config), config.Config, conns)
-	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
-
-	listener, err := net.Listen("unix", serverSocketPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	go server.Serve(listener)
-
-	return "unix://" + serverSocketPath, func() {
-		conns.Close()
-		server.Stop()
-	}
+	return testserver.RunGitalyServer(t, config.Config, conflicts.RubyServer)
 }

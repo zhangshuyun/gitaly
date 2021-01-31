@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/bootstrap/starter"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	gconfig "gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/server"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
@@ -30,7 +31,10 @@ import (
 )
 
 func TestServerFactory(t *testing.T) {
-	gitalyServerFactory := server.NewGitalyServerFactory(gconfig.Config, nil, nil, nil)
+	cfg := gconfig.Config
+	locator := gconfig.NewLocator(cfg)
+	gitCmdFactory := git.NewExecCommandFactory(cfg)
+	gitalyServerFactory := server.NewGitalyServerFactory(cfg, nil, nil, nil, locator, gitCmdFactory)
 	defer gitalyServerFactory.Stop()
 
 	// start gitaly serving on public endpoint
@@ -40,7 +44,7 @@ func TestServerFactory(t *testing.T) {
 	go gitalyServerFactory.Serve(gitalyListener, false)
 
 	// start gitaly serving on internal endpoint
-	gitalyInternalSocketPath := gconfig.Config.GitalyInternalSocketPath()
+	gitalyInternalSocketPath := cfg.GitalyInternalSocketPath()
 	defer func() { require.NoError(t, os.RemoveAll(gitalyInternalSocketPath)) }()
 	gitalyInternalListener, err := net.Listen(starter.Unix, gitalyInternalSocketPath)
 	require.NoError(t, err)
@@ -63,9 +67,9 @@ func TestServerFactory(t *testing.T) {
 				Name: "praefect",
 				Nodes: []*config.Node{
 					{
-						Storage: gconfig.Config.Storages[0].Name,
+						Storage: cfg.Storages[0].Name,
 						Address: gitalyAddr,
-						Token:   gconfig.Config.Auth.Token,
+						Token:   cfg.Auth.Token,
 					},
 				},
 			},

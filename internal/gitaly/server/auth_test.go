@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
 	"gitlab.com/gitlab-org/gitaly/client"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config/auth"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
@@ -202,8 +203,13 @@ func newOperationClient(t *testing.T, serverSocketPath string) (gitalypb.Operati
 
 func runServerWithRuby(t *testing.T, ruby *rubyserver.Server) (string, func()) {
 	conns := client.NewPool()
-	txManager := transaction.NewManager(config.Config)
-	srv := NewInsecure(ruby, hook.NewManager(config.NewLocator(config.Config), txManager, hook.GitlabAPIStub, config.Config), txManager, config.Config, conns)
+	cfg := config.Config
+	locator := config.NewLocator(cfg)
+	txManager := transaction.NewManager(cfg)
+	hookManager := hook.NewManager(locator, txManager, hook.GitlabAPIStub, cfg)
+	gitCmdFactory := git.NewExecCommandFactory(cfg)
+	srv, err := New(false, ruby, hookManager, txManager, cfg, conns, locator, gitCmdFactory)
+	require.NoError(t, err)
 
 	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
 
@@ -224,13 +230,16 @@ func runServer(t *testing.T) (string, func()) {
 
 //go:generate openssl req -newkey rsa:4096 -new -nodes -x509 -days 3650 -out testdata/gitalycert.pem -keyout testdata/gitalykey.pem -subj "/C=US/ST=California/L=San Francisco/O=GitLab/OU=GitLab-Shell/CN=localhost" -addext "subjectAltName = IP:127.0.0.1, DNS:localhost"
 func runSecureServer(t *testing.T) (string, func()) {
+	t.Helper()
+
 	config.Config.TLS = config.TLS{
 		CertPath: "testdata/gitalycert.pem",
 		KeyPath:  "testdata/gitalykey.pem",
 	}
 
 	conns := client.NewPool()
-	srv := NewSecure(nil, nil, nil, config.Config, conns)
+	srv, err := New(true, nil, nil, nil, config.Config, conns, nil, nil)
+	require.NoError(t, err)
 
 	listener, hostPort := testhelper.GetLocalhostListener(t)
 	go srv.Serve(listener)

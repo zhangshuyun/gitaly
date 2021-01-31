@@ -13,14 +13,13 @@ import (
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/client"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/server"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
-	"google.golang.org/grpc"
 )
 
 //go:generate openssl req -newkey rsa:4096 -new -nodes -x509 -days 3650 -out testdata/certs/gitalycert.pem -keyout testdata/gitalykey.pem -subj "/C=US/ST=California/L=San Francisco/O=GitLab/OU=GitLab-Shell/CN=localhost" -addext "subjectAltName = IP:127.0.0.1, DNS:localhost"
@@ -50,13 +49,13 @@ func TestConnectivity(t *testing.T) {
 	require.NoError(t, os.RemoveAll(relativeSocketPath))
 	require.NoError(t, os.Symlink(socketPath, relativeSocketPath))
 
-	tcpPort, cleanTCP := runServer(t, server.NewInsecure, config.Config, "tcp", "localhost:0")
+	tcpPort, cleanTCP := runServer(t, false, config.Config, "tcp", "localhost:0")
 	defer cleanTCP()
 
-	tlsPort, cleanTLS := runServer(t, server.NewSecure, config.Config, "tcp", "localhost:0")
+	tlsPort, cleanTLS := runServer(t, true, config.Config, "tcp", "localhost:0")
 	defer cleanTLS()
 
-	_, cleanUnix := runServer(t, server.NewInsecure, config.Config, "unix", socketPath)
+	_, cleanUnix := runServer(t, false, config.Config, "unix", socketPath)
 	defer cleanUnix()
 
 	testCases := []struct {
@@ -127,11 +126,14 @@ func TestConnectivity(t *testing.T) {
 	}
 }
 
-func runServer(t *testing.T, newServer func(rubyServer *rubyserver.Server, hookManager hook.Manager, txManager transaction.Manager, cfg config.Cfg, conns *client.Pool) *grpc.Server, cfg config.Cfg, connectionType string, addr string) (int, func()) {
+func runServer(t *testing.T, secure bool, cfg config.Cfg, connectionType string, addr string) (int, func()) {
 	conns := client.NewPool()
+	locator := config.NewLocator(cfg)
 	txManager := transaction.NewManager(cfg)
-	hookManager := hook.NewManager(config.NewLocator(cfg), txManager, hook.GitlabAPIStub, cfg)
-	srv := newServer(nil, hookManager, txManager, cfg, conns)
+	hookManager := hook.NewManager(locator, txManager, hook.GitlabAPIStub, cfg)
+	gitCmdFactory := git.NewExecCommandFactory(cfg)
+	srv, err := server.New(secure, nil, hookManager, txManager, cfg, conns, locator, gitCmdFactory)
+	require.NoError(t, err)
 
 	listener, err := net.Listen(connectionType, addr)
 	require.NoError(t, err)

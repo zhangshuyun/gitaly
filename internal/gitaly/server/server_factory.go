@@ -10,11 +10,13 @@ import (
 	"github.com/sirupsen/logrus"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
 	"gitlab.com/gitlab-org/gitaly/client"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/maintenance"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
 )
@@ -28,17 +30,21 @@ type GitalyServerFactory struct {
 	txManager        transaction.Manager
 	secure, insecure []*grpc.Server
 	conns            *client.Pool
+	locator          storage.Locator
+	gitCmdFactory    git.CommandFactory
 }
 
 // NewGitalyServerFactory allows to create and start secure/insecure 'grpc.Server'-s with gitaly-ruby
 // server shared in between.
-func NewGitalyServerFactory(cfg config.Cfg, hookManager hook.Manager, txManager transaction.Manager, conns *client.Pool) *GitalyServerFactory {
+func NewGitalyServerFactory(cfg config.Cfg, hookManager hook.Manager, txManager transaction.Manager, conns *client.Pool, locator storage.Locator, gitCmdFactory git.CommandFactory) *GitalyServerFactory {
 	return &GitalyServerFactory{
-		cfg:         cfg,
-		ruby:        &rubyserver.Server{},
-		hookManager: hookManager,
-		txManager:   txManager,
-		conns:       conns,
+		cfg:           cfg,
+		ruby:          &rubyserver.Server{},
+		hookManager:   hookManager,
+		txManager:     txManager,
+		conns:         conns,
+		locator:       locator,
+		gitCmdFactory: gitCmdFactory,
 	}
 }
 
@@ -125,23 +131,29 @@ func (s *GitalyServerFactory) GracefulStop() {
 
 // Serve starts serving on the provided listener with newly created grpc.Server
 func (s *GitalyServerFactory) Serve(l net.Listener, secure bool) error {
-	srv := s.create(secure)
+	srv, err := s.create(secure)
+	if err != nil {
+		return err
+	}
 
 	return srv.Serve(l)
 }
 
-func (s *GitalyServerFactory) create(secure bool) *grpc.Server {
+func (s *GitalyServerFactory) create(secure bool) (*grpc.Server, error) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 
+	server, err := New(secure, s.ruby, s.hookManager, s.txManager, s.cfg, s.conns, s.locator, s.gitCmdFactory)
+	if err != nil {
+		return nil, err
+	}
 	if secure {
-		s.secure = append(s.secure, NewSecure(s.ruby, s.hookManager, s.txManager, s.cfg, s.conns))
-		return s.secure[len(s.secure)-1]
+		s.secure = append(s.secure, server)
+		return s.secure[len(s.secure)-1], nil
 	}
 
-	s.insecure = append(s.insecure, NewInsecure(s.ruby, s.hookManager, s.txManager, s.cfg, s.conns))
-
-	return s.insecure[len(s.insecure)-1]
+	s.insecure = append(s.insecure, server)
+	return s.insecure[len(s.insecure)-1], nil
 }
 
 func (s *GitalyServerFactory) all() []*grpc.Server {

@@ -1,7 +1,6 @@
 package repository_test
 
 import (
-	"net"
 	"os"
 	"testing"
 
@@ -17,6 +16,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -26,7 +26,7 @@ import (
 func TestFetchSourceBranchSourceRepositorySuccess(t *testing.T) {
 	locator := config.NewLocator(config.Config)
 
-	serverSocketPath, clean := runFullServer(t, locator)
+	serverSocketPath, clean := runFullServer(t)
 	defer clean()
 
 	client, conn := repository.NewRepositoryClient(t, serverSocketPath)
@@ -67,7 +67,7 @@ func TestFetchSourceBranchSourceRepositorySuccess(t *testing.T) {
 func TestFetchSourceBranchSameRepositorySuccess(t *testing.T) {
 	locator := config.NewLocator(config.Config)
 
-	serverSocketPath, clean := runFullServer(t, locator)
+	serverSocketPath, clean := runFullServer(t)
 	defer clean()
 
 	client, conn := repository.NewRepositoryClient(t, serverSocketPath)
@@ -105,7 +105,7 @@ func TestFetchSourceBranchSameRepositorySuccess(t *testing.T) {
 func TestFetchSourceBranchBranchNotFound(t *testing.T) {
 	locator := config.NewLocator(config.Config)
 
-	serverSocketPath, clean := runFullServer(t, locator)
+	serverSocketPath, clean := runFullServer(t)
 	defer clean()
 
 	client, conn := repository.NewRepositoryClient(t, serverSocketPath)
@@ -162,7 +162,7 @@ func TestFetchSourceBranchBranchNotFound(t *testing.T) {
 func TestFetchSourceBranchWrongRef(t *testing.T) {
 	locator := config.NewLocator(config.Config)
 
-	serverSocketPath, clean := runFullServer(t, locator)
+	serverSocketPath, clean := runFullServer(t)
 	defer clean()
 
 	client, conn := repository.NewRepositoryClient(t, serverSocketPath)
@@ -296,7 +296,7 @@ func TestFetchFullServerRequiresAuthentication(t *testing.T) {
 	// we want to be sure that authentication is handled correctly. If the
 	// tests in this file were using a server without authentication we could
 	// not be confident that authentication is done right.
-	serverSocketPath, clean := runFullServer(t, config.NewLocator(config.Config))
+	serverSocketPath, clean := runFullServer(t)
 	defer clean()
 
 	connOpts := []grpc.DialOption{
@@ -330,37 +330,20 @@ func newTestRepo(t *testing.T, locator storage.Locator, relativePath string) (*g
 	return repo, repoPath, func() { require.NoError(t, os.RemoveAll(repoPath)) }
 }
 
-func runFullServer(t *testing.T, locator storage.Locator) (string, func()) {
-	conns := client.NewPool()
-	txManager := transaction.NewManager(config.Config)
-	hookManager := hook.NewManager(locator, txManager, hook.GitlabAPIStub, config.Config)
-
-	server := serverPkg.NewInsecure(repository.RubyServer, hookManager, txManager, config.Config, conns)
-
-	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
-
-	listener, err := net.Listen("unix", serverSocketPath)
-	require.NoError(t, err)
-
-	//listen on internal socket
-	internalListener, err := net.Listen("unix", config.Config.GitalyInternalSocketPath())
-	require.NoError(t, err)
-
-	go server.Serve(internalListener)
-	go server.Serve(listener)
-
-	return "unix://" + serverSocketPath, func() {
-		conns.Close()
-		server.Stop()
-	}
+func runFullServer(t *testing.T) (string, func()) {
+	return testserver.RunGitalyServer(t, config.Config, repository.RubyServer)
 }
 
 func runFullSecureServer(t *testing.T, locator storage.Locator) (*grpc.Server, string, testhelper.Cleanup) {
-	conns := client.NewPool()
-	txManager := transaction.NewManager(config.Config)
-	hookManager := hook.NewManager(locator, txManager, hook.GitlabAPIStub, config.Config)
+	t.Helper()
 
-	server := serverPkg.NewSecure(repository.RubyServer, hookManager, txManager, config.Config, conns)
+	conns := client.NewPool()
+	cfg := config.Config
+	txManager := transaction.NewManager(cfg)
+	hookManager := hook.NewManager(locator, txManager, hook.GitlabAPIStub, cfg)
+
+	server, err := serverPkg.New(true, repository.RubyServer, hookManager, txManager, cfg, conns, config.NewLocator(cfg), git.NewExecCommandFactory(cfg))
+	require.NoError(t, err)
 	listener, addr := testhelper.GetLocalhostListener(t)
 
 	errQ := make(chan error)
@@ -368,8 +351,8 @@ func runFullSecureServer(t *testing.T, locator storage.Locator) (*grpc.Server, s
 	// This creates a secondary GRPC server which isn't "secure". Reusing
 	// the one created above won't work as its internal socket would be
 	// protected by the same TLS certificate.
-	internalServer := testhelper.NewServer(t, nil, nil, testhelper.WithInternalSocket(config.Config))
-	gitalypb.RegisterHookServiceServer(internalServer.GrpcServer(), hookservice.NewServer(config.Config, hookManager))
+	internalServer := testhelper.NewServer(t, nil, nil, testhelper.WithInternalSocket(cfg))
+	gitalypb.RegisterHookServiceServer(internalServer.GrpcServer(), hookservice.NewServer(cfg, hookManager))
 	internalServer.Start(t)
 
 	go func() { errQ <- server.Serve(listener) }()

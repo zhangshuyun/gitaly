@@ -15,7 +15,7 @@ import (
 )
 
 func TestCloneFromPoolHTTP(t *testing.T) {
-	serverSocketPath, clean := runFullServer(t, config.NewLocator(config.Config))
+	serverSocketPath, clean := runFullServer(t)
 	defer clean()
 
 	ctxOuter, cancel := testhelper.Context()
