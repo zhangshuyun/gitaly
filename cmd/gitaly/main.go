@@ -72,11 +72,17 @@ func main() {
 		os.Exit(2)
 	}
 
-	log.WithField("version", version.GetVersionString()).Info("Starting Gitaly")
+	log.Info("Starting Gitaly", "version", version.GetVersionString())
+	if err := exec(); err != nil {
+		log.Fatal(err)
+	}
+	log.Info("Gitaly stopped")
+}
 
+func exec() error {
 	configPath := flag.Arg(0)
 	if err := loadConfig(configPath); err != nil {
-		log.WithError(err).WithField("config_path", configPath).Fatal("load config")
+		return fmt.Errorf("load config: config_path %q: %w", configPath, err)
 	}
 
 	glog.Configure(config.Config.Logging.Format, config.Config.Logging.Level)
@@ -86,7 +92,7 @@ func main() {
 
 	cgroupsManager := cgroups.NewManager(config.Config.Cgroups)
 	if err := cgroupsManager.Setup(); err != nil {
-		log.WithError(err).Fatal("failed setting up cgroups")
+		return fmt.Errorf("failed setting up cgroups: %w", err)
 	}
 	defer func() {
 		if err := cgroupsManager.Cleanup(); err != nil {
@@ -96,20 +102,20 @@ func main() {
 
 	gitVersion, err := git.Version(ctx)
 	if err != nil {
-		log.WithError(err).Fatal("Git version detection")
+		return fmt.Errorf("Git version detection: %w", err)
 	}
 
 	supported, err := git.SupportedVersion(gitVersion)
 	if err != nil {
-		log.WithError(err).Fatal("Git version comparison")
+		return fmt.Errorf("Git version comparison: %w", err)
 	}
 	if !supported {
-		log.Fatalf("unsupported Git version: %q", gitVersion)
+		return fmt.Errorf("unsupported Git version: %q", gitVersion)
 	}
 
 	b, err := bootstrap.New()
 	if err != nil {
-		log.WithError(err).Fatal("init bootstrap")
+		return fmt.Errorf("init bootstrap: %w", err)
 	}
 
 	sentry.ConfigureSentry(version.GetVersion(), sentry.Config(config.Config.Logging.Sentry))
@@ -119,12 +125,11 @@ func main() {
 
 	tempdir.StartCleaning(config.Config.Storages, time.Hour)
 
-	log.WithError(run(config.Config, b)).Error("shutting down")
+	log.WithError(run(ctx, config.Config, b)).Error("shutting down")
+	return nil
 }
 
-// Inside here we can use deferred functions. This is needed because
-// log.Fatal bypasses deferred functions.
-func run(cfg config.Cfg, b *bootstrap.Bootstrap) error {
+func run(ctx context.Context, cfg config.Cfg, b *bootstrap.Bootstrap) error {
 	var gitlabAPI hook.GitlabAPI
 	var err error
 
@@ -140,7 +145,7 @@ func run(cfg config.Cfg, b *bootstrap.Bootstrap) error {
 	} else {
 		gitlabAPI, err = hook.NewGitlabAPI(cfg.Gitlab, cfg.TLS)
 		if err != nil {
-			log.Fatalf("could not create GitLab API client: %v", err)
+			return fmt.Errorf("could not create GitLab API client: %w", err)
 		}
 
 		hm := hook.NewManager(locator, transactionManager, gitlabAPI, cfg)
@@ -223,7 +228,6 @@ func run(cfg config.Cfg, b *bootstrap.Bootstrap) error {
 		return fmt.Errorf("initialize gitaly-ruby: %v", err)
 	}
 
-	ctx := context.Background()
 	shutdownWorkers, err := servers.StartWorkers(ctx, glog.Default(), cfg)
 	if err != nil {
 		return fmt.Errorf("initialize auxiliary workers: %v", err)
