@@ -1,5 +1,9 @@
 # Gitaly changelog
 
+## 13.7.6 (2021-02-01)
+
+- No changes.
+
 ## 13.7.5 (2021-01-25)
 
 ### Performance (1 change)
