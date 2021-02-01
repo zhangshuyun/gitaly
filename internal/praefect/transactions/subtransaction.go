@@ -155,38 +155,53 @@ func (t *subtransaction) vote(node string, hash []byte) error {
 	newCount := oldCount + voter.Votes
 	t.voteCounts[vote] = newCount
 
-	// If the threshold was reached before already, we mustn't try to
-	// signal the other voters again.
-	if oldCount >= t.threshold {
-		return nil
+	if t.mustSignalVoters(oldCount, newCount) {
+		close(t.doneCh)
 	}
 
-	// If we've just crossed the threshold, signal all voters that the
-	// voting has concluded.
+	return nil
+}
+
+// mustSignalVoters determines whether we need to signal voters. Signalling may
+// only happen once, so we need to make sure that either we just crossed the
+// threshold or that nobody else did and no more votes are missing.
+func (t *subtransaction) mustSignalVoters(oldCount, newCount uint) bool {
+	// If the threshold was reached before, we mustn't try to signal voters
+	// as the node crossing it already did so.
+	if oldCount >= t.threshold {
+		return false
+	}
+
+	// If we've just crossed the threshold, then there can be nobody else
+	// who did as subtransactions can only have an unambiguous outcome. So
+	// we need to signal.
 	if newCount >= t.threshold {
-		close(t.doneCh)
-		return nil
+		return true
 	}
 
 	// If any other vote has already reached the threshold, we mustn't try
-	// to notify voters again.
+	// to notify voters. We need to check this so we don't end up signalling
+	// in case any node with a different vote succeeded and we were the last
+	// node to cast a vote.
 	for _, count := range t.voteCounts {
 		if count >= t.threshold {
-			return nil
+			return false
 		}
 	}
 
-	// If any of the voters didn't yet cast its vote, we need to wait for
-	// them.
+	// We know that the threshold wasn't reached by any node yet. If there
+	// are missing votes, then we cannot notify yet as any remaining nodes
+	// may cause us to reach quorum.
 	for _, voter := range t.votersByNode {
 		if voter.vote.isEmpty() {
-			return nil
+			return false
 		}
 	}
 
-	// Otherwise, signal voters that all votes were gathered.
-	close(t.doneCh)
-	return nil
+	// Otherwise we know that all votes are in and that no quorum was
+	// reached. We thus need to notify callers of the failed vote as the
+	// last node which has cast its vote.
+	return true
 }
 
 func (t *subtransaction) collectVotes(ctx context.Context, node string) error {
