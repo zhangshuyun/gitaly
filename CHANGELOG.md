@@ -1,5 +1,9 @@
 # Gitaly changelog
 
+## 13.8.2 (2021-02-01)
+
+- No changes.
+
 ## 13.8.1 (2021-01-26)
 
 - No changes.
@@ -54,6 +58,10 @@
 
 - Make command stats logging concurrency-safe. !2956
 
+
+## 13.7.6 (2021-02-01)
+
+- No changes.
 
 ## 13.7.5 (2021-01-25)
 
@@ -149,6 +157,10 @@
 - Support Golang v1.15.5 in CI. !2858
 - Update Rouge gem to v3.26.0. !2927
 
+
+## 13.6.6 (2021-02-01)
+
+- No changes.
 
 ## 13.6.5 (2021-01-13)
 
