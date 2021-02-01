@@ -754,7 +754,7 @@ func (c *Coordinator) newRequestFinalizer(
 				ctxlogrus.Extract(ctx).WithError(err).Info("deleted repository does not have a store entry")
 			}
 		case datastore.CreateRepo:
-			if err := c.rs.CreateRepository(ctx, virtualStorage, targetRepo.GetRelativePath(), primary); err != nil {
+			if err := c.rs.CreateRepository(ctx, virtualStorage, targetRepo.GetRelativePath(), primary, false); err != nil {
 				if !errors.Is(err, datastore.RepositoryExistsError{}) {
 					return fmt.Errorf("create repository: %w", err)
 				}

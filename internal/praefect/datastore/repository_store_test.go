@@ -297,34 +297,51 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 	})
 
 	t.Run("CreateRepository", func(t *testing.T) {
-		t.Run("create", func(t *testing.T) {
-			rs, requireState := newStore(t, nil)
-
-			require.NoError(t, rs.CreateRepository(ctx, vs, repo, stor))
-
-			requireState(t, ctx,
-				virtualStorageState{
-					vs: {
-						repo: repositoryRecord{},
-					},
+		t.Run("successfully created", func(t *testing.T) {
+			for _, tc := range []struct {
+				desc         string
+				storePrimary bool
+				primary      string
+			}{
+				{
+					desc:         "primary not stored",
+					storePrimary: false,
 				},
-				storageState{
-					vs: {
-						repo: {
-							stor: 0,
+				{
+					desc:         "primary stored",
+					storePrimary: true,
+					primary:      stor,
+				},
+			} {
+				t.Run(tc.desc, func(t *testing.T) {
+					rs, requireState := newStore(t, nil)
+
+					require.NoError(t, rs.CreateRepository(ctx, vs, repo, stor, tc.storePrimary))
+					requireState(t, ctx,
+						virtualStorageState{
+							vs: {
+								repo: repositoryRecord{primary: tc.primary},
+							},
 						},
-					},
-				},
-			)
+						storageState{
+							vs: {
+								repo: {
+									stor: 0,
+								},
+							},
+						},
+					)
+				})
+			}
 		})
 
 		t.Run("conflict", func(t *testing.T) {
 			rs, _ := newStore(t, nil)
 
-			require.NoError(t, rs.CreateRepository(ctx, vs, repo, stor))
+			require.NoError(t, rs.CreateRepository(ctx, vs, repo, stor, false))
 			require.Equal(t,
 				RepositoryExistsError{vs, repo, stor},
-				rs.CreateRepository(ctx, vs, repo, stor),
+				rs.CreateRepository(ctx, vs, repo, stor, false),
 			)
 		})
 	})
