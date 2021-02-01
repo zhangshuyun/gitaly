@@ -651,6 +651,8 @@ func (c *Coordinator) createTransactionFinalizer(
 		// transactions at all. We thus need to assume it changed repository state
 		// and need to create replication jobs.
 		if transaction.CountSubtransactions() == 0 {
+			ctxlogrus.Extract(ctx).Info("transaction did not create subtransactions")
+
 			secondaries := make([]string, 0, len(nodeStates))
 			for secondary := range nodeStates {
 				if secondary == route.Primary.Storage {
