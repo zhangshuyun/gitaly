@@ -20,7 +20,7 @@ func (s *server) FindBranch(ctx context.Context, req *gitalypb.FindBranchRequest
 
 	repo := req.GetRepository()
 
-	branchName := git.NewBranchReferenceName(string(req.GetName()))
+	branchName := git.NewReferenceNameFromBranchName(string(req.GetName()))
 	branchRef, err := localrepo.New(repo, config.Config).GetReference(ctx, branchName)
 	if err != nil {
 		if errors.Is(err, git.ErrReferenceNotFound) {

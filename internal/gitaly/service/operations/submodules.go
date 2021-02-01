@@ -89,7 +89,7 @@ func (s *Server) userUpdateSubmodule(ctx context.Context, req *gitalypb.UserUpda
 		}, nil
 	}
 
-	branchRef, err := repo.GetReference(ctx, git.NewBranchReferenceName(string(req.GetBranch())))
+	branchRef, err := repo.GetReference(ctx, git.NewReferenceNameFromBranchName(string(req.GetBranch())))
 	if err != nil {
 		if errors.Is(err, git.ErrReferenceNotFound) {
 			return nil, helper.ErrInvalidArgumentf("Cannot find branch")
@@ -156,7 +156,7 @@ func (s *Server) userUpdateSubmodule(ctx context.Context, req *gitalypb.UserUpda
 		ctx,
 		req.GetRepository(),
 		req.GetUser(),
-		"refs/heads/"+string(req.GetBranch()),
+		branchRef.Name.String(),
 		result.CommitID,
 		branchRef.Target,
 	); err != nil {

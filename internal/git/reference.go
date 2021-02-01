@@ -22,18 +22,10 @@ func (r Revision) String() string {
 // Revision does and must always contain a fully qualified reference.
 type ReferenceName string
 
-// NewBranchReferenceName returns a new ReferenceName for the given branch. The
-// branch may either be a fully qualified branch name ("refs/heads/master") or
-// an unqualified name ("master"). In the latter case, the returned
-// ReferenceName will still be a fully qualified reference by prepending
-// "refs/heads".
-func NewBranchReferenceName(branch string) ReferenceName {
-	if strings.HasPrefix(branch, "refs/heads/") {
-		return ReferenceName(branch)
-	}
-	if strings.HasPrefix(branch, "heads/") {
-		return ReferenceName("refs/" + branch)
-	}
+// NewReferenceNameFromBranchName returns a new ReferenceName from a given
+// branch name. Note that branch is treated as an unqualified branch name.
+// This function will thus always prepend "refs/heads/".
+func NewReferenceNameFromBranchName(branch string) ReferenceName {
 	return ReferenceName("refs/heads/" + branch)
 }
 

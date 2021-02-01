@@ -406,7 +406,7 @@ module Gitlab
       end
 
       def update_submodule(submodule_path, commit_sha, branch, committer, message)
-        target = rugged.rev_parse(branch)
+        target = rugged.rev_parse("refs/heads/" + branch)
         raise CommitError, 'Invalid branch' unless target.is_a?(Rugged::Commit)
 
         current_entry = rugged_submodule_entry(target, submodule_path)
@@ -505,7 +505,7 @@ module Gitlab
       def find_branch(name, force_reload = false)
         reload_rugged if force_reload
 
-        rugged_ref = rugged.branches[name]
+        rugged_ref = rugged.ref("refs/heads/" + name)
         if rugged_ref
           target_commit = Gitlab::Git::Commit.find(self, rugged_ref.target)
           Gitlab::Git::Branch.new(self, rugged_ref.canonical_name, rugged_ref.target, target_commit)

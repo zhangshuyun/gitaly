@@ -52,26 +52,26 @@ func TestCheckRefFormat(t *testing.T) {
 	}
 }
 
-func TestReferenceName_NewBranchReferenceName(t *testing.T) {
+func TestReferenceName_NewReferenceNameFromBranchName(t *testing.T) {
 	for _, tc := range []struct {
 		desc      string
 		reference string
 		expected  string
 	}{
 		{
-			desc:      "fully qualified reference",
-			reference: "refs/heads/master",
+			desc:      "unqualified reference",
+			reference: "master",
 			expected:  "refs/heads/master",
 		},
 		{
 			desc:      "partly qualified reference",
 			reference: "heads/master",
-			expected:  "refs/heads/master",
+			expected:  "refs/heads/heads/master",
 		},
 		{
-			desc:      "unqualified reference",
-			reference: "master",
-			expected:  "refs/heads/master",
+			desc:      "fully qualified reference",
+			reference: "refs/heads/master",
+			expected:  "refs/heads/refs/heads/master",
 		},
 		{
 			desc:      "weird branch name",
@@ -85,7 +85,7 @@ func TestReferenceName_NewBranchReferenceName(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			ref := NewBranchReferenceName(tc.reference)
+			ref := NewReferenceNameFromBranchName(tc.reference)
 			require.Equal(t, ref.String(), tc.expected)
 		})
 	}
