@@ -105,3 +105,9 @@ func (r *nodeManagerRouter) RouteRepositoryMutator(ctx context.Context, virtualS
 		ReplicationTargets: replicationTargets,
 	}, nil
 }
+
+func (r *nodeManagerRouter) RouteRepositoryCreation(ctx context.Context, virtualStorage string) (RepositoryMutatorRoute, error) {
+	// nodeManagerRouter doesn't support repository assignments nor repository specific primaries. It
+	// is sufficient to route the requests as normal mutators.
+	return r.RouteRepositoryMutator(ctx, virtualStorage, "")
+}
