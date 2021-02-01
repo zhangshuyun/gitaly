@@ -1,0 +1,5 @@
+---
+title: Intercept RepositoryExists calls in Praefect
+merge_request: 3075
+author:
+type: changed

@@ -31,11 +31,11 @@ func (es ElectionStrategy) validate() error {
 
 const (
 	// ElectionStrategyLocal configures a single node, in-memory election strategy.
-	ElectionStrategyLocal = "local"
+	ElectionStrategyLocal ElectionStrategy = "local"
 	// ElectionStrategySQL configures an SQL based strategy that elects a primary for a virtual storage.
-	ElectionStrategySQL = "sql"
+	ElectionStrategySQL ElectionStrategy = "sql"
 	// ElectionStrategyPerRepository configures an SQL based strategy that elects different primaries per repository.
-	ElectionStrategyPerRepository = "per_repository"
+	ElectionStrategyPerRepository ElectionStrategy = "per_repository"
 )
 
 type Failover struct {

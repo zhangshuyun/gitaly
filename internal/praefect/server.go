@@ -54,24 +54,30 @@ func NewGRPCServer(
 		grpc_ctxtags.WithFieldExtractorForInitialReq(fieldextractors.FieldExtractor),
 	}
 
+	streamInterceptors := []grpc.StreamServerInterceptor{
+		grpc_ctxtags.StreamServerInterceptor(ctxTagOpts...),
+		grpccorrelation.StreamServerCorrelationInterceptor(), // Must be above the metadata handler
+		middleware.MethodTypeStreamInterceptor(registry),
+		metadatahandler.StreamInterceptor,
+		grpc_prometheus.StreamServerInterceptor,
+		grpc_logrus.StreamServerInterceptor(logger),
+		featureflag.StreamInterceptor,
+		sentryhandler.StreamLogHandler,
+		cancelhandler.Stream, // Should be below LogHandler
+		grpctracing.StreamServerTracingInterceptor(),
+		auth.StreamServerInterceptor(conf.Auth),
+		// Panic handler should remain last so that application panics will be
+		// converted to errors and logged
+		panichandler.StreamPanicHandler,
+	}
+
+	if conf.Failover.ElectionStrategy == config.ElectionStrategyPerRepository {
+		streamInterceptors = append(streamInterceptors, RepositoryExistsStreamInterceptor(rs))
+	}
+
 	grpcOpts = append(grpcOpts, proxyRequiredOpts(director)...)
 	grpcOpts = append(grpcOpts, []grpc.ServerOption{
-		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
-			grpc_ctxtags.StreamServerInterceptor(ctxTagOpts...),
-			grpccorrelation.StreamServerCorrelationInterceptor(), // Must be above the metadata handler
-			middleware.MethodTypeStreamInterceptor(registry),
-			metadatahandler.StreamInterceptor,
-			grpc_prometheus.StreamServerInterceptor,
-			grpc_logrus.StreamServerInterceptor(logger),
-			featureflag.StreamInterceptor,
-			sentryhandler.StreamLogHandler,
-			cancelhandler.Stream, // Should be below LogHandler
-			grpctracing.StreamServerTracingInterceptor(),
-			auth.StreamServerInterceptor(conf.Auth),
-			// Panic handler should remain last so that application panics will be
-			// converted to errors and logged
-			panichandler.StreamPanicHandler,
-		)),
+		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(streamInterceptors...)),
 		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(
 			grpc_ctxtags.UnaryServerInterceptor(ctxTagOpts...),
 			grpccorrelation.UnaryServerCorrelationInterceptor(), // Must be above the metadata handler
