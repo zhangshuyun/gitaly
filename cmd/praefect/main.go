@@ -361,6 +361,7 @@ func run(cfgs []starter.Config, conf config.Config) error {
 			transactionManager,
 			conf,
 			protoregistry.GitalyProtoPreregistered,
+			healthChecker,
 		)
 
 		repl = praefect.NewReplMgr(

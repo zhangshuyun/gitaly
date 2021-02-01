@@ -289,7 +289,7 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 		t.Run("create", func(t *testing.T) {
 			rs, requireState := newStore(t, nil)
 
-			require.NoError(t, rs.CreateRepository(ctx, vs, repo, stor))
+			require.NoError(t, rs.CreateRepository(ctx, vs, repo, stor, []string{vs}, []string{stor}))
 
 			requireState(t, ctx,
 				virtualStorageState{
@@ -310,10 +310,10 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 		t.Run("conflict", func(t *testing.T) {
 			rs, _ := newStore(t, nil)
 
-			require.NoError(t, rs.CreateRepository(ctx, vs, repo, stor))
+			require.NoError(t, rs.CreateRepository(ctx, vs, repo, stor, []string{vs}, []string{stor}))
 			require.Equal(t,
 				RepositoryExistsError{vs, repo, stor},
-				rs.CreateRepository(ctx, vs, repo, stor),
+				rs.CreateRepository(ctx, vs, repo, stor, []string{vs}, []string{stor}),
 			)
 		})
 	})

@@ -170,6 +170,7 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 				txMgr,
 				conf,
 				protoregistry.GitalyProtoPreregistered,
+				nodeMgr,
 			)
 
 			fullMethod := "/gitaly.SmartHTTPService/PostReceivePack"

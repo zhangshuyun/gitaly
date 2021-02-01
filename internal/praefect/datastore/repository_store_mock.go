@@ -9,7 +9,7 @@ type MockRepositoryStore struct {
 	IncrementGenerationFunc                func(ctx context.Context, virtualStorage, relativePath, primary string, secondaries []string) error
 	GetReplicatedGenerationFunc            func(ctx context.Context, virtualStorage, relativePath, source, target string) (int, error)
 	SetGenerationFunc                      func(ctx context.Context, virtualStorage, relativePath, storage string, generation int) error
-	CreateRepositoryFunc                   func(ctx context.Context, virtualStorage, relativePath, storage string) error
+	CreateRepositoryFunc                   func(ctx context.Context, virtualStorage, relativePath, storage string, healthyVirtualStorages, healthyPhysicalStorages []string) error
 	DeleteRepositoryFunc                   func(ctx context.Context, virtualStorage, relativePath, storage string) error
 	RenameRepositoryFunc                   func(ctx context.Context, virtualStorage, relativePath, storage, newRelativePath string) error
 	GetConsistentStoragesFunc              func(ctx context.Context, virtualStorage, relativePath string) (map[string]struct{}, error)
@@ -52,12 +52,12 @@ func (m MockRepositoryStore) SetGeneration(ctx context.Context, virtualStorage, 
 
 //nolint:stylecheck
 //nolint:golint
-func (m MockRepositoryStore) CreateRepository(ctx context.Context, virtualStorage, relativePath, storage string) error {
+func (m MockRepositoryStore) CreateRepository(ctx context.Context, virtualStorage, relativePath, storage string, healthyVirtualStorages, healthyPhysicalStorages []string) error {
 	if m.CreateRepositoryFunc == nil {
 		return nil
 	}
 
-	return m.CreateRepositoryFunc(ctx, virtualStorage, relativePath, storage)
+	return m.CreateRepositoryFunc(ctx, virtualStorage, relativePath, storage, healthyVirtualStorages, healthyPhysicalStorages)
 }
 
 func (m MockRepositoryStore) DeleteRepository(ctx context.Context, virtualStorage, relativePath, storage string) error {

@@ -98,6 +98,7 @@ func TestStreamDirectorReadOnlyEnforcement(t *testing.T) {
 				transactions.NewManager(conf),
 				conf,
 				protoregistry.GitalyProtoPreregistered,
+				nil,
 			)
 
 			frame, err := proto.Marshal(&gitalypb.CleanupRequest{Repository: &gitalypb.Repository{
@@ -168,6 +169,7 @@ func TestStreamDirectorMutator(t *testing.T) {
 		txMgr,
 		conf,
 		protoregistry.GitalyProtoPreregistered,
+		nodeMgr,
 	)
 
 	frame, err := proto.Marshal(&gitalypb.CreateObjectPoolRequest{
@@ -280,6 +282,7 @@ func TestStreamDirectorMutator_StopTransaction(t *testing.T) {
 		txMgr,
 		conf,
 		protoregistry.GitalyProtoPreregistered,
+		nodeMgr,
 	)
 
 	fullMethod := "/gitaly.SmartHTTPService/PostReceivePack"
@@ -385,6 +388,7 @@ func TestStreamDirectorAccessor(t *testing.T) {
 		txMgr,
 		conf,
 		protoregistry.GitalyProtoPreregistered,
+		nodeMgr,
 	)
 
 	frame, err := proto.Marshal(&gitalypb.FindAllBranchesRequest{Repository: &targetRepo})
@@ -476,6 +480,7 @@ func TestCoordinatorStreamDirector_distributesReads(t *testing.T) {
 		txMgr,
 		conf,
 		protoregistry.GitalyProtoPreregistered,
+		nodeMgr,
 	)
 
 	t.Run("forwards accessor operations", func(t *testing.T) {
@@ -638,7 +643,7 @@ func TestStreamDirector_repo_creation(t *testing.T) {
 
 	var createRepositoryCalled int64
 	rs := datastore.MockRepositoryStore{
-		CreateRepositoryFunc: func(ctx context.Context, virtualStorage, relativePath, storage string) error {
+		CreateRepositoryFunc: func(ctx context.Context, virtualStorage, relativePath, storage string, healthyVirtualStorages, healthyPhysicalStorages []string) error {
 			atomic.AddInt64(&createRepositoryCalled, 1)
 			assert.Equal(t, targetRepo.StorageName, virtualStorage)
 			assert.Equal(t, targetRepo.RelativePath, relativePath)
@@ -654,6 +659,7 @@ func TestStreamDirector_repo_creation(t *testing.T) {
 		txMgr,
 		conf,
 		protoregistry.GitalyProtoPreregistered,
+		nodeMgr,
 	)
 
 	frame, err := proto.Marshal(&gitalypb.CreateRepositoryRequest{
@@ -796,6 +802,7 @@ func TestAbsentCorrelationID(t *testing.T) {
 		txMgr,
 		conf,
 		protoregistry.GitalyProtoPreregistered,
+		nodeMgr,
 	)
 
 	frame, err := proto.Marshal(&gitalypb.CreateObjectPoolRequest{
@@ -918,6 +925,7 @@ func TestStreamDirectorStorageScope(t *testing.T) {
 		nil,
 		conf,
 		protoregistry.GitalyProtoPreregistered,
+		nodeMgr,
 	)
 
 	ctx, cancel := testhelper.Context()
@@ -984,6 +992,7 @@ func TestStreamDirectorStorageScopeError(t *testing.T) {
 			nil,
 			config.Config{},
 			protoregistry.GitalyProtoPreregistered,
+			mgr,
 		)
 
 		frame, err := proto.Marshal(&gitalypb.RemoveNamespaceRequest{StorageName: "", Name: "stub"})
@@ -1013,6 +1022,7 @@ func TestStreamDirectorStorageScopeError(t *testing.T) {
 			nil,
 			config.Config{},
 			protoregistry.GitalyProtoPreregistered,
+			mgr,
 		)
 
 		frame, err := proto.Marshal(&gitalypb.RemoveNamespaceRequest{StorageName: "fake", Name: "stub"})
@@ -1043,6 +1053,7 @@ func TestStreamDirectorStorageScopeError(t *testing.T) {
 				nil,
 				config.Config{},
 				protoregistry.GitalyProtoPreregistered,
+				mgr,
 			)
 
 			fullMethod := "/gitaly.NamespaceService/NamespaceExists"
@@ -1074,6 +1085,7 @@ func TestStreamDirectorStorageScopeError(t *testing.T) {
 				nil,
 				config.Config{},
 				protoregistry.GitalyProtoPreregistered,
+				mgr,
 			)
 
 			fullMethod := "/gitaly.NamespaceService/RemoveNamespace"

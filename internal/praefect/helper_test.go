@@ -229,6 +229,7 @@ func runPraefectServer(t testing.TB, conf config.Config, opt buildOptions) (*grp
 		opt.withTxMgr,
 		conf,
 		opt.withAnnotations,
+		opt.withNodeMgr,
 	)
 
 	// TODO: run a replmgr for EVERY virtual storage

@@ -215,6 +215,7 @@ type Coordinator struct {
 	registry     *protoregistry.Registry
 	conf         config.Config
 	votersMetric *prometheus.HistogramVec
+	hc           nodes.HealthChecker
 }
 
 // NewCoordinator returns a new Coordinator that utilizes the provided logger
@@ -225,6 +226,7 @@ func NewCoordinator(
 	txMgr *transactions.Manager,
 	conf config.Config,
 	r *protoregistry.Registry,
+	hc nodes.HealthChecker,
 ) *Coordinator {
 	maxVoters := 1
 	for _, storage := range conf.VirtualStorages {
@@ -248,6 +250,7 @@ func NewCoordinator(
 			},
 			[]string{"virtual_storage"},
 		),
+		hc: hc,
 	}
 
 	return coordinator
@@ -752,7 +755,17 @@ func (c *Coordinator) newRequestFinalizer(
 				ctxlogrus.Extract(ctx).WithError(err).Info("deleted repository does not have a store entry")
 			}
 		case datastore.CreateRepo:
-			if err := c.rs.CreateRepository(ctx, virtualStorage, targetRepo.GetRelativePath(), primary); err != nil {
+			healthyNodes := c.hc.HealthyNodes()
+
+			var virtualStorages, physicalStorages []string
+			for virtualStorage, nodes := range healthyNodes {
+				for _, node := range nodes {
+					virtualStorages = append(virtualStorages, virtualStorage)
+					physicalStorages = append(physicalStorages, node)
+				}
+			}
+
+			if err := c.rs.CreateRepository(ctx, virtualStorage, targetRepo.GetRelativePath(), primary, virtualStorages, physicalStorages); err != nil {
 				if !errors.Is(err, datastore.RepositoryExistsError{}) {
 					return fmt.Errorf("create repository: %w", err)
 				}

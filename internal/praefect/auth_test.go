@@ -166,7 +166,7 @@ func runServer(t *testing.T, token string, required bool) (*grpc.Server, string,
 	registry, err := protoregistry.New(fd)
 	require.NoError(t, err)
 
-	coordinator := NewCoordinator(queue, nil, NewNodeManagerRouter(nodeMgr, nil), txMgr, conf, registry)
+	coordinator := NewCoordinator(queue, nil, NewNodeManagerRouter(nodeMgr, nil), txMgr, conf, registry, nodeMgr)
 
 	srv := NewGRPCServer(conf, logEntry, registry, coordinator.StreamDirector, nodeMgr, txMgr, queue, nil, nil)
 

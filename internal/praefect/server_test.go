@@ -769,6 +769,7 @@ func TestProxyWrites(t *testing.T) {
 		txMgr,
 		conf,
 		protoregistry.GitalyProtoPreregistered,
+		nodeMgr,
 	)
 
 	server := grpc.NewServer(
@@ -928,6 +929,7 @@ func TestErrorThreshold(t *testing.T) {
 				nil,
 				conf,
 				registry,
+				nodeMgr,
 			)
 
 			server := grpc.NewServer(

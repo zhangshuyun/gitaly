@@ -96,6 +96,7 @@ func TestServerFactory(t *testing.T) {
 		txMgr,
 		conf,
 		registry,
+		nodeMgr,
 	)
 
 	checkOwnRegisteredServices := func(ctx context.Context, t *testing.T, cc *grpc.ClientConn) healthpb.HealthClient {

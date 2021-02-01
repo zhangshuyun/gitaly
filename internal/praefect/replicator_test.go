@@ -360,6 +360,7 @@ func TestPropagateReplicationJob(t *testing.T) {
 		txMgr,
 		conf,
 		protoregistry.GitalyProtoPreregistered,
+		nodeMgr,
 	)
 
 	replmgr := NewReplMgr(logEntry, conf.VirtualStorageNames(), queue, rs, nodeMgr, NodeSetFromNodeManager(nodeMgr))
