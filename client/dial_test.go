@@ -246,115 +246,158 @@ func TestDial_Correlation(t *testing.T) {
 }
 
 func TestDial_Tracing(t *testing.T) {
+	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
+
+	listener, err := net.Listen("unix", serverSocketPath)
+	require.NoError(t, err)
+
+	// This is our test service. All it does is to create additional spans
+	// which should in the end be visible when collecting all registered
+	// spans.
+	grpcServer := grpc.NewServer(
+		grpc.UnaryInterceptor(grpctracing.UnaryServerTracingInterceptor()),
+		grpc.StreamInterceptor(grpctracing.StreamServerTracingInterceptor()),
+	)
+	svc := &testSvc{
+		PingMethod: func(ctx context.Context, r *proxytestdata.PingRequest) (*proxytestdata.PingResponse, error) {
+			span, _ := opentracing.StartSpanFromContext(ctx, "nested-span")
+			defer span.Finish()
+			span.LogKV("was", "called")
+			return &proxytestdata.PingResponse{}, nil
+		},
+		PingStreamMethod: func(stream proxytestdata.TestService_PingStreamServer) error {
+			span, _ := opentracing.StartSpanFromContext(stream.Context(), "nested-span")
+			defer span.Finish()
+			span.LogKV("was", "called")
+			_, err := stream.Recv()
+			require.NoError(t, err)
+			return stream.Send(&proxytestdata.PingResponse{})
+		},
+	}
+	proxytestdata.RegisterTestServiceServer(grpcServer, svc)
+
+	go func() { require.NoError(t, grpcServer.Serve(listener)) }()
+	defer grpcServer.Stop()
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
 	t.Run("unary", func(t *testing.T) {
-		serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
-
-		listener, err := net.Listen("unix", serverSocketPath)
-		require.NoError(t, err)
-
-		grpcServer := grpc.NewServer(grpc.UnaryInterceptor(grpctracing.UnaryServerTracingInterceptor()))
-		svc := &testSvc{
-			PingMethod: func(ctx context.Context, r *proxytestdata.PingRequest) (*proxytestdata.PingResponse, error) {
-				span, _ := opentracing.StartSpanFromContext(ctx, "health")
-				defer span.Finish()
-				span.LogKV("was", "called")
-				return &proxytestdata.PingResponse{}, nil
-			},
-		}
-		proxytestdata.RegisterTestServiceServer(grpcServer, svc)
-
-		go func() { assert.NoError(t, grpcServer.Serve(listener)) }()
-		defer grpcServer.Stop()
-
 		reporter := jaeger.NewInMemoryReporter()
-		tracer, closer := jaeger.NewTracer("", jaeger.NewConstSampler(true), reporter)
-		defer closer.Close()
+		tracer, tracerCloser := jaeger.NewTracer("", jaeger.NewConstSampler(true), reporter)
 
 		defer func(old opentracing.Tracer) { opentracing.SetGlobalTracer(old) }(opentracing.GlobalTracer())
 		opentracing.SetGlobalTracer(tracer)
 
-		span := tracer.StartSpan("unary-check")
-		span = span.SetBaggageItem("service", "stub")
-
-		ctx, cancel := testhelper.Context()
-		defer cancel()
-
+		// This needs to be run after setting up the global tracer as it will cause us to
+		// create the span when executing the RPC call further down below.
 		cc, err := DialContext(ctx, "unix://"+serverSocketPath, nil)
 		require.NoError(t, err)
 		defer cc.Close()
 
-		client := proxytestdata.NewTestServiceClient(cc)
+		// We set up a "main" span here, which is going to be what the
+		// other spans inherit from. In order to check whether baggage
+		// works correctly, we also set up a "stub" baggage item which
+		// should be inherited to child contexts.
+		span := tracer.StartSpan("unary-check")
+		span = span.SetBaggageItem("service", "stub")
+		ctx := opentracing.ContextWithSpan(ctx, span)
 
-		ctx = opentracing.ContextWithSpan(ctx, span)
-		_, err = client.Ping(ctx, &proxytestdata.PingRequest{})
+		// We're now invoking the unary RPC with the span injected into
+		// the context. This should create a span that's nested into
+		// the "stream-check" span.
+		_, err = proxytestdata.NewTestServiceClient(cc).Ping(ctx, &proxytestdata.PingRequest{})
 		require.NoError(t, err)
 
 		span.Finish()
+		tracerCloser.Close()
 
 		spans := reporter.GetSpans()
 		require.Len(t, spans, 3)
-		require.Equal(t, "stub", spans[1].BaggageItem("service"))
-		require.Equal(t, "stub", spans[2].BaggageItem("service"))
+
+		for i, expectedSpan := range []struct {
+			baggage   string
+			operation string
+		}{
+			// This is the first span we expect, which is the
+			// "health" span which we've manually created inside of
+			// PingMethod.
+			{baggage: "", operation: "nested-span"},
+			// This span is the RPC call to TestService/Ping. It
+			// inherits the "unary-check" we set up and thus has
+			// baggage.
+			{baggage: "stub", operation: "/mwitkow.testproto.TestService/Ping"},
+			// And this finally is the outermost span which we
+			// manually set up before the RPC call.
+			{baggage: "stub", operation: "unary-check"},
+		} {
+			assert.IsType(t, spans[i], &jaeger.Span{})
+			span := spans[i].(*jaeger.Span)
+
+			assert.Equal(t, expectedSpan.baggage, span.BaggageItem("service"), "wrong baggage item for span %d", i)
+			assert.Equal(t, expectedSpan.operation, span.OperationName(), "wrong operation name for span %d", i)
+		}
 	})
 
 	t.Run("stream", func(t *testing.T) {
-		serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
-
-		listener, err := net.Listen("unix", serverSocketPath)
-		require.NoError(t, err)
-
-		grpcServer := grpc.NewServer(grpc.StreamInterceptor(grpctracing.StreamServerTracingInterceptor()))
-		svc := &testSvc{
-			PingStreamMethod: func(stream proxytestdata.TestService_PingStreamServer) error {
-				span, _ := opentracing.StartSpanFromContext(stream.Context(), "health")
-				defer span.Finish()
-				span.LogKV("was", "called")
-				_, err := stream.Recv()
-				assert.NoError(t, err)
-				return stream.Send(&proxytestdata.PingResponse{})
-			},
-		}
-		proxytestdata.RegisterTestServiceServer(grpcServer, svc)
-
-		go func() { assert.NoError(t, grpcServer.Serve(listener)) }()
-		defer grpcServer.Stop()
-
 		reporter := jaeger.NewInMemoryReporter()
-		tracer, closer := jaeger.NewTracer("", jaeger.NewConstSampler(true), reporter)
-		defer closer.Close()
+		tracer, tracerCloser := jaeger.NewTracer("", jaeger.NewConstSampler(true), reporter)
 
 		defer func(old opentracing.Tracer) { opentracing.SetGlobalTracer(old) }(opentracing.GlobalTracer())
 		opentracing.SetGlobalTracer(tracer)
 
-		span := tracer.StartSpan("stream-check")
-		span = span.SetBaggageItem("service", "stub")
-
-		ctx, cancel := testhelper.Context()
-		defer cancel()
-
+		// This needs to be run after setting up the global tracer as it will cause us to
+		// create the span when executing the RPC call further down below.
 		cc, err := DialContext(ctx, "unix://"+serverSocketPath, nil)
 		require.NoError(t, err)
 		defer cc.Close()
 
-		client := proxytestdata.NewTestServiceClient(cc)
+		// We set up a "main" span here, which is going to be what the other spans inherit
+		// from. In order to check whether baggage works correctly, we also set up a "stub"
+		// baggage item which should be inherited to child contexts.
+		span := tracer.StartSpan("stream-check")
+		span = span.SetBaggageItem("service", "stub")
+		ctx := opentracing.ContextWithSpan(ctx, span)
 
-		ctx = opentracing.ContextWithSpan(ctx, span)
-		stream, err := client.PingStream(ctx)
+		// We're now invoking the streaming RPC with the span injected into the context.
+		// This should create a span that's nested into the "stream-check" span.
+		stream, err := proxytestdata.NewTestServiceClient(cc).PingStream(ctx)
 		require.NoError(t, err)
-
 		require.NoError(t, stream.Send(&proxytestdata.PingRequest{}))
 		require.NoError(t, stream.CloseSend())
-
 		_, err = stream.Recv()
 		require.NoError(t, err)
 
 		span.Finish()
+		tracerCloser.Close()
 
 		spans := reporter.GetSpans()
 		require.Len(t, spans, 3)
-		require.Equal(t, "stub", spans[0].BaggageItem("service"))
-		require.Equal(t, "", spans[1].BaggageItem("service"))
-		require.Equal(t, "stub", spans[2].BaggageItem("service"))
+
+		for i, expectedSpan := range []struct {
+			baggage   string
+			operation string
+		}{
+			// This span is the RPC call to TestService/Ping.
+			{baggage: "stub", operation: "/mwitkow.testproto.TestService/PingStream"},
+			// This is the second span we expect, which is the "nested-span" span which
+			// we've manually created inside of PingMethod. This is different than for
+			// unary RPCs: given that one can send multiple messages to the RPC, we may
+			// see multiple such "nested-span"s being created. And the PingStream span
+			// will only be finalized last.
+			{baggage: "", operation: "nested-span"},
+			// And this finally is the outermost span which we
+			// manually set up before the RPC call.
+			{baggage: "stub", operation: "stream-check"},
+		} {
+			if !assert.IsType(t, spans[i], &jaeger.Span{}) {
+				continue
+			}
+
+			span := spans[i].(*jaeger.Span)
+			assert.Equal(t, expectedSpan.baggage, span.BaggageItem("service"), "wrong baggage item for span %d", i)
+			assert.Equal(t, expectedSpan.operation, span.OperationName(), "wrong operation name for span %d", i)
+		}
 	})
 }
 
