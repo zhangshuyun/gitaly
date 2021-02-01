@@ -4,15 +4,21 @@ package datastore
 
 import (
 	"context"
+	"database/sql"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 )
 
+// repositoryRecord represents Praefect's records related to a repository.
+type repositoryRecord struct {
+	primary string
+}
+
 // virtualStorageStates represents the virtual storage's view of which repositories should exist.
 // It's structured as virtual-storage->relative_path.
-type virtualStorageState map[string]map[string]struct{}
+type virtualStorageState map[string]map[string]repositoryRecord
 
 // storageState contains individual storage's repository states.
 // It structured as virtual-storage->relative_path->storage->generation.
@@ -28,7 +34,7 @@ func TestRepositoryStore_Postgres(t *testing.T) {
 
 		requireVirtualStorageState := func(t *testing.T, ctx context.Context, exp virtualStorageState) {
 			rows, err := db.QueryContext(ctx, `
-SELECT virtual_storage, relative_path
+SELECT virtual_storage, relative_path, "primary"
 FROM repositories
 				`)
 			require.NoError(t, err)
@@ -36,13 +42,18 @@ FROM repositories
 
 			act := make(virtualStorageState)
 			for rows.Next() {
-				var vs, rel string
-				require.NoError(t, rows.Scan(&vs, &rel))
-				if act[vs] == nil {
-					act[vs] = make(map[string]struct{})
+				var (
+					virtualStorage, relativePath string
+					primary                      sql.NullString
+				)
+				require.NoError(t, rows.Scan(&virtualStorage, &relativePath, &primary))
+				if act[virtualStorage] == nil {
+					act[virtualStorage] = make(map[string]repositoryRecord)
 				}
 
-				act[vs][rel] = struct{}{}
+				act[virtualStorage][relativePath] = repositoryRecord{
+					primary: primary.String,
+				}
 			}
 
 			require.NoError(t, rows.Err())
@@ -103,7 +114,7 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 			requireState(t, ctx,
 				virtualStorageState{
 					"virtual-storage-1": {
-						"repository-1": struct{}{},
+						"repository-1": repositoryRecord{},
 					},
 				},
 				storageState{
@@ -124,7 +135,7 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 			requireState(t, ctx,
 				virtualStorageState{
 					"virtual-storage-1": {
-						"repository-1": struct{}{},
+						"repository-1": repositoryRecord{},
 					},
 				},
 				storageState{
@@ -146,7 +157,7 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 			requireState(t, ctx,
 				virtualStorageState{
 					"virtual-storage-1": {
-						"repository-1": struct{}{},
+						"repository-1": repositoryRecord{},
 					},
 				},
 				storageState{
@@ -165,7 +176,7 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 			requireState(t, ctx,
 				virtualStorageState{
 					"virtual-storage-1": {
-						"repository-1": struct{}{},
+						"repository-1": repositoryRecord{},
 					},
 				},
 				storageState{
@@ -190,7 +201,7 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 			requireState(t, ctx,
 				virtualStorageState{
 					"virtual-storage-1": {
-						"repository-1": struct{}{},
+						"repository-1": repositoryRecord{},
 					},
 				},
 				storageState{
@@ -211,7 +222,7 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 			requireState(t, ctx,
 				virtualStorageState{
 					"virtual-storage-1": {
-						"repository-1": struct{}{},
+						"repository-1": repositoryRecord{},
 					},
 				},
 				storageState{
@@ -294,7 +305,7 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 			requireState(t, ctx,
 				virtualStorageState{
 					vs: {
-						repo: struct{}{},
+						repo: repositoryRecord{},
 					},
 				},
 				storageState{
@@ -342,14 +353,14 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 			requireState(t, ctx,
 				virtualStorageState{
 					"deleted": {
-						"deleted": struct{}{},
+						"deleted": repositoryRecord{},
 					},
 					"virtual-storage-1": {
-						"other-storages-remain": struct{}{},
+						"other-storages-remain": repositoryRecord{},
 					},
 					"virtual-storage-2": {
-						"deleted-repo":       struct{}{},
-						"other-repo-remains": struct{}{},
+						"deleted-repo":       repositoryRecord{},
+						"other-repo-remains": repositoryRecord{},
 					},
 				},
 				storageState{
@@ -382,7 +393,7 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 			requireState(t, ctx,
 				virtualStorageState{
 					"virtual-storage-2": {
-						"other-repo-remains": struct{}{},
+						"other-repo-remains": repositoryRecord{},
 					},
 				},
 				storageState{
@@ -421,8 +432,8 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 			requireState(t, ctx,
 				virtualStorageState{
 					"virtual-storage-1": {
-						"renamed-all":  struct{}{},
-						"renamed-some": struct{}{},
+						"renamed-all":  repositoryRecord{},
+						"renamed-some": repositoryRecord{},
 					},
 				},
 				storageState{
@@ -444,8 +455,8 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 			requireState(t, ctx,
 				virtualStorageState{
 					"virtual-storage-1": {
-						"renamed-all-new":  struct{}{},
-						"renamed-some-new": struct{}{},
+						"renamed-all-new":  repositoryRecord{},
+						"renamed-some-new": repositoryRecord{},
 					},
 				},
 				storageState{
@@ -482,7 +493,7 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 		requireState(t, ctx,
 			virtualStorageState{
 				"virtual-storage-1": {
-					"repository-1": struct{}{},
+					"repository-1": repositoryRecord{},
 				},
 			},
 			storageState{
@@ -516,7 +527,7 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 			requireState(t, ctx,
 				virtualStorageState{
 					"virtual-storage-1": {
-						"repository-1": struct{}{},
+						"repository-1": repositoryRecord{},
 					},
 				},
 				storageState{
@@ -553,7 +564,7 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 			requireState(t, ctx,
 				virtualStorageState{
 					"virtual-storage-1": {
-						"repository-1": struct{}{},
+						"repository-1": repositoryRecord{},
 					},
 				},
 				storageState{
