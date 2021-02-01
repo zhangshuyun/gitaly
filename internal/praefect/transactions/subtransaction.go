@@ -3,6 +3,7 @@ package transactions
 import (
 	"context"
 	"crypto/sha1"
+	"encoding/hex"
 	"fmt"
 	"sync"
 )
@@ -40,6 +41,11 @@ func voteFromHash(hash []byte) (vote, error) {
 
 func (v vote) isEmpty() bool {
 	return v == vote{}
+}
+
+// String returns the hexadecimal string representation of the vote.
+func (v vote) String() string {
+	return hex.EncodeToString(v[:])
 }
 
 // subtransaction is a single session where voters are voting for a certain outcome.
@@ -222,7 +228,8 @@ func (t *subtransaction) collectVotes(ctx context.Context, node string) error {
 	// shouldn't accept any additional votes.
 	if t.voteCounts[voter.vote] < t.threshold {
 		voter.result = VoteFailed
-		return fmt.Errorf("%w: got %d/%d votes", ErrTransactionFailed, t.voteCounts[voter.vote], t.threshold)
+		return fmt.Errorf("%w: got %d/%d votes for %v", ErrTransactionFailed,
+			t.voteCounts[voter.vote], t.threshold, voter.vote)
 	}
 
 	voter.result = VoteCommitted
