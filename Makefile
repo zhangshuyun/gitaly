@@ -215,7 +215,7 @@ binaries: assemble
 	${Q}cd ${ASSEMBLY_ROOT} && sha256sum bin/* | tee checksums.sha256.txt
 
 .PHONY: prepare-tests
-prepare-tests: git prepare-test-repos ${SOURCE_DIR}/.ruby-bundle
+prepare-tests: git libgit2 prepare-test-repos ${SOURCE_DIR}/.ruby-bundle
 
 .PHONY: prepare-test-repos
 prepare-test-repos: ${TEST_REPO} ${TEST_REPO_GIT}
@@ -224,7 +224,7 @@ prepare-test-repos: ${TEST_REPO} ${TEST_REPO_GIT}
 test: test-go rspec
 
 .PHONY: test-go
-test-go: prepare-tests ${GO_JUNIT_REPORT} libgit2
+test-go: prepare-tests ${GO_JUNIT_REPORT}
 	${Q}mkdir -p ${TEST_REPORT_DIR}
 	${Q}echo 0 >${TEST_EXIT}
 	${Q}$(call run_go_tests) 2>&1 | tee ${TEST_OUTPUT} || echo $$? >${TEST_EXIT}
