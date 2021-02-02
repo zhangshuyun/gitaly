@@ -103,7 +103,10 @@ type RepositoryStore interface {
 	//
 	// storePrimary should be set when repository specific primaries are enabled. When set, the primary is stored as
 	// the repository's primary.
-	CreateRepository(ctx context.Context, virtualStorage, relativePath, primary string, storePrimary bool) error
+	//
+	// storeAssignments should be set when variable replication factor is enabled. When set, the primary and the
+	// secondaries are stored as the assigned hosts of the repository.
+	CreateRepository(ctx context.Context, virtualStorage, relativePath, primary string, secondaries []string, storePrimary, storeAssignments bool) error
 	// DeleteRepository deletes the repository from the virtual storage and the storage. Returns
 	// RepositoryNotExistsError when trying to delete a repository which has no record in the virtual storage
 	// or the storage.
@@ -301,7 +304,7 @@ AND storage = ANY($3)
 
 //nolint:stylecheck
 //nolint:golint
-func (rs *PostgresRepositoryStore) CreateRepository(ctx context.Context, virtualStorage, relativePath, primary string, storePrimary bool) error {
+func (rs *PostgresRepositoryStore) CreateRepository(ctx context.Context, virtualStorage, relativePath, primary string, secondaries []string, storePrimary, storeAssignments bool) error {
 	const q = `
 WITH repo AS (
 	INSERT INTO repositories (
@@ -310,7 +313,23 @@ WITH repo AS (
 		generation,
 		"primary"
 	) VALUES ($1, $2, 0, CASE WHEN $4 THEN $3 END)
+),
+
+assignments AS (
+	INSERT INTO repository_assignments (
+		virtual_storage,
+		relative_path,
+		storage
+	)
+	SELECT $1, $2, storage
+	FROM (
+		SELECT unnest($5::text[]) AS storage
+		UNION
+		SELECT $3
+	) AS storages
+	WHERE $6
 )
+
 INSERT INTO storage_repositories (
 	virtual_storage,
 	relative_path,
@@ -320,7 +339,8 @@ INSERT INTO storage_repositories (
 VALUES ($1, $2, $3, 0)
 `
 
-	_, err := rs.db.ExecContext(ctx, q, virtualStorage, relativePath, primary, storePrimary)
+	_, err := rs.db.ExecContext(ctx, q,
+		virtualStorage, relativePath, primary, storePrimary, pq.StringArray(secondaries), storeAssignments)
 
 	var pqerr *pq.Error
 	if errors.As(err, &pqerr) && pqerr.Code.Name() == "unique_violation" {

@@ -7,13 +7,15 @@ import (
 	"database/sql"
 	"testing"
 
+	"github.com/lib/pq"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 )
 
 // repositoryRecord represents Praefect's records related to a repository.
 type repositoryRecord struct {
-	primary string
+	primary     string
+	assignments []string
 }
 
 // virtualStorageStates represents the virtual storage's view of which repositories should exist.
@@ -34,8 +36,14 @@ func TestRepositoryStore_Postgres(t *testing.T) {
 
 		requireVirtualStorageState := func(t *testing.T, ctx context.Context, exp virtualStorageState) {
 			rows, err := db.QueryContext(ctx, `
-SELECT virtual_storage, relative_path, "primary"
+SELECT virtual_storage, relative_path, "primary", assigned_storages
 FROM repositories
+LEFT JOIN (
+	SELECT virtual_storage, relative_path, array_agg(storage ORDER BY storage) AS assigned_storages
+	FROM repository_assignments
+	GROUP BY virtual_storage, relative_path
+) AS repository_assignments USING (virtual_storage, relative_path)
+
 				`)
 			require.NoError(t, err)
 			defer rows.Close()
@@ -45,14 +53,16 @@ FROM repositories
 				var (
 					virtualStorage, relativePath string
 					primary                      sql.NullString
+					assignments                  pq.StringArray
 				)
-				require.NoError(t, rows.Scan(&virtualStorage, &relativePath, &primary))
+				require.NoError(t, rows.Scan(&virtualStorage, &relativePath, &primary, &assignments))
 				if act[virtualStorage] == nil {
 					act[virtualStorage] = make(map[string]repositoryRecord)
 				}
 
 				act[virtualStorage][relativePath] = repositoryRecord{
-					primary: primary.String,
+					primary:     primary.String,
+					assignments: assignments,
 				}
 			}
 
@@ -299,34 +309,69 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 	t.Run("CreateRepository", func(t *testing.T) {
 		t.Run("successfully created", func(t *testing.T) {
 			for _, tc := range []struct {
-				desc         string
-				storePrimary bool
-				primary      string
+				desc                string
+				secondaries         []string
+				storePrimary        bool
+				storeAssignments    bool
+				expectedPrimary     string
+				expectedAssignments []string
 			}{
 				{
-					desc:         "primary not stored",
-					storePrimary: false,
+					desc: "store only repository record",
 				},
 				{
-					desc:         "primary stored",
-					storePrimary: true,
-					primary:      stor,
+					desc:            "primary stored",
+					secondaries:     []string{"secondary-1", "secondary-2"},
+					storePrimary:    true,
+					expectedPrimary: "primary",
+				},
+				{
+					desc:                "assignments stored",
+					storeAssignments:    true,
+					secondaries:         []string{"secondary-1", "secondary-2"},
+					expectedAssignments: []string{"primary", "secondary-1", "secondary-2"},
+				},
+				{
+					desc:                "store primary and assignments",
+					storePrimary:        true,
+					storeAssignments:    true,
+					secondaries:         []string{"secondary-1", "secondary-2"},
+					expectedPrimary:     "primary",
+					expectedAssignments: []string{"primary", "secondary-1", "secondary-2"},
+				},
+				{
+					desc:                "store primary and no secondaries",
+					storePrimary:        true,
+					storeAssignments:    true,
+					secondaries:         []string{},
+					expectedPrimary:     "primary",
+					expectedAssignments: []string{"primary"},
+				},
+				{
+					desc:                "store primary and nil secondaries",
+					storePrimary:        true,
+					storeAssignments:    true,
+					expectedPrimary:     "primary",
+					expectedAssignments: []string{"primary"},
 				},
 			} {
 				t.Run(tc.desc, func(t *testing.T) {
 					rs, requireState := newStore(t, nil)
 
-					require.NoError(t, rs.CreateRepository(ctx, vs, repo, stor, tc.storePrimary))
+					require.NoError(t, rs.CreateRepository(ctx, vs, repo, "primary", tc.secondaries, tc.storePrimary, tc.storeAssignments))
 					requireState(t, ctx,
 						virtualStorageState{
 							vs: {
-								repo: repositoryRecord{primary: tc.primary},
+								repo: repositoryRecord{
+									primary:     tc.expectedPrimary,
+									assignments: tc.expectedAssignments,
+								},
 							},
 						},
 						storageState{
 							vs: {
 								repo: {
-									stor: 0,
+									"primary": 0,
 								},
 							},
 						},
@@ -338,10 +383,10 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 		t.Run("conflict", func(t *testing.T) {
 			rs, _ := newStore(t, nil)
 
-			require.NoError(t, rs.CreateRepository(ctx, vs, repo, stor, false))
+			require.NoError(t, rs.CreateRepository(ctx, vs, repo, stor, nil, false, false))
 			require.Equal(t,
 				RepositoryExistsError{vs, repo, stor},
-				rs.CreateRepository(ctx, vs, repo, stor, false),
+				rs.CreateRepository(ctx, vs, repo, stor, nil, false, false),
 			)
 		})
 	})

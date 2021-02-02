@@ -713,12 +713,13 @@ func TestStreamDirector_repo_creation(t *testing.T) {
 
 			var createRepositoryCalled int64
 			rs := datastore.MockRepositoryStore{
-				CreateRepositoryFunc: func(ctx context.Context, virtualStorage, relativePath, primary string, storePrimary bool) error {
+				CreateRepositoryFunc: func(ctx context.Context, virtualStorage, relativePath, primary string, secondaries []string, storePrimary, storeAssignments bool) error {
 					atomic.AddInt64(&createRepositoryCalled, 1)
 					assert.Equal(t, targetRepo.StorageName, virtualStorage)
 					assert.Equal(t, targetRepo.RelativePath, relativePath)
 					assert.Equal(t, rewrittenStorage, primary)
 					assert.Equal(t, tc.primaryStored, storePrimary)
+					assert.False(t, storeAssignments)
 					return nil
 				},
 			}
