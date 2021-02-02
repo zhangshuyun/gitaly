@@ -767,10 +767,12 @@ func TestStreamDirector_repo_creation(t *testing.T) {
 					conns,
 					nil,
 					StaticHealthChecker{"praefect": {primaryNode.Storage, healthySecondaryNode.Storage}},
-					randomFunc(func(n int) int {
-						require.Equal(t, n, 2, "number of primary candidates should match the number of healthy nodes")
-						return 0
-					}),
+					mockRandom{
+						intnFunc: func(n int) int {
+							require.Equal(t, n, 2, "number of primary candidates should match the number of healthy nodes")
+							return 0
+						},
+					},
 					nil,
 					nil,
 				)
