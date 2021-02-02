@@ -86,10 +86,12 @@ func TestPerRepositoryRouter_RouteStorageAccessor(t *testing.T) {
 						"valid-choice-2",
 					},
 				},
-				randomFunc(func(n int) int {
-					require.Equal(t, tc.numCandidates, n)
-					return tc.pickCandidate
-				}),
+				mockRandom{
+					intnFunc: func(n int) int {
+						require.Equal(t, tc.numCandidates, n)
+						return tc.pickCandidate
+					},
+				},
 				nil,
 				nil,
 			)
@@ -185,11 +187,12 @@ func TestPerRepositoryRouter_RouteRepositoryAccessor(t *testing.T) {
 					return "primary", nil
 				}),
 				tc.healthyNodes,
-				randomFunc(func(n int) int {
-					t.Helper()
-					require.Equal(t, tc.numCandidates, n)
-					return tc.pickCandidate
-				}),
+				mockRandom{
+					intnFunc: func(n int) int {
+						require.Equal(t, tc.numCandidates, n)
+						return tc.pickCandidate
+					},
+				},
 				datastore.MockRepositoryStore{
 					GetConsistentStoragesFunc: func(ctx context.Context, virtualStorage, relativePath string) (map[string]struct{}, error) {
 						t.Helper()
@@ -426,11 +429,12 @@ func TestPerRepositoryRouter_RouteRepositoryCreation(t *testing.T) {
 				conns,
 				nil,
 				tc.healthyNodes,
-				randomFunc(func(n int) int {
-					t.Helper()
-					require.Equal(t, tc.numCandidates, n)
-					return tc.pickCandidate
-				}),
+				mockRandom{
+					intnFunc: func(n int) int {
+						require.Equal(t, tc.numCandidates, n)
+						return tc.pickCandidate
+					},
+				},
 				nil,
 				nil,
 			).RouteRepositoryCreation(ctx, tc.virtualStorage)
