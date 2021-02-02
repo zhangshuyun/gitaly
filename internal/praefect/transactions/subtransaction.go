@@ -155,9 +155,7 @@ func (t *subtransaction) vote(node string, hash []byte) error {
 	}
 	voter.vote = vote
 
-	oldCount := t.voteCounts[vote]
-	newCount := oldCount + voter.Votes
-	t.voteCounts[vote] = newCount
+	t.voteCounts[vote] += voter.Votes
 
 	// Update voter states to reflect the new vote counts. Before quorum is
 	// reached, this function will check whether the threshold was reached
@@ -165,7 +163,7 @@ func (t *subtransaction) vote(node string, hash []byte) error {
 	// quorum was reached, it will only update the currently voting node.
 	t.updateVoterStates()
 
-	if t.mustSignalVoters(oldCount, newCount) {
+	if t.mustSignalVoters() {
 		t.isDone = true
 		close(t.doneCh)
 	}
@@ -226,33 +224,24 @@ func (t *subtransaction) updateVoterStates() {
 // mustSignalVoters determines whether we need to signal voters. Signalling may
 // only happen once, so we need to make sure that either we just crossed the
 // threshold or that nobody else did and no more votes are missing.
-func (t *subtransaction) mustSignalVoters(oldCount, newCount uint) bool {
-	// If the threshold was reached before, we mustn't try to signal voters
-	// as the node crossing it already did so.
-	if oldCount >= t.threshold {
+func (t *subtransaction) mustSignalVoters() bool {
+	// If somebody else already notified voters, then we mustn't do so
+	// again.
+	if t.isDone {
 		return false
 	}
 
-	// If we've just crossed the threshold, then there can be nobody else
-	// who did as subtransactions can only have an unambiguous outcome. So
-	// we need to signal.
-	if newCount >= t.threshold {
-		return true
-	}
-
-	// If any other vote has already reached the threshold, we mustn't try
-	// to notify voters. We need to check this so we don't end up signalling
-	// in case any node with a different vote succeeded and we were the last
-	// node to cast a vote.
-	for _, count := range t.voteCounts {
-		if count >= t.threshold {
-			return false
+	// Check if any node has reached the threshold. If it did, then we need
+	// to signal voters.
+	for _, voteCount := range t.voteCounts {
+		if voteCount >= t.threshold {
+			return true
 		}
 	}
 
-	// We know that the threshold wasn't reached by any node yet. If there
-	// are missing votes, then we cannot notify yet as any remaining nodes
-	// may cause us to reach quorum.
+	// The threshold wasn't reached by any node yet. If there are missing
+	// votes, then we cannot notify yet as any remaining nodes may cause us
+	// to reach quorum.
 	for _, voter := range t.votersByNode {
 		if voter.vote.isEmpty() {
 			return false
