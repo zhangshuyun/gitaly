@@ -43,7 +43,7 @@ type Voter struct {
 	// this voter.
 	Votes uint
 
-	vote   vote
+	vote   *vote
 	result VoteResult
 }
 

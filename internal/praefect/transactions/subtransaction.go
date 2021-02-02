@@ -39,10 +39,6 @@ func voteFromHash(hash []byte) (vote, error) {
 	return vote, nil
 }
 
-func (v vote) isEmpty() bool {
-	return v == vote{}
-}
-
 // String returns the hexadecimal string representation of the vote.
 func (v vote) String() string {
 	return hex.EncodeToString(v[:])
@@ -150,7 +146,7 @@ func (t *subtransaction) vote(node string, hash []byte) error {
 	if !ok {
 		return fmt.Errorf("invalid node for transaction: %q", node)
 	}
-	if !voter.vote.isEmpty() {
+	if voter.vote != nil {
 		return fmt.Errorf("node already cast a vote: %q", node)
 	}
 
@@ -168,7 +164,7 @@ func (t *subtransaction) vote(node string, hash []byte) error {
 		return fmt.Errorf("voter is in invalid state %d: %q", voter.result, node)
 	}
 
-	voter.vote = vote
+	voter.vote = &vote
 
 	t.voteCounts[vote] += voter.Votes
 
@@ -189,17 +185,18 @@ func (t *subtransaction) vote(node string, hash []byte) error {
 // updateVoterStates updates undecided voters. Voters are updated either as
 // soon as quorum was reached or alternatively when all votes were cast.
 func (t *subtransaction) updateVoterStates() {
-	var majorityVote vote
+	var majorityVote *vote
 	for v, voteCount := range t.voteCounts {
 		if voteCount >= t.threshold {
-			majorityVote = v
+			v := v
+			majorityVote = &v
 			break
 		}
 	}
 
 	allVotesCast := true
 	for _, voter := range t.votersByNode {
-		if voter.vote.isEmpty() {
+		if voter.vote == nil {
 			allVotesCast = false
 			break
 		}
@@ -208,7 +205,7 @@ func (t *subtransaction) updateVoterStates() {
 	// We need to adjust voter states either when quorum was reached or
 	// when all votes were cast. If all votes were cast without reaching
 	// quorum, we set all voters into VoteFailed state.
-	if majorityVote.isEmpty() && !allVotesCast {
+	if majorityVote == nil && !allVotesCast {
 		return
 	}
 
@@ -221,14 +218,14 @@ func (t *subtransaction) updateVoterStates() {
 			continue
 		}
 
-		if voter.vote.isEmpty() {
+		if voter.vote == nil || majorityVote == nil {
 			if allVotesCast {
 				voter.result = VoteFailed
 			}
 			continue
 		}
 
-		if voter.vote == majorityVote {
+		if *voter.vote == *majorityVote {
 			voter.result = VoteCommitted
 		} else {
 			voter.result = VoteFailed
@@ -258,7 +255,7 @@ func (t *subtransaction) mustSignalVoters() bool {
 	// votes, then we cannot notify yet as any remaining nodes may cause us
 	// to reach quorum.
 	for _, voter := range t.votersByNode {
-		if voter.vote.isEmpty() {
+		if voter.vote == nil {
 			return false
 		}
 	}
@@ -290,8 +287,11 @@ func (t *subtransaction) collectVotes(ctx context.Context, node string) error {
 		// Happy case, we are part of the quorum.
 		return nil
 	case VoteFailed:
+		if voter.vote == nil {
+			return fmt.Errorf("%w: did not cast a vote", ErrTransactionFailed)
+		}
 		return fmt.Errorf("%w: got %d/%d votes for %v", ErrTransactionFailed,
-			t.voteCounts[voter.vote], t.threshold, voter.vote)
+			t.voteCounts[*voter.vote], t.threshold, *voter.vote)
 	case VoteCanceled:
 		// It may happen that the vote was cancelled or stopped just after majority was
 		// reached. In that case, the node's state is now VoteCanceled/VoteStopped, so we
