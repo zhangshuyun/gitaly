@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha1"
 	"fmt"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -232,6 +233,13 @@ func TestFailedUserUpdateBranchDueToHooks(t *testing.T) {
 func testFailedUserUpdateBranchDueToHooks(t *testing.T, ctx context.Context) {
 	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
+
+	// macOS' default tmp directory is under /var/... but /var itself is a symlink
+	// to /private/var. The repository path in the environment variables has its symlinked
+	// evaluated, causing the comparison to fail, thus we evaluate them here already so the
+	// assertion later works.
+	testRepoPath, err := filepath.EvalSymlinks(testRepoPath)
+	require.NoError(t, err)
 
 	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()
