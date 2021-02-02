@@ -338,7 +338,7 @@ func run(cfgs []starter.Config, conf config.Config) error {
 			praefect.NewLockedRandom(rand.New(rand.NewSource(time.Now().UnixNano()))),
 			rs,
 			assignmentStore,
-			map[string]int{},
+			conf.DefaultReplicationFactors(),
 		)
 	} else {
 		healthChecker = praefect.HealthChecker(nodeManager)

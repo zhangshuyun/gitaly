@@ -596,19 +596,34 @@ func TestCoordinatorStreamDirector_distributesReads(t *testing.T) {
 
 func TestStreamDirector_repo_creation(t *testing.T) {
 	for _, tc := range []struct {
-		electionStrategy config.ElectionStrategy
-		primaryStored    bool
+		desc              string
+		electionStrategy  config.ElectionStrategy
+		replicationFactor int
+		primaryStored     bool
+		assignmentsStored bool
 	}{
 		{
-			electionStrategy: config.ElectionStrategySQL,
-			primaryStored:    false,
+			desc:              "virtual storage scoped primaries",
+			electionStrategy:  config.ElectionStrategySQL,
+			replicationFactor: 3, // assignments are not set when not using repository specific primaries
+			primaryStored:     false,
+			assignmentsStored: false,
 		},
 		{
-			electionStrategy: config.ElectionStrategyPerRepository,
-			primaryStored:    true,
+			desc:              "repository specific primaries without variable replication factor",
+			electionStrategy:  config.ElectionStrategyPerRepository,
+			primaryStored:     true,
+			assignmentsStored: false,
+		},
+		{
+			desc:              "repository specific primaries with variable replication factor",
+			electionStrategy:  config.ElectionStrategyPerRepository,
+			replicationFactor: 3,
+			primaryStored:     true,
+			assignmentsStored: true,
 		},
 	} {
-		t.Run(string(tc.electionStrategy), func(t *testing.T) {
+		t.Run(tc.desc, func(t *testing.T) {
 			primaryNode := &config.Node{Storage: "praefect-internal-1"}
 			healthySecondaryNode := &config.Node{Storage: "praefect-internal-2"}
 			unhealthySecondaryNode := &config.Node{Storage: "praefect-internal-3"}
@@ -616,8 +631,9 @@ func TestStreamDirector_repo_creation(t *testing.T) {
 				Failover: config.Failover{ElectionStrategy: tc.electionStrategy},
 				VirtualStorages: []*config.VirtualStorage{
 					&config.VirtualStorage{
-						Name:  "praefect",
-						Nodes: []*config.Node{primaryNode, healthySecondaryNode, unhealthySecondaryNode},
+						Name:                     "praefect",
+						DefaultReplicationFactor: tc.replicationFactor,
+						Nodes:                    []*config.Node{primaryNode, healthySecondaryNode, unhealthySecondaryNode},
 					},
 				},
 			}
@@ -642,8 +658,9 @@ func TestStreamDirector_repo_creation(t *testing.T) {
 					assert.Equal(t, targetRepo.StorageName, virtualStorage)
 					assert.Equal(t, targetRepo.RelativePath, relativePath)
 					assert.Equal(t, rewrittenStorage, primary)
+					assert.ElementsMatch(t, []string{healthySecondaryNode.Storage, unhealthySecondaryNode.Storage}, secondaries)
 					assert.Equal(t, tc.primaryStored, storePrimary)
-					assert.False(t, storeAssignments)
+					assert.Equal(t, tc.assignmentsStored, storeAssignments)
 					return nil
 				},
 			}
@@ -697,10 +714,13 @@ func TestStreamDirector_repo_creation(t *testing.T) {
 							require.Equal(t, n, 2, "number of primary candidates should match the number of healthy nodes")
 							return 0
 						},
+						shuffleFunc: func(n int, swap func(int, int)) {
+							require.Equal(t, n, 2, "number of secondary candiates should match the number of node minus the primary")
+						},
 					},
 					nil,
 					nil,
-					map[string]int{},
+					conf.DefaultReplicationFactors(),
 				)
 			default:
 				t.Fatalf("unexpected election strategy: %q", tc.electionStrategy)
