@@ -95,6 +95,7 @@ func TestPerRepositoryRouter_RouteStorageAccessor(t *testing.T) {
 				},
 				nil,
 				nil,
+				nil,
 			)
 
 			node, err := router.RouteStorageAccessor(ctx, tc.virtualStorage)
@@ -227,6 +228,7 @@ func TestPerRepositoryRouter_RouteRepositoryAccessor(t *testing.T) {
 						return map[string]struct{}{"primary": {}, "consistent-secondary": {}}, nil
 					},
 				},
+				nil,
 				nil,
 			)
 
@@ -368,6 +370,7 @@ func TestPerRepositoryRouter_RouteRepositoryMutator(t *testing.T) {
 					},
 				},
 				tc.assignedNodes,
+				nil,
 			)
 
 			route, err := router.RouteRepositoryMutator(ctx, tc.virtualStorage, "repository")
@@ -399,44 +402,93 @@ func TestPerRepositoryRouter_RouteRepositoryCreation(t *testing.T) {
 		"virtual-storage-1": {"primary", "secondary-1", "secondary-2"},
 	}
 
+	type matcher func(*testing.T, []string)
+
+	requireOneOf := func(expected ...[]string) func(*testing.T, []string) {
+		return func(t *testing.T, actual []string) {
+			sort.Strings(actual)
+			require.Contains(t, expected, actual)
+		}
+	}
+
+	requireNil := func(t *testing.T, actual []string) {
+		require.Nil(t, actual)
+	}
+
 	for _, tc := range []struct {
-		desc               string
-		virtualStorage     string
-		healthyNodes       StaticHealthChecker
-		numCandidates      int
-		pickCandidate      int
-		primary            string
-		replicationTargets []string
-		error              error
+		desc                      string
+		virtualStorage            string
+		healthyNodes              StaticHealthChecker
+		replicationFactor         int
+		primaryCandidates         int
+		primaryPick               int
+		secondaryCandidates       int
+		primary                   string
+		requireReplicationTargets matcher
+		error                     error
 	}{
 		{
-			desc:           "no healthy nodes",
-			virtualStorage: "virtual-storage-1",
-			healthyNodes:   StaticHealthChecker{},
-			error:          ErrNoHealthyNodes,
+			desc:                      "no healthy nodes",
+			virtualStorage:            "virtual-storage-1",
+			healthyNodes:              StaticHealthChecker{},
+			error:                     ErrNoHealthyNodes,
+			requireReplicationTargets: requireNil,
 		},
 		{
-			desc:           "invalid virtual storage",
-			virtualStorage: "invalid",
-			error:          nodes.ErrVirtualStorageNotExist,
+			desc:                      "invalid virtual storage",
+			virtualStorage:            "invalid",
+			error:                     nodes.ErrVirtualStorageNotExist,
+			requireReplicationTargets: requireNil,
 		},
 		{
-			desc:               "no healthy secondaries",
-			virtualStorage:     "virtual-storage-1",
-			healthyNodes:       StaticHealthChecker{"virtual-storage-1": {"primary"}},
-			numCandidates:      1,
-			pickCandidate:      0,
-			primary:            "primary",
-			replicationTargets: []string{"secondary-1", "secondary-2"},
+			desc:                      "no healthy secondaries",
+			virtualStorage:            "virtual-storage-1",
+			healthyNodes:              StaticHealthChecker{"virtual-storage-1": {"primary"}},
+			primaryCandidates:         1,
+			primaryPick:               0,
+			primary:                   "primary",
+			requireReplicationTargets: requireOneOf([]string{"secondary-1", "secondary-2"}),
 		},
 		{
-			desc:               "success",
-			virtualStorage:     "virtual-storage-1",
-			healthyNodes:       StaticHealthChecker(configuredNodes),
-			numCandidates:      3,
-			pickCandidate:      0,
-			primary:            "primary",
-			replicationTargets: []string{"secondary-1", "secondary-2"},
+			desc:                      "success",
+			virtualStorage:            "virtual-storage-1",
+			healthyNodes:              StaticHealthChecker(configuredNodes),
+			primaryCandidates:         3,
+			primaryPick:               0,
+			primary:                   "primary",
+			requireReplicationTargets: requireOneOf([]string{"secondary-1", "secondary-2"}),
+		},
+		{
+			desc:                      "replication factor of one configured",
+			virtualStorage:            "virtual-storage-1",
+			healthyNodes:              StaticHealthChecker(configuredNodes),
+			replicationFactor:         1,
+			primaryCandidates:         3,
+			primaryPick:               0,
+			primary:                   "primary",
+			requireReplicationTargets: requireNil,
+		},
+		{
+			desc:                      "replication factor of two configured",
+			virtualStorage:            "virtual-storage-1",
+			healthyNodes:              StaticHealthChecker(configuredNodes),
+			replicationFactor:         2,
+			primaryCandidates:         3,
+			primaryPick:               0,
+			secondaryCandidates:       2,
+			primary:                   "primary",
+			requireReplicationTargets: requireOneOf([]string{"secondary-1"}, []string{"secondary-2"}),
+		},
+		{
+			desc:                      "replication factor of three configured with unhealthy secondary",
+			virtualStorage:            "virtual-storage-1",
+			healthyNodes:              StaticHealthChecker{"virtual-storage-1": {"primary", "secondary-1"}},
+			replicationFactor:         3,
+			primaryCandidates:         2,
+			primaryPick:               0,
+			secondaryCandidates:       2,
+			primary:                   "primary",
+			requireReplicationTargets: requireOneOf([]string{"secondary-1", "secondary-2"}),
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -457,20 +509,26 @@ func TestPerRepositoryRouter_RouteRepositoryCreation(t *testing.T) {
 				tc.healthyNodes,
 				mockRandom{
 					intnFunc: func(n int) int {
-						require.Equal(t, tc.numCandidates, n)
-						return tc.pickCandidate
+						require.Equal(t, tc.primaryCandidates, n)
+						return tc.primaryPick
+					},
+					shuffleFunc: func(n int, swap func(i, j int)) {
+						require.Equal(t, tc.secondaryCandidates, n)
 					},
 				},
 				nil,
 				nil,
+				map[string]int{"virtual-storage-1": tc.replicationFactor},
 			).RouteRepositoryCreation(ctx, tc.virtualStorage)
-
-			sort.Strings(route.ReplicationTargets)
-
 			require.Equal(t, tc.error, err)
+
+			// assert replication targets separately as the picked secondary
+			// is random
+			tc.requireReplicationTargets(t, route.ReplicationTargets)
+			route.ReplicationTargets = nil
+
 			require.Equal(t, RepositoryMutatorRoute{
-				Primary:            RouterNode{Storage: tc.primary, Connection: conns[tc.virtualStorage][tc.primary]},
-				ReplicationTargets: tc.replicationTargets,
+				Primary: RouterNode{Storage: tc.primary, Connection: conns[tc.virtualStorage][tc.primary]},
 			}, route)
 		})
 	}
