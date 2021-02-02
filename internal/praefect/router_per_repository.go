@@ -52,23 +52,25 @@ type PrimaryGetter interface {
 
 // PerRepositoryRouter implements a router that routes requests respecting per repository primary nodes.
 type PerRepositoryRouter struct {
-	conns Connections
-	ag    AssignmentGetter
-	pg    PrimaryGetter
-	rand  Random
-	hc    HealthChecker
-	rs    datastore.RepositoryStore
+	conns                     Connections
+	ag                        AssignmentGetter
+	pg                        PrimaryGetter
+	rand                      Random
+	hc                        HealthChecker
+	rs                        datastore.RepositoryStore
+	defaultReplicationFactors map[string]int
 }
 
 // NewPerRepositoryRouter returns a new PerRepositoryRouter using the passed configuration.
-func NewPerRepositoryRouter(conns Connections, pg PrimaryGetter, hc HealthChecker, rand Random, rs datastore.RepositoryStore, ag AssignmentGetter) *PerRepositoryRouter {
+func NewPerRepositoryRouter(conns Connections, pg PrimaryGetter, hc HealthChecker, rand Random, rs datastore.RepositoryStore, ag AssignmentGetter, defaultReplicationFactors map[string]int) *PerRepositoryRouter {
 	return &PerRepositoryRouter{
-		conns: conns,
-		pg:    pg,
-		rand:  rand,
-		hc:    hc,
-		rs:    rs,
-		ag:    ag,
+		conns:                     conns,
+		pg:                        pg,
+		rand:                      rand,
+		hc:                        hc,
+		rs:                        rs,
+		ag:                        ag,
+		defaultReplicationFactors: defaultReplicationFactors,
 	}
 }
 
@@ -225,6 +227,11 @@ func (r *PerRepositoryRouter) RouteRepositoryCreation(ctx context.Context, virtu
 		return RepositoryMutatorRoute{}, err
 	}
 
+	replicationFactor := r.defaultReplicationFactors[virtualStorage]
+	if replicationFactor == 1 {
+		return RepositoryMutatorRoute{Primary: primary}, nil
+	}
+
 	// NodeManagerRouter doesn't consider any secondaries as consistent when creating a repository,
 	// thus the primary is the only participant in the transaction and the secondaries get replicated to.
 	// PerRepositoryRouter matches that behavior here for consistency.
@@ -235,6 +242,17 @@ func (r *PerRepositoryRouter) RouteRepositoryCreation(ctx context.Context, virtu
 		}
 
 		replicationTargets = append(replicationTargets, storage)
+	}
+
+	// replicationFactor being zero indicates it has not been configured. If so, we fallback to the behavior
+	// of no assignments and replicate everywhere.
+	if replicationFactor > 1 {
+		r.rand.Shuffle(len(replicationTargets), func(i, j int) {
+			replicationTargets[i], replicationTargets[j] = replicationTargets[j], replicationTargets[i]
+		})
+
+		// deduct one as the primary is also hosting the repository
+		replicationTargets = replicationTargets[:replicationFactor-1]
 	}
 
 	return RepositoryMutatorRoute{

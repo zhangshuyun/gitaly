@@ -699,6 +699,7 @@ func TestStreamDirector_repo_creation(t *testing.T) {
 					},
 					nil,
 					nil,
+					map[string]int{},
 				)
 			default:
 				t.Fatalf("unexpected election strategy: %q", tc.electionStrategy)
