@@ -39,7 +39,7 @@ type findRefsOpts struct {
 	lines.SenderOpts
 }
 
-func findRefs(ctx context.Context, writer lines.Sender, repo *gitalypb.Repository, patterns []string, opts *findRefsOpts) error {
+func (s *server) findRefs(ctx context.Context, writer lines.Sender, repo *gitalypb.Repository, patterns []string, opts *findRefsOpts) error {
 	var options []git.Option
 
 	if len(opts.cmdArgs) == 0 {
@@ -48,7 +48,7 @@ func findRefs(ctx context.Context, writer lines.Sender, repo *gitalypb.Repositor
 		options = append(options, opts.cmdArgs...)
 	}
 
-	cmd, err := git.NewCommand(ctx, repo, nil, git.SubCmd{
+	cmd, err := s.gitCmdFactory.New(ctx, repo, nil, git.SubCmd{
 		Name:  "for-each-ref",
 		Flags: options,
 		Args:  patterns,
@@ -88,7 +88,7 @@ func (t *tagSender) Send() error {
 }
 
 func (s *server) parseAndReturnTags(ctx context.Context, repo *gitalypb.Repository, stream gitalypb.RefService_FindAllTagsServer) error {
-	tagsCmd, err := git.NewCommand(ctx, repo, nil, git.SubCmd{
+	tagsCmd, err := s.gitCmdFactory.New(ctx, repo, nil, git.SubCmd{
 		Name: "for-each-ref",
 		Flags: []git.Option{
 			git.ValueFlag{"--format", tagFormat},
@@ -154,10 +154,10 @@ func (s *server) validateFindAllTagsRequest(request *gitalypb.FindAllTagsRequest
 	return nil
 }
 
-func _findBranchNames(ctx context.Context, repo *gitalypb.Repository) ([][]byte, error) {
+func _findBranchNames(ctx context.Context, gitCmdFactory git.CommandFactory, repo *gitalypb.Repository) ([][]byte, error) {
 	var names [][]byte
 
-	cmd, err := git.NewCommand(ctx, repo, nil, git.SubCmd{
+	cmd, err := gitCmdFactory.New(ctx, repo, nil, git.SubCmd{
 		Name:  "for-each-ref",
 		Flags: []git.Option{git.Flag{Name: "--format=%(refname)"}},
 		Args:  []string{"refs/heads"}},
@@ -181,10 +181,10 @@ func _findBranchNames(ctx context.Context, repo *gitalypb.Repository) ([][]byte,
 	return names, nil
 }
 
-func _headReference(ctx context.Context, repo *gitalypb.Repository) ([]byte, error) {
+func _headReference(ctx context.Context, gitCmdFactory git.CommandFactory, repo *gitalypb.Repository) ([]byte, error) {
 	var headRef []byte
 
-	cmd, err := git.NewCommand(ctx, repo, nil, git.SubCmd{
+	cmd, err := gitCmdFactory.New(ctx, repo, nil, git.SubCmd{
 		Name:  "rev-parse",
 		Flags: []git.Option{git.Flag{Name: "--symbolic-full-name"}},
 		Args:  []string{"HEAD"},
@@ -214,8 +214,8 @@ func _headReference(ctx context.Context, repo *gitalypb.Repository) ([]byte, err
 }
 
 // SetDefaultBranchRef overwrites the default branch ref for the repository
-func SetDefaultBranchRef(ctx context.Context, repo *gitalypb.Repository, ref string, cfg config.Cfg) error {
-	cmd, err := git.NewCommand(ctx, repo, nil, git.SubCmd{
+func SetDefaultBranchRef(ctx context.Context, gitCmdFactory git.CommandFactory, repo *gitalypb.Repository, ref string, cfg config.Cfg) error {
+	cmd, err := gitCmdFactory.New(ctx, repo, nil, git.SubCmd{
 		Name: "symbolic-ref",
 		Args: []string{"HEAD", ref},
 	}, git.WithRefTxHook(ctx, repo, cfg))
@@ -226,8 +226,8 @@ func SetDefaultBranchRef(ctx context.Context, repo *gitalypb.Repository, ref str
 }
 
 // DefaultBranchName looks up the name of the default branch given a repoPath
-func DefaultBranchName(ctx context.Context, repo *gitalypb.Repository) ([]byte, error) {
-	branches, err := FindBranchNames(ctx, repo)
+func DefaultBranchName(ctx context.Context, gitCmdFactory git.CommandFactory, repo *gitalypb.Repository) ([]byte, error) {
+	branches, err := FindBranchNames(ctx, gitCmdFactory, repo)
 
 	if err != nil {
 		return nil, err
@@ -244,7 +244,7 @@ func DefaultBranchName(ctx context.Context, repo *gitalypb.Repository) ([]byte, 
 	}
 
 	hasMaster := false
-	headRef, err := headReference(ctx, repo)
+	headRef, err := headReference(ctx, gitCmdFactory, repo)
 	if err != nil {
 		return nil, err
 	}
@@ -268,7 +268,7 @@ func DefaultBranchName(ctx context.Context, repo *gitalypb.Repository) ([]byte, 
 
 // FindDefaultBranchName returns the default branch name for the given repository
 func (s *server) FindDefaultBranchName(ctx context.Context, in *gitalypb.FindDefaultBranchNameRequest) (*gitalypb.FindDefaultBranchNameResponse, error) {
-	defaultBranchName, err := DefaultBranchName(ctx, in.Repository)
+	defaultBranchName, err := DefaultBranchName(ctx, s.gitCmdFactory, in.Repository)
 	if err != nil {
 		return nil, helper.ErrInternal(err)
 	}
@@ -313,7 +313,7 @@ func (s *server) findLocalBranches(in *gitalypb.FindLocalBranchesRequest, stream
 		git.Flag{Name: "--sort=" + parseSortKey(in.GetSortBy())},
 	}
 
-	return findRefs(ctx, writer, in.Repository, []string{"refs/heads"}, opts)
+	return s.findRefs(ctx, writer, in.Repository, []string{"refs/heads"}, opts)
 }
 
 func (s *server) FindAllBranches(in *gitalypb.FindAllBranchesRequest, stream gitalypb.RefService_FindAllBranchesServer) error {
@@ -333,7 +333,7 @@ func (s *server) findAllBranches(in *gitalypb.FindAllBranchesRequest, stream git
 	patterns := []string{"refs/heads", "refs/remotes"}
 
 	if in.MergedOnly {
-		defaultBranchName, err := DefaultBranchName(stream.Context(), in.Repository)
+		defaultBranchName, err := DefaultBranchName(stream.Context(), s.gitCmdFactory, in.Repository)
 		if err != nil {
 			return err
 		}
@@ -360,7 +360,7 @@ func (s *server) findAllBranches(in *gitalypb.FindAllBranchesRequest, stream git
 
 	writer := newFindAllBranchesWriter(stream, c)
 
-	return findRefs(ctx, writer, in.Repository, patterns, opts)
+	return s.findRefs(ctx, writer, in.Repository, patterns, opts)
 }
 
 func (s *server) FindTag(ctx context.Context, in *gitalypb.FindTagRequest) (*gitalypb.FindTagResponse, error) {
@@ -413,7 +413,7 @@ func parseTagLine(ctx context.Context, c catfile.Batch, tagLine string) (*gitaly
 }
 
 func (s *server) findTag(ctx context.Context, repository *gitalypb.Repository, tagName []byte) (*gitalypb.Tag, error) {
-	tagCmd, err := git.NewCommand(ctx, repository, nil,
+	tagCmd, err := s.gitCmdFactory.New(ctx, repository, nil,
 		git.SubCmd{
 			Name: "tag",
 			Flags: []git.Option{

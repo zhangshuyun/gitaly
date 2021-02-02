@@ -34,7 +34,7 @@ func (s *server) FindAllCommits(in *gitalypb.FindAllCommitsRequest, stream gital
 
 	var revisions []string
 	if len(in.GetRevision()) == 0 {
-		branchNames, err := _findBranchNamesFunc(stream.Context(), in.Repository)
+		branchNames, err := _findBranchNamesFunc(stream.Context(), git.NewExecCommandFactory(s.cfg), in.Repository)
 		if err != nil {
 			return helper.ErrInvalidArgument(err)
 		}

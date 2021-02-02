@@ -12,14 +12,14 @@ import (
 )
 
 // RefExists returns true if the given reference exists. The ref must start with the string `ref/`
-func (server) RefExists(ctx context.Context, in *gitalypb.RefExistsRequest) (*gitalypb.RefExistsResponse, error) {
+func (s *server) RefExists(ctx context.Context, in *gitalypb.RefExistsRequest) (*gitalypb.RefExistsResponse, error) {
 	ref := string(in.Ref)
 
 	if !isValidRefName(ref) {
 		return nil, helper.ErrInvalidArgument(fmt.Errorf("invalid refname"))
 	}
 
-	exists, err := refExists(ctx, in.Repository, ref)
+	exists, err := s.refExists(ctx, in.Repository, ref)
 	if err != nil {
 		return nil, helper.ErrInternal(err)
 	}
@@ -27,8 +27,8 @@ func (server) RefExists(ctx context.Context, in *gitalypb.RefExistsRequest) (*gi
 	return &gitalypb.RefExistsResponse{Value: exists}, nil
 }
 
-func refExists(ctx context.Context, repo *gitalypb.Repository, ref string) (bool, error) {
-	cmd, err := git.NewCommand(ctx, repo, nil, git.SubCmd{
+func (s *server) refExists(ctx context.Context, repo *gitalypb.Repository, ref string) (bool, error) {
+	cmd, err := s.gitCmdFactory.New(ctx, repo, nil, git.SubCmd{
 		Name:  "show-ref",
 		Flags: []git.Option{git.Flag{Name: "--verify"}, git.Flag{Name: "--quiet"}},
 		Args:  []string{ref},

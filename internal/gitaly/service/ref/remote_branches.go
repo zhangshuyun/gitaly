@@ -39,7 +39,7 @@ func (s *server) findAllRemoteBranches(req *gitalypb.FindAllRemoteBranchesReques
 	opts.cmdArgs = args
 	writer := newFindAllRemoteBranchesWriter(stream, c)
 
-	return findRefs(ctx, writer, req.GetRepository(), patterns, opts)
+	return s.findRefs(ctx, writer, req.GetRepository(), patterns, opts)
 }
 
 func validateFindAllRemoteBranchesRequest(req *gitalypb.FindAllRemoteBranchesRequest) error {

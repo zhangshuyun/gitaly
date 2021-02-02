@@ -6,6 +6,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
@@ -28,14 +29,14 @@ func (s *server) CommitsByMessage(in *gitalypb.CommitsByMessageRequest, stream g
 		return helper.ErrInvalidArgument(err)
 	}
 
-	if err := s.commitsByMessage(in, stream); err != nil {
+	if err := s.commitsByMessage(s.locator, in, stream); err != nil {
 		return helper.ErrInternal(err)
 	}
 
 	return nil
 }
 
-func (s *server) commitsByMessage(in *gitalypb.CommitsByMessageRequest, stream gitalypb.CommitService_CommitsByMessageServer) error {
+func (s *server) commitsByMessage(locator storage.Locator, in *gitalypb.CommitsByMessageRequest, stream gitalypb.CommitService_CommitsByMessageServer) error {
 	ctx := stream.Context()
 	sender := &commitsByMessageSender{stream: stream}
 
@@ -54,7 +55,7 @@ func (s *server) commitsByMessage(in *gitalypb.CommitsByMessageRequest, stream g
 	if len(revision) == 0 {
 		var err error
 
-		revision, err = defaultBranchName(ctx, in.Repository)
+		revision, err = defaultBranchName(ctx, s.gitCmdFactory, in.Repository)
 		if err != nil {
 			return err
 		}
@@ -65,7 +66,7 @@ func (s *server) commitsByMessage(in *gitalypb.CommitsByMessageRequest, stream g
 		paths = append(paths, string(path))
 	}
 
-	return sendCommits(stream.Context(), sender, s.gitCmdFactory, in.GetRepository(), []string{string(revision)}, paths, in.GetGlobalOptions(), gitLogExtraOptions...)
+	return sendCommits(stream.Context(), sender, locator, s.gitCmdFactory, in.GetRepository(), []string{string(revision)}, paths, in.GetGlobalOptions(), gitLogExtraOptions...)
 }
 
 func validateCommitsByMessageRequest(in *gitalypb.CommitsByMessageRequest) error {

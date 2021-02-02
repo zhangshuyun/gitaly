@@ -33,7 +33,7 @@ func (s *server) ListFiles(in *gitalypb.ListFilesRequest, stream gitalypb.Commit
 
 	revision := string(in.GetRevision())
 	if len(revision) == 0 {
-		defaultBranch, err := defaultBranchName(stream.Context(), repo)
+		defaultBranch, err := defaultBranchName(stream.Context(), git.NewExecCommandFactory(s.cfg), repo)
 		if err != nil {
 			return helper.DecorateError(codes.NotFound, fmt.Errorf("revision not found %q", revision))
 		}

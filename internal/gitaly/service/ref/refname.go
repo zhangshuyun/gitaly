@@ -20,7 +20,7 @@ func (s *server) FindRefName(ctx context.Context, in *gitalypb.FindRefNameReques
 		return nil, helper.ErrInvalidArgument(fmt.Errorf("empty commit sha"))
 	}
 
-	ref, err := findRefName(ctx, in.Repository, in.CommitId, string(in.Prefix))
+	ref, err := s.findRefName(ctx, in.Repository, in.CommitId, string(in.Prefix))
 	if err != nil {
 		return nil, helper.ErrInternal(err)
 	}
@@ -29,7 +29,7 @@ func (s *server) FindRefName(ctx context.Context, in *gitalypb.FindRefNameReques
 }
 
 // We assume `repo` and `commitID` and `prefix` are non-empty
-func findRefName(ctx context.Context, repo *gitalypb.Repository, commitID, prefix string) (string, error) {
+func (s *server) findRefName(ctx context.Context, repo *gitalypb.Repository, commitID, prefix string) (string, error) {
 	flags := []git.Option{
 		git.Flag{Name: "--format=%(refname)"},
 		git.Flag{Name: "--count=1"},
@@ -43,7 +43,7 @@ func findRefName(ctx context.Context, repo *gitalypb.Repository, commitID, prefi
 	subCmd.Flags = flags
 	subCmd.Args = []string{prefix}
 
-	cmd, err := git.NewCommand(ctx, repo, nil, subCmd)
+	cmd, err := s.gitCmdFactory.New(ctx, repo, nil, subCmd)
 	if err != nil {
 		return "", err
 	}

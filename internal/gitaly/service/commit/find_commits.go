@@ -29,7 +29,7 @@ func (s *server) FindCommits(req *gitalypb.FindCommitsRequest, stream gitalypb.C
 	// migrated.
 	if revision := req.Revision; len(revision) == 0 && !req.GetAll() {
 		var err error
-		req.Revision, err = defaultBranchName(ctx, req.Repository)
+		req.Revision, err = defaultBranchName(ctx, git.NewExecCommandFactory(s.cfg), req.Repository)
 		if err != nil {
 			return helper.ErrInternal(fmt.Errorf("defaultBranchName: %v", err))
 		}

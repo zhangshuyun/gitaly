@@ -44,13 +44,15 @@ func testMain(m *testing.M) int {
 }
 
 func runRefServiceServer(t *testing.T) (func(), string) {
-	locator := config.NewLocator(config.Config)
-	txManager := transaction.NewManager(config.Config)
-	hookManager := hook.NewManager(locator, txManager, hook.GitlabAPIStub, config.Config)
+	cfg := config.Config
+	locator := config.NewLocator(cfg)
+	txManager := transaction.NewManager(cfg)
+	hookManager := hook.NewManager(locator, txManager, hook.GitlabAPIStub, cfg)
+	gitCmdFactory := git.NewExecCommandFactory(cfg)
 
-	srv := testhelper.NewServer(t, nil, nil, testhelper.WithInternalSocket(config.Config))
-	gitalypb.RegisterRefServiceServer(srv.GrpcServer(), NewServer(config.Config, locator, git.NewExecCommandFactory(config.Config)))
-	gitalypb.RegisterHookServiceServer(srv.GrpcServer(), hookservice.NewServer(config.Config, hookManager))
+	srv := testhelper.NewServer(t, nil, nil, testhelper.WithInternalSocket(cfg))
+	gitalypb.RegisterRefServiceServer(srv.GrpcServer(), NewServer(cfg, locator, gitCmdFactory))
+	gitalypb.RegisterHookServiceServer(srv.GrpcServer(), hookservice.NewServer(cfg, hookManager))
 	srv.Start(t)
 
 	return srv.Stop, "unix://" + srv.Socket()

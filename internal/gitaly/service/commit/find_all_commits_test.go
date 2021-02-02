@@ -7,6 +7,7 @@ import (
 
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/ref"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -18,7 +19,7 @@ func TestSuccessfulFindAllCommitsRequest(t *testing.T) {
 		_findBranchNamesFunc = ref.FindBranchNames
 	}()
 
-	_findBranchNamesFunc = func(ctx context.Context, repo *gitalypb.Repository) ([][]byte, error) {
+	_findBranchNamesFunc = func(ctx context.Context, gitCmdFactory git.CommandFactory, repo *gitalypb.Repository) ([][]byte, error) {
 		return [][]byte{
 			[]byte("few-commits"),
 			[]byte("two-commits"),

@@ -57,13 +57,13 @@ func (s *server) FetchInternalRemote(ctx context.Context, req *gitalypb.FetchInt
 		return nil, status.Errorf(codes.Internal, "FetchInternalRemote: remote default branch: %v", err)
 	}
 
-	defaultBranch, err := ref.DefaultBranchName(ctx, req.Repository)
+	defaultBranch, err := ref.DefaultBranchName(ctx, s.gitCmdFactory, req.Repository)
 	if err != nil {
 		return nil, status.Errorf(codes.Internal, "FetchInternalRemote: default branch: %v", err)
 	}
 
 	if !bytes.Equal(defaultBranch, remoteDefaultBranch) {
-		if err := ref.SetDefaultBranchRef(ctx, req.Repository, string(remoteDefaultBranch), config.Config); err != nil {
+		if err := ref.SetDefaultBranchRef(ctx, s.gitCmdFactory, req.Repository, string(remoteDefaultBranch), config.Config); err != nil {
 			return nil, status.Errorf(codes.Internal, "FetchInternalRemote: set default branch: %v", err)
 		}
 	}

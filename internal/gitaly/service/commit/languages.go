@@ -30,7 +30,7 @@ func (s *server) CommitLanguages(ctx context.Context, req *gitalypb.CommitLangua
 
 	revision := string(req.Revision)
 	if revision == "" {
-		defaultBranch, err := ref.DefaultBranchName(ctx, req.Repository)
+		defaultBranch, err := ref.DefaultBranchName(ctx, git.NewExecCommandFactory(s.cfg), req.Repository)
 		if err != nil {
 			return nil, err
 		}
