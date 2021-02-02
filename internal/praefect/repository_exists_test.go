@@ -72,7 +72,7 @@ func TestRepositoryExistsStreamInterceptor(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			require.NoError(t, rs.CreateRepository(ctx, "virtual-storage", "relative-path", "storage", false))
+			require.NoError(t, rs.CreateRepository(ctx, "virtual-storage", "relative-path", "storage", nil, false, false))
 
 			electionStrategy := config.ElectionStrategyPerRepository
 			if tc.routeToGitaly {
