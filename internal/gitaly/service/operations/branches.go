@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
@@ -49,6 +50,7 @@ func (s *Server) UserCreateBranch(ctx context.Context, req *gitalypb.UserCreateB
 	referenceName := fmt.Sprintf("refs/heads/%s", req.BranchName)
 	_, err = localrepo.New(req.Repository, s.cfg).GetReference(ctx, git.ReferenceName(referenceName))
 	if err == nil {
+		ctxlogrus.Extract(ctx).Error("branch already exists")
 		return nil, status.Errorf(codes.FailedPrecondition, "Could not update %s. Please refresh and try again.", req.BranchName)
 	} else if !errors.Is(err, git.ErrReferenceNotFound) {
 		return nil, status.Error(codes.Internal, err.Error())
@@ -57,6 +59,7 @@ func (s *Server) UserCreateBranch(ctx context.Context, req *gitalypb.UserCreateB
 	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, referenceName, startPointCommit.Id, git.ZeroOID.String()); err != nil {
 		var preReceiveError preReceiveError
 		if errors.As(err, &preReceiveError) {
+			ctxlogrus.Extract(ctx).WithError(err).Error("failed to create branch")
 			return &gitalypb.UserCreateBranchResponse{
 				PreReceiveError: preReceiveError.message,
 			}, nil
@@ -113,6 +116,7 @@ func (s *Server) userUpdateBranchGo(ctx context.Context, req *gitalypb.UserUpdat
 
 	referenceName := fmt.Sprintf("refs/heads/%s", req.BranchName)
 	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, referenceName, string(req.Newrev), string(req.Oldrev)); err != nil {
+		ctxlogrus.Extract(ctx).WithError(err).Error("failed to update branch")
 		var preReceiveError preReceiveError
 		if errors.As(err, &preReceiveError) {
 			return &gitalypb.UserUpdateBranchResponse{
@@ -178,6 +182,7 @@ func (s *Server) UserDeleteBranch(ctx context.Context, req *gitalypb.UserDeleteB
 	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, referenceName, git.ZeroOID.String(), referenceValue.Target); err != nil {
 		var preReceiveError preReceiveError
 		if errors.As(err, &preReceiveError) {
+			ctxlogrus.Extract(ctx).WithError(err).Error("failed to delete branch")
 			return &gitalypb.UserDeleteBranchResponse{
 				PreReceiveError: preReceiveError.message,
 			}, nil
