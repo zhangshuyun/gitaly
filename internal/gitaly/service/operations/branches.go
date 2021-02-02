@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
@@ -38,7 +39,11 @@ func (s *Server) UserCreateBranch(ctx context.Context, req *gitalypb.UserCreateB
 	startPointCommit, err := log.GetCommit(ctx, s.locator, req.Repository, git.Revision(req.StartPoint))
 	// END TODO
 	if err != nil {
-		return nil, status.Errorf(codes.FailedPrecondition, "revspec '%s' not found", req.StartPoint)
+		if catfile.IsNotFound(err) {
+			return nil, status.Errorf(codes.FailedPrecondition, "revspec '%s' not found", req.StartPoint)
+		}
+
+		return nil, err
 	}
 
 	referenceName := fmt.Sprintf("refs/heads/%s", req.BranchName)
@@ -163,7 +168,11 @@ func (s *Server) UserDeleteBranch(ctx context.Context, req *gitalypb.UserDeleteB
 	referenceName := fmt.Sprintf(referenceFmt, req.BranchName)
 	referenceValue, err := localrepo.New(req.Repository, s.cfg).GetReference(ctx, git.ReferenceName(referenceName))
 	if err != nil {
-		return nil, status.Errorf(codes.FailedPrecondition, "branch not found: %s", req.BranchName)
+		if errors.Is(err, git.ErrReferenceNotFound) {
+			return nil, status.Errorf(codes.FailedPrecondition, "branch not found: %s", req.BranchName)
+		}
+
+		return nil, err
 	}
 
 	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, referenceName, git.ZeroOID.String(), referenceValue.Target); err != nil {
