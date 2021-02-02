@@ -84,6 +84,7 @@ func RegisterAll(
 	gitalypb.RegisterSmartHTTPServiceServer(grpcServer, smarthttp.NewServer(
 		cfg,
 		locator,
+		gitCmdFactory,
 		smarthttp.WithPackfileNegotiationMetrics(smarthttpPackfileNegotiationMetrics),
 	))
 	gitalypb.RegisterWikiServiceServer(grpcServer, wiki.NewServer(rubyServer, locator))

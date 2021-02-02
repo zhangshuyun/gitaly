@@ -3,6 +3,7 @@ package smarthttp
 import (
 	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/internal/cache"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -11,15 +12,17 @@ import (
 type server struct {
 	cfg                        config.Cfg
 	locator                    storage.Locator
+	gitCmdFactory              git.CommandFactory
 	packfileNegotiationMetrics *prometheus.CounterVec
 	infoRefCache               infoRefCache
 }
 
 // NewServer creates a new instance of a grpc SmartHTTPServer
-func NewServer(cfg config.Cfg, locator storage.Locator, serverOpts ...ServerOpt) gitalypb.SmartHTTPServiceServer {
+func NewServer(cfg config.Cfg, locator storage.Locator, gitCmdFactory git.CommandFactory, serverOpts ...ServerOpt) gitalypb.SmartHTTPServiceServer {
 	s := &server{
-		cfg:     cfg,
-		locator: locator,
+		cfg:           cfg,
+		locator:       locator,
+		gitCmdFactory: gitCmdFactory,
 		packfileNegotiationMetrics: prometheus.NewCounterVec(
 			prometheus.CounterOpts{},
 			[]string{"git_negotiation_feature"},

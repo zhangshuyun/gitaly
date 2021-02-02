@@ -8,6 +8,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
 	diskcache "gitlab.com/gitlab-org/gitaly/internal/cache"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
 	hookservice "gitlab.com/gitlab-org/gitaly/internal/gitaly/service/hook"
@@ -61,7 +62,7 @@ func runSmartHTTPServer(t *testing.T, serverOpts ...ServerOpt) (string, func()) 
 		},
 		testhelper.WithInternalSocket(config.Config))
 
-	gitalypb.RegisterSmartHTTPServiceServer(srv.GrpcServer(), NewServer(config.Config, locator, serverOpts...))
+	gitalypb.RegisterSmartHTTPServiceServer(srv.GrpcServer(), NewServer(config.Config, locator, git.NewExecCommandFactory(config.Config), serverOpts...))
 	gitalypb.RegisterHookServiceServer(srv.GrpcServer(), hookservice.NewServer(config.Config, hookManager))
 	srv.Start(t)
 
