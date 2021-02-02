@@ -19,18 +19,18 @@ func (s *server) CommitIsAncestor(ctx context.Context, in *gitalypb.CommitIsAnce
 		return nil, status.Errorf(codes.InvalidArgument, "Bad Request (empty child sha)")
 	}
 
-	ret, err := commitIsAncestorName(ctx, in.Repository, in.AncestorId, in.ChildId)
+	ret, err := s.commitIsAncestorName(ctx, in.Repository, in.AncestorId, in.ChildId)
 	return &gitalypb.CommitIsAncestorResponse{Value: ret}, err
 }
 
 // Assumes that `path`, `ancestorID` and `childID` are populated :trollface:
-func commitIsAncestorName(ctx context.Context, repo *gitalypb.Repository, ancestorID, childID string) (bool, error) {
+func (s *server) commitIsAncestorName(ctx context.Context, repo *gitalypb.Repository, ancestorID, childID string) (bool, error) {
 	ctxlogrus.Extract(ctx).WithFields(log.Fields{
 		"ancestorSha": ancestorID,
 		"childSha":    childID,
 	}).Debug("commitIsAncestor")
 
-	cmd, err := git.NewCommand(ctx, repo, nil, git.SubCmd{Name: "merge-base",
+	cmd, err := s.gitCmdFactory.New(ctx, repo, nil, git.SubCmd{Name: "merge-base",
 		Flags: []git.Option{git.Flag{Name: "--is-ancestor"}}, Args: []string{ancestorID, childID}})
 	if err != nil {
 		if _, ok := status.FromError(err); ok {

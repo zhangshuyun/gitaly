@@ -38,7 +38,7 @@ func (s *server) ListLastCommitsForTree(in *gitalypb.ListLastCommitsForTreeReque
 }
 
 func (s *server) listLastCommitsForTree(in *gitalypb.ListLastCommitsForTreeRequest, stream gitalypb.CommitService_ListLastCommitsForTreeServer) error {
-	cmd, parser, err := newLSTreeParser(in, stream)
+	cmd, parser, err := s.newLSTreeParser(in, stream)
 	if err != nil {
 		return err
 	}
@@ -116,14 +116,14 @@ func getLSTreeEntries(parser *lstree.Parser) (lstree.Entries, error) {
 	return entries, nil
 }
 
-func newLSTreeParser(in *gitalypb.ListLastCommitsForTreeRequest, stream gitalypb.CommitService_ListLastCommitsForTreeServer) (*command.Command, *lstree.Parser, error) {
+func (s *server) newLSTreeParser(in *gitalypb.ListLastCommitsForTreeRequest, stream gitalypb.CommitService_ListLastCommitsForTreeServer) (*command.Command, *lstree.Parser, error) {
 	path := string(in.GetPath())
 	if path == "" || path == "/" {
 		path = "."
 	}
 
 	globals := git.ConvertGlobalOptions(in.GetGlobalOptions())
-	cmd, err := git.NewCommand(stream.Context(), in.GetRepository(), globals, git.SubCmd{
+	cmd, err := s.gitCmdFactory.New(stream.Context(), in.GetRepository(), globals, git.SubCmd{
 		Name:  "ls-tree",
 		Flags: []git.Option{git.Flag{Name: "-z"}, git.Flag{Name: "--full-name"}},
 		Args:  []string{in.GetRevision(), path},
