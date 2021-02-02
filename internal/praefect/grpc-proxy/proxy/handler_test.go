@@ -14,6 +14,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -333,6 +334,93 @@ func (s *ProxyHappySuite) TearDownSuite() {
 
 func TestProxyHappySuite(t *testing.T) {
 	suite.Run(t, &ProxyHappySuite{})
+}
+
+func TestProxyErrorPropagation(t *testing.T) {
+	errBackend := status.Error(codes.InvalidArgument, "backend error")
+	errDirector := status.Error(codes.FailedPrecondition, "director error")
+	errRequestFinalizer := status.Error(codes.Internal, "request finalizer error")
+
+	for _, tc := range []struct {
+		desc                  string
+		backendError          error
+		directorError         error
+		requestFinalizerError error
+		returnedError         error
+	}{
+		{
+			desc:          "backend error is propagated",
+			backendError:  errBackend,
+			returnedError: errBackend,
+		},
+		{
+			desc:          "director error is propagated",
+			directorError: errDirector,
+			returnedError: errDirector,
+		},
+		{
+			desc:                  "request finalizer error is propagated",
+			requestFinalizerError: errRequestFinalizer,
+			returnedError:         errRequestFinalizer,
+		},
+		{
+			desc:                  "director error cancels proxying",
+			backendError:          errBackend,
+			requestFinalizerError: errRequestFinalizer,
+			directorError:         errDirector,
+			returnedError:         errDirector,
+		},
+		{
+			desc:                  "backend error prioritized over request finalizer error",
+			backendError:          errBackend,
+			requestFinalizerError: errRequestFinalizer,
+			returnedError:         errBackend,
+		},
+	} {
+		tmpDir, clean := testhelper.TempDir(t)
+		defer clean()
+
+		backendListener, err := net.Listen("unix", filepath.Join(tmpDir, "backend"))
+		require.NoError(t, err)
+
+		backendServer := grpc.NewServer(grpc.UnknownServiceHandler(func(interface{}, grpc.ServerStream) error {
+			return tc.backendError
+		}))
+		go func() { backendServer.Serve(backendListener) }()
+		defer backendServer.Stop()
+
+		ctx, cancel := testhelper.Context()
+		defer cancel()
+
+		backendClientConn, err := grpc.DialContext(ctx, "unix://"+backendListener.Addr().String(),
+			grpc.WithInsecure(), grpc.WithDefaultCallOptions(grpc.ForceCodec(proxy.NewCodec())))
+		require.NoError(t, err)
+
+		proxyListener, err := net.Listen("unix", filepath.Join(tmpDir, "proxy"))
+		require.NoError(t, err)
+
+		proxyServer := grpc.NewServer(
+			grpc.CustomCodec(proxy.NewCodec()),
+			grpc.UnknownServiceHandler(proxy.TransparentHandler(func(ctx context.Context, fullMethodName string, peeker proxy.StreamPeeker) (*proxy.StreamParameters, error) {
+				return proxy.NewStreamParameters(
+					proxy.Destination{Ctx: ctx, Conn: backendClientConn},
+					nil,
+					func() error { return tc.requestFinalizerError },
+					nil,
+				), tc.directorError
+			})),
+		)
+
+		go func() { proxyServer.Serve(proxyListener) }()
+		defer proxyServer.Stop()
+
+		proxyClientConn, err := grpc.DialContext(ctx, "unix://"+proxyListener.Addr().String(), grpc.WithInsecure())
+		require.NoError(t, err)
+
+		resp, err := pb.NewTestServiceClient(proxyClientConn).Ping(ctx, &pb.PingRequest{})
+		require.Equal(t, tc.returnedError, err)
+		require.Nil(t, resp)
+	}
 }
 
 func TestRegisterStreamHandlers(t *testing.T) {
