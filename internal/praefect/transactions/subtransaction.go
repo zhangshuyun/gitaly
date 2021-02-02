@@ -50,15 +50,14 @@ func (v vote) String() string {
 
 // subtransaction is a single session where voters are voting for a certain outcome.
 type subtransaction struct {
-	doneCh   chan interface{}
-	cancelCh chan interface{}
-	stopCh   chan interface{}
+	doneCh chan interface{}
 
 	threshold uint
 
 	lock         sync.RWMutex
 	votersByNode map[string]*Voter
 	voteCounts   map[vote]uint
+	isDone       bool
 }
 
 func newSubtransaction(voters []Voter, threshold uint) (*subtransaction, error) {
@@ -70,8 +69,6 @@ func newSubtransaction(voters []Voter, threshold uint) (*subtransaction, error) 
 
 	return &subtransaction{
 		doneCh:       make(chan interface{}),
-		cancelCh:     make(chan interface{}),
-		stopCh:       make(chan interface{}),
 		threshold:    threshold,
 		votersByNode: votersByNode,
 		voteCounts:   make(map[vote]uint, len(voters)),
@@ -91,7 +88,10 @@ func (t *subtransaction) cancel() {
 		}
 	}
 
-	close(t.cancelCh)
+	if !t.isDone {
+		t.isDone = true
+		close(t.doneCh)
+	}
 }
 
 func (t *subtransaction) stop() error {
@@ -115,7 +115,11 @@ func (t *subtransaction) stop() error {
 		}
 	}
 
-	close(t.stopCh)
+	if !t.isDone {
+		t.isDone = true
+		close(t.doneCh)
+	}
+
 	return nil
 }
 
@@ -162,6 +166,7 @@ func (t *subtransaction) vote(node string, hash []byte) error {
 	t.updateVoterStates()
 
 	if t.mustSignalVoters(oldCount, newCount) {
+		t.isDone = true
 		close(t.doneCh)
 	}
 
@@ -264,10 +269,6 @@ func (t *subtransaction) collectVotes(ctx context.Context, node string) error {
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
-	case <-t.cancelCh:
-		return ErrTransactionCanceled
-	case <-t.stopCh:
-		return ErrTransactionStopped
 	case <-t.doneCh:
 		break
 	}
