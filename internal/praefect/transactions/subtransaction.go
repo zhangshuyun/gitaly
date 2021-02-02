@@ -153,6 +153,21 @@ func (t *subtransaction) vote(node string, hash []byte) error {
 	if !voter.vote.isEmpty() {
 		return fmt.Errorf("node already cast a vote: %q", node)
 	}
+
+	switch voter.result {
+	case VoteUndecided:
+		// Happy case, we can still cast a vote.
+		break
+	case VoteCanceled:
+		return ErrTransactionCanceled
+	case VoteStopped:
+		return ErrTransactionStopped
+	default:
+		// Because we didn't vote yet, we know that the node cannot be
+		// either in VoteCommitted or VoteFailed state.
+		return fmt.Errorf("voter is in invalid state %d: %q", voter.result, node)
+	}
+
 	voter.vote = vote
 
 	t.voteCounts[vote] += voter.Votes
