@@ -1,6 +1,7 @@
 package git
 
 import (
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"regexp"
@@ -38,6 +39,15 @@ func NewObjectIDFromHex(hex string) (ObjectID, error) {
 // String returns the hex representation of the ObjectID.
 func (oid ObjectID) String() string {
 	return string(oid)
+}
+
+// Bytes returns the byte representation of the ObjectID.
+func (oid ObjectID) Bytes() ([]byte, error) {
+	decoded, err := hex.DecodeString(string(oid))
+	if err != nil {
+		return nil, err
+	}
+	return decoded, nil
 }
 
 // Revision returns a revision of the ObjectID. This directly returns the hex

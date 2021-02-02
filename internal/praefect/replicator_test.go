@@ -29,6 +29,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/remote"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/repository"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/ssh"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/metadatahandler"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
@@ -1002,7 +1003,9 @@ func TestBackoff(t *testing.T) {
 
 func runFullGitalyServer(t *testing.T) (string, func()) {
 	conns := client.NewPool()
-	server := serverPkg.NewInsecure(RubyServer, hook.NewManager(gitaly_config.NewLocator(gitaly_config.Config), hook.GitlabAPIStub, gitaly_config.Config), gitaly_config.Config, conns)
+	txManager := transaction.NewManager(gitaly_config.Config)
+	hookManager := hook.NewManager(gitaly_config.NewLocator(gitaly_config.Config), txManager, hook.GitlabAPIStub, gitaly_config.Config)
+	server := serverPkg.NewInsecure(RubyServer, hookManager, txManager, gitaly_config.Config, conns)
 
 	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
 
@@ -1033,8 +1036,10 @@ func newReplicationService(tb testing.TB) (*grpc.Server, string) {
 	svr := testhelper.NewTestGrpcServer(tb, nil, nil)
 
 	locator := gitaly_config.NewLocator(gitaly_config.Config)
+	txManager := transaction.NewManager(gitaly_config.Config)
 	gitCmdFactory := git.NewExecCommandFactory(gitaly_config.Config)
-	gitalypb.RegisterRepositoryServiceServer(svr, repository.NewServer(gitaly_config.Config, RubyServer, locator, gitCmdFactory))
+
+	gitalypb.RegisterRepositoryServiceServer(svr, repository.NewServer(gitaly_config.Config, RubyServer, locator, txManager, gitCmdFactory))
 	gitalypb.RegisterObjectPoolServiceServer(svr, objectpoolservice.NewServer(gitaly_config.Config, locator, gitCmdFactory))
 	gitalypb.RegisterRemoteServiceServer(svr, remote.NewServer(gitaly_config.Config, RubyServer, locator, gitCmdFactory))
 	gitalypb.RegisterSSHServiceServer(svr, ssh.NewServer(gitaly_config.Config, locator, gitCmdFactory))

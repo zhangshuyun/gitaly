@@ -14,6 +14,7 @@ import (
 	serverPkg "gitlab.com/gitlab-org/gitaly/internal/gitaly/server"
 	hookservice "gitlab.com/gitlab-org/gitaly/internal/gitaly/service/hook"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/repository"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -331,9 +332,10 @@ func newTestRepo(t *testing.T, locator storage.Locator, relativePath string) (*g
 
 func runFullServer(t *testing.T, locator storage.Locator) (string, func()) {
 	conns := client.NewPool()
-	hookManager := hook.NewManager(locator, hook.GitlabAPIStub, config.Config)
+	txManager := transaction.NewManager(config.Config)
+	hookManager := hook.NewManager(locator, txManager, hook.GitlabAPIStub, config.Config)
 
-	server := serverPkg.NewInsecure(repository.RubyServer, hookManager, config.Config, conns)
+	server := serverPkg.NewInsecure(repository.RubyServer, hookManager, txManager, config.Config, conns)
 
 	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
 
@@ -355,9 +357,10 @@ func runFullServer(t *testing.T, locator storage.Locator) (string, func()) {
 
 func runFullSecureServer(t *testing.T, locator storage.Locator) (*grpc.Server, string, testhelper.Cleanup) {
 	conns := client.NewPool()
-	hookManager := hook.NewManager(locator, hook.GitlabAPIStub, config.Config)
+	txManager := transaction.NewManager(config.Config)
+	hookManager := hook.NewManager(locator, txManager, hook.GitlabAPIStub, config.Config)
 
-	server := serverPkg.NewSecure(repository.RubyServer, hookManager, config.Config, conns)
+	server := serverPkg.NewSecure(repository.RubyServer, hookManager, txManager, config.Config, conns)
 	listener, addr := testhelper.GetLocalhostListener(t)
 
 	errQ := make(chan error)

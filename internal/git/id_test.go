@@ -1,7 +1,10 @@
 package git
 
 import (
+	"bytes"
+	"encoding/hex"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -101,6 +104,37 @@ func TestNewObjectIDFromHex(t *testing.T) {
 			} else {
 				require.Error(t, err)
 			}
+		})
+	}
+}
+
+func TestObjectID_Bytes(t *testing.T) {
+	for _, tc := range []struct {
+		desc          string
+		oid           ObjectID
+		expectedBytes []byte
+		expectedErr   error
+	}{
+		{
+			desc:          "zero OID",
+			oid:           ZeroOID,
+			expectedBytes: bytes.Repeat([]byte{0}, 20),
+		},
+		{
+			desc:          "valid object ID",
+			oid:           ObjectID(strings.Repeat("8", 40)),
+			expectedBytes: bytes.Repeat([]byte{0x88}, 20),
+		},
+		{
+			desc:        "invalid object ID",
+			oid:         ObjectID(strings.Repeat("8", 39) + "x"),
+			expectedErr: hex.InvalidByteError('x'),
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			actualBytes, err := tc.oid.Bytes()
+			require.Equal(t, tc.expectedErr, err)
+			require.Equal(t, tc.expectedBytes, actualBytes)
 		})
 	}
 }

@@ -20,6 +20,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	gitalyhook "gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/hook"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	gitalylog "gitlab.com/gitlab-org/gitaly/internal/log"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -639,9 +640,11 @@ func runHookServiceServer(t *testing.T, token string) func() {
 }
 
 func runHookServiceServerWithAPI(t *testing.T, gitlabAPI gitalyhook.GitlabAPI) func() {
+	txManager := transaction.NewManager(config.Config)
+	hookManager := gitalyhook.NewManager(config.NewLocator(config.Config), txManager, gitlabAPI, config.Config)
 	server := testhelper.NewServerWithAuth(t, nil, nil, config.Config.Auth.Token, testhelper.WithInternalSocket(config.Config))
 
-	gitalypb.RegisterHookServiceServer(server.GrpcServer(), hook.NewServer(config.Config, gitalyhook.NewManager(config.NewLocator(config.Config), gitlabAPI, config.Config)))
+	gitalypb.RegisterHookServiceServer(server.GrpcServer(), hook.NewServer(config.Config, hookManager))
 	reflection.Register(server.GrpcServer())
 	server.Start(t)
 

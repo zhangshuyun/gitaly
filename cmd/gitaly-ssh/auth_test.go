@@ -17,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/server"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
@@ -126,9 +127,11 @@ func TestConnectivity(t *testing.T) {
 	}
 }
 
-func runServer(t *testing.T, newServer func(rubyServer *rubyserver.Server, hookManager hook.Manager, cfg config.Cfg, conns *client.Pool) *grpc.Server, cfg config.Cfg, connectionType string, addr string) (int, func()) {
+func runServer(t *testing.T, newServer func(rubyServer *rubyserver.Server, hookManager hook.Manager, txManager transaction.Manager, cfg config.Cfg, conns *client.Pool) *grpc.Server, cfg config.Cfg, connectionType string, addr string) (int, func()) {
 	conns := client.NewPool()
-	srv := newServer(nil, hook.NewManager(config.NewLocator(cfg), hook.GitlabAPIStub, cfg), cfg, conns)
+	txManager := transaction.NewManager(cfg)
+	hookManager := hook.NewManager(config.NewLocator(cfg), txManager, hook.GitlabAPIStub, cfg)
+	srv := newServer(nil, hookManager, txManager, cfg, conns)
 
 	listener, err := net.Listen(connectionType, addr)
 	require.NoError(t, err)

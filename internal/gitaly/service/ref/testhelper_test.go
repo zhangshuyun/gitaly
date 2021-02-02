@@ -8,6 +8,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
 	hookservice "gitlab.com/gitlab-org/gitaly/internal/gitaly/service/hook"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/lines"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -42,12 +43,13 @@ func testMain(m *testing.M) int {
 }
 
 func runRefServiceServer(t *testing.T) (func(), string) {
-	srv := testhelper.NewServer(t, nil, nil, testhelper.WithInternalSocket(config.Config))
-
 	locator := config.NewLocator(config.Config)
-	gitalypb.RegisterRefServiceServer(srv.GrpcServer(), NewServer(config.Config, locator))
-	gitalypb.RegisterHookServiceServer(srv.GrpcServer(), hookservice.NewServer(config.Config, hook.NewManager(locator, hook.GitlabAPIStub, config.Config)))
+	txManager := transaction.NewManager(config.Config)
+	hookManager := hook.NewManager(locator, txManager, hook.GitlabAPIStub, config.Config)
 
+	srv := testhelper.NewServer(t, nil, nil, testhelper.WithInternalSocket(config.Config))
+	gitalypb.RegisterRefServiceServer(srv.GrpcServer(), NewServer(config.Config, locator))
+	gitalypb.RegisterHookServiceServer(srv.GrpcServer(), hookservice.NewServer(config.Config, hookManager))
 	srv.Start(t)
 
 	return srv.Stop, "unix://" + srv.Socket()

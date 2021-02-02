@@ -4,9 +4,8 @@ import (
 	"context"
 	"io"
 
-	"github.com/prometheus/client_golang/prometheus"
-	"gitlab.com/gitlab-org/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
@@ -49,34 +48,18 @@ type Manager interface {
 // GitLabHookManager is a hook manager containing Git hook business logic. It
 // uses the GitLab API to authenticate and track ongoing hook calls.
 type GitLabHookManager struct {
-	locator           storage.Locator
-	gitlabAPI         GitlabAPI
-	hooksConfig       config.Hooks
-	conns             *client.Pool
-	votingDelayMetric prometheus.Histogram
+	locator     storage.Locator
+	gitlabAPI   GitlabAPI
+	hooksConfig config.Hooks
+	txManager   transaction.Manager
 }
 
 // NewManager returns a new hook manager
-func NewManager(locator storage.Locator, gitlabAPI GitlabAPI, cfg config.Cfg) *GitLabHookManager {
+func NewManager(locator storage.Locator, txManager transaction.Manager, gitlabAPI GitlabAPI, cfg config.Cfg) *GitLabHookManager {
 	return &GitLabHookManager{
 		locator:     locator,
 		gitlabAPI:   gitlabAPI,
 		hooksConfig: cfg.Hooks,
-		conns:       client.NewPoolWithOptions(client.WithDialOptions(client.FailOnNonTempDialError()...)),
-		votingDelayMetric: prometheus.NewHistogram(
-			prometheus.HistogramOpts{
-				Name:    "gitaly_hook_transaction_voting_delay_seconds",
-				Help:    "Delay between calling out to transaction service and receiving a response",
-				Buckets: cfg.Prometheus.GRPCLatencyBuckets,
-			},
-		),
+		txManager:   txManager,
 	}
-}
-
-func (m *GitLabHookManager) Describe(descs chan<- *prometheus.Desc) {
-	prometheus.DescribeByCollect(m, descs)
-}
-
-func (m *GitLabHookManager) Collect(metrics chan<- prometheus.Metric) {
-	m.votingDelayMetric.Collect(metrics)
 }

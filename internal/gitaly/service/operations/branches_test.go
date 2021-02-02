@@ -13,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	gitalyhook "gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/hook"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
@@ -134,7 +135,8 @@ func TestUserCreateBranchWithTransaction(t *testing.T) {
 	transactionServer := &testTransactionServer{}
 	srv := testhelper.NewServerWithAuth(t, nil, nil, config.Config.Auth.Token)
 	locator := config.NewLocator(config.Config)
-	hookManager := gitalyhook.NewManager(locator, gitalyhook.GitlabAPIStub, config.Config)
+	txManager := transaction.NewManager(config.Config)
+	hookManager := gitalyhook.NewManager(locator, txManager, gitalyhook.GitlabAPIStub, config.Config)
 
 	conns := client.NewPool()
 	defer conns.Close()
