@@ -40,7 +40,7 @@ func WithDisabledTransactions() UpdaterOpt {
 //
 // It is important that ctx gets canceled somewhere. If it doesn't, the process
 // spawned by New() may never terminate.
-func New(ctx context.Context, conf config.Cfg, repo repository.GitRepo, opts ...UpdaterOpt) (*Updater, error) {
+func New(ctx context.Context, conf config.Cfg, gitCmdFactory git.CommandFactory, repo repository.GitRepo, opts ...UpdaterOpt) (*Updater, error) {
 	var cfg updaterConfig
 	for _, opt := range opts {
 		opt(&cfg)
@@ -51,7 +51,7 @@ func New(ctx context.Context, conf config.Cfg, repo repository.GitRepo, opts ...
 		txOption = git.WithDisabledHooks()
 	}
 
-	cmd, err := git.NewCommand(ctx, repo, nil,
+	cmd, err := gitCmdFactory.New(ctx, repo, nil,
 		git.SubCmd{
 			Name:  "update-ref",
 			Flags: []git.Option{git.Flag{Name: "-z"}, git.Flag{Name: "--stdin"}},
