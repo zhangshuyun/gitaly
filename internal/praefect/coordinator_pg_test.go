@@ -208,7 +208,7 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 					if node.shouldSucceed {
 						assert.NoError(t, err)
 					} else {
-						assert.True(t, errors.Is(err, transactions.ErrTransactionVoteFailed))
+						assert.True(t, errors.Is(err, transactions.ErrTransactionFailed))
 					}
 				}()
 			}

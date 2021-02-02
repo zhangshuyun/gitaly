@@ -35,7 +35,7 @@ func (s *Server) VoteTransaction(ctx context.Context, in *gitalypb.VoteTransacti
 			return &gitalypb.VoteTransactionResponse{
 				State: gitalypb.VoteTransactionResponse_STOP,
 			}, nil
-		case errors.Is(err, transactions.ErrTransactionVoteFailed):
+		case errors.Is(err, transactions.ErrTransactionFailed):
 			return &gitalypb.VoteTransactionResponse{
 				State: gitalypb.VoteTransactionResponse_ABORT,
 			}, nil

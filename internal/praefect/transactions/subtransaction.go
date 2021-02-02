@@ -3,17 +3,9 @@ package transactions
 import (
 	"context"
 	"crypto/sha1"
-	"errors"
+	"encoding/hex"
 	"fmt"
 	"sync"
-)
-
-var (
-	// ErrTransactionVoteFailed indicates the transaction didn't reach quorum.
-	ErrTransactionVoteFailed = errors.New("transaction did not reach quorum")
-	// ErrTransactionCanceled indicates the transaction was canceled before
-	// reaching quorum.
-	ErrTransactionCanceled = errors.New("transaction was canceled")
 )
 
 // VoteResult represents the outcome of a transaction for a single voter.
@@ -25,8 +17,11 @@ const (
 	VoteUndecided VoteResult = iota
 	// VoteCommitted means that the voter committed his vote.
 	VoteCommitted
-	// VoteAborted means that the voter aborted his vote.
-	VoteAborted
+	// VoteFailed means that the voter has failed the vote because a
+	// majority of nodes has elected a different result.
+	VoteFailed
+	// VoteCanceled means that the transaction was cancelled.
+	VoteCanceled
 	// VoteStopped means that the transaction was gracefully stopped.
 	VoteStopped
 )
@@ -46,6 +41,11 @@ func voteFromHash(hash []byte) (vote, error) {
 
 func (v vote) isEmpty() bool {
 	return v == vote{}
+}
+
+// String returns the hexadecimal string representation of the vote.
+func (v vote) String() string {
+	return hex.EncodeToString(v[:])
 }
 
 // subtransaction is a single session where voters are voting for a certain outcome.
@@ -87,7 +87,7 @@ func (t *subtransaction) cancel() {
 		// to mark it as failed so it won't get the idea of committing
 		// the transaction at a later point anymore.
 		if voter.result == VoteUndecided {
-			voter.result = VoteAborted
+			voter.result = VoteCanceled
 		}
 	}
 
@@ -100,8 +100,8 @@ func (t *subtransaction) stop() error {
 
 	for _, voter := range t.votersByNode {
 		switch voter.result {
-		case VoteAborted:
-			// If the vote was aborted already, we cannot stop it.
+		case VoteCanceled:
+			// If the vote was canceled already, we cannot stop it.
 			return ErrTransactionCanceled
 		case VoteStopped:
 			// Similar if the vote was stopped already.
@@ -109,7 +109,7 @@ func (t *subtransaction) stop() error {
 		case VoteUndecided:
 			// Undecided voters will get stopped, ...
 			voter.result = VoteStopped
-		case VoteCommitted:
+		case VoteCommitted, VoteFailed:
 			// ... while decided voters cannot be changed anymore.
 			continue
 		}
@@ -212,9 +212,9 @@ func (t *subtransaction) collectVotes(ctx context.Context, node string) error {
 	switch voter.result {
 	case VoteUndecided:
 		// Happy case, no decision was yet made.
-	case VoteAborted:
+	case VoteCanceled:
 		// It may happen that the vote was cancelled or stopped just after majority was
-		// reached. In that case, the node's state is now VoteAborted/VoteStopped, so we
+		// reached. In that case, the node's state is now VoteCanceled/VoteStopped, so we
 		// have to return an error here.
 		return ErrTransactionCanceled
 	case VoteStopped:
@@ -223,11 +223,13 @@ func (t *subtransaction) collectVotes(ctx context.Context, node string) error {
 		return fmt.Errorf("voter is in invalid state %d: %q", voter.result, node)
 	}
 
-	// See if our vote crossed the threshold. As there can be only one vote
-	// exceeding it, we know we're the winner in that case.
+	// See if our vote crossed the threshold. If not, then we know we
+	// cannot have won as the transaction is being wrapped up already and
+	// shouldn't accept any additional votes.
 	if t.voteCounts[voter.vote] < t.threshold {
-		voter.result = VoteAborted
-		return fmt.Errorf("%w: got %d/%d votes", ErrTransactionVoteFailed, t.voteCounts[voter.vote], t.threshold)
+		voter.result = VoteFailed
+		return fmt.Errorf("%w: got %d/%d votes for %v", ErrTransactionFailed,
+			t.voteCounts[voter.vote], t.threshold, voter.vote)
 	}
 
 	voter.result = VoteCommitted
@@ -240,7 +242,7 @@ func (t *subtransaction) getResult(node string) (VoteResult, error) {
 
 	voter, ok := t.votersByNode[node]
 	if !ok {
-		return VoteAborted, fmt.Errorf("invalid node for transaction: %q", node)
+		return VoteCanceled, fmt.Errorf("invalid node for transaction: %q", node)
 	}
 
 	return voter.result, nil

@@ -16,9 +16,12 @@ var (
 	// invalid threshold that may either allow for multiple different
 	// quorums or none at all.
 	ErrInvalidThreshold = errors.New("transaction has invalid threshold")
-	// ErrSubtransactionFailed indicates a vote was cast on a
-	// subtransaction which failed already.
-	ErrSubtransactionFailed = errors.New("subtransaction has failed")
+
+	// ErrTransactionFailed indicates the transaction didn't reach quorum.
+	ErrTransactionFailed = errors.New("transaction did not reach quorum")
+	// ErrTransactionCanceled indicates the transaction was canceled before
+	// reaching quorum.
+	ErrTransactionCanceled = errors.New("transaction has been canceled")
 	// ErrTransactionStopped indicates the transaction was gracefully stopped.
 	ErrTransactionStopped = errors.New("transaction has been stopped")
 )
@@ -139,7 +142,7 @@ func (t *Transaction) State() (map[string]VoteResult, error) {
 			case transactionOpen:
 				results[voter.Name] = VoteUndecided
 			case transactionCanceled:
-				results[voter.Name] = VoteAborted
+				results[voter.Name] = VoteCanceled
 			case transactionStopped:
 				results[voter.Name] = VoteStopped
 			default:
@@ -199,11 +202,16 @@ func (t *Transaction) getOrCreateSubtransaction(node string) (*subtransaction, e
 			// If we have committed this subtransaction, we're good
 			// to go.
 			continue
-		case VoteAborted:
+		case VoteFailed:
+			// If a vote was cast on a subtransaction which failed
+			// to reach majority, then we cannot proceed with any
+			// subsequent votes anymore.
+			return nil, ErrTransactionFailed
+		case VoteCanceled:
 			// If the subtransaction was aborted, then we need to
 			// fail as we cannot proceed if the path leading to the
 			// end result has intermittent failures.
-			return nil, ErrSubtransactionFailed
+			return nil, ErrTransactionCanceled
 		case VoteStopped:
 			// If the transaction was stopped, then we need to fail
 			// with a graceful error.

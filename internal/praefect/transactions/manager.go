@@ -199,7 +199,7 @@ func (mgr *Manager) voteTransaction(ctx context.Context, transactionID uint64, n
 	mgr.lock.Unlock()
 
 	if !ok {
-		return ErrNotFound
+		return fmt.Errorf("%w: %d", ErrNotFound, transactionID)
 	}
 
 	if err := transaction.vote(ctx, node, hash); err != nil {
@@ -227,25 +227,29 @@ func (mgr *Manager) VoteTransaction(ctx context.Context, transactionID uint64, n
 	}).Debug("VoteTransaction")
 
 	if err := mgr.voteTransaction(ctx, transactionID, node, hash); err != nil {
-		if errors.Is(err, ErrTransactionStopped) {
-			mgr.counterMetric.WithLabelValues("stopped").Inc()
-		} else if errors.Is(err, ErrTransactionVoteFailed) {
-			mgr.counterMetric.WithLabelValues("aborted").Inc()
-
-			mgr.log(ctx).WithFields(logrus.Fields{
-				"transaction_id": transactionID,
-				"node":           node,
-				"hash":           hex.EncodeToString(hash),
-			}).WithError(err).Error("VoteTransaction: did not reach quorum")
-		} else {
-			mgr.counterMetric.WithLabelValues("invalid").Inc()
-
-			mgr.log(ctx).WithFields(logrus.Fields{
-				"transaction_id": transactionID,
-				"node":           node,
-				"hash":           hex.EncodeToString(hash),
-			}).WithError(err).Error("VoteTransaction: vote failed")
+		fields := logrus.Fields{
+			"transaction_id": transactionID,
+			"node":           node,
+			"hash":           hex.EncodeToString(hash),
 		}
+		var counterLabel string
+
+		if errors.Is(err, ErrTransactionStopped) {
+			counterLabel = "stopped"
+			// Stopped transactions indicate a graceful
+			// termination, so we should not log an error here.
+		} else if errors.Is(err, ErrTransactionFailed) {
+			counterLabel = "failed"
+			mgr.log(ctx).WithFields(fields).WithError(err).Error("VoteTransaction: did not reach quorum")
+		} else if errors.Is(err, ErrTransactionCanceled) {
+			counterLabel = "canceled"
+			mgr.log(ctx).WithFields(fields).WithError(err).Error("VoteTransaction: transaction was canceled")
+		} else {
+			counterLabel = "invalid"
+			mgr.log(ctx).WithFields(fields).WithError(err).Error("VoteTransaction: failure")
+		}
+
+		mgr.counterMetric.WithLabelValues(counterLabel).Inc()
 
 		return err
 	}
@@ -268,7 +272,7 @@ func (mgr *Manager) StopTransaction(ctx context.Context, transactionID uint64) e
 	mgr.lock.Unlock()
 
 	if !ok {
-		return ErrNotFound
+		return fmt.Errorf("%w: %d", ErrNotFound, transactionID)
 	}
 
 	if err := transaction.stop(); err != nil {

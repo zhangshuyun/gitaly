@@ -446,10 +446,10 @@ func TestTransactionReachesQuorum(t *testing.T) {
 
 func TestTransactionWithMultipleVotes(t *testing.T) {
 	type multiVoter struct {
-		voteCount     uint
-		votes         []string
-		voteSucceeds  []bool
-		shouldSucceed bool
+		voteCount      uint
+		votes          []string
+		voteSucceeds   []bool
+		expectedResult transactions.VoteResult
 	}
 
 	tc := []struct {
@@ -460,33 +460,33 @@ func TestTransactionWithMultipleVotes(t *testing.T) {
 		{
 			desc: "quorum is reached with multiple votes",
 			voters: []multiVoter{
-				{voteCount: 1, votes: []string{"foo", "bar"}, voteSucceeds: []bool{true, true}, shouldSucceed: true},
-				{voteCount: 1, votes: []string{"foo", "bar"}, voteSucceeds: []bool{true, true}, shouldSucceed: true},
+				{voteCount: 1, votes: []string{"foo", "bar"}, voteSucceeds: []bool{true, true}, expectedResult: transactions.VoteCommitted},
+				{voteCount: 1, votes: []string{"foo", "bar"}, voteSucceeds: []bool{true, true}, expectedResult: transactions.VoteCommitted},
 			},
 			threshold: 2,
 		},
 		{
 			desc: "quorum is not reached with disagreeing votes",
 			voters: []multiVoter{
-				{voteCount: 1, votes: []string{"foo", "bar"}, voteSucceeds: []bool{true, false}, shouldSucceed: false},
-				{voteCount: 1, votes: []string{"foo", "rab"}, voteSucceeds: []bool{true, false}, shouldSucceed: false},
+				{voteCount: 1, votes: []string{"foo", "bar"}, voteSucceeds: []bool{true, false}, expectedResult: transactions.VoteFailed},
+				{voteCount: 1, votes: []string{"foo", "rab"}, voteSucceeds: []bool{true, false}, expectedResult: transactions.VoteFailed},
 			},
 			threshold: 2,
 		},
 		{
 			desc: "quorum is reached with unweighted disagreeing voter",
 			voters: []multiVoter{
-				{voteCount: 1, votes: []string{"foo", "bar", "qux"}, voteSucceeds: []bool{true, true, true}, shouldSucceed: true},
-				{voteCount: 0, votes: []string{"foo", "rab"}, voteSucceeds: []bool{true, false}, shouldSucceed: false},
+				{voteCount: 1, votes: []string{"foo", "bar", "qux"}, voteSucceeds: []bool{true, true, true}, expectedResult: transactions.VoteCommitted},
+				{voteCount: 0, votes: []string{"foo", "rab"}, voteSucceeds: []bool{true, false}, expectedResult: transactions.VoteCanceled},
 			},
 			threshold: 1,
 		},
 		{
 			desc: "quorum is reached with outweighed disagreeing voter",
 			voters: []multiVoter{
-				{voteCount: 1, votes: []string{"foo", "bar", "qux"}, voteSucceeds: []bool{true, true, true}, shouldSucceed: true},
-				{voteCount: 1, votes: []string{"foo", "bar", "qux"}, voteSucceeds: []bool{true, true, true}, shouldSucceed: true},
-				{voteCount: 1, votes: []string{"foo", "rab"}, voteSucceeds: []bool{true, false}, shouldSucceed: false},
+				{voteCount: 1, votes: []string{"foo", "bar", "qux"}, voteSucceeds: []bool{true, true, true}, expectedResult: transactions.VoteCommitted},
+				{voteCount: 1, votes: []string{"foo", "bar", "qux"}, voteSucceeds: []bool{true, true, true}, expectedResult: transactions.VoteCommitted},
+				{voteCount: 1, votes: []string{"foo", "rab"}, voteSucceeds: []bool{true, false}, expectedResult: transactions.VoteCanceled},
 			},
 			threshold: 2,
 		},
@@ -546,11 +546,7 @@ func TestTransactionWithMultipleVotes(t *testing.T) {
 			results, err := transaction.State()
 			require.NoError(t, err)
 			for i, voter := range tc.voters {
-				if voter.shouldSucceed {
-					require.Equal(t, transactions.VoteCommitted, results[fmt.Sprintf("node-%d", i)])
-				} else {
-					require.Equal(t, transactions.VoteAborted, results[fmt.Sprintf("node-%d", i)])
-				}
+				require.Equal(t, voter.expectedResult, results[fmt.Sprintf("node-%d", i)])
 			}
 		})
 	}
@@ -682,8 +678,10 @@ func TestTransactionCancellation(t *testing.T) {
 			for i, v := range tc.voters {
 				if v.shouldSucceed {
 					require.Equal(t, transactions.VoteCommitted, results[fmt.Sprintf("node-%d", i)], "result mismatches expected node state")
+				} else if v.showsUp {
+					require.Equal(t, transactions.VoteFailed, results[fmt.Sprintf("node-%d", i)], "result mismatches expected node state")
 				} else {
-					require.Equal(t, transactions.VoteAborted, results[fmt.Sprintf("node-%d", i)], "result mismatches expected node state")
+					require.Equal(t, transactions.VoteCanceled, results[fmt.Sprintf("node-%d", i)], "result mismatches expected node state")
 				}
 			}
 
