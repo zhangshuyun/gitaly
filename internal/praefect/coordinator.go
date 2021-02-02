@@ -763,13 +763,17 @@ func (c *Coordinator) newRequestFinalizer(
 				ctxlogrus.Extract(ctx).WithError(err).Info("deleted repository does not have a store entry")
 			}
 		case datastore.CreateRepo:
+			repositorySpecificPrimariesEnabled := c.conf.Failover.ElectionStrategy == config.ElectionStrategyPerRepository
+			variableReplicationFactorEnabled := repositorySpecificPrimariesEnabled &&
+				c.conf.DefaultReplicationFactors()[virtualStorage] > 0
+
 			if err := c.rs.CreateRepository(ctx,
 				virtualStorage,
 				targetRepo.GetRelativePath(),
 				primary,
 				append(updatedSecondaries, outdatedSecondaries...),
-				c.conf.Failover.ElectionStrategy == config.ElectionStrategyPerRepository,
-				false,
+				repositorySpecificPrimariesEnabled,
+				variableReplicationFactorEnabled,
 			); err != nil {
 				if !errors.Is(err, datastore.RepositoryExistsError{}) {
 					return fmt.Errorf("create repository: %w", err)
