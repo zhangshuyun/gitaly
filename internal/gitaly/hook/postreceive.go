@@ -126,11 +126,17 @@ func (m *GitLabHookManager) PostReceiveHook(ctx context.Context, repo *gitalypb.
 		return helper.ErrInternalf("reading stdin from request: %w", err)
 	}
 
-	if !isPrimary(payload) {
-		return nil
+	if isPrimary(payload) {
+		if err := m.postReceiveHook(ctx, payload, repo, pushOptions, env, changes, stdout, stderr); err != nil {
+			return err
+		}
 	}
 
-	if len(changes) == 0 {
+	return nil
+}
+
+func (m *GitLabHookManager) postReceiveHook(ctx context.Context, payload git.HooksPayload, repo *gitalypb.Repository, pushOptions, env []string, stdin []byte, stdout, stderr io.Writer) error {
+	if len(stdin) == 0 {
 		return helper.ErrInternalf("hook got no reference updates")
 	}
 
@@ -147,7 +153,7 @@ func (m *GitLabHookManager) PostReceiveHook(ctx context.Context, repo *gitalypb.
 	ok, messages, err := m.gitlabAPI.PostReceive(
 		ctx, repo.GetGlRepository(),
 		payload.ReceiveHooksPayload.UserID,
-		string(changes),
+		string(stdin),
 		pushOptions...,
 	)
 	if err != nil {
@@ -176,7 +182,7 @@ func (m *GitLabHookManager) PostReceiveHook(ctx context.Context, repo *gitalypb.
 		ctx,
 		nil,
 		customEnv,
-		bytes.NewReader(changes),
+		bytes.NewReader(stdin),
 		stdout,
 		stderr,
 	); err != nil {
