@@ -8,6 +8,12 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/nodes"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
+)
+
+const (
+	routeRepositoryAccessorPolicy            = "gitaly-route-repository-accessor-policy"
+	routeRepositoryAccessorPolicyPrimaryOnly = "primary-only"
 )
 
 // errRepositoryNotFound is retuned when trying to operate on a non-existent repository.
@@ -125,10 +131,39 @@ func (r *PerRepositoryRouter) RouteStorageMutator(ctx context.Context, virtualSt
 	return StorageMutatorRoute{}, errors.New("RouteStorageMutator is not implemented on PerRepositoryRouter")
 }
 
+func shouldRouteRepositoryAccessorToPrimary(ctx context.Context) bool {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return false
+	}
+
+	header := md.Get(routeRepositoryAccessorPolicy)
+	if len(header) == 0 {
+		return false
+	}
+
+	return header[0] == routeRepositoryAccessorPolicyPrimaryOnly
+}
+
 func (r *PerRepositoryRouter) RouteRepositoryAccessor(ctx context.Context, virtualStorage, relativePath string) (RouterNode, error) {
 	healthyNodes, err := r.healthyNodes(virtualStorage)
 	if err != nil {
 		return RouterNode{}, err
+	}
+
+	if shouldRouteRepositoryAccessorToPrimary(ctx) {
+		primary, err := r.pg.GetPrimary(ctx, virtualStorage, relativePath)
+		if err != nil {
+			return RouterNode{}, fmt.Errorf("get primary: %w", err)
+		}
+
+		for _, node := range healthyNodes {
+			if node.Storage == primary {
+				return node, nil
+			}
+		}
+
+		return RouterNode{}, nodes.ErrPrimaryNotHealthy
 	}
 
 	consistentStorages, err := r.rs.GetConsistentStorages(ctx, virtualStorage, relativePath)
