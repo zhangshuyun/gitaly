@@ -41,7 +41,7 @@ func (h *HookLogger) Fatal(err error) {
 
 // Fatalf logs a formatted error at the Fatal level
 func (h *HookLogger) Fatalf(format string, a ...interface{}) {
-	fmt.Fprintf(os.Stderr, "error executing git hook")
+	fmt.Fprintln(os.Stderr, "error executing git hook")
 	h.logger.Fatalf(format, a...)
 }
 
