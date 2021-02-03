@@ -1,8 +1,6 @@
 package service
 
 import (
-	"sync"
-
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"gitlab.com/gitlab-org/gitaly/client"
@@ -36,13 +34,6 @@ import (
 )
 
 var (
-	once sync.Once
-
-	smarthttpPackfileNegotiationMetrics *prometheus.CounterVec
-	sshPackfileNegotiationMetrics       *prometheus.CounterVec
-)
-
-func registerMetrics(cfg config.Cfg) {
 	smarthttpPackfileNegotiationMetrics = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: "gitaly",
@@ -62,7 +53,7 @@ func registerMetrics(cfg config.Cfg) {
 		},
 		[]string{"git_negotiation_feature"},
 	)
-}
+)
 
 // RegisterAll will register all the known grpc services with
 // the specified grpc service instance
@@ -76,10 +67,6 @@ func RegisterAll(
 	conns *client.Pool,
 	gitCmdFactory git.CommandFactory,
 ) {
-	once.Do(func() {
-		registerMetrics(cfg)
-	})
-
 	gitalypb.RegisterBlobServiceServer(grpcServer, blob.NewServer(rubyServer, locator))
 	gitalypb.RegisterCleanupServiceServer(grpcServer, cleanup.NewServer(cfg, locator))
 	gitalypb.RegisterCommitServiceServer(grpcServer, commit.NewServer(cfg, locator))
