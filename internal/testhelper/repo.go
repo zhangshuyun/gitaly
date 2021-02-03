@@ -114,7 +114,7 @@ func NewTestRepoWithWorktree(t testing.TB) (repo *gitalypb.Repository, repoPath 
 func testRepositoryPath(t testing.TB) string {
 	_, currentFile, _, ok := runtime.Caller(0)
 	if !ok {
-		log.Fatal("could not get caller info")
+		require.Fail(t, "could not get caller info")
 	}
 
 	path := filepath.Join(filepath.Dir(currentFile), "..", "..", "_build", "testrepos", "gitlab-test.git")

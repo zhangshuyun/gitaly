@@ -15,7 +15,7 @@ func TestMain(m *testing.M) {
 	os.Exit(testMain(m))
 }
 
-func testMain(m *testing.M) int {
+func testMain(m *testing.M) (code int) {
 	defer testhelper.MustHaveNoChildProcess()
 	cleanup := testhelper.Configure()
 	defer cleanup()
@@ -23,7 +23,8 @@ func testMain(m *testing.M) int {
 	// Clean closes connection to database once all tests are done
 	defer func() {
 		if err := glsql.Clean(); err != nil {
-			log.Fatalln(err, "database disconnection failure")
+			log.Println("database disconnection failure", err)
+			code = 1
 		}
 	}()
 

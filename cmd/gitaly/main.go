@@ -72,21 +72,24 @@ func main() {
 		os.Exit(2)
 	}
 
-	log.WithField("version", version.GetVersionString()).Info("Starting Gitaly")
+	log.Info("Starting Gitaly", "version", version.GetVersionString())
+	if err := configure(flag.Arg(0)); err != nil {
+		log.Fatal(err)
+	}
+	log.WithError(run(config.Config)).Error("shutting down")
+	log.Info("Gitaly stopped")
+}
 
-	configPath := flag.Arg(0)
+func configure(configPath string) error {
 	if err := loadConfig(configPath); err != nil {
-		log.WithError(err).WithField("config_path", configPath).Fatal("load config")
+		return fmt.Errorf("load config: config_path %q: %w", configPath, err)
 	}
 
 	glog.Configure(config.Config.Logging.Format, config.Config.Logging.Level)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
 	cgroupsManager := cgroups.NewManager(config.Config.Cgroups)
 	if err := cgroupsManager.Setup(); err != nil {
-		log.WithError(err).Fatal("failed setting up cgroups")
+		return fmt.Errorf("failed setting up cgroups: %w", err)
 	}
 	defer func() {
 		if err := cgroupsManager.Cleanup(); err != nil {
@@ -94,22 +97,8 @@ func main() {
 		}
 	}()
 
-	gitVersion, err := git.Version(ctx)
-	if err != nil {
-		log.WithError(err).Fatal("Git version detection")
-	}
-
-	supported, err := git.SupportedVersion(gitVersion)
-	if err != nil {
-		log.WithError(err).Fatal("Git version comparison")
-	}
-	if !supported {
-		log.Fatalf("unsupported Git version: %q", gitVersion)
-	}
-
-	b, err := bootstrap.New()
-	if err != nil {
-		log.WithError(err).Fatal("init bootstrap")
+	if err := verifyGitVersion(); err != nil {
+		return err
 	}
 
 	sentry.ConfigureSentry(version.GetVersion(), sentry.Config(config.Config.Logging.Sentry))
@@ -117,16 +106,38 @@ func main() {
 	config.ConfigureConcurrencyLimits(config.Config)
 	tracing.Initialize(tracing.WithServiceName("gitaly"))
 
-	tempdir.StartCleaning(config.Config.Storages, time.Hour)
-
-	log.WithError(run(config.Config, b)).Error("shutting down")
+	return nil
 }
 
-// Inside here we can use deferred functions. This is needed because
-// log.Fatal bypasses deferred functions.
-func run(cfg config.Cfg, b *bootstrap.Bootstrap) error {
-	var gitlabAPI hook.GitlabAPI
-	var err error
+func verifyGitVersion() error {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	gitVersion, err := git.Version(ctx)
+	if err != nil {
+		return fmt.Errorf("git version detection: %w", err)
+	}
+
+	supported, err := git.SupportedVersion(gitVersion)
+	if err != nil {
+		return fmt.Errorf("git version comparison: %w", err)
+	}
+	if !supported {
+		return fmt.Errorf("unsupported Git version: %q", gitVersion)
+	}
+	return nil
+}
+
+func run(cfg config.Cfg) error {
+	tempdir.StartCleaning(cfg.Storages, time.Hour)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	b, err := bootstrap.New()
+	if err != nil {
+		return fmt.Errorf("init bootstrap: %w", err)
+	}
 
 	transactionManager := transaction.NewManager(cfg)
 	prometheus.MustRegister(transactionManager)
@@ -138,9 +149,9 @@ func run(cfg config.Cfg, b *bootstrap.Bootstrap) error {
 	if config.SkipHooks() {
 		log.Warn("skipping GitLab API client creation since hooks are bypassed via GITALY_TESTING_NO_GIT_HOOKS")
 	} else {
-		gitlabAPI, err = hook.NewGitlabAPI(cfg.Gitlab, cfg.TLS)
+		gitlabAPI, err := hook.NewGitlabAPI(cfg.Gitlab, cfg.TLS)
 		if err != nil {
-			log.Fatalf("could not create GitLab API client: %v", err)
+			return fmt.Errorf("could not create GitLab API client: %w", err)
 		}
 
 		hm := hook.NewManager(locator, transactionManager, gitlabAPI, cfg)
@@ -223,7 +234,6 @@ func run(cfg config.Cfg, b *bootstrap.Bootstrap) error {
 		return fmt.Errorf("initialize gitaly-ruby: %v", err)
 	}
 
-	ctx := context.Background()
 	shutdownWorkers, err := servers.StartWorkers(ctx, glog.Default(), cfg)
 	if err != nil {
 		return fmt.Errorf("initialize auxiliary workers: %v", err)

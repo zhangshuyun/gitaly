@@ -70,7 +70,7 @@ func MustReadFile(t testing.TB, filename string) []byte {
 // GitlabTestStoragePath returns the storage path to the gitlab-test repo.
 func GitlabTestStoragePath() string {
 	if testDirectory == "" {
-		log.Fatal("you must call testhelper.Configure() before GitlabTestStoragePath()")
+		panic("you must call testhelper.Configure() before GitlabTestStoragePath()")
 	}
 	return filepath.Join(testDirectory, "storage")
 }
@@ -122,7 +122,7 @@ func MustRunCommand(t testing.TB, stdin io.Reader, name string, args ...string) 
 		if t == nil {
 			log.Print(name, args)
 			log.Printf("%s", stderr)
-			log.Fatal(err)
+			panic(err)
 		} else {
 			t.Log(name, args)
 			t.Logf("%s", stderr)
@@ -364,7 +364,7 @@ func AssertPathNotExists(t testing.TB, path string) {
 // TempDir is a wrapper around ioutil.TempDir that provides a cleanup function.
 func TempDir(t testing.TB) (string, func()) {
 	if testDirectory == "" {
-		log.Fatal("you must call testhelper.Configure() before TempDir()")
+		panic("you must call testhelper.Configure() before TempDir()")
 	}
 
 	tmpDir, err := ioutil.TempDir(testDirectory, "")

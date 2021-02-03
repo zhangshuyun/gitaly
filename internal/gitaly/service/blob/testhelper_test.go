@@ -27,7 +27,8 @@ func testMain(m *testing.M) int {
 	defer cleanup()
 
 	if err := testhelper.ConfigureRuby(&config.Config); err != nil {
-		log.Fatal(err)
+		log.Error(err)
+		return 1
 	}
 
 	if err := rubyServer.Start(); err != nil {
