@@ -23,7 +23,10 @@ func (m *GitLabHookManager) UpdateHook(ctx context.Context, repo *gitalypb.Repos
 
 			// If the update hook declines the push, then we need
 			// to stop any secondaries voting on the transaction.
-			m.stopTransaction(ctx, payload)
+			if err := m.stopTransaction(ctx, payload); err != nil {
+				ctxlogrus.Extract(ctx).WithError(err).Error("failed stopping transaction in update hook")
+			}
+
 			return err
 		}
 	}
