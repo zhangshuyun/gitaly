@@ -17,13 +17,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
-	"gitlab.com/gitlab-org/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/objectpool"
 	gitaly_config "gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
-	serverPkg "gitlab.com/gitlab-org/gitaly/internal/gitaly/server"
 	objectpoolservice "gitlab.com/gitlab-org/gitaly/internal/gitaly/service/objectpool"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/ref"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/remote"
@@ -40,6 +37,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/promtest"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/labkit/correlation"
 	"golang.org/x/sync/errgroup"
@@ -1002,28 +1000,7 @@ func TestBackoff(t *testing.T) {
 }
 
 func runFullGitalyServer(t *testing.T) (string, func()) {
-	conns := client.NewPool()
-	txManager := transaction.NewManager(gitaly_config.Config)
-	hookManager := hook.NewManager(gitaly_config.NewLocator(gitaly_config.Config), txManager, hook.GitlabAPIStub, gitaly_config.Config)
-	server := serverPkg.NewInsecure(RubyServer, hookManager, txManager, gitaly_config.Config, conns)
-
-	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
-
-	listener, err := net.Listen("unix", serverSocketPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	//listen on internal socket
-	internalListener, err := net.Listen("unix", gitaly_config.Config.GitalyInternalSocketPath())
-	require.NoError(t, err)
-
-	go server.Serve(listener)
-	go server.Serve(internalListener)
-
-	return "unix://" + serverSocketPath, func() {
-		conns.Close()
-		server.Stop()
-	}
+	return testserver.RunGitalyServer(t, gitaly_config.Config, RubyServer)
 }
 
 // newReplicationService is a grpc service that has the SSH, Repository, Remote and ObjectPool services, which

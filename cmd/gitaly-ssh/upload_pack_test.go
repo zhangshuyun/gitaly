@@ -11,7 +11,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/server"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
@@ -27,10 +26,10 @@ func TestVisibilityOfHiddenRefs(t *testing.T) {
 
 	socketPath := testhelper.GetTemporaryGitalySocketFileName(t)
 
-	_, clean := runServer(t, server.NewInsecure, config.Config, "unix", socketPath)
+	_, clean := runServer(t, false, config.Config, "unix", socketPath)
 	defer clean()
 
-	_, clean = runServer(t, server.NewInsecure, config.Config, "unix", config.Config.GitalyInternalSocketPath())
+	_, clean = runServer(t, false, config.Config, "unix", config.Config.GitalyInternalSocketPath())
 	defer clean()
 
 	// Create a keep-around ref

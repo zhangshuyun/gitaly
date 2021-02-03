@@ -3,6 +3,7 @@ package conflicts
 import (
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"testing"
 
 	log "github.com/sirupsen/logrus"
@@ -35,8 +36,8 @@ func testMain(m *testing.M) int {
 	}
 	defer os.RemoveAll(tempDir)
 
-	hooks.Override = tempDir + "/hooks"
-	config.Config.InternalSocketDir = tempDir + "/sock"
+	// dir of the BinDir is a temp folder
+	hooks.Override = filepath.Join(filepath.Dir(config.Config.BinDir), "/hooks")
 
 	if err := RubyServer.Start(); err != nil {
 		log.Error(err)

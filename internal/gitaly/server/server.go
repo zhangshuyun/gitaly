@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"time"
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
@@ -31,6 +32,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/panichandler"
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/sentryhandler"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/protoregistry"
+	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	grpccorrelation "gitlab.com/gitlab-org/labkit/correlation/grpc"
 	grpctracing "gitlab.com/gitlab-org/labkit/tracing/grpc"
 	"google.golang.org/grpc"
@@ -74,9 +76,24 @@ func init() {
 	grpc_logrus.ReplaceGrpcLogger(gitalylog.GrpcGo())
 }
 
-// createNewServer returns a GRPC server with all Gitaly services and interceptors set up.
-// allows for specifying secure = true to enable tls credentials
-func createNewServer(rubyServer *rubyserver.Server, hookManager hook.Manager, txManager transaction.Manager, cfg config.Cfg, secure bool, conns *client.Pool) *grpc.Server {
+// registerServices registers all services on the provided gRPC server instance.
+func registerServices(
+	server *grpc.Server,
+	rubyServer *rubyserver.Server,
+	hookManager hook.Manager,
+	txManager transaction.Manager,
+	cfg config.Cfg,
+	conns *client.Pool,
+	locator storage.Locator,
+	gitCmdFactory git.CommandFactory,
+) {
+	service.RegisterAll(server, cfg, rubyServer, hookManager, txManager, locator, conns, gitCmdFactory)
+	reflection.Register(server)
+	grpc_prometheus.Register(server)
+}
+
+// createNewServer creates a new gRPC server with all required middleware configured.
+func createNewServer(cfg config.Cfg, secure bool) (*grpc.Server, error) {
 	ctxTagOpts := []grpc_ctxtags.Option{
 		grpc_ctxtags.WithFieldExtractorForInitialReq(fieldextractors.FieldExtractor),
 	}
@@ -133,7 +150,7 @@ func createNewServer(rubyServer *rubyserver.Server, hookManager hook.Manager, tx
 	if secure {
 		cert, err := tls.LoadX509KeyPair(cfg.TLS.CertPath, cfg.TLS.KeyPath)
 		if err != nil {
-			log.Fatalf("error reading certificate and key paths: %v", err)
+			return nil, fmt.Errorf("error reading certificate and key paths: %v", err)
 		}
 		opts = append(opts, grpc.Creds(credentials.NewTLS(&tls.Config{
 			Certificates: []tls.Certificate{cert},
@@ -141,22 +158,15 @@ func createNewServer(rubyServer *rubyserver.Server, hookManager hook.Manager, tx
 		})))
 	}
 
-	server := grpc.NewServer(opts...)
-
-	service.RegisterAll(server, cfg, rubyServer, hookManager, txManager, storageLocator, conns, git.NewExecCommandFactory(cfg))
-	reflection.Register(server)
-
-	grpc_prometheus.Register(server)
-
-	return server
+	return grpc.NewServer(opts...), nil
 }
 
-// NewInsecure returns a GRPC server with all Gitaly services and interceptors set up.
-func NewInsecure(rubyServer *rubyserver.Server, hookManager hook.Manager, txManager transaction.Manager, cfg config.Cfg, conns *client.Pool) *grpc.Server {
-	return createNewServer(rubyServer, hookManager, txManager, cfg, false, conns)
-}
-
-// NewSecure returns a GRPC server enabling TLS credentials
-func NewSecure(rubyServer *rubyserver.Server, hookManager hook.Manager, txManager transaction.Manager, cfg config.Cfg, conns *client.Pool) *grpc.Server {
-	return createNewServer(rubyServer, hookManager, txManager, cfg, true, conns)
+// New returns a GRPC server with all Gitaly services and interceptors set.
+func New(secure bool, rubyServer *rubyserver.Server, hookManager hook.Manager, txManager transaction.Manager, cfg config.Cfg, conns *client.Pool, locator storage.Locator, gitCmdFactory git.CommandFactory) (*grpc.Server, error) {
+	server, err := createNewServer(cfg, secure)
+	if err != nil {
+		return nil, err
+	}
+	registerServices(server, rubyServer, hookManager, txManager, cfg, conns, locator, gitCmdFactory)
+	return server, nil
 }

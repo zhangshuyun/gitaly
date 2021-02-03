@@ -133,6 +133,8 @@ func run(cfg config.Cfg, b *bootstrap.Bootstrap) error {
 
 	hookManager := hook.Manager(hook.DisabledManager{})
 
+	locator := config.NewLocator(cfg)
+
 	if config.SkipHooks() {
 		log.Warn("skipping GitLab API client creation since hooks are bypassed via GITALY_TESTING_NO_GIT_HOOKS")
 	} else {
@@ -141,7 +143,7 @@ func run(cfg config.Cfg, b *bootstrap.Bootstrap) error {
 			log.Fatalf("could not create GitLab API client: %v", err)
 		}
 
-		hm := hook.NewManager(config.NewLocator(cfg), transactionManager, gitlabAPI, cfg)
+		hm := hook.NewManager(locator, transactionManager, gitlabAPI, cfg)
 
 		hookManager = hm
 	}
@@ -152,7 +154,9 @@ func run(cfg config.Cfg, b *bootstrap.Bootstrap) error {
 	)
 	defer conns.Close()
 
-	servers := server.NewGitalyServerFactory(cfg, hookManager, transactionManager, conns)
+	gitCmdFactory := git.NewExecCommandFactory(cfg)
+
+	servers := server.NewGitalyServerFactory(cfg, hookManager, transactionManager, conns, locator, gitCmdFactory)
 	defer servers.Stop()
 
 	b.StopAction = servers.GracefulStop

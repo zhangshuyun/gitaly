@@ -81,7 +81,7 @@ func TestGitalyServerFactory(t *testing.T) {
 	}
 
 	t.Run("insecure", func(t *testing.T) {
-		sf := NewGitalyServerFactory(config.Config, nil, nil, nil)
+		sf := NewGitalyServerFactory(config.Config, nil, nil, nil, nil, nil)
 
 		_, cleanup := checkHealth(t, sf, starter.TCP, "localhost:0")
 		defer cleanup()
@@ -97,7 +97,7 @@ func TestGitalyServerFactory(t *testing.T) {
 			KeyPath:  keyFile,
 		}
 
-		sf := NewGitalyServerFactory(config.Config, nil, nil, nil)
+		sf := NewGitalyServerFactory(config.Config, nil, nil, nil, nil, nil)
 		defer sf.Stop()
 
 		_, cleanup := checkHealth(t, sf, starter.TLS, "localhost:0")
@@ -105,7 +105,7 @@ func TestGitalyServerFactory(t *testing.T) {
 	})
 
 	t.Run("all services must be stopped", func(t *testing.T) {
-		sf := NewGitalyServerFactory(config.Config, nil, nil, nil)
+		sf := NewGitalyServerFactory(config.Config, nil, nil, nil, nil, nil)
 		defer sf.Stop()
 
 		tcpHealthClient, tcpCleanup := checkHealth(t, sf, starter.TCP, "localhost:0")
