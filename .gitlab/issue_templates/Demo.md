@@ -82,31 +82,17 @@ The goal of caching is to reduce load on the database and speed up defining up t
 
 1. [ ] Prep:
    - [ ] Create a repository in the demo cluster. This ensures we have a repository we can use for read/write.
-   - [ ] Verify the distributed reads feature is disabled. On the GitLab node run:
+   - [ ] Verify the distributed reads feature is enabled. On the GitLab node run:
      ```
      gitlab-rails console
      Feature.enabled?('gitaly_distributed_reads')
      ```
-   - [ ] Verify the distributed reads cache is disabled by running
-     `grep 'reads distribution caching is' /var/log/gitlab/praefect/current`
-     the full message should be: `reads distribution caching is disabled because direct connection to Postgres is not set`.
+   - [ ] Verify the cache is enabled by running `grep 'reads distribution caching is' /var/log/gitlab/praefect/current`
+     the full message should be: `reads distribution caching is enabled by configuration`
 1. [ ] Demo:
-   - [ ] Navigate to the SQL instance in [GCloud](https://console.cloud.google.com/sql/instances?project=gitlab-internal-153318) and add addresses of the praefect instances into the set of allowed IP addresses as described at [Configuring public IP connectivity](https://cloud.google.com/sql/docs/postgres/configure-ip) page (or whitelist all IPs with `0.0.0.0/0`).
-   - [ ] On each praefect node verify accessibility of the Postgres instance by running `/opt/gitlab/embedded/bin/psql -U praefect -d praefect_production -h <POSTGRESQL_SERVER_ADDRESS>`.
-   - [ ] On the GitLab node enable reads distribution feature flag by running:
-     ```
-     gitlab-rails console
-     Feature.enable('gitaly_distributed_reads')
-     ```
    - [ ] Make some random operations on the repository: files creation/modification etc.
    - [ ] Verify the feature flag is set by observing `rate(gitaly_feature_flag_checks_total{flag="distributed_reads"}[5m])` metric.
    - [ ] Verify the reads distribution is working by checking grafana dashboard: `sum by (storage) (rate(gitaly_praefect_read_distribution[5m]))`.
-   - [ ] Verify there is no values for `gitaly_praefect_uptodate_storages_cache_access_total` metric.
-   - [ ] On each praefect node:
-     - [ ] Run `vim /etc/gitlab/gitlab.rb`, change configuration by adding `praefect['database_host_no_proxy'] = '<PRAEFECT_DATABASE_IP>'` and `praefect['database_port_no_proxy'] = <PRAEFECT_DATABASE_PORT>`, and `gitlab-ctl reconfigure`. **NOTE:** You should set direct connection to Postgres database not a PgBouncer address.
-     - [ ] Verify the cache is enabled by running `grep 'reads distribution caching is' /var/log/gitlab/praefect/current`
-     the full message should be: `reads distribution caching is enabled by configuration`
-   - [ ] Make some random operations on the repository: files creation/modification etc.
    - [ ] Verify the cache is used by checking grafana dashboard: `sum by (type) (rate(gitaly_praefect_uptodate_storages_cache_access_total[5m]))`.
    - [ ] Remember values of the `read_distribution` metric for future comparison.
    - [ ] Jump on one of the gitaly nodes and terminate it with command `gitlab-ctl stop gitaly`.
