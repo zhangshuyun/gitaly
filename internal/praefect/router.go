@@ -44,6 +44,10 @@ type Router interface {
 	// RouteRepositoryAccessor returns the node that should serve the repository accessor request.
 	RouteRepositoryAccessor(ctx context.Context, virtualStorage, relativePath string) (RouterNode, error)
 	// RouteRepositoryMutatorTransaction returns the primary and secondaries that should handle the repository mutator request.
-	// Additionally, it returns nodes which should have the change replicated to.
+	// Additionally, it returns nodes which should have the change replicated to. RouteRepositoryMutator should only be used
+	// with existing repositories.
 	RouteRepositoryMutator(ctx context.Context, virtualStorage, relativePath string) (RepositoryMutatorRoute, error)
+	// RouteRepositoryCreation decides returns the primary and secondaries that should handle the repository creation
+	// request. It is up to the caller to store the assignments and primary information after finishing the RPC.
+	RouteRepositoryCreation(ctx context.Context, virtualStorage string) (RepositoryMutatorRoute, error)
 }

@@ -2,6 +2,7 @@ package praefect
 
 import (
 	"context"
+	"sort"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -360,6 +361,87 @@ func TestPerRepositoryRouter_RouteRepositoryMutator(t *testing.T) {
 					ReplicationTargets: tc.replicationTargets,
 				}, route)
 			}
+		})
+	}
+}
+
+func TestPerRepositoryRouter_RouteRepositoryCreation(t *testing.T) {
+	configuredNodes := map[string][]string{
+		"virtual-storage-1": {"primary", "secondary-1", "secondary-2"},
+	}
+
+	for _, tc := range []struct {
+		desc               string
+		virtualStorage     string
+		healthyNodes       StaticHealthChecker
+		numCandidates      int
+		pickCandidate      int
+		primary            string
+		replicationTargets []string
+		error              error
+	}{
+		{
+			desc:           "no healthy nodes",
+			virtualStorage: "virtual-storage-1",
+			healthyNodes:   StaticHealthChecker{},
+			error:          ErrNoHealthyNodes,
+		},
+		{
+			desc:           "invalid virtual storage",
+			virtualStorage: "invalid",
+			error:          nodes.ErrVirtualStorageNotExist,
+		},
+		{
+			desc:               "no healthy secondaries",
+			virtualStorage:     "virtual-storage-1",
+			healthyNodes:       StaticHealthChecker{"virtual-storage-1": {"primary"}},
+			numCandidates:      1,
+			pickCandidate:      0,
+			primary:            "primary",
+			replicationTargets: []string{"secondary-1", "secondary-2"},
+		},
+		{
+			desc:               "success",
+			virtualStorage:     "virtual-storage-1",
+			healthyNodes:       StaticHealthChecker(configuredNodes),
+			numCandidates:      3,
+			pickCandidate:      0,
+			primary:            "primary",
+			replicationTargets: []string{"secondary-1", "secondary-2"},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			ctx, cancel := testhelper.Context()
+			defer cancel()
+
+			conns := Connections{
+				"virtual-storage-1": {
+					"primary":     &grpc.ClientConn{},
+					"secondary-1": &grpc.ClientConn{},
+					"secondary-2": &grpc.ClientConn{},
+				},
+			}
+
+			route, err := NewPerRepositoryRouter(
+				conns,
+				nil,
+				tc.healthyNodes,
+				randomFunc(func(n int) int {
+					t.Helper()
+					require.Equal(t, tc.numCandidates, n)
+					return tc.pickCandidate
+				}),
+				nil,
+				nil,
+			).RouteRepositoryCreation(ctx, tc.virtualStorage)
+
+			sort.Strings(route.ReplicationTargets)
+
+			require.Equal(t, tc.error, err)
+			require.Equal(t, RepositoryMutatorRoute{
+				Primary:            RouterNode{Storage: tc.primary, Connection: conns[tc.virtualStorage][tc.primary]},
+				ReplicationTargets: tc.replicationTargets,
+			}, route)
 		})
 	}
 }

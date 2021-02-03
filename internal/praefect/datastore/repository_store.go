@@ -97,9 +97,13 @@ type RepositoryStore interface {
 	// GetReplicatedGeneration returns the generation propagated by applying the replication. If the generation would
 	// downgrade, a DowngradeAttemptedError is returned.
 	GetReplicatedGeneration(ctx context.Context, virtualStorage, relativePath, source, target string) (int, error)
-	// CreateRepository creates the repository for the virtual storage and the storage. Returns
-	// RepositoryExistsError when trying to create a repository which already has a matching record.
-	CreateRepository(ctx context.Context, virtualStorage, relativePath, storage string) error
+	// CreateRepository creates a record for a repository in the specified virtual storage and relative path.
+	// Primary is the storage the repository was created on. Returns RepositoryExistsError when trying to create
+	// a repository which already exists in the store.
+	//
+	// storePrimary should be set when repository specific primaries are enabled. When set, the primary is stored as
+	// the repository's primary.
+	CreateRepository(ctx context.Context, virtualStorage, relativePath, primary string, storePrimary bool) error
 	// DeleteRepository deletes the repository from the virtual storage and the storage. Returns
 	// RepositoryNotExistsError when trying to delete a repository which has no record in the virtual storage
 	// or the storage.
@@ -297,14 +301,15 @@ AND storage = ANY($3)
 
 //nolint:stylecheck
 //nolint:golint
-func (rs *PostgresRepositoryStore) CreateRepository(ctx context.Context, virtualStorage, relativePath, storage string) error {
+func (rs *PostgresRepositoryStore) CreateRepository(ctx context.Context, virtualStorage, relativePath, primary string, storePrimary bool) error {
 	const q = `
 WITH repo AS (
 	INSERT INTO repositories (
 		virtual_storage,
 		relative_path,
-		generation
-	) VALUES ($1, $2, 0)
+		generation,
+		"primary"
+	) VALUES ($1, $2, 0, CASE WHEN $4 THEN $3 END)
 )
 INSERT INTO storage_repositories (
 	virtual_storage,
@@ -315,14 +320,14 @@ INSERT INTO storage_repositories (
 VALUES ($1, $2, $3, 0)
 `
 
-	_, err := rs.db.ExecContext(ctx, q, virtualStorage, relativePath, storage)
+	_, err := rs.db.ExecContext(ctx, q, virtualStorage, relativePath, primary, storePrimary)
 
 	var pqerr *pq.Error
 	if errors.As(err, &pqerr) && pqerr.Code.Name() == "unique_violation" {
 		return RepositoryExistsError{
 			virtualStorage: virtualStorage,
 			relativePath:   relativePath,
-			storage:        storage,
+			storage:        primary,
 		}
 	}
 

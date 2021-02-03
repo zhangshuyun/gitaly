@@ -355,23 +355,32 @@ func (c *Coordinator) mutatorStreamParameters(ctx context.Context, call grpcCall
 	targetRepo := call.targetRepo
 	virtualStorage := call.targetRepo.StorageName
 
-	route, err := c.router.RouteRepositoryMutator(ctx, virtualStorage, targetRepo.RelativePath)
+	change, params, err := getReplicationDetails(call.fullMethodName, call.msg)
 	if err != nil {
-		if errors.Is(err, ErrRepositoryReadOnly) {
-			return nil, err
-		}
+		return nil, fmt.Errorf("mutator call: replication details: %w", err)
+	}
 
-		return nil, fmt.Errorf("mutator call: route repository mutator: %w", err)
+	var route RepositoryMutatorRoute
+	switch change {
+	case datastore.CreateRepo:
+		route, err = c.router.RouteRepositoryCreation(ctx, virtualStorage)
+		if err != nil {
+			return nil, fmt.Errorf("route repository creation: %w", err)
+		}
+	default:
+		route, err = c.router.RouteRepositoryMutator(ctx, virtualStorage, targetRepo.RelativePath)
+		if err != nil {
+			if errors.Is(err, ErrRepositoryReadOnly) {
+				return nil, err
+			}
+
+			return nil, fmt.Errorf("mutator call: route repository mutator: %w", err)
+		}
 	}
 
 	primaryMessage, err := rewrittenRepositoryMessage(call.methodInfo, call.msg, route.Primary.Storage)
 	if err != nil {
 		return nil, fmt.Errorf("mutator call: rewrite storage: %w", err)
-	}
-
-	change, params, err := getReplicationDetails(call.fullMethodName, call.msg)
-	if err != nil {
-		return nil, fmt.Errorf("mutator call: replication details: %w", err)
 	}
 
 	var finalizers []func() error
@@ -754,7 +763,9 @@ func (c *Coordinator) newRequestFinalizer(
 				ctxlogrus.Extract(ctx).WithError(err).Info("deleted repository does not have a store entry")
 			}
 		case datastore.CreateRepo:
-			if err := c.rs.CreateRepository(ctx, virtualStorage, targetRepo.GetRelativePath(), primary); err != nil {
+			if err := c.rs.CreateRepository(ctx, virtualStorage, targetRepo.GetRelativePath(), primary,
+				c.conf.Failover.ElectionStrategy == config.ElectionStrategyPerRepository,
+			); err != nil {
 				if !errors.Is(err, datastore.RepositoryExistsError{}) {
 					return fmt.Errorf("create repository: %w", err)
 				}

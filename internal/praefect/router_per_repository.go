@@ -211,3 +211,34 @@ func (r *PerRepositoryRouter) RouteRepositoryMutator(ctx context.Context, virtua
 
 	return route, nil
 }
+
+// RouteRepositoryCreation picks a random healthy node to act as the primary node and sets other nodes as
+// replication targets.
+func (r *PerRepositoryRouter) RouteRepositoryCreation(ctx context.Context, virtualStorage string) (RepositoryMutatorRoute, error) {
+	healthyNodes, err := r.healthyNodes(virtualStorage)
+	if err != nil {
+		return RepositoryMutatorRoute{}, err
+	}
+
+	primary, err := r.pickRandom(healthyNodes)
+	if err != nil {
+		return RepositoryMutatorRoute{}, err
+	}
+
+	// NodeManagerRouter doesn't consider any secondaries as consistent when creating a repository,
+	// thus the primary is the only participant in the transaction and the secondaries get replicated to.
+	// PerRepositoryRouter matches that behavior here for consistency.
+	var replicationTargets []string
+	for storage := range r.conns[virtualStorage] {
+		if storage == primary.Storage {
+			continue
+		}
+
+		replicationTargets = append(replicationTargets, storage)
+	}
+
+	return RepositoryMutatorRoute{
+		Primary:            primary,
+		ReplicationTargets: replicationTargets,
+	}, nil
+}
