@@ -2,6 +2,7 @@ package hook
 
 import (
 	"context"
+	"fmt"
 	"io"
 
 	"gitlab.com/gitlab-org/gitaly/internal/git"
@@ -17,6 +18,9 @@ func (m *GitLabHookManager) UpdateHook(ctx context.Context, repo *gitalypb.Repos
 
 	if isPrimary(payload) {
 		if err := m.updateHook(ctx, payload, repo, ref, oldValue, newValue, env, stdout, stderr); err != nil {
+			// If the update hook declines the push, then we need
+			// to stop any secondaries voting on the transaction.
+			m.stopTransaction(ctx, payload)
 			return err
 		}
 	}
@@ -56,7 +60,7 @@ func (m *GitLabHookManager) updateHook(ctx context.Context, payload git.HooksPay
 		stdout,
 		stderr,
 	); err != nil {
-		return err
+		return fmt.Errorf("executing custom hooks: %w", err)
 	}
 
 	return nil

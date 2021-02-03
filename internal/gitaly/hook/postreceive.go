@@ -128,6 +128,9 @@ func (m *GitLabHookManager) PostReceiveHook(ctx context.Context, repo *gitalypb.
 
 	if isPrimary(payload) {
 		if err := m.postReceiveHook(ctx, payload, repo, pushOptions, env, changes, stdout, stderr); err != nil {
+			// If the post-receive hook declines the push, then we need to stop any
+			// secondaries voting on the transaction.
+			m.stopTransaction(ctx, payload)
 			return err
 		}
 	}
@@ -186,7 +189,7 @@ func (m *GitLabHookManager) postReceiveHook(ctx context.Context, payload git.Hoo
 		stdout,
 		stderr,
 	); err != nil {
-		return err
+		return fmt.Errorf("executing custom hooks: %w", err)
 	}
 
 	return nil
