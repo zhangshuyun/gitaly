@@ -15,10 +15,16 @@ func (m *GitLabHookManager) UpdateHook(ctx context.Context, repo *gitalypb.Repos
 		return helper.ErrInternalf("extracting hooks payload: %w", err)
 	}
 
-	if !isPrimary(payload) {
-		return nil
+	if isPrimary(payload) {
+		if err := m.updateHook(ctx, payload, repo, ref, oldValue, newValue, env, stdout, stderr); err != nil {
+			return err
+		}
 	}
 
+	return nil
+}
+
+func (m *GitLabHookManager) updateHook(ctx context.Context, payload git.HooksPayload, repo *gitalypb.Repository, ref, oldValue, newValue string, env []string, stdout, stderr io.Writer) error {
 	if ref == "" {
 		return helper.ErrInternalf("hook got no reference")
 	}
