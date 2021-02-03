@@ -191,6 +191,12 @@ func getReplicationDetails(methodName string, m proto.Message) (datastore.Change
 			return "", nil, fmt.Errorf("protocol changed: for method %q expected message type '%T', got '%T'", methodName, req, m)
 		}
 		return datastore.RepackIncremental, nil, nil
+	case "/gitaly.RepositoryService/Cleanup":
+		req, ok := m.(*gitalypb.CleanupRequest)
+		if !ok {
+			return "", nil, fmt.Errorf("protocol changed: for method %q expected message type '%T', got '%T'", methodName, req, m)
+		}
+		return datastore.Cleanup, nil, nil
 	default:
 		return datastore.UpdateRepo, nil, nil
 	}
