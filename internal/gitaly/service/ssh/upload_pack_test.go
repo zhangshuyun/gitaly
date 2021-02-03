@@ -19,6 +19,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/pktline"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -210,9 +211,10 @@ func TestUploadPackCloneSuccess(t *testing.T) {
 	defer cleanup()
 
 	tests := []struct {
-		cmd    *exec.Cmd
-		desc   string
-		deepen float64
+		cmd          *exec.Cmd
+		desc         string
+		deepen       float64
+		featureFlags []string
 	}{
 		{
 			cmd:    exec.Command(config.Config.Git.BinPath, "clone", "git@localhost:test/test.git", localRepoPath),
@@ -224,6 +226,22 @@ func TestUploadPackCloneSuccess(t *testing.T) {
 			desc:   "shallow clone",
 			deepen: 1,
 		},
+		{
+			cmd:    exec.Command(config.Config.Git.BinPath, "clone", "git@localhost:test/test.git", localRepoPath),
+			desc:   "full clone with hook",
+			deepen: 0,
+			featureFlags: []string{
+				featureflag.UploadPackGitalyHooks.Name,
+			},
+		},
+		{
+			cmd:    exec.Command(config.Config.Git.BinPath, "clone", "--depth", "1", "git@localhost:test/test.git", localRepoPath),
+			desc:   "shallow clone with hook",
+			deepen: 1,
+			featureFlags: []string{
+				featureflag.UploadPackGitalyHooks.Name,
+			},
+		},
 	}
 
 	testRepo, _, cleanup := testhelper.NewTestRepo(t)
@@ -231,10 +249,13 @@ func TestUploadPackCloneSuccess(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.desc, func(t *testing.T) {
+			negotiationMetrics.Reset()
+
 			cmd := cloneCommand{
-				repository: testRepo,
-				command:    tc.cmd,
-				server:     serverSocketPath,
+				repository:   testRepo,
+				command:      tc.cmd,
+				featureFlags: tc.featureFlags,
+				server:       serverSocketPath,
 			}
 			lHead, rHead, _, _ := cmd.test(t, localRepoPath)
 			require.Equal(t, lHead, rHead, "local and remote head not equal")
@@ -244,6 +265,43 @@ func TestUploadPackCloneSuccess(t *testing.T) {
 			require.Equal(t, tc.deepen, promtest.ToFloat64(metric))
 		})
 	}
+}
+
+func TestUploadPackWithPackObjectsHook(t *testing.T) {
+	filterDir, cleanup := testhelper.TempDir(t)
+	defer cleanup()
+
+	defer func(old string) {
+		config.Config.BinDir = old
+	}(config.Config.BinDir)
+	config.Config.BinDir = filterDir
+
+	// We're using a custom pack-objetcs hook for git-upload-pack. In order
+	// to assure that it's getting executed as expected, we're writing a
+	// custom script which replaces the hook binary. It doesn't do anything
+	// special, but writes an error message and errors out and should thus
+	// cause the clone to fail with this error message.
+	testhelper.WriteExecutable(t, filepath.Join(filterDir, "gitaly-hooks"),
+		[]byte("#!/bin/sh\necho 'I was invoked' >&2\nexit 73\n"))
+
+	serverSocketPath, stop := runSSHServer(t)
+	defer stop()
+
+	localRepoPath, cleanup := testhelper.TempDir(t)
+	defer cleanup()
+
+	testRepo, _, cleanup := testhelper.NewTestRepo(t)
+	defer cleanup()
+
+	err := cloneCommand{
+		repository: testRepo,
+		command:    exec.Command(config.Config.Git.BinPath, "clone", "git@localhost:test/test.git", localRepoPath),
+		featureFlags: []string{
+			featureflag.UploadPackGitalyHooks.Name,
+		},
+		server: serverSocketPath,
+	}.execute(t)
+	require.Contains(t, err.Error(), "remote: I was invoked")
 }
 
 func TestUploadPackWithoutSideband(t *testing.T) {

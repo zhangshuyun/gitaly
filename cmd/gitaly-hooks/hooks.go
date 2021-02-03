@@ -201,7 +201,7 @@ func main() {
 		}
 
 		hookStatus = 0
-		if fallBackGit(args) != nil {
+		if fallBackGit(payload.GitPath, args) != nil {
 			hookStatus = 1
 		}
 	default:
@@ -292,8 +292,8 @@ func fixFilterQuoteBug(arg string) string {
 	return "--filter=" + filterSpec
 }
 
-func fallBackGit(args []string) error {
-	gitCmd := exec.Command(os.Getenv("GITALY_GIT_BIN_PATH"), args...)
+func fallBackGit(gitPath string, args []string) error {
+	gitCmd := exec.Command(gitPath, args...)
 	gitCmd.Stdin = os.Stdin
 	gitCmd.Stdout = os.Stdout
 	gitCmd.Stderr = os.Stderr

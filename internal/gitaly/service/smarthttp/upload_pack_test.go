@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/pktline"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -243,6 +244,55 @@ func testSuccessfulUploadPackDeepenRequest(t *testing.T, ctx context.Context) {
 	// This assertion is the main reason this test exists.
 	assert.NoError(t, err)
 	assert.Equal(t, `0034shallow e63f41fe459e62e1228fcef60d7189127aeba95a0000`, response.String())
+}
+
+func TestUploadPackWithPackObjectsHook(t *testing.T) {
+	hookDir, cleanup := testhelper.TempDir(t)
+	defer cleanup()
+
+	defer func(old string) {
+		config.Config.BinDir = old
+	}(config.Config.BinDir)
+	config.Config.BinDir = hookDir
+
+	outputPath := filepath.Join(hookDir, "output")
+	script := fmt.Sprintf("#!/bin/sh\necho 'I was invoked' >%s\nexit 1\n", outputPath)
+
+	// We're using a custom pack-objects hook for git-upload-pack. In order
+	// to assure that it's getting executed as expected, we're writing a
+	// custom script which replaces the hook binary. It doesn't do anything
+	// special, but writes a message into a status file and then errors
+	// out. In the best case we'd have just printed the error to stderr and
+	// check the return error message. But it's unfortunately not
+	// transferred back.
+	cleanup = testhelper.WriteExecutable(t, filepath.Join(hookDir, "gitaly-hooks"), []byte(script))
+	defer cleanup()
+
+	serverSocketPath, stop := runSmartHTTPServer(t)
+	defer stop()
+
+	repo, repoPath, cleanup := testhelper.NewTestRepo(t)
+	defer cleanup()
+
+	oldHead := bytes.TrimSpace(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", "master~"))
+	newHead := bytes.TrimSpace(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", "master"))
+
+	requestBuffer := &bytes.Buffer{}
+	pktline.WriteString(requestBuffer, fmt.Sprintf("want %s %s\n", newHead, clientCapabilities))
+	pktline.WriteFlush(requestBuffer)
+	pktline.WriteString(requestBuffer, fmt.Sprintf("have %s\n", oldHead))
+	pktline.WriteFlush(requestBuffer)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	_, err := makePostUploadPackRequest(ctx, t, serverSocketPath, &gitalypb.PostUploadPackRequest{
+		Repository: repo,
+	}, requestBuffer)
+	require.Error(t, err)
+
+	contents := testhelper.MustReadFile(t, outputPath)
+	require.Equal(t, "I was invoked\n", string(contents))
 }
 
 func TestFailedUploadPackRequestDueToValidationError(t *testing.T) {

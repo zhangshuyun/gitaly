@@ -34,6 +34,8 @@ type HooksPayload struct {
 	Repo *gitalypb.Repository `json:"-"`
 	// BinDir is the binary directory of Gitaly.
 	BinDir string `json:"binary_directory"`
+	// GitPath is the path to the git executable.
+	GitPath string `json:"git_path"`
 	// InternalSocket is the path to Gitaly's internal socket.
 	InternalSocket string `json:"internal_socket"`
 	// InternalSocketToken is the token required to authenticate with
@@ -84,6 +86,7 @@ func NewHooksPayload(
 	return HooksPayload{
 		Repo:                repo,
 		BinDir:              cfg.BinDir,
+		GitPath:             cfg.Git.BinPath,
 		InternalSocket:      cfg.GitalyInternalSocketPath(),
 		InternalSocketToken: cfg.Auth.Token,
 		Transaction:         tx,
@@ -137,6 +140,19 @@ func HooksPayloadFromEnv(envs []string) (HooksPayload, error) {
 
 	if payload.Transaction != nil && payload.Praefect == nil {
 		return HooksPayload{}, metadata.ErrPraefectServerNotFound
+	}
+
+	// If no git path is set up as part of the serialized hooks payload,
+	// then we need to fall back to the old GITALY_GIT_BIN_PATH variable.
+	// Ideally, we'd raise an error if the git path wasn't set via either
+	// old or new way, but we can't as it wasn't previously injected in all
+	// locations. So if we raised an error, then we'd now potentially cause
+	// errors during migration.
+	//
+	// TODO: Remove this fallback code after a release was done which
+	// includes this.
+	if payload.GitPath == "" {
+		payload.GitPath, _ = lookupEnv(envs, "GITALY_GIT_BIN_PATH")
 	}
 
 	return payload, nil

@@ -48,6 +48,7 @@ func TestHooksPayload(t *testing.T) {
 		require.Equal(t, HooksPayload{
 			Repo:           repo,
 			BinDir:         config.Config.BinDir,
+			GitPath:        config.Config.Git.BinPath,
 			InternalSocket: config.Config.GitalyInternalSocketPath(),
 		}, payload)
 	})
@@ -62,6 +63,7 @@ func TestHooksPayload(t *testing.T) {
 		require.Equal(t, HooksPayload{
 			Repo:           repo,
 			BinDir:         config.Config.BinDir,
+			GitPath:        config.Config.Git.BinPath,
 			InternalSocket: config.Config.GitalyInternalSocketPath(),
 			Transaction:    &tx,
 			Praefect:       &praefect,
@@ -106,6 +108,7 @@ func TestHooksPayload(t *testing.T) {
 		require.Equal(t, HooksPayload{
 			Repo:                repo,
 			BinDir:              config.Config.BinDir,
+			GitPath:             config.Config.Git.BinPath,
 			InternalSocket:      config.Config.GitalyInternalSocketPath(),
 			InternalSocketToken: config.Config.Auth.Token,
 			ReceiveHooksPayload: &ReceiveHooksPayload{
@@ -113,6 +116,28 @@ func TestHooksPayload(t *testing.T) {
 				Username: "user",
 				Protocol: "ssh",
 			},
+		}, payload)
+	})
+
+	t.Run("payload with fallback git path", func(t *testing.T) {
+		defer func(old string) {
+			config.Config.Git.BinPath = old
+		}(config.Config.Git.BinPath)
+		config.Config.Git.BinPath = ""
+
+		env, err := NewHooksPayload(config.Config, repo, nil, nil, nil).Env()
+		require.NoError(t, err)
+
+		payload, err := HooksPayloadFromEnv([]string{
+			env,
+			"GITALY_GIT_BIN_PATH=/foo/bar",
+		})
+		require.NoError(t, err)
+		require.Equal(t, HooksPayload{
+			Repo:           repo,
+			BinDir:         config.Config.BinDir,
+			GitPath:        "/foo/bar",
+			InternalSocket: config.Config.GitalyInternalSocketPath(),
 		}, payload)
 	})
 }

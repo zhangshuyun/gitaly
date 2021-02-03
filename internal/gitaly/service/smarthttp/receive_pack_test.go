@@ -90,6 +90,7 @@ func TestSuccessfulReceivePackRequest(t *testing.T) {
 
 	require.Equal(t, git.HooksPayload{
 		BinDir:              config.Config.BinDir,
+		GitPath:             config.Config.Git.BinPath,
 		InternalSocket:      config.Config.GitalyInternalSocketPath(),
 		InternalSocketToken: config.Config.Auth.Token,
 		ReceiveHooksPayload: &git.ReceiveHooksPayload{
