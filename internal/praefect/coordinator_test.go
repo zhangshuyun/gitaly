@@ -418,7 +418,7 @@ func TestStreamDirectorAccessor(t *testing.T) {
 
 func TestCoordinatorStreamDirector_distributesReads(t *testing.T) {
 	gitalySocket0, gitalySocket1 := testhelper.GetTemporaryGitalySocketFileName(t), testhelper.GetTemporaryGitalySocketFileName(t)
-	srv1, _ := testhelper.NewServerWithHealth(t, gitalySocket0)
+	srv1, primaryHealthSrv := testhelper.NewServerWithHealth(t, gitalySocket0)
 	defer srv1.Stop()
 	srv2, healthSrv := testhelper.NewServerWithHealth(t, gitalySocket1)
 	defer srv2.Stop()
@@ -526,6 +526,55 @@ func TestCoordinatorStreamDirector_distributesReads(t *testing.T) {
 		require.NotZero(t, secondaryChosen, "secondary should have been chosen at least once")
 	})
 
+	t.Run("forwards accessor to primary if force-routing", func(t *testing.T) {
+		var primaryChosen int
+		var secondaryChosen int
+
+		for i := 0; i < 16; i++ {
+			frame, err := proto.Marshal(&gitalypb.FindAllBranchesRequest{Repository: &targetRepo})
+			require.NoError(t, err)
+
+			fullMethod := "/gitaly.RefService/FindAllBranches"
+
+			peeker := &mockPeeker{frame: frame}
+
+			ctx := correlation.ContextWithCorrelation(ctx, "my-correlation-id")
+			ctx = testhelper.MergeIncomingMetadata(ctx, metadata.Pairs(routeRepositoryAccessorPolicy, routeRepositoryAccessorPolicyPrimaryOnly))
+
+			streamParams, err := coordinator.StreamDirector(ctx, fullMethod, peeker)
+			require.NoError(t, err)
+			require.Contains(t, []string{primaryNodeConf.Address, secondaryNodeConf.Address}, streamParams.Primary().Conn.Target(), "must be redirected to primary or secondary")
+
+			var nodeConf config.Node
+			switch streamParams.Primary().Conn.Target() {
+			case primaryNodeConf.Address:
+				nodeConf = primaryNodeConf
+				primaryChosen++
+			case secondaryNodeConf.Address:
+				nodeConf = secondaryNodeConf
+				secondaryChosen++
+			}
+
+			md, ok := metadata.FromOutgoingContext(streamParams.Primary().Ctx)
+			require.True(t, ok)
+			require.Contains(t, md, praefect_metadata.PraefectMetadataKey)
+
+			mi, err := coordinator.registry.LookupMethod(fullMethod)
+			require.NoError(t, err)
+			require.Equal(t, protoregistry.OpAccessor, mi.Operation, "method must be an accessor")
+
+			m, err := protoMessage(mi, streamParams.Primary().Msg)
+			require.NoError(t, err)
+
+			rewrittenTargetRepo, err := mi.TargetRepo(m)
+			require.NoError(t, err)
+			require.Equal(t, nodeConf.Storage, rewrittenTargetRepo.GetStorageName(), "stream director must rewrite the storage name")
+		}
+
+		require.Equal(t, 16, primaryChosen, "primary should have always been chosen")
+		require.Zero(t, secondaryChosen, "secondary should never have been chosen")
+	})
+
 	t.Run("forwards accessor operations only to healthy nodes", func(t *testing.T) {
 		healthSrv.SetServingStatus("", grpc_health_v1.HealthCheckResponse_NOT_SERVING)
 
@@ -564,6 +613,33 @@ func TestCoordinatorStreamDirector_distributesReads(t *testing.T) {
 		rewrittenTargetRepo, err := mi.TargetRepo(m)
 		require.NoError(t, err)
 		require.Equal(t, "gitaly-1", rewrittenTargetRepo.GetStorageName(), "stream director must rewrite the storage name")
+	})
+
+	t.Run("fails if force-routing to unhealthy primary", func(t *testing.T) {
+		primaryHealthSrv.SetServingStatus("", grpc_health_v1.HealthCheckResponse_NOT_SERVING)
+
+		shard, err := nodeMgr.GetShard(ctx, conf.VirtualStorages[0].Name)
+		require.NoError(t, err)
+
+		primaryGitaly, err := shard.GetNode(primaryNodeConf.Storage)
+		require.NoError(t, err)
+		waitNodeToChangeHealthStatus(ctx, t, primaryGitaly, false)
+		defer func() {
+			primaryHealthSrv.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
+			waitNodeToChangeHealthStatus(ctx, t, primaryGitaly, true)
+		}()
+
+		frame, err := proto.Marshal(&gitalypb.FindAllBranchesRequest{Repository: &targetRepo})
+		require.NoError(t, err)
+
+		fullMethod := "/gitaly.RefService/FindAllBranches"
+
+		ctx := correlation.ContextWithCorrelation(ctx, "my-correlation-id")
+		ctx = testhelper.MergeIncomingMetadata(ctx, metadata.Pairs(routeRepositoryAccessorPolicy, routeRepositoryAccessorPolicyPrimaryOnly))
+
+		peeker := &mockPeeker{frame: frame}
+		_, err = coordinator.StreamDirector(ctx, fullMethod, peeker)
+		require.True(t, errors.Is(err, nodes.ErrPrimaryNotHealthy))
 	})
 
 	t.Run("doesn't forward mutator operations", func(t *testing.T) {

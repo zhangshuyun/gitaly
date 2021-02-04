@@ -10,6 +10,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/nodes"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 )
 
 // StaticRepositoryAssignments is a static assignment of storages for each individual repository.
@@ -109,6 +110,7 @@ func TestPerRepositoryRouter_RouteRepositoryAccessor(t *testing.T) {
 		desc           string
 		virtualStorage string
 		healthyNodes   StaticHealthChecker
+		metadata       map[string]string
 		numCandidates  int
 		pickCandidate  int
 		error          error
@@ -162,10 +164,34 @@ func TestPerRepositoryRouter_RouteRepositoryAccessor(t *testing.T) {
 			},
 			error: ErrNoSuitableNode,
 		},
+		{
+			desc:           "primary force-picked",
+			virtualStorage: "virtual-storage-1",
+			healthyNodes: map[string][]string{
+				"virtual-storage-1": {"primary", "consistent-secondary"},
+			},
+			metadata: map[string]string{
+				routeRepositoryAccessorPolicy: routeRepositoryAccessorPolicyPrimaryOnly,
+			},
+			node: "primary",
+		},
+		{
+			desc:           "secondary not picked if force-picking unhealthy primary",
+			virtualStorage: "virtual-storage-1",
+			healthyNodes: map[string][]string{
+				"virtual-storage-1": {"consistent-secondary"},
+			},
+			metadata: map[string]string{
+				routeRepositoryAccessorPolicy: routeRepositoryAccessorPolicyPrimaryOnly,
+			},
+			error: nodes.ErrPrimaryNotHealthy,
+		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
+
+			ctx = testhelper.MergeIncomingMetadata(ctx, metadata.New(tc.metadata))
 
 			conns := Connections{
 				"virtual-storage-1": {
