@@ -7,12 +7,13 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
+	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
 // LastCommitForPath returns the last commit which modified path.
-func LastCommitForPath(ctx context.Context, batch catfile.Batch, repo *gitalypb.Repository, revision git.Revision, path string, options *gitalypb.GlobalOptions) (*gitalypb.GitCommit, error) {
+func LastCommitForPath(ctx context.Context, batch catfile.Batch, repo repository.GitRepo, revision git.Revision, path string, options *gitalypb.GlobalOptions) (*gitalypb.GitCommit, error) {
 	cmd, err := git.NewCommand(ctx, repo, git.ConvertGlobalOptions(options), git.SubCmd{
 		Name:        "log",
 		Flags:       []git.Option{git.Flag{Name: "--format=%H"}, git.Flag{Name: "--max-count=1"}},
@@ -31,7 +32,7 @@ func LastCommitForPath(ctx context.Context, batch catfile.Batch, repo *gitalypb.
 }
 
 // GitLogCommand returns a Command that executes git log with the given the arguments
-func GitLogCommand(ctx context.Context, factory git.CommandFactory, repo *gitalypb.Repository, revisions []git.Revision, paths []string, options *gitalypb.GlobalOptions, extraArgs ...git.Option) (*command.Command, error) {
+func GitLogCommand(ctx context.Context, factory git.CommandFactory, repo repository.GitRepo, revisions []git.Revision, paths []string, options *gitalypb.GlobalOptions, extraArgs ...git.Option) (*command.Command, error) {
 	args := make([]string, len(revisions))
 	for i, revision := range revisions {
 		args[i] = revision.String()
