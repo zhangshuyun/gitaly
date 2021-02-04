@@ -19,28 +19,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
-// GetCommit tries to resolve revision to a Git commit. Returns nil if
-// no object is found at revision.
-func GetCommit(ctx context.Context, gitCmdFactory git.CommandFactory, repo repository.GitRepo, revision git.Revision) (*gitalypb.GitCommit, error) {
-	c, err := catfile.New(ctx, gitCmdFactory, repo)
-	if err != nil {
-		return nil, err
-	}
-
-	return GetCommitCatfile(ctx, c, revision)
-}
-
-// GetCommitWithTrailers tries to resolve a revision to a Git commit, including
-// Git trailers in its output.
-func GetCommitWithTrailers(ctx context.Context, gitCmdFactory git.CommandFactory, repo repository.GitRepo, revision git.Revision) (*gitalypb.GitCommit, error) {
-	c, err := catfile.New(ctx, gitCmdFactory, repo)
-	if err != nil {
-		return nil, err
-	}
-
-	return GetCommitCatfileWithTrailers(ctx, repo, c, revision)
-}
-
 // GetCommitCatfile looks up a commit by revision using an existing catfile.Batch instance.
 func GetCommitCatfile(ctx context.Context, c catfile.Batch, revision git.Revision) (*gitalypb.GitCommit, error) {
 	obj, err := c.Commit(ctx, revision+"^{commit}")
