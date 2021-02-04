@@ -10,12 +10,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
 type ReaderFunc func([]byte) (int, error)
@@ -230,6 +232,147 @@ func TestRepo_ReadObject(t *testing.T) {
 			content, err := repo.ReadObject(ctx, tc.oid)
 			require.Equal(t, tc.error, err)
 			require.Equal(t, tc.content, string(content))
+		})
+	}
+}
+
+func TestRepo_ReadCommit(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	repoProto, _, cleanup := testhelper.NewTestRepo(t)
+	defer cleanup()
+
+	repo := New(repoProto, config.Config)
+
+	for _, tc := range []struct {
+		desc           string
+		revision       git.Revision
+		opts           []ReadCommitOpt
+		expectedCommit *gitalypb.GitCommit
+		expectedErr    error
+	}{
+		{
+			desc:        "invalid commit",
+			revision:    git.ZeroOID.Revision(),
+			expectedErr: ErrObjectNotFound,
+		},
+		{
+			desc:        "invalid commit with trailers",
+			revision:    git.ZeroOID.Revision(),
+			expectedErr: ErrObjectNotFound,
+			opts:        []ReadCommitOpt{WithTrailers()},
+		},
+		{
+			desc:     "valid commit",
+			revision: "refs/heads/master",
+			expectedCommit: &gitalypb.GitCommit{
+				Id:     "1e292f8fedd741b75372e19097c76d327140c312",
+				TreeId: "07f8147e8e73aab6c935c296e8cdc5194dee729b",
+				ParentIds: []string{
+					"7975be0116940bf2ad4321f79d02a55c5f7779aa",
+					"c1c67abbaf91f624347bb3ae96eabe3a1b742478",
+				},
+				Subject:  []byte("Merge branch 'cherry-pick-ce369011' into 'master'"),
+				Body:     []byte("Merge branch 'cherry-pick-ce369011' into 'master'\n\nAdd file with a _flattable_ path\n\nSee merge request gitlab-org/gitlab-test!35"),
+				BodySize: 128,
+				Author: &gitalypb.CommitAuthor{
+					Name:  []byte("Drew Blessing"),
+					Email: []byte("drew@blessing.io"),
+					Date: &timestamp.Timestamp{
+						Seconds: 1540830087,
+					},
+					Timezone: []byte("+0000"),
+				},
+				Committer: &gitalypb.CommitAuthor{
+					Name:  []byte("Drew Blessing"),
+					Email: []byte("drew@blessing.io"),
+					Date: &timestamp.Timestamp{
+						Seconds: 1540830087,
+					},
+					Timezone: []byte("+0000"),
+				},
+			},
+		},
+		{
+			desc:     "trailers do not get parsed without WithTrailers()",
+			revision: "5937ac0a7beb003549fc5fd26fc247adbce4a52e",
+			expectedCommit: &gitalypb.GitCommit{
+				Id:     "5937ac0a7beb003549fc5fd26fc247adbce4a52e",
+				TreeId: "a6973545d42361b28bfba5ced3b75dba5848b955",
+				ParentIds: []string{
+					"570e7b2abdd848b95f2f578043fc23bd6f6fd24d",
+				},
+				Subject:  []byte("Add submodule from gitlab.com"),
+				Body:     []byte("Add submodule from gitlab.com\n\nSigned-off-by: Dmitriy Zaporozhets <dmitriy.zaporozhets@gmail.com>\n"),
+				BodySize: 98,
+				Author: &gitalypb.CommitAuthor{
+					Name:  []byte("Dmitriy Zaporozhets"),
+					Email: []byte("dmitriy.zaporozhets@gmail.com"),
+					Date: &timestamp.Timestamp{
+						Seconds: 1393491698,
+					},
+					Timezone: []byte("+0200"),
+				},
+				Committer: &gitalypb.CommitAuthor{
+					Name:  []byte("Dmitriy Zaporozhets"),
+					Email: []byte("dmitriy.zaporozhets@gmail.com"),
+					Date: &timestamp.Timestamp{
+						Seconds: 1393491698,
+					},
+					Timezone: []byte("+0200"),
+				},
+				SignatureType: gitalypb.SignatureType_PGP,
+			},
+		},
+		{
+			desc:     "trailers get parsed with WithTrailers()",
+			revision: "5937ac0a7beb003549fc5fd26fc247adbce4a52e",
+			opts:     []ReadCommitOpt{WithTrailers()},
+			expectedCommit: &gitalypb.GitCommit{
+				Id:     "5937ac0a7beb003549fc5fd26fc247adbce4a52e",
+				TreeId: "a6973545d42361b28bfba5ced3b75dba5848b955",
+				ParentIds: []string{
+					"570e7b2abdd848b95f2f578043fc23bd6f6fd24d",
+				},
+				Subject:  []byte("Add submodule from gitlab.com"),
+				Body:     []byte("Add submodule from gitlab.com\n\nSigned-off-by: Dmitriy Zaporozhets <dmitriy.zaporozhets@gmail.com>\n"),
+				BodySize: 98,
+				Author: &gitalypb.CommitAuthor{
+					Name:  []byte("Dmitriy Zaporozhets"),
+					Email: []byte("dmitriy.zaporozhets@gmail.com"),
+					Date: &timestamp.Timestamp{
+						Seconds: 1393491698,
+					},
+					Timezone: []byte("+0200"),
+				},
+				Committer: &gitalypb.CommitAuthor{
+					Name:  []byte("Dmitriy Zaporozhets"),
+					Email: []byte("dmitriy.zaporozhets@gmail.com"),
+					Date: &timestamp.Timestamp{
+						Seconds: 1393491698,
+					},
+					Timezone: []byte("+0200"),
+				},
+				SignatureType: gitalypb.SignatureType_PGP,
+				Trailers: []*gitalypb.CommitTrailer{
+					&gitalypb.CommitTrailer{
+						Key:   []byte("Signed-off-by"),
+						Value: []byte("Dmitriy Zaporozhets <dmitriy.zaporozhets@gmail.com>"),
+					},
+				},
+			},
+		},
+		{
+			desc:        "not a commit",
+			revision:    "refs/heads/master^{tree}",
+			expectedErr: ErrObjectNotFound,
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			commit, err := repo.ReadCommit(ctx, tc.revision, tc.opts...)
+			require.Equal(t, tc.expectedErr, err)
+			require.Equal(t, tc.expectedCommit, commit)
 		})
 	}
 }
