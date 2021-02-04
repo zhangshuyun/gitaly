@@ -10,6 +10,7 @@ import (
 	"math"
 	"strings"
 
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -126,11 +127,25 @@ func (m *GitLabHookManager) PostReceiveHook(ctx context.Context, repo *gitalypb.
 		return helper.ErrInternalf("reading stdin from request: %w", err)
 	}
 
-	if !isPrimary(payload) {
-		return nil
+	if isPrimary(payload) {
+		if err := m.postReceiveHook(ctx, payload, repo, pushOptions, env, changes, stdout, stderr); err != nil {
+			ctxlogrus.Extract(ctx).WithError(err).Warn("stopping transaction because post-receive hook failed")
+
+			// If the post-receive hook declines the push, then we need to stop any
+			// secondaries voting on the transaction.
+			if err := m.stopTransaction(ctx, payload); err != nil {
+				ctxlogrus.Extract(ctx).WithError(err).Error("failed stopping transaction in post-receive hook")
+			}
+
+			return err
+		}
 	}
 
-	if len(changes) == 0 {
+	return nil
+}
+
+func (m *GitLabHookManager) postReceiveHook(ctx context.Context, payload git.HooksPayload, repo *gitalypb.Repository, pushOptions, env []string, stdin []byte, stdout, stderr io.Writer) error {
+	if len(stdin) == 0 {
 		return helper.ErrInternalf("hook got no reference updates")
 	}
 
@@ -147,7 +162,7 @@ func (m *GitLabHookManager) PostReceiveHook(ctx context.Context, repo *gitalypb.
 	ok, messages, err := m.gitlabAPI.PostReceive(
 		ctx, repo.GetGlRepository(),
 		payload.ReceiveHooksPayload.UserID,
-		string(changes),
+		string(stdin),
 		pushOptions...,
 	)
 	if err != nil {
@@ -176,11 +191,11 @@ func (m *GitLabHookManager) PostReceiveHook(ctx context.Context, repo *gitalypb.
 		ctx,
 		nil,
 		customEnv,
-		bytes.NewReader(changes),
+		bytes.NewReader(stdin),
 		stdout,
 		stderr,
 	); err != nil {
-		return err
+		return fmt.Errorf("executing custom hooks: %w", err)
 	}
 
 	return nil

@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -67,9 +68,14 @@ func (m *GitLabHookManager) PreReceiveHook(ctx context.Context, repo *gitalypb.R
 	// Only the primary should execute hooks and increment reference counters.
 	if isPrimary(payload) {
 		if err := m.preReceiveHook(ctx, payload, repo, pushOptions, env, changes, stdout, stderr); err != nil {
+			ctxlogrus.Extract(ctx).WithError(err).Warn("stopping transaction because pre-receive hook failed")
+
 			// If the pre-receive hook declines the push, then we need to stop any
 			// secondaries voting on the transaction.
-			m.stopTransaction(ctx, payload)
+			if err := m.stopTransaction(ctx, payload); err != nil {
+				ctxlogrus.Extract(ctx).WithError(err).Error("failed stopping transaction in pre-receive hook")
+			}
+
 			return err
 		}
 	}
