@@ -69,7 +69,7 @@ func (s *server) CommitDiff(in *gitalypb.CommitDiffRequest, stream gitalypb.Diff
 	limits.SafeMaxLines = int(in.SafeMaxLines)
 	limits.SafeMaxBytes = int(in.SafeMaxBytes)
 
-	return eachDiff(stream.Context(), "CommitDiff", in.Repository, cmd, limits, func(diff *diff.Diff) error {
+	return s.eachDiff(stream.Context(), "CommitDiff", in.Repository, cmd, limits, func(diff *diff.Diff) error {
 		response := &gitalypb.CommitDiffResponse{
 			FromPath:       diff.FromPath,
 			ToPath:         diff.ToPath,
@@ -162,7 +162,7 @@ func (s *server) CommitDelta(in *gitalypb.CommitDeltaRequest, stream gitalypb.Di
 		return nil
 	}
 
-	err := eachDiff(stream.Context(), "CommitDelta", in.Repository, cmd, diff.Limits{}, func(diff *diff.Diff) error {
+	err := s.eachDiff(stream.Context(), "CommitDelta", in.Repository, cmd, diff.Limits{}, func(diff *diff.Diff) error {
 		delta := &gitalypb.CommitDelta{
 			FromPath: diff.FromPath,
 			ToPath:   diff.ToPath,
@@ -205,12 +205,12 @@ func validateRequest(in requestWithLeftRightCommitIds) error {
 	return nil
 }
 
-func eachDiff(ctx context.Context, rpc string, repo *gitalypb.Repository, subCmd git.Cmd, limits diff.Limits, callback func(*diff.Diff) error) error {
+func (s *server) eachDiff(ctx context.Context, rpc string, repo *gitalypb.Repository, subCmd git.Cmd, limits diff.Limits, callback func(*diff.Diff) error) error {
 	diffArgs := []git.GlobalOption{
 		git.ConfigPair{Key: "diff.noprefix", Value: "false"},
 	}
 
-	cmd, err := git.NewCommand(ctx, repo, diffArgs, subCmd)
+	cmd, err := s.gitCmdFactory.New(ctx, repo, diffArgs, subCmd)
 	if err != nil {
 		if _, ok := status.FromError(err); ok {
 			return err
