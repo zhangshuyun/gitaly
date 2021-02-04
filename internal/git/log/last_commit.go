@@ -31,7 +31,7 @@ func LastCommitForPath(ctx context.Context, batch catfile.Batch, repo *gitalypb.
 }
 
 // GitLogCommand returns a Command that executes git log with the given the arguments
-func GitLogCommand(ctx context.Context, repo *gitalypb.Repository, revisions []git.Revision, paths []string, options *gitalypb.GlobalOptions, extraArgs ...git.Option) (*command.Command, error) {
+func GitLogCommand(ctx context.Context, factory git.CommandFactory, repo *gitalypb.Repository, revisions []git.Revision, paths []string, options *gitalypb.GlobalOptions, extraArgs ...git.Option) (*command.Command, error) {
 	args := make([]string, len(revisions))
 	for i, revision := range revisions {
 		args[i] = revision.String()

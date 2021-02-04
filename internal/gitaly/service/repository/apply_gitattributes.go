@@ -135,7 +135,7 @@ func (s *server) ApplyGitattributes(ctx context.Context, in *gitalypb.ApplyGitat
 		return nil, status.Errorf(codes.InvalidArgument, "ApplyGitAttributes: revision: %v", err)
 	}
 
-	c, err := catfile.New(ctx, s.locator, repo)
+	c, err := catfile.New(ctx, s.gitCmdFactory, repo)
 	if err != nil {
 		return nil, err
 	}

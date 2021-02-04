@@ -30,7 +30,7 @@ func init() {
 func (s *server) ListCommitsByOid(in *gitalypb.ListCommitsByOidRequest, stream gitalypb.CommitService_ListCommitsByOidServer) error {
 	ctx := stream.Context()
 
-	c, err := catfile.New(ctx, s.locator, in.Repository)
+	c, err := catfile.New(ctx, s.gitCmdFactory, in.Repository)
 	if err != nil {
 		return err
 	}

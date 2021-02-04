@@ -135,7 +135,7 @@ func validateGetArchiveRequest(in *gitalypb.GetArchiveRequest, format string, pa
 }
 
 func (s *server) validateGetArchivePrecondition(ctx context.Context, in *gitalypb.GetArchiveRequest, path string, exclude []string) error {
-	c, err := catfile.New(ctx, s.locator, in.GetRepository())
+	c, err := catfile.New(ctx, s.gitCmdFactory, in.GetRepository())
 	if err != nil {
 		return err
 	}

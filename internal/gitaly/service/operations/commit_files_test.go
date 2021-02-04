@@ -993,7 +993,7 @@ func testUserCommitFilesStableCommitID(t *testing.T, ctx context.Context) {
 		{Mode: "100644", Path: "file.txt", Content: "content"},
 	})
 
-	commit, err := log.GetCommit(ctx, config.NewLocator(config.Config), repo, "refs/heads/master")
+	commit, err := log.GetCommit(ctx, git.NewExecCommandFactory(config.Config), repo, "refs/heads/master")
 	require.NoError(t, err)
 	require.Equal(t, &gitalypb.GitCommit{
 		Id:       "4f0ca1fbf05e04dbd5f68d14677034e0afee58ff",
@@ -1023,8 +1023,6 @@ func TestSuccessfulUserCommitFilesRequest(t *testing.T) {
 func testSuccessfulUserCommitFilesRequest(t *testing.T, ctx context.Context) {
 	testRepo, testRepoPath, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
-
-	locator := config.NewLocator(config.Config)
 
 	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()
@@ -1105,7 +1103,7 @@ func testSuccessfulUserCommitFilesRequest(t *testing.T, ctx context.Context) {
 			require.Equal(t, tc.repoCreated, resp.GetBranchUpdate().GetRepoCreated())
 			require.Equal(t, tc.branchCreated, resp.GetBranchUpdate().GetBranchCreated())
 
-			headCommit, err := log.GetCommit(ctx, locator, tc.repo, git.Revision(tc.branchName))
+			headCommit, err := log.GetCommit(ctx, git.NewExecCommandFactory(config.Config), tc.repo, git.Revision(tc.branchName))
 			require.NoError(t, err)
 			require.Equal(t, authorName, headCommit.Author.Name)
 			require.Equal(t, testhelper.TestUser.Name, headCommit.Committer.Name)
@@ -1193,8 +1191,6 @@ func TestSuccessfulUserCommitFilesRequestForceCommit(t *testing.T) {
 }
 
 func testSuccessfulUserCommitFilesRequestForceCommit(t *testing.T, ctx context.Context) {
-	locator := config.NewLocator(config.Config)
-
 	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()
 
@@ -1209,10 +1205,11 @@ func testSuccessfulUserCommitFilesRequestForceCommit(t *testing.T, ctx context.C
 	targetBranchName := "feature"
 	startBranchName := []byte("master")
 
-	startBranchCommit, err := log.GetCommit(ctx, locator, testRepo, git.Revision(startBranchName))
+	gitCmdFactory := git.NewExecCommandFactory(config.Config)
+	startBranchCommit, err := log.GetCommit(ctx, gitCmdFactory, testRepo, git.Revision(startBranchName))
 	require.NoError(t, err)
 
-	targetBranchCommit, err := log.GetCommit(ctx, locator, testRepo, git.Revision(targetBranchName))
+	targetBranchCommit, err := log.GetCommit(ctx, gitCmdFactory, testRepo, git.Revision(targetBranchName))
 	require.NoError(t, err)
 
 	mergeBaseOut := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "merge-base", targetBranchCommit.Id, startBranchCommit.Id)
@@ -1234,7 +1231,7 @@ func testSuccessfulUserCommitFilesRequestForceCommit(t *testing.T, ctx context.C
 	require.NoError(t, err)
 
 	update := resp.GetBranchUpdate()
-	newTargetBranchCommit, err := log.GetCommit(ctx, locator, testRepo, git.Revision(targetBranchName))
+	newTargetBranchCommit, err := log.GetCommit(ctx, gitCmdFactory, testRepo, git.Revision(targetBranchName))
 	require.NoError(t, err)
 
 	require.Equal(t, newTargetBranchCommit.Id, update.CommitId)
@@ -1246,8 +1243,6 @@ func TestSuccessfulUserCommitFilesRequestStartSha(t *testing.T) {
 }
 
 func testSuccessfulUserCommitFilesRequestStartSha(t *testing.T, ctx context.Context) {
-	locator := config.NewLocator(config.Config)
-
 	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()
 
@@ -1259,7 +1254,8 @@ func testSuccessfulUserCommitFilesRequestStartSha(t *testing.T, ctx context.Cont
 
 	targetBranchName := "new"
 
-	startCommit, err := log.GetCommit(ctx, locator, testRepo, "master")
+	gitCmdFactory := git.NewExecCommandFactory(config.Config)
+	startCommit, err := log.GetCommit(ctx, gitCmdFactory, testRepo, "master")
 	require.NoError(t, err)
 
 	headerRequest := headerRequest(testRepo, testhelper.TestUser, targetBranchName, commitFilesMessage)
@@ -1275,7 +1271,7 @@ func testSuccessfulUserCommitFilesRequestStartSha(t *testing.T, ctx context.Cont
 	require.NoError(t, err)
 
 	update := resp.GetBranchUpdate()
-	newTargetBranchCommit, err := log.GetCommit(ctx, locator, testRepo, git.Revision(targetBranchName))
+	newTargetBranchCommit, err := log.GetCommit(ctx, gitCmdFactory, testRepo, git.Revision(targetBranchName))
 	require.NoError(t, err)
 
 	require.Equal(t, newTargetBranchCommit.Id, update.CommitId)
@@ -1298,8 +1294,6 @@ func testSuccessfulUserCommitFilesRemoteRepositoryRequest(setHeader func(header 
 	// Regular table driven test did not work here as there is some state shared in the helpers between the subtests.
 	// Running them in different top level tests works, so we use a parameterized function instead to share the code.
 	return func(t *testing.T, ctx context.Context) {
-		locator := config.NewLocator(config.Config)
-
 		serverSocketPath, stop := runOperationServiceServer(t)
 		defer stop()
 
@@ -1320,7 +1314,8 @@ func testSuccessfulUserCommitFilesRemoteRepositoryRequest(setHeader func(header 
 
 		targetBranchName := "new"
 
-		startCommit, err := log.GetCommit(ctx, locator, testRepo, "master")
+		gitCmdFactory := git.NewExecCommandFactory(config.Config)
+		startCommit, err := log.GetCommit(ctx, gitCmdFactory, testRepo, "master")
 		require.NoError(t, err)
 
 		headerRequest := headerRequest(newRepo, testhelper.TestUser, targetBranchName, commitFilesMessage)
@@ -1337,7 +1332,7 @@ func testSuccessfulUserCommitFilesRemoteRepositoryRequest(setHeader func(header 
 		require.NoError(t, err)
 
 		update := resp.GetBranchUpdate()
-		newTargetBranchCommit, err := log.GetCommit(ctx, locator, newRepo, git.Revision(targetBranchName))
+		newTargetBranchCommit, err := log.GetCommit(ctx, gitCmdFactory, newRepo, git.Revision(targetBranchName))
 		require.NoError(t, err)
 
 		require.Equal(t, newTargetBranchCommit.Id, update.CommitId)
@@ -1350,8 +1345,6 @@ func TestSuccessfulUserCommitFilesRequestWithSpecialCharactersInSignature(t *tes
 }
 
 func testSuccessfulUserCommitFilesRequestWithSpecialCharactersInSignature(t *testing.T, ctx context.Context) {
-	locator := config.NewLocator(config.Config)
-
 	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()
 
@@ -1392,7 +1385,7 @@ func testSuccessfulUserCommitFilesRequestWithSpecialCharactersInSignature(t *tes
 			_, err = stream.CloseAndRecv()
 			require.NoError(t, err)
 
-			newCommit, err := log.GetCommit(ctx, locator, testRepo, git.Revision(targetBranchName))
+			newCommit, err := log.GetCommit(ctx, git.NewExecCommandFactory(config.Config), testRepo, git.Revision(targetBranchName))
 			require.NoError(t, err)
 
 			require.Equal(t, tc.author.Name, newCommit.Author.Name, "author name")

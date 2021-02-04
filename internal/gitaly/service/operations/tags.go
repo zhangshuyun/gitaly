@@ -93,7 +93,7 @@ func (s *Server) UserCreateTag(ctx context.Context, req *gitalypb.UserCreateTagR
 
 	// Setup
 	repo := req.GetRepository()
-	catFile, err := catfile.New(ctx, s.locator, repo)
+	catFile, err := catfile.New(ctx, s.gitCmdFactory, repo)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}

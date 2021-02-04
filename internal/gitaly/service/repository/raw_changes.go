@@ -21,7 +21,7 @@ func (s *server) GetRawChanges(req *gitalypb.GetRawChangesRequest, stream gitaly
 	ctx := stream.Context()
 
 	repo := req.Repository
-	batch, err := catfile.New(stream.Context(), s.locator, repo)
+	batch, err := catfile.New(stream.Context(), s.gitCmdFactory, repo)
 	if err != nil {
 		return helper.ErrInternal(err)
 	}

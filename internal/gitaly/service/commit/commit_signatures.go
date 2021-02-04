@@ -29,7 +29,7 @@ func (s *server) GetCommitSignatures(request *gitalypb.GetCommitSignaturesReques
 func (s *server) getCommitSignatures(request *gitalypb.GetCommitSignaturesRequest, stream gitalypb.CommitService_GetCommitSignaturesServer) error {
 	ctx := stream.Context()
 
-	c, err := catfile.New(ctx, s.locator, request.GetRepository())
+	c, err := catfile.New(ctx, s.gitCmdFactory, request.GetRepository())
 	if err != nil {
 		return helper.ErrInternal(err)
 	}

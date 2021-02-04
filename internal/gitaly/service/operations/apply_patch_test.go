@@ -127,8 +127,7 @@ func testSuccessfulUserApplyPatch(t *testing.T, ctx context.Context) {
 			}
 
 			for index, sha := range shas {
-				locator := config.NewLocator(config.Config)
-				commit, err := log.GetCommit(ctx, locator, testRepo, git.Revision(sha))
+				commit, err := log.GetCommit(ctx, git.NewExecCommandFactory(config.Config), testRepo, git.Revision(sha))
 				require.NoError(t, err)
 
 				require.NotNil(t, commit)
@@ -179,7 +178,7 @@ func TestUserApplyPatch_stableID(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, response.BranchUpdate.BranchCreated)
 
-	patchedCommit, err := log.GetCommit(ctx, config.NewLocator(config.Config), repo, git.Revision("branch"))
+	patchedCommit, err := log.GetCommit(ctx, git.NewExecCommandFactory(config.Config), repo, git.Revision("branch"))
 	require.NoError(t, err)
 	require.Equal(t, &gitalypb.GitCommit{
 		Id:     "8cd17acdb54178121167078c78d874d3cc09b216",

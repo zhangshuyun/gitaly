@@ -4,6 +4,7 @@ import (
 	"os"
 	"testing"
 
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
 	hookservice "gitlab.com/gitlab-org/gitaly/internal/gitaly/service/hook"
@@ -30,7 +31,7 @@ func runCleanupServiceServer(t *testing.T, cfg config.Cfg) (string, func()) {
 	srv := testhelper.NewServer(t, nil, nil, testhelper.WithInternalSocket(cfg))
 
 	locator := config.NewLocator(cfg)
-	gitalypb.RegisterCleanupServiceServer(srv.GrpcServer(), NewServer(cfg, locator))
+	gitalypb.RegisterCleanupServiceServer(srv.GrpcServer(), NewServer(cfg, git.NewExecCommandFactory(cfg)))
 	gitalypb.RegisterHookServiceServer(srv.GrpcServer(), hookservice.NewServer(cfg, hook.NewManager(locator, transaction.NewManager(cfg), hook.GitlabAPIStub, cfg)))
 	reflection.Register(srv.GrpcServer())
 

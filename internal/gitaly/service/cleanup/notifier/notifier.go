@@ -6,7 +6,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/chunk"
-	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
@@ -18,8 +17,8 @@ type Notifier struct {
 }
 
 // New instantiates a new Notifier
-func New(ctx context.Context, locator storage.Locator, repo *gitalypb.Repository, chunker *chunk.Chunker) (*Notifier, error) {
-	catfile, err := catfile.New(ctx, locator, repo)
+func New(ctx context.Context, gitCmdFactory git.CommandFactory, repo *gitalypb.Repository, chunker *chunk.Chunker) (*Notifier, error) {
+	catfile, err := catfile.New(ctx, gitCmdFactory, repo)
 	if err != nil {
 		return nil, err
 	}

@@ -11,6 +11,7 @@ import (
 	grpc_logrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/ref"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
@@ -37,7 +38,7 @@ func createNewServer(t *testing.T) *grpc.Server {
 
 	server := grpc.NewServer(opts...)
 
-	gitalypb.RegisterRefServiceServer(server, ref.NewServer(config.Config, config.NewLocator(config.Config)))
+	gitalypb.RegisterRefServiceServer(server, ref.NewServer(config.Config, config.NewLocator(config.Config), git.NewExecCommandFactory(config.Config)))
 
 	return server
 }

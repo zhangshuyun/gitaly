@@ -100,7 +100,7 @@ func TestSuccessfulWikiUpdatePageRequest(t *testing.T) {
 			require.NoError(t, err)
 
 			headID := testhelper.MustRunCommand(t, nil, "git", "-C", wikiRepoPath, "show", "--format=format:%H", "--no-patch", "HEAD")
-			commit, err := gitlog.GetCommit(ctx, locator, wikiRepo, git.Revision(headID))
+			commit, err := gitlog.GetCommit(ctx, git.NewExecCommandFactory(config.Config), wikiRepo, git.Revision(headID))
 			require.NoError(t, err, "look up git commit before merge is applied")
 
 			require.Equal(t, authorName, commit.Author.Name, "author name mismatched")

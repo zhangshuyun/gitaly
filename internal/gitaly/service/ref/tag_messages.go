@@ -37,7 +37,7 @@ func validateGetTagMessagesRequest(request *gitalypb.GetTagMessagesRequest) erro
 func (s *server) getAndStreamTagMessages(request *gitalypb.GetTagMessagesRequest, stream gitalypb.RefService_GetTagMessagesServer) error {
 	ctx := stream.Context()
 
-	c, err := catfile.New(ctx, s.locator, request.GetRepository())
+	c, err := catfile.New(ctx, s.gitCmdFactory, request.GetRepository())
 	if err != nil {
 		return err
 	}

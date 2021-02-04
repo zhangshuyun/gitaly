@@ -48,9 +48,8 @@ func TestSuccessfulCreateBranchRequest(t *testing.T) {
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	locator := config.NewLocator(config.Config)
 	startPoint := "c7fbe50c7c7419d9701eebe64b1fdacc3df5b9dd"
-	startPointCommit, err := log.GetCommit(ctx, locator, testRepo, git.Revision(startPoint))
+	startPointCommit, err := log.GetCommit(ctx, git.NewExecCommandFactory(config.Config), testRepo, git.Revision(startPoint))
 	require.NoError(t, err)
 
 	testCases := []struct {
@@ -316,8 +315,7 @@ func TestSuccessfulCreateBranchRequestWithStartPointRefPrefix(t *testing.T) {
 			//
 			//targetCommitOK, err := log.GetCommit(ctx, testRepo, testCase.startPointCommit)
 			// END TODO
-			locator := config.NewLocator(config.Config)
-			targetCommitOK, err := log.GetCommit(ctx, locator, testRepo, "1e292f8fedd741b75372e19097c76d327140c312")
+			targetCommitOK, err := log.GetCommit(ctx, git.NewExecCommandFactory(config.Config), testRepo, "1e292f8fedd741b75372e19097c76d327140c312")
 			require.NoError(t, err)
 
 			response, err := client.UserCreateBranch(ctx, request)

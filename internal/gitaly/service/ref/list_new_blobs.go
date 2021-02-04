@@ -38,7 +38,7 @@ func (s *server) listNewBlobs(in *gitalypb.ListNewBlobsRequest, stream gitalypb.
 		return err
 	}
 
-	batch, err := catfile.New(ctx, s.locator, in.GetRepository())
+	batch, err := catfile.New(ctx, s.gitCmdFactory, in.GetRepository())
 	if err != nil {
 		return err
 	}

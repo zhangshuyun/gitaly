@@ -17,7 +17,6 @@ func TestSuccessfulFindAllRemoteBranchesRequest(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	locator := config.NewLocator(config.Config)
 	stop, serverSocketPath := runRefServiceServer(t)
 	defer stop()
 
@@ -55,8 +54,9 @@ func TestSuccessfulFindAllRemoteBranchesRequest(t *testing.T) {
 	branches := readFindAllRemoteBranchesResponsesFromClient(t, c)
 	require.Len(t, branches, len(expectedBranches))
 
+	gitCmdFactory := git.NewExecCommandFactory(config.Config)
 	for branchName, commitID := range expectedBranches {
-		targetCommit, err := log.GetCommit(ctx, locator, testRepo, git.Revision(commitID))
+		targetCommit, err := log.GetCommit(ctx, gitCmdFactory, testRepo, git.Revision(commitID))
 		require.NoError(t, err)
 
 		expectedBranch := &gitalypb.Branch{
@@ -68,7 +68,7 @@ func TestSuccessfulFindAllRemoteBranchesRequest(t *testing.T) {
 	}
 
 	for branchName, commitID := range excludedBranches {
-		targetCommit, err := log.GetCommit(ctx, locator, testRepo, git.Revision(commitID))
+		targetCommit, err := log.GetCommit(ctx, gitCmdFactory, testRepo, git.Revision(commitID))
 		require.NoError(t, err)
 
 		excludedBranch := &gitalypb.Branch{

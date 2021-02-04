@@ -152,7 +152,7 @@ func TestGetCommitCatfile(t *testing.T) {
 		},
 	}
 
-	c, err := catfile.New(ctx, config.NewLocator(config.Config), testRepo)
+	c, err := catfile.New(ctx, git.NewExecCommandFactory(config.Config), testRepo)
 	require.NoError(t, err)
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -176,8 +176,7 @@ func TestGetCommitCatfileWithTrailers(t *testing.T) {
 	testRepo, _, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
 
-	locator := config.NewLocator(config.Config)
-	catfile, err := catfile.New(ctx, locator, testRepo)
+	catfile, err := catfile.New(ctx, git.NewExecCommandFactory(config.Config), testRepo)
 
 	require.NoError(t, err)
 

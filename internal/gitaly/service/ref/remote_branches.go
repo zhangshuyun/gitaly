@@ -30,7 +30,7 @@ func (s *server) findAllRemoteBranches(req *gitalypb.FindAllRemoteBranchesReques
 	patterns := []string{"refs/remotes/" + req.GetRemoteName()}
 
 	ctx := stream.Context()
-	c, err := catfile.New(ctx, s.locator, req.GetRepository())
+	c, err := catfile.New(ctx, s.gitCmdFactory, req.GetRepository())
 	if err != nil {
 		return err
 	}

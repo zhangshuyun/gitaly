@@ -67,13 +67,13 @@ func RegisterAll(
 	conns *client.Pool,
 	gitCmdFactory git.CommandFactory,
 ) {
-	gitalypb.RegisterBlobServiceServer(grpcServer, blob.NewServer(rubyServer, locator))
-	gitalypb.RegisterCleanupServiceServer(grpcServer, cleanup.NewServer(cfg, locator))
-	gitalypb.RegisterCommitServiceServer(grpcServer, commit.NewServer(cfg, locator))
+	gitalypb.RegisterBlobServiceServer(grpcServer, blob.NewServer(rubyServer, locator, gitCmdFactory))
+	gitalypb.RegisterCleanupServiceServer(grpcServer, cleanup.NewServer(cfg, gitCmdFactory))
+	gitalypb.RegisterCommitServiceServer(grpcServer, commit.NewServer(cfg, locator, gitCmdFactory))
 	gitalypb.RegisterDiffServiceServer(grpcServer, diff.NewServer(locator))
 	gitalypb.RegisterNamespaceServiceServer(grpcServer, namespace.NewServer(locator))
 	gitalypb.RegisterOperationServiceServer(grpcServer, operations.NewServer(cfg, rubyServer, hookManager, locator, conns, git.NewExecCommandFactory(cfg)))
-	gitalypb.RegisterRefServiceServer(grpcServer, ref.NewServer(cfg, locator))
+	gitalypb.RegisterRefServiceServer(grpcServer, ref.NewServer(cfg, locator, gitCmdFactory))
 	gitalypb.RegisterRepositoryServiceServer(grpcServer, repository.NewServer(cfg, rubyServer, locator, txManager, gitCmdFactory))
 	gitalypb.RegisterSSHServiceServer(grpcServer, ssh.NewServer(
 		cfg,

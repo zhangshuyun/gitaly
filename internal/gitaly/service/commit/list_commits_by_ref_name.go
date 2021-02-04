@@ -13,7 +13,7 @@ import (
 func (s *server) ListCommitsByRefName(in *gitalypb.ListCommitsByRefNameRequest, stream gitalypb.CommitService_ListCommitsByRefNameServer) error {
 	ctx := stream.Context()
 
-	c, err := catfile.New(ctx, s.locator, in.Repository)
+	c, err := catfile.New(ctx, s.gitCmdFactory, in.Repository)
 	if err != nil {
 		return helper.ErrInternal(err)
 	}

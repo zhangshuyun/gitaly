@@ -26,7 +26,7 @@ func (s *server) GetCommitMessages(request *gitalypb.GetCommitMessagesRequest, s
 
 func (s *server) getAndStreamCommitMessages(request *gitalypb.GetCommitMessagesRequest, stream gitalypb.CommitService_GetCommitMessagesServer) error {
 	ctx := stream.Context()
-	c, err := catfile.New(ctx, s.locator, request.GetRepository())
+	c, err := catfile.New(ctx, s.gitCmdFactory, request.GetRepository())
 	if err != nil {
 		return err
 	}

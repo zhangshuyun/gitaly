@@ -30,7 +30,7 @@ func (s *server) lastCommitForPath(ctx context.Context, in *gitalypb.LastCommitF
 	}
 
 	repo := in.GetRepository()
-	c, err := catfile.New(ctx, s.locator, repo)
+	c, err := catfile.New(ctx, s.gitCmdFactory, repo)
 	if err != nil {
 		return nil, err
 	}

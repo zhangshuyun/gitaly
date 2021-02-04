@@ -43,8 +43,6 @@ func TestSuccessfulMerge(t *testing.T) {
 	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
-	locator := config.NewLocator(config.Config)
-
 	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()
 
@@ -88,7 +86,8 @@ func TestSuccessfulMerge(t *testing.T) {
 	firstResponse, err := mergeBidi.Recv()
 	require.NoError(t, err, "receive first response")
 
-	_, err = gitlog.GetCommit(ctx, locator, testRepo, git.Revision(firstResponse.CommitId))
+	gitCmdFactory := git.NewExecCommandFactory(config.Config)
+	_, err = gitlog.GetCommit(ctx, gitCmdFactory, testRepo, git.Revision(firstResponse.CommitId))
 	require.NoError(t, err, "look up git commit before merge is applied")
 
 	require.NoError(t, mergeBidi.Send(&gitalypb.UserMergeBranchRequest{Apply: true}), "apply merge")
@@ -101,7 +100,7 @@ func TestSuccessfulMerge(t *testing.T) {
 		return err
 	})
 
-	commit, err := gitlog.GetCommit(ctx, locator, testRepo, git.Revision(mergeBranchName))
+	commit, err := gitlog.GetCommit(ctx, gitCmdFactory, testRepo, git.Revision(mergeBranchName))
 	require.NoError(t, err, "look up git commit after call has finished")
 
 	require.Equal(t, gitalypb.OperationBranchUpdate{CommitId: commit.Id}, *(secondResponse.BranchUpdate))
@@ -174,7 +173,7 @@ func TestSuccessfulMerge_stableMergeIDs(t *testing.T) {
 		return err
 	})
 
-	commit, err := gitlog.GetCommit(ctx, config.NewLocator(config.Config), testRepo, git.Revision(mergeBranchName))
+	commit, err := gitlog.GetCommit(ctx, git.NewExecCommandFactory(config.Config), testRepo, git.Revision(mergeBranchName))
 	require.NoError(t, err, "look up git commit after call has finished")
 	require.Equal(t, commit, &gitalypb.GitCommit{
 		Subject:  []byte("Merged by Gitaly"),
@@ -204,8 +203,6 @@ func TestSuccessfulMerge_stableMergeIDs(t *testing.T) {
 }
 
 func TestAbortedMerge(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-
 	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()
 
@@ -265,7 +262,7 @@ func TestAbortedMerge(t *testing.T) {
 			require.Equal(t, "", secondResponse.GetBranchUpdate().GetCommitId(), "merge should not have been applied")
 			require.Error(t, err)
 
-			commit, err := gitlog.GetCommit(ctx, locator, testRepo, git.Revision(mergeBranchName))
+			commit, err := gitlog.GetCommit(ctx, git.NewExecCommandFactory(config.Config), testRepo, git.Revision(mergeBranchName))
 			require.NoError(t, err, "look up git commit after call has finished")
 
 			require.Equal(t, mergeBranchHeadBefore, commit.Id, "branch should not change when the merge is aborted")
@@ -276,8 +273,6 @@ func TestAbortedMerge(t *testing.T) {
 func TestFailedMergeConcurrentUpdate(t *testing.T) {
 	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
-
-	locator := config.NewLocator(config.Config)
 
 	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()
@@ -317,7 +312,7 @@ func TestFailedMergeConcurrentUpdate(t *testing.T) {
 	require.NoError(t, err, "receive second response")
 	testhelper.ProtoEqual(t, secondResponse, &gitalypb.UserMergeBranchResponse{})
 
-	commit, err := gitlog.GetCommit(ctx, locator, testRepo, git.Revision(mergeBranchName))
+	commit, err := gitlog.GetCommit(ctx, git.NewExecCommandFactory(config.Config), testRepo, git.Revision(mergeBranchName))
 	require.NoError(t, err, "get commit after RPC finished")
 	require.Equal(t, commit.Id, concurrentCommitID, "RPC should not have trampled concurrent update")
 }
@@ -382,9 +377,7 @@ func TestUserMergeBranch_ambiguousReference(t *testing.T) {
 		return err
 	})
 
-	locator := config.NewLocator(config.Config)
-
-	commit, err := gitlog.GetCommit(ctx, locator, testRepo, git.Revision("refs/heads/"+mergeBranchName))
+	commit, err := gitlog.GetCommit(ctx, git.NewExecCommandFactory(config.Config), testRepo, git.Revision("refs/heads/"+mergeBranchName))
 	require.NoError(t, err, "look up git commit after call has finished")
 
 	require.Equal(t, gitalypb.OperationBranchUpdate{CommitId: commit.Id}, *(response.BranchUpdate))
@@ -689,8 +682,6 @@ func TestSuccessfulUserMergeToRefRequest(t *testing.T) {
 	ctx, cleanup := testhelper.Context()
 	defer cleanup()
 
-	locator := config.NewLocator(config.Config)
-
 	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()
 
@@ -762,7 +753,8 @@ func TestSuccessfulUserMergeToRefRequest(t *testing.T) {
 				FirstParentRef: testCase.firstParentRef,
 			}
 
-			commitBeforeRefMerge, fetchRefBeforeMergeErr := gitlog.GetCommit(ctx, locator, testRepo, git.Revision(testCase.targetRef))
+			gitCmdFactory := git.NewExecCommandFactory(config.Config)
+			commitBeforeRefMerge, fetchRefBeforeMergeErr := gitlog.GetCommit(ctx, gitCmdFactory, testRepo, git.Revision(testCase.targetRef))
 			if testCase.emptyRef {
 				require.Error(t, fetchRefBeforeMergeErr, "error when fetching empty ref commit")
 			} else {
@@ -772,7 +764,7 @@ func TestSuccessfulUserMergeToRefRequest(t *testing.T) {
 			resp, err := client.UserMergeToRef(ctx, request)
 			require.NoError(t, err)
 
-			commit, err := gitlog.GetCommit(ctx, locator, testRepo, git.Revision(testCase.targetRef))
+			commit, err := gitlog.GetCommit(ctx, gitCmdFactory, testRepo, git.Revision(testCase.targetRef))
 			require.NoError(t, err, "look up git commit after call has finished")
 
 			// Asserts commit parent SHAs
@@ -873,7 +865,7 @@ func TestUserMergeToRef_stableMergeID(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "a04514f4e6b4e272989b39cca1ebdbb670abdfd6", response.CommitId)
 
-	commit, err := gitlog.GetCommit(ctx, config.NewLocator(config.Config), testRepo, git.Revision("refs/merge-requests/x/written"))
+	commit, err := gitlog.GetCommit(ctx, git.NewExecCommandFactory(config.Config), testRepo, git.Revision("refs/merge-requests/x/written"))
 	require.NoError(t, err, "look up git commit after call has finished")
 	require.Equal(t, &gitalypb.GitCommit{
 		Subject:  []byte("Merge message"),

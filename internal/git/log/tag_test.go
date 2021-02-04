@@ -48,7 +48,7 @@ func TestGetTag(t *testing.T) {
 		},
 	}
 
-	c, err := catfile.New(ctx, config.NewLocator(config.Config), testRepo)
+	c, err := catfile.New(ctx, git.NewExecCommandFactory(config.Config), testRepo)
 	require.NoError(t, err)
 	for _, testCase := range testCases {
 		t.Run(testCase.tagName, func(t *testing.T) {

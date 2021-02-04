@@ -40,7 +40,7 @@ func (s *server) ApplyBfgObjectMapStream(server gitalypb.CleanupService_ApplyBfg
 	reader := &bfgStreamReader{firstRequest: firstRequest, server: server}
 	chunker := chunk.New(&bfgStreamWriter{server: server})
 
-	notifier, err := notifier.New(ctx, s.locator, repo, chunker)
+	notifier, err := notifier.New(ctx, s.gitCmdFactory, repo, chunker)
 	if err != nil {
 		return helper.ErrInternal(err)
 	}

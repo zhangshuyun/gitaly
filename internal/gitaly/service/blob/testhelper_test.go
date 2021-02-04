@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	log "github.com/sirupsen/logrus"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
@@ -43,7 +44,7 @@ func testMain(m *testing.M) int {
 func runBlobServer(t *testing.T, locator storage.Locator) (func(), string) {
 	srv := testhelper.NewServer(t, nil, nil)
 
-	gitalypb.RegisterBlobServiceServer(srv.GrpcServer(), NewServer(rubyServer, locator))
+	gitalypb.RegisterBlobServiceServer(srv.GrpcServer(), NewServer(rubyServer, locator, git.NewExecCommandFactory(config.Config)))
 	reflection.Register(srv.GrpcServer())
 
 	srv.Start(t)

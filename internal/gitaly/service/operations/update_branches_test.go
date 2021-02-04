@@ -34,8 +34,6 @@ func testSuccessfulUserUpdateBranchRequest(t *testing.T, ctx context.Context) {
 	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
-	locator := config.NewLocator(config.Config)
-
 	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()
 
@@ -98,7 +96,7 @@ func testSuccessfulUserUpdateBranchRequest(t *testing.T, ctx context.Context) {
 			require.NoError(t, err)
 			require.Equal(t, responseOk, response)
 
-			branchCommit, err := log.GetCommit(ctx, locator, testRepo, git.Revision(testCase.updateBranchName))
+			branchCommit, err := log.GetCommit(ctx, git.NewExecCommandFactory(config.Config), testRepo, git.Revision(testCase.updateBranchName))
 
 			require.NoError(t, err)
 			require.Equal(t, string(testCase.newRev), branchCommit.Id)
@@ -116,8 +114,6 @@ func TestSuccessfulUserUpdateBranchRequestToDelete(t *testing.T) {
 func testSuccessfulUserUpdateBranchRequestToDelete(t *testing.T, ctx context.Context) {
 	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()
-
-	locator := config.NewLocator(config.Config)
 
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
@@ -177,7 +173,7 @@ func testSuccessfulUserUpdateBranchRequestToDelete(t *testing.T, ctx context.Con
 			require.Nil(t, err)
 			require.Equal(t, responseOk, response)
 
-			_, err = log.GetCommit(ctx, locator, testRepo, git.Revision(testCase.updateBranchName))
+			_, err = log.GetCommit(ctx, git.NewExecCommandFactory(config.Config), testRepo, git.Revision(testCase.updateBranchName))
 			require.True(t, log.IsNotFound(err), "expected 'not found' error got %v", err)
 
 			refs := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "for-each-ref", "--", "refs/heads/"+testCase.updateBranchName)
@@ -273,8 +269,6 @@ func TestFailedUserUpdateBranchRequest(t *testing.T) {
 func testFailedUserUpdateBranchRequest(t *testing.T, ctx context.Context) {
 	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()
-
-	locator := config.NewLocator(config.Config)
 
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
@@ -406,7 +400,7 @@ func testFailedUserUpdateBranchRequest(t *testing.T, ctx context.Context) {
 			require.Equal(t, testCase.response, response)
 			require.Equal(t, testCase.err, err)
 
-			branchCommit, err := log.GetCommit(ctx, locator, testRepo, git.Revision(testCase.branchName))
+			branchCommit, err := log.GetCommit(ctx, git.NewExecCommandFactory(config.Config), testRepo, git.Revision(testCase.branchName))
 			if testCase.expectNotFoundError {
 				require.True(t, log.IsNotFound(err), "expected 'not found' error got %v", err)
 				return

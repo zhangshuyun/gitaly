@@ -9,7 +9,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata"
-	"gitlab.com/gitlab-org/gitaly/internal/storage"
 )
 
 var catfileCacheCounter = prometheus.NewCounterVec(
@@ -43,10 +42,6 @@ var catfileLookupCounter = prometheus.NewCounterVec(
 )
 
 const (
-	// CacheFeatureFlagKey is the feature flag key for catfile batch caching. This should match
-	// what is in gitlab-ce
-	CacheFeatureFlagKey = "catfile-cache"
-
 	// SessionIDField is the gRPC metadata field we use to store the gitaly session ID.
 	SessionIDField = "gitaly-session-id"
 )
@@ -143,14 +138,14 @@ func (c *batch) isClosed() bool {
 // New returns a new Batch instance. It is important that ctx gets canceled
 // somewhere, because if it doesn't the cat-file processes spawned by
 // New() never terminate.
-func New(ctx context.Context, locator storage.Locator, repo repository.GitRepo) (Batch, error) {
+func New(ctx context.Context, gitCmdFactory git.CommandFactory, repo repository.GitRepo) (Batch, error) {
 	if ctx.Done() == nil {
 		panic("empty ctx.Done() in catfile.Batch.New()")
 	}
 
 	sessionID := metadata.GetValue(ctx, SessionIDField)
 	if sessionID == "" {
-		c, err := newBatch(ctx, locator, repo)
+		c, err := newBatch(ctx, gitCmdFactory, repo)
 		if err != nil {
 			return nil, err
 		}
@@ -168,7 +163,7 @@ func New(ctx context.Context, locator storage.Locator, repo repository.GitRepo) 
 	// if we are using caching, create a fresh context for the new batch
 	// and initialize the new batch with a cache key and cancel function
 	cacheCtx, cacheCancel := context.WithCancel(context.Background())
-	c, err := newBatch(cacheCtx, locator, repo)
+	c, err := newBatch(cacheCtx, gitCmdFactory, repo)
 	if err != nil {
 		cacheCancel()
 		return nil, err
@@ -202,7 +197,7 @@ type simulatedBatchSpawnError struct{}
 
 func (simulatedBatchSpawnError) Error() string { return "simulated spawn error" }
 
-func newBatch(ctx context.Context, locator storage.Locator, repo repository.GitRepo) (_ *batch, err error) {
+func newBatch(ctx context.Context, gitCmdFactory git.CommandFactory, repo repository.GitRepo) (_ *batch, err error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer func() {
 		if err != nil {
@@ -210,12 +205,12 @@ func newBatch(ctx context.Context, locator storage.Locator, repo repository.GitR
 		}
 	}()
 
-	b, err := newBatchProcess(ctx, locator, repo)
+	b, err := newBatchProcess(ctx, gitCmdFactory, repo)
 	if err != nil {
 		return nil, err
 	}
 
-	batchCheck, err := newBatchCheck(ctx, locator, repo)
+	batchCheck, err := newBatchCheck(ctx, gitCmdFactory, repo)
 	if err != nil {
 		return nil, err
 	}

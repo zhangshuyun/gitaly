@@ -31,7 +31,7 @@ func (s *server) CommitsBetween(in *gitalypb.CommitsBetweenRequest, stream gital
 	sender := &commitsBetweenSender{stream: stream}
 	revisionRange := fmt.Sprintf("%s..%s", in.GetFrom(), in.GetTo())
 
-	if err := sendCommits(stream.Context(), sender, s.locator, in.GetRepository(), []string{revisionRange}, nil, nil, git.Flag{Name: "--reverse"}); err != nil {
+	if err := sendCommits(stream.Context(), sender, s.gitCmdFactory, in.GetRepository(), []string{revisionRange}, nil, nil, git.Flag{Name: "--reverse"}); err != nil {
 		return helper.ErrInternal(err)
 	}
 
