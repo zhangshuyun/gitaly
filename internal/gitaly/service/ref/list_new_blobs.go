@@ -33,7 +33,7 @@ func (s *server) listNewBlobs(in *gitalypb.ListNewBlobsRequest, stream gitalypb.
 	}
 
 	// the added ^ is to negate the oid since there is a --not option that comes earlier in the arg list
-	revList, err := git.NewCommand(ctx, in.GetRepository(), nil, git.SubCmd{Name: "rev-list", Flags: cmdFlags, Args: []string{"^" + oid}})
+	revList, err := s.gitCmdFactory.New(ctx, in.GetRepository(), nil, git.SubCmd{Name: "rev-list", Flags: cmdFlags, Args: []string{"^" + oid}})
 	if err != nil {
 		return err
 	}

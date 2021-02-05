@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	log "github.com/sirupsen/logrus"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/hooks"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
@@ -51,8 +52,9 @@ func testMain(m *testing.M) int {
 func runConflictsServer(t *testing.T) (string, func()) {
 	srv := testhelper.NewServer(t, nil, nil)
 	locator := config.NewLocator(config.Config)
+	gitCmdFactory := git.NewExecCommandFactory(config.Config)
 
-	gitalypb.RegisterConflictsServiceServer(srv.GrpcServer(), NewServer(RubyServer, config.Config, locator))
+	gitalypb.RegisterConflictsServiceServer(srv.GrpcServer(), NewServer(RubyServer, config.Config, locator, gitCmdFactory))
 	reflection.Register(srv.GrpcServer())
 	srv.Start(t)
 

@@ -9,8 +9,8 @@ import (
 )
 
 type server struct {
-	locator       storage.Locator
 	cfg           config.Cfg
+	locator       storage.Locator
 	gitCmdFactory git.CommandFactory
 }
 

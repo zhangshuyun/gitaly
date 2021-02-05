@@ -84,10 +84,11 @@ func RegisterAll(
 	gitalypb.RegisterSmartHTTPServiceServer(grpcServer, smarthttp.NewServer(
 		cfg,
 		locator,
+		gitCmdFactory,
 		smarthttp.WithPackfileNegotiationMetrics(smarthttpPackfileNegotiationMetrics),
 	))
 	gitalypb.RegisterWikiServiceServer(grpcServer, wiki.NewServer(rubyServer, locator))
-	gitalypb.RegisterConflictsServiceServer(grpcServer, conflicts.NewServer(rubyServer, cfg, locator))
+	gitalypb.RegisterConflictsServiceServer(grpcServer, conflicts.NewServer(rubyServer, cfg, locator, gitCmdFactory))
 	gitalypb.RegisterRemoteServiceServer(grpcServer, remote.NewServer(cfg, rubyServer, locator, gitCmdFactory))
 	gitalypb.RegisterServerServiceServer(grpcServer, server.NewServer(cfg.Storages))
 	gitalypb.RegisterObjectPoolServiceServer(grpcServer, objectpool.NewServer(cfg, locator, gitCmdFactory))

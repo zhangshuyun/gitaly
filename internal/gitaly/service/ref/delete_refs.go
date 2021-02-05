@@ -21,7 +21,7 @@ func (s *server) DeleteRefs(ctx context.Context, in *gitalypb.DeleteRefsRequest)
 		return nil, status.Errorf(codes.InvalidArgument, "DeleteRefs: %v", err)
 	}
 
-	updater, err := updateref.New(ctx, s.cfg, in.GetRepository())
+	updater, err := updateref.New(ctx, s.cfg, s.gitCmdFactory, in.GetRepository())
 	if err != nil {
 		if errors.Is(err, git.ErrInvalidArg) {
 			return nil, helper.ErrInvalidArgument(err)

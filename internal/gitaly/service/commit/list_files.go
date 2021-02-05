@@ -33,7 +33,7 @@ func (s *server) ListFiles(in *gitalypb.ListFilesRequest, stream gitalypb.Commit
 
 	revision := string(in.GetRevision())
 	if len(revision) == 0 {
-		defaultBranch, err := defaultBranchName(stream.Context(), repo)
+		defaultBranch, err := defaultBranchName(stream.Context(), s.gitCmdFactory, repo)
 		if err != nil {
 			return helper.DecorateError(codes.NotFound, fmt.Errorf("revision not found %q", revision))
 		}
@@ -54,7 +54,7 @@ func (s *server) ListFiles(in *gitalypb.ListFilesRequest, stream gitalypb.Commit
 		return stream.Send(&gitalypb.ListFilesResponse{})
 	}
 
-	if err := listFiles(repo, revision, stream); err != nil {
+	if err := s.listFiles(repo, revision, stream); err != nil {
 		return helper.ErrInternal(err)
 	}
 
@@ -68,8 +68,8 @@ func validateListFilesRequest(in *gitalypb.ListFilesRequest) error {
 	return nil
 }
 
-func listFiles(repo *gitalypb.Repository, revision string, stream gitalypb.CommitService_ListFilesServer) error {
-	cmd, err := git.NewCommand(stream.Context(), repo, nil, git.SubCmd{Name: "ls-tree",
+func (s *server) listFiles(repo *gitalypb.Repository, revision string, stream gitalypb.CommitService_ListFilesServer) error {
+	cmd, err := s.gitCmdFactory.New(stream.Context(), repo, nil, git.SubCmd{Name: "ls-tree",
 		Flags:       []git.Option{git.Flag{Name: "-z"}, git.Flag{Name: "-r"}, git.Flag{Name: "--full-tree"}, git.Flag{Name: "--full-name"}},
 		PostSepArgs: []string{revision},
 	})

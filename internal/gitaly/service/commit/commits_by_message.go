@@ -54,7 +54,7 @@ func (s *server) commitsByMessage(in *gitalypb.CommitsByMessageRequest, stream g
 	if len(revision) == 0 {
 		var err error
 
-		revision, err = defaultBranchName(ctx, in.Repository)
+		revision, err = defaultBranchName(ctx, s.gitCmdFactory, in.Repository)
 		if err != nil {
 			return err
 		}

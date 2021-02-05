@@ -47,7 +47,7 @@ func (s *server) PostReceivePack(stream gitalypb.SmartHTTPService_PostReceivePac
 		globalOpts[i] = git.ValueFlag{"-c", o}
 	}
 
-	cmd, err := git.NewCommandWithoutRepo(ctx, globalOpts,
+	cmd, err := s.gitCmdFactory.NewWithoutRepo(ctx, globalOpts,
 		git.SubCmd{
 			Name:  "receive-pack",
 			Flags: []git.Option{git.Flag{Name: "--stateless-rpc"}},

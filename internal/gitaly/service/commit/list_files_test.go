@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/ref"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -40,7 +41,7 @@ var (
 )
 
 func TestListFiles_success(t *testing.T) {
-	defaultBranchName = func(ctx context.Context, _ *gitalypb.Repository) ([]byte, error) {
+	defaultBranchName = func(context.Context, git.CommandFactory, *gitalypb.Repository) ([]byte, error) {
 		return []byte("test-do-not-touch"), nil
 	}
 	defer func() {

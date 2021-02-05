@@ -5,6 +5,7 @@ import (
 	"io"
 
 	"github.com/golang/protobuf/proto"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/cleanup/internalrefs"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/cleanup/notifier"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
@@ -47,7 +48,7 @@ func (s *server) ApplyBfgObjectMapStream(server gitalypb.CleanupService_ApplyBfg
 
 	// It doesn't matter if new internal references are added after this RPC
 	// starts running - they shouldn't point to the objects removed by the BFG
-	cleaner, err := internalrefs.NewCleaner(ctx, s.cfg, repo, notifier.Notify)
+	cleaner, err := internalrefs.NewCleaner(ctx, s.cfg, git.NewExecCommandFactory(s.cfg), repo, notifier.Notify)
 	if err != nil {
 		return helper.ErrInternal(err)
 	}

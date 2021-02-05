@@ -36,7 +36,8 @@ func TestVisibilityOfHiddenRefs(t *testing.T) {
 	existingSha := "1e292f8fedd741b75372e19097c76d327140c312"
 	keepAroundRef := fmt.Sprintf("%s/%s", keepAroundNamespace, existingSha)
 
-	updater, err := updateref.New(ctx, config.Config, testRepo)
+	gitCmdFactory := git.NewExecCommandFactory(config.Config)
+	updater, err := updateref.New(ctx, config.Config, gitCmdFactory, testRepo)
 
 	require.NoError(t, err)
 	require.NoError(t, updater.Create(git.ReferenceName(keepAroundRef), existingSha))
@@ -85,7 +86,7 @@ func TestVisibilityOfHiddenRefs(t *testing.T) {
 			}
 
 			stdout := &bytes.Buffer{}
-			cmd, err := git.NewCommandWithoutRepo(ctx, nil, git.SubCmd{
+			cmd, err := gitCmdFactory.NewWithoutRepo(ctx, nil, git.SubCmd{
 				Name: "ls-remote",
 				Args: []string{
 					fmt.Sprintf("%s:%s", "git@localhost", testRepoPath),

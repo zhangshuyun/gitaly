@@ -82,7 +82,7 @@ func TestFindAllBranchNamesVeryLargeResponse(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	updater, err := updateref.New(ctx, config.Config, testRepo)
+	updater, err := updateref.New(ctx, config.Config, git.NewExecCommandFactory(config.Config), testRepo)
 	require.NoError(t, err)
 
 	// We want to create enough refs to overflow the default bufio.Scanner
@@ -272,7 +272,7 @@ func TestHeadReference(t *testing.T) {
 	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
-	headRef, err := headReference(ctx, testRepo)
+	headRef, err := headReference(ctx, git.NewExecCommandFactory(config.Config), testRepo)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -294,7 +294,7 @@ func TestHeadReferenceWithNonExistingHead(t *testing.T) {
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
-	headRef, err := headReference(ctx, testRepo)
+	headRef, err := headReference(ctx, git.NewExecCommandFactory(config.Config), testRepo)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -329,10 +329,11 @@ func TestSetDefaultBranchRef(t *testing.T) {
 			testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
 			defer cleanupFn()
 
-			err := SetDefaultBranchRef(ctx, testRepo, tc.ref, config.Config)
+			gitCmdFactory := git.NewExecCommandFactory(config.Config)
+			err := SetDefaultBranchRef(ctx, gitCmdFactory, testRepo, tc.ref, config.Config)
 			require.NoError(t, err)
 
-			newRef, err := DefaultBranchName(ctx, testRepo)
+			newRef, err := DefaultBranchName(ctx, gitCmdFactory, testRepo)
 			require.NoError(t, err)
 
 			require.Equal(t, tc.expectedRef, string(newRef))
@@ -352,47 +353,51 @@ func TestDefaultBranchName(t *testing.T) {
 
 	testCases := []struct {
 		desc            string
-		findBranchNames func(context.Context, *gitalypb.Repository) ([][]byte, error)
-		headReference   func(context.Context, *gitalypb.Repository) ([]byte, error)
+		findBranchNames func(context.Context, git.CommandFactory, *gitalypb.Repository) ([][]byte, error)
+		headReference   func(context.Context, git.CommandFactory, *gitalypb.Repository) ([]byte, error)
 		expected        []byte
 	}{
 		{
 			desc:     "Get first branch when only one branch exists",
 			expected: []byte("refs/heads/foo"),
-			findBranchNames: func(context.Context, *gitalypb.Repository) ([][]byte, error) {
+			findBranchNames: func(context.Context, git.CommandFactory, *gitalypb.Repository) ([][]byte, error) {
 				return [][]byte{[]byte("refs/heads/foo")}, nil
 			},
-			headReference: func(context.Context, *gitalypb.Repository) ([]byte, error) { return nil, nil },
+			headReference: func(context.Context, git.CommandFactory, *gitalypb.Repository) ([]byte, error) { return nil, nil },
 		},
 		{
-			desc:            "Get empy ref if no branches exists",
-			expected:        nil,
-			findBranchNames: func(context.Context, *gitalypb.Repository) ([][]byte, error) { return [][]byte{}, nil },
-			headReference:   func(context.Context, *gitalypb.Repository) ([]byte, error) { return nil, nil },
+			desc:     "Get empy ref if no branches exists",
+			expected: nil,
+			findBranchNames: func(context.Context, git.CommandFactory, *gitalypb.Repository) ([][]byte, error) {
+				return [][]byte{}, nil
+			},
+			headReference: func(context.Context, git.CommandFactory, *gitalypb.Repository) ([]byte, error) { return nil, nil },
 		},
 		{
 			desc:     "Get the name of the head reference when more than one branch exists",
 			expected: []byte("refs/heads/bar"),
-			findBranchNames: func(context.Context, *gitalypb.Repository) ([][]byte, error) {
+			findBranchNames: func(context.Context, git.CommandFactory, *gitalypb.Repository) ([][]byte, error) {
 				return [][]byte{[]byte("refs/heads/foo"), []byte("refs/heads/bar")}, nil
 			},
-			headReference: func(context.Context, *gitalypb.Repository) ([]byte, error) { return []byte("refs/heads/bar"), nil },
+			headReference: func(context.Context, git.CommandFactory, *gitalypb.Repository) ([]byte, error) {
+				return []byte("refs/heads/bar"), nil
+			},
 		},
 		{
 			desc:     "Get `ref/heads/master` when several branches exist",
 			expected: []byte("refs/heads/master"),
-			findBranchNames: func(context.Context, *gitalypb.Repository) ([][]byte, error) {
+			findBranchNames: func(context.Context, git.CommandFactory, *gitalypb.Repository) ([][]byte, error) {
 				return [][]byte{[]byte("refs/heads/foo"), []byte("refs/heads/master"), []byte("refs/heads/bar")}, nil
 			},
-			headReference: func(context.Context, *gitalypb.Repository) ([]byte, error) { return nil, nil },
+			headReference: func(context.Context, git.CommandFactory, *gitalypb.Repository) ([]byte, error) { return nil, nil },
 		},
 		{
 			desc:     "Get the name of the first branch when several branches exists and no other conditions are met",
 			expected: []byte("refs/heads/foo"),
-			findBranchNames: func(context.Context, *gitalypb.Repository) ([][]byte, error) {
+			findBranchNames: func(context.Context, git.CommandFactory, *gitalypb.Repository) ([][]byte, error) {
 				return [][]byte{[]byte("refs/heads/foo"), []byte("refs/heads/bar"), []byte("refs/heads/baz")}, nil
 			},
-			headReference: func(context.Context, *gitalypb.Repository) ([]byte, error) { return nil, nil },
+			headReference: func(context.Context, git.CommandFactory, *gitalypb.Repository) ([]byte, error) { return nil, nil },
 		},
 	}
 
@@ -402,7 +407,7 @@ func TestDefaultBranchName(t *testing.T) {
 
 		ctx, cancel := testhelper.Context()
 		defer cancel()
-		defaultBranch, err := DefaultBranchName(ctx, testRepo)
+		defaultBranch, err := DefaultBranchName(ctx, git.NewExecCommandFactory(config.Config), testRepo)
 		if err != nil {
 			t.Fatal(err)
 		}

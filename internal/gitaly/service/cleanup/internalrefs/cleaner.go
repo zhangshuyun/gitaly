@@ -47,13 +47,13 @@ type ErrInvalidObjectMap error
 
 // NewCleaner builds a new instance of Cleaner, which is used to apply a
 // filter-repo or BFG object map to a repository.
-func NewCleaner(ctx context.Context, cfg config.Cfg, repo *gitalypb.Repository, forEach ForEachFunc) (*Cleaner, error) {
-	table, err := buildLookupTable(ctx, repo)
+func NewCleaner(ctx context.Context, cfg config.Cfg, gitCmdFactory git.CommandFactory, repo *gitalypb.Repository, forEach ForEachFunc) (*Cleaner, error) {
+	table, err := buildLookupTable(ctx, gitCmdFactory, repo)
 	if err != nil {
 		return nil, err
 	}
 
-	updater, err := updateref.New(ctx, cfg, repo)
+	updater, err := updateref.New(ctx, cfg, gitCmdFactory, repo)
 	if err != nil {
 		return nil, err
 	}
@@ -133,8 +133,8 @@ func (c *Cleaner) processEntry(ctx context.Context, oldSHA, newSHA string) error
 // an object that has been rewritten by the filter-repo or BFG (and so require
 // action). It is consulted once per line in the object map. Git is optimized
 // for ref -> SHA lookups, but we want the opposite!
-func buildLookupTable(ctx context.Context, repo *gitalypb.Repository) (map[string][]git.ReferenceName, error) {
-	cmd, err := git.NewCommand(ctx, repo, nil, git.SubCmd{
+func buildLookupTable(ctx context.Context, gitCmdFactory git.CommandFactory, repo *gitalypb.Repository) (map[string][]git.ReferenceName, error) {
+	cmd, err := gitCmdFactory.New(ctx, repo, nil, git.SubCmd{
 		Name:  "for-each-ref",
 		Flags: []git.Option{git.ValueFlag{Name: "--format", Value: "%(objectname) %(refname)"}},
 		Args:  internalRefs,

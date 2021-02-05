@@ -88,7 +88,7 @@ func (s *Server) updateReferenceWithHooks(ctx context.Context, repo *gitalypb.Re
 		return preReceiveError{message: err.Error()}
 	}
 
-	updater, err := updateref.New(ctx, s.cfg, repo)
+	updater, err := updateref.New(ctx, s.cfg, s.gitCmdFactory, repo)
 	if err != nil {
 		return err
 	}

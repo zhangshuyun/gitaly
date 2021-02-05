@@ -88,7 +88,7 @@ func (s *server) PostUploadPack(stream gitalypb.SmartHTTPService_PostUploadPackS
 		commandOpts = append(commandOpts, git.WithPackObjectsHookEnv(ctx, req.Repository, s.cfg))
 	}
 
-	cmd, err := git.NewCommandWithoutRepo(ctx, globalOpts, git.SubCmd{
+	cmd, err := s.gitCmdFactory.NewWithoutRepo(ctx, globalOpts, git.SubCmd{
 		Name:  "upload-pack",
 		Flags: []git.Option{git.Flag{Name: "--stateless-rpc"}},
 		Args:  []string{repoPath},

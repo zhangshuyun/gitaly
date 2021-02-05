@@ -29,7 +29,7 @@ func (s *server) FindCommits(req *gitalypb.FindCommitsRequest, stream gitalypb.C
 	// migrated.
 	if revision := req.Revision; len(revision) == 0 && !req.GetAll() {
 		var err error
-		req.Revision, err = defaultBranchName(ctx, req.Repository)
+		req.Revision, err = defaultBranchName(ctx, s.gitCmdFactory, req.Repository)
 		if err != nil {
 			return helper.ErrInternal(fmt.Errorf("defaultBranchName: %v", err))
 		}
@@ -50,7 +50,7 @@ func (s *server) FindCommits(req *gitalypb.FindCommitsRequest, stream gitalypb.C
 
 func (s *server) findCommits(ctx context.Context, req *gitalypb.FindCommitsRequest, stream gitalypb.CommitService_FindCommitsServer) error {
 	globals := git.ConvertGlobalOptions(req.GetGlobalOptions())
-	logCmd, err := git.NewCommand(ctx, req.GetRepository(), globals, getLogCommandSubCmd(req))
+	logCmd, err := s.gitCmdFactory.New(ctx, req.GetRepository(), globals, getLogCommandSubCmd(req))
 	if err != nil {
 		return fmt.Errorf("error when creating git log command: %v", err)
 	}

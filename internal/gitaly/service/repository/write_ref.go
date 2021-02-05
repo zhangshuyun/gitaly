@@ -27,7 +27,7 @@ func (s *server) writeRef(ctx context.Context, req *gitalypb.WriteRefRequest) er
 	if string(req.Ref) == "HEAD" {
 		return s.updateSymbolicRef(ctx, req)
 	}
-	return updateRef(ctx, s.cfg, req)
+	return updateRef(ctx, s.cfg, s.gitCmdFactory, req)
 }
 
 func (s *server) updateSymbolicRef(ctx context.Context, req *gitalypb.WriteRefRequest) error {
@@ -47,8 +47,8 @@ func (s *server) updateSymbolicRef(ctx context.Context, req *gitalypb.WriteRefRe
 	return nil
 }
 
-func updateRef(ctx context.Context, cfg config.Cfg, req *gitalypb.WriteRefRequest) error {
-	u, err := updateref.New(ctx, cfg, req.GetRepository())
+func updateRef(ctx context.Context, cfg config.Cfg, gitCmdFactory git.CommandFactory, req *gitalypb.WriteRefRequest) error {
+	u, err := updateref.New(ctx, cfg, gitCmdFactory, req.GetRepository())
 	if err != nil {
 		return fmt.Errorf("error when running creating new updater: %v", err)
 	}

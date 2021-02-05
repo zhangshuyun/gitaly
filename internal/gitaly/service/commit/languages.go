@@ -30,7 +30,7 @@ func (s *server) CommitLanguages(ctx context.Context, req *gitalypb.CommitLangua
 
 	revision := string(req.Revision)
 	if revision == "" {
-		defaultBranch, err := ref.DefaultBranchName(ctx, req.Repository)
+		defaultBranch, err := ref.DefaultBranchName(ctx, s.gitCmdFactory, req.Repository)
 		if err != nil {
 			return nil, err
 		}
@@ -87,16 +87,16 @@ func (ls languageSorter) Swap(i, j int)      { ls[i], ls[j] = ls[j], ls[i] }
 func (ls languageSorter) Less(i, j int) bool { return ls[i].Share > ls[j].Share }
 
 func (s *server) lookupRevision(ctx context.Context, repo *gitalypb.Repository, revision string) (string, error) {
-	rev, err := checkRevision(ctx, repo, revision)
+	rev, err := s.checkRevision(ctx, repo, revision)
 	if err != nil {
 		switch err {
 		case errAmbigRef:
-			fullRev, err := disambiguateRevision(ctx, repo, revision)
+			fullRev, err := s.disambiguateRevision(ctx, repo, revision)
 			if err != nil {
 				return "", err
 			}
 
-			rev, err = checkRevision(ctx, repo, fullRev)
+			rev, err = s.checkRevision(ctx, repo, fullRev)
 			if err != nil {
 				return "", err
 			}
@@ -108,10 +108,10 @@ func (s *server) lookupRevision(ctx context.Context, repo *gitalypb.Repository, 
 	return rev, nil
 }
 
-func checkRevision(ctx context.Context, repo *gitalypb.Repository, revision string) (string, error) {
+func (s *server) checkRevision(ctx context.Context, repo *gitalypb.Repository, revision string) (string, error) {
 	var stdout, stderr bytes.Buffer
 
-	revParse, err := git.NewCommand(ctx, repo, nil,
+	revParse, err := s.gitCmdFactory.New(ctx, repo, nil,
 		git.SubCmd{Name: "rev-parse", Args: []string{revision}},
 		git.WithStdout(&stdout),
 		git.WithStderr(&stderr),
@@ -133,8 +133,8 @@ func checkRevision(ctx context.Context, repo *gitalypb.Repository, revision stri
 	return text.ChompBytes(stdout.Bytes()), nil
 }
 
-func disambiguateRevision(ctx context.Context, repo *gitalypb.Repository, revision string) (string, error) {
-	cmd, err := git.NewCommand(ctx, repo, nil, git.SubCmd{
+func (s *server) disambiguateRevision(ctx context.Context, repo *gitalypb.Repository, revision string) (string, error) {
+	cmd, err := s.gitCmdFactory.New(ctx, repo, nil, git.SubCmd{
 		Name:  "for-each-ref",
 		Flags: []git.Option{git.Flag{Name: "--format=%(refname)"}},
 		Args:  []string{"**/" + revision},

@@ -15,7 +15,7 @@ import (
 func (s *server) FindAllBranchNames(in *gitalypb.FindAllBranchNamesRequest, stream gitalypb.RefService_FindAllBranchNamesServer) error {
 	chunker := chunk.New(&findAllBranchNamesSender{stream: stream})
 
-	return listRefNames(stream.Context(), chunker, "refs/heads", in.Repository, nil)
+	return s.listRefNames(stream.Context(), chunker, "refs/heads", in.Repository, nil)
 }
 
 type findAllBranchNamesSender struct {
@@ -36,7 +36,7 @@ func (ts *findAllBranchNamesSender) Send() error {
 func (s *server) FindAllTagNames(in *gitalypb.FindAllTagNamesRequest, stream gitalypb.RefService_FindAllTagNamesServer) error {
 	chunker := chunk.New(&findAllTagNamesSender{stream: stream})
 
-	return listRefNames(stream.Context(), chunker, "refs/tags", in.Repository, nil)
+	return s.listRefNames(stream.Context(), chunker, "refs/tags", in.Repository, nil)
 }
 
 type findAllTagNamesSender struct {
@@ -53,7 +53,7 @@ func (ts *findAllTagNamesSender) Send() error {
 	return ts.stream.Send(&gitalypb.FindAllTagNamesResponse{Names: ts.tagNames})
 }
 
-func listRefNames(ctx context.Context, chunker *chunk.Chunker, prefix string, repo *gitalypb.Repository, extraArgs []string) error {
+func (s *server) listRefNames(ctx context.Context, chunker *chunk.Chunker, prefix string, repo *gitalypb.Repository, extraArgs []string) error {
 	flags := []git.Option{
 		git.Flag{Name: "--format=%(refname)"},
 	}
@@ -62,7 +62,7 @@ func listRefNames(ctx context.Context, chunker *chunk.Chunker, prefix string, re
 		flags = append(flags, git.Flag{arg})
 	}
 
-	cmd, err := git.NewCommand(ctx, repo, nil, git.SubCmd{
+	cmd, err := s.gitCmdFactory.New(ctx, repo, nil, git.SubCmd{
 		Name:  "for-each-ref",
 		Flags: flags,
 		Args:  []string{prefix},

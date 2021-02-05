@@ -26,7 +26,7 @@ func (s *server) ListNewCommits(in *gitalypb.ListNewCommitsRequest, stream gital
 func (s *server) listNewCommits(in *gitalypb.ListNewCommitsRequest, stream gitalypb.RefService_ListNewCommitsServer, oid string) error {
 	ctx := stream.Context()
 
-	revList, err := git.NewCommand(ctx, in.GetRepository(), nil, git.SubCmd{
+	revList, err := s.gitCmdFactory.New(ctx, in.GetRepository(), nil, git.SubCmd{
 		Name:  "rev-list",
 		Flags: []git.Option{git.Flag{Name: "--not"}, git.Flag{Name: "--all"}},
 		Args:  []string{"^" + oid}, // the added ^ is to negate the oid since there is a --not option that comes earlier in the arg list
