@@ -4,9 +4,12 @@ import (
 	"errors"
 
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/streamio"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func validateReferenceTransactionHookRequest(in *gitalypb.ReferenceTransactionHookRequest) error {
@@ -50,7 +53,14 @@ func (s *server) ReferenceTransactionHook(stream gitalypb.HookService_ReferenceT
 		request.GetEnvironmentVariables(),
 		stdin,
 	); err != nil {
-		return helper.ErrInternalf("reference-transaction hook: %v", err)
+		code := codes.Internal
+		switch {
+		case errors.Is(err, transaction.ErrTransactionAborted):
+			code = codes.Aborted
+		case errors.Is(err, transaction.ErrTransactionStopped):
+			code = codes.FailedPrecondition
+		}
+		return status.Errorf(code, "reference-transaction hook: %v", err)
 	}
 
 	if err := stream.Send(&gitalypb.ReferenceTransactionHookResponse{

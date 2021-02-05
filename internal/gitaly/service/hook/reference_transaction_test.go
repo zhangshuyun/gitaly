@@ -87,7 +87,14 @@ func TestReferenceTransactionHook(t *testing.T) {
 			desc:              "hook fails with failed vote",
 			stdin:             []byte("foobar"),
 			voteResponse:      gitalypb.VoteTransactionResponse_ABORT,
-			expectedCode:      codes.Internal,
+			expectedCode:      codes.Aborted,
+			expectedReftxHash: []byte("foobar"),
+		},
+		{
+			desc:              "hook fails with stopped vote",
+			stdin:             []byte("foobar"),
+			voteResponse:      gitalypb.VoteTransactionResponse_STOP,
+			expectedCode:      codes.FailedPrecondition,
 			expectedReftxHash: []byte("foobar"),
 		},
 	}
