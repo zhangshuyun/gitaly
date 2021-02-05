@@ -256,7 +256,8 @@ func TestUploadPackWithPackObjectsHook(t *testing.T) {
 	config.Config.BinDir = hookDir
 
 	outputPath := filepath.Join(hookDir, "output")
-	script := fmt.Sprintf("#!/bin/sh\necho 'I was invoked' >%s\nexit 1\n", outputPath)
+	hookScript := fmt.Sprintf("#!/bin/sh\necho 'I was invoked' >'%s'\nshift\nexec '%s' \"$@\"\n",
+		outputPath, config.Config.Git.BinPath)
 
 	// We're using a custom pack-objects hook for git-upload-pack. In order
 	// to assure that it's getting executed as expected, we're writing a
@@ -265,7 +266,7 @@ func TestUploadPackWithPackObjectsHook(t *testing.T) {
 	// out. In the best case we'd have just printed the error to stderr and
 	// check the return error message. But it's unfortunately not
 	// transferred back.
-	cleanup = testhelper.WriteExecutable(t, filepath.Join(hookDir, "gitaly-hooks"), []byte(script))
+	cleanup = testhelper.WriteExecutable(t, filepath.Join(hookDir, "gitaly-hooks"), []byte(hookScript))
 	defer cleanup()
 
 	serverSocketPath, stop := runSmartHTTPServer(t)
@@ -289,7 +290,7 @@ func TestUploadPackWithPackObjectsHook(t *testing.T) {
 	_, err := makePostUploadPackRequest(ctx, t, serverSocketPath, &gitalypb.PostUploadPackRequest{
 		Repository: repo,
 	}, requestBuffer)
-	require.Error(t, err)
+	require.NoError(t, err)
 
 	contents := testhelper.MustReadFile(t, outputPath)
 	require.Equal(t, "I was invoked\n", string(contents))
