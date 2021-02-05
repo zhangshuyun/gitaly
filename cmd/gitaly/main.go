@@ -87,15 +87,9 @@ func configure(configPath string) error {
 
 	glog.Configure(config.Config.Logging.Format, config.Config.Logging.Level)
 
-	cgroupsManager := cgroups.NewManager(config.Config.Cgroups)
-	if err := cgroupsManager.Setup(); err != nil {
+	if err := cgroups.NewManager(config.Config.Cgroups).Setup(); err != nil {
 		return fmt.Errorf("failed setting up cgroups: %w", err)
 	}
-	defer func() {
-		if err := cgroupsManager.Cleanup(); err != nil {
-			log.WithError(err).Warn("error cleaning up cgroups")
-		}
-	}()
 
 	if err := verifyGitVersion(); err != nil {
 		return err
@@ -239,6 +233,12 @@ func run(cfg config.Cfg) error {
 		return fmt.Errorf("initialize auxiliary workers: %v", err)
 	}
 	defer shutdownWorkers()
+
+	defer func() {
+		if err := cgroups.NewManager(config.Config.Cgroups).Cleanup(); err != nil {
+			log.WithError(err).Warn("error cleaning up cgroups")
+		}
+	}()
 
 	return b.Wait(cfg.GracefulRestartTimeout.Duration())
 }

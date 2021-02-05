@@ -1,0 +1,5 @@
+---
+title: Fix premature cgroups cleanup
+merge_request: 3098
+author:
+type: fixed
