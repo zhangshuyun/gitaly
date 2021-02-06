@@ -39,7 +39,7 @@ configuration](https://gitlab.com/gitlab-org/gitaly/issues/1282).
 In the meantime we are building features according to our [roadmap][roadmap].
 
 If you're interested in seeing how well Gitaly is performing on
-GitLab.com, read about our [observibiltiy story](doc/observibility.md)!
+GitLab.com, read about our [observability story](doc/observability.md)!
 
 ##### Overall
 
@@ -170,34 +170,34 @@ For more information on how to set it up, see the [LabKit monitoring docs](https
 
 - [How Gitaly fits into GitLab (Youtube)](https://www.youtube.com/playlist?list=PL05JrBw4t0KqoFUiX42JG7BAc7pipMBAy) - a series of 1-hour training videos for contributors new to GitLab and Gitaly.
   - [Part 1: the Gitaly client in gitlab-ce, 2019-02-21](https://www.youtube.com/watch?v=j0HNiKCnLTI&list=PL05JrBw4t0KqoFUiX42JG7BAc7pipMBAy)
-      
+
       Overview of GitLab backend processes, gitlab-rails deep dive: Gitaly
       config in gitlab-rails, SQL data model, overview of how Gitaly calls get
       made via GitalyClient.call.
-      
+
   - [Part 2: Git SSH, 2019-02-28](https://www.youtube.com/watch?v=0kY0HPFn25o&list=PL05JrBw4t0KqoFUiX42JG7BAc7pipMBAy)
-      
+
       What is in a gitaly-proto Repository message, legacy vs
       hashed storage (repository directories), `git clone` via SSH,
       gitlab-shell, `authorized_keys` and forced commands, what happens
       during `git push`.
-      
+
   - [Part 3: Git push, 2019-03-07](https://www.youtube.com/watch?v=-kXYycFYDzo&list=PL05JrBw4t0KqoFUiX42JG7BAc7pipMBAy)
-      
+
       A closer look at the final stage of `git push` where the git hooks run
       and the refs get updated. Interaction between the git hooks and GitLab
       internal API. The Git
       [object quarantine mechanism](https://git-scm.com/docs/git-receive-pack#_quarantine_environment).
       Preview of Git HTTP (to be discussed next time).
-      
+
   - [Part 4: Git HTTP, 2019-03-14](https://www.youtube.com/watch?v=lM13p8lCu8A&list=PL05JrBw4t0KqoFUiX42JG7BAc7pipMBAy)
-      
+
       Intercepting Git HTTP traffic with mitmproxy, overview of
       Git HTTP clone steps, code walk in gitlab-workhorse and gitlab-ce,
       investigating internal workhorse API messages used for Git HTTP.
-      
+
   - [Part 5: Merge Requests across Forks, 2019-03-21](https://www.youtube.com/watch?v=yGSuOz0XOHQ&list=PL05JrBw4t0KqoFUiX42JG7BAc7pipMBAy)
-      
+
       Fixing a locally broken Ruby gem C
       extension by recompiling, demo of how creating a MR across forks
       causes new commits to suddenly appear in the fork parent repository,
@@ -205,7 +205,7 @@ For more information on how to set it up, see the [LabKit monitoring docs](https
       how address and authentication metadata is passed down to
       gitaly-ruby, failed attempt to log gitaly-ssh arguments, comparison
       of gitaly-ssh and gitlab-shell, a Gitaly server can end up making RPC calls to itself.
-      
+
   -  [Part 6: Creating Git commits on behalf of Git users, 2019-03-21](https://www.youtube.com/watch?v=Rbe0KGTLkxY&list=PL05JrBw4t0KqoFUiX42JG7BAc7pipMBAy)
 
       Demonstrate how usually Git hooks are run by
@@ -226,7 +226,7 @@ For more information on how to set it up, see the [LabKit monitoring docs](https
       [ELK](https://log.gitlab.net). [GRPC Prometheus
       middleware](https://github.com/grpc-ecosystem/go-grpc-prometheus)
       in Gitaly.
- 
+
 - [TheConf talk on Scaling GitLab git storage with Gitaly, 2019-08-16](https://speakerdeck.com/olsfer/how-gitlab-scaled-git-access-with-a-go-service)
 - [Infrastructure Team Update 2017-05-11](https://about.gitlab.com/2017/05/11/functional-group-updates/#infrastructure-team)
 - [Gitaly Basics, 2017-05-01](https://docs.google.com/presentation/d/1cLslUbXVkniOaeJ-r3s5AYF0kQep8VeNfvs0XSGrpA0/edit#slide=id.g1c73db867d_0_0)
