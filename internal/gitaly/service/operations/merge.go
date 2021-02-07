@@ -164,7 +164,7 @@ func (s *Server) UserFFBranch(ctx context.Context, in *gitalypb.UserFFBranchRequ
 		return nil, helper.ErrInvalidArgument(err)
 	}
 
-	ancestor, err := isAncestor(ctx, in.Repository, revision.String(), in.CommitId)
+	ancestor, err := s.isAncestor(ctx, in.Repository, revision.String(), in.CommitId)
 	if err != nil {
 		return nil, err
 	}
@@ -316,8 +316,8 @@ func (s *Server) UserMergeToRef(ctx context.Context, request *gitalypb.UserMerge
 	}, nil
 }
 
-func isAncestor(ctx context.Context, repo repository.GitRepo, ancestor, descendant string) (bool, error) {
-	cmd, err := git.NewCommand(ctx, repo, nil, git.SubCmd{
+func (s *Server) isAncestor(ctx context.Context, repo repository.GitRepo, ancestor, descendant string) (bool, error) {
+	cmd, err := s.gitCmdFactory.New(ctx, repo, nil, git.SubCmd{
 		Name:  "merge-base",
 		Flags: []git.Option{git.Flag{Name: "--is-ancestor"}},
 		Args:  []string{ancestor, descendant},
