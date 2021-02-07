@@ -28,7 +28,8 @@ func TestDisconnectGitAlternates(t *testing.T) {
 	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
-	pool, err := objectpool.NewObjectPool(config.Config, locator, git.NewExecCommandFactory(config.Config), testRepo.GetStorageName(), testhelper.NewTestObjectPoolName(t))
+	gitCmdFactory := git.NewExecCommandFactory(config.Config)
+	pool, err := objectpool.NewObjectPool(config.Config, locator, gitCmdFactory, testRepo.GetStorageName(), testhelper.NewTestObjectPoolName(t))
 	require.NoError(t, err)
 	defer pool.Remove(ctx)
 
@@ -43,7 +44,7 @@ func TestDisconnectGitAlternates(t *testing.T) {
 	require.NoError(t, err, "find info/alternates")
 	require.NoError(t, os.RemoveAll(altPath))
 
-	cmd, err := git.NewCommand(ctx, testRepo, nil,
+	cmd, err := gitCmdFactory.New(ctx, testRepo, nil,
 		git.SubCmd{Name: "cat-file", Flags: []git.Option{git.Flag{Name: "-e"}}, Args: []string{existingObjectID}})
 	require.NoError(t, err)
 	require.Error(t, cmd.Wait(), "expect cat-file to fail because object cannot be found")
@@ -146,7 +147,8 @@ func TestRemoveAlternatesIfOk(t *testing.T) {
 
 	altBackup := altPath + ".backup"
 
-	err = removeAlternatesIfOk(ctx, testRepo, altPath, altBackup)
+	srv := server{gitCmdFactory: git.NewExecCommandFactory(config.Config)}
+	err = srv.removeAlternatesIfOk(ctx, testRepo, altPath, altBackup)
 	require.Error(t, err, "removeAlternatesIfOk should fail")
 	require.IsType(t, &fsckError{}, err, "error must be because of fsck")
 
