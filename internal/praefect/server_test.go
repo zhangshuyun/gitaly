@@ -144,24 +144,24 @@ func TestGitalyServerInfoBadNode(t *testing.T) {
 	require.Len(t, metadata.GetStorageStatuses(), 0)
 }
 
-func TestGitalyDiskStatistics(t *testing.T) {
-	conf := config.Config{
-		VirtualStorages: []*config.VirtualStorage{
-			{
-				Nodes: []*config.Node{
-					{
-						Storage: "praefect-internal-1",
-						Token:   "abc",
-					},
-					{
-						Storage: "praefect-internal-2",
-						Token:   "abc",
-					}},
-			},
-		},
+func TestDiskStatistics(t *testing.T) {
+	praefectCfg := config.Config{VirtualStorages: []*config.VirtualStorage{{Name: "praefect"}}}
+	for _, name := range []string{"gitaly-1", "gitaly-2"} {
+		cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages(name))
+		defer cfgBuilder.Cleanup()
+		gitalyCfg := cfgBuilder.Build(t)
+
+		gitalyAddr, cleanupGitaly := testserver.RunGitalyServer(t, gitalyCfg, nil)
+		defer cleanupGitaly()
+
+		praefectCfg.VirtualStorages[0].Nodes = append(praefectCfg.VirtualStorages[0].Nodes, &config.Node{
+			Storage: name,
+			Address: gitalyAddr,
+			Token:   gitalyCfg.Auth.Token,
+		})
 	}
 
-	cc, _, cleanup := runPraefectServerWithGitaly(t, gconfig.Config, conf)
+	cc, _, cleanup := runPraefectServer(t, praefectCfg, buildOptions{})
 	defer cleanup()
 
 	client := gitalypb.NewServerServiceClient(cc)
@@ -169,12 +169,11 @@ func TestGitalyDiskStatistics(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	metadata, err := client.DiskStatistics(ctx, &gitalypb.DiskStatisticsRequest{})
+	diskStat, err := client.DiskStatistics(ctx, &gitalypb.DiskStatisticsRequest{})
 	require.NoError(t, err)
-	// flattenVirtualStoragesToStoragePath flattens nodes to gitaly storages causing each of two gitaly instances to have 2 storages
-	require.Len(t, metadata.GetStorageStatuses(), 4)
+	require.Len(t, diskStat.GetStorageStatuses(), 2)
 
-	for _, storageStatus := range metadata.GetStorageStatuses() {
+	for _, storageStatus := range diskStat.GetStorageStatuses() {
 		require.NotNil(t, storageStatus, "none of the storage statuses should be nil")
 	}
 }
