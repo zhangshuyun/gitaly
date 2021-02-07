@@ -194,33 +194,33 @@ func TestHealthCheck(t *testing.T) {
 func TestRejectBadStorage(t *testing.T) {
 	conf := config.Config{
 		VirtualStorages: []*config.VirtualStorage{
-			&config.VirtualStorage{
+			{
 				Name: "praefect",
 				Nodes: []*config.Node{
-					&config.Node{
+					{
 						Storage: "praefect-internal-0",
-						Address: "tcp::/this-doesnt-matter",
+						Address: "tcp://this-doesnt-matter",
 					},
 				},
 			},
 		},
 	}
 
-	cc, _, cleanup := runPraefectServerWithGitaly(t, gconfig.Config, conf)
+	cc, _, cleanup := runPraefectServer(t, conf, buildOptions{})
 	defer cleanup()
-
-	badTargetRepo := gitalypb.Repository{
-		StorageName:  "default",
-		RelativePath: "/path/to/hashed/storage",
-	}
-
-	repoClient := gitalypb.NewRepositoryServiceClient(cc)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	_, err := repoClient.GarbageCollect(ctx, &gitalypb.GarbageCollectRequest{Repository: &badTargetRepo})
-	require.Error(t, err)
+	req := &gitalypb.GarbageCollectRequest{
+		Repository: &gitalypb.Repository{
+			StorageName:  "bad-name",
+			RelativePath: "/path/to/hashed/storage",
+		},
+	}
+
+	_, err := gitalypb.NewRepositoryServiceClient(cc).GarbageCollect(ctx, req)
+	require.Error(t, err, status.New(codes.InvalidArgument, "repo scoped: invalid Repository"))
 }
 
 func TestWarnDuplicateAddrs(t *testing.T) {
