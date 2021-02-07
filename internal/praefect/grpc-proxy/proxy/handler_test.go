@@ -447,7 +447,7 @@ func TestRegisterStreamHandlers(t *testing.T) {
 
 		require.Equal(t, pingValue, req.Value)
 
-		return nil
+		return stream.SendMsg(nil)
 	}
 
 	pingEmptyStreamHandler := func(srv interface{}, stream grpc.ServerStream) error {
@@ -458,7 +458,7 @@ func TestRegisterStreamHandlers(t *testing.T) {
 			return err
 		}
 
-		return nil
+		return stream.SendMsg(nil)
 	}
 
 	streamers := map[string]grpc.StreamHandler{
@@ -478,7 +478,7 @@ func TestRegisterStreamHandlers(t *testing.T) {
 	go server.Serve(listener)
 	defer server.Stop()
 
-	cc, err := client.Dial("unix://"+serverSocketPath, nil)
+	cc, err := client.Dial("unix://"+serverSocketPath, []grpc.DialOption{grpc.WithBlock()})
 	require.NoError(t, err)
 
 	testServiceClient := pb.NewTestServiceClient(cc)
@@ -487,14 +487,14 @@ func TestRegisterStreamHandlers(t *testing.T) {
 	defer cancel()
 
 	_, err = testServiceClient.Ping(ctx, &pb.PingRequest{Value: pingValue})
-	require.False(t, testhelper.GrpcErrorHasMessage(err, directorCalledError.Error()))
+	require.NoError(t, err)
 	require.True(t, pingStreamHandlerCalled)
 
 	_, err = testServiceClient.PingEmpty(ctx, &pb.Empty{})
-	require.False(t, testhelper.GrpcErrorHasMessage(err, directorCalledError.Error()))
+	require.NoError(t, err)
 	require.True(t, pingEmptyStreamHandlerCalled)
 
 	// since PingError was never registered with its own streamer, it should get sent to the UnknownServiceHandler
 	_, err = testServiceClient.PingError(ctx, &pb.PingRequest{})
-	require.True(t, testhelper.GrpcErrorHasMessage(err, directorCalledError.Error()))
+	testhelper.GrpcErrorHasMessage(t, err, directorCalledError.Error())
 }

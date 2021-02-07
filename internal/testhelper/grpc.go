@@ -46,12 +46,12 @@ func RequireGrpcError(t testing.TB, err error, expectedCode codes.Code) {
 
 // GrpcErrorHasMessage checks whether the GRPC error's message matches the
 // given message.
-func GrpcErrorHasMessage(grpcError error, msg string) bool {
-	status, ok := status.FromError(grpcError)
-	if !ok {
-		return false
-	}
-	return status.Message() == msg
+func GrpcErrorHasMessage(t testing.TB, grpcError error, msg string) {
+	t.Helper()
+
+	st, ok := status.FromError(grpcError)
+	require.Truef(t, ok, "passed err is not a status.Status: %T", grpcError)
+	require.Equal(t, msg, st.Message())
 }
 
 // MergeOutgoingMetadata merges provided metadata-s and returns context with resulting value.

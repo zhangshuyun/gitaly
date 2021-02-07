@@ -173,7 +173,7 @@ func TestServer_CreateRepositoryFromBundle_failed_existing_directory(t *testing.
 
 	_, err = stream.CloseAndRecv()
 	testhelper.RequireGrpcError(t, err, codes.FailedPrecondition)
-	testhelper.GrpcErrorHasMessage(err, "CreateRepositoryFromBundle: target directory is non-empty")
+	testhelper.GrpcErrorHasMessage(t, err, "CreateRepositoryFromBundle: target directory is non-empty")
 }
 
 func TestSanitizedError(t *testing.T) {
