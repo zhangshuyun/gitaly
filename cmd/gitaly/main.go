@@ -91,7 +91,7 @@ func configure(configPath string) error {
 		return fmt.Errorf("failed setting up cgroups: %w", err)
 	}
 
-	if err := verifyGitVersion(); err != nil {
+	if err := verifyGitVersion(config.Config); err != nil {
 		return err
 	}
 
@@ -103,11 +103,11 @@ func configure(configPath string) error {
 	return nil
 }
 
-func verifyGitVersion() error {
+func verifyGitVersion(cfg config.Cfg) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	gitVersion, err := git.Version(ctx)
+	gitVersion, err := git.Version(ctx, git.NewExecCommandFactory(cfg))
 	if err != nil {
 		return fmt.Errorf("git version detection: %w", err)
 	}
@@ -189,7 +189,7 @@ func run(cfg config.Cfg) error {
 			ctx, cancel := context.WithCancel(context.TODO())
 			defer cancel()
 
-			gitVersion, err := git.Version(ctx)
+			gitVersion, err := git.Version(ctx, gitCmdFactory)
 			if err != nil {
 				return err
 			}

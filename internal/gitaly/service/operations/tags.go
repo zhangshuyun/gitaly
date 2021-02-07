@@ -201,7 +201,7 @@ func (s *Server) UserCreateTag(ctx context.Context, req *gitalypb.UserCreateTagR
 
 		var updateRefError updateRefError
 		if errors.As(err, &updateRefError) {
-			refNameOK, err := git.CheckRefFormat(ctx, referenceName)
+			refNameOK, err := git.CheckRefFormat(ctx, s.gitCmdFactory, referenceName)
 			if refNameOK {
 				// The tag might not actually exist,
 				// perhaps update-ref died for some

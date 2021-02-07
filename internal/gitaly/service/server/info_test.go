@@ -26,7 +26,12 @@ func TestGitalyServerInfo(t *testing.T) {
 		{Name: "broken", Path: "/does/not/exist"},
 	}
 
-	server, serverSocketPath := runServer(t, testStorages)
+	defer func(oldStorages []config.Storage) {
+		config.Config.Storages = oldStorages
+	}(config.Config.Storages)
+	config.Config.Storages = testStorages
+
+	server, serverSocketPath := runServer(t, config.Config)
 	defer server.Stop()
 
 	client, conn := newServerClient(t, serverSocketPath)
@@ -34,11 +39,6 @@ func TestGitalyServerInfo(t *testing.T) {
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
-
-	defer func(oldStorages []config.Storage) {
-		config.Config.Storages = oldStorages
-	}(config.Config.Storages)
-	config.Config.Storages = testStorages
 
 	require.NoError(t, storage.WriteMetadataFile(testStorages[0].Path))
 	metadata, err := storage.ReadMetadataFile(testStorages[0].Path)
@@ -49,7 +49,7 @@ func TestGitalyServerInfo(t *testing.T) {
 
 	require.Equal(t, version.GetVersion(), c.GetServerVersion())
 
-	gitVersion, err := git.Version(ctx)
+	gitVersion, err := git.Version(ctx, git.NewExecCommandFactory(config.Config))
 	require.NoError(t, err)
 	require.Equal(t, gitVersion, c.GetGitVersion())
 
@@ -65,7 +65,7 @@ func TestGitalyServerInfo(t *testing.T) {
 	require.Equal(t, uint32(1), c.GetStorageStatuses()[1].ReplicationFactor)
 }
 
-func runServer(t *testing.T, storages []config.Storage) (*grpc.Server, string) {
+func runServer(t *testing.T, cfg config.Cfg) (*grpc.Server, string) {
 	authConfig := internalauth.Config{Token: testhelper.RepositoryAuthToken}
 	streamInt := []grpc.StreamServerInterceptor{auth.StreamServerInterceptor(authConfig)}
 	unaryInt := []grpc.UnaryServerInterceptor{auth.UnaryServerInterceptor(authConfig)}
@@ -77,8 +77,8 @@ func runServer(t *testing.T, storages []config.Storage) (*grpc.Server, string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	gitalypb.RegisterServerServiceServer(server, NewServer(storages))
+	gitCmdFactory := git.NewExecCommandFactory(cfg)
+	gitalypb.RegisterServerServiceServer(server, NewServer(gitCmdFactory, cfg.Storages))
 	reflection.Register(server)
 
 	go server.Serve(listener)
@@ -87,7 +87,7 @@ func runServer(t *testing.T, storages []config.Storage) (*grpc.Server, string) {
 }
 
 func TestServerNoAuth(t *testing.T) {
-	srv, path := runServer(t, config.Config.Storages)
+	srv, path := runServer(t, config.Config)
 	defer srv.Stop()
 
 	connOpts := []grpc.DialOption{

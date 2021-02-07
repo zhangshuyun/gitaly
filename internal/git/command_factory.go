@@ -67,7 +67,7 @@ func (cf *ExecCommandFactory) New(ctx context.Context, repo repository.GitRepo, 
 
 // NewWithoutRepo creates a command without a target repository.
 func (cf *ExecCommandFactory) NewWithoutRepo(ctx context.Context, globals []GlobalOption, sc Cmd, opts ...CmdOpt) (*command.Command, error) {
-	return NewCommandWithoutRepo(ctx, globals, sc, opts...)
+	return cf.newCommand(ctx, nil, "", globals, sc, opts...)
 }
 
 // NewWithDir creates a new command.Command whose working directory is set

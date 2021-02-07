@@ -4,12 +4,15 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 )
 
 func TestCheckRefFormat(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
+
+	gitCmdFactory := NewExecCommandFactory(config.Config)
 
 	for _, tc := range []struct {
 		desc    string
@@ -45,7 +48,7 @@ func TestCheckRefFormat(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			ok, err := CheckRefFormat(ctx, tc.tagName)
+			ok, err := CheckRefFormat(ctx, gitCmdFactory, tc.tagName)
 			require.Equal(t, tc.err, err)
 			require.Equal(t, tc.ok, ok)
 		})

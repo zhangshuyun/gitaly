@@ -51,7 +51,7 @@ func TestGitalyServerInfo(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	gitVersion, err := git.Version(ctx)
+	gitVersion, err := git.Version(ctx, git.NewExecCommandFactory(gconfig.Config))
 	require.NoError(t, err)
 
 	t.Run("gitaly responds with ok", func(t *testing.T) {

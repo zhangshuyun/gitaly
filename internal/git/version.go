@@ -19,9 +19,9 @@ type version struct {
 }
 
 // Version returns the used git version.
-func Version(ctx context.Context) (string, error) {
+func Version(ctx context.Context, gitCmdFactory CommandFactory) (string, error) {
 	var buf bytes.Buffer
-	cmd, err := NewCommandWithoutRepo(ctx, nil, SubCmd{
+	cmd, err := gitCmdFactory.NewWithoutRepo(ctx, nil, SubCmd{
 		Name: "version",
 	}, WithStdout(&buf))
 	if err != nil {

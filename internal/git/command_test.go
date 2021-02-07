@@ -348,7 +348,7 @@ func TestNewCommandValid(t *testing.T) {
 			// ignore first 3 indeterministic args (executable path and repo args)
 			require.Equal(t, expectArgs, cmd.Args()[3:])
 
-			cmd, err = NewCommandWithoutRepo(ctx, tt.globals, tt.subCmd, opts...)
+			cmd, err = gitCmdFactory.NewWithoutRepo(ctx, tt.globals, tt.subCmd, opts...)
 			require.NoError(t, err)
 			// ignore first indeterministic arg (executable path)
 			require.Equal(t, expectArgs, cmd.Args()[1:])
