@@ -37,6 +37,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/promtest"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/internal/version"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
@@ -347,108 +349,72 @@ func TestWarnDuplicateAddrs(t *testing.T) {
 	}
 }
 
-func TestRepoRemoval(t *testing.T) {
-	conf := config.Config{
-		VirtualStorages: []*config.VirtualStorage{
-			&config.VirtualStorage{
-				Name: "praefect",
-				Nodes: []*config.Node{
-					&config.Node{
-						Storage: gconfig.Config.Storages[0].Name,
-						Address: "tcp::/samesies",
-					},
-					&config.Node{
-						Storage: "praefect-internal-1",
-						Address: "tcp::/this-doesnt-matter",
-					},
-					&config.Node{
-						Storage: "praefect-internal-2",
-						Address: "tcp::/this-doesnt-matter",
-					},
-				},
-			},
-		},
+func TestRemoveRepository(t *testing.T) {
+	gitalyCfgs := make([]gconfig.Cfg, 3)
+	repos := make([][]*gitalypb.Repository, 3)
+	praefectCfg := config.Config{VirtualStorages: []*config.VirtualStorage{{Name: "praefect"}}}
+
+	for i, name := range []string{"gitaly-1", "gitaly-2", "gitaly-3"} {
+		cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages(name))
+		defer cfgBuilder.Cleanup()
+		gitalyCfgs[i], repos[i] = cfgBuilder.BuildWithRepoAt(t, "test-repository")
+
+		gitalyAddr, cleanupGitaly := testserver.RunGitalyServer(t, gitalyCfgs[i], nil)
+		defer cleanupGitaly()
+		gitalyCfgs[i].SocketPath = gitalyAddr
+
+		praefectCfg.VirtualStorages[0].Nodes = append(praefectCfg.VirtualStorages[0].Nodes, &config.Node{
+			Storage: name,
+			Address: gitalyAddr,
+			Token:   gitalyCfgs[i].Auth.Token,
+		})
 	}
 
-	defer func(storages []gconfig.Storage) {
-		gconfig.Config.Storages = storages
-	}(gconfig.Config.Storages)
-
-	testStorages := []gconfig.Storage{
-		{
-			Name: conf.VirtualStorages[0].Nodes[1].Storage,
-			Path: tempStoragePath(t),
-		},
-		{
-			Name: conf.VirtualStorages[0].Nodes[2].Storage,
-			Path: tempStoragePath(t),
-		},
-	}
-	gconfig.Config.Storages = append(gconfig.Config.Storages, testStorages...)
-	defer func() {
-		for _, s := range testStorages {
-			require.NoError(t, os.RemoveAll(s.Path))
+	verifyReposExistence := func(t *testing.T, code codes.Code) {
+		for i, gitalyCfg := range gitalyCfgs {
+			locator := gconfig.NewLocator(gitalyCfg)
+			_, err := locator.GetRepoPath(repos[i][0])
+			st, ok := status.FromError(err)
+			require.True(t, ok)
+			require.Equal(t, code, st.Code())
 		}
-	}()
+	}
 
-	locator := gconfig.NewLocator(gconfig.Config)
-
-	tRepo, _, tCleanup := testhelper.NewTestRepo(t)
-	defer tCleanup()
-
-	_, path1, cleanup1 := cloneRepoAtStorage(t, locator, tRepo, conf.VirtualStorages[0].Nodes[1].Storage)
-	defer cleanup1()
-	_, path2, cleanup2 := cloneRepoAtStorage(t, locator, tRepo, conf.VirtualStorages[0].Nodes[2].Storage)
-	defer cleanup2()
-
-	// prerequisite: repos should exist at expected paths
-	require.DirExists(t, path1)
-	require.DirExists(t, path2)
+	verifyReposExistence(t, codes.OK)
 
 	// TODO: once https://gitlab.com/gitlab-org/gitaly/-/issues/2703 is done and the replication manager supports
 	// graceful shutdown, we can remove this code that waits for jobs to be complete
-	queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewMemoryReplicationEventQueue(conf))
-
+	queueInterceptor := datastore.NewReplicationEventQueueInterceptor(datastore.NewMemoryReplicationEventQueue(praefectCfg))
 	jobsDoneCh := make(chan struct{}, 2)
 	queueInterceptor.OnAcknowledge(func(ctx context.Context, state datastore.JobState, ids []uint64, queue datastore.ReplicationEventQueue) ([]uint64, error) {
-		if state == datastore.JobStateCompleted {
-			jobsDoneCh <- struct{}{}
-		}
+		defer func() {
+			if state == datastore.JobStateCompleted {
+				jobsDoneCh <- struct{}{}
+			}
+		}()
 
 		return queue.Acknowledge(ctx, state, ids)
 	})
 
-	cc, _, cleanup := runPraefectServerWithGitalyWithDatastore(t, gconfig.Config, conf, queueInterceptor)
+	cc, _, cleanup := runPraefectServer(t, praefectCfg, buildOptions{withQueue: queueInterceptor})
 	defer cleanup()
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	virtualRepo := *tRepo
-	virtualRepo.StorageName = conf.VirtualStorages[0].Name
+	virtualRepo := *repos[0][0]
+	virtualRepo.StorageName = praefectCfg.VirtualStorages[0].Name
 
-	rClient := gitalypb.NewRepositoryServiceClient(cc)
-
-	_, err := rClient.RemoveRepository(ctx, &gitalypb.RemoveRepositoryRequest{
+	_, err := gitalypb.NewRepositoryServiceClient(cc).RemoveRepository(ctx, &gitalypb.RemoveRepositoryRequest{
 		Repository: &virtualRepo,
 	})
 	require.NoError(t, err)
 
-	storage, ok := gconfig.Config.Storage(conf.VirtualStorages[0].Nodes[0].Storage)
-	require.True(t, ok)
-	testhelper.AssertPathNotExists(t, filepath.Join(storage.Path, tRepo.RelativePath))
-
-	var jobsDone int
-	for {
+	for i := 0; i < cap(jobsDoneCh); i++ {
 		<-jobsDoneCh
-		jobsDone++
-		if jobsDone == 2 {
-			break
-		}
 	}
 
-	testhelper.AssertPathNotExists(t, path1)
-	testhelper.AssertPathNotExists(t, path2)
+	verifyReposExistence(t, codes.NotFound)
 }
 
 func pollUntilRemoved(t testing.TB, path string, deadline <-chan time.Time) {
