@@ -56,26 +56,42 @@ func TestGitalyServerInfo(t *testing.T) {
 	gitVersion, err := git.Version(ctx)
 	require.NoError(t, err)
 
-	conf := config.Config{
-		VirtualStorages: []*config.VirtualStorage{
-			&config.VirtualStorage{
-				Name: "virtual-storage-1",
-				Nodes: []*config.Node{
-					&config.Node{
-						Storage: "praefect-internal-1",
-						Token:   "abc",
-					},
-					&config.Node{
-						Storage: "praefect-internal-2",
-						Token:   "abc",
+	t.Run("gitaly responds with ok", func(t *testing.T) {
+		tempDir, cleanupTempDir := testhelper.TempDir(t)
+		defer cleanupTempDir()
+
+		cfg := gconfig.Config
+		cfg.Storages = []gconfig.Storage{{Name: "praefect-internal-1"}, {Name: "praefect-internal-2"}}
+		for i := range cfg.Storages {
+			storagePath := filepath.Join(tempDir, cfg.Storages[i].Name)
+			require.NoError(t, os.MkdirAll(storagePath, 0755))
+			cfg.Storages[i].Path = storagePath
+		}
+
+		gitalyAddr, cleanupGitaly := testserver.RunGitalyServer(t, cfg, nil)
+		defer cleanupGitaly()
+
+		conf := config.Config{
+			VirtualStorages: []*config.VirtualStorage{
+				{
+					Name: "virtual-storage-1",
+					Nodes: []*config.Node{
+						{
+							Storage: "praefect-internal-1",
+							Token:   gconfig.Config.Auth.Token,
+							Address: gitalyAddr,
+						},
+						{
+							Storage: "praefect-internal-2",
+							Token:   gconfig.Config.Auth.Token,
+							Address: gitalyAddr,
+						},
 					},
 				},
 			},
-		},
-	}
+		}
 
-	t.Run("gitaly responds with ok", func(t *testing.T) {
-		cc, _, cleanup := runPraefectServerWithGitaly(t, gconfig.Config, conf)
+		cc, _, cleanup := runPraefectServer(t, conf, buildOptions{})
 		defer cleanup()
 
 		expected := &gitalypb.ServerInfoResponse{
@@ -97,13 +113,28 @@ func TestGitalyServerInfo(t *testing.T) {
 	})
 
 	t.Run("gitaly responds with error", func(t *testing.T) {
-		backends := map[string]mock.SimpleServiceServer{
-			conf.VirtualStorages[0].Nodes[0].Storage: &mockSvc{},
-			conf.VirtualStorages[0].Nodes[1].Storage: &mockSvc{},
-		}
+		gitalyAddr, cleanupGitaly := testserver.RunGitalyServer(t, gconfig.Config, nil)
+		defer cleanupGitaly()
 
-		cc, _, cleanup := runPraefectServerWithMock(t, conf, nil, backends)
+		conf := config.Config{
+			VirtualStorages: []*config.VirtualStorage{
+				{
+					Name: "virtual-storage-1",
+					Nodes: []*config.Node{
+						{
+							Storage: gconfig.Config.Storages[0].Name,
+							Token:   gconfig.Config.Auth.Token,
+							Address: gitalyAddr,
+						},
+					},
+				},
+			},
+		}
+		cc, _, cleanup := runPraefectServer(t, conf, buildOptions{})
 		defer cleanup()
+
+		// we stops gitaly service, so ServerInfo request will fail
+		cleanupGitaly()
 
 		client := gitalypb.NewServerServiceClient(cc)
 		actual, err := client.ServerInfo(ctx, &gitalypb.ServerInfoRequest{})
@@ -179,7 +210,12 @@ func TestDiskStatistics(t *testing.T) {
 }
 
 func TestHealthCheck(t *testing.T) {
-	cc, _, cleanup := runPraefectServerWithGitaly(t, gconfig.Config, testConfig(1))
+	cc, _, cleanup := runPraefectServer(t, config.Config{VirtualStorages: []*config.VirtualStorage{
+		{
+			Name:  "praefect",
+			Nodes: []*config.Node{{Storage: "stub", Address: "unix://stub-address", Token: ""}},
+		},
+	}}, buildOptions{})
 	defer cleanup()
 
 	ctx, cancel := testhelper.Context(testhelper.ContextWithTimeout(time.Second))
