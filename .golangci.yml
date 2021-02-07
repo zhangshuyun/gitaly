@@ -765,14 +765,6 @@ issues:
         - golint
       path: "internal/testhelper/promtest/histogram.go"
       text: "exported method `MockObserver.Observed` should have comment or be unexported"
-    - linters:
-        - golint
-      path: "internal/testhelper/testserver/gitaly.go"
-      text: "exported var `RubyServer` should have comment or be unexported"
-    - linters:
-        - golint
-      path: "internal/testhelper/testserver/gitaly.go"
-      text: "exported function `RunInternalGitalyServer` should have comment or be unexported"
     ## END golint exclusions
     ##
     ## BEGIN errcheck exclusions
