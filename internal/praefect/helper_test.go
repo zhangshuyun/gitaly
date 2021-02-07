@@ -12,7 +12,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/client"
-	gconfig "gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	internalauth "gitlab.com/gitlab-org/gitaly/internal/gitaly/config/auth"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/server/auth"
 	"gitlab.com/gitlab-org/gitaly/internal/log"
@@ -25,7 +24,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/transactions"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/promtest"
-	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
 	correlation "gitlab.com/gitlab-org/labkit/correlation/grpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
@@ -55,22 +53,6 @@ func testConfig(backends int) config.Config {
 	}
 
 	return cfg
-}
-
-// runPraefectServer runs a praefect server with the provided mock servers.
-// Each mock server is keyed by the corresponding index of the node in the
-// config.Nodes. There must be a 1-to-1 mapping between backend server and
-// configured storage node.
-// requires there to be only 1 virtual storage
-func runPraefectServerWithMock(t *testing.T, conf config.Config, queue datastore.ReplicationEventQueue, backends map[string]mock.SimpleServiceServer) (*grpc.ClientConn, *grpc.Server, testhelper.Cleanup) {
-	r, err := protoregistry.New(mustLoadProtoReg(t))
-	require.NoError(t, err)
-
-	return runPraefectServer(t, conf, buildOptions{
-		withQueue:       queue,
-		withBackends:    withMockBackends(t, backends),
-		withAnnotations: r,
-	})
 }
 
 func noopBackoffFunc() (backoff, backoffReset) {
@@ -129,52 +111,6 @@ func withMockBackends(t testing.TB, backends map[string]mock.SimpleServiceServer
 
 		return cleanups
 	}
-}
-
-func flattenVirtualStoragesToStoragePath(virtualStorages []*config.VirtualStorage, storagePath string) []gconfig.Storage {
-	var storages []gconfig.Storage
-	for _, vStorage := range virtualStorages {
-		for _, node := range vStorage.Nodes {
-			storages = append(storages, gconfig.Storage{
-				Name: node.Storage,
-				Path: storagePath,
-			})
-		}
-	}
-	return storages
-}
-
-// withRealGitalyShared will configure a real Gitaly server backend for a
-// Praefect server. The same Gitaly server instance is used for all backend
-// storages.
-func withRealGitalyShared(t testing.TB, cfg gconfig.Cfg) func([]*config.VirtualStorage) []testhelper.Cleanup {
-	return func(virtualStorages []*config.VirtualStorage) []testhelper.Cleanup {
-		gStorages := flattenVirtualStoragesToStoragePath(virtualStorages, testhelper.GitlabTestStoragePath())
-		_, backendAddr, cleanupGitaly := testserver.RunInternalGitalyServer(t, cfg.GitalyInternalSocketPath(), gStorages, virtualStorages[0].Nodes[0].Token)
-
-		for _, vs := range virtualStorages {
-			for i, node := range vs.Nodes {
-				node.Address = backendAddr
-				vs.Nodes[i] = node
-			}
-		}
-
-		return []testhelper.Cleanup{cleanupGitaly}
-	}
-}
-
-func runPraefectServerWithGitaly(t *testing.T, cfg gconfig.Cfg, conf config.Config) (*grpc.ClientConn, *grpc.Server, testhelper.Cleanup) {
-	return runPraefectServerWithGitalyWithDatastore(t, cfg, conf, defaultQueue(conf))
-}
-
-// runPraefectServerWithGitaly runs a praefect server with actual Gitaly nodes
-// requires exactly 1 virtual storage
-func runPraefectServerWithGitalyWithDatastore(t *testing.T, cfg gconfig.Cfg, conf config.Config, queue datastore.ReplicationEventQueue) (*grpc.ClientConn, *grpc.Server, testhelper.Cleanup) {
-	return runPraefectServer(t, conf, buildOptions{
-		withQueue:    queue,
-		withTxMgr:    transactions.NewManager(conf),
-		withBackends: withRealGitalyShared(t, cfg),
-	})
 }
 
 func defaultQueue(conf config.Config) datastore.ReplicationEventQueue {

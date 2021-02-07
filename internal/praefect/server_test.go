@@ -6,7 +6,6 @@ import (
 	"crypto/sha1"
 	"errors"
 	"io"
-	"io/ioutil"
 	"net"
 	"os"
 	"path/filepath"
@@ -34,7 +33,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/nodes/tracker"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/transactions"
-	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/promtest"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
@@ -940,27 +938,4 @@ func newSmartHTTPClient(t *testing.T, serverSocketPath string) (gitalypb.SmartHT
 	require.NoError(t, err)
 
 	return gitalypb.NewSmartHTTPServiceClient(conn), conn
-}
-
-func tempStoragePath(t testing.TB) string {
-	p, err := ioutil.TempDir("", t.Name())
-	require.NoError(t, err)
-	return p
-}
-
-func cloneRepoAtStorage(t testing.TB, locator storage.Locator, src *gitalypb.Repository, storageName string) (*gitalypb.Repository, string, func()) {
-	dst := *src
-	dst.StorageName = storageName
-
-	dstP, err := locator.GetPath(&dst)
-	require.NoError(t, err)
-
-	srcP, err := locator.GetPath(src)
-	require.NoError(t, err)
-
-	require.NoError(t, os.MkdirAll(dstP, 0755))
-	testhelper.MustRunCommand(t, nil, "git",
-		"clone", "--no-hardlinks", "--dissociate", "--bare", srcP, dstP)
-
-	return &dst, dstP, func() { require.NoError(t, os.RemoveAll(dstP)) }
 }
