@@ -1,0 +1,5 @@
+---
+title: Configurable default replication factor for virtual storages
+merge_request: 3091
+author:
+type: added

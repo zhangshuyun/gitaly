@@ -27,6 +27,7 @@ key_path = '/home/git/key.pem'
 
 [[virtual_storage]]
 name = "praefect"
+default_replication_factor = 2
 
   [[virtual_storage.node]]
     address = "tcp://gitaly-internal-1.example.com"

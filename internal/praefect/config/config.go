@@ -130,6 +130,12 @@ type Config struct {
 type VirtualStorage struct {
 	Name  string  `toml:"name"`
 	Nodes []*Node `toml:"node"`
+	// DefaultReplicationFactor is the replication factor set for new repositories.
+	// A valid value is inclusive between 1 and the number of configured storages in the
+	// virtual storage. Setting the value to 0 or below causes Praefect to not store any
+	// host assignments, falling back to the behavior of replicating to every configured
+	// storage
+	DefaultReplicationFactor int `toml:"default_replication_factor"`
 }
 
 // FromFile loads the config for the passed file path
@@ -227,6 +233,13 @@ func (c *Config) Validate() error {
 			}
 			allAddresses[node.Address] = struct{}{}
 		}
+
+		if virtualStorage.DefaultReplicationFactor > len(virtualStorage.Nodes) {
+			return fmt.Errorf(
+				"virtual storage %q has a default replication factor (%d) which is higher than the number of storages (%d)",
+				virtualStorage.Name, virtualStorage.DefaultReplicationFactor, len(virtualStorage.Nodes),
+			)
+		}
 	}
 
 	return nil
@@ -275,6 +288,17 @@ func (c *Config) StorageNames() map[string][]string {
 	}
 
 	return storages
+}
+
+// DefaultReplicationFactors returns a map with the default replication factors of
+// the virtual storages.
+func (c Config) DefaultReplicationFactors() map[string]int {
+	replicationFactors := make(map[string]int, len(c.VirtualStorages))
+	for _, vs := range c.VirtualStorages {
+		replicationFactors[vs.Name] = vs.DefaultReplicationFactor
+	}
+
+	return replicationFactors
 }
 
 // DB holds Postgres client configuration data.

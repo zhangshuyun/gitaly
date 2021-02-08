@@ -19,11 +19,13 @@ func TestNewLockedRandom(t *testing.T) {
 	expected := 50
 	actual := 0
 
-	random := NewLockedRandom(randomFunc(func(n int) int {
-		assert.Equal(t, 1, n)
-		actual++
-		return 2
-	}))
+	random := NewLockedRandom(mockRandom{
+		intnFunc: func(n int) int {
+			assert.Equal(t, 1, n)
+			actual++
+			return 2
+		},
+	})
 
 	var wg sync.WaitGroup
 	wg.Add(expected)
