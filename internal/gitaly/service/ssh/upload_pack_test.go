@@ -276,13 +276,13 @@ func TestUploadPackWithPackObjectsHook(t *testing.T) {
 	}(config.Config.BinDir)
 	config.Config.BinDir = filterDir
 
-	// We're using a custom pack-objetcs hook for git-upload-pack. In order
-	// to assure that it's getting executed as expected, we're writing a
-	// custom script which replaces the hook binary. It doesn't do anything
-	// special, but writes an error message and errors out and should thus
-	// cause the clone to fail with this error message.
-	testhelper.WriteExecutable(t, filepath.Join(filterDir, "gitaly-hooks"),
-		[]byte("#!/bin/sh\necho 'I was invoked' >&2\nexit 73\n"))
+	// Because filterDir is a fresh temporary directory, we know it does not
+	// contain a file called 'msg'. The hook we are injecting creates the
+	// 'msg' file. So if the 'msg' file exists after the clone, we know the
+	// hook ran, which is what this test wants to prove.
+	filterMsg := filepath.Join(filterDir, "msg")
+	filterScript := fmt.Sprintf("#!/bin/sh\ntouch %s\nexec \"$@\"\n", filterMsg)
+	testhelper.WriteExecutable(t, filepath.Join(filterDir, "gitaly-hooks"), []byte(filterScript))
 
 	serverSocketPath, stop := runSSHServer(t)
 	defer stop()
@@ -293,15 +293,16 @@ func TestUploadPackWithPackObjectsHook(t *testing.T) {
 	testRepo, _, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
 
-	err := cloneCommand{
+	require.NoError(t, cloneCommand{
 		repository: testRepo,
 		command:    exec.Command(config.Config.Git.BinPath, "clone", "git@localhost:test/test.git", localRepoPath),
 		featureFlags: []string{
 			featureflag.UploadPackGitalyHooks.Name,
 		},
 		server: serverSocketPath,
-	}.execute(t)
-	require.Contains(t, err.Error(), "remote: I was invoked")
+	}.execute(t), "clone")
+
+	require.FileExists(t, filterMsg, "hook should have run and created msg file")
 }
 
 func TestUploadPackWithoutSideband(t *testing.T) {
