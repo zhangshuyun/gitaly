@@ -1,16 +1,30 @@
 # Gitaly code review process
 
-## Tips for streamlined and thorough reviews
+## Roles
 
-Goals of these tips:
+**contributor**: usually the creator of the merge request. They are the
+[DRI](https://about.gitlab.com/handbook/people-group/directly-responsible-individuals/)
+responsible for getting the MR to a merge state.
 
-1. Streamline the review and acceptance process: improve throughput
-2. Ensure a thorough review: minimize the number of problems that are discovered after merging
+**reviewer**: the person reviewing the merge request and looking out the
+guidelines in this document are followed. Each MR should be approved by at least
+one reviewer.
 
-### Roles
+### Choosing reviewers
 
-There is one **contributor**: the person who owns the MR and is trying to get it
-merged. There is at least one **reviewer**.
+When a merge request is created, Danger bot will suggest two people for
+review. To spread the load across the team, it's generally recommended to assign
+these two for review. But it's not uncommon to swap out one or two of them when:
+- they are OOO
+- they know the context of the change already
+
+The complete list of elegible reviewers can be found at:
+https://about.gitlab.com/handbook/engineering/projects/#gitaly_assignments
+
+For small changes it's fine to only chose one person for review. The contributor
+can ask the reviewer if they are okay with this.
+
+## Criteria
 
 The main review criteria are:
 
@@ -21,6 +35,13 @@ The main review criteria are:
 The last point is easy to overlook. For example, you don't want to merge some
 crystal clear water-tight piece of code that causes a production
 outage, because causing an outage is not the right thing to do.
+
+## Tips for streamlined and thorough reviews
+
+Goals of these tips:
+
+1. Streamline the review and acceptance process: improve throughput
+2. Ensure a thorough review: minimize the number of problems that are discovered after merging
 
 ### Tips for the Contributor
 
