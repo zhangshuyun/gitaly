@@ -152,8 +152,8 @@ func (mgr *Manager) RegisterTransaction(ctx context.Context, voters []Voter, thr
 	mgr.transactions[transactionID] = transaction
 
 	mgr.log(ctx).WithFields(logrus.Fields{
-		"transaction_id": transactionID,
-		"voters":         voters,
+		"transaction.id":     transactionID,
+		"transaction.voters": voters,
 	}).Debug("RegisterTransaction")
 
 	mgr.counterMetric.WithLabelValues("registered").Add(float64(len(voters)))
@@ -185,9 +185,9 @@ func (mgr *Manager) cancelTransaction(ctx context.Context, transaction *Transact
 	}
 
 	mgr.log(ctx).WithFields(logrus.Fields{
-		"transaction_id":  transaction.ID(),
-		"committed":       fmt.Sprintf("%d/%d", committed, len(state)),
-		"subtransactions": transaction.CountSubtransactions(),
+		"transaction.id":              transaction.ID(),
+		"transaction.committed":       fmt.Sprintf("%d/%d", committed, len(state)),
+		"transaction.subtransactions": transaction.CountSubtransactions(),
 	}).Info("transaction completed")
 
 	return nil
@@ -219,9 +219,9 @@ func (mgr *Manager) VoteTransaction(ctx context.Context, transactionID uint64, n
 	}()
 
 	logger := mgr.log(ctx).WithFields(logrus.Fields{
-		"transaction_id": transactionID,
-		"node":           node,
-		"hash":           hex.EncodeToString(hash),
+		"transaction.id":    transactionID,
+		"transaction.voter": node,
+		"transaction.hash":  hex.EncodeToString(hash),
 	})
 
 	mgr.counterMetric.WithLabelValues("started").Inc()
@@ -271,7 +271,7 @@ func (mgr *Manager) StopTransaction(ctx context.Context, transactionID uint64) e
 	}
 
 	mgr.log(ctx).WithFields(logrus.Fields{
-		"transaction_id": transactionID,
+		"transaction.id": transactionID,
 	}).Debug("VoteTransaction: transaction stopped")
 	mgr.counterMetric.WithLabelValues("stopped").Inc()
 
