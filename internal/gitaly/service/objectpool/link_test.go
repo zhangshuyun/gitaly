@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/log"
+	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/git/objectpool"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
@@ -28,14 +28,15 @@ func TestLink(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	repoProto, _, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
+	repo := localrepo.New(repoProto, config.Config)
 
-	pool, err := objectpool.NewObjectPool(config.Config, locator, git.NewExecCommandFactory(config.Config), testRepo.GetStorageName(), testhelper.NewTestObjectPoolName(t))
+	pool, err := objectpool.NewObjectPool(config.Config, locator, git.NewExecCommandFactory(config.Config), repoProto.GetStorageName(), testhelper.NewTestObjectPoolName(t))
 	require.NoError(t, err)
 
 	require.NoError(t, pool.Remove(ctx), "make sure pool does not exist at start of test")
-	require.NoError(t, pool.Create(ctx, testRepo), "create pool")
+	require.NoError(t, pool.Create(ctx, repoProto), "create pool")
 
 	// Mock object in the pool, which should be available to the pool members
 	// after linking
@@ -57,7 +58,7 @@ func TestLink(t *testing.T) {
 		{
 			desc: "Pool does not exist",
 			req: &gitalypb.LinkRepositoryToObjectPoolRequest{
-				Repository: testRepo,
+				Repository: repoProto,
 				ObjectPool: nil,
 			},
 			code: codes.InvalidArgument,
@@ -65,7 +66,7 @@ func TestLink(t *testing.T) {
 		{
 			desc: "Successful request",
 			req: &gitalypb.LinkRepositoryToObjectPoolRequest{
-				Repository: testRepo,
+				Repository: repoProto,
 				ObjectPool: pool.ToProto(),
 			},
 			code: codes.OK,
@@ -83,7 +84,7 @@ func TestLink(t *testing.T) {
 
 			require.NoError(t, err, "error from LinkRepositoryToObjectPool")
 
-			commit, err := log.GetCommit(ctx, git.NewExecCommandFactory(config.Config), testRepo, git.Revision(poolCommitID))
+			commit, err := repo.ReadCommit(ctx, git.Revision(poolCommitID))
 			require.NoError(t, err)
 			require.NotNil(t, commit)
 			require.Equal(t, poolCommitID, commit.Id)

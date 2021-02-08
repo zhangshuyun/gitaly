@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/log"
+	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -53,11 +53,12 @@ func testSuccessfulUserSquashRequest(t *testing.T, ctx context.Context, start, e
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanup := testhelper.NewTestRepo(t)
+	repoProto, repoPath, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
+	repo := localrepo.New(repoProto, config.Config)
 
 	request := &gitalypb.UserSquashRequest{
-		Repository:    testRepo,
+		Repository:    repoProto,
 		User:          testhelper.TestUser,
 		SquashId:      "1",
 		Author:        author,
@@ -70,7 +71,7 @@ func testSuccessfulUserSquashRequest(t *testing.T, ctx context.Context, start, e
 	require.NoError(t, err)
 	require.Empty(t, response.GetGitError())
 
-	commit, err := log.GetCommit(ctx, git.NewExecCommandFactory(config.Config), testRepo, git.Revision(response.SquashSha))
+	commit, err := repo.ReadCommit(ctx, git.Revision(response.SquashSha))
 	require.NoError(t, err)
 	require.Equal(t, []string{start}, commit.ParentIds)
 	require.Equal(t, author.Name, commit.Author.Name)
@@ -79,7 +80,7 @@ func testSuccessfulUserSquashRequest(t *testing.T, ctx context.Context, start, e
 	require.Equal(t, testhelper.TestUser.Email, commit.Committer.Email)
 	require.Equal(t, commitMessage, commit.Subject)
 
-	treeData := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "ls-tree", "--name-only", response.SquashSha)
+	treeData := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "ls-tree", "--name-only", response.SquashSha)
 	files := strings.Fields(text.ChompBytes(treeData))
 	require.Subset(t, files, []string{"VERSION", "README", "files", ".gitattributes"}, "ensure the files remain on their places")
 }
@@ -91,14 +92,15 @@ func TestUserSquash_stableID(t *testing.T) {
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	repo, _, cleanup := testhelper.NewTestRepo(t)
+	repoProto, _, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
+	repo := localrepo.New(repoProto, config.Config)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
 	response, err := client.UserSquash(ctx, &gitalypb.UserSquashRequest{
-		Repository:    repo,
+		Repository:    repoProto,
 		User:          testhelper.TestUser,
 		SquashId:      "1",
 		Author:        author,
@@ -110,7 +112,7 @@ func TestUserSquash_stableID(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, response.GetGitError())
 
-	commit, err := log.GetCommit(ctx, git.NewExecCommandFactory(config.Config), repo, git.Revision(response.SquashSha))
+	commit, err := repo.ReadCommit(ctx, git.Revision(response.SquashSha))
 	require.NoError(t, err)
 	require.Equal(t, &gitalypb.GitCommit{
 		Id:     "2773b7aee7d81ea96d2f48aa080cae08eaae26d5",
@@ -159,11 +161,12 @@ func TestSuccessfulUserSquashRequestWith3wayMerge(t *testing.T) {
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	repoProto, repoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
+	repo := localrepo.New(repoProto, config.Config)
 
 	request := &gitalypb.UserSquashRequest{
-		Repository:    testRepo,
+		Repository:    repoProto,
 		User:          testhelper.TestUser,
 		SquashId:      "1",
 		Author:        author,
@@ -177,7 +180,7 @@ func TestSuccessfulUserSquashRequestWith3wayMerge(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, response.GetGitError())
 
-	commit, err := log.GetCommit(ctx, git.NewExecCommandFactory(config.Config), testRepo, git.Revision(response.SquashSha))
+	commit, err := repo.ReadCommit(ctx, git.Revision(response.SquashSha))
 	require.NoError(t, err)
 	require.Equal(t, []string{"6f6d7e7ed97bb5f0054f2b1df789b39ca89b6ff9"}, commit.ParentIds)
 	require.Equal(t, author.Name, commit.Author.Name)
@@ -187,16 +190,16 @@ func TestSuccessfulUserSquashRequestWith3wayMerge(t *testing.T) {
 	require.Equal(t, commitMessage, commit.Subject)
 
 	// Handle symlinks in macOS from /tmp -> /private/tmp
-	testRepoPath, err = filepath.EvalSymlinks(testRepoPath)
+	repoPath, err = filepath.EvalSymlinks(repoPath)
 	require.NoError(t, err)
 
 	// Ensure Git metadata is cleaned up
-	worktreeList := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "worktree", "list", "--porcelain"))
-	expectedOut := fmt.Sprintf("worktree %s\nbare\n", testRepoPath)
+	worktreeList := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "worktree", "list", "--porcelain"))
+	expectedOut := fmt.Sprintf("worktree %s\nbare\n", repoPath)
 	require.Equal(t, expectedOut, worktreeList)
 
 	// Ensure actual worktree is removed
-	files, err := ioutil.ReadDir(filepath.Join(testRepoPath, "gitlab-worktree"))
+	files, err := ioutil.ReadDir(filepath.Join(repoPath, "gitlab-worktree"))
 	require.NoError(t, err)
 	require.Equal(t, 0, len(files))
 }
@@ -242,36 +245,37 @@ func TestSquashRequestWithRenamedFiles(t *testing.T) {
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepoWithWorktree(t)
+	repoProto, repoPath, cleanupFn := testhelper.NewTestRepoWithWorktree(t)
 	defer cleanupFn()
+	repo := localrepo.New(repoProto, config.Config)
 
 	originalFilename := "original-file.txt"
 	renamedFilename := "renamed-file.txt"
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "config", "testhelper.TestUser.name", string(author.Name))
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "config", "testhelper.TestUser.email", string(author.Email))
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "checkout", "-b", "squash-rename-test", "master")
-	require.NoError(t, ioutil.WriteFile(filepath.Join(testRepoPath, originalFilename), []byte("This is a test"), 0644))
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "add", ".")
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "commit", "-m", "test file")
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "testhelper.TestUser.name", string(author.Name))
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "testhelper.TestUser.email", string(author.Email))
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "checkout", "-b", "squash-rename-test", "master")
+	require.NoError(t, ioutil.WriteFile(filepath.Join(repoPath, originalFilename), []byte("This is a test"), 0644))
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "add", ".")
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "commit", "-m", "test file")
 
-	startCommitID := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "rev-parse", "HEAD"))
+	startCommitID := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", "HEAD"))
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "mv", originalFilename, renamedFilename)
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "commit", "-a", "-m", "renamed test file")
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "mv", originalFilename, renamedFilename)
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "commit", "-a", "-m", "renamed test file")
 
 	// Modify the original file in another branch
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "checkout", "-b", "squash-rename-branch", startCommitID)
-	require.NoError(t, ioutil.WriteFile(filepath.Join(testRepoPath, originalFilename), []byte("This is a change"), 0644))
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "commit", "-a", "-m", "test")
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "checkout", "-b", "squash-rename-branch", startCommitID)
+	require.NoError(t, ioutil.WriteFile(filepath.Join(repoPath, originalFilename), []byte("This is a change"), 0644))
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "commit", "-a", "-m", "test")
 
-	require.NoError(t, ioutil.WriteFile(filepath.Join(testRepoPath, originalFilename), []byte("This is another change"), 0644))
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "commit", "-a", "-m", "test")
+	require.NoError(t, ioutil.WriteFile(filepath.Join(repoPath, originalFilename), []byte("This is another change"), 0644))
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "commit", "-a", "-m", "test")
 
-	endCommitID := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "rev-parse", "HEAD"))
+	endCommitID := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", "HEAD"))
 
 	request := &gitalypb.UserSquashRequest{
-		Repository:    testRepo,
+		Repository:    repoProto,
 		User:          testhelper.TestUser,
 		SquashId:      "1",
 		Author:        author,
@@ -284,7 +288,7 @@ func TestSquashRequestWithRenamedFiles(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, response.GetGitError())
 
-	commit, err := log.GetCommit(ctx, git.NewExecCommandFactory(config.Config), testRepo, git.Revision(response.SquashSha))
+	commit, err := repo.ReadCommit(ctx, git.Revision(response.SquashSha))
 	require.NoError(t, err)
 	require.Equal(t, []string{startCommitID}, commit.ParentIds)
 	require.Equal(t, author.Name, commit.Author.Name)

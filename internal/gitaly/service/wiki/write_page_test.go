@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	gitlog "gitlab.com/gitlab-org/gitaly/internal/git/log"
+	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -14,8 +14,9 @@ import (
 )
 
 func TestSuccessfulWikiWritePageRequest(t *testing.T) {
-	wikiRepo, wikiRepoPath, cleanupFunc := setupWikiRepo(t)
+	wikiRepoProto, wikiRepoPath, cleanupFunc := setupWikiRepo(t)
 	defer cleanupFunc()
+	wikiRepo := localrepo.New(wikiRepoProto, config.Config)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -42,7 +43,7 @@ func TestSuccessfulWikiWritePageRequest(t *testing.T) {
 		{
 			desc: "with user id and username",
 			req: &gitalypb.WikiWritePageRequest{
-				Repository: wikiRepo,
+				Repository: wikiRepoProto,
 				Name:       []byte("Instálling Gitaly"),
 				Format:     "markdown",
 				CommitDetails: &gitalypb.WikiCommitDetails{
@@ -59,7 +60,7 @@ func TestSuccessfulWikiWritePageRequest(t *testing.T) {
 		{
 			desc: "without user id and username", // deprecate in gitlab 11.0 https://gitlab.com/gitlab-org/gitaly/issues/1154
 			req: &gitalypb.WikiWritePageRequest{
-				Repository: wikiRepo,
+				Repository: wikiRepoProto,
 				Name:       []byte("Instálling Gitaly 2"),
 				Format:     "markdown",
 				CommitDetails: &gitalypb.WikiCommitDetails{
@@ -103,7 +104,7 @@ func TestSuccessfulWikiWritePageRequest(t *testing.T) {
 			require.Empty(t, resp.DuplicateError, "DuplicateError must be empty")
 
 			headID := testhelper.MustRunCommand(t, nil, "git", "-C", wikiRepoPath, "show", "--format=format:%H", "--no-patch", "HEAD")
-			commit, err := gitlog.GetCommit(ctx, git.NewExecCommandFactory(config.Config), wikiRepo, git.Revision(headID))
+			commit, err := wikiRepo.ReadCommit(ctx, git.Revision(headID))
 			require.NoError(t, err, "look up git commit after writing a wiki page")
 
 			require.Equal(t, authorName, commit.Author.Name, "author name mismatched")

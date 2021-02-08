@@ -13,7 +13,7 @@ import (
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/log"
+	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -35,8 +35,9 @@ func testSuccessfulUserApplyPatch(t *testing.T, ctx context.Context) {
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	repoProto, repoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
+	repo := localrepo.New(repoProto, config.Config)
 
 	testPatchReadme := "testdata/0001-A-commit-from-a-patch.patch"
 	testPatchFeature := "testdata/0001-This-does-not-apply-to-the-feature-branch.patch"
@@ -76,7 +77,7 @@ func testSuccessfulUserApplyPatch(t *testing.T, ctx context.Context) {
 			stream, err := client.UserApplyPatch(ctx)
 			require.NoError(t, err)
 
-			headerRequest := applyPatchHeaderRequest(testRepo, testhelper.TestUser, testCase.branchName)
+			headerRequest := applyPatchHeaderRequest(repoProto, testhelper.TestUser, testCase.branchName)
 			require.NoError(t, stream.Send(headerRequest))
 
 			writer := streamio.NewWriter(func(p []byte) error {
@@ -103,14 +104,14 @@ func testSuccessfulUserApplyPatch(t *testing.T, ctx context.Context) {
 			response.GetBranchUpdate()
 			require.Equal(t, testCase.branchCreated, response.GetBranchUpdate().GetBranchCreated())
 
-			branches := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch")
+			branches := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch")
 			require.Contains(t, string(branches), testCase.branchName)
 
 			maxCount := fmt.Sprintf("--max-count=%d", len(testCase.commitMessages))
 
 			gitArgs := []string{
 				"-C",
-				testRepoPath,
+				repoPath,
 				"log",
 				testCase.branchName,
 				"--format=%H",
@@ -127,7 +128,7 @@ func testSuccessfulUserApplyPatch(t *testing.T, ctx context.Context) {
 			}
 
 			for index, sha := range shas {
-				commit, err := log.GetCommit(ctx, git.NewExecCommandFactory(config.Config), testRepo, git.Revision(sha))
+				commit, err := repo.ReadCommit(ctx, git.Revision(sha))
 				require.NoError(t, err)
 
 				require.NotNil(t, commit)
@@ -146,8 +147,9 @@ func TestUserApplyPatch_stableID(t *testing.T) {
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	repo, _, cleanupFn := testhelper.NewTestRepo(t)
+	repoProto, _, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
+	repo := localrepo.New(repoProto, config.Config)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -158,7 +160,7 @@ func TestUserApplyPatch_stableID(t *testing.T) {
 	require.NoError(t, stream.Send(&gitalypb.UserApplyPatchRequest{
 		UserApplyPatchRequestPayload: &gitalypb.UserApplyPatchRequest_Header_{
 			Header: &gitalypb.UserApplyPatchRequest_Header{
-				Repository:   repo,
+				Repository:   repoProto,
 				User:         testhelper.TestUser,
 				TargetBranch: []byte("branch"),
 				Timestamp:    &timestamp.Timestamp{Seconds: 1234512345},
@@ -178,7 +180,7 @@ func TestUserApplyPatch_stableID(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, response.BranchUpdate.BranchCreated)
 
-	patchedCommit, err := log.GetCommit(ctx, git.NewExecCommandFactory(config.Config), repo, git.Revision("branch"))
+	patchedCommit, err := repo.ReadCommit(ctx, git.Revision("branch"))
 	require.NoError(t, err)
 	require.Equal(t, &gitalypb.GitCommit{
 		Id:     "8cd17acdb54178121167078c78d874d3cc09b216",

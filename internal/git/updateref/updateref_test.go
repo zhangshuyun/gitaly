@@ -10,10 +10,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/hooks"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
 func TestMain(m *testing.M) {
@@ -28,26 +26,27 @@ func testMain(m *testing.M) int {
 	return m.Run()
 }
 
-func setup(t *testing.T) (context.Context, *gitalypb.Repository, string, func()) {
+func setup(t *testing.T) (context.Context, *localrepo.Repo, string, func()) {
 	ctx, cancel := testhelper.Context()
-	testRepo, testRepoPath, cleanup := testhelper.NewTestRepo(t)
+	repoProto, repoPath, cleanup := testhelper.NewTestRepo(t)
 	teardown := func() {
 		cancel()
 		cleanup()
 	}
 
-	return ctx, testRepo, testRepoPath, teardown
+	repo := localrepo.New(repoProto, config.Config)
+
+	return ctx, repo, repoPath, teardown
 }
 
 func TestCreate(t *testing.T) {
-	ctx, testRepo, _, teardown := setup(t)
+	ctx, repo, _, teardown := setup(t)
 	defer teardown()
 
-	gitCmdFactory := git.NewExecCommandFactory(config.Config)
-	headCommit, err := log.GetCommit(ctx, gitCmdFactory, testRepo, "HEAD")
+	headCommit, err := repo.ReadCommit(ctx, "HEAD")
 	require.NoError(t, err)
 
-	updater, err := New(ctx, config.Config, git.NewExecCommandFactory(config.Config), testRepo)
+	updater, err := New(ctx, config.Config, git.NewExecCommandFactory(config.Config), repo)
 	require.NoError(t, err)
 
 	ref := git.ReferenceName("refs/heads/_create")
@@ -57,27 +56,26 @@ func TestCreate(t *testing.T) {
 	require.NoError(t, updater.Wait())
 
 	// check the ref was created
-	commit, logErr := log.GetCommit(ctx, gitCmdFactory, testRepo, ref.Revision())
+	commit, logErr := repo.ReadCommit(ctx, ref.Revision())
 	require.NoError(t, logErr)
 	require.Equal(t, commit.Id, sha, "reference was created with the wrong SHA")
 }
 
 func TestUpdate(t *testing.T) {
-	ctx, testRepo, _, teardown := setup(t)
+	ctx, repo, _, teardown := setup(t)
 	defer teardown()
 
-	gitCmdFactory := git.NewExecCommandFactory(config.Config)
-	headCommit, err := log.GetCommit(ctx, gitCmdFactory, testRepo, "HEAD")
+	headCommit, err := repo.ReadCommit(ctx, "HEAD")
 	require.NoError(t, err)
 
-	updater, err := New(ctx, config.Config, git.NewExecCommandFactory(config.Config), testRepo)
+	updater, err := New(ctx, config.Config, git.NewExecCommandFactory(config.Config), repo)
 	require.NoError(t, err)
 
 	ref := git.ReferenceName("refs/heads/feature")
 	sha := headCommit.Id
 
 	// Sanity check: ensure the ref exists before we start
-	commit, logErr := log.GetCommit(ctx, gitCmdFactory, testRepo, ref.Revision())
+	commit, logErr := repo.ReadCommit(ctx, ref.Revision())
 	require.NoError(t, logErr)
 	require.NotEqual(t, commit.Id, sha, "%s points to HEAD: %s in the test repository", ref.String(), sha)
 
@@ -85,26 +83,26 @@ func TestUpdate(t *testing.T) {
 	require.NoError(t, updater.Wait())
 
 	// check the ref was updated
-	commit, logErr = log.GetCommit(ctx, gitCmdFactory, testRepo, ref.Revision())
+	commit, logErr = repo.ReadCommit(ctx, ref.Revision())
 	require.NoError(t, logErr)
 	require.Equal(t, commit.Id, sha, "reference was not updated")
 
 	// since ref has been updated to HEAD, we know that it does not point to HEAD^. So, HEAD^ is an invalid "old value" for updating ref
-	parentCommit, err := log.GetCommit(ctx, gitCmdFactory, testRepo, "HEAD^")
+	parentCommit, err := repo.ReadCommit(ctx, "HEAD^")
 	require.NoError(t, err)
 	require.Error(t, updater.Update(ref, parentCommit.Id, parentCommit.Id))
 
 	// check the ref was not updated
-	commit, logErr = log.GetCommit(ctx, gitCmdFactory, testRepo, ref.Revision())
+	commit, logErr = repo.ReadCommit(ctx, ref.Revision())
 	require.NoError(t, logErr)
 	require.NotEqual(t, commit.Id, parentCommit.Id, "reference was updated when it shouldn't have been")
 }
 
 func TestDelete(t *testing.T) {
-	ctx, testRepo, _, teardown := setup(t)
+	ctx, repo, _, teardown := setup(t)
 	defer teardown()
 
-	updater, err := New(ctx, config.Config, git.NewExecCommandFactory(config.Config), testRepo)
+	updater, err := New(ctx, config.Config, git.NewExecCommandFactory(config.Config), repo)
 	require.NoError(t, err)
 
 	ref := git.ReferenceName("refs/heads/feature")
@@ -113,18 +111,18 @@ func TestDelete(t *testing.T) {
 	require.NoError(t, updater.Wait())
 
 	// check the ref was removed
-	_, err = log.GetCommit(ctx, git.NewExecCommandFactory(config.Config), testRepo, ref.Revision())
-	require.True(t, log.IsNotFound(err), "expected 'not found' error got %v", err)
+	_, err = repo.ReadCommit(ctx, ref.Revision())
+	require.Equal(t, localrepo.ErrObjectNotFound, err, "expected 'not found' error got %v", err)
 }
 
 func TestBulkOperation(t *testing.T) {
-	ctx, testRepo, _, teardown := setup(t)
+	ctx, repo, _, teardown := setup(t)
 	defer teardown()
 
-	headCommit, err := log.GetCommit(ctx, git.NewExecCommandFactory(config.Config), testRepo, "HEAD")
+	headCommit, err := repo.ReadCommit(ctx, "HEAD")
 	require.NoError(t, err)
 
-	updater, err := New(ctx, config.Config, git.NewExecCommandFactory(config.Config), testRepo)
+	updater, err := New(ctx, config.Config, git.NewExecCommandFactory(config.Config), repo)
 	require.NoError(t, err)
 
 	for i := 0; i < 1000; i++ {
@@ -134,21 +132,20 @@ func TestBulkOperation(t *testing.T) {
 
 	require.NoError(t, updater.Wait())
 
-	refs, err := localrepo.New(testRepo, config.Config).GetReferences(ctx, "refs/")
+	refs, err := repo.GetReferences(ctx, "refs/")
 	require.NoError(t, err)
 	require.Greater(t, len(refs), 1000, "At least 1000 refs should be present")
 }
 
 func TestContextCancelAbortsRefChanges(t *testing.T) {
-	ctx, testRepo, _, teardown := setup(t)
+	ctx, repo, _, teardown := setup(t)
 	defer teardown()
 
-	gitCmdFactory := git.NewExecCommandFactory(config.Config)
-	headCommit, err := log.GetCommit(ctx, gitCmdFactory, testRepo, "HEAD")
+	headCommit, err := repo.ReadCommit(ctx, "HEAD")
 	require.NoError(t, err)
 
 	childCtx, childCancel := context.WithCancel(ctx)
-	updater, err := New(childCtx, config.Config, git.NewExecCommandFactory(config.Config), testRepo)
+	updater, err := New(childCtx, config.Config, git.NewExecCommandFactory(config.Config), repo)
 	require.NoError(t, err)
 
 	ref := git.ReferenceName("refs/heads/_shouldnotexist")
@@ -160,24 +157,24 @@ func TestContextCancelAbortsRefChanges(t *testing.T) {
 	require.Error(t, updater.Wait())
 
 	// check the ref doesn't exist
-	_, err = log.GetCommit(ctx, gitCmdFactory, testRepo, ref.Revision())
-	require.True(t, log.IsNotFound(err), "expected 'not found' error got %v", err)
+	_, err = repo.ReadCommit(ctx, ref.Revision())
+	require.Equal(t, localrepo.ErrObjectNotFound, err, "expected 'not found' error got %v", err)
 }
 
 func TestUpdater_closingStdinAbortsChanges(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepo, _, cleanup := testhelper.NewTestRepo(t)
+	repoProto, _, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
+	repo := localrepo.New(repoProto, config.Config)
 
-	gitCmdFactory := git.NewExecCommandFactory(config.Config)
-	headCommit, err := log.GetCommit(ctx, gitCmdFactory, testRepo, "HEAD")
+	headCommit, err := repo.ReadCommit(ctx, "HEAD")
 	require.NoError(t, err)
 
 	ref := git.ReferenceName("refs/heads/shouldnotexist")
 
-	updater, err := New(ctx, config.Config, git.NewExecCommandFactory(config.Config), testRepo)
+	updater, err := New(ctx, config.Config, git.NewExecCommandFactory(config.Config), repo)
 	require.NoError(t, err)
 	require.NoError(t, updater.Create(ref, headCommit.Id))
 
@@ -190,6 +187,6 @@ func TestUpdater_closingStdinAbortsChanges(t *testing.T) {
 
 	// ... but as we now use explicit transactional behaviour, this is no
 	// longer the case.
-	_, err = log.GetCommit(ctx, gitCmdFactory, testRepo, ref.Revision())
-	require.True(t, log.IsNotFound(err), "expected 'not found' error got %v", err)
+	_, err = repo.ReadCommit(ctx, ref.Revision())
+	require.Equal(t, localrepo.ErrObjectNotFound, err, "expected 'not found' error got %v", err)
 }

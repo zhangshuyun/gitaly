@@ -15,7 +15,7 @@ import (
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/log"
+	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
@@ -964,8 +964,9 @@ func testUserCommitFilesStableCommitID(t *testing.T, ctx context.Context) {
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	repo, repoPath, cleanup := testhelper.InitBareRepo(t)
+	repoProto, repoPath, cleanup := testhelper.InitBareRepo(t)
 	defer cleanup()
+	repo := localrepo.New(repoProto, config.Config)
 
 	for key, values := range testhelper.GitalyServersMetadata(t, serverSocketPath) {
 		for _, value := range values {
@@ -976,7 +977,7 @@ func testUserCommitFilesStableCommitID(t *testing.T, ctx context.Context) {
 	stream, err := client.UserCommitFiles(ctx)
 	require.NoError(t, err)
 
-	headerRequest := headerRequest(repo, testhelper.TestUser, "master", []byte("commit message"))
+	headerRequest := headerRequest(repoProto, testhelper.TestUser, "master", []byte("commit message"))
 	setAuthorAndEmail(headerRequest, []byte("Author Name"), []byte("author.email@example.com"))
 	setTimestamp(t, headerRequest, time.Unix(12345, 0))
 	require.NoError(t, stream.Send(headerRequest))
@@ -993,7 +994,7 @@ func testUserCommitFilesStableCommitID(t *testing.T, ctx context.Context) {
 		{Mode: "100644", Path: "file.txt", Content: "content"},
 	})
 
-	commit, err := log.GetCommit(ctx, git.NewExecCommandFactory(config.Config), repo, "refs/heads/master")
+	commit, err := repo.ReadCommit(ctx, "refs/heads/master")
 	require.NoError(t, err)
 	require.Equal(t, &gitalypb.GitCommit{
 		Id:       "4f0ca1fbf05e04dbd5f68d14677034e0afee58ff",
@@ -1103,7 +1104,7 @@ func testSuccessfulUserCommitFilesRequest(t *testing.T, ctx context.Context) {
 			require.Equal(t, tc.repoCreated, resp.GetBranchUpdate().GetRepoCreated())
 			require.Equal(t, tc.branchCreated, resp.GetBranchUpdate().GetBranchCreated())
 
-			headCommit, err := log.GetCommit(ctx, git.NewExecCommandFactory(config.Config), tc.repo, git.Revision(tc.branchName))
+			headCommit, err := localrepo.New(tc.repo, config.Config).ReadCommit(ctx, git.Revision(tc.branchName))
 			require.NoError(t, err)
 			require.Equal(t, authorName, headCommit.Author.Name)
 			require.Equal(t, testhelper.TestUser.Name, headCommit.Committer.Name)
@@ -1197,26 +1198,26 @@ func testSuccessfulUserCommitFilesRequestForceCommit(t *testing.T, ctx context.C
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	repoProto, repoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
+	repo := localrepo.New(repoProto, config.Config)
 
 	authorName := []byte("Jane Doe")
 	authorEmail := []byte("janedoe@gitlab.com")
 	targetBranchName := "feature"
 	startBranchName := []byte("master")
 
-	gitCmdFactory := git.NewExecCommandFactory(config.Config)
-	startBranchCommit, err := log.GetCommit(ctx, gitCmdFactory, testRepo, git.Revision(startBranchName))
+	startBranchCommit, err := repo.ReadCommit(ctx, git.Revision(startBranchName))
 	require.NoError(t, err)
 
-	targetBranchCommit, err := log.GetCommit(ctx, gitCmdFactory, testRepo, git.Revision(targetBranchName))
+	targetBranchCommit, err := repo.ReadCommit(ctx, git.Revision(targetBranchName))
 	require.NoError(t, err)
 
-	mergeBaseOut := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "merge-base", targetBranchCommit.Id, startBranchCommit.Id)
+	mergeBaseOut := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "merge-base", targetBranchCommit.Id, startBranchCommit.Id)
 	mergeBaseID := text.ChompBytes(mergeBaseOut)
 	require.NotEqual(t, mergeBaseID, targetBranchCommit.Id, "expected %s not to be an ancestor of %s", targetBranchCommit.Id, startBranchCommit.Id)
 
-	headerRequest := headerRequest(testRepo, testhelper.TestUser, targetBranchName, commitFilesMessage)
+	headerRequest := headerRequest(repoProto, testhelper.TestUser, targetBranchName, commitFilesMessage)
 	setAuthorAndEmail(headerRequest, authorName, authorEmail)
 	setStartBranchName(headerRequest, startBranchName)
 	setForce(headerRequest, true)
@@ -1231,7 +1232,7 @@ func testSuccessfulUserCommitFilesRequestForceCommit(t *testing.T, ctx context.C
 	require.NoError(t, err)
 
 	update := resp.GetBranchUpdate()
-	newTargetBranchCommit, err := log.GetCommit(ctx, gitCmdFactory, testRepo, git.Revision(targetBranchName))
+	newTargetBranchCommit, err := repo.ReadCommit(ctx, git.Revision(targetBranchName))
 	require.NoError(t, err)
 
 	require.Equal(t, newTargetBranchCommit.Id, update.CommitId)
@@ -1249,16 +1250,16 @@ func testSuccessfulUserCommitFilesRequestStartSha(t *testing.T, ctx context.Cont
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	repoProto, _, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
+	repo := localrepo.New(repoProto, config.Config)
 
 	targetBranchName := "new"
 
-	gitCmdFactory := git.NewExecCommandFactory(config.Config)
-	startCommit, err := log.GetCommit(ctx, gitCmdFactory, testRepo, "master")
+	startCommit, err := repo.ReadCommit(ctx, "master")
 	require.NoError(t, err)
 
-	headerRequest := headerRequest(testRepo, testhelper.TestUser, targetBranchName, commitFilesMessage)
+	headerRequest := headerRequest(repoProto, testhelper.TestUser, targetBranchName, commitFilesMessage)
 	setStartSha(headerRequest, startCommit.Id)
 
 	stream, err := client.UserCommitFiles(ctx)
@@ -1271,7 +1272,7 @@ func testSuccessfulUserCommitFilesRequestStartSha(t *testing.T, ctx context.Cont
 	require.NoError(t, err)
 
 	update := resp.GetBranchUpdate()
-	newTargetBranchCommit, err := log.GetCommit(ctx, gitCmdFactory, testRepo, git.Revision(targetBranchName))
+	newTargetBranchCommit, err := repo.ReadCommit(ctx, git.Revision(targetBranchName))
 	require.NoError(t, err)
 
 	require.Equal(t, newTargetBranchCommit.Id, update.CommitId)
@@ -1300,11 +1301,13 @@ func testSuccessfulUserCommitFilesRemoteRepositoryRequest(setHeader func(header 
 		client, conn := newOperationClient(t, serverSocketPath)
 		defer conn.Close()
 
-		testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+		repoProto, _, cleanupFn := testhelper.NewTestRepo(t)
 		defer cleanupFn()
+		repo := localrepo.New(repoProto, config.Config)
 
-		newRepo, _, newRepoCleanupFn := testhelper.InitBareRepo(t)
+		newRepoProto, _, newRepoCleanupFn := testhelper.InitBareRepo(t)
 		defer newRepoCleanupFn()
+		newRepo := localrepo.New(newRepoProto, config.Config)
 
 		for key, values := range testhelper.GitalyServersMetadata(t, serverSocketPath) {
 			for _, value := range values {
@@ -1314,13 +1317,12 @@ func testSuccessfulUserCommitFilesRemoteRepositoryRequest(setHeader func(header 
 
 		targetBranchName := "new"
 
-		gitCmdFactory := git.NewExecCommandFactory(config.Config)
-		startCommit, err := log.GetCommit(ctx, gitCmdFactory, testRepo, "master")
+		startCommit, err := repo.ReadCommit(ctx, "master")
 		require.NoError(t, err)
 
-		headerRequest := headerRequest(newRepo, testhelper.TestUser, targetBranchName, commitFilesMessage)
+		headerRequest := headerRequest(newRepoProto, testhelper.TestUser, targetBranchName, commitFilesMessage)
 		setHeader(headerRequest)
-		setStartRepository(headerRequest, testRepo)
+		setStartRepository(headerRequest, repoProto)
 
 		stream, err := client.UserCommitFiles(ctx)
 		require.NoError(t, err)
@@ -1332,7 +1334,7 @@ func testSuccessfulUserCommitFilesRemoteRepositoryRequest(setHeader func(header 
 		require.NoError(t, err)
 
 		update := resp.GetBranchUpdate()
-		newTargetBranchCommit, err := log.GetCommit(ctx, gitCmdFactory, newRepo, git.Revision(targetBranchName))
+		newTargetBranchCommit, err := newRepo.ReadCommit(ctx, git.Revision(targetBranchName))
 		require.NoError(t, err)
 
 		require.Equal(t, newTargetBranchCommit.Id, update.CommitId)
@@ -1351,8 +1353,9 @@ func testSuccessfulUserCommitFilesRequestWithSpecialCharactersInSignature(t *tes
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.InitBareRepo(t)
+	repoProto, _, cleanupFn := testhelper.InitBareRepo(t)
 	defer cleanupFn()
+	repo := localrepo.New(repoProto, config.Config)
 
 	targetBranchName := "master"
 
@@ -1375,7 +1378,7 @@ func testSuccessfulUserCommitFilesRequestWithSpecialCharactersInSignature(t *tes
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			headerRequest := headerRequest(testRepo, tc.user, targetBranchName, commitFilesMessage)
+			headerRequest := headerRequest(repoProto, tc.user, targetBranchName, commitFilesMessage)
 			setAuthorAndEmail(headerRequest, tc.user.Name, tc.user.Email)
 
 			stream, err := client.UserCommitFiles(ctx)
@@ -1385,7 +1388,7 @@ func testSuccessfulUserCommitFilesRequestWithSpecialCharactersInSignature(t *tes
 			_, err = stream.CloseAndRecv()
 			require.NoError(t, err)
 
-			newCommit, err := log.GetCommit(ctx, git.NewExecCommandFactory(config.Config), testRepo, git.Revision(targetBranchName))
+			newCommit, err := repo.ReadCommit(ctx, git.Revision(targetBranchName))
 			require.NoError(t, err)
 
 			require.Equal(t, tc.author.Name, newCommit.Author.Name, "author name")

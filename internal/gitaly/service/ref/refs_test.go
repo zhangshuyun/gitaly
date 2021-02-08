@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
+	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
@@ -480,17 +481,18 @@ func TestSuccessfulFindAllTagsRequest(t *testing.T) {
 	stop, serverSocketPath := runRefServiceServer(t)
 	defer stop()
 
-	testRepoCopy, testRepoCopyPath, cleanupFn := testhelper.NewTestRepoWithWorktree(t)
+	repoProto, repoPath, cleanupFn := testhelper.NewTestRepoWithWorktree(t)
 	defer cleanupFn()
+	repo := localrepo.New(repoProto, config.Config)
 
 	// reconstruct the v1.1.2 tag from patches to test truncated tag message
 	// with partial PGP block
 	truncatedPGPTagMsg, err := ioutil.ReadFile("testdata/truncated_pgp_msg.patch")
 	require.NoError(t, err)
 
-	truncatedPGPTagID := string(testhelper.MustRunCommand(t, bytes.NewBuffer(truncatedPGPTagMsg), "git", "-C", testRepoCopyPath, "mktag"))
+	truncatedPGPTagID := string(testhelper.MustRunCommand(t, bytes.NewBuffer(truncatedPGPTagMsg), "git", "-C", repoPath, "mktag"))
 	truncatedPGPTagID = strings.TrimSpace(truncatedPGPTagID) // remove trailing newline
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoCopyPath, "update-ref", "refs/tags/pgp-long-tag-message", truncatedPGPTagID)
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "update-ref", "refs/tags/pgp-long-tag-message", truncatedPGPTagID)
 
 	blobID := "faaf198af3a36dbf41961466703cc1d47c61d051"
 	commitID := "6f6d7e7ed97bb5f0054f2b1df789b39ca89b6ff9"
@@ -500,38 +502,38 @@ func TestSuccessfulFindAllTagsRequest(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	bigCommitID := testhelper.CreateCommit(t, testRepoCopyPath, "local-big-commits", &testhelper.CreateCommitOpts{
+	bigCommitID := testhelper.CreateCommit(t, repoPath, "local-big-commits", &testhelper.CreateCommitOpts{
 		Message:  "An empty commit with REALLY BIG message\n\n" + strings.Repeat("a", helper.MaxCommitOrTagMessageSize+1),
 		ParentID: "60ecb67744cb56576c30214ff52294f8ce2def98",
 	})
-	bigCommit, err := log.GetCommit(ctx, git.NewExecCommandFactory(config.Config), testRepoCopy, git.Revision(bigCommitID))
+	bigCommit, err := repo.ReadCommit(ctx, git.Revision(bigCommitID))
 	require.NoError(t, err)
 
-	annotatedTagID := testhelper.CreateTag(t, testRepoCopyPath, "v1.2.0", blobID, &testhelper.CreateTagOpts{Message: "Blob tag"})
+	annotatedTagID := testhelper.CreateTag(t, repoPath, "v1.2.0", blobID, &testhelper.CreateTagOpts{Message: "Blob tag"})
 
-	testhelper.CreateTag(t, testRepoCopyPath, "v1.3.0", commitID, nil)
-	testhelper.CreateTag(t, testRepoCopyPath, "v1.4.0", blobID, nil)
+	testhelper.CreateTag(t, repoPath, "v1.3.0", commitID, nil)
+	testhelper.CreateTag(t, repoPath, "v1.4.0", blobID, nil)
 
 	// To test recursive resolving to a commit
-	testhelper.CreateTag(t, testRepoCopyPath, "v1.5.0", "v1.3.0", nil)
+	testhelper.CreateTag(t, repoPath, "v1.5.0", "v1.3.0", nil)
 
 	// A tag to commit with a big message
-	testhelper.CreateTag(t, testRepoCopyPath, "v1.6.0", bigCommitID, nil)
+	testhelper.CreateTag(t, repoPath, "v1.6.0", bigCommitID, nil)
 
 	// A tag with a big message
 	bigMessage := strings.Repeat("a", 11*1024)
-	bigMessageTag1ID := testhelper.CreateTag(t, testRepoCopyPath, "v1.7.0", commitID, &testhelper.CreateTagOpts{Message: bigMessage})
+	bigMessageTag1ID := testhelper.CreateTag(t, repoPath, "v1.7.0", commitID, &testhelper.CreateTagOpts{Message: bigMessage})
 
 	// A tag with a commit id as its name
-	commitTagID := testhelper.CreateTag(t, testRepoCopyPath, commitID, commitID, &testhelper.CreateTagOpts{Message: "commit tag with a commit sha as the name"})
+	commitTagID := testhelper.CreateTag(t, repoPath, commitID, commitID, &testhelper.CreateTagOpts{Message: "commit tag with a commit sha as the name"})
 
 	// a tag of a tag
-	tagOfTagID := testhelper.CreateTag(t, testRepoCopyPath, "tag-of-tag", commitTagID, &testhelper.CreateTagOpts{Message: "tag of a tag"})
+	tagOfTagID := testhelper.CreateTag(t, repoPath, "tag-of-tag", commitTagID, &testhelper.CreateTagOpts{Message: "tag of a tag"})
 
 	client, conn := newRefServiceClient(t, serverSocketPath)
 	defer conn.Close()
 
-	rpcRequest := &gitalypb.FindAllTagsRequest{Repository: testRepoCopy}
+	rpcRequest := &gitalypb.FindAllTagsRequest{Repository: repoProto}
 
 	c, err := client.FindAllTags(ctx, rpcRequest)
 	require.NoError(t, err)
@@ -1117,8 +1119,9 @@ func TestSuccessfulFindAllBranchesRequestWithMergedBranches(t *testing.T) {
 	stop, serverSocketPath := runRefServiceServer(t)
 	defer stop()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	repoProto, repoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
+	repo := localrepo.New(repoProto, config.Config)
 
 	client, conn := newRefServiceClient(t, serverSocketPath)
 	defer conn.Close()
@@ -1126,13 +1129,13 @@ func TestSuccessfulFindAllBranchesRequestWithMergedBranches(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	localRefs := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "for-each-ref", "--format=%(refname:strip=2)", "refs/heads")
+	localRefs := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "for-each-ref", "--format=%(refname:strip=2)", "refs/heads")
 	for _, ref := range strings.Split(string(localRefs), "\n") {
 		ref = strings.TrimSpace(ref)
 		if _, ok := localBranches["refs/heads/"+ref]; ok || ref == "master" || ref == "" {
 			continue
 		}
-		testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", "-D", ref)
+		testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", "-D", ref)
 	}
 
 	expectedRefs := []string{"refs/heads/100%branch", "refs/heads/improve/awesome", "refs/heads/'test'"}
@@ -1149,7 +1152,7 @@ func TestSuccessfulFindAllBranchesRequestWithMergedBranches(t *testing.T) {
 		expectedBranches = append(expectedBranches, branch)
 	}
 
-	masterCommit, err := log.GetCommit(ctx, git.NewExecCommandFactory(config.Config), testRepo, "master")
+	masterCommit, err := repo.ReadCommit(ctx, "master")
 	require.NoError(t, err)
 	expectedBranches = append(expectedBranches, &gitalypb.FindAllBranchesResponse_Branch{
 		Name:   []byte("refs/heads/master"),
@@ -1164,7 +1167,7 @@ func TestSuccessfulFindAllBranchesRequestWithMergedBranches(t *testing.T) {
 		{
 			desc: "all merged branches",
 			request: &gitalypb.FindAllBranchesRequest{
-				Repository: testRepo,
+				Repository: repoProto,
 				MergedOnly: true,
 			},
 			expectedBranches: expectedBranches,
@@ -1172,7 +1175,7 @@ func TestSuccessfulFindAllBranchesRequestWithMergedBranches(t *testing.T) {
 		{
 			desc: "all merged from a list of branches",
 			request: &gitalypb.FindAllBranchesRequest{
-				Repository: testRepo,
+				Repository: repoProto,
 				MergedOnly: true,
 				MergedBranches: [][]byte{
 					[]byte("refs/heads/100%branch"),
@@ -1439,8 +1442,9 @@ func TestSuccessfulFindTagRequest(t *testing.T) {
 	stop, serverSocketPath := runRefServiceServer(t)
 	defer stop()
 
-	testRepoCopy, testRepoCopyPath, cleanupFn := testhelper.NewTestRepoWithWorktree(t)
+	repoProto, repoPath, cleanupFn := testhelper.NewTestRepoWithWorktree(t)
 	defer cleanupFn()
+	repo := localrepo.New(repoProto, config.Config)
 
 	blobID := "faaf198af3a36dbf41961466703cc1d47c61d051"
 	commitID := "6f6d7e7ed97bb5f0054f2b1df789b39ca89b6ff9"
@@ -1450,33 +1454,33 @@ func TestSuccessfulFindTagRequest(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	bigCommitID := testhelper.CreateCommit(t, testRepoCopyPath, "local-big-commits", &testhelper.CreateCommitOpts{
+	bigCommitID := testhelper.CreateCommit(t, repoPath, "local-big-commits", &testhelper.CreateCommitOpts{
 		Message:  "An empty commit with REALLY BIG message\n\n" + strings.Repeat("a", helper.MaxCommitOrTagMessageSize+1),
 		ParentID: "60ecb67744cb56576c30214ff52294f8ce2def98",
 	})
-	bigCommit, err := log.GetCommit(ctx, git.NewExecCommandFactory(config.Config), testRepoCopy, git.Revision(bigCommitID))
+	bigCommit, err := repo.ReadCommit(ctx, git.Revision(bigCommitID))
 	require.NoError(t, err)
 
-	annotatedTagID := testhelper.CreateTag(t, testRepoCopyPath, "v1.2.0", blobID, &testhelper.CreateTagOpts{Message: "Blob tag"})
+	annotatedTagID := testhelper.CreateTag(t, repoPath, "v1.2.0", blobID, &testhelper.CreateTagOpts{Message: "Blob tag"})
 
-	testhelper.CreateTag(t, testRepoCopyPath, "v1.3.0", commitID, nil)
-	testhelper.CreateTag(t, testRepoCopyPath, "v1.4.0", blobID, nil)
+	testhelper.CreateTag(t, repoPath, "v1.3.0", commitID, nil)
+	testhelper.CreateTag(t, repoPath, "v1.4.0", blobID, nil)
 
 	// To test recursive resolving to a commit
-	testhelper.CreateTag(t, testRepoCopyPath, "v1.5.0", "v1.3.0", nil)
+	testhelper.CreateTag(t, repoPath, "v1.5.0", "v1.3.0", nil)
 
 	// A tag to commit with a big message
-	testhelper.CreateTag(t, testRepoCopyPath, "v1.6.0", bigCommitID, nil)
+	testhelper.CreateTag(t, repoPath, "v1.6.0", bigCommitID, nil)
 
 	// A tag with a big message
 	bigMessage := strings.Repeat("a", 11*1024)
-	bigMessageTag1ID := testhelper.CreateTag(t, testRepoCopyPath, "v1.7.0", commitID, &testhelper.CreateTagOpts{Message: bigMessage})
+	bigMessageTag1ID := testhelper.CreateTag(t, repoPath, "v1.7.0", commitID, &testhelper.CreateTagOpts{Message: bigMessage})
 
 	// A tag with a commit id as its name
-	commitTagID := testhelper.CreateTag(t, testRepoCopyPath, commitID, commitID, &testhelper.CreateTagOpts{Message: "commit tag with a commit sha as the name"})
+	commitTagID := testhelper.CreateTag(t, repoPath, commitID, commitID, &testhelper.CreateTagOpts{Message: "commit tag with a commit sha as the name"})
 
 	// a tag of a tag
-	tagOfTagID := testhelper.CreateTag(t, testRepoCopyPath, "tag-of-tag", commitTagID, &testhelper.CreateTagOpts{Message: "tag of a tag"})
+	tagOfTagID := testhelper.CreateTag(t, repoPath, "tag-of-tag", commitTagID, &testhelper.CreateTagOpts{Message: "tag of a tag"})
 
 	client, conn := newRefServiceClient(t, serverSocketPath)
 	defer conn.Close()
@@ -1596,7 +1600,7 @@ func TestSuccessfulFindTagRequest(t *testing.T) {
 	}
 
 	for _, expectedTag := range expectedTags {
-		rpcRequest := &gitalypb.FindTagRequest{Repository: testRepoCopy, TagName: expectedTag.Name}
+		rpcRequest := &gitalypb.FindTagRequest{Repository: repoProto, TagName: expectedTag.Name}
 
 		resp, err := client.FindTag(ctx, rpcRequest)
 		require.NoError(t, err)

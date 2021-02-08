@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/log"
+	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	gitalyhook "gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/hook"
@@ -39,8 +39,9 @@ func TestSuccessfulCreateBranchRequest(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	repoProto, repoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
+	repo := localrepo.New(repoProto, config.Config)
 
 	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()
@@ -49,7 +50,7 @@ func TestSuccessfulCreateBranchRequest(t *testing.T) {
 	defer conn.Close()
 
 	startPoint := "c7fbe50c7c7419d9701eebe64b1fdacc3df5b9dd"
-	startPointCommit, err := log.GetCommit(ctx, git.NewExecCommandFactory(config.Config), testRepo, git.Revision(startPoint))
+	startPointCommit, err := repo.ReadCommit(ctx, git.Revision(startPoint))
 	require.NoError(t, err)
 
 	testCases := []struct {
@@ -96,7 +97,7 @@ func TestSuccessfulCreateBranchRequest(t *testing.T) {
 		t.Run(testCase.desc, func(t *testing.T) {
 			branchName := testCase.branchName
 			request := &gitalypb.UserCreateBranchRequest{
-				Repository: testRepo,
+				Repository: repoProto,
 				BranchName: []byte(branchName),
 				StartPoint: []byte(testCase.startPoint),
 				User:       testhelper.TestUser,
@@ -107,14 +108,14 @@ func TestSuccessfulCreateBranchRequest(t *testing.T) {
 
 			response, err := client.UserCreateBranch(ctx, request)
 			if testCase.expectedBranch != nil {
-				defer testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", "-D", branchName)
+				defer testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", "-D", branchName)
 			}
 
 			require.NoError(t, err)
 			require.Equal(t, testCase.expectedBranch, response.Branch)
 			require.Empty(t, response.PreReceiveError)
 
-			branches := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "for-each-ref", "--", "refs/heads/"+branchName)
+			branches := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "for-each-ref", "--", "refs/heads/"+branchName)
 			require.Contains(t, string(branches), "refs/heads/"+branchName)
 		})
 	}
@@ -265,8 +266,9 @@ func TestSuccessfulCreateBranchRequestWithStartPointRefPrefix(t *testing.T) {
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	repoProto, repoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
+	repo := localrepo.New(repoProto, config.Config)
 
 	testCases := []struct {
 		desc             string
@@ -298,12 +300,12 @@ func TestSuccessfulCreateBranchRequestWithStartPointRefPrefix(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
-			testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "update-ref", "refs/heads/"+testCase.startPoint,
+			testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "update-ref", "refs/heads/"+testCase.startPoint,
 				testCase.startPointCommit,
 				"0000000000000000000000000000000000000000",
 			)
 			request := &gitalypb.UserCreateBranchRequest{
-				Repository: testRepo,
+				Repository: repoProto,
 				BranchName: []byte(testCase.branchName),
 				StartPoint: []byte(testCase.startPoint),
 				User:       testCase.user,
@@ -313,9 +315,9 @@ func TestSuccessfulCreateBranchRequestWithStartPointRefPrefix(t *testing.T) {
 			// like BranchName. See
 			// https://gitlab.com/gitlab-org/gitaly/-/issues/3331
 			//
-			//targetCommitOK, err := log.GetCommit(ctx, testRepo, testCase.startPointCommit)
+			//targetCommitOK, err := repo.ReadCommit(ctx, testCase.startPointCommit)
 			// END TODO
-			targetCommitOK, err := log.GetCommit(ctx, git.NewExecCommandFactory(config.Config), testRepo, "1e292f8fedd741b75372e19097c76d327140c312")
+			targetCommitOK, err := repo.ReadCommit(ctx, "1e292f8fedd741b75372e19097c76d327140c312")
 			require.NoError(t, err)
 
 			response, err := client.UserCreateBranch(ctx, request)
@@ -327,7 +329,7 @@ func TestSuccessfulCreateBranchRequestWithStartPointRefPrefix(t *testing.T) {
 				},
 			}
 			require.Equal(t, responseOk, response)
-			branches := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "for-each-ref", "--", "refs/heads/"+testCase.branchName)
+			branches := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "for-each-ref", "--", "refs/heads/"+testCase.branchName)
 			require.Contains(t, string(branches), "refs/heads/"+testCase.branchName)
 		})
 	}

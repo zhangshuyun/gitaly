@@ -6,7 +6,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -40,7 +39,7 @@ func TestSuccessfulFindBranchRequest(t *testing.T) {
 		err = repo.UpdateRef(ctx, branchName, oid, "")
 		require.NoError(t, err)
 
-		commit, err := log.GetCommit(ctx, git.NewExecCommandFactory(config.Config), testRepoProto, branchName.Revision())
+		commit, err := repo.ReadCommit(ctx, branchName.Revision())
 		require.NoError(t, err)
 
 		branchesByName[branchName] = &gitalypb.Branch{

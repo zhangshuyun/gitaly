@@ -11,8 +11,7 @@ import (
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
-	gitlog "gitlab.com/gitlab-org/gitaly/internal/git/log"
+	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -44,13 +43,14 @@ func TestSuccessfulUserRebaseConfirmableRequest(t *testing.T) {
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanup := testhelper.NewTestRepo(t)
+	repoProto, repoPath, cleanup := testhelper.NewTestRepo(t)
+	defer cleanup()
+	repo := localrepo.New(repoProto, config.Config)
+
+	repoCopyProto, _, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
 
-	testRepoCopy, _, cleanup := testhelper.NewTestRepo(t)
-	defer cleanup()
-
-	branchSha := getBranchSha(t, testRepoPath, rebaseBranchName)
+	branchSha := getBranchSha(t, repoPath, rebaseBranchName)
 
 	md := testhelper.GitalyServersMetadata(t, serverSocketPath)
 
@@ -64,19 +64,19 @@ func TestSuccessfulUserRebaseConfirmableRequest(t *testing.T) {
 	rebaseStream, err := client.UserRebaseConfirmable(ctx)
 	require.NoError(t, err)
 
-	preReceiveHookOutputPath, removePreReceive := testhelper.WriteEnvToCustomHook(t, testRepoPath, "pre-receive")
-	postReceiveHookOutputPath, removePostReceive := testhelper.WriteEnvToCustomHook(t, testRepoPath, "post-receive")
+	preReceiveHookOutputPath, removePreReceive := testhelper.WriteEnvToCustomHook(t, repoPath, "pre-receive")
+	postReceiveHookOutputPath, removePostReceive := testhelper.WriteEnvToCustomHook(t, repoPath, "post-receive")
 	defer removePreReceive()
 	defer removePostReceive()
 
-	headerRequest := buildHeaderRequest(testRepo, testhelper.TestUser, "1", rebaseBranchName, branchSha, testRepoCopy, "master")
+	headerRequest := buildHeaderRequest(repoProto, testhelper.TestUser, "1", rebaseBranchName, branchSha, repoCopyProto, "master")
 	headerRequest.GetHeader().GitPushOptions = pushOptions
 	require.NoError(t, rebaseStream.Send(headerRequest), "send header")
 
 	firstResponse, err := rebaseStream.Recv()
 	require.NoError(t, err, "receive first response")
 
-	_, err = gitlog.GetCommit(ctx, git.NewExecCommandFactory(config.Config), testRepo, git.Revision(firstResponse.GetRebaseSha()))
+	_, err = repo.ReadCommit(ctx, git.Revision(firstResponse.GetRebaseSha()))
 	require.NoError(t, err, "look up git commit before rebase is applied")
 
 	applyRequest := buildApplyRequest(true)
@@ -90,7 +90,7 @@ func TestSuccessfulUserRebaseConfirmableRequest(t *testing.T) {
 		return err
 	})
 
-	newBranchSha := getBranchSha(t, testRepoPath, rebaseBranchName)
+	newBranchSha := getBranchSha(t, repoPath, rebaseBranchName)
 
 	require.NotEqual(t, newBranchSha, branchSha)
 	require.Equal(t, newBranchSha, firstResponse.GetRebaseSha())
@@ -119,8 +119,9 @@ func TestUserRebaseConfirmable_stableCommitIDs(t *testing.T) {
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanup := testhelper.NewTestRepo(t)
+	repoProto, repoPath, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
+	repo := localrepo.New(repoProto, config.Config)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -132,17 +133,17 @@ func TestUserRebaseConfirmable_stableCommitIDs(t *testing.T) {
 	require.NoError(t, err)
 
 	committerDate := &timestamp.Timestamp{Seconds: 100000000}
-	parentSha := getBranchSha(t, testRepoPath, "master")
+	parentSha := getBranchSha(t, repoPath, "master")
 
 	require.NoError(t, rebaseStream.Send(&gitalypb.UserRebaseConfirmableRequest{
 		UserRebaseConfirmableRequestPayload: &gitalypb.UserRebaseConfirmableRequest_Header_{
 			Header: &gitalypb.UserRebaseConfirmableRequest_Header{
-				Repository:       testRepo,
+				Repository:       repoProto,
 				User:             testhelper.TestUser,
 				RebaseId:         "1",
 				Branch:           []byte(rebaseBranchName),
-				BranchSha:        getBranchSha(t, testRepoPath, rebaseBranchName),
-				RemoteRepository: testRepo,
+				BranchSha:        getBranchSha(t, repoPath, rebaseBranchName),
+				RemoteRepository: repoProto,
 				RemoteBranch:     []byte("master"),
 				Timestamp:        committerDate,
 			},
@@ -165,7 +166,7 @@ func TestUserRebaseConfirmable_stableCommitIDs(t *testing.T) {
 		return err
 	})
 
-	commit, err := gitlog.GetCommit(ctx, git.NewExecCommandFactory(config.Config), testRepo, git.Revision(rebaseBranchName))
+	commit, err := repo.ReadCommit(ctx, git.Revision(rebaseBranchName))
 	require.NoError(t, err, "look up git commit")
 	testhelper.ProtoEqual(t, &gitalypb.GitCommit{
 		Subject:   []byte("Add a directory with many files to allow testing of default 1,000 entry limit"),
@@ -339,13 +340,14 @@ func TestFailedUserRebaseConfirmableDueToApplyBeingFalse(t *testing.T) {
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanup := testhelper.NewTestRepo(t)
+	repoProto, repoPath, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
+	repo := localrepo.New(repoProto, config.Config)
 
 	testRepoCopy, _, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
 
-	branchSha := getBranchSha(t, testRepoPath, rebaseBranchName)
+	branchSha := getBranchSha(t, repoPath, rebaseBranchName)
 
 	md := testhelper.GitalyServersMetadata(t, serverSocketPath)
 	ctx := metadata.NewOutgoingContext(ctxOuter, md)
@@ -353,13 +355,13 @@ func TestFailedUserRebaseConfirmableDueToApplyBeingFalse(t *testing.T) {
 	rebaseStream, err := client.UserRebaseConfirmable(ctx)
 	require.NoError(t, err)
 
-	headerRequest := buildHeaderRequest(testRepo, testhelper.TestUser, "1", rebaseBranchName, branchSha, testRepoCopy, "master")
+	headerRequest := buildHeaderRequest(repoProto, testhelper.TestUser, "1", rebaseBranchName, branchSha, testRepoCopy, "master")
 	require.NoError(t, rebaseStream.Send(headerRequest), "send header")
 
 	firstResponse, err := rebaseStream.Recv()
 	require.NoError(t, err, "receive first response")
 
-	_, err = gitlog.GetCommit(ctx, git.NewExecCommandFactory(config.Config), testRepo, git.Revision(firstResponse.GetRebaseSha()))
+	_, err = repo.ReadCommit(ctx, git.Revision(firstResponse.GetRebaseSha()))
 	require.NoError(t, err, "look up git commit before rebase is applied")
 
 	applyRequest := buildApplyRequest(false)
@@ -370,7 +372,7 @@ func TestFailedUserRebaseConfirmableDueToApplyBeingFalse(t *testing.T) {
 	testhelper.RequireGrpcError(t, err, codes.FailedPrecondition)
 	require.False(t, secondResponse.GetRebaseApplied(), "the second rebase is not applied")
 
-	newBranchSha := getBranchSha(t, testRepoPath, rebaseBranchName)
+	newBranchSha := getBranchSha(t, repoPath, rebaseBranchName)
 	require.Equal(t, branchSha, newBranchSha, "branch should not change when the rebase is not applied")
 	require.NotEqual(t, newBranchSha, firstResponse.GetRebaseSha(), "branch should not be the sha returned when the rebase is not applied")
 }
@@ -385,19 +387,20 @@ func TestFailedUserRebaseConfirmableRequestDueToPreReceiveError(t *testing.T) {
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanup := testhelper.NewTestRepo(t)
+	repoProto, repoPath, cleanup := testhelper.NewTestRepo(t)
+	defer cleanup()
+	repo := localrepo.New(repoProto, config.Config)
+
+	repoCopyProto, _, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
 
-	testRepoCopy, _, cleanup := testhelper.NewTestRepo(t)
-	defer cleanup()
-
-	branchSha := getBranchSha(t, testRepoPath, rebaseBranchName)
+	branchSha := getBranchSha(t, repoPath, rebaseBranchName)
 
 	hookContent := []byte("#!/bin/sh\necho 'failure'\nexit 1")
 
 	for i, hookName := range GitlabPreHooks {
 		t.Run(hookName, func(t *testing.T) {
-			remove := testhelper.WriteCustomHook(t, testRepoPath, hookName, hookContent)
+			remove := testhelper.WriteCustomHook(t, repoPath, hookName, hookContent)
 			defer remove()
 
 			md := testhelper.GitalyServersMetadata(t, serverSocketPath)
@@ -406,13 +409,13 @@ func TestFailedUserRebaseConfirmableRequestDueToPreReceiveError(t *testing.T) {
 			rebaseStream, err := client.UserRebaseConfirmable(ctx)
 			require.NoError(t, err)
 
-			headerRequest := buildHeaderRequest(testRepo, testhelper.TestUser, fmt.Sprintf("%v", i), rebaseBranchName, branchSha, testRepoCopy, "master")
+			headerRequest := buildHeaderRequest(repoProto, testhelper.TestUser, fmt.Sprintf("%v", i), rebaseBranchName, branchSha, repoCopyProto, "master")
 			require.NoError(t, rebaseStream.Send(headerRequest), "send header")
 
 			firstResponse, err := rebaseStream.Recv()
 			require.NoError(t, err, "receive first response")
 
-			_, err = gitlog.GetCommit(ctx, git.NewExecCommandFactory(config.Config), testRepo, git.Revision(firstResponse.GetRebaseSha()))
+			_, err = repo.ReadCommit(ctx, git.Revision(firstResponse.GetRebaseSha()))
 			require.NoError(t, err, "look up git commit before rebase is applied")
 
 			applyRequest := buildApplyRequest(true)
@@ -428,7 +431,7 @@ func TestFailedUserRebaseConfirmableRequestDueToPreReceiveError(t *testing.T) {
 				return err
 			})
 
-			newBranchSha := getBranchSha(t, testRepoPath, rebaseBranchName)
+			newBranchSha := getBranchSha(t, repoPath, rebaseBranchName)
 			require.Equal(t, branchSha, newBranchSha, "branch should not change when the rebase fails due to PreReceiveError")
 			require.NotEqual(t, newBranchSha, firstResponse.GetRebaseSha(), "branch should not be the sha returned when the rebase fails due to PreReceiveError")
 		})
@@ -491,10 +494,11 @@ func TestRebaseRequestWithDeletedFile(t *testing.T) {
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepoWithWorktree(t)
+	repoProto, repoProtoPath, cleanupFn := testhelper.NewTestRepoWithWorktree(t)
 	defer cleanupFn()
+	repo := localrepo.New(repoProto, config.Config)
 
-	testRepoCopy, _, cleanup := testhelper.NewTestRepo(t)
+	repoCopyProto, _, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
 
 	md := testhelper.GitalyServersMetadata(t, serverSocketPath)
@@ -502,24 +506,24 @@ func TestRebaseRequestWithDeletedFile(t *testing.T) {
 
 	branch := "rebase-delete-test"
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "config", "user.name", string(testhelper.TestUser.Name))
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "config", "user.email", string(testhelper.TestUser.Email))
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "checkout", "-b", branch, "master~1")
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "rm", "README")
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "commit", "-a", "-m", "delete file")
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoProtoPath, "config", "user.name", string(testhelper.TestUser.Name))
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoProtoPath, "config", "user.email", string(testhelper.TestUser.Email))
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoProtoPath, "checkout", "-b", branch, "master~1")
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoProtoPath, "rm", "README")
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoProtoPath, "commit", "-a", "-m", "delete file")
 
-	branchSha := getBranchSha(t, testRepoPath, branch)
+	branchSha := getBranchSha(t, repoProtoPath, branch)
 
 	rebaseStream, err := client.UserRebaseConfirmable(ctx)
 	require.NoError(t, err)
 
-	headerRequest := buildHeaderRequest(testRepo, testhelper.TestUser, "1", branch, branchSha, testRepoCopy, "master")
+	headerRequest := buildHeaderRequest(repoProto, testhelper.TestUser, "1", branch, branchSha, repoCopyProto, "master")
 	require.NoError(t, rebaseStream.Send(headerRequest), "send header")
 
 	firstResponse, err := rebaseStream.Recv()
 	require.NoError(t, err, "receive first response")
 
-	_, err = gitlog.GetCommit(ctx, git.NewExecCommandFactory(config.Config), testRepo, git.Revision(firstResponse.GetRebaseSha()))
+	_, err = repo.ReadCommit(ctx, git.Revision(firstResponse.GetRebaseSha()))
 	require.NoError(t, err, "look up git commit before rebase is applied")
 
 	applyRequest := buildApplyRequest(true)
@@ -533,7 +537,7 @@ func TestRebaseRequestWithDeletedFile(t *testing.T) {
 		return err
 	})
 
-	newBranchSha := getBranchSha(t, testRepoPath, branch)
+	newBranchSha := getBranchSha(t, repoProtoPath, branch)
 
 	require.NotEqual(t, newBranchSha, branchSha)
 	require.Equal(t, newBranchSha, firstResponse.GetRebaseSha())
@@ -548,8 +552,9 @@ func TestRebaseOntoRemoteBranch(t *testing.T) {
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	localRepo, localRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	localRepoProto, localRepoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
+	localRepo := localrepo.New(localRepoProto, config.Config)
 
 	remoteRepo, remoteRepoPath, cleanup := testhelper.NewTestRepoWithWorktree(t)
 	defer cleanup()
@@ -574,17 +579,16 @@ func TestRebaseOntoRemoteBranch(t *testing.T) {
 	rebaseStream, err := client.UserRebaseConfirmable(ctx)
 	require.NoError(t, err)
 
-	gitCmdFactory := git.NewExecCommandFactory(config.Config)
-	_, err = gitlog.GetCommit(ctx, gitCmdFactory, localRepo, git.Revision(remoteBranchHash))
-	require.True(t, catfile.IsNotFound(err), "remote commit does not yet exist in local repository")
+	_, err = localRepo.ReadCommit(ctx, git.Revision(remoteBranchHash))
+	require.Equal(t, localrepo.ErrObjectNotFound, err, "remote commit does not yet exist in local repository")
 
-	headerRequest := buildHeaderRequest(localRepo, testhelper.TestUser, "1", localBranch, localBranchHash, remoteRepo, remoteBranch)
+	headerRequest := buildHeaderRequest(localRepoProto, testhelper.TestUser, "1", localBranch, localBranchHash, remoteRepo, remoteBranch)
 	require.NoError(t, rebaseStream.Send(headerRequest), "send header")
 
 	firstResponse, err := rebaseStream.Recv()
 	require.NoError(t, err, "receive first response")
 
-	_, err = gitlog.GetCommit(ctx, gitCmdFactory, localRepo, git.Revision(remoteBranchHash))
+	_, err = localRepo.ReadCommit(ctx, git.Revision(remoteBranchHash))
 	require.NoError(t, err, "remote commit does now exist in local repository")
 
 	applyRequest := buildApplyRequest(true)

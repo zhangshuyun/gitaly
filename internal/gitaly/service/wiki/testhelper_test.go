@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/hooks"
-	gitlog "gitlab.com/gitlab-org/gitaly/internal/git/log"
+	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
@@ -190,15 +190,17 @@ func sendBytes(data []byte, chunkSize int, sender func([]byte) error) (int, erro
 	return i, nil
 }
 
-func createTestWikiPage(t *testing.T, locator storage.Locator, client gitalypb.WikiServiceClient, wikiRepo *gitalypb.Repository, opts createWikiPageOpts) *gitalypb.GitCommit {
+func createTestWikiPage(t *testing.T, locator storage.Locator, client gitalypb.WikiServiceClient, wikiRepoProto *gitalypb.Repository, opts createWikiPageOpts) *gitalypb.GitCommit {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	wikiRepoPath, err := locator.GetRepoPath(wikiRepo)
+	wikiRepoPath, err := locator.GetRepoPath(wikiRepoProto)
 	require.NoError(t, err)
-	writeWikiPage(t, client, wikiRepo, opts)
+	writeWikiPage(t, client, wikiRepoProto, opts)
 	head1ID := testhelper.MustRunCommand(t, nil, "git", "-C", wikiRepoPath, "show", "--format=format:%H", "--no-patch", "HEAD")
-	pageCommit, err := gitlog.GetCommit(ctx, git.NewExecCommandFactory(config.Config), wikiRepo, git.Revision(head1ID))
+
+	wikiRepo := localrepo.New(wikiRepoProto, config.Config)
+	pageCommit, err := wikiRepo.ReadCommit(ctx, git.Revision(head1ID))
 	require.NoError(t, err, "look up git commit after writing a wiki page")
 
 	return pageCommit
