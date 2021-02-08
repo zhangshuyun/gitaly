@@ -1,10 +1,8 @@
 package git
 
 const (
-	// scReadOnly denotes a read-only command
-	scReadOnly = 1 << iota
 	// scNoRefUpdates denotes a command which will never update refs
-	scNoRefUpdates
+	scNoRefUpdates = 1 << iota
 	// scNoEndOfOptions denotes a command which doesn't know --end-of-options
 	scNoEndOfOptions
 	// scGeneratesPackfiles denotes a command which may generate packfiles
@@ -23,19 +21,19 @@ var gitCommands = map[string]gitCommand{
 		flags: scNoRefUpdates,
 	},
 	"archive": gitCommand{
-		flags: scReadOnly | scNoEndOfOptions,
+		flags: scNoRefUpdates | scNoEndOfOptions,
 	},
 	"blame": gitCommand{
-		flags: scReadOnly | scNoEndOfOptions,
+		flags: scNoRefUpdates | scNoEndOfOptions,
 	},
 	"bundle": gitCommand{
-		flags: scReadOnly | scGeneratesPackfiles,
+		flags: scNoRefUpdates | scGeneratesPackfiles,
 	},
 	"cat-file": gitCommand{
-		flags: scReadOnly,
+		flags: scNoRefUpdates,
 	},
 	"check-ref-format": gitCommand{
-		flags: scReadOnly | scNoRefUpdates | scNoEndOfOptions,
+		flags: scNoRefUpdates | scNoEndOfOptions,
 	},
 	"checkout": gitCommand{
 		flags: scNoEndOfOptions,
@@ -53,31 +51,31 @@ var gitCommands = map[string]gitCommand{
 		flags: scNoRefUpdates | scNoEndOfOptions,
 	},
 	"count-objects": gitCommand{
-		flags: scReadOnly,
+		flags: scNoRefUpdates,
 	},
 	"diff": gitCommand{
-		flags: scReadOnly,
+		flags: scNoRefUpdates,
 	},
 	"diff-tree": gitCommand{
-		flags: scReadOnly,
+		flags: scNoRefUpdates,
 	},
 	"fetch": gitCommand{
 		flags: 0,
 	},
 	"for-each-ref": gitCommand{
-		flags: scReadOnly | scNoEndOfOptions,
+		flags: scNoRefUpdates | scNoEndOfOptions,
 	},
 	"format-patch": gitCommand{
-		flags: scReadOnly,
+		flags: scNoRefUpdates,
 	},
 	"fsck": gitCommand{
-		flags: scReadOnly,
+		flags: scNoRefUpdates,
 	},
 	"gc": gitCommand{
 		flags: scNoRefUpdates | scGeneratesPackfiles,
 	},
 	"grep": gitCommand{
-		flags: scReadOnly | scNoEndOfOptions,
+		flags: scNoRefUpdates | scNoEndOfOptions,
 	},
 	"hash-object": gitCommand{
 		flags: scNoRefUpdates,
@@ -89,16 +87,16 @@ var gitCommands = map[string]gitCommand{
 		flags: scNoEndOfOptions,
 	},
 	"log": gitCommand{
-		flags: scReadOnly,
+		flags: scNoRefUpdates,
 	},
 	"ls-remote": gitCommand{
-		flags: scReadOnly,
+		flags: scNoRefUpdates,
 	},
 	"ls-tree": gitCommand{
-		flags: scReadOnly | scNoEndOfOptions,
+		flags: scNoRefUpdates | scNoEndOfOptions,
 	},
 	"merge-base": gitCommand{
-		flags: scReadOnly,
+		flags: scNoRefUpdates,
 	},
 	"mktag": gitCommand{
 		flags: scNoRefUpdates | scNoEndOfOptions,
@@ -144,16 +142,16 @@ var gitCommands = map[string]gitCommand{
 		},
 	},
 	"rev-list": gitCommand{
-		flags: scReadOnly,
+		flags: scNoRefUpdates,
 	},
 	"rev-parse": gitCommand{
-		flags: scReadOnly | scNoEndOfOptions,
+		flags: scNoRefUpdates | scNoEndOfOptions,
 	},
 	"show": gitCommand{
-		flags: scReadOnly,
+		flags: scNoRefUpdates,
 	},
 	"show-ref": gitCommand{
-		flags: scReadOnly,
+		flags: scNoRefUpdates,
 	},
 	"symbolic-ref": gitCommand{
 		flags: 0,
@@ -165,10 +163,10 @@ var gitCommands = map[string]gitCommand{
 		flags: 0,
 	},
 	"upload-archive": gitCommand{
-		flags: scReadOnly | scNoEndOfOptions,
+		flags: scNoRefUpdates | scNoEndOfOptions,
 	},
 	"upload-pack": gitCommand{
-		flags: scReadOnly | scGeneratesPackfiles,
+		flags: scNoRefUpdates | scGeneratesPackfiles,
 		opts: []GlobalOption{
 			ConfigPair{Key: "uploadpack.allowFilter", Value: "true"},
 			// Enables the capability to request individual SHA1's from the
@@ -177,7 +175,7 @@ var gitCommands = map[string]gitCommand{
 		},
 	},
 	"version": gitCommand{
-		flags: scReadOnly | scNoEndOfOptions,
+		flags: scNoRefUpdates | scNoEndOfOptions,
 	},
 	"worktree": gitCommand{
 		flags: 0,
@@ -190,7 +188,7 @@ var gitCommands = map[string]gitCommand{
 // refs are updated. When unknown, true is returned to err on the side of
 // caution.
 func (c gitCommand) mayUpdateRef() bool {
-	return c.flags&(scReadOnly|scNoRefUpdates) == 0
+	return c.flags&scNoRefUpdates == 0
 }
 
 // mayGeneratePackfiles indicates if a gitCommand is known to generate
