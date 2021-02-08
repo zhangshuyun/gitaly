@@ -3,6 +3,8 @@ package repository
 import (
 	"context"
 	"fmt"
+	"math"
+	"runtime"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
@@ -27,11 +29,20 @@ func init() {
 	prometheus.Register(repackCounter)
 }
 
+// log2Threads returns the log-2 number of threads based on the number of
+// provided CPUs. This prevents repacking operations from exhausting all
+// available CPUs and increasing request latency
+func log2Threads(numCPUs int) git.ValueFlag {
+	n := math.Max(1, math.Floor(math.Log2(float64(numCPUs))))
+	return git.ValueFlag{Name: "--threads", Value: fmt.Sprint(n)}
+}
+
 func (s *server) RepackFull(ctx context.Context, in *gitalypb.RepackFullRequest) (*gitalypb.RepackFullResponse, error) {
 	options := []git.Option{
 		git.Flag{Name: "-A"},
 		git.Flag{Name: "--pack-kept-objects"},
 		git.Flag{Name: "-l"},
+		log2Threads(runtime.NumCPU()),
 	}
 	if err := s.repackCommand(ctx, in.GetRepository(), in.GetCreateBitmap(), options...); err != nil {
 		return nil, err
