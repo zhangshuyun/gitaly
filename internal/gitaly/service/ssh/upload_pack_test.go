@@ -270,19 +270,22 @@ func TestUploadPackCloneSuccess(t *testing.T) {
 func TestUploadPackWithPackObjectsHook(t *testing.T) {
 	filterDir, cleanup := testhelper.TempDir(t)
 	defer cleanup()
+	outputPath := filepath.Join(filterDir, "output")
 
 	defer func(old string) {
 		config.Config.BinDir = old
 	}(config.Config.BinDir)
 	config.Config.BinDir = filterDir
 
+	hookScript := fmt.Sprintf("#!/bin/sh\necho 'I was invoked' >'%s'\nshift\nexec '%s' \"$@\"\n",
+		outputPath, config.Config.Git.BinPath)
+
 	// We're using a custom pack-objetcs hook for git-upload-pack. In order
 	// to assure that it's getting executed as expected, we're writing a
 	// custom script which replaces the hook binary. It doesn't do anything
 	// special, but writes an error message and errors out and should thus
 	// cause the clone to fail with this error message.
-	testhelper.WriteExecutable(t, filepath.Join(filterDir, "gitaly-hooks"),
-		[]byte("#!/bin/sh\necho 'I was invoked' >&2\nexit 73\n"))
+	testhelper.WriteExecutable(t, filepath.Join(filterDir, "gitaly-hooks"), []byte(hookScript))
 
 	serverSocketPath, stop := runSSHServer(t)
 	defer stop()
@@ -301,7 +304,9 @@ func TestUploadPackWithPackObjectsHook(t *testing.T) {
 		},
 		server: serverSocketPath,
 	}.execute(t)
-	require.Contains(t, err.Error(), "remote: I was invoked")
+	require.NoError(t, err)
+
+	require.Equal(t, []byte("I was invoked\n"), testhelper.MustReadFile(t, outputPath))
 }
 
 func TestUploadPackWithoutSideband(t *testing.T) {
