@@ -36,8 +36,7 @@ func (m *GitLabHookManager) newCustomHooksExecutor(repo *gitalypb.Repository, ho
 
 	var hookFiles []string
 	projectCustomHookFile := filepath.Join(repoPath, "custom_hooks", hookName)
-	s, err := os.Stat(projectCustomHookFile)
-	if err == nil && s.Mode()&0100 != 0 {
+	if isValidHook(projectCustomHookFile) {
 		hookFiles = append(hookFiles, projectCustomHookFile)
 	}
 
