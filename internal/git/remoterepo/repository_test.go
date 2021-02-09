@@ -15,13 +15,14 @@ import (
 )
 
 func TestRepository(t *testing.T) {
-	_, serverSocketPath, cleanup := testserver.RunInternalGitalyServer(t, config.Config.GitalyInternalSocketPath(), config.Config.Storages, config.Config.Auth.Token)
+	cfg := config.Config
+	serverSocketPath, cleanup := testserver.RunGitalyServer(t, cfg, nil)
 	defer cleanup()
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	ctx, err := helper.InjectGitalyServers(ctx, "default", serverSocketPath, config.Config.Auth.Token)
+	ctx, err := helper.InjectGitalyServers(ctx, "default", serverSocketPath, cfg.Auth.Token)
 	require.NoError(t, err)
 
 	pool := client.NewPool()
