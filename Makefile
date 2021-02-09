@@ -34,15 +34,15 @@ GIT_PREFIX       ?= ${GIT_INSTALL_DIR}
 
 # Tools
 GIT               := $(shell which git)
-GOIMPORTS         := ${BUILD_DIR}/bin/goimports
-GITALYFMT         := ${BUILD_DIR}/bin/gitalyfmt
-GOLANGCI_LINT     := ${BUILD_DIR}/bin/golangci-lint
-GO_LICENSES       := ${BUILD_DIR}/bin/go-licenses
 PROTOC            := ${BUILD_DIR}/protoc/bin/protoc
-PROTOC_GEN_GO     := ${BUILD_DIR}/bin/protoc-gen-go
-PROTOC_GEN_GITALY := ${BUILD_DIR}/bin/protoc-gen-gitaly
-GO_JUNIT_REPORT   := ${BUILD_DIR}/bin/go-junit-report
-GOCOVER_COBERTURA := ${BUILD_DIR}/bin/gocover-cobertura
+GOIMPORTS         := ${BUILD_DIR}/tools/goimports
+GITALYFMT         := ${BUILD_DIR}/tools/gitalyfmt
+GOLANGCI_LINT     := ${BUILD_DIR}/tools/golangci-lint
+GO_LICENSES       := ${BUILD_DIR}/tools/go-licenses
+PROTOC_GEN_GO     := ${BUILD_DIR}/tools/protoc-gen-go
+PROTOC_GEN_GITALY := ${BUILD_DIR}/tools/protoc-gen-gitaly
+GO_JUNIT_REPORT   := ${BUILD_DIR}/tools/go-junit-report
+GOCOVER_COBERTURA := ${BUILD_DIR}/tools/gocover-cobertura
 
 # Tool options
 GOLANGCI_LINT_OPTIONS ?=
@@ -338,17 +338,17 @@ docker:
 proto: ${PROTOC} ${PROTOC_GEN_GO} ${SOURCE_DIR}/.ruby-bundle
 	${Q}mkdir -p ${SOURCE_DIR}/proto/go/gitalypb
 	${Q}rm -f ${SOURCE_DIR}/proto/go/gitalypb/*.pb.go
-	${PROTOC} --go_out=paths=source_relative,plugins=grpc:./proto/go/gitalypb -I./proto ./proto/*.proto
+	${PROTOC} --plugin=${PROTOC_GEN_GO} -I ${SOURCE_DIR}/proto --go_out=paths=source_relative,plugins=grpc:${SOURCE_DIR}/proto/go/gitalypb ${SOURCE_DIR}/proto/*.proto
 	${SOURCE_DIR}/_support/generate-proto-ruby
 	${Q}# this part is related to the generation of sources from testing proto files
-	${PROTOC} --plugin=${PROTOC_GEN_GO} --go_out=plugins=grpc:. internal/praefect/grpc-proxy/testdata/test.proto
-	${PROTOC} -I proto -I internal --plugin=${PROTOC_GEN_GO} --go_out=paths=source_relative,plugins=grpc:internal internal/praefect/mock/mock.proto
-	${PROTOC} -I proto -I internal --plugin=${PROTOC_GEN_GO} --go_out=paths=source_relative,plugins=grpc:internal internal/middleware/cache/testdata/stream.proto
-	${PROTOC} -I proto --plugin=${PROTOC_GEN_GO} --go_out=paths=source_relative,plugins=grpc:proto proto/go/internal/linter/testdata/*.proto
+	${PROTOC} --plugin=${PROTOC_GEN_GO} -I ${SOURCE_DIR}/internal --go_out=path=source_relative,plugins=grpc:${SOURCE_DIR}/internal ${SOURCE_DIR}/internal/praefect/grpc-proxy/testdata/test.proto
+	${PROTOC} --plugin=${PROTOC_GEN_GO} -I ${SOURCE_DIR}/proto -I ${SOURCE_DIR}/internal --go_out=paths=source_relative,plugins=grpc:${SOURCE_DIR}/internal ${SOURCE_DIR}/internal/praefect/mock/mock.proto
+	${PROTOC} --plugin=${PROTOC_GEN_GO} -I ${SOURCE_DIR}/proto -I ${SOURCE_DIR}/internal --go_out=paths=source_relative,plugins=grpc:${SOURCE_DIR}/internal ${SOURCE_DIR}/internal/middleware/cache/testdata/stream.proto
+	${PROTOC} --plugin=${PROTOC_GEN_GO} -I ${SOURCE_DIR}/proto --go_out=paths=source_relative,plugins=grpc:${SOURCE_DIR}/proto ${SOURCE_DIR}/proto/go/internal/linter/testdata/*.proto
 
 .PHONY: lint-proto
 lint-proto: ${PROTOC} ${PROTOC_GEN_GITALY}
-	${Q}${PROTOC} --gitaly_out=proto_dir=./proto,gitalypb_dir=./proto/go/gitalypb:. -I./proto ./proto/*.proto
+	${Q}${PROTOC} --plugin=${PROTOC_GEN_GITALY} -I ${SOURCE_DIR}/proto --gitaly_out=proto_dir=${SOURCE_DIR}/proto,gitalypb_dir=${SOURCE_DIR}/proto/go/gitalypb:${SOURCE_DIR} ${SOURCE_DIR}/proto/*.proto
 
 .PHONY: no-changes
 no-changes:
@@ -397,8 +397,8 @@ ${BUILD_DIR}:
 ${BUILD_DIR}/bin: | ${BUILD_DIR}
 	${Q}mkdir -p ${BUILD_DIR}/bin
 
-${BUILD_DIR}/go.mod: | ${BUILD_DIR}
-	${Q}cd ${BUILD_DIR} && go mod init _build
+${BUILD_DIR}/tools: | ${BUILD_DIR}
+	${Q}mkdir -p ${BUILD_DIR}/tools
 
 # This is a build hack to avoid excessive rebuilding of targets. Instead of
 # depending on the timestamp of the Makefile, which will change e.g. between
@@ -426,9 +426,6 @@ ${LIBGIT2_INSTALL_DIR}/lib/libgit2.a: ${BUILD_DIR}/Makefile.sha256
 	${Q}CMAKE_BUILD_PARALLEL_LEVEL=$(shell nproc) cmake --build ${LIBGIT2_BUILD_DIR} --target install
 	go install -a github.com/libgit2/git2go/${GIT2GO_VERSION}
 
-${GOIMPORTS}: ${BUILD_DIR}/Makefile.sha256 ${BUILD_DIR}/go.mod
-	${Q}cd ${BUILD_DIR} && go get golang.org/x/tools/cmd/goimports@2538eef75904eff384a2551359968e40c207d9d2
-
 ifeq (${GIT_USE_PREBUILT_BINARIES},)
 ${GIT_INSTALL_DIR}/bin/git: ${BUILD_DIR}/Makefile.sha256
 	${Q}rm -rf ${GIT_SOURCE_DIR} ${GIT_INSTALL_DIR}
@@ -448,26 +445,30 @@ ${PROTOC}: ${BUILD_DIR}/protoc.zip | ${BUILD_DIR}
 	${Q}mkdir -p ${BUILD_DIR}/protoc
 	cd ${BUILD_DIR}/protoc && unzip ${BUILD_DIR}/protoc.zip
 
-${GITALYFMT}: | ${BUILD_DIR}/bin
+# We're using per-tool go.mod files in order to avoid conflicts in the graph in
+# case we used a single go.mod file for all tools.
+${BUILD_DIR}/tools/%/go.mod: | ${BUILD_DIR}/tools
+	${Q}mkdir -p $(dir $@)
+	${Q}cd $(dir $@) && go mod init _build
+
+${BUILD_DIR}/tools/%: GOBIN = ${BUILD_DIR}/tools
+${BUILD_DIR}/tools/%: ${BUILD_DIR}/Makefile.sha256 ${BUILD_DIR}/tools/.%/go.mod
+	${Q}cd ${BUILD_DIR}/tools/.$(notdir $@) && go get ${TOOL_PACKAGE}
+
+# Tools hosted by Gitaly itself
+${GITALYFMT}: | ${BUILD_DIR}/tools
 	${Q}go build -o $@ ${SOURCE_DIR}/internal/cmd/gitalyfmt
 
-${PROTOC_GEN_GITALY}: proto | ${BUILD_DIR}/bin
+${PROTOC_GEN_GITALY}: proto | ${BUILD_DIR}/tools
 	${Q}go build -o $@ ${SOURCE_DIR}/proto/go/internal/cmd/protoc-gen-gitaly
 
-${GOCOVER_COBERTURA}: ${BUILD_DIR}/Makefile.sha256
-	${Q}cd ${BUILD_DIR} && go get github.com/t-yuki/gocover-cobertura@${GOCOVER_COBERTURA_VERSION}
-
-${GO_JUNIT_REPORT}: ${BUILD_DIR}/Makefile.sha256 ${BUILD_DIR}/go.mod
-	${Q}cd ${BUILD_DIR} && go get github.com/jstemmer/go-junit-report@984a47ca6b0a7d704c4b589852051b4d7865aa17
-
-${GO_LICENSES}: ${BUILD_DIR}/Makefile.sha256 ${BUILD_DIR}/go.mod
-	${Q}cd ${BUILD_DIR} && go get github.com/google/go-licenses@73411c8fa237ccc6a75af79d0a5bc021c9487aad
-
-${PROTOC_GEN_GO}: ${BUILD_DIR}/Makefile.sha256 ${BUILD_DIR}/go.mod
-	${Q}cd ${BUILD_DIR} && go get github.com/golang/protobuf/protoc-gen-go@v${PROTOC_GEN_GO_VERSION}
-
-${GOLANGCI_LINT}: ${BUILD_DIR}/Makefile.sha256 ${BUILD_DIR}/go.mod
-	${Q}cd ${BUILD_DIR} && go get github.com/golangci/golangci-lint/cmd/golangci-lint@v${GOLANGCI_LINT_VERSION}
+# External tools
+${GOCOVER_COBERTURA}: TOOL_PACKAGE = github.com/t-yuki/gocover-cobertura@${GOCOVER_COBERTURA_VERSION}
+${GOIMPORTS}:         TOOL_PACKAGE = golang.org/x/tools/cmd/goimports@2538eef75904eff384a2551359968e40c207d9d2
+${GOLANGCI_LINT}:     TOOL_PACKAGE = github.com/golangci/golangci-lint/cmd/golangci-lint@v${GOLANGCI_LINT_VERSION}
+${GO_JUNIT_REPORT}:   TOOL_PACKAGE = github.com/jstemmer/go-junit-report@984a47ca6b0a7d704c4b589852051b4d7865aa17
+${GO_LICENSES}:       TOOL_PACKAGE = github.com/google/go-licenses@73411c8fa237ccc6a75af79d0a5bc021c9487aad
+${PROTOC_GEN_GO}:     TOOL_PACKAGE = github.com/golang/protobuf/protoc-gen-go@v${PROTOC_GEN_GO_VERSION}
 
 ${TEST_REPO}:
 	${GIT} clone --bare --quiet https://gitlab.com/gitlab-org/gitlab-test.git $@
