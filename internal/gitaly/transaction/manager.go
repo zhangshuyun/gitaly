@@ -11,6 +11,17 @@ import (
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
+var (
+	// ErrTransactionAborted indicates a transaction was aborted, either
+	// because it timed out or because the vote failed to reach quorum.
+	ErrTransactionAborted = errors.New("transaction was aborted")
+	// ErrTransactionStopped indicates a transaction was gracefully
+	// stopped. This only happens in case the transaction was terminated
+	// because of an external condition, e.g. access checks or hooks
+	// rejected a change.
+	ErrTransactionStopped = errors.New("transaction was stopped")
+)
+
 // Manager is an interface for handling voting on transactions.
 type Manager interface {
 	// Vote casts a vote on the given transaction which is hosted by the
@@ -90,9 +101,9 @@ func (m *PoolManager) Vote(ctx context.Context, tx metadata.Transaction, server 
 	case gitalypb.VoteTransactionResponse_COMMIT:
 		return nil
 	case gitalypb.VoteTransactionResponse_ABORT:
-		return errors.New("transaction was aborted")
+		return ErrTransactionAborted
 	case gitalypb.VoteTransactionResponse_STOP:
-		return errors.New("transaction was stopped")
+		return ErrTransactionStopped
 	default:
 		return errors.New("invalid transaction state")
 	}
