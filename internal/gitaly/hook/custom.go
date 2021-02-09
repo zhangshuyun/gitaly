@@ -97,41 +97,37 @@ func matchFiles(dir string) ([]string, error) {
 	}
 
 	var hookFiles []string
-
 	for _, fi := range fis {
-		if fi.IsDir() || strings.HasSuffix(fi.Name(), "~") {
-			continue
+		hookPath := filepath.Join(dir, fi.Name())
+		if isValidHook(hookPath) {
+			hookFiles = append(hookFiles, hookPath)
 		}
-
-		filename := filepath.Join(dir, fi.Name())
-
-		if fi.Mode()&os.ModeSymlink != 0 {
-			path, err := filepath.EvalSymlinks(filename)
-			if err != nil {
-				continue
-			}
-
-			fi, err = os.Lstat(path)
-			if err != nil {
-				continue
-			}
-		}
-
-		if !validHook(fi, filename) {
-			continue
-		}
-
-		hookFiles = append(hookFiles, filename)
 	}
 
 	return hookFiles, nil
 }
 
-func validHook(fi os.FileInfo, filename string) bool {
+// isValidHook checks whether a given path refers to a valid hook. A path is
+// not a valid hook path if any of the following conditions is true:
+//
+// - The path ends with a tilde.
+// - The path is or points at a directory.
+// - The path is not executable by the current user.
+func isValidHook(path string) bool {
+	if strings.HasSuffix(path, "~") {
+		return false
+	}
+
+	fi, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+
 	if fi.IsDir() {
 		return false
 	}
-	if unix.Access(filename, unix.X_OK) != nil {
+
+	if unix.Access(path, unix.X_OK) != nil {
 		return false
 	}
 
