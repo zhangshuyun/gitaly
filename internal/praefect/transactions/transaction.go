@@ -43,7 +43,7 @@ type Voter struct {
 	// this voter.
 	Votes uint
 
-	vote   vote
+	vote   *vote
 	result VoteResult
 }
 
@@ -166,6 +166,9 @@ func (t *Transaction) State() (map[string]VoteResult, error) {
 // CountSubtransactions counts the number of subtransactions created as part of
 // the transaction.
 func (t *Transaction) CountSubtransactions() int {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+
 	return len(t.subtransactions)
 }
 

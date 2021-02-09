@@ -39,10 +39,6 @@ func voteFromHash(hash []byte) (vote, error) {
 	return vote, nil
 }
 
-func (v vote) isEmpty() bool {
-	return v == vote{}
-}
-
 // String returns the hexadecimal string representation of the vote.
 func (v vote) String() string {
 	return hex.EncodeToString(v[:])
@@ -50,15 +46,14 @@ func (v vote) String() string {
 
 // subtransaction is a single session where voters are voting for a certain outcome.
 type subtransaction struct {
-	doneCh   chan interface{}
-	cancelCh chan interface{}
-	stopCh   chan interface{}
+	doneCh chan interface{}
 
 	threshold uint
 
 	lock         sync.RWMutex
 	votersByNode map[string]*Voter
 	voteCounts   map[vote]uint
+	isDone       bool
 }
 
 func newSubtransaction(voters []Voter, threshold uint) (*subtransaction, error) {
@@ -70,8 +65,6 @@ func newSubtransaction(voters []Voter, threshold uint) (*subtransaction, error) 
 
 	return &subtransaction{
 		doneCh:       make(chan interface{}),
-		cancelCh:     make(chan interface{}),
-		stopCh:       make(chan interface{}),
 		threshold:    threshold,
 		votersByNode: votersByNode,
 		voteCounts:   make(map[vote]uint, len(voters)),
@@ -91,7 +84,10 @@ func (t *subtransaction) cancel() {
 		}
 	}
 
-	close(t.cancelCh)
+	if !t.isDone {
+		t.isDone = true
+		close(t.doneCh)
+	}
 }
 
 func (t *subtransaction) stop() error {
@@ -115,7 +111,11 @@ func (t *subtransaction) stop() error {
 		}
 	}
 
-	close(t.stopCh)
+	if !t.isDone {
+		t.isDone = true
+		close(t.doneCh)
+	}
+
 	return nil
 }
 
@@ -146,57 +146,130 @@ func (t *subtransaction) vote(node string, hash []byte) error {
 	if !ok {
 		return fmt.Errorf("invalid node for transaction: %q", node)
 	}
-	if !voter.vote.isEmpty() {
+	if voter.vote != nil {
 		return fmt.Errorf("node already cast a vote: %q", node)
 	}
-	voter.vote = vote
 
-	oldCount := t.voteCounts[vote]
-	newCount := oldCount + voter.Votes
-	t.voteCounts[vote] = newCount
-
-	// If the threshold was reached before already, we mustn't try to
-	// signal the other voters again.
-	if oldCount >= t.threshold {
-		return nil
+	switch voter.result {
+	case VoteUndecided:
+		// Happy case, we can still cast a vote.
+		break
+	case VoteCanceled:
+		return ErrTransactionCanceled
+	case VoteStopped:
+		return ErrTransactionStopped
+	default:
+		// Because we didn't vote yet, we know that the node cannot be
+		// either in VoteCommitted or VoteFailed state.
+		return fmt.Errorf("voter is in invalid state %d: %q", voter.result, node)
 	}
 
-	// If we've just crossed the threshold, signal all voters that the
-	// voting has concluded.
-	if newCount >= t.threshold {
+	voter.vote = &vote
+
+	t.voteCounts[vote] += voter.Votes
+
+	// Update voter states to reflect the new vote counts. Before quorum is
+	// reached, this function will check whether the threshold was reached
+	// and, if so, update all voters which have already cast a vote. After
+	// quorum was reached, it will only update the currently voting node.
+	t.updateVoterStates()
+
+	if t.mustSignalVoters() {
+		t.isDone = true
 		close(t.doneCh)
-		return nil
 	}
 
-	// If any other vote has already reached the threshold, we mustn't try
-	// to notify voters again.
-	for _, count := range t.voteCounts {
-		if count >= t.threshold {
-			return nil
-		}
-	}
-
-	// If any of the voters didn't yet cast its vote, we need to wait for
-	// them.
-	for _, voter := range t.votersByNode {
-		if voter.vote.isEmpty() {
-			return nil
-		}
-	}
-
-	// Otherwise, signal voters that all votes were gathered.
-	close(t.doneCh)
 	return nil
+}
+
+// updateVoterStates updates undecided voters. Voters are updated either as
+// soon as quorum was reached or alternatively when all votes were cast.
+func (t *subtransaction) updateVoterStates() {
+	var majorityVote *vote
+	for v, voteCount := range t.voteCounts {
+		if voteCount >= t.threshold {
+			v := v
+			majorityVote = &v
+			break
+		}
+	}
+
+	allVotesCast := true
+	for _, voter := range t.votersByNode {
+		if voter.vote == nil {
+			allVotesCast = false
+			break
+		}
+	}
+
+	// We need to adjust voter states either when quorum was reached or
+	// when all votes were cast. If all votes were cast without reaching
+	// quorum, we set all voters into VoteFailed state.
+	if majorityVote == nil && !allVotesCast {
+		return
+	}
+
+	// Update all voters which have cast a vote and which are not
+	// undecided. We mustn't change any voters which did decide on an
+	// outcome already as they may have already committed or aborted their
+	// action.
+	for _, voter := range t.votersByNode {
+		if voter.result != VoteUndecided {
+			continue
+		}
+
+		if voter.vote == nil || majorityVote == nil {
+			if allVotesCast {
+				voter.result = VoteFailed
+			}
+			continue
+		}
+
+		if *voter.vote == *majorityVote {
+			voter.result = VoteCommitted
+		} else {
+			voter.result = VoteFailed
+		}
+	}
+}
+
+// mustSignalVoters determines whether we need to signal voters. Signalling may
+// only happen once, so we need to make sure that either we just crossed the
+// threshold or that nobody else did and no more votes are missing.
+func (t *subtransaction) mustSignalVoters() bool {
+	// If somebody else already notified voters, then we mustn't do so
+	// again.
+	if t.isDone {
+		return false
+	}
+
+	// Check if any node has reached the threshold. If it did, then we need
+	// to signal voters.
+	for _, voteCount := range t.voteCounts {
+		if voteCount >= t.threshold {
+			return true
+		}
+	}
+
+	// The threshold wasn't reached by any node yet. If there are missing
+	// votes, then we cannot notify yet as any remaining nodes may cause us
+	// to reach quorum.
+	for _, voter := range t.votersByNode {
+		if voter.vote == nil {
+			return false
+		}
+	}
+
+	// Otherwise we know that all votes are in and that no quorum was
+	// reached. We thus need to notify callers of the failed vote as the
+	// last node which has cast its vote.
+	return true
 }
 
 func (t *subtransaction) collectVotes(ctx context.Context, node string) error {
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
-	case <-t.cancelCh:
-		return ErrTransactionCanceled
-	case <-t.stopCh:
-		return ErrTransactionStopped
 	case <-t.doneCh:
 		break
 	}
@@ -210,8 +283,15 @@ func (t *subtransaction) collectVotes(ctx context.Context, node string) error {
 	}
 
 	switch voter.result {
-	case VoteUndecided:
-		// Happy case, no decision was yet made.
+	case VoteCommitted:
+		// Happy case, we are part of the quorum.
+		return nil
+	case VoteFailed:
+		if voter.vote == nil {
+			return fmt.Errorf("%w: did not cast a vote", ErrTransactionFailed)
+		}
+		return fmt.Errorf("%w: got %d/%d votes for %v", ErrTransactionFailed,
+			t.voteCounts[*voter.vote], t.threshold, *voter.vote)
 	case VoteCanceled:
 		// It may happen that the vote was cancelled or stopped just after majority was
 		// reached. In that case, the node's state is now VoteCanceled/VoteStopped, so we
@@ -219,21 +299,14 @@ func (t *subtransaction) collectVotes(ctx context.Context, node string) error {
 		return ErrTransactionCanceled
 	case VoteStopped:
 		return ErrTransactionStopped
+	case VoteUndecided:
+		// We shouldn't ever be undecided if the caller correctly calls
+		// `vote()` before calling `collectVotes()` as this node
+		// would've cast a vote in that case.
+		return fmt.Errorf("voter is in undecided state: %q", node)
 	default:
 		return fmt.Errorf("voter is in invalid state %d: %q", voter.result, node)
 	}
-
-	// See if our vote crossed the threshold. If not, then we know we
-	// cannot have won as the transaction is being wrapped up already and
-	// shouldn't accept any additional votes.
-	if t.voteCounts[voter.vote] < t.threshold {
-		voter.result = VoteFailed
-		return fmt.Errorf("%w: got %d/%d votes for %v", ErrTransactionFailed,
-			t.voteCounts[voter.vote], t.threshold, voter.vote)
-	}
-
-	voter.result = VoteCommitted
-	return nil
 }
 
 func (t *subtransaction) getResult(node string) (VoteResult, error) {
