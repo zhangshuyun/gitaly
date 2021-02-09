@@ -3,9 +3,7 @@ package objectpool
 import (
 	"context"
 
-	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/objectpool"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -69,7 +67,7 @@ func (s *server) poolForRequest(req poolRequest) (*objectpool.ObjectPool, error)
 		return nil, errMissingPool
 	}
 
-	pool, err := objectpool.NewObjectPool(s.cfg, s.locator, git.NewExecCommandFactory(config.Config), poolRepo.GetStorageName(), poolRepo.GetRelativePath())
+	pool, err := objectpool.NewObjectPool(s.cfg, s.locator, s.gitCmdFactory, poolRepo.GetStorageName(), poolRepo.GetRelativePath())
 	if err != nil {
 		if err == objectpool.ErrInvalidPoolDir {
 			return nil, errInvalidPoolDir

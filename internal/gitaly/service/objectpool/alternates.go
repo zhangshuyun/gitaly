@@ -104,7 +104,7 @@ func (s *server) disconnectAlternates(ctx context.Context, repo *gitalypb.Reposi
 		return err
 	}
 
-	return removeAlternatesIfOk(ctx, repo, altFile, backupFile)
+	return s.removeAlternatesIfOk(ctx, repo, altFile, backupFile)
 }
 
 func newBackupFile(altFile string) (string, error) {
@@ -171,7 +171,7 @@ func (e *invalidAlternatesError) Error() string {
 // middle of this function, the repo is left in a broken state. We do
 // take care to leave a copy of the alternates file, so that it can be
 // manually restored by an administrator if needed.
-func removeAlternatesIfOk(ctx context.Context, repo *gitalypb.Repository, altFile, backupFile string) error {
+func (s *server) removeAlternatesIfOk(ctx context.Context, repo *gitalypb.Repository, altFile, backupFile string) error {
 	if err := os.Rename(altFile, backupFile); err != nil {
 		return err
 	}
@@ -200,7 +200,7 @@ func removeAlternatesIfOk(ctx context.Context, repo *gitalypb.Repository, altFil
 		}
 	}()
 
-	cmd, err := git.NewCommand(ctx, repo, nil, git.SubCmd{
+	cmd, err := s.gitCmdFactory.New(ctx, repo, nil, git.SubCmd{
 		Name:  "fsck",
 		Flags: []git.Option{git.Flag{Name: "--connectivity-only"}},
 	})
