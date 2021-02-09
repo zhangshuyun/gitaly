@@ -20,11 +20,14 @@ import (
 // customHooksExecutor executes all custom hooks for a given repository and hook name
 type customHooksExecutor func(ctx context.Context, args, env []string, stdin io.Reader, stdout, stderr io.Writer) error
 
-// lookup hook files in this order:
+// newCustomHooksExecutor creates a new hooks executor for custom hooks. Hooks
+// are looked up and executed in the following order:
 //
 // 1. <repository>.git/custom_hooks/<hook_name> - per project hook
 // 2. <repository>.git/custom_hooks/<hook_name>.d/* - per project hooks
-// 3. <repository>.git/hooks/<hook_name>.d/* - global hooks
+// 3. <custom_hooks_dir>/hooks/<hook_name>.d/* - global hooks
+//
+// Any files which are either not executable or have a trailing `~` are ignored.
 func (m *GitLabHookManager) newCustomHooksExecutor(repo *gitalypb.Repository, hookName string) (customHooksExecutor, error) {
 	repoPath, err := m.locator.GetRepoPath(repo)
 	if err != nil {
