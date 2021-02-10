@@ -250,7 +250,7 @@ func (mgr *Manager) VoteTransaction(ctx context.Context, transactionID uint64, n
 		return err
 	}
 
-	logger.Debug("VoteTransaction: transaction committed")
+	logger.Info("VoteTransaction: transaction committed")
 	mgr.counterMetric.WithLabelValues("committed").Inc()
 
 	return nil
