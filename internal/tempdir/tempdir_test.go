@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
@@ -102,6 +103,9 @@ func TestCleanSuccess(t *testing.T) {
 }
 
 func TestCleanTempDir(t *testing.T) {
+	logrus.SetLevel(logrus.InfoLevel)
+	logrus.SetOutput(ioutil.Discard)
+
 	hook := test.NewGlobal()
 
 	storages := append(config.Config.Storages[:], config.Storage{
