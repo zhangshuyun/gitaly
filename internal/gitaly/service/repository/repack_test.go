@@ -306,3 +306,24 @@ func TestRepackFullDeltaIslands(t *testing.T) {
 		return err
 	})
 }
+
+func TestLog2Threads(t *testing.T) {
+	for _, tt := range []struct {
+		cpus    int
+		threads string
+	}{
+		{1, "1"},
+		{2, "1"},
+		{3, "1"},
+		{4, "2"},
+		{8, "3"},
+		{9, "3"},
+		{13, "3"},
+		{16, "4"},
+		{27, "4"},
+		{32, "5"},
+	} {
+		actualThreads := log2Threads(tt.cpus)
+		require.Equal(t, tt.threads, actualThreads.Value)
+	}
+}

@@ -1,0 +1,5 @@
+---
+title: Restrict number of threads for a full repack
+merge_request: 3108
+author:
+type: performance
