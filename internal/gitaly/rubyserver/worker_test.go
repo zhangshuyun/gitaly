@@ -14,7 +14,7 @@ func TestWorker(t *testing.T) {
 
 	events := make(chan supervisor.Event)
 	addr := "the address"
-	w := newWorker(&supervisor.Process{Name: "testing"}, addr, restartDelay, events, true)
+	w := newWorker(&supervisor.Process{Name: "testing"}, addr, restartDelay, 0, events, true)
 	defer w.stopMonitor()
 
 	// ignore health failures during startup
@@ -84,7 +84,7 @@ func TestWorkerHealthChecks(t *testing.T) {
 
 	events := make(chan supervisor.Event)
 	addr := "the address"
-	w := newWorker(&supervisor.Process{Name: "testing"}, addr, 10*time.Millisecond, events, true)
+	w := newWorker(&supervisor.Process{Name: "testing"}, addr, 10*time.Millisecond, 0, events, true)
 	defer w.stopMonitor()
 
 	// ignore health failures during startup
