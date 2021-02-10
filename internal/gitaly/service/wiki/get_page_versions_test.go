@@ -99,7 +99,11 @@ func TestWikiGetPageVersionsRequest(t *testing.T) {
 			require.Len(t, response.GetVersions(), len(tc.versions))
 			for i, version := range response.GetVersions() {
 				v2 := tc.versions[i]
-				assertWikiPageVersionEqual(t, version, v2, "%d blew up", i)
+
+				assert.Equal(t, version.GetFormat(), v2.GetFormat(),
+					"expected wiki page format to be equal for version %d", i)
+				assert.NoError(t, testhelper.GitCommitEqual(version.GetCommit(), v2.GetCommit()),
+					"expected wiki page commit to be equal for version %d", i)
 			}
 		})
 	}
@@ -184,20 +188,4 @@ func TestWikiGetPageVersionsPaginationParams(t *testing.T) {
 			require.Equal(t, tc.nrOfResults, nrFoundVersions)
 		})
 	}
-}
-
-func assertWikiPageVersionEqual(t *testing.T, expected, actual *gitalypb.WikiPageVersion, msg ...interface{}) bool {
-	assert.Equal(t, expected.GetFormat(), actual.GetFormat())
-	assert.NoError(t, testhelper.GitCommitEqual(expected.GetCommit(), actual.GetCommit()))
-
-	switch len(msg) {
-	case 0:
-		t.Logf("WikiPageVersion differs: %v != %v", expected, actual)
-	case 1:
-		t.Log(msg[0])
-	default:
-		t.Logf(msg[0].(string), msg[1:])
-	}
-
-	return t.Failed()
 }

@@ -261,7 +261,6 @@ func makeBootstrap(t *testing.T) (*Bootstrap, *testServer) {
 		sec, err := strconv.Atoi(r.URL.Query().Get("seconds"))
 		require.NoError(t, err)
 
-		t.Logf("Serving a slow request for %d seconds", sec)
 		time.Sleep(time.Duration(sec) * time.Second)
 
 		w.WriteHeader(200)

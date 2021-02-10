@@ -29,6 +29,8 @@ func TestMain(m *testing.M) {
 
 func testMain(m *testing.M) int {
 	defer testhelper.MustHaveNoChildProcess()
+	cleanup := testhelper.Configure()
+	defer cleanup()
 
 	var err error
 	testDir, err = ioutil.TempDir("", "gitaly-supervisor-test")

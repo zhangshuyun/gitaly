@@ -17,54 +17,54 @@ func TestWorker(t *testing.T) {
 	w := newWorker(&supervisor.Process{Name: "testing"}, addr, restartDelay, events, true)
 	defer w.stopMonitor()
 
-	t.Log("ignore health failures during startup")
+	// ignore health failures during startup
 	mustIgnore(t, w, func() { events <- healthBadEvent() })
 
 	firstPid := 123
 
-	t.Log("register first PID as 'up'")
+	// register first PID as 'up'
 	mustAdd(t, w, addr, func() { events <- upEvent(firstPid) })
 
-	t.Log("ignore repeated up event")
+	// ignore repeated up event
 	mustIgnore(t, w, func() { events <- upEvent(firstPid) })
 
-	t.Log("send mem high events but too fast to trigger restart")
+	// send mem high events but too fast to trigger restart
 	for i := 0; i < 5; i++ {
 		mustIgnore(t, w, func() { events <- memHighEvent(firstPid) })
 	}
 
-	t.Log("mem low resets mem high counter")
+	// mem low resets mem high counter
 	mustIgnore(t, w, func() { events <- memLowEvent(firstPid) })
 
-	t.Log("send mem high events but too fast to trigger restart")
+	// send mem high events but too fast to trigger restart
 	for i := 0; i < 5; i++ {
 		mustIgnore(t, w, func() { events <- memHighEvent(firstPid) })
 	}
 
 	time.Sleep(2 * restartDelay)
-	t.Log("this mem high should push us over the threshold")
+	// this mem high should push us over the threshold
 	mustRemove(t, w, addr, func() { events <- memHighEvent(firstPid) })
 
-	t.Log("ignore health failures during startup")
+	// ignore health failures during startup
 	mustIgnore(t, w, func() { events <- healthBadEvent() })
 
 	secondPid := 456
-	t.Log("registering a new PID")
+	// registering a new PID
 	mustAdd(t, w, addr, func() { events <- upEvent(secondPid) })
 
-	t.Log("ignore mem high events for the previous pid")
+	// ignore mem high events for the previous pid
 	mustIgnore(t, w, func() { events <- memHighEvent(firstPid) })
 	time.Sleep(2 * restartDelay)
-	t.Log("ignore mem high also after restart delay has expired")
+	// ignore mem high also after restart delay has expired
 	mustIgnore(t, w, func() { events <- memHighEvent(firstPid) })
 
-	t.Log("start high memory timer")
+	// start high memory timer
 	mustIgnore(t, w, func() { events <- memHighEvent(secondPid) })
 
-	t.Log("ignore mem low event for wrong pid")
+	// ignore mem low event for wrong pid
 	mustIgnore(t, w, func() { events <- memLowEvent(firstPid) })
 
-	t.Log("send mem high count over the threshold")
+	// send mem high count over the threshold
 	time.Sleep(2 * restartDelay)
 	mustRemove(t, w, addr, func() { events <- memHighEvent(secondPid) })
 }
@@ -87,35 +87,35 @@ func TestWorkerHealthChecks(t *testing.T) {
 	w := newWorker(&supervisor.Process{Name: "testing"}, addr, 10*time.Millisecond, events, true)
 	defer w.stopMonitor()
 
-	t.Log("ignore health failures during startup")
+	// ignore health failures during startup
 	mustIgnore(t, w, func() { events <- healthBadEvent() })
 
 	firstPid := 123
 
-	t.Log("register first PID as 'up'")
+	// register first PID as 'up'
 	mustAdd(t, w, addr, func() { events <- upEvent(firstPid) })
 
-	t.Log("still ignore health failures during startup")
+	// still ignore health failures during startup
 	mustIgnore(t, w, func() { events <- healthBadEvent() })
 
 	time.Sleep(2 * restartDelay)
 
-	t.Log("waited long enough, this health check should start health timer")
+	// waited long enough, this health check should start health timer
 	mustIgnore(t, w, func() { events <- healthBadEvent() })
 
 	time.Sleep(2 * restartDelay)
 
-	t.Log("this second failed health check should trigger failover")
+	// this second failed health check should trigger failover
 	mustRemove(t, w, addr, func() { events <- healthBadEvent() })
 
-	t.Log("ignore extra health failures")
+	// ignore extra health failures
 	mustIgnore(t, w, func() { events <- healthBadEvent() })
 }
 
 func mustIgnore(t *testing.T, w *worker, f func()) {
 	nothing := &nothingBalancer{t}
 	w.balancerUpdate <- nothing
-	t.Log("executing function that should be ignored by balancer")
+	// executing function that should be ignored by balancer
 	f()
 	// This second balancer update is used to synchronize with the monitor
 	// goroutine. When the channel send finishes, we know the event we sent
@@ -126,7 +126,7 @@ func mustIgnore(t *testing.T, w *worker, f func()) {
 func mustAdd(t *testing.T, w *worker, addr string, f func()) {
 	add := newAdd(t, addr)
 	w.balancerUpdate <- add
-	t.Log("executing function that should lead to balancer.AddAddress")
+	// executing function that should lead to balancer.AddAddress
 	f()
 	add.wait()
 }
@@ -134,7 +134,7 @@ func mustAdd(t *testing.T, w *worker, addr string, f func()) {
 func mustRemove(t *testing.T, w *worker, addr string, f func()) {
 	remove := newRemove(t, addr)
 	w.balancerUpdate <- remove
-	t.Log("executing function that should lead to balancer.RemoveAddress")
+	// executing function that should lead to balancer.RemoveAddress
 	f()
 	remove.wait()
 }

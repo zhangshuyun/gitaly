@@ -104,7 +104,6 @@ func TestSubCmdDialNodes(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			resp = tt.resp
 			tt.conf.SocketPath = ln.Addr().String()
-			log.Print(tt.conf.SocketPath)
 
 			output := &bytes.Buffer{}
 			defer func(w io.Writer, f int) {

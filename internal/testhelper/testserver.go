@@ -29,6 +29,7 @@ import (
 	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config/auth"
+	gitalylog "gitlab.com/gitlab-org/gitaly/internal/gitaly/config/log"
 	serverauth "gitlab.com/gitlab-org/gitaly/internal/gitaly/server/auth"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/fieldextractors"
 	praefectconfig "gitlab.com/gitlab-org/gitaly/internal/praefect/config"
@@ -156,6 +157,10 @@ func (p *TestServer) Start(t testing.TB) {
 			MonitorInterval:   config.Duration(time.Second),
 		},
 		Replication: praefectconfig.DefaultReplicationConfig(),
+		Logging: gitalylog.Config{
+			Format: "json",
+			Level:  "panic",
+		},
 	}
 
 	for _, storage := range p.storages {
