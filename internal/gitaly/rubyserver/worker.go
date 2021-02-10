@@ -7,7 +7,6 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver/balancer"
 	"gitlab.com/gitlab-org/gitaly/internal/supervisor"
 )
@@ -30,11 +29,12 @@ func init() {
 // it if necessary, in cooperation with the balancer.
 type worker struct {
 	*supervisor.Process
-	address      string
-	restartDelay time.Duration
-	events       <-chan supervisor.Event
-	shutdown     chan struct{}
-	monitorDone  chan struct{}
+	address                string
+	restartDelay           time.Duration
+	gracefulRestartTimeout time.Duration
+	events                 <-chan supervisor.Event
+	shutdown               chan struct{}
+	monitorDone            chan struct{}
 
 	// This is for testing only, so that we can inject a fake balancer
 	balancerUpdate chan balancerProxy
@@ -42,16 +42,17 @@ type worker struct {
 	testing bool
 }
 
-func newWorker(p *supervisor.Process, address string, restartDelay time.Duration, events <-chan supervisor.Event, testing bool) *worker {
+func newWorker(p *supervisor.Process, address string, restartDelay, gracefulRestartTimeout time.Duration, events <-chan supervisor.Event, testing bool) *worker {
 	w := &worker{
-		Process:        p,
-		address:        address,
-		restartDelay:   restartDelay,
-		events:         events,
-		shutdown:       make(chan struct{}),
-		monitorDone:    make(chan struct{}),
-		balancerUpdate: make(chan balancerProxy),
-		testing:        testing,
+		Process:                p,
+		address:                address,
+		restartDelay:           restartDelay,
+		gracefulRestartTimeout: gracefulRestartTimeout,
+		events:                 events,
+		shutdown:               make(chan struct{}),
+		monitorDone:            make(chan struct{}),
+		balancerUpdate:         make(chan balancerProxy),
+		testing:                testing,
 	}
 	go w.monitor()
 
@@ -221,7 +222,7 @@ func (w *worker) waitTerminate(pid int) {
 	w.logPid(pid).Info("sending SIGTERM")
 	syscall.Kill(pid, syscall.SIGTERM)
 
-	time.Sleep(config.Config.Ruby.GracefulRestartTimeout.Duration())
+	time.Sleep(w.gracefulRestartTimeout)
 
 	w.logPid(pid).Info("sending SIGKILL")
 	syscall.Kill(pid, syscall.SIGKILL)

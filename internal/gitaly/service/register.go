@@ -70,7 +70,7 @@ func RegisterAll(
 	gitalypb.RegisterBlobServiceServer(grpcServer, blob.NewServer(rubyServer, locator, gitCmdFactory))
 	gitalypb.RegisterCleanupServiceServer(grpcServer, cleanup.NewServer(cfg, gitCmdFactory))
 	gitalypb.RegisterCommitServiceServer(grpcServer, commit.NewServer(cfg, locator, gitCmdFactory))
-	gitalypb.RegisterDiffServiceServer(grpcServer, diff.NewServer(locator, gitCmdFactory))
+	gitalypb.RegisterDiffServiceServer(grpcServer, diff.NewServer(cfg, locator, gitCmdFactory))
 	gitalypb.RegisterNamespaceServiceServer(grpcServer, namespace.NewServer(locator))
 	gitalypb.RegisterOperationServiceServer(grpcServer, operations.NewServer(cfg, rubyServer, hookManager, locator, conns, gitCmdFactory))
 	gitalypb.RegisterRefServiceServer(grpcServer, ref.NewServer(cfg, locator, gitCmdFactory))

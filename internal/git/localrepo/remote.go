@@ -9,7 +9,6 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 )
 
@@ -37,7 +36,7 @@ func (remote Remote) Add(ctx context.Context, name, url string, opts git.RemoteA
 			Args:   []string{name, url},
 		},
 		git.WithStderr(&stderr),
-		git.WithRefTxHook(ctx, helper.ProtoRepoFromRepo(remote.repo), config.Config),
+		git.WithRefTxHook(ctx, helper.ProtoRepoFromRepo(remote.repo), remote.repo.cfg),
 	)
 	if err != nil {
 		return err
@@ -101,7 +100,7 @@ func (remote Remote) Remove(ctx context.Context, name string) error {
 			Args:   []string{name},
 		},
 		git.WithStderr(&stderr),
-		git.WithRefTxHook(ctx, helper.ProtoRepoFromRepo(remote.repo), config.Config),
+		git.WithRefTxHook(ctx, helper.ProtoRepoFromRepo(remote.repo), remote.repo.cfg),
 	)
 	if err != nil {
 		return err
@@ -145,7 +144,7 @@ func (remote Remote) SetURL(ctx context.Context, name, url string, opts git.SetU
 			Args:   []string{name, url},
 		},
 		git.WithStderr(&stderr),
-		git.WithRefTxHook(ctx, helper.ProtoRepoFromRepo(remote.repo), config.Config),
+		git.WithRefTxHook(ctx, helper.ProtoRepoFromRepo(remote.repo), remote.repo.cfg),
 	)
 	if err != nil {
 		return err

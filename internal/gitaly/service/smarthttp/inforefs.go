@@ -9,7 +9,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/pktline"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/streamio"
 	"google.golang.org/grpc/codes"
@@ -50,7 +49,7 @@ func (s *server) handleInfoRefs(ctx context.Context, service string, req *gitaly
 
 	cmdOpts := []git.CmdOpt{git.WithGitProtocol(ctx, req)}
 	if service == "receive-pack" {
-		cmdOpts = append(cmdOpts, git.WithRefTxHook(ctx, req.Repository, config.Config))
+		cmdOpts = append(cmdOpts, git.WithRefTxHook(ctx, req.Repository, s.cfg))
 	}
 
 	globalOpts := make([]git.GlobalOption, len(req.GitConfigOptions))

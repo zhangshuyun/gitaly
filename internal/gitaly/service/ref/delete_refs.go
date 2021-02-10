@@ -9,7 +9,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/git/updateref"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -29,7 +28,7 @@ func (s *server) DeleteRefs(ctx context.Context, in *gitalypb.DeleteRefsRequest)
 		return nil, helper.ErrInternal(err)
 	}
 
-	refnames, err := refsToRemove(ctx, in)
+	refnames, err := s.refsToRemove(ctx, in)
 	if err != nil {
 		return nil, helper.ErrInternal(err)
 	}
@@ -47,7 +46,7 @@ func (s *server) DeleteRefs(ctx context.Context, in *gitalypb.DeleteRefsRequest)
 	return &gitalypb.DeleteRefsResponse{}, nil
 }
 
-func refsToRemove(ctx context.Context, req *gitalypb.DeleteRefsRequest) ([]git.ReferenceName, error) {
+func (s *server) refsToRemove(ctx context.Context, req *gitalypb.DeleteRefsRequest) ([]git.ReferenceName, error) {
 	if len(req.Refs) > 0 {
 		refs := make([]git.ReferenceName, len(req.Refs))
 		for i, ref := range req.Refs {
@@ -61,7 +60,7 @@ func refsToRemove(ctx context.Context, req *gitalypb.DeleteRefsRequest) ([]git.R
 		prefixes[i] = string(prefix)
 	}
 
-	existingRefs, err := localrepo.New(req.GetRepository(), config.Config).GetReferences(ctx, "")
+	existingRefs, err := localrepo.New(req.GetRepository(), s.cfg).GetReferences(ctx, "")
 	if err != nil {
 		return nil, err
 	}
