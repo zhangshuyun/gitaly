@@ -421,7 +421,7 @@ func (s *server) findTag(ctx context.Context, repository *gitalypb.Repository, t
 			},
 			Args: []string{string(tagName)},
 		},
-		git.WithRefTxHook(ctx, repository, config.Config),
+		git.WithRefTxHook(ctx, repository, s.cfg),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("for-each-ref error: %v", err)
