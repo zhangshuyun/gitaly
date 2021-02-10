@@ -152,8 +152,8 @@ func (mgr *Manager) RegisterTransaction(ctx context.Context, voters []Voter, thr
 	mgr.transactions[transactionID] = transaction
 
 	mgr.log(ctx).WithFields(logrus.Fields{
-		"transaction_id": transactionID,
-		"voters":         voters,
+		"transaction.id":     transactionID,
+		"transaction.voters": voters,
 	}).Debug("RegisterTransaction")
 
 	mgr.counterMetric.WithLabelValues("registered").Add(float64(len(voters)))
@@ -185,9 +185,9 @@ func (mgr *Manager) cancelTransaction(ctx context.Context, transaction *Transact
 	}
 
 	mgr.log(ctx).WithFields(logrus.Fields{
-		"transaction_id":  transaction.ID(),
-		"committed":       fmt.Sprintf("%d/%d", committed, len(state)),
-		"subtransactions": transaction.CountSubtransactions(),
+		"transaction.id":              transaction.ID(),
+		"transaction.committed":       fmt.Sprintf("%d/%d", committed, len(state)),
+		"transaction.subtransactions": transaction.CountSubtransactions(),
 	}).Info("transaction completed")
 
 	return nil
@@ -218,20 +218,16 @@ func (mgr *Manager) VoteTransaction(ctx context.Context, transactionID uint64, n
 		mgr.delayMetric.WithLabelValues("vote").Observe(delay.Seconds())
 	}()
 
-	mgr.counterMetric.WithLabelValues("started").Inc()
+	logger := mgr.log(ctx).WithFields(logrus.Fields{
+		"transaction.id":    transactionID,
+		"transaction.voter": node,
+		"transaction.hash":  hex.EncodeToString(hash),
+	})
 
-	mgr.log(ctx).WithFields(logrus.Fields{
-		"transaction_id": transactionID,
-		"node":           node,
-		"hash":           hex.EncodeToString(hash),
-	}).Debug("VoteTransaction")
+	mgr.counterMetric.WithLabelValues("started").Inc()
+	logger.Debug("VoteTransaction")
 
 	if err := mgr.voteTransaction(ctx, transactionID, node, hash); err != nil {
-		fields := logrus.Fields{
-			"transaction_id": transactionID,
-			"node":           node,
-			"hash":           hex.EncodeToString(hash),
-		}
 		var counterLabel string
 
 		if errors.Is(err, ErrTransactionStopped) {
@@ -240,13 +236,13 @@ func (mgr *Manager) VoteTransaction(ctx context.Context, transactionID uint64, n
 			// termination, so we should not log an error here.
 		} else if errors.Is(err, ErrTransactionFailed) {
 			counterLabel = "failed"
-			mgr.log(ctx).WithFields(fields).WithError(err).Error("VoteTransaction: did not reach quorum")
+			logger.WithError(err).Error("VoteTransaction: did not reach quorum")
 		} else if errors.Is(err, ErrTransactionCanceled) {
 			counterLabel = "canceled"
-			mgr.log(ctx).WithFields(fields).WithError(err).Error("VoteTransaction: transaction was canceled")
+			logger.WithError(err).Error("VoteTransaction: transaction was canceled")
 		} else {
 			counterLabel = "invalid"
-			mgr.log(ctx).WithFields(fields).WithError(err).Error("VoteTransaction: failure")
+			logger.WithError(err).Error("VoteTransaction: failure")
 		}
 
 		mgr.counterMetric.WithLabelValues(counterLabel).Inc()
@@ -254,12 +250,7 @@ func (mgr *Manager) VoteTransaction(ctx context.Context, transactionID uint64, n
 		return err
 	}
 
-	mgr.log(ctx).WithFields(logrus.Fields{
-		"transaction_id": transactionID,
-		"node":           node,
-		"hash":           hex.EncodeToString(hash),
-	}).Debug("VoteTransaction: transaction committed")
-
+	logger.Debug("VoteTransaction: transaction committed")
 	mgr.counterMetric.WithLabelValues("committed").Inc()
 
 	return nil
@@ -280,7 +271,7 @@ func (mgr *Manager) StopTransaction(ctx context.Context, transactionID uint64) e
 	}
 
 	mgr.log(ctx).WithFields(logrus.Fields{
-		"transaction_id": transactionID,
+		"transaction.id": transactionID,
 	}).Debug("VoteTransaction: transaction stopped")
 	mgr.counterMetric.WithLabelValues("stopped").Inc()
 

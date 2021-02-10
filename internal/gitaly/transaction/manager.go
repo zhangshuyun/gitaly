@@ -2,9 +2,12 @@ package transaction
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
 
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
@@ -86,6 +89,12 @@ func (m *PoolManager) Vote(ctx context.Context, tx metadata.Transaction, server 
 		return err
 	}
 
+	logger := m.log(ctx).WithFields(logrus.Fields{
+		"transaction.id":    tx.ID,
+		"transaction.voter": tx.Node,
+		"transaction.hash":  hex.EncodeToString(hash),
+	})
+
 	defer prometheus.NewTimer(m.votingDelayMetric).ObserveDuration()
 
 	response, err := client.VoteTransaction(ctx, &gitalypb.VoteTransactionRequest{
@@ -94,6 +103,7 @@ func (m *PoolManager) Vote(ctx context.Context, tx metadata.Transaction, server 
 		ReferenceUpdatesHash: hash,
 	})
 	if err != nil {
+		logger.WithError(err).Error("vote failed")
 		return err
 	}
 
@@ -101,8 +111,10 @@ func (m *PoolManager) Vote(ctx context.Context, tx metadata.Transaction, server 
 	case gitalypb.VoteTransactionResponse_COMMIT:
 		return nil
 	case gitalypb.VoteTransactionResponse_ABORT:
+		logger.Error("transaction was aborted")
 		return ErrTransactionAborted
 	case gitalypb.VoteTransactionResponse_STOP:
+		logger.Error("transaction was stopped")
 		return ErrTransactionStopped
 	default:
 		return errors.New("invalid transaction state")
@@ -119,8 +131,17 @@ func (m *PoolManager) Stop(ctx context.Context, tx metadata.Transaction, server 
 	if _, err := client.StopTransaction(ctx, &gitalypb.StopTransactionRequest{
 		TransactionId: tx.ID,
 	}); err != nil {
+		m.log(ctx).WithFields(logrus.Fields{
+			"transaction.id":    tx.ID,
+			"transaction.voter": tx.Node,
+		}).Error("stopping transaction failed")
+
 		return err
 	}
 
 	return nil
+}
+
+func (m *PoolManager) log(ctx context.Context) logrus.FieldLogger {
+	return ctxlogrus.Extract(ctx).WithField("component", "transaction.PoolManager")
 }
