@@ -131,7 +131,7 @@ func (s *Server) userSquash(ctx context.Context, req *gitalypb.UserSquashRequest
 
 func (s *Server) diffFiles(ctx context.Context, env []string, repoPath string, req *gitalypb.UserSquashRequest) ([]byte, error) {
 	var stdout, stderr bytes.Buffer
-	cmd, err := git.NewCommandWithoutRepo(ctx,
+	cmd, err := s.gitCmdFactory.NewWithoutRepo(ctx,
 		[]git.GlobalOption{git.ValueFlag{Name: "--git-dir", Value: repoPath}},
 		git.SubCmd{
 			Name:  "diff",
@@ -177,7 +177,7 @@ func (s *Server) userSquashWithDiffInFiles(ctx context.Context, req *gitalypb.Us
 		return "", fmt.Errorf("define git dir for worktree: %w", err)
 	}
 
-	if err := runCmd(ctx, repo, "config", []git.Option{git.ConfigPair{Key: "core.sparseCheckout", Value: "true"}}, nil); err != nil {
+	if err := s.runCmd(ctx, repo, "config", []git.Option{git.ConfigPair{Key: "core.sparseCheckout", Value: "true"}}, nil); err != nil {
 		return "", fmt.Errorf("on 'git config core.sparseCheckout true': %w", err)
 	}
 
@@ -191,7 +191,7 @@ func (s *Server) userSquashWithDiffInFiles(ctx context.Context, req *gitalypb.Us
 		}
 
 		// try to perform checkout with disabled sparseCheckout feature
-		if err := runCmd(ctx, repo, "config", []git.Option{git.ConfigPair{Key: "core.sparseCheckout", Value: "false"}}, nil); err != nil {
+		if err := s.runCmd(ctx, repo, "config", []git.Option{git.ConfigPair{Key: "core.sparseCheckout", Value: "false"}}, nil); err != nil {
 			return "", fmt.Errorf("on 'git config core.sparseCheckout false': %w", err)
 		}
 
@@ -281,7 +281,7 @@ func (s *Server) userSquashWithNoDiff(ctx context.Context, req *gitalypb.UserSqu
 }
 
 func (s *Server) addWorktree(ctx context.Context, repo *gitalypb.Repository, worktreePath string, committish string) error {
-	if err := runCmd(ctx, repo, "config", []git.Option{git.ConfigPair{Key: "core.splitIndex", Value: "false"}}, nil); err != nil {
+	if err := s.runCmd(ctx, repo, "config", []git.Option{git.ConfigPair{Key: "core.splitIndex", Value: "false"}}, nil); err != nil {
 		return fmt.Errorf("on 'git config core.splitIndex false': %w", err)
 	}
 
@@ -294,7 +294,7 @@ func (s *Server) addWorktree(ctx context.Context, repo *gitalypb.Repository, wor
 	}
 
 	var stderr bytes.Buffer
-	cmd, err := git.NewCommand(ctx, repo, nil,
+	cmd, err := s.gitCmdFactory.New(ctx, repo, nil,
 		git.SubSubCmd{
 			Name:   "worktree",
 			Action: "add",
@@ -316,7 +316,7 @@ func (s *Server) addWorktree(ctx context.Context, repo *gitalypb.Repository, wor
 }
 
 func (s *Server) removeWorktree(ctx context.Context, repo *gitalypb.Repository, worktreeName string) error {
-	cmd, err := git.NewCommand(ctx, repo, nil,
+	cmd, err := s.gitCmdFactory.New(ctx, repo, nil,
 		git.SubSubCmd{
 			Name:   "worktree",
 			Action: "remove",
@@ -340,7 +340,7 @@ func (s *Server) applyDiff(ctx context.Context, repo *gitalypb.Repository, req *
 	diffRange := diffRange(req)
 
 	var diffStderr bytes.Buffer
-	cmdDiff, err := git.NewCommand(ctx, req.GetRepository(), nil,
+	cmdDiff, err := s.gitCmdFactory.New(ctx, req.GetRepository(), nil,
 		git.SubCmd{
 			Name: "diff",
 			Flags: []git.Option{
@@ -462,9 +462,9 @@ func newSquashWorktreePath(repoPath, squashID string) string {
 	return filepath.Join(repoPath, gitlabWorktreesSubDir, worktreeName)
 }
 
-func runCmd(ctx context.Context, repo *gitalypb.Repository, cmd string, opts []git.Option, args []string) error {
+func (s *Server) runCmd(ctx context.Context, repo *gitalypb.Repository, cmd string, opts []git.Option, args []string) error {
 	var stderr bytes.Buffer
-	safeCmd, err := git.NewCommand(ctx, repo, nil, git.SubCmd{Name: cmd, Flags: opts, Args: args}, git.WithStderr(&stderr))
+	safeCmd, err := s.gitCmdFactory.New(ctx, repo, nil, git.SubCmd{Name: cmd, Flags: opts, Args: args}, git.WithStderr(&stderr))
 	if err != nil {
 		return fmt.Errorf("create safe cmd %q: %w", cmd, gitError{ErrMsg: stderr.String(), Err: err})
 	}
