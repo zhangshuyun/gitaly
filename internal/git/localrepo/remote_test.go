@@ -65,6 +65,11 @@ func TestBuildRemoteAddOptsFlags(t *testing.T) {
 }
 
 func TestRemote_Add(t *testing.T) {
+	defer func(oldValue string) {
+		config.Config.Ruby.Dir = oldValue
+	}(config.Config.Ruby.Dir)
+	config.Config.Ruby.Dir = "/var/empty"
+
 	repoProto, repoPath, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
 	repo := New(repoProto, config.Config)
@@ -76,11 +81,6 @@ func TestRemote_Add(t *testing.T) {
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
-
-	defer func(oldValue string) {
-		config.Config.Ruby.Dir = oldValue
-	}(config.Config.Ruby.Dir)
-	config.Config.Ruby.Dir = "/var/empty"
 
 	remote := repo.Remote()
 
@@ -260,6 +260,11 @@ func TestRemote_SetURL(t *testing.T) {
 }
 
 func TestRepo_FetchRemote(t *testing.T) {
+	defer func(oldValue string) {
+		config.Config.Ruby.Dir = oldValue
+	}(config.Config.Ruby.Dir)
+	config.Config.Ruby.Dir = "/var/empty"
+
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -281,11 +286,6 @@ func TestRepo_FetchRemote(t *testing.T) {
 
 		return New(testRepo, config.Config), testRepoPath, cleanup
 	}
-
-	defer func(oldValue string) {
-		config.Config.Ruby.Dir = oldValue
-	}(config.Config.Ruby.Dir)
-	config.Config.Ruby.Dir = "/var/empty"
 
 	t.Run("invalid name", func(t *testing.T) {
 		repo := New(nil, config.Config)
