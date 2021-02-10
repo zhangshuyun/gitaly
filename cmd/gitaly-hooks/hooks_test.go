@@ -696,6 +696,7 @@ func TestGitalyHooksPackObjects(t *testing.T) {
 		"clone",
 		"-u",
 		"git -c uploadpack.allowFilter -c uploadpack.packObjectsHook=" + config.Config.BinDir + "/gitaly-hooks upload-pack",
+		"--quiet",
 		"--no-local",
 		"--bare",
 	}
