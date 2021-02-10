@@ -33,7 +33,8 @@ func runDiffServer(t *testing.T) (*grpc.Server, string) {
 		t.Fatal(err)
 	}
 
-	gitalypb.RegisterDiffServiceServer(server, NewServer(config.NewLocator(config.Config), git.NewExecCommandFactory(config.Config)))
+	cfg := config.Config
+	gitalypb.RegisterDiffServiceServer(server, NewServer(cfg, config.NewLocator(cfg), git.NewExecCommandFactory(cfg)))
 	reflection.Register(server)
 
 	go server.Serve(listener)
