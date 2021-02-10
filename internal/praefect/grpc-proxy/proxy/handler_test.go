@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -34,7 +33,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/grpclog"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
@@ -50,17 +48,6 @@ const (
 	countListResponses = 20
 )
 
-type testLogger struct {
-	*log.Logger
-}
-
-func (l *testLogger) Write(p []byte) (int, error) {
-	if err := l.Output(1, string(p)); err != nil {
-		return 0, err
-	}
-	return -1, nil
-}
-
 func TestMain(m *testing.M) {
 	os.Exit(testMain(m))
 }
@@ -70,10 +57,6 @@ func testMain(m *testing.M) int {
 	cleanup := testhelper.Configure()
 	defer cleanup()
 
-	logger := &testLogger{
-		log.New(os.Stderr, "grpc: ", log.LstdFlags),
-	}
-	grpclog.SetLoggerV2(grpclog.NewLoggerV2(logger, nil, nil))
 	return m.Run()
 }
 
