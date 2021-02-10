@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -21,7 +20,7 @@ func (s *server) findRemoteRootRef(ctx context.Context, repo *gitalypb.Repositor
 			Action: "show",
 			Args:   []string{remote},
 		},
-		git.WithRefTxHook(ctx, repo, config.Config),
+		git.WithRefTxHook(ctx, repo, s.cfg),
 	)
 	if err != nil {
 		return "", err
