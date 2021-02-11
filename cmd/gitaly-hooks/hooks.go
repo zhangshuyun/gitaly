@@ -25,25 +25,31 @@ import (
 )
 
 type hookCommand struct {
-	exec func(context.Context, git.HooksPayload, gitalypb.HookServiceClient, []string) (int, error)
+	exec     func(context.Context, git.HooksPayload, gitalypb.HookServiceClient, []string) (int, error)
+	hookType git.Hook
 }
 
 var (
 	hooksBySubcommand = map[string]hookCommand{
 		"update": hookCommand{
-			exec: updateHook,
+			exec:     updateHook,
+			hookType: git.UpdateHook,
 		},
 		"pre-receive": hookCommand{
-			exec: preReceiveHook,
+			exec:     preReceiveHook,
+			hookType: git.PreReceiveHook,
 		},
 		"post-receive": hookCommand{
-			exec: postReceiveHook,
+			exec:     postReceiveHook,
+			hookType: git.PostReceiveHook,
 		},
 		"reference-transaction": hookCommand{
-			exec: referenceTransactionHook,
+			exec:     referenceTransactionHook,
+			hookType: git.ReferenceTransactionHook,
 		},
 		"git": hookCommand{
-			exec: packObjectsHook,
+			exec:     packObjectsHook,
+			hookType: git.PackObjectsHook,
 		},
 	}
 
@@ -100,6 +106,12 @@ func main() {
 	hookCommand, ok := hooksBySubcommand[subCmd]
 	if !ok {
 		logger.Fatalf("subcommand name invalid: %q", subCmd)
+	}
+
+	// If the hook wasn't requested, then we simply skip executing any
+	// logic.
+	if !payload.IsHookRequested(hookCommand.hookType) {
+		os.Exit(0)
 	}
 
 	conn, err := dialGitaly(payload)

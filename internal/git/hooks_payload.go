@@ -206,3 +206,9 @@ func (p HooksPayload) Env() (string, error) {
 
 	return fmt.Sprintf("%s=%s", EnvHooksPayload, encoded), nil
 }
+
+// IsHookRequested returns whether the HooksPayload is requesting execution of
+// the given git hook.
+func (p HooksPayload) IsHookRequested(hook Hook) bool {
+	return p.RequestedHooks&hook != 0
+}

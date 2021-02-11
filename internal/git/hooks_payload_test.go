@@ -145,3 +145,74 @@ func TestHooksPayload(t *testing.T) {
 		}, payload)
 	})
 }
+
+func TestHooksPayload_IsHookRequested(t *testing.T) {
+	for _, tc := range []struct {
+		desc       string
+		configured Hook
+		request    Hook
+		expected   bool
+	}{
+		{
+			desc:       "exact match",
+			configured: PreReceiveHook,
+			request:    PreReceiveHook,
+			expected:   true,
+		},
+		{
+			desc:       "hook matches a set",
+			configured: PreReceiveHook | PostReceiveHook,
+			request:    PreReceiveHook,
+			expected:   true,
+		},
+		{
+			desc:       "no match",
+			configured: PreReceiveHook,
+			request:    PostReceiveHook,
+			expected:   false,
+		},
+		{
+			desc:       "no match with a set",
+			configured: PreReceiveHook | UpdateHook,
+			request:    PostReceiveHook,
+			expected:   false,
+		},
+		{
+			desc:       "no match with nothing set",
+			configured: 0,
+			request:    PostReceiveHook,
+			expected:   false,
+		},
+		{
+			desc:       "pre-receive hook with AllHooks",
+			configured: AllHooks,
+			request:    PreReceiveHook,
+			expected:   true,
+		},
+		{
+			desc:       "post-receive hook with AllHooks",
+			configured: AllHooks,
+			request:    PostReceiveHook,
+			expected:   true,
+		},
+		{
+			desc:       "update hook with AllHooks",
+			configured: AllHooks,
+			request:    UpdateHook,
+			expected:   true,
+		},
+		{
+			desc:       "reference-transaction hook with AllHooks",
+			configured: AllHooks,
+			request:    ReferenceTransactionHook,
+			expected:   true,
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			actual := HooksPayload{
+				RequestedHooks: tc.configured,
+			}.IsHookRequested(tc.request)
+			require.Equal(t, tc.expected, actual)
+		})
+	}
+}
