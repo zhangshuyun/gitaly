@@ -1,0 +1,5 @@
+---
+title: 'hook: Increase the timeout when casting votes'
+merge_request: 3115
+author:
+type: fixed

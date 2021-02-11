@@ -3,9 +3,11 @@ package hook
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
@@ -15,11 +17,12 @@ import (
 )
 
 type mockTransactionManager struct {
+	vote func(context.Context, metadata.Transaction, metadata.PraefectServer, []byte) error
 	stop func(context.Context, metadata.Transaction, metadata.PraefectServer) error
 }
 
-func (m *mockTransactionManager) Vote(context.Context, metadata.Transaction, metadata.PraefectServer, []byte) error {
-	return nil
+func (m *mockTransactionManager) Vote(ctx context.Context, tx metadata.Transaction, praefect metadata.PraefectServer, vote []byte) error {
+	return m.vote(ctx, tx, praefect, vote)
 }
 
 func (m *mockTransactionManager) Stop(ctx context.Context, tx metadata.Transaction, praefect metadata.PraefectServer) error {
@@ -120,4 +123,38 @@ func TestHookManager_stopCalled(t *testing.T) {
 			require.True(t, wasInvoked, "expected stop to have been invoked")
 		})
 	}
+}
+
+func TestHookManager_contextCancellationCancelsVote(t *testing.T) {
+	mockTxMgr := mockTransactionManager{
+		vote: func(ctx context.Context, tx metadata.Transaction, praefect metadata.PraefectServer, vote []byte) error {
+			<-ctx.Done()
+			return fmt.Errorf("mock error: %s", ctx.Err())
+		},
+	}
+
+	hookManager := NewManager(config.NewLocator(config.Config), &mockTxMgr, GitlabAPIStub, config.Config)
+
+	repo, _, cleanup := testhelper.NewTestRepo(t)
+	defer cleanup()
+
+	hooksPayload, err := git.NewHooksPayload(
+		config.Config,
+		repo,
+		&metadata.Transaction{
+			ID: 1234, Node: "primary", Primary: true,
+		},
+		&metadata.PraefectServer{
+			SocketPath: "does_not",
+			Token:      "matter",
+		},
+		nil,
+	).Env()
+	require.NoError(t, err)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Nanosecond)
+	defer cancel()
+
+	err = hookManager.ReferenceTransactionHook(ctx, ReferenceTransactionPrepared, []string{hooksPayload}, strings.NewReader("changes"))
+	require.Equal(t, "error voting on transaction: mock error: context deadline exceeded", err.Error())
 }
