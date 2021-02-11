@@ -24,7 +24,31 @@ import (
 	"google.golang.org/grpc"
 )
 
-var logger *gitalylog.HookLogger
+type hookCommand struct {
+	exec func(context.Context, git.HooksPayload, gitalypb.HookServiceClient, []string) (int, error)
+}
+
+var (
+	hooksBySubcommand = map[string]hookCommand{
+		"update": hookCommand{
+			exec: updateHook,
+		},
+		"pre-receive": hookCommand{
+			exec: preReceiveHook,
+		},
+		"post-receive": hookCommand{
+			exec: postReceiveHook,
+		},
+		"reference-transaction": hookCommand{
+			exec: referenceTransactionHook,
+		},
+		"git": hookCommand{
+			exec: packObjectsHook,
+		},
+	}
+
+	logger *gitalylog.HookLogger
+)
 
 func main() {
 	logger = gitalylog.NewHookLogger()
@@ -73,28 +97,18 @@ func main() {
 		logger.Fatalf("error when getting hooks payload: %v", err)
 	}
 
+	hookCommand, ok := hooksBySubcommand[subCmd]
+	if !ok {
+		logger.Fatalf("subcommand name invalid: %q", subCmd)
+	}
+
 	conn, err := dialGitaly(payload)
 	if err != nil {
 		logger.Fatalf("error when connecting to gitaly: %v", err)
 	}
-
 	hookClient := gitalypb.NewHookServiceClient(conn)
 
-	var returnCode int
-	switch subCmd {
-	case "update":
-		returnCode, err = updateHook(ctx, payload, hookClient, os.Args)
-	case "pre-receive":
-		returnCode, err = preReceiveHook(ctx, payload, hookClient, os.Args)
-	case "post-receive":
-		returnCode, err = postReceiveHook(ctx, payload, hookClient, os.Args)
-	case "reference-transaction":
-		returnCode, err = referenceTransactionHook(ctx, payload, hookClient, os.Args)
-	case "git":
-		returnCode, err = packObjectsHook(ctx, payload, hookClient, os.Args)
-	default:
-		returnCode, err = 1, fmt.Errorf("subcommand name invalid: %q", subCmd)
-	}
+	returnCode, err := hookCommand.exec(ctx, payload, hookClient, os.Args)
 	if err != nil {
 		logger.Fatal(err)
 	}
