@@ -26,10 +26,6 @@ func New(repo repository.GitRepo, cfg config.Cfg) *Repo {
 	}
 }
 
-func (repo *Repo) command(ctx context.Context, globals []git.GlobalOption, cmd git.Cmd, opts ...git.CmdOpt) (*command.Command, error) {
-	return repo.commandFactory.New(ctx, repo, globals, cmd, opts...)
-}
-
 // Exec creates a git command with the given args and Repo, executed in the
 // Repo. It validates the arguments in the command before executing.
 func (repo *Repo) Exec(ctx context.Context, globals []git.GlobalOption, cmd git.Cmd, opts ...git.CmdOpt) (*command.Command, error) {
