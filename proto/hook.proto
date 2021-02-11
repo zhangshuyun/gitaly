@@ -28,6 +28,14 @@ service HookService {
       op: ACCESSOR
     };
   }
+  // PackObjectsHook is meant to be called by git-upload-pack via the
+  // uploadpack.packObjectsHook mechanism. It generates a stream of packed
+  // Git objects.
+  rpc PackObjectsHook(stream PackObjectsHookRequest) returns (stream PackObjectsHookResponse) {
+    option (op_type) = {
+      op: ACCESSOR
+    };
+  }
 }
 
 message PreReceiveHookRequest {
@@ -86,4 +94,19 @@ message ReferenceTransactionHookResponse {
   bytes stdout = 1;
   bytes stderr = 2;
   ExitStatus exit_status = 3;
+}
+
+message PackObjectsHookRequest {
+  Repository repository = 1 [(target_repository)=true];
+  // args contains the arguments passed to the pack-objects hook, without the leading "git"
+  repeated string args = 2;
+  // stdin is meant for consumption by git-pack-objects
+  bytes stdin = 3;
+}
+
+message PackObjectsHookResponse {
+  // stdout contains packfile data
+  bytes stdout = 1;
+  // stderr contains progress messages (such as "Enumerating objects ...")
+  bytes stderr = 2;
 }

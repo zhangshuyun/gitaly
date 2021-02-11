@@ -308,11 +308,12 @@ func TestUserCreateTagWithTransaction(t *testing.T) {
 	locator := config.NewLocator(config.Config)
 	txManager := transaction.NewManager(config.Config)
 	hookManager := gitalyhook.NewManager(locator, txManager, gitalyhook.GitlabAPIStub, config.Config)
+	gitCmdFactory := git.NewExecCommandFactory(config.Config)
 	conns := client.NewPool()
 	defer conns.Close()
 
-	operationServer := NewServer(config.Config, RubyServer, hookManager, locator, conns, git.NewExecCommandFactory(config.Config))
-	hookServer := hook.NewServer(config.Config, hookManager)
+	operationServer := NewServer(config.Config, RubyServer, hookManager, locator, conns, gitCmdFactory)
+	hookServer := hook.NewServer(config.Config, hookManager, gitCmdFactory)
 	transactionServer := &testTransactionServer{}
 
 	gitalypb.RegisterOperationServiceServer(server.GrpcServer(), operationServer)

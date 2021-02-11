@@ -31,8 +31,16 @@ func runCleanupServiceServer(t *testing.T, cfg config.Cfg) (string, func()) {
 	srv := testhelper.NewServer(t, nil, nil, testhelper.WithInternalSocket(cfg))
 
 	locator := config.NewLocator(cfg)
-	gitalypb.RegisterCleanupServiceServer(srv.GrpcServer(), NewServer(cfg, git.NewExecCommandFactory(cfg)))
-	gitalypb.RegisterHookServiceServer(srv.GrpcServer(), hookservice.NewServer(cfg, hook.NewManager(locator, transaction.NewManager(cfg), hook.GitlabAPIStub, cfg)))
+	gitCmdFactory := git.NewExecCommandFactory(cfg)
+	gitalypb.RegisterCleanupServiceServer(srv.GrpcServer(), NewServer(cfg, gitCmdFactory))
+	gitalypb.RegisterHookServiceServer(
+		srv.GrpcServer(),
+		hookservice.NewServer(
+			cfg,
+			hook.NewManager(locator, transaction.NewManager(cfg), hook.GitlabAPIStub, cfg),
+			gitCmdFactory,
+		),
+	)
 	reflection.Register(srv.GrpcServer())
 
 	srv.Start(t)

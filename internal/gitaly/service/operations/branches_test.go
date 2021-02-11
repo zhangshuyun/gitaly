@@ -137,14 +137,15 @@ func TestUserCreateBranchWithTransaction(t *testing.T) {
 	locator := config.NewLocator(config.Config)
 	txManager := transaction.NewManager(config.Config)
 	hookManager := gitalyhook.NewManager(locator, txManager, gitalyhook.GitlabAPIStub, config.Config)
+	gitCmdFactory := git.NewExecCommandFactory(config.Config)
 
 	conns := client.NewPool()
 	defer conns.Close()
 
-	server := NewServer(config.Config, RubyServer, hookManager, locator, conns, git.NewExecCommandFactory(config.Config))
+	server := NewServer(config.Config, RubyServer, hookManager, locator, conns, gitCmdFactory)
 
 	gitalypb.RegisterOperationServiceServer(srv.GrpcServer(), server)
-	gitalypb.RegisterHookServiceServer(srv.GrpcServer(), hook.NewServer(config.Config, hookManager))
+	gitalypb.RegisterHookServiceServer(srv.GrpcServer(), hook.NewServer(config.Config, hookManager, gitCmdFactory))
 	gitalypb.RegisterRefTransactionServer(srv.GrpcServer(), transactionServer)
 
 	srv.Start(t)

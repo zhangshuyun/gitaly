@@ -52,7 +52,7 @@ func runRefServiceServer(t *testing.T) (func(), string) {
 
 	srv := testhelper.NewServer(t, nil, nil, testhelper.WithInternalSocket(cfg))
 	gitalypb.RegisterRefServiceServer(srv.GrpcServer(), NewServer(cfg, locator, gitCmdFactory))
-	gitalypb.RegisterHookServiceServer(srv.GrpcServer(), hookservice.NewServer(cfg, hookManager))
+	gitalypb.RegisterHookServiceServer(srv.GrpcServer(), hookservice.NewServer(cfg, hookManager, gitCmdFactory))
 	srv.Start(t)
 
 	return srv.Stop, "unix://" + srv.Socket()

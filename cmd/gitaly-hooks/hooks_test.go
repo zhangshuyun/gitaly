@@ -642,9 +642,10 @@ func runHookServiceServer(t *testing.T, token string) func() {
 func runHookServiceServerWithAPI(t *testing.T, gitlabAPI gitalyhook.GitlabAPI) func() {
 	txManager := transaction.NewManager(config.Config)
 	hookManager := gitalyhook.NewManager(config.NewLocator(config.Config), txManager, gitlabAPI, config.Config)
+	gitCmdFactory := git.NewExecCommandFactory(config.Config)
 	server := testhelper.NewServerWithAuth(t, nil, nil, config.Config.Auth.Token, testhelper.WithInternalSocket(config.Config))
 
-	gitalypb.RegisterHookServiceServer(server.GrpcServer(), hook.NewServer(config.Config, hookManager))
+	gitalypb.RegisterHookServiceServer(server.GrpcServer(), hook.NewServer(config.Config, hookManager, gitCmdFactory))
 	reflection.Register(server.GrpcServer())
 	server.Start(t)
 
@@ -679,6 +680,9 @@ func TestGitalyHooksPackObjects(t *testing.T) {
 		config.Config = cfg
 	}(config.Config)
 
+	config.Config.Auth.Token = "abc123"
+	defer runHookServiceServer(t, config.Config.Auth.Token)()
+
 	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
@@ -686,10 +690,7 @@ func TestGitalyHooksPackObjects(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, os.MkdirAll(logDir, 0755))
 
-	env := append(
-		envForHooks(t, logDir, testRepo, glHookValues{}, proxyValues{}),
-		"GITALY_GIT_BIN_PATH=git",
-	)
+	env := envForHooks(t, logDir, testRepo, glHookValues{}, proxyValues{})
 
 	baseArgs := []string{
 		config.Config.Git.BinPath,
