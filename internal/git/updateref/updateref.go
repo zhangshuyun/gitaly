@@ -8,7 +8,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/internal/helper"
 )
 
 // Updater wraps a `git update-ref --stdin` process, presenting an interface
@@ -46,7 +45,7 @@ func New(ctx context.Context, conf config.Cfg, gitCmdFactory git.CommandFactory,
 		opt(&cfg)
 	}
 
-	txOption := git.WithRefTxHook(ctx, helper.ProtoRepoFromRepo(repo), conf)
+	txOption := git.WithRefTxHook(ctx, repo, conf)
 	if cfg.disableTransactions {
 		txOption = git.WithDisabledHooks()
 	}
