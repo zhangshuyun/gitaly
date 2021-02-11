@@ -763,15 +763,15 @@ func TestLoadDailyMaintenance(t *testing.T) {
 		{
 			name: "success",
 			rawCfg: `[[storage]]
-name = "default"
-path = "/"
-
+			name = "default"
+			path = "/"
+			
 			[daily_maintenance]
-start_hour = 11
-start_minute = 23
-duration = "45m"
-storages = ["default"]
-`,
+			start_hour = 11
+			start_minute = 23
+			duration = "45m"
+			storages = ["default"]
+			`,
 			expect: DailyJob{
 				Hour:     11,
 				Minute:   23,
@@ -806,6 +806,31 @@ storages = ["default"]
 				Storages: []string{"default"},
 			},
 			validateErr: errors.New(`daily maintenance specified storage "default" does not exist in configuration`),
+		},
+		{
+			name: "default window",
+			rawCfg: `[[storage]]
+			name = "default"
+			path = "/"
+			`,
+			expect: DailyJob{
+				Hour:     12,
+				Minute:   0,
+				Duration: Duration(10 * time.Minute),
+				Storages: []string{"default"},
+			},
+		},
+		{
+			name: "override default window",
+			rawCfg: `[[storage]]
+			name = "default"
+			path = "/"
+			[daily_maintenance]
+			disabled = true
+			`,
+			expect: DailyJob{
+				Disabled: true,
+			},
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {

@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"time"
 
@@ -37,6 +38,10 @@ type DailyJob struct {
 	Minute   uint     `toml:"start_minute"`
 	Duration Duration `toml:"duration"`
 	Storages []string `toml:"storages"`
+
+	// Disabled will completely disable a daily job, even in cases where a
+	// default schedule is implied
+	Disabled bool `toml:"disabled"`
 }
 
 // Cfg is a container for all config derived from config.toml.
@@ -212,6 +217,10 @@ func (cfg *Cfg) setDefaults() error {
 			return fmt.Errorf("create internal socket directory: %w", err)
 		}
 		cfg.InternalSocketDir = tmpDir
+	}
+
+	if reflect.DeepEqual(cfg.DailyMaintenance, DailyJob{}) {
+		cfg.DailyMaintenance = defaultMaintenanceWindow(cfg.Storages)
 	}
 
 	return nil
@@ -451,6 +460,22 @@ func trySocketCreation(dir string) error {
 	}
 
 	return l.Close()
+}
+
+// defaultMaintenanceWindow specifies a 10 minute job that runs daily at +1200
+// GMT time
+func defaultMaintenanceWindow(storages []Storage) DailyJob {
+	storageNames := make([]string, len(storages))
+	for i, s := range storages {
+		storageNames[i] = s.Name
+	}
+
+	return DailyJob{
+		Hour:     12,
+		Minute:   0,
+		Duration: Duration(10 * time.Minute),
+		Storages: storageNames,
+	}
 }
 
 func (cfg *Cfg) validateMaintenance() error {
