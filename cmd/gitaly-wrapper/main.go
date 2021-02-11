@@ -13,6 +13,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/internal/bootstrap"
+	"gitlab.com/gitlab-org/gitaly/internal/log"
 	"gitlab.com/gitlab-org/gitaly/internal/ps"
 )
 
@@ -22,7 +23,7 @@ const (
 
 func main() {
 	if jsonLogging() {
-		logrus.SetFormatter(&logrus.JSONFormatter{})
+		logrus.SetFormatter(&logrus.JSONFormatter{TimestampFormat: log.LogTimestampFormat})
 	}
 
 	if len(os.Args) < 2 {
