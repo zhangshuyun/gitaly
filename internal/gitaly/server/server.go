@@ -26,7 +26,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/cache"
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/cancelhandler"
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/commandstatshandler"
-	"gitlab.com/gitlab-org/gitaly/internal/middleware/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/limithandler"
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/metadatahandler"
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/panichandler"
@@ -110,7 +109,6 @@ func createNewServer(cfg config.Cfg, secure bool) (*grpc.Server, error) {
 			grpc_prometheus.StreamServerInterceptor,
 			commandstatshandler.StreamInterceptor,
 			grpc_logrus.StreamServerInterceptor(logrusEntry, grpc_logrus.WithMessageProducer(commandstatshandler.CommandStatsMessageProducer)),
-			featureflag.StreamInterceptor,
 			sentryhandler.StreamLogHandler,
 			cancelhandler.Stream, // Should be below LogHandler
 			auth.StreamServerInterceptor(cfg.Auth),
@@ -128,7 +126,6 @@ func createNewServer(cfg config.Cfg, secure bool) (*grpc.Server, error) {
 			grpc_prometheus.UnaryServerInterceptor,
 			commandstatshandler.UnaryInterceptor,
 			grpc_logrus.UnaryServerInterceptor(logrusEntry, grpc_logrus.WithMessageProducer(commandstatshandler.CommandStatsMessageProducer)),
-			featureflag.UnaryInterceptor,
 			sentryhandler.UnaryLogHandler,
 			cancelhandler.Unary, // Should be below LogHandler
 			auth.UnaryServerInterceptor(cfg.Auth),
