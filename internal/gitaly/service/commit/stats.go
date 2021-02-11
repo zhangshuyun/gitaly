@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/log"
+	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
@@ -27,7 +27,9 @@ func (s *server) CommitStats(ctx context.Context, in *gitalypb.CommitStatsReques
 }
 
 func (s *server) commitStats(ctx context.Context, in *gitalypb.CommitStatsRequest) (*gitalypb.CommitStatsResponse, error) {
-	commit, err := log.GetCommit(ctx, s.gitCmdFactory, in.Repository, git.Revision(in.Revision))
+	repo := localrepo.New(in.Repository, s.cfg)
+
+	commit, err := repo.ReadCommit(ctx, git.Revision(in.Revision))
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +45,7 @@ func (s *server) commitStats(ctx context.Context, in *gitalypb.CommitStatsReques
 		args = append(args, commit.Id+"^", commit.Id)
 	}
 
-	cmd, err := s.gitCmdFactory.New(ctx, in.Repository, nil, git.SubCmd{
+	cmd, err := repo.Exec(ctx, nil, git.SubCmd{
 		Name:  "diff",
 		Flags: []git.Option{git.Flag{Name: "--numstat"}},
 		Args:  args,

@@ -2,9 +2,10 @@ package commit
 
 import (
 	"context"
+	"errors"
 
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/log"
+	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
@@ -15,16 +16,20 @@ func (s *server) FindCommit(ctx context.Context, in *gitalypb.FindCommitRequest)
 		return nil, helper.ErrInvalidArgument(err)
 	}
 
-	repo := in.GetRepository()
+	repo := localrepo.New(in.GetRepository(), s.cfg)
 
-	commitGetter := log.GetCommit
+	var opts []localrepo.ReadCommitOpt
 	if in.GetTrailers() {
-		commitGetter = log.GetCommitWithTrailers
-	}
-	commit, err := commitGetter(ctx, s.gitCmdFactory, repo, git.Revision(revision))
-	if log.IsNotFound(err) {
-		return &gitalypb.FindCommitResponse{}, nil
+		opts = []localrepo.ReadCommitOpt{localrepo.WithTrailers()}
 	}
 
-	return &gitalypb.FindCommitResponse{Commit: commit}, err
+	commit, err := repo.ReadCommit(ctx, git.Revision(revision), opts...)
+	if err != nil {
+		if errors.Is(err, localrepo.ErrObjectNotFound) {
+			return &gitalypb.FindCommitResponse{}, nil
+		}
+		return &gitalypb.FindCommitResponse{}, err
+	}
+
+	return &gitalypb.FindCommitResponse{Commit: commit}, nil
 }
