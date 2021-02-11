@@ -90,7 +90,7 @@ func RegisterAll(
 	gitalypb.RegisterWikiServiceServer(grpcServer, wiki.NewServer(rubyServer, locator))
 	gitalypb.RegisterConflictsServiceServer(grpcServer, conflicts.NewServer(rubyServer, cfg, locator, gitCmdFactory))
 	gitalypb.RegisterRemoteServiceServer(grpcServer, remote.NewServer(cfg, rubyServer, locator, gitCmdFactory))
-	gitalypb.RegisterServerServiceServer(grpcServer, server.NewServer(cfg.Storages))
+	gitalypb.RegisterServerServiceServer(grpcServer, server.NewServer(gitCmdFactory, cfg.Storages))
 	gitalypb.RegisterObjectPoolServiceServer(grpcServer, objectpool.NewServer(cfg, locator, gitCmdFactory))
 	gitalypb.RegisterHookServiceServer(grpcServer, hook.NewServer(cfg, hookManager, gitCmdFactory))
 	gitalypb.RegisterInternalGitalyServer(grpcServer, internalgitaly.NewServer(cfg.Storages))

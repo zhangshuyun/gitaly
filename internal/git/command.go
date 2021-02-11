@@ -328,11 +328,3 @@ func WithEnv(envs ...string) CmdOpt {
 func NewCommand(ctx context.Context, repo repository.GitRepo, globals []GlobalOption, sc Cmd, opts ...CmdOpt) (*command.Command, error) {
 	return NewExecCommandFactory(config.Config).newCommand(ctx, repo, "", globals, sc, opts...)
 }
-
-// NewCommandWithoutRepo creates a command.Command with the given args. It is not
-// connected to any specific git repository. It should only be used for
-// commands which do not require a git repository or which accept a repository
-// path as parameter like e.g. git-upload-pack(1).
-func NewCommandWithoutRepo(ctx context.Context, globals []GlobalOption, sc Cmd, opts ...CmdOpt) (*command.Command, error) {
-	return NewExecCommandFactory(config.Config).newCommand(ctx, nil, "", globals, sc, opts...)
-}

@@ -22,7 +22,7 @@ func TestStorageDiskStatistics(t *testing.T) {
 	}(config.Config.Storages)
 	config.Config.Storages = testStorages
 
-	server, serverSocketPath := runServer(t, config.Config.Storages)
+	server, serverSocketPath := runServer(t, config.Config)
 	defer server.Stop()
 
 	client, conn := newServerClient(t, serverSocketPath)

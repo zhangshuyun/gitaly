@@ -89,11 +89,11 @@ func (e CheckRefFormatError) Error() string {
 
 // CheckRefFormat checks whether a fully-qualified refname is well
 // well-formed using git-check-ref-format
-func CheckRefFormat(ctx context.Context, refName string) (bool, error) {
+func CheckRefFormat(ctx context.Context, gitCmdFactory CommandFactory, refName string) (bool, error) {
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
 
-	cmd, err := NewCommandWithoutRepo(ctx, nil,
+	cmd, err := gitCmdFactory.NewWithoutRepo(ctx, nil,
 		SubCmd{
 			Name: "check-ref-format",
 			Args: []string{refName},
