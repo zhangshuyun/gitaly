@@ -3,6 +3,7 @@ package hook
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"gitlab.com/gitlab-org/gitaly/internal/git"
@@ -45,10 +46,16 @@ func (m *GitLabHookManager) runWithTransaction(ctx context.Context, payload git.
 		return errors.New("transaction without Praefect server")
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, transactionTimeout)
+	transactionCtx, cancel := context.WithTimeout(ctx, transactionTimeout)
 	defer cancel()
 
-	if err := handler(ctx, *payload.Transaction, *payload.Praefect); err != nil {
+	if err := handler(transactionCtx, *payload.Transaction, *payload.Praefect); err != nil {
+		// Add some additional context to cancellation errors so that
+		// we know which of the contexts got canceled.
+		if errors.Is(err, context.Canceled) && errors.Is(transactionCtx.Err(), context.Canceled) && ctx.Err() == nil {
+			return fmt.Errorf("transaction timeout %s exceeded: %w", transactionTimeout, err)
+		}
+
 		return err
 	}
 
