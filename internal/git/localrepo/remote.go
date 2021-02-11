@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/helper"
 )
 
 // Remote provides functionality of the 'remote' git sub-command.
@@ -35,7 +34,7 @@ func (remote Remote) Add(ctx context.Context, name, url string, opts git.RemoteA
 			Args:   []string{name, url},
 		},
 		git.WithStderr(&stderr),
-		git.WithRefTxHook(ctx, helper.ProtoRepoFromRepo(remote.repo), remote.repo.cfg),
+		git.WithRefTxHook(ctx, remote.repo, remote.repo.cfg),
 	); err != nil {
 		switch {
 		case isExitWithCode(err, 3):
@@ -91,7 +90,7 @@ func (remote Remote) Remove(ctx context.Context, name string) error {
 			Args:   []string{name},
 		},
 		git.WithStderr(&stderr),
-		git.WithRefTxHook(ctx, helper.ProtoRepoFromRepo(remote.repo), remote.repo.cfg),
+		git.WithRefTxHook(ctx, remote.repo, remote.repo.cfg),
 	); err != nil {
 		switch {
 		case isExitWithCode(err, 2):
@@ -127,7 +126,7 @@ func (remote Remote) SetURL(ctx context.Context, name, url string, opts git.SetU
 			Args:   []string{name, url},
 		},
 		git.WithStderr(&stderr),
-		git.WithRefTxHook(ctx, helper.ProtoRepoFromRepo(remote.repo), remote.repo.cfg),
+		git.WithRefTxHook(ctx, remote.repo, remote.repo.cfg),
 	); err != nil {
 		switch {
 		case isExitWithCode(err, 2):

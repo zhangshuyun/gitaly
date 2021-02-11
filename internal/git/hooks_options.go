@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"gitlab.com/gitlab-org/gitaly/internal/git/hooks"
+	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/log"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
@@ -25,13 +26,22 @@ func WithDisabledHooks() CmdOpt {
 // WithRefTxHook returns an option that populates the safe command with the
 // environment variables necessary to properly execute a reference hook for
 // repository changes that may possibly update references
-func WithRefTxHook(ctx context.Context, repo *gitalypb.Repository, cfg config.Cfg) CmdOpt {
+func WithRefTxHook(ctx context.Context, repo repository.GitRepo, cfg config.Cfg) CmdOpt {
 	return func(cc *cmdCfg) error {
 		if repo == nil {
 			return fmt.Errorf("missing repo: %w", ErrInvalidArg)
 		}
 
-		if err := cc.configureHooks(ctx, repo, cfg, nil); err != nil {
+		// The reference-transaction hook does not need any project-specific information
+		// about the repository. So in order to make the hook usable by sites which do not
+		// have a project repository available (e.g. object pools), this function accepts a
+		// `repository.GitRepo` and just creates an ad-hoc proto repo.
+		if err := cc.configureHooks(ctx, &gitalypb.Repository{
+			StorageName:                   repo.GetStorageName(),
+			GitAlternateObjectDirectories: repo.GetGitAlternateObjectDirectories(),
+			GitObjectDirectory:            repo.GetGitObjectDirectory(),
+			RelativePath:                  repo.GetRelativePath(),
+		}, cfg, nil); err != nil {
 			return fmt.Errorf("ref hook env var: %w", err)
 		}
 

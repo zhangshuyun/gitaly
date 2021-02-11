@@ -11,7 +11,6 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/helper"
 )
 
 // HasRevision checks if a revision in the repository exists. This will not
@@ -151,7 +150,7 @@ func (repo *Repo) UpdateRef(ctx context.Context, reference git.ReferenceName, ne
 			Flags: []git.Option{git.Flag{Name: "-z"}, git.Flag{Name: "--stdin"}},
 		},
 		git.WithStdin(strings.NewReader(fmt.Sprintf("update %s\x00%s\x00%s\x00", reference, newValue.String(), oldValue.String()))),
-		git.WithRefTxHook(ctx, helper.ProtoRepoFromRepo(repo), repo.cfg),
+		git.WithRefTxHook(ctx, repo, repo.cfg),
 	); err != nil {
 		return fmt.Errorf("UpdateRef: failed updating reference %q from %q to %q: %w", reference, newValue, oldValue, err)
 	}
