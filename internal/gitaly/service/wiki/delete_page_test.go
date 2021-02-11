@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	gitlog "gitlab.com/gitlab-org/gitaly/internal/git/log"
+	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -13,8 +13,9 @@ import (
 )
 
 func TestSuccessfulWikiDeletePageRequest(t *testing.T) {
-	wikiRepo, wikiRepoPath, cleanupFunc := setupWikiRepo(t)
+	wikiRepoProto, wikiRepoPath, cleanupFunc := setupWikiRepo(t)
 	defer cleanupFunc()
+	wikiRepo := localrepo.New(wikiRepoProto, config.Config)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -41,7 +42,7 @@ func TestSuccessfulWikiDeletePageRequest(t *testing.T) {
 		{
 			desc: "with user id and username",
 			req: &gitalypb.WikiDeletePageRequest{
-				Repository: wikiRepo,
+				Repository: wikiRepoProto,
 				PagePath:   []byte("a-talé-of-two-wikis"),
 				CommitDetails: &gitalypb.WikiCommitDetails{
 					Name:     authorName,
@@ -55,7 +56,7 @@ func TestSuccessfulWikiDeletePageRequest(t *testing.T) {
 		{
 			desc: "without user id and username", // deprecate in GitLab 11.0 https://gitlab.com/gitlab-org/gitaly/issues/1154
 			req: &gitalypb.WikiDeletePageRequest{
-				Repository: wikiRepo,
+				Repository: wikiRepoProto,
 				PagePath:   []byte("a-talé-of-two-wikis"),
 				CommitDetails: &gitalypb.WikiCommitDetails{
 					Name:    authorName,
@@ -68,13 +69,13 @@ func TestSuccessfulWikiDeletePageRequest(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			writeWikiPage(t, client, wikiRepo, createWikiPageOpts{title: pageName, content: content})
+			writeWikiPage(t, client, wikiRepoProto, createWikiPageOpts{title: pageName, content: content})
 
 			_, err := client.WikiDeletePage(ctx, tc.req)
 			require.NoError(t, err)
 
 			headID := testhelper.MustRunCommand(t, nil, "git", "-C", wikiRepoPath, "show", "--format=format:%H", "--no-patch", "HEAD")
-			commit, err := gitlog.GetCommit(ctx, git.NewExecCommandFactory(config.Config), wikiRepo, git.Revision(headID))
+			commit, err := wikiRepo.ReadCommit(ctx, git.Revision(headID))
 			require.NoError(t, err, "look up git commit after deleting a wiki page")
 
 			require.Equal(t, authorName, commit.Author.Name, "author name mismatched")

@@ -9,7 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/log"
+	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/git/lstree"
 	"gitlab.com/gitlab-org/gitaly/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
@@ -88,6 +88,7 @@ func TestSubmodule(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			testRepo, testRepoPath, cleanup := testhelper.NewTestRepo(t)
 			defer cleanup()
+			repo := localrepo.New(testRepo, config.Config)
 
 			tc.command.Repository = testRepoPath
 
@@ -102,7 +103,7 @@ func TestSubmodule(t *testing.T) {
 			}
 			require.NoError(t, err)
 
-			commit, err := log.GetCommit(ctx, git.NewExecCommandFactory(config.Config), testRepo, git.Revision(response.CommitID))
+			commit, err := repo.ReadCommit(ctx, git.Revision(response.CommitID))
 			require.NoError(t, err)
 			require.Equal(t, commit.Author.Email, testhelper.TestUser.Email)
 			require.Equal(t, commit.Committer.Email, testhelper.TestUser.Email)

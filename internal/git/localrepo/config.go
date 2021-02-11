@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/internal/command"
@@ -24,17 +23,13 @@ func (cfg Config) Add(ctx context.Context, name, value string, opts git.ConfigAd
 		return err
 	}
 
-	cmd, err := cfg.repo.command(ctx, nil, git.SubCmd{
+	if err := cfg.repo.ExecAndWait(ctx, nil, git.SubCmd{
 		Name:  "config",
 		Flags: append(buildConfigAddOptsFlags(opts), git.Flag{Name: "--add"}),
 		Args:  []string{name, value},
-	})
-	if err != nil {
-		return err
-	}
-
-	// Please refer to https://git-scm.com/docs/git-config#_description on return codes.
-	if err := cmd.Wait(); err != nil {
+	}); err != nil {
+		// Please refer to https://git-scm.com/docs/git-config#_description
+		// on return codes.
 		switch {
 		case isExitWithCode(err, 1):
 			// section or key is invalid
@@ -74,8 +69,9 @@ func (cfg Config) GetRegexp(ctx context.Context, nameRegexp string, opts git.Con
 }
 
 func (cfg Config) getRegexp(ctx context.Context, nameRegexp string, opts git.ConfigGetRegexpOpts) ([]byte, error) {
-	var stderr bytes.Buffer
-	cmd, err := cfg.repo.command(ctx, nil,
+	var stderr, stdout bytes.Buffer
+
+	if err := cfg.repo.ExecAndWait(ctx, nil,
 		git.SubCmd{
 			Name: "config",
 			// '--null' is used to support proper parsing of the multiline config values
@@ -83,17 +79,8 @@ func (cfg Config) getRegexp(ctx context.Context, nameRegexp string, opts git.Con
 			Args:  []string{nameRegexp},
 		},
 		git.WithStderr(&stderr),
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	data, err := ioutil.ReadAll(cmd)
-	if err != nil {
-		return nil, fmt.Errorf("reading output: %w", err)
-	}
-
-	if err := cmd.Wait(); err != nil {
+		git.WithStdout(&stdout),
+	); err != nil {
 		switch {
 		case isExitWithCode(err, 1):
 			// when no configuration values found it exits with code '1'
@@ -110,7 +97,7 @@ func (cfg Config) getRegexp(ctx context.Context, nameRegexp string, opts git.Con
 		return nil, err
 	}
 
-	return data, nil
+	return stdout.Bytes(), nil
 }
 
 func buildConfigGetRegexpOptsFlags(opts git.ConfigGetRegexpOpts) []git.Option {
@@ -178,17 +165,13 @@ func (cfg Config) parseConfig(data []byte, opts git.ConfigGetRegexpOpts) ([]git.
 
 // Unset unsets the given config entry.
 func (cfg Config) Unset(ctx context.Context, name string, opts git.ConfigUnsetOpts) error {
-	cmd, err := cfg.repo.command(ctx, nil, git.SubCmd{
+	if err := cfg.repo.ExecAndWait(ctx, nil, git.SubCmd{
 		Name:  "config",
 		Flags: buildConfigUnsetOptsFlags(opts),
 		Args:  []string{name},
-	})
-	if err != nil {
-		return err
-	}
-
-	// Please refer to https://git-scm.com/docs/git-config#_description on return codes.
-	if err := cmd.Wait(); err != nil {
+	}); err != nil {
+		// Please refer to https://git-scm.com/docs/git-config#_description
+		// on return codes.
 		switch {
 		case isExitWithCode(err, 1):
 			// section or key is invalid

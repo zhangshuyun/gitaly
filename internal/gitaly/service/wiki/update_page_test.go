@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	gitlog "gitlab.com/gitlab-org/gitaly/internal/git/log"
+	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -14,8 +14,9 @@ import (
 )
 
 func TestSuccessfulWikiUpdatePageRequest(t *testing.T) {
-	wikiRepo, wikiRepoPath, cleanupFunc := setupWikiRepo(t)
+	wikiRepoProto, wikiRepoPath, cleanupFunc := setupWikiRepo(t)
 	defer cleanupFunc()
+	wikiRepo := localrepo.New(wikiRepoProto, config.Config)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -27,7 +28,7 @@ func TestSuccessfulWikiUpdatePageRequest(t *testing.T) {
 	client, conn := newWikiClient(t, serverSocketPath)
 	defer conn.Close()
 
-	writeWikiPage(t, client, wikiRepo, createWikiPageOpts{title: "Instálling Gitaly", content: []byte("foobar")})
+	writeWikiPage(t, client, wikiRepoProto, createWikiPageOpts{title: "Instálling Gitaly", content: []byte("foobar")})
 
 	authorID := int32(1)
 	authorUserName := []byte("ahmad")
@@ -43,7 +44,7 @@ func TestSuccessfulWikiUpdatePageRequest(t *testing.T) {
 		{
 			desc: "with user id and username",
 			req: &gitalypb.WikiUpdatePageRequest{
-				Repository: wikiRepo,
+				Repository: wikiRepoProto,
 				PagePath:   []byte("//Instálling Gitaly"),
 				Title:      []byte("Instálling Gitaly"),
 				Format:     "markdown",
@@ -60,7 +61,7 @@ func TestSuccessfulWikiUpdatePageRequest(t *testing.T) {
 		{
 			desc: "without user id and username", // deprecate in gitlab 11.0 https://gitlab.com/gitlab-org/gitaly/issues/1154
 			req: &gitalypb.WikiUpdatePageRequest{
-				Repository: wikiRepo,
+				Repository: wikiRepoProto,
 				PagePath:   []byte("//Instálling Gitaly"),
 				Title:      []byte("Instálling Gitaly"),
 				Format:     "markdown",
@@ -100,7 +101,7 @@ func TestSuccessfulWikiUpdatePageRequest(t *testing.T) {
 			require.NoError(t, err)
 
 			headID := testhelper.MustRunCommand(t, nil, "git", "-C", wikiRepoPath, "show", "--format=format:%H", "--no-patch", "HEAD")
-			commit, err := gitlog.GetCommit(ctx, git.NewExecCommandFactory(config.Config), wikiRepo, git.Revision(headID))
+			commit, err := wikiRepo.ReadCommit(ctx, git.Revision(headID))
 			require.NoError(t, err, "look up git commit before merge is applied")
 
 			require.Equal(t, authorName, commit.Author.Name, "author name mismatched")

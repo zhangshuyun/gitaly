@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/log"
+	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -23,8 +23,9 @@ func TestSuccessfulFindAllRemoteBranchesRequest(t *testing.T) {
 	client, conn := newRefServiceClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	repoProto, repoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
+	repo := localrepo.New(repoProto, config.Config)
 
 	remoteName := "my-remote"
 	expectedBranches := map[string]string{
@@ -37,14 +38,14 @@ func TestSuccessfulFindAllRemoteBranchesRequest(t *testing.T) {
 	}
 
 	for branchName, commitID := range expectedBranches {
-		testhelper.CreateRemoteBranch(t, testRepoPath, remoteName, branchName, commitID)
+		testhelper.CreateRemoteBranch(t, repoPath, remoteName, branchName, commitID)
 	}
 
 	for branchName, commitID := range excludedBranches {
-		testhelper.CreateRemoteBranch(t, testRepoPath, excludedRemote, branchName, commitID)
+		testhelper.CreateRemoteBranch(t, repoPath, excludedRemote, branchName, commitID)
 	}
 
-	request := &gitalypb.FindAllRemoteBranchesRequest{Repository: testRepo, RemoteName: remoteName}
+	request := &gitalypb.FindAllRemoteBranchesRequest{Repository: repoProto, RemoteName: remoteName}
 
 	c, err := client.FindAllRemoteBranches(ctx, request)
 	if err != nil {
@@ -54,9 +55,8 @@ func TestSuccessfulFindAllRemoteBranchesRequest(t *testing.T) {
 	branches := readFindAllRemoteBranchesResponsesFromClient(t, c)
 	require.Len(t, branches, len(expectedBranches))
 
-	gitCmdFactory := git.NewExecCommandFactory(config.Config)
 	for branchName, commitID := range expectedBranches {
-		targetCommit, err := log.GetCommit(ctx, gitCmdFactory, testRepo, git.Revision(commitID))
+		targetCommit, err := repo.ReadCommit(ctx, git.Revision(commitID))
 		require.NoError(t, err)
 
 		expectedBranch := &gitalypb.Branch{
@@ -68,7 +68,7 @@ func TestSuccessfulFindAllRemoteBranchesRequest(t *testing.T) {
 	}
 
 	for branchName, commitID := range excludedBranches {
-		targetCommit, err := log.GetCommit(ctx, gitCmdFactory, testRepo, git.Revision(commitID))
+		targetCommit, err := repo.ReadCommit(ctx, git.Revision(commitID))
 		require.NoError(t, err)
 
 		excludedBranch := &gitalypb.Branch{

@@ -8,7 +8,7 @@ import (
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/log"
+	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/conflicts"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
@@ -64,6 +64,7 @@ func testSuccessfulResolveConflictsRequest(t *testing.T, ctx context.Context) {
 
 	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
+	repo := localrepo.New(testRepo, config.Config)
 
 	ctxOuter, cancel := testhelper.Context()
 	defer cancel()
@@ -111,7 +112,7 @@ func testSuccessfulResolveConflictsRequest(t *testing.T, ctx context.Context) {
 	require.NoError(t, err)
 	require.Empty(t, r.GetResolutionError())
 
-	headCommit, err := log.GetCommit(ctxOuter, git.NewExecCommandFactory(config.Config), testRepo, git.Revision(sourceBranch))
+	headCommit, err := repo.ReadCommit(ctxOuter, git.Revision(sourceBranch))
 	require.NoError(t, err)
 	require.Contains(t, headCommit.ParentIds, "1450cd639e0bc6721eb02800169e464f212cde06")
 	require.Contains(t, headCommit.ParentIds, "824be604a34828eb682305f0d963056cfac87b2d")
@@ -135,8 +136,9 @@ func testResolveConflictsStableID(t *testing.T, ctx context.Context) {
 	client, conn := conflicts.NewConflictsClient(t, serverSocketPath)
 	defer conn.Close()
 
-	repo, _, cleanupFn := testhelper.NewTestRepo(t)
+	repoProto, _, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
+	repo := localrepo.New(repoProto, config.Config)
 
 	md := testhelper.GitalyServersMetadata(t, serverSocketPath)
 	ctx = testhelper.MergeOutgoingMetadata(ctx, md)
@@ -147,8 +149,8 @@ func testResolveConflictsStableID(t *testing.T, ctx context.Context) {
 	require.NoError(t, stream.Send(&gitalypb.ResolveConflictsRequest{
 		ResolveConflictsRequestPayload: &gitalypb.ResolveConflictsRequest_Header{
 			Header: &gitalypb.ResolveConflictsRequestHeader{
-				Repository:       repo,
-				TargetRepository: repo,
+				Repository:       repoProto,
+				TargetRepository: repoProto,
 				CommitMessage:    []byte(conflictResolutionCommitMessage),
 				OurCommitOid:     "1450cd639e0bc6721eb02800169e464f212cde06",
 				TheirCommitOid:   "824be604a34828eb682305f0d963056cfac87b2d",
@@ -172,7 +174,7 @@ func testResolveConflictsStableID(t *testing.T, ctx context.Context) {
 	require.NoError(t, err)
 	require.Empty(t, response.GetResolutionError())
 
-	resolvedCommit, err := log.GetCommit(ctx, git.NewExecCommandFactory(config.Config), repo, git.Revision("conflict-resolvable"))
+	resolvedCommit, err := repo.ReadCommit(ctx, git.Revision("conflict-resolvable"))
 	require.NoError(t, err)
 	require.Equal(t, &gitalypb.GitCommit{
 		Id:     "a5ad028fd739d7a054b07c293e77c5b7aecc2435",

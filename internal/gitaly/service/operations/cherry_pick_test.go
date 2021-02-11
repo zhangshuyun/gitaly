@@ -7,7 +7,7 @@ import (
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/log"
+	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -25,17 +25,17 @@ func TestSuccessfulUserCherryPickRequest(t *testing.T) {
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanup := testhelper.NewTestRepo(t)
+	repoProto, repoPath, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
+	repo := localrepo.New(repoProto, config.Config)
 
 	destinationBranch := "cherry-picking-dst"
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", destinationBranch, "master")
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", destinationBranch, "master")
 
-	gitCmdFactory := git.NewExecCommandFactory(config.Config)
-	masterHeadCommit, err := log.GetCommit(ctxOuter, gitCmdFactory, testRepo, "master")
+	masterHeadCommit, err := repo.ReadCommit(ctxOuter, "master")
 	require.NoError(t, err)
 
-	cherryPickedCommit, err := log.GetCommit(ctxOuter, gitCmdFactory, testRepo, "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab")
+	cherryPickedCommit, err := repo.ReadCommit(ctxOuter, "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab")
 	require.NoError(t, err)
 
 	testRepoCopy, testRepoCopyPath, cleanup := testhelper.NewTestRepo(t) // read-only repo
@@ -51,7 +51,7 @@ func TestSuccessfulUserCherryPickRequest(t *testing.T) {
 		{
 			desc: "branch exists",
 			request: &gitalypb.UserCherryPickRequest{
-				Repository: testRepo,
+				Repository: repoProto,
 				User:       testhelper.TestUser,
 				Commit:     cherryPickedCommit,
 				BranchName: []byte(destinationBranch),
@@ -62,7 +62,7 @@ func TestSuccessfulUserCherryPickRequest(t *testing.T) {
 		{
 			desc: "nonexistent branch + start_repository == repository",
 			request: &gitalypb.UserCherryPickRequest{
-				Repository:      testRepo,
+				Repository:      repoProto,
 				User:            testhelper.TestUser,
 				Commit:          cherryPickedCommit,
 				BranchName:      []byte("to-be-cherry-picked-into-1"),
@@ -74,7 +74,7 @@ func TestSuccessfulUserCherryPickRequest(t *testing.T) {
 		{
 			desc: "nonexistent branch + start_repository != repository",
 			request: &gitalypb.UserCherryPickRequest{
-				Repository:      testRepo,
+				Repository:      repoProto,
 				User:            testhelper.TestUser,
 				Commit:          cherryPickedCommit,
 				BranchName:      []byte("to-be-cherry-picked-into-2"),
@@ -87,7 +87,7 @@ func TestSuccessfulUserCherryPickRequest(t *testing.T) {
 		{
 			desc: "nonexistent branch + empty start_repository",
 			request: &gitalypb.UserCherryPickRequest{
-				Repository:      testRepo,
+				Repository:      repoProto,
 				User:            testhelper.TestUser,
 				Commit:          cherryPickedCommit,
 				BranchName:      []byte("to-be-cherry-picked-into-3"),
@@ -158,7 +158,8 @@ func TestSuccessfulUserCherryPickRequest(t *testing.T) {
 			response, err := client.UserCherryPick(ctx, testCase.request)
 			require.NoError(t, err)
 
-			headCommit, err := log.GetCommit(ctx, git.NewExecCommandFactory(config.Config), testCase.request.Repository, git.Revision(testCase.request.BranchName))
+			testRepo := localrepo.New(testCase.request.Repository, config.Config)
+			headCommit, err := testRepo.ReadCommit(ctx, git.Revision(testCase.request.BranchName))
 			require.NoError(t, err)
 
 			expectedBranchUpdate := testCase.branchUpdate
@@ -193,17 +194,18 @@ func testSuccessfulGitHooksForUserCherryPickRequest(t *testing.T, ctxOuter conte
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanup := testhelper.NewTestRepo(t)
+	repoProto, repoPath, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
+	repo := localrepo.New(repoProto, config.Config)
 
 	destinationBranch := "cherry-picking-dst"
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", destinationBranch, "master")
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", destinationBranch, "master")
 
-	cherryPickedCommit, err := log.GetCommit(ctxOuter, git.NewExecCommandFactory(config.Config), testRepo, "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab")
+	cherryPickedCommit, err := repo.ReadCommit(ctxOuter, "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab")
 	require.NoError(t, err)
 
 	request := &gitalypb.UserCherryPickRequest{
-		Repository: testRepo,
+		Repository: repoProto,
 		User:       testhelper.TestUser,
 		Commit:     cherryPickedCommit,
 		BranchName: []byte(destinationBranch),
@@ -212,7 +214,7 @@ func testSuccessfulGitHooksForUserCherryPickRequest(t *testing.T, ctxOuter conte
 
 	var hookOutputFiles []string
 	for _, hookName := range GitlabHooks {
-		hookOutputTempPath, cleanup := testhelper.WriteEnvToCustomHook(t, testRepoPath, hookName)
+		hookOutputTempPath, cleanup := testhelper.WriteEnvToCustomHook(t, repoPath, hookName)
 		defer cleanup()
 		hookOutputFiles = append(hookOutputFiles, hookOutputTempPath)
 	}
@@ -237,21 +239,21 @@ func TestUserCherryPick_stableID(t *testing.T) {
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanup := testhelper.NewTestRepo(t)
+	repoProto, repoPath, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
+	repo := localrepo.New(repoProto, config.Config)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
 	destinationBranch := "cherry-picking-dst"
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", destinationBranch, "master")
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", destinationBranch, "master")
 
-	gitCmdFactory := git.NewExecCommandFactory(config.Config)
-	commitToPick, err := log.GetCommit(ctx, gitCmdFactory, testRepo, "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab")
+	commitToPick, err := repo.ReadCommit(ctx, "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab")
 	require.NoError(t, err)
 
 	request := &gitalypb.UserCherryPickRequest{
-		Repository: testRepo,
+		Repository: repoProto,
 		User:       testhelper.TestUser,
 		Commit:     commitToPick,
 		BranchName: []byte(destinationBranch),
@@ -267,7 +269,7 @@ func TestUserCherryPick_stableID(t *testing.T) {
 	require.Empty(t, response.PreReceiveError)
 	require.Equal(t, response.BranchUpdate.CommitId, "750e8cf248a67a0be1c5e3b891697d72c19af259")
 
-	pickedCommit, err := log.GetCommit(ctx, gitCmdFactory, testRepo, "750e8cf248a67a0be1c5e3b891697d72c19af259")
+	pickedCommit, err := repo.ReadCommit(ctx, "750e8cf248a67a0be1c5e3b891697d72c19af259")
 	require.NoError(t, err)
 	require.Equal(t, &gitalypb.GitCommit{
 		Id:        "750e8cf248a67a0be1c5e3b891697d72c19af259",
@@ -305,10 +307,11 @@ func TestFailedUserCherryPickRequestDueToValidations(t *testing.T) {
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanup := testhelper.NewTestRepo(t)
+	repoProto, _, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
+	repo := localrepo.New(repoProto, config.Config)
 
-	cherryPickedCommit, err := log.GetCommit(ctxOuter, git.NewExecCommandFactory(config.Config), testRepo, "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab")
+	cherryPickedCommit, err := repo.ReadCommit(ctxOuter, "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab")
 	require.NoError(t, err)
 
 	destinationBranch := "cherry-picking-dst"
@@ -321,7 +324,7 @@ func TestFailedUserCherryPickRequestDueToValidations(t *testing.T) {
 		{
 			desc: "empty user",
 			request: &gitalypb.UserCherryPickRequest{
-				Repository: testRepo,
+				Repository: repoProto,
 				User:       nil,
 				Commit:     cherryPickedCommit,
 				BranchName: []byte(destinationBranch),
@@ -332,7 +335,7 @@ func TestFailedUserCherryPickRequestDueToValidations(t *testing.T) {
 		{
 			desc: "empty commit",
 			request: &gitalypb.UserCherryPickRequest{
-				Repository: testRepo,
+				Repository: repoProto,
 				User:       testhelper.TestUser,
 				Commit:     nil,
 				BranchName: []byte(destinationBranch),
@@ -343,7 +346,7 @@ func TestFailedUserCherryPickRequestDueToValidations(t *testing.T) {
 		{
 			desc: "empty branch name",
 			request: &gitalypb.UserCherryPickRequest{
-				Repository: testRepo,
+				Repository: repoProto,
 				User:       testhelper.TestUser,
 				Commit:     cherryPickedCommit,
 				BranchName: nil,
@@ -354,7 +357,7 @@ func TestFailedUserCherryPickRequestDueToValidations(t *testing.T) {
 		{
 			desc: "empty message",
 			request: &gitalypb.UserCherryPickRequest{
-				Repository: testRepo,
+				Repository: repoProto,
 				User:       testhelper.TestUser,
 				Commit:     cherryPickedCommit,
 				BranchName: []byte(destinationBranch),
@@ -385,17 +388,18 @@ func TestFailedUserCherryPickRequestDueToPreReceiveError(t *testing.T) {
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanup := testhelper.NewTestRepo(t)
+	repoProto, repoPath, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
+	repo := localrepo.New(repoProto, config.Config)
 
 	destinationBranch := "cherry-picking-dst"
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", destinationBranch, "master")
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", destinationBranch, "master")
 
-	cherryPickedCommit, err := log.GetCommit(ctxOuter, git.NewExecCommandFactory(config.Config), testRepo, "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab")
+	cherryPickedCommit, err := repo.ReadCommit(ctxOuter, "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab")
 	require.NoError(t, err)
 
 	request := &gitalypb.UserCherryPickRequest{
-		Repository: testRepo,
+		Repository: repoProto,
 		User:       testhelper.TestUser,
 		Commit:     cherryPickedCommit,
 		BranchName: []byte(destinationBranch),
@@ -406,7 +410,7 @@ func TestFailedUserCherryPickRequestDueToPreReceiveError(t *testing.T) {
 
 	for _, hookName := range GitlabPreHooks {
 		t.Run(hookName, func(t *testing.T) {
-			remove := testhelper.WriteCustomHook(t, testRepoPath, hookName, hookContent)
+			remove := testhelper.WriteCustomHook(t, repoPath, hookName, hookContent)
 			defer remove()
 
 			md := testhelper.GitalyServersMetadata(t, serverSocketPath)
@@ -429,18 +433,19 @@ func TestFailedUserCherryPickRequestDueToCreateTreeError(t *testing.T) {
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanup := testhelper.NewTestRepo(t)
+	repoProto, repoPath, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
+	repo := localrepo.New(repoProto, config.Config)
 
 	destinationBranch := "cherry-picking-dst"
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", destinationBranch, "master")
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", destinationBranch, "master")
 
 	// This commit already exists in master
-	cherryPickedCommit, err := log.GetCommit(ctxOuter, git.NewExecCommandFactory(config.Config), testRepo, "4a24d82dbca5c11c61556f3b35ca472b7463187e")
+	cherryPickedCommit, err := repo.ReadCommit(ctxOuter, "4a24d82dbca5c11c61556f3b35ca472b7463187e")
 	require.NoError(t, err)
 
 	request := &gitalypb.UserCherryPickRequest{
-		Repository: testRepo,
+		Repository: repoProto,
 		User:       testhelper.TestUser,
 		Commit:     cherryPickedCommit,
 		BranchName: []byte(destinationBranch),
@@ -466,19 +471,20 @@ func TestFailedUserCherryPickRequestDueToCommitError(t *testing.T) {
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanup := testhelper.NewTestRepo(t)
+	repoProto, repoPath, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
+	repo := localrepo.New(repoProto, config.Config)
 
 	sourceBranch := "cherry-pick-src"
 	destinationBranch := "cherry-picking-dst"
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", destinationBranch, "master")
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", sourceBranch, "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab")
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", destinationBranch, "master")
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", sourceBranch, "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab")
 
-	cherryPickedCommit, err := log.GetCommit(ctxOuter, git.NewExecCommandFactory(config.Config), testRepo, git.Revision(sourceBranch))
+	cherryPickedCommit, err := repo.ReadCommit(ctxOuter, git.Revision(sourceBranch))
 	require.NoError(t, err)
 
 	request := &gitalypb.UserCherryPickRequest{
-		Repository:      testRepo,
+		Repository:      repoProto,
 		User:            testhelper.TestUser,
 		Commit:          cherryPickedCommit,
 		BranchName:      []byte(sourceBranch),

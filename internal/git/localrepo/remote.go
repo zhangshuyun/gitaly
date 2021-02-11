@@ -7,7 +7,6 @@ import (
 	"io"
 	"strings"
 
-	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 )
@@ -27,8 +26,8 @@ func (remote Remote) Add(ctx context.Context, name, url string, opts git.RemoteA
 		return err
 	}
 
-	stderr := bytes.Buffer{}
-	cmd, err := remote.repo.command(ctx, nil,
+	var stderr bytes.Buffer
+	if err := remote.repo.ExecAndWait(ctx, nil,
 		git.SubSubCmd{
 			Name:   "remote",
 			Action: "add",
@@ -37,25 +36,17 @@ func (remote Remote) Add(ctx context.Context, name, url string, opts git.RemoteA
 		},
 		git.WithStderr(&stderr),
 		git.WithRefTxHook(ctx, helper.ProtoRepoFromRepo(remote.repo), remote.repo.cfg),
-	)
-	if err != nil {
-		return err
-	}
-
-	if err := cmd.Wait(); err != nil {
-		status, ok := command.ExitStatus(err)
-		if !ok {
-			return err
-		}
-
-		if status == 3 {
+	); err != nil {
+		switch {
+		case isExitWithCode(err, 3):
 			// In Git v2.30.0 and newer (https://gitlab.com/git-vcs/git/commit/9144ba4cf52)
 			return git.ErrAlreadyExists
-		}
-		if status == 128 && bytes.HasPrefix(stderr.Bytes(), []byte("fatal: remote "+name+" already exists")) {
+		case isExitWithCode(err, 128) && bytes.HasPrefix(stderr.Bytes(), []byte("fatal: remote "+name+" already exists")):
 			// ..in older versions we parse stderr
 			return git.ErrAlreadyExists
 		}
+
+		return err
 	}
 
 	return nil
@@ -93,7 +84,7 @@ func (remote Remote) Remove(ctx context.Context, name string) error {
 	}
 
 	var stderr bytes.Buffer
-	cmd, err := remote.repo.command(ctx, nil,
+	if err := remote.repo.ExecAndWait(ctx, nil,
 		git.SubSubCmd{
 			Name:   "remote",
 			Action: "remove",
@@ -101,28 +92,20 @@ func (remote Remote) Remove(ctx context.Context, name string) error {
 		},
 		git.WithStderr(&stderr),
 		git.WithRefTxHook(ctx, helper.ProtoRepoFromRepo(remote.repo), remote.repo.cfg),
-	)
-	if err != nil {
-		return err
-	}
-
-	if err := cmd.Wait(); err != nil {
-		status, ok := command.ExitStatus(err)
-		if !ok {
-			return err
-		}
-
-		if status == 2 {
+	); err != nil {
+		switch {
+		case isExitWithCode(err, 2):
 			// In Git v2.30.0 and newer (https://gitlab.com/git-vcs/git/commit/9144ba4cf52)
 			return git.ErrNotFound
-		}
-		if status == 128 && strings.HasPrefix(stderr.String(), "fatal: No such remote") {
+		case isExitWithCode(err, 128) && strings.HasPrefix(stderr.String(), "fatal: No such remote"):
 			// ..in older versions we parse stderr
 			return git.ErrNotFound
 		}
+
+		return err
 	}
 
-	return err
+	return nil
 }
 
 // SetURL sets the URL for a given remote.
@@ -136,7 +119,7 @@ func (remote Remote) SetURL(ctx context.Context, name, url string, opts git.SetU
 	}
 
 	var stderr bytes.Buffer
-	cmd, err := remote.repo.command(ctx, nil,
+	if err := remote.repo.ExecAndWait(ctx, nil,
 		git.SubSubCmd{
 			Name:   "remote",
 			Action: "set-url",
@@ -145,28 +128,20 @@ func (remote Remote) SetURL(ctx context.Context, name, url string, opts git.SetU
 		},
 		git.WithStderr(&stderr),
 		git.WithRefTxHook(ctx, helper.ProtoRepoFromRepo(remote.repo), remote.repo.cfg),
-	)
-	if err != nil {
-		return err
-	}
-
-	if err := cmd.Wait(); err != nil {
-		status, ok := command.ExitStatus(err)
-		if !ok {
-			return err
-		}
-
-		if status == 2 {
+	); err != nil {
+		switch {
+		case isExitWithCode(err, 2):
 			// In Git v2.30.0 and newer (https://gitlab.com/git-vcs/git/commit/9144ba4cf52)
 			return git.ErrNotFound
-		}
-		if status == 128 && strings.HasPrefix(stderr.String(), "fatal: No such remote") {
+		case isExitWithCode(err, 128) && strings.HasPrefix(stderr.String(), "fatal: No such remote"):
 			// ..in older versions we parse stderr
 			return git.ErrNotFound
 		}
+
+		return err
 	}
 
-	return err
+	return nil
 }
 
 func buildSetURLOptsFlags(opts git.SetURLOpts) []git.Option {

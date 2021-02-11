@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	gitLog "gitlab.com/gitlab-org/gitaly/internal/git/log"
+	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
 	serverPkg "gitlab.com/gitlab-org/gitaly/internal/gitaly/server"
@@ -38,8 +38,9 @@ func TestFetchSourceBranchSourceRepositorySuccess(t *testing.T) {
 	md := testhelper.GitalyServersMetadata(t, serverSocketPath)
 	ctx = testhelper.MergeOutgoingMetadata(ctx, md)
 
-	targetRepo, _, cleanup := newTestRepo(t, locator, "fetch-source-target.git")
+	targetRepoProto, _, cleanup := newTestRepo(t, locator, "fetch-source-target.git")
 	defer cleanup()
+	targetRepo := localrepo.New(targetRepoProto, config.Config)
 
 	sourceRepo, sourcePath, cleanup := newTestRepo(t, locator, "fetch-source-source.git")
 	defer cleanup()
@@ -49,7 +50,7 @@ func TestFetchSourceBranchSourceRepositorySuccess(t *testing.T) {
 
 	targetRef := "refs/tmp/fetch-source-branch-test"
 	req := &gitalypb.FetchSourceBranchRequest{
-		Repository:       targetRepo,
+		Repository:       targetRepoProto,
 		SourceRepository: sourceRepo,
 		SourceBranch:     []byte(sourceBranch),
 		TargetRef:        []byte(targetRef),
@@ -59,7 +60,7 @@ func TestFetchSourceBranchSourceRepositorySuccess(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, resp.Result, "response.Result should be true")
 
-	fetchedCommit, err := gitLog.GetCommit(ctx, git.NewExecCommandFactory(config.Config), targetRepo, git.Revision(targetRef))
+	fetchedCommit, err := targetRepo.ReadCommit(ctx, git.Revision(targetRef))
 	require.NoError(t, err)
 	require.Equal(t, newCommitID, fetchedCommit.GetId())
 }
@@ -79,16 +80,17 @@ func TestFetchSourceBranchSameRepositorySuccess(t *testing.T) {
 	md := testhelper.GitalyServersMetadata(t, serverSocketPath)
 	ctx = testhelper.MergeOutgoingMetadata(ctx, md)
 
-	repo, repoPath, cleanup := newTestRepo(t, locator, "fetch-source-source.git")
+	repoProto, repoPath, cleanup := newTestRepo(t, locator, "fetch-source-source.git")
 	defer cleanup()
+	repo := localrepo.New(repoProto, config.Config)
 
 	sourceBranch := "fetch-source-branch-test-branch"
 	newCommitID := testhelper.CreateCommit(t, repoPath, sourceBranch, nil)
 
 	targetRef := "refs/tmp/fetch-source-branch-test"
 	req := &gitalypb.FetchSourceBranchRequest{
-		Repository:       repo,
-		SourceRepository: repo,
+		Repository:       repoProto,
+		SourceRepository: repoProto,
 		SourceBranch:     []byte(sourceBranch),
 		TargetRef:        []byte(targetRef),
 	}
@@ -97,7 +99,7 @@ func TestFetchSourceBranchSameRepositorySuccess(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, resp.Result, "response.Result should be true")
 
-	fetchedCommit, err := gitLog.GetCommit(ctx, git.NewExecCommandFactory(config.Config), repo, git.Revision(targetRef))
+	fetchedCommit, err := repo.ReadCommit(ctx, git.Revision(targetRef))
 	require.NoError(t, err)
 	require.Equal(t, newCommitID, fetchedCommit.GetId())
 }

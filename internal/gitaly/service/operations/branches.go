@@ -8,7 +8,6 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -29,20 +28,22 @@ func (s *Server) UserCreateBranch(ctx context.Context, req *gitalypb.UserCreateB
 		return nil, status.Errorf(codes.InvalidArgument, "empty start point")
 	}
 
+	repo := localrepo.New(req.Repository, s.cfg)
+
 	// BEGIN TODO: Uncomment if StartPoint started behaving sensibly
 	// like BranchName. See
 	// https://gitlab.com/gitlab-org/gitaly/-/issues/3331
 	//
 	// startPointReference, err := localrepo.New(req.Repository).GetReference(ctx, "refs/heads/"+string(req.StartPoint))
 	// startPointCommit, err := log.GetCommit(ctx, req.Repository, startPointReference.Target)
-	startPointCommit, err := log.GetCommit(ctx, s.gitCmdFactory, req.Repository, git.Revision(req.StartPoint))
+	startPointCommit, err := repo.ReadCommit(ctx, git.Revision(req.StartPoint))
 	// END TODO
 	if err != nil {
 		return nil, status.Errorf(codes.FailedPrecondition, "revspec '%s' not found", req.StartPoint)
 	}
 
 	referenceName := fmt.Sprintf("refs/heads/%s", req.BranchName)
-	_, err = localrepo.New(req.Repository, s.cfg).GetReference(ctx, git.ReferenceName(referenceName))
+	_, err = repo.GetReference(ctx, git.ReferenceName(referenceName))
 	if err == nil {
 		return nil, status.Errorf(codes.FailedPrecondition, "Could not update %s. Please refresh and try again.", req.BranchName)
 	} else if !errors.Is(err, git.ErrReferenceNotFound) {

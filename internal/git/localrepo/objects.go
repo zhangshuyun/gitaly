@@ -3,13 +3,22 @@ package localrepo
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
 	"time"
 
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
+	"gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
+)
+
+var (
+	// ErrObjectNotFound is returned in case an object could not be found.
+	ErrObjectNotFound = errors.New("object not found")
 )
 
 // WriteBlob writes a blob to the repository's object database and
@@ -19,7 +28,7 @@ func (repo *Repo) WriteBlob(ctx context.Context, path string, content io.Reader)
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
 
-	cmd, err := repo.command(ctx, nil,
+	cmd, err := repo.Exec(ctx, nil,
 		git.SubCmd{
 			Name: "hash-object",
 			Flags: []git.Option{
@@ -118,7 +127,7 @@ func (repo *Repo) WriteTag(ctx context.Context, objectID, objectType string, tag
 
 	content := strings.NewReader(tagBuf)
 
-	cmd, err := repo.command(ctx, nil,
+	cmd, err := repo.Exec(ctx, nil,
 		git.SubCmd{
 			Name: "mktag",
 		},
@@ -149,7 +158,7 @@ func (repo *Repo) ReadObject(ctx context.Context, oid string) ([]byte, error) {
 
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
-	cmd, err := repo.command(ctx, nil,
+	cmd, err := repo.Exec(ctx, nil,
 		git.SubCmd{
 			Name:  "cat-file",
 			Flags: []git.Option{git.Flag{"-p"}},
@@ -172,4 +181,48 @@ func (repo *Repo) ReadObject(ctx context.Context, oid string) ([]byte, error) {
 	}
 
 	return stdout.Bytes(), nil
+}
+
+type readCommitConfig struct {
+	withTrailers bool
+}
+
+// ReadCommitOpt is an option for ReadCommit.
+type ReadCommitOpt func(*readCommitConfig)
+
+// WithTrailers will cause ReadCommit to parse commit trailers.
+func WithTrailers() ReadCommitOpt {
+	return func(cfg *readCommitConfig) {
+		cfg.withTrailers = true
+	}
+}
+
+// ReadCommit reads the commit specified by the given revision. If no such
+// revision exists, it will return an ErrObjectNotFound error.
+func (repo *Repo) ReadCommit(ctx context.Context, revision git.Revision, opts ...ReadCommitOpt) (*gitalypb.GitCommit, error) {
+	var cfg readCommitConfig
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+
+	c, err := catfile.New(ctx, repo.commandFactory, repo)
+	if err != nil {
+		return nil, err
+	}
+
+	var commit *gitalypb.GitCommit
+	if cfg.withTrailers {
+		commit, err = log.GetCommitCatfileWithTrailers(ctx, repo, c, revision)
+	} else {
+		commit, err = log.GetCommitCatfile(ctx, c, revision)
+	}
+
+	if err != nil {
+		if log.IsNotFound(err) {
+			return nil, ErrObjectNotFound
+		}
+		return nil, err
+	}
+
+	return commit, nil
 }

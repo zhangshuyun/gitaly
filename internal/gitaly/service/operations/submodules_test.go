@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/git/lstree"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
@@ -94,7 +93,7 @@ func testSuccessfulUserUpdateSubmoduleRequest(t *testing.T, ctx context.Context)
 			require.Empty(t, response.GetCommitError())
 			require.Empty(t, response.GetPreReceiveError())
 
-			commit, err := log.GetCommit(ctx, git.NewExecCommandFactory(config.Config), testRepoProto, git.Revision(response.BranchUpdate.CommitId))
+			commit, err := testRepo.ReadCommit(ctx, git.Revision(response.BranchUpdate.CommitId))
 			require.NoError(t, err)
 			require.Equal(t, commit.Author.Email, testhelper.TestUser.Email)
 			require.Equal(t, commit.Committer.Email, testhelper.TestUser.Email)
@@ -123,11 +122,12 @@ func testUserUpdateSubmoduleStableID(t *testing.T, ctx context.Context) {
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	repo, _, cleanup := testhelper.NewTestRepo(t)
+	repoProto, _, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
+	repo := localrepo.New(repoProto, config.Config)
 
 	response, err := client.UserUpdateSubmodule(ctx, &gitalypb.UserUpdateSubmoduleRequest{
-		Repository:    repo,
+		Repository:    repoProto,
 		User:          testhelper.TestUser,
 		Submodule:     []byte("gitlab-grack"),
 		CommitSha:     "41fa1bc9e0f0630ced6a8a211d60c2af425ecc2d",
@@ -139,7 +139,7 @@ func testUserUpdateSubmoduleStableID(t *testing.T, ctx context.Context) {
 	require.Empty(t, response.GetCommitError())
 	require.Empty(t, response.GetPreReceiveError())
 
-	commit, err := log.GetCommit(ctx, git.NewExecCommandFactory(config.Config), repo, git.Revision(response.BranchUpdate.CommitId))
+	commit, err := repo.ReadCommit(ctx, git.Revision(response.BranchUpdate.CommitId))
 	require.NoError(t, err)
 	require.Equal(t, &gitalypb.GitCommit{
 		Id: "e7752dfc2105bc830f8fa59b19dd4f3e49c8c44e",

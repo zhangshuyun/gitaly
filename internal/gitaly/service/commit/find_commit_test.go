@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
-	"gitlab.com/gitlab-org/gitaly/internal/git/log"
+	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -30,18 +30,19 @@ func TestSuccessfulFindCommitRequest(t *testing.T) {
 	client, conn := newCommitServiceClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	repoProto, repoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
+	repo := localrepo.New(repoProto, config.Config)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
 	bigMessage := "An empty commit with REALLY BIG message\n\n" + strings.Repeat("MOAR!\n", 20*1024)
-	bigCommitID := testhelper.CreateCommit(t, testRepoPath, "local-big-commits", &testhelper.CreateCommitOpts{
+	bigCommitID := testhelper.CreateCommit(t, repoPath, "local-big-commits", &testhelper.CreateCommitOpts{
 		Message:  bigMessage,
 		ParentID: "60ecb67744cb56576c30214ff52294f8ce2def98",
 	})
-	bigCommit, err := log.GetCommit(ctx, git.NewExecCommandFactory(config.Config), testRepo, git.Revision(bigCommitID))
+	bigCommit, err := repo.ReadCommit(ctx, git.Revision(bigCommitID))
 	require.NoError(t, err)
 
 	testCases := []struct {
@@ -248,7 +249,7 @@ func TestSuccessfulFindCommitRequest(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.description, func(t *testing.T) {
 			request := &gitalypb.FindCommitRequest{
-				Repository: testRepo,
+				Repository: repoProto,
 				Revision:   []byte(testCase.revision),
 				Trailers:   testCase.trailers,
 			}

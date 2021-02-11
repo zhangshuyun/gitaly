@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/log"
+	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -31,8 +31,9 @@ func TestSuccessfulUserUpdateBranchRequest(t *testing.T) {
 }
 
 func testSuccessfulUserUpdateBranchRequest(t *testing.T, ctx context.Context) {
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	repoProto, repoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
+	repo := localrepo.New(repoProto, config.Config)
 
 	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()
@@ -86,7 +87,7 @@ func testSuccessfulUserUpdateBranchRequest(t *testing.T, ctx context.Context) {
 		t.Run(testCase.desc, func(t *testing.T) {
 			responseOk := &gitalypb.UserUpdateBranchResponse{}
 			request := &gitalypb.UserUpdateBranchRequest{
-				Repository: testRepo,
+				Repository: repoProto,
 				BranchName: []byte(testCase.updateBranchName),
 				Newrev:     testCase.newRev,
 				Oldrev:     testCase.oldRev,
@@ -96,12 +97,12 @@ func testSuccessfulUserUpdateBranchRequest(t *testing.T, ctx context.Context) {
 			require.NoError(t, err)
 			require.Equal(t, responseOk, response)
 
-			branchCommit, err := log.GetCommit(ctx, git.NewExecCommandFactory(config.Config), testRepo, git.Revision(testCase.updateBranchName))
+			branchCommit, err := repo.ReadCommit(ctx, git.Revision(testCase.updateBranchName))
 
 			require.NoError(t, err)
 			require.Equal(t, string(testCase.newRev), branchCommit.Id)
 
-			branches := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "for-each-ref", "--", "refs/heads/"+branchName)
+			branches := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "for-each-ref", "--", "refs/heads/"+branchName)
 			require.Contains(t, string(branches), "refs/heads/"+branchName)
 		})
 	}
@@ -118,8 +119,9 @@ func testSuccessfulUserUpdateBranchRequestToDelete(t *testing.T, ctx context.Con
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	repoProto, repoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
+	repo := localrepo.New(repoProto, config.Config)
 
 	testCases := []struct {
 		desc             string
@@ -158,12 +160,12 @@ func testSuccessfulUserUpdateBranchRequestToDelete(t *testing.T, ctx context.Con
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
 			if testCase.createBranch {
-				testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", "--", testCase.updateBranchName, string(testCase.oldRev))
+				testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", "--", testCase.updateBranchName, string(testCase.oldRev))
 			}
 
 			responseOk := &gitalypb.UserUpdateBranchResponse{}
 			request := &gitalypb.UserUpdateBranchRequest{
-				Repository: testRepo,
+				Repository: repoProto,
 				BranchName: []byte(testCase.updateBranchName),
 				Newrev:     testCase.newRev,
 				Oldrev:     testCase.oldRev,
@@ -173,10 +175,10 @@ func testSuccessfulUserUpdateBranchRequestToDelete(t *testing.T, ctx context.Con
 			require.Nil(t, err)
 			require.Equal(t, responseOk, response)
 
-			_, err = log.GetCommit(ctx, git.NewExecCommandFactory(config.Config), testRepo, git.Revision(testCase.updateBranchName))
-			require.True(t, log.IsNotFound(err), "expected 'not found' error got %v", err)
+			_, err = repo.ReadCommit(ctx, git.Revision(testCase.updateBranchName))
+			require.Equal(t, localrepo.ErrObjectNotFound, err, "expected 'not found' error got %v", err)
 
-			refs := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "for-each-ref", "--", "refs/heads/"+testCase.updateBranchName)
+			refs := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "for-each-ref", "--", "refs/heads/"+testCase.updateBranchName)
 			require.NotContains(t, string(refs), testCase.oldRev, "branch deleted from refs")
 		})
 	}
@@ -273,8 +275,9 @@ func testFailedUserUpdateBranchRequest(t *testing.T, ctx context.Context) {
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	repoProto, _, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
+	repo := localrepo.New(repoProto, config.Config)
 
 	revDoesntExist := fmt.Sprintf("%x", sha1.Sum([]byte("we need a non existent sha")))
 
@@ -389,7 +392,7 @@ func testFailedUserUpdateBranchRequest(t *testing.T, ctx context.Context) {
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
 			request := &gitalypb.UserUpdateBranchRequest{
-				Repository: testRepo,
+				Repository: repoProto,
 				BranchName: []byte(testCase.branchName),
 				Newrev:     testCase.newrev,
 				Oldrev:     testCase.oldrev,
@@ -400,9 +403,9 @@ func testFailedUserUpdateBranchRequest(t *testing.T, ctx context.Context) {
 			require.Equal(t, testCase.response, response)
 			require.Equal(t, testCase.err, err)
 
-			branchCommit, err := log.GetCommit(ctx, git.NewExecCommandFactory(config.Config), testRepo, git.Revision(testCase.branchName))
+			branchCommit, err := repo.ReadCommit(ctx, git.Revision(testCase.branchName))
 			if testCase.expectNotFoundError {
-				require.True(t, log.IsNotFound(err), "expected 'not found' error got %v", err)
+				require.Equal(t, localrepo.ErrObjectNotFound, err, "expected 'not found' error got %v", err)
 				return
 			}
 			require.NoError(t, err)

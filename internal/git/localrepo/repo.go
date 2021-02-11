@@ -26,11 +26,21 @@ func New(repo repository.GitRepo, cfg config.Cfg) *Repo {
 	}
 }
 
-// command creates a Git Command with the given args and Repository, executed
-// in the Repository. It validates the arguments in the command before
-// executing.
-func (repo *Repo) command(ctx context.Context, globals []git.GlobalOption, cmd git.Cmd, opts ...git.CmdOpt) (*command.Command, error) {
+// Exec creates a git command with the given args and Repo, executed in the
+// Repo. It validates the arguments in the command before executing.
+func (repo *Repo) Exec(ctx context.Context, globals []git.GlobalOption, cmd git.Cmd, opts ...git.CmdOpt) (*command.Command, error) {
 	return repo.commandFactory.New(ctx, repo, globals, cmd, opts...)
+}
+
+// ExecAndWait is similar to Exec, but waits for the command to exit before
+// returning.
+func (repo *Repo) ExecAndWait(ctx context.Context, globals []git.GlobalOption, cmd git.Cmd, opts ...git.CmdOpt) error {
+	command, err := repo.Exec(ctx, globals, cmd, opts...)
+	if err != nil {
+		return err
+	}
+
+	return command.Wait()
 }
 
 // Config returns executor of the 'config' sub-command.

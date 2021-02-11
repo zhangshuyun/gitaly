@@ -6,11 +6,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"io/ioutil"
-	"os/exec"
 	"strings"
 
+	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 )
@@ -38,20 +37,17 @@ func (repo *Repo) ResolveRevision(ctx context.Context, revision git.Revision) (g
 		return "", errors.New("repository cannot contain empty reference name")
 	}
 
-	cmd, err := repo.command(ctx, nil, git.SubCmd{
-		Name:  "rev-parse",
-		Flags: []git.Option{git.Flag{Name: "--verify"}},
-		Args:  []string{revision.String()},
-	}, git.WithStderr(ioutil.Discard))
-	if err != nil {
-		return "", err
-	}
-
 	var stdout bytes.Buffer
-	io.Copy(&stdout, cmd)
-
-	if err := cmd.Wait(); err != nil {
-		if _, ok := err.(*exec.ExitError); ok {
+	if err := repo.ExecAndWait(ctx, nil,
+		git.SubCmd{
+			Name:  "rev-parse",
+			Flags: []git.Option{git.Flag{Name: "--verify"}},
+			Args:  []string{revision.String()},
+		},
+		git.WithStderr(ioutil.Discard),
+		git.WithStdout(&stdout),
+	); err != nil {
+		if _, ok := command.ExitStatus(err); ok {
 			return "", git.ErrReferenceNotFound
 		}
 		return "", err
@@ -104,7 +100,7 @@ func (repo *Repo) getReferences(ctx context.Context, pattern string, limit uint)
 		args = []string{pattern}
 	}
 
-	cmd, err := repo.command(ctx, nil, git.SubCmd{
+	cmd, err := repo.Exec(ctx, nil, git.SubCmd{
 		Name:  "for-each-ref",
 		Flags: flags,
 		Args:  args,
@@ -149,19 +145,14 @@ func (repo *Repo) GetBranches(ctx context.Context) ([]git.Reference, error) {
 // that revision. If newValue is the ZeroOID, the reference will be deleted.
 // If oldValue is the ZeroOID, the reference will created.
 func (repo *Repo) UpdateRef(ctx context.Context, reference git.ReferenceName, newValue, oldValue git.ObjectID) error {
-	cmd, err := repo.command(ctx, nil,
+	if err := repo.ExecAndWait(ctx, nil,
 		git.SubCmd{
 			Name:  "update-ref",
 			Flags: []git.Option{git.Flag{Name: "-z"}, git.Flag{Name: "--stdin"}},
 		},
 		git.WithStdin(strings.NewReader(fmt.Sprintf("update %s\x00%s\x00%s\x00", reference, newValue.String(), oldValue.String()))),
 		git.WithRefTxHook(ctx, helper.ProtoRepoFromRepo(repo), repo.cfg),
-	)
-	if err != nil {
-		return err
-	}
-
-	if err := cmd.Wait(); err != nil {
+	); err != nil {
 		return fmt.Errorf("UpdateRef: failed updating reference %q from %q to %q: %w", reference, newValue, oldValue, err)
 	}
 
