@@ -13,7 +13,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/server/auth"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/fieldextractors"
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/cancelhandler"
-	"gitlab.com/gitlab-org/gitaly/internal/middleware/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/metadatahandler"
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/panichandler"
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/sentryhandler"
@@ -61,7 +60,6 @@ func NewGRPCServer(
 		metadatahandler.StreamInterceptor,
 		grpc_prometheus.StreamServerInterceptor,
 		grpc_logrus.StreamServerInterceptor(logger),
-		featureflag.StreamInterceptor,
 		sentryhandler.StreamLogHandler,
 		cancelhandler.Stream, // Should be below LogHandler
 		grpctracing.StreamServerTracingInterceptor(),
@@ -85,7 +83,6 @@ func NewGRPCServer(
 			metadatahandler.UnaryInterceptor,
 			grpc_prometheus.UnaryServerInterceptor,
 			grpc_logrus.UnaryServerInterceptor(logger),
-			featureflag.UnaryInterceptor,
 			sentryhandler.UnaryLogHandler,
 			cancelhandler.Unary, // Should be below LogHandler
 			grpctracing.UnaryServerTracingInterceptor(),
