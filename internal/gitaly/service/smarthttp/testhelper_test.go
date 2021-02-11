@@ -52,6 +52,7 @@ func runSmartHTTPServer(t *testing.T, serverOpts ...ServerOpt) (string, func()) 
 	keyer := diskcache.NewLeaseKeyer(locator)
 	txManager := transaction.NewManager(config.Config)
 	hookManager := hook.NewManager(locator, txManager, hook.GitlabAPIStub, config.Config)
+	gitCmdFactory := git.NewExecCommandFactory(config.Config)
 
 	srv := testhelper.NewServer(t,
 		[]grpc.StreamServerInterceptor{
@@ -62,8 +63,8 @@ func runSmartHTTPServer(t *testing.T, serverOpts ...ServerOpt) (string, func()) 
 		},
 		testhelper.WithInternalSocket(config.Config))
 
-	gitalypb.RegisterSmartHTTPServiceServer(srv.GrpcServer(), NewServer(config.Config, locator, git.NewExecCommandFactory(config.Config), serverOpts...))
-	gitalypb.RegisterHookServiceServer(srv.GrpcServer(), hookservice.NewServer(config.Config, hookManager))
+	gitalypb.RegisterSmartHTTPServiceServer(srv.GrpcServer(), NewServer(config.Config, locator, gitCmdFactory, serverOpts...))
+	gitalypb.RegisterHookServiceServer(srv.GrpcServer(), hookservice.NewServer(config.Config, hookManager, gitCmdFactory))
 	srv.Start(t)
 
 	return "unix://" + srv.Socket(), srv.Stop

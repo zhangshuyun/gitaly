@@ -283,8 +283,14 @@ func IsHealthy(conn *grpc.ClientConn, timeout time.Duration) bool {
 // NewServer creates a Server for testing purposes
 func NewServer(tb testing.TB, streamInterceptors []grpc.StreamServerInterceptor, unaryInterceptors []grpc.UnaryServerInterceptor, opts ...TestServerOpt) *TestServer {
 	logger := NewTestLogger(tb)
-	logrusEntry := log.NewEntry(logger).WithField("test", tb.Name())
 
+	return NewServerWithLogger(tb, logger, streamInterceptors, unaryInterceptors, opts...)
+}
+
+// NewServerWithLogger lets you inject a logger into a test server. You
+// can use this to inspect log messages.
+func NewServerWithLogger(tb testing.TB, logger *log.Logger, streamInterceptors []grpc.StreamServerInterceptor, unaryInterceptors []grpc.UnaryServerInterceptor, opts ...TestServerOpt) *TestServer {
+	logrusEntry := log.NewEntry(logger).WithField("test", tb.Name())
 	ctxTagger := grpc_ctxtags.WithFieldExtractorForInitialReq(fieldextractors.FieldExtractor)
 
 	streamInterceptors = append([]grpc.StreamServerInterceptor{

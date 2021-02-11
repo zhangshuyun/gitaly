@@ -48,7 +48,7 @@ func runSSHServer(t *testing.T, serverOpts ...ServerOpt) (string, func()) {
 
 	srv := testhelper.NewServer(t, nil, nil, testhelper.WithInternalSocket(config.Config))
 	gitalypb.RegisterSSHServiceServer(srv.GrpcServer(), NewServer(config.Config, locator, gitCmdFactory, serverOpts...))
-	gitalypb.RegisterHookServiceServer(srv.GrpcServer(), hookservice.NewServer(config.Config, hookManager))
+	gitalypb.RegisterHookServiceServer(srv.GrpcServer(), hookservice.NewServer(config.Config, hookManager, gitCmdFactory))
 	srv.Start(t)
 
 	return "unix://" + srv.Socket(), srv.Stop

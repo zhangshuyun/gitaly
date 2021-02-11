@@ -454,9 +454,10 @@ func runSmartHTTPHookServiceServer(t *testing.T) (*grpc.Server, string) {
 	locator := config.NewLocator(config.Config)
 	txManager := transaction.NewManager(config.Config)
 	hookManager := gitalyhook.NewManager(locator, txManager, gitalyhook.GitlabAPIStub, config.Config)
+	gitCmdFactory := git.NewExecCommandFactory(config.Config)
 
-	gitalypb.RegisterSmartHTTPServiceServer(server, NewServer(config.Config, locator, git.NewExecCommandFactory(config.Config)))
-	gitalypb.RegisterHookServiceServer(server, hook.NewServer(config.Config, hookManager))
+	gitalypb.RegisterSmartHTTPServiceServer(server, NewServer(config.Config, locator, gitCmdFactory))
+	gitalypb.RegisterHookServiceServer(server, hook.NewServer(config.Config, hookManager, gitCmdFactory))
 	reflection.Register(server)
 
 	go server.Serve(listener)
@@ -510,11 +511,12 @@ func testPostReceiveWithTransactionsViaPraefect(t *testing.T, ctx context.Contex
 	locator := config.NewLocator(config.Config)
 	txManager := transaction.NewManager(config.Config)
 	hookManager := gitalyhook.NewManager(locator, txManager, gitalyhook.GitlabAPIStub, config.Config)
+	gitCmdFactory := git.NewExecCommandFactory(config.Config)
 
 	gitalyServer := testhelper.NewServerWithAuth(t, nil, nil, config.Config.Auth.Token)
 
-	gitalypb.RegisterSmartHTTPServiceServer(gitalyServer.GrpcServer(), NewServer(config.Config, locator, git.NewExecCommandFactory(config.Config)))
-	gitalypb.RegisterHookServiceServer(gitalyServer.GrpcServer(), hook.NewServer(config.Config, hookManager))
+	gitalypb.RegisterSmartHTTPServiceServer(gitalyServer.GrpcServer(), NewServer(config.Config, locator, gitCmdFactory))
+	gitalypb.RegisterHookServiceServer(gitalyServer.GrpcServer(), hook.NewServer(config.Config, hookManager, gitCmdFactory))
 	reflection.Register(gitalyServer.GrpcServer())
 	gitalyServer.Start(t)
 	defer gitalyServer.Stop()
@@ -559,10 +561,11 @@ func TestPostReceiveWithReferenceTransactionHook(t *testing.T) {
 	locator := config.NewLocator(config.Config)
 	txManager := transaction.NewManager(config.Config)
 	hookManager := gitalyhook.NewManager(locator, txManager, gitalyhook.GitlabAPIStub, config.Config)
+	gitCmdFactory := git.NewExecCommandFactory(config.Config)
 
 	gitalyServer := testhelper.NewTestGrpcServer(t, nil, nil)
-	gitalypb.RegisterSmartHTTPServiceServer(gitalyServer, NewServer(config.Config, locator, git.NewExecCommandFactory(config.Config)))
-	gitalypb.RegisterHookServiceServer(gitalyServer, hook.NewServer(config.Config, hookManager))
+	gitalypb.RegisterSmartHTTPServiceServer(gitalyServer, NewServer(config.Config, locator, gitCmdFactory))
+	gitalypb.RegisterHookServiceServer(gitalyServer, hook.NewServer(config.Config, hookManager, gitCmdFactory))
 	gitalypb.RegisterRefTransactionServer(gitalyServer, refTransactionServer)
 	healthpb.RegisterHealthServer(gitalyServer, health.NewServer())
 	reflection.Register(gitalyServer)

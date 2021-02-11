@@ -343,8 +343,9 @@ func runFullSecureServer(t *testing.T, locator storage.Locator) (*grpc.Server, s
 	cfg := config.Config
 	txManager := transaction.NewManager(cfg)
 	hookManager := hook.NewManager(locator, txManager, hook.GitlabAPIStub, cfg)
+	gitCmdFactory := git.NewExecCommandFactory(cfg)
 
-	server, err := serverPkg.New(true, repository.RubyServer, hookManager, txManager, cfg, conns, config.NewLocator(cfg), git.NewExecCommandFactory(cfg))
+	server, err := serverPkg.New(true, repository.RubyServer, hookManager, txManager, cfg, conns, config.NewLocator(cfg), gitCmdFactory)
 	require.NoError(t, err)
 	listener, addr := testhelper.GetLocalhostListener(t)
 
@@ -354,7 +355,7 @@ func runFullSecureServer(t *testing.T, locator storage.Locator) (*grpc.Server, s
 	// the one created above won't work as its internal socket would be
 	// protected by the same TLS certificate.
 	internalServer := testhelper.NewServer(t, nil, nil, testhelper.WithInternalSocket(cfg))
-	gitalypb.RegisterHookServiceServer(internalServer.GrpcServer(), hookservice.NewServer(cfg, hookManager))
+	gitalypb.RegisterHookServiceServer(internalServer.GrpcServer(), hookservice.NewServer(cfg, hookManager, gitCmdFactory))
 	internalServer.Start(t)
 
 	go func() { errQ <- server.Serve(listener) }()
