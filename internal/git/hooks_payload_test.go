@@ -50,6 +50,7 @@ func TestHooksPayload(t *testing.T) {
 			BinDir:         config.Config.BinDir,
 			GitPath:        config.Config.Git.BinPath,
 			InternalSocket: config.Config.GitalyInternalSocketPath(),
+			RequestedHooks: AllHooks,
 		}, payload)
 	})
 
@@ -67,6 +68,7 @@ func TestHooksPayload(t *testing.T) {
 			InternalSocket: config.Config.GitalyInternalSocketPath(),
 			Transaction:    &tx,
 			Praefect:       &praefect,
+			RequestedHooks: AllHooks,
 		}, payload)
 	})
 
@@ -116,6 +118,7 @@ func TestHooksPayload(t *testing.T) {
 				Username: "user",
 				Protocol: "ssh",
 			},
+			RequestedHooks: AllHooks,
 		}, payload)
 	})
 
@@ -138,6 +141,7 @@ func TestHooksPayload(t *testing.T) {
 			BinDir:         config.Config.BinDir,
 			GitPath:        "/foo/bar",
 			InternalSocket: config.Config.GitalyInternalSocketPath(),
+			RequestedHooks: AllHooks,
 		}, payload)
 	})
 }
