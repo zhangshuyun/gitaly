@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	ff "gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
+	"google.golang.org/grpc/metadata"
 )
 
 var (
@@ -138,7 +139,8 @@ func TestNewFeatureSets(t *testing.T) {
 }
 
 func TestFeatureSets_Run(t *testing.T) {
-	var flags [][2]bool
+	var incomingFlags [][2]bool
+	var outgoingFlags [][2]bool
 
 	// This test depends on feature flags being default-enabled in the test
 	// context, which requires those flags to exist in the ff.All slice. So
@@ -153,17 +155,39 @@ func TestFeatureSets_Run(t *testing.T) {
 	NewFeatureSets([]ff.FeatureFlag{
 		featureFlagB, featureFlagA,
 	}).Run(t, func(t *testing.T, ctx context.Context) {
-		ctx = helper.OutgoingToIncoming(ctx)
-		flags = append(flags, [2]bool{
-			ff.IsDisabled(ctx, featureFlagB),
-			ff.IsDisabled(ctx, featureFlagA),
+		incomingMD, ok := metadata.FromIncomingContext(ctx)
+		require.True(t, ok)
+
+		outgoingMD, ok := metadata.FromOutgoingContext(ctx)
+		require.True(t, ok)
+
+		incomingCtx := metadata.NewIncomingContext(context.Background(), incomingMD)
+		outgoingCtx := helper.OutgoingToIncoming(metadata.NewOutgoingContext(context.Background(), outgoingMD))
+
+		incomingFlags = append(incomingFlags, [2]bool{
+			ff.IsDisabled(incomingCtx, featureFlagB),
+			ff.IsDisabled(incomingCtx, featureFlagA),
+		})
+		outgoingFlags = append(outgoingFlags, [2]bool{
+			ff.IsDisabled(outgoingCtx, featureFlagB),
+			ff.IsDisabled(outgoingCtx, featureFlagA),
 		})
 	})
 
-	require.ElementsMatch(t, flags, [][2]bool{
-		{false, false},
-		{true, false},
-		{false, true},
-		{true, true},
-	})
+	for _, tc := range []struct {
+		desc  string
+		flags [][2]bool
+	}{
+		{desc: "incoming context", flags: incomingFlags},
+		{desc: "outgoing context", flags: outgoingFlags},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			require.ElementsMatch(t, tc.flags, [][2]bool{
+				{false, false},
+				{true, false},
+				{false, true},
+				{true, true},
+			})
+		})
+	}
 }

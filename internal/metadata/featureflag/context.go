@@ -62,21 +62,31 @@ func OutgoingCtxWithFeatureFlagValue(ctx context.Context, flag FeatureFlag, val 
 // context. This is NOT meant for use in clients that transfer the context
 // across process boundaries.
 func IncomingCtxWithFeatureFlag(ctx context.Context, flag FeatureFlag) context.Context {
-	md, ok := metadata.FromIncomingContext(ctx)
-	if !ok {
-		md = metadata.New(map[string]string{})
-	}
-	md.Set(HeaderKey(flag.Name), "true")
-	return metadata.NewIncomingContext(ctx, md)
+	return incomingCtxWithFeatureFlagValue(ctx, HeaderKey(flag.Name), true)
 }
 
 // IncomingCtxWithDisabledFeatureFlag marks feature flag as disabled in the incoming context.
 func IncomingCtxWithDisabledFeatureFlag(ctx context.Context, flag FeatureFlag) context.Context {
+	return incomingCtxWithFeatureFlagValue(ctx, HeaderKey(flag.Name), false)
+}
+
+// IncomingCtxWithRubyFeatureFlagValue sets the feature flags status in the context.
+func IncomingCtxWithRubyFeatureFlagValue(ctx context.Context, flag FeatureFlag, enabled bool) context.Context {
+	return incomingCtxWithFeatureFlagValue(ctx, rubyHeaderKey(flag.Name), enabled)
+}
+
+func incomingCtxWithFeatureFlagValue(ctx context.Context, key string, enabled bool) context.Context {
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
 		md = metadata.New(map[string]string{})
 	}
-	md.Set(HeaderKey(flag.Name), "false")
+
+	value := "false"
+	if enabled {
+		value = "true"
+	}
+
+	md.Set(key, value)
 	return metadata.NewIncomingContext(ctx, md)
 }
 
