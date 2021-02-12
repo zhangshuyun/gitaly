@@ -1,8 +1,11 @@
 package conflicts_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"os/exec"
+	"strings"
 	"testing"
 
 	"github.com/golang/protobuf/ptypes/timestamp"
@@ -62,7 +65,7 @@ func testSuccessfulResolveConflictsRequest(t *testing.T, ctx context.Context) {
 	client, conn := conflicts.NewConflictsClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 	repo := localrepo.New(testRepo, config.Config)
 
@@ -73,20 +76,86 @@ func testSuccessfulResolveConflictsRequest(t *testing.T, ctx context.Context) {
 	mdFF, _ := metadata.FromOutgoingContext(ctx)
 	ctx = metadata.NewOutgoingContext(ctx, metadata.Join(mdGS, mdFF))
 
+	missingAncestorPath := "files/missing_ancestor.txt"
+	files := []map[string]interface{}{
+		{
+			"old_path": "files/ruby/popen.rb",
+			"new_path": "files/ruby/popen.rb",
+			"sections": map[string]string{
+				"2f6fcd96b88b36ce98c38da085c795a27d92a3dd_14_14": "head",
+			},
+		},
+		{
+			"old_path": "files/ruby/regex.rb",
+			"new_path": "files/ruby/regex.rb",
+			"sections": map[string]string{
+				"6eb14e00385d2fb284765eb1cd8d420d33d63fc9_9_9":   "head",
+				"6eb14e00385d2fb284765eb1cd8d420d33d63fc9_21_21": "origin",
+				"6eb14e00385d2fb284765eb1cd8d420d33d63fc9_49_49": "origin",
+			},
+		},
+		{
+			"old_path": missingAncestorPath,
+			"new_path": missingAncestorPath,
+			"sections": map[string]string{
+				"b760bfd3b1b1da380b4276eb30fb3b2b7e4f08e1_1_1": "origin",
+			},
+		},
+	}
+
 	filesJSON, err := json.Marshal(files)
 	require.NoError(t, err)
 
 	sourceBranch := "conflict-resolvable"
+	targetBranch := "conflict-start"
+	ourCommitOID := "1450cd639e0bc6721eb02800169e464f212cde06"   // part of branch conflict-resolvable
+	theirCommitOID := "824be604a34828eb682305f0d963056cfac87b2d" // part of branch conflict-start
+	ancestorCommitOID := "6907208d755b60ebeacb2e9dfea74c92c3449a1f"
+
+	// introduce a conflict that exists on both branches, but not the
+	// ancestor
+	commitConflict := func(parentCommitID, branch, blob string) string {
+		blobID, err := localrepo.New(testRepo, config.Config).WriteBlob(ctx, "", strings.NewReader(blob))
+		require.NoError(t, err)
+		testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "read-tree", branch)
+		testhelper.MustRunCommand(t, nil,
+			"git", "-C", testRepoPath,
+			"update-index", "--add", "--cacheinfo", "100644", blobID, missingAncestorPath,
+		)
+		treeID := bytes.TrimSpace(
+			testhelper.MustRunCommand(t, nil,
+				"git", "-C", testRepoPath, "write-tree",
+			),
+		)
+		commitID := bytes.TrimSpace(
+			testhelper.MustRunCommand(t, nil,
+				"git", "-C", testRepoPath,
+				"commit-tree", string(treeID), "-p", parentCommitID,
+			),
+		)
+		testhelper.MustRunCommand(t, nil,
+			"git", "-C", testRepoPath, "update-ref", "refs/heads/"+branch, string(commitID))
+		return string(commitID)
+	}
+
+	// sanity check: make sure the conflict file does not exist on the
+	// common ancestor
+	cmd := exec.CommandContext(ctx, "git", "cat-file", "-e", ancestorCommitOID+":"+missingAncestorPath)
+	require.Error(t, cmd.Run())
+
+	ourCommitOID = commitConflict(ourCommitOID, sourceBranch, "content-1")
+	theirCommitOID = commitConflict(theirCommitOID, targetBranch, "content-2")
+
 	headerRequest := &gitalypb.ResolveConflictsRequest{
 		ResolveConflictsRequestPayload: &gitalypb.ResolveConflictsRequest_Header{
 			Header: &gitalypb.ResolveConflictsRequestHeader{
 				Repository:       testRepo,
 				TargetRepository: testRepo,
 				CommitMessage:    []byte(conflictResolutionCommitMessage),
-				OurCommitOid:     "1450cd639e0bc6721eb02800169e464f212cde06",
-				TheirCommitOid:   "824be604a34828eb682305f0d963056cfac87b2d",
+				OurCommitOid:     ourCommitOID,
+				TheirCommitOid:   theirCommitOID,
 				SourceBranch:     []byte(sourceBranch),
-				TargetBranch:     []byte("conflict-start"),
+				TargetBranch:     []byte(targetBranch),
 				User:             user,
 			},
 		},
@@ -114,8 +183,8 @@ func testSuccessfulResolveConflictsRequest(t *testing.T, ctx context.Context) {
 
 	headCommit, err := repo.ReadCommit(ctxOuter, git.Revision(sourceBranch))
 	require.NoError(t, err)
-	require.Contains(t, headCommit.ParentIds, "1450cd639e0bc6721eb02800169e464f212cde06")
-	require.Contains(t, headCommit.ParentIds, "824be604a34828eb682305f0d963056cfac87b2d")
+	require.Contains(t, headCommit.ParentIds, ourCommitOID)
+	require.Contains(t, headCommit.ParentIds, theirCommitOID)
 	require.Equal(t, string(headCommit.Author.Email), "johndoe@gitlab.com")
 	require.Equal(t, string(headCommit.Committer.Email), "johndoe@gitlab.com")
 	require.Equal(t, string(headCommit.Subject), conflictResolutionCommitMessage)

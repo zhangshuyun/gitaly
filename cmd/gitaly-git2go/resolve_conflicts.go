@@ -102,8 +102,6 @@ func (cmd resolveSubcommand) Run(_ context.Context, r io.Reader, w io.Writer) er
 		}
 
 		switch {
-		case c.Ancestor == nil:
-			return fmt.Errorf("missing ancestor-part of merge file input for new path %q", r.NewPath)
 		case c.Our == nil:
 			return fmt.Errorf("missing our-part of merge file input for new path %q", r.NewPath)
 		case c.Their == nil:
@@ -115,11 +113,16 @@ func (cmd resolveSubcommand) Run(_ context.Context, r io.Reader, w io.Writer) er
 			return fmt.Errorf("merge file result for %q: %w", r.NewPath, err)
 		}
 
+		ancestorPath := c.Our.Path
+		if c.Ancestor != nil {
+			ancestorPath = c.Ancestor.Path
+		}
+
 		conflictFile, err := conflict.Parse(
 			bytes.NewReader(mfr.Contents),
 			c.Our.Path,
 			c.Their.Path,
-			c.Ancestor.Path,
+			ancestorPath,
 		)
 		if err != nil {
 			return fmt.Errorf("parse conflict for %q: %w", c.Ancestor.Path, err)
@@ -205,6 +208,10 @@ func mergeFileResult(odb *git.Odb, c git.IndexConflict) (*git.MergeFileResult, e
 		{name: "our", entry: c.Our, mfi: &ourMFI},
 		{name: "their", entry: c.Their, mfi: &theirMFI},
 	} {
+		if part.entry == nil {
+			continue
+		}
+
 		blob, err := odb.Read(part.entry.Id)
 		if err != nil {
 			return nil, err
