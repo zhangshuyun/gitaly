@@ -6,7 +6,13 @@ import (
 )
 
 var (
+	// ErrReferenceNotFound represents an error when a reference was not
+	// found.
 	ErrReferenceNotFound = errors.New("reference not found")
+	// ErrReferenceAmbiguous represents an error when a reference couldn't
+	// unambiguously be resolved.
+	ErrReferenceAmbiguous = errors.New("reference is ambiguous")
+
 	// ErrAlreadyExists represents an error when the resource is already exists.
 	ErrAlreadyExists = errors.New("already exists")
 	// ErrNotFound represents an error when the resource can't be found.

@@ -1,0 +1,5 @@
+---
+title: 'localrepo: Fix lookup of wrong ref if requesting prefix'
+merge_request: 3127
+author:
+type: fixed
