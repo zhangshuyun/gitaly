@@ -63,6 +63,7 @@ func TestWithRubySidecar(t *testing.T) {
 		testSuccessfulUserApplyPatch,
 		testUserApplyPatchStableID,
 		testFailedPatchApplyPatch,
+		testUserApplyPatch,
 	}
 	for _, f := range fs {
 		t.Run(runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name(), func(t *testing.T) {

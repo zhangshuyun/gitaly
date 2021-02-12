@@ -7,20 +7,433 @@ import (
 	"strings"
 	"testing"
 	"testing/iotest"
+	"time"
 
+	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/v14/streamio"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
+
+func testUserApplyPatch(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	type actionFunc func(testing.TB, *localrepo.Repo) git2go.Action
+
+	createFile := func(filepath string, content string) actionFunc {
+		return func(t testing.TB, repo *localrepo.Repo) git2go.Action {
+			fileOID, err := repo.WriteBlob(ctx, filepath, strings.NewReader(content))
+			require.NoError(t, err)
+
+			return git2go.CreateFile{Path: filepath, OID: fileOID.String()}
+		}
+	}
+
+	updateFile := func(filepath string, content string) actionFunc {
+		return func(t testing.TB, repo *localrepo.Repo) git2go.Action {
+			fileOID, err := repo.WriteBlob(ctx, filepath, strings.NewReader(content))
+			require.NoError(t, err)
+
+			return git2go.UpdateFile{Path: filepath, OID: fileOID.String()}
+		}
+	}
+
+	moveFile := func(oldPath, newPath string) actionFunc {
+		return func(testing.TB, *localrepo.Repo) git2go.Action {
+			return git2go.MoveFile{Path: oldPath, NewPath: newPath}
+		}
+	}
+
+	deleteFile := func(filepath string) actionFunc {
+		return func(testing.TB, *localrepo.Repo) git2go.Action {
+			return git2go.DeleteFile{Path: filepath}
+		}
+	}
+
+	// commitActions represents actions taken to build a commit.
+	type commitActions []actionFunc
+
+	ctx, cfg, _, _, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
+
+	errPatchingFailed := status.Error(
+		codes.FailedPrecondition,
+		`Patch failed at 0002 commit subject
+When you have resolved this problem, run "git am --continue".
+If you prefer to skip this patch, run "git am --skip" instead.
+To restore the original branch and stop patching, run "git am --abort".
+`)
+
+	for _, tc := range []struct {
+		desc string
+		// sends a request to a non-existent repository
+		nonExistentRepository bool
+		// baseCommit is the commit which the patch commitActions are applied against.
+		baseCommit commitActions
+		// baseReference is the branch where baseCommit is, by default "master"
+		baseReference git.ReferenceName
+		// notSentByAuthor marks the patch as being sent by someone else than the author.
+		notSentByAuthor bool
+		// targetBranch is the branch where the patched commit goes
+		targetBranch string
+		// extraBranches are created with empty commits for verifying the correct base branch
+		// gets selected.
+		extraBranches []string
+		// patches describe how to build each commit that gets applied as a patch.
+		// Each patch is series of actions that are applied on top of the baseCommit.
+		// Each action produces one commit. The patch is then generated from the last commit
+		// in the series to its parent.
+		//
+		// After the patches are generated, they are applied sequentially on the base commit.
+		patches       []commitActions
+		error         error
+		branchCreated bool
+		tree          []gittest.TreeEntry
+	}{
+		{
+			desc:                  "non-existent repository",
+			targetBranch:          "master",
+			nonExistentRepository: true,
+			error:                 status.Errorf(codes.NotFound, "GetRepoPath: not a git repository: \"%s/%s\"", cfg.Storages[0].Path, "doesnt-exist"),
+		},
+		{
+			desc:         "creating the first branch does not work",
+			targetBranch: "master",
+			patches: []commitActions{
+				{
+					createFile("file", "base-content"),
+				},
+			},
+			error: status.Error(codes.Internal, "TypeError: no implicit conversion of nil into String"),
+		},
+		{
+			desc:          "creating a new branch from HEAD works",
+			baseCommit:    commitActions{createFile("file", "base-content")},
+			baseReference: "HEAD",
+			extraBranches: []string{"refs/heads/master", "refs/heads/some-extra-branch"},
+			targetBranch:  "new-branch",
+			patches: []commitActions{
+				{
+					updateFile("file", "patch 1"),
+				},
+			},
+			branchCreated: true,
+			tree: []gittest.TreeEntry{
+				{Mode: "100644", Path: "file", Content: "patch 1"},
+			},
+		},
+		{
+			desc:          "creating a new branch from the first listed branch works",
+			baseCommit:    commitActions{createFile("file", "base-content")},
+			baseReference: "refs/heads/a",
+			extraBranches: []string{"refs/heads/b"},
+			targetBranch:  "new-branch",
+			patches: []commitActions{
+				{
+					updateFile("file", "patch 1"),
+				},
+			},
+			branchCreated: true,
+			tree: []gittest.TreeEntry{
+				{Mode: "100644", Path: "file", Content: "patch 1"},
+			},
+		},
+		{
+			desc:          "multiple patches apply cleanly",
+			baseCommit:    commitActions{createFile("file", "base-content")},
+			baseReference: "refs/heads/master",
+			targetBranch:  "master",
+			patches: []commitActions{
+				{
+					updateFile("file", "patch 1"),
+				},
+				{
+					updateFile("file", "patch 1"),
+					updateFile("file", "patch 2"),
+				},
+			},
+			tree: []gittest.TreeEntry{
+				{Mode: "100644", Path: "file", Content: "patch 2"},
+			},
+		},
+		{
+			desc:            "author in from field in body set correctly",
+			baseCommit:      commitActions{createFile("file", "base-content")},
+			baseReference:   "refs/heads/master",
+			notSentByAuthor: true,
+			targetBranch:    "master",
+			patches: []commitActions{
+				{
+					updateFile("file", "patch 1"),
+				},
+			},
+			tree: []gittest.TreeEntry{
+				{Mode: "100644", Path: "file", Content: "patch 1"},
+			},
+		},
+		{
+			desc:          "multiple patches apply via fallback three-way merge",
+			baseCommit:    commitActions{createFile("file", "base-content")},
+			baseReference: "refs/heads/master",
+			targetBranch:  "master",
+			patches: []commitActions{
+				{
+					updateFile("file", "patch 1"),
+				},
+				{
+					updateFile("file", "patch 2"),
+					updateFile("file", "patch 1"),
+				},
+			},
+			tree: []gittest.TreeEntry{
+				{Mode: "100644", Path: "file", Content: "patch 1"},
+			},
+		},
+		{
+			desc:          "patching fails due to modify-modify conflict",
+			baseCommit:    commitActions{createFile("file", "base-content")},
+			baseReference: "refs/heads/master",
+			targetBranch:  "master",
+			patches: []commitActions{
+				{
+					updateFile("file", "patch 1"),
+				},
+				{
+					updateFile("file", "patch 2"),
+				},
+			},
+			error: errPatchingFailed,
+		},
+		{
+			desc:          "patching fails due to add-add conflict",
+			baseCommit:    commitActions{createFile("file", "base-content")},
+			baseReference: "refs/heads/master",
+			targetBranch:  "master",
+			patches: []commitActions{
+				{
+					createFile("added-file", "content-1"),
+				},
+				{
+					createFile("added-file", "content-2"),
+				},
+			},
+			error: errPatchingFailed,
+		},
+		{
+			desc:          "patch applies using rename detection",
+			baseCommit:    commitActions{createFile("file", "line 1\nline 2\nline 3\nline 4\n")},
+			baseReference: "refs/heads/master",
+			targetBranch:  "master",
+			patches: []commitActions{
+				{
+					moveFile("file", "moved-file"),
+				},
+				{
+					updateFile("file", "line 1\nline 2\nline 3\nline 4\nadded\n"),
+				},
+			},
+			tree: []gittest.TreeEntry{
+				{Mode: "100644", Path: "moved-file", Content: "line 1\nline 2\nline 3\nline 4\nadded\n"},
+			},
+		},
+		{
+			desc:          "patching fails due to delete-modify conflict",
+			baseCommit:    commitActions{createFile("file", "base-content")},
+			baseReference: "refs/heads/master",
+			targetBranch:  "master",
+			patches: []commitActions{
+				{
+					deleteFile("file"),
+				},
+				{
+					updateFile("file", "updated content"),
+				},
+			},
+			error: errPatchingFailed,
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			repoPb, repoPath, cleanRepo := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
+			defer cleanRepo()
+
+			repo := localrepo.New(git.NewExecCommandFactory(cfg), catfile.NewCache(cfg), repoPb, cfg)
+
+			executor := git2go.NewExecutor(cfg, config.NewLocator(cfg))
+
+			authorTime := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
+			committerTime := authorTime.Add(time.Hour)
+			author := git2go.NewSignature("Test Author", "author@example.com", authorTime)
+			committer := git2go.NewSignature("Overridden By Request User", "overridden@example.com", committerTime)
+			commitMessage := "commit subject\n\n\ncommit message body\n\n\n"
+
+			var baseCommit git.ObjectID
+			for _, action := range tc.baseCommit {
+				var err error
+				baseCommit, err = executor.Commit(ctx, repoPb, git2go.CommitParams{
+					Repository: repoPath,
+					Author:     author,
+					Committer:  committer,
+					Message:    commitMessage,
+					Parent:     baseCommit.String(),
+					Actions:    []git2go.Action{action(t, repo)},
+				})
+				require.NoError(t, err)
+			}
+
+			if baseCommit != "" {
+				require.NoError(t, repo.UpdateRef(ctx, tc.baseReference, git.ObjectID(baseCommit), git.ZeroOID))
+			}
+
+			if tc.extraBranches != nil {
+				emptyCommit, err := executor.Commit(ctx, repoPb, git2go.CommitParams{
+					Repository: repoPath,
+					Author:     author,
+					Committer:  committer,
+					Message:    "empty commit",
+				})
+				require.NoError(t, err)
+
+				for _, extraBranch := range tc.extraBranches {
+					require.NoError(t, repo.UpdateRef(ctx,
+						git.NewReferenceNameFromBranchName(extraBranch), git.ObjectID(emptyCommit), git.ZeroOID),
+					)
+				}
+			}
+
+			var patches [][]byte
+			for _, commitActions := range tc.patches {
+				commit := baseCommit
+				for _, action := range commitActions {
+					var err error
+					commit, err = executor.Commit(ctx, repoPb, git2go.CommitParams{
+						Repository: repoPath,
+						Author:     author,
+						Committer:  committer,
+						Message:    commitMessage,
+						Parent:     commit.String(),
+						Actions:    []git2go.Action{action(t, repo)},
+					})
+					require.NoError(t, err)
+				}
+
+				formatPatchArgs := []string{"-C", repoPath, "format-patch", "--stdout"}
+				if tc.notSentByAuthor {
+					formatPatchArgs = append(formatPatchArgs, "--from=Test Sender <sender@example.com>")
+				}
+
+				if baseCommit == "" {
+					formatPatchArgs = append(formatPatchArgs, "--root", commit.String())
+				} else {
+					formatPatchArgs = append(formatPatchArgs, commit.String()+"~1.."+commit.String())
+				}
+
+				patches = append(patches, gittest.Exec(t, cfg, formatPatchArgs...))
+			}
+
+			stream, err := client.UserApplyPatch(ctx)
+			require.NoError(t, err)
+
+			requestTime := committerTime.Add(time.Hour)
+			requestTimestamp := timestamppb.New(requestTime)
+
+			if tc.nonExistentRepository {
+				repoPb.RelativePath = "doesnt-exist"
+			}
+
+			require.NoError(t, stream.Send(&gitalypb.UserApplyPatchRequest{
+				UserApplyPatchRequestPayload: &gitalypb.UserApplyPatchRequest_Header_{
+					Header: &gitalypb.UserApplyPatchRequest_Header{
+						Repository:   repoPb,
+						User:         gittest.TestUser,
+						TargetBranch: []byte(tc.targetBranch),
+						Timestamp:    requestTimestamp,
+					},
+				},
+			}))
+
+			for _, patch := range patches {
+				// we stream the patches one rune at a time to exercise the streaming code
+				for _, r := range patch {
+					require.NoError(t, stream.Send(&gitalypb.UserApplyPatchRequest{
+						UserApplyPatchRequestPayload: &gitalypb.UserApplyPatchRequest_Patches{
+							Patches: []byte{r},
+						},
+					}))
+				}
+			}
+
+			actualResponse, err := stream.CloseAndRecv()
+			if tc.error != nil {
+				testassert.GrpcEqualErr(t, tc.error, err)
+				return
+			}
+
+			require.NoError(t, err)
+
+			commitID := actualResponse.GetBranchUpdate().GetCommitId()
+			actualResponse.GetBranchUpdate().CommitId = ""
+			testassert.ProtoEqual(t, &gitalypb.UserApplyPatchResponse{
+				BranchUpdate: &gitalypb.OperationBranchUpdate{
+					RepoCreated:   false,
+					BranchCreated: tc.branchCreated,
+				},
+			}, actualResponse)
+
+			targetBranchCommit, err := repo.ResolveRevision(ctx,
+				git.NewReferenceNameFromBranchName(tc.targetBranch).Revision()+"^{commit}")
+			require.NoError(t, err)
+			require.Equal(t, targetBranchCommit.String(), commitID)
+
+			actualCommit, err := repo.ReadCommit(ctx, git.Revision(commitID))
+			require.NoError(t, err)
+			require.NotEmpty(t, actualCommit.ParentIds)
+			actualCommit.ParentIds = nil // the parent changes with the patches, we just check it is set
+			actualCommit.TreeId = ""     // treeID is asserted via its contents below
+
+			authorTimestamp, err := ptypes.TimestampProto(authorTime)
+			require.NoError(t, err)
+
+			expectedBody := []byte("commit subject\n\ncommit message body\n")
+			expectedTimezone := []byte("+0000")
+			testassert.ProtoEqual(t,
+				&gitalypb.GitCommit{
+					Id:      commitID,
+					Subject: []byte("commit subject"),
+					Body:    expectedBody,
+					Author: &gitalypb.CommitAuthor{
+						Name:     []byte("Test Author"),
+						Email:    []byte("author@example.com"),
+						Date:     authorTimestamp,
+						Timezone: expectedTimezone,
+					},
+					Committer: &gitalypb.CommitAuthor{
+						Name:     gittest.TestUser.Name,
+						Email:    gittest.TestUser.Email,
+						Date:     requestTimestamp,
+						Timezone: expectedTimezone,
+					},
+					BodySize: int64(len(expectedBody)),
+				},
+				actualCommit,
+			)
+
+			gittest.RequireTree(t, cfg, repoPath, commitID, tc.tree)
+		})
+	}
+}
 
 func testSuccessfulUserApplyPatch(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	ctx, cancel := testhelper.Context()
