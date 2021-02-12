@@ -1,0 +1,5 @@
+---
+title: Make gitaly_ruby_json.log work again
+merge_request: 3052
+author:
+type: fixed

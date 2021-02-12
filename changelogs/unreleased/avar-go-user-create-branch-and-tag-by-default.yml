@@ -1,0 +1,5 @@
+---
+title: Enable feature flag go_user_create_{branch,tag} by default
+merge_request: 3035
+author:
+type: changed
