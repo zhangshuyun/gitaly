@@ -64,7 +64,7 @@ func (repo *Repo) ResolveRevision(ctx context.Context, revision git.Revision) (g
 // GetReference looks up and returns the given reference. Returns a
 // ReferenceNotFound error if the reference was not found.
 func (repo *Repo) GetReference(ctx context.Context, reference git.ReferenceName) (git.Reference, error) {
-	refs, err := repo.GetReferences(ctx, reference.String())
+	refs, err := repo.getReferences(ctx, reference.String(), 1)
 	if err != nil {
 		return git.Reference{}, err
 	}
