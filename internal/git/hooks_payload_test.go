@@ -28,13 +28,13 @@ func TestHooksPayload(t *testing.T) {
 	}
 
 	t.Run("envvar has proper name", func(t *testing.T) {
-		env, err := NewHooksPayload(config.Config, repo, nil, nil, nil).Env()
+		env, err := NewHooksPayload(config.Config, repo, nil, nil, nil, AllHooks).Env()
 		require.NoError(t, err)
 		require.True(t, strings.HasPrefix(env, EnvHooksPayload+"="))
 	})
 
 	t.Run("roundtrip succeeds", func(t *testing.T) {
-		env, err := NewHooksPayload(config.Config, repo, nil, nil, nil).Env()
+		env, err := NewHooksPayload(config.Config, repo, nil, nil, nil, PreReceiveHook).Env()
 		require.NoError(t, err)
 
 		payload, err := HooksPayloadFromEnv([]string{
@@ -50,12 +50,12 @@ func TestHooksPayload(t *testing.T) {
 			BinDir:         config.Config.BinDir,
 			GitPath:        config.Config.Git.BinPath,
 			InternalSocket: config.Config.GitalyInternalSocketPath(),
-			RequestedHooks: AllHooks,
+			RequestedHooks: PreReceiveHook,
 		}, payload)
 	})
 
 	t.Run("roundtrip with transaction succeeds", func(t *testing.T) {
-		env, err := NewHooksPayload(config.Config, repo, &tx, &praefect, nil).Env()
+		env, err := NewHooksPayload(config.Config, repo, &tx, &praefect, nil, UpdateHook).Env()
 		require.NoError(t, err)
 
 		payload, err := HooksPayloadFromEnv([]string{env})
@@ -68,7 +68,7 @@ func TestHooksPayload(t *testing.T) {
 			InternalSocket: config.Config.GitalyInternalSocketPath(),
 			Transaction:    &tx,
 			Praefect:       &praefect,
-			RequestedHooks: AllHooks,
+			RequestedHooks: UpdateHook,
 		}, payload)
 	})
 
@@ -84,7 +84,7 @@ func TestHooksPayload(t *testing.T) {
 	})
 
 	t.Run("payload with missing Praefect", func(t *testing.T) {
-		env, err := NewHooksPayload(config.Config, repo, &tx, nil, nil).Env()
+		env, err := NewHooksPayload(config.Config, repo, &tx, nil, nil, AllHooks).Env()
 		require.NoError(t, err)
 
 		_, err = HooksPayloadFromEnv([]string{env})
@@ -96,7 +96,7 @@ func TestHooksPayload(t *testing.T) {
 			UserID:   "1234",
 			Username: "user",
 			Protocol: "ssh",
-		}).Env()
+		}, PostReceiveHook).Env()
 		require.NoError(t, err)
 
 		payload, err := HooksPayloadFromEnv([]string{
@@ -118,7 +118,7 @@ func TestHooksPayload(t *testing.T) {
 				Username: "user",
 				Protocol: "ssh",
 			},
-			RequestedHooks: AllHooks,
+			RequestedHooks: PostReceiveHook,
 		}, payload)
 	})
 
@@ -128,7 +128,7 @@ func TestHooksPayload(t *testing.T) {
 		}(config.Config.Git.BinPath)
 		config.Config.Git.BinPath = ""
 
-		env, err := NewHooksPayload(config.Config, repo, nil, nil, nil).Env()
+		env, err := NewHooksPayload(config.Config, repo, nil, nil, nil, ReceivePackHooks).Env()
 		require.NoError(t, err)
 
 		payload, err := HooksPayloadFromEnv([]string{
@@ -141,7 +141,7 @@ func TestHooksPayload(t *testing.T) {
 			BinDir:         config.Config.BinDir,
 			GitPath:        "/foo/bar",
 			InternalSocket: config.Config.GitalyInternalSocketPath(),
-			RequestedHooks: AllHooks,
+			RequestedHooks: ReceivePackHooks,
 		}, payload)
 	})
 }

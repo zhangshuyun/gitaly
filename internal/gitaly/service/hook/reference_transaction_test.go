@@ -142,6 +142,7 @@ func TestReferenceTransactionHook(t *testing.T) {
 					ListenAddr: "tcp://" + listener.Addr().String(),
 				},
 				nil,
+				git.ReferenceTransactionHook,
 			).Env()
 			require.NoError(t, err)
 

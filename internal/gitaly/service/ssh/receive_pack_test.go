@@ -135,7 +135,7 @@ func TestReceivePackPushSuccess(t *testing.T) {
 			Username: "user",
 			Protocol: "ssh",
 		},
-		RequestedHooks: git.AllHooks,
+		RequestedHooks: git.ReceivePackHooks,
 	}, payload)
 }
 

@@ -98,7 +98,7 @@ func TestSuccessfulReceivePackRequest(t *testing.T) {
 			Username: "user",
 			Protocol: "http",
 		},
-		RequestedHooks: git.AllHooks,
+		RequestedHooks: git.ReceivePackHooks,
 	}, payload)
 }
 

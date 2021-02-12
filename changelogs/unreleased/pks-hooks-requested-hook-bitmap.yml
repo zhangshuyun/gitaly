@@ -1,0 +1,5 @@
+---
+title: 'hooks: Fix inadvertent execution of hooks'
+merge_request: 3119
+author:
+type: fixed

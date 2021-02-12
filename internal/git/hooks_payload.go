@@ -46,6 +46,9 @@ const (
 
 	// AllHooks is the bitwise set of all hooks supported by Gitaly.
 	AllHooks = ReferenceTransactionHook | UpdateHook | PreReceiveHook | PostReceiveHook | PackObjectsHook
+	// ReceivePackHooks includes the set of hooks which shall be executed in
+	// a typical "push" or an emulation thereof (e.g. `updateReferenceWithHooks()`).
+	ReceivePackHooks = ReferenceTransactionHook | UpdateHook | PreReceiveHook | PostReceiveHook
 )
 
 // HooksPayload holds parameters required for all hooks.
@@ -106,6 +109,7 @@ func NewHooksPayload(
 	tx *metadata.Transaction,
 	praefect *metadata.PraefectServer,
 	receiveHooksPayload *ReceiveHooksPayload,
+	requestedHooks Hook,
 ) HooksPayload {
 	return HooksPayload{
 		Repo:                repo,
@@ -116,6 +120,7 @@ func NewHooksPayload(
 		Transaction:         tx,
 		Praefect:            praefect,
 		ReceiveHooksPayload: receiveHooksPayload,
+		RequestedHooks:      requestedHooks,
 	}
 }
 

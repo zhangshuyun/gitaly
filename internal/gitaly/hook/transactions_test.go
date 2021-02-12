@@ -55,6 +55,7 @@ func TestHookManager_stopCalled(t *testing.T) {
 			Username: "user",
 			Protocol: "web",
 		},
+		git.ReferenceTransactionHook,
 	).Env()
 	require.NoError(t, err)
 
@@ -149,6 +150,7 @@ func TestHookManager_contextCancellationCancelsVote(t *testing.T) {
 			Token:      "matter",
 		},
 		nil,
+		git.ReferenceTransactionHook,
 	).Env()
 	require.NoError(t, err)
 

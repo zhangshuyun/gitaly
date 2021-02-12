@@ -43,7 +43,7 @@ func envForHooks(t testing.TB, gitlabShellDir string, repo *gitalypb.Repository,
 		UserID:   glHookValues.GLID,
 		Username: glHookValues.GLUsername,
 		Protocol: glHookValues.GLProtocol,
-	}).Env()
+	}, git.AllHooks).Env()
 	require.NoError(t, err)
 
 	env := append(os.Environ(), []string{
@@ -469,6 +469,7 @@ func TestHooksPostReceiveFailed(t *testing.T) {
 					Username: glUsername,
 					Protocol: glProtocol,
 				},
+				git.PostReceiveHook,
 			).Env()
 			require.NoError(t, err)
 
@@ -723,6 +724,41 @@ func TestGitalyHooksPackObjects(t *testing.T) {
 			cmd.Stderr = os.Stderr
 
 			require.NoError(t, cmd.Run())
+		})
+	}
+}
+
+func TestRequestedHooks(t *testing.T) {
+	for hook, hookName := range map[git.Hook]string{
+		git.ReferenceTransactionHook: "reference-transaction",
+		git.UpdateHook:               "update",
+		git.PreReceiveHook:           "pre-receive",
+		git.PostReceiveHook:          "post-receive",
+		git.PackObjectsHook:          "git",
+	} {
+		t.Run(hookName, func(t *testing.T) {
+			t.Run("unrequested hook is ignored", func(t *testing.T) {
+				payload, err := git.NewHooksPayload(config.Config, &gitalypb.Repository{}, nil, nil, nil, git.AllHooks&^hook).Env()
+				require.NoError(t, err)
+
+				cmd := exec.Command(filepath.Join(config.Config.BinDir, "gitaly-hooks"), hookName)
+				cmd.Env = []string{payload}
+				require.NoError(t, cmd.Run())
+			})
+
+			t.Run("requested hook runs", func(t *testing.T) {
+				payload, err := git.NewHooksPayload(config.Config, &gitalypb.Repository{}, nil, nil, nil, hook).Env()
+				require.NoError(t, err)
+
+				cmd := exec.Command(filepath.Join(config.Config.BinDir, "gitaly-hooks"), hookName)
+				cmd.Env = []string{payload}
+
+				// We simply check that there is an error here as an indicator that
+				// the hook logic ran. We don't care for the actual error because we
+				// know that in the previous testcase without the hook being
+				// requested, there was no error.
+				require.Error(t, cmd.Run(), "hook should have run and failed due to incomplete setup")
+			})
 		})
 	}
 }
