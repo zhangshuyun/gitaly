@@ -1,5 +1,0 @@
----
-title: 'featureflag: Remove GoFetchSourceBranch feature flag'
-merge_request: 3050
-author:
-type: performance
