@@ -15,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/bootstrap"
 	"gitlab.com/gitlab-org/gitaly/internal/log"
 	"gitlab.com/gitlab-org/gitaly/internal/ps"
+	"golang.org/x/sys/unix"
 )
 
 const (
@@ -115,10 +116,21 @@ func spawnGitaly(bin string, args []string) (*os.Process, error) {
 	return cmd.Process, nil
 }
 
+func isRuntimeSig(s os.Signal) bool {
+	return s == unix.SIGURG
+}
+
 func forwardSignals(gitaly *os.Process, log *logrus.Entry) {
 	sigs := make(chan os.Signal, 1)
 	go func() {
 		for sig := range sigs {
+			// In go1.14+, the go runtime issues SIGURG as an interrupt
+			// to support pre-emptible system calls on Linux. We ignore
+			// this signal since it's not relevant to the Gitaly process.
+			if isRuntimeSig(sig) {
+				continue
+			}
+
 			log.WithField("signal", sig).Warning("forwarding signal")
 
 			if err := gitaly.Signal(sig); err != nil {
