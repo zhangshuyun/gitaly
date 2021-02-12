@@ -14,7 +14,7 @@ type gitCommand struct {
 	opts  []GlobalOption
 }
 
-// gitCommands is a curated list of Git command names for special git.NewCommand
+// gitCommands is a curated list of Git command names for special git.ExecCommandFactory
 // validation logic
 var gitCommands = map[string]gitCommand{
 	"apply": gitCommand{

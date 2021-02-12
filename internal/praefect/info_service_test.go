@@ -26,10 +26,6 @@ func TestInfoService_RepositoryReplicas(t *testing.T) {
 		cfg.Storages[i].Path = storagePath
 	}
 
-	// TODO: this should be removed once we get rid of git.NewCommand function and replace it's usage with git.CommandFactory
-	defer func(old []gconfig.Storage) { gconfig.Config.Storages = old }(gconfig.Config.Storages)
-	gconfig.Config.Storages = cfg.Storages
-
 	gitalyAddr, cleanupGitaly := testserver.RunGitalyServer(t, cfg, nil)
 	defer cleanupGitaly()
 

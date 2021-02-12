@@ -1,7 +1,6 @@
 package git
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -9,9 +8,6 @@ import (
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"gitlab.com/gitlab-org/gitaly/internal/command"
-	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
@@ -321,10 +317,4 @@ func WithEnv(envs ...string) CmdOpt {
 		c.env = append(c.env, envs...)
 		return nil
 	}
-}
-
-// NewCommand creates a command.Command with the given args and Repository. It
-// validates the arguments in the command before executing.
-func NewCommand(ctx context.Context, repo repository.GitRepo, globals []GlobalOption, sc Cmd, opts ...CmdOpt) (*command.Command, error) {
-	return NewExecCommandFactory(config.Config).newCommand(ctx, repo, "", globals, sc, opts...)
 }
