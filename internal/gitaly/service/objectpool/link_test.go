@@ -30,7 +30,7 @@ func TestLink(t *testing.T) {
 
 	repoProto, _, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
-	repo := localrepo.New(repoProto, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
 	pool, err := objectpool.NewObjectPool(config.Config, locator, git.NewExecCommandFactory(config.Config), repoProto.GetStorageName(), testhelper.NewTestObjectPoolName(t))
 	require.NoError(t, err)

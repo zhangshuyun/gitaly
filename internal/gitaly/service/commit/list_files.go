@@ -45,7 +45,7 @@ func (s *server) ListFiles(in *gitalypb.ListFilesRequest, stream gitalypb.Commit
 		revision = string(defaultBranch)
 	}
 
-	contained, err := localrepo.New(in.Repository, s.cfg).HasRevision(stream.Context(), git.Revision(revision))
+	contained, err := localrepo.New(s.gitCmdFactory, in.Repository, s.cfg).HasRevision(stream.Context(), git.Revision(revision))
 	if err != nil {
 		return helper.ErrInternal(err)
 	}

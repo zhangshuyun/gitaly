@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/tempdir"
@@ -48,7 +49,7 @@ func TestServer_CreateRepositoryFromBundle_successful(t *testing.T) {
 		StorageName:  testhelper.DefaultStorageName,
 		RelativePath: "a-repo-from-bundle",
 	}
-	importedRepo := localrepo.New(importedRepoProto, config.Config)
+	importedRepo := localrepo.New(git.NewExecCommandFactory(config.Config), importedRepoProto, config.Config)
 	importedRepoPath, err := locator.GetPath(importedRepoProto)
 	require.NoError(t, err)
 	defer os.RemoveAll(importedRepoPath)

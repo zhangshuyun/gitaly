@@ -83,15 +83,17 @@ func TestFetchRemote_withDefaultRefmaps(t *testing.T) {
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
 
+	gitCmdFactory := git.NewExecCommandFactory(config.Config)
+
 	sourceRepoProto, sourceRepoPath, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
-	sourceRepo := localrepo.New(sourceRepoProto, config.Config)
+	sourceRepo := localrepo.New(gitCmdFactory, sourceRepoProto, config.Config)
 
 	targetRepoProto, targetRepoPath := copyRepoWithNewRemote(t, sourceRepoProto, locator, "my-remote")
 	defer func() {
 		require.NoError(t, os.RemoveAll(targetRepoPath))
 	}()
-	targetRepo := localrepo.New(targetRepoProto, config.Config)
+	targetRepo := localrepo.New(gitCmdFactory, targetRepoProto, config.Config)
 
 	port, stopGitServer := testhelper.GitServer(t, config.Config, sourceRepoPath, nil)
 	defer func() { require.NoError(t, stopGitServer()) }()
@@ -215,7 +217,7 @@ func TestFetchRemote_prune(t *testing.T) {
 			defer func() {
 				require.NoError(t, os.RemoveAll(targetRepoPath))
 			}()
-			targetRepo := localrepo.New(targetRepoProto, config.Config)
+			targetRepo := localrepo.New(git.NewExecCommandFactory(config.Config), targetRepoProto, config.Config)
 
 			ctx, cancel := testhelper.Context()
 			defer cancel()

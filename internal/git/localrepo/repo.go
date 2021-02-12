@@ -13,23 +13,23 @@ import (
 // Repo represents a local Git repository.
 type Repo struct {
 	repository.GitRepo
-	commandFactory *git.ExecCommandFactory
-	cfg            config.Cfg
+	gitCmdFactory git.CommandFactory
+	cfg           config.Cfg
 }
 
 // New creates a new Repo from its protobuf representation.
-func New(repo repository.GitRepo, cfg config.Cfg) *Repo {
+func New(gitCmdFactory git.CommandFactory, repo repository.GitRepo, cfg config.Cfg) *Repo {
 	return &Repo{
-		GitRepo:        repo,
-		cfg:            cfg,
-		commandFactory: git.NewExecCommandFactory(cfg),
+		GitRepo:       repo,
+		cfg:           cfg,
+		gitCmdFactory: gitCmdFactory,
 	}
 }
 
 // Exec creates a git command with the given args and Repo, executed in the
 // Repo. It validates the arguments in the command before executing.
 func (repo *Repo) Exec(ctx context.Context, globals []git.GlobalOption, cmd git.Cmd, opts ...git.CmdOpt) (*command.Command, error) {
-	return repo.commandFactory.New(ctx, repo, globals, cmd, opts...)
+	return repo.gitCmdFactory.New(ctx, repo, globals, cmd, opts...)
 }
 
 // ExecAndWait is similar to Exec, but waits for the command to exit before

@@ -199,7 +199,7 @@ func createTestWikiPage(t *testing.T, locator storage.Locator, client gitalypb.W
 	writeWikiPage(t, client, wikiRepoProto, opts)
 	head1ID := testhelper.MustRunCommand(t, nil, "git", "-C", wikiRepoPath, "show", "--format=format:%H", "--no-patch", "HEAD")
 
-	wikiRepo := localrepo.New(wikiRepoProto, config.Config)
+	wikiRepo := localrepo.New(git.NewExecCommandFactory(config.Config), wikiRepoProto, config.Config)
 	pageCommit, err := wikiRepo.ReadCommit(ctx, git.Revision(head1ID))
 	require.NoError(t, err, "look up git commit after writing a wiki page")
 

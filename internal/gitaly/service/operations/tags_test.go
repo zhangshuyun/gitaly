@@ -185,7 +185,7 @@ func testSuccessfulUserCreateTagRequest(t *testing.T, ctx context.Context) {
 
 	repoProto, repoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
-	repo := localrepo.New(repoProto, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
 	targetRevision := "c7fbe50c7c7419d9701eebe64b1fdacc3df5b9dd"
 	targetRevisionCommit, err := repo.ReadCommit(ctx, git.Revision(targetRevision))
@@ -281,7 +281,7 @@ func TestUserCreateTagWithTransaction(t *testing.T) {
 
 	repoProto, repoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
-	repo := localrepo.New(repoProto, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
 	hooksOutputDir, cleanup := testhelper.TempDir(t)
 	defer cleanup()
@@ -751,7 +751,7 @@ func TestSuccessfulUserCreateTagNestedTags(t *testing.T) {
 
 	repoProto, repoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
-	repo := localrepo.New(repoProto, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
 	preReceiveHook, cleanup := writeAssertObjectTypePreReceiveHook(t)
 	defer cleanup()
@@ -968,7 +968,7 @@ func TestUserCreateTagsuccessfulCreationOfPrefixedTag(t *testing.T) {
 
 	repoProto, repoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
-	repo := localrepo.New(repoProto, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
 	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()

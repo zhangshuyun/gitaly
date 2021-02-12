@@ -27,7 +27,7 @@ func (s *server) CommitStats(ctx context.Context, in *gitalypb.CommitStatsReques
 }
 
 func (s *server) commitStats(ctx context.Context, in *gitalypb.CommitStatsRequest) (*gitalypb.CommitStatsResponse, error) {
-	repo := localrepo.New(in.Repository, s.cfg)
+	repo := localrepo.New(s.gitCmdFactory, in.Repository, s.cfg)
 
 	commit, err := repo.ReadCommit(ctx, git.Revision(in.Revision))
 	if err != nil {

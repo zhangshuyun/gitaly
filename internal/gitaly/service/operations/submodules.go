@@ -78,7 +78,7 @@ func validateUserUpdateSubmoduleRequest(req *gitalypb.UserUpdateSubmoduleRequest
 }
 
 func (s *Server) userUpdateSubmodule(ctx context.Context, req *gitalypb.UserUpdateSubmoduleRequest) (*gitalypb.UserUpdateSubmoduleResponse, error) {
-	repo := localrepo.New(req.GetRepository(), s.cfg)
+	repo := localrepo.New(s.gitCmdFactory, req.GetRepository(), s.cfg)
 	branches, err := repo.GetBranches(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("%s: get branches: %w", userUpdateSubmoduleName, err)

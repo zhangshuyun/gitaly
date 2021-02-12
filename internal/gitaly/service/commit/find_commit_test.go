@@ -32,7 +32,7 @@ func TestSuccessfulFindCommitRequest(t *testing.T) {
 
 	repoProto, repoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
-	repo := localrepo.New(repoProto, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()

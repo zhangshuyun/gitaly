@@ -33,7 +33,7 @@ func TestPackRefsSuccessfulRequest(t *testing.T) {
 
 	packedRefs := linesInPackfile(t, testRepoPath)
 
-	repo := localrepo.New(testRepo, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(config.Config), testRepo, config.Config)
 
 	// creates some new heads
 	newBranches := 10

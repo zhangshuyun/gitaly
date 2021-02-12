@@ -16,7 +16,7 @@ import (
 func TestSuccessfulWikiWritePageRequest(t *testing.T) {
 	wikiRepoProto, wikiRepoPath, cleanupFunc := setupWikiRepo(t)
 	defer cleanupFunc()
-	wikiRepo := localrepo.New(wikiRepoProto, config.Config)
+	wikiRepo := localrepo.New(git.NewExecCommandFactory(config.Config), wikiRepoProto, config.Config)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()

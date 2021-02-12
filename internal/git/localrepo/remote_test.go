@@ -20,7 +20,7 @@ import (
 func TestRepo_Remote(t *testing.T) {
 	repository := &gitalypb.Repository{StorageName: "stub", RelativePath: "/stub"}
 
-	repo := New(repository, config.Config)
+	repo := New(git.NewExecCommandFactory(config.Config), repository, config.Config)
 	require.Equal(t, Remote{repo: repo}, repo.Remote())
 }
 
@@ -72,7 +72,7 @@ func TestRemote_Add(t *testing.T) {
 
 	repoProto, repoPath, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
-	repo := New(repoProto, config.Config)
+	repo := New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
 	_, remoteRepoPath, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
@@ -150,7 +150,7 @@ func TestRemote_Add(t *testing.T) {
 func TestRemote_Remove(t *testing.T) {
 	repoProto, repoPath, cleanup := testhelper.InitBareRepo(t)
 	defer cleanup()
-	repo := New(repoProto, config.Config)
+	repo := New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -204,7 +204,7 @@ func TestBuildSetURLOptsFlags(t *testing.T) {
 func TestRemote_SetURL(t *testing.T) {
 	repoProto, repoPath, cleanup := testhelper.InitBareRepo(t)
 	defer cleanup()
-	repo := New(repoProto, config.Config)
+	repo := New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -265,6 +265,8 @@ func TestRepo_FetchRemote(t *testing.T) {
 	}(config.Config.Ruby.Dir)
 	config.Config.Ruby.Dir = "/var/empty"
 
+	gitCmdFactory := git.NewExecCommandFactory(config.Config)
+
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -284,11 +286,11 @@ func TestRepo_FetchRemote(t *testing.T) {
 			t.FailNow()
 		}
 
-		return New(testRepo, config.Config), testRepoPath, cleanup
+		return New(gitCmdFactory, testRepo, config.Config), testRepoPath, cleanup
 	}
 
 	t.Run("invalid name", func(t *testing.T) {
-		repo := New(nil, config.Config)
+		repo := New(gitCmdFactory, nil, config.Config)
 
 		err := repo.FetchRemote(ctx, " ", FetchOpts{})
 		require.True(t, errors.Is(err, git.ErrInvalidArg))
@@ -299,7 +301,7 @@ func TestRepo_FetchRemote(t *testing.T) {
 		testRepo, _, cleanup := testhelper.InitBareRepo(t)
 		defer cleanup()
 
-		repo := New(testRepo, config.Config)
+		repo := New(gitCmdFactory, testRepo, config.Config)
 		var stderr bytes.Buffer
 		err := repo.FetchRemote(ctx, "stub", FetchOpts{Stderr: &stderr})
 		require.Error(t, err)
@@ -334,7 +336,7 @@ func TestRepo_FetchRemote(t *testing.T) {
 		testRepo, testRepoPath, testCleanup := testhelper.NewTestRepo(t)
 		defer testCleanup()
 
-		repo := New(testRepo, config.Config)
+		repo := New(gitCmdFactory, testRepo, config.Config)
 		testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "remote", "add", "source", sourceRepoPath)
 
 		var stderr bytes.Buffer
@@ -349,7 +351,7 @@ func TestRepo_FetchRemote(t *testing.T) {
 		testRepo, testRepoPath, testCleanup := testhelper.NewTestRepo(t)
 		defer testCleanup()
 
-		repo := New(testRepo, config.Config)
+		repo := New(gitCmdFactory, testRepo, config.Config)
 		testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "remote", "add", "source", sourceRepoPath)
 
 		require.NoError(t, repo.FetchRemote(ctx, "source", FetchOpts{}))
@@ -377,7 +379,7 @@ func TestRepo_FetchRemote(t *testing.T) {
 		testRepo, testRepoPath, testCleanup := testhelper.NewTestRepo(t)
 		defer testCleanup()
 
-		repo := New(testRepo, config.Config)
+		repo := New(gitCmdFactory, testRepo, config.Config)
 
 		testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "remote", "add", "source", sourceRepoPath)
 		require.NoError(t, repo.FetchRemote(ctx, "source", FetchOpts{}))

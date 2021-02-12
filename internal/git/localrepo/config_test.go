@@ -18,7 +18,7 @@ func TestRepo_Config(t *testing.T) {
 	bareRepo, _, cleanup := testhelper.InitBareRepo(t)
 	defer cleanup()
 
-	repo := New(bareRepo, config.Config)
+	repo := New(nil, bareRepo, config.Cfg{})
 	require.Equal(t, Config{repo: repo}, repo.Config())
 }
 
@@ -48,7 +48,7 @@ func TestBuildConfigAddOptsFlags(t *testing.T) {
 func TestConfig_Add(t *testing.T) {
 	repoProto, repoPath, cleanup := testhelper.InitBareRepo(t)
 	defer cleanup()
-	repo := New(repoProto, config.Config)
+	repo := New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -147,7 +147,7 @@ func TestBuildConfigGetRegexpOptsFlags(t *testing.T) {
 func TestConfig_GetRegexp(t *testing.T) {
 	repoProto, repoPath, cleanup := testhelper.InitBareRepo(t)
 	defer cleanup()
-	repo := New(repoProto, config.Config)
+	repo := New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -258,7 +258,7 @@ func TestConfig_UnsetAll(t *testing.T) {
 
 	repoProto, repoPath, cleanup := testhelper.InitBareRepo(t)
 	defer cleanup()
-	repo := New(repoProto, config.Config)
+	repo := New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()

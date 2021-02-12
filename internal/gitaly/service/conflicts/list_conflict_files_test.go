@@ -210,7 +210,7 @@ func buildCommit(t *testing.T, ctx context.Context, repo *gitalypb.Repository, r
 
 	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "commit", "-m", "message")
 
-	oid, err := localrepo.New(repo, config.Config).ResolveRevision(ctx, git.Revision("HEAD"))
+	oid, err := localrepo.New(git.NewExecCommandFactory(config.Config), repo, config.Config).ResolveRevision(ctx, git.Revision("HEAD"))
 	require.NoError(t, err)
 
 	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "reset", "--hard", "HEAD~")

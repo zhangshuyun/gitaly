@@ -11,6 +11,6 @@ import (
 func TestRepo(t *testing.T) {
 	git.TestRepository(t, func(t testing.TB, pbRepo *gitalypb.Repository) git.Repository {
 		t.Helper()
-		return New(pbRepo, config.Config)
+		return New(git.NewExecCommandFactory(config.Config), pbRepo, config.Config)
 	})
 }

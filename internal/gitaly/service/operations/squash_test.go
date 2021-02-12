@@ -55,7 +55,7 @@ func testSuccessfulUserSquashRequest(t *testing.T, ctx context.Context, start, e
 
 	repoProto, repoPath, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
-	repo := localrepo.New(repoProto, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
 	request := &gitalypb.UserSquashRequest{
 		Repository:    repoProto,
@@ -94,7 +94,7 @@ func TestUserSquash_stableID(t *testing.T) {
 
 	repoProto, _, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
-	repo := localrepo.New(repoProto, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -163,7 +163,7 @@ func TestSuccessfulUserSquashRequestWith3wayMerge(t *testing.T) {
 
 	repoProto, repoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
-	repo := localrepo.New(repoProto, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
 	request := &gitalypb.UserSquashRequest{
 		Repository:    repoProto,
@@ -247,7 +247,7 @@ func TestSquashRequestWithRenamedFiles(t *testing.T) {
 
 	repoProto, repoPath, cleanupFn := testhelper.NewTestRepoWithWorktree(t)
 	defer cleanupFn()
-	repo := localrepo.New(repoProto, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
 	originalFilename := "original-file.txt"
 	renamedFilename := "renamed-file.txt"

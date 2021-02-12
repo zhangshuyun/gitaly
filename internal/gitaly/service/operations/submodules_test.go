@@ -34,7 +34,7 @@ func testSuccessfulUserUpdateSubmoduleRequest(t *testing.T, ctx context.Context)
 	testRepoProto, testRepoPath, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
 
-	testRepo := localrepo.New(testRepoProto, config.Config)
+	testRepo := localrepo.New(git.NewExecCommandFactory(config.Config), testRepoProto, config.Config)
 
 	// This reference is created to check that we can correctly commit onto
 	// a branch which has a name starting with "refs/heads/".
@@ -124,7 +124,7 @@ func testUserUpdateSubmoduleStableID(t *testing.T, ctx context.Context) {
 
 	repoProto, _, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
-	repo := localrepo.New(repoProto, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
 	response, err := client.UserUpdateSubmodule(ctx, &gitalypb.UserUpdateSubmoduleRequest{
 		Repository:    repoProto,

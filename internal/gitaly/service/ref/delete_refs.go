@@ -60,7 +60,7 @@ func (s *server) refsToRemove(ctx context.Context, req *gitalypb.DeleteRefsReque
 		prefixes[i] = string(prefix)
 	}
 
-	existingRefs, err := localrepo.New(req.GetRepository(), s.cfg).GetReferences(ctx, "")
+	existingRefs, err := localrepo.New(s.gitCmdFactory, req.GetRepository(), s.cfg).GetReferences(ctx, "")
 	if err != nil {
 		return nil, err
 	}
