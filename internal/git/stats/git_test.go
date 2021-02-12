@@ -12,6 +12,7 @@ import (
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -30,6 +31,7 @@ func TestLogObjectInfo(t *testing.T) {
 	logBuffer := &bytes.Buffer{}
 	log := &logrus.Logger{Out: logBuffer, Formatter: &logrus.JSONFormatter{}, Level: logrus.InfoLevel}
 	testCtx := ctxlogrus.ToContext(ctx, log.WithField("test", "logging"))
+	gitCmdFactory := git.NewExecCommandFactory(config.Config)
 
 	requireLog := func(msg string) map[string]interface{} {
 		var out map[string]interface{}
@@ -60,7 +62,7 @@ func TestLogObjectInfo(t *testing.T) {
 		testhelper.MustRunCommand(t, nil, "git", "clone", "--shared", repoPath1, "--reference", repoPath1, "--reference", repoPath2, tmpDir)
 
 		logBuffer.Reset()
-		LogObjectsInfo(testCtx, &gitalypb.Repository{
+		LogObjectsInfo(testCtx, gitCmdFactory, &gitalypb.Repository{
 			StorageName:  repo1.StorageName,
 			RelativePath: filepath.Join(strings.TrimPrefix(tmpDir, storagePath), ".git"),
 		})
@@ -71,7 +73,7 @@ func TestLogObjectInfo(t *testing.T) {
 
 	t.Run("repo without alternates", func(t *testing.T) {
 		logBuffer.Reset()
-		LogObjectsInfo(testCtx, repo2)
+		LogObjectsInfo(testCtx, gitCmdFactory, repo2)
 
 		countObjects := requireLog(logBuffer.String())
 		require.Contains(t, countObjects, "prune-packable")

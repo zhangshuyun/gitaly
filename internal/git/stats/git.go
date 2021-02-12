@@ -14,10 +14,10 @@ import (
 
 // LogObjectsInfo read statistics of the git repo objects
 // and logs it under 'count-objects' key as structured entry.
-func LogObjectsInfo(ctx context.Context, repo repository.GitRepo) {
+func LogObjectsInfo(ctx context.Context, gitCmdFactory git.CommandFactory, repo repository.GitRepo) {
 	logger := ctxlogrus.Extract(ctx)
 
-	cmd, err := git.NewCommand(ctx, repo, nil, git.SubCmd{
+	cmd, err := gitCmdFactory.New(ctx, repo, nil, git.SubCmd{
 		Name:  "count-objects",
 		Flags: []git.Option{git.Flag{Name: "--verbose"}},
 	})

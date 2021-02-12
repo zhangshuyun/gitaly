@@ -62,7 +62,7 @@ func NewExecCommandFactory(cfg config.Cfg) *ExecCommandFactory {
 
 // New creates a new command for the repo repository.
 func (cf *ExecCommandFactory) New(ctx context.Context, repo repository.GitRepo, globals []GlobalOption, sc Cmd, opts ...CmdOpt) (*command.Command, error) {
-	return NewCommand(ctx, repo, globals, sc, opts...)
+	return cf.newCommand(ctx, repo, "", globals, sc, opts...)
 }
 
 // NewWithoutRepo creates a command without a target repository.

@@ -498,13 +498,6 @@ func TestGetArchivePathInjection(t *testing.T) {
 }
 
 func TestGetArchiveEnv(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
-
 	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
@@ -535,6 +528,13 @@ env | grep -E "^GL_|CORRELATION|GITALY_"`))
 	oldBinPath := config.Config.Git.BinPath
 	config.Config.Git.BinPath = tmpFile.Name()
 	defer func() { config.Config.Git.BinPath = oldBinPath }()
+
+	locator := config.NewLocator(config.Config)
+	serverSocketPath, stop := runRepoServer(t, locator)
+	defer stop()
+
+	client, conn := newRepositoryClient(t, serverSocketPath)
+	defer conn.Close()
 
 	cfgData, err := json.Marshal(config.Config.Gitlab)
 	require.NoError(t, err)

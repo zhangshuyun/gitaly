@@ -176,11 +176,12 @@ func TestGetCommitCatfileWithTrailers(t *testing.T) {
 	testRepo, _, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
 
-	catfile, err := catfile.New(ctx, git.NewExecCommandFactory(config.Config), testRepo)
+	gitCmdFactory := git.NewExecCommandFactory(config.Config)
+	catfile, err := catfile.New(ctx, gitCmdFactory, testRepo)
 
 	require.NoError(t, err)
 
-	commit, err := GetCommitCatfileWithTrailers(ctx, testRepo, catfile, "5937ac0a7beb003549fc5fd26fc247adbce4a52e")
+	commit, err := GetCommitCatfileWithTrailers(ctx, gitCmdFactory, testRepo, catfile, "5937ac0a7beb003549fc5fd26fc247adbce4a52e")
 
 	require.NoError(t, err)
 

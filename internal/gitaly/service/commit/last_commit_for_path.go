@@ -48,7 +48,7 @@ func (s *server) lastCommitForPath(ctx context.Context, in *gitalypb.LastCommitF
 		options.LiteralPathspecs = true
 	}
 
-	commit, err := log.LastCommitForPath(ctx, c, repo, git.Revision(in.GetRevision()), path, options)
+	commit, err := log.LastCommitForPath(ctx, s.gitCmdFactory, c, repo, git.Revision(in.GetRevision()), path, options)
 	if log.IsNotFound(err) {
 		return &gitalypb.LastCommitForPathResponse{}, nil
 	}

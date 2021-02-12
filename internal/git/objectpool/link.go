@@ -171,8 +171,8 @@ func (o *ObjectPool) Unlink(ctx context.Context, repo *gitalypb.Repository) erro
 	// We need to use removeRemote, and can't leverage `git config --remove-section`
 	// as the latter doesn't clean up refs
 	remoteName := repo.GetGlRepository()
-	if err := remote.Remove(ctx, o.cfg, o, remoteName); err != nil {
-		if present, err2 := remote.Exists(ctx, o.cfg, o, remoteName); err2 != nil || present {
+	if err := remote.Remove(ctx, o.gitCmdFactory, o.cfg, o, remoteName); err != nil {
+		if present, err2 := remote.Exists(ctx, o.gitCmdFactory, o.cfg, o, remoteName); err2 != nil || present {
 			return err
 		}
 	}
