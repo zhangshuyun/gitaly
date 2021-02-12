@@ -30,7 +30,7 @@ func waitPing(s *Server) error {
 func BenchmarkConcurrency(b *testing.B) {
 	config.Config.Ruby.NumWorkers = 2
 
-	s := &Server{}
+	s := New(config.Config)
 	require.NoError(b, s.Start())
 	defer s.Stop()
 

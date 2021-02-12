@@ -39,7 +39,7 @@ type GitalyServerFactory struct {
 func NewGitalyServerFactory(cfg config.Cfg, hookManager hook.Manager, txManager transaction.Manager, conns *client.Pool, locator storage.Locator, gitCmdFactory git.CommandFactory) *GitalyServerFactory {
 	return &GitalyServerFactory{
 		cfg:           cfg,
-		ruby:          &rubyserver.Server{},
+		ruby:          rubyserver.New(cfg),
 		hookManager:   hookManager,
 		txManager:     txManager,
 		conns:         conns,

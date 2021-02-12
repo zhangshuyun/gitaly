@@ -17,7 +17,7 @@ import (
 	"google.golang.org/grpc/reflection"
 )
 
-var RubyServer = &rubyserver.Server{}
+var RubyServer *rubyserver.Server
 
 func TestMain(m *testing.M) {
 	os.Exit(testMain(m))
@@ -40,6 +40,7 @@ func testMain(m *testing.M) int {
 	// dir of the BinDir is a temp folder
 	hooks.Override = filepath.Join(filepath.Dir(config.Config.BinDir), "/hooks")
 
+	RubyServer = rubyserver.New(config.Config)
 	if err := RubyServer.Start(); err != nil {
 		log.Error(err)
 		return 1

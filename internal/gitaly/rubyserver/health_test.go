@@ -5,10 +5,11 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 )
 
 func TestPingSuccess(t *testing.T) {
-	s := &Server{}
+	s := New(config.Config)
 	require.NoError(t, s.Start())
 	defer s.Stop()
 

@@ -31,7 +31,7 @@ type createWikiPageOpts struct {
 
 var (
 	mockPageContent = bytes.Repeat([]byte("Mock wiki page content"), 10000)
-	rubyServer      = &rubyserver.Server{}
+	rubyServer      *rubyserver.Server
 )
 
 func TestMain(m *testing.M) {
@@ -54,6 +54,7 @@ func testMain(m *testing.M) int {
 	hooks.Override = tempDir + "/hooks"
 	config.Config.InternalSocketDir = tempDir + "/sock"
 
+	rubyServer = rubyserver.New(config.Config)
 	if err := rubyServer.Start(); err != nil {
 		log.Error(err)
 		return 1
