@@ -1,0 +1,5 @@
+---
+title: Ignore SIGURG in gitaly-wrapper
+merge_request: 3131
+author:
+type: changed
