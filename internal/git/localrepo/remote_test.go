@@ -179,6 +179,23 @@ func TestRemote_Remove(t *testing.T) {
 	})
 }
 
+func TestRemote_Exists(t *testing.T) {
+	repoProto, _, cleanupFn := testhelper.NewTestRepo(t)
+	defer cleanupFn()
+	remote := New(git.NewExecCommandFactory(config.Config), repoProto, config.Config).Remote()
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	found, err := remote.Exists(ctx, "origin")
+	require.NoError(t, err)
+	require.True(t, found)
+
+	found, err = remote.Exists(ctx, "can-not-be-found")
+	require.NoError(t, err)
+	require.False(t, found)
+}
+
 func TestBuildSetURLOptsFlags(t *testing.T) {
 	for _, tc := range []struct {
 		desc string
