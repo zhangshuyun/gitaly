@@ -1,6 +1,7 @@
 package operations
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -9,8 +10,6 @@ import (
 	"testing/iotest"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/catfile"
@@ -26,12 +25,10 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/streamio"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-func testUserApplyPatch(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-
+func testUserApplyPatch(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	type actionFunc func(testing.TB, *localrepo.Repo) git2go.Action
 
 	createFile := func(filepath string, content string) actionFunc {
@@ -117,7 +114,7 @@ To restore the original branch and stop patching, run "git am --abort".
 					createFile("file", "base-content"),
 				},
 			},
-			error: status.Error(codes.Internal, "TypeError: no implicit conversion of nil into String"),
+			error: status.Error(codes.Unknown, "TypeError: no implicit conversion of nil into String"),
 		},
 		{
 			desc:          "creating a new branch from HEAD works",
@@ -294,7 +291,7 @@ To restore the original branch and stop patching, run "git am --abort".
 			}
 
 			if baseCommit != "" {
-				require.NoError(t, repo.UpdateRef(ctx, tc.baseReference, git.ObjectID(baseCommit), git.ZeroOID))
+				require.NoError(t, repo.UpdateRef(ctx, tc.baseReference, baseCommit, git.ZeroOID))
 			}
 
 			if tc.extraBranches != nil {
@@ -308,7 +305,7 @@ To restore the original branch and stop patching, run "git am --abort".
 
 				for _, extraBranch := range tc.extraBranches {
 					require.NoError(t, repo.UpdateRef(ctx,
-						git.NewReferenceNameFromBranchName(extraBranch), git.ObjectID(emptyCommit), git.ZeroOID),
+						git.NewReferenceNameFromBranchName(extraBranch), emptyCommit, git.ZeroOID),
 					)
 				}
 			}
@@ -403,9 +400,6 @@ To restore the original branch and stop patching, run "git am --abort".
 			actualCommit.ParentIds = nil // the parent changes with the patches, we just check it is set
 			actualCommit.TreeId = ""     // treeID is asserted via its contents below
 
-			authorTimestamp, err := ptypes.TimestampProto(authorTime)
-			require.NoError(t, err)
-
 			expectedBody := []byte("commit subject\n\ncommit message body\n")
 			expectedTimezone := []byte("+0000")
 			testassert.ProtoEqual(t,
@@ -416,7 +410,7 @@ To restore the original branch and stop patching, run "git am --abort".
 					Author: &gitalypb.CommitAuthor{
 						Name:     []byte("Test Author"),
 						Email:    []byte("author@example.com"),
-						Date:     authorTimestamp,
+						Date:     timestamppb.New(authorTime),
 						Timezone: expectedTimezone,
 					},
 					Committer: &gitalypb.CommitAuthor{
@@ -435,10 +429,7 @@ To restore the original branch and stop patching, run "git am --abort".
 	}
 }
 
-func testSuccessfulUserApplyPatch(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-
+func testSuccessfulUserApplyPatch(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -544,10 +535,7 @@ func testSuccessfulUserApplyPatch(t *testing.T, cfg config.Cfg, rubySrv *rubyser
 	}
 }
 
-func testUserApplyPatchStableID(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-
+func testUserApplyPatchStableID(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	ctx, cfg, repoProto, _, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -561,7 +549,7 @@ func testUserApplyPatchStableID(t *testing.T, cfg config.Cfg, rubySrv *rubyserve
 				Repository:   repoProto,
 				User:         gittest.TestUser,
 				TargetBranch: []byte("branch"),
-				Timestamp:    &timestamp.Timestamp{Seconds: 1234512345},
+				Timestamp:    &timestamppb.Timestamp{Seconds: 1234512345},
 			},
 		},
 	}))
@@ -591,22 +579,19 @@ func testUserApplyPatchStableID(t *testing.T, cfg config.Cfg, rubySrv *rubyserve
 		Author: &gitalypb.CommitAuthor{
 			Name:     []byte("Patch User"),
 			Email:    []byte("patchuser@gitlab.org"),
-			Date:     &timestamp.Timestamp{Seconds: 1539862835},
+			Date:     &timestamppb.Timestamp{Seconds: 1539862835},
 			Timezone: []byte("+0200"),
 		},
 		Committer: &gitalypb.CommitAuthor{
 			Name:     gittest.TestUser.Name,
 			Email:    gittest.TestUser.Email,
-			Date:     &timestamp.Timestamp{Seconds: 1234512345},
+			Date:     &timestamppb.Timestamp{Seconds: 1234512345},
 			Timezone: []byte("+0000"),
 		},
 	}, patchedCommit)
 }
 
-func testFailedPatchApplyPatch(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-
+func testFailedPatchApplyPatch(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	ctx, _, repo, _, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
 
 	testPatch := testhelper.MustReadFile(t, "testdata/0001-This-does-not-apply-to-the-feature-branch.patch")
