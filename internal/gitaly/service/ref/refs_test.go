@@ -926,6 +926,13 @@ func TestFindLocalBranchesPagination(t *testing.T) {
 			limit:          1,
 			expectedBranch: "refs/heads/'test'",
 		},
+		{
+			desc:           "pageToken does not exist",
+			sortBy:         gitalypb.FindLocalBranchesRequest_NAME,
+			pageToken:      "refs/heads/gitaly/squash-test1", // does not exist
+			limit:          1,
+			expectedBranch: "refs/heads/improve/awesome",
+		},
 	}
 
 	for _, tc := range testCases {
