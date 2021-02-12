@@ -1,5 +1,0 @@
----
-title: 'hook: Use proper error codes when transactions fail'
-merge_request: 3097
-author:
-type: added
