@@ -32,6 +32,7 @@ import (
 	gitalylog "gitlab.com/gitlab-org/gitaly/internal/gitaly/config/log"
 	serverauth "gitlab.com/gitlab-org/gitaly/internal/gitaly/server/auth"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/fieldextractors"
+	gitalyinternallog "gitlab.com/gitlab-org/gitaly/internal/log"
 	praefectconfig "gitlab.com/gitlab-org/gitaly/internal/praefect/config"
 	grpccorrelation "gitlab.com/gitlab-org/labkit/correlation/grpc"
 	"google.golang.org/grpc"
@@ -296,13 +297,15 @@ func NewServerWithLogger(tb testing.TB, logger *log.Logger, streamInterceptors [
 	streamInterceptors = append([]grpc.StreamServerInterceptor{
 		grpc_ctxtags.StreamServerInterceptor(ctxTagger),
 		grpccorrelation.StreamServerCorrelationInterceptor(),
-		grpc_logrus.StreamServerInterceptor(logrusEntry),
+		grpc_logrus.StreamServerInterceptor(logrusEntry,
+			grpc_logrus.WithTimestampFormat(gitalyinternallog.LogTimestampFormat)),
 	}, streamInterceptors...)
 
 	unaryInterceptors = append([]grpc.UnaryServerInterceptor{
 		grpc_ctxtags.UnaryServerInterceptor(ctxTagger),
 		grpccorrelation.UnaryServerCorrelationInterceptor(),
-		grpc_logrus.UnaryServerInterceptor(logrusEntry),
+		grpc_logrus.UnaryServerInterceptor(logrusEntry,
+			grpc_logrus.WithTimestampFormat(gitalyinternallog.LogTimestampFormat)),
 	}, unaryInterceptors...)
 
 	return NewTestServer(

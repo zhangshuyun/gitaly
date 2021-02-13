@@ -12,6 +12,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/server/auth"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/fieldextractors"
+	"gitlab.com/gitlab-org/gitaly/internal/log"
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/cancelhandler"
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/metadatahandler"
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/panichandler"
@@ -59,7 +60,8 @@ func NewGRPCServer(
 		middleware.MethodTypeStreamInterceptor(registry),
 		metadatahandler.StreamInterceptor,
 		grpc_prometheus.StreamServerInterceptor,
-		grpc_logrus.StreamServerInterceptor(logger),
+		grpc_logrus.StreamServerInterceptor(logger,
+			grpc_logrus.WithTimestampFormat(log.LogTimestampFormat)),
 		sentryhandler.StreamLogHandler,
 		cancelhandler.Stream, // Should be below LogHandler
 		grpctracing.StreamServerTracingInterceptor(),
@@ -82,7 +84,8 @@ func NewGRPCServer(
 			middleware.MethodTypeUnaryInterceptor(registry),
 			metadatahandler.UnaryInterceptor,
 			grpc_prometheus.UnaryServerInterceptor,
-			grpc_logrus.UnaryServerInterceptor(logger),
+			grpc_logrus.UnaryServerInterceptor(logger,
+				grpc_logrus.WithTimestampFormat(log.LogTimestampFormat)),
 			sentryhandler.UnaryLogHandler,
 			cancelhandler.Unary, // Should be below LogHandler
 			grpctracing.UnaryServerTracingInterceptor(),
