@@ -1,0 +1,5 @@
+---
+title: 'coordinator: Fix outdated repos not getting repljobs with transactions'
+merge_request: 3055
+author:
+type: fixed

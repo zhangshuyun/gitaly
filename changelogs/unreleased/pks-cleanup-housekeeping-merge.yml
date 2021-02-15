@@ -1,0 +1,5 @@
+---
+title: 'repository: Cleanup stale lockfiles when running housekeeping'
+merge_request: 3051
+author:
+type: added
