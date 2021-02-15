@@ -14,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/ref"
+	"gitlab.com/gitlab-org/gitaly/internal/log"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -28,11 +29,15 @@ func createNewServer(t *testing.T) *grpc.Server {
 	opts := []grpc.ServerOption{
 		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
 			StreamInterceptor,
-			grpc_logrus.StreamServerInterceptor(logrusEntry, grpc_logrus.WithMessageProducer(CommandStatsMessageProducer)),
+			grpc_logrus.StreamServerInterceptor(logrusEntry,
+				grpc_logrus.WithTimestampFormat(log.LogTimestampFormat),
+				grpc_logrus.WithMessageProducer(CommandStatsMessageProducer)),
 		)),
 		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(
 			UnaryInterceptor,
-			grpc_logrus.UnaryServerInterceptor(logrusEntry, grpc_logrus.WithMessageProducer(CommandStatsMessageProducer)),
+			grpc_logrus.UnaryServerInterceptor(logrusEntry,
+				grpc_logrus.WithTimestampFormat(log.LogTimestampFormat),
+				grpc_logrus.WithMessageProducer(CommandStatsMessageProducer)),
 		)),
 	}
 

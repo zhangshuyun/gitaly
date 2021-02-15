@@ -108,7 +108,9 @@ func createNewServer(cfg config.Cfg, secure bool) (*grpc.Server, error) {
 			metadatahandler.StreamInterceptor,
 			grpc_prometheus.StreamServerInterceptor,
 			commandstatshandler.StreamInterceptor,
-			grpc_logrus.StreamServerInterceptor(logrusEntry, grpc_logrus.WithMessageProducer(commandstatshandler.CommandStatsMessageProducer)),
+			grpc_logrus.StreamServerInterceptor(logrusEntry,
+				grpc_logrus.WithTimestampFormat(gitalylog.LogTimestampFormat),
+				grpc_logrus.WithMessageProducer(commandstatshandler.CommandStatsMessageProducer)),
 			sentryhandler.StreamLogHandler,
 			cancelhandler.Stream, // Should be below LogHandler
 			auth.StreamServerInterceptor(cfg.Auth),
@@ -125,7 +127,9 @@ func createNewServer(cfg config.Cfg, secure bool) (*grpc.Server, error) {
 			metadatahandler.UnaryInterceptor,
 			grpc_prometheus.UnaryServerInterceptor,
 			commandstatshandler.UnaryInterceptor,
-			grpc_logrus.UnaryServerInterceptor(logrusEntry, grpc_logrus.WithMessageProducer(commandstatshandler.CommandStatsMessageProducer)),
+			grpc_logrus.UnaryServerInterceptor(logrusEntry,
+				grpc_logrus.WithTimestampFormat(gitalylog.LogTimestampFormat),
+				grpc_logrus.WithMessageProducer(commandstatshandler.CommandStatsMessageProducer)),
 			sentryhandler.UnaryLogHandler,
 			cancelhandler.Unary, // Should be below LogHandler
 			auth.UnaryServerInterceptor(cfg.Auth),
