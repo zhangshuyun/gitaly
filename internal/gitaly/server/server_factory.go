@@ -3,20 +3,15 @@ package server
 import (
 	"context"
 	"fmt"
-	"net"
 	"sync"
 	"time"
 
 	"github.com/sirupsen/logrus"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
 	"gitlab.com/gitlab-org/gitaly/client"
-	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/maintenance"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
-	"gitlab.com/gitlab-org/gitaly/internal/storage"
+	gitalylog "gitlab.com/gitlab-org/gitaly/internal/log"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
 )
@@ -25,32 +20,13 @@ import (
 type GitalyServerFactory struct {
 	mtx              sync.Mutex
 	cfg              config.Cfg
-	ruby             *rubyserver.Server
-	hookManager      hook.Manager
-	txManager        transaction.Manager
 	secure, insecure []*grpc.Server
-	conns            *client.Pool
-	locator          storage.Locator
-	gitCmdFactory    git.CommandFactory
 }
 
 // NewGitalyServerFactory allows to create and start secure/insecure 'grpc.Server'-s with gitaly-ruby
 // server shared in between.
-func NewGitalyServerFactory(cfg config.Cfg, hookManager hook.Manager, txManager transaction.Manager, conns *client.Pool, locator storage.Locator, gitCmdFactory git.CommandFactory) *GitalyServerFactory {
-	return &GitalyServerFactory{
-		cfg:           cfg,
-		ruby:          rubyserver.New(cfg),
-		hookManager:   hookManager,
-		txManager:     txManager,
-		conns:         conns,
-		locator:       locator,
-		gitCmdFactory: gitCmdFactory,
-	}
-}
-
-// StartRuby starts the ruby process
-func (s *GitalyServerFactory) StartRuby() error {
-	return s.ruby.Start()
+func NewGitalyServerFactory(cfg config.Cfg) *GitalyServerFactory {
+	return &GitalyServerFactory{cfg: cfg}
 }
 
 // StartWorkers will start any auxiliary background workers that are allowed
@@ -109,8 +85,6 @@ func (s *GitalyServerFactory) Stop() {
 	for _, srv := range s.all() {
 		srv.Stop()
 	}
-
-	s.ruby.Stop()
 }
 
 // GracefulStop stops both the secure and insecure servers gracefully
@@ -129,24 +103,16 @@ func (s *GitalyServerFactory) GracefulStop() {
 	wg.Wait()
 }
 
-// Serve starts serving on the provided listener with newly created grpc.Server
-func (s *GitalyServerFactory) Serve(l net.Listener, secure bool) error {
-	srv, err := s.create(secure)
-	if err != nil {
-		return err
-	}
-
-	return srv.Serve(l)
-}
-
-func (s *GitalyServerFactory) create(secure bool) (*grpc.Server, error) {
+// Create returns newly instantiated and initialized with interceptors instance of the gRPC server.
+func (s *GitalyServerFactory) Create(secure bool) (*grpc.Server, error) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 
-	server, err := New(secure, s.ruby, s.hookManager, s.txManager, s.cfg, s.conns, s.locator, s.gitCmdFactory)
+	server, err := New(secure, s.cfg, gitalylog.Default())
 	if err != nil {
 		return nil, err
 	}
+
 	if secure {
 		s.secure = append(s.secure, server)
 		return s.secure[len(s.secure)-1], nil

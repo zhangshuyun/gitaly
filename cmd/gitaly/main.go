@@ -17,7 +17,9 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config/sentry"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/server"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	glog "gitlab.com/gitlab-org/gitaly/internal/log"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
@@ -161,10 +163,16 @@ func run(cfg config.Cfg) error {
 
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
 
-	servers := server.NewGitalyServerFactory(cfg, hookManager, transactionManager, conns, locator, gitCmdFactory)
-	defer servers.Stop()
+	gitalyServerFactory := server.NewGitalyServerFactory(cfg)
+	defer gitalyServerFactory.Stop()
 
-	b.StopAction = servers.GracefulStop
+	b.StopAction = gitalyServerFactory.GracefulStop
+
+	rubySrv := rubyserver.New(cfg)
+	if err := rubySrv.Start(); err != nil {
+		return fmt.Errorf("initialize gitaly-ruby: %v", err)
+	}
+	defer rubySrv.Stop()
 
 	for _, c := range []starter.Config{
 		{starter.Unix, cfg.SocketPath},
@@ -176,7 +184,12 @@ func run(cfg config.Cfg) error {
 			continue
 		}
 
-		b.RegisterStarter(starter.New(c, servers))
+		srv, err := gitalyServerFactory.Create(c.IsSecure())
+		if err != nil {
+			return fmt.Errorf("create gRPC server: %w", err)
+		}
+		service.RegisterAll(srv, cfg, rubySrv, hookManager, transactionManager, locator, conns, gitCmdFactory)
+		b.RegisterStarter(starter.New(c, srv))
 	}
 
 	if addr := cfg.PrometheusListenAddr; addr != "" {
@@ -224,11 +237,7 @@ func run(cfg config.Cfg) error {
 		return fmt.Errorf("unable to start the bootstrap: %v", err)
 	}
 
-	if err := servers.StartRuby(); err != nil {
-		return fmt.Errorf("initialize gitaly-ruby: %v", err)
-	}
-
-	shutdownWorkers, err := servers.StartWorkers(ctx, glog.Default(), cfg)
+	shutdownWorkers, err := gitalyServerFactory.StartWorkers(ctx, glog.Default(), cfg)
 	if err != nil {
 		return fmt.Errorf("initialize auxiliary workers: %v", err)
 	}

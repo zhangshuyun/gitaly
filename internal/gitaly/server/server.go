@@ -11,15 +11,9 @@ import (
 	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	log "github.com/sirupsen/logrus"
-	"gitlab.com/gitlab-org/gitaly/client"
 	diskcache "gitlab.com/gitlab-org/gitaly/internal/cache"
-	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/server/auth"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/fieldextractors"
 	gitalylog "gitlab.com/gitlab-org/gitaly/internal/log"
 	"gitlab.com/gitlab-org/gitaly/internal/logsanitizer"
@@ -31,13 +25,11 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/panichandler"
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/sentryhandler"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/protoregistry"
-	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	grpccorrelation "gitlab.com/gitlab-org/labkit/correlation/grpc"
 	grpctracing "gitlab.com/gitlab-org/labkit/tracing/grpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
-	"google.golang.org/grpc/reflection"
 )
 
 func concurrencyKeyFn(ctx context.Context) string {
@@ -55,8 +47,6 @@ func concurrencyKeyFn(ctx context.Context) string {
 	return ""
 }
 
-var logrusEntry *log.Entry
-
 func init() {
 	for _, l := range gitalylog.Loggers {
 		urlSanitizer := logsanitizer.NewURLSanitizerHook()
@@ -68,31 +58,13 @@ func init() {
 		l.Hooks.Add(urlSanitizer)
 	}
 
-	// logrusEntry is used by middlewares below
-	logrusEntry = gitalylog.Default()
-
 	// grpc-go gets a custom logger; it is too chatty
 	grpc_logrus.ReplaceGrpcLogger(gitalylog.GrpcGo())
 }
 
-// registerServices registers all services on the provided gRPC server instance.
-func registerServices(
-	server *grpc.Server,
-	rubyServer *rubyserver.Server,
-	hookManager hook.Manager,
-	txManager transaction.Manager,
-	cfg config.Cfg,
-	conns *client.Pool,
-	locator storage.Locator,
-	gitCmdFactory git.CommandFactory,
-) {
-	service.RegisterAll(server, cfg, rubyServer, hookManager, txManager, locator, conns, gitCmdFactory)
-	reflection.Register(server)
-	grpc_prometheus.Register(server)
-}
-
-// createNewServer creates a new gRPC server with all required middleware configured.
-func createNewServer(cfg config.Cfg, secure bool) (*grpc.Server, error) {
+// New returns a GRPC server instance with a set of interceptors configured.
+// If logrusEntry is nil the default logger will be used.
+func New(secure bool, cfg config.Cfg, logrusEntry *log.Entry) (*grpc.Server, error) {
 	ctxTagOpts := []grpc_ctxtags.Option{
 		grpc_ctxtags.WithFieldExtractorForInitialReq(fieldextractors.FieldExtractor),
 	}
@@ -160,14 +132,4 @@ func createNewServer(cfg config.Cfg, secure bool) (*grpc.Server, error) {
 	}
 
 	return grpc.NewServer(opts...), nil
-}
-
-// New returns a GRPC server with all Gitaly services and interceptors set.
-func New(secure bool, rubyServer *rubyserver.Server, hookManager hook.Manager, txManager transaction.Manager, cfg config.Cfg, conns *client.Pool, locator storage.Locator, gitCmdFactory git.CommandFactory) (*grpc.Server, error) {
-	server, err := createNewServer(cfg, secure)
-	if err != nil {
-		return nil, err
-	}
-	registerServices(server, rubyServer, hookManager, txManager, cfg, conns, locator, gitCmdFactory)
-	return server, nil
 }

@@ -16,6 +16,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/status"
 )
@@ -35,7 +36,10 @@ func TestGitalyServerFactory(t *testing.T) {
 			require.NoError(t, err)
 			cleanups = append(cleanups, func() { listener.Close() })
 
-			go sf.Serve(listener, true)
+			srv, err := sf.Create(true)
+			require.NoError(t, err)
+			healthpb.RegisterHealthServer(srv, health.NewServer())
+			go srv.Serve(listener)
 
 			certPool, err := x509.SystemCertPool()
 			require.NoError(t, err)
@@ -57,7 +61,10 @@ func TestGitalyServerFactory(t *testing.T) {
 			require.NoError(t, err)
 			cleanups = append(cleanups, func() { listener.Close() })
 
-			go sf.Serve(listener, false)
+			srv, err := sf.Create(false)
+			require.NoError(t, err)
+			healthpb.RegisterHealthServer(srv, health.NewServer())
+			go srv.Serve(listener)
 
 			endpoint, err := starter.ComposeEndpoint(schema, listener.Addr().String())
 			require.NoError(t, err)
@@ -81,7 +88,7 @@ func TestGitalyServerFactory(t *testing.T) {
 	}
 
 	t.Run("insecure", func(t *testing.T) {
-		sf := NewGitalyServerFactory(config.Config, nil, nil, nil, nil, nil)
+		sf := NewGitalyServerFactory(config.Config)
 
 		_, cleanup := checkHealth(t, sf, starter.TCP, "localhost:0")
 		defer cleanup()
@@ -97,7 +104,7 @@ func TestGitalyServerFactory(t *testing.T) {
 			KeyPath:  keyFile,
 		}
 
-		sf := NewGitalyServerFactory(config.Config, nil, nil, nil, nil, nil)
+		sf := NewGitalyServerFactory(config.Config)
 		defer sf.Stop()
 
 		_, cleanup := checkHealth(t, sf, starter.TLS, "localhost:0")
@@ -105,7 +112,7 @@ func TestGitalyServerFactory(t *testing.T) {
 	})
 
 	t.Run("all services must be stopped", func(t *testing.T) {
-		sf := NewGitalyServerFactory(config.Config, nil, nil, nil, nil, nil)
+		sf := NewGitalyServerFactory(config.Config)
 		defer sf.Stop()
 
 		tcpHealthClient, tcpCleanup := checkHealth(t, sf, starter.TCP, "localhost:0")

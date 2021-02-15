@@ -84,20 +84,27 @@ func (c *Config) Endpoint() (string, error) {
 	return ComposeEndpoint(c.Name, c.Addr)
 }
 
-func (c *Config) isSecure() bool {
+// IsSecure returns true if network is secured.
+func (c *Config) IsSecure() bool {
 	return c.Name == TLS
 }
 
 func (c *Config) family() string {
-	if c.isSecure() {
+	if c.IsSecure() {
 		return TCP
 	}
 
 	return c.Name
 }
 
+// Server able to serve requests.
+type Server interface {
+	// Serve accepts requests from the listener and handles them properly.
+	Serve(lis net.Listener) error
+}
+
 // New creates a new bootstrap.Starter from a config and a GracefulStoppableServer
-func New(cfg Config, servers GracefulStoppableServer) bootstrap.Starter {
+func New(cfg Config, server Server) bootstrap.Starter {
 	return func(listen bootstrap.ListenFunc, errCh chan<- error) error {
 		l, err := listen(cfg.family(), cfg.Addr)
 		if err != nil {
@@ -108,16 +115,9 @@ func New(cfg Config, servers GracefulStoppableServer) bootstrap.Starter {
 		l = connectioncounter.New(cfg.Name, l)
 
 		go func() {
-			errCh <- servers.Serve(l, cfg.isSecure())
+			errCh <- server.Serve(l)
 		}()
 
 		return nil
 	}
-}
-
-// GracefulStoppableServer allows to serve contents on a net.Listener, Stop serving and performing a GracefulStop
-type GracefulStoppableServer interface {
-	GracefulStop()
-	Stop()
-	Serve(l net.Listener, secure bool) error
 }

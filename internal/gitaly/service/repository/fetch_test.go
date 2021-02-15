@@ -11,6 +11,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
 	serverPkg "gitlab.com/gitlab-org/gitaly/internal/gitaly/server"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service"
 	hookservice "gitlab.com/gitlab-org/gitaly/internal/gitaly/service/hook"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/repository"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
@@ -345,10 +346,11 @@ func runFullSecureServer(t *testing.T, locator storage.Locator) (*grpc.Server, s
 	hookManager := hook.NewManager(locator, txManager, hook.GitlabAPIStub, cfg)
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
 
-	server, err := serverPkg.New(true, repository.RubyServer, hookManager, txManager, cfg, conns, config.NewLocator(cfg), gitCmdFactory)
+	server, err := serverPkg.New(true, cfg, testhelper.DiscardTestEntry(t))
 	require.NoError(t, err)
 	listener, addr := testhelper.GetLocalhostListener(t)
 
+	service.RegisterAll(server, cfg, repository.RubyServer, hookManager, txManager, config.NewLocator(cfg), conns, gitCmdFactory)
 	errQ := make(chan error)
 
 	// This creates a secondary GRPC server which isn't "secure". Reusing

@@ -16,6 +16,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	gconfig "gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/server"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/commit"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
@@ -27,6 +28,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
 
@@ -34,14 +36,19 @@ func TestServerFactory(t *testing.T) {
 	cfg := gconfig.Config
 	locator := gconfig.NewLocator(cfg)
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
-	gitalyServerFactory := server.NewGitalyServerFactory(cfg, nil, nil, nil, locator, gitCmdFactory)
+	gitalyServerFactory := server.NewGitalyServerFactory(cfg)
 	defer gitalyServerFactory.Stop()
+
+	gitalySrv, err := gitalyServerFactory.Create(false)
+	require.NoError(t, err)
+	healthpb.RegisterHealthServer(gitalySrv, health.NewServer())
+	gitalypb.RegisterCommitServiceServer(gitalySrv, commit.NewServer(cfg, locator, gitCmdFactory))
 
 	// start gitaly serving on public endpoint
 	gitalyListener, err := net.Listen(starter.TCP, "localhost:0")
 	require.NoError(t, err)
 	defer func() { require.NoError(t, gitalyListener.Close()) }()
-	go gitalyServerFactory.Serve(gitalyListener, false)
+	go gitalySrv.Serve(gitalyListener)
 
 	// start gitaly serving on internal endpoint
 	gitalyInternalSocketPath := cfg.GitalyInternalSocketPath()
@@ -49,7 +56,7 @@ func TestServerFactory(t *testing.T) {
 	gitalyInternalListener, err := net.Listen(starter.Unix, gitalyInternalSocketPath)
 	require.NoError(t, err)
 	defer func() { require.NoError(t, gitalyInternalListener.Close()) }()
-	go gitalyServerFactory.Serve(gitalyInternalListener, false)
+	go gitalySrv.Serve(gitalyInternalListener)
 
 	gitalyAddr, err := starter.ComposeEndpoint(gitalyListener.Addr().Network(), gitalyListener.Addr().String())
 	require.NoError(t, err)
