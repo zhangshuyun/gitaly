@@ -5,6 +5,7 @@
 package streamio
 
 import (
+	"errors"
 	"io"
 	"os"
 	"strconv"
@@ -155,20 +156,21 @@ func (sw *sendWriter) ReadFrom(r io.Reader) (int64, error) {
 	var nRead int64
 	buf := make([]byte, WriteBufferSize)
 
-	var errRead, errSend error
-	for errSend == nil && errRead != io.EOF {
-		var n int
-
-		n, errRead = r.Read(buf)
+	for {
+		n, err := r.Read(buf)
 		nRead += int64(n)
-		if errRead != nil && errRead != io.EOF {
-			return nRead, errRead
-		}
 
 		if n > 0 {
-			errSend = sw.sender(buf[:n])
+			if err := sw.sender(buf[:n]); err != nil {
+				return nRead, err
+			}
+		}
+
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				return nRead, nil
+			}
+			return nRead, err
 		}
 	}
-
-	return nRead, errSend
 }
