@@ -108,7 +108,7 @@ func (s *Server) start() error {
 	gitalyRuby := filepath.Join(cfg.Ruby.Dir, "bin", "gitaly-ruby")
 
 	numWorkers := cfg.Ruby.NumWorkers
-	balancer.ConfigureBuilder(numWorkers, 0)
+	balancer.ConfigureBuilder(numWorkers, 0, time.Now)
 
 	for i := 0; i < numWorkers; i++ {
 		name := fmt.Sprintf("gitaly-ruby.%d", i)

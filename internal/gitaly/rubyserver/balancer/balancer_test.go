@@ -105,7 +105,8 @@ func TestRemovals(t *testing.T) {
 	}
 	numAddr := 3
 	removeDelay := 1 * time.Millisecond
-	ConfigureBuilder(numAddr, removeDelay)
+	now := time.Now()
+	ConfigureBuilder(numAddr, removeDelay, func() time.Time { return now })
 
 	testCases := []struct {
 		desc      string
@@ -164,9 +165,7 @@ func TestRemovals(t *testing.T) {
 				if a.add != "" {
 					AddAddress(a.add)
 				} else {
-					if tc.delay > 0 {
-						time.Sleep(tc.delay)
-					}
+					now = now.Add(tc.delay)
 
 					expected := true
 					if i+1 == len(tc.actions) && tc.lastFails {
@@ -227,7 +226,7 @@ func (tcc *testClientConn) UpdateState(state resolver.State) {}
 // it with addresses. It returns the list of addresses it added.
 func configureBuilderTest(numAddrs int) []string {
 	delay := 1 * time.Millisecond
-	ConfigureBuilder(numAddrs, delay)
+	ConfigureBuilder(numAddrs, delay, time.Now)
 	lbBuilder.testingTriggerRestart <- struct{}{}
 
 	var addrs []string
