@@ -42,7 +42,9 @@ const (
 // AddAddress adds the address of a gitaly-ruby instance to the load
 // balancer.
 func AddAddress(a string) {
-	lbBuilder.addAddress <- a
+	done := make(chan struct{})
+	lbBuilder.addAddress <- addressAddition{addr: a, done: done}
+	<-done
 }
 
 // RemoveAddress removes the address of a gitaly-ruby instance from the
@@ -52,6 +54,11 @@ func RemoveAddress(addr string) bool {
 	ok := make(chan bool)
 	lbBuilder.removeAddress <- addressRemoval{ok: ok, addr: addr}
 	return <-ok
+}
+
+type addressAddition struct {
+	addr string
+	done chan<- struct{}
 }
 
 type addressRemoval struct {
@@ -70,7 +77,7 @@ type config struct {
 }
 
 type builder struct {
-	addAddress     chan string
+	addAddress     chan addressAddition
 	removeAddress  chan addressRemoval
 	addressUpdates chan addressUpdate
 	configUpdate   chan config
@@ -101,7 +108,7 @@ func ConfigureBuilder(numAddrs int, removeDelay time.Duration) {
 
 func newBuilder() *builder {
 	b := &builder{
-		addAddress:            make(chan string),
+		addAddress:            make(chan addressAddition),
 		removeAddress:         make(chan addressRemoval),
 		addressUpdates:        make(chan addressUpdate),
 		configUpdate:          make(chan config),
@@ -156,8 +163,9 @@ func (b *builder) monitor() {
 		select {
 		case addressUpdates <- au:
 			// We have served an address update request
-		case addr := <-b.addAddress:
-			p.add(addr)
+		case addition := <-b.addAddress:
+			p.add(addition.addr)
+			close(addition.done)
 
 			notify = broadcast(notify)
 		case removal := <-b.removeAddress:
