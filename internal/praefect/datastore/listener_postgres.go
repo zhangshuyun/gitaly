@@ -94,6 +94,7 @@ func (pgl *PostgresListener) connect() error {
 
 		switch eventType {
 		case pq.ListenerEventConnectionAttemptFailed:
+			pgl.logger.WithError(err).Error(listenerEventTypeToString(eventType))
 			if firstConnectionAttempt {
 				firstConnectionAttempt = false
 				// if a first attempt to establish a connection to a remote is failed
@@ -102,7 +103,6 @@ func (pgl *PostgresListener) connect() error {
 				// connection address.
 				connectErrChan <- err
 			}
-			pgl.logger.WithError(err).Error(listenerEventTypeToString(eventType))
 		case pq.ListenerEventConnected:
 			// once the connection is established we can be sure that the connection
 			// address is correct and all other errors could be considered as
