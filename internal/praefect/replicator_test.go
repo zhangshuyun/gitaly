@@ -217,8 +217,6 @@ func TestReplMgr_ProcessBacklog(t *testing.T) {
 
 	replMgr.ProcessBacklog(ctx, ExpBackoffFunc(time.Hour, 0))
 
-	<-ctx.Done()
-
 	logEntries := hook.AllEntries()
 	require.True(t, len(logEntries) > 3, "expected at least 4 log entries to be present")
 	require.Equal(t,
@@ -408,7 +406,7 @@ func TestPropagateReplicationJob(t *testing.T) {
 
 	replCtx, cancel := testhelper.Context()
 	defer cancel()
-	replmgr.ProcessBacklog(replCtx, noopBackoffFunc)
+	go replmgr.ProcessBacklog(replCtx, noopBackoffFunc)
 
 	// ensure primary gitaly server received the expected requests
 	waitForRequest(t, primaryServer.gcChan, expectedPrimaryGcReq, 5*time.Second)
@@ -678,7 +676,7 @@ func TestProcessBacklog_FailedJobs(t *testing.T) {
 		nodeMgr,
 		NodeSetFromNodeManager(nodeMgr),
 	)
-	replMgr.ProcessBacklog(ctx, noopBackoffFunc)
+	go replMgr.ProcessBacklog(ctx, noopBackoffFunc)
 
 	select {
 	case <-processed:
@@ -824,7 +822,7 @@ func TestProcessBacklog_Success(t *testing.T) {
 		nodeMgr,
 		NodeSetFromNodeManager(nodeMgr),
 	)
-	replMgr.ProcessBacklog(ctx, noopBackoffFunc)
+	go replMgr.ProcessBacklog(ctx, noopBackoffFunc)
 
 	select {
 	case <-processed:
@@ -895,7 +893,7 @@ func TestReplMgrProcessBacklog_OnlyHealthyNodes(t *testing.T) {
 			},
 		},
 	)
-	replMgr.ProcessBacklog(ctx, noopBackoffFunc)
+	go replMgr.ProcessBacklog(ctx, noopBackoffFunc)
 
 	select {
 	case <-ctx.Done():
@@ -971,7 +969,7 @@ func TestProcessBacklog_ReplicatesToReadOnlyPrimary(t *testing.T) {
 			return nil
 		},
 	}
-	replMgr.ProcessBacklog(ctx, noopBackoffFunc)
+	go replMgr.ProcessBacklog(ctx, noopBackoffFunc)
 	select {
 	case <-processed:
 	case <-time.After(5 * time.Second):

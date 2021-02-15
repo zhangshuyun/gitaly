@@ -185,7 +185,7 @@ func runPraefectServer(t testing.TB, conf config.Config, opt buildOptions) (*grp
 	ctx, cancel := testhelper.Context()
 
 	go func() { errQ <- prf.Serve(listener) }()
-	replmgr.ProcessBacklog(ctx, noopBackoffFunc)
+	go replmgr.ProcessBacklog(ctx, noopBackoffFunc)
 
 	// dial client to praefect
 	cc := dialLocalPort(t, port, false)
