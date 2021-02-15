@@ -1,7 +1,6 @@
 package localrepo
 
 import (
-	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -65,9 +64,10 @@ func TestRepo_GetReference(t *testing.T) {
 	repo := New(testRepo, config.Config)
 
 	testcases := []struct {
-		desc     string
-		ref      string
-		expected git.Reference
+		desc        string
+		ref         string
+		expected    git.Reference
+		expectedErr error
 	}{
 		{
 			desc:     "fully qualified master branch",
@@ -75,33 +75,75 @@ func TestRepo_GetReference(t *testing.T) {
 			expected: git.NewReference("refs/heads/master", masterOID.String()),
 		},
 		{
-			desc:     "unqualified master branch fails",
-			ref:      "master",
-			expected: git.Reference{},
+			desc:        "unqualified master branch fails",
+			ref:         "master",
+			expectedErr: git.ErrReferenceNotFound,
 		},
 		{
-			desc:     "nonexistent branch",
-			ref:      "refs/heads/nonexistent",
-			expected: git.Reference{},
+			desc:        "nonexistent branch",
+			ref:         "refs/heads/nonexistent",
+			expectedErr: git.ErrReferenceNotFound,
 		},
 		{
-			desc:     "nonexistent branch",
-			ref:      "nonexistent",
-			expected: git.Reference{},
+			desc:        "prefix returns an error",
+			ref:         "refs/heads",
+			expectedErr: git.ErrReferenceAmbiguous,
+		},
+		{
+			desc:        "nonexistent branch",
+			ref:         "nonexistent",
+			expectedErr: git.ErrReferenceNotFound,
 		},
 	}
 
 	for _, tc := range testcases {
 		t.Run(tc.desc, func(t *testing.T) {
 			ref, err := repo.GetReference(ctx, git.ReferenceName(tc.ref))
-			if tc.expected.Name == "" {
-				require.True(t, errors.Is(err, git.ErrReferenceNotFound))
-			} else {
-				require.NoError(t, err)
-				require.Equal(t, tc.expected, ref)
-			}
+			require.Equal(t, tc.expectedErr, err)
+			require.Equal(t, tc.expected, ref)
 		})
 	}
+}
+
+func TestRepo_GetReferenceWithAmbiguousRefs(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	// Disable hooks
+	defer func(oldValue string) {
+		config.Config.Ruby.Dir = oldValue
+	}(config.Config.Ruby.Dir)
+	config.Config.Ruby.Dir = "/var/empty"
+
+	repoProto, _, cleanup := testhelper.NewTestRepo(t)
+	defer cleanup()
+	repo := New(repoProto, config.Config)
+
+	currentOID, err := repo.ResolveRevision(ctx, "refs/heads/master")
+	require.NoError(t, err)
+
+	prevOID, err := repo.ResolveRevision(ctx, "refs/heads/master~")
+	require.NoError(t, err)
+
+	for _, ref := range []git.ReferenceName{
+		"refs/heads/something/master",
+		"refs/heads/MASTER",
+		"refs/heads/master2",
+		"refs/heads/masterx",
+		"refs/heads/refs/heads/master",
+		"refs/heads/heads/master",
+		"refs/master",
+		"refs/tags/master",
+	} {
+		require.NoError(t, repo.UpdateRef(ctx, ref, prevOID, git.ZeroOID))
+	}
+
+	ref, err := repo.GetReference(ctx, "refs/heads/master")
+	require.NoError(t, err)
+	require.Equal(t, git.Reference{
+		Name:   "refs/heads/master",
+		Target: currentOID.String(),
+	}, ref)
 }
 
 func TestRepo_GetReferences(t *testing.T) {
