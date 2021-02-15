@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -405,11 +406,20 @@ func getCorrelationID(params datastore.Params) string {
 }
 
 // ProcessBacklog starts processing of queued jobs.
-// It will be processing jobs until ctx is Done.
+// It will be processing jobs until ctx is Done. ProcessBacklog
+// blocks until all backlog processing goroutines have returned
 func (r ReplMgr) ProcessBacklog(ctx context.Context, b BackoffFunc) {
+	var wg sync.WaitGroup
+
 	for _, virtualStorage := range r.virtualStorages {
-		go r.processBacklog(ctx, b, virtualStorage)
+		wg.Add(1)
+		go func(virtualStorage string) {
+			defer wg.Done()
+			r.processBacklog(ctx, b, virtualStorage)
+		}(virtualStorage)
 	}
+
+	wg.Wait()
 }
 
 // ProcessStale starts a background process to acknowledge stale replication jobs.
