@@ -582,25 +582,8 @@ func TestPostReceiveWithReferenceTransactionHook(t *testing.T) {
 	go gitalyServer.Serve(internalListener)
 	defer gitalyServer.Stop()
 
-	gitlabShellDir, cleanup := testhelper.TempDir(t)
-	defer cleanup()
-
-	defer func(oldValue string) {
-		config.Config.Gitlab.SecretFile = oldValue
-	}(config.Config.Gitlab.SecretFile)
-	config.Config.Gitlab.SecretFile = filepath.Join(gitlabShellDir, ".gitlab_shell_secret")
-	testhelper.WriteShellSecretFile(t, gitlabShellDir, "secret123")
-
-	refTransactionServer.called = 0
-
 	client, conn := newSmartHTTPClient(t, "unix://"+gitalySocketPath)
 	defer conn.Close()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-
-	ctx, err = metadata.InjectTransaction(ctx, 1234, "primary", true)
-	require.NoError(t, err)
 
 	// As we ain't got a Praefect server setup, we instead hooked up the
 	// RefTransaction server for Gitaly itself. As this is the only Praefect
@@ -611,9 +594,12 @@ func TestPostReceiveWithReferenceTransactionHook(t *testing.T) {
 	})
 	require.NoError(t, err)
 
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+	ctx, err = metadata.InjectTransaction(ctx, 1234, "primary", true)
+	require.NoError(t, err)
 	ctx, err = praefectServer.Inject(ctx)
 	require.NoError(t, err)
-
 	ctx = helper.IncomingToOutgoing(ctx)
 
 	stream, err := client.PostReceivePack(ctx)
