@@ -41,7 +41,7 @@ func (dw DailyWorker) nextTime(hour, minute int) time.Time {
 // StartDaily will run the provided job every day at the specified time for the
 // specified duration. Only the specified storages wil be worked on.
 func (dw DailyWorker) StartDaily(ctx context.Context, l logrus.FieldLogger, schedule config.DailyJob, job StoragesJob) error {
-	if schedule.Duration == 0 || len(schedule.Storages) == 0 {
+	if schedule.Duration == 0 || len(schedule.Storages) == 0 || schedule.Disabled {
 		return nil
 	}
 
