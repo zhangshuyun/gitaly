@@ -18,17 +18,16 @@ import (
 )
 
 type mockOptimizer struct {
-	t        testing.TB
-	actual   []*gitalypb.Repository
-	storages []config.Storage
+	t      testing.TB
+	actual []*gitalypb.Repository
+	cfg    config.Cfg
 }
 
 func (mo *mockOptimizer) OptimizeRepository(ctx context.Context, req *gitalypb.OptimizeRepositoryRequest, _ ...grpc.CallOption) (*gitalypb.OptimizeRepositoryResponse, error) {
 	mo.actual = append(mo.actual, req.Repository)
-	cfg := config.Cfg{Storages: mo.storages}
-	l := config.NewLocator(cfg)
-	gitCmdFactory := git.NewExecCommandFactory(cfg)
-	resp, err := repository.NewServer(cfg, nil, l, transaction.NewManager(cfg), gitCmdFactory).OptimizeRepository(ctx, req)
+	l := config.NewLocator(mo.cfg)
+	gitCmdFactory := git.NewExecCommandFactory(mo.cfg)
+	resp, err := repository.NewServer(mo.cfg, nil, l, transaction.NewManager(mo.cfg), gitCmdFactory).OptimizeRepository(ctx, req)
 	assert.NoError(mo.t, err)
 	return resp, err
 }
@@ -55,8 +54,8 @@ func TestOptimizeReposRandomly(t *testing.T) {
 	config.Config.Storages = storages
 
 	mo := &mockOptimizer{
-		t:        t,
-		storages: storages,
+		t:   t,
+		cfg: config.Config,
 	}
 	walker := OptimizeReposRandomly(storages, mo)
 
@@ -79,11 +78,12 @@ func TestOptimizeReposRandomly(t *testing.T) {
 		Path: storages[0].Path,
 	})
 
-	mo = &mockOptimizer{
-		t:        t,
-		storages: storages,
-	}
 	config.Config.Storages = storages
+
+	mo = &mockOptimizer{
+		t:   t,
+		cfg: config.Config,
+	}
 
 	walker = OptimizeReposRandomly(storages, mo)
 	require.NoError(t, walker(ctx, testhelper.DiscardTestEntry(t), []string{"0", "1", "duplicate"}))

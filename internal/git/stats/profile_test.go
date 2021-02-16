@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 )
 
@@ -37,7 +39,8 @@ func TestRepositoryProfile(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int64(blobs), unpackedObjects)
 
-	looseObjects, err := LooseObjects(ctx, testRepo)
+	gitCmdFactory := git.NewExecCommandFactory(config.Config)
+	looseObjects, err := LooseObjects(ctx, gitCmdFactory, testRepo)
 	require.NoError(t, err)
 	require.Equal(t, int64(blobs), looseObjects)
 
@@ -54,7 +57,7 @@ func TestRepositoryProfile(t *testing.T) {
 	unpackedObjects, err = UnpackedObjects(testRepoPath)
 	require.NoError(t, err)
 	require.Zero(t, unpackedObjects)
-	looseObjects, err = LooseObjects(ctx, testRepo)
+	looseObjects, err = LooseObjects(ctx, gitCmdFactory, testRepo)
 	require.NoError(t, err)
 	require.Equal(t, int64(1), looseObjects)
 
@@ -72,7 +75,7 @@ func TestRepositoryProfile(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int64(1), unpackedObjects)
 
-	looseObjects, err = LooseObjects(ctx, testRepo)
+	looseObjects, err = LooseObjects(ctx, gitCmdFactory, testRepo)
 	require.NoError(t, err)
 	require.Equal(t, int64(2), looseObjects)
 }

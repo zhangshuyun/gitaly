@@ -57,7 +57,7 @@ func (s *server) GarbageCollect(ctx context.Context, in *gitalypb.GarbageCollect
 		ctxlogger.WithError(err).Warn("Post gc housekeeping failed")
 	}
 
-	stats.LogObjectsInfo(ctx, repo)
+	stats.LogObjectsInfo(ctx, s.gitCmdFactory, repo)
 
 	return &gitalypb.GarbageCollectResponse{}, nil
 }

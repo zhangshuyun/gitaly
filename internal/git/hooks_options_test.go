@@ -31,7 +31,7 @@ func TestWithRefHook(t *testing.T) {
 		{
 			name: "NewCommand",
 			fn: func() (*command.Command, error) {
-				return NewCommand(ctx, testRepo, nil, subCmd, opt)
+				return NewExecCommandFactory(config.Config).New(ctx, testRepo, nil, subCmd, opt)
 			},
 		},
 	} {

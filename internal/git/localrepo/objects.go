@@ -212,7 +212,7 @@ func (repo *Repo) ReadCommit(ctx context.Context, revision git.Revision, opts ..
 
 	var commit *gitalypb.GitCommit
 	if cfg.withTrailers {
-		commit, err = log.GetCommitCatfileWithTrailers(ctx, repo, c, revision)
+		commit, err = log.GetCommitCatfileWithTrailers(ctx, repo.gitCmdFactory, repo, c, revision)
 	} else {
 		commit, err = log.GetCommitCatfile(ctx, c, revision)
 	}

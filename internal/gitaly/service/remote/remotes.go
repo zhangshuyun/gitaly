@@ -54,7 +54,7 @@ func (s *server) RemoveRemote(ctx context.Context, req *gitalypb.RemoveRemoteReq
 		return nil, status.Errorf(codes.InvalidArgument, "RemoveRemote: %v", err)
 	}
 
-	hasRemote, err := remote.Exists(ctx, s.cfg, req.GetRepository(), req.Name)
+	hasRemote, err := remote.Exists(ctx, s.gitCmdFactory, s.cfg, req.GetRepository(), req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -62,7 +62,7 @@ func (s *server) RemoveRemote(ctx context.Context, req *gitalypb.RemoveRemoteReq
 		return &gitalypb.RemoveRemoteResponse{Result: false}, nil
 	}
 
-	if err := remote.Remove(ctx, s.cfg, req.GetRepository(), req.Name); err != nil {
+	if err := remote.Remove(ctx, s.gitCmdFactory, s.cfg, req.GetRepository(), req.Name); err != nil {
 		return nil, err
 	}
 

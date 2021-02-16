@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 )
@@ -29,7 +30,8 @@ func TestRemoveRemote(t *testing.T) {
 	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
-	require.NoError(t, Remove(ctx, config.Config, testRepo, "origin"))
+	gitCmdFactory := git.NewExecCommandFactory(config.Config)
+	require.NoError(t, Remove(ctx, gitCmdFactory, config.Config, testRepo, "origin"))
 
 	repoPath := filepath.Join(testhelper.GitlabTestStoragePath(), testRepo.RelativePath)
 
@@ -52,7 +54,8 @@ func TestRemoveRemoteDontRemoveLocalBranches(t *testing.T) {
 
 	masterBeforeRemove := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "show-ref", "refs/heads/master")
 
-	require.NoError(t, Remove(ctx, config.Config, testRepo, "origin"))
+	gitCmdFactory := git.NewExecCommandFactory(config.Config)
+	require.NoError(t, Remove(ctx, gitCmdFactory, config.Config, testRepo, "origin"))
 
 	out := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "remote")
 	require.Len(t, out, 0)
@@ -68,11 +71,13 @@ func TestRemoteExists(t *testing.T) {
 	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
-	found, err := Exists(ctx, config.Config, testRepo, "origin")
+	gitCmdFactory := git.NewExecCommandFactory(config.Config)
+
+	found, err := Exists(ctx, gitCmdFactory, config.Config, testRepo, "origin")
 	require.NoError(t, err)
 	require.True(t, found)
 
-	found, err = Exists(ctx, config.Config, testRepo, "can-not-be-found")
+	found, err = Exists(ctx, gitCmdFactory, config.Config, testRepo, "can-not-be-found")
 	require.NoError(t, err)
 	require.False(t, found)
 }

@@ -31,7 +31,7 @@ func GetCommitCatfile(ctx context.Context, c catfile.Batch, revision git.Revisio
 
 // GetCommitCatfileWithTrailers looks up a commit by revision using an existing
 // catfile.Batch instance, and includes Git trailers in the returned commit.
-func GetCommitCatfileWithTrailers(ctx context.Context, repo repository.GitRepo, c catfile.Batch, revision git.Revision) (*gitalypb.GitCommit, error) {
+func GetCommitCatfileWithTrailers(ctx context.Context, gitCmdFactory git.CommandFactory, repo repository.GitRepo, c catfile.Batch, revision git.Revision) (*gitalypb.GitCommit, error) {
 	commit, err := GetCommitCatfile(ctx, c, revision)
 
 	if err != nil {
@@ -40,7 +40,7 @@ func GetCommitCatfileWithTrailers(ctx context.Context, repo repository.GitRepo, 
 
 	// We use the commit ID here instead of revision. This way we still get
 	// trailers if the revision is not a SHA but e.g. a tag name.
-	showCmd, err := git.NewCommand(ctx, repo, nil, git.SubCmd{
+	showCmd, err := gitCmdFactory.New(ctx, repo, nil, git.SubCmd{
 		Name: "show",
 		Args: []string{commit.Id},
 		Flags: []git.Option{
