@@ -328,6 +328,7 @@ func TestProxyErrorPropagation(t *testing.T) {
 		directorError         error
 		requestFinalizerError error
 		returnedError         error
+		errHandler            func(error) error
 	}{
 		{
 			desc:          "backend error is propagated",
@@ -357,6 +358,35 @@ func TestProxyErrorPropagation(t *testing.T) {
 			requestFinalizerError: errRequestFinalizer,
 			returnedError:         errBackend,
 		},
+		{
+			desc:                  "err handler gets error",
+			backendError:          errBackend,
+			requestFinalizerError: errRequestFinalizer,
+			returnedError:         errBackend,
+			errHandler: func(err error) error {
+				require.Equal(t, errBackend, err)
+				return errBackend
+			},
+		},
+		{
+			desc:          "err handler can swallow error",
+			backendError:  errBackend,
+			returnedError: io.EOF,
+			errHandler: func(err error) error {
+				require.Equal(t, errBackend, err)
+				return nil
+			},
+		},
+		{
+			desc:                  "swallowed error surfaces request finalizer error",
+			backendError:          errBackend,
+			requestFinalizerError: errRequestFinalizer,
+			returnedError:         errRequestFinalizer,
+			errHandler: func(err error) error {
+				require.Equal(t, errBackend, err)
+				return nil
+			},
+		},
 	} {
 		tmpDir, clean := testhelper.TempDir(t)
 		defer clean()
@@ -384,7 +414,11 @@ func TestProxyErrorPropagation(t *testing.T) {
 			grpc.CustomCodec(proxy.NewCodec()),
 			grpc.UnknownServiceHandler(proxy.TransparentHandler(func(ctx context.Context, fullMethodName string, peeker proxy.StreamPeeker) (*proxy.StreamParameters, error) {
 				return proxy.NewStreamParameters(
-					proxy.Destination{Ctx: ctx, Conn: backendClientConn},
+					proxy.Destination{
+						Ctx:        ctx,
+						Conn:       backendClientConn,
+						ErrHandler: tc.errHandler,
+					},
 					nil,
 					func() error { return tc.requestFinalizerError },
 					nil,

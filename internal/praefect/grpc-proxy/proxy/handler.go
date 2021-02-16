@@ -158,7 +158,7 @@ func (s *handler) handler(srv interface{}, serverStream grpc.ServerStream) (fina
 	// Channels do not have to be closed, it is just a control flow mechanism, see
 	// https://groups.google.com/forum/#!msg/golang-nuts/pZwdYRGxCIk/qpbHxRRPJdUJ
 	c2sErrChan := forwardClientToServers(serverStream, allStreams)
-	p2cErrChan := forwardPrimaryToClient(primaryClientStream, serverStream)
+	p2cErrChan := forwardPrimaryToClient(primaryStream, serverStream)
 	secondaryErrChan := receiveSecondaryStreams(secondaryStreams)
 
 	// We need to wait for the streams from the primary and secondaries. However, we don't need to wait for the s2c stream to finish because
@@ -227,6 +227,10 @@ func receiveSecondaryStreams(srcs []streamAndDestination) chan error {
 							return nil
 						}
 
+						if src.destination.ErrHandler != nil {
+							err = src.destination.ErrHandler(err)
+						}
+
 						src.cancel()
 						return err
 					}
@@ -239,13 +243,16 @@ func receiveSecondaryStreams(srcs []streamAndDestination) chan error {
 	return ret
 }
 
-func forwardPrimaryToClient(src grpc.ClientStream, dst grpc.ServerStream) chan error {
+func forwardPrimaryToClient(src streamAndDestination, dst grpc.ServerStream) chan error {
 	ret := make(chan error, 1)
+
 	go func() {
+		var outerErr error
 		f := &frame{}
+
 		for i := 0; ; i++ {
 			if err := src.RecvMsg(f); err != nil {
-				ret <- err // this can be io.EOF which is happy case
+				outerErr = err // this can be io.EOF which is happy case
 				break
 			}
 			if i == 0 {
@@ -254,20 +261,27 @@ func forwardPrimaryToClient(src grpc.ClientStream, dst grpc.ServerStream) chan e
 				// This is the only place to do it nicely.
 				md, err := src.Header()
 				if err != nil {
-					ret <- err
+					outerErr = err
 					break
 				}
 				if err := dst.SendHeader(md); err != nil {
-					ret <- err
+					outerErr = err
 					break
 				}
 			}
 			if err := dst.SendMsg(f); err != nil {
-				ret <- err
+				outerErr = err
 				break
 			}
 		}
+
+		if outerErr != nil && src.destination.ErrHandler != nil && !errors.Is(outerErr, io.EOF) {
+			outerErr = src.destination.ErrHandler(outerErr)
+		}
+
+		ret <- outerErr
 	}()
+
 	return ret
 }
 

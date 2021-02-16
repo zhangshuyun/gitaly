@@ -35,9 +35,17 @@ type StreamParameters struct {
 
 // Destination contains a client connection as well as a rewritten protobuf message
 type Destination struct {
-	Ctx  context.Context
+	// Ctx is the context used for the connection.
+	Ctx context.Context
+	// Conn is the GRPC client connection.
 	Conn *grpc.ClientConn
-	Msg  []byte
+	// Msg is the initial message which shall be sent to the destination. This is used in order
+	// to allow for re-writing the header message.
+	Msg []byte
+	// ErrHandler is invoked when proxying to the destination fails. It can be used to swallow
+	// errors in case proxying failures are considered to be non-fatal. If all errors are
+	// swallowed, the proxied RPC will be successful.
+	ErrHandler func(error) error
 }
 
 // NewStreamParameters returns a new instance of StreamParameters
