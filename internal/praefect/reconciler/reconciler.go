@@ -162,15 +162,14 @@ WITH healthy_storages AS (
 			FROM repositories
 			JOIN healthy_storages USING (virtual_storage)
 			LEFT JOIN storage_repositories USING (virtual_storage, relative_path, storage)
-
 			WHERE COALESCE(storage_repositories.generation != repositories.generation, true)
 			AND (
 				-- If assignments exist for the repository, only the assigned storages are targeted for replication.
 				-- If no assignments exist, every healthy node is targeted for replication.
 				SELECT COUNT(storage) = 0 OR COUNT(storage) FILTER (WHERE storage = storage_repositories.storage) = 1
 				FROM repository_assignments
-				WHERE virtual_storage = storage_repositories.virtual_storage
-				AND   relative_path   = storage_repositories.relative_path
+				WHERE virtual_storage = repositories.virtual_storage
+				AND   relative_path   = repositories.relative_path
 			)
 			ORDER BY virtual_storage, relative_path
 		) AS unhealthy_repositories
