@@ -99,7 +99,6 @@ func TestReconciler(t *testing.T) {
 
 	for _, tc := range []struct {
 		desc               string
-		assignmentsEnabled bool
 		healthyStorages    storages
 		repositories       repositories
 		existingJobs       existingJobs
@@ -351,9 +350,8 @@ func TestReconciler(t *testing.T) {
 			}},
 		},
 		{
-			desc:               "unassigned node allowed to target an assigned node",
-			assignmentsEnabled: true,
-			healthyStorages:    configuredStorages,
+			desc:            "unassigned node allowed to target an assigned node",
+			healthyStorages: configuredStorages,
 			repositories: repositories{
 				"virtual-storage-1": {
 					"relative-path-1": {
@@ -388,9 +386,8 @@ func TestReconciler(t *testing.T) {
 			},
 		},
 		{
-			desc:               "assigned node allowed to target an assigned node",
-			assignmentsEnabled: true,
-			healthyStorages:    configuredStorages,
+			desc:            "assigned node allowed to target an assigned node",
+			healthyStorages: configuredStorages,
 			repositories: repositories{
 				"virtual-storage-1": {
 					"relative-path-1": {
@@ -411,9 +408,8 @@ func TestReconciler(t *testing.T) {
 			},
 		},
 		{
-			desc:               "the only assigned node being up to date produces no jobs",
-			assignmentsEnabled: true,
-			healthyStorages:    configuredStorages,
+			desc:            "the only assigned node being up to date produces no jobs",
+			healthyStorages: configuredStorages,
 			repositories: repositories{
 				"virtual-storage-1": {
 					"relative-path-1": {
