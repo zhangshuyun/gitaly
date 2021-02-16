@@ -15,7 +15,7 @@ import (
 	"google.golang.org/grpc/reflection"
 )
 
-var rubyServer = &rubyserver.Server{}
+var rubyServer *rubyserver.Server
 
 func TestMain(m *testing.M) {
 	os.Exit(testMain(m))
@@ -32,6 +32,7 @@ func testMain(m *testing.M) int {
 		return 1
 	}
 
+	rubyServer = rubyserver.New(config.Config)
 	if err := rubyServer.Start(); err != nil {
 		log.Error(err)
 		return 1

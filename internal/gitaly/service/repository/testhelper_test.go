@@ -34,7 +34,7 @@ const testTimeString = "200601021504.05"
 
 var (
 	testTime   = time.Date(2006, 1, 2, 15, 4, 5, 0, time.UTC)
-	RubyServer = &rubyserver.Server{}
+	RubyServer *rubyserver.Server
 )
 
 func TestMain(m *testing.M) {
@@ -59,6 +59,7 @@ func testMain(m *testing.M) int {
 	testhelper.ConfigureGitalyHooksBinary()
 	testhelper.ConfigureGitalySSH()
 
+	RubyServer = rubyserver.New(config.Config)
 	if err := RubyServer.Start(); err != nil {
 		log.Error(err)
 		return 1

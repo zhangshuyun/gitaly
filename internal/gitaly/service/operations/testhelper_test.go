@@ -29,7 +29,7 @@ var (
 	gitlabPostHooks = []string{"post-receive"}
 	GitlabPreHooks  = gitlabPreHooks
 	GitlabHooks     []string
-	RubyServer      = &rubyserver.Server{}
+	RubyServer      *rubyserver.Server
 )
 
 func init() {
@@ -64,6 +64,7 @@ func testMain(m *testing.M) int {
 	}(config.Config.Auth.Token)
 	config.Config.Auth.Token = testhelper.RepositoryAuthToken
 
+	RubyServer = rubyserver.New(config.Config)
 	if err := RubyServer.Start(); err != nil {
 		log.Error(err)
 		return 1
@@ -74,10 +75,6 @@ func testMain(m *testing.M) int {
 }
 
 func runOperationServiceServer(t *testing.T) (string, func()) {
-	return runOperationServiceServerWithRubyServer(t, RubyServer)
-}
-
-func runOperationServiceServerWithRubyServer(t *testing.T, ruby *rubyserver.Server) (string, func()) {
 	srv := testhelper.NewServerWithAuth(t, nil, nil, config.Config.Auth.Token, testhelper.WithInternalSocket(config.Config))
 
 	conns := client.NewPool()
@@ -86,11 +83,11 @@ func runOperationServiceServerWithRubyServer(t *testing.T, ruby *rubyserver.Serv
 	txManager := transaction.NewManager(config.Config)
 	hookManager := gitalyhook.NewManager(locator, txManager, gitalyhook.GitlabAPIStub, config.Config)
 	gitCmdFactory := git.NewExecCommandFactory(config.Config)
-	server := NewServer(config.Config, ruby, hookManager, locator, conns, gitCmdFactory)
+	server := NewServer(config.Config, RubyServer, hookManager, locator, conns, gitCmdFactory)
 
 	gitalypb.RegisterOperationServiceServer(srv.GrpcServer(), server)
 	gitalypb.RegisterHookServiceServer(srv.GrpcServer(), hook.NewServer(config.Config, hookManager, gitCmdFactory))
-	gitalypb.RegisterRepositoryServiceServer(srv.GrpcServer(), repository.NewServer(config.Config, ruby, locator, txManager, gitCmdFactory))
+	gitalypb.RegisterRepositoryServiceServer(srv.GrpcServer(), repository.NewServer(config.Config, RubyServer, locator, txManager, gitCmdFactory))
 	gitalypb.RegisterRefServiceServer(srv.GrpcServer(), ref.NewServer(config.Config, locator, gitCmdFactory))
 	gitalypb.RegisterCommitServiceServer(srv.GrpcServer(), commit.NewServer(config.Config, locator, gitCmdFactory))
 	gitalypb.RegisterSSHServiceServer(srv.GrpcServer(), ssh.NewServer(config.Config, locator, gitCmdFactory))
@@ -115,7 +112,7 @@ func newOperationClient(t *testing.T, serverSocketPath string) (gitalypb.Operati
 }
 
 func setupAndStartGitlabServer(t testing.TB, glID, glRepository string, gitPushOptions ...string) func() {
-	url, cleanup := testhelper.SetupAndStartGitlabServer(t, &testhelper.GitlabTestServerOptions{
+	url, cleanup := testhelper.SetupAndStartGitlabServer(t, config.Config.GitlabShell.Dir, &testhelper.GitlabTestServerOptions{
 		SecretToken:                 "secretToken",
 		GLID:                        glID,
 		GLRepository:                glRepository,

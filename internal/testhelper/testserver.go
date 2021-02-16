@@ -828,6 +828,8 @@ type GitlabTestServerOptions struct {
 
 // NewGitlabTestServer returns a mock gitlab server that responds to the hook api endpoints
 func NewGitlabTestServer(t testing.TB, options GitlabTestServerOptions) (url string, cleanup func()) {
+	t.Helper()
+
 	mux := http.NewServeMux()
 	prefix := strings.TrimRight(options.RelativeURLRoot, "/") + "/api/v4/internal"
 	mux.Handle(prefix+"/allowed", http.HandlerFunc(handleAllowed(t, options)))
@@ -914,6 +916,8 @@ func WriteTemporaryGitalyConfigFile(t testing.TB, tempDir, gitlabURL, user, pass
 
 // WriteShellSecretFile writes a .gitlab_shell_secret file in the specified directory
 func WriteShellSecretFile(t testing.TB, dir, secretToken string) {
+	t.Helper()
+
 	require.NoError(t, os.MkdirAll(dir, os.ModeDir))
 	require.NoError(t, ioutil.WriteFile(filepath.Join(dir, ".gitlab_shell_secret"), []byte(secretToken), 0644))
 }
@@ -948,10 +952,10 @@ func NewHealthServerWithListener(t testing.TB, listener net.Listener) (*grpc.Ser
 
 // SetupAndStartGitlabServer creates a new GitlabTestServer, starts it and sets
 // up the gitlab-shell secret.
-func SetupAndStartGitlabServer(t testing.TB, c *GitlabTestServerOptions) (string, func()) {
+func SetupAndStartGitlabServer(t testing.TB, shellDir string, c *GitlabTestServerOptions) (string, func()) {
 	url, cleanup := NewGitlabTestServer(t, *c)
 
-	WriteShellSecretFile(t, config.Config.GitlabShell.Dir, c.SecretToken)
+	WriteShellSecretFile(t, shellDir, c.SecretToken)
 
 	return url, cleanup
 }

@@ -20,7 +20,7 @@ import (
 func TestStopSafe(t *testing.T) {
 	badServers := []*Server{
 		nil,
-		&Server{},
+		New(config.Cfg{}),
 	}
 
 	for _, bs := range badServers {

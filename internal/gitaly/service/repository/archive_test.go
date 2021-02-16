@@ -190,7 +190,7 @@ func TestGetArchiveWithLfsSuccess(t *testing.T) {
 	config.Config.GitlabShell.Dir = gitlabShellDir
 	config.Config.Gitlab.SecretFile = filepath.Join(config.Config.GitlabShell.Dir, ".gitlab_shell_secret")
 
-	url, cleanup := testhelper.SetupAndStartGitlabServer(t, &defaultOptions)
+	url, cleanup := testhelper.SetupAndStartGitlabServer(t, config.Config.GitlabShell.Dir, &defaultOptions)
 	defer cleanup()
 
 	config.Config.Gitlab.URL = url

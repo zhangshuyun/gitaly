@@ -67,11 +67,17 @@ func setupEnv(cfg config.Cfg) []string {
 
 // Server represents a gitaly-ruby helper process.
 type Server struct {
+	cfg          config.Cfg
 	startOnce    sync.Once
 	startErr     error
 	workers      []*worker
 	clientConnMu sync.Mutex
 	clientConn   *grpc.ClientConn
+}
+
+// New returns a new instance of the server.
+func New(cfg config.Cfg) *Server {
+	return &Server{cfg: cfg}
 }
 
 // Stop shuts down the gitaly-ruby helper process and cleans up resources.
@@ -102,7 +108,7 @@ func (s *Server) start() error {
 		return err
 	}
 
-	cfg := config.Config
+	cfg := s.cfg
 	env := setupEnv(cfg)
 
 	gitalyRuby := filepath.Join(cfg.Ruby.Dir, "bin", "gitaly-ruby")

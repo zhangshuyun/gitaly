@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
@@ -30,6 +31,8 @@ import (
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
 
+var rubyServer *rubyserver.Server
+
 func TestMain(m *testing.M) {
 	os.Exit(testMain(m))
 }
@@ -38,12 +41,19 @@ func testMain(m *testing.M) int {
 	defer testhelper.MustHaveNoChildProcess()
 	cleanup := testhelper.Configure()
 	defer cleanup()
-	testhelper.ConfigureGitalyHooksBinary()
+
+	rubyServer = rubyserver.New(config.Config)
+	if err := rubyServer.Start(); err != nil {
+		log.Error(err)
+		return 1
+	}
+	defer rubyServer.Stop()
+
 	return m.Run()
 }
 
 func TestSanity(t *testing.T) {
-	serverSocketPath, clean := runServer(t)
+	serverSocketPath, clean := runServer(t, config.Cfg{})
 	defer clean()
 
 	connOpts := []grpc.DialOption{
@@ -84,11 +94,6 @@ func TestTLSSanity(t *testing.T) {
 }
 
 func TestAuthFailures(t *testing.T) {
-	defer func(oldAuth auth.Config) {
-		config.Config.Auth = oldAuth
-	}(config.Config.Auth)
-	config.Config.Auth.Token = "quxbaz"
-
 	testCases := []struct {
 		desc string
 		opts []grpc.DialOption
@@ -108,7 +113,7 @@ func TestAuthFailures(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			serverSocketPath, clean := runServer(t)
+			serverSocketPath, clean := runServer(t, config.Cfg{Auth: auth.Config{Token: "quxbaz"}})
 			defer clean()
 
 			connOpts := append(tc.opts, grpc.WithInsecure())
@@ -156,7 +161,7 @@ func TestAuthSuccess(t *testing.T) {
 			config.Config.Auth.Token = tc.token
 			config.Config.Auth.Transitioning = !tc.required
 
-			serverSocketPath, clean := runServer(t)
+			serverSocketPath, clean := runServer(t, config.Config)
 			defer clean()
 
 			connOpts := append(tc.opts, grpc.WithInsecure())
@@ -201,14 +206,13 @@ func newOperationClient(t *testing.T, serverSocketPath string) (gitalypb.Operati
 	return gitalypb.NewOperationServiceClient(conn), conn
 }
 
-func runServerWithRuby(t *testing.T, ruby *rubyserver.Server) (string, func()) {
+func runServer(t *testing.T, cfg config.Cfg) (string, func()) {
 	conns := client.NewPool()
-	cfg := config.Config
 	locator := config.NewLocator(cfg)
 	txManager := transaction.NewManager(cfg)
 	hookManager := hook.NewManager(locator, txManager, hook.GitlabAPIStub, cfg)
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
-	srv, err := New(false, ruby, hookManager, txManager, cfg, conns, locator, gitCmdFactory)
+	srv, err := New(false, rubyServer, hookManager, txManager, cfg, conns, locator, gitCmdFactory)
 	require.NoError(t, err)
 
 	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
@@ -220,12 +224,7 @@ func runServerWithRuby(t *testing.T, ruby *rubyserver.Server) (string, func()) {
 	return "unix://" + serverSocketPath, func() {
 		conns.Close()
 		srv.Stop()
-		ruby.Stop()
 	}
-}
-
-func runServer(t *testing.T) (string, func()) {
-	return runServerWithRuby(t, nil)
 }
 
 //go:generate openssl req -newkey rsa:4096 -new -nodes -x509 -days 3650 -out testdata/gitalycert.pem -keyout testdata/gitalykey.pem -subj "/C=US/ST=California/L=San Francisco/O=GitLab/OU=GitLab-Shell/CN=localhost" -addext "subjectAltName = IP:127.0.0.1, DNS:localhost"
@@ -257,7 +256,7 @@ func TestUnaryNoAuth(t *testing.T) {
 		config.Config.Auth.Token = oldToken
 	}()
 
-	path, clean := runServer(t)
+	path, clean := runServer(t, config.Config)
 	defer clean()
 
 	connOpts := []grpc.DialOption{
@@ -285,7 +284,7 @@ func TestStreamingNoAuth(t *testing.T) {
 		config.Config.Auth.Token = oldToken
 	}()
 
-	path, clean := runServer(t)
+	path, clean := runServer(t, config.Config)
 	defer clean()
 
 	connOpts := []grpc.DialOption{
@@ -327,7 +326,7 @@ func TestAuthBeforeLimit(t *testing.T) {
 	defer cleanup()
 	config.Config.GitlabShell.Dir = gitlabShellDir
 
-	url, cleanup := testhelper.SetupAndStartGitlabServer(t, &testhelper.GitlabTestServerOptions{
+	url, cleanup := testhelper.SetupAndStartGitlabServer(t, config.Config.GitlabShell.Dir, &testhelper.GitlabTestServerOptions{
 		SecretToken:                 "secretToken",
 		GLID:                        testhelper.GlID,
 		GLRepository:                testRepo.GlRepository,
@@ -343,11 +342,8 @@ func TestAuthBeforeLimit(t *testing.T) {
 	config.ConfigureConcurrencyLimits(config.Config)
 
 	config.Config.Gitlab.URL = url
-	var RubyServer rubyserver.Server
-	if err := RubyServer.Start(); err != nil {
-		t.Fatal(err)
-	}
-	serverSocketPath, clean := runServerWithRuby(t, &RubyServer)
+
+	serverSocketPath, clean := runServer(t, config.Config)
 	defer clean()
 
 	client, conn := newOperationClient(t, serverSocketPath)

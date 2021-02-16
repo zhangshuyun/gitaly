@@ -13,7 +13,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -25,16 +24,11 @@ var (
 )
 
 func TestSuccessfulUserRebaseConfirmableRequest(t *testing.T) {
-	var ruby rubyserver.Server
-
 	pushOptions := []string{"ci.skip", "test=value"}
 	cleanupSrv := setupAndStartGitlabServer(t, testhelper.GlID, "project-1", pushOptions...)
 	defer cleanupSrv()
 
-	require.NoError(t, ruby.Start())
-	defer ruby.Stop()
-
-	serverSocketPath, stop := runOperationServiceServerWithRubyServer(t, &ruby)
+	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()
 
 	ctxOuter, cancel := testhelper.Context()
@@ -109,11 +103,7 @@ func TestUserRebaseConfirmable_stableCommitIDs(t *testing.T) {
 	cleanupSrv := setupAndStartGitlabServer(t, testhelper.GlID, "project-1")
 	defer cleanupSrv()
 
-	var ruby rubyserver.Server
-	require.NoError(t, ruby.Start())
-	defer ruby.Stop()
-
-	serverSocketPath, stop := runOperationServiceServerWithRubyServer(t, &ruby)
+	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()
 
 	client, conn := newOperationClient(t, serverSocketPath)
