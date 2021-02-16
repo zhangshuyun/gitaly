@@ -117,7 +117,7 @@ func TestRepo_GetReferenceWithAmbiguousRefs(t *testing.T) {
 
 	repoProto, _, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
-	repo := New(repoProto, config.Config)
+	repo := New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
 	currentOID, err := repo.ResolveRevision(ctx, "refs/heads/master")
 	require.NoError(t, err)
