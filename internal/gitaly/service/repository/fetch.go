@@ -22,7 +22,7 @@ func (s *server) FetchSourceBranch(ctx context.Context, req *gitalypb.FetchSourc
 		return nil, helper.ErrInvalidArgument(err)
 	}
 
-	targetRepo := localrepo.New(req.GetRepository(), s.cfg)
+	targetRepo := localrepo.New(s.gitCmdFactory, req.GetRepository(), s.cfg)
 
 	sourceRepo, err := remoterepo.New(ctx, req.GetSourceRepository(), s.conns)
 	if err != nil {

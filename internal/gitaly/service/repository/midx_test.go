@@ -47,7 +47,7 @@ func TestMidxWrite(t *testing.T) {
 	require.NoError(t, err)
 	defer cfgF.Close()
 
-	cfg, err := localrepo.New(testRepo, config.Config).Config().GetRegexp(ctx, "core.multipackindex", git.ConfigGetRegexpOpts{})
+	cfg, err := localrepo.New(git.NewExecCommandFactory(config.Config), testRepo, config.Config).Config().GetRegexp(ctx, "core.multipackindex", git.ConfigGetRegexpOpts{})
 	require.NoError(t, err)
 	require.Equal(t, []git.ConfigPair{{Key: "core.multipackindex", Value: "true"}}, cfg)
 }

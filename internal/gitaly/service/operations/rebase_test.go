@@ -45,7 +45,7 @@ func TestSuccessfulUserRebaseConfirmableRequest(t *testing.T) {
 
 	repoProto, repoPath, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
-	repo := localrepo.New(repoProto, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
 	repoCopyProto, _, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
@@ -121,7 +121,7 @@ func TestUserRebaseConfirmable_stableCommitIDs(t *testing.T) {
 
 	repoProto, repoPath, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
-	repo := localrepo.New(repoProto, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -342,7 +342,7 @@ func TestFailedUserRebaseConfirmableDueToApplyBeingFalse(t *testing.T) {
 
 	repoProto, repoPath, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
-	repo := localrepo.New(repoProto, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
 	testRepoCopy, _, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
@@ -389,7 +389,7 @@ func TestFailedUserRebaseConfirmableRequestDueToPreReceiveError(t *testing.T) {
 
 	repoProto, repoPath, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
-	repo := localrepo.New(repoProto, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
 	repoCopyProto, _, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
@@ -496,7 +496,7 @@ func TestRebaseRequestWithDeletedFile(t *testing.T) {
 
 	repoProto, repoProtoPath, cleanupFn := testhelper.NewTestRepoWithWorktree(t)
 	defer cleanupFn()
-	repo := localrepo.New(repoProto, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
 	repoCopyProto, _, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
@@ -554,7 +554,7 @@ func TestRebaseOntoRemoteBranch(t *testing.T) {
 
 	localRepoProto, localRepoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
-	localRepo := localrepo.New(localRepoProto, config.Config)
+	localRepo := localrepo.New(git.NewExecCommandFactory(config.Config), localRepoProto, config.Config)
 
 	remoteRepo, remoteRepoPath, cleanup := testhelper.NewTestRepoWithWorktree(t)
 	defer cleanup()

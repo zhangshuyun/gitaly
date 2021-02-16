@@ -41,7 +41,7 @@ func testWithFeature(t *testing.T, feature featureflag.FeatureFlag, testcase fun
 func TestSuccessfulMerge(t *testing.T) {
 	repoProto, repoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
-	repo := localrepo.New(repoProto, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
 	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()
@@ -130,7 +130,7 @@ func TestSuccessfulMerge(t *testing.T) {
 func TestSuccessfulMerge_stableMergeIDs(t *testing.T) {
 	repoProto, repoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
-	repo := localrepo.New(repoProto, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
 	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()
@@ -211,7 +211,7 @@ func TestAbortedMerge(t *testing.T) {
 
 	repoProto, repoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
-	repo := localrepo.New(repoProto, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
 	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", mergeBranchName, mergeBranchHeadBefore)
 
@@ -274,7 +274,7 @@ func TestAbortedMerge(t *testing.T) {
 func TestFailedMergeConcurrentUpdate(t *testing.T) {
 	repoProto, repoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
-	repo := localrepo.New(repoProto, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
 	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()
@@ -322,7 +322,7 @@ func TestFailedMergeConcurrentUpdate(t *testing.T) {
 func TestUserMergeBranch_ambiguousReference(t *testing.T) {
 	repoProto, repoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
-	repo := localrepo.New(repoProto, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
 	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()
@@ -691,7 +691,7 @@ func TestSuccessfulUserMergeToRefRequest(t *testing.T) {
 
 	repoProto, repoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
-	repo := localrepo.New(repoProto, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
 	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", mergeBranchName, mergeBranchHeadBefore)
 
@@ -851,7 +851,7 @@ func TestUserMergeToRef_stableMergeID(t *testing.T) {
 
 	repoProto, repoPath, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
-	repo := localrepo.New(repoProto, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
 	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", mergeBranchName, mergeBranchHeadBefore)
 

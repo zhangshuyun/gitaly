@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -55,7 +56,7 @@ func TestExecutor_Commit(t *testing.T) {
 	pbRepo, repoPath, clean := testhelper.InitBareRepo(t)
 	defer clean()
 
-	repo := localrepo.New(pbRepo, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(config.Config), pbRepo, config.Config)
 
 	originalFile, err := repo.WriteBlob(ctx, "file", bytes.NewBufferString("original"))
 	require.NoError(t, err)

@@ -28,7 +28,7 @@ func (s *Server) UserCreateBranch(ctx context.Context, req *gitalypb.UserCreateB
 		return nil, status.Errorf(codes.InvalidArgument, "empty start point")
 	}
 
-	repo := localrepo.New(req.Repository, s.cfg)
+	repo := localrepo.New(s.gitCmdFactory, req.Repository, s.cfg)
 
 	// BEGIN TODO: Uncomment if StartPoint started behaving sensibly
 	// like BranchName. See
@@ -162,7 +162,7 @@ func (s *Server) UserDeleteBranch(ctx context.Context, req *gitalypb.UserDeleteB
 		referenceFmt = "%s"
 	}
 	referenceName := fmt.Sprintf(referenceFmt, req.BranchName)
-	referenceValue, err := localrepo.New(req.Repository, s.cfg).GetReference(ctx, git.ReferenceName(referenceName))
+	referenceValue, err := localrepo.New(s.gitCmdFactory, req.Repository, s.cfg).GetReference(ctx, git.ReferenceName(referenceName))
 	if err != nil {
 		return nil, status.Errorf(codes.FailedPrecondition, "branch not found: %s", req.BranchName)
 	}

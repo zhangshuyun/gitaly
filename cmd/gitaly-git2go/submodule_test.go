@@ -88,7 +88,7 @@ func TestSubmodule(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			testRepo, testRepoPath, cleanup := testhelper.NewTestRepo(t)
 			defer cleanup()
-			repo := localrepo.New(testRepo, config.Config)
+			repo := localrepo.New(git.NewExecCommandFactory(config.Config), testRepo, config.Config)
 
 			tc.command.Repository = testRepoPath
 

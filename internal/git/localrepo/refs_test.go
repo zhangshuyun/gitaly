@@ -21,7 +21,7 @@ func TestRepo_ContainsRef(t *testing.T) {
 	testRepo, _, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
 
-	repo := New(testRepo, config.Config)
+	repo := New(git.NewExecCommandFactory(config.Config), testRepo, config.Config)
 
 	testcases := []struct {
 		desc      string
@@ -61,7 +61,7 @@ func TestRepo_GetReference(t *testing.T) {
 	testRepo, _, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
 
-	repo := New(testRepo, config.Config)
+	repo := New(git.NewExecCommandFactory(config.Config), testRepo, config.Config)
 
 	testcases := []struct {
 		desc        string
@@ -153,7 +153,7 @@ func TestRepo_GetReferences(t *testing.T) {
 	testRepo, _, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
 
-	repo := New(testRepo, config.Config)
+	repo := New(git.NewExecCommandFactory(config.Config), testRepo, config.Config)
 
 	testcases := []struct {
 		desc    string
@@ -208,7 +208,7 @@ func TestRepo_GetBranches(t *testing.T) {
 	testRepo, _, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
 
-	repo := New(testRepo, config.Config)
+	repo := New(git.NewExecCommandFactory(config.Config), testRepo, config.Config)
 
 	refs, err := repo.GetBranches(ctx)
 	require.NoError(t, err)
@@ -227,7 +227,9 @@ func TestRepo_UpdateRef(t *testing.T) {
 	}(config.Config.Ruby.Dir)
 	config.Config.Ruby.Dir = "/var/empty"
 
-	otherRef, err := New(testRepo, config.Config).GetReference(ctx, "refs/heads/gitaly-test-ref")
+	gitCmdFactory := git.NewExecCommandFactory(config.Config)
+
+	otherRef, err := New(gitCmdFactory, testRepo, config.Config).GetReference(ctx, "refs/heads/gitaly-test-ref")
 	require.NoError(t, err)
 
 	testcases := []struct {
@@ -328,7 +330,7 @@ func TestRepo_UpdateRef(t *testing.T) {
 			testRepo, _, cleanup := testhelper.NewTestRepo(t)
 			defer cleanup()
 
-			repo := New(testRepo, config.Config)
+			repo := New(gitCmdFactory, testRepo, config.Config)
 			err := repo.UpdateRef(ctx, git.ReferenceName(tc.ref), tc.newValue, tc.oldValue)
 
 			tc.verify(t, repo, err)

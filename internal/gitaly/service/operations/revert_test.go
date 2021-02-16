@@ -28,7 +28,7 @@ func testServerUserRevertSuccessful(t *testing.T, ctxOuter context.Context) {
 
 	repoProto, repoPath, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
-	repo := localrepo.New(repoProto, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
 	destinationBranch := "revert-dst"
 	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", destinationBranch, "master")
@@ -159,7 +159,7 @@ func testServerUserRevertSuccessful(t *testing.T, ctxOuter context.Context) {
 			response, err := client.UserRevert(ctx, testCase.request)
 			require.NoError(t, err)
 
-			testCaseRepo := localrepo.New(testCase.request.Repository, config.Config)
+			testCaseRepo := localrepo.New(git.NewExecCommandFactory(config.Config), testCase.request.Repository, config.Config)
 			headCommit, err := testCaseRepo.ReadCommit(ctx, git.Revision(testCase.request.BranchName))
 			require.NoError(t, err)
 
@@ -194,7 +194,7 @@ func testServerUserRevertStableID(t *testing.T, ctxOuter context.Context) {
 
 	repoProto, _, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
-	repo := localrepo.New(repoProto, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
 	md := testhelper.GitalyServersMetadata(t, serverSocketPath)
 	ctx := testhelper.MergeOutgoingMetadata(ctxOuter, md)
@@ -256,9 +256,11 @@ func testServerUserRevertSuccessfulIntoNewRepo(t *testing.T, ctxOuter context.Co
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
+	gitCmdFactory := git.NewExecCommandFactory(config.Config)
+
 	startRepoProto, _, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
-	startRepo := localrepo.New(startRepoProto, config.Config)
+	startRepo := localrepo.New(gitCmdFactory, startRepoProto, config.Config)
 
 	revertedCommit, err := startRepo.ReadCommit(ctxOuter, "d59c60028b053793cecfb4022de34602e1a9218e")
 	require.NoError(t, err)
@@ -268,7 +270,7 @@ func testServerUserRevertSuccessfulIntoNewRepo(t *testing.T, ctxOuter context.Co
 
 	repoProto, _, cleanup := testhelper.InitBareRepo(t)
 	defer cleanup()
-	repo := localrepo.New(repoProto, config.Config)
+	repo := localrepo.New(gitCmdFactory, repoProto, config.Config)
 
 	request := &gitalypb.UserRevertRequest{
 		Repository:      repoProto,
@@ -315,7 +317,7 @@ func testServerUserRevertSuccessfulGitHooks(t *testing.T, ctxOuter context.Conte
 
 	repoProto, repoPath, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
-	repo := localrepo.New(repoProto, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
 	destinationBranch := "revert-dst"
 	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", destinationBranch, "master")
@@ -364,7 +366,7 @@ func testServerUserRevertFailuedDueToValidations(t *testing.T, ctxOuter context.
 
 	repoProto, _, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
-	repo := localrepo.New(repoProto, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
 	revertedCommit, err := repo.ReadCommit(ctxOuter, "d59c60028b053793cecfb4022de34602e1a9218e")
 	require.NoError(t, err)
@@ -446,7 +448,7 @@ func testServerUserRevertFailedDueToPreReceiveError(t *testing.T, ctxOuter conte
 
 	repoProto, repoPath, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
-	repo := localrepo.New(repoProto, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
 	destinationBranch := "revert-dst"
 	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", destinationBranch, "master")
@@ -492,7 +494,7 @@ func testServerUserRevertFailedDueToCreateTreeError(t *testing.T, ctxOuter conte
 
 	repoProto, repoPath, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
-	repo := localrepo.New(repoProto, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
 	destinationBranch := "revert-dst"
 	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", destinationBranch, "master")
@@ -531,7 +533,7 @@ func testServerUserRevertFailedDueToCommitError(t *testing.T, ctxOuter context.C
 
 	repoProto, repoPath, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
-	repo := localrepo.New(repoProto, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
 	sourceBranch := "revert-src"
 	destinationBranch := "revert-dst"

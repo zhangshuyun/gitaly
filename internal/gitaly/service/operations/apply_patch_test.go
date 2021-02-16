@@ -37,7 +37,7 @@ func testSuccessfulUserApplyPatch(t *testing.T, ctx context.Context) {
 
 	repoProto, repoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
-	repo := localrepo.New(repoProto, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
 	testPatchReadme := "testdata/0001-A-commit-from-a-patch.patch"
 	testPatchFeature := "testdata/0001-This-does-not-apply-to-the-feature-branch.patch"
@@ -149,7 +149,7 @@ func TestUserApplyPatch_stableID(t *testing.T) {
 
 	repoProto, _, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
-	repo := localrepo.New(repoProto, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()

@@ -205,7 +205,7 @@ func (repo *Repo) ReadCommit(ctx context.Context, revision git.Revision, opts ..
 		opt(&cfg)
 	}
 
-	c, err := catfile.New(ctx, repo.commandFactory, repo)
+	c, err := catfile.New(ctx, repo.gitCmdFactory, repo)
 	if err != nil {
 		return nil, err
 	}

@@ -67,7 +67,7 @@ func testSuccessfulResolveConflictsRequest(t *testing.T, ctx context.Context) {
 
 	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
-	repo := localrepo.New(testRepo, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(config.Config), testRepo, config.Config)
 
 	ctxOuter, cancel := testhelper.Context()
 	defer cancel()
@@ -115,7 +115,7 @@ func testSuccessfulResolveConflictsRequest(t *testing.T, ctx context.Context) {
 	// introduce a conflict that exists on both branches, but not the
 	// ancestor
 	commitConflict := func(parentCommitID, branch, blob string) string {
-		blobID, err := localrepo.New(testRepo, config.Config).WriteBlob(ctx, "", strings.NewReader(blob))
+		blobID, err := localrepo.New(git.NewExecCommandFactory(config.Config), testRepo, config.Config).WriteBlob(ctx, "", strings.NewReader(blob))
 		require.NoError(t, err)
 		testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "read-tree", branch)
 		testhelper.MustRunCommand(t, nil,
@@ -207,7 +207,7 @@ func testResolveConflictsStableID(t *testing.T, ctx context.Context) {
 
 	repoProto, _, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
-	repo := localrepo.New(repoProto, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
 	md := testhelper.GitalyServersMetadata(t, serverSocketPath)
 	ctx = testhelper.MergeOutgoingMetadata(ctx, md)

@@ -966,7 +966,7 @@ func testUserCommitFilesStableCommitID(t *testing.T, ctx context.Context) {
 
 	repoProto, repoPath, cleanup := testhelper.InitBareRepo(t)
 	defer cleanup()
-	repo := localrepo.New(repoProto, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
 	for key, values := range testhelper.GitalyServersMetadata(t, serverSocketPath) {
 		for _, value := range values {
@@ -1104,7 +1104,7 @@ func testSuccessfulUserCommitFilesRequest(t *testing.T, ctx context.Context) {
 			require.Equal(t, tc.repoCreated, resp.GetBranchUpdate().GetRepoCreated())
 			require.Equal(t, tc.branchCreated, resp.GetBranchUpdate().GetBranchCreated())
 
-			headCommit, err := localrepo.New(tc.repo, config.Config).ReadCommit(ctx, git.Revision(tc.branchName))
+			headCommit, err := localrepo.New(git.NewExecCommandFactory(config.Config), tc.repo, config.Config).ReadCommit(ctx, git.Revision(tc.branchName))
 			require.NoError(t, err)
 			require.Equal(t, authorName, headCommit.Author.Name)
 			require.Equal(t, testhelper.TestUser.Name, headCommit.Committer.Name)
@@ -1200,7 +1200,7 @@ func testSuccessfulUserCommitFilesRequestForceCommit(t *testing.T, ctx context.C
 
 	repoProto, repoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
-	repo := localrepo.New(repoProto, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
 	authorName := []byte("Jane Doe")
 	authorEmail := []byte("janedoe@gitlab.com")
@@ -1252,7 +1252,7 @@ func testSuccessfulUserCommitFilesRequestStartSha(t *testing.T, ctx context.Cont
 
 	repoProto, _, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
-	repo := localrepo.New(repoProto, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
 	targetBranchName := "new"
 
@@ -1301,13 +1301,15 @@ func testSuccessfulUserCommitFilesRemoteRepositoryRequest(setHeader func(header 
 		client, conn := newOperationClient(t, serverSocketPath)
 		defer conn.Close()
 
+		gitCmdFactory := git.NewExecCommandFactory(config.Config)
+
 		repoProto, _, cleanupFn := testhelper.NewTestRepo(t)
 		defer cleanupFn()
-		repo := localrepo.New(repoProto, config.Config)
+		repo := localrepo.New(gitCmdFactory, repoProto, config.Config)
 
 		newRepoProto, _, newRepoCleanupFn := testhelper.InitBareRepo(t)
 		defer newRepoCleanupFn()
-		newRepo := localrepo.New(newRepoProto, config.Config)
+		newRepo := localrepo.New(gitCmdFactory, newRepoProto, config.Config)
 
 		for key, values := range testhelper.GitalyServersMetadata(t, serverSocketPath) {
 			for _, value := range values {
@@ -1355,7 +1357,7 @@ func testSuccessfulUserCommitFilesRequestWithSpecialCharactersInSignature(t *tes
 
 	repoProto, _, cleanupFn := testhelper.InitBareRepo(t)
 	defer cleanupFn()
-	repo := localrepo.New(repoProto, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
 	targetBranchName := "master"
 

@@ -42,7 +42,7 @@ func (s *server) FetchRemote(ctx context.Context, req *gitalypb.FetchRemoteReque
 		opts.Tags = localrepo.FetchOptsTagsNone
 	}
 
-	repo := localrepo.New(req.GetRepository(), s.cfg)
+	repo := localrepo.New(s.gitCmdFactory, req.GetRepository(), s.cfg)
 	remoteName := req.GetRemote()
 
 	if params := req.GetRemoteParams(); params != nil {

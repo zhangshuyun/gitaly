@@ -26,7 +26,7 @@ func testMain(m *testing.M) int {
 	return m.Run()
 }
 
-func setup(t *testing.T) (context.Context, *localrepo.Repo, string, func()) {
+func setup(t *testing.T, cfg config.Cfg) (context.Context, *localrepo.Repo, string, func()) {
 	ctx, cancel := testhelper.Context()
 	repoProto, repoPath, cleanup := testhelper.NewTestRepo(t)
 	teardown := func() {
@@ -34,13 +34,13 @@ func setup(t *testing.T) (context.Context, *localrepo.Repo, string, func()) {
 		cleanup()
 	}
 
-	repo := localrepo.New(repoProto, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
 	return ctx, repo, repoPath, teardown
 }
 
 func TestCreate(t *testing.T) {
-	ctx, repo, _, teardown := setup(t)
+	ctx, repo, _, teardown := setup(t, config.Config)
 	defer teardown()
 
 	headCommit, err := repo.ReadCommit(ctx, "HEAD")
@@ -62,7 +62,7 @@ func TestCreate(t *testing.T) {
 }
 
 func TestUpdate(t *testing.T) {
-	ctx, repo, _, teardown := setup(t)
+	ctx, repo, _, teardown := setup(t, config.Config)
 	defer teardown()
 
 	headCommit, err := repo.ReadCommit(ctx, "HEAD")
@@ -99,7 +99,7 @@ func TestUpdate(t *testing.T) {
 }
 
 func TestDelete(t *testing.T) {
-	ctx, repo, _, teardown := setup(t)
+	ctx, repo, _, teardown := setup(t, config.Config)
 	defer teardown()
 
 	updater, err := New(ctx, config.Config, git.NewExecCommandFactory(config.Config), repo)
@@ -116,7 +116,7 @@ func TestDelete(t *testing.T) {
 }
 
 func TestBulkOperation(t *testing.T) {
-	ctx, repo, _, teardown := setup(t)
+	ctx, repo, _, teardown := setup(t, config.Config)
 	defer teardown()
 
 	headCommit, err := repo.ReadCommit(ctx, "HEAD")
@@ -138,7 +138,7 @@ func TestBulkOperation(t *testing.T) {
 }
 
 func TestContextCancelAbortsRefChanges(t *testing.T) {
-	ctx, repo, _, teardown := setup(t)
+	ctx, repo, _, teardown := setup(t, config.Config)
 	defer teardown()
 
 	headCommit, err := repo.ReadCommit(ctx, "HEAD")
@@ -162,12 +162,8 @@ func TestContextCancelAbortsRefChanges(t *testing.T) {
 }
 
 func TestUpdater_closingStdinAbortsChanges(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-
-	repoProto, _, cleanup := testhelper.NewTestRepo(t)
-	defer cleanup()
-	repo := localrepo.New(repoProto, config.Config)
+	ctx, repo, _, teardown := setup(t, config.Config)
+	defer teardown()
 
 	headCommit, err := repo.ReadCommit(ctx, "HEAD")
 	require.NoError(t, err)

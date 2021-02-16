@@ -226,7 +226,7 @@ func (s *server) resolveConflicts(header *gitalypb.ResolveConflictsRequestHeader
 		return err
 	}
 
-	if err := localrepo.New(header.GetRepository(), s.cfg).UpdateRef(
+	if err := localrepo.New(s.gitCmdFactory, header.GetRepository(), s.cfg).UpdateRef(
 		stream.Context(),
 		git.ReferenceName("refs/heads/"+string(header.GetSourceBranch())),
 		commitOID,
@@ -270,7 +270,7 @@ func sameRepo(left, right *gitalypb.Repository) bool {
 func (s *server) repoWithBranchCommit(ctx context.Context, srcRepo, targetRepo *gitalypb.Repository, srcBranch, targetBranch []byte) error {
 	const peelCommit = "^{commit}"
 
-	src := localrepo.New(srcRepo, s.cfg)
+	src := localrepo.New(s.gitCmdFactory, srcRepo, s.cfg)
 	if sameRepo(srcRepo, targetRepo) {
 		_, err := src.ResolveRevision(ctx, git.Revision(string(targetBranch)+peelCommit))
 		return err

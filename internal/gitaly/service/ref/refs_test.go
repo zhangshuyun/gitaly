@@ -483,7 +483,7 @@ func TestSuccessfulFindAllTagsRequest(t *testing.T) {
 
 	repoProto, repoPath, cleanupFn := testhelper.NewTestRepoWithWorktree(t)
 	defer cleanupFn()
-	repo := localrepo.New(repoProto, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
 	// reconstruct the v1.1.2 tag from patches to test truncated tag message
 	// with partial PGP block
@@ -1121,7 +1121,7 @@ func TestSuccessfulFindAllBranchesRequestWithMergedBranches(t *testing.T) {
 
 	repoProto, repoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
-	repo := localrepo.New(repoProto, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
 	client, conn := newRefServiceClient(t, serverSocketPath)
 	defer conn.Close()
@@ -1444,7 +1444,7 @@ func TestSuccessfulFindTagRequest(t *testing.T) {
 
 	repoProto, repoPath, cleanupFn := testhelper.NewTestRepoWithWorktree(t)
 	defer cleanupFn()
-	repo := localrepo.New(repoProto, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
 	blobID := "faaf198af3a36dbf41961466703cc1d47c61d051"
 	commitID := "6f6d7e7ed97bb5f0054f2b1df789b39ca89b6ff9"

@@ -31,7 +31,7 @@ func TestRepo_WriteBlob(t *testing.T) {
 	pbRepo, repoPath, clean := testhelper.InitBareRepo(t)
 	defer clean()
 
-	repo := New(pbRepo, config.Config)
+	repo := New(git.NewExecCommandFactory(config.Config), pbRepo, config.Config)
 
 	for _, tc := range []struct {
 		desc       string
@@ -157,7 +157,7 @@ func TestRepo_WriteTag(t *testing.T) {
 	pbRepo, repoPath, clean := testhelper.NewTestRepo(t)
 	defer clean()
 
-	repo := New(pbRepo, config.Config)
+	repo := New(git.NewExecCommandFactory(config.Config), pbRepo, config.Config)
 
 	for _, tc := range []struct {
 		desc       string
@@ -208,7 +208,7 @@ func TestRepo_ReadObject(t *testing.T) {
 	testRepo, _, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
 
-	repo := New(testRepo, config.Config)
+	repo := New(git.NewExecCommandFactory(config.Config), testRepo, config.Config)
 
 	for _, tc := range []struct {
 		desc    string
@@ -243,7 +243,7 @@ func TestRepo_ReadCommit(t *testing.T) {
 	repoProto, _, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
 
-	repo := New(repoProto, config.Config)
+	repo := New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
 	for _, tc := range []struct {
 		desc           string

@@ -26,7 +26,7 @@ func TestApplyBfgObjectMapStreamSuccess(t *testing.T) {
 
 	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
-	repo := localrepo.New(testRepo, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(config.Config), testRepo, config.Config)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()

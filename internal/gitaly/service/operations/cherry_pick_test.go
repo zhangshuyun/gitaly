@@ -27,7 +27,7 @@ func TestSuccessfulUserCherryPickRequest(t *testing.T) {
 
 	repoProto, repoPath, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
-	repo := localrepo.New(repoProto, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
 	destinationBranch := "cherry-picking-dst"
 	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", destinationBranch, "master")
@@ -158,7 +158,7 @@ func TestSuccessfulUserCherryPickRequest(t *testing.T) {
 			response, err := client.UserCherryPick(ctx, testCase.request)
 			require.NoError(t, err)
 
-			testRepo := localrepo.New(testCase.request.Repository, config.Config)
+			testRepo := localrepo.New(git.NewExecCommandFactory(config.Config), testCase.request.Repository, config.Config)
 			headCommit, err := testRepo.ReadCommit(ctx, git.Revision(testCase.request.BranchName))
 			require.NoError(t, err)
 
@@ -196,7 +196,7 @@ func testSuccessfulGitHooksForUserCherryPickRequest(t *testing.T, ctxOuter conte
 
 	repoProto, repoPath, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
-	repo := localrepo.New(repoProto, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
 	destinationBranch := "cherry-picking-dst"
 	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", destinationBranch, "master")
@@ -241,7 +241,7 @@ func TestUserCherryPick_stableID(t *testing.T) {
 
 	repoProto, repoPath, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
-	repo := localrepo.New(repoProto, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -309,7 +309,7 @@ func TestFailedUserCherryPickRequestDueToValidations(t *testing.T) {
 
 	repoProto, _, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
-	repo := localrepo.New(repoProto, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
 	cherryPickedCommit, err := repo.ReadCommit(ctxOuter, "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab")
 	require.NoError(t, err)
@@ -390,7 +390,7 @@ func TestFailedUserCherryPickRequestDueToPreReceiveError(t *testing.T) {
 
 	repoProto, repoPath, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
-	repo := localrepo.New(repoProto, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
 	destinationBranch := "cherry-picking-dst"
 	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", destinationBranch, "master")
@@ -435,7 +435,7 @@ func TestFailedUserCherryPickRequestDueToCreateTreeError(t *testing.T) {
 
 	repoProto, repoPath, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
-	repo := localrepo.New(repoProto, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
 	destinationBranch := "cherry-picking-dst"
 	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", destinationBranch, "master")
@@ -473,7 +473,7 @@ func TestFailedUserCherryPickRequestDueToCommitError(t *testing.T) {
 
 	repoProto, repoPath, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
-	repo := localrepo.New(repoProto, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
 	sourceBranch := "cherry-pick-src"
 	destinationBranch := "cherry-picking-dst"

@@ -40,7 +40,7 @@ func TestFetchSourceBranchSourceRepositorySuccess(t *testing.T) {
 
 	targetRepoProto, _, cleanup := newTestRepo(t, locator, "fetch-source-target.git")
 	defer cleanup()
-	targetRepo := localrepo.New(targetRepoProto, config.Config)
+	targetRepo := localrepo.New(git.NewExecCommandFactory(config.Config), targetRepoProto, config.Config)
 
 	sourceRepo, sourcePath, cleanup := newTestRepo(t, locator, "fetch-source-source.git")
 	defer cleanup()
@@ -82,7 +82,7 @@ func TestFetchSourceBranchSameRepositorySuccess(t *testing.T) {
 
 	repoProto, repoPath, cleanup := newTestRepo(t, locator, "fetch-source-source.git")
 	defer cleanup()
-	repo := localrepo.New(repoProto, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
 	sourceBranch := "fetch-source-branch-test-branch"
 	newCommitID := testhelper.CreateCommit(t, repoPath, sourceBranch, nil)

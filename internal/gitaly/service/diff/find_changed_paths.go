@@ -135,7 +135,7 @@ func (s *server) validateFindChangedPathsRequestParams(ctx context.Context, in *
 		return err
 	}
 
-	gitRepo := localrepo.New(repo, s.cfg)
+	gitRepo := localrepo.New(s.gitCmdFactory, repo, s.cfg)
 
 	for _, commit := range in.GetCommits() {
 		if commit == "" {
