@@ -421,7 +421,7 @@ func TestUserCreateTagWithTransaction(t *testing.T) {
 				testhelper.AssertPathNotExists(t, hooksOutputPath)
 			}
 
-			require.Equal(t, 2, transactionServer.called)
+			require.Equal(t, 1, transactionServer.called)
 			transactionServer.called = 0
 		})
 	}

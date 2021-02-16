@@ -88,7 +88,17 @@ func (s *Server) updateReferenceWithHooks(ctx context.Context, repo *gitalypb.Re
 		return preReceiveError{message: err.Error()}
 	}
 
-	updater, err := updateref.New(ctx, s.cfg, s.gitCmdFactory, repo)
+	// We are already manually invoking the reference-transaction hook, so there is no need to
+	// set up hooks again here. One could argue that it would be easier to just have git handle
+	// execution of the reference-transaction hook. But unfortunately, it has proven to be
+	// problematic: if we queue a deletion, and the reference to be deleted exists both as
+	// packed-ref and as loose ref, then we would see two transactions: first a transaction
+	// deleting the packed-ref which would otherwise get unshadowed by deleting the loose ref,
+	// and only then do we see the deletion of the loose ref. So this depends on how well a repo
+	// is packed, which is obviously a bad thing as Gitaly nodes may be differently packed. We
+	// thus continue to manually drive the reference-transaction hook here, which doesn't have
+	// this problem.
+	updater, err := updateref.New(ctx, s.cfg, s.gitCmdFactory, repo, updateref.WithDisabledTransactions())
 	if err != nil {
 		return err
 	}

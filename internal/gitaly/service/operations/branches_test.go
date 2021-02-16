@@ -211,7 +211,7 @@ func TestUserCreateBranchWithTransaction(t *testing.T) {
 			response, err := client.UserCreateBranch(ctx, request)
 			require.NoError(t, err)
 			require.Empty(t, response.PreReceiveError)
-			require.Equal(t, 2, transactionServer.called)
+			require.Equal(t, 1, transactionServer.called)
 		})
 	}
 }
@@ -533,6 +533,70 @@ func TestSuccessfulGitHooksForUserDeleteBranchRequest(t *testing.T) {
 			require.Contains(t, string(output), "GL_USERNAME="+testhelper.TestUser.GlUsername)
 		})
 	}
+}
+
+func TestUserDeleteBranch_transaction(t *testing.T) {
+	repo, repoPath, cleanup := testhelper.NewTestRepo(t)
+	defer cleanup()
+
+	// This creates a new branch "delete-me" which exists both in the packed-refs file and as a
+	// loose reference. Git will create two reference transactions for this: one transaction to
+	// delete the packed-refs reference, and one to delete the loose ref. But given that we want
+	// to be independent of how well-packed refs are, we expect to get a single transactional
+	// vote, only.
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "update-ref", "refs/heads/delete-me", "master~")
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "pack-refs", "--all")
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "update-ref", "refs/heads/delete-me", "master")
+
+	internalSocket := config.Config.GitalyInternalSocketPath()
+	internalListener, err := net.Listen("unix", internalSocket)
+	require.NoError(t, err)
+
+	locator := config.NewLocator(config.Config)
+	txManager := transaction.NewManager(config.Config)
+	hookManager := gitalyhook.NewManager(locator, txManager, gitalyhook.GitlabAPIStub, config.Config)
+	gitCmdFactory := git.NewExecCommandFactory(config.Config)
+
+	conns := client.NewPool()
+	defer conns.Close()
+
+	operationServer := NewServer(config.Config, RubyServer, hookManager, locator, conns, gitCmdFactory)
+	transactionServer := &testTransactionServer{}
+
+	// We're setting up the RefTransaction server on the same server as the OperationService.
+	// Typically it would be hosted on Praefect, but in order to make the already-complex test
+	// setup not even more complex we just reuse the same GRPC server.
+	srv := testhelper.NewServerWithAuth(t, nil, nil, config.Config.Auth.Token)
+	gitalypb.RegisterOperationServiceServer(srv.GrpcServer(), operationServer)
+	gitalypb.RegisterRefTransactionServer(srv.GrpcServer(), transactionServer)
+
+	srv.Start(t)
+	defer srv.Stop()
+	go srv.GrpcServer().Serve(internalListener)
+
+	praefect := metadata.PraefectServer{
+		SocketPath: fmt.Sprintf("unix://" + internalSocket),
+		Token:      config.Config.Auth.Token,
+	}
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+	ctx, err = praefect.Inject(ctx)
+	require.NoError(t, err)
+	ctx, err = metadata.InjectTransaction(ctx, 1, "node", true)
+	require.NoError(t, err)
+	ctx = helper.IncomingToOutgoing(ctx)
+
+	client, conn := newOperationClient(t, "unix://"+internalSocket)
+	defer conn.Close()
+
+	_, err = client.UserDeleteBranch(ctx, &gitalypb.UserDeleteBranchRequest{
+		Repository: repo,
+		BranchName: []byte("delete-me"),
+		User:       testhelper.TestUser,
+	})
+	require.NoError(t, err)
+	require.Equal(t, 1, transactionServer.called)
 }
 
 func TestFailedUserDeleteBranchDueToValidation(t *testing.T) {
