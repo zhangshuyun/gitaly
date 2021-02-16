@@ -410,6 +410,18 @@ func TestReconciler(t *testing.T) {
 				},
 			},
 		},
+		{
+			desc:               "the only assigned node being up to date produces no jobs",
+			assignmentsEnabled: true,
+			healthyStorages:    configuredStorages,
+			repositories: repositories{
+				"virtual-storage-1": {
+					"relative-path-1": {
+						"storage-1": {generation: 0, assigned: true},
+					},
+				},
+			},
+		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			ctx, cancel := testhelper.Context()
