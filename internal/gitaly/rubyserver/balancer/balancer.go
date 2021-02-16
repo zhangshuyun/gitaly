@@ -42,7 +42,9 @@ const (
 // AddAddress adds the address of a gitaly-ruby instance to the load
 // balancer.
 func AddAddress(a string) {
-	lbBuilder.addAddress <- a
+	done := make(chan struct{})
+	lbBuilder.addAddress <- addressAddition{addr: a, done: done}
+	<-done
 }
 
 // RemoveAddress removes the address of a gitaly-ruby instance from the
@@ -52,6 +54,11 @@ func RemoveAddress(addr string) bool {
 	ok := make(chan bool)
 	lbBuilder.removeAddress <- addressRemoval{ok: ok, addr: addr}
 	return <-ok
+}
+
+type addressAddition struct {
+	addr string
+	done chan<- struct{}
 }
 
 type addressRemoval struct {
@@ -64,13 +71,17 @@ type addressUpdate struct {
 	next  chan struct{}
 }
 
+// NowFunc returns the current time.
+type NowFunc func() time.Time
+
 type config struct {
 	numAddrs    int
 	removeDelay time.Duration
+	now         NowFunc
 }
 
 type builder struct {
-	addAddress     chan string
+	addAddress     chan addressAddition
 	removeAddress  chan addressRemoval
 	addressUpdates chan addressUpdate
 	configUpdate   chan config
@@ -83,10 +94,11 @@ type builder struct {
 // ConfigureBuilder changes the configuration of the global balancer
 // instance. All calls that interact with the balancer will block until
 // ConfigureBuilder has been called at least once.
-func ConfigureBuilder(numAddrs int, removeDelay time.Duration) {
+func ConfigureBuilder(numAddrs int, removeDelay time.Duration, now NowFunc) {
 	cfg := config{
 		numAddrs:    numAddrs,
 		removeDelay: removeDelay,
+		now:         now,
 	}
 
 	if cfg.removeDelay <= 0 {
@@ -101,7 +113,7 @@ func ConfigureBuilder(numAddrs int, removeDelay time.Duration) {
 
 func newBuilder() *builder {
 	b := &builder{
-		addAddress:            make(chan string),
+		addAddress:            make(chan addressAddition),
 		removeAddress:         make(chan addressRemoval),
 		addressUpdates:        make(chan addressUpdate),
 		configUpdate:          make(chan config),
@@ -135,7 +147,7 @@ func (b *builder) monitor() {
 	// At this point, there has been no previous removal command yet, so the
 	// "last removal" is undefined. We want it to default to "long enough
 	// ago".
-	lastRemoval := time.Now().Add(-1 * time.Hour)
+	var lastRemoval time.Time
 
 	// This channel is intentionally nil so that our 'select' below won't
 	// send messages to it. We do this to prevent sending out invalid (empty)
@@ -156,12 +168,14 @@ func (b *builder) monitor() {
 		select {
 		case addressUpdates <- au:
 			// We have served an address update request
-		case addr := <-b.addAddress:
-			p.add(addr)
+		case addition := <-b.addAddress:
+			p.add(addition.addr)
+			close(addition.done)
 
 			notify = broadcast(notify)
 		case removal := <-b.removeAddress:
-			if time.Since(lastRemoval) < cfg.removeDelay || p.activeSize() < cfg.numAddrs-1 {
+			now := cfg.now()
+			if now.Sub(lastRemoval) < cfg.removeDelay || p.activeSize() < cfg.numAddrs-1 {
 				removal.ok <- false
 				break
 			}
@@ -172,7 +186,7 @@ func (b *builder) monitor() {
 			}
 
 			removal.ok <- true
-			lastRemoval = time.Now()
+			lastRemoval = now
 			notify = broadcast(notify)
 		case cfg = <-b.configUpdate:
 			// We have received a config update
