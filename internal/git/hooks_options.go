@@ -41,7 +41,7 @@ func WithRefTxHook(ctx context.Context, repo repository.GitRepo, cfg config.Cfg)
 			GitAlternateObjectDirectories: repo.GetGitAlternateObjectDirectories(),
 			GitObjectDirectory:            repo.GetGitObjectDirectory(),
 			RelativePath:                  repo.GetRelativePath(),
-		}, cfg, nil); err != nil {
+		}, cfg, nil, ReferenceTransactionHook); err != nil {
 			return fmt.Errorf("ref hook env var: %w", err)
 		}
 
@@ -56,7 +56,7 @@ func WithPackObjectsHookEnv(ctx context.Context, repo *gitalypb.Repository, cfg 
 			return fmt.Errorf("missing repo: %w", ErrInvalidArg)
 		}
 
-		if err := cc.configureHooks(ctx, repo, cfg, nil); err != nil {
+		if err := cc.configureHooks(ctx, repo, cfg, nil, PackObjectsHook); err != nil {
 			return fmt.Errorf("pack-objects hook configuration: %w", err)
 		}
 
@@ -77,6 +77,7 @@ func (cc *cmdCfg) configureHooks(
 	repo *gitalypb.Repository,
 	cfg config.Cfg,
 	receiveHooksPayload *ReceiveHooksPayload,
+	requestedHooks Hook,
 ) error {
 	if cc.hooksConfigured {
 		return errors.New("hooks already configured")
@@ -87,7 +88,7 @@ func (cc *cmdCfg) configureHooks(
 		return err
 	}
 
-	payload, err := NewHooksPayload(cfg, repo, transaction, praefect, receiveHooksPayload).Env()
+	payload, err := NewHooksPayload(cfg, repo, transaction, praefect, receiveHooksPayload, requestedHooks).Env()
 	if err != nil {
 		return err
 	}
@@ -123,7 +124,7 @@ func WithReceivePackHooks(ctx context.Context, cfg config.Cfg, req ReceivePackRe
 			UserID:   req.GetGlId(),
 			Username: req.GetGlUsername(),
 			Protocol: protocol,
-		}); err != nil {
+		}, ReceivePackHooks); err != nil {
 			return err
 		}
 

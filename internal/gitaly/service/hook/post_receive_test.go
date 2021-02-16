@@ -123,6 +123,7 @@ func TestHooksMissingStdin(t *testing.T) {
 					Username: "username",
 					Protocol: "protocol",
 				},
+				git.PostReceiveHook,
 			).Env()
 			require.NoError(t, err)
 
@@ -253,7 +254,7 @@ To create a merge request for okay, visit:
 				UserID:   "key_id",
 				Username: "username",
 				Protocol: "protocol",
-			}).Env()
+			}, git.PostReceiveHook).Env()
 			require.NoError(t, err)
 
 			envVars := []string{

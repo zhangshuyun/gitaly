@@ -28,8 +28,35 @@ var (
 	ErrPayloadNotFound = errors.New("no hooks payload found in environment")
 )
 
+// Hook represents a git hook. See githooks(5) for more information about
+// existing hooks.
+type Hook uint
+
+const (
+	// ReferenceTransactionHook represents the reference-transaction git hook.
+	ReferenceTransactionHook = Hook(1 << iota)
+	// UpdateHook represents the update git hook.
+	UpdateHook
+	// PreReceiveHook represents the pre-receive git hook.
+	PreReceiveHook
+	// PostReceiveHook represents the post-receive git hook.
+	PostReceiveHook
+	// PackObjectsHook represents the pack-objects git hook.
+	PackObjectsHook
+
+	// AllHooks is the bitwise set of all hooks supported by Gitaly.
+	AllHooks = ReferenceTransactionHook | UpdateHook | PreReceiveHook | PostReceiveHook | PackObjectsHook
+	// ReceivePackHooks includes the set of hooks which shall be executed in
+	// a typical "push" or an emulation thereof (e.g. `updateReferenceWithHooks()`).
+	ReceivePackHooks = ReferenceTransactionHook | UpdateHook | PreReceiveHook | PostReceiveHook
+)
+
 // HooksPayload holds parameters required for all hooks.
 type HooksPayload struct {
+	// RequestedHooks is a bitfield of requested Hooks. Hooks which
+	// were not requested will not get executed.
+	RequestedHooks Hook `json:"requested_hooks"`
+
 	// Repo is the repository in which the hook is running.
 	Repo *gitalypb.Repository `json:"-"`
 	// BinDir is the binary directory of Gitaly.
@@ -82,6 +109,7 @@ func NewHooksPayload(
 	tx *metadata.Transaction,
 	praefect *metadata.PraefectServer,
 	receiveHooksPayload *ReceiveHooksPayload,
+	requestedHooks Hook,
 ) HooksPayload {
 	return HooksPayload{
 		Repo:                repo,
@@ -92,6 +120,7 @@ func NewHooksPayload(
 		Transaction:         tx,
 		Praefect:            praefect,
 		ReceiveHooksPayload: receiveHooksPayload,
+		RequestedHooks:      requestedHooks,
 	}
 }
 
@@ -155,6 +184,13 @@ func HooksPayloadFromEnv(envs []string) (HooksPayload, error) {
 		payload.GitPath, _ = lookupEnv(envs, "GITALY_GIT_BIN_PATH")
 	}
 
+	// If no RequestedHooks are passed down to us, then we need to assume
+	// that the caller of this hook isn't aware of this field and thus just
+	// pretend that he wants to execute all hooks.
+	if payload.RequestedHooks == 0 {
+		payload.RequestedHooks = AllHooks
+	}
+
 	return payload, nil
 }
 
@@ -174,4 +210,10 @@ func (p HooksPayload) Env() (string, error) {
 	encoded := base64.StdEncoding.EncodeToString(marshalled)
 
 	return fmt.Sprintf("%s=%s", EnvHooksPayload, encoded), nil
+}
+
+// IsHookRequested returns whether the HooksPayload is requesting execution of
+// the given git hook.
+func (p HooksPayload) IsHookRequested(hook Hook) bool {
+	return p.RequestedHooks&hook != 0
 }

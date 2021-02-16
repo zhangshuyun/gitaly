@@ -140,7 +140,7 @@ func TestUpdateReferenceWithHooks(t *testing.T) {
 		UserID:   "1234",
 		Username: "Username",
 		Protocol: "web",
-	}).Env()
+	}, git.ReceivePackHooks).Env()
 	require.NoError(t, err)
 
 	expectedEnv := []string{

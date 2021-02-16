@@ -29,7 +29,7 @@ func TestPrereceive_customHooks(t *testing.T) {
 		Protocol: "web",
 	}
 
-	payload, err := git.NewHooksPayload(config.Config, repo, nil, nil, receiveHooksPayload).Env()
+	payload, err := git.NewHooksPayload(config.Config, repo, nil, nil, receiveHooksPayload, git.PreReceiveHook).Env()
 	require.NoError(t, err)
 
 	primaryPayload, err := git.NewHooksPayload(
@@ -43,6 +43,7 @@ func TestPrereceive_customHooks(t *testing.T) {
 			Token:      "secret",
 		},
 		receiveHooksPayload,
+		git.PreReceiveHook,
 	).Env()
 	require.NoError(t, err)
 
@@ -57,6 +58,7 @@ func TestPrereceive_customHooks(t *testing.T) {
 			Token:      "secret",
 		},
 		receiveHooksPayload,
+		git.PreReceiveHook,
 	).Env()
 	require.NoError(t, err)
 
@@ -208,7 +210,7 @@ func TestPrereceive_gitlab(t *testing.T) {
 		UserID:   "1234",
 		Username: "user",
 		Protocol: "web",
-	}).Env()
+	}, git.PreReceiveHook).Env()
 	require.NoError(t, err)
 
 	standardEnv := []string{payload}

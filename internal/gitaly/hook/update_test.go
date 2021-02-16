@@ -26,7 +26,7 @@ func TestUpdate_customHooks(t *testing.T) {
 		Protocol: "web",
 	}
 
-	payload, err := git.NewHooksPayload(config.Config, repo, nil, nil, receiveHooksPayload).Env()
+	payload, err := git.NewHooksPayload(config.Config, repo, nil, nil, receiveHooksPayload, git.UpdateHook).Env()
 	require.NoError(t, err)
 
 	primaryPayload, err := git.NewHooksPayload(
@@ -40,6 +40,7 @@ func TestUpdate_customHooks(t *testing.T) {
 			Token:      "secret",
 		},
 		receiveHooksPayload,
+		git.UpdateHook,
 	).Env()
 	require.NoError(t, err)
 
@@ -54,6 +55,7 @@ func TestUpdate_customHooks(t *testing.T) {
 			Token:      "secret",
 		},
 		receiveHooksPayload,
+		git.UpdateHook,
 	).Env()
 	require.NoError(t, err)
 

@@ -53,7 +53,7 @@ func (s *Server) updateReferenceWithHooks(ctx context.Context, repo *gitalypb.Re
 		UserID:   user.GetGlId(),
 		Username: user.GetGlUsername(),
 		Protocol: "web",
-	}).Env()
+	}, git.ReceivePackHooks).Env()
 	if err != nil {
 		return err
 	}

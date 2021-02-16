@@ -48,7 +48,7 @@ func TestUpdate_CustomHooks(t *testing.T) {
 		UserID:   "key-123",
 		Username: "username",
 		Protocol: "web",
-	}).Env()
+	}, git.UpdateHook).Env()
 	require.NoError(t, err)
 
 	envVars := []string{

@@ -149,7 +149,7 @@ func TestPreReceiveHook_GitlabAPIAccess(t *testing.T) {
 		UserID:   glID,
 		Username: "username",
 		Protocol: protocol,
-	}).Env()
+	}, git.PreReceiveHook).Env()
 	require.NoError(t, err)
 
 	stdin := bytes.NewBufferString(changes)
@@ -256,7 +256,7 @@ func TestPreReceive_APIErrors(t *testing.T) {
 				UserID:   "key-123",
 				Username: "username",
 				Protocol: "web",
-			}).Env()
+			}, git.PreReceiveHook).Env()
 			require.NoError(t, err)
 
 			stream, err := client.PreReceiveHook(ctx)
@@ -325,7 +325,7 @@ exit %d
 		UserID:   "key-123",
 		Username: "username",
 		Protocol: "web",
-	}).Env()
+	}, git.PreReceiveHook).Env()
 	require.NoError(t, err)
 
 	stream, err := client.PreReceiveHook(ctx)
@@ -464,6 +464,7 @@ func TestPreReceiveHook_Primary(t *testing.T) {
 					Username: "username",
 					Protocol: "web",
 				},
+				git.PreReceiveHook,
 			).Env()
 			require.NoError(t, err)
 

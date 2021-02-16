@@ -28,13 +28,13 @@ func TestHooksPayload(t *testing.T) {
 	}
 
 	t.Run("envvar has proper name", func(t *testing.T) {
-		env, err := NewHooksPayload(config.Config, repo, nil, nil, nil).Env()
+		env, err := NewHooksPayload(config.Config, repo, nil, nil, nil, AllHooks).Env()
 		require.NoError(t, err)
 		require.True(t, strings.HasPrefix(env, EnvHooksPayload+"="))
 	})
 
 	t.Run("roundtrip succeeds", func(t *testing.T) {
-		env, err := NewHooksPayload(config.Config, repo, nil, nil, nil).Env()
+		env, err := NewHooksPayload(config.Config, repo, nil, nil, nil, PreReceiveHook).Env()
 		require.NoError(t, err)
 
 		payload, err := HooksPayloadFromEnv([]string{
@@ -50,11 +50,12 @@ func TestHooksPayload(t *testing.T) {
 			BinDir:         config.Config.BinDir,
 			GitPath:        config.Config.Git.BinPath,
 			InternalSocket: config.Config.GitalyInternalSocketPath(),
+			RequestedHooks: PreReceiveHook,
 		}, payload)
 	})
 
 	t.Run("roundtrip with transaction succeeds", func(t *testing.T) {
-		env, err := NewHooksPayload(config.Config, repo, &tx, &praefect, nil).Env()
+		env, err := NewHooksPayload(config.Config, repo, &tx, &praefect, nil, UpdateHook).Env()
 		require.NoError(t, err)
 
 		payload, err := HooksPayloadFromEnv([]string{env})
@@ -67,6 +68,7 @@ func TestHooksPayload(t *testing.T) {
 			InternalSocket: config.Config.GitalyInternalSocketPath(),
 			Transaction:    &tx,
 			Praefect:       &praefect,
+			RequestedHooks: UpdateHook,
 		}, payload)
 	})
 
@@ -82,7 +84,7 @@ func TestHooksPayload(t *testing.T) {
 	})
 
 	t.Run("payload with missing Praefect", func(t *testing.T) {
-		env, err := NewHooksPayload(config.Config, repo, &tx, nil, nil).Env()
+		env, err := NewHooksPayload(config.Config, repo, &tx, nil, nil, AllHooks).Env()
 		require.NoError(t, err)
 
 		_, err = HooksPayloadFromEnv([]string{env})
@@ -94,7 +96,7 @@ func TestHooksPayload(t *testing.T) {
 			UserID:   "1234",
 			Username: "user",
 			Protocol: "ssh",
-		}).Env()
+		}, PostReceiveHook).Env()
 		require.NoError(t, err)
 
 		payload, err := HooksPayloadFromEnv([]string{
@@ -116,6 +118,7 @@ func TestHooksPayload(t *testing.T) {
 				Username: "user",
 				Protocol: "ssh",
 			},
+			RequestedHooks: PostReceiveHook,
 		}, payload)
 	})
 
@@ -125,7 +128,7 @@ func TestHooksPayload(t *testing.T) {
 		}(config.Config.Git.BinPath)
 		config.Config.Git.BinPath = ""
 
-		env, err := NewHooksPayload(config.Config, repo, nil, nil, nil).Env()
+		env, err := NewHooksPayload(config.Config, repo, nil, nil, nil, ReceivePackHooks).Env()
 		require.NoError(t, err)
 
 		payload, err := HooksPayloadFromEnv([]string{
@@ -138,6 +141,78 @@ func TestHooksPayload(t *testing.T) {
 			BinDir:         config.Config.BinDir,
 			GitPath:        "/foo/bar",
 			InternalSocket: config.Config.GitalyInternalSocketPath(),
+			RequestedHooks: ReceivePackHooks,
 		}, payload)
 	})
+}
+
+func TestHooksPayload_IsHookRequested(t *testing.T) {
+	for _, tc := range []struct {
+		desc       string
+		configured Hook
+		request    Hook
+		expected   bool
+	}{
+		{
+			desc:       "exact match",
+			configured: PreReceiveHook,
+			request:    PreReceiveHook,
+			expected:   true,
+		},
+		{
+			desc:       "hook matches a set",
+			configured: PreReceiveHook | PostReceiveHook,
+			request:    PreReceiveHook,
+			expected:   true,
+		},
+		{
+			desc:       "no match",
+			configured: PreReceiveHook,
+			request:    PostReceiveHook,
+			expected:   false,
+		},
+		{
+			desc:       "no match with a set",
+			configured: PreReceiveHook | UpdateHook,
+			request:    PostReceiveHook,
+			expected:   false,
+		},
+		{
+			desc:       "no match with nothing set",
+			configured: 0,
+			request:    PostReceiveHook,
+			expected:   false,
+		},
+		{
+			desc:       "pre-receive hook with AllHooks",
+			configured: AllHooks,
+			request:    PreReceiveHook,
+			expected:   true,
+		},
+		{
+			desc:       "post-receive hook with AllHooks",
+			configured: AllHooks,
+			request:    PostReceiveHook,
+			expected:   true,
+		},
+		{
+			desc:       "update hook with AllHooks",
+			configured: AllHooks,
+			request:    UpdateHook,
+			expected:   true,
+		},
+		{
+			desc:       "reference-transaction hook with AllHooks",
+			configured: AllHooks,
+			request:    ReferenceTransactionHook,
+			expected:   true,
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			actual := HooksPayload{
+				RequestedHooks: tc.configured,
+			}.IsHookRequested(tc.request)
+			require.Equal(t, tc.expected, actual)
+		})
+	}
 }
