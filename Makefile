@@ -321,19 +321,6 @@ cover: prepare-tests libgit2 ${GOCOVER_COBERTURA}
 	${Q}echo ""
 	${Q}go tool cover -func "${COVERAGE_DIR}/all.merged"
 
-.PHONY: docker
-docker:
-	${Q}rm -rf ${BUILD_DIR}/docker/
-	${Q}mkdir -p ${BUILD_DIR}/docker/bin/
-	${Q}rm -rf  ${GITALY_RUBY_DIR}/tmp
-	cp -r  ${GITALY_RUBY_DIR} ${BUILD_DIR}/docker/ruby
-	${Q}rm -rf ${BUILD_DIR}/docker/ruby/vendor/bundle
-	for command in $(call find_commands); do \
-		GOOS=linux GOARCH=amd64 go build -tags "${GO_BUILD_TAGS}" ${GO_LDFLAGS} -o "${BUILD_DIR}/docker/bin/$${command}" ${GITALY_PACKAGE}/cmd/$${command}; \
-	done
-	cp ${SOURCE_DIR}/Dockerfile ${BUILD_DIR}/docker/
-	docker build -t gitlab/gitaly:v${GITALY_VERSION} -t gitlab/gitaly:latest ${BUILD_DIR}/docker/
-
 .PHONY: proto
 proto: ${PROTOC} ${PROTOC_GEN_GO} ${SOURCE_DIR}/.ruby-bundle
 	${Q}mkdir -p ${SOURCE_DIR}/proto/go/gitalypb
