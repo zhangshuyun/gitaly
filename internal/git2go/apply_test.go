@@ -211,7 +211,7 @@ func TestExecutor_Apply(t *testing.T) {
 				Committer: committer,
 				Message:   tc.patches[len(tc.patches)-1].Message,
 			}, getCommit(t, ctx, repo, commitID))
-			testhelper.RequireTree(t, repoPath, commitID, tc.tree)
+			testhelper.RequireTree(t, config.Config.Git.BinPath, repoPath, commitID, tc.tree)
 		})
 	}
 }
