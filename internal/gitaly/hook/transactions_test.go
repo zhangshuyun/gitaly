@@ -157,6 +157,59 @@ func TestHookManager_contextCancellationCancelsVote(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Nanosecond)
 	defer cancel()
 
-	err = hookManager.ReferenceTransactionHook(ctx, ReferenceTransactionPrepared, []string{hooksPayload}, strings.NewReader("changes"))
+	changes := fmt.Sprintf("%s %s refs/heads/master", strings.Repeat("1", 40), git.ZeroOID)
+
+	err = hookManager.ReferenceTransactionHook(ctx, ReferenceTransactionPrepared, []string{hooksPayload}, strings.NewReader(changes))
 	require.Equal(t, "error voting on transaction: mock error: context deadline exceeded", err.Error())
+}
+
+func TestIsForceDeletionsOnly(t *testing.T) {
+	anyOID := strings.Repeat("1", 40)
+	zeroOID := git.ZeroOID.String()
+
+	forceDeletion := fmt.Sprintf("%s %s refs/heads/force-delete", zeroOID, zeroOID)
+	forceUpdate := fmt.Sprintf("%s %s refs/heads/force-update", zeroOID, anyOID)
+	deletion := fmt.Sprintf("%s %s refs/heads/delete", anyOID, zeroOID)
+
+	for _, tc := range []struct {
+		desc     string
+		changes  string
+		expected bool
+	}{
+		{
+			desc:     "single force deletion",
+			changes:  forceDeletion + "\n",
+			expected: true,
+		},
+		{
+			desc:     "single force deletion with missing newline",
+			changes:  forceDeletion,
+			expected: true,
+		},
+		{
+			desc:     "multiple force deletions",
+			changes:  strings.Join([]string{forceDeletion, forceDeletion}, "\n"),
+			expected: true,
+		},
+		{
+			desc:     "single non-force deletion",
+			changes:  deletion + "\n",
+			expected: false,
+		},
+		{
+			desc:     "single force update",
+			changes:  forceUpdate + "\n",
+			expected: false,
+		},
+		{
+			desc:     "mixed deletions and updates",
+			changes:  strings.Join([]string{forceDeletion, forceUpdate}, "\n"),
+			expected: false,
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			actual := isForceDeletionsOnly(strings.NewReader(tc.changes))
+			require.Equal(t, tc.expected, actual)
+		})
+	}
 }

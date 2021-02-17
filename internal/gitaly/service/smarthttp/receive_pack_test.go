@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/hooks"
+	"gitlab.com/gitlab-org/gitaly/internal/git/pktline"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	gitalyhook "gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/hook"
@@ -33,6 +34,10 @@ import (
 	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/reflection"
+)
+
+const (
+	uploadPackCapabilities = "report-status side-band-64k agent=git/2.12.0"
 )
 
 func TestSuccessfulReceivePackRequest(t *testing.T) {
@@ -229,11 +234,9 @@ func newTestPush(t *testing.T, fileContents []byte) *pushData {
 	// ReceivePack request is a packet line followed by a packet flush, then the pack file of the objects we want to push.
 	// This is explained a bit in https://git-scm.com/book/en/v2/Git-Internals-Transfer-Protocols#_uploading_data
 	// We form the packet line the same way git executable does: https://github.com/git/git/blob/d1a13d3fcb252631361a961cb5e2bf10ed467cba/send-pack.c#L524-L527
-	clientCapabilities := "report-status side-band-64k agent=git/2.12.0"
-
 	requestBuffer := &bytes.Buffer{}
 
-	pkt := fmt.Sprintf("%s %s refs/heads/master\x00 %s", oldHead, newHead, clientCapabilities)
+	pkt := fmt.Sprintf("%s %s refs/heads/master\x00 %s", oldHead, newHead, uploadPackCapabilities)
 	fmt.Fprintf(requestBuffer, "%04x%s", len(pkt)+4, pkt)
 
 	pkt = fmt.Sprintf("%s %s refs/heads/branch", git.ZeroOID, newHead)
@@ -582,25 +585,8 @@ func TestPostReceiveWithReferenceTransactionHook(t *testing.T) {
 	go gitalyServer.Serve(internalListener)
 	defer gitalyServer.Stop()
 
-	gitlabShellDir, cleanup := testhelper.TempDir(t)
-	defer cleanup()
-
-	defer func(oldValue string) {
-		config.Config.Gitlab.SecretFile = oldValue
-	}(config.Config.Gitlab.SecretFile)
-	config.Config.Gitlab.SecretFile = filepath.Join(gitlabShellDir, ".gitlab_shell_secret")
-	testhelper.WriteShellSecretFile(t, gitlabShellDir, "secret123")
-
-	refTransactionServer.called = 0
-
 	client, conn := newSmartHTTPClient(t, "unix://"+gitalySocketPath)
 	defer conn.Close()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-
-	ctx, err = metadata.InjectTransaction(ctx, 1234, "primary", true)
-	require.NoError(t, err)
 
 	// As we ain't got a Praefect server setup, we instead hooked up the
 	// RefTransaction server for Gitaly itself. As this is the only Praefect
@@ -611,21 +597,55 @@ func TestPostReceiveWithReferenceTransactionHook(t *testing.T) {
 	})
 	require.NoError(t, err)
 
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+	ctx, err = metadata.InjectTransaction(ctx, 1234, "primary", true)
+	require.NoError(t, err)
 	ctx, err = praefectServer.Inject(ctx)
 	require.NoError(t, err)
-
 	ctx = helper.IncomingToOutgoing(ctx)
 
-	stream, err := client.PostReceivePack(ctx)
-	require.NoError(t, err)
+	t.Run("update", func(t *testing.T) {
+		stream, err := client.PostReceivePack(ctx)
+		require.NoError(t, err)
 
-	repo, _, cleanup := testhelper.NewTestRepo(t)
-	defer cleanup()
+		repo, _, cleanup := testhelper.NewTestRepo(t)
+		defer cleanup()
 
-	request := &gitalypb.PostReceivePackRequest{Repository: repo, GlId: "key-1234", GlRepository: "some_repo"}
-	response := doPush(t, stream, request, newTestPush(t, nil).body)
+		request := &gitalypb.PostReceivePackRequest{Repository: repo, GlId: "key-1234", GlRepository: "some_repo"}
+		response := doPush(t, stream, request, newTestPush(t, nil).body)
 
-	expectedResponse := "0049\x01000eunpack ok\n0019ok refs/heads/master\n0019ok refs/heads/branch\n00000000"
-	require.Equal(t, expectedResponse, string(response), "Expected response to be %q, got %q", expectedResponse, response)
-	require.Equal(t, 2, refTransactionServer.called)
+		expectedResponse := "0049\x01000eunpack ok\n0019ok refs/heads/master\n0019ok refs/heads/branch\n00000000"
+		require.Equal(t, expectedResponse, string(response), "Expected response to be %q, got %q", expectedResponse, response)
+		require.Equal(t, 2, refTransactionServer.called)
+	})
+
+	t.Run("delete", func(t *testing.T) {
+		refTransactionServer.called = 0
+
+		stream, err := client.PostReceivePack(ctx)
+		require.NoError(t, err)
+
+		repo, repoPath, cleanup := testhelper.NewTestRepo(t)
+		defer cleanup()
+
+		// Create a new branch which we're about to delete. We also pack references because
+		// this used to generate two transactions: one for the packed-refs file and one for
+		// the loose ref. We only expect a single transaction though, given that the
+		// packed-refs transaction should get filtered out.
+		testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", "delete-me")
+		testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "pack-refs", "--all")
+		branchOID := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", "refs/heads/delete-me"))
+
+		uploadPackData := &bytes.Buffer{}
+		pktline.WriteString(uploadPackData, fmt.Sprintf("%s %s refs/heads/delete-me\x00 %s", branchOID, git.ZeroOID.String(), uploadPackCapabilities))
+		pktline.WriteFlush(uploadPackData)
+
+		request := &gitalypb.PostReceivePackRequest{Repository: repo, GlId: "key-1234", GlRepository: "some_repo"}
+		response := doPush(t, stream, request, uploadPackData)
+
+		expectedResponse := "0033\x01000eunpack ok\n001cok refs/heads/delete-me\n00000000"
+		require.Equal(t, expectedResponse, string(response), "Expected response to be %q, got %q", expectedResponse, response)
+		require.Equal(t, 1, refTransactionServer.called)
+	})
 }
