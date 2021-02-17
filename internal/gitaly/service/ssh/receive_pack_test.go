@@ -140,8 +140,10 @@ func TestReceivePackPushSuccess(t *testing.T) {
 }
 
 func TestReceivePackPushSuccessWithGitProtocol(t *testing.T) {
-	restore := testhelper.EnableGitProtocolV2Support(t)
+	defer func(old config.Cfg) { config.Config = old }(config.Config)
+	cfg, restore := testhelper.EnableGitProtocolV2Support(t, config.Config)
 	defer restore()
+	config.Config = cfg
 
 	serverSocketPath, stop := runSSHServer(t)
 	defer stop()
@@ -241,8 +243,10 @@ func TestSSHReceivePackToHooks(t *testing.T) {
 	glRepository := "some_repo"
 	glID := "key-123"
 
-	restore := testhelper.EnableGitProtocolV2Support(t)
+	defer func(old config.Cfg) { config.Config = old }(config.Config)
+	cfg, restore := testhelper.EnableGitProtocolV2Support(t, config.Config)
 	defer restore()
+	config.Config = cfg
 
 	serverSocketPath, stop := runSSHServer(t)
 	defer stop()

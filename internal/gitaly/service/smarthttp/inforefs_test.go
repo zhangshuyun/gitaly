@@ -95,8 +95,11 @@ func TestSuccessfulInfoRefsUploadPackWithGitConfigOptions(t *testing.T) {
 }
 
 func TestSuccessfulInfoRefsUploadPackWithGitProtocol(t *testing.T) {
-	restore := testhelper.EnableGitProtocolV2Support(t)
+	defer func(old config.Cfg) { config.Config = old }(config.Config)
+
+	cfg, restore := testhelper.EnableGitProtocolV2Support(t, config.Config)
 	defer restore()
+	config.Config = cfg
 
 	serverSocketPath, stop := runSmartHTTPServer(t)
 	defer stop()
