@@ -394,12 +394,6 @@ ${BUILD_DIR}/tools: | ${BUILD_DIR}
 ${BUILD_DIR}/Makefile.sha256: Makefile | ${BUILD_DIR}
 	${Q}sha256sum -c $@ >/dev/null 2>&1 || >$@ sha256sum Makefile
 
-${BUILD_DIR}/protoc.zip: ${BUILD_DIR}/Makefile.sha256
-	${Q}if [ -z "${PROTOC_URL}" ]; then echo "Cannot generate protos on unsupported platform ${OS}" && exit 1; fi
-	curl -o $@.tmp --silent --show-error -L ${PROTOC_URL}
-	${Q}printf '${PROTOC_HASH}  $@.tmp' | sha256sum -c -
-	${Q}mv $@.tmp $@
-
 ${BUILD_DIR}/git_full_bins.tgz: ${BUILD_DIR}/Makefile.sha256
 	curl -o $@.tmp --silent --show-error -L ${GIT_BINARIES_URL}
 	${Q}printf '${GIT_BINARIES_HASH}  $@.tmp' | sha256sum -c -
@@ -426,6 +420,12 @@ ${GIT_INSTALL_DIR}/bin/git: ${BUILD_DIR}/git_full_bins.tgz
 	${Q}mkdir -p ${GIT_INSTALL_DIR}
 	tar -C ${GIT_INSTALL_DIR} -xvzf ${BUILD_DIR}/git_full_bins.tgz
 endif
+
+${BUILD_DIR}/protoc.zip: ${BUILD_DIR}/Makefile.sha256
+	${Q}if [ -z "${PROTOC_URL}" ]; then echo "Cannot generate protos on unsupported platform ${OS}" && exit 1; fi
+	curl -o $@.tmp --silent --show-error -L ${PROTOC_URL}
+	${Q}printf '${PROTOC_HASH}  $@.tmp' | sha256sum -c -
+	${Q}mv $@.tmp $@
 
 ${PROTOC}: ${BUILD_DIR}/protoc.zip | ${BUILD_DIR}
 	${Q}rm -rf ${BUILD_DIR}/protoc
