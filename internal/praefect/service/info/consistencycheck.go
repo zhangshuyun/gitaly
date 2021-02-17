@@ -2,8 +2,10 @@ package info
 
 import (
 	"context"
+	"errors"
 	"io"
 
+	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/metadatahandler"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/nodes"
@@ -13,6 +15,8 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
+
+var errReconciliationInternal = errors.New("internal error(s) occurred during execution")
 
 func (s *Server) validateConsistencyCheckRequest(req *gitalypb.ConsistencyCheckRequest) error {
 	if req.GetTargetStorage() == "" {
@@ -134,6 +138,7 @@ type checksumResult struct {
 	reference        string
 	targetStorage    string
 	referenceStorage string
+	errs             []error
 }
 
 func checksumRepos(ctx context.Context, relpathQ <-chan string, checksumResultQ chan<- checksumResult, target, reference nodes.Node, virtualStorage string) error {
@@ -160,23 +165,34 @@ func checksumRepos(ctx context.Context, relpathQ <-chan string, checksumResultQ 
 
 		g, gctx := errgroup.WithContext(ctx)
 
-		g.Go(func() (err error) {
-			cs.target, err = checksumRepo(gctx, repoRelPath, target)
-			if status.Code(err) == codes.NotFound {
+		var targetErr error
+		g.Go(func() error {
+			cs.target, targetErr = checksumRepo(gctx, repoRelPath, target)
+			if status.Code(targetErr) == codes.NotFound {
 				// missing repo on target is okay, we need to
 				// replicate from reference
+				targetErr = nil
 				return nil
 			}
-			return err
+			return targetErr
 		})
 
-		g.Go(func() (err error) {
-			cs.reference, err = checksumRepo(gctx, repoRelPath, reference)
-			return err
+		var referenceErr error
+		g.Go(func() error {
+			cs.reference, referenceErr = checksumRepo(gctx, repoRelPath, reference)
+			return referenceErr
 		})
 
 		if err := g.Wait(); err != nil {
-			return err
+			// we don't care about err as it is one of the targetErr or referenceErr
+			// and we return it back to the caller to make the opeartion execution more verbose
+			if targetErr != nil {
+				cs.errs = append(cs.errs, targetErr)
+			}
+
+			if referenceErr != nil {
+				cs.errs = append(cs.errs, referenceErr)
+			}
 		}
 
 		select {
@@ -209,11 +225,15 @@ func scheduleReplication(ctx context.Context, csr checksumResult, q datastore.Re
 }
 
 func ensureConsistency(ctx context.Context, disableReconcile bool, checksumResultQ <-chan checksumResult, q datastore.ReplicationEventQueue, stream gitalypb.PraefectInfoService_ConsistencyCheckServer) error {
+	var erroneous bool
 	for {
 		var csr checksumResult
 		select {
 		case res, ok := <-checksumResultQ:
 			if !ok {
+				if erroneous {
+					return helper.ErrInternal(errReconciliationInternal)
+				}
 				return nil
 			}
 			csr = res
@@ -227,10 +247,15 @@ func ensureConsistency(ctx context.Context, disableReconcile bool, checksumResul
 			TargetChecksum:    csr.target,
 			ReferenceStorage:  csr.referenceStorage,
 		}
+		for _, err := range csr.errs {
+			resp.Errors = append(resp.Errors, err.Error())
+			erroneous = true
+		}
 
 		if csr.reference != csr.target && !disableReconcile {
 			if err := scheduleReplication(ctx, csr, q, resp); err != nil {
-				return err
+				resp.Errors = append(resp.Errors, err.Error())
+				erroneous = true
 			}
 		}
 

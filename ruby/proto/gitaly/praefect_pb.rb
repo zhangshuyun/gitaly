@@ -63,6 +63,7 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       optional :reference_checksum, :string, 3
       optional :repl_job_id, :uint64, 4
       optional :reference_storage, :string, 5
+      repeated :errors, :string, 6
     end
   end
 end
