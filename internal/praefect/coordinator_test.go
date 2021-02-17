@@ -1494,7 +1494,6 @@ func TestGetUpdatedAndOutdatedSecondaries(t *testing.T) {
 		secondaries      []node
 		replicas         []string
 		subtransactions  int
-		expectedErr      error
 		expectedOutdated []string
 		expectedUpdated  []string
 	}{
@@ -1513,7 +1512,6 @@ func TestGetUpdatedAndOutdatedSecondaries(t *testing.T) {
 				state: transactions.VoteFailed,
 			},
 			subtransactions: 1,
-			expectedErr:     errors.New("transaction: primary failed vote"),
 		},
 		{
 			desc: "single node without subtransactions",
@@ -1538,17 +1536,18 @@ func TestGetUpdatedAndOutdatedSecondaries(t *testing.T) {
 				name:  "primary",
 				state: transactions.VoteFailed,
 			},
-			replicas:        []string{"replica"},
-			subtransactions: 1,
-			expectedErr:     errors.New("transaction: primary failed vote"),
+			replicas:         []string{"replica"},
+			subtransactions:  1,
+			expectedOutdated: []string{"replica"},
 		},
 		{
 			desc: "single node without transaction with replica",
 			primary: node{
 				name: "primary",
 			},
-			replicas:        []string{"replica"},
-			subtransactions: 0,
+			replicas:         []string{"replica"},
+			subtransactions:  0,
+			expectedOutdated: []string{"replica"},
 		},
 		{
 			desc: "multiple committed nodes",
@@ -1587,8 +1586,8 @@ func TestGetUpdatedAndOutdatedSecondaries(t *testing.T) {
 				{name: "s1", state: transactions.VoteFailed},
 				{name: "s2", state: transactions.VoteCommitted},
 			},
-			subtransactions: 1,
-			expectedErr:     errors.New("transaction: primary failed vote"),
+			subtransactions:  1,
+			expectedOutdated: []string{"s1", "s2"},
 		},
 		{
 			desc: "multiple nodes without subtransactions",
@@ -1649,8 +1648,7 @@ func TestGetUpdatedAndOutdatedSecondaries(t *testing.T) {
 			}
 			route.ReplicationTargets = append(route.ReplicationTargets, tc.replicas...)
 
-			updated, outdated, err := getUpdatedAndOutdatedSecondaries(ctx, route, transaction)
-			require.Equal(t, tc.expectedErr, err)
+			updated, outdated := getUpdatedAndOutdatedSecondaries(ctx, route, transaction)
 			require.ElementsMatch(t, tc.expectedUpdated, updated)
 			require.ElementsMatch(t, tc.expectedOutdated, outdated)
 		})

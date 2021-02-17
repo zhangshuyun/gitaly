@@ -56,9 +56,9 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 		{
 			desc: "failing vote should not create replication jobs",
 			nodes: []node{
-				{primary: true, vote: "foo", shouldSucceed: false, shouldGetRepl: false, shouldParticipate: true, expectedGeneration: 0},
-				{primary: false, vote: "qux", shouldSucceed: false, shouldGetRepl: false, shouldParticipate: true, expectedGeneration: 0},
-				{primary: false, vote: "bar", shouldSucceed: false, shouldGetRepl: false, shouldParticipate: true, expectedGeneration: 0},
+				{primary: true, vote: "foo", shouldSucceed: false, shouldGetRepl: false, shouldParticipate: true, expectedGeneration: 1},
+				{primary: false, vote: "qux", shouldSucceed: false, shouldGetRepl: true, shouldParticipate: true, expectedGeneration: 0},
+				{primary: false, vote: "bar", shouldSucceed: false, shouldGetRepl: true, shouldParticipate: true, expectedGeneration: 0},
 			},
 		},
 		{
@@ -100,6 +100,18 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 			nodes: []node{
 				{primary: true, shouldSucceed: true, shouldGetRepl: false, expectedGeneration: 1},
 				{primary: false, shouldSucceed: false, shouldGetRepl: true, expectedGeneration: 0},
+			},
+		},
+		{
+			// If the transaction didn't receive any votes at all, we need to assume
+			// that the RPC wasn't aware of transactions and thus need to schedule
+			// replication jobs.
+			desc: "unstarted transaction should create replication jobs for outdated node",
+			nodes: []node{
+				{primary: true, shouldSucceed: true, shouldGetRepl: false, generation: 1, expectedGeneration: 2},
+				{primary: false, shouldSucceed: false, shouldGetRepl: true, generation: 1, expectedGeneration: 1},
+				{primary: false, shouldSucceed: false, shouldGetRepl: true, generation: 0, expectedGeneration: 0},
+				{primary: false, shouldSucceed: false, shouldGetRepl: true, generation: datastore.GenerationUnknown, expectedGeneration: datastore.GenerationUnknown},
 			},
 		},
 	}
@@ -215,20 +227,8 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 			}
 			voterWaitGroup.Wait()
 
-			// this call creates new events in the queue and simulates usual flow of the update operation
-			var primaryShouldSucceed bool
-			for _, node := range tc.nodes {
-				if !node.primary {
-					continue
-				}
-				primaryShouldSucceed = node.shouldSucceed
-			}
 			err = streamParams.RequestFinalizer()
-			if primaryShouldSucceed {
-				require.NoError(t, err)
-			} else {
-				require.Equal(t, errors.New("transaction: primary failed vote"), err)
-			}
+			require.NoError(t, err)
 
 			// Nodes that successfully committed should have their generations incremented.
 			// Nodes that did not successfully commit or did not participate should remain on their
