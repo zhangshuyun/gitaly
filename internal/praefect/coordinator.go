@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
@@ -357,6 +358,11 @@ func (c *Coordinator) registerTransaction(ctx context.Context, primary RouterNod
 	return c.txMgr.RegisterTransaction(ctx, voters, threshold)
 }
 
+type nodeErrors struct {
+	sync.Mutex
+	errByNode map[string]error
+}
+
 func (c *Coordinator) mutatorStreamParameters(ctx context.Context, call grpcCall) (*proxy.StreamParameters, error) {
 	targetRepo := call.targetRepo
 	virtualStorage := call.targetRepo.StorageName
@@ -406,12 +412,23 @@ func (c *Coordinator) mutatorStreamParameters(ctx context.Context, call grpcCall
 		if err != nil {
 			return nil, fmt.Errorf("%w: %v %v", err, route.Primary, route.Secondaries)
 		}
+		finalizers = append(finalizers, transactionCleanup)
+
+		nodeErrors := &nodeErrors{
+			errByNode: make(map[string]error),
+		}
 
 		injectedCtx, err := metadata.InjectTransaction(ctx, transaction.ID(), route.Primary.Storage, true)
 		if err != nil {
 			return nil, err
 		}
 		primaryDest.Ctx = helper.IncomingToOutgoing(injectedCtx)
+		primaryDest.ErrHandler = func(err error) error {
+			nodeErrors.Lock()
+			defer nodeErrors.Unlock()
+			nodeErrors.errByNode[route.Primary.Storage] = err
+			return err
+		}
 
 		for _, secondary := range route.Secondaries {
 			secondaryMsg, err := rewrittenRepositoryMessage(call.methodInfo, call.msg, secondary.Storage)
@@ -428,11 +445,18 @@ func (c *Coordinator) mutatorStreamParameters(ctx context.Context, call grpcCall
 				Ctx:  helper.IncomingToOutgoing(injectedCtx),
 				Conn: secondary.Connection,
 				Msg:  secondaryMsg,
+				ErrHandler: func(err error) error {
+					nodeErrors.Lock()
+					defer nodeErrors.Unlock()
+					nodeErrors.errByNode[secondary.Storage] = err
+					return err
+				},
 			})
 		}
 
 		finalizers = append(finalizers,
-			transactionCleanup, c.createTransactionFinalizer(ctx, transaction, route, virtualStorage, targetRepo, change, params),
+			c.createTransactionFinalizer(ctx, transaction, route, virtualStorage,
+				targetRepo, change, params, nodeErrors),
 		)
 	} else {
 		finalizers = append(finalizers,
@@ -655,9 +679,10 @@ func (c *Coordinator) createTransactionFinalizer(
 	targetRepo *gitalypb.Repository,
 	change datastore.ChangeType,
 	params datastore.Params,
+	nodeErrors *nodeErrors,
 ) func() error {
 	return func() error {
-		updated, outdated := getUpdatedAndOutdatedSecondaries(ctx, route, transaction)
+		updated, outdated := getUpdatedAndOutdatedSecondaries(ctx, route, transaction, nodeErrors)
 
 		return c.newRequestFinalizer(
 			ctx, virtualStorage, targetRepo, route.Primary.Storage,
@@ -675,17 +700,32 @@ func (c *Coordinator) createTransactionFinalizer(
 // - The node failed to be part of the quorum. As a special case, if the primary fails the vote, all
 //   nodes need to get replication jobs.
 //
+// - The node has errored. As a special case, if the primary fails all nodes need to get replication
+//   jobs.
+//
 // Note that this function cannot and should not fail: if anything goes wrong, we need to create
 // replication jobs to repair state.
 func getUpdatedAndOutdatedSecondaries(
 	ctx context.Context,
 	route RepositoryMutatorRoute,
 	transaction transactions.Transaction,
+	nodeErrors *nodeErrors,
 ) (updated []string, outdated []string) {
+	nodeErrors.Lock()
+	defer nodeErrors.Unlock()
+
 	// Replication targets were not added to the transaction, most likely because they are
 	// either not healthy or out of date. We thus need to make sure to create replication jobs
 	// for them.
 	outdated = append(outdated, route.ReplicationTargets...)
+
+	// If the primary errored, then we need to assume that it has modified on-disk state and
+	// thus need to replicate those changes to secondaries.
+	if err := nodeErrors.errByNode[route.Primary.Storage]; err != nil {
+		ctxlogrus.Extract(ctx).WithError(err).Info("primary failed transaction")
+		outdated = append(outdated, routerNodesToStorages(route.Secondaries)...)
+		return
+	}
 
 	// If no subtransaction happened, then the called RPC may not be aware of transactions at
 	// all. We thus need to assume it changed repository state and need to create replication
@@ -716,9 +756,14 @@ func getUpdatedAndOutdatedSecondaries(
 		return
 	}
 
-	// Now we finally got the potentially happy case: in case the secondary committed, it's
-	// considered up to date and thus does not need replication.
+	// Now we finally got the potentially happy case: in case the secondary didn't run into an
+	// error and committed, it's considered up to date and thus does not need replication.
 	for _, secondary := range route.Secondaries {
+		if nodeErrors.errByNode[secondary.Storage] != nil {
+			outdated = append(outdated, secondary.Storage)
+			continue
+		}
+
 		if nodeStates[secondary.Storage] != transactions.VoteCommitted {
 			outdated = append(outdated, secondary.Storage)
 			continue
