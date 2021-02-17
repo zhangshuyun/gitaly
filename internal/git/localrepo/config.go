@@ -89,7 +89,8 @@ func (cfg Config) getRegexp(ctx context.Context, nameRegexp string, opts git.Con
 			// use of invalid regexp
 			return nil, fmt.Errorf("%w: regexp has a bad format", git.ErrInvalidArg)
 		default:
-			if strings.Contains(stderr.String(), "invalid unit") {
+			if strings.Contains(stderr.String(), "invalid unit") ||
+				strings.Contains(stderr.String(), "bad boolean config value") {
 				return nil, fmt.Errorf("%w: fetched result doesn't correspond to requested type", git.ErrInvalidArg)
 			}
 		}
