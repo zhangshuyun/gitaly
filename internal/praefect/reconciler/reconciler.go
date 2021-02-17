@@ -161,7 +161,7 @@ update_jobs AS (
 		AND (
 			-- If assignments exist for the repository, only the assigned storages are targeted for replication.
 			-- If no assignments exist, every healthy node is targeted for replication.
-			SELECT COUNT(storage) = 0 OR COUNT(storage) FILTER (WHERE storage = storage_repositories.storage) = 1
+			SELECT COUNT(storage) = 0 OR COUNT(storage) FILTER (WHERE storage = healthy_storages.storage) = 1
 			FROM repository_assignments
 			WHERE virtual_storage = repositories.virtual_storage
 			AND   relative_path   = repositories.relative_path
