@@ -25,7 +25,7 @@ var ErrNotFound = errors.New("transaction not found")
 type Manager struct {
 	txIDGenerator         TransactionIDGenerator
 	lock                  sync.Mutex
-	transactions          map[uint64]*Transaction
+	transactions          map[uint64]*transaction
 	counterMetric         *prometheus.CounterVec
 	delayMetric           *prometheus.HistogramVec
 	subtransactionsMetric prometheus.Histogram
@@ -72,7 +72,7 @@ func WithTransactionIDGenerator(generator TransactionIDGenerator) ManagerOpt {
 func NewManager(cfg config.Config, opts ...ManagerOpt) *Manager {
 	mgr := &Manager{
 		txIDGenerator: newTransactionIDGenerator(),
-		transactions:  make(map[uint64]*Transaction),
+		transactions:  make(map[uint64]*transaction),
 		counterMetric: prometheus.NewCounterVec(
 			prometheus.CounterOpts{
 				Namespace: "gitaly",
@@ -131,7 +131,7 @@ type CancelFunc func() error
 // taking part in the transaction. `threshold` is the threshold at which an
 // election will succeed. It needs to be in the range `weight(voters)/2 <
 // threshold <= weight(voters) to avoid indecidable votes.
-func (mgr *Manager) RegisterTransaction(ctx context.Context, voters []Voter, threshold uint) (*Transaction, CancelFunc, error) {
+func (mgr *Manager) RegisterTransaction(ctx context.Context, voters []Voter, threshold uint) (Transaction, CancelFunc, error) {
 	mgr.lock.Lock()
 	defer mgr.lock.Unlock()
 
@@ -163,7 +163,7 @@ func (mgr *Manager) RegisterTransaction(ctx context.Context, voters []Voter, thr
 	}, nil
 }
 
-func (mgr *Manager) cancelTransaction(ctx context.Context, transaction *Transaction) error {
+func (mgr *Manager) cancelTransaction(ctx context.Context, transaction *transaction) error {
 	mgr.lock.Lock()
 	defer mgr.lock.Unlock()
 

@@ -322,7 +322,7 @@ func (c *Coordinator) accessorStreamParameters(ctx context.Context, call grpcCal
 	}, nil, nil, nil), nil
 }
 
-func (c *Coordinator) registerTransaction(ctx context.Context, primary RouterNode, secondaries []RouterNode) (*transactions.Transaction, transactions.CancelFunc, error) {
+func (c *Coordinator) registerTransaction(ctx context.Context, primary RouterNode, secondaries []RouterNode) (transactions.Transaction, transactions.CancelFunc, error) {
 	var voters []transactions.Voter
 	var threshold uint
 
@@ -649,7 +649,7 @@ func protoMessage(mi protoregistry.MethodInfo, frame []byte) (proto.Message, err
 
 func (c *Coordinator) createTransactionFinalizer(
 	ctx context.Context,
-	transaction *transactions.Transaction,
+	transaction transactions.Transaction,
 	route RepositoryMutatorRoute,
 	virtualStorage string,
 	targetRepo *gitalypb.Repository,
