@@ -10,7 +10,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/remote"
+	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/chunk"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -54,7 +54,9 @@ func (s *server) RemoveRemote(ctx context.Context, req *gitalypb.RemoveRemoteReq
 		return nil, status.Errorf(codes.InvalidArgument, "RemoveRemote: %v", err)
 	}
 
-	hasRemote, err := remote.Exists(ctx, s.gitCmdFactory, s.cfg, req.GetRepository(), req.Name)
+	remote := localrepo.New(s.gitCmdFactory, req.GetRepository(), s.cfg).Remote()
+
+	hasRemote, err := remote.Exists(ctx, req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -62,7 +64,7 @@ func (s *server) RemoveRemote(ctx context.Context, req *gitalypb.RemoveRemoteReq
 		return &gitalypb.RemoveRemoteResponse{Result: false}, nil
 	}
 
-	if err := remote.Remove(ctx, s.gitCmdFactory, s.cfg, req.GetRepository(), req.Name); err != nil {
+	if err := remote.Remove(ctx, req.Name); err != nil {
 		return nil, err
 	}
 

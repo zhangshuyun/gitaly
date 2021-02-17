@@ -177,6 +177,31 @@ func TestRemote_Remove(t *testing.T) {
 		assert.True(t, errors.Is(err, git.ErrInvalidArg))
 		assert.Contains(t, err.Error(), `"name" is blank or empty`)
 	})
+
+	t.Run("don't remove local branches", func(t *testing.T) {
+		ctx, cancel := testhelper.Context()
+		defer cancel()
+
+		repoProto, _, cleanupFn := testhelper.NewTestRepo(t)
+		defer cleanupFn()
+		remote := New(git.NewExecCommandFactory(config.Config), repoProto, config.Config).Remote()
+
+		repoPath := filepath.Join(testhelper.GitlabTestStoragePath(), repoProto.RelativePath)
+
+		// configure remote as fetch mirror
+		testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "remote.origin.fetch", "+refs/*:refs/*")
+		testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "fetch")
+
+		masterBeforeRemove := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "show-ref", "refs/heads/master")
+
+		require.NoError(t, remote.Remove(ctx, "origin"))
+
+		out := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "remote")
+		require.Len(t, out, 0)
+
+		out = testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "show-ref", "refs/heads/master")
+		require.Equal(t, masterBeforeRemove, out)
+	})
 }
 
 func TestRemote_Exists(t *testing.T) {
