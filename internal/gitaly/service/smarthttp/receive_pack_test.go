@@ -387,7 +387,7 @@ func TestPostReceivePackToHooks(t *testing.T) {
 
 	config.Config.Auth.Token = "abc123"
 
-	server, socket := runSmartHTTPHookServiceServer(t)
+	server, socket := runSmartHTTPHookServiceServer(t, config.Config)
 	defer server.Stop()
 
 	client, conn := newSmartHTTPClient(t, "unix://"+socket, config.Config.Auth.Token)
@@ -445,7 +445,7 @@ func TestPostReceivePackToHooks(t *testing.T) {
 	require.Equal(t, io.EOF, drainPostReceivePackResponse(stream))
 }
 
-func runSmartHTTPHookServiceServer(t *testing.T) (*grpc.Server, string) {
+func runSmartHTTPHookServiceServer(t *testing.T, cfg config.Cfg) (*grpc.Server, string) {
 	server := testhelper.NewTestGrpcServer(t, nil, nil)
 
 	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
@@ -453,18 +453,18 @@ func runSmartHTTPHookServiceServer(t *testing.T) (*grpc.Server, string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	internalListener, err := net.Listen("unix", config.Config.GitalyInternalSocketPath())
+	internalListener, err := net.Listen("unix", cfg.GitalyInternalSocketPath())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	locator := config.NewLocator(config.Config)
-	txManager := transaction.NewManager(config.Config)
-	hookManager := gitalyhook.NewManager(locator, txManager, gitalyhook.GitlabAPIStub, config.Config)
-	gitCmdFactory := git.NewExecCommandFactory(config.Config)
+	locator := config.NewLocator(cfg)
+	txManager := transaction.NewManager(cfg)
+	hookManager := gitalyhook.NewManager(locator, txManager, gitalyhook.GitlabAPIStub, cfg)
+	gitCmdFactory := git.NewExecCommandFactory(cfg)
 
-	gitalypb.RegisterSmartHTTPServiceServer(server, NewServer(config.Config, locator, gitCmdFactory))
-	gitalypb.RegisterHookServiceServer(server, hook.NewServer(config.Config, hookManager, gitCmdFactory))
+	gitalypb.RegisterSmartHTTPServiceServer(server, NewServer(cfg, locator, gitCmdFactory))
+	gitalypb.RegisterHookServiceServer(server, hook.NewServer(cfg, hookManager, gitCmdFactory))
 	reflection.Register(server)
 
 	go server.Serve(listener)
