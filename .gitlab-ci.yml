@@ -46,8 +46,7 @@ danger-review:
         - ruby/Gemfile.lock
       prefix: git-${GIT_VERSION}-ruby-${RUBY_VERSION}
     paths:
-      - _build/git
-      - _build/libgit2
+      - _build/deps
       - _build/Makefile.sha256
       - ruby/vendor/bundle
 
@@ -62,8 +61,7 @@ danger-review:
         - ruby/Gemfile.lock
       prefix: git-${GIT_VERSION}-ruby-${RUBY_VERSION}
     paths:
-      - _build/git
-      - _build/libgit2
+      - _build/deps
       - _build/Makefile.sha256
       - ruby/vendor/bundle
     policy: pull
@@ -149,7 +147,7 @@ test:
   image: registry.gitlab.com/gitlab-org/gitlab-build-images:ruby-${RUBY_VERSION}-golang-${GO_VERSION}-git-2.29
   script:
     - go version
-    - _build/git/bin/git version
+    - _build/deps/git/install/bin/git version
     # This command will make all directories except of our build directory and Ruby code unwritable.
     # The purpose is to verify that there is no test which writes into those directories anymore, as
     # they should all instead use a temporary directory for runtime data.

@@ -21,6 +21,7 @@ ARCH := $(shell uname -m)
 SOURCE_DIR       := $(abspath $(dir $(lastword ${MAKEFILE_LIST})))
 BUILD_DIR        := ${SOURCE_DIR}/_build
 COVERAGE_DIR     := ${BUILD_DIR}/cover
+DEPENDENCY_DIR   := ${BUILD_DIR}/deps
 GITALY_RUBY_DIR  := ${SOURCE_DIR}/ruby
 
 # These variables may be overridden at runtime by top-level make
@@ -78,8 +79,8 @@ endif
 GIT_REPO_URL      ?= https://gitlab.com/gitlab-org/gitlab-git.git
 GIT_BINARIES_URL  ?= https://gitlab.com/gitlab-org/gitlab-git/-/jobs/artifacts/${GIT_VERSION}/raw/git_full_bins.tgz?job=build
 GIT_BINARIES_HASH ?= 8c88d2adb46d1d07f258904b227c93b8a5a4942ac32a1e54057f215401332141
-GIT_INSTALL_DIR   := ${BUILD_DIR}/git
-GIT_SOURCE_DIR    := ${BUILD_DIR}/src/git
+GIT_INSTALL_DIR   := ${DEPENDENCY_DIR}/git/install
+GIT_SOURCE_DIR    := ${DEPENDENCY_DIR}/git/source
 
 ifeq (${GIT_BUILD_OPTIONS},)
     # activate developer checks
@@ -99,9 +100,9 @@ endif
 
 # libgit2 target
 LIBGIT2_REPO_URL    ?= https://gitlab.com/libgit2/libgit2
-LIBGIT2_SOURCE_DIR  ?= ${BUILD_DIR}/src/libgit2
-LIBGIT2_BUILD_DIR   ?= ${LIBGIT2_SOURCE_DIR}/build
-LIBGIT2_INSTALL_DIR ?= ${BUILD_DIR}/libgit2
+LIBGIT2_SOURCE_DIR  ?= ${DEPENDENCY_DIR}/libgit2/source
+LIBGIT2_BUILD_DIR   ?= ${DEPENDENCY_DIR}/libgit2/build
+LIBGIT2_INSTALL_DIR ?= ${DEPENDENCY_DIR}/libgit2/install
 
 ifeq (${LIBGIT2_BUILD_OPTIONS},)
     LIBGIT2_BUILD_OPTIONS += -DTHREADSAFE=ON
@@ -380,12 +381,12 @@ ${BUILD_DIR}/NOTICE: ${GO_LICENSES} clean-ruby-vendor-go
 
 ${BUILD_DIR}:
 	${Q}mkdir -p ${BUILD_DIR}
-
 ${BUILD_DIR}/bin: | ${BUILD_DIR}
 	${Q}mkdir -p ${BUILD_DIR}/bin
-
 ${BUILD_DIR}/tools: | ${BUILD_DIR}
 	${Q}mkdir -p ${BUILD_DIR}/tools
+${DEPENDENCY_DIR}: | ${BUILD_DIR}
+	${Q}mkdir -p ${DEPENDENCY_DIR}
 
 # This is a build hack to avoid excessive rebuilding of targets. Instead of
 # depending on the timestamp of the Makefile, which will change e.g. between
@@ -398,17 +399,12 @@ ${BUILD_DIR}/Makefile.sha256: Makefile | ${BUILD_DIR}
 # rebuild only if the dependency's version changes. The dependency on the phony
 # target is required to always rebuild these targets.
 .PHONY: dependency-version
-${BUILD_DIR}/libgit2.version: dependency-version | ${BUILD_DIR}
+${DEPENDENCY_DIR}/libgit2.version: dependency-version | ${DEPENDENCY_DIR}
 	${Q}[ x"$$(cat "$@" 2>/dev/null)" = x"${LIBGIT2_VERSION}" ] || >$@ echo -n "${LIBGIT2_VERSION}"
-${BUILD_DIR}/git.version: dependency-version | ${BUILD_DIR}
+${DEPENDENCY_DIR}/git.version: dependency-version | ${DEPENDENCY_DIR}
 	${Q}[ x"$$(cat "$@" 2>/dev/null)" = x"${GIT_VERSION}" ] || >$@ echo -n "${GIT_VERSION}"
 
-${BUILD_DIR}/git_full_bins.tgz: ${BUILD_DIR}/git.version
-	curl -o $@.tmp --silent --show-error -L ${GIT_BINARIES_URL}
-	${Q}printf '${GIT_BINARIES_HASH}  $@.tmp' | sha256sum -c -
-	${Q}mv $@.tmp $@
-
-${LIBGIT2_INSTALL_DIR}/lib/libgit2.a: ${BUILD_DIR}/libgit2.version
+${LIBGIT2_INSTALL_DIR}/lib/libgit2.a: ${DEPENDENCY_DIR}/libgit2.version
 	${Q}if ! [ -d "${LIBGIT2_SOURCE_DIR}" ]; then \
 	    ${GIT} clone --depth 1 --branch ${LIBGIT2_VERSION} --quiet ${LIBGIT2_REPO_URL} ${LIBGIT2_SOURCE_DIR}; \
 	elif ! git -C "${LIBGIT2_SOURCE_DIR}" rev-parse --quiet --verify ${LIBGIT2_VERSION}^{tree} >/dev/null; then \
@@ -421,7 +417,7 @@ ${LIBGIT2_INSTALL_DIR}/lib/libgit2.a: ${BUILD_DIR}/libgit2.version
 	go install -a github.com/libgit2/git2go/${GIT2GO_VERSION}
 
 ifeq (${GIT_USE_PREBUILT_BINARIES},)
-${GIT_INSTALL_DIR}/bin/git: ${BUILD_DIR}/git.version
+${GIT_INSTALL_DIR}/bin/git: ${DEPENDENCY_DIR}/git.version
 	${Q}if ! [ -d "${GIT_SOURCE_DIR}" ]; then \
 	    ${GIT} clone --depth 1 --branch ${GIT_VERSION} --quiet ${GIT_REPO_URL} ${GIT_SOURCE_DIR}; \
 	elif ! git -C "${GIT_SOURCE_DIR}" rev-parse --quiet --verify ${GIT_VERSION}^{tree} >/dev/null; then \
@@ -432,10 +428,15 @@ ${GIT_INSTALL_DIR}/bin/git: ${BUILD_DIR}/git.version
 	${Q}mkdir -p ${GIT_INSTALL_DIR}
 	env -u MAKEFLAGS -u GIT_VERSION ${MAKE} -C ${GIT_SOURCE_DIR} -j$(shell nproc) prefix=${GIT_PREFIX} ${GIT_BUILD_OPTIONS} install
 else
-${GIT_INSTALL_DIR}/bin/git: ${BUILD_DIR}/git_full_bins.tgz
+${DEPENDENCY_DIR}/git_full_bins.tgz: ${DEPENDENCY_DIR}/git.version
+	curl -o $@.tmp --silent --show-error -L ${GIT_BINARIES_URL}
+	${Q}printf '${GIT_BINARIES_HASH}  $@.tmp' | sha256sum -c -
+	${Q}mv $@.tmp $@
+
+${GIT_INSTALL_DIR}/bin/git: ${DEPENDENCY_DIR}/git_full_bins.tgz
 	${Q}rm -rf ${GIT_INSTALL_DIR}
 	${Q}mkdir -p ${GIT_INSTALL_DIR}
-	tar -C ${GIT_INSTALL_DIR} -xvzf ${BUILD_DIR}/git_full_bins.tgz
+	tar -C ${GIT_INSTALL_DIR} -xvzf ${DEPENDENCY_DIR}/git_full_bins.tgz
 endif
 
 ${BUILD_DIR}/protoc.zip: ${BUILD_DIR}/Makefile.sha256
