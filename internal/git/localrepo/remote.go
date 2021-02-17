@@ -1,6 +1,7 @@
 package localrepo
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"fmt"
@@ -141,6 +142,28 @@ func (remote Remote) SetURL(ctx context.Context, name, url string, opts git.SetU
 	}
 
 	return nil
+}
+
+// Exists determines whether a given named remote exists.
+func (remote Remote) Exists(ctx context.Context, name string) (bool, error) {
+	cmd, err := remote.repo.Exec(ctx, nil,
+		git.SubCmd{Name: "remote"},
+		git.WithRefTxHook(ctx, remote.repo, remote.repo.cfg),
+	)
+	if err != nil {
+		return false, err
+	}
+
+	found := false
+	scanner := bufio.NewScanner(cmd)
+	for scanner.Scan() {
+		if scanner.Text() == name {
+			found = true
+			break
+		}
+	}
+
+	return found, cmd.Wait()
 }
 
 func buildSetURLOptsFlags(opts git.SetURLOpts) []git.Option {

@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"gitlab.com/gitlab-org/gitaly/internal/git/remote"
 	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
@@ -168,11 +167,13 @@ func (o *ObjectPool) Unlink(ctx context.Context, repo *gitalypb.Repository) erro
 		return errors.New("pool does not exist")
 	}
 
+	remote := o.poolRepo.Remote()
+
 	// We need to use removeRemote, and can't leverage `git config --remove-section`
 	// as the latter doesn't clean up refs
 	remoteName := repo.GetGlRepository()
-	if err := remote.Remove(ctx, o.gitCmdFactory, o.cfg, o, remoteName); err != nil {
-		if present, err2 := remote.Exists(ctx, o.gitCmdFactory, o.cfg, o, remoteName); err2 != nil || present {
+	if err := remote.Remove(ctx, remoteName); err != nil {
+		if present, err2 := remote.Exists(ctx, remoteName); err2 != nil || present {
 			return err
 		}
 	}

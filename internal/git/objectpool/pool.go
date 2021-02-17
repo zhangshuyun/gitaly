@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -35,6 +36,7 @@ type ObjectPool struct {
 	cfg           config.Cfg
 	locator       storage.Locator
 	gitCmdFactory git.CommandFactory
+	poolRepo      *localrepo.Repo
 	storageName   string
 	storagePath   string
 
@@ -44,7 +46,7 @@ type ObjectPool struct {
 // NewObjectPool will initialize the object with the required data on the storage
 // shard. Relative path is validated to match the expected naming and directory
 // structure. If the shard cannot be found, this function returns an error.
-func NewObjectPool(cfg config.Cfg, locator storage.Locator, gitCmdFactory git.CommandFactory, storageName, relativePath string) (pool *ObjectPool, err error) {
+func NewObjectPool(cfg config.Cfg, locator storage.Locator, gitCmdFactory git.CommandFactory, storageName, relativePath string) (*ObjectPool, error) {
 	storagePath, err := locator.GetStorageByName(storageName)
 	if err != nil {
 		return nil, err
@@ -55,14 +57,17 @@ func NewObjectPool(cfg config.Cfg, locator storage.Locator, gitCmdFactory git.Co
 		return nil, ErrInvalidPoolDir
 	}
 
-	return &ObjectPool{
+	pool := &ObjectPool{
 		cfg:           cfg,
 		locator:       locator,
 		gitCmdFactory: gitCmdFactory,
 		storageName:   storageName,
 		storagePath:   storagePath,
 		relativePath:  relativePath,
-	}, nil
+	}
+	pool.poolRepo = localrepo.New(gitCmdFactory, pool, cfg)
+
+	return pool, nil
 }
 
 // GetGitAlternateObjectDirectories for object pools are empty, given pools are

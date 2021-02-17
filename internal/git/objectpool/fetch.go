@@ -50,7 +50,7 @@ func (o *ObjectPool) FetchFromOrigin(ctx context.Context, origin *gitalypb.Repos
 		git.WithDisabledHooks(),
 	}
 
-	getRemotes, err := o.gitCmdFactory.New(ctx, o, nil, git.SubCmd{Name: "remote"}, opts...)
+	getRemotes, err := o.poolRepo.Exec(ctx, nil, git.SubCmd{Name: "remote"}, opts...)
 	if err != nil {
 		return err
 	}
@@ -67,27 +67,20 @@ func (o *ObjectPool) FetchFromOrigin(ctx context.Context, origin *gitalypb.Repos
 		return err
 	}
 
-	var setOriginCmd *command.Command
 	if originExists {
-		setOriginCmd, err = o.gitCmdFactory.New(ctx, o, nil, git.SubCmd{
+		if err := o.poolRepo.ExecAndWait(ctx, nil, git.SubCmd{
 			Name: "remote",
 			Args: []string{"set-url", sourceRemote, originPath},
-		}, opts...)
-		if err != nil {
+		}, opts...); err != nil {
 			return err
 		}
 	} else {
-		setOriginCmd, err = o.gitCmdFactory.New(ctx, o, nil, git.SubCmd{
+		if err := o.poolRepo.ExecAndWait(ctx, nil, git.SubCmd{
 			Name: "remote",
 			Args: []string{"add", sourceRemote, originPath},
-		}, opts...)
-		if err != nil {
+		}, opts...); err != nil {
 			return err
 		}
-	}
-
-	if err := setOriginCmd.Wait(); err != nil {
-		return err
 	}
 
 	if err := o.logStats(ctx, "before fetch"); err != nil {
@@ -95,23 +88,18 @@ func (o *ObjectPool) FetchFromOrigin(ctx context.Context, origin *gitalypb.Repos
 	}
 
 	refSpec := fmt.Sprintf("+refs/*:%s/*", sourceRefNamespace)
-	fetchCmd, err := o.gitCmdFactory.New(ctx, o, nil,
+	if err := o.poolRepo.ExecAndWait(ctx, nil,
 		git.SubCmd{
 			Name:  "fetch",
 			Flags: []git.Option{git.Flag{Name: "--quiet"}},
 			Args:  []string{sourceRemote, refSpec},
 		},
 		opts...,
-	)
-	if err != nil {
+	); err != nil {
 		return err
 	}
 
-	if err := fetchCmd.Wait(); err != nil {
-		return err
-	}
-
-	if err := o.rescueDanglingObjects(ctx, o); err != nil {
+	if err := o.rescueDanglingObjects(ctx); err != nil {
 		return err
 	}
 
@@ -119,14 +107,10 @@ func (o *ObjectPool) FetchFromOrigin(ctx context.Context, origin *gitalypb.Repos
 		return err
 	}
 
-	packRefs, err := o.gitCmdFactory.New(ctx, o, nil, git.SubCmd{
+	if err := o.poolRepo.ExecAndWait(ctx, nil, git.SubCmd{
 		Name:  "pack-refs",
 		Flags: []git.Option{git.Flag{Name: "--all"}},
-	})
-	if err != nil {
-		return err
-	}
-	if err := packRefs.Wait(); err != nil {
+	}); err != nil {
 		return err
 	}
 
@@ -143,8 +127,8 @@ const danglingObjectNamespace = "refs/dangling/"
 // relies on. There is currently no way for us to reliably determine if
 // an object is still used anywhere, so the only safe thing to do is to
 // assume that every object _is_ used.
-func (o *ObjectPool) rescueDanglingObjects(ctx context.Context, repo repository.GitRepo) error {
-	fsck, err := o.gitCmdFactory.New(ctx, repo, nil, git.SubCmd{
+func (o *ObjectPool) rescueDanglingObjects(ctx context.Context) error {
+	fsck, err := o.poolRepo.Exec(ctx, nil, git.SubCmd{
 		Name:  "fsck",
 		Flags: []git.Option{git.Flag{Name: "--connectivity-only"}, git.Flag{Name: "--dangling"}},
 	})
@@ -152,7 +136,7 @@ func (o *ObjectPool) rescueDanglingObjects(ctx context.Context, repo repository.
 		return err
 	}
 
-	updater, err := updateref.New(ctx, o.cfg, o.gitCmdFactory, repo, updateref.WithDisabledTransactions())
+	updater, err := updateref.New(ctx, o.cfg, o.gitCmdFactory, o, updateref.WithDisabledTransactions())
 	if err != nil {
 		return err
 	}
@@ -193,15 +177,10 @@ func (o *ObjectPool) repackPool(ctx context.Context, pool repository.GitRepo) er
 		git.ConfigPair{Key: "pack.writeBitmapHashCache", Value: "true"},
 	}
 
-	repackCmd, err := o.gitCmdFactory.New(ctx, pool, repackArgs, git.SubCmd{
+	if err := o.poolRepo.ExecAndWait(ctx, repackArgs, git.SubCmd{
 		Name:  "repack",
 		Flags: []git.Option{git.Flag{Name: "-aidb"}},
-	})
-	if err != nil {
-		return err
-	}
-
-	if err := repackCmd.Wait(); err != nil {
+	}); err != nil {
 		return err
 	}
 
@@ -224,7 +203,7 @@ func (o *ObjectPool) logStats(ctx context.Context, when string) error {
 		}
 	}
 
-	forEachRef, err := o.gitCmdFactory.New(ctx, o, nil, git.SubCmd{
+	forEachRef, err := o.poolRepo.Exec(ctx, nil, git.SubCmd{
 		Name:  "for-each-ref",
 		Flags: []git.Option{git.Flag{Name: "--format=%(objecttype)%00%(refname)"}},
 		Args:  []string{"refs/"},
