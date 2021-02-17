@@ -2,6 +2,7 @@ package info
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net"
 	"os"
@@ -26,63 +27,71 @@ import (
 )
 
 func TestServer_ConsistencyCheck(t *testing.T) {
-	defer func(old gconfig.Cfg) { gconfig.Config = old }(gconfig.Config)
+	cfg := gconfig.Config
+
+	const (
+		firstRepoPath  = "1.git"
+		secondRepoPath = "2.git"
+
+		checksum = "06c4db1a33b2e48dac0bf940c7c20429d00a04ea"
+
+		targetStorageName    = "target"
+		referenceStorageName = "reference"
+
+		virtualStorage = "virtualStorage"
+	)
 
 	primaryStorageDir, cleanupPrim := testhelper.TempDir(t)
 	defer cleanupPrim()
 	secondaryStorageDir, cleanupSec := testhelper.TempDir(t)
 	defer cleanupSec()
 
-	// 1.git exists on both storages and it is the same
-	testhelper.NewTestRepoTo(t, primaryStorageDir, "1.git")
-	testhelper.NewTestRepoTo(t, secondaryStorageDir, "1.git")
-	// 2.git exists only on target storage (where traversal happens)
-	testhelper.NewTestRepoTo(t, secondaryStorageDir, "2.git")
-	// not.git is a folder on target storage that should be skipped as it is not a git repository
+	// firstRepoPath exists on both storages and has same state
+	testhelper.NewTestRepoTo(t, primaryStorageDir, firstRepoPath)
+	testhelper.NewTestRepoTo(t, secondaryStorageDir, firstRepoPath)
+	// secondRepoPath exists only on the target storage (where traversal happens)
+	testhelper.NewTestRepoTo(t, secondaryStorageDir, secondRepoPath)
+	// not.git is a folder on the target storage that should be skipped as it is not a git repository
 	require.NoError(t, os.MkdirAll(filepath.Join(secondaryStorageDir, "not.git"), os.ModePerm))
 
-	gconfig.Config.Storages = []gconfig.Storage{{
-		Name: "target",
+	cfg.Storages = []gconfig.Storage{{
+		Name: targetStorageName,
 		Path: secondaryStorageDir,
 	}, {
-		Name: "reference",
+		Name: referenceStorageName,
 		Path: primaryStorageDir,
 	}}
 
-	conf := config.Config{
-		VirtualStorages: []*config.VirtualStorage{{
-			Name: "vs",
-			Nodes: []*config.Node{{
-				Storage: "reference",
-				Address: testhelper.GetTemporaryGitalySocketFileName(t),
-			}, {
-				Storage: "target",
-				Address: testhelper.GetTemporaryGitalySocketFileName(t),
-			}},
-		}},
+	conf := config.Config{VirtualStorages: []*config.VirtualStorage{{Name: virtualStorage}}}
+	for _, storage := range cfg.Storages {
+		conf.VirtualStorages[0].Nodes = append(conf.VirtualStorages[0].Nodes, &config.Node{
+			Storage: storage.Name,
+			Address: testhelper.GetTemporaryGitalySocketFileName(t),
+		})
 	}
 
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	var conns []*grpc.ClientConn
 	for _, node := range conf.VirtualStorages[0].Nodes {
 		gitalyListener, err := net.Listen("unix", node.Address)
 		require.NoError(t, err)
 
 		gitalySrv := grpc.NewServer()
 		defer gitalySrv.Stop()
-		gitalypb.RegisterRepositoryServiceServer(gitalySrv, repository.NewServer(gconfig.Config, nil, gconfig.NewLocator(gconfig.Config), transaction.NewManager(gconfig.Config), git.NewExecCommandFactory(gconfig.Config)))
-		gitalypb.RegisterInternalGitalyServer(gitalySrv, internalgitaly.NewServer(gconfig.Config.Storages))
+
+		gitalypb.RegisterRepositoryServiceServer(gitalySrv, repository.NewServer(cfg, nil, gconfig.NewLocator(cfg), transaction.NewManager(cfg), git.NewExecCommandFactory(cfg)))
+		gitalypb.RegisterInternalGitalyServer(gitalySrv, internalgitaly.NewServer(cfg.Storages))
+
 		go func() { gitalySrv.Serve(gitalyListener) }()
+
+		conn, err := client.DialContext(ctx, "unix://"+node.Address, nil)
+		require.NoError(t, err)
+		defer conn.Close()
+
+		conns = append(conns, conn)
 	}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-
-	referenceConn, err := client.DialContext(ctx, "unix://"+conf.VirtualStorages[0].Nodes[0].Address, nil)
-	require.NoError(t, err)
-	defer referenceConn.Close()
-
-	targetConn, err := client.DialContext(ctx, "unix://"+conf.VirtualStorages[0].Nodes[1].Address, nil)
-	require.NoError(t, err)
-	defer targetConn.Close()
 
 	nm := &nodes.MockManager{
 		GetShardFunc: func(s string) (nodes.Shard, error) {
@@ -91,13 +100,13 @@ func TestServer_ConsistencyCheck(t *testing.T) {
 			}
 			return nodes.Shard{
 				Primary: &nodes.MockNode{
-					GetStorageMethod: func() string { return gconfig.Config.Storages[0].Name },
-					Conn:             referenceConn,
+					GetStorageMethod: func() string { return cfg.Storages[0].Name },
+					Conn:             conns[0],
 					Healthy:          true,
 				},
 				Secondaries: []nodes.Node{&nodes.MockNode{
-					GetStorageMethod: func() string { return gconfig.Config.Storages[1].Name },
-					Conn:             targetConn,
+					GetStorageMethod: func() string { return cfg.Storages[1].Name },
+					Conn:             conns[1],
 					Healthy:          true,
 				}},
 			}, nil
@@ -114,17 +123,38 @@ func TestServer_ConsistencyCheck(t *testing.T) {
 		return datastore.ReplicationEvent{ID: 1}, nil
 	})
 
-	grpcSrv := grpc.NewServer()
-	defer grpcSrv.Stop()
+	// praefect instance setup
+	praefectSrv := grpc.NewServer()
+	defer praefectSrv.Stop()
 
-	gitalypb.RegisterPraefectInfoServiceServer(grpcSrv, NewServer(nm, conf, queue, nil, nil))
-	go grpcSrv.Serve(praefectListener)
+	gitalypb.RegisterPraefectInfoServiceServer(praefectSrv, NewServer(nm, conf, queue, nil, nil))
+	go praefectSrv.Serve(praefectListener)
 
-	infoConn, err := client.Dial("unix://"+praefectAddr, nil)
+	praefectConn, err := client.Dial("unix://"+praefectAddr, nil)
 	require.NoError(t, err)
-	defer infoConn.Close()
+	defer praefectConn.Close()
 
-	infoClient := gitalypb.NewPraefectInfoServiceClient(infoConn)
+	infoClient := gitalypb.NewPraefectInfoServiceClient(praefectConn)
+
+	execAndVerify := func(t *testing.T, req gitalypb.ConsistencyCheckRequest, verify func(*testing.T, []*gitalypb.ConsistencyCheckResponse, error)) {
+		response, err := infoClient.ConsistencyCheck(ctx, &req)
+		require.NoError(t, err)
+
+		var results []*gitalypb.ConsistencyCheckResponse
+		var result *gitalypb.ConsistencyCheckResponse
+		for {
+			result, err = response.Recv()
+			if err != nil {
+				break
+			}
+			results = append(results, result)
+		}
+
+		if err == io.EOF {
+			err = nil
+		}
+		verify(t, results, err)
+	}
 
 	for _, tc := range []struct {
 		desc   string
@@ -134,27 +164,27 @@ func TestServer_ConsistencyCheck(t *testing.T) {
 		{
 			desc: "with replication event created",
 			req: gitalypb.ConsistencyCheckRequest{
-				VirtualStorage:         "vs",
-				TargetStorage:          "reference",
-				ReferenceStorage:       "target",
+				VirtualStorage:         virtualStorage,
+				TargetStorage:          referenceStorageName,
+				ReferenceStorage:       targetStorageName,
 				DisableReconcilliation: false,
 			},
 			verify: func(t *testing.T, resp []*gitalypb.ConsistencyCheckResponse, err error) {
 				require.NoError(t, err)
 				require.Equal(t, []*gitalypb.ConsistencyCheckResponse{
 					{
-						RepoRelativePath:  "1.git",
-						TargetChecksum:    "06c4db1a33b2e48dac0bf940c7c20429d00a04ea",
-						ReferenceChecksum: "06c4db1a33b2e48dac0bf940c7c20429d00a04ea",
+						RepoRelativePath:  firstRepoPath,
+						TargetChecksum:    checksum,
+						ReferenceChecksum: checksum,
 						ReplJobId:         0,
-						ReferenceStorage:  "target",
+						ReferenceStorage:  targetStorageName,
 					},
 					{
-						RepoRelativePath:  "2.git",
+						RepoRelativePath:  secondRepoPath,
 						TargetChecksum:    "",
-						ReferenceChecksum: "06c4db1a33b2e48dac0bf940c7c20429d00a04ea",
+						ReferenceChecksum: checksum,
 						ReplJobId:         1,
-						ReferenceStorage:  "target",
+						ReferenceStorage:  targetStorageName,
 					},
 				}, resp)
 			},
@@ -162,27 +192,27 @@ func TestServer_ConsistencyCheck(t *testing.T) {
 		{
 			desc: "without replication event",
 			req: gitalypb.ConsistencyCheckRequest{
-				VirtualStorage:         "vs",
-				TargetStorage:          "reference",
-				ReferenceStorage:       "target",
+				VirtualStorage:         virtualStorage,
+				TargetStorage:          referenceStorageName,
+				ReferenceStorage:       targetStorageName,
 				DisableReconcilliation: true,
 			},
 			verify: func(t *testing.T, resp []*gitalypb.ConsistencyCheckResponse, err error) {
 				require.NoError(t, err)
 				require.Equal(t, []*gitalypb.ConsistencyCheckResponse{
 					{
-						RepoRelativePath:  "1.git",
-						TargetChecksum:    "06c4db1a33b2e48dac0bf940c7c20429d00a04ea",
-						ReferenceChecksum: "06c4db1a33b2e48dac0bf940c7c20429d00a04ea",
+						RepoRelativePath:  firstRepoPath,
+						TargetChecksum:    checksum,
+						ReferenceChecksum: checksum,
 						ReplJobId:         0,
-						ReferenceStorage:  "target",
+						ReferenceStorage:  targetStorageName,
 					},
 					{
-						RepoRelativePath:  "2.git",
+						RepoRelativePath:  secondRepoPath,
 						TargetChecksum:    "",
-						ReferenceChecksum: "06c4db1a33b2e48dac0bf940c7c20429d00a04ea",
+						ReferenceChecksum: checksum,
 						ReplJobId:         0,
-						ReferenceStorage:  "target",
+						ReferenceStorage:  targetStorageName,
 					},
 				}, resp)
 			},
@@ -190,9 +220,9 @@ func TestServer_ConsistencyCheck(t *testing.T) {
 		{
 			desc: "no target",
 			req: gitalypb.ConsistencyCheckRequest{
-				VirtualStorage:   "vs",
+				VirtualStorage:   virtualStorage,
 				TargetStorage:    "",
-				ReferenceStorage: "reference",
+				ReferenceStorage: referenceStorageName,
 			},
 			verify: func(t *testing.T, resp []*gitalypb.ConsistencyCheckResponse, err error) {
 				require.Equal(t, status.Error(codes.InvalidArgument, "missing target storage"), err)
@@ -201,9 +231,9 @@ func TestServer_ConsistencyCheck(t *testing.T) {
 		{
 			desc: "unknown target",
 			req: gitalypb.ConsistencyCheckRequest{
-				VirtualStorage:   "vs",
+				VirtualStorage:   virtualStorage,
 				TargetStorage:    "unknown",
-				ReferenceStorage: "reference",
+				ReferenceStorage: referenceStorageName,
 			},
 			verify: func(t *testing.T, resp []*gitalypb.ConsistencyCheckResponse, err error) {
 				require.Equal(t, status.Error(codes.NotFound, `unable to find target storage "unknown"`), err)
@@ -212,42 +242,54 @@ func TestServer_ConsistencyCheck(t *testing.T) {
 		{
 			desc: "no reference",
 			req: gitalypb.ConsistencyCheckRequest{
-				VirtualStorage:   "vs",
-				TargetStorage:    "target",
+				VirtualStorage:   virtualStorage,
+				TargetStorage:    targetStorageName,
 				ReferenceStorage: "",
 			},
 			verify: func(t *testing.T, resp []*gitalypb.ConsistencyCheckResponse, err error) {
-				require.Equal(t, status.Error(codes.InvalidArgument, `target storage "target" is same as current primary, must provide alternate reference`), err)
+				expErr := status.Error(
+					codes.InvalidArgument,
+					fmt.Sprintf(`target storage %q is same as current primary, must provide alternate reference`, targetStorageName),
+				)
+				require.Equal(t, expErr, err)
 			},
 		},
 		{
 			desc: "unknown reference",
 			req: gitalypb.ConsistencyCheckRequest{
-				VirtualStorage:   "vs",
-				TargetStorage:    "target",
+				VirtualStorage:   virtualStorage,
+				TargetStorage:    targetStorageName,
 				ReferenceStorage: "unknown",
 			},
 			verify: func(t *testing.T, resp []*gitalypb.ConsistencyCheckResponse, err error) {
-				require.Equal(t, status.Error(codes.NotFound, `unable to find reference storage "unknown" in nodes for shard "vs"`), err)
+				expErr := status.Error(
+					codes.NotFound,
+					fmt.Sprintf(`unable to find reference storage "unknown" in nodes for shard %q`, virtualStorage),
+				)
+				require.Equal(t, expErr, err)
 			},
 		},
 		{
 			desc: "same storage",
 			req: gitalypb.ConsistencyCheckRequest{
-				VirtualStorage:   "vs",
-				TargetStorage:    "target",
-				ReferenceStorage: "target",
+				VirtualStorage:   virtualStorage,
+				TargetStorage:    targetStorageName,
+				ReferenceStorage: targetStorageName,
 			},
 			verify: func(t *testing.T, resp []*gitalypb.ConsistencyCheckResponse, err error) {
-				require.Equal(t, status.Error(codes.InvalidArgument, `target storage "target" cannot match reference storage "target"`), err)
+				expErr := status.Error(
+					codes.InvalidArgument,
+					fmt.Sprintf(`target storage %q cannot match reference storage %q`, targetStorageName, targetStorageName),
+				)
+				require.Equal(t, expErr, err)
 			},
 		},
 		{
 			desc: "no virtual",
 			req: gitalypb.ConsistencyCheckRequest{
 				VirtualStorage:   "",
-				TargetStorage:    "target",
-				ReferenceStorage: "reference",
+				TargetStorage:    targetStorageName,
+				ReferenceStorage: referenceStorageName,
 			},
 			verify: func(t *testing.T, resp []*gitalypb.ConsistencyCheckResponse, err error) {
 				require.Equal(t, status.Error(codes.InvalidArgument, "missing virtual storage"), err)
@@ -257,7 +299,7 @@ func TestServer_ConsistencyCheck(t *testing.T) {
 			desc: "unknown virtual",
 			req: gitalypb.ConsistencyCheckRequest{
 				VirtualStorage:   "unknown",
-				TargetStorage:    "target",
+				TargetStorage:    targetStorageName,
 				ReferenceStorage: "unknown",
 			},
 			verify: func(t *testing.T, resp []*gitalypb.ConsistencyCheckResponse, err error) {
@@ -266,23 +308,7 @@ func TestServer_ConsistencyCheck(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			response, err := infoClient.ConsistencyCheck(ctx, &tc.req)
-			require.NoError(t, err)
-
-			var results []*gitalypb.ConsistencyCheckResponse
-			var result *gitalypb.ConsistencyCheckResponse
-			for {
-				result, err = response.Recv()
-				if err != nil {
-					break
-				}
-				results = append(results, result)
-			}
-
-			if err == io.EOF {
-				err = nil
-			}
-			tc.verify(t, results, err)
+			execAndVerify(t, tc.req, tc.verify)
 		})
 	}
 }
