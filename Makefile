@@ -394,12 +394,21 @@ ${BUILD_DIR}/tools: | ${BUILD_DIR}
 ${BUILD_DIR}/Makefile.sha256: Makefile | ${BUILD_DIR}
 	${Q}sha256sum -c $@ >/dev/null 2>&1 || >$@ sha256sum Makefile
 
-${BUILD_DIR}/git_full_bins.tgz: ${BUILD_DIR}/Makefile.sha256
+# This is in the same spirit as the Makefile.sha256 optimization: we want to
+# rebuild only if the dependency's version changes. The dependency on the phony
+# target is required to always rebuild these targets.
+.PHONY: dependency-version
+${BUILD_DIR}/libgit2.version: dependency-version | ${BUILD_DIR}
+	${Q}[ x"$$(cat "$@" 2>/dev/null)" = x"${LIBGIT2_VERSION}" ] || >$@ echo -n "${LIBGIT2_VERSION}"
+${BUILD_DIR}/git.version: dependency-version | ${BUILD_DIR}
+	${Q}[ x"$$(cat "$@" 2>/dev/null)" = x"${GIT_VERSION}" ] || >$@ echo -n "${GIT_VERSION}"
+
+${BUILD_DIR}/git_full_bins.tgz: ${BUILD_DIR}/git.version
 	curl -o $@.tmp --silent --show-error -L ${GIT_BINARIES_URL}
 	${Q}printf '${GIT_BINARIES_HASH}  $@.tmp' | sha256sum -c -
 	${Q}mv $@.tmp $@
 
-${LIBGIT2_INSTALL_DIR}/lib/libgit2.a: ${BUILD_DIR}/Makefile.sha256
+${LIBGIT2_INSTALL_DIR}/lib/libgit2.a: ${BUILD_DIR}/libgit2.version
 	${Q}if ! [ -d "${LIBGIT2_SOURCE_DIR}" ]; then \
 	    ${GIT} clone --depth 1 --branch ${LIBGIT2_VERSION} --quiet ${LIBGIT2_REPO_URL} ${LIBGIT2_SOURCE_DIR}; \
 	elif ! git -C "${LIBGIT2_SOURCE_DIR}" rev-parse --quiet --verify ${LIBGIT2_VERSION}^{tree} >/dev/null; then \
@@ -412,7 +421,7 @@ ${LIBGIT2_INSTALL_DIR}/lib/libgit2.a: ${BUILD_DIR}/Makefile.sha256
 	go install -a github.com/libgit2/git2go/${GIT2GO_VERSION}
 
 ifeq (${GIT_USE_PREBUILT_BINARIES},)
-${GIT_INSTALL_DIR}/bin/git: ${BUILD_DIR}/Makefile.sha256
+${GIT_INSTALL_DIR}/bin/git: ${BUILD_DIR}/git.version
 	${Q}if ! [ -d "${GIT_SOURCE_DIR}" ]; then \
 	    ${GIT} clone --depth 1 --branch ${GIT_VERSION} --quiet ${GIT_REPO_URL} ${GIT_SOURCE_DIR}; \
 	elif ! git -C "${GIT_SOURCE_DIR}" rev-parse --quiet --verify ${GIT_VERSION}^{tree} >/dev/null; then \
