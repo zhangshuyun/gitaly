@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"flag"
@@ -161,6 +162,17 @@ func (nr nodeReconciler) consumeStream(stream gitalypb.PraefectInfoService_Consi
 		if resp.ReferenceStorage != rStorage {
 			rStorage = resp.ReferenceStorage
 			log.Print("Reference storage being used: " + rStorage)
+		}
+
+		if len(resp.Errors) > 0 {
+			var composedErrMsg bytes.Buffer
+			for _, errMsg := range resp.Errors {
+				composedErrMsg.WriteString("\t")
+				composedErrMsg.WriteString(errMsg)
+				composedErrMsg.WriteString("\n")
+			}
+			log.Printf("FAILURE: Internal error(s) occurred for the repo %s: %s", resp.GetRepoRelativePath(), composedErrMsg.String())
+			continue
 		}
 
 		if resp.GetReferenceChecksum() == resp.GetTargetChecksum() {
