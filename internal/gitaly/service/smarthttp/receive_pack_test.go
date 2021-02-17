@@ -53,7 +53,7 @@ func TestSuccessfulReceivePackRequest(t *testing.T) {
 	repo, repoPath, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
 
-	client, conn := newSmartHTTPClient(t, serverSocketPath)
+	client, conn := newSmartHTTPClient(t, serverSocketPath, config.Config.Auth.Token)
 	defer conn.Close()
 
 	ctx, cancel := testhelper.Context()
@@ -120,7 +120,7 @@ func TestSuccessfulReceivePackRequestWithGitProtocol(t *testing.T) {
 	repo, repoPath, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
 
-	client, conn := newSmartHTTPClient(t, serverSocketPath)
+	client, conn := newSmartHTTPClient(t, serverSocketPath, config.Config.Auth.Token)
 	defer conn.Close()
 
 	ctx, cancel := testhelper.Context()
@@ -147,7 +147,7 @@ func TestFailedReceivePackRequestWithGitOpts(t *testing.T) {
 	repo, _, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
 
-	client, conn := newSmartHTTPClient(t, serverSocketPath)
+	client, conn := newSmartHTTPClient(t, serverSocketPath, config.Config.Auth.Token)
 	defer conn.Close()
 
 	ctx, cancel := testhelper.Context()
@@ -184,7 +184,7 @@ func TestFailedReceivePackRequestDueToHooksFailure(t *testing.T) {
 	repo, _, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
 
-	client, conn := newSmartHTTPClient(t, serverSocketPath)
+	client, conn := newSmartHTTPClient(t, serverSocketPath, config.Config.Auth.Token)
 	defer conn.Close()
 
 	ctx, cancel := testhelper.Context()
@@ -289,7 +289,7 @@ func TestFailedReceivePackRequestDueToValidationError(t *testing.T) {
 	serverSocketPath, stop := runSmartHTTPServer(t, config.Config)
 	defer stop()
 
-	client, conn := newSmartHTTPClient(t, serverSocketPath)
+	client, conn := newSmartHTTPClient(t, serverSocketPath, config.Config.Auth.Token)
 	defer conn.Close()
 
 	rpcRequests := []gitalypb.PostReceivePackRequest{
@@ -348,7 +348,7 @@ func TestInvalidTimezone(t *testing.T) {
 	repo, repoPath, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
 
-	client, conn := newSmartHTTPClient(t, socket)
+	client, conn := newSmartHTTPClient(t, socket, config.Config.Auth.Token)
 	defer conn.Close()
 
 	ctx, cancel := testhelper.Context()
@@ -390,7 +390,7 @@ func TestPostReceivePackToHooks(t *testing.T) {
 	server, socket := runSmartHTTPHookServiceServer(t)
 	defer server.Stop()
 
-	client, conn := newSmartHTTPClient(t, "unix://"+socket)
+	client, conn := newSmartHTTPClient(t, "unix://"+socket, config.Config.Auth.Token)
 	defer conn.Close()
 
 	tempGitlabShellDir, cleanup := testhelper.TempDir(t)
@@ -536,7 +536,7 @@ func testPostReceiveWithTransactionsViaPraefect(t *testing.T, ctx context.Contex
 		gitalyServer.GrpcServer().Serve(internalListener)
 	}()
 
-	client, conn := newSmartHTTPClient(t, "unix://"+gitalyServer.Socket())
+	client, conn := newSmartHTTPClient(t, "unix://"+gitalyServer.Socket(), config.Config.Auth.Token)
 	defer conn.Close()
 
 	stream, err := client.PostReceivePack(ctx)
@@ -588,7 +588,7 @@ func TestPostReceiveWithReferenceTransactionHook(t *testing.T) {
 	go gitalyServer.Serve(internalListener)
 	defer gitalyServer.Stop()
 
-	client, conn := newSmartHTTPClient(t, "unix://"+gitalySocketPath)
+	client, conn := newSmartHTTPClient(t, "unix://"+gitalySocketPath, config.Config.Auth.Token)
 	defer conn.Close()
 
 	// As we ain't got a Praefect server setup, we instead hooked up the

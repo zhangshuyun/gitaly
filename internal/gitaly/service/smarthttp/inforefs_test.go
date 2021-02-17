@@ -39,7 +39,7 @@ func TestSuccessfulInfoRefsUploadPack(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	response, err := makeInfoRefsUploadPackRequest(ctx, t, serverSocketPath, rpcRequest)
+	response, err := makeInfoRefsUploadPackRequest(ctx, t, serverSocketPath, config.Config.Auth.Token, rpcRequest)
 	require.NoError(t, err)
 	assertGitRefAdvertisement(t, "InfoRefsUploadPack", string(response), "001e# service=git-upload-pack", "0000", []string{
 		"003ef4e6814c3e4e7a0de82a9e7cd20c626cc963a2f8 refs/tags/v1.0.0",
@@ -61,7 +61,7 @@ func TestSuccessfulInfoRefsUploadWithPartialClone(t *testing.T) {
 		Repository: testRepo,
 	}
 
-	partialResponse, err := makeInfoRefsUploadPackRequest(ctx, t, serverSocketPath, request)
+	partialResponse, err := makeInfoRefsUploadPackRequest(ctx, t, serverSocketPath, config.Config.Auth.Token, request)
 	require.NoError(t, err)
 	partialRefs := stats.Get{}
 	err = partialRefs.Parse(bytes.NewReader(partialResponse))
@@ -89,7 +89,7 @@ func TestSuccessfulInfoRefsUploadPackWithGitConfigOptions(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	response, err := makeInfoRefsUploadPackRequest(ctx, t, serverSocketPath, rpcRequest)
+	response, err := makeInfoRefsUploadPackRequest(ctx, t, serverSocketPath, config.Config.Auth.Token, rpcRequest)
 	require.NoError(t, err)
 	assertGitRefAdvertisement(t, "InfoRefsUploadPack", string(response), "001e# service=git-upload-pack", "0000", []string{})
 }
@@ -112,7 +112,7 @@ func TestSuccessfulInfoRefsUploadPackWithGitProtocol(t *testing.T) {
 		GitProtocol: git.ProtocolV2,
 	}
 
-	client, _ := newSmartHTTPClient(t, serverSocketPath)
+	client, _ := newSmartHTTPClient(t, serverSocketPath, config.Config.Auth.Token)
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -132,8 +132,8 @@ func TestSuccessfulInfoRefsUploadPackWithGitProtocol(t *testing.T) {
 	require.Contains(t, envData, fmt.Sprintf("GIT_PROTOCOL=%s\n", git.ProtocolV2))
 }
 
-func makeInfoRefsUploadPackRequest(ctx context.Context, t *testing.T, serverSocketPath string, rpcRequest *gitalypb.InfoRefsRequest) ([]byte, error) {
-	client, conn := newSmartHTTPClient(t, serverSocketPath)
+func makeInfoRefsUploadPackRequest(ctx context.Context, t *testing.T, serverSocketPath, token string, rpcRequest *gitalypb.InfoRefsRequest) ([]byte, error) {
+	client, conn := newSmartHTTPClient(t, serverSocketPath, token)
 	defer conn.Close()
 
 	ctx, cancel := context.WithCancel(ctx)
@@ -153,7 +153,7 @@ func TestSuccessfulInfoRefsReceivePack(t *testing.T) {
 	serverSocketPath, stop := runSmartHTTPServer(t, config.Config)
 	defer stop()
 
-	client, conn := newSmartHTTPClient(t, serverSocketPath)
+	client, conn := newSmartHTTPClient(t, serverSocketPath, config.Config.Auth.Token)
 	defer conn.Close()
 
 	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
@@ -186,7 +186,7 @@ func TestObjectPoolRefAdvertisementHiding(t *testing.T) {
 	serverSocketPath, stop := runSmartHTTPServer(t, config.Config)
 	defer stop()
 
-	client, conn := newSmartHTTPClient(t, serverSocketPath)
+	client, conn := newSmartHTTPClient(t, serverSocketPath, config.Config.Auth.Token)
 	defer conn.Close()
 
 	repo, _, cleanupFn := testhelper.NewTestRepo(t)
@@ -223,7 +223,7 @@ func TestFailureRepoNotFoundInfoRefsReceivePack(t *testing.T) {
 	serverSocketPath, stop := runSmartHTTPServer(t, config.Config)
 	defer stop()
 
-	client, conn := newSmartHTTPClient(t, serverSocketPath)
+	client, conn := newSmartHTTPClient(t, serverSocketPath, config.Config.Auth.Token)
 	defer conn.Close()
 	repo := &gitalypb.Repository{StorageName: "default", RelativePath: "testdata/scratch/another_repo"}
 	rpcRequest := &gitalypb.InfoRefsRequest{Repository: repo}
@@ -245,7 +245,7 @@ func TestFailureRepoNotSetInfoRefsReceivePack(t *testing.T) {
 	serverSocketPath, stop := runSmartHTTPServer(t, config.Config)
 	defer stop()
 
-	client, conn := newSmartHTTPClient(t, serverSocketPath)
+	client, conn := newSmartHTTPClient(t, serverSocketPath, config.Config.Auth.Token)
 	defer conn.Close()
 	rpcRequest := &gitalypb.InfoRefsRequest{}
 
@@ -311,7 +311,7 @@ func TestCacheInfoRefsUploadPack(t *testing.T) {
 		ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 		defer cancel()
 
-		response, err := makeInfoRefsUploadPackRequest(ctx, t, serverSocketPath, rpcRequest)
+		response, err := makeInfoRefsUploadPackRequest(ctx, t, serverSocketPath, config.Config.Auth.Token, rpcRequest)
 		require.NoError(t, err)
 
 		assertGitRefAdvertisement(t, "InfoRefsUploadPack", string(response),
@@ -335,7 +335,7 @@ func TestCacheInfoRefsUploadPack(t *testing.T) {
 
 	// replace cached response file to prove the info-ref uses the cache
 	replaceCachedResponse(t, ctx, rpcRequest, strings.Join(replacedContents, "\n"))
-	response, err := makeInfoRefsUploadPackRequest(ctx, t, serverSocketPath, rpcRequest)
+	response, err := makeInfoRefsUploadPackRequest(ctx, t, serverSocketPath, config.Config.Auth.Token, rpcRequest)
 	require.NoError(t, err)
 	assertGitRefAdvertisement(t, "InfoRefsUploadPack", string(response),
 		replacedContents[0], replacedContents[3], replacedContents[1:3],
@@ -362,7 +362,7 @@ func TestCacheInfoRefsUploadPack(t *testing.T) {
 	invalidRepoCleanup := createInvalidRepo(t, filepath.Join(testhelper.GitlabTestStoragePath(), invalidReq.Repository.RelativePath))
 	defer invalidRepoCleanup()
 
-	_, err = makeInfoRefsUploadPackRequest(ctx, t, serverSocketPath, invalidReq)
+	_, err = makeInfoRefsUploadPackRequest(ctx, t, serverSocketPath, config.Config.Auth.Token, invalidReq)
 	testhelper.RequireGrpcError(t, err, codes.Internal)
 	testhelper.AssertPathNotExists(t, pathToCachedResponse(t, ctx, invalidReq))
 
