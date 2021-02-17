@@ -420,7 +420,7 @@ func TestPostReceivePackToHooks(t *testing.T) {
 
 	testhelper.WriteShellSecretFile(t, tempGitlabShellDir, secretToken)
 
-	cleanup = testhelper.WriteCheckNewObjectExistsHook(t, testRepoPath)
+	cleanup = testhelper.WriteCheckNewObjectExistsHook(t, config.Config.Git.BinPath, testRepoPath)
 	defer cleanup()
 
 	config.Config.Gitlab.URL = serverURL
