@@ -196,7 +196,7 @@ func TestSuccessfulIsAncestorRequestWithAltGitObjectDirs(t *testing.T) {
 		"-c", fmt.Sprintf("user.email=%s", committerEmail),
 		"commit", "--allow-empty", "-m", "An empty commit")
 	altObjectsDir := "./alt-objects"
-	currentHead := testhelper.CreateCommitInAlternateObjectDirectory(t, testRepoCopyPath, altObjectsDir, cmd)
+	currentHead := testhelper.CreateCommitInAlternateObjectDirectory(t, config.Config.Git.BinPath, testRepoCopyPath, altObjectsDir, cmd)
 
 	testCases := []struct {
 		desc    string

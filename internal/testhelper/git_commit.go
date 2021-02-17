@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
@@ -64,7 +63,7 @@ func CreateCommit(t testing.TB, repoPath, branchName string, opts *CreateCommitO
 // CreateCommitInAlternateObjectDirectory runs a command such that its created
 // objects will live in an alternate objects directory. It returns the current
 // head after the command is run and the alternate objects directory path
-func CreateCommitInAlternateObjectDirectory(t testing.TB, repoPath, altObjectsDir string, cmd *exec.Cmd) (currentHead []byte) {
+func CreateCommitInAlternateObjectDirectory(t testing.TB, gitBin, repoPath, altObjectsDir string, cmd *exec.Cmd) (currentHead []byte) {
 	gitPath := filepath.Join(repoPath, ".git")
 
 	altObjectsPath := filepath.Join(gitPath, altObjectsDir)
@@ -82,7 +81,7 @@ func CreateCommitInAlternateObjectDirectory(t testing.TB, repoPath, altObjectsDi
 		t.Fatalf("stdout: %s, stderr: %s", output, stderr)
 	}
 
-	cmd = exec.Command(config.Config.Git.BinPath, "-C", repoPath, "rev-parse", "HEAD")
+	cmd = exec.Command(gitBin, "-C", repoPath, "rev-parse", "HEAD")
 	cmd.Env = gitObjectEnv
 	currentHead, err := cmd.Output()
 	require.NoError(t, err)
