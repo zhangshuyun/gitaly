@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"path/filepath"
@@ -269,9 +270,7 @@ func TestDial_Tracing(t *testing.T) {
 			span, _ := opentracing.StartSpanFromContext(stream.Context(), "nested-span")
 			defer span.Finish()
 			span.LogKV("was", "called")
-			_, err := stream.Recv()
-			require.NoError(t, err)
-			return stream.Send(&proxytestdata.PingResponse{})
+			return nil
 		},
 	}
 	proxytestdata.RegisterTestServiceServer(grpcServer, svc)
@@ -363,10 +362,10 @@ func TestDial_Tracing(t *testing.T) {
 		// This should create a span that's nested into the "stream-check" span.
 		stream, err := proxytestdata.NewTestServiceClient(cc).PingStream(ctx)
 		require.NoError(t, err)
-		require.NoError(t, stream.Send(&proxytestdata.PingRequest{}))
 		require.NoError(t, stream.CloseSend())
-		_, err = stream.Recv()
-		require.NoError(t, err)
+		resp, err := stream.Recv()
+		require.Equal(t, err, io.EOF)
+		require.Nil(t, resp)
 
 		span.Finish()
 		tracerCloser.Close()
