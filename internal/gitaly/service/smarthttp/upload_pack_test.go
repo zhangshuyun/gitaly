@@ -39,7 +39,7 @@ func testSuccessfulUploadPackRequest(t *testing.T, ctx context.Context) {
 	negotiationMetrics := prometheus.NewCounterVec(prometheus.CounterOpts{}, []string{"feature"})
 
 	serverSocketPath, stop := runSmartHTTPServer(
-		t, WithPackfileNegotiationMetrics(negotiationMetrics),
+		t, config.Config, WithPackfileNegotiationMetrics(negotiationMetrics),
 	)
 	defer stop()
 
@@ -112,7 +112,7 @@ func TestUploadPackRequestWithGitConfigOptions(t *testing.T) {
 }
 
 func testUploadPackRequestWithGitConfigOptions(t *testing.T, ctx context.Context) {
-	serverSocketPath, stop := runSmartHTTPServer(t)
+	serverSocketPath, stop := runSmartHTTPServer(t, config.Config)
 	defer stop()
 
 	_, testRepoPath, cleanup := testhelper.NewTestRepo(t)
@@ -184,7 +184,7 @@ func testUploadPackRequestWithGitProtocol(t *testing.T, ctx context.Context) {
 	defer restore()
 	config.Config = cfg
 
-	serverSocketPath, stop := runSmartHTTPServer(t)
+	serverSocketPath, stop := runSmartHTTPServer(t, config.Config)
 	defer stop()
 
 	_, testRepoPath, cleanup := testhelper.NewTestRepo(t)
@@ -230,7 +230,7 @@ func TestSuccessfulUploadPackDeepenRequest(t *testing.T) {
 }
 
 func testSuccessfulUploadPackDeepenRequest(t *testing.T, ctx context.Context) {
-	serverSocketPath, stop := runSmartHTTPServer(t)
+	serverSocketPath, stop := runSmartHTTPServer(t, config.Config)
 	defer stop()
 
 	testRepo, _, cleanup := testhelper.NewTestRepo(t)
@@ -272,7 +272,7 @@ func TestUploadPackWithPackObjectsHook(t *testing.T) {
 	cleanup = testhelper.WriteExecutable(t, filepath.Join(hookDir, "gitaly-hooks"), []byte(hookScript))
 	defer cleanup()
 
-	serverSocketPath, stop := runSmartHTTPServer(t)
+	serverSocketPath, stop := runSmartHTTPServer(t, config.Config)
 	defer stop()
 
 	repo, repoPath, cleanup := testhelper.NewTestRepo(t)
@@ -306,7 +306,7 @@ func TestFailedUploadPackRequestDueToValidationError(t *testing.T) {
 }
 
 func testFailedUploadPackRequestDueToValidationError(t *testing.T, ctx context.Context) {
-	serverSocketPath, stop := runSmartHTTPServer(t)
+	serverSocketPath, stop := runSmartHTTPServer(t, config.Config)
 	defer stop()
 
 	rpcRequests := []gitalypb.PostUploadPackRequest{
@@ -401,7 +401,7 @@ func testUploadPackRequestForPartialCloneSuccess(t *testing.T, ctx context.Conte
 	negotiationMetrics := prometheus.NewCounterVec(prometheus.CounterOpts{}, []string{"feature"})
 
 	serverSocketPath, stop := runSmartHTTPServer(
-		t, WithPackfileNegotiationMetrics(negotiationMetrics),
+		t, config.Config, WithPackfileNegotiationMetrics(negotiationMetrics),
 	)
 	defer stop()
 

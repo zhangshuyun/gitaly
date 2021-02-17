@@ -47,7 +47,7 @@ func TestSuccessfulReceivePackRequest(t *testing.T) {
 	hookOutputFile, cleanup := testhelper.CaptureHookEnv(t)
 	defer cleanup()
 
-	serverSocketPath, stop := runSmartHTTPServer(t)
+	serverSocketPath, stop := runSmartHTTPServer(t, config.Config)
 	defer stop()
 
 	repo, repoPath, cleanup := testhelper.NewTestRepo(t)
@@ -114,7 +114,7 @@ func TestSuccessfulReceivePackRequestWithGitProtocol(t *testing.T) {
 	defer restore()
 	config.Config = cfg
 
-	serverSocketPath, stop := runSmartHTTPServer(t)
+	serverSocketPath, stop := runSmartHTTPServer(t, config.Config)
 	defer stop()
 
 	repo, repoPath, cleanup := testhelper.NewTestRepo(t)
@@ -141,7 +141,7 @@ func TestSuccessfulReceivePackRequestWithGitProtocol(t *testing.T) {
 }
 
 func TestFailedReceivePackRequestWithGitOpts(t *testing.T) {
-	serverSocketPath, stop := runSmartHTTPServer(t)
+	serverSocketPath, stop := runSmartHTTPServer(t, config.Config)
 	defer stop()
 
 	repo, _, cleanup := testhelper.NewTestRepo(t)
@@ -178,7 +178,7 @@ func TestFailedReceivePackRequestDueToHooksFailure(t *testing.T) {
 	hookContent := []byte("#!/bin/sh\nexit 1")
 	ioutil.WriteFile(filepath.Join(hooks.Path(config.Config), "pre-receive"), hookContent, 0755)
 
-	serverSocketPath, stop := runSmartHTTPServer(t)
+	serverSocketPath, stop := runSmartHTTPServer(t, config.Config)
 	defer stop()
 
 	repo, _, cleanup := testhelper.NewTestRepo(t)
@@ -286,7 +286,7 @@ func createCommit(t *testing.T, repoPath string, fileContents []byte) (oldHead s
 }
 
 func TestFailedReceivePackRequestDueToValidationError(t *testing.T) {
-	serverSocketPath, stop := runSmartHTTPServer(t)
+	serverSocketPath, stop := runSmartHTTPServer(t, config.Config)
 	defer stop()
 
 	client, conn := newSmartHTTPClient(t, serverSocketPath)
@@ -342,7 +342,7 @@ func TestInvalidTimezone(t *testing.T) {
 	_, cleanup := testhelper.CaptureHookEnv(t)
 	defer cleanup()
 
-	socket, stop := runSmartHTTPServer(t)
+	socket, stop := runSmartHTTPServer(t, config.Config)
 	defer stop()
 
 	repo, repoPath, cleanup := testhelper.NewTestRepo(t)
