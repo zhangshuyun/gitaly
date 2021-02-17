@@ -22,7 +22,6 @@ type Reconciler struct {
 	hc                               praefect.HealthChecker
 	storages                         map[string][]string
 	reconciliationSchedulingDuration prometheus.Histogram
-	reconciliationJobsTotal          *prometheus.CounterVec
 	// handleError is called with a possible error from reconcile.
 	// If it returns an error, Run stops and returns with the error.
 	handleError func(error) error
@@ -42,28 +41,10 @@ func NewReconciler(log logrus.FieldLogger, db glsql.Querier, hc praefect.HealthC
 			Help:    "The time spent performing a single reconciliation scheduling run.",
 			Buckets: buckets,
 		}),
-		reconciliationJobsTotal: prometheus.NewCounterVec(prometheus.CounterOpts{
-			Name: "gitaly_praefect_reconciliation_jobs_total",
-			Help: "Number of reconciliation jobs scheduled.",
-		}, []string{"virtual_storage", "source_storage", "target_storage"}),
 		handleError: func(err error) error {
 			log.WithError(err).Error("automatic reconciliation failed")
 			return nil
 		},
-	}
-
-	// create the timeseries prior to having observations
-	for vs, storages := range r.storages {
-		for i := range storages {
-			for j := range storages {
-				if i == j {
-					// source and the target can't be the same
-					continue
-				}
-
-				r.reconciliationJobsTotal.WithLabelValues(vs, storages[i], storages[j])
-			}
-		}
 	}
 
 	return r
@@ -75,7 +56,6 @@ func (r *Reconciler) Describe(ch chan<- *prometheus.Desc) {
 
 func (r *Reconciler) Collect(ch chan<- prometheus.Metric) {
 	r.reconciliationSchedulingDuration.Collect(ch)
-	r.reconciliationJobsTotal.Collect(ch)
 }
 
 // Run reconciles on each tick the Ticker emits. Run returns
@@ -251,8 +231,6 @@ FROM reconciliation_jobs
 		); err != nil {
 			return fmt.Errorf("scan: %w", err)
 		}
-
-		r.reconciliationJobsTotal.WithLabelValues(j.VirtualStorage, j.SourceStorage, j.TargetStorage).Inc()
 
 		jobs = append(jobs, j)
 		if len(jobs) == logBatchSize {
