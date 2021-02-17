@@ -33,16 +33,32 @@ func TestReceiveSources(t *testing.T) {
 }
 
 func TestReadSizes(t *testing.T) {
-	testData := "Hello this is the test data that will be received. It goes on for a while bla bla bla."
-	for n := 1; n < 100; n *= 3 {
-		desc := fmt.Sprintf("reads of size %d", n)
-		result := &bytes.Buffer{}
-		reader := &opaqueReader{NewReader(receiverFromReader(strings.NewReader(testData)))}
-		_, err := io.CopyBuffer(&opaqueWriter{result}, reader, make([]byte, n))
+	readSizes := func(t *testing.T, newReader func(string) io.Reader) {
+		testData := "Hello this is the test data that will be received. It goes on for a while bla bla bla."
 
-		require.NoError(t, err, desc)
-		require.Equal(t, testData, result.String())
+		for n := 1; n < 100; n *= 3 {
+			desc := fmt.Sprintf("reads of size %d", n)
+			result := &bytes.Buffer{}
+			reader := &opaqueReader{NewReader(receiverFromReader(newReader(testData)))}
+			n, err := io.CopyBuffer(&opaqueWriter{result}, reader, make([]byte, n))
+
+			require.NoError(t, err, desc)
+			require.Equal(t, testData, result.String())
+			require.EqualValues(t, len(testData), n)
+		}
 	}
+
+	t.Run("normal reader", func(t *testing.T) {
+		readSizes(t, func(s string) io.Reader {
+			return strings.NewReader(s)
+		})
+	})
+
+	t.Run("err reader", func(t *testing.T) {
+		readSizes(t, func(s string) io.Reader {
+			return iotest.DataErrReader(strings.NewReader(s))
+		})
+	})
 }
 
 func TestWriterTo(t *testing.T) {

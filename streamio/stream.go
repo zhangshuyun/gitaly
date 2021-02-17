@@ -5,6 +5,7 @@
 package streamio
 
 import (
+	"errors"
 	"io"
 	"os"
 	"strconv"
@@ -52,11 +53,17 @@ func (rr *receiveReader) Read(p []byte) (int, error) {
 	if len(rr.data) == 0 {
 		rr.data, rr.err = rr.receiver()
 	}
+
 	n := copy(p, rr.data)
 	rr.data = rr.data[n:]
+
+	// We want to return any potential error only in case we have no
+	// buffered data left. Otherwise, it can happen that we do not relay
+	// bytes when the reader returns both data and an error.
 	if len(rr.data) == 0 {
 		return n, rr.err
 	}
+
 	return n, nil
 }
 
@@ -155,20 +162,21 @@ func (sw *sendWriter) ReadFrom(r io.Reader) (int64, error) {
 	var nRead int64
 	buf := make([]byte, WriteBufferSize)
 
-	var errRead, errSend error
-	for errSend == nil && errRead != io.EOF {
-		var n int
-
-		n, errRead = r.Read(buf)
+	for {
+		n, err := r.Read(buf)
 		nRead += int64(n)
-		if errRead != nil && errRead != io.EOF {
-			return nRead, errRead
-		}
 
 		if n > 0 {
-			errSend = sw.sender(buf[:n])
+			if err := sw.sender(buf[:n]); err != nil {
+				return nRead, err
+			}
+		}
+
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				return nRead, nil
+			}
+			return nRead, err
 		}
 	}
-
-	return nRead, errSend
 }
