@@ -149,16 +149,26 @@ func (dr defaultReplicator) Destroy(ctx context.Context, event datastore.Replica
 		return err
 	}
 
+	var deleteFunc func(context.Context, string, string, string) error
+	switch event.Job.Change {
+	case datastore.DeleteRepo:
+		deleteFunc = dr.rs.DeleteRepository
+	case datastore.DeleteReplica:
+		deleteFunc = dr.rs.DeleteReplica
+	default:
+		return fmt.Errorf("unknown change type: %q", event.Job.Change)
+	}
+
 	// If the repository was deleted but this fails, we'll know by the repository not having a record in the virtual
 	// storage but having one for the storage. We can later retry the deletion.
-	if err := dr.rs.DeleteRepository(ctx, event.Job.VirtualStorage, event.Job.RelativePath, event.Job.TargetNodeStorage); err != nil {
+	if err := deleteFunc(ctx, event.Job.VirtualStorage, event.Job.RelativePath, event.Job.TargetNodeStorage); err != nil {
 		if !errors.Is(err, datastore.RepositoryNotExistsError{}) {
 			return err
 		}
 
 		dr.log.WithField(logWithCorrID, correlation.ExtractFromContext(ctx)).
 			WithError(err).
-			Info("replicated repository delete does not have a store entry")
+			Info("deleted repository did not have a store entry")
 	}
 
 	return nil
@@ -598,13 +608,13 @@ func (r ReplMgr) processReplicationEvent(ctx context.Context, event datastore.Re
 			return fmt.Errorf("no connection to source node %q/%q", event.Job.VirtualStorage, event.Job.SourceNodeStorage)
 		}
 
-		ctx, err := helper.InjectGitalyServers(ctx, event.Job.SourceNodeStorage, source.Address, source.Token)
+		ctx, err = helper.InjectGitalyServers(ctx, event.Job.SourceNodeStorage, source.Address, source.Token)
 		if err != nil {
 			return fmt.Errorf("inject Gitaly servers into context: %w", err)
 		}
 
 		err = r.replicator.Replicate(ctx, event, source.Connection, targetCC)
-	case datastore.DeleteRepo:
+	case datastore.DeleteRepo, datastore.DeleteReplica:
 		err = r.replicator.Destroy(ctx, event, targetCC)
 	case datastore.RenameRepo:
 		err = r.replicator.Rename(ctx, event, targetCC)
