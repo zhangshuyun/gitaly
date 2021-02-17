@@ -474,6 +474,81 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 		})
 	})
 
+	t.Run("DeleteReplica", func(t *testing.T) {
+		rs, requireState := newStore(t, nil)
+
+		t.Run("delete non-existing", func(t *testing.T) {
+			require.Equal(t,
+				RepositoryNotExistsError{"virtual-storage-1", "relative-path-1", "storage-1"},
+				rs.DeleteReplica(ctx, "virtual-storage-1", "relative-path-1", "storage-1"),
+			)
+		})
+
+		t.Run("delete existing", func(t *testing.T) {
+			require.NoError(t, rs.SetGeneration(ctx, "virtual-storage-1", "relative-path-1", "storage-1", 0))
+			require.NoError(t, rs.SetGeneration(ctx, "virtual-storage-1", "relative-path-1", "storage-2", 0))
+			require.NoError(t, rs.SetGeneration(ctx, "virtual-storage-1", "relative-path-2", "storage-1", 0))
+			require.NoError(t, rs.SetGeneration(ctx, "virtual-storage-2", "relative-path-1", "storage-1", 0))
+
+			requireState(t, ctx,
+				virtualStorageState{
+					"virtual-storage-1": {
+						"relative-path-1": repositoryRecord{},
+						"relative-path-2": repositoryRecord{},
+					},
+					"virtual-storage-2": {
+						"relative-path-1": repositoryRecord{},
+					},
+				},
+				storageState{
+					"virtual-storage-1": {
+						"relative-path-1": {
+							"storage-1": 0,
+							"storage-2": 0,
+						},
+						"relative-path-2": {
+							"storage-1": 0,
+						},
+					},
+					"virtual-storage-2": {
+						"relative-path-1": {
+							"storage-1": 0,
+						},
+					},
+				},
+			)
+
+			require.NoError(t, rs.DeleteReplica(ctx, "virtual-storage-1", "relative-path-1", "storage-1"))
+
+			requireState(t, ctx,
+				virtualStorageState{
+					"virtual-storage-1": {
+						"relative-path-1": repositoryRecord{},
+						"relative-path-2": repositoryRecord{},
+					},
+					"virtual-storage-2": {
+						"relative-path-1": repositoryRecord{},
+					},
+				},
+				storageState{
+					"virtual-storage-1": {
+						"relative-path-1": {
+							"storage-2": 0,
+						},
+						"relative-path-2": {
+							"storage-1": 0,
+						},
+					},
+					"virtual-storage-2": {
+						"relative-path-1": {
+							"storage-1": 0,
+						},
+					},
+				},
+			)
+		})
+	})
+
 	t.Run("RenameRepository", func(t *testing.T) {
 		t.Run("rename non-existing", func(t *testing.T) {
 			rs, _ := newStore(t, nil)

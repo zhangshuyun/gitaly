@@ -11,6 +11,7 @@ type MockRepositoryStore struct {
 	SetGenerationFunc                      func(ctx context.Context, virtualStorage, relativePath, storage string, generation int) error
 	CreateRepositoryFunc                   func(ctx context.Context, virtualStorage, relativePath, primary string, secondaries []string, storePrimary, storeAssignments bool) error
 	DeleteRepositoryFunc                   func(ctx context.Context, virtualStorage, relativePath, storage string) error
+	DeleteReplicaFunc                      func(ctx context.Context, virtualStorage, relativePath, storage string) error
 	RenameRepositoryFunc                   func(ctx context.Context, virtualStorage, relativePath, storage, newRelativePath string) error
 	GetConsistentStoragesFunc              func(ctx context.Context, virtualStorage, relativePath string) (map[string]struct{}, error)
 	GetPartiallyReplicatedRepositoriesFunc func(ctx context.Context, virtualStorage string, virtualStorageScopedPrimaries bool) ([]OutdatedRepository, error)
@@ -66,6 +67,15 @@ func (m MockRepositoryStore) DeleteRepository(ctx context.Context, virtualStorag
 	}
 
 	return m.DeleteRepositoryFunc(ctx, virtualStorage, relativePath, storage)
+}
+
+// DeleteReplica runs the mock's DeleteReplicaFunc.
+func (m MockRepositoryStore) DeleteReplica(ctx context.Context, virtualStorage, relativePath, storage string) error {
+	if m.DeleteReplicaFunc == nil {
+		return nil
+	}
+
+	return m.DeleteReplicaFunc(ctx, virtualStorage, relativePath, storage)
 }
 
 func (m MockRepositoryStore) RenameRepository(ctx context.Context, virtualStorage, relativePath, storage, newRelativePath string) error {

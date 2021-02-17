@@ -111,6 +111,8 @@ type RepositoryStore interface {
 	// RepositoryNotExistsError when trying to delete a repository which has no record in the virtual storage
 	// or the storage.
 	DeleteRepository(ctx context.Context, virtualStorage, relativePath, storage string) error
+	// DeleteReplica deletes a replica of a repository from a storage without affecting other state in the virtual storage.
+	DeleteReplica(ctx context.Context, virtualStorage, relativePath, storage string) error
 	// RenameRepository updates a repository's relative path. It renames the virtual storage wide record as well
 	// as the storage's which is calling it. Returns RepositoryNotExistsError when trying to rename a repository
 	// which has no record in the virtual storage or the storage.
@@ -355,7 +357,7 @@ VALUES ($1, $2, $3, 0)
 }
 
 func (rs *PostgresRepositoryStore) DeleteRepository(ctx context.Context, virtualStorage, relativePath, storage string) error {
-	const q = `
+	return rs.delete(ctx, `
 WITH repo AS (
 	DELETE FROM repositories
 	WHERE virtual_storage = $1
@@ -366,9 +368,23 @@ DELETE FROM storage_repositories
 WHERE virtual_storage = $1
 AND relative_path = $2
 AND storage = $3
-`
+		`, virtualStorage, relativePath, storage,
+	)
+}
 
-	result, err := rs.db.ExecContext(ctx, q, virtualStorage, relativePath, storage)
+// DeleteReplica deletes a record from the `storage_repositories`. See the interface documentation for details.
+func (rs *PostgresRepositoryStore) DeleteReplica(ctx context.Context, virtualStorage, relativePath, storage string) error {
+	return rs.delete(ctx, `
+DELETE FROM storage_repositories
+WHERE virtual_storage = $1
+AND relative_path = $2
+AND storage = $3
+		`, virtualStorage, relativePath, storage,
+	)
+}
+
+func (rs *PostgresRepositoryStore) delete(ctx context.Context, query, virtualStorage, relativePath, storage string) error {
+	result, err := rs.db.ExecContext(ctx, query, virtualStorage, relativePath, storage)
 	if err != nil {
 		return err
 	}
