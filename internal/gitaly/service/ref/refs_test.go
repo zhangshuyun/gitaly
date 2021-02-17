@@ -1087,7 +1087,7 @@ func TestSuccessfulFindAllBranchesRequest(t *testing.T) {
 	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
-	testhelper.CreateRemoteBranch(t, testRepoPath, "origin",
+	testhelper.CreateRemoteBranch(t, config.Config.Git.BinPath, testRepoPath, "origin",
 		"fake-remote-branch", remoteBranch.Target.Id)
 
 	request := &gitalypb.FindAllBranchesRequest{Repository: testRepo}
