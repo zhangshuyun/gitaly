@@ -10,22 +10,21 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 )
 
 // GitObjectMustExist is a test assertion that fails unless the git repo in repoPath contains sha
-func GitObjectMustExist(t testing.TB, repoPath, sha string) {
-	gitObjectExists(t, repoPath, sha, true)
+func GitObjectMustExist(t testing.TB, gitBin, repoPath, sha string) {
+	gitObjectExists(t, gitBin, repoPath, sha, true)
 }
 
 // GitObjectMustNotExist is a test assertion that fails unless the git repo in repoPath contains sha
-func GitObjectMustNotExist(t testing.TB, repoPath, sha string) {
-	gitObjectExists(t, repoPath, sha, false)
+func GitObjectMustNotExist(t testing.TB, gitBin, repoPath, sha string) {
+	gitObjectExists(t, gitBin, repoPath, sha, false)
 }
 
-func gitObjectExists(t testing.TB, repoPath, sha string, exists bool) {
-	cmd := exec.Command(config.Config.Git.BinPath, "-C", repoPath, "cat-file", "-e", sha)
+func gitObjectExists(t testing.TB, gitBin, repoPath, sha string, exists bool) {
+	cmd := exec.Command(gitBin, "-C", repoPath, "cat-file", "-e", sha)
 	cmd.Env = []string{
 		"GIT_ALLOW_PROTOCOL=", // To prevent partial clone reaching remote repo over SSH
 	}
