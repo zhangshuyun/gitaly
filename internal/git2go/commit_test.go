@@ -489,7 +489,7 @@ func TestExecutor_Commit(t *testing.T) {
 					Message:   message,
 				}, getCommit(t, ctx, repo, commitID))
 
-				testhelper.RequireTree(t, repoPath, commitID, step.treeEntries)
+				testhelper.RequireTree(t, config.Config.Git.BinPath, repoPath, commitID, step.treeEntries)
 				parentCommit = commitID
 			}
 		})

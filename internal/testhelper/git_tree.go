@@ -19,12 +19,12 @@ type TreeEntry struct {
 
 // RequireTree looks up the given treeish and asserts that its entries match
 // the given expected entries. Tree entries are checked recursively.
-func RequireTree(t testing.TB, repoPath, treeish string, expectedEntries []TreeEntry) {
+func RequireTree(t testing.TB, gitBin, repoPath, treeish string, expectedEntries []TreeEntry) {
 	t.Helper()
 
 	var actualEntries []TreeEntry
 
-	output := bytes.TrimSpace(MustRunCommand(t, nil, "git", "-C", repoPath, "ls-tree", "-r", treeish))
+	output := bytes.TrimSpace(MustRunCommand(t, nil, gitBin, "-C", repoPath, "ls-tree", "-r", treeish))
 
 	if len(output) > 0 {
 		for _, line := range bytes.Split(output, []byte("\n")) {
@@ -35,7 +35,7 @@ func RequireTree(t testing.TB, repoPath, treeish string, expectedEntries []TreeE
 			actualEntries = append(actualEntries, TreeEntry{
 				Mode:    string(spaceSplit[0]),
 				Path:    path,
-				Content: string(MustRunCommand(t, nil, "git", "-C", repoPath, "show", treeish+":"+path)),
+				Content: string(MustRunCommand(t, nil, gitBin, "-C", repoPath, "show", treeish+":"+path)),
 			})
 		}
 	}

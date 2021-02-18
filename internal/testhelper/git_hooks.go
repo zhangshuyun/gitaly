@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git/hooks"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 )
 
 // WriteEnvToCustomHook dumps the env vars that the custom hooks receives to a file
@@ -33,14 +32,14 @@ func WriteEnvToCustomHook(t testing.TB, repoPath, hookName string) (string, func
 // if it can find the object in the quarantine directory. if
 // GIT_OBJECT_DIRECTORY and GIT_ALTERNATE_OBJECT_DIRECTORIES were not passed
 // through correctly to the hooks, it will fail
-func WriteCheckNewObjectExistsHook(t testing.TB, repoPath string) func() {
+func WriteCheckNewObjectExistsHook(t testing.TB, gitBin, repoPath string) func() {
 	hook := fmt.Sprintf(`#!/usr/bin/env ruby
 STDIN.each_line do |line|
   new_object = line.split(' ')[1]
   exit 1 unless new_object
   exit 1 unless	system(*%%W[%s cat-file -e #{new_object}])
 end
-`, config.Config.Git.BinPath)
+`, gitBin)
 
 	return WriteCustomHook(t, repoPath, "pre-receive", []byte(hook))
 }

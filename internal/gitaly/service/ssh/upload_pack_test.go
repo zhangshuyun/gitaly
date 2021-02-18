@@ -369,14 +369,14 @@ func TestUploadPackCloneWithPartialCloneFilter(t *testing.T) {
 		{
 			desc: "full_clone",
 			repoTest: func(t *testing.T, repoPath string) {
-				testhelper.GitObjectMustExist(t, repoPath, blobGreaterThanLimit)
+				testhelper.GitObjectMustExist(t, config.Config.Git.BinPath, repoPath, blobGreaterThanLimit)
 			},
 			cloneArgs: []string{"clone", "git@localhost:test/test.git"},
 		},
 		{
 			desc: "partial_clone",
 			repoTest: func(t *testing.T, repoPath string) {
-				testhelper.GitObjectMustNotExist(t, repoPath, blobGreaterThanLimit)
+				testhelper.GitObjectMustNotExist(t, config.Config.Git.BinPath, repoPath, blobGreaterThanLimit)
 			},
 			cloneArgs: []string{"clone", "--filter=blob:limit=2048", "git@localhost:test/test.git"},
 		},
@@ -402,7 +402,7 @@ func TestUploadPackCloneWithPartialCloneFilter(t *testing.T) {
 			defer os.RemoveAll(localPath)
 			require.NoError(t, err, "clone failed")
 
-			testhelper.GitObjectMustExist(t, localPath, blobLessThanLimit)
+			testhelper.GitObjectMustExist(t, config.Config.Git.BinPath, localPath, blobLessThanLimit)
 			tc.repoTest(t, localPath)
 		})
 	}
