@@ -21,6 +21,7 @@ ARCH := $(shell uname -m)
 SOURCE_DIR       := $(abspath $(dir $(lastword ${MAKEFILE_LIST})))
 BUILD_DIR        := ${SOURCE_DIR}/_build
 COVERAGE_DIR     := ${BUILD_DIR}/cover
+DEPENDENCY_DIR   := ${BUILD_DIR}/deps
 GITALY_RUBY_DIR  := ${SOURCE_DIR}/ruby
 
 # These variables may be overridden at runtime by top-level make
@@ -78,8 +79,8 @@ endif
 GIT_REPO_URL      ?= https://gitlab.com/gitlab-org/gitlab-git.git
 GIT_BINARIES_URL  ?= https://gitlab.com/gitlab-org/gitlab-git/-/jobs/artifacts/${GIT_VERSION}/raw/git_full_bins.tgz?job=build
 GIT_BINARIES_HASH ?= 8c88d2adb46d1d07f258904b227c93b8a5a4942ac32a1e54057f215401332141
-GIT_INSTALL_DIR   := ${BUILD_DIR}/git
-GIT_SOURCE_DIR    := ${BUILD_DIR}/src/git
+GIT_INSTALL_DIR   := ${DEPENDENCY_DIR}/git/install
+GIT_SOURCE_DIR    := ${DEPENDENCY_DIR}/git/source
 
 ifeq (${GIT_BUILD_OPTIONS},)
     # activate developer checks
@@ -99,9 +100,9 @@ endif
 
 # libgit2 target
 LIBGIT2_REPO_URL    ?= https://gitlab.com/libgit2/libgit2
-LIBGIT2_SOURCE_DIR  ?= ${BUILD_DIR}/src/libgit2
-LIBGIT2_BUILD_DIR   ?= ${LIBGIT2_SOURCE_DIR}/build
-LIBGIT2_INSTALL_DIR ?= ${BUILD_DIR}/libgit2
+LIBGIT2_SOURCE_DIR  ?= ${DEPENDENCY_DIR}/libgit2/source
+LIBGIT2_BUILD_DIR   ?= ${DEPENDENCY_DIR}/libgit2/build
+LIBGIT2_INSTALL_DIR ?= ${DEPENDENCY_DIR}/libgit2/install
 
 ifeq (${LIBGIT2_BUILD_OPTIONS},)
     LIBGIT2_BUILD_OPTIONS += -DTHREADSAFE=ON
@@ -160,6 +161,7 @@ run_go_tests = PATH='${SOURCE_DIR}/internal/testhelper/testdata/home/bin:${PATH}
 
 unexport GOROOT
 export GOBIN                      = ${BUILD_DIR}/bin
+export GOCACHE                   ?= ${BUILD_DIR}/cache
 export GOPROXY                   ?= https://proxy.golang.org
 export PATH                      := ${BUILD_DIR}/bin:${PATH}
 export PKG_CONFIG_PATH           := ${LIBGIT2_INSTALL_DIR}/lib/pkgconfig
@@ -321,19 +323,6 @@ cover: prepare-tests libgit2 ${GOCOVER_COBERTURA}
 	${Q}echo ""
 	${Q}go tool cover -func "${COVERAGE_DIR}/all.merged"
 
-.PHONY: docker
-docker:
-	${Q}rm -rf ${BUILD_DIR}/docker/
-	${Q}mkdir -p ${BUILD_DIR}/docker/bin/
-	${Q}rm -rf  ${GITALY_RUBY_DIR}/tmp
-	cp -r  ${GITALY_RUBY_DIR} ${BUILD_DIR}/docker/ruby
-	${Q}rm -rf ${BUILD_DIR}/docker/ruby/vendor/bundle
-	for command in $(call find_commands); do \
-		GOOS=linux GOARCH=amd64 go build -tags "${GO_BUILD_TAGS}" ${GO_LDFLAGS} -o "${BUILD_DIR}/docker/bin/$${command}" ${GITALY_PACKAGE}/cmd/$${command}; \
-	done
-	cp ${SOURCE_DIR}/Dockerfile ${BUILD_DIR}/docker/
-	docker build -t gitlab/gitaly:v${GITALY_VERSION} -t gitlab/gitaly:latest ${BUILD_DIR}/docker/
-
 .PHONY: proto
 proto: ${PROTOC} ${PROTOC_GEN_GO} ${SOURCE_DIR}/.ruby-bundle
 	${Q}mkdir -p ${SOURCE_DIR}/proto/go/gitalypb
@@ -393,12 +382,12 @@ ${BUILD_DIR}/NOTICE: ${GO_LICENSES} clean-ruby-vendor-go
 
 ${BUILD_DIR}:
 	${Q}mkdir -p ${BUILD_DIR}
-
 ${BUILD_DIR}/bin: | ${BUILD_DIR}
 	${Q}mkdir -p ${BUILD_DIR}/bin
-
 ${BUILD_DIR}/tools: | ${BUILD_DIR}
 	${Q}mkdir -p ${BUILD_DIR}/tools
+${DEPENDENCY_DIR}: | ${BUILD_DIR}
+	${Q}mkdir -p ${DEPENDENCY_DIR}
 
 # This is a build hack to avoid excessive rebuilding of targets. Instead of
 # depending on the timestamp of the Makefile, which will change e.g. between
@@ -407,38 +396,55 @@ ${BUILD_DIR}/tools: | ${BUILD_DIR}
 ${BUILD_DIR}/Makefile.sha256: Makefile | ${BUILD_DIR}
 	${Q}sha256sum -c $@ >/dev/null 2>&1 || >$@ sha256sum Makefile
 
-${BUILD_DIR}/protoc.zip: ${BUILD_DIR}/Makefile.sha256
-	${Q}if [ -z "${PROTOC_URL}" ]; then echo "Cannot generate protos on unsupported platform ${OS}" && exit 1; fi
-	curl -o $@.tmp --silent --show-error -L ${PROTOC_URL}
-	${Q}printf '${PROTOC_HASH}  $@.tmp' | sha256sum -c -
-	${Q}mv $@.tmp $@
+# This is in the same spirit as the Makefile.sha256 optimization: we want to
+# rebuild only if the dependency's version changes. The dependency on the phony
+# target is required to always rebuild these targets.
+.PHONY: dependency-version
+${DEPENDENCY_DIR}/libgit2.version: dependency-version | ${DEPENDENCY_DIR}
+	${Q}[ x"$$(cat "$@" 2>/dev/null)" = x"${LIBGIT2_VERSION}" ] || >$@ echo -n "${LIBGIT2_VERSION}"
+${DEPENDENCY_DIR}/git.version: dependency-version | ${DEPENDENCY_DIR}
+	${Q}[ x"$$(cat "$@" 2>/dev/null)" = x"${GIT_VERSION}" ] || >$@ echo -n "${GIT_VERSION}"
 
-${BUILD_DIR}/git_full_bins.tgz: ${BUILD_DIR}/Makefile.sha256
-	curl -o $@.tmp --silent --show-error -L ${GIT_BINARIES_URL}
-	${Q}printf '${GIT_BINARIES_HASH}  $@.tmp' | sha256sum -c -
-	${Q}mv $@.tmp $@
-
-${LIBGIT2_INSTALL_DIR}/lib/libgit2.a: ${BUILD_DIR}/Makefile.sha256
-	${Q}rm -rf ${LIBGIT2_SOURCE_DIR}
-	${GIT} clone --depth 1 --branch ${LIBGIT2_VERSION} --quiet ${LIBGIT2_REPO_URL} ${LIBGIT2_SOURCE_DIR}
+${LIBGIT2_INSTALL_DIR}/lib/libgit2.a: ${DEPENDENCY_DIR}/libgit2.version
+	${Q}if ! [ -d "${LIBGIT2_SOURCE_DIR}" ]; then \
+	    ${GIT} clone --depth 1 --branch ${LIBGIT2_VERSION} --quiet ${LIBGIT2_REPO_URL} ${LIBGIT2_SOURCE_DIR}; \
+	elif ! git -C "${LIBGIT2_SOURCE_DIR}" rev-parse --quiet --verify ${LIBGIT2_VERSION}^{tree} >/dev/null; then \
+	    ${GIT} -C "${LIBGIT2_SOURCE_DIR}" fetch --quiet ${LIBGIT2_REPO_URL} ${LIBGIT2_VERSION}; \
+	fi
+	${Q}rm -rf ${LIBGIT2_BUILD_DIR}
 	${Q}mkdir -p ${LIBGIT2_BUILD_DIR}
 	${Q}cd ${LIBGIT2_BUILD_DIR} && cmake ${LIBGIT2_SOURCE_DIR} ${LIBGIT2_BUILD_OPTIONS}
 	${Q}CMAKE_BUILD_PARALLEL_LEVEL=$(shell nproc) cmake --build ${LIBGIT2_BUILD_DIR} --target install
 	go install -a github.com/libgit2/git2go/${GIT2GO_VERSION}
 
 ifeq (${GIT_USE_PREBUILT_BINARIES},)
-${GIT_INSTALL_DIR}/bin/git: ${BUILD_DIR}/Makefile.sha256
-	${Q}rm -rf ${GIT_SOURCE_DIR} ${GIT_INSTALL_DIR}
-	${GIT} clone --depth 1 --branch ${GIT_VERSION} --quiet ${GIT_REPO_URL} ${GIT_SOURCE_DIR}
+${GIT_INSTALL_DIR}/bin/git: ${DEPENDENCY_DIR}/git.version
+	${Q}if ! [ -d "${GIT_SOURCE_DIR}" ]; then \
+	    ${GIT} clone --depth 1 --branch ${GIT_VERSION} --quiet ${GIT_REPO_URL} ${GIT_SOURCE_DIR}; \
+	elif ! git -C "${GIT_SOURCE_DIR}" rev-parse --quiet --verify ${GIT_VERSION}^{tree} >/dev/null; then \
+	    ${GIT} -C "${GIT_SOURCE_DIR}" fetch --quiet ${GIT_REPO_URL} ${GIT_VERSION}; \
+	fi
+	${Q}${GIT} -C "${GIT_SOURCE_DIR}" switch --quiet --detach ${GIT_VERSION}
 	${Q}rm -rf ${GIT_INSTALL_DIR}
 	${Q}mkdir -p ${GIT_INSTALL_DIR}
 	env -u MAKEFLAGS -u GIT_VERSION ${MAKE} -C ${GIT_SOURCE_DIR} -j$(shell nproc) prefix=${GIT_PREFIX} ${GIT_BUILD_OPTIONS} install
 else
-${GIT_INSTALL_DIR}/bin/git: ${BUILD_DIR}/git_full_bins.tgz
+${DEPENDENCY_DIR}/git_full_bins.tgz: ${DEPENDENCY_DIR}/git.version
+	curl -o $@.tmp --silent --show-error -L ${GIT_BINARIES_URL}
+	${Q}printf '${GIT_BINARIES_HASH}  $@.tmp' | sha256sum -c -
+	${Q}mv $@.tmp $@
+
+${GIT_INSTALL_DIR}/bin/git: ${DEPENDENCY_DIR}/git_full_bins.tgz
 	${Q}rm -rf ${GIT_INSTALL_DIR}
 	${Q}mkdir -p ${GIT_INSTALL_DIR}
-	tar -C ${GIT_INSTALL_DIR} -xvzf ${BUILD_DIR}/git_full_bins.tgz
+	tar -C ${GIT_INSTALL_DIR} -xvzf ${DEPENDENCY_DIR}/git_full_bins.tgz
 endif
+
+${BUILD_DIR}/protoc.zip: ${BUILD_DIR}/Makefile.sha256
+	${Q}if [ -z "${PROTOC_URL}" ]; then echo "Cannot generate protos on unsupported platform ${OS}" && exit 1; fi
+	curl -o $@.tmp --silent --show-error -L ${PROTOC_URL}
+	${Q}printf '${PROTOC_HASH}  $@.tmp' | sha256sum -c -
+	${Q}mv $@.tmp $@
 
 ${PROTOC}: ${BUILD_DIR}/protoc.zip | ${BUILD_DIR}
 	${Q}rm -rf ${BUILD_DIR}/protoc
