@@ -45,6 +45,8 @@ const (
 	CreateRepo = ChangeType("create")
 	// DeleteRepo is when a replication deletes a repo
 	DeleteRepo = ChangeType("delete")
+	// DeleteReplica change type indicates that the targeted replica is due for deletion.
+	DeleteReplica = ChangeType("delete_replica")
 	// RenameRepo is when a replication renames repo
 	RenameRepo = ChangeType("rename")
 	// GarbageCollect is when replication runs gc
