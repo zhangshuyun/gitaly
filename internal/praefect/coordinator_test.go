@@ -16,10 +16,12 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/metadatahandler"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/grpc-proxy/proxy"
 	praefect_metadata "gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/mock"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/nodes"
@@ -1289,4 +1291,173 @@ func requireScopeOperation(t *testing.T, registry *protoregistry.Registry, fullM
 	require.NoError(t, err)
 	require.Equal(t, scope, mi.Scope, "scope doesn't match requested")
 	require.Equal(t, op, mi.Operation, "operation type doesn't match requested")
+}
+
+type mockOperationServer struct {
+	gitalypb.UnimplementedOperationServiceServer
+	t      testing.TB
+	wg     *sync.WaitGroup
+	err    error
+	called bool
+}
+
+func (s *mockOperationServer) UserCreateBranch(
+	context.Context,
+	*gitalypb.UserCreateBranchRequest,
+) (*gitalypb.UserCreateBranchResponse, error) {
+	// We need to wait for all servers to arrive in this RPC. If we don't it could be that for
+	// example the primary arrives quicker than the others and directly errors. This would cause
+	// stream cancellation, and if the secondaries didn't yet end up in UserCreateBranch, we
+	// wouldn't see the function call.
+	s.wg.Done()
+	s.wg.Wait()
+
+	s.called = true
+	return &gitalypb.UserCreateBranchResponse{}, s.err
+}
+
+// TestCoordinator_grpcErrorHandling asserts that we correctly proxy errors in case any of the nodes
+// fails. Most importantly, we want to make sure to only ever forward errors from the primary and
+// never from the secondaries.
+func TestCoordinator_grpcErrorHandling(t *testing.T) {
+	ctx, cleanup := testhelper.Context()
+	defer cleanup()
+
+	praefectConfig := config.Config{
+		VirtualStorages: []*config.VirtualStorage{
+			&config.VirtualStorage{
+				Name: testhelper.DefaultStorageName,
+			},
+		},
+	}
+
+	var wg sync.WaitGroup
+	type gitalyNode struct {
+		mock            *nodes.MockNode
+		grpcServer      *grpc.Server
+		operationServer *mockOperationServer
+	}
+
+	gitalies := make(map[string]gitalyNode)
+	for _, gitaly := range []string{"primary", "secondary-1", "secondary-2"} {
+		gitaly := gitaly
+
+		grpcServer := testhelper.NewTestGrpcServer(t, nil, nil)
+
+		operationServer := &mockOperationServer{
+			t:  t,
+			wg: &wg,
+		}
+		gitalypb.RegisterOperationServiceServer(grpcServer, operationServer)
+
+		listener, address := testhelper.GetLocalhostListener(t)
+		go grpcServer.Serve(listener)
+		defer grpcServer.Stop()
+
+		conn, err := client.DialContext(ctx, "tcp://"+address, []grpc.DialOption{
+			grpc.WithDefaultCallOptions(grpc.ForceCodec(proxy.NewCodec())),
+		})
+		require.NoError(t, err)
+
+		gitalies[gitaly] = gitalyNode{
+			mock: &nodes.MockNode{
+				Conn:             conn,
+				Healthy:          true,
+				GetStorageMethod: func() string { return gitaly },
+			},
+			grpcServer:      grpcServer,
+			operationServer: operationServer,
+		}
+
+		praefectConfig.VirtualStorages[0].Nodes = append(praefectConfig.VirtualStorages[0].Nodes, &config.Node{
+			Address: "tcp://" + address,
+			Storage: gitaly,
+		})
+	}
+
+	// Set up a mock manager which sets up primary/secondaries and pretends that all nodes are
+	// healthy. We need fixed roles and unhealthy nodes will not take part in transactions.
+	nodeManager := &nodes.MockManager{
+		Storage: testhelper.DefaultStorageName,
+		GetShardFunc: func(shardName string) (nodes.Shard, error) {
+			require.Equal(t, testhelper.DefaultStorageName, shardName)
+			return nodes.Shard{
+				Primary: gitalies["primary"].mock,
+				Secondaries: []nodes.Node{
+					gitalies["secondary-1"].mock,
+					gitalies["secondary-2"].mock,
+				},
+			}, nil
+		},
+	}
+
+	// Set up a mock repsoitory store pretending that all nodes are consistent. Only consistent
+	// nodes will take part in transactions.
+	repositoryStore := datastore.MockRepositoryStore{
+		GetConsistentStoragesFunc: func(ctx context.Context, virtualStorage, relativePath string) (map[string]struct{}, error) {
+			return map[string]struct{}{"primary": {}, "secondary-1": {}, "secondary-2": {}}, nil
+		},
+	}
+
+	praefectConn, _, cleanup := runPraefectServer(t, praefectConfig, buildOptions{
+		withNodeMgr:   nodeManager,
+		withRepoStore: repositoryStore,
+	})
+	defer cleanup()
+
+	repoProto, _, cleanup := testhelper.NewTestRepo(t)
+	defer cleanup()
+
+	operationClient := gitalypb.NewOperationServiceClient(praefectConn)
+
+	for _, tc := range []struct {
+		desc        string
+		errByNode   map[string]error
+		expectedErr error
+	}{
+		{
+			desc: "no errors",
+		},
+		{
+			desc: "primary error gets forwarded",
+			errByNode: map[string]error{
+				"primary": errors.New("foo"),
+			},
+			expectedErr: status.Error(codes.Unknown, "foo"),
+		},
+		{
+			desc: "secondary error gets ignored (test is broken)",
+			errByNode: map[string]error{
+				"secondary-1": errors.New("foo"),
+			},
+			expectedErr: status.Error(codes.Internal, "failed proxying to secondary: rpc error: code = Unknown desc = foo"),
+		},
+		{
+			desc: "primary error has precedence",
+			errByNode: map[string]error{
+				"primary":     errors.New("primary"),
+				"secondary-1": errors.New("secondary-1"),
+				"secondary-2": errors.New("secondary-2"),
+			},
+			expectedErr: status.Error(codes.Unknown, "primary"),
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			for name, node := range gitalies {
+				wg.Add(1)
+				node.operationServer.err = tc.errByNode[name]
+				node.operationServer.called = false
+			}
+
+			_, err := operationClient.UserCreateBranch(ctx,
+				&gitalypb.UserCreateBranchRequest{
+					Repository: repoProto,
+				})
+			require.Equal(t, tc.expectedErr, err)
+
+			for _, node := range gitalies {
+				require.True(t, node.operationServer.called, "expected gitaly %q to have been called", node.mock.GetStorage())
+			}
+		})
+	}
 }

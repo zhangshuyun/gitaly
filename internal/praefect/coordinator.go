@@ -404,7 +404,7 @@ func (c *Coordinator) mutatorStreamParameters(ctx context.Context, call grpcCall
 
 		transaction, transactionCleanup, err := c.registerTransaction(ctx, route.Primary, route.Secondaries)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("%w: %v %v", err, route.Primary, route.Secondaries)
 		}
 
 		injectedCtx, err := metadata.InjectTransaction(ctx, transaction.ID(), route.Primary.Storage, true)
