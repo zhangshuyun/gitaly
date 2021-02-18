@@ -132,7 +132,7 @@ func TestGetSnapshotWithDedupe(t *testing.T) {
 				"-c", fmt.Sprintf("user.email=%s", committerEmail),
 				"commit", "--allow-empty", "-m", "An empty commit")
 			alternateObjDir := tc.alternatePathFunc(t, filepath.Join(repoPath, "objects"))
-			commitSha := testhelper.CreateCommitInAlternateObjectDirectory(t, repoPath, alternateObjDir, cmd)
+			commitSha := testhelper.CreateCommitInAlternateObjectDirectory(t, config.Config.Git.BinPath, repoPath, alternateObjDir, cmd)
 			originalAlternatesCommit := string(commitSha)
 
 			locator := config.NewLocator(config.Config)
@@ -154,7 +154,7 @@ func TestGetSnapshotWithDedupe(t *testing.T) {
 				"-c", fmt.Sprintf("user.name=%s", committerName),
 				"-c", fmt.Sprintf("user.email=%s", committerEmail),
 				"commit", "--allow-empty", "-m", "Another empty commit")
-			commitSha = testhelper.CreateCommitInAlternateObjectDirectory(t, repoPath, alternateObjDir, cmd)
+			commitSha = testhelper.CreateCommitInAlternateObjectDirectory(t, config.Config.Git.BinPath, repoPath, alternateObjDir, cmd)
 
 			c, err = catfile.New(ctx, gitCmdFactory, testRepo)
 			require.NoError(t, err)
@@ -213,7 +213,7 @@ func TestGetSnapshotWithDedupeSoftFailures(t *testing.T) {
 		"-c", fmt.Sprintf("user.email=%s", committerEmail),
 		"commit", "--allow-empty", "-m", "An empty commit")
 
-	commitSha := testhelper.CreateCommitInAlternateObjectDirectory(t, repoPath, alternateObjDir, cmd)
+	commitSha := testhelper.CreateCommitInAlternateObjectDirectory(t, config.Config.Git.BinPath, repoPath, alternateObjDir, cmd)
 	originalAlternatesCommit := string(commitSha)
 
 	require.NoError(t, ioutil.WriteFile(alternatesPath, []byte(alternateObjPath), 0644))
