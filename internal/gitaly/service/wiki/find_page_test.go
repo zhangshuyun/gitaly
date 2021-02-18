@@ -1,6 +1,7 @@
 package wiki
 
 import (
+	"fmt"
 	"io"
 	"testing"
 
@@ -465,4 +466,49 @@ func TestInvalidWikiFindPageRequestRevision(t *testing.T) {
 
 	_, err = stream.Recv()
 	testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
+}
+
+func TestSuccessfulWikiFindPageRequestWithTrailers(t *testing.T) {
+	wikiRepo, worktreePath, cleanupFn := testhelper.InitRepoWithWorktree(t)
+	defer cleanupFn()
+
+	committerName := "Scróoge McDuck" // Include UTF-8 to ensure encoding is handled
+	committerEmail := "scrooge@mcduck.com"
+
+	testhelper.MustRunCommand(t, nil, "git", "-C", worktreePath,
+		"-c", fmt.Sprintf("user.name=%s", committerName),
+		"-c", fmt.Sprintf("user.email=%s", committerEmail),
+		"commit", "--allow-empty", "-m", "master branch, empty commit")
+
+	locator := config.NewLocator(config.Config)
+	stop, serverSocketPath := runWikiServiceServer(t, locator)
+	defer stop()
+
+	client, conn := newWikiClient(t, serverSocketPath)
+	defer conn.Close()
+
+	page1Name := "Home Pagé"
+	createTestWikiPage(t, locator, client, wikiRepo, createWikiPageOpts{title: page1Name})
+
+	testhelper.MustRunCommand(t, nil, "git", "-C", worktreePath,
+		"-c", fmt.Sprintf("user.name=%s", committerName),
+		"-c", fmt.Sprintf("user.email=%s", committerEmail),
+		"commit", "--amend", "-m", "Empty commit", "-s")
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	request := &gitalypb.WikiFindPageRequest{
+		Repository: wikiRepo,
+		Title:      []byte(page1Name),
+	}
+
+	c, err := client.WikiFindPage(ctx, request)
+	require.NoError(t, err)
+
+	receivedPage := readFullWikiPageFromWikiFindPageClient(t, c)
+	require.Equal(t, page1Name, string(receivedPage.Name))
+
+	receivedContent := receivedPage.GetRawData()
+	require.NotNil(t, receivedContent)
 }
