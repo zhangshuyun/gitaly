@@ -1461,3 +1461,198 @@ func TestCoordinator_grpcErrorHandling(t *testing.T) {
 		})
 	}
 }
+
+type mockTransaction struct {
+	nodeStates      map[string]transactions.VoteResult
+	subtransactions int
+}
+
+func (t mockTransaction) ID() uint64 {
+	return 0
+}
+
+func (t mockTransaction) CountSubtransactions() int {
+	return t.subtransactions
+}
+
+func (t mockTransaction) State() (map[string]transactions.VoteResult, error) {
+	return t.nodeStates, nil
+}
+
+func TestGetUpdatedAndOutdatedSecondaries(t *testing.T) {
+	type node struct {
+		name  string
+		state transactions.VoteResult
+	}
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	for _, tc := range []struct {
+		desc             string
+		primary          node
+		secondaries      []node
+		replicas         []string
+		subtransactions  int
+		expectedErr      error
+		expectedOutdated []string
+		expectedUpdated  []string
+	}{
+		{
+			desc: "single committed node",
+			primary: node{
+				name:  "primary",
+				state: transactions.VoteCommitted,
+			},
+			subtransactions: 1,
+		},
+		{
+			desc: "single failed node",
+			primary: node{
+				name:  "primary",
+				state: transactions.VoteFailed,
+			},
+			subtransactions: 1,
+			expectedErr:     errors.New("transaction: primary failed vote"),
+		},
+		{
+			desc: "single node without subtransactions",
+			primary: node{
+				name: "primary",
+			},
+			subtransactions: 0,
+		},
+		{
+			desc: "single successful node with replica",
+			primary: node{
+				name:  "primary",
+				state: transactions.VoteCommitted,
+			},
+			replicas:         []string{"replica"},
+			subtransactions:  1,
+			expectedOutdated: []string{"replica"},
+		},
+		{
+			desc: "single failing node with replica",
+			primary: node{
+				name:  "primary",
+				state: transactions.VoteFailed,
+			},
+			replicas:        []string{"replica"},
+			subtransactions: 1,
+			expectedErr:     errors.New("transaction: primary failed vote"),
+		},
+		{
+			desc: "single node without transaction with replica",
+			primary: node{
+				name: "primary",
+			},
+			replicas:        []string{"replica"},
+			subtransactions: 0,
+		},
+		{
+			desc: "multiple committed nodes",
+			primary: node{
+				name:  "primary",
+				state: transactions.VoteCommitted,
+			},
+			secondaries: []node{
+				{name: "s1", state: transactions.VoteCommitted},
+				{name: "s2", state: transactions.VoteCommitted},
+			},
+			subtransactions: 1,
+			expectedUpdated: []string{"s1", "s2"},
+		},
+		{
+			desc: "partial success",
+			primary: node{
+				name:  "primary",
+				state: transactions.VoteCommitted,
+			},
+			secondaries: []node{
+				{name: "s1", state: transactions.VoteFailed},
+				{name: "s2", state: transactions.VoteCommitted},
+			},
+			subtransactions:  1,
+			expectedUpdated:  []string{"s2"},
+			expectedOutdated: []string{"s1"},
+		},
+		{
+			desc: "failure with (impossible) secondary success",
+			primary: node{
+				name:  "primary",
+				state: transactions.VoteFailed,
+			},
+			secondaries: []node{
+				{name: "s1", state: transactions.VoteFailed},
+				{name: "s2", state: transactions.VoteCommitted},
+			},
+			subtransactions: 1,
+			expectedErr:     errors.New("transaction: primary failed vote"),
+		},
+		{
+			desc: "multiple nodes without subtransactions",
+			primary: node{
+				name:  "primary",
+				state: transactions.VoteFailed,
+			},
+			secondaries: []node{
+				{name: "s1", state: transactions.VoteFailed},
+				{name: "s2", state: transactions.VoteCommitted},
+			},
+			subtransactions:  0,
+			expectedOutdated: []string{"s1", "s2"},
+		},
+		{
+			desc: "multiple nodes with replica and partial failures",
+			primary: node{
+				name:  "primary",
+				state: transactions.VoteCommitted,
+			},
+			secondaries: []node{
+				{name: "s1", state: transactions.VoteFailed},
+				{name: "s2", state: transactions.VoteCommitted},
+			},
+			replicas:         []string{"r1", "r2"},
+			subtransactions:  1,
+			expectedOutdated: []string{"s1", "r1", "r2"},
+			expectedUpdated:  []string{"s2"},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			nodes := append(tc.secondaries, tc.primary)
+			voters := make([]transactions.Voter, len(nodes))
+			states := make(map[string]transactions.VoteResult)
+
+			for i, node := range nodes {
+				voters[i] = transactions.Voter{
+					Name:  node.name,
+					Votes: 1,
+				}
+				states[node.name] = node.state
+			}
+
+			transaction := mockTransaction{
+				nodeStates:      states,
+				subtransactions: tc.subtransactions,
+			}
+
+			route := RepositoryMutatorRoute{
+				Primary: RouterNode{
+					Storage: tc.primary.name,
+				},
+			}
+			for _, secondary := range tc.secondaries {
+				route.Secondaries = append(route.Secondaries, RouterNode{
+					Storage: secondary.name,
+				})
+			}
+			route.ReplicationTargets = append(route.ReplicationTargets, tc.replicas...)
+
+			updated, outdated, err := getUpdatedAndOutdatedSecondaries(ctx, route, transaction)
+			require.Equal(t, tc.expectedErr, err)
+			require.ElementsMatch(t, tc.expectedUpdated, updated)
+			require.ElementsMatch(t, tc.expectedOutdated, outdated)
+		})
+	}
+}
