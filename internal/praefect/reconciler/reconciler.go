@@ -158,6 +158,14 @@ update_jobs AS (
 		FROM storage_repositories
 		JOIN healthy_storages USING (virtual_storage, storage)
 		JOIN repositories USING (virtual_storage, relative_path, generation)
+		WHERE NOT EXISTS (
+			SELECT FROM replication_queue
+			WHERE state NOT IN ('completed', 'dead', 'cancelled')
+			AND job->>'change' = 'delete_replica'
+			AND job->>'virtual_storage' = virtual_storage
+			AND job->>'relative_path' = relative_path
+			AND job->>'target_node_storage' = storage
+		)
 		ORDER BY virtual_storage, relative_path
 	) AS healthy_repositories USING (virtual_storage, relative_path)
 	WHERE NOT EXISTS (

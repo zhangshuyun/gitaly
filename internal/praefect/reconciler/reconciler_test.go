@@ -278,6 +278,61 @@ func TestReconciler(t *testing.T) {
 			}},
 		},
 		{
+			desc:            "repository with scheduled delete_replica is not used as a source",
+			healthyStorages: configuredStorages,
+			repositories: repositories{
+				"virtual-storage-1": {
+					"relative-path-1": {
+						"storage-1": {generation: 1},
+						"storage-2": {generation: 0},
+					},
+				},
+			},
+			existingJobs: existingJobs{{
+				State: datastore.JobStateReady,
+				Job: datastore.ReplicationJob{
+					Change:            datastore.DeleteReplica,
+					VirtualStorage:    "virtual-storage-1",
+					RelativePath:      "relative-path-1",
+					TargetNodeStorage: "storage-1",
+				}},
+			},
+		},
+		{
+			desc:            "inactive deletion jobs do not block from using replica as a source",
+			healthyStorages: configuredStoragesWithout("storage-3"),
+			repositories: repositories{
+				"virtual-storage-1": {
+					"relative-path-1": {
+						"storage-1": {generation: 1},
+						"storage-2": {generation: 0},
+					},
+				},
+			},
+			existingJobs: generateExistingJobs(
+				[]datastore.JobState{
+					datastore.JobStateCompleted,
+					datastore.JobStateCancelled,
+					datastore.JobStateDead,
+				},
+				[]datastore.ChangeType{datastore.DeleteRepo, datastore.DeleteReplica},
+				datastore.ReplicationJob{
+					VirtualStorage:    "virtual-storage-1",
+					RelativePath:      "relative-path-1",
+					TargetNodeStorage: "storage-1",
+				},
+			),
+			reconciliationJobs: jobs{
+				{
+					Change:            datastore.UpdateRepo,
+					VirtualStorage:    "virtual-storage-1",
+					RelativePath:      "relative-path-1",
+					SourceNodeStorage: "storage-1",
+					TargetNodeStorage: "storage-2",
+				},
+			},
+		},
+		{
 			desc:            "repository with only completed update jobs is reconciled",
 			healthyStorages: configuredStoragesWithout("storage-3"),
 			repositories: repositories{
