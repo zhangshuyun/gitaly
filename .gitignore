@@ -22,3 +22,7 @@
 
 # Configuration and runtime data
 /*.toml
+
+# Editors and IDEs
+.idea
+
