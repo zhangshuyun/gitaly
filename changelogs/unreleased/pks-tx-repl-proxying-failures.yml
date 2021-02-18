@@ -1,0 +1,6 @@
+---
+title: 'coordinator: Fix replication and early failures when proxying transactional
+  RPCs'
+merge_request: 3158
+author:
+type: fixed
