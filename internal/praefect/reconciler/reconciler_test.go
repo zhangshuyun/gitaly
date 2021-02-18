@@ -9,6 +9,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/lib/pq"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
@@ -474,25 +475,15 @@ func TestReconciler(t *testing.T) {
 			}
 
 			// create the existing replication jobs the test expects
-			queue := datastore.NewPostgresReplicationEventQueue(db)
-			existingJobs := make(map[uint64]bool, len(tc.existingJobs))
+			var existingJobIDs []int64
 			for _, existing := range tc.existingJobs {
-				event, err := queue.Enqueue(ctx, existing)
-				require.NoError(t, err)
-				existingJobs[event.ID] = true
-
-				if existing.State == datastore.JobStateCompleted ||
-					existing.State == datastore.JobStateDead ||
-					existing.State == datastore.JobStateCancelled {
-					// get the event in the correct state.
-					event, err := queue.Dequeue(ctx, existing.Job.VirtualStorage, existing.Job.TargetNodeStorage, 1)
-					require.NoError(t, err)
-					require.Len(t, event, 1)
-
-					acked, err := queue.Acknowledge(ctx, existing.State, []uint64{event[0].ID})
-					require.NoError(t, err)
-					require.Equal(t, []uint64{event[0].ID}, acked)
-				}
+				var id int64
+				require.NoError(t, db.QueryRowContext(ctx, `
+					INSERT INTO replication_queue (state, job)
+					VALUES ($1, $2)
+					RETURNING id
+				`, existing.State, existing.Job).Scan(&id))
+				existingJobIDs = append(existingJobIDs, id)
 			}
 
 			runCtx, cancelRun := context.WithCancel(ctx)
@@ -523,24 +514,25 @@ func TestReconciler(t *testing.T) {
 			require.True(t, stopped)
 			require.True(t, resetted)
 
-			actualJobs := make(jobs, 0, len(tc.reconciliationJobs))
-			for virtualStorage, storages := range configuredStorages {
-				for _, storage := range storages {
-					// dequeue all of the events in the queue
-					events, err := queue.Dequeue(ctx, virtualStorage, storage, 99999999999)
-					require.NoError(t, err)
-					for _, event := range events {
-						if existingJobs[event.ID] {
-							// filter out jobs the test expected to be in the queue already
-							continue
-						}
+			rows, err := db.QueryContext(ctx, `
+				SELECT job, meta
+				FROM replication_queue
+				WHERE id NOT IN ( SELECT unnest($1::bigint[]) )
+				`, pq.Int64Array(existingJobIDs),
+			)
+			require.NoError(t, err)
+			defer rows.Close()
 
-						require.NotEmpty(t, event.Meta[metadatahandler.CorrelationIDKey])
-						actualJobs = append(actualJobs, event.Job)
-					}
-				}
+			actualJobs := make(jobs, 0, len(tc.reconciliationJobs))
+			for rows.Next() {
+				var job datastore.ReplicationJob
+				var meta datastore.Params
+				require.NoError(t, rows.Scan(&job, &meta))
+				require.NotEmpty(t, meta[metadatahandler.CorrelationIDKey])
+				actualJobs = append(actualJobs, job)
 			}
 
+			require.NoError(t, rows.Err())
 			require.ElementsMatch(t, tc.reconciliationJobs, actualJobs)
 		})
 	}
