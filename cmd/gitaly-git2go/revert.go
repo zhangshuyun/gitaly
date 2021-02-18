@@ -82,7 +82,7 @@ func (cmd *revertSubcommand) revert(ctx context.Context, request *git2go.RevertC
 	defer index.Free()
 
 	if index.HasConflicts() {
-		return "", git2go.RevertConflictError{}
+		return "", git2go.HasConflictsError{}
 	}
 
 	tree, err := index.WriteTreeTo(repo)

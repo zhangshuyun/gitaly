@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os/exec"
@@ -13,6 +14,11 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+)
+
+var (
+	// ErrInvalidArgument is returned in case the merge arguments are invalid.
+	ErrInvalidArgument = errors.New("invalid parameters")
 )
 
 func binaryPathFromCfg(cfg config.Cfg) string {

@@ -65,7 +65,7 @@ func (s *Server) UserRevert(ctx context.Context, req *gitalypb.UserRevertRequest
 		Mainline:   mainline,
 	}.Run(ctx, s.cfg)
 	if err != nil {
-		if errors.As(err, &git2go.RevertConflictError{}) {
+		if errors.As(err, &git2go.HasConflictsError{}) {
 			return &gitalypb.UserRevertResponse{
 				CreateTreeError:     err.Error(),
 				CreateTreeErrorCode: gitalypb.UserRevertResponse_CONFLICT,
@@ -138,15 +138,22 @@ func (s *Server) rubyUserRevert(ctx context.Context, req *gitalypb.UserRevertReq
 	return client.UserRevert(clientCtx, req)
 }
 
-func (s *Server) fetchStartRevision(ctx context.Context, req *gitalypb.UserRevertRequest) (string, error) {
-	startBranchName := req.StartBranchName
+type requestFetchingStartRevision interface {
+	GetRepository() *gitalypb.Repository
+	GetBranchName() []byte
+	GetStartRepository() *gitalypb.Repository
+	GetStartBranchName() []byte
+}
+
+func (s *Server) fetchStartRevision(ctx context.Context, req requestFetchingStartRevision) (string, error) {
+	startBranchName := req.GetStartBranchName()
 	if len(startBranchName) == 0 {
-		startBranchName = req.BranchName
+		startBranchName = req.GetBranchName()
 	}
 
-	startRepository := req.StartRepository
+	startRepository := req.GetStartRepository()
 	if startRepository == nil {
-		startRepository = req.Repository
+		startRepository = req.GetRepository()
 	}
 
 	remote, err := remoterepo.New(ctx, startRepository, s.conns)
@@ -158,13 +165,13 @@ func (s *Server) fetchStartRevision(ctx context.Context, req *gitalypb.UserRever
 		return "", helper.ErrInvalidArgumentf("resolve start ref: %w", err)
 	}
 
-	if req.StartRepository == nil {
+	if req.GetStartRepository() == nil {
 		return startRevision.String(), nil
 	}
 
-	_, err = localrepo.New(s.gitCmdFactory, req.Repository, s.cfg).ResolveRevision(ctx, startRevision.Revision()+"^{commit}")
+	_, err = localrepo.New(s.gitCmdFactory, req.GetRepository(), s.cfg).ResolveRevision(ctx, startRevision.Revision()+"^{commit}")
 	if errors.Is(err, git.ErrReferenceNotFound) {
-		if err := s.fetchRemoteObject(ctx, req.Repository, req.StartRepository, startRevision.String()); err != nil {
+		if err := s.fetchRemoteObject(ctx, req.GetRepository(), req.GetStartRepository(), startRevision.String()); err != nil {
 			return "", helper.ErrInternalf("fetch start: %w", err)
 		}
 	} else if err != nil {

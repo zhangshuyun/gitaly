@@ -16,11 +16,6 @@ const (
 	MergeRecursionLimit = 20
 )
 
-var (
-	// ErrInvalidArgument is returned in case the merge arguments are invalid.
-	ErrInvalidArgument = errors.New("invalid parameters")
-)
-
 // MergeCommand contains parameters to perform a merge.
 type MergeCommand struct {
 	// Repository is the path to execute merge in.

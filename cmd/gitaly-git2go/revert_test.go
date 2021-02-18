@@ -122,8 +122,8 @@ func TestRevert_trees(t *testing.T) {
 
 				return oursOid.String(), revertOid.String()
 			},
-			expectedErr:   "revert: could not revert due to conflicts",
-			expectedErrAs: &git2go.RevertConflictError{},
+			expectedErr:   "revert: could not apply due to conflicts",
+			expectedErrAs: &git2go.HasConflictsError{},
 		},
 		{
 			desc: "nonexistent ours fails",
