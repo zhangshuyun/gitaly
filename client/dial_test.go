@@ -252,6 +252,8 @@ func TestDial_Tracing(t *testing.T) {
 	listener, err := net.Listen("unix", serverSocketPath)
 	require.NoError(t, err)
 
+	clientSendClosed := make(chan struct{})
+
 	// This is our test service. All it does is to create additional spans
 	// which should in the end be visible when collecting all registered
 	// spans.
@@ -267,6 +269,14 @@ func TestDial_Tracing(t *testing.T) {
 			return &proxytestdata.PingResponse{}, nil
 		},
 		PingStreamMethod: func(stream proxytestdata.TestService_PingStreamServer) error {
+			// synchronize the client has returned from CloseSend as the client span finishing
+			// races with sending the stream close to the server
+			select {
+			case <-clientSendClosed:
+			case <-stream.Context().Done():
+				return stream.Context().Err()
+			}
+
 			span, _ := opentracing.StartSpanFromContext(stream.Context(), "nested-span")
 			defer span.Finish()
 			span.LogKV("was", "called")
@@ -363,6 +373,9 @@ func TestDial_Tracing(t *testing.T) {
 		stream, err := proxytestdata.NewTestServiceClient(cc).PingStream(ctx)
 		require.NoError(t, err)
 		require.NoError(t, stream.CloseSend())
+		close(clientSendClosed)
+
+		// wait for the server to finish its spans and close the stream
 		resp, err := stream.Recv()
 		require.Equal(t, err, io.EOF)
 		require.Nil(t, resp)
