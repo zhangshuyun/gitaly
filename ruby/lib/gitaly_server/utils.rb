@@ -57,7 +57,7 @@ module GitalyServer
 
     def gitaly_trailers_from_rugged(rugged_commit)
       rugged_commit.trailers.map do |(key, value)|
-        Gitaly::CommitTrailer.new(key: key, value: value)
+        Gitaly::CommitTrailer.new(key: key.b, value: value.b)
       end
     end
 
