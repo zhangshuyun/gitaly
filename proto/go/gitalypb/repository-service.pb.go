@@ -4320,6 +4320,9 @@ type RepositoryServiceClient interface {
 	GetObjectDirectorySize(ctx context.Context, in *GetObjectDirectorySizeRequest, opts ...grpc.CallOption) (*GetObjectDirectorySizeResponse, error)
 	CloneFromPool(ctx context.Context, in *CloneFromPoolRequest, opts ...grpc.CallOption) (*CloneFromPoolResponse, error)
 	CloneFromPoolInternal(ctx context.Context, in *CloneFromPoolInternalRequest, opts ...grpc.CallOption) (*CloneFromPoolInternalResponse, error)
+	// RemoveRepository will move the repository to `+gitaly/tmp/<relative_path>_removed` and
+	// eventually remove it. This ensures that even on networked filesystems the
+	// data is actually removed even if there's someone still handling the data.
 	RemoveRepository(ctx context.Context, in *RemoveRepositoryRequest, opts ...grpc.CallOption) (*RemoveRepositoryResponse, error)
 	RenameRepository(ctx context.Context, in *RenameRepositoryRequest, opts ...grpc.CallOption) (*RenameRepositoryResponse, error)
 	ReplicateRepository(ctx context.Context, in *ReplicateRepositoryRequest, opts ...grpc.CallOption) (*ReplicateRepositoryResponse, error)
@@ -4990,6 +4993,9 @@ type RepositoryServiceServer interface {
 	GetObjectDirectorySize(context.Context, *GetObjectDirectorySizeRequest) (*GetObjectDirectorySizeResponse, error)
 	CloneFromPool(context.Context, *CloneFromPoolRequest) (*CloneFromPoolResponse, error)
 	CloneFromPoolInternal(context.Context, *CloneFromPoolInternalRequest) (*CloneFromPoolInternalResponse, error)
+	// RemoveRepository will move the repository to `+gitaly/tmp/<relative_path>_removed` and
+	// eventually remove it. This ensures that even on networked filesystems the
+	// data is actually removed even if there's someone still handling the data.
 	RemoveRepository(context.Context, *RemoveRepositoryRequest) (*RemoveRepositoryResponse, error)
 	RenameRepository(context.Context, *RenameRepositoryRequest) (*RenameRepositoryResponse, error)
 	ReplicateRepository(context.Context, *ReplicateRepositoryRequest) (*ReplicateRepositoryResponse, error)
