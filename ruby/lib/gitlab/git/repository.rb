@@ -320,7 +320,7 @@ module Gitlab
       # rubocop:disable Metrics/ParameterLists
       def rebase(user, rebase_id, branch:, branch_sha:, remote_repository:, remote_branch:, push_options: nil, timestamp: nil)
         worktree = Gitlab::Git::Worktree.new(path, REBASE_WORKTREE_PREFIX, rebase_id)
-        env = git_env.merge(user.git_env(timestamp))
+        env = user.git_env(timestamp)
 
         with_repo_branch_commit(remote_repository, remote_branch) do |commit|
           diff_range = "#{commit.sha}...#{branch}"
@@ -352,17 +352,16 @@ module Gitlab
 
       def commit_patches(start_point, patches, extra_env: {})
         worktree = Gitlab::Git::Worktree.new(path, AM_WORKTREE_PREFIX, SecureRandom.hex)
-        env = git_env.merge(extra_env)
 
-        with_worktree(worktree, start_point, env: env) do
-          result, status = run_git(%w[am --quiet --3way], chdir: worktree.path, env: env) do |stdin|
+        with_worktree(worktree, start_point, env: extra_env) do
+          result, status = run_git(%w[am --quiet --3way], chdir: worktree.path, env: extra_env) do |stdin|
             loop { stdin.write(patches.next) }
           end
 
           raise Gitlab::Git::PatchError, result unless status == 0
 
           run_git!(
-            %w[rev-parse --quiet --verify HEAD], chdir: worktree.path, env: env
+            %w[rev-parse --quiet --verify HEAD], chdir: worktree.path, env: extra_env
           ).chomp
         end
       end
@@ -626,13 +625,6 @@ module Gitlab
         raise GitError, output unless status.zero?
 
         output
-      end
-
-      def git_env
-        {
-          'GL_PROTOCOL' => Gitlab::Git::Hook::GL_PROTOCOL,
-          'GL_REPOSITORY' => gl_repository
-        }
       end
 
       def check_revert_content(target_commit, source_sha)
