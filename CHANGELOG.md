@@ -1,5 +1,53 @@
 # Gitaly changelog
 
+## 13.9.0 (2021-02-22)
+
+### Fixed (9 changes)
+
+- operations: Fix hooks running on secondaries when creating annotated tags. !3022
+- transactions: Optionally use timestamps for deterministic results. !3036
+- repository: Fix regressions in FetchRemote. !3043
+- Make gitaly_ruby_json.log work again. !3052
+- coordinator: Fix outdated repos not getting repljobs with transactions. !3055
+- hook: Stop transactions when post-receive and update hooks fail. !3094
+- Fix premature cgroups cleanup. !3098
+- hook: Increase the timeout when casting votes. !3115
+- localrepo: Fix lookup of wrong ref if requesting prefix. !3127
+
+### Changed (10 changes)
+
+- Port UserUpdateBranch to Go. !3013
+- Remove Ruby code for on-by-default go_user_delete_{branch,tag} feature flags. !3033
+- Enable feature flag go_user_create_{branch,tag} by default. !3035
+- Enable go implementation of UserFFBranch by default. !3057
+- gitaly-lfs-smudge: Clean up URL building. !3058
+- Intercept RepositoryExists calls in Praefect. !3075
+- ruby: Upgrade to Rugged 1.0. !3076
+- Standardize Praefect and Gitaly log formats. !3121
+- Ignore SIGURG in gitaly-wrapper. !3131
+- Standardize Praefect and Gitaly timestamps. !3133
+
+### Performance (3 changes)
+
+- featureflags: Remove GoUserMergeBranch feature flag. !3049
+- featureflag: Remove GoFetchSourceBranch feature flag. !3050
+- Restrict number of threads for a full repack. !3108
+
+### Added (7 changes)
+
+- Track feature flags used for RPC call. !2971
+- operations: Wire up AllowConflicts handling for Go. !2997
+- git: Add support for options which always get injected. !3028
+- repository: Cleanup stale lockfiles when running housekeeping. !3051
+- repository: Use transactions when writing gitattributes. !3064
+- Configurable default replication factor for virtual storages. !3091
+- hook: Use proper error codes when transactions fail. !3097
+
+### Other (1 change)
+
+- Upgrade labkit-ruby to v0.15.0. !3118
+
+
 ## 13.8.4 (2021-02-11)
 
 - No changes.
