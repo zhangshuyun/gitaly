@@ -81,6 +81,8 @@ func (s *Server) UserCommitFiles(stream gitalypb.OperationService_UserCommitFile
 			switch {
 			case errors.As(err, &indexError):
 				response = gitalypb.UserCommitFilesResponse{IndexError: indexError.Error()}
+			case errors.As(err, new(git2go.IndexError)):
+				response = gitalypb.UserCommitFilesResponse{IndexError: err.Error()}
 			case errors.As(err, new(git2go.DirectoryExistsError)):
 				response = gitalypb.UserCommitFilesResponse{IndexError: "A directory with this name already exists"}
 			case errors.As(err, new(git2go.FileExistsError)):

@@ -33,6 +33,12 @@ func (err DirectoryExistsError) Error() string {
 	return fmt.Sprintf("directory exists: %q", string(err))
 }
 
+type IndexError string
+
+func (err IndexError) Error() string {
+	return fmt.Sprintf("index error: %q", string(err))
+}
+
 // CommitParams contains the information and the steps to build a commit.
 type CommitParams struct {
 	// Repository is the path of the repository to operate on.

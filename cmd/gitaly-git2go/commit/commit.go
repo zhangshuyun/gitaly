@@ -88,6 +88,16 @@ func commit(ctx context.Context, params git2go.CommitParams) (string, error) {
 }
 
 func apply(action git2go.Action, repo *git.Repository, index *git.Index) error {
+	err := applyHelper(action, repo, index)
+
+	if git.IsErrorClass(err, git.ErrClassIndex) {
+		return git2go.IndexError(err.Error())
+	}
+
+	return err
+}
+
+func applyHelper(action git2go.Action, repo *git.Repository, index *git.Index) error {
 	switch action := action.(type) {
 	case git2go.ChangeFileMode:
 		return applyChangeFileMode(action, index)
