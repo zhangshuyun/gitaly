@@ -457,10 +457,6 @@ module Gitlab
         end
       end
 
-      def fetch_source_branch!(source_repository, source_branch, local_ref)
-        rugged_fetch_source_branch(source_repository, source_branch, local_ref)
-      end
-
       # Directly find a branch with a simple name (e.g. master)
       #
       # force_reload causes a new Rugged repository to be instantiated
@@ -513,19 +509,6 @@ module Gitlab
 
       def user_to_committer(user, timestamp = nil)
         Gitlab::Git.committer_hash(email: user.email, name: user.name, timestamp: timestamp)
-      end
-
-      def write_ref(ref_path, ref, old_ref: nil)
-        raise ArgumentError, "invalid ref_path #{ref_path.inspect}" if ref_path.include?(' ')
-        raise ArgumentError, "invalid ref #{ref.inspect}" if ref.include?("\x00")
-        raise ArgumentError, "invalid old_ref #{old_ref.inspect}" if !old_ref.nil? && old_ref.include?("\x00")
-
-        if ref_path == 'HEAD'
-          run_git!(%W[symbolic-ref #{ref_path} #{ref}])
-        else
-          input = "update #{ref_path}\x00#{ref}\x00#{old_ref}\x00"
-          run_git!(%w[update-ref --stdin -z]) { |stdin| stdin.write(input) }
-        end
       end
 
       # Fetch a commit from the given source repository
@@ -825,17 +808,6 @@ module Gitlab
         worktree_info_path = File.join(worktree_git_path, 'info')
         FileUtils.mkdir_p(worktree_info_path)
         File.write(File.join(worktree_info_path, 'sparse-checkout'), files)
-      end
-
-      def rugged_fetch_source_branch(source_repository, source_branch, local_ref)
-        with_repo_branch_commit(source_repository, source_branch) do |commit|
-          if commit
-            write_ref(local_ref, commit.sha)
-            true
-          else
-            false
-          end
-        end
       end
 
       def gitlab_projects_error
