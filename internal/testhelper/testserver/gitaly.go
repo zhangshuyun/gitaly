@@ -11,6 +11,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/server"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 )
@@ -26,8 +27,10 @@ func RunGitalyServer(t *testing.T, cfg config.Cfg, rubyServer *rubyserver.Server
 	hookMgr := hook.NewManager(locator, txManager, hook.GitlabAPIStub, cfg)
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
 
-	srv, err := server.New(cfg.TLS.CertPath != "", rubyServer, hookMgr, txManager, cfg, conns, locator, gitCmdFactory)
+	srv, err := server.New(cfg.TLS.CertPath != "", cfg, testhelper.DiscardTestEntry(t))
 	require.NoError(t, err)
+
+	service.RegisterAll(srv, cfg, rubyServer, hookMgr, txManager, locator, conns, gitCmdFactory)
 
 	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
 	listener, err := net.Listen("unix", serverSocketPath)

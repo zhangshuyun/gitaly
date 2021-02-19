@@ -407,7 +407,11 @@ func run(cfgs []starter.Config, conf config.Config) error {
 
 	b.StopAction = srvFactory.GracefulStop
 	for _, cfg := range cfgs {
-		b.RegisterStarter(starter.New(cfg, srvFactory))
+		srv, err := srvFactory.Create(cfg.IsSecure())
+		if err != nil {
+			return fmt.Errorf("create gRPC server: %w", err)
+		}
+		b.RegisterStarter(starter.New(cfg, srv))
 	}
 
 	if conf.PrometheusListenAddr != "" {

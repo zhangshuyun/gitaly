@@ -17,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/server"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -132,8 +133,9 @@ func runServer(t *testing.T, secure bool, cfg config.Cfg, connectionType string,
 	txManager := transaction.NewManager(cfg)
 	hookManager := hook.NewManager(locator, txManager, hook.GitlabAPIStub, cfg)
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
-	srv, err := server.New(secure, nil, hookManager, txManager, cfg, conns, locator, gitCmdFactory)
+	srv, err := server.New(secure, cfg, testhelper.DiscardTestEntry(t))
 	require.NoError(t, err)
+	service.RegisterAll(srv, cfg, nil, hookManager, txManager, locator, conns, gitCmdFactory)
 
 	listener, err := net.Listen(connectionType, addr)
 	require.NoError(t, err)

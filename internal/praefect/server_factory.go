@@ -60,7 +60,7 @@ type ServerFactory struct {
 
 // Serve starts serving on the provided listener with newly created grpc.Server
 func (s *ServerFactory) Serve(l net.Listener, secure bool) error {
-	srv, err := s.create(secure)
+	srv, err := s.Create(secure)
 	if err != nil {
 		return err
 	}
@@ -91,7 +91,8 @@ func (s *ServerFactory) GracefulStop() {
 	wg.Wait()
 }
 
-func (s *ServerFactory) create(secure bool) (*grpc.Server, error) {
+// Create returns newly instantiated and initialized with interceptors instance of the gRPC server.
+func (s *ServerFactory) Create(secure bool) (*grpc.Server, error) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 

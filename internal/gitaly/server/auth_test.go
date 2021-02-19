@@ -21,6 +21,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config/auth"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -28,6 +29,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
 
@@ -207,14 +209,18 @@ func newOperationClient(t *testing.T, serverSocketPath string) (gitalypb.Operati
 }
 
 func runServer(t *testing.T, cfg config.Cfg) (string, func()) {
+	t.Helper()
+
 	conns := client.NewPool()
 	locator := config.NewLocator(cfg)
 	txManager := transaction.NewManager(cfg)
 	hookManager := hook.NewManager(locator, txManager, hook.GitlabAPIStub, cfg)
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
-	srv, err := New(false, rubyServer, hookManager, txManager, cfg, conns, locator, gitCmdFactory)
+
+	srv, err := New(false, cfg, testhelper.DiscardTestEntry(t))
 	require.NoError(t, err)
 
+	service.RegisterAll(srv, cfg, rubyServer, hookManager, txManager, locator, conns, gitCmdFactory)
 	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
 
 	listener, err := net.Listen("unix", serverSocketPath)
@@ -237,8 +243,10 @@ func runSecureServer(t *testing.T) (string, func()) {
 	}
 
 	conns := client.NewPool()
-	srv, err := New(true, nil, nil, nil, config.Config, conns, nil, nil)
+	srv, err := New(true, config.Config, testhelper.DiscardTestEntry(t))
 	require.NoError(t, err)
+
+	healthpb.RegisterHealthServer(srv, health.NewServer())
 
 	listener, hostPort := testhelper.GetLocalhostListener(t)
 	go srv.Serve(listener)

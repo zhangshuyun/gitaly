@@ -19,7 +19,7 @@ func TestIsSecure(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			conf := Config{Name: test.name}
-			require.Equal(t, test.secure, conf.isSecure())
+			require.Equal(t, test.secure, conf.IsSecure())
 		})
 	}
 }
