@@ -341,9 +341,15 @@ func (m *GetBlobsResponse) GetType() ObjectType {
 	return ObjectType_UNKNOWN
 }
 
+// LFSPointer is a git blob which points to an LFS object.
 type LFSPointer struct {
-	Size                 int64    `protobuf:"varint,1,opt,name=size,proto3" json:"size,omitempty"`
-	Data                 []byte   `protobuf:"bytes,2,opt,name=data,proto3" json:"data,omitempty"`
+	// Size is the size of the blob. This is not the size of the LFS object
+	// pointed to.
+	Size int64 `protobuf:"varint,1,opt,name=size,proto3" json:"size,omitempty"`
+	// Data is the bare data of the LFS pointer blob. It contains the pointer to
+	// the LFS data in the format specified by the LFS project.
+	Data []byte `protobuf:"bytes,2,opt,name=data,proto3" json:"data,omitempty"`
+	// Oid is the object ID of the blob.
 	Oid                  string   `protobuf:"bytes,3,opt,name=oid,proto3" json:"oid,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -451,12 +457,17 @@ func (m *NewBlobObject) GetPath() []byte {
 	return nil
 }
 
+// GetLFSPointersRequest is a request for the GetLFSPointers RPC.
 type GetLFSPointersRequest struct {
-	Repository           *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	BlobIds              []string    `protobuf:"bytes,2,rep,name=blob_ids,json=blobIds,proto3" json:"blob_ids,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
-	XXX_unrecognized     []byte      `json:"-"`
-	XXX_sizecache        int32       `json:"-"`
+	// Repository is the repository for which LFS pointers should be retrieved
+	// from.
+	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
+	// BlobIds is the list of blobs to retrieve LFS pointers from. Must be a
+	// non-empty list of blobs IDs to fetch.
+	BlobIds              []string `protobuf:"bytes,2,rep,name=blob_ids,json=blobIds,proto3" json:"blob_ids,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *GetLFSPointersRequest) Reset()         { *m = GetLFSPointersRequest{} }
@@ -498,7 +509,9 @@ func (m *GetLFSPointersRequest) GetBlobIds() []string {
 	return nil
 }
 
+// GetLFSPointersResponse is a response for the GetLFSPointers RPC.
 type GetLFSPointersResponse struct {
+	// LfsPointers is the list of LFS pointers which were requested.
 	LfsPointers          []*LFSPointer `protobuf:"bytes,1,rep,name=lfs_pointers,json=lfsPointers,proto3" json:"lfs_pointers,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
 	XXX_unrecognized     []byte        `json:"-"`
@@ -537,12 +550,22 @@ func (m *GetLFSPointersResponse) GetLfsPointers() []*LFSPointer {
 	return nil
 }
 
+// GetNewLFSPointersRequest is a request for the GetNewLFSPointers RPC.
 type GetNewLFSPointersRequest struct {
+	// Repository is the repository for which LFS pointers should be retrieved
+	// from.
 	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	Revision   []byte      `protobuf:"bytes,2,opt,name=revision,proto3" json:"revision,omitempty"`
-	Limit      int32       `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`
-	// Note: When `not_in_all` is true, `not_in_refs` is ignored
-	NotInAll             bool     `protobuf:"varint,4,opt,name=not_in_all,json=notInAll,proto3" json:"not_in_all,omitempty"`
+	// Revision is the revision for which to retrieve new LFS pointers.
+	Revision []byte `protobuf:"bytes,2,opt,name=revision,proto3" json:"revision,omitempty"`
+	// Limit limits the number of LFS pointers returned.
+	Limit int32 `protobuf:"varint,3,opt,name=limit,proto3" json:"limit,omitempty"`
+	// NotInAll limits the revision graph to not include any commits which are
+	// referenced by a git reference. When `not_in_all` is true, `not_in_refs` is
+	// ignored.
+	NotInAll bool `protobuf:"varint,4,opt,name=not_in_all,json=notInAll,proto3" json:"not_in_all,omitempty"`
+	// NotInRefs is a list of references used to limit the revision graph. Any
+	// commit reachable by any commit in NotInRefs will not be searched for new
+	// LFS pointers. This is ignored if NotInAll is set to `true`.
 	NotInRefs            [][]byte `protobuf:"bytes,5,rep,name=not_in_refs,json=notInRefs,proto3" json:"not_in_refs,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -609,7 +632,9 @@ func (m *GetNewLFSPointersRequest) GetNotInRefs() [][]byte {
 	return nil
 }
 
+// GetNewLFSPointersResponse is a response for the GetNewLFSPointers RPC.
 type GetNewLFSPointersResponse struct {
+	// LfsPointers is the list of LFS pointers which were requested.
 	LfsPointers          []*LFSPointer `protobuf:"bytes,1,rep,name=lfs_pointers,json=lfsPointers,proto3" json:"lfs_pointers,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
 	XXX_unrecognized     []byte        `json:"-"`
@@ -648,7 +673,10 @@ func (m *GetNewLFSPointersResponse) GetLfsPointers() []*LFSPointer {
 	return nil
 }
 
+// GetAllLFSPointersRequest is a request for the GetAllLFSPointers RPC.
 type GetAllLFSPointersRequest struct {
+	// Repository is the repository for which LFS pointers shoul be retrieved
+	// from.
 	Repository           *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
 	XXX_unrecognized     []byte      `json:"-"`
@@ -687,7 +715,9 @@ func (m *GetAllLFSPointersRequest) GetRepository() *Repository {
 	return nil
 }
 
+// GetAllLFSPointersResponse is a response for the GetAllLFSPointers RPC.
 type GetAllLFSPointersResponse struct {
+	// LfsPointers is the list of LFS pointers.
 	LfsPointers          []*LFSPointer `protobuf:"bytes,1,rep,name=lfs_pointers,json=lfsPointers,proto3" json:"lfs_pointers,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
 	XXX_unrecognized     []byte        `json:"-"`
@@ -808,8 +838,15 @@ type BlobServiceClient interface {
 	// response
 	GetBlob(ctx context.Context, in *GetBlobRequest, opts ...grpc.CallOption) (BlobService_GetBlobClient, error)
 	GetBlobs(ctx context.Context, in *GetBlobsRequest, opts ...grpc.CallOption) (BlobService_GetBlobsClient, error)
+	// GetLFSPointers retrieves LFS pointers from a given set of object IDs.
+	// This RPC filters all requested objects and only returns those which refer
+	// to a valid LFS pointer.
 	GetLFSPointers(ctx context.Context, in *GetLFSPointersRequest, opts ...grpc.CallOption) (BlobService_GetLFSPointersClient, error)
+	// GetNewLFSPointers retrieves LFS pointers for a limited subset of the
+	// commit graph. It will return all LFS pointers which are reachable by the
+	// provided revision, but not reachable by any of the limiting references.
 	GetNewLFSPointers(ctx context.Context, in *GetNewLFSPointersRequest, opts ...grpc.CallOption) (BlobService_GetNewLFSPointersClient, error)
+	// GetAllLFSPointers retrieves all LFS pointers of the given repository.
 	GetAllLFSPointers(ctx context.Context, in *GetAllLFSPointersRequest, opts ...grpc.CallOption) (BlobService_GetAllLFSPointersClient, error)
 }
 
@@ -988,8 +1025,15 @@ type BlobServiceServer interface {
 	// response
 	GetBlob(*GetBlobRequest, BlobService_GetBlobServer) error
 	GetBlobs(*GetBlobsRequest, BlobService_GetBlobsServer) error
+	// GetLFSPointers retrieves LFS pointers from a given set of object IDs.
+	// This RPC filters all requested objects and only returns those which refer
+	// to a valid LFS pointer.
 	GetLFSPointers(*GetLFSPointersRequest, BlobService_GetLFSPointersServer) error
+	// GetNewLFSPointers retrieves LFS pointers for a limited subset of the
+	// commit graph. It will return all LFS pointers which are reachable by the
+	// provided revision, but not reachable by any of the limiting references.
 	GetNewLFSPointers(*GetNewLFSPointersRequest, BlobService_GetNewLFSPointersServer) error
+	// GetAllLFSPointers retrieves all LFS pointers of the given repository.
 	GetAllLFSPointers(*GetAllLFSPointersRequest, BlobService_GetAllLFSPointersServer) error
 }
 
