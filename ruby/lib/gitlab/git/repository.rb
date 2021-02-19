@@ -82,10 +82,6 @@ module Gitlab
         [storage, relative_path] == [other.storage, other.relative_path]
       end
 
-      def feature_enabled?(flag, on_by_default: false)
-        @feature_flags.enabled?(flag, on_by_default: on_by_default)
-      end
-
       def add_branch(branch_name, user:, target:, transaction: nil)
         target_object = Ref.dereference_object(lookup(target))
         raise InvalidRef, "target not found: #{target}" unless target_object
@@ -478,15 +474,6 @@ module Gitlab
         git_delete_refs(*ref_names)
       end
 
-      # Returns an Array of all ref names, except when it's matching pattern
-      #
-      # regexp - The pattern for ref names we don't want
-      def all_ref_names_except(prefixes)
-        rugged.references.reject do |ref|
-          prefixes.any? { |p| ref.name.start_with?(p) }
-        end.map(&:name)
-      end
-
       # Returns true if the given branch exists
       #
       # name - The name of the branch as a String.
@@ -556,19 +543,6 @@ module Gitlab
         set_remote_as_mirror(remote_name, refmap: mirror_refmap) if mirror_refmap
       rescue Rugged::ConfigError
         remote_update(remote_name, url: url)
-      end
-
-      def remove_remote(remote_name)
-        # When a remote is deleted all its remote refs are deleted too, but in
-        # the case of mirrors we map its refs (that would usually go under
-        # [remote_name]/) to the top level namespace. We clean the mapping so
-        # those don't get deleted.
-        rugged.config.delete("remote.#{remote_name}.fetch") if rugged.config["remote.#{remote_name}.mirror"]
-
-        rugged.remotes.delete(remote_name)
-        true
-      rescue Rugged::ConfigError
-        false
       end
 
       # Update the specified remote using the values in the +options+ hash

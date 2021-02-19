@@ -373,16 +373,6 @@ describe Gitlab::Git::Repository do # rubocop:disable Metrics/BlockLength
         expect(repository_rugged.config["remote.#{remote_name}.fetch"]).to eq(mirror_refmap)
       end
     end
-
-    describe '#remove_remote' do
-      it 'removes the remote' do
-        repository_rugged.remotes.create(remote_name, url)
-
-        repository.remove_remote(remote_name)
-
-        expect(repository_rugged.remotes[remote_name]).to be_nil
-      end
-    end
   end
 
   describe '#rebase' do
@@ -530,62 +520,6 @@ describe Gitlab::Git::Repository do # rubocop:disable Metrics/BlockLength
   def create_remote_branch(remote_name, branch_name, source_branch_name)
     source_branch = repository.branches.find { |branch| branch.name == source_branch_name }
     repository_rugged.references.create("refs/remotes/#{remote_name}/#{branch_name}", source_branch.dereferenced_target.sha)
-  end
-
-  # Build the options hash that's passed to Rugged::Commit#create
-  def commit_options(repo, index, message)
-    options = {}
-    options[:tree] = index.write_tree(repo)
-    options[:author] = {
-      email: "test@example.com",
-      name: "Test Author",
-      time: Time.gm(2014, "mar", 3, 20, 15, 1)
-    }
-    options[:committer] = {
-      email: "test@example.com",
-      name: "Test Author",
-      time: Time.gm(2014, "mar", 3, 20, 15, 1)
-    }
-    options[:message] ||= message
-    options[:parents] = repo.empty? ? [] : [repo.head.target].compact
-    options[:update_ref] = "HEAD"
-
-    options
-  end
-
-  # Writes a new commit to the repo and returns a Rugged::Commit.  Replaces the
-  # contents of CHANGELOG with a single new line of text.
-  def new_commit_edit_old_file(repo)
-    oid = repo.write("I replaced the changelog with this text", :blob)
-    index = repo.index
-    index.read_tree(repo.head.target.tree)
-    index.add(path: "CHANGELOG", oid: oid, mode: 0o100644)
-
-    options = commit_options(
-      repo,
-      index,
-      "Edit CHANGELOG in its original location"
-    )
-
-    sha = Rugged::Commit.create(repo, options)
-    repo.lookup(sha)
-  end
-
-  # Writes a new commit to the repo and returns a Rugged::Commit.  Moves the
-  # CHANGELOG file to the encoding/ directory.
-  def new_commit_move_file(repo)
-    blob_oid = repo.head.target.tree.detect { |i| i[:name] == "CHANGELOG" }[:oid]
-    file_content = repo.lookup(blob_oid).content
-    oid = repo.write(file_content, :blob)
-    index = repo.index
-    index.read_tree(repo.head.target.tree)
-    index.add(path: "encoding/CHANGELOG", oid: oid, mode: 0o100644)
-    index.remove("CHANGELOG")
-
-    options = commit_options(repo, index, "Move CHANGELOG to encoding/")
-
-    sha = Rugged::Commit.create(repo, options)
-    repo.lookup(sha)
   end
 
   def create_branch(repository, branch_name, start_point = 'HEAD')
