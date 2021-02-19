@@ -7,6 +7,12 @@ import (
 	"fmt"
 )
 
+// IndexError is an error that was produced by performing an invalid operation on the index.
+type IndexError string
+
+// Error returns the error message of the index error.
+func (err IndexError) Error() string { return string(err) }
+
 // InvalidArgumentError is returned when an invalid argument is provided.
 type InvalidArgumentError string
 

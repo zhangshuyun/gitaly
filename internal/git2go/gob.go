@@ -30,6 +30,7 @@ var registeredTypes = map[interface{}]struct{}{
 	FileNotFoundError(""):    {},
 	InvalidArgumentError(""): {},
 	HasConflictsError{}:      {},
+	IndexError(""):           {},
 }
 
 // Result is the serialized result.
