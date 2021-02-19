@@ -356,7 +356,7 @@ func TestReconciler(t *testing.T) {
 				"virtual-storage-1": {
 					"relative-path-1": {
 						"storage-1": {generation: 1},
-						"storage-2": {generation: 0},
+						"storage-2": {generation: -1, assigned: true},
 						"storage-3": {generation: 0, assigned: true},
 					},
 					// assert query correctly scopes for relative path
@@ -381,6 +381,13 @@ func TestReconciler(t *testing.T) {
 					VirtualStorage:    "virtual-storage-1",
 					RelativePath:      "relative-path-1",
 					SourceNodeStorage: "storage-1",
+					TargetNodeStorage: "storage-2",
+				},
+				{
+					Change:            datastore.UpdateRepo,
+					VirtualStorage:    "virtual-storage-1",
+					RelativePath:      "relative-path-1",
+					SourceNodeStorage: "storage-1",
 					TargetNodeStorage: "storage-3",
 				},
 			},
@@ -392,7 +399,7 @@ func TestReconciler(t *testing.T) {
 				"virtual-storage-1": {
 					"relative-path-1": {
 						"storage-1": {generation: 1, assigned: true},
-						"storage-2": {generation: 0},
+						"storage-2": {generation: -1, assigned: true},
 						"storage-3": {generation: 0, assigned: true},
 					},
 				},
@@ -403,7 +410,27 @@ func TestReconciler(t *testing.T) {
 					VirtualStorage:    "virtual-storage-1",
 					RelativePath:      "relative-path-1",
 					SourceNodeStorage: "storage-1",
+					TargetNodeStorage: "storage-2",
+				},
+				{
+					Change:            datastore.UpdateRepo,
+					VirtualStorage:    "virtual-storage-1",
+					RelativePath:      "relative-path-1",
+					SourceNodeStorage: "storage-1",
 					TargetNodeStorage: "storage-3",
+				},
+			},
+		},
+		{
+			desc:            "unassigned nodes are not targeted",
+			healthyStorages: configuredStorages,
+			repositories: repositories{
+				"virtual-storage-1": {
+					"relative-path-1": {
+						"storage-1": {generation: 2, assigned: true},
+						"storage-2": {generation: -1, assigned: false},
+						"storage-3": {generation: 0, assigned: false},
+					},
 				},
 			},
 		},
@@ -430,8 +457,12 @@ func TestReconciler(t *testing.T) {
 			for virtualStorage, relativePaths := range tc.repositories {
 				for relativePath, storages := range relativePaths {
 					for storage, repo := range storages {
-						require.NoError(t, rs.SetGeneration(ctx, virtualStorage, relativePath, storage, repo.generation))
+						if repo.generation >= 0 {
+							require.NoError(t, rs.SetGeneration(ctx, virtualStorage, relativePath, storage, repo.generation))
+						}
+					}
 
+					for storage, repo := range storages {
 						if repo.assigned {
 							_, err := db.ExecContext(ctx, `
 							INSERT INTO repository_assignments VALUES ($1, $2, $3)

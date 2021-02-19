@@ -144,55 +144,68 @@ func (r *Reconciler) reconcile(ctx context.Context) error {
 WITH healthy_storages AS (
     SELECT unnest($1::text[]) AS virtual_storage,
            unnest($2::text[]) AS storage
-), reconciliation_jobs AS (
+),
+
+update_jobs AS (
+	SELECT DISTINCT ON (virtual_storage, relative_path, target_node_storage)
+		virtual_storage,
+		relative_path,
+		source_node_storage,
+		target_node_storage
+	FROM (
+		SELECT virtual_storage, relative_path, storage AS target_node_storage
+		FROM repositories
+		JOIN healthy_storages USING (virtual_storage)
+		LEFT JOIN storage_repositories USING (virtual_storage, relative_path, storage)
+		WHERE COALESCE(storage_repositories.generation != repositories.generation, true)
+		AND (
+			-- If assignments exist for the repository, only the assigned storages are targeted for replication.
+			-- If no assignments exist, every healthy node is targeted for replication.
+			SELECT COUNT(storage) = 0 OR COUNT(storage) FILTER (WHERE storage = healthy_storages.storage) = 1
+			FROM repository_assignments
+			WHERE virtual_storage = repositories.virtual_storage
+			AND   relative_path   = repositories.relative_path
+		)
+		ORDER BY virtual_storage, relative_path
+	) AS unhealthy_repositories
+	JOIN (
+		SELECT virtual_storage, relative_path, storage AS source_node_storage
+		FROM storage_repositories
+		JOIN healthy_storages USING (virtual_storage, storage)
+		JOIN repositories USING (virtual_storage, relative_path, generation)
+		ORDER BY virtual_storage, relative_path
+	) AS healthy_repositories USING (virtual_storage, relative_path)
+	WHERE NOT EXISTS (
+		SELECT true
+		FROM replication_queue
+		WHERE state IN ('ready', 'in_progress', 'failed')
+		AND job->>'change' = 'update'
+		AND job->>'virtual_storage' = virtual_storage
+		AND job->>'relative_path' = relative_path
+		AND job->>'target_node_storage' = target_node_storage
+	)
+	ORDER BY virtual_storage, relative_path, target_node_storage, random()
+),
+
+reconciliation_jobs AS (
 	INSERT INTO replication_queue (lock_id, job, meta)
 	SELECT
 		(virtual_storage || '|' || target_node_storage || '|' || relative_path),
 		to_jsonb(reconciliation_jobs),
 		jsonb_build_object('correlation_id', encode(random()::text::bytea, 'base64'))
 	FROM (
-		SELECT DISTINCT ON (virtual_storage, relative_path, target_node_storage)
+		SELECT
 			virtual_storage,
 			relative_path,
 			source_node_storage,
 			target_node_storage,
 			'update' AS change
-		FROM (
-			SELECT virtual_storage, relative_path, storage AS target_node_storage
-			FROM repositories
-			JOIN healthy_storages USING (virtual_storage)
-			LEFT JOIN storage_repositories USING (virtual_storage, relative_path, storage)
-			WHERE COALESCE(storage_repositories.generation != repositories.generation, true)
-			AND (
-				-- If assignments exist for the repository, only the assigned storages are targeted for replication.
-				-- If no assignments exist, every healthy node is targeted for replication.
-				SELECT COUNT(storage) = 0 OR COUNT(storage) FILTER (WHERE storage = storage_repositories.storage) = 1
-				FROM repository_assignments
-				WHERE virtual_storage = repositories.virtual_storage
-				AND   relative_path   = repositories.relative_path
-			)
-			ORDER BY virtual_storage, relative_path
-		) AS unhealthy_repositories
-		JOIN (
-			SELECT virtual_storage, relative_path, storage AS source_node_storage
-			FROM storage_repositories
-			JOIN healthy_storages USING (virtual_storage, storage)
-			JOIN repositories USING (virtual_storage, relative_path, generation)
-			ORDER BY virtual_storage, relative_path
-		) AS healthy_repositories USING (virtual_storage, relative_path)
-		WHERE NOT EXISTS (
-			SELECT true
-			FROM replication_queue
-			WHERE state IN ('ready', 'in_progress', 'failed')
-			AND job->>'change' = 'update'
-			AND job->>'virtual_storage' = virtual_storage
-			AND job->>'relative_path' = relative_path
-			AND job->>'target_node_storage' = target_node_storage
-		)
-		ORDER BY virtual_storage, relative_path, target_node_storage, random()
+		FROM update_jobs
 	) AS reconciliation_jobs
 	RETURNING lock_id, meta, job
-), locks AS (
+),
+
+create_locks AS (
 	INSERT INTO replication_queue_lock(id)
 	SELECT lock_id
 	FROM reconciliation_jobs
