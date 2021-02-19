@@ -449,7 +449,15 @@ func (c *Coordinator) mutatorStreamParameters(ctx context.Context, call grpcCall
 					nodeErrors.Lock()
 					defer nodeErrors.Unlock()
 					nodeErrors.errByNode[secondary.Storage] = err
-					return err
+
+					ctxlogrus.Extract(ctx).WithError(err).
+						Error("proxying to secondary failed")
+
+					// For now, any errors returned by secondaries are ignored.
+					// This is mostly so that we do not abort transactions which
+					// are ongoing and may succeed even with a subset of
+					// secondaries bailing out.
+					return nil
 				},
 			})
 		}

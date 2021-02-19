@@ -1426,11 +1426,10 @@ func TestCoordinator_grpcErrorHandling(t *testing.T) {
 			expectedErr: status.Error(codes.Unknown, "foo"),
 		},
 		{
-			desc: "secondary error gets ignored (test is broken)",
+			desc: "secondary error gets ignored",
 			errByNode: map[string]error{
 				"secondary-1": errors.New("foo"),
 			},
-			expectedErr: status.Error(codes.Internal, "failed proxying to secondary: rpc error: code = Unknown desc = foo"),
 		},
 		{
 			desc: "primary error has precedence",
