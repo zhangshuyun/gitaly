@@ -382,62 +382,6 @@ describe Gitlab::Git::Repository do # rubocop:disable Metrics/BlockLength
     end
   end
 
-  describe '#merge_to_ref' do
-    let(:repository) { mutable_repository }
-    let(:branch_head) { '6d394385cf567f80a8fd85055db1ab4c5295806f' }
-    let(:source_sha) { 'cfe32cf61b73a0d5e9f13e774abde7ff789b1660' }
-    let(:branch) { 'test-master' }
-    let(:first_parent_ref) { 'refs/heads/test-master' }
-    let(:target_ref) { 'refs/merge-requests/999/merge' }
-    let(:arg_branch) {}
-    let(:arg_first_parent_ref) { first_parent_ref }
-
-    before do
-      create_branch(repository, branch, branch_head)
-    end
-
-    def fetch_target_ref
-      repository.rugged.references[target_ref]
-    end
-
-    shared_examples_for 'correct behavior' do
-      it 'changes target ref to a merge between source SHA and branch' do
-        expect(fetch_target_ref).to be_nil
-
-        merge_commit_id = repository.merge_to_ref(user, source_sha, arg_branch, target_ref, 'foo', arg_first_parent_ref)
-
-        ref = fetch_target_ref
-
-        expect(ref.target.oid).to eq(merge_commit_id)
-      end
-
-      it 'does not change the branch HEAD' do
-        expect { repository.merge_to_ref(user, source_sha, arg_branch, target_ref, 'foo', arg_first_parent_ref) }
-          .not_to change { repository.find_ref(first_parent_ref).target }
-          .from(branch_head)
-      end
-    end
-
-    it_behaves_like 'correct behavior'
-
-    context 'when legacy branch parameter is specified and ref path is empty' do
-      it_behaves_like 'correct behavior' do
-        let(:arg_branch) { branch }
-        let(:arg_first_parent_ref) {}
-      end
-    end
-
-    context 'when conflicts detected' do
-      it 'raises Gitlab::Git::CommitError' do
-        allow(repository.rugged).to receive_message_chain(:merge_commits, :conflicts?) { true }
-
-        expect { repository.merge_to_ref(user, source_sha, arg_branch, target_ref, 'foo', arg_first_parent_ref) }
-          .to raise_error(Gitlab::Git::CommitError, "Failed to create merge commit for source_sha #{source_sha} and" \
-                                                    " target_sha #{branch_head} at #{target_ref}")
-      end
-    end
-  end
-
   describe '#ff_merge' do
     let(:repository) { mutable_repository }
     let(:branch_head) { '6d394385cf567f80a8fd85055db1ab4c5295806f' }
