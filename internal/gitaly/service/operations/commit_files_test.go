@@ -103,6 +103,18 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 		steps []step
 	}{
 		{
+			desc: "create file with .git/hooks/pre-commit",
+			steps: []step{
+				{
+					actions: []*gitalypb.UserCommitFilesRequest{
+						createFileHeaderRequest(".git/hooks/pre-commit"),
+						actionContentRequest("content-1"),
+					},
+					indexError: "invalid path: '.git/hooks/pre-commit'",
+				},
+			},
+		},
+		{
 			desc: "create directory",
 			steps: []step{
 				{

@@ -27,10 +27,6 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-type indexError string
-
-func (err indexError) Error() string { return string(err) }
-
 func errorWithStderr(err error, stderr *bytes.Buffer) error {
 	return fmt.Errorf("%w, stderr: %q", err, stderr)
 }
@@ -74,7 +70,7 @@ func (s *Server) UserCommitFiles(stream gitalypb.OperationService_UserCommitFile
 
 			var (
 				response        gitalypb.UserCommitFilesResponse
-				indexError      indexError
+				indexError      git2go.IndexError
 				preReceiveError preReceiveError
 			)
 
@@ -143,7 +139,7 @@ func (s *Server) UserCommitFiles(stream gitalypb.OperationService_UserCommitFile
 
 func validatePath(rootPath, relPath string) (string, error) {
 	if relPath == "" {
-		return "", indexError("You must provide a file path")
+		return "", git2go.IndexError("You must provide a file path")
 	} else if strings.Contains(relPath, "//") {
 		// This is a workaround to address a quirk in porting the RPC from Ruby to Go.
 		// GitLab's QA pipeline runs tests with filepath 'invalid://file/name/here'.
@@ -154,13 +150,13 @@ func validatePath(rootPath, relPath string) (string, error) {
 		//
 		// The Rails code expects to receive an error prefixed with 'invalid path', which is done
 		// here to retain compatibility.
-		return "", indexError(fmt.Sprintf("invalid path: '%s'", relPath))
+		return "", git2go.IndexError(fmt.Sprintf("invalid path: '%s'", relPath))
 	}
 
 	path, err := storage.ValidateRelativePath(rootPath, relPath)
 	if err != nil {
 		if errors.Is(err, storage.ErrRelativePathEscapesRoot) {
-			return "", indexError("Path cannot include directory traversal")
+			return "", git2go.IndexError("Path cannot include directory traversal")
 		}
 
 		return "", err

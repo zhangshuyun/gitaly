@@ -1,0 +1,5 @@
+---
+title: Fix UserCommitFiles index error handling
+merge_request: 3165
+author:
+type: fixed

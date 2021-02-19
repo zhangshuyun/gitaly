@@ -64,6 +64,10 @@ func commit(ctx context.Context, params git2go.CommitParams) (string, error) {
 
 	for _, action := range params.Actions {
 		if err := apply(action, repo, index); err != nil {
+			if git.IsErrorClass(err, git.ErrClassIndex) {
+				err = git2go.IndexError(err.Error())
+			}
+
 			return "", fmt.Errorf("apply action %T: %w", action, err)
 		}
 	}
