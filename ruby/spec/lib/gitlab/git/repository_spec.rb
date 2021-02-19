@@ -382,41 +382,6 @@ describe Gitlab::Git::Repository do # rubocop:disable Metrics/BlockLength
     end
   end
 
-  describe '#merge' do
-    let(:repository) { mutable_repository }
-    let(:source_sha) { '913c66a37b4a45b9769037c55c2d238bd0942d2e' }
-    let(:target_branch) { 'test-merge-target-branch' }
-
-    before do
-      create_branch(repository, target_branch, '6d394385cf567f80a8fd85055db1ab4c5295806f')
-    end
-
-    it 'can perform a merge' do
-      merge_commit_id = nil
-      result = repository.merge(user, source_sha, target_branch, 'Test merge') do |commit_id|
-        merge_commit_id = commit_id
-      end
-
-      expect(result.newrev).to eq(merge_commit_id)
-      expect(result.repo_created).to eq(false)
-      expect(result.branch_created).to eq(false)
-    end
-
-    it 'returns nil if there was a concurrent branch update' do
-      concurrent_update_id = '33f3729a45c02fc67d00adb1b8bca394b0e761d9'
-      result = repository.merge(user, source_sha, target_branch, 'Test merge') do
-        # This ref update should make the merge fail
-        repository.write_ref(Gitlab::Git::BRANCH_REF_PREFIX + target_branch, concurrent_update_id)
-      end
-
-      # This 'nil' signals that the merge was not applied
-      expect(result).to be_nil
-
-      # Our concurrent ref update should not have been undone
-      expect(repository.find_branch(target_branch).target).to eq(concurrent_update_id)
-    end
-  end
-
   describe '#merge_to_ref' do
     let(:repository) { mutable_repository }
     let(:branch_head) { '6d394385cf567f80a8fd85055db1ab4c5295806f' }

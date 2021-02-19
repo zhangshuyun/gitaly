@@ -278,21 +278,6 @@ module Gitlab
         raise ArgumentError, 'Invalid merge source'
       end
 
-      def merge(user, source_sha, target_branch, message, timestamp = nil)
-        OperationService.new(user, self).with_branch(target_branch) do |start_commit|
-          our_commit = start_commit.sha
-          their_commit = source_sha
-
-          commit_id = create_merge_commit(user, our_commit, their_commit, message, timestamp)
-
-          yield commit_id
-
-          commit_id
-        end
-      rescue Gitlab::Git::CommitError # when merge_index.conflicts?
-        nil
-      end
-
       def ff_merge(user, source_sha, target_branch)
         OperationService.new(user, self).with_branch(target_branch) do |our_commit|
           raise ArgumentError, 'Invalid merge target' unless our_commit
