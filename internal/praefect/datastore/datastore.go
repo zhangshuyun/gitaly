@@ -55,6 +55,8 @@ const (
 	RepackFull = ChangeType("repack_full")
 	// RepackIncremental is when replication runs an incremental repack
 	RepackIncremental = ChangeType("repack_incremental")
+	// Cleanup is when replication runs a repo cleanup
+	Cleanup = ChangeType("cleanup")
 )
 
 func (ct ChangeType) String() string {
