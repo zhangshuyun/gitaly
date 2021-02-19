@@ -1,6 +1,7 @@
 package updateref
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 
@@ -14,8 +15,9 @@ import (
 // that allows references to be easily updated in bulk. It is not suitable for
 // concurrent use.
 type Updater struct {
-	repo repository.GitRepo
-	cmd  *command.Command
+	repo   repository.GitRepo
+	cmd    *command.Command
+	stderr *bytes.Buffer
 }
 
 // UpdaterOpt is a type representing options for the Updater.
@@ -50,6 +52,7 @@ func New(ctx context.Context, conf config.Cfg, gitCmdFactory git.CommandFactory,
 		txOption = git.WithDisabledHooks()
 	}
 
+	var stderr bytes.Buffer
 	cmd, err := gitCmdFactory.New(ctx, repo, nil,
 		git.SubCmd{
 			Name:  "update-ref",
@@ -57,6 +60,7 @@ func New(ctx context.Context, conf config.Cfg, gitCmdFactory git.CommandFactory,
 		},
 		txOption,
 		git.WithStdin(command.SetupStdin),
+		git.WithStderr(&stderr),
 	)
 	if err != nil {
 		return nil, err
@@ -68,7 +72,7 @@ func New(ctx context.Context, conf config.Cfg, gitCmdFactory git.CommandFactory,
 	// disk.
 	fmt.Fprintf(cmd, "start\x00")
 
-	return &Updater{repo: repo, cmd: cmd}, nil
+	return &Updater{repo: repo, cmd: cmd, stderr: &stderr}, nil
 }
 
 // Create commands the reference to be created with the sha specified in value
@@ -95,7 +99,7 @@ func (u *Updater) Wait() error {
 	fmt.Fprintf(u.cmd, "commit\x00")
 
 	if err := u.cmd.Wait(); err != nil {
-		return fmt.Errorf("git update-ref: %v", err)
+		return fmt.Errorf("git update-ref: %v, stderr: %q", err, u.stderr)
 	}
 
 	return nil

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -185,4 +186,25 @@ func TestUpdater_closingStdinAbortsChanges(t *testing.T) {
 	// longer the case.
 	_, err = repo.ReadCommit(ctx, ref.Revision())
 	require.Equal(t, localrepo.ErrObjectNotFound, err, "expected 'not found' error got %v", err)
+}
+
+func TestUpdater_capturesStderr(t *testing.T) {
+	ctx, repo, _, teardown := setup(t, config.Config)
+	defer teardown()
+
+	ref := "refs/heads/a"
+	newValue := strings.Repeat("1", 40)
+	oldValue := git.ZeroOID.String()
+
+	updater, err := New(ctx, config.Config, git.NewExecCommandFactory(config.Config), repo)
+	require.NoError(t, err)
+	require.NoError(t, updater.Update(git.ReferenceName(ref), newValue, oldValue))
+
+	expectedErr := fmt.Sprintf("git update-ref: exit status 128, stderr: "+
+		"\"fatal: commit: cannot update ref '%s': "+
+		"trying to write ref '%s' with nonexistent object %s\\n\"", ref, ref, newValue)
+
+	err = updater.Wait()
+	require.NotNil(t, err)
+	require.Equal(t, err.Error(), expectedErr)
 }

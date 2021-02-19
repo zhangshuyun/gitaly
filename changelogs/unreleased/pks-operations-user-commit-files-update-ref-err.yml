@@ -1,0 +1,5 @@
+---
+title: 'operations: Fix handling of update-ref failures in UserCommitFiles'
+merge_request: 3159
+author:
+type: fixed
