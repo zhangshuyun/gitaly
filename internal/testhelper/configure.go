@@ -129,34 +129,34 @@ func ConfigureRuby(cfg *config.Cfg) error {
 }
 
 // ConfigureGitalyGit2Go configures the gitaly-git2go command for tests
-func ConfigureGitalyGit2Go() {
-	buildCommand("gitaly-git2go")
+func ConfigureGitalyGit2Go(outputDir string) {
+	buildCommand(outputDir, "gitaly-git2go")
 }
 
 // ConfigureGitalyLfsSmudge configures the gitaly-lfs-smudge command for tests
-func ConfigureGitalyLfsSmudge() {
-	buildCommand("gitaly-lfs-smudge")
+func ConfigureGitalyLfsSmudge(outputDir string) {
+	buildCommand(outputDir, "gitaly-lfs-smudge")
 }
 
 // ConfigureGitalySSH configures the gitaly-ssh command for tests
-func ConfigureGitalySSH() {
-	buildCommand("gitaly-ssh")
+func ConfigureGitalySSH(outputDir string) {
+	buildCommand(outputDir, "gitaly-ssh")
 }
 
 // ConfigureGitalyHooksBinary builds gitaly-hooks command for tests
-func ConfigureGitalyHooksBinary() {
-	buildCommand("gitaly-hooks")
+func ConfigureGitalyHooksBinary(outputDir string) {
+	buildCommand(outputDir, "gitaly-hooks")
 }
 
-func buildCommand(cmd string) {
-	if config.Config.BinDir == "" {
-		log.Fatal("config.Config.BinDir must be set")
+func buildCommand(outputDir, cmd string) {
+	if outputDir == "" {
+		log.Fatal("BinDir must be set")
 	}
 
 	goBuildArgs := []string{
 		"build",
 		"-tags", "static,system_libgit2",
-		"-o", filepath.Join(config.Config.BinDir, cmd),
+		"-o", filepath.Join(outputDir, cmd),
 		fmt.Sprintf("gitlab.com/gitlab-org/gitaly/cmd/%s", cmd),
 	}
 	MustRunCommand(nil, nil, "go", goBuildArgs...)

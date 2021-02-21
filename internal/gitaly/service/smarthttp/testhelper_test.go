@@ -43,7 +43,7 @@ func testMain(m *testing.M) int {
 
 	config.Config.Ruby.Dir = filepath.Join(cwd, "../../../../ruby")
 
-	testhelper.ConfigureGitalyHooksBinary()
+	testhelper.ConfigureGitalyHooksBinary(config.Config.BinDir)
 
 	return m.Run()
 }

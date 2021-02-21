@@ -98,8 +98,8 @@ func testMain(m *testing.M) int {
 
 	config.Config.Ruby.Dir = rubyDir
 
-	testhelper.ConfigureGitalyHooksBinary()
-	testhelper.ConfigureGitalySSH()
+	testhelper.ConfigureGitalyHooksBinary(config.Config.BinDir)
+	testhelper.ConfigureGitalySSH(config.Config.BinDir)
 
 	return m.Run()
 }

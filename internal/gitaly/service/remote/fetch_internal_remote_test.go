@@ -48,7 +48,7 @@ func TestSuccessfulFetchInternalRemote(t *testing.T) {
 		},
 	}...)
 
-	testhelper.ConfigureGitalyHooksBinary()
+	testhelper.ConfigureGitalyHooksBinary(config.Config.BinDir)
 
 	locator := config.NewLocator(config.Config)
 	gitCmdFactory := git.NewExecCommandFactory(config.Config)

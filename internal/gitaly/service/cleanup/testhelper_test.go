@@ -23,7 +23,7 @@ func testMain(m *testing.M) int {
 	defer testhelper.MustHaveNoChildProcess()
 	cleanup := testhelper.Configure()
 	defer cleanup()
-	testhelper.ConfigureGitalyHooksBinary()
+	testhelper.ConfigureGitalyHooksBinary(config.Config.BinDir)
 	return m.Run()
 }
 

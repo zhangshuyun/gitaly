@@ -28,7 +28,7 @@ func testMain(m *testing.M) int {
 
 	cleanup := testhelper.Configure()
 	defer cleanup()
-	testhelper.ConfigureGitalyGit2Go()
+	testhelper.ConfigureGitalyGit2Go(config.Config.BinDir)
 
 	tempDir, err := ioutil.TempDir("", "gitaly")
 	if err != nil {

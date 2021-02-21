@@ -25,7 +25,7 @@ func testMain(m *testing.M) int {
 
 	cleanup := testhelper.Configure()
 	defer cleanup()
-	testhelper.ConfigureGitalySSH()
+	testhelper.ConfigureGitalySSH(config.Config.BinDir)
 
 	RubyServer = rubyserver.New(config.Config)
 	if err := RubyServer.Start(); err != nil {

@@ -55,9 +55,9 @@ func testMain(m *testing.M) int {
 
 	config.Config.GitlabShell.Dir = gitlabShellDir
 
-	testhelper.ConfigureGitalySSH()
-	testhelper.ConfigureGitalyGit2Go()
-	testhelper.ConfigureGitalyHooksBinary()
+	testhelper.ConfigureGitalySSH(config.Config.BinDir)
+	testhelper.ConfigureGitalyGit2Go(config.Config.BinDir)
+	testhelper.ConfigureGitalyHooksBinary(config.Config.BinDir)
 
 	defer func(token string) {
 		config.Config.Auth.Token = token
