@@ -132,4 +132,6 @@ message ConsistencyCheckResponse {
   uint64 repl_job_id = 4;
   // If the reference storage was not specified, reply with the reference used
   string reference_storage = 5;
+  // The list of errors that appeared during the operation execution for the current repository.
+  repeated string errors = 6;
 }
