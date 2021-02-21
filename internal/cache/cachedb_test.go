@@ -5,7 +5,6 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -16,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
@@ -132,34 +132,19 @@ func TestStreamDBNaiveKeyer(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func injectTempStorage(t testing.TB) (string, testhelper.Cleanup) {
-	oldStorages := config.Config.Storages
-	tmpDir, cleanup := testhelper.TempDir(t)
-
-	name := filepath.Base(tmpDir)
-	config.Config.Storages = append(config.Config.Storages, config.Storage{
-		Name: name,
-		Path: tmpDir,
-	})
-
-	return name, func() {
-		config.Config.Storages = oldStorages
-		cleanup()
-	}
-}
-
 func TestLoserCount(t *testing.T) {
 	// the test can be contaminate by other tests using the cache, so a
 	// dedicated storage location should be used
-	storageName, storageCleanup := injectTempStorage(t)
-	defer storageCleanup()
+	cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("storage-1", "storage-2"))
+	defer cfgBuilder.Cleanup()
+	cfg := cfgBuilder.Build(t)
 
-	db := cache.NewStreamDB(cache.NewLeaseKeyer(config.NewLocator(config.Config)))
+	db := cache.NewStreamDB(cache.NewLeaseKeyer(config.NewLocator(cfg)))
 
 	req := &gitalypb.InfoRefsRequest{
 		Repository: &gitalypb.Repository{
 			RelativePath: "test",
-			StorageName:  storageName,
+			StorageName:  "storage-1",
 		},
 	}
 	ctx := testhelper.SetCtxGrpcMethod(context.Background(), "InfoRefsUploadPack")
