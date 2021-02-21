@@ -31,20 +31,21 @@ func testMain(m *testing.M) int {
 }
 
 func TestStreamDBNaiveKeyer(t *testing.T) {
-	keyer := cache.NewLeaseKeyer(config.NewLocator(config.Config))
+	cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("storage"))
+	defer cfgBuilder.Cleanup()
+	cfg := cfgBuilder.Build(t)
+
+	testRepo1 := testhelper.NewTestRepoAtStorage(t, cfg.Storages[0], "repository-1")
+	testRepo2 := testhelper.NewTestRepoAtStorage(t, cfg.Storages[0], "repository-2")
+
+	keyer := cache.NewLeaseKeyer(config.NewLocator(cfg))
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
 	ctx = testhelper.SetCtxGrpcMethod(ctx, "InfoRefsUploadPack")
 
-	testRepo1, _, cleanup1 := testhelper.NewTestRepo(t)
-	defer cleanup1()
-
-	testRepo2, _, cleanup2 := testhelper.NewTestRepo(t)
-	defer cleanup2()
-
-	db := cache.NewStreamDB(cache.NewLeaseKeyer(config.NewLocator(config.Config)))
+	db := cache.NewStreamDB(cache.NewLeaseKeyer(config.NewLocator(cfg)))
 
 	req1 := &gitalypb.InfoRefsRequest{
 		Repository: testRepo1,

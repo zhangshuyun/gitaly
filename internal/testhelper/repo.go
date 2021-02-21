@@ -9,6 +9,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
@@ -95,6 +96,13 @@ func initRepo(t testing.TB, bare bool) (*gitalypb.Repository, string, func()) {
 // NewTestRepoTo clones a new copy of test repository under a subdirectory in the storage root.
 func NewTestRepoTo(t testing.TB, storageRoot, relativePath string) *gitalypb.Repository {
 	repo, _, _ := cloneTestRepo(t, storageRoot, relativePath, true)
+	return repo
+}
+
+// NewTestRepoAtStorage clones a new copy of test repository under a subdirectory in the storage root.
+func NewTestRepoAtStorage(t testing.TB, storage config.Storage, relativePath string) *gitalypb.Repository {
+	repo, _, _ := cloneTestRepo(t, storage.Path, relativePath, true)
+	repo.StorageName = storage.Name
 	return repo
 }
 
