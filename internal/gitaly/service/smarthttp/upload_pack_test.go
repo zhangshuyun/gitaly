@@ -39,7 +39,7 @@ func testSuccessfulUploadPackRequest(t *testing.T, ctx context.Context) {
 	negotiationMetrics := prometheus.NewCounterVec(prometheus.CounterOpts{}, []string{"feature"})
 
 	serverSocketPath, stop := runSmartHTTPServer(
-		t, WithPackfileNegotiationMetrics(negotiationMetrics),
+		t, config.Config, WithPackfileNegotiationMetrics(negotiationMetrics),
 	)
 	defer stop()
 
@@ -87,7 +87,7 @@ func testSuccessfulUploadPackRequest(t *testing.T, ctx context.Context) {
 			RelativePath: filepath.Join(remoteRepoRelativePath, ".git"),
 		},
 	}
-	responseBuffer, err := makePostUploadPackRequest(ctx, t, serverSocketPath, req, requestBuffer)
+	responseBuffer, err := makePostUploadPackRequest(ctx, t, serverSocketPath, config.Config.Auth.Token, req, requestBuffer)
 	require.NoError(t, err)
 
 	// There's no git command we can pass it this response and do the work for us (extracting pack file, ...),
@@ -112,7 +112,7 @@ func TestUploadPackRequestWithGitConfigOptions(t *testing.T) {
 }
 
 func testUploadPackRequestWithGitConfigOptions(t *testing.T, ctx context.Context) {
-	serverSocketPath, stop := runSmartHTTPServer(t)
+	serverSocketPath, stop := runSmartHTTPServer(t, config.Config)
 	defer stop()
 
 	_, testRepoPath, cleanup := testhelper.NewTestRepo(t)
@@ -153,7 +153,7 @@ func testUploadPackRequestWithGitConfigOptions(t *testing.T, ctx context.Context
 	}
 
 	// The ref is successfully requested as it is not hidden
-	response, err := makePostUploadPackRequest(ctx, t, serverSocketPath, rpcRequest, requestBody)
+	response, err := makePostUploadPackRequest(ctx, t, serverSocketPath, config.Config.Auth.Token, rpcRequest, requestBody)
 	require.NoError(t, err)
 	_, _, count := extractPackDataFromResponse(t, response)
 	assert.Equal(t, 5, count, "pack should have 5 entries")
@@ -164,7 +164,7 @@ func testUploadPackRequestWithGitConfigOptions(t *testing.T, ctx context.Context
 	// we need to set uploadpack.allowAnySHA1InWant=false, because if it's true then we won't encounter an error from setting
 	// uploadpack.hideRefs=refs/hidden. We are setting uploadpack.allowAnySHA1InWant=true in the RPC to enable partial clones
 	rpcRequest.GitConfigOptions = []string{"uploadpack.hideRefs=refs/hidden", "uploadpack.allowAnySHA1InWant=false"}
-	response, err = makePostUploadPackRequest(ctx, t, serverSocketPath, rpcRequest, requestBodyCopy)
+	response, err = makePostUploadPackRequest(ctx, t, serverSocketPath, config.Config.Auth.Token, rpcRequest, requestBodyCopy)
 	testhelper.RequireGrpcError(t, err, codes.Unavailable)
 
 	expected := fmt.Sprintf("0049ERR upload-pack: not our ref %v", want)
@@ -178,10 +178,13 @@ func TestUploadPackRequestWithGitProtocol(t *testing.T) {
 }
 
 func testUploadPackRequestWithGitProtocol(t *testing.T, ctx context.Context) {
-	restore := testhelper.EnableGitProtocolV2Support(t)
-	defer restore()
+	defer func(old config.Cfg) { config.Config = old }(config.Config)
 
-	serverSocketPath, stop := runSmartHTTPServer(t)
+	cfg, restore := testhelper.EnableGitProtocolV2Support(t, config.Config)
+	defer restore()
+	config.Config = cfg
+
+	serverSocketPath, stop := runSmartHTTPServer(t, config.Config)
 	defer stop()
 
 	_, testRepoPath, cleanup := testhelper.NewTestRepo(t)
@@ -210,7 +213,7 @@ func testUploadPackRequestWithGitProtocol(t *testing.T, ctx context.Context) {
 	}
 
 	// The ref is successfully requested as it is not hidden
-	_, err = makePostUploadPackRequest(ctx, t, serverSocketPath, rpcRequest, requestBody)
+	_, err = makePostUploadPackRequest(ctx, t, serverSocketPath, config.Config.Auth.Token, rpcRequest, requestBody)
 	require.NoError(t, err)
 
 	envData := testhelper.GetGitEnvData(t)
@@ -227,7 +230,7 @@ func TestSuccessfulUploadPackDeepenRequest(t *testing.T) {
 }
 
 func testSuccessfulUploadPackDeepenRequest(t *testing.T, ctx context.Context) {
-	serverSocketPath, stop := runSmartHTTPServer(t)
+	serverSocketPath, stop := runSmartHTTPServer(t, config.Config)
 	defer stop()
 
 	testRepo, _, cleanup := testhelper.NewTestRepo(t)
@@ -239,7 +242,7 @@ func testSuccessfulUploadPackDeepenRequest(t *testing.T, ctx context.Context) {
 	pktline.WriteFlush(requestBody)
 
 	rpcRequest := &gitalypb.PostUploadPackRequest{Repository: testRepo}
-	response, err := makePostUploadPackRequest(ctx, t, serverSocketPath, rpcRequest, requestBody)
+	response, err := makePostUploadPackRequest(ctx, t, serverSocketPath, config.Config.Auth.Token, rpcRequest, requestBody)
 
 	// This assertion is the main reason this test exists.
 	assert.NoError(t, err)
@@ -269,7 +272,7 @@ func TestUploadPackWithPackObjectsHook(t *testing.T) {
 	cleanup = testhelper.WriteExecutable(t, filepath.Join(hookDir, "gitaly-hooks"), []byte(hookScript))
 	defer cleanup()
 
-	serverSocketPath, stop := runSmartHTTPServer(t)
+	serverSocketPath, stop := runSmartHTTPServer(t, config.Config)
 	defer stop()
 
 	repo, repoPath, cleanup := testhelper.NewTestRepo(t)
@@ -287,7 +290,7 @@ func TestUploadPackWithPackObjectsHook(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	_, err := makePostUploadPackRequest(ctx, t, serverSocketPath, &gitalypb.PostUploadPackRequest{
+	_, err := makePostUploadPackRequest(ctx, t, serverSocketPath, config.Config.Auth.Token, &gitalypb.PostUploadPackRequest{
 		Repository: repo,
 	}, requestBuffer)
 	require.NoError(t, err)
@@ -303,7 +306,7 @@ func TestFailedUploadPackRequestDueToValidationError(t *testing.T) {
 }
 
 func testFailedUploadPackRequestDueToValidationError(t *testing.T, ctx context.Context) {
-	serverSocketPath, stop := runSmartHTTPServer(t)
+	serverSocketPath, stop := runSmartHTTPServer(t, config.Config)
 	defer stop()
 
 	rpcRequests := []gitalypb.PostUploadPackRequest{
@@ -314,14 +317,14 @@ func testFailedUploadPackRequestDueToValidationError(t *testing.T, ctx context.C
 
 	for _, rpcRequest := range rpcRequests {
 		t.Run(fmt.Sprintf("%v", rpcRequest), func(t *testing.T) {
-			_, err := makePostUploadPackRequest(ctx, t, serverSocketPath, &rpcRequest, bytes.NewBuffer(nil))
+			_, err := makePostUploadPackRequest(ctx, t, serverSocketPath, config.Config.Auth.Token, &rpcRequest, bytes.NewBuffer(nil))
 			testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
 		})
 	}
 }
 
-func makePostUploadPackRequest(ctx context.Context, t *testing.T, serverSocketPath string, in *gitalypb.PostUploadPackRequest, body io.Reader) (*bytes.Buffer, error) {
-	client, conn := newSmartHTTPClient(t, serverSocketPath)
+func makePostUploadPackRequest(ctx context.Context, t *testing.T, serverSocketPath, token string, in *gitalypb.PostUploadPackRequest, body io.Reader) (*bytes.Buffer, error) {
+	client, conn := newSmartHTTPClient(t, serverSocketPath, token)
 	defer conn.Close()
 
 	stream, err := client.PostUploadPack(ctx)
@@ -398,7 +401,7 @@ func testUploadPackRequestForPartialCloneSuccess(t *testing.T, ctx context.Conte
 	negotiationMetrics := prometheus.NewCounterVec(prometheus.CounterOpts{}, []string{"feature"})
 
 	serverSocketPath, stop := runSmartHTTPServer(
-		t, WithPackfileNegotiationMetrics(negotiationMetrics),
+		t, config.Config, WithPackfileNegotiationMetrics(negotiationMetrics),
 	)
 	defer stop()
 
@@ -448,7 +451,7 @@ func testUploadPackRequestForPartialCloneSuccess(t *testing.T, ctx context.Conte
 		},
 	}
 
-	responseBuffer, err := makePostUploadPackRequest(ctx, t, serverSocketPath, req, &requestBuffer)
+	responseBuffer, err := makePostUploadPackRequest(ctx, t, serverSocketPath, config.Config.Auth.Token, req, &requestBuffer)
 	require.NoError(t, err)
 
 	pack, version, entries := extractPackDataFromResponse(t, responseBuffer)
@@ -480,7 +483,7 @@ func testUploadPackRequestForPartialCloneSuccess(t *testing.T, ctx context.Conte
 	pktline.WriteFlush(&requestBuffer)
 	pktline.WriteFlush(&requestBuffer)
 
-	_, err = makePostUploadPackRequest(ctx, t, serverSocketPath, req, &requestBuffer)
+	_, err = makePostUploadPackRequest(ctx, t, serverSocketPath, config.Config.Auth.Token, req, &requestBuffer)
 	require.NoError(t, err)
 
 	metric, err := negotiationMetrics.GetMetricWithLabelValues("filter")

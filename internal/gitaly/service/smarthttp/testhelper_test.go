@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	log "github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/require"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
 	diskcache "gitlab.com/gitlab-org/gitaly/internal/cache"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
@@ -47,12 +48,12 @@ func testMain(m *testing.M) int {
 	return m.Run()
 }
 
-func runSmartHTTPServer(t *testing.T, serverOpts ...ServerOpt) (string, func()) {
-	locator := config.NewLocator(config.Config)
+func runSmartHTTPServer(t *testing.T, cfg config.Cfg, serverOpts ...ServerOpt) (string, func()) {
+	locator := config.NewLocator(cfg)
 	keyer := diskcache.NewLeaseKeyer(locator)
-	txManager := transaction.NewManager(config.Config)
-	hookManager := hook.NewManager(locator, txManager, hook.GitlabAPIStub, config.Config)
-	gitCmdFactory := git.NewExecCommandFactory(config.Config)
+	txManager := transaction.NewManager(cfg)
+	hookManager := hook.NewManager(locator, txManager, hook.GitlabAPIStub, cfg)
+	gitCmdFactory := git.NewExecCommandFactory(cfg)
 
 	srv := testhelper.NewServer(t,
 		[]grpc.StreamServerInterceptor{
@@ -61,24 +62,24 @@ func runSmartHTTPServer(t *testing.T, serverOpts ...ServerOpt) (string, func()) 
 		[]grpc.UnaryServerInterceptor{
 			cache.UnaryInvalidator(keyer, protoregistry.GitalyProtoPreregistered),
 		},
-		testhelper.WithInternalSocket(config.Config))
+		testhelper.WithInternalSocket(cfg))
 
-	gitalypb.RegisterSmartHTTPServiceServer(srv.GrpcServer(), NewServer(config.Config, locator, gitCmdFactory, serverOpts...))
-	gitalypb.RegisterHookServiceServer(srv.GrpcServer(), hookservice.NewServer(config.Config, hookManager, gitCmdFactory))
+	gitalypb.RegisterSmartHTTPServiceServer(srv.GrpcServer(), NewServer(cfg, locator, gitCmdFactory, serverOpts...))
+	gitalypb.RegisterHookServiceServer(srv.GrpcServer(), hookservice.NewServer(cfg, hookManager, gitCmdFactory))
 	srv.Start(t)
 
 	return "unix://" + srv.Socket(), srv.Stop
 }
 
-func newSmartHTTPClient(t *testing.T, serverSocketPath string) (gitalypb.SmartHTTPServiceClient, *grpc.ClientConn) {
+func newSmartHTTPClient(t *testing.T, serverSocketPath, token string) (gitalypb.SmartHTTPServiceClient, *grpc.ClientConn) {
+	t.Helper()
+
 	connOpts := []grpc.DialOption{
 		grpc.WithInsecure(),
-		grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(config.Config.Auth.Token)),
+		grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(token)),
 	}
 	conn, err := grpc.Dial(serverSocketPath, connOpts...)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	return gitalypb.NewSmartHTTPServiceClient(conn), conn
 }

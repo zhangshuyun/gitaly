@@ -47,13 +47,13 @@ func TestSuccessfulReceivePackRequest(t *testing.T) {
 	hookOutputFile, cleanup := testhelper.CaptureHookEnv(t)
 	defer cleanup()
 
-	serverSocketPath, stop := runSmartHTTPServer(t)
+	serverSocketPath, stop := runSmartHTTPServer(t, config.Config)
 	defer stop()
 
 	repo, repoPath, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
 
-	client, conn := newSmartHTTPClient(t, serverSocketPath)
+	client, conn := newSmartHTTPClient(t, serverSocketPath, config.Config.Auth.Token)
 	defer conn.Close()
 
 	ctx, cancel := testhelper.Context()
@@ -108,16 +108,19 @@ func TestSuccessfulReceivePackRequest(t *testing.T) {
 }
 
 func TestSuccessfulReceivePackRequestWithGitProtocol(t *testing.T) {
-	restore := testhelper.EnableGitProtocolV2Support(t)
-	defer restore()
+	defer func(old config.Cfg) { config.Config = old }(config.Config)
 
-	serverSocketPath, stop := runSmartHTTPServer(t)
+	cfg, restore := testhelper.EnableGitProtocolV2Support(t, config.Config)
+	defer restore()
+	config.Config = cfg
+
+	serverSocketPath, stop := runSmartHTTPServer(t, config.Config)
 	defer stop()
 
 	repo, repoPath, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
 
-	client, conn := newSmartHTTPClient(t, serverSocketPath)
+	client, conn := newSmartHTTPClient(t, serverSocketPath, config.Config.Auth.Token)
 	defer conn.Close()
 
 	ctx, cancel := testhelper.Context()
@@ -138,13 +141,13 @@ func TestSuccessfulReceivePackRequestWithGitProtocol(t *testing.T) {
 }
 
 func TestFailedReceivePackRequestWithGitOpts(t *testing.T) {
-	serverSocketPath, stop := runSmartHTTPServer(t)
+	serverSocketPath, stop := runSmartHTTPServer(t, config.Config)
 	defer stop()
 
 	repo, _, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
 
-	client, conn := newSmartHTTPClient(t, serverSocketPath)
+	client, conn := newSmartHTTPClient(t, serverSocketPath, config.Config.Auth.Token)
 	defer conn.Close()
 
 	ctx, cancel := testhelper.Context()
@@ -175,13 +178,13 @@ func TestFailedReceivePackRequestDueToHooksFailure(t *testing.T) {
 	hookContent := []byte("#!/bin/sh\nexit 1")
 	ioutil.WriteFile(filepath.Join(hooks.Path(config.Config), "pre-receive"), hookContent, 0755)
 
-	serverSocketPath, stop := runSmartHTTPServer(t)
+	serverSocketPath, stop := runSmartHTTPServer(t, config.Config)
 	defer stop()
 
 	repo, _, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
 
-	client, conn := newSmartHTTPClient(t, serverSocketPath)
+	client, conn := newSmartHTTPClient(t, serverSocketPath, config.Config.Auth.Token)
 	defer conn.Close()
 
 	ctx, cancel := testhelper.Context()
@@ -283,10 +286,10 @@ func createCommit(t *testing.T, repoPath string, fileContents []byte) (oldHead s
 }
 
 func TestFailedReceivePackRequestDueToValidationError(t *testing.T) {
-	serverSocketPath, stop := runSmartHTTPServer(t)
+	serverSocketPath, stop := runSmartHTTPServer(t, config.Config)
 	defer stop()
 
-	client, conn := newSmartHTTPClient(t, serverSocketPath)
+	client, conn := newSmartHTTPClient(t, serverSocketPath, config.Config.Auth.Token)
 	defer conn.Close()
 
 	rpcRequests := []gitalypb.PostReceivePackRequest{
@@ -339,13 +342,13 @@ func TestInvalidTimezone(t *testing.T) {
 	_, cleanup := testhelper.CaptureHookEnv(t)
 	defer cleanup()
 
-	socket, stop := runSmartHTTPServer(t)
+	socket, stop := runSmartHTTPServer(t, config.Config)
 	defer stop()
 
 	repo, repoPath, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
 
-	client, conn := newSmartHTTPClient(t, socket)
+	client, conn := newSmartHTTPClient(t, socket, config.Config.Auth.Token)
 	defer conn.Close()
 
 	ctx, cancel := testhelper.Context()
@@ -384,10 +387,10 @@ func TestPostReceivePackToHooks(t *testing.T) {
 
 	config.Config.Auth.Token = "abc123"
 
-	server, socket := runSmartHTTPHookServiceServer(t)
+	server, socket := runSmartHTTPHookServiceServer(t, config.Config)
 	defer server.Stop()
 
-	client, conn := newSmartHTTPClient(t, "unix://"+socket)
+	client, conn := newSmartHTTPClient(t, "unix://"+socket, config.Config.Auth.Token)
 	defer conn.Close()
 
 	tempGitlabShellDir, cleanup := testhelper.TempDir(t)
@@ -442,7 +445,7 @@ func TestPostReceivePackToHooks(t *testing.T) {
 	require.Equal(t, io.EOF, drainPostReceivePackResponse(stream))
 }
 
-func runSmartHTTPHookServiceServer(t *testing.T) (*grpc.Server, string) {
+func runSmartHTTPHookServiceServer(t *testing.T, cfg config.Cfg) (*grpc.Server, string) {
 	server := testhelper.NewTestGrpcServer(t, nil, nil)
 
 	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
@@ -450,18 +453,18 @@ func runSmartHTTPHookServiceServer(t *testing.T) (*grpc.Server, string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	internalListener, err := net.Listen("unix", config.Config.GitalyInternalSocketPath())
+	internalListener, err := net.Listen("unix", cfg.GitalyInternalSocketPath())
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	locator := config.NewLocator(config.Config)
-	txManager := transaction.NewManager(config.Config)
-	hookManager := gitalyhook.NewManager(locator, txManager, gitalyhook.GitlabAPIStub, config.Config)
-	gitCmdFactory := git.NewExecCommandFactory(config.Config)
+	locator := config.NewLocator(cfg)
+	txManager := transaction.NewManager(cfg)
+	hookManager := gitalyhook.NewManager(locator, txManager, gitalyhook.GitlabAPIStub, cfg)
+	gitCmdFactory := git.NewExecCommandFactory(cfg)
 
-	gitalypb.RegisterSmartHTTPServiceServer(server, NewServer(config.Config, locator, gitCmdFactory))
-	gitalypb.RegisterHookServiceServer(server, hook.NewServer(config.Config, hookManager, gitCmdFactory))
+	gitalypb.RegisterSmartHTTPServiceServer(server, NewServer(cfg, locator, gitCmdFactory))
+	gitalypb.RegisterHookServiceServer(server, hook.NewServer(cfg, hookManager, gitCmdFactory))
 	reflection.Register(server)
 
 	go server.Serve(listener)
@@ -533,7 +536,7 @@ func testPostReceiveWithTransactionsViaPraefect(t *testing.T, ctx context.Contex
 		gitalyServer.GrpcServer().Serve(internalListener)
 	}()
 
-	client, conn := newSmartHTTPClient(t, "unix://"+gitalyServer.Socket())
+	client, conn := newSmartHTTPClient(t, "unix://"+gitalyServer.Socket(), config.Config.Auth.Token)
 	defer conn.Close()
 
 	stream, err := client.PostReceivePack(ctx)
@@ -585,7 +588,7 @@ func TestPostReceiveWithReferenceTransactionHook(t *testing.T) {
 	go gitalyServer.Serve(internalListener)
 	defer gitalyServer.Stop()
 
-	client, conn := newSmartHTTPClient(t, "unix://"+gitalySocketPath)
+	client, conn := newSmartHTTPClient(t, "unix://"+gitalySocketPath, config.Config.Auth.Token)
 	defer conn.Close()
 
 	// As we ain't got a Praefect server setup, we instead hooked up the
