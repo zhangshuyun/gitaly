@@ -21,8 +21,8 @@ func testMain(m *testing.M) int {
 	cleanup := testhelper.Configure()
 	defer cleanup()
 
-	testhelper.ConfigureGitalySSH()
-	testhelper.ConfigureGitalyHooksBinary()
+	testhelper.ConfigureGitalySSH(config.Config.BinDir)
+	testhelper.ConfigureGitalyHooksBinary(config.Config.BinDir)
 
 	gitalySSHPath = filepath.Join(config.Config.BinDir, "gitaly-ssh")
 

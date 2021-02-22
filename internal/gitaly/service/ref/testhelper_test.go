@@ -34,7 +34,7 @@ func testMain(m *testing.M) int {
 	cleanup := testhelper.Configure()
 	defer cleanup()
 
-	testhelper.ConfigureGitalyHooksBinary()
+	testhelper.ConfigureGitalyHooksBinary(config.Config.BinDir)
 
 	// Force small messages to test that fragmenting the
 	// ref list works correctly

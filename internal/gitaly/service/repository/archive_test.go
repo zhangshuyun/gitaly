@@ -173,7 +173,7 @@ func TestGetArchiveSuccess(t *testing.T) {
 }
 
 func TestGetArchiveWithLfsSuccess(t *testing.T) {
-	testhelper.ConfigureGitalyLfsSmudge()
+	testhelper.ConfigureGitalyLfsSmudge(config.Config.BinDir)
 
 	defaultOptions := testhelper.GitlabTestServerOptions{
 		SecretToken: secretToken,

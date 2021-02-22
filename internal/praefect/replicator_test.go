@@ -71,8 +71,8 @@ func testMain(m *testing.M) int {
 		return 1
 	}
 
-	testhelper.ConfigureGitalySSH()
-	testhelper.ConfigureGitalyHooksBinary()
+	testhelper.ConfigureGitalySSH(gitaly_config.Config.BinDir)
+	testhelper.ConfigureGitalyHooksBinary(gitaly_config.Config.BinDir)
 
 	RubyServer = rubyserver.New(gitaly_config.Config)
 	if err := RubyServer.Start(); err != nil {

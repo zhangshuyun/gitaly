@@ -6,6 +6,7 @@ import (
 	"os"
 	"testing"
 
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 )
 
@@ -17,6 +18,6 @@ func testMain(m *testing.M) int {
 	defer testhelper.MustHaveNoChildProcess()
 	cleanup := testhelper.Configure()
 	defer cleanup()
-	testhelper.ConfigureGitalyGit2Go()
+	testhelper.ConfigureGitalyGit2Go(config.Config.BinDir)
 	return m.Run()
 }
