@@ -68,7 +68,7 @@ type Batch interface {
 
 type batch struct {
 	sync.Mutex
-	*batchCheck
+	*batchCheckProcess
 	*batchProcess
 	cancel func()
 	closed bool
@@ -77,7 +77,7 @@ type batch struct {
 // Info returns an ObjectInfo if spec exists. If the revision does not exist
 // the error is of type NotFoundError.
 func (c *batch) Info(ctx context.Context, revision git.Revision) (*ObjectInfo, error) {
-	return c.batchCheck.info(revision)
+	return c.batchCheckProcess.info(revision)
 }
 
 // Tree returns a raw tree object. It is an error if the revision does not
@@ -111,8 +111,8 @@ func (c *batch) Tag(ctx context.Context, revision git.Revision) (*Object, error)
 	return c.batchProcess.reader(revision, "tag")
 }
 
-// Close closes the writers for batchCheck and batch. This is only used for
-// cached Batches
+// Close closes the writers for batchCheckProcess and batchProcess. This is only used for cached
+// Batches
 func (c *batch) Close() {
 	c.Lock()
 	defer c.Unlock()
@@ -123,8 +123,9 @@ func (c *batch) Close() {
 
 	c.closed = true
 	if c.cancel != nil {
-		// both c.batch and c.batchCheck have goroutines that listen on <ctx.Done()
-		// when this is cancelled, it will cause those goroutines to close both writers
+		// both c.batchProcess and c.batchCheckProcess have goroutines that listen on
+		// <ctx.Done() when this is cancelled, it will cause those goroutines to close both
+		// writers
 		c.cancel()
 	}
 }
@@ -205,17 +206,17 @@ func newBatch(ctx context.Context, gitCmdFactory git.CommandFactory, repo reposi
 		}
 	}()
 
-	b, err := newBatchProcess(ctx, gitCmdFactory, repo)
+	batchProcess, err := newBatchProcess(ctx, gitCmdFactory, repo)
 	if err != nil {
 		return nil, err
 	}
 
-	batchCheck, err := newBatchCheck(ctx, gitCmdFactory, repo)
+	batchCheckProcess, err := newBatchCheckProcess(ctx, gitCmdFactory, repo)
 	if err != nil {
 		return nil, err
 	}
 
-	return &batch{batchProcess: b, batchCheck: batchCheck}, nil
+	return &batch{batchProcess: batchProcess, batchCheckProcess: batchCheckProcess}, nil
 }
 
 func newInstrumentedBatch(c Batch) Batch {
