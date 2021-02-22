@@ -62,7 +62,7 @@ Praefect identifies inconsistencies in the storage cluster by cross-referencing 
 
 Expected state of physical storages can be attained by cross joining the configured physical storages with the expected repositories of the virtual storage in the `repositories` table. It's important to use configured storages as some physical storages might have been added to or removed from the virtual storage.
 
-Some possible inconsistencies are listed below. Each of the scenarios assume a virtual storage called `default` with a primary storage `gitaly-1` and a secondary storage  `gitaly-2`.
+Possible inconsistencies and their reconciliations are listed below. Each of the scenarios assume a virtual storage called `default` with a primary storage `gitaly-1` and a secondary storage  `gitaly-2`.
 
 ### Missing Repository
 
@@ -89,6 +89,8 @@ Praefect expects an up to date copy of a repository to be present on every assig
 | virtual_storage | relative_path                                                                      | storage  | generation |
 |-----------------|------------------------------------------------------------------------------------|----------|------------|
 | default         | @hashed/5f/9c/5f9c4ab08cac7457e9111a30e4664920607ea2c115a1433d7be98e97e64244ca.git | gitaly-1 | 0          |
+
+To fix the inconsistency, reconciler schedules `update`-type jobs to the storages missing the repository from random healthy storages with up to date replicas.
 
 ### Outdated Repository
 
@@ -119,6 +121,8 @@ In the case below, `gitaly-2` has an outdated version of the repository as its g
 | default         | @hashed/5f/9c/5f9c4ab08cac7457e9111a30e4664920607ea2c115a1433d7be98e97e64244ca.git | gitaly-1 | 2          |
 | default         | @hashed/5f/9c/5f9c4ab08cac7457e9111a30e4664920607ea2c115a1433d7be98e97e64244ca.git | gitaly-2 | 0          |
 
+To fix the inconsistency, reconciler schedules `update`-type jobs to the storages missing the repository from random healthy storages with up to date replicas.
+
 ### Unexpected Repository
 
 #### Deleted Repository
@@ -142,6 +146,8 @@ A physical storage might contain a repository that is not expected be present on
 | virtual_storage | relative_path                                                                      | storage  | generation |
 |-----------------|------------------------------------------------------------------------------------|----------|------------|
 | default         | @hashed/5f/9c/5f9c4ab08cac7457e9111a30e4664920607ea2c115a1433d7be98e97e64244ca.git | gitaly-2 | 2          |
+
+Praefect's reconciler doesn't fix the inconsistency at this time. A fix is tracked in https://gitlab.com/gitlab-org/gitaly/-/issues/3480.
 
 ### Unassigned Replica
 
@@ -196,6 +202,9 @@ from the virtual storage. Below, the repository's replication factor is `1` as `
 |-----------------|------------------------------------------------------------------------------------|----------|------------|
 | default         | @hashed/5f/9c/5f9c4ab08cac7457e9111a30e4664920607ea2c115a1433d7be98e97e64244ca.git | gitaly-1 | 2          |
 | default         | @hashed/5f/9c/5f9c4ab08cac7457e9111a30e4664920607ea2c115a1433d7be98e97e64244ca.git | gitaly-2 | 3          |
+
+The reconciler considers assigned but removed storages as still assigned. This means it won't schedule `delete_replica` jobs to any assigned storage before the assignments
+of the removed storages are manually removed.
 
 ## Known Problems
 
