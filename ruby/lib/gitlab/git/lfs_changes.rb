@@ -23,9 +23,7 @@ module Gitlab
         }
 
         rev_list.new_objects(**rev_list_params(params)) do |object_ids|
-          object_ids = object_ids.take(object_limit) if object_limit
-
-          Gitlab::Git::Blob.batch_lfs_pointers(@repository, object_ids)
+          Gitlab::Git::Blob.batch_lfs_pointers(@repository, object_ids, limit: object_limit)
         end
       end
 

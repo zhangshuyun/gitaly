@@ -58,12 +58,15 @@ module Gitlab
         # Find LFS blobs given an array of sha ids
         # Returns array of Gitlab::Git::Blob
         # Does not guarantee blob data will be set
-        def batch_lfs_pointers(repository, blob_ids)
-          blob_ids.lazy
-                  .select { |sha| possible_lfs_blob?(repository, sha) }
-                  .map { |sha| rugged_raw(repository, sha, limit: LFS_POINTER_MAX_SIZE) }
-                  .select(&:lfs_pointer?)
-                  .force
+        def batch_lfs_pointers(repository, blob_ids, limit: nil)
+          selector = blob_ids.lazy
+                             .select { |sha| possible_lfs_blob?(repository, sha) }
+                             .map { |sha| rugged_raw(repository, sha, limit: LFS_POINTER_MAX_SIZE) }
+                             .select(&:lfs_pointer?)
+
+          return selector.first(limit) if limit
+
+          selector.force
         end
 
         def binary?(data)

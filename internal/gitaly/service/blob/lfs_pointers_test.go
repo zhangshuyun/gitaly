@@ -203,17 +203,36 @@ func TestSuccessfulGetNewLFSPointersRequest(t *testing.T) {
 			},
 		},
 		{
-			desc: "request with limit",
+			desc: "request with non-exceeding limit",
 			request: &gitalypb.GetNewLFSPointersRequest{
 				Repository: testRepo,
 				Revision:   revision,
-				// This is limiting the amount of lines processed from the
-				// output of rev-list. For example, for this revision's  output
-				// there's an LFS object id in line 4 and another in line 14, so
-				// any limit in [0, 3] will yield no pointers, [4,13] will yield
-				// one, and [14,] will yield two. This is weird but it's the
-				// way the current implementation works ¯\_(ツ)_/¯
-				Limit: 19,
+				Limit:      9000,
+			},
+			expectedLFSPointers: []*gitalypb.LFSPointer{
+				{
+					Size: 133,
+					Data: []byte("version https://git-lfs.github.com/spec/v1\noid sha256:91eff75a492a3ed0dfcb544d7f31326bc4014c8551849c192fd1e48d4dd2c897\nsize 1575078\n\n"),
+					Oid:  "0c304a93cb8430108629bbbcaa27db3343299bc0",
+				},
+				{
+					Size: 127,
+					Data: []byte("version https://git-lfs.github.com/spec/v1\noid sha256:bad71f905b60729f502ca339f7c9f001281a3d12c68a5da7f15de8009f4bd63d\nsize 18\n"),
+					Oid:  "bab31d249f78fba464d1b75799aad496cc07fa3b",
+				},
+				{
+					Size: 127,
+					Data: []byte("version https://git-lfs.github.com/spec/v1\noid sha256:f2b0a1e7550e9b718dafc9b525a04879a766de62e4fbdfc46593d47f7ab74636\nsize 20\n"),
+					Oid:  "f78df813119a79bfbe0442ab92540a61d3ab7ff3",
+				},
+			},
+		},
+		{
+			desc: "request with smaller limit",
+			request: &gitalypb.GetNewLFSPointersRequest{
+				Repository: testRepo,
+				Revision:   revision,
+				Limit:      2,
 			},
 			expectedLFSPointers: []*gitalypb.LFSPointer{
 				{

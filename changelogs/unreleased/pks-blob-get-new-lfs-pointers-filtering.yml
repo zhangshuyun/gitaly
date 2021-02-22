@@ -1,0 +1,5 @@
+---
+title: 'blob: Fix filtering of new LFS pointers'
+merge_request: 3175
+author:
+type: fixed
