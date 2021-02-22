@@ -30,6 +30,8 @@ var (
 	GoUserRevert = FeatureFlag{Name: "go_user_revert", OnByDefault: false}
 	// GoGetAllLFSPointers enables the Go implementation of GetAllLFSPointers
 	GoGetAllLFSPointers = FeatureFlag{Name: "go_get_all_lfs_pointers", OnByDefault: false}
+	// GoGetLFSPointers enables the Go implementation of GetLFSPointers
+	GoGetLFSPointers = FeatureFlag{Name: "go_get_lfs_pointers", OnByDefault: false}
 
 	// TxApplyBfgObjectMapStream enables transactions for ApplyBfgObjectMapStream
 	TxApplyBfgObjectMapStream = FeatureFlag{Name: "tx_apply_bfg_object_map_stream", OnByDefault: true}
@@ -111,6 +113,7 @@ var All = []FeatureFlag{
 	GoUserUpdateSubmodule,
 	GoUserRevert,
 	GoGetAllLFSPointers,
+	GoGetLFSPointers,
 	TxApplyBfgObjectMapStream,
 	TxApplyGitattributes,
 	TxResolveConflicts,

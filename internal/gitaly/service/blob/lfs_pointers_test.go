@@ -64,6 +64,12 @@ var (
 )
 
 func TestSuccessfulGetLFSPointersRequest(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.GoGetLFSPointers,
+	}).Run(t, testSuccessfulGetLFSPointersRequest)
+}
+
+func testSuccessfulGetLFSPointersRequest(t *testing.T, ctx context.Context) {
 	stop, serverSocketPath := runBlobServer(t, testhelper.DefaultLocator())
 	defer stop()
 
@@ -72,9 +78,6 @@ func TestSuccessfulGetLFSPointersRequest(t *testing.T) {
 
 	client, conn := newBlobClient(t, serverSocketPath)
 	defer conn.Close()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
 	lfsPointerIds := []string{
 		lfsPointer1,
@@ -116,6 +119,12 @@ func TestSuccessfulGetLFSPointersRequest(t *testing.T) {
 }
 
 func TestFailedGetLFSPointersRequestDueToValidations(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.GoGetLFSPointers,
+	}).Run(t, testFailedGetLFSPointersRequestDueToValidations)
+}
+
+func testFailedGetLFSPointersRequestDueToValidations(t *testing.T, ctx context.Context) {
 	stop, serverSocketPath := runBlobServer(t, testhelper.DefaultLocator())
 	defer stop()
 
@@ -150,9 +159,6 @@ func TestFailedGetLFSPointersRequestDueToValidations(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
-
 			stream, err := client.GetLFSPointers(ctx, testCase.request)
 			require.NoError(t, err)
 

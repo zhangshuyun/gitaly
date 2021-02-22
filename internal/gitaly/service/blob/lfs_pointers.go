@@ -40,12 +40,42 @@ type getLFSPointerByRevisionRequest interface {
 	GetRevision() []byte
 }
 
+// GetLFSPointers takes the list of requested blob IDs and filters them down to blobs which are
+// valid LFS pointers. It is fine to pass blob IDs which do not point to a valid LFS pointer, but
+// passing blob IDs which do not exist results in an error.
 func (s *server) GetLFSPointers(req *gitalypb.GetLFSPointersRequest, stream gitalypb.BlobService_GetLFSPointersServer) error {
 	ctx := stream.Context()
 
 	if err := validateGetLFSPointersRequest(req); err != nil {
 		return status.Errorf(codes.InvalidArgument, "GetLFSPointers: %v", err)
 	}
+
+	if featureflag.IsDisabled(ctx, featureflag.GoGetLFSPointers) {
+		return s.rubyGetLFSPointers(req, stream)
+	}
+
+	repo := localrepo.New(s.gitCmdFactory, req.Repository, s.cfg)
+	objectIDs := strings.Join(req.BlobIds, "\n")
+
+	lfsPointers, err := readLFSPointers(ctx, repo, s.gitCmdFactory, strings.NewReader(objectIDs), false)
+	if err != nil {
+		return err
+	}
+
+	err = sliceLFSPointers(lfsPointers, func(slice []*gitalypb.LFSPointer) error {
+		return stream.Send(&gitalypb.GetLFSPointersResponse{
+			LfsPointers: slice,
+		})
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *server) rubyGetLFSPointers(req *gitalypb.GetLFSPointersRequest, stream gitalypb.BlobService_GetLFSPointersServer) error {
+	ctx := stream.Context()
 
 	client, err := s.ruby.BlobServiceClient(ctx)
 	if err != nil {
