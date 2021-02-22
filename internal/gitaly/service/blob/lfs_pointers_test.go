@@ -1,12 +1,16 @@
 package blob
 
 import (
+	"errors"
+	"fmt"
 	"io"
 	"os/exec"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -491,4 +495,185 @@ func refHasPtr(t *testing.T, repoPath, ref string, lfsPtr *gitalypb.LFSPointer) 
 		"git", "-C", repoPath, "rev-list", "--objects", ref))
 
 	return strings.Contains(objects, lfsPtr.Oid)
+}
+
+func TestFindLFSPointersByRevisions(t *testing.T) {
+	gitCmdFactory := git.NewExecCommandFactory(config.Config)
+
+	repoProto, _, cleanup := testhelper.NewTestRepo(t)
+	defer cleanup()
+	repo := localrepo.New(gitCmdFactory, repoProto, config.Config)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	for _, tc := range []struct {
+		desc                string
+		opts                []git.Option
+		revs                []string
+		expectedErr         error
+		expectedLFSPointers []*gitalypb.LFSPointer
+	}{
+		{
+			desc: "--all",
+			opts: []git.Option{
+				git.Flag{Name: "--all"},
+			},
+			expectedLFSPointers: []*gitalypb.LFSPointer{
+				lfsPointers[lfsPointer1],
+				lfsPointers[lfsPointer2],
+				lfsPointers[lfsPointer3],
+				lfsPointers[lfsPointer4],
+				lfsPointers[lfsPointer5],
+				lfsPointers[lfsPointer6],
+			},
+		},
+		{
+			desc: "--not --all",
+			opts: []git.Option{
+				git.Flag{Name: "--not"},
+				git.Flag{Name: "--all"},
+			},
+		},
+		{
+			desc: "initial commit",
+			revs: []string{"1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"},
+		},
+		{
+			desc: "master",
+			revs: []string{"master"},
+			expectedLFSPointers: []*gitalypb.LFSPointer{
+				lfsPointers[lfsPointer1],
+			},
+		},
+		{
+			desc: "multiple revisions",
+			revs: []string{"master", "moar-lfs-ptrs"},
+			expectedLFSPointers: []*gitalypb.LFSPointer{
+				lfsPointers[lfsPointer1],
+				lfsPointers[lfsPointer2],
+				lfsPointers[lfsPointer3],
+			},
+		},
+		{
+			desc:        "invalid dashed option",
+			revs:        []string{"master", "--foobar"},
+			expectedErr: fmt.Errorf("invalid revision: \"--foobar\""),
+		},
+		{
+			desc:        "invalid revision",
+			revs:        []string{"does-not-exist"},
+			expectedErr: fmt.Errorf("fatal: ambiguous argument 'does-not-exist'"),
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			actualLFSPointers, err := findLFSPointersByRevisions(
+				ctx, repo, gitCmdFactory, tc.opts, tc.revs...)
+			if tc.expectedErr == nil {
+				require.NoError(t, err)
+			} else {
+				require.Contains(t, err.Error(), tc.expectedErr.Error())
+			}
+			require.ElementsMatch(t, tc.expectedLFSPointers, actualLFSPointers)
+		})
+	}
+}
+
+func TestReadLFSPointers(t *testing.T) {
+	gitCmdFactory := git.NewExecCommandFactory(config.Config)
+
+	repoProto, _, cleanup := testhelper.NewTestRepo(t)
+	defer cleanup()
+	repo := localrepo.New(gitCmdFactory, repoProto, config.Config)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	for _, tc := range []struct {
+		desc                string
+		input               string
+		filterByObjectName  bool
+		expectedErr         error
+		expectedLFSPointers []*gitalypb.LFSPointer
+	}{
+		{
+			desc:  "single object ID",
+			input: strings.Join([]string{lfsPointer1}, "\n"),
+			expectedLFSPointers: []*gitalypb.LFSPointer{
+				lfsPointers[lfsPointer1],
+			},
+		},
+		{
+			desc: "multiple object IDs",
+			input: strings.Join([]string{
+				lfsPointer1,
+				lfsPointer2,
+				lfsPointer3,
+				lfsPointer4,
+				lfsPointer5,
+				lfsPointer6,
+			}, "\n"),
+			expectedLFSPointers: []*gitalypb.LFSPointer{
+				lfsPointers[lfsPointer1],
+				lfsPointers[lfsPointer2],
+				lfsPointers[lfsPointer3],
+				lfsPointers[lfsPointer4],
+				lfsPointers[lfsPointer5],
+				lfsPointers[lfsPointer6],
+			},
+		},
+		{
+			desc: "multiple object IDs with name filter",
+			input: strings.Join([]string{
+				lfsPointer1,
+				lfsPointer2,
+				lfsPointer3 + " x",
+				lfsPointer4,
+				lfsPointer5 + " z",
+				lfsPointer6 + " a",
+			}, "\n"),
+			filterByObjectName: true,
+			expectedLFSPointers: []*gitalypb.LFSPointer{
+				lfsPointers[lfsPointer3],
+				lfsPointers[lfsPointer5],
+				lfsPointers[lfsPointer6],
+			},
+		},
+		{
+			desc: "non-pointer object",
+			input: strings.Join([]string{
+				"60ecb67744cb56576c30214ff52294f8ce2def98",
+			}, "\n"),
+		},
+		{
+			desc: "mixed objects",
+			input: strings.Join([]string{
+				"60ecb67744cb56576c30214ff52294f8ce2def98",
+				lfsPointer2,
+			}, "\n"),
+			expectedLFSPointers: []*gitalypb.LFSPointer{
+				lfsPointers[lfsPointer2],
+			},
+		},
+		{
+			desc: "missing object",
+			input: strings.Join([]string{
+				"0101010101010101010101010101010101010101",
+			}, "\n"),
+			expectedErr: errors.New("object not found"),
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			reader := strings.NewReader(tc.input)
+
+			actualLFSPointers, err := readLFSPointers(
+				ctx, repo, gitCmdFactory, reader, tc.filterByObjectName)
+			if tc.expectedErr == nil {
+				require.NoError(t, err)
+			} else {
+				require.Contains(t, err.Error(), tc.expectedErr.Error())
+			}
+			require.ElementsMatch(t, tc.expectedLFSPointers, actualLFSPointers)
+		})
+	}
 }
