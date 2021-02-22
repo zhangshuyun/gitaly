@@ -17,7 +17,12 @@ module Gitlab
       private
 
       def git_new_pointers(object_limit, not_in)
-        rev_list.new_objects(**rev_list_params(not_in: not_in)) do |object_ids|
+        params = {
+          options: ["--filter=blob:limit=#{Gitlab::Git::Blob::LFS_POINTER_MAX_SIZE}"],
+          not_in: not_in
+        }
+
+        rev_list.new_objects(**rev_list_params(params)) do |object_ids|
           object_ids = object_ids.take(object_limit) if object_limit
 
           Gitlab::Git::Blob.batch_lfs_pointers(@repository, object_ids)
