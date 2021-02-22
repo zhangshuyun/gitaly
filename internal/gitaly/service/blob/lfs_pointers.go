@@ -25,6 +25,9 @@ const (
 	// as a heuristic to filter blobs which can't be LFS pointers. The format of these pointers
 	// is described in https://github.com/git-lfs/git-lfs/blob/master/docs/spec.md#the-pointer.
 	lfsPointerMaxSize = 200
+
+	// lfsPointerSliceSize is the maximum number of LFSPointers to send at once.
+	lfsPointerSliceSize = 100
 )
 
 var (
@@ -290,4 +293,27 @@ func isLFSPointer(data []byte) bool {
 	// the "https://hawser.github.com/spec/v1" version. For compatibility with the Ruby RPC, we
 	// leave this as-is for now though.
 	return bytes.HasPrefix(data, []byte("version https://git-lfs.github.com/spec"))
+}
+
+// sliceLFSPointers slices the given pointers into subsets of slices with at most
+// lfsPointerSliceSize many pointers and executes the given fallback function. If the callback
+// returns an error, slicing is aborted and the error is returned verbosely.
+func sliceLFSPointers(pointers []*gitalypb.LFSPointer, fn func([]*gitalypb.LFSPointer) error) error {
+	chunkSize := lfsPointerSliceSize
+
+	for {
+		if len(pointers) == 0 {
+			return nil
+		}
+
+		if len(pointers) < chunkSize {
+			chunkSize = len(pointers)
+		}
+
+		if err := fn(pointers[:chunkSize]); err != nil {
+			return err
+		}
+
+		pointers = pointers[chunkSize:]
+	}
 }

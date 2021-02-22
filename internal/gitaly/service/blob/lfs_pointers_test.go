@@ -677,3 +677,73 @@ func TestReadLFSPointers(t *testing.T) {
 		})
 	}
 }
+
+func TestSliceLFSPointers(t *testing.T) {
+	generateSlice := func(n, offset int) []*gitalypb.LFSPointer {
+		slice := make([]*gitalypb.LFSPointer, n)
+		for i := 0; i < n; i++ {
+			slice[i] = &gitalypb.LFSPointer{
+				Size: int64(i + offset),
+			}
+		}
+		return slice
+	}
+
+	for _, tc := range []struct {
+		desc           string
+		err            error
+		lfsPointers    []*gitalypb.LFSPointer
+		expectedSlices [][]*gitalypb.LFSPointer
+	}{
+		{
+			desc: "empty",
+		},
+		{
+			desc:        "single slice",
+			lfsPointers: generateSlice(10, 0),
+			expectedSlices: [][]*gitalypb.LFSPointer{
+				generateSlice(10, 0),
+			},
+		},
+		{
+			desc:        "two slices",
+			lfsPointers: generateSlice(101, 0),
+			expectedSlices: [][]*gitalypb.LFSPointer{
+				generateSlice(100, 0),
+				generateSlice(1, 100),
+			},
+		},
+		{
+			desc:        "many slices",
+			lfsPointers: generateSlice(635, 0),
+			expectedSlices: [][]*gitalypb.LFSPointer{
+				generateSlice(100, 0),
+				generateSlice(100, 100),
+				generateSlice(100, 200),
+				generateSlice(100, 300),
+				generateSlice(100, 400),
+				generateSlice(100, 500),
+				generateSlice(35, 600),
+			},
+		},
+		{
+			desc:        "error",
+			lfsPointers: generateSlice(500, 0),
+			err:         errors.New("foo"),
+			expectedSlices: [][]*gitalypb.LFSPointer{
+				generateSlice(100, 0),
+			},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			var slices [][]*gitalypb.LFSPointer
+
+			err := sliceLFSPointers(tc.lfsPointers, func(slice []*gitalypb.LFSPointer) error {
+				slices = append(slices, slice)
+				return tc.err
+			})
+			require.Equal(t, tc.err, err)
+			require.Equal(t, tc.expectedSlices, slices)
+		})
+	}
+}
