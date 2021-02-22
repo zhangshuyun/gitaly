@@ -28,8 +28,15 @@ end
 def main(expiry)
   cache = {}
   stats = Hash.new(0)
+  records = []
 
   while rec = next_record
+    records << rec
+  end
+
+  records.sort! { |a, b| a.created_at <=> b.created_at }
+
+  records.each do |rec|
     _, first = cache.first
     while first && rec.created_at - first.created_at > expiry
       cache.shift
