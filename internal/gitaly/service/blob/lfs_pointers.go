@@ -6,7 +6,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
-	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -106,11 +105,19 @@ func (s *server) GetNewLFSPointers(in *gitalypb.GetNewLFSPointersRequest, stream
 	})
 }
 
+func validateGetLfsPointersByRevisionRequest(in getLFSPointerByRevisionRequest) error {
+	if in.GetRepository() == nil {
+		return fmt.Errorf("empty Repository")
+	}
+
+	return git.ValidateRevision(in.GetRevision())
+}
+
 func (s *server) GetAllLFSPointers(in *gitalypb.GetAllLFSPointersRequest, stream gitalypb.BlobService_GetAllLFSPointersServer) error {
 	ctx := stream.Context()
 
-	if in.GetRepository() == nil {
-		return helper.ErrInvalidArgument(fmt.Errorf("empty Repository"))
+	if err := validateGetAllLFSPointersRequest(in); err != nil {
+		return status.Errorf(codes.InvalidArgument, "GetAllLFSPointers: %v", err)
 	}
 
 	client, err := s.ruby.BlobServiceClient(ctx)
@@ -139,10 +146,9 @@ func (s *server) GetAllLFSPointers(in *gitalypb.GetAllLFSPointersRequest, stream
 	})
 }
 
-func validateGetLfsPointersByRevisionRequest(in getLFSPointerByRevisionRequest) error {
+func validateGetAllLFSPointersRequest(in *gitalypb.GetAllLFSPointersRequest) error {
 	if in.GetRepository() == nil {
 		return fmt.Errorf("empty Repository")
 	}
-
-	return git.ValidateRevision(in.GetRevision())
+	return nil
 }
