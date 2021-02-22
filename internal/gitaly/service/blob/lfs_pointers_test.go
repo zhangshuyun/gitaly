@@ -1,6 +1,7 @@
 package blob
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -12,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -364,6 +366,12 @@ func drainNewPointers(c gitalypb.BlobService_GetNewLFSPointersClient) error {
 }
 
 func TestSuccessfulGetAllLFSPointersRequest(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.GoGetAllLFSPointers,
+	}).Run(t, testSuccessfulGetAllLFSPointersRequest)
+}
+
+func testSuccessfulGetAllLFSPointersRequest(t *testing.T, ctx context.Context) {
 	stop, serverSocketPath := runBlobServer(t, testhelper.DefaultLocator())
 	defer stop()
 
@@ -372,9 +380,6 @@ func TestSuccessfulGetAllLFSPointersRequest(t *testing.T) {
 
 	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
 	request := &gitalypb.GetAllLFSPointersRequest{
 		Repository: testRepo,
@@ -411,14 +416,17 @@ func getAllPointers(t *testing.T, c gitalypb.BlobService_GetAllLFSPointersClient
 }
 
 func TestFailedGetAllLFSPointersRequestDueToValidations(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.GoGetAllLFSPointers,
+	}).Run(t, testFailedGetAllLFSPointersRequestDueToValidations)
+}
+
+func testFailedGetAllLFSPointersRequestDueToValidations(t *testing.T, ctx context.Context) {
 	stop, serverSocketPath := runBlobServer(t, testhelper.DefaultLocator())
 	defer stop()
 
 	client, conn := newBlobClient(t, serverSocketPath)
 	defer conn.Close()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
 	testCases := []struct {
 		desc       string
@@ -455,9 +463,15 @@ func drainAllPointers(c gitalypb.BlobService_GetAllLFSPointersClient) error {
 	}
 }
 
+func TestGetAllLFSPointersVerifyScope(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.GoGetAllLFSPointers,
+	}).Run(t, testGetAllLFSPointersVerifyScope)
+}
+
 // TestGetAllLFSPointersVerifyScope verifies that this RPC returns all LFS
 // pointers in a repository, not only ones reachable from the default branch
-func TestGetAllLFSPointersVerifyScope(t *testing.T) {
+func testGetAllLFSPointersVerifyScope(t *testing.T, ctx context.Context) {
 	stop, serverSocketPath := runBlobServer(t, testhelper.DefaultLocator())
 	defer stop()
 
@@ -466,9 +480,6 @@ func TestGetAllLFSPointersVerifyScope(t *testing.T) {
 
 	testRepo, repoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
 	request := &gitalypb.GetAllLFSPointersRequest{
 		Repository: testRepo,

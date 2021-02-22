@@ -15,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
+	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -125,12 +126,45 @@ func validateGetLfsPointersByRevisionRequest(in getLFSPointerByRevisionRequest) 
 	return git.ValidateRevision(in.GetRevision())
 }
 
+// GetAllLFSPointers returns all LFS pointers of the git repository which are reachable by any git
+// reference. LFS pointers are streamed back in batches of lfsPointerSliceSize.
 func (s *server) GetAllLFSPointers(in *gitalypb.GetAllLFSPointersRequest, stream gitalypb.BlobService_GetAllLFSPointersServer) error {
 	ctx := stream.Context()
 
 	if err := validateGetAllLFSPointersRequest(in); err != nil {
 		return status.Errorf(codes.InvalidArgument, "GetAllLFSPointers: %v", err)
 	}
+
+	if featureflag.IsDisabled(ctx, featureflag.GoGetAllLFSPointers) {
+		return s.rubyGetAllLFSPointers(in, stream)
+	}
+
+	repo := localrepo.New(s.gitCmdFactory, in.Repository, s.cfg)
+
+	lfsPointers, err := findLFSPointersByRevisions(ctx, repo, s.gitCmdFactory, []git.Option{
+		git.Flag{Name: "--all"},
+	})
+	if err != nil {
+		if errors.Is(err, errInvalidRevision) {
+			return status.Errorf(codes.InvalidArgument, err.Error())
+		}
+		return err
+	}
+
+	err = sliceLFSPointers(lfsPointers, func(slice []*gitalypb.LFSPointer) error {
+		return stream.Send(&gitalypb.GetAllLFSPointersResponse{
+			LfsPointers: slice,
+		})
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *server) rubyGetAllLFSPointers(in *gitalypb.GetAllLFSPointersRequest, stream gitalypb.BlobService_GetAllLFSPointersServer) error {
+	ctx := stream.Context()
 
 	client, err := s.ruby.BlobServiceClient(ctx)
 	if err != nil {
