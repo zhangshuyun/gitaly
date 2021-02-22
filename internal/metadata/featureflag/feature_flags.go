@@ -19,6 +19,8 @@ var (
 	GoUserUpdateBranch = FeatureFlag{Name: "go_user_update_branch", OnByDefault: true}
 	// GoResolveConflicts enables the Go implementation of ResolveConflicts
 	GoResolveConflicts = FeatureFlag{Name: "go_resolve_conflicts", OnByDefault: false}
+	// UserRebaseConfirmable
+	GoUserRebaseConfirmable = FeatureFlag{Name: "go_user_rebase_confirmable", OnByDefault: false}
 	// GoUserUpdateSubmodule enables the Go implementation of
 	// UserUpdateSubmodules
 	GoUserUpdateSubmodule = FeatureFlag{Name: "go_user_update_submodule", OnByDefault: true}
@@ -43,6 +45,7 @@ var All = []FeatureFlag{
 	GoUserCherryPick,
 	GoUserUpdateBranch,
 	GoResolveConflicts,
+	GoUserRebaseConfirmable,
 	GoUserUpdateSubmodule,
 	GoUserRevert,
 	GrpcTreeEntryNotFound,
