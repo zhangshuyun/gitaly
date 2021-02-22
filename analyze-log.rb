@@ -25,9 +25,7 @@ class Record
   end
 end
 
-def main(expiry)
-  cache = {}
-  stats = Hash.new(0)
+def main
   records = []
 
   while rec = next_record
@@ -36,6 +34,16 @@ def main(expiry)
 
   records.sort! { |a, b| a.created_at <=> b.created_at }
 
+  [1, 5, 10, 30, 60].each do |minutes|
+    simulate(records, minutes*60)
+  end
+end
+
+def simulate(records, expiry)
+  cache = {}
+  stats = Hash.new(0)
+
+  puts "Expiry: #{expiry}s"
   records.each do |rec|
     _, first = cache.first
     while first && rec.created_at - first.created_at > expiry
@@ -59,6 +67,8 @@ def main(expiry)
   end
 
   puts stats
+  puts "hit ratio: #{Float(stats[:hit])/records.size}"
+  puts "max cache size: #{Float(stats[:max_size])/(1024*1024*1024)}GB"
 end
 
 def next_record
@@ -67,4 +77,4 @@ def next_record
   Record.new(JSON.parse(line))
 end
 
-main(Integer(ARGV.first))
+main
