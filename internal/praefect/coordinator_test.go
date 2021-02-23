@@ -16,10 +16,12 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/metadatahandler"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/grpc-proxy/proxy"
 	praefect_metadata "gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/mock"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/nodes"
@@ -1289,4 +1291,433 @@ func requireScopeOperation(t *testing.T, registry *protoregistry.Registry, fullM
 	require.NoError(t, err)
 	require.Equal(t, scope, mi.Scope, "scope doesn't match requested")
 	require.Equal(t, op, mi.Operation, "operation type doesn't match requested")
+}
+
+type mockOperationServer struct {
+	gitalypb.UnimplementedOperationServiceServer
+	t      testing.TB
+	wg     *sync.WaitGroup
+	err    error
+	called bool
+}
+
+func (s *mockOperationServer) UserCreateBranch(
+	context.Context,
+	*gitalypb.UserCreateBranchRequest,
+) (*gitalypb.UserCreateBranchResponse, error) {
+	// We need to wait for all servers to arrive in this RPC. If we don't it could be that for
+	// example the primary arrives quicker than the others and directly errors. This would cause
+	// stream cancellation, and if the secondaries didn't yet end up in UserCreateBranch, we
+	// wouldn't see the function call.
+	s.wg.Done()
+	s.wg.Wait()
+
+	s.called = true
+	return &gitalypb.UserCreateBranchResponse{}, s.err
+}
+
+// TestCoordinator_grpcErrorHandling asserts that we correctly proxy errors in case any of the nodes
+// fails. Most importantly, we want to make sure to only ever forward errors from the primary and
+// never from the secondaries.
+func TestCoordinator_grpcErrorHandling(t *testing.T) {
+	ctx, cleanup := testhelper.Context()
+	defer cleanup()
+
+	praefectConfig := config.Config{
+		VirtualStorages: []*config.VirtualStorage{
+			&config.VirtualStorage{
+				Name: testhelper.DefaultStorageName,
+			},
+		},
+	}
+
+	var wg sync.WaitGroup
+	type gitalyNode struct {
+		mock            *nodes.MockNode
+		grpcServer      *grpc.Server
+		operationServer *mockOperationServer
+	}
+
+	gitalies := make(map[string]gitalyNode)
+	for _, gitaly := range []string{"primary", "secondary-1", "secondary-2"} {
+		gitaly := gitaly
+
+		grpcServer := testhelper.NewTestGrpcServer(t, nil, nil)
+
+		operationServer := &mockOperationServer{
+			t:  t,
+			wg: &wg,
+		}
+		gitalypb.RegisterOperationServiceServer(grpcServer, operationServer)
+
+		listener, address := testhelper.GetLocalhostListener(t)
+		go grpcServer.Serve(listener)
+		defer grpcServer.Stop()
+
+		conn, err := client.DialContext(ctx, "tcp://"+address, []grpc.DialOption{
+			grpc.WithDefaultCallOptions(grpc.ForceCodec(proxy.NewCodec())),
+		})
+		require.NoError(t, err)
+
+		gitalies[gitaly] = gitalyNode{
+			mock: &nodes.MockNode{
+				Conn:             conn,
+				Healthy:          true,
+				GetStorageMethod: func() string { return gitaly },
+			},
+			grpcServer:      grpcServer,
+			operationServer: operationServer,
+		}
+
+		praefectConfig.VirtualStorages[0].Nodes = append(praefectConfig.VirtualStorages[0].Nodes, &config.Node{
+			Address: "tcp://" + address,
+			Storage: gitaly,
+		})
+	}
+
+	// Set up a mock manager which sets up primary/secondaries and pretends that all nodes are
+	// healthy. We need fixed roles and unhealthy nodes will not take part in transactions.
+	nodeManager := &nodes.MockManager{
+		Storage: testhelper.DefaultStorageName,
+		GetShardFunc: func(shardName string) (nodes.Shard, error) {
+			require.Equal(t, testhelper.DefaultStorageName, shardName)
+			return nodes.Shard{
+				Primary: gitalies["primary"].mock,
+				Secondaries: []nodes.Node{
+					gitalies["secondary-1"].mock,
+					gitalies["secondary-2"].mock,
+				},
+			}, nil
+		},
+	}
+
+	// Set up a mock repsoitory store pretending that all nodes are consistent. Only consistent
+	// nodes will take part in transactions.
+	repositoryStore := datastore.MockRepositoryStore{
+		GetConsistentStoragesFunc: func(ctx context.Context, virtualStorage, relativePath string) (map[string]struct{}, error) {
+			return map[string]struct{}{"primary": {}, "secondary-1": {}, "secondary-2": {}}, nil
+		},
+	}
+
+	praefectConn, _, cleanup := runPraefectServer(t, praefectConfig, buildOptions{
+		withNodeMgr:   nodeManager,
+		withRepoStore: repositoryStore,
+	})
+	defer cleanup()
+
+	repoProto, _, cleanup := testhelper.NewTestRepo(t)
+	defer cleanup()
+
+	operationClient := gitalypb.NewOperationServiceClient(praefectConn)
+
+	for _, tc := range []struct {
+		desc        string
+		errByNode   map[string]error
+		expectedErr error
+	}{
+		{
+			desc: "no errors",
+		},
+		{
+			desc: "primary error gets forwarded",
+			errByNode: map[string]error{
+				"primary": errors.New("foo"),
+			},
+			expectedErr: status.Error(codes.Unknown, "foo"),
+		},
+		{
+			desc: "secondary error gets ignored",
+			errByNode: map[string]error{
+				"secondary-1": errors.New("foo"),
+			},
+		},
+		{
+			desc: "primary error has precedence",
+			errByNode: map[string]error{
+				"primary":     errors.New("primary"),
+				"secondary-1": errors.New("secondary-1"),
+				"secondary-2": errors.New("secondary-2"),
+			},
+			expectedErr: status.Error(codes.Unknown, "primary"),
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			for name, node := range gitalies {
+				wg.Add(1)
+				node.operationServer.err = tc.errByNode[name]
+				node.operationServer.called = false
+			}
+
+			_, err := operationClient.UserCreateBranch(ctx,
+				&gitalypb.UserCreateBranchRequest{
+					Repository: repoProto,
+				})
+			require.Equal(t, tc.expectedErr, err)
+
+			for _, node := range gitalies {
+				require.True(t, node.operationServer.called, "expected gitaly %q to have been called", node.mock.GetStorage())
+			}
+		})
+	}
+}
+
+type mockTransaction struct {
+	nodeStates      map[string]transactions.VoteResult
+	subtransactions int
+}
+
+func (t mockTransaction) ID() uint64 {
+	return 0
+}
+
+func (t mockTransaction) CountSubtransactions() int {
+	return t.subtransactions
+}
+
+func (t mockTransaction) State() (map[string]transactions.VoteResult, error) {
+	return t.nodeStates, nil
+}
+
+func TestGetUpdatedAndOutdatedSecondaries(t *testing.T) {
+	type node struct {
+		name  string
+		state transactions.VoteResult
+		err   error
+	}
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	anyErr := errors.New("arbitrary error")
+
+	for _, tc := range []struct {
+		desc             string
+		primary          node
+		secondaries      []node
+		replicas         []string
+		subtransactions  int
+		expectedOutdated []string
+		expectedUpdated  []string
+	}{
+		{
+			desc: "single committed node",
+			primary: node{
+				name:  "primary",
+				state: transactions.VoteCommitted,
+			},
+			subtransactions: 1,
+		},
+		{
+			desc: "single failed node",
+			primary: node{
+				name:  "primary",
+				state: transactions.VoteFailed,
+			},
+			subtransactions: 1,
+		},
+		{
+			desc: "single erred node",
+			primary: node{
+				name: "primary",
+				err:  anyErr,
+			},
+		},
+		{
+			desc: "single node without subtransactions",
+			primary: node{
+				name: "primary",
+			},
+			subtransactions: 0,
+		},
+		{
+			desc: "single successful node with replica",
+			primary: node{
+				name:  "primary",
+				state: transactions.VoteCommitted,
+			},
+			replicas:         []string{"replica"},
+			subtransactions:  1,
+			expectedOutdated: []string{"replica"},
+		},
+		{
+			desc: "single failing node with replica",
+			primary: node{
+				name:  "primary",
+				state: transactions.VoteFailed,
+			},
+			replicas:         []string{"replica"},
+			subtransactions:  1,
+			expectedOutdated: []string{"replica"},
+		},
+		{
+			desc: "single erred node with replica",
+			primary: node{
+				name:  "primary",
+				state: transactions.VoteCommitted,
+				err:   anyErr,
+			},
+			replicas:         []string{"replica"},
+			subtransactions:  1,
+			expectedOutdated: []string{"replica"},
+		},
+		{
+			desc: "single node without transaction with replica",
+			primary: node{
+				name: "primary",
+			},
+			replicas:         []string{"replica"},
+			subtransactions:  0,
+			expectedOutdated: []string{"replica"},
+		},
+		{
+			desc: "multiple committed nodes",
+			primary: node{
+				name:  "primary",
+				state: transactions.VoteCommitted,
+			},
+			secondaries: []node{
+				{name: "s1", state: transactions.VoteCommitted},
+				{name: "s2", state: transactions.VoteCommitted},
+			},
+			subtransactions: 1,
+			expectedUpdated: []string{"s1", "s2"},
+		},
+		{
+			desc: "multiple committed nodes with primary err",
+			primary: node{
+				name:  "primary",
+				state: transactions.VoteCommitted,
+				err:   anyErr,
+			},
+			secondaries: []node{
+				{name: "s1", state: transactions.VoteCommitted},
+				{name: "s2", state: transactions.VoteCommitted},
+			},
+			subtransactions:  1,
+			expectedOutdated: []string{"s1", "s2"},
+		},
+		{
+			desc: "multiple committed nodes with secondary err",
+			primary: node{
+				name:  "primary",
+				state: transactions.VoteCommitted,
+			},
+			secondaries: []node{
+				{name: "s1", state: transactions.VoteCommitted, err: anyErr},
+				{name: "s2", state: transactions.VoteCommitted},
+			},
+			subtransactions:  1,
+			expectedUpdated:  []string{"s2"},
+			expectedOutdated: []string{"s1"},
+		},
+		{
+			desc: "partial success",
+			primary: node{
+				name:  "primary",
+				state: transactions.VoteCommitted,
+			},
+			secondaries: []node{
+				{name: "s1", state: transactions.VoteFailed},
+				{name: "s2", state: transactions.VoteCommitted},
+			},
+			subtransactions:  1,
+			expectedUpdated:  []string{"s2"},
+			expectedOutdated: []string{"s1"},
+		},
+		{
+			desc: "failure with (impossible) secondary success",
+			primary: node{
+				name:  "primary",
+				state: transactions.VoteFailed,
+			},
+			secondaries: []node{
+				{name: "s1", state: transactions.VoteFailed},
+				{name: "s2", state: transactions.VoteCommitted},
+			},
+			subtransactions:  1,
+			expectedOutdated: []string{"s1", "s2"},
+		},
+		{
+			desc: "multiple nodes without subtransactions",
+			primary: node{
+				name:  "primary",
+				state: transactions.VoteFailed,
+			},
+			secondaries: []node{
+				{name: "s1", state: transactions.VoteFailed},
+				{name: "s2", state: transactions.VoteCommitted},
+			},
+			subtransactions:  0,
+			expectedOutdated: []string{"s1", "s2"},
+		},
+		{
+			desc: "multiple nodes with replica and partial failures",
+			primary: node{
+				name:  "primary",
+				state: transactions.VoteCommitted,
+			},
+			secondaries: []node{
+				{name: "s1", state: transactions.VoteFailed},
+				{name: "s2", state: transactions.VoteCommitted},
+			},
+			replicas:         []string{"r1", "r2"},
+			subtransactions:  1,
+			expectedOutdated: []string{"s1", "r1", "r2"},
+			expectedUpdated:  []string{"s2"},
+		},
+		{
+			desc: "multiple nodes with replica and partial err",
+			primary: node{
+				name:  "primary",
+				state: transactions.VoteCommitted,
+			},
+			secondaries: []node{
+				{name: "s1", state: transactions.VoteFailed},
+				{name: "s2", state: transactions.VoteCommitted, err: anyErr},
+			},
+			replicas:         []string{"r1", "r2"},
+			subtransactions:  1,
+			expectedOutdated: []string{"s1", "s2", "r1", "r2"},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			nodes := append(tc.secondaries, tc.primary)
+			voters := make([]transactions.Voter, len(nodes))
+
+			states := make(map[string]transactions.VoteResult)
+			nodeErrors := &nodeErrors{
+				errByNode: make(map[string]error),
+			}
+
+			for i, node := range nodes {
+				voters[i] = transactions.Voter{
+					Name:  node.name,
+					Votes: 1,
+				}
+				states[node.name] = node.state
+				nodeErrors.errByNode[node.name] = node.err
+			}
+
+			transaction := mockTransaction{
+				nodeStates:      states,
+				subtransactions: tc.subtransactions,
+			}
+
+			route := RepositoryMutatorRoute{
+				Primary: RouterNode{
+					Storage: tc.primary.name,
+				},
+			}
+			for _, secondary := range tc.secondaries {
+				route.Secondaries = append(route.Secondaries, RouterNode{
+					Storage: secondary.name,
+				})
+			}
+			route.ReplicationTargets = append(route.ReplicationTargets, tc.replicas...)
+
+			updated, outdated := getUpdatedAndOutdatedSecondaries(ctx, route, transaction, nodeErrors)
+			require.ElementsMatch(t, tc.expectedUpdated, updated)
+			require.ElementsMatch(t, tc.expectedOutdated, outdated)
+		})
+	}
 }

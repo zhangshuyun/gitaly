@@ -32,12 +32,13 @@ func getDB(t *testing.T) glsql.DB {
 
 func TestStreamDirectorMutator_Transaction(t *testing.T) {
 	type node struct {
-		primary           bool
-		vote              string
-		shouldSucceed     bool
-		shouldGetRepl     bool
-		shouldParticipate bool
-		generation        int
+		primary            bool
+		vote               string
+		shouldSucceed      bool
+		shouldGetRepl      bool
+		shouldParticipate  bool
+		generation         int
+		expectedGeneration int
 	}
 
 	testcases := []struct {
@@ -47,48 +48,48 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 		{
 			desc: "successful vote should not create replication jobs",
 			nodes: []node{
-				{primary: true, vote: "foobar", shouldSucceed: true, shouldGetRepl: false, shouldParticipate: true},
-				{primary: false, vote: "foobar", shouldSucceed: true, shouldGetRepl: false, shouldParticipate: true},
-				{primary: false, vote: "foobar", shouldSucceed: true, shouldGetRepl: false, shouldParticipate: true},
+				{primary: true, vote: "foobar", shouldSucceed: true, shouldGetRepl: false, shouldParticipate: true, expectedGeneration: 1},
+				{primary: false, vote: "foobar", shouldSucceed: true, shouldGetRepl: false, shouldParticipate: true, expectedGeneration: 1},
+				{primary: false, vote: "foobar", shouldSucceed: true, shouldGetRepl: false, shouldParticipate: true, expectedGeneration: 1},
 			},
 		},
 		{
 			desc: "failing vote should not create replication jobs",
 			nodes: []node{
-				{primary: true, vote: "foo", shouldSucceed: false, shouldGetRepl: false, shouldParticipate: true},
-				{primary: false, vote: "qux", shouldSucceed: false, shouldGetRepl: false, shouldParticipate: true},
-				{primary: false, vote: "bar", shouldSucceed: false, shouldGetRepl: false, shouldParticipate: true},
+				{primary: true, vote: "foo", shouldSucceed: false, shouldGetRepl: false, shouldParticipate: true, expectedGeneration: 1},
+				{primary: false, vote: "qux", shouldSucceed: false, shouldGetRepl: true, shouldParticipate: true, expectedGeneration: 0},
+				{primary: false, vote: "bar", shouldSucceed: false, shouldGetRepl: true, shouldParticipate: true, expectedGeneration: 0},
 			},
 		},
 		{
 			desc: "primary should reach quorum with disagreeing secondary",
 			nodes: []node{
-				{primary: true, vote: "foobar", shouldSucceed: true, shouldGetRepl: false, shouldParticipate: true},
-				{primary: false, vote: "barfoo", shouldSucceed: false, shouldGetRepl: true, shouldParticipate: true},
+				{primary: true, vote: "foobar", shouldSucceed: true, shouldGetRepl: false, shouldParticipate: true, expectedGeneration: 1},
+				{primary: false, vote: "barfoo", shouldSucceed: false, shouldGetRepl: true, shouldParticipate: true, expectedGeneration: 0},
 			},
 		},
 		{
 			desc: "quorum should create replication jobs for disagreeing node",
 			nodes: []node{
-				{primary: true, vote: "foobar", shouldSucceed: true, shouldGetRepl: false, shouldParticipate: true},
-				{primary: false, vote: "foobar", shouldSucceed: true, shouldGetRepl: false, shouldParticipate: true},
-				{primary: false, vote: "barfoo", shouldSucceed: false, shouldGetRepl: true, shouldParticipate: true},
+				{primary: true, vote: "foobar", shouldSucceed: true, shouldGetRepl: false, shouldParticipate: true, expectedGeneration: 1},
+				{primary: false, vote: "foobar", shouldSucceed: true, shouldGetRepl: false, shouldParticipate: true, expectedGeneration: 1},
+				{primary: false, vote: "barfoo", shouldSucceed: false, shouldGetRepl: true, shouldParticipate: true, expectedGeneration: 0},
 			},
 		},
 		{
 			desc: "only consistent secondaries should participate",
 			nodes: []node{
-				{primary: true, vote: "foobar", shouldSucceed: true, shouldParticipate: true, generation: 1},
-				{primary: false, vote: "foobar", shouldSucceed: true, shouldParticipate: true, generation: 1},
-				{shouldParticipate: false, shouldGetRepl: true, generation: 0},
-				{shouldParticipate: false, shouldGetRepl: true, generation: datastore.GenerationUnknown},
+				{primary: true, vote: "foobar", shouldSucceed: true, shouldParticipate: true, generation: 1, expectedGeneration: 2},
+				{primary: false, vote: "foobar", shouldSucceed: true, shouldParticipate: true, generation: 1, expectedGeneration: 2},
+				{shouldParticipate: false, shouldGetRepl: true, generation: 0, expectedGeneration: 0},
+				{shouldParticipate: false, shouldGetRepl: true, generation: datastore.GenerationUnknown, expectedGeneration: datastore.GenerationUnknown},
 			},
 		},
 		{
 			desc: "secondaries should not participate when primary's generation is unknown",
 			nodes: []node{
-				{primary: true, vote: "foobar", shouldSucceed: true, shouldParticipate: true, generation: datastore.GenerationUnknown},
-				{shouldParticipate: false, shouldGetRepl: true, generation: datastore.GenerationUnknown},
+				{primary: true, vote: "foobar", shouldSucceed: true, shouldParticipate: true, generation: datastore.GenerationUnknown, expectedGeneration: 0},
+				{shouldParticipate: false, shouldGetRepl: true, generation: datastore.GenerationUnknown, expectedGeneration: datastore.GenerationUnknown},
 			},
 		},
 		{
@@ -97,8 +98,20 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 			// replication jobs.
 			desc: "unstarted transaction should create replication jobs",
 			nodes: []node{
-				{primary: true, shouldSucceed: true, shouldGetRepl: false},
-				{primary: false, shouldSucceed: false, shouldGetRepl: true},
+				{primary: true, shouldSucceed: true, shouldGetRepl: false, expectedGeneration: 1},
+				{primary: false, shouldSucceed: false, shouldGetRepl: true, expectedGeneration: 0},
+			},
+		},
+		{
+			// If the transaction didn't receive any votes at all, we need to assume
+			// that the RPC wasn't aware of transactions and thus need to schedule
+			// replication jobs.
+			desc: "unstarted transaction should create replication jobs for outdated node",
+			nodes: []node{
+				{primary: true, shouldSucceed: true, shouldGetRepl: false, generation: 1, expectedGeneration: 2},
+				{primary: false, shouldSucceed: false, shouldGetRepl: true, generation: 1, expectedGeneration: 1},
+				{primary: false, shouldSucceed: false, shouldGetRepl: true, generation: 0, expectedGeneration: 0},
+				{primary: false, shouldSucceed: false, shouldGetRepl: true, generation: datastore.GenerationUnknown, expectedGeneration: datastore.GenerationUnknown},
 			},
 		},
 	}
@@ -214,20 +227,8 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 			}
 			voterWaitGroup.Wait()
 
-			// this call creates new events in the queue and simulates usual flow of the update operation
-			var primaryShouldSucceed bool
-			for _, node := range tc.nodes {
-				if !node.primary {
-					continue
-				}
-				primaryShouldSucceed = node.shouldSucceed
-			}
 			err = streamParams.RequestFinalizer()
-			if primaryShouldSucceed {
-				require.NoError(t, err)
-			} else {
-				require.Equal(t, errors.New("transaction: primary failed vote"), err)
-			}
+			require.NoError(t, err)
 
 			// Nodes that successfully committed should have their generations incremented.
 			// Nodes that did not successfully commit or did not participate should remain on their
@@ -235,11 +236,7 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 			for i, n := range tc.nodes {
 				gen, err := rs.GetGeneration(ctx, repo.StorageName, repo.RelativePath, storageNodes[i].Storage)
 				require.NoError(t, err)
-				expectedGeneration := n.generation
-				if n.shouldSucceed {
-					expectedGeneration++
-				}
-				require.Equal(t, expectedGeneration, gen)
+				require.Equal(t, n.expectedGeneration, gen, "node %d has wrong generation", i)
 			}
 
 			replicationWaitGroup.Wait()
