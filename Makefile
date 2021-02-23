@@ -411,6 +411,7 @@ ${LIBGIT2_INSTALL_DIR}/lib/libgit2.a: ${DEPENDENCY_DIR}/libgit2.version
 	elif ! git -C "${LIBGIT2_SOURCE_DIR}" rev-parse --quiet --verify ${LIBGIT2_VERSION}^{tree} >/dev/null; then \
 	    ${GIT} -C "${LIBGIT2_SOURCE_DIR}" fetch --quiet ${LIBGIT2_REPO_URL} ${LIBGIT2_VERSION}; \
 	fi
+	${GIT} -C "${LIBGIT2_SOURCE_DIR}" switch --quiet --detach ${LIBGIT2_VERSION}
 	${Q}rm -rf ${LIBGIT2_BUILD_DIR}
 	${Q}mkdir -p ${LIBGIT2_BUILD_DIR}
 	${Q}cd ${LIBGIT2_BUILD_DIR} && cmake ${LIBGIT2_SOURCE_DIR} ${LIBGIT2_BUILD_OPTIONS}
