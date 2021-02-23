@@ -250,5 +250,12 @@ func run(cfg config.Cfg) error {
 		}
 	}()
 
+	go func() {
+		time.Sleep(10 * time.Second)
+		log.Warn("=== Causing a panic")
+		test := []string{"test"}
+		fmt.Println(test[1])
+	}()
+
 	return b.Wait(cfg.GracefulRestartTimeout.Duration())
 }
