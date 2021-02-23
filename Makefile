@@ -408,8 +408,9 @@ ${DEPENDENCY_DIR}/git.version: dependency-version | ${DEPENDENCY_DIR}
 ${LIBGIT2_INSTALL_DIR}/lib/libgit2.a: ${DEPENDENCY_DIR}/libgit2.version
 	${Q}if ! [ -d "${LIBGIT2_SOURCE_DIR}" ]; then \
 	    ${GIT} clone --depth 1 --branch ${LIBGIT2_VERSION} --quiet ${LIBGIT2_REPO_URL} ${LIBGIT2_SOURCE_DIR}; \
-	elif ! git -C "${LIBGIT2_SOURCE_DIR}" rev-parse --quiet --verify ${LIBGIT2_VERSION}^{tree} >/dev/null; then \
-	    ${GIT} -C "${LIBGIT2_SOURCE_DIR}" fetch --quiet ${LIBGIT2_REPO_URL} ${LIBGIT2_VERSION}; \
+	fi
+	${Q}if ! git -C "${LIBGIT2_SOURCE_DIR}" cat-file -t ${LIBGIT2_VERSION} 2>/dev/null; then \
+	    ${GIT} -C "${LIBGIT2_SOURCE_DIR}" fetch --depth 1 --no-tags --quiet ${LIBGIT2_REPO_URL} ${LIBGIT2_VERSION}:refs/tags/${LIBGIT2_VERSION}; \
 	fi
 	${Q}rm -rf ${LIBGIT2_BUILD_DIR}
 	${Q}mkdir -p ${LIBGIT2_BUILD_DIR}
@@ -421,10 +422,11 @@ ifeq (${GIT_USE_PREBUILT_BINARIES},)
 ${GIT_INSTALL_DIR}/bin/git: ${DEPENDENCY_DIR}/git.version
 	${Q}if ! [ -d "${GIT_SOURCE_DIR}" ]; then \
 	    ${GIT} clone --depth 1 --branch ${GIT_VERSION} --quiet ${GIT_REPO_URL} ${GIT_SOURCE_DIR}; \
-	elif ! git -C "${GIT_SOURCE_DIR}" rev-parse --quiet --verify ${GIT_VERSION}^{tree} >/dev/null; then \
-	    ${GIT} -C "${GIT_SOURCE_DIR}" fetch --quiet ${GIT_REPO_URL} ${GIT_VERSION}; \
 	fi
-	${Q}${GIT} -C "${GIT_SOURCE_DIR}" switch --quiet --detach ${GIT_VERSION}
+	${Q}if ! git -C "${GIT_SOURCE_DIR}" cat-file -t ${GIT_VERSION} 2>/dev/null; then \
+	    ${GIT} -C "${GIT_SOURCE_DIR}" fetch --depth 1 --no-tags --quiet ${GIT_REPO_URL} ${GIT_VERSION}:refs/tags/${GIT_VERSION}; \
+	fi
+	${Q}${GIT} -C "${GIT_SOURCE_DIR}" -c advice.detachedHead=false switch --quiet --detach ${GIT_VERSION}
 	${Q}rm -rf ${GIT_INSTALL_DIR}
 	${Q}mkdir -p ${GIT_INSTALL_DIR}
 	env -u MAKEFLAGS -u GIT_VERSION ${MAKE} -C ${GIT_SOURCE_DIR} -j$(shell nproc) prefix=${GIT_PREFIX} ${GIT_BUILD_OPTIONS} install
