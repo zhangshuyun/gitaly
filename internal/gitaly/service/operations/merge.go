@@ -13,10 +13,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/internal/git2go"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
-	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
@@ -154,10 +152,6 @@ func (s *Server) UserFFBranch(ctx context.Context, in *gitalypb.UserFFBranchRequ
 		return nil, helper.ErrInvalidArgument(err)
 	}
 
-	if featureflag.IsDisabled(ctx, featureflag.GoUserFFBranch) {
-		return s.userFFBranchRuby(ctx, in)
-	}
-
 	branch := fmt.Sprintf("refs/heads/%s", in.Branch)
 	revision, err := localrepo.New(s.gitCmdFactory, in.Repository, s.cfg).ResolveRevision(ctx, git.Revision(branch))
 	if err != nil {
@@ -196,20 +190,6 @@ func (s *Server) UserFFBranch(ctx context.Context, in *gitalypb.UserFFBranchRequ
 			CommitId: in.CommitId,
 		},
 	}, nil
-}
-
-func (s *Server) userFFBranchRuby(ctx context.Context, in *gitalypb.UserFFBranchRequest) (*gitalypb.UserFFBranchResponse, error) {
-	client, err := s.ruby.OperationServiceClient(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	clientCtx, err := rubyserver.SetHeaders(ctx, s.locator, in.GetRepository())
-	if err != nil {
-		return nil, err
-	}
-
-	return client.UserFFBranch(clientCtx, in)
 }
 
 func validateUserMergeToRefRequest(in *gitalypb.UserMergeToRefRequest) error {

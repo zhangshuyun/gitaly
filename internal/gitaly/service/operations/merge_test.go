@@ -446,42 +446,41 @@ func TestFailedMergeDueToHooks(t *testing.T) {
 }
 
 func TestSuccessfulUserFFBranchRequest(t *testing.T) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.GoUserFFBranch,
-	}).Run(t, func(t *testing.T, ctx context.Context) {
-		serverSocketPath, stop := runOperationServiceServer(t)
-		defer stop()
+	serverSocketPath, stop := runOperationServiceServer(t)
+	defer stop()
 
-		client, conn := newOperationClient(t, serverSocketPath)
-		defer conn.Close()
+	client, conn := newOperationClient(t, serverSocketPath)
+	defer conn.Close()
 
-		testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
-		defer cleanupFn()
+	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	defer cleanupFn()
 
-		commitID := "cfe32cf61b73a0d5e9f13e774abde7ff789b1660"
-		branchName := "test-ff-target-branch"
-		request := &gitalypb.UserFFBranchRequest{
-			Repository: testRepo,
-			CommitId:   commitID,
-			Branch:     []byte(branchName),
-			User:       testhelper.TestUser,
-		}
-		expectedResponse := &gitalypb.UserFFBranchResponse{
-			BranchUpdate: &gitalypb.OperationBranchUpdate{
-				RepoCreated:   false,
-				BranchCreated: false,
-				CommitId:      commitID,
-			},
-		}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-		testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", "-f", branchName, "6d394385cf567f80a8fd85055db1ab4c5295806f")
+	commitID := "cfe32cf61b73a0d5e9f13e774abde7ff789b1660"
+	branchName := "test-ff-target-branch"
+	request := &gitalypb.UserFFBranchRequest{
+		Repository: testRepo,
+		CommitId:   commitID,
+		Branch:     []byte(branchName),
+		User:       testhelper.TestUser,
+	}
+	expectedResponse := &gitalypb.UserFFBranchResponse{
+		BranchUpdate: &gitalypb.OperationBranchUpdate{
+			RepoCreated:   false,
+			BranchCreated: false,
+			CommitId:      commitID,
+		},
+	}
 
-		resp, err := client.UserFFBranch(ctx, request)
-		require.NoError(t, err)
-		testhelper.ProtoEqual(t, expectedResponse, resp)
-		newBranchHead := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "rev-parse", branchName)
-		require.Equal(t, commitID, text.ChompBytes(newBranchHead), "branch head not updated")
-	})
+	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", "-f", branchName, "6d394385cf567f80a8fd85055db1ab4c5295806f")
+
+	resp, err := client.UserFFBranch(ctx, request)
+	require.NoError(t, err)
+	testhelper.ProtoEqual(t, expectedResponse, resp)
+	newBranchHead := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "rev-parse", branchName)
+	require.Equal(t, commitID, text.ChompBytes(newBranchHead), "branch head not updated")
 }
 
 func TestFailedUserFFBranchRequest(t *testing.T) {
@@ -561,22 +560,21 @@ func TestFailedUserFFBranchRequest(t *testing.T) {
 		},
 	}
 
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.GoUserFFBranch,
-	}).Run(t, func(t *testing.T, ctx context.Context) {
-		for _, testCase := range testCases {
-			t.Run(testCase.desc, func(t *testing.T) {
-				request := &gitalypb.UserFFBranchRequest{
-					Repository: testCase.repo,
-					User:       testCase.user,
-					Branch:     testCase.branch,
-					CommitId:   testCase.commitID,
-				}
-				_, err := client.UserFFBranch(ctx, request)
-				testhelper.RequireGrpcError(t, err, testCase.code)
-			})
-		}
-	})
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	for _, testCase := range testCases {
+		t.Run(testCase.desc, func(t *testing.T) {
+			request := &gitalypb.UserFFBranchRequest{
+				Repository: testCase.repo,
+				User:       testCase.user,
+				Branch:     testCase.branch,
+				CommitId:   testCase.commitID,
+			}
+			_, err := client.UserFFBranch(ctx, request)
+			testhelper.RequireGrpcError(t, err, testCase.code)
+		})
+	}
 }
 
 func TestFailedUserFFBranchDueToHooks(t *testing.T) {
@@ -602,81 +600,70 @@ func TestFailedUserFFBranchDueToHooks(t *testing.T) {
 
 	hookContent := []byte("#!/bin/sh\necho 'failure'\nexit 1")
 
-	featureSets := testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.GoUserFFBranch,
-	})
+	for _, hookName := range gitlabPreHooks {
+		t.Run(hookName, func(t *testing.T) {
+			remove := testhelper.WriteCustomHook(t, testRepoPath, hookName, hookContent)
+			defer remove()
 
-	for _, featureSet := range featureSets {
-		t.Run(featureSet.Desc(), func(t *testing.T) {
-			for _, hookName := range gitlabPreHooks {
-				t.Run(hookName, func(t *testing.T) {
-					remove := testhelper.WriteCustomHook(t, testRepoPath, hookName, hookContent)
-					defer remove()
+			ctx, cancel := testhelper.Context()
+			defer cancel()
 
-					ctx, cancel := testhelper.Context()
-					defer cancel()
-
-					ctx = featureSet.Disable(ctx)
-
-					resp, err := client.UserFFBranch(ctx, request)
-					require.Nil(t, err)
-					require.Contains(t, resp.PreReceiveError, "failure")
-				})
-			}
+			resp, err := client.UserFFBranch(ctx, request)
+			require.Nil(t, err)
+			require.Contains(t, resp.PreReceiveError, "failure")
 		})
 	}
 }
 
 func TestUserFFBranch_ambiguousReference(t *testing.T) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.GoUserFFBranch,
-	}).Run(t, func(t *testing.T, ctx context.Context) {
-		serverSocketPath, stop := runOperationServiceServer(t)
-		defer stop()
+	serverSocketPath, stop := runOperationServiceServer(t)
+	defer stop()
 
-		client, conn := newOperationClient(t, serverSocketPath)
-		defer func() { require.NoError(t, conn.Close()) }()
+	client, conn := newOperationClient(t, serverSocketPath)
+	defer func() { require.NoError(t, conn.Close()) }()
 
-		testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
-		defer cleanupFn()
+	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	defer cleanupFn()
 
-		branchName := "test-ff-target-branch"
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-		// We're creating both a branch and a tag with the same name.
-		// If `git rev-parse` is called on the branch name directly
-		// without using the fully qualified reference, then it would
-		// return the OID of the tag instead of the branch.
-		//
-		// In the past, this used to cause us to use the tag's OID as
-		// old revision when calling git-update-ref. As a result, the
-		// update would've failed as the branch's current revision
-		// didn't match the specified old revision.
-		testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath,
-			"branch", branchName,
-			"6d394385cf567f80a8fd85055db1ab4c5295806f")
-		testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "tag", branchName, "6d394385cf567f80a8fd85055db1ab4c5295806f~")
+	branchName := "test-ff-target-branch"
 
-		commitID := "cfe32cf61b73a0d5e9f13e774abde7ff789b1660"
-		request := &gitalypb.UserFFBranchRequest{
-			Repository: testRepo,
-			CommitId:   commitID,
-			Branch:     []byte(branchName),
-			User:       testhelper.TestUser,
-		}
-		expectedResponse := &gitalypb.UserFFBranchResponse{
-			BranchUpdate: &gitalypb.OperationBranchUpdate{
-				RepoCreated:   false,
-				BranchCreated: false,
-				CommitId:      commitID,
-			},
-		}
+	// We're creating both a branch and a tag with the same name.
+	// If `git rev-parse` is called on the branch name directly
+	// without using the fully qualified reference, then it would
+	// return the OID of the tag instead of the branch.
+	//
+	// In the past, this used to cause us to use the tag's OID as
+	// old revision when calling git-update-ref. As a result, the
+	// update would've failed as the branch's current revision
+	// didn't match the specified old revision.
+	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath,
+		"branch", branchName,
+		"6d394385cf567f80a8fd85055db1ab4c5295806f")
+	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "tag", branchName, "6d394385cf567f80a8fd85055db1ab4c5295806f~")
 
-		resp, err := client.UserFFBranch(ctx, request)
-		require.NoError(t, err)
-		testhelper.ProtoEqual(t, expectedResponse, resp)
-		newBranchHead := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "rev-parse", "refs/heads/"+branchName)
-		require.Equal(t, commitID, text.ChompBytes(newBranchHead), "branch head not updated")
-	})
+	commitID := "cfe32cf61b73a0d5e9f13e774abde7ff789b1660"
+	request := &gitalypb.UserFFBranchRequest{
+		Repository: testRepo,
+		CommitId:   commitID,
+		Branch:     []byte(branchName),
+		User:       testhelper.TestUser,
+	}
+	expectedResponse := &gitalypb.UserFFBranchResponse{
+		BranchUpdate: &gitalypb.OperationBranchUpdate{
+			RepoCreated:   false,
+			BranchCreated: false,
+			CommitId:      commitID,
+		},
+	}
+
+	resp, err := client.UserFFBranch(ctx, request)
+	require.NoError(t, err)
+	testhelper.ProtoEqual(t, expectedResponse, resp)
+	newBranchHead := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "rev-parse", "refs/heads/"+branchName)
+	require.Equal(t, commitID, text.ChompBytes(newBranchHead), "branch head not updated")
 }
 
 func TestSuccessfulUserMergeToRefRequest(t *testing.T) {
