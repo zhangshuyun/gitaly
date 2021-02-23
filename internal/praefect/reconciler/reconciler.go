@@ -9,6 +9,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore/advisorylock"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore/glsql"
 )
 
@@ -141,9 +142,13 @@ func (r *Reconciler) reconcile(ctx context.Context) error {
 	}
 
 	rows, err := r.db.QueryContext(ctx, `
-WITH healthy_storages AS (
-    SELECT unnest($1::text[]) AS virtual_storage,
-           unnest($2::text[]) AS storage
+WITH reconciliation_lock AS (
+	SELECT pg_try_advisory_xact_lock($1) AS acquired
+),
+
+healthy_storages AS (
+    SELECT unnest($2::text[]) AS virtual_storage,
+           unnest($3::text[]) AS storage
 ),
 
 update_jobs AS (
@@ -202,6 +207,9 @@ reconciliation_jobs AS (
 			'update' AS change
 		FROM update_jobs
 	) AS reconciliation_jobs
+	-- only perform inserts if we managed to acquire the lock as otherwise
+	-- we'd schedule duplicate jobs
+	WHERE ( SELECT acquired FROM reconciliation_lock )
 	RETURNING lock_id, meta, job
 ),
 
@@ -219,7 +227,7 @@ SELECT
 	job->>'source_node_storage',
 	job->>'target_node_storage'
 FROM reconciliation_jobs
-`, pq.StringArray(virtualStorages), pq.StringArray(storages))
+`, advisorylock.Reconcile, pq.StringArray(virtualStorages), pq.StringArray(storages))
 	if err != nil {
 		return fmt.Errorf("query: %w", err)
 	}

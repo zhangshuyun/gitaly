@@ -4,6 +4,7 @@ package reconciler
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"log"
 	"os"
@@ -486,33 +487,58 @@ func TestReconciler(t *testing.T) {
 				existingJobIDs = append(existingJobIDs, id)
 			}
 
-			runCtx, cancelRun := context.WithCancel(ctx)
-			var stopped, resetted bool
-			ticker := helper.NewManualTicker()
-			ticker.StopFunc = func() { stopped = true }
-			ticker.ResetFunc = func() {
-				if resetted {
-					cancelRun()
-					return
+			runReconcile := func(tx *sql.Tx) {
+				t.Helper()
+
+				runCtx, cancelRun := context.WithCancel(ctx)
+				var stopped, resetted bool
+				ticker := helper.NewManualTicker()
+				ticker.StopFunc = func() { stopped = true }
+				ticker.ResetFunc = func() {
+					if resetted {
+						cancelRun()
+						return
+					}
+
+					resetted = true
+					ticker.Tick()
 				}
 
-				resetted = true
-				ticker.Tick()
+				reconciler := NewReconciler(
+					testhelper.DiscardTestLogger(t),
+					tx,
+					praefect.StaticHealthChecker(tc.healthyStorages),
+					configuredStorages,
+					prometheus.DefBuckets,
+				)
+				reconciler.handleError = func(err error) error { return err }
+
+				require.Equal(t, context.Canceled, reconciler.Run(runCtx, ticker))
+				require.True(t, stopped)
+				require.True(t, resetted)
 			}
 
-			reconciler := NewReconciler(
-				testhelper.DiscardTestLogger(t),
-				db,
-				praefect.StaticHealthChecker(tc.healthyStorages),
-				configuredStorages,
-				prometheus.DefBuckets,
-			)
-			reconciler.handleError = func(err error) error { return err }
+			// run reconcile in two concurrent transactions to ensure everything works
+			// as expected with multiple Praefect's reconciling at the same time
+			firstTx, err := db.Begin()
+			require.NoError(t, err)
+			defer firstTx.Rollback()
 
-			err := reconciler.Run(runCtx, ticker)
-			require.Equal(t, context.Canceled, err)
-			require.True(t, stopped)
-			require.True(t, resetted)
+			secondTx, err := db.Begin()
+			require.NoError(t, err)
+			defer secondTx.Rollback()
+
+			// the first reconcile acquires the reconciliation lock
+			runReconcile(firstTx)
+
+			// Concurrently reconcile from another transaction.
+			// secondTx should not block as it won't attempt any insertions
+			// as it failed to acquire the reconciliation lock.
+			runReconcile(secondTx)
+			require.NoError(t, secondTx.Commit())
+
+			// commit the transaction of the first reconciliation
+			require.NoError(t, firstTx.Commit())
 
 			rows, err := db.QueryContext(ctx, `
 				SELECT job, meta
