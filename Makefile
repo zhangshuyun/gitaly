@@ -91,8 +91,6 @@ ifeq (${GIT_BUILD_OPTIONS},)
     GIT_BUILD_OPTIONS += NO_PERL=YesPlease
     GIT_BUILD_OPTIONS += NO_EXPAT=YesPlease
     GIT_BUILD_OPTIONS += NO_TCLTK=YesPlease
-    # fix compilation on musl libc
-    GIT_BUILD_OPTIONS += NO_REGEX=YesPlease
     GIT_BUILD_OPTIONS += NO_GETTEXT=YesPlease
     GIT_BUILD_OPTIONS += NO_PYTHON=YesPlease
     GIT_BUILD_OPTIONS += NO_INSTALL_HARDLINKS=YesPlease
