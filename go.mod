@@ -23,7 +23,7 @@ require (
 	github.com/hashicorp/golang-lru v0.5.4
 	github.com/kelseyhightower/envconfig v1.3.0
 	github.com/lib/pq v1.2.0
-	github.com/libgit2/git2go/v30 v30.0.18
+	github.com/libgit2/git2go/v31 v31.4.12
 	github.com/mattn/go-isatty v0.0.12 // indirect
 	github.com/olekukonko/tablewriter v0.0.2
 	github.com/opencontainers/runtime-spec v1.0.2
@@ -38,11 +38,10 @@ require (
 	github.com/uber/jaeger-client-go v2.15.0+incompatible
 	gitlab.com/gitlab-org/gitlab-shell v1.9.8-0.20201117050822-3f9890ef73dc
 	gitlab.com/gitlab-org/labkit v1.0.0
-	golang.org/x/crypto v0.0.0-20200820211705-5c72a883971a // indirect
 	golang.org/x/exp v0.0.0-20200331195152-e8c3332aa8e5 // indirect
 	golang.org/x/net v0.0.0-20200904194848-62affa334b73 // indirect
 	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208
-	golang.org/x/sys v0.0.0-20201015000850-e3ed0017c211
+	golang.org/x/sys v0.0.0-20201204225414-ed752295db88
 	golang.org/x/text v0.3.3 // indirect
 	google.golang.org/grpc v1.29.1
 	gopkg.in/yaml.v2 v2.3.0 // indirect
