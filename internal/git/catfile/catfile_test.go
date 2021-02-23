@@ -17,18 +17,25 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/metadata"
 )
 
+func setup(t *testing.T) (config.Cfg, *gitalypb.Repository, testhelper.Cleanup) {
+	cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("storage"))
+	cfg, repos := cfgBuilder.BuildWithRepoAt(t, "repository")
+	return cfg, repos[0], cfgBuilder.Cleanup
+}
+
 func TestInfo(t *testing.T) {
+	cfg, testRepo, cleanup := setup(t)
+	defer cleanup()
+
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepository, _, cleanup := testhelper.NewTestRepo(t)
-	defer cleanup()
-
-	c, err := New(ctx, git.NewExecCommandFactory(config.Config), testRepository)
+	c, err := New(ctx, git.NewExecCommandFactory(cfg), testRepo)
 	require.NoError(t, err)
 
 	testCases := []struct {
@@ -61,10 +68,10 @@ func TestBlob(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepository, _, cleanup := testhelper.NewTestRepo(t)
+	cfg, testRepo, cleanup := setup(t)
 	defer cleanup()
 
-	c, err := New(ctx, git.NewExecCommandFactory(config.Config), testRepository)
+	c, err := New(ctx, git.NewExecCommandFactory(cfg), testRepo)
 	require.NoError(t, err)
 
 	gitignoreBytes, err := ioutil.ReadFile("testdata/blob-dfaa3f97ca337e20154a98ac9d0be76ddd1fcc82")
@@ -128,10 +135,10 @@ func TestCommit(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepository, _, cleanup := testhelper.NewTestRepo(t)
+	cfg, testRepo, cleanup := setup(t)
 	defer cleanup()
 
-	c, err := New(ctx, git.NewExecCommandFactory(config.Config), testRepository)
+	c, err := New(ctx, git.NewExecCommandFactory(cfg), testRepo)
 	require.NoError(t, err)
 
 	commitBytes, err := ioutil.ReadFile("testdata/commit-e63f41fe459e62e1228fcef60d7189127aeba95a")
@@ -166,10 +173,10 @@ func TestTag(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepository, _, cleanup := testhelper.NewTestRepo(t)
+	cfg, testRepo, cleanup := setup(t)
 	defer cleanup()
 
-	c, err := New(ctx, git.NewExecCommandFactory(config.Config), testRepository)
+	c, err := New(ctx, git.NewExecCommandFactory(cfg), testRepo)
 	require.NoError(t, err)
 
 	tagBytes, err := ioutil.ReadFile("testdata/tag-a509fa67c27202a2bc9dd5e014b4af7e6063ac76")
@@ -233,10 +240,10 @@ func TestTree(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepository, _, cleanup := testhelper.NewTestRepo(t)
+	cfg, testRepo, cleanup := setup(t)
 	defer cleanup()
 
-	c, err := New(ctx, git.NewExecCommandFactory(config.Config), testRepository)
+	c, err := New(ctx, git.NewExecCommandFactory(cfg), testRepo)
 	require.NoError(t, err)
 
 	treeBytes, err := ioutil.ReadFile("testdata/tree-7e2f26d033ee47cd0745649d1a28277c56197921")
@@ -300,10 +307,10 @@ func TestRepeatedCalls(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepository, _, cleanup := testhelper.NewTestRepo(t)
+	cfg, testRepo, cleanup := setup(t)
 	defer cleanup()
 
-	c, err := New(ctx, git.NewExecCommandFactory(config.Config), testRepository)
+	c, err := New(ctx, git.NewExecCommandFactory(cfg), testRepo)
 	require.NoError(t, err)
 
 	treeOid := git.Revision("7e2f26d033ee47cd0745649d1a28277c56197921")
@@ -345,31 +352,30 @@ func TestRepeatedCalls(t *testing.T) {
 func TestSpawnFailure(t *testing.T) {
 	defer func() { injectSpawnErrors = false }()
 
-	defer func(bc *batchCache) {
-		// reset global cache
-		cache = bc
-	}(cache)
+	// reset global cache
+	defer func(old *batchCache) { cache = old }(cache)
 
 	// Use very high values to effectively disable auto-expiry
-	testCache := newCache(1*time.Hour, 1000)
-	cache = testCache
-	defer testCache.EvictAll()
+	cache = newCache(1*time.Hour, 1000)
+	defer cache.EvictAll()
 
 	require.True(
 		t,
 		waitTrue(func() bool { return numGitChildren(t) == 0 }),
 		"test setup: wait for there to be 0 git children",
 	)
-	require.Equal(t, 0, cacheSize(testCache), "sanity check: cache empty")
+	require.Equal(t, 0, cacheSize(cache), "sanity check: cache empty")
 
 	ctx1, cancel1 := testhelper.Context()
 	defer cancel1()
 
-	testRepo, _, cleanup := testhelper.NewTestRepo(t)
+	cfg, testRepo, cleanup := setup(t)
 	defer cleanup()
 
+	gitCmdFactory := git.NewExecCommandFactory(cfg)
+
 	injectSpawnErrors = false
-	_, err := catfileWithFreshSessionID(ctx1, testRepo)
+	_, err := catfileWithFreshSessionID(ctx1, gitCmdFactory, testRepo)
 	require.NoError(t, err, "catfile spawn should succeed in normal circumstances")
 	require.Equal(t, 2, numGitChildren(t), "there should be 2 git child processes")
 
@@ -378,14 +384,14 @@ func TestSpawnFailure(t *testing.T) {
 
 	require.True(
 		t,
-		waitTrue(func() bool { return cacheSize(testCache) == 1 }),
+		waitTrue(func() bool { return cacheSize(cache) == 1 }),
 		"1 cache entry, meaning 2 processes, should be in the cache now",
 	)
 
 	require.Equal(t, 2, numGitChildren(t), "there should still be 2 git child processes")
 
-	testCache.EvictAll()
-	require.Equal(t, 0, cacheSize(testCache), "the cache should be empty now")
+	cache.EvictAll()
+	require.Equal(t, 0, cacheSize(cache), "the cache should be empty now")
 
 	require.True(
 		t,
@@ -397,7 +403,7 @@ func TestSpawnFailure(t *testing.T) {
 	defer cancel2()
 
 	injectSpawnErrors = true
-	_, err = catfileWithFreshSessionID(ctx2, testRepo)
+	_, err = catfileWithFreshSessionID(ctx2, gitCmdFactory, testRepo)
 	require.Error(t, err, "expect simulated error")
 	require.IsType(t, &simulatedBatchSpawnError{}, err)
 
@@ -408,7 +414,7 @@ func TestSpawnFailure(t *testing.T) {
 	)
 }
 
-func catfileWithFreshSessionID(ctx context.Context, repo *gitalypb.Repository) (Batch, error) {
+func catfileWithFreshSessionID(ctx context.Context, gitCmdFactory git.CommandFactory, repo *gitalypb.Repository) (Batch, error) {
 	id, err := text.RandomHex(4)
 	if err != nil {
 		return nil, err
@@ -418,7 +424,7 @@ func catfileWithFreshSessionID(ctx context.Context, repo *gitalypb.Repository) (
 		SessionIDField: id,
 	})
 
-	return New(metadata.NewIncomingContext(ctx, md), git.NewExecCommandFactory(config.Config), repo)
+	return New(metadata.NewIncomingContext(ctx, md), gitCmdFactory, repo)
 }
 
 func waitTrue(callback func() bool) bool {

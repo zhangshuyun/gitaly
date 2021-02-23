@@ -10,16 +10,19 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/cache"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/tempdir"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 )
 
 func TestDiskCacheObjectWalker(t *testing.T) {
-	cleanup := setupDiskCacheWalker(t)
-	defer cleanup()
+	cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("storage"))
+	defer cfgBuilder.Cleanup()
+	cfg := cfgBuilder.Build(t)
 
 	var shouldExist, shouldNotExist []string
+
+	cache.ExportMockRemovalCounter = &cache.MockCounter{}
 
 	for _, tt := range []struct {
 		name          string
@@ -31,7 +34,7 @@ func TestDiskCacheObjectWalker(t *testing.T) {
 		{"2b/ancient", 24 * time.Hour, true},
 		{"cd/baby", time.Second, false},
 	} {
-		cacheDir := tempdir.CacheDir(config.Config.Storages[0])
+		cacheDir := tempdir.CacheDir(cfg.Storages[0])
 
 		path := filepath.Join(cacheDir, tt.name)
 		require.NoError(t, os.MkdirAll(filepath.Dir(path), 0755))
@@ -49,16 +52,14 @@ func TestDiskCacheObjectWalker(t *testing.T) {
 		}
 	}
 
-	expectRemovals := cache.ExportMockRemovalCounter.Count() + 4
-
 	// disable the initial move-and-clear function since we are only
 	// evaluating the walker
 	*cache.ExportDisableMoveAndClear = true
 	defer func() { *cache.ExportDisableMoveAndClear = false }()
 
-	require.NoError(t, config.Config.Validate()) // triggers walker
+	require.NoError(t, cfg.Validate()) // triggers walker
 
-	pollCountersUntil(t, expectRemovals)
+	pollCountersUntil(t, 4)
 
 	for _, p := range shouldExist {
 		assert.FileExists(t, p)
@@ -71,10 +72,11 @@ func TestDiskCacheObjectWalker(t *testing.T) {
 }
 
 func TestDiskCacheInitialClear(t *testing.T) {
-	cleanup := setupDiskCacheWalker(t)
-	defer cleanup()
+	cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("storage"))
+	defer cfgBuilder.Cleanup()
+	cfg := cfgBuilder.Build(t)
 
-	cacheDir := tempdir.CacheDir(config.Config.Storages[0])
+	cacheDir := tempdir.CacheDir(cfg.Storages[0])
 
 	canary := filepath.Join(cacheDir, "canary.txt")
 	require.NoError(t, os.MkdirAll(filepath.Dir(canary), 0755))
@@ -87,42 +89,26 @@ func TestDiskCacheInitialClear(t *testing.T) {
 
 	// validation will run cache walker hook which synchronously
 	// runs the move-and-clear function
-	require.NoError(t, config.Config.Validate())
+	require.NoError(t, cfg.Validate())
 
 	testhelper.AssertPathNotExists(t, canary)
-}
-
-func setupDiskCacheWalker(t testing.TB) func() {
-	tmpPath, cleanup := testhelper.TempDir(t)
-
-	oldStorages := config.Config.Storages
-	config.Config.Storages = []config.Storage{
-		{
-			Name: t.Name(),
-			Path: tmpPath,
-		},
-	}
-
-	return func() {
-		config.Config.Storages = oldStorages
-		cleanup()
-	}
 }
 
 func pollCountersUntil(t testing.TB, expectRemovals int) {
 	// poll injected mock prometheus counters until expected events occur
 	timeout := time.After(time.Second)
 	for {
+		count := cache.ExportMockRemovalCounter.Count()
 		select {
 		case <-timeout:
 			t.Fatalf(
 				"timed out polling prometheus stats; removals: %d",
-				cache.ExportMockRemovalCounter.Count(),
+				count,
 			)
 		default:
 			// keep on truckin'
 		}
-		if cache.ExportMockRemovalCounter.Count() == expectRemovals {
+		if count == expectRemovals {
 			break
 		}
 		time.Sleep(time.Millisecond)

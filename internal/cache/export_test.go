@@ -3,26 +3,29 @@ package cache
 import "sync"
 
 var (
-	ExportMockRemovalCounter = &mockCounter{}
-	ExportMockCheckCounter   = &mockCounter{}
-	ExportMockLoserBytes     = &mockCounter{}
+	ExportMockRemovalCounter = &MockCounter{}
+	ExportMockCheckCounter   = &MockCounter{}
+	ExportMockLoserBytes     = &MockCounter{}
 
 	ExportDisableMoveAndClear = &disableMoveAndClear
 	ExportDisableWalker       = &disableWalker
 )
 
-type mockCounter struct {
+// MockCounter is a mocked counter used for the testing.
+type MockCounter struct {
 	sync.RWMutex
 	count int
 }
 
-func (mc *mockCounter) Add(n int) {
+// Add increments counter on the n.
+func (mc *MockCounter) Add(n int) {
 	mc.Lock()
 	mc.count += n
 	mc.Unlock()
 }
 
-func (mc *mockCounter) Count() int {
+// Count returns total value of the increments.
+func (mc *MockCounter) Count() int {
 	mc.RLock()
 	defer mc.RUnlock()
 	return mc.count
