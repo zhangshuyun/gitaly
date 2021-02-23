@@ -33,24 +33,23 @@ var (
 	flagVersion = flag.Bool("version", false, "Print version and exit")
 )
 
-func loadConfig(configPath string) error {
+func loadConfig(configPath string) (config.Cfg, error) {
 	cfgFile, err := os.Open(configPath)
 	if err != nil {
-		return err
+		return config.Cfg{}, err
 	}
 	defer cfgFile.Close()
 
 	cfg, err := config.Load(cfgFile)
 	if err != nil {
-		return err
+		return config.Cfg{}, err
 	}
 
 	if err := cfg.Validate(); err != nil {
-		return err
+		return config.Cfg{}, err
 	}
 
-	config.Config = cfg
-	return nil
+	return cfg, nil
 }
 
 func flagUsage() {
@@ -75,34 +74,36 @@ func main() {
 	}
 
 	log.Info("Starting Gitaly", "version", version.GetVersionString())
-	if err := configure(flag.Arg(0)); err != nil {
+	cfg, err := configure(flag.Arg(0))
+	if err != nil {
 		log.Fatal(err)
 	}
-	log.WithError(run(config.Config)).Error("shutting down")
+	log.WithError(run(cfg)).Error("shutting down")
 	log.Info("Gitaly stopped")
 }
 
-func configure(configPath string) error {
-	if err := loadConfig(configPath); err != nil {
-		return fmt.Errorf("load config: config_path %q: %w", configPath, err)
+func configure(configPath string) (config.Cfg, error) {
+	cfg, err := loadConfig(configPath)
+	if err != nil {
+		return config.Cfg{}, fmt.Errorf("load config: config_path %q: %w", configPath, err)
 	}
 
-	glog.Configure(config.Config.Logging.Format, config.Config.Logging.Level)
+	glog.Configure(cfg.Logging.Format, cfg.Logging.Level)
 
-	if err := cgroups.NewManager(config.Config.Cgroups).Setup(); err != nil {
-		return fmt.Errorf("failed setting up cgroups: %w", err)
+	if err := cgroups.NewManager(cfg.Cgroups).Setup(); err != nil {
+		return config.Cfg{}, fmt.Errorf("failed setting up cgroups: %w", err)
 	}
 
-	if err := verifyGitVersion(config.Config); err != nil {
-		return err
+	if err := verifyGitVersion(cfg); err != nil {
+		return config.Cfg{}, err
 	}
 
-	sentry.ConfigureSentry(version.GetVersion(), sentry.Config(config.Config.Logging.Sentry))
-	config.Config.Prometheus.Configure()
-	config.ConfigureConcurrencyLimits(config.Config)
+	sentry.ConfigureSentry(version.GetVersion(), sentry.Config(cfg.Logging.Sentry))
+	cfg.Prometheus.Configure()
+	config.ConfigureConcurrencyLimits(cfg)
 	tracing.Initialize(tracing.WithServiceName("gitaly"))
 
-	return nil
+	return cfg, nil
 }
 
 func verifyGitVersion(cfg config.Cfg) error {
@@ -244,7 +245,7 @@ func run(cfg config.Cfg) error {
 	defer shutdownWorkers()
 
 	defer func() {
-		if err := cgroups.NewManager(config.Config.Cgroups).Cleanup(); err != nil {
+		if err := cgroups.NewManager(cfg.Cgroups).Cleanup(); err != nil {
 			log.WithError(err).Warn("error cleaning up cgroups")
 		}
 	}()
