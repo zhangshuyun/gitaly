@@ -27,6 +27,8 @@ import (
 
 var (
 	// Config stores the global configuration
+	// Deprecated: please do not use global variable and pass preconfigured Cfg as a parameter
+	// where it is needed.
 	Config Cfg
 
 	hooks []func(*Cfg) error
