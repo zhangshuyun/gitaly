@@ -1,5 +1,12 @@
 # Gitaly changelog
 
+## 13.9.1 (2021-02-23)
+
+### Fixed (1 change)
+
+- Fix 500 errors in Wiki pages with trailers containing UTF-8. !3170
+
+
 ## 13.9.0 (2021-02-22)
 
 ### Fixed (9 changes)
