@@ -1,0 +1,5 @@
+---
+title: 'featureflag: Remove UserFFBranch feature gate'
+merge_request: 3180
+author:
+type: changed
