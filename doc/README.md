@@ -37,6 +37,7 @@ For configuration please read [praefects configuration documentation](doc/config
 - [Logging in Gitaly](logging.md)
 - [Tips for reading Git source code](reading_git_source.md)
 - [Serverside Git Usage](serverside_git_usage.md)
+- [Object Pools](object_pools.md)
 
 #### RFCs
 
