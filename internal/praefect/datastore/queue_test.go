@@ -60,6 +60,56 @@ func TestPostgresReplicationEventQueue_Enqueue(t *testing.T) {
 	db.RequireRowsInTable(t, "replication_queue_job_lock", 0)
 }
 
+func TestPostgresReplicationEventQueue_DeleteReplicaInfiniteAttempts(t *testing.T) {
+	queue := NewPostgresReplicationEventQueue(getDB(t))
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	actualEvent, err := queue.Enqueue(ctx, ReplicationEvent{
+		Job: ReplicationJob{
+			Change:            DeleteReplica,
+			RelativePath:      "/project/path-1",
+			TargetNodeStorage: "gitaly-1",
+			VirtualStorage:    "praefect",
+		},
+	})
+	require.NoError(t, err)
+
+	expectedEvent := ReplicationEvent{
+		ID:      1,
+		State:   JobStateReady,
+		Attempt: 3,
+		LockID:  "praefect|gitaly-1|/project/path-1",
+		Job: ReplicationJob{
+			Change:            DeleteReplica,
+			RelativePath:      "/project/path-1",
+			TargetNodeStorage: "gitaly-1",
+			VirtualStorage:    "praefect",
+			Params:            nil,
+		},
+		CreatedAt: actualEvent.CreatedAt,
+	}
+
+	require.Equal(t, expectedEvent, actualEvent)
+
+	for i := 0; i < 2*actualEvent.Attempt; i++ {
+		actualEvents, err := queue.Dequeue(ctx, "praefect", "gitaly-1", 9999)
+		require.NoError(t, err)
+		require.Len(t, actualEvents, 1)
+
+		expectedEvent.State = JobStateInProgress
+		expectedEvent.UpdatedAt = actualEvents[0].UpdatedAt
+
+		require.Equal(t, expectedEvent, actualEvents[0])
+
+		eventIDs := []uint64{actualEvent.ID}
+		ackedIDs, err := queue.Acknowledge(ctx, JobStateFailed, eventIDs)
+		require.NoError(t, err)
+		require.Equal(t, eventIDs, ackedIDs)
+	}
+}
+
 func TestPostgresReplicationEventQueue_EnqueueMultiple(t *testing.T) {
 	db := getDB(t)
 

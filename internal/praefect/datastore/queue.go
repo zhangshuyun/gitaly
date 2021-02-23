@@ -246,6 +246,10 @@ func (rq PostgresReplicationEventQueue) Dequeue(ctx context.Context, virtualStor
 	//     multiple events can be fetched for the same repository (more details on it in `Acknowledge` below).
 	//  5. Update the corresponding <lock> in `replication_queue_lock` table and column `acquired` is assigned with
 	//     `TRUE` value to signal that this <lock> is busy and can't be used to fetch events (step 2.).
+	//
+	//  As a special case, 'delete_replica' type events have unlimited attempts. This is to ensure we never partially apply the job
+	//  by deleting the repository from the disk but leaving it still present in the database. Praefect would then see that there still
+	//  is a replica on the storage, when there is none in fact. That could cause us to delete all replicas of a repository.
 
 	query := `
 		WITH lock AS (
@@ -270,7 +274,7 @@ func (rq PostgresReplicationEventQueue) Dequeue(ctx context.Context, virtualStor
 		)
 		, job AS (
 			UPDATE replication_queue AS queue
-			SET attempt = queue.attempt - 1
+			SET attempt = CASE WHEN job->>'change' = 'delete_replica' THEN queue.attempt ELSE queue.attempt - 1 END
 				, state = 'in_progress'
 				, updated_at = NOW() AT TIME ZONE 'UTC'
 			FROM candidate
