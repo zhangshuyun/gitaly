@@ -231,8 +231,8 @@ func TestUnlink(t *testing.T) {
 	require.NoError(t, pool2.Create(ctx, testRepo), "create pool 2")
 	defer pool2.Remove(ctx)
 
-	require.False(t, testhelper.RemoteExists(t, pool.FullPath(), testRepo.GlRepository), "sanity check: remote exists in pool")
-	require.False(t, testhelper.RemoteExists(t, pool.FullPath(), deletedRepo.GlRepository), "sanity check: remote exists in pool")
+	require.False(t, gittest.RemoteExists(t, pool.FullPath(), testRepo.GlRepository), "sanity check: remote exists in pool")
+	require.False(t, gittest.RemoteExists(t, pool.FullPath(), deletedRepo.GlRepository), "sanity check: remote exists in pool")
 
 	testCases := []struct {
 		desc string
@@ -306,7 +306,7 @@ func TestUnlink(t *testing.T) {
 			require.NoError(t, err, "call UnlinkRepositoryFromObjectPool")
 
 			remoteName := tc.req.Repository.GlRepository
-			require.False(t, testhelper.RemoteExists(t, pool.FullPath(), remoteName), "remote should no longer exist in pool")
+			require.False(t, gittest.RemoteExists(t, pool.FullPath(), remoteName), "remote should no longer exist in pool")
 		})
 	}
 }
