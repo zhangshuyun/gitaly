@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
@@ -200,7 +201,7 @@ func testSuccessfulGitHooksForUserUpdateBranchRequest(t *testing.T, ctx context.
 			testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
 			defer cleanupFn()
 
-			hookOutputTempPath, cleanup := testhelper.WriteEnvToCustomHook(t, testRepoPath, hookName)
+			hookOutputTempPath, cleanup := gittest.WriteEnvToCustomHook(t, testRepoPath, hookName)
 			defer cleanup()
 
 			request := &gitalypb.UserUpdateBranchRequest{
@@ -249,7 +250,7 @@ func testFailedUserUpdateBranchDueToHooks(t *testing.T, ctx context.Context) {
 	hookContent := []byte("#!/bin/sh\nprintenv | paste -sd ' ' - >&2\nexit 1")
 
 	for _, hookName := range gitlabPreHooks {
-		remove := testhelper.WriteCustomHook(t, testRepoPath, hookName, hookContent)
+		remove := gittest.WriteCustomHook(t, testRepoPath, hookName, hookContent)
 		defer remove()
 
 		response, err := client.UserUpdateBranch(ctx, request)

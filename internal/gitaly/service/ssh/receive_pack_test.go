@@ -83,7 +83,7 @@ func TestReceivePackPushSuccess(t *testing.T) {
 	defer func(dir string) { config.Config.GitlabShell.Dir = dir }(config.Config.GitlabShell.Dir)
 	config.Config.GitlabShell.Dir = "/foo/bar/gitlab-shell"
 
-	hookOutputFile, cleanup := testhelper.CaptureHookEnv(t)
+	hookOutputFile, cleanup := gittest.CaptureHookEnv(t)
 	defer cleanup()
 
 	serverSocketPath, stop := runSSHServer(t)
@@ -281,7 +281,7 @@ func TestSSHReceivePackToHooks(t *testing.T) {
 	config.Config.Gitlab.URL = serverURL
 	config.Config.Gitlab.SecretFile = filepath.Join(tempGitlabShellDir, ".gitlab_shell_secret")
 
-	cleanup = testhelper.WriteCheckNewObjectExistsHook(t, config.Config.Git.BinPath, cloneDetails.RemoteRepoPath)
+	cleanup = gittest.WriteCheckNewObjectExistsHook(t, config.Config.Git.BinPath, cloneDetails.RemoteRepoPath)
 	defer cleanup()
 
 	lHead, rHead, err := sshPush(t, cloneDetails, serverSocketPath, pushParams{

@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
@@ -202,7 +203,7 @@ func TestPostReceive_customHook(t *testing.T) {
 			ctx, cleanup := testhelper.Context()
 			defer cleanup()
 
-			cleanup = testhelper.WriteCustomHook(t, repoPath, "post-receive", []byte(tc.hook))
+			cleanup = gittest.WriteCustomHook(t, repoPath, "post-receive", []byte(tc.hook))
 			defer cleanup()
 
 			var stdout, stderr bytes.Buffer
@@ -342,7 +343,7 @@ func TestPostReceive_gitlab(t *testing.T) {
 
 			hookManager := NewManager(config.NewLocator(config.Config), transaction.NewManager(config.Config), &gitlabAPI, config.Config)
 
-			cleanup = testhelper.WriteCustomHook(t, testRepoPath, "post-receive", []byte("#!/bin/sh\necho hook called\n"))
+			cleanup = gittest.WriteCustomHook(t, testRepoPath, "post-receive", []byte("#!/bin/sh\necho hook called\n"))
 			defer cleanup()
 
 			var stdout, stderr bytes.Buffer

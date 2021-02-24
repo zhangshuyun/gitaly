@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	gitalyhook "gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
@@ -244,7 +245,7 @@ func testSuccessfulGitHooksForUserCreateBranchRequest(t *testing.T, ctx context.
 		t.Run(hookName, func(t *testing.T) {
 			defer testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", "-D", branchName)
 
-			hookOutputTempPath, cleanup := testhelper.WriteEnvToCustomHook(t, testRepoPath, hookName)
+			hookOutputTempPath, cleanup := gittest.WriteEnvToCustomHook(t, testRepoPath, hookName)
 			defer cleanup()
 
 			response, err := client.UserCreateBranch(ctx, request)
@@ -360,7 +361,7 @@ func TestFailedUserCreateBranchDueToHooks(t *testing.T) {
 	hookContent := []byte("#!/bin/sh\nprintenv | paste -sd ' ' -\nexit 1")
 
 	for _, hookName := range gitlabPreHooks {
-		remove := testhelper.WriteCustomHook(t, testRepoPath, hookName, hookContent)
+		remove := gittest.WriteCustomHook(t, testRepoPath, hookName, hookContent)
 		defer remove()
 
 		response, err := client.UserCreateBranch(ctx, request)
@@ -520,7 +521,7 @@ func TestSuccessfulGitHooksForUserDeleteBranchRequest(t *testing.T) {
 		t.Run(hookName, func(t *testing.T) {
 			testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", branchNameInput)
 
-			hookOutputTempPath, cleanup := testhelper.WriteEnvToCustomHook(t, testRepoPath, hookName)
+			hookOutputTempPath, cleanup := gittest.WriteEnvToCustomHook(t, testRepoPath, hookName)
 			defer cleanup()
 
 			ctx, cancel := testhelper.Context()
@@ -737,7 +738,7 @@ func TestFailedUserDeleteBranchDueToHooks(t *testing.T) {
 
 	for _, hookName := range gitlabPreHooks {
 		t.Run(hookName, func(t *testing.T) {
-			remove := testhelper.WriteCustomHook(t, testRepoPath, hookName, hookContent)
+			remove := gittest.WriteCustomHook(t, testRepoPath, hookName, hookContent)
 			defer remove()
 
 			response, err := client.UserDeleteBranch(ctx, request)
@@ -816,7 +817,7 @@ func TestBranchHookOutput(t *testing.T) {
 					User:       testhelper.TestUser,
 				}
 
-				remove := testhelper.WriteCustomHook(t, testRepoPath, hookName, []byte(testCase.hookContent))
+				remove := gittest.WriteCustomHook(t, testRepoPath, hookName, []byte(testCase.hookContent))
 				defer remove()
 
 				createResponse, err := client.UserCreateBranch(ctx, createRequest)

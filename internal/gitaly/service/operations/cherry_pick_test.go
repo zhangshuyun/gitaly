@@ -8,6 +8,7 @@ import (
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
@@ -219,7 +220,7 @@ func testServerUserCherryPickSuccessfulGitHooks(t *testing.T, ctxOuter context.C
 
 	var hookOutputFiles []string
 	for _, hookName := range GitlabHooks {
-		hookOutputTempPath, cleanup := testhelper.WriteEnvToCustomHook(t, repoPath, hookName)
+		hookOutputTempPath, cleanup := gittest.WriteEnvToCustomHook(t, repoPath, hookName)
 		defer cleanup()
 		hookOutputFiles = append(hookOutputFiles, hookOutputTempPath)
 	}
@@ -418,7 +419,7 @@ func testServerUserCherryPickFailedWithPreReceiveError(t *testing.T, ctxOuter co
 
 	for _, hookName := range GitlabPreHooks {
 		t.Run(hookName, func(t *testing.T) {
-			remove := testhelper.WriteCustomHook(t, repoPath, hookName, hookContent)
+			remove := gittest.WriteCustomHook(t, repoPath, hookName, hookContent)
 			defer remove()
 
 			md := testhelper.GitalyServersMetadata(t, serverSocketPath)

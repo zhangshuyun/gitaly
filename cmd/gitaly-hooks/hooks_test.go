@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	gitalyhook "gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/hook"
@@ -188,7 +189,7 @@ func testHooksPrePostReceive(t *testing.T) {
 
 	for _, hookName := range hookNames {
 		t.Run(fmt.Sprintf("hookName: %s", hookName), func(t *testing.T) {
-			customHookOutputPath, cleanup := testhelper.WriteEnvToCustomHook(t, testRepoPath, hookName)
+			customHookOutputPath, cleanup := gittest.WriteEnvToCustomHook(t, testRepoPath, hookName)
 			defer cleanup()
 
 			config.Config.Gitlab.URL = serverURL
@@ -330,7 +331,7 @@ open('%s', 'w') { |f| f.puts(JSON.dump(ARGV)) }
 	defer cleanup()
 
 	// write a custom hook to path/to/repo.git/custom_hooks/update which dumps the env into a tempfile
-	customHookOutputPath, cleanup := testhelper.WriteEnvToCustomHook(t, testRepoPath, "update")
+	customHookOutputPath, cleanup := gittest.WriteEnvToCustomHook(t, testRepoPath, "update")
 	defer cleanup()
 
 	var stdout, stderr bytes.Buffer
@@ -405,7 +406,7 @@ func TestHooksPostReceiveFailed(t *testing.T) {
 	stop := runHookServiceServerWithAPI(t, gitlabAPI)
 	defer stop()
 
-	customHookOutputPath, cleanup := testhelper.WriteEnvToCustomHook(t, testRepoPath, "post-receive")
+	customHookOutputPath, cleanup := gittest.WriteEnvToCustomHook(t, testRepoPath, "post-receive")
 	defer cleanup()
 
 	var stdout, stderr bytes.Buffer
@@ -525,7 +526,7 @@ func TestHooksNotAllowed(t *testing.T) {
 	config.Config.Gitlab.SecretFile = filepath.Join(tempGitlabShellDir, ".gitlab_shell_secret")
 	config.Config.Auth.Token = "abc123"
 
-	customHookOutputPath, cleanup := testhelper.WriteEnvToCustomHook(t, testRepoPath, "post-receive")
+	customHookOutputPath, cleanup := gittest.WriteEnvToCustomHook(t, testRepoPath, "post-receive")
 	defer cleanup()
 
 	gitlabAPI, err := gitalyhook.NewGitlabAPI(config.Config.Gitlab, config.Config.TLS)

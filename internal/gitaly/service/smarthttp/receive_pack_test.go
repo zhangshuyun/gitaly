@@ -45,7 +45,7 @@ func TestSuccessfulReceivePackRequest(t *testing.T) {
 	defer func(dir string) { config.Config.GitlabShell.Dir = dir }(config.Config.GitlabShell.Dir)
 	config.Config.GitlabShell.Dir = "/foo/bar/gitlab-shell"
 
-	hookOutputFile, cleanup := testhelper.CaptureHookEnv(t)
+	hookOutputFile, cleanup := gittest.CaptureHookEnv(t)
 	defer cleanup()
 
 	serverSocketPath, stop := runSmartHTTPServer(t, config.Config)
@@ -340,7 +340,7 @@ func TestInvalidTimezone(t *testing.T) {
 	fmt.Fprintf(body, "%04x%s%s", len(pkt)+4, pkt, pktFlushStr)
 	body.Write(pack)
 
-	_, cleanup := testhelper.CaptureHookEnv(t)
+	_, cleanup := gittest.CaptureHookEnv(t)
 	defer cleanup()
 
 	socket, stop := runSmartHTTPServer(t, config.Config)
@@ -424,7 +424,7 @@ func TestPostReceivePackToHooks(t *testing.T) {
 
 	testhelper.WriteShellSecretFile(t, tempGitlabShellDir, secretToken)
 
-	cleanup = testhelper.WriteCheckNewObjectExistsHook(t, config.Config.Git.BinPath, testRepoPath)
+	cleanup = gittest.WriteCheckNewObjectExistsHook(t, config.Config.Git.BinPath, testRepoPath)
 	defer cleanup()
 
 	config.Config.Gitlab.URL = serverURL

@@ -11,6 +11,7 @@ import (
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -58,8 +59,8 @@ func TestSuccessfulUserRebaseConfirmableRequest(t *testing.T) {
 	rebaseStream, err := client.UserRebaseConfirmable(ctx)
 	require.NoError(t, err)
 
-	preReceiveHookOutputPath, removePreReceive := testhelper.WriteEnvToCustomHook(t, repoPath, "pre-receive")
-	postReceiveHookOutputPath, removePostReceive := testhelper.WriteEnvToCustomHook(t, repoPath, "post-receive")
+	preReceiveHookOutputPath, removePreReceive := gittest.WriteEnvToCustomHook(t, repoPath, "pre-receive")
+	postReceiveHookOutputPath, removePostReceive := gittest.WriteEnvToCustomHook(t, repoPath, "post-receive")
 	defer removePreReceive()
 	defer removePostReceive()
 
@@ -390,7 +391,7 @@ func TestFailedUserRebaseConfirmableRequestDueToPreReceiveError(t *testing.T) {
 
 	for i, hookName := range GitlabPreHooks {
 		t.Run(hookName, func(t *testing.T) {
-			remove := testhelper.WriteCustomHook(t, repoPath, hookName, hookContent)
+			remove := gittest.WriteCustomHook(t, repoPath, hookName, hookContent)
 			defer remove()
 
 			md := testhelper.GitalyServersMetadata(t, serverSocketPath)

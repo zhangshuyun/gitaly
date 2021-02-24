@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
@@ -189,7 +190,7 @@ func TestUpdate_customHooks(t *testing.T) {
 			ctx, cleanup := testhelper.Context()
 			defer cleanup()
 
-			cleanup = testhelper.WriteCustomHook(t, repoPath, "update", []byte(tc.hook))
+			cleanup = gittest.WriteCustomHook(t, repoPath, "update", []byte(tc.hook))
 			defer cleanup()
 
 			var stdout, stderr bytes.Buffer

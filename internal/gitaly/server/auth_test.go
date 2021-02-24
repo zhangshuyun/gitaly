@@ -17,6 +17,7 @@ import (
 	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
 	"gitlab.com/gitlab-org/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config/auth"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
@@ -376,7 +377,7 @@ func TestAuthBeforeLimit(t *testing.T) {
 	}(gitalyauth.TokenValidityDuration())
 	gitalyauth.SetTokenValidityDuration(5 * time.Second)
 
-	cleanupCustomHook := testhelper.WriteCustomHook(t, testRepoPath, "pre-receive", []byte(fmt.Sprintf(`#!/bin/bash
+	cleanupCustomHook := gittest.WriteCustomHook(t, testRepoPath, "pre-receive", []byte(fmt.Sprintf(`#!/bin/bash
 sleep %vs
 `, gitalyauth.TokenValidityDuration().Seconds())))
 	defer cleanupCustomHook()
