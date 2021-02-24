@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/remoterepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
@@ -28,7 +29,7 @@ func TestRepository(t *testing.T) {
 	pool := client.NewPool()
 	defer pool.Close()
 
-	git.TestRepository(t, func(t testing.TB, pbRepo *gitalypb.Repository) git.Repository {
+	gittest.TestRepository(t, func(t testing.TB, pbRepo *gitalypb.Repository) git.Repository {
 		t.Helper()
 
 		r, err := remoterepo.New(helper.OutgoingToIncoming(ctx), pbRepo, pool)
