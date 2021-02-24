@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/git/updateref"
@@ -1087,7 +1088,7 @@ func TestSuccessfulFindAllBranchesRequest(t *testing.T) {
 	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
-	testhelper.CreateRemoteBranch(t, config.Config.Git.BinPath, testRepoPath, "origin",
+	gittest.CreateRemoteBranch(t, config.Config.Git.BinPath, testRepoPath, "origin",
 		"fake-remote-branch", remoteBranch.Target.Id)
 
 	request := &gitalypb.FindAllBranchesRequest{Repository: testRepo}
