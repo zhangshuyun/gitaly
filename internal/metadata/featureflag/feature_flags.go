@@ -30,13 +30,13 @@ var (
 	GoUserRevert = FeatureFlag{Name: "go_user_revert", OnByDefault: false}
 
 	// TxApplyBfgObjectMapStream enables transactions for ApplyBfgObjectMapStream
-	TxApplyBfgObjectMapStream = FeatureFlag{Name: "tx_apply_bfg_object_map_stream", OnByDefault: false}
+	TxApplyBfgObjectMapStream = FeatureFlag{Name: "tx_apply_bfg_object_map_stream", OnByDefault: true}
 	// TxApplyGitattributes enables transactions for ApplyGitattributes
 	TxApplyGitattributes = FeatureFlag{Name: "tx_apply_gitattributes", OnByDefault: false}
 	// TxResolveConflicts enables transactions for ResolveConflicts
 	TxResolveConflicts = FeatureFlag{Name: "tx_resolve_conflicts", OnByDefault: false}
 	// TxFetchIntoObjectPool enables transactions for FetchIntoObjectPool
-	TxFetchIntoObjectPool = FeatureFlag{Name: "tx_fetch_into_object_pool", OnByDefault: false}
+	TxFetchIntoObjectPool = FeatureFlag{Name: "tx_fetch_into_object_pool", OnByDefault: true}
 	// TxUserApplyPatch enables transactions for UserApplyPatch
 	TxUserApplyPatch = FeatureFlag{Name: "tx_user_apply_patch", OnByDefault: false}
 	// TxUserCherryPick enables transactions for UserCherryPick
@@ -58,35 +58,35 @@ var (
 	// TxUserUpdateSubmodule enables transactions for UserUpdateSubmodule
 	TxUserUpdateSubmodule = FeatureFlag{Name: "tx_user_update_submodule", OnByDefault: false}
 	// TxDeleteRefs enables transactions for DeleteRefs
-	TxDeleteRefs = FeatureFlag{Name: "tx_delete_refs", OnByDefault: false}
+	TxDeleteRefs = FeatureFlag{Name: "tx_delete_refs", OnByDefault: true}
 	// TxAddRemote enables transactions for AddRemote
-	TxAddRemote = FeatureFlag{Name: "tx_add_remote", OnByDefault: false}
+	TxAddRemote = FeatureFlag{Name: "tx_add_remote", OnByDefault: true}
 	// TxFetchInternalRemote enables transactions for FetchInternalRemote
-	TxFetchInternalRemote = FeatureFlag{Name: "tx_fetch_internal_remote", OnByDefault: false}
+	TxFetchInternalRemote = FeatureFlag{Name: "tx_fetch_internal_remote", OnByDefault: true}
 	// TxRemoveRemote enables transactions for RemoveRemote
 	TxRemoveRemote = FeatureFlag{Name: "tx_remove_remote", OnByDefault: false}
 	// TxUpdateRemoteMirror enables transactions for UpdateRemoteMirror
 	TxUpdateRemoteMirror = FeatureFlag{Name: "tx_update_remote_mirror", OnByDefault: false}
 	// TxCloneFromPool enables transactions for CloneFromPool
-	TxCloneFromPool = FeatureFlag{Name: "tx_clone_from_pool", OnByDefault: false}
+	TxCloneFromPool = FeatureFlag{Name: "tx_clone_from_pool", OnByDefault: true}
 	// TxCloneFromPoolInternal enables transactions for CloneFromPoolInternal
-	TxCloneFromPoolInternal = FeatureFlag{Name: "tx_clone_from_pool_internal", OnByDefault: false}
+	TxCloneFromPoolInternal = FeatureFlag{Name: "tx_clone_from_pool_internal", OnByDefault: true}
 	// TxCreateFork enables transactions for CreateFork
-	TxCreateFork = FeatureFlag{Name: "tx_create_fork", OnByDefault: false}
+	TxCreateFork = FeatureFlag{Name: "tx_create_fork", OnByDefault: true}
 	// TxCreateRepositoryFromBundle enables transactions for CreateRepositoryFromBundle
-	TxCreateRepositoryFromBundle = FeatureFlag{Name: "tx_create_repository_from_bundle", OnByDefault: false}
+	TxCreateRepositoryFromBundle = FeatureFlag{Name: "tx_create_repository_from_bundle", OnByDefault: true}
 	// TxCreateRepositoryFromSnapshot enables transactions for CreateRepositoryFromSnapshot
-	TxCreateRepositoryFromSnapshot = FeatureFlag{Name: "tx_create_repository_from_snapshot", OnByDefault: false}
+	TxCreateRepositoryFromSnapshot = FeatureFlag{Name: "tx_create_repository_from_snapshot", OnByDefault: true}
 	// TxCreateRepositoryFromURL enables transactions for CreateRepositoryFromURL
-	TxCreateRepositoryFromURL = FeatureFlag{Name: "tx_create_repository_from_u_r_l", OnByDefault: false}
+	TxCreateRepositoryFromURL = FeatureFlag{Name: "tx_create_repository_from_u_r_l", OnByDefault: true}
 	// TxFetchRemote enables transactions for FetchRemote
-	TxFetchRemote = FeatureFlag{Name: "tx_fetch_remote", OnByDefault: false}
+	TxFetchRemote = FeatureFlag{Name: "tx_fetch_remote", OnByDefault: true}
 	// TxFetchSourceBranch enables transactions for FetchSourceBranch
-	TxFetchSourceBranch = FeatureFlag{Name: "tx_fetch_source_branch", OnByDefault: false}
+	TxFetchSourceBranch = FeatureFlag{Name: "tx_fetch_source_branch", OnByDefault: true}
 	// TxReplicateRepository enables transactions for ReplicateRepository
-	TxReplicateRepository = FeatureFlag{Name: "tx_replicate_repository", OnByDefault: false}
+	TxReplicateRepository = FeatureFlag{Name: "tx_replicate_repository", OnByDefault: true}
 	// TxWriteRef enables transactions for WriteRef
-	TxWriteRef = FeatureFlag{Name: "tx_write_ref", OnByDefault: false}
+	TxWriteRef = FeatureFlag{Name: "tx_write_ref", OnByDefault: true}
 	// TxWikiDeletePage enables transactions for WikiDeletePage
 	TxWikiDeletePage = FeatureFlag{Name: "tx_wiki_delete_page", OnByDefault: false}
 	// TxWikiUpdatePage enables transactions for WikiUpdatePage
