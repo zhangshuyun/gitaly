@@ -98,7 +98,7 @@ func TestSuccessfulInfoRefsUploadPackWithGitConfigOptions(t *testing.T) {
 func TestSuccessfulInfoRefsUploadPackWithGitProtocol(t *testing.T) {
 	defer func(old config.Cfg) { config.Config = old }(config.Config)
 
-	readProtocol, cfg, restore := testhelper.EnableGitProtocolV2Support(t, config.Config)
+	readProtocol, cfg, restore := gittest.EnableGitProtocolV2Support(t, config.Config)
 	defer restore()
 	config.Config = cfg
 

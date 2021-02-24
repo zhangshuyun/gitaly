@@ -181,7 +181,7 @@ func TestUploadPackRequestWithGitProtocol(t *testing.T) {
 func testUploadPackRequestWithGitProtocol(t *testing.T, ctx context.Context) {
 	defer func(old config.Cfg) { config.Config = old }(config.Config)
 
-	readProto, cfg, restore := testhelper.EnableGitProtocolV2Support(t, config.Config)
+	readProto, cfg, restore := gittest.EnableGitProtocolV2Support(t, config.Config)
 	defer restore()
 	config.Config = cfg
 

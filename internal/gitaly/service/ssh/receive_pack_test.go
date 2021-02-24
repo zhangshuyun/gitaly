@@ -142,7 +142,7 @@ func TestReceivePackPushSuccess(t *testing.T) {
 
 func TestReceivePackPushSuccessWithGitProtocol(t *testing.T) {
 	defer func(old config.Cfg) { config.Config = old }(config.Config)
-	readProto, cfg, restore := testhelper.EnableGitProtocolV2Support(t, config.Config)
+	readProto, cfg, restore := gittest.EnableGitProtocolV2Support(t, config.Config)
 	defer restore()
 	config.Config = cfg
 
@@ -245,7 +245,7 @@ func TestSSHReceivePackToHooks(t *testing.T) {
 	glID := "key-123"
 
 	defer func(old config.Cfg) { config.Config = old }(config.Config)
-	readProto, cfg, restore := testhelper.EnableGitProtocolV2Support(t, config.Config)
+	readProto, cfg, restore := gittest.EnableGitProtocolV2Support(t, config.Config)
 	defer restore()
 	config.Config = cfg
 

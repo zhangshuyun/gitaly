@@ -15,6 +15,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/hooks"
 	"gitlab.com/gitlab-org/gitaly/internal/git/pktline"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
@@ -110,7 +111,7 @@ func TestSuccessfulReceivePackRequest(t *testing.T) {
 func TestSuccessfulReceivePackRequestWithGitProtocol(t *testing.T) {
 	defer func(old config.Cfg) { config.Config = old }(config.Config)
 
-	readProto, cfg, restore := testhelper.EnableGitProtocolV2Support(t, config.Config)
+	readProto, cfg, restore := gittest.EnableGitProtocolV2Support(t, config.Config)
 	defer restore()
 	config.Config = cfg
 
