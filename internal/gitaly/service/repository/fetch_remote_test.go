@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
@@ -95,7 +96,7 @@ func TestFetchRemote_withDefaultRefmaps(t *testing.T) {
 	}()
 	targetRepo := localrepo.New(gitCmdFactory, targetRepoProto, config.Config)
 
-	port, stopGitServer := testhelper.GitServer(t, config.Config, sourceRepoPath, nil)
+	port, stopGitServer := gittest.GitServer(t, config.Config, sourceRepoPath, nil)
 	defer func() { require.NoError(t, stopGitServer()) }()
 
 	ctx, cancel := testhelper.Context()
@@ -134,7 +135,7 @@ func TestFetchRemote_prune(t *testing.T) {
 	sourceRepo, sourceRepoPath, cleanup := testhelper.NewTestRepo(t)
 	defer cleanup()
 
-	port, stopGitServer := testhelper.GitServer(t, config.Config, sourceRepoPath, nil)
+	port, stopGitServer := gittest.GitServer(t, config.Config, sourceRepoPath, nil)
 	defer func() { require.NoError(t, stopGitServer()) }()
 
 	remoteURL := fmt.Sprintf("http://127.0.0.1:%d/%s", port, filepath.Base(sourceRepoPath))

@@ -11,6 +11,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -178,7 +179,7 @@ func TestPreventingRedirect(t *testing.T) {
 }
 
 func gitServerWithBasicAuth(t testing.TB, cfg config.Cfg, user, pass, repoPath string) (int, func() error) {
-	return testhelper.GitServer(t, cfg, repoPath, basicAuthMiddleware(t, user, pass))
+	return gittest.GitServer(t, cfg, repoPath, basicAuthMiddleware(t, user, pass))
 }
 
 func basicAuthMiddleware(t testing.TB, user, pass string) func(http.ResponseWriter, *http.Request, http.Handler) {
