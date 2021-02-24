@@ -100,7 +100,7 @@ func TestOptimizeRepository(t *testing.T) {
 	defer cleanupBare()
 
 	blobs := 10
-	blobIDs := testhelper.WriteBlobs(t, testRepoPath, blobs)
+	blobIDs := gittest.WriteBlobs(t, testRepoPath, blobs)
 
 	updater, err := updateref.New(ctx, config.Config, git.NewExecCommandFactory(config.Config), testRepo)
 	require.NoError(t, err)

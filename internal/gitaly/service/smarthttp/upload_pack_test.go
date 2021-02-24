@@ -466,9 +466,9 @@ func testUploadPackRequestForPartialCloneSuccess(t *testing.T, ctx context.Conte
 	// c1788657b95998a2f177a4f86d68a60f2a80117f is CONTRIBUTING.md, which is > 200 bytese
 	blobGreaterThanLimit := "c1788657b95998a2f177a4f86d68a60f2a80117f"
 
-	testhelper.GitObjectMustExist(t, config.Config.Git.BinPath, localRepoPath, blobLessThanLimit)
-	testhelper.GitObjectMustExist(t, config.Config.Git.BinPath, remoteRepoPath, blobGreaterThanLimit)
-	testhelper.GitObjectMustNotExist(t, config.Config.Git.BinPath, localRepoPath, blobGreaterThanLimit)
+	gittest.GitObjectMustExist(t, config.Config.Git.BinPath, localRepoPath, blobLessThanLimit)
+	gittest.GitObjectMustExist(t, config.Config.Git.BinPath, remoteRepoPath, blobGreaterThanLimit)
+	gittest.GitObjectMustNotExist(t, config.Config.Git.BinPath, localRepoPath, blobGreaterThanLimit)
 
 	newBranch := "new-branch"
 	newHead = []byte(gittest.CreateCommit(t, remoteRepoPath, newBranch, &gittest.CreateCommitOpts{

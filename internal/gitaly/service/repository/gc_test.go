@@ -137,7 +137,7 @@ func TestGarbageCollectWithPrune(t *testing.T) {
 	testRepo, repoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
-	blobHashes := testhelper.WriteBlobs(t, repoPath, 3)
+	blobHashes := gittest.WriteBlobs(t, repoPath, 3)
 	oldDanglingObjFile := filepath.Join(repoPath, "objects", blobHashes[0][:2], blobHashes[0][2:])
 	newDanglingObjFile := filepath.Join(repoPath, "objects", blobHashes[1][:2], blobHashes[1][2:])
 	oldReferencedObjFile := filepath.Join(repoPath, "objects", blobHashes[2][:2], blobHashes[2][2:])

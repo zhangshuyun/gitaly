@@ -1,4 +1,4 @@
-package testhelper
+package gittest
 
 import (
 	"bytes"
@@ -11,6 +11,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 )
 
 // GitObjectMustExist is a test assertion that fails unless the git repo in repoPath contains sha
@@ -68,7 +69,7 @@ func WriteBlobs(t testing.TB, testRepoPath string, n int) []string {
 	for i := 0; i < n; i++ {
 		var stdin bytes.Buffer
 		stdin.Write([]byte(strconv.Itoa(time.Now().Nanosecond())))
-		blobIDs = append(blobIDs, text.ChompBytes(MustRunCommand(t, &stdin, "git", "-C", testRepoPath, "hash-object", "-w", "--stdin")))
+		blobIDs = append(blobIDs, text.ChompBytes(testhelper.MustRunCommand(t, &stdin, "git", "-C", testRepoPath, "hash-object", "-w", "--stdin")))
 	}
 
 	return blobIDs

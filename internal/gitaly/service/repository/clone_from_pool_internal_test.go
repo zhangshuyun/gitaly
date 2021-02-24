@@ -80,7 +80,7 @@ func TestCloneFromPoolInternal(t *testing.T) {
 	_, err := client.CloneFromPoolInternal(ctx, req)
 	require.NoError(t, err)
 
-	assert.True(t, testhelper.GetGitObjectDirSize(t, forkRepoPath) < 100)
+	assert.True(t, gittest.GetGitObjectDirSize(t, forkRepoPath) < 100)
 
 	isLinked, err := pool.LinkedToRepository(testRepo)
 	require.NoError(t, err)

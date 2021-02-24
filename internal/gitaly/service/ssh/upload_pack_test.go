@@ -16,6 +16,7 @@ import (
 	promtest "github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/pktline"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
@@ -369,14 +370,14 @@ func TestUploadPackCloneWithPartialCloneFilter(t *testing.T) {
 		{
 			desc: "full_clone",
 			repoTest: func(t *testing.T, repoPath string) {
-				testhelper.GitObjectMustExist(t, config.Config.Git.BinPath, repoPath, blobGreaterThanLimit)
+				gittest.GitObjectMustExist(t, config.Config.Git.BinPath, repoPath, blobGreaterThanLimit)
 			},
 			cloneArgs: []string{"clone", "git@localhost:test/test.git"},
 		},
 		{
 			desc: "partial_clone",
 			repoTest: func(t *testing.T, repoPath string) {
-				testhelper.GitObjectMustNotExist(t, config.Config.Git.BinPath, repoPath, blobGreaterThanLimit)
+				gittest.GitObjectMustNotExist(t, config.Config.Git.BinPath, repoPath, blobGreaterThanLimit)
 			},
 			cloneArgs: []string{"clone", "--filter=blob:limit=2048", "git@localhost:test/test.git"},
 		},
@@ -402,7 +403,7 @@ func TestUploadPackCloneWithPartialCloneFilter(t *testing.T) {
 			defer os.RemoveAll(localPath)
 			require.NoError(t, err, "clone failed")
 
-			testhelper.GitObjectMustExist(t, config.Config.Git.BinPath, localPath, blobLessThanLimit)
+			gittest.GitObjectMustExist(t, config.Config.Git.BinPath, localPath, blobLessThanLimit)
 			tc.repoTest(t, localPath)
 		})
 	}
