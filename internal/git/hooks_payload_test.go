@@ -7,12 +7,20 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
-	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
 func TestHooksPayload(t *testing.T) {
-	repo, _, cleanup := testhelper.NewTestRepo(t)
-	defer cleanup()
+	repo := &gitalypb.Repository{
+		StorageName:        "storage",
+		RelativePath:       "relative/path",
+		GitObjectDirectory: "object/directory",
+		GitAlternateObjectDirectories: []string{
+			"alternate/object/directory",
+		},
+		GlRepository:  "repository-1",
+		GlProjectPath: "test/project",
+	}
 
 	tx := metadata.Transaction{
 		ID:      1234,
