@@ -14,6 +14,144 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 )
 
+func TestPostgresReplicationEventQueue_DeleteReplicaUniqueIndex(t *testing.T) {
+	for _, tc := range []struct {
+		desc        string
+		existingJob *ReplicationEvent
+		succeeds    bool
+	}{
+		{
+			desc:     "allowed when no events",
+			succeeds: true,
+		},
+		{
+			desc: "allowed if existing completed job",
+			existingJob: &ReplicationEvent{
+				State: JobStateCompleted,
+				Job: ReplicationJob{
+					Change:         DeleteReplica,
+					VirtualStorage: "praefect",
+					RelativePath:   "relative-path",
+				},
+			},
+			succeeds: true,
+		},
+		{
+			desc: "allowed if existing cancelled job",
+			existingJob: &ReplicationEvent{
+				State: JobStateCancelled,
+				Job: ReplicationJob{
+					Change:         DeleteReplica,
+					VirtualStorage: "praefect",
+					RelativePath:   "relative-path",
+				},
+			},
+			succeeds: true,
+		},
+		{
+			desc: "allowed if existing dead job",
+			existingJob: &ReplicationEvent{
+				State: JobStateDead,
+				Job: ReplicationJob{
+					Change:         DeleteReplica,
+					VirtualStorage: "praefect",
+					RelativePath:   "relative-path",
+				},
+			},
+			succeeds: true,
+		},
+		{
+			desc: "allowed if existing different virtual storage",
+			existingJob: &ReplicationEvent{
+				State: JobStateReady,
+				Job: ReplicationJob{
+					Change:         DeleteReplica,
+					VirtualStorage: "wrong-virtual-storage",
+					RelativePath:   "relative-path",
+				},
+			},
+			succeeds: true,
+		},
+		{
+			desc: "allowed if existing different relative path",
+			existingJob: &ReplicationEvent{
+				State: JobStateReady,
+				Job: ReplicationJob{
+					Change:         DeleteReplica,
+					VirtualStorage: "praefect",
+					RelativePath:   "wrong-relative-path",
+				},
+			},
+			succeeds: true,
+		},
+		{
+			desc: "not allowed if existing ready job",
+			existingJob: &ReplicationEvent{
+				State: JobStateReady,
+				Job: ReplicationJob{
+					Change:         DeleteReplica,
+					VirtualStorage: "praefect",
+					RelativePath:   "relative-path",
+				},
+			},
+		},
+		{
+			desc: "not allowed if existing in_progress job",
+			existingJob: &ReplicationEvent{
+				State: JobStateInProgress,
+				Job: ReplicationJob{
+					Change:         DeleteReplica,
+					VirtualStorage: "praefect",
+					RelativePath:   "relative-path",
+				},
+			},
+		},
+		{
+			desc: "not allowed if existing failed job",
+			existingJob: &ReplicationEvent{
+				State: JobStateFailed,
+				Job: ReplicationJob{
+					Change:         DeleteReplica,
+					VirtualStorage: "praefect",
+					RelativePath:   "relative-path",
+				},
+			},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			db := getDB(t)
+
+			ctx, cancel := testhelper.Context()
+			defer cancel()
+
+			if tc.existingJob != nil {
+				_, err := db.ExecContext(ctx, `
+					INSERT INTO replication_queue (state, job)
+					VALUES ($1, $2)
+				`, tc.existingJob.State, tc.existingJob.Job)
+				require.NoError(t, err)
+			}
+
+			_, err := NewPostgresReplicationEventQueue(db).Enqueue(ctx, ReplicationEvent{
+				State: JobStateReady,
+				Job: ReplicationJob{
+					Change:            DeleteReplica,
+					VirtualStorage:    "praefect",
+					RelativePath:      "relative-path",
+					TargetNodeStorage: "gitaly-1",
+				},
+			})
+
+			if tc.succeeds {
+				require.NoError(t, err)
+				return
+			}
+
+			require.EqualError(t, err, `query: pq: duplicate key value violates unique constraint "delete_replica_unique_index"`)
+		})
+	}
+}
+
 func TestPostgresReplicationEventQueue_Enqueue(t *testing.T) {
 	db := getDB(t)
 
