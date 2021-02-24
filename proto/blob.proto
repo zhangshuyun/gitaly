@@ -21,16 +21,26 @@ service BlobService {
       op: ACCESSOR
     };
   }
+
+  // GetLFSPointers retrieves LFS pointers from a given set of object IDs.
+  // This RPC filters all requested objects and only returns those which refer
+  // to a valid LFS pointer.
   rpc GetLFSPointers(GetLFSPointersRequest) returns (stream GetLFSPointersResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
+
+  // GetNewLFSPointers retrieves LFS pointers for a limited subset of the
+  // commit graph. It will return all LFS pointers which are reachable by the
+  // provided revision, but not reachable by any of the limiting references.
   rpc GetNewLFSPointers(GetNewLFSPointersRequest) returns (stream GetNewLFSPointersResponse) {
     option (op_type) = {
       op: ACCESSOR
     };
   }
+
+  // GetAllLFSPointers retrieves all LFS pointers of the given repository.
   rpc GetAllLFSPointers(GetAllLFSPointersRequest) returns (stream GetAllLFSPointersResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -84,9 +94,15 @@ message GetBlobsResponse {
   ObjectType type = 8;
 }
 
+// LFSPointer is a git blob which points to an LFS object.
 message LFSPointer {
+  // Size is the size of the blob. This is not the size of the LFS object
+  // pointed to.
   int64 size = 1;
+  // Data is the bare data of the LFS pointer blob. It contains the pointer to
+  // the LFS data in the format specified by the LFS project.
   bytes data = 2;
+  // Oid is the object ID of the blob.
   string oid = 3;
 }
 
@@ -96,35 +112,57 @@ message NewBlobObject {
   bytes path = 3;
 }
 
+// GetLFSPointersRequest is a request for the GetLFSPointers RPC.
 message GetLFSPointersRequest {
-
+  // Repository is the repository for which LFS pointers should be retrieved
+  // from.
   Repository repository = 1[(target_repository)=true];
+  // BlobIds is the list of blobs to retrieve LFS pointers from. Must be a
+  // non-empty list of blobs IDs to fetch.
   repeated string blob_ids = 2;
 }
 
+// GetLFSPointersResponse is a response for the GetLFSPointers RPC.
 message GetLFSPointersResponse {
+  // LfsPointers is the list of LFS pointers which were requested.
   repeated LFSPointer lfs_pointers = 1;
 }
 
+// GetNewLFSPointersRequest is a request for the GetNewLFSPointers RPC.
 message GetNewLFSPointersRequest {
-
+  // Repository is the repository for which LFS pointers should be retrieved
+  // from.
   Repository repository = 1[(target_repository)=true];
+  // Revision is the revision for which to retrieve new LFS pointers.
   bytes revision = 2;
+  // Limit limits the number of LFS pointers returned.
   int32 limit = 3;
-  // Note: When `not_in_all` is true, `not_in_refs` is ignored
+  // NotInAll limits the revision graph to not include any commits which are
+  // referenced by a git reference. When `not_in_all` is true, `not_in_refs` is
+  // ignored.
   bool not_in_all = 4;
+  // NotInRefs is a list of references used to limit the revision graph. Any
+  // commit reachable by any commit in NotInRefs will not be searched for new
+  // LFS pointers. This is ignored if NotInAll is set to `true`.
   repeated bytes not_in_refs = 5;
 }
 
+// GetNewLFSPointersResponse is a response for the GetNewLFSPointers RPC.
 message GetNewLFSPointersResponse {
+  // LfsPointers is the list of LFS pointers which were requested.
   repeated LFSPointer lfs_pointers = 1;
 }
 
+// GetAllLFSPointersRequest is a request for the GetAllLFSPointers RPC.
 message GetAllLFSPointersRequest {
+  // Repository is the repository for which LFS pointers shoul be retrieved
+  // from.
   Repository repository = 1[(target_repository)=true];
   reserved 2;
 }
 
+// GetAllLFSPointersResponse is a response for the GetAllLFSPointers RPC.
 message GetAllLFSPointersResponse {
+  // LfsPointers is the list of LFS pointers.
   repeated LFSPointer lfs_pointers = 1;
 }

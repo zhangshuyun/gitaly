@@ -19,8 +19,15 @@ module Gitaly
       # response
       rpc :GetBlob, Gitaly::GetBlobRequest, stream(Gitaly::GetBlobResponse)
       rpc :GetBlobs, Gitaly::GetBlobsRequest, stream(Gitaly::GetBlobsResponse)
+      # GetLFSPointers retrieves LFS pointers from a given set of object IDs.
+      # This RPC filters all requested objects and only returns those which refer
+      # to a valid LFS pointer.
       rpc :GetLFSPointers, Gitaly::GetLFSPointersRequest, stream(Gitaly::GetLFSPointersResponse)
+      # GetNewLFSPointers retrieves LFS pointers for a limited subset of the
+      # commit graph. It will return all LFS pointers which are reachable by the
+      # provided revision, but not reachable by any of the limiting references.
       rpc :GetNewLFSPointers, Gitaly::GetNewLFSPointersRequest, stream(Gitaly::GetNewLFSPointersResponse)
+      # GetAllLFSPointers retrieves all LFS pointers of the given repository.
       rpc :GetAllLFSPointers, Gitaly::GetAllLFSPointersRequest, stream(Gitaly::GetAllLFSPointersResponse)
     end
 

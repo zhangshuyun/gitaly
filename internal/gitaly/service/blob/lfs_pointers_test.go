@@ -1,19 +1,75 @@
 package blob
 
 import (
+	"context"
+	"errors"
+	"fmt"
 	"io"
 	"os/exec"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
 
+const (
+	lfsPointer1 = "0c304a93cb8430108629bbbcaa27db3343299bc0"
+	lfsPointer2 = "f78df813119a79bfbe0442ab92540a61d3ab7ff3"
+	lfsPointer3 = "bab31d249f78fba464d1b75799aad496cc07fa3b"
+	lfsPointer4 = "125fcc9f6e33175cb278b9b2809154d2535fe19f"
+	lfsPointer5 = "0360724a0d64498331888f1eaef2d24243809230"
+	lfsPointer6 = "ff0ab3afd1616ff78d0331865d922df103b64cf0"
+)
+
+var (
+	lfsPointers = map[string]*gitalypb.LFSPointer{
+		lfsPointer1: &gitalypb.LFSPointer{
+			Size: 133,
+			Data: []byte("version https://git-lfs.github.com/spec/v1\noid sha256:91eff75a492a3ed0dfcb544d7f31326bc4014c8551849c192fd1e48d4dd2c897\nsize 1575078\n\n"),
+			Oid:  lfsPointer1,
+		},
+		lfsPointer2: &gitalypb.LFSPointer{
+			Size: 127,
+			Data: []byte("version https://git-lfs.github.com/spec/v1\noid sha256:f2b0a1e7550e9b718dafc9b525a04879a766de62e4fbdfc46593d47f7ab74636\nsize 20\n"),
+			Oid:  lfsPointer2,
+		},
+		lfsPointer3: &gitalypb.LFSPointer{
+			Size: 127,
+			Data: []byte("version https://git-lfs.github.com/spec/v1\noid sha256:bad71f905b60729f502ca339f7c9f001281a3d12c68a5da7f15de8009f4bd63d\nsize 18\n"),
+			Oid:  lfsPointer3,
+		},
+		lfsPointer4: &gitalypb.LFSPointer{
+			Size: 129,
+			Data: []byte("version https://git-lfs.github.com/spec/v1\noid sha256:47997ea7ecff33be61e3ca1cc287ee72a2125161518f1a169f2893a5a82e9d95\nsize 7501\n"),
+			Oid:  lfsPointer4,
+		},
+		lfsPointer5: &gitalypb.LFSPointer{
+			Size: 129,
+			Data: []byte("version https://git-lfs.github.com/spec/v1\noid sha256:8c1e8de917525f83104736f6c64d32f0e2a02f5bf2ee57843a54f222cba8c813\nsize 2797\n"),
+			Oid:  lfsPointer5,
+		},
+		lfsPointer6: &gitalypb.LFSPointer{
+			Size: 132,
+			Data: []byte("version https://git-lfs.github.com/spec/v1\noid sha256:96f74c6fe7a2979eefb9ec74a5dfc6888fb25543cf99b77586b79afea1da6f97\nsize 1219696\n"),
+			Oid:  lfsPointer6,
+		},
+	}
+)
+
 func TestSuccessfulGetLFSPointersRequest(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.GoGetLFSPointers,
+	}).Run(t, testSuccessfulGetLFSPointersRequest)
+}
+
+func testSuccessfulGetLFSPointersRequest(t *testing.T, ctx context.Context) {
 	stop, serverSocketPath := runBlobServer(t, testhelper.DefaultLocator())
 	defer stop()
 
@@ -23,13 +79,10 @@ func TestSuccessfulGetLFSPointersRequest(t *testing.T) {
 	client, conn := newBlobClient(t, serverSocketPath)
 	defer conn.Close()
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-
 	lfsPointerIds := []string{
-		"0c304a93cb8430108629bbbcaa27db3343299bc0",
-		"f78df813119a79bfbe0442ab92540a61d3ab7ff3",
-		"bab31d249f78fba464d1b75799aad496cc07fa3b",
+		lfsPointer1,
+		lfsPointer2,
+		lfsPointer3,
 	}
 	otherObjectIds := []string{
 		"d5b560e9c17384cf8257347db63167b54e0c97ff", // tree
@@ -37,21 +90,9 @@ func TestSuccessfulGetLFSPointersRequest(t *testing.T) {
 	}
 
 	expectedLFSPointers := []*gitalypb.LFSPointer{
-		{
-			Size: 133,
-			Data: []byte("version https://git-lfs.github.com/spec/v1\noid sha256:91eff75a492a3ed0dfcb544d7f31326bc4014c8551849c192fd1e48d4dd2c897\nsize 1575078\n\n"),
-			Oid:  "0c304a93cb8430108629bbbcaa27db3343299bc0",
-		},
-		{
-			Size: 127,
-			Data: []byte("version https://git-lfs.github.com/spec/v1\noid sha256:f2b0a1e7550e9b718dafc9b525a04879a766de62e4fbdfc46593d47f7ab74636\nsize 20\n"),
-			Oid:  "f78df813119a79bfbe0442ab92540a61d3ab7ff3",
-		},
-		{
-			Size: 127,
-			Data: []byte("version https://git-lfs.github.com/spec/v1\noid sha256:bad71f905b60729f502ca339f7c9f001281a3d12c68a5da7f15de8009f4bd63d\nsize 18\n"),
-			Oid:  "bab31d249f78fba464d1b75799aad496cc07fa3b",
-		},
+		lfsPointers[lfsPointer1],
+		lfsPointers[lfsPointer2],
+		lfsPointers[lfsPointer3],
 	}
 
 	request := &gitalypb.GetLFSPointersRequest{
@@ -78,6 +119,12 @@ func TestSuccessfulGetLFSPointersRequest(t *testing.T) {
 }
 
 func TestFailedGetLFSPointersRequestDueToValidations(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.GoGetLFSPointers,
+	}).Run(t, testFailedGetLFSPointersRequestDueToValidations)
+}
+
+func testFailedGetLFSPointersRequestDueToValidations(t *testing.T, ctx context.Context) {
 	stop, serverSocketPath := runBlobServer(t, testhelper.DefaultLocator())
 	defer stop()
 
@@ -112,9 +159,6 @@ func TestFailedGetLFSPointersRequestDueToValidations(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
-
 			stream, err := client.GetLFSPointers(ctx, testCase.request)
 			require.NoError(t, err)
 
@@ -161,21 +205,9 @@ func TestSuccessfulGetNewLFSPointersRequest(t *testing.T) {
 				Revision:   revision,
 			},
 			expectedLFSPointers: []*gitalypb.LFSPointer{
-				{
-					Size: 133,
-					Data: []byte("version https://git-lfs.github.com/spec/v1\noid sha256:91eff75a492a3ed0dfcb544d7f31326bc4014c8551849c192fd1e48d4dd2c897\nsize 1575078\n\n"),
-					Oid:  "0c304a93cb8430108629bbbcaa27db3343299bc0",
-				},
-				{
-					Size: 127,
-					Data: []byte("version https://git-lfs.github.com/spec/v1\noid sha256:f2b0a1e7550e9b718dafc9b525a04879a766de62e4fbdfc46593d47f7ab74636\nsize 20\n"),
-					Oid:  "f78df813119a79bfbe0442ab92540a61d3ab7ff3",
-				},
-				{
-					Size: 127,
-					Data: []byte("version https://git-lfs.github.com/spec/v1\noid sha256:bad71f905b60729f502ca339f7c9f001281a3d12c68a5da7f15de8009f4bd63d\nsize 18\n"),
-					Oid:  "bab31d249f78fba464d1b75799aad496cc07fa3b",
-				},
+				lfsPointers[lfsPointer1],
+				lfsPointers[lfsPointer2],
+				lfsPointers[lfsPointer3],
 			},
 		},
 		{
@@ -185,21 +217,9 @@ func TestSuccessfulGetNewLFSPointersRequest(t *testing.T) {
 				Revision:   altDirsCommit,
 			},
 			expectedLFSPointers: []*gitalypb.LFSPointer{
-				{
-					Size: 133,
-					Data: []byte("version https://git-lfs.github.com/spec/v1\noid sha256:91eff75a492a3ed0dfcb544d7f31326bc4014c8551849c192fd1e48d4dd2c897\nsize 1575078\n\n"),
-					Oid:  "0c304a93cb8430108629bbbcaa27db3343299bc0",
-				},
-				{
-					Size: 127,
-					Data: []byte("version https://git-lfs.github.com/spec/v1\noid sha256:f2b0a1e7550e9b718dafc9b525a04879a766de62e4fbdfc46593d47f7ab74636\nsize 20\n"),
-					Oid:  "f78df813119a79bfbe0442ab92540a61d3ab7ff3",
-				},
-				{
-					Size: 127,
-					Data: []byte("version https://git-lfs.github.com/spec/v1\noid sha256:bad71f905b60729f502ca339f7c9f001281a3d12c68a5da7f15de8009f4bd63d\nsize 18\n"),
-					Oid:  "bab31d249f78fba464d1b75799aad496cc07fa3b",
-				},
+				lfsPointers[lfsPointer1],
+				lfsPointers[lfsPointer2],
+				lfsPointers[lfsPointer3],
 			},
 		},
 		{
@@ -235,16 +255,8 @@ func TestSuccessfulGetNewLFSPointersRequest(t *testing.T) {
 				Limit:      2,
 			},
 			expectedLFSPointers: []*gitalypb.LFSPointer{
-				{
-					Size: 127,
-					Data: []byte("version https://git-lfs.github.com/spec/v1\noid sha256:bad71f905b60729f502ca339f7c9f001281a3d12c68a5da7f15de8009f4bd63d\nsize 18\n"),
-					Oid:  "bab31d249f78fba464d1b75799aad496cc07fa3b",
-				},
-				{
-					Size: 127,
-					Data: []byte("version https://git-lfs.github.com/spec/v1\noid sha256:f2b0a1e7550e9b718dafc9b525a04879a766de62e4fbdfc46593d47f7ab74636\nsize 20\n"),
-					Oid:  "f78df813119a79bfbe0442ab92540a61d3ab7ff3",
-				},
+				lfsPointers[lfsPointer3],
+				lfsPointers[lfsPointer2],
 			},
 		},
 		{
@@ -255,11 +267,7 @@ func TestSuccessfulGetNewLFSPointersRequest(t *testing.T) {
 				NotInAll:   true,
 			},
 			expectedLFSPointers: []*gitalypb.LFSPointer{
-				{
-					Size: 133,
-					Data: []byte("version https://git-lfs.github.com/spec/v1\noid sha256:91eff75a492a3ed0dfcb544d7f31326bc4014c8551849c192fd1e48d4dd2c897\nsize 1575078\n\n"),
-					Oid:  "0c304a93cb8430108629bbbcaa27db3343299bc0",
-				},
+				lfsPointers[lfsPointer1],
 			},
 		},
 		{
@@ -270,16 +278,8 @@ func TestSuccessfulGetNewLFSPointersRequest(t *testing.T) {
 				NotInRefs:  [][]byte{[]byte("048721d90c449b244b7b4c53a9186b04330174ec")},
 			},
 			expectedLFSPointers: []*gitalypb.LFSPointer{
-				{
-					Size: 127,
-					Data: []byte("version https://git-lfs.github.com/spec/v1\noid sha256:bad71f905b60729f502ca339f7c9f001281a3d12c68a5da7f15de8009f4bd63d\nsize 18\n"),
-					Oid:  "bab31d249f78fba464d1b75799aad496cc07fa3b",
-				},
-				{
-					Size: 127,
-					Data: []byte("version https://git-lfs.github.com/spec/v1\noid sha256:f2b0a1e7550e9b718dafc9b525a04879a766de62e4fbdfc46593d47f7ab74636\nsize 20\n"),
-					Oid:  "f78df813119a79bfbe0442ab92540a61d3ab7ff3",
-				},
+				lfsPointers[lfsPointer3],
+				lfsPointers[lfsPointer2],
 			},
 		},
 	}
@@ -372,6 +372,12 @@ func drainNewPointers(c gitalypb.BlobService_GetNewLFSPointersClient) error {
 }
 
 func TestSuccessfulGetAllLFSPointersRequest(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.GoGetAllLFSPointers,
+	}).Run(t, testSuccessfulGetAllLFSPointersRequest)
+}
+
+func testSuccessfulGetAllLFSPointersRequest(t *testing.T, ctx context.Context) {
 	stop, serverSocketPath := runBlobServer(t, testhelper.DefaultLocator())
 	defer stop()
 
@@ -381,44 +387,17 @@ func TestSuccessfulGetAllLFSPointersRequest(t *testing.T) {
 	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-
 	request := &gitalypb.GetAllLFSPointersRequest{
 		Repository: testRepo,
 	}
 
 	expectedLFSPointers := []*gitalypb.LFSPointer{
-		{
-			Size: 133,
-			Data: []byte("version https://git-lfs.github.com/spec/v1\noid sha256:91eff75a492a3ed0dfcb544d7f31326bc4014c8551849c192fd1e48d4dd2c897\nsize 1575078\n\n"),
-			Oid:  "0c304a93cb8430108629bbbcaa27db3343299bc0",
-		},
-		{
-			Size: 127,
-			Data: []byte("version https://git-lfs.github.com/spec/v1\noid sha256:f2b0a1e7550e9b718dafc9b525a04879a766de62e4fbdfc46593d47f7ab74636\nsize 20\n"),
-			Oid:  "f78df813119a79bfbe0442ab92540a61d3ab7ff3",
-		},
-		{
-			Size: 127,
-			Data: []byte("version https://git-lfs.github.com/spec/v1\noid sha256:bad71f905b60729f502ca339f7c9f001281a3d12c68a5da7f15de8009f4bd63d\nsize 18\n"),
-			Oid:  "bab31d249f78fba464d1b75799aad496cc07fa3b",
-		},
-		{
-			Size: 132,
-			Data: []byte("version https://git-lfs.github.com/spec/v1\noid sha256:96f74c6fe7a2979eefb9ec74a5dfc6888fb25543cf99b77586b79afea1da6f97\nsize 1219696\n"),
-			Oid:  "ff0ab3afd1616ff78d0331865d922df103b64cf0",
-		},
-		{
-			Size: 129,
-			Data: []byte("version https://git-lfs.github.com/spec/v1\noid sha256:8c1e8de917525f83104736f6c64d32f0e2a02f5bf2ee57843a54f222cba8c813\nsize 2797\n"),
-			Oid:  "0360724a0d64498331888f1eaef2d24243809230",
-		},
-		{
-			Size: 129,
-			Data: []byte("version https://git-lfs.github.com/spec/v1\noid sha256:47997ea7ecff33be61e3ca1cc287ee72a2125161518f1a169f2893a5a82e9d95\nsize 7501\n"),
-			Oid:  "125fcc9f6e33175cb278b9b2809154d2535fe19f",
-		},
+		lfsPointers[lfsPointer1],
+		lfsPointers[lfsPointer2],
+		lfsPointers[lfsPointer3],
+		lfsPointers[lfsPointer4],
+		lfsPointers[lfsPointer5],
+		lfsPointers[lfsPointer6],
 	}
 
 	c, err := client.GetAllLFSPointers(ctx, request)
@@ -443,14 +422,17 @@ func getAllPointers(t *testing.T, c gitalypb.BlobService_GetAllLFSPointersClient
 }
 
 func TestFailedGetAllLFSPointersRequestDueToValidations(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.GoGetAllLFSPointers,
+	}).Run(t, testFailedGetAllLFSPointersRequestDueToValidations)
+}
+
+func testFailedGetAllLFSPointersRequestDueToValidations(t *testing.T, ctx context.Context) {
 	stop, serverSocketPath := runBlobServer(t, testhelper.DefaultLocator())
 	defer stop()
 
 	client, conn := newBlobClient(t, serverSocketPath)
 	defer conn.Close()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
 	testCases := []struct {
 		desc       string
@@ -487,9 +469,15 @@ func drainAllPointers(c gitalypb.BlobService_GetAllLFSPointersClient) error {
 	}
 }
 
+func TestGetAllLFSPointersVerifyScope(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.GoGetAllLFSPointers,
+	}).Run(t, testGetAllLFSPointersVerifyScope)
+}
+
 // TestGetAllLFSPointersVerifyScope verifies that this RPC returns all LFS
 // pointers in a repository, not only ones reachable from the default branch
-func TestGetAllLFSPointersVerifyScope(t *testing.T) {
+func testGetAllLFSPointersVerifyScope(t *testing.T, ctx context.Context) {
 	stop, serverSocketPath := runBlobServer(t, testhelper.DefaultLocator())
 	defer stop()
 
@@ -499,9 +487,6 @@ func TestGetAllLFSPointersVerifyScope(t *testing.T) {
 	testRepo, repoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-
 	request := &gitalypb.GetAllLFSPointersRequest{
 		Repository: testRepo,
 	}
@@ -509,11 +494,7 @@ func TestGetAllLFSPointersVerifyScope(t *testing.T) {
 	c, err := client.GetAllLFSPointers(ctx, request)
 	require.NoError(t, err)
 
-	lfsPtr := &gitalypb.LFSPointer{
-		Size: 127,
-		Data: []byte("version https://git-lfs.github.com/spec/v1\noid sha256:f2b0a1e7550e9b718dafc9b525a04879a766de62e4fbdfc46593d47f7ab74636\nsize 20\n"),
-		Oid:  "f78df813119a79bfbe0442ab92540a61d3ab7ff3",
-	}
+	lfsPtr := lfsPointers[lfsPointer2]
 
 	// the LFS pointer is reachable from a non-default branch:
 	require.True(t, refHasPtr(t, repoPath, "moar-lfs-ptrs", lfsPtr))
@@ -531,4 +512,255 @@ func refHasPtr(t *testing.T, repoPath, ref string, lfsPtr *gitalypb.LFSPointer) 
 		"git", "-C", repoPath, "rev-list", "--objects", ref))
 
 	return strings.Contains(objects, lfsPtr.Oid)
+}
+
+func TestFindLFSPointersByRevisions(t *testing.T) {
+	gitCmdFactory := git.NewExecCommandFactory(config.Config)
+
+	repoProto, _, cleanup := testhelper.NewTestRepo(t)
+	defer cleanup()
+	repo := localrepo.New(gitCmdFactory, repoProto, config.Config)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	for _, tc := range []struct {
+		desc                string
+		opts                []git.Option
+		revs                []string
+		expectedErr         error
+		expectedLFSPointers []*gitalypb.LFSPointer
+	}{
+		{
+			desc: "--all",
+			opts: []git.Option{
+				git.Flag{Name: "--all"},
+			},
+			expectedLFSPointers: []*gitalypb.LFSPointer{
+				lfsPointers[lfsPointer1],
+				lfsPointers[lfsPointer2],
+				lfsPointers[lfsPointer3],
+				lfsPointers[lfsPointer4],
+				lfsPointers[lfsPointer5],
+				lfsPointers[lfsPointer6],
+			},
+		},
+		{
+			desc: "--not --all",
+			opts: []git.Option{
+				git.Flag{Name: "--not"},
+				git.Flag{Name: "--all"},
+			},
+		},
+		{
+			desc: "initial commit",
+			revs: []string{"1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"},
+		},
+		{
+			desc: "master",
+			revs: []string{"master"},
+			expectedLFSPointers: []*gitalypb.LFSPointer{
+				lfsPointers[lfsPointer1],
+			},
+		},
+		{
+			desc: "multiple revisions",
+			revs: []string{"master", "moar-lfs-ptrs"},
+			expectedLFSPointers: []*gitalypb.LFSPointer{
+				lfsPointers[lfsPointer1],
+				lfsPointers[lfsPointer2],
+				lfsPointers[lfsPointer3],
+			},
+		},
+		{
+			desc:        "invalid dashed option",
+			revs:        []string{"master", "--foobar"},
+			expectedErr: fmt.Errorf("invalid revision: \"--foobar\""),
+		},
+		{
+			desc:        "invalid revision",
+			revs:        []string{"does-not-exist"},
+			expectedErr: fmt.Errorf("fatal: ambiguous argument 'does-not-exist'"),
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			actualLFSPointers, err := findLFSPointersByRevisions(
+				ctx, repo, gitCmdFactory, tc.opts, tc.revs...)
+			if tc.expectedErr == nil {
+				require.NoError(t, err)
+			} else {
+				require.Contains(t, err.Error(), tc.expectedErr.Error())
+			}
+			require.ElementsMatch(t, tc.expectedLFSPointers, actualLFSPointers)
+		})
+	}
+}
+
+func TestReadLFSPointers(t *testing.T) {
+	gitCmdFactory := git.NewExecCommandFactory(config.Config)
+
+	repoProto, _, cleanup := testhelper.NewTestRepo(t)
+	defer cleanup()
+	repo := localrepo.New(gitCmdFactory, repoProto, config.Config)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	for _, tc := range []struct {
+		desc                string
+		input               string
+		filterByObjectName  bool
+		expectedErr         error
+		expectedLFSPointers []*gitalypb.LFSPointer
+	}{
+		{
+			desc:  "single object ID",
+			input: strings.Join([]string{lfsPointer1}, "\n"),
+			expectedLFSPointers: []*gitalypb.LFSPointer{
+				lfsPointers[lfsPointer1],
+			},
+		},
+		{
+			desc: "multiple object IDs",
+			input: strings.Join([]string{
+				lfsPointer1,
+				lfsPointer2,
+				lfsPointer3,
+				lfsPointer4,
+				lfsPointer5,
+				lfsPointer6,
+			}, "\n"),
+			expectedLFSPointers: []*gitalypb.LFSPointer{
+				lfsPointers[lfsPointer1],
+				lfsPointers[lfsPointer2],
+				lfsPointers[lfsPointer3],
+				lfsPointers[lfsPointer4],
+				lfsPointers[lfsPointer5],
+				lfsPointers[lfsPointer6],
+			},
+		},
+		{
+			desc: "multiple object IDs with name filter",
+			input: strings.Join([]string{
+				lfsPointer1,
+				lfsPointer2,
+				lfsPointer3 + " x",
+				lfsPointer4,
+				lfsPointer5 + " z",
+				lfsPointer6 + " a",
+			}, "\n"),
+			filterByObjectName: true,
+			expectedLFSPointers: []*gitalypb.LFSPointer{
+				lfsPointers[lfsPointer3],
+				lfsPointers[lfsPointer5],
+				lfsPointers[lfsPointer6],
+			},
+		},
+		{
+			desc: "non-pointer object",
+			input: strings.Join([]string{
+				"60ecb67744cb56576c30214ff52294f8ce2def98",
+			}, "\n"),
+		},
+		{
+			desc: "mixed objects",
+			input: strings.Join([]string{
+				"60ecb67744cb56576c30214ff52294f8ce2def98",
+				lfsPointer2,
+			}, "\n"),
+			expectedLFSPointers: []*gitalypb.LFSPointer{
+				lfsPointers[lfsPointer2],
+			},
+		},
+		{
+			desc: "missing object",
+			input: strings.Join([]string{
+				"0101010101010101010101010101010101010101",
+			}, "\n"),
+			expectedErr: errors.New("object not found"),
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			reader := strings.NewReader(tc.input)
+
+			actualLFSPointers, err := readLFSPointers(
+				ctx, repo, gitCmdFactory, reader, tc.filterByObjectName)
+			if tc.expectedErr == nil {
+				require.NoError(t, err)
+			} else {
+				require.Contains(t, err.Error(), tc.expectedErr.Error())
+			}
+			require.ElementsMatch(t, tc.expectedLFSPointers, actualLFSPointers)
+		})
+	}
+}
+
+func TestSliceLFSPointers(t *testing.T) {
+	generateSlice := func(n, offset int) []*gitalypb.LFSPointer {
+		slice := make([]*gitalypb.LFSPointer, n)
+		for i := 0; i < n; i++ {
+			slice[i] = &gitalypb.LFSPointer{
+				Size: int64(i + offset),
+			}
+		}
+		return slice
+	}
+
+	for _, tc := range []struct {
+		desc           string
+		err            error
+		lfsPointers    []*gitalypb.LFSPointer
+		expectedSlices [][]*gitalypb.LFSPointer
+	}{
+		{
+			desc: "empty",
+		},
+		{
+			desc:        "single slice",
+			lfsPointers: generateSlice(10, 0),
+			expectedSlices: [][]*gitalypb.LFSPointer{
+				generateSlice(10, 0),
+			},
+		},
+		{
+			desc:        "two slices",
+			lfsPointers: generateSlice(101, 0),
+			expectedSlices: [][]*gitalypb.LFSPointer{
+				generateSlice(100, 0),
+				generateSlice(1, 100),
+			},
+		},
+		{
+			desc:        "many slices",
+			lfsPointers: generateSlice(635, 0),
+			expectedSlices: [][]*gitalypb.LFSPointer{
+				generateSlice(100, 0),
+				generateSlice(100, 100),
+				generateSlice(100, 200),
+				generateSlice(100, 300),
+				generateSlice(100, 400),
+				generateSlice(100, 500),
+				generateSlice(35, 600),
+			},
+		},
+		{
+			desc:        "error",
+			lfsPointers: generateSlice(500, 0),
+			err:         errors.New("foo"),
+			expectedSlices: [][]*gitalypb.LFSPointer{
+				generateSlice(100, 0),
+			},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			var slices [][]*gitalypb.LFSPointer
+
+			err := sliceLFSPointers(tc.lfsPointers, func(slice []*gitalypb.LFSPointer) error {
+				slices = append(slices, slice)
+				return tc.err
+			})
+			require.Equal(t, tc.err, err)
+			require.Equal(t, tc.expectedSlices, slices)
+		})
+	}
 }

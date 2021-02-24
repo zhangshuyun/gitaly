@@ -45,7 +45,7 @@ func testMain(m *testing.M) int {
 func runBlobServer(t *testing.T, locator storage.Locator) (func(), string) {
 	srv := testhelper.NewServer(t, nil, nil)
 
-	gitalypb.RegisterBlobServiceServer(srv.GrpcServer(), NewServer(rubyServer, locator, git.NewExecCommandFactory(config.Config)))
+	gitalypb.RegisterBlobServiceServer(srv.GrpcServer(), NewServer(rubyServer, config.Config, locator, git.NewExecCommandFactory(config.Config)))
 	reflection.Register(srv.GrpcServer())
 
 	srv.Start(t)
