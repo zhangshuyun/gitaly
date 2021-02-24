@@ -100,6 +100,17 @@ UPDATE repositories
 			WHERE repository_assignments.virtual_storage = storage_repositories.virtual_storage
 			AND repository_assignments.relative_path = storage_repositories.relative_path
 		)
+		AND NOT EXISTS (
+			-- This check exists to prevent us from electing a primary that is pending deletion. The primary
+			-- could accept a write and lose it when the deletion is carried out.
+			SELECT true
+			FROM replication_queue
+			WHERE state NOT IN ('completed', 'dead', 'cancelled')
+			AND job->>'change' = 'delete_replica'
+			AND job->>'virtual_storage' = virtual_storage
+			AND job->>'relative_path' = relative_path
+			AND job->>'target_node_storage' = storage
+		)
 		ORDER BY generation DESC NULLS LAST, random()
 		LIMIT 1
 	)

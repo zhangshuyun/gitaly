@@ -5,6 +5,7 @@ package nodes
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -48,9 +49,10 @@ func TestPerRepositoryElector(t *testing.T) {
 	}
 
 	for _, tc := range []struct {
-		desc  string
-		state state
-		steps steps
+		desc         string
+		state        state
+		steps        steps
+		existingJobs []datastore.ReplicationEvent
 	}{
 		{
 			desc: "elects the most up to date storage",
@@ -224,6 +226,170 @@ func TestPerRepositoryElector(t *testing.T) {
 				},
 			},
 		},
+		{
+			desc: "doesnt elect replicas with delete_replica in ready state",
+			state: state{
+				"virtual-storage-1": {
+					"relative-path-1": {
+						"gitaly-1": {generation: 0, assigned: true},
+					},
+				},
+			},
+			existingJobs: []datastore.ReplicationEvent{
+				{
+					State: datastore.JobStateReady,
+					Job: datastore.ReplicationJob{
+						Change:            datastore.DeleteReplica,
+						VirtualStorage:    "virtual-storage-1",
+						RelativePath:      "relative-path-1",
+						TargetNodeStorage: "gitaly-1",
+					},
+				},
+			},
+			steps: steps{
+				{
+					healthyNodes: map[string][]string{
+						"virtual-storage-1": {"gitaly-1"},
+					},
+					error:   ErrNoPrimary,
+					primary: noPrimary(),
+				},
+			},
+		},
+		{
+			desc: "doesnt elect replicas with delete_replica in in_progress state",
+			state: state{
+				"virtual-storage-1": {
+					"relative-path-1": {
+						"gitaly-1": {generation: 0, assigned: true},
+					},
+				},
+			},
+			existingJobs: []datastore.ReplicationEvent{
+				{
+					State: datastore.JobStateInProgress,
+					Job: datastore.ReplicationJob{
+						Change:            datastore.DeleteReplica,
+						VirtualStorage:    "virtual-storage-1",
+						RelativePath:      "relative-path-1",
+						TargetNodeStorage: "gitaly-1",
+					},
+				},
+			},
+			steps: steps{
+				{
+					healthyNodes: map[string][]string{
+						"virtual-storage-1": {"gitaly-1"},
+					},
+					error:   ErrNoPrimary,
+					primary: noPrimary(),
+				},
+			},
+		},
+		{
+			desc: "doesnt elect replicas with delete_replica in failed state",
+			state: state{
+				"virtual-storage-1": {
+					"relative-path-1": {
+						"gitaly-1": {generation: 0, assigned: true},
+					},
+				},
+			},
+			existingJobs: []datastore.ReplicationEvent{
+				{
+					State: datastore.JobStateFailed,
+					Job: datastore.ReplicationJob{
+						Change:            datastore.DeleteReplica,
+						VirtualStorage:    "virtual-storage-1",
+						RelativePath:      "relative-path-1",
+						TargetNodeStorage: "gitaly-1",
+					},
+				},
+			},
+			steps: steps{
+				{
+					healthyNodes: map[string][]string{
+						"virtual-storage-1": {"gitaly-1"},
+					},
+					error:   ErrNoPrimary,
+					primary: noPrimary(),
+				},
+			},
+		},
+		{
+			desc: "irrelevant delete_replica jobs are ignored",
+			state: state{
+				"virtual-storage-1": {
+					"relative-path-1": {
+						"gitaly-1": {generation: 0, assigned: true},
+					},
+				},
+			},
+			existingJobs: []datastore.ReplicationEvent{
+				{
+					State: datastore.JobStateReady,
+					Job: datastore.ReplicationJob{
+						Change:            datastore.DeleteReplica,
+						VirtualStorage:    "wrong-virtual-storage",
+						RelativePath:      "relative-path-1",
+						TargetNodeStorage: "gitaly-1",
+					},
+				},
+				{
+					State: datastore.JobStateReady,
+					Job: datastore.ReplicationJob{
+						Change:            datastore.DeleteReplica,
+						VirtualStorage:    "virtual-storage-1",
+						RelativePath:      "wrong-relative-path",
+						TargetNodeStorage: "gitaly-1",
+					},
+				},
+				{
+					State: datastore.JobStateReady,
+					Job: datastore.ReplicationJob{
+						Change:            datastore.DeleteReplica,
+						VirtualStorage:    "virtual-storage-1",
+						RelativePath:      "relative-path-1",
+						TargetNodeStorage: "wrong-storage",
+					},
+				},
+				{
+					State: datastore.JobStateCancelled,
+					Job: datastore.ReplicationJob{
+						Change:            datastore.DeleteReplica,
+						VirtualStorage:    "virtual-storage-1",
+						RelativePath:      "relative-path-1",
+						TargetNodeStorage: "gitaly-1",
+					},
+				},
+				{
+					State: datastore.JobStateDead,
+					Job: datastore.ReplicationJob{
+						Change:            datastore.DeleteReplica,
+						VirtualStorage:    "virtual-storage-1",
+						RelativePath:      "relative-path-1",
+						TargetNodeStorage: "gitaly-1",
+					},
+				},
+				{
+					State: datastore.JobStateCompleted,
+					Job: datastore.ReplicationJob{
+						Change:            datastore.DeleteReplica,
+						VirtualStorage:    "virtual-storage-1",
+						RelativePath:      "relative-path-1",
+						TargetNodeStorage: "gitaly-1",
+					},
+				},
+			},
+			steps: steps{
+				{
+					healthyNodes: map[string][]string{
+						"virtual-storage-1": {"gitaly-1"},
+					},
+					primary: any("gitaly-1"),
+				},
+			},
+		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			db := getDB(t)
@@ -249,6 +415,14 @@ func TestPerRepositoryElector(t *testing.T) {
 				}
 			}
 
+			for _, event := range tc.existingJobs {
+				_, err := db.ExecContext(ctx,
+					"INSERT INTO replication_queue (state, job) VALUES ($1, $2)",
+					event.State, event.Job,
+				)
+				require.NoError(t, err)
+			}
+
 			for _, step := range tc.steps {
 				elector := NewPerRepositoryElector(testhelper.DiscardTestLogger(t), db,
 					HealthCheckerFunc(func() map[string][]string { return step.healthyNodes }),
@@ -262,7 +436,7 @@ func TestPerRepositoryElector(t *testing.T) {
 				require.NoError(t, elector.Run(ctx, trigger))
 
 				primary, err := elector.GetPrimary(ctx, "virtual-storage-1", "relative-path-1")
-				require.Equal(t, step.error, err)
+				assert.Equal(t, step.error, err)
 				step.primary(t, primary)
 			}
 		})
