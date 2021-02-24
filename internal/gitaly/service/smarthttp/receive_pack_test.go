@@ -110,7 +110,7 @@ func TestSuccessfulReceivePackRequest(t *testing.T) {
 func TestSuccessfulReceivePackRequestWithGitProtocol(t *testing.T) {
 	defer func(old config.Cfg) { config.Config = old }(config.Config)
 
-	cfg, restore := testhelper.EnableGitProtocolV2Support(t, config.Config)
+	readProto, cfg, restore := testhelper.EnableGitProtocolV2Support(t, config.Config)
 	defer restore()
 	config.Config = cfg
 
@@ -133,7 +133,7 @@ func TestSuccessfulReceivePackRequestWithGitProtocol(t *testing.T) {
 	firstRequest := &gitalypb.PostReceivePackRequest{Repository: repo, GlId: "user-123", GlRepository: "project-123", GitProtocol: git.ProtocolV2}
 	doPush(t, stream, firstRequest, push.body)
 
-	envData := testhelper.GetGitEnvData(t)
+	envData := readProto()
 	require.Equal(t, fmt.Sprintf("GIT_PROTOCOL=%s\n", git.ProtocolV2), envData)
 
 	// The fact that this command succeeds means that we got the commit correctly, no further checks should be needed.

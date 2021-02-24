@@ -433,7 +433,7 @@ func TestUploadPackCloneSuccessWithGitProtocol(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.desc, func(t *testing.T) {
 			defer func(old config.Cfg) { config.Config = old }(config.Config)
-			cfg, restore := testhelper.EnableGitProtocolV2Support(t, config.Config)
+			readProto, cfg, restore := testhelper.EnableGitProtocolV2Support(t, config.Config)
 			defer restore()
 			config.Config = cfg
 
@@ -450,7 +450,7 @@ func TestUploadPackCloneSuccessWithGitProtocol(t *testing.T) {
 			lHead, rHead, _, _ := cmd.test(t, localRepoPath)
 			require.Equal(t, lHead, rHead, "local and remote head not equal")
 
-			envData := testhelper.GetGitEnvData(t)
+			envData := readProto()
 			require.Contains(t, envData, fmt.Sprintf("GIT_PROTOCOL=%s\n", git.ProtocolV2))
 		})
 	}

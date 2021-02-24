@@ -78,10 +78,3 @@ env | grep -e ^GIT -e ^GL_ > ` + hookOutputFile + "\n")
 		hooks.Override = oldOverride
 	}
 }
-
-// GetGitEnvData reads and returns the content of testGitEnv
-func GetGitEnvData(t testing.TB) string {
-	gitEnvBytes, err := ioutil.ReadFile(filepath.Join(testDirectory, "git-env"))
-	require.NoError(t, err)
-	return string(gitEnvBytes)
-}

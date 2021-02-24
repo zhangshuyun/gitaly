@@ -98,7 +98,7 @@ func TestSuccessfulInfoRefsUploadPackWithGitConfigOptions(t *testing.T) {
 func TestSuccessfulInfoRefsUploadPackWithGitProtocol(t *testing.T) {
 	defer func(old config.Cfg) { config.Config = old }(config.Config)
 
-	cfg, restore := testhelper.EnableGitProtocolV2Support(t, config.Config)
+	readProtocol, cfg, restore := testhelper.EnableGitProtocolV2Support(t, config.Config)
 	defer restore()
 	config.Config = cfg
 
@@ -129,7 +129,7 @@ func TestSuccessfulInfoRefsUploadPackWithGitProtocol(t *testing.T) {
 
 	require.NoError(t, err)
 
-	envData := testhelper.GetGitEnvData(t)
+	envData := readProtocol()
 	require.Contains(t, envData, fmt.Sprintf("GIT_PROTOCOL=%s\n", git.ProtocolV2))
 }
 

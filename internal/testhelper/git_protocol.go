@@ -2,36 +2,38 @@ package testhelper
 
 import (
 	"fmt"
-	"os"
+	"io/ioutil"
 	"path/filepath"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 )
 
-// EnableGitProtocolV2Support replaces the git binary in config with a
-// wrapper that allows the protocol to be tested. It returns a function that
-// restores the given settings as well as an array of environment variables
-// which need to be set when invoking Git with this setup.
-func EnableGitProtocolV2Support(t testing.TB, cfg config.Cfg) (config.Cfg, Cleanup) {
-	envPath := filepath.Join(testDirectory, "git-env")
+// EnableGitProtocolV2Support replaces the git binary in config with a wrapper that allows the
+// protocol to be tested. It returns a function to read the GIT_PROTOCOl environment variable
+// created by the wrapper script, the modified configuration as well as a cleanup function.
+func EnableGitProtocolV2Support(t testing.TB, cfg config.Cfg) (func() string, config.Cfg, Cleanup) {
+	dir, cleanupDir := TempDir(t)
+
+	gitPath := filepath.Join(dir, "git")
+	envPath := filepath.Join(dir, "git-env")
 
 	script := fmt.Sprintf(`#!/bin/sh
 env | grep ^GIT_PROTOCOL= >>"%s"
 exec "%s" "$@"
 `, envPath, config.Config.Git.BinPath)
 
-	dir, cleanupDir := TempDir(t)
+	cleanupExe := WriteExecutable(t, gitPath, []byte(script))
 
-	path := filepath.Join(dir, "git")
+	cfg.Git.BinPath = gitPath
 
-	cleanupExe := WriteExecutable(t, path, []byte(script))
-
-	cfg.Git.BinPath = path
-	return cfg, func() {
-		assert.NoError(t, os.Remove(envPath))
-		cleanupExe()
-		cleanupDir()
-	}
+	return func() string {
+			data, err := ioutil.ReadFile(envPath)
+			require.NoError(t, err)
+			return string(data)
+		}, cfg, func() {
+			cleanupExe()
+			cleanupDir()
+		}
 }

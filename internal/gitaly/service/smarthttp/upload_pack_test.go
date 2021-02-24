@@ -181,7 +181,7 @@ func TestUploadPackRequestWithGitProtocol(t *testing.T) {
 func testUploadPackRequestWithGitProtocol(t *testing.T, ctx context.Context) {
 	defer func(old config.Cfg) { config.Config = old }(config.Config)
 
-	cfg, restore := testhelper.EnableGitProtocolV2Support(t, config.Config)
+	readProto, cfg, restore := testhelper.EnableGitProtocolV2Support(t, config.Config)
 	defer restore()
 	config.Config = cfg
 
@@ -217,7 +217,7 @@ func testUploadPackRequestWithGitProtocol(t *testing.T, ctx context.Context) {
 	_, err = makePostUploadPackRequest(ctx, t, serverSocketPath, config.Config.Auth.Token, rpcRequest, requestBody)
 	require.NoError(t, err)
 
-	envData := testhelper.GetGitEnvData(t)
+	envData := readProto()
 	require.Equal(t, fmt.Sprintf("GIT_PROTOCOL=%s\n", git.ProtocolV2), envData)
 }
 

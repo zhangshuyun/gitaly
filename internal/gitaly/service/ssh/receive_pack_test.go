@@ -142,7 +142,7 @@ func TestReceivePackPushSuccess(t *testing.T) {
 
 func TestReceivePackPushSuccessWithGitProtocol(t *testing.T) {
 	defer func(old config.Cfg) { config.Config = old }(config.Config)
-	cfg, restore := testhelper.EnableGitProtocolV2Support(t, config.Config)
+	readProto, cfg, restore := testhelper.EnableGitProtocolV2Support(t, config.Config)
 	defer restore()
 	config.Config = cfg
 
@@ -159,7 +159,7 @@ func TestReceivePackPushSuccessWithGitProtocol(t *testing.T) {
 
 	require.Equal(t, lHead, rHead, "local and remote head not equal. push failed")
 
-	envData := testhelper.GetGitEnvData(t)
+	envData := readProto()
 	require.Contains(t, envData, fmt.Sprintf("GIT_PROTOCOL=%s\n", git.ProtocolV2))
 }
 
@@ -245,7 +245,7 @@ func TestSSHReceivePackToHooks(t *testing.T) {
 	glID := "key-123"
 
 	defer func(old config.Cfg) { config.Config = old }(config.Config)
-	cfg, restore := testhelper.EnableGitProtocolV2Support(t, config.Config)
+	readProto, cfg, restore := testhelper.EnableGitProtocolV2Support(t, config.Config)
 	defer restore()
 	config.Config = cfg
 
@@ -293,7 +293,7 @@ func TestSSHReceivePackToHooks(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, lHead, rHead, "local and remote head not equal. push failed")
 
-	envData := testhelper.GetGitEnvData(t)
+	envData := readProto()
 	require.Contains(t, envData, fmt.Sprintf("GIT_PROTOCOL=%s\n", git.ProtocolV2))
 }
 
