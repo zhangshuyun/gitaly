@@ -15,6 +15,7 @@ import (
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
@@ -95,7 +96,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 		indexError      string
 		repoCreated     bool
 		branchCreated   bool
-		treeEntries     []testhelper.TreeEntry
+		treeEntries     []gittest.TreeEntry
 	}
 
 	for _, tc := range []struct {
@@ -123,7 +124,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					},
 					repoCreated:   true,
 					branchCreated: true,
-					treeEntries: []testhelper.TreeEntry{
+					treeEntries: []gittest.TreeEntry{
 						{Mode: DefaultMode, Path: "directory-1/.gitkeep"},
 					},
 				},
@@ -148,7 +149,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					},
 					repoCreated:   true,
 					branchCreated: true,
-					treeEntries: []testhelper.TreeEntry{
+					treeEntries: []gittest.TreeEntry{
 						{Mode: DefaultMode, Path: "directory-1/.gitkeep"},
 					},
 				},
@@ -186,7 +187,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					},
 					repoCreated:   true,
 					branchCreated: true,
-					treeEntries: []testhelper.TreeEntry{
+					treeEntries: []gittest.TreeEntry{
 						{Mode: DefaultMode, Path: "directory-1/.gitkeep"},
 					},
 				},
@@ -208,7 +209,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					},
 					repoCreated:   true,
 					branchCreated: true,
-					treeEntries: []testhelper.TreeEntry{
+					treeEntries: []gittest.TreeEntry{
 						{Mode: DefaultMode, Path: "file-1", Content: "content-1"},
 					},
 				},
@@ -253,7 +254,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					},
 					repoCreated:   true,
 					branchCreated: true,
-					treeEntries: []testhelper.TreeEntry{
+					treeEntries: []gittest.TreeEntry{
 						{Mode: DefaultMode, Path: "file-1"},
 					},
 				},
@@ -270,7 +271,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					},
 					repoCreated:   true,
 					branchCreated: true,
-					treeEntries: []testhelper.TreeEntry{
+					treeEntries: []gittest.TreeEntry{
 						{Mode: DefaultMode, Path: "file-1", Content: "content-1 content-2"},
 					},
 				},
@@ -286,7 +287,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					},
 					repoCreated:   true,
 					branchCreated: true,
-					treeEntries: []testhelper.TreeEntry{
+					treeEntries: []gittest.TreeEntry{
 						{Mode: DefaultMode, Path: "file-1", Content: "content-1"},
 					},
 				},
@@ -303,7 +304,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					},
 					repoCreated:   true,
 					branchCreated: true,
-					treeEntries: []testhelper.TreeEntry{
+					treeEntries: []gittest.TreeEntry{
 						{Mode: DefaultMode, Path: "file-1", Content: "content-1 content-2"},
 					},
 				},
@@ -320,7 +321,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					},
 					repoCreated:   true,
 					branchCreated: true,
-					treeEntries: []testhelper.TreeEntry{
+					treeEntries: []gittest.TreeEntry{
 						{Mode: DefaultMode, Path: "file-1", Content: "content-1\n content-2\n"},
 					},
 				},
@@ -350,7 +351,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					},
 					repoCreated:   true,
 					branchCreated: true,
-					treeEntries: []testhelper.TreeEntry{
+					treeEntries: []gittest.TreeEntry{
 						{Mode: DefaultMode, Path: "file-1", Content: "content-1"},
 					},
 				},
@@ -368,7 +369,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					},
 					repoCreated:   true,
 					branchCreated: true,
-					treeEntries: []testhelper.TreeEntry{
+					treeEntries: []gittest.TreeEntry{
 						{Mode: DefaultMode, Path: "file-1", Content: "content-2"},
 					},
 				},
@@ -386,7 +387,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					},
 					repoCreated:   true,
 					branchCreated: true,
-					treeEntries: []testhelper.TreeEntry{
+					treeEntries: []gittest.TreeEntry{
 						{Mode: DefaultMode, Path: "file-1", Content: "content-2\n"},
 					},
 				},
@@ -404,7 +405,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					},
 					repoCreated:   true,
 					branchCreated: true,
-					treeEntries: []testhelper.TreeEntry{
+					treeEntries: []gittest.TreeEntry{
 						{Mode: DefaultMode, Path: "file-1", Content: "content-2"},
 					},
 				},
@@ -430,7 +431,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					},
 					repoCreated:   true,
 					branchCreated: true,
-					treeEntries: []testhelper.TreeEntry{
+					treeEntries: []gittest.TreeEntry{
 						{Mode: DefaultMode, Path: "file-1", Content: "content-2"},
 					},
 				},
@@ -446,7 +447,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					},
 					repoCreated:   true,
 					branchCreated: true,
-					treeEntries: []testhelper.TreeEntry{
+					treeEntries: []gittest.TreeEntry{
 						{Mode: DefaultMode, Path: "file-1", Content: "content-1"},
 					},
 				},
@@ -455,7 +456,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 						updateFileHeaderRequest("file-1"),
 						actionContentRequest("content-2"),
 					},
-					treeEntries: []testhelper.TreeEntry{
+					treeEntries: []gittest.TreeEntry{
 						{Mode: DefaultMode, Path: "file-1", Content: "content-2"},
 					},
 				},
@@ -506,7 +507,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					},
 					repoCreated:   true,
 					branchCreated: true,
-					treeEntries: []testhelper.TreeEntry{
+					treeEntries: []gittest.TreeEntry{
 						{Mode: DefaultMode, Path: "moved-file", Content: "content-1"},
 					},
 				},
@@ -533,7 +534,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					},
 					repoCreated:   true,
 					branchCreated: true,
-					treeEntries: []testhelper.TreeEntry{
+					treeEntries: []gittest.TreeEntry{
 						{Mode: DefaultMode, Path: "moved-file", Content: "content-1"},
 					},
 				},
@@ -561,7 +562,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					},
 					repoCreated:   true,
 					branchCreated: true,
-					treeEntries: []testhelper.TreeEntry{
+					treeEntries: []gittest.TreeEntry{
 						{Mode: DefaultMode, Path: "original-file", Content: "original-content"},
 					},
 				},
@@ -570,7 +571,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 						moveFileHeaderRequest("original-file", "moved-file", true),
 						actionContentRequest("ignored-content"),
 					},
-					treeEntries: []testhelper.TreeEntry{
+					treeEntries: []gittest.TreeEntry{
 						{Mode: DefaultMode, Path: "moved-file", Content: "original-content"},
 					},
 				},
@@ -614,7 +615,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					},
 					repoCreated:   true,
 					branchCreated: true,
-					treeEntries: []testhelper.TreeEntry{
+					treeEntries: []gittest.TreeEntry{
 						{Mode: DefaultMode, Path: "already-existing", Content: "source-content"},
 					},
 				},
@@ -630,7 +631,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					},
 					repoCreated:   true,
 					branchCreated: true,
-					treeEntries: []testhelper.TreeEntry{
+					treeEntries: []gittest.TreeEntry{
 						{Mode: DefaultMode, Path: "original-file", Content: "original-content"},
 					},
 				},
@@ -639,7 +640,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 						moveFileHeaderRequest("original-file", "moved-file", false),
 						actionContentRequest("new-content"),
 					},
-					treeEntries: []testhelper.TreeEntry{
+					treeEntries: []gittest.TreeEntry{
 						{Mode: DefaultMode, Path: "moved-file", Content: "new-content"},
 					},
 				},
@@ -655,7 +656,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					},
 					repoCreated:   true,
 					branchCreated: true,
-					treeEntries: []testhelper.TreeEntry{
+					treeEntries: []gittest.TreeEntry{
 						{Mode: DefaultMode, Path: "original-file", Content: "original-content"},
 					},
 				},
@@ -664,7 +665,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 						moveFileHeaderRequest("original-file", "moved-file", false),
 						actionContentRequest("new-content\r\n"),
 					},
-					treeEntries: []testhelper.TreeEntry{
+					treeEntries: []gittest.TreeEntry{
 						{Mode: DefaultMode, Path: "moved-file", Content: "new-content\n"},
 					},
 				},
@@ -691,7 +692,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					},
 					repoCreated:   true,
 					branchCreated: true,
-					treeEntries: []testhelper.TreeEntry{
+					treeEntries: []gittest.TreeEntry{
 						{Mode: ExecutableMode, Path: "file-1"},
 					},
 				},
@@ -699,7 +700,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					actions: []*gitalypb.UserCommitFilesRequest{
 						chmodFileHeaderRequest("file-1", true),
 					},
-					treeEntries: []testhelper.TreeEntry{
+					treeEntries: []gittest.TreeEntry{
 						{Mode: ExecutableMode, Path: "file-1"},
 					},
 				},
@@ -727,7 +728,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					},
 					repoCreated:   true,
 					branchCreated: true,
-					treeEntries: []testhelper.TreeEntry{
+					treeEntries: []gittest.TreeEntry{
 						{Mode: ExecutableMode, Path: "file-1", Content: "content-1"},
 					},
 				},
@@ -743,7 +744,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					},
 					repoCreated:   true,
 					branchCreated: true,
-					treeEntries: []testhelper.TreeEntry{
+					treeEntries: []gittest.TreeEntry{
 						{Mode: DefaultMode, Path: "file-1", Content: "content-1"},
 					},
 				},
@@ -751,7 +752,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					actions: []*gitalypb.UserCommitFilesRequest{
 						chmodFileHeaderRequest("file-1", true),
 					},
-					treeEntries: []testhelper.TreeEntry{
+					treeEntries: []gittest.TreeEntry{
 						{Mode: ExecutableMode, Path: "file-1", Content: "content-1"},
 					},
 				},
@@ -829,7 +830,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					},
 					branchCreated: true,
 					repoCreated:   true,
-					treeEntries: []testhelper.TreeEntry{
+					treeEntries: []gittest.TreeEntry{
 						{Mode: DefaultMode, Path: "file-1", Content: "content-1"},
 					},
 				},
@@ -871,7 +872,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					},
 					branchCreated: true,
 					repoCreated:   true,
-					treeEntries: []testhelper.TreeEntry{
+					treeEntries: []gittest.TreeEntry{
 						{Mode: DefaultMode, Path: "file-1", Content: "content-1"},
 					},
 				},
@@ -888,7 +889,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					startBranch:   "master",
 					branchCreated: true,
 					repoCreated:   true,
-					treeEntries: []testhelper.TreeEntry{
+					treeEntries: []gittest.TreeEntry{
 						{Mode: DefaultMode, Path: "file-1", Content: "content-1"},
 					},
 				},
@@ -906,7 +907,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 					startRepository: startRepo,
 					branchCreated:   true,
 					repoCreated:     true,
-					treeEntries: []testhelper.TreeEntry{
+					treeEntries: []gittest.TreeEntry{
 						{Mode: DefaultMode, Path: "file-1", Content: "content-1"},
 					},
 				},
@@ -959,7 +960,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 
 				require.Equal(t, step.branchCreated, resp.BranchUpdate.BranchCreated, "step %d", i+1)
 				require.Equal(t, step.repoCreated, resp.BranchUpdate.RepoCreated, "step %d", i+1)
-				testhelper.RequireTree(t, config.Config.Git.BinPath, repoPath, branch, step.treeEntries)
+				gittest.RequireTree(t, config.Config.Git.BinPath, repoPath, branch, step.treeEntries)
 			}
 		})
 	}
@@ -1002,7 +1003,7 @@ func testUserCommitFilesStableCommitID(t *testing.T, ctx context.Context) {
 	require.Equal(t, resp.BranchUpdate.CommitId, "4f0ca1fbf05e04dbd5f68d14677034e0afee58ff")
 	require.True(t, resp.BranchUpdate.BranchCreated)
 	require.True(t, resp.BranchUpdate.RepoCreated)
-	testhelper.RequireTree(t, config.Config.Git.BinPath, repoPath, "refs/heads/master", []testhelper.TreeEntry{
+	gittest.RequireTree(t, config.Config.Git.BinPath, repoPath, "refs/heads/master", []gittest.TreeEntry{
 		{Mode: "100644", Path: "file.txt", Content: "content"},
 	})
 
