@@ -1309,10 +1309,9 @@ func (s *mockOperationServer) UserCreateBranch(
 	// example the primary arrives quicker than the others and directly errors. This would cause
 	// stream cancellation, and if the secondaries didn't yet end up in UserCreateBranch, we
 	// wouldn't see the function call.
+	s.called = true
 	s.wg.Done()
 	s.wg.Wait()
-
-	s.called = true
 	return &gitalypb.UserCreateBranchResponse{}, s.err
 }
 
