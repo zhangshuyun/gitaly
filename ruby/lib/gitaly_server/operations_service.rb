@@ -82,47 +82,6 @@ module GitalyServer
       Gitaly::UserUpdateBranchResponse.new(pre_receive_error: set_utf8!(ex.message))
     end
 
-    def user_merge_to_ref(request, call)
-      repo = Gitlab::Git::Repository.from_gitaly(request.repository, call)
-      user = Gitlab::Git::User.from_gitaly(request.user)
-
-      commit_id = repo.merge_to_ref(user, request.source_sha, request.branch, request.target_ref, request.message.dup, request.first_parent_ref, request.allow_conflicts)
-
-      Gitaly::UserMergeToRefResponse.new(commit_id: commit_id)
-    rescue Gitlab::Git::CommitError => e
-      raise GRPC::FailedPrecondition.new(e.to_s)
-    rescue ArgumentError => e
-      raise GRPC::InvalidArgument.new(e.to_s)
-    rescue Gitlab::Git::PreReceiveError => e
-      Gitaly::UserMergeToRefResponse.new(pre_receive_error: set_utf8!(e.message))
-    end
-
-    def user_merge_branch(session, call)
-      Enumerator.new do |y|
-        first_request = session.next
-
-        repository = Gitlab::Git::Repository.from_gitaly(first_request.repository, call)
-        user = Gitlab::Git::User.from_gitaly(first_request.user)
-        source_sha = first_request.commit_id.dup
-        target_branch = first_request.branch.dup
-        message = first_request.message.dup
-        timestamp = first_request.timestamp
-
-        begin
-          result = repository.merge(user, source_sha, target_branch, message, timestamp) do |commit_id|
-            y << Gitaly::UserMergeBranchResponse.new(commit_id: commit_id)
-
-            second_request = session.next
-            raise GRPC::FailedPrecondition.new('merge aborted by client') unless second_request.apply
-          end
-
-          y << Gitaly::UserMergeBranchResponse.new(branch_update: branch_update_result(result))
-        rescue Gitlab::Git::PreReceiveError => e
-          y << Gitaly::UserMergeBranchResponse.new(pre_receive_error: set_utf8!(e.message))
-        end
-      end
-    end
-
     def user_ff_branch(request, call)
       repo = Gitlab::Git::Repository.from_gitaly(request.repository, call)
       user = Gitlab::Git::User.from_gitaly(request.user)

@@ -82,10 +82,6 @@ module Gitlab
         [storage, relative_path] == [other.storage, other.relative_path]
       end
 
-      def feature_enabled?(flag, on_by_default: false)
-        @feature_flags.enabled?(flag, on_by_default: on_by_default)
-      end
-
       def add_branch(branch_name, user:, target:, transaction: nil)
         target_object = Ref.dereference_object(lookup(target))
         raise InvalidRef, "target not found: #{target}" unless target_object
@@ -259,40 +255,6 @@ module Gitlab
         tags.find { |tag| tag.name.b == name_b }
       end
 
-      def merge_to_ref(user, source_sha, branch, target_ref, message, first_parent_ref, allow_conflicts = false)
-        ref = if first_parent_ref.present?
-                find_ref(first_parent_ref)
-              else
-                find_branch(branch)
-              end
-
-        raise InvalidRef unless ref
-
-        OperationService.new(user, self).commit_ref(target_ref, source_sha, from_ref: ref) do
-          our_commit = ref.target
-          their_commit = source_sha
-
-          create_merge_commit(user, our_commit, their_commit, message, nil, allow_conflicts)
-        end
-      rescue Rugged::ReferenceError, InvalidRef
-        raise ArgumentError, 'Invalid merge source'
-      end
-
-      def merge(user, source_sha, target_branch, message, timestamp = nil)
-        OperationService.new(user, self).with_branch(target_branch) do |start_commit|
-          our_commit = start_commit.sha
-          their_commit = source_sha
-
-          commit_id = create_merge_commit(user, our_commit, their_commit, message, timestamp)
-
-          yield commit_id
-
-          commit_id
-        end
-      rescue Gitlab::Git::CommitError # when merge_index.conflicts?
-        nil
-      end
-
       def ff_merge(user, source_sha, target_branch)
         OperationService.new(user, self).with_branch(target_branch) do |our_commit|
           raise ArgumentError, 'Invalid merge target' unless our_commit
@@ -358,7 +320,7 @@ module Gitlab
       # rubocop:disable Metrics/ParameterLists
       def rebase(user, rebase_id, branch:, branch_sha:, remote_repository:, remote_branch:, push_options: nil, timestamp: nil)
         worktree = Gitlab::Git::Worktree.new(path, REBASE_WORKTREE_PREFIX, rebase_id)
-        env = git_env.merge(user.git_env(timestamp))
+        env = user.git_env(timestamp)
 
         with_repo_branch_commit(remote_repository, remote_branch) do |commit|
           diff_range = "#{commit.sha}...#{branch}"
@@ -390,17 +352,16 @@ module Gitlab
 
       def commit_patches(start_point, patches, extra_env: {})
         worktree = Gitlab::Git::Worktree.new(path, AM_WORKTREE_PREFIX, SecureRandom.hex)
-        env = git_env.merge(extra_env)
 
-        with_worktree(worktree, start_point, env: env) do
-          result, status = run_git(%w[am --quiet --3way], chdir: worktree.path, env: env) do |stdin|
+        with_worktree(worktree, start_point, env: extra_env) do
+          result, status = run_git(%w[am --quiet --3way], chdir: worktree.path, env: extra_env) do |stdin|
             loop { stdin.write(patches.next) }
           end
 
           raise Gitlab::Git::PatchError, result unless status == 0
 
           run_git!(
-            %w[rev-parse --quiet --verify HEAD], chdir: worktree.path, env: env
+            %w[rev-parse --quiet --verify HEAD], chdir: worktree.path, env: extra_env
           ).chomp
         end
       end
@@ -491,10 +452,6 @@ module Gitlab
         end
       end
 
-      def fetch_source_branch!(source_repository, source_branch, local_ref)
-        rugged_fetch_source_branch(source_repository, source_branch, local_ref)
-      end
-
       # Directly find a branch with a simple name (e.g. master)
       #
       # force_reload causes a new Rugged repository to be instantiated
@@ -512,25 +469,8 @@ module Gitlab
         end
       end
 
-      def find_ref(name)
-        rugged_ref = rugged.references[name]
-
-        return unless rugged_ref
-
-        Gitlab::Git::Ref.new(self, rugged_ref.canonical_name, rugged_ref.target, rugged_ref.target_id)
-      end
-
       def delete_refs(*ref_names)
         git_delete_refs(*ref_names)
-      end
-
-      # Returns an Array of all ref names, except when it's matching pattern
-      #
-      # regexp - The pattern for ref names we don't want
-      def all_ref_names_except(prefixes)
-        rugged.references.reject do |ref|
-          prefixes.any? { |p| ref.name.start_with?(p) }
-        end.map(&:name)
       end
 
       # Returns true if the given branch exists
@@ -555,19 +495,6 @@ module Gitlab
 
       def user_to_committer(user, timestamp = nil)
         Gitlab::Git.committer_hash(email: user.email, name: user.name, timestamp: timestamp)
-      end
-
-      def write_ref(ref_path, ref, old_ref: nil)
-        raise ArgumentError, "invalid ref_path #{ref_path.inspect}" if ref_path.include?(' ')
-        raise ArgumentError, "invalid ref #{ref.inspect}" if ref.include?("\x00")
-        raise ArgumentError, "invalid old_ref #{old_ref.inspect}" if !old_ref.nil? && old_ref.include?("\x00")
-
-        if ref_path == 'HEAD'
-          run_git!(%W[symbolic-ref #{ref_path} #{ref}])
-        else
-          input = "update #{ref_path}\x00#{ref}\x00#{old_ref}\x00"
-          run_git!(%w[update-ref --stdin -z]) { |stdin| stdin.write(input) }
-        end
       end
 
       # Fetch a commit from the given source repository
@@ -615,19 +542,6 @@ module Gitlab
         set_remote_as_mirror(remote_name, refmap: mirror_refmap) if mirror_refmap
       rescue Rugged::ConfigError
         remote_update(remote_name, url: url)
-      end
-
-      def remove_remote(remote_name)
-        # When a remote is deleted all its remote refs are deleted too, but in
-        # the case of mirrors we map its refs (that would usually go under
-        # [remote_name]/) to the top level namespace. We clean the mapping so
-        # those don't get deleted.
-        rugged.config.delete("remote.#{remote_name}.fetch") if rugged.config["remote.#{remote_name}.mirror"]
-
-        rugged.remotes.delete(remote_name)
-        true
-      rescue Rugged::ConfigError
-        false
       end
 
       # Update the specified remote using the values in the +options+ hash
@@ -695,41 +609,6 @@ module Gitlab
         run_git!(%w[config core.sparseCheckout false], include_stderr: true)
       end
 
-      def create_merge_commit(user, our_commit, their_commit, message, timestamp = nil, allow_conflicts = false)
-        raise 'Invalid merge target' unless our_commit
-        raise 'Invalid merge source' unless their_commit
-
-        committer = user_to_committer(user, timestamp)
-
-        merge_index = rugged.merge_commits(our_commit, their_commit)
-        process_conflicts(rugged, merge_index, allow_conflicts)
-
-        return if merge_index.conflicts? # some conflicts are still unresolved
-
-        options = {
-          parents: [our_commit, their_commit],
-          tree: merge_index.write_tree(rugged),
-          author: committer,
-          committer: committer,
-          message: message
-        }
-
-        create_commit(options)
-      end
-
-      def process_conflicts(rugged, merge_index, allow_conflicts)
-        return unless allow_conflicts
-
-        merge_index.conflicts.each do |conflict|
-          path = conflict[:ancestor][:path]
-          file = merge_index.merge_file(path)
-          merge_index.add(path: path, oid: rugged.write(file[:data], :blob), mode: file[:filemode])
-          merge_index.conflict_remove(path)
-        end
-      rescue RuntimeError # conflicts cannot be resolved
-        nil
-      end
-
       def run_git(args, chdir: path, env: {}, nice: false, include_stderr: false, lazy_block: nil, &block)
         cmd = [Gitlab.config.git.bin_path, *args]
         cmd.unshift("nice") if nice
@@ -746,13 +625,6 @@ module Gitlab
         raise GitError, output unless status.zero?
 
         output
-      end
-
-      def git_env
-        {
-          'GL_PROTOCOL' => Gitlab::Git::Hook::GL_PROTOCOL,
-          'GL_REPOSITORY' => gl_repository
-        }
       end
 
       def check_revert_content(target_commit, source_sha)
@@ -902,17 +774,6 @@ module Gitlab
         worktree_info_path = File.join(worktree_git_path, 'info')
         FileUtils.mkdir_p(worktree_info_path)
         File.write(File.join(worktree_info_path, 'sparse-checkout'), files)
-      end
-
-      def rugged_fetch_source_branch(source_repository, source_branch, local_ref)
-        with_repo_branch_commit(source_repository, source_branch) do |commit|
-          if commit
-            write_ref(local_ref, commit.sha)
-            true
-          else
-            false
-          end
-        end
       end
 
       def gitlab_projects_error

@@ -274,84 +274,6 @@ describe Gitlab::Git::Repository do # rubocop:disable Metrics/BlockLength
     end
   end
 
-  describe '#fetch_source_branch!' do
-    let(:local_ref) { 'refs/merge-requests/1/head' }
-    let(:repository) { mutable_repository }
-    let(:source_repository) { repository }
-
-    context 'when the branch exists' do
-      context 'when the commit does not exist locally' do
-        let(:source_branch) { 'new-branch-for-fetch-source-branch' }
-        let(:source_path) { File.join(DEFAULT_STORAGE_DIR, source_repository.relative_path) }
-        let(:source_rugged) { Rugged::Repository.new(source_path) }
-        let(:new_oid) { new_commit_edit_old_file(source_rugged).oid }
-
-        before do
-          source_rugged.branches.create(source_branch, new_oid)
-        end
-
-        it 'writes the ref' do
-          expect(repository.fetch_source_branch!(source_repository, source_branch, local_ref)).to eq(true)
-          expect(repository.commit(local_ref).sha).to eq(new_oid)
-        end
-      end
-
-      context 'when the commit exists locally' do
-        let(:source_branch) { 'master' }
-        let(:expected_oid) { SeedRepo::LastCommit::ID }
-
-        it 'writes the ref' do
-          # Sanity check: the commit should already exist
-          expect(repository.commit(expected_oid)).not_to be_nil
-
-          expect(repository.fetch_source_branch!(source_repository, source_branch, local_ref)).to eq(true)
-          expect(repository.commit(local_ref).sha).to eq(expected_oid)
-        end
-      end
-    end
-
-    context 'when the branch does not exist' do
-      let(:source_branch) { 'definitely-not-master' }
-
-      it 'does not write the ref' do
-        expect(repository.fetch_source_branch!(source_repository, source_branch, local_ref)).to eq(false)
-        expect(repository.commit(local_ref)).to be_nil
-      end
-    end
-  end
-
-  describe '#write_ref' do
-    let(:repository) { mutable_repository }
-
-    context 'validations' do
-      using RSpec::Parameterized::TableSyntax
-
-      where(:ref_path, :ref) do
-        'foo bar' | '123'
-        'foobar'  | "12\x003"
-      end
-
-      with_them do
-        it 'raises ArgumentError' do
-          expect { repository.write_ref(ref_path, ref) }.to raise_error(ArgumentError)
-        end
-      end
-    end
-
-    it 'writes the HEAD' do
-      repository.write_ref('HEAD', 'refs/heads/feature')
-
-      expect(repository.commit('HEAD')).to eq(repository.commit('feature'))
-      expect(repository.root_ref).to eq('feature')
-    end
-
-    it 'writes other refs' do
-      repository.write_ref('refs/heads/feature', SeedRepo::Commit::ID)
-
-      expect(repository.commit('feature').sha).to eq(SeedRepo::Commit::ID)
-    end
-  end
-
   describe '#fetch_sha' do
     let(:source_repository) { Gitlab::Git::RemoteRepository.new(repository) }
     let(:sha) { 'b971194ee2d047f24cb897b6fb0d7ae99c8dd0ca' }
@@ -379,97 +301,6 @@ describe Gitlab::Git::Repository do # rubocop:disable Metrics/BlockLength
       expect do
         repository.fetch_sha(source_repository, sha)
       end.to raise_error(Gitlab::Git::CommandError, 'error')
-    end
-  end
-
-  describe '#merge' do
-    let(:repository) { mutable_repository }
-    let(:source_sha) { '913c66a37b4a45b9769037c55c2d238bd0942d2e' }
-    let(:target_branch) { 'test-merge-target-branch' }
-
-    before do
-      create_branch(repository, target_branch, '6d394385cf567f80a8fd85055db1ab4c5295806f')
-    end
-
-    it 'can perform a merge' do
-      merge_commit_id = nil
-      result = repository.merge(user, source_sha, target_branch, 'Test merge') do |commit_id|
-        merge_commit_id = commit_id
-      end
-
-      expect(result.newrev).to eq(merge_commit_id)
-      expect(result.repo_created).to eq(false)
-      expect(result.branch_created).to eq(false)
-    end
-
-    it 'returns nil if there was a concurrent branch update' do
-      concurrent_update_id = '33f3729a45c02fc67d00adb1b8bca394b0e761d9'
-      result = repository.merge(user, source_sha, target_branch, 'Test merge') do
-        # This ref update should make the merge fail
-        repository.write_ref(Gitlab::Git::BRANCH_REF_PREFIX + target_branch, concurrent_update_id)
-      end
-
-      # This 'nil' signals that the merge was not applied
-      expect(result).to be_nil
-
-      # Our concurrent ref update should not have been undone
-      expect(repository.find_branch(target_branch).target).to eq(concurrent_update_id)
-    end
-  end
-
-  describe '#merge_to_ref' do
-    let(:repository) { mutable_repository }
-    let(:branch_head) { '6d394385cf567f80a8fd85055db1ab4c5295806f' }
-    let(:source_sha) { 'cfe32cf61b73a0d5e9f13e774abde7ff789b1660' }
-    let(:branch) { 'test-master' }
-    let(:first_parent_ref) { 'refs/heads/test-master' }
-    let(:target_ref) { 'refs/merge-requests/999/merge' }
-    let(:arg_branch) {}
-    let(:arg_first_parent_ref) { first_parent_ref }
-
-    before do
-      create_branch(repository, branch, branch_head)
-    end
-
-    def fetch_target_ref
-      repository.rugged.references[target_ref]
-    end
-
-    shared_examples_for 'correct behavior' do
-      it 'changes target ref to a merge between source SHA and branch' do
-        expect(fetch_target_ref).to be_nil
-
-        merge_commit_id = repository.merge_to_ref(user, source_sha, arg_branch, target_ref, 'foo', arg_first_parent_ref)
-
-        ref = fetch_target_ref
-
-        expect(ref.target.oid).to eq(merge_commit_id)
-      end
-
-      it 'does not change the branch HEAD' do
-        expect { repository.merge_to_ref(user, source_sha, arg_branch, target_ref, 'foo', arg_first_parent_ref) }
-          .not_to change { repository.find_ref(first_parent_ref).target }
-          .from(branch_head)
-      end
-    end
-
-    it_behaves_like 'correct behavior'
-
-    context 'when legacy branch parameter is specified and ref path is empty' do
-      it_behaves_like 'correct behavior' do
-        let(:arg_branch) { branch }
-        let(:arg_first_parent_ref) {}
-      end
-    end
-
-    context 'when conflicts detected' do
-      it 'raises Gitlab::Git::CommitError' do
-        allow(repository.rugged).to receive_message_chain(:merge_commits, :conflicts?) { true }
-
-        expect { repository.merge_to_ref(user, source_sha, arg_branch, target_ref, 'foo', arg_first_parent_ref) }
-          .to raise_error(Gitlab::Git::CommitError, "Failed to create merge commit for source_sha #{source_sha} and" \
-                                                    " target_sha #{branch_head} at #{target_ref}")
-      end
     end
   end
 
@@ -540,16 +371,6 @@ describe Gitlab::Git::Repository do # rubocop:disable Metrics/BlockLength
         expect(repository_rugged.config["remote.#{remote_name}.mirror"]).to eq('true')
         expect(repository_rugged.config["remote.#{remote_name}.prune"]).to eq('true')
         expect(repository_rugged.config["remote.#{remote_name}.fetch"]).to eq(mirror_refmap)
-      end
-    end
-
-    describe '#remove_remote' do
-      it 'removes the remote' do
-        repository_rugged.remotes.create(remote_name, url)
-
-        repository.remove_remote(remote_name)
-
-        expect(repository_rugged.remotes[remote_name]).to be_nil
       end
     end
   end
@@ -699,62 +520,6 @@ describe Gitlab::Git::Repository do # rubocop:disable Metrics/BlockLength
   def create_remote_branch(remote_name, branch_name, source_branch_name)
     source_branch = repository.branches.find { |branch| branch.name == source_branch_name }
     repository_rugged.references.create("refs/remotes/#{remote_name}/#{branch_name}", source_branch.dereferenced_target.sha)
-  end
-
-  # Build the options hash that's passed to Rugged::Commit#create
-  def commit_options(repo, index, message)
-    options = {}
-    options[:tree] = index.write_tree(repo)
-    options[:author] = {
-      email: "test@example.com",
-      name: "Test Author",
-      time: Time.gm(2014, "mar", 3, 20, 15, 1)
-    }
-    options[:committer] = {
-      email: "test@example.com",
-      name: "Test Author",
-      time: Time.gm(2014, "mar", 3, 20, 15, 1)
-    }
-    options[:message] ||= message
-    options[:parents] = repo.empty? ? [] : [repo.head.target].compact
-    options[:update_ref] = "HEAD"
-
-    options
-  end
-
-  # Writes a new commit to the repo and returns a Rugged::Commit.  Replaces the
-  # contents of CHANGELOG with a single new line of text.
-  def new_commit_edit_old_file(repo)
-    oid = repo.write("I replaced the changelog with this text", :blob)
-    index = repo.index
-    index.read_tree(repo.head.target.tree)
-    index.add(path: "CHANGELOG", oid: oid, mode: 0o100644)
-
-    options = commit_options(
-      repo,
-      index,
-      "Edit CHANGELOG in its original location"
-    )
-
-    sha = Rugged::Commit.create(repo, options)
-    repo.lookup(sha)
-  end
-
-  # Writes a new commit to the repo and returns a Rugged::Commit.  Moves the
-  # CHANGELOG file to the encoding/ directory.
-  def new_commit_move_file(repo)
-    blob_oid = repo.head.target.tree.detect { |i| i[:name] == "CHANGELOG" }[:oid]
-    file_content = repo.lookup(blob_oid).content
-    oid = repo.write(file_content, :blob)
-    index = repo.index
-    index.read_tree(repo.head.target.tree)
-    index.add(path: "encoding/CHANGELOG", oid: oid, mode: 0o100644)
-    index.remove("CHANGELOG")
-
-    options = commit_options(repo, index, "Move CHANGELOG to encoding/")
-
-    sha = Rugged::Commit.create(repo, options)
-    repo.lookup(sha)
   end
 
   def create_branch(repository, branch_name, start_point = 'HEAD')
