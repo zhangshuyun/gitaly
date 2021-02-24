@@ -409,7 +409,7 @@ ${LIBGIT2_INSTALL_DIR}/lib/libgit2.a: ${DEPENDENCY_DIR}/libgit2.version
 	${Q}if ! [ -d "${LIBGIT2_SOURCE_DIR}" ]; then \
 	    ${GIT} clone --depth 1 --branch ${LIBGIT2_VERSION} --quiet ${LIBGIT2_REPO_URL} ${LIBGIT2_SOURCE_DIR}; \
 	elif ! git -C "${LIBGIT2_SOURCE_DIR}" rev-parse --quiet --verify ${LIBGIT2_VERSION}^{tree} >/dev/null; then \
-	    ${GIT} -C "${LIBGIT2_SOURCE_DIR}" fetch --quiet ${LIBGIT2_REPO_URL} ${LIBGIT2_VERSION}; \
+	    ${GIT} -C "${LIBGIT2_SOURCE_DIR}" fetch --depth 1 --quiet ${LIBGIT2_REPO_URL} ${LIBGIT2_VERSION}; \
 	fi
 	${GIT} -C "${LIBGIT2_SOURCE_DIR}" switch --quiet --detach ${LIBGIT2_VERSION}
 	${Q}rm -rf ${LIBGIT2_BUILD_DIR}
@@ -423,7 +423,7 @@ ${GIT_INSTALL_DIR}/bin/git: ${DEPENDENCY_DIR}/git.version
 	${Q}if ! [ -d "${GIT_SOURCE_DIR}" ]; then \
 	    ${GIT} clone --depth 1 --branch ${GIT_VERSION} --quiet ${GIT_REPO_URL} ${GIT_SOURCE_DIR}; \
 	elif ! git -C "${GIT_SOURCE_DIR}" rev-parse --quiet --verify ${GIT_VERSION}^{tree} >/dev/null; then \
-	    ${GIT} -C "${GIT_SOURCE_DIR}" fetch --quiet ${GIT_REPO_URL} ${GIT_VERSION}; \
+	    ${GIT} -C "${GIT_SOURCE_DIR}" fetch --depth 1 --quiet ${GIT_REPO_URL} ${GIT_VERSION}; \
 	fi
 	${Q}${GIT} -C "${GIT_SOURCE_DIR}" switch --quiet --detach ${GIT_VERSION}
 	${Q}rm -rf ${GIT_INSTALL_DIR}
