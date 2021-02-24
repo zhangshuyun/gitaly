@@ -464,7 +464,7 @@ func (c *Coordinator) mutatorStreamParameters(ctx context.Context, call grpcCall
 
 		finalizers = append(finalizers,
 			c.createTransactionFinalizer(ctx, transaction, route, virtualStorage,
-				targetRepo, change, params, nodeErrors),
+				targetRepo, change, params, call.fullMethodName, nodeErrors),
 		)
 	} else {
 		finalizers = append(finalizers,
@@ -477,6 +477,7 @@ func (c *Coordinator) mutatorStreamParameters(ctx context.Context, call grpcCall
 				append(routerNodesToStorages(route.Secondaries), route.ReplicationTargets...),
 				change,
 				params,
+				call.fullMethodName,
 			))
 	}
 
@@ -687,6 +688,7 @@ func (c *Coordinator) createTransactionFinalizer(
 	targetRepo *gitalypb.Repository,
 	change datastore.ChangeType,
 	params datastore.Params,
+	cause string,
 	nodeErrors *nodeErrors,
 ) func() error {
 	return func() error {
@@ -694,7 +696,7 @@ func (c *Coordinator) createTransactionFinalizer(
 
 		return c.newRequestFinalizer(
 			ctx, virtualStorage, targetRepo, route.Primary.Storage,
-			updated, outdated, change, params)()
+			updated, outdated, change, params, cause)()
 	}
 }
 
@@ -800,8 +802,14 @@ func (c *Coordinator) newRequestFinalizer(
 	outdatedSecondaries []string,
 	change datastore.ChangeType,
 	params datastore.Params,
+	cause string,
 ) func() error {
 	return func() error {
+		ctxlogrus.Extract(ctx).WithFields(logrus.Fields{
+			"replication.cause": cause,
+			"replication.type":  change,
+		}).Info("queueing replication job")
+
 		switch change {
 		case datastore.UpdateRepo:
 			// If this fails, the primary might have changes on it that are not recorded in the database. The secondaries will appear
