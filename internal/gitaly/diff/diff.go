@@ -9,10 +9,9 @@ import (
 	"regexp"
 	"strconv"
 
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 )
-
-const blankID = "0000000000000000000000000000000000000000"
 
 // Diff represents a single parsed diff entry
 type Diff struct {
@@ -320,13 +319,13 @@ func (parser *Parser) handleTypeChangeDiff() {
 		":%o %o %s %s A\t%s\n",
 		0,
 		parser.currentDiff.NewMode,
-		blankID,
+		git.ZeroOID,
 		parser.currentDiff.ToID,
 		parser.currentDiff.FromPath,
 	)
 
 	parser.currentDiff.NewMode = 0
-	parser.currentDiff.ToID = blankID
+	parser.currentDiff.ToID = git.ZeroOID.String()
 
 	parser.rawLines = append([][]byte{[]byte(newRawLine)}, parser.rawLines...)
 }

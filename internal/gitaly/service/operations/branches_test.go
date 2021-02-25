@@ -303,7 +303,7 @@ func TestSuccessfulCreateBranchRequestWithStartPointRefPrefix(t *testing.T) {
 		t.Run(testCase.desc, func(t *testing.T) {
 			testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "update-ref", "refs/heads/"+testCase.startPoint,
 				testCase.startPointCommit,
-				"0000000000000000000000000000000000000000",
+				git.ZeroOID.String(),
 			)
 			request := &gitalypb.UserCreateBranchRequest{
 				Repository: repoProto,

@@ -16,8 +16,6 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-const blankChecksum = "0000000000000000000000000000000000000000"
-
 var refWhitelist = regexp.MustCompile(`HEAD|(refs/(heads|tags|keep-around|merge-requests|environments|notes)/)`)
 
 func (s *server) CalculateChecksum(ctx context.Context, in *gitalypb.CalculateChecksumRequest) (*gitalypb.CalculateChecksumResponse, error) {
@@ -66,7 +64,7 @@ func (s *server) CalculateChecksum(ctx context.Context, in *gitalypb.CalculateCh
 
 	if err := cmd.Wait(); checksum == nil || err != nil {
 		if s.isValidRepo(ctx, repo) {
-			return &gitalypb.CalculateChecksumResponse{Checksum: blankChecksum}, nil
+			return &gitalypb.CalculateChecksumResponse{Checksum: git.ZeroOID.String()}, nil
 		}
 
 		return nil, status.Errorf(codes.DataLoss, "CalculateChecksum: not a git repository '%s'", repoPath)

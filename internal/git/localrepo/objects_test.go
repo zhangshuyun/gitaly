@@ -107,7 +107,7 @@ func TestFormatTag(t *testing.T) {
 		// internal/gitaly/service/operations/tags_test.go
 		{
 			desc:       "basic signature",
-			objectID:   "0000000000000000000000000000000000000000",
+			objectID:   git.ZeroOID.String(),
 			objectType: "commit",
 			tagName:    []byte("my-tag"),
 			userName:   []byte("root"),
@@ -116,7 +116,7 @@ func TestFormatTag(t *testing.T) {
 		},
 		{
 			desc:       "basic signature",
-			objectID:   "0000000000000000000000000000000000000000",
+			objectID:   git.ZeroOID.String(),
 			objectType: "commit",
 			tagName:    []byte("my-tag\ninjection"),
 			userName:   []byte("root"),
@@ -126,7 +126,7 @@ func TestFormatTag(t *testing.T) {
 		},
 		{
 			desc:       "signature with fixed time",
-			objectID:   "0000000000000000000000000000000000000000",
+			objectID:   git.ZeroOID.String(),
 			objectType: "commit",
 			tagName:    []byte("my-tag"),
 			userName:   []byte("root"),

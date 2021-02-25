@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -88,7 +89,7 @@ func TestEmptyRepositoryCalculateChecksum(t *testing.T) {
 
 	response, err := client.CalculateChecksum(testCtx, request)
 	require.NoError(t, err)
-	require.Equal(t, "0000000000000000000000000000000000000000", response.Checksum)
+	require.Equal(t, git.ZeroOID.String(), response.Checksum)
 }
 
 func TestBrokenRepositoryCalculateChecksum(t *testing.T) {
@@ -173,5 +174,5 @@ func TestInvalidRefsCalculateChecksum(t *testing.T) {
 
 	response, err := client.CalculateChecksum(testCtx, request)
 	require.NoError(t, err)
-	require.Equal(t, "0000000000000000000000000000000000000000", response.Checksum)
+	require.Equal(t, git.ZeroOID.String(), response.Checksum)
 }
