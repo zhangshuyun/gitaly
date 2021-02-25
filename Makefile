@@ -87,12 +87,10 @@ ifeq (${GIT_BUILD_OPTIONS},)
     GIT_BUILD_OPTIONS += DEVELOPER=1
     # but don't cause warnings to fail the build
     GIT_BUILD_OPTIONS += DEVOPTS=no-error
-    GIT_BUILD_OPTIONS += USE_LIBPCRE2=YesPlease
+    GIT_BUILD_OPTIONS += USE_LIBPCRE=YesPlease
     GIT_BUILD_OPTIONS += NO_PERL=YesPlease
     GIT_BUILD_OPTIONS += NO_EXPAT=YesPlease
     GIT_BUILD_OPTIONS += NO_TCLTK=YesPlease
-    # fix compilation on musl libc
-    GIT_BUILD_OPTIONS += NO_REGEX=YesPlease
     GIT_BUILD_OPTIONS += NO_GETTEXT=YesPlease
     GIT_BUILD_OPTIONS += NO_PYTHON=YesPlease
     GIT_BUILD_OPTIONS += NO_INSTALL_HARDLINKS=YesPlease
