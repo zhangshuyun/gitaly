@@ -183,8 +183,7 @@ Followed by:
     /chatops run feature set gitaly_X true
 
 Note that you need both the `100` and `true` as separate commands. See
-[the documentation on actor
-gates][actor-gates]
+[the documentation on actor gates][actor-gates]
 
 [actor-gates]: https://docs.gitlab.com/ee/development/feature_flags/controls.html#process
 
