@@ -21,4 +21,5 @@
 /gitaly-*.gem
 
 # Configuration and runtime data
+/config.mak
 /*.toml
