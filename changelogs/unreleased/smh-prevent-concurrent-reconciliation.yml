@@ -1,0 +1,5 @@
+---
+title: Prevent concurrent reconciliation
+merge_request: 3182
+author:
+type: fixed
