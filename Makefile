@@ -410,7 +410,7 @@ ${DEPENDENCY_DIR}/git.version: dependency-version | ${DEPENDENCY_DIR}
 	${Q}[ x"$$(cat "$@" 2>/dev/null)" = x"${GIT_VERSION}" ] || >$@ echo -n "${GIT_VERSION}"
 
 ${LIBGIT2_INSTALL_DIR}/lib/libgit2.a: ${DEPENDENCY_DIR}/libgit2.version
-	${Q}[ -d "${LIBGIT2_SOURCE_DIR}" ] || ${GIT} init ${GIT_QUIET} ${LIBGIT2_SOURCE_DIR}
+	${Q}[ -d "${LIBGIT2_SOURCE_DIR}" ] || ${GIT} init --initial-branch=master ${GIT_QUIET} ${LIBGIT2_SOURCE_DIR}
 	${Q}${GIT} -C "${LIBGIT2_SOURCE_DIR}" fetch --depth 1 ${GIT_QUIET} ${LIBGIT2_REPO_URL} ${LIBGIT2_VERSION}
 	${Q}${GIT} -C "${LIBGIT2_SOURCE_DIR}" switch ${GIT_QUIET} --detach FETCH_HEAD
 	${Q}rm -rf ${LIBGIT2_BUILD_DIR}
@@ -421,7 +421,7 @@ ${LIBGIT2_INSTALL_DIR}/lib/libgit2.a: ${DEPENDENCY_DIR}/libgit2.version
 
 ifeq (${GIT_USE_PREBUILT_BINARIES},)
 ${GIT_INSTALL_DIR}/bin/git: ${DEPENDENCY_DIR}/git.version
-	${Q}[ -d "${GIT_SOURCE_DIR}" ] || ${GIT} init ${GIT_QUIET} ${GIT_SOURCE_DIR}
+	${Q}[ -d "${GIT_SOURCE_DIR}" ] || ${GIT} init --initial-branch=master ${GIT_QUIET} ${GIT_SOURCE_DIR}
 	${Q}${GIT} -C "${GIT_SOURCE_DIR}" fetch --depth 1 ${GIT_QUIET} ${GIT_REPO_URL} ${GIT_VERSION}
 	${Q}${GIT} -C "${GIT_SOURCE_DIR}" switch ${GIT_QUIET} --detach FETCH_HEAD
 	${Q}rm -rf ${GIT_INSTALL_DIR}
