@@ -57,7 +57,7 @@ func (s *server) GetLFSPointers(req *gitalypb.GetLFSPointersRequest, stream gita
 	repo := localrepo.New(s.gitCmdFactory, req.Repository, s.cfg)
 	objectIDs := strings.Join(req.BlobIds, "\n")
 
-	lfsPointers, err := readLFSPointers(ctx, repo, s.gitCmdFactory, strings.NewReader(objectIDs), false)
+	lfsPointers, err := readLFSPointers(ctx, repo, s.gitCmdFactory, strings.NewReader(objectIDs), false, 0)
 	if err != nil {
 		return err
 	}
@@ -173,7 +173,7 @@ func (s *server) GetAllLFSPointers(in *gitalypb.GetAllLFSPointersRequest, stream
 
 	lfsPointers, err := findLFSPointersByRevisions(ctx, repo, s.gitCmdFactory, []git.Option{
 		git.Flag{Name: "--all"},
-	})
+	}, 0)
 	if err != nil {
 		if errors.Is(err, errInvalidRevision) {
 			return status.Errorf(codes.InvalidArgument, err.Error())
@@ -239,6 +239,7 @@ func findLFSPointersByRevisions(
 	repo *localrepo.Repo,
 	gitCmdFactory git.CommandFactory,
 	opts []git.Option,
+	limit int,
 	revisions ...string,
 ) (_ []*gitalypb.LFSPointer, returnErr error) {
 	for _, revision := range revisions {
@@ -279,7 +280,7 @@ func findLFSPointersByRevisions(
 		}
 	}()
 
-	return readLFSPointers(ctx, repo, gitCmdFactory, revlist, true)
+	return readLFSPointers(ctx, repo, gitCmdFactory, revlist, true, limit)
 }
 
 // readLFSPointers reads object IDs of potential LFS pointers from the given reader and for each of
@@ -295,6 +296,7 @@ func readLFSPointers(
 	gitCmdFactory git.CommandFactory,
 	objectIDReader io.Reader,
 	filterByObjectName bool,
+	limit int,
 ) ([]*gitalypb.LFSPointer, error) {
 	catfileBatch, err := catfile.New(ctx, gitCmdFactory, repo)
 	if err != nil {
@@ -342,6 +344,10 @@ func readLFSPointers(
 			Size: int64(len(data)),
 			Oid:  revision.String(),
 		})
+
+		if limit > 0 && len(lfsPointers) >= limit {
+			break
+		}
 	}
 
 	if err := scanner.Err(); err != nil {
