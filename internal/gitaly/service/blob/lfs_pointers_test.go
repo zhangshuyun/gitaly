@@ -171,6 +171,12 @@ func testFailedGetLFSPointersRequestDueToValidations(t *testing.T, ctx context.C
 }
 
 func TestSuccessfulGetNewLFSPointersRequest(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.GoGetNewLFSPointers,
+	}).Run(t, testSuccessfulGetNewLFSPointersRequest)
+}
+
+func testSuccessfulGetNewLFSPointersRequest(t *testing.T, ctx context.Context) {
 	stop, serverSocketPath := runBlobServer(t, testhelper.DefaultLocator())
 	defer stop()
 
@@ -287,9 +293,6 @@ func TestSuccessfulGetNewLFSPointersRequest(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
-
 			tc.request.Repository.GitAlternateObjectDirectories = []string{altDirs}
 			stream, err := client.GetNewLFSPointers(ctx, tc.request)
 			require.NoError(t, err)
@@ -312,6 +315,12 @@ func TestSuccessfulGetNewLFSPointersRequest(t *testing.T) {
 }
 
 func TestFailedGetNewLFSPointersRequestDueToValidations(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.GoGetNewLFSPointers,
+	}).Run(t, testFailedGetNewLFSPointersRequestDueToValidations)
+}
+
+func testFailedGetNewLFSPointersRequestDueToValidations(t *testing.T, ctx context.Context) {
 	stop, serverSocketPath := runBlobServer(t, testhelper.DefaultLocator())
 	defer stop()
 
@@ -349,9 +358,6 @@ func TestFailedGetNewLFSPointersRequestDueToValidations(t *testing.T) {
 				Repository: tc.repository,
 				Revision:   tc.revision,
 			}
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
 
 			c, err := client.GetNewLFSPointers(ctx, request)
 			require.NoError(t, err)
