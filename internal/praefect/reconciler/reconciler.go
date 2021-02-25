@@ -230,8 +230,7 @@ update_jobs AS (
 		ORDER BY virtual_storage, relative_path
 	) AS healthy_repositories USING (virtual_storage, relative_path)
 	WHERE NOT EXISTS (
-		SELECT true
-		FROM replication_queue
+		SELECT FROM replication_queue
 		WHERE state IN ('ready', 'in_progress', 'failed')
 		AND job->>'change' = 'update'
 		AND job->>'virtual_storage' = virtual_storage
