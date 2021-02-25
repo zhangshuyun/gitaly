@@ -40,28 +40,25 @@ end
 def simulate(records, expiry)
   cache = {}
   stats = Hash.new(0)
-  hits_per_key = Hash.new(0)
   frequencies = Hash.new(0)
 
   puts "Expiry: #{expiry}s"
   records.each do |rec|
     _, first = cache.first
-    while first && rec.created_at - first.created_at > expiry
+    while first && rec.created_at - first[:rec].created_at > expiry
       cache.shift
-      _, frequency = hits_per_key.shift
-      frequencies[frequency] += 1
-      stats[:size] -= first.size
+      frequencies[first[:frequency]] += 1
+      stats[:size] -= first[:rec].size
       _, first = cache.first
     end
 
-    hits_per_key[rec.key] += 1
-
     if cache.has_key?(rec.key)
+      cache[rec.key][:frequency] += 1
       stats[:hit] += 1
       next
     end
 
-    cache[rec.key] = rec
+    cache[rec.key] = { rec: rec, frequency: 1 }
     stats[:miss] += 1
     stats[:size] += rec.size
 
@@ -70,15 +67,18 @@ def simulate(records, expiry)
     end
   end
 
-  hits_per_key.each do |_, frequency|
-    frequencies[frequency] += 1
+  cache.values.each do |value|
+    frequencies[value[:frequency]] += 1
   end
 
   puts frequencies.sort_by(&:first).to_h
-  puts frequencies.values.sum
   puts stats
   puts "hit ratio: #{Float(stats[:hit])/records.size}"
-  puts "max cache size: #{Float(stats[:max_size])/(1024*1024*1024)}GB"
+  puts "max cache size: #{Float(stats[:max_size])/(1024*1024*1024)}GB"  # puts cache.values
+end
+
+def increment_last(array)
+  array[0..-2] + [array.last + 1]
 end
 
 def next_record
