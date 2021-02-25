@@ -32,8 +32,6 @@ def main
     records << rec
   end
 
-  records.sort! { |a, b| a.created_at <=> b.created_at }
-
   [1, 5, 10, 30, 60].each do |minutes|
     simulate(records, minutes*60)
   end
