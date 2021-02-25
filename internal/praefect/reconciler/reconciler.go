@@ -221,21 +221,21 @@ update_jobs AS (
 		JOIN repositories USING (virtual_storage, relative_path, generation)
 		WHERE NOT EXISTS (
 			SELECT FROM replication_queue
-			WHERE state NOT IN ('completed', 'dead', 'cancelled')
-			AND job->>'change' = 'delete_replica'
+			WHERE state NOT IN ('completed', 'cancelled', 'dead')
 			AND job->>'virtual_storage' = virtual_storage
 			AND job->>'relative_path' = relative_path
 			AND job->>'target_node_storage' = storage
+			AND job->>'change' = 'delete_replica'
 		)
 		ORDER BY virtual_storage, relative_path
 	) AS healthy_repositories USING (virtual_storage, relative_path)
 	WHERE NOT EXISTS (
 		SELECT FROM replication_queue
-		WHERE state IN ('ready', 'in_progress', 'failed')
-		AND job->>'change' = 'update'
+		WHERE state NOT IN ('completed', 'cancelled', 'dead')
 		AND job->>'virtual_storage' = virtual_storage
 		AND job->>'relative_path' = relative_path
 		AND job->>'target_node_storage' = target_node_storage
+		AND job->>'change' = 'update'
 	)
 	ORDER BY virtual_storage, relative_path, target_node_storage, random()
 ),
