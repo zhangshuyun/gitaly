@@ -1,0 +1,5 @@
+---
+title: 'Streamio: remove custom ReadFrom and WriteTo'
+merge_request: 3201
+author:
+type: other
