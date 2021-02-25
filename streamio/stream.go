@@ -61,6 +61,7 @@ func (rr *receiveReader) Read(p []byte) (int, error) {
 }
 
 // WriteTo implements io.WriterTo.
+// Deprecated: will be removed in v14. Use io.Copy instead.
 func (rr *receiveReader) WriteTo(w io.Writer) (int64, error) {
 	countMethod("reader.WriteTo")
 
@@ -149,6 +150,7 @@ func (sw *sendWriter) Write(p []byte) (int, error) {
 }
 
 // ReadFrom implements io.ReaderFrom.
+// Deprecated: will be removed in v14. Use io.Copy instead.
 func (sw *sendWriter) ReadFrom(r io.Reader) (int64, error) {
 	countMethod("writer.ReadFrom")
 
