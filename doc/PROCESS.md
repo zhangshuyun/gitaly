@@ -222,7 +222,7 @@ After a feature is running at `100%` for what ever's deemed to be a
 safe amount of time we should change it to be `OnByDefault: true`. See
 [this MR for an example][example-on-by-default-mr].
 
-[example-on-by-default-mr]: https://gitlab.com/gitlab-org/gitaly/-/merge_requests/2994
+[example-on-by-default-mr]: https://gitlab.com/gitlab-org/gitaly/-/merge_requests/3033
 
 ##### Two phase Ruby to Go rollouts
 
