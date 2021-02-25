@@ -185,6 +185,12 @@ Followed by:
 Note that you need both the `100` and `true` as separate commands. See
 [the documentation on actor gates][actor-gates]
 
+If the feature is left at `50%` but is also set to `true` by default
+the `50%` will win, even if `OnByDefault: true` is [set for
+it](#feature-lifecycle-after-it-is-live). It'll only be 100% live once
+the feature flag code is deleted. So make sure you don't skip the
+`100%` step.
+
 [actor-gates]: https://docs.gitlab.com/ee/development/feature_flags/controls.html#process
 
 ##### Discussion
