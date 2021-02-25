@@ -13,13 +13,14 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 )
 
 func TestUpdate_customHooks(t *testing.T) {
-	repo, repoPath, cleanup := gittest.CloneRepo(t)
+	cfg, repo, repoPath, cleanup := testcfg.BuildWithRepo(t)
 	defer cleanup()
 
-	hookManager := NewManager(config.NewLocator(config.Config), transaction.NewManager(config.Config), GitlabAPIStub, config.Config)
+	hookManager := NewManager(config.NewLocator(cfg), transaction.NewManager(cfg), GitlabAPIStub, cfg)
 
 	receiveHooksPayload := &git.ReceiveHooksPayload{
 		UserID:   "1234",
@@ -27,11 +28,11 @@ func TestUpdate_customHooks(t *testing.T) {
 		Protocol: "web",
 	}
 
-	payload, err := git.NewHooksPayload(config.Config, repo, nil, nil, receiveHooksPayload, git.UpdateHook).Env()
+	payload, err := git.NewHooksPayload(cfg, repo, nil, nil, receiveHooksPayload, git.UpdateHook).Env()
 	require.NoError(t, err)
 
 	primaryPayload, err := git.NewHooksPayload(
-		config.Config,
+		cfg,
 		repo,
 		&metadata.Transaction{
 			ID: 1234, Node: "primary", Primary: true,
@@ -46,7 +47,7 @@ func TestUpdate_customHooks(t *testing.T) {
 	require.NoError(t, err)
 
 	secondaryPayload, err := git.NewHooksPayload(
-		config.Config,
+		cfg,
 		repo,
 		&metadata.Transaction{
 			ID: 1234, Node: "secondary", Primary: false,

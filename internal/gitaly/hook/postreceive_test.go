@@ -16,6 +16,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 )
 
 func TestPrintAlert(t *testing.T) {
@@ -60,10 +61,10 @@ func TestPrintAlert(t *testing.T) {
 }
 
 func TestPostReceive_customHook(t *testing.T) {
-	repo, repoPath, cleanup := gittest.CloneRepo(t)
+	cfg, repo, repoPath, cleanup := testcfg.BuildWithRepo(t)
 	defer cleanup()
 
-	hookManager := NewManager(config.NewLocator(config.Config), transaction.NewManager(config.Config), GitlabAPIStub, config.Config)
+	hookManager := NewManager(config.NewLocator(cfg), transaction.NewManager(cfg), GitlabAPIStub, cfg)
 
 	receiveHooksPayload := &git.ReceiveHooksPayload{
 		UserID:   "1234",
@@ -71,11 +72,11 @@ func TestPostReceive_customHook(t *testing.T) {
 		Protocol: "web",
 	}
 
-	payload, err := git.NewHooksPayload(config.Config, repo, nil, nil, receiveHooksPayload, git.PostReceiveHook).Env()
+	payload, err := git.NewHooksPayload(cfg, repo, nil, nil, receiveHooksPayload, git.PostReceiveHook).Env()
 	require.NoError(t, err)
 
 	primaryPayload, err := git.NewHooksPayload(
-		config.Config,
+		cfg,
 		repo,
 		&metadata.Transaction{
 			ID: 1234, Node: "primary", Primary: true,
@@ -90,7 +91,7 @@ func TestPostReceive_customHook(t *testing.T) {
 	require.NoError(t, err)
 
 	secondaryPayload, err := git.NewHooksPayload(
-		config.Config,
+		cfg,
 		repo,
 		&metadata.Transaction{
 			ID: 1234, Node: "secondary", Primary: false,
@@ -242,10 +243,10 @@ func (m *postreceiveAPIMock) PostReceive(ctx context.Context, glRepository, glID
 }
 
 func TestPostReceive_gitlab(t *testing.T) {
-	testRepo, testRepoPath, cleanup := gittest.CloneRepo(t)
+	cfg, repo, repoPath, cleanup := testcfg.BuildWithRepo(t)
 	defer cleanup()
 
-	payload, err := git.NewHooksPayload(config.Config, testRepo, nil, nil, &git.ReceiveHooksPayload{
+	payload, err := git.NewHooksPayload(cfg, repo, nil, nil, &git.ReceiveHooksPayload{
 		UserID:   "1234",
 		Username: "user",
 		Protocol: "web",
@@ -270,7 +271,7 @@ func TestPostReceive_gitlab(t *testing.T) {
 			env:     standardEnv,
 			changes: "changes\n",
 			postreceive: func(t *testing.T, ctx context.Context, glRepo, glID, changes string, pushOptions ...string) (bool, []PostReceiveMessage, error) {
-				require.Equal(t, testRepo.GlRepository, glRepo)
+				require.Equal(t, repo.GlRepository, glRepo)
 				require.Equal(t, "1234", glID)
 				require.Equal(t, "changes\n", changes)
 				require.Empty(t, pushOptions)
@@ -341,13 +342,13 @@ func TestPostReceive_gitlab(t *testing.T) {
 				},
 			}
 
-			hookManager := NewManager(config.NewLocator(config.Config), transaction.NewManager(config.Config), &gitlabAPI, config.Config)
+			hookManager := NewManager(config.NewLocator(cfg), transaction.NewManager(cfg), &gitlabAPI, cfg)
 
-			cleanup = gittest.WriteCustomHook(t, testRepoPath, "post-receive", []byte("#!/bin/sh\necho hook called\n"))
+			cleanup = gittest.WriteCustomHook(t, repoPath, "post-receive", []byte("#!/bin/sh\necho hook called\n"))
 			defer cleanup()
 
 			var stdout, stderr bytes.Buffer
-			err = hookManager.PostReceiveHook(ctx, testRepo, tc.pushOptions, tc.env, strings.NewReader(tc.changes), &stdout, &stderr)
+			err = hookManager.PostReceiveHook(ctx, repo, tc.pushOptions, tc.env, strings.NewReader(tc.changes), &stdout, &stderr)
 
 			if tc.expectedErr != nil {
 				require.Equal(t, tc.expectedErr, err)
