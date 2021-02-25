@@ -235,6 +235,13 @@ so we could remove its code before the Go code has a chance to update
 with its default, and would still want to call it. So therefore you
 need to do any such removal in two gitlab.com release cycles.
 
+See the example of [MR !3033][example-on-by-default-mr] and [MR
+!3056][example-post-go-ruby-code-removal-mr] for how to do such a
+two-phase removal.
+
+[example-on-by-default-mr]: https://gitlab.com/gitlab-org/gitaly/-/merge_requests/3033
+[example-post-go-ruby-code-removal-mr]: https://gitlab.com/gitlab-org/gitaly/-/merge_requests/3056
+
 ### Gitaly Releases
 
 Gitaly releases are tagged automatically by
