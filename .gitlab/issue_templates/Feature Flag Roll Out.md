@@ -61,7 +61,9 @@ If applicable, any groups/projects that are happy to have this feature turned on
 - [ ] Submit a MR to have the feature `OnByDefault: true` and add changelog entry ([howto](https://gitlab.com/gitlab-org/gitaly/-/blob/master/doc/PROCESS.md#feature-lifecycle-after-it-is-live))
 - [ ] Have that MR merged
 - [ ] Possibly wait for at least one deployment cycle ([howto](https://gitlab.com/gitlab-org/gitaly/-/blob/master/doc/PROCESS.md#two-phase-ruby-to-go-rollouts))
-- [ ] Remove feature flag and add changelog entry
+- [ ] Submit an MR to remove the pre-feature code from the codebase and add changelog entry ([howto](https://gitlab.com/gitlab-org/gitaly/-/blob/master/doc/PROCESS.md#feature-lifecycle-after-it-is-live))
+- [ ] Have that MR merged
+- [ ] Remove the feature flag via chatops ([howto](https://gitlab.com/gitlab-org/gitaly/-/blob/master/doc/PROCESS.md#remove-the-feature-flag-via-chatops))
 - [ ] Close this issue
 
 /label ~"devops::create" ~"group::gitaly" ~"feature flag" ~"feature::maintainance" ~"Category:Gitaly" ~"section::dev" ~"featureflag::disabled"

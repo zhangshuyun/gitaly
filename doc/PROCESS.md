@@ -222,6 +222,17 @@ After a feature is running at `100%` for what ever's deemed to be a
 safe amount of time we should change it to be `OnByDefault: true`. See
 [this MR for an example][example-on-by-default-mr].
 
+We should add a changelog entry when `OnByDefault: true` is flipped.
+
+That should then be followed up by another MR to remove the
+pre-feature code from the codebase, and we should add another
+changelog entry when doing that.
+
+This is because even after setting `OnByDefault: true` users might
+still have opted to disable the new feature. See [the discussion
+below](#two-phase-ruby-to-go-rollouts)) for possibly needing to do
+such changes over multiple releases.
+
 [example-on-by-default-mr]: https://gitlab.com/gitlab-org/gitaly/-/merge_requests/3033
 
 ##### Two phase Ruby to Go rollouts
@@ -241,6 +252,28 @@ two-phase removal.
 
 [example-on-by-default-mr]: https://gitlab.com/gitlab-org/gitaly/-/merge_requests/3033
 [example-post-go-ruby-code-removal-mr]: https://gitlab.com/gitlab-org/gitaly/-/merge_requests/3056
+
+##### Remove the feature flag via chatops
+
+After completing the above steps the feature flag should be deleted
+from the database of available features via `chatops`.
+
+If you don't do this others will continue to see the features with
+e.g.:
+
+	/chatops run feature list --match=gitaly_
+
+It also incrementally adds to data that needs to be fetched &
+populated on every request.
+
+To remove the flag first sanity check that it's the feature you want,
+that it's at [`100%` and is `true`](#enable-in-production):
+
+	/chatops run feature get gitaly_X
+
+Then delete it if that's the data you're expecting:
+
+	/chatops run feature delete gitaly_X
 
 ### Gitaly Releases
 
