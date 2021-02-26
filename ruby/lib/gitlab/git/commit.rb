@@ -168,17 +168,6 @@ module Gitlab
         )
       end
 
-      def to_diff
-        diff = if rugged_commit.parents.empty?
-                 rugged_commit.diff(reverse: true)
-               else
-                 rugged_commit.parents[0].diff(rugged_commit)
-               end
-
-        diff.find_similar!
-        diff.patch
-      end
-
       private
 
       def init_from_hash(hash)
