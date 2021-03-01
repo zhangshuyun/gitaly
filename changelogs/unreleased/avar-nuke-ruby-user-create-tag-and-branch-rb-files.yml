@@ -1,0 +1,5 @@
+---
+title: Remove Ruby code for old 100% go_user_create_{branch,tag} feature
+merge_request: 3056
+author:
+type: changed

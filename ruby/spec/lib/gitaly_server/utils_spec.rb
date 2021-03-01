@@ -41,21 +41,4 @@ describe GitalyServer::Utils do
       expect(gitaly_commit.body_size).to eq(full_message.bytesize)
     end
   end
-
-  describe '.gitaly_tag_from_gitlab_tag' do
-    it 'truncates tag message if it exceeded a certain limit' do
-      repo = Rugged::Repository.new(TEST_REPO_PATH)
-      rugged_tag = repo.tags.first
-      full_message = "subject\n\n" + ("a" * 100 * 1024)
-      gitlab_tag = Gitlab::Git::Tag.new(repo, name: rugged_tag.name, target: rugged_tag.target.oid, target_commit: rugged_tag.target, message: full_message)
-      limit = 10 * 1024
-
-      allow_any_instance_of(Gitlab::Config::Git).to receive(:max_commit_or_tag_message_size).and_return(limit)
-
-      gitaly_tag = cls.new.gitaly_tag_from_gitlab_tag(gitlab_tag)
-
-      expect(gitaly_tag.message).to eq(full_message[0, limit])
-      expect(gitaly_tag.message_size).to eq(full_message.bytesize)
-    end
-  end
 end

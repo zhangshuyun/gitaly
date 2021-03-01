@@ -22,7 +22,6 @@ module Gitlab
       NoRepository = Class.new(StandardError)
       InvalidRef = Class.new(StandardError)
       GitError = Class.new(StandardError)
-      TagExistsError = Class.new(StandardError)
 
       class CreateTreeError < StandardError
         attr_reader :error
@@ -80,16 +79,6 @@ module Gitlab
 
       def ==(other)
         [storage, relative_path] == [other.storage, other.relative_path]
-      end
-
-      def add_branch(branch_name, user:, target:, transaction: nil)
-        target_object = Ref.dereference_object(lookup(target))
-        raise InvalidRef, "target not found: #{target}" unless target_object
-
-        OperationService.new(user, self).add_branch(branch_name, target_object.oid, transaction: transaction)
-        find_branch(branch_name)
-      rescue Rugged::ReferenceError => ex
-        raise InvalidRef, ex
       end
 
       attr_reader :gitaly_repository
@@ -216,43 +205,8 @@ module Gitlab
         false
       end
 
-      def add_tag(tag_name, user:, target:, message: nil, timestamp: nil, transaction: nil)
-        target_object = Ref.dereference_object(lookup(target))
-        raise InvalidRef, "target not found: #{target}" unless target_object
-
-        target_oid = target_object.oid
-        operation_service = Gitlab::Git::OperationService.new(user, self)
-
-        if message
-          operation_service.add_annotated_tag(
-            tag_name,
-            target_oid,
-            transaction,
-            message: message,
-            tagger: Gitlab::Git.committer_hash(email: user.email, name: user.name, timestamp: timestamp)
-          )
-        else
-          operation_service.add_lightweight_tag(tag_name, target_oid, transaction: transaction)
-        end
-
-        find_tag(tag_name)
-      rescue Rugged::ReferenceError => ex
-        raise InvalidRef, ex
-      rescue Gitlab::Git::CommitError => ex
-        if find_tag(tag_name)
-          raise TagExistsError
-        else
-          raise ex
-        end
-      end
-
       def update_branch(branch_name, user:, newrev:, oldrev:, push_options: nil, transaction: nil)
         OperationService.new(user, self).update_branch(branch_name, newrev, oldrev, push_options: push_options, transaction: transaction)
-      end
-
-      def find_tag(name)
-        name_b = name.b
-        tags.find { |tag| tag.name.b == name_b }
       end
 
       def ff_merge(user, source_sha, target_branch)
