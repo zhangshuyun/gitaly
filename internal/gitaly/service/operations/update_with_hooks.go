@@ -109,7 +109,10 @@ func (s *Server) updateReferenceWithHooksCustomErr(ctx context.Context, repo *gi
 	}
 
 	if err := updater.Wait(); err != nil {
-		return err
+		if getUpdateErrors {
+			return err
+		}
+		return updateRefError{reference: reference}
 	}
 
 	if err := s.hookManager.PostReceiveHook(ctx, repo, nil, env, strings.NewReader(changes), &stdout, &stderr); err != nil {
