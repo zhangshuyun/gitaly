@@ -126,7 +126,7 @@ endif
 
 # These variables control test options and artifacts
 TEST_PACKAGES    ?= $(call find_go_packages)
-TEST_OPTIONS     ?=
+TEST_OPTIONS     ?= -v -count=1
 TEST_REPORT_DIR  ?= ${BUILD_DIR}/reports
 TEST_OUTPUT_NAME ?= go-${GO_VERSION}-git-${GIT_VERSION}
 TEST_OUTPUT      ?= ${TEST_REPORT_DIR}/go-tests-output-${TEST_OUTPUT_NAME}.txt
@@ -159,7 +159,7 @@ find_go_packages = $(call uniq,$(dir $(call find_go_sources)))
 # TEST_OPTIONS: any additional options
 # TEST_PACKAGES: packages which shall be tested
 run_go_tests = PATH='${SOURCE_DIR}/internal/testhelper/testdata/home/bin:${PATH}' \
-    go test -v -count=1 -tags '${GO_BUILD_TAGS}' ${TEST_OPTIONS} ${TEST_PACKAGES}
+    go test -tags '${GO_BUILD_TAGS}' ${TEST_OPTIONS} ${TEST_PACKAGES}
 
 unexport GOROOT
 export GOBIN                      = ${BUILD_DIR}/bin
