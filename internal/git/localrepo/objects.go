@@ -81,7 +81,7 @@ func FormatTag(objectID, objectType string, tagName, userName, userEmail, tagBod
 	maxHeaderLines := 4
 	actualHeaderLines := strings.Count(tagBuf, "\n")
 	if actualHeaderLines != maxHeaderLines {
-		return "", fmt.Errorf("failed to format tag header for mktag: got %d lines, expected %d, \\n overflow!", actualHeaderLines, maxHeaderLines)
+		return "", fmt.Errorf("failed to format tag header for mktag: got %d lines, expected %d, \\n overflow", actualHeaderLines, maxHeaderLines)
 	}
 
 	tagBuf += "\n"
