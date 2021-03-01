@@ -474,12 +474,9 @@ func runSmartHTTPHookServiceServer(t *testing.T, cfg config.Cfg) (*grpc.Server, 
 }
 
 func TestPostReceiveWithTransactionsViaPraefect(t *testing.T) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.ReferenceTransactions,
-	}).Run(t, testPostReceiveWithTransactionsViaPraefect)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testPostReceiveWithTransactionsViaPraefect(t *testing.T, ctx context.Context) {
 	defer func(cfg config.Cfg) {
 		config.Config = cfg
 	}(config.Config)

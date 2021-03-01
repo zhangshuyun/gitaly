@@ -1,0 +1,5 @@
+---
+title: Remove the on-by-default ReferenceTransactions feature flag
+merge_request: 3205
+author:
+type: changed

@@ -1,7 +1,6 @@
 package operations
 
 import (
-	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -19,7 +18,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
-	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -28,12 +26,9 @@ import (
 )
 
 func TestSuccessfulUserDeleteTagRequest(t *testing.T) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.ReferenceTransactions,
-	}).Run(t, testSuccessfulUserDeleteTagRequest)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testSuccessfulUserDeleteTagRequest(t *testing.T, ctx context.Context) {
 	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()
 
@@ -61,12 +56,9 @@ func testSuccessfulUserDeleteTagRequest(t *testing.T, ctx context.Context) {
 }
 
 func TestSuccessfulGitHooksForUserDeleteTagRequest(t *testing.T) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.ReferenceTransactions,
-	}).Run(t, testSuccessfulGitHooksForUserDeleteTagRequest)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testSuccessfulGitHooksForUserDeleteTagRequest(t *testing.T, ctx context.Context) {
 	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()
 
@@ -170,13 +162,10 @@ end`, config.Config.Git.BinPath)
 	return hookPath, cleanup
 }
 
-func TestSuccessfulUserCreateTagRequest(t *testing.T) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.ReferenceTransactions,
-	}).Run(t, testSuccessfulUserCreateTagRequest)
-}
+func testSuccessfulUserCreateTagRequest(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testSuccessfulUserCreateTagRequest(t *testing.T, ctx context.Context) {
 	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()
 
@@ -427,13 +416,10 @@ func TestUserCreateTagWithTransaction(t *testing.T) {
 	}
 }
 
-func TestSuccessfulUserCreateTagRequestAnnotatedLightweightDisambiguation(t *testing.T) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.ReferenceTransactions,
-	}).Run(t, testSuccessfulUserCreateTagRequestAnnotatedLightweightDisambiguation)
-}
+func testSuccessfulUserCreateTagRequestAnnotatedLightweightDisambiguation(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testSuccessfulUserCreateTagRequestAnnotatedLightweightDisambiguation(t *testing.T, ctx context.Context) {
 	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()
 
@@ -529,13 +515,10 @@ func testSuccessfulUserCreateTagRequestAnnotatedLightweightDisambiguation(t *tes
 	}
 }
 
-func TestSuccessfulUserCreateTagRequestWithParsedTargetRevision(t *testing.T) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.ReferenceTransactions,
-	}).Run(t, testSuccessfulUserCreateTagRequestWithParsedTargetRevision)
-}
+func testSuccessfulUserCreateTagRequestWithParsedTargetRevision(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testSuccessfulUserCreateTagRequestWithParsedTargetRevision(t *testing.T, ctx context.Context) {
 	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()
 
@@ -905,16 +888,10 @@ func TestUserCreateTagStableTagIDs(t *testing.T) {
 	}, response.Tag)
 }
 
-// TODO: Rename to TestUserDeleteTag_successfulDeletionOfPrefixedTag,
-// see
-// https://gitlab.com/gitlab-org/gitaly/-/merge_requests/2839#note_458751929
 func TestUserDeleteTagsuccessfulDeletionOfPrefixedTag(t *testing.T) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.ReferenceTransactions,
-	}).Run(t, testUserDeleteTagsuccessfulDeletionOfPrefixedTag)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testUserDeleteTagsuccessfulDeletionOfPrefixedTag(t *testing.T, ctx context.Context) {
 	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
@@ -1146,12 +1123,9 @@ func TestFailedUserDeleteTagRequestDueToValidation(t *testing.T) {
 }
 
 func TestFailedUserDeleteTagDueToHooks(t *testing.T) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.ReferenceTransactions,
-	}).Run(t, testFailedUserDeleteTagDueToHooks)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testFailedUserDeleteTagDueToHooks(t *testing.T, ctx context.Context) {
 	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()
 
@@ -1404,12 +1378,9 @@ func TestFailedUserCreateTagRequestDueToValidation(t *testing.T) {
 }
 
 func TestTagHookOutput(t *testing.T) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.ReferenceTransactions,
-	}).Run(t, testTagHookOutput)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testTagHookOutput(t *testing.T, ctx context.Context) {
 	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()
 

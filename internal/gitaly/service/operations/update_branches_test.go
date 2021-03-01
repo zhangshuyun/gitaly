@@ -25,7 +25,6 @@ var (
 
 func TestSuccessfulUserUpdateBranchRequest(t *testing.T) {
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.ReferenceTransactions,
 		featureflag.GoUserUpdateBranch,
 	}).Run(t, testSuccessfulUserUpdateBranchRequest)
 }

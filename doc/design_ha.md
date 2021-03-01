@@ -511,12 +511,8 @@ changes.
 
 ## Using Strong Consistency
 
-The current implementation of strong consistency via reference-transaction hook
-is enabled by default. You can use the following feature flags to change its
-behavior:
-
-- `gitaly_reference_transactions`: This feature flag is enabled by default. If
-  disabled, reference transactions will not be used.
+The current implementation of strong consistency is implemented via a
+`reference-transaction` hook.
 
 In order to observe reference transactions, the following metrics can be used:
 
@@ -530,9 +526,6 @@ In order to observe reference transactions, the following metrics can be used:
 
 - `gitaly_praefect_voters_per_transaction_total`: Number of nodes which have
   cast a vote in a given transaction.
-
-**Note:** Required work is only present in Gitaly starting with release
-v13.1.0-rc3.
 
 ## Notes
 * Existing discussions

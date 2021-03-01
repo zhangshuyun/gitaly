@@ -15,7 +15,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/hook"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -217,12 +216,9 @@ func TestUserCreateBranchWithTransaction(t *testing.T) {
 }
 
 func TestSuccessfulGitHooksForUserCreateBranchRequest(t *testing.T) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.ReferenceTransactions,
-	}).Run(t, testSuccessfulGitHooksForUserCreateBranchRequest)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testSuccessfulGitHooksForUserCreateBranchRequest(t *testing.T, ctx context.Context) {
 	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 
@@ -436,13 +432,10 @@ func TestFailedUserCreateBranchRequest(t *testing.T) {
 	}
 }
 
-func TestSuccessfulUserDeleteBranchRequest(t *testing.T) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.ReferenceTransactions,
-	}).Run(t, testSuccessfulUserDeleteBranchRequest)
-}
+func testSuccessfulUserDeleteBranchRequest(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testSuccessfulUserDeleteBranchRequest(t *testing.T, ctx context.Context) {
 	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
 	defer cleanupFn()
 

@@ -1269,19 +1269,15 @@ func TestStreamDirectorStorageScopeError(t *testing.T) {
 }
 
 func TestDisabledTransactionsWithFeatureFlag(t *testing.T) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.ReferenceTransactions,
-	}).Run(t, func(t *testing.T, ctx context.Context) {
-		for rpc, enabledFn := range transactionRPCs {
-			if enabledFn(ctx) {
-				require.Equal(t,
-					featureflag.IsEnabled(ctx, featureflag.ReferenceTransactions),
-					shouldUseTransaction(ctx, rpc),
-				)
-				break
-			}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	for rpc, enabledFn := range transactionRPCs {
+		if enabledFn(ctx) {
+			require.True(t, shouldUseTransaction(ctx, rpc))
+			break
 		}
-	})
+	}
 }
 
 func requireScopeOperation(t *testing.T, registry *protoregistry.Registry, fullMethod string, scope protoregistry.Scope, op protoregistry.OpType) {

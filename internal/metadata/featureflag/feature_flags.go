@@ -11,8 +11,6 @@ type FeatureFlag struct {
 var (
 	// DistributedReads allows praefect to redirect accessor operations to up-to-date secondaries
 	DistributedReads = FeatureFlag{Name: "distributed_reads", OnByDefault: true}
-	// ReferenceTransactions will handle Git reference updates via the transaction service for strong consistency
-	ReferenceTransactions = FeatureFlag{Name: "reference_transactions", OnByDefault: true}
 	// LogCommandStats will log additional rusage stats for commands
 	LogCommandStats = FeatureFlag{Name: "log_command_stats", OnByDefault: false}
 	// GoUserCherryPick enables the Go implementation of UserCherryPick
@@ -105,7 +103,6 @@ var (
 var All = []FeatureFlag{
 	DistributedReads,
 	LogCommandStats,
-	ReferenceTransactions,
 	GoUserCherryPick,
 	GoUserUpdateBranch,
 	GoUserCommitFiles,
