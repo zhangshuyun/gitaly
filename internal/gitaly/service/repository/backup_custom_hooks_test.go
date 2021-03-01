@@ -135,5 +135,5 @@ func TestSuccessfullBackupCustomHooksRequestWithNoHooks(t *testing.T) {
 	_, err = io.Copy(buf, reader)
 	require.NoError(t, err)
 
-	require.Empty(t, buf, "Returned stream should be empty")
+	require.Empty(t, buf.String(), "Returned stream should be empty")
 }
