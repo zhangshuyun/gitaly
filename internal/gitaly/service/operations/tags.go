@@ -181,12 +181,13 @@ func (s *Server) UserCreateTag(ctx context.Context, req *gitalypb.UserCreateTagR
 			}, nil
 		}
 		var updateRefError updateRefError
-		if errors.As(err, &updateRefError) &&
-			strings.Contains(updateRefError.err.Error(), "reference already exists") {
-			return &gitalypb.UserCreateTagResponse{
-				Tag:    nil,
-				Exists: true,
-			}, nil
+		if errors.As(err, &updateRefError) {
+			if strings.Contains(updateRefError.err.Error(), "reference already exists") {
+				return &gitalypb.UserCreateTagResponse{
+					Tag:    nil,
+					Exists: true,
+				}, nil
+			}
 			return nil, status.Error(codes.Unknown, updateRefError.err.Error())
 		}
 		return nil, status.Error(codes.Unknown, err.Error())
