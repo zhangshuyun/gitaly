@@ -1331,84 +1331,14 @@ func TestCoordinator_grpcErrorHandling(t *testing.T) {
 		},
 	}
 
-	var wg sync.WaitGroup
 	type gitalyNode struct {
 		mock            *nodes.MockNode
 		grpcServer      *grpc.Server
 		operationServer *mockOperationServer
 	}
 
-	gitalies := make(map[string]gitalyNode)
-	for _, gitaly := range []string{"primary", "secondary-1", "secondary-2"} {
-		gitaly := gitaly
-
-		grpcServer := testhelper.NewTestGrpcServer(t, nil, nil)
-
-		operationServer := &mockOperationServer{
-			t:  t,
-			wg: &wg,
-		}
-		gitalypb.RegisterOperationServiceServer(grpcServer, operationServer)
-
-		listener, address := testhelper.GetLocalhostListener(t)
-		go grpcServer.Serve(listener)
-		defer grpcServer.Stop()
-
-		conn, err := client.DialContext(ctx, "tcp://"+address, []grpc.DialOption{
-			grpc.WithDefaultCallOptions(grpc.ForceCodec(proxy.NewCodec())),
-		})
-		require.NoError(t, err)
-
-		gitalies[gitaly] = gitalyNode{
-			mock: &nodes.MockNode{
-				Conn:             conn,
-				Healthy:          true,
-				GetStorageMethod: func() string { return gitaly },
-			},
-			grpcServer:      grpcServer,
-			operationServer: operationServer,
-		}
-
-		praefectConfig.VirtualStorages[0].Nodes = append(praefectConfig.VirtualStorages[0].Nodes, &config.Node{
-			Address: "tcp://" + address,
-			Storage: gitaly,
-		})
-	}
-
-	// Set up a mock manager which sets up primary/secondaries and pretends that all nodes are
-	// healthy. We need fixed roles and unhealthy nodes will not take part in transactions.
-	nodeManager := &nodes.MockManager{
-		Storage: testhelper.DefaultStorageName,
-		GetShardFunc: func(shardName string) (nodes.Shard, error) {
-			require.Equal(t, testhelper.DefaultStorageName, shardName)
-			return nodes.Shard{
-				Primary: gitalies["primary"].mock,
-				Secondaries: []nodes.Node{
-					gitalies["secondary-1"].mock,
-					gitalies["secondary-2"].mock,
-				},
-			}, nil
-		},
-	}
-
-	// Set up a mock repsoitory store pretending that all nodes are consistent. Only consistent
-	// nodes will take part in transactions.
-	repositoryStore := datastore.MockRepositoryStore{
-		GetConsistentStoragesFunc: func(ctx context.Context, virtualStorage, relativePath string) (map[string]struct{}, error) {
-			return map[string]struct{}{"primary": {}, "secondary-1": {}, "secondary-2": {}}, nil
-		},
-	}
-
-	praefectConn, _, cleanup := runPraefectServer(t, praefectConfig, buildOptions{
-		withNodeMgr:   nodeManager,
-		withRepoStore: repositoryStore,
-	})
-	defer cleanup()
-
 	repoProto, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
-
-	operationClient := gitalypb.NewOperationServiceClient(praefectConn)
 
 	for _, tc := range []struct {
 		desc        string
@@ -1442,13 +1372,77 @@ func TestCoordinator_grpcErrorHandling(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
+			var wg sync.WaitGroup
+			gitalies := make(map[string]gitalyNode)
+			for _, gitaly := range []string{"primary", "secondary-1", "secondary-2"} {
+				gitaly := gitaly
+
+				grpcServer := testhelper.NewTestGrpcServer(t, nil, nil)
+
+				operationServer := &mockOperationServer{
+					t:  t,
+					wg: &wg,
+				}
+				gitalypb.RegisterOperationServiceServer(grpcServer, operationServer)
+
+				listener, address := testhelper.GetLocalhostListener(t)
+				go grpcServer.Serve(listener)
+				defer grpcServer.Stop()
+
+				conn, err := client.DialContext(ctx, "tcp://"+address, []grpc.DialOption{
+					grpc.WithDefaultCallOptions(grpc.ForceCodec(proxy.NewCodec())),
+				})
+				require.NoError(t, err)
+
+				gitalies[gitaly] = gitalyNode{
+					mock: &nodes.MockNode{
+						Conn:             conn,
+						Healthy:          true,
+						GetStorageMethod: func() string { return gitaly },
+					},
+					grpcServer:      grpcServer,
+					operationServer: operationServer,
+				}
+
+				praefectConfig.VirtualStorages[0].Nodes = append(praefectConfig.VirtualStorages[0].Nodes, &config.Node{
+					Address: "tcp://" + address,
+					Storage: gitaly,
+				})
+			}
+
+			praefectConn, _, cleanup := runPraefectServer(t, praefectConfig, buildOptions{
+				// Set up a mock manager which sets up primary/secondaries and pretends that all nodes are
+				// healthy. We need fixed roles and unhealthy nodes will not take part in transactions.
+				withNodeMgr: &nodes.MockManager{
+					Storage: testhelper.DefaultStorageName,
+					GetShardFunc: func(shardName string) (nodes.Shard, error) {
+						require.Equal(t, testhelper.DefaultStorageName, shardName)
+						return nodes.Shard{
+							Primary: gitalies["primary"].mock,
+							Secondaries: []nodes.Node{
+								gitalies["secondary-1"].mock,
+								gitalies["secondary-2"].mock,
+							},
+						}, nil
+					},
+				},
+				// Set up a mock repsoitory store pretending that all nodes are consistent. Only consistent
+				// nodes will take part in transactions.
+				withRepoStore: datastore.MockRepositoryStore{
+					GetConsistentStoragesFunc: func(ctx context.Context, virtualStorage, relativePath string) (map[string]struct{}, error) {
+						return map[string]struct{}{"primary": {}, "secondary-1": {}, "secondary-2": {}}, nil
+					},
+				},
+			})
+			defer cleanup()
+
 			for name, node := range gitalies {
 				wg.Add(1)
 				node.operationServer.err = tc.errByNode[name]
 				node.operationServer.called = false
 			}
 
-			_, err := operationClient.UserCreateBranch(ctx,
+			_, err := gitalypb.NewOperationServiceClient(praefectConn).UserCreateBranch(ctx,
 				&gitalypb.UserCreateBranchRequest{
 					Repository: repoProto,
 				})
