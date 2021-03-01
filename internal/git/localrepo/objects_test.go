@@ -122,7 +122,7 @@ func TestFormatTag(t *testing.T) {
 			userName:   []byte("root"),
 			userEmail:  []byte("root@localhost"),
 			tagBody:    []byte(""),
-			err:        fmt.Errorf("got %d lines when trying to format a tag, max is %d, \\n overflow!", 5, 4),
+			err:        fmt.Errorf("failed to format tag header for mktag: got %d lines, expected %d, \\n overflow!", 5, 4),
 		},
 		{
 			desc:       "signature with fixed time",
