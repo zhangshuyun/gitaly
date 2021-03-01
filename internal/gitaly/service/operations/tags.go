@@ -180,6 +180,12 @@ func (s *Server) UserCreateTag(ctx context.Context, req *gitalypb.UserCreateTagR
 				PreReceiveError: preReceiveError.message,
 			}, nil
 		}
+		if strings.Contains(err.Error(), "reference already exists") {
+			return &gitalypb.UserCreateTagResponse{
+				Tag:    nil,
+				Exists: true,
+			}, nil
+		}
 		return nil, status.Error(codes.Unknown, err.Error())
 	}
 

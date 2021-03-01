@@ -1250,7 +1250,7 @@ func TestFailedUserCreateTagRequestDueToTagExistence(t *testing.T) {
 				Tag:    nil,
 				Exists: true,
 			},
-			err: status.Errorf(codes.Unknown, "git update-ref: exit status 128, stderr: \"fatal: commit: cannot lock ref 'refs/tags/%s': reference already exists\\n\"", "v1.1.0"),
+			err: nil,
 		},
 		{
 			desc:           "existing tag nonexisting target revision",
