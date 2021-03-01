@@ -25,7 +25,7 @@ func (e preReceiveError) Error() string {
 
 type updateRefError struct {
 	reference string
-	stderr *bytes.Buffer
+	err       error
 }
 
 func (e updateRefError) Error() string {
@@ -44,7 +44,7 @@ func hookErrorMessage(sout string, serr string, err error) string {
 	return sout
 }
 
-func (s *Server) updateReferenceWithHooksCustomErr(ctx context.Context, repo *gitalypb.Repository, user *gitalypb.User, reference, newrev, oldrev string, getUpdateErrors bool) error {
+func (s *Server) updateReferenceWithHooks(ctx context.Context, repo *gitalypb.Repository, user *gitalypb.User, reference, newrev, oldrev string) error {
 	transaction, praefect, err := metadata.TransactionMetadataFromContext(ctx)
 	if err != nil {
 		return err
@@ -109,10 +109,7 @@ func (s *Server) updateReferenceWithHooksCustomErr(ctx context.Context, repo *gi
 	}
 
 	if err := updater.Wait(); err != nil {
-		if getUpdateErrors {
-			return err
-		}
-		return updateRefError{reference: reference}
+		return updateRefError{reference: reference, err: err}
 	}
 
 	if err := s.hookManager.PostReceiveHook(ctx, repo, nil, env, strings.NewReader(changes), &stdout, &stderr); err != nil {
@@ -121,8 +118,4 @@ func (s *Server) updateReferenceWithHooksCustomErr(ctx context.Context, repo *gi
 	}
 
 	return nil
-}
-
-func (s *Server) updateReferenceWithHooks(ctx context.Context, repo *gitalypb.Repository, user *gitalypb.User, reference, newrev, oldrev string) error {
-	return s.updateReferenceWithHooksCustomErr(ctx, repo, user, reference, newrev, oldrev, false);
 }
