@@ -23,6 +23,7 @@ var subcommands = map[string]subcmd{
 	"commit":      commitSubcommand{},
 	"conflicts":   &conflicts.Subcommand{},
 	"merge":       &mergeSubcommand{},
+	"rebase":      &rebaseSubcommand{},
 	"revert":      &revertSubcommand{},
 	"resolve":     &resolveSubcommand{},
 	"submodule":   &submoduleSubcommand{},

@@ -45,7 +45,7 @@ func TestServer_ConsistencyCheck(t *testing.T) {
 		secondRepoPath = "2.git"
 		thirdRepoPath  = "3.git"
 
-		checksum = "06c4db1a33b2e48dac0bf940c7c20429d00a04ea"
+		checksum = "13d09299a4516e741be34e3252e3a35041b6b062"
 
 		targetStorageName    = "target"
 		referenceStorageName = "reference"
