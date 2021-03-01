@@ -15,11 +15,37 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
+
+func setupRepo(t *testing.T, bare bool) (*Repo, string, func()) {
+	t.Helper()
+
+	var deferrer testhelper.Deferrer
+	defer deferrer.Call()
+
+	cfgBuilder := testcfg.NewGitalyCfgBuilder()
+	deferrer.Add(cfgBuilder.Cleanup)
+	cfg := cfgBuilder.Build(t)
+
+	var repoProto *gitalypb.Repository
+	var repoPath string
+	var cleanup testhelper.Cleanup
+	if bare {
+		repoProto, repoPath, cleanup = gittest.InitBareRepoAt(t, cfg.Storages[0])
+	} else {
+		repoProto, repoPath, cleanup = gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name())
+	}
+	deferrer.Add(cleanup)
+
+	repo := New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+
+	cleaner := deferrer.Relocate()
+	return repo, repoPath, cleaner.Call
+}
 
 type ReaderFunc func([]byte) (int, error)
 
@@ -29,10 +55,8 @@ func TestRepo_WriteBlob(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	pbRepo, repoPath, clean := gittest.InitBareRepo(t)
-	defer clean()
-
-	repo := New(git.NewExecCommandFactory(config.Config), pbRepo, config.Config)
+	repo, repoPath, cleanup := setupRepo(t, true)
+	defer cleanup()
 
 	for _, tc := range []struct {
 		desc       string
@@ -155,10 +179,8 @@ func TestRepo_WriteTag(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	pbRepo, repoPath, clean := gittest.CloneRepo(t)
-	defer clean()
-
-	repo := New(git.NewExecCommandFactory(config.Config), pbRepo, config.Config)
+	repo, repoPath, cleanup := setupRepo(t, false)
+	defer cleanup()
 
 	for _, tc := range []struct {
 		desc       string
@@ -206,10 +228,8 @@ func TestRepo_ReadObject(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepo, _, cleanup := gittest.CloneRepo(t)
+	repo, _, cleanup := setupRepo(t, false)
 	defer cleanup()
-
-	repo := New(git.NewExecCommandFactory(config.Config), testRepo, config.Config)
 
 	for _, tc := range []struct {
 		desc    string
@@ -241,10 +261,8 @@ func TestRepo_ReadCommit(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	repoProto, _, cleanup := gittest.CloneRepo(t)
+	repo, _, cleanup := setupRepo(t, false)
 	defer cleanup()
-
-	repo := New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
 	for _, tc := range []struct {
 		desc           string

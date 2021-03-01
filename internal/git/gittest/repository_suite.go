@@ -5,16 +5,17 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
 // TestRepository tests an implementation of Repository.
-func TestRepository(t *testing.T, getRepository func(testing.TB, *gitalypb.Repository) git.Repository) {
+func TestRepository(t *testing.T, cfg config.Cfg, getRepository func(testing.TB, *gitalypb.Repository) git.Repository) {
 	for _, tc := range []struct {
 		desc string
-		test func(*testing.T, func(testing.TB, *gitalypb.Repository) git.Repository)
+		test func(*testing.T, config.Cfg, func(testing.TB, *gitalypb.Repository) git.Repository)
 	}{
 		{
 			desc: "ResolveRevision",
@@ -26,17 +27,16 @@ func TestRepository(t *testing.T, getRepository func(testing.TB, *gitalypb.Repos
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			tc.test(t, getRepository)
+			tc.test(t, cfg, getRepository)
 		})
 	}
 }
 
-func testRepositoryResolveRevision(t *testing.T, getRepository func(testing.TB, *gitalypb.Repository) git.Repository) {
+func testRepositoryResolveRevision(t *testing.T, cfg config.Cfg, getRepository func(testing.TB, *gitalypb.Repository) git.Repository) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	pbRepo, _, clean := CloneRepo(t)
-	defer clean()
+	pbRepo, _, _ := CloneRepoAtStorage(t, cfg.Storages[0], t.Name())
 
 	for _, tc := range []struct {
 		desc     string
@@ -85,12 +85,12 @@ func testRepositoryResolveRevision(t *testing.T, getRepository func(testing.TB, 
 	}
 }
 
-func testRepositoryHasBranches(t *testing.T, getRepository func(testing.TB, *gitalypb.Repository) git.Repository) {
+func testRepositoryHasBranches(t *testing.T, cfg config.Cfg, getRepository func(testing.TB, *gitalypb.Repository) git.Repository) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	pbRepo, repoPath, clean := InitBareRepo(t)
-	defer clean()
+	pbRepo, repoPath, cleanup := InitBareRepoAt(t, cfg.Storages[0])
+	defer cleanup()
 
 	repo := getRepository(t, pbRepo)
 

@@ -8,24 +8,19 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 )
 
 func TestFetchFromOriginDangling(t *testing.T) {
-	source, _, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
-
-	pool, err := NewObjectPool(config.Config, config.NewLocator(config.Config), git.NewExecCommandFactory(config.Config), source.StorageName, gittest.NewObjectPoolName(t))
-	require.NoError(t, err)
-
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	require.NoError(t, pool.FetchFromOrigin(ctx, source), "seed pool")
+	pool, testRepo, cleanup := setupObjectPool(t)
+	defer cleanup()
+
+	require.NoError(t, pool.FetchFromOrigin(ctx, testRepo), "seed pool")
 
 	const (
 		existingTree   = "07f8147e8e73aab6c935c296e8cdc5194dee729b"
@@ -77,7 +72,7 @@ func TestFetchFromOriginDangling(t *testing.T) {
 
 	// We expect this second run to convert the dangling objects into
 	// non-dangling objects.
-	require.NoError(t, pool.FetchFromOrigin(ctx, source), "second fetch")
+	require.NoError(t, pool.FetchFromOrigin(ctx, testRepo), "second fetch")
 
 	refsArgs := append(baseArgs, "for-each-ref", "--format=%(refname) %(objectname)")
 	refsAfter := testhelper.MustRunCommand(t, nil, "git", refsArgs...)
@@ -88,42 +83,37 @@ func TestFetchFromOriginDangling(t *testing.T) {
 }
 
 func TestFetchFromOriginDeltaIslands(t *testing.T) {
-	source, sourcePath, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
-
-	pool, err := NewObjectPool(config.Config, config.NewLocator(config.Config), git.NewExecCommandFactory(config.Config), source.StorageName, gittest.NewObjectPoolName(t))
-	require.NoError(t, err)
-
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	require.NoError(t, pool.FetchFromOrigin(ctx, source), "seed pool")
-	require.NoError(t, pool.Link(ctx, source))
+	pool, testRepo, cleanup := setupObjectPool(t)
+	defer cleanup()
+	testRepoPath := filepath.Join(pool.cfg.Storages[0].Path, testRepo.RelativePath)
 
-	gittest.TestDeltaIslands(t, sourcePath, func() error {
+	require.NoError(t, pool.FetchFromOrigin(ctx, testRepo), "seed pool")
+	require.NoError(t, pool.Link(ctx, testRepo))
+
+	gittest.TestDeltaIslands(t, testRepoPath, func() error {
 		// This should create a new packfile with good delta chains in the pool
-		if err := pool.FetchFromOrigin(ctx, source); err != nil {
+		if err := pool.FetchFromOrigin(ctx, testRepo); err != nil {
 			return err
 		}
 
 		// Make sure the old packfile, with bad delta chains, is deleted from the source repo
-		testhelper.MustRunCommand(t, nil, "git", "-C", sourcePath, "repack", "-ald")
+		testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "repack", "-ald")
 
 		return nil
 	})
 }
 
 func TestFetchFromOriginBitmapHashCache(t *testing.T) {
-	source, _, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
-
-	pool, err := NewObjectPool(config.Config, config.NewLocator(config.Config), git.NewExecCommandFactory(config.Config), source.StorageName, gittest.NewObjectPoolName(t))
-	require.NoError(t, err)
-
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	require.NoError(t, pool.FetchFromOrigin(ctx, source), "seed pool")
+	pool, testRepo, cleanup := setupObjectPool(t)
+	defer cleanup()
+
+	require.NoError(t, pool.FetchFromOrigin(ctx, testRepo), "seed pool")
 
 	packDir := filepath.Join(pool.FullPath(), "objects/pack")
 	packEntries, err := ioutil.ReadDir(packDir)
@@ -143,17 +133,16 @@ func TestFetchFromOriginBitmapHashCache(t *testing.T) {
 }
 
 func TestFetchFromOriginRefUpdates(t *testing.T) {
-	source, sourcePath, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
-
-	pool, err := NewObjectPool(config.Config, config.NewLocator(config.Config), git.NewExecCommandFactory(config.Config), source.StorageName, gittest.NewObjectPoolName(t))
-	require.NoError(t, err)
-	poolPath := pool.FullPath()
-
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	require.NoError(t, pool.FetchFromOrigin(ctx, source), "seed pool")
+	pool, testRepo, cleanup := setupObjectPool(t)
+	defer cleanup()
+	testRepoPath := filepath.Join(pool.cfg.Storages[0].Path, testRepo.RelativePath)
+
+	poolPath := pool.FullPath()
+
+	require.NoError(t, pool.FetchFromOrigin(ctx, testRepo), "seed pool")
 
 	oldRefs := map[string]string{
 		"heads/csv":   "3dd08961455abf80ef9115f4afdc1c6f968b503c",
@@ -161,7 +150,7 @@ func TestFetchFromOriginRefUpdates(t *testing.T) {
 	}
 
 	for ref, oid := range oldRefs {
-		require.Equal(t, oid, resolveRef(t, sourcePath, "refs/"+ref), "look up %q in source", ref)
+		require.Equal(t, oid, resolveRef(t, testRepoPath, "refs/"+ref), "look up %q in source", ref)
 		require.Equal(t, oid, resolveRef(t, poolPath, "refs/remotes/origin/"+ref), "look up %q in pool", ref)
 	}
 
@@ -175,11 +164,11 @@ func TestFetchFromOriginRefUpdates(t *testing.T) {
 	}
 
 	for ref, oid := range newRefs {
-		testhelper.MustRunCommand(t, nil, "git", "-C", sourcePath, "update-ref", "refs/"+ref, oid)
-		require.Equal(t, oid, resolveRef(t, sourcePath, "refs/"+ref), "look up %q in source after update", ref)
+		testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "update-ref", "refs/"+ref, oid)
+		require.Equal(t, oid, resolveRef(t, testRepoPath, "refs/"+ref), "look up %q in source after update", ref)
 	}
 
-	require.NoError(t, pool.FetchFromOrigin(ctx, source), "update pool")
+	require.NoError(t, pool.FetchFromOrigin(ctx, testRepo), "update pool")
 
 	for ref, oid := range newRefs {
 		require.Equal(t, oid, resolveRef(t, poolPath, "refs/remotes/origin/"+ref), "look up %q in pool after update", ref)

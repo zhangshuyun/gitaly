@@ -9,7 +9,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
-// Clone a repository to a pool, without setting the alternates, is not the
+// clone a repository to a pool, without setting the alternates, is not the
 // resposibility of this function.
 func (o *ObjectPool) clone(ctx context.Context, repo *gitalypb.Repository) error {
 	repoPath, err := o.locator.GetRepoPath(repo)

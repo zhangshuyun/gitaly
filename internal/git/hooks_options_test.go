@@ -1,45 +1,26 @@
-package git
+package git_test
 
 import (
-	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/command"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 )
 
 func TestWithRefHook(t *testing.T) {
-	storageRoot, cleanup := testhelper.TempDir(t)
-	defer cleanup()
-
-	cfg := config.Config
-	cfg.Auth.Token = "my-super-secure-token"
-	cfg.Storages = []config.Storage{
-		{
-			Name: "storage",
-			Path: storageRoot,
-		},
-	}
-
-	repoPath := filepath.Join(storageRoot, "repo.git")
-	testhelper.MustRunCommand(t, nil, "git", "init", "--bare", repoPath)
-
-	repo := &gitalypb.Repository{
-		StorageName:   "storage",
-		RelativePath:  "repo.git",
-		GlRepository:  "repository-1",
-		GlProjectPath: "test/project",
-	}
+	cfgBuilder := testcfg.NewGitalyCfgBuilder()
+	defer cfgBuilder.Cleanup()
+	cfg, repos := cfgBuilder.BuildWithRepoAt(t, t.Name())
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	opt := WithRefTxHook(ctx, repo, cfg)
-	subCmd := SubCmd{Name: "update-ref", Args: []string{"refs/heads/master", ZeroOID.String()}}
+	opt := git.WithRefTxHook(ctx, repos[0], cfg)
+	subCmd := git.SubCmd{Name: "update-ref", Args: []string{"refs/heads/master", git.ZeroOID.String()}}
 
 	for _, tt := range []struct {
 		name string
@@ -48,7 +29,7 @@ func TestWithRefHook(t *testing.T) {
 		{
 			name: "NewCommand",
 			fn: func() (*command.Command, error) {
-				return NewExecCommandFactory(cfg).New(ctx, repo, nil, subCmd, opt)
+				return git.NewExecCommandFactory(cfg).New(ctx, repos[0], nil, subCmd, opt)
 			},
 		},
 	} {

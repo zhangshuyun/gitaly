@@ -1,15 +1,10 @@
 package objectpool
 
 import (
-	"context"
 	"os"
 	"testing"
 
-	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/hooks"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 )
 
@@ -23,12 +18,4 @@ func testMain(m *testing.M) int {
 	defer cleanup()
 	hooks.Override = "/"
 	return m.Run()
-}
-
-func NewTestObjectPool(ctx context.Context, t *testing.T, storageName string) (*ObjectPool, func()) {
-	pool, err := NewObjectPool(config.Config, config.NewLocator(config.Config), git.NewExecCommandFactory(config.Config), storageName, gittest.NewObjectPoolName(t))
-	require.NoError(t, err)
-	return pool, func() {
-		require.NoError(t, pool.Remove(ctx))
-	}
 }

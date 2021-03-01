@@ -1,6 +1,7 @@
 package objectpool
 
 import (
+	"context"
 	"path/filepath"
 	"testing"
 
@@ -9,20 +10,40 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
+
+func setupObjectPool(t *testing.T) (*ObjectPool, *gitalypb.Repository, func()) {
+	t.Helper()
+
+	var deferrer testhelper.Deferrer
+	defer deferrer.Call()
+
+	cfgBuilder := testcfg.NewGitalyCfgBuilder()
+	deferrer.Add(cfgBuilder.Cleanup)
+	cfg, repos := cfgBuilder.BuildWithRepoAt(t, t.Name())
+
+	pool, err := NewObjectPool(cfg, config.NewLocator(cfg), git.NewExecCommandFactory(cfg), repos[0].GetStorageName(), gittest.NewObjectPoolName(t))
+	require.NoError(t, err)
+	deferrer.Add(func() {
+		if err := pool.Remove(context.TODO()); err != nil {
+			panic(err)
+		}
+	})
+
+	cleaner := deferrer.Relocate()
+	return pool, repos[0], cleaner.Call
+}
 
 func TestClone(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	pool, testRepo, cleanup := setupObjectPool(t)
+	defer cleanup()
 
-	pool, err := NewObjectPool(config.Config, config.NewLocator(config.Config), git.NewExecCommandFactory(config.Config), testRepo.GetStorageName(), gittest.NewObjectPoolName(t))
-	require.NoError(t, err)
-
-	err = pool.clone(ctx, testRepo)
-	require.NoError(t, err)
+	require.NoError(t, pool.clone(ctx, testRepo))
 	defer pool.Remove(ctx)
 
 	require.DirExists(t, pool.FullPath())
@@ -33,17 +54,12 @@ func TestCloneExistingPool(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	pool, testRepo, cleanup := setupObjectPool(t)
+	defer cleanup()
 
-	pool, err := NewObjectPool(config.Config, config.NewLocator(config.Config), git.NewExecCommandFactory(config.Config), testRepo.GetStorageName(), gittest.NewObjectPoolName(t))
-	require.NoError(t, err)
-
-	err = pool.clone(ctx, testRepo)
-	require.NoError(t, err)
+	require.NoError(t, pool.clone(ctx, testRepo))
 	defer pool.Remove(ctx)
 
-	// Reclone on the directory
-	err = pool.clone(ctx, testRepo)
-	require.Error(t, err)
+	// re-clone on the directory
+	require.Error(t, pool.clone(ctx, testRepo))
 }

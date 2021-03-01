@@ -36,8 +36,8 @@ func TestStreamDBNaiveKeyer(t *testing.T) {
 	defer cfgBuilder.Cleanup()
 	cfg := cfgBuilder.Build(t)
 
-	testRepo1 := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "repository-1")
-	testRepo2 := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "repository-2")
+	testRepo1, _, _ := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "repository-1")
+	testRepo2, _, _ := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "repository-2")
 
 	keyer := cache.NewLeaseKeyer(config.NewLocator(cfg))
 

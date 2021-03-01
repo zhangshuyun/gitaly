@@ -1,18 +1,23 @@
-package git
+package git_test
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 )
 
 func TestCheckRefFormat(t *testing.T) {
+	cfgBuilder := testcfg.NewGitalyCfgBuilder()
+	defer cfgBuilder.Cleanup()
+	cfg := cfgBuilder.Build(t)
+
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	gitCmdFactory := NewExecCommandFactory(config.Config)
+	gitCmdFactory := git.NewExecCommandFactory(cfg)
 
 	for _, tc := range []struct {
 		desc    string
@@ -26,7 +31,7 @@ func TestCheckRefFormat(t *testing.T) {
 			desc:    "unqualified name",
 			tagName: "my-name",
 			ok:      false,
-			err:     CheckRefFormatError{},
+			err:     git.CheckRefFormatError{},
 		},
 		{
 			desc:    "fully-qualified name",
@@ -44,11 +49,11 @@ func TestCheckRefFormat(t *testing.T) {
 			desc:    "invalid tag",
 			tagName: "refs/tags/my tag",
 			ok:      false,
-			err:     CheckRefFormatError{},
+			err:     git.CheckRefFormatError{},
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			ok, err := CheckRefFormat(ctx, gitCmdFactory, tc.tagName)
+			ok, err := git.CheckRefFormat(ctx, gitCmdFactory, tc.tagName)
 			require.Equal(t, tc.err, err)
 			require.Equal(t, tc.ok, ok)
 		})
@@ -88,7 +93,7 @@ func TestReferenceName_NewReferenceNameFromBranchName(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			ref := NewReferenceNameFromBranchName(tc.reference)
+			ref := git.NewReferenceNameFromBranchName(tc.reference)
 			require.Equal(t, ref.String(), tc.expected)
 		})
 	}
@@ -122,7 +127,7 @@ func TestReferenceName_Branch(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			branch, ok := ReferenceName(tc.reference).Branch()
+			branch, ok := git.ReferenceName(tc.reference).Branch()
 			require.Equal(t, tc.expected, branch)
 			require.Equal(t, tc.expected != "", ok)
 		})

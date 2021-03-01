@@ -38,12 +38,17 @@ func InitRepoDir(t testing.TB, storagePath, relativePath string) *gitalypb.Repos
 
 // InitBareRepo creates a new bare repository
 func InitBareRepo(t testing.TB) (*gitalypb.Repository, string, func()) {
-	return initRepo(t, true)
+	return initRepoAt(t, true, config.Storage{Name: "default", Path: testhelper.GitlabTestStoragePath()})
+}
+
+// InitBareRepoAt creates a new bare repository in the storage
+func InitBareRepoAt(t testing.TB, storage config.Storage) (*gitalypb.Repository, string, func()) {
+	return initRepoAt(t, true, storage)
 }
 
 // InitRepoWithWorktree creates a new repository with a worktree
 func InitRepoWithWorktree(t testing.TB) (*gitalypb.Repository, string, func()) {
-	return initRepo(t, false)
+	return initRepoAt(t, false, config.Storage{Name: "default", Path: testhelper.GitlabTestStoragePath()})
 }
 
 // NewObjectPoolName returns a random pool repository name in format
@@ -74,10 +79,9 @@ func newDiskHash(t testing.TB) string {
 	return filepath.Join(b[0:2], b[2:4], b)
 }
 
-func initRepo(t testing.TB, bare bool) (*gitalypb.Repository, string, func()) {
-	storagePath := testhelper.GitlabTestStoragePath()
+func initRepoAt(t testing.TB, bare bool, storage config.Storage) (*gitalypb.Repository, string, func()) {
 	relativePath := NewRepositoryName(t, bare)
-	repoPath := filepath.Join(storagePath, relativePath)
+	repoPath := filepath.Join(storage.Path, relativePath)
 
 	args := []string{"init"}
 	if bare {
@@ -86,7 +90,8 @@ func initRepo(t testing.TB, bare bool) (*gitalypb.Repository, string, func()) {
 
 	testhelper.MustRunCommand(t, nil, "git", append(args, repoPath)...)
 
-	repo := InitRepoDir(t, storagePath, relativePath)
+	repo := InitRepoDir(t, storage.Path, relativePath)
+	repo.StorageName = storage.Name
 	if !bare {
 		repo.RelativePath = filepath.Join(repo.RelativePath, ".git")
 	}
@@ -101,10 +106,10 @@ func CloneRepoAtStorageRoot(t testing.TB, storageRoot, relativePath string) *git
 }
 
 // CloneRepoAtStorage clones a new copy of test repository under a subdirectory in the storage root.
-func CloneRepoAtStorage(t testing.TB, storage config.Storage, relativePath string) *gitalypb.Repository {
-	repo, _, _ := cloneRepo(t, storage.Path, relativePath, true)
+func CloneRepoAtStorage(t testing.TB, storage config.Storage, relativePath string) (*gitalypb.Repository, string, testhelper.Cleanup) {
+	repo, repoPath, cleanup := cloneRepo(t, storage.Path, relativePath, true)
 	repo.StorageName = storage.Name
-	return repo
+	return repo, repoPath, cleanup
 }
 
 // CloneRepo creates a bare copy of the test repository.

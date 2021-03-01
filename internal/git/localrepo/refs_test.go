@@ -6,7 +6,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 )
 
@@ -19,10 +18,8 @@ func TestRepo_ContainsRef(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepo, _, cleanup := gittest.CloneRepo(t)
+	repo, _, cleanup := setupRepo(t, false)
 	defer cleanup()
-
-	repo := New(git.NewExecCommandFactory(config.Config), testRepo, config.Config)
 
 	testcases := []struct {
 		desc      string
@@ -59,10 +56,8 @@ func TestRepo_GetReference(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepo, _, cleanup := gittest.CloneRepo(t)
+	repo, _, cleanup := setupRepo(t, false)
 	defer cleanup()
-
-	repo := New(git.NewExecCommandFactory(config.Config), testRepo, config.Config)
 
 	testcases := []struct {
 		desc        string
@@ -110,15 +105,11 @@ func TestRepo_GetReferenceWithAmbiguousRefs(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	// Disable hooks
-	defer func(oldValue string) {
-		config.Config.Ruby.Dir = oldValue
-	}(config.Config.Ruby.Dir)
-	config.Config.Ruby.Dir = "/var/empty"
-
-	repoProto, _, cleanup := gittest.CloneRepo(t)
+	repo, _, cleanup := setupRepo(t, false)
 	defer cleanup()
-	repo := New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
+
+	// Disable hooks
+	repo.cfg.Ruby.Dir = "/var/empty"
 
 	currentOID, err := repo.ResolveRevision(ctx, "refs/heads/master")
 	require.NoError(t, err)
@@ -151,10 +142,8 @@ func TestRepo_GetReferences(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepo, _, cleanup := gittest.CloneRepo(t)
+	repo, _, cleanup := setupRepo(t, false)
 	defer cleanup()
-
-	repo := New(git.NewExecCommandFactory(config.Config), testRepo, config.Config)
 
 	testcases := []struct {
 		desc    string
@@ -206,10 +195,8 @@ func TestRepo_GetBranches(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepo, _, cleanup := gittest.CloneRepo(t)
+	repo, _, cleanup := setupRepo(t, false)
 	defer cleanup()
-
-	repo := New(git.NewExecCommandFactory(config.Config), testRepo, config.Config)
 
 	refs, err := repo.GetBranches(ctx)
 	require.NoError(t, err)
@@ -220,17 +207,13 @@ func TestRepo_UpdateRef(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepo, _, cleanup := gittest.CloneRepo(t)
+	repo, _, cleanup := setupRepo(t, false)
 	defer cleanup()
 
-	defer func(oldValue string) {
-		config.Config.Ruby.Dir = oldValue
-	}(config.Config.Ruby.Dir)
-	config.Config.Ruby.Dir = "/var/empty"
+	// Disable hooks
+	repo.cfg.Ruby.Dir = "/var/empty"
 
-	gitCmdFactory := git.NewExecCommandFactory(config.Config)
-
-	otherRef, err := New(gitCmdFactory, testRepo, config.Config).GetReference(ctx, "refs/heads/gitaly-test-ref")
+	otherRef, err := repo.GetReference(ctx, "refs/heads/gitaly-test-ref")
 	require.NoError(t, err)
 
 	testcases := []struct {
@@ -328,12 +311,9 @@ func TestRepo_UpdateRef(t *testing.T) {
 	for _, tc := range testcases {
 		t.Run(tc.desc, func(t *testing.T) {
 			// Re-create repo for each testcase.
-			testRepo, _, cleanup := gittest.CloneRepo(t)
-			defer cleanup()
-
-			repo := New(gitCmdFactory, testRepo, config.Config)
+			repoProto, _, _ := gittest.CloneRepoAtStorage(t, repo.cfg.Storages[0], t.Name())
+			repo := New(repo.gitCmdFactory, repoProto, repo.cfg)
 			err := repo.UpdateRef(ctx, git.ReferenceName(tc.ref), tc.newValue, tc.oldValue)
-
 			tc.verify(t, repo, err)
 		})
 	}

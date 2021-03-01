@@ -3,15 +3,13 @@ package log
 import (
 	"bytes"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
-	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 )
@@ -20,8 +18,10 @@ func TestGetTag(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepo, testRepoPath, cleanup := gittest.CloneRepo(t)
+	cfg, c, testRepo, cleanup := setupBatch(t, ctx)
 	defer cleanup()
+
+	testRepoPath := filepath.Join(cfg.Storages[0].Path, testRepo.RelativePath)
 
 	testCases := []struct {
 		tagName string
@@ -49,8 +49,6 @@ func TestGetTag(t *testing.T) {
 		},
 	}
 
-	c, err := catfile.New(ctx, git.NewExecCommandFactory(config.Config), testRepo)
-	require.NoError(t, err)
 	for _, testCase := range testCases {
 		t.Run(testCase.tagName, func(t *testing.T) {
 			tagID := testhelper.CreateTag(t, testRepoPath, testCase.tagName, testCase.rev, &testhelper.CreateTagOpts{Message: testCase.message})

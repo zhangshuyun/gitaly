@@ -15,13 +15,41 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
+
+func setupRepoRemote(t *testing.T, bare bool) (Remote, string, func()) {
+	t.Helper()
+
+	var deferrer testhelper.Deferrer
+	defer deferrer.Call()
+
+	cfgBuilder := testcfg.NewGitalyCfgBuilder()
+	deferrer.Add(cfgBuilder.Cleanup)
+	cfg := cfgBuilder.Build(t)
+
+	cfg.Ruby.Dir = "/var/empty"
+
+	var repoProto *gitalypb.Repository
+	var repoPath string
+	var cleanup testhelper.Cleanup
+	if bare {
+		repoProto, repoPath, cleanup = gittest.InitBareRepoAt(t, cfg.Storages[0])
+	} else {
+		repoProto, repoPath, cleanup = gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name())
+	}
+	deferrer.Add(cleanup)
+	repo := New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+
+	cleaner := deferrer.Relocate()
+	return repo.Remote(), repoPath, cleaner.Call
+}
 
 func TestRepo_Remote(t *testing.T) {
 	repository := &gitalypb.Repository{StorageName: "stub", RelativePath: "/stub"}
 
-	repo := New(git.NewExecCommandFactory(config.Config), repository, config.Config)
+	repo := New(nil, repository, config.Cfg{})
 	require.Equal(t, Remote{repo: repo}, repo.Remote())
 }
 
@@ -66,24 +94,16 @@ func TestBuildRemoteAddOptsFlags(t *testing.T) {
 }
 
 func TestRemote_Add(t *testing.T) {
-	defer func(oldValue string) {
-		config.Config.Ruby.Dir = oldValue
-	}(config.Config.Ruby.Dir)
-	config.Config.Ruby.Dir = "/var/empty"
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-	repoProto, repoPath, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
-	repo := New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
-
-	_, remoteRepoPath, cleanup := gittest.CloneRepo(t)
+	remote, repoPath, cleanup := setupRepoRemote(t, false)
 	defer cleanup()
 
 	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "remote", "remove", "origin")
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-
-	remote := repo.Remote()
+	_, remoteRepoPath, cleanup := gittest.CloneRepoAtStorage(t, remote.repo.cfg.Storages[0], "repository")
+	defer cleanup()
 
 	t.Run("invalid argument", func(t *testing.T) {
 		for _, tc := range []struct {
@@ -149,14 +169,11 @@ func TestRemote_Add(t *testing.T) {
 }
 
 func TestRemote_Remove(t *testing.T) {
-	repoProto, repoPath, cleanup := gittest.InitBareRepo(t)
-	defer cleanup()
-	repo := New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
-
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	remote := repo.Remote()
+	remote, repoPath, cleanup := setupRepoRemote(t, true)
+	defer cleanup()
 
 	t.Run("ok", func(t *testing.T) {
 		testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "remote", "add", "first", "http://some.com.git")
@@ -180,14 +197,8 @@ func TestRemote_Remove(t *testing.T) {
 	})
 
 	t.Run("don't remove local branches", func(t *testing.T) {
-		ctx, cancel := testhelper.Context()
-		defer cancel()
-
-		repoProto, _, cleanupFn := gittest.CloneRepo(t)
-		defer cleanupFn()
-		remote := New(git.NewExecCommandFactory(config.Config), repoProto, config.Config).Remote()
-
-		repoPath := filepath.Join(testhelper.GitlabTestStoragePath(), repoProto.RelativePath)
+		remote, repoPath, cleanup := setupRepoRemote(t, false)
+		defer cleanup()
 
 		// configure remote as fetch mirror
 		testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "remote.origin.fetch", "+refs/*:refs/*")
@@ -206,12 +217,11 @@ func TestRemote_Remove(t *testing.T) {
 }
 
 func TestRemote_Exists(t *testing.T) {
-	repoProto, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-	remote := New(git.NewExecCommandFactory(config.Config), repoProto, config.Config).Remote()
-
 	ctx, cancel := testhelper.Context()
 	defer cancel()
+
+	remote, _, cleanup := setupRepoRemote(t, false)
+	defer cleanup()
 
 	found, err := remote.Exists(ctx, "origin")
 	require.NoError(t, err)
@@ -245,12 +255,11 @@ func TestBuildSetURLOptsFlags(t *testing.T) {
 }
 
 func TestRemote_SetURL(t *testing.T) {
-	repoProto, repoPath, cleanup := gittest.InitBareRepo(t)
-	defer cleanup()
-	repo := New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
-
 	ctx, cancel := testhelper.Context()
 	defer cancel()
+
+	remote, repoPath, cleanup := setupRepoRemote(t, true)
+	defer cleanup()
 
 	t.Run("invalid argument", func(t *testing.T) {
 		for _, tc := range []struct {
@@ -272,7 +281,6 @@ func TestRemote_SetURL(t *testing.T) {
 			},
 		} {
 			t.Run(tc.desc, func(t *testing.T) {
-				remote := repo.Remote()
 				err := remote.SetURL(ctx, tc.name, tc.url, git.SetURLOpts{})
 				require.Error(t, err)
 				assert.True(t, errors.Is(err, git.ErrInvalidArg))
@@ -284,7 +292,6 @@ func TestRemote_SetURL(t *testing.T) {
 	t.Run("ok", func(t *testing.T) {
 		testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "remote", "add", "first", "file:/"+repoPath)
 
-		remote := Remote{repo: repo}
 		require.NoError(t, remote.SetURL(ctx, "first", "http://some.com.git", git.SetURLOpts{Push: true}))
 
 		remotes := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "remote", "--verbose"))
@@ -296,44 +303,36 @@ func TestRemote_SetURL(t *testing.T) {
 	})
 
 	t.Run("doesnt exist", func(t *testing.T) {
-		remote := Remote{repo: repo}
 		err := remote.SetURL(ctx, "second", "http://some.com.git", git.SetURLOpts{})
 		require.True(t, errors.Is(err, git.ErrNotFound), err)
 	})
 }
 
 func TestRepo_FetchRemote(t *testing.T) {
-	defer func(oldValue string) {
-		config.Config.Ruby.Dir = oldValue
-	}(config.Config.Ruby.Dir)
-	config.Config.Ruby.Dir = "/var/empty"
-
-	gitCmdFactory := git.NewExecCommandFactory(config.Config)
-
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	_, remoteRepoPath, cleanup := gittest.CloneRepo(t)
+	remoteCmd, remoteRepoPath, cleanup := setupRepoRemote(t, false)
 	defer cleanup()
+	cfg := remoteCmd.repo.cfg
 
 	initBareWithRemote := func(t *testing.T, remote string) (*Repo, string, testhelper.Cleanup) {
 		t.Helper()
 
-		testRepo, testRepoPath, cleanup := gittest.InitBareRepo(t)
+		testRepo, testRepoPath, cleanup := gittest.InitBareRepoAt(t, cfg.Storages[0])
 
-		cmd := exec.Command(config.Config.Git.BinPath, "-C", testRepoPath, "remote", "add", remote, remoteRepoPath)
+		cmd := exec.Command(cfg.Git.BinPath, "-C", testRepoPath, "remote", "add", remote, remoteRepoPath)
 		err := cmd.Run()
 		if err != nil {
 			cleanup()
-			t.Log(err)
-			t.FailNow()
+			require.NoError(t, err)
 		}
 
-		return New(gitCmdFactory, testRepo, config.Config), testRepoPath, cleanup
+		return New(remoteCmd.repo.gitCmdFactory, testRepo, cfg), testRepoPath, cleanup
 	}
 
 	t.Run("invalid name", func(t *testing.T) {
-		repo := New(gitCmdFactory, nil, config.Config)
+		repo := New(remoteCmd.repo.gitCmdFactory, nil, cfg)
 
 		err := repo.FetchRemote(ctx, " ", FetchOpts{})
 		require.True(t, errors.Is(err, git.ErrInvalidArg))
@@ -341,10 +340,7 @@ func TestRepo_FetchRemote(t *testing.T) {
 	})
 
 	t.Run("unknown remote", func(t *testing.T) {
-		testRepo, _, cleanup := gittest.InitBareRepo(t)
-		defer cleanup()
-
-		repo := New(gitCmdFactory, testRepo, config.Config)
+		repo := New(remoteCmd.repo.gitCmdFactory, remoteCmd.repo, cfg)
 		var stderr bytes.Buffer
 		err := repo.FetchRemote(ctx, "stub", FetchOpts{Stderr: &stderr})
 		require.Error(t, err)
@@ -373,13 +369,10 @@ func TestRepo_FetchRemote(t *testing.T) {
 	})
 
 	t.Run("with env", func(t *testing.T) {
-		_, sourceRepoPath, sourceCleanup := gittest.CloneRepo(t)
-		defer sourceCleanup()
+		_, sourceRepoPath, _ := gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name()+"-1")
+		testRepo, testRepoPath, _ := gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name()+"-2")
 
-		testRepo, testRepoPath, testCleanup := gittest.CloneRepo(t)
-		defer testCleanup()
-
-		repo := New(gitCmdFactory, testRepo, config.Config)
+		repo := New(remoteCmd.repo.gitCmdFactory, testRepo, cfg)
 		testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "remote", "add", "source", sourceRepoPath)
 
 		var stderr bytes.Buffer
@@ -388,13 +381,10 @@ func TestRepo_FetchRemote(t *testing.T) {
 	})
 
 	t.Run("with globals", func(t *testing.T) {
-		_, sourceRepoPath, sourceCleanup := gittest.CloneRepo(t)
-		defer sourceCleanup()
+		_, sourceRepoPath, _ := gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name()+"-1")
+		testRepo, testRepoPath, _ := gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name()+"-2")
 
-		testRepo, testRepoPath, testCleanup := gittest.CloneRepo(t)
-		defer testCleanup()
-
-		repo := New(gitCmdFactory, testRepo, config.Config)
+		repo := New(remoteCmd.repo.gitCmdFactory, testRepo, cfg)
 		testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "remote", "add", "source", sourceRepoPath)
 
 		require.NoError(t, repo.FetchRemote(ctx, "source", FetchOpts{}))
@@ -416,13 +406,10 @@ func TestRepo_FetchRemote(t *testing.T) {
 	})
 
 	t.Run("with prune", func(t *testing.T) {
-		_, sourceRepoPath, sourceCleanup := gittest.CloneRepo(t)
-		defer sourceCleanup()
+		_, sourceRepoPath, _ := gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name()+"-1")
+		testRepo, testRepoPath, _ := gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name()+"-2")
 
-		testRepo, testRepoPath, testCleanup := gittest.CloneRepo(t)
-		defer testCleanup()
-
-		repo := New(gitCmdFactory, testRepo, config.Config)
+		repo := New(remoteCmd.repo.gitCmdFactory, testRepo, cfg)
 
 		testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "remote", "add", "source", sourceRepoPath)
 		require.NoError(t, repo.FetchRemote(ctx, "source", FetchOpts{}))
