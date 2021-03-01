@@ -30,19 +30,9 @@ func NewDirectStorageProvider(sp StoragesProvider) *DirectStorageProvider {
 	return &DirectStorageProvider{sp: sp}
 }
 
-// GetSyncedNodes returns list of gitaly storages that are in up to date state based on the generation tracking.
-func (c *DirectStorageProvider) GetSyncedNodes(ctx context.Context, virtualStorage, relativePath string) ([]string, error) {
-	consistentStorages, err := c.sp.GetConsistentStorages(ctx, virtualStorage, relativePath)
-	if err != nil {
-		return nil, err
-	}
-
-	storages := make([]string, 0, len(consistentStorages))
-	for storage := range consistentStorages {
-		storages = append(storages, storage)
-	}
-
-	return storages, nil
+// GetConsistentStorages returns list of gitaly storages that are in up to date state based on the generation tracking.
+func (c *DirectStorageProvider) GetConsistentStorages(ctx context.Context, virtualStorage, relativePath string) (map[string]struct{}, error) {
+	return c.sp.GetConsistentStorages(ctx, virtualStorage, relativePath)
 }
 
 // errNotExistingVirtualStorage indicates that the requested virtual storage can't be found or not configured.
@@ -153,12 +143,12 @@ func (c *CachingStorageProvider) getCache(virtualStorage string) (*lru.Cache, bo
 	return val, found
 }
 
-func (c *CachingStorageProvider) cacheMiss(ctx context.Context, virtualStorage, relativePath string) ([]string, error) {
+func (c *CachingStorageProvider) cacheMiss(ctx context.Context, virtualStorage, relativePath string) (map[string]struct{}, error) {
 	c.cacheAccessTotal.WithLabelValues(virtualStorage, "miss").Inc()
-	return c.dsp.GetSyncedNodes(ctx, virtualStorage, relativePath)
+	return c.dsp.GetConsistentStorages(ctx, virtualStorage, relativePath)
 }
 
-func (c *CachingStorageProvider) tryCache(virtualStorage, relativePath string) (func(), *lru.Cache, []string, bool) {
+func (c *CachingStorageProvider) tryCache(virtualStorage, relativePath string) (func(), *lru.Cache, map[string]struct{}, bool) {
 	populateDone := func() {} // should be called AFTER any cache population is done
 
 	cache, found := c.getCache(virtualStorage)
@@ -166,14 +156,14 @@ func (c *CachingStorageProvider) tryCache(virtualStorage, relativePath string) (
 		return populateDone, nil, nil, false
 	}
 
-	if storages, found := getStringSlice(cache, relativePath); found {
+	if storages, found := getKey(cache, relativePath); found {
 		return populateDone, cache, storages, true
 	}
 
 	// synchronises concurrent attempts to update cache for the same key.
 	populateDone = c.syncer.await(relativePath)
 
-	if storages, found := getStringSlice(cache, relativePath); found {
+	if storages, found := getKey(cache, relativePath); found {
 		return populateDone, cache, storages, true
 	}
 
@@ -182,12 +172,12 @@ func (c *CachingStorageProvider) tryCache(virtualStorage, relativePath string) (
 
 func (c *CachingStorageProvider) isCacheEnabled() bool { return atomic.LoadInt32(&c.access) != 0 }
 
-// GetSyncedNodes returns list of gitaly storages that are in up to date state based on the generation tracking.
-func (c *CachingStorageProvider) GetSyncedNodes(ctx context.Context, virtualStorage, relativePath string) ([]string, error) {
+// GetConsistentStorages returns list of gitaly storages that are in up to date state based on the generation tracking.
+func (c *CachingStorageProvider) GetConsistentStorages(ctx context.Context, virtualStorage, relativePath string) (map[string]struct{}, error) {
 	var cache *lru.Cache
 
 	if c.isCacheEnabled() {
-		var storages []string
+		var storages map[string]struct{}
 		var ok bool
 		var populationDone func()
 
@@ -207,9 +197,9 @@ func (c *CachingStorageProvider) GetSyncedNodes(ctx context.Context, virtualStor
 	return storages, err
 }
 
-func getStringSlice(cache *lru.Cache, key string) ([]string, bool) {
+func getKey(cache *lru.Cache, key string) (map[string]struct{}, bool) {
 	val, found := cache.Get(key)
-	vals, _ := val.([]string)
+	vals, _ := val.(map[string]struct{})
 	return vals, found
 }
 
