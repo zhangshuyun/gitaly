@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"google.golang.org/grpc/metadata"
 )
@@ -16,7 +17,7 @@ func TestSetHeadersBlocksUnknownMetadata(t *testing.T) {
 	otherValue := "test-value"
 	inCtx := metadata.NewIncomingContext(ctx, metadata.Pairs(otherKey, otherValue))
 
-	testRepo, _, cleanup := testhelper.NewTestRepo(t)
+	testRepo, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	outCtx, err := SetHeaders(inCtx, testhelper.DefaultLocator(), testRepo)
@@ -37,7 +38,7 @@ func TestSetHeadersPreservesAllowlistedMetadata(t *testing.T) {
 	value := "test-value"
 	inCtx := metadata.NewIncomingContext(ctx, metadata.Pairs(key, value))
 
-	testRepo, _, cleanup := testhelper.NewTestRepo(t)
+	testRepo, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	outCtx, err := SetHeaders(inCtx, testhelper.DefaultLocator(), testRepo)
@@ -57,7 +58,7 @@ func TestRubyFeatureHeaders(t *testing.T) {
 	value := "true"
 	inCtx := metadata.NewIncomingContext(ctx, metadata.Pairs(key, value))
 
-	testRepo, _, cleanup := testhelper.NewTestRepo(t)
+	testRepo, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	outCtx, err := SetHeaders(inCtx, testhelper.DefaultLocator(), testRepo)

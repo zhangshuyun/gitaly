@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	gconfig "gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/internalgitaly"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/repository"
@@ -49,8 +50,8 @@ func TestServer_ConsistencyCheck(t *testing.T) {
 	defer cleanupSec()
 
 	// firstRepoPath exists on both storages and has same state
-	testhelper.NewTestRepoTo(t, primaryStorageDir, firstRepoPath)
-	testhelper.NewTestRepoTo(t, secondaryStorageDir, firstRepoPath)
+	gittest.CloneRepoAtStorageRoot(t, primaryStorageDir, firstRepoPath)
+	gittest.CloneRepoAtStorageRoot(t, secondaryStorageDir, firstRepoPath)
 
 	cfg.Storages = []gconfig.Storage{{
 		Name: referenceStorageName,
@@ -187,9 +188,9 @@ func TestServer_ConsistencyCheck(t *testing.T) {
 
 	// secondRepoPath generates an error, but it should not stop other repositories from being processed.
 	// Order does matter for the test to verify the flow.
-	testhelper.NewTestRepoTo(t, secondaryStorageDir, secondRepoPath)
+	gittest.CloneRepoAtStorageRoot(t, secondaryStorageDir, secondRepoPath)
 	// thirdRepoPath exists only on the reference storage (where traversal happens).
-	testhelper.NewTestRepoTo(t, secondaryStorageDir, thirdRepoPath)
+	gittest.CloneRepoAtStorageRoot(t, secondaryStorageDir, thirdRepoPath)
 	// not.git is a folder on the reference storage that should be skipped as it is not a git repository.
 	require.NoError(t, os.MkdirAll(filepath.Join(secondaryStorageDir, "not.git"), os.ModePerm))
 

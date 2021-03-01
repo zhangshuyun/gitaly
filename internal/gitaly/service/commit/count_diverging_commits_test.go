@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -24,7 +25,7 @@ func createRepoWithDivergentBranches(t *testing.T, leftCommits, rightCommits int
 		 f   h
 	*/
 
-	repo, worktreePath, cleanupFn := testhelper.InitRepoWithWorktree(t)
+	repo, worktreePath, cleanupFn := gittest.InitRepoWithWorktree(t)
 	committerName := "Scrooge McDuck"
 	committerEmail := "scrooge@mcduck.com"
 
@@ -191,7 +192,7 @@ func TestFailedCountDivergentCommitsRequestDueToValidationError(t *testing.T) {
 	client, conn := newCommitServiceClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	revision := []byte("d42783470dc29fde2cf459eb3199ee1d7e3f3a72")

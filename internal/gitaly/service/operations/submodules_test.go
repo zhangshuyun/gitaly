@@ -9,6 +9,7 @@ import (
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/git/lstree"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
@@ -31,7 +32,7 @@ func testSuccessfulUserUpdateSubmoduleRequest(t *testing.T, ctx context.Context)
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepoProto, testRepoPath, cleanup := testhelper.NewTestRepo(t)
+	testRepoProto, testRepoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	testRepo := localrepo.New(git.NewExecCommandFactory(config.Config), testRepoProto, config.Config)
@@ -122,7 +123,7 @@ func testUserUpdateSubmoduleStableID(t *testing.T, ctx context.Context) {
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	repoProto, _, cleanup := testhelper.NewTestRepo(t)
+	repoProto, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
@@ -178,7 +179,7 @@ func testFailedUserUpdateSubmoduleRequestDueToValidations(t *testing.T, ctx cont
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanup := testhelper.NewTestRepo(t)
+	testRepo, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	testCases := []struct {
@@ -309,7 +310,7 @@ func testFailedUserUpdateSubmoduleRequestDueToInvalidBranch(t *testing.T, ctx co
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanup := testhelper.NewTestRepo(t)
+	testRepo, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	request := &gitalypb.UserUpdateSubmoduleRequest{
@@ -339,7 +340,7 @@ func testFailedUserUpdateSubmoduleRequestDueToInvalidSubmodule(t *testing.T, ctx
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanup := testhelper.NewTestRepo(t)
+	testRepo, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	request := &gitalypb.UserUpdateSubmoduleRequest{
@@ -369,7 +370,7 @@ func testFailedUserUpdateSubmoduleRequestDueToSameReference(t *testing.T, ctx co
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanup := testhelper.NewTestRepo(t)
+	testRepo, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	request := &gitalypb.UserUpdateSubmoduleRequest{
@@ -402,7 +403,7 @@ func testFailedUserUpdateSubmoduleRequestDueToRepositoryEmpty(t *testing.T, ctx 
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanup := testhelper.InitRepoWithWorktree(t)
+	testRepo, _, cleanup := gittest.InitRepoWithWorktree(t)
 	defer cleanup()
 
 	request := &gitalypb.UserUpdateSubmoduleRequest{

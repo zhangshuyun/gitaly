@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
@@ -39,7 +40,7 @@ func getNewestPackfileModtime(t *testing.T, repoPath string) time.Time {
 }
 
 func TestOptimizeRepository(t *testing.T) {
-	testRepo, testRepoPath, cleanup := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "repack", "-A", "-b")
@@ -54,7 +55,7 @@ func TestOptimizeRepository(t *testing.T) {
 	// get timestamp of latest packfile
 	newestsPackfileTime := getNewestPackfileModtime(t, testRepoPath)
 
-	testhelper.CreateCommit(t, testRepoPath, "master", nil)
+	gittest.CreateCommit(t, testRepoPath, "master", nil)
 
 	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "config", "http.http://localhost:51744/60631c8695bf041a808759a05de53e36a73316aacb502824fabbb0c6055637c1.git.extraHeader", "Authorization: Basic secret-password")
 	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "config", "http.http://localhost:51744/60631c8695bf041a808759a05de53e36a73316aacb502824fabbb0c6055637c2.git.extraHeader", "Authorization: Basic secret-password")
@@ -95,17 +96,17 @@ func TestOptimizeRepository(t *testing.T) {
 
 	require.Equal(t, getNewestPackfileModtime(t, testRepoPath), newestsPackfileTime, "there should not have been a new packfile created")
 
-	testRepo, testRepoPath, cleanupBare := testhelper.InitBareRepo(t)
+	testRepo, testRepoPath, cleanupBare := gittest.InitBareRepo(t)
 	defer cleanupBare()
 
 	blobs := 10
-	blobIDs := testhelper.WriteBlobs(t, testRepoPath, blobs)
+	blobIDs := gittest.WriteBlobs(t, testRepoPath, blobs)
 
 	updater, err := updateref.New(ctx, config.Config, git.NewExecCommandFactory(config.Config), testRepo)
 	require.NoError(t, err)
 
 	for _, blobID := range blobIDs {
-		commitID := testhelper.CommitBlobWithName(t, testRepoPath, blobID, blobID, "adding another blob....")
+		commitID := gittest.CommitBlobWithName(t, testRepoPath, blobID, blobID, "adding another blob....")
 		require.NoError(t, updater.Create(git.ReferenceName("refs/heads/"+blobID), commitID))
 	}
 
@@ -138,7 +139,7 @@ func TestOptimizeRepository(t *testing.T) {
 }
 
 func TestOptimizeRepositoryValidation(t *testing.T) {
-	testRepo, _, cleanup := testhelper.NewTestRepo(t)
+	testRepo, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	testCases := []struct {

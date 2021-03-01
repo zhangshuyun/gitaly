@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -124,7 +125,7 @@ func TestGetCommitCatfile(t *testing.T) {
 	ctx = metadata.NewIncomingContext(ctx, metadata.MD{})
 	defer cancel()
 
-	testRepo, _, cleanup := testhelper.NewTestRepo(t)
+	testRepo, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	const commitSha = "2d1db523e11e777e49377cfb22d368deec3f0793"
@@ -173,7 +174,7 @@ func TestGetCommitCatfileWithTrailers(t *testing.T) {
 	ctx = metadata.NewIncomingContext(ctx, metadata.MD{})
 	defer cancel()
 
-	testRepo, _, cleanup := testhelper.NewTestRepo(t)
+	testRepo, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	gitCmdFactory := git.NewExecCommandFactory(config.Config)

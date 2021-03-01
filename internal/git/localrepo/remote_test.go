@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -70,11 +71,11 @@ func TestRemote_Add(t *testing.T) {
 	}(config.Config.Ruby.Dir)
 	config.Config.Ruby.Dir = "/var/empty"
 
-	repoProto, repoPath, cleanup := testhelper.NewTestRepo(t)
+	repoProto, repoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 	repo := New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
-	_, remoteRepoPath, cleanup := testhelper.NewTestRepo(t)
+	_, remoteRepoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "remote", "remove", "origin")
@@ -148,7 +149,7 @@ func TestRemote_Add(t *testing.T) {
 }
 
 func TestRemote_Remove(t *testing.T) {
-	repoProto, repoPath, cleanup := testhelper.InitBareRepo(t)
+	repoProto, repoPath, cleanup := gittest.InitBareRepo(t)
 	defer cleanup()
 	repo := New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
@@ -182,7 +183,7 @@ func TestRemote_Remove(t *testing.T) {
 		ctx, cancel := testhelper.Context()
 		defer cancel()
 
-		repoProto, _, cleanupFn := testhelper.NewTestRepo(t)
+		repoProto, _, cleanupFn := gittest.CloneRepo(t)
 		defer cleanupFn()
 		remote := New(git.NewExecCommandFactory(config.Config), repoProto, config.Config).Remote()
 
@@ -205,7 +206,7 @@ func TestRemote_Remove(t *testing.T) {
 }
 
 func TestRemote_Exists(t *testing.T) {
-	repoProto, _, cleanupFn := testhelper.NewTestRepo(t)
+	repoProto, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 	remote := New(git.NewExecCommandFactory(config.Config), repoProto, config.Config).Remote()
 
@@ -244,7 +245,7 @@ func TestBuildSetURLOptsFlags(t *testing.T) {
 }
 
 func TestRemote_SetURL(t *testing.T) {
-	repoProto, repoPath, cleanup := testhelper.InitBareRepo(t)
+	repoProto, repoPath, cleanup := gittest.InitBareRepo(t)
 	defer cleanup()
 	repo := New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
@@ -312,13 +313,13 @@ func TestRepo_FetchRemote(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	_, remoteRepoPath, cleanup := testhelper.NewTestRepo(t)
+	_, remoteRepoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	initBareWithRemote := func(t *testing.T, remote string) (*Repo, string, testhelper.Cleanup) {
 		t.Helper()
 
-		testRepo, testRepoPath, cleanup := testhelper.InitBareRepo(t)
+		testRepo, testRepoPath, cleanup := gittest.InitBareRepo(t)
 
 		cmd := exec.Command(config.Config.Git.BinPath, "-C", testRepoPath, "remote", "add", remote, remoteRepoPath)
 		err := cmd.Run()
@@ -340,7 +341,7 @@ func TestRepo_FetchRemote(t *testing.T) {
 	})
 
 	t.Run("unknown remote", func(t *testing.T) {
-		testRepo, _, cleanup := testhelper.InitBareRepo(t)
+		testRepo, _, cleanup := gittest.InitBareRepo(t)
 		defer cleanup()
 
 		repo := New(gitCmdFactory, testRepo, config.Config)
@@ -372,10 +373,10 @@ func TestRepo_FetchRemote(t *testing.T) {
 	})
 
 	t.Run("with env", func(t *testing.T) {
-		_, sourceRepoPath, sourceCleanup := testhelper.NewTestRepo(t)
+		_, sourceRepoPath, sourceCleanup := gittest.CloneRepo(t)
 		defer sourceCleanup()
 
-		testRepo, testRepoPath, testCleanup := testhelper.NewTestRepo(t)
+		testRepo, testRepoPath, testCleanup := gittest.CloneRepo(t)
 		defer testCleanup()
 
 		repo := New(gitCmdFactory, testRepo, config.Config)
@@ -387,10 +388,10 @@ func TestRepo_FetchRemote(t *testing.T) {
 	})
 
 	t.Run("with globals", func(t *testing.T) {
-		_, sourceRepoPath, sourceCleanup := testhelper.NewTestRepo(t)
+		_, sourceRepoPath, sourceCleanup := gittest.CloneRepo(t)
 		defer sourceCleanup()
 
-		testRepo, testRepoPath, testCleanup := testhelper.NewTestRepo(t)
+		testRepo, testRepoPath, testCleanup := gittest.CloneRepo(t)
 		defer testCleanup()
 
 		repo := New(gitCmdFactory, testRepo, config.Config)
@@ -415,10 +416,10 @@ func TestRepo_FetchRemote(t *testing.T) {
 	})
 
 	t.Run("with prune", func(t *testing.T) {
-		_, sourceRepoPath, sourceCleanup := testhelper.NewTestRepo(t)
+		_, sourceRepoPath, sourceCleanup := gittest.CloneRepo(t)
 		defer sourceCleanup()
 
-		testRepo, testRepoPath, testCleanup := testhelper.NewTestRepo(t)
+		testRepo, testRepoPath, testCleanup := gittest.CloneRepo(t)
 		defer testCleanup()
 
 		repo := New(gitCmdFactory, testRepo, config.Config)

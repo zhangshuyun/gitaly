@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -20,10 +21,10 @@ func TestSuccessfulUpdateRemoteMirrorRequest(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
-	_, mirrorPath, mirrorCleanupFn := testhelper.NewTestRepo(t)
+	_, mirrorPath, mirrorCleanupFn := gittest.CloneRepo(t)
 	defer mirrorCleanupFn()
 
 	remoteName := "remote_mirror_1"
@@ -34,7 +35,7 @@ func TestSuccessfulUpdateRemoteMirrorRequest(t *testing.T) {
 		Message: "Overriding tag", Force: true})
 
 	// Create a commit that only exists in the mirror
-	mirrorOnlyCommitOid := testhelper.CreateCommit(t, mirrorPath, "master", nil)
+	mirrorOnlyCommitOid := gittest.CreateCommit(t, mirrorPath, "master", nil)
 	require.NotEmpty(t, mirrorOnlyCommitOid)
 
 	setupCommands := [][]string{
@@ -114,10 +115,10 @@ func TestSuccessfulUpdateRemoteMirrorRequestWithWildcards(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
-	_, mirrorPath, mirrorCleanupFn := testhelper.NewTestRepo(t)
+	_, mirrorPath, mirrorCleanupFn := gittest.CloneRepo(t)
 	defer mirrorCleanupFn()
 
 	remoteName := "remote_mirror_2"
@@ -192,10 +193,10 @@ func TestSuccessfulUpdateRemoteMirrorRequestWithKeepDivergentRefs(t *testing.T) 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
-	_, mirrorPath, mirrorCleanupFn := testhelper.NewTestRepo(t)
+	_, mirrorPath, mirrorCleanupFn := gittest.CloneRepo(t)
 	defer mirrorCleanupFn()
 
 	remoteName := "remote_mirror_1"
@@ -269,7 +270,7 @@ func TestFailedUpdateRemoteMirrorRequestDueToValidation(t *testing.T) {
 	client, conn := NewRemoteClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	testCases := []struct {

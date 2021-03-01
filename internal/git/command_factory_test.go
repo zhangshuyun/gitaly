@@ -57,8 +57,12 @@ func TestExecCommandFactory_NewWithDir(t *testing.T) {
 	})
 
 	t.Run("runs in dir", func(t *testing.T) {
-		_, repoPath, cleanup := testhelper.NewTestRepoWithWorktree(t)
+		repoPath, cleanup := testhelper.TempDir(t)
 		defer cleanup()
+
+		testhelper.MustRunCommand(t, nil, "git", "init", repoPath)
+		testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "commit", "--allow-empty",
+			"-m", "initial commit")
 
 		ctx, cancel := testhelper.Context()
 		defer cancel()
@@ -75,7 +79,7 @@ func TestExecCommandFactory_NewWithDir(t *testing.T) {
 
 		require.NoError(t, cmd.Wait(), stderr.String())
 
-		require.Equal(t, "1e292f8fedd741b75372e19097c76d327140c312", text.ChompBytes(revData))
+		require.Equal(t, "99ed180822d96f70810847eba6d0d168c582258d", text.ChompBytes(revData))
 	})
 
 	t.Run("doesn't runs in non existing dir", func(t *testing.T) {

@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -16,7 +17,7 @@ func TestSuccessfulLastCommitForPathRequest(t *testing.T) {
 	client, conn := newCommitServiceClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	commit := testhelper.GitLabTestCommit("570e7b2abdd848b95f2f578043fc23bd6f6fd24d")
@@ -84,7 +85,7 @@ func TestFailedLastCommitForPathRequest(t *testing.T) {
 	client, conn := newCommitServiceClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	invalidRepo := &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}
@@ -135,14 +136,14 @@ func TestSuccessfulLastCommitWithGlobCharacters(t *testing.T) {
 	client, conn := newCommitServiceClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepoWithWorktree(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepoWithWorktree(t)
 	defer cleanupFn()
 
 	// This is an arbitrary blob known to exist in the test repository
 	const blobID = "c60514b6d3d6bf4bec1030f70026e34dfbd69ad5"
 	path := ":wq"
 
-	commitID := testhelper.CommitBlobWithName(t,
+	commitID := gittest.CommitBlobWithName(t,
 		testRepoPath,
 		blobID,
 		path,

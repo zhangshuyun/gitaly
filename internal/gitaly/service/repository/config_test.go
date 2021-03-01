@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -47,7 +48,7 @@ func TestDeleteConfig(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+			testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 			defer cleanupFn()
 
 			for _, k := range tc.addKeys {
@@ -112,7 +113,7 @@ func TestSetConfig(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+			testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 			defer cleanupFn()
 
 			_, err := client.SetConfig(ctx, &gitalypb.SetConfigRequest{Repository: testRepo, Entries: tc.entries})

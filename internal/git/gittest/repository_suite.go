@@ -1,19 +1,20 @@
-package git
+package gittest
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
 // TestRepository tests an implementation of Repository.
-func TestRepository(t *testing.T, getRepository func(testing.TB, *gitalypb.Repository) Repository) {
+func TestRepository(t *testing.T, getRepository func(testing.TB, *gitalypb.Repository) git.Repository) {
 	for _, tc := range []struct {
 		desc string
-		test func(*testing.T, func(testing.TB, *gitalypb.Repository) Repository)
+		test func(*testing.T, func(testing.TB, *gitalypb.Repository) git.Repository)
 	}{
 		{
 			desc: "ResolveRevision",
@@ -30,17 +31,17 @@ func TestRepository(t *testing.T, getRepository func(testing.TB, *gitalypb.Repos
 	}
 }
 
-func testRepositoryResolveRevision(t *testing.T, getRepository func(testing.TB, *gitalypb.Repository) Repository) {
+func testRepositoryResolveRevision(t *testing.T, getRepository func(testing.TB, *gitalypb.Repository) git.Repository) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	pbRepo, _, clean := testhelper.NewTestRepo(t)
+	pbRepo, _, clean := CloneRepo(t)
 	defer clean()
 
 	for _, tc := range []struct {
 		desc     string
 		revision string
-		expected ObjectID
+		expected git.ObjectID
 	}{
 		{
 			desc:     "unqualified master branch",
@@ -72,9 +73,9 @@ func testRepositoryResolveRevision(t *testing.T, getRepository func(testing.TB, 
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			oid, err := getRepository(t, pbRepo).ResolveRevision(ctx, Revision(tc.revision))
+			oid, err := getRepository(t, pbRepo).ResolveRevision(ctx, git.Revision(tc.revision))
 			if tc.expected == "" {
-				require.Equal(t, err, ErrReferenceNotFound)
+				require.Equal(t, err, git.ErrReferenceNotFound)
 				return
 			}
 
@@ -84,17 +85,17 @@ func testRepositoryResolveRevision(t *testing.T, getRepository func(testing.TB, 
 	}
 }
 
-func testRepositoryHasBranches(t *testing.T, getRepository func(testing.TB, *gitalypb.Repository) Repository) {
+func testRepositoryHasBranches(t *testing.T, getRepository func(testing.TB, *gitalypb.Repository) git.Repository) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	pbRepo, repoPath, clean := testhelper.InitBareRepo(t)
+	pbRepo, repoPath, clean := InitBareRepo(t)
 	defer clean()
 
 	repo := getRepository(t, pbRepo)
 
 	emptyCommit := text.ChompBytes(testhelper.MustRunCommand(t, nil,
-		"git", "-C", repoPath, "commit-tree", EmptyTreeOID.String(),
+		"git", "-C", repoPath, "commit-tree", git.EmptyTreeOID.String(),
 	))
 
 	testhelper.MustRunCommand(t, nil,

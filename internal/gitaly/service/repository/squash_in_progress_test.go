@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -19,12 +20,12 @@ func TestSuccessfulIsSquashInProgressRequest(t *testing.T) {
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo1, testRepo1Path, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo1, testRepo1Path, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	testhelper.MustRunCommand(t, nil, "git", "-C", testRepo1Path, "worktree", "add", "--detach", filepath.Join(testRepo1Path, worktreePrefix, "squash-1"), "master")
 
-	testRepo2, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo2, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	testCases := []struct {

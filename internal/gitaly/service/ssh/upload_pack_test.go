@@ -16,6 +16,7 @@ import (
 	promtest "github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/pktline"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
@@ -77,7 +78,7 @@ func (cmd cloneCommand) test(t *testing.T, localRepoPath string) (string, string
 	err := cmd.execute(t)
 	require.NoError(t, err)
 
-	testRepo, _, cleanup := testhelper.NewTestRepo(t)
+	testRepo, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	storagePath := testhelper.GitlabTestStoragePath()
@@ -105,7 +106,7 @@ func TestFailedUploadPackRequestDueToTimeout(t *testing.T) {
 	stream, err := client.SSHUploadPack(ctx)
 	require.NoError(t, err)
 
-	testRepo, _, cleanup := testhelper.NewTestRepo(t)
+	testRepo, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	// The first request is not limited by timeout, but also not under attacker control
@@ -244,7 +245,7 @@ func TestUploadPackCloneSuccess(t *testing.T) {
 		},
 	}
 
-	testRepo, _, cleanup := testhelper.NewTestRepo(t)
+	testRepo, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	for _, tc := range tests {
@@ -293,7 +294,7 @@ func TestUploadPackWithPackObjectsHook(t *testing.T) {
 	localRepoPath, cleanup := testhelper.TempDir(t)
 	defer cleanup()
 
-	testRepo, _, cleanup := testhelper.NewTestRepo(t)
+	testRepo, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	err := cloneCommand{
@@ -322,7 +323,7 @@ func TestUploadPackWithoutSideband(t *testing.T) {
 	pktline.WriteFlush(negotiation)
 	pktline.WriteString(negotiation, "done")
 
-	testRepo, _, cleanup := testhelper.NewTestRepo(t)
+	testRepo, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	request := &gitalypb.SSHUploadPackRequest{
@@ -369,20 +370,20 @@ func TestUploadPackCloneWithPartialCloneFilter(t *testing.T) {
 		{
 			desc: "full_clone",
 			repoTest: func(t *testing.T, repoPath string) {
-				testhelper.GitObjectMustExist(t, config.Config.Git.BinPath, repoPath, blobGreaterThanLimit)
+				gittest.GitObjectMustExist(t, config.Config.Git.BinPath, repoPath, blobGreaterThanLimit)
 			},
 			cloneArgs: []string{"clone", "git@localhost:test/test.git"},
 		},
 		{
 			desc: "partial_clone",
 			repoTest: func(t *testing.T, repoPath string) {
-				testhelper.GitObjectMustNotExist(t, config.Config.Git.BinPath, repoPath, blobGreaterThanLimit)
+				gittest.GitObjectMustNotExist(t, config.Config.Git.BinPath, repoPath, blobGreaterThanLimit)
 			},
 			cloneArgs: []string{"clone", "--filter=blob:limit=2048", "git@localhost:test/test.git"},
 		},
 	}
 
-	testRepo, _, cleanup := testhelper.NewTestRepo(t)
+	testRepo, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	for _, tc := range tests {
@@ -402,7 +403,7 @@ func TestUploadPackCloneWithPartialCloneFilter(t *testing.T) {
 			defer os.RemoveAll(localPath)
 			require.NoError(t, err, "clone failed")
 
-			testhelper.GitObjectMustExist(t, config.Config.Git.BinPath, localPath, blobLessThanLimit)
+			gittest.GitObjectMustExist(t, config.Config.Git.BinPath, localPath, blobLessThanLimit)
 			tc.repoTest(t, localPath)
 		})
 	}
@@ -426,13 +427,13 @@ func TestUploadPackCloneSuccessWithGitProtocol(t *testing.T) {
 		},
 	}
 
-	testRepo, _, cleanup := testhelper.NewTestRepo(t)
+	testRepo, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	for _, tc := range tests {
 		t.Run(tc.desc, func(t *testing.T) {
 			defer func(old config.Cfg) { config.Config = old }(config.Config)
-			cfg, restore := testhelper.EnableGitProtocolV2Support(t, config.Config)
+			readProto, cfg, restore := gittest.EnableGitProtocolV2Support(t, config.Config)
 			defer restore()
 			config.Config = cfg
 
@@ -449,7 +450,7 @@ func TestUploadPackCloneSuccessWithGitProtocol(t *testing.T) {
 			lHead, rHead, _, _ := cmd.test(t, localRepoPath)
 			require.Equal(t, lHead, rHead, "local and remote head not equal")
 
-			envData := testhelper.GetGitEnvData(t)
+			envData := readProto()
 			require.Contains(t, envData, fmt.Sprintf("GIT_PROTOCOL=%s\n", git.ProtocolV2))
 		})
 	}
@@ -459,7 +460,7 @@ func TestUploadPackCloneHideTags(t *testing.T) {
 	serverSocketPath, stop := runSSHServer(t)
 	defer stop()
 
-	testRepo, _, cleanup := testhelper.NewTestRepo(t)
+	testRepo, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	localRepoPath, cleanup := testhelper.TempDir(t)
@@ -485,7 +486,7 @@ func TestUploadPackCloneFailure(t *testing.T) {
 	serverSocketPath, stop := runSSHServer(t)
 	defer stop()
 
-	testRepo, _, cleanup := testhelper.NewTestRepo(t)
+	testRepo, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	localRepoPath, cleanup := testhelper.TempDir(t)

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/tempdir"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -28,12 +29,12 @@ func TestSuccessfulCreateBundleRequest(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	// create a work tree with a HEAD pointing to a commit that is missing.
 	// CreateBundle should clean this up before creating the bundle
-	sha, branchName := testhelper.CreateCommitOnNewBranch(t, testRepoPath)
+	sha, branchName := gittest.CreateCommitOnNewBranch(t, testRepoPath)
 
 	require.NoError(t, os.MkdirAll(filepath.Join(testRepoPath, "gitlab-worktree"), 0755))
 

@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -22,7 +23,7 @@ func TestCleanupDeletesRefsLocks(t *testing.T) {
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	ctx, cancel := testhelper.Context()
@@ -90,7 +91,7 @@ func TestCleanupDeletesPackedRefsLock(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+			testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 			defer cleanupFn()
 
 			// Force the packed-refs file to have an old time to test that even
@@ -160,13 +161,13 @@ func TestCleanupDeletesStaleWorktrees(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+			testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 			defer cleanupFn()
 
 			req := &gitalypb.CleanupRequest{Repository: testRepo}
 
 			worktreeCheckoutPath := filepath.Join(testRepoPath, worktreePrefix, "test-worktree")
-			testhelper.AddWorktree(t, testRepoPath, worktreeCheckoutPath)
+			gittest.AddWorktree(t, testRepoPath, worktreeCheckoutPath)
 			basePath := filepath.Join(testRepoPath, "worktrees")
 			worktreePath := filepath.Join(basePath, "test-worktree")
 
@@ -209,7 +210,7 @@ func TestCleanupDisconnectedWorktrees(t *testing.T) {
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	worktreePath := filepath.Join(testRepoPath, worktreePrefix, worktreeName)
@@ -219,7 +220,7 @@ func TestCleanupDisconnectedWorktrees(t *testing.T) {
 
 	req := &gitalypb.CleanupRequest{Repository: testRepo}
 
-	testhelper.AddWorktree(t, testRepoPath, worktreePath)
+	gittest.AddWorktree(t, testRepoPath, worktreePath)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -232,7 +233,7 @@ func TestCleanupDisconnectedWorktrees(t *testing.T) {
 		"disconnecting worktree by removing work tree at %s should succeed", worktreePath,
 	)
 
-	err = exec.Command(config.Config.Git.BinPath, testhelper.AddWorktreeArgs(testRepoPath, worktreePath)...).Run()
+	err = exec.Command(config.Config.Git.BinPath, gittest.AddWorktreeArgs(testRepoPath, worktreePath)...).Run()
 	require.Error(t, err, "creating a new work tree at the same path as a disconnected work tree should fail")
 
 	// cleanup should prune the disconnected worktree administrative files
@@ -242,7 +243,7 @@ func TestCleanupDisconnectedWorktrees(t *testing.T) {
 
 	// if the worktree administrative files are pruned, then we should be able
 	// to checkout another worktree at the same path
-	testhelper.AddWorktree(t, testRepoPath, worktreePath)
+	gittest.AddWorktree(t, testRepoPath, worktreePath)
 }
 
 func TestCleanupFileLocks(t *testing.T) {
@@ -253,7 +254,7 @@ func TestCleanupFileLocks(t *testing.T) {
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	ctx, cancel := testhelper.Context()
@@ -316,7 +317,7 @@ func TestCleanupDeletesPackedRefsNew(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+			testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 			defer cleanupFn()
 
 			req := &gitalypb.CleanupRequest{Repository: testRepo}

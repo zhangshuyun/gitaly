@@ -27,7 +27,7 @@ func TestCloneFromPoolHTTP(t *testing.T) {
 	client, conn := repository.NewRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	pool, poolRepo := NewTestObjectPool(t)
@@ -38,7 +38,7 @@ func TestCloneFromPoolHTTP(t *testing.T) {
 
 	fullRepack(t, testRepoPath)
 
-	_, newBranch := testhelper.CreateCommitOnNewBranch(t, testRepoPath)
+	_, newBranch := gittest.CreateCommitOnNewBranch(t, testRepoPath)
 
 	forkedRepo, forkRepoPath, forkRepoCleanup := getForkDestination(t)
 	defer forkRepoCleanup()
@@ -66,7 +66,7 @@ func TestCloneFromPoolHTTP(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, isLinked, "repository is not linked to the pool repository")
 
-	assert.True(t, testhelper.GetGitObjectDirSize(t, forkRepoPath) < 100, "expect a small object directory size")
+	assert.True(t, gittest.GetGitObjectDirSize(t, forkRepoPath) < 100, "expect a small object directory size")
 
 	// feature is a branch known to exist in the source repository. By looking it up in the target
 	// we establish that the target has branches, even though (as we saw above) it has no objects.

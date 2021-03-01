@@ -11,6 +11,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -39,7 +40,7 @@ func TestHookManager_stopCalled(t *testing.T) {
 		Token:      "foo",
 	}
 
-	repo, repoPath, cleanup := testhelper.NewTestRepo(t)
+	repo, repoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	var mockTxMgr mockTransactionManager
@@ -63,7 +64,7 @@ func TestHookManager_stopCalled(t *testing.T) {
 	defer cleanup()
 
 	for _, hook := range []string{"pre-receive", "update", "post-receive"} {
-		cleanup = testhelper.WriteCustomHook(t, repoPath, hook, []byte("#!/bin/sh\nexit 1\n"))
+		cleanup = gittest.WriteCustomHook(t, repoPath, hook, []byte("#!/bin/sh\nexit 1\n"))
 		defer cleanup()
 	}
 
@@ -136,7 +137,7 @@ func TestHookManager_contextCancellationCancelsVote(t *testing.T) {
 
 	hookManager := NewManager(config.NewLocator(config.Config), &mockTxMgr, GitlabAPIStub, config.Config)
 
-	repo, _, cleanup := testhelper.NewTestRepo(t)
+	repo, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	hooksPayload, err := git.NewHooksPayload(

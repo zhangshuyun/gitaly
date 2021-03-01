@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -20,7 +21,7 @@ func TestRenameRepositorySuccess(t *testing.T) {
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	req := &gitalypb.RenameRepositoryRequest{Repository: testRepo, RelativePath: "a-new-location"}
@@ -39,7 +40,7 @@ func TestRenameRepositorySuccess(t *testing.T) {
 	require.True(t, storage.IsGitDirectory(newDirectory), "moved Git repository has been corrupted")
 
 	// ensure the git directory that got renamed contains a sha in the seed repo
-	testhelper.GitObjectMustExist(t, config.Config.Git.BinPath, newDirectory, "913c66a37b4a45b9769037c55c2d238bd0942d2e")
+	gittest.GitObjectMustExist(t, config.Config.Git.BinPath, newDirectory, "913c66a37b4a45b9769037c55c2d238bd0942d2e")
 }
 
 func TestRenameRepositoryDestinationExists(t *testing.T) {
@@ -50,13 +51,13 @@ func TestRenameRepositoryDestinationExists(t *testing.T) {
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
-	destinationRepo, destinationRepoPath, cleanupDestinationRepo := testhelper.NewTestRepo(t)
+	destinationRepo, destinationRepoPath, cleanupDestinationRepo := gittest.CloneRepo(t)
 	defer cleanupDestinationRepo()
 
-	_, sha := testhelper.CreateCommitOnNewBranch(t, destinationRepoPath)
+	_, sha := gittest.CreateCommitOnNewBranch(t, destinationRepoPath)
 
 	req := &gitalypb.RenameRepositoryRequest{Repository: testRepo, RelativePath: destinationRepo.GetRelativePath()}
 
@@ -67,7 +68,7 @@ func TestRenameRepositoryDestinationExists(t *testing.T) {
 	testhelper.RequireGrpcError(t, err, codes.FailedPrecondition)
 
 	// ensure the git directory that already existed didn't get overwritten
-	testhelper.GitObjectMustExist(t, config.Config.Git.BinPath, destinationRepoPath, sha)
+	gittest.GitObjectMustExist(t, config.Config.Git.BinPath, destinationRepoPath, sha)
 }
 
 func TestRenameRepositoryInvalidRequest(t *testing.T) {
@@ -78,7 +79,7 @@ func TestRenameRepositoryInvalidRequest(t *testing.T) {
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	ctx, cancel := testhelper.Context()

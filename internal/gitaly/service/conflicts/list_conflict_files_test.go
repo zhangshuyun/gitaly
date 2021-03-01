@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -32,7 +33,7 @@ func TestSuccessfulListConflictFilesRequest(t *testing.T) {
 	client, conn := NewConflictsClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	ourCommitOid := "1a35b5a77cf6af7edf6703f88e82f6aff613666f"
@@ -106,7 +107,7 @@ func TestSuccessfulListConflictFilesRequestWithAncestor(t *testing.T) {
 	client, conn := NewConflictsClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	ourCommitOid := "824be604a34828eb682305f0d963056cfac87b2d"
@@ -160,7 +161,7 @@ func TestListConflictFilesHugeDiff(t *testing.T) {
 	client, conn := NewConflictsClient(t, serverSocketPath)
 	defer conn.Close()
 
-	repo, repoPath, cleanupFn := testhelper.NewTestRepoWithWorktree(t)
+	repo, repoPath, cleanupFn := gittest.CloneRepoWithWorktree(t)
 	defer cleanupFn()
 
 	our := buildCommit(t, ctx, repo, repoPath, map[string][]byte{
@@ -228,7 +229,7 @@ func TestListConflictFilesFailedPrecondition(t *testing.T) {
 	client, conn := NewConflictsClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	testCases := []struct {
@@ -293,7 +294,7 @@ func TestFailedListConflictFilesRequestDueToValidation(t *testing.T) {
 	client, conn := NewConflictsClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	ourCommitOid := "0b4bc9a49b562e85de7cc9e834518ea6828729b9"

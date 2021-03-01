@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/streamio"
@@ -23,7 +24,7 @@ func TestSuccessfulRawDiffRequest(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	rightCommit := "e395f646b1499e8e0279445fc99a0596a65fab7e"
@@ -33,7 +34,7 @@ func TestSuccessfulRawDiffRequest(t *testing.T) {
 	c, err := client.RawDiff(ctx, rpcRequest)
 	require.NoError(t, err)
 
-	_, sandboxRepoPath, cleanupFn := testhelper.NewTestRepoWithWorktree(t)
+	_, sandboxRepoPath, cleanupFn := gittest.CloneRepoWithWorktree(t)
 	defer cleanupFn()
 
 	reader := streamio.NewReader(func() ([]byte, error) {
@@ -64,7 +65,7 @@ func TestFailedRawDiffRequestDueToValidations(t *testing.T) {
 	client, conn := newDiffClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	testCases := []struct {
@@ -122,7 +123,7 @@ func TestSuccessfulRawPatchRequest(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	rightCommit := "e395f646b1499e8e0279445fc99a0596a65fab7e"
@@ -137,7 +138,7 @@ func TestSuccessfulRawPatchRequest(t *testing.T) {
 		return response.GetData(), err
 	})
 
-	_, sandboxRepoPath, cleanupFn := testhelper.NewTestRepoWithWorktree(t)
+	_, sandboxRepoPath, cleanupFn := gittest.CloneRepoWithWorktree(t)
 	defer cleanupFn()
 
 	testhelper.MustRunCommand(t, nil, "git", "-C", sandboxRepoPath, "reset", "--hard", leftCommit)
@@ -156,7 +157,7 @@ func TestFailedRawPatchRequestDueToValidations(t *testing.T) {
 	client, conn := newDiffClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	testCases := []struct {
@@ -214,7 +215,7 @@ func TestRawPatchContainsGitLabSignature(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	rightCommit := "e395f646b1499e8e0279445fc99a0596a65fab7e"

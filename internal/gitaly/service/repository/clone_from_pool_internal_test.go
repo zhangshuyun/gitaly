@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/objectpool"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/repository"
@@ -20,8 +21,8 @@ import (
 
 func NewTestObjectPool(t *testing.T) (*objectpool.ObjectPool, *gitalypb.Repository) {
 	storagePath := testhelper.GitlabTestStoragePath()
-	relativePath := testhelper.NewTestObjectPoolName(t)
-	repo := testhelper.CreateRepo(t, storagePath, relativePath)
+	relativePath := gittest.NewObjectPoolName(t)
+	repo := gittest.InitRepoDir(t, storagePath, relativePath)
 
 	pool, err := objectpool.NewObjectPool(config.Config, config.NewLocator(config.Config), git.NewExecCommandFactory(config.Config), repo.GetStorageName(), relativePath)
 	require.NoError(t, err)
@@ -52,7 +53,7 @@ func TestCloneFromPoolInternal(t *testing.T) {
 	client, conn := repository.NewRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	pool, poolRepo := NewTestObjectPool(t)
@@ -63,7 +64,7 @@ func TestCloneFromPoolInternal(t *testing.T) {
 
 	fullRepack(t, testRepoPath)
 
-	_, newBranch := testhelper.CreateCommitOnNewBranch(t, testRepoPath)
+	_, newBranch := gittest.CreateCommitOnNewBranch(t, testRepoPath)
 
 	forkedRepo, forkRepoPath, forkRepoCleanup := getForkDestination(t)
 	defer forkRepoCleanup()
@@ -79,7 +80,7 @@ func TestCloneFromPoolInternal(t *testing.T) {
 	_, err := client.CloneFromPoolInternal(ctx, req)
 	require.NoError(t, err)
 
-	assert.True(t, testhelper.GetGitObjectDirSize(t, forkRepoPath) < 100)
+	assert.True(t, gittest.GetGitObjectDirSize(t, forkRepoPath) < 100)
 
 	isLinked, err := pool.LinkedToRepository(testRepo)
 	require.NoError(t, err)

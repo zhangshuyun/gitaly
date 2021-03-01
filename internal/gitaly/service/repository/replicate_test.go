@@ -12,6 +12,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/repository"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
@@ -51,7 +52,7 @@ func TestReplicateRepository(t *testing.T) {
 	serverSocketPath, clean := runFullServer(t)
 	defer clean()
 
-	testRepo, testRepoPath, cleanupRepo := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupRepo := gittest.CloneRepo(t)
 	defer cleanupRepo()
 
 	// create a loose object to ensure snapshot replication is used
@@ -94,7 +95,7 @@ func TestReplicateRepository(t *testing.T) {
 	require.Equal(t, string(attrData), string(replicatedAttrData), "info/attributes files must match")
 
 	// create another branch
-	_, anotherNewBranch := testhelper.CreateCommitOnNewBranch(t, testRepoPath)
+	_, anotherNewBranch := gittest.CreateCommitOnNewBranch(t, testRepoPath)
 	_, err = repoClient.ReplicateRepository(injectedCtx, &gitalypb.ReplicateRepositoryRequest{
 		Repository: &targetRepo,
 		Source:     testRepo,
@@ -246,10 +247,10 @@ func TestReplicateRepository_BadRepository(t *testing.T) {
 				},
 			}
 
-			sourceRepo, _, cleanupRepo := testhelper.NewTestRepo(t)
+			sourceRepo, _, cleanupRepo := gittest.CloneRepo(t)
 			defer cleanupRepo()
 
-			targetRepo := testhelper.NewTestRepoTo(t, targetStorageRoot, sourceRepo.RelativePath)
+			targetRepo := gittest.CloneRepoAtStorageRoot(t, targetStorageRoot, sourceRepo.RelativePath)
 			targetRepo.StorageName = "target"
 
 			var invalidRepos []*gitalypb.Repository
@@ -327,7 +328,7 @@ func TestReplicateRepository_FailedFetchInternalRemote(t *testing.T) {
 
 	locator := config.NewLocator(config.Config)
 
-	testRepo, _, cleanupRepo := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupRepo := gittest.CloneRepo(t)
 	defer cleanupRepo()
 
 	config.Config.SocketPath = serverSocketPath

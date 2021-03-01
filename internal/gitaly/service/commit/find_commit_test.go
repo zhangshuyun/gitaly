@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
@@ -30,7 +31,7 @@ func TestSuccessfulFindCommitRequest(t *testing.T) {
 	client, conn := newCommitServiceClient(t, serverSocketPath)
 	defer conn.Close()
 
-	repoProto, repoPath, cleanupFn := testhelper.NewTestRepo(t)
+	repoProto, repoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
@@ -38,7 +39,7 @@ func TestSuccessfulFindCommitRequest(t *testing.T) {
 	defer cancel()
 
 	bigMessage := "An empty commit with REALLY BIG message\n\n" + strings.Repeat("MOAR!\n", 20*1024)
-	bigCommitID := testhelper.CreateCommit(t, repoPath, "local-big-commits", &testhelper.CreateCommitOpts{
+	bigCommitID := gittest.CreateCommit(t, repoPath, "local-big-commits", &gittest.CreateCommitOpts{
 		Message:  bigMessage,
 		ParentID: "60ecb67744cb56576c30214ff52294f8ce2def98",
 	})
@@ -273,7 +274,7 @@ func TestFailedFindCommitRequest(t *testing.T) {
 	client, conn := newCommitServiceClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	invalidRepo := &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}
@@ -323,7 +324,7 @@ func benchmarkFindCommit(withCache bool, b *testing.B) {
 	client, conn := newCommitServiceClient(b, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(b)
+	testRepo, _, cleanupFn := gittest.CloneRepo(b)
 	defer cleanupFn()
 
 	// get a list of revisions
@@ -370,7 +371,7 @@ func TestFindCommitWithCache(t *testing.T) {
 	client, conn := newCommitServiceClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	// get a list of revisions

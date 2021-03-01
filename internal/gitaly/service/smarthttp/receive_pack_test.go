@@ -15,6 +15,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/hooks"
 	"gitlab.com/gitlab-org/gitaly/internal/git/pktline"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
@@ -44,13 +45,13 @@ func TestSuccessfulReceivePackRequest(t *testing.T) {
 	defer func(dir string) { config.Config.GitlabShell.Dir = dir }(config.Config.GitlabShell.Dir)
 	config.Config.GitlabShell.Dir = "/foo/bar/gitlab-shell"
 
-	hookOutputFile, cleanup := testhelper.CaptureHookEnv(t)
+	hookOutputFile, cleanup := gittest.CaptureHookEnv(t)
 	defer cleanup()
 
 	serverSocketPath, stop := runSmartHTTPServer(t, config.Config)
 	defer stop()
 
-	repo, repoPath, cleanup := testhelper.NewTestRepo(t)
+	repo, repoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	client, conn := newSmartHTTPClient(t, serverSocketPath, config.Config.Auth.Token)
@@ -110,14 +111,14 @@ func TestSuccessfulReceivePackRequest(t *testing.T) {
 func TestSuccessfulReceivePackRequestWithGitProtocol(t *testing.T) {
 	defer func(old config.Cfg) { config.Config = old }(config.Config)
 
-	cfg, restore := testhelper.EnableGitProtocolV2Support(t, config.Config)
+	readProto, cfg, restore := gittest.EnableGitProtocolV2Support(t, config.Config)
 	defer restore()
 	config.Config = cfg
 
 	serverSocketPath, stop := runSmartHTTPServer(t, config.Config)
 	defer stop()
 
-	repo, repoPath, cleanup := testhelper.NewTestRepo(t)
+	repo, repoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	client, conn := newSmartHTTPClient(t, serverSocketPath, config.Config.Auth.Token)
@@ -133,7 +134,7 @@ func TestSuccessfulReceivePackRequestWithGitProtocol(t *testing.T) {
 	firstRequest := &gitalypb.PostReceivePackRequest{Repository: repo, GlId: "user-123", GlRepository: "project-123", GitProtocol: git.ProtocolV2}
 	doPush(t, stream, firstRequest, push.body)
 
-	envData := testhelper.GetGitEnvData(t)
+	envData := readProto()
 	require.Equal(t, fmt.Sprintf("GIT_PROTOCOL=%s\n", git.ProtocolV2), envData)
 
 	// The fact that this command succeeds means that we got the commit correctly, no further checks should be needed.
@@ -144,7 +145,7 @@ func TestFailedReceivePackRequestWithGitOpts(t *testing.T) {
 	serverSocketPath, stop := runSmartHTTPServer(t, config.Config)
 	defer stop()
 
-	repo, _, cleanup := testhelper.NewTestRepo(t)
+	repo, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	client, conn := newSmartHTTPClient(t, serverSocketPath, config.Config.Auth.Token)
@@ -181,7 +182,7 @@ func TestFailedReceivePackRequestDueToHooksFailure(t *testing.T) {
 	serverSocketPath, stop := runSmartHTTPServer(t, config.Config)
 	defer stop()
 
-	repo, _, cleanup := testhelper.NewTestRepo(t)
+	repo, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	client, conn := newSmartHTTPClient(t, serverSocketPath, config.Config.Auth.Token)
@@ -229,7 +230,7 @@ type pushData struct {
 }
 
 func newTestPush(t *testing.T, fileContents []byte) *pushData {
-	_, repoPath, localCleanup := testhelper.NewTestRepoWithWorktree(t)
+	_, repoPath, localCleanup := gittest.CloneRepoWithWorktree(t)
 	defer localCleanup()
 
 	oldHead, newHead := createCommit(t, repoPath, fileContents)
@@ -316,7 +317,7 @@ func TestFailedReceivePackRequestDueToValidationError(t *testing.T) {
 }
 
 func TestInvalidTimezone(t *testing.T) {
-	_, localRepoPath, localCleanup := testhelper.NewTestRepoWithWorktree(t)
+	_, localRepoPath, localCleanup := gittest.CloneRepoWithWorktree(t)
 	defer localCleanup()
 
 	head := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", localRepoPath, "rev-parse", "HEAD"))
@@ -339,13 +340,13 @@ func TestInvalidTimezone(t *testing.T) {
 	fmt.Fprintf(body, "%04x%s%s", len(pkt)+4, pkt, pktFlushStr)
 	body.Write(pack)
 
-	_, cleanup := testhelper.CaptureHookEnv(t)
+	_, cleanup := gittest.CaptureHookEnv(t)
 	defer cleanup()
 
 	socket, stop := runSmartHTTPServer(t, config.Config)
 	defer stop()
 
-	repo, repoPath, cleanup := testhelper.NewTestRepo(t)
+	repo, repoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	client, conn := newSmartHTTPClient(t, socket, config.Config.Auth.Token)
@@ -401,7 +402,7 @@ func TestPostReceivePackToHooks(t *testing.T) {
 	}(config.Config)
 	config.Config.GitlabShell.Dir = tempGitlabShellDir
 
-	repo, testRepoPath, cleanup := testhelper.NewTestRepo(t)
+	repo, testRepoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	push := newTestPush(t, nil)
@@ -423,7 +424,7 @@ func TestPostReceivePackToHooks(t *testing.T) {
 
 	testhelper.WriteShellSecretFile(t, tempGitlabShellDir, secretToken)
 
-	cleanup = testhelper.WriteCheckNewObjectExistsHook(t, config.Config.Git.BinPath, testRepoPath)
+	cleanup = gittest.WriteCheckNewObjectExistsHook(t, config.Config.Git.BinPath, testRepoPath)
 	defer cleanup()
 
 	config.Config.Gitlab.URL = serverURL
@@ -490,7 +491,7 @@ func testPostReceiveWithTransactionsViaPraefect(t *testing.T, ctx context.Contex
 	gitlabUser := "gitlab_user-1234"
 	gitlabPassword := "gitlabsecret9887"
 
-	repo, repoPath, cleanup := testhelper.NewTestRepo(t)
+	repo, repoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	opts := testhelper.GitlabTestServerOptions{
@@ -612,7 +613,7 @@ func TestPostReceiveWithReferenceTransactionHook(t *testing.T) {
 		stream, err := client.PostReceivePack(ctx)
 		require.NoError(t, err)
 
-		repo, _, cleanup := testhelper.NewTestRepo(t)
+		repo, _, cleanup := gittest.CloneRepo(t)
 		defer cleanup()
 
 		request := &gitalypb.PostReceivePackRequest{Repository: repo, GlId: "key-1234", GlRepository: "some_repo"}
@@ -629,7 +630,7 @@ func TestPostReceiveWithReferenceTransactionHook(t *testing.T) {
 		stream, err := client.PostReceivePack(ctx)
 		require.NoError(t, err)
 
-		repo, repoPath, cleanup := testhelper.NewTestRepo(t)
+		repo, repoPath, cleanup := gittest.CloneRepo(t)
 		defer cleanup()
 
 		// Create a new branch which we're about to delete. We also pack references because

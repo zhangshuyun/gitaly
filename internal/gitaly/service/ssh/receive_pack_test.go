@@ -15,6 +15,7 @@ import (
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/hooks"
 	"gitlab.com/gitlab-org/gitaly/internal/git/objectpool"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
@@ -31,7 +32,7 @@ func TestFailedReceivePackRequestDueToValidationError(t *testing.T) {
 	client, conn := newSSHClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanup := testhelper.NewTestRepo(t)
+	testRepo, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	tests := []struct {
@@ -82,7 +83,7 @@ func TestReceivePackPushSuccess(t *testing.T) {
 	defer func(dir string) { config.Config.GitlabShell.Dir = dir }(config.Config.GitlabShell.Dir)
 	config.Config.GitlabShell.Dir = "/foo/bar/gitlab-shell"
 
-	hookOutputFile, cleanup := testhelper.CaptureHookEnv(t)
+	hookOutputFile, cleanup := gittest.CaptureHookEnv(t)
 	defer cleanup()
 
 	serverSocketPath, stop := runSSHServer(t)
@@ -141,7 +142,7 @@ func TestReceivePackPushSuccess(t *testing.T) {
 
 func TestReceivePackPushSuccessWithGitProtocol(t *testing.T) {
 	defer func(old config.Cfg) { config.Config = old }(config.Config)
-	cfg, restore := testhelper.EnableGitProtocolV2Support(t, config.Config)
+	readProto, cfg, restore := gittest.EnableGitProtocolV2Support(t, config.Config)
 	defer restore()
 	config.Config = cfg
 
@@ -158,7 +159,7 @@ func TestReceivePackPushSuccessWithGitProtocol(t *testing.T) {
 
 	require.Equal(t, lHead, rHead, "local and remote head not equal. push failed")
 
-	envData := testhelper.GetGitEnvData(t)
+	envData := readProto()
 	require.Contains(t, envData, fmt.Sprintf("GIT_PROTOCOL=%s\n", git.ProtocolV2))
 }
 
@@ -206,10 +207,10 @@ func TestObjectPoolRefAdvertisementHidingSSH(t *testing.T) {
 	stream, err := client.SSHReceivePack(ctx)
 	require.NoError(t, err)
 
-	repo, _, cleanupFn := testhelper.NewTestRepo(t)
+	repo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
-	pool, err := objectpool.NewObjectPool(config.Config, config.NewLocator(config.Config), git.NewExecCommandFactory(config.Config), repo.GetStorageName(), testhelper.NewTestObjectPoolName(t))
+	pool, err := objectpool.NewObjectPool(config.Config, config.NewLocator(config.Config), git.NewExecCommandFactory(config.Config), repo.GetStorageName(), gittest.NewObjectPoolName(t))
 	require.NoError(t, err)
 
 	require.NoError(t, pool.Create(ctx, repo))
@@ -217,7 +218,7 @@ func TestObjectPoolRefAdvertisementHidingSSH(t *testing.T) {
 
 	require.NoError(t, pool.Link(ctx, repo))
 
-	commitID := testhelper.CreateCommit(t, pool.FullPath(), t.Name(), nil)
+	commitID := gittest.CreateCommit(t, pool.FullPath(), t.Name(), nil)
 
 	// First request
 	require.NoError(t, stream.Send(&gitalypb.SSHReceivePackRequest{
@@ -244,7 +245,7 @@ func TestSSHReceivePackToHooks(t *testing.T) {
 	glID := "key-123"
 
 	defer func(old config.Cfg) { config.Config = old }(config.Config)
-	cfg, restore := testhelper.EnableGitProtocolV2Support(t, config.Config)
+	readProto, cfg, restore := gittest.EnableGitProtocolV2Support(t, config.Config)
 	defer restore()
 	config.Config = cfg
 
@@ -280,7 +281,7 @@ func TestSSHReceivePackToHooks(t *testing.T) {
 	config.Config.Gitlab.URL = serverURL
 	config.Config.Gitlab.SecretFile = filepath.Join(tempGitlabShellDir, ".gitlab_shell_secret")
 
-	cleanup = testhelper.WriteCheckNewObjectExistsHook(t, config.Config.Git.BinPath, cloneDetails.RemoteRepoPath)
+	cleanup = gittest.WriteCheckNewObjectExistsHook(t, config.Config.Git.BinPath, cloneDetails.RemoteRepoPath)
 	defer cleanup()
 
 	lHead, rHead, err := sshPush(t, cloneDetails, serverSocketPath, pushParams{
@@ -292,7 +293,7 @@ func TestSSHReceivePackToHooks(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, lHead, rHead, "local and remote head not equal. push failed")
 
-	envData := testhelper.GetGitEnvData(t)
+	envData := readProto()
 	require.Contains(t, envData, fmt.Sprintf("GIT_PROTOCOL=%s\n", git.ProtocolV2))
 }
 
@@ -305,7 +306,7 @@ type SSHCloneDetails struct {
 
 // setupSSHClone sets up a test clone
 func setupSSHClone(t *testing.T) (SSHCloneDetails, func()) {
-	testRepo, _, cleanup := testhelper.NewTestRepo(t)
+	testRepo, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	storagePath := testhelper.GitlabTestStoragePath()

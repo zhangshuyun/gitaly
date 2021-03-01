@@ -11,6 +11,7 @@ import (
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/conflicts"
@@ -65,7 +66,7 @@ func testSuccessfulResolveConflictsRequest(t *testing.T, ctx context.Context) {
 	client, conn := conflicts.NewConflictsClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 	repo := localrepo.New(git.NewExecCommandFactory(config.Config), testRepo, config.Config)
 
@@ -205,7 +206,7 @@ func testResolveConflictsStableID(t *testing.T, ctx context.Context) {
 	client, conn := conflicts.NewConflictsClient(t, serverSocketPath)
 	defer conn.Close()
 
-	repoProto, _, cleanupFn := testhelper.NewTestRepo(t)
+	repoProto, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
@@ -285,7 +286,7 @@ func testFailedResolveConflictsRequestDueToResolutionError(t *testing.T, ctx con
 	client, conn := conflicts.NewConflictsClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	mdGS := testhelper.GitalyServersMetadata(t, serverSocketPath)
@@ -354,7 +355,7 @@ func testFailedResolveConflictsRequestDueToValidation(t *testing.T, ctx context.
 	client, conn := conflicts.NewConflictsClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	mdGS := testhelper.GitalyServersMetadata(t, serverSocketPath)

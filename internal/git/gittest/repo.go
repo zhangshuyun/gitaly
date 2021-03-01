@@ -1,4 +1,4 @@
-package testhelper
+package gittest
 
 import (
 	"crypto/sha256"
@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
@@ -23,8 +24,8 @@ const (
 	GlProjectPath = "gitlab-org/gitlab-test"
 )
 
-// CreateRepo creates a temporary directory for a repo, without initializing it
-func CreateRepo(t testing.TB, storagePath, relativePath string) *gitalypb.Repository {
+// InitRepoDir creates a temporary directory for a repo, without initializing it
+func InitRepoDir(t testing.TB, storagePath, relativePath string) *gitalypb.Repository {
 	repoPath := filepath.Join(storagePath, relativePath, "..")
 	require.NoError(t, os.MkdirAll(repoPath, 0755), "making repo parent dir")
 	return &gitalypb.Repository{
@@ -45,9 +46,9 @@ func InitRepoWithWorktree(t testing.TB) (*gitalypb.Repository, string, func()) {
 	return initRepo(t, false)
 }
 
-// NewTestObjectPoolName returns a random pool repository name
-// in format '@pools/[0-9a-z]{2}/[0-9a-z]{2}/[0-9a-z]{64}.git'.
-func NewTestObjectPoolName(t testing.TB) string {
+// NewObjectPoolName returns a random pool repository name in format
+// '@pools/[0-9a-z]{2}/[0-9a-z]{2}/[0-9a-z]{64}.git'.
+func NewObjectPoolName(t testing.TB) string {
 	return filepath.Join("@pools", newDiskHash(t)+".git")
 }
 
@@ -74,7 +75,7 @@ func newDiskHash(t testing.TB) string {
 }
 
 func initRepo(t testing.TB, bare bool) (*gitalypb.Repository, string, func()) {
-	storagePath := GitlabTestStoragePath()
+	storagePath := testhelper.GitlabTestStoragePath()
 	relativePath := NewRepositoryName(t, bare)
 	repoPath := filepath.Join(storagePath, relativePath)
 
@@ -83,9 +84,9 @@ func initRepo(t testing.TB, bare bool) (*gitalypb.Repository, string, func()) {
 		args = append(args, "--bare")
 	}
 
-	MustRunCommand(t, nil, "git", append(args, repoPath)...)
+	testhelper.MustRunCommand(t, nil, "git", append(args, repoPath)...)
 
-	repo := CreateRepo(t, storagePath, relativePath)
+	repo := InitRepoDir(t, storagePath, relativePath)
 	if !bare {
 		repo.RelativePath = filepath.Join(repo.RelativePath, ".git")
 	}
@@ -93,28 +94,28 @@ func initRepo(t testing.TB, bare bool) (*gitalypb.Repository, string, func()) {
 	return repo, repoPath, func() { require.NoError(t, os.RemoveAll(repoPath)) }
 }
 
-// NewTestRepoTo clones a new copy of test repository under a subdirectory in the storage root.
-func NewTestRepoTo(t testing.TB, storageRoot, relativePath string) *gitalypb.Repository {
-	repo, _, _ := cloneTestRepo(t, storageRoot, relativePath, true)
+// CloneRepoAtStorageRoot clones a new copy of test repository under a subdirectory in the storage root.
+func CloneRepoAtStorageRoot(t testing.TB, storageRoot, relativePath string) *gitalypb.Repository {
+	repo, _, _ := cloneRepo(t, storageRoot, relativePath, true)
 	return repo
 }
 
-// NewTestRepoAtStorage clones a new copy of test repository under a subdirectory in the storage root.
-func NewTestRepoAtStorage(t testing.TB, storage config.Storage, relativePath string) *gitalypb.Repository {
-	repo, _, _ := cloneTestRepo(t, storage.Path, relativePath, true)
+// CloneRepoAtStorage clones a new copy of test repository under a subdirectory in the storage root.
+func CloneRepoAtStorage(t testing.TB, storage config.Storage, relativePath string) *gitalypb.Repository {
+	repo, _, _ := cloneRepo(t, storage.Path, relativePath, true)
 	repo.StorageName = storage.Name
 	return repo
 }
 
-// NewTestRepo creates a bare copy of the test repository..
-func NewTestRepo(t testing.TB) (repo *gitalypb.Repository, repoPath string, cleanup func()) {
-	return cloneTestRepo(t, GitlabTestStoragePath(), NewRepositoryName(t, true), true)
+// CloneRepo creates a bare copy of the test repository.
+func CloneRepo(t testing.TB) (repo *gitalypb.Repository, repoPath string, cleanup func()) {
+	return cloneRepo(t, testhelper.GitlabTestStoragePath(), NewRepositoryName(t, true), true)
 }
 
-// NewTestRepoWithWorktree creates a copy of the test repository with a
-// worktree. This is allows you to run normal 'non-bare' Git commands.
-func NewTestRepoWithWorktree(t testing.TB) (repo *gitalypb.Repository, repoPath string, cleanup func()) {
-	return cloneTestRepo(t, GitlabTestStoragePath(), NewRepositoryName(t, false), false)
+// CloneRepoWithWorktree creates a copy of the test repository with a worktree. This is allows you
+// to run normal 'non-bare' Git commands.
+func CloneRepoWithWorktree(t testing.TB) (repo *gitalypb.Repository, repoPath string, cleanup func()) {
+	return cloneRepo(t, testhelper.GitlabTestStoragePath(), NewRepositoryName(t, false), false)
 }
 
 // testRepositoryPath returns the absolute path of local 'gitlab-org/gitlab-test.git' clone.
@@ -125,12 +126,12 @@ func testRepositoryPath(t testing.TB) string {
 		require.Fail(t, "could not get caller info")
 	}
 
-	path := filepath.Join(filepath.Dir(currentFile), "..", "..", "_build", "testrepos", "gitlab-test.git")
+	path := filepath.Join(filepath.Dir(currentFile), "..", "..", "..", "_build", "testrepos", "gitlab-test.git")
 	if !isValidRepoPath(path) {
-		makePath := filepath.Join(filepath.Dir(currentFile), "..", "..")
+		makePath := filepath.Join(filepath.Dir(currentFile), "..", "..", "..")
 		makeTarget := "prepare-test-repos"
 		log.Printf("local clone of 'gitlab-org/gitlab-test.git' not found in %q, running `make %v`", path, makeTarget)
-		MustRunCommand(t, nil, "make", "-C", makePath, makeTarget)
+		testhelper.MustRunCommand(t, nil, "make", "-C", makePath, makeTarget)
 	}
 
 	return path
@@ -145,10 +146,10 @@ func isValidRepoPath(absolutePath string) bool {
 	return true
 }
 
-func cloneTestRepo(t testing.TB, storageRoot, relativePath string, bare bool) (repo *gitalypb.Repository, repoPath string, cleanup func()) {
+func cloneRepo(t testing.TB, storageRoot, relativePath string, bare bool) (repo *gitalypb.Repository, repoPath string, cleanup func()) {
 	repoPath = filepath.Join(storageRoot, relativePath)
 
-	repo = CreateRepo(t, storageRoot, relativePath)
+	repo = InitRepoDir(t, storageRoot, relativePath)
 	args := []string{"clone", "--no-hardlinks", "--dissociate"}
 	if bare {
 		args = append(args, "--bare")
@@ -157,7 +158,7 @@ func cloneTestRepo(t testing.TB, storageRoot, relativePath string, bare bool) (r
 		repo.RelativePath = filepath.Join(relativePath, ".git")
 	}
 
-	MustRunCommand(t, nil, "git", append(args, testRepositoryPath(t), repoPath)...)
+	testhelper.MustRunCommand(t, nil, "git", append(args, testRepositoryPath(t), repoPath)...)
 
 	return repo, repoPath, func() { require.NoError(t, os.RemoveAll(repoPath)) }
 }
@@ -170,5 +171,5 @@ func AddWorktreeArgs(repoPath, worktreeName string) []string {
 
 // AddWorktree creates a worktree in the repository path for tests
 func AddWorktree(t testing.TB, repoPath string, worktreeName string) {
-	MustRunCommand(t, nil, "git", AddWorktreeArgs(repoPath, worktreeName)...)
+	testhelper.MustRunCommand(t, nil, "git", AddWorktreeArgs(repoPath, worktreeName)...)
 }

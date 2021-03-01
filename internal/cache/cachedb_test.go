@@ -12,6 +12,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/cache"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -35,8 +36,8 @@ func TestStreamDBNaiveKeyer(t *testing.T) {
 	defer cfgBuilder.Cleanup()
 	cfg := cfgBuilder.Build(t)
 
-	testRepo1 := testhelper.NewTestRepoAtStorage(t, cfg.Storages[0], "repository-1")
-	testRepo2 := testhelper.NewTestRepoAtStorage(t, cfg.Storages[0], "repository-2")
+	testRepo1 := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "repository-1")
+	testRepo2 := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "repository-2")
 
 	keyer := cache.NewLeaseKeyer(config.NewLocator(cfg))
 

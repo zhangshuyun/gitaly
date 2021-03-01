@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -28,7 +29,7 @@ func TestRepo_WriteBlob(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	pbRepo, repoPath, clean := testhelper.InitBareRepo(t)
+	pbRepo, repoPath, clean := gittest.InitBareRepo(t)
 	defer clean()
 
 	repo := New(git.NewExecCommandFactory(config.Config), pbRepo, config.Config)
@@ -154,7 +155,7 @@ func TestRepo_WriteTag(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	pbRepo, repoPath, clean := testhelper.NewTestRepo(t)
+	pbRepo, repoPath, clean := gittest.CloneRepo(t)
 	defer clean()
 
 	repo := New(git.NewExecCommandFactory(config.Config), pbRepo, config.Config)
@@ -205,7 +206,7 @@ func TestRepo_ReadObject(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepo, _, cleanup := testhelper.NewTestRepo(t)
+	testRepo, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	repo := New(git.NewExecCommandFactory(config.Config), testRepo, config.Config)
@@ -240,7 +241,7 @@ func TestRepo_ReadCommit(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	repoProto, _, cleanup := testhelper.NewTestRepo(t)
+	repoProto, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	repo := New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)

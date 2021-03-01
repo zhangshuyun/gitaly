@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/archive"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -69,7 +70,7 @@ func createFromSnapshot(t *testing.T, req *gitalypb.CreateRepositoryFromSnapshot
 }
 
 func TestCreateRepositoryFromSnapshotSuccess(t *testing.T) {
-	_, sourceRepoPath, cleanTestRepo := testhelper.NewTestRepo(t)
+	_, sourceRepoPath, cleanTestRepo := gittest.CloneRepo(t)
 	defer cleanTestRepo()
 
 	// Ensure these won't be in the archive
@@ -118,7 +119,7 @@ func TestCreateRepositoryFromSnapshotSuccess(t *testing.T) {
 }
 
 func TestCreateRepositoryFromSnapshotFailsIfRepositoryExists(t *testing.T) {
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	req := &gitalypb.CreateRepositoryFromSnapshotRequest{Repository: testRepo}
@@ -129,7 +130,7 @@ func TestCreateRepositoryFromSnapshotFailsIfRepositoryExists(t *testing.T) {
 }
 
 func TestCreateRepositoryFromSnapshotFailsIfBadURL(t *testing.T) {
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	cleanupFn() // free up the destination dir for use
 
 	req := &gitalypb.CreateRepositoryFromSnapshotRequest{
@@ -144,7 +145,7 @@ func TestCreateRepositoryFromSnapshotFailsIfBadURL(t *testing.T) {
 }
 
 func TestCreateRepositoryFromSnapshotBadRequests(t *testing.T) {
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	cleanupFn() // free up the destination dir for use
 
 	testCases := []struct {
@@ -198,7 +199,7 @@ func TestCreateRepositoryFromSnapshotBadRequests(t *testing.T) {
 }
 
 func TestCreateRepositoryFromSnapshotHandlesMalformedResponse(t *testing.T) {
-	testRepo, repoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, repoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	require.NoError(t, os.Remove(filepath.Join(repoPath, "config")))

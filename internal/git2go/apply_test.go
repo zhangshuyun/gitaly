@@ -9,13 +9,14 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 )
 
 func TestExecutor_Apply(t *testing.T) {
-	pbRepo, repoPath, clean := testhelper.InitBareRepo(t)
+	pbRepo, repoPath, clean := gittest.InitBareRepo(t)
 	defer clean()
 
 	repo := localrepo.New(git.NewExecCommandFactory(config.Config), pbRepo, config.Config)
@@ -103,7 +104,7 @@ func TestExecutor_Apply(t *testing.T) {
 		desc         string
 		patches      []Patch
 		parentCommit string
-		tree         []testhelper.TreeEntry
+		tree         []gittest.TreeEntry
 		error        error
 	}{
 		{
@@ -116,7 +117,7 @@ func TestExecutor_Apply(t *testing.T) {
 				},
 			},
 			parentCommit: parentCommitSHA,
-			tree: []testhelper.TreeEntry{
+			tree: []gittest.TreeEntry{
 				{Path: "file", Mode: "100644", Content: "a"},
 			},
 		},
@@ -135,7 +136,7 @@ func TestExecutor_Apply(t *testing.T) {
 				},
 			},
 			parentCommit: updateToA,
-			tree: []testhelper.TreeEntry{
+			tree: []gittest.TreeEntry{
 				{Path: "file", Mode: "100644", Content: "b"},
 			},
 		},
@@ -149,7 +150,7 @@ func TestExecutor_Apply(t *testing.T) {
 				},
 			},
 			parentCommit: parentCommitSHA,
-			tree: []testhelper.TreeEntry{
+			tree: []gittest.TreeEntry{
 				{Path: "file", Mode: "100644", Content: "base"},
 				{Path: "other-file", Mode: "100644", Content: "a"},
 			},
@@ -172,7 +173,7 @@ func TestExecutor_Apply(t *testing.T) {
 			},
 			parentCommit: parentCommitSHA,
 			// error: ErrMergeConflict, <- correct output
-			tree: []testhelper.TreeEntry{
+			tree: []gittest.TreeEntry{
 				{Path: "file", Mode: "100644", Content: "abase"},
 			},
 		},
@@ -211,7 +212,7 @@ func TestExecutor_Apply(t *testing.T) {
 				Committer: committer,
 				Message:   tc.patches[len(tc.patches)-1].Message,
 			}, getCommit(t, ctx, repo, commitID))
-			testhelper.RequireTree(t, config.Config.Git.BinPath, repoPath, commitID, tc.tree)
+			gittest.RequireTree(t, config.Config.Git.BinPath, repoPath, commitID, tc.tree)
 		})
 	}
 }

@@ -1,4 +1,4 @@
-package testhelper
+package gittest
 
 import (
 	"fmt"
@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git/hooks"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 )
 
 // WriteEnvToCustomHook dumps the env vars that the custom hooks receives to a file
@@ -47,13 +48,13 @@ end
 // WriteCustomHook writes a hook in the repo/path.git/custom_hooks directory
 func WriteCustomHook(t testing.TB, repoPath, name string, content []byte) func() {
 	fullPath := filepath.Join(repoPath, "custom_hooks", name)
-	return WriteExecutable(t, fullPath, content)
+	return testhelper.WriteExecutable(t, fullPath, content)
 }
 
 // CaptureHookEnv creates a bogus 'update' Git hook to sniff out what
 // environment variables get set for hooks.
 func CaptureHookEnv(t testing.TB) (string, func()) {
-	tempDir, cleanup := TempDir(t)
+	tempDir, cleanup := testhelper.TempDir(t)
 
 	oldOverride := hooks.Override
 	hooks.Override = filepath.Join(tempDir, "hooks")
@@ -77,11 +78,4 @@ env | grep -e ^GIT -e ^GL_ > ` + hookOutputFile + "\n")
 		cleanup()
 		hooks.Override = oldOverride
 	}
-}
-
-// GetGitEnvData reads and returns the content of testGitEnv
-func GetGitEnvData(t testing.TB) string {
-	gitEnvBytes, err := ioutil.ReadFile(filepath.Join(testDirectory, "git-env"))
-	require.NoError(t, err)
-	return string(gitEnvBytes)
 }

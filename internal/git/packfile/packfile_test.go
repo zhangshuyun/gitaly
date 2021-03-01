@@ -24,20 +24,24 @@ func TestList(t *testing.T) {
 	tempDir, cleanup := testhelper.TempDir(t)
 	defer cleanup()
 
-	repoPath0 := filepath.Join(tempDir, "empty.git")
-	testhelper.MustRunCommand(t, nil, "git", "init", "--bare", repoPath0)
+	emptyRepo := filepath.Join(tempDir, "empty.git")
+	testhelper.MustRunCommand(t, nil, "git", "init", "--bare", emptyRepo)
 
-	_, repoPath1, cleanup1 := testhelper.NewTestRepo(t)
-	defer cleanup1()
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath1, "repack", "-ad")
+	populatedRepo := filepath.Join(tempDir, "populated")
+	testhelper.MustRunCommand(t, nil, "git", "init", populatedRepo)
+	for i := 0; i < 10; i++ {
+		testhelper.MustRunCommand(t, nil, "git", "-C", populatedRepo, "commit",
+			"--allow-empty", "--message", "commit message")
+	}
+	testhelper.MustRunCommand(t, nil, "git", "-C", populatedRepo, "repack", "-ad")
 
 	testCases := []struct {
 		desc     string
 		path     string
 		numPacks int
 	}{
-		{desc: "empty", path: repoPath0},
-		{desc: "1 pack no alternates", path: repoPath1, numPacks: 1},
+		{desc: "empty", path: emptyRepo},
+		{desc: "1 pack no alternates", path: filepath.Join(populatedRepo, ".git"), numPacks: 1},
 	}
 
 	for _, tc := range testCases {

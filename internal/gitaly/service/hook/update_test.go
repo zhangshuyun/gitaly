@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -38,7 +39,7 @@ func TestUpdate_CustomHooks(t *testing.T) {
 	serverSocketPath, stop := runHooksServer(t, config.Config)
 	defer stop()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	client, conn := newHooksClient(t, serverSocketPath)
@@ -66,7 +67,7 @@ func TestUpdate_CustomHooks(t *testing.T) {
 	}
 
 	errorMsg := "error123"
-	cleanup := testhelper.WriteCustomHook(t, testRepoPath, "update", []byte(fmt.Sprintf(`#!/bin/bash
+	cleanup := gittest.WriteCustomHook(t, testRepoPath, "update", []byte(fmt.Sprintf(`#!/bin/bash
 echo %s 1>&2
 exit 1
 `, errorMsg)))

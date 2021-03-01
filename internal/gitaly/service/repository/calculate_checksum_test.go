@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -22,7 +23,7 @@ func TestSuccessfulCalculateChecksum(t *testing.T) {
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	// Force the refs database of testRepo into a known state
@@ -80,7 +81,7 @@ func TestEmptyRepositoryCalculateChecksum(t *testing.T) {
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
 
-	repo, _, cleanupFn := testhelper.InitBareRepo(t)
+	repo, _, cleanupFn := gittest.InitBareRepo(t)
 	defer cleanupFn()
 
 	request := &gitalypb.CalculateChecksumRequest{Repository: repo}
@@ -100,7 +101,7 @@ func TestBrokenRepositoryCalculateChecksum(t *testing.T) {
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
 
-	repo, testRepoPath, cleanupFn := testhelper.InitBareRepo(t)
+	repo, testRepoPath, cleanupFn := gittest.InitBareRepo(t)
 	defer cleanupFn()
 
 	// Force an empty HEAD file
@@ -158,7 +159,7 @@ func TestInvalidRefsCalculateChecksum(t *testing.T) {
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	// Force the refs database of testRepo into a known state

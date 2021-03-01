@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	gitalyhook "gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
@@ -86,7 +87,7 @@ func TestPreReceiveHook_GitlabAPIAccess(t *testing.T) {
 	glID := "key-123"
 	changes := "changes123"
 	protocol := "http"
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	gitObjectDirRel := "git/object/dir"
@@ -193,7 +194,7 @@ func allowedHandler(allowed bool) http.HandlerFunc {
 }
 
 func TestPreReceive_APIErrors(t *testing.T) {
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	testCases := []struct {
@@ -281,7 +282,7 @@ func TestPreReceive_APIErrors(t *testing.T) {
 }
 
 func TestPreReceiveHook_CustomHookErrors(t *testing.T) {
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	mux := http.NewServeMux()
@@ -298,7 +299,7 @@ func TestPreReceiveHook_CustomHookErrors(t *testing.T) {
 	customHookReturnCode := int32(128)
 	customHookReturnMsg := "custom hook error"
 
-	cleanup = testhelper.WriteCustomHook(t, testRepoPath, "pre-receive", []byte(fmt.Sprintf(`#!/bin/bash
+	cleanup = gittest.WriteCustomHook(t, testRepoPath, "pre-receive", []byte(fmt.Sprintf(`#!/bin/bash
 echo '%s' 1>&2
 exit %d
 `, customHookReturnMsg, customHookReturnCode)))
@@ -414,7 +415,7 @@ func TestPreReceiveHook_Primary(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+			testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 			defer cleanupFn()
 
 			mux := http.NewServeMux()
@@ -429,7 +430,7 @@ func TestPreReceiveHook_Primary(t *testing.T) {
 			secretFilePath := filepath.Join(tmpDir, ".gitlab_shell_secret")
 			testhelper.WriteShellSecretFile(t, tmpDir, "token")
 
-			cleanup = testhelper.WriteCustomHook(t, testRepoPath, "pre-receive", []byte(fmt.Sprintf("#!/bin/bash\nexit %d", tc.hookExitCode)))
+			cleanup = gittest.WriteCustomHook(t, testRepoPath, "pre-receive", []byte(fmt.Sprintf("#!/bin/bash\nexit %d", tc.hookExitCode)))
 			defer cleanup()
 
 			gitlabAPI, err := gitalyhook.NewGitlabAPI(config.Gitlab{

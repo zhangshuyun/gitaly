@@ -3,6 +3,7 @@ package ref
 import (
 	"testing"
 
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -10,7 +11,7 @@ import (
 )
 
 func TestRefExists(t *testing.T) {
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	badRepo := &gitalypb.Repository{StorageName: "invalid", RelativePath: "/etc/"}

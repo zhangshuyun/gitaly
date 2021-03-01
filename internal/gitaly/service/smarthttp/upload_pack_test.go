@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/pktline"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
@@ -43,7 +44,7 @@ func testSuccessfulUploadPackRequest(t *testing.T, ctx context.Context) {
 	)
 	defer stop()
 
-	_, testRepoPath, cleanup := testhelper.NewTestRepo(t)
+	_, testRepoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	storagePath := testhelper.GitlabTestStoragePath()
@@ -115,7 +116,7 @@ func testUploadPackRequestWithGitConfigOptions(t *testing.T, ctx context.Context
 	serverSocketPath, stop := runSmartHTTPServer(t, config.Config)
 	defer stop()
 
-	_, testRepoPath, cleanup := testhelper.NewTestRepo(t)
+	_, testRepoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	storagePath := testhelper.GitlabTestStoragePath()
@@ -180,14 +181,14 @@ func TestUploadPackRequestWithGitProtocol(t *testing.T) {
 func testUploadPackRequestWithGitProtocol(t *testing.T, ctx context.Context) {
 	defer func(old config.Cfg) { config.Config = old }(config.Config)
 
-	cfg, restore := testhelper.EnableGitProtocolV2Support(t, config.Config)
+	readProto, cfg, restore := gittest.EnableGitProtocolV2Support(t, config.Config)
 	defer restore()
 	config.Config = cfg
 
 	serverSocketPath, stop := runSmartHTTPServer(t, config.Config)
 	defer stop()
 
-	_, testRepoPath, cleanup := testhelper.NewTestRepo(t)
+	_, testRepoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	storagePath := testhelper.GitlabTestStoragePath()
@@ -216,7 +217,7 @@ func testUploadPackRequestWithGitProtocol(t *testing.T, ctx context.Context) {
 	_, err = makePostUploadPackRequest(ctx, t, serverSocketPath, config.Config.Auth.Token, rpcRequest, requestBody)
 	require.NoError(t, err)
 
-	envData := testhelper.GetGitEnvData(t)
+	envData := readProto()
 	require.Equal(t, fmt.Sprintf("GIT_PROTOCOL=%s\n", git.ProtocolV2), envData)
 }
 
@@ -233,7 +234,7 @@ func testSuccessfulUploadPackDeepenRequest(t *testing.T, ctx context.Context) {
 	serverSocketPath, stop := runSmartHTTPServer(t, config.Config)
 	defer stop()
 
-	testRepo, _, cleanup := testhelper.NewTestRepo(t)
+	testRepo, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	requestBody := &bytes.Buffer{}
@@ -275,7 +276,7 @@ func TestUploadPackWithPackObjectsHook(t *testing.T) {
 	serverSocketPath, stop := runSmartHTTPServer(t, config.Config)
 	defer stop()
 
-	repo, repoPath, cleanup := testhelper.NewTestRepo(t)
+	repo, repoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	oldHead := bytes.TrimSpace(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", "master~"))
@@ -405,7 +406,7 @@ func testUploadPackRequestForPartialCloneSuccess(t *testing.T, ctx context.Conte
 	)
 	defer stop()
 
-	_, testRepoPath, cleanup := testhelper.NewTestRepo(t)
+	_, testRepoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	storagePath := testhelper.GitlabTestStoragePath()
@@ -465,12 +466,12 @@ func testUploadPackRequestForPartialCloneSuccess(t *testing.T, ctx context.Conte
 	// c1788657b95998a2f177a4f86d68a60f2a80117f is CONTRIBUTING.md, which is > 200 bytese
 	blobGreaterThanLimit := "c1788657b95998a2f177a4f86d68a60f2a80117f"
 
-	testhelper.GitObjectMustExist(t, config.Config.Git.BinPath, localRepoPath, blobLessThanLimit)
-	testhelper.GitObjectMustExist(t, config.Config.Git.BinPath, remoteRepoPath, blobGreaterThanLimit)
-	testhelper.GitObjectMustNotExist(t, config.Config.Git.BinPath, localRepoPath, blobGreaterThanLimit)
+	gittest.GitObjectMustExist(t, config.Config.Git.BinPath, localRepoPath, blobLessThanLimit)
+	gittest.GitObjectMustExist(t, config.Config.Git.BinPath, remoteRepoPath, blobGreaterThanLimit)
+	gittest.GitObjectMustNotExist(t, config.Config.Git.BinPath, localRepoPath, blobGreaterThanLimit)
 
 	newBranch := "new-branch"
-	newHead = []byte(testhelper.CreateCommit(t, remoteRepoPath, newBranch, &testhelper.CreateCommitOpts{
+	newHead = []byte(gittest.CreateCommit(t, remoteRepoPath, newBranch, &gittest.CreateCommitOpts{
 		Message: commitMsg,
 	}))
 

@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -42,9 +43,9 @@ func TestWalkRepos(t *testing.T) {
 
 	// file walk happens lexicographically, so we delete repository in the middle
 	// of the seqeuence to ensure the walk proceeds normally
-	testRepo1 := testhelper.NewTestRepoTo(t, storageRoot, "a")
-	deletedRepo := testhelper.NewTestRepoTo(t, storageRoot, "b")
-	testRepo2 := testhelper.NewTestRepoTo(t, storageRoot, "c")
+	testRepo1 := gittest.CloneRepoAtStorageRoot(t, storageRoot, "a")
+	deletedRepo := gittest.CloneRepoAtStorageRoot(t, storageRoot, "b")
+	testRepo2 := gittest.CloneRepoAtStorageRoot(t, storageRoot, "c")
 
 	// to test a directory being deleted during a walk, we must delete a directory after
 	// the file walk has started. To achieve that, we wrap the server to pass down a wrapped

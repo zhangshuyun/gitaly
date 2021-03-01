@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -23,7 +24,7 @@ func TestSuccessfulFindAllRemoteBranchesRequest(t *testing.T) {
 	client, conn := newRefServiceClient(t, serverSocketPath)
 	defer conn.Close()
 
-	repoProto, repoPath, cleanupFn := testhelper.NewTestRepo(t)
+	repoProto, repoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
@@ -38,11 +39,11 @@ func TestSuccessfulFindAllRemoteBranchesRequest(t *testing.T) {
 	}
 
 	for branchName, commitID := range expectedBranches {
-		testhelper.CreateRemoteBranch(t, config.Config.Git.BinPath, repoPath, remoteName, branchName, commitID)
+		gittest.CreateRemoteBranch(t, config.Config.Git.BinPath, repoPath, remoteName, branchName, commitID)
 	}
 
 	for branchName, commitID := range excludedBranches {
-		testhelper.CreateRemoteBranch(t, config.Config.Git.BinPath, repoPath, excludedRemote, branchName, commitID)
+		gittest.CreateRemoteBranch(t, config.Config.Git.BinPath, repoPath, excludedRemote, branchName, commitID)
 	}
 
 	request := &gitalypb.FindAllRemoteBranchesRequest{Repository: repoProto, RemoteName: remoteName}
@@ -87,7 +88,7 @@ func TestInvalidFindAllRemoteBranchesRequest(t *testing.T) {
 	client, conn := newRefServiceClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	testCases := []struct {

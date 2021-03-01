@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 )
 
@@ -15,7 +16,7 @@ func TestLink(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	pool, poolCleanup := NewTestObjectPool(ctx, t, testRepo.GetStorageName())
@@ -45,14 +46,14 @@ func TestLink(t *testing.T) {
 
 	require.Equal(t, content, newContent)
 
-	require.False(t, testhelper.RemoteExists(t, pool.FullPath(), testRepo.GetGlRepository()), "pool remotes should not include %v", testRepo)
+	require.False(t, gittest.RemoteExists(t, pool.FullPath(), testRepo.GetGlRepository()), "pool remotes should not include %v", testRepo)
 }
 
 func TestLinkRemoveBitmap(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	pool, poolCleanup := NewTestObjectPool(ctx, t, testRepo.GetStorageName())
@@ -100,7 +101,7 @@ func TestUnlink(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	pool, poolCleanup := NewTestObjectPool(ctx, t, testRepo.GetStorageName())
@@ -111,17 +112,17 @@ func TestUnlink(t *testing.T) {
 	require.NoError(t, pool.Create(ctx, testRepo), "create pool")
 	require.NoError(t, pool.Link(ctx, testRepo), "link test repo to pool")
 
-	require.False(t, testhelper.RemoteExists(t, pool.FullPath(), testRepo.GetGlRepository()), "pool remotes should include %v", testRepo)
+	require.False(t, gittest.RemoteExists(t, pool.FullPath(), testRepo.GetGlRepository()), "pool remotes should include %v", testRepo)
 
 	require.NoError(t, pool.Unlink(ctx, testRepo), "unlink repo")
-	require.False(t, testhelper.RemoteExists(t, pool.FullPath(), testRepo.GetGlRepository()), "pool remotes should no longer include %v", testRepo)
+	require.False(t, gittest.RemoteExists(t, pool.FullPath(), testRepo.GetGlRepository()), "pool remotes should no longer include %v", testRepo)
 }
 
 func TestLinkAbsoluteLinkExists(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	pool, poolCleanup := NewTestObjectPool(ctx, t, testRepo.GetStorageName())
@@ -149,5 +150,5 @@ func TestLinkAbsoluteLinkExists(t *testing.T) {
 	testRepoObjectsPath := filepath.Join(testRepoPath, "objects")
 	require.Equal(t, fullPath, filepath.Join(testRepoObjectsPath, string(content)), "the content of the alternates file should be the relative version of the absolute pat")
 
-	require.True(t, testhelper.RemoteExists(t, pool.FullPath(), "origin"), "pool remotes should include %v", testRepo)
+	require.True(t, gittest.RemoteExists(t, pool.FullPath(), "origin"), "pool remotes should include %v", testRepo)
 }

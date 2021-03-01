@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -33,7 +34,7 @@ func TestGetArchiveSuccess(t *testing.T) {
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	formats := []gitalypb.GetArchiveRequest_Format{
@@ -201,7 +202,7 @@ func TestGetArchiveWithLfsSuccess(t *testing.T) {
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	// lfs-moar branch SHA
@@ -296,7 +297,7 @@ func TestGetArchiveFailure(t *testing.T) {
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	commitID := "1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"
@@ -431,7 +432,7 @@ func TestGetArchivePathInjection(t *testing.T) {
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepoWithWorktree(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepoWithWorktree(t)
 	defer cleanupFn()
 
 	ctx, cancel := testhelper.Context()
@@ -498,7 +499,7 @@ func TestGetArchivePathInjection(t *testing.T) {
 }
 
 func TestGetArchiveEnv(t *testing.T) {
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	commitID := "1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"
@@ -547,8 +548,8 @@ env | grep -E "^GL_|CORRELATION|GITALY_"`))
 
 	data, err := consumeArchive(stream)
 	require.NoError(t, err)
-	require.Contains(t, string(data), "GL_REPOSITORY="+testhelper.GlRepository)
-	require.Contains(t, string(data), "GL_PROJECT_PATH="+testhelper.GlProjectPath)
+	require.Contains(t, string(data), "GL_REPOSITORY="+gittest.GlRepository)
+	require.Contains(t, string(data), "GL_PROJECT_PATH="+gittest.GlProjectPath)
 	require.Contains(t, string(data), "GL_INTERNAL_CONFIG="+string(cfgData))
 	require.Contains(t, string(data), "GITALY_TLS="+string(tlsCfgData))
 	require.Contains(t, string(data), "CORRELATION_ID="+correlationID)

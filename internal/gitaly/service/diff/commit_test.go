@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/diff"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -21,7 +22,7 @@ func TestSuccessfulCommitDiffRequest(t *testing.T) {
 	client, conn := newDiffClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	rightCommit := "ab2c9622c02288a2bbaaf35d96088cfdff31d9d9"
@@ -198,7 +199,7 @@ func TestSuccessfulCommitDiffRequestWithPaths(t *testing.T) {
 	client, conn := newDiffClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	rightCommit := "e4003da16c1c2c3fc4567700121b17bf8e591c6c"
@@ -276,7 +277,7 @@ func TestSuccessfulCommitDiffRequestWithTypeChangeDiff(t *testing.T) {
 	client, conn := newDiffClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	rightCommit := "184a47d38677e2e439964859b877ae9bc424ab11"
@@ -327,7 +328,7 @@ func TestSuccessfulCommitDiffRequestWithIgnoreWhitespaceChange(t *testing.T) {
 	client, conn := newDiffClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	rightCommit := "e4003da16c1c2c3fc4567700121b17bf8e591c6c"
@@ -441,7 +442,7 @@ func TestSuccessfulCommitDiffRequestWithLimits(t *testing.T) {
 	client, conn := newDiffClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	rightCommit := "899d3d27b04690ac1cd9ef4d8a74fde0667c57f1"
@@ -663,7 +664,7 @@ func TestFailedCommitDiffRequestDueToValidationError(t *testing.T) {
 	client, conn := newDiffClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	rightCommit := "d42783470dc29fde2cf459eb3199ee1d7e3f3a72"
@@ -698,7 +699,7 @@ func TestFailedCommitDiffRequestWithNonExistentCommit(t *testing.T) {
 	client, conn := newDiffClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	nonExistentCommitID := "deadfacedeadfacedeadfacedeadfacedeadface"
@@ -723,7 +724,7 @@ func TestSuccessfulCommitDeltaRequest(t *testing.T) {
 	client, conn := newDiffClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	rightCommit := "742518b2be68fc750bb4c357c0df821a88113286"
@@ -846,7 +847,7 @@ func TestSuccessfulCommitDeltaRequestWithPaths(t *testing.T) {
 	client, conn := newDiffClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	rightCommit := "e4003da16c1c2c3fc4567700121b17bf8e591c6c"
@@ -915,7 +916,7 @@ func TestFailedCommitDeltaRequestDueToValidationError(t *testing.T) {
 	client, conn := newDiffClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	rightCommit := "d42783470dc29fde2cf459eb3199ee1d7e3f3a72"
@@ -950,7 +951,7 @@ func TestFailedCommitDeltaRequestWithNonExistentCommit(t *testing.T) {
 	client, conn := newDiffClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	nonExistentCommitID := "deadfacedeadfacedeadfacedeadfacedeadface"

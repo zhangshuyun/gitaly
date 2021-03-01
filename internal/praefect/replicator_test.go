@@ -18,6 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/objectpool"
 	gitaly_config "gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
@@ -106,7 +107,7 @@ func TestReplMgr_ProcessBacklog(t *testing.T) {
 	srvSocketPath, clean := runFullGitalyServer(t)
 	defer clean()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	conf := config.Config{
@@ -130,7 +131,7 @@ func TestReplMgr_ProcessBacklog(t *testing.T) {
 	}
 
 	// create object pool on the source
-	objectPoolPath := testhelper.NewTestObjectPoolName(t)
+	objectPoolPath := gittest.NewObjectPoolName(t)
 	pool, err := objectpool.NewObjectPool(gitaly_config.Config, gitaly_config.NewLocator(gitaly_config.Config), git.NewExecCommandFactory(gitaly_config.Config), testRepo.GetStorageName(), objectPoolPath)
 	require.NoError(t, err)
 
@@ -185,7 +186,7 @@ func TestReplMgr_ProcessBacklog(t *testing.T) {
 	}
 	require.Len(t, events, 1)
 
-	commitID := testhelper.CreateCommit(t, testRepoPath, "master", &testhelper.CreateCommitOpts{
+	commitID := gittest.CreateCommit(t, testRepoPath, "master", &gittest.CreateCommitOpts{
 		Message: "a commit",
 	})
 
@@ -245,7 +246,7 @@ func TestReplMgr_ProcessBacklog(t *testing.T) {
 
 	testhelper.MustRunCommand(t, nil, "git", "-C", replicatedPath, "cat-file", "-e", commitID)
 	testhelper.MustRunCommand(t, nil, "git", "-C", replicatedPath, "gc")
-	require.Less(t, testhelper.GetGitPackfileDirSize(t, replicatedPath), int64(100), "expect a small pack directory")
+	require.Less(t, gittest.GetGitPackfileDirSize(t, replicatedPath), int64(100), "expect a small pack directory")
 
 	require.Equal(t, mockReplicationLatencyHistogramVec.LabelsCalled(), [][]string{{"update"}})
 	require.Equal(t, mockReplicationDelayHistogramVec.LabelsCalled(), [][]string{{"update"}})
@@ -522,10 +523,10 @@ func TestConfirmReplication(t *testing.T) {
 	srvSocketPath, clean := runFullGitalyServer(t)
 	defer clean()
 
-	testRepoA, testRepoAPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepoA, testRepoAPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
-	testRepoB, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepoB, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	connOpts := []grpc.DialOption{
@@ -539,7 +540,7 @@ func TestConfirmReplication(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, equal)
 
-	testhelper.CreateCommit(t, testRepoAPath, "master", &testhelper.CreateCommitOpts{
+	gittest.CreateCommit(t, testRepoAPath, "master", &gittest.CreateCommitOpts{
 		Message: "a commit",
 	})
 
@@ -598,7 +599,7 @@ func TestProcessBacklog_FailedJobs(t *testing.T) {
 	primarySvr, primarySocket := newReplicationService(t)
 	defer primarySvr.Stop()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	primary := config.Node{
@@ -726,7 +727,7 @@ func TestProcessBacklog_Success(t *testing.T) {
 	primarySvr, primarySocket := newReplicationService(t)
 	defer primarySvr.Stop()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	primary := config.Node{

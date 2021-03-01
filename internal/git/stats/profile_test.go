@@ -8,12 +8,13 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 )
 
 func TestRepositoryProfile(t *testing.T) {
-	testRepo, testRepoPath, cleanup := testhelper.InitBareRepo(t)
+	testRepo, testRepoPath, cleanup := gittest.InitBareRepo(t)
 	defer cleanup()
 
 	ctx, cancel := testhelper.Context()
@@ -33,7 +34,7 @@ func TestRepositoryProfile(t *testing.T) {
 	require.Zero(t, packfilesCount)
 
 	blobs := 10
-	blobIDs := testhelper.WriteBlobs(t, testRepoPath, blobs)
+	blobIDs := gittest.WriteBlobs(t, testRepoPath, blobs)
 
 	unpackedObjects, err = UnpackedObjects(testRepoPath)
 	require.NoError(t, err)
@@ -45,12 +46,12 @@ func TestRepositoryProfile(t *testing.T) {
 	require.Equal(t, int64(blobs), looseObjects)
 
 	for _, blobID := range blobIDs {
-		commitID := testhelper.CommitBlobWithName(t, testRepoPath, blobID, blobID, "adding another blob....")
+		commitID := gittest.CommitBlobWithName(t, testRepoPath, blobID, blobID, "adding another blob....")
 		testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "update-ref", "refs/heads/"+blobID, commitID)
 	}
 
 	// write a loose object
-	testhelper.WriteBlobs(t, testRepoPath, 1)
+	gittest.WriteBlobs(t, testRepoPath, 1)
 
 	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "repack", "-A", "-b", "-d")
 
@@ -65,7 +66,7 @@ func TestRepositoryProfile(t *testing.T) {
 	time.Sleep(1 * time.Millisecond)
 
 	// write another loose object
-	blobID := testhelper.WriteBlobs(t, testRepoPath, 1)[0]
+	blobID := gittest.WriteBlobs(t, testRepoPath, 1)[0]
 
 	// due to OS semantics, ensure that the blob has a timestamp that is after the packfile
 	theFuture := time.Now().Add(10 * time.Minute)

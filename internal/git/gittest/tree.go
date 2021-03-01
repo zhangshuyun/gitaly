@@ -1,10 +1,11 @@
-package testhelper
+package gittest
 
 import (
 	"bytes"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 )
 
 // TreeEntry represents an entry of a git tree object.
@@ -24,7 +25,7 @@ func RequireTree(t testing.TB, gitBin, repoPath, treeish string, expectedEntries
 
 	var actualEntries []TreeEntry
 
-	output := bytes.TrimSpace(MustRunCommand(t, nil, gitBin, "-C", repoPath, "ls-tree", "-r", treeish))
+	output := bytes.TrimSpace(testhelper.MustRunCommand(t, nil, gitBin, "-C", repoPath, "ls-tree", "-r", treeish))
 
 	if len(output) > 0 {
 		for _, line := range bytes.Split(output, []byte("\n")) {
@@ -35,7 +36,7 @@ func RequireTree(t testing.TB, gitBin, repoPath, treeish string, expectedEntries
 			actualEntries = append(actualEntries, TreeEntry{
 				Mode:    string(spaceSplit[0]),
 				Path:    path,
-				Content: string(MustRunCommand(t, nil, gitBin, "-C", repoPath, "show", treeish+":"+path)),
+				Content: string(testhelper.MustRunCommand(t, nil, gitBin, "-C", repoPath, "show", treeish+":"+path)),
 			})
 		}
 	}

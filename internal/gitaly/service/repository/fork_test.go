@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/repository"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -66,7 +67,7 @@ func TestSuccessfulCreateForkRequest(t *testing.T) {
 			md := testhelper.GitalyServersMetadata(t, serverSocketPath)
 			ctx := metadata.NewOutgoingContext(ctxOuter, md)
 
-			testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+			testRepo, _, cleanupFn := gittest.CloneRepo(t)
 			defer cleanupFn()
 
 			forkedRepo := &gitalypb.Repository{
@@ -118,7 +119,7 @@ func TestFailedCreateForkRequestDueToExistingTarget(t *testing.T) {
 	md := testhelper.GitalyServersMetadata(t, serverSocketPath)
 	ctx := metadata.NewOutgoingContext(ctxOuter, md)
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	testCases := []struct {

@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	gitalyhook "gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/hook"
@@ -68,13 +69,13 @@ func TestSuccessfulFetchInternalRemote(t *testing.T) {
 	gitaly1Socket, cleanup := remote.RunRemoteServiceServer(t, testhelper.WithStorages([]string{"gitaly-1"}))
 	defer cleanup()
 
-	repo, _, cleanup := testhelper.NewTestRepo(t)
+	repo, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	gitaly0Repo, gitaly0RepoPath, cleanup := cloneRepoAtStorage(t, locator, repo, "gitaly-0")
 	defer cleanup()
 
-	testhelper.CreateCommit(t, gitaly0RepoPath, "master", nil)
+	gittest.CreateCommit(t, gitaly0RepoPath, "master", nil)
 
 	gitaly1Repo, gitaly1RepoPath, cleanup := cloneRepoAtStorage(t, locator, repo, "gitaly-1")
 	defer cleanup()
@@ -123,7 +124,7 @@ func TestFailedFetchInternalRemote(t *testing.T) {
 	client, conn := remote.NewRemoteClient(t, serverSocketPath)
 	defer conn.Close()
 
-	repo, _, cleanupFn := testhelper.InitBareRepo(t)
+	repo, _, cleanupFn := gittest.InitBareRepo(t)
 	defer cleanupFn()
 
 	ctx, cancel := testhelper.Context()

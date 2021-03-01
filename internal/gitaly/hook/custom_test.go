@@ -12,6 +12,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -49,7 +50,7 @@ echo "$0"
 exit 0`)
 
 func TestCustomHooksSuccess(t *testing.T) {
-	testRepo, testRepoPath, cleanup := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	testCases := []struct {
@@ -100,7 +101,7 @@ func TestCustomHooksSuccess(t *testing.T) {
 }
 
 func TestCustomHookPartialFailure(t *testing.T) {
-	testRepo, testRepoPath, cleanup := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	globalCustomHooksDir, cleanup := testhelper.TempDir(t)
@@ -176,7 +177,7 @@ func TestCustomHookPartialFailure(t *testing.T) {
 }
 
 func TestCustomHooksMultipleHooks(t *testing.T) {
-	testRepo, testRepoPath, cleanup := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	globalCustomHooksDir, cleanup := testhelper.TempDir(t)
@@ -226,7 +227,7 @@ func TestCustomHooksMultipleHooks(t *testing.T) {
 }
 
 func TestCustomHooksWithSymlinks(t *testing.T) {
-	testRepo, _, cleanup := testhelper.NewTestRepo(t)
+	testRepo, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	globalCustomHooksDir, cleanup := testhelper.TempDir(t)
@@ -297,7 +298,7 @@ func TestCustomHooksWithSymlinks(t *testing.T) {
 }
 
 func TestMultilineStdin(t *testing.T) {
-	testRepo, testRepoPath, cleanup := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	globalCustomHooksDir, cleanup := testhelper.TempDir(t)
@@ -331,7 +332,7 @@ old3 new3 ref3
 }
 
 func TestMultipleScriptsStdin(t *testing.T) {
-	testRepo, testRepoPath, cleanup := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	globalCustomHooksDir, cleanup := testhelper.TempDir(t)

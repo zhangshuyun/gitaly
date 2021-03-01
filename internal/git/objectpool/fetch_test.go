@@ -16,10 +16,10 @@ import (
 )
 
 func TestFetchFromOriginDangling(t *testing.T) {
-	source, _, cleanup := testhelper.NewTestRepo(t)
+	source, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
-	pool, err := NewObjectPool(config.Config, config.NewLocator(config.Config), git.NewExecCommandFactory(config.Config), source.StorageName, testhelper.NewTestObjectPoolName(t))
+	pool, err := NewObjectPool(config.Config, config.NewLocator(config.Config), git.NewExecCommandFactory(config.Config), source.StorageName, gittest.NewObjectPoolName(t))
 	require.NoError(t, err)
 
 	ctx, cancel := testhelper.Context()
@@ -88,10 +88,10 @@ func TestFetchFromOriginDangling(t *testing.T) {
 }
 
 func TestFetchFromOriginDeltaIslands(t *testing.T) {
-	source, sourcePath, cleanup := testhelper.NewTestRepo(t)
+	source, sourcePath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
-	pool, err := NewObjectPool(config.Config, config.NewLocator(config.Config), git.NewExecCommandFactory(config.Config), source.StorageName, testhelper.NewTestObjectPoolName(t))
+	pool, err := NewObjectPool(config.Config, config.NewLocator(config.Config), git.NewExecCommandFactory(config.Config), source.StorageName, gittest.NewObjectPoolName(t))
 	require.NoError(t, err)
 
 	ctx, cancel := testhelper.Context()
@@ -114,10 +114,10 @@ func TestFetchFromOriginDeltaIslands(t *testing.T) {
 }
 
 func TestFetchFromOriginBitmapHashCache(t *testing.T) {
-	source, _, cleanup := testhelper.NewTestRepo(t)
+	source, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
-	pool, err := NewObjectPool(config.Config, config.NewLocator(config.Config), git.NewExecCommandFactory(config.Config), source.StorageName, testhelper.NewTestObjectPoolName(t))
+	pool, err := NewObjectPool(config.Config, config.NewLocator(config.Config), git.NewExecCommandFactory(config.Config), source.StorageName, gittest.NewObjectPoolName(t))
 	require.NoError(t, err)
 
 	ctx, cancel := testhelper.Context()
@@ -143,10 +143,10 @@ func TestFetchFromOriginBitmapHashCache(t *testing.T) {
 }
 
 func TestFetchFromOriginRefUpdates(t *testing.T) {
-	source, sourcePath, cleanup := testhelper.NewTestRepo(t)
+	source, sourcePath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
-	pool, err := NewObjectPool(config.Config, config.NewLocator(config.Config), git.NewExecCommandFactory(config.Config), source.StorageName, testhelper.NewTestObjectPoolName(t))
+	pool, err := NewObjectPool(config.Config, config.NewLocator(config.Config), git.NewExecCommandFactory(config.Config), source.StorageName, gittest.NewObjectPoolName(t))
 	require.NoError(t, err)
 	poolPath := pool.FullPath()
 
