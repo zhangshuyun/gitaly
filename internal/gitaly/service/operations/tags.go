@@ -3,6 +3,7 @@ package operations
 import (
 	"context"
 	"errors"
+	"bytes"
 	"fmt"
 	"strings"
 	"time"
@@ -40,13 +41,7 @@ func (s *Server) UserDeleteTag(ctx context.Context, req *gitalypb.UserDeleteTagR
 				PreReceiveError: preReceiveError.message,
 			}, nil
 		}
-
-		var updateRefError updateRefError
-		if errors.As(err, &updateRefError) {
-			return nil, status.Error(codes.FailedPrecondition, err.Error())
-		}
-
-		return nil, err
+		return nil, status.Error(codes.Unknown, err.Error())
 	}
 
 	return &gitalypb.UserDeleteTagResponse{}, nil
@@ -66,6 +61,10 @@ func validateUserCreateTag(req *gitalypb.UserCreateTagRequest) error {
 
 	if len(req.TargetRevision) == 0 {
 		return status.Error(codes.InvalidArgument, "empty target revision")
+	}
+
+	if bytes.Contains(req.Message, []byte("\000")) {
+		return status.Errorf(codes.Unknown, "tag message contains null byte")
 	}
 
 	// Our own Go-specific validation
@@ -94,7 +93,11 @@ func (s *Server) UserCreateTag(ctx context.Context, req *gitalypb.UserCreateTagR
 	targetRevision := git.Revision(req.TargetRevision)
 	targetInfo, err := catFile.Info(ctx, targetRevision)
 	if err != nil {
-		return nil, status.Errorf(codes.FailedPrecondition, "revspec '%s' not found", targetRevision)
+		var tmp catfile.NotFoundError
+		if errors.As(err, &tmp) {
+			return nil, status.Errorf(codes.FailedPrecondition, "revision '%s' not found", targetRevision)
+		}
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 	targetObjectID, targetObjectType := targetInfo.Oid, targetInfo.Type
 
@@ -144,7 +147,7 @@ func (s *Server) UserCreateTag(ctx context.Context, req *gitalypb.UserCreateTagR
 
 		tagObjectID, err := localRepo.WriteTag(ctx, targetObjectID, targetObjectType, req.TagName, req.User.Name, req.User.Email, req.Message, committerTime)
 		if err != nil {
-			return nil, status.Error(codes.Internal, err.Error())
+			return nil, status.Error(codes.Unknown, err.Error())
 		}
 
 		createdTag, err := log.GetTagCatfile(ctx, catFile, git.Revision(tagObjectID), string(req.TagName), false, false)
@@ -177,21 +180,7 @@ func (s *Server) UserCreateTag(ctx context.Context, req *gitalypb.UserCreateTagR
 				PreReceiveError: preReceiveError.message,
 			}, nil
 		}
-
-		var updateRefError updateRefError
-		if errors.As(err, &updateRefError) {
-			// Most likely a race condition where the
-			// branch was concurrently
-			// updated. Unavailable = "try again" (per
-			// https://godoc.org/google.golang.org/grpc/codes)
-			return nil, status.Error(codes.Unavailable, err.Error())
-		}
-
-		// This is our "PANIC" response, if we've got an
-		// unknown error (it should all be updateRefError
-		// above) let's relay it to the caller. This should
-		// not happen.
-		return nil, status.Error(codes.Internal, err.Error())
+		return nil, status.Error(codes.Unknown, err.Error())
 	}
 
 	// Save ourselves looking this up earlier in case update-ref

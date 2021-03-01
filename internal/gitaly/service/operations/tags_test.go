@@ -458,7 +458,7 @@ func testSuccessfulUserCreateTagRequestAnnotatedLightweightDisambiguation(t *tes
 		{
 			desc:    "error: contains null byte",
 			message: "\000",
-			err:     status.Error(codes.Unknown, "ArgumentError: string contains null byte"),
+			err:     status.Error(codes.Unknown, "tag message contains null byte"),
 		},
 		{
 			desc:    "annotated: some control characters",
@@ -483,7 +483,7 @@ func testSuccessfulUserCreateTagRequestAnnotatedLightweightDisambiguation(t *tes
 		{
 			desc:    "lightweight: simple Unicode whitespace",
 			message: "\u00a0",
-			objType: "tag",
+			objType: "commit",
 		},
 		{
 			desc:    "lightweight: lots of Unicode whitespace",
@@ -1250,7 +1250,7 @@ func TestFailedUserCreateTagRequestDueToTagExistence(t *testing.T) {
 				Tag:    nil,
 				Exists: true,
 			},
-			err: nil,
+			err: status.Errorf(codes.Unknown, "git update-ref: exit status 128, stderr: \"fatal: commit: cannot lock ref 'refs/tags/%s': reference already exists\\n\"", "v1.1.0"),
 		},
 		{
 			desc:           "existing tag nonexisting target revision",
@@ -1258,7 +1258,7 @@ func TestFailedUserCreateTagRequestDueToTagExistence(t *testing.T) {
 			targetRevision: "does-not-exist",
 			user:           testhelper.TestUser,
 			response:       nil,
-			err:            status.Errorf(codes.FailedPrecondition, "revspec '%s' not found", "does-not-exist"),
+			err:            status.Errorf(codes.FailedPrecondition, "revision '%s' not found", "does-not-exist"),
 		},
 	}
 
@@ -1300,6 +1300,8 @@ func TestFailedUserCreateTagRequestDueToValidation(t *testing.T) {
 		user           *gitalypb.User
 		response       *gitalypb.UserCreateTagResponse
 		err            error
+		errPrefix      string
+		errCode        codes.Code
 	}{
 		{
 			desc:           "empty target revision",
@@ -1331,7 +1333,7 @@ func TestFailedUserCreateTagRequestDueToValidation(t *testing.T) {
 			targetRevision: "i-dont-exist",
 			user:           testhelper.TestUser,
 			response:       nil,
-			err:            status.Errorf(codes.FailedPrecondition, "revspec '%s' not found", "i-dont-exist"),
+			err:            status.Errorf(codes.FailedPrecondition, "revision '%s' not found", "i-dont-exist"),
 		},
 		{
 			desc:           "space in lightweight tag name",
@@ -1339,7 +1341,8 @@ func TestFailedUserCreateTagRequestDueToValidation(t *testing.T) {
 			targetRevision: "master",
 			user:           testhelper.TestUser,
 			response:       nil,
-			err:            status.Errorf(codes.Unknown, "Gitlab::Git::CommitError: Could not update refs/tags/%s. Please refresh and try again.", "a tag"),
+			errCode:        codes.Unknown,
+			errPrefix:      "git update-ref: exit status 128, stderr: \"fatal: invalid ref format",
 		},
 		{
 			desc:           "space in annotated tag name",
@@ -1348,7 +1351,8 @@ func TestFailedUserCreateTagRequestDueToValidation(t *testing.T) {
 			message:        "a message",
 			user:           testhelper.TestUser,
 			response:       nil,
-			err:            status.Errorf(codes.Unknown, "Gitlab::Git::CommitError: Could not update refs/tags/%s. Please refresh and try again.", "a tag"),
+			errCode:        codes.Unknown,
+			errPrefix:      "mktag failed to create a tag: error: ",
 		},
 		{
 			desc:           "newline in lightweight tag name",
@@ -1356,7 +1360,8 @@ func TestFailedUserCreateTagRequestDueToValidation(t *testing.T) {
 			targetRevision: "master",
 			user:           testhelper.TestUser,
 			response:       nil,
-			err:            status.Errorf(codes.Unknown, "Gitlab::Git::CommitError: Could not update refs/tags/%s. Please refresh and try again.", "a\ntag"),
+			errCode:        codes.Unknown,
+			errPrefix:      "git update-ref: exit status 128, stderr: \"fatal: invalid ref format",
 		},
 		{
 			desc:           "newline in annotated tag name",
@@ -1365,7 +1370,8 @@ func TestFailedUserCreateTagRequestDueToValidation(t *testing.T) {
 			message:        "a message",
 			user:           testhelper.TestUser,
 			response:       nil,
-			err:            status.Error(codes.Unknown, "Rugged::InvalidError: failed to parse signature - expected prefix doesn't match actual"),
+			errCode:        codes.Unknown,
+			errPrefix:      "failed to format tag header for mktag: ",
 		},
 		{
 			desc:           "injection in lightweight tag name",
@@ -1373,7 +1379,8 @@ func TestFailedUserCreateTagRequestDueToValidation(t *testing.T) {
 			targetRevision: "master",
 			user:           testhelper.TestUser,
 			response:       nil,
-			err:            status.Errorf(codes.Unknown, "Gitlab::Git::CommitError: Could not update refs/tags/%s. Please refresh and try again.", injectedTag),
+			errCode:        codes.Unknown,
+			errPrefix:      "git update-ref: exit status 128, stderr: \"fatal: invalid ref format",
 		},
 		{
 			desc:           "injection in annotated tag name",
@@ -1382,7 +1389,8 @@ func TestFailedUserCreateTagRequestDueToValidation(t *testing.T) {
 			message:        "a message",
 			user:           testhelper.TestUser,
 			response:       nil,
-			err:            status.Errorf(codes.Unknown, "Gitlab::Git::CommitError: Could not update refs/tags/%s. Please refresh and try again.", injectedTag),
+			errCode:        codes.Unknown,
+			errPrefix:      "failed to format tag header for mktag:",
 		},
 	}
 
@@ -1397,7 +1405,12 @@ func TestFailedUserCreateTagRequestDueToValidation(t *testing.T) {
 			}
 
 			response, err := client.UserCreateTag(ctx, request)
-			require.Equal(t, testCase.err, err)
+			if len(testCase.errPrefix) > 0 {
+				testhelper.RequireGrpcError(t, err, testCase.errCode)
+				testhelper.GrpcErrorHasMessagePrefix(t, err, testCase.errPrefix)
+			} else {
+				require.Equal(t, testCase.err, err)
+			}
 			require.Equal(t, testCase.response, response)
 		})
 	}
