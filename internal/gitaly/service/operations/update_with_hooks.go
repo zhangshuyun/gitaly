@@ -25,6 +25,7 @@ func (e preReceiveError) Error() string {
 
 type updateRefError struct {
 	reference string
+	stderr *bytes.Buffer
 }
 
 func (e updateRefError) Error() string {
@@ -108,7 +109,7 @@ func (s *Server) updateReferenceWithHooks(ctx context.Context, repo *gitalypb.Re
 	}
 
 	if err := updater.Wait(); err != nil {
-		return updateRefError{reference: reference}
+		return err
 	}
 
 	if err := s.hookManager.PostReceiveHook(ctx, repo, nil, env, strings.NewReader(changes), &stdout, &stderr); err != nil {
