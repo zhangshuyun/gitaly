@@ -805,10 +805,18 @@ func (c *Coordinator) newRequestFinalizer(
 	cause string,
 ) func() error {
 	return func() error {
-		ctxlogrus.Extract(ctx).WithFields(logrus.Fields{
-			"replication.cause": cause,
-			"replication.type":  change,
-		}).Info("queueing replication job")
+		log := ctxlogrus.Extract(ctx).WithFields(logrus.Fields{
+			"request":         cause,
+			"request.change":  change,
+			"request.primary": primary,
+		})
+		if len(updatedSecondaries) > 0 {
+			log = log.WithField("request.updated", updatedSecondaries)
+		}
+		if len(outdatedSecondaries) > 0 {
+			log = log.WithField("request.outdated", outdatedSecondaries)
+		}
+		log.Info("finalizing mutator")
 
 		switch change {
 		case datastore.UpdateRepo:
