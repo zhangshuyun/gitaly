@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -16,7 +17,7 @@ func TestFindRemoteRootRefSuccess(t *testing.T) {
 	client, conn := NewRemoteClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	request := &gitalypb.FindRemoteRootRefRequest{Repository: testRepo, Remote: "origin"}
@@ -37,7 +38,7 @@ func TestFindRemoteRootRefFailedDueToValidation(t *testing.T) {
 
 	invalidRepo := &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	testCases := []struct {
@@ -83,7 +84,7 @@ func TestFindRemoteRootRefFailedDueToInvalidRemote(t *testing.T) {
 	client, conn := NewRemoteClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	request := &gitalypb.FindRemoteRootRefRequest{Repository: testRepo, Remote: "invalid"}

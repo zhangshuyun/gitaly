@@ -51,7 +51,7 @@ func TestSuccessfulReceivePackRequest(t *testing.T) {
 	serverSocketPath, stop := runSmartHTTPServer(t, config.Config)
 	defer stop()
 
-	repo, repoPath, cleanup := testhelper.NewTestRepo(t)
+	repo, repoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	client, conn := newSmartHTTPClient(t, serverSocketPath, config.Config.Auth.Token)
@@ -118,7 +118,7 @@ func TestSuccessfulReceivePackRequestWithGitProtocol(t *testing.T) {
 	serverSocketPath, stop := runSmartHTTPServer(t, config.Config)
 	defer stop()
 
-	repo, repoPath, cleanup := testhelper.NewTestRepo(t)
+	repo, repoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	client, conn := newSmartHTTPClient(t, serverSocketPath, config.Config.Auth.Token)
@@ -145,7 +145,7 @@ func TestFailedReceivePackRequestWithGitOpts(t *testing.T) {
 	serverSocketPath, stop := runSmartHTTPServer(t, config.Config)
 	defer stop()
 
-	repo, _, cleanup := testhelper.NewTestRepo(t)
+	repo, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	client, conn := newSmartHTTPClient(t, serverSocketPath, config.Config.Auth.Token)
@@ -182,7 +182,7 @@ func TestFailedReceivePackRequestDueToHooksFailure(t *testing.T) {
 	serverSocketPath, stop := runSmartHTTPServer(t, config.Config)
 	defer stop()
 
-	repo, _, cleanup := testhelper.NewTestRepo(t)
+	repo, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	client, conn := newSmartHTTPClient(t, serverSocketPath, config.Config.Auth.Token)
@@ -230,7 +230,7 @@ type pushData struct {
 }
 
 func newTestPush(t *testing.T, fileContents []byte) *pushData {
-	_, repoPath, localCleanup := testhelper.NewTestRepoWithWorktree(t)
+	_, repoPath, localCleanup := gittest.CloneRepoWithWorktree(t)
 	defer localCleanup()
 
 	oldHead, newHead := createCommit(t, repoPath, fileContents)
@@ -317,7 +317,7 @@ func TestFailedReceivePackRequestDueToValidationError(t *testing.T) {
 }
 
 func TestInvalidTimezone(t *testing.T) {
-	_, localRepoPath, localCleanup := testhelper.NewTestRepoWithWorktree(t)
+	_, localRepoPath, localCleanup := gittest.CloneRepoWithWorktree(t)
 	defer localCleanup()
 
 	head := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", localRepoPath, "rev-parse", "HEAD"))
@@ -346,7 +346,7 @@ func TestInvalidTimezone(t *testing.T) {
 	socket, stop := runSmartHTTPServer(t, config.Config)
 	defer stop()
 
-	repo, repoPath, cleanup := testhelper.NewTestRepo(t)
+	repo, repoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	client, conn := newSmartHTTPClient(t, socket, config.Config.Auth.Token)
@@ -402,7 +402,7 @@ func TestPostReceivePackToHooks(t *testing.T) {
 	}(config.Config)
 	config.Config.GitlabShell.Dir = tempGitlabShellDir
 
-	repo, testRepoPath, cleanup := testhelper.NewTestRepo(t)
+	repo, testRepoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	push := newTestPush(t, nil)
@@ -491,7 +491,7 @@ func testPostReceiveWithTransactionsViaPraefect(t *testing.T, ctx context.Contex
 	gitlabUser := "gitlab_user-1234"
 	gitlabPassword := "gitlabsecret9887"
 
-	repo, repoPath, cleanup := testhelper.NewTestRepo(t)
+	repo, repoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	opts := testhelper.GitlabTestServerOptions{
@@ -613,7 +613,7 @@ func TestPostReceiveWithReferenceTransactionHook(t *testing.T) {
 		stream, err := client.PostReceivePack(ctx)
 		require.NoError(t, err)
 
-		repo, _, cleanup := testhelper.NewTestRepo(t)
+		repo, _, cleanup := gittest.CloneRepo(t)
 		defer cleanup()
 
 		request := &gitalypb.PostReceivePackRequest{Repository: repo, GlId: "key-1234", GlRepository: "some_repo"}
@@ -630,7 +630,7 @@ func TestPostReceiveWithReferenceTransactionHook(t *testing.T) {
 		stream, err := client.PostReceivePack(ctx)
 		require.NoError(t, err)
 
-		repo, repoPath, cleanup := testhelper.NewTestRepo(t)
+		repo, repoPath, cleanup := gittest.CloneRepo(t)
 		defer cleanup()
 
 		// Create a new branch which we're about to delete. We also pack references because

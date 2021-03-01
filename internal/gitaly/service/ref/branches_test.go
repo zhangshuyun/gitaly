@@ -5,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -22,7 +23,7 @@ func TestSuccessfulFindBranchRequest(t *testing.T) {
 	client, conn := newRefServiceClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepoProto, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepoProto, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	repo := localrepo.New(git.NewExecCommandFactory(config.Config), testRepoProto, config.Config)
@@ -99,7 +100,7 @@ func TestFailedFindBranchRequest(t *testing.T) {
 	client, conn := newRefServiceClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	testCases := []struct {

@@ -10,24 +10,25 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 )
 
 func TestNewObjectPool(t *testing.T) {
-	_, err := NewObjectPool(config.Config, config.NewLocator(config.Config), nil, "default", testhelper.NewTestObjectPoolName(t))
+	_, err := NewObjectPool(config.Config, config.NewLocator(config.Config), nil, "default", gittest.NewObjectPoolName(t))
 	require.NoError(t, err)
 
-	_, err = NewObjectPool(config.Config, config.NewLocator(config.Config), nil, "mepmep", testhelper.NewTestObjectPoolName(t))
+	_, err = NewObjectPool(config.Config, config.NewLocator(config.Config), nil, "mepmep", gittest.NewObjectPoolName(t))
 	require.Error(t, err, "creating pool in storage that does not exist should fail")
 }
 
 func TestNewFromRepoSuccess(t *testing.T) {
 	ctx, cancel := testhelper.Context()
-	testRepo, _, cleanup := testhelper.NewTestRepo(t)
+	testRepo, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
-	relativePoolPath := testhelper.NewTestObjectPoolName(t)
+	relativePoolPath := gittest.NewObjectPoolName(t)
 	gitCmdFactory := git.NewExecCommandFactory(config.Config)
 
 	pool, err := NewObjectPool(config.Config, config.NewLocator(config.Config), gitCmdFactory, testRepo.GetStorageName(), relativePoolPath)
@@ -45,7 +46,7 @@ func TestNewFromRepoSuccess(t *testing.T) {
 }
 
 func TestNewFromRepoNoObjectPool(t *testing.T) {
-	testRepo, testRepoPath, cleanup := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	gitCmdFactory := git.NewExecCommandFactory(config.Config)
@@ -96,12 +97,12 @@ func TestCreate(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	masterSha := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "show-ref", "master")
 	gitCmdFactory := git.NewExecCommandFactory(config.Config)
-	pool, err := NewObjectPool(config.Config, config.NewLocator(config.Config), gitCmdFactory, testRepo.GetStorageName(), testhelper.NewTestObjectPoolName(t))
+	pool, err := NewObjectPool(config.Config, config.NewLocator(config.Config), gitCmdFactory, testRepo.GetStorageName(), gittest.NewObjectPoolName(t))
 	require.NoError(t, err)
 
 	err = pool.Create(ctx, testRepo)
@@ -131,10 +132,10 @@ func TestCreateSubDirsExist(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
-	pool, err := NewObjectPool(config.Config, config.NewLocator(config.Config), git.NewExecCommandFactory(config.Config), testRepo.GetStorageName(), testhelper.NewTestObjectPoolName(t))
+	pool, err := NewObjectPool(config.Config, config.NewLocator(config.Config), git.NewExecCommandFactory(config.Config), testRepo.GetStorageName(), gittest.NewObjectPoolName(t))
 	defer pool.Remove(ctx)
 	require.NoError(t, err)
 
@@ -152,10 +153,10 @@ func TestRemove(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
-	pool, err := NewObjectPool(config.Config, config.NewLocator(config.Config), git.NewExecCommandFactory(config.Config), testRepo.GetStorageName(), testhelper.NewTestObjectPoolName(t))
+	pool, err := NewObjectPool(config.Config, config.NewLocator(config.Config), git.NewExecCommandFactory(config.Config), testRepo.GetStorageName(), gittest.NewObjectPoolName(t))
 	require.NoError(t, err)
 
 	err = pool.Create(ctx, testRepo)

@@ -69,7 +69,7 @@ func TestSuccessfulFetchInternalRemote(t *testing.T) {
 	gitaly1Socket, cleanup := remote.RunRemoteServiceServer(t, testhelper.WithStorages([]string{"gitaly-1"}))
 	defer cleanup()
 
-	repo, _, cleanup := testhelper.NewTestRepo(t)
+	repo, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	gitaly0Repo, gitaly0RepoPath, cleanup := cloneRepoAtStorage(t, locator, repo, "gitaly-0")
@@ -124,7 +124,7 @@ func TestFailedFetchInternalRemote(t *testing.T) {
 	client, conn := remote.NewRemoteClient(t, serverSocketPath)
 	defer conn.Close()
 
-	repo, _, cleanupFn := testhelper.InitBareRepo(t)
+	repo, _, cleanupFn := gittest.InitBareRepo(t)
 	defer cleanupFn()
 
 	ctx, cancel := testhelper.Context()

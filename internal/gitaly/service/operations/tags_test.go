@@ -41,7 +41,7 @@ func testSuccessfulUserDeleteTagRequest(t *testing.T, ctx context.Context) {
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	tagNameInput := "to-be-deleted-soon-tag"
@@ -74,7 +74,7 @@ func testSuccessfulGitHooksForUserDeleteTagRequest(t *testing.T, ctx context.Con
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	tagNameInput := "to-be-déleted-soon-tag"
@@ -184,7 +184,7 @@ func testSuccessfulUserCreateTagRequest(t *testing.T, ctx context.Context) {
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	repoProto, repoPath, cleanupFn := testhelper.NewTestRepo(t)
+	repoProto, repoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
@@ -280,7 +280,7 @@ func TestUserCreateTagWithTransaction(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	repoProto, repoPath, cleanupFn := testhelper.NewTestRepo(t)
+	repoProto, repoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
@@ -441,7 +441,7 @@ func testSuccessfulUserCreateTagRequestAnnotatedLightweightDisambiguation(t *tes
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	preReceiveHook, cleanup := writeAssertObjectTypePreReceiveHook(t)
@@ -543,7 +543,7 @@ func testSuccessfulUserCreateTagRequestWithParsedTargetRevision(t *testing.T, ct
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", "heads/master", "master~1")
@@ -629,7 +629,7 @@ func TestSuccessfulUserCreateTagRequestToNonCommit(t *testing.T) {
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	inputTagName := "to-be-créated-soon"
@@ -750,7 +750,7 @@ func TestSuccessfulUserCreateTagNestedTags(t *testing.T) {
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	repoProto, repoPath, cleanupFn := testhelper.NewTestRepo(t)
+	repoProto, repoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
@@ -885,7 +885,7 @@ func TestUserCreateTagStableTagIDs(t *testing.T) {
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	response, err := client.UserCreateTag(ctx, &gitalypb.UserCreateTagRequest{
@@ -916,7 +916,7 @@ func TestUserDeleteTagsuccessfulDeletionOfPrefixedTag(t *testing.T) {
 }
 
 func testUserDeleteTagsuccessfulDeletionOfPrefixedTag(t *testing.T, ctx context.Context) {
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	serverSocketPath, stop := runOperationServiceServer(t)
@@ -967,7 +967,7 @@ func TestUserCreateTagsuccessfulCreationOfPrefixedTag(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	repoProto, repoPath, cleanupFn := testhelper.NewTestRepo(t)
+	repoProto, repoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
@@ -1035,7 +1035,7 @@ func TestSuccessfulGitHooksForUserCreateTagRequest(t *testing.T) {
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	projectPath := "project/path"
@@ -1078,7 +1078,7 @@ func TestFailedUserDeleteTagRequestDueToValidation(t *testing.T) {
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	testCases := []struct {
@@ -1159,7 +1159,7 @@ func testFailedUserDeleteTagDueToHooks(t *testing.T, ctx context.Context) {
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	tagNameInput := "to-be-deleted-soon-tag"
@@ -1199,7 +1199,7 @@ func TestFailedUserCreateTagDueToHooks(t *testing.T) {
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	request := &gitalypb.UserCreateTagRequest{
@@ -1231,7 +1231,7 @@ func TestFailedUserCreateTagRequestDueToTagExistence(t *testing.T) {
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	testCases := []struct {
@@ -1289,7 +1289,7 @@ func TestFailedUserCreateTagRequestDueToValidation(t *testing.T) {
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	injectedTag := "inject-tag\ntagger . <> 0 +0000\n\nInjected subject\n\n"
@@ -1417,7 +1417,7 @@ func testTagHookOutput(t *testing.T, ctx context.Context) {
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	testCases := []struct {

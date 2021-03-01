@@ -87,7 +87,7 @@ func TestPreReceiveHook_GitlabAPIAccess(t *testing.T) {
 	glID := "key-123"
 	changes := "changes123"
 	protocol := "http"
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	gitObjectDirRel := "git/object/dir"
@@ -194,7 +194,7 @@ func allowedHandler(allowed bool) http.HandlerFunc {
 }
 
 func TestPreReceive_APIErrors(t *testing.T) {
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	testCases := []struct {
@@ -282,7 +282,7 @@ func TestPreReceive_APIErrors(t *testing.T) {
 }
 
 func TestPreReceiveHook_CustomHookErrors(t *testing.T) {
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	mux := http.NewServeMux()
@@ -415,7 +415,7 @@ func TestPreReceiveHook_Primary(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+			testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 			defer cleanupFn()
 
 			mux := http.NewServeMux()

@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
@@ -33,7 +34,7 @@ func TestApplyGitattributesSuccess(t *testing.T) {
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	infoPath := filepath.Join(testhelper.GitlabTestStoragePath(),
@@ -116,7 +117,7 @@ func TestApplyGitattributesWithTransaction(t *testing.T) {
 		Token:      config.Config.Auth.Token,
 	}
 
-	repo, repoPath, cleanup := testhelper.NewTestRepo(t)
+	repo, repoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	for _, tc := range []struct {
@@ -233,7 +234,7 @@ func TestApplyGitattributesFailure(t *testing.T) {
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	tests := []struct {

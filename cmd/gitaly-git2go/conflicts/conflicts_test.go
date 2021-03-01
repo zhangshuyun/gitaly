@@ -9,6 +9,7 @@ import (
 	git "github.com/libgit2/git2go/v30"
 	"github.com/stretchr/testify/require"
 	cmdtesthelper "gitlab.com/gitlab-org/gitaly/cmd/gitaly-git2go/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -177,7 +178,7 @@ func TestConflicts(t *testing.T) {
 	}
 
 	for _, tc := range testcases {
-		_, repoPath, cleanup := testhelper.NewTestRepo(t)
+		_, repoPath, cleanup := gittest.CloneRepo(t)
 		defer cleanup()
 
 		base := cmdtesthelper.BuildCommit(t, repoPath, nil, tc.base)

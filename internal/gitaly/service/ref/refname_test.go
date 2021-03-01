@@ -5,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -18,7 +19,7 @@ func TestFindRefNameSuccess(t *testing.T) {
 	client, conn := newRefServiceClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	rpcRequest := &gitalypb.FindRefNameRequest{
@@ -48,7 +49,7 @@ func TestFindRefNameEmptyCommit(t *testing.T) {
 	client, conn := newRefServiceClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	rpcRequest := &gitalypb.FindRefNameRequest{
@@ -109,7 +110,7 @@ func TestFindRefNameInvalidPrefix(t *testing.T) {
 	client, conn := newRefServiceClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	rpcRequest := &gitalypb.FindRefNameRequest{
@@ -136,7 +137,7 @@ func TestFindRefNameInvalidObject(t *testing.T) {
 	client, conn := newRefServiceClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	rpcRequest := &gitalypb.FindRefNameRequest{

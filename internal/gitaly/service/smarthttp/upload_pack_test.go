@@ -44,7 +44,7 @@ func testSuccessfulUploadPackRequest(t *testing.T, ctx context.Context) {
 	)
 	defer stop()
 
-	_, testRepoPath, cleanup := testhelper.NewTestRepo(t)
+	_, testRepoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	storagePath := testhelper.GitlabTestStoragePath()
@@ -116,7 +116,7 @@ func testUploadPackRequestWithGitConfigOptions(t *testing.T, ctx context.Context
 	serverSocketPath, stop := runSmartHTTPServer(t, config.Config)
 	defer stop()
 
-	_, testRepoPath, cleanup := testhelper.NewTestRepo(t)
+	_, testRepoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	storagePath := testhelper.GitlabTestStoragePath()
@@ -188,7 +188,7 @@ func testUploadPackRequestWithGitProtocol(t *testing.T, ctx context.Context) {
 	serverSocketPath, stop := runSmartHTTPServer(t, config.Config)
 	defer stop()
 
-	_, testRepoPath, cleanup := testhelper.NewTestRepo(t)
+	_, testRepoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	storagePath := testhelper.GitlabTestStoragePath()
@@ -234,7 +234,7 @@ func testSuccessfulUploadPackDeepenRequest(t *testing.T, ctx context.Context) {
 	serverSocketPath, stop := runSmartHTTPServer(t, config.Config)
 	defer stop()
 
-	testRepo, _, cleanup := testhelper.NewTestRepo(t)
+	testRepo, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	requestBody := &bytes.Buffer{}
@@ -276,7 +276,7 @@ func TestUploadPackWithPackObjectsHook(t *testing.T) {
 	serverSocketPath, stop := runSmartHTTPServer(t, config.Config)
 	defer stop()
 
-	repo, repoPath, cleanup := testhelper.NewTestRepo(t)
+	repo, repoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	oldHead := bytes.TrimSpace(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", "master~"))
@@ -406,7 +406,7 @@ func testUploadPackRequestForPartialCloneSuccess(t *testing.T, ctx context.Conte
 	)
 	defer stop()
 
-	_, testRepoPath, cleanup := testhelper.NewTestRepo(t)
+	_, testRepoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	storagePath := testhelper.GitlabTestStoragePath()

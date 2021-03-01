@@ -11,6 +11,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
@@ -45,7 +46,7 @@ func (m *mockHookManager) ReferenceTransactionHook(ctx context.Context, state ho
 }
 
 func TestUpdateReferenceWithHooks_invalidParameters(t *testing.T) {
-	repo, _, cleanup := testhelper.NewTestRepo(t)
+	repo, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	user := &gitalypb.User{
@@ -133,7 +134,7 @@ func TestUpdateReferenceWithHooks(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	repo, repoPath, cleanup := testhelper.NewTestRepo(t)
+	repo, repoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	payload, err := git.NewHooksPayload(config.Config, repo, nil, nil, &git.ReceiveHooksPayload{

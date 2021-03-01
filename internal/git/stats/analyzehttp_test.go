@@ -17,7 +17,7 @@ func TestClone(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	_, repoPath, cleanup := testhelper.NewTestRepo(t)
+	_, repoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	serverPort, stopGitServer := gittest.GitServer(t, config.Config, repoPath, nil)
@@ -76,7 +76,7 @@ func TestCloneWithAuth(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	_, repoPath, cleanup := testhelper.NewTestRepo(t)
+	_, repoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	const (

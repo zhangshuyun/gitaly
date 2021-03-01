@@ -9,6 +9,7 @@ import (
 
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -25,7 +26,7 @@ func TestFailedUploadArchiveRequestDueToTimeout(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepo, _, cleanup := testhelper.NewTestRepo(t)
+	testRepo, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	stream, err := client.SSHUploadArchive(ctx)
@@ -107,7 +108,7 @@ func TestUploadArchiveSuccess(t *testing.T) {
 
 	cmd := exec.Command(config.Config.Git.BinPath, "archive", "master", "--remote=git@localhost:test/test.git")
 
-	testRepo, _, cleanup := testhelper.NewTestRepo(t)
+	testRepo, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	err := testArchive(t, serverSocketPath, testRepo, cmd)

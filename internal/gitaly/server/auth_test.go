@@ -328,7 +328,7 @@ func TestAuthBeforeLimit(t *testing.T) {
 
 	config.Config.Auth.Token = "abc123"
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	gitlabShellDir, cleanup := testhelper.TempDir(t)

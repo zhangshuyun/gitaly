@@ -13,16 +13,17 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
 func TestLogObjectInfo(t *testing.T) {
-	repo1, repoPath1, cleanup1 := testhelper.NewTestRepo(t)
+	repo1, repoPath1, cleanup1 := gittest.CloneRepo(t)
 	defer cleanup1()
 
-	repo2, repoPath2, cleanup2 := testhelper.NewTestRepo(t)
+	repo2, repoPath2, cleanup2 := gittest.CloneRepo(t)
 	defer cleanup2()
 
 	ctx, cancel := testhelper.Context()

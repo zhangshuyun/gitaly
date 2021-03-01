@@ -21,7 +21,7 @@ func TestRenameRepositorySuccess(t *testing.T) {
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	req := &gitalypb.RenameRepositoryRequest{Repository: testRepo, RelativePath: "a-new-location"}
@@ -51,10 +51,10 @@ func TestRenameRepositoryDestinationExists(t *testing.T) {
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
-	destinationRepo, destinationRepoPath, cleanupDestinationRepo := testhelper.NewTestRepo(t)
+	destinationRepo, destinationRepoPath, cleanupDestinationRepo := gittest.CloneRepo(t)
 	defer cleanupDestinationRepo()
 
 	_, sha := gittest.CreateCommitOnNewBranch(t, destinationRepoPath)
@@ -79,7 +79,7 @@ func TestRenameRepositoryInvalidRequest(t *testing.T) {
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	ctx, cancel := testhelper.Context()

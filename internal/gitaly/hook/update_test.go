@@ -16,7 +16,7 @@ import (
 )
 
 func TestUpdate_customHooks(t *testing.T) {
-	repo, repoPath, cleanup := testhelper.NewTestRepo(t)
+	repo, repoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	hookManager := NewManager(config.NewLocator(config.Config), transaction.NewManager(config.Config), GitlabAPIStub, config.Config)

@@ -40,7 +40,7 @@ func TestSuccessfulCreateBranchRequest(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	repoProto, repoPath, cleanupFn := testhelper.NewTestRepo(t)
+	repoProto, repoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
@@ -123,7 +123,7 @@ func TestSuccessfulCreateBranchRequest(t *testing.T) {
 }
 
 func TestUserCreateBranchWithTransaction(t *testing.T) {
-	testRepo, testRepoPath, cleanup := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	internalSocket := config.Config.GitalyInternalSocketPath()
@@ -224,7 +224,7 @@ func TestSuccessfulGitHooksForUserCreateBranchRequest(t *testing.T) {
 }
 
 func testSuccessfulGitHooksForUserCreateBranchRequest(t *testing.T, ctx context.Context) {
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	serverSocketPath, stop := runOperationServiceServer(t)
@@ -268,7 +268,7 @@ func TestSuccessfulCreateBranchRequestWithStartPointRefPrefix(t *testing.T) {
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	repoProto, repoPath, cleanupFn := testhelper.NewTestRepo(t)
+	repoProto, repoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
@@ -341,7 +341,7 @@ func TestFailedUserCreateBranchDueToHooks(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	serverSocketPath, stop := runOperationServiceServer(t)
@@ -380,7 +380,7 @@ func TestFailedUserCreateBranchRequest(t *testing.T) {
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	testCases := []struct {
@@ -444,7 +444,7 @@ func TestSuccessfulUserDeleteBranchRequest(t *testing.T) {
 }
 
 func testSuccessfulUserDeleteBranchRequest(t *testing.T, ctx context.Context) {
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	serverSocketPath, stop := runOperationServiceServer(t)
@@ -500,7 +500,7 @@ func testSuccessfulUserDeleteBranchRequest(t *testing.T, ctx context.Context) {
 }
 
 func TestSuccessfulGitHooksForUserDeleteBranchRequest(t *testing.T) {
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	serverSocketPath, stop := runOperationServiceServer(t)
@@ -537,7 +537,7 @@ func TestSuccessfulGitHooksForUserDeleteBranchRequest(t *testing.T) {
 }
 
 func TestUserDeleteBranch_transaction(t *testing.T) {
-	repo, repoPath, cleanup := testhelper.NewTestRepo(t)
+	repo, repoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	// This creates a new branch "delete-me" which exists both in the packed-refs file and as a
@@ -610,7 +610,7 @@ func TestFailedUserDeleteBranchDueToValidation(t *testing.T) {
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	testCases := []struct {
@@ -662,7 +662,7 @@ func TestUserDeleteBranchFailedDueToRefsHeadsPrefix(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	serverSocketPath, stop := runOperationServiceServer(t)
@@ -716,7 +716,7 @@ func TestFailedUserDeleteBranchDueToHooks(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	serverSocketPath, stop := runOperationServiceServer(t)
@@ -761,7 +761,7 @@ func TestBranchHookOutput(t *testing.T) {
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	testCases := []struct {

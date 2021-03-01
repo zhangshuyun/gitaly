@@ -58,7 +58,7 @@ func touch(t *testing.T, format string, args ...interface{}) {
 }
 
 func TestGetSnapshotSuccess(t *testing.T) {
-	testRepo, repoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, repoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	// Ensure certain files exist in the test repo.
@@ -104,14 +104,14 @@ func TestGetSnapshotWithDedupe(t *testing.T) {
 		{
 			desc: "absolute path",
 			alternatePathFunc: func(*testing.T, string) string {
-				return filepath.Join(testhelper.GitlabTestStoragePath(), testhelper.NewTestObjectPoolName(t), "objects")
+				return filepath.Join(testhelper.GitlabTestStoragePath(), gittest.NewObjectPoolName(t), "objects")
 			},
 		},
 		{
 			desc: "relative path",
 			alternatePathFunc: func(t *testing.T, objDir string) string {
 				altObjDir, err := filepath.Rel(objDir, filepath.Join(
-					testhelper.GitlabTestStoragePath(), testhelper.NewTestObjectPoolName(t), "objects",
+					testhelper.GitlabTestStoragePath(), gittest.NewObjectPoolName(t), "objects",
 				))
 				require.NoError(t, err)
 				return altObjDir
@@ -119,7 +119,7 @@ func TestGetSnapshotWithDedupe(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			testRepo, repoPath, cleanup := testhelper.NewTestRepoWithWorktree(t)
+			testRepo, repoPath, cleanup := gittest.CloneRepoWithWorktree(t)
 			defer cleanup()
 
 			ctx, cancel := testhelper.Context()
@@ -173,7 +173,7 @@ func TestGetSnapshotWithDedupe(t *testing.T) {
 }
 
 func TestGetSnapshotWithDedupeSoftFailures(t *testing.T) {
-	testRepo, repoPath, cleanup := testhelper.NewTestRepoWithWorktree(t)
+	testRepo, repoPath, cleanup := gittest.CloneRepoWithWorktree(t)
 	defer cleanup()
 
 	locator := config.NewLocator(config.Config)
@@ -238,7 +238,7 @@ func copyRepoUsingSnapshot(t *testing.T, locator storage.Locator, source *gitaly
 	srv := httptest.NewServer(&tarTesthandler{tarData: bytes.NewBuffer(data), secret: secret})
 	defer srv.Close()
 
-	repoCopy, repoCopyPath, cleanupCopy := testhelper.NewTestRepo(t)
+	repoCopy, repoCopyPath, cleanupCopy := gittest.CloneRepo(t)
 
 	// Delete the repository so we can re-use the path
 	require.NoError(t, os.RemoveAll(repoCopyPath))
@@ -256,7 +256,7 @@ func copyRepoUsingSnapshot(t *testing.T, locator storage.Locator, source *gitaly
 }
 
 func TestGetSnapshotFailsIfRepositoryMissing(t *testing.T) {
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	cleanupFn() // Remove the repo
 
 	req := &gitalypb.GetSnapshotRequest{Repository: testRepo}
@@ -266,7 +266,7 @@ func TestGetSnapshotFailsIfRepositoryMissing(t *testing.T) {
 }
 
 func TestGetSnapshotFailsIfRepositoryContainsSymlink(t *testing.T) {
-	testRepo, repoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, repoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	// Make packed-refs into a symlink to break GetSnapshot()

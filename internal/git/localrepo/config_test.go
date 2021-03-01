@@ -9,13 +9,14 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 )
 
 func TestRepo_Config(t *testing.T) {
-	bareRepo, _, cleanup := testhelper.InitBareRepo(t)
+	bareRepo, _, cleanup := gittest.InitBareRepo(t)
 	defer cleanup()
 
 	repo := New(nil, bareRepo, config.Cfg{})
@@ -46,7 +47,7 @@ func TestBuildConfigAddOptsFlags(t *testing.T) {
 }
 
 func TestConfig_Add(t *testing.T) {
-	repoProto, repoPath, cleanup := testhelper.InitBareRepo(t)
+	repoProto, repoPath, cleanup := gittest.InitBareRepo(t)
 	defer cleanup()
 	repo := New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
@@ -145,7 +146,7 @@ func TestBuildConfigGetRegexpOptsFlags(t *testing.T) {
 }
 
 func TestConfig_GetRegexp(t *testing.T) {
-	repoProto, repoPath, cleanup := testhelper.InitBareRepo(t)
+	repoProto, repoPath, cleanup := gittest.InitBareRepo(t)
 	defer cleanup()
 	repo := New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
@@ -256,7 +257,7 @@ func TestConfig_UnsetAll(t *testing.T) {
 		}
 	}
 
-	repoProto, repoPath, cleanup := testhelper.InitBareRepo(t)
+	repoProto, repoPath, cleanup := gittest.InitBareRepo(t)
 	defer cleanup()
 	repo := New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 

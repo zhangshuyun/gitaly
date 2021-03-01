@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -469,7 +470,7 @@ func TestInvalidWikiFindPageRequestRevision(t *testing.T) {
 }
 
 func TestSuccessfulWikiFindPageRequestWithTrailers(t *testing.T) {
-	wikiRepo, worktreePath, cleanupFn := testhelper.InitRepoWithWorktree(t)
+	wikiRepo, worktreePath, cleanupFn := gittest.InitRepoWithWorktree(t)
 	defer cleanupFn()
 
 	committerName := "Scróoge McDuck" // Include UTF-8 to ensure encoding is handled

@@ -40,7 +40,7 @@ func testWithFeature(t *testing.T, feature featureflag.FeatureFlag, testcase fun
 }
 
 func TestSuccessfulMerge(t *testing.T) {
-	repoProto, repoPath, cleanupFn := testhelper.NewTestRepo(t)
+	repoProto, repoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
@@ -129,7 +129,7 @@ func TestSuccessfulMerge(t *testing.T) {
 }
 
 func TestSuccessfulMerge_stableMergeIDs(t *testing.T) {
-	repoProto, repoPath, cleanupFn := testhelper.NewTestRepo(t)
+	repoProto, repoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
@@ -210,7 +210,7 @@ func TestAbortedMerge(t *testing.T) {
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	repoProto, repoPath, cleanupFn := testhelper.NewTestRepo(t)
+	repoProto, repoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
@@ -273,7 +273,7 @@ func TestAbortedMerge(t *testing.T) {
 }
 
 func TestFailedMergeConcurrentUpdate(t *testing.T) {
-	repoProto, repoPath, cleanupFn := testhelper.NewTestRepo(t)
+	repoProto, repoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
@@ -321,7 +321,7 @@ func TestFailedMergeConcurrentUpdate(t *testing.T) {
 }
 
 func TestUserMergeBranch_ambiguousReference(t *testing.T) {
-	repoProto, repoPath, cleanupFn := testhelper.NewTestRepo(t)
+	repoProto, repoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
@@ -390,7 +390,7 @@ func TestUserMergeBranch_ambiguousReference(t *testing.T) {
 }
 
 func TestFailedMergeDueToHooks(t *testing.T) {
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	serverSocketPath, stop := runOperationServiceServer(t)
@@ -453,7 +453,7 @@ func TestSuccessfulUserFFBranchRequest(t *testing.T) {
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	ctx, cancel := testhelper.Context()
@@ -491,7 +491,7 @@ func TestFailedUserFFBranchRequest(t *testing.T) {
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	commitID := "cfe32cf61b73a0d5e9f13e774abde7ff789b1660"
@@ -585,7 +585,7 @@ func TestFailedUserFFBranchDueToHooks(t *testing.T) {
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	commitID := "cfe32cf61b73a0d5e9f13e774abde7ff789b1660"
@@ -623,7 +623,7 @@ func TestUserFFBranch_ambiguousReference(t *testing.T) {
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer func() { require.NoError(t, conn.Close()) }()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	ctx, cancel := testhelper.Context()
@@ -677,7 +677,7 @@ func TestSuccessfulUserMergeToRefRequest(t *testing.T) {
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	repoProto, repoPath, cleanupFn := testhelper.NewTestRepo(t)
+	repoProto, repoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
@@ -787,7 +787,7 @@ func TestConflictsOnUserMergeToRefRequest(t *testing.T) {
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", mergeBranchName, "824be604a34828eb682305f0d963056cfac87b2d")
@@ -837,7 +837,7 @@ func TestUserMergeToRef_stableMergeID(t *testing.T) {
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	repoProto, repoPath, cleanup := testhelper.NewTestRepo(t)
+	repoProto, repoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
@@ -894,7 +894,7 @@ func TestFailedUserMergeToRefRequest(t *testing.T) {
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", mergeBranchName, mergeBranchHeadBefore)
@@ -996,7 +996,7 @@ func TestUserMergeToRefIgnoreHooksRequest(t *testing.T) {
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", mergeBranchName, mergeBranchHeadBefore)

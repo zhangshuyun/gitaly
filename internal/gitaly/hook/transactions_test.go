@@ -40,7 +40,7 @@ func TestHookManager_stopCalled(t *testing.T) {
 		Token:      "foo",
 	}
 
-	repo, repoPath, cleanup := testhelper.NewTestRepo(t)
+	repo, repoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	var mockTxMgr mockTransactionManager
@@ -137,7 +137,7 @@ func TestHookManager_contextCancellationCancelsVote(t *testing.T) {
 
 	hookManager := NewManager(config.NewLocator(config.Config), &mockTxMgr, GitlabAPIStub, config.Config)
 
-	repo, _, cleanup := testhelper.NewTestRepo(t)
+	repo, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	hooksPayload, err := git.NewHooksPayload(

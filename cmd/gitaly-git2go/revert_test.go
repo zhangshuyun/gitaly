@@ -11,13 +11,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	cmdtesthelper "gitlab.com/gitlab-org/gitaly/cmd/gitaly-git2go/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 )
 
 func TestRevert_validation(t *testing.T) {
-	_, repoPath, cleanup := testhelper.NewTestRepo(t)
+	_, repoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	testcases := []struct {
@@ -150,7 +151,7 @@ func TestRevert_trees(t *testing.T) {
 	}
 	for _, tc := range testcases {
 		t.Run(tc.desc, func(t *testing.T) {
-			_, repoPath, cleanup := testhelper.NewTestRepo(t)
+			_, repoPath, cleanup := gittest.CloneRepo(t)
 			defer cleanup()
 
 			ours, revert := tc.setupRepo(t, repoPath)

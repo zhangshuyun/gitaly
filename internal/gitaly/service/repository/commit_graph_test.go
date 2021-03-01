@@ -21,7 +21,7 @@ func TestWriteCommitGraph(t *testing.T) {
 	c, conn := newRepositoryClient(t, s)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanup := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	ctx, cancel := testhelper.Context()
@@ -54,7 +54,7 @@ func TestUpdateCommitGraph(t *testing.T) {
 	c, conn := newRepositoryClient(t, s)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanup := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	ctx, cancel := testhelper.Context()

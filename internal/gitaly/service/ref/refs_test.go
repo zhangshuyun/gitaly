@@ -42,7 +42,7 @@ func TestSuccessfulFindAllBranchNames(t *testing.T) {
 	client, conn := newRefServiceClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	rpcRequest := &gitalypb.FindAllBranchNamesRequest{Repository: testRepo}
@@ -78,7 +78,7 @@ func TestFindAllBranchNamesVeryLargeResponse(t *testing.T) {
 	client, conn := newRefServiceClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	ctx, cancel := testhelper.Context()
@@ -185,7 +185,7 @@ func TestSuccessfulFindAllTagNames(t *testing.T) {
 	client, conn := newRefServiceClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	rpcRequest := &gitalypb.FindAllTagNamesRequest{Repository: testRepo}
@@ -271,7 +271,7 @@ func TestHeadReference(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	headRef, err := headReference(ctx, git.NewExecCommandFactory(config.Config), testRepo)
@@ -284,7 +284,7 @@ func TestHeadReference(t *testing.T) {
 }
 
 func TestHeadReferenceWithNonExistingHead(t *testing.T) {
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	// Write bad HEAD
@@ -328,7 +328,7 @@ func TestSetDefaultBranchRef(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+			testRepo, _, cleanupFn := gittest.CloneRepo(t)
 			defer cleanupFn()
 
 			gitCmdFactory := git.NewExecCommandFactory(config.Config)
@@ -350,7 +350,7 @@ func TestDefaultBranchName(t *testing.T) {
 		headReference = _headReference
 	}()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	testCases := []struct {
@@ -426,7 +426,7 @@ func TestSuccessfulFindDefaultBranchName(t *testing.T) {
 	client, conn := newRefServiceClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	rpcRequest := &gitalypb.FindDefaultBranchNameRequest{Repository: testRepo}
@@ -482,7 +482,7 @@ func TestSuccessfulFindAllTagsRequest(t *testing.T) {
 	stop, serverSocketPath := runRefServiceServer(t)
 	defer stop()
 
-	repoProto, repoPath, cleanupFn := testhelper.NewTestRepoWithWorktree(t)
+	repoProto, repoPath, cleanupFn := gittest.CloneRepoWithWorktree(t)
 	defer cleanupFn()
 	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
@@ -684,7 +684,7 @@ func TestFindAllTagNestedTags(t *testing.T) {
 	stop, serverSocketPath := runRefServiceServer(t)
 	defer stop()
 
-	testRepoCopy, testRepoCopyPath, cleanupFn := testhelper.NewTestRepoWithWorktree(t)
+	testRepoCopy, testRepoCopyPath, cleanupFn := gittest.CloneRepoWithWorktree(t)
 	defer cleanupFn()
 
 	blobID := "faaf198af3a36dbf41961466703cc1d47c61d051"
@@ -839,7 +839,7 @@ func TestSuccessfulFindLocalBranches(t *testing.T) {
 	client, conn := newRefServiceClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	rpcRequest := &gitalypb.FindLocalBranchesRequest{Repository: testRepo}
@@ -893,7 +893,7 @@ func TestFindLocalBranchesPagination(t *testing.T) {
 	client, conn := newRefServiceClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	ctx, cancel := testhelper.Context()
@@ -996,7 +996,7 @@ func TestFindLocalBranchesSort(t *testing.T) {
 	client, conn := newRefServiceClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	for _, testCase := range testCases {
@@ -1085,7 +1085,7 @@ func TestSuccessfulFindAllBranchesRequest(t *testing.T) {
 		},
 	}
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	gittest.CreateRemoteBranch(t, config.Config.Git.BinPath, testRepoPath, "origin",
@@ -1120,7 +1120,7 @@ func TestSuccessfulFindAllBranchesRequestWithMergedBranches(t *testing.T) {
 	stop, serverSocketPath := runRefServiceServer(t)
 	defer stop()
 
-	repoProto, repoPath, cleanupFn := testhelper.NewTestRepo(t)
+	repoProto, repoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
@@ -1275,7 +1275,7 @@ func TestListTagNamesContainingCommit(t *testing.T) {
 	client, conn := newRefServiceClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	testCases := []struct {
@@ -1352,7 +1352,7 @@ func TestListBranchNamesContainingCommit(t *testing.T) {
 	client, conn := newRefServiceClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	testCases := []struct {
@@ -1443,7 +1443,7 @@ func TestSuccessfulFindTagRequest(t *testing.T) {
 	stop, serverSocketPath := runRefServiceServer(t)
 	defer stop()
 
-	repoProto, repoPath, cleanupFn := testhelper.NewTestRepoWithWorktree(t)
+	repoProto, repoPath, cleanupFn := gittest.CloneRepoWithWorktree(t)
 	defer cleanupFn()
 	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
@@ -1614,7 +1614,7 @@ func TestFindTagNestedTag(t *testing.T) {
 	stop, serverSocketPath := runRefServiceServer(t)
 	defer stop()
 
-	testRepoCopy, testRepoCopyPath, cleanupFn := testhelper.NewTestRepoWithWorktree(t)
+	testRepoCopy, testRepoCopyPath, cleanupFn := gittest.CloneRepoWithWorktree(t)
 	defer cleanupFn()
 
 	blobID := "faaf198af3a36dbf41961466703cc1d47c61d051"
@@ -1706,7 +1706,7 @@ func TestInvalidFindTagRequest(t *testing.T) {
 	client, conn := newRefServiceClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	testCases := []struct {

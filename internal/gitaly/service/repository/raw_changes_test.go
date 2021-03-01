@@ -22,7 +22,7 @@ func TestGetRawChanges(t *testing.T) {
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	testCases := []struct {
@@ -140,7 +140,7 @@ func TestGetRawChangesSpecialCharacters(t *testing.T) {
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	ctx, cancel := testhelper.Context()
@@ -186,7 +186,7 @@ func TestGetRawChangesFailures(t *testing.T) {
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	testCases := []struct {
@@ -249,7 +249,7 @@ func TestGetRawChangesManyFiles(t *testing.T) {
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	ctx, cancel := testhelper.Context()
@@ -278,7 +278,7 @@ func TestGetRawChangesMappingOperations(t *testing.T) {
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	ctx, cancel := testhelper.Context()
@@ -330,7 +330,7 @@ func TestGetRawChangesInvalidUTF8Paths(t *testing.T) {
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	const (

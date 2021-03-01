@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/objectpool"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -22,10 +23,10 @@ func TestGetObjectPoolSuccess(t *testing.T) {
 	client, conn := newObjectPoolClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
-	relativePoolPath := testhelper.NewTestObjectPoolName(t)
+	relativePoolPath := gittest.NewObjectPoolName(t)
 
 	pool, err := objectpool.NewObjectPool(config.Config, locator, git.NewExecCommandFactory(config.Config), testRepo.GetStorageName(), relativePoolPath)
 	require.NoError(t, err)
@@ -54,7 +55,7 @@ func TestGetObjectPoolNoFile(t *testing.T) {
 	client, conn := newObjectPoolClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	ctx, cancel := testhelper.Context()
@@ -75,7 +76,7 @@ func TestGetObjectPoolBadFile(t *testing.T) {
 	client, conn := newObjectPoolClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	alternatesFilePath := filepath.Join(testRepoPath, "objects", "info", "alternates")

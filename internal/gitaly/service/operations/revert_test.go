@@ -27,7 +27,7 @@ func testServerUserRevertSuccessful(t *testing.T, ctxOuter context.Context) {
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	repoProto, repoPath, cleanup := testhelper.NewTestRepo(t)
+	repoProto, repoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
@@ -40,7 +40,7 @@ func testServerUserRevertSuccessful(t *testing.T, ctxOuter context.Context) {
 	revertedCommit, err := repo.ReadCommit(ctxOuter, "d59c60028b053793cecfb4022de34602e1a9218e")
 	require.NoError(t, err)
 
-	testRepoCopy, testRepoCopyPath, cleanup := testhelper.NewTestRepo(t) // read-only repo
+	testRepoCopy, testRepoCopyPath, cleanup := gittest.CloneRepo(t) // read-only repo
 	defer cleanup()
 
 	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoCopyPath, "branch", destinationBranch, "master")
@@ -193,7 +193,7 @@ func testServerUserRevertStableID(t *testing.T, ctxOuter context.Context) {
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	repoProto, _, cleanup := testhelper.NewTestRepo(t)
+	repoProto, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
@@ -259,7 +259,7 @@ func testServerUserRevertSuccessfulIntoNewRepo(t *testing.T, ctxOuter context.Co
 
 	gitCmdFactory := git.NewExecCommandFactory(config.Config)
 
-	startRepoProto, _, cleanup := testhelper.NewTestRepo(t)
+	startRepoProto, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 	startRepo := localrepo.New(gitCmdFactory, startRepoProto, config.Config)
 
@@ -269,7 +269,7 @@ func testServerUserRevertSuccessfulIntoNewRepo(t *testing.T, ctxOuter context.Co
 	masterHeadCommit, err := startRepo.ReadCommit(ctxOuter, "master")
 	require.NoError(t, err)
 
-	repoProto, _, cleanup := testhelper.InitBareRepo(t)
+	repoProto, _, cleanup := gittest.InitBareRepo(t)
 	defer cleanup()
 	repo := localrepo.New(gitCmdFactory, repoProto, config.Config)
 
@@ -316,7 +316,7 @@ func testServerUserRevertSuccessfulGitHooks(t *testing.T, ctxOuter context.Conte
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	repoProto, repoPath, cleanup := testhelper.NewTestRepo(t)
+	repoProto, repoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
@@ -365,7 +365,7 @@ func testServerUserRevertFailuedDueToValidations(t *testing.T, ctxOuter context.
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	repoProto, _, cleanup := testhelper.NewTestRepo(t)
+	repoProto, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
@@ -447,7 +447,7 @@ func testServerUserRevertFailedDueToPreReceiveError(t *testing.T, ctxOuter conte
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	repoProto, repoPath, cleanup := testhelper.NewTestRepo(t)
+	repoProto, repoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
@@ -493,7 +493,7 @@ func testServerUserRevertFailedDueToCreateTreeError(t *testing.T, ctxOuter conte
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	repoProto, repoPath, cleanup := testhelper.NewTestRepo(t)
+	repoProto, repoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
@@ -532,7 +532,7 @@ func testServerUserRevertFailedDueToCommitError(t *testing.T, ctxOuter context.C
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	repoProto, repoPath, cleanup := testhelper.NewTestRepo(t)
+	repoProto, repoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 

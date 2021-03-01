@@ -54,7 +54,7 @@ func TestExecutor_Commit(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	pbRepo, repoPath, clean := testhelper.InitBareRepo(t)
+	pbRepo, repoPath, clean := gittest.InitBareRepo(t)
 	defer clean()
 
 	repo := localrepo.New(git.NewExecCommandFactory(config.Config), pbRepo, config.Config)

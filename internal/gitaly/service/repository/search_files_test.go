@@ -11,6 +11,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -90,7 +91,7 @@ func TestSearchFilesByContentSuccessful(t *testing.T) {
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	testCases := []struct {
@@ -163,7 +164,7 @@ func TestSearchFilesByContentLargeFile(t *testing.T) {
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepoWithWorktree(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepoWithWorktree(t)
 	defer cleanupFn()
 
 	committerName := "Scrooge McDuck"
@@ -216,7 +217,7 @@ func TestSearchFilesByContentLargeFile(t *testing.T) {
 func TestSearchFilesByContentFailure(t *testing.T) {
 	server := NewServer(config.Config, RubyServer, config.NewLocator(config.Config), transaction.NewManager(config.Config), git.NewExecCommandFactory(config.Config))
 
-	testRepo, _, cleanupRepo := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupRepo := gittest.CloneRepo(t)
 	defer cleanupRepo()
 
 	testCases := []struct {
@@ -280,7 +281,7 @@ func TestSearchFilesByNameSuccessful(t *testing.T) {
 	client, conn := newRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	testCases := []struct {

@@ -38,11 +38,11 @@ func TestSuccessfulUserRebaseConfirmableRequest(t *testing.T) {
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	repoProto, repoPath, cleanup := testhelper.NewTestRepo(t)
+	repoProto, repoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
-	repoCopyProto, _, cleanup := testhelper.NewTestRepo(t)
+	repoCopyProto, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	branchSha := getBranchSha(t, repoPath, rebaseBranchName)
@@ -110,7 +110,7 @@ func TestUserRebaseConfirmable_stableCommitIDs(t *testing.T) {
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	repoProto, repoPath, cleanup := testhelper.NewTestRepo(t)
+	repoProto, repoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
@@ -193,10 +193,10 @@ func TestFailedRebaseUserRebaseConfirmableRequestDueToInvalidHeader(t *testing.T
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanup := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
-	testRepoCopy, _, cleanup := testhelper.NewTestRepo(t)
+	testRepoCopy, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	branchSha := getBranchSha(t, testRepoPath, rebaseBranchName)
@@ -279,10 +279,10 @@ func TestAbortedUserRebaseConfirmable(t *testing.T) {
 
 	for i, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			testRepo, testRepoPath, cleanup := testhelper.NewTestRepo(t)
+			testRepo, testRepoPath, cleanup := gittest.CloneRepo(t)
 			defer cleanup()
 
-			testRepoCopy, _, cleanup := testhelper.NewTestRepo(t)
+			testRepoCopy, _, cleanup := gittest.CloneRepo(t)
 			defer cleanup()
 
 			branchSha := getBranchSha(t, testRepoPath, rebaseBranchName)
@@ -331,11 +331,11 @@ func TestFailedUserRebaseConfirmableDueToApplyBeingFalse(t *testing.T) {
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	repoProto, repoPath, cleanup := testhelper.NewTestRepo(t)
+	repoProto, repoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
-	testRepoCopy, _, cleanup := testhelper.NewTestRepo(t)
+	testRepoCopy, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	branchSha := getBranchSha(t, repoPath, rebaseBranchName)
@@ -378,11 +378,11 @@ func TestFailedUserRebaseConfirmableRequestDueToPreReceiveError(t *testing.T) {
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	repoProto, repoPath, cleanup := testhelper.NewTestRepo(t)
+	repoProto, repoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
-	repoCopyProto, _, cleanup := testhelper.NewTestRepo(t)
+	repoCopyProto, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	branchSha := getBranchSha(t, repoPath, rebaseBranchName)
@@ -439,10 +439,10 @@ func TestFailedUserRebaseConfirmableDueToGitError(t *testing.T) {
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanup := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
-	testRepoCopy, _, cleanup := testhelper.NewTestRepo(t)
+	testRepoCopy, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	failedBranchName := "rebase-encoding-failure-trigger"
@@ -485,11 +485,11 @@ func TestRebaseRequestWithDeletedFile(t *testing.T) {
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	repoProto, repoProtoPath, cleanupFn := testhelper.NewTestRepoWithWorktree(t)
+	repoProto, repoProtoPath, cleanupFn := gittest.CloneRepoWithWorktree(t)
 	defer cleanupFn()
 	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
-	repoCopyProto, _, cleanup := testhelper.NewTestRepo(t)
+	repoCopyProto, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	md := testhelper.GitalyServersMetadata(t, serverSocketPath)
@@ -543,11 +543,11 @@ func TestRebaseOntoRemoteBranch(t *testing.T) {
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	localRepoProto, localRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	localRepoProto, localRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 	localRepo := localrepo.New(git.NewExecCommandFactory(config.Config), localRepoProto, config.Config)
 
-	remoteRepo, remoteRepoPath, cleanup := testhelper.NewTestRepoWithWorktree(t)
+	remoteRepo, remoteRepoPath, cleanup := gittest.CloneRepoWithWorktree(t)
 	defer cleanup()
 
 	ctx, cancel := testhelper.Context()

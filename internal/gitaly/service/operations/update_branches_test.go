@@ -32,7 +32,7 @@ func TestSuccessfulUserUpdateBranchRequest(t *testing.T) {
 }
 
 func testSuccessfulUserUpdateBranchRequest(t *testing.T, ctx context.Context) {
-	repoProto, repoPath, cleanupFn := testhelper.NewTestRepo(t)
+	repoProto, repoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
@@ -120,7 +120,7 @@ func testSuccessfulUserUpdateBranchRequestToDelete(t *testing.T, ctx context.Con
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	repoProto, repoPath, cleanupFn := testhelper.NewTestRepo(t)
+	repoProto, repoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
@@ -198,7 +198,7 @@ func testSuccessfulGitHooksForUserUpdateBranchRequest(t *testing.T, ctx context.
 
 	for _, hookName := range GitlabHooks {
 		t.Run(hookName, func(t *testing.T) {
-			testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+			testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 			defer cleanupFn()
 
 			hookOutputTempPath, cleanup := gittest.WriteEnvToCustomHook(t, testRepoPath, hookName)
@@ -229,7 +229,7 @@ func TestFailedUserUpdateBranchDueToHooks(t *testing.T) {
 }
 
 func testFailedUserUpdateBranchDueToHooks(t *testing.T, ctx context.Context) {
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	serverSocketPath, stop := runOperationServiceServer(t)
@@ -276,7 +276,7 @@ func testFailedUserUpdateBranchRequest(t *testing.T, ctx context.Context) {
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	repoProto, _, cleanupFn := testhelper.NewTestRepo(t)
+	repoProto, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 

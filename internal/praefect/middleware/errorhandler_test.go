@@ -10,6 +10,7 @@ import (
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/grpc-proxy/proxy"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/mock"
@@ -97,7 +98,7 @@ func TestStreamInterceptor(t *testing.T) {
 
 	simpleClient := mock.NewSimpleServiceClient(praefectCC)
 
-	testRepo, _, cleanup := testhelper.NewTestRepo(t)
+	testRepo, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	for i := 0; i < threshold; i++ {

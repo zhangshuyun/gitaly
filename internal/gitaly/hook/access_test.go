@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -30,7 +31,7 @@ func TestAccess_verifyParams(t *testing.T) {
 	secretToken := "topsecret"
 	glID, glRepository := "key-123", "repo-1"
 
-	testRepo, testRepoPath, cleanup := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 	changes := "changes1\nchanges2\nchanges3"
 	protocol := "protocol"
@@ -133,7 +134,7 @@ func TestAccess_escapedAndRelativeURLs(t *testing.T) {
 	secretToken := "topsecret"
 	glID, glRepository := "key-123", "repo-1"
 
-	testRepo, testRepoPath, cleanup := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 	changes := "changes1\nchanges2\nchanges3"
 	protocol := "protocol"
@@ -233,7 +234,7 @@ func TestAccess_escapedAndRelativeURLs(t *testing.T) {
 }
 
 func TestAccess_allowedResponseHandling(t *testing.T) {
-	testRepo, testRepoPath, cleanup := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanup := gittest.CloneRepo(t)
 
 	// set git quarantine directories
 	gitObjectDir := filepath.Join(testRepoPath, "quarantine", "object", "dir")

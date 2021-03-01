@@ -16,7 +16,7 @@ import (
 )
 
 func TestExecutor_Apply(t *testing.T) {
-	pbRepo, repoPath, clean := testhelper.InitBareRepo(t)
+	pbRepo, repoPath, clean := gittest.InitBareRepo(t)
 	defer clean()
 
 	repo := localrepo.New(git.NewExecCommandFactory(config.Config), pbRepo, config.Config)

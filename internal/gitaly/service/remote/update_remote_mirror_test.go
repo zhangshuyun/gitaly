@@ -21,10 +21,10 @@ func TestSuccessfulUpdateRemoteMirrorRequest(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
-	_, mirrorPath, mirrorCleanupFn := testhelper.NewTestRepo(t)
+	_, mirrorPath, mirrorCleanupFn := gittest.CloneRepo(t)
 	defer mirrorCleanupFn()
 
 	remoteName := "remote_mirror_1"
@@ -115,10 +115,10 @@ func TestSuccessfulUpdateRemoteMirrorRequestWithWildcards(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
-	_, mirrorPath, mirrorCleanupFn := testhelper.NewTestRepo(t)
+	_, mirrorPath, mirrorCleanupFn := gittest.CloneRepo(t)
 	defer mirrorCleanupFn()
 
 	remoteName := "remote_mirror_2"
@@ -193,10 +193,10 @@ func TestSuccessfulUpdateRemoteMirrorRequestWithKeepDivergentRefs(t *testing.T) 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
-	_, mirrorPath, mirrorCleanupFn := testhelper.NewTestRepo(t)
+	_, mirrorPath, mirrorCleanupFn := gittest.CloneRepo(t)
 	defer mirrorCleanupFn()
 
 	remoteName := "remote_mirror_1"
@@ -270,7 +270,7 @@ func TestFailedUpdateRemoteMirrorRequestDueToValidation(t *testing.T) {
 	client, conn := NewRemoteClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	testCases := []struct {

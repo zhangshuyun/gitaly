@@ -29,7 +29,7 @@ func TestSuccessfulCreateBundleRequest(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	// create a work tree with a HEAD pointing to a commit that is missing.

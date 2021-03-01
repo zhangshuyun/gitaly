@@ -134,7 +134,7 @@ func TestHooksPrePostReceive(t *testing.T) {
 }
 
 func testHooksPrePostReceive(t *testing.T) {
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	secretToken := "secret token"
@@ -308,7 +308,7 @@ func testHooksUpdate(t *testing.T, gitlabShellDir, token string, glValues glHook
 	}(config.Config)
 	config.Config.Auth.Token = token
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	refval, oldval, newval := "refval", strings.Repeat("a", 40), strings.Repeat("b", 40)
@@ -373,7 +373,7 @@ func TestHooksPostReceiveFailed(t *testing.T) {
 	tempGitlabShellDir, cleanup := testhelper.TempDir(t)
 	defer cleanup()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	// By setting the last parameter to false, the post-receive API call will
@@ -503,7 +503,7 @@ func TestHooksNotAllowed(t *testing.T) {
 	tempGitlabShellDir, cleanup := testhelper.TempDir(t)
 	defer cleanup()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	c := testhelper.GitlabTestServerOptions{
@@ -685,7 +685,7 @@ func TestGitalyHooksPackObjects(t *testing.T) {
 	config.Config.Auth.Token = "abc123"
 	defer runHookServiceServer(t, config.Config.Auth.Token)()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	logDir, err := filepath.Abs("testdata")

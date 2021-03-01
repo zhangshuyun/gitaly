@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/client"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/metadatahandler"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
@@ -1404,7 +1405,7 @@ func TestCoordinator_grpcErrorHandling(t *testing.T) {
 	})
 	defer cleanup()
 
-	repoProto, _, cleanup := testhelper.NewTestRepo(t)
+	repoProto, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	operationClient := gitalypb.NewOperationServiceClient(praefectConn)

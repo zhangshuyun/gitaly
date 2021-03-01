@@ -32,7 +32,7 @@ func TestFailedReceivePackRequestDueToValidationError(t *testing.T) {
 	client, conn := newSSHClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanup := testhelper.NewTestRepo(t)
+	testRepo, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	tests := []struct {
@@ -207,10 +207,10 @@ func TestObjectPoolRefAdvertisementHidingSSH(t *testing.T) {
 	stream, err := client.SSHReceivePack(ctx)
 	require.NoError(t, err)
 
-	repo, _, cleanupFn := testhelper.NewTestRepo(t)
+	repo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
-	pool, err := objectpool.NewObjectPool(config.Config, config.NewLocator(config.Config), git.NewExecCommandFactory(config.Config), repo.GetStorageName(), testhelper.NewTestObjectPoolName(t))
+	pool, err := objectpool.NewObjectPool(config.Config, config.NewLocator(config.Config), git.NewExecCommandFactory(config.Config), repo.GetStorageName(), gittest.NewObjectPoolName(t))
 	require.NoError(t, err)
 
 	require.NoError(t, pool.Create(ctx, repo))
@@ -306,7 +306,7 @@ type SSHCloneDetails struct {
 
 // setupSSHClone sets up a test clone
 func setupSSHClone(t *testing.T) (SSHCloneDetails, func()) {
-	testRepo, _, cleanup := testhelper.NewTestRepo(t)
+	testRepo, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	storagePath := testhelper.GitlabTestStoragePath()

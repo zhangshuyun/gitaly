@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/hooks"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
@@ -29,7 +30,7 @@ func testMain(m *testing.M) int {
 
 func setup(t *testing.T, cfg config.Cfg) (context.Context, *localrepo.Repo, string, func()) {
 	ctx, cancel := testhelper.Context()
-	repoProto, repoPath, cleanup := testhelper.NewTestRepo(t)
+	repoProto, repoPath, cleanup := gittest.CloneRepo(t)
 	teardown := func() {
 		cancel()
 		cleanup()

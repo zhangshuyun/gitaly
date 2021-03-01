@@ -21,8 +21,8 @@ import (
 
 func NewTestObjectPool(t *testing.T) (*objectpool.ObjectPool, *gitalypb.Repository) {
 	storagePath := testhelper.GitlabTestStoragePath()
-	relativePath := testhelper.NewTestObjectPoolName(t)
-	repo := testhelper.CreateRepo(t, storagePath, relativePath)
+	relativePath := gittest.NewObjectPoolName(t)
+	repo := gittest.InitRepoDir(t, storagePath, relativePath)
 
 	pool, err := objectpool.NewObjectPool(config.Config, config.NewLocator(config.Config), git.NewExecCommandFactory(config.Config), repo.GetStorageName(), relativePath)
 	require.NoError(t, err)
@@ -53,7 +53,7 @@ func TestCloneFromPoolInternal(t *testing.T) {
 	client, conn := repository.NewRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	pool, poolRepo := NewTestObjectPool(t)

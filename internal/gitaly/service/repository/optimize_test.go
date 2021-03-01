@@ -40,7 +40,7 @@ func getNewestPackfileModtime(t *testing.T, repoPath string) time.Time {
 }
 
 func TestOptimizeRepository(t *testing.T) {
-	testRepo, testRepoPath, cleanup := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "repack", "-A", "-b")
@@ -96,7 +96,7 @@ func TestOptimizeRepository(t *testing.T) {
 
 	require.Equal(t, getNewestPackfileModtime(t, testRepoPath), newestsPackfileTime, "there should not have been a new packfile created")
 
-	testRepo, testRepoPath, cleanupBare := testhelper.InitBareRepo(t)
+	testRepo, testRepoPath, cleanupBare := gittest.InitBareRepo(t)
 	defer cleanupBare()
 
 	blobs := 10
@@ -139,7 +139,7 @@ func TestOptimizeRepository(t *testing.T) {
 }
 
 func TestOptimizeRepositoryValidation(t *testing.T) {
-	testRepo, _, cleanup := testhelper.NewTestRepo(t)
+	testRepo, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	testCases := []struct {

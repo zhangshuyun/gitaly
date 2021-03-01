@@ -35,7 +35,7 @@ func testRepositoryResolveRevision(t *testing.T, getRepository func(testing.TB, 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	pbRepo, _, clean := testhelper.NewTestRepo(t)
+	pbRepo, _, clean := CloneRepo(t)
 	defer clean()
 
 	for _, tc := range []struct {
@@ -89,7 +89,7 @@ func testRepositoryHasBranches(t *testing.T, getRepository func(testing.TB, *git
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	pbRepo, repoPath, clean := testhelper.InitBareRepo(t)
+	pbRepo, repoPath, clean := InitBareRepo(t)
 	defer clean()
 
 	repo := getRepository(t, pbRepo)

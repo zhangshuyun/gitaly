@@ -39,7 +39,7 @@ func TestUpdate_CustomHooks(t *testing.T) {
 	serverSocketPath, stop := runHooksServer(t, config.Config)
 	defer stop()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	client, conn := newHooksClient(t, serverSocketPath)

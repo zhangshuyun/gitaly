@@ -27,7 +27,7 @@ func TestCloneFromPoolHTTP(t *testing.T) {
 	client, conn := repository.NewRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	pool, poolRepo := NewTestObjectPool(t)

@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -21,7 +22,7 @@ func TestSuccessfulAddRemote(t *testing.T) {
 	client, conn := NewRemoteClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	ctx, cancel := testhelper.Context()
@@ -105,7 +106,7 @@ func TestFailedAddRemoteDueToValidation(t *testing.T) {
 	client, conn := NewRemoteClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	ctx, cancel := testhelper.Context()
@@ -152,7 +153,7 @@ func TestSuccessfulRemoveRemote(t *testing.T) {
 	client, conn := NewRemoteClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	ctx, cancel := testhelper.Context()
@@ -202,7 +203,7 @@ func TestFailedRemoveRemoteDueToValidation(t *testing.T) {
 	client, conn := NewRemoteClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	ctx, cancel := testhelper.Context()
@@ -280,7 +281,7 @@ func TestListDifferentPushUrlRemote(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	client.RemoveRemote(ctx, &gitalypb.RemoveRemoteRequest{
@@ -327,13 +328,13 @@ func TestListRemotes(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	repoWithSingleRemote, _, cleanupFn := testhelper.NewTestRepo(t)
+	repoWithSingleRemote, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
-	repoWithMultipleRemotes, _, cleanupFn := testhelper.NewTestRepo(t)
+	repoWithMultipleRemotes, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
-	repoWithEmptyRemote, _, cleanupFn := testhelper.NewTestRepo(t)
+	repoWithEmptyRemote, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	singleRemote := []*gitalypb.ListRemotesResponse_Remote{

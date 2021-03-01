@@ -70,7 +70,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 	targetRelativePath, err := filepath.Rel(testhelper.GitlabTestStoragePath(), filepath.Join(storageRoot, "target-repository"))
 	require.NoError(t, err)
 
-	startRepo, _, cleanStartRepo := testhelper.InitBareRepo(t)
+	startRepo, _, cleanStartRepo := gittest.InitBareRepo(t)
 	defer cleanStartRepo()
 
 	repoPath := filepath.Join(testhelper.GitlabTestStoragePath(), targetRelativePath)
@@ -922,7 +922,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 
 			for i, step := range tc.steps {
 				headerRequest := headerRequest(
-					testhelper.CreateRepo(t, storageRoot, targetRelativePath),
+					gittest.InitRepoDir(t, storageRoot, targetRelativePath),
 					testhelper.TestUser,
 					branch,
 					[]byte("commit message"),
@@ -977,7 +977,7 @@ func testUserCommitFilesStableCommitID(t *testing.T, ctx context.Context) {
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	repoProto, repoPath, cleanup := testhelper.InitBareRepo(t)
+	repoProto, repoPath, cleanup := gittest.InitBareRepo(t)
 	defer cleanup()
 	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
@@ -1035,7 +1035,7 @@ func TestSuccessfulUserCommitFilesRequest(t *testing.T) {
 }
 
 func testSuccessfulUserCommitFilesRequest(t *testing.T, ctx context.Context) {
-	testRepo, testRepoPath, cleanup := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	serverSocketPath, stop := runOperationServiceServer(t)
@@ -1044,7 +1044,7 @@ func testSuccessfulUserCommitFilesRequest(t *testing.T, ctx context.Context) {
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	newRepo, newRepoPath, newRepoCleanupFn := testhelper.InitBareRepo(t)
+	newRepo, newRepoPath, newRepoCleanupFn := gittest.InitBareRepo(t)
 	defer newRepoCleanupFn()
 
 	filePath := "héllo/wörld"
@@ -1165,7 +1165,7 @@ func testSuccessfulUserCommitFilesRequestMove(t *testing.T, ctx context.Context)
 		{content: "foo", infer: true},
 	} {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+			testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 			defer cleanupFn()
 
 			origFileContent := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "show", branchName+":"+previousFilePath)
@@ -1211,7 +1211,7 @@ func testSuccessfulUserCommitFilesRequestForceCommit(t *testing.T, ctx context.C
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	repoProto, repoPath, cleanupFn := testhelper.NewTestRepo(t)
+	repoProto, repoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
@@ -1263,7 +1263,7 @@ func testSuccessfulUserCommitFilesRequestStartSha(t *testing.T, ctx context.Cont
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	repoProto, _, cleanupFn := testhelper.NewTestRepo(t)
+	repoProto, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
@@ -1316,11 +1316,11 @@ func testSuccessfulUserCommitFilesRemoteRepositoryRequest(setHeader func(header 
 
 		gitCmdFactory := git.NewExecCommandFactory(config.Config)
 
-		repoProto, _, cleanupFn := testhelper.NewTestRepo(t)
+		repoProto, _, cleanupFn := gittest.CloneRepo(t)
 		defer cleanupFn()
 		repo := localrepo.New(gitCmdFactory, repoProto, config.Config)
 
-		newRepoProto, _, newRepoCleanupFn := testhelper.InitBareRepo(t)
+		newRepoProto, _, newRepoCleanupFn := gittest.InitBareRepo(t)
 		defer newRepoCleanupFn()
 		newRepo := localrepo.New(gitCmdFactory, newRepoProto, config.Config)
 
@@ -1368,7 +1368,7 @@ func testSuccessfulUserCommitFilesRequestWithSpecialCharactersInSignature(t *tes
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	repoProto, _, cleanupFn := testhelper.InitBareRepo(t)
+	repoProto, _, cleanupFn := gittest.InitBareRepo(t)
 	defer cleanupFn()
 	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
@@ -1425,7 +1425,7 @@ func testFailedUserCommitFilesRequestDueToHooks(t *testing.T, ctx context.Contex
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	branchName := "feature"
@@ -1466,7 +1466,7 @@ func testFailedUserCommitFilesRequestDueToIndexError(t *testing.T, ctx context.C
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	testCases := []struct {
@@ -1537,7 +1537,7 @@ func testFailedUserCommitFilesRequest(t *testing.T, ctx context.Context) {
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	branchName := "feature"

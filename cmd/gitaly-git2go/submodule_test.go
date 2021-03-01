@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/git/lstree"
 	"gitlab.com/gitlab-org/gitaly/internal/git2go"
@@ -86,7 +87,7 @@ func TestSubmodule(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			testRepo, testRepoPath, cleanup := testhelper.NewTestRepo(t)
+			testRepo, testRepoPath, cleanup := gittest.CloneRepo(t)
 			defer cleanup()
 			repo := localrepo.New(git.NewExecCommandFactory(config.Config), testRepo, config.Config)
 

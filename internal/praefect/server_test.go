@@ -21,6 +21,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	gconfig "gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
@@ -701,7 +702,7 @@ func TestProxyWrites(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepo, _, cleanup := testhelper.NewTestRepo(t)
+	testRepo, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	rs := datastore.MockRepositoryStore{
@@ -894,7 +895,7 @@ func TestErrorThreshold(t *testing.T) {
 			require.NoError(t, err)
 			cli := mock.NewSimpleServiceClient(conn)
 
-			repo, _, cleanup := testhelper.NewTestRepo(t)
+			repo, _, cleanup := gittest.CloneRepo(t)
 			defer cleanup()
 
 			node := nodeMgr.Nodes()["default"][0]

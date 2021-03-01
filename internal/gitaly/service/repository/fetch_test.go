@@ -320,7 +320,7 @@ func TestFetchFullServerRequiresAuthentication(t *testing.T) {
 }
 
 func newTestRepo(t *testing.T, locator storage.Locator, relativePath string) (*gitalypb.Repository, string, func()) {
-	_, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	_, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	repo := &gitalypb.Repository{StorageName: "default", RelativePath: relativePath}

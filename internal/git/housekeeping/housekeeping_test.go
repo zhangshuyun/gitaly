@@ -11,6 +11,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 )
 
@@ -327,7 +328,7 @@ func testPerformWithSpecificFile(t *testing.T, file string, finder staleFileFind
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	_, repoPath, cleanup := testhelper.NewTestRepo(t)
+	_, repoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	for _, tc := range []struct {

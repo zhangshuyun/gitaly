@@ -74,7 +74,7 @@ func testSuccessfulGetLFSPointersRequest(t *testing.T, ctx context.Context) {
 	stop, serverSocketPath := runBlobServer(t, testhelper.DefaultLocator())
 	defer stop()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	client, conn := newBlobClient(t, serverSocketPath)
@@ -129,7 +129,7 @@ func testFailedGetLFSPointersRequestDueToValidations(t *testing.T, ctx context.C
 	stop, serverSocketPath := runBlobServer(t, testhelper.DefaultLocator())
 	defer stop()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	client, conn := newBlobClient(t, serverSocketPath)
@@ -177,7 +177,7 @@ func TestSuccessfulGetNewLFSPointersRequest(t *testing.T) {
 	client, conn := newBlobClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepoWithWorktree(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepoWithWorktree(t)
 	defer cleanupFn()
 
 	revision := []byte("46abbb087fcc0fd02c340f0f2f052bd2c7708da3")
@@ -318,7 +318,7 @@ func TestFailedGetNewLFSPointersRequestDueToValidations(t *testing.T) {
 	client, conn := newBlobClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	testCases := []struct {
@@ -385,7 +385,7 @@ func testSuccessfulGetAllLFSPointersRequest(t *testing.T, ctx context.Context) {
 	client, conn := newBlobClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	request := &gitalypb.GetAllLFSPointersRequest{
@@ -485,7 +485,7 @@ func testGetAllLFSPointersVerifyScope(t *testing.T, ctx context.Context) {
 	client, conn := newBlobClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, repoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, repoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	request := &gitalypb.GetAllLFSPointersRequest{
@@ -518,7 +518,7 @@ func refHasPtr(t *testing.T, repoPath, ref string, lfsPtr *gitalypb.LFSPointer) 
 func TestFindLFSPointersByRevisions(t *testing.T) {
 	gitCmdFactory := git.NewExecCommandFactory(config.Config)
 
-	repoProto, _, cleanup := testhelper.NewTestRepo(t)
+	repoProto, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 	repo := localrepo.New(gitCmdFactory, repoProto, config.Config)
 
@@ -600,7 +600,7 @@ func TestFindLFSPointersByRevisions(t *testing.T) {
 func TestReadLFSPointers(t *testing.T) {
 	gitCmdFactory := git.NewExecCommandFactory(config.Config)
 
-	repoProto, _, cleanup := testhelper.NewTestRepo(t)
+	repoProto, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 	repo := localrepo.New(gitCmdFactory, repoProto, config.Config)
 

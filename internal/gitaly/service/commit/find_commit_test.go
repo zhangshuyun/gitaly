@@ -31,7 +31,7 @@ func TestSuccessfulFindCommitRequest(t *testing.T) {
 	client, conn := newCommitServiceClient(t, serverSocketPath)
 	defer conn.Close()
 
-	repoProto, repoPath, cleanupFn := testhelper.NewTestRepo(t)
+	repoProto, repoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
@@ -274,7 +274,7 @@ func TestFailedFindCommitRequest(t *testing.T) {
 	client, conn := newCommitServiceClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	invalidRepo := &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}
@@ -324,7 +324,7 @@ func benchmarkFindCommit(withCache bool, b *testing.B) {
 	client, conn := newCommitServiceClient(b, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(b)
+	testRepo, _, cleanupFn := gittest.CloneRepo(b)
 	defer cleanupFn()
 
 	// get a list of revisions
@@ -371,7 +371,7 @@ func TestFindCommitWithCache(t *testing.T) {
 	client, conn := newCommitServiceClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	// get a list of revisions

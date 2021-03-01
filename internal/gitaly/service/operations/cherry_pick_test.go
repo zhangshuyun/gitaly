@@ -29,7 +29,7 @@ func testServerUserCherryPickSuccessful(t *testing.T, ctxOuter context.Context) 
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	repoProto, repoPath, cleanup := testhelper.NewTestRepo(t)
+	repoProto, repoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
@@ -42,7 +42,7 @@ func testServerUserCherryPickSuccessful(t *testing.T, ctxOuter context.Context) 
 	cherryPickedCommit, err := repo.ReadCommit(ctxOuter, "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab")
 	require.NoError(t, err)
 
-	testRepoCopy, testRepoCopyPath, cleanup := testhelper.NewTestRepo(t) // read-only repo
+	testRepoCopy, testRepoCopyPath, cleanup := gittest.CloneRepo(t) // read-only repo
 	defer cleanup()
 
 	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoCopyPath, "branch", destinationBranch, "master")
@@ -200,7 +200,7 @@ func testServerUserCherryPickSuccessfulGitHooks(t *testing.T, ctxOuter context.C
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	repoProto, repoPath, cleanup := testhelper.NewTestRepo(t)
+	repoProto, repoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
@@ -249,7 +249,7 @@ func testServerUserCherryPickStableID(t *testing.T, ctx context.Context) {
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	repoProto, repoPath, cleanup := testhelper.NewTestRepo(t)
+	repoProto, repoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
@@ -315,7 +315,7 @@ func testServerUserCherryPickFailedValidations(t *testing.T, ctxOuter context.Co
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	repoProto, _, cleanup := testhelper.NewTestRepo(t)
+	repoProto, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
@@ -397,7 +397,7 @@ func testServerUserCherryPickFailedWithPreReceiveError(t *testing.T, ctxOuter co
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	repoProto, repoPath, cleanup := testhelper.NewTestRepo(t)
+	repoProto, repoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
@@ -443,7 +443,7 @@ func testServerUserCherryPickFailedWithCreateTreeError(t *testing.T, ctxOuter co
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	repoProto, repoPath, cleanup := testhelper.NewTestRepo(t)
+	repoProto, repoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
@@ -482,7 +482,7 @@ func testServerUserCherryPickFailedWithCommitError(t *testing.T, ctxOuter contex
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	repoProto, repoPath, cleanup := testhelper.NewTestRepo(t)
+	repoProto, repoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
@@ -522,7 +522,7 @@ func testServerUserCherryPickFailedWithConflict(t *testing.T, ctxOuter context.C
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	repoProto, repoPath, cleanup := testhelper.NewTestRepo(t)
+	repoProto, repoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
@@ -561,7 +561,7 @@ func testServerUserCherryPickSuccessfulWithGivenCommits(t *testing.T, ctxOuter c
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
 
-	repoProto, repoPath, cleanup := testhelper.NewTestRepo(t)
+	repoProto, repoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 

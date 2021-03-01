@@ -107,7 +107,7 @@ func TestReplMgr_ProcessBacklog(t *testing.T) {
 	srvSocketPath, clean := runFullGitalyServer(t)
 	defer clean()
 
-	testRepo, testRepoPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	conf := config.Config{
@@ -131,7 +131,7 @@ func TestReplMgr_ProcessBacklog(t *testing.T) {
 	}
 
 	// create object pool on the source
-	objectPoolPath := testhelper.NewTestObjectPoolName(t)
+	objectPoolPath := gittest.NewObjectPoolName(t)
 	pool, err := objectpool.NewObjectPool(gitaly_config.Config, gitaly_config.NewLocator(gitaly_config.Config), git.NewExecCommandFactory(gitaly_config.Config), testRepo.GetStorageName(), objectPoolPath)
 	require.NoError(t, err)
 
@@ -523,10 +523,10 @@ func TestConfirmReplication(t *testing.T) {
 	srvSocketPath, clean := runFullGitalyServer(t)
 	defer clean()
 
-	testRepoA, testRepoAPath, cleanupFn := testhelper.NewTestRepo(t)
+	testRepoA, testRepoAPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
-	testRepoB, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepoB, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	connOpts := []grpc.DialOption{
@@ -599,7 +599,7 @@ func TestProcessBacklog_FailedJobs(t *testing.T) {
 	primarySvr, primarySocket := newReplicationService(t)
 	defer primarySvr.Stop()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	primary := config.Node{
@@ -727,7 +727,7 @@ func TestProcessBacklog_Success(t *testing.T) {
 	primarySvr, primarySocket := newReplicationService(t)
 	defer primarySvr.Stop()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	primary := config.Node{

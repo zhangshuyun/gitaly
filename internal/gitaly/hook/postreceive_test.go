@@ -60,7 +60,7 @@ func TestPrintAlert(t *testing.T) {
 }
 
 func TestPostReceive_customHook(t *testing.T) {
-	repo, repoPath, cleanup := testhelper.NewTestRepo(t)
+	repo, repoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	hookManager := NewManager(config.NewLocator(config.Config), transaction.NewManager(config.Config), GitlabAPIStub, config.Config)
@@ -242,7 +242,7 @@ func (m *postreceiveAPIMock) PostReceive(ctx context.Context, glRepository, glID
 }
 
 func TestPostReceive_gitlab(t *testing.T) {
-	testRepo, testRepoPath, cleanup := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	payload, err := git.NewHooksPayload(config.Config, testRepo, nil, nil, &git.ReceiveHooksPayload{

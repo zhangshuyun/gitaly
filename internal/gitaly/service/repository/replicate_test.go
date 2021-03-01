@@ -52,7 +52,7 @@ func TestReplicateRepository(t *testing.T) {
 	serverSocketPath, clean := runFullServer(t)
 	defer clean()
 
-	testRepo, testRepoPath, cleanupRepo := testhelper.NewTestRepo(t)
+	testRepo, testRepoPath, cleanupRepo := gittest.CloneRepo(t)
 	defer cleanupRepo()
 
 	// create a loose object to ensure snapshot replication is used
@@ -247,10 +247,10 @@ func TestReplicateRepository_BadRepository(t *testing.T) {
 				},
 			}
 
-			sourceRepo, _, cleanupRepo := testhelper.NewTestRepo(t)
+			sourceRepo, _, cleanupRepo := gittest.CloneRepo(t)
 			defer cleanupRepo()
 
-			targetRepo := testhelper.NewTestRepoTo(t, targetStorageRoot, sourceRepo.RelativePath)
+			targetRepo := gittest.CloneRepoAtStorageRoot(t, targetStorageRoot, sourceRepo.RelativePath)
 			targetRepo.StorageName = "target"
 
 			var invalidRepos []*gitalypb.Repository
@@ -328,7 +328,7 @@ func TestReplicateRepository_FailedFetchInternalRemote(t *testing.T) {
 
 	locator := config.NewLocator(config.Config)
 
-	testRepo, _, cleanupRepo := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupRepo := gittest.CloneRepo(t)
 	defer cleanupRepo()
 
 	config.Config.SocketPath = serverSocketPath

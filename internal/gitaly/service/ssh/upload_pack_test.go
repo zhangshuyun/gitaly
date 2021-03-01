@@ -78,7 +78,7 @@ func (cmd cloneCommand) test(t *testing.T, localRepoPath string) (string, string
 	err := cmd.execute(t)
 	require.NoError(t, err)
 
-	testRepo, _, cleanup := testhelper.NewTestRepo(t)
+	testRepo, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	storagePath := testhelper.GitlabTestStoragePath()
@@ -106,7 +106,7 @@ func TestFailedUploadPackRequestDueToTimeout(t *testing.T) {
 	stream, err := client.SSHUploadPack(ctx)
 	require.NoError(t, err)
 
-	testRepo, _, cleanup := testhelper.NewTestRepo(t)
+	testRepo, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	// The first request is not limited by timeout, but also not under attacker control
@@ -245,7 +245,7 @@ func TestUploadPackCloneSuccess(t *testing.T) {
 		},
 	}
 
-	testRepo, _, cleanup := testhelper.NewTestRepo(t)
+	testRepo, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	for _, tc := range tests {
@@ -294,7 +294,7 @@ func TestUploadPackWithPackObjectsHook(t *testing.T) {
 	localRepoPath, cleanup := testhelper.TempDir(t)
 	defer cleanup()
 
-	testRepo, _, cleanup := testhelper.NewTestRepo(t)
+	testRepo, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	err := cloneCommand{
@@ -323,7 +323,7 @@ func TestUploadPackWithoutSideband(t *testing.T) {
 	pktline.WriteFlush(negotiation)
 	pktline.WriteString(negotiation, "done")
 
-	testRepo, _, cleanup := testhelper.NewTestRepo(t)
+	testRepo, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	request := &gitalypb.SSHUploadPackRequest{
@@ -383,7 +383,7 @@ func TestUploadPackCloneWithPartialCloneFilter(t *testing.T) {
 		},
 	}
 
-	testRepo, _, cleanup := testhelper.NewTestRepo(t)
+	testRepo, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	for _, tc := range tests {
@@ -427,7 +427,7 @@ func TestUploadPackCloneSuccessWithGitProtocol(t *testing.T) {
 		},
 	}
 
-	testRepo, _, cleanup := testhelper.NewTestRepo(t)
+	testRepo, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	for _, tc := range tests {
@@ -460,7 +460,7 @@ func TestUploadPackCloneHideTags(t *testing.T) {
 	serverSocketPath, stop := runSSHServer(t)
 	defer stop()
 
-	testRepo, _, cleanup := testhelper.NewTestRepo(t)
+	testRepo, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	localRepoPath, cleanup := testhelper.TempDir(t)
@@ -486,7 +486,7 @@ func TestUploadPackCloneFailure(t *testing.T) {
 	serverSocketPath, stop := runSSHServer(t)
 	defer stop()
 
-	testRepo, _, cleanup := testhelper.NewTestRepo(t)
+	testRepo, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	localRepoPath, cleanup := testhelper.TempDir(t)

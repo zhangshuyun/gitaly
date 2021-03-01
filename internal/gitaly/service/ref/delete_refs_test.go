@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -40,7 +41,7 @@ func TestSuccessfulDeleteRefs(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
-			repo, repoPath, cleanupFn := testhelper.NewTestRepo(t)
+			repo, repoPath, cleanupFn := gittest.CloneRepo(t)
 			defer cleanupFn()
 
 			testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "update-ref", "refs/delete/a", "b83d6e391c22777fca1ed3012fce84f633d7fed0")
@@ -83,7 +84,7 @@ func TestFailedDeleteRefsRequestDueToGitError(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	repo, _, cleanupFn := testhelper.NewTestRepo(t)
+	repo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	request := &gitalypb.DeleteRefsRequest{
@@ -104,7 +105,7 @@ func TestFailedDeleteRefsDueToValidation(t *testing.T) {
 	client, conn := newRefServiceClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	testCases := []struct {

@@ -34,7 +34,7 @@ func TestSuccessfulCreateRepositoryFromURLRequest(t *testing.T) {
 		StorageName:  testhelper.DefaultStorageName,
 	}
 
-	_, testRepoPath, cleanup := testhelper.NewTestRepo(t)
+	_, testRepoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	user := "username123"

@@ -32,7 +32,7 @@ func TestSuccessfulInfoRefsUploadPack(t *testing.T) {
 	serverSocketPath, stop := runSmartHTTPServer(t, config.Config)
 	defer stop()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	rpcRequest := &gitalypb.InfoRefsRequest{Repository: testRepo}
@@ -55,7 +55,7 @@ func TestSuccessfulInfoRefsUploadWithPartialClone(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepo, _, cleanup := testhelper.NewTestRepo(t)
+	testRepo, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
 	request := &gitalypb.InfoRefsRequest{
@@ -77,7 +77,7 @@ func TestSuccessfulInfoRefsUploadPackWithGitConfigOptions(t *testing.T) {
 	serverSocketPath, stop := runSmartHTTPServer(t, config.Config)
 	defer stop()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	// transfer.hideRefs=refs will hide every ref that info-refs would normally
@@ -105,7 +105,7 @@ func TestSuccessfulInfoRefsUploadPackWithGitProtocol(t *testing.T) {
 	serverSocketPath, stop := runSmartHTTPServer(t, config.Config)
 	defer stop()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	rpcRequest := &gitalypb.InfoRefsRequest{
@@ -157,7 +157,7 @@ func TestSuccessfulInfoRefsReceivePack(t *testing.T) {
 	client, conn := newSmartHTTPClient(t, serverSocketPath, config.Config.Auth.Token)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	rpcRequest := &gitalypb.InfoRefsRequest{Repository: testRepo}
@@ -190,13 +190,13 @@ func TestObjectPoolRefAdvertisementHiding(t *testing.T) {
 	client, conn := newSmartHTTPClient(t, serverSocketPath, config.Config.Auth.Token)
 	defer conn.Close()
 
-	repo, _, cleanupFn := testhelper.NewTestRepo(t)
+	repo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	pool, err := objectpool.NewObjectPool(config.Config, config.NewLocator(config.Config), git.NewExecCommandFactory(config.Config), repo.GetStorageName(), testhelper.NewTestObjectPoolName(t))
+	pool, err := objectpool.NewObjectPool(config.Config, config.NewLocator(config.Config), git.NewExecCommandFactory(config.Config), repo.GetStorageName(), gittest.NewObjectPoolName(t))
 	require.NoError(t, err)
 
 	require.NoError(t, pool.Create(ctx, repo))
@@ -300,7 +300,7 @@ func TestCacheInfoRefsUploadPack(t *testing.T) {
 	serverSocketPath, stop := runSmartHTTPServer(t, config.Config)
 	defer stop()
 
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
 	rpcRequest := &gitalypb.InfoRefsRequest{Repository: testRepo}
