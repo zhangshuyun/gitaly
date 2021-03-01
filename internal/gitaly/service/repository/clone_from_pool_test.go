@@ -38,7 +38,7 @@ func TestCloneFromPoolHTTP(t *testing.T) {
 
 	fullRepack(t, testRepoPath)
 
-	_, newBranch := testhelper.CreateCommitOnNewBranch(t, testRepoPath)
+	_, newBranch := gittest.CreateCommitOnNewBranch(t, testRepoPath)
 
 	forkedRepo, forkRepoPath, forkRepoCleanup := getForkDestination(t)
 	defer forkRepoCleanup()

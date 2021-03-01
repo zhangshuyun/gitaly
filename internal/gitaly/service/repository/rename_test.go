@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -56,7 +57,7 @@ func TestRenameRepositoryDestinationExists(t *testing.T) {
 	destinationRepo, destinationRepoPath, cleanupDestinationRepo := testhelper.NewTestRepo(t)
 	defer cleanupDestinationRepo()
 
-	_, sha := testhelper.CreateCommitOnNewBranch(t, destinationRepoPath)
+	_, sha := gittest.CreateCommitOnNewBranch(t, destinationRepoPath)
 
 	req := &gitalypb.RenameRepositoryRequest{Repository: testRepo, RelativePath: destinationRepo.GetRelativePath()}
 

@@ -1,4 +1,4 @@
-package testhelper
+package gittest
 
 import (
 	"bytes"
@@ -11,6 +11,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
@@ -53,10 +54,10 @@ func CreateCommit(t testing.TB, repoPath, branchName string, opts *CreateCommitO
 		"-C", repoPath,
 		"commit-tree", "-F", "-", "-p", parentID, parentID + "^{tree}",
 	}
-	newCommit := MustRunCommand(t, stdin, "git", commitArgs...)
+	newCommit := testhelper.MustRunCommand(t, stdin, "git", commitArgs...)
 	newCommitID := text.ChompBytes(newCommit)
 
-	MustRunCommand(t, nil, "git", "-C", repoPath, "update-ref", "refs/heads/"+branchName, newCommitID)
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "update-ref", "refs/heads/"+branchName, newCommitID)
 	return newCommitID
 }
 
@@ -95,10 +96,10 @@ func CreateCommitInAlternateObjectDirectory(t testing.TB, gitBin, repoPath, altO
 // ID is returned.
 func CommitBlobWithName(t testing.TB, testRepoPath, blobID, fileName, commitMessage string) string {
 	mktreeIn := strings.NewReader(fmt.Sprintf("100644 blob %s\t%s", blobID, fileName))
-	treeID := text.ChompBytes(MustRunCommand(t, mktreeIn, "git", "-C", testRepoPath, "mktree"))
+	treeID := text.ChompBytes(testhelper.MustRunCommand(t, mktreeIn, "git", "-C", testRepoPath, "mktree"))
 
 	return text.ChompBytes(
-		MustRunCommand(t, nil, "git",
+		testhelper.MustRunCommand(t, nil, "git",
 			"-c", fmt.Sprintf("user.name=%s", committerName),
 			"-c", fmt.Sprintf("user.email=%s", committerEmail),
 			"-C", testRepoPath, "commit-tree", treeID, "-m", commitMessage),

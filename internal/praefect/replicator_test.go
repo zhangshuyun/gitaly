@@ -18,6 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/objectpool"
 	gitaly_config "gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
@@ -185,7 +186,7 @@ func TestReplMgr_ProcessBacklog(t *testing.T) {
 	}
 	require.Len(t, events, 1)
 
-	commitID := testhelper.CreateCommit(t, testRepoPath, "master", &testhelper.CreateCommitOpts{
+	commitID := gittest.CreateCommit(t, testRepoPath, "master", &gittest.CreateCommitOpts{
 		Message: "a commit",
 	})
 
@@ -539,7 +540,7 @@ func TestConfirmReplication(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, equal)
 
-	testhelper.CreateCommit(t, testRepoAPath, "master", &testhelper.CreateCommitOpts{
+	gittest.CreateCommit(t, testRepoAPath, "master", &gittest.CreateCommitOpts{
 		Message: "a commit",
 	})
 

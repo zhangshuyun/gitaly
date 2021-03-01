@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/objectpool"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/repository"
@@ -63,7 +64,7 @@ func TestCloneFromPoolInternal(t *testing.T) {
 
 	fullRepack(t, testRepoPath)
 
-	_, newBranch := testhelper.CreateCommitOnNewBranch(t, testRepoPath)
+	_, newBranch := gittest.CreateCommitOnNewBranch(t, testRepoPath)
 
 	forkedRepo, forkRepoPath, forkRepoCleanup := getForkDestination(t)
 	defer forkRepoCleanup()

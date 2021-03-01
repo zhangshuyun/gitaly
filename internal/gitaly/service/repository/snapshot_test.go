@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/archive"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
@@ -62,7 +63,7 @@ func TestGetSnapshotSuccess(t *testing.T) {
 
 	// Ensure certain files exist in the test repo.
 	// CreateCommit produces a loose object with the given sha
-	sha := testhelper.CreateCommit(t, repoPath, "master", nil)
+	sha := gittest.CreateCommit(t, repoPath, "master", nil)
 	zeroes := strings.Repeat("0", 40)
 	require.NoError(t, os.MkdirAll(filepath.Join(repoPath, "hooks"), 0755))
 	require.NoError(t, os.MkdirAll(filepath.Join(repoPath, "objects/pack"), 0755))
@@ -132,7 +133,7 @@ func TestGetSnapshotWithDedupe(t *testing.T) {
 				"-c", fmt.Sprintf("user.email=%s", committerEmail),
 				"commit", "--allow-empty", "-m", "An empty commit")
 			alternateObjDir := tc.alternatePathFunc(t, filepath.Join(repoPath, "objects"))
-			commitSha := testhelper.CreateCommitInAlternateObjectDirectory(t, config.Config.Git.BinPath, repoPath, alternateObjDir, cmd)
+			commitSha := gittest.CreateCommitInAlternateObjectDirectory(t, config.Config.Git.BinPath, repoPath, alternateObjDir, cmd)
 			originalAlternatesCommit := string(commitSha)
 
 			locator := config.NewLocator(config.Config)
@@ -154,7 +155,7 @@ func TestGetSnapshotWithDedupe(t *testing.T) {
 				"-c", fmt.Sprintf("user.name=%s", committerName),
 				"-c", fmt.Sprintf("user.email=%s", committerEmail),
 				"commit", "--allow-empty", "-m", "Another empty commit")
-			commitSha = testhelper.CreateCommitInAlternateObjectDirectory(t, config.Config.Git.BinPath, repoPath, alternateObjDir, cmd)
+			commitSha = gittest.CreateCommitInAlternateObjectDirectory(t, config.Config.Git.BinPath, repoPath, alternateObjDir, cmd)
 
 			c, err = catfile.New(ctx, gitCmdFactory, testRepo)
 			require.NoError(t, err)
@@ -213,7 +214,7 @@ func TestGetSnapshotWithDedupeSoftFailures(t *testing.T) {
 		"-c", fmt.Sprintf("user.email=%s", committerEmail),
 		"commit", "--allow-empty", "-m", "An empty commit")
 
-	commitSha := testhelper.CreateCommitInAlternateObjectDirectory(t, config.Config.Git.BinPath, repoPath, alternateObjDir, cmd)
+	commitSha := gittest.CreateCommitInAlternateObjectDirectory(t, config.Config.Git.BinPath, repoPath, alternateObjDir, cmd)
 	originalAlternatesCommit := string(commitSha)
 
 	require.NoError(t, ioutil.WriteFile(alternatesPath, []byte(alternateObjPath), 0644))

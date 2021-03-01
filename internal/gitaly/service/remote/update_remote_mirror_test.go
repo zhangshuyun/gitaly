@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -34,7 +35,7 @@ func TestSuccessfulUpdateRemoteMirrorRequest(t *testing.T) {
 		Message: "Overriding tag", Force: true})
 
 	// Create a commit that only exists in the mirror
-	mirrorOnlyCommitOid := testhelper.CreateCommit(t, mirrorPath, "master", nil)
+	mirrorOnlyCommitOid := gittest.CreateCommit(t, mirrorPath, "master", nil)
 	require.NotEmpty(t, mirrorOnlyCommitOid)
 
 	setupCommands := [][]string{

@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/git/objectpool"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
@@ -40,7 +41,7 @@ func TestLink(t *testing.T) {
 
 	// Mock object in the pool, which should be available to the pool members
 	// after linking
-	poolCommitID := testhelper.CreateCommit(t, pool.FullPath(), "pool-test-branch", nil)
+	poolCommitID := gittest.CreateCommit(t, pool.FullPath(), "pool-test-branch", nil)
 
 	testCases := []struct {
 		desc string

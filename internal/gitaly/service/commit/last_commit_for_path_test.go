@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -142,7 +143,7 @@ func TestSuccessfulLastCommitWithGlobCharacters(t *testing.T) {
 	const blobID = "c60514b6d3d6bf4bec1030f70026e34dfbd69ad5"
 	path := ":wq"
 
-	commitID := testhelper.CommitBlobWithName(t,
+	commitID := gittest.CommitBlobWithName(t,
 		testRepoPath,
 		blobID,
 		path,

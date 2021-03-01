@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
@@ -47,7 +48,7 @@ func TestFetchSourceBranchSourceRepositorySuccess(t *testing.T) {
 	defer cleanup()
 
 	sourceBranch := "fetch-source-branch-test-branch"
-	newCommitID := testhelper.CreateCommit(t, sourcePath, sourceBranch, nil)
+	newCommitID := gittest.CreateCommit(t, sourcePath, sourceBranch, nil)
 
 	targetRef := "refs/tmp/fetch-source-branch-test"
 	req := &gitalypb.FetchSourceBranchRequest{
@@ -86,7 +87,7 @@ func TestFetchSourceBranchSameRepositorySuccess(t *testing.T) {
 	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
 	sourceBranch := "fetch-source-branch-test-branch"
-	newCommitID := testhelper.CreateCommit(t, repoPath, sourceBranch, nil)
+	newCommitID := gittest.CreateCommit(t, repoPath, sourceBranch, nil)
 
 	targetRef := "refs/tmp/fetch-source-branch-test"
 	req := &gitalypb.FetchSourceBranchRequest{
@@ -184,7 +185,7 @@ func TestFetchSourceBranchWrongRef(t *testing.T) {
 	defer cleanup()
 
 	sourceBranch := "fetch-source-branch-testmas-branch"
-	testhelper.CreateCommit(t, sourceRepoPath, sourceBranch, nil)
+	gittest.CreateCommit(t, sourceRepoPath, sourceBranch, nil)
 
 	targetRef := "refs/tmp/fetch-source-branch-test"
 

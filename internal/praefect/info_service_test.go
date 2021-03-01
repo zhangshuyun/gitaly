@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	gconfig "gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -60,7 +61,7 @@ func TestInfoService_RepositoryReplicas(t *testing.T) {
 	testhelper.NewTestRepoTo(t, cfg.Storages[2].Path, "repo-1")
 
 	// create a commit in the second replica so we can check that its checksum is different than the primary
-	testhelper.CreateCommit(t, filepath.Join(cfg.Storages[1].Path, "repo-1"), "master", nil)
+	gittest.CreateCommit(t, filepath.Join(cfg.Storages[1].Path, "repo-1"), "master", nil)
 
 	cc, _, cleanup := runPraefectServer(t, conf, buildOptions{})
 	defer cleanup()

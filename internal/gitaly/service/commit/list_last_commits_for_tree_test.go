@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -354,7 +355,7 @@ func TestNonUtf8ListLastCommitsForTreeRequest(t *testing.T) {
 	nonUTF8Filename := "hello\x80world"
 	require.False(t, utf8.ValidString(nonUTF8Filename))
 
-	commitID := testhelper.CommitBlobWithName(t,
+	commitID := gittest.CommitBlobWithName(t,
 		testRepoPath,
 		blobID,
 		nonUTF8Filename,

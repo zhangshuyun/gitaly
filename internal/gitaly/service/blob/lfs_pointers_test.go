@@ -11,6 +11,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
@@ -186,7 +187,7 @@ func TestSuccessfulGetNewLFSPointersRequest(t *testing.T) {
 	// Skip smudge since it doesn't work with file:// remotes and we don't need it
 	cmd.Env = append(cmd.Env, "GIT_LFS_SKIP_SMUDGE=1")
 	altDirs := "./alt-objects"
-	altDirsCommit := testhelper.CreateCommitInAlternateObjectDirectory(t, config.Config.Git.BinPath, testRepoPath, altDirs, cmd)
+	altDirsCommit := gittest.CreateCommitInAlternateObjectDirectory(t, config.Config.Git.BinPath, testRepoPath, altDirs, cmd)
 
 	// Create a commit not pointed at by any ref to emulate being in the
 	// pre-receive hook so that `--not --all` returns some objects

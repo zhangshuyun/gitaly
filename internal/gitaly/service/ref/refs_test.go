@@ -503,7 +503,7 @@ func TestSuccessfulFindAllTagsRequest(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	bigCommitID := testhelper.CreateCommit(t, repoPath, "local-big-commits", &testhelper.CreateCommitOpts{
+	bigCommitID := gittest.CreateCommit(t, repoPath, "local-big-commits", &gittest.CreateCommitOpts{
 		Message:  "An empty commit with REALLY BIG message\n\n" + strings.Repeat("a", helper.MaxCommitOrTagMessageSize+1),
 		ParentID: "60ecb67744cb56576c30214ff52294f8ce2def98",
 	})
@@ -1455,7 +1455,7 @@ func TestSuccessfulFindTagRequest(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	bigCommitID := testhelper.CreateCommit(t, repoPath, "local-big-commits", &testhelper.CreateCommitOpts{
+	bigCommitID := gittest.CreateCommit(t, repoPath, "local-big-commits", &gittest.CreateCommitOpts{
 		Message:  "An empty commit with REALLY BIG message\n\n" + strings.Repeat("a", helper.MaxCommitOrTagMessageSize+1),
 		ParentID: "60ecb67744cb56576c30214ff52294f8ce2def98",
 	})

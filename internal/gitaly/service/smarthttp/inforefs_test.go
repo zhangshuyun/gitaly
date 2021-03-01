@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/cache"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/objectpool"
 	"gitlab.com/gitlab-org/gitaly/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
@@ -201,7 +202,7 @@ func TestObjectPoolRefAdvertisementHiding(t *testing.T) {
 	require.NoError(t, pool.Create(ctx, repo))
 	defer pool.Remove(ctx)
 
-	commitID := testhelper.CreateCommit(t, pool.FullPath(), t.Name(), nil)
+	commitID := gittest.CreateCommit(t, pool.FullPath(), t.Name(), nil)
 
 	require.NoError(t, pool.Link(ctx, repo))
 

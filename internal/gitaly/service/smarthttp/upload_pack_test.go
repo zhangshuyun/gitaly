@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/pktline"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
@@ -470,7 +471,7 @@ func testUploadPackRequestForPartialCloneSuccess(t *testing.T, ctx context.Conte
 	testhelper.GitObjectMustNotExist(t, config.Config.Git.BinPath, localRepoPath, blobGreaterThanLimit)
 
 	newBranch := "new-branch"
-	newHead = []byte(testhelper.CreateCommit(t, remoteRepoPath, newBranch, &testhelper.CreateCommitOpts{
+	newHead = []byte(gittest.CreateCommit(t, remoteRepoPath, newBranch, &gittest.CreateCommitOpts{
 		Message: commitMsg,
 	}))
 

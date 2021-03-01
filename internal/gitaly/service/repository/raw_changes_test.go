@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -340,14 +341,14 @@ func TestGetRawChangesInvalidUTF8Paths(t *testing.T) {
 	)
 	require.False(t, utf8.ValidString(nonUTF8Filename)) // sanity check
 
-	fromCommitID := testhelper.CommitBlobWithName(
+	fromCommitID := gittest.CommitBlobWithName(
 		t,
 		testRepoPath,
 		blobID1,
 		nonUTF8Filename,
 		"killer AI might use non-UTF filenames",
 	)
-	toCommitID := testhelper.CommitBlobWithName(
+	toCommitID := gittest.CommitBlobWithName(
 		t,
 		testRepoPath,
 		blobID2,

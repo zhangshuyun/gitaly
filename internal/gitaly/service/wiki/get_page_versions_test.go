@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -102,7 +103,7 @@ func TestWikiGetPageVersionsRequest(t *testing.T) {
 
 				assert.Equal(t, version.GetFormat(), v2.GetFormat(),
 					"expected wiki page format to be equal for version %d", i)
-				assert.NoError(t, testhelper.GitCommitEqual(version.GetCommit(), v2.GetCommit()),
+				assert.NoError(t, gittest.GitCommitEqual(version.GetCommit(), v2.GetCommit()),
 					"expected wiki page commit to be equal for version %d", i)
 			}
 		})
