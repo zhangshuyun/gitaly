@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/nodes"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -109,6 +110,10 @@ func TestPerRepositoryRouter_RouteStorageAccessor(t *testing.T) {
 }
 
 func TestPerRepositoryRouter_RouteRepositoryAccessor(t *testing.T) {
+	mdReadDistributionEnabled := map[string]string{
+		featureflag.HeaderKey(featureflag.DistributedReads.Name): "true",
+	}
+
 	for _, tc := range []struct {
 		desc           string
 		virtualStorage string
@@ -123,12 +128,14 @@ func TestPerRepositoryRouter_RouteRepositoryAccessor(t *testing.T) {
 		{
 			desc:           "unknown virtual storage",
 			virtualStorage: "unknown",
+			metadata:       mdReadDistributionEnabled,
 			error:          nodes.ErrVirtualStorageNotExist,
 		},
 		{
 			desc:           "no healthy nodes",
 			virtualStorage: "virtual-storage-1",
 			healthyNodes:   map[string][]string{},
+			metadata:       mdReadDistributionEnabled,
 			error:          ErrNoHealthyNodes,
 		},
 		{
@@ -137,6 +144,7 @@ func TestPerRepositoryRouter_RouteRepositoryAccessor(t *testing.T) {
 			healthyNodes: map[string][]string{
 				"virtual-storage-1": {"primary", "consistent-secondary"},
 			},
+			metadata:      mdReadDistributionEnabled,
 			numCandidates: 2,
 			pickCandidate: 0,
 			node:          "primary",
@@ -147,6 +155,7 @@ func TestPerRepositoryRouter_RouteRepositoryAccessor(t *testing.T) {
 			healthyNodes: map[string][]string{
 				"virtual-storage-1": {"primary", "consistent-secondary"},
 			},
+			metadata:      mdReadDistributionEnabled,
 			numCandidates: 2,
 			pickCandidate: 1,
 			node:          "consistent-secondary",
@@ -157,6 +166,7 @@ func TestPerRepositoryRouter_RouteRepositoryAccessor(t *testing.T) {
 			healthyNodes: map[string][]string{
 				"virtual-storage-1": {"consistent-secondary"},
 			},
+			metadata:      mdReadDistributionEnabled,
 			numCandidates: 1,
 			node:          "consistent-secondary",
 		},
@@ -166,7 +176,8 @@ func TestPerRepositoryRouter_RouteRepositoryAccessor(t *testing.T) {
 			healthyNodes: map[string][]string{
 				"virtual-storage-1": {"inconistent-secondary"},
 			},
-			error: ErrNoSuitableNode,
+			metadata: mdReadDistributionEnabled,
+			error:    ErrNoSuitableNode,
 		},
 		{
 			desc:           "primary force-picked",
@@ -185,6 +196,28 @@ func TestPerRepositoryRouter_RouteRepositoryAccessor(t *testing.T) {
 			},
 			forcePrimary: true,
 			error:        nodes.ErrPrimaryNotHealthy,
+		},
+		{
+			desc:           "primary picked if read distribution is disabled",
+			virtualStorage: "virtual-storage-1",
+			healthyNodes: map[string][]string{
+				"virtual-storage-1": {"primary", "consistent-secondary"},
+			},
+			metadata: map[string]string{
+				featureflag.HeaderKey(featureflag.DistributedReads.Name): "false",
+			},
+			node: "primary",
+		},
+		{
+			desc:           "returns error if primary is unhealthy with read distribution disabled",
+			virtualStorage: "virtual-storage-1",
+			healthyNodes: map[string][]string{
+				"virtual-storage-1": {"consistent-secondary"},
+			},
+			metadata: map[string]string{
+				featureflag.HeaderKey(featureflag.DistributedReads.Name): "false",
+			},
+			error: nodes.ErrPrimaryNotHealthy,
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/nodes"
 	"google.golang.org/grpc"
@@ -138,7 +139,7 @@ func (r *PerRepositoryRouter) RouteRepositoryAccessor(ctx context.Context, virtu
 		return RouterNode{}, err
 	}
 
-	if forcePrimary {
+	if forcePrimary || featureflag.IsDisabled(ctx, featureflag.DistributedReads) {
 		primary, err := r.pg.GetPrimary(ctx, virtualStorage, relativePath)
 		if err != nil {
 			return RouterNode{}, fmt.Errorf("get primary: %w", err)
