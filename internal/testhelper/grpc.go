@@ -3,6 +3,7 @@ package testhelper
 import (
 	"context"
 	"testing"
+	"strings"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/require"
@@ -44,14 +45,31 @@ func RequireGrpcError(t testing.TB, err error, expectedCode codes.Code) {
 	}
 }
 
-// GrpcErrorHasMessage checks whether the GRPC error's message matches the
-// given message.
-func GrpcErrorHasMessage(t testing.TB, grpcError error, msg string) {
+func grpcErrorHas(t testing.TB, grpcError error, msg string) *status.Status {
 	t.Helper()
 
 	st, ok := status.FromError(grpcError)
 	require.Truef(t, ok, "passed err is not a status.Status: %T", grpcError)
+	return st
+}
+
+// GrpcErrorHasMessage checks whether the GRPC error's message matches the
+// given message.
+func GrpcErrorHasMessage(t testing.TB, grpcError error, msg string) {
+	st := grpcErrorHas(t, grpcError, msg)
 	require.Equal(t, msg, st.Message())
+}
+
+// GrpcErrorHasMessagePrefix checks whether the GRPC error's message starts with the
+// given message.
+func GrpcErrorHasMessagePrefix(t testing.TB, grpcError error, msg string) {
+	st := grpcErrorHas(t, grpcError, msg)
+
+	require.Contains(t, st.Message(), msg)
+	// Because there's no require.HasPrefix(). Do .Contains()
+	// above to get a better error message, but also asserts that
+	// the strings starts with our prefix.
+	require.True(t, strings.HasPrefix(st.Message(), msg))
 }
 
 // MergeOutgoingMetadata merges provided metadata-s and returns context with resulting value.
