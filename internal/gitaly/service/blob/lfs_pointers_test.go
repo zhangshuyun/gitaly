@@ -171,6 +171,12 @@ func testFailedGetLFSPointersRequestDueToValidations(t *testing.T, ctx context.C
 }
 
 func TestSuccessfulGetNewLFSPointersRequest(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.GoGetNewLFSPointers,
+	}).Run(t, testSuccessfulGetNewLFSPointersRequest)
+}
+
+func testSuccessfulGetNewLFSPointersRequest(t *testing.T, ctx context.Context) {
 	stop, serverSocketPath := runBlobServer(t, testhelper.DefaultLocator())
 	defer stop()
 
@@ -287,9 +293,6 @@ func TestSuccessfulGetNewLFSPointersRequest(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
-
 			tc.request.Repository.GitAlternateObjectDirectories = []string{altDirs}
 			stream, err := client.GetNewLFSPointers(ctx, tc.request)
 			require.NoError(t, err)
@@ -312,6 +315,12 @@ func TestSuccessfulGetNewLFSPointersRequest(t *testing.T) {
 }
 
 func TestFailedGetNewLFSPointersRequestDueToValidations(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.GoGetNewLFSPointers,
+	}).Run(t, testFailedGetNewLFSPointersRequestDueToValidations)
+}
+
+func testFailedGetNewLFSPointersRequestDueToValidations(t *testing.T, ctx context.Context) {
 	stop, serverSocketPath := runBlobServer(t, testhelper.DefaultLocator())
 	defer stop()
 
@@ -349,9 +358,6 @@ func TestFailedGetNewLFSPointersRequestDueToValidations(t *testing.T) {
 				Repository: tc.repository,
 				Revision:   tc.revision,
 			}
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
 
 			c, err := client.GetNewLFSPointers(ctx, request)
 			require.NoError(t, err)
@@ -529,6 +535,7 @@ func TestFindLFSPointersByRevisions(t *testing.T) {
 		desc                string
 		opts                []git.Option
 		revs                []string
+		limit               int
 		expectedErr         error
 		expectedLFSPointers []*gitalypb.LFSPointer
 	}{
@@ -542,6 +549,33 @@ func TestFindLFSPointersByRevisions(t *testing.T) {
 				lfsPointers[lfsPointer2],
 				lfsPointers[lfsPointer3],
 				lfsPointers[lfsPointer4],
+				lfsPointers[lfsPointer5],
+				lfsPointers[lfsPointer6],
+			},
+		},
+		{
+			desc: "--all with high limit",
+			opts: []git.Option{
+				git.Flag{Name: "--all"},
+			},
+			limit: 7,
+			expectedLFSPointers: []*gitalypb.LFSPointer{
+				lfsPointers[lfsPointer1],
+				lfsPointers[lfsPointer2],
+				lfsPointers[lfsPointer3],
+				lfsPointers[lfsPointer4],
+				lfsPointers[lfsPointer5],
+				lfsPointers[lfsPointer6],
+			},
+		},
+		{
+			desc: "--all with truncating limit",
+			opts: []git.Option{
+				git.Flag{Name: "--all"},
+			},
+			limit: 3,
+			expectedLFSPointers: []*gitalypb.LFSPointer{
+				lfsPointers[lfsPointer1],
 				lfsPointers[lfsPointer5],
 				lfsPointers[lfsPointer6],
 			},
@@ -586,7 +620,7 @@ func TestFindLFSPointersByRevisions(t *testing.T) {
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			actualLFSPointers, err := findLFSPointersByRevisions(
-				ctx, repo, gitCmdFactory, tc.opts, tc.revs...)
+				ctx, repo, gitCmdFactory, tc.opts, tc.limit, tc.revs...)
 			if tc.expectedErr == nil {
 				require.NoError(t, err)
 			} else {
@@ -611,6 +645,7 @@ func TestReadLFSPointers(t *testing.T) {
 		desc                string
 		input               string
 		filterByObjectName  bool
+		limit               int
 		expectedErr         error
 		expectedLFSPointers []*gitalypb.LFSPointer
 	}{
@@ -638,6 +673,43 @@ func TestReadLFSPointers(t *testing.T) {
 				lfsPointers[lfsPointer4],
 				lfsPointers[lfsPointer5],
 				lfsPointers[lfsPointer6],
+			},
+		},
+		{
+			desc: "multiple object IDs with high limit",
+			input: strings.Join([]string{
+				lfsPointer1,
+				lfsPointer2,
+				lfsPointer3,
+				lfsPointer4,
+				lfsPointer5,
+				lfsPointer6,
+			}, "\n"),
+			limit: 7,
+			expectedLFSPointers: []*gitalypb.LFSPointer{
+				lfsPointers[lfsPointer1],
+				lfsPointers[lfsPointer2],
+				lfsPointers[lfsPointer3],
+				lfsPointers[lfsPointer4],
+				lfsPointers[lfsPointer5],
+				lfsPointers[lfsPointer6],
+			},
+		},
+		{
+			desc: "multiple object IDs with truncating limit",
+			input: strings.Join([]string{
+				lfsPointer1,
+				lfsPointer2,
+				lfsPointer3,
+				lfsPointer4,
+				lfsPointer5,
+				lfsPointer6,
+			}, "\n"),
+			limit: 3,
+			expectedLFSPointers: []*gitalypb.LFSPointer{
+				lfsPointers[lfsPointer1],
+				lfsPointers[lfsPointer2],
+				lfsPointers[lfsPointer3],
 			},
 		},
 		{
@@ -685,7 +757,7 @@ func TestReadLFSPointers(t *testing.T) {
 			reader := strings.NewReader(tc.input)
 
 			actualLFSPointers, err := readLFSPointers(
-				ctx, repo, gitCmdFactory, reader, tc.filterByObjectName)
+				ctx, repo, gitCmdFactory, reader, tc.filterByObjectName, tc.limit)
 			if tc.expectedErr == nil {
 				require.NoError(t, err)
 			} else {

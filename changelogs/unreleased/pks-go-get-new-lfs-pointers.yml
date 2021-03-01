@@ -1,0 +1,5 @@
+---
+title: 'blob: Port GetNewLFSPointers to Go'
+merge_request: 3195
+author:
+type: performance

@@ -57,7 +57,7 @@ func (s *server) GetLFSPointers(req *gitalypb.GetLFSPointersRequest, stream gita
 	repo := localrepo.New(s.gitCmdFactory, req.Repository, s.cfg)
 	objectIDs := strings.Join(req.BlobIds, "\n")
 
-	lfsPointers, err := readLFSPointers(ctx, repo, s.gitCmdFactory, strings.NewReader(objectIDs), false)
+	lfsPointers, err := readLFSPointers(ctx, repo, s.gitCmdFactory, strings.NewReader(objectIDs), false, 0)
 	if err != nil {
 		return err
 	}
@@ -115,12 +115,66 @@ func validateGetLFSPointersRequest(req *gitalypb.GetLFSPointersRequest) error {
 	return nil
 }
 
+// GetNewLFSPointers returns all LFS pointers which were newly introduced in a given revision,
+// excluding either all other existing refs or a set of provided refs. If NotInAll is set, then it
+// has precedence over NotInRefs.
 func (s *server) GetNewLFSPointers(in *gitalypb.GetNewLFSPointersRequest, stream gitalypb.BlobService_GetNewLFSPointersServer) error {
 	ctx := stream.Context()
 
 	if err := validateGetLfsPointersByRevisionRequest(in); err != nil {
 		return status.Errorf(codes.InvalidArgument, "GetNewLFSPointers: %v", err)
 	}
+
+	if featureflag.IsDisabled(ctx, featureflag.GoGetNewLFSPointers) {
+		return s.rubyGetNewLFSPointers(in, stream)
+	}
+
+	repo := localrepo.New(s.gitCmdFactory, in.Repository, s.cfg)
+
+	var refs []string
+	var opts []git.Option
+
+	if in.NotInAll {
+		refs = []string{string(in.Revision)}
+		// We need to append another `--not` to cancel out the first one. Otherwise, we'd
+		// negate the user-provided revision.
+		opts = []git.Option{
+			git.Flag{"--not"}, git.Flag{"--all"}, git.Flag{"--not"},
+		}
+	} else {
+		refs = make([]string, len(in.NotInRefs)+1)
+		refs[0] = string(in.Revision)
+
+		// We cannot intermix references and flags because of safety guards of our git DSL.
+		// Instead, we thus manually negate all references by prefixing them with the caret
+		// symbol.
+		for i, notInRef := range in.NotInRefs {
+			refs[i+1] = "^" + string(notInRef)
+		}
+	}
+
+	lfsPointers, err := findLFSPointersByRevisions(ctx, repo, s.gitCmdFactory, opts, int(in.Limit), refs...)
+	if err != nil {
+		if errors.Is(err, errInvalidRevision) {
+			return status.Errorf(codes.InvalidArgument, err.Error())
+		}
+		return err
+	}
+
+	err = sliceLFSPointers(lfsPointers, func(slice []*gitalypb.LFSPointer) error {
+		return stream.Send(&gitalypb.GetNewLFSPointersResponse{
+			LfsPointers: slice,
+		})
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *server) rubyGetNewLFSPointers(in *gitalypb.GetNewLFSPointersRequest, stream gitalypb.BlobService_GetNewLFSPointersServer) error {
+	ctx := stream.Context()
 
 	client, err := s.ruby.BlobServiceClient(ctx)
 	if err != nil {
@@ -173,7 +227,7 @@ func (s *server) GetAllLFSPointers(in *gitalypb.GetAllLFSPointersRequest, stream
 
 	lfsPointers, err := findLFSPointersByRevisions(ctx, repo, s.gitCmdFactory, []git.Option{
 		git.Flag{Name: "--all"},
-	})
+	}, 0)
 	if err != nil {
 		if errors.Is(err, errInvalidRevision) {
 			return status.Errorf(codes.InvalidArgument, err.Error())
@@ -239,6 +293,7 @@ func findLFSPointersByRevisions(
 	repo *localrepo.Repo,
 	gitCmdFactory git.CommandFactory,
 	opts []git.Option,
+	limit int,
 	revisions ...string,
 ) (_ []*gitalypb.LFSPointer, returnErr error) {
 	for _, revision := range revisions {
@@ -279,7 +334,7 @@ func findLFSPointersByRevisions(
 		}
 	}()
 
-	return readLFSPointers(ctx, repo, gitCmdFactory, revlist, true)
+	return readLFSPointers(ctx, repo, gitCmdFactory, revlist, true, limit)
 }
 
 // readLFSPointers reads object IDs of potential LFS pointers from the given reader and for each of
@@ -295,6 +350,7 @@ func readLFSPointers(
 	gitCmdFactory git.CommandFactory,
 	objectIDReader io.Reader,
 	filterByObjectName bool,
+	limit int,
 ) ([]*gitalypb.LFSPointer, error) {
 	catfileBatch, err := catfile.New(ctx, gitCmdFactory, repo)
 	if err != nil {
@@ -342,6 +398,10 @@ func readLFSPointers(
 			Size: int64(len(data)),
 			Oid:  revision.String(),
 		})
+
+		if limit > 0 && len(lfsPointers) >= limit {
+			break
+		}
 	}
 
 	if err := scanner.Err(); err != nil {
