@@ -44,7 +44,7 @@ func hookErrorMessage(sout string, serr string, err error) string {
 	return sout
 }
 
-func (s *Server) updateReferenceWithHooks(ctx context.Context, repo *gitalypb.Repository, user *gitalypb.User, reference, newrev, oldrev string) error {
+func (s *Server) updateReferenceWithHooksCustomErr(ctx context.Context, repo *gitalypb.Repository, user *gitalypb.User, reference, newrev, oldrev string, getUpdateErrors bool) error {
 	transaction, praefect, err := metadata.TransactionMetadataFromContext(ctx)
 	if err != nil {
 		return err
@@ -118,4 +118,8 @@ func (s *Server) updateReferenceWithHooks(ctx context.Context, repo *gitalypb.Re
 	}
 
 	return nil
+}
+
+func (s *Server) updateReferenceWithHooks(ctx context.Context, repo *gitalypb.Repository, user *gitalypb.User, reference, newrev, oldrev string) error {
+	return s.updateReferenceWithHooksCustomErr(ctx, repo, user, reference, newrev, oldrev, false);
 }

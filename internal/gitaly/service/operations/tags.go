@@ -173,7 +173,7 @@ func (s *Server) UserCreateTag(ctx context.Context, req *gitalypb.UserCreateTagR
 	}
 
 	referenceName := fmt.Sprintf("refs/tags/%s", req.TagName)
-	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, referenceName, refObjectID, git.ZeroOID.String()); err != nil {
+	if err := s.updateReferenceWithHooksCustomErr(ctx, req.Repository, req.User, referenceName, refObjectID, git.ZeroOID.String(), true); err != nil {
 		var preReceiveError preReceiveError
 		if errors.As(err, &preReceiveError) {
 			return &gitalypb.UserCreateTagResponse{
