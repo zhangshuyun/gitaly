@@ -19,60 +19,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 )
 
-func TestDirectStorageProvider_GetSyncedNodes(t *testing.T) {
-	t.Run("ok", func(t *testing.T) {
-		ctx, cancel := testhelper.Context()
-		defer cancel()
-
-		for _, tc := range []struct {
-			desc string
-			ret  map[string]struct{}
-			exp  map[string]struct{}
-		}{
-			{
-				desc: "primary included",
-				ret:  map[string]struct{}{"g2": {}, "g3": {}},
-				exp:  map[string]struct{}{"g2": {}, "g3": {}},
-			},
-			{
-				desc: "distinct values",
-				ret:  map[string]struct{}{"g1": {}, "g2": {}, "g3": {}},
-				exp:  map[string]struct{}{"g1": {}, "g2": {}, "g3": {}},
-			},
-			{
-				desc: "none",
-				ret:  nil,
-				exp:  nil,
-			},
-		} {
-			t.Run(tc.desc, func(t *testing.T) {
-				rs := &mockConsistentSecondariesProvider{}
-				rs.On("GetConsistentStorages", ctx, "vs", "/repo/path").Return(tc.ret, nil)
-
-				sp := NewDirectConsistentStoragesGetter(rs)
-				storages, err := sp.GetConsistentStorages(ctx, "vs", "/repo/path")
-				require.NoError(t, err)
-				require.Equal(t, tc.exp, storages)
-			})
-		}
-	})
-
-	t.Run("repository store returns an error", func(t *testing.T) {
-		ctx, cancel := testhelper.Context(testhelper.ContextWithLogger(testhelper.DiscardTestEntry(t)))
-		defer cancel()
-
-		rs := &mockConsistentSecondariesProvider{}
-		rs.On("GetConsistentStorages", ctx, "vs", "/repo/path").
-			Return(nil, assert.AnError).
-			Once()
-
-		sp := NewDirectConsistentStoragesGetter(rs)
-
-		_, err := sp.GetConsistentStorages(ctx, "vs", "/repo/path")
-		require.Equal(t, assert.AnError, err)
-	})
-}
-
 type mockConsistentSecondariesProvider struct {
 	mock.Mock
 }

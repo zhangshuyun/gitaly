@@ -20,28 +20,13 @@ type ConsistentStoragesGetter interface {
 	GetConsistentStorages(ctx context.Context, virtualStorage, relativePath string) (map[string]struct{}, error)
 }
 
-// DirectConsistentStoragesGetter provides the latest state of the synced nodes.
-type DirectConsistentStoragesGetter struct {
-	sp ConsistentStoragesGetter
-}
-
-// NewDirectConsistentStoragesGetter returns a new storage provider.
-func NewDirectConsistentStoragesGetter(sp ConsistentStoragesGetter) *DirectConsistentStoragesGetter {
-	return &DirectConsistentStoragesGetter{sp: sp}
-}
-
-// GetConsistentStorages returns list of gitaly storages that are in up to date state based on the generation tracking.
-func (c *DirectConsistentStoragesGetter) GetConsistentStorages(ctx context.Context, virtualStorage, relativePath string) (map[string]struct{}, error) {
-	return c.sp.GetConsistentStorages(ctx, virtualStorage, relativePath)
-}
-
 // errNotExistingVirtualStorage indicates that the requested virtual storage can't be found or not configured.
 var errNotExistingVirtualStorage = errors.New("virtual storage does not exist")
 
 // CachingConsistentStoragesGetter is a ConsistentStoragesGetter that caches up to date storages by repository.
 // Each virtual storage has it's own cache that invalidates entries based on notifications.
 type CachingConsistentStoragesGetter struct {
-	dsp *DirectConsistentStoragesGetter
+	csg ConsistentStoragesGetter
 	// caches is per virtual storage cache. It is initialized once on construction.
 	caches map[string]*lru.Cache
 	// access is access method to use: 0 - without caching; 1 - with caching.
@@ -54,9 +39,9 @@ type CachingConsistentStoragesGetter struct {
 }
 
 // NewCachingConsistentStoragesGetter returns a ConsistentStoragesGetter that uses caching.
-func NewCachingConsistentStoragesGetter(logger logrus.FieldLogger, sp ConsistentStoragesGetter, virtualStorages []string) (*CachingConsistentStoragesGetter, error) {
-	csp := &CachingConsistentStoragesGetter{
-		dsp:            NewDirectConsistentStoragesGetter(sp),
+func NewCachingConsistentStoragesGetter(logger logrus.FieldLogger, csg ConsistentStoragesGetter, virtualStorages []string) (*CachingConsistentStoragesGetter, error) {
+	cached := &CachingConsistentStoragesGetter{
+		csg:            csg,
 		caches:         make(map[string]*lru.Cache, len(virtualStorages)),
 		syncer:         syncer{inflight: map[string]chan struct{}{}},
 		callbackLogger: logger.WithField("component", "caching_storage_provider"),
@@ -72,15 +57,15 @@ func NewCachingConsistentStoragesGetter(logger logrus.FieldLogger, sp Consistent
 	for _, virtualStorage := range virtualStorages {
 		virtualStorage := virtualStorage
 		cache, err := lru.NewWithEvict(2<<20, func(key interface{}, value interface{}) {
-			csp.cacheAccessTotal.WithLabelValues(virtualStorage, "evict").Inc()
+			cached.cacheAccessTotal.WithLabelValues(virtualStorage, "evict").Inc()
 		})
 		if err != nil {
 			return nil, err
 		}
-		csp.caches[virtualStorage] = cache
+		cached.caches[virtualStorage] = cache
 	}
 
-	return csp, nil
+	return cached, nil
 }
 
 type notificationEntry struct {
@@ -150,7 +135,7 @@ func (c *CachingConsistentStoragesGetter) getCache(virtualStorage string) (*lru.
 
 func (c *CachingConsistentStoragesGetter) cacheMiss(ctx context.Context, virtualStorage, relativePath string) (map[string]struct{}, error) {
 	c.cacheAccessTotal.WithLabelValues(virtualStorage, "miss").Inc()
-	return c.dsp.GetConsistentStorages(ctx, virtualStorage, relativePath)
+	return c.csg.GetConsistentStorages(ctx, virtualStorage, relativePath)
 }
 
 func (c *CachingConsistentStoragesGetter) tryCache(virtualStorage, relativePath string) (func(), *lru.Cache, map[string]struct{}, bool) {

@@ -466,9 +466,7 @@ func TestCoordinatorStreamDirector_distributesReads(t *testing.T) {
 		},
 	}
 
-	sp := datastore.NewDirectStorageProvider(repoStore)
-
-	nodeMgr, err := nodes.NewManager(entry, conf, nil, sp, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil)
+	nodeMgr, err := nodes.NewManager(entry, conf, nil, repoStore, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil)
 	require.NoError(t, err)
 	nodeMgr.Start(0, time.Minute)
 
