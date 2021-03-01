@@ -4,8 +4,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 )
 
 func TestReferenceName_NewReferenceNameFromBranchName(t *testing.T) {

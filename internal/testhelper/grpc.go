@@ -2,8 +2,8 @@ package testhelper
 
 import (
 	"context"
-	"testing"
 	"strings"
+	"testing"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/require"

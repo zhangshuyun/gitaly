@@ -1,9 +1,9 @@
 package operations
 
 import (
+	"bytes"
 	"context"
 	"errors"
-	"bytes"
 	"fmt"
 	"strings"
 	"time"

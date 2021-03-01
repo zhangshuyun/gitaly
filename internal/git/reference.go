@@ -84,4 +84,3 @@ type CheckRefFormatError struct{}
 func (e CheckRefFormatError) Error() string {
 	return ""
 }
-
