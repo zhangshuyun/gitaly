@@ -117,8 +117,7 @@ type RepositoryStore interface {
 	// as the storage's which is calling it. Returns RepositoryNotExistsError when trying to rename a repository
 	// which has no record in the virtual storage or the storage.
 	RenameRepository(ctx context.Context, virtualStorage, relativePath, storage, newRelativePath string) error
-	// GetConsistentStorages checks which storages are on the latest generation and returns them.
-	GetConsistentStorages(ctx context.Context, virtualStorage, relativePath string) (map[string]struct{}, error)
+	ConsistentStoragesGetter
 	// RepositoryExists returns whether the repository exists on a virtual storage.
 	RepositoryExists(ctx context.Context, virtualStorage, relativePath string) (bool, error)
 	// GetPartiallyReplicatedRepositories returns information on repositories which have an outdated copy on an assigned storage.

@@ -100,7 +100,7 @@ type Mgr struct {
 	db         *sql.DB
 	// nodes contains nodes by their virtual storages
 	nodes map[string][]Node
-	sp    datastore.StoragesProvider
+	csg   datastore.ConsistentStoragesGetter
 }
 
 // leaderElectionStrategy defines the interface by which primary and
@@ -140,7 +140,7 @@ func NewManager(
 	log *logrus.Entry,
 	c config.Config,
 	db *sql.DB,
-	sp datastore.StoragesProvider,
+	csg datastore.ConsistentStoragesGetter,
 	latencyHistogram prommetrics.HistogramVec,
 	registry *protoregistry.Registry,
 	errorTracker tracker.ErrorTracker,
@@ -186,7 +186,7 @@ func NewManager(
 		db:         db,
 		strategies: strategies,
 		nodes:      nodes,
-		sp:         sp,
+		csg:        csg,
 	}, nil
 }
 
@@ -231,7 +231,7 @@ func (n *Mgr) GetSyncedNode(ctx context.Context, virtualStorageName, repoPath st
 		return shard.Primary, nil
 	}
 
-	upToDateStorages, err := n.sp.GetConsistentStorages(ctx, virtualStorageName, repoPath)
+	upToDateStorages, err := n.csg.GetConsistentStorages(ctx, virtualStorageName, repoPath)
 	if err != nil {
 		return nil, err
 	}

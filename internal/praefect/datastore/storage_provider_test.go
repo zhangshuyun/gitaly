@@ -49,7 +49,7 @@ func TestDirectStorageProvider_GetSyncedNodes(t *testing.T) {
 				rs := &mockConsistentSecondariesProvider{}
 				rs.On("GetConsistentStorages", ctx, "vs", "/repo/path").Return(tc.ret, nil)
 
-				sp := NewDirectStorageProvider(rs)
+				sp := NewDirectConsistentStoragesGetter(rs)
 				storages, err := sp.GetConsistentStorages(ctx, "vs", "/repo/path")
 				require.NoError(t, err)
 				require.Equal(t, tc.exp, storages)
@@ -66,7 +66,7 @@ func TestDirectStorageProvider_GetSyncedNodes(t *testing.T) {
 			Return(nil, assert.AnError).
 			Once()
 
-		sp := NewDirectStorageProvider(rs)
+		sp := NewDirectConsistentStoragesGetter(rs)
 
 		_, err := sp.GetConsistentStorages(ctx, "vs", "/repo/path")
 		require.Equal(t, assert.AnError, err)
@@ -97,7 +97,7 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 			Return(map[string]struct{}{"g1": {}, "g2": {}, "g3": {}}, nil).
 			Once()
 
-		cache, err := NewCachingStorageProvider(ctxlogrus.Extract(ctx), rs, []string{"vs"})
+		cache, err := NewCachingConsistentStoragesGetter(ctxlogrus.Extract(ctx), rs, []string{"vs"})
 		require.NoError(t, err)
 		cache.Connected()
 
@@ -123,7 +123,7 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 			Return(map[string]struct{}{"g1": {}, "g2": {}, "g3": {}}, nil).
 			Once()
 
-		cache, err := NewCachingStorageProvider(ctxlogrus.Extract(ctx), rs, []string{"vs"})
+		cache, err := NewCachingConsistentStoragesGetter(ctxlogrus.Extract(ctx), rs, []string{"vs"})
 		require.NoError(t, err)
 		cache.Connected()
 
@@ -164,7 +164,7 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 			Return(nil, assert.AnError).
 			Once()
 
-		cache, err := NewCachingStorageProvider(ctxlogrus.Extract(ctx), rs, []string{"vs"})
+		cache, err := NewCachingConsistentStoragesGetter(ctxlogrus.Extract(ctx), rs, []string{"vs"})
 		require.NoError(t, err)
 		cache.Connected()
 
@@ -192,7 +192,7 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 			Return(map[string]struct{}{"g1": {}, "g2": {}, "g3": {}}, nil).
 			Times(4)
 
-		cache, err := NewCachingStorageProvider(ctxlogrus.Extract(ctx), rs, []string{"vs"})
+		cache, err := NewCachingConsistentStoragesGetter(ctxlogrus.Extract(ctx), rs, []string{"vs"})
 		require.NoError(t, err)
 		cache.Connected()
 
@@ -250,7 +250,7 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 		rs.On("GetConsistentStorages", mock.Anything, "vs", "/repo/path/2").
 			Return(map[string]struct{}{"g1": {}, "g2": {}}, nil)
 
-		cache, err := NewCachingStorageProvider(ctxlogrus.Extract(ctx), rs, []string{"vs"})
+		cache, err := NewCachingConsistentStoragesGetter(ctxlogrus.Extract(ctx), rs, []string{"vs"})
 		require.NoError(t, err)
 		cache.Connected()
 
@@ -298,7 +298,7 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 		rs.On("GetConsistentStorages", mock.Anything, "vs", "/repo/path").
 			Return(map[string]struct{}{"g1": {}, "g2": {}, "g3": {}}, nil)
 
-		cache, err := NewCachingStorageProvider(ctxlogrus.Extract(ctx), rs, []string{"vs"})
+		cache, err := NewCachingConsistentStoragesGetter(ctxlogrus.Extract(ctx), rs, []string{"vs"})
 		require.NoError(t, err)
 		cache.Connected()
 
@@ -333,7 +333,7 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 		rs.On("GetConsistentStorages", mock.Anything, "vs", "/repo/path/1").Return(nil, nil)
 		rs.On("GetConsistentStorages", mock.Anything, "vs", "/repo/path/2").Return(nil, nil)
 
-		cache, err := NewCachingStorageProvider(ctxlogrus.Extract(ctx), rs, []string{"vs"})
+		cache, err := NewCachingConsistentStoragesGetter(ctxlogrus.Extract(ctx), rs, []string{"vs"})
 		require.NoError(t, err)
 		cache.Connected()
 
