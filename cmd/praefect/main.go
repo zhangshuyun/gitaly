@@ -336,7 +336,7 @@ func run(cfgs []starter.Config, conf config.Config) error {
 			elector,
 			hm,
 			praefect.NewLockedRandom(rand.New(rand.NewSource(time.Now().UnixNano()))),
-			rs,
+			csg,
 			assignmentStore,
 			conf.DefaultReplicationFactors(),
 		)

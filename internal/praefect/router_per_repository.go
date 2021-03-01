@@ -62,18 +62,18 @@ type PerRepositoryRouter struct {
 	pg                        PrimaryGetter
 	rand                      Random
 	hc                        HealthChecker
-	rs                        datastore.RepositoryStore
+	csg                       datastore.ConsistentStoragesGetter
 	defaultReplicationFactors map[string]int
 }
 
 // NewPerRepositoryRouter returns a new PerRepositoryRouter using the passed configuration.
-func NewPerRepositoryRouter(conns Connections, pg PrimaryGetter, hc HealthChecker, rand Random, rs datastore.RepositoryStore, ag AssignmentGetter, defaultReplicationFactors map[string]int) *PerRepositoryRouter {
+func NewPerRepositoryRouter(conns Connections, pg PrimaryGetter, hc HealthChecker, rand Random, csg datastore.ConsistentStoragesGetter, ag AssignmentGetter, defaultReplicationFactors map[string]int) *PerRepositoryRouter {
 	return &PerRepositoryRouter{
 		conns:                     conns,
 		pg:                        pg,
 		rand:                      rand,
 		hc:                        hc,
-		rs:                        rs,
+		csg:                       csg,
 		ag:                        ag,
 		defaultReplicationFactors: defaultReplicationFactors,
 	}
@@ -153,7 +153,7 @@ func (r *PerRepositoryRouter) RouteRepositoryAccessor(ctx context.Context, virtu
 		return RouterNode{}, nodes.ErrPrimaryNotHealthy
 	}
 
-	consistentStorages, err := r.rs.GetConsistentStorages(ctx, virtualStorage, relativePath)
+	consistentStorages, err := r.csg.GetConsistentStorages(ctx, virtualStorage, relativePath)
 	if err != nil {
 		return RouterNode{}, fmt.Errorf("consistent storages: %w", err)
 	}
@@ -190,7 +190,7 @@ func (r *PerRepositoryRouter) RouteRepositoryMutator(ctx context.Context, virtua
 		return RepositoryMutatorRoute{}, nodes.ErrPrimaryNotHealthy
 	}
 
-	consistentStorages, err := r.rs.GetConsistentStorages(ctx, virtualStorage, relativePath)
+	consistentStorages, err := r.csg.GetConsistentStorages(ctx, virtualStorage, relativePath)
 	if err != nil {
 		return RepositoryMutatorRoute{}, fmt.Errorf("consistent storages: %w", err)
 	}
