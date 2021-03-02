@@ -57,7 +57,7 @@ func (s *server) GetLFSPointers(req *gitalypb.GetLFSPointersRequest, stream gita
 	repo := localrepo.New(s.gitCmdFactory, req.Repository, s.cfg)
 	objectIDs := strings.Join(req.BlobIds, "\n")
 
-	lfsPointers, err := readLFSPointers(ctx, repo, s.gitCmdFactory, strings.NewReader(objectIDs), false, 0)
+	lfsPointers, err := readLFSPointers(ctx, repo, strings.NewReader(objectIDs), 0)
 	if err != nil {
 		return err
 	}
@@ -303,23 +303,14 @@ func findLFSPointersByRevisions(
 	}
 
 	// git-rev-list(1) currently does not have any way to list all reachable objects of a
-	// certain type. As an optimization, we thus call it with `--object-names`, which will
-	// print an associated name for a given revision, if there is any. This allows us to skip
-	// at least some objects, namely all commits.
-	//
-	// It is questionable whether this optimization helps at all: by including object names,
-	// git cannot make use of bitmap indices. We thus pessimize git-rev-list(1) and optimize
-	// git-cat-file(1). And given that there's going to be a lot more blobs and trees (which
-	// both _do_ have an object name) than commits, it's probably an optimization which even
-	// slows down execution. Still, we keep this to stay compatible with the Ruby
-	// implementation.
+	// certain type.
 	var revListStderr bytes.Buffer
 	revlist, err := repo.Exec(ctx, nil, git.SubCmd{
 		Name: "rev-list",
 		Flags: append([]git.Option{
 			git.Flag{Name: "--in-commit-order"},
 			git.Flag{Name: "--objects"},
-			git.Flag{Name: "--object-names"},
+			git.Flag{Name: "--no-object-names"},
 			git.Flag{Name: fmt.Sprintf("--filter=blob:limit=%d", lfsPointerMaxSize)},
 		}, opts...),
 		Args: revisions,
@@ -334,78 +325,59 @@ func findLFSPointersByRevisions(
 		}
 	}()
 
-	return readLFSPointers(ctx, repo, gitCmdFactory, revlist, true, limit)
+	return readLFSPointers(ctx, repo, revlist, limit)
 }
 
 // readLFSPointers reads object IDs of potential LFS pointers from the given reader and for each of
 // them, it will determine whether the referenced object is an LFS pointer. Objects which are not a
 // valid LFS pointer will be ignored. Objects which do not exist result in an error.
-//
-// If filterByObjectName is set to true, only IDs which have an associated object name will be
-// read. This is helpful to pass output of git-rev-list(1) with `--object-names` directly to this
-// function.
 func readLFSPointers(
 	ctx context.Context,
 	repo *localrepo.Repo,
-	gitCmdFactory git.CommandFactory,
 	objectIDReader io.Reader,
-	filterByObjectName bool,
 	limit int,
 ) ([]*gitalypb.LFSPointer, error) {
-	catfileBatch, err := catfile.New(ctx, gitCmdFactory, repo)
+	catfileBatch, err := repo.Exec(ctx, nil, git.SubCmd{
+		Name: "cat-file",
+		Flags: []git.Option{
+			git.Flag{Name: "--batch"},
+		},
+	}, git.WithStdin(objectIDReader))
 	if err != nil {
 		return nil, fmt.Errorf("could not execute cat-file: %w", err)
 	}
 
 	var lfsPointers []*gitalypb.LFSPointer
-	scanner := bufio.NewScanner(objectIDReader)
+	reader := bufio.NewReader(catfileBatch)
 
-	for scanner.Scan() {
-		revision := git.Revision(scanner.Bytes())
-		if filterByObjectName {
-			revAndPath := strings.SplitN(revision.String(), " ", 2)
-			if len(revAndPath) != 2 {
-				continue
-			}
-			revision = git.Revision(revAndPath[0])
-		}
-
-		objectInfo, err := catfileBatch.Info(ctx, revision)
+	for {
+		objectInfo, err := catfile.ParseObjectInfo(reader)
 		if err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
 			return nil, fmt.Errorf("could not get LFS pointer info: %w", err)
 		}
 
-		if objectInfo.Type != "blob" {
-			continue
-		}
-
-		blob, err := catfileBatch.Blob(ctx, revision)
+		data, err := ioutil.ReadAll(io.LimitReader(reader, objectInfo.Size+1))
 		if err != nil {
-			return nil, fmt.Errorf("could not retrieve LFS pointer: %w", err)
+			return nil, fmt.Errorf("could not read LFS pointer candidate: %w", err)
 		}
+		data = data[:len(data)-1]
 
-		data, err := ioutil.ReadAll(blob.Reader)
-		if err != nil {
-			return nil, fmt.Errorf("could not read LFS pointer: %w", err)
-		}
-
-		if !isLFSPointer(data) {
+		if objectInfo.Type != "blob" || !isLFSPointer(data) {
 			continue
 		}
 
 		lfsPointers = append(lfsPointers, &gitalypb.LFSPointer{
 			Data: data,
 			Size: int64(len(data)),
-			Oid:  revision.String(),
+			Oid:  objectInfo.Oid,
 		})
 
 		if limit > 0 && len(lfsPointers) >= limit {
 			break
 		}
-	}
-
-	if err := scanner.Err(); err != nil {
-		return nil, fmt.Errorf("scanning LFS pointers failed: %w", err)
 	}
 
 	return lfsPointers, nil
