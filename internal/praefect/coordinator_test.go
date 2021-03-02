@@ -578,6 +578,55 @@ func TestCoordinatorStreamDirector_distributesReads(t *testing.T) {
 		require.Zero(t, secondaryChosen, "secondary should never have been chosen")
 	})
 
+	t.Run("forwards accessor to primary for primary-only RPCs", func(t *testing.T) {
+		var primaryChosen int
+		var secondaryChosen int
+
+		for i := 0; i < 16; i++ {
+			frame, err := proto.Marshal(&gitalypb.GetObjectDirectorySizeRequest{Repository: &targetRepo})
+			require.NoError(t, err)
+
+			fullMethod := "/gitaly.RepositoryService/GetObjectDirectorySize"
+
+			peeker := &mockPeeker{frame: frame}
+
+			ctx, cancel := testhelper.Context()
+			defer cancel()
+
+			streamParams, err := coordinator.StreamDirector(ctx, fullMethod, peeker)
+			require.NoError(t, err)
+			require.Contains(t, []string{primaryNodeConf.Address, secondaryNodeConf.Address}, streamParams.Primary().Conn.Target(), "must be redirected to primary or secondary")
+
+			var nodeConf config.Node
+			switch streamParams.Primary().Conn.Target() {
+			case primaryNodeConf.Address:
+				nodeConf = primaryNodeConf
+				primaryChosen++
+			case secondaryNodeConf.Address:
+				nodeConf = secondaryNodeConf
+				secondaryChosen++
+			}
+
+			md, ok := metadata.FromOutgoingContext(streamParams.Primary().Ctx)
+			require.True(t, ok)
+			require.Contains(t, md, praefect_metadata.PraefectMetadataKey)
+
+			mi, err := coordinator.registry.LookupMethod(fullMethod)
+			require.NoError(t, err)
+			require.Equal(t, protoregistry.OpAccessor, mi.Operation, "method must be an accessor")
+
+			m, err := protoMessage(mi, streamParams.Primary().Msg)
+			require.NoError(t, err)
+
+			rewrittenTargetRepo, err := mi.TargetRepo(m)
+			require.NoError(t, err)
+			require.Equal(t, nodeConf.Storage, rewrittenTargetRepo.GetStorageName(), "stream director must rewrite the storage name")
+		}
+
+		require.Equal(t, 16, primaryChosen, "primary should have always been chosen")
+		require.Zero(t, secondaryChosen, "secondary should never have been chosen")
+	})
+
 	t.Run("forwards accessor operations only to healthy nodes", func(t *testing.T) {
 		healthSrv.SetServingStatus("", grpc_health_v1.HealthCheckResponse_NOT_SERVING)
 

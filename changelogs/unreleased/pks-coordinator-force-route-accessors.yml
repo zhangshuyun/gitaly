@@ -1,0 +1,5 @@
+---
+title: 'coordinator: Fix inconsistent repository sizes when using reads distribution'
+merge_request: 3209
+author:
+type: fixed
