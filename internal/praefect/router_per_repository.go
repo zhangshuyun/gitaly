@@ -147,13 +147,13 @@ func shouldRouteRepositoryAccessorToPrimary(ctx context.Context) bool {
 	return header[0] == routeRepositoryAccessorPolicyPrimaryOnly
 }
 
-func (r *PerRepositoryRouter) RouteRepositoryAccessor(ctx context.Context, virtualStorage, relativePath string) (RouterNode, error) {
+func (r *PerRepositoryRouter) RouteRepositoryAccessor(ctx context.Context, virtualStorage, relativePath string, forcePrimary bool) (RouterNode, error) {
 	healthyNodes, err := r.healthyNodes(virtualStorage)
 	if err != nil {
 		return RouterNode{}, err
 	}
 
-	if shouldRouteRepositoryAccessorToPrimary(ctx) {
+	if forcePrimary || shouldRouteRepositoryAccessorToPrimary(ctx) {
 		primary, err := r.pg.GetPrimary(ctx, virtualStorage, relativePath)
 		if err != nil {
 			return RouterNode{}, fmt.Errorf("get primary: %w", err)

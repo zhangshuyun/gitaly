@@ -304,7 +304,7 @@ func (c *Coordinator) accessorStreamParameters(ctx context.Context, call grpcCal
 	repoPath := call.targetRepo.GetRelativePath()
 	virtualStorage := call.targetRepo.StorageName
 
-	node, err := c.router.RouteRepositoryAccessor(ctx, virtualStorage, repoPath)
+	node, err := c.router.RouteRepositoryAccessor(ctx, virtualStorage, repoPath, false)
 	if err != nil {
 		return nil, fmt.Errorf("accessor call: route repository accessor: %w", err)
 	}
