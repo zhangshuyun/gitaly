@@ -25,6 +25,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/labkit/correlation"
 	"golang.org/x/sync/errgroup"
+	grpc_metadata "google.golang.org/grpc/metadata"
 )
 
 // ErrRepositoryReadOnly is returned when the repository is in read-only mode. This happens
@@ -300,11 +301,27 @@ func (c *Coordinator) directRepositoryScopedMessage(ctx context.Context, call gr
 	return ps, nil
 }
 
+func shouldRouteRepositoryAccessorToPrimary(ctx context.Context) bool {
+	md, ok := grpc_metadata.FromIncomingContext(ctx)
+	if !ok {
+		return false
+	}
+
+	header := md.Get(routeRepositoryAccessorPolicy)
+	if len(header) == 0 {
+		return false
+	}
+
+	return header[0] == routeRepositoryAccessorPolicyPrimaryOnly
+}
+
 func (c *Coordinator) accessorStreamParameters(ctx context.Context, call grpcCall) (*proxy.StreamParameters, error) {
 	repoPath := call.targetRepo.GetRelativePath()
 	virtualStorage := call.targetRepo.StorageName
 
-	node, err := c.router.RouteRepositoryAccessor(ctx, virtualStorage, repoPath, false)
+	node, err := c.router.RouteRepositoryAccessor(
+		ctx, virtualStorage, repoPath, shouldRouteRepositoryAccessorToPrimary(ctx),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("accessor call: route repository accessor: %w", err)
 	}

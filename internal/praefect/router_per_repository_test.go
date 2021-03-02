@@ -169,28 +169,6 @@ func TestPerRepositoryRouter_RouteRepositoryAccessor(t *testing.T) {
 			error: ErrNoSuitableNode,
 		},
 		{
-			desc:           "primary force-picked via accessor policy",
-			virtualStorage: "virtual-storage-1",
-			healthyNodes: map[string][]string{
-				"virtual-storage-1": {"primary", "consistent-secondary"},
-			},
-			metadata: map[string]string{
-				routeRepositoryAccessorPolicy: routeRepositoryAccessorPolicyPrimaryOnly,
-			},
-			node: "primary",
-		},
-		{
-			desc:           "secondary not picked if force-picking unhealthy primary via accessor policy",
-			virtualStorage: "virtual-storage-1",
-			healthyNodes: map[string][]string{
-				"virtual-storage-1": {"consistent-secondary"},
-			},
-			metadata: map[string]string{
-				routeRepositoryAccessorPolicy: routeRepositoryAccessorPolicyPrimaryOnly,
-			},
-			error: nodes.ErrPrimaryNotHealthy,
-		},
-		{
 			desc:           "primary force-picked",
 			virtualStorage: "virtual-storage-1",
 			healthyNodes: map[string][]string{
