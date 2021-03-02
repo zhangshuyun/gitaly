@@ -1,6 +1,7 @@
 package blob
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -629,6 +630,56 @@ func TestFindLFSPointersByRevisions(t *testing.T) {
 			require.ElementsMatch(t, tc.expectedLFSPointers, actualLFSPointers)
 		})
 	}
+}
+
+func BenchmarkFindLFSPointers(b *testing.B) {
+	gitCmdFactory := git.NewExecCommandFactory(config.Config)
+
+	repoProto, _, cleanup := gittest.CloneBenchRepo(b)
+	defer cleanup()
+	repo := localrepo.New(gitCmdFactory, repoProto, config.Config)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	b.Run("limitless", func(b *testing.B) {
+		_, err := findLFSPointersByRevisions(ctx, repo, gitCmdFactory, []git.Option{
+			git.Flag{"--all"},
+		}, 0)
+		require.NoError(b, err)
+	})
+
+	b.Run("limit", func(b *testing.B) {
+		lfsPointer, err := findLFSPointersByRevisions(ctx, repo, gitCmdFactory, []git.Option{
+			git.Flag{"--all"},
+		}, 1)
+		require.NoError(b, err)
+		require.Len(b, lfsPointer, 1)
+	})
+}
+
+func BenchmarkReadLFSPointers(b *testing.B) {
+	gitCmdFactory := git.NewExecCommandFactory(config.Config)
+
+	repoProto, path, cleanup := gittest.CloneBenchRepo(b)
+	defer cleanup()
+	repo := localrepo.New(gitCmdFactory, repoProto, config.Config)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	candidates := testhelper.MustRunCommand(b, nil, "git", "-C", path, "rev-list", "--in-commit-order", "--objects", "--no-object-names", "--filter=blob:limit=200", "--all")
+
+	b.Run("limitless", func(b *testing.B) {
+		_, err := readLFSPointers(ctx, repo, gitCmdFactory, bytes.NewReader(candidates), false, 0)
+		require.NoError(b, err)
+	})
+
+	b.Run("limit", func(b *testing.B) {
+		lfsPointer, err := readLFSPointers(ctx, repo, gitCmdFactory, bytes.NewReader(candidates), false, 1)
+		require.NoError(b, err)
+		require.Len(b, lfsPointer, 1)
+	})
 }
 
 func TestReadLFSPointers(t *testing.T) {
