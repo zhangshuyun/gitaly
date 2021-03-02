@@ -22,7 +22,7 @@ func TestDiskCacheObjectWalker(t *testing.T) {
 
 	var shouldExist, shouldNotExist []string
 
-	cache.ExportMockRemovalCounter = &cache.MockCounter{}
+	cache.ExportMockRemovalCounter.Reset()
 
 	for _, tt := range []struct {
 		name          string
