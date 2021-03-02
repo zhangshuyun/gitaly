@@ -1088,7 +1088,7 @@ func TestSuccessfulFindAllBranchesRequest(t *testing.T) {
 	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
-	gittest.CreateRemoteBranch(t, config.Config.Git.BinPath, testRepoPath, "origin",
+	gittest.CreateRemoteBranch(t, testRepoPath, "origin",
 		"fake-remote-branch", remoteBranch.Target.Id)
 
 	request := &gitalypb.FindAllBranchesRequest{Repository: testRepo}
