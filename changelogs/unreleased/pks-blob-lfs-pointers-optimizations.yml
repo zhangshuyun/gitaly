@@ -1,0 +1,5 @@
+---
+title: 'blob: Optimize Go implementation of LFS pointer lookup'
+merge_request: 3210
+author:
+type: performance
