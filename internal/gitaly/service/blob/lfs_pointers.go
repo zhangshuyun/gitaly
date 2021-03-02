@@ -295,7 +295,7 @@ func findLFSPointersByRevisions(
 	opts []git.Option,
 	limit int,
 	revisions ...string,
-) (_ []*gitalypb.LFSPointer, returnErr error) {
+) (lfsPointers []*gitalypb.LFSPointer, returnErr error) {
 	for _, revision := range revisions {
 		if strings.HasPrefix(revision, "-") && revision != "--all" && revision != "--not" {
 			return nil, fmt.Errorf("%w: %q", errInvalidRevision, revision)
@@ -319,6 +319,21 @@ func findLFSPointersByRevisions(
 		return nil, fmt.Errorf("could not execute rev-list: %w", err)
 	}
 	defer func() {
+		// There is no way to properly determine whether the process has exited because of
+		// us signalling the context or because of any other means. We can only approximate
+		// this by checking whether the process state is "signal: killed". Which again is
+		// awful, but given that `Signaled()` status is also not accessible to us,
+		// it's the best we could do.
+		//
+		// Let's not do any of this, it's awful. Instead, we can simply check whether a
+		// limit was set and if the number of returned LFS pointers matches that limit. If
+		// so, we found all LFS pointers which the user requested and needn't bother whether
+		// git-rev-list(1) may have failed. So let's instead just have the RPCcontext cancel
+		// the process.
+		if limit > 0 && len(lfsPointers) == limit {
+			return
+		}
+
 		if err := revlist.Wait(); err != nil && returnErr == nil {
 			returnErr = fmt.Errorf("rev-list failed: %w, stderr: %q",
 				err, revListStderr.String())
