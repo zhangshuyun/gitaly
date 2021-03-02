@@ -31,6 +31,13 @@ func (mc *MockCounter) Count() int {
 	return mc.count
 }
 
+// Reset resets the counter to zero.
+func (mc *MockCounter) Reset() {
+	mc.Lock()
+	mc.count = 0
+	mc.Unlock()
+}
+
 func init() {
 	// override counter functions with our mocked version
 	countWalkRemoval = func() { ExportMockRemovalCounter.Add(1) }
