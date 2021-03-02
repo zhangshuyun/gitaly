@@ -375,9 +375,19 @@ func readLFSPointers(
 			Oid:  objectInfo.Oid,
 		})
 
+		// Exit early in case we've got all LFS pointers. We want to do this here instead of
+		// just terminating the loop because we need to check git-cat-file(1)'s exit code in
+		// case the loop finishes successfully via an EOF. We don't want to do so here
+		// though: we don't care for successful termination of the command, we only care
+		// that we've got all pointers. The command is then getting cancelled via the
+		// parent's context.
 		if limit > 0 && len(lfsPointers) >= limit {
-			break
+			return lfsPointers, nil
 		}
+	}
+
+	if err := catfileBatch.Wait(); err != nil {
+		return nil, err
 	}
 
 	return lfsPointers, nil
