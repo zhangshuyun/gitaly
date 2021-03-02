@@ -197,7 +197,7 @@ func TestApplyGitattributesWithTransaction(t *testing.T) {
 
 			ctx, cancel := testhelper.Context()
 			defer cancel()
-			ctx, err := metadata.InjectTransaction(ctx, 1, "primary", true)
+			ctx, err := metadata.InjectTransaction(ctx, 1, "primary", true, "")
 			require.NoError(t, err)
 			ctx, err = praefect.Inject(ctx)
 			require.NoError(t, err)

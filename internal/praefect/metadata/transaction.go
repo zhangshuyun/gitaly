@@ -30,6 +30,9 @@ type Transaction struct {
 	Node string `json:"node"`
 	// Primary identifies the node's role in this transaction
 	Primary bool `json:"primary"`
+	// RouteUUID is used to properly route a vote to the originating
+	// Praefect
+	RouteUUID string `json:"route_uuid"`
 }
 
 // serialize serializes a `Transaction` into a string.
@@ -57,11 +60,12 @@ func transactionFromSerialized(serialized string) (Transaction, error) {
 }
 
 // InjectTransaction injects reference transaction metadata into an incoming context
-func InjectTransaction(ctx context.Context, tranasctionID uint64, node string, primary bool) (context.Context, error) {
+func InjectTransaction(ctx context.Context, tranasctionID uint64, node string, primary bool, routeUUID string) (context.Context, error) {
 	transaction := Transaction{
-		ID:      tranasctionID,
-		Node:    node,
-		Primary: primary,
+		ID:        tranasctionID,
+		Node:      node,
+		Primary:   primary,
+		RouteUUID: routeUUID,
 	}
 
 	serialized, err := transaction.serialize()

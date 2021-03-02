@@ -197,7 +197,7 @@ func TestUserCreateBranchWithTransaction(t *testing.T) {
 			defer cancel()
 			ctx, err = tc.server.Inject(ctx)
 			require.NoError(t, err)
-			ctx, err = metadata.InjectTransaction(ctx, 1, "node", true)
+			ctx, err = metadata.InjectTransaction(ctx, 1, "node", true, "")
 			require.NoError(t, err)
 			ctx = helper.IncomingToOutgoing(ctx)
 
@@ -587,7 +587,7 @@ func TestUserDeleteBranch_transaction(t *testing.T) {
 	defer cancel()
 	ctx, err = praefect.Inject(ctx)
 	require.NoError(t, err)
-	ctx, err = metadata.InjectTransaction(ctx, 1, "node", true)
+	ctx, err = metadata.InjectTransaction(ctx, 1, "node", true, "")
 	require.NoError(t, err)
 	ctx = helper.IncomingToOutgoing(ctx)
 

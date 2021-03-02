@@ -604,7 +604,7 @@ func TestPostReceiveWithReferenceTransactionHook(t *testing.T) {
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
-	ctx, err = metadata.InjectTransaction(ctx, 1234, "primary", true)
+	ctx, err = metadata.InjectTransaction(ctx, 1234, "primary", true, "")
 	require.NoError(t, err)
 	ctx, err = praefectServer.Inject(ctx)
 	require.NoError(t, err)

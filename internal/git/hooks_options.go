@@ -89,7 +89,7 @@ func (cc *cmdCfg) configureHooks(
 		return err
 	}
 
-	if praefect != nil && featureflag.IsEnabled(ctx, featureflag.GitalyTxSvc) {
+	if transaction != nil && featureflag.IsEnabled(ctx, featureflag.GitalyTxSvc) {
 		internalListenAddr := "unix://" + cfg.GitalyInternalSocketPath()
 		praefect = &metadata.PraefectServer{
 			SocketPath: internalListenAddr,

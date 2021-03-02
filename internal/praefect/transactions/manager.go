@@ -124,6 +124,9 @@ func NewManager(cfg config.Config, opts ...ManagerOpt) *Manager {
 	return mgr
 }
 
+// RouteUUID is a getter for the routeUUID
+func (mgr *Manager) RouteUUID() uuid.UUID { return mgr.routeUUID }
+
 func (mgr *Manager) Describe(descs chan<- *prometheus.Desc) {
 	prometheus.DescribeByCollect(mgr, descs)
 }

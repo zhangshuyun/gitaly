@@ -387,7 +387,7 @@ func TestUserCreateTagWithTransaction(t *testing.T) {
 			// We need to convert to an incoming context first in
 			// order to preserve the feature flag.
 			ctx = helper.OutgoingToIncoming(ctx)
-			ctx, err = metadata.InjectTransaction(ctx, 1, "node", testCase.primary)
+			ctx, err = metadata.InjectTransaction(ctx, 1, "node", testCase.primary, "")
 			require.NoError(t, err)
 			ctx, err = praefectServer.Inject(ctx)
 			require.NoError(t, err)

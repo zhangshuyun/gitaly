@@ -455,7 +455,7 @@ func (c *Coordinator) mutatorStreamParameters(ctx context.Context, call grpcCall
 			errByNode: make(map[string]error),
 		}
 
-		injectedCtx, err := metadata.InjectTransaction(ctx, transaction.ID(), route.Primary.Storage, true)
+		injectedCtx, err := metadata.InjectTransaction(ctx, transaction.ID(), route.Primary.Storage, true, c.txMgr.RouteUUID().String())
 		if err != nil {
 			return nil, err
 		}
@@ -473,7 +473,7 @@ func (c *Coordinator) mutatorStreamParameters(ctx context.Context, call grpcCall
 				return nil, err
 			}
 
-			injectedCtx, err := metadata.InjectTransaction(ctx, transaction.ID(), secondary.Storage, false)
+			injectedCtx, err := metadata.InjectTransaction(ctx, transaction.ID(), secondary.Storage, false, c.txMgr.RouteUUID().String())
 			if err != nil {
 				return nil, err
 			}
