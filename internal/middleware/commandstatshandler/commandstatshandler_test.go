@@ -12,18 +12,18 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/ref"
 	"gitlab.com/gitlab-org/gitaly/internal/log"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
 )
 
-func createNewServer(t *testing.T) *grpc.Server {
+func createNewServer(t *testing.T, cfg config.Cfg) *grpc.Server {
 	logger := testhelper.NewTestLogger(t)
 	logrusEntry := logrus.NewEntry(logger).WithField("test", t.Name())
 
@@ -44,7 +44,7 @@ func createNewServer(t *testing.T) *grpc.Server {
 
 	server := grpc.NewServer(opts...)
 
-	gitalypb.RegisterRefServiceServer(server, ref.NewServer(config.Config, config.NewLocator(config.Config), git.NewExecCommandFactory(config.Config)))
+	gitalypb.RegisterRefServiceServer(server, ref.NewServer(cfg, config.NewLocator(cfg), git.NewExecCommandFactory(cfg)))
 
 	return server
 }
@@ -59,12 +59,15 @@ func TestInterceptor(t *testing.T) {
 	cleanup := testhelper.Configure()
 	defer cleanup()
 
+	cfg, repo, _, cleanup := testcfg.BuildWithRepo(t)
+	defer cleanup()
+
 	logBuffer := &bytes.Buffer{}
 	testhelper.NewTestLogger = func(tb testing.TB) *logrus.Logger {
 		return &logrus.Logger{Out: logBuffer, Formatter: &logrus.JSONFormatter{}, Level: logrus.InfoLevel}
 	}
 
-	s := createNewServer(t)
+	s := createNewServer(t, cfg)
 	defer s.Stop()
 
 	bufferSize := 1024 * 1024
@@ -74,9 +77,6 @@ func TestInterceptor(t *testing.T) {
 		require.NoError(t, err)
 	}()
 
-	testRepo, _, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
-
 	tests := []struct {
 		name        string
 		performRPC  func(ctx context.Context, client gitalypb.RefServiceClient)
@@ -85,7 +85,7 @@ func TestInterceptor(t *testing.T) {
 		{
 			name: "Unary",
 			performRPC: func(ctx context.Context, client gitalypb.RefServiceClient) {
-				req := &gitalypb.RefExistsRequest{Repository: testRepo, Ref: []byte("refs/foo")}
+				req := &gitalypb.RefExistsRequest{Repository: repo, Ref: []byte("refs/foo")}
 
 				_, err := client.RefExists(ctx, req)
 				require.NoError(t, err)
@@ -95,7 +95,7 @@ func TestInterceptor(t *testing.T) {
 		{
 			name: "Stream",
 			performRPC: func(ctx context.Context, client gitalypb.RefServiceClient) {
-				req := &gitalypb.FindAllBranchNamesRequest{Repository: testRepo}
+				req := &gitalypb.FindAllBranchNamesRequest{Repository: repo}
 
 				stream, err := client.FindAllBranchNames(ctx, req)
 				require.NoError(t, err)
