@@ -101,6 +101,7 @@ func (m *PoolManager) Vote(ctx context.Context, tx metadata.Transaction, server 
 		TransactionId:        tx.ID,
 		Node:                 tx.Node,
 		ReferenceUpdatesHash: hash,
+		RouteUuid:            tx.RouteUUID,
 	})
 	if err != nil {
 		logger.WithError(err).Error("vote failed")
@@ -130,6 +131,7 @@ func (m *PoolManager) Stop(ctx context.Context, tx metadata.Transaction, server 
 
 	if _, err := client.StopTransaction(ctx, &gitalypb.StopTransactionRequest{
 		TransactionId: tx.ID,
+		RouteUuid:     tx.RouteUUID,
 	}); err != nil {
 		m.log(ctx).WithFields(logrus.Fields{
 			"transaction.id":    tx.ID,
