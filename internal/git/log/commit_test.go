@@ -2,6 +2,7 @@ package log
 
 import (
 	"bytes"
+	"context"
 	"os"
 	"testing"
 
@@ -9,9 +10,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
-	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/metadata"
 )
@@ -25,6 +26,22 @@ func testMain(m *testing.M) int {
 	cleanup := testhelper.Configure()
 	defer cleanup()
 	return m.Run()
+}
+
+func setupBatch(t *testing.T, ctx context.Context) (config.Cfg, catfile.Batch, *gitalypb.Repository, testhelper.Cleanup) {
+	t.Helper()
+
+	var deferrer testhelper.Deferrer
+	defer deferrer.Call()
+
+	cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("storage"))
+	deferrer.Add(cfgBuilder.Cleanup)
+	cfg, repos := cfgBuilder.BuildWithRepoAt(t, t.Name())
+	c, err := catfile.New(ctx, git.NewExecCommandFactory(cfg), repos[0])
+	require.NoError(t, err)
+
+	cleaner := deferrer.Relocate()
+	return cfg, c, repos[0], cleaner.Call
 }
 
 func TestParseRawCommit(t *testing.T) {
@@ -122,11 +139,12 @@ func TestParseRawCommit(t *testing.T) {
 
 func TestGetCommitCatfile(t *testing.T) {
 	ctx, cancel := testhelper.Context()
-	ctx = metadata.NewIncomingContext(ctx, metadata.MD{})
 	defer cancel()
 
-	testRepo, _, cleanup := gittest.CloneRepo(t)
+	_, c, _, cleanup := setupBatch(t, ctx)
 	defer cleanup()
+
+	ctx = metadata.NewIncomingContext(ctx, metadata.MD{})
 
 	const commitSha = "2d1db523e11e777e49377cfb22d368deec3f0793"
 	const commitMsg = "Correct test_env.rb path for adding branch\n"
@@ -153,8 +171,6 @@ func TestGetCommitCatfile(t *testing.T) {
 		},
 	}
 
-	c, err := catfile.New(ctx, git.NewExecCommandFactory(config.Config), testRepo)
-	require.NoError(t, err)
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			c, err := GetCommitCatfile(ctx, c, git.Revision(tc.revision))
@@ -171,23 +187,19 @@ func TestGetCommitCatfile(t *testing.T) {
 
 func TestGetCommitCatfileWithTrailers(t *testing.T) {
 	ctx, cancel := testhelper.Context()
-	ctx = metadata.NewIncomingContext(ctx, metadata.MD{})
 	defer cancel()
 
-	testRepo, _, cleanup := gittest.CloneRepo(t)
+	cfg, c, testRepo, cleanup := setupBatch(t, ctx)
 	defer cleanup()
 
-	gitCmdFactory := git.NewExecCommandFactory(config.Config)
-	catfile, err := catfile.New(ctx, gitCmdFactory, testRepo)
+	ctx = metadata.NewIncomingContext(ctx, metadata.MD{})
 
-	require.NoError(t, err)
-
-	commit, err := GetCommitCatfileWithTrailers(ctx, gitCmdFactory, testRepo, catfile, "5937ac0a7beb003549fc5fd26fc247adbce4a52e")
+	commit, err := GetCommitCatfileWithTrailers(ctx, git.NewExecCommandFactory(cfg), testRepo, c, "5937ac0a7beb003549fc5fd26fc247adbce4a52e")
 
 	require.NoError(t, err)
 
 	require.Equal(t, commit.Trailers, []*gitalypb.CommitTrailer{
-		&gitalypb.CommitTrailer{
+		{
 			Key:   []byte("Signed-off-by"),
 			Value: []byte("Dmitriy Zaporozhets <dmitriy.zaporozhets@gmail.com>"),
 		},

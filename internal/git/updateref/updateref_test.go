@@ -9,11 +9,11 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/hooks"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 )
 
 func TestMain(m *testing.M) {
@@ -28,27 +28,34 @@ func testMain(m *testing.M) int {
 	return m.Run()
 }
 
-func setup(t *testing.T, cfg config.Cfg) (context.Context, *localrepo.Repo, string, func()) {
-	ctx, cancel := testhelper.Context()
-	repoProto, repoPath, cleanup := gittest.CloneRepo(t)
-	teardown := func() {
-		cancel()
-		cleanup()
-	}
+func setupUpdater(t *testing.T, ctx context.Context) (config.Cfg, *localrepo.Repo, *Updater, func()) {
+	t.Helper()
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	var deferrer testhelper.Deferrer
+	defer deferrer.Call()
 
-	return ctx, repo, repoPath, teardown
+	cfgBuilder := testcfg.NewGitalyCfgBuilder()
+	deferrer.Add(cfgBuilder.Cleanup)
+
+	cfg, repos := cfgBuilder.BuildWithRepoAt(t, "repository")
+	gitCmdFactory := git.NewExecCommandFactory(cfg)
+	repo := localrepo.New(gitCmdFactory, repos[0], cfg)
+
+	updater, err := New(ctx, cfg, gitCmdFactory, repo)
+	require.NoError(t, err)
+
+	cleaner := deferrer.Relocate()
+	return cfg, repo, updater, cleaner.Call
 }
 
 func TestCreate(t *testing.T) {
-	ctx, repo, _, teardown := setup(t, config.Config)
-	defer teardown()
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	_, repo, updater, cleanup := setupUpdater(t, ctx)
+	defer cleanup()
 
 	headCommit, err := repo.ReadCommit(ctx, "HEAD")
-	require.NoError(t, err)
-
-	updater, err := New(ctx, config.Config, git.NewExecCommandFactory(config.Config), repo)
 	require.NoError(t, err)
 
 	ref := git.ReferenceName("refs/heads/_create")
@@ -64,13 +71,13 @@ func TestCreate(t *testing.T) {
 }
 
 func TestUpdate(t *testing.T) {
-	ctx, repo, _, teardown := setup(t, config.Config)
-	defer teardown()
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	_, repo, updater, cleanup := setupUpdater(t, ctx)
+	defer cleanup()
 
 	headCommit, err := repo.ReadCommit(ctx, "HEAD")
-	require.NoError(t, err)
-
-	updater, err := New(ctx, config.Config, git.NewExecCommandFactory(config.Config), repo)
 	require.NoError(t, err)
 
 	ref := git.ReferenceName("refs/heads/feature")
@@ -101,11 +108,11 @@ func TestUpdate(t *testing.T) {
 }
 
 func TestDelete(t *testing.T) {
-	ctx, repo, _, teardown := setup(t, config.Config)
-	defer teardown()
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-	updater, err := New(ctx, config.Config, git.NewExecCommandFactory(config.Config), repo)
-	require.NoError(t, err)
+	_, repo, updater, cleanup := setupUpdater(t, ctx)
+	defer cleanup()
 
 	ref := git.ReferenceName("refs/heads/feature")
 
@@ -113,18 +120,18 @@ func TestDelete(t *testing.T) {
 	require.NoError(t, updater.Wait())
 
 	// check the ref was removed
-	_, err = repo.ReadCommit(ctx, ref.Revision())
+	_, err := repo.ReadCommit(ctx, ref.Revision())
 	require.Equal(t, localrepo.ErrObjectNotFound, err, "expected 'not found' error got %v", err)
 }
 
 func TestBulkOperation(t *testing.T) {
-	ctx, repo, _, teardown := setup(t, config.Config)
-	defer teardown()
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	_, repo, updater, cleanup := setupUpdater(t, ctx)
+	defer cleanup()
 
 	headCommit, err := repo.ReadCommit(ctx, "HEAD")
-	require.NoError(t, err)
-
-	updater, err := New(ctx, config.Config, git.NewExecCommandFactory(config.Config), repo)
 	require.NoError(t, err)
 
 	for i := 0; i < 1000; i++ {
@@ -140,14 +147,17 @@ func TestBulkOperation(t *testing.T) {
 }
 
 func TestContextCancelAbortsRefChanges(t *testing.T) {
-	ctx, repo, _, teardown := setup(t, config.Config)
-	defer teardown()
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	cfg, repo, _, cleanup := setupUpdater(t, ctx)
+	defer cleanup()
 
 	headCommit, err := repo.ReadCommit(ctx, "HEAD")
 	require.NoError(t, err)
 
 	childCtx, childCancel := context.WithCancel(ctx)
-	updater, err := New(childCtx, config.Config, git.NewExecCommandFactory(config.Config), repo)
+	updater, err := New(childCtx, cfg, git.NewExecCommandFactory(cfg), repo)
 	require.NoError(t, err)
 
 	ref := git.ReferenceName("refs/heads/_shouldnotexist")
@@ -164,16 +174,17 @@ func TestContextCancelAbortsRefChanges(t *testing.T) {
 }
 
 func TestUpdater_closingStdinAbortsChanges(t *testing.T) {
-	ctx, repo, _, teardown := setup(t, config.Config)
-	defer teardown()
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	_, repo, updater, cleanup := setupUpdater(t, ctx)
+	defer cleanup()
 
 	headCommit, err := repo.ReadCommit(ctx, "HEAD")
 	require.NoError(t, err)
 
 	ref := git.ReferenceName("refs/heads/shouldnotexist")
 
-	updater, err := New(ctx, config.Config, git.NewExecCommandFactory(config.Config), repo)
-	require.NoError(t, err)
 	require.NoError(t, updater.Create(ref, headCommit.Id))
 
 	// Note that we call `Wait()` on the command, not on the updater. This
@@ -190,22 +201,23 @@ func TestUpdater_closingStdinAbortsChanges(t *testing.T) {
 }
 
 func TestUpdater_capturesStderr(t *testing.T) {
-	ctx, repo, _, teardown := setup(t, config.Config)
-	defer teardown()
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	_, _, updater, cleanup := setupUpdater(t, ctx)
+	defer cleanup()
 
 	ref := "refs/heads/a"
 	newValue := strings.Repeat("1", 40)
 	oldValue := git.ZeroOID.String()
 
-	updater, err := New(ctx, config.Config, git.NewExecCommandFactory(config.Config), repo)
-	require.NoError(t, err)
 	require.NoError(t, updater.Update(git.ReferenceName(ref), newValue, oldValue))
 
 	expectedErr := fmt.Sprintf("git update-ref: exit status 128, stderr: "+
 		"\"fatal: commit: cannot update ref '%s': "+
 		"trying to write ref '%s' with nonexistent object %s\\n\"", ref, ref, newValue)
 
-	err = updater.Wait()
+	err := updater.Wait()
 	require.NotNil(t, err)
 	require.Equal(t, err.Error(), expectedErr)
 }

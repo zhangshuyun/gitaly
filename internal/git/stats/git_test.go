@@ -16,14 +16,19 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
 func TestLogObjectInfo(t *testing.T) {
-	repo1, repoPath1, cleanup1 := gittest.CloneRepo(t)
+	cfgBuilder := testcfg.NewGitalyCfgBuilder()
+	defer cfgBuilder.Cleanup()
+	cfg := cfgBuilder.Build(t)
+
+	repo1, repoPath1, cleanup1 := gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name()+"-1")
 	defer cleanup1()
 
-	repo2, repoPath2, cleanup2 := gittest.CloneRepo(t)
+	repo2, repoPath2, cleanup2 := gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name()+"-2")
 	defer cleanup2()
 
 	ctx, cancel := testhelper.Context()
@@ -32,7 +37,7 @@ func TestLogObjectInfo(t *testing.T) {
 	logBuffer := &bytes.Buffer{}
 	log := &logrus.Logger{Out: logBuffer, Formatter: &logrus.JSONFormatter{}, Level: logrus.InfoLevel}
 	testCtx := ctxlogrus.ToContext(ctx, log.WithField("test", "logging"))
-	gitCmdFactory := git.NewExecCommandFactory(config.Config)
+	gitCmdFactory := git.NewExecCommandFactory(cfg)
 
 	requireLog := func(msg string) map[string]interface{} {
 		var out map[string]interface{}
@@ -51,7 +56,7 @@ func TestLogObjectInfo(t *testing.T) {
 	}
 
 	t.Run("shared repo with multiple alternates", func(t *testing.T) {
-		locator := config.NewLocator(config.Config)
+		locator := config.NewLocator(cfg)
 		storagePath, err := locator.GetStorageByName(repo1.GetStorageName())
 		require.NoError(t, err)
 

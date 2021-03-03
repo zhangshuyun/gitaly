@@ -9,18 +9,20 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 )
 
 func TestClone(t *testing.T) {
+	cfgBuilder := testcfg.NewGitalyCfgBuilder()
+	defer cfgBuilder.Cleanup()
+	cfg, repos := cfgBuilder.BuildWithRepoAt(t, t.Name())
+	repoPath := filepath.Join(cfg.Storages[0].Path, repos[0].RelativePath)
+
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	_, repoPath, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
-
-	serverPort, stopGitServer := gittest.GitServer(t, config.Config, repoPath, nil)
+	serverPort, stopGitServer := gittest.GitServer(t, cfg, repoPath, nil)
 	defer stopGitServer()
 
 	clone := Clone{URL: fmt.Sprintf("http://localhost:%d/%s", serverPort, filepath.Base(repoPath))}
@@ -73,11 +75,13 @@ func TestClone(t *testing.T) {
 }
 
 func TestCloneWithAuth(t *testing.T) {
+	cfgBuilder := testcfg.NewGitalyCfgBuilder()
+	defer cfgBuilder.Cleanup()
+	cfg, repos := cfgBuilder.BuildWithRepoAt(t, t.Name())
+	repoPath := filepath.Join(cfg.Storages[0].Path, repos[0].RelativePath)
+
 	ctx, cancel := testhelper.Context()
 	defer cancel()
-
-	_, repoPath, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
 
 	const (
 		user     = "test-user"
@@ -86,7 +90,7 @@ func TestCloneWithAuth(t *testing.T) {
 
 	authWasChecked := false
 
-	serverPort, stopGitServer := gittest.GitServer(t, config.Config, repoPath, func(w http.ResponseWriter, r *http.Request, next http.Handler) {
+	serverPort, stopGitServer := gittest.GitServer(t, cfg, repoPath, func(w http.ResponseWriter, r *http.Request, next http.Handler) {
 		authWasChecked = true
 
 		actualUser, actualPassword, ok := r.BasicAuth()

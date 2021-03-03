@@ -13,7 +13,27 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 )
+
+func setupRepoConfig(t *testing.T) (Config, string, func()) {
+	t.Helper()
+
+	var deferrer testhelper.Deferrer
+	defer deferrer.Call()
+
+	cfgBuilder := testcfg.NewGitalyCfgBuilder()
+	deferrer.Add(cfgBuilder.Cleanup)
+	cfg := cfgBuilder.Build(t)
+
+	repoProto, repoPath, cleanup := gittest.InitBareRepoAt(t, cfg.Storages[0])
+	deferrer.Add(cleanup)
+
+	repo := New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+
+	cleaner := deferrer.Relocate()
+	return repo.Config(), repoPath, cleaner.Call
+}
 
 func TestRepo_Config(t *testing.T) {
 	bareRepo, _, cleanup := gittest.InitBareRepo(t)
@@ -47,32 +67,29 @@ func TestBuildConfigAddOptsFlags(t *testing.T) {
 }
 
 func TestConfig_Add(t *testing.T) {
-	repoProto, repoPath, cleanup := gittest.InitBareRepo(t)
-	defer cleanup()
-	repo := New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
-
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	config := repo.Config()
+	repoConfig, repoPath, cleanup := setupRepoConfig(t)
+	defer cleanup()
 
 	t.Run("ok", func(t *testing.T) {
-		require.NoError(t, config.Add(ctx, "key.one", "1", git.ConfigAddOpts{}))
+		require.NoError(t, repoConfig.Add(ctx, "key.one", "1", git.ConfigAddOpts{}))
 
 		actual := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "key.one"))
 		require.Equal(t, "1", actual)
 	})
 
 	t.Run("appends to an old value", func(t *testing.T) {
-		require.NoError(t, config.Add(ctx, "key.two", "2", git.ConfigAddOpts{}))
-		require.NoError(t, config.Add(ctx, "key.two", "3", git.ConfigAddOpts{}))
+		require.NoError(t, repoConfig.Add(ctx, "key.two", "2", git.ConfigAddOpts{}))
+		require.NoError(t, repoConfig.Add(ctx, "key.two", "3", git.ConfigAddOpts{}))
 
 		actual := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "--get-all", "key.two"))
 		require.Equal(t, "2\n3", actual)
 	})
 
 	t.Run("options are passed", func(t *testing.T) {
-		require.NoError(t, config.Add(ctx, "key.three", "3", git.ConfigAddOpts{Type: git.ConfigTypeInt}))
+		require.NoError(t, repoConfig.Add(ctx, "key.three", "3", git.ConfigAddOpts{Type: git.ConfigTypeInt}))
 
 		actual := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "--int", "key.three"))
 		require.Equal(t, "3", actual)
@@ -108,8 +125,7 @@ func TestConfig_Add(t *testing.T) {
 				ctx, cancel := testhelper.Context()
 				defer cancel()
 
-				config := repo.Config()
-				err := config.Add(ctx, tc.name, "some", git.ConfigAddOpts{})
+				err := repoConfig.Add(ctx, tc.name, "some", git.ConfigAddOpts{})
 				require.Error(t, err)
 				require.True(t, errors.Is(err, tc.expErr), err.Error())
 				require.Contains(t, err.Error(), tc.expMsg)
@@ -146,21 +162,18 @@ func TestBuildConfigGetRegexpOptsFlags(t *testing.T) {
 }
 
 func TestConfig_GetRegexp(t *testing.T) {
-	repoProto, repoPath, cleanup := gittest.InitBareRepo(t)
-	defer cleanup()
-	repo := New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
-
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	config := repo.Config()
+	repoConfig, repoPath, cleanup := setupRepoConfig(t)
+	defer cleanup()
 
 	t.Run("ok", func(t *testing.T) {
 		testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "--add", "key.one", "one")
 		testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "--add", "key.two", "2")
 		testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "--add", "key.three", "!@#$%^&")
 
-		vals, err := config.GetRegexp(ctx, "^key\\..*o", git.ConfigGetRegexpOpts{})
+		vals, err := repoConfig.GetRegexp(ctx, "^key\\..*o", git.ConfigGetRegexpOpts{})
 		require.NoError(t, err)
 		require.Equal(t, []git.ConfigPair{{Key: "key.one", Value: "one"}, {Key: "key.two", Value: "2"}}, vals)
 	})
@@ -174,13 +187,13 @@ func TestConfig_GetRegexp(t *testing.T) {
 			{Key: "key.five", Value: "five", Origin: "file:" + filepath.Join(repoPath, "config"), Scope: "local"},
 		}
 
-		vals, err := config.GetRegexp(ctx, "^key\\.f", git.ConfigGetRegexpOpts{ShowScope: true, ShowOrigin: true})
+		vals, err := repoConfig.GetRegexp(ctx, "^key\\.f", git.ConfigGetRegexpOpts{ShowScope: true, ShowOrigin: true})
 		require.NoError(t, err)
 		require.Equal(t, exp, vals)
 	})
 
 	t.Run("none found", func(t *testing.T) {
-		vals, err := config.GetRegexp(ctx, "nonexisting", git.ConfigGetRegexpOpts{})
+		vals, err := repoConfig.GetRegexp(ctx, "nonexisting", git.ConfigGetRegexpOpts{})
 		require.NoError(t, err)
 		require.Empty(t, vals)
 	})
@@ -188,7 +201,7 @@ func TestConfig_GetRegexp(t *testing.T) {
 	t.Run("bad combination of regexp and type", func(t *testing.T) {
 		testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "--add", "key.six", "key-six")
 
-		_, err := config.GetRegexp(ctx, "^key\\.six$", git.ConfigGetRegexpOpts{Type: git.ConfigTypeBool})
+		_, err := repoConfig.GetRegexp(ctx, "^key\\.six$", git.ConfigGetRegexpOpts{Type: git.ConfigTypeBool})
 		require.Error(t, err)
 		require.True(t, errors.Is(err, git.ErrInvalidArg))
 		require.Contains(t, err.Error(), "fetched result doesn't correspond to requested type")
@@ -215,7 +228,7 @@ func TestConfig_GetRegexp(t *testing.T) {
 			},
 		} {
 			t.Run(tc.desc, func(t *testing.T) {
-				_, err := config.GetRegexp(ctx, tc.regexp, git.ConfigGetRegexpOpts{})
+				_, err := repoConfig.GetRegexp(ctx, tc.regexp, git.ConfigGetRegexpOpts{})
 				require.Error(t, err)
 				require.True(t, errors.Is(err, tc.expErr), err.Error())
 				require.Contains(t, err.Error(), tc.expMsg)
@@ -257,19 +270,16 @@ func TestConfig_UnsetAll(t *testing.T) {
 		}
 	}
 
-	repoProto, repoPath, cleanup := gittest.InitBareRepo(t)
-	defer cleanup()
-	repo := New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
-
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	config := repo.Config()
+	repoConfig, repoPath, cleanup := setupRepoConfig(t)
+	defer cleanup()
 
 	t.Run("unset single value", func(t *testing.T) {
 		testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "--add", "key.one", "key-one")
 
-		require.NoError(t, config.Unset(ctx, "key.one", git.ConfigUnsetOpts{}))
+		require.NoError(t, repoConfig.Unset(ctx, "key.one", git.ConfigUnsetOpts{}))
 
 		contains := configContains(t, repoPath)
 		contains(t, "key-one", false)
@@ -279,7 +289,7 @@ func TestConfig_UnsetAll(t *testing.T) {
 		testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "--add", "key.two", "key-two-1")
 		testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "--add", "key.two", "key-two-2")
 
-		require.NoError(t, config.Unset(ctx, "key.two", git.ConfigUnsetOpts{All: true}))
+		require.NoError(t, repoConfig.Unset(ctx, "key.two", git.ConfigUnsetOpts{All: true}))
 
 		contains := configContains(t, repoPath)
 		contains(t, "key-two-1", false)
@@ -290,7 +300,7 @@ func TestConfig_UnsetAll(t *testing.T) {
 		testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "--add", "key.two", "key-two-1")
 		testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "--add", "key.two", "key-two-2")
 
-		err := config.Unset(ctx, "key.two", git.ConfigUnsetOpts{})
+		err := repoConfig.Unset(ctx, "key.two", git.ConfigUnsetOpts{})
 		require.Equal(t, git.ErrNotFound, err)
 
 		contains := configContains(t, repoPath)
@@ -301,7 +311,7 @@ func TestConfig_UnsetAll(t *testing.T) {
 	t.Run("config key doesn't exist - is strict (by default)", func(t *testing.T) {
 		testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "--add", "key.three", "key-three")
 
-		err := config.Unset(ctx, "some.stub", git.ConfigUnsetOpts{})
+		err := repoConfig.Unset(ctx, "some.stub", git.ConfigUnsetOpts{})
 		require.Equal(t, git.ErrNotFound, err)
 
 		contains := configContains(t, repoPath)
@@ -311,7 +321,7 @@ func TestConfig_UnsetAll(t *testing.T) {
 	t.Run("config key doesn't exist - not strict", func(t *testing.T) {
 		testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "--add", "key.four", "key-four")
 
-		require.NoError(t, config.Unset(ctx, "some.stub", git.ConfigUnsetOpts{NotStrict: true}))
+		require.NoError(t, repoConfig.Unset(ctx, "some.stub", git.ConfigUnsetOpts{NotStrict: true}))
 
 		contains := configContains(t, repoPath)
 		contains(t, "key-four", true)
@@ -340,7 +350,7 @@ func TestConfig_UnsetAll(t *testing.T) {
 			},
 		} {
 			t.Run(tc.desc, func(t *testing.T) {
-				err := config.Unset(ctx, tc.name, git.ConfigUnsetOpts{})
+				err := repoConfig.Unset(ctx, tc.name, git.ConfigUnsetOpts{})
 				require.Error(t, err)
 				require.True(t, errors.Is(err, tc.expErr), err.Error())
 			})

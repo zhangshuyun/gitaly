@@ -16,11 +16,8 @@ func TestLink(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-
-	pool, poolCleanup := NewTestObjectPool(ctx, t, testRepo.GetStorageName())
-	defer poolCleanup()
+	pool, testRepo, cleanup := setupObjectPool(t)
+	defer cleanup()
 
 	require.NoError(t, pool.Remove(ctx), "make sure pool does not exist prior to creation")
 	require.NoError(t, pool.Create(ctx, testRepo), "create pool")
@@ -53,13 +50,11 @@ func TestLinkRemoveBitmap(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-
-	pool, poolCleanup := NewTestObjectPool(ctx, t, testRepo.GetStorageName())
-	defer poolCleanup()
-
+	pool, testRepo, cleanup := setupObjectPool(t)
+	defer cleanup()
 	require.NoError(t, pool.Init(ctx))
+
+	testRepoPath := filepath.Join(pool.cfg.Storages[0].Path, testRepo.RelativePath)
 
 	poolPath := pool.FullPath()
 	testhelper.MustRunCommand(t, nil, "git", "-C", poolPath, "fetch", testRepoPath, "+refs/*:refs/*")
@@ -101,11 +96,8 @@ func TestUnlink(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-
-	pool, poolCleanup := NewTestObjectPool(ctx, t, testRepo.GetStorageName())
-	defer poolCleanup()
+	pool, testRepo, cleanup := setupObjectPool(t)
+	defer cleanup()
 
 	require.Error(t, pool.Unlink(ctx, testRepo), "removing a non-existing pool should be an error")
 
@@ -122,11 +114,10 @@ func TestLinkAbsoluteLinkExists(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	pool, testRepo, cleanup := setupObjectPool(t)
+	defer cleanup()
 
-	pool, poolCleanup := NewTestObjectPool(ctx, t, testRepo.GetStorageName())
-	defer poolCleanup()
+	testRepoPath := filepath.Join(pool.cfg.Storages[0].Path, testRepo.RelativePath)
 
 	require.NoError(t, pool.Remove(ctx), "make sure pool does not exist prior to creation")
 	require.NoError(t, pool.Create(ctx, testRepo), "create pool")

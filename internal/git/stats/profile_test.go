@@ -9,12 +9,16 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 )
 
 func TestRepositoryProfile(t *testing.T) {
-	testRepo, testRepoPath, cleanup := gittest.InitBareRepo(t)
+	cfgBuilder := testcfg.NewGitalyCfgBuilder()
+	defer cfgBuilder.Cleanup()
+	cfg := cfgBuilder.Build(t)
+
+	testRepo, testRepoPath, cleanup := gittest.InitBareRepoAt(t, cfg.Storages[0])
 	defer cleanup()
 
 	ctx, cancel := testhelper.Context()
@@ -40,7 +44,7 @@ func TestRepositoryProfile(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int64(blobs), unpackedObjects)
 
-	gitCmdFactory := git.NewExecCommandFactory(config.Config)
+	gitCmdFactory := git.NewExecCommandFactory(cfg)
 	looseObjects, err := LooseObjects(ctx, gitCmdFactory, testRepo)
 	require.NoError(t, err)
 	require.Equal(t, int64(blobs), looseObjects)

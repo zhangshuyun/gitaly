@@ -14,7 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
@@ -22,21 +21,29 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
-func setup(t *testing.T) (config.Cfg, *gitalypb.Repository, testhelper.Cleanup) {
-	cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("storage"))
-	cfg, repos := cfgBuilder.BuildWithRepoAt(t, "repository")
-	return cfg, repos[0], cfgBuilder.Cleanup
+func setupBatch(t *testing.T, ctx context.Context) (Batch, testhelper.Cleanup) {
+	t.Helper()
+
+	var deferrer testhelper.Deferrer
+	defer deferrer.Call()
+
+	cfgBuilder := testcfg.NewGitalyCfgBuilder()
+	deferrer.Add(cfgBuilder.Cleanup)
+	cfg, repos := cfgBuilder.BuildWithRepoAt(t, t.Name())
+
+	c, err := New(ctx, git.NewExecCommandFactory(cfg), repos[0])
+	require.NoError(t, err)
+
+	cleaner := deferrer.Relocate()
+	return c, cleaner.Call
 }
 
 func TestInfo(t *testing.T) {
-	cfg, testRepo, cleanup := setup(t)
-	defer cleanup()
-
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	c, err := New(ctx, git.NewExecCommandFactory(cfg), testRepo)
-	require.NoError(t, err)
+	c, cleanup := setupBatch(t, ctx)
+	defer cleanup()
 
 	testCases := []struct {
 		desc     string
@@ -68,11 +75,8 @@ func TestBlob(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	cfg, testRepo, cleanup := setup(t)
+	c, cleanup := setupBatch(t, ctx)
 	defer cleanup()
-
-	c, err := New(ctx, git.NewExecCommandFactory(cfg), testRepo)
-	require.NoError(t, err)
 
 	gitignoreBytes, err := ioutil.ReadFile("testdata/blob-dfaa3f97ca337e20154a98ac9d0be76ddd1fcc82")
 	require.NoError(t, err)
@@ -135,11 +139,8 @@ func TestCommit(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	cfg, testRepo, cleanup := setup(t)
+	c, cleanup := setupBatch(t, ctx)
 	defer cleanup()
-
-	c, err := New(ctx, git.NewExecCommandFactory(cfg), testRepo)
-	require.NoError(t, err)
 
 	commitBytes, err := ioutil.ReadFile("testdata/commit-e63f41fe459e62e1228fcef60d7189127aeba95a")
 	require.NoError(t, err)
@@ -173,11 +174,8 @@ func TestTag(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	cfg, testRepo, cleanup := setup(t)
+	c, cleanup := setupBatch(t, ctx)
 	defer cleanup()
-
-	c, err := New(ctx, git.NewExecCommandFactory(cfg), testRepo)
-	require.NoError(t, err)
 
 	tagBytes, err := ioutil.ReadFile("testdata/tag-a509fa67c27202a2bc9dd5e014b4af7e6063ac76")
 	require.NoError(t, err)
@@ -240,11 +238,8 @@ func TestTree(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	cfg, testRepo, cleanup := setup(t)
+	c, cleanup := setupBatch(t, ctx)
 	defer cleanup()
-
-	c, err := New(ctx, git.NewExecCommandFactory(cfg), testRepo)
-	require.NoError(t, err)
 
 	treeBytes, err := ioutil.ReadFile("testdata/tree-7e2f26d033ee47cd0745649d1a28277c56197921")
 	require.NoError(t, err)
@@ -307,11 +302,8 @@ func TestRepeatedCalls(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	cfg, testRepo, cleanup := setup(t)
+	c, cleanup := setupBatch(t, ctx)
 	defer cleanup()
-
-	c, err := New(ctx, git.NewExecCommandFactory(cfg), testRepo)
-	require.NoError(t, err)
 
 	treeOid := git.Revision("7e2f26d033ee47cd0745649d1a28277c56197921")
 	treeBytes, err := ioutil.ReadFile("testdata/tree-7e2f26d033ee47cd0745649d1a28277c56197921")
@@ -369,8 +361,10 @@ func TestSpawnFailure(t *testing.T) {
 	ctx1, cancel1 := testhelper.Context()
 	defer cancel1()
 
-	cfg, testRepo, cleanup := setup(t)
-	defer cleanup()
+	cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("storage"))
+	defer cfgBuilder.Cleanup()
+	cfg, repos := cfgBuilder.BuildWithRepoAt(t, t.Name())
+	testRepo := repos[0]
 
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
 

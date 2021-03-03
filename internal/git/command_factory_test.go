@@ -1,4 +1,4 @@
-package git
+package git_test
 
 import (
 	"bytes"
@@ -9,12 +9,17 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 )
 
 func TestGitCommandProxy(t *testing.T) {
+	cfgBuilder := testcfg.NewGitalyCfgBuilder()
+	defer cfgBuilder.Cleanup()
+	cfg := cfgBuilder.Build(t)
+
 	requestReceived := false
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -32,11 +37,11 @@ func TestGitCommandProxy(t *testing.T) {
 	dir, cleanup := testhelper.TempDir(t)
 	defer cleanup()
 
-	gitCmdFactory := NewExecCommandFactory(config.Config)
-	cmd, err := gitCmdFactory.NewWithoutRepo(ctx, nil, SubCmd{
+	gitCmdFactory := git.NewExecCommandFactory(cfg)
+	cmd, err := gitCmdFactory.NewWithoutRepo(ctx, nil, git.SubCmd{
 		Name: "clone",
 		Args: []string{"http://gitlab.com/bogus-repo", dir},
-	}, WithDisabledHooks())
+	}, git.WithDisabledHooks())
 	require.NoError(t, err)
 
 	err = cmd.Wait()
@@ -45,7 +50,11 @@ func TestGitCommandProxy(t *testing.T) {
 }
 
 func TestExecCommandFactory_NewWithDir(t *testing.T) {
-	gitCmdFactory := NewExecCommandFactory(config.Config)
+	cfgBuilder := testcfg.NewGitalyCfgBuilder()
+	defer cfgBuilder.Cleanup()
+	cfg := cfgBuilder.Build(t)
+
+	gitCmdFactory := git.NewExecCommandFactory(cfg)
 
 	t.Run("no dir specified", func(t *testing.T) {
 		ctx, cancel := testhelper.Context()
@@ -68,10 +77,10 @@ func TestExecCommandFactory_NewWithDir(t *testing.T) {
 		defer cancel()
 
 		var stderr bytes.Buffer
-		cmd, err := gitCmdFactory.NewWithDir(ctx, repoPath, nil, SubCmd{
+		cmd, err := gitCmdFactory.NewWithDir(ctx, repoPath, nil, git.SubCmd{
 			Name: "rev-parse",
 			Args: []string{"master"},
-		}, WithStderr(&stderr))
+		}, git.WithStderr(&stderr))
 		require.NoError(t, err)
 
 		revData, err := ioutil.ReadAll(cmd)
@@ -87,10 +96,10 @@ func TestExecCommandFactory_NewWithDir(t *testing.T) {
 		defer cancel()
 
 		var stderr bytes.Buffer
-		_, err := gitCmdFactory.NewWithDir(ctx, "non-existing-dir", nil, SubCmd{
+		_, err := gitCmdFactory.NewWithDir(ctx, "non-existing-dir", nil, git.SubCmd{
 			Name: "rev-parse",
 			Args: []string{"master"},
-		}, WithStderr(&stderr))
+		}, git.WithStderr(&stderr))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "no such file or directory")
 	})

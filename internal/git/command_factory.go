@@ -50,8 +50,6 @@ type ExecCommandFactory struct {
 }
 
 // NewExecCommandFactory returns a new instance of initialized ExecCommandFactory.
-// Current implementation relies on the global var 'config.Config' and a single type of 'Locator' we currently have.
-// This dependency will be removed on the next iterations in scope of: https://gitlab.com/gitlab-org/gitaly/-/issues/2699
 func NewExecCommandFactory(cfg config.Cfg) *ExecCommandFactory {
 	return &ExecCommandFactory{
 		cfg:            cfg,
