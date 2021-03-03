@@ -42,9 +42,11 @@ func (f FeatureSet) Desc() string {
 func (f FeatureSet) Disable(ctx context.Context) context.Context {
 	for feature := range f.features {
 		ctx = featureflag.OutgoingCtxWithFeatureFlagValue(ctx, feature, "false")
+		ctx = featureflag.IncomingCtxWithDisabledFeatureFlag(ctx, feature)
 	}
 	for feature := range f.rubyFeatures {
 		ctx = featureflag.OutgoingCtxWithRubyFeatureFlagValue(ctx, feature, "false")
+		ctx = featureflag.IncomingCtxWithRubyFeatureFlagValue(ctx, feature, false)
 	}
 	return ctx
 }
