@@ -114,6 +114,7 @@ func TestPerRepositoryRouter_RouteRepositoryAccessor(t *testing.T) {
 		virtualStorage string
 		healthyNodes   StaticHealthChecker
 		metadata       map[string]string
+		forcePrimary   bool
 		numCandidates  int
 		pickCandidate  int
 		error          error
@@ -173,10 +174,8 @@ func TestPerRepositoryRouter_RouteRepositoryAccessor(t *testing.T) {
 			healthyNodes: map[string][]string{
 				"virtual-storage-1": {"primary", "consistent-secondary"},
 			},
-			metadata: map[string]string{
-				routeRepositoryAccessorPolicy: routeRepositoryAccessorPolicyPrimaryOnly,
-			},
-			node: "primary",
+			forcePrimary: true,
+			node:         "primary",
 		},
 		{
 			desc:           "secondary not picked if force-picking unhealthy primary",
@@ -184,10 +183,8 @@ func TestPerRepositoryRouter_RouteRepositoryAccessor(t *testing.T) {
 			healthyNodes: map[string][]string{
 				"virtual-storage-1": {"consistent-secondary"},
 			},
-			metadata: map[string]string{
-				routeRepositoryAccessorPolicy: routeRepositoryAccessorPolicyPrimaryOnly,
-			},
-			error: nodes.ErrPrimaryNotHealthy,
+			forcePrimary: true,
+			error:        nodes.ErrPrimaryNotHealthy,
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -232,7 +229,7 @@ func TestPerRepositoryRouter_RouteRepositoryAccessor(t *testing.T) {
 				nil,
 			)
 
-			node, err := router.RouteRepositoryAccessor(ctx, tc.virtualStorage, "repository")
+			node, err := router.RouteRepositoryAccessor(ctx, tc.virtualStorage, "repository", tc.forcePrimary)
 			require.Equal(t, tc.error, err)
 			if tc.node != "" {
 				require.Equal(t, RouterNode{

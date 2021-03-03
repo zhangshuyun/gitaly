@@ -25,6 +25,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/labkit/correlation"
 	"golang.org/x/sync/errgroup"
+	grpc_metadata "google.golang.org/grpc/metadata"
 )
 
 // ErrRepositoryReadOnly is returned when the repository is in read-only mode. This happens
@@ -114,6 +115,20 @@ var transactionRPCs = map[string]transactionsCondition{
 	// cyclic dependencies.
 	"/gitaly.RefTransaction/StopTransaction": transactionsDisabled,
 	"/gitaly.RefTransaction/VoteTransaction": transactionsDisabled,
+}
+
+// forcePrimaryRoutingRPCs tracks RPCs which need to always get routed to the primary. This should
+// really be a last-resort measure for a given RPC, so each RPC added must have a strong reason why
+// it's being added.
+var forcePrimaryRPCs = map[string]bool{
+	// GetObjectDirectorySize depends on a repository's on-disk state. It depends on when a
+	// repository was last packed and on git-pack-objects(1) producing deterministic results.
+	// Given that we can neither guarantee that replicas are always packed at the same time,
+	// nor that git-pack-objects(1) produces the same packs, reportings would be inconsistent
+	// if we used reads distribution here. Thus, we always report sizes for the primary node.
+	"/gitaly.RepositoryService/GetObjectDirectorySize": true,
+	// Same reasoning as for GetObjectDirectorySize.
+	"/gitaly.RepositoryService/RepositorySize": true,
 }
 
 func init() {
@@ -300,11 +315,32 @@ func (c *Coordinator) directRepositoryScopedMessage(ctx context.Context, call gr
 	return ps, nil
 }
 
+func shouldRouteRepositoryAccessorToPrimary(ctx context.Context, call grpcCall) bool {
+	forcePrimary := forcePrimaryRPCs[call.fullMethodName]
+
+	// In case the call's metadata tells us to force-route to the primary, then we must abide
+	// and ignore what `forcePrimaryRPCs` says.
+	if md, ok := grpc_metadata.FromIncomingContext(ctx); ok {
+		header := md.Get(routeRepositoryAccessorPolicy)
+		if len(header) == 0 {
+			return forcePrimary
+		}
+
+		if header[0] == routeRepositoryAccessorPolicyPrimaryOnly {
+			return true
+		}
+	}
+
+	return forcePrimary
+}
+
 func (c *Coordinator) accessorStreamParameters(ctx context.Context, call grpcCall) (*proxy.StreamParameters, error) {
 	repoPath := call.targetRepo.GetRelativePath()
 	virtualStorage := call.targetRepo.StorageName
 
-	node, err := c.router.RouteRepositoryAccessor(ctx, virtualStorage, repoPath)
+	node, err := c.router.RouteRepositoryAccessor(
+		ctx, virtualStorage, repoPath, shouldRouteRepositoryAccessorToPrimary(ctx, call),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("accessor call: route repository accessor: %w", err)
 	}

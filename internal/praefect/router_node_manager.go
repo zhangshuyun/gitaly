@@ -33,8 +33,8 @@ func NewNodeManagerRouter(mgr nodes.Manager, rs datastore.RepositoryStore) Route
 	return &nodeManagerRouter{mgr: mgr, rs: rs}
 }
 
-func (r *nodeManagerRouter) RouteRepositoryAccessor(ctx context.Context, virtualStorage, relativePath string) (RouterNode, error) {
-	if shouldRouteRepositoryAccessorToPrimary(ctx) {
+func (r *nodeManagerRouter) RouteRepositoryAccessor(ctx context.Context, virtualStorage, relativePath string, forcePrimary bool) (RouterNode, error) {
+	if forcePrimary {
 		shard, err := r.mgr.GetShard(ctx, virtualStorage)
 		if err != nil {
 			return RouterNode{}, fmt.Errorf("get shard: %w", err)

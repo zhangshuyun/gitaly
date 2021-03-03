@@ -41,8 +41,9 @@ type Router interface {
 	// RouteStorageAccessor returns the primary and secondaries that should handle the storage
 	// mutator request.
 	RouteStorageMutator(ctx context.Context, virtualStorage string) (StorageMutatorRoute, error)
-	// RouteRepositoryAccessor returns the node that should serve the repository accessor request.
-	RouteRepositoryAccessor(ctx context.Context, virtualStorage, relativePath string) (RouterNode, error)
+	// RouteRepositoryAccessor returns the node that should serve the repository accessor
+	// request. If forcePrimary is set to `true`, it returns the primary node.
+	RouteRepositoryAccessor(ctx context.Context, virtualStorage, relativePath string, forcePrimary bool) (RouterNode, error)
 	// RouteRepositoryMutatorTransaction returns the primary and secondaries that should handle the repository mutator request.
 	// Additionally, it returns nodes which should have the change replicated to. RouteRepositoryMutator should only be used
 	// with existing repositories.

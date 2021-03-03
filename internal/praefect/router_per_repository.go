@@ -8,7 +8,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/nodes"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/metadata"
 )
 
 const (
@@ -133,27 +132,13 @@ func (r *PerRepositoryRouter) RouteStorageMutator(ctx context.Context, virtualSt
 	return StorageMutatorRoute{}, errors.New("RouteStorageMutator is not implemented on PerRepositoryRouter")
 }
 
-func shouldRouteRepositoryAccessorToPrimary(ctx context.Context) bool {
-	md, ok := metadata.FromIncomingContext(ctx)
-	if !ok {
-		return false
-	}
-
-	header := md.Get(routeRepositoryAccessorPolicy)
-	if len(header) == 0 {
-		return false
-	}
-
-	return header[0] == routeRepositoryAccessorPolicyPrimaryOnly
-}
-
-func (r *PerRepositoryRouter) RouteRepositoryAccessor(ctx context.Context, virtualStorage, relativePath string) (RouterNode, error) {
+func (r *PerRepositoryRouter) RouteRepositoryAccessor(ctx context.Context, virtualStorage, relativePath string, forcePrimary bool) (RouterNode, error) {
 	healthyNodes, err := r.healthyNodes(virtualStorage)
 	if err != nil {
 		return RouterNode{}, err
 	}
 
-	if shouldRouteRepositoryAccessorToPrimary(ctx) {
+	if forcePrimary {
 		primary, err := r.pg.GetPrimary(ctx, virtualStorage, relativePath)
 		if err != nil {
 			return RouterNode{}, fmt.Errorf("get primary: %w", err)
