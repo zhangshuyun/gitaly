@@ -23,7 +23,7 @@ func EnableGitProtocolV2Support(t testing.TB, cfg config.Cfg) (func() string, co
 	script := fmt.Sprintf(`#!/bin/sh
 env | grep ^GIT_PROTOCOL= >>"%s"
 exec "%s" "$@"
-`, envPath, config.Config.Git.BinPath)
+`, envPath, cfg.Git.BinPath)
 
 	cleanupExe := testhelper.WriteExecutable(t, gitPath, []byte(script))
 

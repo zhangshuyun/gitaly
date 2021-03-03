@@ -104,7 +104,7 @@ func testSuccessfulGitHooksForUserDeleteTagRequest(t *testing.T, ctx context.Con
 func writeAssertObjectTypePreReceiveHook(t *testing.T) (string, func()) {
 	t.Helper()
 
-	hook := fmt.Sprintf(`#!/usr/bin/env ruby
+	hook := `#!/usr/bin/env ruby
 
 # We match a non-ASCII ref_name below
 Encoding.default_external = Encoding::UTF_8
@@ -119,7 +119,7 @@ end
 old_value, new_value, ref_name = commands[0].split(' ', 3)
 abort 'missing new_value' unless new_value
 
-out = IO.popen(%%W[%s cat-file -t #{new_value}], &:read)
+out = IO.popen(%%W[git cat-file -t #{new_value}], &:read)
 abort 'cat-file failed' unless $?.success?
 
 if ref_name =~ /^refs\/[^\/]+\/skip-type-check-/
@@ -128,7 +128,7 @@ end
 
 unless out.chomp == expected_object_type
   abort "pre-receive hook error: expected '#{ref_name}' update of '#{old_value}' (a) -> '#{new_value}' (b) for 'b' to be a '#{expected_object_type}' object, got '#{out}'"
-end`, config.Config.Git.BinPath)
+end`
 
 	dir, cleanup := testhelper.TempDir(t)
 	hookPath := filepath.Join(dir, "pre-receive")
@@ -141,7 +141,7 @@ end`, config.Config.Git.BinPath)
 func writeAssertObjectTypeUpdateHook(t *testing.T) (string, func()) {
 	t.Helper()
 
-	hook := fmt.Sprintf(`#!/usr/bin/env ruby
+	hook := `#!/usr/bin/env ruby
 
 # We match a non-ASCII ref_name below
 Encoding.default_external = Encoding::UTF_8
@@ -152,7 +152,7 @@ ref_name, old_value, new_value = ARGV[0..2]
 
 abort "missing new_value" unless new_value
 
-out = IO.popen(%%W[%s cat-file -t #{new_value}], &:read)
+out = IO.popen(%%W[git cat-file -t #{new_value}], &:read)
 abort 'cat-file failed' unless $?.success?
 
 if ref_name =~ /^refs\/[^\/]+\/skip-type-check-/
@@ -161,7 +161,7 @@ end
 
 unless out.chomp == expected_object_type
   abort "update hook error: expected '#{ref_name}' update of '#{old_value}' (a) -> '#{new_value}' (b) for 'b' to be a '#{expected_object_type}' object, got '#{out}'"
-end`, config.Config.Git.BinPath)
+end`
 
 	dir, cleanup := testhelper.TempDir(t)
 	hookPath := filepath.Join(dir, "pre-receive")

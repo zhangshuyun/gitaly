@@ -15,6 +15,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	promtest "github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/pktline"
@@ -22,6 +23,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
@@ -72,17 +74,17 @@ func (cmd cloneCommand) execute(t *testing.T) error {
 	return nil
 }
 
-func (cmd cloneCommand) test(t *testing.T, localRepoPath string) (string, string, string, string) {
+func (cmd cloneCommand) test(t *testing.T, repoPath string, localRepoPath string) (string, string, string, string) {
+	t.Helper()
+
 	defer os.RemoveAll(localRepoPath)
 
 	err := cmd.execute(t)
 	require.NoError(t, err)
 
-	testRepo, _, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
-
-	storagePath := testhelper.GitlabTestStoragePath()
-	testRepoPath := filepath.Join(storagePath, testRepo.GetRelativePath())
+	//testRepo := gittest.CloneRepoAtStorage(t, repoPath.Storages[0], t.Name())
+	//testRepoPath := filepath.Join(repoPath.Storages[0].Path, testRepo.GetRelativePath())
+	testRepoPath := repoPath
 
 	remoteHead := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "rev-parse", "master"))
 	localHead := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", localRepoPath, "rev-parse", "master"))
@@ -94,7 +96,7 @@ func (cmd cloneCommand) test(t *testing.T, localRepoPath string) (string, string
 }
 
 func TestFailedUploadPackRequestDueToTimeout(t *testing.T) {
-	serverSocketPath, stop := runSSHServer(t, WithUploadPackRequestTimeout(10*time.Microsecond))
+	serverSocketPath, stop := runSSHServer(t, config.Config, WithUploadPackRequestTimeout(10*time.Microsecond))
 	defer stop()
 
 	client, conn := newSSHClient(t, serverSocketPath)
@@ -152,7 +154,7 @@ func requireFailedSSHStream(t *testing.T, recv func() (int32, error)) {
 }
 
 func TestFailedUploadPackRequestDueToValidationError(t *testing.T) {
-	serverSocketPath, stop := runSSHServer(t)
+	serverSocketPath, stop := runSSHServer(t, config.Config)
 	defer stop()
 
 	client, conn := newSSHClient(t, serverSocketPath)
@@ -201,10 +203,15 @@ func TestFailedUploadPackRequestDueToValidationError(t *testing.T) {
 }
 
 func TestUploadPackCloneSuccess(t *testing.T) {
+	cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithBase(config.Config))
+	defer cfgBuilder.Cleanup()
+	cfg, repos := cfgBuilder.BuildWithRepoAt(t, t.Name())
+	repoPath := filepath.Join(cfg.Storages[0].Path, repos[0].RelativePath)
+
 	negotiationMetrics := prometheus.NewCounterVec(prometheus.CounterOpts{}, []string{"feature"})
 
 	serverSocketPath, stop := runSSHServer(
-		t, WithPackfileNegotiationMetrics(negotiationMetrics),
+		t, cfg, WithPackfileNegotiationMetrics(negotiationMetrics),
 	)
 	defer stop()
 
@@ -218,17 +225,17 @@ func TestUploadPackCloneSuccess(t *testing.T) {
 		featureFlags []string
 	}{
 		{
-			cmd:    exec.Command(config.Config.Git.BinPath, "clone", "git@localhost:test/test.git", localRepoPath),
+			cmd:    exec.Command(cfg.Git.BinPath, "clone", "git@localhost:test/test.git", localRepoPath),
 			desc:   "full clone",
 			deepen: 0,
 		},
 		{
-			cmd:    exec.Command(config.Config.Git.BinPath, "clone", "--depth", "1", "git@localhost:test/test.git", localRepoPath),
+			cmd:    exec.Command(cfg.Git.BinPath, "clone", "--depth", "1", "git@localhost:test/test.git", localRepoPath),
 			desc:   "shallow clone",
 			deepen: 1,
 		},
 		{
-			cmd:    exec.Command(config.Config.Git.BinPath, "clone", "git@localhost:test/test.git", localRepoPath),
+			cmd:    exec.Command(cfg.Git.BinPath, "clone", "git@localhost:test/test.git", localRepoPath),
 			desc:   "full clone with hook",
 			deepen: 0,
 			featureFlags: []string{
@@ -236,7 +243,7 @@ func TestUploadPackCloneSuccess(t *testing.T) {
 			},
 		},
 		{
-			cmd:    exec.Command(config.Config.Git.BinPath, "clone", "--depth", "1", "git@localhost:test/test.git", localRepoPath),
+			cmd:    exec.Command(cfg.Git.BinPath, "clone", "--depth", "1", "git@localhost:test/test.git", localRepoPath),
 			desc:   "shallow clone with hook",
 			deepen: 1,
 			featureFlags: []string{
@@ -245,20 +252,17 @@ func TestUploadPackCloneSuccess(t *testing.T) {
 		},
 	}
 
-	testRepo, _, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
-
 	for _, tc := range tests {
 		t.Run(tc.desc, func(t *testing.T) {
 			negotiationMetrics.Reset()
 
 			cmd := cloneCommand{
-				repository:   testRepo,
+				repository:   repos[0],
 				command:      tc.cmd,
 				featureFlags: tc.featureFlags,
 				server:       serverSocketPath,
 			}
-			lHead, rHead, _, _ := cmd.test(t, localRepoPath)
+			lHead, rHead, _, _ := cmd.test(t, repoPath, localRepoPath)
 			require.Equal(t, lHead, rHead, "local and remote head not equal")
 
 			metric, err := negotiationMetrics.GetMetricWithLabelValues("deepen")
@@ -288,7 +292,7 @@ func TestUploadPackWithPackObjectsHook(t *testing.T) {
 	// cause the clone to fail with this error message.
 	testhelper.WriteExecutable(t, filepath.Join(filterDir, "gitaly-hooks"), []byte(hookScript))
 
-	serverSocketPath, stop := runSSHServer(t)
+	serverSocketPath, stop := runSSHServer(t, config.Config)
 	defer stop()
 
 	localRepoPath, cleanup := testhelper.TempDir(t)
@@ -299,7 +303,7 @@ func TestUploadPackWithPackObjectsHook(t *testing.T) {
 
 	err := cloneCommand{
 		repository: testRepo,
-		command:    exec.Command(config.Config.Git.BinPath, "clone", "git@localhost:test/test.git", localRepoPath),
+		command:    exec.Command("git", "clone", "git@localhost:test/test.git", localRepoPath),
 		featureFlags: []string{
 			featureflag.UploadPackGitalyHooks.Name,
 		},
@@ -311,7 +315,7 @@ func TestUploadPackWithPackObjectsHook(t *testing.T) {
 }
 
 func TestUploadPackWithoutSideband(t *testing.T) {
-	serverSocketPath, stop := runSSHServer(t)
+	serverSocketPath, stop := runSSHServer(t, config.Config)
 	defer stop()
 
 	// While Git knows the side-band-64 capability, some other clients don't. There is no way
@@ -354,7 +358,11 @@ func TestUploadPackWithoutSideband(t *testing.T) {
 }
 
 func TestUploadPackCloneWithPartialCloneFilter(t *testing.T) {
-	serverSocketPath, stop := runSSHServer(t)
+	cfgBuilder := testcfg.NewGitalyCfgBuilder()
+	defer cfgBuilder.Cleanup()
+	cfg, repos := cfgBuilder.BuildWithRepoAt(t, t.Name())
+
+	serverSocketPath, stop := runSSHServer(t, cfg)
 	defer stop()
 
 	// Ruby file which is ~1kB in size and not present in HEAD
@@ -370,21 +378,18 @@ func TestUploadPackCloneWithPartialCloneFilter(t *testing.T) {
 		{
 			desc: "full_clone",
 			repoTest: func(t *testing.T, repoPath string) {
-				gittest.GitObjectMustExist(t, config.Config.Git.BinPath, repoPath, blobGreaterThanLimit)
+				gittest.GitObjectMustExist(t, cfg.Git.BinPath, repoPath, blobGreaterThanLimit)
 			},
 			cloneArgs: []string{"clone", "git@localhost:test/test.git"},
 		},
 		{
 			desc: "partial_clone",
 			repoTest: func(t *testing.T, repoPath string) {
-				gittest.GitObjectMustNotExist(t, config.Config.Git.BinPath, repoPath, blobGreaterThanLimit)
+				gittest.GitObjectMustNotExist(t, cfg.Git.BinPath, repoPath, blobGreaterThanLimit)
 			},
 			cloneArgs: []string{"clone", "--filter=blob:limit=2048", "git@localhost:test/test.git"},
 		},
 	}
-
-	testRepo, _, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
 
 	for _, tc := range tests {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -395,21 +400,26 @@ func TestUploadPackCloneWithPartialCloneFilter(t *testing.T) {
 			defer cleanup()
 
 			cmd := cloneCommand{
-				repository: testRepo,
-				command:    exec.Command(config.Config.Git.BinPath, append(tc.cloneArgs, localPath)...),
+				repository: repos[0],
+				command:    exec.Command(cfg.Git.BinPath, append(tc.cloneArgs, localPath)...),
 				server:     serverSocketPath,
 			}
 			err := cmd.execute(t)
 			defer os.RemoveAll(localPath)
 			require.NoError(t, err, "clone failed")
 
-			gittest.GitObjectMustExist(t, config.Config.Git.BinPath, localPath, blobLessThanLimit)
+			gittest.GitObjectMustExist(t, cfg.Git.BinPath, localPath, blobLessThanLimit)
 			tc.repoTest(t, localPath)
 		})
 	}
 }
 
 func TestUploadPackCloneSuccessWithGitProtocol(t *testing.T) {
+	cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithBase(config.Config))
+	defer cfgBuilder.Cleanup()
+	cfg, repos := cfgBuilder.BuildWithRepoAt(t, t.Name())
+	repoPath := filepath.Join(cfg.Storages[0].Path, repos[0].RelativePath)
+
 	localRepoPath, cleanup := testhelper.TempDir(t)
 	defer cleanup()
 
@@ -418,36 +428,31 @@ func TestUploadPackCloneSuccessWithGitProtocol(t *testing.T) {
 		desc string
 	}{
 		{
-			cmd:  exec.Command(config.Config.Git.BinPath, "clone", "git@localhost:test/test.git", localRepoPath),
+			cmd:  exec.Command(cfg.Git.BinPath, "clone", "git@localhost:test/test.git", localRepoPath),
 			desc: "full clone",
 		},
 		{
-			cmd:  exec.Command(config.Config.Git.BinPath, "clone", "--depth", "1", "git@localhost:test/test.git", localRepoPath),
+			cmd:  exec.Command(cfg.Git.BinPath, "clone", "--depth", "1", "git@localhost:test/test.git", localRepoPath),
 			desc: "shallow clone",
 		},
 	}
 
-	testRepo, _, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
-
 	for _, tc := range tests {
 		t.Run(tc.desc, func(t *testing.T) {
-			defer func(old config.Cfg) { config.Config = old }(config.Config)
-			readProto, cfg, restore := gittest.EnableGitProtocolV2Support(t, config.Config)
+			readProto, cfg, restore := gittest.EnableGitProtocolV2Support(t, cfg)
 			defer restore()
-			config.Config = cfg
 
-			serverSocketPath, stop := runSSHServer(t)
+			serverSocketPath, stop := runSSHServer(t, cfg)
 			defer stop()
 
 			cmd := cloneCommand{
-				repository:  testRepo,
+				repository:  repos[0],
 				command:     tc.cmd,
 				server:      serverSocketPath,
 				gitProtocol: git.ProtocolV2,
 			}
 
-			lHead, rHead, _, _ := cmd.test(t, localRepoPath)
+			lHead, rHead, _, _ := cmd.test(t, repoPath, localRepoPath)
 			require.Equal(t, lHead, rHead, "local and remote head not equal")
 
 			envData := readProto()
@@ -457,22 +462,30 @@ func TestUploadPackCloneSuccessWithGitProtocol(t *testing.T) {
 }
 
 func TestUploadPackCloneHideTags(t *testing.T) {
-	serverSocketPath, stop := runSSHServer(t)
-	defer stop()
+	cfgTmpl := config.Config
+	cfgTmpl.Storages = nil
 
-	testRepo, _, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
+	cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithBase(cfgTmpl))
+	defer cfgBuilder.Cleanup()
+	cfg, repos := cfgBuilder.BuildWithRepoAt(t, t.Name())
+	repoPath := filepath.Join(cfg.Storages[0].Path, repos[0].RelativePath)
+
+	serverSocketPath, stop := runSSHServer(t, cfg)
+	defer stop()
 
 	localRepoPath, cleanup := testhelper.TempDir(t)
 	defer cleanup()
 
-	cmd := cloneCommand{
-		repository: testRepo,
-		command:    exec.Command(config.Config.Git.BinPath, "clone", "--mirror", "git@localhost:test/test.git", localRepoPath),
+	cmd := exec.Command(cfg.Git.BinPath, "clone", "--mirror", "git@localhost:test/test.git", localRepoPath)
+	cmd.Env = os.Environ()
+	cmd.Env = append(command.GitEnv, cmd.Env...)
+	cloneCmd := cloneCommand{
+		repository: repos[0],
+		command:    cmd,
 		server:     serverSocketPath,
 		gitConfig:  "transfer.hideRefs=refs/tags",
 	}
-	_, _, lTags, rTags := cmd.test(t, localRepoPath)
+	_, _, lTags, rTags := cloneCmd.test(t, repoPath, localRepoPath)
 
 	if lTags == rTags {
 		t.Fatalf("local and remote tags are equal. clone failed: %q != %q", lTags, rTags)
@@ -483,7 +496,7 @@ func TestUploadPackCloneHideTags(t *testing.T) {
 }
 
 func TestUploadPackCloneFailure(t *testing.T) {
-	serverSocketPath, stop := runSSHServer(t)
+	serverSocketPath, stop := runSSHServer(t, config.Config)
 	defer stop()
 
 	testRepo, _, cleanup := gittest.CloneRepo(t)
@@ -497,7 +510,7 @@ func TestUploadPackCloneFailure(t *testing.T) {
 			StorageName:  "foobar",
 			RelativePath: testRepo.GetRelativePath(),
 		},
-		command: exec.Command(config.Config.Git.BinPath, "clone", "git@localhost:test/test.git", localRepoPath),
+		command: exec.Command("git", "clone", "git@localhost:test/test.git", localRepoPath),
 		server:  serverSocketPath,
 	}
 	err := cmd.execute(t)

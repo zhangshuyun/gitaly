@@ -189,11 +189,11 @@ func testSuccessfulGetNewLFSPointersRequest(t *testing.T, ctx context.Context) {
 	revision := []byte("46abbb087fcc0fd02c340f0f2f052bd2c7708da3")
 	commiterArgs := []string{"-c", "user.name=Scrooge McDuck", "-c", "user.email=scrooge@mcduck.com"}
 	cmdArgs := append(commiterArgs, "-C", testRepoPath, "cherry-pick", string(revision))
-	cmd := exec.Command(config.Config.Git.BinPath, cmdArgs...)
+	cmd := exec.Command("git", cmdArgs...)
 	// Skip smudge since it doesn't work with file:// remotes and we don't need it
 	cmd.Env = append(cmd.Env, "GIT_LFS_SKIP_SMUDGE=1")
 	altDirs := "./alt-objects"
-	altDirsCommit := gittest.CreateCommitInAlternateObjectDirectory(t, config.Config.Git.BinPath, testRepoPath, altDirs, cmd)
+	altDirsCommit := gittest.CreateCommitInAlternateObjectDirectory(t, testRepoPath, altDirs, cmd)
 
 	// Create a commit not pointed at by any ref to emulate being in the
 	// pre-receive hook so that `--not --all` returns some objects

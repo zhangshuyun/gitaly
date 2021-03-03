@@ -321,7 +321,7 @@ func TestRepo_FetchRemote(t *testing.T) {
 
 		testRepo, testRepoPath, cleanup := gittest.InitBareRepo(t)
 
-		cmd := exec.Command(config.Config.Git.BinPath, "-C", testRepoPath, "remote", "add", remote, remoteRepoPath)
+		cmd := exec.Command("git", "-C", testRepoPath, "remote", "add", remote, remoteRepoPath)
 		err := cmd.Run()
 		if err != nil {
 			cleanup()

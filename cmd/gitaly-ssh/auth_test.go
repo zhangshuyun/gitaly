@@ -102,7 +102,7 @@ func TestConnectivity(t *testing.T) {
 	require.NoError(t, err)
 	for _, testcase := range testCases {
 		t.Run(testcase.name, func(t *testing.T) {
-			cmd := exec.Command(config.Config.Git.BinPath, "ls-remote", "git@localhost:test/test.git", "refs/heads/master")
+			cmd := exec.Command("git", "ls-remote", "git@localhost:test/test.git", "refs/heads/master")
 			cmd.Stderr = os.Stderr
 			cmd.Env = []string{
 				fmt.Sprintf("GITALY_PAYLOAD=%s", payload),

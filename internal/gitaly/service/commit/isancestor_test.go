@@ -7,7 +7,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -192,12 +191,12 @@ func TestSuccessfulIsAncestorRequestWithAltGitObjectDirs(t *testing.T) {
 
 	previousHead := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoCopyPath, "show", "--format=format:%H", "--no-patch", "HEAD")
 
-	cmd := exec.Command(config.Config.Git.BinPath, "-C", testRepoCopyPath,
+	cmd := exec.Command("git", "-C", testRepoCopyPath,
 		"-c", fmt.Sprintf("user.name=%s", committerName),
 		"-c", fmt.Sprintf("user.email=%s", committerEmail),
 		"commit", "--allow-empty", "-m", "An empty commit")
 	altObjectsDir := "./alt-objects"
-	currentHead := gittest.CreateCommitInAlternateObjectDirectory(t, config.Config.Git.BinPath, testRepoCopyPath, altObjectsDir, cmd)
+	currentHead := gittest.CreateCommitInAlternateObjectDirectory(t, testRepoCopyPath, altObjectsDir, cmd)
 
 	testCases := []struct {
 		desc    string

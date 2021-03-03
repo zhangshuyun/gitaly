@@ -1,6 +1,7 @@
 package testhelper
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -9,8 +10,11 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"testing"
+	"time"
 
 	log "github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	gitalylog "gitlab.com/gitlab-org/gitaly/internal/log"
 )
@@ -146,6 +150,53 @@ func ConfigureGitalySSH(outputDir string) {
 // ConfigureGitalyHooksBinary builds gitaly-hooks command for tests
 func ConfigureGitalyHooksBinary(outputDir string) {
 	buildCommand(outputDir, "gitaly-hooks")
+}
+
+func ConfigureGitalyHooksBin(t testing.TB, cfg config.Cfg) {
+	buildBinary(t, cfg.BinDir, "gitaly-hooks")
+}
+
+func buildBinary(t testing.TB, dstDir, name string) {
+	binsPath := filepath.Join(testDirectory, "bins")
+	binPath := filepath.Join(binsPath, name)
+	lockPath := binPath + ".lock"
+
+	defer func() {
+		if !t.Failed() {
+			require.NoError(t, os.MkdirAll(dstDir, os.ModePerm))
+			MustRunCommand(t, nil, "cp", binPath, dstDir)
+		}
+	}()
+
+	require.NoError(t, os.MkdirAll(binsPath, os.ModePerm))
+
+	lockFile, err := os.OpenFile(lockPath, os.O_CREATE|os.O_EXCL, 0600)
+	if err != nil {
+		if !errors.Is(err, os.ErrExist) {
+			require.NoError(t, err)
+		}
+		// another process is creating the binary at the moment, wait in total for 5 sec
+		for i := 0; i < 50; i++ {
+			if _, err := os.Stat(binPath); err != nil {
+				if !errors.Is(err, os.ErrExist) {
+					require.NoError(t, err)
+				}
+				time.Sleep(100 * time.Millisecond)
+				continue
+			}
+			break
+		}
+		require.FailNow(t, "another process is creating binary for too long")
+	}
+	defer func() { require.NoError(t, os.Remove(lockPath)) }()
+	require.NoError(t, lockFile.Close())
+
+	if _, err := os.Stat(binPath); err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			require.NoError(t, err)
+		}
+		buildCommand(binsPath, name)
+	}
 }
 
 func buildCommand(outputDir, cmd string) {

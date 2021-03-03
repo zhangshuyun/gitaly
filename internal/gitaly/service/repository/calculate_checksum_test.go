@@ -32,7 +32,7 @@ func TestSuccessfulCalculateChecksum(t *testing.T) {
 		require.NoError(t, os.MkdirAll(filepath.Join(testRepoPath, d), 0755))
 	}
 	require.NoError(t, exec.Command("cp", "testdata/checksum-test-packed-refs", filepath.Join(testRepoPath, "packed-refs")).Run())
-	require.NoError(t, exec.Command(config.Config.Git.BinPath, "-C", testRepoPath, "symbolic-ref", "HEAD", "refs/heads/feature").Run())
+	require.NoError(t, exec.Command("git", "-C", testRepoPath, "symbolic-ref", "HEAD", "refs/heads/feature").Run())
 
 	request := &gitalypb.CalculateChecksumRequest{Repository: testRepo}
 	testCtx, cancelCtx := testhelper.Context()

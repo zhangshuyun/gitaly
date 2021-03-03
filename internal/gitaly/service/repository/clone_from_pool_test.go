@@ -7,7 +7,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/repository"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -44,7 +43,7 @@ func TestCloneFromPoolHTTP(t *testing.T) {
 	defer forkRepoCleanup()
 
 	authorizationHeader := "ABCefg0999182"
-	_, remoteURL := gittest.RemoteUploadPackServer(ctx, t, config.Config.Git.BinPath, "my-repo", authorizationHeader, testRepoPath)
+	_, remoteURL := gittest.RemoteUploadPackServer(ctx, t, "git", "my-repo", authorizationHeader, testRepoPath)
 
 	req := &gitalypb.CloneFromPoolRequest{
 		Repository: forkedRepo,

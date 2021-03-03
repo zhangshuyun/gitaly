@@ -40,15 +40,15 @@ func testMain(m *testing.M) int {
 	return m.Run()
 }
 
-func runSSHServer(t *testing.T, serverOpts ...ServerOpt) (string, func()) {
-	locator := config.NewLocator(config.Config)
-	txManager := transaction.NewManager(config.Config)
-	hookManager := hook.NewManager(locator, txManager, hook.GitlabAPIStub, config.Config)
-	gitCmdFactory := git.NewExecCommandFactory(config.Config)
+func runSSHServer(t *testing.T, cfg config.Cfg, serverOpts ...ServerOpt) (string, func()) {
+	locator := config.NewLocator(cfg)
+	txManager := transaction.NewManager(cfg)
+	hookManager := hook.NewManager(locator, txManager, hook.GitlabAPIStub, cfg)
+	gitCmdFactory := git.NewExecCommandFactory(cfg)
 
-	srv := testhelper.NewServer(t, nil, nil, testhelper.WithInternalSocket(config.Config))
-	gitalypb.RegisterSSHServiceServer(srv.GrpcServer(), NewServer(config.Config, locator, gitCmdFactory, serverOpts...))
-	gitalypb.RegisterHookServiceServer(srv.GrpcServer(), hookservice.NewServer(config.Config, hookManager, gitCmdFactory))
+	srv := testhelper.NewServer(t, nil, nil, testhelper.WithInternalSocket(cfg))
+	gitalypb.RegisterSSHServiceServer(srv.GrpcServer(), NewServer(cfg, locator, gitCmdFactory, serverOpts...))
+	gitalypb.RegisterHookServiceServer(srv.GrpcServer(), hookservice.NewServer(cfg, hookManager, gitCmdFactory))
 	srv.Start(t)
 
 	return "unix://" + srv.Socket(), srv.Stop

@@ -2,10 +2,8 @@ package smarthttp
 
 import (
 	"os"
-	"path/filepath"
 	"testing"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
 	diskcache "gitlab.com/gitlab-org/gitaly/internal/cache"
@@ -34,16 +32,6 @@ func testMain(m *testing.M) int {
 
 	cleanup := testhelper.Configure()
 	defer cleanup()
-
-	cwd, err := os.Getwd()
-	if err != nil {
-		log.Error(err)
-		return 1
-	}
-
-	config.Config.Ruby.Dir = filepath.Join(cwd, "../../../../ruby")
-
-	testhelper.ConfigureGitalyHooksBinary(config.Config.BinDir)
 
 	return m.Run()
 }

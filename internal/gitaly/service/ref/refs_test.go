@@ -723,7 +723,7 @@ func TestFindAllTagNestedTags(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.description, func(t *testing.T) {
 			tags := bytes.NewReader(testhelper.MustRunCommand(t, nil, "git", "-C", testRepoCopyPath, "tag"))
-			testhelper.MustRunCommand(t, tags, "xargs", config.Config.Git.BinPath, "-C", testRepoCopyPath, "tag", "-d")
+			testhelper.MustRunCommand(t, tags, "xargs", "git", "-C", testRepoCopyPath, "tag", "-d")
 
 			batch, err := catfile.New(ctx, git.NewExecCommandFactory(config.Config), testRepoCopy)
 			require.NoError(t, err)
@@ -1656,7 +1656,7 @@ func TestFindTagNestedTag(t *testing.T) {
 
 		t.Run(tc.description, func(t *testing.T) {
 			tags := bytes.NewReader(testhelper.MustRunCommand(t, nil, "git", "-C", testRepoCopyPath, "tag"))
-			testhelper.MustRunCommand(t, tags, "xargs", config.Config.Git.BinPath, "-C", testRepoCopyPath, "tag", "-d")
+			testhelper.MustRunCommand(t, tags, "xargs", "git", "-C", testRepoCopyPath, "tag", "-d")
 
 			batch, err := catfile.New(ctx, git.NewExecCommandFactory(config.Config), testRepoCopy)
 			require.NoError(t, err)

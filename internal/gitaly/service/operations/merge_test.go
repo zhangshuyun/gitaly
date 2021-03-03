@@ -689,7 +689,7 @@ func TestSuccessfulUserMergeToRefRequest(t *testing.T) {
 
 	// Writes in existingTargetRef
 	beforeRefreshCommitSha := "a5391128b0ef5d21df5dd23d98557f4ef12fae20"
-	out, err := exec.Command(config.Config.Git.BinPath, "-C", repoPath, "update-ref", string(existingTargetRef), beforeRefreshCommitSha).CombinedOutput()
+	out, err := exec.Command("git", "-C", repoPath, "update-ref", string(existingTargetRef), beforeRefreshCommitSha).CombinedOutput()
 	require.NoError(t, err, "give an existing state to the target ref: %s", out)
 
 	testCases := []struct {
@@ -808,7 +808,7 @@ func TestConflictsOnUserMergeToRefRequest(t *testing.T) {
 		require.NoError(t, err)
 
 		var buf bytes.Buffer
-		cmd := exec.Command(config.Config.Git.BinPath, "-C", testRepoPath, "show", resp.CommitId)
+		cmd := exec.Command("git", "-C", testRepoPath, "show", resp.CommitId)
 		cmd.Stdout = &buf
 		require.NoError(t, cmd.Run())
 

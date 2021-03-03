@@ -695,7 +695,7 @@ func TestGitalyHooksPackObjects(t *testing.T) {
 	env := envForHooks(t, logDir, testRepo, glHookValues{}, proxyValues{})
 
 	baseArgs := []string{
-		config.Config.Git.BinPath,
+		"git",
 		"clone",
 		"-u",
 		"git -c uploadpack.allowFilter -c uploadpack.packObjectsHook=" + config.Config.BinDir + "/gitaly-hooks upload-pack",

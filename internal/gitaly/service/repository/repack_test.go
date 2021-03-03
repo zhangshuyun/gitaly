@@ -92,9 +92,9 @@ func TestRepackLocal(t *testing.T) {
 
 	commiterArgs := []string{"-c", "user.name=Scrooge McDuck", "-c", "user.email=scrooge@mcduck.com"}
 	cmdArgs := append(commiterArgs, "-C", repoPath, "commit", "--allow-empty", "-m", "An empty commit")
-	cmd := exec.Command(config.Config.Git.BinPath, cmdArgs...)
+	cmd := exec.Command("git", cmdArgs...)
 	altObjectsDir := "./alt-objects"
-	altDirsCommit := gittest.CreateCommitInAlternateObjectDirectory(t, config.Config.Git.BinPath, repoPath, altObjectsDir, cmd)
+	altDirsCommit := gittest.CreateCommitInAlternateObjectDirectory(t, repoPath, altObjectsDir, cmd)
 
 	repoCommit := gittest.CreateCommit(t, repoPath, t.Name(), &gittest.CreateCommitOpts{Message: t.Name()})
 

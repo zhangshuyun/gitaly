@@ -20,7 +20,7 @@ func TestExecutor_Apply(t *testing.T) {
 	defer clean()
 
 	repo := localrepo.New(git.NewExecCommandFactory(config.Config), pbRepo, config.Config)
-	executor := New(filepath.Join(config.Config.BinDir, "gitaly-git2go"), config.Config.Git.BinPath)
+	executor := New(filepath.Join(config.Config.BinDir, "gitaly-git2go"), "git")
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()

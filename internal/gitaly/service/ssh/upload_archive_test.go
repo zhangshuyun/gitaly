@@ -17,7 +17,7 @@ import (
 )
 
 func TestFailedUploadArchiveRequestDueToTimeout(t *testing.T) {
-	serverSocketPath, stop := runSSHServer(t, WithArchiveRequestTimeout(100*time.Microsecond))
+	serverSocketPath, stop := runSSHServer(t, config.Config, WithArchiveRequestTimeout(100*time.Microsecond))
 	defer stop()
 
 	client, conn := newSSHClient(t, serverSocketPath)
@@ -54,7 +54,7 @@ func TestFailedUploadArchiveRequestDueToTimeout(t *testing.T) {
 }
 
 func TestFailedUploadArchiveRequestDueToValidationError(t *testing.T) {
-	serverSocketPath, stop := runSSHServer(t)
+	serverSocketPath, stop := runSSHServer(t, config.Config)
 	defer stop()
 
 	client, conn := newSSHClient(t, serverSocketPath)
@@ -103,10 +103,10 @@ func TestFailedUploadArchiveRequestDueToValidationError(t *testing.T) {
 }
 
 func TestUploadArchiveSuccess(t *testing.T) {
-	serverSocketPath, stop := runSSHServer(t)
+	serverSocketPath, stop := runSSHServer(t, config.Config)
 	defer stop()
 
-	cmd := exec.Command(config.Config.Git.BinPath, "archive", "master", "--remote=git@localhost:test/test.git")
+	cmd := exec.Command("git", "archive", "master", "--remote=git@localhost:test/test.git")
 
 	testRepo, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
