@@ -1,5 +1,9 @@
 # Gitaly changelog
 
+## 13.9.2 (2021-03-04)
+
+- No changes.
+
 ## 13.9.1 (2021-02-23)
 
 ### Fixed (1 change)
@@ -53,6 +57,13 @@
 ### Other (1 change)
 
 - Upgrade labkit-ruby to v0.15.0. !3118
+
+
+## 13.8.5 (2021-03-04)
+
+### Fixed (1 change)
+
+- Fix 500 errors in Wiki pages with trailers containing UTF-8. !3169
 
 
 ## 13.8.4 (2021-02-11)
@@ -121,6 +132,10 @@
 
 - Make command stats logging concurrency-safe. !2956
 
+
+## 13.7.8 (2021-03-04)
+
+- No changes.
 
 ## 13.7.7 (2021-02-11)
 
