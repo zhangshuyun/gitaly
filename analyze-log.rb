@@ -1,27 +1,15 @@
-require 'json'
+require 'oj'
 require 'time'
 
 class Record
+  attr_reader :key, :created_at, :size
+
   def initialize(json)
-    @json = json
-  end
+    json_payload = json.fetch('jsonPayload')
 
-  def key
-    json_payload.fetch('cache_key')
-  end
-
-  def created_at
-    @created_at ||= Time.parse(@json.fetch('timestamp'))
-  end
-
-  def size
-    Integer(json_payload.fetch('stdout_bytes')) + Integer(json_payload.fetch('stderr_bytes'))
-  end
-
-  private
-
-  def json_payload
-    @json.fetch('jsonPayload')
+    @key = json_payload.fetch('cache_key')
+    @created_at = Time.parse(json.fetch('timestamp'))
+    @size = Integer(json_payload.fetch('stdout_bytes')) + Integer(json_payload.fetch('stderr_bytes'))
   end
 end
 
@@ -72,7 +60,7 @@ end
 def next_record
   line = STDIN.gets
   return unless line
-  Record.new(JSON.parse(line))
+  Record.new(Oj.load(line))
 end
 
 main
