@@ -112,7 +112,6 @@ func TestNewProtoRegistry(t *testing.T) {
 			"UpdateRemoteMirror":   protoregistry.OpMutator,
 			"FindRemoteRepository": protoregistry.OpAccessor,
 			"FindRemoteRootRef":    protoregistry.OpAccessor,
-			"ListRemotes":          protoregistry.OpAccessor,
 		},
 		"RepositoryService": map[string]protoregistry.OpType{
 			"RepositoryExists":             protoregistry.OpAccessor,

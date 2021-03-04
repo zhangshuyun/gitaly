@@ -40,11 +40,6 @@ service RemoteService {
         op: ACCESSOR
       };
     }
-    rpc ListRemotes(ListRemotesRequest) returns (stream ListRemotesResponse) {
-      option (op_type) = {
-        op: ACCESSOR
-      };
-    }
 }
 
 message AddRemoteRequest {
