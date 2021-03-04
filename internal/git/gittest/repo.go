@@ -22,6 +22,8 @@ const (
 	// GlProjectPath is the default project path for newly created test
 	// repos.
 	GlProjectPath = "gitlab-org/gitlab-test"
+
+	testRepo = "gitlab-test.git"
 )
 
 // InitRepoDir creates a temporary directory for a repo, without initializing it
@@ -101,41 +103,41 @@ func initRepoAt(t testing.TB, bare bool, storage config.Storage) (*gitalypb.Repo
 
 // CloneRepoAtStorageRoot clones a new copy of test repository under a subdirectory in the storage root.
 func CloneRepoAtStorageRoot(t testing.TB, storageRoot, relativePath string) *gitalypb.Repository {
-	repo, _, _ := cloneRepo(t, storageRoot, relativePath, true)
+	repo, _, _ := cloneRepo(t, storageRoot, relativePath, testRepo, true)
 	return repo
 }
 
 // CloneRepoAtStorage clones a new copy of test repository under a subdirectory in the storage root.
 func CloneRepoAtStorage(t testing.TB, storage config.Storage, relativePath string) (*gitalypb.Repository, string, testhelper.Cleanup) {
-	repo, repoPath, cleanup := cloneRepo(t, storage.Path, relativePath, true)
+	repo, repoPath, cleanup := cloneRepo(t, storage.Path, relativePath, testRepo, true)
 	repo.StorageName = storage.Name
 	return repo, repoPath, cleanup
 }
 
 // CloneRepo creates a bare copy of the test repository.
 func CloneRepo(t testing.TB) (repo *gitalypb.Repository, repoPath string, cleanup func()) {
-	return cloneRepo(t, testhelper.GitlabTestStoragePath(), NewRepositoryName(t, true), true)
+	return cloneRepo(t, testhelper.GitlabTestStoragePath(), NewRepositoryName(t, true), testRepo, true)
 }
 
 // CloneRepoWithWorktree creates a copy of the test repository with a worktree. This is allows you
 // to run normal 'non-bare' Git commands.
 func CloneRepoWithWorktree(t testing.TB) (repo *gitalypb.Repository, repoPath string, cleanup func()) {
-	return cloneRepo(t, testhelper.GitlabTestStoragePath(), NewRepositoryName(t, false), false)
+	return cloneRepo(t, testhelper.GitlabTestStoragePath(), NewRepositoryName(t, false), testRepo, false)
 }
 
 // testRepositoryPath returns the absolute path of local 'gitlab-org/gitlab-test.git' clone.
 // It is cloned under the path by the test preparing step of make.
-func testRepositoryPath(t testing.TB) string {
+func testRepositoryPath(t testing.TB, repo string) string {
 	_, currentFile, _, ok := runtime.Caller(0)
 	if !ok {
 		require.Fail(t, "could not get caller info")
 	}
 
-	path := filepath.Join(filepath.Dir(currentFile), "..", "..", "..", "_build", "testrepos", "gitlab-test.git")
+	path := filepath.Join(filepath.Dir(currentFile), "..", "..", "..", "_build", "testrepos", repo)
 	if !isValidRepoPath(path) {
 		makePath := filepath.Join(filepath.Dir(currentFile), "..", "..", "..")
 		makeTarget := "prepare-test-repos"
-		log.Printf("local clone of 'gitlab-org/gitlab-test.git' not found in %q, running `make %v`", path, makeTarget)
+		log.Printf("local clone of test repository %q not found in %q, running `make %v`", repo, path, makeTarget)
 		testhelper.MustRunCommand(t, nil, "make", "-C", makePath, makeTarget)
 	}
 
@@ -151,7 +153,7 @@ func isValidRepoPath(absolutePath string) bool {
 	return true
 }
 
-func cloneRepo(t testing.TB, storageRoot, relativePath string, bare bool) (repo *gitalypb.Repository, repoPath string, cleanup func()) {
+func cloneRepo(t testing.TB, storageRoot, relativePath, repoName string, bare bool) (repo *gitalypb.Repository, repoPath string, cleanup func()) {
 	repoPath = filepath.Join(storageRoot, relativePath)
 
 	repo = InitRepoDir(t, storageRoot, relativePath)
@@ -163,9 +165,15 @@ func cloneRepo(t testing.TB, storageRoot, relativePath string, bare bool) (repo 
 		repo.RelativePath = filepath.Join(relativePath, ".git")
 	}
 
-	testhelper.MustRunCommand(t, nil, "git", append(args, testRepositoryPath(t), repoPath)...)
+	testhelper.MustRunCommand(t, nil, "git", append(args, testRepositoryPath(t, repoName), repoPath)...)
 
 	return repo, repoPath, func() { require.NoError(t, os.RemoveAll(repoPath)) }
+}
+
+// CloneBenchRepo creates a bare copy of the benchmarking test repository.
+func CloneBenchRepo(t testing.TB) (repo *gitalypb.Repository, repoPath string, cleanup func()) {
+	return cloneRepo(t, testhelper.GitlabTestStoragePath(), NewRepositoryName(t, true),
+		"benchmark.git", true)
 }
 
 // AddWorktreeArgs returns git command arguments for adding a worktree at the
