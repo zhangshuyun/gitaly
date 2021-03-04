@@ -34,11 +34,12 @@ func init() {
 // Configure sets the format and level on all loggers. It applies level
 // mapping to the GrpcGo logger.
 func Configure(loggers []*logrus.Logger, format string, level string) {
+	var formatter logrus.Formatter
 	switch format {
 	case "json":
-		for _, l := range loggers {
-			l.Formatter = &logrus.JSONFormatter{TimestampFormat: LogTimestampFormat}
-		}
+		formatter = &logrus.JSONFormatter{TimestampFormat: LogTimestampFormat}
+	case "text":
+		formatter = &logrus.TextFormatter{TimestampFormat: LogTimestampFormat}
 	case "":
 		// Just stick with the default
 	default:
@@ -55,6 +56,10 @@ func Configure(loggers []*logrus.Logger, format string, level string) {
 			l.SetLevel(mapGrpcLogLevel(logrusLevel))
 		} else {
 			l.SetLevel(logrusLevel)
+		}
+
+		if formatter != nil {
+			l.Formatter = formatter
 		}
 	}
 }
