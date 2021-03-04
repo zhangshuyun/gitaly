@@ -20,20 +20,21 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/objectpool"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/streamio"
 	"google.golang.org/grpc/codes"
 )
 
 func TestFailedReceivePackRequestDueToValidationError(t *testing.T) {
-	serverSocketPath, stop := runSSHServer(t)
+	cfg, repo, _, cleanup := testcfg.BuildWithRepo(t)
+	defer cleanup()
+
+	serverSocketPath, stop := runSSHServer(t, cfg)
 	defer stop()
 
 	client, conn := newSSHClient(t, serverSocketPath)
 	defer conn.Close()
-
-	testRepo, _, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
 
 	tests := []struct {
 		Desc string
@@ -42,7 +43,7 @@ func TestFailedReceivePackRequestDueToValidationError(t *testing.T) {
 	}{
 		{
 			Desc: "Repository.RelativePath is empty",
-			Req:  &gitalypb.SSHReceivePackRequest{Repository: &gitalypb.Repository{StorageName: "default", RelativePath: ""}, GlId: "user-123"},
+			Req:  &gitalypb.SSHReceivePackRequest{Repository: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: ""}, GlId: "user-123"},
 			Code: codes.InvalidArgument,
 		},
 		{
@@ -52,12 +53,12 @@ func TestFailedReceivePackRequestDueToValidationError(t *testing.T) {
 		},
 		{
 			Desc: "Empty GlId",
-			Req:  &gitalypb.SSHReceivePackRequest{Repository: &gitalypb.Repository{StorageName: "default", RelativePath: testRepo.GetRelativePath()}, GlId: ""},
+			Req:  &gitalypb.SSHReceivePackRequest{Repository: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: repo.GetRelativePath()}, GlId: ""},
 			Code: codes.InvalidArgument,
 		},
 		{
 			Desc: "Data exists on first request",
-			Req:  &gitalypb.SSHReceivePackRequest{Repository: &gitalypb.Repository{StorageName: "default", RelativePath: testRepo.GetRelativePath()}, GlId: "user-123", Stdin: []byte("Fail")},
+			Req:  &gitalypb.SSHReceivePackRequest{Repository: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: repo.GetRelativePath()}, GlId: "user-123", Stdin: []byte("Fail")},
 			Code: codes.InvalidArgument,
 		},
 	}
@@ -80,28 +81,30 @@ func TestFailedReceivePackRequestDueToValidationError(t *testing.T) {
 }
 
 func TestReceivePackPushSuccess(t *testing.T) {
-	defer func(dir string) { config.Config.GitlabShell.Dir = dir }(config.Config.GitlabShell.Dir)
-	config.Config.GitlabShell.Dir = "/foo/bar/gitlab-shell"
+	cfg, repo, _, cleanup := testcfg.BuildWithRepo(t)
+	defer cleanup()
+
+	cfg.GitlabShell.Dir = "/foo/bar/gitlab-shell"
+
+	testhelper.ConfigureGitalySSHBin(t, cfg)
 
 	hookOutputFile, cleanup := gittest.CaptureHookEnv(t)
 	defer cleanup()
 
-	serverSocketPath, stop := runSSHServer(t)
+	serverSocketPath, stop := runSSHServer(t, cfg)
 	defer stop()
 
 	glRepository := "project-456"
 	glProjectPath := "project/path"
 
-	lHead, rHead, err := testCloneAndPush(t, serverSocketPath, pushParams{
-		storageName:   testhelper.DefaultStorageName,
+	lHead, rHead, err := testCloneAndPush(t, cfg, cfg.Storages[0].Path, serverSocketPath, repo, pushParams{
+		storageName:   cfg.Storages[0].Name,
 		glID:          "123",
 		glUsername:    "user",
 		glRepository:  glRepository,
 		glProjectPath: glProjectPath,
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	require.Equal(t, lHead, rHead, "local and remote head not equal. push failed")
 
 	envData, err := ioutil.ReadFile(hookOutputFile)
@@ -113,7 +116,7 @@ func TestReceivePackPushSuccess(t *testing.T) {
 	// Compare the repository up front so that we can use require.Equal for
 	// the remaining values.
 	testhelper.ProtoEqual(t, &gitalypb.Repository{
-		StorageName:   testhelper.DefaultStorageName,
+		StorageName:   cfg.Storages[0].Name,
 		RelativePath:  "gitlab-test-ssh-receive-pack.git",
 		GlProjectPath: glProjectPath,
 		GlRepository:  glRepository,
@@ -127,10 +130,10 @@ func TestReceivePackPushSuccess(t *testing.T) {
 	payload.Praefect = nil
 
 	require.Equal(t, git.HooksPayload{
-		BinDir:              config.Config.BinDir,
-		GitPath:             config.Config.Git.BinPath,
-		InternalSocket:      config.Config.GitalyInternalSocketPath(),
-		InternalSocketToken: config.Config.Auth.Token,
+		BinDir:              cfg.BinDir,
+		GitPath:             cfg.Git.BinPath,
+		InternalSocket:      cfg.GitalyInternalSocketPath(),
+		InternalSocketToken: cfg.Auth.Token,
 		ReceiveHooksPayload: &git.ReceiveHooksPayload{
 			UserID:   "123",
 			Username: "user",
@@ -141,15 +144,19 @@ func TestReceivePackPushSuccess(t *testing.T) {
 }
 
 func TestReceivePackPushSuccessWithGitProtocol(t *testing.T) {
-	defer func(old config.Cfg) { config.Config = old }(config.Config)
-	readProto, cfg, restore := gittest.EnableGitProtocolV2Support(t, config.Config)
-	defer restore()
-	config.Config = cfg
+	cfg, repo, _, cleanup := testcfg.BuildWithRepo(t)
+	defer cleanup()
 
-	serverSocketPath, stop := runSSHServer(t)
+	testhelper.ConfigureGitalySSHBin(t, cfg)
+	testhelper.ConfigureGitalyHooksBin(t, cfg)
+
+	readProto, cfg, restore := gittest.EnableGitProtocolV2Support(t, cfg)
+	defer restore()
+
+	serverSocketPath, stop := runSSHServer(t, cfg)
 	defer stop()
 
-	lHead, rHead, err := testCloneAndPush(t, serverSocketPath, pushParams{
+	lHead, rHead, err := testCloneAndPush(t, cfg, cfg.Storages[0].Path, serverSocketPath, repo, pushParams{
 		storageName:  testhelper.DefaultStorageName,
 		glRepository: "project-123",
 		glID:         "1",
@@ -164,18 +171,26 @@ func TestReceivePackPushSuccessWithGitProtocol(t *testing.T) {
 }
 
 func TestReceivePackPushFailure(t *testing.T) {
-	serverSocketPath, stop := runSSHServer(t)
+	cfg, repo, _, cleanup := testcfg.BuildWithRepo(t)
+	defer cleanup()
+
+	serverSocketPath, stop := runSSHServer(t, cfg)
 	defer stop()
 
-	_, _, err := testCloneAndPush(t, serverSocketPath, pushParams{storageName: "foobar", glID: "1"})
+	_, _, err := testCloneAndPush(t, cfg, cfg.Storages[0].Path, serverSocketPath, repo, pushParams{storageName: "foobar", glID: "1"})
 	require.Error(t, err, "local and remote head equal. push did not fail")
 
-	_, _, err = testCloneAndPush(t, serverSocketPath, pushParams{storageName: testhelper.DefaultStorageName, glID: ""})
+	_, _, err = testCloneAndPush(t, cfg, cfg.Storages[0].Path, serverSocketPath, repo, pushParams{storageName: cfg.Storages[0].Name, glID: ""})
 	require.Error(t, err, "local and remote head equal. push did not fail")
 }
 
 func TestReceivePackPushHookFailure(t *testing.T) {
-	serverSocketPath, stop := runSSHServer(t)
+	cfg, repo, _, cleanup := testcfg.BuildWithRepo(t)
+	defer cleanup()
+
+	testhelper.ConfigureGitalySSHBin(t, cfg)
+
+	serverSocketPath, stop := runSSHServer(t, cfg)
 	defer stop()
 
 	hookDir, cleanup := testhelper.TempDir(t)
@@ -184,18 +199,23 @@ func TestReceivePackPushHookFailure(t *testing.T) {
 	defer func(old string) { hooks.Override = old }(hooks.Override)
 	hooks.Override = hookDir
 
-	require.NoError(t, os.MkdirAll(hooks.Path(config.Config), 0755))
+	require.NoError(t, os.MkdirAll(hooks.Path(cfg), 0755))
 
 	hookContent := []byte("#!/bin/sh\nexit 1")
-	ioutil.WriteFile(filepath.Join(hooks.Path(config.Config), "pre-receive"), hookContent, 0755)
+	ioutil.WriteFile(filepath.Join(hooks.Path(cfg), "pre-receive"), hookContent, 0755)
 
-	_, _, err := testCloneAndPush(t, serverSocketPath, pushParams{storageName: testhelper.DefaultStorageName, glID: "1"})
+	_, _, err := testCloneAndPush(t, cfg, cfg.Storages[0].Path, serverSocketPath, repo, pushParams{storageName: cfg.Storages[0].Name, glID: "1"})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "(pre-receive hook declined)")
 }
 
 func TestObjectPoolRefAdvertisementHidingSSH(t *testing.T) {
-	serverSocketPath, stop := runSSHServer(t)
+	cfg, repo, _, cleanup := testcfg.BuildWithRepo(t)
+	defer cleanup()
+
+	testhelper.ConfigureGitalyHooksBin(t, cfg)
+
+	serverSocketPath, stop := runSSHServer(t, cfg)
 	defer stop()
 
 	client, conn := newSSHClient(t, serverSocketPath)
@@ -207,10 +227,7 @@ func TestObjectPoolRefAdvertisementHidingSSH(t *testing.T) {
 	stream, err := client.SSHReceivePack(ctx)
 	require.NoError(t, err)
 
-	repo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-
-	pool, err := objectpool.NewObjectPool(config.Config, config.NewLocator(config.Config), git.NewExecCommandFactory(config.Config), repo.GetStorageName(), gittest.NewObjectPoolName(t))
+	pool, err := objectpool.NewObjectPool(cfg, config.NewLocator(cfg), git.NewExecCommandFactory(cfg), repo.GetStorageName(), gittest.NewObjectPoolName(t))
 	require.NoError(t, err)
 
 	require.NoError(t, pool.Create(ctx, repo))
@@ -222,7 +239,7 @@ func TestObjectPoolRefAdvertisementHidingSSH(t *testing.T) {
 
 	// First request
 	require.NoError(t, stream.Send(&gitalypb.SSHReceivePackRequest{
-		Repository: &gitalypb.Repository{StorageName: "default", RelativePath: repo.GetRelativePath()}, GlId: "user-123",
+		Repository: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: repo.GetRelativePath()}, GlId: "user-123",
 	}))
 
 	require.NoError(t, stream.Send(&gitalypb.SSHReceivePackRequest{Stdin: []byte("0000")}))
@@ -240,28 +257,27 @@ func TestObjectPoolRefAdvertisementHidingSSH(t *testing.T) {
 }
 
 func TestSSHReceivePackToHooks(t *testing.T) {
-	secretToken := "secret token"
-	glRepository := "some_repo"
-	glID := "key-123"
+	cfg, repo, _, cleanup := testcfg.BuildWithRepo(t)
+	defer cleanup()
 
-	defer func(old config.Cfg) { config.Config = old }(config.Config)
-	readProto, cfg, restore := gittest.EnableGitProtocolV2Support(t, config.Config)
+	testhelper.ConfigureGitalyHooksBin(t, cfg)
+	testhelper.ConfigureGitalySSHBin(t, cfg)
+
+	const (
+		secretToken  = "secret token"
+		glRepository = "some_repo"
+		glID         = "key-123"
+	)
+
+	readProto, cfg, restore := gittest.EnableGitProtocolV2Support(t, cfg)
 	defer restore()
-	config.Config = cfg
-
-	serverSocketPath, stop := runSSHServer(t)
-	defer stop()
 
 	tempGitlabShellDir, cleanup := testhelper.TempDir(t)
 	defer cleanup()
 
-	defer func(gitlabShell config.GitlabShell) {
-		config.Config.GitlabShell = gitlabShell
-	}(config.Config.GitlabShell)
+	cfg.GitlabShell.Dir = tempGitlabShellDir
 
-	config.Config.GitlabShell.Dir = tempGitlabShellDir
-
-	cloneDetails, cleanup := setupSSHClone(t)
+	cloneDetails, cleanup := setupSSHClone(t, cfg.Storages[0].Path, repo)
 	defer cleanup()
 
 	serverURL, cleanup := testhelper.NewGitlabTestServer(t, testhelper.GitlabTestServerOptions{
@@ -278,14 +294,17 @@ func TestSSHReceivePackToHooks(t *testing.T) {
 
 	testhelper.WriteShellSecretFile(t, tempGitlabShellDir, secretToken)
 
-	config.Config.Gitlab.URL = serverURL
-	config.Config.Gitlab.SecretFile = filepath.Join(tempGitlabShellDir, ".gitlab_shell_secret")
+	cfg.Gitlab.URL = serverURL
+	cfg.Gitlab.SecretFile = filepath.Join(tempGitlabShellDir, ".gitlab_shell_secret")
 
-	cleanup = gittest.WriteCheckNewObjectExistsHook(t, config.Config.Git.BinPath, cloneDetails.RemoteRepoPath)
+	cleanup = gittest.WriteCheckNewObjectExistsHook(t, cfg.Git.BinPath, cloneDetails.RemoteRepoPath)
 	defer cleanup()
 
-	lHead, rHead, err := sshPush(t, cloneDetails, serverSocketPath, pushParams{
-		storageName:  testhelper.DefaultStorageName,
+	serverSocketPath, stop := runSSHServer(t, cfg)
+	defer stop()
+
+	lHead, rHead, err := sshPush(t, cfg, cloneDetails, serverSocketPath, pushParams{
+		storageName:  cfg.Storages[0].Name,
 		glID:         glID,
 		glRepository: glRepository,
 		gitProtocol:  git.ProtocolV2,
@@ -305,11 +324,7 @@ type SSHCloneDetails struct {
 }
 
 // setupSSHClone sets up a test clone
-func setupSSHClone(t *testing.T) (SSHCloneDetails, func()) {
-	testRepo, _, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
-
-	storagePath := testhelper.GitlabTestStoragePath()
+func setupSSHClone(t *testing.T, storagePath string, testRepo *gitalypb.Repository) (SSHCloneDetails, func()) {
 	tempRepo := "gitlab-test-ssh-receive-pack.git"
 	testRepoPath := filepath.Join(storagePath, testRepo.GetRelativePath())
 	remoteRepoPath := filepath.Join(storagePath, tempRepo)
@@ -341,7 +356,7 @@ func setupSSHClone(t *testing.T) (SSHCloneDetails, func()) {
 		}
 }
 
-func sshPush(t *testing.T, cloneDetails SSHCloneDetails, serverSocketPath string, params pushParams) (string, string, error) {
+func sshPush(t *testing.T, cfg config.Cfg, cloneDetails SSHCloneDetails, serverSocketPath string, params pushParams) (string, string, error) {
 	pbTempRepo := &gitalypb.Repository{
 		StorageName:   params.storageName,
 		RelativePath:  cloneDetails.TempRepo,
@@ -359,11 +374,11 @@ func sshPush(t *testing.T, cloneDetails SSHCloneDetails, serverSocketPath string
 	})
 	require.NoError(t, err)
 
-	cmd := exec.Command(config.Config.Git.BinPath, "-C", cloneDetails.LocalRepoPath, "push", "-v", "git@localhost:test/test.git", "master")
+	cmd := exec.Command(cfg.Git.BinPath, "-C", cloneDetails.LocalRepoPath, "push", "-v", "git@localhost:test/test.git", "master")
 	cmd.Env = []string{
 		fmt.Sprintf("GITALY_PAYLOAD=%s", payload),
 		fmt.Sprintf("GITALY_ADDRESS=%s", serverSocketPath),
-		fmt.Sprintf(`GIT_SSH_COMMAND=%s receive-pack`, gitalySSHPath),
+		fmt.Sprintf(`GIT_SSH_COMMAND=%s receive-pack`, filepath.Join(cfg.BinDir, "gitaly-ssh")),
 	}
 
 	out, err := cmd.CombinedOutput()
@@ -381,11 +396,11 @@ func sshPush(t *testing.T, cloneDetails SSHCloneDetails, serverSocketPath string
 	return string(localHead), string(remoteHead), nil
 }
 
-func testCloneAndPush(t *testing.T, serverSocketPath string, params pushParams) (string, string, error) {
-	cloneDetails, cleanup := setupSSHClone(t)
+func testCloneAndPush(t *testing.T, cfg config.Cfg, storagePath, serverSocketPath string, testRepo *gitalypb.Repository, params pushParams) (string, string, error) {
+	cloneDetails, cleanup := setupSSHClone(t, storagePath, testRepo)
 	defer cleanup()
 
-	return sshPush(t, cloneDetails, serverSocketPath, params)
+	return sshPush(t, cfg, cloneDetails, serverSocketPath, params)
 }
 
 // makeCommit creates a new commit and returns oldHead, newHead, success

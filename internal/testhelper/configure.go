@@ -157,6 +157,11 @@ func ConfigureGitalyHooksBin(t testing.TB, cfg config.Cfg) {
 	buildBinary(t, cfg.BinDir, "gitaly-hooks")
 }
 
+// ConfigureGitalySSHBin builds gitaly-ssh command for tests for the cfg.
+func ConfigureGitalySSHBin(t testing.TB, cfg config.Cfg) {
+	buildBinary(t, cfg.BinDir, "gitaly-ssh")
+}
+
 func buildBinary(t testing.TB, dstDir, name string) {
 	// binsPath is a shared between all tests location where all compiled binaries should be placed
 	binsPath := filepath.Join(testDirectory, "bins")
