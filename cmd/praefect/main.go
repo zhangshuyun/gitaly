@@ -387,6 +387,8 @@ func run(cfgs []starter.Config, conf config.Config) error {
 			protoregistry.GitalyProtoPreregistered,
 		)
 	)
+	transactionManager.StartRoutingVotes(ctx, nodeSet.Connections())
+
 	metricsCollectors = append(metricsCollectors, transactionManager, coordinator, repl)
 	if db != nil {
 		prometheus.MustRegister(
