@@ -59,6 +59,13 @@
 - Upgrade labkit-ruby to v0.15.0. !3118
 
 
+## 13.8.5 (2021-03-04)
+
+### Fixed (1 change)
+
+- Fix 500 errors in Wiki pages with trailers containing UTF-8. !3169
+
+
 ## 13.8.4 (2021-02-11)
 
 - No changes.
