@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/lib/pq"
 	"github.com/sirupsen/logrus"
@@ -22,6 +23,7 @@ type PerRepositoryElector struct {
 	db          glsql.Querier
 	hc          HealthChecker
 	handleError func(error) error
+	retryWait   time.Duration
 }
 
 // HealthChecker maintains node health statuses.
@@ -41,6 +43,7 @@ func NewPerRepositoryElector(log logrus.FieldLogger, db glsql.Querier, hc Health
 			log.WithError(err).Error("failed performing failovers")
 			return nil
 		},
+		retryWait: time.Second,
 	}
 }
 
@@ -60,10 +63,27 @@ func (pr *PerRepositoryElector) Run(ctx context.Context, trigger <-chan struct{}
 				return nil
 			}
 
-			if err := pr.performFailovers(ctx); err != nil {
-				if err := pr.handleError(err); err != nil {
-					return err
+			for {
+				if err := pr.performFailovers(ctx); err != nil {
+					if err := pr.handleError(err); err != nil {
+						return err
+					}
+
+					// Reattempt the failovers after one second if it failed. The trigger channel only ticks
+					// when a health change has occurred. If we fail to perform failovers, we would
+					// only try again when the health of a node has changed. This would leave some
+					// repositories without a healthy primary. Ideally we'd fix this by getting rid of
+					// the virtual storage wide failovers and perform failovers lazily for repositories
+					// when necessary: https://gitlab.com/gitlab-org/gitaly/-/issues/3207
+					select {
+					case <-ctx.Done():
+						return ctx.Err()
+					case <-time.After(pr.retryWait):
+						continue
+					}
 				}
+
+				break
 			}
 		}
 	}
