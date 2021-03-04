@@ -34,6 +34,8 @@ var (
 	GoGetLFSPointers = FeatureFlag{Name: "go_get_lfs_pointers", OnByDefault: false}
 	// GoGetNewPointers enables the Go implementation of GetNewLFSPointers
 	GoGetNewLFSPointers = FeatureFlag{Name: "go_get_new_lfs_pointers", OnByDefault: false}
+	// UploadPackGitalyHooks makes git-upload-pack use gitaly-hooks to run pack-objects
+	UploadPackGitalyHooks = FeatureFlag{Name: "upload_pack_gitaly_hooks", OnByDefault: false}
 
 	// TxApplyBfgObjectMapStream enables transactions for ApplyBfgObjectMapStream
 	TxApplyBfgObjectMapStream = FeatureFlag{Name: "tx_apply_bfg_object_map_stream", OnByDefault: true}
@@ -99,8 +101,6 @@ var (
 	TxWikiUpdatePage = FeatureFlag{Name: "tx_wiki_update_page", OnByDefault: false}
 	// TxWikiWritePage enables transactions for WikiWritePage
 	TxWikiWritePage = FeatureFlag{Name: "tx_wiki_write_page", OnByDefault: false}
-	// UploadPackGitalyHooks makes git-upload-pack use gitaly-hooks to run pack-objects
-	UploadPackGitalyHooks = FeatureFlag{Name: "upload_pack_gitaly_hooks", OnByDefault: false}
 )
 
 // All includes all feature flags.
