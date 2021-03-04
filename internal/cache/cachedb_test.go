@@ -32,9 +32,8 @@ func testMain(m *testing.M) int {
 }
 
 func TestStreamDBNaiveKeyer(t *testing.T) {
-	cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("storage"))
-	defer cfgBuilder.Cleanup()
-	cfg := cfgBuilder.Build(t)
+	cfg, cleanup := testcfg.Build(t)
+	defer cleanup()
 
 	testRepo1, _, _ := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "repository-1")
 	testRepo2, _, _ := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "repository-2")

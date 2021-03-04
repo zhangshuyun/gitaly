@@ -27,13 +27,11 @@ func setupRepo(t *testing.T, bare bool) (*Repo, string, func()) {
 	var deferrer testhelper.Deferrer
 	defer deferrer.Call()
 
-	cfgBuilder := testcfg.NewGitalyCfgBuilder()
-	deferrer.Add(cfgBuilder.Cleanup)
-	cfg := cfgBuilder.Build(t)
+	cfg, cleanup := testcfg.Build(t)
+	deferrer.Add(cleanup)
 
 	var repoProto *gitalypb.Repository
 	var repoPath string
-	var cleanup testhelper.Cleanup
 	if bare {
 		repoProto, repoPath, cleanup = gittest.InitBareRepoAt(t, cfg.Storages[0])
 	} else {

@@ -16,9 +16,8 @@ import (
 )
 
 func TestRepository(t *testing.T) {
-	cfgBuilder := testcfg.NewGitalyCfgBuilder()
-	defer cfgBuilder.Cleanup()
-	cfg := cfgBuilder.Build(t)
+	cfg, cleanup := testcfg.Build(t)
+	defer cleanup()
 
 	serverSocketPath, cleanup := testserver.RunGitalyServer(t, cfg, nil)
 	defer cleanup()

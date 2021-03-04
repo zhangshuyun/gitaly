@@ -16,9 +16,8 @@ import (
 )
 
 func TestDiskCacheObjectWalker(t *testing.T) {
-	cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("storage"))
-	defer cfgBuilder.Cleanup()
-	cfg := cfgBuilder.Build(t)
+	cfg, cleanup := testcfg.Build(t)
+	defer cleanup()
 
 	var shouldExist, shouldNotExist []string
 
@@ -72,9 +71,8 @@ func TestDiskCacheObjectWalker(t *testing.T) {
 }
 
 func TestDiskCacheInitialClear(t *testing.T) {
-	cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("storage"))
-	defer cfgBuilder.Cleanup()
-	cfg := cfgBuilder.Build(t)
+	cfg, cleanup := testcfg.Build(t)
+	defer cleanup()
 
 	cacheDir := tempdir.CacheDir(cfg.Storages[0])
 

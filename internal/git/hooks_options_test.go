@@ -12,14 +12,13 @@ import (
 )
 
 func TestWithRefHook(t *testing.T) {
-	cfgBuilder := testcfg.NewGitalyCfgBuilder()
-	defer cfgBuilder.Cleanup()
-	cfg, repos := cfgBuilder.BuildWithRepoAt(t, t.Name())
+	cfg, repo, _, cleanup := testcfg.BuildWithRepo(t)
+	defer cleanup()
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	opt := git.WithRefTxHook(ctx, repos[0], cfg)
+	opt := git.WithRefTxHook(ctx, repo, cfg)
 	subCmd := git.SubCmd{Name: "update-ref", Args: []string{"refs/heads/master", git.ZeroOID.String()}}
 
 	for _, tt := range []struct {
@@ -29,7 +28,7 @@ func TestWithRefHook(t *testing.T) {
 		{
 			name: "NewCommand",
 			fn: func() (*command.Command, error) {
-				return git.NewExecCommandFactory(cfg).New(ctx, repos[0], nil, subCmd, opt)
+				return git.NewExecCommandFactory(cfg).New(ctx, repo, nil, subCmd, opt)
 			},
 		},
 	} {

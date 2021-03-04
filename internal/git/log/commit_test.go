@@ -34,14 +34,14 @@ func setupBatch(t *testing.T, ctx context.Context) (config.Cfg, catfile.Batch, *
 	var deferrer testhelper.Deferrer
 	defer deferrer.Call()
 
-	cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("storage"))
-	deferrer.Add(cfgBuilder.Cleanup)
-	cfg, repos := cfgBuilder.BuildWithRepoAt(t, t.Name())
-	c, err := catfile.New(ctx, git.NewExecCommandFactory(cfg), repos[0])
+	cfg, repo, _, cleanup := testcfg.BuildWithRepo(t)
+	deferrer.Add(cleanup)
+
+	c, err := catfile.New(ctx, git.NewExecCommandFactory(cfg), repo)
 	require.NoError(t, err)
 
 	cleaner := deferrer.Relocate()
-	return cfg, c, repos[0], cleaner.Call
+	return cfg, c, repo, cleaner.Call
 }
 
 func TestParseRawCommit(t *testing.T) {

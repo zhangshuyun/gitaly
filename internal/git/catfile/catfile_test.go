@@ -27,11 +27,10 @@ func setupBatch(t *testing.T, ctx context.Context) (Batch, testhelper.Cleanup) {
 	var deferrer testhelper.Deferrer
 	defer deferrer.Call()
 
-	cfgBuilder := testcfg.NewGitalyCfgBuilder()
-	deferrer.Add(cfgBuilder.Cleanup)
-	cfg, repos := cfgBuilder.BuildWithRepoAt(t, t.Name())
+	cfg, repo, _, cleanup := testcfg.BuildWithRepo(t)
+	deferrer.Add(cleanup)
 
-	c, err := New(ctx, git.NewExecCommandFactory(cfg), repos[0])
+	c, err := New(ctx, git.NewExecCommandFactory(cfg), repo)
 	require.NoError(t, err)
 
 	cleaner := deferrer.Relocate()
@@ -361,10 +360,8 @@ func TestSpawnFailure(t *testing.T) {
 	ctx1, cancel1 := testhelper.Context()
 	defer cancel1()
 
-	cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("storage"))
-	defer cfgBuilder.Cleanup()
-	cfg, repos := cfgBuilder.BuildWithRepoAt(t, t.Name())
-	testRepo := repos[0]
+	cfg, testRepo, _, cleanup := testcfg.BuildWithRepo(t)
+	defer cleanup()
 
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
 

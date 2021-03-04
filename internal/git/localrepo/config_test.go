@@ -22,9 +22,8 @@ func setupRepoConfig(t *testing.T) (Config, string, func()) {
 	var deferrer testhelper.Deferrer
 	defer deferrer.Call()
 
-	cfgBuilder := testcfg.NewGitalyCfgBuilder()
-	deferrer.Add(cfgBuilder.Cleanup)
-	cfg := cfgBuilder.Build(t)
+	cfg, cleanup := testcfg.Build(t)
+	deferrer.Add(cleanup)
 
 	repoProto, repoPath, cleanup := gittest.InitBareRepoAt(t, cfg.Storages[0])
 	deferrer.Add(cleanup)

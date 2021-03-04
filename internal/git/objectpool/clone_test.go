@@ -20,11 +20,10 @@ func setupObjectPool(t *testing.T) (*ObjectPool, *gitalypb.Repository, func()) {
 	var deferrer testhelper.Deferrer
 	defer deferrer.Call()
 
-	cfgBuilder := testcfg.NewGitalyCfgBuilder()
-	deferrer.Add(cfgBuilder.Cleanup)
-	cfg, repos := cfgBuilder.BuildWithRepoAt(t, t.Name())
+	cfg, repo, _, cleanup := testcfg.BuildWithRepo(t)
+	deferrer.Add(cleanup)
 
-	pool, err := NewObjectPool(cfg, config.NewLocator(cfg), git.NewExecCommandFactory(cfg), repos[0].GetStorageName(), gittest.NewObjectPoolName(t))
+	pool, err := NewObjectPool(cfg, config.NewLocator(cfg), git.NewExecCommandFactory(cfg), repo.GetStorageName(), gittest.NewObjectPoolName(t))
 	require.NoError(t, err)
 	deferrer.Add(func() {
 		if err := pool.Remove(context.TODO()); err != nil {
@@ -33,7 +32,7 @@ func setupObjectPool(t *testing.T) (*ObjectPool, *gitalypb.Repository, func()) {
 	})
 
 	cleaner := deferrer.Relocate()
-	return pool, repos[0], cleaner.Call
+	return pool, repo, cleaner.Call
 }
 
 func TestClone(t *testing.T) {

@@ -10,9 +10,9 @@ import (
 )
 
 func TestRepo(t *testing.T) {
-	cfgBuilder := testcfg.NewGitalyCfgBuilder()
-	defer cfgBuilder.Cleanup()
-	cfg := cfgBuilder.Build(t)
+	cfg, cleanup := testcfg.Build(t)
+	defer cleanup()
+
 	gittest.TestRepository(t, cfg, func(t testing.TB, pbRepo *gitalypb.Repository) git.Repository {
 		t.Helper()
 		return New(git.NewExecCommandFactory(cfg), pbRepo, cfg)
