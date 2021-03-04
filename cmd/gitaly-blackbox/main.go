@@ -53,7 +53,7 @@ func run(configPath string) error {
 		return err
 	}
 
-	log.Configure(config.Logging.Format, config.Logging.Level)
+	log.Configure(log.Loggers, config.Logging.Format, config.Logging.Level)
 
 	return blackbox.Run(config)
 }
