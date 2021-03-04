@@ -18,9 +18,9 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/pktline"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/streamio"
 	"google.golang.org/grpc/codes"
@@ -37,21 +37,24 @@ func TestSuccessfulUploadPackRequest(t *testing.T) {
 }
 
 func testSuccessfulUploadPackRequest(t *testing.T, ctx context.Context) {
+	cfg, repo, _, cleanup := testcfg.BuildWithRepo(t)
+	defer cleanup()
+
+	testhelper.ConfigureGitalyHooksBin(t, cfg)
+
 	negotiationMetrics := prometheus.NewCounterVec(prometheus.CounterOpts{}, []string{"feature"})
 
 	serverSocketPath, stop := runSmartHTTPServer(
-		t, config.Config, WithPackfileNegotiationMetrics(negotiationMetrics),
+		t, cfg, WithPackfileNegotiationMetrics(negotiationMetrics),
 	)
 	defer stop()
 
-	_, testRepoPath, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
-
-	storagePath := testhelper.GitlabTestStoragePath()
+	storagePath := cfg.Storages[0].Path
 	remoteRepoRelativePath := "gitlab-test-remote"
 	localRepoRelativePath := "gitlab-test-local"
 	remoteRepoPath := filepath.Join(storagePath, remoteRepoRelativePath)
 	localRepoPath := filepath.Join(storagePath, localRepoRelativePath)
+	testRepoPath := filepath.Join(storagePath, repo.RelativePath)
 	// Make a non-bare clone of the test repo to act as a remote one
 	testhelper.MustRunCommand(t, nil, "git", "clone", testRepoPath, remoteRepoPath)
 	// Make a bare clone of the test repo to act as a local one and to leave the original repo intact for other tests
@@ -84,11 +87,11 @@ func testSuccessfulUploadPackRequest(t *testing.T, ctx context.Context) {
 
 	req := &gitalypb.PostUploadPackRequest{
 		Repository: &gitalypb.Repository{
-			StorageName:  "default",
+			StorageName:  cfg.Storages[0].Name,
 			RelativePath: filepath.Join(remoteRepoRelativePath, ".git"),
 		},
 	}
-	responseBuffer, err := makePostUploadPackRequest(ctx, t, serverSocketPath, config.Config.Auth.Token, req, requestBuffer)
+	responseBuffer, err := makePostUploadPackRequest(ctx, t, serverSocketPath, cfg.Auth.Token, req, requestBuffer)
 	require.NoError(t, err)
 
 	// There's no git command we can pass it this response and do the work for us (extracting pack file, ...),
@@ -113,15 +116,18 @@ func TestUploadPackRequestWithGitConfigOptions(t *testing.T) {
 }
 
 func testUploadPackRequestWithGitConfigOptions(t *testing.T, ctx context.Context) {
-	serverSocketPath, stop := runSmartHTTPServer(t, config.Config)
-	defer stop()
-
-	_, testRepoPath, cleanup := gittest.CloneRepo(t)
+	cfg, repo, _, cleanup := testcfg.BuildWithRepo(t)
 	defer cleanup()
 
-	storagePath := testhelper.GitlabTestStoragePath()
+	testhelper.ConfigureGitalyHooksBin(t, cfg)
+
+	serverSocketPath, stop := runSmartHTTPServer(t, cfg)
+	defer stop()
+
+	storagePath := cfg.Storages[0].Path
 	ourRepoRelativePath := "gitlab-test-remote"
 	ourRepoPath := filepath.Join(storagePath, ourRepoRelativePath)
+	testRepoPath := filepath.Join(storagePath, repo.RelativePath)
 
 	// Make a clone of the test repo to modify
 	testhelper.MustRunCommand(t, nil, "git", "clone", "--bare", testRepoPath, ourRepoPath)
@@ -148,13 +154,13 @@ func testUploadPackRequestWithGitConfigOptions(t *testing.T, ctx context.Context
 
 	rpcRequest := &gitalypb.PostUploadPackRequest{
 		Repository: &gitalypb.Repository{
-			StorageName:  "default",
+			StorageName:  cfg.Storages[0].Name,
 			RelativePath: ourRepoRelativePath,
 		},
 	}
 
 	// The ref is successfully requested as it is not hidden
-	response, err := makePostUploadPackRequest(ctx, t, serverSocketPath, config.Config.Auth.Token, rpcRequest, requestBody)
+	response, err := makePostUploadPackRequest(ctx, t, serverSocketPath, cfg.Auth.Token, rpcRequest, requestBody)
 	require.NoError(t, err)
 	_, _, count := extractPackDataFromResponse(t, response)
 	assert.Equal(t, 5, count, "pack should have 5 entries")
@@ -165,7 +171,7 @@ func testUploadPackRequestWithGitConfigOptions(t *testing.T, ctx context.Context
 	// we need to set uploadpack.allowAnySHA1InWant=false, because if it's true then we won't encounter an error from setting
 	// uploadpack.hideRefs=refs/hidden. We are setting uploadpack.allowAnySHA1InWant=true in the RPC to enable partial clones
 	rpcRequest.GitConfigOptions = []string{"uploadpack.hideRefs=refs/hidden", "uploadpack.allowAnySHA1InWant=false"}
-	response, err = makePostUploadPackRequest(ctx, t, serverSocketPath, config.Config.Auth.Token, rpcRequest, requestBodyCopy)
+	response, err = makePostUploadPackRequest(ctx, t, serverSocketPath, cfg.Auth.Token, rpcRequest, requestBodyCopy)
 	testhelper.RequireGrpcError(t, err, codes.Unavailable)
 
 	expected := fmt.Sprintf("0049ERR upload-pack: not our ref %v", want)
@@ -179,19 +185,17 @@ func TestUploadPackRequestWithGitProtocol(t *testing.T) {
 }
 
 func testUploadPackRequestWithGitProtocol(t *testing.T, ctx context.Context) {
-	defer func(old config.Cfg) { config.Config = old }(config.Config)
-
-	readProto, cfg, restore := gittest.EnableGitProtocolV2Support(t, config.Config)
-	defer restore()
-	config.Config = cfg
-
-	serverSocketPath, stop := runSmartHTTPServer(t, config.Config)
-	defer stop()
-
-	_, testRepoPath, cleanup := gittest.CloneRepo(t)
+	cfg, repo, _, cleanup := testcfg.BuildWithRepo(t)
 	defer cleanup()
 
-	storagePath := testhelper.GitlabTestStoragePath()
+	readProto, cfg, restore := gittest.EnableGitProtocolV2Support(t, cfg)
+	defer restore()
+
+	serverSocketPath, stop := runSmartHTTPServer(t, cfg)
+	defer stop()
+
+	storagePath := cfg.Storages[0].Path
+	testRepoPath := filepath.Join(storagePath, repo.RelativePath)
 	relativePath, err := filepath.Rel(storagePath, testRepoPath)
 	require.NoError(t, err)
 
@@ -207,14 +211,14 @@ func testUploadPackRequestWithGitProtocol(t *testing.T, ctx context.Context) {
 	// Git v1 will throw a protocol error.
 	rpcRequest := &gitalypb.PostUploadPackRequest{
 		Repository: &gitalypb.Repository{
-			StorageName:  "default",
+			StorageName:  cfg.Storages[0].Name,
 			RelativePath: relativePath,
 		},
 		GitProtocol: git.ProtocolV2,
 	}
 
 	// The ref is successfully requested as it is not hidden
-	_, err = makePostUploadPackRequest(ctx, t, serverSocketPath, config.Config.Auth.Token, rpcRequest, requestBody)
+	_, err = makePostUploadPackRequest(ctx, t, serverSocketPath, cfg.Auth.Token, rpcRequest, requestBody)
 	require.NoError(t, err)
 
 	envData := readProto()
@@ -231,19 +235,19 @@ func TestSuccessfulUploadPackDeepenRequest(t *testing.T) {
 }
 
 func testSuccessfulUploadPackDeepenRequest(t *testing.T, ctx context.Context) {
-	serverSocketPath, stop := runSmartHTTPServer(t, config.Config)
-	defer stop()
-
-	testRepo, _, cleanup := gittest.CloneRepo(t)
+	cfg, repo, _, cleanup := testcfg.BuildWithRepo(t)
 	defer cleanup()
+
+	serverSocketPath, stop := runSmartHTTPServer(t, cfg)
+	defer stop()
 
 	requestBody := &bytes.Buffer{}
 	pktline.WriteString(requestBody, fmt.Sprintf("want e63f41fe459e62e1228fcef60d7189127aeba95a %s\n", clientCapabilities))
 	pktline.WriteString(requestBody, "deepen 1")
 	pktline.WriteFlush(requestBody)
 
-	rpcRequest := &gitalypb.PostUploadPackRequest{Repository: testRepo}
-	response, err := makePostUploadPackRequest(ctx, t, serverSocketPath, config.Config.Auth.Token, rpcRequest, requestBody)
+	rpcRequest := &gitalypb.PostUploadPackRequest{Repository: repo}
+	response, err := makePostUploadPackRequest(ctx, t, serverSocketPath, cfg.Auth.Token, rpcRequest, requestBody)
 
 	// This assertion is the main reason this test exists.
 	assert.NoError(t, err)
@@ -251,17 +255,14 @@ func testSuccessfulUploadPackDeepenRequest(t *testing.T, ctx context.Context) {
 }
 
 func TestUploadPackWithPackObjectsHook(t *testing.T) {
-	hookDir, cleanup := testhelper.TempDir(t)
+	cfg, repo, repoPath, cleanup := testcfg.BuildWithRepo(t)
 	defer cleanup()
 
-	defer func(old string) {
-		config.Config.BinDir = old
-	}(config.Config.BinDir)
-	config.Config.BinDir = hookDir
+	cfg.BinDir, cleanup = testhelper.TempDir(t)
+	defer cleanup()
 
-	outputPath := filepath.Join(hookDir, "output")
-	hookScript := fmt.Sprintf("#!/bin/sh\necho 'I was invoked' >'%s'\nshift\nexec '%s' \"$@\"\n",
-		outputPath, config.Config.Git.BinPath)
+	outputPath := filepath.Join(cfg.BinDir, "output")
+	hookScript := fmt.Sprintf("#!/bin/sh\necho 'I was invoked' >'%s'\nshift\nexec '%s' \"$@\"\n", outputPath, cfg.Git.BinPath)
 
 	// We're using a custom pack-objects hook for git-upload-pack. In order
 	// to assure that it's getting executed as expected, we're writing a
@@ -270,14 +271,11 @@ func TestUploadPackWithPackObjectsHook(t *testing.T) {
 	// out. In the best case we'd have just printed the error to stderr and
 	// check the return error message. But it's unfortunately not
 	// transferred back.
-	cleanup = testhelper.WriteExecutable(t, filepath.Join(hookDir, "gitaly-hooks"), []byte(hookScript))
+	cleanup = testhelper.WriteExecutable(t, filepath.Join(cfg.BinDir, "gitaly-hooks"), []byte(hookScript))
 	defer cleanup()
 
-	serverSocketPath, stop := runSmartHTTPServer(t, config.Config)
+	serverSocketPath, stop := runSmartHTTPServer(t, cfg)
 	defer stop()
-
-	repo, repoPath, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
 
 	oldHead := bytes.TrimSpace(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", "master~"))
 	newHead := bytes.TrimSpace(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", "master"))
@@ -291,7 +289,7 @@ func TestUploadPackWithPackObjectsHook(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	_, err := makePostUploadPackRequest(ctx, t, serverSocketPath, config.Config.Auth.Token, &gitalypb.PostUploadPackRequest{
+	_, err := makePostUploadPackRequest(ctx, t, serverSocketPath, cfg.Auth.Token, &gitalypb.PostUploadPackRequest{
 		Repository: repo,
 	}, requestBuffer)
 	require.NoError(t, err)
@@ -307,18 +305,21 @@ func TestFailedUploadPackRequestDueToValidationError(t *testing.T) {
 }
 
 func testFailedUploadPackRequestDueToValidationError(t *testing.T, ctx context.Context) {
-	serverSocketPath, stop := runSmartHTTPServer(t, config.Config)
+	cfg, cleanup := testcfg.Build(t)
+	defer cleanup()
+
+	serverSocketPath, stop := runSmartHTTPServer(t, cfg)
 	defer stop()
 
 	rpcRequests := []gitalypb.PostUploadPackRequest{
 		{Repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}}, // Repository doesn't exist
 		{Repository: nil}, // Repository is nil
-		{Repository: &gitalypb.Repository{StorageName: "default", RelativePath: "path/to/repo"}, Data: []byte("Fail")}, // Data exists on first request
+		{Repository: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "path/to/repo"}, Data: []byte("Fail")}, // Data exists on first request
 	}
 
 	for _, rpcRequest := range rpcRequests {
 		t.Run(fmt.Sprintf("%v", rpcRequest), func(t *testing.T) {
-			_, err := makePostUploadPackRequest(ctx, t, serverSocketPath, config.Config.Auth.Token, &rpcRequest, bytes.NewBuffer(nil))
+			_, err := makePostUploadPackRequest(ctx, t, serverSocketPath, cfg.Auth.Token, &rpcRequest, bytes.NewBuffer(nil))
 			testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
 		})
 	}
@@ -399,23 +400,25 @@ func TestUploadPackRequestForPartialCloneSuccess(t *testing.T) {
 }
 
 func testUploadPackRequestForPartialCloneSuccess(t *testing.T, ctx context.Context) {
+	cfg, _, repoPath, cleanup := testcfg.BuildWithRepo(t)
+	defer cleanup()
+
+	testhelper.ConfigureGitalyHooksBin(t, cfg)
+
 	negotiationMetrics := prometheus.NewCounterVec(prometheus.CounterOpts{}, []string{"feature"})
 
 	serverSocketPath, stop := runSmartHTTPServer(
-		t, config.Config, WithPackfileNegotiationMetrics(negotiationMetrics),
+		t, cfg, WithPackfileNegotiationMetrics(negotiationMetrics),
 	)
 	defer stop()
 
-	_, testRepoPath, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
-
-	storagePath := testhelper.GitlabTestStoragePath()
+	storagePath := cfg.Storages[0].Path
 	remoteRepoRelativePath := "gitlab-test-remote"
 	localRepoRelativePath := "gitlab-test-local"
 	remoteRepoPath := filepath.Join(storagePath, remoteRepoRelativePath)
 	localRepoPath := filepath.Join(storagePath, localRepoRelativePath)
 	// Make a non-bare clone of the test repo to act as a remote one
-	testhelper.MustRunCommand(t, nil, "git", "clone", testRepoPath, remoteRepoPath)
+	testhelper.MustRunCommand(t, nil, "git", "clone", repoPath, remoteRepoPath)
 	// Make a bare clone of the test repo to act as a local one and to leave the original repo intact for other tests
 	testhelper.MustRunCommand(t, nil, "git", "init", "--bare", localRepoPath)
 
@@ -447,12 +450,12 @@ func testUploadPackRequestForPartialCloneSuccess(t *testing.T, ctx context.Conte
 
 	req := &gitalypb.PostUploadPackRequest{
 		Repository: &gitalypb.Repository{
-			StorageName:  "default",
+			StorageName:  cfg.Storages[0].Name,
 			RelativePath: filepath.Join(remoteRepoRelativePath, ".git"),
 		},
 	}
 
-	responseBuffer, err := makePostUploadPackRequest(ctx, t, serverSocketPath, config.Config.Auth.Token, req, &requestBuffer)
+	responseBuffer, err := makePostUploadPackRequest(ctx, t, serverSocketPath, cfg.Auth.Token, req, &requestBuffer)
 	require.NoError(t, err)
 
 	pack, version, entries := extractPackDataFromResponse(t, responseBuffer)
@@ -466,9 +469,9 @@ func testUploadPackRequestForPartialCloneSuccess(t *testing.T, ctx context.Conte
 	// c1788657b95998a2f177a4f86d68a60f2a80117f is CONTRIBUTING.md, which is > 200 bytese
 	blobGreaterThanLimit := "c1788657b95998a2f177a4f86d68a60f2a80117f"
 
-	gittest.GitObjectMustExist(t, config.Config.Git.BinPath, localRepoPath, blobLessThanLimit)
-	gittest.GitObjectMustExist(t, config.Config.Git.BinPath, remoteRepoPath, blobGreaterThanLimit)
-	gittest.GitObjectMustNotExist(t, config.Config.Git.BinPath, localRepoPath, blobGreaterThanLimit)
+	gittest.GitObjectMustExist(t, cfg.Git.BinPath, localRepoPath, blobLessThanLimit)
+	gittest.GitObjectMustExist(t, cfg.Git.BinPath, remoteRepoPath, blobGreaterThanLimit)
+	gittest.GitObjectMustNotExist(t, cfg.Git.BinPath, localRepoPath, blobGreaterThanLimit)
 
 	newBranch := "new-branch"
 	newHead = []byte(gittest.CreateCommit(t, remoteRepoPath, newBranch, &gittest.CreateCommitOpts{
@@ -484,7 +487,7 @@ func testUploadPackRequestForPartialCloneSuccess(t *testing.T, ctx context.Conte
 	pktline.WriteFlush(&requestBuffer)
 	pktline.WriteFlush(&requestBuffer)
 
-	_, err = makePostUploadPackRequest(ctx, t, serverSocketPath, config.Config.Auth.Token, req, &requestBuffer)
+	_, err = makePostUploadPackRequest(ctx, t, serverSocketPath, cfg.Auth.Token, req, &requestBuffer)
 	require.NoError(t, err)
 
 	metric, err := negotiationMetrics.GetMetricWithLabelValues("filter")
