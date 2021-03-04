@@ -11,7 +11,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/git/objectpool"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -19,25 +18,19 @@ import (
 )
 
 func TestLink(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	server, serverSocketPath := runObjectPoolServer(t, config.Config, locator)
-	defer server.Stop()
-
-	client, conn := newObjectPoolClient(t, serverSocketPath)
-	defer conn.Close()
+	cfg, repo, _, locator, client, cleanup := setup(t)
+	defer cleanup()
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	repoProto, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
+	localRepo := localrepo.New(git.NewExecCommandFactory(cfg), repo, cfg)
 
-	pool, err := objectpool.NewObjectPool(config.Config, locator, git.NewExecCommandFactory(config.Config), repoProto.GetStorageName(), gittest.NewObjectPoolName(t))
+	pool, err := objectpool.NewObjectPool(cfg, locator, git.NewExecCommandFactory(cfg), repo.GetStorageName(), gittest.NewObjectPoolName(t))
 	require.NoError(t, err)
 
 	require.NoError(t, pool.Remove(ctx), "make sure pool does not exist at start of test")
-	require.NoError(t, pool.Create(ctx, repoProto), "create pool")
+	require.NoError(t, pool.Create(ctx, repo), "create pool")
 
 	// Mock object in the pool, which should be available to the pool members
 	// after linking
@@ -59,7 +52,7 @@ func TestLink(t *testing.T) {
 		{
 			desc: "Pool does not exist",
 			req: &gitalypb.LinkRepositoryToObjectPoolRequest{
-				Repository: repoProto,
+				Repository: repo,
 				ObjectPool: nil,
 			},
 			code: codes.InvalidArgument,
@@ -67,7 +60,7 @@ func TestLink(t *testing.T) {
 		{
 			desc: "Successful request",
 			req: &gitalypb.LinkRepositoryToObjectPoolRequest{
-				Repository: repoProto,
+				Repository: repo,
 				ObjectPool: pool.ToProto(),
 			},
 			code: codes.OK,
@@ -85,7 +78,7 @@ func TestLink(t *testing.T) {
 
 			require.NoError(t, err, "error from LinkRepositoryToObjectPool")
 
-			commit, err := repo.ReadCommit(ctx, git.Revision(poolCommitID))
+			commit, err := localRepo.ReadCommit(ctx, git.Revision(poolCommitID))
 			require.NoError(t, err)
 			require.NotNil(t, commit)
 			require.Equal(t, poolCommitID, commit.Id)
@@ -94,26 +87,19 @@ func TestLink(t *testing.T) {
 }
 
 func TestLinkIdempotent(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	server, serverSocketPath := runObjectPoolServer(t, config.Config, locator)
-	defer server.Stop()
-
-	client, conn := newObjectPoolClient(t, serverSocketPath)
-	defer conn.Close()
+	cfg, repo, _, locator, client, cleanup := setup(t)
+	defer cleanup()
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-
-	pool, err := objectpool.NewObjectPool(config.Config, locator, git.NewExecCommandFactory(config.Config), testRepo.GetStorageName(), gittest.NewObjectPoolName(t))
+	pool, err := objectpool.NewObjectPool(cfg, locator, git.NewExecCommandFactory(cfg), repo.GetStorageName(), gittest.NewObjectPoolName(t))
 	require.NoError(t, err)
 	defer pool.Remove(ctx)
-	require.NoError(t, pool.Create(ctx, testRepo))
+	require.NoError(t, pool.Create(ctx, repo))
 
 	request := &gitalypb.LinkRepositoryToObjectPoolRequest{
-		Repository: testRepo,
+		Repository: repo,
 		ObjectPool: pool.ToProto(),
 	}
 
@@ -125,33 +111,26 @@ func TestLinkIdempotent(t *testing.T) {
 }
 
 func TestLinkNoClobber(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	server, serverSocketPath := runObjectPoolServer(t, config.Config, locator)
-	defer server.Stop()
-
-	client, conn := newObjectPoolClient(t, serverSocketPath)
-	defer conn.Close()
+	cfg, repo, repoPath, locator, client, cleanup := setup(t)
+	defer cleanup()
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-
-	pool, err := objectpool.NewObjectPool(config.Config, locator, git.NewExecCommandFactory(config.Config), testRepo.GetStorageName(), gittest.NewObjectPoolName(t))
+	pool, err := objectpool.NewObjectPool(cfg, locator, git.NewExecCommandFactory(cfg), repo.GetStorageName(), gittest.NewObjectPoolName(t))
 	require.NoError(t, err)
 	defer pool.Remove(ctx)
 
-	require.NoError(t, pool.Create(ctx, testRepo))
+	require.NoError(t, pool.Create(ctx, repo))
 
-	alternatesFile := filepath.Join(testRepoPath, "objects/info/alternates")
+	alternatesFile := filepath.Join(repoPath, "objects/info/alternates")
 	testhelper.AssertPathNotExists(t, alternatesFile)
 
 	contentBefore := "mock/objects\n"
 	require.NoError(t, ioutil.WriteFile(alternatesFile, []byte(contentBefore), 0644))
 
 	request := &gitalypb.LinkRepositoryToObjectPoolRequest{
-		Repository: testRepo,
+		Repository: repo,
 		ObjectPool: pool.ToProto(),
 	}
 
@@ -165,26 +144,19 @@ func TestLinkNoClobber(t *testing.T) {
 }
 
 func TestLinkNoPool(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	server, serverSocketPath := runObjectPoolServer(t, config.Config, locator)
-	defer server.Stop()
-
-	client, conn := newObjectPoolClient(t, serverSocketPath)
-	defer conn.Close()
+	cfg, repo, _, locator, client, cleanup := setup(t)
+	defer cleanup()
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-
-	pool, err := objectpool.NewObjectPool(config.Config, locator, git.NewExecCommandFactory(config.Config), testRepo.GetStorageName(), gittest.NewObjectPoolName(t))
+	pool, err := objectpool.NewObjectPool(cfg, locator, git.NewExecCommandFactory(cfg), repo.GetStorageName(), gittest.NewObjectPoolName(t))
 	require.NoError(t, err)
 	// intentionally do not call pool.Create
 	defer pool.Remove(ctx)
 
 	request := &gitalypb.LinkRepositoryToObjectPoolRequest{
-		Repository: testRepo,
+		Repository: repo,
 		ObjectPool: pool.ToProto(),
 	}
 
@@ -198,40 +170,33 @@ func TestLinkNoPool(t *testing.T) {
 }
 
 func TestUnlink(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	server, serverSocketPath := runObjectPoolServer(t, config.Config, locator)
-	defer server.Stop()
-
-	client, conn := newObjectPoolClient(t, serverSocketPath)
-	defer conn.Close()
+	cfg, repo, _, locator, client, cleanup := setup(t)
+	defer cleanup()
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-
-	deletedRepo, deletedRepoPath, removeDeletedRepo := gittest.CloneRepo(t)
+	deletedRepo, deletedRepoPath, removeDeletedRepo := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "todelete")
 	defer removeDeletedRepo()
 
-	gitCmdFactory := git.NewExecCommandFactory(config.Config)
-	pool, err := objectpool.NewObjectPool(config.Config, locator, gitCmdFactory, testRepo.GetStorageName(), gittest.NewObjectPoolName(t))
+	gitCmdFactory := git.NewExecCommandFactory(cfg)
+	pool, err := objectpool.NewObjectPool(cfg, locator, gitCmdFactory, repo.GetStorageName(), gittest.NewObjectPoolName(t))
 	require.NoError(t, err)
 	defer pool.Remove(ctx)
 
-	require.NoError(t, pool.Create(ctx, testRepo), "create pool")
-	require.NoError(t, pool.Link(ctx, testRepo))
+	require.NoError(t, pool.Create(ctx, repo), "create pool")
+	require.NoError(t, pool.Link(ctx, repo))
 	require.NoError(t, pool.Link(ctx, deletedRepo))
 
 	removeDeletedRepo()
 	testhelper.AssertPathNotExists(t, deletedRepoPath)
 
-	pool2, err := objectpool.NewObjectPool(config.Config, locator, gitCmdFactory, testRepo.GetStorageName(), gittest.NewObjectPoolName(t))
+	pool2, err := objectpool.NewObjectPool(cfg, locator, gitCmdFactory, repo.GetStorageName(), gittest.NewObjectPoolName(t))
 	require.NoError(t, err)
-	require.NoError(t, pool2.Create(ctx, testRepo), "create pool 2")
+	require.NoError(t, pool2.Create(ctx, repo), "create pool 2")
 	defer pool2.Remove(ctx)
 
-	require.False(t, gittest.RemoteExists(t, pool.FullPath(), testRepo.GlRepository), "sanity check: remote exists in pool")
+	require.False(t, gittest.RemoteExists(t, pool.FullPath(), repo.GlRepository), "sanity check: remote exists in pool")
 	require.False(t, gittest.RemoteExists(t, pool.FullPath(), deletedRepo.GlRepository), "sanity check: remote exists in pool")
 
 	testCases := []struct {
@@ -242,7 +207,7 @@ func TestUnlink(t *testing.T) {
 		{
 			desc: "Successful request",
 			req: &gitalypb.UnlinkRepositoryFromObjectPoolRequest{
-				Repository: testRepo,
+				Repository: repo,
 				ObjectPool: pool.ToProto(),
 			},
 			code: codes.OK,
@@ -250,7 +215,7 @@ func TestUnlink(t *testing.T) {
 		{
 			desc: "Not linked in the first place",
 			req: &gitalypb.UnlinkRepositoryFromObjectPoolRequest{
-				Repository: testRepo,
+				Repository: repo,
 				ObjectPool: pool2.ToProto(),
 			},
 			code: codes.OK,
@@ -266,7 +231,7 @@ func TestUnlink(t *testing.T) {
 		{
 			desc: "No ObjectPool",
 			req: &gitalypb.UnlinkRepositoryFromObjectPoolRequest{
-				Repository: testRepo,
+				Repository: repo,
 				ObjectPool: nil,
 			},
 			code: codes.InvalidArgument,
@@ -282,10 +247,10 @@ func TestUnlink(t *testing.T) {
 		{
 			desc: "Pool not found",
 			req: &gitalypb.UnlinkRepositoryFromObjectPoolRequest{
-				Repository: testRepo,
+				Repository: repo,
 				ObjectPool: &gitalypb.ObjectPool{
 					Repository: &gitalypb.Repository{
-						StorageName:  testRepo.GetStorageName(),
+						StorageName:  repo.GetStorageName(),
 						RelativePath: gittest.NewObjectPoolName(t), // does not exist
 					},
 				},
@@ -312,27 +277,20 @@ func TestUnlink(t *testing.T) {
 }
 
 func TestUnlinkIdempotent(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	server, serverSocketPath := runObjectPoolServer(t, config.Config, locator)
-	defer server.Stop()
-
-	client, conn := newObjectPoolClient(t, serverSocketPath)
-	defer conn.Close()
+	cfg, repo, _, locator, client, cleanup := setup(t)
+	defer cleanup()
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-
-	pool, err := objectpool.NewObjectPool(config.Config, locator, git.NewExecCommandFactory(config.Config), testRepo.GetStorageName(), gittest.NewObjectPoolName(t))
+	pool, err := objectpool.NewObjectPool(cfg, locator, git.NewExecCommandFactory(cfg), repo.GetStorageName(), gittest.NewObjectPoolName(t))
 	require.NoError(t, err)
 	defer pool.Remove(ctx)
-	require.NoError(t, pool.Create(ctx, testRepo))
-	require.NoError(t, pool.Link(ctx, testRepo))
+	require.NoError(t, pool.Create(ctx, repo))
+	require.NoError(t, pool.Link(ctx, repo))
 
 	request := &gitalypb.UnlinkRepositoryFromObjectPoolRequest{
-		Repository: testRepo,
+		Repository: repo,
 		ObjectPool: pool.ToProto(),
 	}
 
