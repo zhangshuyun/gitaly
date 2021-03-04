@@ -52,10 +52,12 @@ If applicable, any groups/projects that are happy to have this feature turned on
 - [ ] Do we need to create a [change management issue](https://about.gitlab.com/handbook/engineering/infrastructure/change-management/#feature-flags-and-the-change-management-process)? ([howto](https://gitlab.com/gitlab-org/gitaly/-/blob/master/doc/PROCESS.md#do-we-need-a-change-management-issue))
 - [ ] Enable on staging ([howto](https://gitlab.com/gitlab-org/gitaly/-/blob/master/doc/PROCESS.md#enable-on-staging))
 - [ ] Test on staging ([howto](https://gitlab.com/gitlab-org/gitaly/-/blob/master/doc/PROCESS.md#test-on-staging))
+- [ ] Verify the feature flag was used by checking Prometheus metric [`gitaly_feature_flag_checks_total`](https://prometheus.gstg.gitlab.net/graph?g0.expr=sum%20by%20(flag)%20(rate(gitaly_feature_flag_checks_total%5B5m%5D))&g0.tab=1&g0.stacked=0&g0.range_input=1h)
 - [ ] Announce on this issue an estimated time this will be enabled on GitLab.com
 - [ ] Add ~"featureflag::production" to this issue
 - [ ] Enable on GitLab.com by running chatops command in `#production` ([howto](https://gitlab.com/gitlab-org/gitaly/-/blob/master/doc/PROCESS.md#enable-in-production))
 - [ ] Cross post chatops slack command to `#support_gitlab-com` and in your team channel
+- [ ] Verify the feature flag is being used by checking Prometheus metric [`gitaly_feature_flag_checks_total`](https://prometheus.gprd.gitlab.net/graph?g0.expr=sum%20by%20(flag)%20(rate(gitaly_feature_flag_checks_total%5B5m%5D))&g0.tab=1&g0.stacked=0&g0.range_input=1h)
 - [ ] Announce on the issue that the flag has been enabled
 - [ ] Did you set the feature to both `100%` **and** `true` ([howto](https://gitlab.com/gitlab-org/gitaly/-/blob/master/doc/PROCESS.md#enable-in-production))
 - [ ] Submit a MR to have the feature `OnByDefault: true` and add changelog entry ([howto](https://gitlab.com/gitlab-org/gitaly/-/blob/master/doc/PROCESS.md#feature-lifecycle-after-it-is-live))
