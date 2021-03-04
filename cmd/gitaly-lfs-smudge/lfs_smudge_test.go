@@ -21,6 +21,15 @@ const (
 oid sha256:3ea5dd307f195f449f0e08234183b82e92c3d5f4cff11c2a6bb014f9e0de12aa
 size 177735
 `
+	lfsPointerWithCRLF = `version https://git-lfs.github.com/spec/v1
+oid sha256:3ea5dd307f195f449f0e08234183b82e92c3d5f4cff11c2a6bb014f9e0de12aa` + "\r\nsize 177735"
+	invalidLfsPointer = `version https://git-lfs.github.com/spec/v1
+oid sha256:3ea5dd307f195f449f0e08234183b82e92c3d5f4cff11c2a6bb014f9e0de12aa&gl_repository=project-51
+size 177735
+`
+	invalidLfsPointerWithNonHex = `version https://git-lfs.github.com/spec/v1
+oid sha256:3ea5dd307f195f449f0e08234183b82e92c3d5f4cff11c2a6bb014f9e0de12z-
+size 177735`
 	glRepository = "project-1"
 	secretToken  = "topsecret"
 	testData     = "hello world"
@@ -76,47 +85,65 @@ func runTestServer(t *testing.T, options testhelper.GitlabTestServerOptions) (co
 }
 
 func TestSuccessfulLfsSmudge(t *testing.T) {
-	var b bytes.Buffer
-	reader := strings.NewReader(lfsPointer)
-
-	c, cleanup := runTestServer(t, defaultOptions)
-	defer cleanup()
-
-	cfg, err := json.Marshal(c)
-	require.NoError(t, err)
-
-	tlsCfg, err := json.Marshal(config.TLS{
-		CertPath: certPath,
-		KeyPath:  keyPath,
-	})
-	require.NoError(t, err)
-
-	tmpDir, cleanup := testhelper.TempDir(t)
-	defer cleanup()
-
-	env := map[string]string{
-		"GL_REPOSITORY":      "project-1",
-		"GL_INTERNAL_CONFIG": string(cfg),
-		"GITALY_LOG_DIR":     tmpDir,
-		"GITALY_TLS":         string(tlsCfg),
+	testCases := []struct {
+		desc string
+		data string
+	}{
+		{
+			desc: "regular LFS pointer",
+			data: lfsPointer,
+		},
+		{
+			desc: "LFS pointer with CRLF",
+			data: lfsPointerWithCRLF,
+		},
 	}
-	cfgProvider := &mapConfig{env: env}
-	initLogging(cfgProvider)
 
-	err = smudge(&b, reader, cfgProvider)
-	require.NoError(t, err)
-	require.Equal(t, testData, b.String())
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			var b bytes.Buffer
+			reader := strings.NewReader(tc.data)
 
-	logFilename := filepath.Join(tmpDir, "gitaly_lfs_smudge.log")
-	require.FileExists(t, logFilename)
+			c, cleanup := runTestServer(t, defaultOptions)
+			defer cleanup()
 
-	data, err := ioutil.ReadFile(logFilename)
-	require.NoError(t, err)
-	d := string(data)
+			cfg, err := json.Marshal(c)
+			require.NoError(t, err)
 
-	require.Contains(t, d, `"msg":"Finished HTTP request"`)
-	require.Contains(t, d, `"status":200`)
-	require.Contains(t, d, `"content_length_bytes":`)
+			tlsCfg, err := json.Marshal(config.TLS{
+				CertPath: certPath,
+				KeyPath:  keyPath,
+			})
+			require.NoError(t, err)
+
+			tmpDir, cleanup := testhelper.TempDir(t)
+			defer cleanup()
+
+			env := map[string]string{
+				"GL_REPOSITORY":      "project-1",
+				"GL_INTERNAL_CONFIG": string(cfg),
+				"GITALY_LOG_DIR":     tmpDir,
+				"GITALY_TLS":         string(tlsCfg),
+			}
+			cfgProvider := &mapConfig{env: env}
+			initLogging(cfgProvider)
+
+			err = smudge(&b, reader, cfgProvider)
+			require.NoError(t, err)
+			require.Equal(t, testData, b.String())
+
+			logFilename := filepath.Join(tmpDir, "gitaly_lfs_smudge.log")
+			require.FileExists(t, logFilename)
+
+			data, err := ioutil.ReadFile(logFilename)
+			require.NoError(t, err)
+			d := string(data)
+
+			require.Contains(t, d, `"msg":"Finished HTTP request"`)
+			require.Contains(t, d, `"status":200`)
+			require.Contains(t, d, `"content_length_bytes":`)
+		})
+	}
 }
 
 func TestUnsuccessfulLfsSmudge(t *testing.T) {
@@ -133,6 +160,18 @@ func TestUnsuccessfulLfsSmudge(t *testing.T) {
 		{
 			desc:          "bad LFS pointer",
 			data:          "test data",
+			options:       defaultOptions,
+			expectedError: false,
+		},
+		{
+			desc:          "invalid LFS pointer",
+			data:          invalidLfsPointer,
+			options:       defaultOptions,
+			expectedError: false,
+		},
+		{
+			desc:          "invalid LFS pointer with non-hex characters",
+			data:          invalidLfsPointerWithNonHex,
 			options:       defaultOptions,
 			expectedError: false,
 		},

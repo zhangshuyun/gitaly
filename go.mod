@@ -10,11 +10,13 @@ exclude (
 )
 
 require (
+	github.com/alexbrainman/sspi v0.0.0-20210105120005-909beea2cc74 // indirect
+	github.com/avast/retry-go v3.0.0+incompatible // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cloudflare/tableflip v1.2.1-0.20200514155827-4baec9811f2b
 	github.com/containerd/cgroups v0.0.0-20201118023556-2819c83ced99
 	github.com/getsentry/sentry-go v0.7.0
-	github.com/git-lfs/git-lfs v1.5.1-0.20200916154635-9ea4eed5b112
+	github.com/git-lfs/git-lfs v1.5.1-0.20210304194248-2e1d981afbe3
 	github.com/golang/protobuf v1.3.3
 	github.com/google/uuid v1.1.1
 	github.com/grpc-ecosystem/go-grpc-middleware v1.2.3-0.20210213123510-be4c235f9d1c
@@ -39,12 +41,10 @@ require (
 	gitlab.com/gitlab-org/gitlab-shell v1.9.8-0.20201117050822-3f9890ef73dc
 	gitlab.com/gitlab-org/labkit v1.0.0
 	golang.org/x/exp v0.0.0-20200331195152-e8c3332aa8e5 // indirect
-	golang.org/x/net v0.0.0-20200904194848-62affa334b73 // indirect
 	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208
 	golang.org/x/sys v0.0.0-20201204225414-ed752295db88
-	golang.org/x/text v0.3.3 // indirect
 	google.golang.org/grpc v1.29.1
-	gopkg.in/yaml.v2 v2.3.0 // indirect
+	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
 
 go 1.14
