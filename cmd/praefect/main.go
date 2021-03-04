@@ -237,28 +237,28 @@ func run(cfgs []starter.Config, conf config.Config) error {
 
 	var queue datastore.ReplicationEventQueue
 	var rs datastore.RepositoryStore
-	var sp nodes.StorageProvider
+	var csg datastore.ConsistentStoragesGetter
 	var metricsCollectors []prometheus.Collector
 	var replicationFactorSetter info.ReplicationFactorSetter
 
 	if conf.MemoryQueueEnabled {
 		queue = datastore.NewMemoryReplicationEventQueue(conf)
 		rs = datastore.MockRepositoryStore{}
-		sp = datastore.NewDirectStorageProvider(rs)
+		csg = rs
 		logger.Info("reads distribution caching is disabled for in memory storage")
 	} else {
 		queue = datastore.NewPostgresReplicationEventQueue(db)
 		rs = datastore.NewPostgresRepositoryStore(db, conf.StorageNames())
 
 		if conf.DB.ToPQString(true) == "" {
-			sp = datastore.NewDirectStorageProvider(rs)
+			csg = rs
 			logger.Info("reads distribution caching is disabled because direct connection to Postgres is not set")
 		} else {
 			listenerOpts := datastore.DefaultPostgresListenerOpts
 			listenerOpts.Addr = conf.DB.ToPQString(true)
 			listenerOpts.Channels = []string{"repositories_updates", "storage_repositories_updates"}
 
-			storagesCached, err := datastore.NewCachingStorageProvider(logger, rs, conf.VirtualStorageNames())
+			storagesCached, err := datastore.NewCachingConsistentStoragesGetter(logger, rs, conf.VirtualStorageNames())
 			if err != nil {
 				return fmt.Errorf("caching storage provider: %w", err)
 			}
@@ -275,7 +275,7 @@ func run(cfgs []starter.Config, conf config.Config) error {
 			}()
 
 			metricsCollectors = append(metricsCollectors, storagesCached, postgresListener)
-			sp = storagesCached
+			csg = storagesCached
 			logger.Info("reads distribution caching is enabled by configuration")
 		}
 	}
@@ -296,7 +296,7 @@ func run(cfgs []starter.Config, conf config.Config) error {
 		}
 	}
 
-	nodeManager, err := nodes.NewManager(logger, conf, db, sp, nodeLatencyHistogram, protoregistry.GitalyProtoPreregistered, errTracker)
+	nodeManager, err := nodes.NewManager(logger, conf, db, csg, nodeLatencyHistogram, protoregistry.GitalyProtoPreregistered, errTracker)
 	if err != nil {
 		return err
 	}
@@ -336,7 +336,7 @@ func run(cfgs []starter.Config, conf config.Config) error {
 			elector,
 			hm,
 			praefect.NewLockedRandom(rand.New(rand.NewSource(time.Now().UnixNano()))),
-			rs,
+			csg,
 			assignmentStore,
 			conf.DefaultReplicationFactors(),
 		)

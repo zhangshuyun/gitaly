@@ -14,44 +14,19 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore/glsql"
 )
 
-// StoragesProvider should provide information about repository storages.
-type StoragesProvider interface {
-	// GetConsistentStorages returns storages which have the latest generation of the repository.
+// ConsistentStoragesGetter returns storages which contain the latest generation of a repository.
+type ConsistentStoragesGetter interface {
+	// GetConsistentStorages checks which storages are on the latest generation and returns them.
 	GetConsistentStorages(ctx context.Context, virtualStorage, relativePath string) (map[string]struct{}, error)
-}
-
-// DirectStorageProvider provides the latest state of the synced nodes.
-type DirectStorageProvider struct {
-	sp StoragesProvider
-}
-
-// NewDirectStorageProvider returns a new storage provider.
-func NewDirectStorageProvider(sp StoragesProvider) *DirectStorageProvider {
-	return &DirectStorageProvider{sp: sp}
-}
-
-// GetSyncedNodes returns list of gitaly storages that are in up to date state based on the generation tracking.
-func (c *DirectStorageProvider) GetSyncedNodes(ctx context.Context, virtualStorage, relativePath string) ([]string, error) {
-	consistentStorages, err := c.sp.GetConsistentStorages(ctx, virtualStorage, relativePath)
-	if err != nil {
-		return nil, err
-	}
-
-	storages := make([]string, 0, len(consistentStorages))
-	for storage := range consistentStorages {
-		storages = append(storages, storage)
-	}
-
-	return storages, nil
 }
 
 // errNotExistingVirtualStorage indicates that the requested virtual storage can't be found or not configured.
 var errNotExistingVirtualStorage = errors.New("virtual storage does not exist")
 
-// CachingStorageProvider is a storage provider that caches up to date storages by repository.
+// CachingConsistentStoragesGetter is a ConsistentStoragesGetter that caches up to date storages by repository.
 // Each virtual storage has it's own cache that invalidates entries based on notifications.
-type CachingStorageProvider struct {
-	dsp *DirectStorageProvider
+type CachingConsistentStoragesGetter struct {
+	csg ConsistentStoragesGetter
 	// caches is per virtual storage cache. It is initialized once on construction.
 	caches map[string]*lru.Cache
 	// access is access method to use: 0 - without caching; 1 - with caching.
@@ -63,10 +38,10 @@ type CachingStorageProvider struct {
 	cacheAccessTotal *prometheus.CounterVec
 }
 
-// NewCachingStorageProvider returns a storage provider that uses caching.
-func NewCachingStorageProvider(logger logrus.FieldLogger, sp StoragesProvider, virtualStorages []string) (*CachingStorageProvider, error) {
-	csp := &CachingStorageProvider{
-		dsp:            NewDirectStorageProvider(sp),
+// NewCachingConsistentStoragesGetter returns a ConsistentStoragesGetter that uses caching.
+func NewCachingConsistentStoragesGetter(logger logrus.FieldLogger, csg ConsistentStoragesGetter, virtualStorages []string) (*CachingConsistentStoragesGetter, error) {
+	cached := &CachingConsistentStoragesGetter{
+		csg:            csg,
 		caches:         make(map[string]*lru.Cache, len(virtualStorages)),
 		syncer:         syncer{inflight: map[string]chan struct{}{}},
 		callbackLogger: logger.WithField("component", "caching_storage_provider"),
@@ -82,15 +57,15 @@ func NewCachingStorageProvider(logger logrus.FieldLogger, sp StoragesProvider, v
 	for _, virtualStorage := range virtualStorages {
 		virtualStorage := virtualStorage
 		cache, err := lru.NewWithEvict(2<<20, func(key interface{}, value interface{}) {
-			csp.cacheAccessTotal.WithLabelValues(virtualStorage, "evict").Inc()
+			cached.cacheAccessTotal.WithLabelValues(virtualStorage, "evict").Inc()
 		})
 		if err != nil {
 			return nil, err
 		}
-		csp.caches[virtualStorage] = cache
+		cached.caches[virtualStorage] = cache
 	}
 
-	return csp, nil
+	return cached, nil
 }
 
 type notificationEntry struct {
@@ -98,7 +73,8 @@ type notificationEntry struct {
 	RelativePaths  []string `json:"relative_paths"`
 }
 
-func (c *CachingStorageProvider) Notification(n glsql.Notification) {
+// Notification handles notifications by invalidating cache entries of updated repositories.
+func (c *CachingConsistentStoragesGetter) Notification(n glsql.Notification) {
 	var changes []notificationEntry
 	if err := json.NewDecoder(strings.NewReader(n.Payload)).Decode(&changes); err != nil {
 		c.disableCaching() // as we can't update cache properly we should disable it
@@ -119,28 +95,32 @@ func (c *CachingStorageProvider) Notification(n glsql.Notification) {
 	}
 }
 
-func (c *CachingStorageProvider) Connected() {
+// Connected enables the cache when it has been connected to Postgres.
+func (c *CachingConsistentStoragesGetter) Connected() {
 	c.enableCaching() // (re-)enable cache usage
 }
 
-func (c *CachingStorageProvider) Disconnect(error) {
+// Disconnect disables the caching when connection to Postgres has been lost.
+func (c *CachingConsistentStoragesGetter) Disconnect(error) {
 	// disable cache usage as it could be outdated
 	c.disableCaching()
 }
 
-func (c *CachingStorageProvider) Describe(descs chan<- *prometheus.Desc) {
+// Describe returns all metric descriptors.
+func (c *CachingConsistentStoragesGetter) Describe(descs chan<- *prometheus.Desc) {
 	prometheus.DescribeByCollect(c, descs)
 }
 
-func (c *CachingStorageProvider) Collect(collector chan<- prometheus.Metric) {
+// Collect collects all metrics.
+func (c *CachingConsistentStoragesGetter) Collect(collector chan<- prometheus.Metric) {
 	c.cacheAccessTotal.Collect(collector)
 }
 
-func (c *CachingStorageProvider) enableCaching() {
+func (c *CachingConsistentStoragesGetter) enableCaching() {
 	atomic.StoreInt32(&c.access, 1)
 }
 
-func (c *CachingStorageProvider) disableCaching() {
+func (c *CachingConsistentStoragesGetter) disableCaching() {
 	atomic.StoreInt32(&c.access, 0)
 
 	for _, cache := range c.caches {
@@ -148,17 +128,17 @@ func (c *CachingStorageProvider) disableCaching() {
 	}
 }
 
-func (c *CachingStorageProvider) getCache(virtualStorage string) (*lru.Cache, bool) {
+func (c *CachingConsistentStoragesGetter) getCache(virtualStorage string) (*lru.Cache, bool) {
 	val, found := c.caches[virtualStorage]
 	return val, found
 }
 
-func (c *CachingStorageProvider) cacheMiss(ctx context.Context, virtualStorage, relativePath string) ([]string, error) {
+func (c *CachingConsistentStoragesGetter) cacheMiss(ctx context.Context, virtualStorage, relativePath string) (map[string]struct{}, error) {
 	c.cacheAccessTotal.WithLabelValues(virtualStorage, "miss").Inc()
-	return c.dsp.GetSyncedNodes(ctx, virtualStorage, relativePath)
+	return c.csg.GetConsistentStorages(ctx, virtualStorage, relativePath)
 }
 
-func (c *CachingStorageProvider) tryCache(virtualStorage, relativePath string) (func(), *lru.Cache, []string, bool) {
+func (c *CachingConsistentStoragesGetter) tryCache(virtualStorage, relativePath string) (func(), *lru.Cache, map[string]struct{}, bool) {
 	populateDone := func() {} // should be called AFTER any cache population is done
 
 	cache, found := c.getCache(virtualStorage)
@@ -166,28 +146,30 @@ func (c *CachingStorageProvider) tryCache(virtualStorage, relativePath string) (
 		return populateDone, nil, nil, false
 	}
 
-	if storages, found := getStringSlice(cache, relativePath); found {
+	if storages, found := getKey(cache, relativePath); found {
 		return populateDone, cache, storages, true
 	}
 
 	// synchronises concurrent attempts to update cache for the same key.
 	populateDone = c.syncer.await(relativePath)
 
-	if storages, found := getStringSlice(cache, relativePath); found {
+	if storages, found := getKey(cache, relativePath); found {
 		return populateDone, cache, storages, true
 	}
 
 	return populateDone, cache, nil, false
 }
 
-func (c *CachingStorageProvider) isCacheEnabled() bool { return atomic.LoadInt32(&c.access) != 0 }
+func (c *CachingConsistentStoragesGetter) isCacheEnabled() bool {
+	return atomic.LoadInt32(&c.access) != 0
+}
 
-// GetSyncedNodes returns list of gitaly storages that are in up to date state based on the generation tracking.
-func (c *CachingStorageProvider) GetSyncedNodes(ctx context.Context, virtualStorage, relativePath string) ([]string, error) {
+// GetConsistentStorages returns list of gitaly storages that are in up to date state based on the generation tracking.
+func (c *CachingConsistentStoragesGetter) GetConsistentStorages(ctx context.Context, virtualStorage, relativePath string) (map[string]struct{}, error) {
 	var cache *lru.Cache
 
 	if c.isCacheEnabled() {
-		var storages []string
+		var storages map[string]struct{}
 		var ok bool
 		var populationDone func()
 
@@ -207,9 +189,9 @@ func (c *CachingStorageProvider) GetSyncedNodes(ctx context.Context, virtualStor
 	return storages, err
 }
 
-func getStringSlice(cache *lru.Cache, key string) ([]string, bool) {
+func getKey(cache *lru.Cache, key string) (map[string]struct{}, bool) {
 	val, found := cache.Get(key)
-	vals, _ := val.([]string)
+	vals, _ := val.(map[string]struct{})
 	return vals, found
 }
 

@@ -334,9 +334,8 @@ func TestMgr_GetSyncedNode(t *testing.T) {
 				return consistentStorages, consistentSecondariesErr
 			},
 		}
-		sp := datastore.NewDirectStorageProvider(rs)
 
-		nm, err := NewManager(testhelper.DiscardTestEntry(t), conf, nil, sp, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil)
+		nm, err := NewManager(testhelper.DiscardTestEntry(t), conf, nil, rs, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil)
 		require.NoError(t, err)
 
 		for i := range healthSrvs {

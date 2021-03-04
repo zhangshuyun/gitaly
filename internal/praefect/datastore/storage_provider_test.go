@@ -19,60 +19,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 )
 
-func TestDirectStorageProvider_GetSyncedNodes(t *testing.T) {
-	t.Run("ok", func(t *testing.T) {
-		ctx, cancel := testhelper.Context()
-		defer cancel()
-
-		for _, tc := range []struct {
-			desc string
-			ret  map[string]struct{}
-			exp  []string
-		}{
-			{
-				desc: "primary included",
-				ret:  map[string]struct{}{"g2": {}, "g3": {}},
-				exp:  []string{"g2", "g3"},
-			},
-			{
-				desc: "distinct values",
-				ret:  map[string]struct{}{"g1": {}, "g2": {}, "g3": {}},
-				exp:  []string{"g1", "g2", "g3"},
-			},
-			{
-				desc: "none",
-				ret:  nil,
-				exp:  []string{},
-			},
-		} {
-			t.Run(tc.desc, func(t *testing.T) {
-				rs := &mockConsistentSecondariesProvider{}
-				rs.On("GetConsistentStorages", ctx, "vs", "/repo/path").Return(tc.ret, nil)
-
-				sp := NewDirectStorageProvider(rs)
-				storages, err := sp.GetSyncedNodes(ctx, "vs", "/repo/path")
-				require.NoError(t, err)
-				require.ElementsMatch(t, tc.exp, storages)
-			})
-		}
-	})
-
-	t.Run("repository store returns an error", func(t *testing.T) {
-		ctx, cancel := testhelper.Context(testhelper.ContextWithLogger(testhelper.DiscardTestEntry(t)))
-		defer cancel()
-
-		rs := &mockConsistentSecondariesProvider{}
-		rs.On("GetConsistentStorages", ctx, "vs", "/repo/path").
-			Return(nil, assert.AnError).
-			Once()
-
-		sp := NewDirectStorageProvider(rs)
-
-		_, err := sp.GetSyncedNodes(ctx, "vs", "/repo/path")
-		require.Equal(t, assert.AnError, err)
-	})
-}
-
 type mockConsistentSecondariesProvider struct {
 	mock.Mock
 }
@@ -97,14 +43,14 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 			Return(map[string]struct{}{"g1": {}, "g2": {}, "g3": {}}, nil).
 			Once()
 
-		cache, err := NewCachingStorageProvider(ctxlogrus.Extract(ctx), rs, []string{"vs"})
+		cache, err := NewCachingConsistentStoragesGetter(ctxlogrus.Extract(ctx), rs, []string{"vs"})
 		require.NoError(t, err)
 		cache.Connected()
 
 		// empty cache should be populated
-		storages, err := cache.GetSyncedNodes(ctx, "unknown", "/repo/path")
+		storages, err := cache.GetConsistentStorages(ctx, "unknown", "/repo/path")
 		require.NoError(t, err)
-		require.ElementsMatch(t, []string{"g1", "g2", "g3"}, storages)
+		require.Equal(t, map[string]struct{}{"g1": {}, "g2": {}, "g3": {}}, storages)
 
 		err = testutil.CollectAndCompare(cache, strings.NewReader(`
 			# HELP gitaly_praefect_uptodate_storages_cache_access_total Total number of cache access operations during defining of up to date storages for reads distribution (per virtual storage)
@@ -123,14 +69,14 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 			Return(map[string]struct{}{"g1": {}, "g2": {}, "g3": {}}, nil).
 			Once()
 
-		cache, err := NewCachingStorageProvider(ctxlogrus.Extract(ctx), rs, []string{"vs"})
+		cache, err := NewCachingConsistentStoragesGetter(ctxlogrus.Extract(ctx), rs, []string{"vs"})
 		require.NoError(t, err)
 		cache.Connected()
 
 		// empty cache should be populated
-		storages, err := cache.GetSyncedNodes(ctx, "vs", "/repo/path")
+		storages, err := cache.GetConsistentStorages(ctx, "vs", "/repo/path")
 		require.NoError(t, err)
-		require.ElementsMatch(t, []string{"g1", "g2", "g3"}, storages)
+		require.Equal(t, map[string]struct{}{"g1": {}, "g2": {}, "g3": {}}, storages)
 
 		err = testutil.CollectAndCompare(cache, strings.NewReader(`
 			# HELP gitaly_praefect_uptodate_storages_cache_access_total Total number of cache access operations during defining of up to date storages for reads distribution (per virtual storage)
@@ -141,9 +87,9 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 		require.NoError(t, err)
 
 		// populated cache should return cached value
-		storages, err = cache.GetSyncedNodes(ctx, "vs", "/repo/path")
+		storages, err = cache.GetConsistentStorages(ctx, "vs", "/repo/path")
 		require.NoError(t, err)
-		require.ElementsMatch(t, []string{"g1", "g2", "g3"}, storages)
+		require.Equal(t, map[string]struct{}{"g1": {}, "g2": {}, "g3": {}}, storages)
 
 		err = testutil.CollectAndCompare(cache, strings.NewReader(`
 			# HELP gitaly_praefect_uptodate_storages_cache_access_total Total number of cache access operations during defining of up to date storages for reads distribution (per virtual storage)
@@ -164,11 +110,11 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 			Return(nil, assert.AnError).
 			Once()
 
-		cache, err := NewCachingStorageProvider(ctxlogrus.Extract(ctx), rs, []string{"vs"})
+		cache, err := NewCachingConsistentStoragesGetter(ctxlogrus.Extract(ctx), rs, []string{"vs"})
 		require.NoError(t, err)
 		cache.Connected()
 
-		_, err = cache.GetSyncedNodes(ctx, "vs", "/repo/path")
+		_, err = cache.GetConsistentStorages(ctx, "vs", "/repo/path")
 		require.Equal(t, assert.AnError, err)
 
 		// "populate" metric is not set as there was an error and we don't want this result to be cached
@@ -192,14 +138,14 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 			Return(map[string]struct{}{"g1": {}, "g2": {}, "g3": {}}, nil).
 			Times(4)
 
-		cache, err := NewCachingStorageProvider(ctxlogrus.Extract(ctx), rs, []string{"vs"})
+		cache, err := NewCachingConsistentStoragesGetter(ctxlogrus.Extract(ctx), rs, []string{"vs"})
 		require.NoError(t, err)
 		cache.Connected()
 
 		// first access populates the cache
-		storages1, err := cache.GetSyncedNodes(ctx, "vs", "/repo/path/1")
+		storages1, err := cache.GetConsistentStorages(ctx, "vs", "/repo/path/1")
 		require.NoError(t, err)
-		require.ElementsMatch(t, []string{"g1", "g2", "g3"}, storages1)
+		require.Equal(t, map[string]struct{}{"g1": {}, "g2": {}, "g3": {}}, storages1)
 
 		// invalid payload disables caching
 		notification := glsql.Notification{Channel: "notification_channel_1", Payload: `_`}
@@ -207,19 +153,19 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 		expErr := json.Unmarshal([]byte(notification.Payload), new(struct{}))
 
 		// second access omits cached data as caching should be disabled
-		storages2, err := cache.GetSyncedNodes(ctx, "vs", "/repo/path/1")
+		storages2, err := cache.GetConsistentStorages(ctx, "vs", "/repo/path/1")
 		require.NoError(t, err)
-		require.ElementsMatch(t, []string{"g1", "g2", "g3"}, storages2)
+		require.Equal(t, map[string]struct{}{"g1": {}, "g2": {}, "g3": {}}, storages2)
 
 		// third access retrieves data and caches it
-		storages3, err := cache.GetSyncedNodes(ctx, "vs", "/repo/path/1")
+		storages3, err := cache.GetConsistentStorages(ctx, "vs", "/repo/path/1")
 		require.NoError(t, err)
-		require.ElementsMatch(t, []string{"g1", "g2", "g3"}, storages3)
+		require.Equal(t, map[string]struct{}{"g1": {}, "g2": {}, "g3": {}}, storages3)
 
 		// fourth access retrieves data from cache
-		storages4, err := cache.GetSyncedNodes(ctx, "vs", "/repo/path/1")
+		storages4, err := cache.GetConsistentStorages(ctx, "vs", "/repo/path/1")
 		require.NoError(t, err)
-		require.ElementsMatch(t, []string{"g1", "g2", "g3"}, storages4)
+		require.Equal(t, map[string]struct{}{"g1": {}, "g2": {}, "g3": {}}, storages4)
 
 		require.Len(t, logHook.AllEntries(), 1)
 		assert.Equal(t, "received payload can't be processed, cache disabled", logHook.LastEntry().Message)
@@ -250,17 +196,17 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 		rs.On("GetConsistentStorages", mock.Anything, "vs", "/repo/path/2").
 			Return(map[string]struct{}{"g1": {}, "g2": {}}, nil)
 
-		cache, err := NewCachingStorageProvider(ctxlogrus.Extract(ctx), rs, []string{"vs"})
+		cache, err := NewCachingConsistentStoragesGetter(ctxlogrus.Extract(ctx), rs, []string{"vs"})
 		require.NoError(t, err)
 		cache.Connected()
 
 		// first access populates the cache
-		path1Storages1, err := cache.GetSyncedNodes(ctx, "vs", "/repo/path/1")
+		path1Storages1, err := cache.GetConsistentStorages(ctx, "vs", "/repo/path/1")
 		require.NoError(t, err)
-		require.ElementsMatch(t, []string{"g1", "g2", "g3"}, path1Storages1)
-		path2Storages1, err := cache.GetSyncedNodes(ctx, "vs", "/repo/path/2")
+		require.Equal(t, map[string]struct{}{"g1": {}, "g2": {}, "g3": {}}, path1Storages1)
+		path2Storages1, err := cache.GetConsistentStorages(ctx, "vs", "/repo/path/2")
 		require.NoError(t, err)
-		require.ElementsMatch(t, []string{"g1", "g2"}, path2Storages1)
+		require.Equal(t, map[string]struct{}{"g1": {}, "g2": {}}, path2Storages1)
 
 		// notification evicts entries for '/repo/path/2' from the cache
 		cache.Notification(glsql.Notification{Payload: `
@@ -271,13 +217,13 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 		)
 
 		// second access re-uses cached data for '/repo/path/1'
-		path1Storages2, err := cache.GetSyncedNodes(ctx, "vs", "/repo/path/1")
+		path1Storages2, err := cache.GetConsistentStorages(ctx, "vs", "/repo/path/1")
 		require.NoError(t, err)
-		require.ElementsMatch(t, []string{"g1", "g2", "g3"}, path1Storages2)
+		require.Equal(t, map[string]struct{}{"g1": {}, "g2": {}, "g3": {}}, path1Storages2)
 		// second access populates the cache again for '/repo/path/2'
-		path2Storages2, err := cache.GetSyncedNodes(ctx, "vs", "/repo/path/2")
+		path2Storages2, err := cache.GetConsistentStorages(ctx, "vs", "/repo/path/2")
 		require.NoError(t, err)
-		require.ElementsMatch(t, []string{"g1", "g2"}, path2Storages2)
+		require.Equal(t, map[string]struct{}{"g1": {}, "g2": {}}, path2Storages2)
 
 		err = testutil.CollectAndCompare(cache, strings.NewReader(`
 			# HELP gitaly_praefect_uptodate_storages_cache_access_total Total number of cache access operations during defining of up to date storages for reads distribution (per virtual storage)
@@ -298,22 +244,22 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 		rs.On("GetConsistentStorages", mock.Anything, "vs", "/repo/path").
 			Return(map[string]struct{}{"g1": {}, "g2": {}, "g3": {}}, nil)
 
-		cache, err := NewCachingStorageProvider(ctxlogrus.Extract(ctx), rs, []string{"vs"})
+		cache, err := NewCachingConsistentStoragesGetter(ctxlogrus.Extract(ctx), rs, []string{"vs"})
 		require.NoError(t, err)
 		cache.Connected()
 
 		// first access populates the cache
-		storages1, err := cache.GetSyncedNodes(ctx, "vs", "/repo/path")
+		storages1, err := cache.GetConsistentStorages(ctx, "vs", "/repo/path")
 		require.NoError(t, err)
-		require.ElementsMatch(t, []string{"g1", "g2", "g3"}, storages1)
+		require.Equal(t, map[string]struct{}{"g1": {}, "g2": {}, "g3": {}}, storages1)
 
 		// disconnection disables cache
 		cache.Disconnect(assert.AnError)
 
 		// second access retrieve data and doesn't populate the cache
-		storages2, err := cache.GetSyncedNodes(ctx, "vs", "/repo/path")
+		storages2, err := cache.GetConsistentStorages(ctx, "vs", "/repo/path")
 		require.NoError(t, err)
-		require.ElementsMatch(t, []string{"g1", "g2", "g3"}, storages2)
+		require.Equal(t, map[string]struct{}{"g1": {}, "g2": {}, "g3": {}}, storages2)
 
 		err = testutil.CollectAndCompare(cache, strings.NewReader(`
 			# HELP gitaly_praefect_uptodate_storages_cache_access_total Total number of cache access operations during defining of up to date storages for reads distribution (per virtual storage)
@@ -333,7 +279,7 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 		rs.On("GetConsistentStorages", mock.Anything, "vs", "/repo/path/1").Return(nil, nil)
 		rs.On("GetConsistentStorages", mock.Anything, "vs", "/repo/path/2").Return(nil, nil)
 
-		cache, err := NewCachingStorageProvider(ctxlogrus.Extract(ctx), rs, []string{"vs"})
+		cache, err := NewCachingConsistentStoragesGetter(ctxlogrus.Extract(ctx), rs, []string{"vs"})
 		require.NoError(t, err)
 		cache.Connected()
 
@@ -346,12 +292,12 @@ func TestCachingStorageProvider_GetSyncedNodes(t *testing.T) {
 			switch i % 6 {
 			case 0, 1:
 				f = func() {
-					_, err := cache.GetSyncedNodes(ctx, "vs", "/repo/path/1")
+					_, err := cache.GetConsistentStorages(ctx, "vs", "/repo/path/1")
 					assert.NoError(t, err)
 				}
 			case 2, 3:
 				f = func() {
-					_, err := cache.GetSyncedNodes(ctx, "vs", "/repo/path/2")
+					_, err := cache.GetConsistentStorages(ctx, "vs", "/repo/path/2")
 					assert.NoError(t, err)
 				}
 			case 4:

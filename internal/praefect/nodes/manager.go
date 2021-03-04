@@ -15,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/grpc-proxy/proxy"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metrics"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/middleware"
@@ -58,12 +59,6 @@ func (s Shard) GetHealthySecondaries() []Node {
 	return healthySecondaries
 }
 
-// StorageProvider abstracts the way we get storages (gitaly nodes).
-type StorageProvider interface {
-	// GetSyncedNodes returns list of gitaly storages that are in up to date state based on the generation tracking.
-	GetSyncedNodes(ctx context.Context, virtualStorageName, repoPath string) ([]string, error)
-}
-
 // Manager is responsible for returning shards for virtual storages
 type Manager interface {
 	GetShard(ctx context.Context, virtualStorageName string) (Shard, error)
@@ -105,7 +100,7 @@ type Mgr struct {
 	db         *sql.DB
 	// nodes contains nodes by their virtual storages
 	nodes map[string][]Node
-	sp    StorageProvider
+	csg   datastore.ConsistentStoragesGetter
 }
 
 // leaderElectionStrategy defines the interface by which primary and
@@ -145,7 +140,7 @@ func NewManager(
 	log *logrus.Entry,
 	c config.Config,
 	db *sql.DB,
-	sp StorageProvider,
+	csg datastore.ConsistentStoragesGetter,
 	latencyHistogram prommetrics.HistogramVec,
 	registry *protoregistry.Registry,
 	errorTracker tracker.ErrorTracker,
@@ -191,7 +186,7 @@ func NewManager(
 		db:         db,
 		strategies: strategies,
 		nodes:      nodes,
-		sp:         sp,
+		csg:        csg,
 	}, nil
 }
 
@@ -236,7 +231,7 @@ func (n *Mgr) GetSyncedNode(ctx context.Context, virtualStorageName, repoPath st
 		return shard.Primary, nil
 	}
 
-	upToDateStorages, err := n.sp.GetSyncedNodes(ctx, virtualStorageName, repoPath)
+	upToDateStorages, err := n.csg.GetConsistentStorages(ctx, virtualStorageName, repoPath)
 	if err != nil {
 		return nil, err
 	}
@@ -248,7 +243,7 @@ func (n *Mgr) GetSyncedNode(ctx context.Context, virtualStorageName, repoPath st
 			return nil, fmt.Errorf("get shard for %q: %w", virtualStorageName, err)
 		}
 
-		upToDateStorages = []string{shard.Primary.GetStorage()}
+		upToDateStorages = map[string]struct{}{shard.Primary.GetStorage(): {}}
 	}
 
 	healthyStorages := make([]Node, 0, len(upToDateStorages))
@@ -258,12 +253,11 @@ func (n *Mgr) GetSyncedNode(ctx context.Context, virtualStorageName, repoPath st
 			continue
 		}
 
-		for _, upToDateStorage := range upToDateStorages {
-			if node.GetStorage() == upToDateStorage {
-				healthyStorages = append(healthyStorages, node)
-				break
-			}
+		if _, ok := upToDateStorages[node.GetStorage()]; !ok {
+			continue
 		}
+
+		healthyStorages = append(healthyStorages, node)
 	}
 
 	if len(healthyStorages) == 0 {

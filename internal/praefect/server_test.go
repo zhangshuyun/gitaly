@@ -866,8 +866,7 @@ func TestErrorThreshold(t *testing.T) {
 			require.NoError(t, err)
 
 			rs := datastore.MockRepositoryStore{}
-			sp := datastore.NewDirectStorageProvider(rs)
-			nodeMgr, err := nodes.NewManager(entry, conf, nil, sp, promtest.NewMockHistogramVec(), registry, errorTracker)
+			nodeMgr, err := nodes.NewManager(entry, conf, nil, rs, promtest.NewMockHistogramVec(), registry, errorTracker)
 			require.NoError(t, err)
 
 			coordinator := NewCoordinator(
