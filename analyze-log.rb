@@ -20,41 +20,47 @@ def main
     records << rec
   end
 
+  puts 'Expiry,Server,Hits,Misses,Hit bytes,Miss bytes,Max size'
+
   [2, 5, 10].each do |minutes|
     simulate(records, minutes*60)
   end
 end
 
-def simulate(records, expiry)
+def simulate(records, expiry, facet_by = :repo_storage)
   cache = {}
-  stats = Hash.new(0)
+  facets = {}
 
-  puts "Expiry: #{expiry}s"
   records.each do |rec|
     _, first = cache.first
-    while first && rec.created_at - first[:rec].created_at > expiry
+    while first && rec.created_at - first.created_at > expiry
       cache.shift
-      stats[:size] -= first[:rec].size
+      facets[first.send(facet_by)][:size] -= first.size
       _, first = cache.first
     end
 
+    facet = rec.send(facet_by)
+    facets[facet] ||= Hash.new(0)
+
     if cache.has_key?(rec.key)
-      stats[:hit] += 1
+      facets[facet][:hit] += 1
+      facets[facet][:hit_bytes] += rec.size
       next
     end
 
-    cache[rec.key] = { rec: rec }
-    stats[:miss] += 1
-    stats[:size] += rec.size
+    cache[rec.key] = rec
+    facets[facet][:miss] += 1
+    facets[facet][:miss_bytes] += rec.size
+    facets[facet][:size] += rec.size
 
-    if stats[:size] > stats[:max_size]
-      stats[:max_size] = stats[:size]
+    if facets[facet][:size] > facets[facet][:max_size]
+      facets[facet][:max_size] = facets[facet][:size]
     end
   end
 
-  puts stats
-  puts "hit ratio: #{Float(stats[:hit])/records.size}"
-  puts "max cache size: #{Float(stats[:max_size])/(1024*1024*1024)}GB"  # puts cache.values
+  facets.each do |key, value|
+    puts [expiry, key, *value.values_at(:hit, :miss, :hit_bytes, :miss_bytes, :max_size)].join(',')
+  end
 end
 
 def next_record
