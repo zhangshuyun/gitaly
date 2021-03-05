@@ -477,7 +477,7 @@ ${TOOLS_DIR}/%/go.mod: | ${TOOLS_DIR}
 
 ${TOOLS_DIR}/%: GOBIN = ${TOOLS_DIR}
 ${TOOLS_DIR}/%: ${BUILD_DIR}/Makefile.sha256 ${TOOLS_DIR}/.%/go.mod
-	${Q}cd ${TOOLS_DIR}/.$(notdir $@) && go get ${TOOL_PACKAGE}
+	${Q}cd ${TOOLS_DIR}/.$(notdir $@) && go get ${TOOL_PACKAGE}@${TOOL_VERSION}
 
 # Tools hosted by Gitaly itself
 ${GITALYFMT}: | ${TOOLS_DIR}
@@ -487,12 +487,18 @@ ${PROTOC_GEN_GITALY}: proto | ${TOOLS_DIR}
 	${Q}go build -o $@ ${SOURCE_DIR}/proto/go/internal/cmd/protoc-gen-gitaly
 
 # External tools
-${GOCOVER_COBERTURA}: TOOL_PACKAGE = github.com/t-yuki/gocover-cobertura@${GOCOVER_COBERTURA_VERSION}
-${GOIMPORTS}:         TOOL_PACKAGE = golang.org/x/tools/cmd/goimports@${GOIMPORTS_VERSION}
-${GOLANGCI_LINT}:     TOOL_PACKAGE = github.com/golangci/golangci-lint/cmd/golangci-lint@v${GOLANGCI_LINT_VERSION}
-${GO_JUNIT_REPORT}:   TOOL_PACKAGE = github.com/jstemmer/go-junit-report@${GO_JUNIT_REPORT_VERSION}
-${GO_LICENSES}:       TOOL_PACKAGE = github.com/google/go-licenses@${GO_LICENSES_VERSION}
-${PROTOC_GEN_GO}:     TOOL_PACKAGE = github.com/golang/protobuf/protoc-gen-go@v${PROTOC_GEN_GO_VERSION}
+${GOCOVER_COBERTURA}: TOOL_PACKAGE = github.com/t-yuki/gocover-cobertura
+${GOCOVER_COBERTURA}: TOOL_VERSION = ${GOCOVER_COBERTURA_VERSION}
+${GOIMPORTS}:         TOOL_PACKAGE = golang.org/x/tools/cmd/goimports
+${GOIMPORTS}:         TOOL_VERSION = ${GOIMPORTS_VERSION}
+${GOLANGCI_LINT}:     TOOL_PACKAGE = github.com/golangci/golangci-lint/cmd/golangci-lint
+${GOLANGCI_LINT}:     TOOL_VERSION = v${GOLANGCI_LINT_VERSION}
+${GO_JUNIT_REPORT}:   TOOL_PACKAGE = github.com/jstemmer/go-junit-report
+${GO_JUNIT_REPORT}:   TOOL_VERSION = ${GO_JUNIT_REPORT_VERSION}
+${GO_LICENSES}:       TOOL_PACKAGE = github.com/google/go-licenses
+${GO_LICENSES}:       TOOL_VERSION = ${GO_LICENSES_VERSION}
+${PROTOC_GEN_GO}:     TOOL_PACKAGE = github.com/golang/protobuf/protoc-gen-go
+${PROTOC_GEN_GO}:     TOOL_VERSION = v${PROTOC_GEN_GO_VERSION}
 
 ${TEST_REPO}:
 	${GIT} clone --bare ${GIT_QUIET} https://gitlab.com/gitlab-org/gitlab-test.git $@
