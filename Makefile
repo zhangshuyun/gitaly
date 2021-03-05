@@ -36,11 +36,11 @@ GIT_PREFIX       ?= ${GIT_INSTALL_DIR}
 
 # Tools
 GIT               := $(shell which git)
-PROTOC            := ${BUILD_DIR}/protoc/bin/protoc
 GOIMPORTS         := ${TOOLS_DIR}/goimports
 GITALYFMT         := ${TOOLS_DIR}/gitalyfmt
 GOLANGCI_LINT     := ${TOOLS_DIR}/golangci-lint
 GO_LICENSES       := ${TOOLS_DIR}/go-licenses
+PROTOC            := ${TOOLS_DIR}/protoc/bin/protoc
 PROTOC_GEN_GO     := ${TOOLS_DIR}/protoc-gen-go
 PROTOC_GEN_GITALY := ${TOOLS_DIR}/protoc-gen-gitaly
 GO_JUNIT_REPORT   := ${TOOLS_DIR}/go-junit-report
@@ -456,16 +456,16 @@ ${GIT_INSTALL_DIR}/bin/git: ${DEPENDENCY_DIR}/git_full_bins.tgz
 	tar -C ${GIT_INSTALL_DIR} -xvzf ${DEPENDENCY_DIR}/git_full_bins.tgz
 endif
 
-${BUILD_DIR}/protoc.zip: ${TOOLS_DIR}/protoc.version
+${TOOLS_DIR}/protoc.zip: ${TOOLS_DIR}/protoc.version
 	${Q}if [ -z "${PROTOC_URL}" ]; then echo "Cannot generate protos on unsupported platform ${OS}" && exit 1; fi
 	curl -o $@.tmp --silent --show-error -L ${PROTOC_URL}
 	${Q}printf '${PROTOC_HASH}  $@.tmp' | sha256sum -c -
 	${Q}mv $@.tmp $@
 
-${PROTOC}: ${BUILD_DIR}/protoc.zip | ${BUILD_DIR}
-	${Q}rm -rf ${BUILD_DIR}/protoc
-	${Q}mkdir -p ${BUILD_DIR}/protoc
-	cd ${BUILD_DIR}/protoc && unzip ${BUILD_DIR}/protoc.zip
+${PROTOC}: ${TOOLS_DIR}/protoc.zip
+	${Q}rm -rf ${TOOLS_DIR}/protoc
+	${Q}mkdir -p ${TOOLS_DIR}/protoc
+	cd ${TOOLS_DIR}/protoc && unzip ${TOOLS_DIR}/protoc.zip
 
 # We're using per-tool go.mod files in order to avoid conflicts in the graph in
 # case we used a single go.mod file for all tools.
