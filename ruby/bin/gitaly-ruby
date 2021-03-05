@@ -116,13 +116,24 @@ end
 def build_server_interceptor_chain
   chain = []
   chain << Labkit::Correlation::GRPC::ServerInterceptor.new
-  chain << Labkit::Logging::GRPC::ServerInterceptor.new(File.open(json_log_file, 'a'), { type: 'gitaly-ruby' })
+
+  json_logger = build_json_logger
+  chain << json_logger if json_logger
+
   chain << GitalyServer::SentryInterceptor.new
   chain << Labkit::Tracing::GRPC::ServerInterceptor.new if Labkit::Tracing.enabled?
   chain << GitalyServer::ExceptionSanitizerInterceptor.new
   chain << GitalyServer::RuggedInterceptor.new
 
   chain
+end
+
+def build_json_logger
+  output = File.open(json_log_file, 'a')
+  Labkit::Logging::GRPC::ServerInterceptor.new(output, { type: 'gitaly-ruby' })
+rescue IOError, Errno::EACCES => e
+  GRPC.logger.warn "Unable to write to log file: #{e}"
+  nil
 end
 
 def json_log_file
