@@ -9,7 +9,7 @@ import (
 	"io"
 	"time"
 
-	git "github.com/libgit2/git2go/v30"
+	git "github.com/libgit2/git2go/v31"
 	"gitlab.com/gitlab-org/gitaly/internal/git2go"
 )
 

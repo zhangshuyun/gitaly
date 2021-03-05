@@ -62,8 +62,8 @@ GOLANGCI_LINT_VERSION     ?= 1.33.0
 PROTOC_VERSION            ?= 3.12.4
 PROTOC_GEN_GO_VERSION     ?= 1.3.2
 GIT_VERSION               ?= v2.29.0
-GIT2GO_VERSION            ?= v30
-LIBGIT2_VERSION       	  ?= v1.0.1
+GIT2GO_VERSION            ?= v31
+LIBGIT2_VERSION       	  ?= v1.1.0
 GOCOVER_COBERTURA_VERSION ?= aaee18c8195c3f2d90e5ef80ca918d265463842a
 
 # Dependency downloads
