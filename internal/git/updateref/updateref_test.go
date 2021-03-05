@@ -34,12 +34,11 @@ func setupUpdater(t *testing.T, ctx context.Context) (config.Cfg, *localrepo.Rep
 	var deferrer testhelper.Deferrer
 	defer deferrer.Call()
 
-	cfgBuilder := testcfg.NewGitalyCfgBuilder()
-	deferrer.Add(cfgBuilder.Cleanup)
+	cfg, protoRepo, _, cleanup := testcfg.BuildWithRepo(t)
+	deferrer.Add(cleanup)
 
-	cfg, repos := cfgBuilder.BuildWithRepoAt(t, "repository")
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
-	repo := localrepo.New(gitCmdFactory, repos[0], cfg)
+	repo := localrepo.New(gitCmdFactory, protoRepo, cfg)
 
 	updater, err := New(ctx, cfg, gitCmdFactory, repo)
 	require.NoError(t, err)

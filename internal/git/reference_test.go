@@ -10,9 +10,8 @@ import (
 )
 
 func TestCheckRefFormat(t *testing.T) {
-	cfgBuilder := testcfg.NewGitalyCfgBuilder()
-	defer cfgBuilder.Cleanup()
-	cfg := cfgBuilder.Build(t)
+	cfg, cleanup := testcfg.Build(t)
+	defer cleanup()
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()

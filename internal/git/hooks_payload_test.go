@@ -11,9 +11,8 @@ import (
 )
 
 func TestHooksPayload(t *testing.T) {
-	cfgBuilder := testcfg.NewGitalyCfgBuilder()
-	defer cfgBuilder.Cleanup()
-	cfg, repos := cfgBuilder.BuildWithRepoAt(t, t.Name())
+	cfg, repo, _, cleanup := testcfg.BuildWithRepo(t)
+	defer cleanup()
 
 	tx := metadata.Transaction{
 		ID:      1234,
@@ -29,13 +28,13 @@ func TestHooksPayload(t *testing.T) {
 	}
 
 	t.Run("envvar has proper name", func(t *testing.T) {
-		env, err := git.NewHooksPayload(cfg, repos[0], nil, nil, nil, git.AllHooks).Env()
+		env, err := git.NewHooksPayload(cfg, repo, nil, nil, nil, git.AllHooks).Env()
 		require.NoError(t, err)
 		require.True(t, strings.HasPrefix(env, git.EnvHooksPayload+"="))
 	})
 
 	t.Run("roundtrip succeeds", func(t *testing.T) {
-		env, err := git.NewHooksPayload(cfg, repos[0], nil, nil, nil, git.PreReceiveHook).Env()
+		env, err := git.NewHooksPayload(cfg, repo, nil, nil, nil, git.PreReceiveHook).Env()
 		require.NoError(t, err)
 
 		payload, err := git.HooksPayloadFromEnv([]string{
@@ -47,7 +46,7 @@ func TestHooksPayload(t *testing.T) {
 		require.NoError(t, err)
 
 		require.Equal(t, git.HooksPayload{
-			Repo:           repos[0],
+			Repo:           repo,
 			BinDir:         cfg.BinDir,
 			GitPath:        cfg.Git.BinPath,
 			InternalSocket: cfg.GitalyInternalSocketPath(),
@@ -56,14 +55,14 @@ func TestHooksPayload(t *testing.T) {
 	})
 
 	t.Run("roundtrip with transaction succeeds", func(t *testing.T) {
-		env, err := git.NewHooksPayload(cfg, repos[0], &tx, &praefect, nil, git.UpdateHook).Env()
+		env, err := git.NewHooksPayload(cfg, repo, &tx, &praefect, nil, git.UpdateHook).Env()
 		require.NoError(t, err)
 
 		payload, err := git.HooksPayloadFromEnv([]string{env})
 		require.NoError(t, err)
 
 		require.Equal(t, git.HooksPayload{
-			Repo:           repos[0],
+			Repo:           repo,
 			BinDir:         cfg.BinDir,
 			GitPath:        cfg.Git.BinPath,
 			InternalSocket: cfg.GitalyInternalSocketPath(),
@@ -85,7 +84,7 @@ func TestHooksPayload(t *testing.T) {
 	})
 
 	t.Run("payload with missing Praefect", func(t *testing.T) {
-		env, err := git.NewHooksPayload(cfg, repos[0], &tx, nil, nil, git.AllHooks).Env()
+		env, err := git.NewHooksPayload(cfg, repo, &tx, nil, nil, git.AllHooks).Env()
 		require.NoError(t, err)
 
 		_, err = git.HooksPayloadFromEnv([]string{env})
@@ -93,7 +92,7 @@ func TestHooksPayload(t *testing.T) {
 	})
 
 	t.Run("receive hooks payload", func(t *testing.T) {
-		env, err := git.NewHooksPayload(cfg, repos[0], nil, nil, &git.ReceiveHooksPayload{
+		env, err := git.NewHooksPayload(cfg, repo, nil, nil, &git.ReceiveHooksPayload{
 			UserID:   "1234",
 			Username: "user",
 			Protocol: "ssh",
@@ -109,7 +108,7 @@ func TestHooksPayload(t *testing.T) {
 		require.NoError(t, err)
 
 		require.Equal(t, git.HooksPayload{
-			Repo:                repos[0],
+			Repo:                repo,
 			BinDir:              cfg.BinDir,
 			GitPath:             cfg.Git.BinPath,
 			InternalSocket:      cfg.GitalyInternalSocketPath(),
@@ -124,12 +123,11 @@ func TestHooksPayload(t *testing.T) {
 	})
 
 	t.Run("payload with fallback git path", func(t *testing.T) {
-		cfgBuilder := testcfg.NewGitalyCfgBuilder()
-		defer cfgBuilder.Cleanup()
-		cfg, repos := cfgBuilder.BuildWithRepoAt(t, t.Name())
+		cfg, repo, _, cleanup := testcfg.BuildWithRepo(t)
+		defer cleanup()
 		cfg.Git.BinPath = ""
 
-		env, err := git.NewHooksPayload(cfg, repos[0], nil, nil, nil, git.ReceivePackHooks).Env()
+		env, err := git.NewHooksPayload(cfg, repo, nil, nil, nil, git.ReceivePackHooks).Env()
 		require.NoError(t, err)
 
 		payload, err := git.HooksPayloadFromEnv([]string{
@@ -138,7 +136,7 @@ func TestHooksPayload(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.Equal(t, git.HooksPayload{
-			Repo:           repos[0],
+			Repo:           repo,
 			BinDir:         cfg.BinDir,
 			GitPath:        "/foo/bar",
 			InternalSocket: cfg.GitalyInternalSocketPath(),

@@ -14,10 +14,8 @@ import (
 )
 
 func TestClone(t *testing.T) {
-	cfgBuilder := testcfg.NewGitalyCfgBuilder()
-	defer cfgBuilder.Cleanup()
-	cfg, repos := cfgBuilder.BuildWithRepoAt(t, t.Name())
-	repoPath := filepath.Join(cfg.Storages[0].Path, repos[0].RelativePath)
+	cfg, _, repoPath, cleanup := testcfg.BuildWithRepo(t)
+	defer cleanup()
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -75,10 +73,8 @@ func TestClone(t *testing.T) {
 }
 
 func TestCloneWithAuth(t *testing.T) {
-	cfgBuilder := testcfg.NewGitalyCfgBuilder()
-	defer cfgBuilder.Cleanup()
-	cfg, repos := cfgBuilder.BuildWithRepoAt(t, t.Name())
-	repoPath := filepath.Join(cfg.Storages[0].Path, repos[0].RelativePath)
+	cfg, _, repoPath, cleanup := testcfg.BuildWithRepo(t)
+	defer cleanup()
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()

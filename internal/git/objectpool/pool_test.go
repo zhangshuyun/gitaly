@@ -16,9 +16,8 @@ import (
 )
 
 func TestNewObjectPool(t *testing.T) {
-	cfgBuilder := testcfg.NewGitalyCfgBuilder()
-	defer cfgBuilder.Cleanup()
-	cfg := cfgBuilder.Build(t)
+	cfg, cleanup := testcfg.Build(t)
+	defer cleanup()
 
 	locator := config.NewLocator(cfg)
 
