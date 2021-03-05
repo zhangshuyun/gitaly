@@ -408,22 +408,17 @@ ${DEPENDENCY_DIR}: | ${BUILD_DIR}
 	${Q}mkdir -p ${DEPENDENCY_DIR}
 
 # This is a build hack to avoid excessive rebuilding of targets. Instead of
-# depending on the timestamp of the Makefile, which will change e.g. between
-# jobs of a CI pipeline, we start depending on its hash. Like this, we only
-# rebuild if the Makefile actually has changed contents.
-${BUILD_DIR}/Makefile.sha256: Makefile | ${BUILD_DIR}
-	${Q}sha256sum -c $@ >/dev/null 2>&1 || >$@ sha256sum Makefile
-
-# This is in the same spirit as the Makefile.sha256 optimization: we want to
-# rebuild only if the dependency's version changes. The dependency on the phony
-# target is required to always rebuild these targets.
+# depending on the Makefile, we start to depend on tool versions as defined in
+# the Makefile. Like this, we only rebuild if the tool versions actually
+# change. The dependency on the phony target is required to always rebuild
+# these targets.
 .PHONY: dependency-version
 ${DEPENDENCY_DIR}/libgit2.version: dependency-version | ${DEPENDENCY_DIR}
 	${Q}[ x"$$(cat "$@" 2>/dev/null)" = x"${LIBGIT2_VERSION}" ] || >$@ echo -n "${LIBGIT2_VERSION}"
 ${DEPENDENCY_DIR}/git.version: dependency-version | ${DEPENDENCY_DIR}
 	${Q}[ x"$$(cat "$@" 2>/dev/null)" = x"${GIT_VERSION}" ] || >$@ echo -n "${GIT_VERSION}"
-${TOOLS_DIR}/protoc.version: dependency-version | ${TOOLS_DIR}
-	${Q}[ x"$$(cat "$@" 2>/dev/null)" = x"${PROTOC_VERSION}" ] || >$@ echo -n "${PROTOC_VERSION}"
+${TOOLS_DIR}/%.version: dependency-version | ${TOOLS_DIR}
+	${Q}[ x"$$(cat "$@" 2>/dev/null)" = x"${TOOL_VERSION}" ] || >$@ echo -n "${TOOL_VERSION}"
 
 ${LIBGIT2_INSTALL_DIR}/lib/libgit2.a: ${DEPENDENCY_DIR}/libgit2.version
 	${Q}${GIT} init --initial-branch=master ${GIT_QUIET} ${LIBGIT2_SOURCE_DIR}
@@ -459,6 +454,7 @@ ${GIT_INSTALL_DIR}/bin/git: ${DEPENDENCY_DIR}/git_full_bins.tgz
 	tar -C ${GIT_INSTALL_DIR} -xvzf ${DEPENDENCY_DIR}/git_full_bins.tgz
 endif
 
+${TOOLS_DIR}/protoc.zip: TOOL_VERSION = ${PROTOC_VERSION}
 ${TOOLS_DIR}/protoc.zip: ${TOOLS_DIR}/protoc.version
 	${Q}if [ -z "${PROTOC_URL}" ]; then echo "Cannot generate protos on unsupported platform ${OS}" && exit 1; fi
 	curl -o $@.tmp --silent --show-error -L ${PROTOC_URL}
@@ -476,7 +472,7 @@ ${TOOLS_DIR}/%/go.mod: | ${TOOLS_DIR}
 	${Q}cd $(dir $@) && go mod init _build
 
 ${TOOLS_DIR}/%: GOBIN = ${TOOLS_DIR}
-${TOOLS_DIR}/%: ${BUILD_DIR}/Makefile.sha256 ${TOOLS_DIR}/.%/go.mod
+${TOOLS_DIR}/%: ${TOOLS_DIR}/%.version ${TOOLS_DIR}/.%/go.mod
 	${Q}cd ${TOOLS_DIR}/.$(notdir $@) && go get ${TOOL_PACKAGE}@${TOOL_VERSION}
 
 # Tools hosted by Gitaly itself
