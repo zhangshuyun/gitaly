@@ -419,6 +419,8 @@ ${DEPENDENCY_DIR}/libgit2.version: dependency-version | ${DEPENDENCY_DIR}
 	${Q}[ x"$$(cat "$@" 2>/dev/null)" = x"${LIBGIT2_VERSION}" ] || >$@ echo -n "${LIBGIT2_VERSION}"
 ${DEPENDENCY_DIR}/git.version: dependency-version | ${DEPENDENCY_DIR}
 	${Q}[ x"$$(cat "$@" 2>/dev/null)" = x"${GIT_VERSION}" ] || >$@ echo -n "${GIT_VERSION}"
+${TOOLS_DIR}/protoc.version: dependency-version | ${TOOLS_DIR}
+	${Q}[ x"$$(cat "$@" 2>/dev/null)" = x"${PROTOC_VERSION}" ] || >$@ echo -n "${PROTOC_VERSION}"
 
 ${LIBGIT2_INSTALL_DIR}/lib/libgit2.a: ${DEPENDENCY_DIR}/libgit2.version
 	${Q}${GIT} init --initial-branch=master ${GIT_QUIET} ${LIBGIT2_SOURCE_DIR}
@@ -454,7 +456,7 @@ ${GIT_INSTALL_DIR}/bin/git: ${DEPENDENCY_DIR}/git_full_bins.tgz
 	tar -C ${GIT_INSTALL_DIR} -xvzf ${DEPENDENCY_DIR}/git_full_bins.tgz
 endif
 
-${BUILD_DIR}/protoc.zip: ${BUILD_DIR}/Makefile.sha256
+${BUILD_DIR}/protoc.zip: ${TOOLS_DIR}/protoc.version
 	${Q}if [ -z "${PROTOC_URL}" ]; then echo "Cannot generate protos on unsupported platform ${OS}" && exit 1; fi
 	curl -o $@.tmp --silent --show-error -L ${PROTOC_URL}
 	${Q}printf '${PROTOC_HASH}  $@.tmp' | sha256sum -c -
