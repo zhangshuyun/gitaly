@@ -12,10 +12,11 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
@@ -50,7 +51,7 @@ echo "$0"
 exit 0`)
 
 func TestCustomHooksSuccess(t *testing.T) {
-	testRepo, testRepoPath, cleanup := gittest.CloneRepo(t)
+	cfg, repo, repoPath, cleanup := testcfg.BuildWithRepo(t)
 	defer cleanup()
 
 	testCases := []struct {
@@ -85,23 +86,24 @@ func TestCustomHooksSuccess(t *testing.T) {
 			globalCustomHooksDir, cleanupGlobalDir := testhelper.TempDir(t)
 			defer cleanupGlobalDir()
 
+			locator := config.NewLocator(cfg)
 			// hook is in project custom hook directory <repository>.git/custom_hooks/<hook_name>
-			hookDir := filepath.Join(testRepoPath, "custom_hooks")
-			callAndVerifyHooks(t, testRepo, tc.hookName, globalCustomHooksDir, hookDir, tc.stdin, tc.args, tc.env)
+			hookDir := filepath.Join(repoPath, "custom_hooks")
+			callAndVerifyHooks(t, locator, repo, tc.hookName, globalCustomHooksDir, hookDir, tc.stdin, tc.args, tc.env)
 
 			// hook is in project custom hooks directory <repository>.git/custom_hooks/<hook_name>.d/*
-			hookDir = filepath.Join(testRepoPath, "custom_hooks", fmt.Sprintf("%s.d", tc.hookName))
-			callAndVerifyHooks(t, testRepo, tc.hookName, globalCustomHooksDir, hookDir, tc.stdin, tc.args, tc.env)
+			hookDir = filepath.Join(repoPath, "custom_hooks", fmt.Sprintf("%s.d", tc.hookName))
+			callAndVerifyHooks(t, locator, repo, tc.hookName, globalCustomHooksDir, hookDir, tc.stdin, tc.args, tc.env)
 
 			// hook is in global custom hooks directory <global_custom_hooks_dir>/<hook_name>.d/*
 			hookDir = filepath.Join(globalCustomHooksDir, fmt.Sprintf("%s.d", tc.hookName))
-			callAndVerifyHooks(t, testRepo, tc.hookName, globalCustomHooksDir, hookDir, tc.stdin, tc.args, tc.env)
+			callAndVerifyHooks(t, locator, repo, tc.hookName, globalCustomHooksDir, hookDir, tc.stdin, tc.args, tc.env)
 		})
 	}
 }
 
 func TestCustomHookPartialFailure(t *testing.T) {
-	testRepo, testRepoPath, cleanup := gittest.CloneRepo(t)
+	cfg, repo, repoPath, cleanup := testcfg.BuildWithRepo(t)
 	defer cleanup()
 
 	globalCustomHooksDir, cleanup := testhelper.TempDir(t)
@@ -138,7 +140,7 @@ func TestCustomHookPartialFailure(t *testing.T) {
 			if !tc.projectHookSucceeds {
 				projectHookScript = failScript
 			}
-			projectHookPath := filepath.Join(testRepoPath, "custom_hooks")
+			projectHookPath := filepath.Join(repoPath, "custom_hooks")
 			cleanup := writeCustomHook(t, tc.hook, projectHookPath, projectHookScript)
 			defer cleanup()
 
@@ -151,13 +153,13 @@ func TestCustomHookPartialFailure(t *testing.T) {
 			defer cleanup()
 
 			mgr := GitLabHookManager{
-				locator: config.NewLocator(config.Config),
+				locator: config.NewLocator(cfg),
 				hooksConfig: config.Hooks{
 					CustomHooksDir: globalCustomHooksDir,
 				},
 			}
 
-			caller, err := mgr.newCustomHooksExecutor(testRepo, tc.hook)
+			caller, err := mgr.newCustomHooksExecutor(repo, tc.hook)
 			require.NoError(t, err)
 
 			var stdout, stderr bytes.Buffer
@@ -177,7 +179,7 @@ func TestCustomHookPartialFailure(t *testing.T) {
 }
 
 func TestCustomHooksMultipleHooks(t *testing.T) {
-	testRepo, testRepoPath, cleanup := gittest.CloneRepo(t)
+	cfg, repo, repoPath, cleanup := testcfg.BuildWithRepo(t)
 	defer cleanup()
 
 	globalCustomHooksDir, cleanup := testhelper.TempDir(t)
@@ -189,7 +191,7 @@ func TestCustomHooksMultipleHooks(t *testing.T) {
 	var expectedExecutedScripts []string
 
 	projectUpdateHooks := 9
-	projectHooksPath := filepath.Join(testRepoPath, "custom_hooks", "update.d")
+	projectHooksPath := filepath.Join(repoPath, "custom_hooks", "update.d")
 
 	for i := 0; i < projectUpdateHooks; i++ {
 		fileName := fmt.Sprintf("update_%d", i)
@@ -206,12 +208,12 @@ func TestCustomHooksMultipleHooks(t *testing.T) {
 	}
 
 	mgr := GitLabHookManager{
-		locator: config.NewLocator(config.Config),
+		locator: config.NewLocator(cfg),
 		hooksConfig: config.Hooks{
 			CustomHooksDir: globalCustomHooksDir,
 		},
 	}
-	hooksExecutor, err := mgr.newCustomHooksExecutor(testRepo, "update")
+	hooksExecutor, err := mgr.newCustomHooksExecutor(repo, "update")
 	require.NoError(t, err)
 
 	var stdout, stderr bytes.Buffer
@@ -227,7 +229,7 @@ func TestCustomHooksMultipleHooks(t *testing.T) {
 }
 
 func TestCustomHooksWithSymlinks(t *testing.T) {
-	testRepo, _, cleanup := gittest.CloneRepo(t)
+	cfg, repo, _, cleanup := testcfg.BuildWithRepo(t)
 	defer cleanup()
 
 	globalCustomHooksDir, cleanup := testhelper.TempDir(t)
@@ -278,12 +280,12 @@ func TestCustomHooksWithSymlinks(t *testing.T) {
 	expectedExecutedScripts := []string{updateHookPath, updateTildePath}
 
 	mgr := GitLabHookManager{
-		locator: config.NewLocator(config.Config),
+		locator: config.NewLocator(cfg),
 		hooksConfig: config.Hooks{
 			CustomHooksDir: globalCustomHooksDir,
 		},
 	}
-	hooksExecutor, err := mgr.newCustomHooksExecutor(testRepo, "update")
+	hooksExecutor, err := mgr.newCustomHooksExecutor(repo, "update")
 	require.NoError(t, err)
 
 	var stdout, stderr bytes.Buffer
@@ -298,7 +300,7 @@ func TestCustomHooksWithSymlinks(t *testing.T) {
 }
 
 func TestMultilineStdin(t *testing.T) {
-	testRepo, testRepoPath, cleanup := gittest.CloneRepo(t)
+	cfg, repo, repoPath, cleanup := testcfg.BuildWithRepo(t)
 	defer cleanup()
 
 	globalCustomHooksDir, cleanup := testhelper.TempDir(t)
@@ -307,17 +309,17 @@ func TestMultilineStdin(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	projectHooksPath := filepath.Join(testRepoPath, "custom_hooks", "pre-receive.d")
+	projectHooksPath := filepath.Join(repoPath, "custom_hooks", "pre-receive.d")
 
 	writeCustomHook(t, "pre-receive-script", projectHooksPath, printStdinScript)
 	mgr := GitLabHookManager{
-		locator: config.NewLocator(config.Config),
+		locator: config.NewLocator(cfg),
 		hooksConfig: config.Hooks{
 			CustomHooksDir: globalCustomHooksDir,
 		},
 	}
 
-	hooksExecutor, err := mgr.newCustomHooksExecutor(testRepo, "pre-receive")
+	hooksExecutor, err := mgr.newCustomHooksExecutor(repo, "pre-receive")
 	require.NoError(t, err)
 
 	changes := `old1 new1 ref1
@@ -332,7 +334,7 @@ old3 new3 ref3
 }
 
 func TestMultipleScriptsStdin(t *testing.T) {
-	testRepo, testRepoPath, cleanup := gittest.CloneRepo(t)
+	cfg, repo, repoPath, cleanup := testcfg.BuildWithRepo(t)
 	defer cleanup()
 
 	globalCustomHooksDir, cleanup := testhelper.TempDir(t)
@@ -342,7 +344,7 @@ func TestMultipleScriptsStdin(t *testing.T) {
 	defer cancel()
 
 	projectUpdateHooks := 9
-	projectHooksPath := filepath.Join(testRepoPath, "custom_hooks", "pre-receive.d")
+	projectHooksPath := filepath.Join(repoPath, "custom_hooks", "pre-receive.d")
 
 	for i := 0; i < projectUpdateHooks; i++ {
 		fileName := fmt.Sprintf("pre-receive_%d", i)
@@ -350,13 +352,13 @@ func TestMultipleScriptsStdin(t *testing.T) {
 	}
 
 	mgr := GitLabHookManager{
-		locator: config.NewLocator(config.Config),
+		locator: config.NewLocator(cfg),
 		hooksConfig: config.Hooks{
 			CustomHooksDir: globalCustomHooksDir,
 		},
 	}
 
-	hooksExecutor, err := mgr.newCustomHooksExecutor(testRepo, "pre-receive")
+	hooksExecutor, err := mgr.newCustomHooksExecutor(repo, "pre-receive")
 	require.NoError(t, err)
 
 	changes := "oldref11 newref00 ref123445"
@@ -373,7 +375,7 @@ func TestMultipleScriptsStdin(t *testing.T) {
 	}
 }
 
-func callAndVerifyHooks(t *testing.T, repo *gitalypb.Repository, hookName, globalHooksDir, hookDir, stdin string, args, env []string) {
+func callAndVerifyHooks(t *testing.T, locator storage.Locator, repo *gitalypb.Repository, hookName, globalHooksDir, hookDir, stdin string, args, env []string) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 	var stdout, stderr bytes.Buffer
@@ -382,7 +384,7 @@ func callAndVerifyHooks(t *testing.T, repo *gitalypb.Repository, hookName, globa
 	defer cleanup()
 
 	mgr := GitLabHookManager{
-		locator: config.NewLocator(config.Config),
+		locator: locator,
 		hooksConfig: config.Hooks{
 			CustomHooksDir: globalHooksDir,
 		},

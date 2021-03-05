@@ -15,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 )
 
 type mockTransactionManager struct {
@@ -31,6 +32,9 @@ func (m *mockTransactionManager) Stop(ctx context.Context, tx metadata.Transacti
 }
 
 func TestHookManager_stopCalled(t *testing.T) {
+	cfg, repo, repoPath, cleanup := testcfg.BuildWithRepo(t)
+	defer cleanup()
+
 	expectedTx := metadata.Transaction{
 		ID: 1234, Node: "primary", Primary: true,
 	}
@@ -40,14 +44,11 @@ func TestHookManager_stopCalled(t *testing.T) {
 		Token:      "foo",
 	}
 
-	repo, repoPath, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
-
 	var mockTxMgr mockTransactionManager
-	hookManager := NewManager(config.NewLocator(config.Config), &mockTxMgr, GitlabAPIStub, config.Config)
+	hookManager := NewManager(config.NewLocator(cfg), &mockTxMgr, GitlabAPIStub, cfg)
 
 	hooksPayload, err := git.NewHooksPayload(
-		config.Config,
+		cfg,
 		repo,
 		&expectedTx,
 		&expectedPraefect,
@@ -128,6 +129,9 @@ func TestHookManager_stopCalled(t *testing.T) {
 }
 
 func TestHookManager_contextCancellationCancelsVote(t *testing.T) {
+	cfg, repo, _, cleanup := testcfg.BuildWithRepo(t)
+	defer cleanup()
+
 	mockTxMgr := mockTransactionManager{
 		vote: func(ctx context.Context, tx metadata.Transaction, praefect metadata.PraefectServer, vote []byte) error {
 			<-ctx.Done()
@@ -135,13 +139,10 @@ func TestHookManager_contextCancellationCancelsVote(t *testing.T) {
 		},
 	}
 
-	hookManager := NewManager(config.NewLocator(config.Config), &mockTxMgr, GitlabAPIStub, config.Config)
-
-	repo, _, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
+	hookManager := NewManager(config.NewLocator(cfg), &mockTxMgr, GitlabAPIStub, cfg)
 
 	hooksPayload, err := git.NewHooksPayload(
-		config.Config,
+		cfg,
 		repo,
 		&metadata.Transaction{
 			ID: 1234, Node: "primary", Primary: true,

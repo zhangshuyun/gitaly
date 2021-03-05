@@ -7,8 +7,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 )
 
 func TestMain(m *testing.M) {
@@ -23,12 +23,15 @@ func testMain(m *testing.M) int {
 }
 
 func TestStatsUnmarshalJSONError(t *testing.T) {
+	cfg, cleanup := testcfg.Build(t)
+	defer cleanup()
+
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
 	// When an error occurs, this used to trigger JSON marshelling of a plain string
 	// the new behaviour shouldn't do that, and return an command error
-	_, err := Stats(ctx, config.Config, "/var/empty", "deadbeef")
+	_, err := Stats(ctx, cfg, "/var/empty", "deadbeef")
 	require.Error(t, err)
 
 	_, ok := err.(*json.SyntaxError)
@@ -36,24 +39,26 @@ func TestStatsUnmarshalJSONError(t *testing.T) {
 }
 
 func TestLoadLanguages(t *testing.T) {
-	defer func(old config.Cfg) { config.Config = old }(config.Config)
+	cfg, cleanup := testcfg.Build(t)
+	defer cleanup()
 
 	colorMap = make(map[string]Language)
-	require.NoError(t, LoadColors(&config.Config), "load colors")
+	require.NoError(t, LoadColors(&cfg), "load colors")
 
 	require.Equal(t, "#701516", Color("Ruby"), "color value for 'Ruby'")
 }
 
 func TestLoadLanguagesCustomPath(t *testing.T) {
-	defer func(old config.Cfg) { config.Config = old }(config.Config)
+	cfg, cleanup := testcfg.Build(t)
+	defer cleanup()
 
 	jsonPath, err := filepath.Abs("testdata/fake-languages.json")
 	require.NoError(t, err)
 
-	config.Config.Ruby.LinguistLanguagesPath = jsonPath
+	cfg.Ruby.LinguistLanguagesPath = jsonPath
 
 	colorMap = make(map[string]Language)
-	require.NoError(t, LoadColors(&config.Config), "load colors")
+	require.NoError(t, LoadColors(&cfg), "load colors")
 
 	require.Equal(t, "foo color", Color("FooBar"))
 }

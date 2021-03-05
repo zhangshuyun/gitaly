@@ -3,7 +3,6 @@ package maintenance
 import (
 	"context"
 	"path/filepath"
-	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -13,6 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/repository"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
 )
@@ -33,31 +33,20 @@ func (mo *mockOptimizer) OptimizeRepository(ctx context.Context, req *gitalypb.O
 }
 
 func TestOptimizeReposRandomly(t *testing.T) {
-	oldStorages := config.Config.Storages
-	defer func() { config.Config.Storages = oldStorages }()
+	cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("0", "1", "2"))
+	defer cfgBuilder.Cleanup()
+	cfg := cfgBuilder.Build(t)
 
-	storages := []config.Storage{}
-
-	for i := 0; i < 3; i++ {
-		tempDir, cleanup := testhelper.TempDir(t)
-		defer cleanup()
-
-		storages = append(storages, config.Storage{
-			Name: strconv.Itoa(i),
-			Path: tempDir,
-		})
-
-		testhelper.MustRunCommand(t, nil, "git", "init", "--bare", filepath.Join(tempDir, "a"))
-		testhelper.MustRunCommand(t, nil, "git", "init", "--bare", filepath.Join(tempDir, "b"))
+	for _, storage := range cfg.Storages {
+		testhelper.MustRunCommand(t, nil, "git", "init", "--bare", filepath.Join(storage.Path, "a"))
+		testhelper.MustRunCommand(t, nil, "git", "init", "--bare", filepath.Join(storage.Path, "b"))
 	}
-
-	config.Config.Storages = storages
 
 	mo := &mockOptimizer{
 		t:   t,
-		cfg: config.Config,
+		cfg: cfg,
 	}
-	walker := OptimizeReposRandomly(storages, mo)
+	walker := OptimizeReposRandomly(cfg.Storages, mo)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -65,27 +54,25 @@ func TestOptimizeReposRandomly(t *testing.T) {
 	require.NoError(t, walker(ctx, testhelper.DiscardTestEntry(t), []string{"0", "1"}))
 
 	expect := []*gitalypb.Repository{
-		{RelativePath: "a", StorageName: storages[0].Name},
-		{RelativePath: "a", StorageName: storages[1].Name},
-		{RelativePath: "b", StorageName: storages[0].Name},
-		{RelativePath: "b", StorageName: storages[1].Name},
+		{RelativePath: "a", StorageName: cfg.Storages[0].Name},
+		{RelativePath: "a", StorageName: cfg.Storages[1].Name},
+		{RelativePath: "b", StorageName: cfg.Storages[0].Name},
+		{RelativePath: "b", StorageName: cfg.Storages[1].Name},
 	}
 	require.ElementsMatch(t, expect, mo.actual)
 
 	// repeat storage paths should not impact repos visited
-	storages = append(storages, config.Storage{
+	cfg.Storages = append(cfg.Storages, config.Storage{
 		Name: "duplicate",
-		Path: storages[0].Path,
+		Path: cfg.Storages[0].Path,
 	})
-
-	config.Config.Storages = storages
 
 	mo = &mockOptimizer{
 		t:   t,
-		cfg: config.Config,
+		cfg: cfg,
 	}
 
-	walker = OptimizeReposRandomly(storages, mo)
+	walker = OptimizeReposRandomly(cfg.Storages, mo)
 	require.NoError(t, walker(ctx, testhelper.DiscardTestEntry(t), []string{"0", "1", "duplicate"}))
 	require.Equal(t, len(expect), len(mo.actual))
 }

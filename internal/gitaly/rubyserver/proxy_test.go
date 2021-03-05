@@ -4,12 +4,16 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"google.golang.org/grpc/metadata"
 )
 
 func TestSetHeadersBlocksUnknownMetadata(t *testing.T) {
+	cfg, repo, _, cleanup := testcfg.BuildWithRepo(t)
+	defer cleanup()
+
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -17,10 +21,7 @@ func TestSetHeadersBlocksUnknownMetadata(t *testing.T) {
 	otherValue := "test-value"
 	inCtx := metadata.NewIncomingContext(ctx, metadata.Pairs(otherKey, otherValue))
 
-	testRepo, _, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
-
-	outCtx, err := SetHeaders(inCtx, testhelper.DefaultLocator(), testRepo)
+	outCtx, err := SetHeaders(inCtx, config.NewLocator(cfg), repo)
 	require.NoError(t, err)
 
 	outMd, ok := metadata.FromOutgoingContext(outCtx)
@@ -31,6 +32,9 @@ func TestSetHeadersBlocksUnknownMetadata(t *testing.T) {
 }
 
 func TestSetHeadersPreservesAllowlistedMetadata(t *testing.T) {
+	cfg, repo, _, cleanup := testcfg.BuildWithRepo(t)
+	defer cleanup()
+
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -38,10 +42,7 @@ func TestSetHeadersPreservesAllowlistedMetadata(t *testing.T) {
 	value := "test-value"
 	inCtx := metadata.NewIncomingContext(ctx, metadata.Pairs(key, value))
 
-	testRepo, _, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
-
-	outCtx, err := SetHeaders(inCtx, testhelper.DefaultLocator(), testRepo)
+	outCtx, err := SetHeaders(inCtx, config.NewLocator(cfg), repo)
 	require.NoError(t, err)
 
 	outMd, ok := metadata.FromOutgoingContext(outCtx)
@@ -51,6 +52,9 @@ func TestSetHeadersPreservesAllowlistedMetadata(t *testing.T) {
 }
 
 func TestRubyFeatureHeaders(t *testing.T) {
+	cfg, repo, _, cleanup := testcfg.BuildWithRepo(t)
+	defer cleanup()
+
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -58,10 +62,7 @@ func TestRubyFeatureHeaders(t *testing.T) {
 	value := "true"
 	inCtx := metadata.NewIncomingContext(ctx, metadata.Pairs(key, value))
 
-	testRepo, _, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
-
-	outCtx, err := SetHeaders(inCtx, testhelper.DefaultLocator(), testRepo)
+	outCtx, err := SetHeaders(inCtx, config.NewLocator(cfg), repo)
 	require.NoError(t, err)
 
 	outMd, ok := metadata.FromOutgoingContext(outCtx)
