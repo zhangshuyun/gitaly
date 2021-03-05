@@ -54,7 +54,7 @@ GitLab.com, read about our [observability story](doc/observability.md)!
 Most users won't install Gitaly on its own. It is already included in
 [your GitLab installation](https://about.gitlab.com/install/).
 
-Gitaly requires Go 1.13.9 or newer and Ruby 2.6. Run `make` to download
+Gitaly requires Go 1.13.9 or newer and Ruby 2.7. Run `make` to download
 and compile Ruby dependencies, and to compile the Gitaly Go
 executable.
 
