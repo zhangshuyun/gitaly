@@ -24,7 +24,7 @@ var (
 // WriteBlob writes a blob to the repository's object database and
 // returns its object ID. Path is used by git to decide which filters to
 // run on the content.
-func (repo *Repo) WriteBlob(ctx context.Context, path string, content io.Reader) (string, error) {
+func (repo *Repo) WriteBlob(ctx context.Context, path string, content io.Reader) (git.ObjectID, error) {
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
 
@@ -49,7 +49,12 @@ func (repo *Repo) WriteBlob(ctx context.Context, path string, content io.Reader)
 		return "", errorWithStderr(err, stderr.Bytes())
 	}
 
-	return text.ChompBytes(stdout.Bytes()), nil
+	oid, err := git.NewObjectIDFromHex(text.ChompBytes(stdout.Bytes()))
+	if err != nil {
+		return "", err
+	}
+
+	return oid, nil
 }
 
 // FormatTagError is used by FormatTag() below
@@ -164,7 +169,7 @@ func (err InvalidObjectError) Error() string { return fmt.Sprintf("invalid objec
 
 // ReadObject reads an object from the repository's object database. InvalidObjectError
 // is returned if the oid does not refer to a valid object.
-func (repo *Repo) ReadObject(ctx context.Context, oid string) ([]byte, error) {
+func (repo *Repo) ReadObject(ctx context.Context, oid git.ObjectID) ([]byte, error) {
 	const msgInvalidObject = "fatal: Not a valid object name "
 
 	stdout := &bytes.Buffer{}
@@ -173,7 +178,7 @@ func (repo *Repo) ReadObject(ctx context.Context, oid string) ([]byte, error) {
 		git.SubCmd{
 			Name:  "cat-file",
 			Flags: []git.Option{git.Flag{"-p"}},
-			Args:  []string{oid},
+			Args:  []string{oid.String()},
 		},
 		git.WithStdout(stdout),
 		git.WithStderr(stderr),

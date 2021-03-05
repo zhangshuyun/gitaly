@@ -231,13 +231,13 @@ func TestRepo_ReadObject(t *testing.T) {
 
 	for _, tc := range []struct {
 		desc    string
-		oid     string
+		oid     git.ObjectID
 		content string
 		error   error
 	}{
 		{
 			desc:  "invalid object",
-			oid:   git.ZeroOID.String(),
+			oid:   git.ZeroOID,
 			error: InvalidObjectError(git.ZeroOID.String()),
 		},
 		{
