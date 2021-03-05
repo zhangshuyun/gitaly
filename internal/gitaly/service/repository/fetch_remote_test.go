@@ -110,8 +110,7 @@ func TestFetchRemote_withDefaultRefmaps(t *testing.T) {
 	resp, err := client.FetchRemote(ctx, &gitalypb.FetchRemoteRequest{
 		Repository: targetRepoProto,
 		RemoteParams: &gitalypb.Remote{
-			Url:  fmt.Sprintf("http://127.0.0.1:%d/%s", port, filepath.Base(sourceRepoPath)),
-			Name: "my-remote",
+			Url: fmt.Sprintf("http://127.0.0.1:%d/%s", port, filepath.Base(sourceRepoPath)),
 		},
 	})
 	require.NoError(t, err)
@@ -177,8 +176,7 @@ func TestFetchRemote_prune(t *testing.T) {
 			desc: "NoPrune=true with explicit Remote should not delete reference",
 			request: &gitalypb.FetchRemoteRequest{
 				RemoteParams: &gitalypb.Remote{
-					Url:  remoteURL,
-					Name: "my-remote",
+					Url: remoteURL,
 				},
 				NoPrune: true,
 			},
@@ -189,8 +187,7 @@ func TestFetchRemote_prune(t *testing.T) {
 			desc: "NoPrune=false with explicit Remote should delete reference",
 			request: &gitalypb.FetchRemoteRequest{
 				RemoteParams: &gitalypb.Remote{
-					Url:  remoteURL,
-					Name: "my-remote",
+					Url: remoteURL,
 				},
 				NoPrune: false,
 			},
@@ -201,8 +198,7 @@ func TestFetchRemote_prune(t *testing.T) {
 			desc: "NoPrune=false with explicit Remote should not delete reference outside of refspec",
 			request: &gitalypb.FetchRemoteRequest{
 				RemoteParams: &gitalypb.Remote{
-					Url:  remoteURL,
-					Name: "my-remote",
+					Url: remoteURL,
 					MirrorRefmaps: []string{
 						"refs/heads/*:refs/remotes/my-remote/*",
 					},
@@ -245,7 +241,7 @@ func TestFetchRemoteFailure(t *testing.T) {
 	defer stop()
 
 	const remoteName = "test-repo"
-	httpSrv, url := remoteHTTPServer(t, remoteName, httpToken)
+	httpSrv, _ := remoteHTTPServer(t, remoteName, httpToken)
 	defer httpSrv.Close()
 
 	client, conn := newRepositoryClient(t, serverSocketPath)
@@ -300,7 +296,6 @@ func TestFetchRemoteFailure(t *testing.T) {
 				Repository: repo,
 				RemoteParams: &gitalypb.Remote{
 					Url:                     "not a url",
-					Name:                    remoteName,
 					HttpAuthorizationHeader: httpToken,
 				},
 				Timeout: 1000,
@@ -314,7 +309,6 @@ func TestFetchRemoteFailure(t *testing.T) {
 				Repository: repo,
 				RemoteParams: &gitalypb.Remote{
 					Url:                     "/not/a/url",
-					Name:                    remoteName,
 					HttpAuthorizationHeader: httpToken,
 				},
 				Timeout: 1000,
@@ -323,26 +317,11 @@ func TestFetchRemoteFailure(t *testing.T) {
 			errMsg: `invalid "remote_params.url"`,
 		},
 		{
-			desc: "no name",
-			req: &gitalypb.FetchRemoteRequest{
-				Repository: repo,
-				RemoteParams: &gitalypb.Remote{
-					Name:                    "",
-					Url:                     url,
-					HttpAuthorizationHeader: httpToken,
-				},
-				Timeout: 1000,
-			},
-			code:   codes.InvalidArgument,
-			errMsg: `blank or empty "remote_params.name"`,
-		},
-		{
 			desc: "not existing repo via http",
 			req: &gitalypb.FetchRemoteRequest{
 				Repository: repo,
 				RemoteParams: &gitalypb.Remote{
 					Url:                     httpSrv.URL + "/invalid/repo/path.git",
-					Name:                    remoteName,
 					HttpAuthorizationHeader: httpToken,
 					MirrorRefmaps:           []string{"all_refs"},
 				},
@@ -436,7 +415,6 @@ func TestFetchRemoteOverHTTP(t *testing.T) {
 				Repository: forkedRepo,
 				RemoteParams: &gitalypb.Remote{
 					Url:                     remoteURL,
-					Name:                    "geo",
 					HttpAuthorizationHeader: tc.httpToken,
 					MirrorRefmaps:           []string{"all_refs"},
 				},
@@ -483,7 +461,7 @@ func TestFetchRemoteOverHTTPWithRedirect(t *testing.T) {
 
 	req := &gitalypb.FetchRemoteRequest{
 		Repository:   testRepo,
-		RemoteParams: &gitalypb.Remote{Url: s.URL, Name: "geo"},
+		RemoteParams: &gitalypb.Remote{Url: s.URL},
 		Timeout:      1000,
 	}
 
@@ -516,7 +494,7 @@ func TestFetchRemoteOverHTTPWithTimeout(t *testing.T) {
 
 	req := &gitalypb.FetchRemoteRequest{
 		Repository:   testRepo,
-		RemoteParams: &gitalypb.Remote{Url: s.URL, Name: "geo"},
+		RemoteParams: &gitalypb.Remote{Url: s.URL},
 		Timeout:      1,
 	}
 

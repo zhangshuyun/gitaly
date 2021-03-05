@@ -20,6 +20,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/status"
 )
@@ -46,7 +47,24 @@ func (s *server) FetchRemote(ctx context.Context, req *gitalypb.FetchRemoteReque
 	remoteName := req.GetRemote()
 
 	if params := req.GetRemoteParams(); params != nil {
-		remoteName = params.GetName()
+		remoteSuffix, err := text.RandomHex(16)
+		if err != nil {
+			return nil, fmt.Errorf("cannot generate remote suffix: %w", err)
+		}
+
+		// We're generating a random name for the remote. We do not use a static name here
+		// and neither do we use a user-provided one as we'll be removing the remote after
+		// this RPC again, which also removes all its contained references.
+		//
+		// Ideally, we'd just use an in-memory remote either by fetching via URL directly or
+		// by injecting an in-memory remote via git configuration. But the former is not
+		// possible as it may leak credentials stored in URLs, while the latter is not
+		// possible yet because git has no official way to inject configuration via the
+		// environment yet. That is about to change though with git v2.31.0, so we can
+		// migrate this to use anonymous remotes as soon as we require that as minimum
+		// version.
+		remoteName = fmt.Sprintf("tmp-%s", remoteSuffix)
+
 		remoteURL := params.GetUrl()
 		refspecs := s.getRefspecs(params.GetMirrorRefmaps())
 
@@ -194,11 +212,6 @@ func (s *server) validateFetchRemoteRequest(req *gitalypb.FetchRemoteRequest) er
 
 	if remoteURL.Host == "" {
 		return helper.ErrInvalidArgumentf(`invalid "remote_params.url": %q: no host`, params.GetUrl())
-	}
-
-	remote := params.GetName()
-	if strings.TrimSpace(remote) == "" {
-		return helper.ErrInvalidArgument(fmt.Errorf(`blank or empty "remote_params.name": %q`, remote))
 	}
 
 	return nil
