@@ -22,6 +22,7 @@ SOURCE_DIR       := $(abspath $(dir $(lastword ${MAKEFILE_LIST})))
 BUILD_DIR        := ${SOURCE_DIR}/_build
 COVERAGE_DIR     := ${BUILD_DIR}/cover
 DEPENDENCY_DIR   := ${BUILD_DIR}/deps
+TOOLS_DIR        := ${BUILD_DIR}/tools
 GITALY_RUBY_DIR  := ${SOURCE_DIR}/ruby
 
 # These variables may be overridden at runtime by top-level make
@@ -36,14 +37,14 @@ GIT_PREFIX       ?= ${GIT_INSTALL_DIR}
 # Tools
 GIT               := $(shell which git)
 PROTOC            := ${BUILD_DIR}/protoc/bin/protoc
-GOIMPORTS         := ${BUILD_DIR}/tools/goimports
-GITALYFMT         := ${BUILD_DIR}/tools/gitalyfmt
-GOLANGCI_LINT     := ${BUILD_DIR}/tools/golangci-lint
-GO_LICENSES       := ${BUILD_DIR}/tools/go-licenses
-PROTOC_GEN_GO     := ${BUILD_DIR}/tools/protoc-gen-go
-PROTOC_GEN_GITALY := ${BUILD_DIR}/tools/protoc-gen-gitaly
-GO_JUNIT_REPORT   := ${BUILD_DIR}/tools/go-junit-report
-GOCOVER_COBERTURA := ${BUILD_DIR}/tools/gocover-cobertura
+GOIMPORTS         := ${TOOLS_DIR}/goimports
+GITALYFMT         := ${TOOLS_DIR}/gitalyfmt
+GOLANGCI_LINT     := ${TOOLS_DIR}/golangci-lint
+GO_LICENSES       := ${TOOLS_DIR}/go-licenses
+PROTOC_GEN_GO     := ${TOOLS_DIR}/protoc-gen-go
+PROTOC_GEN_GITALY := ${TOOLS_DIR}/protoc-gen-gitaly
+GO_JUNIT_REPORT   := ${TOOLS_DIR}/go-junit-report
+GOCOVER_COBERTURA := ${TOOLS_DIR}/gocover-cobertura
 
 # Tool options
 GOLANGCI_LINT_OPTIONS ?=
@@ -398,8 +399,8 @@ ${BUILD_DIR}:
 	${Q}mkdir -p ${BUILD_DIR}
 ${BUILD_DIR}/bin: | ${BUILD_DIR}
 	${Q}mkdir -p ${BUILD_DIR}/bin
-${BUILD_DIR}/tools: | ${BUILD_DIR}
-	${Q}mkdir -p ${BUILD_DIR}/tools
+${TOOLS_DIR}: | ${BUILD_DIR}
+	${Q}mkdir -p ${TOOLS_DIR}
 ${DEPENDENCY_DIR}: | ${BUILD_DIR}
 	${Q}mkdir -p ${DEPENDENCY_DIR}
 
@@ -466,19 +467,19 @@ ${PROTOC}: ${BUILD_DIR}/protoc.zip | ${BUILD_DIR}
 
 # We're using per-tool go.mod files in order to avoid conflicts in the graph in
 # case we used a single go.mod file for all tools.
-${BUILD_DIR}/tools/%/go.mod: | ${BUILD_DIR}/tools
+${TOOLS_DIR}/%/go.mod: | ${TOOLS_DIR}
 	${Q}mkdir -p $(dir $@)
 	${Q}cd $(dir $@) && go mod init _build
 
-${BUILD_DIR}/tools/%: GOBIN = ${BUILD_DIR}/tools
-${BUILD_DIR}/tools/%: ${BUILD_DIR}/Makefile.sha256 ${BUILD_DIR}/tools/.%/go.mod
-	${Q}cd ${BUILD_DIR}/tools/.$(notdir $@) && go get ${TOOL_PACKAGE}
+${TOOLS_DIR}/%: GOBIN = ${TOOLS_DIR}
+${TOOLS_DIR}/%: ${BUILD_DIR}/Makefile.sha256 ${TOOLS_DIR}/.%/go.mod
+	${Q}cd ${TOOLS_DIR}/.$(notdir $@) && go get ${TOOL_PACKAGE}
 
 # Tools hosted by Gitaly itself
-${GITALYFMT}: | ${BUILD_DIR}/tools
+${GITALYFMT}: | ${TOOLS_DIR}
 	${Q}go build -o $@ ${SOURCE_DIR}/internal/cmd/gitalyfmt
 
-${PROTOC_GEN_GITALY}: proto | ${BUILD_DIR}/tools
+${PROTOC_GEN_GITALY}: proto | ${TOOLS_DIR}
 	${Q}go build -o $@ ${SOURCE_DIR}/proto/go/internal/cmd/protoc-gen-gitaly
 
 # External tools
