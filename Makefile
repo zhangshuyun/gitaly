@@ -60,12 +60,15 @@ GO_BUILD_TAGS   := tracer_static,tracer_static_jaeger,continuous_profiler_stackd
 
 # Dependency versions
 GOLANGCI_LINT_VERSION     ?= 1.33.0
+GOCOVER_COBERTURA_VERSION ?= aaee18c8195c3f2d90e5ef80ca918d265463842a
+GOIMPORTS_VERSION         ?= 2538eef75904eff384a2551359968e40c207d9d2
+GO_JUNIT_REPORT_VERSION   ?= 984a47ca6b0a7d704c4b589852051b4d7865aa17
+GO_LICENSES_VERSION       ?= 73411c8fa237ccc6a75af79d0a5bc021c9487aad
 PROTOC_VERSION            ?= 3.12.4
 PROTOC_GEN_GO_VERSION     ?= 1.3.2
 GIT_VERSION               ?= v2.29.0
 GIT2GO_VERSION            ?= v31
-LIBGIT2_VERSION       	  ?= v1.1.0
-GOCOVER_COBERTURA_VERSION ?= aaee18c8195c3f2d90e5ef80ca918d265463842a
+LIBGIT2_VERSION           ?= v1.1.0
 
 # Dependency downloads
 ifeq (${OS},Darwin)
@@ -485,10 +488,10 @@ ${PROTOC_GEN_GITALY}: proto | ${TOOLS_DIR}
 
 # External tools
 ${GOCOVER_COBERTURA}: TOOL_PACKAGE = github.com/t-yuki/gocover-cobertura@${GOCOVER_COBERTURA_VERSION}
-${GOIMPORTS}:         TOOL_PACKAGE = golang.org/x/tools/cmd/goimports@2538eef75904eff384a2551359968e40c207d9d2
+${GOIMPORTS}:         TOOL_PACKAGE = golang.org/x/tools/cmd/goimports@${GOIMPORTS_VERSION}
 ${GOLANGCI_LINT}:     TOOL_PACKAGE = github.com/golangci/golangci-lint/cmd/golangci-lint@v${GOLANGCI_LINT_VERSION}
-${GO_JUNIT_REPORT}:   TOOL_PACKAGE = github.com/jstemmer/go-junit-report@984a47ca6b0a7d704c4b589852051b4d7865aa17
-${GO_LICENSES}:       TOOL_PACKAGE = github.com/google/go-licenses@73411c8fa237ccc6a75af79d0a5bc021c9487aad
+${GO_JUNIT_REPORT}:   TOOL_PACKAGE = github.com/jstemmer/go-junit-report@${GO_JUNIT_REPORT_VERSION}
+${GO_LICENSES}:       TOOL_PACKAGE = github.com/google/go-licenses@${GO_LICENSES_VERSION}
 ${PROTOC_GEN_GO}:     TOOL_PACKAGE = github.com/golang/protobuf/protoc-gen-go@v${PROTOC_GEN_GO_VERSION}
 
 ${TEST_REPO}:
