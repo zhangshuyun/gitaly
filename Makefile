@@ -174,6 +174,13 @@ export CGO_LDFLAGS_ALLOW          = -D_THREAD_SAFE
 
 .NOTPARALLEL:
 
+# By default, intermediate targets get deleted automatically after a successful
+# build. We do not want that though: there's some precious intermediate targets
+# like our `*.version` targets which are required in order to determine whether
+# a dependency needs to be rebuilt. By specifying `.SECONDARY`, intermediate
+# targets will never get deleted automatically.
+.SECONDARY:
+
 .PHONY: all
 all: INSTALL_DEST_DIR = ${SOURCE_DIR}
 all: install
