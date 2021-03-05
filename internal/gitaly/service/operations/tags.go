@@ -154,7 +154,7 @@ func (s *Server) UserCreateTag(ctx context.Context, req *gitalypb.UserCreateTagR
 			}
 		}
 
-		tagObjectID, err := localRepo.WriteTag(ctx, targetObjectID.String(), targetObjectType, req.TagName, req.User.Name, req.User.Email, req.Message, committerTime)
+		tagObjectID, err := localRepo.WriteTag(ctx, targetObjectID, targetObjectType, req.TagName, req.User.Name, req.User.Email, req.Message, committerTime)
 		if err != nil {
 			var FormatTagError localrepo.FormatTagError
 			if errors.As(err, &FormatTagError) {

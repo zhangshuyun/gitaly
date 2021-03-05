@@ -77,7 +77,12 @@ func (e FormatTagError) Error() string {
 // timestamp here would at best be annoying, and at worst run up
 // against some other assumption (e.g. that some hook check isn't as
 // strict on locally generated data).
-func FormatTag(objectID, objectType string, tagName, userName, userEmail, tagBody []byte, committerDate time.Time) (string, error) {
+func FormatTag(
+	objectID git.ObjectID,
+	objectType string,
+	tagName, userName, userEmail, tagBody []byte,
+	committerDate time.Time,
+) (string, error) {
 	if committerDate.IsZero() {
 		committerDate = time.Now()
 	}
@@ -86,7 +91,7 @@ func FormatTag(objectID, objectType string, tagName, userName, userEmail, tagBod
 		"type %s\n" +
 		"tag %s\n" +
 		"tagger %s <%s> %d +0000\n"
-	tagBuf := fmt.Sprintf(tagHeaderFormat, objectID, objectType, tagName, userName, userEmail, committerDate.Unix())
+	tagBuf := fmt.Sprintf(tagHeaderFormat, objectID.String(), objectType, tagName, userName, userEmail, committerDate.Unix())
 
 	maxHeaderLines := 4
 	actualHeaderLines := strings.Count(tagBuf, "\n")
@@ -116,7 +121,13 @@ func (e MktagError) Error() string {
 //
 // It's important that this be git-mktag and not git-hash-object due
 // to its fsck sanity checking semantics.
-func (repo *Repo) WriteTag(ctx context.Context, objectID, objectType string, tagName, userName, userEmail, tagBody []byte, committerDate time.Time) (string, error) {
+func (repo *Repo) WriteTag(
+	ctx context.Context,
+	objectID git.ObjectID,
+	objectType string,
+	tagName, userName, userEmail, tagBody []byte,
+	committerDate time.Time,
+) (string, error) {
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
 
