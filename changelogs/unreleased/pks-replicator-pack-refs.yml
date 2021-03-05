@@ -1,0 +1,5 @@
+---
+title: 'replicator: Do not bump repository generation for PackRefs'
+merge_request: 3216
+author:
+type: performance

@@ -57,6 +57,8 @@ const (
 	RepackIncremental = ChangeType("repack_incremental")
 	// Cleanup is when replication runs a repo cleanup
 	Cleanup = ChangeType("cleanup")
+	// PackRefs is when replication optimizes references in a repo
+	PackRefs = ChangeType("pack_refs")
 )
 
 func (ct ChangeType) String() string {

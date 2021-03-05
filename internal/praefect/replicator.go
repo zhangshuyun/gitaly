@@ -36,6 +36,8 @@ type Replicator interface {
 	RepackIncremental(ctx context.Context, event datastore.ReplicationEvent, target *grpc.ClientConn) error
 	// Cleanup will do a cleanup on the target repository
 	Cleanup(ctx context.Context, event datastore.ReplicationEvent, target *grpc.ClientConn) error
+	// PackRefs will optimize references on the target repository
+	PackRefs(ctx context.Context, event datastore.ReplicationEvent, target *grpc.ClientConn) error
 }
 
 type defaultReplicator struct {
@@ -267,6 +269,21 @@ func (dr defaultReplicator) Cleanup(ctx context.Context, event datastore.Replica
 	repoSvcClient := gitalypb.NewRepositoryServiceClient(targetCC)
 
 	_, err := repoSvcClient.Cleanup(ctx, &gitalypb.CleanupRequest{
+		Repository: targetRepo,
+	})
+
+	return err
+}
+
+func (dr defaultReplicator) PackRefs(ctx context.Context, event datastore.ReplicationEvent, targetCC *grpc.ClientConn) error {
+	targetRepo := &gitalypb.Repository{
+		StorageName:  event.Job.TargetNodeStorage,
+		RelativePath: event.Job.RelativePath,
+	}
+
+	refSvcClient := gitalypb.NewRefServiceClient(targetCC)
+
+	_, err := refSvcClient.PackRefs(ctx, &gitalypb.PackRefsRequest{
 		Repository: targetRepo,
 	})
 
@@ -643,6 +660,8 @@ func (r ReplMgr) processReplicationEvent(ctx context.Context, event datastore.Re
 		err = r.replicator.RepackIncremental(ctx, event, targetCC)
 	case datastore.Cleanup:
 		err = r.replicator.Cleanup(ctx, event, targetCC)
+	case datastore.PackRefs:
+		err = r.replicator.PackRefs(ctx, event, targetCC)
 	default:
 		err = fmt.Errorf("unknown replication change type encountered: %q", event.Job.Change)
 	}

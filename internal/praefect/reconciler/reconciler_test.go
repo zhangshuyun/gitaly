@@ -335,6 +335,8 @@ func TestReconciler(t *testing.T) {
 					datastore.GarbageCollect,
 					datastore.RepackFull,
 					datastore.RepackIncremental,
+					datastore.Cleanup,
+					datastore.PackRefs,
 				},
 				datastore.ReplicationJob{
 					VirtualStorage:    "virtual-storage-1",

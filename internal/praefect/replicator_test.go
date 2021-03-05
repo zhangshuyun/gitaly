@@ -374,6 +374,7 @@ func TestPropagateReplicationJob(t *testing.T) {
 
 	cc := dialLocalPort(t, port, false)
 	repositoryClient := gitalypb.NewRepositoryServiceClient(cc)
+	refClient := gitalypb.NewRefServiceClient(cc)
 	defer listener.Close()
 	defer cc.Close()
 
@@ -396,6 +397,9 @@ func TestPropagateReplicationJob(t *testing.T) {
 	_, err = repositoryClient.Cleanup(ctx, &gitalypb.CleanupRequest{Repository: repository})
 	require.NoError(t, err)
 
+	_, err = refClient.PackRefs(ctx, &gitalypb.PackRefsRequest{Repository: repository})
+	require.NoError(t, err)
+
 	primaryRepository := &gitalypb.Repository{StorageName: primaryStorage, RelativePath: repositoryRelativePath}
 	expectedPrimaryGcReq := &gitalypb.GarbageCollectRequest{
 		Repository:   primaryRepository,
@@ -411,6 +415,9 @@ func TestPropagateReplicationJob(t *testing.T) {
 	expectedPrimaryCleanup := &gitalypb.CleanupRequest{
 		Repository: primaryRepository,
 	}
+	expectedPrimaryPackRefs := &gitalypb.PackRefsRequest{
+		Repository: primaryRepository,
+	}
 
 	replCtx, cancel := testhelper.Context()
 	defer cancel()
@@ -421,6 +428,7 @@ func TestPropagateReplicationJob(t *testing.T) {
 	waitForRequest(t, primaryServer.repackIncrChan, expectedPrimaryRepackIncrementalReq, 5*time.Second)
 	waitForRequest(t, primaryServer.repackFullChan, expectedPrimaryRepackFullReq, 5*time.Second)
 	waitForRequest(t, primaryServer.cleanupChan, expectedPrimaryCleanup, 5*time.Second)
+	waitForRequest(t, primaryServer.packRefsChan, expectedPrimaryPackRefs, 5*time.Second)
 
 	secondaryRepository := &gitalypb.Repository{StorageName: secondaryStorage, RelativePath: repositoryRelativePath}
 
@@ -436,57 +444,70 @@ func TestPropagateReplicationJob(t *testing.T) {
 	expectedSecondaryCleanup := expectedPrimaryCleanup
 	expectedSecondaryCleanup.Repository = secondaryRepository
 
+	expectedSecondaryPackRefs := expectedPrimaryPackRefs
+	expectedSecondaryPackRefs.Repository = secondaryRepository
+
 	// ensure secondary gitaly server received the expected requests
 	waitForRequest(t, secondaryServer.gcChan, expectedSecondaryGcReq, 5*time.Second)
 	waitForRequest(t, secondaryServer.repackIncrChan, expectedSecondaryRepackIncrementalReq, 5*time.Second)
 	waitForRequest(t, secondaryServer.repackFullChan, expectedSecondaryRepackFullReq, 5*time.Second)
 	waitForRequest(t, secondaryServer.cleanupChan, expectedSecondaryCleanup, 5*time.Second)
+	waitForRequest(t, secondaryServer.packRefsChan, expectedSecondaryPackRefs, 5*time.Second)
 }
 
-type mockRepositoryServer struct {
-	gcChan, repackFullChan, repackIncrChan, cleanupChan chan proto.Message
+type mockServer struct {
+	gcChan, repackFullChan, repackIncrChan, cleanupChan, packRefsChan chan proto.Message
 
 	gitalypb.UnimplementedRepositoryServiceServer
+	gitalypb.UnimplementedRefServiceServer
 }
 
-func newMockRepositoryServer() *mockRepositoryServer {
-	return &mockRepositoryServer{
+func newMockRepositoryServer() *mockServer {
+	return &mockServer{
 		gcChan:         make(chan proto.Message),
 		repackFullChan: make(chan proto.Message),
 		repackIncrChan: make(chan proto.Message),
 		cleanupChan:    make(chan proto.Message),
+		packRefsChan:   make(chan proto.Message),
 	}
 }
 
-func (m *mockRepositoryServer) GarbageCollect(ctx context.Context, in *gitalypb.GarbageCollectRequest) (*gitalypb.GarbageCollectResponse, error) {
+func (m *mockServer) GarbageCollect(ctx context.Context, in *gitalypb.GarbageCollectRequest) (*gitalypb.GarbageCollectResponse, error) {
 	go func() {
 		m.gcChan <- in
 	}()
 	return &gitalypb.GarbageCollectResponse{}, nil
 }
 
-func (m *mockRepositoryServer) RepackFull(ctx context.Context, in *gitalypb.RepackFullRequest) (*gitalypb.RepackFullResponse, error) {
+func (m *mockServer) RepackFull(ctx context.Context, in *gitalypb.RepackFullRequest) (*gitalypb.RepackFullResponse, error) {
 	go func() {
 		m.repackFullChan <- in
 	}()
 	return &gitalypb.RepackFullResponse{}, nil
 }
 
-func (m *mockRepositoryServer) RepackIncremental(ctx context.Context, in *gitalypb.RepackIncrementalRequest) (*gitalypb.RepackIncrementalResponse, error) {
+func (m *mockServer) RepackIncremental(ctx context.Context, in *gitalypb.RepackIncrementalRequest) (*gitalypb.RepackIncrementalResponse, error) {
 	go func() {
 		m.repackIncrChan <- in
 	}()
 	return &gitalypb.RepackIncrementalResponse{}, nil
 }
 
-func (m *mockRepositoryServer) Cleanup(ctx context.Context, in *gitalypb.CleanupRequest) (*gitalypb.CleanupResponse, error) {
+func (m *mockServer) Cleanup(ctx context.Context, in *gitalypb.CleanupRequest) (*gitalypb.CleanupResponse, error) {
 	go func() {
 		m.cleanupChan <- in
 	}()
 	return &gitalypb.CleanupResponse{}, nil
 }
 
-func runMockRepositoryServer(t *testing.T) (*mockRepositoryServer, string, func()) {
+func (m *mockServer) PackRefs(ctx context.Context, in *gitalypb.PackRefsRequest) (*gitalypb.PackRefsResponse, error) {
+	go func() {
+		m.packRefsChan <- in
+	}()
+	return &gitalypb.PackRefsResponse{}, nil
+}
+
+func runMockRepositoryServer(t *testing.T) (*mockServer, string, func()) {
 	server := testhelper.NewTestGrpcServer(t, nil, nil)
 	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
 
@@ -496,6 +517,7 @@ func runMockRepositoryServer(t *testing.T) (*mockRepositoryServer, string, func(
 	mockServer := newMockRepositoryServer()
 
 	gitalypb.RegisterRepositoryServiceServer(server, mockServer)
+	gitalypb.RegisterRefServiceServer(server, mockServer)
 	healthpb.RegisterHealthServer(server, health.NewServer())
 	reflection.Register(server)
 
