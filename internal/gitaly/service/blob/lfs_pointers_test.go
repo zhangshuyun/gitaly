@@ -1,6 +1,7 @@
 package blob
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -631,6 +632,56 @@ func TestFindLFSPointersByRevisions(t *testing.T) {
 	}
 }
 
+func BenchmarkFindLFSPointers(b *testing.B) {
+	gitCmdFactory := git.NewExecCommandFactory(config.Config)
+
+	repoProto, _, cleanup := gittest.CloneBenchRepo(b)
+	defer cleanup()
+	repo := localrepo.New(gitCmdFactory, repoProto, config.Config)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	b.Run("limitless", func(b *testing.B) {
+		_, err := findLFSPointersByRevisions(ctx, repo, gitCmdFactory, []git.Option{
+			git.Flag{"--all"},
+		}, 0)
+		require.NoError(b, err)
+	})
+
+	b.Run("limit", func(b *testing.B) {
+		lfsPointer, err := findLFSPointersByRevisions(ctx, repo, gitCmdFactory, []git.Option{
+			git.Flag{"--all"},
+		}, 1)
+		require.NoError(b, err)
+		require.Len(b, lfsPointer, 1)
+	})
+}
+
+func BenchmarkReadLFSPointers(b *testing.B) {
+	gitCmdFactory := git.NewExecCommandFactory(config.Config)
+
+	repoProto, path, cleanup := gittest.CloneBenchRepo(b)
+	defer cleanup()
+	repo := localrepo.New(gitCmdFactory, repoProto, config.Config)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	candidates := testhelper.MustRunCommand(b, nil, "git", "-C", path, "rev-list", "--in-commit-order", "--objects", "--no-object-names", "--filter=blob:limit=200", "--all")
+
+	b.Run("limitless", func(b *testing.B) {
+		_, err := readLFSPointers(ctx, repo, bytes.NewReader(candidates), 0)
+		require.NoError(b, err)
+	})
+
+	b.Run("limit", func(b *testing.B) {
+		lfsPointer, err := readLFSPointers(ctx, repo, bytes.NewReader(candidates), 1)
+		require.NoError(b, err)
+		require.Len(b, lfsPointer, 1)
+	})
+}
+
 func TestReadLFSPointers(t *testing.T) {
 	gitCmdFactory := git.NewExecCommandFactory(config.Config)
 
@@ -644,7 +695,6 @@ func TestReadLFSPointers(t *testing.T) {
 	for _, tc := range []struct {
 		desc                string
 		input               string
-		filterByObjectName  bool
 		limit               int
 		expectedErr         error
 		expectedLFSPointers []*gitalypb.LFSPointer
@@ -722,12 +772,7 @@ func TestReadLFSPointers(t *testing.T) {
 				lfsPointer5 + " z",
 				lfsPointer6 + " a",
 			}, "\n"),
-			filterByObjectName: true,
-			expectedLFSPointers: []*gitalypb.LFSPointer{
-				lfsPointers[lfsPointer3],
-				lfsPointers[lfsPointer5],
-				lfsPointers[lfsPointer6],
-			},
+			expectedErr: errors.New("object not found"),
 		},
 		{
 			desc: "non-pointer object",
@@ -757,7 +802,7 @@ func TestReadLFSPointers(t *testing.T) {
 			reader := strings.NewReader(tc.input)
 
 			actualLFSPointers, err := readLFSPointers(
-				ctx, repo, gitCmdFactory, reader, tc.filterByObjectName, tc.limit)
+				ctx, repo, reader, tc.limit)
 			if tc.expectedErr == nil {
 				require.NoError(t, err)
 			} else {

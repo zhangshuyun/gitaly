@@ -32,7 +32,7 @@ func (o *ObjectInfo) IsBlob() bool {
 func ParseObjectInfo(stdout *bufio.Reader) (*ObjectInfo, error) {
 	infoLine, err := stdout.ReadString('\n')
 	if err != nil {
-		return nil, fmt.Errorf("read info line: %v", err)
+		return nil, fmt.Errorf("read info line: %w", err)
 	}
 
 	infoLine = strings.TrimSuffix(infoLine, "\n")
@@ -47,7 +47,7 @@ func ParseObjectInfo(stdout *bufio.Reader) (*ObjectInfo, error) {
 
 	objectSize, err := strconv.ParseInt(info[2], 10, 64)
 	if err != nil {
-		return nil, fmt.Errorf("parse object size: %v", err)
+		return nil, fmt.Errorf("parse object size: %w", err)
 	}
 
 	return &ObjectInfo{

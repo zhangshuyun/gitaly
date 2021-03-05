@@ -135,6 +135,7 @@ TEST_EXIT        ?= ${TEST_REPORT_DIR}/go-tests-exit-${TEST_OUTPUT_NAME}.txt
 TEST_REPO_DIR    := ${BUILD_DIR}/testrepos
 TEST_REPO        := ${TEST_REPO_DIR}/gitlab-test.git
 TEST_REPO_GIT    := ${TEST_REPO_DIR}/gitlab-git-test.git
+BENCHMARK_REPO   := ${TEST_REPO_DIR}/benchmark.git
 
 # uniq is a helper function to filter out any duplicate values in the single
 # parameter it accepts.
@@ -234,6 +235,10 @@ test-go: prepare-tests ${GO_JUNIT_REPORT}
 	${Q}$(call run_go_tests) 2>&1 | tee ${TEST_OUTPUT} || echo $$? >${TEST_EXIT}
 	${Q}${GO_JUNIT_REPORT} <${TEST_OUTPUT} >${TEST_REPORT}
 	${Q}exit `cat ${TEST_EXIT}`
+
+.PHONY: test
+bench: TEST_OPTIONS := ${TEST_OPTIONS} -bench=. -run=^$
+bench: ${BENCHMARK_REPO} test-go
 
 .PHONY: test-with-proxies
 test-with-proxies: TEST_OPTIONS  := ${TEST_OPTIONS} -exec ${SOURCE_DIR}/_support/bad-proxies
@@ -492,3 +497,6 @@ ${TEST_REPO_GIT}:
 	mkdir -p $@/refs/heads $@/refs/tags
 	cp ${SOURCE_DIR}/_support/gitlab-git-test.git-packed-refs $@/packed-refs
 	${GIT} -C $@ fsck --no-progress
+
+${BENCHMARK_REPO}:
+	${GIT} clone --bare ${GIT_QUIET} https://gitlab.com/gitlab-org/gitlab-git.git $@
