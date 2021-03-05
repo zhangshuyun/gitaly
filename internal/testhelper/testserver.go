@@ -915,11 +915,13 @@ func WriteTemporaryGitalyConfigFile(t testing.TB, tempDir, gitlabURL, user, pass
 }
 
 // WriteShellSecretFile writes a .gitlab_shell_secret file in the specified directory
-func WriteShellSecretFile(t testing.TB, dir, secretToken string) {
+func WriteShellSecretFile(t testing.TB, dir, secretToken string) string {
 	t.Helper()
 
 	require.NoError(t, os.MkdirAll(dir, os.ModeDir))
-	require.NoError(t, ioutil.WriteFile(filepath.Join(dir, ".gitlab_shell_secret"), []byte(secretToken), 0644))
+	filePath := filepath.Join(dir, ".gitlab_shell_secret")
+	require.NoError(t, ioutil.WriteFile(filePath, []byte(secretToken), 0644))
+	return filePath
 }
 
 // HTTPSettings contains fields for http settings

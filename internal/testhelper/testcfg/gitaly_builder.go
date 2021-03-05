@@ -75,36 +75,52 @@ func (gc *GitalyCfgBuilder) Build(t testing.TB) config.Cfg {
 	t.Helper()
 
 	cfg := gc.cfg
-	cfg.SocketPath = "it is a stub to bypass Validate method"
+	if cfg.SocketPath == "" {
+		cfg.SocketPath = "it is a stub to bypass Validate method"
+	}
 
 	root := gc.tempDir(t)
 
-	cfg.BinDir = filepath.Join(root, "bin.d")
-	require.NoError(t, os.Mkdir(cfg.BinDir, 0755))
-
-	cfg.Logging.Dir = filepath.Join(root, "log.d")
-	require.NoError(t, os.Mkdir(cfg.Logging.Dir, 0755))
-
-	cfg.GitlabShell.Dir = filepath.Join(root, "shell.d")
-	require.NoError(t, os.Mkdir(cfg.GitlabShell.Dir, 0755))
-
-	cfg.InternalSocketDir = filepath.Join(root, "internal_socks.d")
-	require.NoError(t, os.Mkdir(cfg.InternalSocketDir, 0755))
-
-	storagesDir := filepath.Join(root, "storages.d")
-	require.NoError(t, os.Mkdir(storagesDir, 0755))
-
-	if len(gc.storages) == 0 {
-		gc.storages = []string{"default"}
+	if cfg.BinDir == "" {
+		cfg.BinDir = filepath.Join(root, "bin.d")
+		require.NoError(t, os.Mkdir(cfg.BinDir, 0755))
 	}
 
-	// creation of the required storages (empty storage directories)
-	cfg.Storages = make([]config.Storage, len(gc.storages))
-	for i, storageName := range gc.storages {
-		storagePath := filepath.Join(storagesDir, storageName)
-		require.NoError(t, os.MkdirAll(storagePath, 0755))
-		cfg.Storages[i].Name = storageName
-		cfg.Storages[i].Path = storagePath
+	if cfg.Logging.Dir == "" {
+		cfg.Logging.Dir = filepath.Join(root, "log.d")
+		require.NoError(t, os.Mkdir(cfg.Logging.Dir, 0755))
+	}
+
+	if cfg.GitlabShell.Dir == "" {
+		cfg.GitlabShell.Dir = filepath.Join(root, "shell.d")
+		require.NoError(t, os.Mkdir(cfg.GitlabShell.Dir, 0755))
+	}
+
+	if cfg.InternalSocketDir == "" {
+		cfg.InternalSocketDir = filepath.Join(root, "internal_socks.d")
+		require.NoError(t, os.Mkdir(cfg.InternalSocketDir, 0755))
+	}
+
+	if len(cfg.Storages) != 0 && len(gc.storages) != 0 {
+		require.FailNow(t, "invalid configuration build setup: fix storages configured")
+	}
+
+	if len(cfg.Storages) == 0 {
+		storagesDir := filepath.Join(root, "storages.d")
+		require.NoError(t, os.Mkdir(storagesDir, 0755))
+
+		if len(gc.storages) == 0 {
+			gc.storages = []string{"default"}
+		}
+
+		// creation of the required storages (empty storage directories)
+		cfg.Storages = make([]config.Storage, len(gc.storages))
+		for i, storageName := range gc.storages {
+			storagePath := filepath.Join(storagesDir, storageName)
+			require.NoError(t, os.MkdirAll(storagePath, 0755))
+			cfg.Storages[i].Name = storageName
+			cfg.Storages[i].Path = storagePath
+		}
 	}
 
 	require.NoError(t, testhelper.ConfigureRuby(&cfg))
@@ -123,7 +139,7 @@ func (gc *GitalyCfgBuilder) BuildWithRepoAt(t testing.TB, relativePath string) (
 	// clone the test repo to the each storage
 	repos := make([]*gitalypb.Repository, len(cfg.Storages))
 	for i, gitalyStorage := range cfg.Storages {
-		repos[i], _, _ = gittest.CloneRepoAtStorage(t, gitalyStorage, relativePath)
+		repos[i] = gittest.CloneRepoAtStorageRoot(t, gitalyStorage.Path, relativePath)
 		repos[i].StorageName = gitalyStorage.Name
 	}
 
