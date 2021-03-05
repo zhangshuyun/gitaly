@@ -1,0 +1,5 @@
+---
+title: 'repository: Remove harmful `name` paramater in FetchRemote'
+merge_request: 3227
+author:
+type: removed

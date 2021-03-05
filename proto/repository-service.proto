@@ -628,10 +628,6 @@ message SearchFilesByContentResponse {
 message Remote {
   // url is the URL of the remote repository.
   string url = 1;
-  // name is the name of the remote repository. This is mainly used to
-  // determine where fetched references should end up, e.g. in
-  // `refs/remotes/$name/`.
-  string name = 2;
   // http_authorization_header is the HTTP header which should be added to
   // the request in order to authenticate against the repository.
   string http_authorization_header = 3;
@@ -647,6 +643,15 @@ message Remote {
   //
   // If no refspecs are given, this defaults to "all_refs".
   repeated string mirror_refmaps = 4;
+
+  // Previously, it was possible to specify a remote name. This was quite a
+  // dangerous field to set though: the name was simply used to create an ad-hoc
+  // remote which got deleted afterwards again. So unexpectedly, the remote
+  // isn't retained. And second, if the user chose the name of an existing
+  // remote, then it would've been deleted after the call. So in effect, the
+  // field was at best confusing and useless and at worst actively harmful.
+  reserved 2;
+  reserved "name";
 }
 
 message GetObjectDirectorySizeRequest {
