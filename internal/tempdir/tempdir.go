@@ -36,6 +36,8 @@ const (
 	// storage location.
 	statePrefix = GitalyDataPrefix + "/state"
 
+	streamCachePrefix = GitalyDataPrefix + "/streamcache"
+
 	// MaxAge is used by ForDeleteAllRepositories. It is also a fallback
 	// for the context-scoped temporary directories, to ensure they get
 	// cleaned up if the cleanup at the end of the context failed to run.
@@ -62,6 +64,11 @@ func TempDir(storage config.Storage) string { return AppendTempDir(storage.Path)
 // AppendTempDir will append the temp directory convention to the storage path
 // provided
 func AppendTempDir(storagePath string) string { return filepath.Join(storagePath, tmpRootPrefix) }
+
+// StreamCacheDir returns the streamcache directory for a storage location
+func StreamCacheDir(storage config.Storage) string {
+	return filepath.Join(storage.Path, streamCachePrefix)
+}
 
 // ForDeleteAllRepositories returns a temporary directory for the given storage. It is not context-scoped but it will get removed eventuall (after MaxAge).
 func ForDeleteAllRepositories(locator storage.Locator, storageName string) (string, error) {
