@@ -109,7 +109,7 @@ func splitRawCommit(r io.Reader) ([]byte, []byte, error) {
 
 func buildCommit(header, body []byte, info *catfile.ObjectInfo) (*gitalypb.GitCommit, error) {
 	commit := &gitalypb.GitCommit{
-		Id:       info.Oid,
+		Id:       info.Oid.String(),
 		BodySize: int64(len(body)),
 		Body:     body,
 		Subject:  subjectFromBody(body),

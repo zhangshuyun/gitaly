@@ -83,13 +83,8 @@ func (s *server) applyGitattributes(ctx context.Context, c catfile.Batch, repoPa
 		return err
 	}
 
-	blobOID, err := git.NewObjectIDFromHex(blobInfo.Oid)
-	if err != nil {
-		return err
-	}
-
 	// Vote on the contents of the newly written gitattributes file.
-	if err := s.vote(ctx, blobOID); err != nil {
+	if err := s.vote(ctx, blobInfo.Oid); err != nil {
 		return fmt.Errorf("could not commit gitattributes: %w", err)
 	}
 

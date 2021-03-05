@@ -83,7 +83,7 @@ func sendTreeEntry(stream gitalypb.CommitService_TreeEntryServer, c catfile.Batc
 
 	response := &gitalypb.TreeEntryResponse{
 		Type: gitalypb.TreeEntryResponse_BLOB,
-		Oid:  objectInfo.Oid,
+		Oid:  objectInfo.Oid.String(),
 		Size: objectInfo.Size,
 		Mode: treeEntry.Mode,
 	}

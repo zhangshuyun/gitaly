@@ -158,7 +158,7 @@ func changeFromDiff(ctx context.Context, batch catfile.Batch, d *rawdiff.Diff) (
 			return nil, fmt.Errorf("find %q: %v", shortBlobID, err)
 		}
 
-		resp.BlobId = info.Oid
+		resp.BlobId = info.Oid.String()
 		resp.Size = info.Size
 	}
 

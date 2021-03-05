@@ -387,7 +387,7 @@ func readLFSPointers(
 		lfsPointers = append(lfsPointers, &gitalypb.LFSPointer{
 			Data: data,
 			Size: int64(len(data)),
-			Oid:  objectInfo.Oid,
+			Oid:  objectInfo.Oid.String(),
 		})
 
 		// Exit early in case we've got all LFS pointers. We want to do this here instead of
