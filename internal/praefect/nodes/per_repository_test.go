@@ -3,11 +3,16 @@
 package nodes
 
 import (
+	"context"
+	"database/sql"
+	"errors"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 )
 
@@ -441,4 +446,41 @@ func TestPerRepositoryElector(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestPerRepositoryElector_Retry(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	dbCalls := 0
+	handleErrorCalls := 0
+	elector := NewPerRepositoryElector(
+		testhelper.DiscardTestLogger(t),
+		&glsql.MockQuerier{
+			ExecContextFunc: func(context.Context, string, ...interface{}) (sql.Result, error) {
+				dbCalls++
+				return nil, assert.AnError
+			},
+		},
+		HealthCheckerFunc(func() map[string][]string { return map[string][]string{} }),
+	)
+	elector.retryWait = time.Nanosecond
+	elector.handleError = func(err error) error {
+		handleErrorCalls++
+		require.True(t, errors.Is(err, assert.AnError))
+
+		if handleErrorCalls == 2 {
+			cancel()
+		}
+
+		return nil
+	}
+
+	// we are only sending one trigger, second attempt must come from the retry logic
+	trigger := make(chan struct{}, 1)
+	trigger <- struct{}{}
+
+	require.Equal(t, context.Canceled, elector.Run(ctx, trigger))
+	require.Equal(t, dbCalls, 2)
+	require.Equal(t, handleErrorCalls, 2)
 }
