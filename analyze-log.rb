@@ -2,14 +2,14 @@ require 'oj'
 require 'time'
 
 class Record
-  attr_reader :key, :created_at, :size
+  attr_reader :created_at, :key, :size, :repo_storage, :project_path
 
   def initialize(json)
-    json_payload = json.fetch('jsonPayload')
-
-    @key = json_payload.fetch('cache_key')
     @created_at = Time.parse(json.fetch('timestamp'))
-    @size = Integer(json_payload.fetch('stdout_bytes')) + Integer(json_payload.fetch('stderr_bytes'))
+    @key = json.fetch('cache_key')
+    @size = Integer(json.fetch('stdout_bytes')) + Integer(json.fetch('stderr_bytes'))
+    @repo_storage = json.fetch('repo_storage')
+    @project_path = json.fetch('project_path')
   end
 end
 
