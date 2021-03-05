@@ -1,6 +1,21 @@
 require 'oj'
 require 'time'
 
+# This script takes log data on standard input and simulates the results
+# of different cache expiry times. The data expected is
+# newline-delimited JSON (one JSON object per line) with the
+# following keys:
+# - timestamp
+# - cache_key
+# - repo_storage
+# - project_path
+# - stdout_bytes
+# - stderr_bytes
+#
+# By default, it produces a row per (expiry, repo_storage) pair. To
+# change the second part of that pair to be project_path, pass
+# project_path as the first argument.
+
 class Record
   attr_reader :created_at, :key, :size, :repo_storage, :project_path
 
@@ -14,20 +29,21 @@ class Record
 end
 
 def main
+  facet_by = ARGV[0] || 'repo_storage'
   records = []
 
   while rec = next_record
     records << rec
   end
 
-  puts 'Expiry,Server,Hits,Misses,Hit bytes,Miss bytes,Max size'
+  puts "Expiry,#{facet_by},Hits,Misses,Hit bytes,Miss bytes,Max size"
 
   [2, 5, 10].each do |minutes|
-    simulate(records, minutes*60)
+    simulate(records, minutes*60, facet_by)
   end
 end
 
-def simulate(records, expiry, facet_by = :repo_storage)
+def simulate(records, expiry, facet_by)
   cache = {}
   facets = {}
 
