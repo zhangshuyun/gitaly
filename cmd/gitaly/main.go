@@ -88,7 +88,7 @@ func configure(configPath string) (config.Cfg, error) {
 		return config.Cfg{}, fmt.Errorf("load config: config_path %q: %w", configPath, err)
 	}
 
-	glog.Configure(cfg.Logging.Format, cfg.Logging.Level)
+	glog.Configure(glog.Loggers, cfg.Logging.Format, cfg.Logging.Level)
 
 	if err := cgroups.NewManager(cfg.Cgroups).Setup(); err != nil {
 		return config.Cfg{}, fmt.Errorf("failed setting up cgroups: %w", err)

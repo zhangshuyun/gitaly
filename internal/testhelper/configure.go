@@ -28,7 +28,7 @@ var (
 // terminates the program.
 func Configure() func() {
 	configureOnce.Do(func() {
-		gitalylog.Configure("json", "panic")
+		gitalylog.Configure(gitalylog.Loggers, "json", "panic")
 
 		var err error
 		testDirectory, err = ioutil.TempDir("", "gitaly-")

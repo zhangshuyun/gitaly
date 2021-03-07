@@ -1,0 +1,5 @@
+---
+title: Fix text logging format erroring out
+merge_request: 3222
+author:
+type: fixed
