@@ -34,35 +34,37 @@ var (
 	GoGetLFSPointers = FeatureFlag{Name: "go_get_lfs_pointers", OnByDefault: false}
 	// GoGetNewPointers enables the Go implementation of GetNewLFSPointers
 	GoGetNewLFSPointers = FeatureFlag{Name: "go_get_new_lfs_pointers", OnByDefault: false}
+	// UploadPackGitalyHooks makes git-upload-pack use gitaly-hooks to run pack-objects
+	UploadPackGitalyHooks = FeatureFlag{Name: "upload_pack_gitaly_hooks", OnByDefault: false}
 
 	// TxApplyBfgObjectMapStream enables transactions for ApplyBfgObjectMapStream
 	TxApplyBfgObjectMapStream = FeatureFlag{Name: "tx_apply_bfg_object_map_stream", OnByDefault: true}
 	// TxApplyGitattributes enables transactions for ApplyGitattributes
-	TxApplyGitattributes = FeatureFlag{Name: "tx_apply_gitattributes", OnByDefault: false}
+	TxApplyGitattributes = FeatureFlag{Name: "tx_apply_gitattributes", OnByDefault: true}
 	// TxResolveConflicts enables transactions for ResolveConflicts
-	TxResolveConflicts = FeatureFlag{Name: "tx_resolve_conflicts", OnByDefault: false}
+	TxResolveConflicts = FeatureFlag{Name: "tx_resolve_conflicts", OnByDefault: true}
 	// TxFetchIntoObjectPool enables transactions for FetchIntoObjectPool
 	TxFetchIntoObjectPool = FeatureFlag{Name: "tx_fetch_into_object_pool", OnByDefault: true}
 	// TxUserApplyPatch enables transactions for UserApplyPatch
-	TxUserApplyPatch = FeatureFlag{Name: "tx_user_apply_patch", OnByDefault: false}
+	TxUserApplyPatch = FeatureFlag{Name: "tx_user_apply_patch", OnByDefault: true}
 	// TxUserCherryPick enables transactions for UserCherryPick
-	TxUserCherryPick = FeatureFlag{Name: "tx_user_cherry_pick", OnByDefault: false}
+	TxUserCherryPick = FeatureFlag{Name: "tx_user_cherry_pick", OnByDefault: true}
 	// TxUserCommitFiles enables transactions for UserCommitFiles
-	TxUserCommitFiles = FeatureFlag{Name: "tx_user_commit_files", OnByDefault: false}
+	TxUserCommitFiles = FeatureFlag{Name: "tx_user_commit_files", OnByDefault: true}
 	// TxUserFFBranch enables transactions for UserFFBranch
-	TxUserFFBranch = FeatureFlag{Name: "tx_user_ff_branch", OnByDefault: false}
+	TxUserFFBranch = FeatureFlag{Name: "tx_user_ff_branch", OnByDefault: true}
 	// TxUserMergeBranch enables transactions for UserMergeBranch
-	TxUserMergeBranch = FeatureFlag{Name: "tx_user_merge_branch", OnByDefault: false}
+	TxUserMergeBranch = FeatureFlag{Name: "tx_user_merge_branch", OnByDefault: true}
 	// TxUserMergeToRef enables transactions for UserMergeToRef
-	TxUserMergeToRef = FeatureFlag{Name: "tx_user_merge_to_ref", OnByDefault: false}
+	TxUserMergeToRef = FeatureFlag{Name: "tx_user_merge_to_ref", OnByDefault: true}
 	// TxUserRebaseConfirmable enables transactions for UserRebaseConfirmable
-	TxUserRebaseConfirmable = FeatureFlag{Name: "tx_user_rebase_confirmable", OnByDefault: false}
+	TxUserRebaseConfirmable = FeatureFlag{Name: "tx_user_rebase_confirmable", OnByDefault: true}
 	// TxUserRevert enables transactions for UserRevert
-	TxUserRevert = FeatureFlag{Name: "tx_user_revert", OnByDefault: false}
+	TxUserRevert = FeatureFlag{Name: "tx_user_revert", OnByDefault: true}
 	// TxUserSquash enables transactions for UserSquash
-	TxUserSquash = FeatureFlag{Name: "tx_user_squash", OnByDefault: false}
+	TxUserSquash = FeatureFlag{Name: "tx_user_squash", OnByDefault: true}
 	// TxUserUpdateSubmodule enables transactions for UserUpdateSubmodule
-	TxUserUpdateSubmodule = FeatureFlag{Name: "tx_user_update_submodule", OnByDefault: false}
+	TxUserUpdateSubmodule = FeatureFlag{Name: "tx_user_update_submodule", OnByDefault: true}
 	// TxDeleteRefs enables transactions for DeleteRefs
 	TxDeleteRefs = FeatureFlag{Name: "tx_delete_refs", OnByDefault: true}
 	// TxAddRemote enables transactions for AddRemote
@@ -70,9 +72,9 @@ var (
 	// TxFetchInternalRemote enables transactions for FetchInternalRemote
 	TxFetchInternalRemote = FeatureFlag{Name: "tx_fetch_internal_remote", OnByDefault: true}
 	// TxRemoveRemote enables transactions for RemoveRemote
-	TxRemoveRemote = FeatureFlag{Name: "tx_remove_remote", OnByDefault: false}
+	TxRemoveRemote = FeatureFlag{Name: "tx_remove_remote", OnByDefault: true}
 	// TxUpdateRemoteMirror enables transactions for UpdateRemoteMirror
-	TxUpdateRemoteMirror = FeatureFlag{Name: "tx_update_remote_mirror", OnByDefault: false}
+	TxUpdateRemoteMirror = FeatureFlag{Name: "tx_update_remote_mirror", OnByDefault: true}
 	// TxCloneFromPool enables transactions for CloneFromPool
 	TxCloneFromPool = FeatureFlag{Name: "tx_clone_from_pool", OnByDefault: true}
 	// TxCloneFromPoolInternal enables transactions for CloneFromPoolInternal
@@ -94,13 +96,11 @@ var (
 	// TxWriteRef enables transactions for WriteRef
 	TxWriteRef = FeatureFlag{Name: "tx_write_ref", OnByDefault: true}
 	// TxWikiDeletePage enables transactions for WikiDeletePage
-	TxWikiDeletePage = FeatureFlag{Name: "tx_wiki_delete_page", OnByDefault: false}
+	TxWikiDeletePage = FeatureFlag{Name: "tx_wiki_delete_page", OnByDefault: true}
 	// TxWikiUpdatePage enables transactions for WikiUpdatePage
-	TxWikiUpdatePage = FeatureFlag{Name: "tx_wiki_update_page", OnByDefault: false}
+	TxWikiUpdatePage = FeatureFlag{Name: "tx_wiki_update_page", OnByDefault: true}
 	// TxWikiWritePage enables transactions for WikiWritePage
-	TxWikiWritePage = FeatureFlag{Name: "tx_wiki_write_page", OnByDefault: false}
-	// UploadPackGitalyHooks makes git-upload-pack use gitaly-hooks to run pack-objects
-	UploadPackGitalyHooks = FeatureFlag{Name: "upload_pack_gitaly_hooks", OnByDefault: false}
+	TxWikiWritePage = FeatureFlag{Name: "tx_wiki_write_page", OnByDefault: true}
 )
 
 // All includes all feature flags.

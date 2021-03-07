@@ -1,0 +1,5 @@
+---
+title: 'featureflag: Enable transactional behaviour for all repository-scoped mutators'
+merge_request: 3214
+author:
+type: added
