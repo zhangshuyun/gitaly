@@ -22,7 +22,7 @@ gem 'gitlab-labkit', '~> 0.12.0'
 # This version needs to be in sync with GitLab CE/EE
 gem 'licensee', '~> 8.9.0'
 
-gem 'google-protobuf', '~> 3.12'
+gem 'google-protobuf', '~> 3.14.0'
 
 group :development, :test do
   gem 'rubocop', '~> 0.69', require: false
