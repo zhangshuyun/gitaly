@@ -328,3 +328,12 @@ func WithConfig(configPairs ...ConfigPair) CmdOpt {
 		return nil
 	}
 }
+
+// WithGlobalOption adds the global options to the command. These are universal options which work
+// across all git commands.
+func WithGlobalOption(opts ...GlobalOption) CmdOpt {
+	return func(c *cmdCfg) error {
+		c.globals = append(c.globals, opts...)
+		return nil
+	}
+}
