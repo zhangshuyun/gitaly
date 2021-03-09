@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
@@ -154,14 +153,8 @@ func (s *Server) UserDeleteBranch(ctx context.Context, req *gitalypb.UserDeleteB
 		return nil, status.Errorf(codes.InvalidArgument, "Bad Request (empty user)")
 	}
 
-	referenceFmt := "refs/heads/%s"
-	if strings.HasPrefix(string(req.BranchName), "refs/") {
-		// Not the same behavior as UserCreateBranch. This is
-		// Ruby bug emulation. See
-		// https://gitlab.com/gitlab-org/gitaly/-/issues/3218
-		referenceFmt = "%s"
-	}
-	referenceName := fmt.Sprintf(referenceFmt, req.BranchName)
+	referenceName := fmt.Sprintf("refs/heads/%s", req.BranchName)
+
 	referenceValue, err := localrepo.New(s.gitCmdFactory, req.Repository, s.cfg).GetReference(ctx, git.ReferenceName(referenceName))
 	if err != nil {
 		return nil, status.Errorf(codes.FailedPrecondition, "branch not found: %s", req.BranchName)

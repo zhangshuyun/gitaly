@@ -1,0 +1,5 @@
+---
+title: 'operations: Fix deletion of branches with prefix'
+merge_request: 3228
+author:
+type: fixed

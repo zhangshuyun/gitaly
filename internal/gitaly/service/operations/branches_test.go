@@ -467,7 +467,6 @@ func testSuccessfulUserDeleteBranchRequest(t *testing.T, ctx context.Context) {
 			branchCommit:    "c7fbe50c7c7419d9701eebe64b1fdacc3df5b9dd",
 			user:            testhelper.TestUser,
 			response:        &gitalypb.UserDeleteBranchResponse{},
-			err:             nil,
 		},
 		{
 			desc:            "partially prefixed successful deletion",
@@ -475,7 +474,13 @@ func testSuccessfulUserDeleteBranchRequest(t *testing.T, ctx context.Context) {
 			branchCommit:    "9a944d90955aaf45f6d0c88f30e27f8d2c41cec0",
 			user:            testhelper.TestUser,
 			response:        &gitalypb.UserDeleteBranchResponse{},
-			err:             nil,
+		},
+		{
+			desc:            "branch with refs/heads/ prefix",
+			branchNameInput: "refs/heads/branch",
+			branchCommit:    "9a944d90955aaf45f6d0c88f30e27f8d2c41cec0",
+			user:            testhelper.TestUser,
+			response:        &gitalypb.UserDeleteBranchResponse{},
 		},
 	}
 
@@ -483,14 +488,12 @@ func testSuccessfulUserDeleteBranchRequest(t *testing.T, ctx context.Context) {
 		t.Run(testCase.desc, func(t *testing.T) {
 			testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", testCase.branchNameInput, testCase.branchCommit)
 
-			request := &gitalypb.UserDeleteBranchRequest{
+			response, err := client.UserDeleteBranch(ctx, &gitalypb.UserDeleteBranchRequest{
 				Repository: testRepo,
 				BranchName: []byte(testCase.branchNameInput),
 				User:       testCase.user,
-			}
-
-			response, err := client.UserDeleteBranch(ctx, request)
-			require.Equal(t, testCase.err, err)
+			})
+			require.NoError(t, err)
 			testhelper.ProtoEqual(t, testCase.response, response)
 
 			refs := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "for-each-ref", "--", "refs/heads/"+testCase.branchNameInput)
@@ -654,60 +657,6 @@ func TestFailedUserDeleteBranchDueToValidation(t *testing.T) {
 			response, err := client.UserDeleteBranch(ctx, testCase.request)
 			require.Equal(t, testCase.err, err)
 			testhelper.ProtoEqual(t, testCase.response, response)
-		})
-	}
-}
-
-func TestUserDeleteBranchFailedDueToRefsHeadsPrefix(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
-
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testCases := []struct {
-		desc            string
-		branchNameInput string
-		branchCommit    string
-		user            *gitalypb.User
-		response        *gitalypb.UserDeleteBranchResponse
-		err             error
-	}{
-		{
-			// TODO: Make this possible. See
-			// https://gitlab.com/gitlab-org/gitaly/-/issues/3343
-			desc:            "not possible to delete a branch called refs/heads/something",
-			branchNameInput: "refs/heads/can-not-find-this",
-			branchCommit:    "c642fe9b8b9f28f9225d7ea953fe14e74748d53b",
-			user:            testhelper.TestUser,
-			response:        nil,
-			err:             status.Errorf(codes.FailedPrecondition, "branch not found: %s", "refs/heads/can-not-find-this"),
-		},
-	}
-
-	for _, testCase := range testCases {
-		t.Run(testCase.desc, func(t *testing.T) {
-			testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", testCase.branchNameInput, testCase.branchCommit)
-			defer testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", "-d", testCase.branchNameInput)
-
-			request := &gitalypb.UserDeleteBranchRequest{
-				Repository: testRepo,
-				BranchName: []byte(testCase.branchNameInput),
-				User:       testCase.user,
-			}
-
-			response, err := client.UserDeleteBranch(ctx, request)
-			require.Equal(t, testCase.err, err)
-			testhelper.ProtoEqual(t, testCase.response, response)
-
-			refs := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "for-each-ref", "--", "refs/heads/"+testCase.branchNameInput)
-			require.Contains(t, string(refs), testCase.branchCommit, "branch kept because we stripped off refs/heads/*")
 		})
 	}
 }
