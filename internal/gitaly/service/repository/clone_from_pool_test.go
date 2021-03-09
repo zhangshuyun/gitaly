@@ -50,7 +50,6 @@ func TestCloneFromPoolHTTP(t *testing.T) {
 		Repository: forkedRepo,
 		Remote: &gitalypb.Remote{
 			Url:                     remoteURL,
-			Name:                    "geo",
 			HttpAuthorizationHeader: authorizationHeader,
 			MirrorRefmaps:           []string{"all_refs"},
 		},

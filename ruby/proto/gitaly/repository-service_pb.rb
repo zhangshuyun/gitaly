@@ -286,7 +286,6 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
     end
     add_message "gitaly.Remote" do
       optional :url, :string, 1
-      optional :name, :string, 2
       optional :http_authorization_header, :string, 3
       repeated :mirror_refmaps, :string, 4
     end
