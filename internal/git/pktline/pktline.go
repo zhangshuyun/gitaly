@@ -9,10 +9,11 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"sync"
 )
 
 const (
-	maxPktSize = 0xffff
+	maxPktSize = 65520 // https://gitlab.com/gitlab-org/git/-/blob/v2.30.0/pkt-line.h#L216
 	pktDelim   = "0001"
 )
 
@@ -100,11 +101,81 @@ func pktLineSplitter(data []byte, atEOF bool) (advance int, token []byte, err er
 		// data contains incomplete packet
 
 		if atEOF {
-			return 0, nil, fmt.Errorf("pktLineSplitter: less than %d bytes in input %q", pktLength, data)
+			return 0, nil, io.ErrUnexpectedEOF
 		}
 
 		return 0, nil, nil // want more data
 	}
 
 	return pktLength, data[:pktLength], nil
+}
+
+// SidebandWriter multiplexes byte streams into a single side-band-64k stream.
+type SidebandWriter struct {
+	w io.Writer
+	m sync.Mutex
+}
+
+// NewSidebandWriter instantiates a new SidebandWriter.
+func NewSidebandWriter(w io.Writer) *SidebandWriter { return &SidebandWriter{w: w} }
+
+func (sw *SidebandWriter) writeBand(band byte, data []byte) (int, error) {
+	sw.m.Lock()
+	defer sw.m.Unlock()
+
+	n := 0
+	for len(data) > 0 {
+		chunkSize := len(data)
+		const headerSize = 5
+		if max := maxPktSize - headerSize; chunkSize > max {
+			chunkSize = max
+		}
+
+		if _, err := fmt.Fprintf(sw.w, "%04x%s", chunkSize+headerSize, []byte{band}); err != nil {
+			return n, err
+		}
+
+		if _, err := sw.w.Write(data[:chunkSize]); err != nil {
+			return n, err
+		}
+		data = data[chunkSize:]
+		n += chunkSize
+	}
+
+	return n, nil
+}
+
+// Writer returns an io.Writer that writes into the multiplexed stream.
+// Writers for different bands can be used concurrently.
+func (sw *SidebandWriter) Writer(band byte) io.Writer {
+	return writerFunc(func(p []byte) (int, error) {
+		return sw.writeBand(band, p)
+	})
+}
+
+type writerFunc func([]byte) (int, error)
+
+func (wf writerFunc) Write(p []byte) (int, error) { return wf(p) }
+
+type errNotSideband struct{ pkt string }
+
+func (err *errNotSideband) Error() string { return fmt.Sprintf("invalid sideband packet: %q", err.pkt) }
+
+// EachSidebandPacket iterates over a side-band-64k pktline stream. For
+// each packet, it will call fn with the band ID and the packet. Fn must
+// not retain the packet.
+func EachSidebandPacket(r io.Reader, fn func(byte, []byte) error) error {
+	scanner := NewScanner(r)
+
+	for scanner.Scan() {
+		data := Data(scanner.Bytes())
+		if len(data) == 0 {
+			return &errNotSideband{scanner.Text()}
+		}
+		if err := fn(data[0], data[1:]); err != nil {
+			return err
+		}
+	}
+
+	return scanner.Err()
 }
