@@ -256,7 +256,7 @@ func TestWithConfig(t *testing.T) {
 
 			for expectedKey, expectedValue := range tc.expectedValues {
 				var stdout bytes.Buffer
-				configCmd, err := gitCmdFactory.NewWithoutRepo(ctx, nil, SubCmd{
+				configCmd, err := gitCmdFactory.NewWithoutRepo(ctx, SubCmd{
 					Name: "config",
 					Args: []string{expectedKey},
 				}, WithStdout(&stdout), option)

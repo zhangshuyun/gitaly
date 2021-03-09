@@ -37,7 +37,7 @@ type CommandFactory interface {
 	// New creates a new command for the repo repository.
 	New(ctx context.Context, repo repository.GitRepo, globals []GlobalOption, sc Cmd, opts ...CmdOpt) (*command.Command, error)
 	// NewWithoutRepo creates a command without a target repository.
-	NewWithoutRepo(ctx context.Context, globals []GlobalOption, sc Cmd, opts ...CmdOpt) (*command.Command, error)
+	NewWithoutRepo(ctx context.Context, sc Cmd, opts ...CmdOpt) (*command.Command, error)
 	// NewWithDir creates a command without a target repository that would be executed in dir directory.
 	NewWithDir(ctx context.Context, dir string, sc Cmd, opts ...CmdOpt) (*command.Command, error)
 }
@@ -64,8 +64,8 @@ func (cf *ExecCommandFactory) New(ctx context.Context, repo repository.GitRepo, 
 }
 
 // NewWithoutRepo creates a command without a target repository.
-func (cf *ExecCommandFactory) NewWithoutRepo(ctx context.Context, globals []GlobalOption, sc Cmd, opts ...CmdOpt) (*command.Command, error) {
-	return cf.newCommand(ctx, nil, "", globals, sc, opts...)
+func (cf *ExecCommandFactory) NewWithoutRepo(ctx context.Context, sc Cmd, opts ...CmdOpt) (*command.Command, error) {
+	return cf.newCommand(ctx, nil, "", nil, sc, opts...)
 }
 
 // NewWithDir creates a new command.Command whose working directory is set

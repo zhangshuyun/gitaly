@@ -58,7 +58,7 @@ func (s *server) handleInfoRefs(ctx context.Context, service string, req *gitaly
 	}
 	cmdOpts = append(cmdOpts, git.WithConfig(config...))
 
-	cmd, err := s.gitCmdFactory.NewWithoutRepo(ctx, nil, git.SubCmd{
+	cmd, err := s.gitCmdFactory.NewWithoutRepo(ctx, git.SubCmd{
 		Name:  service,
 		Flags: []git.Option{git.Flag{Name: "--stateless-rpc"}, git.Flag{Name: "--advertise-refs"}},
 		Args:  []string{repoPath},

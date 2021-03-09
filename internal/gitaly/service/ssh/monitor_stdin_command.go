@@ -16,7 +16,7 @@ func monitorStdinCommand(ctx context.Context, gitCmdFactory git.CommandFactory, 
 		return nil, nil, fmt.Errorf("create monitor: %v", err)
 	}
 
-	cmd, err := gitCmdFactory.NewWithoutRepo(ctx, nil, sc, append([]git.CmdOpt{
+	cmd, err := gitCmdFactory.NewWithoutRepo(ctx, sc, append([]git.CmdOpt{
 		git.WithStdin(stdinPipe), git.WithStdout(stdout), git.WithStderr(stderr),
 	}, opts...)...)
 	stdinPipe.Close() // this now belongs to cmd

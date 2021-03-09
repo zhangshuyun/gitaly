@@ -21,7 +21,7 @@ type version struct {
 // Version returns the used git version.
 func Version(ctx context.Context, gitCmdFactory CommandFactory) (string, error) {
 	var buf bytes.Buffer
-	cmd, err := gitCmdFactory.NewWithoutRepo(ctx, nil, SubCmd{
+	cmd, err := gitCmdFactory.NewWithoutRepo(ctx, SubCmd{
 		Name: "version",
 	}, WithStdout(&buf))
 	if err != nil {

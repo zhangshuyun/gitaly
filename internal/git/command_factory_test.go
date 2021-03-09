@@ -37,7 +37,7 @@ func TestGitCommandProxy(t *testing.T) {
 	defer cleanup()
 
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
-	cmd, err := gitCmdFactory.NewWithoutRepo(ctx, nil, git.SubCmd{
+	cmd, err := gitCmdFactory.NewWithoutRepo(ctx, git.SubCmd{
 		Name: "clone",
 		Args: []string{"http://gitlab.com/bogus-repo", dir},
 	}, git.WithDisabledHooks())
