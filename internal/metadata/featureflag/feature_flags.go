@@ -29,9 +29,9 @@ var (
 	// GoUserRevert enables the Go implementation of UserRevert
 	GoUserRevert = FeatureFlag{Name: "go_user_revert", OnByDefault: false}
 	// GoGetAllLFSPointers enables the Go implementation of GetAllLFSPointers
-	GoGetAllLFSPointers = FeatureFlag{Name: "go_get_all_lfs_pointers", OnByDefault: false}
+	GoGetAllLFSPointers = FeatureFlag{Name: "go_get_all_lfs_pointers", OnByDefault: true}
 	// GoGetLFSPointers enables the Go implementation of GetLFSPointers
-	GoGetLFSPointers = FeatureFlag{Name: "go_get_lfs_pointers", OnByDefault: false}
+	GoGetLFSPointers = FeatureFlag{Name: "go_get_lfs_pointers", OnByDefault: true}
 	// GoGetNewPointers enables the Go implementation of GetNewLFSPointers
 	GoGetNewLFSPointers = FeatureFlag{Name: "go_get_new_lfs_pointers", OnByDefault: false}
 	// UploadPackGitalyHooks makes git-upload-pack use gitaly-hooks to run pack-objects
