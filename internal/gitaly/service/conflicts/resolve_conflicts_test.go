@@ -121,7 +121,7 @@ func testSuccessfulResolveConflictsRequest(t *testing.T, ctx context.Context) {
 		testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "read-tree", branch)
 		testhelper.MustRunCommand(t, nil,
 			"git", "-C", testRepoPath,
-			"update-index", "--add", "--cacheinfo", "100644", blobID, missingAncestorPath,
+			"update-index", "--add", "--cacheinfo", "100644", blobID.String(), missingAncestorPath,
 		)
 		treeID := bytes.TrimSpace(
 			testhelper.MustRunCommand(t, nil,

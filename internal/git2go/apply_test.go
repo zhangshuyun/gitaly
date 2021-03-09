@@ -42,7 +42,7 @@ func TestExecutor_Apply(t *testing.T) {
 		Author:     author,
 		Committer:  committer,
 		Message:    "base commit",
-		Actions:    []Action{CreateFile{Path: "file", OID: oidBase}},
+		Actions:    []Action{CreateFile{Path: "file", OID: oidBase.String()}},
 	})
 	require.NoError(t, err)
 
@@ -51,7 +51,7 @@ func TestExecutor_Apply(t *testing.T) {
 		Author:     author,
 		Committer:  committer,
 		Message:    "commit with ab",
-		Actions:    []Action{CreateFile{Path: "file", OID: oidA}},
+		Actions:    []Action{CreateFile{Path: "file", OID: oidA.String()}},
 	})
 	require.NoError(t, err)
 
@@ -61,7 +61,7 @@ func TestExecutor_Apply(t *testing.T) {
 		Committer:  committer,
 		Message:    "commit with a",
 		Parent:     parentCommitSHA,
-		Actions:    []Action{UpdateFile{Path: "file", OID: oidA}},
+		Actions:    []Action{UpdateFile{Path: "file", OID: oidA.String()}},
 	})
 	require.NoError(t, err)
 
@@ -71,7 +71,7 @@ func TestExecutor_Apply(t *testing.T) {
 		Committer:  committer,
 		Message:    "commit to b",
 		Parent:     parentCommitSHA,
-		Actions:    []Action{UpdateFile{Path: "file", OID: oidB}},
+		Actions:    []Action{UpdateFile{Path: "file", OID: oidB.String()}},
 	})
 	require.NoError(t, err)
 
@@ -81,7 +81,7 @@ func TestExecutor_Apply(t *testing.T) {
 		Committer:  committer,
 		Message:    "commit a -> b",
 		Parent:     updateToA,
-		Actions:    []Action{UpdateFile{Path: "file", OID: oidB}},
+		Actions:    []Action{UpdateFile{Path: "file", OID: oidB.String()}},
 	})
 	require.NoError(t, err)
 
@@ -90,7 +90,7 @@ func TestExecutor_Apply(t *testing.T) {
 		Author:     author,
 		Committer:  committer,
 		Message:    "commit with other-file",
-		Actions:    []Action{CreateFile{Path: "other-file", OID: oidA}},
+		Actions:    []Action{CreateFile{Path: "other-file", OID: oidA.String()}},
 	})
 	require.NoError(t, err)
 

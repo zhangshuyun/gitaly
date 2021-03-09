@@ -141,7 +141,7 @@ func (s *Server) UserCreateTag(ctx context.Context, req *gitalypb.UserCreateTagR
 	// At this point we'll either be pointing to an object we were
 	// provided with, or creating a new tag object and pointing to
 	// that.
-	refObjectID := targetObjectID
+	refObjectID := targetObjectID.String()
 	var tagObject *gitalypb.Tag
 	if makingTag {
 		localRepo := localrepo.New(s.gitCmdFactory, repo, s.cfg)
@@ -185,7 +185,7 @@ func (s *Server) UserCreateTag(ctx context.Context, req *gitalypb.UserCreateTagR
 	} else {
 		tagObject = &gitalypb.Tag{
 			Name: req.TagName,
-			Id:   peeledTargetObjectID,
+			Id:   peeledTargetObjectID.String(),
 			//TargetCommit: is filled in below if needed
 		}
 	}
@@ -249,7 +249,7 @@ func (s *Server) UserCreateTag(ctx context.Context, req *gitalypb.UserCreateTagR
 	// Save ourselves looking this up earlier in case update-ref
 	// died
 	if peeledTargetObjectType == "commit" {
-		peeledTargetCommit, err := log.GetCommitCatfile(ctx, catFile, git.Revision(peeledTargetObjectID))
+		peeledTargetCommit, err := log.GetCommitCatfile(ctx, catFile, peeledTargetObjectID.Revision())
 		if err != nil {
 			return nil, status.Error(codes.Internal, err.Error())
 		}

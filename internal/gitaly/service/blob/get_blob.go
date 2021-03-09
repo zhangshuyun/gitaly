@@ -39,7 +39,7 @@ func (s *server) GetBlob(in *gitalypb.GetBlobRequest, stream gitalypb.BlobServic
 	}
 	firstMessage := &gitalypb.GetBlobResponse{
 		Size: objectInfo.Size,
-		Oid:  objectInfo.Oid,
+		Oid:  objectInfo.Oid.String(),
 	}
 
 	if readLimit == 0 {

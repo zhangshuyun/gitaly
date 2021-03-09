@@ -65,13 +65,13 @@ func TestParseRawCommit(t *testing.T) {
 		{
 			desc: "empty commit object",
 			in:   []byte{},
-			out:  &gitalypb.GitCommit{Id: info.Oid},
+			out:  &gitalypb.GitCommit{Id: info.Oid.String()},
 		},
 		{
 			desc: "no email",
 			in:   []byte("author Jane Doe"),
 			out: &gitalypb.GitCommit{
-				Id:     info.Oid,
+				Id:     info.Oid.String(),
 				Author: &gitalypb.CommitAuthor{Name: []byte("Jane Doe")},
 			},
 		},
@@ -79,7 +79,7 @@ func TestParseRawCommit(t *testing.T) {
 			desc: "unmatched <",
 			in:   []byte("author Jane Doe <janedoe@example.com"),
 			out: &gitalypb.GitCommit{
-				Id:     info.Oid,
+				Id:     info.Oid.String(),
 				Author: &gitalypb.CommitAuthor{Name: []byte("Jane Doe")},
 			},
 		},
@@ -87,7 +87,7 @@ func TestParseRawCommit(t *testing.T) {
 			desc: "unmatched >",
 			in:   []byte("author Jane Doe janedoe@example.com>"),
 			out: &gitalypb.GitCommit{
-				Id:     info.Oid,
+				Id:     info.Oid.String(),
 				Author: &gitalypb.CommitAuthor{Name: []byte("Jane Doe janedoe@example.com>")},
 			},
 		},
@@ -95,7 +95,7 @@ func TestParseRawCommit(t *testing.T) {
 			desc: "missing date",
 			in:   []byte("author Jane Doe <janedoe@example.com> "),
 			out: &gitalypb.GitCommit{
-				Id:     info.Oid,
+				Id:     info.Oid.String(),
 				Author: &gitalypb.CommitAuthor{Name: []byte("Jane Doe"), Email: []byte("janedoe@example.com")},
 			},
 		},
@@ -103,7 +103,7 @@ func TestParseRawCommit(t *testing.T) {
 			desc: "date too high",
 			in:   []byte("author Jane Doe <janedoe@example.com> 9007199254740993 +0200"),
 			out: &gitalypb.GitCommit{
-				Id: info.Oid,
+				Id: info.Oid.String(),
 				Author: &gitalypb.CommitAuthor{
 					Name:     []byte("Jane Doe"),
 					Email:    []byte("janedoe@example.com"),
@@ -116,7 +116,7 @@ func TestParseRawCommit(t *testing.T) {
 			desc: "date negative",
 			in:   []byte("author Jane Doe <janedoe@example.com> -1 +0200"),
 			out: &gitalypb.GitCommit{
-				Id: info.Oid,
+				Id: info.Oid.String(),
 				Author: &gitalypb.CommitAuthor{
 					Name:     []byte("Jane Doe"),
 					Email:    []byte("janedoe@example.com"),

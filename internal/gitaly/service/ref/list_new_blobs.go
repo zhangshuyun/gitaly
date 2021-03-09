@@ -62,7 +62,11 @@ func (s *server) listNewBlobs(in *gitalypb.ListNewBlobsRequest, stream gitalypb.
 			continue
 		}
 
-		newBlobs = append(newBlobs, &gitalypb.NewBlobObject{Oid: info.Oid, Size: info.Size, Path: []byte(parts[1])})
+		newBlobs = append(newBlobs, &gitalypb.NewBlobObject{
+			Oid:  info.Oid.String(),
+			Size: info.Size,
+			Path: []byte(parts[1]),
+		})
 		if len(newBlobs) >= 1000 {
 			response := &gitalypb.ListNewBlobsResponse{NewBlobObjects: newBlobs}
 			if err := stream.Send(response); err != nil {

@@ -125,7 +125,7 @@ func treeEntries(ctx context.Context, c catfile.Batch, revision, path string, ro
 			return nil, err
 		}
 
-		rootOid = rootTreeInfo.Oid
+		rootOid = rootTreeInfo.Oid.String()
 	}
 
 	treeObj, err := c.Tree(ctx, git.Revision(fmt.Sprintf("%s:%s", revision, path)))
@@ -136,7 +136,7 @@ func treeEntries(ctx context.Context, c catfile.Batch, revision, path string, ro
 		return nil, err
 	}
 
-	entries, err := extractEntryInfoFromTreeData(treeObj, revision, rootOid, path, treeObj.Oid)
+	entries, err := extractEntryInfoFromTreeData(treeObj, revision, rootOid, path, treeObj.Oid.String())
 	if err != nil {
 		return nil, err
 	}

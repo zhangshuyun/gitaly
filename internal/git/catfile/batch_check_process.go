@@ -13,15 +13,15 @@ import (
 	"gitlab.com/gitlab-org/labkit/correlation"
 )
 
-// batchCheck encapsulates a 'git cat-file --batch-check' process
-type batchCheck struct {
+// batchCheckProcess encapsulates a 'git cat-file --batch-check' process
+type batchCheckProcess struct {
 	r *bufio.Reader
 	w io.WriteCloser
 	sync.Mutex
 }
 
-func newBatchCheck(ctx context.Context, gitCmdFactory git.CommandFactory, repo repository.GitRepo) (*batchCheck, error) {
-	bc := &batchCheck{}
+func newBatchCheckProcess(ctx context.Context, gitCmdFactory git.CommandFactory, repo repository.GitRepo) (*batchCheckProcess, error) {
+	bc := &batchCheckProcess{}
 
 	var stdinReader io.Reader
 	stdinReader, bc.w = io.Pipe()
@@ -59,7 +59,7 @@ func newBatchCheck(ctx context.Context, gitCmdFactory git.CommandFactory, repo r
 	return bc, nil
 }
 
-func (bc *batchCheck) info(revision git.Revision) (*ObjectInfo, error) {
+func (bc *batchCheckProcess) info(revision git.Revision) (*ObjectInfo, error) {
 	bc.Lock()
 	defer bc.Unlock()
 

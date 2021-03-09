@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 )
 
 // ObjectInfo represents a header returned by `git cat-file --batch`
 type ObjectInfo struct {
-	Oid  string
+	Oid  git.ObjectID
 	Type string
 	Size int64
 }
@@ -45,13 +47,18 @@ func ParseObjectInfo(stdout *bufio.Reader) (*ObjectInfo, error) {
 		return nil, fmt.Errorf("invalid info line: %q", infoLine)
 	}
 
+	oid, err := git.NewObjectIDFromHex(info[0])
+	if err != nil {
+		return nil, fmt.Errorf("parse object ID: %w", err)
+	}
+
 	objectSize, err := strconv.ParseInt(info[2], 10, 64)
 	if err != nil {
 		return nil, fmt.Errorf("parse object size: %w", err)
 	}
 
 	return &ObjectInfo{
-		Oid:  info[0],
+		Oid:  oid,
 		Type: info[1],
 		Size: objectSize,
 	}, nil

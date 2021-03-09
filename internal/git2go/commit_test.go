@@ -120,7 +120,7 @@ func TestExecutor_Commit(t *testing.T) {
 			steps: []step{
 				{
 					actions: []Action{
-						CreateFile{Path: "file", OID: originalFile},
+						CreateFile{Path: "file", OID: originalFile.String()},
 					},
 					treeEntries: []gittest.TreeEntry{
 						{Mode: DefaultMode, Path: "file", Content: "original"},
@@ -139,7 +139,7 @@ func TestExecutor_Commit(t *testing.T) {
 			steps: []step{
 				{
 					actions: []Action{
-						CreateFile{Path: "file", OID: originalFile},
+						CreateFile{Path: "file", OID: originalFile.String()},
 					},
 					treeEntries: []gittest.TreeEntry{
 						{Mode: DefaultMode, Path: "file", Content: "original"},
@@ -152,8 +152,8 @@ func TestExecutor_Commit(t *testing.T) {
 			steps: []step{
 				{
 					actions: []Action{
-						CreateFile{Path: "file", OID: originalFile},
-						CreateFile{Path: "file", OID: updatedFile},
+						CreateFile{Path: "file", OID: originalFile.String()},
+						CreateFile{Path: "file", OID: updatedFile.String()},
 					},
 					error: FileExistsError("file"),
 				},
@@ -165,7 +165,7 @@ func TestExecutor_Commit(t *testing.T) {
 				{
 					actions: []Action{
 						CreateDirectory{Path: "directory"},
-						CreateFile{Path: "directory", OID: originalFile},
+						CreateFile{Path: "directory", OID: originalFile.String()},
 					},
 					treeEntries: []gittest.TreeEntry{
 						{Mode: DefaultMode, Path: "directory", Content: "original"},
@@ -178,8 +178,8 @@ func TestExecutor_Commit(t *testing.T) {
 			steps: []step{
 				{
 					actions: []Action{
-						CreateFile{Path: "file", OID: originalFile},
-						UpdateFile{Path: "file", OID: updatedFile},
+						CreateFile{Path: "file", OID: originalFile.String()},
+						UpdateFile{Path: "file", OID: updatedFile.String()},
 					},
 					treeEntries: []gittest.TreeEntry{
 						{Mode: DefaultMode, Path: "file", Content: "updated"},
@@ -192,7 +192,7 @@ func TestExecutor_Commit(t *testing.T) {
 			steps: []step{
 				{
 					actions: []Action{
-						CreateFile{Path: "file", OID: originalFile},
+						CreateFile{Path: "file", OID: originalFile.String()},
 					},
 					treeEntries: []gittest.TreeEntry{
 						{Mode: DefaultMode, Path: "file", Content: "original"},
@@ -200,7 +200,7 @@ func TestExecutor_Commit(t *testing.T) {
 				},
 				{
 					actions: []Action{
-						UpdateFile{Path: "file", OID: updatedFile},
+						UpdateFile{Path: "file", OID: updatedFile.String()},
 					},
 					treeEntries: []gittest.TreeEntry{
 						{Mode: DefaultMode, Path: "file", Content: "updated"},
@@ -213,7 +213,7 @@ func TestExecutor_Commit(t *testing.T) {
 			steps: []step{
 				{
 					actions: []Action{
-						UpdateFile{Path: "non-existing", OID: updatedFile},
+						UpdateFile{Path: "non-existing", OID: updatedFile.String()},
 					},
 					error: FileNotFoundError("non-existing"),
 				},
@@ -224,8 +224,8 @@ func TestExecutor_Commit(t *testing.T) {
 			steps: []step{
 				{
 					actions: []Action{
-						CreateFile{Path: "original-file", OID: originalFile},
-						MoveFile{Path: "original-file", NewPath: "moved-file", OID: originalFile},
+						CreateFile{Path: "original-file", OID: originalFile.String()},
+						MoveFile{Path: "original-file", NewPath: "moved-file", OID: originalFile.String()},
 					},
 					treeEntries: []gittest.TreeEntry{
 						{Mode: DefaultMode, Path: "moved-file", Content: "original"},
@@ -250,7 +250,7 @@ func TestExecutor_Commit(t *testing.T) {
 			steps: []step{
 				{
 					actions: []Action{
-						CreateFile{Path: "original-file", OID: originalFile},
+						CreateFile{Path: "original-file", OID: originalFile.String()},
 					},
 					treeEntries: []gittest.TreeEntry{
 						{Mode: DefaultMode, Path: "original-file", Content: "original"},
@@ -282,8 +282,8 @@ func TestExecutor_Commit(t *testing.T) {
 			steps: []step{
 				{
 					actions: []Action{
-						CreateFile{Path: "source-file", OID: originalFile},
-						CreateFile{Path: "already-existing", OID: updatedFile},
+						CreateFile{Path: "source-file", OID: originalFile.String()},
+						CreateFile{Path: "already-existing", OID: updatedFile.String()},
 						MoveFile{Path: "source-file", NewPath: "already-existing"},
 					},
 					error: FileExistsError("already-existing"),
@@ -297,7 +297,7 @@ func TestExecutor_Commit(t *testing.T) {
 			steps: []step{
 				{
 					actions: []Action{
-						CreateFile{Path: "file", OID: originalFile},
+						CreateFile{Path: "file", OID: originalFile.String()},
 						CreateDirectory{Path: "already-existing"},
 						MoveFile{Path: "file", NewPath: "already-existing"},
 					},
@@ -312,7 +312,7 @@ func TestExecutor_Commit(t *testing.T) {
 			steps: []step{
 				{
 					actions: []Action{
-						CreateFile{Path: "original-file", OID: originalFile},
+						CreateFile{Path: "original-file", OID: originalFile.String()},
 					},
 					treeEntries: []gittest.TreeEntry{
 						{Mode: DefaultMode, Path: "original-file", Content: "original"},
@@ -320,7 +320,7 @@ func TestExecutor_Commit(t *testing.T) {
 				},
 				{
 					actions: []Action{
-						MoveFile{Path: "original-file", NewPath: "moved-file", OID: updatedFile},
+						MoveFile{Path: "original-file", NewPath: "moved-file", OID: updatedFile.String()},
 					},
 					treeEntries: []gittest.TreeEntry{
 						{Mode: DefaultMode, Path: "moved-file", Content: "updated"},
@@ -344,7 +344,7 @@ func TestExecutor_Commit(t *testing.T) {
 			steps: []step{
 				{
 					actions: []Action{
-						CreateFile{Path: "file-1", OID: originalFile},
+						CreateFile{Path: "file-1", OID: originalFile.String()},
 						ChangeFileMode{Path: "file-1", ExecutableMode: true},
 					},
 					treeEntries: []gittest.TreeEntry{
@@ -366,7 +366,7 @@ func TestExecutor_Commit(t *testing.T) {
 			steps: []step{
 				{
 					actions: []Action{
-						CreateFile{Path: "file-1", OID: originalFile},
+						CreateFile{Path: "file-1", OID: originalFile.String()},
 						ChangeFileMode{Path: "file-1", ExecutableMode: true},
 					},
 					treeEntries: []gittest.TreeEntry{
@@ -380,7 +380,7 @@ func TestExecutor_Commit(t *testing.T) {
 			steps: []step{
 				{
 					actions: []Action{
-						CreateFile{Path: "file-1", OID: originalFile},
+						CreateFile{Path: "file-1", OID: originalFile.String()},
 					},
 					treeEntries: []gittest.TreeEntry{
 						{Mode: DefaultMode, Path: "file-1", Content: "original"},
@@ -412,8 +412,8 @@ func TestExecutor_Commit(t *testing.T) {
 			steps: []step{
 				{
 					actions: []Action{
-						CreateFile{Path: "file-1", OID: originalFile},
-						CreateFile{Path: "file-2", OID: updatedFile},
+						CreateFile{Path: "file-1", OID: originalFile.String()},
+						CreateFile{Path: "file-2", OID: updatedFile.String()},
 						MoveFile{Path: "file-1", NewPath: "file-2"},
 					},
 					error: FileExistsError("file-2"),
@@ -436,7 +436,7 @@ func TestExecutor_Commit(t *testing.T) {
 			steps: []step{
 				{
 					actions: []Action{
-						CreateFile{Path: "file-1", OID: originalFile},
+						CreateFile{Path: "file-1", OID: originalFile.String()},
 						DeleteFile{Path: "file-1"},
 					},
 				},
@@ -447,7 +447,7 @@ func TestExecutor_Commit(t *testing.T) {
 			steps: []step{
 				{
 					actions: []Action{
-						CreateFile{Path: "file-1", OID: originalFile},
+						CreateFile{Path: "file-1", OID: originalFile.String()},
 					},
 					treeEntries: []gittest.TreeEntry{
 						{Mode: DefaultMode, Path: "file-1", Content: "original"},
@@ -500,7 +500,7 @@ func TestExecutor_Commit(t *testing.T) {
 func getCommit(t testing.TB, ctx context.Context, repo *localrepo.Repo, oid string) commit {
 	t.Helper()
 
-	data, err := repo.ReadObject(ctx, oid)
+	data, err := repo.ReadObject(ctx, git.ObjectID(oid))
 	require.NoError(t, err)
 
 	var commit commit

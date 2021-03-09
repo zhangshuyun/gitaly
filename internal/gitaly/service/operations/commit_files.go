@@ -270,7 +270,7 @@ func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommi
 			}
 
 			actions = append(actions, git2go.CreateFile{
-				OID:            blobID,
+				OID:            blobID.String(),
 				Path:           path,
 				ExecutableMode: pbAction.header.ExecuteFilemode,
 			})
@@ -285,7 +285,7 @@ func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommi
 				return fmt.Errorf("validate previous path: %w", err)
 			}
 
-			var oid string
+			var oid git.ObjectID
 			if !pbAction.header.InferContent {
 				var err error
 				oid, err = localRepo.WriteBlob(ctx, path, content)
@@ -297,7 +297,7 @@ func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommi
 			actions = append(actions, git2go.MoveFile{
 				Path:    prevPath,
 				NewPath: path,
-				OID:     oid,
+				OID:     oid.String(),
 			})
 		case gitalypb.UserCommitFilesActionHeader_UPDATE:
 			oid, err := localRepo.WriteBlob(ctx, path, content)
@@ -307,7 +307,7 @@ func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommi
 
 			actions = append(actions, git2go.UpdateFile{
 				Path: path,
-				OID:  oid,
+				OID:  oid.String(),
 			})
 		case gitalypb.UserCommitFilesActionHeader_DELETE:
 			actions = append(actions, git2go.DeleteFile{

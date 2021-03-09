@@ -117,7 +117,7 @@ func TestRepo_WriteBlob(t *testing.T) {
 func TestFormatTag(t *testing.T) {
 	for _, tc := range []struct {
 		desc       string
-		objectID   string
+		objectID   git.ObjectID
 		objectType string
 		tagName    []byte
 		userName   []byte
@@ -130,7 +130,7 @@ func TestFormatTag(t *testing.T) {
 		// internal/gitaly/service/operations/tags_test.go
 		{
 			desc:       "basic signature",
-			objectID:   git.ZeroOID.String(),
+			objectID:   git.ZeroOID,
 			objectType: "commit",
 			tagName:    []byte("my-tag"),
 			userName:   []byte("root"),
@@ -139,7 +139,7 @@ func TestFormatTag(t *testing.T) {
 		},
 		{
 			desc:       "basic signature",
-			objectID:   git.ZeroOID.String(),
+			objectID:   git.ZeroOID,
 			objectType: "commit",
 			tagName:    []byte("my-tag\ninjection"),
 			userName:   []byte("root"),
@@ -149,7 +149,7 @@ func TestFormatTag(t *testing.T) {
 		},
 		{
 			desc:       "signature with fixed time",
-			objectID:   git.ZeroOID.String(),
+			objectID:   git.ZeroOID,
 			objectType: "commit",
 			tagName:    []byte("my-tag"),
 			userName:   []byte("root"),
@@ -182,7 +182,7 @@ func TestRepo_WriteTag(t *testing.T) {
 
 	for _, tc := range []struct {
 		desc       string
-		objectID   string
+		objectID   git.ObjectID
 		objectType string
 		tagName    []byte
 		userName   []byte
@@ -231,13 +231,13 @@ func TestRepo_ReadObject(t *testing.T) {
 
 	for _, tc := range []struct {
 		desc    string
-		oid     string
+		oid     git.ObjectID
 		content string
 		error   error
 	}{
 		{
 			desc:  "invalid object",
-			oid:   git.ZeroOID.String(),
+			oid:   git.ZeroOID,
 			error: InvalidObjectError(git.ZeroOID.String()),
 		},
 		{
