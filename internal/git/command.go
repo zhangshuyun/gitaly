@@ -318,3 +318,13 @@ func WithEnv(envs ...string) CmdOpt {
 		return nil
 	}
 }
+
+// WithConfig adds git configuration entries to the command.
+func WithConfig(configPairs ...ConfigPair) CmdOpt {
+	return func(c *cmdCfg) error {
+		for _, configPair := range configPairs {
+			c.globals = append(c.globals, configPair)
+		}
+		return nil
+	}
+}
