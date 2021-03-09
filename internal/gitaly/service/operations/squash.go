@@ -131,8 +131,7 @@ func (s *Server) userSquash(ctx context.Context, req *gitalypb.UserSquashRequest
 
 func (s *Server) diffFiles(ctx context.Context, env []string, repoPath string, req *gitalypb.UserSquashRequest) ([]byte, error) {
 	var stdout, stderr bytes.Buffer
-	cmd, err := s.gitCmdFactory.NewWithoutRepo(ctx,
-		[]git.GlobalOption{git.ValueFlag{Name: "--git-dir", Value: repoPath}},
+	cmd, err := s.gitCmdFactory.NewWithDir(ctx, repoPath, nil,
 		git.SubCmd{
 			Name:  "diff",
 			Flags: []git.Option{git.Flag{Name: "--name-only"}, git.Flag{Name: "--diff-filter=ar"}, git.Flag{Name: "--binary"}},
