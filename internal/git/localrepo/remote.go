@@ -194,8 +194,8 @@ var (
 type FetchOpts struct {
 	// Env is a list of env vars to pass to the cmd.
 	Env []string
-	// Global is a list of global flags to use with 'git' command.
-	Global []git.GlobalOption
+	// CommandOptions is a list of options to use with 'git' command.
+	CommandOptions []git.CmdOpt
 	// Prune if set fetch removes any remote-tracking references that no longer exist on the remote.
 	// https://git-scm.com/docs/git-fetch#Documentation/git-fetch.txt---prune
 	Prune bool
@@ -222,15 +222,20 @@ func (repo *Repo) FetchRemote(ctx context.Context, remoteName string, opts Fetch
 		return err
 	}
 
-	cmd, err := repo.gitCmdFactory.New(ctx, repo, opts.Global,
+	commandOptions := []git.CmdOpt{
+		git.WithEnv(opts.Env...),
+		git.WithStderr(opts.Stderr),
+		git.WithDisabledHooks(),
+	}
+	commandOptions = append(commandOptions, opts.CommandOptions...)
+
+	cmd, err := repo.gitCmdFactory.New(ctx, repo, nil,
 		git.SubCmd{
 			Name:  "fetch",
 			Flags: opts.buildFlags(),
 			Args:  []string{remoteName},
 		},
-		git.WithEnv(opts.Env...),
-		git.WithStderr(opts.Stderr),
-		git.WithDisabledHooks(),
+		commandOptions...,
 	)
 	if err != nil {
 		return err
