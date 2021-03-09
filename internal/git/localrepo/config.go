@@ -23,7 +23,7 @@ func (cfg Config) Add(ctx context.Context, name, value string, opts git.ConfigAd
 		return err
 	}
 
-	if err := cfg.repo.ExecAndWait(ctx, nil, git.SubCmd{
+	if err := cfg.repo.ExecAndWait(ctx, git.SubCmd{
 		Name:  "config",
 		Flags: append(buildConfigAddOptsFlags(opts), git.Flag{Name: "--add"}),
 		Args:  []string{name, value},
@@ -71,7 +71,7 @@ func (cfg Config) GetRegexp(ctx context.Context, nameRegexp string, opts git.Con
 func (cfg Config) getRegexp(ctx context.Context, nameRegexp string, opts git.ConfigGetRegexpOpts) ([]byte, error) {
 	var stderr, stdout bytes.Buffer
 
-	if err := cfg.repo.ExecAndWait(ctx, nil,
+	if err := cfg.repo.ExecAndWait(ctx,
 		git.SubCmd{
 			Name: "config",
 			// '--null' is used to support proper parsing of the multiline config values
@@ -166,7 +166,7 @@ func (cfg Config) parseConfig(data []byte, opts git.ConfigGetRegexpOpts) ([]git.
 
 // Unset unsets the given config entry.
 func (cfg Config) Unset(ctx context.Context, name string, opts git.ConfigUnsetOpts) error {
-	if err := cfg.repo.ExecAndWait(ctx, nil, git.SubCmd{
+	if err := cfg.repo.ExecAndWait(ctx, git.SubCmd{
 		Name:  "config",
 		Flags: buildConfigUnsetOptsFlags(opts),
 		Args:  []string{name},

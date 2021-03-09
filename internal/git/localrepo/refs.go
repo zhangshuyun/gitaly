@@ -37,7 +37,7 @@ func (repo *Repo) ResolveRevision(ctx context.Context, revision git.Revision) (g
 	}
 
 	var stdout bytes.Buffer
-	if err := repo.ExecAndWait(ctx, nil,
+	if err := repo.ExecAndWait(ctx,
 		git.SubCmd{
 			Name:  "rev-parse",
 			Flags: []git.Option{git.Flag{Name: "--verify"}},
@@ -102,7 +102,7 @@ func (repo *Repo) getReferences(ctx context.Context, pattern string, limit uint)
 		args = []string{pattern}
 	}
 
-	cmd, err := repo.Exec(ctx, nil, git.SubCmd{
+	cmd, err := repo.Exec(ctx, git.SubCmd{
 		Name:  "for-each-ref",
 		Flags: flags,
 		Args:  args,
@@ -149,7 +149,7 @@ func (repo *Repo) GetBranches(ctx context.Context) ([]git.Reference, error) {
 func (repo *Repo) UpdateRef(ctx context.Context, reference git.ReferenceName, newValue, oldValue git.ObjectID) error {
 	var stderr bytes.Buffer
 
-	if err := repo.ExecAndWait(ctx, nil,
+	if err := repo.ExecAndWait(ctx,
 		git.SubCmd{
 			Name:  "update-ref",
 			Flags: []git.Option{git.Flag{Name: "-z"}, git.Flag{Name: "--stdin"}},

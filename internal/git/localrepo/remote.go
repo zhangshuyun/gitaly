@@ -27,7 +27,7 @@ func (remote Remote) Add(ctx context.Context, name, url string, opts git.RemoteA
 	}
 
 	var stderr bytes.Buffer
-	if err := remote.repo.ExecAndWait(ctx, nil,
+	if err := remote.repo.ExecAndWait(ctx,
 		git.SubSubCmd{
 			Name:   "remote",
 			Action: "add",
@@ -84,7 +84,7 @@ func (remote Remote) Remove(ctx context.Context, name string) error {
 	}
 
 	var stderr bytes.Buffer
-	if err := remote.repo.ExecAndWait(ctx, nil,
+	if err := remote.repo.ExecAndWait(ctx,
 		git.SubSubCmd{
 			Name:   "remote",
 			Action: "remove",
@@ -119,7 +119,7 @@ func (remote Remote) SetURL(ctx context.Context, name, url string, opts git.SetU
 	}
 
 	var stderr bytes.Buffer
-	if err := remote.repo.ExecAndWait(ctx, nil,
+	if err := remote.repo.ExecAndWait(ctx,
 		git.SubSubCmd{
 			Name:   "remote",
 			Action: "set-url",
@@ -146,7 +146,7 @@ func (remote Remote) SetURL(ctx context.Context, name, url string, opts git.SetU
 
 // Exists determines whether a given named remote exists.
 func (remote Remote) Exists(ctx context.Context, name string) (bool, error) {
-	cmd, err := remote.repo.Exec(ctx, nil,
+	cmd, err := remote.repo.Exec(ctx,
 		git.SubCmd{Name: "remote"},
 		git.WithRefTxHook(ctx, remote.repo, remote.repo.cfg),
 	)
