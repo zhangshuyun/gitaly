@@ -22,6 +22,7 @@ SOURCE_DIR       := $(abspath $(dir $(lastword ${MAKEFILE_LIST})))
 BUILD_DIR        := ${SOURCE_DIR}/_build
 COVERAGE_DIR     := ${BUILD_DIR}/cover
 DEPENDENCY_DIR   := ${BUILD_DIR}/deps
+TOOLS_DIR        := ${BUILD_DIR}/tools
 GITALY_RUBY_DIR  := ${SOURCE_DIR}/ruby
 
 # These variables may be overridden at runtime by top-level make
@@ -35,15 +36,15 @@ GIT_PREFIX       ?= ${GIT_INSTALL_DIR}
 
 # Tools
 GIT               := $(shell which git)
-PROTOC            := ${BUILD_DIR}/protoc/bin/protoc
-GOIMPORTS         := ${BUILD_DIR}/tools/goimports
-GITALYFMT         := ${BUILD_DIR}/tools/gitalyfmt
-GOLANGCI_LINT     := ${BUILD_DIR}/tools/golangci-lint
-GO_LICENSES       := ${BUILD_DIR}/tools/go-licenses
-PROTOC_GEN_GO     := ${BUILD_DIR}/tools/protoc-gen-go
-PROTOC_GEN_GITALY := ${BUILD_DIR}/tools/protoc-gen-gitaly
-GO_JUNIT_REPORT   := ${BUILD_DIR}/tools/go-junit-report
-GOCOVER_COBERTURA := ${BUILD_DIR}/tools/gocover-cobertura
+GOIMPORTS         := ${TOOLS_DIR}/goimports
+GITALYFMT         := ${TOOLS_DIR}/gitalyfmt
+GOLANGCI_LINT     := ${TOOLS_DIR}/golangci-lint
+GO_LICENSES       := ${TOOLS_DIR}/go-licenses
+PROTOC            := ${TOOLS_DIR}/protoc/bin/protoc
+PROTOC_GEN_GO     := ${TOOLS_DIR}/protoc-gen-go
+PROTOC_GEN_GITALY := ${TOOLS_DIR}/protoc-gen-gitaly
+GO_JUNIT_REPORT   := ${TOOLS_DIR}/go-junit-report
+GOCOVER_COBERTURA := ${TOOLS_DIR}/gocover-cobertura
 
 # Tool options
 GOLANGCI_LINT_OPTIONS ?=
@@ -59,12 +60,15 @@ GO_BUILD_TAGS   := tracer_static,tracer_static_jaeger,continuous_profiler_stackd
 
 # Dependency versions
 GOLANGCI_LINT_VERSION     ?= 1.33.0
+GOCOVER_COBERTURA_VERSION ?= aaee18c8195c3f2d90e5ef80ca918d265463842a
+GOIMPORTS_VERSION         ?= 2538eef75904eff384a2551359968e40c207d9d2
+GO_JUNIT_REPORT_VERSION   ?= 984a47ca6b0a7d704c4b589852051b4d7865aa17
+GO_LICENSES_VERSION       ?= 73411c8fa237ccc6a75af79d0a5bc021c9487aad
 PROTOC_VERSION            ?= 3.12.4
 PROTOC_GEN_GO_VERSION     ?= 1.3.2
 GIT_VERSION               ?= v2.29.0
 GIT2GO_VERSION            ?= v31
-LIBGIT2_VERSION       	  ?= v1.1.0
-GOCOVER_COBERTURA_VERSION ?= aaee18c8195c3f2d90e5ef80ca918d265463842a
+LIBGIT2_VERSION           ?= v1.1.0
 
 # Dependency downloads
 ifeq (${OS},Darwin)
@@ -173,6 +177,13 @@ export GITALY_TESTING_GIT_BINARY ?= ${GIT_INSTALL_DIR}/bin/git
 export CGO_LDFLAGS_ALLOW          = -D_THREAD_SAFE
 
 .NOTPARALLEL:
+
+# By default, intermediate targets get deleted automatically after a successful
+# build. We do not want that though: there's some precious intermediate targets
+# like our `*.version` targets which are required in order to determine whether
+# a dependency needs to be rebuilt. By specifying `.SECONDARY`, intermediate
+# targets will never get deleted automatically.
+.SECONDARY:
 
 .PHONY: all
 all: INSTALL_DEST_DIR = ${SOURCE_DIR}
@@ -391,26 +402,23 @@ ${BUILD_DIR}:
 	${Q}mkdir -p ${BUILD_DIR}
 ${BUILD_DIR}/bin: | ${BUILD_DIR}
 	${Q}mkdir -p ${BUILD_DIR}/bin
-${BUILD_DIR}/tools: | ${BUILD_DIR}
-	${Q}mkdir -p ${BUILD_DIR}/tools
+${TOOLS_DIR}: | ${BUILD_DIR}
+	${Q}mkdir -p ${TOOLS_DIR}
 ${DEPENDENCY_DIR}: | ${BUILD_DIR}
 	${Q}mkdir -p ${DEPENDENCY_DIR}
 
 # This is a build hack to avoid excessive rebuilding of targets. Instead of
-# depending on the timestamp of the Makefile, which will change e.g. between
-# jobs of a CI pipeline, we start depending on its hash. Like this, we only
-# rebuild if the Makefile actually has changed contents.
-${BUILD_DIR}/Makefile.sha256: Makefile | ${BUILD_DIR}
-	${Q}sha256sum -c $@ >/dev/null 2>&1 || >$@ sha256sum Makefile
-
-# This is in the same spirit as the Makefile.sha256 optimization: we want to
-# rebuild only if the dependency's version changes. The dependency on the phony
-# target is required to always rebuild these targets.
+# depending on the Makefile, we start to depend on tool versions as defined in
+# the Makefile. Like this, we only rebuild if the tool versions actually
+# change. The dependency on the phony target is required to always rebuild
+# these targets.
 .PHONY: dependency-version
 ${DEPENDENCY_DIR}/libgit2.version: dependency-version | ${DEPENDENCY_DIR}
 	${Q}[ x"$$(cat "$@" 2>/dev/null)" = x"${LIBGIT2_VERSION}" ] || >$@ echo -n "${LIBGIT2_VERSION}"
 ${DEPENDENCY_DIR}/git.version: dependency-version | ${DEPENDENCY_DIR}
 	${Q}[ x"$$(cat "$@" 2>/dev/null)" = x"${GIT_VERSION}" ] || >$@ echo -n "${GIT_VERSION}"
+${TOOLS_DIR}/%.version: dependency-version | ${TOOLS_DIR}
+	${Q}[ x"$$(cat "$@" 2>/dev/null)" = x"${TOOL_VERSION}" ] || >$@ echo -n "${TOOL_VERSION}"
 
 ${LIBGIT2_INSTALL_DIR}/lib/libgit2.a: ${DEPENDENCY_DIR}/libgit2.version
 	${Q}${GIT} init --initial-branch=master ${GIT_QUIET} ${LIBGIT2_SOURCE_DIR}
@@ -446,41 +454,47 @@ ${GIT_INSTALL_DIR}/bin/git: ${DEPENDENCY_DIR}/git_full_bins.tgz
 	tar -C ${GIT_INSTALL_DIR} -xvzf ${DEPENDENCY_DIR}/git_full_bins.tgz
 endif
 
-${BUILD_DIR}/protoc.zip: ${BUILD_DIR}/Makefile.sha256
+${TOOLS_DIR}/protoc.zip: TOOL_VERSION = ${PROTOC_VERSION}
+${TOOLS_DIR}/protoc.zip: ${TOOLS_DIR}/protoc.version
 	${Q}if [ -z "${PROTOC_URL}" ]; then echo "Cannot generate protos on unsupported platform ${OS}" && exit 1; fi
 	curl -o $@.tmp --silent --show-error -L ${PROTOC_URL}
 	${Q}printf '${PROTOC_HASH}  $@.tmp' | sha256sum -c -
 	${Q}mv $@.tmp $@
 
-${PROTOC}: ${BUILD_DIR}/protoc.zip | ${BUILD_DIR}
-	${Q}rm -rf ${BUILD_DIR}/protoc
-	${Q}mkdir -p ${BUILD_DIR}/protoc
-	cd ${BUILD_DIR}/protoc && unzip ${BUILD_DIR}/protoc.zip
+${PROTOC}: ${TOOLS_DIR}/protoc.zip
+	${Q}rm -rf ${TOOLS_DIR}/protoc
+	${Q}unzip -DD -q -d ${TOOLS_DIR}/protoc ${TOOLS_DIR}/protoc.zip
 
 # We're using per-tool go.mod files in order to avoid conflicts in the graph in
 # case we used a single go.mod file for all tools.
-${BUILD_DIR}/tools/%/go.mod: | ${BUILD_DIR}/tools
+${TOOLS_DIR}/%/go.mod: | ${TOOLS_DIR}
 	${Q}mkdir -p $(dir $@)
 	${Q}cd $(dir $@) && go mod init _build
 
-${BUILD_DIR}/tools/%: GOBIN = ${BUILD_DIR}/tools
-${BUILD_DIR}/tools/%: ${BUILD_DIR}/Makefile.sha256 ${BUILD_DIR}/tools/.%/go.mod
-	${Q}cd ${BUILD_DIR}/tools/.$(notdir $@) && go get ${TOOL_PACKAGE}
+${TOOLS_DIR}/%: GOBIN = ${TOOLS_DIR}
+${TOOLS_DIR}/%: ${TOOLS_DIR}/%.version ${TOOLS_DIR}/.%/go.mod
+	${Q}cd ${TOOLS_DIR}/.$* && go get ${TOOL_PACKAGE}@${TOOL_VERSION}
 
 # Tools hosted by Gitaly itself
-${GITALYFMT}: | ${BUILD_DIR}/tools
+${GITALYFMT}: | ${TOOLS_DIR}
 	${Q}go build -o $@ ${SOURCE_DIR}/internal/cmd/gitalyfmt
 
-${PROTOC_GEN_GITALY}: proto | ${BUILD_DIR}/tools
+${PROTOC_GEN_GITALY}: proto | ${TOOLS_DIR}
 	${Q}go build -o $@ ${SOURCE_DIR}/proto/go/internal/cmd/protoc-gen-gitaly
 
 # External tools
-${GOCOVER_COBERTURA}: TOOL_PACKAGE = github.com/t-yuki/gocover-cobertura@${GOCOVER_COBERTURA_VERSION}
-${GOIMPORTS}:         TOOL_PACKAGE = golang.org/x/tools/cmd/goimports@2538eef75904eff384a2551359968e40c207d9d2
-${GOLANGCI_LINT}:     TOOL_PACKAGE = github.com/golangci/golangci-lint/cmd/golangci-lint@v${GOLANGCI_LINT_VERSION}
-${GO_JUNIT_REPORT}:   TOOL_PACKAGE = github.com/jstemmer/go-junit-report@984a47ca6b0a7d704c4b589852051b4d7865aa17
-${GO_LICENSES}:       TOOL_PACKAGE = github.com/google/go-licenses@73411c8fa237ccc6a75af79d0a5bc021c9487aad
-${PROTOC_GEN_GO}:     TOOL_PACKAGE = github.com/golang/protobuf/protoc-gen-go@v${PROTOC_GEN_GO_VERSION}
+${GOCOVER_COBERTURA}: TOOL_PACKAGE = github.com/t-yuki/gocover-cobertura
+${GOCOVER_COBERTURA}: TOOL_VERSION = ${GOCOVER_COBERTURA_VERSION}
+${GOIMPORTS}:         TOOL_PACKAGE = golang.org/x/tools/cmd/goimports
+${GOIMPORTS}:         TOOL_VERSION = ${GOIMPORTS_VERSION}
+${GOLANGCI_LINT}:     TOOL_PACKAGE = github.com/golangci/golangci-lint/cmd/golangci-lint
+${GOLANGCI_LINT}:     TOOL_VERSION = v${GOLANGCI_LINT_VERSION}
+${GO_JUNIT_REPORT}:   TOOL_PACKAGE = github.com/jstemmer/go-junit-report
+${GO_JUNIT_REPORT}:   TOOL_VERSION = ${GO_JUNIT_REPORT_VERSION}
+${GO_LICENSES}:       TOOL_PACKAGE = github.com/google/go-licenses
+${GO_LICENSES}:       TOOL_VERSION = ${GO_LICENSES_VERSION}
+${PROTOC_GEN_GO}:     TOOL_PACKAGE = github.com/golang/protobuf/protoc-gen-go
+${PROTOC_GEN_GO}:     TOOL_VERSION = v${PROTOC_GEN_GO_VERSION}
 
 ${TEST_REPO}:
 	${GIT} clone --bare ${GIT_QUIET} https://gitlab.com/gitlab-org/gitlab-test.git $@
