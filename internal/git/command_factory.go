@@ -39,7 +39,7 @@ type CommandFactory interface {
 	// NewWithoutRepo creates a command without a target repository.
 	NewWithoutRepo(ctx context.Context, globals []GlobalOption, sc Cmd, opts ...CmdOpt) (*command.Command, error)
 	// NewWithDir creates a command without a target repository that would be executed in dir directory.
-	NewWithDir(ctx context.Context, dir string, globals []GlobalOption, sc Cmd, opts ...CmdOpt) (*command.Command, error)
+	NewWithDir(ctx context.Context, dir string, sc Cmd, opts ...CmdOpt) (*command.Command, error)
 }
 
 // ExecCommandFactory knows how to properly construct different types of commands.
@@ -71,12 +71,12 @@ func (cf *ExecCommandFactory) NewWithoutRepo(ctx context.Context, globals []Glob
 // NewWithDir creates a new command.Command whose working directory is set
 // to dir. Arguments are validated before the command is being run. It is
 // invalid to use an empty directory.
-func (cf *ExecCommandFactory) NewWithDir(ctx context.Context, dir string, globals []GlobalOption, sc Cmd, opts ...CmdOpt) (*command.Command, error) {
+func (cf *ExecCommandFactory) NewWithDir(ctx context.Context, dir string, sc Cmd, opts ...CmdOpt) (*command.Command, error) {
 	if dir == "" {
 		return nil, errors.New("no 'dir' provided")
 	}
 
-	return cf.newCommand(ctx, nil, dir, globals, sc, opts...)
+	return cf.newCommand(ctx, nil, dir, nil, sc, opts...)
 }
 
 func (cf *ExecCommandFactory) gitPath() string {
