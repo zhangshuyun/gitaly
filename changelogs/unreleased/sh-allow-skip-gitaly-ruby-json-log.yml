@@ -1,0 +1,5 @@
+---
+title: Allow gitaly-ruby to run if log file cannot be written
+merge_request: 3224
+author:
+type: changed
