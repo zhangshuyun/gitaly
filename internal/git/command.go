@@ -259,19 +259,15 @@ func validatePositionalArg(arg string) error {
 	return nil
 }
 
-// ConvertGlobalOptions converts a protobuf message to command-line flags
-func ConvertGlobalOptions(options *gitalypb.GlobalOptions) []GlobalOption {
-	var globals []GlobalOption
-
-	if options == nil {
-		return globals
+// ConvertGlobalOptions converts a protobuf message to a CmdOpt.
+func ConvertGlobalOptions(options *gitalypb.GlobalOptions) []CmdOpt {
+	if options != nil && options.GetLiteralPathspecs() {
+		return []CmdOpt{
+			WithEnv("GIT_LITERAL_PATHSPECS=1"),
+		}
 	}
 
-	if options.GetLiteralPathspecs() {
-		globals = append(globals, Flag{"--literal-pathspecs"})
-	}
-
-	return globals
+	return nil
 }
 
 type cmdCfg struct {
