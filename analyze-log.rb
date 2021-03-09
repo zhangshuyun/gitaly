@@ -36,6 +36,8 @@ def main
     records << rec
   end
 
+  records.sort_by!(&:created_at)
+
   puts "Expiry,#{facet_by},Hits,Misses,Hit bytes,Miss bytes,Max size"
 
   [2, 5, 10].each do |minutes|
