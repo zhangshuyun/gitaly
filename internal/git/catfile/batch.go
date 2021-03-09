@@ -124,7 +124,7 @@ func (c *batch) Close() {
 	c.closed = true
 	if c.cancel != nil {
 		// both c.batchProcess and c.batchCheckProcess have goroutines that listen on
-		// <ctx.Done() when this is cancelled, it will cause those goroutines to close both
+		// ctx.Done() when this is cancelled, it will cause those goroutines to close both
 		// writers
 		c.cancel()
 	}
