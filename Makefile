@@ -473,7 +473,7 @@ ${TOOLS_DIR}/%/go.mod: | ${TOOLS_DIR}
 
 ${TOOLS_DIR}/%: GOBIN = ${TOOLS_DIR}
 ${TOOLS_DIR}/%: ${TOOLS_DIR}/%.version ${TOOLS_DIR}/.%/go.mod
-	${Q}cd ${TOOLS_DIR}/.$(notdir $@) && go get ${TOOL_PACKAGE}@${TOOL_VERSION}
+	${Q}cd ${TOOLS_DIR}/.$* && go get ${TOOL_PACKAGE}@${TOOL_VERSION}
 
 # Tools hosted by Gitaly itself
 ${GITALYFMT}: | ${TOOLS_DIR}
