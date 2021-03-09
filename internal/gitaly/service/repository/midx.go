@@ -188,8 +188,7 @@ func (s *server) midxRepack(ctx context.Context, repo repository.GitRepo) error 
 	//   - repack.useDeltaIslands
 	// will only be respected if git version is >=2.28.0.
 	// Bitmap index 'repack.writeBitmaps' is not yet supported.
-	cmd, err := s.gitCmdFactory.New(ctx, repo,
-		repackConfig(ctx, false),
+	cmd, err := s.gitCmdFactory.New(ctx, repo, nil,
 		git.SubSubCmd{
 			Name:   "multi-pack-index",
 			Action: "repack",
@@ -197,6 +196,7 @@ func (s *server) midxRepack(ctx context.Context, repo repository.GitRepo) error 
 				git.ValueFlag{Name: "--batch-size", Value: strconv.FormatInt(batchSize, 10)},
 			},
 		},
+		git.WithConfig(repackConfig(ctx, false)...),
 	)
 	if err != nil {
 		return err

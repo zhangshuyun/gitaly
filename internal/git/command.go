@@ -270,6 +270,22 @@ func ConvertGlobalOptions(options *gitalypb.GlobalOptions) []CmdOpt {
 	return nil
 }
 
+// ConvertConfigOptions converts `<key>=<value>` config entries into `ConfigPairs`.
+func ConvertConfigOptions(options []string) ([]ConfigPair, error) {
+	configPairs := make([]ConfigPair, len(options))
+
+	for i, option := range options {
+		configPair := strings.SplitN(option, "=", 2)
+		if len(configPair) != 2 {
+			return nil, fmt.Errorf("cannot convert invalid config key: %q", option)
+		}
+
+		configPairs[i] = ConfigPair{Key: configPair[0], Value: configPair[1]}
+	}
+
+	return configPairs, nil
+}
+
 type cmdCfg struct {
 	env             []string
 	globals         []GlobalOption

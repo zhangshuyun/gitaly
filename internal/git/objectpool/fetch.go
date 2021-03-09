@@ -170,17 +170,17 @@ func (o *ObjectPool) rescueDanglingObjects(ctx context.Context) error {
 }
 
 func (o *ObjectPool) repackPool(ctx context.Context, pool repository.GitRepo) error {
-	repackArgs := []git.GlobalOption{
-		git.ConfigPair{Key: "pack.island", Value: sourceRefNamespace + "/he(a)ds"},
-		git.ConfigPair{Key: "pack.island", Value: sourceRefNamespace + "/t(a)gs"},
-		git.ConfigPair{Key: "pack.islandCore", Value: "a"},
-		git.ConfigPair{Key: "pack.writeBitmapHashCache", Value: "true"},
+	config := []git.ConfigPair{
+		{Key: "pack.island", Value: sourceRefNamespace + "/he(a)ds"},
+		{Key: "pack.island", Value: sourceRefNamespace + "/t(a)gs"},
+		{Key: "pack.islandCore", Value: "a"},
+		{Key: "pack.writeBitmapHashCache", Value: "true"},
 	}
 
-	if err := o.poolRepo.ExecAndWait(ctx, repackArgs, git.SubCmd{
+	if err := o.poolRepo.ExecAndWait(ctx, nil, git.SubCmd{
 		Name:  "repack",
 		Flags: []git.Option{git.Flag{Name: "-aidb"}},
-	}); err != nil {
+	}, git.WithConfig(config...)); err != nil {
 		return err
 	}
 
