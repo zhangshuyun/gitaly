@@ -157,7 +157,7 @@ func New(ctx context.Context, gitCmdFactory git.CommandFactory, repo repository.
 	requestDone := ctx.Done()
 
 	if c, ok := cache.Checkout(cacheKey); ok {
-		go returnWhenDone(requestDone, cache, cacheKey, c)
+		go returnToCacheWhenDone(requestDone, cache, cacheKey, c)
 		return newInstrumentedBatch(c), nil
 	}
 
@@ -171,12 +171,12 @@ func New(ctx context.Context, gitCmdFactory git.CommandFactory, repo repository.
 	}
 
 	c.cancel = cacheCancel
-	go returnWhenDone(requestDone, cache, cacheKey, c)
+	go returnToCacheWhenDone(requestDone, cache, cacheKey, c)
 
 	return newInstrumentedBatch(c), nil
 }
 
-func returnWhenDone(done <-chan struct{}, bc *batchCache, cacheKey key, c *batch) {
+func returnToCacheWhenDone(done <-chan struct{}, bc *batchCache, cacheKey key, c *batch) {
 	<-done
 
 	if c == nil || c.isClosed() {
