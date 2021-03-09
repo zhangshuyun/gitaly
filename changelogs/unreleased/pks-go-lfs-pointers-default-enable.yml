@@ -1,0 +1,5 @@
+---
+title: 'featureflag: Enable Go port of Get{All,}LFSPointers'
+merge_request: 3234
+author:
+type: performance
