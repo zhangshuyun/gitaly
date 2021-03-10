@@ -213,7 +213,7 @@ func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommi
 	}
 
 	if parentCommitOID != targetBranchCommit {
-		if err := s.fetchMissingCommit(ctx, header.Repository, remoteRepo, parentCommitOID); err != nil {
+		if err := s.fetchMissingCommit(ctx, localRepo, remoteRepo, parentCommitOID); err != nil {
 			return fmt.Errorf("fetch missing commit: %w", err)
 		}
 	}
@@ -444,15 +444,16 @@ func (s *Server) resolveParentCommit(
 
 func (s *Server) fetchMissingCommit(
 	ctx context.Context,
-	local, remote *gitalypb.Repository,
+	localRepo *localrepo.Repo,
+	remoteRepo *gitalypb.Repository,
 	commit git.ObjectID,
 ) error {
-	if _, err := localrepo.New(s.gitCmdFactory, local, s.cfg).ResolveRevision(ctx, commit.Revision()+"^{commit}"); err != nil {
-		if !errors.Is(err, git.ErrReferenceNotFound) || remote == nil {
+	if _, err := localRepo.ResolveRevision(ctx, commit.Revision()+"^{commit}"); err != nil {
+		if !errors.Is(err, git.ErrReferenceNotFound) || remoteRepo == nil {
 			return fmt.Errorf("lookup parent commit: %w", err)
 		}
 
-		if err := s.fetchRemoteObject(ctx, local, remote, commit); err != nil {
+		if err := s.fetchRemoteObject(ctx, localRepo, remoteRepo, commit); err != nil {
 			return fmt.Errorf("fetch parent commit: %w", err)
 		}
 	}
@@ -462,11 +463,12 @@ func (s *Server) fetchMissingCommit(
 
 func (s *Server) fetchRemoteObject(
 	ctx context.Context,
-	local, remote *gitalypb.Repository,
+	localRepo *localrepo.Repo,
+	remoteRepo *gitalypb.Repository,
 	oid git.ObjectID,
 ) error {
 	env, err := gitalyssh.UploadPackEnv(ctx, s.cfg, &gitalypb.SSHUploadPackRequest{
-		Repository:       remote,
+		Repository:       remoteRepo,
 		GitConfigOptions: []string{"uploadpack.allowAnySHA1InWant=true"},
 	})
 	if err != nil {
@@ -474,21 +476,15 @@ func (s *Server) fetchRemoteObject(
 	}
 
 	stderr := &bytes.Buffer{}
-	cmd, err := s.gitCmdFactory.New(ctx, local, nil,
-		git.SubCmd{
-			Name:  "fetch",
-			Flags: []git.Option{git.Flag{Name: "--no-tags"}},
-			Args:  []string{"ssh://gitaly/internal.git", oid.String()},
-		},
+	if err := localRepo.ExecAndWait(ctx, nil, git.SubCmd{
+		Name:  "fetch",
+		Flags: []git.Option{git.Flag{Name: "--no-tags"}},
+		Args:  []string{"ssh://gitaly/internal.git", oid.String()},
+	},
 		git.WithEnv(env...),
 		git.WithStderr(stderr),
-		git.WithRefTxHook(ctx, local, s.cfg),
-	)
-	if err != nil {
-		return err
-	}
-
-	if err := cmd.Wait(); err != nil {
+		git.WithRefTxHook(ctx, localRepo, s.cfg),
+	); err != nil {
 		return errorWithStderr(err, stderr)
 	}
 
