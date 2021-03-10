@@ -107,32 +107,46 @@ func (s *server) removeRefEmptyDirs(ctx context.Context, repository *gitalypb.Re
 	return nil
 }
 
-func (s *server) optimizeRepository(ctx context.Context, repository *gitalypb.Repository) error {
+// repackIfNoBitmap uses the bitmap index as a heuristic to determine whether the repository needs a
+// full repack. So only if there is none will the full repack be started.
+func (s *server) repackIfNoBitmap(ctx context.Context, repository *gitalypb.Repository) error {
 	repoPath, err := s.locator.GetRepoPath(repository)
 	if err != nil {
 		return err
 	}
+
 	hasBitmap, err := stats.HasBitmap(repoPath)
 	if err != nil {
 		return helper.ErrInternal(err)
 	}
+	if hasBitmap {
+		return nil
+	}
 
-	if !hasBitmap {
-		altFile, err := s.locator.InfoAlternatesPath(repository)
-		if err != nil {
-			return helper.ErrInternal(err)
-		}
+	altFile, err := s.locator.InfoAlternatesPath(repository)
+	if err != nil {
+		return helper.ErrInternal(err)
+	}
 
-		// repositories with alternates should never have a bitmap, as Git will otherwise complain about
-		// multiple bitmaps being present in parent and alternate repository.
-		if _, err = os.Stat(altFile); !os.IsNotExist(err) {
-			return nil
-		}
+	// repositories with alternates should never have a bitmap, as Git will otherwise complain about
+	// multiple bitmaps being present in parent and alternate repository.
+	if _, err = os.Stat(altFile); !os.IsNotExist(err) {
+		return nil
+	}
 
-		_, err = s.RepackFull(ctx, &gitalypb.RepackFullRequest{Repository: repository, CreateBitmap: true})
-		if err != nil {
-			return err
-		}
+	if _, err = s.RepackFull(ctx, &gitalypb.RepackFullRequest{
+		Repository:   repository,
+		CreateBitmap: true,
+	}); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *server) optimizeRepository(ctx context.Context, repository *gitalypb.Repository) error {
+	if err := s.repackIfNoBitmap(ctx, repository); err != nil {
+		return fmt.Errorf("could not repack: %w", err)
 	}
 
 	if err := s.removeRefEmptyDirs(ctx, repository); err != nil {
