@@ -158,7 +158,12 @@ func (s *Server) UserFFBranch(ctx context.Context, in *gitalypb.UserFFBranchRequ
 		return nil, helper.ErrInvalidArgument(err)
 	}
 
-	ancestor, err := s.isAncestor(ctx, in.Repository, revision.String(), in.CommitId)
+	commitID, err := git.NewObjectIDFromHex(in.CommitId)
+	if err != nil {
+		return nil, helper.ErrInvalidArgumentf("cannot parse commit ID: %w", err)
+	}
+
+	ancestor, err := s.isAncestor(ctx, in.Repository, revision, commitID)
 	if err != nil {
 		return nil, err
 	}
@@ -296,11 +301,11 @@ func (s *Server) UserMergeToRef(ctx context.Context, request *gitalypb.UserMerge
 	}, nil
 }
 
-func (s *Server) isAncestor(ctx context.Context, repo repository.GitRepo, ancestor, descendant string) (bool, error) {
+func (s *Server) isAncestor(ctx context.Context, repo repository.GitRepo, ancestor, descendant git.ObjectID) (bool, error) {
 	cmd, err := s.gitCmdFactory.New(ctx, repo, nil, git.SubCmd{
 		Name:  "merge-base",
 		Flags: []git.Option{git.Flag{Name: "--is-ancestor"}},
-		Args:  []string{ancestor, descendant},
+		Args:  []string{ancestor.String(), descendant.String()},
 	})
 	if err != nil {
 		return false, helper.ErrInternalf("isAncestor: %w", err)
