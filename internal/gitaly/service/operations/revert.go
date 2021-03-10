@@ -171,7 +171,7 @@ func (s *Server) fetchStartRevision(ctx context.Context, req requestFetchingStar
 
 	_, err = localrepo.New(s.gitCmdFactory, req.GetRepository(), s.cfg).ResolveRevision(ctx, startRevision.Revision()+"^{commit}")
 	if errors.Is(err, git.ErrReferenceNotFound) {
-		if err := s.fetchRemoteObject(ctx, req.GetRepository(), req.GetStartRepository(), startRevision.String()); err != nil {
+		if err := s.fetchRemoteObject(ctx, req.GetRepository(), req.GetStartRepository(), startRevision); err != nil {
 			return "", helper.ErrInternalf("fetch start: %w", err)
 		}
 	} else if err != nil {

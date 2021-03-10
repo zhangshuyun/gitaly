@@ -213,7 +213,7 @@ func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommi
 	}
 
 	if parentCommitOID != targetBranchCommit {
-		if err := s.fetchMissingCommit(ctx, header.Repository, remoteRepo, parentCommitOID.String()); err != nil {
+		if err := s.fetchMissingCommit(ctx, header.Repository, remoteRepo, parentCommitOID); err != nil {
 			return fmt.Errorf("fetch missing commit: %w", err)
 		}
 	}
@@ -442,13 +442,17 @@ func (s *Server) resolveParentCommit(
 	return commit, nil
 }
 
-func (s *Server) fetchMissingCommit(ctx context.Context, local, remote *gitalypb.Repository, commitID string) error {
-	if _, err := localrepo.New(s.gitCmdFactory, local, s.cfg).ResolveRevision(ctx, git.Revision(commitID+"^{commit}")); err != nil {
+func (s *Server) fetchMissingCommit(
+	ctx context.Context,
+	local, remote *gitalypb.Repository,
+	commit git.ObjectID,
+) error {
+	if _, err := localrepo.New(s.gitCmdFactory, local, s.cfg).ResolveRevision(ctx, commit.Revision()+"^{commit}"); err != nil {
 		if !errors.Is(err, git.ErrReferenceNotFound) || remote == nil {
 			return fmt.Errorf("lookup parent commit: %w", err)
 		}
 
-		if err := s.fetchRemoteObject(ctx, local, remote, commitID); err != nil {
+		if err := s.fetchRemoteObject(ctx, local, remote, commit); err != nil {
 			return fmt.Errorf("fetch parent commit: %w", err)
 		}
 	}
@@ -456,7 +460,11 @@ func (s *Server) fetchMissingCommit(ctx context.Context, local, remote *gitalypb
 	return nil
 }
 
-func (s *Server) fetchRemoteObject(ctx context.Context, local, remote *gitalypb.Repository, sha string) error {
+func (s *Server) fetchRemoteObject(
+	ctx context.Context,
+	local, remote *gitalypb.Repository,
+	oid git.ObjectID,
+) error {
 	env, err := gitalyssh.UploadPackEnv(ctx, s.cfg, &gitalypb.SSHUploadPackRequest{
 		Repository:       remote,
 		GitConfigOptions: []string{"uploadpack.allowAnySHA1InWant=true"},
@@ -470,7 +478,7 @@ func (s *Server) fetchRemoteObject(ctx context.Context, local, remote *gitalypb.
 		git.SubCmd{
 			Name:  "fetch",
 			Flags: []git.Option{git.Flag{Name: "--no-tags"}},
-			Args:  []string{"ssh://gitaly/internal.git", sha},
+			Args:  []string{"ssh://gitaly/internal.git", oid.String()},
 		},
 		git.WithEnv(env...),
 		git.WithStderr(stderr),
