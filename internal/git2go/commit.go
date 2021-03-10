@@ -5,6 +5,8 @@ import (
 	"context"
 	"encoding/gob"
 	"fmt"
+
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 )
 
 // IndexError is an error that was produced by performing an invalid operation on the index.
@@ -57,7 +59,7 @@ type CommitParams struct {
 
 // Commit builds a commit from the actions, writes it to the object database and
 // returns its object id.
-func (b Executor) Commit(ctx context.Context, params CommitParams) (string, error) {
+func (b Executor) Commit(ctx context.Context, params CommitParams) (git.ObjectID, error) {
 	input := &bytes.Buffer{}
 	if err := gob.NewEncoder(input).Encode(params); err != nil {
 		return "", err
@@ -73,5 +75,14 @@ func (b Executor) Commit(ctx context.Context, params CommitParams) (string, erro
 		return "", err
 	}
 
-	return result.CommitID, result.Error
+	if result.Error != nil {
+		return "", result.Error
+	}
+
+	commitID, err := git.NewObjectIDFromHex(result.CommitID)
+	if err != nil {
+		return "", fmt.Errorf("could not parse commit ID: %w", err)
+	}
+
+	return commitID, nil
 }

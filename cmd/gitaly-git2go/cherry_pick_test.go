@@ -165,13 +165,13 @@ func TestCherryPick(t *testing.T) {
 			}
 
 			require.NoError(t, err)
-			assert.Equal(t, tc.expectedCommitID, response)
+			assert.Equal(t, tc.expectedCommitID, response.String())
 
 			repo, err := git.OpenRepository(repoPath)
 			require.NoError(t, err)
 			defer repo.Free()
 
-			commitOid, err := git.NewOid(response)
+			commitOid, err := git.NewOid(response.String())
 			require.NoError(t, err)
 
 			commit, err := repo.LookupCommit(commitOid)

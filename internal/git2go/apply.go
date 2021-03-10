@@ -5,6 +5,8 @@ import (
 	"encoding/gob"
 	"fmt"
 	"io"
+
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 )
 
 // ErrMergeConflict is returned when there is a merge conflict.
@@ -70,7 +72,7 @@ func (iter *slicePatchIterator) Err() error { return nil }
 
 // Apply applies the provided patches and returns the OID of the commit with the patches
 // applied.
-func (b Executor) Apply(ctx context.Context, params ApplyParams) (string, error) {
+func (b Executor) Apply(ctx context.Context, params ApplyParams) (git.ObjectID, error) {
 	reader, writer := io.Pipe()
 	defer writer.Close()
 
@@ -108,5 +110,14 @@ func (b Executor) Apply(ctx context.Context, params ApplyParams) (string, error)
 		return "", fmt.Errorf("decode: %w", err)
 	}
 
-	return result.CommitID, result.Error
+	if result.Error != nil {
+		return "", result.Error
+	}
+
+	commitID, err := git.NewObjectIDFromHex(result.CommitID)
+	if err != nil {
+		return "", fmt.Errorf("could not parse commit ID: %w", err)
+	}
+
+	return commitID, nil
 }

@@ -96,11 +96,11 @@ func (s *Server) userCherryPick(ctx context.Context, req *gitalypb.UserCherryPic
 	}
 
 	if req.DryRun {
-		newrev = startRevision.String()
+		newrev = startRevision
 	}
 
 	if !branchCreated {
-		ancestor, err := s.isAncestor(ctx, req.Repository, oldrev.String(), newrev)
+		ancestor, err := s.isAncestor(ctx, req.Repository, oldrev.String(), newrev.String())
 		if err != nil {
 			return nil, err
 		}
@@ -111,7 +111,7 @@ func (s *Server) userCherryPick(ctx context.Context, req *gitalypb.UserCherryPic
 		}
 	}
 
-	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, branch, newrev, oldrev.String()); err != nil {
+	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, branch, newrev.String(), oldrev.String()); err != nil {
 		if errors.As(err, &preReceiveError{}) {
 			return &gitalypb.UserCherryPickResponse{
 				PreReceiveError: err.Error(),
@@ -123,7 +123,7 @@ func (s *Server) userCherryPick(ctx context.Context, req *gitalypb.UserCherryPic
 
 	return &gitalypb.UserCherryPickResponse{
 		BranchUpdate: &gitalypb.OperationBranchUpdate{
-			CommitId:      newrev,
+			CommitId:      newrev.String(),
 			BranchCreated: branchCreated,
 			RepoCreated:   !repoHadBranches,
 		},

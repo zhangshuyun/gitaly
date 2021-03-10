@@ -363,7 +363,7 @@ func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommi
 		oldRevision = targetBranchCommit
 	}
 
-	if err := s.updateReferenceWithHooks(ctx, header.Repository, header.User, targetBranchName.String(), commitID, oldRevision.String()); err != nil {
+	if err := s.updateReferenceWithHooks(ctx, header.Repository, header.User, targetBranchName.String(), commitID.String(), oldRevision.String()); err != nil {
 		if errors.As(err, &updateRefError{}) {
 			return status.Errorf(codes.FailedPrecondition, err.Error())
 		}
@@ -372,7 +372,7 @@ func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommi
 	}
 
 	return stream.SendAndClose(&gitalypb.UserCommitFilesResponse{BranchUpdate: &gitalypb.OperationBranchUpdate{
-		CommitId:      commitID,
+		CommitId:      commitID.String(),
 		RepoCreated:   !hasBranches,
 		BranchCreated: parentCommitOID == "",
 	}})
