@@ -132,7 +132,7 @@ func (repo *Repo) WriteTag(
 	objectType string,
 	tagName, userName, userEmail, tagBody []byte,
 	committerDate time.Time,
-) (string, error) {
+) (git.ObjectID, error) {
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
 
@@ -159,7 +159,12 @@ func (repo *Repo) WriteTag(
 		return "", MktagError{tagName: tagName, stderr: stderr.String()}
 	}
 
-	return text.ChompBytes(stdout.Bytes()), nil
+	tagID, err := git.NewObjectIDFromHex(text.ChompBytes(stdout.Bytes()))
+	if err != nil {
+		return "", fmt.Errorf("could not parse tag ID: %w", err)
+	}
+
+	return tagID, nil
 }
 
 // InvalidObjectError is returned when trying to get an object id that is invalid or does not exist.
