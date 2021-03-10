@@ -67,7 +67,7 @@ func (s *Server) userCherryPick(ctx context.Context, req *gitalypb.UserCherryPic
 		AuthorMail: string(req.User.Email),
 		Message:    string(req.Message),
 		Commit:     req.Commit.Id,
-		Ours:       startRevision,
+		Ours:       startRevision.String(),
 		Mainline:   mainline,
 	}.Run(ctx, s.cfg)
 	if err != nil {
@@ -96,7 +96,7 @@ func (s *Server) userCherryPick(ctx context.Context, req *gitalypb.UserCherryPic
 	}
 
 	if req.DryRun {
-		newrev = startRevision
+		newrev = startRevision.String()
 	}
 
 	if !branchCreated {

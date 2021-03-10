@@ -60,7 +60,7 @@ func (s *Server) UserRevert(ctx context.Context, req *gitalypb.UserRevertRequest
 		AuthorMail: string(req.User.Email),
 		AuthorDate: authorDate,
 		Message:    string(req.Message),
-		Ours:       startRevision,
+		Ours:       startRevision.String(),
 		Revert:     req.Commit.Id,
 		Mainline:   mainline,
 	}.Run(ctx, s.cfg)
@@ -89,7 +89,7 @@ func (s *Server) UserRevert(ctx context.Context, req *gitalypb.UserRevertRequest
 	}
 
 	if req.DryRun {
-		newrev = startRevision
+		newrev = startRevision.String()
 	}
 
 	if !branchCreated {
@@ -145,7 +145,7 @@ type requestFetchingStartRevision interface {
 	GetStartBranchName() []byte
 }
 
-func (s *Server) fetchStartRevision(ctx context.Context, req requestFetchingStartRevision) (string, error) {
+func (s *Server) fetchStartRevision(ctx context.Context, req requestFetchingStartRevision) (git.ObjectID, error) {
 	startBranchName := req.GetStartBranchName()
 	if len(startBranchName) == 0 {
 		startBranchName = req.GetBranchName()
@@ -166,7 +166,7 @@ func (s *Server) fetchStartRevision(ctx context.Context, req requestFetchingStar
 	}
 
 	if req.GetStartRepository() == nil {
-		return startRevision.String(), nil
+		return startRevision, nil
 	}
 
 	_, err = localrepo.New(s.gitCmdFactory, req.GetRepository(), s.cfg).ResolveRevision(ctx, startRevision.Revision()+"^{commit}")
@@ -178,5 +178,5 @@ func (s *Server) fetchStartRevision(ctx context.Context, req requestFetchingStar
 		return "", helper.ErrInvalidArgumentf("resolve start: %w", err)
 	}
 
-	return startRevision.String(), nil
+	return startRevision, nil
 }
