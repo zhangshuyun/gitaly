@@ -28,11 +28,6 @@ func (s *server) GarbageCollect(ctx context.Context, in *gitalypb.GarbageCollect
 
 	repo := localrepo.New(s.gitCmdFactory, in.GetRepository(), s.cfg)
 
-	repoPath, err := repo.Path()
-	if err != nil {
-		return nil, err
-	}
-
 	if err := s.cleanupRepo(ctx, repo); err != nil {
 		return nil, err
 	}
@@ -56,8 +51,7 @@ func (s *server) GarbageCollect(ctx context.Context, in *gitalypb.GarbageCollect
 	}
 
 	// Perform housekeeping post GC
-	err = housekeeping.Perform(ctx, repoPath)
-	if err != nil {
+	if err := housekeeping.Perform(ctx, repo); err != nil {
 		ctxlogger.WithError(err).Warn("Post gc housekeeping failed")
 	}
 

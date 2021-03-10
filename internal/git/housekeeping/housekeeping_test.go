@@ -11,6 +11,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 )
@@ -197,8 +199,9 @@ func TestPerform(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
-			_, _, repoPath, cleanup := testcfg.BuildWithRepo(t)
+			cfg, repoProto, repoPath, cleanup := testcfg.BuildWithRepo(t)
 			defer cleanup()
+			repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
 			ctx, cancel := testhelper.Context()
 			defer cancel()
@@ -211,7 +214,7 @@ func TestPerform(t *testing.T) {
 				e.create(t, repoPath)
 			}
 
-			require.NoError(t, Perform(ctx, repoPath))
+			require.NoError(t, Perform(ctx, repo))
 
 			for _, e := range tc.entries {
 				e.validate(t, repoPath)
@@ -283,8 +286,9 @@ func TestPerform_references(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.desc, func(t *testing.T) {
-			_, _, repoPath, cleanup := testcfg.BuildWithRepo(t)
+			cfg, repoProto, repoPath, cleanup := testcfg.BuildWithRepo(t)
 			defer cleanup()
+			repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
 			for _, ref := range tc.refs {
 				path := filepath.Join(repoPath, ref.name)
@@ -298,7 +302,7 @@ func TestPerform_references(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			require.NoError(t, Perform(ctx, repoPath))
+			require.NoError(t, Perform(ctx, repo))
 
 			var actual []string
 			filepath.Walk(filepath.Join(repoPath, "refs"), func(path string, info os.FileInfo, _ error) error {
@@ -330,8 +334,9 @@ func testPerformWithSpecificFile(t *testing.T, file string, finder staleFileFind
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	_, _, repoPath, cleanup := testcfg.BuildWithRepo(t)
+	cfg, repoProto, repoPath, cleanup := testcfg.BuildWithRepo(t)
 	defer cleanup()
+	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
 	for _, tc := range []struct {
 		desc          string
@@ -379,7 +384,7 @@ func testPerformWithSpecificFile(t *testing.T, file string, finder staleFileFind
 			require.NoError(t, err)
 			require.ElementsMatch(t, tc.expectedFiles, staleFiles)
 
-			require.NoError(t, Perform(ctx, repoPath))
+			require.NoError(t, Perform(ctx, repo))
 
 			for _, e := range tc.entries {
 				e.validate(t, repoPath)
@@ -444,8 +449,9 @@ func TestPerform_referenceLocks(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			_, _, repoPath, cleanup := testcfg.BuildWithRepo(t)
+			cfg, repoProto, repoPath, cleanup := testcfg.BuildWithRepo(t)
 			defer cleanup()
+			repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
 			for _, e := range tc.entries {
 				e.create(t, repoPath)
@@ -463,7 +469,7 @@ func TestPerform_referenceLocks(t *testing.T) {
 			require.NoError(t, err)
 			require.ElementsMatch(t, expectedReferenceLocks, staleLockfiles)
 
-			require.NoError(t, Perform(ctx, repoPath))
+			require.NoError(t, Perform(ctx, repo))
 
 			for _, e := range tc.entries {
 				e.validate(t, repoPath)
@@ -547,8 +553,9 @@ func TestShouldRemoveTemporaryObject(t *testing.T) {
 }
 
 func TestPerformRepoDoesNotExist(t *testing.T) {
-	_, _, repoPath, cleanup := testcfg.BuildWithRepo(t)
+	cfg, repoProto, _, cleanup := testcfg.BuildWithRepo(t)
 	defer cleanup()
+	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -557,5 +564,5 @@ func TestPerformRepoDoesNotExist(t *testing.T) {
 	// otherwise well-configured storage.
 	cleanup()
 
-	require.NoError(t, Perform(ctx, repoPath))
+	require.NoError(t, Perform(ctx, repo))
 }

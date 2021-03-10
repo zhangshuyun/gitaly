@@ -10,6 +10,9 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	log "github.com/sirupsen/logrus"
+	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/internal/helper"
+	"google.golang.org/grpc/codes"
 )
 
 const (
@@ -33,7 +36,16 @@ var (
 type staleFileFinderFn func(context.Context, string) ([]string, error)
 
 // Perform will perform housekeeping duties on a repository
-func Perform(ctx context.Context, repoPath string) error {
+func Perform(ctx context.Context, repo *localrepo.Repo) error {
+	repoPath, err := repo.Path()
+	if err != nil {
+		myLogger(ctx).WithError(err).Warn("housekeeping failed to get repo path")
+		if helper.GrpcCode(err) == codes.NotFound {
+			return nil
+		}
+		return fmt.Errorf("housekeeping failed to get repo path: %w", err)
+	}
+
 	logEntry := myLogger(ctx)
 	var filesToPrune []string
 

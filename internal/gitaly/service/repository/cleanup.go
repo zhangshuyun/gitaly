@@ -26,8 +26,7 @@ func (s *server) Cleanup(ctx context.Context, in *gitalypb.CleanupRequest) (*git
 }
 
 func (s *server) cleanupRepo(ctx context.Context, repo *localrepo.Repo) error {
-	repoPath, err := repo.Path()
-	if err != nil {
+	if _, err := repo.Path(); err != nil {
 		return err
 	}
 
@@ -40,7 +39,7 @@ func (s *server) cleanupRepo(ctx context.Context, repo *localrepo.Repo) error {
 		return status.Errorf(codes.Internal, "Cleanup: cleanDisconnectedWorktrees: %v", err)
 	}
 
-	if err := housekeeping.Perform(ctx, repoPath); err != nil {
+	if err := housekeeping.Perform(ctx, repo); err != nil {
 		return status.Errorf(codes.Internal, "Cleanup: houskeeping: %v", err)
 	}
 
