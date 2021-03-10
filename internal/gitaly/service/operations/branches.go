@@ -3,7 +3,6 @@ package operations
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
@@ -41,15 +40,20 @@ func (s *Server) UserCreateBranch(ctx context.Context, req *gitalypb.UserCreateB
 		return nil, status.Errorf(codes.FailedPrecondition, "revspec '%s' not found", req.StartPoint)
 	}
 
-	referenceName := fmt.Sprintf("refs/heads/%s", req.BranchName)
-	_, err = repo.GetReference(ctx, git.ReferenceName(referenceName))
+	startPointOID, err := git.NewObjectIDFromHex(startPointCommit.Id)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "could not parse start point commit ID: %v", err)
+	}
+
+	referenceName := git.NewReferenceNameFromBranchName(string(req.BranchName))
+	_, err = repo.GetReference(ctx, referenceName)
 	if err == nil {
 		return nil, status.Errorf(codes.FailedPrecondition, "Could not update %s. Please refresh and try again.", req.BranchName)
 	} else if !errors.Is(err, git.ErrReferenceNotFound) {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, referenceName, startPointCommit.Id, git.ZeroOID.String()); err != nil {
+	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, referenceName, startPointOID, git.ZeroOID); err != nil {
 		var preReceiveError preReceiveError
 		if errors.As(err, &preReceiveError) {
 			return &gitalypb.UserCreateBranchResponse{
@@ -106,8 +110,19 @@ func (s *Server) userUpdateBranchGo(ctx context.Context, req *gitalypb.UserUpdat
 		return nil, err
 	}
 
-	referenceName := fmt.Sprintf("refs/heads/%s", req.BranchName)
-	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, referenceName, string(req.Newrev), string(req.Oldrev)); err != nil {
+	newOID, err := git.NewObjectIDFromHex(string(req.Newrev))
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "could not parse newrev: %v", err)
+	}
+
+	oldOID, err := git.NewObjectIDFromHex(string(req.Oldrev))
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "could not parse oldrev: %v", err)
+	}
+
+	referenceName := git.NewReferenceNameFromBranchName(string(req.BranchName))
+
+	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, referenceName, newOID, oldOID); err != nil {
 		var preReceiveError preReceiveError
 		if errors.As(err, &preReceiveError) {
 			return &gitalypb.UserUpdateBranchResponse{
@@ -153,14 +168,14 @@ func (s *Server) UserDeleteBranch(ctx context.Context, req *gitalypb.UserDeleteB
 		return nil, status.Errorf(codes.InvalidArgument, "Bad Request (empty user)")
 	}
 
-	referenceName := fmt.Sprintf("refs/heads/%s", req.BranchName)
+	referenceName := git.NewReferenceNameFromBranchName(string(req.BranchName))
 
-	referenceValue, err := localrepo.New(s.gitCmdFactory, req.Repository, s.cfg).GetReference(ctx, git.ReferenceName(referenceName))
+	referenceValue, err := localrepo.New(s.gitCmdFactory, req.Repository, s.cfg).ResolveRevision(ctx, referenceName.Revision())
 	if err != nil {
 		return nil, status.Errorf(codes.FailedPrecondition, "branch not found: %s", req.BranchName)
 	}
 
-	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, referenceName, git.ZeroOID.String(), referenceValue.Target); err != nil {
+	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, referenceName, git.ZeroOID, referenceValue); err != nil {
 		var preReceiveError preReceiveError
 		if errors.As(err, &preReceiveError) {
 			return &gitalypb.UserDeleteBranchResponse{

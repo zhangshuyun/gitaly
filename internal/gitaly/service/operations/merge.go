@@ -14,7 +14,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
@@ -56,8 +55,9 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 		return err
 	}
 
-	branch := "refs/heads/" + text.ChompBytes(firstRequest.Branch)
-	revision, err := localrepo.New(s.gitCmdFactory, repo, s.cfg).ResolveRevision(ctx, git.Revision(branch))
+	referenceName := git.NewReferenceNameFromBranchName(string(firstRequest.Branch))
+
+	revision, err := localrepo.New(s.gitCmdFactory, repo, s.cfg).ResolveRevision(ctx, referenceName.Revision())
 	if err != nil {
 		return err
 	}
@@ -86,6 +86,11 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 		return err
 	}
 
+	mergeOID, err := git.NewObjectIDFromHex(merge.CommitID)
+	if err != nil {
+		return helper.ErrInternalf("could not parse merge ID: %w", err)
+	}
+
 	if err := stream.Send(&gitalypb.UserMergeBranchResponse{
 		CommitId: merge.CommitID,
 	}); err != nil {
@@ -100,7 +105,7 @@ func (s *Server) UserMergeBranch(stream gitalypb.OperationService_UserMergeBranc
 		return helper.ErrPreconditionFailedf("merge aborted by client")
 	}
 
-	if err := s.updateReferenceWithHooks(ctx, firstRequest.Repository, firstRequest.User, branch, merge.CommitID, revision.String()); err != nil {
+	if err := s.updateReferenceWithHooks(ctx, firstRequest.Repository, firstRequest.User, referenceName, mergeOID, revision); err != nil {
 		var preReceiveError preReceiveError
 		var updateRefError updateRefError
 
@@ -152,8 +157,9 @@ func (s *Server) UserFFBranch(ctx context.Context, in *gitalypb.UserFFBranchRequ
 		return nil, helper.ErrInvalidArgument(err)
 	}
 
-	branch := fmt.Sprintf("refs/heads/%s", in.Branch)
-	revision, err := localrepo.New(s.gitCmdFactory, in.Repository, s.cfg).ResolveRevision(ctx, git.Revision(branch))
+	referenceName := git.NewReferenceNameFromBranchName(string(in.Branch))
+
+	revision, err := localrepo.New(s.gitCmdFactory, in.Repository, s.cfg).ResolveRevision(ctx, referenceName.Revision())
 	if err != nil {
 		return nil, helper.ErrInvalidArgument(err)
 	}
@@ -171,7 +177,7 @@ func (s *Server) UserFFBranch(ctx context.Context, in *gitalypb.UserFFBranchRequ
 		return nil, helper.ErrPreconditionFailedf("not fast forward")
 	}
 
-	if err := s.updateReferenceWithHooks(ctx, in.Repository, in.User, branch, in.CommitId, revision.String()); err != nil {
+	if err := s.updateReferenceWithHooks(ctx, in.Repository, in.User, referenceName, commitID, revision); err != nil {
 		var preReceiveError preReceiveError
 		if errors.As(err, &preReceiveError) {
 			return &gitalypb.UserFFBranchResponse{
