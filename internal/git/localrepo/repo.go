@@ -8,6 +8,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/internal/storage"
 )
 
 // Repo represents a local Git repository.
@@ -15,6 +16,7 @@ type Repo struct {
 	repository.GitRepo
 	gitCmdFactory git.CommandFactory
 	cfg           config.Cfg
+	locator       storage.Locator
 }
 
 // New creates a new Repo from its protobuf representation.
@@ -23,7 +25,13 @@ func New(gitCmdFactory git.CommandFactory, repo repository.GitRepo, cfg config.C
 		GitRepo:       repo,
 		cfg:           cfg,
 		gitCmdFactory: gitCmdFactory,
+		locator:       config.NewLocator(cfg),
 	}
+}
+
+// Path returns the on-disk path of the repository.
+func (repo *Repo) Path() (string, error) {
+	return repo.locator.GetRepoPath(repo)
 }
 
 // Exec creates a git command with the given args and Repo, executed in the
