@@ -182,8 +182,8 @@ func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommi
 
 	localRepo := localrepo.New(s.gitCmdFactory, header.Repository, s.cfg)
 
-	targetBranchName := "refs/heads/" + string(header.BranchName)
-	targetBranchCommit, err := localRepo.ResolveRevision(ctx, git.Revision(targetBranchName+"^{commit}"))
+	targetBranchName := git.NewReferenceNameFromBranchName(string(header.BranchName))
+	targetBranchCommit, err := localRepo.ResolveRevision(ctx, targetBranchName.Revision()+"^{commit}")
 	if err != nil {
 		if !errors.Is(err, git.ErrReferenceNotFound) {
 			return fmt.Errorf("resolve target branch commit: %w", err)
@@ -192,23 +192,28 @@ func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommi
 		// the branch is being created
 	}
 
-	parentCommitOID := header.StartSha
-	if parentCommitOID == "" {
+	var parentCommitOID git.ObjectID
+	if header.StartSha == "" {
 		parentCommitOID, err = s.resolveParentCommit(
 			ctx,
 			localRepo,
 			remoteRepo,
 			targetBranchName,
-			targetBranchCommit.String(),
+			targetBranchCommit,
 			string(header.StartBranchName),
 		)
 		if err != nil {
 			return fmt.Errorf("resolve parent commit: %w", err)
 		}
+	} else {
+		parentCommitOID, err = git.NewObjectIDFromHex(header.StartSha)
+		if err != nil {
+			return helper.ErrInvalidArgumentf("cannot resolve parent commit: %w", err)
+		}
 	}
 
-	if parentCommitOID != targetBranchCommit.String() {
-		if err := s.fetchMissingCommit(ctx, header.Repository, remoteRepo, parentCommitOID); err != nil {
+	if parentCommitOID != targetBranchCommit {
+		if err := s.fetchMissingCommit(ctx, header.Repository, remoteRepo, parentCommitOID.String()); err != nil {
 			return fmt.Errorf("fetch missing commit: %w", err)
 		}
 	}
@@ -339,7 +344,7 @@ func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommi
 		Author:     author,
 		Committer:  committer,
 		Message:    string(header.CommitMessage),
-		Parent:     parentCommitOID,
+		Parent:     parentCommitOID.String(),
 		Actions:    actions,
 	})
 	if err != nil {
@@ -353,12 +358,12 @@ func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommi
 
 	oldRevision := parentCommitOID
 	if targetBranchCommit == "" {
-		oldRevision = git.ZeroOID.String()
+		oldRevision = git.ZeroOID
 	} else if header.Force {
-		oldRevision = targetBranchCommit.String()
+		oldRevision = targetBranchCommit
 	}
 
-	if err := s.updateReferenceWithHooks(ctx, header.Repository, header.User, targetBranchName, commitID, oldRevision); err != nil {
+	if err := s.updateReferenceWithHooks(ctx, header.Repository, header.User, targetBranchName.String(), commitID, oldRevision.String()); err != nil {
 		if errors.As(err, &updateRefError{}) {
 			return status.Errorf(codes.FailedPrecondition, err.Error())
 		}
@@ -378,7 +383,14 @@ func sameRepository(repoA, repoB *gitalypb.Repository) bool {
 		repoA.GetRelativePath() == repoB.GetRelativePath()
 }
 
-func (s *Server) resolveParentCommit(ctx context.Context, local git.Repository, remote *gitalypb.Repository, targetBranch, targetBranchCommit, startBranch string) (string, error) {
+func (s *Server) resolveParentCommit(
+	ctx context.Context,
+	local git.Repository,
+	remote *gitalypb.Repository,
+	targetBranch git.ReferenceName,
+	targetBranchCommit git.ObjectID,
+	startBranch string,
+) (git.ObjectID, error) {
 	if remote == nil && startBranch == "" {
 		return targetBranchCommit, nil
 	}
@@ -418,7 +430,7 @@ func (s *Server) resolveParentCommit(ctx context.Context, local git.Repository, 
 
 	branch := targetBranch
 	if startBranch != "" {
-		branch = "refs/heads/" + startBranch
+		branch = git.NewReferenceNameFromBranchName(startBranch)
 	}
 	refish := branch + "^{commit}"
 
@@ -427,7 +439,7 @@ func (s *Server) resolveParentCommit(ctx context.Context, local git.Repository, 
 		return "", fmt.Errorf("resolving refish %q in %T: %w", refish, repo, err)
 	}
 
-	return commit.String(), nil
+	return commit, nil
 }
 
 func (s *Server) fetchMissingCommit(ctx context.Context, local, remote *gitalypb.Repository, commitID string) error {
