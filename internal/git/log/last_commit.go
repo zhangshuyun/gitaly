@@ -14,11 +14,12 @@ import (
 
 // LastCommitForPath returns the last commit which modified path.
 func LastCommitForPath(ctx context.Context, gitCmdFactory git.CommandFactory, batch catfile.Batch, repo repository.GitRepo, revision git.Revision, path string, options *gitalypb.GlobalOptions) (*gitalypb.GitCommit, error) {
-	cmd, err := gitCmdFactory.New(ctx, repo, git.ConvertGlobalOptions(options), git.SubCmd{
+	cmd, err := gitCmdFactory.New(ctx, repo, git.SubCmd{
 		Name:        "log",
 		Flags:       []git.Option{git.Flag{Name: "--format=%H"}, git.Flag{Name: "--max-count=1"}},
 		Args:        []string{revision.String()},
-		PostSepArgs: []string{path}})
+		PostSepArgs: []string{path},
+	}, git.ConvertGlobalOptions(options)...)
 	if err != nil {
 		return nil, err
 	}
@@ -38,10 +39,10 @@ func GitLogCommand(ctx context.Context, gitCmdFactory git.CommandFactory, repo r
 		args[i] = revision.String()
 	}
 
-	return gitCmdFactory.New(ctx, repo, git.ConvertGlobalOptions(options), git.SubCmd{
+	return gitCmdFactory.New(ctx, repo, git.SubCmd{
 		Name:        "log",
 		Flags:       append([]git.Option{git.Flag{Name: "--pretty=%H"}}, extraArgs...),
 		Args:        args,
 		PostSepArgs: paths,
-	})
+	}, git.ConvertGlobalOptions(options)...)
 }

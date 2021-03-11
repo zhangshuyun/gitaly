@@ -20,7 +20,7 @@ func (s *server) DiffStats(in *gitalypb.DiffStatsRequest, stream gitalypb.DiffSe
 	}
 
 	var batch []*gitalypb.DiffStats
-	cmd, err := s.gitCmdFactory.New(stream.Context(), in.Repository, nil, git.SubCmd{
+	cmd, err := s.gitCmdFactory.New(stream.Context(), in.Repository, git.SubCmd{
 		Name:  "diff",
 		Flags: []git.Option{git.Flag{Name: "--numstat"}, git.Flag{Name: "-z"}},
 		Args:  []string{in.LeftCommitId, in.RightCommitId},

@@ -200,19 +200,19 @@ func (s *server) handleArchive(p archiveParams) error {
 		fmt.Sprintf("%s=%s", log.GitalyLogDirEnvKey, p.loggingDir),
 	}
 
-	var globals []git.GlobalOption
+	var config []git.ConfigPair
 
 	if p.in.GetIncludeLfsBlobs() {
 		binary := filepath.Join(p.binDir, "gitaly-lfs-smudge")
-		globals = append(globals, git.ConfigPair{Key: "filter.lfs.smudge", Value: binary})
+		config = append(config, git.ConfigPair{Key: "filter.lfs.smudge", Value: binary})
 	}
 
-	archiveCommand, err := s.gitCmdFactory.New(p.ctx, p.in.GetRepository(), globals, git.SubCmd{
+	archiveCommand, err := s.gitCmdFactory.New(p.ctx, p.in.GetRepository(), git.SubCmd{
 		Name:        "archive",
 		Flags:       []git.Option{git.ValueFlag{"--format", p.format}, git.ValueFlag{"--prefix", p.in.GetPrefix() + "/"}},
 		Args:        args,
 		PostSepArgs: pathspecs,
-	}, git.WithEnv(env...))
+	}, git.WithEnv(env...), git.WithConfig(config...))
 	if err != nil {
 		return err
 	}

@@ -73,22 +73,23 @@ func (s *server) PostUploadPack(stream gitalypb.SmartHTTPService_PostUploadPackS
 
 	git.WarnIfTooManyBitmaps(ctx, s.locator, req.GetRepository().GetStorageName(), repoPath)
 
-	globalOpts := make([]git.GlobalOption, len(req.GitConfigOptions))
-	for i, o := range req.GitConfigOptions {
-		globalOpts[i] = git.ValueFlag{"-c", o}
+	config, err := git.ConvertConfigOptions(req.GitConfigOptions)
+	if err != nil {
+		return err
 	}
 
 	commandOpts := []git.CmdOpt{
 		git.WithStdin(stdin),
 		git.WithStdout(stdout),
 		git.WithGitProtocol(ctx, req),
+		git.WithConfig(config...),
 	}
 
 	if featureflag.IsEnabled(ctx, featureflag.UploadPackGitalyHooks) {
 		commandOpts = append(commandOpts, git.WithPackObjectsHookEnv(ctx, req.Repository, s.cfg))
 	}
 
-	cmd, err := s.gitCmdFactory.NewWithoutRepo(ctx, globalOpts, git.SubCmd{
+	cmd, err := s.gitCmdFactory.NewWithoutRepo(ctx, git.SubCmd{
 		Name:  "upload-pack",
 		Flags: []git.Option{git.Flag{Name: "--stateless-rpc"}},
 		Args:  []string{repoPath},

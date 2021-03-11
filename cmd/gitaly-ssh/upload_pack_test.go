@@ -87,7 +87,7 @@ func TestVisibilityOfHiddenRefs(t *testing.T) {
 			}
 
 			stdout := &bytes.Buffer{}
-			cmd, err := gitCmdFactory.NewWithoutRepo(ctx, nil, git.SubCmd{
+			cmd, err := gitCmdFactory.NewWithoutRepo(ctx, git.SubCmd{
 				Name: "ls-remote",
 				Args: []string{
 					fmt.Sprintf("%s:%s", "git@localhost", testRepoPath),

@@ -9,7 +9,7 @@ import (
 )
 
 func (s *server) removeOriginInRepo(ctx context.Context, repository *gitalypb.Repository) error {
-	cmd, err := s.gitCmdFactory.New(ctx, repository, nil, git.SubCmd{Name: "remote", Args: []string{"remove", "origin"}}, git.WithRefTxHook(ctx, repository, s.cfg))
+	cmd, err := s.gitCmdFactory.New(ctx, repository, git.SubCmd{Name: "remote", Args: []string{"remove", "origin"}}, git.WithRefTxHook(ctx, repository, s.cfg))
 
 	if err != nil {
 		return fmt.Errorf("remote cmd start: %v", err)

@@ -122,12 +122,12 @@ func (s *server) newLSTreeParser(in *gitalypb.ListLastCommitsForTreeRequest, str
 		path = "."
 	}
 
-	globals := git.ConvertGlobalOptions(in.GetGlobalOptions())
-	cmd, err := s.gitCmdFactory.New(stream.Context(), in.GetRepository(), globals, git.SubCmd{
+	opts := git.ConvertGlobalOptions(in.GetGlobalOptions())
+	cmd, err := s.gitCmdFactory.New(stream.Context(), in.GetRepository(), git.SubCmd{
 		Name:  "ls-tree",
 		Flags: []git.Option{git.Flag{Name: "-z"}, git.Flag{Name: "--full-name"}},
 		Args:  []string{in.GetRevision(), path},
-	})
+	}, opts...)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -27,7 +27,7 @@ func (remote Remote) Add(ctx context.Context, name, url string, opts git.RemoteA
 	}
 
 	var stderr bytes.Buffer
-	if err := remote.repo.ExecAndWait(ctx, nil,
+	if err := remote.repo.ExecAndWait(ctx,
 		git.SubSubCmd{
 			Name:   "remote",
 			Action: "add",
@@ -84,7 +84,7 @@ func (remote Remote) Remove(ctx context.Context, name string) error {
 	}
 
 	var stderr bytes.Buffer
-	if err := remote.repo.ExecAndWait(ctx, nil,
+	if err := remote.repo.ExecAndWait(ctx,
 		git.SubSubCmd{
 			Name:   "remote",
 			Action: "remove",
@@ -119,7 +119,7 @@ func (remote Remote) SetURL(ctx context.Context, name, url string, opts git.SetU
 	}
 
 	var stderr bytes.Buffer
-	if err := remote.repo.ExecAndWait(ctx, nil,
+	if err := remote.repo.ExecAndWait(ctx,
 		git.SubSubCmd{
 			Name:   "remote",
 			Action: "set-url",
@@ -146,7 +146,7 @@ func (remote Remote) SetURL(ctx context.Context, name, url string, opts git.SetU
 
 // Exists determines whether a given named remote exists.
 func (remote Remote) Exists(ctx context.Context, name string) (bool, error) {
-	cmd, err := remote.repo.Exec(ctx, nil,
+	cmd, err := remote.repo.Exec(ctx,
 		git.SubCmd{Name: "remote"},
 		git.WithRefTxHook(ctx, remote.repo, remote.repo.cfg),
 	)
@@ -194,8 +194,8 @@ var (
 type FetchOpts struct {
 	// Env is a list of env vars to pass to the cmd.
 	Env []string
-	// Global is a list of global flags to use with 'git' command.
-	Global []git.GlobalOption
+	// CommandOptions is a list of options to use with 'git' command.
+	CommandOptions []git.CmdOpt
 	// Prune if set fetch removes any remote-tracking references that no longer exist on the remote.
 	// https://git-scm.com/docs/git-fetch#Documentation/git-fetch.txt---prune
 	Prune bool
@@ -222,15 +222,20 @@ func (repo *Repo) FetchRemote(ctx context.Context, remoteName string, opts Fetch
 		return err
 	}
 
-	cmd, err := repo.gitCmdFactory.New(ctx, repo, opts.Global,
+	commandOptions := []git.CmdOpt{
+		git.WithEnv(opts.Env...),
+		git.WithStderr(opts.Stderr),
+		git.WithDisabledHooks(),
+	}
+	commandOptions = append(commandOptions, opts.CommandOptions...)
+
+	cmd, err := repo.gitCmdFactory.New(ctx, repo,
 		git.SubCmd{
 			Name:  "fetch",
 			Flags: opts.buildFlags(),
 			Args:  []string{remoteName},
 		},
-		git.WithEnv(opts.Env...),
-		git.WithStderr(opts.Stderr),
-		git.WithDisabledHooks(),
+		commandOptions...,
 	)
 	if err != nil {
 		return err

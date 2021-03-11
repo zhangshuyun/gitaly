@@ -1,9 +1,13 @@
 package git
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 )
 
 func TestFlagValidation(t *testing.T) {
@@ -186,6 +190,79 @@ func TestGlobalOption(t *testing.T) {
 			} else {
 				require.Error(t, err, "expected error, but args %v passed validation", args)
 				require.True(t, IsInvalidArgErr(err))
+			}
+		})
+	}
+}
+
+func TestWithConfig(t *testing.T) {
+	var cfg config.Cfg
+	require.NoError(t, cfg.SetGitPath())
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	gitCmdFactory := NewExecCommandFactory(cfg)
+
+	for _, tc := range []struct {
+		desc           string
+		configPairs    []ConfigPair
+		expectedValues map[string]string
+	}{
+		{
+			desc:        "no entries",
+			configPairs: []ConfigPair{},
+		},
+		{
+			desc: "single entry",
+			configPairs: []ConfigPair{
+				ConfigPair{Key: "foo.bar", Value: "baz"},
+			},
+			expectedValues: map[string]string{
+				"foo.bar": "baz",
+			},
+		},
+		{
+			desc: "multiple entries",
+			configPairs: []ConfigPair{
+				ConfigPair{Key: "entry.one", Value: "1"},
+				ConfigPair{Key: "entry.two", Value: "2"},
+				ConfigPair{Key: "entry.three", Value: "3"},
+			},
+			expectedValues: map[string]string{
+				"entry.one":   "1",
+				"entry.two":   "2",
+				"entry.three": "3",
+			},
+		},
+		{
+			desc: "later entries override previous ones",
+			configPairs: []ConfigPair{
+				ConfigPair{Key: "override.me", Value: "old value"},
+				ConfigPair{Key: "unrelated.entry", Value: "unrelated value"},
+				ConfigPair{Key: "override.me", Value: "new value"},
+			},
+			expectedValues: map[string]string{
+				"unrelated.entry": "unrelated value",
+				"override.me":     "new value",
+			},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			option := WithConfig(tc.configPairs...)
+
+			var commandCfg cmdCfg
+			require.NoError(t, option(&commandCfg))
+
+			for expectedKey, expectedValue := range tc.expectedValues {
+				var stdout bytes.Buffer
+				configCmd, err := gitCmdFactory.NewWithoutRepo(ctx, SubCmd{
+					Name: "config",
+					Args: []string{expectedKey},
+				}, WithStdout(&stdout), option)
+				require.NoError(t, err)
+				require.NoError(t, configCmd.Wait())
+				require.Equal(t, expectedValue, text.ChompBytes(stdout.Bytes()))
 			}
 		})
 	}

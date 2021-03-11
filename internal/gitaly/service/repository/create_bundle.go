@@ -23,7 +23,7 @@ func (s *server) CreateBundle(req *gitalypb.CreateBundleRequest, stream gitalypb
 		return helper.ErrInternalf("running Cleanup on repository: %w", err)
 	}
 
-	cmd, err := s.gitCmdFactory.New(ctx, repo, nil, git.SubSubCmd{
+	cmd, err := s.gitCmdFactory.New(ctx, repo, git.SubSubCmd{
 		Name:   "bundle",
 		Action: "create",
 		Flags:  []git.Option{git.OutputToStdout, git.Flag{Name: "--all"}},

@@ -28,7 +28,7 @@ func (repo *Repo) WriteBlob(ctx context.Context, path string, content io.Reader)
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
 
-	cmd, err := repo.Exec(ctx, nil,
+	cmd, err := repo.Exec(ctx,
 		git.SubCmd{
 			Name: "hash-object",
 			Flags: []git.Option{
@@ -143,7 +143,7 @@ func (repo *Repo) WriteTag(
 
 	content := strings.NewReader(tagBuf)
 
-	cmd, err := repo.Exec(ctx, nil,
+	cmd, err := repo.Exec(ctx,
 		git.SubCmd{
 			Name: "mktag",
 		},
@@ -179,7 +179,7 @@ func (repo *Repo) ReadObject(ctx context.Context, oid git.ObjectID) ([]byte, err
 
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
-	cmd, err := repo.Exec(ctx, nil,
+	cmd, err := repo.Exec(ctx,
 		git.SubCmd{
 			Name:  "cat-file",
 			Flags: []git.Option{git.Flag{"-p"}},

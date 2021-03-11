@@ -259,19 +259,31 @@ func validatePositionalArg(arg string) error {
 	return nil
 }
 
-// ConvertGlobalOptions converts a protobuf message to command-line flags
-func ConvertGlobalOptions(options *gitalypb.GlobalOptions) []GlobalOption {
-	var globals []GlobalOption
-
-	if options == nil {
-		return globals
+// ConvertGlobalOptions converts a protobuf message to a CmdOpt.
+func ConvertGlobalOptions(options *gitalypb.GlobalOptions) []CmdOpt {
+	if options != nil && options.GetLiteralPathspecs() {
+		return []CmdOpt{
+			WithEnv("GIT_LITERAL_PATHSPECS=1"),
+		}
 	}
 
-	if options.GetLiteralPathspecs() {
-		globals = append(globals, Flag{"--literal-pathspecs"})
+	return nil
+}
+
+// ConvertConfigOptions converts `<key>=<value>` config entries into `ConfigPairs`.
+func ConvertConfigOptions(options []string) ([]ConfigPair, error) {
+	configPairs := make([]ConfigPair, len(options))
+
+	for i, option := range options {
+		configPair := strings.SplitN(option, "=", 2)
+		if len(configPair) != 2 {
+			return nil, fmt.Errorf("cannot convert invalid config key: %q", option)
+		}
+
+		configPairs[i] = ConfigPair{Key: configPair[0], Value: configPair[1]}
 	}
 
-	return globals
+	return configPairs, nil
 }
 
 type cmdCfg struct {
@@ -315,6 +327,25 @@ func WithStderr(w io.Writer) CmdOpt {
 func WithEnv(envs ...string) CmdOpt {
 	return func(c *cmdCfg) error {
 		c.env = append(c.env, envs...)
+		return nil
+	}
+}
+
+// WithConfig adds git configuration entries to the command.
+func WithConfig(configPairs ...ConfigPair) CmdOpt {
+	return func(c *cmdCfg) error {
+		for _, configPair := range configPairs {
+			c.globals = append(c.globals, configPair)
+		}
+		return nil
+	}
+}
+
+// WithGlobalOption adds the global options to the command. These are universal options which work
+// across all git commands.
+func WithGlobalOption(opts ...GlobalOption) CmdOpt {
+	return func(c *cmdCfg) error {
+		c.globals = append(c.globals, opts...)
 		return nil
 	}
 }

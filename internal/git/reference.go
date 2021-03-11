@@ -93,7 +93,7 @@ func CheckRefFormat(ctx context.Context, gitCmdFactory CommandFactory, refName s
 	stdout := &bytes.Buffer{}
 	stderr := &bytes.Buffer{}
 
-	cmd, err := gitCmdFactory.NewWithoutRepo(ctx, nil,
+	cmd, err := gitCmdFactory.NewWithoutRepo(ctx,
 		SubCmd{
 			Name: "check-ref-format",
 			Args: []string{refName},

@@ -133,7 +133,7 @@ func (o *ObjectPool) Init(ctx context.Context) (err error) {
 		return nil
 	}
 
-	cmd, err := o.gitCmdFactory.NewWithoutRepo(ctx, nil,
+	cmd, err := o.gitCmdFactory.NewWithoutRepo(ctx,
 		git.SubCmd{
 			Name: "init",
 			Flags: []git.Option{

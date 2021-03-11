@@ -42,12 +42,12 @@ func (s *server) PostReceivePack(stream gitalypb.SmartHTTPService_PostReceivePac
 		return err
 	}
 
-	globalOpts := make([]git.GlobalOption, len(req.GitConfigOptions))
-	for i, o := range req.GitConfigOptions {
-		globalOpts[i] = git.ValueFlag{"-c", o}
+	config, err := git.ConvertConfigOptions(req.GitConfigOptions)
+	if err != nil {
+		return err
 	}
 
-	cmd, err := s.gitCmdFactory.NewWithoutRepo(ctx, globalOpts,
+	cmd, err := s.gitCmdFactory.NewWithoutRepo(ctx,
 		git.SubCmd{
 			Name:  "receive-pack",
 			Flags: []git.Option{git.Flag{Name: "--stateless-rpc"}},
@@ -57,6 +57,7 @@ func (s *server) PostReceivePack(stream gitalypb.SmartHTTPService_PostReceivePac
 		git.WithStdout(stdout),
 		git.WithReceivePackHooks(ctx, s.cfg, req, "http"),
 		git.WithGitProtocol(ctx, req),
+		git.WithConfig(config...),
 	)
 
 	if err != nil {

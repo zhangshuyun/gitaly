@@ -45,7 +45,7 @@ func TestDisconnectGitAlternates(t *testing.T) {
 	require.NoError(t, err, "find info/alternates")
 	require.NoError(t, os.RemoveAll(altPath))
 
-	cmd, err := gitCmdFactory.New(ctx, testRepo, nil,
+	cmd, err := gitCmdFactory.New(ctx, testRepo,
 		git.SubCmd{Name: "cat-file", Flags: []git.Option{git.Flag{Name: "-e"}}, Args: []string{existingObjectID}})
 	require.NoError(t, err)
 	require.Error(t, cmd.Wait(), "expect cat-file to fail because object cannot be found")

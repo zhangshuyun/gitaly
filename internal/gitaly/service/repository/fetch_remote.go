@@ -87,7 +87,9 @@ func (s *server) FetchRemote(ctx context.Context, req *gitalypb.FetchRemoteReque
 		}(ctx)
 
 		for _, refspec := range refspecs {
-			opts.Global = append(opts.Global, git.ConfigPair{Key: "remote." + remoteName + ".fetch", Value: refspec})
+			opts.CommandOptions = append(opts.CommandOptions,
+				git.WithConfig(git.ConfigPair{Key: "remote." + remoteName + ".fetch", Value: refspec}),
+			)
 		}
 
 		if params.GetHttpAuthorizationHeader() != "" {
@@ -147,8 +149,8 @@ func (s *server) FetchRemote(ctx context.Context, req *gitalypb.FetchRemoteReque
 		defer cancel()
 	}
 
-	opts.Global = append(opts.Global,
-		git.ConfigPair{Key: "http.followRedirects", Value: "false"},
+	opts.CommandOptions = append(opts.CommandOptions,
+		git.WithConfig(git.ConfigPair{Key: "http.followRedirects", Value: "false"}),
 	)
 
 	if err := repo.FetchRemote(ctx, remoteName, opts); err != nil {

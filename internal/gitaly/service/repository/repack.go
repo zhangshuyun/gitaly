@@ -59,11 +59,11 @@ func (s *server) RepackIncremental(ctx context.Context, in *gitalypb.RepackIncre
 
 func (s *server) repackCommand(ctx context.Context, repo repository.GitRepo, bitmap bool, args ...git.Option) error {
 	cmd, err := s.gitCmdFactory.New(ctx, repo,
-		repackConfig(ctx, bitmap), // global configs
 		git.SubCmd{
 			Name:  "repack",
 			Flags: append([]git.Option{git.Flag{Name: "-d"}}, args...),
 		},
+		git.WithConfig(repackConfig(ctx, bitmap)...),
 	)
 	if err != nil {
 		if _, ok := status.FromError(err); ok {
@@ -81,8 +81,8 @@ func (s *server) repackCommand(ctx context.Context, repo repository.GitRepo, bit
 	return nil
 }
 
-func repackConfig(ctx context.Context, bitmap bool) []git.GlobalOption {
-	args := []git.GlobalOption{
+func repackConfig(ctx context.Context, bitmap bool) []git.ConfigPair {
+	config := []git.ConfigPair{
 		git.ConfigPair{Key: "pack.island", Value: "r(e)fs/heads"},
 		git.ConfigPair{Key: "pack.island", Value: "r(e)fs/tags"},
 		git.ConfigPair{Key: "pack.islandCore", Value: "e"},
@@ -90,13 +90,13 @@ func repackConfig(ctx context.Context, bitmap bool) []git.GlobalOption {
 	}
 
 	if bitmap {
-		args = append(args, git.ConfigPair{Key: "repack.writeBitmaps", Value: "true"})
-		args = append(args, git.ConfigPair{Key: "pack.writeBitmapHashCache", Value: "true"})
+		config = append(config, git.ConfigPair{Key: "repack.writeBitmaps", Value: "true"})
+		config = append(config, git.ConfigPair{Key: "pack.writeBitmapHashCache", Value: "true"})
 	} else {
-		args = append(args, git.ConfigPair{Key: "repack.writeBitmaps", Value: "false"})
+		config = append(config, git.ConfigPair{Key: "repack.writeBitmaps", Value: "false"})
 	}
 
 	repackCounter.WithLabelValues(fmt.Sprint(bitmap)).Inc()
 
-	return args
+	return config
 }

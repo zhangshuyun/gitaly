@@ -301,7 +301,7 @@ func (s *server) repoWithBranchCommit(ctx context.Context, srcRepo, targetRepo *
 		return err
 	}
 
-	cmd, err := s.gitCmdFactory.New(ctx, srcRepo, nil,
+	cmd, err := s.gitCmdFactory.New(ctx, srcRepo,
 		git.SubCmd{
 			Name:  "fetch",
 			Flags: []git.Option{git.Flag{Name: "--no-tags"}},

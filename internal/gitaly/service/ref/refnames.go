@@ -62,7 +62,7 @@ func (s *server) listRefNames(ctx context.Context, chunker *chunk.Chunker, prefi
 		flags = append(flags, git.Flag{arg})
 	}
 
-	cmd, err := s.gitCmdFactory.New(ctx, repo, nil, git.SubCmd{
+	cmd, err := s.gitCmdFactory.New(ctx, repo, git.SubCmd{
 		Name:  "for-each-ref",
 		Flags: flags,
 		Args:  []string{prefix},

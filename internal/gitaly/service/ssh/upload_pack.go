@@ -79,9 +79,9 @@ func (s *server) sshUploadPack(stream gitalypb.SSHService_SSHUploadPackServer, r
 
 	git.WarnIfTooManyBitmaps(ctx, s.locator, req.GetRepository().StorageName, repoPath)
 
-	globalOpts := make([]git.GlobalOption, len(req.GitConfigOptions))
-	for i, o := range req.GitConfigOptions {
-		globalOpts[i] = git.ValueFlag{"-c", o}
+	config, err := git.ConvertConfigOptions(req.GitConfigOptions)
+	if err != nil {
+		return err
 	}
 
 	pr, pw := io.Pipe()
@@ -106,13 +106,14 @@ func (s *server) sshUploadPack(stream gitalypb.SSHService_SSHUploadPackServer, r
 
 	commandOpts := []git.CmdOpt{
 		git.WithGitProtocol(ctx, req),
+		git.WithConfig(config...),
 	}
 
 	if featureflag.IsEnabled(ctx, featureflag.UploadPackGitalyHooks) {
 		commandOpts = append(commandOpts, git.WithPackObjectsHookEnv(ctx, req.Repository, s.cfg))
 	}
 
-	cmd, monitor, err := monitorStdinCommand(ctx, s.gitCmdFactory, stdin, stdout, stderr, globalOpts, git.SubCmd{
+	cmd, monitor, err := monitorStdinCommand(ctx, s.gitCmdFactory, stdin, stdout, stderr, git.SubCmd{
 		Name: "upload-pack",
 		Args: []string{repoPath},
 	}, commandOpts...)

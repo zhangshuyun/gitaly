@@ -52,12 +52,13 @@ func (s *server) handleInfoRefs(ctx context.Context, service string, req *gitaly
 		cmdOpts = append(cmdOpts, git.WithRefTxHook(ctx, req.Repository, s.cfg))
 	}
 
-	globalOpts := make([]git.GlobalOption, len(req.GitConfigOptions))
-	for i, o := range req.GitConfigOptions {
-		globalOpts[i] = git.ValueFlag{"-c", o}
+	config, err := git.ConvertConfigOptions(req.GitConfigOptions)
+	if err != nil {
+		return err
 	}
+	cmdOpts = append(cmdOpts, git.WithConfig(config...))
 
-	cmd, err := s.gitCmdFactory.NewWithoutRepo(ctx, globalOpts, git.SubCmd{
+	cmd, err := s.gitCmdFactory.NewWithoutRepo(ctx, git.SubCmd{
 		Name:  service,
 		Flags: []git.Option{git.Flag{Name: "--stateless-rpc"}, git.Flag{Name: "--advertise-refs"}},
 		Args:  []string{repoPath},

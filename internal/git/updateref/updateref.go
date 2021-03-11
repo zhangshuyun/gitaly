@@ -53,7 +53,7 @@ func New(ctx context.Context, conf config.Cfg, gitCmdFactory git.CommandFactory,
 	}
 
 	var stderr bytes.Buffer
-	cmd, err := gitCmdFactory.New(ctx, repo, nil,
+	cmd, err := gitCmdFactory.New(ctx, repo,
 		git.SubCmd{
 			Name:  "update-ref",
 			Flags: []git.Option{git.Flag{Name: "-z"}, git.Flag{Name: "--stdin"}},

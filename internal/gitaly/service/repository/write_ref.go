@@ -31,7 +31,7 @@ func (s *server) writeRef(ctx context.Context, req *gitalypb.WriteRefRequest) er
 }
 
 func (s *server) updateSymbolicRef(ctx context.Context, req *gitalypb.WriteRefRequest) error {
-	cmd, err := s.gitCmdFactory.New(ctx, req.GetRepository(), nil,
+	cmd, err := s.gitCmdFactory.New(ctx, req.GetRepository(),
 		git.SubCmd{
 			Name: "symbolic-ref",
 			Args: []string{string(req.GetRef()), string(req.GetRevision())},

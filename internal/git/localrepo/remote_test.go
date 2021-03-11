@@ -394,7 +394,9 @@ func TestRepo_FetchRemote(t *testing.T) {
 			ctx,
 			"source",
 			FetchOpts{
-				Global: []git.GlobalOption{git.ConfigPair{Key: "fetch.prune", Value: "true"}},
+				CommandOptions: []git.CmdOpt{
+					git.WithConfig(git.ConfigPair{Key: "fetch.prune", Value: "true"}),
+				},
 			}),
 		)
 

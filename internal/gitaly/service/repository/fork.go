@@ -53,7 +53,7 @@ func (s *server) CreateFork(ctx context.Context, req *gitalypb.CreateForkRequest
 		return nil, err
 	}
 
-	cmd, err := s.gitCmdFactory.NewWithoutRepo(ctx, nil,
+	cmd, err := s.gitCmdFactory.NewWithoutRepo(ctx,
 		git.SubCmd{
 			Name: "clone",
 			Flags: []git.Option{

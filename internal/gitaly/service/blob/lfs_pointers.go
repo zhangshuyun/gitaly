@@ -305,7 +305,7 @@ func findLFSPointersByRevisions(
 	// git-rev-list(1) currently does not have any way to list all reachable objects of a
 	// certain type.
 	var revListStderr bytes.Buffer
-	revlist, err := repo.Exec(ctx, nil, git.SubCmd{
+	revlist, err := repo.Exec(ctx, git.SubCmd{
 		Name: "rev-list",
 		Flags: append([]git.Option{
 			git.Flag{Name: "--in-commit-order"},
@@ -352,7 +352,7 @@ func readLFSPointers(
 	objectIDReader io.Reader,
 	limit int,
 ) ([]*gitalypb.LFSPointer, error) {
-	catfileBatch, err := repo.Exec(ctx, nil, git.SubCmd{
+	catfileBatch, err := repo.Exec(ctx, git.SubCmd{
 		Name: "cat-file",
 		Flags: []git.Option{
 			git.Flag{Name: "--batch"},

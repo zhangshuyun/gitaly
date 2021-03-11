@@ -45,7 +45,7 @@ func newBatchProcess(ctx context.Context, gitCmdFactory git.CommandFactory, repo
 	ctx = correlation.ContextWithCorrelation(ctx, "")
 	ctx = opentracing.ContextWithSpan(ctx, nil)
 
-	batchCmd, err := gitCmdFactory.New(ctx, repo, nil,
+	batchCmd, err := gitCmdFactory.New(ctx, repo,
 		git.SubCmd{
 			Name: "cat-file",
 			Flags: []git.Option{

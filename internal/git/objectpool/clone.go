@@ -17,7 +17,7 @@ func (o *ObjectPool) clone(ctx context.Context, repo *gitalypb.Repository) error
 		return err
 	}
 
-	cmd, err := o.gitCmdFactory.NewWithoutRepo(ctx, nil,
+	cmd, err := o.gitCmdFactory.NewWithoutRepo(ctx,
 		git.SubCmd{
 			Name: "clone",
 			Flags: []git.Option{

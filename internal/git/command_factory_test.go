@@ -37,7 +37,7 @@ func TestGitCommandProxy(t *testing.T) {
 	defer cleanup()
 
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
-	cmd, err := gitCmdFactory.NewWithoutRepo(ctx, nil, git.SubCmd{
+	cmd, err := gitCmdFactory.NewWithoutRepo(ctx, git.SubCmd{
 		Name: "clone",
 		Args: []string{"http://gitlab.com/bogus-repo", dir},
 	}, git.WithDisabledHooks())
@@ -58,7 +58,7 @@ func TestExecCommandFactory_NewWithDir(t *testing.T) {
 		ctx, cancel := testhelper.Context()
 		defer cancel()
 
-		_, err := gitCmdFactory.NewWithDir(ctx, "", nil, nil, nil)
+		_, err := gitCmdFactory.NewWithDir(ctx, "", nil, nil)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "no 'dir' provided")
 	})
@@ -75,7 +75,7 @@ func TestExecCommandFactory_NewWithDir(t *testing.T) {
 		defer cancel()
 
 		var stderr bytes.Buffer
-		cmd, err := gitCmdFactory.NewWithDir(ctx, repoPath, nil, git.SubCmd{
+		cmd, err := gitCmdFactory.NewWithDir(ctx, repoPath, git.SubCmd{
 			Name: "rev-parse",
 			Args: []string{"master"},
 		}, git.WithStderr(&stderr))
@@ -94,7 +94,7 @@ func TestExecCommandFactory_NewWithDir(t *testing.T) {
 		defer cancel()
 
 		var stderr bytes.Buffer
-		_, err := gitCmdFactory.NewWithDir(ctx, "non-existing-dir", nil, git.SubCmd{
+		_, err := gitCmdFactory.NewWithDir(ctx, "non-existing-dir", git.SubCmd{
 			Name: "rev-parse",
 			Args: []string{"master"},
 		}, git.WithStderr(&stderr))
