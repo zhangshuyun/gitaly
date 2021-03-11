@@ -90,7 +90,7 @@ var gitCommands = map[string]gitCommand{
 		flags: scNoRefUpdates,
 	},
 	"ls-remote": gitCommand{
-		flags: scNoRefUpdates,
+		flags: scNoRefUpdates | scNoEndOfOptions,
 	},
 	"ls-tree": gitCommand{
 		flags: scNoRefUpdates | scNoEndOfOptions,
