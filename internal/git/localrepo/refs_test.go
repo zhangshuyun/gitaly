@@ -145,37 +145,54 @@ func TestRepo_GetReferences(t *testing.T) {
 	repo, _, cleanup := setupRepo(t, false)
 	defer cleanup()
 
+	masterBranch, err := repo.GetReference(ctx, "refs/heads/master")
+	require.NoError(t, err)
+
 	testcases := []struct {
-		desc    string
-		pattern string
-		match   func(t *testing.T, refs []git.Reference)
+		desc     string
+		patterns []string
+		match    func(t *testing.T, refs []git.Reference)
 	}{
 		{
-			desc:    "master branch",
-			pattern: "refs/heads/master",
+			desc:     "master branch",
+			patterns: []string{"refs/heads/master"},
 			match: func(t *testing.T, refs []git.Reference) {
-				require.Equal(t, []git.Reference{
-					git.NewReference("refs/heads/master", masterOID.String()),
-				}, refs)
+				require.Equal(t, []git.Reference{masterBranch}, refs)
 			},
 		},
 		{
-			desc:    "all references",
-			pattern: "",
+			desc:     "two branches",
+			patterns: []string{"refs/heads/master", "refs/heads/feature"},
+			match: func(t *testing.T, refs []git.Reference) {
+				featureBranch, err := repo.GetReference(ctx, "refs/heads/feature")
+				require.NoError(t, err)
+
+				require.Equal(t, []git.Reference{featureBranch, masterBranch}, refs)
+			},
+		},
+		{
+			desc:     "matching subset is returned",
+			patterns: []string{"refs/heads/master", "refs/heads/nonexistent"},
+			match: func(t *testing.T, refs []git.Reference) {
+				require.Equal(t, []git.Reference{masterBranch}, refs)
+			},
+		},
+		{
+			desc: "all references",
 			match: func(t *testing.T, refs []git.Reference) {
 				require.Len(t, refs, 94)
 			},
 		},
 		{
-			desc:    "branches",
-			pattern: "refs/heads/",
+			desc:     "branches",
+			patterns: []string{"refs/heads/"},
 			match: func(t *testing.T, refs []git.Reference) {
 				require.Len(t, refs, 91)
 			},
 		},
 		{
-			desc:    "branches",
-			pattern: "refs/heads/nonexistent",
+			desc:     "non-existent branch",
+			patterns: []string{"refs/heads/nonexistent"},
 			match: func(t *testing.T, refs []git.Reference) {
 				require.Empty(t, refs)
 			},
@@ -184,7 +201,7 @@ func TestRepo_GetReferences(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.desc, func(t *testing.T) {
-			refs, err := repo.GetReferences(ctx, tc.pattern)
+			refs, err := repo.GetReferences(ctx, tc.patterns...)
 			require.NoError(t, err)
 			tc.match(t, refs)
 		})

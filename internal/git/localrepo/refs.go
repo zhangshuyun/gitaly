@@ -64,7 +64,7 @@ func (repo *Repo) ResolveRevision(ctx context.Context, revision git.Revision) (g
 // GetReference looks up and returns the given reference. Returns a
 // ReferenceNotFound error if the reference was not found.
 func (repo *Repo) GetReference(ctx context.Context, reference git.ReferenceName) (git.Reference, error) {
-	refs, err := repo.getReferences(ctx, reference.String(), 1)
+	refs, err := repo.getReferences(ctx, 1, reference.String())
 	if err != nil {
 		return git.Reference{}, err
 	}
@@ -82,30 +82,26 @@ func (repo *Repo) GetReference(ctx context.Context, reference git.ReferenceName)
 // HasBranches determines whether there is at least one branch in the
 // repository.
 func (repo *Repo) HasBranches(ctx context.Context) (bool, error) {
-	refs, err := repo.getReferences(ctx, "refs/heads/", 1)
+	refs, err := repo.getReferences(ctx, 1, "refs/heads/")
 	return len(refs) > 0, err
 }
 
-// GetReferences returns references matching the given pattern.
-func (repo *Repo) GetReferences(ctx context.Context, pattern string) ([]git.Reference, error) {
-	return repo.getReferences(ctx, pattern, 0)
+// GetReferences returns references matching any of the given patterns. If no patterns are given,
+// all references are returned.
+func (repo *Repo) GetReferences(ctx context.Context, patterns ...string) ([]git.Reference, error) {
+	return repo.getReferences(ctx, 0, patterns...)
 }
 
-func (repo *Repo) getReferences(ctx context.Context, pattern string, limit uint) ([]git.Reference, error) {
+func (repo *Repo) getReferences(ctx context.Context, limit uint, patterns ...string) ([]git.Reference, error) {
 	flags := []git.Option{git.Flag{Name: "--format=%(refname)%00%(objectname)%00%(symref)"}}
 	if limit > 0 {
 		flags = append(flags, git.Flag{Name: fmt.Sprintf("--count=%d", limit)})
 	}
 
-	var args []string
-	if pattern != "" {
-		args = []string{pattern}
-	}
-
 	cmd, err := repo.Exec(ctx, git.SubCmd{
 		Name:  "for-each-ref",
 		Flags: flags,
-		Args:  args,
+		Args:  patterns,
 	})
 	if err != nil {
 		return nil, err
