@@ -10,6 +10,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
@@ -176,6 +177,10 @@ func (s *server) optimizeRepository(ctx context.Context, repository *gitalypb.Re
 	// This is a temporary code and needs to be removed once it will be run on all repositories at least once.
 	if err := s.unsetAllConfigsByRegexp(ctx, repo, "^http\\..+\\.extraHeader$"); err != nil {
 		return fmt.Errorf("OptimizeRepository: unset all configs by regexp: %w", err)
+	}
+
+	if err := housekeeping.Perform(ctx, repo); err != nil {
+		return fmt.Errorf("could not execute houskeeping: %w", err)
 	}
 
 	return nil

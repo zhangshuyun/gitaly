@@ -1,0 +1,5 @@
+---
+title: 'repository: Call housekeeping tasks in `OptimizeRepository()`'
+merge_request: 3246
+author:
+type: added
