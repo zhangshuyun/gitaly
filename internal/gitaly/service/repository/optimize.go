@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/git/stats"
@@ -173,12 +172,6 @@ func (s *server) optimizeRepository(ctx context.Context, repository *gitalypb.Re
 		return fmt.Errorf("OptimizeRepository: remove empty refs: %w", err)
 	}
 
-	// TODO: https://gitlab.com/gitlab-org/gitaly/-/issues/3138
-	// This is a temporary code and needs to be removed once it will be run on all repositories at least once.
-	if err := s.unsetAllConfigsByRegexp(ctx, repo, "^http\\..+\\.extraHeader$"); err != nil {
-		return fmt.Errorf("OptimizeRepository: unset all configs by regexp: %w", err)
-	}
-
 	if err := housekeeping.Perform(ctx, repo); err != nil {
 		return fmt.Errorf("could not execute houskeeping: %w", err)
 	}
@@ -206,25 +199,6 @@ func (s *server) validateOptimizeRepositoryRequest(in *gitalypb.OptimizeReposito
 	_, err := s.locator.GetRepoPath(in.GetRepository())
 	if err != nil {
 		return err
-	}
-
-	return nil
-}
-
-func (s *server) unsetAllConfigsByRegexp(ctx context.Context, repository *localrepo.Repo, regexp string) error {
-	config := repository.Config()
-
-	configPairs, err := config.GetRegexp(ctx, regexp, git.ConfigGetRegexpOpts{})
-	if err != nil {
-		return fmt.Errorf("get config keys: %w", err)
-	}
-
-	for _, configPair := range configPairs {
-		if err := config.Unset(ctx, configPair.Key, git.ConfigUnsetOpts{
-			All: true,
-		}); err != nil {
-			return fmt.Errorf("unset all: %w", err)
-		}
 	}
 
 	return nil

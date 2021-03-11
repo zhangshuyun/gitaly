@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -565,4 +566,40 @@ func TestPerformRepoDoesNotExist(t *testing.T) {
 	cleanup()
 
 	require.NoError(t, Perform(ctx, repo))
+}
+
+func TestPerform_UnsetConfiguration(t *testing.T) {
+	cfg, repoProto, _, cleanup := testcfg.BuildWithRepo(t)
+	defer cleanup()
+	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	for key, value := range map[string]string{
+		"http.first.extraHeader":  "barfoo",
+		"http.second.extraHeader": "barfoo",
+		"http.extraHeader":        "untouched",
+		"http.something.else":     "untouched",
+		"totally.unrelated":       "untouched",
+	} {
+		require.NoError(t, repo.Config().Add(ctx, key, value, git.ConfigAddOpts{}))
+	}
+
+	opts, err := repo.Config().GetRegexp(ctx, ".*", git.ConfigGetRegexpOpts{})
+	require.NoError(t, err)
+
+	var filteredOpts []git.ConfigPair
+	for _, opt := range opts {
+		key := strings.ToLower(opt.Key)
+		if key != "http.first.extraheader" && key != "http.second.extraheader" {
+			filteredOpts = append(filteredOpts, opt)
+		}
+	}
+
+	require.NoError(t, Perform(ctx, repo))
+
+	opts, err = repo.Config().GetRegexp(ctx, ".*", git.ConfigGetRegexpOpts{})
+	require.NoError(t, err)
+	require.Equal(t, filteredOpts, opts)
 }

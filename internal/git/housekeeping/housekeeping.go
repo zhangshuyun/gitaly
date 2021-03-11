@@ -10,6 +10,7 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	log "github.com/sirupsen/logrus"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"google.golang.org/grpc/codes"
@@ -81,6 +82,12 @@ func Perform(ctx context.Context, repo *localrepo.Repo) error {
 
 	if len(filesToPrune) > 0 {
 		logEntry.WithField("failures", unremovableFiles).Info("removed files")
+	}
+
+	// TODO: https://gitlab.com/gitlab-org/gitaly/-/issues/3138
+	// This is a temporary code and needs to be removed once it will be run on all repositories at least once.
+	if err := unsetAllConfigsByRegexp(ctx, repo, "^http\\..+\\.extraHeader$"); err != nil {
+		return fmt.Errorf("housekeeping could not unset extreHeaders: %w", err)
 	}
 
 	return nil
@@ -272,6 +279,25 @@ func fixDirectoryPermissions(ctx context.Context, path string, retriedPaths map[
 
 		return nil
 	})
+}
+
+func unsetAllConfigsByRegexp(ctx context.Context, repository *localrepo.Repo, regexp string) error {
+	config := repository.Config()
+
+	configPairs, err := config.GetRegexp(ctx, regexp, git.ConfigGetRegexpOpts{})
+	if err != nil {
+		return fmt.Errorf("get config keys: %w", err)
+	}
+
+	for _, configPair := range configPairs {
+		if err := config.Unset(ctx, configPair.Key, git.ConfigUnsetOpts{
+			All: true,
+		}); err != nil {
+			return fmt.Errorf("unset all: %w", err)
+		}
+	}
+
+	return nil
 }
 
 func myLogger(ctx context.Context) *log.Entry {
