@@ -15,6 +15,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -100,8 +101,8 @@ func removeEmptyDirs(ctx context.Context, target string) error {
 	return nil
 }
 
-func (s *server) removeRefEmptyDirs(ctx context.Context, repository *gitalypb.Repository) error {
-	rPath, err := s.locator.GetRepoPath(repository)
+func (s *server) removeRefEmptyDirs(ctx context.Context, repository *localrepo.Repo) error {
+	rPath, err := repository.Path()
 	if err != nil {
 		return err
 	}
@@ -170,13 +171,15 @@ func (s *server) optimizeRepository(ctx context.Context, repository *gitalypb.Re
 		return fmt.Errorf("could not repack: %w", err)
 	}
 
-	if err := s.removeRefEmptyDirs(ctx, repository); err != nil {
+	repo := localrepo.New(s.gitCmdFactory, repository, s.cfg)
+
+	if err := s.removeRefEmptyDirs(ctx, repo); err != nil {
 		return fmt.Errorf("OptimizeRepository: remove empty refs: %w", err)
 	}
 
 	// TODO: https://gitlab.com/gitlab-org/gitaly/-/issues/3138
 	// This is a temporary code and needs to be removed once it will be run on all repositories at least once.
-	if err := s.unsetAllConfigsByRegexp(ctx, repository, "^http\\..+\\.extraHeader$"); err != nil {
+	if err := s.unsetAllConfigsByRegexp(ctx, repo, "^http\\..+\\.extraHeader$"); err != nil {
 		return fmt.Errorf("OptimizeRepository: unset all configs by regexp: %w", err)
 	}
 
@@ -208,7 +211,7 @@ func (s *server) validateOptimizeRepositoryRequest(in *gitalypb.OptimizeReposito
 	return nil
 }
 
-func (s *server) unsetAllConfigsByRegexp(ctx context.Context, repository *gitalypb.Repository, regexp string) error {
+func (s *server) unsetAllConfigsByRegexp(ctx context.Context, repository *localrepo.Repo, regexp string) error {
 	keys, err := s.getConfigKeys(ctx, repository, regexp)
 	if err != nil {
 		return fmt.Errorf("get config keys: %w", err)
@@ -221,7 +224,7 @@ func (s *server) unsetAllConfigsByRegexp(ctx context.Context, repository *gitaly
 	return nil
 }
 
-func (s *server) getConfigKeys(ctx context.Context, repository *gitalypb.Repository, regexp string) ([]string, error) {
+func (s *server) getConfigKeys(ctx context.Context, repository *localrepo.Repo, regexp string) ([]string, error) {
 	cmd, err := s.gitCmdFactory.New(ctx, repository, git.SubCmd{
 		Name: "config",
 		Flags: []git.Option{
@@ -267,7 +270,7 @@ func parseConfigKeys(reader io.Reader) ([]string, error) {
 	return keys, nil
 }
 
-func (s *server) unsetConfigKeys(ctx context.Context, repository *gitalypb.Repository, names []string) error {
+func (s *server) unsetConfigKeys(ctx context.Context, repository *localrepo.Repo, names []string) error {
 	for _, name := range names {
 		if err := s.unsetAll(ctx, repository, name); err != nil {
 			return fmt.Errorf("unset all: %w", err)
@@ -277,7 +280,7 @@ func (s *server) unsetConfigKeys(ctx context.Context, repository *gitalypb.Repos
 	return nil
 }
 
-func (s *server) unsetAll(ctx context.Context, repository *gitalypb.Repository, name string) error {
+func (s *server) unsetAll(ctx context.Context, repository *localrepo.Repo, name string) error {
 	if strings.TrimSpace(name) == "" {
 		return nil
 	}
