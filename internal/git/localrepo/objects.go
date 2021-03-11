@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/git/log"
@@ -246,4 +247,39 @@ func (repo *Repo) ReadCommit(ctx context.Context, revision git.Revision, opts ..
 	}
 
 	return commit, nil
+}
+
+// InvalidCommitError is returned when the revision does not point to a valid commit object.
+type InvalidCommitError git.Revision
+
+func (err InvalidCommitError) Error() string {
+	return fmt.Sprintf("invalid commit: %q", string(err))
+}
+
+// IsAncestor returns whether the parent is an ancestor of the child. InvalidCommitError is returned
+// if either revision does not point to a commit in the repository.
+func (repo *Repo) IsAncestor(ctx context.Context, parent, child git.Revision) (bool, error) {
+	const notValidCommitName = "fatal: Not a valid commit name"
+
+	stderr := &bytes.Buffer{}
+	if err := repo.ExecAndWait(ctx,
+		git.SubCmd{
+			Name:  "merge-base",
+			Flags: []git.Option{git.Flag{Name: "--is-ancestor"}},
+			Args:  []string{parent.String(), child.String()},
+		},
+		git.WithStderr(stderr),
+	); err != nil {
+		status, ok := command.ExitStatus(err)
+		if ok && status == 1 {
+			return false, nil
+		} else if ok && strings.HasPrefix(stderr.String(), notValidCommitName) {
+			commitOID := strings.TrimSpace(strings.TrimPrefix(stderr.String(), notValidCommitName))
+			return false, InvalidCommitError(commitOID)
+		}
+
+		return false, fmt.Errorf("determine ancestry: %w, stderr: %q", err, stderr)
+	}
+
+	return true, nil
 }

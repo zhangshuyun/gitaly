@@ -393,3 +393,72 @@ func TestRepo_ReadCommit(t *testing.T) {
 		})
 	}
 }
+
+func TestRepo_IsAncestor(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	repo, _, cleanup := setupRepo(t, false)
+	defer cleanup()
+
+	for _, tc := range []struct {
+		desc         string
+		parent       git.Revision
+		child        git.Revision
+		isAncestor   bool
+		errorMatcher func(testing.TB, error)
+	}{
+		{
+			desc:       "parent is ancestor",
+			parent:     "HEAD~1",
+			child:      "HEAD",
+			isAncestor: true,
+		},
+		{
+			desc:       "parent is not ancestor",
+			parent:     "HEAD",
+			child:      "HEAD~1",
+			isAncestor: false,
+		},
+		{
+			desc:   "parent is not valid commit",
+			parent: git.ZeroOID.Revision(),
+			child:  "HEAD",
+			errorMatcher: func(t testing.TB, err error) {
+				require.Equal(t, InvalidCommitError(git.ZeroOID), err)
+			},
+		},
+		{
+			desc:   "child is not valid commit",
+			parent: "HEAD",
+			child:  git.ZeroOID.Revision(),
+			errorMatcher: func(t testing.TB, err error) {
+				require.Equal(t, InvalidCommitError(git.ZeroOID), err)
+			},
+		},
+		{
+			desc:   "child points to a tree",
+			parent: "HEAD",
+			child:  "HEAD^{tree}",
+			errorMatcher: func(t testing.TB, actualErr error) {
+				treeOID, err := repo.ResolveRevision(ctx, "HEAD^{tree}")
+				require.NoError(t, err)
+				require.EqualError(t, actualErr, fmt.Sprintf(
+					`determine ancestry: exit status 128, stderr: "error: object %s is a tree, not a commit\nfatal: Not a valid commit name HEAD^{tree}\n"`,
+					treeOID,
+				))
+			},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			isAncestor, err := repo.IsAncestor(ctx, tc.parent, tc.child)
+			if tc.errorMatcher != nil {
+				tc.errorMatcher(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+			require.Equal(t, tc.isAncestor, isAncestor)
+		})
+	}
+}
