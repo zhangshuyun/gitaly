@@ -41,7 +41,7 @@ import (
 var (
 	cacheIndexSize = promauto.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Name: "gitaly_streamcache_index_size",
+			Name: "gitaly_streamcache_index_entries",
 			Help: "Number of index entries in streamcache",
 		},
 		[]string{"dir"},
@@ -49,7 +49,54 @@ var (
 )
 
 // Cache is a cache for large byte streams.
-type Cache struct {
+type Cache interface {
+	// FindOrCreate finds or creates a cache entry. If the create callback
+	// runs, it will be asynchronous and created is set to true. Callers must
+	// Close() the returned stream to free underlying resources.
+	FindOrCreate(key string, create func(io.Writer) error) (s *Stream, created bool, err error)
+	// Stop stops the cleanup goroutines of the cache.
+	Stop()
+}
+
+var _ = Cache(&TestLoggingCache{})
+
+// TestLogEntry records the result of a cache lookup for testing purposes.
+type TestLogEntry struct {
+	Key     string
+	Created bool
+	Err     error
+}
+
+// TestLoggingCache wraps a real Cache and logs all its lookups. This is
+// not suitable for production because the log will grow indefinitely.
+// Use only for testing.
+type TestLoggingCache struct {
+	Cache
+	entries []*TestLogEntry
+	m       sync.Mutex
+}
+
+// FindOrCreate calls the underlying FindOrCreate method and logs the
+// result.
+func (tlc *TestLoggingCache) FindOrCreate(key string, create func(io.Writer) error) (s *Stream, created bool, err error) {
+	s, created, err = tlc.Cache.FindOrCreate(key, create)
+
+	tlc.m.Lock()
+	defer tlc.m.Unlock()
+	tlc.entries = append(tlc.entries, &TestLogEntry{Key: key, Created: created, Err: err})
+	return s, created, err
+}
+
+// Entries returns a reference to the log of entries observed so far.
+// This is a reference so the caller should not modify the underlying
+// array or its elements.
+func (tlc *TestLoggingCache) Entries() []*TestLogEntry {
+	tlc.m.Lock()
+	defer tlc.m.Unlock()
+	return tlc.entries
+}
+
+type cache struct {
 	m          sync.Mutex
 	expiry     time.Duration
 	index      map[string]*entry
@@ -61,17 +108,17 @@ type Cache struct {
 }
 
 // New returns a new cache instance.
-func New(dir string, expiry time.Duration, logger logrus.FieldLogger) (*Cache, error) {
+func New(dir string, expiry time.Duration, logger logrus.FieldLogger) (Cache, error) {
 	return newCacheWithSleep(dir, expiry, time.Sleep, logger)
 }
 
-func newCacheWithSleep(dir string, expiry time.Duration, sleep func(time.Duration), logger logrus.FieldLogger) (*Cache, error) {
+func newCacheWithSleep(dir string, expiry time.Duration, sleep func(time.Duration), logger logrus.FieldLogger) (Cache, error) {
 	fs, err := newFilestore(dir, expiry, sleep, logger)
 	if err != nil {
 		return nil, err
 	}
 
-	c := &Cache{
+	c := &cache{
 		expiry:     expiry,
 		index:      make(map[string]*entry),
 		createFile: fs.Create,
@@ -91,12 +138,11 @@ func newCacheWithSleep(dir string, expiry time.Duration, sleep func(time.Duratio
 	return c, nil
 }
 
-// Stop stops the cleanup goroutines.
-func (c *Cache) Stop() {
+func (c *cache) Stop() {
 	c.stopOnce.Do(func() { close(c.stop) })
 }
 
-func (c *Cache) clean() {
+func (c *cache) clean() {
 	c.m.Lock()
 	defer c.m.Unlock()
 
@@ -119,19 +165,16 @@ func (c *Cache) clean() {
 	}()
 }
 
-func (c *Cache) delete(key string) {
+func (c *cache) delete(key string) {
 	delete(c.index, key)
 	c.setIndexSize()
 }
 
-func (c *Cache) setIndexSize() {
+func (c *cache) setIndexSize() {
 	cacheIndexSize.WithLabelValues(c.dir).Set(float64(len(c.index)))
 }
 
-// FindOrCreate finds or creates a cache entry. If the create callback
-// runs, it will be asynchronous and created is set to true. Callers must
-// Close() the returned stream to free underlying resources.
-func (c *Cache) FindOrCreate(key string, create func(io.Writer) error) (s *Stream, created bool, err error) {
+func (c *cache) FindOrCreate(key string, create func(io.Writer) error) (s *Stream, created bool, err error) {
 	c.m.Lock()
 	defer c.m.Unlock()
 
@@ -160,7 +203,7 @@ func (c *Cache) FindOrCreate(key string, create func(io.Writer) error) (s *Strea
 
 type entry struct {
 	key     string
-	cache   *Cache
+	cache   *cache
 	pipe    *pipe
 	created time.Time
 	waiter  *waiter
@@ -183,7 +226,7 @@ func (s *Stream) Read(p []byte) (int, error) { return s.reader.Read(p) }
 // Close releases the underlying resources of the stream.
 func (s *Stream) Close() error { return s.reader.Close() }
 
-func (c *Cache) newEntry(key string, create func(io.Writer) error) (_ *Stream, _ *entry, err error) {
+func (c *cache) newEntry(key string, create func(io.Writer) error) (_ *Stream, _ *entry, err error) {
 	e := &entry{
 		key:     key,
 		cache:   c,

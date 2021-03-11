@@ -25,6 +25,13 @@ var (
 		},
 		[]string{"dir"},
 	)
+	diskUsageGauge = promauto.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "gitaly_streamcache_filestore_disk_usage_bytes",
+			Help: "Disk usage per filestore",
+		},
+		[]string{"dir"},
+	)
 )
 
 // Filestore creates temporary files in dir. These files get deleted once
@@ -66,6 +73,8 @@ func newFilestore(dir string, expiry time.Duration, sleep func(time.Duration), l
 
 	dontpanic.GoForever(1*time.Minute, func() {
 		sleepLoop(fs.stop, fs.expiry, sleep, func() {
+			diskUsageGauge.WithLabelValues(fs.dir).Set(fs.diskUsage())
+
 			if err := fs.cleanWalk(time.Now().Add(-fs.expiry)); err != nil {
 				logger.WithError(err).Error("streamcache filestore cleanup")
 			}
@@ -134,6 +143,17 @@ func (fs *filestore) cleanWalk(cutoff time.Time) error {
 
 		return err
 	})
+}
+
+func (fs *filestore) diskUsage() float64 {
+	var total float64
+	_ = filepath.Walk(fs.dir, func(_ string, info os.FileInfo, _ error) error {
+		if info != nil {
+			total += float64(info.Size())
+		}
+		return nil
+	})
+	return total
 }
 
 type counter struct {

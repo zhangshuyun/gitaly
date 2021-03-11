@@ -124,8 +124,9 @@ func requireCacheFiles(t *testing.T, dir string, n int) {
 	require.Equal(t, n, strings.Count(find, "\n"), "unexpected find output %q", find)
 }
 
-func requireCacheEntries(t *testing.T, c *Cache, n int) {
+func requireCacheEntries(t *testing.T, _c Cache, n int) {
 	t.Helper()
+	c := _c.(*cache)
 	c.m.Lock()
 	defer c.m.Unlock()
 	require.Len(t, c.index, n)
@@ -181,7 +182,7 @@ func TestCache_scope(t *testing.T) {
 
 	// Intentionally create multiple cache instances sharing one directory,
 	// to test that they do not trample on each others files.
-	cache := make([]*Cache, N)
+	cache := make([]Cache, N)
 	input := make([]string, N)
 	reader := make([]*Stream, N)
 	var err error
@@ -358,7 +359,7 @@ func TestCache_failCreateFile(t *testing.T) {
 	defer c.Stop()
 
 	createError := errors.New("cannot create file")
-	c.createFile = func() (namedWriteCloser, error) { return nil, createError }
+	c.(*cache).createFile = func() (namedWriteCloser, error) { return nil, createError }
 
 	_, _, err = c.FindOrCreate("key", func(io.Writer) error { return nil })
 	require.Equal(t, createError, err)
@@ -372,7 +373,7 @@ func TestCache_unWriteableFile(t *testing.T) {
 	require.NoError(t, err)
 	defer c.Stop()
 
-	c.createFile = func() (namedWriteCloser, error) {
+	c.(*cache).createFile = func() (namedWriteCloser, error) {
 		return os.OpenFile(filepath.Join(tmp, "unwriteable"), os.O_RDONLY|os.O_CREATE|os.O_EXCL, 0644)
 	}
 
@@ -399,7 +400,7 @@ func TestCache_unCloseableFile(t *testing.T) {
 	require.NoError(t, err)
 	defer c.Stop()
 
-	c.createFile = func() (namedWriteCloser, error) {
+	c.(*cache).createFile = func() (namedWriteCloser, error) {
 		f, err := os.OpenFile(filepath.Join(tmp, "uncloseable"), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644)
 		if err != nil {
 			return nil, err
@@ -427,7 +428,7 @@ func TestCache_cannotOpenFileForReading(t *testing.T) {
 	require.NoError(t, err)
 	defer c.Stop()
 
-	c.createFile = func() (namedWriteCloser, error) {
+	c.(*cache).createFile = func() (namedWriteCloser, error) {
 		f, err := os.OpenFile(filepath.Join(tmp, "unopenable"), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644)
 		if err != nil {
 			return nil, err
