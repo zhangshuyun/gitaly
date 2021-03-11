@@ -1,16 +1,11 @@
 package repository
 
 import (
-	"bufio"
 	"context"
-	"errors"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -212,89 +207,19 @@ func (s *server) validateOptimizeRepositoryRequest(in *gitalypb.OptimizeReposito
 }
 
 func (s *server) unsetAllConfigsByRegexp(ctx context.Context, repository *localrepo.Repo, regexp string) error {
-	keys, err := s.getConfigKeys(ctx, repository, regexp)
+	config := repository.Config()
+
+	configPairs, err := config.GetRegexp(ctx, regexp, git.ConfigGetRegexpOpts{})
 	if err != nil {
 		return fmt.Errorf("get config keys: %w", err)
 	}
 
-	if err := s.unsetConfigKeys(ctx, repository, keys); err != nil {
-		return fmt.Errorf("unset all keys: %w", err)
-	}
-
-	return nil
-}
-
-func (s *server) getConfigKeys(ctx context.Context, repository *localrepo.Repo, regexp string) ([]string, error) {
-	cmd, err := s.gitCmdFactory.New(ctx, repository, git.SubCmd{
-		Name: "config",
-		Flags: []git.Option{
-			git.Flag{Name: "--name-only"},
-			git.ValueFlag{Name: "--get-regexp", Value: regexp},
-		},
-	})
-	if err != nil {
-		return nil, fmt.Errorf("creation of 'git config': %w", err)
-	}
-
-	keys, err := parseConfigKeys(cmd)
-	if err != nil {
-		return nil, fmt.Errorf("parse config keys: %w", err)
-	}
-
-	if err := cmd.Wait(); err != nil {
-		var termErr *exec.ExitError
-		if errors.As(err, &termErr) {
-			if termErr.ExitCode() == 1 {
-				// https://git-scm.com/docs/git-config#_description: The section or key is invalid (ret=1)
-				// This means no matching values were found.
-				return nil, nil
-			}
-		}
-		return nil, fmt.Errorf("wait for 'git config': %w", err)
-	}
-
-	return keys, nil
-}
-
-func parseConfigKeys(reader io.Reader) ([]string, error) {
-	var keys []string
-
-	scanner := bufio.NewScanner(reader)
-	for scanner.Scan() {
-		keys = append(keys, scanner.Text())
-	}
-	if err := scanner.Err(); err != nil {
-		return nil, err
-	}
-
-	return keys, nil
-}
-
-func (s *server) unsetConfigKeys(ctx context.Context, repository *localrepo.Repo, names []string) error {
-	for _, name := range names {
-		if err := s.unsetAll(ctx, repository, name); err != nil {
+	for _, configPair := range configPairs {
+		if err := config.Unset(ctx, configPair.Key, git.ConfigUnsetOpts{
+			All: true,
+		}); err != nil {
 			return fmt.Errorf("unset all: %w", err)
 		}
-	}
-
-	return nil
-}
-
-func (s *server) unsetAll(ctx context.Context, repository *localrepo.Repo, name string) error {
-	if strings.TrimSpace(name) == "" {
-		return nil
-	}
-
-	cmd, err := s.gitCmdFactory.New(ctx, repository, git.SubCmd{
-		Name:  "config",
-		Flags: []git.Option{git.ValueFlag{Name: "--unset-all", Value: name}},
-	})
-	if err != nil {
-		return fmt.Errorf("creation of 'git config': %w", err)
-	}
-
-	if err := cmd.Wait(); err != nil {
-		return fmt.Errorf("wait for 'git config': %w", err)
 	}
 
 	return nil
