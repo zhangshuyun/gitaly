@@ -116,9 +116,9 @@ func TestFetchRemote_withDefaultRefmaps(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 
-	sourceRefs, err := sourceRepo.GetReferences(ctx, "")
+	sourceRefs, err := sourceRepo.GetReferences(ctx)
 	require.NoError(t, err)
-	targetRefs, err := targetRepo.GetReferences(ctx, "")
+	targetRefs, err := targetRepo.GetReferences(ctx)
 	require.NoError(t, err)
 	require.Equal(t, sourceRefs, targetRefs)
 }
