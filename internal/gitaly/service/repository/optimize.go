@@ -11,12 +11,17 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
+)
+
+const (
+	emptyRefsGracePeriod = 24 * time.Hour
 )
 
 var (
@@ -39,6 +44,17 @@ func removeEmptyDirs(ctx context.Context, target string) error {
 		return err
 	}
 
+	// We need to stat the directory early on in order to get its current mtime. If we
+	// did this after we have removed empty child directories, then its mtime would've
+	// changed and we wouldn't consider it for deletion.
+	dirStat, err := os.Stat(target)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+
 	entries, err := ioutil.ReadDir(target)
 	switch {
 	case os.IsNotExist(err):
@@ -58,12 +74,17 @@ func removeEmptyDirs(ctx context.Context, target string) error {
 		}
 	}
 
+	// If the directory is older than the grace period for empty refs, then we can
+	// consider it for deletion in case it's empty.
+	if time.Since(dirStat.ModTime()) < emptyRefsGracePeriod {
+		return nil
+	}
+
 	// recheck entries now that we have potentially removed some dirs
 	entries, err = ioutil.ReadDir(target)
 	if err != nil && !os.IsNotExist(err) {
 		return err
 	}
-
 	if len(entries) > 0 {
 		return nil
 	}
