@@ -2,6 +2,7 @@ package hook
 
 import (
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -21,7 +22,7 @@ var (
 			Name: "gitaly_pack_objects_cache_enabled",
 			Help: "If set to 1, indicates that the cache for PackObjectsHook has been enabled in this process",
 		},
-		[]string{"dir"},
+		[]string{"dir", "max_age"},
 	)
 )
 
@@ -62,14 +63,14 @@ func NewServer(cfg config.Cfg, manager gitalyhook.Manager, gitCmdFactory git.Com
 		// waves. See
 		// https://gitlab.com/gitlab-com/gl-infra/scalability/-/issues/872 for
 		// discussion.
-		expiry := 5 * time.Minute
+		maxAge := 5 * time.Minute
 
 		logger := log.Default()
-		if cache, err := streamcache.New(dir, expiry, logger); err != nil {
+		if cache, err := streamcache.New(dir, maxAge, logger); err != nil {
 			logger.WithError(err).Error("instantiate PackObjectsHook cache")
 		} else {
 			srv.packObjectsCache = cache
-			packObjectsCacheEnabled.WithLabelValues(dir).Set(1)
+			packObjectsCacheEnabled.WithLabelValues(dir, strconv.Itoa(int(maxAge.Seconds()))).Set(1)
 		}
 	}
 

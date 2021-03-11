@@ -9,16 +9,16 @@
 // The cache has 3 main parts: Cache (in-memory index), filestore (files
 // to store the cached data in because it does not fit in memory), and
 // pipe (coordinated IO to one file between one writer and multiple
-// readers). A cache entry consists of a key, an expiration time, a
+// readers). A cache entry consists of a key, an maximum age, a
 // pipe and the error result of the thing writing to the pipe.
 //
-// Expiry
+// Eviction
 //
-// There are two expiry goroutines: one for Cache and one for filestore.
-// The Cache expiry goroutine expires entry after a set amount of time,
+// There are two eviction goroutines: one for Cache and one for filestore.
+// The Cache eviction goroutine evicts entries after a set amount of time,
 // and deletes their underlying files too. This is safe because Unix file
 // semantics guarantee that readers/writers that are still using those
-// files can keep using them. In addition to expiring known cache
+// files can keep using them. In addition to evicting known cache
 // entries, we also have a goroutine at the filestore level which
 // performs a directory walk. This will clean up cache files left behind
 // by other processes.
@@ -98,7 +98,7 @@ func (tlc *TestLoggingCache) Entries() []*TestLogEntry {
 
 type cache struct {
 	m          sync.Mutex
-	expiry     time.Duration
+	maxAge     time.Duration
 	index      map[string]*entry
 	createFile func() (namedWriteCloser, error)
 	stop       chan struct{}
@@ -108,18 +108,18 @@ type cache struct {
 }
 
 // New returns a new cache instance.
-func New(dir string, expiry time.Duration, logger logrus.FieldLogger) (Cache, error) {
-	return newCacheWithSleep(dir, expiry, time.Sleep, logger)
+func New(dir string, maxAge time.Duration, logger logrus.FieldLogger) (Cache, error) {
+	return newCacheWithSleep(dir, maxAge, time.Sleep, logger)
 }
 
-func newCacheWithSleep(dir string, expiry time.Duration, sleep func(time.Duration), logger logrus.FieldLogger) (Cache, error) {
-	fs, err := newFilestore(dir, expiry, sleep, logger)
+func newCacheWithSleep(dir string, maxAge time.Duration, sleep func(time.Duration), logger logrus.FieldLogger) (Cache, error) {
+	fs, err := newFilestore(dir, maxAge, sleep, logger)
 	if err != nil {
 		return nil, err
 	}
 
 	c := &cache{
-		expiry:     expiry,
+		maxAge:     maxAge,
 		index:      make(map[string]*entry),
 		createFile: fs.Create,
 		stop:       make(chan struct{}),
@@ -128,7 +128,7 @@ func newCacheWithSleep(dir string, expiry time.Duration, sleep func(time.Duratio
 	}
 
 	dontpanic.GoForever(1*time.Minute, func() {
-		sleepLoop(c.stop, c.expiry, sleep, c.clean)
+		sleepLoop(c.stop, c.maxAge, sleep, c.clean)
 	})
 	go func() {
 		<-c.stop
@@ -147,7 +147,7 @@ func (c *cache) clean() {
 	defer c.m.Unlock()
 
 	var removed []*entry
-	cutoff := time.Now().Add(-c.expiry)
+	cutoff := time.Now().Add(-c.maxAge)
 	for k, e := range c.index {
 		if e.created.Before(cutoff) {
 			c.delete(k)
@@ -159,7 +159,7 @@ func (c *cache) clean() {
 	go func() {
 		for _, e := range removed {
 			if err := e.pipe.RemoveFile(); err != nil && !os.IsNotExist(err) {
-				c.logger.WithError(err).Error("streamcache: remove file expired from index")
+				c.logger.WithError(err).Error("streamcache: remove file evicted from index")
 			}
 		}
 	}()

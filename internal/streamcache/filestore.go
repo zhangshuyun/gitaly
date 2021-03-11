@@ -35,7 +35,7 @@ var (
 )
 
 // Filestore creates temporary files in dir. These files get deleted once
-// they are older (by mtime) than expiry via a goroutine that does
+// they are older (by mtime) than maxAge via a goroutine that does
 // periodic file walks. To make these file walks efficient, we spread the
 // temporary files across a balanced directory tree in subdirectories
 // aa/my-temp-file where aa is a hexadecimal number. This means
@@ -45,12 +45,12 @@ var (
 // prefix in the tempfiles it creates. This ensures that it is safe to
 // have multiple instances of filestore use the same directory on disk;
 // their tempfiles will not collide. There is one caveat: if multiple
-// filestores share the same directory but have different expiry times,
-// then shortest expiry time becomes the effective expiry time for all of
+// filestores share the same directory but have different maximum ages,
+// then lowest maximum age becomes the effective maximum age for all of
 // them.
 type filestore struct {
 	dir    string
-	expiry time.Duration
+	maxAge time.Duration
 
 	id []byte
 	counter
@@ -58,7 +58,7 @@ type filestore struct {
 	stopOnce sync.Once
 }
 
-func newFilestore(dir string, expiry time.Duration, sleep func(time.Duration), logger logrus.FieldLogger) (*filestore, error) {
+func newFilestore(dir string, maxAge time.Duration, sleep func(time.Duration), logger logrus.FieldLogger) (*filestore, error) {
 	buf := make([]byte, 10)
 	if _, err := io.ReadFull(rand.Reader, buf); err != nil {
 		return nil, err
@@ -66,16 +66,16 @@ func newFilestore(dir string, expiry time.Duration, sleep func(time.Duration), l
 
 	fs := &filestore{
 		dir:    dir,
-		expiry: expiry,
+		maxAge: maxAge,
 		id:     buf,
 		stop:   make(chan struct{}),
 	}
 
 	dontpanic.GoForever(1*time.Minute, func() {
-		sleepLoop(fs.stop, fs.expiry, sleep, func() {
+		sleepLoop(fs.stop, fs.maxAge, sleep, func() {
 			diskUsageGauge.WithLabelValues(fs.dir).Set(fs.diskUsage())
 
-			if err := fs.cleanWalk(time.Now().Add(-fs.expiry)); err != nil {
+			if err := fs.cleanWalk(time.Now().Add(-fs.maxAge)); err != nil {
 				logger.WithError(err).Error("streamcache filestore cleanup")
 			}
 		})
