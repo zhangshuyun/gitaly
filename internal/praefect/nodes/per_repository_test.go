@@ -470,7 +470,7 @@ func TestPerRepositoryElector_Retry(t *testing.T) {
 		require.True(t, errors.Is(err, assert.AnError))
 
 		if handleErrorCalls == 2 {
-			cancel()
+			return context.Canceled
 		}
 
 		return nil
@@ -481,6 +481,6 @@ func TestPerRepositoryElector_Retry(t *testing.T) {
 	trigger <- struct{}{}
 
 	require.Equal(t, context.Canceled, elector.Run(ctx, trigger))
-	require.Equal(t, dbCalls, 2)
-	require.Equal(t, handleErrorCalls, 2)
+	require.Equal(t, 2, dbCalls)
+	require.Equal(t, 2, handleErrorCalls)
 }
