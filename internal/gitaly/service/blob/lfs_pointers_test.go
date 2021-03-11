@@ -68,6 +68,7 @@ var (
 func TestSuccessfulGetLFSPointersRequest(t *testing.T) {
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.GoGetLFSPointers,
+		featureflag.LFSPointersUseBitmapIndex,
 	}).Run(t, testSuccessfulGetLFSPointersRequest)
 }
 
@@ -123,6 +124,7 @@ func testSuccessfulGetLFSPointersRequest(t *testing.T, ctx context.Context) {
 func TestFailedGetLFSPointersRequestDueToValidations(t *testing.T) {
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.GoGetLFSPointers,
+		featureflag.LFSPointersUseBitmapIndex,
 	}).Run(t, testFailedGetLFSPointersRequestDueToValidations)
 }
 
@@ -174,6 +176,7 @@ func testFailedGetLFSPointersRequestDueToValidations(t *testing.T, ctx context.C
 func TestSuccessfulGetNewLFSPointersRequest(t *testing.T) {
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.GoGetNewLFSPointers,
+		featureflag.LFSPointersUseBitmapIndex,
 	}).Run(t, testSuccessfulGetNewLFSPointersRequest)
 }
 
@@ -318,6 +321,7 @@ func testSuccessfulGetNewLFSPointersRequest(t *testing.T, ctx context.Context) {
 func TestFailedGetNewLFSPointersRequestDueToValidations(t *testing.T) {
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.GoGetNewLFSPointers,
+		featureflag.LFSPointersUseBitmapIndex,
 	}).Run(t, testFailedGetNewLFSPointersRequestDueToValidations)
 }
 
@@ -382,6 +386,7 @@ func drainNewPointers(c gitalypb.BlobService_GetNewLFSPointersClient) error {
 func TestSuccessfulGetAllLFSPointersRequest(t *testing.T) {
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.GoGetAllLFSPointers,
+		featureflag.LFSPointersUseBitmapIndex,
 	}).Run(t, testSuccessfulGetAllLFSPointersRequest)
 }
 
@@ -432,6 +437,7 @@ func getAllPointers(t *testing.T, c gitalypb.BlobService_GetAllLFSPointersClient
 func TestFailedGetAllLFSPointersRequestDueToValidations(t *testing.T) {
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.GoGetAllLFSPointers,
+		featureflag.LFSPointersUseBitmapIndex,
 	}).Run(t, testFailedGetAllLFSPointersRequestDueToValidations)
 }
 
@@ -480,6 +486,7 @@ func drainAllPointers(c gitalypb.BlobService_GetAllLFSPointersClient) error {
 func TestGetAllLFSPointersVerifyScope(t *testing.T) {
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.GoGetAllLFSPointers,
+		featureflag.LFSPointersUseBitmapIndex,
 	}).Run(t, testGetAllLFSPointersVerifyScope)
 }
 
