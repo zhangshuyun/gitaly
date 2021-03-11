@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"reflect"
 
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 )
 
@@ -86,7 +87,7 @@ func SerializableError(err error) error {
 
 // runWithGob runs the specified gitaly-git2go cmd with the request gob-encoded
 // as input and returns the commit ID as string or an error.
-func runWithGob(ctx context.Context, cfg config.Cfg, cmd string, request interface{}) (string, error) {
+func runWithGob(ctx context.Context, cfg config.Cfg, cmd string, request interface{}) (git.ObjectID, error) {
 	input := &bytes.Buffer{}
 	if err := gob.NewEncoder(input).Encode(request); err != nil {
 		return "", fmt.Errorf("%s: %w", cmd, err)
@@ -106,5 +107,10 @@ func runWithGob(ctx context.Context, cfg config.Cfg, cmd string, request interfa
 		return "", fmt.Errorf("%s: %w", cmd, result.Error)
 	}
 
-	return result.CommitID, nil
+	commitID, err := git.NewObjectIDFromHex(result.CommitID)
+	if err != nil {
+		return "", fmt.Errorf("could not parse commit ID: %w", err)
+	}
+
+	return commitID, nil
 }

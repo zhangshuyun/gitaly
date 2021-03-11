@@ -60,7 +60,7 @@ func (s *Server) UserRevert(ctx context.Context, req *gitalypb.UserRevertRequest
 		AuthorMail: string(req.User.Email),
 		AuthorDate: authorDate,
 		Message:    string(req.Message),
-		Ours:       startRevision,
+		Ours:       startRevision.String(),
 		Revert:     req.Commit.Id,
 		Mainline:   mainline,
 	}.Run(ctx, s.cfg)
@@ -77,10 +77,10 @@ func (s *Server) UserRevert(ctx context.Context, req *gitalypb.UserRevertRequest
 		}
 	}
 
-	branch := fmt.Sprintf("refs/heads/%s", req.BranchName)
+	referenceName := git.NewReferenceNameFromBranchName(string(req.BranchName))
 
 	branchCreated := false
-	oldrev, err := localRepo.ResolveRevision(ctx, git.Revision(fmt.Sprintf("%s^{commit}", branch)))
+	oldrev, err := localRepo.ResolveRevision(ctx, referenceName.Revision()+"^{commit}")
 	if errors.Is(err, git.ErrReferenceNotFound) {
 		branchCreated = true
 		oldrev = git.ZeroOID
@@ -93,7 +93,7 @@ func (s *Server) UserRevert(ctx context.Context, req *gitalypb.UserRevertRequest
 	}
 
 	if !branchCreated {
-		ancestor, err := s.isAncestor(ctx, req.Repository, oldrev.String(), newrev)
+		ancestor, err := s.isAncestor(ctx, req.Repository, oldrev, newrev)
 		if err != nil {
 			return nil, err
 		}
@@ -104,7 +104,7 @@ func (s *Server) UserRevert(ctx context.Context, req *gitalypb.UserRevertRequest
 		}
 	}
 
-	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, branch, newrev, oldrev.String()); err != nil {
+	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, referenceName, newrev, oldrev); err != nil {
 		var preReceiveError preReceiveError
 		if errors.As(err, &preReceiveError) {
 			return &gitalypb.UserRevertResponse{
@@ -117,7 +117,7 @@ func (s *Server) UserRevert(ctx context.Context, req *gitalypb.UserRevertRequest
 
 	return &gitalypb.UserRevertResponse{
 		BranchUpdate: &gitalypb.OperationBranchUpdate{
-			CommitId:      newrev,
+			CommitId:      newrev.String(),
 			BranchCreated: branchCreated,
 			RepoCreated:   !repoHadBranches,
 		},
@@ -145,7 +145,7 @@ type requestFetchingStartRevision interface {
 	GetStartBranchName() []byte
 }
 
-func (s *Server) fetchStartRevision(ctx context.Context, req requestFetchingStartRevision) (string, error) {
+func (s *Server) fetchStartRevision(ctx context.Context, req requestFetchingStartRevision) (git.ObjectID, error) {
 	startBranchName := req.GetStartBranchName()
 	if len(startBranchName) == 0 {
 		startBranchName = req.GetBranchName()
@@ -166,17 +166,19 @@ func (s *Server) fetchStartRevision(ctx context.Context, req requestFetchingStar
 	}
 
 	if req.GetStartRepository() == nil {
-		return startRevision.String(), nil
+		return startRevision, nil
 	}
 
-	_, err = localrepo.New(s.gitCmdFactory, req.GetRepository(), s.cfg).ResolveRevision(ctx, startRevision.Revision()+"^{commit}")
+	localRepo := localrepo.New(s.gitCmdFactory, req.GetRepository(), s.cfg)
+
+	_, err = localRepo.ResolveRevision(ctx, startRevision.Revision()+"^{commit}")
 	if errors.Is(err, git.ErrReferenceNotFound) {
-		if err := s.fetchRemoteObject(ctx, req.GetRepository(), req.GetStartRepository(), startRevision.String()); err != nil {
+		if err := s.fetchRemoteObject(ctx, localRepo, req.GetStartRepository(), startRevision); err != nil {
 			return "", helper.ErrInternalf("fetch start: %w", err)
 		}
 	} else if err != nil {
 		return "", helper.ErrInvalidArgumentf("resolve start: %w", err)
 	}
 
-	return startRevision.String(), nil
+	return startRevision, nil
 }

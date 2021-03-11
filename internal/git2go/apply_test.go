@@ -60,7 +60,7 @@ func TestExecutor_Apply(t *testing.T) {
 		Author:     author,
 		Committer:  committer,
 		Message:    "commit with a",
-		Parent:     parentCommitSHA,
+		Parent:     parentCommitSHA.String(),
 		Actions:    []Action{UpdateFile{Path: "file", OID: oidA.String()}},
 	})
 	require.NoError(t, err)
@@ -70,7 +70,7 @@ func TestExecutor_Apply(t *testing.T) {
 		Author:     author,
 		Committer:  committer,
 		Message:    "commit to b",
-		Parent:     parentCommitSHA,
+		Parent:     parentCommitSHA.String(),
 		Actions:    []Action{UpdateFile{Path: "file", OID: oidB.String()}},
 	})
 	require.NoError(t, err)
@@ -80,7 +80,7 @@ func TestExecutor_Apply(t *testing.T) {
 		Author:     author,
 		Committer:  committer,
 		Message:    "commit a -> b",
-		Parent:     updateToA,
+		Parent:     updateToA.String(),
 		Actions:    []Action{UpdateFile{Path: "file", OID: oidB.String()}},
 	})
 	require.NoError(t, err)
@@ -94,16 +94,16 @@ func TestExecutor_Apply(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	diffBetween := func(t testing.TB, fromCommit, toCommit string) []byte {
+	diffBetween := func(t testing.TB, fromCommit, toCommit git.ObjectID) []byte {
 		t.Helper()
 		return testhelper.MustRunCommand(t, nil,
-			"git", "-C", repoPath, "format-patch", "--stdout", fromCommit+".."+toCommit)
+			"git", "-C", repoPath, "format-patch", "--stdout", fromCommit.String()+".."+toCommit.String())
 	}
 
 	for _, tc := range []struct {
 		desc         string
 		patches      []Patch
-		parentCommit string
+		parentCommit git.ObjectID
 		tree         []gittest.TreeEntry
 		error        error
 	}{
@@ -198,7 +198,7 @@ func TestExecutor_Apply(t *testing.T) {
 			commitID, err := executor.Apply(ctx, ApplyParams{
 				Repository:   repoPath,
 				Committer:    committer,
-				ParentCommit: parentCommitSHA,
+				ParentCommit: parentCommitSHA.String(),
 				Patches:      NewSlicePatchIterator(tc.patches),
 			})
 			if tc.error != nil {
@@ -212,7 +212,7 @@ func TestExecutor_Apply(t *testing.T) {
 				Committer: committer,
 				Message:   tc.patches[len(tc.patches)-1].Message,
 			}, getCommit(t, ctx, repo, commitID))
-			gittest.RequireTree(t, config.Config.Git.BinPath, repoPath, commitID, tc.tree)
+			gittest.RequireTree(t, config.Config.Git.BinPath, repoPath, commitID.String(), tc.tree)
 		})
 	}
 }

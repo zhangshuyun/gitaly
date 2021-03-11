@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 )
 
@@ -26,6 +27,6 @@ type RevertCommand struct {
 	Mainline uint `json:"mainline"`
 }
 
-func (r RevertCommand) Run(ctx context.Context, cfg config.Cfg) (string, error) {
+func (r RevertCommand) Run(ctx context.Context, cfg config.Cfg) (git.ObjectID, error) {
 	return runWithGob(ctx, cfg, "revert", r)
 }

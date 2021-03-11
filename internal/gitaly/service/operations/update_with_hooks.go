@@ -43,7 +43,13 @@ func hookErrorMessage(sout string, serr string, err error) string {
 	return sout
 }
 
-func (s *Server) updateReferenceWithHooks(ctx context.Context, repo *gitalypb.Repository, user *gitalypb.User, reference, newrev, oldrev string) error {
+func (s *Server) updateReferenceWithHooks(
+	ctx context.Context,
+	repo *gitalypb.Repository,
+	user *gitalypb.User,
+	reference git.ReferenceName,
+	newrev, oldrev git.ObjectID,
+) error {
 	transaction, praefect, err := metadata.TransactionMetadataFromContext(ctx)
 	if err != nil {
 		return err
@@ -61,10 +67,10 @@ func (s *Server) updateReferenceWithHooks(ctx context.Context, repo *gitalypb.Re
 	if reference == "" {
 		return helper.ErrInternalf("updateReferenceWithHooks: got no reference")
 	}
-	if err := git.ValidateObjectID(oldrev); err != nil {
+	if err := git.ValidateObjectID(oldrev.String()); err != nil {
 		return helper.ErrInternalf("updateReferenceWithHooks: got invalid old value: %w", err)
 	}
-	if err := git.ValidateObjectID(newrev); err != nil {
+	if err := git.ValidateObjectID(newrev.String()); err != nil {
 		return helper.ErrInternalf("updateReferenceWithHooks: got invalid new value: %w", err)
 	}
 
@@ -79,7 +85,7 @@ func (s *Server) updateReferenceWithHooks(ctx context.Context, repo *gitalypb.Re
 		msg := hookErrorMessage(stdout.String(), stderr.String(), err)
 		return preReceiveError{message: msg}
 	}
-	if err := s.hookManager.UpdateHook(ctx, repo, reference, oldrev, newrev, env, &stdout, &stderr); err != nil {
+	if err := s.hookManager.UpdateHook(ctx, repo, reference.String(), oldrev.String(), newrev.String(), env, &stdout, &stderr); err != nil {
 		msg := hookErrorMessage(stdout.String(), stderr.String(), err)
 		return preReceiveError{message: msg}
 	}
@@ -103,12 +109,12 @@ func (s *Server) updateReferenceWithHooks(ctx context.Context, repo *gitalypb.Re
 		return err
 	}
 
-	if err := updater.Update(git.ReferenceName(reference), newrev, oldrev); err != nil {
+	if err := updater.Update(reference, newrev.String(), oldrev.String()); err != nil {
 		return err
 	}
 
 	if err := updater.Wait(); err != nil {
-		return updateRefError{reference: reference}
+		return updateRefError{reference: reference.String()}
 	}
 
 	if err := s.hookManager.PostReceiveHook(ctx, repo, nil, env, strings.NewReader(changes), &stdout, &stderr); err != nil {

@@ -56,7 +56,7 @@ func TestUpdateReferenceWithHooks_invalidParameters(t *testing.T) {
 		Email:      []byte("mail@example.com"),
 	}
 
-	revA, revB := strings.Repeat("a", 40), strings.Repeat("b", 40)
+	revA, revB := git.ObjectID(strings.Repeat("a", 40)), git.ObjectID(strings.Repeat("b", 40))
 
 	server := NewServer(config.Config, nil, &mockHookManager{}, nil, nil, nil)
 
@@ -64,9 +64,10 @@ func TestUpdateReferenceWithHooks_invalidParameters(t *testing.T) {
 	defer cancel()
 
 	testCases := []struct {
-		desc                string
-		ref, newRev, oldRev string
-		expectedErr         string
+		desc           string
+		ref            git.ReferenceName
+		newRev, oldRev git.ObjectID
+		expectedErr    string
 	}{
 		{
 			desc:        "missing reference",
@@ -269,7 +270,7 @@ func TestUpdateReferenceWithHooks(t *testing.T) {
 
 			hookServer := NewServer(config.Config, nil, hookManager, nil, nil, gitCmdFactory)
 
-			err := hookServer.updateReferenceWithHooks(ctx, repo, user, "refs/heads/master", git.ZeroOID.String(), oldRev)
+			err := hookServer.updateReferenceWithHooks(ctx, repo, user, git.ReferenceName("refs/heads/master"), git.ZeroOID, git.ObjectID(oldRev))
 			if tc.expectedErr == "" {
 				require.NoError(t, err)
 			} else {

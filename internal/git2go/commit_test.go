@@ -33,7 +33,7 @@ func testMain(m *testing.M) int {
 }
 
 type commit struct {
-	Parent    string
+	Parent    git.ObjectID
 	Author    Signature
 	Committer Signature
 	Message   string
@@ -464,7 +464,7 @@ func TestExecutor_Commit(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			author := NewSignature("Author Name", "author.email@example.com", time.Now())
 			committer := NewSignature("Committer Name", "committer.email@example.com", time.Now())
-			var parentCommit string
+			var parentCommit git.ObjectID
 			for i, step := range tc.steps {
 				message := fmt.Sprintf("commit %d", i+1)
 				commitID, err := executor.Commit(ctx, CommitParams{
@@ -472,7 +472,7 @@ func TestExecutor_Commit(t *testing.T) {
 					Author:     author,
 					Committer:  committer,
 					Message:    message,
-					Parent:     parentCommit,
+					Parent:     parentCommit.String(),
 					Actions:    step.actions,
 				})
 
@@ -490,17 +490,17 @@ func TestExecutor_Commit(t *testing.T) {
 					Message:   message,
 				}, getCommit(t, ctx, repo, commitID))
 
-				gittest.RequireTree(t, config.Config.Git.BinPath, repoPath, commitID, step.treeEntries)
+				gittest.RequireTree(t, config.Config.Git.BinPath, repoPath, commitID.String(), step.treeEntries)
 				parentCommit = commitID
 			}
 		})
 	}
 }
 
-func getCommit(t testing.TB, ctx context.Context, repo *localrepo.Repo, oid string) commit {
+func getCommit(t testing.TB, ctx context.Context, repo *localrepo.Repo, oid git.ObjectID) commit {
 	t.Helper()
 
-	data, err := repo.ReadObject(ctx, git.ObjectID(oid))
+	data, err := repo.ReadObject(ctx, oid)
 	require.NoError(t, err)
 
 	var commit commit
@@ -518,7 +518,7 @@ func getCommit(t testing.TB, ctx context.Context, repo *localrepo.Repo, oid stri
 		switch field {
 		case "parent":
 			require.Empty(t, commit.Parent, "multi parent parsing not implemented")
-			commit.Parent = value
+			commit.Parent = git.ObjectID(value)
 		case "author":
 			require.Empty(t, commit.Author, "commit contained multiple authors")
 			commit.Author = unmarshalSignature(t, value)

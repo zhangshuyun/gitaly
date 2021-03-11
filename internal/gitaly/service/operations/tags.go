@@ -28,13 +28,13 @@ func (s *Server) UserDeleteTag(ctx context.Context, req *gitalypb.UserDeleteTagR
 		return nil, status.Errorf(codes.InvalidArgument, "empty user")
 	}
 
-	referenceName := fmt.Sprintf("refs/tags/%s", req.TagName)
-	revision, err := localrepo.New(s.gitCmdFactory, req.Repository, s.cfg).GetReference(ctx, git.ReferenceName(referenceName))
+	referenceName := git.ReferenceName(fmt.Sprintf("refs/tags/%s", req.TagName))
+	revision, err := localrepo.New(s.gitCmdFactory, req.Repository, s.cfg).ResolveRevision(ctx, referenceName.Revision())
 	if err != nil {
 		return nil, status.Errorf(codes.FailedPrecondition, "tag not found: %s", req.TagName)
 	}
 
-	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, referenceName, git.ZeroOID.String(), revision.Target); err != nil {
+	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, referenceName, git.ZeroOID, revision); err != nil {
 		var preReceiveError preReceiveError
 		if errors.As(err, &preReceiveError) {
 			return &gitalypb.UserDeleteTagResponse{
@@ -141,7 +141,7 @@ func (s *Server) UserCreateTag(ctx context.Context, req *gitalypb.UserCreateTagR
 	// At this point we'll either be pointing to an object we were
 	// provided with, or creating a new tag object and pointing to
 	// that.
-	refObjectID := targetObjectID.String()
+	refObjectID := targetObjectID
 	var tagObject *gitalypb.Tag
 	if makingTag {
 		localRepo := localrepo.New(s.gitCmdFactory, repo, s.cfg)
@@ -168,14 +168,14 @@ func (s *Server) UserCreateTag(ctx context.Context, req *gitalypb.UserCreateTagR
 			return nil, status.Error(codes.Internal, err.Error())
 		}
 
-		createdTag, err := log.GetTagCatfile(ctx, catFile, git.Revision(tagObjectID), string(req.TagName), false, false)
+		createdTag, err := log.GetTagCatfile(ctx, catFile, tagObjectID.Revision(), string(req.TagName), false, false)
 		if err != nil {
 			return nil, status.Error(codes.Internal, err.Error())
 		}
 
 		tagObject = &gitalypb.Tag{
 			Name:        req.TagName,
-			Id:          tagObjectID,
+			Id:          tagObjectID.String(),
 			Message:     createdTag.Message,
 			MessageSize: createdTag.MessageSize,
 			//TargetCommit: is filled in below if needed
@@ -190,8 +190,8 @@ func (s *Server) UserCreateTag(ctx context.Context, req *gitalypb.UserCreateTagR
 		}
 	}
 
-	referenceName := fmt.Sprintf("refs/tags/%s", req.TagName)
-	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, referenceName, refObjectID, git.ZeroOID.String()); err != nil {
+	referenceName := git.ReferenceName(fmt.Sprintf("refs/tags/%s", req.TagName))
+	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, referenceName, refObjectID, git.ZeroOID); err != nil {
 		var preReceiveError preReceiveError
 		if errors.As(err, &preReceiveError) {
 			return &gitalypb.UserCreateTagResponse{
@@ -201,7 +201,7 @@ func (s *Server) UserCreateTag(ctx context.Context, req *gitalypb.UserCreateTagR
 
 		var updateRefError updateRefError
 		if errors.As(err, &updateRefError) {
-			refNameOK, err := git.CheckRefFormat(ctx, s.gitCmdFactory, referenceName)
+			refNameOK, err := git.CheckRefFormat(ctx, s.gitCmdFactory, referenceName.String())
 			if refNameOK {
 				// The tag might not actually exist,
 				// perhaps update-ref died for some

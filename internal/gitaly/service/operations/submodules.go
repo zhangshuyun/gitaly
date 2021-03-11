@@ -89,7 +89,9 @@ func (s *Server) userUpdateSubmodule(ctx context.Context, req *gitalypb.UserUpda
 		}, nil
 	}
 
-	branchRef, err := repo.GetReference(ctx, git.NewReferenceNameFromBranchName(string(req.GetBranch())))
+	referenceName := git.NewReferenceNameFromBranchName(string(req.GetBranch()))
+
+	branchOID, err := repo.ResolveRevision(ctx, referenceName.Revision())
 	if err != nil {
 		if errors.Is(err, git.ErrReferenceNotFound) {
 			return nil, helper.ErrInvalidArgumentf("Cannot find branch")
@@ -152,13 +154,18 @@ func (s *Server) userUpdateSubmodule(ctx context.Context, req *gitalypb.UserUpda
 		return nil, fmt.Errorf("%s: submodule subcommand: %w", userUpdateSubmoduleName, err)
 	}
 
+	commitID, err := git.NewObjectIDFromHex(result.CommitID)
+	if err != nil {
+		return nil, helper.ErrInvalidArgumentf("cannot parse commit ID: %w", err)
+	}
+
 	if err := s.updateReferenceWithHooks(
 		ctx,
 		req.GetRepository(),
 		req.GetUser(),
-		branchRef.Name.String(),
-		result.CommitID,
-		branchRef.Target,
+		referenceName,
+		commitID,
+		branchOID,
 	); err != nil {
 		var preReceiveError preReceiveError
 		if errors.As(err, &preReceiveError) {

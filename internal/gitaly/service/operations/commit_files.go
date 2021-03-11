@@ -182,8 +182,8 @@ func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommi
 
 	localRepo := localrepo.New(s.gitCmdFactory, header.Repository, s.cfg)
 
-	targetBranchName := "refs/heads/" + string(header.BranchName)
-	targetBranchCommit, err := localRepo.ResolveRevision(ctx, git.Revision(targetBranchName+"^{commit}"))
+	targetBranchName := git.NewReferenceNameFromBranchName(string(header.BranchName))
+	targetBranchCommit, err := localRepo.ResolveRevision(ctx, targetBranchName.Revision()+"^{commit}")
 	if err != nil {
 		if !errors.Is(err, git.ErrReferenceNotFound) {
 			return fmt.Errorf("resolve target branch commit: %w", err)
@@ -192,23 +192,28 @@ func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommi
 		// the branch is being created
 	}
 
-	parentCommitOID := header.StartSha
-	if parentCommitOID == "" {
+	var parentCommitOID git.ObjectID
+	if header.StartSha == "" {
 		parentCommitOID, err = s.resolveParentCommit(
 			ctx,
 			localRepo,
 			remoteRepo,
 			targetBranchName,
-			targetBranchCommit.String(),
+			targetBranchCommit,
 			string(header.StartBranchName),
 		)
 		if err != nil {
 			return fmt.Errorf("resolve parent commit: %w", err)
 		}
+	} else {
+		parentCommitOID, err = git.NewObjectIDFromHex(header.StartSha)
+		if err != nil {
+			return helper.ErrInvalidArgumentf("cannot resolve parent commit: %w", err)
+		}
 	}
 
-	if parentCommitOID != targetBranchCommit.String() {
-		if err := s.fetchMissingCommit(ctx, header.Repository, remoteRepo, parentCommitOID); err != nil {
+	if parentCommitOID != targetBranchCommit {
+		if err := s.fetchMissingCommit(ctx, localRepo, remoteRepo, parentCommitOID); err != nil {
 			return fmt.Errorf("fetch missing commit: %w", err)
 		}
 	}
@@ -339,7 +344,7 @@ func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommi
 		Author:     author,
 		Committer:  committer,
 		Message:    string(header.CommitMessage),
-		Parent:     parentCommitOID,
+		Parent:     parentCommitOID.String(),
 		Actions:    actions,
 	})
 	if err != nil {
@@ -353,9 +358,9 @@ func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommi
 
 	oldRevision := parentCommitOID
 	if targetBranchCommit == "" {
-		oldRevision = git.ZeroOID.String()
+		oldRevision = git.ZeroOID
 	} else if header.Force {
-		oldRevision = targetBranchCommit.String()
+		oldRevision = targetBranchCommit
 	}
 
 	if err := s.updateReferenceWithHooks(ctx, header.Repository, header.User, targetBranchName, commitID, oldRevision); err != nil {
@@ -367,7 +372,7 @@ func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommi
 	}
 
 	return stream.SendAndClose(&gitalypb.UserCommitFilesResponse{BranchUpdate: &gitalypb.OperationBranchUpdate{
-		CommitId:      commitID,
+		CommitId:      commitID.String(),
 		RepoCreated:   !hasBranches,
 		BranchCreated: parentCommitOID == "",
 	}})
@@ -378,7 +383,14 @@ func sameRepository(repoA, repoB *gitalypb.Repository) bool {
 		repoA.GetRelativePath() == repoB.GetRelativePath()
 }
 
-func (s *Server) resolveParentCommit(ctx context.Context, local git.Repository, remote *gitalypb.Repository, targetBranch, targetBranchCommit, startBranch string) (string, error) {
+func (s *Server) resolveParentCommit(
+	ctx context.Context,
+	local git.Repository,
+	remote *gitalypb.Repository,
+	targetBranch git.ReferenceName,
+	targetBranchCommit git.ObjectID,
+	startBranch string,
+) (git.ObjectID, error) {
 	if remote == nil && startBranch == "" {
 		return targetBranchCommit, nil
 	}
@@ -418,7 +430,7 @@ func (s *Server) resolveParentCommit(ctx context.Context, local git.Repository, 
 
 	branch := targetBranch
 	if startBranch != "" {
-		branch = "refs/heads/" + startBranch
+		branch = git.NewReferenceNameFromBranchName(startBranch)
 	}
 	refish := branch + "^{commit}"
 
@@ -427,16 +439,21 @@ func (s *Server) resolveParentCommit(ctx context.Context, local git.Repository, 
 		return "", fmt.Errorf("resolving refish %q in %T: %w", refish, repo, err)
 	}
 
-	return commit.String(), nil
+	return commit, nil
 }
 
-func (s *Server) fetchMissingCommit(ctx context.Context, local, remote *gitalypb.Repository, commitID string) error {
-	if _, err := localrepo.New(s.gitCmdFactory, local, s.cfg).ResolveRevision(ctx, git.Revision(commitID+"^{commit}")); err != nil {
-		if !errors.Is(err, git.ErrReferenceNotFound) || remote == nil {
+func (s *Server) fetchMissingCommit(
+	ctx context.Context,
+	localRepo *localrepo.Repo,
+	remoteRepo *gitalypb.Repository,
+	commit git.ObjectID,
+) error {
+	if _, err := localRepo.ResolveRevision(ctx, commit.Revision()+"^{commit}"); err != nil {
+		if !errors.Is(err, git.ErrReferenceNotFound) || remoteRepo == nil {
 			return fmt.Errorf("lookup parent commit: %w", err)
 		}
 
-		if err := s.fetchRemoteObject(ctx, local, remote, commitID); err != nil {
+		if err := s.fetchRemoteObject(ctx, localRepo, remoteRepo, commit); err != nil {
 			return fmt.Errorf("fetch parent commit: %w", err)
 		}
 	}
@@ -444,9 +461,14 @@ func (s *Server) fetchMissingCommit(ctx context.Context, local, remote *gitalypb
 	return nil
 }
 
-func (s *Server) fetchRemoteObject(ctx context.Context, local, remote *gitalypb.Repository, sha string) error {
+func (s *Server) fetchRemoteObject(
+	ctx context.Context,
+	localRepo *localrepo.Repo,
+	remoteRepo *gitalypb.Repository,
+	oid git.ObjectID,
+) error {
 	env, err := gitalyssh.UploadPackEnv(ctx, s.cfg, &gitalypb.SSHUploadPackRequest{
-		Repository:       remote,
+		Repository:       remoteRepo,
 		GitConfigOptions: []string{"uploadpack.allowAnySHA1InWant=true"},
 	})
 	if err != nil {
@@ -454,21 +476,15 @@ func (s *Server) fetchRemoteObject(ctx context.Context, local, remote *gitalypb.
 	}
 
 	stderr := &bytes.Buffer{}
-	cmd, err := s.gitCmdFactory.New(ctx, local, nil,
-		git.SubCmd{
-			Name:  "fetch",
-			Flags: []git.Option{git.Flag{Name: "--no-tags"}},
-			Args:  []string{"ssh://gitaly/internal.git", sha},
-		},
+	if err := localRepo.ExecAndWait(ctx, nil, git.SubCmd{
+		Name:  "fetch",
+		Flags: []git.Option{git.Flag{Name: "--no-tags"}},
+		Args:  []string{"ssh://gitaly/internal.git", oid.String()},
+	},
 		git.WithEnv(env...),
 		git.WithStderr(stderr),
-		git.WithRefTxHook(ctx, local, s.cfg),
-	)
-	if err != nil {
-		return err
-	}
-
-	if err := cmd.Wait(); err != nil {
+		git.WithRefTxHook(ctx, localRepo, s.cfg),
+	); err != nil {
 		return errorWithStderr(err, stderr)
 	}
 

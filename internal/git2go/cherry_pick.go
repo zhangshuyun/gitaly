@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 )
 
@@ -28,6 +29,6 @@ type CherryPickCommand struct {
 }
 
 // Run performs a cherry pick via gitaly-git2go.
-func (m CherryPickCommand) Run(ctx context.Context, cfg config.Cfg) (string, error) {
+func (m CherryPickCommand) Run(ctx context.Context, cfg config.Cfg) (git.ObjectID, error) {
 	return runWithGob(ctx, cfg, "cherry-pick", m)
 }
