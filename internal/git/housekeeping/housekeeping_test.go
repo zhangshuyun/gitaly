@@ -11,8 +11,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 )
 
 type entryFinalState int
@@ -79,8 +79,10 @@ type dirEntry struct {
 
 func (d *dirEntry) create(t *testing.T, parent string) {
 	dirname := filepath.Join(parent, d.name)
-	err := os.Mkdir(dirname, 0700)
-	assert.NoError(t, err, "mkdir failed: %v", dirname)
+
+	if err := os.Mkdir(dirname, 0700); err != nil {
+		require.True(t, os.IsExist(err), "mkdir failed: %v", dirname)
+	}
 
 	for _, e := range d.entries {
 		e.create(t, dirname)
@@ -195,7 +197,7 @@ func TestPerform(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
-			rootPath, cleanup := testhelper.TempDir(t)
+			_, _, repoPath, cleanup := testcfg.BuildWithRepo(t)
 			defer cleanup()
 
 			ctx, cancel := testhelper.Context()
@@ -203,16 +205,16 @@ func TestPerform(t *testing.T) {
 
 			// We need to fix permissions so we don't fail to
 			// remove the temporary directory after the test.
-			defer FixDirectoryPermissions(ctx, rootPath)
+			defer FixDirectoryPermissions(ctx, repoPath)
 
 			for _, e := range tc.entries {
-				e.create(t, rootPath)
+				e.create(t, repoPath)
 			}
 
-			require.NoError(t, Perform(ctx, rootPath))
+			require.NoError(t, Perform(ctx, repoPath))
 
 			for _, e := range tc.entries {
-				e.validate(t, rootPath)
+				e.validate(t, repoPath)
 			}
 		})
 	}
@@ -281,11 +283,11 @@ func TestPerform_references(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.desc, func(t *testing.T) {
-			rootPath, cleanup := testhelper.TempDir(t)
+			_, _, repoPath, cleanup := testcfg.BuildWithRepo(t)
 			defer cleanup()
 
 			for _, ref := range tc.refs {
-				path := filepath.Join(rootPath, ref.name)
+				path := filepath.Join(repoPath, ref.name)
 
 				require.NoError(t, os.MkdirAll(filepath.Dir(path), 0755))
 				require.NoError(t, ioutil.WriteFile(path, bytes.Repeat([]byte{0}, ref.size), 0644))
@@ -296,12 +298,12 @@ func TestPerform_references(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			require.NoError(t, Perform(ctx, rootPath))
+			require.NoError(t, Perform(ctx, repoPath))
 
 			var actual []string
-			filepath.Walk(filepath.Join(rootPath), func(path string, info os.FileInfo, _ error) error {
+			filepath.Walk(filepath.Join(repoPath, "refs"), func(path string, info os.FileInfo, _ error) error {
 				if !info.IsDir() {
-					ref, err := filepath.Rel(rootPath, path)
+					ref, err := filepath.Rel(repoPath, path)
 					require.NoError(t, err)
 					actual = append(actual, ref)
 				}
@@ -328,7 +330,7 @@ func testPerformWithSpecificFile(t *testing.T, file string, finder staleFileFind
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	_, repoPath, cleanup := gittest.CloneRepo(t)
+	_, _, repoPath, cleanup := testcfg.BuildWithRepo(t)
 	defer cleanup()
 
 	for _, tc := range []struct {
@@ -442,7 +444,7 @@ func TestPerform_referenceLocks(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			repoPath, cleanup := testhelper.TempDir(t)
+			_, _, repoPath, cleanup := testcfg.BuildWithRepo(t)
 			defer cleanup()
 
 			for _, e := range tc.entries {
@@ -545,42 +547,15 @@ func TestShouldRemoveTemporaryObject(t *testing.T) {
 }
 
 func TestPerformRepoDoesNotExist(t *testing.T) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-	require.NoError(t, Perform(ctx, "/does/not/exist"))
-}
-
-// This test exists only ever for manual testing purposes.
-// Set it up as follows:
-/*
-export TEST_DELETE_ROOT_OWNER_DIR=$(mktemp -d)
-sudo mkdir "${TEST_DELETE_ROOT_OWNER_DIR}/tmp_DIR"
-sudo touch -t 1201010000.00 "${TEST_DELETE_ROOT_OWNER_DIR}/tmp_FILE" "${TEST_DELETE_ROOT_OWNER_DIR}/tmp_DIR"
-sudo chmod 000 "${TEST_DELETE_ROOT_OWNER_DIR}/tmp_DIR" "${TEST_DELETE_ROOT_OWNER_DIR}/tmp_FILE"
-sudo touch -t 1201010000.00 "${TEST_DELETE_ROOT_OWNER_DIR}/tmp_DIR"
-mkdir -p "${TEST_DELETE_ROOT_OWNER_DIR}/tmp_DIR2/a/b"
-touch "${TEST_DELETE_ROOT_OWNER_DIR}/tmp_DIR2/a/b/c"
-chmod 000 $(find ${TEST_DELETE_ROOT_OWNER_DIR}/tmp_DIR2|sort -r)
-go test ./internal/helper/housekeeping/... -v -run 'TestDeleteRootOwnerObjects'
-*/
-func TestDeleteRootOwnerObjects(t *testing.T) {
-	rootPath := os.Getenv("TEST_DELETE_ROOT_OWNER_DIR")
-	if rootPath == "" {
-		t.Skip("skipping test; Only used for manual testing")
-	}
+	_, _, repoPath, cleanup := testcfg.BuildWithRepo(t)
+	defer cleanup()
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	err := Perform(ctx, rootPath)
-	assert.NoError(t, err, "Housekeeping failed")
+	// We call `cleanup()` early to make sure the repository doesn't exist anymore in an
+	// otherwise well-configured storage.
+	cleanup()
 
-	_, err = os.Stat(filepath.Join(rootPath, "tmp_FILE"))
-	assert.Error(t, err, "Expected tmp_FILE to be missing")
-
-	_, err = os.Stat(filepath.Join(rootPath, "tmp_DIR"))
-	assert.Error(t, err, "Expected tmp_DIR to be missing")
-
-	_, err = os.Stat(filepath.Join(rootPath, "tmp_DIR2"))
-	assert.Error(t, err, "Expected tmp_DIR2 to be missing")
+	require.NoError(t, Perform(ctx, repoPath))
 }
