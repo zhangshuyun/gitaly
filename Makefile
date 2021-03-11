@@ -513,4 +513,4 @@ ${TEST_REPO_GIT}:
 	${GIT} -C $@ fsck --no-progress
 
 ${BENCHMARK_REPO}:
-	${GIT} clone --bare ${GIT_QUIET} https://gitlab.com/gitlab-org/gitlab-git.git $@
+	${GIT} clone --bare ${GIT_QUIET} https://gitlab.com/gitlab-org/gitlab.git $@

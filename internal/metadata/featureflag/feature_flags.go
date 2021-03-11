@@ -36,6 +36,8 @@ var (
 	GoGetNewLFSPointers = FeatureFlag{Name: "go_get_new_lfs_pointers", OnByDefault: false}
 	// UploadPackGitalyHooks makes git-upload-pack use gitaly-hooks to run pack-objects
 	UploadPackGitalyHooks = FeatureFlag{Name: "upload_pack_gitaly_hooks", OnByDefault: false}
+	// LFSPointersUseBitmapIndex enables the use of bitmap indices when searching LFS pointers.
+	LFSPointersUseBitmapIndex = FeatureFlag{Name: "lfs_pointers_use_bitmap_index", OnByDefault: false}
 
 	// TxApplyBfgObjectMapStream enables transactions for ApplyBfgObjectMapStream
 	TxApplyBfgObjectMapStream = FeatureFlag{Name: "tx_apply_bfg_object_map_stream", OnByDefault: true}
@@ -117,6 +119,7 @@ var All = []FeatureFlag{
 	GoGetAllLFSPointers,
 	GoGetLFSPointers,
 	GoGetNewLFSPointers,
+	LFSPointersUseBitmapIndex,
 	TxApplyBfgObjectMapStream,
 	TxApplyGitattributes,
 	TxResolveConflicts,
