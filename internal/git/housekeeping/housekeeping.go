@@ -3,12 +3,14 @@ package housekeeping
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
+	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
@@ -17,6 +19,7 @@ import (
 )
 
 const (
+	emptyRefsGracePeriod             = 24 * time.Hour
 	deleteTempFilesOlderThanDuration = 7 * 24 * time.Hour
 	brokenRefsGracePeriod            = 24 * time.Hour
 	minimumDirPerm                   = 0700
@@ -32,7 +35,20 @@ var (
 		"HEAD.lock",
 		"objects/info/commit-graphs/commit-graph-chain.lock",
 	}
+
+	optimizeEmptyDirRemovalTotals = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Namespace: "gitaly",
+			Subsystem: "repository",
+			Name:      "optimizerepository_empty_dir_removal_total",
+			Help:      "Total number of empty directories removed by OptimizeRepository RPC",
+		},
+	)
 )
+
+func init() {
+	prometheus.MustRegister(optimizeEmptyDirRemovalTotals)
+}
 
 type staleFileFinderFn func(context.Context, string) ([]string, error)
 
@@ -82,6 +98,10 @@ func Perform(ctx context.Context, repo *localrepo.Repo) error {
 
 	if len(filesToPrune) > 0 {
 		logEntry.WithField("failures", unremovableFiles).Info("removed files")
+	}
+
+	if err := removeRefEmptyDirs(ctx, repo); err != nil {
+		return fmt.Errorf("housekeeping could not remove empty refs: %w", err)
 	}
 
 	// TODO: https://gitlab.com/gitlab-org/gitaly/-/issues/3138
@@ -279,6 +299,95 @@ func fixDirectoryPermissions(ctx context.Context, path string, retriedPaths map[
 
 		return nil
 	})
+}
+
+func removeRefEmptyDirs(ctx context.Context, repository *localrepo.Repo) error {
+	rPath, err := repository.Path()
+	if err != nil {
+		return err
+	}
+	repoRefsPath := filepath.Join(rPath, "refs")
+
+	// we never want to delete the actual "refs" directory, so we start the
+	// recursive functions for each subdirectory
+	entries, err := ioutil.ReadDir(repoRefsPath)
+	if err != nil {
+		return err
+	}
+
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+
+		ePath := filepath.Join(repoRefsPath, e.Name())
+		if err := removeEmptyDirs(ctx, ePath); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func removeEmptyDirs(ctx context.Context, target string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
+	// We need to stat the directory early on in order to get its current mtime. If we
+	// did this after we have removed empty child directories, then its mtime would've
+	// changed and we wouldn't consider it for deletion.
+	dirStat, err := os.Stat(target)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+
+	entries, err := ioutil.ReadDir(target)
+	switch {
+	case os.IsNotExist(err):
+		return nil // race condition: someone else deleted it first
+	case err != nil:
+		return err
+	}
+
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+
+		ePath := filepath.Join(target, e.Name())
+		if err := removeEmptyDirs(ctx, ePath); err != nil {
+			return err
+		}
+	}
+
+	// If the directory is older than the grace period for empty refs, then we can
+	// consider it for deletion in case it's empty.
+	if time.Since(dirStat.ModTime()) < emptyRefsGracePeriod {
+		return nil
+	}
+
+	// recheck entries now that we have potentially removed some dirs
+	entries, err = ioutil.ReadDir(target)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	if len(entries) > 0 {
+		return nil
+	}
+
+	switch err := os.Remove(target); {
+	case os.IsNotExist(err):
+		return nil // race condition: someone else deleted it first
+	case err != nil:
+		return err
+	}
+	optimizeEmptyDirRemovalTotals.Inc()
+
+	return nil
 }
 
 func unsetAllConfigsByRegexp(ctx context.Context, repository *localrepo.Repo, regexp string) error {

@@ -320,6 +320,102 @@ func TestPerform_references(t *testing.T) {
 	}
 }
 
+func TestPerform_emptyRefDirs(t *testing.T) {
+	testcases := []struct {
+		name    string
+		entries []entry
+	}{
+		{
+			name: "unrelated empty directories",
+			entries: []entry{
+				d("objects", 0700, 240*time.Hour, Keep, []entry{
+					d("empty", 0700, 240*time.Hour, Keep, []entry{}),
+				}),
+			},
+		},
+		{
+			name: "empty ref dir gets retained",
+			entries: []entry{
+				d("refs", 0700, 240*time.Hour, Keep, []entry{}),
+			},
+		},
+		{
+			name: "empty nested non-stale ref dir gets kept",
+			entries: []entry{
+				d("refs", 0700, 240*time.Hour, Keep, []entry{
+					d("nested", 0700, 23*time.Hour, Keep, []entry{}),
+				}),
+			},
+		},
+		{
+			name: "empty nested stale ref dir gets pruned",
+			entries: []entry{
+				d("refs", 0700, 240*time.Hour, Keep, []entry{
+					d("nested", 0700, 240*time.Hour, Delete, []entry{}),
+				}),
+			},
+		},
+		{
+			name: "hierarchy of nested stale ref dirs gets pruned",
+			entries: []entry{
+				d("refs", 0700, 240*time.Hour, Keep, []entry{
+					d("first", 0700, 240*time.Hour, Delete, []entry{
+						d("second", 0700, 240*time.Hour, Delete, []entry{}),
+					}),
+				}),
+			},
+		},
+		{
+			name: "hierarchy with intermediate non-stale ref dir gets kept",
+			entries: []entry{
+				d("refs", 0700, 240*time.Hour, Keep, []entry{
+					d("first", 0700, 240*time.Hour, Keep, []entry{
+						d("second", 0700, 1*time.Hour, Keep, []entry{
+							d("third", 0700, 24*time.Hour, Delete, []entry{}),
+						}),
+					}),
+				}),
+			},
+		},
+		{
+			name: "stale hierrachy with refs gets partially retained",
+			entries: []entry{
+				d("refs", 0700, 240*time.Hour, Keep, []entry{
+					d("first", 0700, 240*time.Hour, Keep, []entry{
+						d("second", 0700, 240*time.Hour, Delete, []entry{
+							d("third", 0700, 24*time.Hour, Delete, []entry{}),
+						}),
+						d("other", 0700, 240*time.Hour, Keep, []entry{
+							f("ref", 0700, 1*time.Hour, Keep),
+						}),
+					}),
+				}),
+			},
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg, repoProto, repoPath, cleanup := testcfg.BuildWithRepo(t)
+			defer cleanup()
+			repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+
+			ctx, cancel := testhelper.Context()
+			defer cancel()
+
+			for _, e := range tc.entries {
+				e.create(t, repoPath)
+			}
+
+			require.NoError(t, Perform(ctx, repo))
+
+			for _, e := range tc.entries {
+				e.validate(t, repoPath)
+			}
+		})
+	}
+}
+
 func TestPerform_withSpecificFile(t *testing.T) {
 	for file, finder := range map[string]staleFileFinderFn{
 		"HEAD.lock":        findStaleLockfiles,

@@ -1,0 +1,5 @@
+---
+title: 'housekeeping: Move cleanup of empty refs into housekeeping'
+merge_request: 3246
+author:
+type: added
