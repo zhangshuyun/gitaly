@@ -1,12 +1,16 @@
 package localrepo
 
 import (
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
 const (
@@ -204,6 +208,78 @@ func TestRepo_GetReferences(t *testing.T) {
 			refs, err := repo.GetReferences(ctx, tc.patterns...)
 			require.NoError(t, err)
 			tc.match(t, refs)
+		})
+	}
+}
+
+func TestRepo_GetRemoteReferences(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	cfg, clean := testcfg.Build(t)
+	defer clean()
+
+	storagePath, ok := cfg.StoragePath("default")
+	require.True(t, ok)
+
+	const relativePath = "repository-1"
+	repoPath := filepath.Join(storagePath, relativePath)
+
+	testhelper.MustRunCommand(t, nil, "git", "init", repoPath)
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "commit", "--allow-empty", "-m", "commit message")
+	commit := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", "refs/heads/master"))
+
+	for _, cmd := range [][]string{
+		{"update-ref", "refs/heads/master", commit},
+		{"tag", "lightweight-tag", commit},
+		{"tag", "-m", "tag message", "annotated-tag", "refs/heads/master"},
+		{"symbolic-ref", "refs/heads/symbolic", "refs/heads/master"},
+		{"update-ref", "refs/remote/remote-name/remote-branch", commit},
+	} {
+		testhelper.MustRunCommand(t, nil, "git", append([]string{"-C", repoPath}, cmd...)...)
+	}
+
+	annotatedTagOID := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", "annotated-tag"))
+
+	repo := New(
+		git.NewExecCommandFactory(cfg),
+		&gitalypb.Repository{StorageName: "default", RelativePath: filepath.Join(relativePath, ".git")},
+		cfg,
+	)
+	for _, tc := range []struct {
+		desc     string
+		patterns []string
+		expected []git.Reference
+	}{
+		{
+			desc:     "not found",
+			patterns: []string{"this-pattern-does-not-match-anything"},
+		},
+		{
+			desc: "all",
+			expected: []git.Reference{
+				{Name: "refs/heads/master", Target: commit},
+				{Name: "refs/heads/symbolic", Target: commit},
+				{Name: "refs/remote/remote-name/remote-branch", Target: commit},
+				{Name: "refs/tags/annotated-tag", Target: annotatedTagOID},
+				{Name: "refs/tags/lightweight-tag", Target: commit},
+			},
+		},
+		{
+			desc:     "branches and tags only",
+			patterns: []string{"refs/heads/*", "refs/tags/*"},
+			expected: []git.Reference{
+				{Name: "refs/heads/master", Target: commit},
+				{Name: "refs/heads/symbolic", Target: commit},
+				{Name: "refs/tags/annotated-tag", Target: annotatedTagOID},
+				{Name: "refs/tags/lightweight-tag", Target: commit},
+			},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			refs, err := repo.GetRemoteReferences(ctx, repoPath, tc.patterns...)
+			require.NoError(t, err)
+			require.Equal(t, tc.expected, refs)
 		})
 	}
 }
