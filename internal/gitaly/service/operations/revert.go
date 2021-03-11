@@ -93,7 +93,7 @@ func (s *Server) UserRevert(ctx context.Context, req *gitalypb.UserRevertRequest
 	}
 
 	if !branchCreated {
-		ancestor, err := s.isAncestor(ctx, req.Repository, oldrev, newrev)
+		ancestor, err := localRepo.IsAncestor(ctx, oldrev.Revision(), newrev.Revision())
 		if err != nil {
 			return nil, err
 		}

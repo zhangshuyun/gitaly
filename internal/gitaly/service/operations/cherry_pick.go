@@ -99,7 +99,7 @@ func (s *Server) userCherryPick(ctx context.Context, req *gitalypb.UserCherryPic
 	}
 
 	if !branchCreated {
-		ancestor, err := s.isAncestor(ctx, req.Repository, oldrev, newrev)
+		ancestor, err := localRepo.IsAncestor(ctx, oldrev.Revision(), newrev.Revision())
 		if err != nil {
 			return nil, err
 		}
