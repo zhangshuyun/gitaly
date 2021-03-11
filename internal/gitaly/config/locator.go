@@ -52,6 +52,9 @@ func (l *configLocator) GetPath(repo repository.GitRepo) (string, error) {
 	}
 
 	if _, err := os.Stat(storagePath); err != nil {
+		if os.IsNotExist(err) {
+			return "", status.Errorf(codes.NotFound, "GetPath: does not exist: %v", err)
+		}
 		return "", status.Errorf(codes.Internal, "GetPath: storage path: %v", err)
 	}
 
