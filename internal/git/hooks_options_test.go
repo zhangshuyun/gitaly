@@ -28,7 +28,7 @@ func TestWithRefHook(t *testing.T) {
 		{
 			name: "NewCommand",
 			fn: func() (*command.Command, error) {
-				return git.NewExecCommandFactory(cfg).New(ctx, repo, nil, subCmd, opt)
+				return git.NewExecCommandFactory(cfg).New(ctx, repo, subCmd, opt)
 			},
 		},
 	} {

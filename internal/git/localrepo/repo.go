@@ -29,7 +29,7 @@ func New(gitCmdFactory git.CommandFactory, repo repository.GitRepo, cfg config.C
 // Exec creates a git command with the given args and Repo, executed in the
 // Repo. It validates the arguments in the command before executing.
 func (repo *Repo) Exec(ctx context.Context, cmd git.Cmd, opts ...git.CmdOpt) (*command.Command, error) {
-	return repo.gitCmdFactory.New(ctx, repo, nil, cmd, opts...)
+	return repo.gitCmdFactory.New(ctx, repo, cmd, opts...)
 }
 
 // ExecAndWait is similar to Exec, but waits for the command to exit before

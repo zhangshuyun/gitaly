@@ -59,7 +59,7 @@ func buildRevListCountCmd(from, to string, maxCount int) git.SubCmd {
 }
 
 func (s *server) findLeftRightCount(ctx context.Context, repo *gitalypb.Repository, from, to string, maxCount int) (int32, int32, error) {
-	cmd, err := s.gitCmdFactory.New(ctx, repo, nil, buildRevListCountCmd(from, to, maxCount))
+	cmd, err := s.gitCmdFactory.New(ctx, repo, buildRevListCountCmd(from, to, maxCount))
 	if err != nil {
 		return 0, 0, fmt.Errorf("git rev-list cmd: %v", err)
 	}

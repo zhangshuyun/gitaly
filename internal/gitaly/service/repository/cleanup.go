@@ -66,7 +66,7 @@ func (s *server) cleanStaleWorktrees(ctx context.Context, repo *gitalypb.Reposit
 		}
 
 		if info.ModTime().Before(threshold) {
-			cmd, err := s.gitCmdFactory.New(ctx, repo, nil,
+			cmd, err := s.gitCmdFactory.New(ctx, repo,
 				git.SubSubCmd{
 					Name:   "worktree",
 					Action: "remove",
@@ -89,7 +89,7 @@ func (s *server) cleanStaleWorktrees(ctx context.Context, repo *gitalypb.Reposit
 }
 
 func (s *server) cleanDisconnectedWorktrees(ctx context.Context, repo *gitalypb.Repository) error {
-	cmd, err := s.gitCmdFactory.New(ctx, repo, nil,
+	cmd, err := s.gitCmdFactory.New(ctx, repo,
 		git.SubSubCmd{
 			Name:   "worktree",
 			Action: "prune",

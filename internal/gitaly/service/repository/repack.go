@@ -58,7 +58,7 @@ func (s *server) RepackIncremental(ctx context.Context, in *gitalypb.RepackIncre
 }
 
 func (s *server) repackCommand(ctx context.Context, repo repository.GitRepo, bitmap bool, args ...git.Option) error {
-	cmd, err := s.gitCmdFactory.New(ctx, repo, nil,
+	cmd, err := s.gitCmdFactory.New(ctx, repo,
 		git.SubCmd{
 			Name:  "repack",
 			Flags: append([]git.Option{git.Flag{Name: "-d"}}, args...),

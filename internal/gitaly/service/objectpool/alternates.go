@@ -200,7 +200,7 @@ func (s *server) removeAlternatesIfOk(ctx context.Context, repo *gitalypb.Reposi
 		}
 	}()
 
-	cmd, err := s.gitCmdFactory.New(ctx, repo, nil, git.SubCmd{
+	cmd, err := s.gitCmdFactory.New(ctx, repo, git.SubCmd{
 		Name:  "fsck",
 		Flags: []git.Option{git.Flag{Name: "--connectivity-only"}},
 	})

@@ -50,7 +50,7 @@ func (s *server) FindCommits(req *gitalypb.FindCommitsRequest, stream gitalypb.C
 
 func (s *server) findCommits(ctx context.Context, req *gitalypb.FindCommitsRequest, stream gitalypb.CommitService_FindCommitsServer) error {
 	opts := git.ConvertGlobalOptions(req.GetGlobalOptions())
-	logCmd, err := s.gitCmdFactory.New(ctx, req.GetRepository(), nil, getLogCommandSubCmd(req), opts...)
+	logCmd, err := s.gitCmdFactory.New(ctx, req.GetRepository(), getLogCommandSubCmd(req), opts...)
 	if err != nil {
 		return fmt.Errorf("error when creating git log command: %v", err)
 	}

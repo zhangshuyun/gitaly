@@ -111,7 +111,7 @@ func (s *server) lookupRevision(ctx context.Context, repo *gitalypb.Repository, 
 func (s *server) checkRevision(ctx context.Context, repo *gitalypb.Repository, revision string) (string, error) {
 	var stdout, stderr bytes.Buffer
 
-	revParse, err := s.gitCmdFactory.New(ctx, repo, nil,
+	revParse, err := s.gitCmdFactory.New(ctx, repo,
 		git.SubCmd{Name: "rev-parse", Args: []string{revision}},
 		git.WithStdout(&stdout),
 		git.WithStderr(&stderr),
@@ -134,7 +134,7 @@ func (s *server) checkRevision(ctx context.Context, repo *gitalypb.Repository, r
 }
 
 func (s *server) disambiguateRevision(ctx context.Context, repo *gitalypb.Repository, revision string) (string, error) {
-	cmd, err := s.gitCmdFactory.New(ctx, repo, nil, git.SubCmd{
+	cmd, err := s.gitCmdFactory.New(ctx, repo, git.SubCmd{
 		Name:  "for-each-ref",
 		Flags: []git.Option{git.Flag{Name: "--format=%(refname)"}},
 		Args:  []string{"**/" + revision},

@@ -48,7 +48,7 @@ func (s *server) findRefs(ctx context.Context, writer lines.Sender, repo *gitaly
 		options = append(options, opts.cmdArgs...)
 	}
 
-	cmd, err := s.gitCmdFactory.New(ctx, repo, nil, git.SubCmd{
+	cmd, err := s.gitCmdFactory.New(ctx, repo, git.SubCmd{
 		Name:  "for-each-ref",
 		Flags: options,
 		Args:  patterns,
@@ -88,7 +88,7 @@ func (t *tagSender) Send() error {
 }
 
 func (s *server) parseAndReturnTags(ctx context.Context, repo *gitalypb.Repository, stream gitalypb.RefService_FindAllTagsServer) error {
-	tagsCmd, err := s.gitCmdFactory.New(ctx, repo, nil, git.SubCmd{
+	tagsCmd, err := s.gitCmdFactory.New(ctx, repo, git.SubCmd{
 		Name: "for-each-ref",
 		Flags: []git.Option{
 			git.ValueFlag{"--format", tagFormat},
@@ -157,7 +157,7 @@ func (s *server) validateFindAllTagsRequest(request *gitalypb.FindAllTagsRequest
 func _findBranchNames(ctx context.Context, gitCmdFactory git.CommandFactory, repo *gitalypb.Repository) ([][]byte, error) {
 	var names [][]byte
 
-	cmd, err := gitCmdFactory.New(ctx, repo, nil, git.SubCmd{
+	cmd, err := gitCmdFactory.New(ctx, repo, git.SubCmd{
 		Name:  "for-each-ref",
 		Flags: []git.Option{git.Flag{Name: "--format=%(refname)"}},
 		Args:  []string{"refs/heads"}},
@@ -184,7 +184,7 @@ func _findBranchNames(ctx context.Context, gitCmdFactory git.CommandFactory, rep
 func _headReference(ctx context.Context, gitCmdFactory git.CommandFactory, repo *gitalypb.Repository) ([]byte, error) {
 	var headRef []byte
 
-	cmd, err := gitCmdFactory.New(ctx, repo, nil, git.SubCmd{
+	cmd, err := gitCmdFactory.New(ctx, repo, git.SubCmd{
 		Name:  "rev-parse",
 		Flags: []git.Option{git.Flag{Name: "--symbolic-full-name"}},
 		Args:  []string{"HEAD"},
@@ -215,7 +215,7 @@ func _headReference(ctx context.Context, gitCmdFactory git.CommandFactory, repo 
 
 // SetDefaultBranchRef overwrites the default branch ref for the repository
 func SetDefaultBranchRef(ctx context.Context, gitCmdFactory git.CommandFactory, repo *gitalypb.Repository, ref string, cfg config.Cfg) error {
-	cmd, err := gitCmdFactory.New(ctx, repo, nil, git.SubCmd{
+	cmd, err := gitCmdFactory.New(ctx, repo, git.SubCmd{
 		Name: "symbolic-ref",
 		Args: []string{"HEAD", ref},
 	}, git.WithRefTxHook(ctx, repo, cfg))
@@ -413,7 +413,7 @@ func parseTagLine(ctx context.Context, c catfile.Batch, tagLine string) (*gitaly
 }
 
 func (s *server) findTag(ctx context.Context, repository *gitalypb.Repository, tagName []byte) (*gitalypb.Tag, error) {
-	tagCmd, err := s.gitCmdFactory.New(ctx, repository, nil,
+	tagCmd, err := s.gitCmdFactory.New(ctx, repository,
 		git.SubCmd{
 			Name: "tag",
 			Flags: []git.Option{

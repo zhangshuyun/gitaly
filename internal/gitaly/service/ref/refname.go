@@ -43,7 +43,7 @@ func (s *server) findRefName(ctx context.Context, repo *gitalypb.Repository, com
 	subCmd.Flags = flags
 	subCmd.Args = []string{prefix}
 
-	cmd, err := s.gitCmdFactory.New(ctx, repo, nil, subCmd)
+	cmd, err := s.gitCmdFactory.New(ctx, repo, subCmd)
 	if err != nil {
 		return "", err
 	}

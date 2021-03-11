@@ -17,7 +17,7 @@ import (
 func LogObjectsInfo(ctx context.Context, gitCmdFactory git.CommandFactory, repo repository.GitRepo) {
 	logger := ctxlogrus.Extract(ctx)
 
-	cmd, err := gitCmdFactory.New(ctx, repo, nil, git.SubCmd{
+	cmd, err := gitCmdFactory.New(ctx, repo, git.SubCmd{
 		Name:  "count-objects",
 		Flags: []git.Option{git.Flag{Name: "--verbose"}},
 	})

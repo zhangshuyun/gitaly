@@ -207,7 +207,7 @@ func (s *server) handleArchive(p archiveParams) error {
 		config = append(config, git.ConfigPair{Key: "filter.lfs.smudge", Value: binary})
 	}
 
-	archiveCommand, err := s.gitCmdFactory.New(p.ctx, p.in.GetRepository(), nil, git.SubCmd{
+	archiveCommand, err := s.gitCmdFactory.New(p.ctx, p.in.GetRepository(), git.SubCmd{
 		Name:        "archive",
 		Flags:       []git.Option{git.ValueFlag{"--format", p.format}, git.ValueFlag{"--prefix", p.in.GetPrefix() + "/"}},
 		Args:        args,

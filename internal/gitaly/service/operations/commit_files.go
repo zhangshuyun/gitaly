@@ -476,7 +476,7 @@ func (s *Server) fetchRemoteObject(
 	}
 
 	stderr := &bytes.Buffer{}
-	if err := localRepo.ExecAndWait(ctx, nil, git.SubCmd{
+	if err := localRepo.ExecAndWait(ctx, git.SubCmd{
 		Name:  "fetch",
 		Flags: []git.Option{git.Flag{Name: "--no-tags"}},
 		Args:  []string{"ssh://gitaly/internal.git", oid.String()},
