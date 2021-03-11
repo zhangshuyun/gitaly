@@ -362,6 +362,7 @@ func readLFSPointers(
 		Name: "cat-file",
 		Flags: []git.Option{
 			git.Flag{Name: "--batch"},
+			git.Flag{Name: "--buffer"},
 		},
 	}, git.WithStdin(objectIDReader))
 	if err != nil {

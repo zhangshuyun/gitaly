@@ -1,0 +1,5 @@
+---
+title: 'blob: Buffer output of git-catfile to speed up reading LFS pointers'
+merge_request: 3241
+author:
+type: performance
