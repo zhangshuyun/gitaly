@@ -166,6 +166,7 @@ func (s *Server) userUpdateSubmodule(ctx context.Context, req *gitalypb.UserUpda
 		referenceName,
 		commitID,
 		branchOID,
+		nil,
 	); err != nil {
 		var preReceiveError preReceiveError
 		if errors.As(err, &preReceiveError) {

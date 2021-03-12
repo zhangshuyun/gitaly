@@ -53,7 +53,7 @@ func (s *Server) UserCreateBranch(ctx context.Context, req *gitalypb.UserCreateB
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, referenceName, startPointOID, git.ZeroOID); err != nil {
+	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, referenceName, startPointOID, git.ZeroOID, nil); err != nil {
 		var preReceiveError preReceiveError
 		if errors.As(err, &preReceiveError) {
 			return &gitalypb.UserCreateBranchResponse{
@@ -122,7 +122,7 @@ func (s *Server) userUpdateBranchGo(ctx context.Context, req *gitalypb.UserUpdat
 
 	referenceName := git.NewReferenceNameFromBranchName(string(req.BranchName))
 
-	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, referenceName, newOID, oldOID); err != nil {
+	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, referenceName, newOID, oldOID, nil); err != nil {
 		var preReceiveError preReceiveError
 		if errors.As(err, &preReceiveError) {
 			return &gitalypb.UserUpdateBranchResponse{
@@ -175,7 +175,7 @@ func (s *Server) UserDeleteBranch(ctx context.Context, req *gitalypb.UserDeleteB
 		return nil, status.Errorf(codes.FailedPrecondition, "branch not found: %s", req.BranchName)
 	}
 
-	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, referenceName, git.ZeroOID, referenceValue); err != nil {
+	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, referenceName, git.ZeroOID, referenceValue, nil); err != nil {
 		var preReceiveError preReceiveError
 		if errors.As(err, &preReceiveError) {
 			return &gitalypb.UserDeleteBranchResponse{

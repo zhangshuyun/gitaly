@@ -105,7 +105,7 @@ func TestUpdateReferenceWithHooks_invalidParameters(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			err := server.updateReferenceWithHooks(ctx, repo, user, tc.ref, tc.newRev, tc.oldRev)
+			err := server.updateReferenceWithHooks(ctx, repo, user, tc.ref, tc.newRev, tc.oldRev, nil)
 			require.Contains(t, err.Error(), tc.expectedErr)
 		})
 	}
@@ -269,7 +269,7 @@ func TestUpdateReferenceWithHooks(t *testing.T) {
 
 			hookServer := NewServer(cfg, nil, hookManager, nil, nil, gitCmdFactory)
 
-			err := hookServer.updateReferenceWithHooks(ctx, repo, user, git.ReferenceName("refs/heads/master"), git.ZeroOID, git.ObjectID(oldRev))
+			err := hookServer.updateReferenceWithHooks(ctx, repo, user, git.ReferenceName("refs/heads/master"), git.ZeroOID, git.ObjectID(oldRev), nil)
 			if tc.expectedErr == "" {
 				require.NoError(t, err)
 			} else {

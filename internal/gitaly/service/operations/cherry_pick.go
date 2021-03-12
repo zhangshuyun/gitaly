@@ -126,7 +126,7 @@ func (s *Server) userCherryPick(ctx context.Context, req *gitalypb.UserCherryPic
 		}
 	}
 
-	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, referenceName, newrev, oldrev); err != nil {
+	if err := s.updateReferenceWithHooks(ctx, req.Repository, req.User, referenceName, newrev, oldrev, nil); err != nil {
 		if errors.As(err, &preReceiveError{}) {
 			return &gitalypb.UserCherryPickResponse{
 				PreReceiveError: err.Error(),
