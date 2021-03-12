@@ -35,8 +35,7 @@ func (s *testTransactionServer) StopTransaction(ctx context.Context, in *gitalyp
 }
 
 func TestPoolManager_Vote(t *testing.T) {
-	cfg, cleanup := testcfg.Build(t)
-	defer cleanup()
+	cfg := testcfg.Build(t)
 
 	transactionServer, praefect, stop := runTransactionServer(t, cfg)
 	defer stop()
@@ -108,8 +107,7 @@ func TestPoolManager_Vote(t *testing.T) {
 }
 
 func TestPoolManager_Stop(t *testing.T) {
-	cfg, cleanup := testcfg.Build(t)
-	defer cleanup()
+	cfg := testcfg.Build(t)
 
 	transactionServer, praefect, stop := runTransactionServer(t, cfg)
 	defer stop()

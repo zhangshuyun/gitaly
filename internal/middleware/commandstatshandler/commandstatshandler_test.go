@@ -59,8 +59,7 @@ func TestInterceptor(t *testing.T) {
 	cleanup := testhelper.Configure()
 	defer cleanup()
 
-	cfg, repo, _, cleanup := testcfg.BuildWithRepo(t)
-	defer cleanup()
+	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	logBuffer := &bytes.Buffer{}
 	testhelper.NewTestLogger = func(tb testing.TB) *logrus.Logger {

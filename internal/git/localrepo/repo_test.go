@@ -14,8 +14,7 @@ import (
 )
 
 func TestRepo(t *testing.T) {
-	cfg, cleanup := testcfg.Build(t)
-	defer cleanup()
+	cfg := testcfg.Build(t)
 
 	gittest.TestRepository(t, cfg, func(t testing.TB, pbRepo *gitalypb.Repository) git.Repository {
 		t.Helper()
@@ -25,8 +24,7 @@ func TestRepo(t *testing.T) {
 
 func TestRepo_Path(t *testing.T) {
 	t.Run("valid repository", func(t *testing.T) {
-		cfg, repoProto, repoPath, cleanup := testcfg.BuildWithRepo(t)
-		defer cleanup()
+		cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
 		repo := New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
 		path, err := repo.Path()
@@ -35,19 +33,17 @@ func TestRepo_Path(t *testing.T) {
 	})
 
 	t.Run("deleted repository", func(t *testing.T) {
-		cfg, repoProto, _, cleanup := testcfg.BuildWithRepo(t)
-		defer cleanup()
+		cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
 		repo := New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
-		cleanup()
+		require.NoError(t, os.RemoveAll(repoPath))
 
 		_, err := repo.Path()
 		require.Equal(t, codes.NotFound, helper.GrpcCode(err))
 	})
 
 	t.Run("non-git repository", func(t *testing.T) {
-		cfg, repoProto, repoPath, cleanup := testcfg.BuildWithRepo(t)
-		defer cleanup()
+		cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
 		repo := New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
 		// Recreate the repository as a simple empty directory to simulate

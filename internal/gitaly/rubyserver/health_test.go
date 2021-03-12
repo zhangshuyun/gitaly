@@ -9,10 +9,7 @@ import (
 )
 
 func TestPingSuccess(t *testing.T) {
-	cfg, cleanup := testcfg.Build(t)
-	defer cleanup()
-
-	s := New(cfg)
+	s := New(testcfg.Build(t))
 	require.NoError(t, s.Start())
 	defer s.Stop()
 

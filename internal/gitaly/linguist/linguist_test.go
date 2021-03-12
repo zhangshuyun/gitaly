@@ -23,8 +23,7 @@ func testMain(m *testing.M) int {
 }
 
 func TestStatsUnmarshalJSONError(t *testing.T) {
-	cfg, cleanup := testcfg.Build(t)
-	defer cleanup()
+	cfg := testcfg.Build(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -39,8 +38,7 @@ func TestStatsUnmarshalJSONError(t *testing.T) {
 }
 
 func TestLoadLanguages(t *testing.T) {
-	cfg, cleanup := testcfg.Build(t)
-	defer cleanup()
+	cfg := testcfg.Build(t)
 
 	colorMap = make(map[string]Language)
 	require.NoError(t, LoadColors(&cfg), "load colors")
@@ -49,8 +47,7 @@ func TestLoadLanguages(t *testing.T) {
 }
 
 func TestLoadLanguagesCustomPath(t *testing.T) {
-	cfg, cleanup := testcfg.Build(t)
-	defer cleanup()
+	cfg := testcfg.Build(t)
 
 	jsonPath, err := filepath.Abs("testdata/fake-languages.json")
 	require.NoError(t, err)

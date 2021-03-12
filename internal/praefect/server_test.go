@@ -177,8 +177,7 @@ func TestGitalyServerInfoBadNode(t *testing.T) {
 func TestDiskStatistics(t *testing.T) {
 	praefectCfg := config.Config{VirtualStorages: []*config.VirtualStorage{{Name: "praefect"}}}
 	for _, name := range []string{"gitaly-1", "gitaly-2"} {
-		gitalyCfg, cleanup := testcfg.Build(t)
-		defer cleanup()
+		gitalyCfg := testcfg.Build(t)
 
 		gitalyAddr, cleanupGitaly := testserver.RunGitalyServer(t, gitalyCfg, nil)
 		defer cleanupGitaly()

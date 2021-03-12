@@ -15,8 +15,7 @@ import (
 )
 
 func TestDisconnectGitAlternates(t *testing.T) {
-	cfg, repo, repoPath, locator, client, cleanup := setup(t)
-	defer cleanup()
+	cfg, repo, repoPath, locator, client := setup(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -59,8 +58,7 @@ func TestDisconnectGitAlternates(t *testing.T) {
 }
 
 func TestDisconnectGitAlternatesNoAlternates(t *testing.T) {
-	_, repo, repoPath, locator, client, cleanup := setup(t)
-	defer cleanup()
+	_, repo, repoPath, locator, client := setup(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -76,8 +74,7 @@ func TestDisconnectGitAlternatesNoAlternates(t *testing.T) {
 }
 
 func TestDisconnectGitAlternatesUnexpectedAlternates(t *testing.T) {
-	cfg, _, _, locator, client, cleanup := setup(t)
-	defer cleanup()
+	cfg, _, _, locator, client := setup(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -112,8 +109,7 @@ func TestDisconnectGitAlternatesUnexpectedAlternates(t *testing.T) {
 }
 
 func TestRemoveAlternatesIfOk(t *testing.T) {
-	cfg, repo, repoPath, locator, _, cleanup := setup(t)
-	defer cleanup()
+	cfg, repo, repoPath, locator, _ := setup(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()

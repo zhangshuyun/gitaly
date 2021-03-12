@@ -12,8 +12,7 @@ import (
 )
 
 func TestWithRefHook(t *testing.T) {
-	cfg, repo, _, cleanup := testcfg.BuildWithRepo(t)
-	defer cleanup()
+	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()

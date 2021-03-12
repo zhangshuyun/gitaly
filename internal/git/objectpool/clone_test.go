@@ -14,33 +14,27 @@ import (
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
-func setupObjectPool(t *testing.T) (*ObjectPool, *gitalypb.Repository, func()) {
+func setupObjectPool(t *testing.T) (*ObjectPool, *gitalypb.Repository) {
 	t.Helper()
 
-	var deferrer testhelper.Deferrer
-	defer deferrer.Call()
-
-	cfg, repo, _, cleanup := testcfg.BuildWithRepo(t)
-	deferrer.Add(cleanup)
+	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	pool, err := NewObjectPool(cfg, config.NewLocator(cfg), git.NewExecCommandFactory(cfg), repo.GetStorageName(), gittest.NewObjectPoolName(t))
 	require.NoError(t, err)
-	deferrer.Add(func() {
+	t.Cleanup(func() {
 		if err := pool.Remove(context.TODO()); err != nil {
 			panic(err)
 		}
 	})
 
-	cleaner := deferrer.Relocate()
-	return pool, repo, cleaner.Call
+	return pool, repo
 }
 
 func TestClone(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	pool, testRepo, cleanup := setupObjectPool(t)
-	defer cleanup()
+	pool, testRepo := setupObjectPool(t)
 
 	require.NoError(t, pool.clone(ctx, testRepo))
 	defer pool.Remove(ctx)
@@ -53,8 +47,7 @@ func TestCloneExistingPool(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	pool, testRepo, cleanup := setupObjectPool(t)
-	defer cleanup()
+	pool, testRepo := setupObjectPool(t)
 
 	require.NoError(t, pool.clone(ctx, testRepo))
 	defer pool.Remove(ctx)

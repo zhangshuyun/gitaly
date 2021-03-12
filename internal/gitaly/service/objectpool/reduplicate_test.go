@@ -13,8 +13,7 @@ import (
 )
 
 func TestReduplicate(t *testing.T) {
-	cfg, repo, repoPath, locator, client, cleanup := setup(t)
-	defer cleanup()
+	cfg, repo, repoPath, locator, client := setup(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()

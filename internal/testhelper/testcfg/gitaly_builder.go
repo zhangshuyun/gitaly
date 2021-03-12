@@ -147,29 +147,20 @@ func (gc *GitalyCfgBuilder) BuildWithRepoAt(t testing.TB, relativePath string) (
 }
 
 // Build creates a minimal configuration setup with no options and returns it with cleanup function.
-func Build(t testing.TB) (config.Cfg, testhelper.Cleanup) {
-	var deferrer testhelper.Deferrer
-	defer deferrer.Call()
-
+func Build(t testing.TB) config.Cfg {
 	cfgBuilder := NewGitalyCfgBuilder()
-	deferrer.Add(cfgBuilder.Cleanup)
+	t.Cleanup(cfgBuilder.Cleanup)
 
-	cfg := cfgBuilder.Build(t)
-	cleaner := deferrer.Relocate()
-	return cfg, cleaner.Call
+	return cfgBuilder.Build(t)
 }
 
 // BuildWithRepo creates a minimal configuration setup with no options.
 // It also clones test repository at the storage and returns it with the full path to the repository.
-func BuildWithRepo(t testing.TB) (config.Cfg, *gitalypb.Repository, string, testhelper.Cleanup) {
-	var deferrer testhelper.Deferrer
-	defer deferrer.Call()
-
+func BuildWithRepo(t testing.TB) (config.Cfg, *gitalypb.Repository, string) {
 	cfgBuilder := NewGitalyCfgBuilder()
-	deferrer.Add(cfgBuilder.Cleanup)
+	t.Cleanup(cfgBuilder.Cleanup)
 
 	cfg, repos := cfgBuilder.BuildWithRepoAt(t, t.Name())
 	repoPath := filepath.Join(cfg.Storages[0].Path, repos[0].RelativePath)
-	cleaner := deferrer.Relocate()
-	return cfg, repos[0], repoPath, cleaner.Call
+	return cfg, repos[0], repoPath
 }

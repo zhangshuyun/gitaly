@@ -16,22 +16,16 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 )
 
-func setupRepoConfig(t *testing.T) (Config, string, func()) {
+func setupRepoConfig(t *testing.T) (Config, string) {
 	t.Helper()
 
-	var deferrer testhelper.Deferrer
-	defer deferrer.Call()
-
-	cfg, cleanup := testcfg.Build(t)
-	deferrer.Add(cleanup)
+	cfg := testcfg.Build(t)
 
 	repoProto, repoPath, cleanup := gittest.InitBareRepoAt(t, cfg.Storages[0])
-	deferrer.Add(cleanup)
+	t.Cleanup(cleanup)
 
 	repo := New(git.NewExecCommandFactory(cfg), repoProto, cfg)
-
-	cleaner := deferrer.Relocate()
-	return repo.Config(), repoPath, cleaner.Call
+	return repo.Config(), repoPath
 }
 
 func TestRepo_Config(t *testing.T) {
@@ -69,8 +63,7 @@ func TestConfig_Add(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	repoConfig, repoPath, cleanup := setupRepoConfig(t)
-	defer cleanup()
+	repoConfig, repoPath := setupRepoConfig(t)
 
 	t.Run("ok", func(t *testing.T) {
 		require.NoError(t, repoConfig.Add(ctx, "key.one", "1", git.ConfigAddOpts{}))
@@ -164,8 +157,7 @@ func TestConfig_GetRegexp(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	repoConfig, repoPath, cleanup := setupRepoConfig(t)
-	defer cleanup()
+	repoConfig, repoPath := setupRepoConfig(t)
 
 	t.Run("ok", func(t *testing.T) {
 		testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "--add", "key.one", "one")
@@ -272,8 +264,7 @@ func TestConfig_UnsetAll(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	repoConfig, repoPath, cleanup := setupRepoConfig(t)
-	defer cleanup()
+	repoConfig, repoPath := setupRepoConfig(t)
 
 	t.Run("unset single value", func(t *testing.T) {
 		testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "--add", "key.one", "key-one")

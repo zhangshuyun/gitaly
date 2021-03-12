@@ -14,8 +14,7 @@ import (
 )
 
 func TestClone(t *testing.T) {
-	cfg, _, repoPath, cleanup := testcfg.BuildWithRepo(t)
-	defer cleanup()
+	cfg, _, repoPath := testcfg.BuildWithRepo(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -73,8 +72,7 @@ func TestClone(t *testing.T) {
 }
 
 func TestCloneWithAuth(t *testing.T) {
-	cfg, _, repoPath, cleanup := testcfg.BuildWithRepo(t)
-	defer cleanup()
+	cfg, _, repoPath := testcfg.BuildWithRepo(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()

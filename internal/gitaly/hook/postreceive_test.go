@@ -61,8 +61,7 @@ func TestPrintAlert(t *testing.T) {
 }
 
 func TestPostReceive_customHook(t *testing.T) {
-	cfg, repo, repoPath, cleanup := testcfg.BuildWithRepo(t)
-	defer cleanup()
+	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
 	hookManager := NewManager(config.NewLocator(cfg), transaction.NewManager(cfg), GitlabAPIStub, cfg)
 
@@ -243,8 +242,7 @@ func (m *postreceiveAPIMock) PostReceive(ctx context.Context, glRepository, glID
 }
 
 func TestPostReceive_gitlab(t *testing.T) {
-	cfg, repo, repoPath, cleanup := testcfg.BuildWithRepo(t)
-	defer cleanup()
+	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
 	payload, err := git.NewHooksPayload(cfg, repo, nil, nil, &git.ReceiveHooksPayload{
 		UserID:   "1234",

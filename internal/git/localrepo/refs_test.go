@@ -22,8 +22,7 @@ func TestRepo_ContainsRef(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	repo, _, cleanup := setupRepo(t, false)
-	defer cleanup()
+	repo, _ := setupRepo(t, false)
 
 	testcases := []struct {
 		desc      string
@@ -60,8 +59,7 @@ func TestRepo_GetReference(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	repo, _, cleanup := setupRepo(t, false)
-	defer cleanup()
+	repo, _ := setupRepo(t, false)
 
 	testcases := []struct {
 		desc        string
@@ -109,8 +107,7 @@ func TestRepo_GetReferenceWithAmbiguousRefs(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	repo, _, cleanup := setupRepo(t, false)
-	defer cleanup()
+	repo, _ := setupRepo(t, false)
 
 	// Disable hooks
 	repo.cfg.Ruby.Dir = "/var/empty"
@@ -146,8 +143,7 @@ func TestRepo_GetReferences(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	repo, _, cleanup := setupRepo(t, false)
-	defer cleanup()
+	repo, _ := setupRepo(t, false)
 
 	masterBranch, err := repo.GetReference(ctx, "refs/heads/master")
 	require.NoError(t, err)
@@ -216,8 +212,7 @@ func TestRepo_GetRemoteReferences(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	cfg, clean := testcfg.Build(t)
-	defer clean()
+	cfg := testcfg.Build(t)
 
 	storagePath, ok := cfg.StoragePath("default")
 	require.True(t, ok)
@@ -288,8 +283,7 @@ func TestRepo_GetBranches(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	repo, _, cleanup := setupRepo(t, false)
-	defer cleanup()
+	repo, _ := setupRepo(t, false)
 
 	refs, err := repo.GetBranches(ctx)
 	require.NoError(t, err)
@@ -300,8 +294,7 @@ func TestRepo_UpdateRef(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	repo, _, cleanup := setupRepo(t, false)
-	defer cleanup()
+	repo, _ := setupRepo(t, false)
 
 	// Disable hooks
 	repo.cfg.Ruby.Dir = "/var/empty"
