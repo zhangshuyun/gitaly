@@ -50,6 +50,7 @@ func (s *Server) updateReferenceWithHooks(
 	user *gitalypb.User,
 	reference git.ReferenceName,
 	newrev, oldrev git.ObjectID,
+	pushOptions ...string,
 ) error {
 	transaction, praefect, err := metadata.TransactionMetadataFromContext(ctx)
 	if err != nil {
@@ -82,7 +83,7 @@ func (s *Server) updateReferenceWithHooks(
 	changes := fmt.Sprintf("%s %s %s\n", oldrev, newrev, reference)
 	var stdout, stderr bytes.Buffer
 
-	if err := s.hookManager.PreReceiveHook(ctx, repo, nil, env, strings.NewReader(changes), &stdout, &stderr); err != nil {
+	if err := s.hookManager.PreReceiveHook(ctx, repo, pushOptions, env, strings.NewReader(changes), &stdout, &stderr); err != nil {
 		msg := hookErrorMessage(stdout.String(), stderr.String(), err)
 		return preReceiveError{message: msg}
 	}
@@ -118,7 +119,7 @@ func (s *Server) updateReferenceWithHooks(
 		return updateRefError{reference: reference.String()}
 	}
 
-	if err := s.hookManager.PostReceiveHook(ctx, repo, nil, env, strings.NewReader(changes), &stdout, &stderr); err != nil {
+	if err := s.hookManager.PostReceiveHook(ctx, repo, pushOptions, env, strings.NewReader(changes), &stdout, &stderr); err != nil {
 		msg := hookErrorMessage(stdout.String(), stderr.String(), err)
 		return preReceiveError{message: msg}
 	}
