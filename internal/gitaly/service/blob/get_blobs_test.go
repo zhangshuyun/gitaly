@@ -7,21 +7,13 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
 
 func TestSuccessfulGetBlobsRequest(t *testing.T) {
-	stop, serverSocketPath := runBlobServer(t, testhelper.DefaultLocator())
-	defer stop()
-
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-
-	client, conn := newBlobClient(t, serverSocketPath)
-	defer conn.Close()
+	_, repo, repoPath, client := setup(t)
 
 	expectedBlobs := []*gitalypb.GetBlobsResponse{
 		{
@@ -65,7 +57,7 @@ func TestSuccessfulGetBlobsRequest(t *testing.T) {
 	revision := "ef16b8d2b204706bd8dc211d4011a5bffb6fc0c2"
 	limits := []int{-1, 0, 10 * 1024 * 1024}
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "worktree", "add", "blobs-sandbox", revision)
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "worktree", "add", "blobs-sandbox", revision)
 
 	var revisionPaths []*gitalypb.GetBlobsRequest_RevisionPath
 	for _, blob := range expectedBlobs {
@@ -82,7 +74,7 @@ func TestSuccessfulGetBlobsRequest(t *testing.T) {
 			defer cancel()
 
 			request := &gitalypb.GetBlobsRequest{
-				Repository:    testRepo,
+				Repository:    repo,
 				RevisionPaths: revisionPaths,
 				Limit:         int64(limit),
 			}
@@ -118,7 +110,7 @@ func TestSuccessfulGetBlobsRequest(t *testing.T) {
 				expectedBlob := expectedBlobs[i]
 				expectedBlob.Revision = revision
 				if !expectedBlob.IsSubmodule && expectedBlob.Type == gitalypb.ObjectType_BLOB {
-					expectedBlob.Data = testhelper.MustReadFile(t, filepath.Join(testRepoPath, "blobs-sandbox", string(expectedBlob.Path)))
+					expectedBlob.Data = testhelper.MustReadFile(t, filepath.Join(repoPath, "blobs-sandbox", string(expectedBlob.Path)))
 				}
 				if limit == 0 {
 					expectedBlob.Data = nil
@@ -134,14 +126,7 @@ func TestSuccessfulGetBlobsRequest(t *testing.T) {
 }
 
 func TestFailedGetBlobsRequestDueToValidation(t *testing.T) {
-	stop, serverSocketPath := runBlobServer(t, testhelper.DefaultLocator())
-	defer stop()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-
-	client, conn := newBlobClient(t, serverSocketPath)
-	defer conn.Close()
+	_, repo, _, client := setup(t)
 
 	testCases := []struct {
 		desc    string
@@ -160,14 +145,14 @@ func TestFailedGetBlobsRequestDueToValidation(t *testing.T) {
 		{
 			desc: "empty RevisionPaths",
 			request: &gitalypb.GetBlobsRequest{
-				Repository: testRepo,
+				Repository: repo,
 			},
 			code: codes.InvalidArgument,
 		},
 		{
 			desc: "invalid Revision",
 			request: &gitalypb.GetBlobsRequest{
-				Repository: testRepo,
+				Repository: repo,
 				RevisionPaths: []*gitalypb.GetBlobsRequest_RevisionPath{
 					{
 						Path:     []byte("CHANGELOG"),

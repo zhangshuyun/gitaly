@@ -472,8 +472,3 @@ func GenerateTestCerts(t *testing.T) (string, string, Cleanup) {
 
 	return certFile.Name(), keyFile.Name(), cleanup
 }
-
-// DefaultLocator returns a locater for the default storage.
-func DefaultLocator() storage.Locator {
-	return config.NewLocator(config.Cfg{Storages: []config.Storage{{Name: DefaultStorageName, Path: GitlabTestStoragePath()}}})
-}
