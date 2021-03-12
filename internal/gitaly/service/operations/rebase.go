@@ -4,10 +4,15 @@ package operations
 
 import (
 	"errors"
+	"fmt"
+	"time"
 
+	"github.com/golang/protobuf/ptypes"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
@@ -26,11 +31,87 @@ func (s *Server) UserRebaseConfirmable(stream gitalypb.OperationService_UserReba
 		return helper.ErrInvalidArgumentf("UserRebaseConfirmable: %v", err)
 	}
 
+	if featureflag.IsEnabled(stream.Context(), featureflag.GoUserRebaseConfirmable) {
+		return s.userRebaseConfirmableGo(stream, header)
+	}
+
 	if err := s.userRebaseConfirmable(stream, firstRequest, header.GetRepository()); err != nil {
 		return helper.ErrInternal(err)
 	}
 
 	return nil
+}
+
+func (s *Server) userRebaseConfirmableGo(stream gitalypb.OperationService_UserRebaseConfirmableServer, header *gitalypb.UserRebaseConfirmableRequest_Header) error {
+	ctx := stream.Context()
+
+	repo := header.Repository
+	repoPath, err := s.locator.GetPath(repo)
+	if err != nil {
+		return fmt.Errorf("get path: %w", err)
+	}
+
+	branch := git.NewReferenceNameFromBranchName(string(header.Branch))
+	oldrev, err := git.NewObjectIDFromHex(header.BranchSha)
+	if err != nil {
+		return fmt.Errorf("get oid: %w", err)
+	}
+
+	committer := git2go.NewSignature(string(header.User.Name), string(header.User.Email), time.Now())
+
+	if header.Timestamp != nil {
+		committer.When, err = ptypes.Timestamp(header.Timestamp)
+		if err != nil {
+			return fmt.Errorf("parse timestamp: %w", err)
+		}
+	}
+
+	newrev, err := git2go.RebaseCommand{
+		Repository:     repoPath,
+		Committer:      committer,
+		BranchName:     string(header.Branch),
+		UpstreamBranch: string(header.RemoteBranch),
+	}.Run(ctx, s.cfg)
+	if err != nil {
+		return fmt.Errorf("git2go rebase: %w", err)
+	}
+
+	if err := stream.Send(&gitalypb.UserRebaseConfirmableResponse{
+		UserRebaseConfirmableResponsePayload: &gitalypb.UserRebaseConfirmableResponse_RebaseSha{
+			RebaseSha: newrev.String(),
+		},
+	}); err != nil {
+		return fmt.Errorf("send rebase sha: %w", err)
+	}
+
+	secondRequest, err := stream.Recv()
+	if err != nil {
+		return fmt.Errorf("recv: %w", err)
+	}
+
+	if !secondRequest.GetApply() {
+		return helper.ErrPreconditionFailedf("rebase aborted by client")
+	}
+
+	if err := s.updateReferenceWithHooks(ctx,
+		header.Repository, header.User,
+		branch, newrev, oldrev,
+		header.GitPushOptions); err != nil {
+		switch {
+		case errors.As(err, &preReceiveError{}):
+			return stream.Send(&gitalypb.UserRebaseConfirmableResponse{
+				PreReceiveError: err.Error(),
+			})
+		case errors.Is(err, git2go.ErrInvalidArgument):
+			return fmt.Errorf("update ref: %w", err)
+		}
+	}
+
+	return stream.Send(&gitalypb.UserRebaseConfirmableResponse{
+		UserRebaseConfirmableResponsePayload: &gitalypb.UserRebaseConfirmableResponse_RebaseApplied{
+			RebaseApplied: true,
+		},
+	})
 }
 
 func (s *Server) userRebaseConfirmable(stream gitalypb.OperationService_UserRebaseConfirmableServer, firstRequest *gitalypb.UserRebaseConfirmableRequest, repository *gitalypb.Repository) error {
