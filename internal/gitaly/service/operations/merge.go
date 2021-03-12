@@ -8,10 +8,8 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
-	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -159,7 +157,8 @@ func (s *Server) UserFFBranch(ctx context.Context, in *gitalypb.UserFFBranchRequ
 
 	referenceName := git.NewReferenceNameFromBranchName(string(in.Branch))
 
-	revision, err := localrepo.New(s.gitCmdFactory, in.Repository, s.cfg).ResolveRevision(ctx, referenceName.Revision())
+	repo := localrepo.New(s.gitCmdFactory, in.Repository, s.cfg)
+	revision, err := repo.ResolveRevision(ctx, referenceName.Revision())
 	if err != nil {
 		return nil, helper.ErrInvalidArgument(err)
 	}
@@ -169,7 +168,7 @@ func (s *Server) UserFFBranch(ctx context.Context, in *gitalypb.UserFFBranchRequ
 		return nil, helper.ErrInvalidArgumentf("cannot parse commit ID: %w", err)
 	}
 
-	ancestor, err := s.isAncestor(ctx, in.Repository, revision, commitID)
+	ancestor, err := repo.IsAncestor(ctx, revision.Revision(), commitID.Revision())
 	if err != nil {
 		return nil, err
 	}
@@ -305,28 +304,4 @@ func (s *Server) UserMergeToRef(ctx context.Context, request *gitalypb.UserMerge
 	return &gitalypb.UserMergeToRefResponse{
 		CommitId: mergeOID.String(),
 	}, nil
-}
-
-func (s *Server) isAncestor(ctx context.Context, repo repository.GitRepo, ancestor, descendant git.ObjectID) (bool, error) {
-	cmd, err := s.gitCmdFactory.New(ctx, repo, git.SubCmd{
-		Name:  "merge-base",
-		Flags: []git.Option{git.Flag{Name: "--is-ancestor"}},
-		Args:  []string{ancestor.String(), descendant.String()},
-	})
-	if err != nil {
-		return false, helper.ErrInternalf("isAncestor: %w", err)
-	}
-	if err := cmd.Wait(); err != nil {
-		status, ok := command.ExitStatus(err)
-		if !ok {
-			return false, helper.ErrInternalf("isAncestor: %w", err)
-		}
-		// --is-ancestor errors are signaled by a non-zero status that is not 1.
-		// https://git-scm.com/docs/git-merge-base#Documentation/git-merge-base.txt---is-ancestor
-		if status != 1 {
-			return false, helper.ErrInvalidArgumentf("isAncestor: %w", err)
-		}
-		return false, nil
-	}
-	return true, nil
 }
