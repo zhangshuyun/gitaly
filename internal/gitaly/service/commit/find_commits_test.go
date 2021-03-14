@@ -478,17 +478,7 @@ func TestSuccessfulFindCommitsRequestWithAltGitObjectDirs(t *testing.T) {
 			c, err := client.FindCommits(ctx, request)
 			require.NoError(t, err)
 
-			var receivedCommits []*gitalypb.GitCommit
-
-			for {
-				resp, err := c.Recv()
-				if err == io.EOF {
-					break
-				}
-				require.NoError(t, err)
-
-				receivedCommits = append(receivedCommits, resp.GetCommits()...)
-			}
+			receivedCommits := getAllCommits(t, func() (gitCommitsGetter, error) { return c.Recv() })
 
 			require.Equal(t, testCase.expectedCount, len(receivedCommits), "number of commits received")
 		})
@@ -518,17 +508,7 @@ func TestSuccessfulFindCommitsRequestWithAmbiguousRef(t *testing.T) {
 	c, err := client.FindCommits(ctx, request)
 	require.NoError(t, err)
 
-	var receivedCommits []*gitalypb.GitCommit
-
-	for {
-		resp, err := c.Recv()
-		if err == io.EOF {
-			break
-		}
-		require.NoError(t, err)
-
-		receivedCommits = append(receivedCommits, resp.GetCommits()...)
-	}
+	receivedCommits := getAllCommits(t, func() (gitCommitsGetter, error) { return c.Recv() })
 
 	require.Equal(t, 1, len(receivedCommits), "number of commits received")
 }

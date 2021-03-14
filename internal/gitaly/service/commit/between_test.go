@@ -1,7 +1,6 @@
 package commit
 
 import (
-	"io"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -80,7 +79,6 @@ func TestSuccessfulCommitsBetween(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.description, func(t *testing.T) {
-			var commits []*gitalypb.GitCommit
 			rpcRequest := gitalypb.CommitsBetweenRequest{
 				Repository: repo, From: tc.from, To: tc.to,
 			}
@@ -91,15 +89,7 @@ func TestSuccessfulCommitsBetween(t *testing.T) {
 			c, err := client.CommitsBetween(ctx, &rpcRequest)
 			require.NoError(t, err)
 
-			for {
-				resp, err := c.Recv()
-				if err == io.EOF {
-					break
-				}
-				require.NoError(t, err)
-
-				commits = append(commits, resp.GetCommits()...)
-			}
+			commits := getAllCommits(t, func() (gitCommitsGetter, error) { return c.Recv() })
 
 			for i, commit := range commits {
 				testhelper.ProtoEqual(t, expectedCommits[i], commit)

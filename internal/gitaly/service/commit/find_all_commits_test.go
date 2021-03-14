@@ -2,7 +2,6 @@ package commit
 
 import (
 	"context"
-	"io"
 	"testing"
 
 	"github.com/golang/protobuf/ptypes/timestamp"
@@ -280,7 +279,7 @@ func TestSuccessfulFindAllCommitsRequest(t *testing.T) {
 			c, err := client.FindAllCommits(ctx, request)
 			require.NoError(t, err)
 
-			receivedCommits := collectCommtsFromFindAllCommitsClient(t, c)
+			receivedCommits := getAllCommits(t, func() (gitCommitsGetter, error) { return c.Recv() })
 
 			require.Equal(t, len(testCase.expectedCommits), len(receivedCommits), "number of commits received")
 
@@ -332,23 +331,6 @@ func TestFailedFindAllCommitsRequest(t *testing.T) {
 			testhelper.RequireGrpcError(t, err, testCase.code)
 		})
 	}
-}
-
-func collectCommtsFromFindAllCommitsClient(t *testing.T, c gitalypb.CommitService_FindAllCommitsClient) []*gitalypb.GitCommit {
-	t.Helper()
-
-	var receivedCommits []*gitalypb.GitCommit
-	for {
-		resp, err := c.Recv()
-		if err == io.EOF {
-			break
-		}
-		require.NoError(t, err)
-
-		receivedCommits = append(receivedCommits, resp.GetCommits()...)
-	}
-
-	return receivedCommits
 }
 
 func drainFindAllCommitsResponse(c gitalypb.CommitService_FindAllCommitsClient) error {

@@ -1,6 +1,7 @@
 package commit
 
 import (
+	"io"
 	"net"
 	"os"
 	"testing"
@@ -95,5 +96,24 @@ func dummyCommitAuthor(ts int64) *gitalypb.CommitAuthor {
 		Email:    []byte("ahmad+gitlab-test@gitlab.com"),
 		Date:     &timestamp.Timestamp{Seconds: ts},
 		Timezone: []byte("+0200"),
+	}
+}
+
+type gitCommitsGetter interface {
+	GetCommits() []*gitalypb.GitCommit
+}
+
+func getAllCommits(t testing.TB, getter func() (gitCommitsGetter, error)) []*gitalypb.GitCommit {
+	t.Helper()
+
+	var commits []*gitalypb.GitCommit
+	for {
+		resp, err := getter()
+		if err == io.EOF {
+			return commits
+		}
+		require.NoError(t, err)
+
+		commits = append(commits, resp.GetCommits()...)
 	}
 }

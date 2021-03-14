@@ -1,7 +1,6 @@
 package commit
 
 import (
-	"io"
 	"testing"
 
 	"github.com/golang/protobuf/ptypes/timestamp"
@@ -145,16 +144,7 @@ func TestSuccessfulCommitsByMessageRequest(t *testing.T) {
 			c, err := client.CommitsByMessage(ctx, request)
 			require.NoError(t, err)
 
-			var receivedCommits []*gitalypb.GitCommit
-			for {
-				resp, err := c.Recv()
-				if err == io.EOF {
-					break
-				}
-				require.NoError(t, err)
-
-				receivedCommits = append(receivedCommits, resp.GetCommits()...)
-			}
+			receivedCommits := getAllCommits(t, func() (gitCommitsGetter, error) { return c.Recv() })
 
 			require.Equal(t, len(testCase.expectedCommits), len(receivedCommits), "number of commits received")
 
