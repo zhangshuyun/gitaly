@@ -147,8 +147,8 @@ func (gc *GitalyCfgBuilder) BuildWithRepoAt(t testing.TB, relativePath string) (
 }
 
 // Build creates a minimal configuration setup with no options and returns it with cleanup function.
-func Build(t testing.TB) config.Cfg {
-	cfgBuilder := NewGitalyCfgBuilder()
+func Build(t testing.TB, opts ...Option) config.Cfg {
+	cfgBuilder := NewGitalyCfgBuilder(opts...)
 	t.Cleanup(cfgBuilder.Cleanup)
 
 	return cfgBuilder.Build(t)
@@ -156,8 +156,8 @@ func Build(t testing.TB) config.Cfg {
 
 // BuildWithRepo creates a minimal configuration setup with no options.
 // It also clones test repository at the storage and returns it with the full path to the repository.
-func BuildWithRepo(t testing.TB) (config.Cfg, *gitalypb.Repository, string) {
-	cfgBuilder := NewGitalyCfgBuilder()
+func BuildWithRepo(t testing.TB, opts ...Option) (config.Cfg, *gitalypb.Repository, string) {
+	cfgBuilder := NewGitalyCfgBuilder(opts...)
 	t.Cleanup(cfgBuilder.Cleanup)
 
 	cfg, repos := cfgBuilder.BuildWithRepoAt(t, t.Name())
