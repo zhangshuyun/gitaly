@@ -10,38 +10,30 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/objectpool"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
 func TestGetObjectPoolSuccess(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	server, serverSocketPath := runObjectPoolServer(t, config.Config, locator)
-	defer server.Stop()
-
-	client, conn := newObjectPoolClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	cfg, repo, _, locator, client, cleanup := setup(t)
+	defer cleanup()
 
 	relativePoolPath := gittest.NewObjectPoolName(t)
 
-	pool, err := objectpool.NewObjectPool(config.Config, locator, git.NewExecCommandFactory(config.Config), testRepo.GetStorageName(), relativePoolPath)
+	pool, err := objectpool.NewObjectPool(cfg, locator, git.NewExecCommandFactory(cfg), repo.GetStorageName(), relativePoolPath)
 	require.NoError(t, err)
 
 	poolCtx, cancel := testhelper.Context()
 	defer cancel()
-	require.NoError(t, pool.Create(poolCtx, testRepo))
-	require.NoError(t, pool.Link(poolCtx, testRepo))
+	require.NoError(t, pool.Create(poolCtx, repo))
+	require.NoError(t, pool.Link(poolCtx, repo))
 
 	ctx, cancel := testhelper.Context()
 	defer pool.Remove(ctx)
 	defer cancel()
 
 	resp, err := client.GetObjectPool(ctx, &gitalypb.GetObjectPoolRequest{
-		Repository: testRepo,
+		Repository: repo,
 	})
 
 	require.NoError(t, err)
@@ -49,20 +41,14 @@ func TestGetObjectPoolSuccess(t *testing.T) {
 }
 
 func TestGetObjectPoolNoFile(t *testing.T) {
-	server, serverSocketPath := runObjectPoolServer(t, config.Config, config.NewLocator(config.Config))
-	defer server.Stop()
-
-	client, conn := newObjectPoolClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repoo, _, _, client, cleanup := setup(t)
+	defer cleanup()
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
 	resp, err := client.GetObjectPool(ctx, &gitalypb.GetObjectPoolRequest{
-		Repository: testRepo,
+		Repository: repoo,
 	})
 
 	require.NoError(t, err)
@@ -70,16 +56,10 @@ func TestGetObjectPoolNoFile(t *testing.T) {
 }
 
 func TestGetObjectPoolBadFile(t *testing.T) {
-	server, serverSocketPath := runObjectPoolServer(t, config.Config, config.NewLocator(config.Config))
-	defer server.Stop()
+	_, repo, repoPath, _, client, cleanup := setup(t)
+	defer cleanup()
 
-	client, conn := newObjectPoolClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-
-	alternatesFilePath := filepath.Join(testRepoPath, "objects", "info", "alternates")
+	alternatesFilePath := filepath.Join(repoPath, "objects", "info", "alternates")
 	require.NoError(t, os.MkdirAll(filepath.Dir(alternatesFilePath), 0755))
 	require.NoError(t, ioutil.WriteFile(alternatesFilePath, []byte("not-a-directory"), 0644))
 
@@ -87,7 +67,7 @@ func TestGetObjectPoolBadFile(t *testing.T) {
 	defer cancel()
 
 	resp, err := client.GetObjectPool(ctx, &gitalypb.GetObjectPoolRequest{
-		Repository: testRepo,
+		Repository: repo,
 	})
 
 	require.NoError(t, err)

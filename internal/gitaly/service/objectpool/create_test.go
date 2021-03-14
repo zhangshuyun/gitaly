@@ -11,32 +11,24 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/objectpool"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/status"
 )
 
 func TestCreate(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	server, serverSocketPath := runObjectPoolServer(t, config.Config, locator)
-	defer server.Stop()
-
-	client, conn := newObjectPoolClient(t, serverSocketPath)
-	defer conn.Close()
+	cfg, repo, _, locator, client, cleanup := setup(t)
+	defer cleanup()
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-
-	pool, err := objectpool.NewObjectPool(config.Config, locator, git.NewExecCommandFactory(config.Config), "default", gittest.NewObjectPoolName(t))
+	pool, err := objectpool.NewObjectPool(cfg, locator, git.NewExecCommandFactory(cfg), repo.GetStorageName(), gittest.NewObjectPoolName(t))
 	require.NoError(t, err)
 
 	poolReq := &gitalypb.CreateObjectPoolRequest{
 		ObjectPool: pool.ToProto(),
-		Origin:     testRepo,
+		Origin:     repo,
 	}
 
 	_, err = client.CreateObjectPool(ctx, poolReq)
@@ -61,21 +53,15 @@ func TestCreate(t *testing.T) {
 }
 
 func TestUnsuccessfulCreate(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	server, serverSocketPath := runObjectPoolServer(t, config.Config, locator)
-	defer server.Stop()
-
-	client, conn := newObjectPoolClient(t, serverSocketPath)
-	defer conn.Close()
+	cfg, repo, _, locator, client, cleanup := setup(t)
+	defer cleanup()
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-
 	validPoolPath := gittest.NewObjectPoolName(t)
-	pool, err := objectpool.NewObjectPool(config.Config, locator, git.NewExecCommandFactory(config.Config), "default", validPoolPath)
+	storageName := repo.GetStorageName()
+	pool, err := objectpool.NewObjectPool(cfg, locator, git.NewExecCommandFactory(cfg), storageName, validPoolPath)
 	require.NoError(t, err)
 	defer pool.Remove(ctx)
 
@@ -94,17 +80,17 @@ func TestUnsuccessfulCreate(t *testing.T) {
 		{
 			desc: "no object pool",
 			request: &gitalypb.CreateObjectPoolRequest{
-				Origin: testRepo,
+				Origin: repo,
 			},
 			error: errMissingPool,
 		},
 		{
 			desc: "outside pools directory",
 			request: &gitalypb.CreateObjectPoolRequest{
-				Origin: testRepo,
+				Origin: repo,
 				ObjectPool: &gitalypb.ObjectPool{
 					Repository: &gitalypb.Repository{
-						StorageName:  "default",
+						StorageName:  storageName,
 						RelativePath: "outside-pools",
 					},
 				},
@@ -114,10 +100,10 @@ func TestUnsuccessfulCreate(t *testing.T) {
 		{
 			desc: "path must be lowercase",
 			request: &gitalypb.CreateObjectPoolRequest{
-				Origin: testRepo,
+				Origin: repo,
 				ObjectPool: &gitalypb.ObjectPool{
 					Repository: &gitalypb.Repository{
-						StorageName:  "default",
+						StorageName:  storageName,
 						RelativePath: strings.ToUpper(validPoolPath),
 					},
 				},
@@ -127,10 +113,10 @@ func TestUnsuccessfulCreate(t *testing.T) {
 		{
 			desc: "subdirectories must match first four pool digits",
 			request: &gitalypb.CreateObjectPoolRequest{
-				Origin: testRepo,
+				Origin: repo,
 				ObjectPool: &gitalypb.ObjectPool{
 					Repository: &gitalypb.Repository{
-						StorageName:  "default",
+						StorageName:  storageName,
 						RelativePath: "@pools/aa/bb/ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff.git",
 					},
 				},
@@ -140,10 +126,10 @@ func TestUnsuccessfulCreate(t *testing.T) {
 		{
 			desc: "pool path traversal fails",
 			request: &gitalypb.CreateObjectPoolRequest{
-				Origin: testRepo,
+				Origin: repo,
 				ObjectPool: &gitalypb.ObjectPool{
 					Repository: &gitalypb.Repository{
-						StorageName:  "default",
+						StorageName:  storageName,
 						RelativePath: validPoolPath + "/..",
 					},
 				},
@@ -161,23 +147,16 @@ func TestUnsuccessfulCreate(t *testing.T) {
 }
 
 func TestDelete(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	server, serverSocketPath := runObjectPoolServer(t, config.Config, locator)
-	defer server.Stop()
-
-	client, conn := newObjectPoolClient(t, serverSocketPath)
-	defer conn.Close()
+	cfg, repo, _, locator, client, cleanup := setup(t)
+	defer cleanup()
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-
 	validPoolPath := gittest.NewObjectPoolName(t)
-	pool, err := objectpool.NewObjectPool(config.Config, locator, git.NewExecCommandFactory(config.Config), "default", validPoolPath)
+	pool, err := objectpool.NewObjectPool(cfg, locator, git.NewExecCommandFactory(cfg), repo.GetStorageName(), validPoolPath)
 	require.NoError(t, err)
-	require.NoError(t, pool.Create(ctx, testRepo))
+	require.NoError(t, pool.Create(ctx, repo))
 
 	for _, tc := range []struct {
 		desc         string
@@ -226,7 +205,7 @@ func TestDelete(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			_, err := client.DeleteObjectPool(ctx, &gitalypb.DeleteObjectPoolRequest{ObjectPool: &gitalypb.ObjectPool{
 				Repository: &gitalypb.Repository{
-					StorageName:  "default",
+					StorageName:  repo.GetStorageName(),
 					RelativePath: tc.relativePath,
 				},
 			}})

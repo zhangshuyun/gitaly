@@ -14,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
 )
@@ -26,8 +27,29 @@ func testMain(m *testing.M) int {
 	defer testhelper.MustHaveNoChildProcess()
 	cleanup := testhelper.Configure()
 	defer cleanup()
-	testhelper.ConfigureGitalyHooksBinary(config.Config.BinDir)
 	return m.Run()
+}
+
+func setup(t *testing.T) (config.Cfg, *gitalypb.Repository, string, storage.Locator, gitalypb.ObjectPoolServiceClient, testhelper.Cleanup) {
+	t.Helper()
+
+	var deferrer testhelper.Deferrer
+	defer deferrer.Call()
+
+	cfg, repo, repoPath, cleanup := testcfg.BuildWithRepo(t)
+	deferrer.Add(cleanup)
+
+	testhelper.ConfigureGitalyHooksBin(t, cfg)
+
+	locator := config.NewLocator(cfg)
+	server, serverSocketPath := runObjectPoolServer(t, cfg, locator)
+	deferrer.Add(server.Stop)
+
+	client, conn := newObjectPoolClient(t, serverSocketPath)
+	deferrer.Add(func() { conn.Close() })
+
+	closer := deferrer.Relocate()
+	return cfg, repo, repoPath, locator, client, closer.Call
 }
 
 func runObjectPoolServer(t *testing.T, cfg config.Cfg, locator storage.Locator) (*grpc.Server, string) {
