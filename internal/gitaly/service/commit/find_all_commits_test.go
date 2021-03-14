@@ -8,7 +8,6 @@ import (
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/ref"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -27,14 +26,7 @@ func TestSuccessfulFindAllCommitsRequest(t *testing.T) {
 		}, nil
 	}
 
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
-
-	client, conn := newCommitServiceClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	// Commits made on another branch in parallel to the normal commits below.
 	// Will be used to test topology ordering.
@@ -281,14 +273,12 @@ func TestSuccessfulFindAllCommitsRequest(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
 			request := testCase.request
-			request.Repository = testRepo
+			request.Repository = repo
 
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 			c, err := client.FindAllCommits(ctx, request)
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err)
 
 			receivedCommits := collectCommtsFromFindAllCommitsClient(t, c)
 
@@ -302,16 +292,9 @@ func TestSuccessfulFindAllCommitsRequest(t *testing.T) {
 }
 
 func TestFailedFindAllCommitsRequest(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
-
-	client, conn := newCommitServiceClient(t, serverSocketPath)
-	defer conn.Close()
+	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	invalidRepo := &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
 
 	testCases := []struct {
 		desc    string
@@ -331,7 +314,7 @@ func TestFailedFindAllCommitsRequest(t *testing.T) {
 		{
 			desc: "Revision is invalid",
 			request: &gitalypb.FindAllCommitsRequest{
-				Repository: testRepo,
+				Repository: repo,
 				Revision:   []byte("--output=/meow"),
 			},
 			code: codes.InvalidArgument,
@@ -343,9 +326,7 @@ func TestFailedFindAllCommitsRequest(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 			c, err := client.FindAllCommits(ctx, testCase.request)
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err)
 
 			err = drainFindAllCommitsResponse(c)
 			testhelper.RequireGrpcError(t, err, testCase.code)
@@ -354,15 +335,15 @@ func TestFailedFindAllCommitsRequest(t *testing.T) {
 }
 
 func collectCommtsFromFindAllCommitsClient(t *testing.T, c gitalypb.CommitService_FindAllCommitsClient) []*gitalypb.GitCommit {
-	receivedCommits := []*gitalypb.GitCommit{}
+	t.Helper()
 
+	var receivedCommits []*gitalypb.GitCommit
 	for {
 		resp, err := c.Recv()
 		if err == io.EOF {
 			break
-		} else if err != nil {
-			t.Fatal(err)
 		}
+		require.NoError(t, err)
 
 		receivedCommits = append(receivedCommits, resp.GetCommits()...)
 	}

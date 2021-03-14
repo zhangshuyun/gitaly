@@ -49,14 +49,7 @@ func TestListFiles_success(t *testing.T) {
 		defaultBranchName = ref.DefaultBranchName
 	}()
 
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
-
-	client, conn := newCommitServiceClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	tests := []struct {
 		desc     string
@@ -116,7 +109,7 @@ func TestListFiles_success(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.desc, func(t *testing.T) {
 			rpcRequest := gitalypb.ListFilesRequest{
-				Repository: testRepo, Revision: []byte(tc.revision),
+				Repository: repo, Revision: []byte(tc.revision),
 			}
 
 			ctx, cancel := testhelper.Context()
@@ -141,14 +134,8 @@ func TestListFiles_success(t *testing.T) {
 }
 
 func TestListFiles_unbornBranch(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
-
-	client, conn := newCommitServiceClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.InitBareRepo(t)
-	defer cleanupFn()
+	cfg, _, _, client := setupCommitServiceWithRepo(t, true)
+	repo, _, _ := gittest.InitBareRepoAt(t, cfg.Storages[0])
 
 	tests := []struct {
 		desc     string
@@ -189,7 +176,7 @@ func TestListFiles_unbornBranch(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.desc, func(t *testing.T) {
 			rpcRequest := gitalypb.ListFilesRequest{
-				Repository: testRepo, Revision: []byte(tc.revision),
+				Repository: repo, Revision: []byte(tc.revision),
 			}
 
 			ctx, cancel := testhelper.Context()
@@ -221,11 +208,7 @@ func TestListFiles_unbornBranch(t *testing.T) {
 }
 
 func TestListFiles_failure(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
-
-	client, conn := newCommitServiceClient(t, serverSocketPath)
-	defer conn.Close()
+	_, _, _, client := setupCommitServiceWithRepo(t, true)
 
 	tests := []struct {
 		desc string
@@ -279,20 +262,13 @@ func drainListFilesResponse(c gitalypb.CommitService_ListFilesClient) error {
 }
 
 func TestListFiles_invalidRevision(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
-
-	client, conn := newCommitServiceClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
 	stream, err := client.ListFiles(ctx, &gitalypb.ListFilesRequest{
-		Repository: testRepo,
+		Repository: repo,
 		Revision:   []byte("--output=/meow"),
 	})
 	require.NoError(t, err)

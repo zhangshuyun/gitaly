@@ -4,24 +4,16 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
 
 func TestLanguages(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
-
-	client, conn := newCommitServiceClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	request := &gitalypb.CommitLanguagesRequest{
-		Repository: testRepo,
+		Repository: repo,
 		Revision:   []byte("cb19058ecc02d01f8e4290b7e79cafd16a8839b6"),
 	}
 
@@ -52,17 +44,10 @@ func TestLanguages(t *testing.T) {
 }
 
 func TestFileCountIsZeroWhenFeatureIsDisabled(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
-
-	client, conn := newCommitServiceClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	request := &gitalypb.CommitLanguagesRequest{
-		Repository: testRepo,
+		Repository: repo,
 		Revision:   []byte("cb19058ecc02d01f8e4290b7e79cafd16a8839b6"),
 	}
 
@@ -81,6 +66,8 @@ func TestFileCountIsZeroWhenFeatureIsDisabled(t *testing.T) {
 }
 
 func requireLanguageEqual(t *testing.T, expected, actual *gitalypb.CommitLanguagesResponse_Language) {
+	t.Helper()
+
 	require.Equal(t, expected.Name, actual.Name)
 	require.Equal(t, expected.Color, actual.Color)
 	require.False(t, (expected.Share-actual.Share)*(expected.Share-actual.Share) >= 1.0, "shares do not match")
@@ -88,17 +75,10 @@ func requireLanguageEqual(t *testing.T, expected, actual *gitalypb.CommitLanguag
 }
 
 func TestLanguagesEmptyRevision(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
-
-	client, conn := newCommitServiceClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	request := &gitalypb.CommitLanguagesRequest{
-		Repository: testRepo,
+		Repository: repo,
 	}
 
 	ctx, cancel := testhelper.Context()
@@ -118,34 +98,20 @@ func TestLanguagesEmptyRevision(t *testing.T) {
 }
 
 func TestInvalidCommitLanguagesRequestRevision(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
-
-	client, conn := newCommitServiceClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
 	_, err := client.CommitLanguages(ctx, &gitalypb.CommitLanguagesRequest{
-		Repository: testRepo,
+		Repository: repo,
 		Revision:   []byte("--output=/meow"),
 	})
 	testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
 }
 
 func TestAmbiguousRefCommitLanguagesRequestRevision(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
-
-	client, conn := newCommitServiceClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -154,7 +120,7 @@ func TestAmbiguousRefCommitLanguagesRequestRevision(t *testing.T) {
 	// b83d6e391c22777fca1ed3012fce84f633d7fed0 refs/heads/v1.1.0
 	// 8a2a6eb295bb170b34c24c76c49ed0e9b2eaf34b refs/tags/v1.1.0
 	_, err := client.CommitLanguages(ctx, &gitalypb.CommitLanguagesRequest{
-		Repository: testRepo,
+		Repository: repo,
 		Revision:   []byte("v1.1.0"),
 	})
 	require.NoError(t, err)

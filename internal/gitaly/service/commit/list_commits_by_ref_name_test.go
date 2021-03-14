@@ -5,20 +5,12 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
 func TestSuccessfulListCommitsByRefNameRequest(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
-
-	client, conn := newCommitServiceClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	testCases := []struct {
 		desc        string
@@ -133,7 +125,7 @@ func TestSuccessfulListCommitsByRefNameRequest(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
 			request := testCase.request
-			request.Repository = testRepo
+			request.Repository = repo
 
 			ctx, cancel := testhelper.Context()
 			defer cancel()
@@ -175,14 +167,7 @@ func TestSuccessfulListCommitsByRefNameLargeRequest(t *testing.T) {
 		"8a2a6eb295bb170b34c24c76c49ed0e9b2eaf34b": "refs/tags/v1.1.0",
 	}
 
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
-
-	client, conn := newCommitServiceClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	refNames := [][]byte{}
 	for _, refName := range repositoryRefNames {
@@ -190,7 +175,7 @@ func TestSuccessfulListCommitsByRefNameLargeRequest(t *testing.T) {
 	}
 	req := &gitalypb.ListCommitsByRefNameRequest{
 		RefNames:   refNames,
-		Repository: testRepo,
+		Repository: repo,
 	}
 
 	ctx, cancel := testhelper.Context()
@@ -208,7 +193,7 @@ func TestSuccessfulListCommitsByRefNameLargeRequest(t *testing.T) {
 }
 
 func consumeGetByRefNameResponse(t *testing.T, c gitalypb.CommitService_ListCommitsByRefNameClient) []*gitalypb.ListCommitsByRefNameResponse_CommitForRef {
-	receivedCommitRefs := []*gitalypb.ListCommitsByRefNameResponse_CommitForRef{}
+	var receivedCommitRefs []*gitalypb.ListCommitsByRefNameResponse_CommitForRef
 	for {
 		resp, err := c.Recv()
 		if err == io.EOF {

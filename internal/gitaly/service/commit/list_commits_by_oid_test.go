@@ -5,20 +5,12 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
 func TestSuccessfulListCommitsByOidRequest(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
-
-	client, conn := newCommitServiceClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	commits := []*gitalypb.GitCommit{
 		{
@@ -95,14 +87,12 @@ func TestSuccessfulListCommitsByOidRequest(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
 			request := testCase.request
-			request.Repository = testRepo
+			request.Repository = repo
 
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 			c, err := client.ListCommitsByOid(ctx, request)
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err)
 
 			receivedCommits := consumeGetByOidResponse(t, c)
 
@@ -116,14 +106,15 @@ func TestSuccessfulListCommitsByOidRequest(t *testing.T) {
 }
 
 func consumeGetByOidResponse(t *testing.T, c gitalypb.CommitService_ListCommitsByOidClient) []*gitalypb.GitCommit {
-	receivedCommits := []*gitalypb.GitCommit{}
+	t.Helper()
+
+	var receivedCommits []*gitalypb.GitCommit
 	for {
 		resp, err := c.Recv()
 		if err == io.EOF {
 			break
-		} else if err != nil {
-			t.Fatal(err)
 		}
+		require.NoError(t, err)
 
 		receivedCommits = append(receivedCommits, resp.GetCommits()...)
 	}
@@ -178,18 +169,11 @@ var masterCommitids = []string{
 }
 
 func TestSuccessfulListCommitsByOidLargeRequest(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
-
-	client, conn := newCommitServiceClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	req := &gitalypb.ListCommitsByOidRequest{
 		Oid:        masterCommitids,
-		Repository: testRepo,
+		Repository: repo,
 	}
 
 	ctx, cancel := testhelper.Context()

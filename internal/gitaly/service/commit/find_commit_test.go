@@ -12,7 +12,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -25,15 +24,9 @@ func TestSuccessfulFindCommitRequest(t *testing.T) {
 	windows1251Message, err := ioutil.ReadFile("testdata/commit-c809470461118b7bcab850f6e9a7ca97ac42f8ea-message.txt")
 	require.NoError(t, err)
 
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
+	cfg, repoProto, repoPath, client := setupCommitServiceWithRepo(t, true)
 
-	client, conn := newCommitServiceClient(t, serverSocketPath)
-	defer conn.Close()
-
-	repoProto, repoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -246,7 +239,6 @@ func TestSuccessfulFindCommitRequest(t *testing.T) {
 		},
 	}
 
-	allCommits := []*gitalypb.GitCommit{}
 	for _, testCase := range testCases {
 		t.Run(testCase.description, func(t *testing.T) {
 			request := &gitalypb.FindCommitRequest{
@@ -255,27 +247,16 @@ func TestSuccessfulFindCommitRequest(t *testing.T) {
 				Trailers:   testCase.trailers,
 			}
 
-			ctx, cancel := testhelper.Context()
-			defer cancel()
 			response, err := client.FindCommit(ctx, request)
 			require.NoError(t, err)
 
 			testhelper.ProtoEqual(t, testCase.commit, response.Commit)
-			allCommits = append(allCommits, response.Commit)
 		})
 	}
-	require.Equal(t, len(testCases), len(allCommits), "length of allCommits")
 }
 
 func TestFailedFindCommitRequest(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
-
-	client, conn := newCommitServiceClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	invalidRepo := &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}
 
@@ -285,9 +266,9 @@ func TestFailedFindCommitRequest(t *testing.T) {
 		repo        *gitalypb.Repository
 	}{
 		{repo: invalidRepo, revision: []byte("master"), description: "Invalid repo"},
-		{repo: testRepo, revision: []byte(""), description: "Empty revision"},
-		{repo: testRepo, revision: []byte("-master"), description: "Invalid revision"},
-		{repo: testRepo, revision: []byte("mas:ter"), description: "Invalid revision"},
+		{repo: repo, revision: []byte(""), description: "Empty revision"},
+		{repo: repo, revision: []byte("-master"), description: "Invalid revision"},
+		{repo: repo, revision: []byte("mas:ter"), description: "Invalid revision"},
 	}
 
 	ctx, cancel := testhelper.Context()
@@ -318,18 +299,11 @@ func benchmarkFindCommit(withCache bool, b *testing.B) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	server, serverSocketPath := startTestServices(b)
-	defer server.Stop()
-
-	client, conn := newCommitServiceClient(b, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(b)
-	defer cleanupFn()
+	cfg, repo, _, client := setupCommitServiceWithRepo(b, false)
 
 	// get a list of revisions
-	gitCmdFactory := git.NewExecCommandFactory(config.Config)
-	logCmd, err := gitCmdFactory.New(ctx, testRepo,
+	gitCmdFactory := git.NewExecCommandFactory(cfg)
+	logCmd, err := gitCmdFactory.New(ctx, repo,
 		git.SubCmd{Name: "log", Flags: []git.Option{git.Flag{Name: "--format=format:%H"}}})
 	require.NoError(b, err)
 
@@ -354,7 +328,7 @@ func benchmarkFindCommit(withCache bool, b *testing.B) {
 			ctx = metadata.NewOutgoingContext(ctx, md)
 		}
 		_, err := client.FindCommit(ctx, &gitalypb.FindCommitRequest{
-			Repository: testRepo,
+			Repository: repo,
 			Revision:   []byte(revision),
 		})
 		require.NoError(b, err)
@@ -365,19 +339,12 @@ func TestFindCommitWithCache(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
-
-	client, conn := newCommitServiceClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	cfg, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	// get a list of revisions
 
-	gitCmdFactory := git.NewExecCommandFactory(config.Config)
-	logCmd, err := gitCmdFactory.New(ctx, testRepo,
+	gitCmdFactory := git.NewExecCommandFactory(cfg)
+	logCmd, err := gitCmdFactory.New(ctx, repo,
 		git.SubCmd{Name: "log", Flags: []git.Option{git.Flag{Name: "--format=format:%H"}}})
 	require.NoError(t, err)
 
@@ -400,7 +367,7 @@ func TestFindCommitWithCache(t *testing.T) {
 
 		ctx = metadata.NewOutgoingContext(ctx, md)
 		_, err := client.FindCommit(ctx, &gitalypb.FindCommitRequest{
-			Repository: testRepo,
+			Repository: repo,
 			Revision:   []byte(revision),
 		})
 		require.NoError(t, err)

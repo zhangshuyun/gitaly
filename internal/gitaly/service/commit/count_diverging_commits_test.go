@@ -7,12 +7,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
 
-func createRepoWithDivergentBranches(t *testing.T, leftCommits, rightCommits int, leftBranchName, rightBranchName string) (*gitalypb.Repository, func()) {
+func createRepoWithDivergentBranches(t *testing.T, cfg config.Cfg, leftCommits, rightCommits int, leftBranchName, rightBranchName string) (*gitalypb.Repository, func()) {
 	/* create a branch structure as follows
 	   	   a
 	   	   |
@@ -25,7 +26,7 @@ func createRepoWithDivergentBranches(t *testing.T, leftCommits, rightCommits int
 		 f   h
 	*/
 
-	repo, worktreePath, cleanupFn := gittest.InitRepoWithWorktree(t)
+	repo, worktreePath, cleanupFn := gittest.InitRepoWithWorktreeAtStorage(t, cfg.Storages[0])
 	committerName := "Scrooge McDuck"
 	committerEmail := "scrooge@mcduck.com"
 
@@ -59,13 +60,9 @@ func createRepoWithDivergentBranches(t *testing.T, leftCommits, rightCommits int
 }
 
 func TestSuccessfulCountDivergentCommitsRequest(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
+	cfg, client := setupCommitService(t)
 
-	client, conn := newCommitServiceClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, cleanupFn := createRepoWithDivergentBranches(t, 3, 3, "left", "right")
+	testRepo, cleanupFn := createRepoWithDivergentBranches(t, cfg, 3, 3, "left", "right")
 	defer cleanupFn()
 
 	testCases := []struct {
@@ -137,13 +134,9 @@ func TestSuccessfulCountDivergentCommitsRequest(t *testing.T) {
 }
 
 func TestSuccessfulCountDivergentCommitsRequestWithMaxCount(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
+	cfg, client := setupCommitService(t)
 
-	client, conn := newCommitServiceClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, cleanupFn := createRepoWithDivergentBranches(t, 4, 4, "left", "right")
+	testRepo, cleanupFn := createRepoWithDivergentBranches(t, cfg, 4, 4, "left", "right")
 	defer cleanupFn()
 
 	testCases := []struct {
@@ -186,22 +179,15 @@ func TestSuccessfulCountDivergentCommitsRequestWithMaxCount(t *testing.T) {
 }
 
 func TestFailedCountDivergentCommitsRequestDueToValidationError(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
-
-	client, conn := newCommitServiceClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	revision := []byte("d42783470dc29fde2cf459eb3199ee1d7e3f3a72")
 
 	rpcRequests := []gitalypb.CountDivergingCommitsRequest{
 		{Repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}, From: []byte("abcdef"), To: []byte("12345")}, // Repository doesn't exist
-		{Repository: testRepo, From: nil, To: revision}, // From is empty
-		{Repository: testRepo, From: revision, To: nil}, // To is empty
-		{Repository: testRepo, From: nil, To: nil},      // From and To are empty
+		{Repository: repo, From: nil, To: revision}, // From is empty
+		{Repository: repo, From: revision, To: nil}, // To is empty
+		{Repository: repo, From: nil, To: nil},      // From and To are empty
 	}
 
 	for _, rpcRequest := range rpcRequests {

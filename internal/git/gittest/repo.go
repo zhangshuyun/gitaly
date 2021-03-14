@@ -53,6 +53,11 @@ func InitRepoWithWorktree(t testing.TB) (*gitalypb.Repository, string, func()) {
 	return initRepoAt(t, false, config.Storage{Name: "default", Path: testhelper.GitlabTestStoragePath()})
 }
 
+// InitRepoWithWorktreeAtStorage creates a new repository with a worktree in the storage
+func InitRepoWithWorktreeAtStorage(t testing.TB, storage config.Storage) (*gitalypb.Repository, string, func()) {
+	return initRepoAt(t, false, storage)
+}
+
 // NewObjectPoolName returns a random pool repository name in format
 // '@pools/[0-9a-z]{2}/[0-9a-z]{2}/[0-9a-z]{64}.git'.
 func NewObjectPoolName(t testing.TB) string {

@@ -23,14 +23,7 @@ type commitInfo struct {
 }
 
 func TestSuccessfulListLastCommitsForTreeRequest(t *testing.T) {
-	server, serverSockerPath := startTestServices(t)
-	defer server.Stop()
-
-	client, conn := newCommitServiceClient(t, serverSockerPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	testCases := []struct {
 		desc     string
@@ -181,7 +174,7 @@ func TestSuccessfulListLastCommitsForTreeRequest(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
 			request := &gitalypb.ListLastCommitsForTreeRequest{
-				Repository: testRepo,
+				Repository: repo,
 				Revision:   testCase.revision,
 				Path:       testCase.path,
 				Limit:      testCase.limit,
@@ -192,9 +185,7 @@ func TestSuccessfulListLastCommitsForTreeRequest(t *testing.T) {
 			defer cancel()
 
 			stream, err := client.ListLastCommitsForTree(ctx, request)
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err)
 
 			counter := 0
 			for {
@@ -221,14 +212,7 @@ func TestSuccessfulListLastCommitsForTreeRequest(t *testing.T) {
 }
 
 func TestFailedListLastCommitsForTreeRequest(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
-
-	client, conn := newCommitServiceClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	invalidRepo := &gitalypb.Repository{StorageName: "broken", RelativePath: "path"}
 
@@ -240,7 +224,7 @@ func TestFailedListLastCommitsForTreeRequest(t *testing.T) {
 		{
 			desc: "Revision is missing",
 			request: &gitalypb.ListLastCommitsForTreeRequest{
-				Repository: testRepo,
+				Repository: repo,
 				Path:       []byte("/"),
 				Revision:   "",
 				Offset:     0,
@@ -272,7 +256,7 @@ func TestFailedListLastCommitsForTreeRequest(t *testing.T) {
 		{
 			desc: "Revision is missing",
 			request: &gitalypb.ListLastCommitsForTreeRequest{
-				Repository: testRepo,
+				Repository: repo,
 				Path:       []byte("/"),
 				Offset:     0,
 				Limit:      25,
@@ -282,7 +266,7 @@ func TestFailedListLastCommitsForTreeRequest(t *testing.T) {
 		{
 			desc: "Ambiguous revision",
 			request: &gitalypb.ListLastCommitsForTreeRequest{
-				Repository: testRepo,
+				Repository: repo,
 				Revision:   "a",
 				Offset:     0,
 				Limit:      25,
@@ -292,7 +276,7 @@ func TestFailedListLastCommitsForTreeRequest(t *testing.T) {
 		{
 			desc: "Invalid revision",
 			request: &gitalypb.ListLastCommitsForTreeRequest{
-				Repository: testRepo,
+				Repository: repo,
 				Revision:   "--output=/meow",
 				Offset:     0,
 				Limit:      25,
@@ -302,7 +286,7 @@ func TestFailedListLastCommitsForTreeRequest(t *testing.T) {
 		{
 			desc: "Negative offset",
 			request: &gitalypb.ListLastCommitsForTreeRequest{
-				Repository: testRepo,
+				Repository: repo,
 				Revision:   "--output=/meow",
 				Offset:     -1,
 				Limit:      25,
@@ -312,7 +296,7 @@ func TestFailedListLastCommitsForTreeRequest(t *testing.T) {
 		{
 			desc: "Negative limit",
 			request: &gitalypb.ListLastCommitsForTreeRequest{
-				Repository: testRepo,
+				Repository: repo,
 				Revision:   "--output=/meow",
 				Offset:     0,
 				Limit:      -1,
@@ -322,32 +306,24 @@ func TestFailedListLastCommitsForTreeRequest(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		ctx, cancel := testhelper.Context()
-		defer cancel()
-
-		stream, err := client.ListLastCommitsForTree(ctx, testCase.request)
-		require.NoError(t, err)
-
 		t.Run(testCase.desc, func(t *testing.T) {
-			_, err := stream.Recv()
+			ctx, cancel := testhelper.Context()
+			defer cancel()
 
+			stream, err := client.ListLastCommitsForTree(ctx, testCase.request)
+			require.NoError(t, err)
+
+			_, err = stream.Recv()
 			testhelper.RequireGrpcError(t, err, testCase.code)
 		})
 	}
 }
 
 func TestNonUtf8ListLastCommitsForTreeRequest(t *testing.T) {
-	server, serverSockerPath := startTestServices(t)
-	defer server.Stop()
-
-	client, conn := newCommitServiceClient(t, serverSockerPath)
-	defer conn.Close()
+	_, repo, repoPath, client := setupCommitServiceWithRepo(t, true)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
-
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
 
 	// This is an arbitrary blob known to exist in the test repository
 	const blobID = "c60514b6d3d6bf4bec1030f70026e34dfbd69ad5"
@@ -356,14 +332,14 @@ func TestNonUtf8ListLastCommitsForTreeRequest(t *testing.T) {
 	require.False(t, utf8.ValidString(nonUTF8Filename))
 
 	commitID := gittest.CommitBlobWithName(t,
-		testRepoPath,
+		repoPath,
 		blobID,
 		nonUTF8Filename,
 		"commit for non-utf8 path",
 	)
 
 	request := &gitalypb.ListLastCommitsForTreeRequest{
-		Repository: testRepo,
+		Repository: repo,
 		Revision:   commitID,
 		Limit:      100,
 		Offset:     0,
@@ -376,27 +352,20 @@ func TestNonUtf8ListLastCommitsForTreeRequest(t *testing.T) {
 }
 
 func TestSuccessfulListLastCommitsForTreeRequestWithGlobCharacters(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
-
-	client, conn := newCommitServiceClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepoWithWorktree(t)
-	defer cleanupFn()
+	_, repo, repoPath, client := setupCommitServiceWithRepo(t, false)
 
 	path := ":wq"
-	err := os.Mkdir(filepath.Join(testRepoPath, path), 0755)
+	err := os.Mkdir(filepath.Join(repoPath, path), 0755)
 	require.NoError(t, err)
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "config", "testhelper.TestUser.name", "test@example.com")
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "config", "testhelper.TestUser.email", "test@example.com")
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "mv", "README.md", path)
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "commit", "-a", "-m", "renamed test file")
-	commitID := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "rev-parse", "HEAD"))
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "testhelper.TestUser.name", "test@example.com")
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "testhelper.TestUser.email", "test@example.com")
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "mv", "README.md", path)
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "commit", "-a", "-m", "renamed test file")
+	commitID := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", "HEAD"))
 
 	request := &gitalypb.ListLastCommitsForTreeRequest{
-		Repository:    testRepo,
+		Repository:    repo,
 		Revision:      commitID,
 		Path:          []byte(path),
 		GlobalOptions: &gitalypb.GlobalOptions{LiteralPathspecs: true},
@@ -418,8 +387,9 @@ func TestSuccessfulListLastCommitsForTreeRequestWithGlobCharacters(t *testing.T)
 }
 
 func fileExistsInCommits(t *testing.T, stream gitalypb.CommitService_ListLastCommitsForTreeClient, path string) bool {
-	var filenameFound bool
+	t.Helper()
 
+	var filenameFound bool
 	for {
 		fetchedCommits, err := stream.Recv()
 		if err == io.EOF {

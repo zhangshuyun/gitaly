@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/streamio"
@@ -14,14 +13,7 @@ import (
 )
 
 func TestSuccessfulRawBlameRequest(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
-
-	client, conn := newCommitServiceClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	testCases := []struct {
 		revision, path, data []byte
@@ -46,7 +38,7 @@ func TestSuccessfulRawBlameRequest(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(fmt.Sprintf("test case: revision=%q path=%q", testCase.revision, testCase.path), func(t *testing.T) {
 			request := &gitalypb.RawBlameRequest{
-				Repository: testRepo,
+				Repository: repo,
 				Revision:   testCase.revision,
 				Path:       testCase.path,
 			}
@@ -54,9 +46,7 @@ func TestSuccessfulRawBlameRequest(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 			c, err := client.RawBlame(ctx, request)
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err)
 
 			sr := streamio.NewReader(func() ([]byte, error) {
 				response, err := c.Recv()
@@ -64,9 +54,7 @@ func TestSuccessfulRawBlameRequest(t *testing.T) {
 			})
 
 			blame, err := ioutil.ReadAll(sr)
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err)
 
 			require.Equal(t, testCase.data, blame, "blame data mismatched")
 		})
@@ -74,14 +62,7 @@ func TestSuccessfulRawBlameRequest(t *testing.T) {
 }
 
 func TestFailedRawBlameRequest(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
-
-	client, conn := newCommitServiceClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	invalidRepo := &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}
 
@@ -100,21 +81,21 @@ func TestFailedRawBlameRequest(t *testing.T) {
 		},
 		{
 			description: "Empty revision",
-			repo:        testRepo,
+			repo:        repo,
 			revision:    []byte(""),
 			path:        []byte("a/b/c"),
 			code:        codes.InvalidArgument,
 		},
 		{
 			description: "Empty path",
-			repo:        testRepo,
+			repo:        repo,
 			revision:    []byte("abcdef"),
 			path:        []byte(""),
 			code:        codes.InvalidArgument,
 		},
 		{
 			description: "Invalid revision",
-			repo:        testRepo,
+			repo:        repo,
 			revision:    []byte("--output=/meow"),
 			path:        []byte("a/b/c"),
 			code:        codes.InvalidArgument,
@@ -132,9 +113,7 @@ func TestFailedRawBlameRequest(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 			c, err := client.RawBlame(ctx, &request)
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err)
 
 			testhelper.RequireGrpcError(t, drainRawBlameResponse(c), testCase.code)
 		})

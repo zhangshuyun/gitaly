@@ -6,7 +6,6 @@ import (
 
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -37,14 +36,7 @@ var rubyFilesCommit = []*gitalypb.GitCommit{
 }
 
 func TestSuccessfulCommitsByMessageRequest(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
-
-	client, conn := newCommitServiceClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	commits := []*gitalypb.GitCommit{
 		{
@@ -146,23 +138,20 @@ func TestSuccessfulCommitsByMessageRequest(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
 			request := testCase.request
-			request.Repository = testRepo
+			request.Repository = repo
 
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 			c, err := client.CommitsByMessage(ctx, request)
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err)
 
-			receivedCommits := []*gitalypb.GitCommit{}
+			var receivedCommits []*gitalypb.GitCommit
 			for {
 				resp, err := c.Recv()
 				if err == io.EOF {
 					break
-				} else if err != nil {
-					t.Fatal(err)
 				}
+				require.NoError(t, err)
 
 				receivedCommits = append(receivedCommits, resp.GetCommits()...)
 			}
@@ -177,14 +166,7 @@ func TestSuccessfulCommitsByMessageRequest(t *testing.T) {
 }
 
 func TestFailedCommitsByMessageRequest(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
-
-	client, conn := newCommitServiceClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	invalidRepo := &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}
 
@@ -205,12 +187,12 @@ func TestFailedCommitsByMessageRequest(t *testing.T) {
 		},
 		{
 			desc:    "Query is missing",
-			request: &gitalypb.CommitsByMessageRequest{Repository: testRepo},
+			request: &gitalypb.CommitsByMessageRequest{Repository: repo},
 			code:    codes.InvalidArgument,
 		},
 		{
 			desc:    "Revision is invalid",
-			request: &gitalypb.CommitsByMessageRequest{Repository: testRepo, Revision: []byte("--output=/meow"), Query: "not empty"},
+			request: &gitalypb.CommitsByMessageRequest{Repository: repo, Revision: []byte("--output=/meow"), Query: "not empty"},
 			code:    codes.InvalidArgument,
 		},
 	}
@@ -220,9 +202,7 @@ func TestFailedCommitsByMessageRequest(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 			c, err := client.CommitsByMessage(ctx, testCase.request)
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err)
 
 			testhelper.RequireGrpcError(t, drainCommitsByMessageResponse(c), testCase.code)
 		})
