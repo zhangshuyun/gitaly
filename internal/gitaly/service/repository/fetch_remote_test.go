@@ -303,11 +303,10 @@ func TestFetchRemote_force(t *testing.T) {
 					Url: remoteURL,
 				},
 			},
-			// This is wrong: we're updating diverging branches even though `Force` is
-			// not set. The call should instead raise an error and not update anything.
+			expectedErr: status.Error(codes.Unknown, "fetch remote: exit status 1"),
 			expectedRefs: map[git.ReferenceName]git.ObjectID{
-				"refs/heads/master": git.ObjectID(divergingBranchOID),
-				"refs/tags/v1.0.0":  git.ObjectID(divergingTagOID),
+				"refs/heads/master": branchOID,
+				"refs/tags/v1.0.0":  tagOID,
 			},
 		},
 		{
