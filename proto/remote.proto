@@ -24,6 +24,11 @@ service RemoteService {
       };
     }
 
+    // UpdateRemoteMirror compares the references in the target repository and its remote mirror
+    // repository. Any differences in the references are then addressed by pushing the differing
+    // references to the mirror. Created and modified references are updated, removed references are
+    // deleted from the mirror. UpdateRemoteMirror updates all tags. Branches are updated if they match
+    // the patterns specified in the requests.
     rpc UpdateRemoteMirror(stream UpdateRemoteMirrorRequest) returns (UpdateRemoteMirrorResponse) {
       option (op_type) = {
         op: MUTATOR
@@ -74,15 +79,29 @@ message FetchInternalRemoteResponse {
 }
 
 message UpdateRemoteMirrorRequest {
+  // repository is the repository whose mirror repository to update.
   Repository repository = 1 [(target_repository)=true];
+  // ref_name is actually the remote to update.
   string ref_name = 2;
+  // only_branches_matching contains patterns to match branches against. Only
+  // the matched brances are updated in the remote mirror. If no patterns are
+  // specified, all branches are updated. The patterns should only contain the
+  // branch name without the 'refs/heads/' prefix. "*" can be used as a wildcard
+  // to match anything. only_branches_matching can be streamed to the server over multiple
+  // messages. Optional.
   repeated bytes only_branches_matching = 3;
+  // ssh_key is the SSH key to use for accessing to the mirror repository. Optional.
   string ssh_key = 4;
+  // known_hosts specifies the identities used for strict host key checking. Optional.
   string known_hosts = 5;
+  // keep_divergent_refs specifies whether or not to update diverged references in the
+  // mirror repository.
   bool keep_divergent_refs = 6;
 }
 
 message UpdateRemoteMirrorResponse {
+  // divergent_refs contains a list of references that had diverged in the mirror from the
+  // source repository.
   repeated bytes divergent_refs = 1;
 }
 

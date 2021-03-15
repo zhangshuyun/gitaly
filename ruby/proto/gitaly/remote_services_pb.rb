@@ -17,6 +17,11 @@ module Gitaly
       rpc :AddRemote, Gitaly::AddRemoteRequest, Gitaly::AddRemoteResponse
       rpc :FetchInternalRemote, Gitaly::FetchInternalRemoteRequest, Gitaly::FetchInternalRemoteResponse
       rpc :RemoveRemote, Gitaly::RemoveRemoteRequest, Gitaly::RemoveRemoteResponse
+      # UpdateRemoteMirror compares the references in the target repository and its remote mirror
+      # repository. Any differences in the references are then addressed by pushing the differing
+      # references to the mirror. Created and modified references are updated, removed references are
+      # deleted from the mirror. UpdateRemoteMirror updates all tags. Branches are updated if they match
+      # the patterns specified in the requests.
       rpc :UpdateRemoteMirror, stream(Gitaly::UpdateRemoteMirrorRequest), Gitaly::UpdateRemoteMirrorResponse
       rpc :FindRemoteRepository, Gitaly::FindRemoteRepositoryRequest, Gitaly::FindRemoteRepositoryResponse
       rpc :FindRemoteRootRef, Gitaly::FindRemoteRootRefRequest, Gitaly::FindRemoteRootRefResponse
