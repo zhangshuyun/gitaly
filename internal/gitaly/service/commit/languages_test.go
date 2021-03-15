@@ -5,12 +5,17 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
 
 func TestLanguages(t *testing.T) {
-	_, repo, _, client := setupCommitServiceWithRepo(t, true)
+	cfg, repo, _ := testcfg.BuildWithRepo(t, testcfg.WithRealLinguist())
+
+	serverSocketPath := startTestServices(t, cfg)
+
+	client := newCommitServiceClient(t, serverSocketPath)
 
 	request := &gitalypb.CommitLanguagesRequest{
 		Repository: repo,

@@ -1,6 +1,7 @@
 package testcfg
 
 import (
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -33,6 +34,13 @@ func WithStorages(name string, names ...string) Option {
 	}
 }
 
+// WithRealLinguist suppress stubbing of the linguist language detection.
+func WithRealLinguist() Option {
+	return func(builder *GitalyCfgBuilder) {
+		builder.realLinguist = true
+	}
+}
+
 // NewGitalyCfgBuilder returns gitaly configuration builder with configured set of options.
 func NewGitalyCfgBuilder(opts ...Option) GitalyCfgBuilder {
 	cfgBuilder := GitalyCfgBuilder{}
@@ -49,7 +57,8 @@ type GitalyCfgBuilder struct {
 	cfg      config.Cfg
 	cleanups []testhelper.Cleanup
 
-	storages []string
+	storages     []string
+	realLinguist bool
 }
 
 func (gc *GitalyCfgBuilder) addCleanup(f testhelper.Cleanup) {
@@ -120,6 +129,14 @@ func (gc *GitalyCfgBuilder) Build(t testing.TB) config.Cfg {
 			require.NoError(t, os.MkdirAll(storagePath, 0755))
 			cfg.Storages[i].Name = storageName
 			cfg.Storages[i].Path = storagePath
+		}
+	}
+
+	if !gc.realLinguist {
+		if cfg.Ruby.LinguistLanguagesPath == "" {
+			// set a stub to prevent a long ruby process to run where it is not needed
+			cfg.Ruby.LinguistLanguagesPath = filepath.Join(root, "linguist_languages.json")
+			require.NoError(t, ioutil.WriteFile(cfg.Ruby.LinguistLanguagesPath, []byte(`{}`), 0655))
 		}
 	}
 

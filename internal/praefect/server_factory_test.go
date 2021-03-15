@@ -16,6 +16,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	gconfig "gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/linguist"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/server"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/commit"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
@@ -40,10 +41,13 @@ func TestServerFactory(t *testing.T) {
 	gitalyServerFactory := server.NewGitalyServerFactory(cfg)
 	defer gitalyServerFactory.Stop()
 
+	ling, err := linguist.New(cfg)
+	require.NoError(t, err)
+
 	gitalySrv, err := gitalyServerFactory.Create(false)
 	require.NoError(t, err)
 	healthpb.RegisterHealthServer(gitalySrv, health.NewServer())
-	gitalypb.RegisterCommitServiceServer(gitalySrv, commit.NewServer(cfg, locator, gitCmdFactory))
+	gitalypb.RegisterCommitServiceServer(gitalySrv, commit.NewServer(cfg, locator, gitCmdFactory, ling))
 
 	// start gitaly serving on public endpoint
 	gitalyListener, err := net.Listen(starter.TCP, "localhost:0")

@@ -136,7 +136,7 @@ func runServer(t *testing.T, secure bool, cfg config.Cfg, connectionType string,
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
 	srv, err := server.New(secure, cfg, testhelper.DiscardTestEntry(t))
 	require.NoError(t, err)
-	service.RegisterAll(srv, cfg, nil, hookManager, txManager, locator, conns, gitCmdFactory)
+	service.RegisterAll(srv, cfg, nil, hookManager, txManager, locator, conns, gitCmdFactory, nil)
 
 	listener, err := net.Listen(connectionType, addr)
 	require.NoError(t, err)

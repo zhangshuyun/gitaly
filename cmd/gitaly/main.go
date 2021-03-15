@@ -17,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config/sentry"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/linguist"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/server"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service"
@@ -167,6 +168,11 @@ func run(cfg config.Cfg) error {
 	gitalyServerFactory := server.NewGitalyServerFactory(cfg)
 	defer gitalyServerFactory.Stop()
 
+	ling, err := linguist.New(cfg)
+	if err != nil {
+		return fmt.Errorf("linguist instance creation: %w", err)
+	}
+
 	b.StopAction = gitalyServerFactory.GracefulStop
 
 	rubySrv := rubyserver.New(cfg)
@@ -189,7 +195,7 @@ func run(cfg config.Cfg) error {
 		if err != nil {
 			return fmt.Errorf("create gRPC server: %w", err)
 		}
-		service.RegisterAll(srv, cfg, rubySrv, hookManager, transactionManager, locator, conns, gitCmdFactory)
+		service.RegisterAll(srv, cfg, rubySrv, hookManager, transactionManager, locator, conns, gitCmdFactory, ling)
 		b.RegisterStarter(starter.New(c, srv))
 	}
 
