@@ -1,25 +1,459 @@
 package remote
 
 import (
+	"context"
+	"fmt"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/internal/git2go"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
 
-func TestSuccessfulUpdateRemoteMirrorRequest(t *testing.T) {
+func TestUpdateRemoteMirror(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.GoUpdateRemoteMirror,
+	}).Run(t, testUpdateRemoteMirror)
+}
+
+func testUpdateRemoteMirror(t *testing.T, ctx context.Context) {
+	tmpDir, cleanTempDir := testhelper.TempDir(t)
+	defer cleanTempDir()
+
+	testhelper.ConfigureGitalyGit2Go(tmpDir)
+
 	serverSocketPath, stop := RunRemoteServiceServer(t)
 	defer stop()
 
 	client, conn := NewRemoteClient(t, serverSocketPath)
 	defer conn.Close()
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	type refs map[string][]string
+
+	for _, tc := range []struct {
+		desc                 string
+		sourceRefs           refs
+		sourceSymRefs        map[string]string
+		mirrorRefs           refs
+		mirrorSymRefs        map[string]string
+		keepDivergentRefs    bool
+		onlyBranchesMatching []string
+		requests             []*gitalypb.UpdateRemoteMirrorRequest
+		errorContains        string
+		response             *gitalypb.UpdateRemoteMirrorResponse
+		expectedMirrorRefs   map[string]string
+	}{
+		{
+			// https://gitlab.com/gitlab-org/gitaly/-/issues/3503
+			desc: "empty mirror source fails",
+			mirrorRefs: refs{
+				"refs/heads/tags": {"commit 1"},
+			},
+			errorContains: "rpc error: code = Internal desc = close stream to gitaly-ruby: rpc error: code = Unknown desc = NoMethodError: undefined method `id' for nil:NilClass",
+		},
+		{
+			desc:     "mirror is up to date",
+			response: &gitalypb.UpdateRemoteMirrorResponse{},
+			sourceRefs: refs{
+				"refs/heads/master": {"commit 1"},
+				"refs/tags/tag":     {"commit 1"},
+			},
+			mirrorRefs: refs{
+				"refs/heads/master": {"commit 1"},
+				"refs/tags/tag":     {"commit 1"},
+			},
+			expectedMirrorRefs: map[string]string{
+				"refs/heads/master": "commit 1",
+				"refs/tags/tag":     "commit 1",
+			},
+		},
+		{
+			desc: "creates missing references",
+			sourceRefs: refs{
+				"refs/heads/master": {"commit 1"},
+				"refs/tags/tag":     {"commit 1"},
+			},
+			response: &gitalypb.UpdateRemoteMirrorResponse{},
+			expectedMirrorRefs: map[string]string{
+				"refs/heads/master": "commit 1",
+				"refs/tags/tag":     "commit 1",
+			},
+		},
+		{
+			desc: "updates outdated references",
+			sourceRefs: refs{
+				"refs/heads/master": {"commit 1", "commit 2"},
+				"refs/tags/tag":     {"commit 1", "commit 2"},
+			},
+			mirrorRefs: refs{
+				"refs/heads/master": {"commit 1"},
+				"refs/tags/tag":     {"commit 1"},
+			},
+			response: &gitalypb.UpdateRemoteMirrorResponse{},
+			expectedMirrorRefs: map[string]string{
+				"refs/heads/master": "commit 2",
+				"refs/tags/tag":     "commit 2",
+			},
+		},
+		{
+			desc: "deletes unneeded references",
+			sourceRefs: refs{
+				"refs/heads/master": {"commit 1"},
+			},
+			mirrorRefs: refs{
+				"refs/heads/master": {"commit 1"},
+				"refs/heads/branch": {"commit 1"},
+				"refs/tags/tag":     {"commit 1"},
+			},
+			response: &gitalypb.UpdateRemoteMirrorResponse{},
+			expectedMirrorRefs: map[string]string{
+				"refs/heads/master": "commit 1",
+			},
+		},
+		{
+			desc: "deletes unneeded references that match the branch selector",
+			sourceRefs: refs{
+				"refs/heads/master": {"commit 1"},
+			},
+			mirrorRefs: refs{
+				"refs/heads/master":      {"commit 1"},
+				"refs/heads/matched":     {"commit 1"},
+				"refs/heads/not-matched": {"commit 1"},
+				"refs/tags/tag":          {"commit 1"},
+			},
+			onlyBranchesMatching: []string{"matched"},
+			response:             &gitalypb.UpdateRemoteMirrorResponse{},
+			expectedMirrorRefs: map[string]string{
+				"refs/heads/master":      "commit 1",
+				"refs/heads/not-matched": "commit 1",
+			},
+		},
+		{
+			desc: "does not delete refs with KeepDivergentRefs",
+			sourceRefs: refs{
+				"refs/heads/master": {"commit 1"},
+			},
+			keepDivergentRefs: true,
+			mirrorRefs: refs{
+				"refs/heads/master": {"commit 1"},
+				"refs/heads/branch": {"commit 1"},
+				"refs/tags/tag":     {"commit 1"},
+			},
+			response: &gitalypb.UpdateRemoteMirrorResponse{},
+			expectedMirrorRefs: map[string]string{
+				"refs/heads/master": "commit 1",
+				"refs/heads/branch": "commit 1",
+				"refs/tags/tag":     "commit 1",
+			},
+		},
+		{
+			// https://gitlab.com/gitlab-org/gitaly/-/issues/3502
+			desc: "updating branch called tag fails",
+			sourceRefs: refs{
+				"refs/heads/tag": {"commit 1", "commit 2"},
+			},
+			mirrorRefs: refs{
+				"refs/heads/tag": {"commit 1"},
+			},
+			errorContains: "rpc error: code = Internal desc = close stream to gitaly-ruby: rpc error: code = Unknown desc = Gitlab::Git::CommandError: fatal: tag shorthand without <tag>",
+		},
+		{
+			// https://gitlab.com/gitlab-org/gitaly/-/issues/3504
+			desc: "fails if tag and branch named the same",
+			sourceRefs: refs{
+				"refs/heads/master": {"commit 1"},
+				"refs/tags/master":  {"commit 1"},
+			},
+			errorContains: "rpc error: code = Internal desc = close stream to gitaly-ruby: rpc error: code = Unknown desc = Gitlab::Git::CommandError: error: src refspec master matches more than one",
+		},
+		{
+			desc: "only local branches are considered",
+			sourceRefs: refs{
+				"refs/heads/master":               {"commit 1"},
+				"refs/remote/local-remote/branch": {"commit 1"},
+			},
+			mirrorRefs: refs{
+				"refs/remote/mirror-remote/branch": {"commit 1"},
+			},
+			response: &gitalypb.UpdateRemoteMirrorResponse{},
+			expectedMirrorRefs: map[string]string{
+				"refs/heads/master":                "commit 1",
+				"refs/remote/mirror-remote/branch": "commit 1",
+			},
+		},
+		{
+			desc: "creates branches matching selector",
+			sourceRefs: refs{
+				"refs/heads/matches":        {"commit 1"},
+				"refs/heads/does-not-match": {"commit 2"},
+				"refs/tags/tag":             {"commit 3"},
+			},
+			onlyBranchesMatching: []string{"matches"},
+			response:             &gitalypb.UpdateRemoteMirrorResponse{},
+			expectedMirrorRefs: map[string]string{
+				"refs/heads/matches": "commit 1",
+				"refs/tags/tag":      "commit 3",
+			},
+		},
+		{
+			desc: "updates branches matching selector",
+			sourceRefs: refs{
+				"refs/heads/matches":        {"commit 1", "commit 2"},
+				"refs/heads/does-not-match": {"commit 3", "commit 4"},
+				"refs/tags/tag":             {"commit 6"},
+			},
+			mirrorRefs: refs{
+				"refs/heads/matches":        {"commit 1"},
+				"refs/heads/does-not-match": {"commit 3"},
+				"refs/tags/tag":             {"commit 5"},
+			},
+			onlyBranchesMatching: []string{"matches"},
+			response:             &gitalypb.UpdateRemoteMirrorResponse{},
+			expectedMirrorRefs: map[string]string{
+				"refs/heads/matches":        "commit 2",
+				"refs/heads/does-not-match": "commit 3",
+				"refs/tags/tag":             "commit 6",
+			},
+		},
+		{
+			// https://gitlab.com/gitlab-org/gitaly/-/issues/3509
+			desc: "overwrites diverged references without KeepDivergentRefs",
+			sourceRefs: refs{
+				"refs/heads/non-diverged": {"commit 1", "commit 2"},
+				"refs/heads/master":       {"commit 2"},
+				"refs/tags/tag-1":         {"commit 1"},
+			},
+			mirrorRefs: refs{
+				"refs/heads/non-diverged": {"commit 1"},
+				"refs/heads/master":       {"commit 2", "ahead"},
+				"refs/tags/tag-1":         {"commit 2"},
+			},
+			response: &gitalypb.UpdateRemoteMirrorResponse{},
+			expectedMirrorRefs: map[string]string{
+				"refs/heads/non-diverged": "commit 2",
+				"refs/heads/master":       "commit 2",
+				"refs/tags/tag-1":         "commit 1",
+			},
+		},
+		{
+			// https://gitlab.com/gitlab-org/gitaly/-/issues/3509
+			desc: "keeps diverged references with KeepDivergentRefs",
+			sourceRefs: refs{
+				"refs/heads/non-diverged": {"commit 1", "commit 2"},
+				"refs/heads/master":       {"commit 2"},
+				"refs/tags/tag-1":         {"commit 1"},
+			},
+			mirrorRefs: refs{
+				"refs/heads/non-diverged": {"commit 1"},
+				"refs/heads/master":       {"commit 2", "ahead"},
+				"refs/tags/tag-1":         {"commit 2"},
+			},
+			keepDivergentRefs: true,
+			response: &gitalypb.UpdateRemoteMirrorResponse{
+				DivergentRefs: [][]byte{
+					[]byte("refs/heads/master"),
+					[]byte("refs/tags/tag-1"),
+				},
+			},
+			expectedMirrorRefs: map[string]string{
+				"refs/heads/non-diverged": "commit 2",
+				"refs/heads/master":       "ahead",
+				"refs/tags/tag-1":         "commit 2",
+			},
+		},
+		{
+			// https://gitlab.com/gitlab-org/gitaly/-/issues/3508
+			desc: "mirror is up to date with symbolic reference",
+			sourceRefs: refs{
+				"refs/heads/master": {"commit 1"},
+			},
+			sourceSymRefs: map[string]string{
+				"refs/heads/symbolic-reference": "refs/heads/master",
+			},
+			mirrorRefs: refs{
+				"refs/heads/master": {"commit 1"},
+			},
+			response: &gitalypb.UpdateRemoteMirrorResponse{},
+			expectedMirrorRefs: map[string]string{
+				"refs/heads/master": "commit 1",
+			},
+		},
+		{
+			// https://gitlab.com/gitlab-org/gitaly/-/issues/3508
+			desc: "updates branch pointed to by symbolic reference",
+			sourceRefs: refs{
+				"refs/heads/master": {"commit 1"},
+			},
+			sourceSymRefs: map[string]string{
+				"refs/heads/symbolic-reference": "refs/heads/master",
+			},
+			onlyBranchesMatching: []string{"symbolic-reference"},
+			response:             &gitalypb.UpdateRemoteMirrorResponse{},
+			expectedMirrorRefs: map[string]string{
+				"refs/heads/master": "commit 1",
+			},
+		},
+		{
+			// https://gitlab.com/gitlab-org/gitaly/-/issues/3508
+			//
+			// refs/heads/master gets removed but and a broken sym ref is left in
+			// refs/heads/symbolic-reference
+			desc: "removes symbolic ref target from mirror if not symbolic ref is not present locally",
+			sourceRefs: refs{
+				"refs/heads/master": {"commit 1"},
+			},
+			mirrorRefs: refs{
+				"refs/heads/master": {"commit 1"},
+			},
+			mirrorSymRefs: map[string]string{
+				"refs/heads/symbolic-reference": "refs/heads/master",
+			},
+			response:           &gitalypb.UpdateRemoteMirrorResponse{},
+			expectedMirrorRefs: map[string]string{},
+		},
+		{
+			// https://gitlab.com/gitlab-org/gitaly/-/issues/3508
+			desc: "fails with symbolic reference and target in the same push",
+			sourceRefs: refs{
+				"refs/heads/master": {"commit 1"},
+			},
+			sourceSymRefs: map[string]string{
+				"refs/heads/symbolic-reference": "refs/heads/master",
+			},
+			errorContains: "remote: error: cannot lock ref 'refs/heads/master': reference already exists",
+		},
+		{
+			desc: "push batching works",
+			sourceRefs: func() refs {
+				out := refs{}
+				for i := 0; i < 2*pushBatchSize+1; i++ {
+					out[fmt.Sprintf("refs/heads/branch-%d", i)] = []string{"commit 1"}
+				}
+				return out
+			}(),
+			response: &gitalypb.UpdateRemoteMirrorResponse{},
+			expectedMirrorRefs: func() map[string]string {
+				out := map[string]string{}
+				for i := 0; i < 2*pushBatchSize+1; i++ {
+					out[fmt.Sprintf("refs/heads/branch-%d", i)] = "commit 1"
+				}
+				return out
+			}(),
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			_, mirrorRepoPath, cleanMirrorRepo := gittest.InitBareRepo(t)
+			defer cleanMirrorRepo()
+
+			sourceRepoPb, sourceRepoPath, cleanSourceRepo := gittest.InitBareRepo(t)
+			defer cleanSourceRepo()
+
+			// configure the mirror repository as a remote in the source
+			testhelper.MustRunCommand(t, nil, "git", "-C", sourceRepoPath, "remote", "add", "mirror", mirrorRepoPath)
+
+			// create identical commits in both repositories so we can use them for
+			// the references
+			commitSignature := git2go.NewSignature("Test Author", "author@example.com", time.Now())
+			executor := git2go.New(filepath.Join(tmpDir, "gitaly-git2go"), config.Config.Git.BinPath)
+
+			// construct the starting state of the repositories
+			for repoPath, references := range map[string]refs{
+				sourceRepoPath: tc.sourceRefs,
+				mirrorRepoPath: tc.mirrorRefs,
+			} {
+				for reference, commits := range references {
+					var commitOID git.ObjectID
+					for _, commit := range commits {
+						var err error
+						commitOID, err = executor.Commit(ctx, git2go.CommitParams{
+							Repository: repoPath,
+							Author:     commitSignature,
+							Committer:  commitSignature,
+							Message:    commit,
+							Parent:     commitOID.String(),
+						})
+						require.NoError(t, err)
+					}
+
+					testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "update-ref", reference, commitOID.String())
+				}
+			}
+			for repoPath, symRefs := range map[string]map[string]string{
+				sourceRepoPath: tc.sourceSymRefs,
+				mirrorRepoPath: tc.mirrorSymRefs,
+			} {
+				for symRef, targetRef := range symRefs {
+					testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "symbolic-ref", symRef, targetRef)
+				}
+			}
+
+			stream, err := client.UpdateRemoteMirror(ctx)
+			require.NoError(t, err)
+
+			require.NoError(t, stream.Send(&gitalypb.UpdateRemoteMirrorRequest{
+				Repository:        sourceRepoPb,
+				RefName:           "mirror",
+				KeepDivergentRefs: tc.keepDivergentRefs,
+			}))
+
+			for _, pattern := range tc.onlyBranchesMatching {
+				require.NoError(t, stream.Send(&gitalypb.UpdateRemoteMirrorRequest{
+					OnlyBranchesMatching: [][]byte{[]byte(pattern)},
+				}))
+			}
+
+			resp, err := stream.CloseAndRecv()
+			if tc.errorContains != "" {
+				testhelper.RequireGrpcError(t, err, codes.Internal)
+				require.Contains(t, err.Error(), tc.errorContains)
+				return
+			}
+
+			require.NoError(t, err)
+			require.Equal(t, tc.response, resp)
+
+			// Check that the refs on the mirror now refer to the correct commits.
+			// This is done by checking the commit messages as the commits are otherwise
+			// the same.
+			actualMirrorRefs := map[string]string{}
+
+			refLines := strings.Split(text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", mirrorRepoPath, "for-each-ref", "--format=%(refname)%00%(contents:subject)")), "\n")
+			for _, line := range refLines {
+				if line == "" {
+					continue
+				}
+
+				split := strings.Split(line, "\000")
+				actualMirrorRefs[split[0]] = split[1]
+			}
+
+			require.Equal(t, tc.expectedMirrorRefs, actualMirrorRefs)
+		})
+	}
+}
+
+func TestSuccessfulUpdateRemoteMirrorRequest(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.GoUpdateRemoteMirror,
+	}).Run(t, testSuccessfulUpdateRemoteMirrorRequest)
+}
+
+func testSuccessfulUpdateRemoteMirrorRequest(t *testing.T, ctx context.Context) {
+	serverSocketPath, stop := RunRemoteServiceServer(t)
+	defer stop()
+
+	client, conn := NewRemoteClient(t, serverSocketPath)
+	defer conn.Close()
 
 	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
@@ -106,14 +540,17 @@ func TestSuccessfulUpdateRemoteMirrorRequest(t *testing.T) {
 }
 
 func TestSuccessfulUpdateRemoteMirrorRequestWithWildcards(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.GoUpdateRemoteMirror,
+	}).Run(t, testSuccessfulUpdateRemoteMirrorRequestWithWildcards)
+}
+
+func testSuccessfulUpdateRemoteMirrorRequestWithWildcards(t *testing.T, ctx context.Context) {
 	serverSocketPath, stop := RunRemoteServiceServer(t)
 	defer stop()
 
 	client, conn := NewRemoteClient(t, serverSocketPath)
 	defer conn.Close()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
 	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
@@ -184,14 +621,17 @@ func TestSuccessfulUpdateRemoteMirrorRequestWithWildcards(t *testing.T) {
 }
 
 func TestSuccessfulUpdateRemoteMirrorRequestWithKeepDivergentRefs(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.GoUpdateRemoteMirror,
+	}).Run(t, testSuccessfulUpdateRemoteMirrorRequestWithKeepDivergentRefs)
+}
+
+func testSuccessfulUpdateRemoteMirrorRequestWithKeepDivergentRefs(t *testing.T, ctx context.Context) {
 	serverSocketPath, stop := RunRemoteServiceServer(t)
 	defer stop()
 
 	client, conn := NewRemoteClient(t, serverSocketPath)
 	defer conn.Close()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
 	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
@@ -264,6 +704,12 @@ func TestSuccessfulUpdateRemoteMirrorRequestWithKeepDivergentRefs(t *testing.T) 
 }
 
 func TestFailedUpdateRemoteMirrorRequestDueToValidation(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.GoUpdateRemoteMirror,
+	}).Run(t, testFailedUpdateRemoteMirrorRequestDueToValidation)
+}
+
+func testFailedUpdateRemoteMirrorRequestDueToValidation(t *testing.T, ctx context.Context) {
 	serverSocketPath, stop := RunRemoteServiceServer(t)
 	defer stop()
 
@@ -295,9 +741,6 @@ func TestFailedUpdateRemoteMirrorRequestDueToValidation(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
-
 			stream, err := client.UpdateRemoteMirror(ctx)
 			require.NoError(t, err)
 			require.NoError(t, stream.Send(tc.request))
