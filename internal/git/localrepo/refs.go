@@ -159,3 +159,36 @@ func (repo *Repo) UpdateRef(ctx context.Context, reference git.ReferenceName, ne
 
 	return nil
 }
+
+// GetRemoteReferences lists references of the remote. Multiple patterns can be supplied to filter the references on the
+// remote down to the needed ones. Symbolic references are dereferenced. Peeled tags are not returned.
+func (repo *Repo) GetRemoteReferences(ctx context.Context, remote string, patterns ...string) ([]git.Reference, error) {
+	stdout := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+	if err := repo.ExecAndWait(ctx,
+		git.SubCmd{
+			Name: "ls-remote",
+			Flags: []git.Option{
+				git.Flag{Name: "--refs"},
+			},
+			Args: append([]string{remote}, patterns...),
+		},
+		git.WithStdout(stdout),
+		git.WithStderr(stderr),
+	); err != nil {
+		return nil, fmt.Errorf("create git ls-remote: %w, stderr: %q", err, stderr)
+	}
+
+	var refs []git.Reference
+	scanner := bufio.NewScanner(stdout)
+	for scanner.Scan() {
+		split := strings.SplitN(string(scanner.Bytes()), "\t", 2)
+		if len(split) != 2 {
+			return nil, fmt.Errorf("invalid ls-remote output line: %q", scanner.Bytes())
+		}
+
+		refs = append(refs, git.NewReference(git.ReferenceName(split[1]), split[0]))
+	}
+
+	return refs, nil
+}
