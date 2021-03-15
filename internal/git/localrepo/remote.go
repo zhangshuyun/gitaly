@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -270,5 +271,39 @@ func validateNotBlank(val, name string) error {
 	if strings.TrimSpace(val) == "" {
 		return fmt.Errorf("%w: %q is blank or empty", git.ErrInvalidArg, name)
 	}
+	return nil
+}
+
+// PushOptions are options that can be configured for a push.
+type PushOptions struct {
+	// SSHCommand is the command line to use for git's SSH invocation. The command line is used
+	// as is and must be verified by the caller to be safe.
+	SSHCommand string
+}
+
+// Push force pushes the refspecs to the remote.
+func (repo *Repo) Push(ctx context.Context, remote string, refspecs []string, options PushOptions) error {
+	if len(refspecs) == 0 {
+		return errors.New("refspecs to push must be explicitly specified")
+	}
+
+	var env []string
+	if options.SSHCommand != "" {
+		env = append(env, "GIT_SSH_COMMAND="+options.SSHCommand)
+	}
+
+	stderr := &bytes.Buffer{}
+	if err := repo.ExecAndWait(ctx,
+		git.SubCmd{
+			Name:  "push",
+			Flags: []git.Option{git.Flag{Name: "--force"}},
+			Args:  append([]string{remote}, refspecs...),
+		},
+		git.WithStderr(stderr),
+		git.WithEnv(env...),
+	); err != nil {
+		return fmt.Errorf("git push: %w, stderr: %q", err, stderr)
+	}
+
 	return nil
 }
