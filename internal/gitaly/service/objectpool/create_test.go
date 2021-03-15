@@ -17,8 +17,7 @@ import (
 )
 
 func TestCreate(t *testing.T) {
-	cfg, repo, _, locator, client, cleanup := setup(t)
-	defer cleanup()
+	cfg, repo, _, locator, client := setup(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -53,8 +52,7 @@ func TestCreate(t *testing.T) {
 }
 
 func TestUnsuccessfulCreate(t *testing.T) {
-	cfg, repo, _, locator, client, cleanup := setup(t)
-	defer cleanup()
+	cfg, repo, _, locator, client := setup(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -147,8 +145,7 @@ func TestUnsuccessfulCreate(t *testing.T) {
 }
 
 func TestDelete(t *testing.T) {
-	cfg, repo, _, locator, client, cleanup := setup(t)
-	defer cleanup()
+	cfg, repo, _, locator, client := setup(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()

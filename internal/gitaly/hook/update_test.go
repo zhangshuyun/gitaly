@@ -17,8 +17,7 @@ import (
 )
 
 func TestUpdate_customHooks(t *testing.T) {
-	cfg, repo, repoPath, cleanup := testcfg.BuildWithRepo(t)
-	defer cleanup()
+	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
 	hookManager := NewManager(config.NewLocator(cfg), transaction.NewManager(cfg), GitlabAPIStub, cfg)
 

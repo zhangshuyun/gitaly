@@ -21,28 +21,22 @@ import (
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
-func setupRepo(t *testing.T, bare bool) (*Repo, string, func()) {
+func setupRepo(t *testing.T, bare bool) (*Repo, string) {
 	t.Helper()
 
-	var deferrer testhelper.Deferrer
-	defer deferrer.Call()
-
-	cfg, cleanup := testcfg.Build(t)
-	deferrer.Add(cleanup)
+	cfg := testcfg.Build(t)
 
 	var repoProto *gitalypb.Repository
 	var repoPath string
+	var repoCleanUp func()
 	if bare {
-		repoProto, repoPath, cleanup = gittest.InitBareRepoAt(t, cfg.Storages[0])
+		repoProto, repoPath, repoCleanUp = gittest.InitBareRepoAt(t, cfg.Storages[0])
 	} else {
-		repoProto, repoPath, cleanup = gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name())
+		repoProto, repoPath, repoCleanUp = gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name())
 	}
-	deferrer.Add(cleanup)
+	t.Cleanup(repoCleanUp)
 
-	repo := New(git.NewExecCommandFactory(cfg), repoProto, cfg)
-
-	cleaner := deferrer.Relocate()
-	return repo, repoPath, cleaner.Call
+	return New(git.NewExecCommandFactory(cfg), repoProto, cfg), repoPath
 }
 
 type ReaderFunc func([]byte) (int, error)
@@ -53,8 +47,7 @@ func TestRepo_WriteBlob(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	repo, repoPath, cleanup := setupRepo(t, true)
-	defer cleanup()
+	repo, repoPath := setupRepo(t, true)
 
 	for _, tc := range []struct {
 		desc       string
@@ -177,8 +170,7 @@ func TestRepo_WriteTag(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	repo, repoPath, cleanup := setupRepo(t, false)
-	defer cleanup()
+	repo, repoPath := setupRepo(t, false)
 
 	for _, tc := range []struct {
 		desc       string
@@ -226,8 +218,7 @@ func TestRepo_ReadObject(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	repo, _, cleanup := setupRepo(t, false)
-	defer cleanup()
+	repo, _ := setupRepo(t, false)
 
 	for _, tc := range []struct {
 		desc    string
@@ -259,8 +250,7 @@ func TestRepo_ReadCommit(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	repo, _, cleanup := setupRepo(t, false)
-	defer cleanup()
+	repo, _ := setupRepo(t, false)
 
 	for _, tc := range []struct {
 		desc           string
@@ -398,8 +388,7 @@ func TestRepo_IsAncestor(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	repo, _, cleanup := setupRepo(t, false)
-	defer cleanup()
+	repo, _ := setupRepo(t, false)
 
 	for _, tc := range []struct {
 		desc         string

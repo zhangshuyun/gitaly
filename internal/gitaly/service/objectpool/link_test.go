@@ -18,8 +18,7 @@ import (
 )
 
 func TestLink(t *testing.T) {
-	cfg, repo, _, locator, client, cleanup := setup(t)
-	defer cleanup()
+	cfg, repo, _, locator, client := setup(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -87,8 +86,7 @@ func TestLink(t *testing.T) {
 }
 
 func TestLinkIdempotent(t *testing.T) {
-	cfg, repo, _, locator, client, cleanup := setup(t)
-	defer cleanup()
+	cfg, repo, _, locator, client := setup(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -111,8 +109,7 @@ func TestLinkIdempotent(t *testing.T) {
 }
 
 func TestLinkNoClobber(t *testing.T) {
-	cfg, repo, repoPath, locator, client, cleanup := setup(t)
-	defer cleanup()
+	cfg, repo, repoPath, locator, client := setup(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -144,8 +141,7 @@ func TestLinkNoClobber(t *testing.T) {
 }
 
 func TestLinkNoPool(t *testing.T) {
-	cfg, repo, _, locator, client, cleanup := setup(t)
-	defer cleanup()
+	cfg, repo, _, locator, client := setup(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -170,8 +166,7 @@ func TestLinkNoPool(t *testing.T) {
 }
 
 func TestUnlink(t *testing.T) {
-	cfg, repo, _, locator, client, cleanup := setup(t)
-	defer cleanup()
+	cfg, repo, _, locator, client := setup(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -277,8 +272,7 @@ func TestUnlink(t *testing.T) {
 }
 
 func TestUnlinkIdempotent(t *testing.T) {
-	cfg, repo, _, locator, client, cleanup := setup(t)
-	defer cleanup()
+	cfg, repo, _, locator, client := setup(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()

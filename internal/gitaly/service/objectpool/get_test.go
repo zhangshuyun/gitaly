@@ -15,8 +15,7 @@ import (
 )
 
 func TestGetObjectPoolSuccess(t *testing.T) {
-	cfg, repo, _, locator, client, cleanup := setup(t)
-	defer cleanup()
+	cfg, repo, _, locator, client := setup(t)
 
 	relativePoolPath := gittest.NewObjectPoolName(t)
 
@@ -41,8 +40,7 @@ func TestGetObjectPoolSuccess(t *testing.T) {
 }
 
 func TestGetObjectPoolNoFile(t *testing.T) {
-	_, repoo, _, _, client, cleanup := setup(t)
-	defer cleanup()
+	_, repoo, _, _, client := setup(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -56,8 +54,7 @@ func TestGetObjectPoolNoFile(t *testing.T) {
 }
 
 func TestGetObjectPoolBadFile(t *testing.T) {
-	_, repo, repoPath, _, client, cleanup := setup(t)
-	defer cleanup()
+	_, repo, repoPath, _, client := setup(t)
 
 	alternatesFilePath := filepath.Join(repoPath, "objects", "info", "alternates")
 	require.NoError(t, os.MkdirAll(filepath.Dir(alternatesFilePath), 0755))

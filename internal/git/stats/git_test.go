@@ -21,8 +21,7 @@ import (
 )
 
 func TestLogObjectInfo(t *testing.T) {
-	cfg, cleanup := testcfg.Build(t)
-	defer cleanup()
+	cfg := testcfg.Build(t)
 
 	repo1, repoPath1, cleanup1 := gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name()+"-1")
 	defer cleanup1()

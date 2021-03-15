@@ -32,8 +32,7 @@ func (m *mockTransactionManager) Stop(ctx context.Context, tx metadata.Transacti
 }
 
 func TestHookManager_stopCalled(t *testing.T) {
-	cfg, repo, repoPath, cleanup := testcfg.BuildWithRepo(t)
-	defer cleanup()
+	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
 	expectedTx := metadata.Transaction{
 		ID: 1234, Node: "primary", Primary: true,
@@ -129,8 +128,7 @@ func TestHookManager_stopCalled(t *testing.T) {
 }
 
 func TestHookManager_contextCancellationCancelsVote(t *testing.T) {
-	cfg, repo, _, cleanup := testcfg.BuildWithRepo(t)
-	defer cleanup()
+	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	mockTxMgr := mockTransactionManager{
 		vote: func(ctx context.Context, tx metadata.Transaction, praefect metadata.PraefectServer, vote []byte) error {

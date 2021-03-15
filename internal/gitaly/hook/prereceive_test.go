@@ -20,8 +20,7 @@ import (
 )
 
 func TestPrereceive_customHooks(t *testing.T) {
-	cfg, repo, repoPath, cleanup := testcfg.BuildWithRepo(t)
-	defer cleanup()
+	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
 	hookManager := NewManager(config.NewLocator(cfg), transaction.NewManager(cfg), GitlabAPIStub, cfg)
 
@@ -205,8 +204,7 @@ func (m *prereceiveAPIMock) PostReceive(context.Context, string, string, string,
 }
 
 func TestPrereceive_gitlab(t *testing.T) {
-	cfg, repo, repoPath, cleanup := testcfg.BuildWithRepo(t)
-	defer cleanup()
+	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
 	payload, err := git.NewHooksPayload(cfg, repo, nil, nil, &git.ReceiveHooksPayload{
 		UserID:   "1234",

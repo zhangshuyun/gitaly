@@ -200,8 +200,7 @@ func TestPerform(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
-			cfg, repoProto, repoPath, cleanup := testcfg.BuildWithRepo(t)
-			defer cleanup()
+			cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
 			repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
 			ctx, cancel := testhelper.Context()
@@ -287,8 +286,7 @@ func TestPerform_references(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.desc, func(t *testing.T) {
-			cfg, repoProto, repoPath, cleanup := testcfg.BuildWithRepo(t)
-			defer cleanup()
+			cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
 			repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
 			for _, ref := range tc.refs {
@@ -396,8 +394,7 @@ func TestPerform_emptyRefDirs(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
-			cfg, repoProto, repoPath, cleanup := testcfg.BuildWithRepo(t)
-			defer cleanup()
+			cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
 			repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
 			ctx, cancel := testhelper.Context()
@@ -431,8 +428,7 @@ func testPerformWithSpecificFile(t *testing.T, file string, finder staleFileFind
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	cfg, repoProto, repoPath, cleanup := testcfg.BuildWithRepo(t)
-	defer cleanup()
+	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
 	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
 	for _, tc := range []struct {
@@ -546,8 +542,7 @@ func TestPerform_referenceLocks(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			cfg, repoProto, repoPath, cleanup := testcfg.BuildWithRepo(t)
-			defer cleanup()
+			cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
 			repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
 			for _, e := range tc.entries {
@@ -650,23 +645,19 @@ func TestShouldRemoveTemporaryObject(t *testing.T) {
 }
 
 func TestPerformRepoDoesNotExist(t *testing.T) {
-	cfg, repoProto, _, cleanup := testcfg.BuildWithRepo(t)
-	defer cleanup()
+	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
 	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	// We call `cleanup()` early to make sure the repository doesn't exist anymore in an
-	// otherwise well-configured storage.
-	cleanup()
+	require.NoError(t, os.RemoveAll(repoPath))
 
 	require.NoError(t, Perform(ctx, repo))
 }
 
 func TestPerform_UnsetConfiguration(t *testing.T) {
-	cfg, repoProto, _, cleanup := testcfg.BuildWithRepo(t)
-	defer cleanup()
+	cfg, repoProto, _ := testcfg.BuildWithRepo(t)
 	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
 	ctx, cancel := testhelper.Context()

@@ -51,8 +51,7 @@ echo "$0"
 exit 0`)
 
 func TestCustomHooksSuccess(t *testing.T) {
-	cfg, repo, repoPath, cleanup := testcfg.BuildWithRepo(t)
-	defer cleanup()
+	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
 	testCases := []struct {
 		hookName string
@@ -103,8 +102,7 @@ func TestCustomHooksSuccess(t *testing.T) {
 }
 
 func TestCustomHookPartialFailure(t *testing.T) {
-	cfg, repo, repoPath, cleanup := testcfg.BuildWithRepo(t)
-	defer cleanup()
+	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
 	globalCustomHooksDir, cleanup := testhelper.TempDir(t)
 	defer cleanup()
@@ -179,8 +177,7 @@ func TestCustomHookPartialFailure(t *testing.T) {
 }
 
 func TestCustomHooksMultipleHooks(t *testing.T) {
-	cfg, repo, repoPath, cleanup := testcfg.BuildWithRepo(t)
-	defer cleanup()
+	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
 	globalCustomHooksDir, cleanup := testhelper.TempDir(t)
 	defer cleanup()
@@ -229,8 +226,7 @@ func TestCustomHooksMultipleHooks(t *testing.T) {
 }
 
 func TestCustomHooksWithSymlinks(t *testing.T) {
-	cfg, repo, _, cleanup := testcfg.BuildWithRepo(t)
-	defer cleanup()
+	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	globalCustomHooksDir, cleanup := testhelper.TempDir(t)
 	defer cleanup()
@@ -300,8 +296,7 @@ func TestCustomHooksWithSymlinks(t *testing.T) {
 }
 
 func TestMultilineStdin(t *testing.T) {
-	cfg, repo, repoPath, cleanup := testcfg.BuildWithRepo(t)
-	defer cleanup()
+	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
 	globalCustomHooksDir, cleanup := testhelper.TempDir(t)
 	defer cleanup()
@@ -334,8 +329,7 @@ old3 new3 ref3
 }
 
 func TestMultipleScriptsStdin(t *testing.T) {
-	cfg, repo, repoPath, cleanup := testcfg.BuildWithRepo(t)
-	defer cleanup()
+	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
 	globalCustomHooksDir, cleanup := testhelper.TempDir(t)
 	defer cleanup()

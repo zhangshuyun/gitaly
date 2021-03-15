@@ -11,8 +11,7 @@ import (
 )
 
 func TestHooksPayload(t *testing.T) {
-	cfg, repo, _, cleanup := testcfg.BuildWithRepo(t)
-	defer cleanup()
+	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	tx := metadata.Transaction{
 		ID:      1234,
@@ -123,8 +122,7 @@ func TestHooksPayload(t *testing.T) {
 	})
 
 	t.Run("payload with fallback git path", func(t *testing.T) {
-		cfg, repo, _, cleanup := testcfg.BuildWithRepo(t)
-		defer cleanup()
+		cfg, repo, _ := testcfg.BuildWithRepo(t)
 		cfg.Git.BinPath = ""
 
 		env, err := git.NewHooksPayload(cfg, repo, nil, nil, nil, git.ReceivePackHooks).Env()

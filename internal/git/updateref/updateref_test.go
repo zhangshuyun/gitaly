@@ -28,14 +28,10 @@ func testMain(m *testing.M) int {
 	return m.Run()
 }
 
-func setupUpdater(t *testing.T, ctx context.Context) (config.Cfg, *localrepo.Repo, *Updater, func()) {
+func setupUpdater(t *testing.T, ctx context.Context) (config.Cfg, *localrepo.Repo, *Updater) {
 	t.Helper()
 
-	var deferrer testhelper.Deferrer
-	defer deferrer.Call()
-
-	cfg, protoRepo, _, cleanup := testcfg.BuildWithRepo(t)
-	deferrer.Add(cleanup)
+	cfg, protoRepo, _ := testcfg.BuildWithRepo(t)
 
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
 	repo := localrepo.New(gitCmdFactory, protoRepo, cfg)
@@ -43,16 +39,14 @@ func setupUpdater(t *testing.T, ctx context.Context) (config.Cfg, *localrepo.Rep
 	updater, err := New(ctx, cfg, gitCmdFactory, repo)
 	require.NoError(t, err)
 
-	cleaner := deferrer.Relocate()
-	return cfg, repo, updater, cleaner.Call
+	return cfg, repo, updater
 }
 
 func TestCreate(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	_, repo, updater, cleanup := setupUpdater(t, ctx)
-	defer cleanup()
+	_, repo, updater := setupUpdater(t, ctx)
 
 	headCommit, err := repo.ReadCommit(ctx, "HEAD")
 	require.NoError(t, err)
@@ -73,8 +67,7 @@ func TestUpdate(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	_, repo, updater, cleanup := setupUpdater(t, ctx)
-	defer cleanup()
+	_, repo, updater := setupUpdater(t, ctx)
 
 	headCommit, err := repo.ReadCommit(ctx, "HEAD")
 	require.NoError(t, err)
@@ -110,8 +103,7 @@ func TestDelete(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	_, repo, updater, cleanup := setupUpdater(t, ctx)
-	defer cleanup()
+	_, repo, updater := setupUpdater(t, ctx)
 
 	ref := git.ReferenceName("refs/heads/feature")
 
@@ -127,8 +119,7 @@ func TestBulkOperation(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	_, repo, updater, cleanup := setupUpdater(t, ctx)
-	defer cleanup()
+	_, repo, updater := setupUpdater(t, ctx)
 
 	headCommit, err := repo.ReadCommit(ctx, "HEAD")
 	require.NoError(t, err)
@@ -149,8 +140,7 @@ func TestContextCancelAbortsRefChanges(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	cfg, repo, _, cleanup := setupUpdater(t, ctx)
-	defer cleanup()
+	cfg, repo, _ := setupUpdater(t, ctx)
 
 	headCommit, err := repo.ReadCommit(ctx, "HEAD")
 	require.NoError(t, err)
@@ -176,8 +166,7 @@ func TestUpdater_closingStdinAbortsChanges(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	_, repo, updater, cleanup := setupUpdater(t, ctx)
-	defer cleanup()
+	_, repo, updater := setupUpdater(t, ctx)
 
 	headCommit, err := repo.ReadCommit(ctx, "HEAD")
 	require.NoError(t, err)
@@ -203,8 +192,7 @@ func TestUpdater_capturesStderr(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	_, _, updater, cleanup := setupUpdater(t, ctx)
-	defer cleanup()
+	_, _, updater := setupUpdater(t, ctx)
 
 	ref := "refs/heads/a"
 	newValue := strings.Repeat("1", 40)

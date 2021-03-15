@@ -43,8 +43,7 @@ const (
 )
 
 func TestSuccessfulReceivePackRequest(t *testing.T) {
-	cfg, repo, repoPath, cleanup := testcfg.BuildWithRepo(t)
-	defer cleanup()
+	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
 	cfg.GitlabShell.Dir = "/foo/bar/gitlab-shell"
 
@@ -109,8 +108,7 @@ func TestSuccessfulReceivePackRequest(t *testing.T) {
 }
 
 func TestSuccessfulReceivePackRequestWithGitProtocol(t *testing.T) {
-	cfg, repo, repoPath, cleanup := testcfg.BuildWithRepo(t)
-	defer cleanup()
+	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
 	testhelper.ConfigureGitalyHooksBin(t, cfg)
 
@@ -141,8 +139,7 @@ func TestSuccessfulReceivePackRequestWithGitProtocol(t *testing.T) {
 }
 
 func TestFailedReceivePackRequestWithGitOpts(t *testing.T) {
-	cfg, repo, _, cleanup := testcfg.BuildWithRepo(t)
-	defer cleanup()
+	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	serverSocketPath, stop := runSmartHTTPServer(t, cfg)
 	defer stop()
@@ -165,8 +162,7 @@ func TestFailedReceivePackRequestWithGitOpts(t *testing.T) {
 }
 
 func TestFailedReceivePackRequestDueToHooksFailure(t *testing.T) {
-	cfg, repo, _, cleanup := testcfg.BuildWithRepo(t)
-	defer cleanup()
+	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	hookDir, cleanup := testhelper.TempDir(t)
 	defer cleanup()
@@ -286,8 +282,7 @@ func createCommit(t *testing.T, repoPath string, fileContents []byte) (oldHead s
 }
 
 func TestFailedReceivePackRequestDueToValidationError(t *testing.T) {
-	cfg, cleanup := testcfg.Build(t)
-	defer cleanup()
+	cfg := testcfg.Build(t)
 
 	serverSocketPath, stop := runSmartHTTPServer(t, cfg)
 	defer stop()
@@ -319,8 +314,7 @@ func TestFailedReceivePackRequestDueToValidationError(t *testing.T) {
 }
 
 func TestInvalidTimezone(t *testing.T) {
-	cfg, repo, repoPath, cleanup := testcfg.BuildWithRepo(t)
-	defer cleanup()
+	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
 	_, localRepoPath, localCleanup := gittest.CloneRepoWithWorktreeAtStorage(t, cfg.Storages[0])
 	defer localCleanup()
@@ -345,6 +339,7 @@ func TestInvalidTimezone(t *testing.T) {
 	fmt.Fprintf(body, "%04x%s%s", len(pkt)+4, pkt, pktFlushStr)
 	body.Write(pack)
 
+	var cleanup func()
 	_, cleanup = gittest.CaptureHookEnv(t)
 	defer cleanup()
 
@@ -381,8 +376,7 @@ func drainPostReceivePackResponse(stream gitalypb.SmartHTTPService_PostReceivePa
 }
 
 func TestPostReceivePackToHooks(t *testing.T) {
-	cfg, repo, _, cleanup := testcfg.BuildWithRepo(t)
-	defer cleanup()
+	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	testhelper.ConfigureGitalyHooksBin(t, cfg)
 
@@ -392,6 +386,7 @@ func TestPostReceivePackToHooks(t *testing.T) {
 		glID         = "key-123"
 	)
 
+	var cleanup func()
 	cfg.GitlabShell.Dir, cleanup = testhelper.TempDir(t)
 	defer cleanup()
 
@@ -479,8 +474,7 @@ func TestPostReceiveWithTransactionsViaPraefect(t *testing.T) {
 }
 
 func testPostReceiveWithTransactionsViaPraefect(t *testing.T, ctx context.Context) {
-	cfg, repo, repoPath, cleanup := testcfg.BuildWithRepo(t)
-	defer cleanup()
+	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
 	testhelper.ConfigureGitalyHooksBin(t, cfg)
 
@@ -560,8 +554,7 @@ func (t *testTransactionServer) VoteTransaction(ctx context.Context, in *gitalyp
 }
 
 func TestPostReceiveWithReferenceTransactionHook(t *testing.T) {
-	cfg, cleanup := testcfg.Build(t)
-	defer cleanup()
+	cfg := testcfg.Build(t)
 
 	testhelper.ConfigureGitalyHooksBin(t, cfg)
 

@@ -37,8 +37,7 @@ func TestSuccessfulUploadPackRequest(t *testing.T) {
 }
 
 func testSuccessfulUploadPackRequest(t *testing.T, ctx context.Context) {
-	cfg, repo, _, cleanup := testcfg.BuildWithRepo(t)
-	defer cleanup()
+	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	testhelper.ConfigureGitalyHooksBin(t, cfg)
 
@@ -116,8 +115,7 @@ func TestUploadPackRequestWithGitConfigOptions(t *testing.T) {
 }
 
 func testUploadPackRequestWithGitConfigOptions(t *testing.T, ctx context.Context) {
-	cfg, repo, _, cleanup := testcfg.BuildWithRepo(t)
-	defer cleanup()
+	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	testhelper.ConfigureGitalyHooksBin(t, cfg)
 
@@ -185,8 +183,7 @@ func TestUploadPackRequestWithGitProtocol(t *testing.T) {
 }
 
 func testUploadPackRequestWithGitProtocol(t *testing.T, ctx context.Context) {
-	cfg, repo, _, cleanup := testcfg.BuildWithRepo(t)
-	defer cleanup()
+	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	readProto, cfg, restore := gittest.EnableGitProtocolV2Support(t, cfg)
 	defer restore()
@@ -235,8 +232,7 @@ func TestSuccessfulUploadPackDeepenRequest(t *testing.T) {
 }
 
 func testSuccessfulUploadPackDeepenRequest(t *testing.T, ctx context.Context) {
-	cfg, repo, _, cleanup := testcfg.BuildWithRepo(t)
-	defer cleanup()
+	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	serverSocketPath, stop := runSmartHTTPServer(t, cfg)
 	defer stop()
@@ -255,9 +251,8 @@ func testSuccessfulUploadPackDeepenRequest(t *testing.T, ctx context.Context) {
 }
 
 func TestUploadPackWithPackObjectsHook(t *testing.T) {
-	cfg, repo, repoPath, cleanup := testcfg.BuildWithRepo(t)
-	defer cleanup()
-
+	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
+	var cleanup func()
 	cfg.BinDir, cleanup = testhelper.TempDir(t)
 	defer cleanup()
 
@@ -305,8 +300,7 @@ func TestFailedUploadPackRequestDueToValidationError(t *testing.T) {
 }
 
 func testFailedUploadPackRequestDueToValidationError(t *testing.T, ctx context.Context) {
-	cfg, cleanup := testcfg.Build(t)
-	defer cleanup()
+	cfg := testcfg.Build(t)
 
 	serverSocketPath, stop := runSmartHTTPServer(t, cfg)
 	defer stop()
@@ -400,8 +394,7 @@ func TestUploadPackRequestForPartialCloneSuccess(t *testing.T) {
 }
 
 func testUploadPackRequestForPartialCloneSuccess(t *testing.T, ctx context.Context) {
-	cfg, _, repoPath, cleanup := testcfg.BuildWithRepo(t)
-	defer cleanup()
+	cfg, _, repoPath := testcfg.BuildWithRepo(t)
 
 	testhelper.ConfigureGitalyHooksBin(t, cfg)
 

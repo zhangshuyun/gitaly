@@ -16,8 +16,7 @@ import (
 )
 
 func TestGitCommandProxy(t *testing.T) {
-	cfg, cleanup := testcfg.Build(t)
-	defer cleanup()
+	cfg := testcfg.Build(t)
 
 	requestReceived := false
 
@@ -49,8 +48,7 @@ func TestGitCommandProxy(t *testing.T) {
 }
 
 func TestExecCommandFactory_NewWithDir(t *testing.T) {
-	cfg, cleanup := testcfg.Build(t)
-	defer cleanup()
+	cfg := testcfg.Build(t)
 
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
 

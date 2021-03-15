@@ -27,8 +27,7 @@ import (
 )
 
 func TestFetchIntoObjectPool_Success(t *testing.T) {
-	cfg, repo, repoPath, locator, client, cleanup := setup(t)
-	defer cleanup()
+	cfg, repo, repoPath, locator, client := setup(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -82,8 +81,7 @@ func TestFetchIntoObjectPool_Success(t *testing.T) {
 }
 
 func TestFetchIntoObjectPool_hooksDisabled(t *testing.T) {
-	cfg, repo, _, locator, client, cleanup := setup(t)
-	defer cleanup()
+	cfg, repo, _, locator, client := setup(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -124,8 +122,7 @@ func TestFetchIntoObjectPool_CollectLogStatistics(t *testing.T) {
 		testhelper.NewTestLogger = tl
 	}(testhelper.NewTestLogger)
 
-	cfg, repo, _, locator, client, cleanup := setup(t)
-	defer cleanup()
+	cfg, repo, _, locator, client := setup(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()

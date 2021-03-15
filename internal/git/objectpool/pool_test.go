@@ -16,8 +16,7 @@ import (
 )
 
 func TestNewObjectPool(t *testing.T) {
-	cfg, cleanup := testcfg.Build(t)
-	defer cleanup()
+	cfg := testcfg.Build(t)
 
 	locator := config.NewLocator(cfg)
 
@@ -32,8 +31,7 @@ func TestNewFromRepoSuccess(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	pool, testRepo, cleanup := setupObjectPool(t)
-	defer cleanup()
+	pool, testRepo := setupObjectPool(t)
 
 	require.NoError(t, pool.Create(ctx, testRepo))
 	require.NoError(t, pool.Link(ctx, testRepo))
@@ -45,8 +43,7 @@ func TestNewFromRepoSuccess(t *testing.T) {
 }
 
 func TestNewFromRepoNoObjectPool(t *testing.T) {
-	pool, testRepo, cleanup := setupObjectPool(t)
-	defer cleanup()
+	pool, testRepo := setupObjectPool(t)
 
 	testRepoPath := filepath.Join(pool.cfg.Storages[0].Path, testRepo.RelativePath)
 
@@ -97,8 +94,7 @@ func TestCreate(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	pool, testRepo, cleanup := setupObjectPool(t)
-	defer cleanup()
+	pool, testRepo := setupObjectPool(t)
 
 	testRepoPath := filepath.Join(pool.cfg.Storages[0].Path, testRepo.RelativePath)
 
@@ -131,8 +127,7 @@ func TestCreateSubDirsExist(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	pool, testRepo, cleanup := setupObjectPool(t)
-	defer cleanup()
+	pool, testRepo := setupObjectPool(t)
 
 	err := pool.Create(ctx, testRepo)
 	require.NoError(t, err)
@@ -148,8 +143,7 @@ func TestRemove(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	pool, testRepo, cleanup := setupObjectPool(t)
-	defer cleanup()
+	pool, testRepo := setupObjectPool(t)
 
 	err := pool.Create(ctx, testRepo)
 	require.NoError(t, err)

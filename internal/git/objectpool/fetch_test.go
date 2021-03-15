@@ -17,8 +17,7 @@ func TestFetchFromOriginDangling(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	pool, testRepo, cleanup := setupObjectPool(t)
-	defer cleanup()
+	pool, testRepo := setupObjectPool(t)
 
 	require.NoError(t, pool.FetchFromOrigin(ctx, testRepo), "seed pool")
 
@@ -86,8 +85,7 @@ func TestFetchFromOriginDeltaIslands(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	pool, testRepo, cleanup := setupObjectPool(t)
-	defer cleanup()
+	pool, testRepo := setupObjectPool(t)
 	testRepoPath := filepath.Join(pool.cfg.Storages[0].Path, testRepo.RelativePath)
 
 	require.NoError(t, pool.FetchFromOrigin(ctx, testRepo), "seed pool")
@@ -110,8 +108,7 @@ func TestFetchFromOriginBitmapHashCache(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	pool, testRepo, cleanup := setupObjectPool(t)
-	defer cleanup()
+	pool, testRepo := setupObjectPool(t)
 
 	require.NoError(t, pool.FetchFromOrigin(ctx, testRepo), "seed pool")
 
@@ -136,8 +133,7 @@ func TestFetchFromOriginRefUpdates(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	pool, testRepo, cleanup := setupObjectPool(t)
-	defer cleanup()
+	pool, testRepo := setupObjectPool(t)
 	testRepoPath := filepath.Join(pool.cfg.Storages[0].Path, testRepo.RelativePath)
 
 	poolPath := pool.FullPath()

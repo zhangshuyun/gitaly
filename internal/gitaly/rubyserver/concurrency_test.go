@@ -28,8 +28,7 @@ func waitPing(s *Server) error {
 // This benchmark lets you see what happens when you throw a lot of
 // concurrent traffic at gitaly-ruby.
 func BenchmarkConcurrency(b *testing.B) {
-	cfg, cleanup := testcfg.Build(b)
-	defer cleanup()
+	cfg := testcfg.Build(b)
 
 	cfg.Ruby.NumWorkers = 2
 

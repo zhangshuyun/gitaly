@@ -18,8 +18,7 @@ func TestGetTag(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	cfg, c, testRepo, cleanup := setupBatch(t, ctx)
-	defer cleanup()
+	cfg, c, testRepo := setupBatch(t, ctx)
 
 	testRepoPath := filepath.Join(cfg.Storages[0].Path, testRepo.RelativePath)
 

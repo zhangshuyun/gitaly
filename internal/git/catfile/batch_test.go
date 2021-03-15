@@ -21,28 +21,22 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
-func setupBatch(t *testing.T, ctx context.Context) (Batch, testhelper.Cleanup) {
+func setupBatch(t *testing.T, ctx context.Context) Batch {
 	t.Helper()
 
-	var deferrer testhelper.Deferrer
-	defer deferrer.Call()
-
-	cfg, repo, _, cleanup := testcfg.BuildWithRepo(t)
-	deferrer.Add(cleanup)
+	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	c, err := New(ctx, git.NewExecCommandFactory(cfg), repo)
 	require.NoError(t, err)
 
-	cleaner := deferrer.Relocate()
-	return c, cleaner.Call
+	return c
 }
 
 func TestInfo(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	c, cleanup := setupBatch(t, ctx)
-	defer cleanup()
+	c := setupBatch(t, ctx)
 
 	testCases := []struct {
 		desc     string
@@ -74,8 +68,7 @@ func TestBlob(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	c, cleanup := setupBatch(t, ctx)
-	defer cleanup()
+	c := setupBatch(t, ctx)
 
 	gitignoreBytes, err := ioutil.ReadFile("testdata/blob-dfaa3f97ca337e20154a98ac9d0be76ddd1fcc82")
 	require.NoError(t, err)
@@ -138,8 +131,7 @@ func TestCommit(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	c, cleanup := setupBatch(t, ctx)
-	defer cleanup()
+	c := setupBatch(t, ctx)
 
 	commitBytes, err := ioutil.ReadFile("testdata/commit-e63f41fe459e62e1228fcef60d7189127aeba95a")
 	require.NoError(t, err)
@@ -173,8 +165,7 @@ func TestTag(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	c, cleanup := setupBatch(t, ctx)
-	defer cleanup()
+	c := setupBatch(t, ctx)
 
 	tagBytes, err := ioutil.ReadFile("testdata/tag-a509fa67c27202a2bc9dd5e014b4af7e6063ac76")
 	require.NoError(t, err)
@@ -237,8 +228,7 @@ func TestTree(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	c, cleanup := setupBatch(t, ctx)
-	defer cleanup()
+	c := setupBatch(t, ctx)
 
 	treeBytes, err := ioutil.ReadFile("testdata/tree-7e2f26d033ee47cd0745649d1a28277c56197921")
 	require.NoError(t, err)
@@ -301,8 +291,7 @@ func TestRepeatedCalls(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	c, cleanup := setupBatch(t, ctx)
-	defer cleanup()
+	c := setupBatch(t, ctx)
 
 	treeOid := git.Revision("7e2f26d033ee47cd0745649d1a28277c56197921")
 	treeBytes, err := ioutil.ReadFile("testdata/tree-7e2f26d033ee47cd0745649d1a28277c56197921")
@@ -360,8 +349,7 @@ func TestSpawnFailure(t *testing.T) {
 	ctx1, cancel1 := testhelper.Context()
 	defer cancel1()
 
-	cfg, testRepo, _, cleanup := testcfg.BuildWithRepo(t)
-	defer cleanup()
+	cfg, testRepo, _ := testcfg.BuildWithRepo(t)
 
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
 

@@ -28,20 +28,15 @@ func testMain(m *testing.M) int {
 	return m.Run()
 }
 
-func setupBatch(t *testing.T, ctx context.Context) (config.Cfg, catfile.Batch, *gitalypb.Repository, testhelper.Cleanup) {
+func setupBatch(t *testing.T, ctx context.Context) (config.Cfg, catfile.Batch, *gitalypb.Repository) {
 	t.Helper()
 
-	var deferrer testhelper.Deferrer
-	defer deferrer.Call()
-
-	cfg, repo, _, cleanup := testcfg.BuildWithRepo(t)
-	deferrer.Add(cleanup)
+	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	c, err := catfile.New(ctx, git.NewExecCommandFactory(cfg), repo)
 	require.NoError(t, err)
 
-	cleaner := deferrer.Relocate()
-	return cfg, c, repo, cleaner.Call
+	return cfg, c, repo
 }
 
 func TestParseRawCommit(t *testing.T) {
@@ -141,8 +136,7 @@ func TestGetCommitCatfile(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	_, c, _, cleanup := setupBatch(t, ctx)
-	defer cleanup()
+	_, c, _ := setupBatch(t, ctx)
 
 	ctx = metadata.NewIncomingContext(ctx, metadata.MD{})
 
@@ -189,8 +183,7 @@ func TestGetCommitCatfileWithTrailers(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	cfg, c, testRepo, cleanup := setupBatch(t, ctx)
-	defer cleanup()
+	cfg, c, testRepo := setupBatch(t, ctx)
 
 	ctx = metadata.NewIncomingContext(ctx, metadata.MD{})
 

@@ -30,8 +30,7 @@ import (
 )
 
 func TestSuccessfulInfoRefsUploadPack(t *testing.T) {
-	cfg, repo, _, cleanup := testcfg.BuildWithRepo(t)
-	defer cleanup()
+	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	serverSocketPath, stop := runSmartHTTPServer(t, cfg)
 	defer stop()
@@ -50,8 +49,7 @@ func TestSuccessfulInfoRefsUploadPack(t *testing.T) {
 }
 
 func TestSuccessfulInfoRefsUploadWithPartialClone(t *testing.T) {
-	cfg, repo, _, cleanup := testcfg.BuildWithRepo(t)
-	defer cleanup()
+	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	serverSocketPath, stop := runSmartHTTPServer(t, cfg)
 	defer stop()
@@ -75,8 +73,7 @@ func TestSuccessfulInfoRefsUploadWithPartialClone(t *testing.T) {
 }
 
 func TestSuccessfulInfoRefsUploadPackWithGitConfigOptions(t *testing.T) {
-	cfg, repo, _, cleanup := testcfg.BuildWithRepo(t)
-	defer cleanup()
+	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	serverSocketPath, stop := runSmartHTTPServer(t, cfg)
 	defer stop()
@@ -97,8 +94,7 @@ func TestSuccessfulInfoRefsUploadPackWithGitConfigOptions(t *testing.T) {
 }
 
 func TestSuccessfulInfoRefsUploadPackWithGitProtocol(t *testing.T) {
-	cfg, repo, _, cleanup := testcfg.BuildWithRepo(t)
-	defer cleanup()
+	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	readProtocol, cfg, restore := gittest.EnableGitProtocolV2Support(t, cfg)
 	defer restore()
@@ -147,8 +143,7 @@ func makeInfoRefsUploadPackRequest(ctx context.Context, t *testing.T, serverSock
 }
 
 func TestSuccessfulInfoRefsReceivePack(t *testing.T) {
-	cfg, repo, _, cleanup := testcfg.BuildWithRepo(t)
-	defer cleanup()
+	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	serverSocketPath, stop := runSmartHTTPServer(t, cfg)
 	defer stop()
@@ -176,8 +171,7 @@ func TestSuccessfulInfoRefsReceivePack(t *testing.T) {
 }
 
 func TestObjectPoolRefAdvertisementHiding(t *testing.T) {
-	cfg, repo, _, cleanup := testcfg.BuildWithRepo(t)
-	defer cleanup()
+	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	testhelper.ConfigureGitalyHooksBin(t, cfg)
 
@@ -215,8 +209,7 @@ func TestObjectPoolRefAdvertisementHiding(t *testing.T) {
 }
 
 func TestFailureRepoNotFoundInfoRefsReceivePack(t *testing.T) {
-	cfg, cleanup := testcfg.Build(t)
-	defer cleanup()
+	cfg := testcfg.Build(t)
 
 	serverSocketPath, stop := runSmartHTTPServer(t, cfg)
 	defer stop()
@@ -240,8 +233,7 @@ func TestFailureRepoNotFoundInfoRefsReceivePack(t *testing.T) {
 }
 
 func TestFailureRepoNotSetInfoRefsReceivePack(t *testing.T) {
-	cfg, cleanup := testcfg.Build(t)
-	defer cleanup()
+	cfg := testcfg.Build(t)
 
 	serverSocketPath, stop := runSmartHTTPServer(t, cfg)
 	defer stop()
@@ -295,8 +287,7 @@ func (ms mockStreamer) PutStream(ctx context.Context, repo *gitalypb.Repository,
 }
 
 func TestCacheInfoRefsUploadPack(t *testing.T) {
-	cfg, repo, _, cleanup := testcfg.BuildWithRepo(t)
-	defer cleanup()
+	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	serverSocketPath, stop := runSmartHTTPServer(t, cfg)
 	defer stop()

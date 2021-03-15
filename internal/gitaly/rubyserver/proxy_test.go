@@ -11,8 +11,7 @@ import (
 )
 
 func TestSetHeadersBlocksUnknownMetadata(t *testing.T) {
-	cfg, repo, _, cleanup := testcfg.BuildWithRepo(t)
-	defer cleanup()
+	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -32,8 +31,7 @@ func TestSetHeadersBlocksUnknownMetadata(t *testing.T) {
 }
 
 func TestSetHeadersPreservesAllowlistedMetadata(t *testing.T) {
-	cfg, repo, _, cleanup := testcfg.BuildWithRepo(t)
-	defer cleanup()
+	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -52,8 +50,7 @@ func TestSetHeadersPreservesAllowlistedMetadata(t *testing.T) {
 }
 
 func TestRubyFeatureHeaders(t *testing.T) {
-	cfg, repo, _, cleanup := testcfg.BuildWithRepo(t)
-	defer cleanup()
+	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()

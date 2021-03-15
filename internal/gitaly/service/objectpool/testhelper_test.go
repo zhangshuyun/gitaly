@@ -30,26 +30,21 @@ func testMain(m *testing.M) int {
 	return m.Run()
 }
 
-func setup(t *testing.T) (config.Cfg, *gitalypb.Repository, string, storage.Locator, gitalypb.ObjectPoolServiceClient, testhelper.Cleanup) {
+func setup(t *testing.T) (config.Cfg, *gitalypb.Repository, string, storage.Locator, gitalypb.ObjectPoolServiceClient) {
 	t.Helper()
 
-	var deferrer testhelper.Deferrer
-	defer deferrer.Call()
-
-	cfg, repo, repoPath, cleanup := testcfg.BuildWithRepo(t)
-	deferrer.Add(cleanup)
+	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
 	testhelper.ConfigureGitalyHooksBin(t, cfg)
 
 	locator := config.NewLocator(cfg)
 	server, serverSocketPath := runObjectPoolServer(t, cfg, locator)
-	deferrer.Add(server.Stop)
+	t.Cleanup(server.Stop)
 
 	client, conn := newObjectPoolClient(t, serverSocketPath)
-	deferrer.Add(func() { conn.Close() })
+	t.Cleanup(func() { conn.Close() })
 
-	closer := deferrer.Relocate()
-	return cfg, repo, repoPath, locator, client, closer.Call
+	return cfg, repo, repoPath, locator, client
 }
 
 func runObjectPoolServer(t *testing.T, cfg config.Cfg, locator storage.Locator) (*grpc.Server, string) {

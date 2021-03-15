@@ -16,8 +16,7 @@ func TestLink(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	pool, testRepo, cleanup := setupObjectPool(t)
-	defer cleanup()
+	pool, testRepo := setupObjectPool(t)
 
 	require.NoError(t, pool.Remove(ctx), "make sure pool does not exist prior to creation")
 	require.NoError(t, pool.Create(ctx, testRepo), "create pool")
@@ -50,8 +49,7 @@ func TestLinkRemoveBitmap(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	pool, testRepo, cleanup := setupObjectPool(t)
-	defer cleanup()
+	pool, testRepo := setupObjectPool(t)
 	require.NoError(t, pool.Init(ctx))
 
 	testRepoPath := filepath.Join(pool.cfg.Storages[0].Path, testRepo.RelativePath)
@@ -96,8 +94,7 @@ func TestUnlink(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	pool, testRepo, cleanup := setupObjectPool(t)
-	defer cleanup()
+	pool, testRepo := setupObjectPool(t)
 
 	require.Error(t, pool.Unlink(ctx, testRepo), "removing a non-existing pool should be an error")
 
@@ -114,8 +111,7 @@ func TestLinkAbsoluteLinkExists(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	pool, testRepo, cleanup := setupObjectPool(t)
-	defer cleanup()
+	pool, testRepo := setupObjectPool(t)
 
 	testRepoPath := filepath.Join(pool.cfg.Storages[0].Path, testRepo.RelativePath)
 
