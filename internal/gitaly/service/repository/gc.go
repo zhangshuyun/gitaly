@@ -13,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/git/housekeeping"
+	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -25,17 +26,13 @@ func (s *server) GarbageCollect(ctx context.Context, in *gitalypb.GarbageCollect
 		"WriteBitmaps": in.GetCreateBitmap(),
 	}).Debug("GarbageCollect")
 
-	repo := in.GetRepository()
-	repoPath, err := s.locator.GetRepoPath(repo)
-	if err != nil {
+	repo := localrepo.New(s.gitCmdFactory, in.GetRepository(), s.cfg)
+
+	if err := s.cleanupRepo(ctx, repo); err != nil {
 		return nil, err
 	}
 
-	if err := s.cleanupRepo(ctx, in.GetRepository()); err != nil {
-		return nil, err
-	}
-
-	if err := s.cleanupKeepArounds(ctx, in.GetRepository()); err != nil {
+	if err := s.cleanupKeepArounds(ctx, repo); err != nil {
 		return nil, err
 	}
 
@@ -47,13 +44,14 @@ func (s *server) GarbageCollect(ctx context.Context, in *gitalypb.GarbageCollect
 		return nil, err
 	}
 
-	if err := s.writeCommitGraph(ctx, &gitalypb.WriteCommitGraphRequest{Repository: repo}); err != nil {
+	if err := s.writeCommitGraph(ctx, &gitalypb.WriteCommitGraphRequest{
+		Repository: in.GetRepository(),
+	}); err != nil {
 		return nil, err
 	}
 
 	// Perform housekeeping post GC
-	err = housekeeping.Perform(ctx, repoPath)
-	if err != nil {
+	if err := housekeeping.Perform(ctx, repo); err != nil {
 		ctxlogger.WithError(err).Warn("Post gc housekeeping failed")
 	}
 
@@ -115,8 +113,8 @@ func (s *server) configureCommitGraph(ctx context.Context, in *gitalypb.GarbageC
 	return nil
 }
 
-func (s *server) cleanupKeepArounds(ctx context.Context, repo *gitalypb.Repository) error {
-	repoPath, err := s.locator.GetRepoPath(repo)
+func (s *server) cleanupKeepArounds(ctx context.Context, repo *localrepo.Repo) error {
+	repoPath, err := repo.Path()
 	if err != nil {
 		return nil
 	}
@@ -166,7 +164,7 @@ func checkRef(ctx context.Context, batch catfile.Batch, refName string, info os.
 	return err
 }
 
-func (s *server) fixRef(ctx context.Context, repo *gitalypb.Repository, batch catfile.Batch, refPath string, name string, sha string) error {
+func (s *server) fixRef(ctx context.Context, repo *localrepo.Repo, batch catfile.Batch, refPath string, name string, sha string) error {
 	// So the ref is broken, let's get rid of it
 	if err := os.RemoveAll(refPath); err != nil {
 		return err
@@ -178,20 +176,8 @@ func (s *server) fixRef(ctx context.Context, repo *gitalypb.Repository, batch ca
 	}
 
 	// The name is a valid sha, recreate the ref
-	cmd, err := s.gitCmdFactory.New(ctx, repo,
-		git.SubCmd{
-			Name: "update-ref",
-			Args: []string{name, sha},
-		},
-		git.WithRefTxHook(ctx, repo, s.cfg),
-	)
-	if err != nil {
-		return err
-	}
-
-	if err = cmd.Wait(); err != nil {
-		return err
-	}
-
-	return nil
+	return repo.ExecAndWait(ctx, git.SubCmd{
+		Name: "update-ref",
+		Args: []string{name, sha},
+	}, git.WithRefTxHook(ctx, repo, s.cfg))
 }

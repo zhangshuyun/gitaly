@@ -129,13 +129,25 @@ func TestOptimizeRepository(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, bitmaps)
 
-	// All empty directories should be removed
-	testhelper.AssertPathNotExists(t, emptyRef)
-	testhelper.AssertPathNotExists(t, mrRefs)
+	// Empty directories should exist because they're too recent.
+	require.DirExists(t, emptyRef)
+	require.DirExists(t, mrRefs)
 	require.FileExists(t,
 		filepath.Join(testRepoPath, "refs/heads", blobIDs[0]),
 		"unpacked refs should never be removed",
 	)
+
+	// Change the modification time to me older than a day and retry the call. Empty
+	// directories must now be deleted.
+	oneDayAgo := time.Now().Add(-24 * time.Hour)
+	require.NoError(t, os.Chtimes(emptyRef, oneDayAgo, oneDayAgo))
+	require.NoError(t, os.Chtimes(mrRefs, oneDayAgo, oneDayAgo))
+
+	_, err = repoClient.OptimizeRepository(ctx, &gitalypb.OptimizeRepositoryRequest{Repository: testRepo})
+	require.NoError(t, err)
+
+	testhelper.AssertPathNotExists(t, emptyRef)
+	testhelper.AssertPathNotExists(t, mrRefs)
 }
 
 func TestOptimizeRepositoryValidation(t *testing.T) {

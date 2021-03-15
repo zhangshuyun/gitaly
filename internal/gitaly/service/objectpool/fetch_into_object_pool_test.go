@@ -68,8 +68,8 @@ func TestFetchIntoObjectPool_Success(t *testing.T) {
 	poolPath, err := locator.GetRepoPath(pool)
 	require.NoError(t, err)
 	brokenRef := filepath.Join(poolPath, "refs", "heads", "broken")
-	err = ioutil.WriteFile(brokenRef, []byte{}, 0777)
-	require.NoError(t, err)
+	require.NoError(t, os.MkdirAll(filepath.Dir(brokenRef), 0755))
+	require.NoError(t, ioutil.WriteFile(brokenRef, []byte{}, 0777))
 
 	oldTime := time.Now().Add(-25 * time.Hour)
 	require.NoError(t, os.Chtimes(brokenRef, oldTime, oldTime))
