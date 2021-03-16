@@ -15,8 +15,10 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
@@ -65,22 +67,17 @@ var (
 	}
 )
 
-func TestSuccessfulGetLFSPointersRequest(t *testing.T) {
+func testSuccessfulGetLFSPointersRequest(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.GoGetLFSPointers,
 		featureflag.LFSPointersUseBitmapIndex,
-	}).Run(t, testSuccessfulGetLFSPointersRequest)
+	}).Run(t, func(t *testing.T, ctx context.Context) {
+		testSuccessfulGetLFSPointersRequestFeatured(t, ctx, cfg, rubySrv)
+	})
 }
 
-func testSuccessfulGetLFSPointersRequest(t *testing.T, ctx context.Context) {
-	stop, serverSocketPath := runBlobServer(t, testhelper.DefaultLocator())
-	defer stop()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-
-	client, conn := newBlobClient(t, serverSocketPath)
-	defer conn.Close()
+func testSuccessfulGetLFSPointersRequestFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
+	repo, _, client := setupWithRuby(t, cfg, rubySrv)
 
 	lfsPointerIds := []string{
 		lfsPointer1,
@@ -99,7 +96,7 @@ func testSuccessfulGetLFSPointersRequest(t *testing.T, ctx context.Context) {
 	}
 
 	request := &gitalypb.GetLFSPointersRequest{
-		Repository: testRepo,
+		Repository: repo,
 		BlobIds:    append(lfsPointerIds, otherObjectIds...),
 	}
 
@@ -129,14 +126,7 @@ func TestFailedGetLFSPointersRequestDueToValidations(t *testing.T) {
 }
 
 func testFailedGetLFSPointersRequestDueToValidations(t *testing.T, ctx context.Context) {
-	stop, serverSocketPath := runBlobServer(t, testhelper.DefaultLocator())
-	defer stop()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-
-	client, conn := newBlobClient(t, serverSocketPath)
-	defer conn.Close()
+	_, repo, _, client := setup(t)
 
 	testCases := []struct {
 		desc    string
@@ -154,7 +144,7 @@ func testFailedGetLFSPointersRequestDueToValidations(t *testing.T, ctx context.C
 		{
 			desc: "empty BlobIds",
 			request: &gitalypb.GetLFSPointersRequest{
-				Repository: testRepo,
+				Repository: repo,
 				BlobIds:    nil,
 			},
 			code: codes.InvalidArgument,
@@ -173,35 +163,33 @@ func testFailedGetLFSPointersRequestDueToValidations(t *testing.T, ctx context.C
 	}
 }
 
-func TestSuccessfulGetNewLFSPointersRequest(t *testing.T) {
+func testSuccessfulGetNewLFSPointersRequest(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.GoGetNewLFSPointers,
 		featureflag.LFSPointersUseBitmapIndex,
-	}).Run(t, testSuccessfulGetNewLFSPointersRequest)
+	}).Run(t, func(t *testing.T, ctx context.Context) {
+		testSuccessfulGetNewLFSPointersRequestFeatured(t, ctx, cfg, rubySrv)
+	})
 }
 
-func testSuccessfulGetNewLFSPointersRequest(t *testing.T, ctx context.Context) {
-	stop, serverSocketPath := runBlobServer(t, testhelper.DefaultLocator())
-	defer stop()
+func testSuccessfulGetNewLFSPointersRequestFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
+	_, _, client := setupWithRuby(t, cfg, rubySrv)
 
-	client, conn := newBlobClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepoWithWorktree(t)
-	defer cleanupFn()
+	repo, repoPath, cleanup := gittest.CloneRepoWithWorktreeAtStorage(t, cfg.Storages[0])
+	t.Cleanup(cleanup)
 
 	revision := []byte("46abbb087fcc0fd02c340f0f2f052bd2c7708da3")
 	commiterArgs := []string{"-c", "user.name=Scrooge McDuck", "-c", "user.email=scrooge@mcduck.com"}
-	cmdArgs := append(commiterArgs, "-C", testRepoPath, "cherry-pick", string(revision))
-	cmd := exec.Command(config.Config.Git.BinPath, cmdArgs...)
+	cmdArgs := append(commiterArgs, "-C", repoPath, "cherry-pick", string(revision))
+	cmd := exec.Command(cfg.Git.BinPath, cmdArgs...)
 	// Skip smudge since it doesn't work with file:// remotes and we don't need it
 	cmd.Env = append(cmd.Env, "GIT_LFS_SKIP_SMUDGE=1")
 	altDirs := "./alt-objects"
-	altDirsCommit := gittest.CreateCommitInAlternateObjectDirectory(t, config.Config.Git.BinPath, testRepoPath, altDirs, cmd)
+	altDirsCommit := gittest.CreateCommitInAlternateObjectDirectory(t, cfg.Git.BinPath, repoPath, altDirs, cmd)
 
 	// Create a commit not pointed at by any ref to emulate being in the
 	// pre-receive hook so that `--not --all` returns some objects
-	newRevision := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "commit-tree", "8856a329dd38ca86dfb9ce5aa58a16d88cc119bd", "-m", "Add LFS objects")
+	newRevision := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "commit-tree", "8856a329dd38ca86dfb9ce5aa58a16d88cc119bd", "-m", "Add LFS objects")
 	newRevision = newRevision[:len(newRevision)-1] // Strip newline
 
 	testCases := []struct {
@@ -212,7 +200,7 @@ func testSuccessfulGetNewLFSPointersRequest(t *testing.T, ctx context.Context) {
 		{
 			desc: "standard request",
 			request: &gitalypb.GetNewLFSPointersRequest{
-				Repository: testRepo,
+				Repository: repo,
 				Revision:   revision,
 			},
 			expectedLFSPointers: []*gitalypb.LFSPointer{
@@ -224,7 +212,7 @@ func testSuccessfulGetNewLFSPointersRequest(t *testing.T, ctx context.Context) {
 		{
 			desc: "request with revision in alternate directory",
 			request: &gitalypb.GetNewLFSPointersRequest{
-				Repository: testRepo,
+				Repository: repo,
 				Revision:   altDirsCommit,
 			},
 			expectedLFSPointers: []*gitalypb.LFSPointer{
@@ -236,7 +224,7 @@ func testSuccessfulGetNewLFSPointersRequest(t *testing.T, ctx context.Context) {
 		{
 			desc: "request with non-exceeding limit",
 			request: &gitalypb.GetNewLFSPointersRequest{
-				Repository: testRepo,
+				Repository: repo,
 				Revision:   revision,
 				Limit:      9000,
 			},
@@ -261,7 +249,7 @@ func testSuccessfulGetNewLFSPointersRequest(t *testing.T, ctx context.Context) {
 		{
 			desc: "request with smaller limit",
 			request: &gitalypb.GetNewLFSPointersRequest{
-				Repository: testRepo,
+				Repository: repo,
 				Revision:   revision,
 				Limit:      2,
 			},
@@ -273,7 +261,7 @@ func testSuccessfulGetNewLFSPointersRequest(t *testing.T, ctx context.Context) {
 		{
 			desc: "with NotInAll true",
 			request: &gitalypb.GetNewLFSPointersRequest{
-				Repository: testRepo,
+				Repository: repo,
 				Revision:   newRevision,
 				NotInAll:   true,
 			},
@@ -284,7 +272,7 @@ func testSuccessfulGetNewLFSPointersRequest(t *testing.T, ctx context.Context) {
 		{
 			desc: "with some NotInRefs elements",
 			request: &gitalypb.GetNewLFSPointersRequest{
-				Repository: testRepo,
+				Repository: repo,
 				Revision:   revision,
 				NotInRefs:  [][]byte{[]byte("048721d90c449b244b7b4c53a9186b04330174ec")},
 			},
@@ -326,14 +314,7 @@ func TestFailedGetNewLFSPointersRequestDueToValidations(t *testing.T) {
 }
 
 func testFailedGetNewLFSPointersRequestDueToValidations(t *testing.T, ctx context.Context) {
-	stop, serverSocketPath := runBlobServer(t, testhelper.DefaultLocator())
-	defer stop()
-
-	client, conn := newBlobClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setup(t)
 
 	testCases := []struct {
 		desc       string
@@ -347,12 +328,12 @@ func testFailedGetNewLFSPointersRequestDueToValidations(t *testing.T, ctx contex
 		},
 		{
 			desc:       "empty revision",
-			repository: testRepo,
+			repository: repo,
 			revision:   nil,
 		},
 		{
 			desc:       "revision can't start with '-'",
-			repository: testRepo,
+			repository: repo,
 			revision:   []byte("-suspicious-revision"),
 		},
 	}
@@ -383,25 +364,20 @@ func drainNewPointers(c gitalypb.BlobService_GetNewLFSPointersClient) error {
 	}
 }
 
-func TestSuccessfulGetAllLFSPointersRequest(t *testing.T) {
+func testSuccessfulGetAllLFSPointersRequest(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.GoGetAllLFSPointers,
 		featureflag.LFSPointersUseBitmapIndex,
-	}).Run(t, testSuccessfulGetAllLFSPointersRequest)
+	}).Run(t, func(t *testing.T, ctx context.Context) {
+		testSuccessfulGetAllLFSPointersRequestFeatured(t, ctx, cfg, rubySrv)
+	})
 }
 
-func testSuccessfulGetAllLFSPointersRequest(t *testing.T, ctx context.Context) {
-	stop, serverSocketPath := runBlobServer(t, testhelper.DefaultLocator())
-	defer stop()
-
-	client, conn := newBlobClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+func testSuccessfulGetAllLFSPointersRequestFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
+	repo, _, client := setupWithRuby(t, cfg, rubySrv)
 
 	request := &gitalypb.GetAllLFSPointersRequest{
-		Repository: testRepo,
+		Repository: repo,
 	}
 
 	expectedLFSPointers := []*gitalypb.LFSPointer{
@@ -442,11 +418,7 @@ func TestFailedGetAllLFSPointersRequestDueToValidations(t *testing.T) {
 }
 
 func testFailedGetAllLFSPointersRequestDueToValidations(t *testing.T, ctx context.Context) {
-	stop, serverSocketPath := runBlobServer(t, testhelper.DefaultLocator())
-	defer stop()
-
-	client, conn := newBlobClient(t, serverSocketPath)
-	defer conn.Close()
+	_, _, _, client := setup(t)
 
 	testCases := []struct {
 		desc       string
@@ -483,27 +455,22 @@ func drainAllPointers(c gitalypb.BlobService_GetAllLFSPointersClient) error {
 	}
 }
 
-func TestGetAllLFSPointersVerifyScope(t *testing.T) {
+func testGetAllLFSPointersVerifyScope(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.GoGetAllLFSPointers,
 		featureflag.LFSPointersUseBitmapIndex,
-	}).Run(t, testGetAllLFSPointersVerifyScope)
+	}).Run(t, func(t *testing.T, ctx context.Context) {
+		testGetAllLFSPointersVerifyScopeFeatured(t, ctx, cfg, rubySrv)
+	})
 }
 
 // TestGetAllLFSPointersVerifyScope verifies that this RPC returns all LFS
 // pointers in a repository, not only ones reachable from the default branch
-func testGetAllLFSPointersVerifyScope(t *testing.T, ctx context.Context) {
-	stop, serverSocketPath := runBlobServer(t, testhelper.DefaultLocator())
-	defer stop()
-
-	client, conn := newBlobClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, repoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+func testGetAllLFSPointersVerifyScopeFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
+	repo, repoPath, client := setupWithRuby(t, cfg, rubySrv)
 
 	request := &gitalypb.GetAllLFSPointersRequest{
-		Repository: testRepo,
+		Repository: repo,
 	}
 
 	c, err := client.GetAllLFSPointers(ctx, request)
@@ -530,11 +497,13 @@ func refHasPtr(t *testing.T, repoPath, ref string, lfsPtr *gitalypb.LFSPointer) 
 }
 
 func TestFindLFSPointersByRevisions(t *testing.T) {
-	gitCmdFactory := git.NewExecCommandFactory(config.Config)
+	cfg := testcfg.Build(t)
 
-	repoProto, _, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
-	repo := localrepo.New(gitCmdFactory, repoProto, config.Config)
+	gitCmdFactory := git.NewExecCommandFactory(cfg)
+
+	repoProto, _, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name())
+	t.Cleanup(cleanup)
+	repo := localrepo.New(gitCmdFactory, repoProto, cfg)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -640,11 +609,13 @@ func TestFindLFSPointersByRevisions(t *testing.T) {
 }
 
 func BenchmarkFindLFSPointers(b *testing.B) {
-	gitCmdFactory := git.NewExecCommandFactory(config.Config)
+	cfg := testcfg.Build(b)
+
+	gitCmdFactory := git.NewExecCommandFactory(cfg)
 
 	repoProto, _, cleanup := gittest.CloneBenchRepo(b)
-	defer cleanup()
-	repo := localrepo.New(gitCmdFactory, repoProto, config.Config)
+	b.Cleanup(cleanup)
+	repo := localrepo.New(gitCmdFactory, repoProto, cfg)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -666,11 +637,13 @@ func BenchmarkFindLFSPointers(b *testing.B) {
 }
 
 func BenchmarkReadLFSPointers(b *testing.B) {
-	gitCmdFactory := git.NewExecCommandFactory(config.Config)
+	cfg := testcfg.Build(b)
+
+	gitCmdFactory := git.NewExecCommandFactory(cfg)
 
 	repoProto, path, cleanup := gittest.CloneBenchRepo(b)
-	defer cleanup()
-	repo := localrepo.New(gitCmdFactory, repoProto, config.Config)
+	b.Cleanup(cleanup)
+	repo := localrepo.New(gitCmdFactory, repoProto, cfg)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -690,11 +663,11 @@ func BenchmarkReadLFSPointers(b *testing.B) {
 }
 
 func TestReadLFSPointers(t *testing.T) {
-	gitCmdFactory := git.NewExecCommandFactory(config.Config)
+	cfg, repo, _, _ := setup(t)
 
-	repoProto, _, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
-	repo := localrepo.New(gitCmdFactory, repoProto, config.Config)
+	gitCmdFactory := git.NewExecCommandFactory(cfg)
+
+	localRepo := localrepo.New(gitCmdFactory, repo, cfg)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -809,7 +782,7 @@ func TestReadLFSPointers(t *testing.T) {
 			reader := strings.NewReader(tc.input)
 
 			actualLFSPointers, err := readLFSPointers(
-				ctx, repo, reader, tc.limit)
+				ctx, localRepo, reader, tc.limit)
 			if tc.expectedErr == nil {
 				require.NoError(t, err)
 			} else {

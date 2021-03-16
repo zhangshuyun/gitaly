@@ -7,21 +7,14 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/streamio"
 )
 
 func TestSuccessfulGetBlob(t *testing.T) {
-	stop, serverSocketPath := runBlobServer(t, testhelper.DefaultLocator())
-	defer stop()
+	_, repo, _, client := setup(t)
 
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-
-	client, conn := newBlobClient(t, serverSocketPath)
-	defer conn.Close()
 	maintenanceMdBlobData := testhelper.MustReadFile(t, "testdata/maintenance-md-blob.txt")
 	testCases := []struct {
 		desc     string
@@ -68,7 +61,7 @@ func TestSuccessfulGetBlob(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			request := &gitalypb.GetBlobRequest{
-				Repository: testRepo,
+				Repository: repo,
 				Oid:        tc.oid,
 				Limit:      int64(tc.limit),
 			}
@@ -91,17 +84,10 @@ func TestSuccessfulGetBlob(t *testing.T) {
 }
 
 func TestGetBlobNotFound(t *testing.T) {
-	stop, serverSocketPath := runBlobServer(t, testhelper.DefaultLocator())
-	defer stop()
-
-	client, conn := newBlobClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setup(t)
 
 	request := &gitalypb.GetBlobRequest{
-		Repository: testRepo,
+		Repository: repo,
 		Oid:        "doesnotexist",
 	}
 
@@ -147,20 +133,14 @@ func getBlob(stream gitalypb.BlobService_GetBlobClient) (int64, string, []byte, 
 }
 
 func TestFailedGetBlobRequestDueToValidationError(t *testing.T) {
-	stop, serverSocketPath := runBlobServer(t, testhelper.DefaultLocator())
-	defer stop()
+	_, repo, _, client := setup(t)
 
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-
-	client, conn := newBlobClient(t, serverSocketPath)
-	defer conn.Close()
 	oid := "d42783470dc29fde2cf459eb3199ee1d7e3f3a72"
 
 	rpcRequests := []gitalypb.GetBlobRequest{
 		{Repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}, Oid: oid}, // Repository doesn't exist
 		{Repository: nil, Oid: oid}, // Repository is nil
-		{Repository: testRepo},      // Oid is empty
+		{Repository: repo},          // Oid is empty
 	}
 
 	for _, rpcRequest := range rpcRequests {
