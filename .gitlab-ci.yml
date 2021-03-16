@@ -4,16 +4,16 @@ stages:
   - publish
 
 default:
-  image: registry.gitlab.com/gitlab-org/gitlab-build-images:ruby-2.7-golang-1.15-git-2.29
+  image: registry.gitlab.com/gitlab-org/gitlab-build-images:ruby-2.7-golang-1.15-git-2.31
   tags:
     - gitlab-org
 
 variables:
   DOCKER_DRIVER: overlay2
-  CUSTOM_IMAGE_VERSION: ruby-2.7-golang-1.13-git-2.29
+  CUSTOM_IMAGE_VERSION: ruby-2.7-golang-1.13-git-2.31
   SAST_DISABLE_DIND: "true"
   SAST_DEFAULT_ANALYZERS: "gosec"
-  GIT_VERSION: "v2.29.0"
+  GIT_VERSION: "v2.31.0"
   GO_VERSION: "1.15"
   RUBY_VERSION: "2.7"
 
@@ -72,7 +72,7 @@ danger-review:
     expire_in: 1 week
 
 .postgres_template: &postgres_definition
-  image: registry.gitlab.com/gitlab-org/gitlab-build-images:ruby-${RUBY_VERSION}-golang-${GO_VERSION}-git-2.29-pgbouncer-1.14
+  image: registry.gitlab.com/gitlab-org/gitlab-build-images:ruby-${RUBY_VERSION}-golang-${GO_VERSION}-git-2.31-pgbouncer-1.14
   services:
     - postgres:11.8
   variables:
@@ -111,7 +111,7 @@ proto:
 build:
   <<: *cache_definition
   stage: build
-  image: registry.gitlab.com/gitlab-org/gitlab-build-images:ruby-${RUBY_VERSION}-golang-${GO_VERSION}-git-2.29
+  image: registry.gitlab.com/gitlab-org/gitlab-build-images:ruby-${RUBY_VERSION}-golang-${GO_VERSION}-git-2.31
   script:
     - go version
     - make all git
@@ -119,14 +119,14 @@ build:
   parallel:
     matrix:
       - GO_VERSION: [ "1.14", "1.15" ]
-        GIT_VERSION: [ "v2.29.0" ]
+        GIT_VERSION: [ "v2.31.0" ]
       - GO_VERSION: "1.15"
-        GIT_VERSION: "v2.30.1"
+        GIT_VERSION: "v2.29.0"
 
 binaries:
   <<: *cache_definition
   stage: build
-  image: registry.gitlab.com/gitlab-org/gitlab-build-images:ruby-${RUBY_VERSION}-golang-${GO_VERSION}-git-2.29
+  image: registry.gitlab.com/gitlab-org/gitlab-build-images:ruby-${RUBY_VERSION}-golang-${GO_VERSION}-git-2.31
   only:
     - tags
   script:
@@ -142,11 +142,11 @@ binaries:
   parallel:
     matrix:
       - GO_VERSION: [ "1.14", "1.15" ]
-        GIT_VERSION: "v2.29.0"
+        GIT_VERSION: "v2.31.0"
 
 test:
   <<: *test_definition
-  image: registry.gitlab.com/gitlab-org/gitlab-build-images:ruby-${RUBY_VERSION}-golang-${GO_VERSION}-git-2.29
+  image: registry.gitlab.com/gitlab-org/gitlab-build-images:ruby-${RUBY_VERSION}-golang-${GO_VERSION}-git-2.31
   script:
     - go version
     - _build/deps/git/install/bin/git version
@@ -163,18 +163,18 @@ test:
   parallel:
     matrix:
       - GO_VERSION: [ "1.14", "1.15" ]
-        GIT_VERSION: [ "v2.29.0" ]
+        GIT_VERSION: [ "v2.31.0" ]
         TARGET: test
       - GO_VERSION: "1.15"
-        GIT_VERSION: "v2.29.0"
+        GIT_VERSION: "v2.31.0"
         TARGET: [ test-with-proxies, test-with-praefect, race-go ]
       - GO_VERSION: "1.15"
-        GIT_VERSION: "v2.30.1"
+        GIT_VERSION: "v2.29.0"
         TARGET: test
 
 nightly:git:
   <<: *test_definition
-  image: registry.gitlab.com/gitlab-org/gitlab-build-images:ruby-${RUBY_VERSION}-golang-${GO_VERSION}-git-2.29
+  image: registry.gitlab.com/gitlab-org/gitlab-build-images:ruby-${RUBY_VERSION}-golang-${GO_VERSION}-git-2.31
   script:
     - go version
     - make all ${TARGET}
