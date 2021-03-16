@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -17,28 +16,21 @@ import (
 )
 
 func TestSuccessfulGetTreeEntriesWithCurlyBraces(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
-
-	client, conn := newCommitServiceClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepoWithWorktree(t)
-	defer cleanupFn()
+	_, repo, repoPath, client := setupCommitServiceWithRepo(t, false)
 
 	normalFolderName := "issue-46261/folder"
 	curlyFolderName := "issue-46261/{{curly}}"
-	normalFolder := filepath.Join(testRepoPath, normalFolderName)
-	curlyFolder := filepath.Join(testRepoPath, curlyFolderName)
+	normalFolder := filepath.Join(repoPath, normalFolderName)
+	curlyFolder := filepath.Join(repoPath, curlyFolderName)
 
-	os.MkdirAll(normalFolder, 0755)
-	os.MkdirAll(curlyFolder, 0755)
+	require.NoError(t, os.MkdirAll(normalFolder, 0755))
+	require.NoError(t, os.MkdirAll(curlyFolder, 0755))
 
 	testhelper.MustRunCommand(t, nil, "touch", filepath.Join(normalFolder, "/test1.txt"))
 	testhelper.MustRunCommand(t, nil, "touch", filepath.Join(curlyFolder, "/test2.txt"))
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "add", "--all")
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "commit", "-m", "Test commit")
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "add", "--all")
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "commit", "-m", "Test commit")
 
 	testCases := []struct {
 		description string
@@ -62,23 +54,23 @@ func TestSuccessfulGetTreeEntriesWithCurlyBraces(t *testing.T) {
 	}
 
 	for _, testCase := range testCases {
-		request := &gitalypb.GetTreeEntriesRequest{
-			Repository: testRepo,
-			Revision:   []byte("HEAD"),
-			Path:       testCase.path,
-			Recursive:  testCase.recursive,
-		}
+		t.Run(testCase.description, func(t *testing.T) {
+			request := &gitalypb.GetTreeEntriesRequest{
+				Repository: repo,
+				Revision:   []byte("HEAD"),
+				Path:       testCase.path,
+				Recursive:  testCase.recursive,
+			}
 
-		ctx, cancel := testhelper.Context()
-		defer cancel()
-		c, err := client.GetTreeEntries(ctx, request)
-		if err != nil {
-			t.Fatal(err)
-		}
+			ctx, cancel := testhelper.Context()
+			defer cancel()
+			c, err := client.GetTreeEntries(ctx, request)
+			require.NoError(t, err)
 
-		fetchedEntries := getTreeEntriesFromTreeEntryClient(t, c)
-		require.Equal(t, 1, len(fetchedEntries))
-		require.Equal(t, testCase.filename, fetchedEntries[0].FlatPath)
+			fetchedEntries := getTreeEntriesFromTreeEntryClient(t, c)
+			require.Equal(t, 1, len(fetchedEntries))
+			require.Equal(t, testCase.filename, fetchedEntries[0].FlatPath)
+		})
 	}
 }
 
@@ -86,14 +78,7 @@ func TestSuccessfulGetTreeEntries(t *testing.T) {
 	commitID := "d25b6d94034242f3930dfcfeb6d8d9aac3583992"
 	rootOid := "21bdc8af908562ae485ed46d71dd5426c08b084a"
 
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
-
-	client, conn := newCommitServiceClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	rootEntries := []*gitalypb.TreeEntry{
 		{
@@ -375,7 +360,7 @@ func TestSuccessfulGetTreeEntries(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.description, func(t *testing.T) {
 			request := &gitalypb.GetTreeEntriesRequest{
-				Repository: testRepo,
+				Repository: repo,
 				Revision:   testCase.revision,
 				Path:       testCase.path,
 				Recursive:  testCase.recursive,
@@ -384,9 +369,7 @@ func TestSuccessfulGetTreeEntries(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 			c, err := client.GetTreeEntries(ctx, request)
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err)
 
 			fetchedEntries := getTreeEntriesFromTreeEntryClient(t, c)
 			require.Equal(t, testCase.entries, fetchedEntries)
@@ -395,14 +378,15 @@ func TestSuccessfulGetTreeEntries(t *testing.T) {
 }
 
 func getTreeEntriesFromTreeEntryClient(t *testing.T, client gitalypb.CommitService_GetTreeEntriesClient) []*gitalypb.TreeEntry {
+	t.Helper()
+
 	var entries []*gitalypb.TreeEntry
 	for {
 		resp, err := client.Recv()
 		if err == io.EOF {
 			break
-		} else if err != nil {
-			t.Fatal(err)
 		}
+		require.NoError(t, err)
 
 		entries = append(entries, resp.Entries...)
 	}
@@ -410,31 +394,24 @@ func getTreeEntriesFromTreeEntryClient(t *testing.T, client gitalypb.CommitServi
 }
 
 func TestSuccessfulGetTreeEntries_FlatPathMaxDeep_SingleFoldersStructure(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
-
-	client, conn := newCommitServiceClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepoWithWorktree(t)
-	defer cleanupFn()
+	_, repo, repoPath, client := setupCommitServiceWithRepo(t, false)
 
 	folderName := "1/2/3/4/5/6/7/8/9/10/11/12"
 	require.GreaterOrEqual(t, strings.Count(strings.Trim(folderName, "/"), "/"), defaultFlatTreeRecursion, "sanity check: construct folder deeper than default recursion value")
 
-	nestedFolder := filepath.Join(testRepoPath, folderName)
+	nestedFolder := filepath.Join(repoPath, folderName)
 	require.NoError(t, os.MkdirAll(nestedFolder, 0755))
 	// put single file into the deepest directory
 	testhelper.MustRunCommand(t, nil, "touch", filepath.Join(nestedFolder, ".gitkeep"))
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "add", "--all")
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "commit", "-m", "Deep folder struct")
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "add", "--all")
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "commit", "-m", "Deep folder struct")
 
-	commitID := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "rev-parse", "HEAD"))
-	rootOid := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "rev-parse", "HEAD^{tree}"))
+	commitID := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", "HEAD"))
+	rootOid := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", "HEAD^{tree}"))
 
 	// make request to folder that contains nothing except one folder
 	request := &gitalypb.GetTreeEntriesRequest{
-		Repository: testRepo,
+		Repository: repo,
 		Revision:   []byte(commitID),
 		Path:       []byte("1"),
 		Recursive:  false,
@@ -463,14 +440,7 @@ func TestSuccessfulGetTreeEntries_FlatPathMaxDeep_SingleFoldersStructure(t *test
 }
 
 func TestFailedGetTreeEntriesRequestDueToValidationError(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
-
-	client, conn := newCommitServiceClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	revision := []byte("d42783470dc29fde2cf459eb3199ee1d7e3f3a72")
 	path := []byte("a/b/c")
@@ -478,9 +448,9 @@ func TestFailedGetTreeEntriesRequestDueToValidationError(t *testing.T) {
 	rpcRequests := []gitalypb.GetTreeEntriesRequest{
 		{Repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}, Revision: revision, Path: path}, // Repository doesn't exist
 		{Repository: nil, Revision: revision, Path: path},                                                             // Repository is nil
-		{Repository: testRepo, Revision: nil, Path: path},                                                             // Revision is empty
-		{Repository: testRepo, Revision: revision},                                                                    // Path is empty
-		{Repository: testRepo, Revision: []byte("--output=/meow"), Path: path},                                        // Revision is invalid
+		{Repository: repo, Revision: nil, Path: path},                                                                 // Revision is empty
+		{Repository: repo, Revision: revision},                                                                        // Path is empty
+		{Repository: repo, Revision: []byte("--output=/meow"), Path: path},                                            // Revision is invalid
 	}
 
 	for _, rpcRequest := range rpcRequests {
@@ -488,9 +458,7 @@ func TestFailedGetTreeEntriesRequestDueToValidationError(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 			c, err := client.GetTreeEntries(ctx, &rpcRequest)
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err)
 
 			err = drainTreeEntriesResponse(c)
 			testhelper.RequireGrpcError(t, err, codes.InvalidArgument)

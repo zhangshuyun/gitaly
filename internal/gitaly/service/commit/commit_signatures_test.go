@@ -7,7 +7,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -15,14 +14,7 @@ import (
 )
 
 func TestSuccessfulGetCommitSignaturesRequest(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
-
-	client, conn := newCommitServiceClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, repoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, repoPath, client := setupCommitServiceWithRepo(t, true)
 
 	commitData := testhelper.MustReadFile(t, "testdata/dc00eb001f41dfac08192ead79c2377c588b82ee.commit")
 	commit := text.ChompBytes(testhelper.MustRunCommand(t, bytes.NewReader(commitData), "git", "-C", repoPath, "hash-object", "-w", "-t", "commit", "--stdin", "--literally"))
@@ -32,7 +24,7 @@ func TestSuccessfulGetCommitSignaturesRequest(t *testing.T) {
 	defer cancel()
 
 	request := &gitalypb.GetCommitSignaturesRequest{
-		Repository: testRepo,
+		Repository: repo,
 		CommitIds: []string{
 			"5937ac0a7beb003549fc5fd26fc247adbce4a52e", // has signature
 			"e63f41fe459e62e1228fcef60d7189127aeba95a", // has no signature
@@ -78,14 +70,7 @@ func TestSuccessfulGetCommitSignaturesRequest(t *testing.T) {
 }
 
 func TestFailedGetCommitSignaturesRequest(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
-
-	client, conn := newCommitServiceClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	testCases := []struct {
 		desc    string
@@ -103,7 +88,7 @@ func TestFailedGetCommitSignaturesRequest(t *testing.T) {
 		{
 			desc: "empty CommitIds",
 			request: &gitalypb.GetCommitSignaturesRequest{
-				Repository: testRepo,
+				Repository: repo,
 				CommitIds:  []string{},
 			},
 			code: codes.InvalidArgument,
@@ -111,7 +96,7 @@ func TestFailedGetCommitSignaturesRequest(t *testing.T) {
 		{
 			desc: "commitIDS with shorthand sha",
 			request: &gitalypb.GetCommitSignaturesRequest{
-				Repository: testRepo,
+				Repository: repo,
 				CommitIds:  []string{"5937ac0a7beb003549fc5fd26fc247adbce4a52e", "a17a9f6"},
 			},
 			code: codes.InvalidArgument,
@@ -139,6 +124,8 @@ func TestFailedGetCommitSignaturesRequest(t *testing.T) {
 }
 
 func readAllSignaturesFromClient(t *testing.T, c gitalypb.CommitService_GetCommitSignaturesClient) (signatures []*gitalypb.GetCommitSignaturesResponse) {
+	t.Helper()
+
 	for {
 		resp, err := c.Recv()
 		if err == io.EOF {

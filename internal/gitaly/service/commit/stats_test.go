@@ -5,24 +5,16 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
 
 func TestCommitStatsSuccess(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
-
-	client, conn := newCommitServiceClient(t, serverSocketPath)
-	defer conn.Close()
+	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
 
 	tests := []struct {
 		desc                 string
@@ -70,7 +62,7 @@ func TestCommitStatsSuccess(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.desc, func(t *testing.T) {
 			resp, err := client.CommitStats(ctx, &gitalypb.CommitStatsRequest{
-				Repository: testRepo,
+				Repository: repo,
 				Revision:   []byte(tc.revision),
 			})
 			require.NoError(t, err)
@@ -83,17 +75,10 @@ func TestCommitStatsSuccess(t *testing.T) {
 }
 
 func TestCommitStatsFailure(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
-
-	client, conn := newCommitServiceClient(t, serverSocketPath)
-	defer conn.Close()
+	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
 
 	tests := []struct {
 		desc     string
@@ -103,7 +88,7 @@ func TestCommitStatsFailure(t *testing.T) {
 	}{
 		{
 			desc:     "repo not found",
-			repo:     &gitalypb.Repository{StorageName: testRepo.GetStorageName(), RelativePath: "bar.git"},
+			repo:     &gitalypb.Repository{StorageName: repo.GetStorageName(), RelativePath: "bar.git"},
 			revision: []byte("test-do-not-touch"),
 			err:      codes.NotFound,
 		},
@@ -115,13 +100,13 @@ func TestCommitStatsFailure(t *testing.T) {
 		},
 		{
 			desc:     "ref not found",
-			repo:     testRepo,
+			repo:     repo,
 			revision: []byte("non/existing"),
 			err:      codes.Internal,
 		},
 		{
 			desc:     "invalid revision",
-			repo:     testRepo,
+			repo:     repo,
 			revision: []byte("--outpu=/meow"),
 			err:      codes.InvalidArgument,
 		},

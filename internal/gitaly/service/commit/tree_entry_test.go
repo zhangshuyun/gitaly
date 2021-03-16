@@ -6,7 +6,7 @@ import (
 	"io"
 	"testing"
 
-	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
+	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -21,14 +21,7 @@ type treeEntry struct {
 }
 
 func TestSuccessfulTreeEntry(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
-
-	client, conn := newCommitServiceClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	testCases := []struct {
 		revision          []byte
@@ -154,7 +147,7 @@ func TestSuccessfulTreeEntry(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(fmt.Sprintf("test case: revision=%q path=%q", testCase.revision, testCase.path), func(t *testing.T) {
 			request := &gitalypb.TreeEntryRequest{
-				Repository: testRepo,
+				Repository: repo,
 				Revision:   testCase.revision,
 				Path:       testCase.path,
 				Limit:      testCase.limit,
@@ -164,9 +157,7 @@ func TestSuccessfulTreeEntry(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 			c, err := client.TreeEntry(ctx, request)
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err)
 
 			assertExactReceivedTreeEntry(t, c, &testCase.expectedTreeEntry)
 		})
@@ -174,14 +165,7 @@ func TestSuccessfulTreeEntry(t *testing.T) {
 }
 
 func TestFailedTreeEntry(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
-
-	client, conn := newCommitServiceClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	revision := []byte("d42783470dc29fde2cf459eb3199ee1d7e3f3a72")
 	path := []byte("a/b/c")
@@ -203,32 +187,32 @@ func TestFailedTreeEntry(t *testing.T) {
 		},
 		{
 			name:         "Revision is empty",
-			req:          gitalypb.TreeEntryRequest{Repository: testRepo, Revision: nil, Path: path},
+			req:          gitalypb.TreeEntryRequest{Repository: repo, Revision: nil, Path: path},
 			expectedCode: codes.InvalidArgument,
 		},
 		{
 			name:         "Path is empty",
-			req:          gitalypb.TreeEntryRequest{Repository: testRepo, Revision: revision},
+			req:          gitalypb.TreeEntryRequest{Repository: repo, Revision: revision},
 			expectedCode: codes.InvalidArgument,
 		},
 		{
 			name:         "Revision is invalid",
-			req:          gitalypb.TreeEntryRequest{Repository: testRepo, Revision: []byte("--output=/meow"), Path: path},
+			req:          gitalypb.TreeEntryRequest{Repository: repo, Revision: []byte("--output=/meow"), Path: path},
 			expectedCode: codes.InvalidArgument,
 		},
 		{
 			name:         "Limit is negative",
-			req:          gitalypb.TreeEntryRequest{Repository: testRepo, Revision: revision, Path: path, Limit: -1},
+			req:          gitalypb.TreeEntryRequest{Repository: repo, Revision: revision, Path: path, Limit: -1},
 			expectedCode: codes.InvalidArgument,
 		},
 		{
 			name:         "MaximumSize is negative",
-			req:          gitalypb.TreeEntryRequest{Repository: testRepo, Revision: revision, Path: path, MaxSize: -1},
+			req:          gitalypb.TreeEntryRequest{Repository: repo, Revision: revision, Path: path, MaxSize: -1},
 			expectedCode: codes.InvalidArgument,
 		},
 		{
 			name:         "Object bigger than MaxSize",
-			req:          gitalypb.TreeEntryRequest{Repository: testRepo, Revision: []byte("913c66a37b4a45b9769037c55c2d238bd0942d2e"), Path: []byte("MAINTENANCE.md"), MaxSize: 10},
+			req:          gitalypb.TreeEntryRequest{Repository: repo, Revision: []byte("913c66a37b4a45b9769037c55c2d238bd0942d2e"), Path: []byte("MAINTENANCE.md"), MaxSize: 10},
 			expectedCode: codes.FailedPrecondition,
 		},
 	}
@@ -238,9 +222,7 @@ func TestFailedTreeEntry(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 			c, err := client.TreeEntry(ctx, &testCase.req)
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err)
 
 			err = drainTreeEntryResponse(c)
 			testhelper.RequireGrpcError(t, err, testCase.expectedCode)
@@ -249,6 +231,8 @@ func TestFailedTreeEntry(t *testing.T) {
 }
 
 func getTreeEntryFromTreeEntryClient(t *testing.T, client gitalypb.CommitService_TreeEntryClient) *treeEntry {
+	t.Helper()
+
 	fetchedTreeEntry := &treeEntry{}
 	firstResponseReceived := false
 
@@ -256,9 +240,8 @@ func getTreeEntryFromTreeEntryClient(t *testing.T, client gitalypb.CommitService
 		resp, err := client.Recv()
 		if err == io.EOF {
 			break
-		} else if err != nil {
-			t.Fatal(err)
 		}
+		require.NoError(t, err)
 
 		if !firstResponseReceived {
 			firstResponseReceived = true

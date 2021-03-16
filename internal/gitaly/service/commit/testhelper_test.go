@@ -1,17 +1,20 @@
 package commit
 
 import (
+	"io"
 	"net"
 	"os"
 	"testing"
 
 	"github.com/golang/protobuf/ptypes/timestamp"
+	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/reflection"
 )
 
 func TestMain(m *testing.M) {
@@ -25,32 +28,66 @@ func testMain(m *testing.M) int {
 	return m.Run()
 }
 
-func startTestServices(t testing.TB) (*grpc.Server, string) {
+func setupCommitService(t testing.TB) (config.Cfg, gitalypb.CommitServiceClient) {
+	cfg, _, _, client := setupCommitServiceCreateRepo(t, func(tb testing.TB, cfg config.Cfg) (*gitalypb.Repository, string, testhelper.Cleanup) {
+		return nil, "", func() {}
+	})
+	return cfg, client
+}
+
+func setupCommitServiceWithRepo(t testing.TB, bare bool) (config.Cfg, *gitalypb.Repository, string, gitalypb.CommitServiceClient) {
+	return setupCommitServiceCreateRepo(t, func(tb testing.TB, cfg config.Cfg) (*gitalypb.Repository, string, testhelper.Cleanup) {
+		if bare {
+			return gittest.CloneRepoAtStorage(tb, cfg.Storages[0], t.Name())
+		}
+		return gittest.CloneRepoWithWorktreeAtStorage(tb, cfg.Storages[0])
+	})
+}
+
+func setupCommitServiceCreateRepo(
+	t testing.TB,
+	createRepo func(testing.TB, config.Cfg) (*gitalypb.Repository, string, testhelper.Cleanup),
+) (config.Cfg, *gitalypb.Repository, string, gitalypb.CommitServiceClient) {
+	cfg := testcfg.Build(t)
+
+	repo, repoPath, cleanup := createRepo(t, cfg)
+	t.Cleanup(cleanup)
+
+	serverSocketPath := startTestServices(t, cfg)
+
+	client := newCommitServiceClient(t, serverSocketPath)
+
+	return cfg, repo, repoPath, client
+}
+
+func startTestServices(t testing.TB, cfg config.Cfg) string {
+	t.Helper()
+
 	server := testhelper.NewTestGrpcServer(t, nil, nil)
+	t.Cleanup(server.Stop)
+
 	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
 
 	listener, err := net.Listen("unix", serverSocketPath)
-	if err != nil {
-		t.Fatal("failed to start server")
-	}
+	require.NoError(t, err)
 
-	gitalypb.RegisterCommitServiceServer(server, NewServer(config.Config, config.NewLocator(config.Config), git.NewExecCommandFactory(config.Config)))
-	reflection.Register(server)
+	gitalypb.RegisterCommitServiceServer(server, NewServer(cfg, config.NewLocator(cfg), git.NewExecCommandFactory(cfg)))
 
 	go server.Serve(listener)
-	return server, "unix://" + serverSocketPath
+	return "unix://" + serverSocketPath
 }
 
-func newCommitServiceClient(t testing.TB, serviceSocketPath string) (gitalypb.CommitServiceClient, *grpc.ClientConn) {
+func newCommitServiceClient(t testing.TB, serviceSocketPath string) gitalypb.CommitServiceClient {
+	t.Helper()
+
 	connOpts := []grpc.DialOption{
 		grpc.WithInsecure(),
 	}
 	conn, err := grpc.Dial(serviceSocketPath, connOpts...)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
+	t.Cleanup(func() { conn.Close() })
 
-	return gitalypb.NewCommitServiceClient(conn), conn
+	return gitalypb.NewCommitServiceClient(conn)
 }
 
 func dummyCommitAuthor(ts int64) *gitalypb.CommitAuthor {
@@ -59,5 +96,24 @@ func dummyCommitAuthor(ts int64) *gitalypb.CommitAuthor {
 		Email:    []byte("ahmad+gitlab-test@gitlab.com"),
 		Date:     &timestamp.Timestamp{Seconds: ts},
 		Timezone: []byte("+0200"),
+	}
+}
+
+type gitCommitsGetter interface {
+	GetCommits() []*gitalypb.GitCommit
+}
+
+func getAllCommits(t testing.TB, getter func() (gitCommitsGetter, error)) []*gitalypb.GitCommit {
+	t.Helper()
+
+	var commits []*gitalypb.GitCommit
+	for {
+		resp, err := getter()
+		if err == io.EOF {
+			return commits
+		}
+		require.NoError(t, err)
+
+		commits = append(commits, resp.GetCommits()...)
 	}
 }

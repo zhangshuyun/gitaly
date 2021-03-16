@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -22,14 +21,7 @@ func TestFindCommitsFields(t *testing.T) {
 	windows1251Message, err := ioutil.ReadFile("testdata/commit-c809470461118b7bcab850f6e9a7ca97ac42f8ea-message.txt")
 	require.NoError(t, err)
 
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
-
-	client, conn := newCommitServiceClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	testCases := []struct {
 		id       string
@@ -159,7 +151,7 @@ func TestFindCommitsFields(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.id, func(t *testing.T) {
 			request := &gitalypb.FindCommitsRequest{
-				Repository: testRepo,
+				Repository: repo,
 				Revision:   []byte(tc.id),
 				Trailers:   tc.trailers,
 				Limit:      1,
@@ -185,14 +177,7 @@ func TestFindCommitsFields(t *testing.T) {
 }
 
 func TestSuccessfulFindCommitsRequest(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
-
-	client, conn := newCommitServiceClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	testCases := []struct {
 		desc    string
@@ -205,7 +190,7 @@ func TestSuccessfulFindCommitsRequest(t *testing.T) {
 		{
 			desc: "commit by author",
 			request: &gitalypb.FindCommitsRequest{
-				Repository: testRepo,
+				Repository: repo,
 				Revision:   []byte("0031876facac3f2b2702a0e53a26e89939a42209"),
 				Author:     []byte("Dmitriy Zaporozhets <dmitriy.zaporozhets@gmail.com>"),
 				Limit:      20,
@@ -215,7 +200,7 @@ func TestSuccessfulFindCommitsRequest(t *testing.T) {
 		{
 			desc: "only revision, limit commits",
 			request: &gitalypb.FindCommitsRequest{
-				Repository: testRepo,
+				Repository: repo,
 				Revision:   []byte("0031876facac3f2b2702a0e53a26e89939a42209"),
 				Limit:      3,
 			},
@@ -228,21 +213,21 @@ func TestSuccessfulFindCommitsRequest(t *testing.T) {
 		{
 			desc: "revision, default commit limit",
 			request: &gitalypb.FindCommitsRequest{
-				Repository: testRepo,
+				Repository: repo,
 				Revision:   []byte("0031876facac3f2b2702a0e53a26e89939a42209"),
 			},
 		},
 		{
 			desc: "revision, default commit limit, bypassing rugged walk",
 			request: &gitalypb.FindCommitsRequest{
-				Repository:  testRepo,
+				Repository:  repo,
 				Revision:    []byte("0031876facac3f2b2702a0e53a26e89939a42209"),
 				DisableWalk: true,
 			},
 		}, {
 			desc: "revision and paths",
 			request: &gitalypb.FindCommitsRequest{
-				Repository: testRepo,
+				Repository: repo,
 				Revision:   []byte("0031876facac3f2b2702a0e53a26e89939a42209"),
 				Paths:      [][]byte{[]byte("LICENSE")},
 				Limit:      10,
@@ -252,7 +237,7 @@ func TestSuccessfulFindCommitsRequest(t *testing.T) {
 		{
 			desc: "revision and wildcard pathspec",
 			request: &gitalypb.FindCommitsRequest{
-				Repository: testRepo,
+				Repository: repo,
 				Revision:   []byte("0031876facac3f2b2702a0e53a26e89939a42209"),
 				Paths:      [][]byte{[]byte("LICEN*")},
 				Limit:      10,
@@ -262,7 +247,7 @@ func TestSuccessfulFindCommitsRequest(t *testing.T) {
 		{
 			desc: "revision and non-existent literal pathspec",
 			request: &gitalypb.FindCommitsRequest{
-				Repository:    testRepo,
+				Repository:    repo,
 				Revision:      []byte("0031876facac3f2b2702a0e53a26e89939a42209"),
 				Paths:         [][]byte{[]byte("LICEN*")},
 				Limit:         10,
@@ -273,7 +258,7 @@ func TestSuccessfulFindCommitsRequest(t *testing.T) {
 		{
 			desc: "empty revision",
 			request: &gitalypb.FindCommitsRequest{
-				Repository: testRepo,
+				Repository: repo,
 				Limit:      35,
 			},
 			minCommits: 35,
@@ -281,7 +266,7 @@ func TestSuccessfulFindCommitsRequest(t *testing.T) {
 		{
 			desc: "before and after",
 			request: &gitalypb.FindCommitsRequest{
-				Repository: testRepo,
+				Repository: repo,
 				Before:     &timestamp.Timestamp{Seconds: 1483225200},
 				After:      &timestamp.Timestamp{Seconds: 1472680800},
 				Limit:      10,
@@ -294,7 +279,7 @@ func TestSuccessfulFindCommitsRequest(t *testing.T) {
 		{
 			desc: "no merges",
 			request: &gitalypb.FindCommitsRequest{
-				Repository: testRepo,
+				Repository: repo,
 				Revision:   []byte("e63f41fe459e62e1228fcef60d7189127aeba95a"),
 				SkipMerges: true,
 				Limit:      10,
@@ -315,7 +300,7 @@ func TestSuccessfulFindCommitsRequest(t *testing.T) {
 		{
 			desc: "following renames",
 			request: &gitalypb.FindCommitsRequest{
-				Repository: testRepo,
+				Repository: repo,
 				Revision:   []byte("94bb47ca1297b7b3731ff2a36923640991e9236f"),
 				Paths:      [][]byte{[]byte("CHANGELOG.md")},
 				Follow:     true,
@@ -330,7 +315,7 @@ func TestSuccessfulFindCommitsRequest(t *testing.T) {
 		{
 			desc: "all refs",
 			request: &gitalypb.FindCommitsRequest{
-				Repository: testRepo,
+				Repository: repo,
 				All:        true,
 				Limit:      90,
 			},
@@ -339,7 +324,7 @@ func TestSuccessfulFindCommitsRequest(t *testing.T) {
 		{
 			desc: "first parents",
 			request: &gitalypb.FindCommitsRequest{
-				Repository:  testRepo,
+				Repository:  repo,
 				Revision:    []byte("e63f41fe459e62e1228fcef60d7189127aeba95a"),
 				FirstParent: true,
 				Limit:       10,
@@ -372,7 +357,7 @@ func TestSuccessfulFindCommitsRequest(t *testing.T) {
 			// * 1039376
 			desc: "ordered by none",
 			request: &gitalypb.FindCommitsRequest{
-				Repository: testRepo,
+				Repository: repo,
 				Revision:   []byte("0031876"),
 				Order:      gitalypb.FindCommitsRequest_NONE,
 				Limit:      6,
@@ -401,7 +386,7 @@ func TestSuccessfulFindCommitsRequest(t *testing.T) {
 			// * 1039376
 			desc: "ordered by topo",
 			request: &gitalypb.FindCommitsRequest{
-				Repository: testRepo,
+				Repository: repo,
 				Revision:   []byte("0031876"),
 				Order:      gitalypb.FindCommitsRequest_TOPO,
 				Limit:      6,
@@ -449,24 +434,17 @@ func TestSuccessfulFindCommitsRequest(t *testing.T) {
 }
 
 func TestSuccessfulFindCommitsRequestWithAltGitObjectDirs(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
-
-	client, conn := newCommitServiceClient(t, serverSocketPath)
-	defer conn.Close()
+	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, false)
 
 	committerName := "Scrooge McDuck"
 	committerEmail := "scrooge@mcduck.com"
 
-	testRepoCopy, testRepoCopyPath, cleanupFn := gittest.CloneRepoWithWorktree(t)
-	defer cleanupFn()
-
-	cmd := exec.Command(config.Config.Git.BinPath, "-C", testRepoCopyPath,
+	cmd := exec.Command(cfg.Git.BinPath, "-C", repoPath,
 		"-c", fmt.Sprintf("user.name=%s", committerName),
 		"-c", fmt.Sprintf("user.email=%s", committerEmail),
 		"commit", "--allow-empty", "-m", "An empty commit")
 	altObjectsDir := "./alt-objects"
-	currentHead := gittest.CreateCommitInAlternateObjectDirectory(t, config.Config.Git.BinPath, testRepoCopyPath, altObjectsDir, cmd)
+	currentHead := gittest.CreateCommitInAlternateObjectDirectory(t, cfg.Git.BinPath, repoPath, altObjectsDir, cmd)
 
 	testCases := []struct {
 		desc          string
@@ -487,9 +465,9 @@ func TestSuccessfulFindCommitsRequestWithAltGitObjectDirs(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
-			testRepoCopy.GitAlternateObjectDirectories = testCase.altDirs
+			repo.GitAlternateObjectDirectories = testCase.altDirs
 			request := &gitalypb.FindCommitsRequest{
-				Repository: testRepoCopy,
+				Repository: repo,
 				Revision:   currentHead,
 				Limit:      1,
 			}
@@ -500,18 +478,7 @@ func TestSuccessfulFindCommitsRequestWithAltGitObjectDirs(t *testing.T) {
 			c, err := client.FindCommits(ctx, request)
 			require.NoError(t, err)
 
-			receivedCommits := []*gitalypb.GitCommit{}
-
-			for {
-				resp, err := c.Recv()
-				if err == io.EOF {
-					break
-				} else if err != nil {
-					t.Fatal(err)
-				}
-
-				receivedCommits = append(receivedCommits, resp.GetCommits()...)
-			}
+			receivedCommits := getAllCommits(t, func() (gitCommitsGetter, error) { return c.Recv() })
 
 			require.Equal(t, testCase.expectedCount, len(receivedCommits), "number of commits received")
 		})
@@ -519,14 +486,7 @@ func TestSuccessfulFindCommitsRequestWithAltGitObjectDirs(t *testing.T) {
 }
 
 func TestSuccessfulFindCommitsRequestWithAmbiguousRef(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
-
-	client, conn := newCommitServiceClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepoWithWorktree(t)
-	defer cleanupFn()
+	_, repo, repoPath, client := setupCommitServiceWithRepo(t, false)
 
 	// These are arbitrary SHAs in the repository. The important part is
 	// that we create a branch using one of them with a different SHA so
@@ -534,10 +494,10 @@ func TestSuccessfulFindCommitsRequestWithAmbiguousRef(t *testing.T) {
 	branchName := "1e292f8fedd741b75372e19097c76d327140c312"
 	commitSha := "6907208d755b60ebeacb2e9dfea74c92c3449a1f"
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "checkout", "-b", branchName, commitSha)
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "checkout", "-b", branchName, commitSha)
 
 	request := &gitalypb.FindCommitsRequest{
-		Repository: testRepo,
+		Repository: repo,
 		Revision:   []byte(branchName),
 		Limit:      1,
 	}
@@ -548,31 +508,13 @@ func TestSuccessfulFindCommitsRequestWithAmbiguousRef(t *testing.T) {
 	c, err := client.FindCommits(ctx, request)
 	require.NoError(t, err)
 
-	receivedCommits := []*gitalypb.GitCommit{}
-
-	for {
-		resp, err := c.Recv()
-		if err == io.EOF {
-			break
-		} else if err != nil {
-			t.Fatal(err)
-		}
-
-		receivedCommits = append(receivedCommits, resp.GetCommits()...)
-	}
+	receivedCommits := getAllCommits(t, func() (gitCommitsGetter, error) { return c.Recv() })
 
 	require.Equal(t, 1, len(receivedCommits), "number of commits received")
 }
 
 func TestFailureFindCommitsRequest(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
-
-	client, conn := newCommitServiceClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	testCases := []struct {
 		desc    string
@@ -582,7 +524,7 @@ func TestFailureFindCommitsRequest(t *testing.T) {
 		{
 			desc: "empty path string",
 			request: &gitalypb.FindCommitsRequest{
-				Repository: testRepo,
+				Repository: repo,
 				Paths:      [][]byte{[]byte("")},
 			},
 			code: codes.InvalidArgument,
@@ -590,7 +532,7 @@ func TestFailureFindCommitsRequest(t *testing.T) {
 		{
 			desc: "invalid revision",
 			request: &gitalypb.FindCommitsRequest{
-				Repository: testRepo,
+				Repository: repo,
 				Revision:   []byte("--output=/meow"),
 				Limit:      1,
 			},
@@ -616,17 +558,10 @@ func TestFailureFindCommitsRequest(t *testing.T) {
 }
 
 func TestFindCommitsRequestWithFollowAndOffset(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
-
-	client, conn := newCommitServiceClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	request := &gitalypb.FindCommitsRequest{
-		Repository: testRepo,
+		Repository: repo,
 		Follow:     true,
 		Paths:      [][]byte{[]byte("CHANGELOG")},
 		Limit:      100,
@@ -650,6 +585,8 @@ func TestFindCommitsRequestWithFollowAndOffset(t *testing.T) {
 }
 
 func getCommits(ctx context.Context, t *testing.T, request *gitalypb.FindCommitsRequest, client gitalypb.CommitServiceClient) []*gitalypb.GitCommit {
+	t.Helper()
+
 	stream, err := client.FindCommits(ctx, request)
 	require.NoError(t, err)
 

@@ -11,14 +11,7 @@ import (
 )
 
 func TestSuccessfulLastCommitForPathRequest(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
-
-	client, conn := newCommitServiceClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	commit := testhelper.GitLabTestCommit("570e7b2abdd848b95f2f578043fc23bd6f6fd24d")
 
@@ -61,17 +54,16 @@ func TestSuccessfulLastCommitForPathRequest(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
 			request := &gitalypb.LastCommitForPathRequest{
-				Repository: testRepo,
+				Repository: repo,
 				Revision:   []byte(testCase.revision),
 				Path:       testCase.path,
 			}
 
 			ctx, cancel := testhelper.Context()
 			defer cancel()
+
 			response, err := client.LastCommitForPath(ctx, request)
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err)
 
 			testhelper.ProtoEqual(t, testCase.commit, response.GetCommit())
 		})
@@ -79,14 +71,7 @@ func TestSuccessfulLastCommitForPathRequest(t *testing.T) {
 }
 
 func TestFailedLastCommitForPathRequest(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
-
-	client, conn := newCommitServiceClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	invalidRepo := &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}
 
@@ -107,13 +92,13 @@ func TestFailedLastCommitForPathRequest(t *testing.T) {
 		},
 		{
 			desc:    "Revision is missing",
-			request: &gitalypb.LastCommitForPathRequest{Repository: testRepo, Path: []byte("foo/bar")},
+			request: &gitalypb.LastCommitForPathRequest{Repository: repo, Path: []byte("foo/bar")},
 			code:    codes.InvalidArgument,
 		},
 		{
 			desc: "Revision is invalid",
 			request: &gitalypb.LastCommitForPathRequest{
-				Repository: testRepo, Path: []byte("foo/bar"), Revision: []byte("--output=/meow"),
+				Repository: repo, Path: []byte("foo/bar"), Revision: []byte("--output=/meow"),
 			},
 			code: codes.InvalidArgument,
 		},
@@ -130,28 +115,21 @@ func TestFailedLastCommitForPathRequest(t *testing.T) {
 }
 
 func TestSuccessfulLastCommitWithGlobCharacters(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
-
-	client, conn := newCommitServiceClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepoWithWorktree(t)
-	defer cleanupFn()
+	_, repo, repoPath, client := setupCommitServiceWithRepo(t, true)
 
 	// This is an arbitrary blob known to exist in the test repository
 	const blobID = "c60514b6d3d6bf4bec1030f70026e34dfbd69ad5"
 	path := ":wq"
 
 	commitID := gittest.CommitBlobWithName(t,
-		testRepoPath,
+		repoPath,
 		blobID,
 		path,
 		"commit for filename with glob characters",
 	)
 
 	request := &gitalypb.LastCommitForPathRequest{
-		Repository:      testRepo,
+		Repository:      repo,
 		Revision:        []byte(commitID),
 		Path:            []byte(path),
 		LiteralPathspec: true,

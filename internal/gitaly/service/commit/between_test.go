@@ -1,24 +1,16 @@
 package commit
 
 import (
-	"io"
 	"testing"
 
-	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
+	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
 
 func TestSuccessfulCommitsBetween(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
-
-	client, conn := newCommitServiceClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	from := []byte("498214de67004b1da3d820901307bed2a68a8ef6") // branch-merged
 	to := []byte("ba3343bc4fa403a8dfbfcab7fc1a8c29ee34bd69")   // spooky-stuff
@@ -87,27 +79,17 @@ func TestSuccessfulCommitsBetween(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.description, func(t *testing.T) {
-			commits := []*gitalypb.GitCommit{}
 			rpcRequest := gitalypb.CommitsBetweenRequest{
-				Repository: testRepo, From: tc.from, To: tc.to,
+				Repository: repo, From: tc.from, To: tc.to,
 			}
 
 			ctx, cancel := testhelper.Context()
 			defer cancel()
-			c, err := client.CommitsBetween(ctx, &rpcRequest)
-			if err != nil {
-				t.Fatal(err)
-			}
 
-			for {
-				resp, err := c.Recv()
-				if err == io.EOF {
-					break
-				} else if err != nil {
-					t.Fatal(err)
-				}
-				commits = append(commits, resp.GetCommits()...)
-			}
+			c, err := client.CommitsBetween(ctx, &rpcRequest)
+			require.NoError(t, err)
+
+			commits := getAllCommits(t, func() (gitCommitsGetter, error) { return c.Recv() })
 
 			for i, commit := range commits {
 				testhelper.ProtoEqual(t, expectedCommits[i], commit)
@@ -117,14 +99,7 @@ func TestSuccessfulCommitsBetween(t *testing.T) {
 }
 
 func TestFailedCommitsBetweenRequest(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
-
-	client, conn := newCommitServiceClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	invalidRepo := &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}
 	from := []byte("498214de67004b1da3d820901307bed2a68a8ef6")
@@ -153,14 +128,14 @@ func TestFailedCommitsBetweenRequest(t *testing.T) {
 		},
 		{
 			description: "From is empty",
-			repository:  testRepo,
+			repository:  repo,
 			from:        nil,
 			to:          to,
 			code:        codes.InvalidArgument,
 		},
 		{
 			description: "To is empty",
-			repository:  testRepo,
+			repository:  repo,
 			from:        from,
 			to:          nil,
 			code:        codes.InvalidArgument,
@@ -188,9 +163,7 @@ func TestFailedCommitsBetweenRequest(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 			c, err := client.CommitsBetween(ctx, &rpcRequest)
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err)
 
 			err = drainCommitsBetweenResponse(c)
 			testhelper.RequireGrpcError(t, err, tc.code)

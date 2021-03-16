@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
@@ -14,14 +13,7 @@ func TestFilterShasWithSignaturesSuccessful(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
-
-	client, conn := newCommitServiceClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	type testCase struct {
 		desc string
@@ -56,7 +48,7 @@ func TestFilterShasWithSignaturesSuccessful(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			stream, err := client.FilterShasWithSignatures(ctx)
 			require.NoError(t, err)
-			require.NoError(t, stream.Send(&gitalypb.FilterShasWithSignaturesRequest{Repository: testRepo, Shas: tc.in}))
+			require.NoError(t, stream.Send(&gitalypb.FilterShasWithSignaturesRequest{Repository: repo, Shas: tc.in}))
 			require.NoError(t, stream.CloseSend())
 			recvOut, err := recvFSWS(stream)
 			require.NoError(t, err)

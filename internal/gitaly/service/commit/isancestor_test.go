@@ -7,7 +7,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -15,14 +14,7 @@ import (
 )
 
 func TestCommitIsAncestorFailure(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
-
-	client, conn := newCommitServiceClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	queries := []struct {
 		Request   *gitalypb.CommitIsAncestorRequest
@@ -40,7 +32,7 @@ func TestCommitIsAncestorFailure(t *testing.T) {
 		},
 		{
 			Request: &gitalypb.CommitIsAncestorRequest{
-				Repository: testRepo,
+				Repository: repo,
 				AncestorId: "",
 				ChildId:    "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab",
 			},
@@ -49,7 +41,7 @@ func TestCommitIsAncestorFailure(t *testing.T) {
 		},
 		{
 			Request: &gitalypb.CommitIsAncestorRequest{
-				Repository: testRepo,
+				Repository: repo,
 				AncestorId: "b83d6e391c22777fca1ed3012fce84f633d7fed0",
 				ChildId:    "",
 			},
@@ -81,14 +73,7 @@ func TestCommitIsAncestorFailure(t *testing.T) {
 }
 
 func TestCommitIsAncestorSuccess(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
-
-	client, conn := newCommitServiceClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	queries := []struct {
 		Request  *gitalypb.CommitIsAncestorRequest
@@ -97,7 +82,7 @@ func TestCommitIsAncestorSuccess(t *testing.T) {
 	}{
 		{
 			Request: &gitalypb.CommitIsAncestorRequest{
-				Repository: testRepo,
+				Repository: repo,
 				AncestorId: "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab",
 				ChildId:    "372ab6950519549b14d220271ee2322caa44d4eb",
 			},
@@ -106,7 +91,7 @@ func TestCommitIsAncestorSuccess(t *testing.T) {
 		},
 		{
 			Request: &gitalypb.CommitIsAncestorRequest{
-				Repository: testRepo,
+				Repository: repo,
 				AncestorId: "b83d6e391c22777fca1ed3012fce84f633d7fed0",
 				ChildId:    "38008cb17ce1466d8fec2dfa6f6ab8dcfe5cf49e",
 			},
@@ -115,7 +100,7 @@ func TestCommitIsAncestorSuccess(t *testing.T) {
 		},
 		{
 			Request: &gitalypb.CommitIsAncestorRequest{
-				Repository: testRepo,
+				Repository: repo,
 				AncestorId: "1234123412341234123412341234123412341234",
 				ChildId:    "b83d6e391c22777fca1ed3012fce84f633d7fed0",
 			},
@@ -124,7 +109,7 @@ func TestCommitIsAncestorSuccess(t *testing.T) {
 		},
 		{
 			Request: &gitalypb.CommitIsAncestorRequest{
-				Repository: testRepo,
+				Repository: repo,
 				AncestorId: "b83d6e391c22777fca1ed3012fce84f633d7fed0",
 				ChildId:    "gitaly-stuff",
 			},
@@ -133,7 +118,7 @@ func TestCommitIsAncestorSuccess(t *testing.T) {
 		},
 		{
 			Request: &gitalypb.CommitIsAncestorRequest{
-				Repository: testRepo,
+				Repository: repo,
 				AncestorId: "gitaly-stuff",
 				ChildId:    "master",
 			},
@@ -142,7 +127,7 @@ func TestCommitIsAncestorSuccess(t *testing.T) {
 		},
 		{
 			Request: &gitalypb.CommitIsAncestorRequest{
-				Repository: testRepo,
+				Repository: repo,
 				AncestorId: "refs/tags/v1.0.0",
 				ChildId:    "refs/tags/v1.1.0",
 			},
@@ -151,7 +136,7 @@ func TestCommitIsAncestorSuccess(t *testing.T) {
 		},
 		{
 			Request: &gitalypb.CommitIsAncestorRequest{
-				Repository: testRepo,
+				Repository: repo,
 				AncestorId: "refs/tags/v1.1.0",
 				ChildId:    "refs/tags/v1.0.0",
 			},
@@ -165,39 +150,28 @@ func TestCommitIsAncestorSuccess(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 			c, err := client.CommitIsAncestor(ctx, v.Request)
-			if err != nil {
-				t.Fatalf("CommitIsAncestor threw error unexpectedly: %v", err)
-			}
+			require.NoError(t, err)
 
 			response := c.GetValue()
-			if response != v.Response {
-				t.Errorf(v.ErrMsg)
-			}
+			require.Equal(t, v.Response, response, v.ErrMsg)
 		})
 	}
 }
 
 func TestSuccessfulIsAncestorRequestWithAltGitObjectDirs(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
-
-	client, conn := newCommitServiceClient(t, serverSocketPath)
-	defer conn.Close()
+	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, false)
 
 	committerName := "Scrooge McDuck"
 	committerEmail := "scrooge@mcduck.com"
 
-	testRepoCopy, testRepoCopyPath, cleanupFn := gittest.CloneRepoWithWorktree(t)
-	defer cleanupFn()
+	previousHead := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "show", "--format=format:%H", "--no-patch", "HEAD")
 
-	previousHead := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoCopyPath, "show", "--format=format:%H", "--no-patch", "HEAD")
-
-	cmd := exec.Command(config.Config.Git.BinPath, "-C", testRepoCopyPath,
+	cmd := exec.Command(cfg.Git.BinPath, "-C", repoPath,
 		"-c", fmt.Sprintf("user.name=%s", committerName),
 		"-c", fmt.Sprintf("user.email=%s", committerEmail),
 		"commit", "--allow-empty", "-m", "An empty commit")
 	altObjectsDir := "./alt-objects"
-	currentHead := gittest.CreateCommitInAlternateObjectDirectory(t, config.Config.Git.BinPath, testRepoCopyPath, altObjectsDir, cmd)
+	currentHead := gittest.CreateCommitInAlternateObjectDirectory(t, cfg.Git.BinPath, repoPath, altObjectsDir, cmd)
 
 	testCases := []struct {
 		desc    string
@@ -218,9 +192,9 @@ func TestSuccessfulIsAncestorRequestWithAltGitObjectDirs(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
-			testRepoCopy.GitAlternateObjectDirectories = testCase.altDirs
+			repo.GitAlternateObjectDirectories = testCase.altDirs
 			request := &gitalypb.CommitIsAncestorRequest{
-				Repository: testRepoCopy,
+				Repository: repo,
 				AncestorId: string(previousHead),
 				ChildId:    string(currentHead),
 			}
@@ -228,9 +202,7 @@ func TestSuccessfulIsAncestorRequestWithAltGitObjectDirs(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 			response, err := client.CommitIsAncestor(ctx, request)
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err)
 
 			require.Equal(t, testCase.result, response.Value)
 		})

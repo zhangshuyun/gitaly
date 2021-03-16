@@ -14,14 +14,7 @@ import (
 )
 
 func TestSuccessfulGetCommitMessagesRequest(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
-
-	client, conn := newCommitServiceClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, repoPath, client := setupCommitServiceWithRepo(t, true)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -29,11 +22,11 @@ func TestSuccessfulGetCommitMessagesRequest(t *testing.T) {
 	message1 := strings.Repeat("a\n", helper.MaxCommitOrTagMessageSize*2)
 	message2 := strings.Repeat("b\n", helper.MaxCommitOrTagMessageSize*2)
 
-	commit1ID := gittest.CreateCommit(t, testRepoPath, "local-big-commits", &gittest.CreateCommitOpts{Message: message1})
-	commit2ID := gittest.CreateCommit(t, testRepoPath, "local-big-commits", &gittest.CreateCommitOpts{Message: message2, ParentID: commit1ID})
+	commit1ID := gittest.CreateCommit(t, repoPath, "local-big-commits", &gittest.CreateCommitOpts{Message: message1})
+	commit2ID := gittest.CreateCommit(t, repoPath, "local-big-commits", &gittest.CreateCommitOpts{Message: message2, ParentID: commit1ID})
 
 	request := &gitalypb.GetCommitMessagesRequest{
-		Repository: testRepo,
+		Repository: repo,
 		CommitIds:  []string{commit1ID, commit2ID},
 	}
 
@@ -58,11 +51,7 @@ func TestSuccessfulGetCommitMessagesRequest(t *testing.T) {
 }
 
 func TestFailedGetCommitMessagesRequest(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
-
-	client, conn := newCommitServiceClient(t, serverSocketPath)
-	defer conn.Close()
+	_, _, _, client := setupCommitServiceWithRepo(t, true)
 
 	testCases := []struct {
 		desc    string
@@ -100,6 +89,8 @@ func TestFailedGetCommitMessagesRequest(t *testing.T) {
 }
 
 func readAllMessagesFromClient(t *testing.T, c gitalypb.CommitService_GetCommitMessagesClient) (messages []*gitalypb.GetCommitMessagesResponse) {
+	t.Helper()
+
 	for {
 		resp, err := c.Recv()
 		if err == io.EOF {
