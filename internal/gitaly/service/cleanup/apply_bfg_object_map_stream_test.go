@@ -10,24 +10,18 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
 
 func TestApplyBfgObjectMapStreamSuccess(t *testing.T) {
-	serverSocketPath, stop := runCleanupServiceServer(t, config.Config)
-	defer stop()
+	cfg, protoRepo, repoPath, client := setupCleanupService(t)
 
-	client, conn := newCleanupServiceClient(t, serverSocketPath)
-	defer conn.Close()
+	testhelper.ConfigureGitalyHooksBin(t, cfg)
 
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-	repo := localrepo.New(git.NewExecCommandFactory(config.Config), testRepo, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(cfg), protoRepo, cfg)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -46,7 +40,7 @@ func TestApplyBfgObjectMapStreamSuccess(t *testing.T) {
 		"refs/environments/1", "refs/keep-around/1", "refs/merge-requests/1", "refs/pipelines/1",
 		"refs/heads/_keep", "refs/tags/_keep", "refs/notes/_keep",
 	} {
-		testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "update-ref", ref, headCommit.Id)
+		testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "update-ref", ref, headCommit.Id)
 	}
 
 	// Create some refs pointing to ref/tags/v1.0.0, simulating an unmodified
@@ -54,7 +48,7 @@ func TestApplyBfgObjectMapStreamSuccess(t *testing.T) {
 	for _, ref := range []string{
 		"refs/environments/_keep", "refs/keep-around/_keep", "refs/merge-requests/_keep", "refs/pipelines/_keep",
 	} {
-		testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "update-ref", ref, tagID)
+		testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "update-ref", ref, tagID)
 	}
 
 	const filterRepoCommitMapHeader = "old                                      new\n"
@@ -67,7 +61,7 @@ func TestApplyBfgObjectMapStreamSuccess(t *testing.T) {
 		tagID, tagID,
 	)
 
-	entries, err := doStreamingRequest(ctx, t, testRepo, client, objectMapData)
+	entries, err := doStreamingRequest(ctx, t, protoRepo, client, objectMapData)
 	require.NoError(t, err)
 
 	// Ensure that the internal refs are gone, but the others still exist
@@ -100,30 +94,27 @@ func TestApplyBfgObjectMapStreamSuccess(t *testing.T) {
 }
 
 func requireEntry(t *testing.T, entry *gitalypb.ApplyBfgObjectMapStreamResponse_Entry, oldOid, newOid string, objectType gitalypb.ObjectType) {
+	t.Helper()
+
 	require.Equal(t, objectType, entry.Type)
 	require.Equal(t, oldOid, entry.OldOid)
 	require.Equal(t, newOid, entry.NewOid)
 }
 
 func TestApplyBfgObjectMapStreamFailsOnInvalidInput(t *testing.T) {
-	serverSocketPath, stop := runCleanupServiceServer(t, config.Config)
-	defer stop()
-
-	client, conn := newCleanupServiceClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupCleanupService(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	entries, err := doStreamingRequest(ctx, t, testRepo, client, "invalid-data here as you can see")
+	entries, err := doStreamingRequest(ctx, t, repo, client, "invalid-data here as you can see")
 	require.Empty(t, entries)
 	testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
 }
 
 func doStreamingRequest(ctx context.Context, t *testing.T, repo *gitalypb.Repository, client gitalypb.CleanupServiceClient, objectMap string) ([]*gitalypb.ApplyBfgObjectMapStreamResponse_Entry, error) {
+	t.Helper()
+
 	// Split the data across multiple requests
 	parts := strings.SplitN(objectMap, " ", 2)
 	req1 := &gitalypb.ApplyBfgObjectMapStreamRequest{
