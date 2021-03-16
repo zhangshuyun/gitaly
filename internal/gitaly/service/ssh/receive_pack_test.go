@@ -27,8 +27,7 @@ import (
 )
 
 func TestFailedReceivePackRequestDueToValidationError(t *testing.T) {
-	cfg, repo, _, cleanup := testcfg.BuildWithRepo(t)
-	defer cleanup()
+	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	serverSocketPath, stop := runSSHServer(t, cfg)
 	defer stop()
@@ -81,8 +80,7 @@ func TestFailedReceivePackRequestDueToValidationError(t *testing.T) {
 }
 
 func TestReceivePackPushSuccess(t *testing.T) {
-	cfg, repo, _, cleanup := testcfg.BuildWithRepo(t)
-	defer cleanup()
+	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	cfg.GitlabShell.Dir = "/foo/bar/gitlab-shell"
 
@@ -144,8 +142,7 @@ func TestReceivePackPushSuccess(t *testing.T) {
 }
 
 func TestReceivePackPushSuccessWithGitProtocol(t *testing.T) {
-	cfg, repo, _, cleanup := testcfg.BuildWithRepo(t)
-	defer cleanup()
+	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	testhelper.ConfigureGitalySSHBin(t, cfg)
 	testhelper.ConfigureGitalyHooksBin(t, cfg)
@@ -171,8 +168,7 @@ func TestReceivePackPushSuccessWithGitProtocol(t *testing.T) {
 }
 
 func TestReceivePackPushFailure(t *testing.T) {
-	cfg, repo, _, cleanup := testcfg.BuildWithRepo(t)
-	defer cleanup()
+	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	serverSocketPath, stop := runSSHServer(t, cfg)
 	defer stop()
@@ -185,8 +181,7 @@ func TestReceivePackPushFailure(t *testing.T) {
 }
 
 func TestReceivePackPushHookFailure(t *testing.T) {
-	cfg, repo, _, cleanup := testcfg.BuildWithRepo(t)
-	defer cleanup()
+	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	testhelper.ConfigureGitalySSHBin(t, cfg)
 
@@ -210,8 +205,7 @@ func TestReceivePackPushHookFailure(t *testing.T) {
 }
 
 func TestObjectPoolRefAdvertisementHidingSSH(t *testing.T) {
-	cfg, repo, _, cleanup := testcfg.BuildWithRepo(t)
-	defer cleanup()
+	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	testhelper.ConfigureGitalyHooksBin(t, cfg)
 
@@ -257,8 +251,7 @@ func TestObjectPoolRefAdvertisementHidingSSH(t *testing.T) {
 }
 
 func TestSSHReceivePackToHooks(t *testing.T) {
-	cfg, repo, _, cleanup := testcfg.BuildWithRepo(t)
-	defer cleanup()
+	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	testhelper.ConfigureGitalyHooksBin(t, cfg)
 	testhelper.ConfigureGitalySSHBin(t, cfg)

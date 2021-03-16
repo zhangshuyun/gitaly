@@ -93,8 +93,7 @@ func (cmd cloneCommand) test(t *testing.T, repoPath string, localRepoPath string
 }
 
 func TestFailedUploadPackRequestDueToTimeout(t *testing.T) {
-	cfg, repo, _, cleanup := testcfg.BuildWithRepo(t)
-	defer cleanup()
+	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	serverSocketPath, stop := runSSHServer(t, cfg, WithUploadPackRequestTimeout(10*time.Microsecond))
 	defer stop()
@@ -151,8 +150,7 @@ func requireFailedSSHStream(t *testing.T, recv func() (int32, error)) {
 }
 
 func TestFailedUploadPackRequestDueToValidationError(t *testing.T) {
-	cfg, cleanup := testcfg.Build(t)
-	defer cleanup()
+	cfg := testcfg.Build(t)
 
 	serverSocketPath, stop := runSSHServer(t, cfg)
 	defer stop()
@@ -203,8 +201,7 @@ func TestFailedUploadPackRequestDueToValidationError(t *testing.T) {
 }
 
 func TestUploadPackCloneSuccess(t *testing.T) {
-	cfg, repo, repoPath, cleanup := testcfg.BuildWithRepo(t)
-	defer cleanup()
+	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
 	testhelper.ConfigureGitalyHooksBin(t, cfg)
 	testhelper.ConfigureGitalySSHBin(t, cfg)
@@ -275,8 +272,7 @@ func TestUploadPackCloneSuccess(t *testing.T) {
 }
 
 func TestUploadPackWithPackObjectsHook(t *testing.T) {
-	cfg, repo, _, cleanup := testcfg.BuildWithRepo(t)
-	defer cleanup()
+	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	filterDir, cleanup := testhelper.TempDir(t)
 	defer cleanup()
@@ -322,8 +318,7 @@ exec '%s' "$@"
 }
 
 func TestUploadPackWithoutSideband(t *testing.T) {
-	cfg, repo, _, cleanup := testcfg.BuildWithRepo(t)
-	defer cleanup()
+	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	testhelper.ConfigureGitalySSHBin(t, cfg)
 
@@ -367,8 +362,7 @@ func TestUploadPackWithoutSideband(t *testing.T) {
 }
 
 func TestUploadPackCloneWithPartialCloneFilter(t *testing.T) {
-	cfg, repo, _, cleanup := testcfg.BuildWithRepo(t)
-	defer cleanup()
+	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	testhelper.ConfigureGitalySSHBin(t, cfg)
 
@@ -426,8 +420,7 @@ func TestUploadPackCloneWithPartialCloneFilter(t *testing.T) {
 }
 
 func TestUploadPackCloneSuccessWithGitProtocol(t *testing.T) {
-	cfg, repo, repoPath, cleanup := testcfg.BuildWithRepo(t)
-	defer cleanup()
+	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
 	testhelper.ConfigureGitalySSHBin(t, cfg)
 
@@ -474,8 +467,7 @@ func TestUploadPackCloneSuccessWithGitProtocol(t *testing.T) {
 }
 
 func TestUploadPackCloneHideTags(t *testing.T) {
-	cfg, repo, repoPath, cleanup := testcfg.BuildWithRepo(t)
-	defer cleanup()
+	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
 	testhelper.ConfigureGitalySSHBin(t, cfg)
 	testhelper.ConfigureGitalyHooksBin(t, cfg)
@@ -507,8 +499,7 @@ func TestUploadPackCloneHideTags(t *testing.T) {
 }
 
 func TestUploadPackCloneFailure(t *testing.T) {
-	cfg, repo, _, cleanup := testcfg.BuildWithRepo(t)
-	defer cleanup()
+	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	serverSocketPath, stop := runSSHServer(t, cfg)
 	defer stop()

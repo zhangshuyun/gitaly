@@ -18,8 +18,7 @@ import (
 )
 
 func TestFailedUploadArchiveRequestDueToTimeout(t *testing.T) {
-	cfg, repo, _, cleanup := testcfg.BuildWithRepo(t)
-	defer cleanup()
+	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	serverSocketPath, stop := runSSHServer(t, cfg, WithArchiveRequestTimeout(100*time.Microsecond))
 	defer stop()
@@ -55,8 +54,7 @@ func TestFailedUploadArchiveRequestDueToTimeout(t *testing.T) {
 }
 
 func TestFailedUploadArchiveRequestDueToValidationError(t *testing.T) {
-	cfg, cleanup := testcfg.Build(t)
-	defer cleanup()
+	cfg := testcfg.Build(t)
 
 	serverSocketPath, stop := runSSHServer(t, cfg)
 	defer stop()
@@ -107,8 +105,7 @@ func TestFailedUploadArchiveRequestDueToValidationError(t *testing.T) {
 }
 
 func TestUploadArchiveSuccess(t *testing.T) {
-	cfg, repo, _, cleanup := testcfg.BuildWithRepo(t)
-	defer cleanup()
+	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	testhelper.ConfigureGitalySSHBin(t, cfg)
 
