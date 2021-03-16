@@ -4,20 +4,24 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
 
 func TestFailedUploadArchiveRequestDueToTimeout(t *testing.T) {
-	serverSocketPath, stop := runSSHServer(t, WithArchiveRequestTimeout(100*time.Microsecond))
+	cfg, repo, _, cleanup := testcfg.BuildWithRepo(t)
+	defer cleanup()
+
+	serverSocketPath, stop := runSSHServer(t, cfg, WithArchiveRequestTimeout(100*time.Microsecond))
 	defer stop()
 
 	client, conn := newSSHClient(t, serverSocketPath)
@@ -26,14 +30,11 @@ func TestFailedUploadArchiveRequestDueToTimeout(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepo, _, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
-
 	stream, err := client.SSHUploadArchive(ctx)
 	require.NoError(t, err)
 
 	// The first request is not limited by timeout, but also not under attacker control
-	require.NoError(t, stream.Send(&gitalypb.SSHUploadArchiveRequest{Repository: testRepo}))
+	require.NoError(t, stream.Send(&gitalypb.SSHUploadArchiveRequest{Repository: repo}))
 
 	// Because the client says nothing, the server would block. Because of
 	// the timeout, it won't block forever, and return with a non-zero exit
@@ -54,7 +55,10 @@ func TestFailedUploadArchiveRequestDueToTimeout(t *testing.T) {
 }
 
 func TestFailedUploadArchiveRequestDueToValidationError(t *testing.T) {
-	serverSocketPath, stop := runSSHServer(t)
+	cfg, cleanup := testcfg.Build(t)
+	defer cleanup()
+
+	serverSocketPath, stop := runSSHServer(t, cfg)
 	defer stop()
 
 	client, conn := newSSHClient(t, serverSocketPath)
@@ -67,7 +71,7 @@ func TestFailedUploadArchiveRequestDueToValidationError(t *testing.T) {
 	}{
 		{
 			Desc: "Repository.RelativePath is empty",
-			Req:  &gitalypb.SSHUploadArchiveRequest{Repository: &gitalypb.Repository{StorageName: "default", RelativePath: ""}},
+			Req:  &gitalypb.SSHUploadArchiveRequest{Repository: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: ""}},
 			Code: codes.InvalidArgument,
 		},
 		{
@@ -77,7 +81,7 @@ func TestFailedUploadArchiveRequestDueToValidationError(t *testing.T) {
 		},
 		{
 			Desc: "Data exists on first request",
-			Req:  &gitalypb.SSHUploadArchiveRequest{Repository: &gitalypb.Repository{StorageName: "default", RelativePath: "path/to/repo"}, Stdin: []byte("Fail")},
+			Req:  &gitalypb.SSHUploadArchiveRequest{Repository: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "path/to/repo"}, Stdin: []byte("Fail")},
 			Code: codes.InvalidArgument,
 		},
 	}
@@ -103,19 +107,21 @@ func TestFailedUploadArchiveRequestDueToValidationError(t *testing.T) {
 }
 
 func TestUploadArchiveSuccess(t *testing.T) {
-	serverSocketPath, stop := runSSHServer(t)
-	defer stop()
-
-	cmd := exec.Command(config.Config.Git.BinPath, "archive", "master", "--remote=git@localhost:test/test.git")
-
-	testRepo, _, cleanup := gittest.CloneRepo(t)
+	cfg, repo, _, cleanup := testcfg.BuildWithRepo(t)
 	defer cleanup()
 
-	err := testArchive(t, serverSocketPath, testRepo, cmd)
+	testhelper.ConfigureGitalySSHBin(t, cfg)
+
+	serverSocketPath, stop := runSSHServer(t, cfg)
+	defer stop()
+
+	cmd := exec.Command(cfg.Git.BinPath, "archive", "master", "--remote=git@localhost:test/test.git")
+
+	err := testArchive(t, cfg, serverSocketPath, repo, cmd)
 	require.NoError(t, err)
 }
 
-func testArchive(t *testing.T, serverSocketPath string, testRepo *gitalypb.Repository, cmd *exec.Cmd) error {
+func testArchive(t *testing.T, cfg config.Cfg, serverSocketPath string, testRepo *gitalypb.Repository, cmd *exec.Cmd) error {
 	req := &gitalypb.SSHUploadArchiveRequest{Repository: testRepo}
 	pbMarshaler := &jsonpb.Marshaler{}
 	payload, err := pbMarshaler.MarshalToString(req)
@@ -126,7 +132,7 @@ func testArchive(t *testing.T, serverSocketPath string, testRepo *gitalypb.Repos
 		fmt.Sprintf("GITALY_ADDRESS=%s", serverSocketPath),
 		fmt.Sprintf("GITALY_PAYLOAD=%s", payload),
 		fmt.Sprintf("PATH=%s", ".:"+os.Getenv("PATH")),
-		fmt.Sprintf(`GIT_SSH_COMMAND=%s upload-archive`, gitalySSHPath),
+		fmt.Sprintf(`GIT_SSH_COMMAND=%s upload-archive`, filepath.Join(cfg.BinDir, "gitaly-ssh")),
 	}
 
 	out, err := cmd.CombinedOutput()

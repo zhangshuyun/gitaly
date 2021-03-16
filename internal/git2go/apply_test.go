@@ -212,7 +212,7 @@ func TestExecutor_Apply(t *testing.T) {
 				Committer: committer,
 				Message:   tc.patches[len(tc.patches)-1].Message,
 			}, getCommit(t, ctx, repo, commitID))
-			gittest.RequireTree(t, config.Config.Git.BinPath, repoPath, commitID.String(), tc.tree)
+			gittest.RequireTree(t, repoPath, commitID.String(), tc.tree)
 		})
 	}
 }

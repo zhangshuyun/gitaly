@@ -2,7 +2,6 @@ package ssh
 
 import (
 	"os"
-	"path/filepath"
 	"testing"
 
 	"gitlab.com/gitlab-org/gitaly/internal/git"
@@ -15,10 +14,6 @@ import (
 	"google.golang.org/grpc"
 )
 
-var (
-	gitalySSHPath string
-)
-
 func TestMain(m *testing.M) {
 	os.Exit(testMain(m))
 }
@@ -26,29 +21,21 @@ func TestMain(m *testing.M) {
 func testMain(m *testing.M) int {
 	defer testhelper.MustHaveNoChildProcess()
 
-	defer func(rubyDir string) {
-		config.Config.Ruby.Dir = rubyDir
-	}(config.Config.Ruby.Dir)
-
 	cleanup := testhelper.Configure()
 	defer cleanup()
-
-	testhelper.ConfigureGitalyHooksBinary(config.Config.BinDir)
-	testhelper.ConfigureGitalySSH(config.Config.BinDir)
-	gitalySSHPath = filepath.Join(config.Config.BinDir, "gitaly-ssh")
 
 	return m.Run()
 }
 
-func runSSHServer(t *testing.T, serverOpts ...ServerOpt) (string, func()) {
-	locator := config.NewLocator(config.Config)
-	txManager := transaction.NewManager(config.Config)
-	hookManager := hook.NewManager(locator, txManager, hook.GitlabAPIStub, config.Config)
-	gitCmdFactory := git.NewExecCommandFactory(config.Config)
+func runSSHServer(t *testing.T, cfg config.Cfg, serverOpts ...ServerOpt) (string, func()) {
+	locator := config.NewLocator(cfg)
+	txManager := transaction.NewManager(cfg)
+	hookManager := hook.NewManager(locator, txManager, hook.GitlabAPIStub, cfg)
+	gitCmdFactory := git.NewExecCommandFactory(cfg)
 
-	srv := testhelper.NewServer(t, nil, nil, testhelper.WithInternalSocket(config.Config))
-	gitalypb.RegisterSSHServiceServer(srv.GrpcServer(), NewServer(config.Config, locator, gitCmdFactory, serverOpts...))
-	gitalypb.RegisterHookServiceServer(srv.GrpcServer(), hookservice.NewServer(config.Config, hookManager, gitCmdFactory))
+	srv := testhelper.NewServer(t, nil, nil, testhelper.WithInternalSocket(cfg))
+	gitalypb.RegisterSSHServiceServer(srv.GrpcServer(), NewServer(cfg, locator, gitCmdFactory, serverOpts...))
+	gitalypb.RegisterHookServiceServer(srv.GrpcServer(), hookservice.NewServer(cfg, hookManager, gitCmdFactory))
 	srv.Start(t)
 
 	return "unix://" + srv.Socket(), srv.Stop
