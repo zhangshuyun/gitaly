@@ -14,7 +14,7 @@ var (
 	// LogCommandStats will log additional rusage stats for commands
 	LogCommandStats = FeatureFlag{Name: "log_command_stats", OnByDefault: false}
 	// GoUserCherryPick enables the Go implementation of UserCherryPick
-	GoUserCherryPick = FeatureFlag{Name: "go_user_cherry_pick", OnByDefault: false}
+	GoUserCherryPick = FeatureFlag{Name: "go_user_cherry_pick", OnByDefault: true}
 	// GoUserUpdateBranch enables the Go implementation of UserUpdateBranch
 	GoUserUpdateBranch = FeatureFlag{Name: "go_user_update_branch", OnByDefault: true}
 	// GoResolveConflicts enables the Go implementation of ResolveConflicts
