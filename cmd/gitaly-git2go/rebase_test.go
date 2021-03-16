@@ -83,6 +83,12 @@ func TestRebase_rebase(t *testing.T) {
 			commitsAhead: 5,
 			expected:     "2f8365edc69d3683e22c4209ae9641642d84dd4a",
 		},
+		{
+			desc:         "Branch zero commits behind",
+			branch:       "sha-starting-with-large-number",
+			commitsAhead: 1,
+			expected:     "842616594688d2351480dfebd67b3d8d15571e6d",
+		},
 	}
 
 	for _, tc := range testcases {
