@@ -66,7 +66,7 @@ GO_JUNIT_REPORT_VERSION   ?= 984a47ca6b0a7d704c4b589852051b4d7865aa17
 GO_LICENSES_VERSION       ?= 73411c8fa237ccc6a75af79d0a5bc021c9487aad
 PROTOC_VERSION            ?= 3.12.4
 PROTOC_GEN_GO_VERSION     ?= 1.3.2
-GIT_VERSION               ?= v2.29.0
+GIT_VERSION               ?= v2.31.0
 GIT2GO_VERSION            ?= v31
 LIBGIT2_VERSION           ?= v1.1.0
 
@@ -82,7 +82,7 @@ endif
 # Git target
 GIT_REPO_URL      ?= https://gitlab.com/gitlab-org/gitlab-git.git
 GIT_BINARIES_URL  ?= https://gitlab.com/gitlab-org/gitlab-git/-/jobs/artifacts/${GIT_VERSION}/raw/git_full_bins.tgz?job=build
-GIT_BINARIES_HASH ?= 8c88d2adb46d1d07f258904b227c93b8a5a4942ac32a1e54057f215401332141
+GIT_BINARIES_HASH ?= 51c8e1d0b226530b762a144a38be81e64898b8f4ac7e3d64eb4d200bb1eb7806
 GIT_INSTALL_DIR   := ${DEPENDENCY_DIR}/git/install
 GIT_SOURCE_DIR    := ${DEPENDENCY_DIR}/git/source
 GIT_QUIET         :=
