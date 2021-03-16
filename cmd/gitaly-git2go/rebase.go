@@ -78,6 +78,16 @@ func (cmd *rebaseSubcommand) rebase(ctx context.Context, request *git2go.RebaseC
 		return "", fmt.Errorf("look up upstream branch %q: %w", request.UpstreamBranch, err)
 	}
 
+	mergeBase, err := repo.MergeBase(onto.Id(), branch.Id())
+	if err != nil {
+		return "", fmt.Errorf("find merge base: %w", err)
+	}
+
+	if mergeBase.Equal(onto.Id()) {
+		// Branch is zero commits behind, so do not rebase
+		return branch.Id().String(), nil
+	}
+
 	rebase, err := repo.InitRebase(branch, onto, onto, &opts)
 	if err != nil {
 		return "", fmt.Errorf("initiate rebase: %w", err)
