@@ -1,5 +1,0 @@
----
-title: 'praefect: Stop creating replication jobs on cleanup'
-merge_request: 3120
-author:
-type: fixed

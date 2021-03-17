@@ -1,5 +1,0 @@
----
-title: 'featureflag: Enable Go implementation of GetNewLFSPointers'
-merge_request: 3252
-author:
-type: performance

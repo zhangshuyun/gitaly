@@ -1,5 +1,0 @@
----
-title: 'blob: Enable use of bitmap indices when searching LFS pointers'
-merge_request: 3238
-author:
-type: performance

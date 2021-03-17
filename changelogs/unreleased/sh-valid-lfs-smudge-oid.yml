@@ -1,5 +1,0 @@
----
-title: 'gitaly-lfs-smudge: Validate OID parsed from LFS pointer'
-merge_request: 3221
-author:
-type: changed
