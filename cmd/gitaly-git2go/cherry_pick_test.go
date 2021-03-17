@@ -102,7 +102,7 @@ func TestCherryPick(t *testing.T) {
 			expected: map[string]string{
 				"file": "foobar",
 			},
-			expectedCommitID: "a6b964c97f96f6e479f602633a43bc83c84e6688",
+			expectedCommitID: "aa3c9f5ad67ad86e313129a851f6d64614be7f6e",
 		},
 		{
 			desc: "conflicting cherry-pick fails",
@@ -144,17 +144,21 @@ func TestCherryPick(t *testing.T) {
 			commit = cmdtesthelper.BuildCommit(t, repoPath, []*git.Oid{base}, tc.commit).String()
 		}
 
-		committerDate := time.Date(2021, 1, 17, 14, 45, 51, 0, time.FixedZone("UTC+2", +2*60*60))
-
 		t.Run(tc.desc, func(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
+			committer := git.Signature{
+				Name:  "Baz",
+				Email: "baz@example.com",
+				When:  time.Date(2021, 1, 17, 14, 45, 51, 0, time.FixedZone("UTC+2", +2*60*60)),
+			}
+
 			response, err := git2go.CherryPickCommand{
 				Repository:    repoPath,
-				CommitterName: "Foo",
-				CommitterMail: "foo@example.com",
-				CommitterDate: committerDate,
+				CommitterName: committer.Name,
+				CommitterMail: committer.Email,
+				CommitterDate: committer.When,
 				Message:       "Foo",
 				Ours:          ours,
 				Commit:        commit,
@@ -181,6 +185,8 @@ func TestCherryPick(t *testing.T) {
 
 			commit, err := repo.LookupCommit(commitOid)
 			require.NoError(t, err)
+			cmdtesthelper.SignatureEqual(t, &cmdtesthelper.DefaultAuthor, commit.Author())
+			cmdtesthelper.SignatureEqual(t, &committer, commit.Committer())
 
 			tree, err := commit.Tree()
 			require.NoError(t, err)

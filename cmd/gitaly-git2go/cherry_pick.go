@@ -102,7 +102,7 @@ func (cmd *cherryPickSubcommand) cherryPick(ctx context.Context, r *git2go.Cherr
 
 	committer := git.Signature(git2go.NewSignature(r.CommitterName, r.CommitterMail, r.CommitterDate))
 
-	commit, err := repo.CreateCommitFromIds("", &committer, &committer, r.Message, tree, ours.Id())
+	commit, err := repo.CreateCommitFromIds("", pick.Author(), &committer, r.Message, tree, ours.Id())
 	if err != nil {
 		return "", fmt.Errorf("could not create cherry-pick commit: %w", err)
 	}
