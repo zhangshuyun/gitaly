@@ -1,5 +1,12 @@
 # Gitaly changelog
 
+## 13.9.4 (2021-03-17)
+
+### Changed (1 change)
+
+- Allow gitaly-ruby to run if log file cannot be written. !3236
+
+
 ## 13.9.3 (2021-03-08)
 
 - No changes.
