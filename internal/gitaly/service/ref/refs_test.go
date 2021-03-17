@@ -278,9 +278,8 @@ func TestHeadReference(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if string(headRef) != "refs/heads/master" {
-		t.Fatal("Expected HEAD reference to be 'ref/heads/master', got '", string(headRef), "'")
-	}
+
+	require.Equal(t, git.DefaultRef, headRef)
 }
 
 func TestHeadReferenceWithNonExistingHead(t *testing.T) {
@@ -387,7 +386,7 @@ func TestDefaultBranchName(t *testing.T) {
 		},
 		{
 			desc:     "Get `ref/heads/master` when several branches exist",
-			expected: []byte("refs/heads/master"),
+			expected: git.DefaultRef,
 			findBranchNames: func(context.Context, git.CommandFactory, *gitalypb.Repository) ([][]byte, error) {
 				return [][]byte{[]byte("refs/heads/foo"), []byte("refs/heads/master"), []byte("refs/heads/bar")}, nil
 			},
@@ -438,9 +437,7 @@ func TestSuccessfulFindDefaultBranchName(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if name := r.GetName(); string(name) != "refs/heads/master" {
-		t.Fatal("Expected HEAD reference to be 'ref/heads/master', got '", string(name), "'")
-	}
+	require.Equal(t, r.GetName(), git.DefaultRef)
 }
 
 func TestEmptyFindDefaultBranchNameRequest(t *testing.T) {
