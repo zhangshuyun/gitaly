@@ -8,7 +8,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/diff"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -16,14 +15,7 @@ import (
 )
 
 func TestSuccessfulCommitDiffRequest(t *testing.T) {
-	server, serverSocketPath := runDiffServer(t)
-	defer server.Stop()
-
-	client, conn := newDiffClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, repoPath, client := setupDiffService(t)
 
 	rightCommit := "ab2c9622c02288a2bbaaf35d96088cfdff31d9d9"
 	leftCommit := "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab"
@@ -177,8 +169,8 @@ func TestSuccessfulCommitDiffRequest(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
-			testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "config", "diff.noprefix", testCase.noPrefixConfig)
-			rpcRequest := &gitalypb.CommitDiffRequest{Repository: testRepo, RightCommitId: rightCommit, LeftCommitId: leftCommit, IgnoreWhitespaceChange: false}
+			testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "diff.noprefix", testCase.noPrefixConfig)
+			rpcRequest := &gitalypb.CommitDiffRequest{Repository: repo, RightCommitId: rightCommit, LeftCommitId: leftCommit, IgnoreWhitespaceChange: false}
 
 			ctx, cancel := testhelper.Context()
 			defer cancel()
@@ -193,19 +185,12 @@ func TestSuccessfulCommitDiffRequest(t *testing.T) {
 }
 
 func TestSuccessfulCommitDiffRequestWithPaths(t *testing.T) {
-	server, serverSocketPath := runDiffServer(t)
-	defer server.Stop()
-
-	client, conn := newDiffClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupDiffService(t)
 
 	rightCommit := "e4003da16c1c2c3fc4567700121b17bf8e591c6c"
 	leftCommit := "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab"
 	rpcRequest := &gitalypb.CommitDiffRequest{
-		Repository:             testRepo,
+		Repository:             repo,
 		RightCommitId:          rightCommit,
 		LeftCommitId:           leftCommit,
 		IgnoreWhitespaceChange: false,
@@ -271,19 +256,12 @@ func TestSuccessfulCommitDiffRequestWithPaths(t *testing.T) {
 }
 
 func TestSuccessfulCommitDiffRequestWithTypeChangeDiff(t *testing.T) {
-	server, serverSocketPath := runDiffServer(t)
-	defer server.Stop()
-
-	client, conn := newDiffClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupDiffService(t)
 
 	rightCommit := "184a47d38677e2e439964859b877ae9bc424ab11"
 	leftCommit := "80d56eb72ba5d77fd8af857eced17a7d0640cb82"
 	rpcRequest := &gitalypb.CommitDiffRequest{
-		Repository:    testRepo,
+		Repository:    repo,
 		RightCommitId: rightCommit,
 		LeftCommitId:  leftCommit,
 	}
@@ -322,14 +300,7 @@ func TestSuccessfulCommitDiffRequestWithTypeChangeDiff(t *testing.T) {
 }
 
 func TestSuccessfulCommitDiffRequestWithIgnoreWhitespaceChange(t *testing.T) {
-	server, serverSocketPath := runDiffServer(t)
-	defer server.Stop()
-
-	client, conn := newDiffClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupDiffService(t)
 
 	rightCommit := "e4003da16c1c2c3fc4567700121b17bf8e591c6c"
 	leftCommit := "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab"
@@ -416,7 +387,7 @@ func TestSuccessfulCommitDiffRequestWithIgnoreWhitespaceChange(t *testing.T) {
 	for _, entry := range pathsAndDiffs {
 		t.Run(entry.desc, func(t *testing.T) {
 			rpcRequest := &gitalypb.CommitDiffRequest{
-				Repository:             testRepo,
+				Repository:             repo,
 				RightCommitId:          rightCommit,
 				LeftCommitId:           leftCommit,
 				IgnoreWhitespaceChange: true,
@@ -426,9 +397,7 @@ func TestSuccessfulCommitDiffRequestWithIgnoreWhitespaceChange(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 			c, err := client.CommitDiff(ctx, rpcRequest)
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err)
 
 			assertExactReceivedDiffs(t, c, entry.diffs)
 		})
@@ -436,14 +405,7 @@ func TestSuccessfulCommitDiffRequestWithIgnoreWhitespaceChange(t *testing.T) {
 }
 
 func TestSuccessfulCommitDiffRequestWithLimits(t *testing.T) {
-	server, serverSocketPath := runDiffServer(t)
-	defer server.Stop()
-
-	client, conn := newDiffClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupDiffService(t)
 
 	rightCommit := "899d3d27b04690ac1cd9ef4d8a74fde0667c57f1"
 	leftCommit := "184a47d38677e2e439964859b877ae9bc424ab11"
@@ -627,7 +589,7 @@ func TestSuccessfulCommitDiffRequestWithLimits(t *testing.T) {
 	for _, requestAndResult := range requestsAndResults {
 		t.Run(requestAndResult.desc, func(t *testing.T) {
 			request := requestAndResult.request
-			request.Repository = testRepo
+			request.Repository = repo
 			request.LeftCommitId = leftCommit
 			request.RightCommitId = rightCommit
 
@@ -658,14 +620,7 @@ func TestSuccessfulCommitDiffRequestWithLimits(t *testing.T) {
 }
 
 func TestFailedCommitDiffRequestDueToValidationError(t *testing.T) {
-	server, serverSocketPath := runDiffServer(t)
-	defer server.Stop()
-
-	client, conn := newDiffClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupDiffService(t)
 
 	rightCommit := "d42783470dc29fde2cf459eb3199ee1d7e3f3a72"
 	leftCommit := rightCommit + "~" // Parent of rightCommit
@@ -673,8 +628,8 @@ func TestFailedCommitDiffRequestDueToValidationError(t *testing.T) {
 	rpcRequests := []gitalypb.CommitDiffRequest{
 		{Repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}, RightCommitId: rightCommit, LeftCommitId: leftCommit}, // Repository doesn't exist
 		{Repository: nil, RightCommitId: rightCommit, LeftCommitId: leftCommit},                                                             // Repository is nil
-		{Repository: testRepo, RightCommitId: "", LeftCommitId: leftCommit},                                                                 // RightCommitId is empty
-		{Repository: testRepo, RightCommitId: rightCommit, LeftCommitId: ""},                                                                // LeftCommitId is empty
+		{Repository: repo, RightCommitId: "", LeftCommitId: leftCommit},                                                                     // RightCommitId is empty
+		{Repository: repo, RightCommitId: rightCommit, LeftCommitId: ""},                                                                    // LeftCommitId is empty
 	}
 
 	for _, rpcRequest := range rpcRequests {
@@ -693,18 +648,11 @@ func TestFailedCommitDiffRequestDueToValidationError(t *testing.T) {
 }
 
 func TestFailedCommitDiffRequestWithNonExistentCommit(t *testing.T) {
-	server, serverSocketPath := runDiffServer(t)
-	defer server.Stop()
-
-	client, conn := newDiffClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupDiffService(t)
 
 	nonExistentCommitID := "deadfacedeadfacedeadfacedeadfacedeadface"
 	leftCommit := nonExistentCommitID + "~" // Parent of rightCommit
-	rpcRequest := &gitalypb.CommitDiffRequest{Repository: testRepo, RightCommitId: nonExistentCommitID, LeftCommitId: leftCommit}
+	rpcRequest := &gitalypb.CommitDiffRequest{Repository: repo, RightCommitId: nonExistentCommitID, LeftCommitId: leftCommit}
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -718,18 +666,11 @@ func TestFailedCommitDiffRequestWithNonExistentCommit(t *testing.T) {
 }
 
 func TestSuccessfulCommitDeltaRequest(t *testing.T) {
-	server, serverSocketPath := runDiffServer(t)
-	defer server.Stop()
-
-	client, conn := newDiffClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupDiffService(t)
 
 	rightCommit := "742518b2be68fc750bb4c357c0df821a88113286"
 	leftCommit := "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab"
-	rpcRequest := &gitalypb.CommitDeltaRequest{Repository: testRepo, RightCommitId: rightCommit, LeftCommitId: leftCommit}
+	rpcRequest := &gitalypb.CommitDeltaRequest{Repository: repo, RightCommitId: rightCommit, LeftCommitId: leftCommit}
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -841,19 +782,12 @@ func TestSuccessfulCommitDeltaRequest(t *testing.T) {
 }
 
 func TestSuccessfulCommitDeltaRequestWithPaths(t *testing.T) {
-	server, serverSocketPath := runDiffServer(t)
-	defer server.Stop()
-
-	client, conn := newDiffClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupDiffService(t)
 
 	rightCommit := "e4003da16c1c2c3fc4567700121b17bf8e591c6c"
 	leftCommit := "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab"
 	rpcRequest := &gitalypb.CommitDeltaRequest{
-		Repository:    testRepo,
+		Repository:    repo,
 		RightCommitId: rightCommit,
 		LeftCommitId:  leftCommit,
 		Paths: [][]byte{
@@ -910,14 +844,7 @@ func TestSuccessfulCommitDeltaRequestWithPaths(t *testing.T) {
 }
 
 func TestFailedCommitDeltaRequestDueToValidationError(t *testing.T) {
-	server, serverSocketPath := runDiffServer(t)
-	defer server.Stop()
-
-	client, conn := newDiffClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupDiffService(t)
 
 	rightCommit := "d42783470dc29fde2cf459eb3199ee1d7e3f3a72"
 	leftCommit := rightCommit + "~" // Parent of rightCommit
@@ -925,8 +852,8 @@ func TestFailedCommitDeltaRequestDueToValidationError(t *testing.T) {
 	rpcRequests := []gitalypb.CommitDeltaRequest{
 		{Repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}, RightCommitId: rightCommit, LeftCommitId: leftCommit}, // Repository doesn't exist
 		{Repository: nil, RightCommitId: rightCommit, LeftCommitId: leftCommit},                                                             // Repository is nil
-		{Repository: testRepo, RightCommitId: "", LeftCommitId: leftCommit},                                                                 // RightCommitId is empty
-		{Repository: testRepo, RightCommitId: rightCommit, LeftCommitId: ""},                                                                // LeftCommitId is empty
+		{Repository: repo, RightCommitId: "", LeftCommitId: leftCommit},                                                                     // RightCommitId is empty
+		{Repository: repo, RightCommitId: rightCommit, LeftCommitId: ""},                                                                    // LeftCommitId is empty
 	}
 
 	for _, rpcRequest := range rpcRequests {
@@ -945,18 +872,11 @@ func TestFailedCommitDeltaRequestDueToValidationError(t *testing.T) {
 }
 
 func TestFailedCommitDeltaRequestWithNonExistentCommit(t *testing.T) {
-	server, serverSocketPath := runDiffServer(t)
-	defer server.Stop()
-
-	client, conn := newDiffClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupDiffService(t)
 
 	nonExistentCommitID := "deadfacedeadfacedeadfacedeadfacedeadface"
 	leftCommit := nonExistentCommitID + "~" // Parent of rightCommit
-	rpcRequest := &gitalypb.CommitDeltaRequest{Repository: testRepo, RightCommitId: nonExistentCommitID, LeftCommitId: leftCommit}
+	rpcRequest := &gitalypb.CommitDeltaRequest{Repository: repo, RightCommitId: nonExistentCommitID, LeftCommitId: leftCommit}
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -995,9 +915,8 @@ func getDiffsFromCommitDiffClient(t *testing.T, client gitalypb.DiffService_Comm
 		fetchedDiff, err := client.Recv()
 		if err == io.EOF {
 			break
-		} else if err != nil {
-			t.Fatal(err)
 		}
+		require.NoError(t, err)
 
 		if currentDiff == nil {
 			currentDiff = &diff.Diff{
