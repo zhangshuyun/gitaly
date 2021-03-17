@@ -1,5 +1,12 @@
 # Gitaly changelog
 
+## 13.9.4 (2021-03-17)
+
+### Changed (1 change)
+
+- Allow gitaly-ruby to run if log file cannot be written. !3236
+
+
 ## 13.9.3 (2021-03-08)
 
 - No changes.
@@ -62,6 +69,10 @@
 
 - Upgrade labkit-ruby to v0.15.0. !3118
 
+
+## 13.8.6 (2021-03-17)
+
+- No changes.
 
 ## 13.8.5 (2021-03-04)
 
@@ -136,6 +147,10 @@
 
 - Make command stats logging concurrency-safe. !2956
 
+
+## 13.7.9 (2021-03-17)
+
+- No changes.
 
 ## 13.7.8 (2021-03-04)
 
