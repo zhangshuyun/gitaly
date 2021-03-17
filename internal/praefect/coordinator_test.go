@@ -372,16 +372,14 @@ func TestStreamDirectorAccessor(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	ctx = featureflag.IncomingCtxWithDisabledFeatureFlag(ctx, featureflag.DistributedReads)
-
 	entry := testhelper.DiscardTestEntry(t)
+	rs := datastore.MockRepositoryStore{}
 
-	nodeMgr, err := nodes.NewManager(entry, conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil)
+	nodeMgr, err := nodes.NewManager(entry, conf, nil, rs, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil)
 	require.NoError(t, err)
 	nodeMgr.Start(0, time.Minute)
 
 	txMgr := transactions.NewManager(conf)
-	rs := datastore.MockRepositoryStore{}
 
 	coordinator := NewCoordinator(
 		queue,
