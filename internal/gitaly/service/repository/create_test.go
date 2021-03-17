@@ -2,13 +2,16 @@ package repository
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -48,6 +51,11 @@ func TestCreateRepositorySuccess(t *testing.T) {
 		require.NoError(t, err)
 		require.True(t, fi.IsDir(), "%q must be a directory", fi.Name())
 	}
+
+	symRef, err := ioutil.ReadFile(path.Join(repoDir, "HEAD"))
+	require.NoError(t, err)
+
+	require.Equal(t, symRef, []byte(fmt.Sprintf("ref: %s\n", git.DefaultRef)))
 }
 
 func TestCreateRepositoryFailure(t *testing.T) {
