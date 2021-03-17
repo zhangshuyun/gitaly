@@ -1,7 +1,6 @@
 package diff
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"testing"
@@ -952,98 +951,48 @@ func assertExactReceivedDiffs(t *testing.T, client gitalypb.DiffService_CommitDi
 	var fetchedDiff *diff.Diff
 
 	for i, fetchedDiff = range fetchedDiffs {
-		if i >= len(expectedDiffs) {
-			t.Errorf("Unexpected diff #%d received: %v", i, fetchedDiff)
-			break
-		}
+		require.Greater(t, len(expectedDiffs), i, "Unexpected diff #%d received: %v", i, fetchedDiff)
 
 		expectedDiff := expectedDiffs[i]
-
-		if expectedDiff.FromID != fetchedDiff.FromID {
-			t.Errorf("Expected diff #%d FromID to equal = %q, got %q", i, expectedDiff.FromID, fetchedDiff.FromID)
-		}
-
-		if expectedDiff.ToID != fetchedDiff.ToID {
-			t.Errorf("Expected diff #%d ToID to equal = %q, got %q", i, expectedDiff.ToID, fetchedDiff.ToID)
-		}
-
-		if expectedDiff.OldMode != fetchedDiff.OldMode {
-			t.Errorf("Expected diff #%d OldMode to equal = %o, got %o", i, expectedDiff.OldMode, fetchedDiff.OldMode)
-		}
-
-		if expectedDiff.NewMode != fetchedDiff.NewMode {
-			t.Errorf("Expected diff #%d NewMode to equal = %o, got %o", i, expectedDiff.NewMode, fetchedDiff.NewMode)
-		}
-
-		if !bytes.Equal(expectedDiff.FromPath, fetchedDiff.FromPath) {
-			t.Errorf("Expected diff #%d FromPath to equal = %q, got %q", i, expectedDiff.FromPath, fetchedDiff.FromPath)
-		}
-
-		if !bytes.Equal(expectedDiff.ToPath, fetchedDiff.ToPath) {
-			t.Errorf("Expected diff #%d ToPath to equal = %q, got %q", i, expectedDiff.ToPath, fetchedDiff.ToPath)
-		}
-
-		if expectedDiff.Binary != fetchedDiff.Binary {
-			t.Errorf("Expected diff #%d Binary to be %t, got %t", i, expectedDiff.Binary, fetchedDiff.Binary)
-		}
-
-		if !bytes.Equal(expectedDiff.Patch, fetchedDiff.Patch) {
-			t.Errorf("Expected diff #%d Chunks to be %q, got %q", i, expectedDiff.Patch, fetchedDiff.Patch)
-		}
+		require.Equal(t, expectedDiff.FromID, fetchedDiff.FromID)
+		require.Equal(t, expectedDiff.ToID, fetchedDiff.ToID)
+		require.Equal(t, expectedDiff.OldMode, fetchedDiff.OldMode)
+		require.Equal(t, expectedDiff.NewMode, fetchedDiff.NewMode)
+		require.Equal(t, expectedDiff.FromPath, fetchedDiff.FromPath)
+		require.Equal(t, expectedDiff.ToPath, fetchedDiff.ToPath)
+		require.Equal(t, expectedDiff.Binary, fetchedDiff.Binary)
+		require.Equal(t, expectedDiff.Patch, fetchedDiff.Patch)
 	}
 
-	if len(expectedDiffs) != i+1 {
-		t.Errorf("Expected number of diffs to be %d, got %d", len(expectedDiffs), i+1)
-	}
+	require.Len(t, expectedDiffs, i+1, "Unexpected number of diffs")
 }
 
 func assertExactReceivedDeltas(t *testing.T, client gitalypb.DiffService_CommitDeltaClient, expectedDeltas []diff.Diff) {
-	i := 0
+	t.Helper()
+
+	counter := 0
 	for {
 		fetchedDeltas, err := client.Recv()
 		if err == io.EOF {
 			break
-		} else if err != nil {
-			t.Fatal(err)
 		}
+		require.NoError(t, err)
 
 		for _, fetchedDelta := range fetchedDeltas.GetDeltas() {
-			if i >= len(expectedDeltas) {
-				t.Errorf("Unexpected delta #%d received: %v", i, fetchedDelta)
-				break
-			}
+			require.GreaterOrEqual(t, len(expectedDeltas), counter, "Unexpected delta #%d received: %v", counter, fetchedDelta)
 
-			expectedDelta := expectedDeltas[i]
+			expectedDelta := expectedDeltas[counter]
 
-			if expectedDelta.FromID != fetchedDelta.FromId {
-				t.Errorf("Expected delta #%d FromID to equal = %q, got %q", i, expectedDelta.FromID, fetchedDelta.FromId)
-			}
+			require.Equal(t, expectedDelta.FromID, fetchedDelta.FromId)
+			require.Equal(t, expectedDelta.ToID, fetchedDelta.ToId)
+			require.Equal(t, expectedDelta.OldMode, fetchedDelta.OldMode)
+			require.Equal(t, expectedDelta.NewMode, fetchedDelta.NewMode)
+			require.Equal(t, expectedDelta.FromPath, fetchedDelta.FromPath)
+			require.Equal(t, expectedDelta.ToPath, fetchedDelta.ToPath)
 
-			if expectedDelta.ToID != fetchedDelta.ToId {
-				t.Errorf("Expected delta #%d ToID to equal = %q, got %q", i, expectedDelta.ToID, fetchedDelta.ToId)
-			}
-
-			if expectedDelta.OldMode != fetchedDelta.OldMode {
-				t.Errorf("Expected delta #%d OldMode to equal = %o, got %o", i, expectedDelta.OldMode, fetchedDelta.OldMode)
-			}
-
-			if expectedDelta.NewMode != fetchedDelta.NewMode {
-				t.Errorf("Expected delta #%d NewMode to equal = %o, got %o", i, expectedDelta.NewMode, fetchedDelta.NewMode)
-			}
-
-			if !bytes.Equal(expectedDelta.FromPath, fetchedDelta.FromPath) {
-				t.Errorf("Expected delta #%d FromPath to equal = %q, got %q", i, expectedDelta.FromPath, fetchedDelta.FromPath)
-			}
-
-			if !bytes.Equal(expectedDelta.ToPath, fetchedDelta.ToPath) {
-				t.Errorf("Expected delta #%d ToPath to equal = %q, got %q", i, expectedDelta.ToPath, fetchedDelta.ToPath)
-			}
-
-			i++
+			counter++
 		}
 	}
 
-	if len(expectedDeltas) != i {
-		t.Errorf("Expected number of deltas to be %d, got %d", len(expectedDeltas), i)
-	}
+	require.Len(t, expectedDeltas, counter, "Unexpected number of deltas")
 }
