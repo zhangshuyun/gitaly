@@ -10,7 +10,6 @@ default:
 
 variables:
   DOCKER_DRIVER: overlay2
-  CUSTOM_IMAGE_VERSION: ruby-2.7-golang-1.13-git-2.31
   SAST_DISABLE_DIND: "true"
   SAST_DEFAULT_ANALYZERS: "gosec"
   GIT_VERSION: "v2.31.0"
