@@ -1,5 +1,69 @@
 # Gitaly changelog
 
+## 13.10.0 (2021-03-22)
+
+### Removed (1 change)
+
+- repository: Remove harmful `name` paramater in FetchRemote. !3227
+
+### Fixed (13 changes)
+
+- hooks: Fix inadvertent execution of hooks. !3119
+- praefect: Stop creating replication jobs on cleanup. !3120
+- operations: Fix transactions when deleting refs. !3144
+- hook: Fix voting on pushes which delete packed references. !3146
+- Reconcile missing repositories to assigned nodes. !3153
+- coordinator: Fix replication and early failures when proxying transactional RPCs. !3158
+- operations: Fix handling of update-ref failures in UserCommitFiles. !3159
+- Fix UserCommitFiles index error handling. !3165
+- blob: Fix filtering of new LFS pointers. !3175
+- Prevent concurrent reconciliation. !3182
+- coordinator: Fix inconsistent repository sizes when using reads distribution. !3209
+- Fix text logging format erroring out. !3222
+- operations: Fix deletion of branches with prefix. !3228
+
+### Deprecated (1 change)
+
+- Upgrading of the Go version. !3145
+
+### Changed (8 changes)
+
+- Remove Ruby code for old 100% go_user_create_{branch,tag} feature. !3056
+- Gitaly config default for maintenance window. !3124
+- Reconciliation sub-command performs as much as possible. !3142
+- Remove repositories from unassigned storages. !3162
+- featureflag: Remove UserFFBranch feature gate. !3180
+- Add pktline side-band-64 writer. !3215
+- gitaly-lfs-smudge: Validate OID parsed from LFS pointer. !3221
+- Allow gitaly-ruby to run if log file cannot be written. !3224
+
+### Performance (9 changes)
+
+- Enable the Go port of UserCommitFiles by default. !3061
+- blob: Port GetAllLFSPointers and GetLFSPointers to Go. !3173
+- blob: Port GetNewLFSPointers to Go. !3195
+- blob: Optimize Go implementation of LFS pointer lookup. !3210
+- replicator: Do not bump repository generation for PackRefs. !3216
+- featureflag: Enable Go port of Get{All,}LFSPointers. !3234
+- blob: Enable use of bitmap indices when searching LFS pointers. !3238
+- blob: Buffer output of git-catfile to speed up reading LFS pointers. !3241
+- featureflag: Enable Go implementation of GetNewLFSPointers. !3252
+
+### Added (6 changes)
+
+- Add unique index for delete_replica replication events. !3183
+- featureflag: Enable first batch of transactional RPCs. !3189
+- featureflag: Enable transactional behaviour for all repository-scoped mutators. !3214
+- housekeeping: Move cleanup of empty refs into housekeeping. !3246
+- repository: Call housekeeping tasks in `OptimizeRepository()`. !3246
+- housekeeping: Move cleanup of git config into housekeeping. !3246
+
+### Other (2 changes)
+
+- Streamio: remove custom ReadFrom and WriteTo. !3201
+- Remove unused Ruby code. !3203
+
+
 ## 13.9.4 (2021-03-17)
 
 ### Changed (1 change)

@@ -1,5 +1,0 @@
----
-title: 'hook: Fix voting on pushes which delete packed references'
-merge_request: 3146
-author:
-type: fixed

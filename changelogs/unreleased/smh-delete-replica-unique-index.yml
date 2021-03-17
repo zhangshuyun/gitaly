@@ -1,5 +1,0 @@
----
-title: Add unique index for delete_replica replication events
-merge_request: 3183
-author:
-type: added

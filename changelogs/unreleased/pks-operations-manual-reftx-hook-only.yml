@@ -1,5 +1,0 @@
----
-title: 'operations: Fix transactions when deleting refs'
-merge_request: 3144
-author:
-type: fixed
