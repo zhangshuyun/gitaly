@@ -9,7 +9,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"time"
 
 	git "github.com/libgit2/git2go/v31"
 	"gitlab.com/gitlab-org/gitaly/internal/git2go"
@@ -44,6 +43,9 @@ func (cmd *cherryPickSubcommand) verify(ctx context.Context, r *git2go.CherryPic
 	if r.CommitterMail == "" {
 		return errors.New("missing committer mail")
 	}
+	if r.CommitterDate.IsZero() {
+		return errors.New("missing committer date")
+	}
 	if r.Message == "" {
 		return errors.New("missing message")
 	}
@@ -60,10 +62,6 @@ func (cmd *cherryPickSubcommand) verify(ctx context.Context, r *git2go.CherryPic
 func (cmd *cherryPickSubcommand) cherryPick(ctx context.Context, r *git2go.CherryPickCommand) (string, error) {
 	if err := cmd.verify(ctx, r); err != nil {
 		return "", err
-	}
-
-	if r.CommitterDate.IsZero() {
-		r.CommitterDate = time.Now()
 	}
 
 	repo, err := git.OpenRepository(r.Repository)

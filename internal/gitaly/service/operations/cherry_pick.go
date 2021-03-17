@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
@@ -60,10 +61,13 @@ func (s *Server) userCherryPick(ctx context.Context, req *gitalypb.UserCherryPic
 		mainline = 1
 	}
 
+	committerDate := time.Now()
+
 	newrev, err := git2go.CherryPickCommand{
 		Repository:    repoPath,
 		CommitterName: string(req.User.Name),
 		CommitterMail: string(req.User.Email),
+		CommitterDate: committerDate,
 		Message:       string(req.Message),
 		Commit:        req.Commit.Id,
 		Ours:          startRevision.String(),
