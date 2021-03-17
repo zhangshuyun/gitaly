@@ -38,11 +38,11 @@ func (cmd *cherryPickSubcommand) verify(ctx context.Context, r *git2go.CherryPic
 	if r.Repository == "" {
 		return errors.New("missing repository")
 	}
-	if r.AuthorName == "" {
-		return errors.New("missing author name")
+	if r.CommitterName == "" {
+		return errors.New("missing committer name")
 	}
-	if r.AuthorMail == "" {
-		return errors.New("missing author mail")
+	if r.CommitterMail == "" {
+		return errors.New("missing committer mail")
 	}
 	if r.Message == "" {
 		return errors.New("missing message")
@@ -62,8 +62,8 @@ func (cmd *cherryPickSubcommand) cherryPick(ctx context.Context, r *git2go.Cherr
 		return "", err
 	}
 
-	if r.AuthorDate.IsZero() {
-		r.AuthorDate = time.Now()
+	if r.CommitterDate.IsZero() {
+		r.CommitterDate = time.Now()
 	}
 
 	repo, err := git.OpenRepository(r.Repository)
@@ -102,7 +102,7 @@ func (cmd *cherryPickSubcommand) cherryPick(ctx context.Context, r *git2go.Cherr
 		return "", fmt.Errorf("could not write tree: %w", err)
 	}
 
-	committer := git.Signature(git2go.NewSignature(r.AuthorName, r.AuthorMail, r.AuthorDate))
+	committer := git.Signature(git2go.NewSignature(r.CommitterName, r.CommitterMail, r.CommitterDate))
 
 	commit, err := repo.CreateCommitFromIds("", &committer, &committer, r.Message, tree, ours.Id())
 	if err != nil {

@@ -32,32 +32,32 @@ func TestCherryPick_validation(t *testing.T) {
 		},
 		{
 			desc:        "missing repository",
-			request:     git2go.CherryPickCommand{AuthorName: "Foo", AuthorMail: "foo@example.com", Message: "Foo", Ours: "HEAD", Commit: "HEAD"},
+			request:     git2go.CherryPickCommand{CommitterName: "Foo", CommitterMail: "foo@example.com", Message: "Foo", Ours: "HEAD", Commit: "HEAD"},
 			expectedErr: "cherry-pick: missing repository",
 		},
 		{
-			desc:        "missing author name",
-			request:     git2go.CherryPickCommand{Repository: repoPath, AuthorMail: "foo@example.com", Message: "Foo", Ours: "HEAD", Commit: "HEAD"},
-			expectedErr: "cherry-pick: missing author name",
+			desc:        "missing committer name",
+			request:     git2go.CherryPickCommand{Repository: repoPath, CommitterMail: "foo@example.com", Message: "Foo", Ours: "HEAD", Commit: "HEAD"},
+			expectedErr: "cherry-pick: missing committer name",
 		},
 		{
-			desc:        "missing author mail",
-			request:     git2go.CherryPickCommand{Repository: repoPath, AuthorName: "Foo", Message: "Foo", Ours: "HEAD", Commit: "HEAD"},
-			expectedErr: "cherry-pick: missing author mail",
+			desc:        "missing committer mail",
+			request:     git2go.CherryPickCommand{Repository: repoPath, CommitterName: "Foo", Message: "Foo", Ours: "HEAD", Commit: "HEAD"},
+			expectedErr: "cherry-pick: missing committer mail",
 		},
 		{
 			desc:        "missing message",
-			request:     git2go.CherryPickCommand{Repository: repoPath, AuthorName: "Foo", AuthorMail: "foo@example.com", Ours: "HEAD", Commit: "HEAD"},
+			request:     git2go.CherryPickCommand{Repository: repoPath, CommitterName: "Foo", CommitterMail: "foo@example.com", Ours: "HEAD", Commit: "HEAD"},
 			expectedErr: "cherry-pick: missing message",
 		},
 		{
 			desc:        "missing ours",
-			request:     git2go.CherryPickCommand{Repository: repoPath, AuthorName: "Foo", AuthorMail: "foo@example.com", Message: "Foo", Commit: "HEAD"},
+			request:     git2go.CherryPickCommand{Repository: repoPath, CommitterName: "Foo", CommitterMail: "foo@example.com", Message: "Foo", Commit: "HEAD"},
 			expectedErr: "cherry-pick: missing ours",
 		},
 		{
 			desc:        "missing commit",
-			request:     git2go.CherryPickCommand{Repository: repoPath, AuthorName: "Foo", AuthorMail: "foo@example.com", Message: "Foo", Ours: "HEAD"},
+			request:     git2go.CherryPickCommand{Repository: repoPath, CommitterName: "Foo", CommitterMail: "foo@example.com", Message: "Foo", Ours: "HEAD"},
 			expectedErr: "cherry-pick: missing commit",
 		},
 	}
@@ -139,20 +139,20 @@ func TestCherryPick(t *testing.T) {
 			commit = cmdtesthelper.BuildCommit(t, repoPath, []*git.Oid{base}, tc.commit).String()
 		}
 
-		authorDate := time.Date(2021, 1, 17, 14, 45, 51, 0, time.FixedZone("UTC+2", +2*60*60))
+		committerDate := time.Date(2021, 1, 17, 14, 45, 51, 0, time.FixedZone("UTC+2", +2*60*60))
 
 		t.Run(tc.desc, func(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
 			response, err := git2go.CherryPickCommand{
-				Repository: repoPath,
-				AuthorName: "Foo",
-				AuthorMail: "foo@example.com",
-				AuthorDate: authorDate,
-				Message:    "Foo",
-				Ours:       ours,
-				Commit:     commit,
+				Repository:    repoPath,
+				CommitterName: "Foo",
+				CommitterMail: "foo@example.com",
+				CommitterDate: committerDate,
+				Message:       "Foo",
+				Ours:          ours,
+				Commit:        commit,
 			}.Run(ctx, config.Config)
 
 			if tc.expectedErrMsg != "" {

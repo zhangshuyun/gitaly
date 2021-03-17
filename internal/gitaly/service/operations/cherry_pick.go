@@ -61,13 +61,13 @@ func (s *Server) userCherryPick(ctx context.Context, req *gitalypb.UserCherryPic
 	}
 
 	newrev, err := git2go.CherryPickCommand{
-		Repository: repoPath,
-		AuthorName: string(req.User.Name),
-		AuthorMail: string(req.User.Email),
-		Message:    string(req.Message),
-		Commit:     req.Commit.Id,
-		Ours:       startRevision.String(),
-		Mainline:   mainline,
+		Repository:    repoPath,
+		CommitterName: string(req.User.Name),
+		CommitterMail: string(req.User.Email),
+		Message:       string(req.Message),
+		Commit:        req.Commit.Id,
+		Ours:          startRevision.String(),
+		Mainline:      mainline,
 	}.Run(ctx, s.cfg)
 	if err != nil {
 		switch {
