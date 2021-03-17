@@ -70,10 +70,10 @@ RPC name. So for a change to RPC `FooBar` you would get:
 |@8bitlife|
 |@avar|
 |@pks-t|
-|@pokstad1 |
 |@proglottis|
 |@samihiltunen|
-|@zj-gitlab |
+|@zj-gitlab|
+|@toon|
 
 ## Development Process
 

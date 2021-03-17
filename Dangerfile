@@ -3,7 +3,6 @@ GITALY_TEAM = %w[
   avar
   chriscool
   pks-t
-  pokstad1
   proglottis
   samihiltunen
   toon
