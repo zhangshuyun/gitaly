@@ -8,16 +8,17 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/hooks"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/repository"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/reflection"
 )
-
-var RubyServer *rubyserver.Server
 
 func TestMain(m *testing.M) {
 	os.Exit(testMain(m))
@@ -28,7 +29,6 @@ func testMain(m *testing.M) int {
 
 	cleanup := testhelper.Configure()
 	defer cleanup()
-	testhelper.ConfigureGitalyGit2Go(config.Config.BinDir)
 
 	tempDir, err := ioutil.TempDir("", "gitaly")
 	if err != nil {
@@ -37,32 +37,56 @@ func testMain(m *testing.M) int {
 	}
 	defer os.RemoveAll(tempDir)
 
-	// dir of the BinDir is a temp folder
-	hooks.Override = filepath.Join(filepath.Dir(config.Config.BinDir), "/hooks")
-
-	RubyServer = rubyserver.New(config.Config)
-	if err := RubyServer.Start(); err != nil {
-		log.Error(err)
-		return 1
-	}
-	defer RubyServer.Stop()
+	defer func(old string) { hooks.Override = old }(hooks.Override)
+	hooks.Override = filepath.Join(tempDir, "hooks")
 
 	return m.Run()
 }
 
-func runConflictsServer(t *testing.T) (string, func()) {
-	srv := testhelper.NewServer(t, nil, nil)
-	locator := config.NewLocator(config.Config)
-	gitCmdFactory := git.NewExecCommandFactory(config.Config)
+func SetupConflictsServiceWithRuby(t testing.TB, cfg config.Cfg, rubySrv *rubyserver.Server, bare bool) (config.Cfg, *gitalypb.Repository, string, gitalypb.ConflictsServiceClient) {
+	testhelper.ConfigureGitalyGit2GoBin(t, cfg)
 
-	gitalypb.RegisterConflictsServiceServer(srv.GrpcServer(), NewServer(RubyServer, config.Config, locator, gitCmdFactory))
-	reflection.Register(srv.GrpcServer())
+	var repo *gitalypb.Repository
+	var repoPath string
+	var cleanup testhelper.Cleanup
+	if bare {
+		repo, repoPath, cleanup = gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name())
+		t.Cleanup(cleanup)
+	} else {
+		repo, repoPath, cleanup = gittest.CloneRepoWithWorktreeAtStorage(t, cfg.Storages[0])
+		t.Cleanup(cleanup)
+	}
+
+	serverSocketPath, stop := runConflictsServer(t, cfg, rubySrv)
+	t.Cleanup(stop)
+	cfg.SocketPath = serverSocketPath
+
+	client, conn := NewConflictsClient(t, serverSocketPath)
+	t.Cleanup(func() { conn.Close() })
+
+	return cfg, repo, repoPath, client
+}
+
+func SetupConflictsService(t testing.TB, bare bool) (config.Cfg, *gitalypb.Repository, string, gitalypb.ConflictsServiceClient) {
+	cfg := testcfg.Build(t)
+
+	return SetupConflictsServiceWithRuby(t, cfg, nil, bare)
+}
+
+func runConflictsServer(t testing.TB, cfg config.Cfg, rubySrv *rubyserver.Server) (string, func()) {
+	srv := testhelper.NewServer(t, nil, nil)
+	locator := config.NewLocator(cfg)
+	gitCmdFactory := git.NewExecCommandFactory(cfg)
+	txManager := transaction.NewManager(cfg)
+
+	gitalypb.RegisterConflictsServiceServer(srv.GrpcServer(), NewServer(rubySrv, cfg, locator, gitCmdFactory))
+	gitalypb.RegisterRepositoryServiceServer(srv.GrpcServer(), repository.NewServer(cfg, rubySrv, locator, txManager, gitCmdFactory))
 	srv.Start(t)
 
 	return "unix://" + srv.Socket(), srv.Stop
 }
 
-func NewConflictsClient(t *testing.T, serverSocketPath string) (gitalypb.ConflictsServiceClient, *grpc.ClientConn) {
+func NewConflictsClient(t testing.TB, serverSocketPath string) (gitalypb.ConflictsServiceClient, *grpc.ClientConn) {
 	connOpts := []grpc.DialOption{
 		grpc.WithInsecure(),
 	}
