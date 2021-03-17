@@ -57,9 +57,7 @@ func newDiffClient(t testing.TB, serverSocketPath string) (gitalypb.DiffServiceC
 	}
 
 	conn, err := grpc.Dial(serverSocketPath, connOpts...)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	return gitalypb.NewDiffServiceClient(conn), conn
 }

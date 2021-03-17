@@ -174,9 +174,7 @@ func TestSuccessfulCommitDiffRequest(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 			c, err := client.CommitDiff(ctx, rpcRequest)
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err)
 
 			assertExactReceivedDiffs(t, c, expectedDiffs)
 		})
@@ -204,9 +202,7 @@ func TestSuccessfulCommitDiffRequestWithPaths(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 	c, err := client.CommitDiff(ctx, rpcRequest)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	expectedDiffs := []diff.Diff{
 		{
@@ -268,9 +264,7 @@ func TestSuccessfulCommitDiffRequestWithTypeChangeDiff(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 	c, err := client.CommitDiff(ctx, rpcRequest)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	expectedDiffs := []diff.Diff{
 		{
@@ -595,9 +589,7 @@ func TestSuccessfulCommitDiffRequestWithLimits(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 			c, err := client.CommitDiff(ctx, &request)
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err)
 
 			receivedDiffs := getDiffsFromCommitDiffClient(t, c)
 
@@ -636,9 +628,7 @@ func TestFailedCommitDiffRequestDueToValidationError(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 			c, err := client.CommitDiff(ctx, &rpcRequest)
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err)
 
 			err = drainCommitDiffResponse(c)
 			testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
@@ -656,9 +646,7 @@ func TestFailedCommitDiffRequestWithNonExistentCommit(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 	c, err := client.CommitDiff(ctx, rpcRequest)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	err = drainCommitDiffResponse(c)
 	testhelper.RequireGrpcError(t, err, codes.Unavailable)
@@ -674,9 +662,7 @@ func TestSuccessfulCommitDeltaRequest(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 	c, err := client.CommitDelta(ctx, rpcRequest)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	expectedDeltas := []diff.Diff{
 		{
@@ -800,9 +786,7 @@ func TestSuccessfulCommitDeltaRequestWithPaths(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 	c, err := client.CommitDelta(ctx, rpcRequest)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	expectedDeltas := []diff.Diff{
 		{
@@ -860,9 +844,7 @@ func TestFailedCommitDeltaRequestDueToValidationError(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 			c, err := client.CommitDelta(ctx, &rpcRequest)
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err)
 
 			err = drainCommitDeltaResponse(c)
 			testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
@@ -880,9 +862,7 @@ func TestFailedCommitDeltaRequestWithNonExistentCommit(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 	c, err := client.CommitDelta(ctx, rpcRequest)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	err = drainCommitDeltaResponse(c)
 	testhelper.RequireGrpcError(t, err, codes.Unavailable)

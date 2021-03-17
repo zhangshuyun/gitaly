@@ -95,9 +95,7 @@ func TestSuccessfulDiffStatsRequest(t *testing.T) {
 	}
 
 	stream, err := client.DiffStats(ctx, rpcRequest)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	for {
 		fetchedStats, err := stream.Recv()
