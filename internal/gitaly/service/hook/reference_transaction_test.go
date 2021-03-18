@@ -8,11 +8,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -31,8 +30,8 @@ func (s *testTransactionServer) VoteTransaction(ctx context.Context, in *gitalyp
 }
 
 func TestReferenceTransactionHookInvalidArgument(t *testing.T) {
-	serverSocketPath, stop := runHooksServer(t, config.Config)
-	defer stop()
+	cfg := testcfg.Build(t)
+	serverSocketPath := runHooksServer(t, cfg)
 
 	client, conn := newHooksClient(t, serverSocketPath)
 	defer conn.Close()
@@ -118,6 +117,8 @@ func TestReferenceTransactionHook(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
+			cfg, repo, _ := testcfg.BuildWithRepo(t)
+
 			var reftxHash []byte
 			transactionServer.handler = func(in *gitalypb.VoteTransactionRequest) (*gitalypb.VoteTransactionResponse, error) {
 				reftxHash = in.ReferenceUpdatesHash
@@ -126,15 +127,11 @@ func TestReferenceTransactionHook(t *testing.T) {
 				}, nil
 			}
 
-			testRepo, _, cleanup := gittest.CloneRepo(t)
-			defer cleanup()
-
-			serverSocketPath, stop := runHooksServer(t, config.Cfg{})
-			defer stop()
+			serverSocketPath := runHooksServer(t, cfg)
 
 			hooksPayload, err := git.NewHooksPayload(
-				config.Config,
-				testRepo,
+				cfg,
+				repo,
 				&metadata.Transaction{
 					ID:   1234,
 					Node: "node-1",
@@ -160,7 +157,7 @@ func TestReferenceTransactionHook(t *testing.T) {
 			stream, err := client.ReferenceTransactionHook(ctx)
 			require.NoError(t, err)
 			require.NoError(t, stream.Send(&gitalypb.ReferenceTransactionHookRequest{
-				Repository:           testRepo,
+				Repository:           repo,
 				State:                tc.state,
 				EnvironmentVariables: environment,
 			}))

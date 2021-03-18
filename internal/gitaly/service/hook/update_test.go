@@ -19,8 +19,7 @@ import (
 )
 
 func TestUpdateInvalidArgument(t *testing.T) {
-	serverSocketPath, stop := runHooksServer(t, config.Config)
-	defer stop()
+	serverSocketPath := runHooksServer(t, config.Config)
 
 	client, conn := newHooksClient(t, serverSocketPath)
 	defer conn.Close()
@@ -36,16 +35,9 @@ func TestUpdateInvalidArgument(t *testing.T) {
 }
 
 func TestUpdate_CustomHooks(t *testing.T) {
-	serverSocketPath, stop := runHooksServer(t, config.Config)
-	defer stop()
+	cfg, repo, repoPath, client := setupHookService(t)
 
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-
-	client, conn := newHooksClient(t, serverSocketPath)
-	defer conn.Close()
-
-	hooksPayload, err := git.NewHooksPayload(config.Config, testRepo, nil, nil, &git.ReceiveHooksPayload{
+	hooksPayload, err := git.NewHooksPayload(cfg, repo, nil, nil, &git.ReceiveHooksPayload{
 		UserID:   "key-123",
 		Username: "username",
 		Protocol: "web",
@@ -59,7 +51,7 @@ func TestUpdate_CustomHooks(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 	req := gitalypb.UpdateHookRequest{
-		Repository:           testRepo,
+		Repository:           repo,
 		Ref:                  []byte("master"),
 		OldValue:             strings.Repeat("a", 40),
 		NewValue:             strings.Repeat("b", 40),
@@ -67,7 +59,7 @@ func TestUpdate_CustomHooks(t *testing.T) {
 	}
 
 	errorMsg := "error123"
-	cleanup := gittest.WriteCustomHook(t, testRepoPath, "update", []byte(fmt.Sprintf(`#!/bin/bash
+	cleanup := gittest.WriteCustomHook(t, repoPath, "update", []byte(fmt.Sprintf(`#!/bin/bash
 echo %s 1>&2
 exit 1
 `, errorMsg)))

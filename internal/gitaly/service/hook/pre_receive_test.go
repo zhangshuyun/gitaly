@@ -19,17 +19,14 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/streamio"
 	"google.golang.org/grpc/codes"
 )
 
 func TestPreReceiveInvalidArgument(t *testing.T) {
-	serverSocketPath, stop := runHooksServer(t, config.Config)
-	defer stop()
-
-	client, conn := newHooksClient(t, serverSocketPath)
-	defer conn.Close()
+	_, _, _, client := setupHookService(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -87,17 +84,17 @@ func TestPreReceiveHook_GitlabAPIAccess(t *testing.T) {
 	glID := "key-123"
 	changes := "changes123"
 	protocol := "http"
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+
+	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
 	gitObjectDirRel := "git/object/dir"
 	gitAlternateObjectRelDirs := []string{"alt/obj/dir/1", "alt/obj/dir/2"}
 
-	gitObjectDirAbs := filepath.Join(testRepoPath, gitObjectDirRel)
+	gitObjectDirAbs := filepath.Join(repoPath, gitObjectDirRel)
 	var gitAlternateObjectAbsDirs []string
 
 	for _, gitAltObjectRel := range gitAlternateObjectRelDirs {
-		gitAlternateObjectAbsDirs = append(gitAlternateObjectAbsDirs, filepath.Join(testRepoPath, gitAltObjectRel))
+		gitAlternateObjectAbsDirs = append(gitAlternateObjectAbsDirs, filepath.Join(repoPath, gitAltObjectRel))
 	}
 
 	tmpDir, cleanup := testhelper.TempDir(t)
@@ -105,22 +102,22 @@ func TestPreReceiveHook_GitlabAPIAccess(t *testing.T) {
 	secretFilePath := filepath.Join(tmpDir, ".gitlab_shell_secret")
 	testhelper.WriteShellSecretFile(t, tmpDir, secretToken)
 
-	testRepo.GitObjectDirectory = gitObjectDirRel
-	testRepo.GitAlternateObjectDirectories = gitAlternateObjectRelDirs
+	repo.GitObjectDirectory = gitObjectDirRel
+	repo.GitAlternateObjectDirectories = gitAlternateObjectRelDirs
 
 	serverURL, cleanup := testhelper.NewGitlabTestServer(t, testhelper.GitlabTestServerOptions{
 		User:                        user,
 		Password:                    password,
 		SecretToken:                 secretToken,
 		GLID:                        glID,
-		GLRepository:                testRepo.GetGlRepository(),
+		GLRepository:                repo.GetGlRepository(),
 		Changes:                     changes,
 		PostReceiveCounterDecreased: true,
 		Protocol:                    protocol,
 		GitPushOptions:              nil,
 		GitObjectDir:                gitObjectDirAbs,
 		GitAlternateObjectDirs:      gitAlternateObjectAbsDirs,
-		RepoPath:                    testRepoPath,
+		RepoPath:                    repoPath,
 	})
 
 	defer cleanup()
@@ -134,11 +131,10 @@ func TestPreReceiveHook_GitlabAPIAccess(t *testing.T) {
 		SecretFile: secretFilePath,
 	}
 
-	gitlabAPI, err := gitalyhook.NewGitlabAPI(gitlabConfig, config.Config.TLS)
+	gitlabAPI, err := gitalyhook.NewGitlabAPI(gitlabConfig, cfg.TLS)
 	require.NoError(t, err)
 
-	serverSocketPath, stop := runHooksServerWithAPI(t, gitlabAPI, config.Config)
-	defer stop()
+	serverSocketPath := runHooksServerWithAPI(t, gitlabAPI, cfg)
 
 	client, conn := newHooksClient(t, serverSocketPath)
 	defer conn.Close()
@@ -146,7 +142,7 @@ func TestPreReceiveHook_GitlabAPIAccess(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	hooksPayload, err := git.NewHooksPayload(config.Config, testRepo, nil, nil, &git.ReceiveHooksPayload{
+	hooksPayload, err := git.NewHooksPayload(cfg, repo, nil, nil, &git.ReceiveHooksPayload{
 		UserID:   glID,
 		Username: "username",
 		Protocol: protocol,
@@ -155,7 +151,7 @@ func TestPreReceiveHook_GitlabAPIAccess(t *testing.T) {
 
 	stdin := bytes.NewBufferString(changes)
 	req := gitalypb.PreReceiveHookRequest{
-		Repository: testRepo,
+		Repository: repo,
 		EnvironmentVariables: []string{
 			hooksPayload,
 		},
@@ -194,8 +190,7 @@ func allowedHandler(allowed bool) http.HandlerFunc {
 }
 
 func TestPreReceive_APIErrors(t *testing.T) {
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	testCases := []struct {
 		desc               string
@@ -241,11 +236,10 @@ func TestPreReceive_APIErrors(t *testing.T) {
 				SecretFile: secretFilePath,
 			}
 
-			gitlabAPI, err := gitalyhook.NewGitlabAPI(gitlabConfig, config.Config.TLS)
+			gitlabAPI, err := gitalyhook.NewGitlabAPI(gitlabConfig, cfg.TLS)
 			require.NoError(t, err)
 
-			serverSocketPath, stop := runHooksServerWithAPI(t, gitlabAPI, config.Config)
-			defer stop()
+			serverSocketPath := runHooksServerWithAPI(t, gitlabAPI, cfg)
 
 			client, conn := newHooksClient(t, serverSocketPath)
 			defer conn.Close()
@@ -253,7 +247,7 @@ func TestPreReceive_APIErrors(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			hooksPayload, err := git.NewHooksPayload(config.Config, testRepo, nil, nil, &git.ReceiveHooksPayload{
+			hooksPayload, err := git.NewHooksPayload(cfg, repo, nil, nil, &git.ReceiveHooksPayload{
 				UserID:   "key-123",
 				Username: "username",
 				Protocol: "web",
@@ -263,7 +257,7 @@ func TestPreReceive_APIErrors(t *testing.T) {
 			stream, err := client.PreReceiveHook(ctx)
 			require.NoError(t, err)
 			require.NoError(t, stream.Send(&gitalypb.PreReceiveHookRequest{
-				Repository: testRepo,
+				Repository: repo,
 				EnvironmentVariables: []string{
 					hooksPayload,
 				},
@@ -282,8 +276,7 @@ func TestPreReceive_APIErrors(t *testing.T) {
 }
 
 func TestPreReceiveHook_CustomHookErrors(t *testing.T) {
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
 	mux := http.NewServeMux()
 	mux.Handle("/api/v4/internal/allowed", allowedHandler(true))
@@ -299,7 +292,7 @@ func TestPreReceiveHook_CustomHookErrors(t *testing.T) {
 	customHookReturnCode := int32(128)
 	customHookReturnMsg := "custom hook error"
 
-	cleanup = gittest.WriteCustomHook(t, testRepoPath, "pre-receive", []byte(fmt.Sprintf(`#!/bin/bash
+	cleanup = gittest.WriteCustomHook(t, repoPath, "pre-receive", []byte(fmt.Sprintf(`#!/bin/bash
 echo '%s' 1>&2
 exit %d
 `, customHookReturnMsg, customHookReturnCode)))
@@ -310,11 +303,10 @@ exit %d
 		SecretFile: secretFilePath,
 	}
 
-	gitlabAPI, err := gitalyhook.NewGitlabAPI(gitlabConfig, config.Config.TLS)
+	gitlabAPI, err := gitalyhook.NewGitlabAPI(gitlabConfig, cfg.TLS)
 	require.NoError(t, err)
 
-	serverSocketPath, stop := runHooksServerWithAPI(t, gitlabAPI, config.Config)
-	defer stop()
+	serverSocketPath := runHooksServerWithAPI(t, gitlabAPI, cfg)
 
 	client, conn := newHooksClient(t, serverSocketPath)
 	defer conn.Close()
@@ -322,7 +314,7 @@ exit %d
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	hooksPayload, err := git.NewHooksPayload(config.Config, testRepo, nil, nil, &git.ReceiveHooksPayload{
+	hooksPayload, err := git.NewHooksPayload(cfg, repo, nil, nil, &git.ReceiveHooksPayload{
 		UserID:   "key-123",
 		Username: "username",
 		Protocol: "web",
@@ -332,7 +324,7 @@ exit %d
 	stream, err := client.PreReceiveHook(ctx)
 	require.NoError(t, err)
 	require.NoError(t, stream.Send(&gitalypb.PreReceiveHookRequest{
-		Repository: testRepo,
+		Repository: repo,
 		EnvironmentVariables: []string{
 			hooksPayload,
 		},
@@ -349,14 +341,11 @@ exit %d
 }
 
 func TestPreReceiveHook_Primary(t *testing.T) {
-	rubyDir := config.Config.Ruby.Dir
-	defer func(rubyDir string) {
-		config.Config.Ruby.Dir = rubyDir
-	}(rubyDir)
+	cfg := testcfg.Build(t)
 
 	cwd, err := os.Getwd()
 	require.NoError(t, err)
-	config.Config.Ruby.Dir = filepath.Join(cwd, "testdata")
+	cfg.Ruby.Dir = filepath.Join(cwd, "testdata")
 
 	testCases := []struct {
 		desc               string
@@ -413,9 +402,9 @@ func TestPreReceiveHook_Primary(t *testing.T) {
 		},
 	}
 
-	for _, tc := range testCases {
+	for i, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
+			testRepo, testRepoPath, cleanupFn := gittest.CloneRepoAtStorage(t, cfg.Storages[0], fmt.Sprintf("repo-%d", i))
 			defer cleanupFn()
 
 			mux := http.NewServeMux()
@@ -436,11 +425,10 @@ func TestPreReceiveHook_Primary(t *testing.T) {
 			gitlabAPI, err := gitalyhook.NewGitlabAPI(config.Gitlab{
 				URL:        srv.URL,
 				SecretFile: secretFilePath,
-			}, config.Config.TLS)
+			}, cfg.TLS)
 			require.NoError(t, err)
 
-			serverSocketPath, stop := runHooksServerWithAPI(t, gitlabAPI, config.Config)
-			defer stop()
+			serverSocketPath := runHooksServerWithAPI(t, gitlabAPI, cfg)
 
 			client, conn := newHooksClient(t, serverSocketPath)
 			defer conn.Close()
@@ -449,7 +437,7 @@ func TestPreReceiveHook_Primary(t *testing.T) {
 			defer cancel()
 
 			hooksPayload, err := git.NewHooksPayload(
-				config.Config,
+				cfg,
 				testRepo,
 				&metadata.Transaction{
 					ID:      1234,
