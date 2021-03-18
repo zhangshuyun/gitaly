@@ -22,6 +22,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func copyRepoWithNewRemote(t *testing.T, repo *gitalypb.Repository, locator storage.Locator, remote string) (*gitalypb.Repository, string) {
@@ -229,6 +230,185 @@ func TestFetchRemote_prune(t *testing.T) {
 			hasRevision, err := targetRepo.HasRevision(ctx, tc.ref.Revision())
 			require.NoError(t, err)
 			require.Equal(t, tc.shouldExist, hasRevision)
+		})
+	}
+}
+
+func TestFetchRemote_force(t *testing.T) {
+	locator := config.NewLocator(config.Config)
+	gitCommandFactory := git.NewExecCommandFactory(config.Config)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	sourceRepoProto, sourceRepoPath, cleanup := gittest.CloneRepo(t)
+	defer cleanup()
+	sourceRepo := localrepo.New(gitCommandFactory, sourceRepoProto, config.Config)
+
+	branchOID, err := sourceRepo.ResolveRevision(ctx, "refs/heads/master")
+	require.NoError(t, err)
+
+	tagOID, err := sourceRepo.ResolveRevision(ctx, "refs/tags/v1.0.0")
+	require.NoError(t, err)
+
+	divergingBranchOID, _ := gittest.CreateCommitOnNewBranch(t, sourceRepoPath)
+	divergingTagOID, _ := gittest.CreateCommitOnNewBranch(t, sourceRepoPath)
+
+	serverSocketPath, stop := runRepoServer(t, locator, testhelper.WithInternalSocket(config.Config))
+	defer stop()
+
+	client, conn := newRepositoryClient(t, serverSocketPath)
+	defer conn.Close()
+
+	port, stopGitServer := gittest.GitServer(t, config.Config, sourceRepoPath, nil)
+	defer func() { require.NoError(t, stopGitServer()) }()
+
+	remoteURL := fmt.Sprintf("http://127.0.0.1:%d/%s", port, filepath.Base(sourceRepoPath))
+
+	for _, tc := range []struct {
+		desc         string
+		request      *gitalypb.FetchRemoteRequest
+		expectedErr  error
+		expectedRefs map[git.ReferenceName]git.ObjectID
+	}{
+		{
+			desc: "remote without force fails with diverging refs",
+			request: &gitalypb.FetchRemoteRequest{
+				Remote: "my-remote",
+			},
+			expectedErr: status.Error(codes.Unknown, "fetch remote: exit status 1"),
+			expectedRefs: map[git.ReferenceName]git.ObjectID{
+				"refs/heads/master": branchOID,
+				"refs/tags/v1.0.0":  tagOID,
+			},
+		},
+		{
+			desc: "remote with force updates diverging refs",
+			request: &gitalypb.FetchRemoteRequest{
+				Remote: "my-remote",
+				Force:  true,
+			},
+			// We're fetching from `my-remote` here, which is set up to have a default
+			// refspec of "+refs/heads/*:refs/remotes/foobar/*". As such, no normal
+			// branches would get updated.
+			expectedRefs: map[git.ReferenceName]git.ObjectID{
+				"refs/heads/master": branchOID,
+				"refs/tags/v1.0.0":  git.ObjectID(divergingTagOID),
+			},
+		},
+		{
+			desc: "remote params without force fails with diverging refs",
+			request: &gitalypb.FetchRemoteRequest{
+				RemoteParams: &gitalypb.Remote{
+					Url: remoteURL,
+				},
+			},
+			expectedErr: status.Error(codes.Unknown, "fetch remote: exit status 1"),
+			expectedRefs: map[git.ReferenceName]git.ObjectID{
+				"refs/heads/master": branchOID,
+				"refs/tags/v1.0.0":  tagOID,
+			},
+		},
+		{
+			desc: "remote params with force updates diverging refs",
+			request: &gitalypb.FetchRemoteRequest{
+				RemoteParams: &gitalypb.Remote{
+					Url: remoteURL,
+				},
+				Force: true,
+			},
+			expectedRefs: map[git.ReferenceName]git.ObjectID{
+				"refs/heads/master": git.ObjectID(divergingBranchOID),
+				"refs/tags/v1.0.0":  git.ObjectID(divergingTagOID),
+			},
+		},
+		{
+			desc: "remote params with force-refmap fails with divergent tag",
+			request: &gitalypb.FetchRemoteRequest{
+				RemoteParams: &gitalypb.Remote{
+					Url: remoteURL,
+					MirrorRefmaps: []string{
+						"+refs/heads/master:refs/heads/master",
+					},
+				},
+			},
+			// The master branch has been updated to the diverging branch, but the
+			// command still fails because we do fetch tags by default, and the tag did
+			// diverge.
+			expectedErr: status.Error(codes.Unknown, "fetch remote: exit status 1"),
+			expectedRefs: map[git.ReferenceName]git.ObjectID{
+				"refs/heads/master": git.ObjectID(divergingBranchOID),
+				"refs/tags/v1.0.0":  tagOID,
+			},
+		},
+		{
+			desc: "remote params with explicit refmap and force updates divergent tag",
+			request: &gitalypb.FetchRemoteRequest{
+				RemoteParams: &gitalypb.Remote{
+					Url: remoteURL,
+					MirrorRefmaps: []string{
+						"refs/heads/master:refs/heads/master",
+					},
+				},
+				Force: true,
+			},
+			expectedRefs: map[git.ReferenceName]git.ObjectID{
+				"refs/heads/master": git.ObjectID(divergingBranchOID),
+				"refs/tags/v1.0.0":  git.ObjectID(divergingTagOID),
+			},
+		},
+		{
+			desc: "remote params with force-refmap and no tags only updates refspec",
+			request: &gitalypb.FetchRemoteRequest{
+				RemoteParams: &gitalypb.Remote{
+					Url: remoteURL,
+					MirrorRefmaps: []string{
+						"+refs/heads/master:refs/heads/master",
+					},
+				},
+				NoTags: true,
+			},
+			expectedRefs: map[git.ReferenceName]git.ObjectID{
+				"refs/heads/master": git.ObjectID(divergingBranchOID),
+				"refs/tags/v1.0.0":  tagOID,
+			},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			targetRepoProto, targetRepoPath := copyRepoWithNewRemote(t, sourceRepoProto, locator, "my-remote")
+			defer func() {
+				require.NoError(t, os.RemoveAll(targetRepoPath))
+			}()
+
+			targetRepo := localrepo.New(gitCommandFactory, targetRepoProto, config.Config)
+
+			// We're force-updating a branch and a tag in the source repository to point
+			// to a diverging object ID in order to verify that the `force` parameter
+			// takes effect.
+			require.NoError(t, sourceRepo.UpdateRef(ctx, "refs/heads/master", git.ObjectID(divergingBranchOID), branchOID))
+			require.NoError(t, sourceRepo.UpdateRef(ctx, "refs/tags/v1.0.0", git.ObjectID(divergingTagOID), tagOID))
+			defer func() {
+				// Restore references after the current testcase again. Moving
+				// source repository setup into the testcases is not easily possible
+				// because hosting the gitserver requires the repo path, and we need
+				// the URL for our testcases.
+				require.NoError(t, sourceRepo.UpdateRef(ctx, "refs/heads/master", branchOID, git.ObjectID(divergingBranchOID)))
+				require.NoError(t, sourceRepo.UpdateRef(ctx, "refs/tags/v1.0.0", tagOID, git.ObjectID(divergingTagOID)))
+			}()
+
+			tc.request.Repository = targetRepoProto
+			_, err := client.FetchRemote(ctx, tc.request)
+			require.Equal(t, tc.expectedErr, err)
+
+			updatedBranchOID, err := targetRepo.ResolveRevision(ctx, "refs/heads/master")
+			require.NoError(t, err)
+			updatedTagOID, err := targetRepo.ResolveRevision(ctx, "refs/tags/v1.0.0")
+			require.NoError(t, err)
+
+			require.Equal(t, map[git.ReferenceName]git.ObjectID{
+				"refs/heads/master": updatedBranchOID,
+				"refs/tags/v1.0.0":  updatedTagOID,
+			}, tc.expectedRefs)
 		})
 	}
 }

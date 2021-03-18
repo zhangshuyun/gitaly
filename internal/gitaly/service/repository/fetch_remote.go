@@ -221,7 +221,7 @@ func (s *server) validateFetchRemoteRequest(req *gitalypb.FetchRemoteRequest) er
 
 func (s *server) getRefspecs(refmaps []string) []string {
 	if len(refmaps) == 0 {
-		return []string{"+refs/*:refs/*"}
+		return []string{"refs/*:refs/*"}
 	}
 
 	refspecs := make([]string, 0, len(refmaps))
@@ -230,11 +230,11 @@ func (s *server) getRefspecs(refmaps []string) []string {
 		switch refmap {
 		case "all_refs":
 			// with `all_refs`, the repository is equivalent to the result of `git clone --mirror`
-			refspecs = append(refspecs, "+refs/*:refs/*")
+			refspecs = append(refspecs, "refs/*:refs/*")
 		case "heads":
-			refspecs = append(refspecs, "+refs/heads/*:refs/heads/*")
+			refspecs = append(refspecs, "refs/heads/*:refs/heads/*")
 		case "tags":
-			refspecs = append(refspecs, "+refs/tags/*:refs/tags/*")
+			refspecs = append(refspecs, "refs/tags/*:refs/tags/*")
 		default:
 			refspecs = append(refspecs, refmap)
 		}
