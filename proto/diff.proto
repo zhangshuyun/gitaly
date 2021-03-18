@@ -44,6 +44,11 @@ service DiffService {
 }
 
 message CommitDiffRequest {
+  enum DiffMode {
+    DEFAULT = 0;
+    WORDDIFF = 1;
+  }
+
   Repository repository = 1 [(target_repository)=true];
   string left_commit_id = 2;
   string right_commit_id = 3;
@@ -51,7 +56,6 @@ message CommitDiffRequest {
   repeated bytes paths = 5;
   bool collapse_diffs = 6;
   bool enforce_limits = 7;
-  bool word_diff = 15;
 
   // These limits are only enforced when enforce_limits == true.
   int32 max_files = 8;
@@ -66,6 +70,8 @@ message CommitDiffRequest {
   int32 safe_max_files = 11;
   int32 safe_max_lines = 12;
   int32 safe_max_bytes = 13;
+
+  DiffMode diff_mode = 15;
 }
 
 // A CommitDiffResponse corresponds to a single changed file in a commit.

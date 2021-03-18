@@ -41,7 +41,6 @@ type Parser struct {
 	linesProcessed    int
 	bytesProcessed    int
 	finished          bool
-	wordDiff          bool
 	err               error
 }
 
@@ -92,7 +91,7 @@ var (
 )
 
 // NewDiffParser returns a new Parser
-func NewDiffParser(src io.Reader, limits Limits, wordDiff bool) *Parser {
+func NewDiffParser(src io.Reader, limits Limits) *Parser {
 	limits.enforceUpperBound()
 
 	parser := &Parser{}
@@ -101,7 +100,6 @@ func NewDiffParser(src io.Reader, limits Limits, wordDiff bool) *Parser {
 	parser.cacheRawLines(reader)
 	parser.patchReader = reader
 	parser.limits = limits
-	parser.wordDiff = wordDiff
 
 	return parser
 }

@@ -565,7 +565,7 @@ func TestSuccessfulCommitDiffRequestWithWordDiff(t *testing.T) {
 				RightCommitId:          rightCommit,
 				LeftCommitId:           leftCommit,
 				IgnoreWhitespaceChange: false,
-				WordDiff:               true,
+				DiffMode:               gitalypb.CommitDiffRequest_WORDDIFF,
 			}
 
 			ctx, cancel := testhelper.Context()

@@ -40,8 +40,7 @@ index 0000000000000000000000000000000000000000..3be11c69355948412925fa5e073d76d5
 		MaxPatchBytes: 100000,
 		CollapseDiffs: true,
 	}
-	wordDiff := false
-	diffs := getDiffs(rawDiff, limits, wordDiff)
+	diffs := getDiffs(rawDiff, limits)
 
 	expectedDiffs := []*Diff{
 		&Diff{
@@ -98,8 +97,7 @@ index 000000000..3a62d28e3
 		MaxPatchBytes: 100000,
 		CollapseDiffs: false,
 	}
-	wordDiff := true
-	diffs := getDiffs(rawDiff, limits, wordDiff)
+	diffs := getDiffs(rawDiff, limits)
 
 	expectedDiffs := []*Diff{
 		&Diff{
@@ -150,8 +148,7 @@ index 0000000000000000000000000000000000000000..3be11c69355948412925fa5e073d76d5
 		MaxPatchBytes: 100000,
 		CollapseDiffs: false,
 	}
-	wordDiff := false
-	diffParser := NewDiffParser(strings.NewReader(rawDiff), limits, wordDiff)
+	diffParser := NewDiffParser(strings.NewReader(rawDiff), limits)
 
 	diffs := []*Diff{}
 	for diffParser.Parse() {
@@ -218,8 +215,7 @@ index 0000000000000000000000000000000000000000..3be11c69355948412925fa5e073d76d5
 		MaxPatchBytes: 125000, // bumping from default 100KB to 125kb (first patch has 124.6KB)
 		CollapseDiffs: false,
 	}
-	wordDiff := false
-	diffParser := NewDiffParser(strings.NewReader(rawDiff), limits, wordDiff)
+	diffParser := NewDiffParser(strings.NewReader(rawDiff), limits)
 
 	diffs := []*Diff{}
 	for diffParser.Parse() {
@@ -287,8 +283,7 @@ index 0000000000000000000000000000000000000000..b6507e5b5ce18077e3ec8aaa2291404e
 		MaxPatchBytes: 100000,
 		CollapseDiffs: true,
 	}
-	wordDiff := false
-	diffs := getDiffs(rawDiff, limits, wordDiff)
+	diffs := getDiffs(rawDiff, limits)
 
 	expectedDiffs := []*Diff{
 		&Diff{
@@ -342,8 +337,7 @@ func TestDiffLimitsBeingEnforcedByUpperBound(t *testing.T) {
 		MaxLines:      0,
 		MaxPatchBytes: 0,
 	}
-	wordDiff := false
-	diffParser := NewDiffParser(strings.NewReader(""), limits, wordDiff)
+	diffParser := NewDiffParser(strings.NewReader(""), limits)
 
 	require.Equal(t, diffParser.limits.SafeMaxBytes, safeMaxBytesUpperBound)
 	require.Equal(t, diffParser.limits.SafeMaxFiles, safeMaxFilesUpperBound)
@@ -354,8 +348,8 @@ func TestDiffLimitsBeingEnforcedByUpperBound(t *testing.T) {
 	require.Equal(t, diffParser.limits.MaxPatchBytes, 0)
 }
 
-func getDiffs(rawDiff string, limits Limits, wordDiff bool) []*Diff {
-	diffParser := NewDiffParser(strings.NewReader(rawDiff), limits, wordDiff)
+func getDiffs(rawDiff string, limits Limits) []*Diff {
+	diffParser := NewDiffParser(strings.NewReader(rawDiff), limits)
 
 	diffs := []*Diff{}
 	for diffParser.Parse() {

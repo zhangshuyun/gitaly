@@ -15,7 +15,6 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       repeated :paths, :bytes, 5
       optional :collapse_diffs, :bool, 6
       optional :enforce_limits, :bool, 7
-      optional :word_diff, :bool, 15
       optional :max_files, :int32, 8
       optional :max_lines, :int32, 9
       optional :max_bytes, :int32, 10
@@ -23,6 +22,11 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       optional :safe_max_files, :int32, 11
       optional :safe_max_lines, :int32, 12
       optional :safe_max_bytes, :int32, 13
+      optional :diff_mode, :enum, 15, "gitaly.CommitDiffRequest.DiffMode"
+    end
+    add_enum "gitaly.CommitDiffRequest.DiffMode" do
+      value :DEFAULT, 0
+      value :WORDDIFF, 1
     end
     add_message "gitaly.CommitDiffResponse" do
       optional :from_path, :bytes, 1
@@ -108,6 +112,7 @@ end
 
 module Gitaly
   CommitDiffRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.CommitDiffRequest").msgclass
+  CommitDiffRequest::DiffMode = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.CommitDiffRequest.DiffMode").enummodule
   CommitDiffResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.CommitDiffResponse").msgclass
   CommitDeltaRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.CommitDeltaRequest").msgclass
   CommitDelta = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.CommitDelta").msgclass
