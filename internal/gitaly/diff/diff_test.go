@@ -79,10 +79,12 @@ new file mode 100644
 index 000000000..3a62d28e3
 --- /dev/null
 +++ b/big.txt
-@@ -1 +1 @@
- Hello
--world
-+GitLab
+@@ -0,0 +1,3 @@
++A
+~
++B
+~ignoreme
++C
 ~
 `
 
@@ -109,7 +111,7 @@ index 000000000..3a62d28e3
 			ToPath:    []byte("big.txt"),
 			Status:    'A',
 			Collapsed: false,
-			Patch:     []byte("@@ -1 +1 @@\n Hello\n-world\n+GitLab\n~\n"),
+			Patch:     []byte("@@ -0,0 +1,3 @@\n+A\n~\n+B\n+C\n~\n"),
 			lineCount: 4,
 		},
 	}

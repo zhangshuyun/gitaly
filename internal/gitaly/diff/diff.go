@@ -156,7 +156,9 @@ func (parser *Parser) Parse() bool {
 			parser.consumeChunkLine(false)
 		} else if helper.ByteSliceHasAnyPrefix(line, "---", "+++") && !parser.isParsingChunkLines() {
 			parser.consumeLine(false)
-		} else if helper.ByteSliceHasAnyPrefix(line, "~", "-", "+", " ", "\\", "Binary") {
+		} else if bytes.HasPrefix(line, []byte("~\n")) {
+			parser.consumeChunkLine(true)
+		} else if helper.ByteSliceHasAnyPrefix(line, "-", "+", " ", "\\", "Binary") {
 			parser.consumeChunkLine(true)
 		} else {
 			parser.consumeLine(false)

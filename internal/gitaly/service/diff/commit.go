@@ -33,7 +33,6 @@ func (s *server) CommitDiff(in *gitalypb.CommitDiffRequest, stream gitalypb.Diff
 	leftSha := in.LeftCommitId
 	rightSha := in.RightCommitId
 	ignoreWhitespaceChange := in.GetIgnoreWhitespaceChange()
-	diffMode := in.GetDiffMode()
 	paths := in.GetPaths()
 
 	cmd := git.SubCmd{
@@ -51,7 +50,7 @@ func (s *server) CommitDiff(in *gitalypb.CommitDiffRequest, stream gitalypb.Diff
 	if ignoreWhitespaceChange {
 		cmd.Flags = append(cmd.Flags, git.Flag{Name: "--ignore-space-change"})
 	}
-	if diffMode == gitalypb.CommitDiffRequest_WORDDIFF {
+	if in.GetDiffMode() == gitalypb.CommitDiffRequest_WORDDIFF {
 		cmd.Flags = append(cmd.Flags, git.Flag{Name: "--word-diff=porcelain"})
 	}
 	if len(paths) > 0 {

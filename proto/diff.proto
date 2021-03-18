@@ -71,6 +71,7 @@ message CommitDiffRequest {
   int32 safe_max_lines = 12;
   int32 safe_max_bytes = 13;
 
+  // Stores requested diff mode (default or word-diff)
   DiffMode diff_mode = 15;
 }
 

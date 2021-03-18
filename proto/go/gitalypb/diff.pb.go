@@ -100,9 +100,10 @@ type CommitDiffRequest struct {
 	// If this is 0 you will get back empty patches.
 	MaxPatchBytes int32 `protobuf:"varint,14,opt,name=max_patch_bytes,json=maxPatchBytes,proto3" json:"max_patch_bytes,omitempty"`
 	// These limits are only enforced if collapse_diffs == true.
-	SafeMaxFiles         int32                      `protobuf:"varint,11,opt,name=safe_max_files,json=safeMaxFiles,proto3" json:"safe_max_files,omitempty"`
-	SafeMaxLines         int32                      `protobuf:"varint,12,opt,name=safe_max_lines,json=safeMaxLines,proto3" json:"safe_max_lines,omitempty"`
-	SafeMaxBytes         int32                      `protobuf:"varint,13,opt,name=safe_max_bytes,json=safeMaxBytes,proto3" json:"safe_max_bytes,omitempty"`
+	SafeMaxFiles int32 `protobuf:"varint,11,opt,name=safe_max_files,json=safeMaxFiles,proto3" json:"safe_max_files,omitempty"`
+	SafeMaxLines int32 `protobuf:"varint,12,opt,name=safe_max_lines,json=safeMaxLines,proto3" json:"safe_max_lines,omitempty"`
+	SafeMaxBytes int32 `protobuf:"varint,13,opt,name=safe_max_bytes,json=safeMaxBytes,proto3" json:"safe_max_bytes,omitempty"`
+	// Stores requested diff mode (default or word-diff)
 	DiffMode             CommitDiffRequest_DiffMode `protobuf:"varint,15,opt,name=diff_mode,json=diffMode,proto3,enum=gitaly.CommitDiffRequest_DiffMode" json:"diff_mode,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                   `json:"-"`
 	XXX_unrecognized     []byte                     `json:"-"`
