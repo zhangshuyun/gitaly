@@ -172,7 +172,7 @@ func (cfg *Cfg) Validate() error {
 		cfg.validateListeners,
 		cfg.validateStorages,
 		cfg.validateToken,
-		cfg.SetGitPath,
+		cfg.validateGit,
 		cfg.validateShell,
 		cfg.ConfigureRuby,
 		cfg.validateBinDir,
@@ -414,6 +414,14 @@ func (cfg *Cfg) validateBinDir() error {
 	var err error
 	cfg.BinDir, err = filepath.Abs(cfg.BinDir)
 	return err
+}
+
+func (cfg *Cfg) validateGit() error {
+	if err := cfg.SetGitPath(); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (cfg *Cfg) validateToken() error {
