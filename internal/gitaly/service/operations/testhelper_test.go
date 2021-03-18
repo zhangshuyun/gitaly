@@ -89,7 +89,7 @@ func runOperationServiceServer(t *testing.T) (string, func()) {
 	gitalypb.RegisterHookServiceServer(srv.GrpcServer(), hook.NewServer(config.Config, hookManager, gitCmdFactory))
 	gitalypb.RegisterRepositoryServiceServer(srv.GrpcServer(), repository.NewServer(config.Config, RubyServer, locator, txManager, gitCmdFactory))
 	gitalypb.RegisterRefServiceServer(srv.GrpcServer(), ref.NewServer(config.Config, locator, gitCmdFactory))
-	gitalypb.RegisterCommitServiceServer(srv.GrpcServer(), commit.NewServer(config.Config, locator, gitCmdFactory))
+	gitalypb.RegisterCommitServiceServer(srv.GrpcServer(), commit.NewServer(config.Config, locator, gitCmdFactory, nil))
 	gitalypb.RegisterSSHServiceServer(srv.GrpcServer(), ssh.NewServer(config.Config, locator, gitCmdFactory))
 	reflection.Register(srv.GrpcServer())
 

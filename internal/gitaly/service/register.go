@@ -8,6 +8,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	gitalyhook "gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/linguist"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/blob"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/cleanup"
@@ -68,10 +69,11 @@ func RegisterAll(
 	locator storage.Locator,
 	conns *client.Pool,
 	gitCmdFactory git.CommandFactory,
+	ling *linguist.Instance,
 ) {
 	gitalypb.RegisterBlobServiceServer(grpcServer, blob.NewServer(rubyServer, cfg, locator, gitCmdFactory))
 	gitalypb.RegisterCleanupServiceServer(grpcServer, cleanup.NewServer(cfg, gitCmdFactory))
-	gitalypb.RegisterCommitServiceServer(grpcServer, commit.NewServer(cfg, locator, gitCmdFactory))
+	gitalypb.RegisterCommitServiceServer(grpcServer, commit.NewServer(cfg, locator, gitCmdFactory, ling))
 	gitalypb.RegisterDiffServiceServer(grpcServer, diff.NewServer(cfg, locator, gitCmdFactory))
 	gitalypb.RegisterNamespaceServiceServer(grpcServer, namespace.NewServer(locator))
 	gitalypb.RegisterOperationServiceServer(grpcServer, operations.NewServer(cfg, rubyServer, hookManager, locator, conns, gitCmdFactory))

@@ -221,7 +221,7 @@ func runServer(t *testing.T, cfg config.Cfg) (string, func()) {
 	srv, err := New(false, cfg, testhelper.DiscardTestEntry(t))
 	require.NoError(t, err)
 
-	service.RegisterAll(srv, cfg, rubyServer, hookManager, txManager, locator, conns, gitCmdFactory)
+	service.RegisterAll(srv, cfg, rubyServer, hookManager, txManager, locator, conns, gitCmdFactory, nil)
 	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
 
 	listener, err := net.Listen("unix", serverSocketPath)

@@ -1,6 +1,7 @@
 package testcfg
 
 import (
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -33,6 +34,13 @@ func WithStorages(name string, names ...string) Option {
 	}
 }
 
+// WithRealLinguist suppress stubbing of the linguist language detection.
+func WithRealLinguist() Option {
+	return func(builder *GitalyCfgBuilder) {
+		builder.realLinguist = true
+	}
+}
+
 // NewGitalyCfgBuilder returns gitaly configuration builder with configured set of options.
 func NewGitalyCfgBuilder(opts ...Option) GitalyCfgBuilder {
 	cfgBuilder := GitalyCfgBuilder{}
@@ -49,7 +57,8 @@ type GitalyCfgBuilder struct {
 	cfg      config.Cfg
 	cleanups []testhelper.Cleanup
 
-	storages []string
+	storages     []string
+	realLinguist bool
 }
 
 func (gc *GitalyCfgBuilder) addCleanup(f testhelper.Cleanup) {
@@ -123,6 +132,14 @@ func (gc *GitalyCfgBuilder) Build(t testing.TB) config.Cfg {
 		}
 	}
 
+	if !gc.realLinguist {
+		if cfg.Ruby.LinguistLanguagesPath == "" {
+			// set a stub to prevent a long ruby process to run where it is not needed
+			cfg.Ruby.LinguistLanguagesPath = filepath.Join(root, "linguist_languages.json")
+			require.NoError(t, ioutil.WriteFile(cfg.Ruby.LinguistLanguagesPath, []byte(`{}`), 0655))
+		}
+	}
+
 	require.NoError(t, testhelper.ConfigureRuby(&cfg))
 	require.NoError(t, cfg.Validate())
 
@@ -147,8 +164,8 @@ func (gc *GitalyCfgBuilder) BuildWithRepoAt(t testing.TB, relativePath string) (
 }
 
 // Build creates a minimal configuration setup with no options and returns it with cleanup function.
-func Build(t testing.TB) config.Cfg {
-	cfgBuilder := NewGitalyCfgBuilder()
+func Build(t testing.TB, opts ...Option) config.Cfg {
+	cfgBuilder := NewGitalyCfgBuilder(opts...)
 	t.Cleanup(cfgBuilder.Cleanup)
 
 	return cfgBuilder.Build(t)
@@ -156,8 +173,8 @@ func Build(t testing.TB) config.Cfg {
 
 // BuildWithRepo creates a minimal configuration setup with no options.
 // It also clones test repository at the storage and returns it with the full path to the repository.
-func BuildWithRepo(t testing.TB) (config.Cfg, *gitalypb.Repository, string) {
-	cfgBuilder := NewGitalyCfgBuilder()
+func BuildWithRepo(t testing.TB, opts ...Option) (config.Cfg, *gitalypb.Repository, string) {
+	cfgBuilder := NewGitalyCfgBuilder(opts...)
 	t.Cleanup(cfgBuilder.Cleanup)
 
 	cfg, repos := cfgBuilder.BuildWithRepoAt(t, t.Name())

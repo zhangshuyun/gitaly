@@ -15,13 +15,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 )
 
-func init() {
-	config.RegisterHook(LoadColors)
-}
-
 var (
 	exportedEnvVars = []string{"HOME", "PATH", "GEM_HOME", "BUNDLE_PATH", "BUNDLE_APP_CONFIG"}
-	colorMap        = make(map[string]Language)
 )
 
 // Language is used to parse Linguist's language.json file.
@@ -32,8 +27,31 @@ type Language struct {
 // ByteCountPerLanguage represents a counter value (bytes) per language.
 type ByteCountPerLanguage map[string]uint64
 
+// Instance is a holder of the defined in the system language settings.
+type Instance struct {
+	colorMap map[string]Language
+}
+
+// New loads the name->color map from the Linguist gem and returns initialised instance
+// to use back to the caller or an error.
+func New(cfg config.Cfg) (*Instance, error) {
+	jsonReader, err := openLanguagesJSON(cfg)
+	if err != nil {
+		return nil, err
+	}
+	defer jsonReader.Close()
+
+	var inst Instance
+
+	if err := json.NewDecoder(jsonReader).Decode(&inst.colorMap); err != nil {
+		return nil, err
+	}
+
+	return &inst, nil
+}
+
 // Stats returns the repository's language stats as reported by 'git-linguist'.
-func Stats(ctx context.Context, cfg config.Cfg, repoPath string, commitID string) (ByteCountPerLanguage, error) {
+func (inst *Instance) Stats(ctx context.Context, cfg config.Cfg, repoPath string, commitID string) (ByteCountPerLanguage, error) {
 	cmd, err := startGitLinguist(ctx, cfg, repoPath, commitID, "stats")
 	if err != nil {
 		return nil, err
@@ -53,24 +71,13 @@ func Stats(ctx context.Context, cfg config.Cfg, repoPath string, commitID string
 }
 
 // Color returns the color Linguist has assigned to language.
-func Color(language string) string {
-	if color := colorMap[language].Color; color != "" {
+func (inst *Instance) Color(language string) string {
+	if color := inst.colorMap[language].Color; color != "" {
 		return color
 	}
 
 	colorSha := sha256.Sum256([]byte(language))
 	return fmt.Sprintf("#%x", colorSha[0:3])
-}
-
-// LoadColors loads the name->color map from the Linguist gem.
-func LoadColors(cfg *config.Cfg) error {
-	jsonReader, err := openLanguagesJSON(cfg)
-	if err != nil {
-		return err
-	}
-	defer jsonReader.Close()
-
-	return json.NewDecoder(jsonReader).Decode(&colorMap)
 }
 
 func startGitLinguist(ctx context.Context, cfg config.Cfg, repoPath string, commitID string, linguistCommand string) (*command.Command, error) {
@@ -115,7 +122,7 @@ func startGitLinguist(ctx context.Context, cfg config.Cfg, repoPath string, comm
 	return internalCmd, nil
 }
 
-func openLanguagesJSON(cfg *config.Cfg) (io.ReadCloser, error) {
+func openLanguagesJSON(cfg config.Cfg) (io.ReadCloser, error) {
 	if jsonPath := cfg.Ruby.LinguistLanguagesPath; jsonPath != "" {
 		// This is a fallback for environments where dynamic discovery of the
 		// linguist path via Bundler is not working for some reason, for example

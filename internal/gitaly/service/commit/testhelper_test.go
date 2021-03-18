@@ -11,6 +11,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/linguist"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -28,6 +29,7 @@ func testMain(m *testing.M) int {
 	return m.Run()
 }
 
+// setupCommitService makes a basic configuration and starts the service with the client.
 func setupCommitService(t testing.TB) (config.Cfg, gitalypb.CommitServiceClient) {
 	cfg, _, _, client := setupCommitServiceCreateRepo(t, func(tb testing.TB, cfg config.Cfg) (*gitalypb.Repository, string, testhelper.Cleanup) {
 		return nil, "", func() {}
@@ -35,7 +37,10 @@ func setupCommitService(t testing.TB) (config.Cfg, gitalypb.CommitServiceClient)
 	return cfg, client
 }
 
-func setupCommitServiceWithRepo(t testing.TB, bare bool) (config.Cfg, *gitalypb.Repository, string, gitalypb.CommitServiceClient) {
+// setupCommitServiceWithRepo makes a basic configuration, creates a test repository and starts the service with the client.
+func setupCommitServiceWithRepo(
+	t testing.TB, bare bool,
+) (config.Cfg, *gitalypb.Repository, string, gitalypb.CommitServiceClient) {
 	return setupCommitServiceCreateRepo(t, func(tb testing.TB, cfg config.Cfg) (*gitalypb.Repository, string, testhelper.Cleanup) {
 		if bare {
 			return gittest.CloneRepoAtStorage(tb, cfg.Storages[0], t.Name())
@@ -71,7 +76,10 @@ func startTestServices(t testing.TB, cfg config.Cfg) string {
 	listener, err := net.Listen("unix", serverSocketPath)
 	require.NoError(t, err)
 
-	gitalypb.RegisterCommitServiceServer(server, NewServer(cfg, config.NewLocator(cfg), git.NewExecCommandFactory(cfg)))
+	ling, err := linguist.New(cfg)
+	require.NoError(t, err)
+
+	gitalypb.RegisterCommitServiceServer(server, NewServer(cfg, config.NewLocator(cfg), git.NewExecCommandFactory(cfg), ling))
 
 	go server.Serve(listener)
 	return "unix://" + serverSocketPath

@@ -351,7 +351,7 @@ func runFullSecureServer(t *testing.T, locator storage.Locator) (*grpc.Server, s
 	require.NoError(t, err)
 	listener, addr := testhelper.GetLocalhostListener(t)
 
-	service.RegisterAll(server, cfg, repository.RubyServer, hookManager, txManager, config.NewLocator(cfg), conns, gitCmdFactory)
+	service.RegisterAll(server, cfg, repository.RubyServer, hookManager, txManager, config.NewLocator(cfg), conns, gitCmdFactory, nil)
 	errQ := make(chan error)
 
 	// This creates a secondary GRPC server which isn't "secure". Reusing
