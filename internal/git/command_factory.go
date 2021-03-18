@@ -94,7 +94,7 @@ func (cf *ExecCommandFactory) newCommand(ctx context.Context, repo repository.Gi
 		return nil, err
 	}
 
-	args, err := combineArgs(sc, cc)
+	args, err := combineArgs(cf.cfg.Git.Config, sc, cc)
 	if err != nil {
 		return nil, err
 	}
@@ -152,7 +152,7 @@ func handleOpts(ctx context.Context, sc Cmd, cc *cmdCfg, opts []CmdOpt) error {
 	return nil
 }
 
-func combineArgs(sc Cmd, cc *cmdCfg) (_ []string, err error) {
+func combineArgs(gitConfig []config.GitConfig, sc Cmd, cc *cmdCfg) (_ []string, err error) {
 	var args []string
 
 	defer func() {
@@ -172,11 +172,18 @@ func combineArgs(sc Cmd, cc *cmdCfg) (_ []string, err error) {
 	// specific. This allows callsites to override options which would
 	// otherwise be set up automatically.
 	//
-	// 1. Globals which get set up by default for all git commands.
-	// 2. Globals which get set up by default for a given git command.
-	// 3. Globals passed via command options, e.g. as set up by
+	// 1. Configuration as provided by the admin in Gitaly's config.toml.
+	// 2. Globals which get set up by default for all git commands.
+	// 3. Globals which get set up by default for a given git command.
+	// 4. Globals passed via command options, e.g. as set up by
 	//    `WithReftxHook()`.
 	var combinedGlobals []GlobalOption
+	for _, configPair := range gitConfig {
+		combinedGlobals = append(combinedGlobals, ConfigPair{
+			Key:   configPair.Key,
+			Value: configPair.Value,
+		})
+	}
 	combinedGlobals = append(combinedGlobals, globalOptions...)
 	combinedGlobals = append(combinedGlobals, gitCommand.opts...)
 	combinedGlobals = append(combinedGlobals, cc.globals...)

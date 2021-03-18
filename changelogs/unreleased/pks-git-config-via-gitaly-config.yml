@@ -1,0 +1,5 @@
+---
+title: 'config: Allow injection of git config via Gitaly''s config'
+merge_request: 3279
+author:
+type: added
