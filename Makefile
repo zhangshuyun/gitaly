@@ -51,12 +51,12 @@ GOLANGCI_LINT_OPTIONS ?=
 GOLANGCI_LINT_CONFIG  ?= ${SOURCE_DIR}/.golangci.yml
 
 # Build information
-BUNDLE_FLAGS    ?= $(shell test -f ${SOURCE_DIR}/../.gdk-install-root && echo --no-deployment || echo --deployment)
-GITALY_PACKAGE  := gitlab.com/gitlab-org/gitaly
-BUILD_TIME      := $(shell date +"%Y%m%d.%H%M%S")
-GITALY_VERSION  := $(shell git describe --match v* 2>/dev/null | sed 's/^v//' || cat ${SOURCE_DIR}/VERSION 2>/dev/null || echo unknown)
-GO_LDFLAGS      := -ldflags '-X ${GITALY_PACKAGE}/internal/version.version=${GITALY_VERSION} -X ${GITALY_PACKAGE}/internal/version.buildtime=${BUILD_TIME}'
-GO_BUILD_TAGS   := tracer_static,tracer_static_jaeger,continuous_profiler_stackdriver,static,system_libgit2
+BUNDLE_DEPLOYMENT ?= $(shell test -f ${SOURCE_DIR}/../.gdk-install-root && echo false || echo true)
+GITALY_PACKAGE    := gitlab.com/gitlab-org/gitaly
+BUILD_TIME        := $(shell date +"%Y%m%d.%H%M%S")
+GITALY_VERSION    := $(shell git describe --match v* 2>/dev/null | sed 's/^v//' || cat ${SOURCE_DIR}/VERSION 2>/dev/null || echo unknown)
+GO_LDFLAGS        := -ldflags '-X ${GITALY_PACKAGE}/internal/version.version=${GITALY_VERSION} -X ${GITALY_PACKAGE}/internal/version.buildtime=${BUILD_TIME}'
+GO_BUILD_TAGS     := tracer_static,tracer_static_jaeger,continuous_profiler_stackdriver,static,system_libgit2
 
 # Dependency versions
 GOLANGCI_LINT_VERSION     ?= 1.33.0
@@ -381,8 +381,9 @@ libgit2: ${LIBGIT2_INSTALL_DIR}/lib/libgit2.a
 # step. Both Omnibus and CNG assume it is in the Gitaly root, not in
 # _build. Hence the '../' in front.
 ${SOURCE_DIR}/.ruby-bundle: ${GITALY_RUBY_DIR}/Gemfile.lock ${GITALY_RUBY_DIR}/Gemfile
+	${Q}cd ${GITALY_RUBY_DIR} && bundle config set --local deployment "${BUNDLE_DEPLOYMENT}"
 	${Q}cd ${GITALY_RUBY_DIR} && bundle config # for debugging
-	${Q}cd ${GITALY_RUBY_DIR} && bundle install ${BUNDLE_FLAGS}
+	${Q}cd ${GITALY_RUBY_DIR} && bundle install
 	${Q}touch $@
 
 ${SOURCE_DIR}/NOTICE: ${BUILD_DIR}/NOTICE
