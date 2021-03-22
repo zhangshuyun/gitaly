@@ -13,14 +13,14 @@ describe Gitlab::Git::Commit do
       {
         email: 'mike@smith.com',
         name: "Mike Smith",
-        time: Time.now
+        time: Time.new(2000, 1, 1, 0, 0, 0, "+08:00")
       }
     end
     let(:author) do
       {
         email: 'john@smith.com',
         name: "John Smith",
-        time: Time.now
+        time: Time.new(2000, 1, 1, 0, 0, 0, "-08:00")
       }
     end
     let(:parents) { [rugged_repo.head.target] }
@@ -74,6 +74,20 @@ describe Gitlab::Git::Commit do
     it { expect(commit.committer_name).to eq(committer.name) }
     it { expect(commit.committer_email).to eq(committer.email) }
     it { expect(commit.parent_ids).to eq(gitaly_commit.parent_ids) }
+
+    context 'non-UTC dates' do
+      let(:seconds) { Time.now.to_i }
+
+      it 'sets timezones correctly' do
+        gitaly_commit.author.date.seconds = seconds
+        gitaly_commit.author.timezone = '-0800'
+        gitaly_commit.committer.date.seconds = seconds
+        gitaly_commit.committer.timezone = '+0800'
+
+        expect(commit.authored_date).to eq(Time.at(seconds, in: '-08:00'))
+        expect(commit.committed_date).to eq(Time.at(seconds, in: '+08:00'))
+      end
+    end
 
     context 'body_size != body.size' do
       let(:body) { "".b }
