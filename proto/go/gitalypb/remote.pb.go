@@ -292,15 +292,27 @@ func (m *FetchInternalRemoteResponse) GetResult() bool {
 }
 
 type UpdateRemoteMirrorRequest struct {
-	Repository           *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	RefName              string      `protobuf:"bytes,2,opt,name=ref_name,json=refName,proto3" json:"ref_name,omitempty"`
-	OnlyBranchesMatching [][]byte    `protobuf:"bytes,3,rep,name=only_branches_matching,json=onlyBranchesMatching,proto3" json:"only_branches_matching,omitempty"`
-	SshKey               string      `protobuf:"bytes,4,opt,name=ssh_key,json=sshKey,proto3" json:"ssh_key,omitempty"`
-	KnownHosts           string      `protobuf:"bytes,5,opt,name=known_hosts,json=knownHosts,proto3" json:"known_hosts,omitempty"`
-	KeepDivergentRefs    bool        `protobuf:"varint,6,opt,name=keep_divergent_refs,json=keepDivergentRefs,proto3" json:"keep_divergent_refs,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
-	XXX_unrecognized     []byte      `json:"-"`
-	XXX_sizecache        int32       `json:"-"`
+	// repository is the repository whose mirror repository to update.
+	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
+	// ref_name is actually the remote to update.
+	RefName string `protobuf:"bytes,2,opt,name=ref_name,json=refName,proto3" json:"ref_name,omitempty"`
+	// only_branches_matching contains patterns to match branches against. Only
+	// the matched brances are updated in the remote mirror. If no patterns are
+	// specified, all branches are updated. The patterns should only contain the
+	// branch name without the 'refs/heads/' prefix. "*" can be used as a wildcard
+	// to match anything. only_branches_matching can be streamed to the server over multiple
+	// messages. Optional.
+	OnlyBranchesMatching [][]byte `protobuf:"bytes,3,rep,name=only_branches_matching,json=onlyBranchesMatching,proto3" json:"only_branches_matching,omitempty"`
+	// ssh_key is the SSH key to use for accessing to the mirror repository. Optional.
+	SshKey string `protobuf:"bytes,4,opt,name=ssh_key,json=sshKey,proto3" json:"ssh_key,omitempty"`
+	// known_hosts specifies the identities used for strict host key checking. Optional.
+	KnownHosts string `protobuf:"bytes,5,opt,name=known_hosts,json=knownHosts,proto3" json:"known_hosts,omitempty"`
+	// keep_divergent_refs specifies whether or not to update diverged references in the
+	// mirror repository.
+	KeepDivergentRefs    bool     `protobuf:"varint,6,opt,name=keep_divergent_refs,json=keepDivergentRefs,proto3" json:"keep_divergent_refs,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *UpdateRemoteMirrorRequest) Reset()         { *m = UpdateRemoteMirrorRequest{} }
@@ -371,6 +383,8 @@ func (m *UpdateRemoteMirrorRequest) GetKeepDivergentRefs() bool {
 }
 
 type UpdateRemoteMirrorResponse struct {
+	// divergent_refs contains a list of references that had diverged in the mirror from the
+	// source repository.
 	DivergentRefs        [][]byte `protobuf:"bytes,1,rep,name=divergent_refs,json=divergentRefs,proto3" json:"divergent_refs,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -807,6 +821,11 @@ type RemoteServiceClient interface {
 	AddRemote(ctx context.Context, in *AddRemoteRequest, opts ...grpc.CallOption) (*AddRemoteResponse, error)
 	FetchInternalRemote(ctx context.Context, in *FetchInternalRemoteRequest, opts ...grpc.CallOption) (*FetchInternalRemoteResponse, error)
 	RemoveRemote(ctx context.Context, in *RemoveRemoteRequest, opts ...grpc.CallOption) (*RemoveRemoteResponse, error)
+	// UpdateRemoteMirror compares the references in the target repository and its remote mirror
+	// repository. Any differences in the references are then addressed by pushing the differing
+	// references to the mirror. Created and modified references are updated, removed references are
+	// deleted from the mirror. UpdateRemoteMirror updates all tags. Branches are updated if they match
+	// the patterns specified in the requests.
 	UpdateRemoteMirror(ctx context.Context, opts ...grpc.CallOption) (RemoteService_UpdateRemoteMirrorClient, error)
 	FindRemoteRepository(ctx context.Context, in *FindRemoteRepositoryRequest, opts ...grpc.CallOption) (*FindRemoteRepositoryResponse, error)
 	FindRemoteRootRef(ctx context.Context, in *FindRemoteRootRefRequest, opts ...grpc.CallOption) (*FindRemoteRootRefResponse, error)
@@ -904,6 +923,11 @@ type RemoteServiceServer interface {
 	AddRemote(context.Context, *AddRemoteRequest) (*AddRemoteResponse, error)
 	FetchInternalRemote(context.Context, *FetchInternalRemoteRequest) (*FetchInternalRemoteResponse, error)
 	RemoveRemote(context.Context, *RemoveRemoteRequest) (*RemoveRemoteResponse, error)
+	// UpdateRemoteMirror compares the references in the target repository and its remote mirror
+	// repository. Any differences in the references are then addressed by pushing the differing
+	// references to the mirror. Created and modified references are updated, removed references are
+	// deleted from the mirror. UpdateRemoteMirror updates all tags. Branches are updated if they match
+	// the patterns specified in the requests.
 	UpdateRemoteMirror(RemoteService_UpdateRemoteMirrorServer) error
 	FindRemoteRepository(context.Context, *FindRemoteRepositoryRequest) (*FindRemoteRepositoryResponse, error)
 	FindRemoteRootRef(context.Context, *FindRemoteRootRefRequest) (*FindRemoteRootRefResponse, error)

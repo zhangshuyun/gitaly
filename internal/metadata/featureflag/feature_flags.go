@@ -38,6 +38,8 @@ var (
 	UploadPackGitalyHooks = FeatureFlag{Name: "upload_pack_gitaly_hooks", OnByDefault: false}
 	// LFSPointersUseBitmapIndex enables the use of bitmap indices when searching LFS pointers.
 	LFSPointersUseBitmapIndex = FeatureFlag{Name: "lfs_pointers_use_bitmap_index", OnByDefault: false}
+	// GoUpdateRemoteMirror enables the Go implementation of UpdateRemoteMirror
+	GoUpdateRemoteMirror = FeatureFlag{Name: "go_update_remote_mirror", OnByDefault: false}
 
 	// TxApplyBfgObjectMapStream enables transactions for ApplyBfgObjectMapStream
 	TxApplyBfgObjectMapStream = FeatureFlag{Name: "tx_apply_bfg_object_map_stream", OnByDefault: true}
@@ -120,6 +122,7 @@ var All = []FeatureFlag{
 	GoGetLFSPointers,
 	GoGetNewLFSPointers,
 	LFSPointersUseBitmapIndex,
+	GoUpdateRemoteMirror,
 	TxApplyBfgObjectMapStream,
 	TxApplyGitattributes,
 	TxResolveConflicts,

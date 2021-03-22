@@ -5,10 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/url"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -134,13 +131,13 @@ func (s *server) FetchRemote(ctx context.Context, req *gitalypb.FetchRemoteReque
 			}()
 		}
 	} else {
-		envGitSSHCommand, cleanup, err := s.configureSSH(ctx, req.GetSshKey(), req.GetKnownHosts())
+		sshCommand, cleanup, err := git.BuildSSHInvocation(ctx, req.GetSshKey(), req.GetKnownHosts())
 		if err != nil {
 			return nil, err
 		}
 		defer cleanup()
 
-		opts.Env = append(opts.Env, envGitSSHCommand)
+		opts.Env = append(opts.Env, "GIT_SSH_COMMAND="+sshCommand)
 	}
 
 	if req.GetTimeout() > 0 {
@@ -264,48 +261,4 @@ func (s *server) removeRemote(ctx context.Context, repo *localrepo.Repo, name st
 	}
 
 	return nil
-}
-
-func (s *server) configureSSH(ctx context.Context, sshKey, knownHosts string) (string, func(), error) {
-	sshKeyPresent := strings.TrimSpace(sshKey) != ""
-	knownHostsPresent := strings.TrimSpace(knownHosts) != ""
-
-	if !sshKeyPresent && !knownHostsPresent {
-		return "", func() {}, nil
-	}
-
-	tmpdir, err := ioutil.TempDir("", "")
-	if err != nil {
-		return "", nil, err
-	}
-
-	cleanup := func() {
-		if err := os.RemoveAll(tmpdir); err != nil {
-			ctxlogrus.Extract(ctx).WithError(err).Error("failed to remove tmp directory with ssh key/config")
-		}
-	}
-
-	var conf []string
-
-	if sshKeyPresent {
-		identityFilePath := filepath.Join(tmpdir, "gitlab-shell-key-file")
-
-		if err := ioutil.WriteFile(identityFilePath, []byte(sshKey), 0400); err != nil {
-			cleanup()
-			return "", nil, err
-		}
-		conf = append(conf, "-oIdentitiesOnly=yes", "-oIdentityFile="+identityFilePath)
-	}
-
-	if knownHostsPresent {
-		hostsFilePath := filepath.Join(tmpdir, "gitlab-shell-known-hosts")
-
-		if err := ioutil.WriteFile(hostsFilePath, []byte(knownHosts), 0400); err != nil {
-			cleanup()
-			return "", nil, err
-		}
-		conf = append(conf, "-oStrictHostKeyChecking=yes", "-oUserKnownHostsFile="+hostsFilePath)
-	}
-
-	return "GIT_SSH_COMMAND=ssh " + strings.Join(conf, " "), cleanup, nil
 }

@@ -110,6 +110,9 @@ var gitCommands = map[string]gitCommand{
 	"pack-objects": gitCommand{
 		flags: scNoRefUpdates | scGeneratesPackfiles,
 	},
+	"push": gitCommand{
+		flags: scNoRefUpdates | scNoEndOfOptions,
+	},
 	"receive-pack": gitCommand{
 		flags: 0,
 		opts: []GlobalOption{
