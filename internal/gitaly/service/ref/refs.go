@@ -25,8 +25,6 @@ const (
 )
 
 var (
-	master = []byte("refs/heads/master")
-
 	// We declare the following functions in variables so that we can override them in our tests
 	headReference = _headReference
 	// FindBranchNames is exported to be used in other packages
@@ -243,7 +241,7 @@ func DefaultBranchName(ctx context.Context, gitCmdFactory git.CommandFactory, re
 		return branches[0], nil
 	}
 
-	hasMaster := false
+	hasDefaultRef := false
 	headRef, err := headReference(ctx, gitCmdFactory, repo)
 	if err != nil {
 		return nil, err
@@ -254,14 +252,17 @@ func DefaultBranchName(ctx context.Context, gitCmdFactory git.CommandFactory, re
 		if headRef != nil && bytes.Equal(headRef, branch) {
 			return headRef, nil
 		}
-		if bytes.Equal(branch, master) {
-			hasMaster = true
+
+		if bytes.Equal(branch, git.DefaultRef) {
+			hasDefaultRef = true
 		}
 	}
-	// Return `ref/names/master` if it exists
-	if hasMaster {
-		return master, nil
+
+	// Return the default ref if it exists
+	if hasDefaultRef {
+		return git.DefaultRef, nil
 	}
+
 	// If all else fails, return the first branch name
 	return branches[0], nil
 }

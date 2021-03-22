@@ -5,6 +5,13 @@ import (
 	"errors"
 )
 
+// DefaultBranch now defaults to master, as that's the Git default
+const DefaultBranch = "master"
+
+// DefaultRef is the reference that GitLab will use if HEAD of the bare repository
+// is not found, or other edge cases to detect the default branch.
+var DefaultRef = []byte("refs/heads/" + DefaultBranch)
+
 var (
 	// ErrReferenceNotFound represents an error when a reference was not
 	// found.
