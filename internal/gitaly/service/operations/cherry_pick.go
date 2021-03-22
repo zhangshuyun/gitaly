@@ -125,7 +125,7 @@ func (s *Server) userCherryPick(ctx context.Context, req *gitalypb.UserCherryPic
 		if errors.As(err, &preReceiveError{}) {
 			return &gitalypb.UserCherryPickResponse{
 				PreReceiveError: err.Error(),
-			}, err
+			}, nil
 		}
 
 		return nil, fmt.Errorf("update reference with hooks: %w", err)
