@@ -65,6 +65,19 @@ func Configure(loggers []*logrus.Logger, format string, level string) {
 }
 
 func mapGrpcLogLevel(level logrus.Level) logrus.Level {
+	// Honor grpc-go's debug settings: https://github.com/grpc/grpc-go#how-to-turn-on-logging
+	logLevel := os.Getenv("GRPC_GO_LOG_SEVERITY_LEVEL")
+	if logLevel != "" {
+		switch logLevel {
+		case "ERROR", "error":
+			return logrus.ErrorLevel
+		case "WARNING", "warning":
+			return logrus.WarnLevel
+		case "INFO", "info":
+			return logrus.InfoLevel
+		}
+	}
+
 	// grpc-go is too verbose at level 'info'. So when config.toml requests
 	// level info, we tell grpc-go to log at 'warn' instead.
 	if level == logrus.InfoLevel {
