@@ -346,43 +346,6 @@ module Gitlab
         end
       end
 
-      # rubocop:disable Metrics/ParameterLists
-      def multi_action(user, branch_name:, message:, actions:,
-                       author_email: nil, author_name: nil,
-                       start_branch_name: nil, start_sha: nil, start_repository: self, force: false, timestamp: nil)
-        OperationService.new(user, self).with_branch(
-          branch_name,
-          start_branch_name: start_branch_name,
-          start_sha: start_sha,
-          start_repository: start_repository,
-          force: force
-        ) do |start_commit|
-
-          index = Gitlab::Git::Index.new(self)
-          parents = []
-
-          if start_commit
-            index.read_tree(start_commit.rugged_commit.tree)
-            parents = [start_commit.sha]
-          end
-
-          actions.each { |opts| index.apply(opts.delete(:action), opts) }
-
-          committer = user_to_committer(user, timestamp)
-          author = Gitlab::Git.committer_hash(email: author_email, name: author_name, timestamp: timestamp) || committer
-          options = {
-            tree: index.write_tree,
-            message: message,
-            parents: parents,
-            author: author,
-            committer: committer
-          }
-
-          create_commit(options)
-        end
-      end
-      # rubocop:enable Metrics/ParameterLists
-
       def with_repo_branch_commit(start_repository, start_ref)
         start_repository = RemoteRepository.new(start_repository) unless start_repository.is_a?(RemoteRepository)
 
