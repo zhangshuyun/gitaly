@@ -9,24 +9,19 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	gitalyhook "gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/streamio"
 	"google.golang.org/grpc/codes"
 )
 
 func TestPostReceiveInvalidArgument(t *testing.T) {
-	serverSocketPath, stop := runHooksServer(t, config.Config)
-	defer stop()
-
-	client, conn := newHooksClient(t, serverSocketPath)
-	defer conn.Close()
-
+	_, _, _, client := setupHookService(t)
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -44,25 +39,24 @@ func TestHooksMissingStdin(t *testing.T) {
 	defer cleanup()
 	testhelper.WriteShellSecretFile(t, tempDir, secretToken)
 
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
 	c := testhelper.GitlabTestServerOptions{
 		User:                        user,
 		Password:                    password,
 		SecretToken:                 secretToken,
 		GLID:                        "key_id",
-		GLRepository:                testRepo.GetGlRepository(),
+		GLRepository:                repo.GetGlRepository(),
 		Changes:                     "changes",
 		PostReceiveCounterDecreased: true,
 		Protocol:                    "protocol",
-		RepoPath:                    testRepoPath,
+		RepoPath:                    repoPath,
 	}
 
 	serverURL, cleanup := testhelper.NewGitlabTestServer(t, c)
 	defer cleanup()
 
-	gitlabConfig := config.Gitlab{
+	cfg.Gitlab = config.Gitlab{
 		SecretFile: filepath.Join(tempDir, ".gitlab_shell_secret"),
 		URL:        serverURL,
 		HTTPSettings: config.HTTPSettings{
@@ -71,13 +65,7 @@ func TestHooksMissingStdin(t *testing.T) {
 		},
 	}
 
-	defer func(cfg config.Cfg) {
-		config.Config = cfg
-	}(config.Config)
-
-	config.Config.Gitlab = gitlabConfig
-
-	api, err := gitalyhook.NewGitlabAPI(gitlabConfig, config.Config.TLS)
+	api, err := gitalyhook.NewGitlabAPI(cfg.Gitlab, cfg.TLS)
 	require.NoError(t, err)
 
 	testCases := []struct {
@@ -98,8 +86,7 @@ func TestHooksMissingStdin(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			serverSocketPath, stop := runHooksServerWithAPI(t, api, config.Config)
-			defer stop()
+			serverSocketPath := runHooksServerWithAPI(t, api, cfg)
 
 			client, conn := newHooksClient(t, serverSocketPath)
 			defer conn.Close()
@@ -108,8 +95,8 @@ func TestHooksMissingStdin(t *testing.T) {
 			defer cancel()
 
 			hooksPayload, err := git.NewHooksPayload(
-				config.Config,
-				testRepo,
+				cfg,
+				repo,
 				&metadata.Transaction{
 					ID:      1234,
 					Node:    "node-1",
@@ -131,7 +118,7 @@ func TestHooksMissingStdin(t *testing.T) {
 			stream, err := client.PostReceiveHook(ctx)
 			require.NoError(t, err)
 			require.NoError(t, stream.Send(&gitalypb.PostReceiveHookRequest{
-				Repository: testRepo,
+				Repository: repo,
 				EnvironmentVariables: []string{
 					hooksPayload,
 				},
@@ -192,8 +179,7 @@ To create a merge request for okay, visit:
 		},
 	}
 
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
 	secretToken := "secret token"
 	user, password := "user", "password"
@@ -209,19 +195,19 @@ To create a merge request for okay, visit:
 				Password:                    password,
 				SecretToken:                 secretToken,
 				GLID:                        "key_id",
-				GLRepository:                testRepo.GetGlRepository(),
+				GLRepository:                repo.GetGlRepository(),
 				Changes:                     "changes",
 				PostReceiveCounterDecreased: true,
 				PostReceiveMessages:         tc.basicMessages,
 				PostReceiveAlerts:           tc.alertMessages,
 				Protocol:                    "protocol",
-				RepoPath:                    testRepoPath,
+				RepoPath:                    repoPath,
 			}
 
 			serverURL, cleanup := testhelper.NewGitlabTestServer(t, c)
 			defer cleanup()
 
-			gitlabConfig := config.Gitlab{
+			cfg.Gitlab = config.Gitlab{
 				SecretFile: filepath.Join(tempDir, ".gitlab_shell_secret"),
 				URL:        serverURL,
 				HTTPSettings: config.HTTPSettings{
@@ -230,17 +216,10 @@ To create a merge request for okay, visit:
 				},
 			}
 
-			defer func(cfg config.Cfg) {
-				config.Config = cfg
-			}(config.Config)
-
-			config.Config.Gitlab = gitlabConfig
-
-			api, err := gitalyhook.NewGitlabAPI(gitlabConfig, config.Config.TLS)
+			api, err := gitalyhook.NewGitlabAPI(cfg.Gitlab, cfg.TLS)
 			require.NoError(t, err)
 
-			serverSocketPath, stop := runHooksServerWithAPI(t, api, config.Config)
-			defer stop()
+			serverSocketPath := runHooksServerWithAPI(t, api, cfg)
 
 			client, conn := newHooksClient(t, serverSocketPath)
 			defer conn.Close()
@@ -251,7 +230,7 @@ To create a merge request for okay, visit:
 			stream, err := client.PostReceiveHook(ctx)
 			require.NoError(t, err)
 
-			hooksPayload, err := git.NewHooksPayload(config.Config, testRepo, nil, nil, &git.ReceiveHooksPayload{
+			hooksPayload, err := git.NewHooksPayload(cfg, repo, nil, nil, &git.ReceiveHooksPayload{
 				UserID:   "key_id",
 				Username: "username",
 				Protocol: "protocol",
@@ -263,7 +242,7 @@ To create a merge request for okay, visit:
 			}
 
 			require.NoError(t, stream.Send(&gitalypb.PostReceiveHookRequest{
-				Repository:           testRepo,
+				Repository:           repo,
 				EnvironmentVariables: envVars,
 			}))
 
