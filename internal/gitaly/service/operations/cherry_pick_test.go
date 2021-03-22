@@ -246,12 +246,12 @@ func testServerUserCherryPickStableID(t *testing.T, ctx context.Context) {
 	response, err := client.UserCherryPick(ctx, request)
 	require.NoError(t, err)
 	require.Empty(t, response.PreReceiveError)
-	require.Equal(t, response.BranchUpdate.CommitId, "750e8cf248a67a0be1c5e3b891697d72c19af259")
+	require.Equal(t, "b17aeac93194cf2385b32623494ebce66efbacad", response.BranchUpdate.CommitId)
 
-	pickedCommit, err := repo.ReadCommit(ctx, "750e8cf248a67a0be1c5e3b891697d72c19af259")
+	pickedCommit, err := repo.ReadCommit(ctx, git.Revision(response.BranchUpdate.CommitId))
 	require.NoError(t, err)
 	require.Equal(t, &gitalypb.GitCommit{
-		Id:        "750e8cf248a67a0be1c5e3b891697d72c19af259",
+		Id:        "b17aeac93194cf2385b32623494ebce66efbacad",
 		Subject:   []byte("Cherry-picking " + commitToPick.Id),
 		Body:      []byte("Cherry-picking " + commitToPick.Id),
 		BodySize:  55,
@@ -263,7 +263,7 @@ func testServerUserCherryPickStableID(t *testing.T, ctx context.Context) {
 			Date: &timestamp.Timestamp{
 				Seconds: 1487337076,
 			},
-			Timezone: []byte("+0000"),
+			Timezone: []byte("+0200"),
 		},
 		Committer: &gitalypb.CommitAuthor{
 			Name:  testhelper.TestUser.Name,
