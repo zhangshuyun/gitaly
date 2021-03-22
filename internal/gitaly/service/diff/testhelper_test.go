@@ -5,12 +5,13 @@ import (
 	"os"
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/reflection"
 )
 
 func TestMain(m *testing.M) {
@@ -24,33 +25,39 @@ func testMain(m *testing.M) int {
 	return m.Run()
 }
 
-func runDiffServer(t *testing.T) (*grpc.Server, string) {
+func setupDiffService(t testing.TB) (config.Cfg, *gitalypb.Repository, string, gitalypb.DiffServiceClient) {
+	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
+	cfg.SocketPath = runDiffServer(t, cfg)
+	client, conn := newDiffClient(t, cfg.SocketPath)
+	t.Cleanup(func() { conn.Close() })
+
+	return cfg, repo, repoPath, client
+}
+
+func runDiffServer(t testing.TB, cfg config.Cfg) string {
+	t.Helper()
+
 	server := testhelper.NewTestGrpcServer(t, nil, nil)
+	t.Cleanup(server.Stop)
 
 	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
 	listener, err := net.Listen("unix", serverSocketPath)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
-	cfg := config.Config
 	gitalypb.RegisterDiffServiceServer(server, NewServer(cfg, config.NewLocator(cfg), git.NewExecCommandFactory(cfg)))
-	reflection.Register(server)
 
 	go server.Serve(listener)
 
-	return server, "unix://" + serverSocketPath
+	return "unix://" + serverSocketPath
 }
 
-func newDiffClient(t *testing.T, serverSocketPath string) (gitalypb.DiffServiceClient, *grpc.ClientConn) {
+func newDiffClient(t testing.TB, serverSocketPath string) (gitalypb.DiffServiceClient, *grpc.ClientConn) {
 	connOpts := []grpc.DialOption{
 		grpc.WithInsecure(),
 	}
 
 	conn, err := grpc.Dial(serverSocketPath, connOpts...)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	return gitalypb.NewDiffServiceClient(conn), conn
 }

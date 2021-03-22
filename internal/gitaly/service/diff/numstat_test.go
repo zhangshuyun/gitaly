@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/diff"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -13,18 +12,11 @@ import (
 )
 
 func TestSuccessfulDiffStatsRequest(t *testing.T) {
-	server, serverSocketPath := runDiffServer(t)
-	defer server.Stop()
-
-	client, conn := newDiffClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupDiffService(t)
 
 	rightCommit := "e4003da16c1c2c3fc4567700121b17bf8e591c6c"
 	leftCommit := "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab"
-	rpcRequest := &gitalypb.DiffStatsRequest{Repository: testRepo, RightCommitId: rightCommit, LeftCommitId: leftCommit}
+	rpcRequest := &gitalypb.DiffStatsRequest{Repository: repo, RightCommitId: rightCommit, LeftCommitId: leftCommit}
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -103,9 +95,7 @@ func TestSuccessfulDiffStatsRequest(t *testing.T) {
 	}
 
 	stream, err := client.DiffStats(ctx, rpcRequest)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	for {
 		fetchedStats, err := stream.Recv()
@@ -128,17 +118,10 @@ func TestSuccessfulDiffStatsRequest(t *testing.T) {
 }
 
 func TestFailedDiffStatsRequest(t *testing.T) {
-	server, serverSocketPath := runDiffServer(t)
-	defer server.Stop()
-
-	client, conn := newDiffClient(t, serverSocketPath)
-	defer conn.Close()
+	_, repo, _, client := setupDiffService(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
 
 	tests := []struct {
 		desc          string
@@ -149,7 +132,7 @@ func TestFailedDiffStatsRequest(t *testing.T) {
 	}{
 		{
 			desc:          "repo not found",
-			repo:          &gitalypb.Repository{StorageName: testRepo.GetStorageName(), RelativePath: "bar.git"},
+			repo:          &gitalypb.Repository{StorageName: repo.GetStorageName(), RelativePath: "bar.git"},
 			leftCommitID:  "e4003da16c1c2c3fc4567700121b17bf8e591c6c",
 			rightCommitID: "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab",
 			err:           codes.NotFound,
@@ -163,42 +146,42 @@ func TestFailedDiffStatsRequest(t *testing.T) {
 		},
 		{
 			desc:          "left commit ID not found",
-			repo:          testRepo,
+			repo:          repo,
 			leftCommitID:  "",
 			rightCommitID: "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab",
 			err:           codes.InvalidArgument,
 		},
 		{
 			desc:          "right commit ID not found",
-			repo:          testRepo,
+			repo:          repo,
 			leftCommitID:  "e4003da16c1c2c3fc4567700121b17bf8e591c6c",
 			rightCommitID: "",
 			err:           codes.InvalidArgument,
 		},
 		{
 			desc:          "invalid left commit",
-			repo:          testRepo,
+			repo:          repo,
 			leftCommitID:  "invalidinvalidinvalid",
 			rightCommitID: "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab",
 			err:           codes.Unavailable,
 		},
 		{
 			desc:          "invalid right commit",
-			repo:          testRepo,
+			repo:          repo,
 			leftCommitID:  "e4003da16c1c2c3fc4567700121b17bf8e591c6c",
 			rightCommitID: "invalidinvalidinvalid",
 			err:           codes.Unavailable,
 		},
 		{
 			desc:          "left commit not found",
-			repo:          testRepo,
+			repo:          repo,
 			leftCommitID:  "z4003da16c1c2c3fc4567700121b17bf8e591c6c",
 			rightCommitID: "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab",
 			err:           codes.Unavailable,
 		},
 		{
 			desc:          "right commit not found",
-			repo:          testRepo,
+			repo:          repo,
 			leftCommitID:  "e4003da16c1c2c3fc4567700121b17bf8e591c6c",
 			rightCommitID: "z4003da16c1c2c3fc4567700121b17bf8e591c6c",
 			err:           codes.Unavailable,
