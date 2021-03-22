@@ -87,6 +87,11 @@ func (s *Server) userCherryPick(ctx context.Context, req *gitalypb.UserCherryPic
 				CreateTreeError:     err.Error(),
 				CreateTreeErrorCode: gitalypb.UserCherryPickResponse_CONFLICT,
 			}, nil
+		case errors.As(err, &git2go.EmptyError{}):
+			return &gitalypb.UserCherryPickResponse{
+				CreateTreeError:     err.Error(),
+				CreateTreeErrorCode: gitalypb.UserCherryPickResponse_EMPTY,
+			}, nil
 		case errors.Is(err, git2go.ErrInvalidArgument):
 			return nil, helper.ErrInvalidArgument(err)
 		default:

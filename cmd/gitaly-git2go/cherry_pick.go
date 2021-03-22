@@ -100,6 +100,10 @@ func (cmd *cherryPickSubcommand) cherryPick(ctx context.Context, r *git2go.Cherr
 		return "", fmt.Errorf("could not write tree: %w", err)
 	}
 
+	if tree.Equal(ours.TreeId()) {
+		return "", git2go.EmptyError{}
+	}
+
 	committer := git.Signature(git2go.NewSignature(r.CommitterName, r.CommitterMail, r.CommitterDate))
 
 	commit, err := repo.CreateCommitFromIds("", pick.Author(), &committer, r.Message, tree, ours.Id())

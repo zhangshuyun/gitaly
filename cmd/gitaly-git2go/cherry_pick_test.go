@@ -119,6 +119,20 @@ func TestCherryPick(t *testing.T) {
 			expectedErrMsg: "cherry-pick: could not apply due to conflicts",
 		},
 		{
+			desc: "empty cherry-pick fails",
+			base: map[string]string{
+				"file": "foo",
+			},
+			ours: map[string]string{
+				"file": "fooqux",
+			},
+			commit: map[string]string{
+				"file": "fooqux",
+			},
+			expectedErr:    git2go.EmptyError{},
+			expectedErrMsg: "cherry-pick: could not apply because the result was empty",
+		},
+		{
 			desc:           "fails on nonexistent ours commit",
 			expectedErrMsg: "cherry-pick: ours commit lookup: could not lookup reference \"nonexistent\": revspec 'nonexistent' not found",
 		},
