@@ -1,0 +1,5 @@
+---
+title: Turn UserUpdateBranch in Go on by default
+merge_request: 3286
+author:
+type: changed
