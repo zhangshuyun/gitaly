@@ -27,7 +27,9 @@ const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 type CommitDiffRequest_DiffMode int32
 
 const (
-	CommitDiffRequest_DEFAULT  CommitDiffRequest_DiffMode = 0
+	// DEFAULT is the standard diff mode and results in a linewise diff for textfiles.
+	CommitDiffRequest_DEFAULT CommitDiffRequest_DiffMode = 0
+	// WORDDIFF is a word diff and computes the diff for whitespace separated words instead of for whole lines.
 	CommitDiffRequest_WORDDIFF CommitDiffRequest_DiffMode = 1
 )
 
@@ -103,7 +105,7 @@ type CommitDiffRequest struct {
 	SafeMaxFiles int32 `protobuf:"varint,11,opt,name=safe_max_files,json=safeMaxFiles,proto3" json:"safe_max_files,omitempty"`
 	SafeMaxLines int32 `protobuf:"varint,12,opt,name=safe_max_lines,json=safeMaxLines,proto3" json:"safe_max_lines,omitempty"`
 	SafeMaxBytes int32 `protobuf:"varint,13,opt,name=safe_max_bytes,json=safeMaxBytes,proto3" json:"safe_max_bytes,omitempty"`
-	// Stores requested diff mode (default or word-diff)
+	// DiffMode is the mode used for generating the diff. Please refer to the enum declaration for supported modes.
 	DiffMode             CommitDiffRequest_DiffMode `protobuf:"varint,15,opt,name=diff_mode,json=diffMode,proto3,enum=gitaly.CommitDiffRequest_DiffMode" json:"diff_mode,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}                   `json:"-"`
 	XXX_unrecognized     []byte                     `json:"-"`

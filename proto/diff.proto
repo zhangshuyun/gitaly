@@ -45,7 +45,9 @@ service DiffService {
 
 message CommitDiffRequest {
   enum DiffMode {
+    // DEFAULT is the standard diff mode and results in a linewise diff for textfiles.
     DEFAULT = 0;
+    // WORDDIFF is a word diff and computes the diff for whitespace separated words instead of for whole lines.
     WORDDIFF = 1;
   }
 
@@ -71,7 +73,7 @@ message CommitDiffRequest {
   int32 safe_max_lines = 12;
   int32 safe_max_bytes = 13;
 
-  // Stores requested diff mode (default or word-diff)
+  // DiffMode is the mode used for generating the diff. Please refer to the enum declaration for supported modes.
   DiffMode diff_mode = 15;
 }
 
