@@ -13,42 +13,38 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/git/lstree"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
 
-func TestSuccessfulUserUpdateSubmoduleRequest(t *testing.T) {
+func testSuccessfulUserUpdateSubmoduleRequest(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	testhelper.NewFeatureSets(
 		[]featureflag.FeatureFlag{featureflag.GoUserUpdateSubmodule},
-	).Run(t, testSuccessfulUserUpdateSubmoduleRequest)
+	).Run(t, func(t *testing.T, ctx context.Context) {
+		testSuccessfulUserUpdateSubmoduleRequestFeatured(t, ctx, cfg, rubySrv)
+	})
 }
 
-func testSuccessfulUserUpdateSubmoduleRequest(t *testing.T, ctx context.Context) {
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
+func testSuccessfulUserUpdateSubmoduleRequestFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
+	ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
 
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepoProto, testRepoPath, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
-
-	testRepo := localrepo.New(git.NewExecCommandFactory(config.Config), testRepoProto, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
 	// This reference is created to check that we can correctly commit onto
 	// a branch which has a name starting with "refs/heads/".
-	currentOID, err := testRepo.ResolveRevision(ctx, "refs/heads/master")
+	currentOID, err := repo.ResolveRevision(ctx, "refs/heads/master")
 	require.NoError(t, err)
-	require.NoError(t, testRepo.UpdateRef(ctx, "refs/heads/refs/heads/master", currentOID, git.ZeroOID))
+	require.NoError(t, repo.UpdateRef(ctx, "refs/heads/refs/heads/master", currentOID, git.ZeroOID))
 
 	// If something uses the branch name as an unqualified reference, then
 	// git would return the tag instead of the branch. We thus create a tag
 	// with a different OID than the current master branch.
-	prevOID, err := testRepo.ResolveRevision(ctx, "refs/heads/master~")
+	prevOID, err := repo.ResolveRevision(ctx, "refs/heads/master~")
 	require.NoError(t, err)
-	require.NoError(t, testRepo.UpdateRef(ctx, "refs/tags/master", prevOID, git.ZeroOID))
+	require.NoError(t, repo.UpdateRef(ctx, "refs/tags/master", prevOID, git.ZeroOID))
 
 	commitMessage := []byte("Update Submodule message")
 
@@ -81,7 +77,7 @@ func testSuccessfulUserUpdateSubmoduleRequest(t *testing.T, ctx context.Context)
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
 			request := &gitalypb.UserUpdateSubmoduleRequest{
-				Repository:    testRepoProto,
+				Repository:    repoProto,
 				User:          testhelper.TestUser,
 				Submodule:     []byte(testCase.submodule),
 				CommitSha:     testCase.commitSha,
@@ -94,13 +90,13 @@ func testSuccessfulUserUpdateSubmoduleRequest(t *testing.T, ctx context.Context)
 			require.Empty(t, response.GetCommitError())
 			require.Empty(t, response.GetPreReceiveError())
 
-			commit, err := testRepo.ReadCommit(ctx, git.Revision(response.BranchUpdate.CommitId))
+			commit, err := repo.ReadCommit(ctx, git.Revision(response.BranchUpdate.CommitId))
 			require.NoError(t, err)
 			require.Equal(t, commit.Author.Email, testhelper.TestUser.Email)
 			require.Equal(t, commit.Committer.Email, testhelper.TestUser.Email)
 			require.Equal(t, commit.Subject, commitMessage)
 
-			entry := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "ls-tree", "-z", fmt.Sprintf("%s^{tree}:", response.BranchUpdate.CommitId), testCase.submodule)
+			entry := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "ls-tree", "-z", fmt.Sprintf("%s^{tree}:", response.BranchUpdate.CommitId), testCase.submodule)
 			parser := lstree.NewParser(bytes.NewReader(entry))
 			parsedEntry, err := parser.NextEntry()
 			require.NoError(t, err)
@@ -110,22 +106,18 @@ func testSuccessfulUserUpdateSubmoduleRequest(t *testing.T, ctx context.Context)
 	}
 }
 
-func TestUserUpdateSubmodule_stableID(t *testing.T) {
+func testUserUpdateSubmoduleStableID(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	testhelper.NewFeatureSets(
 		[]featureflag.FeatureFlag{featureflag.GoUserUpdateSubmodule},
-	).Run(t, testUserUpdateSubmoduleStableID)
+	).Run(t, func(t *testing.T, ctx context.Context) {
+		testUserUpdateSubmoduleStableIDFeatured(t, ctx, cfg, rubySrv)
+	})
 }
 
-func testUserUpdateSubmoduleStableID(t *testing.T, ctx context.Context) {
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
+func testUserUpdateSubmoduleStableIDFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
+	ctx, cfg, repoProto, _, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
 
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
-
-	repoProto, _, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
-	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
 	response, err := client.UserUpdateSubmodule(ctx, &gitalypb.UserUpdateSubmoduleRequest{
 		Repository:    repoProto,
@@ -166,21 +158,16 @@ func testUserUpdateSubmoduleStableID(t *testing.T, ctx context.Context) {
 	}, commit)
 }
 
-func TestFailedUserUpdateSubmoduleRequestDueToValidations(t *testing.T) {
+func testFailedUserUpdateSubmoduleRequestDueToValidations(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	testhelper.NewFeatureSets(
 		[]featureflag.FeatureFlag{featureflag.GoUserUpdateSubmodule},
-	).Run(t, testFailedUserUpdateSubmoduleRequestDueToValidations)
+	).Run(t, func(t *testing.T, ctx context.Context) {
+		testFailedUserUpdateSubmoduleRequestDueToValidationsFeatured(t, ctx, cfg, rubySrv)
+	})
 }
 
-func testFailedUserUpdateSubmoduleRequestDueToValidations(t *testing.T, ctx context.Context) {
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
-
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
+func testFailedUserUpdateSubmoduleRequestDueToValidationsFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
+	ctx, _, repo, _, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
 
 	testCases := []struct {
 		desc    string
@@ -202,7 +189,7 @@ func testFailedUserUpdateSubmoduleRequestDueToValidations(t *testing.T, ctx cont
 		{
 			desc: "empty User",
 			request: &gitalypb.UserUpdateSubmoduleRequest{
-				Repository:    testRepo,
+				Repository:    repo,
 				User:          nil,
 				Submodule:     []byte("six"),
 				CommitSha:     "db54006ff1c999fd485af44581dabe9b6c85a701",
@@ -214,7 +201,7 @@ func testFailedUserUpdateSubmoduleRequestDueToValidations(t *testing.T, ctx cont
 		{
 			desc: "empty Submodule",
 			request: &gitalypb.UserUpdateSubmoduleRequest{
-				Repository:    testRepo,
+				Repository:    repo,
 				User:          testhelper.TestUser,
 				Submodule:     nil,
 				CommitSha:     "db54006ff1c999fd485af44581dabe9b6c85a701",
@@ -226,7 +213,7 @@ func testFailedUserUpdateSubmoduleRequestDueToValidations(t *testing.T, ctx cont
 		{
 			desc: "empty CommitSha",
 			request: &gitalypb.UserUpdateSubmoduleRequest{
-				Repository:    testRepo,
+				Repository:    repo,
 				User:          testhelper.TestUser,
 				Submodule:     []byte("six"),
 				CommitSha:     "",
@@ -238,7 +225,7 @@ func testFailedUserUpdateSubmoduleRequestDueToValidations(t *testing.T, ctx cont
 		{
 			desc: "invalid CommitSha",
 			request: &gitalypb.UserUpdateSubmoduleRequest{
-				Repository:    testRepo,
+				Repository:    repo,
 				User:          testhelper.TestUser,
 				Submodule:     []byte("six"),
 				CommitSha:     "foobar",
@@ -250,7 +237,7 @@ func testFailedUserUpdateSubmoduleRequestDueToValidations(t *testing.T, ctx cont
 		{
 			desc: "invalid CommitSha",
 			request: &gitalypb.UserUpdateSubmoduleRequest{
-				Repository:    testRepo,
+				Repository:    repo,
 				User:          testhelper.TestUser,
 				Submodule:     []byte("six"),
 				CommitSha:     "db54006ff1c999fd485a",
@@ -262,7 +249,7 @@ func testFailedUserUpdateSubmoduleRequestDueToValidations(t *testing.T, ctx cont
 		{
 			desc: "empty Branch",
 			request: &gitalypb.UserUpdateSubmoduleRequest{
-				Repository:    testRepo,
+				Repository:    repo,
 				User:          testhelper.TestUser,
 				Submodule:     []byte("six"),
 				CommitSha:     "db54006ff1c999fd485af44581dabe9b6c85a701",
@@ -274,7 +261,7 @@ func testFailedUserUpdateSubmoduleRequestDueToValidations(t *testing.T, ctx cont
 		{
 			desc: "empty CommitMessage",
 			request: &gitalypb.UserUpdateSubmoduleRequest{
-				Repository:    testRepo,
+				Repository:    repo,
 				User:          testhelper.TestUser,
 				Submodule:     []byte("six"),
 				CommitSha:     "db54006ff1c999fd485af44581dabe9b6c85a701",
@@ -287,9 +274,6 @@ func testFailedUserUpdateSubmoduleRequestDueToValidations(t *testing.T, ctx cont
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
-			ctx, cancel := context.WithCancel(ctx)
-			defer cancel()
-
 			_, err := client.UserUpdateSubmodule(ctx, testCase.request)
 			testhelper.RequireGrpcError(t, err, testCase.code)
 			require.Contains(t, err.Error(), testCase.desc)
@@ -297,24 +281,19 @@ func testFailedUserUpdateSubmoduleRequestDueToValidations(t *testing.T, ctx cont
 	}
 }
 
-func TestFailedUserUpdateSubmoduleRequestDueToInvalidBranch(t *testing.T) {
+func testFailedUserUpdateSubmoduleRequestDueToInvalidBranch(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	testhelper.NewFeatureSets(
 		[]featureflag.FeatureFlag{featureflag.GoUserUpdateSubmodule},
-	).Run(t, testFailedUserUpdateSubmoduleRequestDueToInvalidBranch)
+	).Run(t, func(t *testing.T, ctx context.Context) {
+		testFailedUserUpdateSubmoduleRequestDueToInvalidBranchFeatured(t, ctx, cfg, rubySrv)
+	})
 }
 
-func testFailedUserUpdateSubmoduleRequestDueToInvalidBranch(t *testing.T, ctx context.Context) {
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
-
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
+func testFailedUserUpdateSubmoduleRequestDueToInvalidBranchFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
+	ctx, _, repo, _, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
 
 	request := &gitalypb.UserUpdateSubmoduleRequest{
-		Repository:    testRepo,
+		Repository:    repo,
 		User:          testhelper.TestUser,
 		Submodule:     []byte("six"),
 		CommitSha:     "db54006ff1c999fd485af44581dabe9b6c85a701",
@@ -327,24 +306,19 @@ func testFailedUserUpdateSubmoduleRequestDueToInvalidBranch(t *testing.T, ctx co
 	require.Contains(t, err.Error(), "Cannot find branch")
 }
 
-func TestFailedUserUpdateSubmoduleRequestDueToInvalidSubmodule(t *testing.T) {
+func testFailedUserUpdateSubmoduleRequestDueToInvalidSubmodule(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	testhelper.NewFeatureSets(
 		[]featureflag.FeatureFlag{featureflag.GoUserUpdateSubmodule},
-	).Run(t, testFailedUserUpdateSubmoduleRequestDueToInvalidSubmodule)
+	).Run(t, func(t *testing.T, ctx context.Context) {
+		testFailedUserUpdateSubmoduleRequestDueToInvalidSubmoduleFeatured(t, ctx, cfg, rubySrv)
+	})
 }
 
-func testFailedUserUpdateSubmoduleRequestDueToInvalidSubmodule(t *testing.T, ctx context.Context) {
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
-
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
+func testFailedUserUpdateSubmoduleRequestDueToInvalidSubmoduleFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
+	ctx, _, repo, _, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
 
 	request := &gitalypb.UserUpdateSubmoduleRequest{
-		Repository:    testRepo,
+		Repository:    repo,
 		User:          testhelper.TestUser,
 		Submodule:     []byte("non-existent-submodule"),
 		CommitSha:     "db54006ff1c999fd485af44581dabe9b6c85a701",
@@ -357,24 +331,19 @@ func testFailedUserUpdateSubmoduleRequestDueToInvalidSubmodule(t *testing.T, ctx
 	require.Equal(t, response.CommitError, "Invalid submodule path")
 }
 
-func TestFailedUserUpdateSubmoduleRequestDueToSameReference(t *testing.T) {
+func testFailedUserUpdateSubmoduleRequestDueToSameReference(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	testhelper.NewFeatureSets(
 		[]featureflag.FeatureFlag{featureflag.GoUserUpdateSubmodule},
-	).Run(t, testFailedUserUpdateSubmoduleRequestDueToSameReference)
+	).Run(t, func(t *testing.T, ctx context.Context) {
+		testFailedUserUpdateSubmoduleRequestDueToSameReferenceFeatured(t, ctx, cfg, rubySrv)
+	})
 }
 
-func testFailedUserUpdateSubmoduleRequestDueToSameReference(t *testing.T, ctx context.Context) {
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
-
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
+func testFailedUserUpdateSubmoduleRequestDueToSameReferenceFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
+	ctx, _, repo, _, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
 
 	request := &gitalypb.UserUpdateSubmoduleRequest{
-		Repository:    testRepo,
+		Repository:    repo,
 		User:          testhelper.TestUser,
 		Submodule:     []byte("six"),
 		CommitSha:     "41fa1bc9e0f0630ced6a8a211d60c2af425ecc2d",
@@ -390,24 +359,22 @@ func testFailedUserUpdateSubmoduleRequestDueToSameReference(t *testing.T, ctx co
 	require.Contains(t, response.CommitError, "is already at")
 }
 
-func TestFailedUserUpdateSubmoduleRequestDueToRepositoryEmpty(t *testing.T) {
+func testFailedUserUpdateSubmoduleRequestDueToRepositoryEmpty(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	testhelper.NewFeatureSets(
 		[]featureflag.FeatureFlag{featureflag.GoUserUpdateSubmodule},
-	).Run(t, testFailedUserUpdateSubmoduleRequestDueToRepositoryEmpty)
+	).Run(t, func(t *testing.T, ctx context.Context) {
+		testFailedUserUpdateSubmoduleRequestDueToRepositoryEmptyFeatured(t, ctx, cfg, rubySrv)
+	})
 }
 
-func testFailedUserUpdateSubmoduleRequestDueToRepositoryEmpty(t *testing.T, ctx context.Context) {
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
+func testFailedUserUpdateSubmoduleRequestDueToRepositoryEmptyFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
+	ctx, _, _, _, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
 
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanup := gittest.InitRepoWithWorktree(t)
-	defer cleanup()
+	repo, _, cleanup := gittest.InitRepoWithWorktreeAtStorage(t, cfg.Storages[0])
+	t.Cleanup(cleanup)
 
 	request := &gitalypb.UserUpdateSubmoduleRequest{
-		Repository:    testRepo,
+		Repository:    repo,
 		User:          testhelper.TestUser,
 		Submodule:     []byte("six"),
 		CommitSha:     "41fa1bc9e0f0630ced6a8a211d60c2af425ecc2d",

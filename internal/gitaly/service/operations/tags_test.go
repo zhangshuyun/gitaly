@@ -10,7 +10,7 @@ import (
 
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/client"
+	gitalyclient "gitlab.com/gitlab-org/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
@@ -24,6 +24,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -36,21 +37,14 @@ func TestSuccessfulUserDeleteTagRequest(t *testing.T) {
 }
 
 func testSuccessfulUserDeleteTagRequest(t *testing.T, ctx context.Context) {
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
-
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	ctx, _, repo, repoPath, client := setupOperationsService(t, ctx)
 
 	tagNameInput := "to-be-deleted-soon-tag"
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "tag", tagNameInput)
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "tag", tagNameInput)
 
 	request := &gitalypb.UserDeleteTagRequest{
-		Repository: testRepo,
+		Repository: repo,
 		TagName:    []byte(tagNameInput),
 		User:       testhelper.TestUser,
 	}
@@ -58,7 +52,7 @@ func testSuccessfulUserDeleteTagRequest(t *testing.T, ctx context.Context) {
 	_, err := client.UserDeleteTag(ctx, request)
 	require.NoError(t, err)
 
-	tags := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "tag")
+	tags := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "tag")
 	require.NotContains(t, string(tags), tagNameInput, "tag name still exists in tags list")
 }
 
@@ -69,28 +63,21 @@ func TestSuccessfulGitHooksForUserDeleteTagRequest(t *testing.T) {
 }
 
 func testSuccessfulGitHooksForUserDeleteTagRequest(t *testing.T, ctx context.Context) {
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
-
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	ctx, _, repo, repoPath, client := setupOperationsService(t, ctx)
 
 	tagNameInput := "to-be-déleted-soon-tag"
 
 	request := &gitalypb.UserDeleteTagRequest{
-		Repository: testRepo,
+		Repository: repo,
 		TagName:    []byte(tagNameInput),
 		User:       testhelper.TestUser,
 	}
 
 	for _, hookName := range GitlabHooks {
 		t.Run(hookName, func(t *testing.T) {
-			testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "tag", tagNameInput)
+			testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "tag", tagNameInput)
 
-			hookOutputTempPath, cleanup := gittest.WriteEnvToCustomHook(t, testRepoPath, hookName)
+			hookOutputTempPath, cleanup := gittest.WriteEnvToCustomHook(t, repoPath, hookName)
 			defer cleanup()
 
 			_, err := client.UserDeleteTag(ctx, request)
@@ -102,7 +89,7 @@ func testSuccessfulGitHooksForUserDeleteTagRequest(t *testing.T, ctx context.Con
 	}
 }
 
-func writeAssertObjectTypePreReceiveHook(t *testing.T) (string, func()) {
+func writeAssertObjectTypePreReceiveHook(t *testing.T, cfg config.Cfg) (string, func()) {
 	t.Helper()
 
 	hook := fmt.Sprintf(`#!/usr/bin/env ruby
@@ -129,7 +116,7 @@ end
 
 unless out.chomp == expected_object_type
   abort "pre-receive hook error: expected '#{ref_name}' update of '#{old_value}' (a) -> '#{new_value}' (b) for 'b' to be a '#{expected_object_type}' object, got '#{out}'"
-end`, config.Config.Git.BinPath)
+end`, cfg.Git.BinPath)
 
 	dir, cleanup := testhelper.TempDir(t)
 	hookPath := filepath.Join(dir, "pre-receive")
@@ -139,7 +126,7 @@ end`, config.Config.Git.BinPath)
 	return hookPath, cleanup
 }
 
-func writeAssertObjectTypeUpdateHook(t *testing.T) (string, func()) {
+func writeAssertObjectTypeUpdateHook(t *testing.T, cfg config.Cfg) (string, func()) {
 	t.Helper()
 
 	hook := fmt.Sprintf(`#!/usr/bin/env ruby
@@ -162,7 +149,7 @@ end
 
 unless out.chomp == expected_object_type
   abort "update hook error: expected '#{ref_name}' update of '#{old_value}' (a) -> '#{new_value}' (b) for 'b' to be a '#{expected_object_type}' object, got '#{out}'"
-end`, config.Config.Git.BinPath)
+end`, cfg.Git.BinPath)
 
 	dir, cleanup := testhelper.TempDir(t)
 	hookPath := filepath.Join(dir, "pre-receive")
@@ -179,15 +166,9 @@ func TestSuccessfulUserCreateTagRequest(t *testing.T) {
 }
 
 func testSuccessfulUserCreateTagRequest(t *testing.T, ctx context.Context) {
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
+	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
-
-	repoProto, repoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
 	targetRevision := "c7fbe50c7c7419d9701eebe64b1fdacc3df5b9dd"
 	targetRevisionCommit, err := repo.ReadCommit(ctx, git.Revision(targetRevision))
@@ -195,10 +176,10 @@ func testSuccessfulUserCreateTagRequest(t *testing.T, ctx context.Context) {
 
 	inputTagName := "to-be-créated-soon"
 
-	preReceiveHook, cleanup := writeAssertObjectTypePreReceiveHook(t)
+	preReceiveHook, cleanup := writeAssertObjectTypePreReceiveHook(t, cfg)
 	defer cleanup()
 
-	updateHook, cleanup := writeAssertObjectTypeUpdateHook(t)
+	updateHook, cleanup := writeAssertObjectTypeUpdateHook(t, cfg)
 	defer cleanup()
 
 	testCases := []struct {
@@ -281,9 +262,9 @@ func TestUserCreateTagWithTransaction(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	repoProto, repoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
+	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
+
+	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
 	hooksOutputDir, cleanup := testhelper.TempDir(t)
 	defer cleanup()
@@ -305,17 +286,17 @@ func TestUserCreateTagWithTransaction(t *testing.T) {
 	// it available for transactional voting. We cannot use
 	// runOperationServiceServer as it puts a Praefect server in between if
 	// running Praefect tests, which would break our test setup.
-	server := testhelper.NewServerWithAuth(t, nil, nil, config.Config.Auth.Token, testhelper.WithInternalSocket(config.Config))
+	server := testhelper.NewServerWithAuth(t, nil, nil, cfg.Auth.Token, testhelper.WithInternalSocket(cfg))
 
-	locator := config.NewLocator(config.Config)
-	txManager := transaction.NewManager(config.Config, backchannel.NewRegistry())
-	hookManager := gitalyhook.NewManager(locator, txManager, gitalyhook.GitlabAPIStub, config.Config)
-	gitCmdFactory := git.NewExecCommandFactory(config.Config)
-	conns := client.NewPool()
+	locator := config.NewLocator(cfg)
+	txManager := transaction.NewManager(cfg, backchannel.NewRegistry())
+	hookManager := gitalyhook.NewManager(locator, txManager, gitalyhook.GitlabAPIStub, cfg)
+	gitCmdFactory := git.NewExecCommandFactory(cfg)
+	conns := gitalyclient.NewPool()
 	defer conns.Close()
 
-	operationServer := NewServer(config.Config, RubyServer, hookManager, locator, conns, gitCmdFactory)
-	hookServer := hook.NewServer(config.Config, hookManager, gitCmdFactory)
+	operationServer := NewServer(cfg, nil, hookManager, locator, conns, gitCmdFactory)
+	hookServer := hook.NewServer(cfg, hookManager, gitCmdFactory)
 	transactionServer := &testTransactionServer{}
 
 	gitalypb.RegisterOperationServiceServer(server.GrpcServer(), operationServer)
@@ -340,7 +321,7 @@ func TestUserCreateTagWithTransaction(t *testing.T) {
 
 	praefectServer := &metadata.PraefectServer{
 		ListenAddr: "tcp://" + hostPort,
-		Token:      config.Config.Auth.Token,
+		Token:      cfg.Auth.Token,
 	}
 
 	for i, testCase := range []struct {
@@ -436,19 +417,12 @@ func TestSuccessfulUserCreateTagRequestAnnotatedLightweightDisambiguation(t *tes
 }
 
 func testSuccessfulUserCreateTagRequestAnnotatedLightweightDisambiguation(t *testing.T, ctx context.Context) {
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
+	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-
-	preReceiveHook, cleanup := writeAssertObjectTypePreReceiveHook(t)
+	preReceiveHook, cleanup := writeAssertObjectTypePreReceiveHook(t, cfg)
 	defer cleanup()
 
-	updateHook, cleanup := writeAssertObjectTypeUpdateHook(t)
+	updateHook, cleanup := writeAssertObjectTypeUpdateHook(t, cfg)
 	defer cleanup()
 
 	testCases := []struct {
@@ -505,13 +479,13 @@ func testSuccessfulUserCreateTagRequestAnnotatedLightweightDisambiguation(t *tes
 				"pre-receive": fmt.Sprintf("#!/bin/sh\n%s %s \"$@\"", preReceiveHook, testCase.objType),
 				"update":      fmt.Sprintf("#!/bin/sh\n%s %s \"$@\"", updateHook, testCase.objType),
 			} {
-				hookCleanup := gittest.WriteCustomHook(t, testRepoPath, hook, []byte(content))
+				hookCleanup := gittest.WriteCustomHook(t, repoPath, hook, []byte(content))
 				defer hookCleanup()
 			}
 
 			tagName := "what-will-it-be"
 			request := &gitalypb.UserCreateTagRequest{
-				Repository:     testRepo,
+				Repository:     repo,
 				TagName:        []byte(tagName),
 				TargetRevision: []byte("c7fbe50c7c7419d9701eebe64b1fdacc3df5b9dd"),
 				User:           testhelper.TestUser,
@@ -523,7 +497,7 @@ func testSuccessfulUserCreateTagRequestAnnotatedLightweightDisambiguation(t *tes
 			if testCase.err != nil {
 				require.Equal(t, testCase.err, err)
 			} else {
-				defer testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "tag", "-d", tagName)
+				defer testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "tag", "-d", tagName)
 				require.NoError(t, err)
 				require.Empty(t, response.PreReceiveError)
 			}
@@ -538,19 +512,12 @@ func TestSuccessfulUserCreateTagRequestWithParsedTargetRevision(t *testing.T) {
 }
 
 func testSuccessfulUserCreateTagRequestWithParsedTargetRevision(t *testing.T, ctx context.Context) {
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
+	ctx, _, repo, repoPath, client := setupOperationsService(t, ctx)
 
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", "heads/master", "master~1")
-	defer testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", "-d", "heads/master")
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", "refs/heads/master", "master~2")
-	defer testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", "-d", "refs/heads/master")
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", "heads/master", "master~1")
+	defer testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", "-d", "heads/master")
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", "refs/heads/master", "master~2")
+	defer testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", "-d", "refs/heads/master")
 
 	testCases := []struct {
 		desc             string
@@ -603,18 +570,18 @@ func testSuccessfulUserCreateTagRequestWithParsedTargetRevision(t *testing.T, ct
 		t.Run(testCase.desc, func(t *testing.T) {
 			tagName := "what-will-it-be"
 			request := &gitalypb.UserCreateTagRequest{
-				Repository:     testRepo,
+				Repository:     repo,
 				TagName:        []byte(tagName),
 				TargetRevision: []byte(testCase.targetRevision),
 				User:           testhelper.TestUser,
 			}
 
 			response, err := client.UserCreateTag(ctx, request)
-			defer testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "tag", "-d", tagName)
+			defer testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "tag", "-d", tagName)
 			require.NoError(t, err)
 			require.Empty(t, response.PreReceiveError)
 
-			parsedID := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "rev-parse", tagName)
+			parsedID := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", tagName)
 			require.Equal(t, text.ChompBytes(parsedID), response.Tag.TargetCommit.Id)
 		})
 	}
@@ -624,21 +591,14 @@ func TestSuccessfulUserCreateTagRequestToNonCommit(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
-
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
 	inputTagName := "to-be-créated-soon"
 
-	preReceiveHook, cleanup := writeAssertObjectTypePreReceiveHook(t)
+	preReceiveHook, cleanup := writeAssertObjectTypePreReceiveHook(t, cfg)
 	defer cleanup()
 
-	updateHook, cleanup := writeAssertObjectTypeUpdateHook(t)
+	updateHook, cleanup := writeAssertObjectTypeUpdateHook(t, cfg)
 	defer cleanup()
 
 	testCases := []struct {
@@ -705,12 +665,12 @@ func TestSuccessfulUserCreateTagRequestToNonCommit(t *testing.T) {
 				"pre-receive": fmt.Sprintf("#!/bin/sh\n%s %s \"$@\"", preReceiveHook, testCase.expectedObjectType),
 				"update":      fmt.Sprintf("#!/bin/sh\n%s %s \"$@\"", updateHook, testCase.expectedObjectType),
 			} {
-				hookCleanup := gittest.WriteCustomHook(t, testRepoPath, hook, []byte(content))
+				hookCleanup := gittest.WriteCustomHook(t, repoPath, hook, []byte(content))
 				defer hookCleanup()
 			}
 
 			request := &gitalypb.UserCreateTagRequest{
-				Repository:     testRepo,
+				Repository:     repo,
 				TagName:        []byte(testCase.tagName),
 				TargetRevision: []byte(testCase.targetRevision),
 				User:           testhelper.TestUser,
@@ -723,19 +683,19 @@ func TestSuccessfulUserCreateTagRequestToNonCommit(t *testing.T) {
 			response, err := client.UserCreateTag(ctx, request)
 			require.NoError(t, err)
 			require.Empty(t, response.PreReceiveError)
-			defer testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "tag", "-d", inputTagName)
+			defer testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "tag", "-d", inputTagName)
 
 			// Fake up *.Id for annotated tags
 			if len(testCase.expectedTag.Id) == 0 {
-				tagID := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "rev-parse", inputTagName)
+				tagID := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", inputTagName)
 				responseOk.Tag.Id = text.ChompBytes(tagID)
 			}
 			require.Equal(t, responseOk, response)
 
-			peeledID := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "rev-parse", inputTagName+"^{}")
+			peeledID := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", inputTagName+"^{}")
 			require.Equal(t, testCase.targetRevision, text.ChompBytes(peeledID))
 
-			objectType := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "cat-file", "-t", inputTagName)
+			objectType := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "cat-file", "-t", inputTagName)
 			require.Equal(t, testCase.expectedObjectType, text.ChompBytes(objectType))
 		})
 	}
@@ -745,20 +705,14 @@ func TestSuccessfulUserCreateTagNestedTags(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
+	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
+	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
-	repoProto, repoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
-
-	preReceiveHook, cleanup := writeAssertObjectTypePreReceiveHook(t)
+	preReceiveHook, cleanup := writeAssertObjectTypePreReceiveHook(t, cfg)
 	defer cleanup()
 
-	updateHook, cleanup := writeAssertObjectTypeUpdateHook(t)
+	updateHook, cleanup := writeAssertObjectTypeUpdateHook(t, cfg)
 	defer cleanup()
 
 	testCases := []struct {
@@ -880,17 +834,10 @@ func TestUserCreateTagStableTagIDs(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
-
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	ctx, _, repo, _, client := setupOperationsService(t, ctx)
 
 	response, err := client.UserCreateTag(ctx, &gitalypb.UserCreateTagRequest{
-		Repository:     testRepo,
+		Repository:     repo,
 		TagName:        []byte("happy-tag"),
 		TargetRevision: []byte("dfaa3f97ca337e20154a98ac9d0be76ddd1fcc82"),
 		Message:        []byte("my message"),
@@ -917,14 +864,7 @@ func TestUserDeleteTagsuccessfulDeletionOfPrefixedTag(t *testing.T) {
 }
 
 func testUserDeleteTagsuccessfulDeletionOfPrefixedTag(t *testing.T, ctx context.Context) {
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
-
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
+	ctx, _, repo, repoPath, client := setupOperationsService(t, ctx)
 
 	testCases := []struct {
 		desc         string
@@ -946,10 +886,10 @@ func testUserDeleteTagsuccessfulDeletionOfPrefixedTag(t *testing.T, ctx context.
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
-			testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "tag", testCase.tagNameInput, testCase.tagCommit)
+			testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "tag", testCase.tagNameInput, testCase.tagCommit)
 
 			request := &gitalypb.UserDeleteTagRequest{
-				Repository: testRepo,
+				Repository: repo,
 				TagName:    []byte(testCase.tagNameInput),
 				User:       testCase.user,
 			}
@@ -958,7 +898,7 @@ func testUserDeleteTagsuccessfulDeletionOfPrefixedTag(t *testing.T, ctx context.
 			require.Equal(t, testCase.err, err)
 			require.Equal(t, testCase.response, response)
 
-			refs := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "for-each-ref", "--", "refs/tags/"+testCase.tagNameInput)
+			refs := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "for-each-ref", "--", "refs/tags/"+testCase.tagNameInput)
 			require.NotContains(t, string(refs), testCase.tagCommit, "tag kept because we stripped off refs/tags/*")
 		})
 	}
@@ -968,15 +908,9 @@ func TestUserCreateTagsuccessfulCreationOfPrefixedTag(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	repoProto, repoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
+	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
-
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
+	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
 	testCases := []struct {
 		desc                   string
@@ -1030,22 +964,15 @@ func TestSuccessfulGitHooksForUserCreateTagRequest(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
-
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	ctx, _, repo, repoPath, client := setupOperationsService(t, ctx)
 
 	projectPath := "project/path"
-	testRepo.GlProjectPath = projectPath
+	repo.GlProjectPath = projectPath
 
 	tagName := "new-tag"
 
 	request := &gitalypb.UserCreateTagRequest{
-		Repository:     testRepo,
+		Repository:     repo,
 		TagName:        []byte(tagName),
 		TargetRevision: []byte("c7fbe50c7c7419d9701eebe64b1fdacc3df5b9dd"),
 		User:           testhelper.TestUser,
@@ -1053,9 +980,9 @@ func TestSuccessfulGitHooksForUserCreateTagRequest(t *testing.T) {
 
 	for _, hookName := range GitlabHooks {
 		t.Run(hookName, func(t *testing.T) {
-			defer testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "tag", "-d", tagName)
+			defer testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "tag", "-d", tagName)
 
-			hookOutputTempPath, cleanup := gittest.WriteEnvToCustomHook(t, testRepoPath, hookName)
+			hookOutputTempPath, cleanup := gittest.WriteEnvToCustomHook(t, repoPath, hookName)
 			defer cleanup()
 
 			response, err := client.UserCreateTag(ctx, request)
@@ -1073,14 +1000,7 @@ func TestFailedUserDeleteTagRequestDueToValidation(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
-
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	ctx, _, repo, _, client := setupOperationsService(t, ctx)
 
 	testCases := []struct {
 		desc     string
@@ -1091,7 +1011,7 @@ func TestFailedUserDeleteTagRequestDueToValidation(t *testing.T) {
 		{
 			desc: "empty user",
 			request: &gitalypb.UserDeleteTagRequest{
-				Repository: testRepo,
+				Repository: repo,
 				TagName:    []byte("does-matter-the-name-if-user-is-empty"),
 			},
 			response: nil,
@@ -1100,7 +1020,7 @@ func TestFailedUserDeleteTagRequestDueToValidation(t *testing.T) {
 		{
 			desc: "empty tag name",
 			request: &gitalypb.UserDeleteTagRequest{
-				Repository: testRepo,
+				Repository: repo,
 				User:       testhelper.TestUser,
 			},
 			response: nil,
@@ -1109,7 +1029,7 @@ func TestFailedUserDeleteTagRequestDueToValidation(t *testing.T) {
 		{
 			desc: "non-existent tag name",
 			request: &gitalypb.UserDeleteTagRequest{
-				Repository: testRepo,
+				Repository: repo,
 				User:       testhelper.TestUser,
 				TagName:    []byte("i-do-not-exist"),
 			},
@@ -1119,7 +1039,7 @@ func TestFailedUserDeleteTagRequestDueToValidation(t *testing.T) {
 		{
 			desc: "space in tag name",
 			request: &gitalypb.UserDeleteTagRequest{
-				Repository: testRepo,
+				Repository: repo,
 				User:       testhelper.TestUser,
 				TagName:    []byte("a tag"),
 			},
@@ -1129,7 +1049,7 @@ func TestFailedUserDeleteTagRequestDueToValidation(t *testing.T) {
 		{
 			desc: "newline in tag name",
 			request: &gitalypb.UserDeleteTagRequest{
-				Repository: testRepo,
+				Repository: repo,
 				User:       testhelper.TestUser,
 				TagName:    []byte("a\ntag"),
 			},
@@ -1154,21 +1074,14 @@ func TestFailedUserDeleteTagDueToHooks(t *testing.T) {
 }
 
 func testFailedUserDeleteTagDueToHooks(t *testing.T, ctx context.Context) {
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
-
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	ctx, _, repo, repoPath, client := setupOperationsService(t, ctx)
 
 	tagNameInput := "to-be-deleted-soon-tag"
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "tag", tagNameInput)
-	defer testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "tag", "-d", tagNameInput)
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "tag", tagNameInput)
+	defer testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "tag", "-d", tagNameInput)
 
 	request := &gitalypb.UserDeleteTagRequest{
-		Repository: testRepo,
+		Repository: repo,
 		TagName:    []byte(tagNameInput),
 		User:       testhelper.TestUser,
 	}
@@ -1177,14 +1090,14 @@ func testFailedUserDeleteTagDueToHooks(t *testing.T, ctx context.Context) {
 
 	for _, hookName := range gitlabPreHooks {
 		t.Run(hookName, func(t *testing.T) {
-			remove := gittest.WriteCustomHook(t, testRepoPath, hookName, hookContent)
+			remove := gittest.WriteCustomHook(t, repoPath, hookName, hookContent)
 			defer remove()
 
 			response, err := client.UserDeleteTag(ctx, request)
 			require.Nil(t, err)
 			require.Contains(t, response.PreReceiveError, "GL_ID="+testhelper.TestUser.GlId)
 
-			tags := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "tag")
+			tags := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "tag")
 			require.Contains(t, string(tags), tagNameInput, "tag name does not exist in tags list")
 		})
 	}
@@ -1194,17 +1107,10 @@ func TestFailedUserCreateTagDueToHooks(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
-
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	ctx, _, repo, repoPath, client := setupOperationsService(t, ctx)
 
 	request := &gitalypb.UserCreateTagRequest{
-		Repository:     testRepo,
+		Repository:     repo,
 		TagName:        []byte("new-tag"),
 		TargetRevision: []byte("c7fbe50c7c7419d9701eebe64b1fdacc3df5b9dd"),
 		User:           testhelper.TestUser,
@@ -1213,7 +1119,7 @@ func TestFailedUserCreateTagDueToHooks(t *testing.T) {
 	hookContent := []byte("#!/bin/sh\necho GL_ID=$GL_ID\nexit 1")
 
 	for _, hookName := range gitlabPreHooks {
-		remove := gittest.WriteCustomHook(t, testRepoPath, hookName, hookContent)
+		remove := gittest.WriteCustomHook(t, repoPath, hookName, hookContent)
 		defer remove()
 
 		response, err := client.UserCreateTag(ctx, request)
@@ -1226,14 +1132,7 @@ func TestFailedUserCreateTagRequestDueToTagExistence(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
-
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	ctx, _, repo, _, client := setupOperationsService(t, ctx)
 
 	testCases := []struct {
 		desc           string
@@ -1267,7 +1166,7 @@ func TestFailedUserCreateTagRequestDueToTagExistence(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
 			request := &gitalypb.UserCreateTagRequest{
-				Repository:     testRepo,
+				Repository:     repo,
 				TagName:        []byte(testCase.tagName),
 				TargetRevision: []byte(testCase.targetRevision),
 				User:           testCase.user,
@@ -1284,14 +1183,7 @@ func TestFailedUserCreateTagRequestDueToValidation(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
-
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	ctx, _, repo, _, client := setupOperationsService(t, ctx)
 
 	injectedTag := "inject-tag\ntagger . <> 0 +0000\n\nInjected subject\n\n"
 	testCases := []struct {
@@ -1391,7 +1283,7 @@ func TestFailedUserCreateTagRequestDueToValidation(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
 			request := &gitalypb.UserCreateTagRequest{
-				Repository:     testRepo,
+				Repository:     repo,
 				TagName:        []byte(testCase.tagName),
 				TargetRevision: []byte(testCase.targetRevision),
 				User:           testCase.user,
@@ -1412,14 +1304,7 @@ func TestTagHookOutput(t *testing.T) {
 }
 
 func testTagHookOutput(t *testing.T, ctx context.Context) {
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
-
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	ctx, _, repo, repoPath, client := setupOperationsService(t, ctx)
 
 	testCases := []struct {
 		desc        string
@@ -1463,18 +1348,18 @@ func testTagHookOutput(t *testing.T, ctx context.Context) {
 			t.Run(hookName+"/"+testCase.desc, func(t *testing.T) {
 				tagNameInput := "some-tag"
 				createRequest := &gitalypb.UserCreateTagRequest{
-					Repository:     testRepo,
+					Repository:     repo,
 					TagName:        []byte(tagNameInput),
 					TargetRevision: []byte("master"),
 					User:           testhelper.TestUser,
 				}
 				deleteRequest := &gitalypb.UserDeleteTagRequest{
-					Repository: testRepo,
+					Repository: repo,
 					TagName:    []byte(tagNameInput),
 					User:       testhelper.TestUser,
 				}
 
-				remove := gittest.WriteCustomHook(t, testRepoPath, hookName, []byte(testCase.hookContent))
+				remove := gittest.WriteCustomHook(t, repoPath, hookName, []byte(testCase.hookContent))
 				defer remove()
 
 				createResponse, err := client.UserCreateTag(ctx, createRequest)
@@ -1487,8 +1372,8 @@ func testTagHookOutput(t *testing.T, ctx context.Context) {
 				}
 				require.Equal(t, createResponseOk, createResponse)
 
-				defer testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "tag", "-d", tagNameInput)
-				testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "tag", tagNameInput)
+				defer testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "tag", "-d", tagNameInput)
+				testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "tag", tagNameInput)
 
 				deleteResponse, err := client.UserDeleteTag(ctx, deleteRequest)
 				require.NoError(t, err)

@@ -14,47 +14,31 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/metadata"
 )
 
 var (
 	rebaseBranchName = "many_files"
 )
 
-func TestSuccessfulUserRebaseConfirmableRequest(t *testing.T) {
-	pushOptions := []string{"ci.skip", "test=value"}
-	cleanupSrv := setupAndStartGitlabServer(t, testhelper.GlID, "project-1", pushOptions...)
-	defer cleanupSrv()
-
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
-
-	ctxOuter, cancel := testhelper.Context()
+func testSuccessfulUserRebaseConfirmableRequest(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
+	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
+	ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
 
-	repoProto, repoPath, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
-	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
+	pushOptions := []string{"ci.skip", "test=value"}
+	cfg.Gitlab.URL = setupAndStartGitlabServer(t, testhelper.GlID, "project-1", cfg, pushOptions...)
 
-	repoCopyProto, _, cleanup := gittest.CloneRepo(t)
+	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+
+	repoCopyProto, _, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "copy")
 	defer cleanup()
 
 	branchSha := getBranchSha(t, repoPath, rebaseBranchName)
-
-	md := testhelper.GitalyServersMetadata(t, serverSocketPath)
-
-	mdFromCtx, ok := metadata.FromOutgoingContext(ctxOuter)
-	if ok {
-		md = metadata.Join(md, mdFromCtx)
-	}
-
-	ctx := metadata.NewOutgoingContext(ctxOuter, md)
 
 	rebaseStream, err := client.UserRebaseConfirmable(ctx)
 	require.NoError(t, err)
@@ -100,25 +84,14 @@ func TestSuccessfulUserRebaseConfirmableRequest(t *testing.T) {
 	}
 }
 
-func TestUserRebaseConfirmable_stableCommitIDs(t *testing.T) {
-	cleanupSrv := setupAndStartGitlabServer(t, testhelper.GlID, "project-1")
-	defer cleanupSrv()
-
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
-
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
-
-	repoProto, repoPath, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
-	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
-
+func testUserRebaseConfirmableStableCommitIDs(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	md := testhelper.GitalyServersMetadata(t, serverSocketPath)
-	ctx = metadata.NewOutgoingContext(ctx, md)
+	ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
+	cfg.Gitlab.URL = setupAndStartGitlabServer(t, testhelper.GlID, "project-1", cfg)
+
+	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
 	rebaseStream, err := client.UserRebaseConfirmable(ctx)
 	require.NoError(t, err)
@@ -183,26 +156,16 @@ func TestUserRebaseConfirmable_stableCommitIDs(t *testing.T) {
 	}, commit)
 }
 
-func TestFailedRebaseUserRebaseConfirmableRequestDueToInvalidHeader(t *testing.T) {
-	ctxOuter, cancel := testhelper.Context()
+func testFailedRebaseUserRebaseConfirmableRequestDueToInvalidHeader(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
+	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
+	ctx, cfg, repo, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
 
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, testRepoPath, cleanup := gittest.CloneRepo(t)
+	repoCopy, _, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "copy")
 	defer cleanup()
 
-	testRepoCopy, _, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
-
-	branchSha := getBranchSha(t, testRepoPath, rebaseBranchName)
-
-	md := testhelper.GitalyServersMetadata(t, serverSocketPath)
-	ctx := metadata.NewOutgoingContext(ctxOuter, md)
+	branchSha := getBranchSha(t, repoPath, rebaseBranchName)
 
 	testCases := []struct {
 		desc string
@@ -210,31 +173,31 @@ func TestFailedRebaseUserRebaseConfirmableRequestDueToInvalidHeader(t *testing.T
 	}{
 		{
 			desc: "empty Repository",
-			req:  buildHeaderRequest(nil, testhelper.TestUser, "1", rebaseBranchName, branchSha, testRepoCopy, "master"),
+			req:  buildHeaderRequest(nil, testhelper.TestUser, "1", rebaseBranchName, branchSha, repoCopy, "master"),
 		},
 		{
 			desc: "empty User",
-			req:  buildHeaderRequest(testRepo, nil, "1", rebaseBranchName, branchSha, testRepoCopy, "master"),
+			req:  buildHeaderRequest(repo, nil, "1", rebaseBranchName, branchSha, repoCopy, "master"),
 		},
 		{
 			desc: "empty Branch",
-			req:  buildHeaderRequest(testRepo, testhelper.TestUser, "1", "", branchSha, testRepoCopy, "master"),
+			req:  buildHeaderRequest(repo, testhelper.TestUser, "1", "", branchSha, repoCopy, "master"),
 		},
 		{
 			desc: "empty BranchSha",
-			req:  buildHeaderRequest(testRepo, testhelper.TestUser, "1", rebaseBranchName, "", testRepoCopy, "master"),
+			req:  buildHeaderRequest(repo, testhelper.TestUser, "1", rebaseBranchName, "", repoCopy, "master"),
 		},
 		{
 			desc: "empty RemoteRepository",
-			req:  buildHeaderRequest(testRepo, testhelper.TestUser, "1", rebaseBranchName, branchSha, nil, "master"),
+			req:  buildHeaderRequest(repo, testhelper.TestUser, "1", rebaseBranchName, branchSha, nil, "master"),
 		},
 		{
 			desc: "empty RemoteBranch",
-			req:  buildHeaderRequest(testRepo, testhelper.TestUser, "1", rebaseBranchName, branchSha, testRepoCopy, ""),
+			req:  buildHeaderRequest(repo, testhelper.TestUser, "1", rebaseBranchName, branchSha, repoCopy, ""),
 		},
 		{
 			desc: "invalid branch name",
-			req:  buildHeaderRequest(testRepo, testhelper.TestUser, "1", rebaseBranchName, branchSha, testRepoCopy, "+dev:master"),
+			req:  buildHeaderRequest(repo, testhelper.TestUser, "1", rebaseBranchName, branchSha, repoCopy, "+dev:master"),
 		},
 	}
 
@@ -253,18 +216,11 @@ func TestFailedRebaseUserRebaseConfirmableRequestDueToInvalidHeader(t *testing.T
 	}
 }
 
-func TestAbortedUserRebaseConfirmable(t *testing.T) {
-	ctxOuter, cancel := testhelper.Context()
+func testAbortedUserRebaseConfirmable(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
+	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
-
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
-
-	md := testhelper.GitalyServersMetadata(t, serverSocketPath)
-	ctx := metadata.NewOutgoingContext(ctxOuter, md)
+	ctx, cfg, _, _, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
 
 	testCases := []struct {
 		req       *gitalypb.UserRebaseConfirmableRequest
@@ -279,10 +235,10 @@ func TestAbortedUserRebaseConfirmable(t *testing.T) {
 
 	for i, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			testRepo, testRepoPath, cleanup := gittest.CloneRepo(t)
+			testRepo, testRepoPath, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "repo")
 			defer cleanup()
 
-			testRepoCopy, _, cleanup := gittest.CloneRepo(t)
+			testRepoCopy, _, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "copy")
 			defer cleanup()
 
 			branchSha := getBranchSha(t, testRepoPath, rebaseBranchName)
@@ -321,27 +277,18 @@ func TestAbortedUserRebaseConfirmable(t *testing.T) {
 	}
 }
 
-func TestFailedUserRebaseConfirmableDueToApplyBeingFalse(t *testing.T) {
-	ctxOuter, cancel := testhelper.Context()
+func testFailedUserRebaseConfirmableDueToApplyBeingFalse(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
+	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
+	ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
 
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
+	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
-	repoProto, repoPath, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
-	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
-
-	testRepoCopy, _, cleanup := gittest.CloneRepo(t)
+	testRepoCopy, _, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "copy")
 	defer cleanup()
 
 	branchSha := getBranchSha(t, repoPath, rebaseBranchName)
-
-	md := testhelper.GitalyServersMetadata(t, serverSocketPath)
-	ctx := metadata.NewOutgoingContext(ctxOuter, md)
 
 	rebaseStream, err := client.UserRebaseConfirmable(ctx)
 	require.NoError(t, err)
@@ -368,21 +315,14 @@ func TestFailedUserRebaseConfirmableDueToApplyBeingFalse(t *testing.T) {
 	require.NotEqual(t, newBranchSha, firstResponse.GetRebaseSha(), "branch should not be the sha returned when the rebase is not applied")
 }
 
-func TestFailedUserRebaseConfirmableRequestDueToPreReceiveError(t *testing.T) {
-	ctxOuter, cancel := testhelper.Context()
+func testFailedUserRebaseConfirmableRequestDueToPreReceiveError(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
+	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
+	ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
+	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
-
-	repoProto, repoPath, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
-	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
-
-	repoCopyProto, _, cleanup := gittest.CloneRepo(t)
+	repoCopyProto, _, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "copy")
 	defer cleanup()
 
 	branchSha := getBranchSha(t, repoPath, rebaseBranchName)
@@ -393,9 +333,6 @@ func TestFailedUserRebaseConfirmableRequestDueToPreReceiveError(t *testing.T) {
 		t.Run(hookName, func(t *testing.T) {
 			remove := gittest.WriteCustomHook(t, repoPath, hookName, hookContent)
 			defer remove()
-
-			md := testhelper.GitalyServersMetadata(t, serverSocketPath)
-			ctx := metadata.NewOutgoingContext(ctxOuter, md)
 
 			rebaseStream, err := client.UserRebaseConfirmable(ctx)
 			require.NoError(t, err)
@@ -429,32 +366,22 @@ func TestFailedUserRebaseConfirmableRequestDueToPreReceiveError(t *testing.T) {
 	}
 }
 
-func TestFailedUserRebaseConfirmableDueToGitError(t *testing.T) {
-	ctxOuter, cancel := testhelper.Context()
+func testFailedUserRebaseConfirmableDueToGitError(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
+	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
+	ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
 
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, testRepoPath, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
-
-	testRepoCopy, _, cleanup := gittest.CloneRepo(t)
+	repoCopyProto, _, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "copy")
 	defer cleanup()
 
 	failedBranchName := "rebase-encoding-failure-trigger"
-	branchSha := getBranchSha(t, testRepoPath, failedBranchName)
-
-	md := testhelper.GitalyServersMetadata(t, serverSocketPath)
-	ctx := metadata.NewOutgoingContext(ctxOuter, md)
+	branchSha := getBranchSha(t, repoPath, failedBranchName)
 
 	rebaseStream, err := client.UserRebaseConfirmable(ctx)
 	require.NoError(t, err)
 
-	headerRequest := buildHeaderRequest(testRepo, testhelper.TestUser, "1", failedBranchName, branchSha, testRepoCopy, "master")
+	headerRequest := buildHeaderRequest(repoProto, testhelper.TestUser, "1", failedBranchName, branchSha, repoCopyProto, "master")
 	require.NoError(t, rebaseStream.Send(headerRequest), "send header")
 
 	firstResponse, err := rebaseStream.Recv()
@@ -466,7 +393,7 @@ func TestFailedUserRebaseConfirmableDueToGitError(t *testing.T) {
 		return err
 	})
 
-	newBranchSha := getBranchSha(t, testRepoPath, failedBranchName)
+	newBranchSha := getBranchSha(t, repoPath, failedBranchName)
 	require.Equal(t, branchSha, newBranchSha, "branch should not change when the rebase fails due to GitError")
 }
 
@@ -475,35 +402,28 @@ func getBranchSha(t *testing.T, repoPath string, branchName string) string {
 	return strings.TrimSpace(branchSha)
 }
 
-func TestRebaseRequestWithDeletedFile(t *testing.T) {
-	ctxOuter, cancel := testhelper.Context()
+func testRebaseRequestWithDeletedFile(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
+	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
+	ctx, cfg, _, _, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
+	repoProto, repoPath, cleanup := gittest.CloneRepoWithWorktreeAtStorage(t, cfg.Storages[0])
+	t.Cleanup(cleanup)
 
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
+	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
-	repoProto, repoProtoPath, cleanupFn := gittest.CloneRepoWithWorktree(t)
-	defer cleanupFn()
-	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
-
-	repoCopyProto, _, cleanup := gittest.CloneRepo(t)
+	repoCopyProto, _, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "copy")
 	defer cleanup()
-
-	md := testhelper.GitalyServersMetadata(t, serverSocketPath)
-	ctx := metadata.NewOutgoingContext(ctxOuter, md)
 
 	branch := "rebase-delete-test"
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoProtoPath, "config", "user.name", string(testhelper.TestUser.Name))
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoProtoPath, "config", "user.email", string(testhelper.TestUser.Email))
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoProtoPath, "checkout", "-b", branch, "master~1")
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoProtoPath, "rm", "README")
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoProtoPath, "commit", "-a", "-m", "delete file")
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "user.name", string(testhelper.TestUser.Name))
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "user.email", string(testhelper.TestUser.Email))
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "checkout", "-b", branch, "master~1")
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rm", "README")
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "commit", "-a", "-m", "delete file")
 
-	branchSha := getBranchSha(t, repoProtoPath, branch)
+	branchSha := getBranchSha(t, repoPath, branch)
 
 	rebaseStream, err := client.UserRebaseConfirmable(ctx)
 	require.NoError(t, err)
@@ -528,7 +448,7 @@ func TestRebaseRequestWithDeletedFile(t *testing.T) {
 		return err
 	})
 
-	newBranchSha := getBranchSha(t, repoProtoPath, branch)
+	newBranchSha := getBranchSha(t, repoPath, branch)
 
 	require.NotEqual(t, newBranchSha, branchSha)
 	require.Equal(t, newBranchSha, firstResponse.GetRebaseSha())
@@ -536,28 +456,19 @@ func TestRebaseRequestWithDeletedFile(t *testing.T) {
 	require.True(t, secondResponse.GetRebaseApplied(), "the second rebase is applied")
 }
 
-func TestRebaseOntoRemoteBranch(t *testing.T) {
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
-
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
-
-	localRepoProto, localRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-	localRepo := localrepo.New(git.NewExecCommandFactory(config.Config), localRepoProto, config.Config)
-
-	remoteRepo, remoteRepoPath, cleanup := gittest.CloneRepoWithWorktree(t)
-	defer cleanup()
-
+func testRebaseOntoRemoteBranch(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	md := testhelper.GitalyServersMetadata(t, serverSocketPath)
-	ctx = metadata.NewOutgoingContext(ctx, md)
+	ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
+
+	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+
+	remoteRepo, remoteRepoPath, cleanup := gittest.CloneRepoWithWorktreeAtStorage(t, cfg.Storages[0])
+	defer cleanup()
 
 	localBranch := "master"
-	localBranchHash := getBranchSha(t, localRepoPath, localBranch)
+	localBranchHash := getBranchSha(t, repoPath, localBranch)
 
 	remoteBranch := "remote-branch"
 	testhelper.MustRunCommand(t, nil, "git", "-C", remoteRepoPath, "config", "user.name", string(testhelper.TestUser.Name))
@@ -570,16 +481,16 @@ func TestRebaseOntoRemoteBranch(t *testing.T) {
 	rebaseStream, err := client.UserRebaseConfirmable(ctx)
 	require.NoError(t, err)
 
-	_, err = localRepo.ReadCommit(ctx, git.Revision(remoteBranchHash))
+	_, err = repo.ReadCommit(ctx, git.Revision(remoteBranchHash))
 	require.Equal(t, localrepo.ErrObjectNotFound, err, "remote commit does not yet exist in local repository")
 
-	headerRequest := buildHeaderRequest(localRepoProto, testhelper.TestUser, "1", localBranch, localBranchHash, remoteRepo, remoteBranch)
+	headerRequest := buildHeaderRequest(repoProto, testhelper.TestUser, "1", localBranch, localBranchHash, remoteRepo, remoteBranch)
 	require.NoError(t, rebaseStream.Send(headerRequest), "send header")
 
 	firstResponse, err := rebaseStream.Recv()
 	require.NoError(t, err, "receive first response")
 
-	_, err = localRepo.ReadCommit(ctx, git.Revision(remoteBranchHash))
+	_, err = repo.ReadCommit(ctx, git.Revision(remoteBranchHash))
 	require.NoError(t, err, "remote commit does now exist in local repository")
 
 	applyRequest := buildApplyRequest(true)
@@ -593,7 +504,7 @@ func TestRebaseOntoRemoteBranch(t *testing.T) {
 		return err
 	})
 
-	rebasedBranchHash := getBranchSha(t, localRepoPath, localBranch)
+	rebasedBranchHash := getBranchSha(t, repoPath, localBranch)
 
 	require.NotEqual(t, rebasedBranchHash, localBranchHash)
 	require.Equal(t, rebasedBranchHash, firstResponse.GetRebaseSha())

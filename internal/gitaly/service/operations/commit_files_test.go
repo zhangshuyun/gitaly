@@ -3,10 +3,10 @@ package operations
 import (
 	"encoding/base64"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -16,7 +16,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -30,43 +29,28 @@ var (
 )
 
 func TestUserCommitFiles(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
+
 	const (
 		DefaultMode    = "100644"
 		ExecutableMode = "100755"
+
+		targetRelativePath = "target-repository"
 	)
 
 	// Multiple locations in the call path depend on the global configuration.
 	// This creates a clean directory in the test storage. We then recreate the
 	// repository there on every test run. This allows us to use deterministic
 	// paths in the tests.
-	storageRoot, err := ioutil.TempDir(testhelper.GitlabTestStoragePath(), "")
-	require.NoError(t, err)
-	defer os.RemoveAll(storageRoot)
 
-	const storageName = "default"
-	targetRelativePath, err := filepath.Rel(testhelper.GitlabTestStoragePath(), filepath.Join(storageRoot, "target-repository"))
-	require.NoError(t, err)
+	startRepo, startRepoPath, cleanup := gittest.InitBareRepoAt(t, cfg.Storages[0])
+	t.Cleanup(cleanup)
 
-	startRepo, _, cleanStartRepo := gittest.InitBareRepo(t)
-	defer cleanStartRepo()
-
-	repoPath := filepath.Join(testhelper.GitlabTestStoragePath(), targetRelativePath)
-
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
-
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-
-	ctxWithServerMetadata := ctx
-	for key, values := range testhelper.GitalyServersMetadata(t, serverSocketPath) {
-		for _, value := range values {
-			ctxWithServerMetadata = metadata.AppendToOutgoingContext(ctxWithServerMetadata, key, value)
-		}
-	}
+	pathToStorage := strings.TrimSuffix(startRepoPath, startRepo.RelativePath)
+	repoPath := filepath.Join(pathToStorage, targetRelativePath)
 
 	type step struct {
 		actions         []*gitalypb.UserCommitFilesRequest
@@ -847,7 +831,7 @@ func TestUserCommitFiles(t *testing.T) {
 						actionContentRequest("content-1"),
 					},
 					startRepository: &gitalypb.Repository{
-						StorageName:  storageName,
+						StorageName:  startRepo.GetStorageName(),
 						RelativePath: targetRelativePath,
 					},
 					branchCreated: true,
@@ -900,18 +884,23 @@ func TestUserCommitFiles(t *testing.T) {
 
 			const branch = "master"
 
+			repo := &gitalypb.Repository{
+				StorageName:   startRepo.GetStorageName(),
+				RelativePath:  targetRelativePath,
+				GlRepository:  gittest.GlRepository,
+				GlProjectPath: gittest.GlProjectPath,
+			}
+
 			for i, step := range tc.steps {
 				headerRequest := headerRequest(
-					gittest.InitRepoDir(t, storageRoot, targetRelativePath),
+					repo,
 					testhelper.TestUser,
 					branch,
 					[]byte("commit message"),
 				)
 				setAuthorAndEmail(headerRequest, []byte("Author Name"), []byte("author.email@example.com"))
 
-				ctx := ctx
 				if step.startRepository != nil {
-					ctx = ctxWithServerMetadata
 					setStartRepository(headerRequest, step.startRepository)
 				}
 
@@ -947,20 +936,16 @@ func TestUserCommitFiles(t *testing.T) {
 }
 
 func TestUserCommitFilesStableCommitID(t *testing.T) {
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
-
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
-
-	repoProto, repoPath, cleanup := gittest.InitBareRepo(t)
-	defer cleanup()
-	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
-
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	for key, values := range testhelper.GitalyServersMetadata(t, serverSocketPath) {
+	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
+
+	repoProto, repoPath, cleanup := gittest.InitBareRepoAt(t, cfg.Storages[0])
+	defer cleanup()
+	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+
+	for key, values := range testhelper.GitalyServersMetadata(t, cfg.SocketPath) {
 		for _, value := range values {
 			ctx = metadata.AppendToOutgoingContext(ctx, key, value)
 		}
@@ -1010,16 +995,12 @@ func TestUserCommitFilesStableCommitID(t *testing.T) {
 }
 
 func TestSuccessfulUserCommitFilesRequest(t *testing.T) {
-	testRepo, testRepoPath, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
+	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
-
-	newRepo, newRepoPath, newRepoCleanupFn := gittest.InitBareRepo(t)
+	newRepo, newRepoPath, newRepoCleanupFn := gittest.InitBareRepoAt(t, cfg.Storages[0])
 	defer newRepoCleanupFn()
 
 	filePath := "héllo/wörld"
@@ -1036,16 +1017,16 @@ func TestSuccessfulUserCommitFilesRequest(t *testing.T) {
 	}{
 		{
 			desc:          "existing repo and branch",
-			repo:          testRepo,
-			repoPath:      testRepoPath,
+			repo:          repo,
+			repoPath:      repoPath,
 			branchName:    "feature",
 			repoCreated:   false,
 			branchCreated: false,
 		},
 		{
 			desc:          "existing repo, new branch",
-			repo:          testRepo,
-			repoPath:      testRepoPath,
+			repo:          repo,
+			repoPath:      repoPath,
 			branchName:    "new-branch",
 			repoCreated:   false,
 			branchCreated: true,
@@ -1060,8 +1041,8 @@ func TestSuccessfulUserCommitFilesRequest(t *testing.T) {
 		},
 		{
 			desc:            "create executable file",
-			repo:            testRepo,
-			repoPath:        testRepoPath,
+			repo:            repo,
+			repoPath:        repoPath,
 			branchName:      "feature-executable",
 			repoCreated:     false,
 			branchCreated:   true,
@@ -1071,9 +1052,6 @@ func TestSuccessfulUserCommitFilesRequest(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
-
 			headerRequest := headerRequest(tc.repo, testhelper.TestUser, tc.branchName, commitFilesMessage)
 			setAuthorAndEmail(headerRequest, authorName, authorEmail)
 
@@ -1095,7 +1073,7 @@ func TestSuccessfulUserCommitFilesRequest(t *testing.T) {
 			require.Equal(t, tc.repoCreated, resp.GetBranchUpdate().GetRepoCreated())
 			require.Equal(t, tc.branchCreated, resp.GetBranchUpdate().GetBranchCreated())
 
-			headCommit, err := localrepo.New(git.NewExecCommandFactory(config.Config), tc.repo, config.Config).ReadCommit(ctx, git.Revision(tc.branchName))
+			headCommit, err := localrepo.New(git.NewExecCommandFactory(cfg), tc.repo, cfg).ReadCommit(ctx, git.Revision(tc.branchName))
 			require.NoError(t, err)
 			require.Equal(t, authorName, headCommit.Author.Name)
 			require.Equal(t, testhelper.TestUser.Name, headCommit.Committer.Name)
@@ -1117,11 +1095,10 @@ func TestSuccessfulUserCommitFilesRequest(t *testing.T) {
 }
 
 func TestSuccessfulUserCommitFilesRequestMove(t *testing.T) {
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
+	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
 
 	branchName := "master"
 	previousFilePath := "README"
@@ -1139,16 +1116,13 @@ func TestSuccessfulUserCommitFilesRequestMove(t *testing.T) {
 		{content: "foo", infer: true},
 	} {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
+			testRepo, testRepoPath, cleanupFn := gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name())
 			defer cleanupFn()
 
 			origFileContent := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "show", branchName+":"+previousFilePath)
 			headerRequest := headerRequest(testRepo, testhelper.TestUser, branchName, commitFilesMessage)
 			setAuthorAndEmail(headerRequest, authorName, authorEmail)
 			actionsRequest1 := moveFileHeaderRequest(previousFilePath, filePath, tc.infer)
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
 
 			stream, err := client.UserCommitFiles(ctx)
 			require.NoError(t, err)
@@ -1178,23 +1152,17 @@ func TestSuccessfulUserCommitFilesRequestMove(t *testing.T) {
 }
 
 func TestSuccessfulUserCommitFilesRequestForceCommit(t *testing.T) {
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
+	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
-	repoProto, repoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
 	authorName := []byte("Jane Doe")
 	authorEmail := []byte("janedoe@gitlab.com")
 	targetBranchName := "feature"
 	startBranchName := []byte("master")
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
 	startBranchCommit, err := repo.ReadCommit(ctx, git.Revision(startBranchName))
 	require.NoError(t, err)
@@ -1229,20 +1197,14 @@ func TestSuccessfulUserCommitFilesRequestForceCommit(t *testing.T) {
 }
 
 func TestSuccessfulUserCommitFilesRequestStartSha(t *testing.T) {
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
-
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
-
-	repoProto, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
-
-	targetBranchName := "new"
-
 	ctx, cancel := testhelper.Context()
 	defer cancel()
+
+	ctx, cfg, repoProto, _, client := setupOperationsService(t, ctx)
+
+	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+
+	targetBranchName := "new"
 
 	startCommit, err := repo.ReadCommit(ctx, "master")
 	require.NoError(t, err)
@@ -1283,30 +1245,18 @@ func testSuccessfulUserCommitFilesRemoteRepositoryRequest(setHeader func(header 
 	// Regular table driven test did not work here as there is some state shared in the helpers between the subtests.
 	// Running them in different top level tests works, so we use a parameterized function instead to share the code.
 	return func(t *testing.T) {
-		serverSocketPath, stop := runOperationServiceServer(t)
-		defer stop()
-
-		client, conn := newOperationClient(t, serverSocketPath)
-		defer conn.Close()
-
-		gitCmdFactory := git.NewExecCommandFactory(config.Config)
-
-		repoProto, _, cleanupFn := gittest.CloneRepo(t)
-		defer cleanupFn()
-		repo := localrepo.New(gitCmdFactory, repoProto, config.Config)
-
-		newRepoProto, _, newRepoCleanupFn := gittest.InitBareRepo(t)
-		defer newRepoCleanupFn()
-		newRepo := localrepo.New(gitCmdFactory, newRepoProto, config.Config)
-
 		ctx, cancel := testhelper.Context()
 		defer cancel()
 
-		for key, values := range testhelper.GitalyServersMetadata(t, serverSocketPath) {
-			for _, value := range values {
-				ctx = metadata.AppendToOutgoingContext(ctx, key, value)
-			}
-		}
+		ctx, cfg, repoProto, _, client := setupOperationsService(t, ctx)
+
+		gitCmdFactory := git.NewExecCommandFactory(cfg)
+
+		repo := localrepo.New(gitCmdFactory, repoProto, cfg)
+
+		newRepoProto, _, newRepoCleanupFn := gittest.InitBareRepoAt(t, cfg.Storages[0])
+		defer newRepoCleanupFn()
+		newRepo := localrepo.New(gitCmdFactory, newRepoProto, cfg)
 
 		targetBranchName := "new"
 
@@ -1336,15 +1286,14 @@ func testSuccessfulUserCommitFilesRemoteRepositoryRequest(setHeader func(header 
 }
 
 func TestSuccessfulUserCommitFilesRequestWithSpecialCharactersInSignature(t *testing.T) {
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
+	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
 
-	repoProto, _, cleanupFn := gittest.InitBareRepo(t)
-	defer cleanupFn()
-	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
+	repoProto, _, cleanup := gittest.InitBareRepoAt(t, cfg.Storages[0])
+	defer cleanup()
+	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
 	targetBranchName := "master"
 
@@ -1370,9 +1319,6 @@ func TestSuccessfulUserCommitFilesRequestWithSpecialCharactersInSignature(t *tes
 			headerRequest := headerRequest(repoProto, tc.user, targetBranchName, commitFilesMessage)
 			setAuthorAndEmail(headerRequest, tc.user.Name, tc.user.Email)
 
-			ctx, cancel := testhelper.Context()
-			defer cancel()
-
 			stream, err := client.UserCommitFiles(ctx)
 			require.NoError(t, err)
 			require.NoError(t, stream.Send(headerRequest))
@@ -1392,29 +1338,22 @@ func TestSuccessfulUserCommitFilesRequestWithSpecialCharactersInSignature(t *tes
 }
 
 func TestFailedUserCommitFilesRequestDueToHooks(t *testing.T) {
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	ctx, _, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	branchName := "feature"
 	filePath := "my/file.txt"
-	headerRequest := headerRequest(testRepo, testhelper.TestUser, branchName, commitFilesMessage)
+	headerRequest := headerRequest(repoProto, testhelper.TestUser, branchName, commitFilesMessage)
 	actionsRequest1 := createFileHeaderRequest(filePath)
 	actionsRequest2 := actionContentRequest("My content")
 	hookContent := []byte("#!/bin/sh\nprintenv | paste -sd ' ' -\nexit 1")
 
 	for _, hookName := range GitlabPreHooks {
 		t.Run(hookName, func(t *testing.T) {
-			remove := gittest.WriteCustomHook(t, testRepoPath, hookName, hookContent)
+			remove := gittest.WriteCustomHook(t, repoPath, hookName, hookContent)
 			defer remove()
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
 
 			stream, err := client.UserCommitFiles(ctx)
 			require.NoError(t, err)
@@ -1432,14 +1371,10 @@ func TestFailedUserCommitFilesRequestDueToHooks(t *testing.T) {
 }
 
 func TestFailedUserCommitFilesRequestDueToIndexError(t *testing.T) {
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	ctx, _, repo, _, client := setupOperationsService(t, ctx)
 
 	testCases := []struct {
 		desc       string
@@ -1449,7 +1384,7 @@ func TestFailedUserCommitFilesRequestDueToIndexError(t *testing.T) {
 		{
 			desc: "file already exists",
 			requests: []*gitalypb.UserCommitFilesRequest{
-				headerRequest(testRepo, testhelper.TestUser, "feature", commitFilesMessage),
+				headerRequest(repo, testhelper.TestUser, "feature", commitFilesMessage),
 				createFileHeaderRequest("README.md"),
 				actionContentRequest("This file already exists"),
 			},
@@ -1458,7 +1393,7 @@ func TestFailedUserCommitFilesRequestDueToIndexError(t *testing.T) {
 		{
 			desc: "file doesn't exists",
 			requests: []*gitalypb.UserCommitFilesRequest{
-				headerRequest(testRepo, testhelper.TestUser, "feature", commitFilesMessage),
+				headerRequest(repo, testhelper.TestUser, "feature", commitFilesMessage),
 				chmodFileHeaderRequest("documents/story.txt", true),
 			},
 			indexError: "A file with this name doesn't exist",
@@ -1466,7 +1401,7 @@ func TestFailedUserCommitFilesRequestDueToIndexError(t *testing.T) {
 		{
 			desc: "dir already exists",
 			requests: []*gitalypb.UserCommitFilesRequest{
-				headerRequest(testRepo, testhelper.TestUser, "utf-dir", commitFilesMessage),
+				headerRequest(repo, testhelper.TestUser, "utf-dir", commitFilesMessage),
 				actionRequest(&gitalypb.UserCommitFilesAction{
 					UserCommitFilesActionPayload: &gitalypb.UserCommitFilesAction_Header{
 						Header: &gitalypb.UserCommitFilesActionHeader{
@@ -1484,9 +1419,6 @@ func TestFailedUserCommitFilesRequestDueToIndexError(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
-
 			stream, err := client.UserCommitFiles(ctx)
 			require.NoError(t, err)
 
@@ -1502,14 +1434,10 @@ func TestFailedUserCommitFilesRequestDueToIndexError(t *testing.T) {
 }
 
 func TestFailedUserCommitFilesRequest(t *testing.T) {
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	ctx, _, repo, _, client := setupOperationsService(t, ctx)
 
 	branchName := "feature"
 
@@ -1523,47 +1451,44 @@ func TestFailedUserCommitFilesRequest(t *testing.T) {
 		},
 		{
 			desc: "empty User",
-			req:  headerRequest(testRepo, nil, branchName, commitFilesMessage),
+			req:  headerRequest(repo, nil, branchName, commitFilesMessage),
 		},
 		{
 			desc: "empty BranchName",
-			req:  headerRequest(testRepo, testhelper.TestUser, "", commitFilesMessage),
+			req:  headerRequest(repo, testhelper.TestUser, "", commitFilesMessage),
 		},
 		{
 			desc: "empty CommitMessage",
-			req:  headerRequest(testRepo, testhelper.TestUser, branchName, nil),
+			req:  headerRequest(repo, testhelper.TestUser, branchName, nil),
 		},
 		{
 			desc: "invalid object ID: \"foobar\"",
-			req:  setStartSha(headerRequest(testRepo, testhelper.TestUser, branchName, commitFilesMessage), "foobar"),
+			req:  setStartSha(headerRequest(repo, testhelper.TestUser, branchName, commitFilesMessage), "foobar"),
 		},
 		{
 			desc: "failed to parse signature - Signature cannot have an empty name or email",
-			req:  headerRequest(testRepo, &gitalypb.User{}, branchName, commitFilesMessage),
+			req:  headerRequest(repo, &gitalypb.User{}, branchName, commitFilesMessage),
 		},
 		{
 			desc: "failed to parse signature - Signature cannot have an empty name or email",
-			req:  headerRequest(testRepo, &gitalypb.User{Name: []byte(""), Email: []byte("")}, branchName, commitFilesMessage),
+			req:  headerRequest(repo, &gitalypb.User{Name: []byte(""), Email: []byte("")}, branchName, commitFilesMessage),
 		},
 		{
 			desc: "failed to parse signature - Signature cannot have an empty name or email",
-			req:  headerRequest(testRepo, &gitalypb.User{Name: []byte(" "), Email: []byte(" ")}, branchName, commitFilesMessage),
+			req:  headerRequest(repo, &gitalypb.User{Name: []byte(" "), Email: []byte(" ")}, branchName, commitFilesMessage),
 		},
 		{
 			desc: "failed to parse signature - Signature cannot have an empty name or email",
-			req:  headerRequest(testRepo, &gitalypb.User{Name: []byte("Jane Doe"), Email: []byte("")}, branchName, commitFilesMessage),
+			req:  headerRequest(repo, &gitalypb.User{Name: []byte("Jane Doe"), Email: []byte("")}, branchName, commitFilesMessage),
 		},
 		{
 			desc: "failed to parse signature - Signature cannot have an empty name or email",
-			req:  headerRequest(testRepo, &gitalypb.User{Name: []byte(""), Email: []byte("janedoe@gitlab.com")}, branchName, commitFilesMessage),
+			req:  headerRequest(repo, &gitalypb.User{Name: []byte(""), Email: []byte("janedoe@gitlab.com")}, branchName, commitFilesMessage),
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
-
 			stream, err := client.UserCommitFiles(ctx)
 			require.NoError(t, err)
 
