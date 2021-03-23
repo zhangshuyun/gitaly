@@ -134,22 +134,27 @@ func ConfigureRuby(cfg *config.Cfg) error {
 
 // ConfigureGitalyGit2Go configures the gitaly-git2go command for tests
 func ConfigureGitalyGit2Go(outputDir string) {
-	buildCommand(outputDir, "gitaly-git2go")
+	buildCommand(nil, outputDir, "gitaly-git2go")
+}
+
+// ConfigureGitalyGit2GoBin configures the gitaly-git2go command for tests
+func ConfigureGitalyGit2GoBin(t testing.TB, cfg config.Cfg) {
+	buildBinary(t, cfg.BinDir, "gitaly-git2go")
 }
 
 // ConfigureGitalyLfsSmudge configures the gitaly-lfs-smudge command for tests
 func ConfigureGitalyLfsSmudge(outputDir string) {
-	buildCommand(outputDir, "gitaly-lfs-smudge")
+	buildCommand(nil, outputDir, "gitaly-lfs-smudge")
 }
 
 // ConfigureGitalySSH configures the gitaly-ssh command for tests
 func ConfigureGitalySSH(outputDir string) {
-	buildCommand(outputDir, "gitaly-ssh")
+	buildCommand(nil, outputDir, "gitaly-ssh")
 }
 
 // ConfigureGitalyHooksBinary builds gitaly-hooks command for tests
 func ConfigureGitalyHooksBinary(outputDir string) {
-	buildCommand(outputDir, "gitaly-hooks")
+	buildCommand(nil, outputDir, "gitaly-hooks")
 }
 
 // ConfigureGitalyHooksBin builds gitaly-hooks command for tests for the cfg.
@@ -207,11 +212,11 @@ func buildBinary(t testing.TB, dstDir, name string) {
 			// something went wrong and for some reason the binary already exists
 			require.FailNow(t, err.Error())
 		}
-		buildCommand(binsPath, name)
+		buildCommand(t, binsPath, name)
 	}
 }
 
-func buildCommand(outputDir, cmd string) {
+func buildCommand(t testing.TB, outputDir, cmd string) {
 	if outputDir == "" {
 		log.Fatal("BinDir must be set")
 	}
@@ -222,5 +227,5 @@ func buildCommand(outputDir, cmd string) {
 		"-o", filepath.Join(outputDir, cmd),
 		fmt.Sprintf("gitlab.com/gitlab-org/gitaly/cmd/%s", cmd),
 	}
-	MustRunCommand(nil, nil, "go", goBuildArgs...)
+	MustRunCommand(t, nil, "go", goBuildArgs...)
 }

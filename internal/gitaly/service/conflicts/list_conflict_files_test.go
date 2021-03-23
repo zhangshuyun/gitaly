@@ -10,7 +10,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -27,14 +26,7 @@ func TestSuccessfulListConflictFilesRequest(t *testing.T) {
 	ctx, cleanup := testhelper.Context()
 	defer cleanup()
 
-	serverSocketPath, stop := runConflictsServer(t)
-	defer stop()
-
-	client, conn := NewConflictsClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := SetupConflictsService(t, false)
 
 	ourCommitOid := "1a35b5a77cf6af7edf6703f88e82f6aff613666f"
 	theirCommitOid := "8309e68585b28d61eb85b7e2834849dda6bf1733"
@@ -59,7 +51,7 @@ end
 `
 
 	request := &gitalypb.ListConflictFilesRequest{
-		Repository:     testRepo,
+		Repository:     repo,
 		OurCommitOid:   ourCommitOid,
 		TheirCommitOid: theirCommitOid,
 	}
@@ -101,20 +93,13 @@ func TestSuccessfulListConflictFilesRequestWithAncestor(t *testing.T) {
 	ctx, cleanup := testhelper.Context()
 	defer cleanup()
 
-	serverSocketPath, stop := runConflictsServer(t)
-	defer stop()
-
-	client, conn := NewConflictsClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := SetupConflictsService(t, true)
 
 	ourCommitOid := "824be604a34828eb682305f0d963056cfac87b2d"
 	theirCommitOid := "1450cd639e0bc6721eb02800169e464f212cde06"
 
 	request := &gitalypb.ListConflictFilesRequest{
-		Repository:     testRepo,
+		Repository:     repo,
 		OurCommitOid:   ourCommitOid,
 		TheirCommitOid: theirCommitOid,
 	}
@@ -155,21 +140,14 @@ func TestListConflictFilesHugeDiff(t *testing.T) {
 	ctx, cleanup := testhelper.Context()
 	defer cleanup()
 
-	serverSocketPath, stop := runConflictsServer(t)
-	defer stop()
+	cfg, repo, repoPath, client := SetupConflictsService(t, false)
 
-	client, conn := NewConflictsClient(t, serverSocketPath)
-	defer conn.Close()
-
-	repo, repoPath, cleanupFn := gittest.CloneRepoWithWorktree(t)
-	defer cleanupFn()
-
-	our := buildCommit(t, ctx, repo, repoPath, map[string][]byte{
+	our := buildCommit(t, ctx, cfg, repo, repoPath, map[string][]byte{
 		"a": bytes.Repeat([]byte("a\n"), 128*1024),
 		"b": bytes.Repeat([]byte("b\n"), 128*1024),
 	})
 
-	their := buildCommit(t, ctx, repo, repoPath, map[string][]byte{
+	their := buildCommit(t, ctx, cfg, repo, repoPath, map[string][]byte{
 		"a": bytes.Repeat([]byte("x\n"), 128*1024),
 		"b": bytes.Repeat([]byte("y\n"), 128*1024),
 	})
@@ -181,9 +159,7 @@ func TestListConflictFilesHugeDiff(t *testing.T) {
 	}
 
 	c, err := client.ListConflictFiles(ctx, request)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	receivedFiles := getConflictFiles(t, c)
 	require.Len(t, receivedFiles, 2)
@@ -202,7 +178,9 @@ func TestListConflictFilesHugeDiff(t *testing.T) {
 	}, receivedFiles[1].header)
 }
 
-func buildCommit(t *testing.T, ctx context.Context, repo *gitalypb.Repository, repoPath string, files map[string][]byte) string {
+func buildCommit(t *testing.T, ctx context.Context, cfg config.Cfg, repo *gitalypb.Repository, repoPath string, files map[string][]byte) string {
+	t.Helper()
+
 	for file, contents := range files {
 		filePath := filepath.Join(repoPath, file)
 		require.NoError(t, ioutil.WriteFile(filePath, contents, 0666))
@@ -211,7 +189,7 @@ func buildCommit(t *testing.T, ctx context.Context, repo *gitalypb.Repository, r
 
 	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "commit", "-m", "message")
 
-	oid, err := localrepo.New(git.NewExecCommandFactory(config.Config), repo, config.Config).ResolveRevision(ctx, git.Revision("HEAD"))
+	oid, err := localrepo.New(git.NewExecCommandFactory(cfg), repo, cfg).ResolveRevision(ctx, git.Revision("HEAD"))
 	require.NoError(t, err)
 
 	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "reset", "--hard", "HEAD~")
@@ -223,14 +201,7 @@ func TestListConflictFilesFailedPrecondition(t *testing.T) {
 	ctx, cleanup := testhelper.Context()
 	defer cleanup()
 
-	serverSocketPath, stop := runConflictsServer(t)
-	defer stop()
-
-	client, conn := NewConflictsClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := SetupConflictsService(t, true)
 
 	testCases := []struct {
 		desc           string
@@ -269,7 +240,7 @@ func TestListConflictFilesFailedPrecondition(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			request := &gitalypb.ListConflictFilesRequest{
-				Repository:     testRepo,
+				Repository:     repo,
 				OurCommitOid:   tc.ourCommitOid,
 				TheirCommitOid: tc.theirCommitOid,
 			}
@@ -288,14 +259,7 @@ func TestFailedListConflictFilesRequestDueToValidation(t *testing.T) {
 	ctx, cleanup := testhelper.Context()
 	defer cleanup()
 
-	serverSocketPath, stop := runConflictsServer(t)
-	defer stop()
-
-	client, conn := NewConflictsClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := SetupConflictsService(t, true)
 
 	ourCommitOid := "0b4bc9a49b562e85de7cc9e834518ea6828729b9"
 	theirCommitOid := "bb5206fee213d983da88c47f9cf4cc6caf9c66dc"
@@ -317,7 +281,7 @@ func TestFailedListConflictFilesRequestDueToValidation(t *testing.T) {
 		{
 			desc: "empty OurCommitId field",
 			request: &gitalypb.ListConflictFilesRequest{
-				Repository:     testRepo,
+				Repository:     repo,
 				OurCommitOid:   "",
 				TheirCommitOid: theirCommitOid,
 			},
@@ -326,7 +290,7 @@ func TestFailedListConflictFilesRequestDueToValidation(t *testing.T) {
 		{
 			desc: "empty TheirCommitId field",
 			request: &gitalypb.ListConflictFilesRequest{
-				Repository:     testRepo,
+				Repository:     repo,
 				OurCommitOid:   ourCommitOid,
 				TheirCommitOid: "",
 			},
@@ -343,16 +307,17 @@ func TestFailedListConflictFilesRequestDueToValidation(t *testing.T) {
 }
 
 func getConflictFiles(t *testing.T, c gitalypb.ConflictsService_ListConflictFilesClient) []*conflictFile {
-	files := []*conflictFile{}
+	t.Helper()
+
+	var files []*conflictFile
 	var currentFile *conflictFile
 
 	for {
 		r, err := c.Recv()
 		if err == io.EOF {
 			break
-		} else if err != nil {
-			t.Fatal(err)
 		}
+		require.NoError(t, err)
 
 		for _, file := range r.GetFiles() {
 			// If there's a header this is the beginning of a new file
