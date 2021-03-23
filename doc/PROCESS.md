@@ -220,20 +220,21 @@ close monitoring at 50%.
 
 After a feature is running at `100%` for what ever's deemed to be a
 safe amount of time we should change it to be `OnByDefault: true`. See
-[this MR for an example][example-on-by-default-mr].
-
-We should add a changelog entry when `OnByDefault: true` is flipped.
+[this MR for an example][example-on-by-default-mr]. The MR should
+include a changelog entry.
 
 That should then be followed up by another MR to remove the
 pre-feature code from the codebase, and we should add another
-changelog entry when doing that.
+changelog entry when doing that. See [this MR for an
+example][example-feature-code-removal-mr]
 
 This is because even after setting `OnByDefault: true` users might
 still have opted to disable the new feature. See [the discussion
 below](#two-phase-ruby-to-go-rollouts)) for possibly needing to do
 such changes over multiple releases.
 
-[example-on-by-default-mr]: https://gitlab.com/gitlab-org/gitaly/-/merge_requests/3033
+[example-on-by-default-mr]: https://gitlab.com/gitlab-org/gitaly/-/merge_requests/3035
+[example-feature-code-removal-mr]: https://gitlab.com/gitlab-org/gitaly/-/merge_requests/3033
 
 ##### Two phase Ruby to Go rollouts
 
