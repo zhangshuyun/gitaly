@@ -455,13 +455,27 @@ func TestLoadGit(t *testing.T) {
 	tmpFile := strings.NewReader(`[git]
 bin_path = "/my/git/path"
 catfile_cache_size = 50
+
+[[git.config]]
+key = "first.key"
+value = "first-value"
+
+[[git.config]]
+key = "second.key"
+value = "second-value"
 `)
 
 	cfg, err := Load(tmpFile)
 	require.NoError(t, err)
 
-	require.Equal(t, "/my/git/path", cfg.Git.BinPath)
-	require.Equal(t, 50, cfg.Git.CatfileCacheSize)
+	require.Equal(t, Git{
+		BinPath:          "/my/git/path",
+		CatfileCacheSize: 50,
+		Config: []GitConfig{
+			{Key: "first.key", Value: "first-value"},
+			{Key: "second.key", Value: "second-value"},
+		},
+	}, cfg.Git)
 }
 
 func TestSetGitPath(t *testing.T) {
@@ -496,6 +510,74 @@ func TestSetGitPath(t *testing.T) {
 			cfg := Cfg{Git: Git{BinPath: tc.gitBinPath}}
 			require.NoError(t, cfg.SetGitPath())
 			assert.Equal(t, tc.expected, cfg.Git.BinPath, tc.desc)
+		})
+	}
+}
+
+func TestValidateGitConfig(t *testing.T) {
+	testCases := []struct {
+		desc        string
+		configPairs []GitConfig
+		expectedErr error
+	}{
+		{
+			desc: "empty config is valid",
+		},
+		{
+			desc: "valid config entry",
+			configPairs: []GitConfig{
+				{Key: "foo.bar", Value: "value"},
+			},
+		},
+		{
+			desc: "missing key",
+			configPairs: []GitConfig{
+				{Value: "value"},
+			},
+			expectedErr: fmt.Errorf("invalid configuration key \"\": %w", errors.New("key cannot be empty")),
+		},
+		{
+			desc: "key has no section",
+			configPairs: []GitConfig{
+				{Key: "foo", Value: "value"},
+			},
+			expectedErr: fmt.Errorf("invalid configuration key \"foo\": %w", errors.New("key must contain at least one section")),
+		},
+		{
+			desc: "key with leading dot",
+			configPairs: []GitConfig{
+				{Key: ".foo.bar", Value: "value"},
+			},
+			expectedErr: fmt.Errorf("invalid configuration key \".foo.bar\": %w", errors.New("key must not start or end with a dot")),
+		},
+		{
+			desc: "key with trailing dot",
+			configPairs: []GitConfig{
+				{Key: "foo.bar.", Value: "value"},
+			},
+			expectedErr: fmt.Errorf("invalid configuration key \"foo.bar.\": %w", errors.New("key must not start or end with a dot")),
+		},
+		{
+			desc: "key has assignment",
+			configPairs: []GitConfig{
+				{Key: "foo.bar=value", Value: "value"},
+			},
+			expectedErr: fmt.Errorf("invalid configuration key \"foo.bar=value\": %w",
+				errors.New("key cannot contain assignment")),
+		},
+		{
+			desc: "missing value",
+			configPairs: []GitConfig{
+				{Key: "foo.bar"},
+			},
+			expectedErr: fmt.Errorf("invalid configuration value: \"\""),
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			cfg := Cfg{Git: Git{Config: tc.configPairs}}
+			require.Equal(t, tc.expectedErr, cfg.validateGit())
 		})
 	}
 }
@@ -765,7 +847,7 @@ func TestLoadDailyMaintenance(t *testing.T) {
 			rawCfg: `[[storage]]
 			name = "default"
 			path = "/"
-			
+
 			[daily_maintenance]
 			start_hour = 11
 			start_minute = 23

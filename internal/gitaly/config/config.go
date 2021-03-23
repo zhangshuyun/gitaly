@@ -105,8 +105,15 @@ type HTTPSettings struct {
 
 // Git contains the settings for the Git executable
 type Git struct {
-	BinPath          string `toml:"bin_path"`
-	CatfileCacheSize int    `toml:"catfile_cache_size"`
+	BinPath          string      `toml:"bin_path"`
+	CatfileCacheSize int         `toml:"catfile_cache_size"`
+	Config           []GitConfig `toml:"config"`
+}
+
+// GitConfig contains a key-value pair which is to be passed to git as configuration.
+type GitConfig struct {
+	Key   string `toml:"key"`
+	Value string `toml:"value"`
 }
 
 // Storage contains a single storage-shard
@@ -172,7 +179,7 @@ func (cfg *Cfg) Validate() error {
 		cfg.validateListeners,
 		cfg.validateStorages,
 		cfg.validateToken,
-		cfg.SetGitPath,
+		cfg.validateGit,
 		cfg.validateShell,
 		cfg.ConfigureRuby,
 		cfg.validateBinDir,
@@ -414,6 +421,43 @@ func (cfg *Cfg) validateBinDir() error {
 	var err error
 	cfg.BinDir, err = filepath.Abs(cfg.BinDir)
 	return err
+}
+
+// validateGitConfigKey does a best-effort check whether or not a given git config key is valid. It
+// does not allow for assignments in keys, which is overly strict and does not allow some valid
+// keys. It does avoid misinterpretation of keys though and should catch many cases of
+// misconfiguration.
+func validateGitConfigKey(key string) error {
+	if key == "" {
+		return errors.New("key cannot be empty")
+	}
+	if strings.Contains(key, "=") {
+		return errors.New("key cannot contain assignment")
+	}
+	if !strings.Contains(key, ".") {
+		return errors.New("key must contain at least one section")
+	}
+	if strings.HasPrefix(key, ".") || strings.HasSuffix(key, ".") {
+		return errors.New("key must not start or end with a dot")
+	}
+	return nil
+}
+
+func (cfg *Cfg) validateGit() error {
+	if err := cfg.SetGitPath(); err != nil {
+		return err
+	}
+
+	for _, configPair := range cfg.Git.Config {
+		if err := validateGitConfigKey(configPair.Key); err != nil {
+			return fmt.Errorf("invalid configuration key %q: %w", configPair.Key, err)
+		}
+		if configPair.Value == "" {
+			return fmt.Errorf("invalid configuration value: %q", configPair.Value)
+		}
+	}
+
+	return nil
 }
 
 func (cfg *Cfg) validateToken() error {

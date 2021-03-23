@@ -60,12 +60,12 @@ func NewExecCommandFactory(cfg config.Cfg) *ExecCommandFactory {
 
 // New creates a new command for the repo repository.
 func (cf *ExecCommandFactory) New(ctx context.Context, repo repository.GitRepo, sc Cmd, opts ...CmdOpt) (*command.Command, error) {
-	return cf.newCommand(ctx, repo, "", nil, sc, opts...)
+	return cf.newCommand(ctx, repo, "", sc, opts...)
 }
 
 // NewWithoutRepo creates a command without a target repository.
 func (cf *ExecCommandFactory) NewWithoutRepo(ctx context.Context, sc Cmd, opts ...CmdOpt) (*command.Command, error) {
-	return cf.newCommand(ctx, nil, "", nil, sc, opts...)
+	return cf.newCommand(ctx, nil, "", sc, opts...)
 }
 
 // NewWithDir creates a new command.Command whose working directory is set
@@ -76,26 +76,25 @@ func (cf *ExecCommandFactory) NewWithDir(ctx context.Context, dir string, sc Cmd
 		return nil, errors.New("no 'dir' provided")
 	}
 
-	return cf.newCommand(ctx, nil, dir, nil, sc, opts...)
+	return cf.newCommand(ctx, nil, dir, sc, opts...)
 }
 
 func (cf *ExecCommandFactory) gitPath() string {
 	return cf.cfg.Git.BinPath
 }
 
-// newCommand creates a new command.Command for the given git command and
-// global options. If a repo is given, then the command will be run in the
-// context of that repository. Note that this sets up arguments and environment
-// variables for git, but doesn't run in the directory itself. If a directory
+// newCommand creates a new command.Command for the given git command. If a repo is given, then the
+// command will be run in the context of that repository. Note that this sets up arguments and
+// environment variables for git, but doesn't run in the directory itself. If a directory
 // is given, then the command will be run in that directory.
-func (cf *ExecCommandFactory) newCommand(ctx context.Context, repo repository.GitRepo, dir string, globals []GlobalOption, sc Cmd, opts ...CmdOpt) (*command.Command, error) {
+func (cf *ExecCommandFactory) newCommand(ctx context.Context, repo repository.GitRepo, dir string, sc Cmd, opts ...CmdOpt) (*command.Command, error) {
 	cc := &cmdCfg{}
 
 	if err := handleOpts(ctx, sc, cc, opts); err != nil {
 		return nil, err
 	}
 
-	args, err := combineArgs(globals, sc, cc)
+	args, err := combineArgs(cf.cfg.Git.Config, sc, cc)
 	if err != nil {
 		return nil, err
 	}
@@ -153,7 +152,7 @@ func handleOpts(ctx context.Context, sc Cmd, cc *cmdCfg, opts []CmdOpt) error {
 	return nil
 }
 
-func combineArgs(globals []GlobalOption, sc Cmd, cc *cmdCfg) (_ []string, err error) {
+func combineArgs(gitConfig []config.GitConfig, sc Cmd, cc *cmdCfg) (_ []string, err error) {
 	var args []string
 
 	defer func() {
@@ -173,16 +172,21 @@ func combineArgs(globals []GlobalOption, sc Cmd, cc *cmdCfg) (_ []string, err er
 	// specific. This allows callsites to override options which would
 	// otherwise be set up automatically.
 	//
-	// 1. Globals which get set up by default for all git commands.
-	// 2. Globals which get set up by default for a given git command.
-	// 3. Globals passed via command options, e.g. as set up by
+	// 1. Configuration as provided by the admin in Gitaly's config.toml.
+	// 2. Globals which get set up by default for all git commands.
+	// 3. Globals which get set up by default for a given git command.
+	// 4. Globals passed via command options, e.g. as set up by
 	//    `WithReftxHook()`.
-	// 4. Globals passed directly to the command at the site of execution.
 	var combinedGlobals []GlobalOption
+	for _, configPair := range gitConfig {
+		combinedGlobals = append(combinedGlobals, ConfigPair{
+			Key:   configPair.Key,
+			Value: configPair.Value,
+		})
+	}
 	combinedGlobals = append(combinedGlobals, globalOptions...)
 	combinedGlobals = append(combinedGlobals, gitCommand.opts...)
 	combinedGlobals = append(combinedGlobals, cc.globals...)
-	combinedGlobals = append(combinedGlobals, globals...)
 
 	for _, global := range combinedGlobals {
 		globalArgs, err := global.GlobalArgs()
