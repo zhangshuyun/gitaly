@@ -11,7 +11,6 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
-	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -93,10 +92,6 @@ func (s *server) applyGitattributes(ctx context.Context, c catfile.Batch, repoPa
 }
 
 func (s *server) vote(ctx context.Context, oid git.ObjectID) error {
-	if featureflag.IsDisabled(ctx, featureflag.TxApplyGitattributes) {
-		return nil
-	}
-
 	tx, err := metadata.TransactionFromContext(ctx)
 	if errors.Is(err, metadata.ErrTransactionNotFound) {
 		return nil

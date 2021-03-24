@@ -18,7 +18,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -124,14 +123,12 @@ func TestApplyGitattributesWithTransaction(t *testing.T) {
 		desc        string
 		revision    []byte
 		voteFn      func(*testing.T, *gitalypb.VoteTransactionRequest) (*gitalypb.VoteTransactionResponse, error)
-		withTx      bool
 		shouldExist bool
 		expectedErr error
 	}{
 		{
 			desc:     "successful vote writes gitattributes",
 			revision: []byte("e63f41fe459e62e1228fcef60d7189127aeba95a"),
-			withTx:   true,
 			voteFn: func(t *testing.T, request *gitalypb.VoteTransactionRequest) (*gitalypb.VoteTransactionResponse, error) {
 				oid, err := git.NewObjectIDFromHex("36814a3da051159a1683479e7a1487120309db8f")
 				require.NoError(t, err)
@@ -148,7 +145,6 @@ func TestApplyGitattributesWithTransaction(t *testing.T) {
 		{
 			desc:     "aborted vote does not write gitattributes",
 			revision: []byte("e63f41fe459e62e1228fcef60d7189127aeba95a"),
-			withTx:   true,
 			voteFn: func(t *testing.T, request *gitalypb.VoteTransactionRequest) (*gitalypb.VoteTransactionResponse, error) {
 				return &gitalypb.VoteTransactionResponse{
 					State: gitalypb.VoteTransactionResponse_ABORT,
@@ -160,7 +156,6 @@ func TestApplyGitattributesWithTransaction(t *testing.T) {
 		{
 			desc:     "failing vote does not write gitattributes",
 			revision: []byte("e63f41fe459e62e1228fcef60d7189127aeba95a"),
-			withTx:   true,
 			voteFn: func(t *testing.T, request *gitalypb.VoteTransactionRequest) (*gitalypb.VoteTransactionResponse, error) {
 				return nil, errors.New("foobar")
 			},
@@ -169,7 +164,6 @@ func TestApplyGitattributesWithTransaction(t *testing.T) {
 		},
 		{
 			desc:     "commit without gitattributes performs vote",
-			withTx:   true,
 			revision: []byte("7efb185dd22fd5c51ef044795d62b7847900c341"),
 			voteFn: func(t *testing.T, request *gitalypb.VoteTransactionRequest) (*gitalypb.VoteTransactionResponse, error) {
 				require.Equal(t, bytes.Repeat([]byte{0x00}, 20), request.ReferenceUpdatesHash)
@@ -178,17 +172,6 @@ func TestApplyGitattributesWithTransaction(t *testing.T) {
 				}, nil
 			},
 			shouldExist: false,
-		},
-		{
-			desc:     "disabled feature flag disables transaction",
-			revision: []byte("e63f41fe459e62e1228fcef60d7189127aeba95a"),
-			withTx:   false,
-			voteFn: func(t *testing.T, request *gitalypb.VoteTransactionRequest) (*gitalypb.VoteTransactionResponse, error) {
-				return &gitalypb.VoteTransactionResponse{
-					State: gitalypb.VoteTransactionResponse_ABORT,
-				}, errors.New(" this error shouldn't ever be seen")
-			},
-			shouldExist: true,
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -202,7 +185,6 @@ func TestApplyGitattributesWithTransaction(t *testing.T) {
 			ctx, err = praefect.Inject(ctx)
 			require.NoError(t, err)
 			ctx = helper.IncomingToOutgoing(ctx)
-			ctx = featureflag.OutgoingCtxWithFeatureFlagValue(ctx, featureflag.TxApplyGitattributes, fmt.Sprintf("%v", tc.withTx))
 
 			transactionServer.vote = func(request *gitalypb.VoteTransactionRequest) (*gitalypb.VoteTransactionResponse, error) {
 				return tc.voteFn(t, request)
