@@ -81,13 +81,14 @@ type sqlElector struct {
 	praefectName    string
 	shardName       string
 	nodes           []*sqlCandidate
+	muxedConns      muxedNodes
 	primaryNode     *sqlCandidate
 	db              *sql.DB
 	log             logrus.FieldLogger
 	failoverTimeout time.Duration
 }
 
-func newSQLElector(name string, c config.Config, db *sql.DB, log logrus.FieldLogger, ns []*nodeStatus) *sqlElector {
+func newSQLElector(name string, c config.Config, db *sql.DB, log logrus.FieldLogger, ns []*nodeStatus, muxedConns muxedNodes) *sqlElector {
 	log = log.WithField("virtual_storage", name)
 	praefectName := GeneratePraefectName(c, log)
 
@@ -105,6 +106,7 @@ func newSQLElector(name string, c config.Config, db *sql.DB, log logrus.FieldLog
 		db:              db,
 		log:             log,
 		nodes:           nodes,
+		muxedConns:      muxedConns,
 		primaryNode:     nodes[0],
 		failoverTimeout: failoverTimeout,
 	}
@@ -278,12 +280,12 @@ func (s *sqlElector) GetShard(ctx context.Context) (Shard, error) {
 	var secondaries []Node
 	for _, n := range s.nodes {
 		if primary != n {
-			secondaries = append(secondaries, n)
+			secondaries = append(secondaries, s.muxedConns.getNode(ctx, n))
 		}
 	}
 
 	return Shard{
-		Primary:     primary,
+		Primary:     s.muxedConns.getNode(ctx, primary),
 		Secondaries: secondaries,
 	}, nil
 }

@@ -9,10 +9,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/sirupsen/logrus"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
 	"gitlab.com/gitlab-org/gitaly/client"
+	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/grpc-proxy/proxy"
@@ -98,8 +100,9 @@ type Mgr struct {
 	strategies map[string]leaderElectionStrategy
 	db         *sql.DB
 	// nodes contains nodes by their virtual storages
-	nodes map[string][]Node
-	csg   datastore.ConsistentStoragesGetter
+	nodes      map[string][]Node
+	csg        datastore.ConsistentStoragesGetter
+	muxedConns map[string]muxedNodes
 }
 
 // leaderElectionStrategy defines the interface by which primary and
@@ -118,6 +121,10 @@ const dialTimeout = 10 * time.Second
 
 // Dial dials a node with the necessary interceptors configured.
 func Dial(ctx context.Context, node *config.Node, registry *protoregistry.Registry, errorTracker tracker.ErrorTracker) (*grpc.ClientConn, error) {
+	return dial(ctx, node, registry, errorTracker, false, nil)
+}
+
+func dial(ctx context.Context, node *config.Node, registry *protoregistry.Registry, errorTracker tracker.ErrorTracker, muxed bool, logger *logrus.Entry) (*grpc.ClientConn, error) {
 	streamInterceptors := []grpc.StreamClientInterceptor{
 		grpc_prometheus.StreamClientInterceptor,
 	}
@@ -126,12 +133,41 @@ func Dial(ctx context.Context, node *config.Node, registry *protoregistry.Regist
 		streamInterceptors = append(streamInterceptors, middleware.StreamErrorHandler(registry, errorTracker, node.Storage))
 	}
 
-	return client.DialContext(ctx, node.Address, []grpc.DialOption{
+	dialOpts := []grpc.DialOption{
 		grpc.WithDefaultCallOptions(grpc.ForceCodec(proxy.NewCodec())),
 		grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(node.Token)),
 		grpc.WithChainStreamInterceptor(streamInterceptors...),
 		grpc.WithChainUnaryInterceptor(grpc_prometheus.UnaryClientInterceptor),
-	})
+	}
+
+	if muxed {
+		return client.DialWithMux(ctx, node.Address, dialOpts, logger)
+	}
+
+	return client.DialContext(ctx, node.Address, dialOpts)
+}
+
+type muxedNodes map[string]*grpc.ClientConn
+
+type muxedNode struct {
+	Node
+	muxedConn *grpc.ClientConn
+}
+
+func (n muxedNode) GetConnection() *grpc.ClientConn { return n.muxedConn }
+
+func (mn muxedNodes) getNode(ctx context.Context, node Node) Node {
+	if featureflag.IsDisabled(ctx, featureflag.ConnectionMultiplexing) {
+		return node
+	}
+
+	muxedConn, ok := mn[node.GetStorage()]
+	if !ok {
+		ctxlogrus.Extract(ctx).WithField("storage", node.GetStorage()).Error("no multiplexed connection to Gitaly")
+		return node
+	}
+
+	return muxedNode{Node: node, muxedConn: muxedConn}
 }
 
 // NewManager creates a new NodeMgr based on virtual storage configs
@@ -153,17 +189,32 @@ func NewManager(
 
 	nodes := make(map[string][]Node, len(c.VirtualStorages))
 	strategies := make(map[string]leaderElectionStrategy, len(c.VirtualStorages))
+	muxed := map[string]muxedNodes{}
 	for _, virtualStorage := range c.VirtualStorages {
 		log = log.WithField("virtual_storage", virtualStorage.Name)
 
 		ns := make([]*nodeStatus, 0, len(virtualStorage.Nodes))
+		vsMuxed := muxedNodes{}
 		for _, node := range virtualStorage.Nodes {
-			conn, err := Dial(ctx, node, registry, errorTracker)
+			conn, err := dial(ctx, node, registry, errorTracker, false, log)
 			if err != nil {
 				return nil, err
 			}
+
 			cs := newConnectionStatus(*node, conn, log, latencyHistogram, errorTracker)
 			ns = append(ns, cs)
+
+			if c.Failover.ElectionStrategy != config.ElectionStrategySQL {
+				continue
+			}
+
+			muxedConn, err := dial(ctx, node, registry, errorTracker, true, log)
+			if err != nil {
+				log.WithError(err).Error("failed to dial Gitaly over a muxed connection")
+				continue
+			}
+
+			vsMuxed[cs.GetStorage()] = muxedConn
 		}
 
 		for _, node := range ns {
@@ -172,7 +223,8 @@ func NewManager(
 
 		if c.Failover.Enabled {
 			if c.Failover.ElectionStrategy == config.ElectionStrategySQL {
-				strategies[virtualStorage.Name] = newSQLElector(virtualStorage.Name, c, db, log, ns)
+				strategies[virtualStorage.Name] = newSQLElector(virtualStorage.Name, c, db, log, ns, vsMuxed)
+				muxed[virtualStorage.Name] = vsMuxed
 			} else {
 				strategies[virtualStorage.Name] = newLocalElector(virtualStorage.Name, log, ns)
 			}
@@ -185,6 +237,7 @@ func NewManager(
 		db:         db,
 		strategies: strategies,
 		nodes:      nodes,
+		muxedConns: muxed,
 		csg:        csg,
 	}, nil
 }
@@ -237,7 +290,7 @@ func (n *Mgr) GetSyncedNode(ctx context.Context, virtualStorageName, repoPath st
 	}
 
 	healthyStorages := make([]Node, 0, len(upToDateStorages))
-	nodes := n.Nodes()[virtualStorageName]
+	nodes := n.getNodes(ctx, virtualStorageName)
 	for _, node := range nodes {
 		if !node.IsHealthy() {
 			continue
@@ -274,6 +327,15 @@ func (n *Mgr) HealthyNodes() map[string][]string {
 }
 
 func (n *Mgr) Nodes() map[string][]Node { return n.nodes }
+
+func (n *Mgr) getNodes(ctx context.Context, virtualStorage string) []Node {
+	nodes := make([]Node, 0, len(n.nodes[virtualStorage]))
+	for _, node := range n.nodes[virtualStorage] {
+		nodes = append(nodes, n.muxedConns[virtualStorage].getNode(ctx, node))
+	}
+
+	return nodes
+}
 
 func newConnectionStatus(node config.Node, cc *grpc.ClientConn, l logrus.FieldLogger, latencyHist prommetrics.HistogramVec, errorTracker tracker.ErrorTracker) *nodeStatus {
 	return &nodeStatus{
