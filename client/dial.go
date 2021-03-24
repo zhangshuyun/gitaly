@@ -8,6 +8,8 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/sirupsen/logrus"
+	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	gitaly_x509 "gitlab.com/gitlab-org/gitaly/internal/x509"
 	grpccorrelation "gitlab.com/gitlab-org/labkit/correlation/grpc"
 	grpctracing "gitlab.com/gitlab-org/labkit/tracing/grpc"
@@ -30,8 +32,23 @@ const (
 )
 
 func DialContext(ctx context.Context, rawAddress string, connOpts []grpc.DialOption) (*grpc.ClientConn, error) {
+	return dialContext(ctx, rawAddress, connOpts, false, nil)
+}
+
+func Dial(rawAddress string, connOpts []grpc.DialOption) (*grpc.ClientConn, error) {
+	return dialContext(context.Background(), rawAddress, connOpts, false, nil)
+}
+
+// DialWithMux dials with a multiplexed connection to Gitaly. Experimental, this is going to be removed and
+// should not be depended upon.
+func DialWithMux(ctx context.Context, rawAddress string, connOpts []grpc.DialOption, logger *logrus.Entry) (*grpc.ClientConn, error) {
+	return dialContext(ctx, rawAddress, connOpts, true, logger)
+}
+
+func dialContext(ctx context.Context, rawAddress string, connOpts []grpc.DialOption, muxed bool, logger *logrus.Entry) (*grpc.ClientConn, error) {
 	var canonicalAddress string
 	var err error
+	var transportCredentials credentials.TransportCredentials
 
 	switch getConnectionType(rawAddress) {
 	case invalidConnection:
@@ -48,23 +65,21 @@ func DialContext(ctx context.Context, rawAddress string, connOpts []grpc.DialOpt
 			return nil, fmt.Errorf("failed to get system certificat pool for 'tls' connection: %w", err)
 		}
 
-		connOpts = append(connOpts, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{
+		transportCredentials = credentials.NewTLS(&tls.Config{
 			RootCAs:    certPool,
 			MinVersion: tls.VersionTLS12,
-		})))
+		})
 
 	case tcpConnection:
 		canonicalAddress, err = extractHostFromRemoteURL(rawAddress) // Ensure the form: "host:port" ...
 		if err != nil {
 			return nil, fmt.Errorf("failed to extract host for 'tcp' connection: %w", err)
 		}
-		connOpts = append(connOpts, grpc.WithInsecure())
 
 	case unixConnection:
 		canonicalAddress = rawAddress // This will be overridden by the custom dialer...
 		connOpts = append(
 			connOpts,
-			grpc.WithInsecure(),
 			// Use a custom dialer to ensure that we don't experience
 			// issues in environments that have proxy configurations
 			// https://gitlab.com/gitlab-org/gitaly/merge_requests/1072#note_140408512
@@ -78,6 +93,22 @@ func DialContext(ctx context.Context, rawAddress string, connOpts []grpc.DialOpt
 				return d.DialContext(ctx, "unix", path)
 			}),
 		)
+	}
+
+	if muxed {
+		if transportCredentials == nil {
+			transportCredentials = backchannel.Insecure()
+		}
+
+		transportCredentials = backchannel.ServerFactory(
+			func() backchannel.Server { return grpc.NewServer() },
+		).ClientHandshaker(logger, transportCredentials)
+	}
+
+	if transportCredentials == nil {
+		connOpts = append(connOpts, grpc.WithInsecure())
+	} else {
+		connOpts = append(connOpts, grpc.WithTransportCredentials(transportCredentials))
 	}
 
 	connOpts = append(connOpts,
@@ -103,10 +134,6 @@ func DialContext(ctx context.Context, rawAddress string, connOpts []grpc.DialOpt
 	}
 
 	return conn, nil
-}
-
-func Dial(rawAddress string, connOpts []grpc.DialOption) (*grpc.ClientConn, error) {
-	return DialContext(context.Background(), rawAddress, connOpts)
 }
 
 func getConnectionType(rawAddress string) connectionType {

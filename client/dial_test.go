@@ -16,9 +16,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/uber/jaeger-client-go"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
+	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	proxytestdata "gitlab.com/gitlab-org/gitaly/internal/praefect/grpc-proxy/testdata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	gitaly_x509 "gitlab.com/gitlab-org/gitaly/internal/x509"
+	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/labkit/correlation"
 	grpccorrelation "gitlab.com/gitlab-org/labkit/correlation/grpc"
 	grpctracing "gitlab.com/gitlab-org/labkit/tracing/grpc"
@@ -532,4 +534,49 @@ func TestHealthCheckDialer(t *testing.T) {
 	cc, err := HealthCheckDialer(DialContext)(ctx, addr, []grpc.DialOption{grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2("token"))})
 	require.NoError(t, err)
 	cc.Close()
+}
+
+func TestDialWithMux(t *testing.T) {
+	errNonMuxed := status.Error(codes.Internal, "non-muxed connection")
+	errMuxed := status.Error(codes.Internal, "muxed connection")
+
+	logger := testhelper.DiscardTestEntry(t)
+
+	srv := grpc.NewServer(
+		grpc.Creds(backchannel.NewServerHandshaker(logger, backchannel.Insecure(), backchannel.NewRegistry())),
+		grpc.UnknownServiceHandler(func(srv interface{}, stream grpc.ServerStream) error {
+			_, err := backchannel.GetPeerID(stream.Context())
+			if err == backchannel.ErrNonMultiplexedConnection {
+				return errNonMuxed
+			}
+
+			assert.NoError(t, err)
+			return errMuxed
+		}),
+	)
+	defer srv.Stop()
+
+	ln, err := net.Listen("tcp", "localhost:0")
+	require.NoError(t, err)
+
+	go srv.Serve(ln)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	t.Run("non-muxed conn", func(t *testing.T) {
+		nonMuxedConn, err := DialContext(ctx, "tcp://"+ln.Addr().String(), nil)
+		require.NoError(t, err)
+		defer func() { require.NoError(t, nonMuxedConn.Close()) }()
+
+		require.Equal(t, errNonMuxed, nonMuxedConn.Invoke(ctx, "/Service/Method", &gitalypb.VoteTransactionRequest{}, &gitalypb.VoteTransactionResponse{}))
+	})
+
+	t.Run("muxed conn", func(t *testing.T) {
+		nonMuxedConn, err := DialWithMux(ctx, "tcp://"+ln.Addr().String(), nil, logger)
+		require.NoError(t, err)
+		defer func() { require.NoError(t, nonMuxedConn.Close()) }()
+
+		require.Equal(t, errMuxed, nonMuxedConn.Invoke(ctx, "/Service/Method", &gitalypb.VoteTransactionRequest{}, &gitalypb.VoteTransactionResponse{}))
+	})
 }
