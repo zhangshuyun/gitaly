@@ -42,7 +42,7 @@ specific repository state:
 ```
                                ─────┐
                                     │
-      latest         (file contents)│
+      latest         (random value) │
       RPC request    (digest)       │     ┌──────┐
       Gitaly version (string)       ├─────│SHA256│─────▶ Cache key
       RPC Method     (string)       │     └──────┘
@@ -50,6 +50,10 @@ specific repository state:
                                     │
                                ─────┘
 ```
+
+An example for a mutating operation is pushing a new commit to a repository.
+As such, any `git push` will regenerate the above-described latest file and
+thus the cache key.
 
 ## Cache State Machine
 
