@@ -537,7 +537,7 @@ func TestRenameRepository(t *testing.T) {
 	renamedVirtualRepo.RelativePath = newName
 
 	// wait until replication jobs propagate changes to other storages
-	// as we don't know which one will be used to check because of read distribution
+	// as we don't know which one will be used to check because of reads distribution
 	canCheckRepo.Wait()
 
 	for _, oldLocation := range repoPaths {

@@ -13,7 +13,6 @@ import (
 	"github.com/sirupsen/logrus"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
 	"gitlab.com/gitlab-org/gitaly/client"
-	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/grpc-proxy/proxy"
@@ -222,15 +221,6 @@ func (n *Mgr) GetShard(ctx context.Context, virtualStorageName string) (Shard, e
 }
 
 func (n *Mgr) GetSyncedNode(ctx context.Context, virtualStorageName, repoPath string) (Node, error) {
-	if featureflag.IsDisabled(ctx, featureflag.DistributedReads) {
-		shard, err := n.GetShard(ctx, virtualStorageName)
-		if err != nil {
-			return nil, fmt.Errorf("get shard for %q: %w", virtualStorageName, err)
-		}
-
-		return shard.Primary, nil
-	}
-
 	upToDateStorages, err := n.csg.GetConsistentStorages(ctx, virtualStorageName, repoPath)
 	if err != nil {
 		return nil, err

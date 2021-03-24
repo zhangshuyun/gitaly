@@ -118,8 +118,8 @@ var forcePrimaryRPCs = map[string]bool{
 	// GetObjectDirectorySize depends on a repository's on-disk state. It depends on when a
 	// repository was last packed and on git-pack-objects(1) producing deterministic results.
 	// Given that we can neither guarantee that replicas are always packed at the same time,
-	// nor that git-pack-objects(1) produces the same packs, reportings would be inconsistent
-	// if we used reads distribution here. Thus, we always report sizes for the primary node.
+	// nor that git-pack-objects(1) produces the same packs. We always report sizes for the
+	// primary node.
 	"/gitaly.RepositoryService/GetObjectDirectorySize": true,
 	// Same reasoning as for GetObjectDirectorySize.
 	"/gitaly.RepositoryService/RepositorySize": true,

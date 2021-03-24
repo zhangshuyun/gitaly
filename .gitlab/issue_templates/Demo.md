@@ -76,34 +76,6 @@ succeed.
 
 ## Features
 
-### Distributed reads with caching https://gitlab.com/gitlab-org/gitaly/-/issues/3053
-
-The goal of caching is to reduce load on the database and speed up defining up to date storages for distributing read operations among them.
-
-1. [ ] Prep:
-   - [ ] Create a repository in the demo cluster. This ensures we have a repository we can use for read/write.
-   - [ ] Verify the distributed reads feature is enabled. On the GitLab node run:
-     ```
-     gitlab-rails console
-     Feature.enabled?('gitaly_distributed_reads')
-     ```
-   - [ ] Verify the cache is enabled by running `grep 'reads distribution caching is' /var/log/gitlab/praefect/current`
-     the full message should be: `reads distribution caching is enabled by configuration`
-1. [ ] Demo:
-   - [ ] Make some random operations on the repository: files creation/modification etc.
-   - [ ] Verify the feature flag is set by observing `rate(gitaly_feature_flag_checks_total{flag="distributed_reads"}[5m])` metric.
-   - [ ] Verify the reads distribution is working by checking grafana dashboard: `sum by (storage) (rate(gitaly_praefect_read_distribution[5m]))`.
-   - [ ] Verify the cache is used by checking grafana dashboard: `sum by (type) (rate(gitaly_praefect_uptodate_storages_cache_access_total[5m]))`.
-   - [ ] Remember values of the `read_distribution` metric for future comparison.
-   - [ ] Jump on one of the gitaly nodes and terminate it with command `gitlab-ctl stop gitaly`.
-   - [ ] Make some random operations on the repository: files creation/modification etc.
-   - [ ] Query for the `read_distribution` metric and compare with previous result (the terminated node should have the same value).
-   - [ ] Remember values of `gitaly_praefect_uptodate_storages_cache_access_total` metric for future comparison.
-   - [ ] From one of the instances login into the Postgres with `/opt/gitlab/embedded/bin/psql -U praefect -d praefect_production -h <POSTGRESQL_SERVER_ADDRESS>` and execute the query: `NOTIFY repositories_updates, '{send';`.
-   - [ ] Verify each praefect instance has a log entry: `grep 'received payload can't be processed, cache disabled' /var/log/gitlab/praefect/current`.
-   - [ ] Make some random operations on the repository: files creation/modification etc.
-   - [ ] Query for the metric `gitaly_praefect_uptodate_storages_cache_access_total` and compare with the result saved previosuly. The `hit` metric value should not change.
-
 ### Variable Replication Factor #2971
 
 Previously Praefect has replicated repositories to every node in a virtual storage. This has made large clusters

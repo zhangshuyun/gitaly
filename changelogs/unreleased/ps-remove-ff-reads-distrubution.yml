@@ -1,0 +1,5 @@
+---
+title: 'Removal of the feature flag: distributed_reads'
+merge_request: 3271
+author:
+type: removed
