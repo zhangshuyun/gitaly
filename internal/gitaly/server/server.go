@@ -11,6 +11,7 @@ import (
 	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	log "github.com/sirupsen/logrus"
+	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	diskcache "gitlab.com/gitlab-org/gitaly/internal/cache"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/server/auth"
@@ -73,7 +74,23 @@ func New(secure bool, cfg config.Cfg, logrusEntry *log.Entry) (*grpc.Server, err
 
 	storageLocator := config.NewLocator(cfg)
 
+	transportCredentials := backchannel.Insecure()
+	// If tls config is specified attempt to extract tls options and use it
+	// as a grpc.ServerOption
+	if secure {
+		cert, err := tls.LoadX509KeyPair(cfg.TLS.CertPath, cfg.TLS.KeyPath)
+		if err != nil {
+			return nil, fmt.Errorf("error reading certificate and key paths: %v", err)
+		}
+
+		transportCredentials = credentials.NewTLS(&tls.Config{
+			Certificates: []tls.Certificate{cert},
+			MinVersion:   tls.VersionTLS12,
+		})
+	}
+
 	opts := []grpc.ServerOption{
+		grpc.Creds(backchannel.NewServerHandshaker(logrusEntry, transportCredentials, backchannel.NewRegistry())),
 		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
 			grpc_ctxtags.StreamServerInterceptor(ctxTagOpts...),
 			grpccorrelation.StreamServerCorrelationInterceptor(), // Must be above the metadata handler
@@ -116,19 +133,6 @@ func New(secure bool, cfg config.Cfg, logrusEntry *log.Entry) (*grpc.Server, err
 			MinTime:             20 * time.Second,
 			PermitWithoutStream: true,
 		}),
-	}
-
-	// If tls config is specified attempt to extract tls options and use it
-	// as a grpc.ServerOption
-	if secure {
-		cert, err := tls.LoadX509KeyPair(cfg.TLS.CertPath, cfg.TLS.KeyPath)
-		if err != nil {
-			return nil, fmt.Errorf("error reading certificate and key paths: %v", err)
-		}
-		opts = append(opts, grpc.Creds(credentials.NewTLS(&tls.Config{
-			Certificates: []tls.Certificate{cert},
-			MinVersion:   tls.VersionTLS12,
-		})))
 	}
 
 	return grpc.NewServer(opts...), nil
