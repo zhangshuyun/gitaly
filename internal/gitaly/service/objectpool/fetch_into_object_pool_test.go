@@ -113,14 +113,12 @@ func TestFetchIntoObjectPool_hooksDisabled(t *testing.T) {
 }
 
 func TestFetchIntoObjectPool_CollectLogStatistics(t *testing.T) {
+	defer func(old func(tb testing.TB) *logrus.Logger) { testhelper.NewTestLogger = old }(testhelper.NewTestLogger)
+
 	logBuffer := &bytes.Buffer{}
 	testhelper.NewTestLogger = func(tb testing.TB) *logrus.Logger {
 		return &logrus.Logger{Out: logBuffer, Formatter: &logrus.JSONFormatter{}, Level: logrus.InfoLevel}
 	}
-
-	defer func(tl func(tb testing.TB) *logrus.Logger) {
-		testhelper.NewTestLogger = tl
-	}(testhelper.NewTestLogger)
 
 	cfg, repo, _, locator, client := setup(t)
 
