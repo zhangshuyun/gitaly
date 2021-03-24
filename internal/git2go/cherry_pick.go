@@ -12,12 +12,12 @@ import (
 type CherryPickCommand struct {
 	// Repository is the path where to execute the cherry pick.
 	Repository string
-	// AuthorName is the author name for the resulting commit.
-	AuthorName string
-	// AuthorMail is the author mail for the resulting commit.
-	AuthorMail string
-	// AuthorDate is the author date of revert commit.
-	AuthorDate time.Time
+	// CommitterName is the committer name for the resulting commit.
+	CommitterName string
+	// CommitterMail is the committer mail for the resulting commit.
+	CommitterMail string
+	// CommitterDate is the committer date of revert commit.
+	CommitterDate time.Time
 	// Message is the message to be used for the resulting commit.
 	Message string
 	// Ours is the commit that the revert is applied to.

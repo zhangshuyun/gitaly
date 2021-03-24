@@ -9,7 +9,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"time"
 
 	git "github.com/libgit2/git2go/v31"
 	"gitlab.com/gitlab-org/gitaly/internal/git2go"
@@ -38,11 +37,14 @@ func (cmd *cherryPickSubcommand) verify(ctx context.Context, r *git2go.CherryPic
 	if r.Repository == "" {
 		return errors.New("missing repository")
 	}
-	if r.AuthorName == "" {
-		return errors.New("missing author name")
+	if r.CommitterName == "" {
+		return errors.New("missing committer name")
 	}
-	if r.AuthorMail == "" {
-		return errors.New("missing author mail")
+	if r.CommitterMail == "" {
+		return errors.New("missing committer mail")
+	}
+	if r.CommitterDate.IsZero() {
+		return errors.New("missing committer date")
 	}
 	if r.Message == "" {
 		return errors.New("missing message")
@@ -60,10 +62,6 @@ func (cmd *cherryPickSubcommand) verify(ctx context.Context, r *git2go.CherryPic
 func (cmd *cherryPickSubcommand) cherryPick(ctx context.Context, r *git2go.CherryPickCommand) (string, error) {
 	if err := cmd.verify(ctx, r); err != nil {
 		return "", err
-	}
-
-	if r.AuthorDate.IsZero() {
-		r.AuthorDate = time.Now()
 	}
 
 	repo, err := git.OpenRepository(r.Repository)
@@ -102,9 +100,13 @@ func (cmd *cherryPickSubcommand) cherryPick(ctx context.Context, r *git2go.Cherr
 		return "", fmt.Errorf("could not write tree: %w", err)
 	}
 
-	committer := git.Signature(git2go.NewSignature(r.AuthorName, r.AuthorMail, r.AuthorDate))
+	if tree.Equal(ours.TreeId()) {
+		return "", git2go.EmptyError{}
+	}
 
-	commit, err := repo.CreateCommitFromIds("", &committer, &committer, r.Message, tree, ours.Id())
+	committer := git.Signature(git2go.NewSignature(r.CommitterName, r.CommitterMail, r.CommitterDate))
+
+	commit, err := repo.CreateCommitFromIds("", pick.Author(), &committer, r.Message, tree, ours.Id())
 	if err != nil {
 		return "", fmt.Errorf("could not create cherry-pick commit: %w", err)
 	}

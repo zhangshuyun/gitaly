@@ -1,6 +1,7 @@
 package operations
 
 import (
+	"context"
 	"io/ioutil"
 	"os"
 	"testing"
@@ -109,6 +110,19 @@ func newOperationClient(t *testing.T, serverSocketPath string) (gitalypb.Operati
 	}
 
 	return gitalypb.NewOperationServiceClient(conn), conn
+}
+
+func setupOperationClient(t *testing.T, ctx context.Context) (gitalypb.OperationServiceClient, context.Context) {
+	serverSocketPath, stop := runOperationServiceServer(t)
+	t.Cleanup(stop)
+
+	md := testhelper.GitalyServersMetadata(t, serverSocketPath)
+	ctx = testhelper.MergeOutgoingMetadata(ctx, md)
+
+	client, conn := newOperationClient(t, serverSocketPath)
+	t.Cleanup(func() { conn.Close() })
+
+	return client, ctx
 }
 
 func setupAndStartGitlabServer(t testing.TB, glID, glRepository string, gitPushOptions ...string) func() {

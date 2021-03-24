@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
+	"github.com/golang/protobuf/ptypes"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/git2go"
@@ -60,14 +62,23 @@ func (s *Server) userCherryPick(ctx context.Context, req *gitalypb.UserCherryPic
 		mainline = 1
 	}
 
+	committerDate := time.Now()
+	if req.Timestamp != nil {
+		committerDate, err = ptypes.Timestamp(req.Timestamp)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	newrev, err := git2go.CherryPickCommand{
-		Repository: repoPath,
-		AuthorName: string(req.User.Name),
-		AuthorMail: string(req.User.Email),
-		Message:    string(req.Message),
-		Commit:     req.Commit.Id,
-		Ours:       startRevision.String(),
-		Mainline:   mainline,
+		Repository:    repoPath,
+		CommitterName: string(req.User.Name),
+		CommitterMail: string(req.User.Email),
+		CommitterDate: committerDate,
+		Message:       string(req.Message),
+		Commit:        req.Commit.Id,
+		Ours:          startRevision.String(),
+		Mainline:      mainline,
 	}.Run(ctx, s.cfg)
 	if err != nil {
 		switch {
@@ -75,6 +86,11 @@ func (s *Server) userCherryPick(ctx context.Context, req *gitalypb.UserCherryPic
 			return &gitalypb.UserCherryPickResponse{
 				CreateTreeError:     err.Error(),
 				CreateTreeErrorCode: gitalypb.UserCherryPickResponse_CONFLICT,
+			}, nil
+		case errors.As(err, &git2go.EmptyError{}):
+			return &gitalypb.UserCherryPickResponse{
+				CreateTreeError:     err.Error(),
+				CreateTreeErrorCode: gitalypb.UserCherryPickResponse_EMPTY,
 			}, nil
 		case errors.Is(err, git2go.ErrInvalidArgument):
 			return nil, helper.ErrInvalidArgument(err)
@@ -114,7 +130,7 @@ func (s *Server) userCherryPick(ctx context.Context, req *gitalypb.UserCherryPic
 		if errors.As(err, &preReceiveError{}) {
 			return &gitalypb.UserCherryPickResponse{
 				PreReceiveError: err.Error(),
-			}, err
+			}, nil
 		}
 
 		return nil, fmt.Errorf("update reference with hooks: %w", err)

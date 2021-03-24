@@ -31,6 +31,7 @@ var registeredTypes = map[interface{}]struct{}{
 	FileNotFoundError(""):    {},
 	InvalidArgumentError(""): {},
 	HasConflictsError{}:      {},
+	EmptyError{}:             {},
 	IndexError(""):           {},
 }
 
@@ -60,6 +61,14 @@ type HasConflictsError struct{}
 
 func (err HasConflictsError) Error() string {
 	return "could not apply due to conflicts"
+}
+
+// EmptyError indicates the command, for example cherry-pick, did result in no
+// changes, so the result is empty.
+type EmptyError struct{}
+
+func (err EmptyError) Error() string {
+	return "could not apply because the result was empty"
 }
 
 // SerializableError returns an error that is Gob serializable.

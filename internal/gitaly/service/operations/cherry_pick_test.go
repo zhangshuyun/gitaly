@@ -15,19 +15,14 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/metadata"
 )
 
 func TestServer_UserCherryPick_successful(t *testing.T) {
 	testWithFeature(t, featureflag.GoUserCherryPick, testServerUserCherryPickSuccessful)
 }
 
-func testServerUserCherryPickSuccessful(t *testing.T, ctxOuter context.Context) {
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
-
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
+func testServerUserCherryPickSuccessful(t *testing.T, ctx context.Context) {
+	client, ctx := setupOperationClient(t, ctx)
 
 	repoProto, repoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
@@ -36,10 +31,10 @@ func testServerUserCherryPickSuccessful(t *testing.T, ctxOuter context.Context) 
 	destinationBranch := "cherry-picking-dst"
 	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", destinationBranch, "master")
 
-	masterHeadCommit, err := repo.ReadCommit(ctxOuter, "master")
+	masterHeadCommit, err := repo.ReadCommit(ctx, "master")
 	require.NoError(t, err)
 
-	cherryPickedCommit, err := repo.ReadCommit(ctxOuter, "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab")
+	cherryPickedCommit, err := repo.ReadCommit(ctx, "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab")
 	require.NoError(t, err)
 
 	testRepoCopy, testRepoCopyPath, cleanup := gittest.CloneRepo(t) // read-only repo
@@ -156,15 +151,6 @@ func testServerUserCherryPickSuccessful(t *testing.T, ctxOuter context.Context) 
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
-			md := testhelper.GitalyServersMetadata(t, serverSocketPath)
-
-			mdFromCtx, ok := metadata.FromOutgoingContext(ctxOuter)
-			if ok {
-				md = metadata.Join(md, mdFromCtx)
-			}
-
-			ctx := metadata.NewOutgoingContext(ctxOuter, md)
-
 			response, err := client.UserCherryPick(ctx, testCase.request)
 			require.NoError(t, err)
 
@@ -193,12 +179,8 @@ func TestServer_UserCherryPick_successful_git_hooks(t *testing.T) {
 	testWithFeature(t, featureflag.GoUserCherryPick, testServerUserCherryPickSuccessfulGitHooks)
 }
 
-func testServerUserCherryPickSuccessfulGitHooks(t *testing.T, ctxOuter context.Context) {
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
-
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
+func testServerUserCherryPickSuccessfulGitHooks(t *testing.T, ctx context.Context) {
+	client, ctx := setupOperationClient(t, ctx)
 
 	repoProto, repoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
@@ -207,7 +189,7 @@ func testServerUserCherryPickSuccessfulGitHooks(t *testing.T, ctxOuter context.C
 	destinationBranch := "cherry-picking-dst"
 	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", destinationBranch, "master")
 
-	cherryPickedCommit, err := repo.ReadCommit(ctxOuter, "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab")
+	cherryPickedCommit, err := repo.ReadCommit(ctx, "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab")
 	require.NoError(t, err)
 
 	request := &gitalypb.UserCherryPickRequest{
@@ -225,9 +207,6 @@ func testServerUserCherryPickSuccessfulGitHooks(t *testing.T, ctxOuter context.C
 		hookOutputFiles = append(hookOutputFiles, hookOutputTempPath)
 	}
 
-	md := testhelper.GitalyServersMetadata(t, serverSocketPath)
-	ctx := metadata.NewOutgoingContext(ctxOuter, md)
-
 	response, err := client.UserCherryPick(ctx, request)
 	require.NoError(t, err)
 	require.Empty(t, response.PreReceiveError)
@@ -243,11 +222,7 @@ func TestServer_UserCherryPick_stableID(t *testing.T) {
 }
 
 func testServerUserCherryPickStableID(t *testing.T, ctx context.Context) {
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
-
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
+	client, ctx := setupOperationClient(t, ctx)
 
 	repoProto, repoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
@@ -268,18 +243,15 @@ func testServerUserCherryPickStableID(t *testing.T, ctx context.Context) {
 		Timestamp:  &timestamp.Timestamp{Seconds: 12345},
 	}
 
-	md := testhelper.GitalyServersMetadata(t, serverSocketPath)
-	ctx = metadata.NewOutgoingContext(ctx, md)
-
 	response, err := client.UserCherryPick(ctx, request)
 	require.NoError(t, err)
 	require.Empty(t, response.PreReceiveError)
-	require.Equal(t, response.BranchUpdate.CommitId, "750e8cf248a67a0be1c5e3b891697d72c19af259")
+	require.Equal(t, "b17aeac93194cf2385b32623494ebce66efbacad", response.BranchUpdate.CommitId)
 
-	pickedCommit, err := repo.ReadCommit(ctx, "750e8cf248a67a0be1c5e3b891697d72c19af259")
+	pickedCommit, err := repo.ReadCommit(ctx, git.Revision(response.BranchUpdate.CommitId))
 	require.NoError(t, err)
 	require.Equal(t, &gitalypb.GitCommit{
-		Id:        "750e8cf248a67a0be1c5e3b891697d72c19af259",
+		Id:        "b17aeac93194cf2385b32623494ebce66efbacad",
 		Subject:   []byte("Cherry-picking " + commitToPick.Id),
 		Body:      []byte("Cherry-picking " + commitToPick.Id),
 		BodySize:  55,
@@ -291,7 +263,7 @@ func testServerUserCherryPickStableID(t *testing.T, ctx context.Context) {
 			Date: &timestamp.Timestamp{
 				Seconds: 1487337076,
 			},
-			Timezone: []byte("+0000"),
+			Timezone: []byte("+0200"),
 		},
 		Committer: &gitalypb.CommitAuthor{
 			Name:  testhelper.TestUser.Name,
@@ -308,18 +280,14 @@ func TestServer_UserCherryPick_failed_validations(t *testing.T) {
 	testWithFeature(t, featureflag.GoUserCherryPick, testServerUserCherryPickFailedValidations)
 }
 
-func testServerUserCherryPickFailedValidations(t *testing.T, ctxOuter context.Context) {
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
-
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
+func testServerUserCherryPickFailedValidations(t *testing.T, ctx context.Context) {
+	client, ctx := setupOperationClient(t, ctx)
 
 	repoProto, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
-	cherryPickedCommit, err := repo.ReadCommit(ctxOuter, "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab")
+	cherryPickedCommit, err := repo.ReadCommit(ctx, "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab")
 	require.NoError(t, err)
 
 	destinationBranch := "cherry-picking-dst"
@@ -377,9 +345,6 @@ func testServerUserCherryPickFailedValidations(t *testing.T, ctxOuter context.Co
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
-			md := testhelper.GitalyServersMetadata(t, serverSocketPath)
-			ctx := metadata.NewOutgoingContext(ctxOuter, md)
-
 			_, err := client.UserCherryPick(ctx, testCase.request)
 			testhelper.RequireGrpcError(t, err, testCase.code)
 		})
@@ -390,12 +355,8 @@ func TestServer_UserCherryPick_failed_with_PreReceiveError(t *testing.T) {
 	testWithFeature(t, featureflag.GoUserCherryPick, testServerUserCherryPickFailedWithPreReceiveError)
 }
 
-func testServerUserCherryPickFailedWithPreReceiveError(t *testing.T, ctxOuter context.Context) {
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
-
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
+func testServerUserCherryPickFailedWithPreReceiveError(t *testing.T, ctx context.Context) {
+	client, ctx := setupOperationClient(t, ctx)
 
 	repoProto, repoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
@@ -404,7 +365,7 @@ func testServerUserCherryPickFailedWithPreReceiveError(t *testing.T, ctxOuter co
 	destinationBranch := "cherry-picking-dst"
 	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", destinationBranch, "master")
 
-	cherryPickedCommit, err := repo.ReadCommit(ctxOuter, "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab")
+	cherryPickedCommit, err := repo.ReadCommit(ctx, "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab")
 	require.NoError(t, err)
 
 	request := &gitalypb.UserCherryPickRequest{
@@ -422,9 +383,6 @@ func testServerUserCherryPickFailedWithPreReceiveError(t *testing.T, ctxOuter co
 			remove := gittest.WriteCustomHook(t, repoPath, hookName, hookContent)
 			defer remove()
 
-			md := testhelper.GitalyServersMetadata(t, serverSocketPath)
-			ctx := metadata.NewOutgoingContext(ctxOuter, md)
-
 			response, err := client.UserCherryPick(ctx, request)
 			require.NoError(t, err)
 			require.Contains(t, response.PreReceiveError, "GL_ID="+testhelper.TestUser.GlId)
@@ -436,12 +394,8 @@ func TestServer_UserCherryPick_failed_with_CreateTreeError(t *testing.T) {
 	testWithFeature(t, featureflag.GoUserCherryPick, testServerUserCherryPickFailedWithCreateTreeError)
 }
 
-func testServerUserCherryPickFailedWithCreateTreeError(t *testing.T, ctxOuter context.Context) {
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
-
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
+func testServerUserCherryPickFailedWithCreateTreeError(t *testing.T, ctx context.Context) {
+	client, ctx := setupOperationClient(t, ctx)
 
 	repoProto, repoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
@@ -451,7 +405,7 @@ func testServerUserCherryPickFailedWithCreateTreeError(t *testing.T, ctxOuter co
 	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", destinationBranch, "master")
 
 	// This commit already exists in master
-	cherryPickedCommit, err := repo.ReadCommit(ctxOuter, "4a24d82dbca5c11c61556f3b35ca472b7463187e")
+	cherryPickedCommit, err := repo.ReadCommit(ctx, "4a24d82dbca5c11c61556f3b35ca472b7463187e")
 	require.NoError(t, err)
 
 	request := &gitalypb.UserCherryPickRequest{
@@ -461,9 +415,6 @@ func testServerUserCherryPickFailedWithCreateTreeError(t *testing.T, ctxOuter co
 		BranchName: []byte(destinationBranch),
 		Message:    []byte("Cherry-picking " + cherryPickedCommit.Id),
 	}
-
-	md := testhelper.GitalyServersMetadata(t, serverSocketPath)
-	ctx := metadata.NewOutgoingContext(ctxOuter, md)
 
 	response, err := client.UserCherryPick(ctx, request)
 	require.NoError(t, err)
@@ -475,12 +426,8 @@ func TestServer_UserCherryPick_failed_with_CommitError(t *testing.T) {
 	testWithFeature(t, featureflag.GoUserCherryPick, testServerUserCherryPickFailedWithCommitError)
 }
 
-func testServerUserCherryPickFailedWithCommitError(t *testing.T, ctxOuter context.Context) {
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
-
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
+func testServerUserCherryPickFailedWithCommitError(t *testing.T, ctx context.Context) {
+	client, ctx := setupOperationClient(t, ctx)
 
 	repoProto, repoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
@@ -491,7 +438,7 @@ func testServerUserCherryPickFailedWithCommitError(t *testing.T, ctxOuter contex
 	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", destinationBranch, "master")
 	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", sourceBranch, "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab")
 
-	cherryPickedCommit, err := repo.ReadCommit(ctxOuter, git.Revision(sourceBranch))
+	cherryPickedCommit, err := repo.ReadCommit(ctx, git.Revision(sourceBranch))
 	require.NoError(t, err)
 
 	request := &gitalypb.UserCherryPickRequest{
@@ -503,9 +450,6 @@ func testServerUserCherryPickFailedWithCommitError(t *testing.T, ctxOuter contex
 		StartBranchName: []byte(destinationBranch),
 	}
 
-	md := testhelper.GitalyServersMetadata(t, serverSocketPath)
-	ctx := metadata.NewOutgoingContext(ctxOuter, md)
-
 	response, err := client.UserCherryPick(ctx, request)
 	require.NoError(t, err)
 	require.Equal(t, "Branch diverged", response.CommitError)
@@ -515,12 +459,8 @@ func TestServer_UserCherryPick_failed_with_conflict(t *testing.T) {
 	testWithFeature(t, featureflag.GoUserCherryPick, testServerUserCherryPickFailedWithConflict)
 }
 
-func testServerUserCherryPickFailedWithConflict(t *testing.T, ctxOuter context.Context) {
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
-
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
+func testServerUserCherryPickFailedWithConflict(t *testing.T, ctx context.Context) {
+	client, ctx := setupOperationClient(t, ctx)
 
 	repoProto, repoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
@@ -530,7 +470,7 @@ func testServerUserCherryPickFailedWithConflict(t *testing.T, ctxOuter context.C
 	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", destinationBranch, "conflict_branch_a")
 
 	// This commit cannot be applied to the destinationBranch above
-	cherryPickedCommit, err := repo.ReadCommit(ctxOuter, git.Revision("f0f390655872bb2772c85a0128b2fbc2d88670cb"))
+	cherryPickedCommit, err := repo.ReadCommit(ctx, git.Revision("f0f390655872bb2772c85a0128b2fbc2d88670cb"))
 	require.NoError(t, err)
 
 	request := &gitalypb.UserCherryPickRequest{
@@ -540,9 +480,6 @@ func testServerUserCherryPickFailedWithConflict(t *testing.T, ctxOuter context.C
 		BranchName: []byte(destinationBranch),
 		Message:    []byte("Cherry-picking " + cherryPickedCommit.Id),
 	}
-
-	md := testhelper.GitalyServersMetadata(t, serverSocketPath)
-	ctx := testhelper.MergeOutgoingMetadata(ctxOuter, md)
 
 	response, err := client.UserCherryPick(ctx, request)
 	require.NoError(t, err)
@@ -554,12 +491,8 @@ func TestServer_UserCherryPick_successful_with_given_commits(t *testing.T) {
 	testWithFeature(t, featureflag.GoUserCherryPick, testServerUserCherryPickSuccessfulWithGivenCommits)
 }
 
-func testServerUserCherryPickSuccessfulWithGivenCommits(t *testing.T, ctxOuter context.Context) {
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
-
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
+func testServerUserCherryPickSuccessfulWithGivenCommits(t *testing.T, ctx context.Context) {
+	client, ctx := setupOperationClient(t, ctx)
 
 	repoProto, repoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
@@ -579,20 +512,11 @@ func testServerUserCherryPickSuccessfulWithGivenCommits(t *testing.T, ctxOuter c
 
 	for i, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
-			md := testhelper.GitalyServersMetadata(t, serverSocketPath)
-
-			mdFromCtx, ok := metadata.FromOutgoingContext(ctxOuter)
-			if ok {
-				md = metadata.Join(md, mdFromCtx)
-			}
-
-			ctx := metadata.NewOutgoingContext(ctxOuter, md)
-
 			destinationBranch := fmt.Sprintf("cherry-picking-%d", i)
 
 			testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", destinationBranch, testCase.startRevision.String())
 
-			commit, err := repo.ReadCommit(ctxOuter, testCase.cherryRevision)
+			commit, err := repo.ReadCommit(ctx, testCase.cherryRevision)
 			require.NoError(t, err)
 
 			request := &gitalypb.UserCherryPickRequest{
