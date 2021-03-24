@@ -35,10 +35,6 @@ func shuffledStoragesCopy(randSrc *rand.Rand, storages []config.Storage) []confi
 	return shuffled
 }
 
-func shuffleFileInfos(randSrc *rand.Rand, s []os.FileInfo) {
-	randSrc.Shuffle(len(s), func(i, j int) { s[i], s[j] = s[j], s[i] })
-}
-
 // Optimizer knows how to optimize a repository
 type Optimizer interface {
 	OptimizeRepository(context.Context, *gitalypb.OptimizeRepositoryRequest, ...grpc.CallOption) (*gitalypb.OptimizeRepositoryResponse, error)
