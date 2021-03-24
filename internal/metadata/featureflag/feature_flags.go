@@ -18,7 +18,7 @@ var (
 	// GoUserCherryPick enables the Go implementation of UserCherryPick
 	GoUserCherryPick = FeatureFlag{Name: "go_user_cherry_pick", OnByDefault: false}
 	// GoUserUpdateBranch enables the Go implementation of UserUpdateBranch
-	GoUserUpdateBranch = FeatureFlag{Name: "go_user_update_branch", OnByDefault: false}
+	GoUserUpdateBranch = FeatureFlag{Name: "go_user_update_branch", OnByDefault: true}
 	// GoUserCommitFiles enables the Go implementation of UserCommitFiles
 	GoUserCommitFiles = FeatureFlag{Name: "go_user_commit_files", OnByDefault: true}
 	// GoResolveConflicts enables the Go implementation of ResolveConflicts
