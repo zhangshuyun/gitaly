@@ -1,6 +1,7 @@
 package streamcache
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -23,8 +24,7 @@ func TestCache_writeOneReadMultiple(t *testing.T) {
 	tmp, cleanTmp := testhelper.TempDir(t)
 	defer cleanTmp()
 
-	c, err := New(tmp, time.Minute, log.Default())
-	require.NoError(t, err)
+	c := New(tmp, time.Minute, log.Default())
 	defer c.Stop()
 
 	const (
@@ -55,8 +55,7 @@ func TestCache_manyConcurrentWrites(t *testing.T) {
 	tmp, cleanTmp := testhelper.TempDir(t)
 	defer cleanTmp()
 
-	c, err := New(tmp, time.Minute, log.Default())
-	require.NoError(t, err)
+	c := New(tmp, time.Minute, log.Default())
 	defer c.Stop()
 
 	const (
@@ -136,8 +135,7 @@ func TestCache_deletedFile(t *testing.T) {
 	tmp, cleanTmp := testhelper.TempDir(t)
 	defer cleanTmp()
 
-	c, err := New(tmp, time.Hour, log.Default())
-	require.NoError(t, err)
+	c := New(tmp, time.Hour, log.Default())
 	defer c.Stop()
 
 	const (
@@ -189,8 +187,7 @@ func TestCache_scope(t *testing.T) {
 
 	for i := 0; i < N; i++ {
 		input[i] = fmt.Sprintf("test content %d", i)
-		cache[i], err = New(tmp, time.Minute, log.Default())
-		require.NoError(t, err)
+		cache[i] = New(tmp, time.Minute, log.Default())
 		defer func(i int) { cache[i].Stop() }(i)
 
 		var created bool
@@ -258,9 +255,7 @@ func TestCache_diskCleanup(t *testing.T) {
 	)
 
 	cl := newClock()
-	c, err := newCacheWithSleep(tmp, 0, func(time.Duration) { cl.wait() }, log.Default())
-
-	require.NoError(t, err)
+	c := newCacheWithSleep(tmp, 0, func(time.Duration) { cl.wait() }, log.Default())
 	defer c.Stop()
 
 	content := func(i int) string { return fmt.Sprintf("content %d", i) }
@@ -305,8 +300,7 @@ func TestCache_failedWrite(t *testing.T) {
 	tmp, cleanTmp := testhelper.TempDir(t)
 	defer cleanTmp()
 
-	c, err := New(tmp, time.Hour, log.Default())
-	require.NoError(t, err)
+	c := New(tmp, time.Hour, log.Default())
 	defer c.Stop()
 
 	testCases := []struct {
@@ -354,14 +348,13 @@ func TestCache_failCreateFile(t *testing.T) {
 	tmp, cleanTmp := testhelper.TempDir(t)
 	defer cleanTmp()
 
-	c, err := New(tmp, time.Hour, log.Default())
-	require.NoError(t, err)
+	c := New(tmp, time.Hour, log.Default())
 	defer c.Stop()
 
 	createError := errors.New("cannot create file")
 	c.(*cache).createFile = func() (namedWriteCloser, error) { return nil, createError }
 
-	_, _, err = c.FindOrCreate("key", func(io.Writer) error { return nil })
+	_, _, err := c.FindOrCreate("key", func(io.Writer) error { return nil })
 	require.Equal(t, createError, err)
 }
 
@@ -369,8 +362,7 @@ func TestCache_unWriteableFile(t *testing.T) {
 	tmp, cleanTmp := testhelper.TempDir(t)
 	defer cleanTmp()
 
-	c, err := New(tmp, time.Hour, log.Default())
-	require.NoError(t, err)
+	c := New(tmp, time.Hour, log.Default())
 	defer c.Stop()
 
 	c.(*cache).createFile = func() (namedWriteCloser, error) {
@@ -396,8 +388,7 @@ func TestCache_unCloseableFile(t *testing.T) {
 	tmp, cleanTmp := testhelper.TempDir(t)
 	defer cleanTmp()
 
-	c, err := New(tmp, time.Hour, log.Default())
-	require.NoError(t, err)
+	c := New(tmp, time.Hour, log.Default())
 	defer c.Stop()
 
 	c.(*cache).createFile = func() (namedWriteCloser, error) {
@@ -424,8 +415,7 @@ func TestCache_cannotOpenFileForReading(t *testing.T) {
 	tmp, cleanTmp := testhelper.TempDir(t)
 	defer cleanTmp()
 
-	c, err := New(tmp, time.Hour, log.Default())
-	require.NoError(t, err)
+	c := New(tmp, time.Hour, log.Default())
 	defer c.Stop()
 
 	c.(*cache).createFile = func() (namedWriteCloser, error) {
@@ -436,7 +426,7 @@ func TestCache_cannotOpenFileForReading(t *testing.T) {
 		return f, os.Remove(f.Name()) // Removed so cannot be opened
 	}
 
-	_, _, err = c.FindOrCreate("key", func(w io.Writer) error { return nil })
+	_, _, err := c.FindOrCreate("key", func(w io.Writer) error { return nil })
 	err = errors.Unwrap(err)
 	require.IsType(t, &os.PathError{}, err)
 	require.Equal(t, "open", err.(*os.PathError).Op)
@@ -457,4 +447,69 @@ func TestWaiter_cancel(t *testing.T) {
 
 	cancel()
 	require.Equal(t, context.Canceled, <-errc)
+}
+
+func TestNullCache(t *testing.T) {
+	const (
+		N         = 1000
+		inputSize = 4096
+		key       = "key"
+	)
+
+	c := NullCache{}
+	start := make(chan struct{})
+	results := make(chan error, N)
+
+	for i := 0; i < N; i++ {
+		go func() {
+			results <- func() error {
+				input := make([]byte, inputSize)
+				n, err := rand.Read(input)
+				if err != nil {
+					return err
+				}
+				if n != inputSize {
+					return io.ErrShortWrite
+				}
+
+				<-start
+
+				s, created, err := c.FindOrCreate(key, func(w io.Writer) error {
+					for j := 0; j < len(input); j++ {
+						n, err := w.Write(input[j : j+1])
+						if err != nil {
+							return err
+						}
+						if n != 1 {
+							return io.ErrShortWrite
+						}
+					}
+					return nil
+				})
+				if err != nil {
+					return err
+				}
+				defer s.Close()
+
+				if !created {
+					return errors.New("created should be true")
+				}
+
+				output, err := ioutil.ReadAll(s)
+				if err != nil {
+					return err
+				}
+				if !bytes.Equal(output, input) {
+					return errors.New("output does not match input")
+				}
+
+				return s.Wait(context.Background())
+			}()
+		}()
+	}
+
+	close(start)
+	for i := 0; i < N; i++ {
+		require.NoError(t, <-results)
+	}
 }

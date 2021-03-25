@@ -1052,3 +1052,74 @@ func TestValidateCgroups(t *testing.T) {
 		})
 	}
 }
+
+func TestConfigurePackObjectsCache(t *testing.T) {
+	storageConfig := `[[storage]]
+name="default"
+path="/foobar"
+`
+
+	testCases := []struct {
+		desc string
+		in   string
+		out  PackObjectsCache
+		err  error
+	}{
+		{desc: "empty"},
+		{
+			desc: "enabled",
+			in: storageConfig + `[pack_objects_cache]
+enabled = true
+`,
+			out: PackObjectsCache{Enabled: true, MaxAge: Duration(5 * time.Minute), Dir: "/foobar/+gitaly/PackObjectsCache"},
+		},
+		{
+			desc: "enabled with custom values",
+			in: storageConfig + `[pack_objects_cache]
+enabled = true
+dir = "/bazqux"
+max_age = "10m"
+`,
+			out: PackObjectsCache{Enabled: true, MaxAge: Duration(10 * time.Minute), Dir: "/bazqux"},
+		},
+		{
+			desc: "enabled with 0 storages",
+			in: `[pack_objects_cache]
+enabled = true
+`,
+			err: errPackObjectsCacheNoStorages,
+		},
+		{
+			desc: "enabled with negative max age",
+			in: `[pack_objects_cache]
+enabled = true
+max_age = "-5m"
+`,
+			err: errPackObjectsCacheNegativeMaxAge,
+		},
+		{
+			desc: "enabled with relative path",
+			in: `[pack_objects_cache]
+enabled = true
+dir = "foobar"
+`,
+			err: errPackObjectsCacheRelativePath,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			cfg, err := Load(strings.NewReader(tc.in))
+			require.NoError(t, err)
+
+			err = cfg.configurePackObjectsCache()
+			if tc.err != nil {
+				require.Equal(t, tc.err, err)
+				return
+			}
+
+			require.NoError(t, err)
+			require.Equal(t, tc.out, cfg.PackObjectsCache)
+		})
+	}
+}
