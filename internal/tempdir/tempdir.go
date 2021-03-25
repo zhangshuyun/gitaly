@@ -22,7 +22,7 @@ const (
 	// (non-user) data. We need to be careful that this path does not clash
 	// with any directory name that could be provided by a user. The '+'
 	// character is not allowed in GitLab namespaces or repositories.
-	GitalyDataPrefix = "+gitaly"
+	GitalyDataPrefix = config.GitalyDataPrefix
 
 	// tmpRootPrefix is the directory in which we store temporary
 	// directories.
@@ -35,8 +35,6 @@ const (
 	// statePrefix is the directory where all state data is stored on a
 	// storage location.
 	statePrefix = GitalyDataPrefix + "/state"
-
-	streamCachePrefix = GitalyDataPrefix + "/streamcache"
 
 	// MaxAge is used by ForDeleteAllRepositories. It is also a fallback
 	// for the context-scoped temporary directories, to ensure they get
@@ -64,11 +62,6 @@ func TempDir(storage config.Storage) string { return AppendTempDir(storage.Path)
 // AppendTempDir will append the temp directory convention to the storage path
 // provided
 func AppendTempDir(storagePath string) string { return filepath.Join(storagePath, tmpRootPrefix) }
-
-// StreamCacheDir returns the streamcache directory for a storage location
-func StreamCacheDir(storage config.Storage) string {
-	return filepath.Join(storage.Path, streamCachePrefix)
-}
 
 // ForDeleteAllRepositories returns a temporary directory for the given storage. It is not context-scoped but it will get removed eventuall (after MaxAge).
 func ForDeleteAllRepositories(locator storage.Locator, storageName string) (string, error) {

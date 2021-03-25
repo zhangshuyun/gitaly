@@ -10,6 +10,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/streamcache"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
@@ -44,11 +45,20 @@ func TestServer_PackObjectsHook_invalidArgument(t *testing.T) {
 	}
 }
 
+func cfgWithCache(t *testing.T) (config.Cfg, *gitalypb.Repository, string) {
+	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
+	cfg.PackObjectsCache.Enabled = true
+	var cleanup func()
+	cfg.PackObjectsCache.Dir, cleanup = testhelper.TempDir(t)
+	t.Cleanup(cleanup)
+	return cfg, repo, repoPath
+}
+
 func TestServer_PackObjectsHook(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
+	cfg, repo, repoPath := cfgWithCache(t)
 
 	testCases := []struct {
 		desc  string
@@ -152,7 +162,7 @@ func TestParsePackObjectsArgs(t *testing.T) {
 }
 
 func TestServer_PackObjectsHook_separateContext(t *testing.T) {
-	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
+	cfg, repo, repoPath := cfgWithCache(t)
 
 	startRequest := func(ctx context.Context, stream gitalypb.HookService_PackObjectsHookClient) {
 		require.NoError(t, stream.Send(&gitalypb.PackObjectsHookRequest{
@@ -214,7 +224,7 @@ func TestServer_PackObjectsHook_separateContext(t *testing.T) {
 }
 
 func TestServer_PackObjectsHook_usesCache(t *testing.T) {
-	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
+	cfg, repo, repoPath := cfgWithCache(t)
 
 	tlc := &streamcache.TestLoggingCache{}
 	serverSocketPath := runHooksServer(t, cfg, func(s *server) {

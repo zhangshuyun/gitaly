@@ -52,22 +52,16 @@ type filestore struct {
 	dir    string
 	maxAge time.Duration
 
-	id []byte
-	counter
-	stop     chan struct{}
-	stopOnce sync.Once
+	m       sync.Mutex
+	id      []byte
+	counter uint64
+	stop    chan struct{}
 }
 
-func newFilestore(dir string, maxAge time.Duration, sleep func(time.Duration), logger logrus.FieldLogger) (*filestore, error) {
-	buf := make([]byte, 10)
-	if _, err := io.ReadFull(rand.Reader, buf); err != nil {
-		return nil, err
-	}
-
+func newFilestore(dir string, maxAge time.Duration, sleep func(time.Duration), logger logrus.FieldLogger) *filestore {
 	fs := &filestore{
 		dir:    dir,
 		maxAge: maxAge,
-		id:     buf,
 		stop:   make(chan struct{}),
 	}
 
@@ -81,7 +75,7 @@ func newFilestore(dir string, maxAge time.Duration, sleep func(time.Duration), l
 		})
 	})
 
-	return fs, nil
+	return fs
 }
 
 type namedWriteCloser interface {
@@ -94,7 +88,11 @@ type namedWriteCloser interface {
 // names after a file has been deleted. By using a very large (uint64)
 // counter, Create makes it clear / explicit how unlikely reuse is.
 func (fs *filestore) Create() (namedWriteCloser, error) {
-	fileID := fs.counter.nextValue()
+	if err := fs.ensureCacheID(); err != nil {
+		return nil, err
+	}
+
+	fileID := fs.nextFileID()
 
 	name := fmt.Sprintf("%x-%d",
 		// fs.id ensures uniqueness among other *filestore instances
@@ -117,7 +115,38 @@ func (fs *filestore) Create() (namedWriteCloser, error) {
 	return f, nil
 }
 
-func (fs *filestore) Stop() { fs.stopOnce.Do(func() { close(fs.stop) }) }
+func (fs *filestore) ensureCacheID() error {
+	fs.m.Lock()
+	defer fs.m.Unlock()
+
+	if len(fs.id) == 0 {
+		buf := make([]byte, 10)
+		if _, err := io.ReadFull(rand.Reader, buf); err != nil {
+			return err
+		}
+		fs.id = buf
+	}
+
+	return nil
+}
+
+func (fs *filestore) nextFileID() uint64 {
+	fs.m.Lock()
+	defer fs.m.Unlock()
+	fs.counter++
+	return fs.counter
+}
+
+func (fs *filestore) Stop() {
+	fs.m.Lock()
+	defer fs.m.Unlock()
+
+	select {
+	case <-fs.stop:
+	default:
+		close(fs.stop)
+	}
+}
 
 // cleanWalk removes files but not directories. This is to avoid races
 // when a directory looks empty but another goroutine is about to create
@@ -154,17 +183,4 @@ func (fs *filestore) diskUsage() float64 {
 		return nil
 	})
 	return total
-}
-
-type counter struct {
-	n uint64
-	sync.Mutex
-}
-
-func (c *counter) nextValue() uint64 {
-	c.Lock()
-	defer c.Unlock()
-	v := c.n
-	c.n++
-	return v
 }

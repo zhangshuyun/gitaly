@@ -96,6 +96,24 @@ func (tlc *TestLoggingCache) Entries() []*TestLogEntry {
 	return tlc.entries
 }
 
+var _ = Cache(NullCache{})
+
+// NullCache is a null implementation of Cache. Every lookup is a miss,
+// and it uses no storage.
+type NullCache struct{}
+
+// FindOrCreate runs create in a goroutine and lets the caller consume
+// the result via the returned stream. The created flag is always true.
+func (NullCache) FindOrCreate(key string, create func(io.Writer) error) (s *Stream, created bool, err error) {
+	pr, pw := io.Pipe()
+	w := newWaiter()
+	go func() { w.SetError(runCreate(pw, create)) }()
+	return &Stream{reader: pr, waiter: w}, true, nil
+}
+
+// Stop is a no-op.
+func (NullCache) Stop() {}
+
 type cache struct {
 	m          sync.Mutex
 	maxAge     time.Duration
@@ -108,15 +126,12 @@ type cache struct {
 }
 
 // New returns a new cache instance.
-func New(dir string, maxAge time.Duration, logger logrus.FieldLogger) (Cache, error) {
+func New(dir string, maxAge time.Duration, logger logrus.FieldLogger) Cache {
 	return newCacheWithSleep(dir, maxAge, time.Sleep, logger)
 }
 
-func newCacheWithSleep(dir string, maxAge time.Duration, sleep func(time.Duration), logger logrus.FieldLogger) (Cache, error) {
-	fs, err := newFilestore(dir, maxAge, sleep, logger)
-	if err != nil {
-		return nil, err
-	}
+func newCacheWithSleep(dir string, maxAge time.Duration, sleep func(time.Duration), logger logrus.FieldLogger) Cache {
+	fs := newFilestore(dir, maxAge, sleep, logger)
 
 	c := &cache{
 		maxAge:     maxAge,
@@ -135,7 +150,7 @@ func newCacheWithSleep(dir string, maxAge time.Duration, sleep func(time.Duratio
 		fs.Stop()
 	}()
 
-	return c, nil
+	return c
 }
 
 func (c *cache) Stop() {

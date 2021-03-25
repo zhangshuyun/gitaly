@@ -25,6 +25,14 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+const (
+	// GitalyDataPrefix is the top-level directory we use to store system
+	// (non-user) data. We need to be careful that this path does not clash
+	// with any directory name that could be provided by a user. The '+'
+	// character is not allowed in GitLab namespaces or repositories.
+	GitalyDataPrefix = "+gitaly"
+)
+
 var (
 	// Config stores the global configuration
 	// Deprecated: please do not use global variable and pass preconfigured Cfg as a parameter
@@ -68,6 +76,7 @@ type Cfg struct {
 	InternalSocketDir      string            `toml:"internal_socket_dir"`
 	DailyMaintenance       DailyJob          `toml:"daily_maintenance"`
 	Cgroups                cgroups.Config    `toml:"cgroups"`
+	PackObjectsCache       PackObjectsCache  `toml:"pack_objects_cache"`
 }
 
 // TLS configuration
@@ -140,6 +149,13 @@ type Concurrency struct {
 	MaxPerRepo int    `toml:"max_per_repo"`
 }
 
+// PackObjectsCache contains settings for the pack-objects cache.
+type PackObjectsCache struct {
+	Enabled bool     `toml:"enabled"` // Default: false
+	Dir     string   `toml:"dir"`     // Default: <FIRST STORAGE PATH>/+gitaly/PackObjectsCache
+	MaxAge  Duration `toml:"max_age"` // Default: 5m
+}
+
 // Load initializes the Config variable from file and the environment.
 //  Environment variables take precedence over the file.
 func Load(file io.Reader) (Cfg, error) {
@@ -187,6 +203,7 @@ func (cfg *Cfg) Validate() error {
 		cfg.validateHooks,
 		cfg.validateMaintenance,
 		cfg.validateCgroups,
+		cfg.configurePackObjectsCache,
 	} {
 		if err := run(); err != nil {
 			return err
@@ -571,6 +588,41 @@ func (cfg *Cfg) validateCgroups() error {
 
 	if cg.Memory.Enabled && (cg.Memory.Limit == 0 || cg.Memory.Limit < -1) {
 		return fmt.Errorf("cgroups memory limit has to be greater than zero or equal to -1")
+	}
+
+	return nil
+}
+
+var (
+	errPackObjectsCacheNegativeMaxAge = errors.New("pack_objects_cache.max_age cannot be negative")
+	errPackObjectsCacheNoStorages     = errors.New("pack_objects_cache: cannot pick default cache directory: no storages")
+	errPackObjectsCacheRelativePath   = errors.New("pack_objects_cache: storage directory must be absolute path")
+)
+
+func (cfg *Cfg) configurePackObjectsCache() error {
+	poc := &cfg.PackObjectsCache
+	if !poc.Enabled {
+		return nil
+	}
+
+	if poc.MaxAge < 0 {
+		return errPackObjectsCacheNegativeMaxAge
+	}
+
+	if poc.MaxAge == 0 {
+		poc.MaxAge = Duration(5 * time.Minute)
+	}
+
+	if poc.Dir == "" {
+		if len(cfg.Storages) == 0 {
+			return errPackObjectsCacheNoStorages
+		}
+
+		poc.Dir = filepath.Join(cfg.Storages[0].Path, GitalyDataPrefix, "PackObjectsCache")
+	}
+
+	if !filepath.IsAbs(poc.Dir) {
+		return errPackObjectsCacheRelativePath
 	}
 
 	return nil

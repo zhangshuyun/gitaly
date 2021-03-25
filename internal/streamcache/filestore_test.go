@@ -18,8 +18,7 @@ func TestFilestoreCreate(t *testing.T) {
 	tmp, cleanTmp := testhelper.TempDir(t)
 	defer cleanTmp()
 
-	fs, err := newFilestore(tmp, 0, time.Sleep, log.Default())
-	require.NoError(t, err)
+	fs := newFilestore(tmp, 0, time.Sleep, log.Default())
 	defer fs.Stop()
 
 	f, err := fs.Create()
@@ -43,8 +42,7 @@ func TestFilestoreCreate_concurrency(t *testing.T) {
 	tmp, cleanTmp := testhelper.TempDir(t)
 	defer cleanTmp()
 
-	fs, err := newFilestore(tmp, time.Hour, time.Sleep, log.Default())
-	require.NoError(t, err)
+	fs := newFilestore(tmp, time.Hour, time.Sleep, log.Default())
 	defer fs.Stop()
 
 	const N = 100
@@ -87,8 +85,7 @@ func TestFilestoreCreate_uniqueness(t *testing.T) {
 	filenames := make(map[string]struct{})
 
 	for j := 0; j < M; j++ {
-		fs, err := newFilestore(tmp, time.Hour, time.Sleep, log.Default())
-		require.NoError(t, err)
+		fs := newFilestore(tmp, time.Hour, time.Sleep, log.Default())
 		defer fs.Stop()
 
 		for i := 0; i < N; i++ {
@@ -109,8 +106,7 @@ func TestFilestoreCleanwalk(t *testing.T) {
 	tmp, cleanTmp := testhelper.TempDir(t)
 	defer cleanTmp()
 
-	fs, err := newFilestore(tmp, time.Hour, time.Sleep, log.Default())
-	require.NoError(t, err)
+	fs := newFilestore(tmp, time.Hour, time.Sleep, log.Default())
 	defer fs.Stop()
 
 	dir1 := filepath.Join(tmp, "dir1")
