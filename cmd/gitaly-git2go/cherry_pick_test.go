@@ -165,7 +165,7 @@ func TestCherryPick(t *testing.T) {
 			committer := git.Signature{
 				Name:  "Baz",
 				Email: "baz@example.com",
-				When:  time.Date(2021, 1, 17, 14, 45, 51, 0, time.FixedZone("UTC+2", +2*60*60)),
+				When:  time.Date(2021, 1, 17, 14, 45, 51, 0, time.FixedZone("", +2*60*60)),
 			}
 
 			response, err := git2go.CherryPickCommand{
@@ -199,8 +199,8 @@ func TestCherryPick(t *testing.T) {
 
 			commit, err := repo.LookupCommit(commitOid)
 			require.NoError(t, err)
-			cmdtesthelper.SignatureEqual(t, &cmdtesthelper.DefaultAuthor, commit.Author())
-			cmdtesthelper.SignatureEqual(t, &committer, commit.Committer())
+			require.Equal(t, &cmdtesthelper.DefaultAuthor, commit.Author())
+			require.Equal(t, &committer, commit.Committer())
 
 			tree, err := commit.Tree()
 			require.NoError(t, err)
