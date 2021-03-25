@@ -8,18 +8,13 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
 
 func TestSuccessfulDeleteRefs(t *testing.T) {
-	stop, serverSocketPath := runRefServiceServer(t)
-	defer stop()
-
-	client, conn := newRefServiceClient(t, serverSocketPath)
-	defer conn.Close()
+	cfg, client := setupRefServiceWithoutRepo(t)
 
 	testCases := []struct {
 		desc    string
@@ -41,7 +36,7 @@ func TestSuccessfulDeleteRefs(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
-			repo, repoPath, cleanupFn := gittest.CloneRepo(t)
+			repo, repoPath, cleanupFn := gittest.CloneRepoAtStorage(t, cfg.Storages[0], testCase.desc)
 			defer cleanupFn()
 
 			testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "update-ref", "refs/delete/a", "b83d6e391c22777fca1ed3012fce84f633d7fed0")
@@ -57,7 +52,7 @@ func TestSuccessfulDeleteRefs(t *testing.T) {
 			require.NoError(t, err)
 
 			// Ensure that the internal refs are gone, but the others still exist
-			refs, err := localrepo.New(git.NewExecCommandFactory(config.Config), repo, config.Config).GetReferences(ctx, "refs/")
+			refs, err := localrepo.New(git.NewExecCommandFactory(cfg), repo, cfg).GetReferences(ctx, "refs/")
 			require.NoError(t, err)
 
 			refNames := make([]string, len(refs))
@@ -75,17 +70,10 @@ func TestSuccessfulDeleteRefs(t *testing.T) {
 }
 
 func TestFailedDeleteRefsRequestDueToGitError(t *testing.T) {
-	stop, serverSocketPath := runRefServiceServer(t)
-	defer stop()
-
-	client, conn := newRefServiceClient(t, serverSocketPath)
-	defer conn.Close()
+	_, repo, _, client := setupRefService(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
-
-	repo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
 
 	request := &gitalypb.DeleteRefsRequest{
 		Repository: repo,
@@ -99,14 +87,7 @@ func TestFailedDeleteRefsRequestDueToGitError(t *testing.T) {
 }
 
 func TestFailedDeleteRefsDueToValidation(t *testing.T) {
-	stop, serverSocketPath := runRefServiceServer(t)
-	defer stop()
-
-	client, conn := newRefServiceClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupRefService(t)
 
 	testCases := []struct {
 		desc    string
@@ -134,14 +115,14 @@ func TestFailedDeleteRefsDueToValidation(t *testing.T) {
 		{
 			desc: "No prefixes nor refs",
 			request: &gitalypb.DeleteRefsRequest{
-				Repository: testRepo,
+				Repository: repo,
 			},
 			code: codes.InvalidArgument,
 		},
 		{
 			desc: "prefixes with refs",
 			request: &gitalypb.DeleteRefsRequest{
-				Repository:       testRepo,
+				Repository:       repo,
 				ExceptWithPrefix: [][]byte{[]byte("exclude-this")},
 				Refs:             [][]byte{[]byte("delete-this")},
 			},
@@ -150,7 +131,7 @@ func TestFailedDeleteRefsDueToValidation(t *testing.T) {
 		{
 			desc: "Empty prefix",
 			request: &gitalypb.DeleteRefsRequest{
-				Repository:       testRepo,
+				Repository:       repo,
 				ExceptWithPrefix: [][]byte{[]byte("exclude-this"), []byte{}},
 			},
 			code: codes.InvalidArgument,
@@ -158,7 +139,7 @@ func TestFailedDeleteRefsDueToValidation(t *testing.T) {
 		{
 			desc: "Empty ref",
 			request: &gitalypb.DeleteRefsRequest{
-				Repository: testRepo,
+				Repository: repo,
 				Refs:       [][]byte{[]byte("delete-this"), []byte{}},
 			},
 			code: codes.InvalidArgument,

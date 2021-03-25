@@ -5,9 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -17,16 +15,9 @@ func TestSuccessfulFindBranchRequest(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	stop, serverSocketPath := runRefServiceServer(t)
-	defer stop()
+	cfg, repoProto, _, client := setupRefService(t)
 
-	client, conn := newRefServiceClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepoProto, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-
-	repo := localrepo.New(git.NewExecCommandFactory(config.Config), testRepoProto, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
 	branchesByName := make(map[git.ReferenceName]*gitalypb.Branch)
 	for branchName, revision := range map[git.ReferenceName]git.Revision{
@@ -78,7 +69,7 @@ func TestSuccessfulFindBranchRequest(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
 			request := &gitalypb.FindBranchRequest{
-				Repository: testRepoProto,
+				Repository: repoProto,
 				Name:       []byte(testCase.branchName),
 			}
 
@@ -94,14 +85,7 @@ func TestSuccessfulFindBranchRequest(t *testing.T) {
 }
 
 func TestFailedFindBranchRequest(t *testing.T) {
-	stop, serverSocketPath := runRefServiceServer(t)
-	defer stop()
-
-	client, conn := newRefServiceClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupRefService(t)
 
 	testCases := []struct {
 		desc       string
@@ -118,7 +102,7 @@ func TestFailedFindBranchRequest(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
 			request := &gitalypb.FindBranchRequest{
-				Repository: testRepo,
+				Repository: repo,
 				Name:       []byte(testCase.branchName),
 			}
 

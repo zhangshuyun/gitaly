@@ -8,7 +8,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -18,15 +17,9 @@ func TestSuccessfulFindAllRemoteBranchesRequest(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	stop, serverSocketPath := runRefServiceServer(t)
-	defer stop()
+	cfg, repoProto, repoPath, client := setupRefService(t)
 
-	client, conn := newRefServiceClient(t, serverSocketPath)
-	defer conn.Close()
-
-	repoProto, repoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
 	remoteName := "my-remote"
 	expectedBranches := map[string]string{
@@ -82,14 +75,7 @@ func TestSuccessfulFindAllRemoteBranchesRequest(t *testing.T) {
 }
 
 func TestInvalidFindAllRemoteBranchesRequest(t *testing.T) {
-	stop, serverSocketPath := runRefServiceServer(t)
-	defer stop()
-
-	client, conn := newRefServiceClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupRefService(t)
 
 	testCases := []struct {
 		description string
@@ -110,7 +96,7 @@ func TestInvalidFindAllRemoteBranchesRequest(t *testing.T) {
 		},
 		{
 			description: "Empty remote name",
-			request:     gitalypb.FindAllRemoteBranchesRequest{Repository: testRepo},
+			request:     gitalypb.FindAllRemoteBranchesRequest{Repository: repo},
 		},
 	}
 

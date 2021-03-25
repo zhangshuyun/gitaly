@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -16,17 +15,10 @@ func TestListNewBlobs(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	stop, serverSocketPath := runRefServiceServer(t)
-	defer stop()
-
-	client, conn := newRefServiceClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, repoPath, client := setupRefService(t)
 
 	oid := "ab2c9622c02288a2bbaaf35d96088cfdff31d9d9"
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", "-D", "gitaly-diff-stuff")
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", "-D", "gitaly-diff-stuff")
 
 	testCases := []struct {
 		revision     string
@@ -54,7 +46,7 @@ func TestListNewBlobs(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		request := &gitalypb.ListNewBlobsRequest{Repository: testRepo, CommitId: tc.revision, Limit: 0}
+		request := &gitalypb.ListNewBlobsRequest{Repository: repo, CommitId: tc.revision, Limit: 0}
 
 		stream, err := client.ListNewBlobs(ctx, request)
 		require.NoError(t, err)

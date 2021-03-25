@@ -3,7 +3,6 @@ package ref
 import (
 	"testing"
 
-	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -11,8 +10,7 @@ import (
 )
 
 func TestRefExists(t *testing.T) {
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupRefService(t)
 
 	badRepo := &gitalypb.Repository{StorageName: "invalid", RelativePath: "/etc/"}
 
@@ -23,17 +21,17 @@ func TestRefExists(t *testing.T) {
 		repo    *gitalypb.Repository
 		wantErr codes.Code
 	}{
-		{"master", "refs/heads/master", true, testRepo, codes.OK},
-		{"v1.0.0", "refs/tags/v1.0.0", true, testRepo, codes.OK},
-		{"quoted", "refs/heads/'test'", true, testRepo, codes.OK},
-		{"unicode exists", "refs/heads/ʕ•ᴥ•ʔ", true, testRepo, codes.OK},
-		{"unicode missing", "refs/tags/अस्तित्वहीन", false, testRepo, codes.OK},
-		{"spaces", "refs/ /heads", false, testRepo, codes.OK},
-		{"haxxors", "refs/; rm -rf /tmp/*", false, testRepo, codes.OK},
-		{"dashes", "--", false, testRepo, codes.InvalidArgument},
-		{"blank", "", false, testRepo, codes.InvalidArgument},
-		{"not tags or branches", "refs/heads/remotes/origin", false, testRepo, codes.OK},
-		{"wildcards", "refs/heads/*", false, testRepo, codes.OK},
+		{"master", "refs/heads/master", true, repo, codes.OK},
+		{"v1.0.0", "refs/tags/v1.0.0", true, repo, codes.OK},
+		{"quoted", "refs/heads/'test'", true, repo, codes.OK},
+		{"unicode exists", "refs/heads/ʕ•ᴥ•ʔ", true, repo, codes.OK},
+		{"unicode missing", "refs/tags/अस्तित्वहीन", false, repo, codes.OK},
+		{"spaces", "refs/ /heads", false, repo, codes.OK},
+		{"haxxors", "refs/; rm -rf /tmp/*", false, repo, codes.OK},
+		{"dashes", "--", false, repo, codes.InvalidArgument},
+		{"blank", "", false, repo, codes.InvalidArgument},
+		{"not tags or branches", "refs/heads/remotes/origin", false, repo, codes.OK},
+		{"wildcards", "refs/heads/*", false, repo, codes.OK},
 		{"invalid repos", "refs/heads/master", false, badRepo, codes.InvalidArgument},
 	}
 
@@ -41,12 +39,6 @@ func TestRefExists(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
-
-			stop, serverSocketPath := runRefServiceServer(t)
-			defer stop()
-
-			client, conn := newRefServiceClient(t, serverSocketPath)
-			defer conn.Close()
 
 			req := &gitalypb.RefExistsRequest{Repository: tt.repo, Ref: []byte(tt.ref)}
 

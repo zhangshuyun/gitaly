@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -14,14 +13,7 @@ import (
 )
 
 func TestSuccessfulGetTagMessagesRequest(t *testing.T) {
-	stop, serverSocketPath := runRefServiceServer(t)
-	defer stop()
-
-	client, conn := newRefServiceClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, repoPath, client := setupRefService(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -29,11 +21,11 @@ func TestSuccessfulGetTagMessagesRequest(t *testing.T) {
 	message1 := strings.Repeat("a", helper.MaxCommitOrTagMessageSize*2)
 	message2 := strings.Repeat("b", helper.MaxCommitOrTagMessageSize)
 
-	tag1ID := testhelper.CreateTag(t, testRepoPath, "big-tag-1", "master", &testhelper.CreateTagOpts{Message: message1})
-	tag2ID := testhelper.CreateTag(t, testRepoPath, "big-tag-2", "master~", &testhelper.CreateTagOpts{Message: message2})
+	tag1ID := testhelper.CreateTag(t, repoPath, "big-tag-1", "master", &testhelper.CreateTagOpts{Message: message1})
+	tag2ID := testhelper.CreateTag(t, repoPath, "big-tag-2", "master~", &testhelper.CreateTagOpts{Message: message2})
 
 	request := &gitalypb.GetTagMessagesRequest{
-		Repository: testRepo,
+		Repository: repo,
 		TagIds:     []string{tag1ID, tag2ID},
 	}
 
@@ -58,11 +50,7 @@ func TestSuccessfulGetTagMessagesRequest(t *testing.T) {
 }
 
 func TestFailedGetTagMessagesRequest(t *testing.T) {
-	stop, serverSocketPath := runRefServiceServer(t)
-	defer stop()
-
-	client, conn := newRefServiceClient(t, serverSocketPath)
-	defer conn.Close()
+	_, client := setupRefServiceWithoutRepo(t)
 
 	testCases := []struct {
 		desc    string
