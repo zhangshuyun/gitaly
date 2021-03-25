@@ -23,9 +23,7 @@ func TestFindRefNameSuccess(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 	c, err := client.FindRefName(ctx, rpcRequest)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	response := string(c.GetName())
 

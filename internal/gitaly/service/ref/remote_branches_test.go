@@ -42,9 +42,7 @@ func TestSuccessfulFindAllRemoteBranchesRequest(t *testing.T) {
 	request := &gitalypb.FindAllRemoteBranchesRequest{Repository: repoProto, RemoteName: remoteName}
 
 	c, err := client.FindAllRemoteBranches(ctx, request)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	branches := readFindAllRemoteBranchesResponsesFromClient(t, c)
 	require.Len(t, branches, len(expectedBranches))
@@ -105,9 +103,7 @@ func TestInvalidFindAllRemoteBranchesRequest(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 			c, err := client.FindAllRemoteBranches(ctx, &tc.request)
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err)
 
 			var recvError error
 			for recvError == nil {

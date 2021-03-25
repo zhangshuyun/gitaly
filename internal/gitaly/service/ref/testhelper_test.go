@@ -5,6 +5,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
@@ -88,9 +89,7 @@ func newRefServiceClient(t testing.TB, serverSocketPath string) (gitalypb.RefSer
 		grpc.WithInsecure(),
 	}
 	conn, err := grpc.Dial(serverSocketPath, connOpts...)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	return gitalypb.NewRefServiceClient(conn), conn
 }

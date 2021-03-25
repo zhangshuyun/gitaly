@@ -121,9 +121,7 @@ func TestEmptyFindAllBranchNamesRequest(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 	c, err := client.FindAllBranchNames(ctx, rpcRequest)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	var recvError error
 	for recvError == nil {
@@ -144,9 +142,7 @@ func TestInvalidRepoFindAllBranchNamesRequest(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 	c, err := client.FindAllBranchNames(ctx, rpcRequest)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	var recvError error
 	for recvError == nil {
@@ -166,9 +162,7 @@ func TestSuccessfulFindAllTagNames(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 	c, err := client.FindAllTagNames(ctx, rpcRequest)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	var names [][]byte
 	for {
@@ -176,9 +170,7 @@ func TestSuccessfulFindAllTagNames(t *testing.T) {
 		if err == io.EOF {
 			break
 		}
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 		names = append(names, r.GetNames()...)
 	}
 
@@ -197,9 +189,7 @@ func TestEmptyFindAllTagNamesRequest(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 	c, err := client.FindAllTagNames(ctx, rpcRequest)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	var recvError error
 	for recvError == nil {
@@ -220,9 +210,7 @@ func TestInvalidRepoFindAllTagNamesRequest(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 	c, err := client.FindAllTagNames(ctx, rpcRequest)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	var recvError error
 	for recvError == nil {
@@ -241,9 +229,7 @@ func TestHeadReference(t *testing.T) {
 	defer cancel()
 
 	headRef, err := headReference(ctx, git.NewExecCommandFactory(cfg), repo)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	require.Equal(t, git.DefaultRef, headRef)
 }
@@ -261,9 +247,7 @@ func TestHeadReferenceWithNonExistingHead(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 	headRef, err := headReference(ctx, git.NewExecCommandFactory(cfg), repo)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 	if headRef != nil {
 		t.Fatal("Expected HEAD reference to be nil, got '", string(headRef), "'")
 	}
@@ -372,9 +356,7 @@ func TestDefaultBranchName(t *testing.T) {
 		ctx, cancel := testhelper.Context()
 		defer cancel()
 		defaultBranch, err := DefaultBranchName(ctx, git.NewExecCommandFactory(cfg), repo)
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 		if !bytes.Equal(defaultBranch, testCase.expected) {
 			t.Fatalf("%s: expected %s, got %s instead", testCase.desc, testCase.expected, defaultBranch)
 		}
@@ -388,9 +370,7 @@ func TestSuccessfulFindDefaultBranchName(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 	r, err := client.FindDefaultBranchName(ctx, rpcRequest)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	require.Equal(t, r.GetName(), git.DefaultRef)
 }
@@ -751,9 +731,7 @@ func TestInvalidFindAllTagsRequest(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 			c, err := client.FindAllTags(ctx, tc.request)
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err)
 
 			var recvError error
 			for recvError == nil {
@@ -773,9 +751,7 @@ func TestSuccessfulFindLocalBranches(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 	c, err := client.FindLocalBranches(ctx, rpcRequest)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	var branches []*gitalypb.FindLocalBranchResponse
 	for {
@@ -784,9 +760,6 @@ func TestSuccessfulFindLocalBranches(t *testing.T) {
 			break
 		}
 		require.NoError(t, err)
-		if err != nil {
-			t.Fatal(err)
-		}
 		branches = append(branches, r.GetBranches()...)
 	}
 
@@ -827,9 +800,7 @@ func TestFindLocalBranchesPagination(t *testing.T) {
 		},
 	}
 	c, err := client.FindLocalBranches(ctx, rpcRequest)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	var branches []*gitalypb.FindLocalBranchResponse
 	for {
@@ -838,9 +809,6 @@ func TestFindLocalBranchesPagination(t *testing.T) {
 			break
 		}
 		require.NoError(t, err)
-		if err != nil {
-			t.Fatal(err)
-		}
 		branches = append(branches, r.GetBranches()...)
 	}
 
@@ -918,9 +886,7 @@ func TestFindLocalBranchesSort(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 			c, err := client.FindLocalBranches(ctx, rpcRequest)
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err)
 
 			var branches []string
 			for {
@@ -928,9 +894,8 @@ func TestFindLocalBranchesSort(t *testing.T) {
 				if err == io.EOF {
 					break
 				}
-				if err != nil {
-					t.Fatal(err)
-				}
+				require.NoError(t, err)
+
 				for _, branch := range r.GetBranches() {
 					branches = append(branches, string(branch.Name))
 				}
@@ -951,9 +916,7 @@ func TestEmptyFindLocalBranchesRequest(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 	c, err := client.FindLocalBranches(ctx, rpcRequest)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	var recvError error
 	for recvError == nil {
@@ -1000,9 +963,7 @@ func TestSuccessfulFindAllBranchesRequest(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 	c, err := client.FindAllBranches(ctx, request)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	branches := readFindAllBranchesResponsesFromClient(t, c)
 
@@ -1134,9 +1095,7 @@ func TestInvalidFindAllBranchesRequest(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 			c, err := client.FindAllBranches(ctx, &tc.request)
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err)
 
 			var recvError error
 			for recvError == nil {
