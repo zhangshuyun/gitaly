@@ -23,7 +23,7 @@ var (
 	GoResolveConflicts = FeatureFlag{Name: "go_resolve_conflicts", OnByDefault: false}
 	// GoUserUpdateSubmodule enables the Go implementation of
 	// UserUpdateSubmodules
-	GoUserUpdateSubmodule = FeatureFlag{Name: "go_user_update_submodule", OnByDefault: false}
+	GoUserUpdateSubmodule = FeatureFlag{Name: "go_user_update_submodule", OnByDefault: true}
 	// GoUserRevert enables the Go implementation of UserRevert
 	GoUserRevert = FeatureFlag{Name: "go_user_revert", OnByDefault: false}
 	// GoGetAllLFSPointers enables the Go implementation of GetAllLFSPointers
