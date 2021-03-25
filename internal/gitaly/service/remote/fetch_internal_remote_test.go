@@ -4,8 +4,12 @@ import (
 	"context"
 	"io"
 	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
@@ -34,16 +38,117 @@ func (m *mockHookManager) ReferenceTransactionHook(_ context.Context, _ gitalyho
 	return nil
 }
 
+// GitalySSHParams contains parameters used to exec 'gitaly-ssh' binary.
+type GitalySSHParams struct {
+	Args    []string
+	EnvVars []string
+}
+
+// listenGitalySSHCalls creates a script that intercepts 'gitaly-ssh' binary calls.
+// It replaces 'gitaly-ssh' with a interceptor script that calls actual binary after flushing env var and
+// arguments used for the binary invocation. That information will be returned back to the caller
+// after invocation of the returned anonymous function.
+func listenGitalySSHCalls(t *testing.T, conf config.Cfg) func() []GitalySSHParams {
+	t.Helper()
+
+	if conf.BinDir == "" {
+		assert.FailNow(t, "BinDir must be set")
+		return func() []GitalySSHParams { return nil }
+	}
+
+	const envPrefix = "env-"
+	const argsPrefix = "args-"
+
+	initialPath := filepath.Join(conf.BinDir, "gitaly-ssh")
+	updatedPath := initialPath + "-actual"
+	require.NoError(t, os.Rename(initialPath, updatedPath))
+
+	tmpDir, clean := testhelper.TempDir(t)
+	t.Cleanup(clean)
+
+	script := fmt.Sprintf(`
+		#!/bin/sh
+
+		# To omit possible problem with parallel run and a race for the file creation with '>'
+		# this option is used, please checkout https://mywiki.wooledge.org/NoClobber for more details.
+		set -o noclobber
+
+		ENV_IDX=$(ls %[1]q | grep %[2]s | wc -l)
+		env > "%[1]s/%[2]s$ENV_IDX"
+
+		ARGS_IDX=$(ls %[1]q | grep %[3]s | wc -l)
+		echo $@ > "%[1]s/%[3]s$ARGS_IDX"
+
+		%[4]q "$@" 1>&1 2>&2
+		exit $?`,
+		tmpDir, envPrefix, argsPrefix, updatedPath)
+
+	require.NoError(t, ioutil.WriteFile(initialPath, []byte(script), 0755))
+
+	getSSHParams := func() []GitalySSHParams {
+		var gitalySSHParams []GitalySSHParams
+		err := filepath.Walk(tmpDir, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+
+			filename := filepath.Base(path)
+
+			parseParams := func(prefix, delim string) error {
+				if !strings.HasPrefix(filename, prefix) {
+					return nil
+				}
+
+				idx, err := strconv.Atoi(strings.TrimSpace(strings.TrimPrefix(filename, prefix)))
+				if err != nil {
+					return err
+				}
+
+				if len(gitalySSHParams) < idx+1 {
+					tmp := make([]GitalySSHParams, idx+1)
+					copy(tmp, gitalySSHParams)
+					gitalySSHParams = tmp
+				}
+
+				data, err := ioutil.ReadFile(path)
+				if err != nil {
+					return err
+				}
+
+				params := strings.Split(string(data), delim)
+
+				switch prefix {
+				case argsPrefix:
+					gitalySSHParams[idx].Args = params
+				case envPrefix:
+					gitalySSHParams[idx].EnvVars = params
+				}
+
+				return nil
+			}
+
+			if err := parseParams(envPrefix, "\n"); err != nil {
+				return err
+			}
+
+			if err := parseParams(argsPrefix, " "); err != nil {
+				return err
+			}
+
+			return nil
+		})
+		assert.NoError(t, err)
+		return gitalySSHParams
+	}
+
+	return getSSHParams
+}
+
 func TestSuccessfulFetchInternalRemote(t *testing.T) {
 	defer func(oldConf config.Cfg) { config.Config = oldConf }(config.Config)
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-
-	conf, getGitalySSHInvocationParams, cleanup := testhelper.ListenGitalySSHCalls(t, config.Config)
+	getGitalySSHInvocationParams, cleanup := listenGitalySSHCalls(t, config.Config)
 	defer cleanup()
-
-	config.Config = conf
 
 	gitaly0Dir, cleanup := testhelper.TempDir(t)
 	defer cleanup()
