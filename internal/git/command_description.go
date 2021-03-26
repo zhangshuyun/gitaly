@@ -9,111 +9,111 @@ const (
 	scGeneratesPackfiles
 )
 
-type gitCommand struct {
+type commandDescription struct {
 	flags uint
 	opts  []GlobalOption
 }
 
-// gitCommands is a curated list of Git command names for special git.ExecCommandFactory
-// validation logic
-var gitCommands = map[string]gitCommand{
-	"apply": gitCommand{
+// commandDescriptions is a curated list of Git command descriptions for special
+// git.ExecCommandFactory validation logic
+var commandDescriptions = map[string]commandDescription{
+	"apply": {
 		flags: scNoRefUpdates,
 	},
-	"archive": gitCommand{
+	"archive": {
 		flags: scNoRefUpdates | scNoEndOfOptions,
 	},
-	"blame": gitCommand{
+	"blame": {
 		flags: scNoRefUpdates | scNoEndOfOptions,
 	},
-	"bundle": gitCommand{
+	"bundle": {
 		flags: scNoRefUpdates | scGeneratesPackfiles,
 	},
-	"cat-file": gitCommand{
+	"cat-file": {
 		flags: scNoRefUpdates,
 	},
-	"check-ref-format": gitCommand{
+	"check-ref-format": {
 		flags: scNoRefUpdates | scNoEndOfOptions,
 	},
-	"checkout": gitCommand{
+	"checkout": {
 		flags: scNoEndOfOptions,
 	},
-	"clone": gitCommand{
+	"clone": {
 		flags: scNoEndOfOptions | scGeneratesPackfiles,
 	},
-	"commit": gitCommand{
+	"commit": {
 		flags: 0,
 	},
-	"commit-graph": gitCommand{
+	"commit-graph": {
 		flags: scNoRefUpdates,
 	},
-	"config": gitCommand{
+	"config": {
 		flags: scNoRefUpdates | scNoEndOfOptions,
 	},
-	"count-objects": gitCommand{
+	"count-objects": {
 		flags: scNoRefUpdates,
 	},
-	"diff": gitCommand{
+	"diff": {
 		flags: scNoRefUpdates,
 	},
-	"diff-tree": gitCommand{
+	"diff-tree": {
 		flags: scNoRefUpdates,
 	},
-	"fetch": gitCommand{
+	"fetch": {
 		flags: 0,
 	},
-	"for-each-ref": gitCommand{
+	"for-each-ref": {
 		flags: scNoRefUpdates | scNoEndOfOptions,
 	},
-	"format-patch": gitCommand{
+	"format-patch": {
 		flags: scNoRefUpdates,
 	},
-	"fsck": gitCommand{
+	"fsck": {
 		flags: scNoRefUpdates,
 	},
-	"gc": gitCommand{
+	"gc": {
 		flags: scNoRefUpdates | scGeneratesPackfiles,
 	},
-	"grep": gitCommand{
+	"grep": {
 		flags: scNoRefUpdates | scNoEndOfOptions,
 	},
-	"hash-object": gitCommand{
+	"hash-object": {
 		flags: scNoRefUpdates,
 	},
-	"init": gitCommand{
+	"init": {
 		flags: scNoRefUpdates,
 	},
-	"linguist": gitCommand{
+	"linguist": {
 		flags: scNoEndOfOptions,
 	},
-	"log": gitCommand{
+	"log": {
 		flags: scNoRefUpdates,
 	},
-	"ls-remote": gitCommand{
+	"ls-remote": {
 		flags: scNoRefUpdates | scNoEndOfOptions,
 	},
-	"ls-tree": gitCommand{
+	"ls-tree": {
 		flags: scNoRefUpdates | scNoEndOfOptions,
 	},
-	"merge-base": gitCommand{
+	"merge-base": {
 		flags: scNoRefUpdates,
 	},
-	"mktag": gitCommand{
+	"mktag": {
 		flags: scNoRefUpdates | scNoEndOfOptions,
 	},
-	"multi-pack-index": gitCommand{
+	"multi-pack-index": {
 		flags: scNoRefUpdates,
 	},
-	"pack-refs": gitCommand{
+	"pack-refs": {
 		flags: scNoRefUpdates,
 	},
-	"pack-objects": gitCommand{
+	"pack-objects": {
 		flags: scNoRefUpdates | scGeneratesPackfiles,
 	},
-	"push": gitCommand{
+	"push": {
 		flags: scNoRefUpdates | scNoEndOfOptions,
 	},
-	"receive-pack": gitCommand{
+	"receive-pack": {
 		flags: 0,
 		opts: []GlobalOption{
 			// In case the repository belongs to an object pool, we want to prevent
@@ -136,10 +136,10 @@ var gitCommands = map[string]gitCommand{
 			ConfigPair{Key: "receive.advertisePushOptions", Value: "true"},
 		},
 	},
-	"remote": gitCommand{
+	"remote": {
 		flags: scNoEndOfOptions,
 	},
-	"repack": gitCommand{
+	"repack": {
 		flags: scNoRefUpdates | scGeneratesPackfiles,
 		opts: []GlobalOption{
 			// Write bitmap indices when packing objects, which
@@ -147,31 +147,31 @@ var gitCommands = map[string]gitCommand{
 			ConfigPair{Key: "repack.writeBitmaps", Value: "true"},
 		},
 	},
-	"rev-list": gitCommand{
+	"rev-list": {
 		flags: scNoRefUpdates,
 	},
-	"rev-parse": gitCommand{
+	"rev-parse": {
 		flags: scNoRefUpdates | scNoEndOfOptions,
 	},
-	"show": gitCommand{
+	"show": {
 		flags: scNoRefUpdates,
 	},
-	"show-ref": gitCommand{
+	"show-ref": {
 		flags: scNoRefUpdates,
 	},
-	"symbolic-ref": gitCommand{
+	"symbolic-ref": {
 		flags: 0,
 	},
-	"tag": gitCommand{
+	"tag": {
 		flags: 0,
 	},
-	"update-ref": gitCommand{
+	"update-ref": {
 		flags: 0,
 	},
-	"upload-archive": gitCommand{
+	"upload-archive": {
 		flags: scNoRefUpdates | scNoEndOfOptions,
 	},
-	"upload-pack": gitCommand{
+	"upload-pack": {
 		flags: scNoRefUpdates | scGeneratesPackfiles,
 		opts: []GlobalOption{
 			ConfigPair{Key: "uploadpack.allowFilter", Value: "true"},
@@ -180,31 +180,31 @@ var gitCommands = map[string]gitCommand{
 			ConfigPair{Key: "uploadpack.allowAnySHA1InWant", Value: "true"},
 		},
 	},
-	"version": gitCommand{
+	"version": {
 		flags: scNoRefUpdates | scNoEndOfOptions,
 	},
-	"worktree": gitCommand{
+	"worktree": {
 		flags: 0,
 	},
 }
 
-// mayUpdateRef indicates if a gitCommand is known to update references.
+// mayUpdateRef indicates if a command is known to update references.
 // This is useful to determine if a command requires reference hook
 // configuration. A non-exhaustive list of commands is consulted to determine if
 // refs are updated. When unknown, true is returned to err on the side of
 // caution.
-func (c gitCommand) mayUpdateRef() bool {
+func (c commandDescription) mayUpdateRef() bool {
 	return c.flags&scNoRefUpdates == 0
 }
 
-// mayGeneratePackfiles indicates if a gitCommand is known to generate
+// mayGeneratePackfiles indicates if a command is known to generate
 // packfiles. This is used in order to inject packfile configuration.
-func (c gitCommand) mayGeneratePackfiles() bool {
+func (c commandDescription) mayGeneratePackfiles() bool {
 	return c.flags&scGeneratesPackfiles != 0
 }
 
 // supportsEndOfOptions indicates whether a command can handle the
 // `--end-of-options` option.
-func (c gitCommand) supportsEndOfOptions() bool {
+func (c commandDescription) supportsEndOfOptions() bool {
 	return c.flags&scNoEndOfOptions == 0
 }

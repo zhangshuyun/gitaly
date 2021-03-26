@@ -54,13 +54,13 @@ func (sc SubCmd) Subcommand() string { return sc.Name }
 func (sc SubCmd) CommandArgs() ([]string, error) {
 	var safeArgs []string
 
-	gitCommand, ok := gitCommands[sc.Name]
+	commandDescription, ok := commandDescriptions[sc.Name]
 	if !ok {
 		return nil, fmt.Errorf("invalid sub command name %q: %w", sc.Name, ErrInvalidArg)
 	}
 	safeArgs = append(safeArgs, sc.Name)
 
-	commandArgs, err := assembleCommandArgs(gitCommand, sc.Flags, sc.Args, sc.PostSepArgs)
+	commandArgs, err := assembleCommandArgs(commandDescription, sc.Flags, sc.Args, sc.PostSepArgs)
 	if err != nil {
 		return nil, err
 	}
@@ -69,7 +69,7 @@ func (sc SubCmd) CommandArgs() ([]string, error) {
 	return safeArgs, nil
 }
 
-func assembleCommandArgs(gitCommand gitCommand, flags []Option, args []string, postSepArgs []string) ([]string, error) {
+func assembleCommandArgs(commandDescription commandDescription, flags []Option, args []string, postSepArgs []string) ([]string, error) {
 	var commandArgs []string
 
 	for _, o := range flags {
@@ -87,7 +87,7 @@ func assembleCommandArgs(gitCommand gitCommand, flags []Option, args []string, p
 		commandArgs = append(commandArgs, a)
 	}
 
-	if gitCommand.supportsEndOfOptions() {
+	if commandDescription.supportsEndOfOptions() {
 		commandArgs = append(commandArgs, "--end-of-options")
 	}
 
@@ -128,7 +128,7 @@ var actionRegex = regexp.MustCompile(`^[[:alnum:]]+[-[:alnum:]]*$`)
 func (sc SubSubCmd) CommandArgs() ([]string, error) {
 	var safeArgs []string
 
-	gitCommand, ok := gitCommands[sc.Name]
+	commandDescription, ok := commandDescriptions[sc.Name]
 	if !ok {
 		return nil, fmt.Errorf("invalid sub command name %q: %w", sc.Name, ErrInvalidArg)
 	}
@@ -139,7 +139,7 @@ func (sc SubSubCmd) CommandArgs() ([]string, error) {
 	}
 	safeArgs = append(safeArgs, sc.Action)
 
-	commandArgs, err := assembleCommandArgs(gitCommand, sc.Flags, sc.Args, sc.PostSepArgs)
+	commandArgs, err := assembleCommandArgs(commandDescription, sc.Flags, sc.Args, sc.PostSepArgs)
 	if err != nil {
 		return nil, err
 	}
