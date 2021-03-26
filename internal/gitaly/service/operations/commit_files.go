@@ -17,10 +17,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/git/remoterepo"
 	"gitlab.com/gitlab-org/gitaly/internal/git2go"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/gitalyssh"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -50,91 +48,51 @@ func (s *Server) UserCommitFiles(stream gitalypb.OperationService_UserCommitFile
 
 	ctx := stream.Context()
 
-	if featureflag.IsEnabled(ctx, featureflag.GoUserCommitFiles) {
-		if err := s.userCommitFiles(ctx, header, stream); err != nil {
+	if err := s.userCommitFiles(ctx, header, stream); err != nil {
+		ctxlogrus.AddFields(ctx, logrus.Fields{
+			"repository_storage":       header.Repository.StorageName,
+			"repository_relative_path": header.Repository.RelativePath,
+			"branch_name":              header.BranchName,
+			"start_branch_name":        header.StartBranchName,
+			"start_sha":                header.StartSha,
+			"force":                    header.Force,
+		})
+
+		if startRepo := header.GetStartRepository(); startRepo != nil {
 			ctxlogrus.AddFields(ctx, logrus.Fields{
-				"repository_storage":       header.Repository.StorageName,
-				"repository_relative_path": header.Repository.RelativePath,
-				"branch_name":              header.BranchName,
-				"start_branch_name":        header.StartBranchName,
-				"start_sha":                header.StartSha,
-				"force":                    header.Force,
+				"start_repository_storage":       startRepo.StorageName,
+				"start_repository_relative_path": startRepo.RelativePath,
 			})
-
-			if startRepo := header.GetStartRepository(); startRepo != nil {
-				ctxlogrus.AddFields(ctx, logrus.Fields{
-					"start_repository_storage":       startRepo.StorageName,
-					"start_repository_relative_path": startRepo.RelativePath,
-				})
-			}
-
-			var (
-				response        gitalypb.UserCommitFilesResponse
-				indexError      git2go.IndexError
-				preReceiveError preReceiveError
-			)
-
-			switch {
-			case errors.As(err, &indexError):
-				response = gitalypb.UserCommitFilesResponse{IndexError: indexError.Error()}
-			case errors.As(err, new(git2go.DirectoryExistsError)):
-				response = gitalypb.UserCommitFilesResponse{IndexError: "A directory with this name already exists"}
-			case errors.As(err, new(git2go.FileExistsError)):
-				response = gitalypb.UserCommitFilesResponse{IndexError: "A file with this name already exists"}
-			case errors.As(err, new(git2go.FileNotFoundError)):
-				response = gitalypb.UserCommitFilesResponse{IndexError: "A file with this name doesn't exist"}
-			case errors.As(err, &preReceiveError):
-				response = gitalypb.UserCommitFilesResponse{PreReceiveError: preReceiveError.Error()}
-			case errors.As(err, new(git2go.InvalidArgumentError)):
-				return helper.ErrInvalidArgument(err)
-			default:
-				return err
-			}
-
-			ctxlogrus.Extract(ctx).WithError(err).Error("user commit files failed")
-			return stream.SendAndClose(&response)
 		}
 
-		return nil
-	}
+		var (
+			response        gitalypb.UserCommitFilesResponse
+			indexError      git2go.IndexError
+			preReceiveError preReceiveError
+		)
 
-	client, err := s.ruby.OperationServiceClient(ctx)
-	if err != nil {
-		return err
-	}
-
-	clientCtx, err := rubyserver.SetHeaders(ctx, s.locator, header.GetRepository())
-	if err != nil {
-		return err
-	}
-
-	rubyStream, err := client.UserCommitFiles(clientCtx)
-	if err != nil {
-		return err
-	}
-
-	if err := rubyStream.Send(firstRequest); err != nil {
-		return err
-	}
-
-	err = rubyserver.Proxy(func() error {
-		request, err := stream.Recv()
-		if err != nil {
+		switch {
+		case errors.As(err, &indexError):
+			response = gitalypb.UserCommitFilesResponse{IndexError: indexError.Error()}
+		case errors.As(err, new(git2go.DirectoryExistsError)):
+			response = gitalypb.UserCommitFilesResponse{IndexError: "A directory with this name already exists"}
+		case errors.As(err, new(git2go.FileExistsError)):
+			response = gitalypb.UserCommitFilesResponse{IndexError: "A file with this name already exists"}
+		case errors.As(err, new(git2go.FileNotFoundError)):
+			response = gitalypb.UserCommitFilesResponse{IndexError: "A file with this name doesn't exist"}
+		case errors.As(err, &preReceiveError):
+			response = gitalypb.UserCommitFilesResponse{PreReceiveError: preReceiveError.Error()}
+		case errors.As(err, new(git2go.InvalidArgumentError)):
+			return helper.ErrInvalidArgument(err)
+		default:
 			return err
 		}
-		return rubyStream.Send(request)
-	})
 
-	if err != nil {
-		return err
+		ctxlogrus.Extract(ctx).WithError(err).Error("user commit files failed")
+		return stream.SendAndClose(&response)
 	}
 
-	response, err := rubyStream.CloseAndRecv()
-	if err != nil {
-		return err
-	}
-
-	return stream.SendAndClose(response)
+	return nil
 }
 
 func validatePath(rootPath, relPath string) (string, error) {

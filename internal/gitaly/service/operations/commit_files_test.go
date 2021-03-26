@@ -1,7 +1,6 @@
 package operations
 
 import (
-	"context"
 	"encoding/base64"
 	"fmt"
 	"io/ioutil"
@@ -19,7 +18,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
-	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -31,28 +29,7 @@ var (
 	commitFilesMessage = []byte("Change files")
 )
 
-func testImplementations(t *testing.T, test func(t *testing.T, ctx context.Context)) {
-	goCtx, cancel := testhelper.Context()
-	defer cancel()
-
-	rubyCtx := featureflag.OutgoingCtxWithDisabledFeatureFlags(goCtx, featureflag.GoUserCommitFiles)
-
-	for _, tc := range []struct {
-		desc    string
-		context context.Context
-	}{
-		{desc: "go", context: goCtx},
-		{desc: "ruby", context: rubyCtx},
-	} {
-		t.Run(tc.desc, func(t *testing.T) { test(t, tc.context) })
-	}
-}
-
 func TestUserCommitFiles(t *testing.T) {
-	testImplementations(t, testUserCommitFiles)
-}
-
-func testUserCommitFiles(t *testing.T, ctx context.Context) {
 	const (
 		DefaultMode    = "100644"
 		ExecutableMode = "100755"
@@ -80,6 +57,9 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 
 	client, conn := newOperationClient(t, serverSocketPath)
 	defer conn.Close()
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
 	ctxWithServerMetadata := ctx
 	for key, values := range testhelper.GitalyServersMetadata(t, serverSocketPath) {
@@ -966,11 +946,7 @@ func testUserCommitFiles(t *testing.T, ctx context.Context) {
 	}
 }
 
-func TestUserCommitFiles_stableCommitID(t *testing.T) {
-	testImplementations(t, testUserCommitFilesStableCommitID)
-}
-
-func testUserCommitFilesStableCommitID(t *testing.T, ctx context.Context) {
+func TestUserCommitFilesStableCommitID(t *testing.T) {
 	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()
 
@@ -980,6 +956,9 @@ func testUserCommitFilesStableCommitID(t *testing.T, ctx context.Context) {
 	repoProto, repoPath, cleanup := gittest.InitBareRepo(t)
 	defer cleanup()
 	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
 	for key, values := range testhelper.GitalyServersMetadata(t, serverSocketPath) {
 		for _, value := range values {
@@ -1031,10 +1010,6 @@ func testUserCommitFilesStableCommitID(t *testing.T, ctx context.Context) {
 }
 
 func TestSuccessfulUserCommitFilesRequest(t *testing.T) {
-	testImplementations(t, testSuccessfulUserCommitFilesRequest)
-}
-
-func testSuccessfulUserCommitFilesRequest(t *testing.T, ctx context.Context) {
 	testRepo, testRepoPath, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
@@ -1096,6 +1071,9 @@ func testSuccessfulUserCommitFilesRequest(t *testing.T, ctx context.Context) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
+			ctx, cancel := testhelper.Context()
+			defer cancel()
+
 			headerRequest := headerRequest(tc.repo, testhelper.TestUser, tc.branchName, commitFilesMessage)
 			setAuthorAndEmail(headerRequest, authorName, authorEmail)
 
@@ -1139,10 +1117,6 @@ func testSuccessfulUserCommitFilesRequest(t *testing.T, ctx context.Context) {
 }
 
 func TestSuccessfulUserCommitFilesRequestMove(t *testing.T) {
-	testImplementations(t, testSuccessfulUserCommitFilesRequestMove)
-}
-
-func testSuccessfulUserCommitFilesRequestMove(t *testing.T, ctx context.Context) {
 	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()
 
@@ -1173,6 +1147,9 @@ func testSuccessfulUserCommitFilesRequestMove(t *testing.T, ctx context.Context)
 			setAuthorAndEmail(headerRequest, authorName, authorEmail)
 			actionsRequest1 := moveFileHeaderRequest(previousFilePath, filePath, tc.infer)
 
+			ctx, cancel := testhelper.Context()
+			defer cancel()
+
 			stream, err := client.UserCommitFiles(ctx)
 			require.NoError(t, err)
 			require.NoError(t, stream.Send(headerRequest))
@@ -1201,10 +1178,6 @@ func testSuccessfulUserCommitFilesRequestMove(t *testing.T, ctx context.Context)
 }
 
 func TestSuccessfulUserCommitFilesRequestForceCommit(t *testing.T) {
-	testImplementations(t, testSuccessfulUserCommitFilesRequestForceCommit)
-}
-
-func testSuccessfulUserCommitFilesRequestForceCommit(t *testing.T, ctx context.Context) {
 	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()
 
@@ -1219,6 +1192,9 @@ func testSuccessfulUserCommitFilesRequestForceCommit(t *testing.T, ctx context.C
 	authorEmail := []byte("janedoe@gitlab.com")
 	targetBranchName := "feature"
 	startBranchName := []byte("master")
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
 	startBranchCommit, err := repo.ReadCommit(ctx, git.Revision(startBranchName))
 	require.NoError(t, err)
@@ -1253,10 +1229,6 @@ func testSuccessfulUserCommitFilesRequestForceCommit(t *testing.T, ctx context.C
 }
 
 func TestSuccessfulUserCommitFilesRequestStartSha(t *testing.T) {
-	testImplementations(t, testSuccessfulUserCommitFilesRequestStartSha)
-}
-
-func testSuccessfulUserCommitFilesRequestStartSha(t *testing.T, ctx context.Context) {
 	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()
 
@@ -1268,6 +1240,9 @@ func testSuccessfulUserCommitFilesRequestStartSha(t *testing.T, ctx context.Cont
 	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
 	targetBranchName := "new"
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
 	startCommit, err := repo.ReadCommit(ctx, "master")
 	require.NoError(t, err)
@@ -1293,21 +1268,21 @@ func testSuccessfulUserCommitFilesRequestStartSha(t *testing.T, ctx context.Cont
 }
 
 func TestSuccessfulUserCommitFilesRequestStartShaRemoteRepository(t *testing.T) {
-	testImplementations(t, testSuccessfulUserCommitFilesRemoteRepositoryRequest(func(header *gitalypb.UserCommitFilesRequest) {
+	testSuccessfulUserCommitFilesRemoteRepositoryRequest(func(header *gitalypb.UserCommitFilesRequest) {
 		setStartSha(header, "1e292f8fedd741b75372e19097c76d327140c312")
-	}))
+	})
 }
 
 func TestSuccessfulUserCommitFilesRequestStartBranchRemoteRepository(t *testing.T) {
-	testImplementations(t, testSuccessfulUserCommitFilesRemoteRepositoryRequest(func(header *gitalypb.UserCommitFilesRequest) {
+	testSuccessfulUserCommitFilesRemoteRepositoryRequest(func(header *gitalypb.UserCommitFilesRequest) {
 		setStartBranchName(header, []byte("master"))
-	}))
+	})
 }
 
-func testSuccessfulUserCommitFilesRemoteRepositoryRequest(setHeader func(header *gitalypb.UserCommitFilesRequest)) func(*testing.T, context.Context) {
+func testSuccessfulUserCommitFilesRemoteRepositoryRequest(setHeader func(header *gitalypb.UserCommitFilesRequest)) func(*testing.T) {
 	// Regular table driven test did not work here as there is some state shared in the helpers between the subtests.
 	// Running them in different top level tests works, so we use a parameterized function instead to share the code.
-	return func(t *testing.T, ctx context.Context) {
+	return func(t *testing.T) {
 		serverSocketPath, stop := runOperationServiceServer(t)
 		defer stop()
 
@@ -1323,6 +1298,9 @@ func testSuccessfulUserCommitFilesRemoteRepositoryRequest(setHeader func(header 
 		newRepoProto, _, newRepoCleanupFn := gittest.InitBareRepo(t)
 		defer newRepoCleanupFn()
 		newRepo := localrepo.New(gitCmdFactory, newRepoProto, config.Config)
+
+		ctx, cancel := testhelper.Context()
+		defer cancel()
 
 		for key, values := range testhelper.GitalyServersMetadata(t, serverSocketPath) {
 			for _, value := range values {
@@ -1358,10 +1336,6 @@ func testSuccessfulUserCommitFilesRemoteRepositoryRequest(setHeader func(header 
 }
 
 func TestSuccessfulUserCommitFilesRequestWithSpecialCharactersInSignature(t *testing.T) {
-	testImplementations(t, testSuccessfulUserCommitFilesRequestWithSpecialCharactersInSignature)
-}
-
-func testSuccessfulUserCommitFilesRequestWithSpecialCharactersInSignature(t *testing.T, ctx context.Context) {
 	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()
 
@@ -1396,6 +1370,9 @@ func testSuccessfulUserCommitFilesRequestWithSpecialCharactersInSignature(t *tes
 			headerRequest := headerRequest(repoProto, tc.user, targetBranchName, commitFilesMessage)
 			setAuthorAndEmail(headerRequest, tc.user.Name, tc.user.Email)
 
+			ctx, cancel := testhelper.Context()
+			defer cancel()
+
 			stream, err := client.UserCommitFiles(ctx)
 			require.NoError(t, err)
 			require.NoError(t, stream.Send(headerRequest))
@@ -1415,10 +1392,6 @@ func testSuccessfulUserCommitFilesRequestWithSpecialCharactersInSignature(t *tes
 }
 
 func TestFailedUserCommitFilesRequestDueToHooks(t *testing.T) {
-	testImplementations(t, testFailedUserCommitFilesRequestDueToHooks)
-}
-
-func testFailedUserCommitFilesRequestDueToHooks(t *testing.T, ctx context.Context) {
 	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()
 
@@ -1440,6 +1413,9 @@ func testFailedUserCommitFilesRequestDueToHooks(t *testing.T, ctx context.Contex
 			remove := gittest.WriteCustomHook(t, testRepoPath, hookName, hookContent)
 			defer remove()
 
+			ctx, cancel := testhelper.Context()
+			defer cancel()
+
 			stream, err := client.UserCommitFiles(ctx)
 			require.NoError(t, err)
 			require.NoError(t, stream.Send(headerRequest))
@@ -1456,10 +1432,6 @@ func testFailedUserCommitFilesRequestDueToHooks(t *testing.T, ctx context.Contex
 }
 
 func TestFailedUserCommitFilesRequestDueToIndexError(t *testing.T) {
-	testImplementations(t, testFailedUserCommitFilesRequestDueToIndexError)
-}
-
-func testFailedUserCommitFilesRequestDueToIndexError(t *testing.T, ctx context.Context) {
 	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()
 
@@ -1512,6 +1484,9 @@ func testFailedUserCommitFilesRequestDueToIndexError(t *testing.T, ctx context.C
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
+			ctx, cancel := testhelper.Context()
+			defer cancel()
+
 			stream, err := client.UserCommitFiles(ctx)
 			require.NoError(t, err)
 
@@ -1527,10 +1502,6 @@ func testFailedUserCommitFilesRequestDueToIndexError(t *testing.T, ctx context.C
 }
 
 func TestFailedUserCommitFilesRequest(t *testing.T) {
-	testImplementations(t, testFailedUserCommitFilesRequest)
-}
-
-func testFailedUserCommitFilesRequest(t *testing.T, ctx context.Context) {
 	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()
 
@@ -1590,6 +1561,9 @@ func testFailedUserCommitFilesRequest(t *testing.T, ctx context.Context) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
+			ctx, cancel := testhelper.Context()
+			defer cancel()
+
 			stream, err := client.UserCommitFiles(ctx)
 			require.NoError(t, err)
 
