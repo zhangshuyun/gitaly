@@ -32,10 +32,6 @@ func (s *Server) SetReplicationFactor(ctx context.Context, req *gitalypb.SetRepl
 }
 
 func (s *Server) setReplicationFactor(ctx context.Context, req *gitalypb.SetReplicationFactorRequest) (*gitalypb.SetReplicationFactorResponse, error) {
-	if s.rfs == nil {
-		return nil, fmt.Errorf("setting replication factor is only possible when Praefect is ran with 'per_repository' elector")
-	}
-
 	storages, err := s.rfs.SetReplicationFactor(ctx, req.VirtualStorage, req.RelativePath, int(req.ReplicationFactor))
 	if err != nil {
 		return nil, fmt.Errorf("set replication factor: %w", err)
