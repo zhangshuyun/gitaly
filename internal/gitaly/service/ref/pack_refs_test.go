@@ -12,9 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
@@ -23,18 +21,11 @@ func TestPackRefsSuccessfulRequest(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	stop, serverSocketPath := runRefServiceServer(t)
-	defer stop()
+	cfg, repoProto, repoPath, client := setupRefService(t)
 
-	client, conn := newRefServiceClient(t, serverSocketPath)
-	defer conn.Close()
+	packedRefs := linesInPackfile(t, repoPath)
 
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-
-	packedRefs := linesInPackfile(t, testRepoPath)
-
-	repo := localrepo.New(git.NewExecCommandFactory(config.Config), testRepo, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
 	// creates some new heads
 	newBranches := 10
@@ -43,17 +34,17 @@ func TestPackRefsSuccessfulRequest(t *testing.T) {
 	}
 
 	// pack all refs
-	_, err := client.PackRefs(ctx, &gitalypb.PackRefsRequest{Repository: testRepo})
+	_, err := client.PackRefs(ctx, &gitalypb.PackRefsRequest{Repository: repoProto})
 	require.NoError(t, err)
 
-	files, err := ioutil.ReadDir(filepath.Join(testRepoPath, "refs/heads"))
+	files, err := ioutil.ReadDir(filepath.Join(repoPath, "refs/heads"))
 	require.NoError(t, err)
 	assert.Len(t, files, 0, "git pack-refs --all should have packed all refs in refs/heads")
-	assert.Equal(t, packedRefs+newBranches, linesInPackfile(t, testRepoPath), fmt.Sprintf("should have added %d new lines to the packfile", newBranches))
+	assert.Equal(t, packedRefs+newBranches, linesInPackfile(t, repoPath), fmt.Sprintf("should have added %d new lines to the packfile", newBranches))
 
 	// ensure all refs are reachable
 	for i := 0; i < newBranches; i++ {
-		testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "show-ref", fmt.Sprintf("refs/heads/new-ref-%d", i))
+		testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "show-ref", fmt.Sprintf("refs/heads/new-ref-%d", i))
 	}
 }
 

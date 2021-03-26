@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -16,17 +15,10 @@ func TestListNewCommits(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	stop, serverSocketPath := runRefServiceServer(t)
-	defer stop()
-
-	client, conn := newRefServiceClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, repoPath, client := setupRefService(t)
 
 	oid := "0031876facac3f2b2702a0e53a26e89939a42209"
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", "-D", "few-commits")
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", "-D", "few-commits")
 
 	testCases := []struct {
 		revision      string
@@ -67,7 +59,7 @@ func TestListNewCommits(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.revision, func(t *testing.T) {
-			request := &gitalypb.ListNewCommitsRequest{Repository: testRepo, CommitId: tc.revision}
+			request := &gitalypb.ListNewCommitsRequest{Repository: repo, CommitId: tc.revision}
 
 			stream, err := client.ListNewCommits(ctx, request)
 			require.NoError(t, err)

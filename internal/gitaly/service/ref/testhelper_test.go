@@ -5,13 +5,16 @@ import (
 	"os"
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
 	hookservice "gitlab.com/gitlab-org/gitaly/internal/gitaly/service/hook"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/lines"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
 )
@@ -34,8 +37,6 @@ func testMain(m *testing.M) int {
 	cleanup := testhelper.Configure()
 	defer cleanup()
 
-	testhelper.ConfigureGitalyHooksBinary(config.Config.BinDir)
-
 	// Force small messages to test that fragmenting the
 	// ref list works correctly
 	lines.ItemsPerMessage = 3
@@ -43,8 +44,32 @@ func testMain(m *testing.M) int {
 	return m.Run()
 }
 
-func runRefServiceServer(t *testing.T) (func(), string) {
-	cfg := config.Config
+func setupRefService(t testing.TB) (config.Cfg, *gitalypb.Repository, string, gitalypb.RefServiceClient) {
+	cfg, client := setupRefServiceWithoutRepo(t)
+
+	repo, repoPath, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name())
+	t.Cleanup(cleanup)
+
+	testhelper.ConfigureGitalyHooksBin(t, cfg)
+
+	return cfg, repo, repoPath, client
+}
+
+func setupRefServiceWithoutRepo(t testing.TB) (config.Cfg, gitalypb.RefServiceClient) {
+	cfg := testcfg.Build(t)
+
+	testhelper.ConfigureGitalyHooksBin(t, cfg)
+
+	serverSocketPath := runRefServiceServer(t, cfg)
+	cfg.SocketPath = serverSocketPath
+
+	client, conn := newRefServiceClient(t, serverSocketPath)
+	t.Cleanup(func() { conn.Close() })
+
+	return cfg, client
+}
+
+func runRefServiceServer(t testing.TB, cfg config.Cfg) string {
 	locator := config.NewLocator(cfg)
 	txManager := transaction.NewManager(cfg)
 	hookManager := hook.NewManager(locator, txManager, hook.GitlabAPIStub, cfg)
@@ -54,18 +79,17 @@ func runRefServiceServer(t *testing.T) (func(), string) {
 	gitalypb.RegisterRefServiceServer(srv.GrpcServer(), NewServer(cfg, locator, gitCmdFactory))
 	gitalypb.RegisterHookServiceServer(srv.GrpcServer(), hookservice.NewServer(cfg, hookManager, gitCmdFactory))
 	srv.Start(t)
+	t.Cleanup(srv.Stop)
 
-	return srv.Stop, "unix://" + srv.Socket()
+	return "unix://" + srv.Socket()
 }
 
-func newRefServiceClient(t *testing.T, serverSocketPath string) (gitalypb.RefServiceClient, *grpc.ClientConn) {
+func newRefServiceClient(t testing.TB, serverSocketPath string) (gitalypb.RefServiceClient, *grpc.ClientConn) {
 	connOpts := []grpc.DialOption{
 		grpc.WithInsecure(),
 	}
 	conn, err := grpc.Dial(serverSocketPath, connOpts...)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	return gitalypb.NewRefServiceClient(conn), conn
 }

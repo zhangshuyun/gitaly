@@ -5,7 +5,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -13,17 +12,10 @@ import (
 )
 
 func TestFindRefNameSuccess(t *testing.T) {
-	stop, serverSocketPath := runRefServiceServer(t)
-	defer stop()
-
-	client, conn := newRefServiceClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupRefService(t)
 
 	rpcRequest := &gitalypb.FindRefNameRequest{
-		Repository: testRepo,
+		Repository: repo,
 		CommitId:   "0b4bc9a49b562e85de7cc9e834518ea6828729b9",
 		Prefix:     []byte(`refs/heads/`),
 	}
@@ -31,9 +23,7 @@ func TestFindRefNameSuccess(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 	c, err := client.FindRefName(ctx, rpcRequest)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	response := string(c.GetName())
 
@@ -43,17 +33,10 @@ func TestFindRefNameSuccess(t *testing.T) {
 }
 
 func TestFindRefNameEmptyCommit(t *testing.T) {
-	stop, serverSocketPath := runRefServiceServer(t)
-	defer stop()
-
-	client, conn := newRefServiceClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupRefService(t)
 
 	rpcRequest := &gitalypb.FindRefNameRequest{
-		Repository: testRepo,
+		Repository: repo,
 		CommitId:   "",
 		Prefix:     []byte(`refs/heads/`),
 	}
@@ -75,11 +58,8 @@ func TestFindRefNameEmptyCommit(t *testing.T) {
 }
 
 func TestFindRefNameInvalidRepo(t *testing.T) {
-	stop, serverSocketPath := runRefServiceServer(t)
-	defer stop()
+	_, client := setupRefServiceWithoutRepo(t)
 
-	client, conn := newRefServiceClient(t, serverSocketPath)
-	defer conn.Close()
 	repo := &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}
 	rpcRequest := &gitalypb.FindRefNameRequest{
 		Repository: repo,
@@ -104,17 +84,10 @@ func TestFindRefNameInvalidRepo(t *testing.T) {
 }
 
 func TestFindRefNameInvalidPrefix(t *testing.T) {
-	stop, serverSocketPath := runRefServiceServer(t)
-	defer stop()
-
-	client, conn := newRefServiceClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupRefService(t)
 
 	rpcRequest := &gitalypb.FindRefNameRequest{
-		Repository: testRepo,
+		Repository: repo,
 		CommitId:   "0b4bc9a49b562e85de7cc9e834518ea6828729b9",
 		Prefix:     []byte(`refs/nonexistant/`),
 	}
@@ -131,17 +104,10 @@ func TestFindRefNameInvalidPrefix(t *testing.T) {
 }
 
 func TestFindRefNameInvalidObject(t *testing.T) {
-	stop, serverSocketPath := runRefServiceServer(t)
-	defer stop()
-
-	client, conn := newRefServiceClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupRefService(t)
 
 	rpcRequest := &gitalypb.FindRefNameRequest{
-		Repository: testRepo,
+		Repository: repo,
 		CommitId:   "dead1234dead1234dead1234dead1234dead1234",
 	}
 
