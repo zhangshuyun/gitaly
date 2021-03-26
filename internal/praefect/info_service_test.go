@@ -4,12 +4,16 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	gconfig "gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/nodes"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/promtest"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
@@ -63,7 +67,13 @@ func TestInfoService_RepositoryReplicas(t *testing.T) {
 	// create a commit in the second replica so we can check that its checksum is different than the primary
 	gittest.CreateCommit(t, filepath.Join(cfg.Storages[1].Path, "repo-1"), "master", nil)
 
-	cc, _, cleanup := runPraefectServer(t, conf, buildOptions{})
+	nodeManager, err := nodes.NewManager(testhelper.DiscardTestEntry(t), conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil)
+	require.NoError(t, err)
+	nodeManager.Start(0, time.Hour)
+	cc, _, cleanup := runPraefectServer(t, conf, buildOptions{
+		withPrimaryGetter: nodeManager,
+		withConnections:   NodeSetFromNodeManager(nodeManager).Connections(),
+	})
 	defer cleanup()
 
 	client := gitalypb.NewPraefectInfoServiceClient(cc)
