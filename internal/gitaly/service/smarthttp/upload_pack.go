@@ -10,7 +10,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/inspect"
-	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/streamio"
 	"google.golang.org/grpc/codes"
@@ -83,10 +82,7 @@ func (s *server) PostUploadPack(stream gitalypb.SmartHTTPService_PostUploadPackS
 		git.WithStdout(stdout),
 		git.WithGitProtocol(ctx, req),
 		git.WithConfig(config...),
-	}
-
-	if featureflag.IsEnabled(ctx, featureflag.UploadPackGitalyHooks) {
-		commandOpts = append(commandOpts, git.WithPackObjectsHookEnv(ctx, req.Repository, s.cfg))
+		git.WithPackObjectsHookEnv(ctx, req.Repository, s.cfg),
 	}
 
 	cmd, err := s.gitCmdFactory.NewWithoutRepo(ctx, git.SubCmd{

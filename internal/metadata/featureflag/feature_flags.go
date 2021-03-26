@@ -24,8 +24,6 @@ var (
 	GoUserUpdateSubmodule = FeatureFlag{Name: "go_user_update_submodule", OnByDefault: true}
 	// GoUserRevert enables the Go implementation of UserRevert
 	GoUserRevert = FeatureFlag{Name: "go_user_revert", OnByDefault: false}
-	// GoGetAllLFSPointers enables the Go implementation of GetAllLFSPointers
-	UploadPackGitalyHooks = FeatureFlag{Name: "upload_pack_gitaly_hooks", OnByDefault: false}
 	// LFSPointersUseBitmapIndex enables the use of bitmap indices when searching LFS pointers.
 	LFSPointersUseBitmapIndex = FeatureFlag{Name: "lfs_pointers_use_bitmap_index", OnByDefault: false}
 	// GoUpdateRemoteMirror enables the Go implementation of UpdateRemoteMirror
@@ -46,5 +44,4 @@ var All = []FeatureFlag{
 	LFSPointersUseBitmapIndex,
 	GoUpdateRemoteMirror,
 	ConnectionMultiplexing,
-	UploadPackGitalyHooks,
 }
