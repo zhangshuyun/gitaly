@@ -189,13 +189,19 @@ func TestDiskStatistics(t *testing.T) {
 		})
 	}
 
-	cc, _, cleanup := runPraefectServer(t, praefectCfg, buildOptions{})
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	nodes, err := DialNodes(ctx, praefectCfg.VirtualStorages, nil, nil)
+	require.NoError(t, err)
+	defer nodes.Close()
+
+	cc, _, cleanup := runPraefectServer(t, praefectCfg, buildOptions{
+		withConnections: nodes.Connections(),
+	})
 	defer cleanup()
 
 	client := gitalypb.NewServerServiceClient(cc)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
 	diskStat, err := client.DiskStatistics(ctx, &gitalypb.DiskStatisticsRequest{})
 	require.NoError(t, err)

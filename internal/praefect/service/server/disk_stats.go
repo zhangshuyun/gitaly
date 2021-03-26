@@ -12,17 +12,12 @@ import (
 func (s *Server) DiskStatistics(ctx context.Context, _ *gitalypb.DiskStatisticsRequest) (*gitalypb.DiskStatisticsResponse, error) {
 	var storageStatuses [][]*gitalypb.DiskStatisticsResponse_StorageStatus
 
-	for _, virtualStorage := range s.conf.VirtualStorages {
-		shard, err := s.nodeMgr.GetShard(ctx, virtualStorage.Name)
-		if err != nil {
-			return nil, err
-		}
-
-		for _, node := range append(shard.Secondaries, shard.Primary) {
-			client := gitalypb.NewServerServiceClient(node.GetConnection())
+	for _, storages := range s.conns {
+		for storage, conn := range storages {
+			client := gitalypb.NewServerServiceClient(conn)
 			resp, err := client.DiskStatistics(ctx, &gitalypb.DiskStatisticsRequest{})
 			if err != nil {
-				return nil, fmt.Errorf("error when requesting disk statistics from internal storage %v", node.GetStorage())
+				return nil, fmt.Errorf("error when requesting disk statistics from internal storage %v", storage)
 			}
 
 			storageStatuses = append(storageStatuses, resp.GetStorageStatuses())
