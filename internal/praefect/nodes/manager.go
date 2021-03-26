@@ -275,6 +275,17 @@ func (n *Mgr) GetShard(ctx context.Context, virtualStorageName string) (Shard, e
 	return strategy.GetShard(ctx)
 }
 
+// GetPrimary returns the current primary of a repository. This is an adapter so NodeManager can be used
+// as a praefect.PrimaryGetter in newer code which written to support repository specific primaries.
+func (n *Mgr) GetPrimary(ctx context.Context, virtualStorage, _ string) (string, error) {
+	shard, err := n.GetShard(ctx, virtualStorage)
+	if err != nil {
+		return "", err
+	}
+
+	return shard.Primary.GetStorage(), nil
+}
+
 func (n *Mgr) GetSyncedNode(ctx context.Context, virtualStorageName, repoPath string) (Node, error) {
 	upToDateStorages, err := n.csg.GetConsistentStorages(ctx, virtualStorageName, repoPath)
 	if err != nil {
