@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
-	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -60,45 +59,13 @@ func (sc SubCmd) CommandArgs() ([]string, error) {
 	}
 	safeArgs = append(safeArgs, sc.Name)
 
-	commandArgs, err := assembleCommandArgs(commandDescription, sc.Flags, sc.Args, sc.PostSepArgs)
+	commandArgs, err := commandDescription.args(sc.Flags, sc.Args, sc.PostSepArgs)
 	if err != nil {
 		return nil, err
 	}
 	safeArgs = append(safeArgs, commandArgs...)
 
 	return safeArgs, nil
-}
-
-func assembleCommandArgs(commandDescription commandDescription, flags []Option, args []string, postSepArgs []string) ([]string, error) {
-	var commandArgs []string
-
-	for _, o := range flags {
-		args, err := o.OptionArgs()
-		if err != nil {
-			return nil, err
-		}
-		commandArgs = append(commandArgs, args...)
-	}
-
-	for _, a := range args {
-		if err := validatePositionalArg(a); err != nil {
-			return nil, err
-		}
-		commandArgs = append(commandArgs, a)
-	}
-
-	if commandDescription.supportsEndOfOptions() {
-		commandArgs = append(commandArgs, "--end-of-options")
-	}
-
-	if len(postSepArgs) > 0 {
-		commandArgs = append(commandArgs, "--")
-	}
-
-	// post separator args do not need any validation
-	commandArgs = append(commandArgs, postSepArgs...)
-
-	return commandArgs, nil
 }
 
 // SubSubCmd is a positional argument that appears in the list of options for
@@ -139,7 +106,7 @@ func (sc SubSubCmd) CommandArgs() ([]string, error) {
 	}
 	safeArgs = append(safeArgs, sc.Action)
 
-	commandArgs, err := assembleCommandArgs(commandDescription, sc.Flags, sc.Args, sc.PostSepArgs)
+	commandArgs, err := commandDescription.args(sc.Flags, sc.Args, sc.PostSepArgs)
 	if err != nil {
 		return nil, err
 	}
@@ -151,11 +118,4 @@ func (sc SubSubCmd) CommandArgs() ([]string, error) {
 // IsInvalidArgErr relays if the error is due to an argument validation failure
 func IsInvalidArgErr(err error) bool {
 	return errors.Is(err, ErrInvalidArg)
-}
-
-func validatePositionalArg(arg string) error {
-	if strings.HasPrefix(arg, "-") {
-		return fmt.Errorf("positional arg %q cannot start with dash '-': %w", arg, ErrInvalidArg)
-	}
-	return nil
 }

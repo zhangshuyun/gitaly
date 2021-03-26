@@ -1,5 +1,10 @@
 package git
 
+import (
+	"fmt"
+	"strings"
+)
+
 const (
 	// scNoRefUpdates denotes a command which will never update refs
 	scNoRefUpdates = 1 << iota
@@ -207,4 +212,44 @@ func (c commandDescription) mayGeneratePackfiles() bool {
 // `--end-of-options` option.
 func (c commandDescription) supportsEndOfOptions() bool {
 	return c.flags&scNoEndOfOptions == 0
+}
+
+// args validates the given flags and arguments and, if valid, returns the complete command line.
+func (c commandDescription) args(flags []Option, args []string, postSepArgs []string) ([]string, error) {
+	var commandArgs []string
+
+	for _, o := range flags {
+		args, err := o.OptionArgs()
+		if err != nil {
+			return nil, err
+		}
+		commandArgs = append(commandArgs, args...)
+	}
+
+	for _, a := range args {
+		if err := validatePositionalArg(a); err != nil {
+			return nil, err
+		}
+		commandArgs = append(commandArgs, a)
+	}
+
+	if c.supportsEndOfOptions() {
+		commandArgs = append(commandArgs, "--end-of-options")
+	}
+
+	if len(postSepArgs) > 0 {
+		commandArgs = append(commandArgs, "--")
+	}
+
+	// post separator args do not need any validation
+	commandArgs = append(commandArgs, postSepArgs...)
+
+	return commandArgs, nil
+}
+
+func validatePositionalArg(arg string) error {
+	if strings.HasPrefix(arg, "-") {
+		return fmt.Errorf("positional arg %q cannot start with dash '-': %w", arg, ErrInvalidArg)
+	}
+	return nil
 }
