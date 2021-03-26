@@ -15,8 +15,9 @@ const (
 )
 
 type commandDescription struct {
-	flags uint
-	opts  []GlobalOption
+	flags                  uint
+	opts                   []GlobalOption
+	validatePositionalArgs func([]string) error
 }
 
 // commandDescriptions is a curated list of Git command descriptions for special
@@ -226,12 +227,18 @@ func (c commandDescription) args(flags []Option, args []string, postSepArgs []st
 		commandArgs = append(commandArgs, args...)
 	}
 
-	for _, a := range args {
-		if err := validatePositionalArg(a); err != nil {
+	if c.validatePositionalArgs != nil {
+		if err := c.validatePositionalArgs(args); err != nil {
 			return nil, err
 		}
-		commandArgs = append(commandArgs, a)
+	} else {
+		for _, a := range args {
+			if err := validatePositionalArg(a); err != nil {
+				return nil, err
+			}
+		}
 	}
+	commandArgs = append(commandArgs, args...)
 
 	if c.supportsEndOfOptions() {
 		commandArgs = append(commandArgs, "--end-of-options")
