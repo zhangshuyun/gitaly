@@ -155,6 +155,24 @@ var commandDescriptions = map[string]commandDescription{
 	},
 	"rev-list": {
 		flags: scNoRefUpdates,
+		validatePositionalArgs: func(args []string) error {
+			for _, arg := range args {
+				// git-rev-list(1) supports pseudo-revision arguments which can be
+				// intermingled with normal positional arguments. Given that these
+				// pseudo-revisions have leading dashes, normal validation would
+				// refuse them as positional arguments. We thus override validation
+				// for two of these which we are using in our codebase. There are
+				// more, but we can add them at a later point if they're ever
+				// required.
+				if arg == "--all" || arg == "--not" {
+					continue
+				}
+				if err := validatePositionalArg(arg); err != nil {
+					return fmt.Errorf("rev-list: %w", err)
+				}
+			}
+			return nil
+		},
 	},
 	"rev-parse": {
 		flags: scNoRefUpdates | scNoEndOfOptions,
