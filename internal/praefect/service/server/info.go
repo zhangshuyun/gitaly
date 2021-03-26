@@ -6,6 +6,7 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
+	"google.golang.org/grpc"
 )
 
 // ServerInfo sends ServerInfoRequest to all of a praefect server's internal gitaly nodes and aggregates the results into
@@ -17,27 +18,29 @@ func (s *Server) ServerInfo(ctx context.Context, in *gitalypb.ServerInfoRequest)
 
 	var wg sync.WaitGroup
 
-	storageStatuses := make([]*gitalypb.ServerInfoResponse_StorageStatus, len(s.conf.VirtualStorages))
+	storageStatuses := make([]*gitalypb.ServerInfoResponse_StorageStatus, len(s.conns))
 
-	for i, virtualStorage := range s.conf.VirtualStorages {
-		shard, err := s.nodeMgr.GetShard(ctx, virtualStorage.Name)
-		if err != nil {
-			ctxlogrus.Extract(ctx).WithField("virtual_storage", virtualStorage.Name).WithError(err).Error("error when getting shard")
-			continue
+	i := 0
+	for virtualStorage, storages := range s.conns {
+		wg.Add(1)
+
+		virtualStorage := virtualStorage
+		storages := storages
+		var storage string
+		var conn *grpc.ClientConn
+
+		// Pick one storage from the map.
+		for storage, conn = range storages {
+			break
 		}
 
-		wg.Add(1)
-		i := i
-		virtualStorage := virtualStorage
-		replicas := uint32(1 + len(shard.Secondaries)) // 1 - is primary + N secondaries
-
-		go func() {
+		go func(i int) {
 			defer wg.Done()
 
-			client := gitalypb.NewServerServiceClient(shard.Primary.GetConnection())
+			client := gitalypb.NewServerServiceClient(conn)
 			resp, err := client.ServerInfo(ctx, &gitalypb.ServerInfoRequest{})
 			if err != nil {
-				ctxlogrus.Extract(ctx).WithField("storage", shard.Primary.GetStorage()).WithError(err).Error("error getting server info")
+				ctxlogrus.Extract(ctx).WithField("storage", storage).WithError(err).Error("error getting server info")
 				return
 			}
 
@@ -62,15 +65,15 @@ func (s *Server) ServerInfo(ctx context.Context, in *gitalypb.ServerInfoRequest)
 			// technically, any storage's storage status can be returned in the virtual storage's server info,
 			// but to be consistent we will choose the storage with the same name as the internal gitaly storage name.
 			for _, storageStatus := range resp.GetStorageStatuses() {
-				if storageStatus.StorageName == shard.Primary.GetStorage() {
+				if storageStatus.StorageName == storage {
 					storageStatuses[i] = storageStatus
 					// the storage name in the response needs to be rewritten to be the virtual storage name
 					// because the praefect client has no concept of internal gitaly nodes that are behind praefect.
 					// From the perspective of the praefect client, the primary internal gitaly node's storage status is equivalent
 					// to the virtual storage's storage status.
-					storageStatuses[i].StorageName = virtualStorage.Name
+					storageStatuses[i].StorageName = virtualStorage
 					storageStatuses[i].Writeable = storageStatus.Writeable
-					storageStatuses[i].ReplicationFactor = replicas
+					storageStatuses[i].ReplicationFactor = uint32(len(storages))
 					break
 				}
 			}
@@ -78,7 +81,9 @@ func (s *Server) ServerInfo(ctx context.Context, in *gitalypb.ServerInfoRequest)
 			once.Do(func() {
 				gitVersion, serverVersion = resp.GetGitVersion(), resp.GetServerVersion()
 			})
-		}()
+		}(i)
+
+		i++
 	}
 
 	wg.Wait()

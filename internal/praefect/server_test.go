@@ -90,7 +90,13 @@ func TestGitalyServerInfo(t *testing.T) {
 			},
 		}
 
-		cc, _, cleanup := runPraefectServer(t, conf, buildOptions{})
+		nodes, err := DialNodes(ctx, conf.VirtualStorages, nil, nil)
+		require.NoError(t, err)
+		defer nodes.Close()
+
+		cc, _, cleanup := runPraefectServer(t, conf, buildOptions{
+			withConnections: nodes.Connections(),
+		})
 		defer cleanup()
 
 		expected := &gitalypb.ServerInfoResponse{
@@ -129,7 +135,14 @@ func TestGitalyServerInfo(t *testing.T) {
 				},
 			},
 		}
-		cc, _, cleanup := runPraefectServer(t, conf, buildOptions{})
+
+		nodes, err := DialNodes(ctx, conf.VirtualStorages, nil, nil)
+		require.NoError(t, err)
+		defer nodes.Close()
+
+		cc, _, cleanup := runPraefectServer(t, conf, buildOptions{
+			withConnections: nodes.Connections(),
+		})
 		defer cleanup()
 
 		// we stops gitaly service, so ServerInfo request will fail
@@ -161,13 +174,19 @@ func TestGitalyServerInfoBadNode(t *testing.T) {
 		},
 	}
 
-	cc, _, cleanup := runPraefectServer(t, conf, buildOptions{})
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	nodes, err := DialNodes(ctx, conf.VirtualStorages, nil, nil)
+	require.NoError(t, err)
+	defer nodes.Close()
+
+	cc, _, cleanup := runPraefectServer(t, conf, buildOptions{
+		withConnections: nodes.Connections(),
+	})
 	defer cleanup()
 
 	client := gitalypb.NewServerServiceClient(cc)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
 	metadata, err := client.ServerInfo(ctx, &gitalypb.ServerInfoRequest{})
 	require.NoError(t, err)
