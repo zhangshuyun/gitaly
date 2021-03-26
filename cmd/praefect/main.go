@@ -304,6 +304,7 @@ func run(cfgs []starter.Config, conf config.Config) error {
 		healthChecker praefect.HealthChecker
 		nodeSet       praefect.NodeSet
 		router        praefect.Router
+		primaryGetter praefect.PrimaryGetter
 	)
 	if conf.Failover.ElectionStrategy == config.ElectionStrategyPerRepository {
 		nodeSet, err = praefect.DialNodes(ctx, conf.VirtualStorages, protoregistry.GitalyProtoPreregistered, errTracker)
@@ -327,6 +328,7 @@ func run(cfgs []starter.Config, conf config.Config) error {
 			}
 		}()
 
+		primaryGetter = elector
 		assignmentStore = datastore.NewAssignmentStore(db, conf.StorageNames())
 
 		router = praefect.NewPerRepositoryRouter(
@@ -342,6 +344,7 @@ func run(cfgs []starter.Config, conf config.Config) error {
 		healthChecker = praefect.HealthChecker(nodeManager)
 		nodeSet = praefect.NodeSetFromNodeManager(nodeManager)
 		router = praefect.NewNodeManagerRouter(nodeManager, rs)
+		primaryGetter = nodeManager
 
 		nodeManager.Start(conf.Failover.BootstrapInterval.Duration(), conf.Failover.MonitorInterval.Duration())
 	}
@@ -383,6 +386,8 @@ func run(cfgs []starter.Config, conf config.Config) error {
 			rs,
 			assignmentStore,
 			protoregistry.GitalyProtoPreregistered,
+			nodeSet.Connections(),
+			primaryGetter,
 		)
 	)
 	metricsCollectors = append(metricsCollectors, transactionManager, coordinator, repl)

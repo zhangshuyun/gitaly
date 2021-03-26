@@ -35,7 +35,7 @@ func TestServer_ConsistencyCheck_repositorySpecificPrimariesUnsupported(t *testi
 		NewServer(nil,
 			config.Config{
 				Failover: config.Failover{ElectionStrategy: config.ElectionStrategyPerRepository},
-			}, nil, nil, nil,
+			}, nil, nil, nil, nil, nil,
 		).ConsistencyCheck(nil, nil),
 	)
 }
@@ -148,7 +148,7 @@ func TestServer_ConsistencyCheck(t *testing.T) {
 	praefectSrv := grpc.NewServer()
 	defer praefectSrv.Stop()
 
-	gitalypb.RegisterPraefectInfoServiceServer(praefectSrv, NewServer(nm, conf, queue, nil, nil))
+	gitalypb.RegisterPraefectInfoServiceServer(praefectSrv, NewServer(nm, conf, queue, nil, nil, nil, nil))
 	go praefectSrv.Serve(praefectListener)
 
 	praefectConn, err := client.Dial("unix://"+praefectAddr, nil)

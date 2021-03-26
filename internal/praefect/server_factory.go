@@ -12,7 +12,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/grpc-proxy/proxy"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/nodes"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/protoregistry"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/service/info"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/transactions"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -27,19 +26,23 @@ func NewServerFactory(
 	txMgr *transactions.Manager,
 	queue datastore.ReplicationEventQueue,
 	rs datastore.RepositoryStore,
-	rfs info.ReplicationFactorSetter,
+	assignmentStore AssignmentStore,
 	registry *protoregistry.Registry,
+	conns Connections,
+	primaryGetter PrimaryGetter,
 ) *ServerFactory {
 	return &ServerFactory{
-		conf:     conf,
-		logger:   logger,
-		director: director,
-		nodeMgr:  nodeMgr,
-		txMgr:    txMgr,
-		queue:    queue,
-		rs:       rs,
-		rfs:      rfs,
-		registry: registry,
+		conf:            conf,
+		logger:          logger,
+		director:        director,
+		nodeMgr:         nodeMgr,
+		txMgr:           txMgr,
+		queue:           queue,
+		rs:              rs,
+		assignmentStore: assignmentStore,
+		registry:        registry,
+		conns:           conns,
+		primaryGetter:   primaryGetter,
 	}
 }
 
@@ -53,9 +56,11 @@ type ServerFactory struct {
 	txMgr            *transactions.Manager
 	queue            datastore.ReplicationEventQueue
 	rs               datastore.RepositoryStore
-	rfs              info.ReplicationFactorSetter
+	assignmentStore  AssignmentStore
 	registry         *protoregistry.Registry
 	secure, insecure []*grpc.Server
+	conns            Connections
+	primaryGetter    PrimaryGetter
 }
 
 // Serve starts serving on the provided listener with newly created grpc.Server
@@ -124,7 +129,9 @@ func (s *ServerFactory) createGRPC(grpcOpts ...grpc.ServerOption) *grpc.Server {
 		s.txMgr,
 		s.queue,
 		s.rs,
-		s.rfs,
+		s.assignmentStore,
+		s.conns,
+		s.primaryGetter,
 		grpcOpts...,
 	)
 }
