@@ -15,8 +15,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
-// pushBatchSize is the maximum number of branches to push in a single push call.
-const pushBatchSize = 10
+// PushBatchSize is the maximum number of branches to push in a single push call.
+const PushBatchSize = 10
 
 func (s *server) UpdateRemoteMirror(stream gitalypb.RemoteService_UpdateRemoteMirrorServer) error {
 	firstRequest, err := stream.Recv()
@@ -216,8 +216,8 @@ func (s *server) goUpdateRemoteMirror(stream gitalypb.RemoteService_UpdateRemote
 
 		for len(refspecs) > 0 {
 			batch := refspecs
-			if len(refspecs) > pushBatchSize {
-				batch = refspecs[:pushBatchSize]
+			if len(refspecs) > PushBatchSize {
+				batch = refspecs[:PushBatchSize]
 			}
 
 			refspecs = refspecs[len(batch):]

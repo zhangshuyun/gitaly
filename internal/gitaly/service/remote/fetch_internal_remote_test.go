@@ -2,7 +2,9 @@ package remote
 
 import (
 	"context"
+	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -19,8 +21,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/ref"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/ssh"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
@@ -145,76 +147,57 @@ func listenGitalySSHCalls(t *testing.T, conf config.Cfg) func() []GitalySSHParam
 }
 
 func TestSuccessfulFetchInternalRemote(t *testing.T) {
-	defer func(oldConf config.Cfg) { config.Config = oldConf }(config.Config)
+	remoteCfg, remoteRepo, remoteRepoPath := testcfg.BuildWithRepo(t)
 
-	getGitalySSHInvocationParams, cleanup := listenGitalySSHCalls(t, config.Config)
-	defer cleanup()
+	testhelper.ConfigureGitalyHooksBin(t, remoteCfg)
 
-	gitaly0Dir, cleanup := testhelper.TempDir(t)
-	defer cleanup()
-
-	gitaly1Dir, cleanup := testhelper.TempDir(t)
-	defer cleanup()
-
-	config.Config.Storages = append(config.Config.Storages, []config.Storage{
-		{
-			Name: "gitaly-0",
-			Path: gitaly0Dir,
-		},
-		{
-			Name: "gitaly-1",
-			Path: gitaly1Dir,
-		},
-	}...)
-
-	testhelper.ConfigureGitalyHooksBinary(config.Config.BinDir)
-
-	hookManager := &mockHookManager{}
-	gitaly0Addr := testserver.RunGitalyServer(t, config.Config, nil, func(srv *grpc.Server, deps *service.Dependencies) {
+	remoteAddr := testserver.RunGitalyServer(t, remoteCfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterSSHServiceServer(srv, ssh.NewServer(deps.GetCfg(), deps.GetLocator(), deps.GetGitCmdFactory()))
 		gitalypb.RegisterRefServiceServer(srv, ref.NewServer(deps.GetCfg(), deps.GetLocator(), deps.GetGitCmdFactory(), deps.GetTxManager()))
 		gitalypb.RegisterHookServiceServer(srv, hook.NewServer(deps.GetCfg(), deps.GetHookManager(), deps.GetGitCmdFactory()))
 	}, testserver.WithDisablePraefect())
 
-	gitaly1Cfg := config.Config
-	sockDir, cleanup := testhelper.TempDir(t)
-	t.Cleanup(cleanup)
-	gitaly1Cfg.InternalSocketDir = sockDir
-	gitaly1Addr := testserver.RunGitalyServer(t, gitaly1Cfg, RubyServer, func(srv *grpc.Server, deps *service.Dependencies) {
+	gittest.CreateCommit(t, remoteRepoPath, "master", nil)
+
+	localCfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("gitaly-1"))
+	t.Cleanup(localCfgBuilder.Cleanup)
+
+	localCfg, localRepos := localCfgBuilder.BuildWithRepoAt(t, "stub")
+	localRepo := localRepos[0]
+
+	testhelper.ConfigureGitalySSHBin(t, localCfg)
+	testhelper.ConfigureGitalyHooksBin(t, localCfg)
+
+	getGitalySSHInvocationParams := listenGitalySSHCalls(t, localCfg)
+
+	hookManager := &mockHookManager{}
+	localAddr := testserver.RunGitalyServer(t, localCfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterRemoteServiceServer(srv, NewServer(deps.GetCfg(), deps.GetRubyServer(), deps.GetLocator(), deps.GetGitCmdFactory()))
 		gitalypb.RegisterHookServiceServer(srv, hook.NewServer(deps.GetCfg(), deps.GetHookManager(), deps.GetGitCmdFactory()))
 	}, testserver.WithHookManager(hookManager), testserver.WithDisablePraefect())
-	repo, _, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
 
-	locator := config.NewLocator(config.Config)
+	localRepoPath := filepath.Join(localCfg.Storages[0].Path, localRepo.GetRelativePath())
+	testhelper.MustRunCommand(t, nil, "git", "-C", localRepoPath, "symbolic-ref", "HEAD", "refs/heads/feature")
 
-	gitaly0Repo, gitaly0RepoPath, cleanup := cloneRepoAtStorage(t, locator, repo, "gitaly-0")
-	defer cleanup()
+	client, conn := newRemoteClient(t, localAddr)
+	t.Cleanup(func() { conn.Close() })
 
-	gittest.CreateCommit(t, gitaly0RepoPath, "master", nil)
+	ctx, cancel := testhelper.Context()
+	t.Cleanup(cancel)
 
-	gitaly1Repo, gitaly1RepoPath, cleanup := cloneRepoAtStorage(t, locator, repo, "gitaly-1")
-	defer cleanup()
-
-	testhelper.MustRunCommand(t, nil, "git", "-C", gitaly1RepoPath, "symbolic-ref", "HEAD", "refs/heads/feature")
-
-	client, conn := newRemoteClient(t, gitaly1Addr)
-	defer conn.Close()
-
-	ctx, err := helper.InjectGitalyServers(ctx, "gitaly-0", gitaly0Addr, config.Config.Auth.Token)
+	ctx, err := helper.InjectGitalyServers(ctx, remoteRepo.GetStorageName(), remoteAddr, "")
 	require.NoError(t, err)
 
 	c, err := client.FetchInternalRemote(ctx, &gitalypb.FetchInternalRemoteRequest{
-		Repository:       gitaly1Repo,
-		RemoteRepository: gitaly0Repo,
+		Repository:       localRepo,
+		RemoteRepository: remoteRepo,
 	})
 	require.NoError(t, err)
 	require.True(t, c.GetResult())
 
 	require.Equal(t,
-		string(testhelper.MustRunCommand(t, nil, "git", "-C", gitaly0RepoPath, "show-ref", "--head")),
-		string(testhelper.MustRunCommand(t, nil, "git", "-C", gitaly1RepoPath, "show-ref", "--head")),
+		string(testhelper.MustRunCommand(t, nil, "git", "-C", remoteRepoPath, "show-ref", "--head")),
+		string(testhelper.MustRunCommand(t, nil, "git", "-C", localRepoPath, "show-ref", "--head")),
 	)
 
 	gitalySSHInvocationParams := getGitalySSHInvocationParams()
@@ -226,7 +209,7 @@ func TestSuccessfulFetchInternalRemote(t *testing.T) {
 			"GIT_TERMINAL_PROMPT=0",
 			"GIT_SSH_VARIANT=simple",
 			"LANG=en_US.UTF-8",
-			"GITALY_ADDRESS=" + gitaly0Addr,
+			"GITALY_ADDRESS=" + remoteAddr,
 		},
 	)
 
@@ -234,22 +217,16 @@ func TestSuccessfulFetchInternalRemote(t *testing.T) {
 }
 
 func TestFailedFetchInternalRemote(t *testing.T) {
-	serverSocketPath := runRemoteServiceServer(t, config.Config)
-
-	client, conn := newRemoteClient(t, serverSocketPath)
-	defer conn.Close()
-
-	repo, _, cleanupFn := gittest.InitBareRepo(t)
-	defer cleanupFn()
+	cfg, repo, _, client := setupRemoteService(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	md := testhelper.GitalyServersMetadata(t, serverSocketPath)
+	md := testhelper.GitalyServersMetadata(t, cfg.SocketPath)
 	ctx = metadata.NewOutgoingContext(ctx, md)
 
 	// Non-existing remote repo
-	remoteRepo := &gitalypb.Repository{StorageName: "default", RelativePath: "fake.git"}
+	remoteRepo := &gitalypb.Repository{StorageName: repo.GetStorageName(), RelativePath: "fake.git"}
 
 	request := &gitalypb.FetchInternalRemoteRequest{
 		Repository:       repo,
@@ -262,15 +239,10 @@ func TestFailedFetchInternalRemote(t *testing.T) {
 }
 
 func TestFailedFetchInternalRemoteDueToValidations(t *testing.T) {
-	serverSocketPath := runRemoteServiceServer(t, config.Config)
-
-	client, conn := newRemoteClient(t, serverSocketPath)
-	defer conn.Close()
+	_, repo, _, client := setupRemoteService(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
-
-	repo := &gitalypb.Repository{StorageName: "default", RelativePath: "repo.git"}
 
 	testCases := []struct {
 		desc    string
@@ -294,21 +266,4 @@ func TestFailedFetchInternalRemoteDueToValidations(t *testing.T) {
 			require.Contains(t, err.Error(), tc.desc)
 		})
 	}
-}
-
-func cloneRepoAtStorage(t testing.TB, locator storage.Locator, src *gitalypb.Repository, storageName string) (*gitalypb.Repository, string, func()) {
-	dst := *src
-	dst.StorageName = storageName
-
-	dstP, err := locator.GetPath(&dst)
-	require.NoError(t, err)
-
-	srcP, err := locator.GetPath(src)
-	require.NoError(t, err)
-
-	require.NoError(t, os.MkdirAll(dstP, 0755))
-	testhelper.MustRunCommand(t, nil, "git",
-		"clone", "--no-hardlinks", "--dissociate", "--bare", srcP, dstP)
-
-	return &dst, dstP, func() { require.NoError(t, os.RemoveAll(dstP)) }
 }

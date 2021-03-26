@@ -4,23 +4,15 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
 
 func TestFindRemoteRootRefSuccess(t *testing.T) {
-	serverSocketPath := runRemoteServiceServer(t, config.Config)
+	_, repo, _, client := setupRemoteService(t)
 
-	client, conn := newRemoteClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-
-	request := &gitalypb.FindRemoteRootRefRequest{Repository: testRepo, Remote: "origin"}
+	request := &gitalypb.FindRemoteRootRefRequest{Repository: repo, Remote: "origin"}
 	testCtx, cancelCtx := testhelper.Context()
 	defer cancelCtx()
 
@@ -30,15 +22,9 @@ func TestFindRemoteRootRefSuccess(t *testing.T) {
 }
 
 func TestFindRemoteRootRefFailedDueToValidation(t *testing.T) {
-	serverSocketPath := runRemoteServiceServer(t, config.Config)
-
-	client, conn := newRemoteClient(t, serverSocketPath)
-	defer conn.Close()
+	_, repo, _, client := setupRemoteService(t)
 
 	invalidRepo := &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
 
 	testCases := []struct {
 		desc    string
@@ -57,12 +43,12 @@ func TestFindRemoteRootRefFailedDueToValidation(t *testing.T) {
 		},
 		{
 			desc:    "Remote is nil",
-			request: &gitalypb.FindRemoteRootRefRequest{Repository: testRepo},
+			request: &gitalypb.FindRemoteRootRefRequest{Repository: repo},
 			code:    codes.InvalidArgument,
 		},
 		{
 			desc:    "Remote is empty",
-			request: &gitalypb.FindRemoteRootRefRequest{Repository: testRepo, Remote: ""},
+			request: &gitalypb.FindRemoteRootRefRequest{Repository: repo, Remote: ""},
 			code:    codes.InvalidArgument,
 		},
 	}
@@ -77,15 +63,9 @@ func TestFindRemoteRootRefFailedDueToValidation(t *testing.T) {
 }
 
 func TestFindRemoteRootRefFailedDueToInvalidRemote(t *testing.T) {
-	serverSocketPath := runRemoteServiceServer(t, config.Config)
+	_, repo, _, client := setupRemoteService(t)
 
-	client, conn := newRemoteClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-
-	request := &gitalypb.FindRemoteRootRefRequest{Repository: testRepo, Remote: "invalid"}
+	request := &gitalypb.FindRemoteRootRefRequest{Repository: repo, Remote: "invalid"}
 	testCtx, cancelCtx := testhelper.Context()
 	defer cancelCtx()
 

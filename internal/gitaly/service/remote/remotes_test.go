@@ -9,21 +9,15 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
 
-func TestSuccessfulAddRemote(t *testing.T) {
-	serverSocketPath := runRemoteServiceServer(t, config.Config)
-
-	client, conn := newRemoteClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+func testSuccessfulAddRemote(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
+	_, repo, repoPath, client := setupRemoteServiceWithRuby(t, cfg, rubySrv)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -70,7 +64,7 @@ func TestSuccessfulAddRemote(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.description, func(t *testing.T) {
 			request := &gitalypb.AddRemoteRequest{
-				Repository:    testRepo,
+				Repository:    repo,
 				Name:          tc.remoteName,
 				Url:           tc.url,
 				MirrorRefmaps: tc.mirrorRefmaps,
@@ -79,13 +73,13 @@ func TestSuccessfulAddRemote(t *testing.T) {
 			_, err := client.AddRemote(ctx, request)
 			require.NoError(t, err)
 
-			remotes := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "remote", "-v")
+			remotes := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "remote", "-v")
 
 			require.Contains(t, string(remotes), fmt.Sprintf("%s\t%s (fetch)", tc.remoteName, tc.url))
 			require.Contains(t, string(remotes), fmt.Sprintf("%s\t%s (push)", tc.remoteName, tc.url))
 
 			mirrorConfigRegexp := fmt.Sprintf("remote.%s", tc.remoteName)
-			mirrorConfig := string(testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "config", "--get-regexp", mirrorConfigRegexp))
+			mirrorConfig := string(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "--get-regexp", mirrorConfigRegexp))
 			if len(tc.resolvedMirrorRefmaps) > 0 {
 				for _, resolvedMirrorRefmap := range tc.resolvedMirrorRefmaps {
 					require.Contains(t, mirrorConfig, resolvedMirrorRefmap)
@@ -100,13 +94,7 @@ func TestSuccessfulAddRemote(t *testing.T) {
 }
 
 func TestFailedAddRemoteDueToValidation(t *testing.T) {
-	serverSocketPath := runRemoteServiceServer(t, config.Config)
-
-	client, conn := newRemoteClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupRemoteService(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -134,7 +122,7 @@ func TestFailedAddRemoteDueToValidation(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.description, func(t *testing.T) {
 			request := &gitalypb.AddRemoteRequest{
-				Repository: testRepo,
+				Repository: repo,
 				Name:       tc.remoteName,
 				Url:        tc.url,
 			}
@@ -146,18 +134,12 @@ func TestFailedAddRemoteDueToValidation(t *testing.T) {
 }
 
 func TestSuccessfulRemoveRemote(t *testing.T) {
-	serverSocketPath := runRemoteServiceServer(t, config.Config)
-
-	client, conn := newRemoteClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, repoPath, client := setupRemoteService(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "remote", "add", "my-remote", "http://my-repo.git")
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "remote", "add", "my-remote", "http://my-repo.git")
 
 	testCases := []struct {
 		description string
@@ -179,7 +161,7 @@ func TestSuccessfulRemoveRemote(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.description, func(t *testing.T) {
 			request := &gitalypb.RemoveRemoteRequest{
-				Repository: testRepo,
+				Repository: repo,
 				Name:       tc.remoteName,
 			}
 
@@ -187,7 +169,7 @@ func TestSuccessfulRemoveRemote(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, tc.result, r.GetResult())
 
-			remotes := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "remote")
+			remotes := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "remote")
 
 			require.NotContains(t, string(remotes), tc.remoteName)
 		})
@@ -195,28 +177,19 @@ func TestSuccessfulRemoveRemote(t *testing.T) {
 }
 
 func TestFailedRemoveRemoteDueToValidation(t *testing.T) {
-	serverSocketPath := runRemoteServiceServer(t, config.Config)
-
-	client, conn := newRemoteClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupRemoteService(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	request := &gitalypb.RemoveRemoteRequest{Repository: testRepo} // Remote name empty
+	request := &gitalypb.RemoveRemoteRequest{Repository: repo} // Remote name empty
 
 	_, err := client.RemoveRemote(ctx, request)
 	testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
 }
 
 func TestFindRemoteRepository(t *testing.T) {
-	serverSocketPath := runRemoteServiceServer(t, config.Config)
-
-	client, conn := newRemoteClient(t, serverSocketPath)
-	defer conn.Close()
+	_, repo, _, client := setupRemoteService(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -228,17 +201,14 @@ func TestFindRemoteRepository(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	resp, err := client.FindRemoteRepository(ctx, &gitalypb.FindRemoteRepositoryRequest{Remote: ts.URL, StorageName: "default"})
+	resp, err := client.FindRemoteRepository(ctx, &gitalypb.FindRemoteRepositoryRequest{Remote: ts.URL, StorageName: repo.GetStorageName()})
 	require.NoError(t, err)
 
 	require.True(t, resp.Exists)
 }
 
 func TestFailedFindRemoteRepository(t *testing.T) {
-	serverSocketPath := runRemoteServiceServer(t, config.Config)
-
-	client, conn := newRemoteClient(t, serverSocketPath)
-	defer conn.Close()
+	_, repo, _, client := setupRemoteService(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -254,7 +224,7 @@ func TestFailedFindRemoteRepository(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		resp, err := client.FindRemoteRepository(ctx, &gitalypb.FindRemoteRepositoryRequest{Remote: tc.remote, StorageName: "default"})
+		resp, err := client.FindRemoteRepository(ctx, &gitalypb.FindRemoteRepositoryRequest{Remote: tc.remote, StorageName: repo.GetStorageName()})
 		if tc.code == codes.OK {
 			require.NoError(t, err)
 		} else {
