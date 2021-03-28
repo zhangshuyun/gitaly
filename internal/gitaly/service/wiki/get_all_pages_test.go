@@ -6,27 +6,21 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/internal/storage"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
 
-func TestSuccessfulWikiGetAllPagesRequest(t *testing.T) {
+func testSuccessfulWikiGetAllPagesRequest(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	locator := config.NewLocator(config.Config)
-	stop, serverSocketPath := runWikiServiceServer(t, locator)
-	defer stop()
-
-	client, conn := newWikiClient(t, serverSocketPath)
-	defer conn.Close()
-
-	wikiRepo, _, cleanupFunc := setupWikiRepo(t)
+	client := setupWikiService(t, cfg, rubySrv)
+	wikiRepo, wikiRepoPath, cleanupFunc := setupWikiRepo(t, cfg)
 	defer cleanupFunc()
 
-	expectedPages := createTestWikiPages(t, locator, client, wikiRepo)
+	expectedPages := createTestWikiPages(t, cfg, client, wikiRepo, wikiRepoPath)
 
 	testcases := []struct {
 		desc          string
@@ -68,21 +62,15 @@ func TestSuccessfulWikiGetAllPagesRequest(t *testing.T) {
 	}
 }
 
-func TestWikiGetAllPagesSorting(t *testing.T) {
+func testWikiGetAllPagesSorting(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	locator := config.NewLocator(config.Config)
-	stop, serverSocketPath := runWikiServiceServer(t, locator)
-	defer stop()
-
-	client, conn := newWikiClient(t, serverSocketPath)
-	defer conn.Close()
-
-	wikiRepo, _, cleanupFunc := setupWikiRepo(t)
+	client := setupWikiService(t, cfg, rubySrv)
+	wikiRepo, wikiRepoPath, cleanupFunc := setupWikiRepo(t, cfg)
 	defer cleanupFunc()
 
-	expectedPages := createTestWikiPages(t, locator, client, wikiRepo)
+	expectedPages := createTestWikiPages(t, cfg, client, wikiRepo, wikiRepoPath)
 
 	testcasesWithSorting := []struct {
 		desc          string
@@ -180,13 +168,8 @@ func TestWikiGetAllPagesSorting(t *testing.T) {
 	}
 }
 
-func TestFailedWikiGetAllPagesDueToValidation(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	stop, serverSocketPath := runWikiServiceServer(t, locator)
-	defer stop()
-
-	client, conn := newWikiClient(t, serverSocketPath)
-	defer conn.Close()
+func testFailedWikiGetAllPagesDueToValidation(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
+	client := setupWikiService(t, cfg, rubySrv)
 
 	testCases := []struct {
 		desc string
@@ -209,13 +192,13 @@ func TestFailedWikiGetAllPagesDueToValidation(t *testing.T) {
 	}
 }
 
-func createTestWikiPages(t *testing.T, locator storage.Locator, client gitalypb.WikiServiceClient, wikiRepo *gitalypb.Repository) []*gitalypb.WikiPage {
+func createTestWikiPages(t *testing.T, cfg config.Cfg, client gitalypb.WikiServiceClient, wikiRepo *gitalypb.Repository, wikiRepoPath string) []*gitalypb.WikiPage {
 	page1Name := "Page 1"
 	page2Name := "Page 2"
 	page3Name := "Page 3"
-	createTestWikiPage(t, locator, client, wikiRepo, createWikiPageOpts{title: page2Name, forceContentEmpty: true})
-	createTestWikiPage(t, locator, client, wikiRepo, createWikiPageOpts{title: page1Name})
-	page3Commit := createTestWikiPage(t, locator, client, wikiRepo, createWikiPageOpts{title: page3Name})
+	createTestWikiPage(t, cfg, client, wikiRepo, wikiRepoPath, createWikiPageOpts{title: page2Name, forceContentEmpty: true})
+	createTestWikiPage(t, cfg, client, wikiRepo, wikiRepoPath, createWikiPageOpts{title: page1Name})
+	page3Commit := createTestWikiPage(t, cfg, client, wikiRepo, wikiRepoPath, createWikiPageOpts{title: page3Name})
 	expectedPage1 := &gitalypb.WikiPage{
 		Version:    &gitalypb.WikiPageVersion{Commit: page3Commit, Format: "markdown"},
 		Title:      []byte(page1Name),

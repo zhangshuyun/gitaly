@@ -4,19 +4,21 @@ import (
 	"bytes"
 	"io/ioutil"
 	"os"
-	"path/filepath"
-	"strings"
+	"reflect"
+	"runtime"
 	"testing"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/hooks"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
@@ -29,10 +31,7 @@ type createWikiPageOpts struct {
 	forceContentEmpty bool
 }
 
-var (
-	mockPageContent = bytes.Repeat([]byte("Mock wiki page content"), 10000)
-	rubyServer      *rubyserver.Server
-)
+var mockPageContent = bytes.Repeat([]byte("Mock wiki page content"), 10000)
 
 func TestMain(m *testing.M) {
 	os.Exit(testMain(m))
@@ -52,42 +51,77 @@ func testMain(m *testing.M) int {
 	defer os.RemoveAll(tempDir)
 
 	hooks.Override = tempDir + "/hooks"
-	config.Config.InternalSocketDir = tempDir + "/sock"
-
-	rubyServer = rubyserver.New(config.Config)
-	if err := rubyServer.Start(); err != nil {
-		log.Error(err)
-		return 1
-	}
-	defer rubyServer.Stop()
 
 	return m.Run()
 }
 
-func runWikiServiceServer(t *testing.T, locator storage.Locator) (func(), string) {
+func TestWithRubySidecar(t *testing.T) {
+	cfg := testcfg.Build(t)
+
+	rubySrv := rubyserver.New(cfg)
+	require.NoError(t, rubySrv.Start())
+	t.Cleanup(rubySrv.Stop)
+
+	fs := []func(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server){
+		testSuccessfulWikiDeletePageRequest,
+		testFailedWikiDeletePageDueToValidations,
+		testSuccessfulWikiFindFileRequest,
+		testFailedWikiFindFileDueToValidation,
+		testSuccessfulWikiFindPageRequest,
+		testSuccessfulWikiFindPageSameTitleDifferentPathRequest,
+		testSuccessfulWikiFindPageRequestWithTrailers,
+		testSuccessfulWikiGetAllPagesRequest,
+		testWikiGetAllPagesSorting,
+		testFailedWikiGetAllPagesDueToValidation,
+		testWikiGetPageVersionsRequest,
+		testWikiGetPageVersionsPaginationParams,
+		testSuccessfulWikiListPagesRequest,
+		testWikiListPagesSorting,
+		testSuccessfulWikiUpdatePageRequest,
+		testFailedWikiUpdatePageDueToValidations,
+		testSuccessfulWikiWritePageRequest,
+		testFailedWikiWritePageDueToDuplicatePage,
+		testFailedWikiWritePageInPathDueToDuplicatePage,
+	}
+	for _, f := range fs {
+		t.Run(runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name(), func(t *testing.T) {
+			f(t, cfg, rubySrv)
+		})
+	}
+}
+
+func setupWikiService(t testing.TB, cfg config.Cfg, rubySrv *rubyserver.Server) gitalypb.WikiServiceClient {
+	addr := runWikiServiceServer(t, config.NewLocator(cfg), rubySrv)
+	client := newWikiClient(t, addr)
+	return client
+}
+
+func runWikiServiceServer(t testing.TB, locator storage.Locator, rubySrv *rubyserver.Server) string {
+	t.Helper()
+
 	srv := testhelper.NewServer(t, nil, nil)
 
-	gitalypb.RegisterWikiServiceServer(srv.GrpcServer(), NewServer(rubyServer, locator))
+	gitalypb.RegisterWikiServiceServer(srv.GrpcServer(), NewServer(rubySrv, locator))
 	reflection.Register(srv.GrpcServer())
 
 	srv.Start(t)
+	t.Cleanup(srv.Stop)
 
-	return srv.Stop, "unix://" + srv.Socket()
+	return "unix://" + srv.Socket()
 }
 
-func newWikiClient(t *testing.T, serverSocketPath string) (gitalypb.WikiServiceClient, *grpc.ClientConn) {
-	connOpts := []grpc.DialOption{
-		grpc.WithInsecure(),
-	}
-	conn, err := grpc.Dial(serverSocketPath, connOpts...)
-	if err != nil {
-		t.Fatal(err)
-	}
+func newWikiClient(t testing.TB, serverSocketPath string) gitalypb.WikiServiceClient {
+	t.Helper()
 
-	return gitalypb.NewWikiServiceClient(conn), conn
+	conn, err := grpc.Dial(serverSocketPath, grpc.WithInsecure())
+	require.NoError(t, err)
+	t.Cleanup(func() { conn.Close() })
+	return gitalypb.NewWikiServiceClient(conn)
 }
 
 func writeWikiPage(t *testing.T, client gitalypb.WikiServiceClient, wikiRepo *gitalypb.Repository, opts createWikiPageOpts) {
+	t.Helper()
+
 	var content []byte
 	if len(opts.content) == 0 && !opts.forceContentEmpty {
 		content = mockPageContent
@@ -131,6 +165,8 @@ func writeWikiPage(t *testing.T, client gitalypb.WikiServiceClient, wikiRepo *gi
 }
 
 func updateWikiPage(t *testing.T, client gitalypb.WikiServiceClient, wikiRepo *gitalypb.Repository, name string, content []byte) {
+	t.Helper()
+
 	commitDetails := &gitalypb.WikiCommitDetails{
 		Name:     []byte("Ahmad Sherif"),
 		Email:    []byte("ahmad@gitlab.com"),
@@ -159,19 +195,8 @@ func updateWikiPage(t *testing.T, client gitalypb.WikiServiceClient, wikiRepo *g
 	require.NoError(t, err)
 }
 
-func setupWikiRepo(t *testing.T) (*gitalypb.Repository, string, func()) {
-	relPath := strings.Join([]string{t.Name(), "wiki-test.git"}, "-")
-	storagePath := testhelper.GitlabTestStoragePath()
-	wikiRepoPath := filepath.Join(storagePath, relPath)
-
-	testhelper.MustRunCommand(t, nil, "git", "init", "--bare", wikiRepoPath)
-
-	wikiRepo := &gitalypb.Repository{
-		StorageName:  "default",
-		RelativePath: relPath,
-	}
-
-	return wikiRepo, wikiRepoPath, func() { os.RemoveAll(wikiRepoPath) }
+func setupWikiRepo(t *testing.T, cfg config.Cfg) (*gitalypb.Repository, string, func()) {
+	return gittest.InitBareRepoAt(t, cfg.Storages[0])
 }
 
 func sendBytes(data []byte, chunkSize int, sender func([]byte) error) (int, error) {
@@ -191,16 +216,16 @@ func sendBytes(data []byte, chunkSize int, sender func([]byte) error) (int, erro
 	return i, nil
 }
 
-func createTestWikiPage(t *testing.T, locator storage.Locator, client gitalypb.WikiServiceClient, wikiRepoProto *gitalypb.Repository, opts createWikiPageOpts) *gitalypb.GitCommit {
+func createTestWikiPage(t *testing.T, cfg config.Cfg, client gitalypb.WikiServiceClient, wikiRepoProto *gitalypb.Repository, wikiRepoPath string, opts createWikiPageOpts) *gitalypb.GitCommit {
+	t.Helper()
+
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	wikiRepoPath, err := locator.GetRepoPath(wikiRepoProto)
-	require.NoError(t, err)
 	writeWikiPage(t, client, wikiRepoProto, opts)
 	head1ID := testhelper.MustRunCommand(t, nil, "git", "-C", wikiRepoPath, "show", "--format=format:%H", "--no-patch", "HEAD")
 
-	wikiRepo := localrepo.New(git.NewExecCommandFactory(config.Config), wikiRepoProto, config.Config)
+	wikiRepo := localrepo.New(git.NewExecCommandFactory(cfg), wikiRepoProto, cfg)
 	pageCommit, err := wikiRepo.ReadCommit(ctx, git.Revision(head1ID))
 	require.NoError(t, err, "look up git commit after writing a wiki page")
 
@@ -208,6 +233,8 @@ func createTestWikiPage(t *testing.T, locator storage.Locator, client gitalypb.W
 }
 
 func requireWikiPagesEqual(t *testing.T, expectedPage *gitalypb.WikiPage, actualPage *gitalypb.WikiPage) {
+	t.Helper()
+
 	// require.Equal doesn't display a proper diff when either expected/actual has a field
 	// with large data (RawData in our case), so we compare file attributes and content separately.
 	expectedContent := expectedPage.GetRawData()

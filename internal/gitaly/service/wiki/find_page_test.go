@@ -8,21 +8,18 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
 
-func TestSuccessfulWikiFindPageRequest(t *testing.T) {
-	wikiRepo, _, cleanupFunc := setupWikiRepo(t)
+func testSuccessfulWikiFindPageRequest(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
+	wikiRepo, wikiRepoPath, cleanupFunc := setupWikiRepo(t, cfg)
 	defer cleanupFunc()
 
-	locator := config.NewLocator(config.Config)
-	stop, serverSocketPath := runWikiServiceServer(t, locator)
-	defer stop()
-
-	client, conn := newWikiClient(t, serverSocketPath)
-	defer conn.Close()
+	client := setupWikiService(t, cfg, rubySrv)
 
 	page1Name := "Home Pagé"
 	page2Name := "Instálling/Step 133-b"
@@ -33,14 +30,14 @@ func TestSuccessfulWikiFindPageRequest(t *testing.T) {
 	page7Name := "~Tilde in filename"
 	page8Name := "~!/Tilde with invalid user"
 
-	page1Commit := createTestWikiPage(t, locator, client, wikiRepo, createWikiPageOpts{title: page1Name})
-	createTestWikiPage(t, locator, client, wikiRepo, createWikiPageOpts{title: page2Name})
-	createTestWikiPage(t, locator, client, wikiRepo, createWikiPageOpts{title: page3Name})
-	createTestWikiPage(t, locator, client, wikiRepo, createWikiPageOpts{title: page4Name, content: []byte("f\xFCr")})
-	createTestWikiPage(t, locator, client, wikiRepo, createWikiPageOpts{title: page5Name, forceContentEmpty: true})
-	createTestWikiPage(t, locator, client, wikiRepo, createWikiPageOpts{title: page6Name})
-	createTestWikiPage(t, locator, client, wikiRepo, createWikiPageOpts{title: page7Name})
-	page8Commit := createTestWikiPage(t, locator, client, wikiRepo, createWikiPageOpts{title: page8Name})
+	page1Commit := createTestWikiPage(t, cfg, client, wikiRepo, wikiRepoPath, createWikiPageOpts{title: page1Name})
+	createTestWikiPage(t, cfg, client, wikiRepo, wikiRepoPath, createWikiPageOpts{title: page2Name})
+	createTestWikiPage(t, cfg, client, wikiRepo, wikiRepoPath, createWikiPageOpts{title: page3Name})
+	createTestWikiPage(t, cfg, client, wikiRepo, wikiRepoPath, createWikiPageOpts{title: page4Name, content: []byte("f\xFCr")})
+	createTestWikiPage(t, cfg, client, wikiRepo, wikiRepoPath, createWikiPageOpts{title: page5Name, forceContentEmpty: true})
+	createTestWikiPage(t, cfg, client, wikiRepo, wikiRepoPath, createWikiPageOpts{title: page6Name})
+	createTestWikiPage(t, cfg, client, wikiRepo, wikiRepoPath, createWikiPageOpts{title: page7Name})
+	page8Commit := createTestWikiPage(t, cfg, client, wikiRepo, wikiRepoPath, createWikiPageOpts{title: page8Name})
 	latestCommit := page8Commit
 
 	testCases := []struct {
@@ -257,16 +254,11 @@ func TestSuccessfulWikiFindPageRequest(t *testing.T) {
 	}
 }
 
-func TestSuccessfulWikiFindPageSameTitleDifferentPathRequest(t *testing.T) {
-	wikiRepo, _, cleanupFunc := setupWikiRepo(t)
+func testSuccessfulWikiFindPageSameTitleDifferentPathRequest(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
+	wikiRepo, wikiRepoPath, cleanupFunc := setupWikiRepo(t, cfg)
 	defer cleanupFunc()
 
-	locator := config.NewLocator(config.Config)
-	stop, serverSocketPath := runWikiServiceServer(t, locator)
-	defer stop()
-
-	client, conn := newWikiClient(t, serverSocketPath)
-	defer conn.Close()
+	client := setupWikiService(t, cfg, rubySrv)
 
 	page1Name := "page1"
 	page1Content := []byte("content " + page1Name)
@@ -275,8 +267,8 @@ func TestSuccessfulWikiFindPageSameTitleDifferentPathRequest(t *testing.T) {
 	page2Path := "foo/" + page2Name
 	page2Content := []byte("content " + page2Name)
 
-	createTestWikiPage(t, locator, client, wikiRepo, createWikiPageOpts{title: page1Name, content: page1Content})
-	page2Commit := createTestWikiPage(t, locator, client, wikiRepo, createWikiPageOpts{title: page2Path, content: page2Content})
+	createTestWikiPage(t, cfg, client, wikiRepo, wikiRepoPath, createWikiPageOpts{title: page1Name, content: page1Content})
+	page2Commit := createTestWikiPage(t, cfg, client, wikiRepo, wikiRepoPath, createWikiPageOpts{title: page2Path, content: page2Content})
 
 	testCases := []struct {
 		desc         string
@@ -375,15 +367,11 @@ func TestSuccessfulWikiFindPageSameTitleDifferentPathRequest(t *testing.T) {
 }
 
 func TestFailedWikiFindPageDueToValidation(t *testing.T) {
-	wikiRepo, _, cleanupFunc := setupWikiRepo(t)
+	cfg := testcfg.Build(t)
+	wikiRepo, _, cleanupFunc := setupWikiRepo(t, cfg)
 	defer cleanupFunc()
 
-	locator := config.NewLocator(config.Config)
-	stop, serverSocketPath := runWikiServiceServer(t, locator)
-	defer stop()
-
-	client, conn := newWikiClient(t, serverSocketPath)
-	defer conn.Close()
+	client := setupWikiService(t, cfg, nil)
 
 	testCases := []struct {
 		desc  string
@@ -445,14 +433,11 @@ func readFullWikiPageFromWikiFindPageClient(t *testing.T, c gitalypb.WikiService
 }
 
 func TestInvalidWikiFindPageRequestRevision(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	stop, serverSocketPath := runWikiServiceServer(t, locator)
-	defer stop()
+	cfg := testcfg.Build(t)
 
-	client, conn := newWikiClient(t, serverSocketPath)
-	defer conn.Close()
+	client := setupWikiService(t, cfg, nil)
 
-	wikiRepo, _, cleanupFunc := setupWikiRepo(t)
+	wikiRepo, _, cleanupFunc := setupWikiRepo(t, cfg)
 	defer cleanupFunc()
 
 	ctx, cancel := testhelper.Context()
@@ -469,8 +454,8 @@ func TestInvalidWikiFindPageRequestRevision(t *testing.T) {
 	testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
 }
 
-func TestSuccessfulWikiFindPageRequestWithTrailers(t *testing.T) {
-	wikiRepo, worktreePath, cleanupFn := gittest.InitRepoWithWorktree(t)
+func testSuccessfulWikiFindPageRequestWithTrailers(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
+	wikiRepo, worktreePath, cleanupFn := gittest.InitRepoWithWorktreeAtStorage(t, cfg.Storages[0])
 	defer cleanupFn()
 
 	committerName := "Scróoge McDuck" // Include UTF-8 to ensure encoding is handled
@@ -481,15 +466,10 @@ func TestSuccessfulWikiFindPageRequestWithTrailers(t *testing.T) {
 		"-c", fmt.Sprintf("user.email=%s", committerEmail),
 		"commit", "--allow-empty", "-m", "master branch, empty commit")
 
-	locator := config.NewLocator(config.Config)
-	stop, serverSocketPath := runWikiServiceServer(t, locator)
-	defer stop()
-
-	client, conn := newWikiClient(t, serverSocketPath)
-	defer conn.Close()
+	client := setupWikiService(t, cfg, rubySrv)
 
 	page1Name := "Home Pagé"
-	createTestWikiPage(t, locator, client, wikiRepo, createWikiPageOpts{title: page1Name})
+	createTestWikiPage(t, cfg, client, wikiRepo, worktreePath, createWikiPageOpts{title: page1Name})
 
 	testhelper.MustRunCommand(t, nil, "git", "-C", worktreePath,
 		"-c", fmt.Sprintf("user.name=%s", committerName),

@@ -8,25 +8,22 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
 
-func TestSuccessfulWikiWritePageRequest(t *testing.T) {
-	wikiRepoProto, wikiRepoPath, cleanupFunc := setupWikiRepo(t)
+func testSuccessfulWikiWritePageRequest(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
+	wikiRepoProto, wikiRepoPath, cleanupFunc := setupWikiRepo(t, cfg)
 	defer cleanupFunc()
-	wikiRepo := localrepo.New(git.NewExecCommandFactory(config.Config), wikiRepoProto, config.Config)
+	wikiRepo := localrepo.New(git.NewExecCommandFactory(cfg), wikiRepoProto, cfg)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	locator := config.NewLocator(config.Config)
-	stop, serverSocketPath := runWikiServiceServer(t, locator)
-	defer stop()
-
-	client, conn := newWikiClient(t, serverSocketPath)
-	defer conn.Close()
+	client := setupWikiService(t, cfg, rubySrv)
 
 	authorID := int32(1)
 	authorUserName := []byte("ahmad")
@@ -117,16 +114,11 @@ func TestSuccessfulWikiWritePageRequest(t *testing.T) {
 	}
 }
 
-func TestFailedWikiWritePageDueToDuplicatePage(t *testing.T) {
-	wikiRepo, _, cleanupFunc := setupWikiRepo(t)
+func testFailedWikiWritePageDueToDuplicatePage(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
+	wikiRepo, _, cleanupFunc := setupWikiRepo(t, cfg)
 	defer cleanupFunc()
 
-	locator := config.NewLocator(config.Config)
-	stop, serverSocketPath := runWikiServiceServer(t, locator)
-	defer stop()
-
-	client, conn := newWikiClient(t, serverSocketPath)
-	defer conn.Close()
+	client := setupWikiService(t, cfg, rubySrv)
 
 	pageName := "Installing Gitaly"
 	content := []byte("Mock wiki page content")
@@ -163,16 +155,11 @@ func TestFailedWikiWritePageDueToDuplicatePage(t *testing.T) {
 	testhelper.ProtoEqual(t, expectedResponse, response)
 }
 
-func TestFailedWikiWritePageInPathDueToDuplicatePage(t *testing.T) {
-	wikiRepo, _, cleanupFunc := setupWikiRepo(t)
+func testFailedWikiWritePageInPathDueToDuplicatePage(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
+	wikiRepo, _, cleanupFunc := setupWikiRepo(t, cfg)
 	defer cleanupFunc()
 
-	locator := config.NewLocator(config.Config)
-	stop, serverSocketPath := runWikiServiceServer(t, locator)
-	defer stop()
-
-	client, conn := newWikiClient(t, serverSocketPath)
-	defer conn.Close()
+	client := setupWikiService(t, cfg, rubySrv)
 
 	pageName := "foo/Installing Gitaly"
 	content := []byte("Mock wiki page content")
@@ -212,12 +199,8 @@ func TestFailedWikiWritePageInPathDueToDuplicatePage(t *testing.T) {
 func TestFailedWikiWritePageDueToValidations(t *testing.T) {
 	wikiRepo := &gitalypb.Repository{}
 
-	locator := config.NewLocator(config.Config)
-	stop, serverSocketPath := runWikiServiceServer(t, locator)
-	defer stop()
-
-	client, conn := newWikiClient(t, serverSocketPath)
-	defer conn.Close()
+	cfg := testcfg.Build(t)
+	client := setupWikiService(t, cfg, nil)
 
 	commitDetails := &gitalypb.WikiCommitDetails{
 		Name:     []byte("Ahmad Sherif"),

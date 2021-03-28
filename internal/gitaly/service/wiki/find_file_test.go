@@ -10,26 +10,21 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
 
-func TestSuccessfulWikiFindFileRequest(t *testing.T) {
-	_, wikiRepoPath, cleanupFunc := setupWikiRepo(t)
+func testSuccessfulWikiFindFileRequest(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
+	_, wikiRepoPath, cleanupFunc := setupWikiRepo(t, cfg)
 	defer cleanupFunc()
 
-	locator := config.NewLocator(config.Config)
-	stop, serverSocketPath := runWikiServiceServer(t, locator)
-	defer stop()
-
-	client, conn := newWikiClient(t, serverSocketPath)
-	defer conn.Close()
+	client := setupWikiService(t, cfg, rubySrv)
 
 	committerName := "Scrooge McDuck"
 	committerEmail := "scrooge@mcduck.com"
-	storagePath := testhelper.GitlabTestStoragePath()
-	sandboxWikiPath := filepath.Join(storagePath, "find-file-sandbox")
+	sandboxWikiPath := filepath.Join(cfg.Storages[0].Path, "find-file-sandbox")
 
 	testhelper.MustRunCommand(t, nil, "git", "clone", wikiRepoPath, sandboxWikiPath)
 	defer os.RemoveAll(sandboxWikiPath)
@@ -154,16 +149,11 @@ func TestSuccessfulWikiFindFileRequest(t *testing.T) {
 	}
 }
 
-func TestFailedWikiFindFileDueToValidation(t *testing.T) {
-	wikiRepo, _, cleanupFunc := setupWikiRepo(t)
+func testFailedWikiFindFileDueToValidation(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
+	wikiRepo, _, cleanupFunc := setupWikiRepo(t, cfg)
 	defer cleanupFunc()
 
-	locator := config.NewLocator(config.Config)
-	stop, serverSocketPath := runWikiServiceServer(t, locator)
-	defer stop()
-
-	client, conn := newWikiClient(t, serverSocketPath)
-	defer conn.Close()
+	client := setupWikiService(t, cfg, rubySrv)
 
 	testCases := []struct {
 		desc     string
@@ -221,6 +211,8 @@ func drainWikiFindFileResponse(c gitalypb.WikiService_WikiFindFileClient) error 
 }
 
 func readFullResponseFromWikiFindFileClient(t *testing.T, c gitalypb.WikiService_WikiFindFileClient) (fullResponse *gitalypb.WikiFindFileResponse) {
+	t.Helper()
+
 	for {
 		resp, err := c.Recv()
 		if err == io.EOF {
