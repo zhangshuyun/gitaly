@@ -12,6 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/server/auth"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/internal/version"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
@@ -20,18 +21,11 @@ import (
 )
 
 func TestGitalyServerInfo(t *testing.T) {
-	// Setup storage paths
-	testStorages := []config.Storage{
-		{Name: "default", Path: testhelper.GitlabTestStoragePath()},
-		{Name: "broken", Path: "/does/not/exist"},
-	}
+	cfg := testcfg.Build(t)
 
-	defer func(oldStorages []config.Storage) {
-		config.Config.Storages = oldStorages
-	}(config.Config.Storages)
-	config.Config.Storages = testStorages
+	cfg.Storages = append(cfg.Storages, config.Storage{Name: "broken", Path: "/does/not/exist"})
 
-	server, serverSocketPath := runServer(t, config.Config)
+	server, serverSocketPath := runServer(t, cfg)
 	defer server.Stop()
 
 	client, conn := newServerClient(t, serverSocketPath)
@@ -40,8 +34,8 @@ func TestGitalyServerInfo(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	require.NoError(t, storage.WriteMetadataFile(testStorages[0].Path))
-	metadata, err := storage.ReadMetadataFile(testStorages[0].Path)
+	require.NoError(t, storage.WriteMetadataFile(cfg.Storages[0].Path))
+	metadata, err := storage.ReadMetadataFile(cfg.Storages[0].Path)
 	require.NoError(t, err)
 
 	c, err := client.ServerInfo(ctx, &gitalypb.ServerInfoRequest{})
@@ -49,11 +43,11 @@ func TestGitalyServerInfo(t *testing.T) {
 
 	require.Equal(t, version.GetVersion(), c.GetServerVersion())
 
-	gitVersion, err := git.Version(ctx, git.NewExecCommandFactory(config.Config))
+	gitVersion, err := git.Version(ctx, git.NewExecCommandFactory(cfg))
 	require.NoError(t, err)
 	require.Equal(t, gitVersion, c.GetGitVersion())
 
-	require.Len(t, c.GetStorageStatuses(), len(testStorages))
+	require.Len(t, c.GetStorageStatuses(), len(cfg.Storages))
 	require.True(t, c.GetStorageStatuses()[0].Readable)
 	require.True(t, c.GetStorageStatuses()[0].Writeable)
 	require.NotEmpty(t, c.GetStorageStatuses()[0].FsType)
@@ -87,7 +81,9 @@ func runServer(t *testing.T, cfg config.Cfg) (*grpc.Server, string) {
 }
 
 func TestServerNoAuth(t *testing.T) {
-	srv, path := runServer(t, config.Config)
+	cfg := testcfg.Build(t)
+
+	srv, path := runServer(t, cfg)
 	defer srv.Stop()
 
 	connOpts := []grpc.DialOption{
