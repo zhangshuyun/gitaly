@@ -129,7 +129,7 @@ func (cf *ExecCommandFactory) newCommand(ctx context.Context, repo repository.Gi
 }
 
 func handleOpts(ctx context.Context, sc Cmd, cc *cmdCfg, opts []CmdOpt) error {
-	gitCommand, ok := gitCommands[sc.Subcommand()]
+	commandDescription, ok := commandDescriptions[sc.Subcommand()]
 	if !ok {
 		return fmt.Errorf("invalid sub command name %q: %w", sc.Subcommand(), ErrInvalidArg)
 	}
@@ -140,10 +140,10 @@ func handleOpts(ctx context.Context, sc Cmd, cc *cmdCfg, opts []CmdOpt) error {
 		}
 	}
 
-	if !cc.hooksConfigured && gitCommand.mayUpdateRef() {
+	if !cc.hooksConfigured && commandDescription.mayUpdateRef() {
 		return fmt.Errorf("subcommand %q: %w", sc.Subcommand(), ErrHookPayloadRequired)
 	}
-	if gitCommand.mayGeneratePackfiles() {
+	if commandDescription.mayGeneratePackfiles() {
 		cc.globals = append(cc.globals, ConfigPair{
 			Key: "pack.windowMemory", Value: "100m",
 		})
@@ -161,7 +161,7 @@ func combineArgs(gitConfig []config.GitConfig, sc Cmd, cc *cmdCfg) (_ []string, 
 		}
 	}()
 
-	gitCommand, ok := gitCommands[sc.Subcommand()]
+	commandDescription, ok := commandDescriptions[sc.Subcommand()]
 	if !ok {
 		return nil, fmt.Errorf("invalid sub command name %q: %w", sc.Subcommand(), ErrInvalidArg)
 	}
@@ -185,7 +185,7 @@ func combineArgs(gitConfig []config.GitConfig, sc Cmd, cc *cmdCfg) (_ []string, 
 		})
 	}
 	combinedGlobals = append(combinedGlobals, globalOptions...)
-	combinedGlobals = append(combinedGlobals, gitCommand.opts...)
+	combinedGlobals = append(combinedGlobals, commandDescription.opts...)
 	combinedGlobals = append(combinedGlobals, cc.globals...)
 
 	for _, global := range combinedGlobals {

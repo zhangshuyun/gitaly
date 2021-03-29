@@ -132,28 +132,16 @@ func (s *server) GetNewLFSPointers(in *gitalypb.GetNewLFSPointersRequest, stream
 	repo := localrepo.New(s.gitCmdFactory, in.Repository, s.cfg)
 
 	var refs []string
-	var opts []git.Option
-
 	if in.NotInAll {
-		refs = []string{string(in.Revision)}
-		// We need to append another `--not` to cancel out the first one. Otherwise, we'd
-		// negate the user-provided revision.
-		opts = []git.Option{
-			git.Flag{"--not"}, git.Flag{"--all"}, git.Flag{"--not"},
-		}
+		refs = []string{string(in.Revision), "--not", "--all"}
 	} else {
-		refs = make([]string, len(in.NotInRefs)+1)
-		refs[0] = string(in.Revision)
-
-		// We cannot intermix references and flags because of safety guards of our git DSL.
-		// Instead, we thus manually negate all references by prefixing them with the caret
-		// symbol.
-		for i, notInRef := range in.NotInRefs {
-			refs[i+1] = "^" + string(notInRef)
+		refs = []string{string(in.Revision), "--not"}
+		for _, notInRef := range in.NotInRefs {
+			refs = append(refs, string(notInRef))
 		}
 	}
 
-	lfsPointers, err := findLFSPointersByRevisions(ctx, repo, s.gitCmdFactory, opts, int(in.Limit), refs...)
+	lfsPointers, err := findLFSPointersByRevisions(ctx, repo, s.gitCmdFactory, int(in.Limit), refs...)
 	if err != nil {
 		if errors.Is(err, errInvalidRevision) {
 			return status.Errorf(codes.InvalidArgument, err.Error())
@@ -225,9 +213,7 @@ func (s *server) GetAllLFSPointers(in *gitalypb.GetAllLFSPointersRequest, stream
 
 	repo := localrepo.New(s.gitCmdFactory, in.Repository, s.cfg)
 
-	lfsPointers, err := findLFSPointersByRevisions(ctx, repo, s.gitCmdFactory, []git.Option{
-		git.Flag{Name: "--all"},
-	}, 0)
+	lfsPointers, err := findLFSPointersByRevisions(ctx, repo, s.gitCmdFactory, 0, "--all")
 	if err != nil {
 		if errors.Is(err, errInvalidRevision) {
 			return status.Errorf(codes.InvalidArgument, err.Error())
@@ -284,15 +270,11 @@ func validateGetAllLFSPointersRequest(in *gitalypb.GetAllLFSPointersRequest) err
 }
 
 // findLFSPointersByRevisions will return all LFS objects reachable via the given set of revisions.
-// Revisions accept all syntax supported by git-rev-list(1). This function also accepts a set of
-// options accepted by git-rev-list(1). Note that because git.Commands do not accept dashed
-// positional arguments, it is currently not possible to mix options and revisions (e.g. "git
-// rev-list master --not feature").
+// Revisions accept all syntax supported by git-rev-list(1).
 func findLFSPointersByRevisions(
 	ctx context.Context,
 	repo *localrepo.Repo,
 	gitCmdFactory git.CommandFactory,
-	opts []git.Option,
 	limit int,
 	revisions ...string,
 ) (lfsPointers []*gitalypb.LFSPointer, returnErr error) {
@@ -311,7 +293,6 @@ func findLFSPointersByRevisions(
 	if featureflag.IsEnabled(ctx, featureflag.LFSPointersUseBitmapIndex) {
 		flags = append(flags, git.Flag{Name: "--use-bitmap-index"})
 	}
-	flags = append(flags, opts...)
 
 	// git-rev-list(1) currently does not have any way to list all reachable objects of a
 	// certain type.

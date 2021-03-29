@@ -510,7 +510,6 @@ func TestFindLFSPointersByRevisions(t *testing.T) {
 
 	for _, tc := range []struct {
 		desc                string
-		opts                []git.Option
 		revs                []string
 		limit               int
 		expectedErr         error
@@ -518,9 +517,7 @@ func TestFindLFSPointersByRevisions(t *testing.T) {
 	}{
 		{
 			desc: "--all",
-			opts: []git.Option{
-				git.Flag{Name: "--all"},
-			},
+			revs: []string{"--all"},
 			expectedLFSPointers: []*gitalypb.LFSPointer{
 				lfsPointers[lfsPointer1],
 				lfsPointers[lfsPointer2],
@@ -531,10 +528,8 @@ func TestFindLFSPointersByRevisions(t *testing.T) {
 			},
 		},
 		{
-			desc: "--all with high limit",
-			opts: []git.Option{
-				git.Flag{Name: "--all"},
-			},
+			desc:  "--all with high limit",
+			revs:  []string{"--all"},
 			limit: 7,
 			expectedLFSPointers: []*gitalypb.LFSPointer{
 				lfsPointers[lfsPointer1],
@@ -546,10 +541,8 @@ func TestFindLFSPointersByRevisions(t *testing.T) {
 			},
 		},
 		{
-			desc: "--all with truncating limit",
-			opts: []git.Option{
-				git.Flag{Name: "--all"},
-			},
+			desc:  "--all with truncating limit",
+			revs:  []string{"--all"},
 			limit: 3,
 			expectedLFSPointers: []*gitalypb.LFSPointer{
 				lfsPointers[lfsPointer1],
@@ -559,10 +552,7 @@ func TestFindLFSPointersByRevisions(t *testing.T) {
 		},
 		{
 			desc: "--not --all",
-			opts: []git.Option{
-				git.Flag{Name: "--not"},
-				git.Flag{Name: "--all"},
-			},
+			revs: []string{"--not", "--all"},
 		},
 		{
 			desc: "initial commit",
@@ -597,7 +587,7 @@ func TestFindLFSPointersByRevisions(t *testing.T) {
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			actualLFSPointers, err := findLFSPointersByRevisions(
-				ctx, repo, gitCmdFactory, tc.opts, tc.limit, tc.revs...)
+				ctx, repo, gitCmdFactory, tc.limit, tc.revs...)
 			if tc.expectedErr == nil {
 				require.NoError(t, err)
 			} else {
@@ -621,16 +611,12 @@ func BenchmarkFindLFSPointers(b *testing.B) {
 	defer cancel()
 
 	b.Run("limitless", func(b *testing.B) {
-		_, err := findLFSPointersByRevisions(ctx, repo, gitCmdFactory, []git.Option{
-			git.Flag{"--all"},
-		}, 0)
+		_, err := findLFSPointersByRevisions(ctx, repo, gitCmdFactory, 0, "--all")
 		require.NoError(b, err)
 	})
 
 	b.Run("limit", func(b *testing.B) {
-		lfsPointer, err := findLFSPointersByRevisions(ctx, repo, gitCmdFactory, []git.Option{
-			git.Flag{"--all"},
-		}, 1)
+		lfsPointer, err := findLFSPointersByRevisions(ctx, repo, gitCmdFactory, 1, "--all")
 		require.NoError(b, err)
 		require.Len(b, lfsPointer, 1)
 	})
