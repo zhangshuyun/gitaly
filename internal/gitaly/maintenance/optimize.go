@@ -2,7 +2,7 @@ package maintenance
 
 import (
 	"context"
-	"io/ioutil"
+	"errors"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -68,40 +68,31 @@ func optimizeRepoAtPath(ctx context.Context, l logrus.FieldLogger, s config.Stor
 	return nil
 }
 
-func walkReposShuffled(ctx context.Context, randSrc *rand.Rand, l logrus.FieldLogger, path string, s config.Storage, o Optimizer) error {
-	entries, err := ioutil.ReadDir(path)
-	switch {
-	case os.IsNotExist(err):
-		return nil // race condition: someone deleted it
-	case err != nil:
-		return err
-	}
-
-	shuffleFileInfos(randSrc, entries)
-
-	for _, e := range entries {
+func walkReposShuffled(ctx context.Context, walker *randomWalker, l logrus.FieldLogger, s config.Storage, o Optimizer) error {
+	for {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
 
-		if !e.IsDir() {
-			continue
+		fi, path, err := walker.next()
+		switch {
+		case errors.Is(err, errIterOver):
+			return nil
+		case os.IsNotExist(err):
+			continue // race condition: someone deleted it
+		case err != nil:
+			return err
 		}
 
-		absPath := filepath.Join(path, e.Name())
-		if !storage.IsGitDirectory(absPath) {
-			if err := walkReposShuffled(ctx, randSrc, l, absPath, s, o); err != nil {
-				return err
-			}
+		if !fi.IsDir() || !storage.IsGitDirectory(path) {
 			continue
 		}
+		walker.skipDir()
 
-		if err := optimizeRepoAtPath(ctx, l, s, absPath, o); err != nil {
+		if err := optimizeRepoAtPath(ctx, l, s, path, o); err != nil {
 			return err
 		}
 	}
-
-	return nil
 }
 
 // OptimizeReposRandomly returns a function to walk through each storage and
@@ -133,7 +124,9 @@ func OptimizeReposRandomly(storages []config.Storage, optimizer Optimizer, rand 
 			l.WithField("storage_path", storage.Path).
 				Info("maintenance: optimizing repos in storage")
 
-			if err := walkReposShuffled(ctx, rand, l, storage.Path, storage, optimizer); err != nil {
+			walker := newRandomWalker(storage.Path, rand)
+
+			if err := walkReposShuffled(ctx, walker, l, storage, optimizer); err != nil {
 				l.WithError(err).
 					WithField("storage_path", storage.Path).
 					Errorf("maintenance: unable to completely walk storage")
