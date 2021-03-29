@@ -12,6 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/repository"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -78,14 +79,30 @@ func TestOptimizeReposRandomly(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
+			tickerDone := false
+			tickerCount := 0
+
+			ticker := helper.NewManualTicker()
+			ticker.ResetFunc = func() {
+				tickerCount++
+				ticker.Tick()
+			}
+			ticker.StopFunc = func() {
+				tickerDone = true
+			}
+
 			mo := &mockOptimizer{
 				t:   t,
 				cfg: cfg,
 			}
-			walker := OptimizeReposRandomly(cfg.Storages, mo, rand.New(rand.NewSource(1)))
+			walker := OptimizeReposRandomly(cfg.Storages, mo, ticker, rand.New(rand.NewSource(1)))
 
 			require.NoError(t, walker(ctx, testhelper.DiscardTestEntry(t), tc.storages))
 			require.ElementsMatch(t, tc.expected, mo.actual)
+			require.True(t, tickerDone)
+			// We expect one more tick than optimized repositories because of the
+			// initial tick up front to re-start the timer.
+			require.Equal(t, len(tc.expected)+1, tickerCount)
 		})
 	}
 }

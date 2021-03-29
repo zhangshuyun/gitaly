@@ -11,6 +11,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
@@ -68,12 +69,15 @@ func optimizeRepoAtPath(ctx context.Context, l logrus.FieldLogger, s config.Stor
 	return nil
 }
 
-func walkReposShuffled(ctx context.Context, walker *randomWalker, l logrus.FieldLogger, s config.Storage, o Optimizer) error {
+func walkReposShuffled(
+	ctx context.Context,
+	walker *randomWalker,
+	l logrus.FieldLogger,
+	s config.Storage,
+	o Optimizer,
+	ticker helper.Ticker,
+) error {
 	for {
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-
 		fi, path, err := walker.next()
 		switch {
 		case errors.Is(err, errIterOver):
@@ -89,21 +93,33 @@ func walkReposShuffled(ctx context.Context, walker *randomWalker, l logrus.Field
 		}
 		walker.skipDir()
 
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C():
+		}
+
+		// Reset the ticker before doing the optimization such that we essentially limit
+		// ourselves to doing optimizations once per tick, not once per tick plus the time
+		// it takes to do the optimization. It's best effort given that traversing the
+		// directory hierarchy takes some time, too, but it should be good enough for now.
+		ticker.Reset()
+
 		if err := optimizeRepoAtPath(ctx, l, s, path, o); err != nil {
 			return err
 		}
 	}
 }
 
-// OptimizeReposRandomly returns a function to walk through each storage and
-// attempt to optimize any repos encountered.
+// OptimizeReposRandomly returns a function to walk through each storage and attempts to optimize
+// any repos encountered. The ticker is used to rate-limit optimizations.
 //
-// Only storage paths that map to an enabled storage name will be walked.
-// Any storage paths shared by multiple storages will only be walked once.
+// Only storage paths that map to an enabled storage name will be walked. Any storage paths shared
+// by multiple storages will only be walked once.
 //
-// Any errors during the optimization will be logged. Any other errors will be
-// returned and cause the walk to end prematurely.
-func OptimizeReposRandomly(storages []config.Storage, optimizer Optimizer, rand *rand.Rand) StoragesJob {
+// Any errors during the optimization will be logged. Any other errors will be returned and cause
+// the walk to end prematurely.
+func OptimizeReposRandomly(storages []config.Storage, optimizer Optimizer, ticker helper.Ticker, rand *rand.Rand) StoragesJob {
 	return func(ctx context.Context, l logrus.FieldLogger, enabledStorageNames []string) error {
 		enabledNames := map[string]struct{}{}
 		for _, sName := range enabledStorageNames {
@@ -111,6 +127,9 @@ func OptimizeReposRandomly(storages []config.Storage, optimizer Optimizer, rand 
 		}
 
 		visitedPaths := map[string]bool{}
+
+		ticker.Reset()
+		defer ticker.Stop()
 
 		for _, storage := range shuffledStoragesCopy(rand, storages) {
 			if _, ok := enabledNames[storage.Name]; !ok {
@@ -126,7 +145,7 @@ func OptimizeReposRandomly(storages []config.Storage, optimizer Optimizer, rand 
 
 			walker := newRandomWalker(storage.Path, rand)
 
-			if err := walkReposShuffled(ctx, walker, l, storage, optimizer); err != nil {
+			if err := walkReposShuffled(ctx, walker, l, storage, optimizer, ticker); err != nil {
 				l.WithError(err).
 					WithField("storage_path", storage.Path).
 					Errorf("maintenance: unable to completely walk storage")
