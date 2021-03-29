@@ -116,7 +116,7 @@ func walkReposShuffled(ctx context.Context, randSrc *rand.Rand, l logrus.FieldLo
 //
 // Any errors during the optimization will be logged. Any other errors will be
 // returned and cause the walk to end prematurely.
-func OptimizeReposRandomly(storages []config.Storage, optimizer Optimizer) StoragesJob {
+func OptimizeReposRandomly(storages []config.Storage, optimizer Optimizer, rand *rand.Rand) StoragesJob {
 	return func(ctx context.Context, l logrus.FieldLogger, enabledStorageNames []string) error {
 		enabledNames := map[string]struct{}{}
 		for _, sName := range enabledStorageNames {
@@ -125,8 +125,7 @@ func OptimizeReposRandomly(storages []config.Storage, optimizer Optimizer) Stora
 
 		visitedPaths := map[string]bool{}
 
-		randSrc := rand.New(rand.NewSource(time.Now().UnixNano()))
-		for _, storage := range shuffledStoragesCopy(randSrc, storages) {
+		for _, storage := range shuffledStoragesCopy(rand, storages) {
 			if _, ok := enabledNames[storage.Name]; !ok {
 				continue // storage not enabled
 			}
@@ -138,7 +137,7 @@ func OptimizeReposRandomly(storages []config.Storage, optimizer Optimizer) Stora
 			l.WithField("storage_path", storage.Path).
 				Info("maintenance: optimizing repos in storage")
 
-			if err := walkReposShuffled(ctx, randSrc, l, storage.Path, storage, optimizer); err != nil {
+			if err := walkReposShuffled(ctx, rand, l, storage.Path, storage, optimizer); err != nil {
 				l.WithError(err).
 					WithField("storage_path", storage.Path).
 					Errorf("maintenance: unable to completely walk storage")

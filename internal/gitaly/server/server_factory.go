@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"sync"
 	"time"
 
@@ -55,6 +56,7 @@ func (s *GitalyServerFactory) StartWorkers(ctx context.Context, l logrus.FieldLo
 			maintenance.OptimizeReposRandomly(
 				cfg.Storages,
 				gitalypb.NewRepositoryServiceClient(cc),
+				rand.New(rand.NewSource(time.Now().UnixNano())),
 			),
 		)
 	}()

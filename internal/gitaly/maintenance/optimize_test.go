@@ -2,6 +2,7 @@ package maintenance
 
 import (
 	"context"
+	"math/rand"
 	"path/filepath"
 	"testing"
 
@@ -46,7 +47,7 @@ func TestOptimizeReposRandomly(t *testing.T) {
 		t:   t,
 		cfg: cfg,
 	}
-	walker := OptimizeReposRandomly(cfg.Storages, mo)
+	walker := OptimizeReposRandomly(cfg.Storages, mo, rand.New(rand.NewSource(1)))
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -72,7 +73,7 @@ func TestOptimizeReposRandomly(t *testing.T) {
 		cfg: cfg,
 	}
 
-	walker = OptimizeReposRandomly(cfg.Storages, mo)
+	walker = OptimizeReposRandomly(cfg.Storages, mo, rand.New(rand.NewSource(1)))
 	require.NoError(t, walker(ctx, testhelper.DiscardTestEntry(t), []string{"0", "1", "duplicate"}))
 	require.Equal(t, len(expect), len(mo.actual))
 }
