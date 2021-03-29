@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"sync"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/maintenance"
+	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	gitalylog "gitlab.com/gitlab-org/gitaly/internal/log"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
@@ -55,6 +57,8 @@ func (s *GitalyServerFactory) StartWorkers(ctx context.Context, l logrus.FieldLo
 			maintenance.OptimizeReposRandomly(
 				cfg.Storages,
 				gitalypb.NewRepositoryServiceClient(cc),
+				helper.NewTimerTicker(1*time.Second),
+				rand.New(rand.NewSource(time.Now().UnixNano())),
 			),
 		)
 	}()

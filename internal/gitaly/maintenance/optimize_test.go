@@ -2,6 +2,7 @@ package maintenance
 
 import (
 	"context"
+	"math/rand"
 	"path/filepath"
 	"testing"
 
@@ -11,6 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/repository"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -42,37 +44,65 @@ func TestOptimizeReposRandomly(t *testing.T) {
 		testhelper.MustRunCommand(t, nil, "git", "init", "--bare", filepath.Join(storage.Path, "b"))
 	}
 
-	mo := &mockOptimizer{
-		t:   t,
-		cfg: cfg,
-	}
-	walker := OptimizeReposRandomly(cfg.Storages, mo)
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-
-	require.NoError(t, walker(ctx, testhelper.DiscardTestEntry(t), []string{"0", "1"}))
-
-	expect := []*gitalypb.Repository{
-		{RelativePath: "a", StorageName: cfg.Storages[0].Name},
-		{RelativePath: "a", StorageName: cfg.Storages[1].Name},
-		{RelativePath: "b", StorageName: cfg.Storages[0].Name},
-		{RelativePath: "b", StorageName: cfg.Storages[1].Name},
-	}
-	require.ElementsMatch(t, expect, mo.actual)
-
-	// repeat storage paths should not impact repos visited
 	cfg.Storages = append(cfg.Storages, config.Storage{
 		Name: "duplicate",
 		Path: cfg.Storages[0].Path,
 	})
 
-	mo = &mockOptimizer{
-		t:   t,
-		cfg: cfg,
-	}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-	walker = OptimizeReposRandomly(cfg.Storages, mo)
-	require.NoError(t, walker(ctx, testhelper.DiscardTestEntry(t), []string{"0", "1", "duplicate"}))
-	require.Equal(t, len(expect), len(mo.actual))
+	for _, tc := range []struct {
+		desc     string
+		storages []string
+		expected []*gitalypb.Repository
+	}{
+		{
+			desc:     "two storages",
+			storages: []string{"0", "1"},
+			expected: []*gitalypb.Repository{
+				{RelativePath: "a", StorageName: "0"},
+				{RelativePath: "a", StorageName: "1"},
+				{RelativePath: "b", StorageName: "0"},
+				{RelativePath: "b", StorageName: "1"},
+			},
+		},
+		{
+			desc:     "duplicate storages",
+			storages: []string{"0", "1", "duplicate"},
+			expected: []*gitalypb.Repository{
+				{RelativePath: "a", StorageName: "0"},
+				{RelativePath: "a", StorageName: "1"},
+				{RelativePath: "b", StorageName: "0"},
+				{RelativePath: "b", StorageName: "1"},
+			},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			tickerDone := false
+			tickerCount := 0
+
+			ticker := helper.NewManualTicker()
+			ticker.ResetFunc = func() {
+				tickerCount++
+				ticker.Tick()
+			}
+			ticker.StopFunc = func() {
+				tickerDone = true
+			}
+
+			mo := &mockOptimizer{
+				t:   t,
+				cfg: cfg,
+			}
+			walker := OptimizeReposRandomly(cfg.Storages, mo, ticker, rand.New(rand.NewSource(1)))
+
+			require.NoError(t, walker(ctx, testhelper.DiscardTestEntry(t), tc.storages))
+			require.ElementsMatch(t, tc.expected, mo.actual)
+			require.True(t, tickerDone)
+			// We expect one more tick than optimized repositories because of the
+			// initial tick up front to re-start the timer.
+			require.Equal(t, len(tc.expected)+1, tickerCount)
+		})
+	}
 }

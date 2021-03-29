@@ -2,7 +2,7 @@ package maintenance
 
 import (
 	"context"
-	"io/ioutil"
+	"errors"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -11,6 +11,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
@@ -33,10 +34,6 @@ func shuffledStoragesCopy(randSrc *rand.Rand, storages []config.Storage) []confi
 	copy(shuffled, storages)
 	randSrc.Shuffle(len(shuffled), func(i, j int) { shuffled[i], shuffled[j] = shuffled[j], shuffled[i] })
 	return shuffled
-}
-
-func shuffleFileInfos(randSrc *rand.Rand, s []os.FileInfo) {
-	randSrc.Shuffle(len(s), func(i, j int) { s[i], s[j] = s[j], s[i] })
 }
 
 // Optimizer knows how to optimize a repository
@@ -72,51 +69,57 @@ func optimizeRepoAtPath(ctx context.Context, l logrus.FieldLogger, s config.Stor
 	return nil
 }
 
-func walkReposShuffled(ctx context.Context, randSrc *rand.Rand, l logrus.FieldLogger, path string, s config.Storage, o Optimizer) error {
-	entries, err := ioutil.ReadDir(path)
-	switch {
-	case os.IsNotExist(err):
-		return nil // race condition: someone deleted it
-	case err != nil:
-		return err
-	}
-
-	shuffleFileInfos(randSrc, entries)
-
-	for _, e := range entries {
-		if err := ctx.Err(); err != nil {
+func walkReposShuffled(
+	ctx context.Context,
+	walker *randomWalker,
+	l logrus.FieldLogger,
+	s config.Storage,
+	o Optimizer,
+	ticker helper.Ticker,
+) error {
+	for {
+		fi, path, err := walker.next()
+		switch {
+		case errors.Is(err, errIterOver):
+			return nil
+		case os.IsNotExist(err):
+			continue // race condition: someone deleted it
+		case err != nil:
 			return err
 		}
 
-		if !e.IsDir() {
+		if !fi.IsDir() || !storage.IsGitDirectory(path) {
 			continue
 		}
+		walker.skipDir()
 
-		absPath := filepath.Join(path, e.Name())
-		if !storage.IsGitDirectory(absPath) {
-			if err := walkReposShuffled(ctx, randSrc, l, absPath, s, o); err != nil {
-				return err
-			}
-			continue
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C():
 		}
 
-		if err := optimizeRepoAtPath(ctx, l, s, absPath, o); err != nil {
+		// Reset the ticker before doing the optimization such that we essentially limit
+		// ourselves to doing optimizations once per tick, not once per tick plus the time
+		// it takes to do the optimization. It's best effort given that traversing the
+		// directory hierarchy takes some time, too, but it should be good enough for now.
+		ticker.Reset()
+
+		if err := optimizeRepoAtPath(ctx, l, s, path, o); err != nil {
 			return err
 		}
 	}
-
-	return nil
 }
 
-// OptimizeReposRandomly returns a function to walk through each storage and
-// attempt to optimize any repos encountered.
+// OptimizeReposRandomly returns a function to walk through each storage and attempts to optimize
+// any repos encountered. The ticker is used to rate-limit optimizations.
 //
-// Only storage paths that map to an enabled storage name will be walked.
-// Any storage paths shared by multiple storages will only be walked once.
+// Only storage paths that map to an enabled storage name will be walked. Any storage paths shared
+// by multiple storages will only be walked once.
 //
-// Any errors during the optimization will be logged. Any other errors will be
-// returned and cause the walk to end prematurely.
-func OptimizeReposRandomly(storages []config.Storage, optimizer Optimizer) StoragesJob {
+// Any errors during the optimization will be logged. Any other errors will be returned and cause
+// the walk to end prematurely.
+func OptimizeReposRandomly(storages []config.Storage, optimizer Optimizer, ticker helper.Ticker, rand *rand.Rand) StoragesJob {
 	return func(ctx context.Context, l logrus.FieldLogger, enabledStorageNames []string) error {
 		enabledNames := map[string]struct{}{}
 		for _, sName := range enabledStorageNames {
@@ -125,8 +128,10 @@ func OptimizeReposRandomly(storages []config.Storage, optimizer Optimizer) Stora
 
 		visitedPaths := map[string]bool{}
 
-		randSrc := rand.New(rand.NewSource(time.Now().UnixNano()))
-		for _, storage := range shuffledStoragesCopy(randSrc, storages) {
+		ticker.Reset()
+		defer ticker.Stop()
+
+		for _, storage := range shuffledStoragesCopy(rand, storages) {
 			if _, ok := enabledNames[storage.Name]; !ok {
 				continue // storage not enabled
 			}
@@ -138,7 +143,9 @@ func OptimizeReposRandomly(storages []config.Storage, optimizer Optimizer) Stora
 			l.WithField("storage_path", storage.Path).
 				Info("maintenance: optimizing repos in storage")
 
-			if err := walkReposShuffled(ctx, randSrc, l, storage.Path, storage, optimizer); err != nil {
+			walker := newRandomWalker(storage.Path, rand)
+
+			if err := walkReposShuffled(ctx, walker, l, storage, optimizer, ticker); err != nil {
 				l.WithError(err).
 					WithField("storage_path", storage.Path).
 					Errorf("maintenance: unable to completely walk storage")
