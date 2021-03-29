@@ -18,7 +18,7 @@ var (
 	// GoUserUpdateBranch enables the Go implementation of UserUpdateBranch
 	GoUserUpdateBranch = FeatureFlag{Name: "go_user_update_branch", OnByDefault: true}
 	// GoResolveConflicts enables the Go implementation of ResolveConflicts
-	GoResolveConflicts = FeatureFlag{Name: "go_resolve_conflicts", OnByDefault: false}
+	GoResolveConflicts = FeatureFlag{Name: "go_resolve_conflicts", OnByDefault: true}
 	// GoUserUpdateSubmodule enables the Go implementation of
 	// UserUpdateSubmodules
 	GoUserUpdateSubmodule = FeatureFlag{Name: "go_user_update_submodule", OnByDefault: true}
