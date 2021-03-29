@@ -43,37 +43,49 @@ func TestOptimizeReposRandomly(t *testing.T) {
 		testhelper.MustRunCommand(t, nil, "git", "init", "--bare", filepath.Join(storage.Path, "b"))
 	}
 
-	mo := &mockOptimizer{
-		t:   t,
-		cfg: cfg,
-	}
-	walker := OptimizeReposRandomly(cfg.Storages, mo, rand.New(rand.NewSource(1)))
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-
-	require.NoError(t, walker(ctx, testhelper.DiscardTestEntry(t), []string{"0", "1"}))
-
-	expect := []*gitalypb.Repository{
-		{RelativePath: "a", StorageName: cfg.Storages[0].Name},
-		{RelativePath: "a", StorageName: cfg.Storages[1].Name},
-		{RelativePath: "b", StorageName: cfg.Storages[0].Name},
-		{RelativePath: "b", StorageName: cfg.Storages[1].Name},
-	}
-	require.ElementsMatch(t, expect, mo.actual)
-
-	// repeat storage paths should not impact repos visited
 	cfg.Storages = append(cfg.Storages, config.Storage{
 		Name: "duplicate",
 		Path: cfg.Storages[0].Path,
 	})
 
-	mo = &mockOptimizer{
-		t:   t,
-		cfg: cfg,
-	}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-	walker = OptimizeReposRandomly(cfg.Storages, mo, rand.New(rand.NewSource(1)))
-	require.NoError(t, walker(ctx, testhelper.DiscardTestEntry(t), []string{"0", "1", "duplicate"}))
-	require.Equal(t, len(expect), len(mo.actual))
+	for _, tc := range []struct {
+		desc     string
+		storages []string
+		expected []*gitalypb.Repository
+	}{
+		{
+			desc:     "two storages",
+			storages: []string{"0", "1"},
+			expected: []*gitalypb.Repository{
+				{RelativePath: "a", StorageName: "0"},
+				{RelativePath: "a", StorageName: "1"},
+				{RelativePath: "b", StorageName: "0"},
+				{RelativePath: "b", StorageName: "1"},
+			},
+		},
+		{
+			desc:     "duplicate storages",
+			storages: []string{"0", "1", "duplicate"},
+			expected: []*gitalypb.Repository{
+				{RelativePath: "a", StorageName: "0"},
+				{RelativePath: "a", StorageName: "1"},
+				{RelativePath: "b", StorageName: "0"},
+				{RelativePath: "b", StorageName: "1"},
+			},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			mo := &mockOptimizer{
+				t:   t,
+				cfg: cfg,
+			}
+			walker := OptimizeReposRandomly(cfg.Storages, mo, rand.New(rand.NewSource(1)))
+
+			require.NoError(t, walker(ctx, testhelper.DiscardTestEntry(t), tc.storages))
+			require.ElementsMatch(t, tc.expected, mo.actual)
+		})
+	}
 }
