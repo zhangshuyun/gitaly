@@ -92,6 +92,16 @@ func newMuxedRepositoryClient(t *testing.T, ctx context.Context, cfg config.Cfg,
 	return gitalypb.NewRepositoryServiceClient(conn)
 }
 
+func setupRepositoryWithWorkingtreeServiceWithRuby(t testing.TB, cfg config.Cfg, rubySrv *rubyserver.Server) (config.Cfg, *gitalypb.Repository, string, gitalypb.RepositoryServiceClient) {
+	client, serverSocketPath := runRepositoryService(t, cfg, rubySrv)
+	cfg.SocketPath = serverSocketPath
+
+	repo, repoPath, cleanup := gittest.CloneRepoWithWorktreeAtStorage(t, cfg.Storages[0])
+	t.Cleanup(cleanup)
+
+	return cfg, repo, repoPath, client
+}
+
 func setupRepositoryServiceWithRuby(t testing.TB, cfg config.Cfg, rubySrv *rubyserver.Server) (config.Cfg, *gitalypb.Repository, string, gitalypb.RepositoryServiceClient) {
 	client, serverSocketPath := runRepositoryService(t, cfg, rubySrv)
 	cfg.SocketPath = serverSocketPath

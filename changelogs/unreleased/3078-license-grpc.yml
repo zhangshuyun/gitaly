@@ -1,0 +1,5 @@
+---
+title: 'FindLicense: implemented license finding via Go gRPC'
+merge_request: 3313
+author: Kirill Ch. (g4s8.public@gmail.com)
+type: performance

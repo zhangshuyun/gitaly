@@ -17,6 +17,8 @@ require (
 	github.com/containerd/cgroups v0.0.0-20201118023556-2819c83ced99
 	github.com/getsentry/sentry-go v0.7.0
 	github.com/git-lfs/git-lfs v1.5.1-0.20210304194248-2e1d981afbe3
+	github.com/go-enry/go-license-detector/v4 v4.2.0
+	github.com/go-git/go-git/v5 v5.3.0 // indirect
 	github.com/golang/protobuf v1.3.3
 	github.com/google/uuid v1.1.1
 	github.com/grpc-ecosystem/go-grpc-middleware v1.2.3-0.20210213123510-be4c235f9d1c
@@ -45,8 +47,8 @@ require (
 	golang.org/x/crypto v0.0.0-20210421170649-83a5a9bb288b // indirect
 	golang.org/x/exp v0.0.0-20200331195152-e8c3332aa8e5 // indirect
 	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208
-	golang.org/x/sys v0.0.0-20210119212857-b64e53b001e4
-	golang.org/x/text v0.3.3
+	golang.org/x/sys v0.0.0-20210324051608-47abb6519492
+	golang.org/x/text v0.3.6
 	google.golang.org/grpc v1.29.1
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )

@@ -32,6 +32,8 @@ var (
 	BackchannelVoting = FeatureFlag{Name: "backchannel_voting", OnByDefault: false}
 	// FetchInternalRemoteErrors makes FetchInternalRemote return actual errors instead of a boolean
 	FetchInternalRemoteErrors = FeatureFlag{Name: "fetch_internal_remote_errors", OnByDefault: false}
+	// GoFindLicense enables Go implementation of FindLicense
+	GoFindLicense = FeatureFlag{Name: "go_find_license", OnByDefault: false}
 )
 
 // All includes all feature flags.
@@ -47,4 +49,5 @@ var All = []FeatureFlag{
 	GoUpdateRemoteMirror,
 	BackchannelVoting,
 	FetchInternalRemoteErrors,
+	GoFindLicense,
 }

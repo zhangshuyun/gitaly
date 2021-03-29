@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -8,40 +9,43 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
+	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
 func testSuccessfulFindLicenseRequest(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	_, repo, _, client := setupRepositoryServiceWithRuby(t, cfg, rubySrv)
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.GoFindLicense,
+	}).Run(t, func(t *testing.T, ctx context.Context) {
+		_, repo, _, client := setupRepositoryWithWorkingtreeServiceWithRuby(t, cfg, rubySrv)
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+		resp, err := client.FindLicense(ctx, &gitalypb.FindLicenseRequest{Repository: repo})
 
-	resp, err := client.FindLicense(ctx, &gitalypb.FindLicenseRequest{Repository: repo})
-
-	require.NoError(t, err)
-	require.Equal(t, "mit", resp.GetLicenseShortName())
+		require.NoError(t, err)
+		require.Equal(t, "mit", resp.GetLicenseShortName())
+	})
 }
 
 func testFindLicenseRequestEmptyRepo(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	cfg, _, _, client := setupRepositoryServiceWithRuby(t, cfg, rubySrv)
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.GoFindLicense,
+	}).Run(t, func(t *testing.T, ctx context.Context) {
+		cfg, _, _, client := setupRepositoryServiceWithRuby(t, cfg, rubySrv)
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+		emptyRepo := &gitalypb.Repository{
+			RelativePath: "test-liceense-empty-repo.git",
+			StorageName:  cfg.Storages[0].Name,
+		}
+		emptyRepoPath := filepath.Join(cfg.Storages[0].Path, emptyRepo.GetRelativePath())
+		defer os.RemoveAll(emptyRepoPath)
 
-	emptyRepo := &gitalypb.Repository{
-		RelativePath: "test-liceense-empty-repo.git",
-		StorageName:  cfg.Storages[0].Name,
-	}
-	emptyRepoPath := filepath.Join(cfg.Storages[0].Path, emptyRepo.GetRelativePath())
-	defer os.RemoveAll(emptyRepoPath)
+		_, err := client.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{Repository: emptyRepo})
+		require.NoError(t, err)
 
-	_, err := client.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{Repository: emptyRepo})
-	require.NoError(t, err)
+		resp, err := client.FindLicense(ctx, &gitalypb.FindLicenseRequest{Repository: emptyRepo})
+		require.NoError(t, err)
 
-	resp, err := client.FindLicense(ctx, &gitalypb.FindLicenseRequest{Repository: emptyRepo})
-	require.NoError(t, err)
-
-	require.Empty(t, resp.GetLicenseShortName())
+		require.Empty(t, resp.GetLicenseShortName())
+	})
 }
