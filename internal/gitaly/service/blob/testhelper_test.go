@@ -28,19 +28,6 @@ func testMain(m *testing.M) int {
 	return m.Run()
 }
 
-func TestWithRubySidecar(t *testing.T) {
-	cfg := testcfg.Build(t)
-
-	rubySrv := rubyserver.New(cfg)
-	require.NoError(t, rubySrv.Start())
-	t.Cleanup(rubySrv.Stop)
-
-	t.Run("testSuccessfulGetLFSPointersRequest", func(t *testing.T) { testSuccessfulGetLFSPointersRequest(t, cfg, rubySrv) })
-	t.Run("testSuccessfulGetAllLFSPointersRequest", func(t *testing.T) { testSuccessfulGetAllLFSPointersRequest(t, cfg, rubySrv) })
-	t.Run("testSuccessfulGetNewLFSPointersRequest", func(t *testing.T) { testSuccessfulGetNewLFSPointersRequest(t, cfg, rubySrv) })
-	t.Run("testGetAllLFSPointersVerifyScope", func(t *testing.T) { testGetAllLFSPointersVerifyScope(t, cfg, rubySrv) })
-}
-
 func setup(t *testing.T) (config.Cfg, *gitalypb.Repository, string, gitalypb.BlobServiceClient) {
 	cfg := testcfg.Build(t)
 	repo, repoPath, client := setupWithRuby(t, cfg, nil)

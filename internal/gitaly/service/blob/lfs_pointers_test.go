@@ -14,8 +14,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
@@ -67,17 +65,19 @@ var (
 	}
 )
 
-func testSuccessfulGetLFSPointersRequest(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
+func TestSuccessfulGetLFSPointersRequest(t *testing.T) {
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.GoGetLFSPointers,
 		featureflag.LFSPointersUseBitmapIndex,
 	}).Run(t, func(t *testing.T, ctx context.Context) {
-		testSuccessfulGetLFSPointersRequestFeatured(t, ctx, cfg, rubySrv)
+		testSuccessfulGetLFSPointersRequestFeatured(t)
 	})
 }
 
-func testSuccessfulGetLFSPointersRequestFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	repo, _, client := setupWithRuby(t, cfg, rubySrv)
+func testSuccessfulGetLFSPointersRequestFeatured(t *testing.T) {
+	_, repo, _, client := setup(t)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
 	lfsPointerIds := []string{
 		lfsPointer1,
@@ -120,7 +120,6 @@ func testSuccessfulGetLFSPointersRequestFeatured(t *testing.T, ctx context.Conte
 
 func TestFailedGetLFSPointersRequestDueToValidations(t *testing.T) {
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.GoGetLFSPointers,
 		featureflag.LFSPointersUseBitmapIndex,
 	}).Run(t, testFailedGetLFSPointersRequestDueToValidations)
 }
@@ -163,17 +162,19 @@ func testFailedGetLFSPointersRequestDueToValidations(t *testing.T, ctx context.C
 	}
 }
 
-func testSuccessfulGetNewLFSPointersRequest(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
+func TestSuccessfulGetNewLFSPointersRequest(t *testing.T) {
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.GoGetNewLFSPointers,
 		featureflag.LFSPointersUseBitmapIndex,
 	}).Run(t, func(t *testing.T, ctx context.Context) {
-		testSuccessfulGetNewLFSPointersRequestFeatured(t, ctx, cfg, rubySrv)
+		testSuccessfulGetNewLFSPointersRequestFeatured(t)
 	})
 }
 
-func testSuccessfulGetNewLFSPointersRequestFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	_, _, client := setupWithRuby(t, cfg, rubySrv)
+func testSuccessfulGetNewLFSPointersRequestFeatured(t *testing.T) {
+	cfg, _, _, client := setup(t)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
 	repo, repoPath, cleanup := gittest.CloneRepoWithWorktreeAtStorage(t, cfg.Storages[0])
 	t.Cleanup(cleanup)
@@ -308,7 +309,6 @@ func testSuccessfulGetNewLFSPointersRequestFeatured(t *testing.T, ctx context.Co
 
 func TestFailedGetNewLFSPointersRequestDueToValidations(t *testing.T) {
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.GoGetNewLFSPointers,
 		featureflag.LFSPointersUseBitmapIndex,
 	}).Run(t, testFailedGetNewLFSPointersRequestDueToValidations)
 }
@@ -364,17 +364,19 @@ func drainNewPointers(c gitalypb.BlobService_GetNewLFSPointersClient) error {
 	}
 }
 
-func testSuccessfulGetAllLFSPointersRequest(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
+func TestSuccessfulGetAllLFSPointersRequest(t *testing.T) {
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.GoGetAllLFSPointers,
 		featureflag.LFSPointersUseBitmapIndex,
 	}).Run(t, func(t *testing.T, ctx context.Context) {
-		testSuccessfulGetAllLFSPointersRequestFeatured(t, ctx, cfg, rubySrv)
+		testSuccessfulGetAllLFSPointersRequestFeatured(t)
 	})
 }
 
-func testSuccessfulGetAllLFSPointersRequestFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	repo, _, client := setupWithRuby(t, cfg, rubySrv)
+func testSuccessfulGetAllLFSPointersRequestFeatured(t *testing.T) {
+	_, repo, _, client := setup(t)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
 	request := &gitalypb.GetAllLFSPointersRequest{
 		Repository: repo,
@@ -412,7 +414,6 @@ func getAllPointers(t *testing.T, c gitalypb.BlobService_GetAllLFSPointersClient
 
 func TestFailedGetAllLFSPointersRequestDueToValidations(t *testing.T) {
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.GoGetAllLFSPointers,
 		featureflag.LFSPointersUseBitmapIndex,
 	}).Run(t, testFailedGetAllLFSPointersRequestDueToValidations)
 }
@@ -455,19 +456,21 @@ func drainAllPointers(c gitalypb.BlobService_GetAllLFSPointersClient) error {
 	}
 }
 
-func testGetAllLFSPointersVerifyScope(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
+func TestGetAllLFSPointersVerifyScope(t *testing.T) {
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.GoGetAllLFSPointers,
 		featureflag.LFSPointersUseBitmapIndex,
 	}).Run(t, func(t *testing.T, ctx context.Context) {
-		testGetAllLFSPointersVerifyScopeFeatured(t, ctx, cfg, rubySrv)
+		testGetAllLFSPointersVerifyScopeFeatured(t)
 	})
 }
 
-// TestGetAllLFSPointersVerifyScope verifies that this RPC returns all LFS
+// testGetAllLFSPointersVerifyScope verifies that this RPC returns all LFS
 // pointers in a repository, not only ones reachable from the default branch
-func testGetAllLFSPointersVerifyScopeFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	repo, repoPath, client := setupWithRuby(t, cfg, rubySrv)
+func testGetAllLFSPointersVerifyScopeFeatured(t *testing.T) {
+	_, repo, repoPath, client := setup(t)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
 	request := &gitalypb.GetAllLFSPointersRequest{
 		Repository: repo,
