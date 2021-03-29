@@ -409,6 +409,17 @@ func TestSuccessfulCommitDiffRequestWithWordDiff(t *testing.T) {
 
 	rightCommit := "ab2c9622c02288a2bbaaf35d96088cfdff31d9d9"
 	leftCommit := "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab"
+
+	var diffPatches [][]byte
+	output := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "diff", "--word-diff=porcelain", leftCommit, rightCommit)
+	diffPerFile := bytes.Split(output, []byte("diff --git"))
+
+	for _, s := range diffPerFile {
+		if idx := bytes.Index(s, []byte("@@")); idx != -1 {
+			diffPatches = append(diffPatches, s[idx:])
+		}
+	}
+
 	expectedDiffs := []diff.Diff{
 		{
 			FromID:   "faaf198af3a36dbf41961466703cc1d47c61d051",
@@ -418,7 +429,7 @@ func TestSuccessfulCommitDiffRequestWithWordDiff(t *testing.T) {
 			FromPath: []byte("README.md"),
 			ToPath:   []byte("README.md"),
 			Binary:   false,
-			Patch:    testhelper.MustReadFile(t, "testdata/word-diff/readme-md-chunks.txt"),
+			Patch:    diffPatches[0],
 		},
 		{
 			FromID:   "bdea48ee65c869eb0b86b1283069d76cce0a7254",
@@ -428,7 +439,7 @@ func TestSuccessfulCommitDiffRequestWithWordDiff(t *testing.T) {
 			FromPath: []byte("gitaly/deleted-file"),
 			ToPath:   []byte("gitaly/deleted-file"),
 			Binary:   false,
-			Patch:    testhelper.MustReadFile(t, "testdata/word-diff/deleted-file-chunks.txt"),
+			Patch:    diffPatches[1],
 		},
 		{
 			FromID:   "aa408b4556e594f7974390ad6b86210617fbda6e",
@@ -438,7 +449,7 @@ func TestSuccessfulCommitDiffRequestWithWordDiff(t *testing.T) {
 			FromPath: []byte("gitaly/file-with-multiple-chunks"),
 			ToPath:   []byte("gitaly/file-with-multiple-chunks"),
 			Binary:   false,
-			Patch:    testhelper.MustReadFile(t, "testdata/word-diff/file-with-multiple-chunks-chunks.txt"),
+			Patch:    diffPatches[2],
 		},
 		{
 			FromID:   "0000000000000000000000000000000000000000",
@@ -448,7 +459,7 @@ func TestSuccessfulCommitDiffRequestWithWordDiff(t *testing.T) {
 			FromPath: []byte("gitaly/file-with-pluses.txt"),
 			ToPath:   []byte("gitaly/file-with-pluses.txt"),
 			Binary:   false,
-			Patch:    testhelper.MustReadFile(t, "testdata/word-diff/file-with-pluses-chunks.txt"),
+			Patch:    diffPatches[3],
 		},
 		{
 			FromID:   "0000000000000000000000000000000000000000",
@@ -477,7 +488,7 @@ func TestSuccessfulCommitDiffRequestWithWordDiff(t *testing.T) {
 			FromPath: []byte("gitaly/mode-file-with-mods"),
 			ToPath:   []byte("gitaly/mode-file-with-mods"),
 			Binary:   false,
-			Patch:    testhelper.MustReadFile(t, "testdata/word-diff/mode-file-with-mods-chunks.txt"),
+			Patch:    diffPatches[4],
 		},
 		{
 			FromID:   "43d24af4e22580f36b1ca52647c1aff75a766a33",
@@ -487,7 +498,7 @@ func TestSuccessfulCommitDiffRequestWithWordDiff(t *testing.T) {
 			FromPath: []byte("gitaly/named-file-with-mods"),
 			ToPath:   []byte("gitaly/named-file-with-mods"),
 			Binary:   false,
-			Patch:    testhelper.MustReadFile(t, "testdata/word-diff/named-file-with-mods-chunks.txt"),
+			Patch:    diffPatches[5],
 		},
 		{
 			FromID:   "0000000000000000000000000000000000000000",
@@ -497,7 +508,7 @@ func TestSuccessfulCommitDiffRequestWithWordDiff(t *testing.T) {
 			FromPath: []byte("gitaly/no-newline-at-the-end"),
 			ToPath:   []byte("gitaly/no-newline-at-the-end"),
 			Binary:   false,
-			Patch:    testhelper.MustReadFile(t, "testdata/word-diff/no-newline-at-the-end-chunks.txt"),
+			Patch:    diffPatches[6],
 		},
 		{
 			FromID:   "4e76e90b3c7e52390de9311a23c0a77575aed8a8",
@@ -516,7 +527,7 @@ func TestSuccessfulCommitDiffRequestWithWordDiff(t *testing.T) {
 			FromPath: []byte("gitaly/renamed-file-with-mods"),
 			ToPath:   []byte("gitaly/renamed-file-with-mods"),
 			Binary:   false,
-			Patch:    testhelper.MustReadFile(t, "testdata/word-diff/renamed-file-with-mods-chunks.txt"),
+			Patch:    diffPatches[7],
 		},
 		{
 			FromID:   "0000000000000000000000000000000000000000",
@@ -526,7 +537,7 @@ func TestSuccessfulCommitDiffRequestWithWordDiff(t *testing.T) {
 			FromPath: []byte("gitaly/tab\tnewline\n file"),
 			ToPath:   []byte("gitaly/tab\tnewline\n file"),
 			Binary:   false,
-			Patch:    testhelper.MustReadFile(t, "testdata/word-diff/tab-newline-file-chunks.txt"),
+			Patch:    diffPatches[8],
 		},
 		{
 			FromID:   "0000000000000000000000000000000000000000",
@@ -545,7 +556,7 @@ func TestSuccessfulCommitDiffRequestWithWordDiff(t *testing.T) {
 			FromPath: []byte("z-short-diff"),
 			ToPath:   []byte("z-short-diff"),
 			Binary:   false,
-			Patch:    testhelper.MustReadFile(t, "testdata/word-diff/z-short-diff-chunks.txt"),
+			Patch:    diffPatches[9],
 		},
 	}
 
