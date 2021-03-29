@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/go-enry/go-license-detector/v4/licensedb"
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/v14/client"
@@ -110,6 +111,7 @@ func configure(configPath string) (config.Cfg, error) {
 	cfg.Prometheus.Configure()
 	config.ConfigureConcurrencyLimits(cfg)
 	tracing.Initialize(tracing.WithServiceName("gitaly"))
+	preloadLicenseDatabase()
 
 	return cfg, nil
 }
@@ -127,6 +129,16 @@ func verifyGitVersion(cfg config.Cfg) error {
 		return fmt.Errorf("unsupported Git version: %q", gitVersion)
 	}
 	return nil
+}
+
+func preloadLicenseDatabase() {
+	// the first call to `licensedb.Detect` could be too long
+	// https://github.com/go-enry/go-license-detector/issues/13
+	// this is why we're calling it here to preload license database
+	// on server startup to avoid long initialization on gRPC
+	// method handling.
+	licensedb.Preload()
+	log.Info("License database preloaded")
 }
 
 func run(cfg config.Cfg) error {

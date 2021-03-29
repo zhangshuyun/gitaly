@@ -23,6 +23,8 @@ var (
 	GoUserApplyPatch = FeatureFlag{Name: "go_user_apply_patch", OnByDefault: false}
 	// FetchInternalNoAlternateRefs disables use of alternate refs in internal fetches.
 	FetchInternalNoAlternateRefs = FeatureFlag{Name: "fetch_internal_no_alternate_refs", OnByDefault: false}
+	// GoFindLicense enables Go implementation of FindLicense
+	GoFindLicense = FeatureFlag{Name: "go_find_license", OnByDefault: false}
 )
 
 // All includes all feature flags.
@@ -35,4 +37,5 @@ var All = []FeatureFlag{
 	QuarantinedResolveConflicts,
 	GoUserApplyPatch,
 	FetchInternalNoAlternateRefs,
+	GoFindLicense,
 }
