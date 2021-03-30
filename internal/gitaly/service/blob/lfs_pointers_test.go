@@ -19,6 +19,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 const (
@@ -64,6 +65,115 @@ var (
 		},
 	}
 )
+
+func TestListLFSPointers(t *testing.T) {
+	_, repo, _, client := setup(t)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	for _, tc := range []struct {
+		desc             string
+		revs             []string
+		limit            int32
+		expectedPointers []*gitalypb.LFSPointer
+		expectedErr      error
+	}{
+		{
+			desc:        "missing revisions",
+			revs:        []string{},
+			expectedErr: status.Error(codes.InvalidArgument, "missing revisions"),
+		},
+		{
+			desc:        "invalid revision",
+			revs:        []string{"-dashed"},
+			expectedErr: status.Error(codes.InvalidArgument, "invalid revision: \"-dashed\""),
+		},
+		{
+			desc: "object IDs",
+			revs: []string{
+				lfsPointer1,
+				lfsPointer2,
+				lfsPointer3,
+				"d5b560e9c17384cf8257347db63167b54e0c97ff", // tree
+				"60ecb67744cb56576c30214ff52294f8ce2def98", // commit
+			},
+			expectedPointers: []*gitalypb.LFSPointer{
+				lfsPointers[lfsPointer1],
+				lfsPointers[lfsPointer2],
+				lfsPointers[lfsPointer3],
+			},
+		},
+		{
+			desc: "revision",
+			revs: []string{"refs/heads/master"},
+			expectedPointers: []*gitalypb.LFSPointer{
+				lfsPointers[lfsPointer1],
+			},
+		},
+		{
+			desc: "pseudo-revisions",
+			revs: []string{"refs/heads/master", "--not", "--all"},
+		},
+		{
+			desc: "partial graph walk",
+			revs: []string{"--all", "--not", "refs/heads/master"},
+			expectedPointers: []*gitalypb.LFSPointer{
+				lfsPointers[lfsPointer2],
+				lfsPointers[lfsPointer3],
+				lfsPointers[lfsPointer4],
+				lfsPointers[lfsPointer5],
+				lfsPointers[lfsPointer6],
+			},
+		},
+		{
+			desc:  "partial graph walk with matching limit",
+			revs:  []string{"--all", "--not", "refs/heads/master"},
+			limit: 5,
+			expectedPointers: []*gitalypb.LFSPointer{
+				lfsPointers[lfsPointer2],
+				lfsPointers[lfsPointer3],
+				lfsPointers[lfsPointer4],
+				lfsPointers[lfsPointer5],
+				lfsPointers[lfsPointer6],
+			},
+		},
+		{
+			desc:  "partial graph walk with limiting limit",
+			revs:  []string{"--all", "--not", "refs/heads/master"},
+			limit: 3,
+			expectedPointers: []*gitalypb.LFSPointer{
+				lfsPointers[lfsPointer4],
+				lfsPointers[lfsPointer5],
+				lfsPointers[lfsPointer6],
+			},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			stream, err := client.ListLFSPointers(ctx, &gitalypb.ListLFSPointersRequest{
+				Repository: repo,
+				Revisions:  tc.revs,
+				Limit:      tc.limit,
+			})
+			require.NoError(t, err)
+
+			var actualLFSPointers []*gitalypb.LFSPointer
+			for {
+				resp, err := stream.Recv()
+				if err == io.EOF {
+					break
+				}
+				require.Equal(t, err, tc.expectedErr)
+				if err != nil {
+					break
+				}
+
+				actualLFSPointers = append(actualLFSPointers, resp.GetLfsPointers()...)
+			}
+			require.ElementsMatch(t, tc.expectedPointers, actualLFSPointers)
+		})
+	}
+}
 
 func TestSuccessfulGetLFSPointersRequest(t *testing.T) {
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{

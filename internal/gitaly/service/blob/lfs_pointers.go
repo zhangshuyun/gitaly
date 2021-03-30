@@ -39,6 +39,38 @@ type getLFSPointerByRevisionRequest interface {
 	GetRevision() []byte
 }
 
+// ListLFSPointers finds all LFS pointers which are transitively reachable via a graph walk of the
+// given set of revisions.
+func (s *server) ListLFSPointers(in *gitalypb.ListLFSPointersRequest, stream gitalypb.BlobService_ListLFSPointersServer) error {
+	ctx := stream.Context()
+
+	if in.GetRepository() == nil {
+		return status.Error(codes.InvalidArgument, "empty repository")
+	}
+	if len(in.Revisions) == 0 {
+		return status.Error(codes.InvalidArgument, "missing revisions")
+	}
+
+	repo := localrepo.New(s.gitCmdFactory, in.Repository, s.cfg)
+	lfsPointers, err := findLFSPointersByRevisions(ctx, repo, s.gitCmdFactory, int(in.Limit), in.Revisions...)
+	if err != nil {
+		if errors.Is(err, errInvalidRevision) {
+			return status.Errorf(codes.InvalidArgument, err.Error())
+		}
+		return err
+	}
+
+	if err := sliceLFSPointers(lfsPointers, func(slice []*gitalypb.LFSPointer) error {
+		return stream.Send(&gitalypb.ListLFSPointersResponse{
+			LfsPointers: slice,
+		})
+	}); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // GetLFSPointers takes the list of requested blob IDs and filters them down to blobs which are
 // valid LFS pointers. It is fine to pass blob IDs which do not point to a valid LFS pointer, but
 // passing blob IDs which do not exist results in an error.
