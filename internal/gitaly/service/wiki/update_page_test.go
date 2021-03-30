@@ -8,25 +8,21 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
 
-func TestSuccessfulWikiUpdatePageRequest(t *testing.T) {
-	wikiRepoProto, wikiRepoPath, cleanupFunc := setupWikiRepo(t)
+func testSuccessfulWikiUpdatePageRequest(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
+	wikiRepoProto, wikiRepoPath, cleanupFunc := setupWikiRepo(t, cfg)
 	defer cleanupFunc()
-	wikiRepo := localrepo.New(git.NewExecCommandFactory(config.Config), wikiRepoProto, config.Config)
+	wikiRepo := localrepo.New(git.NewExecCommandFactory(cfg), wikiRepoProto, cfg)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	locator := config.NewLocator(config.Config)
-	stop, serverSocketPath := runWikiServiceServer(t, locator)
-	defer stop()
-
-	client, conn := newWikiClient(t, serverSocketPath)
-	defer conn.Close()
+	client := setupWikiService(t, cfg, rubySrv)
 
 	writeWikiPage(t, client, wikiRepoProto, createWikiPageOpts{title: "Instálling Gitaly", content: []byte("foobar")})
 
@@ -114,16 +110,11 @@ func TestSuccessfulWikiUpdatePageRequest(t *testing.T) {
 	}
 }
 
-func TestFailedWikiUpdatePageDueToValidations(t *testing.T) {
-	wikiRepo, _, cleanupFunc := setupWikiRepo(t)
+func testFailedWikiUpdatePageDueToValidations(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
+	wikiRepo, _, cleanupFunc := setupWikiRepo(t, cfg)
 	defer cleanupFunc()
 
-	locator := config.NewLocator(config.Config)
-	stop, serverSocketPath := runWikiServiceServer(t, locator)
-	defer stop()
-
-	client, conn := newWikiClient(t, serverSocketPath)
-	defer conn.Close()
+	client := setupWikiService(t, cfg, rubySrv)
 
 	writeWikiPage(t, client, wikiRepo, createWikiPageOpts{title: "Installing Gitaly", content: []byte("foobar")})
 

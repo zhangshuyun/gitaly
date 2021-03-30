@@ -6,25 +6,21 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
-func TestSuccessfulWikiListPagesRequest(t *testing.T) {
+func testSuccessfulWikiListPagesRequest(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	locator := config.NewLocator(config.Config)
-	stop, serverSocketPath := runWikiServiceServer(t, locator)
-	defer stop()
+	client := setupWikiService(t, cfg, rubySrv)
 
-	client, conn := newWikiClient(t, serverSocketPath)
-	defer conn.Close()
-
-	wikiRepo, _, cleanupFunc := setupWikiRepo(t)
+	wikiRepo, wikiRepoPath, cleanupFunc := setupWikiRepo(t, cfg)
 	defer cleanupFunc()
 
-	expectedPages := createTestWikiPages(t, locator, client, wikiRepo)
+	expectedPages := createTestWikiPages(t, cfg, client, wikiRepo, wikiRepoPath)
 
 	testcases := []struct {
 		desc          string
@@ -68,21 +64,16 @@ func TestSuccessfulWikiListPagesRequest(t *testing.T) {
 	}
 }
 
-func TestWikiListPagesSorting(t *testing.T) {
+func testWikiListPagesSorting(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	locator := config.NewLocator(config.Config)
-	stop, serverSocketPath := runWikiServiceServer(t, locator)
-	defer stop()
+	client := setupWikiService(t, cfg, rubySrv)
 
-	client, conn := newWikiClient(t, serverSocketPath)
-	defer conn.Close()
-
-	wikiRepo, _, cleanupFunc := setupWikiRepo(t)
+	wikiRepo, wikiRepoPath, cleanupFunc := setupWikiRepo(t, cfg)
 	defer cleanupFunc()
 
-	expectedPages := createTestWikiPages(t, locator, client, wikiRepo)
+	expectedPages := createTestWikiPages(t, cfg, client, wikiRepo, wikiRepoPath)
 
 	testcasesWithSorting := []struct {
 		desc          string

@@ -10,25 +10,22 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
-func TestWikiGetPageVersionsRequest(t *testing.T) {
-	wikiRepo, wikiRepoPath, cleanupFunc := setupWikiRepo(t)
+func testWikiGetPageVersionsRequest(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
+	wikiRepo, wikiRepoPath, cleanupFunc := setupWikiRepo(t, cfg)
 	defer cleanupFunc()
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	locator := config.NewLocator(config.Config)
-	stop, serverSocketPath := runWikiServiceServer(t, locator)
-	defer stop()
+	client := setupWikiService(t, cfg, rubySrv)
 
-	client, conn := newWikiClient(t, serverSocketPath)
-	defer conn.Close()
-	pageTitle := "WikiGétPageVersions"
+	const pageTitle = "WikiGétPageVersions"
 
 	content := bytes.Repeat([]byte("Mock wiki page content"), 10000)
 	writeWikiPage(t, client, wikiRepo, createWikiPageOpts{title: pageTitle, content: content})
@@ -110,21 +107,17 @@ func TestWikiGetPageVersionsRequest(t *testing.T) {
 	}
 }
 
-func TestWikiGetPageVersionsPaginationParams(t *testing.T) {
-	wikiRepo, _, cleanupFunc := setupWikiRepo(t)
+func testWikiGetPageVersionsPaginationParams(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
+	wikiRepo, _, cleanupFunc := setupWikiRepo(t, cfg)
 	defer cleanupFunc()
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	locator := config.NewLocator(config.Config)
-	stop, serverSocketPath := runWikiServiceServer(t, locator)
-	defer stop()
+	client := setupWikiService(t, cfg, rubySrv)
 
-	client, conn := newWikiClient(t, serverSocketPath)
-	defer conn.Close()
+	const pageTitle = "WikiGetPageVersions"
 
-	pageTitle := "WikiGetPageVersions"
 	content := []byte("page content")
 	writeWikiPage(t, client, wikiRepo, createWikiPageOpts{title: pageTitle, content: content})
 
