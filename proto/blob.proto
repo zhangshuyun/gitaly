@@ -67,6 +67,15 @@ service BlobService {
     };
   }
 
+  // ListAllLFSPointers retrieves all LFS pointers in the repository. In
+  // contrast to `GetAllLFSPointers`, this RPC also includes LFS pointers which
+  // are not reachable by any reference.
+  rpc ListAllLFSPointers(ListAllLFSPointersRequest) returns (stream ListAllLFSPointersResponse) {
+    option (op_type) = {
+      op: ACCESSOR
+    };
+  }
+
 }
 
 message GetBlobRequest {
@@ -202,6 +211,21 @@ message ListLFSPointersRequest {
 
 // ListLFSPointersResponse is a response for the ListLFSPointers RPC.
 message ListLFSPointersResponse {
+  // LfsPointers is the list of LFS pointers which were requested.
+  repeated LFSPointer lfs_pointers = 1;
+}
+
+// ListAllLFSPointersRequest is a request for the ListAllLFSPointers RPC.
+message ListAllLFSPointersRequest {
+  // Repository is the repository for which LFS pointers should be retrieved
+  // from.
+  Repository repository = 1[(target_repository)=true];
+  // Limit limits the number of LFS pointers returned.
+  int32 limit = 3;
+}
+
+// ListAllLFSPointersResponse is a response for the ListAllLFSPointers RPC.
+message ListAllLFSPointersResponse {
   // LfsPointers is the list of LFS pointers which were requested.
   repeated LFSPointer lfs_pointers = 1;
 }

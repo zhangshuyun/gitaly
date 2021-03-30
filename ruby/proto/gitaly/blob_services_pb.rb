@@ -44,6 +44,10 @@ module Gitaly
       # transitively reference any LFS pointers are ignored. It is not valid to
       # pass revisions which do not resolve to an existing object.
       rpc :ListLFSPointers, Gitaly::ListLFSPointersRequest, stream(Gitaly::ListLFSPointersResponse)
+      # ListAllLFSPointers retrieves all LFS pointers in the repository. In
+      # contrast to `GetAllLFSPointers`, this RPC also includes LFS pointers which
+      # are not reachable by any reference.
+      rpc :ListAllLFSPointers, Gitaly::ListAllLFSPointersRequest, stream(Gitaly::ListAllLFSPointersResponse)
     end
 
     Stub = Service.rpc_stub_class

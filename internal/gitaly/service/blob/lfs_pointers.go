@@ -16,6 +16,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
+	"golang.org/x/text/transform"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -62,6 +63,46 @@ func (s *server) ListLFSPointers(in *gitalypb.ListLFSPointersRequest, stream git
 
 	if err := sliceLFSPointers(lfsPointers, func(slice []*gitalypb.LFSPointer) error {
 		return stream.Send(&gitalypb.ListLFSPointersResponse{
+			LfsPointers: slice,
+		})
+	}); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// ListAllLFSPointers finds all LFS pointers which exist in the repository, including those which
+// are not reachable via graph walks.
+func (s *server) ListAllLFSPointers(in *gitalypb.ListAllLFSPointersRequest, stream gitalypb.BlobService_ListAllLFSPointersServer) error {
+	ctx := stream.Context()
+
+	if in.GetRepository() == nil {
+		return status.Error(codes.InvalidArgument, "empty repository")
+	}
+
+	repo := localrepo.New(s.gitCmdFactory, in.Repository, s.cfg)
+	cmd, err := repo.Exec(ctx, git.SubCmd{
+		Name: "cat-file",
+		Flags: []git.Option{
+			git.Flag{Name: "--batch-all-objects"},
+			git.Flag{Name: "--batch-check=%(objecttype) %(objectsize) %(objectname)"},
+			git.Flag{Name: "--buffer"},
+			git.Flag{Name: "--unordered"},
+		},
+	})
+	if err != nil {
+		return status.Errorf(codes.Internal, "could not run batch-check: %v", err)
+	}
+
+	filteredReader := transform.NewReader(cmd, lfsPointerFilter{})
+	lfsPointers, err := readLFSPointers(ctx, repo, filteredReader, int(in.Limit))
+	if err != nil {
+		return status.Errorf(codes.Internal, "could not read LFS pointers: %v", err)
+	}
+
+	if err := sliceLFSPointers(lfsPointers, func(slice []*gitalypb.LFSPointer) error {
+		return stream.Send(&gitalypb.ListAllLFSPointersResponse{
 			LfsPointers: slice,
 		})
 	}); err != nil {
