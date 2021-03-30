@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/client"
+	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/internal/bootstrap/starter"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -84,7 +85,7 @@ func TestGitalyServerFactory(t *testing.T) {
 
 	t.Run("insecure", func(t *testing.T) {
 		cfg := testcfg.Build(t)
-		sf := NewGitalyServerFactory(cfg)
+		sf := NewGitalyServerFactory(cfg, backchannel.NewRegistry())
 
 		checkHealth(t, sf, starter.TCP, "localhost:0")
 	})
@@ -98,7 +99,7 @@ func TestGitalyServerFactory(t *testing.T) {
 			KeyPath:  keyFile,
 		}}))
 
-		sf := NewGitalyServerFactory(cfg)
+		sf := NewGitalyServerFactory(cfg, backchannel.NewRegistry())
 		t.Cleanup(sf.Stop)
 
 		checkHealth(t, sf, starter.TLS, "localhost:0")
@@ -106,7 +107,7 @@ func TestGitalyServerFactory(t *testing.T) {
 
 	t.Run("all services must be stopped", func(t *testing.T) {
 		cfg := testcfg.Build(t)
-		sf := NewGitalyServerFactory(cfg)
+		sf := NewGitalyServerFactory(cfg, backchannel.NewRegistry())
 		t.Cleanup(sf.Stop)
 
 		tcpHealthClient := checkHealth(t, sf, starter.TCP, "localhost:0")

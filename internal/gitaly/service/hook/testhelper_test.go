@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/sirupsen/logrus"
+	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	gitalyhook "gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
@@ -71,7 +72,7 @@ func runHooksServerWithAPIAndTestServer(t testing.TB, srv *testhelper.TestServer
 
 	hookServer := NewServer(
 		cfg,
-		gitalyhook.NewManager(config.NewLocator(cfg), transaction.NewManager(cfg), gitlabAPI, cfg),
+		gitalyhook.NewManager(config.NewLocator(cfg), transaction.NewManager(cfg, backchannel.NewRegistry()), gitlabAPI, cfg),
 		git.NewExecCommandFactory(cfg),
 	)
 	for _, opt := range serverOpts {

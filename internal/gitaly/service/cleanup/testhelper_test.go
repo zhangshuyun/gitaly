@@ -4,6 +4,7 @@ import (
 	"os"
 	"testing"
 
+	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
@@ -48,7 +49,7 @@ func runCleanupServiceServer(t *testing.T, cfg config.Cfg) string {
 		srv.GrpcServer(),
 		hookservice.NewServer(
 			cfg,
-			hook.NewManager(locator, transaction.NewManager(cfg), hook.GitlabAPIStub, cfg),
+			hook.NewManager(locator, transaction.NewManager(cfg, backchannel.NewRegistry()), hook.GitlabAPIStub, cfg),
 			gitCmdFactory,
 		),
 	)

@@ -11,6 +11,7 @@ import (
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/client"
+	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
@@ -307,7 +308,7 @@ func TestUserCreateTagWithTransaction(t *testing.T) {
 	server := testhelper.NewServerWithAuth(t, nil, nil, config.Config.Auth.Token, testhelper.WithInternalSocket(config.Config))
 
 	locator := config.NewLocator(config.Config)
-	txManager := transaction.NewManager(config.Config)
+	txManager := transaction.NewManager(config.Config, backchannel.NewRegistry())
 	hookManager := gitalyhook.NewManager(locator, txManager, gitalyhook.GitlabAPIStub, config.Config)
 	gitCmdFactory := git.NewExecCommandFactory(config.Config)
 	conns := client.NewPool()

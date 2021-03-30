@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
 	"gitlab.com/gitlab-org/gitaly/client"
+	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	dcache "gitlab.com/gitlab-org/gitaly/internal/cache"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
@@ -111,7 +112,7 @@ func runRepoServerWithConfig(t *testing.T, cfg config.Cfg, locator storage.Locat
 		mcache.UnaryInvalidator(dcache.NewLeaseKeyer(locator), protoregistry.GitalyProtoPreregistered),
 	}
 
-	txManager := transaction.NewManager(cfg)
+	txManager := transaction.NewManager(cfg, backchannel.NewRegistry())
 	hookManager := hook.NewManager(locator, txManager, hook.GitlabAPIStub, cfg)
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
 

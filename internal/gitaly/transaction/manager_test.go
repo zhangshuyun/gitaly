@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -40,7 +41,7 @@ func TestPoolManager_Vote(t *testing.T) {
 	transactionServer, praefect, stop := runTransactionServer(t, cfg)
 	defer stop()
 
-	manager := NewManager(cfg)
+	manager := NewManager(cfg, backchannel.NewRegistry())
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -112,7 +113,7 @@ func TestPoolManager_Stop(t *testing.T) {
 	transactionServer, praefect, stop := runTransactionServer(t, cfg)
 	defer stop()
 
-	manager := NewManager(cfg)
+	manager := NewManager(cfg, backchannel.NewRegistry())
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()

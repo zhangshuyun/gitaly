@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
@@ -63,7 +64,7 @@ func TestPrintAlert(t *testing.T) {
 func TestPostReceive_customHook(t *testing.T) {
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
-	hookManager := NewManager(config.NewLocator(cfg), transaction.NewManager(cfg), GitlabAPIStub, cfg)
+	hookManager := NewManager(config.NewLocator(cfg), transaction.NewManager(cfg, backchannel.NewRegistry()), GitlabAPIStub, cfg)
 
 	receiveHooksPayload := &git.ReceiveHooksPayload{
 		UserID:   "1234",
@@ -340,7 +341,7 @@ func TestPostReceive_gitlab(t *testing.T) {
 				},
 			}
 
-			hookManager := NewManager(config.NewLocator(cfg), transaction.NewManager(cfg), &gitlabAPI, cfg)
+			hookManager := NewManager(config.NewLocator(cfg), transaction.NewManager(cfg, backchannel.NewRegistry()), &gitlabAPI, cfg)
 
 			cleanup = gittest.WriteCustomHook(t, repoPath, "post-receive", []byte("#!/bin/sh\necho hook called\n"))
 			defer cleanup()

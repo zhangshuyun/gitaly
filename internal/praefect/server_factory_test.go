@@ -12,6 +12,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/client"
+	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/internal/bootstrap/starter"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
@@ -38,7 +39,7 @@ func TestServerFactory(t *testing.T) {
 	cfg := gconfig.Config
 	locator := gconfig.NewLocator(cfg)
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
-	gitalyServerFactory := server.NewGitalyServerFactory(cfg)
+	gitalyServerFactory := server.NewGitalyServerFactory(cfg, backchannel.NewRegistry())
 	defer gitalyServerFactory.Stop()
 
 	ling, err := linguist.New(cfg)

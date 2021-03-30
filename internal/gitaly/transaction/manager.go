@@ -9,6 +9,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/client"
+	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -39,14 +40,16 @@ type Manager interface {
 // PoolManager is an implementation of the Manager interface using a pool to
 // connect to the transaction hosts.
 type PoolManager struct {
+	backchannels      *backchannel.Registry
 	conns             *client.Pool
 	votingDelayMetric prometheus.Histogram
 }
 
 // NewManager creates a new PoolManager to handle transactional voting.
-func NewManager(cfg config.Cfg) *PoolManager {
+func NewManager(cfg config.Cfg, backchannels *backchannel.Registry) *PoolManager {
 	return &PoolManager{
-		conns: client.NewPoolWithOptions(client.WithDialOptions(client.FailOnNonTempDialError()...)),
+		backchannels: backchannels,
+		conns:        client.NewPoolWithOptions(client.WithDialOptions(client.FailOnNonTempDialError()...)),
 		votingDelayMetric: prometheus.NewHistogram(
 			prometheus.HistogramOpts{
 				Name:    "gitaly_hook_transaction_voting_delay_seconds",

@@ -13,6 +13,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
@@ -91,7 +92,7 @@ func (s *testTransactionServer) VoteTransaction(ctx context.Context, in *gitalyp
 }
 
 func TestApplyGitattributesWithTransaction(t *testing.T) {
-	txManager := transaction.NewManager(config.Config)
+	txManager := transaction.NewManager(config.Config, backchannel.NewRegistry())
 	locator := config.NewLocator(config.Config)
 	transactionServer := &testTransactionServer{}
 

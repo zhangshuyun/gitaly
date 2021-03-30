@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
 	"gitlab.com/gitlab-org/gitaly/client"
+	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
@@ -189,14 +190,15 @@ func newOperationClient(t *testing.T, token, serverSocketPath string) (gitalypb.
 func runServer(t *testing.T, cfg config.Cfg) string {
 	t.Helper()
 
+	registry := backchannel.NewRegistry()
 	conns := client.NewPool()
 	t.Cleanup(func() { conns.Close() })
 	locator := config.NewLocator(cfg)
-	txManager := transaction.NewManager(cfg)
+	txManager := transaction.NewManager(cfg, registry)
 	hookManager := hook.NewManager(locator, txManager, hook.GitlabAPIStub, cfg)
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
 
-	srv, err := New(false, cfg, testhelper.DiscardTestEntry(t))
+	srv, err := New(false, cfg, testhelper.DiscardTestEntry(t), registry)
 	require.NoError(t, err)
 
 	service.RegisterAll(srv, cfg, nil, hookManager, txManager, locator, conns, gitCmdFactory, nil)
@@ -222,7 +224,7 @@ func runSecureServer(t *testing.T, cfg config.Cfg) string {
 	conns := client.NewPool()
 	t.Cleanup(func() { conns.Close() })
 
-	srv, err := New(true, cfg, testhelper.DiscardTestEntry(t))
+	srv, err := New(true, cfg, testhelper.DiscardTestEntry(t), backchannel.NewRegistry())
 	require.NoError(t, err)
 
 	healthpb.RegisterHealthServer(srv, health.NewServer())

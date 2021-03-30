@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
+	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/objectpool"
@@ -1056,7 +1057,7 @@ func newReplicationService(tb testing.TB) (*grpc.Server, string) {
 	svr := testhelper.NewTestGrpcServer(tb, nil, nil)
 
 	locator := gitaly_config.NewLocator(gitaly_config.Config)
-	txManager := transaction.NewManager(gitaly_config.Config)
+	txManager := transaction.NewManager(gitaly_config.Config, backchannel.NewRegistry())
 	hookManager := hook_manager.NewManager(locator, txManager, hook_manager.GitlabAPIStub, gitaly_config.Config)
 	gitCmdFactory := git.NewExecCommandFactory(gitaly_config.Config)
 
