@@ -508,11 +508,12 @@ func testPostReceiveWithTransactionsViaPraefect(t *testing.T, ctx context.Contex
 	testhelper.WriteShellSecretFile(t, gitlabShellDir, secretToken)
 
 	locator := config.NewLocator(cfg)
-	txManager := transaction.NewManager(cfg, backchannel.NewRegistry())
+	registry := backchannel.NewRegistry()
+	txManager := transaction.NewManager(cfg, registry)
 	hookManager := gitalyhook.NewManager(locator, txManager, gitalyhook.GitlabAPIStub, cfg)
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
 
-	gitalyServer := testhelper.NewServerWithAuth(t, nil, nil, cfg.Auth.Token)
+	gitalyServer := testhelper.NewServerWithAuth(t, nil, nil, cfg.Auth.Token, registry)
 
 	gitalypb.RegisterSmartHTTPServiceServer(gitalyServer.GrpcServer(), NewServer(cfg, locator, gitCmdFactory))
 	gitalypb.RegisterHookServiceServer(gitalyServer.GrpcServer(), hook.NewServer(cfg, hookManager, gitCmdFactory))

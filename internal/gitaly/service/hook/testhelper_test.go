@@ -58,21 +58,25 @@ func runHooksServer(t testing.TB, cfg config.Cfg, serverOpts ...serverOption) st
 	return runHooksServerWithAPI(t, gitalyhook.GitlabAPIStub, cfg, serverOpts...)
 }
 
+func runHooksServerWithRegistry(t testing.TB, cfg config.Cfg, registry *backchannel.Registry) string {
+	return runHooksServerWithAPIAndTestServer(t, testhelper.NewServer(t, nil, nil), gitalyhook.GitlabAPIStub, cfg, registry)
+}
+
 func runHooksServerWithLogger(t *testing.T, cfg config.Cfg, logger *logrus.Logger) string {
 	srv := testhelper.NewServerWithLogger(t, logger, nil, nil)
-	return runHooksServerWithAPIAndTestServer(t, srv, gitalyhook.GitlabAPIStub, cfg)
+	return runHooksServerWithAPIAndTestServer(t, srv, gitalyhook.GitlabAPIStub, cfg, backchannel.NewRegistry())
 }
 
 func runHooksServerWithAPI(t testing.TB, gitlabAPI gitalyhook.GitlabAPI, cfg config.Cfg, serverOpts ...serverOption) string {
-	return runHooksServerWithAPIAndTestServer(t, testhelper.NewServer(t, nil, nil), gitlabAPI, cfg, serverOpts...)
+	return runHooksServerWithAPIAndTestServer(t, testhelper.NewServer(t, nil, nil), gitlabAPI, cfg, backchannel.NewRegistry(), serverOpts...)
 }
 
-func runHooksServerWithAPIAndTestServer(t testing.TB, srv *testhelper.TestServer, gitlabAPI gitalyhook.GitlabAPI, cfg config.Cfg, serverOpts ...serverOption) string {
+func runHooksServerWithAPIAndTestServer(t testing.TB, srv *testhelper.TestServer, gitlabAPI gitalyhook.GitlabAPI, cfg config.Cfg, registry *backchannel.Registry, serverOpts ...serverOption) string {
 	t.Helper()
 
 	hookServer := NewServer(
 		cfg,
-		gitalyhook.NewManager(config.NewLocator(cfg), transaction.NewManager(cfg, backchannel.NewRegistry()), gitlabAPI, cfg),
+		gitalyhook.NewManager(config.NewLocator(cfg), transaction.NewManager(cfg, registry), gitlabAPI, cfg),
 		git.NewExecCommandFactory(cfg),
 	)
 	for _, opt := range serverOpts {

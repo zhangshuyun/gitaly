@@ -14,6 +14,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
@@ -239,7 +240,7 @@ func TestFetchRemote_transaction(t *testing.T) {
 	txManager := &mockTxManager{}
 	gitCmdFactory := git.NewExecCommandFactory(sourceCfg)
 
-	srv := testhelper.NewServerWithAuth(t, nil, nil, sourceCfg.Auth.Token, testhelper.WithInternalSocket(sourceCfg))
+	srv := testhelper.NewServerWithAuth(t, nil, nil, sourceCfg.Auth.Token, backchannel.NewRegistry(), testhelper.WithInternalSocket(sourceCfg))
 	gitalypb.RegisterRepositoryServiceServer(srv.GrpcServer(), NewServer(sourceCfg, RubyServer, locator, txManager, gitCmdFactory))
 	srv.Start(t)
 	defer srv.Stop()
