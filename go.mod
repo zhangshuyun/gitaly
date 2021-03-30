@@ -44,6 +44,7 @@ require (
 	golang.org/x/exp v0.0.0-20200331195152-e8c3332aa8e5 // indirect
 	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208
 	golang.org/x/sys v0.0.0-20210119212857-b64e53b001e4
+	golang.org/x/text v0.3.3
 	google.golang.org/grpc v1.29.1
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
