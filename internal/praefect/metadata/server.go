@@ -31,6 +31,10 @@ var (
 
 // PraefectServer stores parameters required to connect to a Praefect server
 type PraefectServer struct {
+	// BackchannelID identifies the backchannel that corresponds to the Praefect server
+	// that sent the request and should receive the vote. This field is actually filled
+	// in by the Gitaly.
+	BackchannelID backchannel.ID `json:"backchannel_id,omitempty"`
 	// ListenAddr is the TCP listen address of the Praefect server
 	ListenAddr string `json:"listen_addr"`
 	// TLSListenAddr is the TCP listen address of the Praefect server with TLS support
@@ -197,6 +201,11 @@ func PraefectFromContext(ctx context.Context) (*PraefectServer, error) {
 
 	if err := praefect.resolvePraefectAddress(peer); err != nil {
 		return nil, err
+	}
+
+	praefect.BackchannelID, err = backchannel.GetPeerID(ctx)
+	if err != nil && !errors.Is(err, backchannel.ErrNonMultiplexedConnection) {
+		return nil, fmt.Errorf("get peer id: %w", err)
 	}
 
 	return praefect, nil
