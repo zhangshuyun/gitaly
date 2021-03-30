@@ -32,8 +32,10 @@ func NewFilesystem(path string) *Filesystem {
 
 // BackupRepository creates a repository backup on a local filesystem
 func (fs *Filesystem) BackupRepository(ctx context.Context, server storage.ServerInfo, repo *gitalypb.Repository) error {
-	if isEmpty, err := fs.isEmpty(ctx, server, repo); err != nil || isEmpty {
+	if isEmpty, err := fs.isEmpty(ctx, server, repo); err != nil {
 		return fmt.Errorf("backup: %w", err)
+	} else if isEmpty {
+		return nil
 	}
 
 	backupPath := strings.TrimSuffix(filepath.Join(fs.path, repo.RelativePath), ".git")
