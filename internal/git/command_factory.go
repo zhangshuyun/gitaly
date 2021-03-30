@@ -163,11 +163,6 @@ func (cf *ExecCommandFactory) combineOpts(ctx context.Context, sc Cmd, opts []Cm
 	if !config.hooksConfigured && commandDescription.mayUpdateRef() {
 		return cmdCfg{}, fmt.Errorf("subcommand %q: %w", sc.Subcommand(), ErrHookPayloadRequired)
 	}
-	if commandDescription.mayGeneratePackfiles() {
-		config.globals = append(config.globals, ConfigPair{
-			Key: "pack.windowMemory", Value: "100m",
-		})
-	}
 
 	return config, nil
 }
@@ -184,6 +179,13 @@ func (cf *ExecCommandFactory) combineArgs(gitConfig []config.GitConfig, sc Cmd, 
 	commandDescription, ok := commandDescriptions[sc.Subcommand()]
 	if !ok {
 		return nil, fmt.Errorf("invalid sub command name %q: %w", sc.Subcommand(), ErrInvalidArg)
+	}
+
+	commandSpecificOptions := commandDescription.opts
+	if commandDescription.mayGeneratePackfiles() {
+		commandSpecificOptions = append(commandSpecificOptions, ConfigPair{
+			Key: "pack.windowMemory", Value: "100m",
+		})
 	}
 
 	// As global options may cancel out each other, we have a clearly
@@ -205,7 +207,7 @@ func (cf *ExecCommandFactory) combineArgs(gitConfig []config.GitConfig, sc Cmd, 
 		})
 	}
 	combinedGlobals = append(combinedGlobals, globalOptions...)
-	combinedGlobals = append(combinedGlobals, commandDescription.opts...)
+	combinedGlobals = append(combinedGlobals, commandSpecificOptions...)
 	combinedGlobals = append(combinedGlobals, cc.globals...)
 
 	for _, global := range combinedGlobals {
