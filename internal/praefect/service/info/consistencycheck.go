@@ -7,6 +7,7 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/metadatahandler"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/nodes"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -16,9 +17,15 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+var errRepositorySpecificPrimariesUnsupported = status.Error(codes.FailedPrecondition, "`praefect reconcile` should not be used with repository specific primaries enabled. Please enable automatic reconciler instead.")
+
 var errReconciliationInternal = errors.New("internal error(s) occurred during execution")
 
 func (s *Server) validateConsistencyCheckRequest(req *gitalypb.ConsistencyCheckRequest) error {
+	if s.conf.Failover.ElectionStrategy == config.ElectionStrategyPerRepository {
+		return errRepositorySpecificPrimariesUnsupported
+	}
+
 	if req.GetTargetStorage() == "" {
 		return status.Error(codes.InvalidArgument, "missing target storage")
 	}
@@ -32,6 +39,7 @@ func (s *Server) validateConsistencyCheckRequest(req *gitalypb.ConsistencyCheckR
 			req.GetTargetStorage(), req.GetReferenceStorage(),
 		)
 	}
+
 	return nil
 }
 

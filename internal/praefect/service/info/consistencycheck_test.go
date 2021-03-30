@@ -28,6 +28,18 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+func TestServer_ConsistencyCheck_repositorySpecificPrimariesUnsupported(t *testing.T) {
+	require.Equal(
+		t,
+		errRepositorySpecificPrimariesUnsupported,
+		NewServer(nil,
+			config.Config{
+				Failover: config.Failover{ElectionStrategy: config.ElectionStrategyPerRepository},
+			}, nil, nil, nil,
+		).ConsistencyCheck(nil, nil),
+	)
+}
+
 func TestServer_ConsistencyCheck(t *testing.T) {
 	cfg := gconfig.Config
 
