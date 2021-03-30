@@ -20,6 +20,7 @@ import (
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	gconfig "gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
@@ -34,6 +35,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/nodes"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/nodes/tracker"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/protoregistry"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/service/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/transactions"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/promtest"
@@ -48,6 +50,58 @@ import (
 	grpc_metadata "google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
+
+func TestNewBackchannelServerFactory(t *testing.T) {
+	mgr := transactions.NewManager(config.Config{})
+
+	logger := testhelper.DiscardTestEntry(t)
+	registry := backchannel.NewRegistry()
+	server := grpc.NewServer(
+		grpc.Creds(backchannel.NewServerHandshaker(logger, backchannel.Insecure(), registry, nil)),
+		grpc.UnknownServiceHandler(func(srv interface{}, stream grpc.ServerStream) error {
+			id, err := backchannel.GetPeerID(stream.Context())
+			if !assert.NoError(t, err) {
+				return err
+			}
+
+			backchannelConn, err := registry.Backchannel(id)
+			if !assert.NoError(t, err) {
+				return err
+			}
+
+			resp, err := gitalypb.NewRefTransactionClient(backchannelConn).VoteTransaction(
+				stream.Context(), &gitalypb.VoteTransactionRequest{},
+			)
+			assert.Nil(t, resp)
+
+			return err
+		}),
+	)
+	defer server.Stop()
+
+	ln, err := net.Listen("tcp", "localhost:0")
+	require.NoError(t, err)
+
+	go server.Serve(ln)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	nodeSet, err := DialNodes(ctx, []*config.VirtualStorage{{
+		Name:  "default",
+		Nodes: []*config.Node{{Storage: "gitaly-1", Address: "tcp://" + ln.Addr().String()}},
+	}}, nil, nil, backchannel.NewClientHandshaker(logger, NewBackchannelServerFactory(
+		testhelper.DiscardTestEntry(t), transaction.NewServer(mgr),
+	)))
+	require.NoError(t, err)
+	defer nodeSet.Close()
+
+	clientConn := nodeSet["default"]["gitaly-1"].Connection
+	require.Equal(t,
+		status.Error(codes.NotFound, "transaction not found: 0"),
+		clientConn.Invoke(ctx, "/Service/Method", &gitalypb.CreateBranchRequest{}, &gitalypb.CreateBranchResponse{}),
+	)
+}
 
 func TestGitalyServerInfo(t *testing.T) {
 	ctx, cancel := testhelper.Context()

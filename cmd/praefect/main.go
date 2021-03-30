@@ -109,11 +109,11 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/nodes/tracker"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/reconciler"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/service/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/transactions"
 	"gitlab.com/gitlab-org/gitaly/internal/version"
 	"gitlab.com/gitlab-org/labkit/monitoring"
 	"gitlab.com/gitlab-org/labkit/tracing"
-	"google.golang.org/grpc"
 )
 
 var (
@@ -296,7 +296,8 @@ func run(cfgs []starter.Config, conf config.Config) error {
 		}
 	}
 
-	clientHandshaker := backchannel.NewClientHandshaker(logger, func() backchannel.Server { return grpc.NewServer() })
+	transactionManager := transactions.NewManager(conf)
+	clientHandshaker := backchannel.NewClientHandshaker(logger, praefect.NewBackchannelServerFactory(logger, transaction.NewServer(transactionManager)))
 	assignmentStore := praefect.NewDisabledAssignmentStore(conf.StorageNames())
 	var (
 		nodeManager   nodes.Manager
@@ -359,8 +360,6 @@ func run(cfgs []starter.Config, conf config.Config) error {
 
 	var (
 		// top level server dependencies
-		transactionManager = transactions.NewManager(conf)
-
 		coordinator = praefect.NewCoordinator(
 			queue,
 			rs,
