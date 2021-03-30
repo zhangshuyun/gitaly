@@ -23,6 +23,7 @@ require (
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 	github.com/hashicorp/go-uuid v1.0.2 // indirect
 	github.com/hashicorp/golang-lru v0.5.4
+	github.com/hashicorp/yamux v0.0.0-20210316155119-a95892c5f864
 	github.com/kelseyhightower/envconfig v1.3.0
 	github.com/lib/pq v1.2.0
 	github.com/libgit2/git2go/v31 v31.4.12
