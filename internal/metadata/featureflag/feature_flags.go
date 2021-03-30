@@ -25,12 +25,6 @@ var (
 	// GoUserRevert enables the Go implementation of UserRevert
 	GoUserRevert = FeatureFlag{Name: "go_user_revert", OnByDefault: false}
 	// GoGetAllLFSPointers enables the Go implementation of GetAllLFSPointers
-	GoGetAllLFSPointers = FeatureFlag{Name: "go_get_all_lfs_pointers", OnByDefault: true}
-	// GoGetLFSPointers enables the Go implementation of GetLFSPointers
-	GoGetLFSPointers = FeatureFlag{Name: "go_get_lfs_pointers", OnByDefault: true}
-	// GoGetNewPointers enables the Go implementation of GetNewLFSPointers
-	GoGetNewLFSPointers = FeatureFlag{Name: "go_get_new_lfs_pointers", OnByDefault: true}
-	// UploadPackGitalyHooks makes git-upload-pack use gitaly-hooks to run pack-objects
 	UploadPackGitalyHooks = FeatureFlag{Name: "upload_pack_gitaly_hooks", OnByDefault: false}
 	// LFSPointersUseBitmapIndex enables the use of bitmap indices when searching LFS pointers.
 	LFSPointersUseBitmapIndex = FeatureFlag{Name: "lfs_pointers_use_bitmap_index", OnByDefault: false}
@@ -47,9 +41,6 @@ var All = []FeatureFlag{
 	GoResolveConflicts,
 	GoUserUpdateSubmodule,
 	GoUserRevert,
-	GoGetAllLFSPointers,
-	GoGetLFSPointers,
-	GoGetNewLFSPointers,
 	LFSPointersUseBitmapIndex,
 	GoUpdateRemoteMirror,
 	UploadPackGitalyHooks,

@@ -1,0 +1,5 @@
+---
+title: 'blob: Remove feature flags for LFS pointer RPC ports'
+merge_request: 3309
+author:
+type: performance

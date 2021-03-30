@@ -14,7 +14,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -50,10 +49,6 @@ func (s *server) GetLFSPointers(req *gitalypb.GetLFSPointersRequest, stream gita
 		return status.Errorf(codes.InvalidArgument, "GetLFSPointers: %v", err)
 	}
 
-	if featureflag.IsDisabled(ctx, featureflag.GoGetLFSPointers) {
-		return s.rubyGetLFSPointers(req, stream)
-	}
-
 	repo := localrepo.New(s.gitCmdFactory, req.Repository, s.cfg)
 	objectIDs := strings.Join(req.BlobIds, "\n")
 
@@ -72,35 +67,6 @@ func (s *server) GetLFSPointers(req *gitalypb.GetLFSPointersRequest, stream gita
 	}
 
 	return nil
-}
-
-func (s *server) rubyGetLFSPointers(req *gitalypb.GetLFSPointersRequest, stream gitalypb.BlobService_GetLFSPointersServer) error {
-	ctx := stream.Context()
-
-	client, err := s.ruby.BlobServiceClient(ctx)
-	if err != nil {
-		return err
-	}
-
-	clientCtx, err := rubyserver.SetHeaders(ctx, s.locator, req.GetRepository())
-	if err != nil {
-		return err
-	}
-
-	rubyStream, err := client.GetLFSPointers(clientCtx, req)
-	if err != nil {
-		return err
-	}
-
-	return rubyserver.Proxy(func() error {
-		resp, err := rubyStream.Recv()
-		if err != nil {
-			md := rubyStream.Trailer()
-			stream.SetTrailer(md)
-			return err
-		}
-		return stream.Send(resp)
-	})
 }
 
 func validateGetLFSPointersRequest(req *gitalypb.GetLFSPointersRequest) error {
@@ -123,10 +89,6 @@ func (s *server) GetNewLFSPointers(in *gitalypb.GetNewLFSPointersRequest, stream
 
 	if err := validateGetLfsPointersByRevisionRequest(in); err != nil {
 		return status.Errorf(codes.InvalidArgument, "GetNewLFSPointers: %v", err)
-	}
-
-	if featureflag.IsDisabled(ctx, featureflag.GoGetNewLFSPointers) {
-		return s.rubyGetNewLFSPointers(in, stream)
 	}
 
 	repo := localrepo.New(s.gitCmdFactory, in.Repository, s.cfg)
@@ -161,35 +123,6 @@ func (s *server) GetNewLFSPointers(in *gitalypb.GetNewLFSPointersRequest, stream
 	return nil
 }
 
-func (s *server) rubyGetNewLFSPointers(in *gitalypb.GetNewLFSPointersRequest, stream gitalypb.BlobService_GetNewLFSPointersServer) error {
-	ctx := stream.Context()
-
-	client, err := s.ruby.BlobServiceClient(ctx)
-	if err != nil {
-		return err
-	}
-
-	clientCtx, err := rubyserver.SetHeaders(ctx, s.locator, in.GetRepository())
-	if err != nil {
-		return err
-	}
-
-	rubyStream, err := client.GetNewLFSPointers(clientCtx, in)
-	if err != nil {
-		return err
-	}
-
-	return rubyserver.Proxy(func() error {
-		resp, err := rubyStream.Recv()
-		if err != nil {
-			md := rubyStream.Trailer()
-			stream.SetTrailer(md)
-			return err
-		}
-		return stream.Send(resp)
-	})
-}
-
 func validateGetLfsPointersByRevisionRequest(in getLFSPointerByRevisionRequest) error {
 	if in.GetRepository() == nil {
 		return fmt.Errorf("empty Repository")
@@ -205,10 +138,6 @@ func (s *server) GetAllLFSPointers(in *gitalypb.GetAllLFSPointersRequest, stream
 
 	if err := validateGetAllLFSPointersRequest(in); err != nil {
 		return status.Errorf(codes.InvalidArgument, "GetAllLFSPointers: %v", err)
-	}
-
-	if featureflag.IsDisabled(ctx, featureflag.GoGetAllLFSPointers) {
-		return s.rubyGetAllLFSPointers(in, stream)
 	}
 
 	repo := localrepo.New(s.gitCmdFactory, in.Repository, s.cfg)
@@ -231,35 +160,6 @@ func (s *server) GetAllLFSPointers(in *gitalypb.GetAllLFSPointersRequest, stream
 	}
 
 	return nil
-}
-
-func (s *server) rubyGetAllLFSPointers(in *gitalypb.GetAllLFSPointersRequest, stream gitalypb.BlobService_GetAllLFSPointersServer) error {
-	ctx := stream.Context()
-
-	client, err := s.ruby.BlobServiceClient(ctx)
-	if err != nil {
-		return err
-	}
-
-	clientCtx, err := rubyserver.SetHeaders(ctx, s.locator, in.GetRepository())
-	if err != nil {
-		return err
-	}
-
-	rubyStream, err := client.GetAllLFSPointers(clientCtx, in)
-	if err != nil {
-		return err
-	}
-
-	return rubyserver.Proxy(func() error {
-		resp, err := rubyStream.Recv()
-		if err != nil {
-			md := rubyStream.Trailer()
-			stream.SetTrailer(md)
-			return err
-		}
-		return stream.Send(resp)
-	})
 }
 
 func validateGetAllLFSPointersRequest(in *gitalypb.GetAllLFSPointersRequest) error {
