@@ -1,0 +1,5 @@
+---
+title: Upgrade git version to v2.31.1
+merge_request: 3306
+author:
+type: fixed
