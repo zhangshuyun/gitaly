@@ -71,6 +71,54 @@ index 0000000000000000000000000000000000000000..3be11c69355948412925fa5e073d76d5
 	require.Equal(t, expectedDiffs, diffs)
 }
 
+func TestDiffParserWithWordDiff(t *testing.T) {
+	rawDiff := `:000000 100644 0000000000000000000000000000000000000000 4cc7061661b8f52891bc1b39feb4d856b21a1067 A	big.txt
+
+diff --git a/big.txt b/big.txt
+new file mode 100644
+index 000000000..3a62d28e3
+--- /dev/null
++++ b/big.txt
+@@ -0,0 +1,3 @@
++A
+~
++B
+~ignoreme
++C
+~
+`
+
+	limits := Limits{
+		EnforceLimits: true,
+		SafeMaxFiles:  3,
+		SafeMaxBytes:  200,
+		SafeMaxLines:  200,
+		MaxFiles:      5,
+		MaxBytes:      10000000,
+		MaxLines:      10000000,
+		MaxPatchBytes: 100000,
+		CollapseDiffs: false,
+	}
+	diffs := getDiffs(rawDiff, limits)
+
+	expectedDiffs := []*Diff{
+		&Diff{
+			OldMode:   0,
+			NewMode:   0100644,
+			FromID:    "0000000000000000000000000000000000000000",
+			ToID:      "4cc7061661b8f52891bc1b39feb4d856b21a1067",
+			FromPath:  []byte("big.txt"),
+			ToPath:    []byte("big.txt"),
+			Status:    'A',
+			Collapsed: false,
+			Patch:     []byte("@@ -0,0 +1,3 @@\n+A\n~\n+B\n+C\n~\n"),
+			lineCount: 4,
+		},
+	}
+
+	require.Equal(t, expectedDiffs, diffs)
+}
+
 func TestDiffParserWithLargeDiffWithFalseCollapseDiffsFlag(t *testing.T) {
 	bigPatch := strings.Repeat("+Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.\n", 100000)
 	rawDiff := fmt.Sprintf(`:000000 100644 0000000000000000000000000000000000000000 4cc7061661b8f52891bc1b39feb4d856b21a1067 A	big.txt
@@ -291,7 +339,6 @@ func TestDiffLimitsBeingEnforcedByUpperBound(t *testing.T) {
 		MaxLines:      0,
 		MaxPatchBytes: 0,
 	}
-
 	diffParser := NewDiffParser(strings.NewReader(""), limits)
 
 	require.Equal(t, diffParser.limits.SafeMaxBytes, safeMaxBytesUpperBound)

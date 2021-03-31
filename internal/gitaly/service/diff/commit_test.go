@@ -1,6 +1,7 @@
 package diff
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"testing"
@@ -393,6 +394,193 @@ func TestSuccessfulCommitDiffRequestWithIgnoreWhitespaceChange(t *testing.T) {
 			require.NoError(t, err)
 
 			assertExactReceivedDiffs(t, c, entry.diffs)
+		})
+	}
+}
+
+func TestSuccessfulCommitDiffRequestWithWordDiff(t *testing.T) {
+	_, repo, repoPath, client := setupDiffService(t)
+
+	rightCommit := "ab2c9622c02288a2bbaaf35d96088cfdff31d9d9"
+	leftCommit := "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab"
+
+	var diffPatches [][]byte
+	output := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "diff", "--word-diff=porcelain", leftCommit, rightCommit)
+	diffPerFile := bytes.Split(output, []byte("diff --git"))
+
+	for _, s := range diffPerFile {
+		if idx := bytes.Index(s, []byte("@@")); idx != -1 {
+			diffPatches = append(diffPatches, s[idx:])
+		}
+	}
+
+	expectedDiffs := []diff.Diff{
+		{
+			FromID:   "faaf198af3a36dbf41961466703cc1d47c61d051",
+			ToID:     "877cee6ab11f9094e1bcdb7f1fd9c0001b572185",
+			OldMode:  0100644,
+			NewMode:  0100644,
+			FromPath: []byte("README.md"),
+			ToPath:   []byte("README.md"),
+			Binary:   false,
+			Patch:    diffPatches[0],
+		},
+		{
+			FromID:   "bdea48ee65c869eb0b86b1283069d76cce0a7254",
+			ToID:     "0000000000000000000000000000000000000000",
+			OldMode:  0100644,
+			NewMode:  0,
+			FromPath: []byte("gitaly/deleted-file"),
+			ToPath:   []byte("gitaly/deleted-file"),
+			Binary:   false,
+			Patch:    diffPatches[1],
+		},
+		{
+			FromID:   "aa408b4556e594f7974390ad6b86210617fbda6e",
+			ToID:     "1c69c4d2a65ad05c24ac3b6780b5748b97ffd3aa",
+			OldMode:  0100644,
+			NewMode:  0100644,
+			FromPath: []byte("gitaly/file-with-multiple-chunks"),
+			ToPath:   []byte("gitaly/file-with-multiple-chunks"),
+			Binary:   false,
+			Patch:    diffPatches[2],
+		},
+		{
+			FromID:   "0000000000000000000000000000000000000000",
+			ToID:     "389c7a36a6e133268b0d36b00e7ffc0f3a5b6651",
+			OldMode:  0,
+			NewMode:  0100644,
+			FromPath: []byte("gitaly/file-with-pluses.txt"),
+			ToPath:   []byte("gitaly/file-with-pluses.txt"),
+			Binary:   false,
+			Patch:    diffPatches[3],
+		},
+		{
+			FromID:   "0000000000000000000000000000000000000000",
+			ToID:     "bc2ef601a538d69ef99d5bdafa605e63f902e8e4",
+			OldMode:  0,
+			NewMode:  0100644,
+			FromPath: []byte("gitaly/logo-white.png"),
+			ToPath:   []byte("gitaly/logo-white.png"),
+			Binary:   true,
+			Patch:    []byte("Binary files /dev/null and b/gitaly/logo-white.png differ\n"),
+		},
+		{
+			FromID:   "ead5a0eee1391308803cfebd8a2a8530495645eb",
+			ToID:     "ead5a0eee1391308803cfebd8a2a8530495645eb",
+			OldMode:  0100644,
+			NewMode:  0100755,
+			FromPath: []byte("gitaly/mode-file"),
+			ToPath:   []byte("gitaly/mode-file"),
+			Binary:   false,
+		},
+		{
+			FromID:   "357406f3075a57708d0163752905cc1576fceacc",
+			ToID:     "8e5177d718c561d36efde08bad36b43687ee6bf0",
+			OldMode:  0100644,
+			NewMode:  0100755,
+			FromPath: []byte("gitaly/mode-file-with-mods"),
+			ToPath:   []byte("gitaly/mode-file-with-mods"),
+			Binary:   false,
+			Patch:    diffPatches[4],
+		},
+		{
+			FromID:   "43d24af4e22580f36b1ca52647c1aff75a766a33",
+			ToID:     "0000000000000000000000000000000000000000",
+			OldMode:  0100644,
+			NewMode:  0,
+			FromPath: []byte("gitaly/named-file-with-mods"),
+			ToPath:   []byte("gitaly/named-file-with-mods"),
+			Binary:   false,
+			Patch:    diffPatches[5],
+		},
+		{
+			FromID:   "0000000000000000000000000000000000000000",
+			ToID:     "b464dff7a75ccc92fbd920fd9ae66a84b9d2bf94",
+			OldMode:  0,
+			NewMode:  0100644,
+			FromPath: []byte("gitaly/no-newline-at-the-end"),
+			ToPath:   []byte("gitaly/no-newline-at-the-end"),
+			Binary:   false,
+			Patch:    diffPatches[6],
+		},
+		{
+			FromID:   "4e76e90b3c7e52390de9311a23c0a77575aed8a8",
+			ToID:     "4e76e90b3c7e52390de9311a23c0a77575aed8a8",
+			OldMode:  0100644,
+			NewMode:  0100644,
+			FromPath: []byte("gitaly/named-file"),
+			ToPath:   []byte("gitaly/renamed-file"),
+			Binary:   false,
+		},
+		{
+			FromID:   "0000000000000000000000000000000000000000",
+			ToID:     "3856c00e9450a51a62096327167fc43d3be62eef",
+			OldMode:  0,
+			NewMode:  0100644,
+			FromPath: []byte("gitaly/renamed-file-with-mods"),
+			ToPath:   []byte("gitaly/renamed-file-with-mods"),
+			Binary:   false,
+			Patch:    diffPatches[7],
+		},
+		{
+			FromID:   "0000000000000000000000000000000000000000",
+			ToID:     "a135e3e0d4af177a902ca57dcc4c7fc6f30858b1",
+			OldMode:  0,
+			NewMode:  0100644,
+			FromPath: []byte("gitaly/tab\tnewline\n file"),
+			ToPath:   []byte("gitaly/tab\tnewline\n file"),
+			Binary:   false,
+			Patch:    diffPatches[8],
+		},
+		{
+			FromID:   "0000000000000000000000000000000000000000",
+			ToID:     "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+			OldMode:  0,
+			NewMode:  0100755,
+			FromPath: []byte("gitaly/テスト.txt"),
+			ToPath:   []byte("gitaly/テスト.txt"),
+			Binary:   false,
+		},
+		{
+			FromID:   "0000000000000000000000000000000000000000",
+			ToID:     "b1e67221afe8461efd244b487afca22d46b95eb8",
+			OldMode:  0,
+			NewMode:  0100644,
+			FromPath: []byte("z-short-diff"),
+			ToPath:   []byte("z-short-diff"),
+			Binary:   false,
+			Patch:    diffPatches[9],
+		},
+	}
+
+	testCases := []struct {
+		noPrefixConfig string
+		desc           string
+	}{
+		{noPrefixConfig: "false", desc: "Git config diff.noprefix set to false"},
+		{noPrefixConfig: "true", desc: "Git config diff.noprefix set to true"},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.desc, func(t *testing.T) {
+			testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "diff.noprefix", testCase.noPrefixConfig)
+			rpcRequest := &gitalypb.CommitDiffRequest{
+				Repository:             repo,
+				RightCommitId:          rightCommit,
+				LeftCommitId:           leftCommit,
+				IgnoreWhitespaceChange: false,
+				DiffMode:               gitalypb.CommitDiffRequest_WORDDIFF,
+			}
+
+			ctx, cancel := testhelper.Context()
+			defer cancel()
+			c, err := client.CommitDiff(ctx, rpcRequest)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			assertExactReceivedDiffs(t, c, expectedDiffs)
 		})
 	}
 }
