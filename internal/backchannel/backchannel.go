@@ -22,7 +22,7 @@
 //
 // Usage:
 // 1. Implement a ServerFactory, which is simply a function that returns a Server that can serve on the backchannel
-//    connection. Plug in the ClientHandshake returned by the ServerFactory.ClientHandshaker via grpc.WithTransportCredentials.
+//    connection. Plug in the ClientHandshake to the Clientconn via grpc.WithTransportCredentials when dialing.
 //    This ensures all connections established by gRPC work with a multiplexing session and have a backchannel Server serving.
 // 2. Configure the ServerHandshake on the server side by passing it into the gRPC server via the grpc.Creds option.
 //    The ServerHandshake method is called on each newly established connection. It peeks the network stream to see if a

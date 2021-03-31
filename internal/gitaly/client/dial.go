@@ -105,9 +105,11 @@ func Dial(ctx context.Context, rawAddress string, connOpts []grpc.DialOption, mu
 			transportCredentials = backchannel.Insecure()
 		}
 
-		transportCredentials = backchannel.ServerFactory(
+		transportCredentials = backchannel.NewClientHandshaker(
+			logger,
 			func() backchannel.Server { return grpc.NewServer() },
-		).ClientHandshaker(logger, transportCredentials)
+		).ClientHandshake(transportCredentials)
+
 	}
 
 	if transportCredentials == nil {
