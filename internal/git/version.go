@@ -76,6 +76,14 @@ func (v Version) IsSupported() bool {
 	return !v.LessThan(minimumVersion)
 }
 
+// SupportsConfigEnv checks whether git supports the config environment variables GIT_CONFIG_COUNT,
+// GIT_CONFIG_KEY and GIT_CONFIG_VALUE.
+func (v Version) SupportsConfigEnv() bool {
+	return !v.LessThan(Version{
+		major: 2, minor: 31, patch: 0,
+	})
+}
+
 // LessThan determines whether the version is older than another version.
 func (v Version) LessThan(other Version) bool {
 	switch {
