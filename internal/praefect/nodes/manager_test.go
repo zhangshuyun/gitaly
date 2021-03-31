@@ -122,7 +122,7 @@ func TestManagerFailoverDisabledElectionStrategySQL(t *testing.T) {
 		Failover:        config.Failover{Enabled: false, ElectionStrategy: config.ElectionStrategySQL},
 		VirtualStorages: []*config.VirtualStorage{virtualStorage},
 	}
-	nm, err := NewManager(testhelper.DiscardTestEntry(t), conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil)
+	nm, err := NewManager(testhelper.DiscardTestEntry(t), conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil)
 	require.NoError(t, err)
 
 	nm.Start(time.Millisecond, time.Millisecond)
@@ -171,7 +171,7 @@ func TestDialWithUnhealthyNode(t *testing.T) {
 	srv, _ := testhelper.NewHealthServerWithListener(t, primaryLn)
 	defer srv.Stop()
 
-	mgr, err := NewManager(testhelper.DiscardTestEntry(t), conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil)
+	mgr, err := NewManager(testhelper.DiscardTestEntry(t), conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil)
 	require.NoError(t, err)
 
 	mgr.Start(1*time.Millisecond, 1*time.Millisecond)
@@ -222,10 +222,10 @@ func TestNodeManager(t *testing.T) {
 	}
 
 	mockHistogram := promtest.NewMockHistogramVec()
-	nm, err := NewManager(testhelper.DiscardTestEntry(t), confWithFailover, nil, nil, mockHistogram, protoregistry.GitalyProtoPreregistered, nil)
+	nm, err := NewManager(testhelper.DiscardTestEntry(t), confWithFailover, nil, nil, mockHistogram, protoregistry.GitalyProtoPreregistered, nil, nil)
 	require.NoError(t, err)
 
-	nmWithoutFailover, err := NewManager(testhelper.DiscardTestEntry(t), confWithoutFailover, nil, nil, mockHistogram, protoregistry.GitalyProtoPreregistered, nil)
+	nmWithoutFailover, err := NewManager(testhelper.DiscardTestEntry(t), confWithoutFailover, nil, nil, mockHistogram, protoregistry.GitalyProtoPreregistered, nil, nil)
 	require.NoError(t, err)
 
 	// monitoring period set to 1 hour as we execute health checks by hands in this test
@@ -342,7 +342,7 @@ func TestMgr_GetSyncedNode(t *testing.T) {
 			},
 		}
 
-		nm, err := NewManager(testhelper.DiscardTestEntry(t), conf, nil, rs, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil)
+		nm, err := NewManager(testhelper.DiscardTestEntry(t), conf, nil, rs, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil)
 		require.NoError(t, err)
 
 		for i := range healthSrvs {

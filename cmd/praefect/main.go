@@ -93,6 +93,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
+	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/internal/bootstrap"
 	"gitlab.com/gitlab-org/gitaly/internal/bootstrap/starter"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config/sentry"
@@ -112,6 +113,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/version"
 	"gitlab.com/gitlab-org/labkit/monitoring"
 	"gitlab.com/gitlab-org/labkit/tracing"
+	"google.golang.org/grpc"
 )
 
 var (
@@ -294,6 +296,7 @@ func run(cfgs []starter.Config, conf config.Config) error {
 		}
 	}
 
+	clientHandshaker := backchannel.NewClientHandshaker(logger, func() backchannel.Server { return grpc.NewServer() })
 	assignmentStore := praefect.NewDisabledAssignmentStore(conf.StorageNames())
 	var (
 		nodeManager   nodes.Manager
@@ -303,7 +306,7 @@ func run(cfgs []starter.Config, conf config.Config) error {
 		primaryGetter praefect.PrimaryGetter
 	)
 	if conf.Failover.ElectionStrategy == config.ElectionStrategyPerRepository {
-		nodeSet, err = praefect.DialNodes(ctx, conf.VirtualStorages, protoregistry.GitalyProtoPreregistered, errTracker)
+		nodeSet, err = praefect.DialNodes(ctx, conf.VirtualStorages, protoregistry.GitalyProtoPreregistered, errTracker, nil)
 		if err != nil {
 			return fmt.Errorf("dial nodes: %w", err)
 		}
@@ -337,7 +340,7 @@ func run(cfgs []starter.Config, conf config.Config) error {
 			conf.DefaultReplicationFactors(),
 		)
 	} else {
-		nodeMgr, err := nodes.NewManager(logger, conf, db, csg, nodeLatencyHistogram, protoregistry.GitalyProtoPreregistered, errTracker)
+		nodeMgr, err := nodes.NewManager(logger, conf, db, csg, nodeLatencyHistogram, protoregistry.GitalyProtoPreregistered, errTracker, clientHandshaker)
 		if err != nil {
 			return err
 		}

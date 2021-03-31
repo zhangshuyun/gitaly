@@ -90,7 +90,7 @@ func TestGitalyServerInfo(t *testing.T) {
 			},
 		}
 
-		nodes, err := DialNodes(ctx, conf.VirtualStorages, nil, nil)
+		nodes, err := DialNodes(ctx, conf.VirtualStorages, nil, nil, nil)
 		require.NoError(t, err)
 		defer nodes.Close()
 
@@ -136,7 +136,7 @@ func TestGitalyServerInfo(t *testing.T) {
 			},
 		}
 
-		nodes, err := DialNodes(ctx, conf.VirtualStorages, nil, nil)
+		nodes, err := DialNodes(ctx, conf.VirtualStorages, nil, nil, nil)
 		require.NoError(t, err)
 		defer nodes.Close()
 
@@ -177,7 +177,7 @@ func TestGitalyServerInfoBadNode(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	nodes, err := DialNodes(ctx, conf.VirtualStorages, nil, nil)
+	nodes, err := DialNodes(ctx, conf.VirtualStorages, nil, nil, nil)
 	require.NoError(t, err)
 	defer nodes.Close()
 
@@ -211,7 +211,7 @@ func TestDiskStatistics(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	nodes, err := DialNodes(ctx, praefectCfg.VirtualStorages, nil, nil)
+	nodes, err := DialNodes(ctx, praefectCfg.VirtualStorages, nil, nil, nil)
 	require.NoError(t, err)
 	defer nodes.Close()
 
@@ -718,7 +718,7 @@ func TestProxyWrites(t *testing.T) {
 	queue := datastore.NewMemoryReplicationEventQueue(conf)
 	entry := testhelper.DiscardTestEntry(t)
 
-	nodeMgr, err := nodes.NewManager(entry, conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil)
+	nodeMgr, err := nodes.NewManager(entry, conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil)
 	require.NoError(t, err)
 	nodeMgr.Start(0, time.Hour)
 
@@ -889,7 +889,7 @@ func TestErrorThreshold(t *testing.T) {
 			require.NoError(t, err)
 
 			rs := datastore.MockRepositoryStore{}
-			nodeMgr, err := nodes.NewManager(entry, conf, nil, rs, promtest.NewMockHistogramVec(), registry, errorTracker)
+			nodeMgr, err := nodes.NewManager(entry, conf, nil, rs, promtest.NewMockHistogramVec(), registry, errorTracker, nil)
 			require.NoError(t, err)
 
 			coordinator := NewCoordinator(

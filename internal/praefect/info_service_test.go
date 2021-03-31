@@ -67,7 +67,7 @@ func TestInfoService_RepositoryReplicas(t *testing.T) {
 	// create a commit in the second replica so we can check that its checksum is different than the primary
 	gittest.CreateCommit(t, filepath.Join(cfg.Storages[1].Path, "repo-1"), "master", nil)
 
-	nodeManager, err := nodes.NewManager(testhelper.DiscardTestEntry(t), conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil)
+	nodeManager, err := nodes.NewManager(testhelper.DiscardTestEntry(t), conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil)
 	require.NoError(t, err)
 	nodeManager.Start(0, time.Hour)
 	cc, _, cleanup := runPraefectServer(t, conf, buildOptions{

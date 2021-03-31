@@ -481,6 +481,7 @@ func TestConnectionMultiplexing(t *testing.T) {
 		promtest.NewMockHistogramVec(),
 		protoregistry.GitalyProtoPreregistered,
 		nil,
+		backchannel.NewClientHandshaker(logger, func() backchannel.Server { return grpc.NewServer() }),
 	)
 
 	// check the shard to get the primary in a healthy state
