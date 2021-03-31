@@ -152,42 +152,31 @@ func TestSuccessfulTreeEntry(t *testing.T) {
 
 // Extracted from TestSuccessfulTreeEntry, to be moved into TestFailedTreeEntry once featureflag.GrpcTreeEntryNotFound is removed
 func TestMissingTreeEntry(t *testing.T) {
-	server, serverSocketPath := startTestServices(t)
-	defer server.Stop()
-
-	client, conn := newCommitServiceClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	testRequests := []*gitalypb.TreeEntryRequest{
-		{Repository: testRepo, Revision: []byte("913c66a37b4a45b9769037c55c2d238bd0942d2e"), Path: []byte("../bar/.gitkeep")}, // Git blows up on paths like this
-		{Repository: testRepo, Revision: []byte("deadfacedeadfacedeadfacedeadfacedeadface"), Path: []byte("with space/README.md")},
-		{Repository: testRepo, Revision: []byte("e63f41fe459e62e1228fcef60d7189127aeba95a"), Path: []byte("missing.rb")},
+		{Repository: repo, Revision: []byte("913c66a37b4a45b9769037c55c2d238bd0942d2e"), Path: []byte("../bar/.gitkeep")}, // Git blows up on paths like this
+		{Repository: repo, Revision: []byte("deadfacedeadfacedeadfacedeadfacedeadface"), Path: []byte("with space/README.md")},
+		{Repository: repo, Revision: []byte("e63f41fe459e62e1228fcef60d7189127aeba95a"), Path: []byte("missing.rb")},
 	}
 
 	for _, request := range testRequests {
 		t.Run(fmt.Sprintf("test case: revision=%q path=%q", request.Revision, request.Path), func(t *testing.T) {
 			t.Run("it returns empty blob when FF GrpcTreeEntryNotFound is disabled", func(t *testing.T) {
 				ctx, cancel := testhelper.Context()
-				ctx = featureflag.OutgoingCtxWithFeatureFlagValue(ctx, featureflag.GrpcTreeEntryNotFound, "false")
 				defer cancel()
+				ctx = featureflag.OutgoingCtxWithFeatureFlagValue(ctx, featureflag.GrpcTreeEntryNotFound, "false")
 				c, err := client.TreeEntry(ctx, request)
-				if err != nil {
-					t.Fatal(err)
-				}
+				require.NoError(t, err)
 				assertExactReceivedTreeEntry(t, c, &treeEntry{})
 			})
 
 			t.Run("it returns NotFound error when FF GrpcTreeEntryNotFound is enabled", func(t *testing.T) {
 				ctx, cancel := testhelper.Context()
-				ctx = featureflag.OutgoingCtxWithFeatureFlagValue(ctx, featureflag.GrpcTreeEntryNotFound, "true")
 				defer cancel()
+				ctx = featureflag.OutgoingCtxWithFeatureFlagValue(ctx, featureflag.GrpcTreeEntryNotFound, "true")
 				c, err := client.TreeEntry(ctx, request)
-				if err != nil {
-					t.Fatal(err)
-				}
+				require.NoError(t, err)
 
 				err = drainTreeEntryResponse(c)
 				testhelper.RequireGrpcError(t, err, codes.NotFound)
