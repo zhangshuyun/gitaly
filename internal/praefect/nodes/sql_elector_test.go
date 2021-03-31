@@ -4,17 +4,26 @@ package nodes
 
 import (
 	"context"
+	"net"
 	"testing"
 	"time"
 
 	"github.com/sirupsen/logrus/hooks/test"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
+	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore/glsql"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/promtest"
+	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/status"
 )
 
 var shardName string = "test-shard-0"
@@ -46,7 +55,7 @@ func TestGetPrimaryAndSecondaries(t *testing.T) {
 	cs0 := newConnectionStatus(config.Node{Storage: storageName + "-0"}, cc0, testhelper.DiscardTestEntry(t), mockHistogramVec0, nil)
 
 	ns := []*nodeStatus{cs0}
-	elector := newSQLElector(shardName, conf, db.DB, logger, ns)
+	elector := newSQLElector(shardName, conf, db.DB, logger, ns, nil)
 	require.Contains(t, elector.praefectName, ":"+socketName)
 	require.Equal(t, elector.shardName, shardName)
 
@@ -79,7 +88,7 @@ func TestSqlElector_slow_execution(t *testing.T) {
 	require.NoError(t, err)
 
 	gitalyNodeStatus := newConnectionStatus(config.Node{Storage: "gitaly", Address: "gitaly-address"}, gitalyConn, logger, promtest.NewMockHistogramVec(), nil)
-	elector := newSQLElector(shardName, config.Config{SocketPath: praefectSocket}, db.DB, logger, []*nodeStatus{gitalyNodeStatus})
+	elector := newSQLElector(shardName, config.Config{SocketPath: praefectSocket}, db.DB, logger, []*nodeStatus{gitalyNodeStatus}, nil)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -137,7 +146,7 @@ func TestBasicFailover(t *testing.T) {
 	cs1 := newConnectionStatus(config.Node{Storage: storageName + "-1", Address: addr1}, cc1, logger, promtest.NewMockHistogramVec(), nil)
 
 	ns := []*nodeStatus{cs0, cs1}
-	elector := newSQLElector(shardName, conf, db.DB, logger, ns)
+	elector := newSQLElector(shardName, conf, db.DB, logger, ns, nil)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -226,6 +235,7 @@ func TestElectDemotedPrimary(t *testing.T) {
 		db.DB,
 		testhelper.DiscardTestLogger(t),
 		[]*nodeStatus{{node: node}},
+		nil,
 	)
 
 	ctx, cancel := testhelper.Context()
@@ -404,7 +414,7 @@ func TestElectNewPrimary(t *testing.T) {
 
 			logger, hook := test.NewNullLogger()
 
-			elector := newSQLElector(shardName, config.Config{}, db.DB, logger, ns)
+			elector := newSQLElector(shardName, config.Config{}, db.DB, logger, ns, nil)
 
 			ctx, cancel := testhelper.Context()
 			defer cancel()
@@ -417,6 +427,102 @@ func TestElectNewPrimary(t *testing.T) {
 
 			fallbackChoice := hook.LastEntry().Data["fallback_choice"].(bool)
 			require.Equal(t, testCase.fallbackChoice, fallbackChoice)
+		})
+	}
+}
+
+func TestConnectionMultiplexing(t *testing.T) {
+	errNonMuxed := status.Error(codes.Internal, "non-muxed connection")
+	errMuxed := status.Error(codes.Internal, "muxed connection")
+
+	logger := testhelper.DiscardTestEntry(t)
+
+	srv := grpc.NewServer(
+		grpc.Creds(backchannel.NewServerHandshaker(logger, backchannel.Insecure(), backchannel.NewRegistry())),
+		grpc.UnknownServiceHandler(func(srv interface{}, stream grpc.ServerStream) error {
+			_, err := backchannel.GetPeerID(stream.Context())
+			if err == backchannel.ErrNonMultiplexedConnection {
+				return errNonMuxed
+			}
+
+			assert.NoError(t, err)
+			return errMuxed
+		}),
+	)
+
+	grpc_health_v1.RegisterHealthServer(srv, health.NewServer())
+
+	defer srv.Stop()
+
+	ln, err := net.Listen("tcp", "localhost:0")
+	require.NoError(t, err)
+
+	go srv.Serve(ln)
+
+	mgr, err := NewManager(
+		testhelper.DiscardTestEntry(t),
+		config.Config{
+			Failover: config.Failover{
+				Enabled:          true,
+				ElectionStrategy: config.ElectionStrategySQL,
+			},
+			VirtualStorages: []*config.VirtualStorage{
+				{
+					Name: "virtual-storage-1",
+					Nodes: []*config.Node{
+						{Storage: "storage-1", Address: "tcp://" + ln.Addr().String()},
+						{Storage: "storage-2", Address: "tcp://" + ln.Addr().String()},
+					},
+				},
+			},
+		},
+		getDB(t).DB,
+		nil,
+		promtest.NewMockHistogramVec(),
+		protoregistry.GitalyProtoPreregistered,
+		nil,
+	)
+
+	// check the shard to get the primary in a healthy state
+	mgr.checkShards()
+
+	ctx := context.Background()
+	for _, tc := range []struct {
+		desc  string
+		ctx   context.Context
+		error error
+	}{
+		{
+			desc:  "multiplexed",
+			ctx:   featureflag.IncomingCtxWithFeatureFlag(ctx, featureflag.ConnectionMultiplexing),
+			error: errMuxed,
+		},
+		{
+			desc:  "non-multiplexed",
+			ctx:   featureflag.IncomingCtxWithDisabledFeatureFlag(ctx, featureflag.ConnectionMultiplexing),
+			error: errNonMuxed,
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			shard, err := mgr.GetShard(tc.ctx, "virtual-storage-1")
+			require.NoError(t, err)
+			require.Len(t, shard.Secondaries, 1)
+
+			for _, node := range []Node{shard.Primary, shard.Secondaries[0]} {
+				require.Equal(t,
+					tc.error,
+					node.GetConnection().Invoke(tc.ctx, "/Service/Method", &gitalypb.VoteTransactionRequest{}, &gitalypb.VoteTransactionResponse{}),
+				)
+			}
+
+			nodes := mgr.getNodes(tc.ctx, "virtual-storage-1")
+			require.Len(t, nodes, 2)
+			for _, node := range nodes {
+				require.Equal(t,
+					tc.error,
+					node.GetConnection().Invoke(tc.ctx, "/Service/Method", &gitalypb.VoteTransactionRequest{}, &gitalypb.VoteTransactionResponse{}),
+				)
+			}
 		})
 	}
 }

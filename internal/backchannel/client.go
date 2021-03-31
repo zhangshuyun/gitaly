@@ -24,20 +24,32 @@ type Server interface {
 // a backchannel closes.
 type ServerFactory func() Server
 
-// ClientHandshaker returns TransportCredentials that perform the client side multiplexing handshake and
-// start the backchannel Server on the established connections. The provided logger is used to log multiplexing
-// errors and the transport credentials are used to intiliaze the connection prior to the multiplexing.
-func (sf ServerFactory) ClientHandshaker(logger *logrus.Entry, tc credentials.TransportCredentials) credentials.TransportCredentials {
-	return clientHandshaker{TransportCredentials: tc, serverFactory: sf, logger: logger}
+// ClientHandshaker implements the client side handshake of the multiplexed connection.
+type ClientHandshaker struct {
+	logger        *logrus.Entry
+	serverFactory ServerFactory
 }
 
-type clientHandshaker struct {
+// NewClientHandshaker returns a new client side implementation of the backchannel. The provided
+// logger is used to log multiplexing errors.
+func NewClientHandshaker(logger *logrus.Entry, serverFactory ServerFactory) ClientHandshaker {
+	return ClientHandshaker{logger: logger, serverFactory: serverFactory}
+}
+
+// ClientHandshake returns TransportCredentials that perform the client side multiplexing handshake and
+// start the backchannel Server on the established connections. The transport credentials are used to intiliaze the
+// connection prior to the multiplexing.
+func (ch ClientHandshaker) ClientHandshake(tc credentials.TransportCredentials) credentials.TransportCredentials {
+	return clientHandshake{TransportCredentials: tc, serverFactory: ch.serverFactory, logger: ch.logger}
+}
+
+type clientHandshake struct {
 	credentials.TransportCredentials
 	serverFactory ServerFactory
 	logger        *logrus.Entry
 }
 
-func (ch clientHandshaker) ClientHandshake(ctx context.Context, serverName string, conn net.Conn) (net.Conn, credentials.AuthInfo, error) {
+func (ch clientHandshake) ClientHandshake(ctx context.Context, serverName string, conn net.Conn) (net.Conn, credentials.AuthInfo, error) {
 	conn, authInfo, err := ch.TransportCredentials.ClientHandshake(ctx, serverName, conn)
 	if err != nil {
 		return nil, nil, err
@@ -51,7 +63,7 @@ func (ch clientHandshaker) ClientHandshake(ctx context.Context, serverName strin
 	return clientStream, authInfo, nil
 }
 
-func (ch clientHandshaker) serve(ctx context.Context, conn net.Conn) (net.Conn, error) {
+func (ch clientHandshake) serve(ctx context.Context, conn net.Conn) (net.Conn, error) {
 	deadline := time.Time{}
 	if dl, ok := ctx.Deadline(); ok {
 		deadline = dl
@@ -117,8 +129,8 @@ func (ch clientHandshaker) serve(ctx context.Context, conn net.Conn) (net.Conn, 
 		}}, nil
 }
 
-func (ch clientHandshaker) Clone() credentials.TransportCredentials {
-	return clientHandshaker{
+func (ch clientHandshake) Clone() credentials.TransportCredentials {
+	return clientHandshake{
 		TransportCredentials: ch.TransportCredentials.Clone(),
 		serverFactory:        ch.serverFactory,
 	}

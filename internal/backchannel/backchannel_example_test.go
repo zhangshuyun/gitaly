@@ -104,9 +104,9 @@ func Example() {
 }
 
 func invokeWithMuxedClient(logger *logrus.Entry, address string) error {
-	// serverFactory gets called on each established connection. The Server it returns
-	// is started on Praefect's end of the connection, which Gitaly can call.
-	serverFactory := backchannel.ServerFactory(func() backchannel.Server {
+	// clientHandshaker's ClientHandshake gets called on each established connection. The Server returned by the
+	// ServerFactory is started on Praefect's end of the connection, which Gitaly can call.
+	clientHandshaker := backchannel.NewClientHandshaker(logger, func() backchannel.Server {
 		return grpc.NewServer(grpc.UnknownServiceHandler(func(srv interface{}, stream grpc.ServerStream) error {
 			fmt.Println("Praefect received vote via backchannel")
 			fmt.Println("Praefect responding via backchannel")
@@ -114,7 +114,7 @@ func invokeWithMuxedClient(logger *logrus.Entry, address string) error {
 		}))
 	})
 
-	return invokeWithOpts(address, grpc.WithTransportCredentials(serverFactory.ClientHandshaker(logger, backchannel.Insecure())))
+	return invokeWithOpts(address, grpc.WithTransportCredentials(clientHandshaker.ClientHandshake(backchannel.Insecure())))
 }
 
 func invokeWithNormalClient(address string) error {

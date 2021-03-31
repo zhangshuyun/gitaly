@@ -2,129 +2,32 @@ package client
 
 import (
 	"context"
-	"crypto/tls"
-	"fmt"
-	"net"
-	"net/url"
-	"time"
 
-	gitaly_x509 "gitlab.com/gitlab-org/gitaly/internal/x509"
-	grpccorrelation "gitlab.com/gitlab-org/labkit/correlation/grpc"
-	grpctracing "gitlab.com/gitlab-org/labkit/tracing/grpc"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/client"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
-	"google.golang.org/grpc/keepalive"
 )
 
 // DefaultDialOpts hold the default DialOptions for connection to Gitaly over UNIX-socket
 var DefaultDialOpts = []grpc.DialOption{}
 
-type connectionType int
-
-const (
-	invalidConnection connectionType = iota
-	tcpConnection
-	tlsConnection
-	unixConnection
-)
-
+// DialContext dials the Gitaly at the given address with the provided options. Valid address formats are
+// 'unix:<socket path>' for Unix sockets, 'tcp://<host:port>' for insecure TCP connections and 'tls://<host:port>'
+// for TCP+TLS connections.
+//
+// The returned ClientConns are configured with tracing and correlation id interceptors to ensure they are propagated
+// correctly. They're also configured to send Keepalives with settings matching what Gitaly expects.
+//
+// connOpts should not contain `grpc.WithInsecure` as DialContext determines whether it is needed or not from the
+// scheme. `grpc.TransportCredentials` should not be provided either as those are handled internally as well.
 func DialContext(ctx context.Context, rawAddress string, connOpts []grpc.DialOption) (*grpc.ClientConn, error) {
-	var canonicalAddress string
-	var err error
-
-	switch getConnectionType(rawAddress) {
-	case invalidConnection:
-		return nil, fmt.Errorf("invalid connection string: %q", rawAddress)
-
-	case tlsConnection:
-		canonicalAddress, err = extractHostFromRemoteURL(rawAddress) // Ensure the form: "host:port" ...
-		if err != nil {
-			return nil, fmt.Errorf("failed to extract host for 'tls' connection: %w", err)
-		}
-
-		certPool, err := gitaly_x509.SystemCertPool()
-		if err != nil {
-			return nil, fmt.Errorf("failed to get system certificat pool for 'tls' connection: %w", err)
-		}
-
-		connOpts = append(connOpts, grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{
-			RootCAs:    certPool,
-			MinVersion: tls.VersionTLS12,
-		})))
-
-	case tcpConnection:
-		canonicalAddress, err = extractHostFromRemoteURL(rawAddress) // Ensure the form: "host:port" ...
-		if err != nil {
-			return nil, fmt.Errorf("failed to extract host for 'tcp' connection: %w", err)
-		}
-		connOpts = append(connOpts, grpc.WithInsecure())
-
-	case unixConnection:
-		canonicalAddress = rawAddress // This will be overridden by the custom dialer...
-		connOpts = append(
-			connOpts,
-			grpc.WithInsecure(),
-			// Use a custom dialer to ensure that we don't experience
-			// issues in environments that have proxy configurations
-			// https://gitlab.com/gitlab-org/gitaly/merge_requests/1072#note_140408512
-			grpc.WithContextDialer(func(ctx context.Context, addr string) (conn net.Conn, err error) {
-				path, err := extractPathFromSocketURL(addr)
-				if err != nil {
-					return nil, fmt.Errorf("failed to extract host for 'unix' connection: %w", err)
-				}
-
-				d := net.Dialer{}
-				return d.DialContext(ctx, "unix", path)
-			}),
-		)
-	}
-
-	connOpts = append(connOpts,
-		// grpc.KeepaliveParams must be specified at least as large as what is allowed by the
-		// server-side grpc.KeepaliveEnforcementPolicy
-		grpc.WithKeepaliveParams(keepalive.ClientParameters{
-			Time:                20 * time.Second,
-			PermitWithoutStream: true,
-		}),
-		grpc.WithChainUnaryInterceptor(
-			grpctracing.UnaryClientTracingInterceptor(),
-			grpccorrelation.UnaryClientCorrelationInterceptor(),
-		),
-		grpc.WithChainStreamInterceptor(
-			grpctracing.StreamClientTracingInterceptor(),
-			grpccorrelation.StreamClientCorrelationInterceptor(),
-		),
-	)
-
-	conn, err := grpc.DialContext(ctx, canonicalAddress, connOpts...)
-	if err != nil {
-		return nil, fmt.Errorf("failed to dial %q connection: %w", canonicalAddress, err)
-	}
-
-	return conn, nil
+	return client.Dial(ctx, rawAddress, connOpts, nil)
 }
 
+// Dial calls DialContext with the provided arguments and context.Background. Refer to DialContext's documentation
+// for details.
 func Dial(rawAddress string, connOpts []grpc.DialOption) (*grpc.ClientConn, error) {
 	return DialContext(context.Background(), rawAddress, connOpts)
-}
-
-func getConnectionType(rawAddress string) connectionType {
-	u, err := url.Parse(rawAddress)
-	if err != nil {
-		return invalidConnection
-	}
-
-	switch u.Scheme {
-	case "tls":
-		return tlsConnection
-	case "unix":
-		return unixConnection
-	case "tcp":
-		return tcpConnection
-	default:
-		return invalidConnection
-	}
 }
 
 // FailOnNonTempDialError helps to identify if remote listener is ready to accept new connections.

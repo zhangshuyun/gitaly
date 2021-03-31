@@ -30,6 +30,8 @@ var (
 	LFSPointersUseBitmapIndex = FeatureFlag{Name: "lfs_pointers_use_bitmap_index", OnByDefault: false}
 	// GoUpdateRemoteMirror enables the Go implementation of UpdateRemoteMirror
 	GoUpdateRemoteMirror = FeatureFlag{Name: "go_update_remote_mirror", OnByDefault: false}
+	// ConnectionMultiplexing enables the use of multiplexed connection from Praefect to Gitaly.
+	ConnectionMultiplexing = FeatureFlag{Name: "connection_multiplexing", OnByDefault: false}
 )
 
 // All includes all feature flags.
@@ -43,5 +45,6 @@ var All = []FeatureFlag{
 	GoUserRevert,
 	LFSPointersUseBitmapIndex,
 	GoUpdateRemoteMirror,
+	ConnectionMultiplexing,
 	UploadPackGitalyHooks,
 }

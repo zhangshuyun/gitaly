@@ -88,7 +88,8 @@ func TestBackchannel_concurrentRequestsFromMultipleClients(t *testing.T) {
 			defer wg.Done()
 
 			expectedErr := status.Error(codes.Internal, fmt.Sprintf("multiplexed %d", i))
-			serverFactory := ServerFactory(func() Server {
+
+			clientHandshaker := NewClientHandshaker(testhelper.DiscardTestEntry(t), func() Server {
 				srv := grpc.NewServer()
 				gitalypb.RegisterRefTransactionServer(srv, mockTransactionServer{
 					voteTransactionFunc: func(ctx context.Context, req *gitalypb.VoteTransactionRequest) (*gitalypb.VoteTransactionResponse, error) {
@@ -102,7 +103,7 @@ func TestBackchannel_concurrentRequestsFromMultipleClients(t *testing.T) {
 
 			<-start
 			client, err := grpc.Dial(ln.Addr().String(),
-				grpc.WithTransportCredentials(serverFactory.ClientHandshaker(testhelper.DiscardTestEntry(t), Insecure())),
+				grpc.WithTransportCredentials(clientHandshaker.ClientHandshake(Insecure())),
 			)
 			if !assert.NoError(t, err) {
 				return
@@ -188,12 +189,10 @@ func Benchmark(b *testing.B) {
 
 					opts := []grpc.DialOption{grpc.WithBlock(), grpc.WithInsecure()}
 					if tc.multiplexed {
-						nopServer := ServerFactory(func() Server { return grpc.NewServer() })
+						clientHandshaker := NewClientHandshaker(testhelper.DiscardTestEntry(b), func() Server { return grpc.NewServer() })
 						opts = []grpc.DialOption{
 							grpc.WithBlock(),
-							grpc.WithTransportCredentials(nopServer.ClientHandshaker(
-								testhelper.DiscardTestEntry(b), Insecure(),
-							)),
+							grpc.WithTransportCredentials(clientHandshaker.ClientHandshake(Insecure())),
 						}
 					}
 

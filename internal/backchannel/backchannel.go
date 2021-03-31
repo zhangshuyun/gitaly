@@ -22,7 +22,7 @@
 //
 // Usage:
 // 1. Implement a ServerFactory, which is simply a function that returns a Server that can serve on the backchannel
-//    connection. Plug in the ClientHandshake returned by the ServerFactory.ClientHandshaker via grpc.WithTransportCredentials.
+//    connection. Plug in the ClientHandshake to the Clientconn via grpc.WithTransportCredentials when dialing.
 //    This ensures all connections established by gRPC work with a multiplexing session and have a backchannel Server serving.
 // 2. Configure the ServerHandshake on the server side by passing it into the gRPC server via the grpc.Creds option.
 //    The ServerHandshake method is called on each newly established connection. It peeks the network stream to see if a
@@ -46,6 +46,18 @@ var magicBytes = []byte("backchannel")
 func muxConfig(logger io.Writer) *yamux.Config {
 	cfg := yamux.DefaultConfig()
 	cfg.LogOutput = logger
+	// The server only accepts a single stream from the client, which is the client's gRPC stream.
+	// The backchannel server should only receive a single stream from the server. As such, we can
+	// limit maximum pending streams to 1 as there should never be more streams waiting.
+	cfg.AcceptBacklog = 1
+	// gRPC is already configured to send keep alives so we don't need yamux to do this for us.
+	// gRPC is a better choice as it sends the keep alives also to non-multiplexed connections.
+	cfg.EnableKeepAlive = false
+	// MaxStreamWindowSize configures the maximum receive buffer size for each stream. The sender
+	// is allowed to send the configured amount of bytes without receiving an acknowledgement from the
+	// receiver. This is can have a big impact on throughput as the latency increases, as the sender
+	// can't proceed sending without receiving an acknowledgement back.
+	cfg.MaxStreamWindowSize = 16 * 1024 * 1024
 	return cfg
 }
 

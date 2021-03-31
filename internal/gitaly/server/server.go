@@ -3,14 +3,19 @@ package server
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"time"
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_logrus "github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus"
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	log "github.com/sirupsen/logrus"
+	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	diskcache "gitlab.com/gitlab-org/gitaly/internal/cache"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/server/auth"
@@ -31,6 +36,26 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
 )
+
+var requestConnectionTypeTotal = promauto.NewCounterVec(
+	prometheus.CounterOpts{
+		Name: "gitaly_request_connection_type_total",
+		Help: "Number of requests received through each connection type",
+	},
+	[]string{"type"},
+)
+
+func observeConnectionType(ctx context.Context) {
+	connectionType := "muxed"
+	if _, err := backchannel.GetPeerID(ctx); errors.Is(err, backchannel.ErrNonMultiplexedConnection) {
+		connectionType = "normal"
+	} else if err != nil {
+		ctxlogrus.Extract(ctx).WithError(err).Error("failed observing connection type")
+		return
+	}
+
+	requestConnectionTypeTotal.WithLabelValues(connectionType).Inc()
+}
 
 func concurrencyKeyFn(ctx context.Context) string {
 	tags := grpc_ctxtags.Extract(ctx)
@@ -73,7 +98,23 @@ func New(secure bool, cfg config.Cfg, logrusEntry *log.Entry) (*grpc.Server, err
 
 	storageLocator := config.NewLocator(cfg)
 
+	transportCredentials := backchannel.Insecure()
+	// If tls config is specified attempt to extract tls options and use it
+	// as a grpc.ServerOption
+	if secure {
+		cert, err := tls.LoadX509KeyPair(cfg.TLS.CertPath, cfg.TLS.KeyPath)
+		if err != nil {
+			return nil, fmt.Errorf("error reading certificate and key paths: %v", err)
+		}
+
+		transportCredentials = credentials.NewTLS(&tls.Config{
+			Certificates: []tls.Certificate{cert},
+			MinVersion:   tls.VersionTLS12,
+		})
+	}
+
 	opts := []grpc.ServerOption{
+		grpc.Creds(backchannel.NewServerHandshaker(logrusEntry, transportCredentials, backchannel.NewRegistry())),
 		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
 			grpc_ctxtags.StreamServerInterceptor(ctxTagOpts...),
 			grpccorrelation.StreamServerCorrelationInterceptor(), // Must be above the metadata handler
@@ -89,6 +130,10 @@ func New(secure bool, cfg config.Cfg, logrusEntry *log.Entry) (*grpc.Server, err
 			lh.StreamInterceptor(), // Should be below auth handler to prevent v2 hmac tokens from timing out while queued
 			grpctracing.StreamServerTracingInterceptor(),
 			cache.StreamInvalidator(diskcache.NewLeaseKeyer(storageLocator), protoregistry.GitalyProtoPreregistered),
+			grpc.StreamServerInterceptor(func(server interface{}, serverStream grpc.ServerStream, _ *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+				observeConnectionType(serverStream.Context())
+				return handler(server, serverStream)
+			}),
 			// Panic handler should remain last so that application panics will be
 			// converted to errors and logged
 			panichandler.StreamPanicHandler,
@@ -108,6 +153,10 @@ func New(secure bool, cfg config.Cfg, logrusEntry *log.Entry) (*grpc.Server, err
 			lh.UnaryInterceptor(), // Should be below auth handler to prevent v2 hmac tokens from timing out while queued
 			grpctracing.UnaryServerTracingInterceptor(),
 			cache.UnaryInvalidator(diskcache.NewLeaseKeyer(storageLocator), protoregistry.GitalyProtoPreregistered),
+			grpc.UnaryServerInterceptor(func(ctx context.Context, req interface{}, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+				observeConnectionType(ctx)
+				return handler(ctx, req)
+			}),
 			// Panic handler should remain last so that application panics will be
 			// converted to errors and logged
 			panichandler.UnaryPanicHandler,
@@ -116,19 +165,6 @@ func New(secure bool, cfg config.Cfg, logrusEntry *log.Entry) (*grpc.Server, err
 			MinTime:             20 * time.Second,
 			PermitWithoutStream: true,
 		}),
-	}
-
-	// If tls config is specified attempt to extract tls options and use it
-	// as a grpc.ServerOption
-	if secure {
-		cert, err := tls.LoadX509KeyPair(cfg.TLS.CertPath, cfg.TLS.KeyPath)
-		if err != nil {
-			return nil, fmt.Errorf("error reading certificate and key paths: %v", err)
-		}
-		opts = append(opts, grpc.Creds(credentials.NewTLS(&tls.Config{
-			Certificates: []tls.Certificate{cert},
-			MinVersion:   tls.VersionTLS12,
-		})))
 	}
 
 	return grpc.NewServer(opts...), nil
