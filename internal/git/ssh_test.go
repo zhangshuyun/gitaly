@@ -71,7 +71,7 @@ func TestBuildSSHInvocation(t *testing.T) {
 				content, err := ioutil.ReadFile(knownHostsPath)
 				require.NoError(t, err)
 				require.Equal(t, tc.knownHosts, string(content))
-				expectedCommand += " -oStrictHostKeyChecking=yes -oUserKnownHostsFile=" + knownHostsPath
+				expectedCommand += " -oStrictHostKeyChecking=yes -oCheckHostIP=no -oUserKnownHostsFile=" + knownHostsPath
 			} else {
 				require.NoFileExists(t, knownHostsPath)
 			}

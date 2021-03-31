@@ -48,7 +48,7 @@ func BuildSSHInvocation(ctx context.Context, sshKey, knownHosts string) (string,
 			return "", nil, fmt.Errorf("create known hosts file: %w", err)
 		}
 
-		args = append(args, "-oStrictHostKeyChecking=yes", "-oUserKnownHostsFile="+knownHostsFile)
+		args = append(args, "-oStrictHostKeyChecking=yes", "-oCheckHostIP=no", "-oUserKnownHostsFile="+knownHostsFile)
 	}
 
 	return strings.Join(args, " "), cleanup, nil

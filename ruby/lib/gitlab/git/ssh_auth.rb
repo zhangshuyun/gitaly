@@ -61,6 +61,7 @@ module Gitlab
           known_hosts_file = write_tempfile('gitlab-shell-known-hosts', 0o400, known_hosts)
 
           options << Option.new('StrictHostKeyChecking', 'yes')
+          options << Option.new('CheckHostIP', 'no')
           options << Option.new('UserKnownHostsFile', known_hosts_file.path)
         end
 
