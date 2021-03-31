@@ -11,18 +11,18 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
 
 func TestUpdateInvalidArgument(t *testing.T) {
-	serverSocketPath := runHooksServer(t, config.Config)
-
+	cfg := testcfg.Build(t)
+	serverSocketPath := runHooksServer(t, cfg)
 	client, conn := newHooksClient(t, serverSocketPath)
-	defer conn.Close()
+	t.Cleanup(func() { conn.Close() })
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
