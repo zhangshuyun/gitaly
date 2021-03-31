@@ -3,7 +3,6 @@ package client
 import (
 	"context"
 
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/client"
 	"google.golang.org/grpc"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
@@ -29,12 +28,6 @@ func DialContext(ctx context.Context, rawAddress string, connOpts []grpc.DialOpt
 // for details.
 func Dial(rawAddress string, connOpts []grpc.DialOption) (*grpc.ClientConn, error) {
 	return DialContext(context.Background(), rawAddress, connOpts)
-}
-
-// DialWithMux dials with a multiplexed connection to Gitaly. Experimental, this is going to be removed and
-// should not be depended upon.
-func DialWithMux(ctx context.Context, rawAddress string, connOpts []grpc.DialOption, logger *logrus.Entry) (*grpc.ClientConn, error) {
-	return client.Dial(ctx, rawAddress, connOpts, true, logger)
 }
 
 // FailOnNonTempDialError helps to identify if remote listener is ready to accept new connections.
