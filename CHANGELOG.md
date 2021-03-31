@@ -1,5 +1,9 @@
 # Gitaly changelog
 
+## 13.10.1 (2021-03-31)
+
+- No changes.
+
 ## 13.10.0 (2021-03-22)
 
 ### Removed (1 change)
@@ -63,6 +67,10 @@
 - Streamio: remove custom ReadFrom and WriteTo. !3201
 - Remove unused Ruby code. !3203
 
+
+## 13.9.5 (2021-03-31)
+
+- No changes.
 
 ## 13.9.4 (2021-03-17)
 
@@ -133,6 +141,10 @@
 
 - Upgrade labkit-ruby to v0.15.0. !3118
 
+
+## 13.8.7 (2021-03-31)
+
+- No changes.
 
 ## 13.8.6 (2021-03-17)
 
