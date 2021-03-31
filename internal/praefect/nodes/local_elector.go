@@ -19,10 +19,9 @@ type localElector struct {
 	nodes       []Node
 	primaryNode Node
 	log         logrus.FieldLogger
-	muxed       muxedNodes
 }
 
-func newLocalElector(name string, log logrus.FieldLogger, ns []*nodeStatus, muxed muxedNodes) *localElector {
+func newLocalElector(name string, log logrus.FieldLogger, ns []*nodeStatus) *localElector {
 	nodes := make([]Node, len(ns))
 	for i, n := range ns {
 		nodes[i] = n
@@ -32,7 +31,6 @@ func newLocalElector(name string, log logrus.FieldLogger, ns []*nodeStatus, muxe
 		log:         log.WithField("virtual_storage", name),
 		nodes:       nodes[:],
 		primaryNode: nodes[0],
-		muxed:       muxed,
 	}
 }
 
@@ -132,12 +130,12 @@ func (s *localElector) GetShard(ctx context.Context) (Shard, error) {
 	var secondaries []Node
 	for _, n := range s.nodes {
 		if n != primary {
-			secondaries = append(secondaries, s.muxed.getNode(ctx, n))
+			secondaries = append(secondaries, n)
 		}
 	}
 
 	return Shard{
-		Primary:     s.muxed.getNode(ctx, primary),
+		Primary:     primary,
 		Secondaries: secondaries,
 	}, nil
 }

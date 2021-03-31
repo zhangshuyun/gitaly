@@ -89,7 +89,7 @@ func (m *PoolManager) Collect(metrics chan<- prometheus.Metric) {
 }
 
 func (m *PoolManager) getTransactionClient(ctx context.Context, server metadata.PraefectServer) (gitalypb.RefTransactionClient, error) {
-	if featureflag.IsEnabled(ctx, featureflag.ConnectionMultiplexing) && featureflag.IsEnabled(ctx, featureflag.BackchannelVoting) {
+	if featureflag.IsEnabled(ctx, featureflag.BackchannelVoting) {
 		conn, err := m.backchannels.Backchannel(server.BackchannelID)
 		if err != nil {
 			return nil, fmt.Errorf("get backchannel: %w", err)

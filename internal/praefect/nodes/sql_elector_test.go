@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
-	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/protoregistry"
@@ -55,7 +54,7 @@ func TestGetPrimaryAndSecondaries(t *testing.T) {
 	cs0 := newConnectionStatus(config.Node{Storage: storageName + "-0"}, cc0, testhelper.DiscardTestEntry(t), mockHistogramVec0, nil)
 
 	ns := []*nodeStatus{cs0}
-	elector := newSQLElector(shardName, conf, db.DB, logger, ns, nil)
+	elector := newSQLElector(shardName, conf, db.DB, logger, ns)
 	require.Contains(t, elector.praefectName, ":"+socketName)
 	require.Equal(t, elector.shardName, shardName)
 
@@ -88,7 +87,7 @@ func TestSqlElector_slow_execution(t *testing.T) {
 	require.NoError(t, err)
 
 	gitalyNodeStatus := newConnectionStatus(config.Node{Storage: "gitaly", Address: "gitaly-address"}, gitalyConn, logger, promtest.NewMockHistogramVec(), nil)
-	elector := newSQLElector(shardName, config.Config{SocketPath: praefectSocket}, db.DB, logger, []*nodeStatus{gitalyNodeStatus}, nil)
+	elector := newSQLElector(shardName, config.Config{SocketPath: praefectSocket}, db.DB, logger, []*nodeStatus{gitalyNodeStatus})
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -146,12 +145,11 @@ func TestBasicFailover(t *testing.T) {
 	cs1 := newConnectionStatus(config.Node{Storage: storageName + "-1", Address: addr1}, cc1, logger, promtest.NewMockHistogramVec(), nil)
 
 	ns := []*nodeStatus{cs0, cs1}
-	elector := newSQLElector(shardName, conf, db.DB, logger, ns, nil)
+	elector := newSQLElector(shardName, conf, db.DB, logger, ns)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 	err = elector.checkNodes(ctx)
-
 	require.NoError(t, err)
 	db.RequireRowsInTable(t, "node_status", 2)
 	db.RequireRowsInTable(t, "shard_primaries", 1)
@@ -235,7 +233,6 @@ func TestElectDemotedPrimary(t *testing.T) {
 		db.DB,
 		testhelper.DiscardTestLogger(t),
 		[]*nodeStatus{{node: node}},
-		nil,
 	)
 
 	ctx, cancel := testhelper.Context()
@@ -414,7 +411,7 @@ func TestElectNewPrimary(t *testing.T) {
 
 			logger, hook := test.NewNullLogger()
 
-			elector := newSQLElector(shardName, config.Config{}, db.DB, logger, ns, nil)
+			elector := newSQLElector(shardName, config.Config{}, db.DB, logger, ns)
 
 			ctx, cancel := testhelper.Context()
 			defer cancel()
@@ -487,41 +484,35 @@ func TestConnectionMultiplexing(t *testing.T) {
 	// check the shard to get the primary in a healthy state
 	mgr.checkShards()
 
-	ctx := context.Background()
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 	for _, tc := range []struct {
 		desc  string
-		ctx   context.Context
 		error error
 	}{
 		{
 			desc:  "multiplexed",
-			ctx:   featureflag.IncomingCtxWithFeatureFlag(ctx, featureflag.ConnectionMultiplexing),
 			error: errMuxed,
-		},
-		{
-			desc:  "non-multiplexed",
-			ctx:   featureflag.IncomingCtxWithDisabledFeatureFlag(ctx, featureflag.ConnectionMultiplexing),
-			error: errNonMuxed,
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			shard, err := mgr.GetShard(tc.ctx, "virtual-storage-1")
+			shard, err := mgr.GetShard(ctx, "virtual-storage-1")
 			require.NoError(t, err)
 			require.Len(t, shard.Secondaries, 1)
 
 			for _, node := range []Node{shard.Primary, shard.Secondaries[0]} {
 				require.Equal(t,
 					tc.error,
-					node.GetConnection().Invoke(tc.ctx, "/Service/Method", &gitalypb.VoteTransactionRequest{}, &gitalypb.VoteTransactionResponse{}),
+					node.GetConnection().Invoke(ctx, "/Service/Method", &gitalypb.VoteTransactionRequest{}, &gitalypb.VoteTransactionResponse{}),
 				)
 			}
 
-			nodes := mgr.getNodes(tc.ctx, "virtual-storage-1")
+			nodes := mgr.Nodes()["virtual-storage-1"]
 			require.Len(t, nodes, 2)
 			for _, node := range nodes {
 				require.Equal(t,
 					tc.error,
-					node.GetConnection().Invoke(tc.ctx, "/Service/Method", &gitalypb.VoteTransactionRequest{}, &gitalypb.VoteTransactionResponse{}),
+					node.GetConnection().Invoke(ctx, "/Service/Method", &gitalypb.VoteTransactionRequest{}, &gitalypb.VoteTransactionResponse{}),
 				)
 			}
 		})
