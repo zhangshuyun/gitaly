@@ -8,6 +8,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/streamio"
 	"google.golang.org/grpc/codes"
@@ -23,7 +24,10 @@ func sendTreeEntry(stream gitalypb.CommitService_TreeEntryServer, c catfile.Batc
 	}
 
 	if treeEntry == nil || len(treeEntry.Oid) == 0 {
-		return status.Errorf(codes.NotFound, "not found: %s", path)
+		if featureflag.IsEnabled(ctx, featureflag.GrpcTreeEntryNotFound) {
+			return status.Errorf(codes.NotFound, "not found: %s", path)
+		}
+		return helper.DecorateError(codes.Unavailable, stream.Send(&gitalypb.TreeEntryResponse{}))
 	}
 
 	if treeEntry.Type == gitalypb.TreeEntry_COMMIT {

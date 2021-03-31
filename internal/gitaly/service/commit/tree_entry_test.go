@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -89,16 +90,6 @@ func TestSuccessfulTreeEntry(t *testing.T) {
 			},
 		},
 		{
-			revision:          []byte("deadfacedeadfacedeadfacedeadfacedeadface"),
-			path:              []byte("with space/README.md"),
-			expectedTreeEntry: treeEntry{},
-		},
-		{
-			revision:          []byte("e63f41fe459e62e1228fcef60d7189127aeba95a"),
-			path:              []byte("missing.rb"),
-			expectedTreeEntry: treeEntry{},
-		},
-		{
 			revision: []byte("e63f41fe459e62e1228fcef60d7189127aeba95a"),
 			path:     []byte("gitlab-grack"),
 			expectedTreeEntry: treeEntry{
@@ -137,11 +128,6 @@ func TestSuccessfulTreeEntry(t *testing.T) {
 				mode:       0100644,
 			},
 		},
-		{
-			revision:          []byte("913c66a37b4a45b9769037c55c2d238bd0942d2e"),
-			path:              []byte("../bar/.gitkeep"), // Git blows up on paths like this
-			expectedTreeEntry: treeEntry{},
-		},
 	}
 
 	for _, testCase := range testCases {
@@ -160,6 +146,52 @@ func TestSuccessfulTreeEntry(t *testing.T) {
 			require.NoError(t, err)
 
 			assertExactReceivedTreeEntry(t, c, &testCase.expectedTreeEntry)
+		})
+	}
+}
+
+// Extracted from TestSuccessfulTreeEntry, to be moved into TestFailedTreeEntry once featureflag.GrpcTreeEntryNotFound is removed
+func TestMissingTreeEntry(t *testing.T) {
+	server, serverSocketPath := startTestServices(t)
+	defer server.Stop()
+
+	client, conn := newCommitServiceClient(t, serverSocketPath)
+	defer conn.Close()
+
+	testRepo, _, cleanupFn := testhelper.NewTestRepo(t)
+	defer cleanupFn()
+
+	testRequests := []*gitalypb.TreeEntryRequest{
+		{Repository: testRepo, Revision: []byte("913c66a37b4a45b9769037c55c2d238bd0942d2e"), Path: []byte("../bar/.gitkeep")}, // Git blows up on paths like this
+		{Repository: testRepo, Revision: []byte("deadfacedeadfacedeadfacedeadfacedeadface"), Path: []byte("with space/README.md")},
+		{Repository: testRepo, Revision: []byte("e63f41fe459e62e1228fcef60d7189127aeba95a"), Path: []byte("missing.rb")},
+	}
+
+	for _, request := range testRequests {
+		t.Run(fmt.Sprintf("test case: revision=%q path=%q", request.Revision, request.Path), func(t *testing.T) {
+			t.Run("it returns empty blob when FF GrpcTreeEntryNotFound is disabled", func(t *testing.T) {
+				ctx, cancel := testhelper.Context()
+				ctx = featureflag.OutgoingCtxWithFeatureFlagValue(ctx, featureflag.GrpcTreeEntryNotFound, "false")
+				defer cancel()
+				c, err := client.TreeEntry(ctx, request)
+				if err != nil {
+					t.Fatal(err)
+				}
+				assertExactReceivedTreeEntry(t, c, &treeEntry{})
+			})
+
+			t.Run("it returns NotFound error when FF GrpcTreeEntryNotFound is enabled", func(t *testing.T) {
+				ctx, cancel := testhelper.Context()
+				ctx = featureflag.OutgoingCtxWithFeatureFlagValue(ctx, featureflag.GrpcTreeEntryNotFound, "true")
+				defer cancel()
+				c, err := client.TreeEntry(ctx, request)
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				err = drainTreeEntryResponse(c)
+				testhelper.RequireGrpcError(t, err, codes.NotFound)
+			})
 		})
 	}
 }
