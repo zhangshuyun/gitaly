@@ -90,11 +90,11 @@ func (cf *ExecCommandFactory) gitPath() string {
 func (cf *ExecCommandFactory) newCommand(ctx context.Context, repo repository.GitRepo, dir string, sc Cmd, opts ...CmdOpt) (*command.Command, error) {
 	cc := &cmdCfg{}
 
-	if err := handleOpts(ctx, sc, cc, opts); err != nil {
+	if err := cf.handleOpts(ctx, sc, cc, opts); err != nil {
 		return nil, err
 	}
 
-	args, err := combineArgs(cf.cfg.Git.Config, sc, cc)
+	args, err := cf.combineArgs(cf.cfg.Git.Config, sc, cc)
 	if err != nil {
 		return nil, err
 	}
@@ -128,7 +128,7 @@ func (cf *ExecCommandFactory) newCommand(ctx context.Context, repo repository.Gi
 	return command, nil
 }
 
-func handleOpts(ctx context.Context, sc Cmd, cc *cmdCfg, opts []CmdOpt) error {
+func (cf *ExecCommandFactory) handleOpts(ctx context.Context, sc Cmd, cc *cmdCfg, opts []CmdOpt) error {
 	commandDescription, ok := commandDescriptions[sc.Subcommand()]
 	if !ok {
 		return fmt.Errorf("invalid sub command name %q: %w", sc.Subcommand(), ErrInvalidArg)
@@ -152,7 +152,7 @@ func handleOpts(ctx context.Context, sc Cmd, cc *cmdCfg, opts []CmdOpt) error {
 	return nil
 }
 
-func combineArgs(gitConfig []config.GitConfig, sc Cmd, cc *cmdCfg) (_ []string, err error) {
+func (cf *ExecCommandFactory) combineArgs(gitConfig []config.GitConfig, sc Cmd, cc *cmdCfg) (_ []string, err error) {
 	var args []string
 
 	defer func() {
