@@ -267,3 +267,109 @@ func TestWithConfig(t *testing.T) {
 		})
 	}
 }
+
+func TestWithConfigEnv(t *testing.T) {
+	var cfg config.Cfg
+	require.NoError(t, cfg.SetGitPath())
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	gitCmdFactory := NewExecCommandFactory(cfg)
+
+	version, err := CurrentVersion(ctx, gitCmdFactory)
+	require.NoError(t, err)
+
+	if !version.SupportsConfigEnv() {
+		t.Skip("git does not support config env")
+	}
+
+	for _, tc := range []struct {
+		desc           string
+		configPairs    []ConfigPair
+		expectedEnv    []string
+		expectedValues map[string]string
+	}{
+		{
+			desc:        "no entries",
+			configPairs: []ConfigPair{},
+			expectedEnv: []string{"GIT_CONFIG_COUNT=0"},
+		},
+		{
+			desc: "single entry",
+			configPairs: []ConfigPair{
+				ConfigPair{Key: "foo.bar", Value: "baz"},
+			},
+			expectedEnv: []string{
+				"GIT_CONFIG_KEY_0=foo.bar",
+				"GIT_CONFIG_VALUE_0=baz",
+				"GIT_CONFIG_COUNT=1",
+			},
+			expectedValues: map[string]string{
+				"foo.bar": "baz",
+			},
+		},
+		{
+			desc: "multiple entries",
+			configPairs: []ConfigPair{
+				ConfigPair{Key: "entry.one", Value: "1"},
+				ConfigPair{Key: "entry.two", Value: "2"},
+				ConfigPair{Key: "entry.three", Value: "3"},
+			},
+			expectedEnv: []string{
+				"GIT_CONFIG_KEY_0=entry.one",
+				"GIT_CONFIG_VALUE_0=1",
+				"GIT_CONFIG_KEY_1=entry.two",
+				"GIT_CONFIG_VALUE_1=2",
+				"GIT_CONFIG_KEY_2=entry.three",
+				"GIT_CONFIG_VALUE_2=3",
+				"GIT_CONFIG_COUNT=3",
+			},
+			expectedValues: map[string]string{
+				"entry.one":   "1",
+				"entry.two":   "2",
+				"entry.three": "3",
+			},
+		},
+		{
+			desc: "later entries override previous ones",
+			configPairs: []ConfigPair{
+				ConfigPair{Key: "override.me", Value: "old value"},
+				ConfigPair{Key: "unrelated.entry", Value: "unrelated value"},
+				ConfigPair{Key: "override.me", Value: "new value"},
+			},
+			expectedEnv: []string{
+				"GIT_CONFIG_KEY_0=override.me",
+				"GIT_CONFIG_VALUE_0=old value",
+				"GIT_CONFIG_KEY_1=unrelated.entry",
+				"GIT_CONFIG_VALUE_1=unrelated value",
+				"GIT_CONFIG_KEY_2=override.me",
+				"GIT_CONFIG_VALUE_2=new value",
+				"GIT_CONFIG_COUNT=3",
+			},
+			expectedValues: map[string]string{
+				"unrelated.entry": "unrelated value",
+				"override.me":     "new value",
+			},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			option := WithConfigEnv(tc.configPairs...)
+
+			var commandCfg cmdCfg
+			require.NoError(t, option(&commandCfg))
+			require.EqualValues(t, tc.expectedEnv, commandCfg.env)
+
+			for expectedKey, expectedValue := range tc.expectedValues {
+				var stdout bytes.Buffer
+				configCmd, err := gitCmdFactory.NewWithoutRepo(ctx, SubCmd{
+					Name: "config",
+					Args: []string{expectedKey},
+				}, WithStdout(&stdout), option)
+				require.NoError(t, err)
+				require.NoError(t, configCmd.Wait())
+				require.Equal(t, expectedValue, text.ChompBytes(stdout.Bytes()))
+			}
+		})
+	}
+}

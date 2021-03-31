@@ -188,6 +188,26 @@ func WithConfig(configPairs ...ConfigPair) CmdOpt {
 	}
 }
 
+// WithConfigEnv adds git configuration entries to the command's environment. This should be used
+// in place of `WithConfig()` in case config entries may contain secrets which shouldn't leak e.g.
+// via the process's command line.
+func WithConfigEnv(configPairs ...ConfigPair) CmdOpt {
+	return func(c *cmdCfg) error {
+		env := make([]string, 0, len(configPairs)*2+1)
+
+		for i, configPair := range configPairs {
+			env = append(env,
+				fmt.Sprintf("GIT_CONFIG_KEY_%d=%s", i, configPair.Key),
+				fmt.Sprintf("GIT_CONFIG_VALUE_%d=%s", i, configPair.Value),
+			)
+		}
+		env = append(env, fmt.Sprintf("GIT_CONFIG_COUNT=%d", len(configPairs)))
+
+		c.env = append(c.env, env...)
+		return nil
+	}
+}
+
 // WithGlobalOption adds the global options to the command. These are universal options which work
 // across all git commands.
 func WithGlobalOption(opts ...GlobalOption) CmdOpt {
