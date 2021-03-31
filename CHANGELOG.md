@@ -142,6 +142,10 @@
 - Upgrade labkit-ruby to v0.15.0. !3118
 
 
+## 13.8.7 (2021-03-31)
+
+- No changes.
+
 ## 13.8.6 (2021-03-17)
 
 - No changes.
