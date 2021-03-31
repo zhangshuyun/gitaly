@@ -13,6 +13,7 @@ import (
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/sirupsen/logrus"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
+	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
@@ -140,7 +141,12 @@ func dial(ctx context.Context, node *config.Node, registry *protoregistry.Regist
 		grpc.WithChainUnaryInterceptor(grpc_prometheus.UnaryClientInterceptor),
 	}
 
-	return client.Dial(ctx, node.Address, dialOpts, muxed, logger)
+	var handshaker client.Handshaker
+	if muxed {
+		handshaker = backchannel.NewClientHandshaker(logger, func() backchannel.Server { return grpc.NewServer() })
+	}
+
+	return client.Dial(ctx, node.Address, dialOpts, handshaker)
 }
 
 type muxedNodes map[string]*grpc.ClientConn

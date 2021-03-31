@@ -8,7 +8,6 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	gitaly_x509 "gitlab.com/gitlab-org/gitaly/internal/x509"
 	grpccorrelation "gitlab.com/gitlab-org/labkit/correlation/grpc"
@@ -45,12 +44,19 @@ func getConnectionType(rawAddress string) connectionType {
 	}
 }
 
+// Handshaker is an interface that allows for wrapping the transport credentials
+// with a custom handshake.
+type Handshaker interface {
+	// ClientHandshake wraps the provided credentials and returns new credentials.
+	ClientHandshake(credentials.TransportCredentials) credentials.TransportCredentials
+}
+
 // Dial dials a Gitaly node serving at the given address. Dial is used by the public 'client' package
 // and the expected behavior is mostly documented there.
 //
 // If handshaker is provided, it's passed the transport credentials which would be otherwise set. The transport credentials
 // returned by handshaker are then set instead.
-func Dial(ctx context.Context, rawAddress string, connOpts []grpc.DialOption, muxed bool, logger *logrus.Entry) (*grpc.ClientConn, error) {
+func Dial(ctx context.Context, rawAddress string, connOpts []grpc.DialOption, handshaker Handshaker) (*grpc.ClientConn, error) {
 	var canonicalAddress string
 	var err error
 	var transportCredentials credentials.TransportCredentials
@@ -100,16 +106,12 @@ func Dial(ctx context.Context, rawAddress string, connOpts []grpc.DialOption, mu
 		)
 	}
 
-	if muxed {
+	if handshaker != nil {
 		if transportCredentials == nil {
 			transportCredentials = backchannel.Insecure()
 		}
 
-		transportCredentials = backchannel.NewClientHandshaker(
-			logger,
-			func() backchannel.Server { return grpc.NewServer() },
-		).ClientHandshake(transportCredentials)
-
+		transportCredentials = handshaker.ClientHandshake(transportCredentials)
 	}
 
 	if transportCredentials == nil {

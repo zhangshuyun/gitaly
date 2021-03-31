@@ -21,7 +21,7 @@ var DefaultDialOpts = []grpc.DialOption{}
 // connOpts should not contain `grpc.WithInsecure` as DialContext determines whether it is needed or not from the
 // scheme. `grpc.TransportCredentials` should not be provided either as those are handled internally as well.
 func DialContext(ctx context.Context, rawAddress string, connOpts []grpc.DialOption) (*grpc.ClientConn, error) {
-	return client.Dial(ctx, rawAddress, connOpts, false, nil)
+	return client.Dial(ctx, rawAddress, connOpts, nil)
 }
 
 // Dial calls DialContext with the provided arguments and context.Background. Refer to DialContext's documentation
