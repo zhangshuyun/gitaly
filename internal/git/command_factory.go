@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os/exec"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/internal/cgroups"
 	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/git/alternates"
@@ -44,9 +45,10 @@ type CommandFactory interface {
 
 // ExecCommandFactory knows how to properly construct different types of commands.
 type ExecCommandFactory struct {
-	locator        storage.Locator
-	cfg            config.Cfg
-	cgroupsManager cgroups.Manager
+	locator               storage.Locator
+	cfg                   config.Cfg
+	cgroupsManager        cgroups.Manager
+	invalidCommandsMetric *prometheus.CounterVec
 }
 
 // NewExecCommandFactory returns a new instance of initialized ExecCommandFactory.
@@ -55,7 +57,24 @@ func NewExecCommandFactory(cfg config.Cfg) *ExecCommandFactory {
 		cfg:            cfg,
 		locator:        config.NewLocator(cfg),
 		cgroupsManager: cgroups.NewManager(cfg.Cgroups),
+		invalidCommandsMetric: prometheus.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "gitaly_invalid_commands_total",
+				Help: "Total number of invalid arguments tried to execute",
+			},
+			[]string{"command"},
+		),
 	}
+}
+
+// Describe is used to describe Prometheus metrics.
+func (cf *ExecCommandFactory) Describe(descs chan<- *prometheus.Desc) {
+	prometheus.DescribeByCollect(cf, descs)
+}
+
+// Collect is used to collect Prometheus metrics.
+func (cf *ExecCommandFactory) Collect(metrics chan<- prometheus.Metric) {
+	cf.invalidCommandsMetric.Collect(metrics)
 }
 
 // New creates a new command for the repo repository.
@@ -157,7 +176,7 @@ func (cf *ExecCommandFactory) combineArgs(gitConfig []config.GitConfig, sc Cmd, 
 
 	defer func() {
 		if err != nil && IsInvalidArgErr(err) && len(args) > 0 {
-			incrInvalidArg(args[0])
+			cf.invalidCommandsMetric.WithLabelValues(sc.Subcommand()).Inc()
 		}
 	}()
 
