@@ -1,6 +1,8 @@
 package remote_test
 
 import (
+	"context"
+	"io"
 	"os"
 	"testing"
 
@@ -13,8 +15,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/ref"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/remote"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/ssh"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
@@ -25,6 +27,22 @@ import (
 )
 
 func TestSuccessfulFetchInternalRemote(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.AtomicFetch,
+	}).Run(t, testSuccessfulFetchInternalRemote)
+}
+
+type mockHookManager struct {
+	gitalyhook.Manager
+	called int
+}
+
+func (m *mockHookManager) ReferenceTransactionHook(_ context.Context, _ gitalyhook.ReferenceTransactionState, _ []string, _ io.Reader) error {
+	m.called++
+	return nil
+}
+
+func testSuccessfulFetchInternalRemote(t *testing.T, ctx context.Context) {
 	defer func(oldConf config.Cfg) { config.Config = oldConf }(config.Config)
 
 	conf, getGitalySSHInvocationParams, cleanup := testhelper.ListenGitalySSHCalls(t, config.Config)
@@ -53,8 +71,7 @@ func TestSuccessfulFetchInternalRemote(t *testing.T) {
 
 	locator := config.NewLocator(config.Config)
 	gitCmdFactory := git.NewExecCommandFactory(config.Config)
-	txManager := transaction.NewManager(config.Config)
-	hookManager := gitalyhook.NewManager(locator, txManager, gitalyhook.GitlabAPIStub, config.Config)
+	hookManager := &mockHookManager{}
 	gitaly0Server := testhelper.NewServer(t, nil, nil,
 		testhelper.WithStorages([]string{"gitaly-0"}),
 		testhelper.WithInternalSocket(config.Config),
@@ -85,9 +102,6 @@ func TestSuccessfulFetchInternalRemote(t *testing.T) {
 	client, conn := remote.NewRemoteClient(t, "unix://"+gitaly1Socket)
 	defer conn.Close()
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-
 	ctx, err := helper.InjectGitalyServers(ctx, "gitaly-0", "unix://"+gitaly0Server.Socket(), "")
 	require.NoError(t, err)
 
@@ -115,6 +129,15 @@ func TestSuccessfulFetchInternalRemote(t *testing.T) {
 			"GITALY_ADDRESS=unix://" + gitaly0Server.Socket(),
 		},
 	)
+
+	gitVersion, err := git.CurrentVersion(ctx, gitCmdFactory)
+	require.NoError(t, err)
+
+	if gitVersion.SupportsAtomicFetches() && featureflag.IsEnabled(ctx, featureflag.AtomicFetch) {
+		require.Equal(t, 2, hookManager.called)
+	} else {
+		require.Equal(t, 0, hookManager.called)
+	}
 }
 
 func TestFailedFetchInternalRemote(t *testing.T) {

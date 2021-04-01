@@ -11,6 +11,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/ref"
 	"gitlab.com/gitlab-org/gitaly/internal/gitalyssh"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -26,21 +27,40 @@ func (s *server) FetchInternalRemote(ctx context.Context, req *gitalypb.FetchInt
 		return nil, status.Errorf(codes.InvalidArgument, "FetchInternalRemote: %v", err)
 	}
 
+	gitVersion, err := git.CurrentVersion(ctx, s.gitCmdFactory)
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "cannot determine current git version: %v", err)
+	}
+
 	env, err := gitalyssh.UploadPackEnv(ctx, s.cfg, &gitalypb.SSHUploadPackRequest{Repository: req.RemoteRepository})
 	if err != nil {
 		return nil, fmt.Errorf("upload pack environment: %w", err)
 	}
 
 	stderr := &bytes.Buffer{}
+
+	flags := []git.Option{git.Flag{Name: "--prune"}}
+	options := []git.CmdOpt{
+		git.WithEnv(env...),
+		git.WithStderr(stderr),
+	}
+
+	if gitVersion.SupportsAtomicFetches() && featureflag.IsEnabled(ctx, featureflag.AtomicFetch) {
+		flags = append(flags, git.Flag{
+			Name: "--atomic",
+		})
+		options = append(options, git.WithRefTxHook(ctx, req.Repository, s.cfg))
+	} else {
+		options = append(options, git.WithDisabledHooks())
+	}
+
 	cmd, err := s.gitCmdFactory.New(ctx, req.Repository,
 		git.SubCmd{
 			Name:  "fetch",
-			Flags: []git.Option{git.Flag{Name: "--prune"}},
+			Flags: flags,
 			Args:  []string{gitalyssh.GitalyInternalURL, mirrorRefSpec},
 		},
-		git.WithEnv(env...),
-		git.WithStderr(stderr),
-		git.WithDisabledHooks(),
+		options...,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("create git fetch: %w", err)
