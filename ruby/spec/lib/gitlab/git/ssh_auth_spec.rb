@@ -91,6 +91,7 @@ describe Gitlab::Git::SshAuth do
 
     if known_hosts_file
       opts << '-oStrictHostKeyChecking=yes'
+      opts << '-oCheckHostIP=no'
       opts << "-oUserKnownHostsFile=#{known_hosts_file}"
     end
 
