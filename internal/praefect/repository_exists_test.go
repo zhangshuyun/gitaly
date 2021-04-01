@@ -101,6 +101,8 @@ func TestRepositoryExistsStreamInterceptor(t *testing.T) {
 				nil,
 				rs,
 				nil,
+				nil,
+				nil,
 			)
 			defer srv.Stop()
 

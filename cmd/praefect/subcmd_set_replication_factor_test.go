@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/service/info"
@@ -19,6 +20,7 @@ func TestSetReplicationFactorSubcommand(t *testing.T) {
 	for _, tc := range []struct {
 		desc   string
 		args   []string
+		store  praefect.AssignmentStore
 		error  error
 		stdout string
 	}{
@@ -63,6 +65,12 @@ func TestSetReplicationFactorSubcommand(t *testing.T) {
 			error: status.Error(codes.InvalidArgument, `set replication factor: repository "virtual-storage"/"non-existent" not found`),
 		},
 		{
+			desc:  "assignments are disabled",
+			args:  []string{"-virtual-storage=virtual-storage", "-repository=relative-path", "-replication-factor=1"},
+			store: praefect.NewDisabledAssignmentStore(nil),
+			error: status.Error(codes.Internal, `set replication factor: assignments are disabled`),
+		},
+		{
 			desc:   "successfully set",
 			args:   []string{"-virtual-storage=virtual-storage", "-repository=relative-path", "-replication-factor=2"},
 			stdout: "current assignments: primary, secondary\n",
@@ -74,7 +82,10 @@ func TestSetReplicationFactorSubcommand(t *testing.T) {
 
 			db := getDB(t)
 
-			store := datastore.NewAssignmentStore(db, map[string][]string{"virtual-storage": {"primary", "secondary"}})
+			store := tc.store
+			if tc.store == nil {
+				store = datastore.NewAssignmentStore(db, map[string][]string{"virtual-storage": {"primary", "secondary"}})
+			}
 
 			// create a repository record
 			require.NoError(t,
@@ -82,7 +93,7 @@ func TestSetReplicationFactorSubcommand(t *testing.T) {
 			)
 
 			ln, clean := listenAndServe(t, []svcRegistrar{registerPraefectInfoServer(
-				info.NewServer(nil, config.Config{}, nil, nil, store),
+				info.NewServer(nil, config.Config{}, nil, nil, store, nil, nil),
 			)})
 			defer clean()
 

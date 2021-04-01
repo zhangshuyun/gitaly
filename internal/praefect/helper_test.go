@@ -80,13 +80,16 @@ func (nullNodeMgr) Nodes() map[string][]nodes.Node {
 }
 
 type buildOptions struct {
-	withQueue       datastore.ReplicationEventQueue
-	withTxMgr       *transactions.Manager
-	withBackends    func([]*config.VirtualStorage) []testhelper.Cleanup
-	withAnnotations *protoregistry.Registry
-	withLogger      *logrus.Entry
-	withNodeMgr     nodes.Manager
-	withRepoStore   datastore.RepositoryStore
+	withQueue           datastore.ReplicationEventQueue
+	withTxMgr           *transactions.Manager
+	withBackends        func([]*config.VirtualStorage) []testhelper.Cleanup
+	withAnnotations     *protoregistry.Registry
+	withLogger          *logrus.Entry
+	withNodeMgr         nodes.Manager
+	withRepoStore       datastore.RepositoryStore
+	withAssignmentStore AssignmentStore
+	withConnections     Connections
+	withPrimaryGetter   PrimaryGetter
 }
 
 func withMockBackends(t testing.TB, backends map[string]mock.SimpleServiceServer) func([]*config.VirtualStorage) []testhelper.Cleanup {
@@ -156,6 +159,9 @@ func runPraefectServer(t testing.TB, conf config.Config, opt buildOptions) (*grp
 	if opt.withNodeMgr == nil {
 		opt.withNodeMgr = defaultNodeMgr(t, conf, opt.withRepoStore)
 	}
+	if opt.withAssignmentStore == nil {
+		opt.withAssignmentStore = NewDisabledAssignmentStore(conf.StorageNames())
+	}
 
 	coordinator := NewCoordinator(
 		opt.withQueue,
@@ -176,7 +182,19 @@ func runPraefectServer(t testing.TB, conf config.Config, opt buildOptions) (*grp
 		NodeSetFromNodeManager(opt.withNodeMgr),
 	)
 
-	prf := NewGRPCServer(conf, opt.withLogger, protoregistry.GitalyProtoPreregistered, coordinator.StreamDirector, opt.withNodeMgr, opt.withTxMgr, opt.withQueue, opt.withRepoStore, nil)
+	prf := NewGRPCServer(
+		conf,
+		opt.withLogger,
+		protoregistry.GitalyProtoPreregistered,
+		coordinator.StreamDirector,
+		opt.withNodeMgr,
+		opt.withTxMgr,
+		opt.withQueue,
+		opt.withRepoStore,
+		opt.withAssignmentStore,
+		opt.withConnections,
+		opt.withPrimaryGetter,
+	)
 
 	listener, port := listenAvailPort(t)
 

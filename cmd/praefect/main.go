@@ -108,7 +108,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/nodes/tracker"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/reconciler"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/service/info"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/transactions"
 	"gitlab.com/gitlab-org/gitaly/internal/version"
 	"gitlab.com/gitlab-org/labkit/monitoring"
@@ -239,7 +238,6 @@ func run(cfgs []starter.Config, conf config.Config) error {
 	var rs datastore.RepositoryStore
 	var csg datastore.ConsistentStoragesGetter
 	var metricsCollectors []prometheus.Collector
-	var replicationFactorSetter info.ReplicationFactorSetter
 
 	if conf.MemoryQueueEnabled {
 		queue = datastore.NewMemoryReplicationEventQueue(conf)
@@ -301,10 +299,12 @@ func run(cfgs []starter.Config, conf config.Config) error {
 		return err
 	}
 
+	assignmentStore := praefect.NewDisabledAssignmentStore(conf.StorageNames())
 	var (
 		healthChecker praefect.HealthChecker
 		nodeSet       praefect.NodeSet
 		router        praefect.Router
+		primaryGetter praefect.PrimaryGetter
 	)
 	if conf.Failover.ElectionStrategy == config.ElectionStrategyPerRepository {
 		nodeSet, err = praefect.DialNodes(ctx, conf.VirtualStorages, protoregistry.GitalyProtoPreregistered, errTracker)
@@ -328,8 +328,8 @@ func run(cfgs []starter.Config, conf config.Config) error {
 			}
 		}()
 
-		assignmentStore := datastore.NewAssignmentStore(db, conf.StorageNames())
-		replicationFactorSetter = assignmentStore
+		primaryGetter = elector
+		assignmentStore = datastore.NewAssignmentStore(db, conf.StorageNames())
 
 		router = praefect.NewPerRepositoryRouter(
 			nodeSet.Connections(),
@@ -344,6 +344,7 @@ func run(cfgs []starter.Config, conf config.Config) error {
 		healthChecker = praefect.HealthChecker(nodeManager)
 		nodeSet = praefect.NodeSetFromNodeManager(nodeManager)
 		router = praefect.NewNodeManagerRouter(nodeManager, rs)
+		primaryGetter = nodeManager
 
 		nodeManager.Start(conf.Failover.BootstrapInterval.Duration(), conf.Failover.MonitorInterval.Duration())
 	}
@@ -383,8 +384,10 @@ func run(cfgs []starter.Config, conf config.Config) error {
 			transactionManager,
 			queue,
 			rs,
-			replicationFactorSetter,
+			assignmentStore,
 			protoregistry.GitalyProtoPreregistered,
+			nodeSet.Connections(),
+			primaryGetter,
 		)
 	)
 	metricsCollectors = append(metricsCollectors, transactionManager, coordinator, repl)
