@@ -14,15 +14,6 @@ import (
 
 type storages map[string][]string
 
-func (s storages) storages(virtualStorage string) ([]string, error) {
-	storages, ok := s[virtualStorage]
-	if !ok {
-		return nil, fmt.Errorf("unknown virtual storage: %q", virtualStorage)
-	}
-
-	return storages, nil
-}
-
 // GenerationUnknown is used to indicate lack of generation number in
 // a replication job. Older instances can produce replication jobs
 // without a generation number.
@@ -450,34 +441,27 @@ SELECT storage
 FROM storage_repositories
 JOIN expected_repositories USING (virtual_storage, relative_path, generation)
 `
-
-	storages, err := rs.storages.storages(virtualStorage)
-	if err != nil {
-		return nil, err
-	}
-
 	rows, err := rs.db.QueryContext(ctx, q, virtualStorage, relativePath)
 	if err != nil {
 		return nil, fmt.Errorf("query: %w", err)
 	}
 	defer rows.Close()
 
-	consistentSecondaries := make(map[string]struct{}, len(storages)-1)
-
+	consistentStorages := map[string]struct{}{}
 	for rows.Next() {
 		var storage string
 		if err := rows.Scan(&storage); err != nil {
 			return nil, fmt.Errorf("scan: %w", err)
 		}
 
-		consistentSecondaries[storage] = struct{}{}
+		consistentStorages[storage] = struct{}{}
 	}
 
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("rows: %w", err)
 	}
 
-	return consistentSecondaries, nil
+	return consistentStorages, nil
 }
 
 func (rs *PostgresRepositoryStore) RepositoryExists(ctx context.Context, virtualStorage, relativePath string) (bool, error) {
