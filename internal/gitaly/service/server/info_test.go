@@ -43,9 +43,9 @@ func TestGitalyServerInfo(t *testing.T) {
 
 	require.Equal(t, version.GetVersion(), c.GetServerVersion())
 
-	gitVersion, err := git.Version(ctx, git.NewExecCommandFactory(cfg))
+	gitVersion, err := git.CurrentVersion(ctx, git.NewExecCommandFactory(cfg))
 	require.NoError(t, err)
-	require.Equal(t, gitVersion, c.GetGitVersion())
+	require.Equal(t, gitVersion.String(), c.GetGitVersion())
 
 	require.Len(t, c.GetStorageStatuses(), len(cfg.Storages))
 	require.True(t, c.GetStorageStatuses()[0].Readable)

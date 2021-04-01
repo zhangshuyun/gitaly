@@ -17,83 +17,94 @@ var (
 	// - https://gitlab.com/gitlab-org/gitlab-foss/blob/master/.gitlab-ci.yml
 	// - https://gitlab.com/gitlab-org/gitlab-foss/blob/master/lib/system_check/app/git_version_check.rb
 	// - https://gitlab.com/gitlab-org/build/CNG/blob/master/ci_files/variables.yml
-	minimumVersion = version{2, 29, 0, false}
+	minimumVersion = Version{
+		versionString: "2.29.0",
+		major:         2,
+		minor:         29,
+		patch:         0,
+		rc:            false,
+	}
 )
 
-type version struct {
+// Version represents the version of git itself.
+type Version struct {
+	// versionString is the string representation of the version. The string representation is
+	// not directly derived from the parsed version information because we do not extract all
+	// information from the original version string. Deriving it from parsed information would
+	// thus potentially lose information.
+	versionString       string
 	major, minor, patch uint32
 	rc                  bool
 }
 
-// Version returns the used git version.
-func Version(ctx context.Context, gitCmdFactory CommandFactory) (string, error) {
+// CurrentVersion returns the used git version.
+func CurrentVersion(ctx context.Context, gitCmdFactory CommandFactory) (Version, error) {
 	var buf bytes.Buffer
 	cmd, err := gitCmdFactory.NewWithoutRepo(ctx, SubCmd{
 		Name: "version",
 	}, WithStdout(&buf))
 	if err != nil {
-		return "", err
+		return Version{}, err
 	}
 
 	if err = cmd.Wait(); err != nil {
-		return "", err
+		return Version{}, err
 	}
 
 	out := strings.Trim(buf.String(), " \n")
-	ver := strings.SplitN(out, " ", 3)
-	if len(ver) != 3 {
-		return "", fmt.Errorf("invalid version format: %q", buf.String())
+	versionString := strings.SplitN(out, " ", 3)
+	if len(versionString) != 3 {
+		return Version{}, fmt.Errorf("invalid version format: %q", buf.String())
 	}
 
-	return ver[2], nil
-}
-
-// VersionLessThan returns true if the parsed version value of v1Str is less
-// than the parsed version value of v2Str. An error can be returned if the
-// strings cannot be parsed.
-// Note: this is an extremely simplified semver comparison algorithm
-func VersionLessThan(v1Str, v2Str string) (bool, error) {
-	var (
-		v1, v2 version
-		err    error
-	)
-
-	for _, v := range []struct {
-		string
-		*version
-	}{
-		{v1Str, &v1},
-		{v2Str, &v2},
-	} {
-		*v.version, err = parseVersion(v.string)
-		if err != nil {
-			return false, err
-		}
+	version, err := parseVersion(versionString[2])
+	if err != nil {
+		return Version{}, fmt.Errorf("cannot parse git version: %w", err)
 	}
 
-	return versionLessThan(v1, v2), nil
+	return version, nil
 }
 
-func versionLessThan(v1, v2 version) bool {
+// String returns the string representation of the version.
+func (v Version) String() string {
+	return v.versionString
+}
+
+// IsSupported checks if a version string corresponds to a Git version
+// supported by Gitaly.
+func (v Version) IsSupported() bool {
+	return !v.LessThan(minimumVersion)
+}
+
+// SupportsConfigEnv checks whether git supports the config environment variables GIT_CONFIG_COUNT,
+// GIT_CONFIG_KEY and GIT_CONFIG_VALUE.
+func (v Version) SupportsConfigEnv() bool {
+	return !v.LessThan(Version{
+		major: 2, minor: 31, patch: 0,
+	})
+}
+
+// LessThan determines whether the version is older than another version.
+func (v Version) LessThan(other Version) bool {
 	switch {
-	case v1.major < v2.major:
+	case v.major < other.major:
 		return true
-	case v1.major > v2.major:
+	case v.major > other.major:
 		return false
 
-	case v1.minor < v2.minor:
+	case v.minor < other.minor:
 		return true
-	case v1.minor > v2.minor:
+	case v.minor > other.minor:
 		return false
 
-	case v1.patch < v2.patch:
+	case v.patch < other.patch:
 		return true
-	case v1.patch > v2.patch:
+	case v.patch > other.patch:
 		return false
 
-	case v1.rc && !v2.rc:
+	case v.rc && !other.rc:
 		return true
-	case !v1.rc && v2.rc:
+	case !v.rc && other.rc:
 		return false
 
 	default:
@@ -102,13 +113,15 @@ func versionLessThan(v1, v2 version) bool {
 	}
 }
 
-func parseVersion(versionStr string) (version, error) {
+func parseVersion(versionStr string) (Version, error) {
 	versionSplit := strings.SplitN(versionStr, ".", 4)
 	if len(versionSplit) < 3 {
-		return version{}, fmt.Errorf("expected major.minor.patch in %q", versionStr)
+		return Version{}, fmt.Errorf("expected major.minor.patch in %q", versionStr)
 	}
 
-	var ver version
+	ver := Version{
+		versionString: versionStr,
+	}
 
 	for i, v := range []*uint32{&ver.major, &ver.minor, &ver.patch} {
 		var n64 uint64
@@ -124,7 +137,7 @@ func parseVersion(versionStr string) (version, error) {
 			var err error
 			n64, err = strconv.ParseUint(rcSplit[0], 10, 32)
 			if err != nil {
-				return version{}, err
+				return Version{}, err
 			}
 
 			if len(rcSplit) == 2 && strings.HasPrefix(rcSplit[1], "rc") {
@@ -142,15 +155,4 @@ func parseVersion(versionStr string) (version, error) {
 	}
 
 	return ver, nil
-}
-
-// SupportedVersion checks if a version string corresponds to a Git version
-// supported by Gitaly.
-func SupportedVersion(versionStr string) (bool, error) {
-	v, err := parseVersion(versionStr)
-	if err != nil {
-		return false, err
-	}
-
-	return !versionLessThan(v, minimumVersion), nil
 }

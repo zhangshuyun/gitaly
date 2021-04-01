@@ -44,91 +44,119 @@ func (s *server) FetchRemote(ctx context.Context, req *gitalypb.FetchRemoteReque
 	remoteName := req.GetRemote()
 
 	if params := req.GetRemoteParams(); params != nil {
-		remoteSuffix, err := text.RandomHex(16)
+		gitVersion, err := git.CurrentVersion(ctx, s.gitCmdFactory)
 		if err != nil {
-			return nil, fmt.Errorf("cannot generate remote suffix: %w", err)
+			return nil, fmt.Errorf("cannot determine current git version: %w", err)
 		}
-
-		// We're generating a random name for the remote. We do not use a static name here
-		// and neither do we use a user-provided one as we'll be removing the remote after
-		// this RPC again, which also removes all its contained references.
-		//
-		// Ideally, we'd just use an in-memory remote either by fetching via URL directly or
-		// by injecting an in-memory remote via git configuration. But the former is not
-		// possible as it may leak credentials stored in URLs, while the latter is not
-		// possible yet because git has no official way to inject configuration via the
-		// environment yet. That is about to change though with git v2.31.0, so we can
-		// migrate this to use anonymous remotes as soon as we require that as minimum
-		// version.
-		remoteName = fmt.Sprintf("tmp-%s", remoteSuffix)
 
 		remoteURL := params.GetUrl()
 		refspecs := s.getRefspecs(params.GetMirrorRefmaps())
 
-		if err := s.setRemote(ctx, repo, remoteName, remoteURL); err != nil {
-			return nil, fmt.Errorf("set remote: %w", err)
-		}
+		if gitVersion.SupportsConfigEnv() {
+			remoteName = "inmemory"
 
-		defer func(parentCtx context.Context) {
-			ctx, cancel := context.WithCancel(command.SuppressCancellation(parentCtx))
-			defer cancel()
-
-			// we pass context as it may be overridden in case timeout is set for the call
-			if err := s.removeRemote(ctx, repo, remoteName); err != nil {
-				ctxlogrus.Extract(ctx).WithError(err).WithFields(logrus.Fields{
-					"remote":  remoteName,
-					"storage": req.GetRepository().GetStorageName(),
-					"path":    req.GetRepository().GetRelativePath(),
-				}).Error("removal of remote failed")
+			config := []git.ConfigPair{
+				{Key: "remote.inmemory.url", Value: remoteURL},
 			}
-		}(ctx)
 
-		for _, refspec := range refspecs {
-			opts.CommandOptions = append(opts.CommandOptions,
-				git.WithConfig(git.ConfigPair{Key: "remote." + remoteName + ".fetch", Value: refspec}),
-			)
-		}
+			for _, refspec := range refspecs {
+				config = append(config, git.ConfigPair{
+					Key: "remote.inmemory.fetch", Value: refspec,
+				})
+			}
 
-		if params.GetHttpAuthorizationHeader() != "" {
-			client, err := s.ruby.RepositoryServiceClient(ctx)
+			if authHeader := params.GetHttpAuthorizationHeader(); authHeader != "" {
+				config = append(config, git.ConfigPair{
+					Key:   fmt.Sprintf("http.%s.extraHeader", remoteURL),
+					Value: "Authorization: " + authHeader,
+				})
+			}
+
+			opts.CommandOptions = append(opts.CommandOptions, git.WithConfigEnv(config...))
+		} else {
+			remoteSuffix, err := text.RandomHex(16)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("cannot generate remote suffix: %w", err)
 			}
 
-			clientCtx, err := rubyserver.SetHeaders(ctx, s.locator, req.GetRepository())
-			if err != nil {
-				return nil, err
+			// We're generating a random name for the remote. We do not use a static name here
+			// and neither do we use a user-provided one as we'll be removing the remote after
+			// this RPC again, which also removes all its contained references.
+			//
+			// Ideally, we'd just use an in-memory remote either by fetching via URL directly or
+			// by injecting an in-memory remote via git configuration. But the former is not
+			// possible as it may leak credentials stored in URLs, while the latter is not
+			// possible yet because git has no official way to inject configuration via the
+			// environment yet. That is about to change though with git v2.31.0, so we can
+			// migrate this to use anonymous remotes as soon as we require that as minimum
+			// version.
+			remoteName = fmt.Sprintf("tmp-%s", remoteSuffix)
+
+			if err := s.setRemote(ctx, repo, remoteName, remoteURL); err != nil {
+				return nil, fmt.Errorf("set remote: %w", err)
 			}
 
-			// currently it is only possible way to set config value without exposing it to outside (won't be listed in 'ps')
-			extraHeaderKey := "http." + remoteURL + ".extraHeader"
-
-			if _, err := client.SetConfig(clientCtx, &gitalypb.SetConfigRequest{
-				Repository: req.GetRepository(),
-				Entries: []*gitalypb.SetConfigRequest_Entry{{
-					Key:   extraHeaderKey,
-					Value: &gitalypb.SetConfigRequest_Entry_ValueStr{ValueStr: "Authorization: " + params.GetHttpAuthorizationHeader()},
-				}},
-			}); err != nil {
-				return nil, helper.ErrInternal(fmt.Errorf("set extra header: %w", err))
-			}
-
-			defer func() {
-				ctx, cancel := context.WithCancel(command.SuppressCancellation(clientCtx))
+			defer func(parentCtx context.Context) {
+				ctx, cancel := context.WithCancel(command.SuppressCancellation(parentCtx))
 				defer cancel()
 
-				// currently it is only possible way to set config value without exposing it to outside (won't be listed in 'ps')
-				if _, err := client.DeleteConfig(ctx, &gitalypb.DeleteConfigRequest{
-					Repository: req.Repository,
-					Keys:       []string{extraHeaderKey},
-				}); err != nil {
+				// we pass context as it may be overridden in case timeout is set for the call
+				if err := s.removeRemote(ctx, repo, remoteName); err != nil {
 					ctxlogrus.Extract(ctx).WithError(err).WithFields(logrus.Fields{
 						"remote":  remoteName,
 						"storage": req.GetRepository().GetStorageName(),
 						"path":    req.GetRepository().GetRelativePath(),
-					}).Error("removal of extra header config failed")
+					}).Error("removal of remote failed")
 				}
-			}()
+			}(ctx)
+
+			for _, refspec := range refspecs {
+				opts.CommandOptions = append(opts.CommandOptions,
+					git.WithConfig(git.ConfigPair{Key: "remote." + remoteName + ".fetch", Value: refspec}),
+				)
+			}
+
+			if params.GetHttpAuthorizationHeader() != "" {
+				client, err := s.ruby.RepositoryServiceClient(ctx)
+				if err != nil {
+					return nil, err
+				}
+
+				clientCtx, err := rubyserver.SetHeaders(ctx, s.locator, req.GetRepository())
+				if err != nil {
+					return nil, err
+				}
+
+				// currently it is only possible way to set config value without exposing it to outside (won't be listed in 'ps')
+				extraHeaderKey := "http." + remoteURL + ".extraHeader"
+
+				if _, err := client.SetConfig(clientCtx, &gitalypb.SetConfigRequest{
+					Repository: req.GetRepository(),
+					Entries: []*gitalypb.SetConfigRequest_Entry{{
+						Key:   extraHeaderKey,
+						Value: &gitalypb.SetConfigRequest_Entry_ValueStr{ValueStr: "Authorization: " + params.GetHttpAuthorizationHeader()},
+					}},
+				}); err != nil {
+					return nil, helper.ErrInternal(fmt.Errorf("set extra header: %w", err))
+				}
+
+				defer func() {
+					ctx, cancel := context.WithCancel(command.SuppressCancellation(clientCtx))
+					defer cancel()
+
+					// currently it is only possible way to set config value without exposing it to outside (won't be listed in 'ps')
+					if _, err := client.DeleteConfig(ctx, &gitalypb.DeleteConfigRequest{
+						Repository: req.Repository,
+						Keys:       []string{extraHeaderKey},
+					}); err != nil {
+						ctxlogrus.Extract(ctx).WithError(err).WithFields(logrus.Fields{
+							"remote":  remoteName,
+							"storage": req.GetRepository().GetStorageName(),
+							"path":    req.GetRepository().GetRelativePath(),
+						}).Error("removal of extra header config failed")
+					}
+				}()
+			}
 		}
 	} else {
 		sshCommand, cleanup, err := git.BuildSSHInvocation(ctx, req.GetSshKey(), req.GetKnownHosts())

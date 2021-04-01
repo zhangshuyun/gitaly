@@ -1,13 +1,13 @@
-package git_test
+package git
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/git"
 )
 
-func TestVersionComparator(t *testing.T) {
+func TestVersion_LessThan(t *testing.T) {
 	for _, tc := range []struct {
 		v1, v2 string
 		expect bool
@@ -96,13 +96,19 @@ func TestVersionComparator(t *testing.T) {
 		{"1.1.GIT", "1.1.0", false},
 		{"1.1.GIT", "1.0.0", false},
 	} {
-		actual, err := git.VersionLessThan(tc.v1, tc.v2)
-		require.NoError(t, err)
-		require.Equal(t, tc.expect, actual)
+		t.Run(fmt.Sprintf("%s < %s", tc.v1, tc.v2), func(t *testing.T) {
+			v1, err := parseVersion(tc.v1)
+			require.NoError(t, err)
+
+			v2, err := parseVersion(tc.v2)
+			require.NoError(t, err)
+
+			require.Equal(t, tc.expect, v1.LessThan(v2))
+		})
 	}
 }
 
-func TestSupportedVersion(t *testing.T) {
+func TestVersion_IsSupported(t *testing.T) {
 	for _, tc := range []struct {
 		version string
 		expect  bool
@@ -116,8 +122,29 @@ func TestSupportedVersion(t *testing.T) {
 		{"2.29.1", true},
 		{"3.0.0", true},
 	} {
-		actual, err := git.SupportedVersion(tc.version)
+		version, err := parseVersion(tc.version)
 		require.NoError(t, err)
-		require.Equal(t, tc.expect, actual)
+		require.Equal(t, tc.expect, version.IsSupported())
+	}
+}
+
+func TestVersion_SupportsConfigEnv(t *testing.T) {
+	for _, tc := range []struct {
+		version string
+		expect  bool
+	}{
+		{"2.20.0", false},
+		{"2.24.0-rc0", false},
+		{"2.24.0", false},
+		{"2.25.0", false},
+		{"2.31.0", true},
+		{"2.31.1", true},
+		{"3.0.0", true},
+	} {
+		t.Run(tc.version, func(t *testing.T) {
+			version, err := parseVersion(tc.version)
+			require.NoError(t, err)
+			require.Equal(t, tc.expect, version.SupportsConfigEnv())
+		})
 	}
 }

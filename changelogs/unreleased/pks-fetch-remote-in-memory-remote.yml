@@ -1,0 +1,5 @@
+---
+title: 'repository: Allow fetching via in-memory remotes'
+merge_request: 3321
+author:
+type: performance

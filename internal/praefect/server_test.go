@@ -52,7 +52,7 @@ func TestGitalyServerInfo(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	gitVersion, err := git.Version(ctx, git.NewExecCommandFactory(gconfig.Config))
+	gitVersion, err := git.CurrentVersion(ctx, git.NewExecCommandFactory(gconfig.Config))
 	require.NoError(t, err)
 
 	t.Run("gitaly responds with ok", func(t *testing.T) {
@@ -95,7 +95,7 @@ func TestGitalyServerInfo(t *testing.T) {
 
 		expected := &gitalypb.ServerInfoResponse{
 			ServerVersion: version.GetVersion(),
-			GitVersion:    gitVersion,
+			GitVersion:    gitVersion.String(),
 			StorageStatuses: []*gitalypb.ServerInfoResponse_StorageStatus{
 				{StorageName: "virtual-storage-1", Readable: true, Writeable: true, ReplicationFactor: 2},
 			},
