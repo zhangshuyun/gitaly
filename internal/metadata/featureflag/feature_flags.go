@@ -30,6 +30,9 @@ var (
 	GoUpdateRemoteMirror = FeatureFlag{Name: "go_update_remote_mirror", OnByDefault: false}
 	// ConnectionMultiplexing enables the use of multiplexed connection from Praefect to Gitaly.
 	ConnectionMultiplexing = FeatureFlag{Name: "connection_multiplexing", OnByDefault: false}
+	// PackWriteReverseIndex enables writing of the reverse index for newly written packfiles,
+	// which is supposed to speed up computation of object sizes.
+	PackWriteReverseIndex = FeatureFlag{Name: "pack_write_reverse_index", OnByDefault: false}
 )
 
 // All includes all feature flags.
@@ -44,4 +47,5 @@ var All = []FeatureFlag{
 	LFSPointersUseBitmapIndex,
 	GoUpdateRemoteMirror,
 	ConnectionMultiplexing,
+	PackWriteReverseIndex,
 }

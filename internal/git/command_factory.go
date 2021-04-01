@@ -12,6 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/alternates"
 	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
 )
 
@@ -112,7 +113,7 @@ func (cf *ExecCommandFactory) newCommand(ctx context.Context, repo repository.Gi
 		return nil, err
 	}
 
-	args, err := cf.combineArgs(cf.cfg.Git.Config, sc, config)
+	args, err := cf.combineArgs(ctx, cf.cfg.Git.Config, sc, config)
 	if err != nil {
 		return nil, err
 	}
@@ -167,7 +168,7 @@ func (cf *ExecCommandFactory) combineOpts(ctx context.Context, sc Cmd, opts []Cm
 	return config, nil
 }
 
-func (cf *ExecCommandFactory) combineArgs(gitConfig []config.GitConfig, sc Cmd, cc cmdCfg) (_ []string, err error) {
+func (cf *ExecCommandFactory) combineArgs(ctx context.Context, gitConfig []config.GitConfig, sc Cmd, cc cmdCfg) (_ []string, err error) {
 	var args []string
 
 	defer func() {
@@ -186,6 +187,12 @@ func (cf *ExecCommandFactory) combineArgs(gitConfig []config.GitConfig, sc Cmd, 
 		commandSpecificOptions = append(commandSpecificOptions, ConfigPair{
 			Key: "pack.windowMemory", Value: "100m",
 		})
+
+		if featureflag.IsEnabled(ctx, featureflag.PackWriteReverseIndex) {
+			commandSpecificOptions = append(commandSpecificOptions, ConfigPair{
+				Key: "pack.writeReverseIndex", Value: "true",
+			})
+		}
 	}
 
 	// As global options may cancel out each other, we have a clearly
