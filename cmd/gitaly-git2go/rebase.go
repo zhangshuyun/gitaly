@@ -93,7 +93,12 @@ func (cmd *rebaseSubcommand) rebase(ctx context.Context, request *git2go.RebaseC
 		return onto.Id().String(), nil
 	}
 
-	rebase, err := repo.InitRebase(branch, onto, onto, &opts)
+	mergeCommit, err := repo.LookupAnnotatedCommit(mergeBase)
+	if err != nil {
+		return "", fmt.Errorf("look up merge base: %w", err)
+	}
+
+	rebase, err := repo.InitRebase(branch, mergeCommit, onto, &opts)
 	if err != nil {
 		return "", fmt.Errorf("initiate rebase: %w", err)
 	}
