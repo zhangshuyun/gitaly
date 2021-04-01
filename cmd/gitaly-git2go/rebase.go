@@ -88,6 +88,11 @@ func (cmd *rebaseSubcommand) rebase(ctx context.Context, request *git2go.RebaseC
 		return branch.Id().String(), nil
 	}
 
+	if mergeBase.Equal(branch.Id()) {
+		// Branch is merged, so fast-forward to upstream
+		return onto.Id().String(), nil
+	}
+
 	rebase, err := repo.InitRebase(branch, onto, onto, &opts)
 	if err != nil {
 		return "", fmt.Errorf("initiate rebase: %w", err)

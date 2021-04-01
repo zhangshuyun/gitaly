@@ -89,6 +89,11 @@ func TestRebase_rebase(t *testing.T) {
 			commitsAhead: 1,
 			expected:     "842616594688d2351480dfebd67b3d8d15571e6d",
 		},
+		{
+			desc:     "Merged branch",
+			branch:   "branch-merged",
+			expected: "1e292f8fedd741b75372e19097c76d327140c312",
+		},
 	}
 
 	for _, tc := range testcases {
