@@ -116,6 +116,27 @@ func TestRebase_rebase(t *testing.T) {
 			expected:     "591b29084164bcc58fa4fb851a3c409290b17bfe",
 		},
 		{
+			desc:   "With upstream merged into",
+			branch: "csv-plus-merge",
+			setupRepo: func(t testing.TB, repo *git.Repository) {
+				ours, err := lookupCommit(repo, "csv")
+				require.NoError(t, err)
+				theirs, err := lookupCommit(repo, "b83d6e391c22777fca1ed3012fce84f633d7fed0")
+				require.NoError(t, err)
+
+				index, err := repo.MergeCommits(ours, theirs, nil)
+				require.NoError(t, err)
+				tree, err := index.WriteTreeTo(repo)
+				require.NoError(t, err)
+
+				newOid, err := repo.CreateCommitFromIds("refs/heads/csv-plus-merge", &cmdtesthelper.DefaultAuthor, &cmdtesthelper.DefaultAuthor, "Message", tree, ours.Object.Id(), theirs.Object.Id())
+				require.NoError(t, err)
+				require.Equal(t, "5cfe4a597b54c8f2b7ae85212f67599a1492009c", newOid.String())
+			},
+			commitsAhead: 5, // Same as "Multiple commits"
+			expected:     "2f8365edc69d3683e22c4209ae9641642d84dd4a",
+		},
+		{
 			desc:        "Rebase with conflict",
 			branch:      "rebase-encoding-failure-trigger",
 			expectedErr: "rebase: commit \"eb8f5fb9523b868cef583e09d4bf70b99d2dd404\": conflicts have not been resolved",
