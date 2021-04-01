@@ -111,16 +111,12 @@ func verifyGitVersion(cfg config.Cfg) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	gitVersion, err := git.Version(ctx, git.NewExecCommandFactory(cfg))
+	gitVersion, err := git.CurrentVersion(ctx, git.NewExecCommandFactory(cfg))
 	if err != nil {
 		return fmt.Errorf("git version detection: %w", err)
 	}
 
-	supported, err := git.SupportedVersion(gitVersion)
-	if err != nil {
-		return fmt.Errorf("git version comparison: %w", err)
-	}
-	if !supported {
+	if !gitVersion.IsSupported() {
 		return fmt.Errorf("unsupported Git version: %q", gitVersion)
 	}
 	return nil
@@ -210,7 +206,7 @@ func run(cfg config.Cfg) error {
 			ctx, cancel := context.WithCancel(context.TODO())
 			defer cancel()
 
-			gitVersion, err := git.Version(ctx, gitCmdFactory)
+			gitVersion, err := git.CurrentVersion(ctx, gitCmdFactory)
 			if err != nil {
 				return err
 			}
@@ -224,7 +220,7 @@ func run(cfg config.Cfg) error {
 						version.GetVersion(),
 						version.GetBuildTime()),
 					monitoring.WithBuildExtraLabels(
-						map[string]string{"git_version": gitVersion},
+						map[string]string{"git_version": gitVersion.String()},
 					)); err != nil {
 					log.WithError(err).Error("Unable to serve prometheus")
 				}
