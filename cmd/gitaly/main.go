@@ -164,6 +164,7 @@ func run(cfg config.Cfg) error {
 	defer conns.Close()
 
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
+	prometheus.MustRegister(gitCmdFactory)
 
 	gitalyServerFactory := server.NewGitalyServerFactory(cfg)
 	defer gitalyServerFactory.Stop()

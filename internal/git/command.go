@@ -4,33 +4,15 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
-
-	"github.com/prometheus/client_golang/prometheus"
 )
 
 var (
-	invalidationTotal = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "gitaly_invalid_commands_total",
-			Help: "Total number of invalid arguments tried to execute",
-		},
-		[]string{"command"},
-	)
-
 	// ErrInvalidArg represent family of errors to report about bad argument used to make a call.
 	ErrInvalidArg = errors.New("invalid argument")
 	// ErrHookPayloadRequired indicates a HookPayload is needed but
 	// absent from the command.
 	ErrHookPayloadRequired = errors.New("hook payload is required but not configured")
 )
-
-func init() {
-	prometheus.MustRegister(invalidationTotal)
-}
-
-func incrInvalidArg(subcmdName string) {
-	invalidationTotal.WithLabelValues(subcmdName).Inc()
-}
 
 // Cmd is an interface for safe git commands
 type Cmd interface {
