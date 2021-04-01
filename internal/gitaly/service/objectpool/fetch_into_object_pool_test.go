@@ -2,6 +2,7 @@ package objectpool
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io/ioutil"
 	"os"
@@ -19,11 +20,13 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/hooks"
 	"gitlab.com/gitlab-org/gitaly/internal/git/objectpool"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/labkit/log"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestFetchIntoObjectPool_Success(t *testing.T) {
@@ -80,36 +83,45 @@ func TestFetchIntoObjectPool_Success(t *testing.T) {
 	require.Error(t, err, "Expected refs/heads/broken to be deleted")
 }
 
-func TestFetchIntoObjectPool_hooksDisabled(t *testing.T) {
-	cfg, repo, _, locator, client := setup(t)
+func TestFetchIntoObjectPool_hooks(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.AtomicFetch,
+	}).Run(t, func(t *testing.T, ctx context.Context) {
+		cfg, repo, _, locator, client := setup(t)
+		gitCmdFactory := git.NewExecCommandFactory(cfg)
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+		pool, err := objectpool.NewObjectPool(cfg, locator, gitCmdFactory, repo.GetStorageName(), gittest.NewObjectPoolName(t))
+		require.NoError(t, err)
+		defer pool.Remove(ctx)
 
-	pool, err := objectpool.NewObjectPool(cfg, locator, git.NewExecCommandFactory(cfg), repo.GetStorageName(), gittest.NewObjectPoolName(t))
-	require.NoError(t, err)
-	defer pool.Remove(ctx)
+		hookDir, cleanup := testhelper.TempDir(t)
+		defer cleanup()
 
-	hookDir, cleanup := testhelper.TempDir(t)
-	defer cleanup()
+		defer func(oldValue string) {
+			hooks.Override = oldValue
+		}(hooks.Override)
+		hooks.Override = hookDir
 
-	defer func(oldValue string) {
-		hooks.Override = oldValue
-	}(hooks.Override)
-	hooks.Override = hookDir
+		// Set up a custom reference-transaction hook which simply exits failure. This asserts that
+		// the RPC doesn't invoke any reference-transaction.
+		require.NoError(t, ioutil.WriteFile(filepath.Join(hookDir, "reference-transaction"), []byte("#!/bin/sh\nexit 1\n"), 0777))
 
-	// Set up a custom reference-transaction hook which simply exits failure. This asserts that
-	// the RPC doesn't invoke any reference-transaction.
-	require.NoError(t, ioutil.WriteFile(filepath.Join(hookDir, "reference-transaction"), []byte("#!/bin/sh\nexit 1\n"), 0777))
+		req := &gitalypb.FetchIntoObjectPoolRequest{
+			ObjectPool: pool.ToProto(),
+			Origin:     repo,
+			Repack:     true,
+		}
 
-	req := &gitalypb.FetchIntoObjectPoolRequest{
-		ObjectPool: pool.ToProto(),
-		Origin:     repo,
-		Repack:     true,
-	}
+		gitVersion, err := git.CurrentVersion(ctx, gitCmdFactory)
+		require.NoError(t, err)
 
-	_, err = client.FetchIntoObjectPool(ctx, req)
-	require.NoError(t, err)
+		_, err = client.FetchIntoObjectPool(ctx, req)
+		if gitVersion.SupportsAtomicFetches() && featureflag.IsEnabled(ctx, featureflag.AtomicFetch) {
+			require.Equal(t, status.Error(codes.Internal, "exit status 128"), err)
+		} else {
+			require.NoError(t, err)
+		}
+	})
 }
 
 func TestFetchIntoObjectPool_CollectLogStatistics(t *testing.T) {

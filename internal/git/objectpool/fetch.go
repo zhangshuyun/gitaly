@@ -18,6 +18,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/internal/git/updateref"
+	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
@@ -62,15 +63,27 @@ func (o *ObjectPool) FetchFromOrigin(ctx context.Context, origin *gitalypb.Repos
 		return err
 	}
 
-	opts := []git.CmdOpt{
-		git.WithDisabledHooks(),
+	gitVersion, err := git.CurrentVersion(ctx, o.gitCmdFactory)
+	if err != nil {
+		return err
+	}
+
+	var opts []git.CmdOpt
+	flags := []git.Option{git.Flag{Name: "--quiet"}}
+	if gitVersion.SupportsAtomicFetches() && featureflag.IsEnabled(ctx, featureflag.AtomicFetch) {
+		flags = append(flags, git.Flag{
+			Name: "--atomic",
+		})
+		opts = append(opts, git.WithRefTxHook(ctx, o.poolRepo, o.cfg))
+	} else {
+		opts = append(opts, git.WithDisabledHooks())
 	}
 
 	refSpec := fmt.Sprintf("+refs/*:%s/*", sourceRefNamespace)
 	if err := o.poolRepo.ExecAndWait(ctx,
 		git.SubCmd{
 			Name:  "fetch",
-			Flags: []git.Option{git.Flag{Name: "--quiet"}},
+			Flags: flags,
 			Args:  []string{sourceRemote, refSpec},
 		},
 		opts...,
