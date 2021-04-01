@@ -5,11 +5,26 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/peer"
 )
+
+func muxedPeer(t testing.TB, p *peer.Peer) *peer.Peer {
+	t.Helper()
+
+	authInfo := p.AuthInfo
+	if authInfo == nil {
+		var err error
+		_, authInfo, err = backchannel.Insecure().ServerHandshake(nil)
+		require.NoError(t, err)
+	}
+
+	p.AuthInfo = backchannel.WithID(authInfo, 1)
+	return p
+}
 
 func tcpPeer(t *testing.T, ip string, port int) *peer.Peer {
 	parsedAddress := net.ParseIP(ip)
@@ -152,23 +167,37 @@ func TestPraefect_InjectMetadata(t *testing.T) {
 				SocketPath:    tc.socketPath,
 			}
 
-			ctx = peer.NewContext(ctx, tc.peer)
+			for _, muxed := range []bool{false, true} {
+				desc := "unmuxed"
+				if muxed {
+					desc = "muxed"
+				}
 
-			praefectServer, err := PraefectFromConfig(cfg)
-			require.NoError(t, err)
+				t.Run(desc, func(t *testing.T) {
+					p := tc.peer
+					if muxed {
+						p = muxedPeer(t, tc.peer)
+					}
 
-			ctx, err = praefectServer.Inject(ctx)
-			require.NoError(t, err)
+					ctx = peer.NewContext(ctx, p)
 
-			server, err := PraefectFromContext(ctx)
-			if tc.expectedAddress == "" {
-				require.Error(t, err)
-			} else {
-				require.NoError(t, err)
+					praefectServer, err := PraefectFromConfig(cfg)
+					require.NoError(t, err)
 
-				address, err := server.Address()
-				require.NoError(t, err)
-				require.Equal(t, tc.expectedAddress, address)
+					ctx, err = praefectServer.Inject(ctx)
+					require.NoError(t, err)
+
+					server, err := PraefectFromContext(ctx)
+					if tc.expectedAddress == "" {
+						require.Error(t, err)
+					} else {
+						require.NoError(t, err)
+
+						address, err := server.Address()
+						require.NoError(t, err)
+						require.Equal(t, tc.expectedAddress, address)
+					}
+				})
 			}
 		})
 	}

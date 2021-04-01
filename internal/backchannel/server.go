@@ -43,6 +43,12 @@ func GetPeerID(ctx context.Context) (ID, error) {
 	return wrapper.peerID(), nil
 }
 
+// WithID stores the ID in the provided AuthInfo so it can be later accessed by the RPC handler.
+// This is exported to facilitate testing.
+func WithID(authInfo credentials.AuthInfo, id ID) credentials.AuthInfo {
+	return authInfoWrapper{id: id, AuthInfo: authInfo}
+}
+
 // ServerHandshaker implements the server side handshake of the multiplexed connection.
 type ServerHandshaker struct {
 	registry *Registry
@@ -139,8 +145,6 @@ func (s ServerHandshaker) ServerHandshake(conn net.Conn) (net.Conn, credentials.
 				return nil
 			},
 		},
-		authInfoWrapper{
-			id:       id,
-			AuthInfo: authInfo,
-		}, nil
+		WithID(authInfo, id),
+		nil
 }
