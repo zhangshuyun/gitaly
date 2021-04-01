@@ -7,22 +7,17 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"golang.org/x/sys/unix"
 )
 
 func TestStorageDiskStatistics(t *testing.T) {
-	// Setup storage paths
-	testStorages := []config.Storage{
-		{Name: "default", Path: testhelper.GitlabTestStoragePath()},
-		{Name: "broken", Path: "/does/not/exist"},
-	}
-	defer func(oldStorages []config.Storage) {
-		config.Config.Storages = oldStorages
-	}(config.Config.Storages)
-	config.Config.Storages = testStorages
+	cfg := testcfg.Build(t)
 
-	server, serverSocketPath := runServer(t, config.Config)
+	cfg.Storages = append(cfg.Storages, config.Storage{Name: "broken", Path: "/does/not/exist"})
+
+	server, serverSocketPath := runServer(t, cfg)
 	defer server.Stop()
 
 	client, conn := newServerClient(t, serverSocketPath)
@@ -34,17 +29,17 @@ func TestStorageDiskStatistics(t *testing.T) {
 	c, err := client.DiskStatistics(ctx, &gitalypb.DiskStatisticsRequest{})
 	require.NoError(t, err)
 
-	require.Len(t, c.GetStorageStatuses(), len(testStorages))
+	require.Len(t, c.GetStorageStatuses(), len(cfg.Storages))
 
 	//used and available space may change so we check if it roughly matches (+/- 1GB)
-	avail, used := getSpaceStats(t, testStorages[0].Path)
+	avail, used := getSpaceStats(t, cfg.Storages[0].Path)
 	approxEqual(t, c.GetStorageStatuses()[0].Available, avail)
 	approxEqual(t, c.GetStorageStatuses()[0].Used, used)
-	require.Equal(t, testStorages[0].Name, c.GetStorageStatuses()[0].StorageName)
+	require.Equal(t, cfg.Storages[0].Name, c.GetStorageStatuses()[0].StorageName)
 
 	require.Equal(t, int64(0), c.GetStorageStatuses()[1].Available)
 	require.Equal(t, int64(0), c.GetStorageStatuses()[1].Used)
-	require.Equal(t, testStorages[1].Name, c.GetStorageStatuses()[1].StorageName)
+	require.Equal(t, cfg.Storages[1].Name, c.GetStorageStatuses()[1].StorageName)
 }
 
 func approxEqual(t *testing.T, a, b int64) {
