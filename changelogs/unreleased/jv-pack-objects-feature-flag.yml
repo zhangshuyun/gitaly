@@ -1,0 +1,5 @@
+---
+title: Remove upload_pack_gitaly_hooks feature flag
+merge_request: 3301
+author:
+type: changed
