@@ -72,6 +72,7 @@ func TestRebase_rebase(t *testing.T) {
 		commitsAhead int
 		setupRepo    func(testing.TB, *git.Repository)
 		expected     string
+		expectedErr  string
 	}{
 		{
 			desc:         "Single commit rebase",
@@ -114,6 +115,16 @@ func TestRebase_rebase(t *testing.T) {
 			commitsAhead: 1,
 			expected:     "591b29084164bcc58fa4fb851a3c409290b17bfe",
 		},
+		{
+			desc:        "Rebase with conflict",
+			branch:      "rebase-encoding-failure-trigger",
+			expectedErr: "rebase: commit \"eb8f5fb9523b868cef583e09d4bf70b99d2dd404\": conflicts have not been resolved",
+		},
+		{
+			desc:        "Orphaned branch",
+			branch:      "orphaned-branch",
+			expectedErr: "rebase: find merge base: no merge base found",
+		},
 	}
 
 	for _, tc := range testcases {
@@ -143,20 +154,24 @@ func TestRebase_rebase(t *testing.T) {
 			}
 
 			response, err := request.Run(ctx, cfg)
-			require.NoError(t, err)
+			if tc.expectedErr != "" {
+				require.EqualError(t, err, tc.expectedErr)
+			} else {
+				require.NoError(t, err)
 
-			result := response.String()
-			require.Equal(t, tc.expected, result)
+				result := response.String()
+				require.Equal(t, tc.expected, result)
 
-			commit, err := lookupCommit(repo, result)
-			require.NoError(t, err)
+				commit, err := lookupCommit(repo, result)
+				require.NoError(t, err)
 
-			for i := tc.commitsAhead; i > 0; i-- {
-				commit = commit.Parent(0)
+				for i := tc.commitsAhead; i > 0; i-- {
+					commit = commit.Parent(0)
+				}
+				masterCommit, err := lookupCommit(repo, "master")
+				require.NoError(t, err)
+				require.Equal(t, masterCommit, commit)
 			}
-			masterCommit, err := lookupCommit(repo, "master")
-			require.NoError(t, err)
-			require.Equal(t, masterCommit, commit)
 		})
 	}
 }
