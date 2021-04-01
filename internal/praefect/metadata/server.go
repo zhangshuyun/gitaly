@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/url"
 
+	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/internal/bootstrap/starter"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
 	"google.golang.org/grpc/credentials"
@@ -114,8 +115,13 @@ func (p *PraefectServer) resolvePraefectAddress(peer *peer.Peer) error {
 
 		return nil
 	case *net.TCPAddr:
-		switch peer.AuthInfo {
-		case nil:
+		var authType string
+		if peer.AuthInfo != nil {
+			authType = peer.AuthInfo.AuthType()
+		}
+
+		switch authType {
+		case "", backchannel.Insecure().Info().SecurityProtocol:
 			// no transport security being used
 			addr, err := substituteListeningWithIP(p.ListenAddr, addr.IP.String())
 			if err != nil {
