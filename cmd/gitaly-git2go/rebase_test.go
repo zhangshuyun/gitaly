@@ -8,6 +8,7 @@ import (
 
 	git "github.com/libgit2/git2go/v31"
 	"github.com/stretchr/testify/require"
+	cmdtesthelper "gitlab.com/gitlab-org/gitaly/cmd/gitaly-git2go/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
@@ -69,6 +70,7 @@ func TestRebase_rebase(t *testing.T) {
 		desc         string
 		branch       string
 		commitsAhead int
+		setupRepo    func(testing.TB, *git.Repository)
 		expected     string
 	}{
 		{
@@ -94,6 +96,24 @@ func TestRebase_rebase(t *testing.T) {
 			branch:   "branch-merged",
 			expected: "1e292f8fedd741b75372e19097c76d327140c312",
 		},
+		{
+			desc:   "Partially merged branch",
+			branch: "branch-merged-plus-one",
+			setupRepo: func(t testing.TB, repo *git.Repository) {
+				head, err := lookupCommit(repo, "branch-merged")
+				require.NoError(t, err)
+
+				other, err := lookupCommit(repo, "gitaly-rename-test")
+				require.NoError(t, err)
+				tree, err := other.Tree()
+				require.NoError(t, err)
+				newOid, err := repo.CreateCommitFromIds("refs/heads/branch-merged-plus-one", &cmdtesthelper.DefaultAuthor, &cmdtesthelper.DefaultAuthor, "Message", tree.Object.Id(), head.Object.Id())
+				require.NoError(t, err)
+				require.Equal(t, "5da601ef10e314884bbade9d5b063be37579ccf9", newOid.String())
+			},
+			commitsAhead: 1,
+			expected:     "591b29084164bcc58fa4fb851a3c409290b17bfe",
+		},
 	}
 
 	for _, tc := range testcases {
@@ -110,6 +130,10 @@ func TestRebase_rebase(t *testing.T) {
 
 			repo, err := git.OpenRepository(repoPath)
 			require.NoError(t, err)
+
+			if tc.setupRepo != nil {
+				tc.setupRepo(t, repo)
+			}
 
 			request := git2go.RebaseCommand{
 				Repository:     repoPath,
