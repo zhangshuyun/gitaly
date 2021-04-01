@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/lib/pq"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore/glsql"
 )
 
@@ -429,18 +430,18 @@ AND storage = $3
 // GetConsistentStorages checks which storages are on the latest generation and returns them.
 func (rs *PostgresRepositoryStore) GetConsistentStorages(ctx context.Context, virtualStorage, relativePath string) (map[string]struct{}, error) {
 	const q = `
-WITH expected_repositories AS (
-	SELECT virtual_storage, relative_path, MAX(generation) AS generation
+SELECT storage
+FROM repositories
+JOIN storage_repositories USING (virtual_storage, relative_path)
+WHERE virtual_storage = $1
+AND relative_path = $2
+AND storage_repositories.generation = (
+	SELECT MAX(generation)
 	FROM storage_repositories
 	WHERE virtual_storage = $1
 	AND relative_path = $2
-	GROUP BY virtual_storage, relative_path
-)
+)`
 
-SELECT storage
-FROM storage_repositories
-JOIN expected_repositories USING (virtual_storage, relative_path, generation)
-`
 	rows, err := rs.db.QueryContext(ctx, q, virtualStorage, relativePath)
 	if err != nil {
 		return nil, fmt.Errorf("query: %w", err)
@@ -459,6 +460,10 @@ JOIN expected_repositories USING (virtual_storage, relative_path, generation)
 
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("rows: %w", err)
+	}
+
+	if len(consistentStorages) == 0 {
+		return nil, commonerr.NewRepositoryNotFoundError(virtualStorage, relativePath)
 	}
 
 	return consistentStorages, nil

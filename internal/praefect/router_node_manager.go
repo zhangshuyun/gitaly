@@ -2,8 +2,10 @@ package praefect
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/nodes"
 )
@@ -79,7 +81,7 @@ func (r *nodeManagerRouter) RouteRepositoryMutator(ctx context.Context, virtualS
 	}
 
 	consistentStorages, err := r.rs.GetConsistentStorages(ctx, virtualStorage, relativePath)
-	if err != nil {
+	if err != nil && !errors.As(err, new(commonerr.RepositoryNotFoundError)) {
 		return RepositoryMutatorRoute{}, fmt.Errorf("consistent storages: %w", err)
 	}
 
