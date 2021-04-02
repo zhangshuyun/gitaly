@@ -1,5 +1,0 @@
----
-title: Enable Bloom filter support on WriteCommitGraph gRPC
-merge_request: 3317
-author:
-type: performance
