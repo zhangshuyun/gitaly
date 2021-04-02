@@ -29,7 +29,6 @@ func (s *server) writeCommitGraph(ctx context.Context, in *gitalypb.WriteCommitG
 			Action: "write",
 			Flags: []git.Option{
 				git.Flag{Name: "--reachable"},
-				git.Flag{Name: "--changed-paths"},
 			},
 		},
 	)
