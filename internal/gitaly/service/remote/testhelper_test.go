@@ -5,13 +5,13 @@ import (
 	"testing"
 
 	log "github.com/sirupsen/logrus"
-	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/reflection"
 )
 
 var RubyServer *rubyserver.Server
@@ -37,21 +37,13 @@ func testMain(m *testing.M) int {
 	return m.Run()
 }
 
-func RunRemoteServiceServer(t *testing.T, opts ...testhelper.TestServerOpt) (string, func()) {
-	srv := testhelper.NewServer(t, nil, nil, opts...)
-
-	cfg := config.Config
-	locator := config.NewLocator(cfg)
-	gitCmdFactory := git.NewExecCommandFactory(cfg)
-	gitalypb.RegisterRemoteServiceServer(srv.GrpcServer(), NewServer(cfg, RubyServer, locator, gitCmdFactory))
-	reflection.Register(srv.GrpcServer())
-
-	srv.Start(t)
-
-	return "unix://" + srv.Socket(), srv.Stop
+func runRemoteServiceServer(t *testing.T, cfg config.Cfg) string {
+	return testserver.RunGitalyServer(t, cfg, RubyServer, func(srv *grpc.Server, deps *service.Dependencies) {
+		gitalypb.RegisterRemoteServiceServer(srv, NewServer(deps.GetCfg(), deps.GetRubyServer(), deps.GetLocator(), deps.GetGitCmdFactory()))
+	})
 }
 
-func NewRemoteClient(t *testing.T, serverSocketPath string) (gitalypb.RemoteServiceClient, *grpc.ClientConn) {
+func newRemoteClient(t *testing.T, serverSocketPath string) (gitalypb.RemoteServiceClient, *grpc.ClientConn) {
 	connOpts := []grpc.DialOption{
 		grpc.WithInsecure(),
 	}

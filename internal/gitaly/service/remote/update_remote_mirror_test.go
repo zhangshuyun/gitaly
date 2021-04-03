@@ -32,10 +32,9 @@ func testUpdateRemoteMirror(t *testing.T, ctx context.Context) {
 
 	testhelper.ConfigureGitalyGit2Go(tmpDir)
 
-	serverSocketPath, stop := RunRemoteServiceServer(t)
-	defer stop()
+	serverSocketPath := runRemoteServiceServer(t, config.Config)
 
-	client, conn := NewRemoteClient(t, serverSocketPath)
+	client, conn := newRemoteClient(t, serverSocketPath)
 	defer conn.Close()
 
 	type refs map[string][]string
@@ -449,10 +448,9 @@ func TestSuccessfulUpdateRemoteMirrorRequest(t *testing.T) {
 }
 
 func testSuccessfulUpdateRemoteMirrorRequest(t *testing.T, ctx context.Context) {
-	serverSocketPath, stop := RunRemoteServiceServer(t)
-	defer stop()
+	serverSocketPath := runRemoteServiceServer(t, config.Config)
 
-	client, conn := NewRemoteClient(t, serverSocketPath)
+	client, conn := newRemoteClient(t, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
@@ -546,10 +544,9 @@ func TestSuccessfulUpdateRemoteMirrorRequestWithWildcards(t *testing.T) {
 }
 
 func testSuccessfulUpdateRemoteMirrorRequestWithWildcards(t *testing.T, ctx context.Context) {
-	serverSocketPath, stop := RunRemoteServiceServer(t)
-	defer stop()
+	serverSocketPath := runRemoteServiceServer(t, config.Config)
 
-	client, conn := NewRemoteClient(t, serverSocketPath)
+	client, conn := newRemoteClient(t, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
@@ -627,10 +624,9 @@ func TestSuccessfulUpdateRemoteMirrorRequestWithKeepDivergentRefs(t *testing.T) 
 }
 
 func testSuccessfulUpdateRemoteMirrorRequestWithKeepDivergentRefs(t *testing.T, ctx context.Context) {
-	serverSocketPath, stop := RunRemoteServiceServer(t)
-	defer stop()
+	serverSocketPath := runRemoteServiceServer(t, config.Config)
 
-	client, conn := NewRemoteClient(t, serverSocketPath)
+	client, conn := newRemoteClient(t, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
@@ -710,10 +706,9 @@ func TestFailedUpdateRemoteMirrorRequestDueToValidation(t *testing.T) {
 }
 
 func testFailedUpdateRemoteMirrorRequestDueToValidation(t *testing.T, ctx context.Context) {
-	serverSocketPath, stop := RunRemoteServiceServer(t)
-	defer stop()
+	serverSocketPath := runRemoteServiceServer(t, config.Config)
 
-	client, conn := NewRemoteClient(t, serverSocketPath)
+	client, conn := newRemoteClient(t, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, _, cleanupFn := gittest.CloneRepo(t)

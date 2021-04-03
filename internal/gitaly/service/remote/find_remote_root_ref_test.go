@@ -5,16 +5,16 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
 
 func TestFindRemoteRootRefSuccess(t *testing.T) {
-	serverSocketPath, stop := RunRemoteServiceServer(t)
-	defer stop()
+	serverSocketPath := runRemoteServiceServer(t, config.Config)
 
-	client, conn := NewRemoteClient(t, serverSocketPath)
+	client, conn := newRemoteClient(t, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, _, cleanupFn := gittest.CloneRepo(t)
@@ -30,10 +30,9 @@ func TestFindRemoteRootRefSuccess(t *testing.T) {
 }
 
 func TestFindRemoteRootRefFailedDueToValidation(t *testing.T) {
-	serverSocketPath, stop := RunRemoteServiceServer(t)
-	defer stop()
+	serverSocketPath := runRemoteServiceServer(t, config.Config)
 
-	client, conn := NewRemoteClient(t, serverSocketPath)
+	client, conn := newRemoteClient(t, serverSocketPath)
 	defer conn.Close()
 
 	invalidRepo := &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}
@@ -78,10 +77,9 @@ func TestFindRemoteRootRefFailedDueToValidation(t *testing.T) {
 }
 
 func TestFindRemoteRootRefFailedDueToInvalidRemote(t *testing.T) {
-	serverSocketPath, stop := RunRemoteServiceServer(t)
-	defer stop()
+	serverSocketPath := runRemoteServiceServer(t, config.Config)
 
-	client, conn := NewRemoteClient(t, serverSocketPath)
+	client, conn := newRemoteClient(t, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, _, cleanupFn := gittest.CloneRepo(t)
