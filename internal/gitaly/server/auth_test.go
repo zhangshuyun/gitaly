@@ -22,6 +22,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config/auth"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/setup"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
@@ -201,7 +202,14 @@ func runServer(t *testing.T, cfg config.Cfg) string {
 	srv, err := New(false, cfg, testhelper.DiscardTestEntry(t), registry)
 	require.NoError(t, err)
 
-	service.RegisterAll(srv, cfg, nil, hookManager, txManager, locator, conns, gitCmdFactory, nil)
+	setup.RegisterAll(srv, &service.Dependencies{
+		Cfg:                cfg,
+		GitalyHookManager:  hookManager,
+		TransactionManager: txManager,
+		StorageLocator:     locator,
+		ClientPool:         conns,
+		GitCmdFactory:      gitCmdFactory,
+	})
 	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
 
 	listener, err := net.Listen("unix", serverSocketPath)

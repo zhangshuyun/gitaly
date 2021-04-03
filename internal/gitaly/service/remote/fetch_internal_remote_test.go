@@ -15,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/hook"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/ref"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/remote"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/setup"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/ssh"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
@@ -141,8 +142,7 @@ func testSuccessfulFetchInternalRemote(t *testing.T, ctx context.Context) {
 }
 
 func TestFailedFetchInternalRemote(t *testing.T) {
-	serverSocketPath, clean := runFullServer(t)
-	defer clean()
+	serverSocketPath := runFullServer(t)
 
 	client, conn := remote.NewRemoteClient(t, serverSocketPath)
 	defer conn.Close()
@@ -170,8 +170,7 @@ func TestFailedFetchInternalRemote(t *testing.T) {
 }
 
 func TestFailedFetchInternalRemoteDueToValidations(t *testing.T) {
-	serverSocketPath, clean := runFullServer(t)
-	defer clean()
+	serverSocketPath := runFullServer(t)
 
 	client, conn := remote.NewRemoteClient(t, serverSocketPath)
 	defer conn.Close()
@@ -205,8 +204,8 @@ func TestFailedFetchInternalRemoteDueToValidations(t *testing.T) {
 	}
 }
 
-func runFullServer(t *testing.T) (string, func()) {
-	return testserver.RunGitalyServer(t, config.Config, remote.RubyServer)
+func runFullServer(t *testing.T) string {
+	return testserver.RunGitalyServer(t, config.Config, remote.RubyServer, setup.RegisterAll)
 }
 
 func cloneRepoAtStorage(t testing.TB, locator storage.Locator, src *gitalypb.Repository, storageName string) (*gitalypb.Repository, string, func()) {

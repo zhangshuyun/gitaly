@@ -29,6 +29,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/ref"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/remote"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/repository"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/setup"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/ssh"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/metadatahandler"
@@ -107,8 +108,7 @@ func TestReplMgr_ProcessBacklog(t *testing.T) {
 		},
 	)
 
-	srvSocketPath, clean := runFullGitalyServer(t)
-	defer clean()
+	srvSocketPath := runFullGitalyServer(t)
 
 	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
@@ -545,8 +545,7 @@ func TestConfirmReplication(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	srvSocketPath, clean := runFullGitalyServer(t)
-	defer clean()
+	srvSocketPath := runFullGitalyServer(t)
 
 	testRepoA, testRepoAPath, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
@@ -1043,8 +1042,8 @@ func TestBackoff(t *testing.T) {
 	require.Equal(t, start, b())
 }
 
-func runFullGitalyServer(t *testing.T) (string, func()) {
-	return testserver.RunGitalyServer(t, gitaly_config.Config, RubyServer)
+func runFullGitalyServer(t *testing.T) string {
+	return testserver.RunGitalyServer(t, gitaly_config.Config, RubyServer, setup.RegisterAll, testserver.WithDisablePraefect())
 }
 
 // newReplicationService is a grpc service that has the SSH, Repository, Remote and ObjectPool services, which

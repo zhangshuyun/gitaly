@@ -22,6 +22,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/server"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/setup"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	glog "gitlab.com/gitlab-org/gitaly/internal/log"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
@@ -194,7 +195,16 @@ func run(cfg config.Cfg) error {
 		if err != nil {
 			return fmt.Errorf("create gRPC server: %w", err)
 		}
-		service.RegisterAll(srv, cfg, rubySrv, hookManager, transactionManager, locator, conns, gitCmdFactory, ling)
+		setup.RegisterAll(srv, &service.Dependencies{
+			Cfg:                cfg,
+			RubyServer:         rubySrv,
+			GitalyHookManager:  hookManager,
+			TransactionManager: transactionManager,
+			StorageLocator:     locator,
+			ClientPool:         conns,
+			GitCmdFactory:      gitCmdFactory,
+			Linguist:           ling,
+		})
 		b.RegisterStarter(starter.New(c, srv))
 	}
 

@@ -23,6 +23,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	gconfig "gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/setup"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
@@ -67,8 +68,7 @@ func TestGitalyServerInfo(t *testing.T) {
 			cfg.Storages[i].Path = storagePath
 		}
 
-		gitalyAddr, cleanupGitaly := testserver.RunGitalyServer(t, cfg, nil)
-		defer cleanupGitaly()
+		gitalyAddr := testserver.RunGitalyServer(t, cfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
 
 		conf := config.Config{
 			VirtualStorages: []*config.VirtualStorage{
@@ -118,9 +118,6 @@ func TestGitalyServerInfo(t *testing.T) {
 	})
 
 	t.Run("gitaly responds with error", func(t *testing.T) {
-		gitalyAddr, cleanupGitaly := testserver.RunGitalyServer(t, gconfig.Config, nil)
-		defer cleanupGitaly()
-
 		conf := config.Config{
 			VirtualStorages: []*config.VirtualStorage{
 				{
@@ -129,24 +126,21 @@ func TestGitalyServerInfo(t *testing.T) {
 						{
 							Storage: gconfig.Config.Storages[0].Name,
 							Token:   gconfig.Config.Auth.Token,
-							Address: gitalyAddr,
+							Address: "unix://invalid.addr",
 						},
 					},
 				},
 			},
 		}
 
-		nodes, err := DialNodes(ctx, conf.VirtualStorages, nil, nil, nil)
+		nodeSet, err := DialNodes(ctx, conf.VirtualStorages, nil, nil, nil)
 		require.NoError(t, err)
-		defer nodes.Close()
+		defer nodeSet.Close()
 
 		cc, _, cleanup := runPraefectServer(t, conf, buildOptions{
-			withConnections: nodes.Connections(),
+			withConnections: nodeSet.Connections(),
 		})
 		defer cleanup()
-
-		// we stops gitaly service, so ServerInfo request will fail
-		cleanupGitaly()
 
 		client := gitalypb.NewServerServiceClient(cc)
 		actual, err := client.ServerInfo(ctx, &gitalypb.ServerInfoRequest{})
@@ -198,8 +192,7 @@ func TestDiskStatistics(t *testing.T) {
 	for _, name := range []string{"gitaly-1", "gitaly-2"} {
 		gitalyCfg := testcfg.Build(t)
 
-		gitalyAddr, cleanupGitaly := testserver.RunGitalyServer(t, gitalyCfg, nil)
-		defer cleanupGitaly()
+		gitalyAddr := testserver.RunGitalyServer(t, gitalyCfg, nil, setup.RegisterAll)
 
 		praefectCfg.VirtualStorages[0].Nodes = append(praefectCfg.VirtualStorages[0].Nodes, &config.Node{
 			Storage: name,
@@ -416,8 +409,7 @@ func TestRemoveRepository(t *testing.T) {
 		defer cfgBuilder.Cleanup()
 		gitalyCfgs[i], repos[i] = cfgBuilder.BuildWithRepoAt(t, "test-repository")
 
-		gitalyAddr, cleanupGitaly := testserver.RunGitalyServer(t, gitalyCfgs[i], nil)
-		defer cleanupGitaly()
+		gitalyAddr := testserver.RunGitalyServer(t, gitalyCfgs[i], nil, setup.RegisterAll)
 		gitalyCfgs[i].SocketPath = gitalyAddr
 
 		praefectCfg.VirtualStorages[0].Nodes = append(praefectCfg.VirtualStorages[0].Nodes, &config.Node{
@@ -509,8 +501,7 @@ func TestRenameRepository(t *testing.T) {
 			repo = repos[0]
 		}
 
-		gitalyAddr, cleanupGitaly := testserver.RunGitalyServer(t, gitalyCfg, nil)
-		defer cleanupGitaly()
+		gitalyAddr := testserver.RunGitalyServer(t, gitalyCfg, nil, setup.RegisterAll)
 
 		praefectCfg.VirtualStorages[0].Nodes = append(praefectCfg.VirtualStorages[0].Nodes, &config.Node{
 			Storage: storageName,

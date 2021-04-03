@@ -16,6 +16,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service"
 	hookservice "gitlab.com/gitlab-org/gitaly/internal/gitaly/service/hook"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/repository"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/setup"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -29,8 +30,7 @@ import (
 func TestFetchSourceBranchSourceRepositorySuccess(t *testing.T) {
 	locator := config.NewLocator(config.Config)
 
-	serverSocketPath, clean := runFullServer(t)
-	defer clean()
+	serverSocketPath := runFullServer(t)
 
 	client, conn := repository.NewRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
@@ -71,8 +71,7 @@ func TestFetchSourceBranchSourceRepositorySuccess(t *testing.T) {
 func TestFetchSourceBranchSameRepositorySuccess(t *testing.T) {
 	locator := config.NewLocator(config.Config)
 
-	serverSocketPath, clean := runFullServer(t)
-	defer clean()
+	serverSocketPath := runFullServer(t)
 
 	client, conn := repository.NewRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
@@ -110,8 +109,7 @@ func TestFetchSourceBranchSameRepositorySuccess(t *testing.T) {
 func TestFetchSourceBranchBranchNotFound(t *testing.T) {
 	locator := config.NewLocator(config.Config)
 
-	serverSocketPath, clean := runFullServer(t)
-	defer clean()
+	serverSocketPath := runFullServer(t)
 
 	client, conn := repository.NewRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
@@ -167,8 +165,7 @@ func TestFetchSourceBranchBranchNotFound(t *testing.T) {
 func TestFetchSourceBranchWrongRef(t *testing.T) {
 	locator := config.NewLocator(config.Config)
 
-	serverSocketPath, clean := runFullServer(t)
-	defer clean()
+	serverSocketPath := runFullServer(t)
 
 	client, conn := repository.NewRepositoryClient(t, serverSocketPath)
 	defer conn.Close()
@@ -301,8 +298,7 @@ func TestFetchFullServerRequiresAuthentication(t *testing.T) {
 	// we want to be sure that authentication is handled correctly. If the
 	// tests in this file were using a server without authentication we could
 	// not be confident that authentication is done right.
-	serverSocketPath, clean := runFullServer(t)
-	defer clean()
+	serverSocketPath := runFullServer(t)
 
 	connOpts := []grpc.DialOption{
 		grpc.WithInsecure(),
@@ -335,8 +331,8 @@ func newTestRepo(t *testing.T, locator storage.Locator, relativePath string) (*g
 	return repo, repoPath, func() { require.NoError(t, os.RemoveAll(repoPath)) }
 }
 
-func runFullServer(t *testing.T) (string, func()) {
-	return testserver.RunGitalyServer(t, config.Config, repository.RubyServer)
+func runFullServer(t *testing.T) string {
+	return testserver.RunGitalyServer(t, config.Config, repository.RubyServer, setup.RegisterAll)
 }
 
 func runFullSecureServer(t *testing.T, locator storage.Locator) (*grpc.Server, string, testhelper.Cleanup) {
@@ -353,7 +349,15 @@ func runFullSecureServer(t *testing.T, locator storage.Locator) (*grpc.Server, s
 	require.NoError(t, err)
 	listener, addr := testhelper.GetLocalhostListener(t)
 
-	service.RegisterAll(server, cfg, repository.RubyServer, hookManager, txManager, config.NewLocator(cfg), conns, gitCmdFactory, nil)
+	setup.RegisterAll(server, &service.Dependencies{
+		Cfg:                cfg,
+		RubyServer:         repository.RubyServer,
+		GitalyHookManager:  hookManager,
+		TransactionManager: txManager,
+		StorageLocator:     config.NewLocator(cfg),
+		ClientPool:         conns,
+		GitCmdFactory:      gitCmdFactory,
+	})
 	errQ := make(chan error)
 
 	// This creates a secondary GRPC server which isn't "secure". Reusing
