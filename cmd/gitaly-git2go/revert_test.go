@@ -11,15 +11,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	cmdtesthelper "gitlab.com/gitlab-org/gitaly/cmd/gitaly-git2go/testhelper"
-	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git2go"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 )
 
 func TestRevert_validation(t *testing.T) {
-	_, repoPath, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
+	cfg, _, repoPath := testcfg.BuildWithRepo(t)
+	testhelper.ConfigureGitalyGit2GoBin(t, cfg)
 
 	testcases := []struct {
 		desc        string
@@ -66,7 +65,7 @@ func TestRevert_validation(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			_, err := tc.request.Run(ctx, config.Config)
+			_, err := tc.request.Run(ctx, cfg)
 			require.Error(t, err)
 			require.EqualError(t, err, tc.expectedErr)
 		})
@@ -151,8 +150,8 @@ func TestRevert_trees(t *testing.T) {
 	}
 	for _, tc := range testcases {
 		t.Run(tc.desc, func(t *testing.T) {
-			_, repoPath, cleanup := gittest.CloneRepo(t)
-			defer cleanup()
+			cfg, _, repoPath := testcfg.BuildWithRepo(t)
+			testhelper.ConfigureGitalyGit2GoBin(t, cfg)
 
 			ours, revert := tc.setupRepo(t, repoPath)
 
@@ -171,7 +170,7 @@ func TestRevert_trees(t *testing.T) {
 				Revert:     revert,
 			}
 
-			response, err := request.Run(ctx, config.Config)
+			response, err := request.Run(ctx, cfg)
 
 			if tc.expectedErr != "" {
 				require.EqualError(t, err, tc.expectedErr)
