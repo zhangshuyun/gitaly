@@ -482,11 +482,11 @@ func testServerUserRevertFailedDueToPreReceiveError(t *testing.T, ctxOuter conte
 	}
 }
 
-func TestServer_UserRevert_failed_due_to_create_tree_error(t *testing.T) {
-	testWithFeature(t, featureflag.GoUserRevert, testServerUserRevertFailedDueToCreateTreeError)
+func TestServer_UserRevert_failed_due_to_create_tree_error_conflict(t *testing.T) {
+	testWithFeature(t, featureflag.GoUserRevert, testServerUserRevertFailedDueToCreateTreeErrorConflict)
 }
 
-func testServerUserRevertFailedDueToCreateTreeError(t *testing.T, ctxOuter context.Context) {
+func testServerUserRevertFailedDueToCreateTreeErrorConflict(t *testing.T, ctxOuter context.Context) {
 	serverSocketPath, stop := runOperationServiceServer(t)
 	defer stop()
 
@@ -519,6 +519,49 @@ func testServerUserRevertFailedDueToCreateTreeError(t *testing.T, ctxOuter conte
 	require.NoError(t, err)
 	require.NotEmpty(t, response.CreateTreeError)
 	require.Equal(t, gitalypb.UserRevertResponse_CONFLICT, response.CreateTreeErrorCode)
+}
+
+func TestServer_UserRevert_failed_due_to_create_tree_error_empty(t *testing.T) {
+	testWithFeature(t, featureflag.GoUserRevert, testServerUserRevertFailedDueToCreateTreeErrorEmpty)
+}
+
+func testServerUserRevertFailedDueToCreateTreeErrorEmpty(t *testing.T, ctxOuter context.Context) {
+	serverSocketPath, stop := runOperationServiceServer(t)
+	defer stop()
+
+	client, conn := newOperationClient(t, serverSocketPath)
+	defer conn.Close()
+
+	repoProto, repoPath, cleanup := gittest.CloneRepo(t)
+	defer cleanup()
+	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
+
+	destinationBranch := "revert-dst"
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", destinationBranch, "master")
+
+	revertedCommit, err := repo.ReadCommit(ctxOuter, "d59c60028b053793cecfb4022de34602e1a9218e")
+	require.NoError(t, err)
+
+	request := &gitalypb.UserRevertRequest{
+		Repository: repoProto,
+		User:       testhelper.TestUser,
+		Commit:     revertedCommit,
+		BranchName: []byte(destinationBranch),
+		Message:    []byte("Reverting " + revertedCommit.Id),
+	}
+
+	md := testhelper.GitalyServersMetadata(t, serverSocketPath)
+	ctx := testhelper.MergeOutgoingMetadata(ctxOuter, md)
+
+	response, err := client.UserRevert(ctx, request)
+	require.NoError(t, err)
+	require.Empty(t, response.CreateTreeError)
+	require.Equal(t, gitalypb.UserRevertResponse_NONE, response.CreateTreeErrorCode)
+
+	response, err = client.UserRevert(ctx, request)
+	require.NoError(t, err)
+	require.NotEmpty(t, response.CreateTreeError)
+	require.Equal(t, gitalypb.UserRevertResponse_EMPTY, response.CreateTreeErrorCode)
 }
 
 func TestServer_UserRevert_failed_due_to_commit_error(t *testing.T) {
