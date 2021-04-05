@@ -16,8 +16,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 )
 
 func TestMain(m *testing.M) {
@@ -28,7 +28,6 @@ func testMain(m *testing.M) int {
 	defer testhelper.MustHaveNoChildProcess()
 	cleanup := testhelper.Configure()
 	defer cleanup()
-	testhelper.ConfigureGitalyGit2Go(config.Config.BinDir)
 	return m.Run()
 }
 
@@ -54,10 +53,13 @@ func TestExecutor_Commit(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	pbRepo, repoPath, clean := gittest.InitBareRepo(t)
-	defer clean()
+	cfg := testcfg.Build(t)
+	testhelper.ConfigureGitalyGit2GoBin(t, cfg)
 
-	repo := localrepo.New(git.NewExecCommandFactory(config.Config), pbRepo, config.Config)
+	repoProto, repoPath, cleanup := gittest.InitBareRepoAt(t, cfg.Storages[0])
+	t.Cleanup(cleanup)
+
+	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
 	originalFile, err := repo.WriteBlob(ctx, "file", bytes.NewBufferString("original"))
 	require.NoError(t, err)
@@ -65,7 +67,7 @@ func TestExecutor_Commit(t *testing.T) {
 	updatedFile, err := repo.WriteBlob(ctx, "file", bytes.NewBufferString("updated"))
 	require.NoError(t, err)
 
-	executor := New(filepath.Join(config.Config.BinDir, "gitaly-git2go"), config.Config.Git.BinPath)
+	executor := New(filepath.Join(cfg.BinDir, "gitaly-git2go"), cfg.Git.BinPath)
 
 	for _, tc := range []struct {
 		desc  string
