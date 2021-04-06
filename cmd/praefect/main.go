@@ -294,13 +294,9 @@ func run(cfgs []starter.Config, conf config.Config) error {
 		}
 	}
 
-	nodeManager, err := nodes.NewManager(logger, conf, db, csg, nodeLatencyHistogram, protoregistry.GitalyProtoPreregistered, errTracker)
-	if err != nil {
-		return err
-	}
-
 	assignmentStore := praefect.NewDisabledAssignmentStore(conf.StorageNames())
 	var (
+		nodeManager   nodes.Manager
 		healthChecker praefect.HealthChecker
 		nodeSet       praefect.NodeSet
 		router        praefect.Router
@@ -341,12 +337,18 @@ func run(cfgs []starter.Config, conf config.Config) error {
 			conf.DefaultReplicationFactors(),
 		)
 	} else {
-		healthChecker = praefect.HealthChecker(nodeManager)
-		nodeSet = praefect.NodeSetFromNodeManager(nodeManager)
-		router = praefect.NewNodeManagerRouter(nodeManager, rs)
-		primaryGetter = nodeManager
+		nodeMgr, err := nodes.NewManager(logger, conf, db, csg, nodeLatencyHistogram, protoregistry.GitalyProtoPreregistered, errTracker)
+		if err != nil {
+			return err
+		}
 
-		nodeManager.Start(conf.Failover.BootstrapInterval.Duration(), conf.Failover.MonitorInterval.Duration())
+		healthChecker = praefect.HealthChecker(nodeMgr)
+		nodeSet = praefect.NodeSetFromNodeManager(nodeMgr)
+		router = praefect.NewNodeManagerRouter(nodeMgr, rs)
+		primaryGetter = nodeMgr
+		nodeManager = nodeMgr
+
+		nodeMgr.Start(conf.Failover.BootstrapInterval.Duration(), conf.Failover.MonitorInterval.Duration())
 	}
 
 	logger.Infof("election strategy: %q", conf.Failover.ElectionStrategy)
@@ -438,7 +440,7 @@ func run(cfgs []starter.Config, conf config.Config) error {
 		})
 	}
 
-	if db != nil {
+	if db != nil && nodeManager != nil {
 		go func() {
 			virtualStorages := conf.VirtualStorageNames()
 			finished := make(map[string]bool, len(virtualStorages))

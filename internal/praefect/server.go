@@ -130,7 +130,7 @@ func registerServices(
 	primaryGetter info.PrimaryGetter,
 ) {
 	// ServerServiceServer is necessary for the ServerInfo RPC
-	gitalypb.RegisterServerServiceServer(srv, server.NewServer(conf, nm, conns))
+	gitalypb.RegisterServerServiceServer(srv, server.NewServer(conf, conns))
 	gitalypb.RegisterPraefectInfoServiceServer(srv, info.NewServer(nm, conf, queue, rs, assignmentStore, conns, primaryGetter))
 	gitalypb.RegisterRefTransactionServer(srv, transaction.NewServer(tm))
 	healthpb.RegisterHealthServer(srv, health.NewServer())
