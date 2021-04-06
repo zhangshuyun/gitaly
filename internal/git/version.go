@@ -84,6 +84,13 @@ func (v Version) SupportsConfigEnv() bool {
 	})
 }
 
+// SupportsAtomicFetches checks whether git-fetch supports the `--atomic` flag.
+func (v Version) SupportsAtomicFetches() bool {
+	return !v.LessThan(Version{
+		major: 2, minor: 31, patch: 0,
+	})
+}
+
 // LessThan determines whether the version is older than another version.
 func (v Version) LessThan(other Version) bool {
 	switch {

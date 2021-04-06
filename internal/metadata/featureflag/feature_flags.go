@@ -33,6 +33,9 @@ var (
 	// PackWriteReverseIndex enables writing of the reverse index for newly written packfiles,
 	// which is supposed to speed up computation of object sizes.
 	PackWriteReverseIndex = FeatureFlag{Name: "pack_write_reverse_index", OnByDefault: false}
+	// AtomicFetch enables the use of atomic fetches and thus allows efficient use of
+	// transactions there.
+	AtomicFetch = FeatureFlag{Name: "atomic_fetch", OnByDefault: false}
 )
 
 // All includes all feature flags.
@@ -48,4 +51,5 @@ var All = []FeatureFlag{
 	GoUpdateRemoteMirror,
 	ConnectionMultiplexing,
 	PackWriteReverseIndex,
+	AtomicFetch,
 }

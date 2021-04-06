@@ -18,6 +18,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/internal/git/updateref"
+	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
@@ -41,39 +42,19 @@ func (o *ObjectPool) FetchFromOrigin(ctx context.Context, origin *gitalypb.Repos
 		return err
 	}
 
-	opts := []git.CmdOpt{
-		git.WithDisabledHooks(),
-	}
+	remote := o.poolRepo.Remote()
 
-	getRemotes, err := o.poolRepo.Exec(ctx, git.SubCmd{Name: "remote"}, opts...)
+	remoteExists, err := remote.Exists(ctx, sourceRemote)
 	if err != nil {
 		return err
 	}
 
-	remoteReader := bufio.NewScanner(getRemotes)
-
-	var originExists bool
-	for remoteReader.Scan() {
-		if remoteReader.Text() == sourceRemote {
-			originExists = true
-		}
-	}
-	if err := getRemotes.Wait(); err != nil {
-		return err
-	}
-
-	if originExists {
-		if err := o.poolRepo.ExecAndWait(ctx, git.SubCmd{
-			Name: "remote",
-			Args: []string{"set-url", sourceRemote, originPath},
-		}, opts...); err != nil {
+	if remoteExists {
+		if err := remote.SetURL(ctx, sourceRemote, originPath, git.SetURLOpts{}); err != nil {
 			return err
 		}
 	} else {
-		if err := o.poolRepo.ExecAndWait(ctx, git.SubCmd{
-			Name: "remote",
-			Args: []string{"add", sourceRemote, originPath},
-		}, opts...); err != nil {
+		if err := remote.Add(ctx, sourceRemote, originPath, git.RemoteAddOpts{}); err != nil {
 			return err
 		}
 	}
@@ -82,11 +63,27 @@ func (o *ObjectPool) FetchFromOrigin(ctx context.Context, origin *gitalypb.Repos
 		return err
 	}
 
+	gitVersion, err := git.CurrentVersion(ctx, o.gitCmdFactory)
+	if err != nil {
+		return err
+	}
+
+	var opts []git.CmdOpt
+	flags := []git.Option{git.Flag{Name: "--quiet"}}
+	if gitVersion.SupportsAtomicFetches() && featureflag.IsEnabled(ctx, featureflag.AtomicFetch) {
+		flags = append(flags, git.Flag{
+			Name: "--atomic",
+		})
+		opts = append(opts, git.WithRefTxHook(ctx, o.poolRepo, o.cfg))
+	} else {
+		opts = append(opts, git.WithDisabledHooks())
+	}
+
 	refSpec := fmt.Sprintf("+refs/*:%s/*", sourceRefNamespace)
 	if err := o.poolRepo.ExecAndWait(ctx,
 		git.SubCmd{
 			Name:  "fetch",
-			Flags: []git.Option{git.Flag{Name: "--quiet"}},
+			Flags: flags,
 			Args:  []string{sourceRemote, refSpec},
 		},
 		opts...,

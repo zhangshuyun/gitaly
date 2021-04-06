@@ -1,0 +1,5 @@
+---
+title: 'git: Use atomic fetches to allow for transactional behaviour'
+merge_request: 3324
+author:
+type: performance

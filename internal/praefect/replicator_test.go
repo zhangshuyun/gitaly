@@ -21,7 +21,9 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/objectpool"
 	gitaly_config "gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	hook_manager "gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/hook"
 	objectpoolservice "gitlab.com/gitlab-org/gitaly/internal/gitaly/service/objectpool"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/ref"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/remote"
@@ -1055,6 +1057,7 @@ func newReplicationService(tb testing.TB) (*grpc.Server, string) {
 
 	locator := gitaly_config.NewLocator(gitaly_config.Config)
 	txManager := transaction.NewManager(gitaly_config.Config)
+	hookManager := hook_manager.NewManager(locator, txManager, hook_manager.GitlabAPIStub, gitaly_config.Config)
 	gitCmdFactory := git.NewExecCommandFactory(gitaly_config.Config)
 
 	gitalypb.RegisterRepositoryServiceServer(svr, repository.NewServer(gitaly_config.Config, RubyServer, locator, txManager, gitCmdFactory))
@@ -1062,6 +1065,7 @@ func newReplicationService(tb testing.TB) (*grpc.Server, string) {
 	gitalypb.RegisterRemoteServiceServer(svr, remote.NewServer(gitaly_config.Config, RubyServer, locator, gitCmdFactory))
 	gitalypb.RegisterSSHServiceServer(svr, ssh.NewServer(gitaly_config.Config, locator, gitCmdFactory))
 	gitalypb.RegisterRefServiceServer(svr, ref.NewServer(gitaly_config.Config, locator, gitCmdFactory))
+	gitalypb.RegisterHookServiceServer(svr, hook.NewServer(gitaly_config.Config, hookManager, gitCmdFactory))
 	healthpb.RegisterHealthServer(svr, health.NewServer())
 	reflection.Register(svr)
 
