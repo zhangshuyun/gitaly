@@ -6,7 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -14,11 +16,13 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 const (
@@ -64,6 +68,229 @@ var (
 		},
 	}
 )
+
+func TestListLFSPointers(t *testing.T) {
+	_, repo, _, client := setup(t)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	for _, tc := range []struct {
+		desc             string
+		revs             []string
+		limit            int32
+		expectedPointers []*gitalypb.LFSPointer
+		expectedErr      error
+	}{
+		{
+			desc:        "missing revisions",
+			revs:        []string{},
+			expectedErr: status.Error(codes.InvalidArgument, "missing revisions"),
+		},
+		{
+			desc:        "invalid revision",
+			revs:        []string{"-dashed"},
+			expectedErr: status.Error(codes.InvalidArgument, "invalid revision: \"-dashed\""),
+		},
+		{
+			desc: "object IDs",
+			revs: []string{
+				lfsPointer1,
+				lfsPointer2,
+				lfsPointer3,
+				"d5b560e9c17384cf8257347db63167b54e0c97ff", // tree
+				"60ecb67744cb56576c30214ff52294f8ce2def98", // commit
+			},
+			expectedPointers: []*gitalypb.LFSPointer{
+				lfsPointers[lfsPointer1],
+				lfsPointers[lfsPointer2],
+				lfsPointers[lfsPointer3],
+			},
+		},
+		{
+			desc: "revision",
+			revs: []string{"refs/heads/master"},
+			expectedPointers: []*gitalypb.LFSPointer{
+				lfsPointers[lfsPointer1],
+			},
+		},
+		{
+			desc: "pseudo-revisions",
+			revs: []string{"refs/heads/master", "--not", "--all"},
+		},
+		{
+			desc: "partial graph walk",
+			revs: []string{"--all", "--not", "refs/heads/master"},
+			expectedPointers: []*gitalypb.LFSPointer{
+				lfsPointers[lfsPointer2],
+				lfsPointers[lfsPointer3],
+				lfsPointers[lfsPointer4],
+				lfsPointers[lfsPointer5],
+				lfsPointers[lfsPointer6],
+			},
+		},
+		{
+			desc:  "partial graph walk with matching limit",
+			revs:  []string{"--all", "--not", "refs/heads/master"},
+			limit: 5,
+			expectedPointers: []*gitalypb.LFSPointer{
+				lfsPointers[lfsPointer2],
+				lfsPointers[lfsPointer3],
+				lfsPointers[lfsPointer4],
+				lfsPointers[lfsPointer5],
+				lfsPointers[lfsPointer6],
+			},
+		},
+		{
+			desc:  "partial graph walk with limiting limit",
+			revs:  []string{"--all", "--not", "refs/heads/master"},
+			limit: 3,
+			expectedPointers: []*gitalypb.LFSPointer{
+				lfsPointers[lfsPointer4],
+				lfsPointers[lfsPointer5],
+				lfsPointers[lfsPointer6],
+			},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			stream, err := client.ListLFSPointers(ctx, &gitalypb.ListLFSPointersRequest{
+				Repository: repo,
+				Revisions:  tc.revs,
+				Limit:      tc.limit,
+			})
+			require.NoError(t, err)
+
+			var actualLFSPointers []*gitalypb.LFSPointer
+			for {
+				resp, err := stream.Recv()
+				if err == io.EOF {
+					break
+				}
+				require.Equal(t, err, tc.expectedErr)
+				if err != nil {
+					break
+				}
+
+				actualLFSPointers = append(actualLFSPointers, resp.GetLfsPointers()...)
+			}
+			require.ElementsMatch(t, tc.expectedPointers, actualLFSPointers)
+		})
+	}
+}
+
+func TestListAllLFSPointers(t *testing.T) {
+	receivePointers := func(t *testing.T, stream gitalypb.BlobService_ListAllLFSPointersClient) []*gitalypb.LFSPointer {
+		t.Helper()
+
+		var pointers []*gitalypb.LFSPointer
+		for {
+			resp, err := stream.Recv()
+			if err == io.EOF {
+				break
+			}
+			require.Nil(t, err)
+			pointers = append(pointers, resp.GetLfsPointers()...)
+		}
+		return pointers
+	}
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	lfsPointerContents := `version https://git-lfs.github.com/spec/v1
+oid sha256:1111111111111111111111111111111111111111111111111111111111111111
+size 12345`
+
+	t.Run("normal repository", func(t *testing.T) {
+		_, repo, _, client := setup(t)
+		stream, err := client.ListAllLFSPointers(ctx, &gitalypb.ListAllLFSPointersRequest{
+			Repository: repo,
+		})
+		require.NoError(t, err)
+		require.ElementsMatch(t, []*gitalypb.LFSPointer{
+			lfsPointers[lfsPointer1],
+			lfsPointers[lfsPointer2],
+			lfsPointers[lfsPointer3],
+			lfsPointers[lfsPointer4],
+			lfsPointers[lfsPointer5],
+			lfsPointers[lfsPointer6],
+		}, receivePointers(t, stream))
+	})
+
+	t.Run("dangling LFS pointer", func(t *testing.T) {
+		_, repo, repoPath, client := setup(t)
+
+		lfsPointerOID := text.ChompBytes(testhelper.MustRunCommand(t, strings.NewReader(lfsPointerContents),
+			"git", "-C", repoPath, "hash-object", "-w", "--stdin"))
+
+		stream, err := client.ListAllLFSPointers(ctx, &gitalypb.ListAllLFSPointersRequest{
+			Repository: repo,
+		})
+		require.NoError(t, err)
+		require.ElementsMatch(t, []*gitalypb.LFSPointer{
+			&gitalypb.LFSPointer{
+				Oid:  lfsPointerOID,
+				Data: []byte(lfsPointerContents),
+				Size: int64(len(lfsPointerContents)),
+			},
+			lfsPointers[lfsPointer1],
+			lfsPointers[lfsPointer2],
+			lfsPointers[lfsPointer3],
+			lfsPointers[lfsPointer4],
+			lfsPointers[lfsPointer5],
+			lfsPointers[lfsPointer6],
+		}, receivePointers(t, stream))
+	})
+
+	t.Run("quarantine", func(t *testing.T) {
+		cfg, repoProto, repoPath, client := setup(t)
+
+		// We're emulating the case where git is receiving data via a push, where objects
+		// are stored in a separate quarantine environment. In this case, LFS pointer checks
+		// may want to inspect all newly pushed objects, denoted by a repository proto
+		// message which only has its object directory set to the quarantine directory.
+		quarantineDir := "objects/incoming-123456"
+		require.NoError(t, os.Mkdir(filepath.Join(repoPath, quarantineDir), 0777))
+		repoProto.GitObjectDirectory = quarantineDir
+		repoProto.GitAlternateObjectDirectories = nil
+
+		// There are no quarantined objects yet, so none should be returned here.
+		stream, err := client.ListAllLFSPointers(ctx, &gitalypb.ListAllLFSPointersRequest{
+			Repository: repoProto,
+		})
+		require.NoError(t, err)
+		require.Empty(t, receivePointers(t, stream))
+
+		// Write a new object into the repository. Because we set GIT_OBJECT_DIRECTORY to
+		// the quarantine directory, objects will be written in there instead of into the
+		// repository's normal object directory.
+		repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+		var buffer, stderr bytes.Buffer
+		err = repo.ExecAndWait(ctx, git.SubCmd{
+			Name: "hash-object",
+			Flags: []git.Option{
+				git.Flag{Name: "-w"},
+				git.Flag{Name: "--stdin"},
+			},
+		}, git.WithStdin(strings.NewReader(lfsPointerContents)), git.WithStdout(&buffer), git.WithStderr(&stderr))
+		require.NoError(t, err)
+
+		stream, err = client.ListAllLFSPointers(ctx, &gitalypb.ListAllLFSPointersRequest{
+			Repository: repoProto,
+		})
+		require.NoError(t, err)
+
+		// We only expect to find a single LFS pointer, which is the one we've just written
+		// into the quarantine directory.
+		require.ElementsMatch(t, []*gitalypb.LFSPointer{
+			&gitalypb.LFSPointer{
+				Oid:  text.ChompBytes(buffer.Bytes()),
+				Data: []byte(lfsPointerContents),
+				Size: int64(len(lfsPointerContents)),
+			},
+		}, receivePointers(t, stream))
+	})
+}
 
 func TestSuccessfulGetLFSPointersRequest(t *testing.T) {
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
