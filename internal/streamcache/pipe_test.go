@@ -187,28 +187,62 @@ func TestPipe_closeWhenAllReadersLeave(t *testing.T) {
 	require.Error(t, <-werr, "writer should see error if all readers close before writer is done")
 }
 
+type closeSpy struct {
+	namedWriteCloser
+	closed bool
+}
+
+func (cs *closeSpy) Close() error {
+	cs.closed = true
+	return cs.namedWriteCloser.Close()
+}
+
 // Closing the last reader _before_ closing the writer is a failure
 // condition. After this happens, opening new readers should fail.
 func TestPipe_closeWrongOrder(t *testing.T) {
-	pr, p := createPipe(t)
+	f, err := ioutil.TempFile("", "gitaly-streamcache-test")
+	require.NoError(t, err)
+	cs := &closeSpy{namedWriteCloser: f}
+
+	pr, p, err := newPipe(cs)
+	require.NoError(t, err)
+
+	defer func() {
+		_ = p.RemoveFile()
+		p.Close()
+	}()
+
 	defer p.Close()
 	defer pr.Close()
 
 	require.NoError(t, pr.Close(), "close last reader")
 	require.Equal(t, errWrongCloseOrder, p.Close(), "closing writer should fail if all readers went away")
+	require.True(t, cs.closed)
 
-	_, err := p.OpenReader()
+	_, err = p.OpenReader()
 	require.Equal(t, errWrongCloseOrder, err, "opening reader after 'broken close' should fail")
 }
 
 // Closing last reader after closing the writer is the happy path. After
 // this happens, opening new readers should work.
 func TestPipe_closeOrderHappy(t *testing.T) {
-	pr1, p := createPipe(t)
+	f, err := ioutil.TempFile("", "gitaly-streamcache-test")
+	require.NoError(t, err)
+	cs := &closeSpy{namedWriteCloser: f}
+
+	pr1, p, err := newPipe(cs)
+	require.NoError(t, err)
+
+	defer func() {
+		_ = p.RemoveFile()
+		p.Close()
+	}()
+
 	defer p.Close()
 	defer pr1.Close()
 
 	require.NoError(t, p.Close())
+	require.True(t, cs.closed)
 
 	out1, err := ioutil.ReadAll(pr1)
 	require.NoError(t, err)

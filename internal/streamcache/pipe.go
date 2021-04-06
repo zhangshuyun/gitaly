@@ -124,6 +124,8 @@ func (p *pipe) Close() error {
 	p.m.Lock()
 	defer p.m.Unlock()
 
+	errClose := p.w.Close()
+
 	if p.writerClosed() {
 		return errWriterAlreadyClosed
 	}
@@ -136,7 +138,7 @@ func (p *pipe) Close() error {
 	p.rcursor.Unsubscribe(p.wnotifier)
 
 	p.writerClosedFirst = true
-	return p.w.Close()
+	return errClose
 }
 
 func (p *pipe) initialReadersClosed() bool {
