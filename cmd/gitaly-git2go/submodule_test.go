@@ -9,12 +9,11 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/git/lstree"
 	"gitlab.com/gitlab-org/gitaly/internal/git2go"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 )
 
 func TestSubmodule(t *testing.T) {
@@ -87,16 +86,16 @@ func TestSubmodule(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			testRepo, testRepoPath, cleanup := gittest.CloneRepo(t)
-			defer cleanup()
-			repo := localrepo.New(git.NewExecCommandFactory(config.Config), testRepo, config.Config)
+			cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
+			testhelper.ConfigureGitalyGit2GoBin(t, cfg)
+			repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
-			tc.command.Repository = testRepoPath
+			tc.command.Repository = repoPath
 
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			response, err := tc.command.Run(ctx, config.Config)
+			response, err := tc.command.Run(ctx, cfg)
 			if tc.expectedStderr != "" {
 				require.Error(t, err)
 				require.Contains(t, err.Error(), tc.expectedStderr)
@@ -115,7 +114,7 @@ func TestSubmodule(t *testing.T) {
 				nil,
 				"git",
 				"-C",
-				testRepoPath,
+				repoPath,
 				"ls-tree",
 				"-z",
 				fmt.Sprintf("%s^{tree}:", response.CommitID),

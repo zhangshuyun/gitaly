@@ -13,13 +13,12 @@ import (
 	cmdtesthelper "gitlab.com/gitlab-org/gitaly/cmd/gitaly-git2go/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git2go"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 )
 
 func TestMergeFailsWithMissingArguments(t *testing.T) {
-	_, repoPath, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
+	cfg, _, repoPath := testcfg.BuildWithRepo(t)
 
 	testcases := []struct {
 		desc        string
@@ -67,7 +66,7 @@ func TestMergeFailsWithMissingArguments(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			_, err := tc.request.Run(ctx, config.Config)
+			_, err := tc.request.Run(ctx, cfg)
 			require.Error(t, err)
 			require.Equal(t, tc.expectedErr, err.Error())
 		})
@@ -75,12 +74,15 @@ func TestMergeFailsWithMissingArguments(t *testing.T) {
 }
 
 func TestMergeFailsWithInvalidRepositoryPath(t *testing.T) {
+	cfg := testcfg.Build(t)
+	testhelper.ConfigureGitalyGit2GoBin(t, cfg)
+
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
 	_, err := git2go.MergeCommand{
 		Repository: "/does/not/exist", AuthorName: "Foo", AuthorMail: "foo@example.com", Message: "Foo", Ours: "HEAD", Theirs: "HEAD",
-	}.Run(ctx, config.Config)
+	}.Run(ctx, cfg)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "merge: could not open repository")
 }
@@ -173,8 +175,8 @@ func TestMergeTrees(t *testing.T) {
 	}
 
 	for _, tc := range testcases {
-		_, repoPath, cleanup := gittest.CloneRepo(t)
-		defer cleanup()
+		cfg, _, repoPath := testcfg.BuildWithRepo(t)
+		testhelper.ConfigureGitalyGit2GoBin(t, cfg)
 
 		base := cmdtesthelper.BuildCommit(t, repoPath, []*git.Oid{nil}, tc.base)
 		ours := cmdtesthelper.BuildCommit(t, repoPath, []*git.Oid{base}, tc.ours)
@@ -194,7 +196,7 @@ func TestMergeTrees(t *testing.T) {
 				Message:    "Merge message",
 				Ours:       ours.String(),
 				Theirs:     theirs.String(),
-			}.Run(ctx, config.Config)
+			}.Run(ctx, cfg)
 
 			if tc.expectedStderr != "" {
 				require.Error(t, err)
@@ -232,7 +234,10 @@ func TestMergeTrees(t *testing.T) {
 }
 
 func TestMerge_recursive(t *testing.T) {
-	_, repoPath, cleanup := gittest.InitBareRepo(t)
+	cfg := testcfg.Build(t)
+	testhelper.ConfigureGitalyGit2GoBin(t, cfg)
+
+	_, repoPath, cleanup := gittest.InitBareRepoAt(t, cfg.Storages[0])
 	defer cleanup()
 
 	base := cmdtesthelper.BuildCommit(t, repoPath, nil, map[string]string{"base": "base\n"})
@@ -297,7 +302,7 @@ func TestMerge_recursive(t *testing.T) {
 		Message:    "Merge message",
 		Ours:       ours[len(ours)-1].String(),
 		Theirs:     theirs[len(theirs)-1].String(),
-	}.Run(ctx, config.Config)
+	}.Run(ctx, cfg)
 	require.Error(t, err)
 	require.Equal(t, err.Error(), "merge: could not auto-merge due to conflicts\n")
 
@@ -312,7 +317,7 @@ func TestMerge_recursive(t *testing.T) {
 		Message:    "Merge message",
 		Ours:       ours[git2go.MergeRecursionLimit/2].String(),
 		Theirs:     theirs[git2go.MergeRecursionLimit/2].String(),
-	}.Run(ctx, config.Config)
+	}.Run(ctx, cfg)
 	require.NoError(t, err)
 
 	repo, err := git.OpenRepository(repoPath)

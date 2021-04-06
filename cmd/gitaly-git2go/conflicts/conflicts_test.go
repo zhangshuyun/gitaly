@@ -9,10 +9,9 @@ import (
 	git "github.com/libgit2/git2go/v31"
 	"github.com/stretchr/testify/require"
 	cmdtesthelper "gitlab.com/gitlab-org/gitaly/cmd/gitaly-git2go/testhelper"
-	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git2go"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 )
 
 func TestMain(m *testing.M) {
@@ -23,7 +22,6 @@ func testMain(m *testing.M) int {
 	defer testhelper.MustHaveNoChildProcess()
 	cleanup := testhelper.Configure()
 	defer cleanup()
-	testhelper.ConfigureGitalyGit2Go(config.Config.BinDir)
 	return m.Run()
 }
 
@@ -178,8 +176,9 @@ func TestConflicts(t *testing.T) {
 	}
 
 	for _, tc := range testcases {
-		_, repoPath, cleanup := gittest.CloneRepo(t)
-		defer cleanup()
+		cfg, _, repoPath := testcfg.BuildWithRepo(t)
+
+		testhelper.ConfigureGitalyGit2GoBin(t, cfg)
 
 		base := cmdtesthelper.BuildCommit(t, repoPath, nil, tc.base)
 		ours := cmdtesthelper.BuildCommit(t, repoPath, []*git.Oid{base}, tc.ours)
@@ -193,7 +192,7 @@ func TestConflicts(t *testing.T) {
 				Repository: repoPath,
 				Ours:       ours.String(),
 				Theirs:     theirs.String(),
-			}.Run(ctx, config.Config)
+			}.Run(ctx, cfg)
 
 			require.NoError(t, err)
 			require.Equal(t, tc.conflicts, response.Conflicts)
