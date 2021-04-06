@@ -23,7 +23,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/streamio"
-	"gitlab.com/gitlab-org/labkit/log"
 )
 
 var (
@@ -202,8 +201,7 @@ func (s *server) runPackObjects(ctx context.Context, w io.Writer, repo *gitalypb
 	}
 
 	if err := cmd.Wait(); err != nil {
-		log.WithField("stderr", stderrBuf.String()).Error("git-pack-objects failed")
-		return err
+		return fmt.Errorf("git-pack-objects: stderr: %q err: %w", stderrBuf.String(), err)
 	}
 
 	return nil
