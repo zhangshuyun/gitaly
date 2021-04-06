@@ -12,6 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/alternates"
 	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
 )
 
@@ -107,18 +108,17 @@ func (cf *ExecCommandFactory) gitPath() string {
 // environment variables for git, but doesn't run in the directory itself. If a directory
 // is given, then the command will be run in that directory.
 func (cf *ExecCommandFactory) newCommand(ctx context.Context, repo repository.GitRepo, dir string, sc Cmd, opts ...CmdOpt) (*command.Command, error) {
-	cc := &cmdCfg{}
-
-	if err := cf.handleOpts(ctx, sc, cc, opts); err != nil {
-		return nil, err
-	}
-
-	args, err := cf.combineArgs(cf.cfg.Git.Config, sc, cc)
+	config, err := cf.combineOpts(ctx, sc, opts)
 	if err != nil {
 		return nil, err
 	}
 
-	env := cc.env
+	args, err := cf.combineArgs(ctx, cf.cfg.Git.Config, sc, config)
+	if err != nil {
+		return nil, err
+	}
+
+	env := config.env
 
 	if repo != nil {
 		repoPath, err := cf.locator.GetRepoPath(repo)
@@ -135,7 +135,7 @@ func (cf *ExecCommandFactory) newCommand(ctx context.Context, repo repository.Gi
 	execCommand := exec.Command(cf.gitPath(), args...)
 	execCommand.Dir = dir
 
-	command, err := command.New(ctx, execCommand, cc.stdin, cc.stdout, cc.stderr, env...)
+	command, err := command.New(ctx, execCommand, config.stdin, config.stdout, config.stderr, env...)
 	if err != nil {
 		return nil, err
 	}
@@ -147,31 +147,28 @@ func (cf *ExecCommandFactory) newCommand(ctx context.Context, repo repository.Gi
 	return command, nil
 }
 
-func (cf *ExecCommandFactory) handleOpts(ctx context.Context, sc Cmd, cc *cmdCfg, opts []CmdOpt) error {
+func (cf *ExecCommandFactory) combineOpts(ctx context.Context, sc Cmd, opts []CmdOpt) (cmdCfg, error) {
+	var config cmdCfg
+
 	commandDescription, ok := commandDescriptions[sc.Subcommand()]
 	if !ok {
-		return fmt.Errorf("invalid sub command name %q: %w", sc.Subcommand(), ErrInvalidArg)
+		return cmdCfg{}, fmt.Errorf("invalid sub command name %q: %w", sc.Subcommand(), ErrInvalidArg)
 	}
 
 	for _, opt := range opts {
-		if err := opt(cc); err != nil {
-			return err
+		if err := opt(&config); err != nil {
+			return cmdCfg{}, err
 		}
 	}
 
-	if !cc.hooksConfigured && commandDescription.mayUpdateRef() {
-		return fmt.Errorf("subcommand %q: %w", sc.Subcommand(), ErrHookPayloadRequired)
-	}
-	if commandDescription.mayGeneratePackfiles() {
-		cc.globals = append(cc.globals, ConfigPair{
-			Key: "pack.windowMemory", Value: "100m",
-		})
+	if !config.hooksConfigured && commandDescription.mayUpdateRef() {
+		return cmdCfg{}, fmt.Errorf("subcommand %q: %w", sc.Subcommand(), ErrHookPayloadRequired)
 	}
 
-	return nil
+	return config, nil
 }
 
-func (cf *ExecCommandFactory) combineArgs(gitConfig []config.GitConfig, sc Cmd, cc *cmdCfg) (_ []string, err error) {
+func (cf *ExecCommandFactory) combineArgs(ctx context.Context, gitConfig []config.GitConfig, sc Cmd, cc cmdCfg) (_ []string, err error) {
 	var args []string
 
 	defer func() {
@@ -183,6 +180,19 @@ func (cf *ExecCommandFactory) combineArgs(gitConfig []config.GitConfig, sc Cmd, 
 	commandDescription, ok := commandDescriptions[sc.Subcommand()]
 	if !ok {
 		return nil, fmt.Errorf("invalid sub command name %q: %w", sc.Subcommand(), ErrInvalidArg)
+	}
+
+	commandSpecificOptions := commandDescription.opts
+	if commandDescription.mayGeneratePackfiles() {
+		commandSpecificOptions = append(commandSpecificOptions, ConfigPair{
+			Key: "pack.windowMemory", Value: "100m",
+		})
+
+		if featureflag.IsEnabled(ctx, featureflag.PackWriteReverseIndex) {
+			commandSpecificOptions = append(commandSpecificOptions, ConfigPair{
+				Key: "pack.writeReverseIndex", Value: "true",
+			})
+		}
 	}
 
 	// As global options may cancel out each other, we have a clearly
@@ -204,7 +214,7 @@ func (cf *ExecCommandFactory) combineArgs(gitConfig []config.GitConfig, sc Cmd, 
 		})
 	}
 	combinedGlobals = append(combinedGlobals, globalOptions...)
-	combinedGlobals = append(combinedGlobals, commandDescription.opts...)
+	combinedGlobals = append(combinedGlobals, commandSpecificOptions...)
 	combinedGlobals = append(combinedGlobals, cc.globals...)
 
 	for _, global := range combinedGlobals {
