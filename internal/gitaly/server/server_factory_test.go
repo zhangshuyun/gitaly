@@ -13,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/bootstrap/starter"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
@@ -44,7 +45,7 @@ func TestGitalyServerFactory(t *testing.T) {
 			certPool, err := x509.SystemCertPool()
 			require.NoError(t, err)
 
-			pem, err := ioutil.ReadFile(config.Config.TLS.CertPath)
+			pem, err := ioutil.ReadFile(sf.cfg.TLS.CertPath)
 			require.NoError(t, err)
 
 			require.True(t, certPool.AppendCertsFromPEM(pem))
@@ -88,7 +89,8 @@ func TestGitalyServerFactory(t *testing.T) {
 	}
 
 	t.Run("insecure", func(t *testing.T) {
-		sf := NewGitalyServerFactory(config.Config)
+		cfg := testcfg.Build(t)
+		sf := NewGitalyServerFactory(cfg)
 
 		_, cleanup := checkHealth(t, sf, starter.TCP, "localhost:0")
 		defer cleanup()
@@ -97,14 +99,12 @@ func TestGitalyServerFactory(t *testing.T) {
 	t.Run("secure", func(t *testing.T) {
 		certFile, keyFile, remove := testhelper.GenerateTestCerts(t)
 		defer remove()
-
-		defer func(old config.TLS) { config.Config.TLS = old }(config.Config.TLS)
-		config.Config.TLS = config.TLS{
+		cfg := testcfg.Build(t, testcfg.WithBase(config.Cfg{TLS: config.TLS{
 			CertPath: certFile,
 			KeyPath:  keyFile,
-		}
+		}}))
 
-		sf := NewGitalyServerFactory(config.Config)
+		sf := NewGitalyServerFactory(cfg)
 		defer sf.Stop()
 
 		_, cleanup := checkHealth(t, sf, starter.TLS, "localhost:0")
@@ -112,7 +112,8 @@ func TestGitalyServerFactory(t *testing.T) {
 	})
 
 	t.Run("all services must be stopped", func(t *testing.T) {
-		sf := NewGitalyServerFactory(config.Config)
+		cfg := testcfg.Build(t)
+		sf := NewGitalyServerFactory(cfg)
 		defer sf.Stop()
 
 		tcpHealthClient, tcpCleanup := checkHealth(t, sf, starter.TCP, "localhost:0")
