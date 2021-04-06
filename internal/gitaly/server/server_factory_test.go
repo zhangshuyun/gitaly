@@ -26,16 +26,14 @@ func TestGitalyServerFactory(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	checkHealth := func(t *testing.T, sf *GitalyServerFactory, schema, addr string) (healthpb.HealthClient, testhelper.Cleanup) {
+	checkHealth := func(t *testing.T, sf *GitalyServerFactory, schema, addr string) healthpb.HealthClient {
 		t.Helper()
-
-		var cleanups []testhelper.Cleanup
 
 		var cc *grpc.ClientConn
 		if schema == starter.TLS {
 			listener, err := net.Listen(starter.TCP, addr)
 			require.NoError(t, err)
-			cleanups = append(cleanups, func() { listener.Close() })
+			t.Cleanup(func() { listener.Close() })
 
 			srv, err := sf.Create(true)
 			require.NoError(t, err)
@@ -60,7 +58,7 @@ func TestGitalyServerFactory(t *testing.T) {
 		} else {
 			listener, err := net.Listen(schema, addr)
 			require.NoError(t, err)
-			cleanups = append(cleanups, func() { listener.Close() })
+			t.Cleanup(func() { listener.Close() })
 
 			srv, err := sf.Create(false)
 			require.NoError(t, err)
@@ -74,56 +72,49 @@ func TestGitalyServerFactory(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		cleanups = append(cleanups, func() { cc.Close() })
+		t.Cleanup(func() { cc.Close() })
 
 		healthClient := healthpb.NewHealthClient(cc)
 
 		resp, err := healthClient.Check(ctx, &healthpb.HealthCheckRequest{})
 		require.NoError(t, err)
 		require.Equal(t, healthpb.HealthCheckResponse_SERVING, resp.Status)
-		return healthClient, func() {
-			for i := len(cleanups) - 1; i >= 0; i-- {
-				cleanups[i]()
-			}
-		}
+		return healthClient
 	}
 
 	t.Run("insecure", func(t *testing.T) {
 		cfg := testcfg.Build(t)
 		sf := NewGitalyServerFactory(cfg)
 
-		_, cleanup := checkHealth(t, sf, starter.TCP, "localhost:0")
-		defer cleanup()
+		checkHealth(t, sf, starter.TCP, "localhost:0")
 	})
 
 	t.Run("secure", func(t *testing.T) {
 		certFile, keyFile, remove := testhelper.GenerateTestCerts(t)
-		defer remove()
+		t.Cleanup(remove)
+
 		cfg := testcfg.Build(t, testcfg.WithBase(config.Cfg{TLS: config.TLS{
 			CertPath: certFile,
 			KeyPath:  keyFile,
 		}}))
 
 		sf := NewGitalyServerFactory(cfg)
-		defer sf.Stop()
+		t.Cleanup(sf.Stop)
 
-		_, cleanup := checkHealth(t, sf, starter.TLS, "localhost:0")
-		defer cleanup()
+		checkHealth(t, sf, starter.TLS, "localhost:0")
 	})
 
 	t.Run("all services must be stopped", func(t *testing.T) {
 		cfg := testcfg.Build(t)
 		sf := NewGitalyServerFactory(cfg)
-		defer sf.Stop()
+		t.Cleanup(sf.Stop)
 
-		tcpHealthClient, tcpCleanup := checkHealth(t, sf, starter.TCP, "localhost:0")
-		defer tcpCleanup()
+		tcpHealthClient := checkHealth(t, sf, starter.TCP, "localhost:0")
 
 		socket := testhelper.GetTemporaryGitalySocketFileName(t)
-		defer func() { require.NoError(t, os.RemoveAll(socket)) }()
+		t.Cleanup(func() { require.NoError(t, os.RemoveAll(socket)) })
 
-		socketHealthClient, unixCleanup := checkHealth(t, sf, starter.Unix, socket)
-		defer unixCleanup()
+		socketHealthClient := checkHealth(t, sf, starter.Unix, socket)
 
 		sf.GracefulStop() // stops all started servers(listeners)
 
