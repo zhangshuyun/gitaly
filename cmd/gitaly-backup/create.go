@@ -3,10 +3,12 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
 
+	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/internal/backup"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -40,13 +42,25 @@ func (cmd *createSubcommand) Run(ctx context.Context, stdin io.Reader, stdout io
 		} else if err != nil {
 			return fmt.Errorf("create: %w", err)
 		}
+		repoLog := log.WithFields(log.Fields{
+			"storage_name":    sr.StorageName,
+			"relative_path":   sr.RelativePath,
+			"gl_project_path": sr.GlProjectPath,
+		})
 		repo := gitalypb.Repository{
 			StorageName:   sr.StorageName,
 			RelativePath:  sr.RelativePath,
 			GlProjectPath: sr.GlProjectPath,
 		}
+		repoLog.Info("started backup")
 		if err := fsBackup.BackupRepository(ctx, sr.ServerInfo, &repo); err != nil {
-			return err
+			if errors.Is(err, backup.ErrSkipped) {
+				repoLog.Warn("skipped backup")
+			} else {
+				repoLog.WithError(err).Error("backup failed")
+			}
+		} else {
+			repoLog.Info("completed backup")
 		}
 	}
 

@@ -2,6 +2,7 @@ package backup
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -15,6 +16,9 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
+
+// ErrSkipped means the repository was skipped because there was nothing to backup
+var ErrSkipped = errors.New("repository skipped")
 
 // Filesystem strategy for creating and restoring backups
 type Filesystem struct {
@@ -35,7 +39,7 @@ func (fs *Filesystem) BackupRepository(ctx context.Context, server storage.Serve
 	if isEmpty, err := fs.isEmpty(ctx, server, repo); err != nil {
 		return fmt.Errorf("backup: %w", err)
 	} else if isEmpty {
-		return nil
+		return ErrSkipped
 	}
 
 	backupPath := strings.TrimSuffix(filepath.Join(fs.path, repo.RelativePath), ".git")

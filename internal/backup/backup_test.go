@@ -38,6 +38,7 @@ func TestFilesystem_BackupRepository(t *testing.T) {
 		repo               *gitalypb.Repository
 		createsBundle      bool
 		createsCustomHooks bool
+		err                error
 	}{
 		{
 			desc:               "no hooks",
@@ -56,12 +57,14 @@ func TestFilesystem_BackupRepository(t *testing.T) {
 			repo:               emptyRepo,
 			createsBundle:      false,
 			createsCustomHooks: false,
+			err:                ErrSkipped,
 		},
 		{
 			desc:               "nonexistent repo",
 			repo:               &nonexistentRepo,
 			createsBundle:      false,
 			createsCustomHooks: false,
+			err:                ErrSkipped,
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
@@ -73,7 +76,12 @@ func TestFilesystem_BackupRepository(t *testing.T) {
 			defer cancel()
 
 			fsBackup := NewFilesystem(path)
-			require.NoError(t, fsBackup.BackupRepository(ctx, storage.ServerInfo{Address: gitalyAddr, Token: cfg.Auth.Token}, tc.repo))
+			err := fsBackup.BackupRepository(ctx, storage.ServerInfo{Address: gitalyAddr, Token: cfg.Auth.Token}, tc.repo)
+			if tc.err == nil {
+				require.NoError(t, err)
+			} else {
+				require.Equal(t, tc.err, err)
+			}
 
 			if tc.createsBundle {
 				require.FileExists(t, bundlePath)
