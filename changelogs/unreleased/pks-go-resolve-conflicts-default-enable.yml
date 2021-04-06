@@ -1,0 +1,5 @@
+---
+title: 'featureflag: Default-enable Go port of ResolveConflicts RPC'
+merge_request: 3310
+author:
+type: performance
