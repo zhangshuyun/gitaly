@@ -176,6 +176,12 @@ message CommitsBetweenRequest {
   Repository repository = 1 [(target_repository)=true];
   bytes from = 2;
   bytes to = 3;
+
+  // The page token is the last commit OID that was sent. It's expected to be the
+  // full object ID to guard against ambigious OIDs. Using the page parameter is
+  // effectivaly equivalent to setting the `from` parameter to the commit object
+  // identifier.
+  PaginationParameter pagination_params = 4;
 }
 
 message CommitsBetweenResponse {

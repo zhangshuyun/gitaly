@@ -2,6 +2,7 @@ package commit
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/golang/protobuf/proto"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
@@ -29,13 +30,42 @@ func (s *server) CommitsBetween(in *gitalypb.CommitsBetweenRequest, stream gital
 	}
 
 	sender := &commitsBetweenSender{stream: stream}
-	revisionRange := fmt.Sprintf("%s..%s", in.GetFrom(), in.GetTo())
 
-	if err := sendCommits(stream.Context(), sender, s.gitCmdFactory, in.GetRepository(), []string{revisionRange}, nil, nil, git.Flag{Name: "--reverse"}); err != nil {
+	from, to, limit := normalizedCommitsBetweenParams(in)
+	revisionRange := fmt.Sprintf("%s..%s", from, to)
+
+	if err := sendCommits(
+		stream.Context(),
+		sender,
+		s.gitCmdFactory,
+		in.GetRepository(),
+		[]string{revisionRange},
+		nil,
+		nil,
+		git.Flag{Name: "--reverse"},
+		git.ValueFlag{Name: "--max-count", Value: strconv.Itoa(int(limit))},
+	); err != nil {
 		return helper.ErrInternal(err)
 	}
 
 	return nil
+}
+
+// returns the from, to, and limit CLI parameters abiding by pagination params
+func normalizedCommitsBetweenParams(req *gitalypb.CommitsBetweenRequest) (string, string, int32) {
+	from := string(req.GetFrom())
+	to := string(req.GetTo())
+	var limit int32 = 2147483647
+
+	if req.PaginationParams != nil {
+		from = req.PaginationParams.GetPageToken() + "~"
+
+		if req.PaginationParams.GetLimit() > 0 {
+			limit = req.PaginationParams.GetLimit()
+		}
+	}
+
+	return from, to, limit
 }
 
 func validateCommitsBetween(in *gitalypb.CommitsBetweenRequest) error {
