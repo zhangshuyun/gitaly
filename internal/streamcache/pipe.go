@@ -107,6 +107,11 @@ func (p *pipe) Write(b []byte) (int, error) {
 		}
 	}
 
+	// Prevent writing bytes no-one will read
+	if p.initialReadersClosed() {
+		return 0, errWrongCloseOrder
+	}
+
 	n, err := p.w.Write(b)
 
 	// Notify blocked readers, if any, of new data that is available.
