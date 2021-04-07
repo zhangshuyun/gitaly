@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
@@ -21,10 +20,10 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config/auth"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/streamio"
 	"google.golang.org/grpc"
@@ -34,8 +33,6 @@ import (
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
 
-var rubyServer *rubyserver.Server
-
 func TestMain(m *testing.M) {
 	os.Exit(testMain(m))
 }
@@ -44,34 +41,22 @@ func testMain(m *testing.M) int {
 	defer testhelper.MustHaveNoChildProcess()
 	cleanup := testhelper.Configure()
 	defer cleanup()
-
-	rubyServer = rubyserver.New(config.Config)
-	if err := rubyServer.Start(); err != nil {
-		log.Error(err)
-		return 1
-	}
-	defer rubyServer.Stop()
-
 	return m.Run()
 }
 
 func TestSanity(t *testing.T) {
-	serverSocketPath, clean := runServer(t, config.Cfg{})
-	defer clean()
+	serverSocketPath := runServer(t, config.Cfg{})
 
-	connOpts := []grpc.DialOption{
-		grpc.WithInsecure(),
-	}
-	conn, err := dial(serverSocketPath, connOpts)
+	conn, err := dial(serverSocketPath, []grpc.DialOption{grpc.WithInsecure()})
 	require.NoError(t, err)
-	defer conn.Close()
+	t.Cleanup(func() { conn.Close() })
 
 	require.NoError(t, healthCheck(conn))
 }
 
 func TestTLSSanity(t *testing.T) {
-	addr, clean := runSecureServer(t)
-	defer clean()
+	cfg := testcfg.Build(t)
+	addr := runSecureServer(t, cfg)
 
 	certPool, err := x509.SystemCertPool()
 	require.NoError(t, err)
@@ -89,9 +74,9 @@ func TestTLSSanity(t *testing.T) {
 		})),
 	}
 
-	conn, err := grpc.Dial(addr, connOpts...)
+	conn, err := dial(addr, connOpts)
 	require.NoError(t, err)
-	defer conn.Close()
+	t.Cleanup(func() { conn.Close() })
 
 	require.NoError(t, healthCheck(conn))
 }
@@ -116,23 +101,17 @@ func TestAuthFailures(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			serverSocketPath, clean := runServer(t, config.Cfg{Auth: auth.Config{Token: "quxbaz"}})
-			defer clean()
-
+			serverSocketPath := runServer(t, config.Cfg{Auth: auth.Config{Token: "quxbaz"}})
 			connOpts := append(tc.opts, grpc.WithInsecure())
 			conn, err := dial(serverSocketPath, connOpts)
 			require.NoError(t, err, tc.desc)
-			defer conn.Close()
+			t.Cleanup(func() { conn.Close() })
 			testhelper.RequireGrpcError(t, healthCheck(conn), tc.code)
 		})
 	}
 }
 
 func TestAuthSuccess(t *testing.T) {
-	defer func(oldAuth auth.Config) {
-		config.Config.Auth = oldAuth
-	}(config.Config.Auth)
-
 	token := "foobar"
 
 	testCases := []struct {
@@ -161,16 +140,15 @@ func TestAuthSuccess(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			config.Config.Auth.Token = tc.token
-			config.Config.Auth.Transitioning = !tc.required
+			cfg := testcfg.Build(t, testcfg.WithBase(config.Cfg{
+				Auth: auth.Config{Token: tc.token, Transitioning: !tc.required},
+			}))
 
-			serverSocketPath, clean := runServer(t, config.Config)
-			defer clean()
-
+			serverSocketPath := runServer(t, cfg)
 			connOpts := append(tc.opts, grpc.WithInsecure())
 			conn, err := dial(serverSocketPath, connOpts)
 			require.NoError(t, err, tc.desc)
-			defer conn.Close()
+			t.Cleanup(func() { conn.Close() })
 			assert.NoError(t, healthCheck(conn), tc.desc)
 		})
 	}
@@ -191,28 +169,28 @@ func healthCheck(conn *grpc.ClientConn) error {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	client := healthpb.NewHealthClient(conn)
-	_, err := client.Check(ctx, &healthpb.HealthCheckRequest{})
+	_, err := healthpb.NewHealthClient(conn).Check(ctx, &healthpb.HealthCheckRequest{})
 	return err
 }
 
-func newOperationClient(t *testing.T, serverSocketPath string) (gitalypb.OperationServiceClient, *grpc.ClientConn) {
+func newOperationClient(t *testing.T, token, serverSocketPath string) (gitalypb.OperationServiceClient, *grpc.ClientConn) {
+	t.Helper()
+
 	connOpts := []grpc.DialOption{
 		grpc.WithInsecure(),
-		grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(config.Config.Auth.Token)),
+		grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(token)),
 	}
 	conn, err := grpc.Dial(serverSocketPath, connOpts...)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	return gitalypb.NewOperationServiceClient(conn), conn
 }
 
-func runServer(t *testing.T, cfg config.Cfg) (string, func()) {
+func runServer(t *testing.T, cfg config.Cfg) string {
 	t.Helper()
 
 	conns := client.NewPool()
+	t.Cleanup(func() { conns.Close() })
 	locator := config.NewLocator(cfg)
 	txManager := transaction.NewManager(cfg)
 	hookManager := hook.NewManager(locator, txManager, hook.GitlabAPIStub, cfg)
@@ -221,142 +199,112 @@ func runServer(t *testing.T, cfg config.Cfg) (string, func()) {
 	srv, err := New(false, cfg, testhelper.DiscardTestEntry(t))
 	require.NoError(t, err)
 
-	service.RegisterAll(srv, cfg, rubyServer, hookManager, txManager, locator, conns, gitCmdFactory, nil)
+	service.RegisterAll(srv, cfg, nil, hookManager, txManager, locator, conns, gitCmdFactory, nil)
 	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
 
 	listener, err := net.Listen("unix", serverSocketPath)
 	require.NoError(t, err)
+	t.Cleanup(srv.Stop)
 	go srv.Serve(listener)
 
-	return "unix://" + serverSocketPath, func() {
-		conns.Close()
-		srv.Stop()
-	}
+	return "unix://" + serverSocketPath
 }
 
 //go:generate openssl req -newkey rsa:4096 -new -nodes -x509 -days 3650 -out testdata/gitalycert.pem -keyout testdata/gitalykey.pem -subj "/C=US/ST=California/L=San Francisco/O=GitLab/OU=GitLab-Shell/CN=localhost" -addext "subjectAltName = IP:127.0.0.1, DNS:localhost"
-func runSecureServer(t *testing.T) (string, func()) {
+func runSecureServer(t *testing.T, cfg config.Cfg) string {
 	t.Helper()
 
-	config.Config.TLS = config.TLS{
+	cfg.TLS = config.TLS{
 		CertPath: "testdata/gitalycert.pem",
 		KeyPath:  "testdata/gitalykey.pem",
 	}
 
 	conns := client.NewPool()
-	srv, err := New(true, config.Config, testhelper.DiscardTestEntry(t))
+	t.Cleanup(func() { conns.Close() })
+
+	srv, err := New(true, cfg, testhelper.DiscardTestEntry(t))
 	require.NoError(t, err)
 
 	healthpb.RegisterHealthServer(srv, health.NewServer())
 
 	listener, hostPort := testhelper.GetLocalhostListener(t)
+	t.Cleanup(srv.Stop)
 	go srv.Serve(listener)
 
-	return hostPort, func() {
-		conns.Close()
-		srv.Stop()
-	}
+	return hostPort
 }
 
 func TestUnaryNoAuth(t *testing.T) {
-	oldToken := config.Config.Auth.Token
-	config.Config.Auth.Token = "testtoken"
-	defer func() {
-		config.Config.Auth.Token = oldToken
-	}()
-
-	path, clean := runServer(t, config.Config)
-	defer clean()
-
-	connOpts := []grpc.DialOption{
-		grpc.WithInsecure(),
-	}
-
-	conn, err := grpc.Dial(path, connOpts...)
-	if err != nil {
-		t.Fatal(err)
-	}
+	cfg := testcfg.Build(t, testcfg.WithBase(config.Cfg{Auth: auth.Config{Token: "testtoken"}}))
+	path := runServer(t, cfg)
+	conn, err := grpc.Dial(path, grpc.WithInsecure())
+	require.NoError(t, err)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
 	client := gitalypb.NewRepositoryServiceClient(conn)
-	_, err = client.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{Repository: &gitalypb.Repository{StorageName: "default", RelativePath: "new/project/path"}})
+	_, err = client.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{
+		Repository: &gitalypb.Repository{
+			StorageName:  cfg.Storages[0].Name,
+			RelativePath: "new/project/path",
+		}},
+	)
 
 	testhelper.RequireGrpcError(t, err, codes.Unauthenticated)
 }
 
 func TestStreamingNoAuth(t *testing.T) {
-	oldToken := config.Config.Auth.Token
-	config.Config.Auth.Token = "testtoken"
-	defer func() {
-		config.Config.Auth.Token = oldToken
-	}()
+	cfg := testcfg.Build(t, testcfg.WithBase(config.Cfg{Auth: auth.Config{Token: "testtoken"}}))
 
-	path, clean := runServer(t, config.Config)
-	defer clean()
-
-	connOpts := []grpc.DialOption{
-		grpc.WithInsecure(),
-	}
-
-	conn, err := grpc.Dial(path, connOpts...)
-	if err != nil {
-		t.Fatal(err)
-	}
+	path := runServer(t, cfg)
+	conn, err := dial(path, []grpc.DialOption{grpc.WithInsecure()})
+	require.NoError(t, err)
+	t.Cleanup(func() { conn.Close() })
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
 	client := gitalypb.NewRepositoryServiceClient(conn)
-	stream, err := client.GetInfoAttributes(ctx, &gitalypb.GetInfoAttributesRequest{Repository: &gitalypb.Repository{StorageName: "default", RelativePath: "new/project/path"}})
-
+	stream, err := client.GetInfoAttributes(ctx, &gitalypb.GetInfoAttributesRequest{
+		Repository: &gitalypb.Repository{
+			StorageName:  cfg.Storages[0].Name,
+			RelativePath: "new/project/path",
+		}},
+	)
 	require.NoError(t, err)
 
 	_, err = ioutil.ReadAll(streamio.NewReader(func() ([]byte, error) {
 		_, err = stream.Recv()
 		return nil, err
 	}))
-
 	testhelper.RequireGrpcError(t, err, codes.Unauthenticated)
 }
 
 func TestAuthBeforeLimit(t *testing.T) {
-	defer func(cfg config.Cfg) {
-		config.Config = cfg
-	}(config.Config)
+	cfg, repo, repoPath := testcfg.BuildWithRepo(t, testcfg.WithBase(config.Cfg{
+		Auth: auth.Config{Token: "abc123"},
+		Concurrency: []config.Concurrency{{
+			RPC:        "/gitaly.OperationService/UserCreateTag",
+			MaxPerRepo: 1,
+		}}},
+	))
 
-	config.Config.Auth.Token = "abc123"
+	config.ConfigureConcurrencyLimits(cfg)
 
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-
-	gitlabShellDir, cleanup := testhelper.TempDir(t)
-	defer cleanup()
-	config.Config.GitlabShell.Dir = gitlabShellDir
-
-	url, cleanup := testhelper.SetupAndStartGitlabServer(t, config.Config.GitlabShell.Dir, &testhelper.GitlabTestServerOptions{
+	gitlabURL, cleanup := testhelper.SetupAndStartGitlabServer(t, cfg.GitlabShell.Dir, &testhelper.GitlabTestServerOptions{
 		SecretToken:                 "secretToken",
 		GLID:                        testhelper.GlID,
-		GLRepository:                testRepo.GlRepository,
+		GLRepository:                repo.GetGlRepository(),
 		PostReceiveCounterDecreased: true,
 		Protocol:                    "web",
 	})
-	defer cleanup()
+	t.Cleanup(cleanup)
+	cfg.Gitlab.URL = gitlabURL
 
-	config.Config.Concurrency = []config.Concurrency{{
-		RPC:        "/gitaly.OperationService/UserCreateTag",
-		MaxPerRepo: 1,
-	}}
-	config.ConfigureConcurrencyLimits(config.Config)
-
-	config.Config.Gitlab.URL = url
-
-	serverSocketPath, clean := runServer(t, config.Config)
-	defer clean()
-
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
+	serverSocketPath := runServer(t, cfg)
+	client, conn := newOperationClient(t, cfg.Auth.Token, serverSocketPath)
+	t.Cleanup(func() { conn.Close() })
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -365,7 +313,7 @@ func TestAuthBeforeLimit(t *testing.T) {
 	inputTagName := "to-be-créated-soon"
 
 	request := &gitalypb.UserCreateTagRequest{
-		Repository:     testRepo,
+		Repository:     repo,
 		TagName:        []byte(inputTagName),
 		TargetRevision: []byte(targetRevision),
 		User:           testhelper.TestUser,
@@ -377,10 +325,10 @@ func TestAuthBeforeLimit(t *testing.T) {
 	}(gitalyauth.TokenValidityDuration())
 	gitalyauth.SetTokenValidityDuration(5 * time.Second)
 
-	cleanupCustomHook := gittest.WriteCustomHook(t, testRepoPath, "pre-receive", []byte(fmt.Sprintf(`#!/bin/bash
+	cleanupCustomHook := gittest.WriteCustomHook(t, repoPath, "pre-receive", []byte(fmt.Sprintf(`#!/bin/bash
 sleep %vs
 `, gitalyauth.TokenValidityDuration().Seconds())))
-	defer cleanupCustomHook()
+	t.Cleanup(cleanupCustomHook)
 
 	errChan := make(chan error)
 
