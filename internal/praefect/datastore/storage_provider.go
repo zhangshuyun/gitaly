@@ -16,7 +16,8 @@ import (
 
 // ConsistentStoragesGetter returns storages which contain the latest generation of a repository.
 type ConsistentStoragesGetter interface {
-	// GetConsistentStorages checks which storages are on the latest generation and returns them.
+	// GetConsistentStorages checks which storages are on the latest generation and returns them. Returns a
+	// commonerr.RepositoryNotFoundError if the repository does not exist.
 	GetConsistentStorages(ctx context.Context, virtualStorage, relativePath string) (map[string]struct{}, error)
 }
 

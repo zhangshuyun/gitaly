@@ -9,19 +9,11 @@ import (
 	"strings"
 
 	"github.com/lib/pq"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore/glsql"
 )
 
 type storages map[string][]string
-
-func (s storages) storages(virtualStorage string) ([]string, error) {
-	storages, ok := s[virtualStorage]
-	if !ok {
-		return nil, fmt.Errorf("unknown virtual storage: %q", virtualStorage)
-	}
-
-	return storages, nil
-}
 
 // GenerationUnknown is used to indicate lack of generation number in
 // a replication job. Older instances can produce replication jobs
@@ -438,23 +430,17 @@ AND storage = $3
 // GetConsistentStorages checks which storages are on the latest generation and returns them.
 func (rs *PostgresRepositoryStore) GetConsistentStorages(ctx context.Context, virtualStorage, relativePath string) (map[string]struct{}, error) {
 	const q = `
-WITH expected_repositories AS (
-	SELECT virtual_storage, relative_path, MAX(generation) AS generation
+SELECT storage
+FROM repositories
+JOIN storage_repositories USING (virtual_storage, relative_path)
+WHERE virtual_storage = $1
+AND relative_path = $2
+AND storage_repositories.generation = (
+	SELECT MAX(generation)
 	FROM storage_repositories
 	WHERE virtual_storage = $1
 	AND relative_path = $2
-	GROUP BY virtual_storage, relative_path
-)
-
-SELECT storage
-FROM storage_repositories
-JOIN expected_repositories USING (virtual_storage, relative_path, generation)
-`
-
-	storages, err := rs.storages.storages(virtualStorage)
-	if err != nil {
-		return nil, err
-	}
+)`
 
 	rows, err := rs.db.QueryContext(ctx, q, virtualStorage, relativePath)
 	if err != nil {
@@ -462,22 +448,25 @@ JOIN expected_repositories USING (virtual_storage, relative_path, generation)
 	}
 	defer rows.Close()
 
-	consistentSecondaries := make(map[string]struct{}, len(storages)-1)
-
+	consistentStorages := map[string]struct{}{}
 	for rows.Next() {
 		var storage string
 		if err := rows.Scan(&storage); err != nil {
 			return nil, fmt.Errorf("scan: %w", err)
 		}
 
-		consistentSecondaries[storage] = struct{}{}
+		consistentStorages[storage] = struct{}{}
 	}
 
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("rows: %w", err)
 	}
 
-	return consistentSecondaries, nil
+	if len(consistentStorages) == 0 {
+		return nil, commonerr.NewRepositoryNotFoundError(virtualStorage, relativePath)
+	}
+
+	return consistentStorages, nil
 }
 
 func (rs *PostgresRepositoryStore) RepositoryExists(ctx context.Context, virtualStorage, relativePath string) (bool, error) {

@@ -14,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/metadatahandler"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/grpc-proxy/proxy"
@@ -342,6 +343,10 @@ func (c *Coordinator) accessorStreamParameters(ctx context.Context, call grpcCal
 		ctx, virtualStorage, repoPath, shouldRouteRepositoryAccessorToPrimary(ctx, call),
 	)
 	if err != nil {
+		if errors.As(err, new(commonerr.RepositoryNotFoundError)) {
+			return nil, helper.ErrNotFound(err)
+		}
+
 		return nil, fmt.Errorf("accessor call: route repository accessor: %w", err)
 	}
 

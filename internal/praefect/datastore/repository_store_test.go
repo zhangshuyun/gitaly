@@ -9,6 +9,7 @@ import (
 
 	"github.com/lib/pq"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 )
 
@@ -618,9 +619,9 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 			vs: []string{"primary", "consistent-secondary", "inconsistent-secondary", "no-record"},
 		})
 
-		t.Run("unknown generations", func(t *testing.T) {
+		t.Run("no records", func(t *testing.T) {
 			secondaries, err := rs.GetConsistentStorages(ctx, vs, repo)
-			require.NoError(t, err)
+			require.Equal(t, commonerr.NewRepositoryNotFoundError(vs, repo), err)
 			require.Empty(t, secondaries)
 		})
 
@@ -682,6 +683,26 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 			secondaries, err := rs.GetConsistentStorages(ctx, vs, repo)
 			require.NoError(t, err)
 			require.Equal(t, map[string]struct{}{"unknown": struct{}{}}, secondaries)
+		})
+
+		t.Run("returns not found for deleted repositories", func(t *testing.T) {
+			require.NoError(t, rs.DeleteRepository(ctx, vs, repo, "primary"))
+			requireState(t, ctx,
+				virtualStorageState{},
+				storageState{
+					"virtual-storage-1": {
+						"repository-1": {
+							"unknown":                2,
+							"consistent-secondary":   1,
+							"inconsistent-secondary": 0,
+						},
+					},
+				},
+			)
+
+			secondaries, err := rs.GetConsistentStorages(ctx, vs, repo)
+			require.Equal(t, commonerr.NewRepositoryNotFoundError(vs, repo), err)
+			require.Empty(t, secondaries)
 		})
 	})
 

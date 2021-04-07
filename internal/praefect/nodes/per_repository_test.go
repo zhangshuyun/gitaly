@@ -11,6 +11,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore/glsql"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -99,6 +100,13 @@ func TestPerRepositoryElector(t *testing.T) {
 		},
 		{
 			desc: "no valid primary",
+			state: state{
+				"virtual-storage-1": {
+					"relative-path-1": {
+						"gitaly-1": {generation: 0},
+					},
+				},
+			},
 			steps: steps{
 				{
 					healthyNodes: map[string][]string{
@@ -395,18 +403,28 @@ func TestPerRepositoryElector(t *testing.T) {
 				},
 			},
 		},
+		{
+			desc: "repository does not exist",
+			steps: steps{
+				{
+					error:   commonerr.NewRepositoryNotFoundError("virtual-storage-1", "relative-path-1"),
+					primary: noPrimary(),
+				},
+			},
+		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			db := getDB(t)
 
-			_, err := db.ExecContext(ctx,
-				`INSERT INTO repositories (virtual_storage, relative_path) VALUES ('virtual-storage-1', 'relative-path-1')`,
-			)
-			require.NoError(t, err)
-
 			rs := datastore.NewPostgresRepositoryStore(db, nil)
 			for virtualStorage, relativePaths := range tc.state {
 				for relativePath, storages := range relativePaths {
+					_, err := db.ExecContext(ctx,
+						`INSERT INTO repositories (virtual_storage, relative_path) VALUES ($1, $2)`,
+						virtualStorage, relativePath,
+					)
+					require.NoError(t, err)
+
 					for storage, record := range storages {
 						require.NoError(t, rs.SetGeneration(ctx, virtualStorage, relativePath, storage, record.generation))
 

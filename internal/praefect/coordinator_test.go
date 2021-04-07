@@ -18,8 +18,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/metadatahandler"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/grpc-proxy/proxy"
@@ -342,6 +344,15 @@ func TestStreamDirectorMutator_StopTransaction(t *testing.T) {
 	require.NoError(t, err)
 }
 
+type mockRouter struct {
+	Router
+	routeRepositoryAccessorFunc func(ctx context.Context, virtualStorage, relativePath string, forcePrimary bool) (RouterNode, error)
+}
+
+func (m mockRouter) RouteRepositoryAccessor(ctx context.Context, virtualStorage, relativePath string, forcePrimary bool) (RouterNode, error) {
+	return m.routeRepositoryAccessorFunc(ctx, virtualStorage, relativePath, forcePrimary)
+}
+
 func TestStreamDirectorAccessor(t *testing.T) {
 	gitalySocket := testhelper.GetTemporaryGitalySocketFileName(t)
 	srv, _ := testhelper.NewServerWithHealth(t, gitalySocket)
@@ -381,40 +392,67 @@ func TestStreamDirectorAccessor(t *testing.T) {
 
 	txMgr := transactions.NewManager(conf)
 
-	coordinator := NewCoordinator(
-		queue,
-		rs,
-		NewNodeManagerRouter(nodeMgr, rs),
-		txMgr,
-		conf,
-		protoregistry.GitalyProtoPreregistered,
-	)
+	for _, tc := range []struct {
+		desc   string
+		router Router
+		error  error
+	}{
+		{
+			desc:   "success",
+			router: NewNodeManagerRouter(nodeMgr, rs),
+		},
+		{
+			desc: "repository not found",
+			router: mockRouter{
+				routeRepositoryAccessorFunc: func(_ context.Context, virtualStorage, relativePath string, _ bool) (RouterNode, error) {
+					return RouterNode{}, commonerr.NewRepositoryNotFoundError(virtualStorage, relativePath)
+				},
+			},
+			error: helper.ErrNotFound(commonerr.NewRepositoryNotFoundError(targetRepo.StorageName, targetRepo.RelativePath)),
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			coordinator := NewCoordinator(
+				queue,
+				rs,
+				tc.router,
+				txMgr,
+				conf,
+				protoregistry.GitalyProtoPreregistered,
+			)
 
-	frame, err := proto.Marshal(&gitalypb.FindAllBranchesRequest{Repository: &targetRepo})
-	require.NoError(t, err)
+			frame, err := proto.Marshal(&gitalypb.FindAllBranchesRequest{Repository: &targetRepo})
+			require.NoError(t, err)
 
-	fullMethod := "/gitaly.RefService/FindAllBranches"
+			fullMethod := "/gitaly.RefService/FindAllBranches"
 
-	peeker := &mockPeeker{frame: frame}
-	streamParams, err := coordinator.StreamDirector(correlation.ContextWithCorrelation(ctx, "my-correlation-id"), fullMethod, peeker)
-	require.NoError(t, err)
-	require.Equal(t, gitalyAddress, streamParams.Primary().Conn.Target())
+			peeker := &mockPeeker{frame: frame}
+			streamParams, err := coordinator.StreamDirector(correlation.ContextWithCorrelation(ctx, "my-correlation-id"), fullMethod, peeker)
+			if tc.error != nil {
+				require.Equal(t, tc.error, err)
+				return
+			}
 
-	md, ok := metadata.FromOutgoingContext(streamParams.Primary().Ctx)
-	require.True(t, ok)
-	require.Contains(t, md, praefect_metadata.PraefectMetadataKey)
+			require.NoError(t, err)
+			require.Equal(t, gitalyAddress, streamParams.Primary().Conn.Target())
 
-	mi, err := coordinator.registry.LookupMethod(fullMethod)
-	require.NoError(t, err)
-	require.Equal(t, protoregistry.ScopeRepository, mi.Scope, "method must be repository scoped")
-	require.Equal(t, protoregistry.OpAccessor, mi.Operation, "method must be an accessor")
+			md, ok := metadata.FromOutgoingContext(streamParams.Primary().Ctx)
+			require.True(t, ok)
+			require.Contains(t, md, praefect_metadata.PraefectMetadataKey)
 
-	m, err := mi.UnmarshalRequestProto(streamParams.Primary().Msg)
-	require.NoError(t, err)
+			mi, err := coordinator.registry.LookupMethod(fullMethod)
+			require.NoError(t, err)
+			require.Equal(t, protoregistry.ScopeRepository, mi.Scope, "method must be repository scoped")
+			require.Equal(t, protoregistry.OpAccessor, mi.Operation, "method must be an accessor")
 
-	rewrittenTargetRepo, err := mi.TargetRepo(m)
-	require.NoError(t, err)
-	require.Equal(t, "praefect-internal-1", rewrittenTargetRepo.GetStorageName(), "stream director should have rewritten the storage name")
+			m, err := mi.UnmarshalRequestProto(streamParams.Primary().Msg)
+			require.NoError(t, err)
+
+			rewrittenTargetRepo, err := mi.TargetRepo(m)
+			require.NoError(t, err)
+			require.Equal(t, "praefect-internal-1", rewrittenTargetRepo.GetStorageName(), "stream director should have rewritten the storage name")
+		})
+	}
 }
 
 func TestCoordinatorStreamDirector_distributesReads(t *testing.T) {

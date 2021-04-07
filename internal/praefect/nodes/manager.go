@@ -16,6 +16,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/grpc-proxy/proxy"
@@ -288,7 +289,7 @@ func (n *Mgr) GetPrimary(ctx context.Context, virtualStorage, _ string) (string,
 
 func (n *Mgr) GetSyncedNode(ctx context.Context, virtualStorageName, repoPath string) (Node, error) {
 	upToDateStorages, err := n.csg.GetConsistentStorages(ctx, virtualStorageName, repoPath)
-	if err != nil {
+	if err != nil && !errors.As(err, new(commonerr.RepositoryNotFoundError)) {
 		return nil, err
 	}
 

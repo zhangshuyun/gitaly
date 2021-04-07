@@ -9,6 +9,7 @@ import (
 
 	"github.com/lib/pq"
 	"github.com/sirupsen/logrus"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore/glsql"
 )
 
@@ -148,23 +149,26 @@ WHERE NOT EXISTS (
 
 // GetPrimary returns the primary storage of a repository.
 func (pr *PerRepositoryElector) GetPrimary(ctx context.Context, virtualStorage, relativePath string) (string, error) {
-	var primary string
+	var primary sql.NullString
 	if err := pr.db.QueryRowContext(ctx, `
 SELECT "primary"
 FROM repositories
 WHERE virtual_storage = $1
 AND relative_path = $2
-AND "primary" IS NOT NULL
 		`,
 		virtualStorage,
 		relativePath,
 	).Scan(&primary); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return "", ErrNoPrimary
+			return "", commonerr.NewRepositoryNotFoundError(virtualStorage, relativePath)
 		}
 
 		return "", fmt.Errorf("scan: %w", err)
 	}
 
-	return primary, nil
+	if !primary.Valid {
+		return "", ErrNoPrimary
+	}
+
+	return primary.String, nil
 }
