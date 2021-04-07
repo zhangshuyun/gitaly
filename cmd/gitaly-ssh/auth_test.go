@@ -13,6 +13,7 @@ import (
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/client"
+	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
@@ -131,10 +132,11 @@ func TestConnectivity(t *testing.T) {
 func runServer(t *testing.T, secure bool, cfg config.Cfg, connectionType string, addr string) (int, func()) {
 	conns := client.NewPool()
 	locator := config.NewLocator(cfg)
-	txManager := transaction.NewManager(cfg)
+	registry := backchannel.NewRegistry()
+	txManager := transaction.NewManager(cfg, registry)
 	hookManager := hook.NewManager(locator, txManager, hook.GitlabAPIStub, cfg)
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
-	srv, err := server.New(secure, cfg, testhelper.DiscardTestEntry(t))
+	srv, err := server.New(secure, cfg, testhelper.DiscardTestEntry(t), registry)
 	require.NoError(t, err)
 	service.RegisterAll(srv, cfg, nil, hookManager, txManager, locator, conns, gitCmdFactory, nil)
 

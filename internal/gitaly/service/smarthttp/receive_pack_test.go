@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/hooks"
@@ -453,7 +454,7 @@ func runSmartHTTPHookServiceServer(t *testing.T, cfg config.Cfg) (*grpc.Server, 
 	}
 
 	locator := config.NewLocator(cfg)
-	txManager := transaction.NewManager(cfg)
+	txManager := transaction.NewManager(cfg, backchannel.NewRegistry())
 	hookManager := gitalyhook.NewManager(locator, txManager, gitalyhook.GitlabAPIStub, cfg)
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
 
@@ -507,7 +508,7 @@ func testPostReceiveWithTransactionsViaPraefect(t *testing.T, ctx context.Contex
 	testhelper.WriteShellSecretFile(t, gitlabShellDir, secretToken)
 
 	locator := config.NewLocator(cfg)
-	txManager := transaction.NewManager(cfg)
+	txManager := transaction.NewManager(cfg, backchannel.NewRegistry())
 	hookManager := gitalyhook.NewManager(locator, txManager, gitalyhook.GitlabAPIStub, cfg)
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
 
@@ -561,7 +562,7 @@ func TestPostReceiveWithReferenceTransactionHook(t *testing.T) {
 	refTransactionServer := &testTransactionServer{}
 
 	locator := config.NewLocator(cfg)
-	txManager := transaction.NewManager(cfg)
+	txManager := transaction.NewManager(cfg, backchannel.NewRegistry())
 	hookManager := gitalyhook.NewManager(locator, txManager, gitalyhook.GitlabAPIStub, cfg)
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
 

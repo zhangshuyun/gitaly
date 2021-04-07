@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
@@ -117,7 +118,7 @@ func TestUpdateReferenceWithHooks(t *testing.T) {
 
 	// We need to set up a separate "real" hook service here, as it will be used in
 	// git-update-ref(1) spawned by `updateRefWithHooks()`
-	txManager := transaction.NewManager(config.Config)
+	txManager := transaction.NewManager(config.Config, backchannel.NewRegistry())
 	hookManager := hook.NewManager(config.NewLocator(config.Config), txManager, hook.GitlabAPIStub, config.Config)
 	gitCmdFactory := git.NewExecCommandFactory(config.Config)
 	gitalypb.RegisterHookServiceServer(server.GrpcServer(), hookservice.NewServer(config.Config, hookManager, gitCmdFactory))

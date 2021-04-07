@@ -13,7 +13,6 @@ import (
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/sirupsen/logrus"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
-	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/commonerr"
@@ -122,11 +121,7 @@ var ErrPrimaryNotHealthy = errors.New("primary is not healthy")
 const dialTimeout = 10 * time.Second
 
 // Dial dials a node with the necessary interceptors configured.
-func Dial(ctx context.Context, node *config.Node, registry *protoregistry.Registry, errorTracker tracker.ErrorTracker) (*grpc.ClientConn, error) {
-	return dial(ctx, node, registry, errorTracker, false, nil)
-}
-
-func dial(ctx context.Context, node *config.Node, registry *protoregistry.Registry, errorTracker tracker.ErrorTracker, muxed bool, logger *logrus.Entry) (*grpc.ClientConn, error) {
+func Dial(ctx context.Context, node *config.Node, registry *protoregistry.Registry, errorTracker tracker.ErrorTracker, handshaker client.Handshaker) (*grpc.ClientConn, error) {
 	streamInterceptors := []grpc.StreamClientInterceptor{
 		grpc_prometheus.StreamClientInterceptor,
 	}
@@ -140,11 +135,6 @@ func dial(ctx context.Context, node *config.Node, registry *protoregistry.Regist
 		grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(node.Token)),
 		grpc.WithChainStreamInterceptor(streamInterceptors...),
 		grpc.WithChainUnaryInterceptor(grpc_prometheus.UnaryClientInterceptor),
-	}
-
-	var handshaker client.Handshaker
-	if muxed {
-		handshaker = backchannel.NewClientHandshaker(logger, func() backchannel.Server { return grpc.NewServer() })
 	}
 
 	return client.Dial(ctx, node.Address, dialOpts, handshaker)
@@ -182,6 +172,7 @@ func NewManager(
 	latencyHistogram prommetrics.HistogramVec,
 	registry *protoregistry.Registry,
 	errorTracker tracker.ErrorTracker,
+	handshaker client.Handshaker,
 ) (*Mgr, error) {
 	if !c.Failover.Enabled {
 		errorTracker = nil
@@ -199,7 +190,7 @@ func NewManager(
 		ns := make([]*nodeStatus, 0, len(virtualStorage.Nodes))
 		vsMuxed := muxedNodes{}
 		for _, node := range virtualStorage.Nodes {
-			conn, err := dial(ctx, node, registry, errorTracker, false, log)
+			conn, err := Dial(ctx, node, registry, errorTracker, nil)
 			if err != nil {
 				return nil, err
 			}
@@ -211,7 +202,7 @@ func NewManager(
 				continue
 			}
 
-			muxedConn, err := dial(ctx, node, registry, errorTracker, true, log)
+			muxedConn, err := Dial(ctx, node, registry, errorTracker, handshaker)
 			if err != nil {
 				log.WithError(err).Error("failed to dial Gitaly over a muxed connection")
 				continue

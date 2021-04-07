@@ -9,6 +9,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
 	"gitlab.com/gitlab-org/gitaly/client"
+	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	gitalyhook "gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
@@ -81,7 +82,7 @@ func runOperationServiceServer(t *testing.T) (string, func()) {
 	conns := client.NewPool()
 
 	locator := config.NewLocator(config.Config)
-	txManager := transaction.NewManager(config.Config)
+	txManager := transaction.NewManager(config.Config, backchannel.NewRegistry())
 	hookManager := gitalyhook.NewManager(locator, txManager, gitalyhook.GitlabAPIStub, config.Config)
 	gitCmdFactory := git.NewExecCommandFactory(config.Config)
 	server := NewServer(config.Config, RubyServer, hookManager, locator, conns, gitCmdFactory)

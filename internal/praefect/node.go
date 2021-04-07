@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/nodes"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/nodes/tracker"
@@ -94,12 +95,13 @@ func DialNodes(
 	virtualStorages []*config.VirtualStorage,
 	registry *protoregistry.Registry,
 	errorTracker tracker.ErrorTracker,
+	handshaker client.Handshaker,
 ) (NodeSet, error) {
 	set := make(NodeSet, len(virtualStorages))
 	for _, virtualStorage := range virtualStorages {
 		set[virtualStorage.Name] = make(map[string]Node, len(virtualStorage.Nodes))
 		for _, node := range virtualStorage.Nodes {
-			conn, err := nodes.Dial(ctx, node, registry, errorTracker)
+			conn, err := nodes.Dial(ctx, node, registry, errorTracker, handshaker)
 			if err != nil {
 				return nil, fmt.Errorf("dial %q/%q: %w", virtualStorage.Name, node.Storage, err)
 			}

@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/client"
+	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
@@ -24,13 +25,14 @@ func RunGitalyServer(t *testing.T, cfg config.Cfg, rubyServer *rubyserver.Server
 
 	conns := client.NewPool()
 	locator := config.NewLocator(cfg)
-	txManager := transaction.NewManager(cfg)
+	registry := backchannel.NewRegistry()
+	txManager := transaction.NewManager(cfg, registry)
 	hookMgr := hook.NewManager(locator, txManager, hook.GitlabAPIStub, cfg)
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
 	ling, err := linguist.New(cfg)
 	require.NoError(t, err)
 
-	srv, err := server.New(cfg.TLS.CertPath != "", cfg, testhelper.DiscardTestEntry(t))
+	srv, err := server.New(cfg.TLS.CertPath != "", cfg, testhelper.DiscardTestEntry(t), registry)
 	require.NoError(t, err)
 
 	service.RegisterAll(srv, cfg, rubyServer, hookMgr, txManager, locator, conns, gitCmdFactory, ling)

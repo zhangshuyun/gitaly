@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/repository"
@@ -29,7 +30,7 @@ func (mo *mockOptimizer) OptimizeRepository(ctx context.Context, req *gitalypb.O
 	mo.actual = append(mo.actual, req.Repository)
 	l := config.NewLocator(mo.cfg)
 	gitCmdFactory := git.NewExecCommandFactory(mo.cfg)
-	resp, err := repository.NewServer(mo.cfg, nil, l, transaction.NewManager(mo.cfg), gitCmdFactory).OptimizeRepository(ctx, req)
+	resp, err := repository.NewServer(mo.cfg, nil, l, transaction.NewManager(mo.cfg, backchannel.NewRegistry()), gitCmdFactory).OptimizeRepository(ctx, req)
 	assert.NoError(mo.t, err)
 	return resp, err
 }

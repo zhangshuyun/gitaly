@@ -10,6 +10,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/client"
+	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/internal/bootstrap"
 	"gitlab.com/gitlab-org/gitaly/internal/bootstrap/starter"
 	"gitlab.com/gitlab-org/gitaly/internal/cgroups"
@@ -133,7 +134,8 @@ func run(cfg config.Cfg) error {
 		return fmt.Errorf("init bootstrap: %w", err)
 	}
 
-	transactionManager := transaction.NewManager(cfg)
+	registry := backchannel.NewRegistry()
+	transactionManager := transaction.NewManager(cfg, registry)
 	prometheus.MustRegister(transactionManager)
 
 	hookManager := hook.Manager(hook.DisabledManager{})
@@ -162,7 +164,7 @@ func run(cfg config.Cfg) error {
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
 	prometheus.MustRegister(gitCmdFactory)
 
-	gitalyServerFactory := server.NewGitalyServerFactory(cfg)
+	gitalyServerFactory := server.NewGitalyServerFactory(cfg, registry)
 	defer gitalyServerFactory.Stop()
 
 	ling, err := linguist.New(cfg)

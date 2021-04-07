@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/client"
+	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
@@ -343,11 +344,12 @@ func runFullSecureServer(t *testing.T, locator storage.Locator) (*grpc.Server, s
 
 	conns := client.NewPool()
 	cfg := config.Config
-	txManager := transaction.NewManager(cfg)
+	registry := backchannel.NewRegistry()
+	txManager := transaction.NewManager(cfg, registry)
 	hookManager := hook.NewManager(locator, txManager, hook.GitlabAPIStub, cfg)
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
 
-	server, err := serverPkg.New(true, cfg, testhelper.DiscardTestEntry(t))
+	server, err := serverPkg.New(true, cfg, testhelper.DiscardTestEntry(t), registry)
 	require.NoError(t, err)
 	listener, addr := testhelper.GetLocalhostListener(t)
 

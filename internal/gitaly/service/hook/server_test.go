@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	gitalyhook "gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
@@ -42,7 +43,7 @@ func TestNewServer(t *testing.T) {
 			cfg := tc.cfg
 			poc := NewServer(
 				cfg,
-				gitalyhook.NewManager(config.NewLocator(cfg), transaction.NewManager(cfg), gitalyhook.GitlabAPIStub, cfg),
+				gitalyhook.NewManager(config.NewLocator(cfg), transaction.NewManager(cfg, backchannel.NewRegistry()), gitalyhook.GitlabAPIStub, cfg),
 				git.NewExecCommandFactory(cfg),
 			).(*server).packObjectsCache
 

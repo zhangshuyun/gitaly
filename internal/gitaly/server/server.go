@@ -89,7 +89,7 @@ func init() {
 
 // New returns a GRPC server instance with a set of interceptors configured.
 // If logrusEntry is nil the default logger will be used.
-func New(secure bool, cfg config.Cfg, logrusEntry *log.Entry) (*grpc.Server, error) {
+func New(secure bool, cfg config.Cfg, logrusEntry *log.Entry, registry *backchannel.Registry) (*grpc.Server, error) {
 	ctxTagOpts := []grpc_ctxtags.Option{
 		grpc_ctxtags.WithFieldExtractorForInitialReq(fieldextractors.FieldExtractor),
 	}
@@ -114,7 +114,7 @@ func New(secure bool, cfg config.Cfg, logrusEntry *log.Entry) (*grpc.Server, err
 	}
 
 	opts := []grpc.ServerOption{
-		grpc.Creds(backchannel.NewServerHandshaker(logrusEntry, transportCredentials, backchannel.NewRegistry())),
+		grpc.Creds(backchannel.NewServerHandshaker(logrusEntry, transportCredentials, registry)),
 		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
 			grpc_ctxtags.StreamServerInterceptor(ctxTagOpts...),
 			grpccorrelation.StreamServerCorrelationInterceptor(), // Must be above the metadata handler

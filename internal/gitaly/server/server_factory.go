@@ -10,6 +10,7 @@ import (
 	"github.com/sirupsen/logrus"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
 	"gitlab.com/gitlab-org/gitaly/client"
+	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/maintenance"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
@@ -20,6 +21,7 @@ import (
 
 // GitalyServerFactory is a factory of gitaly grpc servers
 type GitalyServerFactory struct {
+	registry         *backchannel.Registry
 	mtx              sync.Mutex
 	cfg              config.Cfg
 	secure, insecure []*grpc.Server
@@ -27,8 +29,8 @@ type GitalyServerFactory struct {
 
 // NewGitalyServerFactory allows to create and start secure/insecure 'grpc.Server'-s with gitaly-ruby
 // server shared in between.
-func NewGitalyServerFactory(cfg config.Cfg) *GitalyServerFactory {
-	return &GitalyServerFactory{cfg: cfg}
+func NewGitalyServerFactory(cfg config.Cfg, registry *backchannel.Registry) *GitalyServerFactory {
+	return &GitalyServerFactory{cfg: cfg, registry: registry}
 }
 
 // StartWorkers will start any auxiliary background workers that are allowed
@@ -112,7 +114,7 @@ func (s *GitalyServerFactory) Create(secure bool) (*grpc.Server, error) {
 	s.mtx.Lock()
 	defer s.mtx.Unlock()
 
-	server, err := New(secure, s.cfg, gitalylog.Default())
+	server, err := New(secure, s.cfg, gitalylog.Default(), s.registry)
 	if err != nil {
 		return nil, err
 	}
