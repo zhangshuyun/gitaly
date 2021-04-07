@@ -16,9 +16,9 @@ var (
 	// - https://gitlab.com/gitlab-org/gitlab-foss/blob/master/.gitlab-ci.yml
 	// - https://gitlab.com/gitlab-org/gitlab-foss/blob/master/lib/system_check/app/git_version_check.rb
 	minimumVersion = Version{
-		versionString: "2.29.0",
+		versionString: "2.31.0",
 		major:         2,
-		minor:         29,
+		minor:         31,
 		patch:         0,
 		rc:            false,
 	}

@@ -117,9 +117,10 @@ func TestVersion_IsSupported(t *testing.T) {
 		{"2.24.0-rc0", false},
 		{"2.24.0", false},
 		{"2.25.0", false},
-		{"2.29.0-rc0", false},
-		{"2.29.0", true},
-		{"2.29.1", true},
+		{"2.30.0", false},
+		{"2.31.0-rc0", false},
+		{"2.31.0", true},
+		{"2.31.1", true},
 		{"3.0.0", true},
 	} {
 		version, err := parseVersion(tc.version)
