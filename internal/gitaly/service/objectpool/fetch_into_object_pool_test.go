@@ -112,11 +112,8 @@ func TestFetchIntoObjectPool_hooks(t *testing.T) {
 			Repack:     true,
 		}
 
-		gitVersion, err := git.CurrentVersion(ctx, gitCmdFactory)
-		require.NoError(t, err)
-
 		_, err = client.FetchIntoObjectPool(ctx, req)
-		if gitVersion.SupportsAtomicFetches() && featureflag.IsEnabled(ctx, featureflag.AtomicFetch) {
+		if featureflag.IsEnabled(ctx, featureflag.AtomicFetch) {
 			require.Equal(t, status.Error(codes.Internal, "exit status 128"), err)
 		} else {
 			require.NoError(t, err)
