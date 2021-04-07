@@ -127,10 +127,7 @@ func Dial(ctx context.Context, rawAddress string, connOpts []grpc.DialOption, ha
 			Time:                20 * time.Second,
 			PermitWithoutStream: true,
 		}),
-		grpc.WithChainUnaryInterceptor(
-			grpctracing.UnaryClientTracingInterceptor(),
-			grpccorrelation.UnaryClientCorrelationInterceptor(),
-		),
+		UnaryInterceptor(),
 		grpc.WithChainStreamInterceptor(
 			grpctracing.StreamClientTracingInterceptor(),
 			grpccorrelation.StreamClientCorrelationInterceptor(),
@@ -143,4 +140,12 @@ func Dial(ctx context.Context, rawAddress string, connOpts []grpc.DialOption, ha
 	}
 
 	return conn, nil
+}
+
+// UnaryInterceptor returns the unary interceptors that should be configured for a client.
+func UnaryInterceptor() grpc.DialOption {
+	return grpc.WithChainUnaryInterceptor(
+		grpctracing.UnaryClientTracingInterceptor(),
+		grpccorrelation.UnaryClientCorrelationInterceptor(),
+	)
 }
