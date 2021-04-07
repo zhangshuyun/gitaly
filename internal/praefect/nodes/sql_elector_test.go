@@ -438,7 +438,7 @@ func TestConnectionMultiplexing(t *testing.T) {
 	logger := testhelper.DiscardTestEntry(t)
 
 	srv := grpc.NewServer(
-		grpc.Creds(backchannel.NewServerHandshaker(logger, backchannel.Insecure(), backchannel.NewRegistry())),
+		grpc.Creds(backchannel.NewServerHandshaker(logger, backchannel.Insecure(), backchannel.NewRegistry(), nil)),
 		grpc.UnknownServiceHandler(func(srv interface{}, stream grpc.ServerStream) error {
 			_, err := backchannel.GetPeerID(stream.Context())
 			if err == backchannel.ErrNonMultiplexedConnection {

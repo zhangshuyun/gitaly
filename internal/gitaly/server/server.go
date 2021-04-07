@@ -17,6 +17,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	diskcache "gitlab.com/gitlab-org/gitaly/internal/cache"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/server/auth"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/fieldextractors"
@@ -114,7 +115,7 @@ func New(secure bool, cfg config.Cfg, logrusEntry *log.Entry, registry *backchan
 	}
 
 	opts := []grpc.ServerOption{
-		grpc.Creds(backchannel.NewServerHandshaker(logrusEntry, transportCredentials, registry)),
+		grpc.Creds(backchannel.NewServerHandshaker(logrusEntry, transportCredentials, registry, []grpc.DialOption{client.UnaryInterceptor()})),
 		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
 			grpc_ctxtags.StreamServerInterceptor(ctxTagOpts...),
 			grpccorrelation.StreamServerCorrelationInterceptor(), // Must be above the metadata handler
