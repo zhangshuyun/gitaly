@@ -74,14 +74,6 @@ func (v Version) IsSupported() bool {
 	return !v.LessThan(minimumVersion)
 }
 
-// SupportsConfigEnv checks whether git supports the config environment variables GIT_CONFIG_COUNT,
-// GIT_CONFIG_KEY and GIT_CONFIG_VALUE.
-func (v Version) SupportsConfigEnv() bool {
-	return !v.LessThan(Version{
-		major: 2, minor: 31, patch: 0,
-	})
-}
-
 // SupportsAtomicFetches checks whether git-fetch supports the `--atomic` flag.
 func (v Version) SupportsAtomicFetches() bool {
 	return !v.LessThan(Version{

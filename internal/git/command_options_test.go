@@ -277,13 +277,6 @@ func TestWithConfigEnv(t *testing.T) {
 
 	gitCmdFactory := NewExecCommandFactory(cfg)
 
-	version, err := CurrentVersion(ctx, gitCmdFactory)
-	require.NoError(t, err)
-
-	if !version.SupportsConfigEnv() {
-		t.Skip("git does not support config env")
-	}
-
 	for _, tc := range []struct {
 		desc           string
 		configPairs    []ConfigPair

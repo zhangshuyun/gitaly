@@ -129,27 +129,6 @@ func TestVersion_IsSupported(t *testing.T) {
 	}
 }
 
-func TestVersion_SupportsConfigEnv(t *testing.T) {
-	for _, tc := range []struct {
-		version string
-		expect  bool
-	}{
-		{"2.20.0", false},
-		{"2.24.0-rc0", false},
-		{"2.24.0", false},
-		{"2.25.0", false},
-		{"2.31.0", true},
-		{"2.31.1", true},
-		{"3.0.0", true},
-	} {
-		t.Run(tc.version, func(t *testing.T) {
-			version, err := parseVersion(tc.version)
-			require.NoError(t, err)
-			require.Equal(t, tc.expect, version.SupportsConfigEnv())
-		})
-	}
-}
-
 func TestVersion_SupportsAtomicFetches(t *testing.T) {
 	for _, tc := range []struct {
 		version string
