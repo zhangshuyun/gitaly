@@ -13,10 +13,8 @@ var (
 	// also update the following locations:
 	// - https://gitlab.com/gitlab-org/gitaly/blob/master/README.md#installation
 	// - https://gitlab.com/gitlab-org/gitaly/blob/master/.gitlab-ci.yml
-	// - https://gitlab.com/gitlab-org/gitlab-build-images/blob/master/.gitlab-ci.yml
 	// - https://gitlab.com/gitlab-org/gitlab-foss/blob/master/.gitlab-ci.yml
 	// - https://gitlab.com/gitlab-org/gitlab-foss/blob/master/lib/system_check/app/git_version_check.rb
-	// - https://gitlab.com/gitlab-org/build/CNG/blob/master/ci_files/variables.yml
 	minimumVersion = Version{
 		versionString: "2.29.0",
 		major:         2,
