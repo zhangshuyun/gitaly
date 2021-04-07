@@ -70,6 +70,11 @@ func (s *Server) UserRevert(ctx context.Context, req *gitalypb.UserRevertRequest
 				CreateTreeError:     err.Error(),
 				CreateTreeErrorCode: gitalypb.UserRevertResponse_CONFLICT,
 			}, nil
+		} else if errors.As(err, &git2go.EmptyError{}) {
+			return &gitalypb.UserRevertResponse{
+				CreateTreeError:     err.Error(),
+				CreateTreeErrorCode: gitalypb.UserRevertResponse_EMPTY,
+			}, nil
 		} else if errors.Is(err, git2go.ErrInvalidArgument) {
 			return nil, helper.ErrInvalidArgument(err)
 		} else {

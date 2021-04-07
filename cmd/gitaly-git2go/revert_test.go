@@ -126,6 +126,24 @@ func TestRevert_trees(t *testing.T) {
 			expectedErrAs: &git2go.HasConflictsError{},
 		},
 		{
+			desc: "empty revert fails",
+			setupRepo: func(t testing.TB, repoPath string) (ours, revert string) {
+				baseOid := cmdtesthelper.BuildCommit(t, repoPath, nil, map[string]string{
+					"a": "apple",
+				})
+				revertOid := cmdtesthelper.BuildCommit(t, repoPath, []*git.Oid{baseOid}, map[string]string{
+					"a": "banana",
+				})
+				oursOid := cmdtesthelper.BuildCommit(t, repoPath, []*git.Oid{revertOid}, map[string]string{
+					"a": "apple",
+				})
+
+				return oursOid.String(), revertOid.String()
+			},
+			expectedErr:   "revert: could not apply because the result was empty",
+			expectedErrAs: &git2go.EmptyError{},
+		},
+		{
 			desc: "nonexistent ours fails",
 			setupRepo: func(t testing.TB, repoPath string) (ours, revert string) {
 				revertOid := cmdtesthelper.BuildCommit(t, repoPath, nil, map[string]string{

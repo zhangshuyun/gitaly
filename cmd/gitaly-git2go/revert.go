@@ -90,6 +90,10 @@ func (cmd *revertSubcommand) revert(ctx context.Context, request *git2go.RevertC
 		return "", fmt.Errorf("write tree: %w", err)
 	}
 
+	if tree.Equal(ours.TreeId()) {
+		return "", git2go.EmptyError{}
+	}
+
 	committer := git.Signature(git2go.NewSignature(request.AuthorName, request.AuthorMail, request.AuthorDate))
 	commit, err := repo.CreateCommitFromIds("", &committer, &committer, request.Message, tree, ours.Id())
 	if err != nil {
