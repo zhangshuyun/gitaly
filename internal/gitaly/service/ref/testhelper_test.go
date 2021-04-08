@@ -77,7 +77,7 @@ func runRefServiceServer(t testing.TB, cfg config.Cfg) string {
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
 
 	srv := testhelper.NewServer(t, nil, nil, testhelper.WithInternalSocket(cfg))
-	gitalypb.RegisterRefServiceServer(srv.GrpcServer(), NewServer(cfg, locator, gitCmdFactory))
+	gitalypb.RegisterRefServiceServer(srv.GrpcServer(), NewServer(cfg, locator, gitCmdFactory, txManager))
 	gitalypb.RegisterHookServiceServer(srv.GrpcServer(), hookservice.NewServer(cfg, hookManager, gitCmdFactory))
 	srv.Start(t)
 	t.Cleanup(srv.Stop)
