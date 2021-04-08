@@ -13,17 +13,18 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 )
 
 type mockTransactionManager struct {
-	vote func(context.Context, metadata.Transaction, metadata.PraefectServer, []byte) error
+	vote func(context.Context, metadata.Transaction, metadata.PraefectServer, transaction.Vote) error
 	stop func(context.Context, metadata.Transaction, metadata.PraefectServer) error
 }
 
-func (m *mockTransactionManager) Vote(ctx context.Context, tx metadata.Transaction, praefect metadata.PraefectServer, vote []byte) error {
+func (m *mockTransactionManager) Vote(ctx context.Context, tx metadata.Transaction, praefect metadata.PraefectServer, vote transaction.Vote) error {
 	return m.vote(ctx, tx, praefect, vote)
 }
 
@@ -131,7 +132,7 @@ func TestHookManager_contextCancellationCancelsVote(t *testing.T) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	mockTxMgr := mockTransactionManager{
-		vote: func(ctx context.Context, tx metadata.Transaction, praefect metadata.PraefectServer, vote []byte) error {
+		vote: func(ctx context.Context, tx metadata.Transaction, praefect metadata.PraefectServer, vote transaction.Vote) error {
 			<-ctx.Done()
 			return fmt.Errorf("mock error: %s", ctx.Err())
 		},

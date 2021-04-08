@@ -30,7 +30,7 @@ var (
 type Manager interface {
 	// Vote casts a vote on the given transaction which is hosted by the
 	// given Praefect server.
-	Vote(context.Context, metadata.Transaction, metadata.PraefectServer, []byte) error
+	Vote(context.Context, metadata.Transaction, metadata.PraefectServer, Vote) error
 
 	// Stop gracefully stops the given transaction which is hosted by the
 	// given Praefect server.
@@ -86,7 +86,7 @@ func (m *PoolManager) getTransactionClient(ctx context.Context, server metadata.
 
 // Vote connects to the given server and casts hash as a vote for the
 // transaction identified by tx.
-func (m *PoolManager) Vote(ctx context.Context, tx metadata.Transaction, server metadata.PraefectServer, hash []byte) error {
+func (m *PoolManager) Vote(ctx context.Context, tx metadata.Transaction, server metadata.PraefectServer, hash Vote) error {
 	client, err := m.getTransactionClient(ctx, server)
 	if err != nil {
 		return err
@@ -95,7 +95,7 @@ func (m *PoolManager) Vote(ctx context.Context, tx metadata.Transaction, server 
 	logger := m.log(ctx).WithFields(logrus.Fields{
 		"transaction.id":    tx.ID,
 		"transaction.voter": tx.Node,
-		"transaction.hash":  hex.EncodeToString(hash),
+		"transaction.hash":  hex.EncodeToString(hash.Bytes()),
 	})
 
 	defer prometheus.NewTimer(m.votingDelayMetric).ObserveDuration()
@@ -103,7 +103,7 @@ func (m *PoolManager) Vote(ctx context.Context, tx metadata.Transaction, server 
 	response, err := client.VoteTransaction(ctx, &gitalypb.VoteTransactionRequest{
 		TransactionId:        tx.ID,
 		Node:                 tx.Node,
-		ReferenceUpdatesHash: hash,
+		ReferenceUpdatesHash: hash.Bytes(),
 	})
 	if err != nil {
 		logger.WithError(err).Error("vote failed")
