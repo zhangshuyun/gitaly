@@ -1,0 +1,5 @@
+---
+title: 'remote: Fix UpdateRemoteMirror having transactional semantics'
+merge_request: 3345
+author:
+type: fixed
