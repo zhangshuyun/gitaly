@@ -4,14 +4,15 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net"
 	"sync"
 	"sync/atomic"
 	"testing"
 
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -27,11 +28,17 @@ func (m mockTransactionServer) VoteTransaction(ctx context.Context, req *gitalyp
 	return m.voteTransactionFunc(ctx, req)
 }
 
+func newLogger() *logrus.Entry {
+	logger := logrus.New()
+	logger.Out = ioutil.Discard
+	return logrus.NewEntry(logger)
+}
+
 func TestBackchannel_concurrentRequestsFromMultipleClients(t *testing.T) {
 	var interceptorInvoked int32
 	registry := NewRegistry()
 	handshaker := NewServerHandshaker(
-		testhelper.DiscardTestEntry(t),
+		newLogger(),
 		Insecure(),
 		registry,
 		[]grpc.DialOption{
@@ -68,7 +75,7 @@ func TestBackchannel_concurrentRequestsFromMultipleClients(t *testing.T) {
 	defer srv.Stop()
 	go srv.Serve(ln)
 
-	ctx, cancel := testhelper.Context()
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	start := make(chan struct{})
@@ -101,7 +108,7 @@ func TestBackchannel_concurrentRequestsFromMultipleClients(t *testing.T) {
 
 			expectedErr := status.Error(codes.Internal, fmt.Sprintf("multiplexed %d", i))
 
-			clientHandshaker := NewClientHandshaker(testhelper.DiscardTestEntry(t), func() Server {
+			clientHandshaker := NewClientHandshaker(newLogger(), func() Server {
 				srv := grpc.NewServer()
 				gitalypb.RegisterRefTransactionServer(srv, mockTransactionServer{
 					voteTransactionFunc: func(ctx context.Context, req *gitalypb.VoteTransactionRequest) (*gitalypb.VoteTransactionResponse, error) {
@@ -174,7 +181,7 @@ func Benchmark(b *testing.B) {
 					var serverOpts []grpc.ServerOption
 					if tc.multiplexed {
 						serverOpts = []grpc.ServerOption{
-							grpc.Creds(NewServerHandshaker(testhelper.DiscardTestEntry(b), Insecure(), NewRegistry(), nil)),
+							grpc.Creds(NewServerHandshaker(newLogger(), Insecure(), NewRegistry(), nil)),
 						}
 					}
 
@@ -197,12 +204,12 @@ func Benchmark(b *testing.B) {
 					defer srv.Stop()
 					go srv.Serve(ln)
 
-					ctx, cancel := testhelper.Context()
+					ctx, cancel := context.WithCancel(context.Background())
 					defer cancel()
 
 					opts := []grpc.DialOption{grpc.WithBlock(), grpc.WithInsecure()}
 					if tc.multiplexed {
-						clientHandshaker := NewClientHandshaker(testhelper.DiscardTestEntry(b), func() Server { return grpc.NewServer() })
+						clientHandshaker := NewClientHandshaker(newLogger(), func() Server { return grpc.NewServer() })
 						opts = []grpc.DialOption{
 							grpc.WithBlock(),
 							grpc.WithTransportCredentials(clientHandshaker.ClientHandshake(Insecure())),
