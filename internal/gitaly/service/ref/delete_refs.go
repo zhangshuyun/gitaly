@@ -9,6 +9,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/git/updateref"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -20,6 +21,11 @@ func (s *server) DeleteRefs(ctx context.Context, in *gitalypb.DeleteRefsRequest)
 		return nil, status.Errorf(codes.InvalidArgument, "DeleteRefs: %v", err)
 	}
 
+	refnames, err := s.refsToRemove(ctx, in)
+	if err != nil {
+		return nil, helper.ErrInternal(err)
+	}
+
 	updater, err := updateref.New(ctx, s.cfg, s.gitCmdFactory, in.GetRepository())
 	if err != nil {
 		if errors.Is(err, git.ErrInvalidArg) {
@@ -28,15 +34,32 @@ func (s *server) DeleteRefs(ctx context.Context, in *gitalypb.DeleteRefsRequest)
 		return nil, helper.ErrInternal(err)
 	}
 
-	refnames, err := s.refsToRemove(ctx, in)
-	if err != nil {
-		return nil, helper.ErrInternal(err)
-	}
-
+	voteHash := transaction.NewVoteHash()
 	for _, ref := range refnames {
 		if err := updater.Delete(ref); err != nil {
 			return &gitalypb.DeleteRefsResponse{GitError: err.Error()}, nil
 		}
+
+		if _, err := voteHash.Write([]byte(ref.String() + "\n")); err != nil {
+			return nil, helper.ErrInternalf("could not update vote hash: %v", err)
+		}
+	}
+
+	if err := updater.Prepare(); err != nil {
+		return nil, helper.ErrInternalf("could not prepare ref update: %v", err)
+	}
+
+	vote, err := voteHash.Vote()
+	if err != nil {
+		return nil, helper.ErrInternalf("could not compute vote: %v", err)
+	}
+
+	// All deletes we're doing in this RPC are force deletions. Because we're required to filter
+	// out transactions which only consist of force deletions, we never do any voting via the
+	// reference-transaction hook here. Instead, we need to resort to a manual vote which is
+	// simply the concatenation of all reference we're about to delete.
+	if err := transaction.VoteOnContext(ctx, s.txManager, vote); err != nil {
+		return nil, helper.ErrInternal(err)
 	}
 
 	if err := updater.Wait(); err != nil {

@@ -174,3 +174,15 @@ func (m *PoolManager) Stop(ctx context.Context, tx metadata.Transaction, server 
 func (m *PoolManager) log(ctx context.Context) logrus.FieldLogger {
 	return ctxlogrus.Extract(ctx).WithField("component", "transaction.PoolManager")
 }
+
+// VoteOnContext casts the vote on a transaction identified by the context, if there is any.
+func VoteOnContext(ctx context.Context, m Manager, vote Vote) error {
+	transaction, praefect, err := metadata.TransactionMetadataFromContext(ctx)
+	if err != nil {
+		return err
+	}
+	if transaction == nil {
+		return nil
+	}
+	return m.Vote(ctx, *transaction, *praefect, vote)
+}
