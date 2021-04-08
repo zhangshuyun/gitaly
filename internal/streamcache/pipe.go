@@ -71,9 +71,8 @@ type pipe struct {
 	// Reader/writer coordination. If wcursor > rcursor, the writer blocks
 	// (back pressure). If rcursor >= wcursor, the readers block (waiting for
 	// new data).
-	wcursor           *cursor
-	rcursor           *cursor
-	writerClosedFirst bool
+	wcursor *cursor
+	rcursor *cursor
 
 	// wnotifier is the channel the writer uses to wait for reader progress
 	// notifications.
@@ -142,7 +141,6 @@ func (p *pipe) Close() error {
 	// After this, p.writerClosed() will return true.
 	p.rcursor.Unsubscribe(p.wnotifier)
 
-	p.writerClosedFirst = true
 	return errClose
 }
 
@@ -170,7 +168,7 @@ func (p *pipe) OpenReader() (io.ReadCloser, error) {
 	p.m.Lock()
 	defer p.m.Unlock()
 
-	if p.initialReadersClosed() && !p.writerClosedFirst {
+	if p.initialReadersClosed() && !p.writerClosed() {
 		return nil, errWrongCloseOrder
 	}
 
