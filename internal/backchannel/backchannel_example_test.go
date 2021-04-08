@@ -30,7 +30,7 @@ func Example() {
 	// it creates the backchannel connection and stores it into the registry. For each connection,
 	// the ServerHandshaker passes down the peer ID via the context. The peer ID identifies a
 	// backchannel connection.
-	handshaker := backchannel.NewServerHandshaker(logger, backchannel.Insecure(), registry)
+	handshaker := backchannel.NewServerHandshaker(logger, backchannel.Insecure(), registry, nil)
 
 	// Create the server
 	srv := grpc.NewServer(

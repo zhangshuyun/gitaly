@@ -6,6 +6,7 @@ import (
 	"io"
 	"net"
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -27,8 +28,19 @@ func (m mockTransactionServer) VoteTransaction(ctx context.Context, req *gitalyp
 }
 
 func TestBackchannel_concurrentRequestsFromMultipleClients(t *testing.T) {
+	var interceptorInvoked int32
 	registry := NewRegistry()
-	handshaker := NewServerHandshaker(testhelper.DiscardTestEntry(t), Insecure(), registry)
+	handshaker := NewServerHandshaker(
+		testhelper.DiscardTestEntry(t),
+		Insecure(),
+		registry,
+		[]grpc.DialOption{
+			grpc.WithUnaryInterceptor(func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
+				atomic.AddInt32(&interceptorInvoked, 1)
+				return invoker(ctx, method, req, reply, cc, opts...)
+			}),
+		},
+	)
 
 	ln, err := net.Listen("tcp", "localhost:0")
 	require.NoError(t, err)
@@ -132,6 +144,7 @@ func TestBackchannel_concurrentRequestsFromMultipleClients(t *testing.T) {
 
 	// Wait for the clients to finish their calls and close their connections.
 	wg.Wait()
+	require.Equal(t, interceptorInvoked, int32(50))
 }
 
 type mockSSHService struct {
@@ -161,7 +174,7 @@ func Benchmark(b *testing.B) {
 					var serverOpts []grpc.ServerOption
 					if tc.multiplexed {
 						serverOpts = []grpc.ServerOption{
-							grpc.Creds(NewServerHandshaker(testhelper.DiscardTestEntry(b), Insecure(), NewRegistry())),
+							grpc.Creds(NewServerHandshaker(testhelper.DiscardTestEntry(b), Insecure(), NewRegistry(), nil)),
 						}
 					}
 

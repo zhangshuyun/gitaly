@@ -54,14 +54,19 @@ type ServerHandshaker struct {
 	registry *Registry
 	logger   *logrus.Entry
 	credentials.TransportCredentials
+	dialOpts []grpc.DialOption
 }
 
-// NewServerHandshaker returns a new server side implementation of the backchannel.
-func NewServerHandshaker(logger *logrus.Entry, tc credentials.TransportCredentials, reg *Registry) credentials.TransportCredentials {
+// NewServerHandshaker returns a new server side implementation of the backchannel. The provided TransportCredentials
+// are handshaked prior to initializing the multiplexing session. The Registry is used to store the backchannel connections.
+// DialOptions can be used to set custom dial options for the backchannel connections. They must not contain a dialer or
+// transport credentials as those set by the handshaker.
+func NewServerHandshaker(logger *logrus.Entry, tc credentials.TransportCredentials, reg *Registry, dialOpts []grpc.DialOption) credentials.TransportCredentials {
 	return ServerHandshaker{
 		TransportCredentials: tc,
 		registry:             reg,
 		logger:               logger,
+		dialOpts:             dialOpts,
 	}
 }
 
@@ -124,8 +129,11 @@ func (s ServerHandshaker) ServerHandshake(conn net.Conn) (net.Conn, credentials.
 	// WithInsecure is used as the multiplexer operates within a TLS session already if one is configured.
 	backchannelConn, err := grpc.Dial(
 		"multiplexed/"+conn.RemoteAddr().String(),
-		grpc.WithInsecure(),
-		grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) { return muxSession.Open() }),
+		append(
+			s.dialOpts,
+			grpc.WithInsecure(),
+			grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) { return muxSession.Open() }),
+		)...,
 	)
 	if err != nil {
 		logger.Close()
