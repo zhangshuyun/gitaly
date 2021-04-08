@@ -215,12 +215,19 @@ func TestPipe_closeWrongOrder(t *testing.T) {
 	defer p.Close()
 	defer pr.Close()
 
+	_, err = io.WriteString(p, "hello")
+	require.NoError(t, err)
+
 	require.NoError(t, pr.Close(), "close last reader")
-	require.Equal(t, errWrongCloseOrder, p.Close(), "closing writer should fail if all readers went away")
+
+	_, err = io.WriteString(p, "world")
+	require.Equal(t, errWrongCloseOrder, err, "writes should fail")
+
+	require.Equal(t, errWrongCloseOrder, p.Close(), "closing should fail")
 	require.True(t, cs.closed)
 
 	_, err = p.OpenReader()
-	require.Equal(t, errWrongCloseOrder, err, "opening reader after 'broken close' should fail")
+	require.Equal(t, errWrongCloseOrder, err, "opening should fail")
 }
 
 // Closing last reader after closing the writer is the happy path. After

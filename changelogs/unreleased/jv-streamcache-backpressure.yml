@@ -1,0 +1,5 @@
+---
+title: Fail pipe writes when readers leave
+merge_request: 3341
+author:
+type: fixed
