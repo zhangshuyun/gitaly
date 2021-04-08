@@ -98,3 +98,17 @@ func TestCursor_concurrency(t *testing.T) {
 	close(start)
 	wg.Wait()
 }
+
+func TestCursorIsDone(t *testing.T) {
+	c := newCursor()
+	expectDone(t, c, false)
+	require.False(t, c.IsDone())
+
+	s := c.Subscribe()
+	expectDone(t, c, false)
+	require.False(t, c.IsDone())
+
+	c.Unsubscribe(s)
+	expectDone(t, c, true)
+	require.True(t, c.IsDone())
+}
