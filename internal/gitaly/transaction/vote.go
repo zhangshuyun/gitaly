@@ -3,6 +3,7 @@ package transaction
 import (
 	"crypto/sha1"
 	"fmt"
+	"hash"
 )
 
 const (
@@ -33,4 +34,19 @@ func VoteFromHash(bytes []byte) (Vote, error) {
 // VoteFromData hashes the given data and converts it to a vote.
 func VoteFromData(data []byte) Vote {
 	return sha1.Sum(data)
+}
+
+// VoteHash is the hash structure used to compute a Vote from arbitrary data.
+type VoteHash struct {
+	hash.Hash
+}
+
+// NewVoteHash returns a new VoteHash.
+func NewVoteHash() VoteHash {
+	return VoteHash{sha1.New()}
+}
+
+// Vote hashes all data written into VoteHash and returns the resulting Vote.
+func (v VoteHash) Vote() (Vote, error) {
+	return VoteFromHash(v.Sum(nil))
 }

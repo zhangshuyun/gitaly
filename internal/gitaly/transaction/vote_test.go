@@ -34,3 +34,24 @@ func TestVoteFromData(t *testing.T) {
 		0xb9, 0x63, 0xff, 0x4c, 0xe2, 0x81, 0x25, 0x93, 0x28, 0x78,
 	}, VoteFromData([]byte("foobar")))
 }
+
+func TestVoteHash(t *testing.T) {
+	hash := NewVoteHash()
+
+	vote, err := hash.Vote()
+	require.NoError(t, err)
+	require.Equal(t, VoteFromData([]byte{}), vote)
+
+	_, err = hash.Write([]byte("foo"))
+	require.NoError(t, err)
+	vote, err = hash.Vote()
+	require.NoError(t, err)
+	require.Equal(t, VoteFromData([]byte("foo")), vote)
+
+	_, err = hash.Write([]byte("bar"))
+	require.NoError(t, err)
+
+	vote, err = hash.Vote()
+	require.NoError(t, err)
+	require.Equal(t, VoteFromData([]byte("foobar")), vote)
+}
