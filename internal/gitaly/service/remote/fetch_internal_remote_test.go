@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
@@ -15,6 +16,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/ref"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/remote"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/ssh"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
@@ -71,13 +73,14 @@ func testSuccessfulFetchInternalRemote(t *testing.T, ctx context.Context) {
 
 	locator := config.NewLocator(config.Config)
 	gitCmdFactory := git.NewExecCommandFactory(config.Config)
+	txManager := transaction.NewManager(config.Config, backchannel.NewRegistry())
 	hookManager := &mockHookManager{}
 	gitaly0Server := testhelper.NewServer(t, nil, nil,
 		testhelper.WithStorages([]string{"gitaly-0"}),
 		testhelper.WithInternalSocket(config.Config),
 	)
 	gitalypb.RegisterSSHServiceServer(gitaly0Server.GrpcServer(), ssh.NewServer(config.Config, locator, gitCmdFactory))
-	gitalypb.RegisterRefServiceServer(gitaly0Server.GrpcServer(), ref.NewServer(config.Config, locator, gitCmdFactory))
+	gitalypb.RegisterRefServiceServer(gitaly0Server.GrpcServer(), ref.NewServer(config.Config, locator, gitCmdFactory, txManager))
 	gitalypb.RegisterHookServiceServer(gitaly0Server.GrpcServer(), hook.NewServer(config.Config, hookManager, gitCmdFactory))
 	reflection.Register(gitaly0Server.GrpcServer())
 	gitaly0Server.Start(t)

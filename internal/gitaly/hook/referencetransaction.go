@@ -60,7 +60,7 @@ func (m *GitLabHookManager) ReferenceTransactionHook(ctx context.Context, state 
 
 	hash := sha1.Sum(changes)
 
-	if err := m.voteOnTransaction(ctx, hash[:], payload); err != nil {
+	if err := m.voteOnTransaction(ctx, hash, payload); err != nil {
 		return fmt.Errorf("error voting on transaction: %w", err)
 	}
 

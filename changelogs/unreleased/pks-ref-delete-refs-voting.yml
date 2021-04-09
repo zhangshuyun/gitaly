@@ -1,0 +1,5 @@
+---
+title: 'ref: Fix missing votes for `DeleteRefs()` RPC'
+merge_request: 3347
+author:
+type: fixed

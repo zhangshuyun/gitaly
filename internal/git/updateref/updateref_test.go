@@ -81,6 +81,7 @@ func TestUpdate(t *testing.T) {
 	require.NotEqual(t, commit.Id, sha, "%s points to HEAD: %s in the test repository", ref.String(), sha)
 
 	require.NoError(t, updater.Update(ref, sha, ""))
+	require.NoError(t, updater.Prepare())
 	require.NoError(t, updater.Wait())
 
 	// check the ref was updated
@@ -113,6 +114,24 @@ func TestDelete(t *testing.T) {
 	// check the ref was removed
 	_, err := repo.ReadCommit(ctx, ref.Revision())
 	require.Equal(t, localrepo.ErrObjectNotFound, err, "expected 'not found' error got %v", err)
+}
+
+func TestUpdater_prepareLocksTransaction(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	_, repo, updater := setupUpdater(t, ctx)
+
+	commit, logErr := repo.ReadCommit(ctx, "refs/heads/master")
+	require.NoError(t, logErr)
+
+	require.NoError(t, updater.Update("refs/heads/feature", commit.Id, ""))
+	require.NoError(t, updater.Prepare())
+	require.NoError(t, updater.Update("refs/heads/feature", commit.Id, ""))
+
+	err := updater.Wait()
+	require.Error(t, err, "cannot update after prepare")
+	require.Contains(t, err.Error(), "fatal: prepared transactions can only be closed")
 }
 
 func TestBulkOperation(t *testing.T) {

@@ -1,6 +1,7 @@
 package ref
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -8,7 +9,14 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
+	hookservice "gitlab.com/gitlab-org/gitaly/internal/gitaly/service/hook"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
@@ -65,6 +73,77 @@ func TestSuccessfulDeleteRefs(t *testing.T) {
 			require.Contains(t, refNames, "refs/keep/c")
 			require.Contains(t, refNames, "refs/also-keep/d")
 			require.Contains(t, refNames, "refs/heads/master")
+		})
+	}
+}
+
+func TestDeleteRefs_transaction(t *testing.T) {
+	cfg := testcfg.Build(t)
+
+	testhelper.ConfigureGitalyHooksBin(t, cfg)
+
+	var votes int
+	txManager := &transaction.MockManager{
+		VoteFn: func(context.Context, metadata.Transaction, metadata.PraefectServer, transaction.Vote) error {
+			votes++
+			return nil
+		},
+	}
+
+	locator := config.NewLocator(cfg)
+	hookManager := hook.NewManager(locator, txManager, hook.GitlabAPIStub, cfg)
+	gitCmdFactory := git.NewExecCommandFactory(cfg)
+
+	srv := testhelper.NewServer(t, nil, nil, testhelper.WithInternalSocket(cfg))
+	gitalypb.RegisterRefServiceServer(srv.GrpcServer(), NewServer(cfg, locator, gitCmdFactory, txManager))
+	gitalypb.RegisterHookServiceServer(srv.GrpcServer(), hookservice.NewServer(cfg, hookManager, gitCmdFactory))
+	srv.Start(t)
+	t.Cleanup(srv.Stop)
+
+	client, conn := newRefServiceClient(t, "unix://"+srv.Socket())
+	t.Cleanup(func() { conn.Close() })
+
+	ctx, cancel := testhelper.Context()
+	t.Cleanup(cancel)
+
+	ctx, err := metadata.InjectTransaction(ctx, 1, "node", true)
+	require.NoError(t, err)
+	ctx, err = (&metadata.PraefectServer{SocketPath: "i-dont-care"}).Inject(ctx)
+	require.NoError(t, err)
+	ctx = helper.IncomingToOutgoing(ctx)
+
+	for _, tc := range []struct {
+		desc          string
+		request       *gitalypb.DeleteRefsRequest
+		expectedVotes int
+	}{
+		{
+			desc: "delete nothing",
+			request: &gitalypb.DeleteRefsRequest{
+				ExceptWithPrefix: [][]byte{[]byte("refs/")},
+			},
+			expectedVotes: 1,
+		},
+		{
+			desc: "delete all refs",
+			request: &gitalypb.DeleteRefsRequest{
+				ExceptWithPrefix: [][]byte{[]byte("nonexisting/prefix/")},
+			},
+			expectedVotes: 1,
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			votes = 0
+
+			repo, _, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], tc.desc)
+			t.Cleanup(cleanup)
+			tc.request.Repository = repo
+
+			response, err := client.DeleteRefs(ctx, tc.request)
+			require.NoError(t, err)
+			require.Empty(t, response.GitError)
+
+			require.Equal(t, tc.expectedVotes, votes)
 		})
 	}
 }

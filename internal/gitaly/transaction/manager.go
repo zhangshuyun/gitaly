@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/hex"
 	"errors"
+	"fmt"
+	"time"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/prometheus/client_golang/prometheus"
@@ -13,6 +15,21 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
+)
+
+const (
+	// transactionTimeout is the timeout used for all transactional
+	// actions like voting and stopping of transactions. This timeout is
+	// quite high: usually, a transaction should finish in at most a few
+	// milliseconds. There are cases though where it may take a lot longer,
+	// like when executing logic on the primary node only: the primary's
+	// vote will be delayed until that logic finishes while secondaries are
+	// waiting for the primary to cast its vote on the transaction. Given
+	// that the primary-only logic's execution time scales with repository
+	// size for the access checks and that it is potentially even unbounded
+	// due to custom hooks, we thus use a high timeout. It shouldn't
+	// normally be hit, but if it is hit then it indicates a real problem.
+	transactionTimeout = 5 * time.Minute
 )
 
 var (
@@ -30,7 +47,7 @@ var (
 type Manager interface {
 	// Vote casts a vote on the given transaction which is hosted by the
 	// given Praefect server.
-	Vote(context.Context, metadata.Transaction, metadata.PraefectServer, []byte) error
+	Vote(context.Context, metadata.Transaction, metadata.PraefectServer, Vote) error
 
 	// Stop gracefully stops the given transaction which is hosted by the
 	// given Praefect server.
@@ -86,7 +103,7 @@ func (m *PoolManager) getTransactionClient(ctx context.Context, server metadata.
 
 // Vote connects to the given server and casts hash as a vote for the
 // transaction identified by tx.
-func (m *PoolManager) Vote(ctx context.Context, tx metadata.Transaction, server metadata.PraefectServer, hash []byte) error {
+func (m *PoolManager) Vote(ctx context.Context, tx metadata.Transaction, server metadata.PraefectServer, hash Vote) error {
 	client, err := m.getTransactionClient(ctx, server)
 	if err != nil {
 		return err
@@ -95,17 +112,26 @@ func (m *PoolManager) Vote(ctx context.Context, tx metadata.Transaction, server 
 	logger := m.log(ctx).WithFields(logrus.Fields{
 		"transaction.id":    tx.ID,
 		"transaction.voter": tx.Node,
-		"transaction.hash":  hex.EncodeToString(hash),
+		"transaction.hash":  hex.EncodeToString(hash.Bytes()),
 	})
 
 	defer prometheus.NewTimer(m.votingDelayMetric).ObserveDuration()
 
-	response, err := client.VoteTransaction(ctx, &gitalypb.VoteTransactionRequest{
+	transactionCtx, cancel := context.WithTimeout(ctx, transactionTimeout)
+	defer cancel()
+
+	response, err := client.VoteTransaction(transactionCtx, &gitalypb.VoteTransactionRequest{
 		TransactionId:        tx.ID,
 		Node:                 tx.Node,
-		ReferenceUpdatesHash: hash,
+		ReferenceUpdatesHash: hash.Bytes(),
 	})
 	if err != nil {
+		// Add some additional context to cancellation errors so that
+		// we know which of the contexts got canceled.
+		if errors.Is(err, context.Canceled) && errors.Is(transactionCtx.Err(), context.Canceled) && ctx.Err() == nil {
+			return fmt.Errorf("transaction timeout %s exceeded: %w", transactionTimeout, err)
+		}
+
 		logger.WithError(err).Error("vote failed")
 		return err
 	}
@@ -147,4 +173,16 @@ func (m *PoolManager) Stop(ctx context.Context, tx metadata.Transaction, server 
 
 func (m *PoolManager) log(ctx context.Context) logrus.FieldLogger {
 	return ctxlogrus.Extract(ctx).WithField("component", "transaction.PoolManager")
+}
+
+// VoteOnContext casts the vote on a transaction identified by the context, if there is any.
+func VoteOnContext(ctx context.Context, m Manager, vote Vote) error {
+	transaction, praefect, err := metadata.TransactionMetadataFromContext(ctx)
+	if err != nil {
+		return err
+	}
+	if transaction == nil {
+		return nil
+	}
+	return m.Vote(ctx, *transaction, *praefect, vote)
 }
