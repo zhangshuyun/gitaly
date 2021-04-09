@@ -1,0 +1,5 @@
+---
+title: Enable Go implementation for UserCherryPick
+merge_request: 3262
+author:
+type: performance
