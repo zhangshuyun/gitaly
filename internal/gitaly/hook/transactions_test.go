@@ -19,19 +19,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 )
 
-type mockTransactionManager struct {
-	vote func(context.Context, metadata.Transaction, metadata.PraefectServer, transaction.Vote) error
-	stop func(context.Context, metadata.Transaction, metadata.PraefectServer) error
-}
-
-func (m *mockTransactionManager) Vote(ctx context.Context, tx metadata.Transaction, praefect metadata.PraefectServer, vote transaction.Vote) error {
-	return m.vote(ctx, tx, praefect, vote)
-}
-
-func (m *mockTransactionManager) Stop(ctx context.Context, tx metadata.Transaction, praefect metadata.PraefectServer) error {
-	return m.stop(ctx, tx, praefect)
-}
-
 func TestHookManager_stopCalled(t *testing.T) {
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
@@ -44,7 +31,7 @@ func TestHookManager_stopCalled(t *testing.T) {
 		Token:      "foo",
 	}
 
-	var mockTxMgr mockTransactionManager
+	var mockTxMgr transaction.MockManager
 	hookManager := NewManager(config.NewLocator(cfg), &mockTxMgr, GitlabAPIStub, cfg)
 
 	hooksPayload, err := git.NewHooksPayload(
@@ -114,7 +101,7 @@ func TestHookManager_stopCalled(t *testing.T) {
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			wasInvoked := false
-			mockTxMgr.stop = func(ctx context.Context, tx metadata.Transaction, praefect metadata.PraefectServer) error {
+			mockTxMgr.StopFn = func(ctx context.Context, tx metadata.Transaction, praefect metadata.PraefectServer) error {
 				require.Equal(t, expectedTx, tx)
 				require.Equal(t, expectedPraefect, praefect)
 				wasInvoked = true
@@ -131,8 +118,8 @@ func TestHookManager_stopCalled(t *testing.T) {
 func TestHookManager_contextCancellationCancelsVote(t *testing.T) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
-	mockTxMgr := mockTransactionManager{
-		vote: func(ctx context.Context, tx metadata.Transaction, praefect metadata.PraefectServer, vote transaction.Vote) error {
+	mockTxMgr := transaction.MockManager{
+		VoteFn: func(ctx context.Context, tx metadata.Transaction, praefect metadata.PraefectServer, vote transaction.Vote) error {
 			<-ctx.Done()
 			return fmt.Errorf("mock error: %s", ctx.Err())
 		},
