@@ -9,15 +9,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
-	"github.com/sirupsen/logrus"
-	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/errors"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/status"
 )
@@ -44,120 +39,29 @@ func (s *server) FetchRemote(ctx context.Context, req *gitalypb.FetchRemoteReque
 	remoteName := req.GetRemote()
 
 	if params := req.GetRemoteParams(); params != nil {
-		gitVersion, err := git.CurrentVersion(ctx, s.gitCmdFactory)
-		if err != nil {
-			return nil, fmt.Errorf("cannot determine current git version: %w", err)
-		}
+		remoteName = "inmemory"
 
 		remoteURL := params.GetUrl()
 		refspecs := s.getRefspecs(params.GetMirrorRefmaps())
 
-		if gitVersion.SupportsConfigEnv() {
-			remoteName = "inmemory"
-
-			config := []git.ConfigPair{
-				{Key: "remote.inmemory.url", Value: remoteURL},
-			}
-
-			for _, refspec := range refspecs {
-				config = append(config, git.ConfigPair{
-					Key: "remote.inmemory.fetch", Value: refspec,
-				})
-			}
-
-			if authHeader := params.GetHttpAuthorizationHeader(); authHeader != "" {
-				config = append(config, git.ConfigPair{
-					Key:   fmt.Sprintf("http.%s.extraHeader", remoteURL),
-					Value: "Authorization: " + authHeader,
-				})
-			}
-
-			opts.CommandOptions = append(opts.CommandOptions, git.WithConfigEnv(config...))
-		} else {
-			remoteSuffix, err := text.RandomHex(16)
-			if err != nil {
-				return nil, fmt.Errorf("cannot generate remote suffix: %w", err)
-			}
-
-			// We're generating a random name for the remote. We do not use a static name here
-			// and neither do we use a user-provided one as we'll be removing the remote after
-			// this RPC again, which also removes all its contained references.
-			//
-			// Ideally, we'd just use an in-memory remote either by fetching via URL directly or
-			// by injecting an in-memory remote via git configuration. But the former is not
-			// possible as it may leak credentials stored in URLs, while the latter is not
-			// possible yet because git has no official way to inject configuration via the
-			// environment yet. That is about to change though with git v2.31.0, so we can
-			// migrate this to use anonymous remotes as soon as we require that as minimum
-			// version.
-			remoteName = fmt.Sprintf("tmp-%s", remoteSuffix)
-
-			if err := s.setRemote(ctx, repo, remoteName, remoteURL); err != nil {
-				return nil, fmt.Errorf("set remote: %w", err)
-			}
-
-			defer func(parentCtx context.Context) {
-				ctx, cancel := context.WithCancel(command.SuppressCancellation(parentCtx))
-				defer cancel()
-
-				// we pass context as it may be overridden in case timeout is set for the call
-				if err := s.removeRemote(ctx, repo, remoteName); err != nil {
-					ctxlogrus.Extract(ctx).WithError(err).WithFields(logrus.Fields{
-						"remote":  remoteName,
-						"storage": req.GetRepository().GetStorageName(),
-						"path":    req.GetRepository().GetRelativePath(),
-					}).Error("removal of remote failed")
-				}
-			}(ctx)
-
-			for _, refspec := range refspecs {
-				opts.CommandOptions = append(opts.CommandOptions,
-					git.WithConfig(git.ConfigPair{Key: "remote." + remoteName + ".fetch", Value: refspec}),
-				)
-			}
-
-			if params.GetHttpAuthorizationHeader() != "" {
-				client, err := s.ruby.RepositoryServiceClient(ctx)
-				if err != nil {
-					return nil, err
-				}
-
-				clientCtx, err := rubyserver.SetHeaders(ctx, s.locator, req.GetRepository())
-				if err != nil {
-					return nil, err
-				}
-
-				// currently it is only possible way to set config value without exposing it to outside (won't be listed in 'ps')
-				extraHeaderKey := "http." + remoteURL + ".extraHeader"
-
-				if _, err := client.SetConfig(clientCtx, &gitalypb.SetConfigRequest{
-					Repository: req.GetRepository(),
-					Entries: []*gitalypb.SetConfigRequest_Entry{{
-						Key:   extraHeaderKey,
-						Value: &gitalypb.SetConfigRequest_Entry_ValueStr{ValueStr: "Authorization: " + params.GetHttpAuthorizationHeader()},
-					}},
-				}); err != nil {
-					return nil, helper.ErrInternal(fmt.Errorf("set extra header: %w", err))
-				}
-
-				defer func() {
-					ctx, cancel := context.WithCancel(command.SuppressCancellation(clientCtx))
-					defer cancel()
-
-					// currently it is only possible way to set config value without exposing it to outside (won't be listed in 'ps')
-					if _, err := client.DeleteConfig(ctx, &gitalypb.DeleteConfigRequest{
-						Repository: req.Repository,
-						Keys:       []string{extraHeaderKey},
-					}); err != nil {
-						ctxlogrus.Extract(ctx).WithError(err).WithFields(logrus.Fields{
-							"remote":  remoteName,
-							"storage": req.GetRepository().GetStorageName(),
-							"path":    req.GetRepository().GetRelativePath(),
-						}).Error("removal of extra header config failed")
-					}
-				}()
-			}
+		config := []git.ConfigPair{
+			{Key: "remote.inmemory.url", Value: remoteURL},
 		}
+
+		for _, refspec := range refspecs {
+			config = append(config, git.ConfigPair{
+				Key: "remote.inmemory.fetch", Value: refspec,
+			})
+		}
+
+		if authHeader := params.GetHttpAuthorizationHeader(); authHeader != "" {
+			config = append(config, git.ConfigPair{
+				Key:   fmt.Sprintf("http.%s.extraHeader", remoteURL),
+				Value: "Authorization: " + authHeader,
+			})
+		}
+
+		opts.CommandOptions = append(opts.CommandOptions, git.WithConfigEnv(config...))
 	} else {
 		sshCommand, cleanup, err := git.BuildSSHInvocation(ctx, req.GetSshKey(), req.GetKnownHosts())
 		if err != nil {
@@ -265,28 +169,4 @@ func (s *server) getRefspecs(refmaps []string) []string {
 		}
 	}
 	return refspecs
-}
-
-func (s *server) setRemote(ctx context.Context, repo *localrepo.Repo, name, url string) error {
-	if err := repo.Remote().Remove(ctx, name); err != nil {
-		if err != git.ErrNotFound {
-			return fmt.Errorf("remove remote: %w", err)
-		}
-	}
-
-	if err := repo.Remote().Add(ctx, name, url, git.RemoteAddOpts{}); err != nil {
-		return fmt.Errorf("add remote: %w", err)
-	}
-
-	return nil
-}
-
-func (s *server) removeRemote(ctx context.Context, repo *localrepo.Repo, name string) error {
-	if err := repo.Remote().Remove(ctx, name); err != nil {
-		if err != git.ErrNotFound {
-			return fmt.Errorf("remove remote: %w", err)
-		}
-	}
-
-	return nil
 }

@@ -130,10 +130,7 @@ func testSuccessfulFetchInternalRemote(t *testing.T, ctx context.Context) {
 		},
 	)
 
-	gitVersion, err := git.CurrentVersion(ctx, gitCmdFactory)
-	require.NoError(t, err)
-
-	if gitVersion.SupportsAtomicFetches() && featureflag.IsEnabled(ctx, featureflag.AtomicFetch) {
+	if featureflag.IsEnabled(ctx, featureflag.AtomicFetch) {
 		require.Equal(t, 2, hookManager.called)
 	} else {
 		require.Equal(t, 0, hookManager.called)

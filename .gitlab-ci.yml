@@ -119,8 +119,6 @@ build:
     matrix:
       - GO_VERSION: [ "1.14", "1.15" ]
         GIT_VERSION: [ "v2.31.1" ]
-      - GO_VERSION: "1.15"
-        GIT_VERSION: "v2.29.0"
 
 binaries:
   <<: *cache_definition
@@ -167,9 +165,6 @@ test:
       - GO_VERSION: "1.15"
         GIT_VERSION: "v2.31.1"
         TARGET: [ test-with-proxies, test-with-praefect, race-go ]
-      - GO_VERSION: "1.15"
-        GIT_VERSION: "v2.29.0"
-        TARGET: test
 
 nightly:git:
   <<: *test_definition

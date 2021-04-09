@@ -13,14 +13,12 @@ var (
 	// also update the following locations:
 	// - https://gitlab.com/gitlab-org/gitaly/blob/master/README.md#installation
 	// - https://gitlab.com/gitlab-org/gitaly/blob/master/.gitlab-ci.yml
-	// - https://gitlab.com/gitlab-org/gitlab-build-images/blob/master/.gitlab-ci.yml
 	// - https://gitlab.com/gitlab-org/gitlab-foss/blob/master/.gitlab-ci.yml
 	// - https://gitlab.com/gitlab-org/gitlab-foss/blob/master/lib/system_check/app/git_version_check.rb
-	// - https://gitlab.com/gitlab-org/build/CNG/blob/master/ci_files/variables.yml
 	minimumVersion = Version{
-		versionString: "2.29.0",
+		versionString: "2.31.0",
 		major:         2,
-		minor:         29,
+		minor:         31,
 		patch:         0,
 		rc:            false,
 	}
@@ -74,21 +72,6 @@ func (v Version) String() string {
 // supported by Gitaly.
 func (v Version) IsSupported() bool {
 	return !v.LessThan(minimumVersion)
-}
-
-// SupportsConfigEnv checks whether git supports the config environment variables GIT_CONFIG_COUNT,
-// GIT_CONFIG_KEY and GIT_CONFIG_VALUE.
-func (v Version) SupportsConfigEnv() bool {
-	return !v.LessThan(Version{
-		major: 2, minor: 31, patch: 0,
-	})
-}
-
-// SupportsAtomicFetches checks whether git-fetch supports the `--atomic` flag.
-func (v Version) SupportsAtomicFetches() bool {
-	return !v.LessThan(Version{
-		major: 2, minor: 31, patch: 0,
-	})
 }
 
 // LessThan determines whether the version is older than another version.

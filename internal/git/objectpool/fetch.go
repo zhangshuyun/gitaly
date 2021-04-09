@@ -63,14 +63,9 @@ func (o *ObjectPool) FetchFromOrigin(ctx context.Context, origin *gitalypb.Repos
 		return err
 	}
 
-	gitVersion, err := git.CurrentVersion(ctx, o.gitCmdFactory)
-	if err != nil {
-		return err
-	}
-
 	var opts []git.CmdOpt
 	flags := []git.Option{git.Flag{Name: "--quiet"}}
-	if gitVersion.SupportsAtomicFetches() && featureflag.IsEnabled(ctx, featureflag.AtomicFetch) {
+	if featureflag.IsEnabled(ctx, featureflag.AtomicFetch) {
 		flags = append(flags, git.Flag{
 			Name: "--atomic",
 		})

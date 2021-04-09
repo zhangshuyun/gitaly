@@ -27,11 +27,6 @@ func (s *server) FetchInternalRemote(ctx context.Context, req *gitalypb.FetchInt
 		return nil, status.Errorf(codes.InvalidArgument, "FetchInternalRemote: %v", err)
 	}
 
-	gitVersion, err := git.CurrentVersion(ctx, s.gitCmdFactory)
-	if err != nil {
-		return nil, status.Errorf(codes.Internal, "cannot determine current git version: %v", err)
-	}
-
 	env, err := gitalyssh.UploadPackEnv(ctx, s.cfg, &gitalypb.SSHUploadPackRequest{Repository: req.RemoteRepository})
 	if err != nil {
 		return nil, fmt.Errorf("upload pack environment: %w", err)
@@ -45,7 +40,7 @@ func (s *server) FetchInternalRemote(ctx context.Context, req *gitalypb.FetchInt
 		git.WithStderr(stderr),
 	}
 
-	if gitVersion.SupportsAtomicFetches() && featureflag.IsEnabled(ctx, featureflag.AtomicFetch) {
+	if featureflag.IsEnabled(ctx, featureflag.AtomicFetch) {
 		flags = append(flags, git.Flag{
 			Name: "--atomic",
 		})
