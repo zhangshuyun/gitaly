@@ -12,7 +12,7 @@ var (
 	// ReferenceTransactions will handle Git reference updates via the transaction service for strong consistency
 	ReferenceTransactions = FeatureFlag{Name: "reference_transactions", OnByDefault: true}
 	// LogCommandStats will log additional rusage stats for commands
-	LogCommandStats = FeatureFlag{Name: "log_command_stats", OnByDefault: false}
+	LogCommandStats = FeatureFlag{Name: "log_command_stats", OnByDefault: true}
 	// GoUserCherryPick enables the Go implementation of UserCherryPick
 	GoUserCherryPick = FeatureFlag{Name: "go_user_cherry_pick", OnByDefault: true}
 	// GoUserUpdateBranch enables the Go implementation of UserUpdateBranch
