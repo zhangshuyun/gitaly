@@ -19,9 +19,10 @@ type localElector struct {
 	nodes       []Node
 	primaryNode Node
 	log         logrus.FieldLogger
+	muxed       muxedNodes
 }
 
-func newLocalElector(name string, log logrus.FieldLogger, ns []*nodeStatus) *localElector {
+func newLocalElector(name string, log logrus.FieldLogger, ns []*nodeStatus, muxed muxedNodes) *localElector {
 	nodes := make([]Node, len(ns))
 	for i, n := range ns {
 		nodes[i] = n
@@ -31,6 +32,7 @@ func newLocalElector(name string, log logrus.FieldLogger, ns []*nodeStatus) *loc
 		log:         log.WithField("virtual_storage", name),
 		nodes:       nodes[:],
 		primaryNode: nodes[0],
+		muxed:       muxed,
 	}
 }
 
@@ -114,7 +116,7 @@ func (s *localElector) checkNodes(ctx context.Context) error {
 // GetShard gets the current status of the shard. If primary is not elected
 // or it is unhealthy and failover is enabled, ErrPrimaryNotHealthy is
 // returned.
-func (s *localElector) GetShard(context.Context) (Shard, error) {
+func (s *localElector) GetShard(ctx context.Context) (Shard, error) {
 	s.m.RLock()
 	primary := s.primaryNode
 	s.m.RUnlock()
@@ -130,12 +132,12 @@ func (s *localElector) GetShard(context.Context) (Shard, error) {
 	var secondaries []Node
 	for _, n := range s.nodes {
 		if n != primary {
-			secondaries = append(secondaries, n)
+			secondaries = append(secondaries, s.muxed.getNode(ctx, n))
 		}
 	}
 
 	return Shard{
-		Primary:     primary,
+		Primary:     s.muxed.getNode(ctx, primary),
 		Secondaries: secondaries,
 	}, nil
 }
