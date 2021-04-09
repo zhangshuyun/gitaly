@@ -70,7 +70,9 @@ func New(ctx context.Context, conf config.Cfg, gitCmdFactory git.CommandFactory,
 	// transactional behaviour. Which effectively means that without an
 	// explicit "commit", no changes will be inadvertently committed to
 	// disk.
-	fmt.Fprintf(cmd, "start\x00")
+	if _, err := cmd.Write([]byte("start\x00")); err != nil {
+		return nil, err
+	}
 
 	return &Updater{repo: repo, cmd: cmd, stderr: &stderr}, nil
 }
@@ -96,7 +98,9 @@ func (u *Updater) Delete(reference git.ReferenceName) error {
 
 // Wait applies the commands specified in other calls to the Updater
 func (u *Updater) Wait() error {
-	fmt.Fprintf(u.cmd, "commit\x00")
+	if _, err := u.cmd.Write([]byte("commit\x00")); err != nil {
+		return err
+	}
 
 	if err := u.cmd.Wait(); err != nil {
 		return fmt.Errorf("git update-ref: %v, stderr: %q", err, u.stderr)
