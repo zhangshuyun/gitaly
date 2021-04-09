@@ -82,6 +82,99 @@ func TestFetchRemoteSuccess(t *testing.T) {
 	require.Equal(t, resp.TagsChanged, true)
 }
 
+func TestFetchRemote_sshCommand(t *testing.T) {
+	tempDir, cleanup := testhelper.TempDir(t)
+	defer cleanup()
+
+	// We ain't got a nice way to intercept the SSH call, so we just write a custom git command
+	// which simply prints the GIT_SSH_COMMAND environment variable.
+	gitPath := filepath.Join(tempDir, "git")
+	outputPath := filepath.Join(tempDir, "output")
+	script := fmt.Sprintf(`#!/bin/sh
+	for arg in $GIT_SSH_COMMAND
+	do
+		case "$arg" in
+		-oIdentityFile=*)
+			path=$(echo "$arg" | cut -d= -f2)
+			cat "$path";;
+		*)
+			echo "$arg";;
+		esac
+	done >'%s'
+	exit 7`, outputPath)
+	testhelper.WriteExecutable(t, gitPath, []byte(script))
+
+	cfg, repo, _ := testcfg.BuildWithRepo(t, testcfg.WithBase(config.Cfg{
+		Git: config.Git{BinPath: gitPath},
+	}))
+
+	locator := config.NewLocator(cfg)
+	serverSocketPath, stop := runRepoServerWithConfig(t, cfg, locator)
+	defer stop()
+
+	client, conn := newRepositoryClient(t, serverSocketPath)
+	defer conn.Close()
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	for _, tc := range []struct {
+		desc           string
+		request        *gitalypb.FetchRemoteRequest
+		expectedOutput string
+	}{
+		{
+			desc: "remote name without SSH key",
+			request: &gitalypb.FetchRemoteRequest{
+				Repository: repo,
+				Remote:     "my-remote",
+			},
+			expectedOutput: "ssh\n",
+		},
+		{
+			desc: "remote name with SSH key",
+			request: &gitalypb.FetchRemoteRequest{
+				Repository: repo,
+				Remote:     "my-remote",
+				SshKey:     "mykey",
+			},
+			expectedOutput: "ssh\n-oIdentitiesOnly=yes\nmykey",
+		},
+		{
+			desc: "remote parameters without SSH key",
+			request: &gitalypb.FetchRemoteRequest{
+				Repository: repo,
+				RemoteParams: &gitalypb.Remote{
+					Url: "https://example.com",
+				},
+			},
+			expectedOutput: "ssh\n",
+		},
+		{
+			desc: "remote parameters with SSH key",
+			request: &gitalypb.FetchRemoteRequest{
+				Repository: repo,
+				RemoteParams: &gitalypb.Remote{
+					Url: "https://example.com",
+				},
+				SshKey: "mykey",
+			},
+			expectedOutput: "ssh\n-oIdentitiesOnly=yes\nmykey",
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			_, err := client.FetchRemote(ctx, tc.request)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "fetch remote: exit status 7")
+
+			output := testhelper.MustReadFile(t, outputPath)
+			require.Equal(t, tc.expectedOutput, string(output))
+
+			require.NoError(t, os.Remove(outputPath))
+		})
+	}
+}
+
 func TestFetchRemote_withDefaultRefmaps(t *testing.T) {
 	locator := config.NewLocator(config.Config)
 	serverSocketPath, stop := runRepoServer(t, locator, testhelper.WithInternalSocket(config.Config))
