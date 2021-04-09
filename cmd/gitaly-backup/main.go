@@ -11,7 +11,7 @@ import (
 )
 
 type subcmd interface {
-	Flags() *flag.FlagSet
+	Flags(*flag.FlagSet)
 	Run(ctx context.Context, stdin io.Reader, stdout io.Writer) error
 }
 
@@ -29,12 +29,14 @@ func main() {
 		log.Fatal("missing subcommand")
 	}
 
-	subcmd, ok := subcommands[flags.Arg(1)]
+	subcmdName := flags.Arg(1)
+	subcmd, ok := subcommands[subcmdName]
 	if !ok {
 		log.Fatalf("unknown subcommand: %q", flags.Arg(1))
 	}
 
-	subcmdFlags := subcmd.Flags()
+	subcmdFlags := flag.NewFlagSet(subcmdName, flag.ExitOnError)
+	subcmd.Flags(subcmdFlags)
 	_ = subcmdFlags.Parse(flags.Args()[2:])
 
 	if err := subcmd.Run(context.Background(), os.Stdin, os.Stdout); err != nil {

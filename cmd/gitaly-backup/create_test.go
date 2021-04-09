@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
@@ -46,6 +47,11 @@ func TestCreateSubcommand(t *testing.T) {
 	}
 
 	cmd := createSubcommand{backupPath: path}
+
+	fs := flag.NewFlagSet("create", flag.ContinueOnError)
+	cmd.Flags(fs)
+
+	require.NoError(t, fs.Parse([]string{"-path", path}))
 	require.NoError(t, cmd.Run(context.Background(), &stdin, ioutil.Discard))
 
 	for _, repo := range repos {

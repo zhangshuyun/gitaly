@@ -25,10 +25,8 @@ type createSubcommand struct {
 	backupPath string
 }
 
-func (cmd *createSubcommand) Flags() *flag.FlagSet {
-	fs := flag.NewFlagSet("create", flag.ExitOnError)
+func (cmd *createSubcommand) Flags(fs *flag.FlagSet) {
 	fs.StringVar(&cmd.backupPath, "path", "", "repository backup path")
-	return fs
 }
 
 func (cmd *createSubcommand) Run(ctx context.Context, stdin io.Reader, stdout io.Writer) error {
