@@ -8,7 +8,7 @@ gRPC protocol to communicate with its clients. This repository
 contains the protocol definition and automatically generated wrapper
 code for Go and Ruby.
 
-The .proto files define the remote procedure calls for interacting
+The `.proto` files define the remote procedure calls for interacting
 with Gitaly. We keep auto-generated client libraries for Ruby and Go
 in their respective subdirectories. The list of RPCs can be
 [found here](https://gitlab-org.gitlab.io/gitaly-proto/).
