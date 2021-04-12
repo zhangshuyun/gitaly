@@ -2,15 +2,16 @@ package operations
 
 import (
 	"context"
-	"io/ioutil"
 	"os"
+	"reflect"
+	"runtime"
 	"testing"
 
-	log "github.com/sirupsen/logrus"
-	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
-	"gitlab.com/gitlab-org/gitaly/client"
+	"github.com/stretchr/testify/require"
+	gitalyclient "gitlab.com/gitlab-org/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	gitalyhook "gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
@@ -21,9 +22,9 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/ssh"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/reflection"
 )
 
 var (
@@ -31,7 +32,6 @@ var (
 	gitlabPostHooks = []string{"post-receive"}
 	GitlabPreHooks  = gitlabPreHooks
 	GitlabHooks     []string
-	RubyServer      *rubyserver.Server
 )
 
 func init() {
@@ -48,62 +48,127 @@ func testMain(m *testing.M) int {
 	cleanup := testhelper.Configure()
 	defer cleanup()
 
-	gitlabShellDir, err := ioutil.TempDir("", "gitlab-shell")
-	if err != nil {
-		log.Error(err)
-		return 1
-	}
-	defer os.RemoveAll(gitlabShellDir)
-
-	config.Config.GitlabShell.Dir = gitlabShellDir
-
-	testhelper.ConfigureGitalySSH(config.Config.BinDir)
-	testhelper.ConfigureGitalyGit2Go(config.Config.BinDir)
-	testhelper.ConfigureGitalyHooksBinary(config.Config.BinDir)
-
-	defer func(token string) {
-		config.Config.Auth.Token = token
-	}(config.Config.Auth.Token)
-	config.Config.Auth.Token = testhelper.RepositoryAuthToken
-
-	RubyServer = rubyserver.New(config.Config)
-	if err := RubyServer.Start(); err != nil {
-		log.Error(err)
-		return 1
-	}
-	defer RubyServer.Stop()
-
 	return m.Run()
 }
 
-func runOperationServiceServer(t *testing.T) (string, func()) {
-	srv := testhelper.NewServerWithAuth(t, nil, nil, config.Config.Auth.Token, testhelper.WithInternalSocket(config.Config))
+func TestWithRubySidecar(t *testing.T) {
+	cfg := testcfg.Build(t)
 
-	conns := client.NewPool()
+	rubySrv := rubyserver.New(cfg)
+	require.NoError(t, rubySrv.Start())
+	t.Cleanup(rubySrv.Stop)
 
-	locator := config.NewLocator(config.Config)
-	txManager := transaction.NewManager(config.Config, backchannel.NewRegistry())
-	hookManager := gitalyhook.NewManager(locator, txManager, gitalyhook.GitlabAPIStub, config.Config)
-	gitCmdFactory := git.NewExecCommandFactory(config.Config)
-	server := NewServer(config.Config, RubyServer, hookManager, locator, conns, gitCmdFactory)
-
-	gitalypb.RegisterOperationServiceServer(srv.GrpcServer(), server)
-	gitalypb.RegisterHookServiceServer(srv.GrpcServer(), hook.NewServer(config.Config, hookManager, gitCmdFactory))
-	gitalypb.RegisterRepositoryServiceServer(srv.GrpcServer(), repository.NewServer(config.Config, RubyServer, locator, txManager, gitCmdFactory))
-	gitalypb.RegisterRefServiceServer(srv.GrpcServer(), ref.NewServer(config.Config, locator, gitCmdFactory, txManager))
-	gitalypb.RegisterCommitServiceServer(srv.GrpcServer(), commit.NewServer(config.Config, locator, gitCmdFactory, nil))
-	gitalypb.RegisterSSHServiceServer(srv.GrpcServer(), ssh.NewServer(config.Config, locator, gitCmdFactory))
-	reflection.Register(srv.GrpcServer())
-
-	srv.Start(t)
-
-	return "unix://" + srv.Socket(), srv.Stop
+	fs := []func(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server){
+		testSuccessfulUserApplyPatch,
+		testUserApplyPatchStableID,
+		testFailedPatchApplyPatch,
+		testServerUserCherryPickSuccessful,
+		testServerUserCherryPickSuccessfulGitHooks,
+		testServerUserCherryPickStableID,
+		testServerUserCherryPickFailedValidations,
+		testServerUserCherryPickFailedWithPreReceiveError,
+		testServerUserCherryPickFailedWithCreateTreeError,
+		testServerUserCherryPickFailedWithCommitError,
+		testServerUserCherryPickFailedWithConflict,
+		testServerUserCherryPickSuccessfulWithGivenCommits,
+		testServerUserRevertSuccessful,
+		testServerUserRevertStableID,
+		testServerUserRevertSuccessfulIntoEmptyRepo,
+		testServerUserRevertSuccessfulGitHooks,
+		testServerUserRevertFailuedDueToValidations,
+		testServerUserRevertFailedDueToPreReceiveError,
+		testServerUserRevertFailedDueToCreateTreeErrorConflict,
+		testServerUserRevertFailedDueToCommitError,
+		testSuccessfulUserUpdateBranchRequestToDelete,
+		testSuccessfulGitHooksForUserUpdateBranchRequest,
+		testFailedUserUpdateBranchDueToHooks,
+		testFailedUserUpdateBranchRequest,
+		testSuccessfulUserUpdateBranchRequest,
+		testSuccessfulUserRebaseConfirmableRequest,
+		testUserRebaseConfirmableStableCommitIDs,
+		testFailedRebaseUserRebaseConfirmableRequestDueToInvalidHeader,
+		testAbortedUserRebaseConfirmable,
+		testFailedUserRebaseConfirmableDueToApplyBeingFalse,
+		testFailedUserRebaseConfirmableRequestDueToPreReceiveError,
+		testFailedUserRebaseConfirmableDueToGitError,
+		testRebaseRequestWithDeletedFile,
+		testRebaseOntoRemoteBranch,
+		testSuccessfulUserUpdateSubmoduleRequest,
+		testUserUpdateSubmoduleStableID,
+		testFailedUserUpdateSubmoduleRequestDueToValidations,
+		testFailedUserUpdateSubmoduleRequestDueToInvalidBranch,
+		testFailedUserUpdateSubmoduleRequestDueToInvalidSubmodule,
+		testFailedUserUpdateSubmoduleRequestDueToSameReference,
+		testFailedUserUpdateSubmoduleRequestDueToRepositoryEmpty,
+		testServerUserRevertFailedDueToCreateTreeErrorEmpty,
+	}
+	for _, f := range fs {
+		t.Run(runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name(), func(t *testing.T) {
+			f(t, cfg, rubySrv)
+		})
+	}
 }
 
-func newOperationClient(t *testing.T, serverSocketPath string) (gitalypb.OperationServiceClient, *grpc.ClientConn) {
+func setupOperationsService(t testing.TB, ctx context.Context) (context.Context, config.Cfg, *gitalypb.Repository, string, gitalypb.OperationServiceClient) {
+	cfg := testcfg.Build(t)
+
+	ctx, cfg, repo, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, nil)
+
+	return ctx, cfg, repo, repoPath, client
+}
+
+func setupOperationsServiceWithRuby(
+	t testing.TB, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server,
+) (context.Context, config.Cfg, *gitalypb.Repository, string, gitalypb.OperationServiceClient) {
+	repo, repoPath, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name())
+	t.Cleanup(cleanup)
+
+	testhelper.ConfigureGitalySSHBin(t, cfg)
+	testhelper.ConfigureGitalyGit2GoBin(t, cfg)
+	testhelper.ConfigureGitalyHooksBin(t, cfg)
+
+	serverSocketPath := runOperationServiceServer(t, cfg, rubySrv)
+	cfg.SocketPath = serverSocketPath
+
+	client, conn := newOperationClient(t, serverSocketPath)
+	t.Cleanup(func() { conn.Close() })
+
+	md := testhelper.GitalyServersMetadata(t, cfg.SocketPath)
+	ctx = testhelper.MergeOutgoingMetadata(ctx, md)
+
+	return ctx, cfg, repo, repoPath, client
+}
+
+func runOperationServiceServer(t testing.TB, cfg config.Cfg, rubySrv *rubyserver.Server) string {
+	t.Helper()
+
+	srv := testhelper.NewServerWithAuth(t, nil, nil, cfg.Auth.Token, testhelper.WithInternalSocket(cfg))
+
+	conns := gitalyclient.NewPool()
+	t.Cleanup(func() { conns.Close() })
+
+	locator := config.NewLocator(cfg)
+	txManager := transaction.NewManager(cfg, backchannel.NewRegistry())
+	hookManager := gitalyhook.NewManager(locator, txManager, gitalyhook.GitlabAPIStub, cfg)
+	gitCmdFactory := git.NewExecCommandFactory(cfg)
+	server := NewServer(cfg, rubySrv, hookManager, locator, conns, gitCmdFactory)
+
+	gitalypb.RegisterOperationServiceServer(srv.GrpcServer(), server)
+	gitalypb.RegisterHookServiceServer(srv.GrpcServer(), hook.NewServer(cfg, hookManager, gitCmdFactory))
+	gitalypb.RegisterRepositoryServiceServer(srv.GrpcServer(), repository.NewServer(cfg, rubySrv, locator, txManager, gitCmdFactory))
+	gitalypb.RegisterRefServiceServer(srv.GrpcServer(), ref.NewServer(cfg, locator, gitCmdFactory, txManager))
+	gitalypb.RegisterCommitServiceServer(srv.GrpcServer(), commit.NewServer(cfg, locator, gitCmdFactory, nil))
+	gitalypb.RegisterSSHServiceServer(srv.GrpcServer(), ssh.NewServer(cfg, locator, gitCmdFactory))
+
+	srv.Start(t)
+	t.Cleanup(srv.Stop)
+
+	return "unix://" + srv.Socket()
+}
+
+func newOperationClient(t testing.TB, serverSocketPath string) (gitalypb.OperationServiceClient, *grpc.ClientConn) {
 	connOpts := []grpc.DialOption{
 		grpc.WithInsecure(),
-		grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(config.Config.Auth.Token)),
 	}
 	conn, err := grpc.Dial(serverSocketPath, connOpts...)
 	if err != nil {
@@ -113,21 +178,8 @@ func newOperationClient(t *testing.T, serverSocketPath string) (gitalypb.Operati
 	return gitalypb.NewOperationServiceClient(conn), conn
 }
 
-func setupOperationClient(t *testing.T, ctx context.Context) (gitalypb.OperationServiceClient, context.Context) {
-	serverSocketPath, stop := runOperationServiceServer(t)
-	t.Cleanup(stop)
-
-	md := testhelper.GitalyServersMetadata(t, serverSocketPath)
-	ctx = testhelper.MergeOutgoingMetadata(ctx, md)
-
-	client, conn := newOperationClient(t, serverSocketPath)
-	t.Cleanup(func() { conn.Close() })
-
-	return client, ctx
-}
-
-func setupAndStartGitlabServer(t testing.TB, glID, glRepository string, gitPushOptions ...string) func() {
-	url, cleanup := testhelper.SetupAndStartGitlabServer(t, config.Config.GitlabShell.Dir, &testhelper.GitlabTestServerOptions{
+func setupAndStartGitlabServer(t testing.TB, glID, glRepository string, cfg config.Cfg, gitPushOptions ...string) string {
+	url, cleanup := testhelper.SetupAndStartGitlabServer(t, cfg.GitlabShell.Dir, &testhelper.GitlabTestServerOptions{
 		SecretToken:                 "secretToken",
 		GLID:                        glID,
 		GLRepository:                glRepository,
@@ -136,12 +188,7 @@ func setupAndStartGitlabServer(t testing.TB, glID, glRepository string, gitPushO
 		GitPushOptions:              gitPushOptions,
 	})
 
-	gitlabURL := config.Config.Gitlab.URL
-	cleanupAll := func() {
-		cleanup()
-		config.Config.Gitlab.URL = gitlabURL
-	}
-	config.Config.Gitlab.URL = url
+	t.Cleanup(cleanup)
 
-	return cleanupAll
+	return url
 }

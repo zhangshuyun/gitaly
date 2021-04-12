@@ -14,7 +14,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -48,15 +47,9 @@ func TestSuccessfulUserSquashRequest(t *testing.T) {
 }
 
 func testSuccessfulUserSquashRequest(t *testing.T, ctx context.Context, start, end string) {
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
+	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
-
-	repoProto, repoPath, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
-	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
 	request := &gitalypb.UserSquashRequest{
 		Repository:    repoProto,
@@ -87,18 +80,12 @@ func testSuccessfulUserSquashRequest(t *testing.T, ctx context.Context, start, e
 }
 
 func TestUserSquash_stableID(t *testing.T) {
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
-
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
-
-	repoProto, _, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
-	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
-
 	ctx, cancel := testhelper.Context()
 	defer cancel()
+
+	ctx, cfg, repoProto, _, client := setupOperationsService(t, ctx)
+
+	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
 	response, err := client.UserSquash(ctx, &gitalypb.UserSquashRequest{
 		Repository:    repoProto,
@@ -156,15 +143,9 @@ func TestSuccessfulUserSquashRequestWith3wayMerge(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
+	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
-
-	repoProto, repoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
 	request := &gitalypb.UserSquashRequest{
 		Repository:    repoProto,
@@ -209,19 +190,12 @@ func TestSplitIndex(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
+	ctx, _, repo, repoPath, client := setupOperationsService(t, ctx)
 
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, testRepoPath, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
-
-	require.False(t, ensureSplitIndexExists(t, testRepoPath))
+	require.False(t, ensureSplitIndexExists(t, repoPath))
 
 	request := &gitalypb.UserSquashRequest{
-		Repository:    testRepo,
+		Repository:    repo,
 		User:          testhelper.TestUser,
 		SquashId:      "1",
 		Author:        author,
@@ -233,22 +207,19 @@ func TestSplitIndex(t *testing.T) {
 	response, err := client.UserSquash(ctx, request)
 	require.NoError(t, err)
 	require.Empty(t, response.GetGitError())
-	require.False(t, ensureSplitIndexExists(t, testRepoPath))
+	require.False(t, ensureSplitIndexExists(t, repoPath))
 }
 
 func TestSquashRequestWithRenamedFiles(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
+	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
 
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
+	repoProto, repoPath, cleanup := gittest.CloneRepoWithWorktreeAtStorage(t, cfg.Storages[0])
+	t.Cleanup(cleanup)
 
-	repoProto, repoPath, cleanupFn := gittest.CloneRepoWithWorktree(t)
-	defer cleanupFn()
-	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
 	originalFilename := "original-file.txt"
 	renamedFilename := "renamed-file.txt"
@@ -303,19 +274,12 @@ func TestSuccessfulUserSquashRequestWithMissingFileOnTargetBranch(t *testing.T) 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
-
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
+	ctx, _, repo, _, client := setupOperationsService(t, ctx)
 
 	conflictingStartSha := "bbd36ad238d14e1c03ece0f3358f545092dc9ca3"
 
 	request := &gitalypb.UserSquashRequest{
-		Repository:    testRepo,
+		Repository:    repo,
 		User:          testhelper.TestUser,
 		SquashId:      "1",
 		Author:        author,
@@ -330,14 +294,10 @@ func TestSuccessfulUserSquashRequestWithMissingFileOnTargetBranch(t *testing.T) 
 }
 
 func TestFailedUserSquashRequestDueToValidations(t *testing.T) {
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
+	ctx, _, repo, _, client := setupOperationsService(t, ctx)
 
 	testCases := []struct {
 		desc    string
@@ -360,7 +320,7 @@ func TestFailedUserSquashRequestDueToValidations(t *testing.T) {
 		{
 			desc: "empty User",
 			request: &gitalypb.UserSquashRequest{
-				Repository:    testRepo,
+				Repository:    repo,
 				User:          nil,
 				SquashId:      "1",
 				Author:        testhelper.TestUser,
@@ -373,7 +333,7 @@ func TestFailedUserSquashRequestDueToValidations(t *testing.T) {
 		{
 			desc: "empty SquashId",
 			request: &gitalypb.UserSquashRequest{
-				Repository:    testRepo,
+				Repository:    repo,
 				User:          testhelper.TestUser,
 				SquashId:      "",
 				Author:        testhelper.TestUser,
@@ -386,7 +346,7 @@ func TestFailedUserSquashRequestDueToValidations(t *testing.T) {
 		{
 			desc: "empty StartSha",
 			request: &gitalypb.UserSquashRequest{
-				Repository:    testRepo,
+				Repository:    repo,
 				User:          testhelper.TestUser,
 				SquashId:      "1",
 				Author:        testhelper.TestUser,
@@ -399,7 +359,7 @@ func TestFailedUserSquashRequestDueToValidations(t *testing.T) {
 		{
 			desc: "empty EndSha",
 			request: &gitalypb.UserSquashRequest{
-				Repository:    testRepo,
+				Repository:    repo,
 				User:          testhelper.TestUser,
 				SquashId:      "1",
 				Author:        testhelper.TestUser,
@@ -412,7 +372,7 @@ func TestFailedUserSquashRequestDueToValidations(t *testing.T) {
 		{
 			desc: "empty Author",
 			request: &gitalypb.UserSquashRequest{
-				Repository:    testRepo,
+				Repository:    repo,
 				User:          testhelper.TestUser,
 				SquashId:      "1",
 				Author:        nil,
@@ -425,7 +385,7 @@ func TestFailedUserSquashRequestDueToValidations(t *testing.T) {
 		{
 			desc: "empty CommitMessage",
 			request: &gitalypb.UserSquashRequest{
-				Repository:    testRepo,
+				Repository:    repo,
 				User:          testhelper.TestUser,
 				SquashId:      "1",
 				Author:        testhelper.TestUser,
@@ -438,7 +398,7 @@ func TestFailedUserSquashRequestDueToValidations(t *testing.T) {
 		{
 			desc: "worktree id can't contain slashes",
 			request: &gitalypb.UserSquashRequest{
-				Repository:    testRepo,
+				Repository:    repo,
 				User:          testhelper.TestUser,
 				SquashId:      "1/2",
 				Author:        testhelper.TestUser,
@@ -452,9 +412,6 @@ func TestFailedUserSquashRequestDueToValidations(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
-
 			_, err := client.UserSquash(ctx, testCase.request)
 			testhelper.RequireGrpcError(t, err, testCase.code)
 			require.Contains(t, err.Error(), testCase.desc)
@@ -463,14 +420,10 @@ func TestFailedUserSquashRequestDueToValidations(t *testing.T) {
 }
 
 func TestUserSquashWithGitError(t *testing.T) {
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
+	ctx, _, repo, _, client := setupOperationsService(t, ctx)
 
 	testCases := []struct {
 		desc     string
@@ -480,7 +433,7 @@ func TestUserSquashWithGitError(t *testing.T) {
 		{
 			desc: "not existing start SHA",
 			request: &gitalypb.UserSquashRequest{
-				Repository:    testRepo,
+				Repository:    repo,
 				SquashId:      "1",
 				User:          testhelper.TestUser,
 				Author:        testhelper.TestUser,
@@ -493,7 +446,7 @@ func TestUserSquashWithGitError(t *testing.T) {
 		{
 			desc: "not existing end SHA",
 			request: &gitalypb.UserSquashRequest{
-				Repository:    testRepo,
+				Repository:    repo,
 				SquashId:      "1",
 				User:          testhelper.TestUser,
 				Author:        testhelper.TestUser,
@@ -506,7 +459,7 @@ func TestUserSquashWithGitError(t *testing.T) {
 		{
 			desc: "user has no name set",
 			request: &gitalypb.UserSquashRequest{
-				Repository:    testRepo,
+				Repository:    repo,
 				SquashId:      "1",
 				User:          &gitalypb.User{Email: testhelper.TestUser.Email},
 				Author:        testhelper.TestUser,
@@ -519,7 +472,7 @@ func TestUserSquashWithGitError(t *testing.T) {
 		{
 			desc: "author has no name set",
 			request: &gitalypb.UserSquashRequest{
-				Repository:    testRepo,
+				Repository:    repo,
 				SquashId:      "1",
 				User:          testhelper.TestUser,
 				Author:        &gitalypb.User{Email: testhelper.TestUser.Email},
@@ -533,9 +486,6 @@ func TestUserSquashWithGitError(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
-			ctx, cancel := testhelper.Context()
-			defer cancel()
-
 			resp, err := client.UserSquash(ctx, testCase.request)
 			s, ok := status.FromError(err)
 			require.True(t, ok)

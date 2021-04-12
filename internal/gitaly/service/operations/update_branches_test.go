@@ -11,6 +11,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -24,23 +25,19 @@ var (
 	oldrev           = []byte("0b4bc9a49b562e85de7cc9e834518ea6828729b9")
 )
 
-func TestSuccessfulUserUpdateBranchRequest(t *testing.T) {
+func testSuccessfulUserUpdateBranchRequest(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.ReferenceTransactions,
 		featureflag.GoUserUpdateBranch,
-	}).Run(t, testSuccessfulUserUpdateBranchRequest)
+	}).Run(t, func(t *testing.T, ctx context.Context) {
+		testSuccessfulUserUpdateBranchRequestFeatured(t, ctx, cfg, rubySrv)
+	})
 }
 
-func testSuccessfulUserUpdateBranchRequest(t *testing.T, ctx context.Context) {
-	repoProto, repoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
+func testSuccessfulUserUpdateBranchRequestFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
+	ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
 
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
-
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
+	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
 	testCases := []struct {
 		desc             string
@@ -109,20 +106,14 @@ func testSuccessfulUserUpdateBranchRequest(t *testing.T, ctx context.Context) {
 	}
 }
 
-func TestSuccessfulUserUpdateBranchRequestToDelete(t *testing.T) {
-	testWithFeature(t, featureflag.GoUserUpdateBranch, testSuccessfulUserUpdateBranchRequestToDelete)
+func testSuccessfulUserUpdateBranchRequestToDelete(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
+	testWithFeature(t, featureflag.GoUserUpdateBranch, cfg, rubySrv, testSuccessfulUserUpdateBranchRequestToDeleteFeatured)
 }
 
-func testSuccessfulUserUpdateBranchRequestToDelete(t *testing.T, ctx context.Context) {
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
+func testSuccessfulUserUpdateBranchRequestToDeleteFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
+	ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
 
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
-
-	repoProto, repoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
 	testCases := []struct {
 		desc             string
@@ -185,20 +176,16 @@ func testSuccessfulUserUpdateBranchRequestToDelete(t *testing.T, ctx context.Con
 	}
 }
 
-func TestSuccessfulGitHooksForUserUpdateBranchRequest(t *testing.T) {
-	testWithFeature(t, featureflag.GoUserUpdateBranch, testSuccessfulGitHooksForUserUpdateBranchRequest)
+func testSuccessfulGitHooksForUserUpdateBranchRequest(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
+	testWithFeature(t, featureflag.GoUserUpdateBranch, cfg, rubySrv, testSuccessfulGitHooksForUserUpdateBranchRequestFeatured)
 }
 
-func testSuccessfulGitHooksForUserUpdateBranchRequest(t *testing.T, ctx context.Context) {
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
-
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
+func testSuccessfulGitHooksForUserUpdateBranchRequestFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
+	ctx, cfg, _, _, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
 
 	for _, hookName := range GitlabHooks {
 		t.Run(hookName, func(t *testing.T) {
-			testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
+			testRepo, testRepoPath, cleanupFn := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "repo")
 			defer cleanupFn()
 
 			hookOutputTempPath, cleanup := gittest.WriteEnvToCustomHook(t, testRepoPath, hookName)
@@ -224,22 +211,15 @@ func testSuccessfulGitHooksForUserUpdateBranchRequest(t *testing.T, ctx context.
 	}
 }
 
-func TestFailedUserUpdateBranchDueToHooks(t *testing.T) {
-	testWithFeature(t, featureflag.GoUserUpdateBranch, testFailedUserUpdateBranchDueToHooks)
+func testFailedUserUpdateBranchDueToHooks(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
+	testWithFeature(t, featureflag.GoUserUpdateBranch, cfg, rubySrv, testFailedUserUpdateBranchDueToHooksFeatured)
 }
 
-func testFailedUserUpdateBranchDueToHooks(t *testing.T, ctx context.Context) {
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
-
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
+func testFailedUserUpdateBranchDueToHooksFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
+	ctx, _, repo, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
 
 	request := &gitalypb.UserUpdateBranchRequest{
-		Repository: testRepo,
+		Repository: repo,
 		BranchName: []byte(updateBranchName),
 		Newrev:     newrev,
 		Oldrev:     oldrev,
@@ -250,13 +230,13 @@ func testFailedUserUpdateBranchDueToHooks(t *testing.T, ctx context.Context) {
 	hookContent := []byte("#!/bin/sh\nprintenv | paste -sd ' ' - >&2\nexit 1")
 
 	for _, hookName := range gitlabPreHooks {
-		remove := gittest.WriteCustomHook(t, testRepoPath, hookName, hookContent)
+		remove := gittest.WriteCustomHook(t, repoPath, hookName, hookContent)
 		defer remove()
 
 		response, err := client.UserUpdateBranch(ctx, request)
 		require.Nil(t, err)
 		require.Contains(t, response.PreReceiveError, "GL_USERNAME="+testhelper.TestUser.GlUsername)
-		require.Contains(t, response.PreReceiveError, "PWD="+testRepoPath)
+		require.Contains(t, response.PreReceiveError, "PWD="+repoPath)
 
 		responseOk := &gitalypb.UserUpdateBranchResponse{
 			PreReceiveError: response.PreReceiveError,
@@ -265,20 +245,14 @@ func testFailedUserUpdateBranchDueToHooks(t *testing.T, ctx context.Context) {
 	}
 }
 
-func TestFailedUserUpdateBranchRequest(t *testing.T) {
-	testWithFeature(t, featureflag.GoUserUpdateBranch, testFailedUserUpdateBranchRequest)
+func testFailedUserUpdateBranchRequest(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
+	testWithFeature(t, featureflag.GoUserUpdateBranch, cfg, rubySrv, testFailedUserUpdateBranchRequestFeatured)
 }
 
-func testFailedUserUpdateBranchRequest(t *testing.T, ctx context.Context) {
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
+func testFailedUserUpdateBranchRequestFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
+	ctx, cfg, repoProto, _, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
 
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
-
-	repoProto, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
 	revDoesntExist := fmt.Sprintf("%x", sha1.Sum([]byte("we need a non existent sha")))
 

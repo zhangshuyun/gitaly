@@ -17,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -31,27 +32,21 @@ var (
 	mergeBranchHeadBefore = "281d3a76f31c812dbf48abce82ccf6860adedd81"
 )
 
-func testWithFeature(t *testing.T, feature featureflag.FeatureFlag, testcase func(*testing.T, context.Context)) {
+func testWithFeature(t *testing.T, feature featureflag.FeatureFlag, cfg config.Cfg, rubySrv *rubyserver.Server, testcase func(*testing.T, context.Context, config.Cfg, *rubyserver.Server)) {
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		feature,
 	}).Run(t, func(t *testing.T, ctx context.Context) {
-		testcase(t, ctx)
+		testcase(t, ctx, cfg, rubySrv)
 	})
 }
 
 func TestSuccessfulMerge(t *testing.T) {
-	repoProto, repoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
-
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
-
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
-
 	ctx, cancel := testhelper.Context()
 	defer cancel()
+
+	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
+
+	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
 	mergeBidi, err := client.UserMergeBranch(ctx)
 	require.NoError(t, err)
@@ -129,18 +124,12 @@ func TestSuccessfulMerge(t *testing.T) {
 }
 
 func TestSuccessfulMerge_stableMergeIDs(t *testing.T) {
-	repoProto, repoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
-
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
-
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
-
 	ctx, cancel := testhelper.Context()
 	defer cancel()
+
+	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
+
+	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
 	mergeBidi, err := client.UserMergeBranch(ctx)
 	require.NoError(t, err)
@@ -204,15 +193,12 @@ func TestSuccessfulMerge_stableMergeIDs(t *testing.T) {
 }
 
 func TestAbortedMerge(t *testing.T) {
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
+	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
-	repoProto, repoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
 	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", mergeBranchName, mergeBranchHeadBefore)
 
@@ -223,9 +209,6 @@ func TestAbortedMerge(t *testing.T) {
 		Branch:     []byte(mergeBranchName),
 		Message:    []byte("foobar"),
 	}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
 	testCases := []struct {
 		req       *gitalypb.UserMergeBranchRequest
@@ -273,18 +256,12 @@ func TestAbortedMerge(t *testing.T) {
 }
 
 func TestFailedMergeConcurrentUpdate(t *testing.T) {
-	repoProto, repoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
-
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
-
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
-
 	ctx, cancel := testhelper.Context()
 	defer cancel()
+
+	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
+
+	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
 	mergeBidi, err := client.UserMergeBranch(ctx)
 	require.NoError(t, err)
@@ -321,18 +298,12 @@ func TestFailedMergeConcurrentUpdate(t *testing.T) {
 }
 
 func TestUserMergeBranch_ambiguousReference(t *testing.T) {
-	repoProto, repoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
-
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
-
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
-
 	ctx, cancel := testhelper.Context()
 	defer cancel()
+
+	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
+
+	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
 	merge, err := client.UserMergeBranch(ctx)
 	require.NoError(t, err)
@@ -390,33 +361,26 @@ func TestUserMergeBranch_ambiguousReference(t *testing.T) {
 }
 
 func TestFailedMergeDueToHooks(t *testing.T) {
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
+	ctx, _, repo, repoPath, client := setupOperationsService(t, ctx)
 
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", mergeBranchName, mergeBranchHeadBefore)
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", mergeBranchName, mergeBranchHeadBefore)
 
 	hookContent := []byte("#!/bin/sh\necho 'failure'\nexit 1")
 
 	for _, hookName := range gitlabPreHooks {
 		t.Run(hookName, func(t *testing.T) {
-			remove := gittest.WriteCustomHook(t, testRepoPath, hookName, hookContent)
+			remove := gittest.WriteCustomHook(t, repoPath, hookName, hookContent)
 			defer remove()
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
 
 			mergeBidi, err := client.UserMergeBranch(ctx)
 			require.NoError(t, err)
 
 			mergeCommitMessage := "Merged by Gitaly"
 			firstRequest := &gitalypb.UserMergeBranchRequest{
-				Repository: testRepo,
+				Repository: repo,
 				User:       testhelper.TestUser,
 				CommitId:   commitToMerge,
 				Branch:     []byte(mergeBranchName),
@@ -440,29 +404,22 @@ func TestFailedMergeDueToHooks(t *testing.T) {
 				return err
 			})
 
-			currentBranchHead := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "rev-parse", mergeBranchName)
+			currentBranchHead := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", mergeBranchName)
 			require.Equal(t, mergeBranchHeadBefore, text.ChompBytes(currentBranchHead), "branch head updated")
 		})
 	}
 }
 
 func TestSuccessfulUserFFBranchRequest(t *testing.T) {
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
-
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-
 	ctx, cancel := testhelper.Context()
 	defer cancel()
+
+	ctx, _, repo, repoPath, client := setupOperationsService(t, ctx)
 
 	commitID := "cfe32cf61b73a0d5e9f13e774abde7ff789b1660"
 	branchName := "test-ff-target-branch"
 	request := &gitalypb.UserFFBranchRequest{
-		Repository: testRepo,
+		Repository: repo,
 		CommitId:   commitID,
 		Branch:     []byte(branchName),
 		User:       testhelper.TestUser,
@@ -475,29 +432,25 @@ func TestSuccessfulUserFFBranchRequest(t *testing.T) {
 		},
 	}
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", "-f", branchName, "6d394385cf567f80a8fd85055db1ab4c5295806f")
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", "-f", branchName, "6d394385cf567f80a8fd85055db1ab4c5295806f")
 
 	resp, err := client.UserFFBranch(ctx, request)
 	require.NoError(t, err)
 	testhelper.ProtoEqual(t, expectedResponse, resp)
-	newBranchHead := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "rev-parse", branchName)
+	newBranchHead := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", branchName)
 	require.Equal(t, commitID, text.ChompBytes(newBranchHead), "branch head not updated")
 }
 
 func TestFailedUserFFBranchRequest(t *testing.T) {
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	ctx, _, repo, repoPath, client := setupOperationsService(t, ctx)
 
 	commitID := "cfe32cf61b73a0d5e9f13e774abde7ff789b1660"
 	branchName := "test-ff-target-branch"
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", "-f", branchName, "6d394385cf567f80a8fd85055db1ab4c5295806f")
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", "-f", branchName, "6d394385cf567f80a8fd85055db1ab4c5295806f")
 
 	testCases := []struct {
 		desc     string
@@ -516,21 +469,21 @@ func TestFailedUserFFBranchRequest(t *testing.T) {
 		},
 		{
 			desc:     "empty user",
-			repo:     testRepo,
+			repo:     repo,
 			branch:   []byte(branchName),
 			commitID: commitID,
 			code:     codes.InvalidArgument,
 		},
 		{
 			desc:   "empty commit",
-			repo:   testRepo,
+			repo:   repo,
 			user:   testhelper.TestUser,
 			branch: []byte(branchName),
 			code:   codes.InvalidArgument,
 		},
 		{
 			desc:     "non-existing commit",
-			repo:     testRepo,
+			repo:     repo,
 			user:     testhelper.TestUser,
 			branch:   []byte(branchName),
 			commitID: "f001",
@@ -538,14 +491,14 @@ func TestFailedUserFFBranchRequest(t *testing.T) {
 		},
 		{
 			desc:     "empty branch",
-			repo:     testRepo,
+			repo:     repo,
 			user:     testhelper.TestUser,
 			commitID: commitID,
 			code:     codes.InvalidArgument,
 		},
 		{
 			desc:     "non-existing branch",
-			repo:     testRepo,
+			repo:     repo,
 			user:     testhelper.TestUser,
 			branch:   []byte("this-isnt-real"),
 			commitID: commitID,
@@ -553,16 +506,13 @@ func TestFailedUserFFBranchRequest(t *testing.T) {
 		},
 		{
 			desc:     "commit is not a descendant of branch head",
-			repo:     testRepo,
+			repo:     repo,
 			user:     testhelper.TestUser,
 			branch:   []byte(branchName),
 			commitID: "1a0b36b3cdad1d2ee32457c102a8c0b7056fa863",
 			code:     codes.FailedPrecondition,
 		},
 	}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
@@ -579,35 +529,28 @@ func TestFailedUserFFBranchRequest(t *testing.T) {
 }
 
 func TestFailedUserFFBranchDueToHooks(t *testing.T) {
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	ctx, _, repo, repoPath, client := setupOperationsService(t, ctx)
 
 	commitID := "cfe32cf61b73a0d5e9f13e774abde7ff789b1660"
 	branchName := "test-ff-target-branch"
 	request := &gitalypb.UserFFBranchRequest{
-		Repository: testRepo,
+		Repository: repo,
 		CommitId:   commitID,
 		Branch:     []byte(branchName),
 		User:       testhelper.TestUser,
 	}
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", "-f", branchName, "6d394385cf567f80a8fd85055db1ab4c5295806f")
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", "-f", branchName, "6d394385cf567f80a8fd85055db1ab4c5295806f")
 
 	hookContent := []byte("#!/bin/sh\necho 'failure'\nexit 1")
 
 	for _, hookName := range gitlabPreHooks {
 		t.Run(hookName, func(t *testing.T) {
-			remove := gittest.WriteCustomHook(t, testRepoPath, hookName, hookContent)
+			remove := gittest.WriteCustomHook(t, repoPath, hookName, hookContent)
 			defer remove()
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
 
 			resp, err := client.UserFFBranch(ctx, request)
 			require.Nil(t, err)
@@ -617,17 +560,10 @@ func TestFailedUserFFBranchDueToHooks(t *testing.T) {
 }
 
 func TestUserFFBranch_ambiguousReference(t *testing.T) {
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
-
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer func() { require.NoError(t, conn.Close()) }()
-
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-
 	ctx, cancel := testhelper.Context()
 	defer cancel()
+
+	ctx, _, repo, repoPath, client := setupOperationsService(t, ctx)
 
 	branchName := "test-ff-target-branch"
 
@@ -640,14 +576,14 @@ func TestUserFFBranch_ambiguousReference(t *testing.T) {
 	// old revision when calling git-update-ref. As a result, the
 	// update would've failed as the branch's current revision
 	// didn't match the specified old revision.
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath,
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath,
 		"branch", branchName,
 		"6d394385cf567f80a8fd85055db1ab4c5295806f")
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "tag", branchName, "6d394385cf567f80a8fd85055db1ab4c5295806f~")
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "tag", branchName, "6d394385cf567f80a8fd85055db1ab4c5295806f~")
 
 	commitID := "cfe32cf61b73a0d5e9f13e774abde7ff789b1660"
 	request := &gitalypb.UserFFBranchRequest{
-		Repository: testRepo,
+		Repository: repo,
 		CommitId:   commitID,
 		Branch:     []byte(branchName),
 		User:       testhelper.TestUser,
@@ -663,7 +599,7 @@ func TestUserFFBranch_ambiguousReference(t *testing.T) {
 	resp, err := client.UserFFBranch(ctx, request)
 	require.NoError(t, err)
 	testhelper.ProtoEqual(t, expectedResponse, resp)
-	newBranchHead := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "rev-parse", "refs/heads/"+branchName)
+	newBranchHead := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", "refs/heads/"+branchName)
 	require.Equal(t, commitID, text.ChompBytes(newBranchHead), "branch head not updated")
 }
 
@@ -671,15 +607,9 @@ func TestSuccessfulUserMergeToRefRequest(t *testing.T) {
 	ctx, cleanup := testhelper.Context()
 	defer cleanup()
 
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
+	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
-
-	repoProto, repoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
 	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", mergeBranchName, mergeBranchHeadBefore)
 
@@ -689,7 +619,7 @@ func TestSuccessfulUserMergeToRefRequest(t *testing.T) {
 
 	// Writes in existingTargetRef
 	beforeRefreshCommitSha := "a5391128b0ef5d21df5dd23d98557f4ef12fae20"
-	out, err := exec.Command(config.Config.Git.BinPath, "-C", repoPath, "update-ref", string(existingTargetRef), beforeRefreshCommitSha).CombinedOutput()
+	out, err := exec.Command(cfg.Git.BinPath, "-C", repoPath, "update-ref", string(existingTargetRef), beforeRefreshCommitSha).CombinedOutput()
 	require.NoError(t, err, "give an existing state to the target ref: %s", out)
 
 	testCases := []struct {
@@ -781,19 +711,12 @@ func TestConflictsOnUserMergeToRefRequest(t *testing.T) {
 	ctx, cleanup := testhelper.Context()
 	defer cleanup()
 
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
+	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", mergeBranchName, "824be604a34828eb682305f0d963056cfac87b2d")
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", mergeBranchName, "824be604a34828eb682305f0d963056cfac87b2d")
 
 	request := &gitalypb.UserMergeToRefRequest{
-		Repository:     testRepo,
+		Repository:     repo,
 		User:           testhelper.TestUser,
 		TargetRef:      []byte("refs/merge-requests/x/written"),
 		SourceSha:      "1450cd639e0bc6721eb02800169e464f212cde06",
@@ -808,7 +731,7 @@ func TestConflictsOnUserMergeToRefRequest(t *testing.T) {
 		require.NoError(t, err)
 
 		var buf bytes.Buffer
-		cmd := exec.Command(config.Config.Git.BinPath, "-C", testRepoPath, "show", resp.CommitId)
+		cmd := exec.Command(cfg.Git.BinPath, "-C", repoPath, "show", resp.CommitId)
 		cmd.Stdout = &buf
 		require.NoError(t, cmd.Run())
 
@@ -831,15 +754,9 @@ func TestUserMergeToRef_stableMergeID(t *testing.T) {
 	ctx, cleanup := testhelper.Context()
 	defer cleanup()
 
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
+	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
-
-	repoProto, repoPath, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
-	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
 	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", mergeBranchName, mergeBranchHeadBefore)
 
@@ -888,16 +805,9 @@ func TestFailedUserMergeToRefRequest(t *testing.T) {
 	ctx, cleanup := testhelper.Context()
 	defer cleanup()
 
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
+	ctx, _, repo, repoPath, client := setupOperationsService(t, ctx)
 
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", mergeBranchName, mergeBranchHeadBefore)
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", mergeBranchName, mergeBranchHeadBefore)
 
 	validTargetRef := []byte("refs/merge-requests/x/merge")
 
@@ -920,7 +830,7 @@ func TestFailedUserMergeToRefRequest(t *testing.T) {
 		},
 		{
 			desc:      "empty user",
-			repo:      testRepo,
+			repo:      repo,
 			branch:    []byte(branchName),
 			sourceSha: commitToMerge,
 			targetRef: validTargetRef,
@@ -928,7 +838,7 @@ func TestFailedUserMergeToRefRequest(t *testing.T) {
 		},
 		{
 			desc:      "empty source SHA",
-			repo:      testRepo,
+			repo:      repo,
 			user:      testhelper.TestUser,
 			branch:    []byte(branchName),
 			targetRef: validTargetRef,
@@ -936,7 +846,7 @@ func TestFailedUserMergeToRefRequest(t *testing.T) {
 		},
 		{
 			desc:      "non-existing commit",
-			repo:      testRepo,
+			repo:      repo,
 			user:      testhelper.TestUser,
 			branch:    []byte(branchName),
 			sourceSha: "f001",
@@ -945,7 +855,7 @@ func TestFailedUserMergeToRefRequest(t *testing.T) {
 		},
 		{
 			desc:      "empty branch and first parent ref",
-			repo:      testRepo,
+			repo:      repo,
 			user:      testhelper.TestUser,
 			sourceSha: commitToMerge,
 			targetRef: validTargetRef,
@@ -953,7 +863,7 @@ func TestFailedUserMergeToRefRequest(t *testing.T) {
 		},
 		{
 			desc:      "invalid target ref",
-			repo:      testRepo,
+			repo:      repo,
 			user:      testhelper.TestUser,
 			branch:    []byte(branchName),
 			sourceSha: commitToMerge,
@@ -962,7 +872,7 @@ func TestFailedUserMergeToRefRequest(t *testing.T) {
 		},
 		{
 			desc:      "non-existing branch",
-			repo:      testRepo,
+			repo:      repo,
 			user:      testhelper.TestUser,
 			branch:    []byte("this-isnt-real"),
 			sourceSha: commitToMerge,
@@ -990,22 +900,15 @@ func TestUserMergeToRefIgnoreHooksRequest(t *testing.T) {
 	ctx, cleanup := testhelper.Context()
 	defer cleanup()
 
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
+	ctx, _, repo, repoPath, client := setupOperationsService(t, ctx)
 
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", mergeBranchName, mergeBranchHeadBefore)
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", mergeBranchName, mergeBranchHeadBefore)
 
 	targetRef := []byte("refs/merge-requests/x/merge")
 	mergeCommitMessage := "Merged by Gitaly"
 
 	request := &gitalypb.UserMergeToRefRequest{
-		Repository: testRepo,
+		Repository: repo,
 		SourceSha:  commitToMerge,
 		Branch:     []byte(mergeBranchName),
 		TargetRef:  targetRef,
@@ -1017,7 +920,7 @@ func TestUserMergeToRefIgnoreHooksRequest(t *testing.T) {
 
 	for _, hookName := range gitlabPreHooks {
 		t.Run(hookName, func(t *testing.T) {
-			remove := gittest.WriteCustomHook(t, testRepoPath, hookName, hookContent)
+			remove := gittest.WriteCustomHook(t, repoPath, hookName, hookContent)
 			defer remove()
 
 			resp, err := client.UserMergeToRef(ctx, request)

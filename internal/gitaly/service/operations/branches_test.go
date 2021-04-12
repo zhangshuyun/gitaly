@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/client"
+	gitalyclient "gitlab.com/gitlab-org/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
@@ -20,6 +20,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -41,15 +42,9 @@ func TestSuccessfulCreateBranchRequest(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	repoProto, repoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
+	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
-
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
+	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
 	startPoint := "c7fbe50c7c7419d9701eebe64b1fdacc3df5b9dd"
 	startPointCommit, err := repo.ReadCommit(ctx, git.Revision(startPoint))
@@ -105,9 +100,6 @@ func TestSuccessfulCreateBranchRequest(t *testing.T) {
 				User:       testhelper.TestUser,
 			}
 
-			ctx, cancel := testhelper.Context()
-			defer cancel()
-
 			response, err := client.UserCreateBranch(ctx, request)
 			if testCase.expectedBranch != nil {
 				defer testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", "-D", branchName)
@@ -124,10 +116,9 @@ func TestSuccessfulCreateBranchRequest(t *testing.T) {
 }
 
 func TestUserCreateBranchWithTransaction(t *testing.T) {
-	testRepo, testRepoPath, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
+	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
-	internalSocket := config.Config.GitalyInternalSocketPath()
+	internalSocket := cfg.GitalyInternalSocketPath()
 	internalListener, err := net.Listen("unix", internalSocket)
 	require.NoError(t, err)
 	defer internalListener.Close()
@@ -137,19 +128,19 @@ func TestUserCreateBranchWithTransaction(t *testing.T) {
 	defer tcpSocket.Close()
 
 	transactionServer := &testTransactionServer{}
-	srv := testhelper.NewServerWithAuth(t, nil, nil, config.Config.Auth.Token)
-	locator := config.NewLocator(config.Config)
-	txManager := transaction.NewManager(config.Config, backchannel.NewRegistry())
-	hookManager := gitalyhook.NewManager(locator, txManager, gitalyhook.GitlabAPIStub, config.Config)
-	gitCmdFactory := git.NewExecCommandFactory(config.Config)
+	srv := testhelper.NewServerWithAuth(t, nil, nil, cfg.Auth.Token)
+	locator := config.NewLocator(cfg)
+	txManager := transaction.NewManager(cfg, backchannel.NewRegistry())
+	hookManager := gitalyhook.NewManager(locator, txManager, gitalyhook.GitlabAPIStub, cfg)
+	gitCmdFactory := git.NewExecCommandFactory(cfg)
 
-	conns := client.NewPool()
+	conns := gitalyclient.NewPool()
 	defer conns.Close()
 
-	server := NewServer(config.Config, RubyServer, hookManager, locator, conns, gitCmdFactory)
+	server := NewServer(cfg, nil, hookManager, locator, conns, gitCmdFactory)
 
 	gitalypb.RegisterOperationServiceServer(srv.GrpcServer(), server)
-	gitalypb.RegisterHookServiceServer(srv.GrpcServer(), hook.NewServer(config.Config, hookManager, gitCmdFactory))
+	gitalypb.RegisterHookServiceServer(srv.GrpcServer(), hook.NewServer(cfg, hookManager, gitCmdFactory))
 	gitalypb.RegisterRefTransactionServer(srv.GrpcServer(), transactionServer)
 
 	srv.Start(t)
@@ -168,7 +159,7 @@ func TestUserCreateBranchWithTransaction(t *testing.T) {
 			address: tcpSocket.Addr().String(),
 			server: metadata.PraefectServer{
 				ListenAddr: fmt.Sprintf("tcp://" + tcpSocket.Addr().String()),
-				Token:      config.Config.Auth.Token,
+				Token:      cfg.Auth.Token,
 			},
 		},
 		{
@@ -176,7 +167,7 @@ func TestUserCreateBranchWithTransaction(t *testing.T) {
 			address: tcpSocket.Addr().String(),
 			server: metadata.PraefectServer{
 				ListenAddr: fmt.Sprintf("tcp://0.0.0.0:%d", tcpSocket.Addr().(*net.TCPAddr).Port),
-				Token:      config.Config.Auth.Token,
+				Token:      cfg.Auth.Token,
 			},
 		},
 		{
@@ -184,14 +175,14 @@ func TestUserCreateBranchWithTransaction(t *testing.T) {
 			address: "unix://" + internalSocket,
 			server: metadata.PraefectServer{
 				SocketPath: "unix://" + internalSocket,
-				Token:      config.Config.Auth.Token,
+				Token:      cfg.Auth.Token,
 			},
 		},
 	}
 
 	for _, tc := range testcases {
 		t.Run(tc.desc, func(t *testing.T) {
-			defer testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", "-D", "new-branch")
+			defer testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", "-D", "new-branch")
 
 			client, conn := newOperationClient(t, tc.address)
 			defer conn.Close()
@@ -205,7 +196,7 @@ func TestUserCreateBranchWithTransaction(t *testing.T) {
 			ctx = helper.IncomingToOutgoing(ctx)
 
 			request := &gitalypb.UserCreateBranchRequest{
-				Repository: testRepo,
+				Repository: repo,
 				BranchName: []byte("new-branch"),
 				StartPoint: []byte("c7fbe50c7c7419d9701eebe64b1fdacc3df5b9dd"),
 				User:       testhelper.TestUser,
@@ -227,18 +218,11 @@ func TestSuccessfulGitHooksForUserCreateBranchRequest(t *testing.T) {
 }
 
 func testSuccessfulGitHooksForUserCreateBranchRequest(t *testing.T, ctx context.Context) {
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
-
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
+	ctx, _, repo, repoPath, client := setupOperationsService(t, ctx)
 
 	branchName := "new-branch"
 	request := &gitalypb.UserCreateBranchRequest{
-		Repository: testRepo,
+		Repository: repo,
 		BranchName: []byte(branchName),
 		StartPoint: []byte("c7fbe50c7c7419d9701eebe64b1fdacc3df5b9dd"),
 		User:       testhelper.TestUser,
@@ -246,9 +230,9 @@ func testSuccessfulGitHooksForUserCreateBranchRequest(t *testing.T, ctx context.
 
 	for _, hookName := range GitlabHooks {
 		t.Run(hookName, func(t *testing.T) {
-			defer testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", "-D", branchName)
+			defer testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", "-D", branchName)
 
-			hookOutputTempPath, cleanup := gittest.WriteEnvToCustomHook(t, testRepoPath, hookName)
+			hookOutputTempPath, cleanup := gittest.WriteEnvToCustomHook(t, repoPath, hookName)
 			defer cleanup()
 
 			response, err := client.UserCreateBranch(ctx, request)
@@ -265,15 +249,9 @@ func TestSuccessfulCreateBranchRequestWithStartPointRefPrefix(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
+	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
-
-	repoProto, repoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
 	testCases := []struct {
 		desc             string
@@ -344,17 +322,10 @@ func TestFailedUserCreateBranchDueToHooks(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
-
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
+	ctx, _, repo, repoPath, client := setupOperationsService(t, ctx)
 
 	request := &gitalypb.UserCreateBranchRequest{
-		Repository: testRepo,
+		Repository: repo,
 		BranchName: []byte("new-branch"),
 		StartPoint: []byte("c7fbe50c7c7419d9701eebe64b1fdacc3df5b9dd"),
 		User:       testhelper.TestUser,
@@ -364,7 +335,7 @@ func TestFailedUserCreateBranchDueToHooks(t *testing.T) {
 	hookContent := []byte("#!/bin/sh\nprintenv | paste -sd ' ' -\nexit 1")
 
 	for _, hookName := range gitlabPreHooks {
-		remove := gittest.WriteCustomHook(t, testRepoPath, hookName, hookContent)
+		remove := gittest.WriteCustomHook(t, repoPath, hookName, hookContent)
 		defer remove()
 
 		response, err := client.UserCreateBranch(ctx, request)
@@ -377,14 +348,7 @@ func TestFailedUserCreateBranchRequest(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
-
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	ctx, _, repo, _, client := setupOperationsService(t, ctx)
 
 	testCases := []struct {
 		desc       string
@@ -427,7 +391,7 @@ func TestFailedUserCreateBranchRequest(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
 			request := &gitalypb.UserCreateBranchRequest{
-				Repository: testRepo,
+				Repository: repo,
 				BranchName: []byte(testCase.branchName),
 				StartPoint: []byte(testCase.startPoint),
 				User:       testCase.user,
@@ -447,14 +411,7 @@ func TestSuccessfulUserDeleteBranchRequest(t *testing.T) {
 }
 
 func testSuccessfulUserDeleteBranchRequest(t *testing.T, ctx context.Context) {
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
-
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
+	ctx, _, repo, repoPath, client := setupOperationsService(t, ctx)
 
 	testCases := []struct {
 		desc            string
@@ -489,49 +446,42 @@ func testSuccessfulUserDeleteBranchRequest(t *testing.T, ctx context.Context) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
-			testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", testCase.branchNameInput, testCase.branchCommit)
+			testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", testCase.branchNameInput, testCase.branchCommit)
 
 			response, err := client.UserDeleteBranch(ctx, &gitalypb.UserDeleteBranchRequest{
-				Repository: testRepo,
+				Repository: repo,
 				BranchName: []byte(testCase.branchNameInput),
 				User:       testCase.user,
 			})
 			require.NoError(t, err)
 			testhelper.ProtoEqual(t, testCase.response, response)
 
-			refs := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "for-each-ref", "--", "refs/heads/"+testCase.branchNameInput)
+			refs := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "for-each-ref", "--", "refs/heads/"+testCase.branchNameInput)
 			require.NotContains(t, string(refs), testCase.branchCommit, "branch deleted from refs")
 		})
 	}
 }
 
 func TestSuccessfulGitHooksForUserDeleteBranchRequest(t *testing.T) {
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
-
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
+	ctx, _, repo, repoPath, client := setupOperationsService(t, ctx)
 
 	branchNameInput := "to-be-deleted-soon-branch"
 
 	request := &gitalypb.UserDeleteBranchRequest{
-		Repository: testRepo,
+		Repository: repo,
 		BranchName: []byte(branchNameInput),
 		User:       testhelper.TestUser,
 	}
 
 	for _, hookName := range GitlabHooks {
 		t.Run(hookName, func(t *testing.T) {
-			testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", branchNameInput)
+			testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", branchNameInput)
 
-			hookOutputTempPath, cleanup := gittest.WriteEnvToCustomHook(t, testRepoPath, hookName)
+			hookOutputTempPath, cleanup := gittest.WriteEnvToCustomHook(t, repoPath, hookName)
 			defer cleanup()
-
-			ctx, cancel := testhelper.Context()
-			defer cancel()
 
 			_, err := client.UserDeleteBranch(ctx, request)
 			require.NoError(t, err)
@@ -543,8 +493,10 @@ func TestSuccessfulGitHooksForUserDeleteBranchRequest(t *testing.T) {
 }
 
 func TestUserDeleteBranch_transaction(t *testing.T) {
-	repo, repoPath, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
 	// This creates a new branch "delete-me" which exists both in the packed-refs file and as a
 	// loose reference. Git will create two reference transactions for this: one transaction to
@@ -555,25 +507,25 @@ func TestUserDeleteBranch_transaction(t *testing.T) {
 	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "pack-refs", "--all")
 	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "update-ref", "refs/heads/delete-me", "master")
 
-	internalSocket := config.Config.GitalyInternalSocketPath()
+	internalSocket := cfg.GitalyInternalSocketPath()
 	internalListener, err := net.Listen("unix", internalSocket)
 	require.NoError(t, err)
 
-	locator := config.NewLocator(config.Config)
-	txManager := transaction.NewManager(config.Config, backchannel.NewRegistry())
-	hookManager := gitalyhook.NewManager(locator, txManager, gitalyhook.GitlabAPIStub, config.Config)
-	gitCmdFactory := git.NewExecCommandFactory(config.Config)
+	locator := config.NewLocator(cfg)
+	txManager := transaction.NewManager(cfg, backchannel.NewRegistry())
+	hookManager := gitalyhook.NewManager(locator, txManager, gitalyhook.GitlabAPIStub, cfg)
+	gitCmdFactory := git.NewExecCommandFactory(cfg)
 
-	conns := client.NewPool()
+	conns := gitalyclient.NewPool()
 	defer conns.Close()
 
-	operationServer := NewServer(config.Config, RubyServer, hookManager, locator, conns, gitCmdFactory)
+	operationServer := NewServer(cfg, nil, hookManager, locator, conns, gitCmdFactory)
 	transactionServer := &testTransactionServer{}
 
 	// We're setting up the RefTransaction server on the same server as the OperationService.
 	// Typically it would be hosted on Praefect, but in order to make the already-complex test
 	// setup not even more complex we just reuse the same GRPC server.
-	srv := testhelper.NewServerWithAuth(t, nil, nil, config.Config.Auth.Token)
+	srv := testhelper.NewServerWithAuth(t, nil, nil, cfg.Auth.Token)
 	gitalypb.RegisterOperationServiceServer(srv.GrpcServer(), operationServer)
 	gitalypb.RegisterRefTransactionServer(srv.GrpcServer(), transactionServer)
 
@@ -583,11 +535,9 @@ func TestUserDeleteBranch_transaction(t *testing.T) {
 
 	praefect := metadata.PraefectServer{
 		SocketPath: fmt.Sprintf("unix://" + internalSocket),
-		Token:      config.Config.Auth.Token,
+		Token:      cfg.Auth.Token,
 	}
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 	ctx, err = praefect.Inject(ctx)
 	require.NoError(t, err)
 	ctx, err = metadata.InjectTransaction(ctx, 1, "node", true)
@@ -610,14 +560,7 @@ func TestFailedUserDeleteBranchDueToValidation(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
-
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	ctx, _, repo, _, client := setupOperationsService(t, ctx)
 
 	testCases := []struct {
 		desc     string
@@ -628,7 +571,7 @@ func TestFailedUserDeleteBranchDueToValidation(t *testing.T) {
 		{
 			desc: "empty user",
 			request: &gitalypb.UserDeleteBranchRequest{
-				Repository: testRepo,
+				Repository: repo,
 				BranchName: []byte("does-matter-the-name-if-user-is-empty"),
 			},
 			response: nil,
@@ -637,7 +580,7 @@ func TestFailedUserDeleteBranchDueToValidation(t *testing.T) {
 		{
 			desc: "empty branch name",
 			request: &gitalypb.UserDeleteBranchRequest{
-				Repository: testRepo,
+				Repository: repo,
 				User:       testhelper.TestUser,
 			},
 			response: nil,
@@ -646,7 +589,7 @@ func TestFailedUserDeleteBranchDueToValidation(t *testing.T) {
 		{
 			desc: "non-existent branch name",
 			request: &gitalypb.UserDeleteBranchRequest{
-				Repository: testRepo,
+				Repository: repo,
 				User:       testhelper.TestUser,
 				BranchName: []byte("i-do-not-exist"),
 			},
@@ -668,20 +611,13 @@ func TestFailedUserDeleteBranchDueToHooks(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
-
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
+	ctx, _, repo, repoPath, client := setupOperationsService(t, ctx)
 
 	branchNameInput := "to-be-deleted-soon-branch"
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", branchNameInput)
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", branchNameInput)
 
 	request := &gitalypb.UserDeleteBranchRequest{
-		Repository: testRepo,
+		Repository: repo,
 		BranchName: []byte(branchNameInput),
 		User:       testhelper.TestUser,
 	}
@@ -690,14 +626,14 @@ func TestFailedUserDeleteBranchDueToHooks(t *testing.T) {
 
 	for _, hookName := range gitlabPreHooks {
 		t.Run(hookName, func(t *testing.T) {
-			remove := gittest.WriteCustomHook(t, testRepoPath, hookName, hookContent)
+			remove := gittest.WriteCustomHook(t, repoPath, hookName, hookContent)
 			defer remove()
 
 			response, err := client.UserDeleteBranch(ctx, request)
 			require.NoError(t, err)
 			require.Contains(t, response.PreReceiveError, "GL_ID="+testhelper.TestUser.GlId)
 
-			branches := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "for-each-ref", "--", "refs/heads/"+branchNameInput)
+			branches := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "for-each-ref", "--", "refs/heads/"+branchNameInput)
 			require.Contains(t, string(branches), branchNameInput, "branch name does not exist in branches list")
 		})
 	}
@@ -707,14 +643,7 @@ func TestBranchHookOutput(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
-
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	ctx, _, repo, repoPath, client := setupOperationsService(t, ctx)
 
 	testCases := []struct {
 		desc        string
@@ -758,26 +687,26 @@ func TestBranchHookOutput(t *testing.T) {
 			t.Run(hookName+"/"+testCase.desc, func(t *testing.T) {
 				branchNameInput := "some-branch"
 				createRequest := &gitalypb.UserCreateBranchRequest{
-					Repository: testRepo,
+					Repository: repo,
 					BranchName: []byte(branchNameInput),
 					StartPoint: []byte("master"),
 					User:       testhelper.TestUser,
 				}
 				deleteRequest := &gitalypb.UserDeleteBranchRequest{
-					Repository: testRepo,
+					Repository: repo,
 					BranchName: []byte(branchNameInput),
 					User:       testhelper.TestUser,
 				}
 
-				remove := gittest.WriteCustomHook(t, testRepoPath, hookName, []byte(testCase.hookContent))
+				remove := gittest.WriteCustomHook(t, repoPath, hookName, []byte(testCase.hookContent))
 				defer remove()
 
 				createResponse, err := client.UserCreateBranch(ctx, createRequest)
 				require.NoError(t, err)
 				require.Equal(t, testCase.output, createResponse.PreReceiveError)
 
-				testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", branchNameInput)
-				defer testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", "-d", branchNameInput)
+				testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", branchNameInput)
+				defer testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", "-d", branchNameInput)
 
 				deleteResponse, err := client.UserDeleteBranch(ctx, deleteRequest)
 				require.NoError(t, err)

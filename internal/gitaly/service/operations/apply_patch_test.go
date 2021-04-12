@@ -1,7 +1,6 @@
 package operations
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -16,29 +15,20 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/streamio"
 	"google.golang.org/grpc/codes"
 )
 
-func TestSuccessfulUserApplyPatch(t *testing.T) {
+func testSuccessfulUserApplyPatch(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testSuccessfulUserApplyPatch(t, ctx)
-}
+	ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
 
-func testSuccessfulUserApplyPatch(t *testing.T, ctx context.Context) {
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
-
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
-
-	repoProto, repoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
 	testPatchReadme := "testdata/0001-A-commit-from-a-patch.patch"
 	testPatchFeature := "testdata/0001-This-does-not-apply-to-the-feature-branch.patch"
@@ -141,19 +131,13 @@ func testSuccessfulUserApplyPatch(t *testing.T, ctx context.Context) {
 	}
 }
 
-func TestUserApplyPatch_stableID(t *testing.T) {
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
-
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
-
-	repoProto, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
-
+func testUserApplyPatchStableID(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
+
+	ctx, cfg, repoProto, _, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
+
+	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
 	stream, err := client.UserApplyPatch(ctx)
 	require.NoError(t, err)
@@ -207,18 +191,11 @@ func TestUserApplyPatch_stableID(t *testing.T) {
 	}, patchedCommit)
 }
 
-func TestFailedPatchApplyPatch(t *testing.T) {
-	serverSocketPath, stop := runOperationServiceServer(t)
-	defer stop()
-
-	client, conn := newOperationClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-
+func testFailedPatchApplyPatch(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
+
+	ctx, _, repo, _, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
 
 	testPatch, err := ioutil.ReadFile("testdata/0001-This-does-not-apply-to-the-feature-branch.patch")
 	require.NoError(t, err)
@@ -226,7 +203,7 @@ func TestFailedPatchApplyPatch(t *testing.T) {
 	stream, err := client.UserApplyPatch(ctx)
 	require.NoError(t, err)
 
-	headerRequest := applyPatchHeaderRequest(testRepo, testhelper.TestUser, "feature")
+	headerRequest := applyPatchHeaderRequest(repo, testhelper.TestUser, "feature")
 	require.NoError(t, stream.Send(headerRequest))
 
 	patchRequest := applyPatchPatchesRequest(testPatch)
