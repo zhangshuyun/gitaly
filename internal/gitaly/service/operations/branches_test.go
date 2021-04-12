@@ -130,9 +130,11 @@ func TestUserCreateBranchWithTransaction(t *testing.T) {
 	internalSocket := config.Config.GitalyInternalSocketPath()
 	internalListener, err := net.Listen("unix", internalSocket)
 	require.NoError(t, err)
+	defer internalListener.Close()
 
 	tcpSocket, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
+	defer tcpSocket.Close()
 
 	transactionServer := &testTransactionServer{}
 	srv := testhelper.NewServerWithAuth(t, nil, nil, config.Config.Auth.Token)

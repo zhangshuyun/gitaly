@@ -9,6 +9,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	gconfig "gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/repository"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/nodes"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/protoregistry"
@@ -16,6 +18,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/promtest"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
+	"google.golang.org/grpc"
 )
 
 func TestInfoService_RepositoryReplicas(t *testing.T) {
@@ -31,8 +34,9 @@ func TestInfoService_RepositoryReplicas(t *testing.T) {
 		cfg.Storages[i].Path = storagePath
 	}
 
-	gitalyAddr, cleanupGitaly := testserver.RunGitalyServer(t, cfg, nil)
-	defer cleanupGitaly()
+	gitalyAddr := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
+		gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(deps.GetCfg(), deps.GetRubyServer(), deps.GetLocator(), deps.GetTxManager(), deps.GetGitCmdFactory()))
+	}, testserver.WithDisablePraefect())
 
 	conf := config.Config{
 		VirtualStorages: []*config.VirtualStorage{

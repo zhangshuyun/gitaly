@@ -16,9 +16,11 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/repository"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/setup"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -50,8 +52,7 @@ func TestReplicateRepository(t *testing.T) {
 
 	locator := config.NewLocator(config.Config)
 
-	serverSocketPath, clean := runFullServer(t)
-	defer clean()
+	serverSocketPath := testserver.RunGitalyServer(t, config.Config, repository.RubyServer, setup.RegisterAll, testserver.WithDisablePraefect())
 
 	testRepo, testRepoPath, cleanupRepo := gittest.CloneRepo(t)
 	defer cleanupRepo()
@@ -273,8 +274,7 @@ func TestReplicateRepository_BadRepository(t *testing.T) {
 				}
 			}
 
-			serverSocketPath, clean := runFullServer(t)
-			defer clean()
+			serverSocketPath := testserver.RunGitalyServer(t, config.Config, repository.RubyServer, setup.RegisterAll, testserver.WithDisablePraefect())
 
 			config.Config.SocketPath = serverSocketPath
 

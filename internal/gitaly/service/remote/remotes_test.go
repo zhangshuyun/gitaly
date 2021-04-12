@@ -10,16 +10,16 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
 
 func TestSuccessfulAddRemote(t *testing.T) {
-	serverSocketPath, stop := RunRemoteServiceServer(t)
-	defer stop()
+	serverSocketPath := runRemoteServiceServer(t, config.Config)
 
-	client, conn := NewRemoteClient(t, serverSocketPath)
+	client, conn := newRemoteClient(t, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
@@ -100,10 +100,9 @@ func TestSuccessfulAddRemote(t *testing.T) {
 }
 
 func TestFailedAddRemoteDueToValidation(t *testing.T) {
-	serverSocketPath, stop := RunRemoteServiceServer(t)
-	defer stop()
+	serverSocketPath := runRemoteServiceServer(t, config.Config)
 
-	client, conn := NewRemoteClient(t, serverSocketPath)
+	client, conn := newRemoteClient(t, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, _, cleanupFn := gittest.CloneRepo(t)
@@ -147,10 +146,9 @@ func TestFailedAddRemoteDueToValidation(t *testing.T) {
 }
 
 func TestSuccessfulRemoveRemote(t *testing.T) {
-	serverSocketPath, stop := RunRemoteServiceServer(t)
-	defer stop()
+	serverSocketPath := runRemoteServiceServer(t, config.Config)
 
-	client, conn := NewRemoteClient(t, serverSocketPath)
+	client, conn := newRemoteClient(t, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
@@ -197,10 +195,9 @@ func TestSuccessfulRemoveRemote(t *testing.T) {
 }
 
 func TestFailedRemoveRemoteDueToValidation(t *testing.T) {
-	serverSocketPath, stop := RunRemoteServiceServer(t)
-	defer stop()
+	serverSocketPath := runRemoteServiceServer(t, config.Config)
 
-	client, conn := NewRemoteClient(t, serverSocketPath)
+	client, conn := newRemoteClient(t, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, _, cleanupFn := gittest.CloneRepo(t)
@@ -216,10 +213,9 @@ func TestFailedRemoveRemoteDueToValidation(t *testing.T) {
 }
 
 func TestFindRemoteRepository(t *testing.T) {
-	serverSocketPath, stop := RunRemoteServiceServer(t)
-	defer stop()
+	serverSocketPath := runRemoteServiceServer(t, config.Config)
 
-	client, conn := NewRemoteClient(t, serverSocketPath)
+	client, conn := newRemoteClient(t, serverSocketPath)
 	defer conn.Close()
 
 	ctx, cancel := testhelper.Context()
@@ -239,10 +235,9 @@ func TestFindRemoteRepository(t *testing.T) {
 }
 
 func TestFailedFindRemoteRepository(t *testing.T) {
-	serverSocketPath, stop := RunRemoteServiceServer(t)
-	defer stop()
+	serverSocketPath := runRemoteServiceServer(t, config.Config)
 
-	client, conn := NewRemoteClient(t, serverSocketPath)
+	client, conn := newRemoteClient(t, serverSocketPath)
 	defer conn.Close()
 
 	ctx, cancel := testhelper.Context()
