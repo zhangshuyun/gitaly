@@ -21,6 +21,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 )
 
 var (
@@ -59,6 +60,7 @@ func TestWithRubyServer(t *testing.T) {
 	t.Cleanup(rubySrv.Stop)
 
 	t.Run("testSuccessfulResolveConflictsRequest", func(t *testing.T) { testSuccessfulResolveConflictsRequest(t, cfg, rubySrv) })
+	t.Run("testResolveConflictsNonOIDRequests", func(t *testing.T) { testResolveConflictsNonOIDRequests(t, cfg, rubySrv) })
 	t.Run("testResolveConflictsStableID", func(t *testing.T) { testResolveConflictsStableID(t, cfg, rubySrv) })
 	t.Run("testFailedResolveConflictsRequestDueToResolutionError", func(t *testing.T) { testFailedResolveConflictsRequestDueToResolutionError(t, cfg, rubySrv) })
 	t.Run("testFailedResolveConflictsRequestDueToValidation", func(t *testing.T) { testFailedResolveConflictsRequestDueToValidation(t, cfg, rubySrv) })
@@ -193,6 +195,49 @@ func testSuccessfulResolveConflictsRequestFeatured(t *testing.T, ctx context.Con
 	require.Equal(t, string(headCommit.Author.Email), "johndoe@gitlab.com")
 	require.Equal(t, string(headCommit.Committer.Email), "johndoe@gitlab.com")
 	require.Equal(t, string(headCommit.Subject), conflictResolutionCommitMessage)
+}
+
+func testResolveConflictsNonOIDRequests(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.GoResolveConflicts,
+	}).Run(t, func(t *testing.T, ctx context.Context) {
+		testResolveConflictsNonOIDRequestsFeatured(t, ctx, cfg, rubySrv)
+	})
+}
+
+func testResolveConflictsNonOIDRequestsFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
+	cfg, repoProto, _, client := conflicts.SetupConflictsServiceWithRuby(t, cfg, rubySrv, true)
+
+	ctx = testhelper.MergeOutgoingMetadata(ctx, testhelper.GitalyServersMetadata(t, cfg.SocketPath))
+
+	stream, err := client.ResolveConflicts(ctx)
+	require.NoError(t, err)
+
+	require.NoError(t, stream.Send(&gitalypb.ResolveConflictsRequest{
+		ResolveConflictsRequestPayload: &gitalypb.ResolveConflictsRequest_Header{
+			Header: &gitalypb.ResolveConflictsRequestHeader{
+				Repository:       repoProto,
+				TargetRepository: repoProto,
+				CommitMessage:    []byte(conflictResolutionCommitMessage),
+				OurCommitOid:     "conflict-resolvable",
+				TheirCommitOid:   "conflict-start",
+				SourceBranch:     []byte("conflict-resolvable"),
+				TargetBranch:     []byte("conflict-start"),
+				User:             user,
+			},
+		},
+	}))
+
+	filesJSON, err := json.Marshal(files)
+	require.NoError(t, err)
+	require.NoError(t, stream.Send(&gitalypb.ResolveConflictsRequest{
+		ResolveConflictsRequestPayload: &gitalypb.ResolveConflictsRequest_FilesJson{
+			FilesJson: filesJSON,
+		},
+	}))
+
+	_, err = stream.CloseAndRecv()
+	require.Equal(t, status.Errorf(codes.Unknown, "Rugged::InvalidError: unable to parse OID - contains invalid characters"), err)
 }
 
 func testResolveConflictsStableID(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {

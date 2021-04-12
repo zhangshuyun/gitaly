@@ -205,6 +205,11 @@ func (s *server) resolveConflicts(header *gitalypb.ResolveConflictsRequestHeader
 		}
 	}
 
+	if git.ValidateObjectID(header.GetOurCommitOid()) != nil ||
+		git.ValidateObjectID(header.GetTheirCommitOid()) != nil {
+		return errors.New("Rugged::InvalidError: unable to parse OID - contains invalid characters")
+	}
+
 	result, err := git2go.ResolveCommand{
 		MergeCommand: git2go.MergeCommand{
 			Repository: repoPath,
