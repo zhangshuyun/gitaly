@@ -48,13 +48,13 @@ func (s *Server) userRebaseConfirmableGo(stream gitalypb.OperationService_UserRe
 	repo := header.Repository
 	repoPath, err := s.locator.GetPath(repo)
 	if err != nil {
-		return fmt.Errorf("get path: %w", err)
+		return helper.ErrInvalidArgumentf("get path: %w", err)
 	}
 
 	branch := git.NewReferenceNameFromBranchName(string(header.Branch))
 	oldrev, err := git.NewObjectIDFromHex(header.BranchSha)
 	if err != nil {
-		return fmt.Errorf("get oid: %w", err)
+		return helper.ErrNotFound(err)
 	}
 
 	committer := git2go.NewSignature(string(header.User.Name), string(header.User.Email), time.Now())
@@ -62,7 +62,7 @@ func (s *Server) userRebaseConfirmableGo(stream gitalypb.OperationService_UserRe
 	if header.Timestamp != nil {
 		committer.When, err = ptypes.Timestamp(header.Timestamp)
 		if err != nil {
-			return fmt.Errorf("parse timestamp: %w", err)
+			return helper.ErrInvalidArgumentf("parse timestamp: %w", err)
 		}
 	}
 
@@ -86,7 +86,7 @@ func (s *Server) userRebaseConfirmableGo(stream gitalypb.OperationService_UserRe
 
 	secondRequest, err := stream.Recv()
 	if err != nil {
-		return fmt.Errorf("recv: %w", err)
+		return helper.ErrInternalf("recv: %w", err)
 	}
 
 	if !secondRequest.GetApply() {
