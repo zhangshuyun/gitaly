@@ -14,6 +14,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func (s *Server) UserRebaseConfirmable(stream gitalypb.OperationService_UserRebaseConfirmableServer) error {
@@ -57,8 +59,13 @@ func (s *Server) userRebaseConfirmableGo(stream gitalypb.OperationService_UserRe
 		return helper.ErrNotFound(err)
 	}
 
-	committer := git2go.NewSignature(string(header.User.Name), string(header.User.Email), time.Now())
+	remoteFetch := rebaseRemoteFetch{header: header}
+	startRevision, err := s.fetchStartRevision(ctx, remoteFetch)
+	if err != nil {
+		return status.Error(codes.Internal, err.Error())
+	}
 
+	committer := git2go.NewSignature(string(header.User.Name), string(header.User.Email), time.Now())
 	if header.Timestamp != nil {
 		committer.When, err = ptypes.Timestamp(header.Timestamp)
 		if err != nil {
@@ -67,10 +74,10 @@ func (s *Server) userRebaseConfirmableGo(stream gitalypb.OperationService_UserRe
 	}
 
 	newrev, err := git2go.RebaseCommand{
-		Repository:     repoPath,
-		Committer:      committer,
-		BranchName:     string(header.Branch),
-		UpstreamBranch: string(header.RemoteBranch),
+		Repository:       repoPath,
+		Committer:        committer,
+		BranchName:       string(header.Branch),
+		UpstreamRevision: startRevision.String(),
 	}.Run(ctx, s.cfg)
 	if err != nil {
 		return stream.Send(&gitalypb.UserRebaseConfirmableResponse{
@@ -201,4 +208,27 @@ func validateUserRebaseConfirmableHeader(header *gitalypb.UserRebaseConfirmableR
 	}
 
 	return nil
+}
+
+// rebaseRemoteFetch is an intermediate type that implements the
+// `requestFetchingStartRevision` interface. This allows us to use
+// `fetchStartRevision` to get the revision to rebase onto.
+type rebaseRemoteFetch struct {
+	header *gitalypb.UserRebaseConfirmableRequest_Header
+}
+
+func (r rebaseRemoteFetch) GetRepository() *gitalypb.Repository {
+	return r.header.GetRepository()
+}
+
+func (r rebaseRemoteFetch) GetBranchName() []byte {
+	return r.header.GetBranch()
+}
+
+func (r rebaseRemoteFetch) GetStartRepository() *gitalypb.Repository {
+	return r.header.GetRemoteRepository()
+}
+
+func (r rebaseRemoteFetch) GetStartBranchName() []byte {
+	return r.header.GetRemoteBranch()
 }
