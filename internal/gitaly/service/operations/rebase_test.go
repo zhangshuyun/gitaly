@@ -626,6 +626,56 @@ func testRebaseOntoRemoteBranchFeatured(t *testing.T, ctx context.Context, cfg c
 	require.True(t, secondResponse.GetRebaseApplied(), "the second rebase is applied")
 }
 
+func testRebaseFailedWithCode(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
+	testWithFeature(t, featureflag.GoUserRebaseConfirmable, cfg, rubySrv, testRebaseFailedWithCodeFeatured)
+}
+
+func testRebaseFailedWithCodeFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
+	ctx, _, repoProto, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
+
+	branchSha := getBranchSha(t, repoPath, rebaseBranchName)
+
+	testCases := []struct {
+		desc               string
+		buildHeaderRequest func() *gitalypb.UserRebaseConfirmableRequest
+		expectedCode       codes.Code
+	}{
+		{
+			desc: "non-existing storage",
+			buildHeaderRequest: func() *gitalypb.UserRebaseConfirmableRequest {
+				repo := *repoProto
+				repo.StorageName = "@this-storage-does-not-exist"
+
+				return buildHeaderRequest(&repo, testhelper.TestUser, "1", rebaseBranchName, branchSha, &repo, "master")
+			},
+			expectedCode: codes.InvalidArgument,
+		},
+		{
+			desc: "missing repository path",
+			buildHeaderRequest: func() *gitalypb.UserRebaseConfirmableRequest {
+				repo := *repoProto
+				repo.RelativePath = ""
+
+				return buildHeaderRequest(&repo, testhelper.TestUser, "1", rebaseBranchName, branchSha, &repo, "master")
+			},
+			expectedCode: codes.InvalidArgument,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			rebaseStream, err := client.UserRebaseConfirmable(ctx)
+			require.NoError(t, err)
+
+			headerRequest := tc.buildHeaderRequest()
+			require.NoError(t, rebaseStream.Send(headerRequest), "send header")
+
+			_, err = rebaseStream.Recv()
+			testhelper.RequireGrpcError(t, err, tc.expectedCode)
+		})
+	}
+}
+
 func rebaseRecvTimeout(bidi gitalypb.OperationService_UserRebaseConfirmableClient, timeout time.Duration) (*gitalypb.UserRebaseConfirmableResponse, error) {
 	type responseError struct {
 		response *gitalypb.UserRebaseConfirmableResponse
