@@ -1,0 +1,5 @@
+---
+title: Upgrade minimum required Go version to 1.15
+merge_request: 3352
+author:
+type: deprecated
