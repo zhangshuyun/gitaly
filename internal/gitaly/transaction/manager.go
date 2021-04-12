@@ -175,8 +175,8 @@ func (m *PoolManager) log(ctx context.Context) logrus.FieldLogger {
 	return ctxlogrus.Extract(ctx).WithField("component", "transaction.PoolManager")
 }
 
-// VoteOnContext casts the vote on a transaction identified by the context, if there is any.
-func VoteOnContext(ctx context.Context, m Manager, vote Vote) error {
+// RunOnContext runs the given function if the context identifies a transaction.
+func RunOnContext(ctx context.Context, fn func(metadata.Transaction, metadata.PraefectServer) error) error {
 	transaction, praefect, err := metadata.TransactionMetadataFromContext(ctx)
 	if err != nil {
 		return err
@@ -184,5 +184,12 @@ func VoteOnContext(ctx context.Context, m Manager, vote Vote) error {
 	if transaction == nil {
 		return nil
 	}
-	return m.Vote(ctx, *transaction, *praefect, vote)
+	return fn(*transaction, *praefect)
+}
+
+// VoteOnContext casts the vote on a transaction identified by the context, if there is any.
+func VoteOnContext(ctx context.Context, m Manager, vote Vote) error {
+	return RunOnContext(ctx, func(transaction metadata.Transaction, praefect metadata.PraefectServer) error {
+		return m.Vote(ctx, transaction, praefect, vote)
+	})
 }

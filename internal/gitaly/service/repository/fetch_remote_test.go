@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -17,9 +18,13 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -122,6 +127,56 @@ func TestFetchRemote_withDefaultRefmaps(t *testing.T) {
 	targetRefs, err := targetRepo.GetReferences(ctx)
 	require.NoError(t, err)
 	require.Equal(t, sourceRefs, targetRefs)
+}
+
+type mockTxManager struct {
+	transaction.Manager
+	votes int
+}
+
+func (m *mockTxManager) Vote(context.Context, metadata.Transaction, metadata.PraefectServer, transaction.Vote) error {
+	m.votes++
+	return nil
+}
+
+func TestFetchRemote_transaction(t *testing.T) {
+	sourceCfg, _, sourceRepoPath := testcfg.BuildWithRepo(t)
+
+	locator := config.NewLocator(sourceCfg)
+	txManager := &mockTxManager{}
+	gitCmdFactory := git.NewExecCommandFactory(sourceCfg)
+
+	srv := testhelper.NewServerWithAuth(t, nil, nil, sourceCfg.Auth.Token, testhelper.WithInternalSocket(sourceCfg))
+	gitalypb.RegisterRepositoryServiceServer(srv.GrpcServer(), NewServer(sourceCfg, RubyServer, locator, txManager, gitCmdFactory))
+	srv.Start(t)
+	defer srv.Stop()
+
+	client, conn := newRepositoryClient(t, "unix://"+srv.Socket())
+	defer conn.Close()
+
+	targetCfg, targetRepoProto, targetRepoPath := testcfg.BuildWithRepo(t)
+	port, stopGitServer := gittest.GitServer(t, targetCfg, targetRepoPath, nil)
+	defer func() { require.NoError(t, stopGitServer()) }()
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+	ctx, err := metadata.InjectTransaction(ctx, 1, "node", true)
+	require.NoError(t, err)
+	ctx, err = (&metadata.PraefectServer{SocketPath: "i-dont-care"}).Inject(ctx)
+	require.NoError(t, err)
+	ctx = helper.IncomingToOutgoing(ctx)
+
+	require.Equal(t, 0, txManager.votes)
+
+	_, err = client.FetchRemote(ctx, &gitalypb.FetchRemoteRequest{
+		Repository: targetRepoProto,
+		RemoteParams: &gitalypb.Remote{
+			Url: fmt.Sprintf("http://127.0.0.1:%d/%s", port, filepath.Base(sourceRepoPath)),
+		},
+	})
+	require.NoError(t, err)
+
+	require.Equal(t, 1, txManager.votes)
 }
 
 func TestFetchRemote_prune(t *testing.T) {
