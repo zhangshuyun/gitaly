@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io/ioutil"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -61,6 +63,7 @@ func TestWithRubyServer(t *testing.T) {
 
 	t.Run("testSuccessfulResolveConflictsRequest", func(t *testing.T) { testSuccessfulResolveConflictsRequest(t, cfg, rubySrv) })
 	t.Run("testResolveConflictsNonOIDRequests", func(t *testing.T) { testResolveConflictsNonOIDRequests(t, cfg, rubySrv) })
+	t.Run("testResolveConflictsIdenticalContent", func(t *testing.T) { testResolveConflictsIdenticalContent(t, cfg, rubySrv) })
 	t.Run("testResolveConflictsStableID", func(t *testing.T) { testResolveConflictsStableID(t, cfg, rubySrv) })
 	t.Run("testFailedResolveConflictsRequestDueToResolutionError", func(t *testing.T) { testFailedResolveConflictsRequestDueToResolutionError(t, cfg, rubySrv) })
 	t.Run("testFailedResolveConflictsRequestDueToValidation", func(t *testing.T) { testFailedResolveConflictsRequestDueToValidation(t, cfg, rubySrv) })
@@ -238,6 +241,109 @@ func testResolveConflictsNonOIDRequestsFeatured(t *testing.T, ctx context.Contex
 
 	_, err = stream.CloseAndRecv()
 	require.Equal(t, status.Errorf(codes.Unknown, "Rugged::InvalidError: unable to parse OID - contains invalid characters"), err)
+}
+
+func testResolveConflictsIdenticalContent(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.GoResolveConflicts,
+	}).Run(t, func(t *testing.T, ctx context.Context) {
+		testResolveConflictsIdenticalContentFeatured(t, ctx, cfg, rubySrv)
+	})
+}
+
+func testResolveConflictsIdenticalContentFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
+	cfg, repoProto, repoPath, client := conflicts.SetupConflictsServiceWithRuby(t, cfg, rubySrv, true)
+
+	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+
+	sourceBranch := "conflict-resolvable"
+	sourceOID, err := repo.ResolveRevision(ctx, git.Revision(sourceBranch))
+	require.NoError(t, err)
+
+	targetBranch := "conflict-start"
+	targetOID, err := repo.ResolveRevision(ctx, git.Revision(targetBranch))
+	require.NoError(t, err)
+
+	tempDir, cleanup := testhelper.TempDir(t)
+	defer cleanup()
+
+	var conflictingPaths []string
+	for _, rev := range []string{
+		sourceOID.String(),
+		"6907208d755b60ebeacb2e9dfea74c92c3449a1f",
+		targetOID.String(),
+	} {
+		contents := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "cat-file", "-p", rev+":files/ruby/popen.rb")
+		path := filepath.Join(tempDir, rev)
+		require.NoError(t, ioutil.WriteFile(path, contents, 0644))
+		conflictingPaths = append(conflictingPaths, path)
+	}
+
+	var conflictContents bytes.Buffer
+	err = repo.ExecAndWait(ctx, git.SubCmd{
+		Name: "merge-file",
+		Flags: []git.Option{
+			git.Flag{"--quiet"},
+			git.Flag{"--stdout"},
+			// We pass `-L` three times for each of the conflicting files.
+			git.ValueFlag{Name: "-L", Value: "files/ruby/popen.rb"},
+			git.ValueFlag{Name: "-L", Value: "files/ruby/popen.rb"},
+			git.ValueFlag{Name: "-L", Value: "files/ruby/popen.rb"},
+		},
+		Args: conflictingPaths,
+	}, git.WithStdout(&conflictContents))
+
+	// The merge will result in a merge conflict and thus cause the command to fail.
+	require.Error(t, err)
+	require.Contains(t, conflictContents.String(), "<<<<<<")
+
+	filesJSON, err := json.Marshal([]map[string]interface{}{
+		{
+			"old_path": "files/ruby/popen.rb",
+			"new_path": "files/ruby/popen.rb",
+			"content":  conflictContents.String(),
+		},
+		{
+			"old_path": "files/ruby/regex.rb",
+			"new_path": "files/ruby/regex.rb",
+			"sections": map[string]string{
+				"6eb14e00385d2fb284765eb1cd8d420d33d63fc9_9_9":   "head",
+				"6eb14e00385d2fb284765eb1cd8d420d33d63fc9_21_21": "origin",
+				"6eb14e00385d2fb284765eb1cd8d420d33d63fc9_49_49": "origin",
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	ctx = testhelper.MergeOutgoingMetadata(ctx, testhelper.GitalyServersMetadata(t, cfg.SocketPath))
+	stream, err := client.ResolveConflicts(ctx)
+	require.NoError(t, err)
+
+	require.NoError(t, stream.Send(&gitalypb.ResolveConflictsRequest{
+		ResolveConflictsRequestPayload: &gitalypb.ResolveConflictsRequest_Header{
+			Header: &gitalypb.ResolveConflictsRequestHeader{
+				Repository:       repoProto,
+				TargetRepository: repoProto,
+				CommitMessage:    []byte(conflictResolutionCommitMessage),
+				OurCommitOid:     sourceOID.String(),
+				TheirCommitOid:   targetOID.String(),
+				SourceBranch:     []byte(sourceBranch),
+				TargetBranch:     []byte(targetBranch),
+				User:             user,
+			},
+		},
+	}))
+	require.NoError(t, stream.Send(&gitalypb.ResolveConflictsRequest{
+		ResolveConflictsRequestPayload: &gitalypb.ResolveConflictsRequest_FilesJson{
+			FilesJson: filesJSON,
+		},
+	}))
+
+	response, err := stream.CloseAndRecv()
+	require.NoError(t, err)
+	testhelper.ProtoEqual(t, &gitalypb.ResolveConflictsResponse{
+		ResolutionError: "Resolved content has no changes for file files/ruby/popen.rb",
+	}, response)
 }
 
 func testResolveConflictsStableID(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
