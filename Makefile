@@ -391,7 +391,7 @@ ${SOURCE_DIR}/NOTICE: ${BUILD_DIR}/NOTICE
 
 ${BUILD_DIR}/NOTICE: ${GO_LICENSES} clean-ruby-vendor-go
 	${Q}rm -rf ${BUILD_DIR}/licenses
-	${Q}GOFLAGS="-tags=${GO_BUILD_TAGS}" ${GO_LICENSES} save ./... --save_path=${BUILD_DIR}/licenses
+	${Q}GOOS=linux GOFLAGS="-tags=${GO_BUILD_TAGS}" ${GO_LICENSES} save ./... --save_path=${BUILD_DIR}/licenses
 	# some projects may be copied from the Go module cache
 	# (GOPATH/pkg/mod) and retain strict permissions (444). These
 	# permissions are not desirable when removing and rebuilding:
