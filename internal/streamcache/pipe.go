@@ -71,9 +71,8 @@ type pipe struct {
 	// Reader/writer coordination. If wcursor > rcursor, the writer blocks
 	// (back pressure). If rcursor >= wcursor, the readers block (waiting for
 	// new data).
-	wcursor           *cursor
-	rcursor           *cursor
-	writerClosedFirst bool
+	wcursor *cursor
+	rcursor *cursor
 
 	// wnotifier is the channel the writer uses to wait for reader progress
 	// notifications.
@@ -108,7 +107,7 @@ func (p *pipe) Write(b []byte) (int, error) {
 	}
 
 	// Prevent writing bytes no-one will read
-	if p.initialReadersClosed() {
+	if p.wcursor.IsDone() {
 		return 0, errWrongCloseOrder
 	}
 
@@ -131,37 +130,18 @@ func (p *pipe) Close() error {
 
 	errClose := p.w.Close()
 
-	if p.writerClosed() {
+	if p.rcursor.IsDone() {
 		return errWriterAlreadyClosed
 	}
 
-	if p.initialReadersClosed() {
+	if p.wcursor.IsDone() {
 		return errWrongCloseOrder
 	}
 
-	// After this, p.writerClosed() will return true.
+	// After this, p.rcursor.IsDone() will return true.
 	p.rcursor.Unsubscribe(p.wnotifier)
 
-	p.writerClosedFirst = true
 	return errClose
-}
-
-func (p *pipe) initialReadersClosed() bool {
-	select {
-	case <-p.wcursor.Done():
-		return true
-	default:
-		return false
-	}
-}
-
-func (p *pipe) writerClosed() bool {
-	select {
-	case <-p.rcursor.Done():
-		return true
-	default:
-		return false
-	}
 }
 
 func (p *pipe) RemoveFile() error { return os.Remove(p.name) }
@@ -170,7 +150,7 @@ func (p *pipe) OpenReader() (io.ReadCloser, error) {
 	p.m.Lock()
 	defer p.m.Unlock()
 
-	if p.initialReadersClosed() && !p.writerClosedFirst {
+	if p.wcursor.IsDone() && !p.rcursor.IsDone() {
 		return nil, errWrongCloseOrder
 	}
 

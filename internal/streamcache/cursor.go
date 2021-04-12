@@ -49,6 +49,15 @@ func (c *cursor) Unsubscribe(n *notifier) {
 // channel remains closed.
 func (c *cursor) Done() <-chan struct{} { return c.doneChan }
 
+func (c *cursor) IsDone() bool {
+	select {
+	case <-c.doneChan:
+		return true
+	default:
+		return false
+	}
+}
+
 // SetPosition sets c.pos to the new value pos, but only if pos>c.pos. In the
 // case that c.pos actually grew, all subscribers are notified.
 func (c *cursor) SetPosition(pos int64) {
