@@ -46,8 +46,8 @@ func (cmd *rebaseSubcommand) verify(ctx context.Context, r *git2go.RebaseCommand
 	if r.BranchName == "" {
 		return errors.New("missing branch name")
 	}
-	if r.UpstreamBranch == "" {
-		return errors.New("missing upstream branch")
+	if r.UpstreamRevision == "" {
+		return errors.New("missing upstream revision")
 	}
 	return nil
 }
@@ -73,9 +73,14 @@ func (cmd *rebaseSubcommand) rebase(ctx context.Context, request *git2go.RebaseC
 		return "", fmt.Errorf("look up branch %q: %w", request.BranchName, err)
 	}
 
-	onto, err := repo.AnnotatedCommitFromRevspec(fmt.Sprintf("refs/heads/%s", request.UpstreamBranch))
+	ontoOid, err := git.NewOid(request.UpstreamRevision)
 	if err != nil {
-		return "", fmt.Errorf("look up upstream branch %q: %w", request.UpstreamBranch, err)
+		return "", fmt.Errorf("parse upstream revision %q: %w", request.UpstreamRevision, err)
+	}
+
+	onto, err := repo.LookupAnnotatedCommit(ontoOid)
+	if err != nil {
+		return "", fmt.Errorf("look up upstream revision %q: %w", request.UpstreamRevision, err)
 	}
 
 	mergeBase, err := repo.MergeBase(onto.Id(), branch.Id())

@@ -15,10 +15,8 @@ type RebaseCommand struct {
 	Committer Signature
 	// BranchName is the branch that is rebased.
 	BranchName string
-	// UpstreamBranch is where the branch is rebased onto.
-	UpstreamBranch string
-	// UpstreamRepository is the repository that holds the upstream branch.
-	UpstreamRepository string
+	// UpstreamRevision is the revision where the branch is rebased onto.
+	UpstreamRevision string
 }
 
 // Run performs the rebase via gitaly-git2go

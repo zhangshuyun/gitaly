@@ -14,6 +14,10 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 )
 
+var (
+	masterRevision = "1e292f8fedd741b75372e19097c76d327140c312"
+)
+
 func TestRebase_validation(t *testing.T) {
 	cfg, _, repoPath := testcfg.BuildWithRepo(t)
 	testhelper.ConfigureGitalyGit2GoBin(t, cfg)
@@ -30,28 +34,28 @@ func TestRebase_validation(t *testing.T) {
 		},
 		{
 			desc:        "missing repository",
-			request:     git2go.RebaseCommand{Committer: committer, BranchName: "feature", UpstreamBranch: "master"},
+			request:     git2go.RebaseCommand{Committer: committer, BranchName: "feature", UpstreamRevision: masterRevision},
 			expectedErr: "rebase: missing repository",
 		},
 		{
 			desc:        "missing committer name",
-			request:     git2go.RebaseCommand{Repository: repoPath, Committer: git2go.Signature{Email: "foo@example.com"}, BranchName: "feature", UpstreamBranch: "master"},
+			request:     git2go.RebaseCommand{Repository: repoPath, Committer: git2go.Signature{Email: "foo@example.com"}, BranchName: "feature", UpstreamRevision: masterRevision},
 			expectedErr: "rebase: missing committer name",
 		},
 		{
 			desc:        "missing committer email",
-			request:     git2go.RebaseCommand{Repository: repoPath, Committer: git2go.Signature{Name: "Foo"}, BranchName: "feature", UpstreamBranch: "master"},
+			request:     git2go.RebaseCommand{Repository: repoPath, Committer: git2go.Signature{Name: "Foo"}, BranchName: "feature", UpstreamRevision: masterRevision},
 			expectedErr: "rebase: missing committer email",
 		},
 		{
 			desc:        "missing branch name",
-			request:     git2go.RebaseCommand{Repository: repoPath, Committer: committer, UpstreamBranch: "master"},
+			request:     git2go.RebaseCommand{Repository: repoPath, Committer: committer, UpstreamRevision: masterRevision},
 			expectedErr: "rebase: missing branch name",
 		},
 		{
 			desc:        "missing upstream branch",
 			request:     git2go.RebaseCommand{Repository: repoPath, Committer: committer, BranchName: "feature"},
-			expectedErr: "rebase: missing upstream branch",
+			expectedErr: "rebase: missing upstream revision",
 		},
 	}
 	for _, tc := range testcases {
@@ -95,7 +99,7 @@ func TestRebase_rebase(t *testing.T) {
 		{
 			desc:     "Merged branch",
 			branch:   "branch-merged",
-			expected: "1e292f8fedd741b75372e19097c76d327140c312",
+			expected: masterRevision,
 		},
 		{
 			desc:   "Partially merged branch",
@@ -168,10 +172,10 @@ func TestRebase_rebase(t *testing.T) {
 			}
 
 			request := git2go.RebaseCommand{
-				Repository:     repoPath,
-				Committer:      committer,
-				BranchName:     tc.branch,
-				UpstreamBranch: "master",
+				Repository:       repoPath,
+				Committer:        committer,
+				BranchName:       tc.branch,
+				UpstreamRevision: masterRevision,
 			}
 
 			response, err := request.Run(ctx, cfg)
@@ -189,7 +193,7 @@ func TestRebase_rebase(t *testing.T) {
 				for i := tc.commitsAhead; i > 0; i-- {
 					commit = commit.Parent(0)
 				}
-				masterCommit, err := lookupCommit(repo, "master")
+				masterCommit, err := lookupCommit(repo, masterRevision)
 				require.NoError(t, err)
 				require.Equal(t, masterCommit, commit)
 			}
