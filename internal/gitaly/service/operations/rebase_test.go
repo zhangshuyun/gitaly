@@ -498,7 +498,7 @@ func testFailedUserRebaseConfirmableDueToGitErrorFeatured(t *testing.T, ctx cont
 
 	firstResponse, err := rebaseStream.Recv()
 	require.NoError(t, err, "receive first response")
-	require.Contains(t, firstResponse.GitError, "CONFLICT (content): Merge conflict in README.md")
+	require.Contains(t, firstResponse.GitError, "conflict")
 
 	testhelper.ReceiveEOFWithTimeout(t, func() error {
 		_, err = rebaseStream.Recv()

@@ -73,7 +73,9 @@ func (s *Server) userRebaseConfirmableGo(stream gitalypb.OperationService_UserRe
 		UpstreamBranch: string(header.RemoteBranch),
 	}.Run(ctx, s.cfg)
 	if err != nil {
-		return fmt.Errorf("git2go rebase: %w", err)
+		return stream.Send(&gitalypb.UserRebaseConfirmableResponse{
+			GitError: err.Error(),
+		})
 	}
 
 	if err := stream.Send(&gitalypb.UserRebaseConfirmableResponse{
