@@ -247,7 +247,7 @@ func (hm *HealthManager) performHealthChecks(ctx context.Context) ([]string, []s
 						logrus.ErrorKey:   err,
 						"virtual_storage": virtualStorages[i],
 						"storage":         physicalStorages[i],
-					}).Error("failed checking node health")
+					}).Error("error when pinging healthcheck")
 				}
 
 				healthy[i] = resp != nil && resp.Status == grpc_health_v1.HealthCheckResponse_SERVING
