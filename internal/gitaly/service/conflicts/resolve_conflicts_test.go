@@ -352,13 +352,30 @@ func testFailedResolveConflictsRequestDueToValidationFeatured(t *testing.T, ctx 
 	targetBranch := []byte("conflict-start")
 
 	testCases := []struct {
-		desc   string
-		header *gitalypb.ResolveConflictsRequestHeader
-		code   codes.Code
+		desc         string
+		header       *gitalypb.ResolveConflictsRequestHeader
+		expectedCode codes.Code
+		expectedErr  string
 	}{
+		{
+			desc: "empty user",
+			header: &gitalypb.ResolveConflictsRequestHeader{
+				User:             nil,
+				Repository:       repo,
+				OurCommitOid:     ourCommitOid,
+				TargetRepository: repo,
+				TheirCommitOid:   theirCommitOid,
+				CommitMessage:    commitMsg,
+				SourceBranch:     sourceBranch,
+				TargetBranch:     targetBranch,
+			},
+			expectedCode: codes.InvalidArgument,
+			expectedErr:  "ResolveConflicts: empty User",
+		},
 		{
 			desc: "empty repo",
 			header: &gitalypb.ResolveConflictsRequestHeader{
+				User:             user,
 				Repository:       nil,
 				OurCommitOid:     ourCommitOid,
 				TargetRepository: repo,
@@ -367,11 +384,16 @@ func testFailedResolveConflictsRequestDueToValidationFeatured(t *testing.T, ctx 
 				SourceBranch:     sourceBranch,
 				TargetBranch:     targetBranch,
 			},
-			code: codes.InvalidArgument,
+			expectedCode: codes.InvalidArgument,
+			// Praefect checks for an empty repository, too, but will raise a different
+			// error message. Luckily, both Gitaly's and Praefect's error messages
+			// contain "empty Repository".
+			expectedErr: "empty Repository",
 		},
 		{
 			desc: "empty target repo",
 			header: &gitalypb.ResolveConflictsRequestHeader{
+				User:             user,
 				Repository:       repo,
 				OurCommitOid:     ourCommitOid,
 				TargetRepository: nil,
@@ -380,11 +402,13 @@ func testFailedResolveConflictsRequestDueToValidationFeatured(t *testing.T, ctx 
 				SourceBranch:     sourceBranch,
 				TargetBranch:     targetBranch,
 			},
-			code: codes.InvalidArgument,
+			expectedCode: codes.InvalidArgument,
+			expectedErr:  "ResolveConflicts: empty TargetRepository",
 		},
 		{
 			desc: "empty OurCommitId repo",
 			header: &gitalypb.ResolveConflictsRequestHeader{
+				User:             user,
 				Repository:       repo,
 				OurCommitOid:     "",
 				TargetRepository: repo,
@@ -393,11 +417,13 @@ func testFailedResolveConflictsRequestDueToValidationFeatured(t *testing.T, ctx 
 				SourceBranch:     sourceBranch,
 				TargetBranch:     targetBranch,
 			},
-			code: codes.InvalidArgument,
+			expectedCode: codes.InvalidArgument,
+			expectedErr:  "ResolveConflicts: empty OurCommitOid",
 		},
 		{
 			desc: "empty TheirCommitId repo",
 			header: &gitalypb.ResolveConflictsRequestHeader{
+				User:             user,
 				Repository:       repo,
 				OurCommitOid:     ourCommitOid,
 				TargetRepository: repo,
@@ -406,11 +432,13 @@ func testFailedResolveConflictsRequestDueToValidationFeatured(t *testing.T, ctx 
 				SourceBranch:     sourceBranch,
 				TargetBranch:     targetBranch,
 			},
-			code: codes.InvalidArgument,
+			expectedCode: codes.InvalidArgument,
+			expectedErr:  "ResolveConflicts: empty TheirCommitOid",
 		},
 		{
 			desc: "empty CommitMessage repo",
 			header: &gitalypb.ResolveConflictsRequestHeader{
+				User:             user,
 				Repository:       repo,
 				OurCommitOid:     ourCommitOid,
 				TargetRepository: repo,
@@ -419,11 +447,13 @@ func testFailedResolveConflictsRequestDueToValidationFeatured(t *testing.T, ctx 
 				SourceBranch:     sourceBranch,
 				TargetBranch:     targetBranch,
 			},
-			code: codes.InvalidArgument,
+			expectedCode: codes.InvalidArgument,
+			expectedErr:  "ResolveConflicts: empty CommitMessage",
 		},
 		{
 			desc: "empty SourceBranch repo",
 			header: &gitalypb.ResolveConflictsRequestHeader{
+				User:             user,
 				Repository:       repo,
 				OurCommitOid:     ourCommitOid,
 				TargetRepository: repo,
@@ -432,11 +462,13 @@ func testFailedResolveConflictsRequestDueToValidationFeatured(t *testing.T, ctx 
 				SourceBranch:     nil,
 				TargetBranch:     targetBranch,
 			},
-			code: codes.InvalidArgument,
+			expectedCode: codes.InvalidArgument,
+			expectedErr:  "ResolveConflicts: empty SourceBranch",
 		},
 		{
 			desc: "empty TargetBranch repo",
 			header: &gitalypb.ResolveConflictsRequestHeader{
+				User:             user,
 				Repository:       repo,
 				OurCommitOid:     ourCommitOid,
 				TargetRepository: repo,
@@ -445,7 +477,8 @@ func testFailedResolveConflictsRequestDueToValidationFeatured(t *testing.T, ctx 
 				SourceBranch:     sourceBranch,
 				TargetBranch:     nil,
 			},
-			code: codes.InvalidArgument,
+			expectedCode: codes.InvalidArgument,
+			expectedErr:  "ResolveConflicts: empty TargetBranch",
 		},
 	}
 
@@ -465,7 +498,8 @@ func testFailedResolveConflictsRequestDueToValidationFeatured(t *testing.T, ctx 
 			require.NoError(t, stream.Send(headerRequest))
 
 			_, err = stream.CloseAndRecv()
-			testhelper.RequireGrpcError(t, err, testCase.code)
+			testhelper.RequireGrpcError(t, err, testCase.expectedCode)
+			require.Contains(t, err.Error(), testCase.expectedErr)
 		})
 	}
 }

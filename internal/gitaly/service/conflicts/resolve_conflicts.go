@@ -122,6 +122,9 @@ func validateResolveConflictsHeader(header *gitalypb.ResolveConflictsRequestHead
 	if header.GetOurCommitOid() == "" {
 		return fmt.Errorf("empty OurCommitOid")
 	}
+	if header.GetRepository() == nil {
+		return fmt.Errorf("empty Repository")
+	}
 	if header.GetTargetRepository() == nil {
 		return fmt.Errorf("empty TargetRepository")
 	}
