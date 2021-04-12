@@ -77,9 +77,6 @@ func testSuccessfulResolveConflictsRequestFeatured(t *testing.T, ctx context.Con
 
 	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
-	ctxOuter, cancel := testhelper.Context()
-	defer cancel()
-
 	mdGS := testhelper.GitalyServersMetadata(t, cfg.SocketPath)
 	mdFF, _ := metadata.FromOutgoingContext(ctx)
 	ctx = metadata.NewOutgoingContext(ctx, metadata.Join(mdGS, mdFF))
@@ -189,7 +186,7 @@ func testSuccessfulResolveConflictsRequestFeatured(t *testing.T, ctx context.Con
 	require.NoError(t, err)
 	require.Empty(t, r.GetResolutionError())
 
-	headCommit, err := repo.ReadCommit(ctxOuter, git.Revision(sourceBranch))
+	headCommit, err := repo.ReadCommit(ctx, git.Revision(sourceBranch))
 	require.NoError(t, err)
 	require.Contains(t, headCommit.ParentIds, ourCommitOID)
 	require.Contains(t, headCommit.ParentIds, theirCommitOID)
