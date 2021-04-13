@@ -198,7 +198,8 @@ func NewManager(
 			cs := newConnectionStatus(*node, conn, log, latencyHistogram, errorTracker)
 			ns = append(ns, cs)
 
-			if c.Failover.ElectionStrategy != config.ElectionStrategySQL {
+			if c.Failover.ElectionStrategy != config.ElectionStrategySQL &&
+				c.Failover.ElectionStrategy != config.ElectionStrategyLocal {
 				continue
 			}
 
@@ -220,7 +221,7 @@ func NewManager(
 				strategies[virtualStorage.Name] = newSQLElector(virtualStorage.Name, c, db, log, ns, vsMuxed)
 				muxed[virtualStorage.Name] = vsMuxed
 			} else {
-				strategies[virtualStorage.Name] = newLocalElector(virtualStorage.Name, log, ns)
+				strategies[virtualStorage.Name] = newLocalElector(virtualStorage.Name, log, ns, vsMuxed)
 			}
 		} else {
 			strategies[virtualStorage.Name] = newDisabledElector(virtualStorage.Name, ns)

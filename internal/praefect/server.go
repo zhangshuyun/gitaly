@@ -10,6 +10,7 @@ import (
 	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/sirupsen/logrus"
+	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/server/auth"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/fieldextractors"
 	"gitlab.com/gitlab-org/gitaly/internal/log"
@@ -37,6 +38,41 @@ import (
 	"google.golang.org/grpc/keepalive"
 )
 
+// NewBackchannelServerFactory returns a ServerFactory that serves the RefTransactionServer on the backchannel
+// connection.
+func NewBackchannelServerFactory(logger *logrus.Entry, svc gitalypb.RefTransactionServer) backchannel.ServerFactory {
+	return func() backchannel.Server {
+		srv := grpc.NewServer(
+			grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(
+				commonUnaryServerInterceptors(logger)...,
+			)),
+		)
+		gitalypb.RegisterRefTransactionServer(srv, svc)
+		grpc_prometheus.Register(srv)
+		return srv
+	}
+}
+
+func commonUnaryServerInterceptors(logger *logrus.Entry) []grpc.UnaryServerInterceptor {
+	return []grpc.UnaryServerInterceptor{
+		grpc_ctxtags.UnaryServerInterceptor(ctxtagsInterceptorOption()),
+		grpccorrelation.UnaryServerCorrelationInterceptor(), // Must be above the metadata handler
+		metadatahandler.UnaryInterceptor,
+		grpc_prometheus.UnaryServerInterceptor,
+		grpc_logrus.UnaryServerInterceptor(logger, grpc_logrus.WithTimestampFormat(log.LogTimestampFormat)),
+		sentryhandler.UnaryLogHandler,
+		cancelhandler.Unary, // Should be below LogHandler
+		grpctracing.UnaryServerTracingInterceptor(),
+		// Panic handler should remain last so that application panics will be
+		// converted to errors and logged
+		panichandler.UnaryPanicHandler,
+	}
+}
+
+func ctxtagsInterceptorOption() grpc_ctxtags.Option {
+	return grpc_ctxtags.WithFieldExtractorForInitialReq(fieldextractors.FieldExtractor)
+}
+
 // NewGRPCServer returns gRPC server with registered proxy-handler and actual services praefect serves on its own.
 // It includes a set of unary and stream interceptors required to add logging, authentication, etc.
 func NewGRPCServer(
@@ -53,12 +89,8 @@ func NewGRPCServer(
 	primaryGetter PrimaryGetter,
 	grpcOpts ...grpc.ServerOption,
 ) *grpc.Server {
-	ctxTagOpts := []grpc_ctxtags.Option{
-		grpc_ctxtags.WithFieldExtractorForInitialReq(fieldextractors.FieldExtractor),
-	}
-
 	streamInterceptors := []grpc.StreamServerInterceptor{
-		grpc_ctxtags.StreamServerInterceptor(ctxTagOpts...),
+		grpc_ctxtags.StreamServerInterceptor(ctxtagsInterceptorOption()),
 		grpccorrelation.StreamServerCorrelationInterceptor(), // Must be above the metadata handler
 		middleware.MethodTypeStreamInterceptor(registry),
 		metadatahandler.StreamInterceptor,
@@ -82,20 +114,11 @@ func NewGRPCServer(
 	grpcOpts = append(grpcOpts, []grpc.ServerOption{
 		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(streamInterceptors...)),
 		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(
-			grpc_ctxtags.UnaryServerInterceptor(ctxTagOpts...),
-			grpccorrelation.UnaryServerCorrelationInterceptor(), // Must be above the metadata handler
-			middleware.MethodTypeUnaryInterceptor(registry),
-			metadatahandler.UnaryInterceptor,
-			grpc_prometheus.UnaryServerInterceptor,
-			grpc_logrus.UnaryServerInterceptor(logger,
-				grpc_logrus.WithTimestampFormat(log.LogTimestampFormat)),
-			sentryhandler.UnaryLogHandler,
-			cancelhandler.Unary, // Should be below LogHandler
-			grpctracing.UnaryServerTracingInterceptor(),
-			auth.UnaryServerInterceptor(conf.Auth),
-			// Panic handler should remain last so that application panics will be
-			// converted to errors and logged
-			panichandler.UnaryPanicHandler,
+			append(
+				commonUnaryServerInterceptors(logger),
+				middleware.MethodTypeUnaryInterceptor(registry),
+				auth.UnaryServerInterceptor(conf.Auth),
+			)...,
 		)),
 		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
 			MinTime:             20 * time.Second,

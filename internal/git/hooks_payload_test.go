@@ -20,6 +20,7 @@ func TestHooksPayload(t *testing.T) {
 	}
 
 	praefect := metadata.PraefectServer{
+		BackchannelID: 1,
 		ListenAddr:    "127.0.0.1:1234",
 		TLSListenAddr: "127.0.0.1:4321",
 		SocketPath:    "/path/to/unix",

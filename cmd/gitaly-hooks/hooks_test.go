@@ -584,10 +584,11 @@ func runHookServiceServer(t *testing.T, cfg config.Cfg) func() {
 }
 
 func runHookServiceServerWithAPI(t *testing.T, cfg config.Cfg, gitlabAPI gitalyhook.GitlabAPI) func() {
-	txManager := transaction.NewManager(cfg, backchannel.NewRegistry())
+	registry := backchannel.NewRegistry()
+	txManager := transaction.NewManager(cfg, registry)
 	hookManager := gitalyhook.NewManager(config.NewLocator(cfg), txManager, gitlabAPI, cfg)
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
-	server := testhelper.NewServerWithAuth(t, nil, nil, cfg.Auth.Token, testhelper.WithInternalSocket(cfg))
+	server := testhelper.NewServerWithAuth(t, nil, nil, cfg.Auth.Token, registry, testhelper.WithInternalSocket(cfg))
 
 	gitalypb.RegisterHookServiceServer(server.GrpcServer(), hook.NewServer(cfg, hookManager, gitCmdFactory))
 	reflection.Register(server.GrpcServer())

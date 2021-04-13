@@ -72,11 +72,12 @@ func setupRefServiceWithoutRepo(t testing.TB) (config.Cfg, gitalypb.RefServiceCl
 
 func runRefServiceServer(t testing.TB, cfg config.Cfg) string {
 	locator := config.NewLocator(cfg)
-	txManager := transaction.NewManager(cfg, backchannel.NewRegistry())
+	registry := backchannel.NewRegistry()
+	txManager := transaction.NewManager(cfg, registry)
 	hookManager := hook.NewManager(locator, txManager, hook.GitlabAPIStub, cfg)
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
 
-	srv := testhelper.NewServer(t, nil, nil, testhelper.WithInternalSocket(cfg))
+	srv := testhelper.NewServerWithAuth(t, nil, nil, cfg.Auth.Token, registry, testhelper.WithInternalSocket(cfg))
 	gitalypb.RegisterRefServiceServer(srv.GrpcServer(), NewServer(cfg, locator, gitCmdFactory, txManager))
 	gitalypb.RegisterHookServiceServer(srv.GrpcServer(), hookservice.NewServer(cfg, hookManager, gitCmdFactory))
 	srv.Start(t)

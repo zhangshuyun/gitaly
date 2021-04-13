@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"os"
@@ -10,11 +11,13 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
 	"gitlab.com/gitlab-org/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	dcache "gitlab.com/gitlab-org/gitaly/internal/cache"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	internalclient "gitlab.com/gitlab-org/gitaly/internal/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
@@ -82,6 +85,15 @@ func newRepositoryClient(t *testing.T, serverSocketPath string) (gitalypb.Reposi
 	return gitalypb.NewRepositoryServiceClient(conn), conn
 }
 
+func newMuxedRepositoryClient(t *testing.T, ctx context.Context, serverSocketPath string, handshaker internalclient.Handshaker) gitalypb.RepositoryServiceClient {
+	conn, err := internalclient.Dial(ctx, serverSocketPath, []grpc.DialOption{
+		grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(config.Config.Auth.Token)),
+	}, handshaker)
+	require.NoError(t, err)
+	t.Cleanup(func() { conn.Close() })
+	return gitalypb.NewRepositoryServiceClient(conn)
+}
+
 var NewRepositoryClient = newRepositoryClient
 var RunRepoServer = runRepoServer
 
@@ -112,11 +124,12 @@ func runRepoServerWithConfig(t *testing.T, cfg config.Cfg, locator storage.Locat
 		mcache.UnaryInvalidator(dcache.NewLeaseKeyer(locator), protoregistry.GitalyProtoPreregistered),
 	}
 
-	txManager := transaction.NewManager(cfg, backchannel.NewRegistry())
+	registry := backchannel.NewRegistry()
+	txManager := transaction.NewManager(cfg, registry)
 	hookManager := hook.NewManager(locator, txManager, hook.GitlabAPIStub, cfg)
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
 
-	srv := testhelper.NewServerWithAuth(t, streamInt, unaryInt, cfg.Auth.Token, opts...)
+	srv := testhelper.NewServerWithAuth(t, streamInt, unaryInt, cfg.Auth.Token, registry, opts...)
 	gitalypb.RegisterRepositoryServiceServer(srv.GrpcServer(), NewServer(cfg, RubyServer, locator, txManager, gitCmdFactory))
 	gitalypb.RegisterHookServiceServer(srv.GrpcServer(), hookservice.NewServer(cfg, hookManager, gitCmdFactory))
 	srv.Start(t)

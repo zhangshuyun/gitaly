@@ -265,15 +265,20 @@ func (gsd *gitalyServerDeps) createDependencies(t testing.TB, cfg config.Cfg, ru
 		require.NoError(t, err)
 	}
 
+	if gsd.backchannelReg == nil {
+		gsd.backchannelReg = backchannel.NewRegistry()
+	}
+
 	return &service.Dependencies{
-		Cfg:                cfg,
-		RubyServer:         rubyServer,
-		ClientPool:         gsd.conns,
-		StorageLocator:     gsd.locator,
-		TransactionManager: gsd.txMgr,
-		GitalyHookManager:  gsd.hookMgr,
-		GitCmdFactory:      gsd.gitCmdFactory,
-		Linguist:           gsd.linguist,
+		Cfg:                 cfg,
+		RubyServer:          rubyServer,
+		ClientPool:          gsd.conns,
+		StorageLocator:      gsd.locator,
+		TransactionManager:  gsd.txMgr,
+		GitalyHookManager:   gsd.hookMgr,
+		GitCmdFactory:       gsd.gitCmdFactory,
+		Linguist:            gsd.linguist,
+		BackchannelRegistry: gsd.backchannelReg,
 	}
 }
 

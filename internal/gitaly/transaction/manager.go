@@ -13,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
@@ -88,6 +89,15 @@ func (m *PoolManager) Collect(metrics chan<- prometheus.Metric) {
 }
 
 func (m *PoolManager) getTransactionClient(ctx context.Context, server metadata.PraefectServer) (gitalypb.RefTransactionClient, error) {
+	if featureflag.IsEnabled(ctx, featureflag.ConnectionMultiplexing) && featureflag.IsEnabled(ctx, featureflag.BackchannelVoting) {
+		conn, err := m.backchannels.Backchannel(server.BackchannelID)
+		if err != nil {
+			return nil, fmt.Errorf("get backchannel: %w", err)
+		}
+
+		return gitalypb.NewRefTransactionClient(conn), nil
+	}
+
 	address, err := server.Address()
 	if err != nil {
 		return nil, err

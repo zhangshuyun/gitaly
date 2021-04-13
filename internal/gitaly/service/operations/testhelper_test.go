@@ -8,10 +8,12 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
 	gitalyclient "gitlab.com/gitlab-org/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
+	internalclient "gitlab.com/gitlab-org/gitaly/internal/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	gitalyhook "gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
@@ -142,13 +144,14 @@ func setupOperationsServiceWithRuby(
 func runOperationServiceServer(t testing.TB, cfg config.Cfg, rubySrv *rubyserver.Server) string {
 	t.Helper()
 
-	srv := testhelper.NewServerWithAuth(t, nil, nil, cfg.Auth.Token, testhelper.WithInternalSocket(cfg))
+	registry := backchannel.NewRegistry()
+	srv := testhelper.NewServerWithAuth(t, nil, nil, cfg.Auth.Token, registry, testhelper.WithInternalSocket(cfg))
 
 	conns := gitalyclient.NewPool()
 	t.Cleanup(func() { conns.Close() })
 
 	locator := config.NewLocator(cfg)
-	txManager := transaction.NewManager(cfg, backchannel.NewRegistry())
+	txManager := transaction.NewManager(cfg, registry)
 	hookManager := gitalyhook.NewManager(locator, txManager, gitalyhook.GitlabAPIStub, cfg)
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
 	server := NewServer(cfg, rubySrv, hookManager, locator, conns, gitCmdFactory)
@@ -176,6 +179,13 @@ func newOperationClient(t testing.TB, serverSocketPath string) (gitalypb.Operati
 	}
 
 	return gitalypb.NewOperationServiceClient(conn), conn
+}
+
+func newMuxedOperationClient(t *testing.T, ctx context.Context, serverSocketPath, authToken string, handshaker internalclient.Handshaker) gitalypb.OperationServiceClient {
+	conn, err := internalclient.Dial(ctx, serverSocketPath, []grpc.DialOption{grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(config.Config.Auth.Token))}, handshaker)
+	require.NoError(t, err)
+	t.Cleanup(func() { conn.Close() })
+	return gitalypb.NewOperationServiceClient(conn)
 }
 
 func setupAndStartGitlabServer(t testing.TB, glID, glRepository string, cfg config.Cfg, gitPushOptions ...string) string {

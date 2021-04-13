@@ -38,6 +38,8 @@ var (
 	AtomicFetch = FeatureFlag{Name: "atomic_fetch", OnByDefault: false}
 	// GrpcTreeEntryNotFound makes the TreeEntry gRPC call return NotFound instead of an empty blob
 	GrpcTreeEntryNotFound = FeatureFlag{Name: "grpc_tree_entry_not_found", OnByDefault: false}
+	// BackchannelVoting enables voting via the backchannel connection.
+	BackchannelVoting = FeatureFlag{Name: "backchannel_voting", OnByDefault: false}
 )
 
 // All includes all feature flags.
@@ -55,4 +57,5 @@ var All = []FeatureFlag{
 	ConnectionMultiplexing,
 	PackWriteReverseIndex,
 	AtomicFetch,
+	BackchannelVoting,
 }

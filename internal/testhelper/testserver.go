@@ -27,6 +27,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
+	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config/auth"
 	gitalylog "gitlab.com/gitlab-org/gitaly/internal/gitaly/config/log"
@@ -86,17 +87,19 @@ func NewTestServer(srv *grpc.Server, opts ...TestServerOpt) *TestServer {
 }
 
 // NewServerWithAuth creates a new test server with authentication
-func NewServerWithAuth(tb testing.TB, streamInterceptors []grpc.StreamServerInterceptor, unaryInterceptors []grpc.UnaryServerInterceptor, token string, opts ...TestServerOpt) *TestServer {
+func NewServerWithAuth(tb testing.TB, streamInterceptors []grpc.StreamServerInterceptor, unaryInterceptors []grpc.UnaryServerInterceptor, token string, registry *backchannel.Registry, opts ...TestServerOpt) *TestServer {
 	if token != "" {
 		opts = append(opts, WithToken(token))
 		streamInterceptors = append(streamInterceptors, serverauth.StreamServerInterceptor(auth.Config{Token: token}))
 		unaryInterceptors = append(unaryInterceptors, serverauth.UnaryServerInterceptor(auth.Config{Token: token}))
 	}
 
-	return NewServer(
+	return newServerWithLogger(
 		tb,
+		NewTestLogger(tb),
 		streamInterceptors,
 		unaryInterceptors,
+		registry,
 		opts...,
 	)
 }
@@ -291,6 +294,10 @@ func NewServer(tb testing.TB, streamInterceptors []grpc.StreamServerInterceptor,
 // NewServerWithLogger lets you inject a logger into a test server. You
 // can use this to inspect log messages.
 func NewServerWithLogger(tb testing.TB, logger *log.Logger, streamInterceptors []grpc.StreamServerInterceptor, unaryInterceptors []grpc.UnaryServerInterceptor, opts ...TestServerOpt) *TestServer {
+	return newServerWithLogger(tb, logger, streamInterceptors, unaryInterceptors, backchannel.NewRegistry(), opts...)
+}
+
+func newServerWithLogger(tb testing.TB, logger *log.Logger, streamInterceptors []grpc.StreamServerInterceptor, unaryInterceptors []grpc.UnaryServerInterceptor, registry *backchannel.Registry, opts ...TestServerOpt) *TestServer {
 	logrusEntry := log.NewEntry(logger).WithField("test", tb.Name())
 	ctxTagger := grpc_ctxtags.WithFieldExtractorForInitialReq(fieldextractors.FieldExtractor)
 
@@ -310,6 +317,7 @@ func NewServerWithLogger(tb testing.TB, logger *log.Logger, streamInterceptors [
 
 	return NewTestServer(
 		grpc.NewServer(
+			grpc.Creds(backchannel.NewServerHandshaker(logrusEntry, backchannel.Insecure(), registry, nil)),
 			grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(streamInterceptors...)),
 			grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(unaryInterceptors...)),
 		),
