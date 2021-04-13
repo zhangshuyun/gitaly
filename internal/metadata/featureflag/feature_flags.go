@@ -36,6 +36,8 @@ var (
 	// AtomicFetch enables the use of atomic fetches and thus allows efficient use of
 	// transactions there.
 	AtomicFetch = FeatureFlag{Name: "atomic_fetch", OnByDefault: false}
+	// GrpcTreeEntryNotFound makes the TreeEntry gRPC call return NotFound instead of an empty blob
+	GrpcTreeEntryNotFound = FeatureFlag{Name: "grpc_tree_entry_not_found", OnByDefault: false}
 )
 
 // All includes all feature flags.
@@ -47,6 +49,7 @@ var All = []FeatureFlag{
 	GoResolveConflicts,
 	GoUserUpdateSubmodule,
 	GoUserRevert,
+	GrpcTreeEntryNotFound,
 	LFSPointersUseBitmapIndex,
 	GoUpdateRemoteMirror,
 	ConnectionMultiplexing,
