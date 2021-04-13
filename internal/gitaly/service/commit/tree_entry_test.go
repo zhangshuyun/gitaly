@@ -151,7 +151,7 @@ func TestSuccessfulTreeEntry(t *testing.T) {
 }
 
 // Extracted from TestSuccessfulTreeEntry, to be moved into TestFailedTreeEntry once featureflag.GrpcTreeEntryNotFound is removed
-func TestMissingTreeEntry(t *testing.T) {
+func TestFFGrpcTreeEntryNotFoundDisabled(t *testing.T) {
 	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
 	testRequests := []*gitalypb.TreeEntryRequest{
@@ -161,26 +161,13 @@ func TestMissingTreeEntry(t *testing.T) {
 	}
 
 	for _, request := range testRequests {
-		t.Run(fmt.Sprintf("test case: revision=%q path=%q", request.Revision, request.Path), func(t *testing.T) {
-			t.Run("it returns empty blob when FF GrpcTreeEntryNotFound is disabled", func(t *testing.T) {
-				ctx, cancel := testhelper.Context()
-				defer cancel()
-				ctx = featureflag.OutgoingCtxWithFeatureFlagValue(ctx, featureflag.GrpcTreeEntryNotFound, "false")
-				c, err := client.TreeEntry(ctx, request)
-				require.NoError(t, err)
-				assertExactReceivedTreeEntry(t, c, &treeEntry{})
-			})
-
-			t.Run("it returns NotFound error when FF GrpcTreeEntryNotFound is enabled", func(t *testing.T) {
-				ctx, cancel := testhelper.Context()
-				defer cancel()
-				ctx = featureflag.OutgoingCtxWithFeatureFlagValue(ctx, featureflag.GrpcTreeEntryNotFound, "true")
-				c, err := client.TreeEntry(ctx, request)
-				require.NoError(t, err)
-
-				err = drainTreeEntryResponse(c)
-				testhelper.RequireGrpcError(t, err, codes.NotFound)
-			})
+		t.Run(fmt.Sprintf("revision=%q path=%q", request.Revision, request.Path), func(t *testing.T) {
+			ctx, cancel := testhelper.Context()
+			defer cancel()
+			ctx = featureflag.OutgoingCtxWithFeatureFlagValue(ctx, featureflag.GrpcTreeEntryNotFound, "false")
+			c, err := client.TreeEntry(ctx, request)
+			require.NoError(t, err)
+			assertExactReceivedTreeEntry(t, c, &treeEntry{})
 		})
 	}
 }
@@ -235,6 +222,21 @@ func TestFailedTreeEntry(t *testing.T) {
 			name:         "Object bigger than MaxSize",
 			req:          gitalypb.TreeEntryRequest{Repository: repo, Revision: []byte("913c66a37b4a45b9769037c55c2d238bd0942d2e"), Path: []byte("MAINTENANCE.md"), MaxSize: 10},
 			expectedCode: codes.FailedPrecondition,
+		},
+		{
+			name:         "Path is outside of repository",
+			req:          gitalypb.TreeEntryRequest{Repository: repo, Revision: []byte("913c66a37b4a45b9769037c55c2d238bd0942d2e"), Path: []byte("../bar/.gitkeep")}, // Git blows up on paths like this
+			expectedCode: codes.NotFound,
+		},
+		{
+			name:         "Missing file with space in path",
+			req:          gitalypb.TreeEntryRequest{Repository: repo, Revision: []byte("deadfacedeadfacedeadfacedeadfacedeadface"), Path: []byte("with space/README.md")},
+			expectedCode: codes.NotFound,
+		},
+		{
+			name:         "Missing file",
+			req:          gitalypb.TreeEntryRequest{Repository: repo, Revision: []byte("e63f41fe459e62e1228fcef60d7189127aeba95a"), Path: []byte("missing.rb")},
+			expectedCode: codes.NotFound,
 		},
 	}
 
