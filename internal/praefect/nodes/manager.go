@@ -198,11 +198,6 @@ func NewManager(
 			cs := newConnectionStatus(*node, conn, log, latencyHistogram, errorTracker)
 			ns = append(ns, cs)
 
-			if c.Failover.ElectionStrategy != config.ElectionStrategySQL &&
-				c.Failover.ElectionStrategy != config.ElectionStrategyLocal {
-				continue
-			}
-
 			muxedConn, err := Dial(ctx, node, registry, errorTracker, handshaker)
 			if err != nil {
 				log.WithError(err).Error("failed to dial Gitaly over a muxed connection")
@@ -224,7 +219,7 @@ func NewManager(
 				strategies[virtualStorage.Name] = newLocalElector(virtualStorage.Name, log, ns, vsMuxed)
 			}
 		} else {
-			strategies[virtualStorage.Name] = newDisabledElector(virtualStorage.Name, ns)
+			strategies[virtualStorage.Name] = newDisabledElector(virtualStorage.Name, ns, vsMuxed)
 		}
 	}
 

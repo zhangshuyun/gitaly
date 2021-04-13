@@ -909,6 +909,12 @@ func TestStreamDirector_repo_creation(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
+			// NodeManager does not provide a way to get access to the muxed connections easily. The test does
+			// not set up the database, so GetShard fails. As such, let's just disable the feature flag in this
+			// test. Once the muxed connections are setup by default, the test will test them and the feature flag
+			// is removed.
+			ctx = featureflag.IncomingCtxWithDisabledFeatureFlag(ctx, featureflag.ConnectionMultiplexing)
+
 			peeker := &mockPeeker{frame}
 			streamParams, err := coordinator.StreamDirector(correlation.ContextWithCorrelation(ctx, "my-correlation-id"), fullMethod, peeker)
 			require.NoError(t, err)
