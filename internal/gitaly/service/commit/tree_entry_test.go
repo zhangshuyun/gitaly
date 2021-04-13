@@ -150,7 +150,7 @@ func TestSuccessfulTreeEntry(t *testing.T) {
 	}
 }
 
-// Extracted from TestSuccessfulTreeEntry, to be moved into TestFailedTreeEntry once featureflag.GrpcTreeEntryNotFound is removed
+// Extracted from TestSuccessfulTreeEntry, to be removed with featureflag.GrpcTreeEntryNotFound
 func TestFFGrpcTreeEntryNotFoundDisabled(t *testing.T) {
 	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
