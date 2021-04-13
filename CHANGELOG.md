@@ -72,6 +72,10 @@
 - Remove unused Ruby code. !3203
 
 
+## 13.9.6 (2021-04-13)
+
+- No changes.
+
 ## 13.9.5 (2021-03-31)
 
 - No changes.
