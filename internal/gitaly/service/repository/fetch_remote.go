@@ -65,15 +65,15 @@ func (s *server) FetchRemote(ctx context.Context, req *gitalypb.FetchRemoteReque
 		}
 
 		opts.CommandOptions = append(opts.CommandOptions, git.WithConfigEnv(config...))
-	} else {
-		sshCommand, cleanup, err := git.BuildSSHInvocation(ctx, req.GetSshKey(), req.GetKnownHosts())
-		if err != nil {
-			return nil, err
-		}
-		defer cleanup()
-
-		opts.Env = append(opts.Env, "GIT_SSH_COMMAND="+sshCommand)
 	}
+
+	sshCommand, cleanup, err := git.BuildSSHInvocation(ctx, req.GetSshKey(), req.GetKnownHosts())
+	if err != nil {
+		return nil, err
+	}
+	defer cleanup()
+
+	opts.Env = append(opts.Env, "GIT_SSH_COMMAND="+sshCommand)
 
 	if req.GetTimeout() > 0 {
 		var cancel context.CancelFunc
