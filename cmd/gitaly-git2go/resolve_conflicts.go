@@ -113,6 +113,10 @@ func (cmd resolveSubcommand) Run(_ context.Context, r io.Reader, w io.Writer) er
 			return fmt.Errorf("merge file result for %q: %w", r.NewPath, err)
 		}
 
+		if r.Content != "" && bytes.Equal([]byte(r.Content), mfr.Contents) {
+			return fmt.Errorf("Resolved content has no changes for file %s", r.NewPath) //nolint
+		}
+
 		ancestorPath := c.Our.Path
 		if c.Ancestor != nil {
 			ancestorPath = c.Ancestor.Path

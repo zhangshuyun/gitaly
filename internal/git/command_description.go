@@ -104,6 +104,9 @@ var commandDescriptions = map[string]commandDescription{
 	"merge-base": {
 		flags: scNoRefUpdates,
 	},
+	"merge-file": {
+		flags: scNoRefUpdates,
+	},
 	"mktag": {
 		flags: scNoRefUpdates | scNoEndOfOptions,
 	},

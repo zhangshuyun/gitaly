@@ -122,6 +122,9 @@ func validateResolveConflictsHeader(header *gitalypb.ResolveConflictsRequestHead
 	if header.GetOurCommitOid() == "" {
 		return fmt.Errorf("empty OurCommitOid")
 	}
+	if header.GetRepository() == nil {
+		return fmt.Errorf("empty Repository")
+	}
 	if header.GetTargetRepository() == nil {
 		return fmt.Errorf("empty TargetRepository")
 	}
@@ -200,6 +203,11 @@ func (s *server) resolveConflicts(header *gitalypb.ResolveConflictsRequestHeader
 		if err != nil {
 			return helper.ErrInvalidArgument(err)
 		}
+	}
+
+	if git.ValidateObjectID(header.GetOurCommitOid()) != nil ||
+		git.ValidateObjectID(header.GetTheirCommitOid()) != nil {
+		return errors.New("Rugged::InvalidError: unable to parse OID - contains invalid characters")
 	}
 
 	result, err := git2go.ResolveCommand{
