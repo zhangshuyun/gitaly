@@ -26,7 +26,7 @@ var (
 )
 
 func init() {
-	prometheus.Register(repackCounter)
+	prometheus.MustRegister(repackCounter)
 }
 
 // log2Threads returns the log-2 number of threads based on the number of
