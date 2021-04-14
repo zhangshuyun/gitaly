@@ -11,7 +11,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/ref"
 	"gitlab.com/gitlab-org/gitaly/internal/gitalyssh"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -34,19 +33,14 @@ func (s *server) FetchInternalRemote(ctx context.Context, req *gitalypb.FetchInt
 
 	stderr := &bytes.Buffer{}
 
-	flags := []git.Option{git.Flag{Name: "--prune"}}
+	flags := []git.Option{
+		git.Flag{Name: "--prune"},
+		git.Flag{Name: "--atomic"},
+	}
 	options := []git.CmdOpt{
 		git.WithEnv(env...),
 		git.WithStderr(stderr),
-	}
-
-	if featureflag.IsEnabled(ctx, featureflag.AtomicFetch) {
-		flags = append(flags, git.Flag{
-			Name: "--atomic",
-		})
-		options = append(options, git.WithRefTxHook(ctx, req.Repository, s.cfg))
-	} else {
-		options = append(options, git.WithDisabledHooks())
+		git.WithRefTxHook(ctx, req.Repository, s.cfg),
 	}
 
 	cmd, err := s.gitCmdFactory.New(ctx, req.Repository,
