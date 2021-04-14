@@ -415,9 +415,9 @@ ${DEPENDENCY_DIR}: | ${BUILD_DIR}
 # these targets.
 .PHONY: dependency-version
 ${DEPENDENCY_DIR}/libgit2.version: dependency-version | ${DEPENDENCY_DIR}
-	${Q}[ x"$$(cat "$@" 2>/dev/null)" = x"${LIBGIT2_VERSION}" ] || >$@ echo -n "${LIBGIT2_VERSION}"
+	${Q}[ x"$$(cat "$@" 2>/dev/null)" = x"${LIBGIT2_VERSION} ${LIBGIT2_BUILD_OPTIONS}" ] || >$@ echo -n "${LIBGIT2_VERSION} ${LIBGIT2_BUILD_OPTIONS}"
 ${DEPENDENCY_DIR}/git.version: dependency-version | ${DEPENDENCY_DIR}
-	${Q}[ x"$$(cat "$@" 2>/dev/null)" = x"${GIT_VERSION}" ] || >$@ echo -n "${GIT_VERSION}"
+	${Q}[ x"$$(cat "$@" 2>/dev/null)" = x"${GIT_VERSION} ${GIT_BUILD_OPTIONS}" ] || >$@ echo -n "${GIT_VERSION} ${GIT_BUILD_OPTIONS}"
 ${TOOLS_DIR}/%.version: dependency-version | ${TOOLS_DIR}
 	${Q}[ x"$$(cat "$@" 2>/dev/null)" = x"${TOOL_VERSION}" ] || >$@ echo -n "${TOOL_VERSION}"
 
