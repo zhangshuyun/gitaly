@@ -17,7 +17,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"syscall"
 	"testing"
@@ -253,106 +252,6 @@ func Context(opts ...ContextOpt) (context.Context, func()) {
 			cancels[i]()
 		}
 	}
-}
-
-// GitalySSHParams contains parameters used to exec 'gitaly-ssh' binary.
-type GitalySSHParams struct {
-	Args    []string
-	EnvVars []string
-}
-
-// ListenGitalySSHCalls creates a script that intercepts 'gitaly-ssh' binary calls.
-// It substitutes execution path of 'gitaly-ssh' with a path to a script and returns a modified configuration to be used.
-// The second return parameter provides the list of parameters used in each invocation of the 'gitaly-ssh'.
-func ListenGitalySSHCalls(t *testing.T, conf config.Cfg) (config.Cfg, func() []GitalySSHParams, Cleanup) {
-	t.Helper()
-
-	if conf.BinDir == "" {
-		assert.FailNow(t, "BinDir must be set")
-		return conf, func() []GitalySSHParams { return nil }, func() {}
-	}
-
-	const envPrefix = "env-"
-	const argsPrefix = "args-"
-
-	tmpDir, clean := TempDir(t)
-	script := fmt.Sprintf(`
-		#!/bin/sh
-
-		# To omit possible problem with parallel run and a race for the file creation with '>'
-		# this option is used, please checkout https://mywiki.wooledge.org/NoClobber for more details.
-		set -o noclobber
-
-		ENV_IDX=$(ls %[1]q | grep %[2]s | wc -l)
-		env > "%[1]s/%[2]s$ENV_IDX"
-
-		ARGS_IDX=$(ls %[1]q | grep %[3]s | wc -l)
-		echo $@ > "%[1]s/%[3]s$ARGS_IDX"
-
-		%[4]q "$@" 1>&1 2>&2
-		exit $?`,
-		tmpDir, envPrefix, argsPrefix, filepath.Join(conf.BinDir, "gitaly-ssh"))
-
-	require.NoError(t, ioutil.WriteFile(filepath.Join(tmpDir, "gitaly-ssh"), []byte(script), 0755))
-	conf.BinDir = tmpDir
-
-	getSSHParams := func() []GitalySSHParams {
-		var gitalySSHParams []GitalySSHParams
-		err := filepath.Walk(tmpDir, func(path string, info os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
-
-			filename := filepath.Base(path)
-
-			parseParams := func(prefix, delim string) error {
-				if !strings.HasPrefix(filename, prefix) {
-					return nil
-				}
-
-				idx, err := strconv.Atoi(strings.TrimSpace(strings.TrimPrefix(filename, prefix)))
-				if err != nil {
-					return err
-				}
-
-				if len(gitalySSHParams) < idx+1 {
-					tmp := make([]GitalySSHParams, idx+1)
-					copy(tmp, gitalySSHParams)
-					gitalySSHParams = tmp
-				}
-
-				data, err := ioutil.ReadFile(path)
-				if err != nil {
-					return err
-				}
-
-				params := strings.Split(string(data), delim)
-
-				switch prefix {
-				case argsPrefix:
-					gitalySSHParams[idx].Args = params
-				case envPrefix:
-					gitalySSHParams[idx].EnvVars = params
-				}
-
-				return nil
-			}
-
-			if err := parseParams(envPrefix, "\n"); err != nil {
-				return err
-			}
-
-			if err := parseParams(argsPrefix, " "); err != nil {
-				return err
-			}
-
-			return nil
-		})
-		assert.NoError(t, err)
-		return gitalySSHParams
-	}
-
-	return conf, getSSHParams, clean
 }
 
 // AssertPathNotExists asserts true if the path doesn't exist, false otherwise
