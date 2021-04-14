@@ -15,7 +15,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/ref"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/ssh"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
@@ -24,12 +23,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 )
-
-func TestSuccessfulFetchInternalRemote(t *testing.T) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.AtomicFetch,
-	}).Run(t, testSuccessfulFetchInternalRemote)
-}
 
 type mockHookManager struct {
 	gitalyhook.Manager
@@ -41,8 +34,11 @@ func (m *mockHookManager) ReferenceTransactionHook(_ context.Context, _ gitalyho
 	return nil
 }
 
-func testSuccessfulFetchInternalRemote(t *testing.T, ctx context.Context) {
+func TestSuccessfulFetchInternalRemote(t *testing.T) {
 	defer func(oldConf config.Cfg) { config.Config = oldConf }(config.Config)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
 	conf, getGitalySSHInvocationParams, cleanup := testhelper.ListenGitalySSHCalls(t, config.Config)
 	defer cleanup()
@@ -129,11 +125,7 @@ func testSuccessfulFetchInternalRemote(t *testing.T, ctx context.Context) {
 		},
 	)
 
-	if featureflag.IsEnabled(ctx, featureflag.AtomicFetch) {
-		require.Equal(t, 2, hookManager.called)
-	} else {
-		require.Equal(t, 0, hookManager.called)
-	}
+	require.Equal(t, 2, hookManager.called)
 }
 
 func TestFailedFetchInternalRemote(t *testing.T) {

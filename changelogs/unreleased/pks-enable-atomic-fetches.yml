@@ -1,0 +1,5 @@
+---
+title: 'featureflag: Remove `AtomicFetch` feature flag'
+merge_request: 3359
+author:
+type: performance

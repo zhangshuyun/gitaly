@@ -2,7 +2,6 @@ package objectpool
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"io/ioutil"
 	"os"
@@ -20,7 +19,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/hooks"
 	"gitlab.com/gitlab-org/gitaly/internal/git/objectpool"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -84,41 +82,36 @@ func TestFetchIntoObjectPool_Success(t *testing.T) {
 }
 
 func TestFetchIntoObjectPool_hooks(t *testing.T) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.AtomicFetch,
-	}).Run(t, func(t *testing.T, ctx context.Context) {
-		cfg, repo, _, locator, client := setup(t)
-		gitCmdFactory := git.NewExecCommandFactory(cfg)
+	cfg, repo, _, locator, client := setup(t)
+	gitCmdFactory := git.NewExecCommandFactory(cfg)
 
-		pool, err := objectpool.NewObjectPool(cfg, locator, gitCmdFactory, repo.GetStorageName(), gittest.NewObjectPoolName(t))
-		require.NoError(t, err)
-		defer pool.Remove(ctx)
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-		hookDir, cleanup := testhelper.TempDir(t)
-		defer cleanup()
+	pool, err := objectpool.NewObjectPool(cfg, locator, gitCmdFactory, repo.GetStorageName(), gittest.NewObjectPoolName(t))
+	require.NoError(t, err)
+	defer pool.Remove(ctx)
 
-		defer func(oldValue string) {
-			hooks.Override = oldValue
-		}(hooks.Override)
-		hooks.Override = hookDir
+	hookDir, cleanup := testhelper.TempDir(t)
+	defer cleanup()
 
-		// Set up a custom reference-transaction hook which simply exits failure. This asserts that
-		// the RPC doesn't invoke any reference-transaction.
-		require.NoError(t, ioutil.WriteFile(filepath.Join(hookDir, "reference-transaction"), []byte("#!/bin/sh\nexit 1\n"), 0777))
+	defer func(oldValue string) {
+		hooks.Override = oldValue
+	}(hooks.Override)
+	hooks.Override = hookDir
 
-		req := &gitalypb.FetchIntoObjectPoolRequest{
-			ObjectPool: pool.ToProto(),
-			Origin:     repo,
-			Repack:     true,
-		}
+	// Set up a custom reference-transaction hook which simply exits failure. This asserts that
+	// the RPC doesn't invoke any reference-transaction.
+	require.NoError(t, ioutil.WriteFile(filepath.Join(hookDir, "reference-transaction"), []byte("#!/bin/sh\nexit 1\n"), 0777))
 
-		_, err = client.FetchIntoObjectPool(ctx, req)
-		if featureflag.IsEnabled(ctx, featureflag.AtomicFetch) {
-			require.Equal(t, status.Error(codes.Internal, "exit status 128"), err)
-		} else {
-			require.NoError(t, err)
-		}
-	})
+	req := &gitalypb.FetchIntoObjectPoolRequest{
+		ObjectPool: pool.ToProto(),
+		Origin:     repo,
+		Repack:     true,
+	}
+
+	_, err = client.FetchIntoObjectPool(ctx, req)
+	require.Equal(t, status.Error(codes.Internal, "exit status 128"), err)
 }
 
 func TestFetchIntoObjectPool_CollectLogStatistics(t *testing.T) {
