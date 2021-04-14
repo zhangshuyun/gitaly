@@ -92,8 +92,9 @@ endif
 
 ifeq (${GIT_PATCHES},)
     # Before adding custom patches, please read doc/PROCESS.md#Patching-git
-    # first to make sure your patches meet our acceptance criteria.
-    GIT_PATCHES +=
+    # first to make sure your patches meet our acceptance criteria. Patches
+    # must be put into `_support/git-patches`.
+    GIT_PATCHES += pack-bitmap-avoid-traversal-of-uninteresting-tag.patch
 endif
 
 ifeq (${GIT_BUILD_OPTIONS},)

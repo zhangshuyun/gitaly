@@ -70,10 +70,15 @@ var (
 )
 
 func TestListLFSPointers(t *testing.T) {
-	_, repo, _, client := setup(t)
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.LFSPointersUseBitmapIndex,
+	}).Run(t, func(t *testing.T, ctx context.Context) {
+		testListLFSPointers(t, ctx)
+	})
+}
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+func testListLFSPointers(t *testing.T, ctx context.Context) {
+	_, repo, _, client := setup(t)
 
 	for _, tc := range []struct {
 		desc             string
@@ -179,6 +184,14 @@ func TestListLFSPointers(t *testing.T) {
 }
 
 func TestListAllLFSPointers(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.LFSPointersUseBitmapIndex,
+	}).Run(t, func(t *testing.T, ctx context.Context) {
+		testListAllLFSPointers(t, ctx)
+	})
+}
+
+func testListAllLFSPointers(t *testing.T, ctx context.Context) {
 	receivePointers := func(t *testing.T, stream gitalypb.BlobService_ListAllLFSPointersClient) []*gitalypb.LFSPointer {
 		t.Helper()
 
