@@ -12,6 +12,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/setup"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
@@ -21,8 +22,7 @@ import (
 func TestCreateSubcommand(t *testing.T) {
 	cfg := testcfg.Build(t)
 
-	gitalyAddr, cleanupGitaly := testserver.RunGitalyServer(t, cfg, nil)
-	t.Cleanup(cleanupGitaly)
+	gitalyAddr := testserver.RunGitalyServer(t, cfg, nil, setup.RegisterAll)
 
 	path, cleanup := testhelper.TempDir(t)
 	t.Cleanup(cleanup)
