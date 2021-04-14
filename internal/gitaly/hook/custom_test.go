@@ -264,7 +264,8 @@ func TestCustomHooksWithSymlinks(t *testing.T) {
 
 	notExecPath := filepath.Join(globalHooksPath, "not-executable")
 	badExecHook := filepath.Join(firstDir, "something")
-	os.Create(notExecPath)
+	_, err := os.Create(notExecPath)
+	require.NoError(t, err)
 	require.NoError(t, os.Symlink(notExecPath, badExecHook))
 
 	badPath := filepath.Join(globalHooksPath, "bad")

@@ -97,7 +97,7 @@ func TestCleanupDeletesPackedRefsLock(t *testing.T) {
 			// Force the packed-refs file to have an old time to test that even
 			// in that case it doesn't get deleted
 			packedRefsPath := filepath.Join(testRepoPath, "packed-refs")
-			os.Chtimes(packedRefsPath, oldTime, oldTime)
+			require.NoError(t, os.Chtimes(packedRefsPath, oldTime, oldTime))
 
 			req := &gitalypb.CleanupRequest{Repository: testRepo}
 			lockPath := filepath.Join(testRepoPath, "packed-refs.lock")

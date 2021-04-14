@@ -24,9 +24,11 @@ func TestNewCommandTZEnv(t *testing.T) {
 	defer cancel()
 
 	oldTZ := os.Getenv("TZ")
-	defer os.Setenv("TZ", oldTZ)
+	defer func() {
+		require.NoError(t, os.Setenv("TZ", oldTZ))
+	}()
 
-	os.Setenv("TZ", "foobar")
+	require.NoError(t, os.Setenv("TZ", "foobar"))
 
 	buff := &bytes.Buffer{}
 	cmd, err := New(ctx, exec.Command("env"), nil, buff, nil)

@@ -30,16 +30,12 @@ func TestSuccessfulIsRebaseInProgressRequest(t *testing.T) {
 
 	brokenPath := filepath.Join(testRepo1Path, worktreePrefix, fmt.Sprintf("%s-2", rebaseWorktreePrefix))
 	testhelper.MustRunCommand(t, nil, "git", "-C", testRepo1Path, "worktree", "add", "--detach", brokenPath, "master")
-	os.Chmod(brokenPath, 0)
-	os.Chtimes(brokenPath, time.Now(), time.Now().Add(-16*time.Minute))
-	defer func() {
-		os.Chmod(brokenPath, 0755)
-		os.RemoveAll(brokenPath)
-	}()
+	require.NoError(t, os.Chmod(brokenPath, 0))
+	require.NoError(t, os.Chtimes(brokenPath, time.Now(), time.Now().Add(-16*time.Minute)))
 
 	oldPath := filepath.Join(testRepo1Path, worktreePrefix, fmt.Sprintf("%s-3", rebaseWorktreePrefix))
 	testhelper.MustRunCommand(t, nil, "git", "-C", testRepo1Path, "worktree", "add", "--detach", oldPath, "master")
-	os.Chtimes(oldPath, time.Now(), time.Now().Add(-16*time.Minute))
+	require.NoError(t, os.Chtimes(oldPath, time.Now(), time.Now().Add(-16*time.Minute)))
 
 	testRepo2, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()

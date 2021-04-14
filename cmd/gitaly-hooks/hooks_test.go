@@ -247,7 +247,7 @@ func TestHooksUpdate(t *testing.T) {
 	testhelper.ConfigureGitalyHooksBin(t, cfg)
 	testhelper.ConfigureGitalySSHBin(t, cfg)
 
-	os.Symlink(filepath.Join(cfg.GitlabShell.Dir, "config.yml"), filepath.Join(cfg.GitlabShell.Dir, "config.yml"))
+	require.NoError(t, os.Symlink(filepath.Join(cfg.GitlabShell.Dir, "config.yml"), filepath.Join(cfg.GitlabShell.Dir, "config.yml")))
 
 	cfg.Gitlab.SecretFile = testhelper.WriteShellSecretFile(t, cfg.GitlabShell.Dir, "the wrong token")
 

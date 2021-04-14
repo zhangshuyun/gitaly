@@ -177,22 +177,22 @@ func TestLoadListenAddr(t *testing.T) {
 	assert.Equal(t, ":8080", cfg.ListenAddr)
 }
 
-func tempEnv(key, value string) func() {
+func tempEnv(t *testing.T, key, value string) func() {
 	temp := os.Getenv(key)
-	os.Setenv(key, value)
+	require.NoError(t, os.Setenv(key, value))
 
 	return func() {
-		os.Setenv(key, temp)
+		require.NoError(t, os.Setenv(key, temp))
 	}
 }
 
 func TestLoadOverrideEnvironment(t *testing.T) {
 	// Test that this works since we still want this to work
-	tempEnv1 := tempEnv("GITALY_SOCKET_PATH", "/tmp/gitaly2.sock")
+	tempEnv1 := tempEnv(t, "GITALY_SOCKET_PATH", "/tmp/gitaly2.sock")
 	defer tempEnv1()
-	tempEnv2 := tempEnv("GITALY_LISTEN_ADDR", ":8081")
+	tempEnv2 := tempEnv(t, "GITALY_LISTEN_ADDR", ":8081")
 	defer tempEnv2()
-	tempEnv3 := tempEnv("GITALY_PROMETHEUS_LISTEN_ADDR", ":9237")
+	tempEnv3 := tempEnv(t, "GITALY_PROMETHEUS_LISTEN_ADDR", ":9237")
 	defer tempEnv3()
 
 	tmpFile := strings.NewReader(`socket_path = "/tmp/gitaly.sock"
@@ -209,9 +209,9 @@ prometheus_listen_addr = ":9236"`)
 
 func TestLoadOnlyEnvironment(t *testing.T) {
 	// Test that this works since we still want this to work
-	defer tempEnv("GITALY_SOCKET_PATH", "/tmp/gitaly2.sock")()
-	defer tempEnv("GITALY_LISTEN_ADDR", ":8081")()
-	defer tempEnv("GITALY_PROMETHEUS_LISTEN_ADDR", ":9237")()
+	defer tempEnv(t, "GITALY_SOCKET_PATH", "/tmp/gitaly2.sock")()
+	defer tempEnv(t, "GITALY_LISTEN_ADDR", ":8081")()
+	defer tempEnv(t, "GITALY_PROMETHEUS_LISTEN_ADDR", ":9237")()
 
 	cfg, err := Load(&bytes.Buffer{})
 	require.NoError(t, err)
