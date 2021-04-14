@@ -118,7 +118,8 @@ func TestRejectEmptyContextDone(t *testing.T) {
 		}
 	}()
 
-	New(context.Background(), exec.Command("true"), nil, nil, nil)
+	_, err := New(context.Background(), exec.Command("true"), nil, nil, nil)
+	require.NoError(t, err)
 }
 
 func TestNewCommandTimeout(t *testing.T) {

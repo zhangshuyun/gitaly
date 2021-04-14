@@ -161,7 +161,7 @@ func TestLimiter(t *testing.T) {
 					for i := 0; i < tt.iterations; i++ {
 						lockKey := strconv.Itoa((i ^ counter) % tt.buckets)
 
-						limiter.Limit(context.Background(), lockKey, func() (interface{}, error) {
+						_, err := limiter.Limit(context.Background(), lockKey, func() (interface{}, error) {
 							primePump()
 
 							current := gauge.currentVal()
@@ -172,6 +172,7 @@ func TestLimiter(t *testing.T) {
 							gauge.down()
 							return nil, nil
 						})
+						require.NoError(t, err)
 					}
 
 					wg.Done()

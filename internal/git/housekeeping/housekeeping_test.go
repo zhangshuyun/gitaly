@@ -208,7 +208,9 @@ func TestPerform(t *testing.T) {
 
 			// We need to fix permissions so we don't fail to
 			// remove the temporary directory after the test.
-			defer FixDirectoryPermissions(ctx, repoPath)
+			defer func() {
+				require.NoError(t, FixDirectoryPermissions(ctx, repoPath))
+			}()
 
 			for _, e := range tc.entries {
 				e.create(t, repoPath)
@@ -304,14 +306,14 @@ func TestPerform_references(t *testing.T) {
 			require.NoError(t, Perform(ctx, repo))
 
 			var actual []string
-			filepath.Walk(filepath.Join(repoPath, "refs"), func(path string, info os.FileInfo, _ error) error {
+			require.NoError(t, filepath.Walk(filepath.Join(repoPath, "refs"), func(path string, info os.FileInfo, _ error) error {
 				if !info.IsDir() {
 					ref, err := filepath.Rel(repoPath, path)
 					require.NoError(t, err)
 					actual = append(actual, ref)
 				}
 				return nil
-			})
+			}))
 
 			require.ElementsMatch(t, tc.expected, actual)
 		})

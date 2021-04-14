@@ -415,7 +415,9 @@ func TestTransactionReachesQuorum(t *testing.T) {
 
 			transaction, cancel, err := txMgr.RegisterTransaction(ctx, voters, tc.threshold)
 			require.NoError(t, err)
-			defer cancel()
+			defer func() {
+				require.NoError(t, cancel())
+			}()
 
 			var wg sync.WaitGroup
 			for i, v := range tc.voters {

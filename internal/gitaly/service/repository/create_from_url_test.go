@@ -40,7 +40,9 @@ func TestSuccessfulCreateRepositoryFromURLRequest(t *testing.T) {
 	user := "username123"
 	password := "password321localhost"
 	port, stopGitServer := gitServerWithBasicAuth(t, config.Config, user, password, testRepoPath)
-	defer stopGitServer()
+	defer func() {
+		require.NoError(t, stopGitServer())
+	}()
 
 	url := fmt.Sprintf("http://%s:%s@localhost:%d/%s", user, password, port, filepath.Base(testRepoPath))
 
