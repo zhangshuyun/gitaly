@@ -306,7 +306,7 @@ func TestFailedReceivePackRequestDueToValidationError(t *testing.T) {
 			require.NoError(t, err)
 
 			require.NoError(t, stream.Send(&rpcRequest))
-			stream.CloseSend()
+			require.NoError(t, stream.CloseSend())
 
 			err = drainPostReceivePackResponse(stream)
 			testhelper.RequireGrpcError(t, err, codes.InvalidArgument)

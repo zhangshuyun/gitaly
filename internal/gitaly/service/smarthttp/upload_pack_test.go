@@ -314,7 +314,7 @@ func makePostUploadPackRequest(ctx context.Context, t *testing.T, serverSocketPa
 
 		_, err = io.Copy(sw, body)
 		require.NoError(t, err)
-		stream.CloseSend()
+		require.NoError(t, stream.CloseSend())
 	}
 
 	responseBuffer := &bytes.Buffer{}

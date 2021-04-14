@@ -96,7 +96,7 @@ func TestFailedUploadArchiveRequestDueToValidationError(t *testing.T) {
 			if err = stream.Send(test.Req); err != nil {
 				t.Fatal(err)
 			}
-			stream.CloseSend()
+			require.NoError(t, stream.CloseSend())
 
 			err = testUploadArchiveFailedResponse(t, stream)
 			testhelper.RequireGrpcError(t, err, test.Code)

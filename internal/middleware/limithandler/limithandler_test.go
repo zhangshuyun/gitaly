@@ -116,7 +116,7 @@ func TestStreamLimitHandler(t *testing.T) {
 				require.NoError(t, err)
 
 				require.NoError(t, stream.Send(&pb.BidirectionalRequest{}))
-				stream.CloseSend()
+				require.NoError(t, stream.CloseSend())
 
 				r, err := stream.Recv()
 				require.NotNil(t, r)
@@ -142,7 +142,7 @@ func TestStreamLimitHandler(t *testing.T) {
 				for i := 0; i < 10; i++ {
 					require.NoError(t, stream.Send(&pb.BidirectionalRequest{}))
 				}
-				stream.CloseSend()
+				require.NoError(t, stream.CloseSend())
 
 				r, err := stream.Recv()
 				require.NotNil(t, r)
