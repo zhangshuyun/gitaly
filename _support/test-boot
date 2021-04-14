@@ -8,12 +8,13 @@ ADDR = 'socket'.freeze
 def main(gitaly_dir)
   gitaly_dir = File.realpath(gitaly_dir)
 
-  version = IO.popen("#{File.join(gitaly_dir, 'gitaly')} -version").read
-  version_from_file = "Gitaly, version #{IO.read(File.join(gitaly_dir, 'VERSION')).strip}"
+  version = IO.popen("#{File.join(gitaly_dir, 'gitaly')} -version").read.delete_prefix('Gitaly, version ').strip
+  version_from_file = IO.read(File.join(gitaly_dir, 'VERSION')).strip
 
   # Use start_with? instead of == because the version output could use git describe, if it is a source install
   # eg: Gitaly, version 1.75.0-14-gd1ecb43f
-  abort "\ngitaly -version failed" unless version.start_with?(version_from_file)
+  abort "\nversion check failed: VERSION file contained '#{version_from_file}' but 'gitaly -version' reported '#{version}'."\
+  " If you are working from a fork, please fetch the latest tags." unless version.start_with?(version_from_file)
 
   Dir.mktmpdir do |dir|
     Dir.chdir(dir)
