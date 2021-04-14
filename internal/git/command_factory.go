@@ -12,7 +12,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/alternates"
 	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
 )
 
@@ -184,15 +183,10 @@ func (cf *ExecCommandFactory) combineArgs(ctx context.Context, gitConfig []confi
 
 	commandSpecificOptions := commandDescription.opts
 	if commandDescription.mayGeneratePackfiles() {
-		commandSpecificOptions = append(commandSpecificOptions, ConfigPair{
-			Key: "pack.windowMemory", Value: "100m",
-		})
-
-		if featureflag.IsEnabled(ctx, featureflag.PackWriteReverseIndex) {
-			commandSpecificOptions = append(commandSpecificOptions, ConfigPair{
-				Key: "pack.writeReverseIndex", Value: "true",
-			})
-		}
+		commandSpecificOptions = append(commandSpecificOptions,
+			ConfigPair{Key: "pack.windowMemory", Value: "100m"},
+			ConfigPair{Key: "pack.writeReverseIndex", Value: "true"},
+		)
 	}
 
 	// As global options may cancel out each other, we have a clearly
