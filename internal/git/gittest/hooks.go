@@ -8,26 +8,21 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git/hooks"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 )
 
 // WriteEnvToCustomHook dumps the env vars that the custom hooks receives to a file
 func WriteEnvToCustomHook(t testing.TB, repoPath, hookName string) string {
-	hookOutputTemp, err := ioutil.TempFile("", "")
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		assert.NoError(t, os.Remove(hookOutputTemp.Name()))
-	})
+	tempDir, cleanup := testhelper.TempDir(t)
+	t.Cleanup(cleanup)
 
-	require.NoError(t, hookOutputTemp.Close())
-
-	hookContent := fmt.Sprintf("#!/bin/sh\n/usr/bin/env > %s\n", hookOutputTemp.Name())
+	outputPath := filepath.Join(tempDir, "hook.env")
+	hookContent := fmt.Sprintf("#!/bin/sh\n/usr/bin/env >%s\n", outputPath)
 
 	WriteCustomHook(t, repoPath, hookName, []byte(hookContent))
 
-	return hookOutputTemp.Name()
+	return outputPath
 }
 
 // WriteCheckNewObjectExistsHook writes a pre-receive hook which only succeeds

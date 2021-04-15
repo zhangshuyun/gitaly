@@ -370,9 +370,7 @@ func TestHooksPostReceiveFailed(t *testing.T) {
 				require.Equal(t, 1, code, "exit status")
 				require.Empty(t, stdout.String())
 				require.Empty(t, stderr.String())
-
-				output := string(testhelper.MustReadFile(t, customHookOutputPath))
-				require.Empty(t, output, "custom hook should not have run")
+				require.NoFileExists(t, customHookOutputPath)
 			},
 		},
 		{
@@ -384,9 +382,7 @@ func TestHooksPostReceiveFailed(t *testing.T) {
 
 				require.Empty(t, stdout.String())
 				require.Empty(t, stderr.String())
-
-				output := string(testhelper.MustReadFile(t, customHookOutputPath))
-				require.Empty(t, output, "custom hook should not have run")
+				require.NoFileExists(t, customHookOutputPath)
 			},
 		},
 	}
@@ -484,9 +480,7 @@ func TestHooksNotAllowed(t *testing.T) {
 	require.Error(t, cmd.Run())
 	require.Equal(t, "GitLab: 401 Unauthorized\n", stderr.String())
 	require.Equal(t, "", stdout.String())
-
-	output := string(testhelper.MustReadFile(t, customHookOutputPath))
-	require.Empty(t, output, "custom hook should not have run")
+	require.NoFileExists(t, customHookOutputPath)
 }
 
 func TestCheckOK(t *testing.T) {
