@@ -87,6 +87,7 @@ func TestWithRubySidecar(t *testing.T) {
 		testFailedUserUpdateBranchRequest,
 		testSuccessfulUserUpdateBranchRequest,
 		testSuccessfulUserRebaseConfirmableRequest,
+		testUserRebaseConfirmableTransaction,
 		testUserRebaseConfirmableStableCommitIDs,
 		testFailedRebaseUserRebaseConfirmableRequestDueToInvalidHeader,
 		testAbortedUserRebaseConfirmable,
