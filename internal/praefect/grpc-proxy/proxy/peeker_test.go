@@ -60,7 +60,9 @@ func TestStreamPeeking(t *testing.T) {
 
 	proxyClientPingStream, err := proxyClient.PingStream(ctx)
 	require.NoError(t, err)
-	defer proxyClientPingStream.CloseSend()
+	defer func() {
+		require.NoError(t, proxyClientPingStream.CloseSend())
+	}()
 
 	require.NoError(t,
 		proxyClientPingStream.Send(pingReqSent),
@@ -121,7 +123,9 @@ func TestStreamInjecting(t *testing.T) {
 
 	proxyClientPingStream, err := proxyClient.PingStream(ctx)
 	require.NoError(t, err)
-	defer proxyClientPingStream.CloseSend()
+	defer func() {
+		require.NoError(t, proxyClientPingStream.CloseSend())
+	}()
 
 	require.NoError(t,
 		proxyClientPingStream.Send(pingReqSent),
