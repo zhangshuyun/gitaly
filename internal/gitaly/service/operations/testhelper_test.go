@@ -119,8 +119,27 @@ func setupOperationsService(t testing.TB, ctx context.Context) (context.Context,
 	return ctx, cfg, repo, repoPath, client
 }
 
+type setupConfig struct {
+	txManagerConstructor func() transaction.Manager
+}
+
+func (c setupConfig) buildTxManager(cfg config.Cfg, registry *backchannel.Registry) transaction.Manager {
+	if c.txManagerConstructor != nil {
+		return c.txManagerConstructor()
+	}
+	return transaction.NewManager(cfg, registry)
+}
+
+type setupOption func(*setupConfig)
+
+func withTxManagerConstructor(constructor func() transaction.Manager) setupOption {
+	return func(config *setupConfig) {
+		config.txManagerConstructor = constructor
+	}
+}
+
 func setupOperationsServiceWithRuby(
-	t testing.TB, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server,
+	t testing.TB, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server, options ...setupOption,
 ) (context.Context, config.Cfg, *gitalypb.Repository, string, gitalypb.OperationServiceClient) {
 	repo, repoPath, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name())
 	t.Cleanup(cleanup)
@@ -129,7 +148,7 @@ func setupOperationsServiceWithRuby(
 	testhelper.ConfigureGitalyGit2GoBin(t, cfg)
 	testhelper.ConfigureGitalyHooksBin(t, cfg)
 
-	serverSocketPath := runOperationServiceServer(t, cfg, rubySrv)
+	serverSocketPath := runOperationServiceServer(t, cfg, rubySrv, options...)
 	cfg.SocketPath = serverSocketPath
 
 	client, conn := newOperationClient(t, serverSocketPath)
@@ -141,7 +160,7 @@ func setupOperationsServiceWithRuby(
 	return ctx, cfg, repo, repoPath, client
 }
 
-func runOperationServiceServer(t testing.TB, cfg config.Cfg, rubySrv *rubyserver.Server) string {
+func runOperationServiceServer(t testing.TB, cfg config.Cfg, rubySrv *rubyserver.Server, options ...setupOption) string {
 	t.Helper()
 
 	registry := backchannel.NewRegistry()
@@ -150,8 +169,14 @@ func runOperationServiceServer(t testing.TB, cfg config.Cfg, rubySrv *rubyserver
 	conns := gitalyclient.NewPool()
 	t.Cleanup(func() { conns.Close() })
 
+	setupConfig := setupConfig{}
+	for _, option := range options {
+		option(&setupConfig)
+	}
+
 	locator := config.NewLocator(cfg)
-	txManager := transaction.NewManager(cfg, registry)
+
+	txManager := setupConfig.buildTxManager(cfg, registry)
 	hookManager := gitalyhook.NewManager(locator, txManager, gitalyhook.GitlabAPIStub, cfg)
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
 	server := NewServer(cfg, rubySrv, hookManager, locator, conns, gitCmdFactory)
