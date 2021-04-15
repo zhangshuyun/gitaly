@@ -46,7 +46,8 @@ func (s *server) CalculateChecksum(ctx context.Context, in *gitalypb.CalculateCh
 		}
 
 		h := sha1.New()
-		h.Write(ref)
+		// hash.Hash will never return an error.
+		_, _ = h.Write(ref)
 
 		hash := hex.EncodeToString(h.Sum(nil))
 		hashIntBase16, _ := (&big.Int{}).SetString(hash, 16)

@@ -301,7 +301,7 @@ func writeLines(writer io.WriteCloser, reader io.Reader, done chan struct{}, max
 		b, isPrefix, err = bufReader.ReadLine()
 
 		if discardRestOfLine {
-			ioutil.Discard.Write(b)
+			_, _ = ioutil.Discard.Write(b)
 			// if isPrefix = false, that means the reader has gotten to the end
 			// of the line. We want to read the first chunk of the  next line
 			if !isPrefix {
@@ -312,7 +312,7 @@ func writeLines(writer io.WriteCloser, reader io.Reader, done chan struct{}, max
 
 		// if we've reached the max, discard
 		if bytesWritten+len(escapedNewline) >= maxBytes {
-			ioutil.Discard.Write(b)
+			_, _ = ioutil.Discard.Write(b)
 			continue
 		}
 

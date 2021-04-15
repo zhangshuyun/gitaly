@@ -262,7 +262,8 @@ func TestAccess_allowedResponseHandling(t *testing.T) {
 			allowedHandler: func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusOK)
-				w.Write([]byte(`{"status": true}`))
+				_, err := w.Write([]byte(`{"status": true}`))
+				require.NoError(t, err)
 			},
 			allowed: true,
 			errMsg:  "",
@@ -273,7 +274,8 @@ func TestAccess_allowedResponseHandling(t *testing.T) {
 			allowedHandler: func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusOK)
-				w.Write([]byte(`{"status": false, "message": "this change is not allowed"}`))
+				_, err := w.Write([]byte(`{"status": false, "message": "this change is not allowed"}`))
+				require.NoError(t, err)
 			},
 			allowed: false,
 			errMsg:  "this change is not allowed",
@@ -292,7 +294,8 @@ func TestAccess_allowedResponseHandling(t *testing.T) {
 			allowedHandler: func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusInternalServerError)
-				w.Write([]byte(`{"status": true}`))
+				_, err := w.Write([]byte(`{"status": true}`))
+				require.NoError(t, err)
 			},
 			allowed: false,
 			errMsg:  "",
@@ -302,7 +305,8 @@ func TestAccess_allowedResponseHandling(t *testing.T) {
 			allowedHandler: func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusOK)
-				w.Write([]byte(`this is not json`))
+				_, err := w.Write([]byte(`this is not json`))
+				require.NoError(t, err)
 			},
 			allowed: false,
 			errMsg:  "decoding response from /allowed endpoint",
@@ -312,7 +316,8 @@ func TestAccess_allowedResponseHandling(t *testing.T) {
 			allowedHandler: func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusMultipleChoices)
-				w.Write([]byte(`{"status": true}`))
+				_, err := w.Write([]byte(`{"status": true}`))
+				require.NoError(t, err)
 			},
 			allowed: true,
 			errMsg:  "",
@@ -322,7 +327,8 @@ func TestAccess_allowedResponseHandling(t *testing.T) {
 			allowedHandler: func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusUnauthorized)
-				w.Write([]byte(`{"message": "you're not allowed here'"}`))
+				_, err := w.Write([]byte(`{"message": "you're not allowed here'"}`))
+				require.NoError(t, err)
 			},
 			allowed: false,
 			errMsg:  "you're not allowed here",
@@ -341,7 +347,8 @@ func TestAccess_allowedResponseHandling(t *testing.T) {
 			allowedHandler: func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusNotFound)
-				w.Write([]byte(`{"message": "not found"}`))
+				_, err := w.Write([]byte(`{"message": "not found"}`))
+				require.NoError(t, err)
 			},
 			allowed: false,
 			errMsg:  "not found",
@@ -397,7 +404,8 @@ func TestAccess_preReceive(t *testing.T) {
 			prereceiveHandler: func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusOK)
-				w.Write([]byte(`{"reference_counter_increased": true}`))
+				_, err := w.Write([]byte(`{"reference_counter_increased": true}`))
+				require.NoError(t, err)
 			},
 			success: true,
 			errMsg:  "",
@@ -407,7 +415,8 @@ func TestAccess_preReceive(t *testing.T) {
 			prereceiveHandler: func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusOK)
-				w.Write([]byte(`{"reference_counter_increased": false}`))
+				_, err := w.Write([]byte(`{"reference_counter_increased": false}`))
+				require.NoError(t, err)
 			},
 			success: false,
 			errMsg:  "",
@@ -417,7 +426,8 @@ func TestAccess_preReceive(t *testing.T) {
 			prereceiveHandler: func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusServiceUnavailable)
-				w.Write([]byte(`{"message": "server is down!"}`))
+				_, err := w.Write([]byte(`{"message": "server is down!"}`))
+				require.NoError(t, err)
 			},
 			success: false,
 			errMsg:  "server is down!",
@@ -427,7 +437,8 @@ func TestAccess_preReceive(t *testing.T) {
 			prereceiveHandler: func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "text")
 				w.WriteHeader(http.StatusOK)
-				w.Write([]byte(`{"reference_counter_increased": true}`))
+				_, err := w.Write([]byte(`{"reference_counter_increased": true}`))
+				require.NoError(t, err)
 			},
 			success: false,
 			errMsg:  "unsupported content type",
@@ -437,7 +448,8 @@ func TestAccess_preReceive(t *testing.T) {
 			prereceiveHandler: func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusOK)
-				w.Write([]byte(`not json`))
+				_, err := w.Write([]byte(`not json`))
+				require.NoError(t, err)
 			},
 			success: false,
 			errMsg:  "decoding response from /pre_receive endpoint",
@@ -488,7 +500,8 @@ func TestAccess_postReceive(t *testing.T) {
 
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusOK)
-				w.Write([]byte(`{"reference_counter_decreased": true}`))
+				_, err = w.Write([]byte(`{"reference_counter_decreased": true}`))
+				require.NoError(t, err)
 			},
 			pushOptions: []string{"mr.create", "mr.label=test"},
 			success:     true,
@@ -502,7 +515,8 @@ func TestAccess_postReceive(t *testing.T) {
 
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusOK)
-				w.Write([]byte(`{"reference_counter_increased": false}`))
+				_, err = w.Write([]byte(`{"reference_counter_increased": false}`))
+				require.NoError(t, err)
 			},
 			success: false,
 			errMsg:  "",
@@ -512,7 +526,8 @@ func TestAccess_postReceive(t *testing.T) {
 			postReceiveHandler: func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusServiceUnavailable)
-				w.Write([]byte(`{"message": "server is down!"}`))
+				_, err := w.Write([]byte(`{"message": "server is down!"}`))
+				require.NoError(t, err)
 			},
 			success: false,
 			errMsg:  "server is down!",
