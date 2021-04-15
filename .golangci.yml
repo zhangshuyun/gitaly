@@ -767,10 +767,6 @@ issues:
       text: "Error return value of `s.checkNodes` is not checked"
     - linters:
         - errcheck
-      path: "internal/gitaly/service/repository/info_attributes.go"
-      text: "Error return value of `stream.Send` is not checked"
-    - linters:
-        - errcheck
       path: "internal/gitaly/service/repository/snapshot.go"
       text: "Error return value of `builder.FileIfExist` is not checked"
     - linters:
