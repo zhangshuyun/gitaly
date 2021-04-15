@@ -199,8 +199,7 @@ func testServerUserCherryPickSuccessfulGitHooksFeatured(t *testing.T, ctx contex
 
 	var hookOutputFiles []string
 	for _, hookName := range GitlabHooks {
-		hookOutputTempPath, cleanup := gittest.WriteEnvToCustomHook(t, repoPath, hookName)
-		defer cleanup()
+		hookOutputTempPath := gittest.WriteEnvToCustomHook(t, repoPath, hookName)
 		hookOutputFiles = append(hookOutputFiles, hookOutputTempPath)
 	}
 
@@ -371,8 +370,7 @@ func testServerUserCherryPickFailedWithPreReceiveErrorFeatured(t *testing.T, ctx
 
 	for _, hookName := range GitlabPreHooks {
 		t.Run(hookName, func(t *testing.T) {
-			remove := gittest.WriteCustomHook(t, repoPath, hookName, hookContent)
-			defer remove()
+			gittest.WriteCustomHook(t, repoPath, hookName, hookContent)
 
 			response, err := client.UserCherryPick(ctx, request)
 			require.NoError(t, err)

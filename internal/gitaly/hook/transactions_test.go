@@ -52,8 +52,7 @@ func TestHookManager_stopCalled(t *testing.T) {
 	defer cleanup()
 
 	for _, hook := range []string{"pre-receive", "update", "post-receive"} {
-		cleanup = gittest.WriteCustomHook(t, repoPath, hook, []byte("#!/bin/sh\nexit 1\n"))
-		defer cleanup()
+		gittest.WriteCustomHook(t, repoPath, hook, []byte("#!/bin/sh\nexit 1\n"))
 	}
 
 	preReceiveFunc := func(t *testing.T) error {

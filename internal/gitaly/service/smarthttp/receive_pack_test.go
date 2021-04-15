@@ -113,8 +113,7 @@ func TestSuccessfulReceivePackRequestWithGitProtocol(t *testing.T) {
 
 	testhelper.ConfigureGitalyHooksBin(t, cfg)
 
-	readProto, cfg, restore := gittest.EnableGitProtocolV2Support(t, cfg)
-	defer restore()
+	readProto, cfg := gittest.EnableGitProtocolV2Support(t, cfg)
 
 	serverSocketPath, stop := runSmartHTTPServer(t, cfg)
 	defer stop()
@@ -412,8 +411,7 @@ func TestPostReceivePackToHooks(t *testing.T) {
 	})
 	defer cleanup()
 
-	cleanup = gittest.WriteCheckNewObjectExistsHook(t, cfg.Git.BinPath, testRepoPath)
-	defer cleanup()
+	gittest.WriteCheckNewObjectExistsHook(t, cfg.Git.BinPath, testRepoPath)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()

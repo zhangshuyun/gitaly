@@ -304,8 +304,7 @@ func testServerUserRevertSuccessfulGitHooksFeatured(t *testing.T, ctx context.Co
 
 	var hookOutputFiles []string
 	for _, hookName := range GitlabHooks {
-		hookOutputTempPath, cleanup := gittest.WriteEnvToCustomHook(t, repoPath, hookName)
-		defer cleanup()
+		hookOutputTempPath := gittest.WriteEnvToCustomHook(t, repoPath, hookName)
 		hookOutputFiles = append(hookOutputFiles, hookOutputTempPath)
 	}
 
@@ -419,8 +418,7 @@ func testServerUserRevertFailedDueToPreReceiveErrorFeatured(t *testing.T, ctx co
 
 	for _, hookName := range GitlabPreHooks {
 		t.Run(hookName, func(t *testing.T) {
-			remove := gittest.WriteCustomHook(t, repoPath, hookName, hookContent)
-			defer remove()
+			gittest.WriteCustomHook(t, repoPath, hookName, hookContent)
 
 			response, err := client.UserRevert(ctx, request)
 			require.NoError(t, err)

@@ -43,10 +43,8 @@ func testSuccessfulUserRebaseConfirmableRequest(t *testing.T, cfg config.Cfg, ru
 	rebaseStream, err := client.UserRebaseConfirmable(ctx)
 	require.NoError(t, err)
 
-	preReceiveHookOutputPath, removePreReceive := gittest.WriteEnvToCustomHook(t, repoPath, "pre-receive")
-	postReceiveHookOutputPath, removePostReceive := gittest.WriteEnvToCustomHook(t, repoPath, "post-receive")
-	defer removePreReceive()
-	defer removePostReceive()
+	preReceiveHookOutputPath := gittest.WriteEnvToCustomHook(t, repoPath, "pre-receive")
+	postReceiveHookOutputPath := gittest.WriteEnvToCustomHook(t, repoPath, "post-receive")
 
 	headerRequest := buildHeaderRequest(repoProto, testhelper.TestUser, "1", rebaseBranchName, branchSha, repoCopyProto, "master")
 	headerRequest.GetHeader().GitPushOptions = pushOptions
@@ -331,8 +329,7 @@ func testFailedUserRebaseConfirmableRequestDueToPreReceiveError(t *testing.T, cf
 
 	for i, hookName := range GitlabPreHooks {
 		t.Run(hookName, func(t *testing.T) {
-			remove := gittest.WriteCustomHook(t, repoPath, hookName, hookContent)
-			defer remove()
+			gittest.WriteCustomHook(t, repoPath, hookName, hookContent)
 
 			rebaseStream, err := client.UserRebaseConfirmable(ctx)
 			require.NoError(t, err)

@@ -147,8 +147,7 @@ func TestReceivePackPushSuccessWithGitProtocol(t *testing.T) {
 	testhelper.ConfigureGitalySSHBin(t, cfg)
 	testhelper.ConfigureGitalyHooksBin(t, cfg)
 
-	readProto, cfg, restore := gittest.EnableGitProtocolV2Support(t, cfg)
-	defer restore()
+	readProto, cfg := gittest.EnableGitProtocolV2Support(t, cfg)
 
 	serverSocketPath, stop := runSSHServer(t, cfg)
 	defer stop()
@@ -262,8 +261,7 @@ func TestSSHReceivePackToHooks(t *testing.T) {
 		glID         = "key-123"
 	)
 
-	readProto, cfg, restore := gittest.EnableGitProtocolV2Support(t, cfg)
-	defer restore()
+	readProto, cfg := gittest.EnableGitProtocolV2Support(t, cfg)
 
 	tempGitlabShellDir, cleanup := testhelper.TempDir(t)
 	defer cleanup()
@@ -290,8 +288,7 @@ func TestSSHReceivePackToHooks(t *testing.T) {
 	cfg.Gitlab.URL = serverURL
 	cfg.Gitlab.SecretFile = filepath.Join(tempGitlabShellDir, ".gitlab_shell_secret")
 
-	cleanup = gittest.WriteCheckNewObjectExistsHook(t, cfg.Git.BinPath, cloneDetails.RemoteRepoPath)
-	defer cleanup()
+	gittest.WriteCheckNewObjectExistsHook(t, cfg.Git.BinPath, cloneDetails.RemoteRepoPath)
 
 	serverSocketPath, stop := runSSHServer(t, cfg)
 	defer stop()

@@ -1352,8 +1352,7 @@ func TestFailedUserCommitFilesRequestDueToHooks(t *testing.T) {
 
 	for _, hookName := range GitlabPreHooks {
 		t.Run(hookName, func(t *testing.T) {
-			remove := gittest.WriteCustomHook(t, repoPath, hookName, hookContent)
-			defer remove()
+			gittest.WriteCustomHook(t, repoPath, hookName, hookContent)
 
 			stream, err := client.UserCommitFiles(ctx)
 			require.NoError(t, err)
