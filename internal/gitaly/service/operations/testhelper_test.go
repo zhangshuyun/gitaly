@@ -162,7 +162,7 @@ func setupOperationsServiceWithRuby(
 	client, conn := newOperationClient(t, serverSocketPath)
 	t.Cleanup(func() { conn.Close() })
 
-	md := testhelper.GitalyServersMetadata(t, cfg.SocketPath)
+	md := testhelper.GitalyServersMetadataFromCfg(t, cfg)
 	ctx = testhelper.MergeOutgoingMetadata(ctx, md)
 
 	return ctx, cfg, repo, repoPath, client
