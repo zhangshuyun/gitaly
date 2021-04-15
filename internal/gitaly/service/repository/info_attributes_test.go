@@ -27,7 +27,7 @@ func TestGetInfoAttributesExisting(t *testing.T) {
 	defer cleanupFn()
 
 	infoPath := filepath.Join(repoPath, "info")
-	os.MkdirAll(infoPath, 0755)
+	require.NoError(t, os.MkdirAll(infoPath, 0755))
 
 	buffSize := streamio.WriteBufferSize + 1
 	data := bytes.Repeat([]byte("*.pbxproj binary\n"), buffSize)

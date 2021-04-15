@@ -197,7 +197,7 @@ func TestReceivePackPushHookFailure(t *testing.T) {
 	require.NoError(t, os.MkdirAll(hooks.Path(cfg), 0755))
 
 	hookContent := []byte("#!/bin/sh\nexit 1")
-	ioutil.WriteFile(filepath.Join(hooks.Path(cfg), "pre-receive"), hookContent, 0755)
+	require.NoError(t, ioutil.WriteFile(filepath.Join(hooks.Path(cfg), "pre-receive"), hookContent, 0755))
 
 	_, _, err := testCloneAndPush(t, cfg, cfg.Storages[0].Path, serverSocketPath, repo, pushParams{storageName: cfg.Storages[0].Name, glID: "1"})
 	require.Error(t, err)

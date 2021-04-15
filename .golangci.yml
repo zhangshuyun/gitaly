@@ -40,19 +40,7 @@ issues:
         - golint
       text: "context.Context should be the first parameter of a function"
       path: "_test.go"
-    - linters:
-        - golint
-      text: "don't use underscores in Go names"
-      path: "_test.go"
     ## golint: Specific issues in non-*_test.go files
-    - linters:
-        - golint
-      path: "client/dial.go"
-      text: "exported function `Dial` should have comment or be unexported"
-    - linters:
-        - golint
-      path: "client/dial.go"
-      text: "exported function `DialContext` should have comment or be unexported"
     - linters:
         - golint
       path: "client/pool_options.go"
@@ -81,10 +69,6 @@ issues:
         - golint
       path: "internal/blackbox/config.go"
       text: "exported function `ParseConfig` should have comment or be unexported"
-    - linters:
-        - golint
-      path: "internal/bootstrap/bootstrap.go"
-      text: "exported const SocketReusePortWarning should have comment \\(or a comment on this block\\) or be unexported"
     - linters:
         - golint
       path: "internal/cgroups/noop.go"
@@ -275,40 +259,8 @@ issues:
       text: "exported function `WithPackfileNegotiationMetrics` should have comment or be unexported"
     - linters:
         - golint
-      path: "internal/git/config.go"
-      text: "exported method `RepositoryConfig.GetRegexp` should have comment or be unexported"
-    - linters:
-        - golint
-      path: "internal/git/config.go"
-      text: "exported method `RepositoryConfig.Unset` should have comment or be unexported"
-    - linters:
-        - golint
-      path: "internal/git/config.go"
-      text: "exported method `RepositoryConfig.Add` should have comment or be unexported"
-    - linters:
-        - golint
-      path: "internal/git/remote.go"
-      text: "exported method `RepositoryRemote.Add` should have comment or be unexported"
-    - linters:
-        - golint
-      path: "internal/git/remote.go"
-      text: "exported method `RepositoryRemote.Remove` should have comment or be unexported"
-    - linters:
-        - golint
-      path: "internal/git/remote.go"
-      text: "exported method `RepositoryRemote.SetURL` should have comment or be unexported"
-    - linters:
-        - golint
       path: "internal/git/remoterepo/repository.go"
       text: "exported method `Repository.HasBranches` should have comment or be unexported"
-    - linters:
-        - golint
-      path: "internal/git/repository.go"
-      text: "exported var `ErrReferenceNotFound` should have comment or be unexported"
-    - linters:
-        - golint
-      path: "internal/git/repository.go"
-      text: "exported method `LocalRepository.HasBranches` should have comment or be unexported"
     - linters:
         - golint
       path: "internal/git/stats/analyzehttp.go"
@@ -401,10 +353,6 @@ issues:
         - golint
       path: "internal/helper/ticker.go"
       text: "exported method `ManualTicker.Tick` should have comment or be unexported"
-    - linters:
-        - golint
-      path: "internal/log/log.go"
-      text: "exported const `GitalyLogDirEnvKey` should have comment or be unexported"
     - linters:
         - golint
       path: "internal/metadata/featureflag/context.go"
@@ -776,10 +724,19 @@ issues:
     - linters:
         - errcheck
       text: "Error return value of `(io\\.Copy|out\\.Flush|os\\.Remove(All)?)` is not checked"
+    ## errcheck: Specific issues in non-*_test.go files
     - linters:
         - errcheck
-      text: "Error return value of `((uploadPackStream|receivePackStream|stream)\\.CloseSend)` is not checked"
-    ## errcheck: Specific issues in non-*_test.go files
+      path: "client/receive_pack.go"
+      text: "Error return value of `receivePackStream\\.CloseSend` is not checked"
+    - linters:
+        - errcheck
+      path: "client/upload_archive.go"
+      text: "Error return value of `uploadPackStream\\.CloseSend` is not checked"
+    - linters:
+        - errcheck
+      path: "client/upload_pack.go"
+      text: "Error return value of `uploadPackStream\\.CloseSend` is not checked"
     - linters:
         - errcheck
       path: "internal/gitaly/rubyserver/proxy.go"
@@ -814,16 +771,8 @@ issues:
       text: "Error return value of `s.checkNodes` is not checked"
     - linters:
         - errcheck
-      path: "internal/gitaly/hook/prereceive.go"
-      text: "Error return value of `m.stopTransaction` is not checked"
-    - linters:
-        - errcheck
       path: "internal/gitaly/service/repository/info_attributes.go"
       text: "Error return value of `stream.Send` is not checked"
-    - linters:
-        - errcheck
-      path: "internal/gitaly/service/repository/repack.go"
-      text: "Error return value of `prometheus.Register` is not checked"
     - linters:
         - errcheck
       path: "internal/gitaly/service/repository/snapshot.go"
@@ -842,10 +791,6 @@ issues:
       text: "Error return value of `limiter.Limit` is not checked"
     - linters:
         - errcheck
-      path: "internal/middleware/limithandler/metrics.go"
-      text: "Error return value of `prometheus.Register` is not checked"
-    - linters:
-        - errcheck
       path: "internal/praefect/transactions/manager.go"
       text: "Error return value of `cryptorand.Read` is not checked"
     - linters:
@@ -856,10 +801,6 @@ issues:
         - errcheck
       path: "internal/supervisor/supervisor.go"
       text: "Error return value of `cmd.Process.Kill` is not checked"
-    - linters:
-        - errcheck
-      path: "internal/gitaly/service/commit/find_commits.go"
-      text: "Error return value of `getCommits.Offset` is not checked"
     - linters:
         - errcheck
       path: "cmd/gitaly-git2go/main.go"
@@ -904,11 +845,11 @@ issues:
         - errcheck
       path: "internal/git/stats/analyzehttp.go"
       text: "Error return value of `cl.printInteractive` is not checked"
-    ## errcheck: General (wide) rules in *_test.go files
     - linters:
         - errcheck
-      path: "_test.go"
-      text: "Error return value of `os\\.(Create|Unsetenv|Symlink|SetEnv|Chmod|Chtimes|MkdirAll)` is not checked"
+      path: "internal/supervisor/supervisor_test.go"
+      text: "Error return value of `syscall\\.Kill` is not checked"
+    ## errcheck: General (wide) rules in *_test.go files
     - linters:
         - errcheck
       path: "_test.go"
@@ -917,51 +858,11 @@ issues:
         - errcheck
       path: "_test.go"
       text: "Error return value of `pool2?\\.Remove` is not checked"
-    - linters:
-        - errcheck
-      path: "_test.go"
-      text: "Error return value of `cancelTransaction` is not checked"
-    - linters:
-        - errcheck
-      path: "_test.go"
-      text: "Error return value of `ioutil\\.WriteFile` is not checked"
-    - linters:
-        - errcheck
-      path: "_test.go"
-      text: "Error return value of `(io\\.Copy|out\\.Flush|syscall\\.Kill|os\\.Remove(All)?|printfErr|cl\\.printInteractive)` is not checked"
     ## errcheck: Specific issues in *_test.go files
-    - linters:
-        - errcheck
-      path: "internal/praefect/coordinator_test.go"
-      text: "Error return value of `streamParams.RequestFinalizer` is not checked"
     - linters:
         - errcheck
       path: "internal/praefect/replicator_test.go"
       text: "Error return value of `glsql.Clean` is not checked"
-    - linters:
-        - errcheck
-      path: "internal/praefect/server_test.go"
-      text: "Error return value of `stream.Send` is not checked"
-    - linters:
-        - errcheck
-      path: "internal/praefect/transaction_test.go"
-      text: "Error return value of `cancel` is not checked"
-    - linters:
-        - errcheck
-      path: "internal/git/housekeeping/housekeeping_test.go"
-      text: "Error return value of `FixDirectoryPermissions` is not checked"
-    - linters:
-        - errcheck
-      path: "internal/git/housekeeping/housekeeping_test.go"
-      text: "Error return value of `filepath.Walk` is not checked"
-    - linters:
-        - errcheck
-      path: "internal/gitaly/service/remote/remotes_test.go"
-      text: "Error return value of `client.RemoveRemote` is not checked"
-    - linters:
-        - errcheck
-      path: "internal/command/command_test.go"
-      text: "Error return value of `New` is not checked"
     - linters:
         - errcheck
       path: "cmd/gitaly-wrapper/main_test.go"
@@ -1012,10 +913,6 @@ issues:
       text: "Error return value is not checked"
     - linters:
         - errcheck
-      path: "internal/gitaly/service/repository/create_from_url_test.go"
-      text: "Error return value of `stopGitServer` is not checked"
-    - linters:
-        - errcheck
       path: "internal/gitaly/service/repository/redirecting_test_server_test.go"
       text: "Error return value of `cmd.Run` is not checked"
     - linters:
@@ -1024,24 +921,12 @@ issues:
       text: "Error return value of `glsql.Clean` is not checked"
     - linters:
         - errcheck
-      path: "internal/git/stats/analyzehttp_test.go"
-      text: "Error return value of `stopGitServer` is not checked"
-    - linters:
-        - errcheck
       path: "internal/praefect/nodes/local_elector_test.go"
       text: "Error return value of `strategy.checkNodes` is not checked"
     - linters:
         - errcheck
       path: "cmd/gitaly-lfs-smudge/lfs_smudge_test.go"
       text: "Error return value of `initLogging` is not checked"
-    - linters:
-        - errcheck
-      path: "internal/tempdir/tempdir_test.go"
-      text: "Error return value of `clean` is not checked"
-    - linters:
-        - errcheck
-      path: "internal/middleware/limithandler/concurrency_limiter_test.go"
-      text: "Error return value of `limiter.Limit` is not checked"
     ## END errcheck exclusions
     ##
     # govet checks all struct initializations must be keyed by field names

@@ -39,7 +39,7 @@ func TestSuccessfulCreateBundleRequest(t *testing.T) {
 	require.NoError(t, os.MkdirAll(filepath.Join(testRepoPath, "gitlab-worktree"), 0755))
 
 	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "worktree", "add", "gitlab-worktree/worktree1", sha)
-	os.Chtimes(filepath.Join(testRepoPath, "gitlab-worktree", "worktree1"), time.Now().Add(-7*time.Hour), time.Now().Add(-7*time.Hour))
+	require.NoError(t, os.Chtimes(filepath.Join(testRepoPath, "gitlab-worktree", "worktree1"), time.Now().Add(-7*time.Hour), time.Now().Add(-7*time.Hour)))
 
 	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", "-D", branchName)
 	require.NoError(t, os.Remove(filepath.Join(testRepoPath, "objects", sha[0:2], sha[2:])))

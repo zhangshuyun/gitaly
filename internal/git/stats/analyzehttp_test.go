@@ -20,7 +20,9 @@ func TestClone(t *testing.T) {
 	defer cancel()
 
 	serverPort, stopGitServer := gittest.GitServer(t, cfg, repoPath, nil)
-	defer stopGitServer()
+	defer func() {
+		require.NoError(t, stopGitServer())
+	}()
 
 	clone := Clone{URL: fmt.Sprintf("http://localhost:%d/%s", serverPort, filepath.Base(repoPath))}
 	require.NoError(t, clone.Perform(ctx), "perform analysis clone")
@@ -94,7 +96,9 @@ func TestCloneWithAuth(t *testing.T) {
 
 		next.ServeHTTP(w, r)
 	})
-	defer stopGitServer()
+	defer func() {
+		require.NoError(t, stopGitServer())
+	}()
 
 	clone := Clone{
 		URL:      fmt.Sprintf("http://localhost:%d/%s", serverPort, filepath.Base(repoPath)),

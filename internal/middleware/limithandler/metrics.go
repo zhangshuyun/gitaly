@@ -67,7 +67,7 @@ func EnableAcquireTimeHistogram(buckets []float64) {
 		[]string{"system", "grpc_service", "grpc_method"},
 	)
 
-	prometheus.Register(histogramVec)
+	prometheus.MustRegister(histogramVec)
 }
 
 func (c *promMonitor) Queued(ctx context.Context) {

@@ -208,7 +208,7 @@ func TestStreamDirectorMutator(t *testing.T) {
 
 	replEventWait.Add(1) // expected only one event to be created
 	// this call creates new events in the queue and simulates usual flow of the update operation
-	streamParams.RequestFinalizer()
+	require.NoError(t, streamParams.RequestFinalizer())
 
 	replEventWait.Wait() // wait until event persisted (async operation)
 	events, err := queueInterceptor.Dequeue(ctx, "praefect", "praefect-internal-2", 10)
@@ -1078,7 +1078,7 @@ func TestAbsentCorrelationID(t *testing.T) {
 
 	replEventWait.Add(1) // expected only one event to be created
 	// must be run as it adds replication events to the queue
-	streamParams.RequestFinalizer()
+	require.NoError(t, streamParams.RequestFinalizer())
 
 	replEventWait.Wait() // wait until event persisted (async operation)
 	jobs, err := queueInterceptor.Dequeue(ctx, conf.VirtualStorages[0].Name, conf.VirtualStorages[0].Nodes[1].Storage, 1)

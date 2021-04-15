@@ -176,7 +176,7 @@ func TestFailedReceivePackRequestDueToHooksFailure(t *testing.T) {
 	require.NoError(t, os.MkdirAll(hooks.Path(cfg), 0755))
 
 	hookContent := []byte("#!/bin/sh\nexit 1")
-	ioutil.WriteFile(filepath.Join(hooks.Path(cfg), "pre-receive"), hookContent, 0755)
+	require.NoError(t, ioutil.WriteFile(filepath.Join(hooks.Path(cfg), "pre-receive"), hookContent, 0755))
 
 	serverSocketPath, stop := runSmartHTTPServer(t, cfg)
 	defer stop()
@@ -306,7 +306,7 @@ func TestFailedReceivePackRequestDueToValidationError(t *testing.T) {
 			require.NoError(t, err)
 
 			require.NoError(t, stream.Send(&rpcRequest))
-			stream.CloseSend()
+			require.NoError(t, stream.CloseSend())
 
 			err = drainPostReceivePackResponse(stream)
 			testhelper.RequireGrpcError(t, err, codes.InvalidArgument)

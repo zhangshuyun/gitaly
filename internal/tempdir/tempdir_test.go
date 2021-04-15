@@ -69,7 +69,7 @@ func TestCleanerSafety(t *testing.T) {
 
 	//This directory is invalid because it does not end in '+gitaly/tmp'
 	invalidDir := "testdata/does-not-exist"
-	clean(invalidDir)
+	require.NoError(t, clean(invalidDir))
 
 	t.Fatal("expected panic")
 }

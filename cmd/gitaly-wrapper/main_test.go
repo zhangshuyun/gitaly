@@ -15,14 +15,14 @@ import (
 // TestStolenPid tests for regressions in https://gitlab.com/gitlab-org/gitaly/issues/1661
 func TestStolenPid(t *testing.T) {
 	defer func(oldValue string) {
-		os.Setenv(bootstrap.EnvPidFile, oldValue)
+		require.NoError(t, os.Setenv(bootstrap.EnvPidFile, oldValue))
 	}(os.Getenv(bootstrap.EnvPidFile))
 
 	pidFile, err := ioutil.TempFile("", "pidfile")
 	require.NoError(t, err)
 	defer os.Remove(pidFile.Name())
 
-	os.Setenv(bootstrap.EnvPidFile, pidFile.Name())
+	require.NoError(t, os.Setenv(bootstrap.EnvPidFile, pidFile.Name()))
 
 	cmd := exec.Command("tail", "-f")
 	require.NoError(t, cmd.Start())

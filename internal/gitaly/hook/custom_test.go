@@ -264,7 +264,8 @@ func TestCustomHooksWithSymlinks(t *testing.T) {
 
 	notExecPath := filepath.Join(globalHooksPath, "not-executable")
 	badExecHook := filepath.Join(firstDir, "something")
-	os.Create(notExecPath)
+	_, err := os.Create(notExecPath)
+	require.NoError(t, err)
 	require.NoError(t, os.Symlink(notExecPath, badExecHook))
 
 	badPath := filepath.Join(globalHooksPath, "bad")
@@ -430,8 +431,8 @@ type customHookResults struct {
 
 func writeCustomHook(t *testing.T, hookName, dir string, content []byte) func() {
 	require.NoError(t, os.MkdirAll(dir, 0755))
+	require.NoError(t, ioutil.WriteFile(filepath.Join(dir, hookName), content, 0755))
 
-	ioutil.WriteFile(filepath.Join(dir, hookName), content, 0755)
 	return func() {
 		os.RemoveAll(dir)
 	}

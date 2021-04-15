@@ -83,7 +83,9 @@ func TestTransactionSucceeds(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, transaction)
 	require.NotZero(t, transaction.ID())
-	defer cancelTransaction()
+	defer func() {
+		require.NoError(t, cancelTransaction())
+	}()
 
 	hash := sha1.Sum([]byte{})
 
@@ -186,7 +188,9 @@ func TestTransactionWithMultipleNodes(t *testing.T) {
 
 			transaction, cancelTransaction, err := txMgr.RegisterTransaction(ctx, voters, threshold)
 			require.NoError(t, err)
-			defer cancelTransaction()
+			defer func() {
+				require.NoError(t, cancelTransaction())
+			}()
 
 			var wg sync.WaitGroup
 			for i := 0; i < len(voters); i++ {
@@ -223,7 +227,9 @@ func TestTransactionWithContextCancellation(t *testing.T) {
 		{Name: "absent", Votes: 1},
 	}, 2)
 	require.NoError(t, err)
-	defer cancelTransaction()
+	defer func() {
+		require.NoError(t, cancelTransaction())
+	}()
 
 	hash := sha1.Sum([]byte{})
 
@@ -409,7 +415,9 @@ func TestTransactionReachesQuorum(t *testing.T) {
 
 			transaction, cancel, err := txMgr.RegisterTransaction(ctx, voters, tc.threshold)
 			require.NoError(t, err)
-			defer cancel()
+			defer func() {
+				require.NoError(t, cancel())
+			}()
 
 			var wg sync.WaitGroup
 			for i, v := range tc.voters {
@@ -724,7 +732,9 @@ func TestStopTransaction(t *testing.T) {
 
 		transaction, cancelTransaction, err := txMgr.RegisterTransaction(ctx, voters, 2)
 		require.NoError(t, err)
-		defer cancelTransaction()
+		defer func() {
+			require.NoError(t, cancelTransaction())
+		}()
 
 		for i := 0; i < 5; i++ {
 			_, err = client.StopTransaction(ctx, &gitalypb.StopTransactionRequest{
@@ -754,7 +764,9 @@ func TestStopTransaction(t *testing.T) {
 
 		transaction, cancelTransaction, err := txMgr.RegisterTransaction(ctx, voters, 1)
 		require.NoError(t, err)
-		defer cancelTransaction()
+		defer func() {
+			require.NoError(t, cancelTransaction())
+		}()
 
 		_, err = client.StopTransaction(ctx, &gitalypb.StopTransactionRequest{
 			TransactionId: transaction.ID(),
@@ -795,7 +807,9 @@ func TestStopTransaction(t *testing.T) {
 
 		transaction, cancelTransaction, err := txMgr.RegisterTransaction(ctx, voters, 2)
 		require.NoError(t, err)
-		defer cancelTransaction()
+		defer func() {
+			require.NoError(t, cancelTransaction())
+		}()
 
 		response, err := client.VoteTransaction(ctx, &gitalypb.VoteTransactionRequest{
 			TransactionId:        transaction.ID(),
@@ -847,7 +861,7 @@ func TestStopTransaction(t *testing.T) {
 		transaction, cancelTransaction, err := txMgr.RegisterTransaction(ctx, voters, 2)
 		require.NoError(t, err)
 
-		cancelTransaction()
+		require.NoError(t, cancelTransaction())
 
 		_, err = client.StopTransaction(ctx, &gitalypb.StopTransactionRequest{
 			TransactionId: transaction.ID(),
@@ -872,7 +886,9 @@ func TestStopTransaction(t *testing.T) {
 
 		transaction, cancelTransaction, err := txMgr.RegisterTransaction(ctx, voters, 2)
 		require.NoError(t, err)
-		defer cancelTransaction()
+		defer func() {
+			require.NoError(t, cancelTransaction())
+		}()
 
 		// This create a single voter waiting for the threshold to be
 		// reached. As the second voter will never appear, the node
