@@ -182,7 +182,7 @@ func newOperationClient(t testing.TB, serverSocketPath string) (gitalypb.Operati
 }
 
 func newMuxedOperationClient(t *testing.T, ctx context.Context, serverSocketPath, authToken string, handshaker internalclient.Handshaker) gitalypb.OperationServiceClient {
-	conn, err := internalclient.Dial(ctx, serverSocketPath, []grpc.DialOption{grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(config.Config.Auth.Token))}, handshaker)
+	conn, err := internalclient.Dial(ctx, serverSocketPath, []grpc.DialOption{grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(authToken))}, handshaker)
 	require.NoError(t, err)
 	t.Cleanup(func() { conn.Close() })
 	return gitalypb.NewOperationServiceClient(conn)
