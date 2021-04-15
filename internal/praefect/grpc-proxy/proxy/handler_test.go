@@ -12,7 +12,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -31,6 +30,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/grpc-proxy/proxy"
 	pb "gitlab.com/gitlab-org/gitaly/internal/praefect/grpc-proxy/testdata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"go.uber.org/goleak"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -49,15 +49,11 @@ const (
 )
 
 func TestMain(m *testing.M) {
-	os.Exit(testMain(m))
-}
-
-func testMain(m *testing.M) int {
 	defer testhelper.MustHaveNoChildProcess()
 	cleanup := testhelper.Configure()
 	defer cleanup()
 
-	return m.Run()
+	goleak.VerifyTestMain(m)
 }
 
 // asserting service is implemented on the server side and serves as a handler for stuff
