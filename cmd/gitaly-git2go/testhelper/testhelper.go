@@ -31,7 +31,7 @@ func BuildCommit(t testing.TB, repoPath string, parents []*git.Oid, fileContents
 	for file, contents := range fileContents {
 		oid, err := odb.Write([]byte(contents), git.ObjectBlob)
 		require.NoError(t, err)
-		treeBuilder.Insert(file, oid, git.FilemodeBlob)
+		require.NoError(t, treeBuilder.Insert(file, oid, git.FilemodeBlob))
 	}
 
 	tree, err := treeBuilder.Write()

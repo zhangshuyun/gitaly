@@ -743,10 +743,6 @@ issues:
       text: "Error return value of `requestStream.CloseSend` is not checked"
     - linters:
         - errcheck
-      path: "cmd/gitaly-git2go/testhelper/testhelper.go"
-      text: "Error return value of `treeBuilder.Insert` is not checked"
-    - linters:
-        - errcheck
       path: "internal/testhelper/testserver.go"
       text: "Error return value of `p.process.Kill` is not checked"
     - linters:
