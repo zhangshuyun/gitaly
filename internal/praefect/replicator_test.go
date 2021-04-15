@@ -60,7 +60,11 @@ func TestMain(m *testing.M) {
 }
 
 func testMain(m *testing.M) int {
-	defer glsql.Clean()
+	defer func() {
+		if err := glsql.Clean(); err != nil {
+			logrus.Error(err)
+		}
+	}()
 
 	defer testhelper.MustHaveNoChildProcess()
 
