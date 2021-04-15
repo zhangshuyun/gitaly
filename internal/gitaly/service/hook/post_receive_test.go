@@ -12,6 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	gitalyhook "gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
@@ -112,6 +113,7 @@ func TestHooksMissingStdin(t *testing.T) {
 					Protocol: "protocol",
 				},
 				git.PostReceiveHook,
+				featureflag.RawFromContext(ctx),
 			).Env()
 			require.NoError(t, err)
 
@@ -230,11 +232,19 @@ To create a merge request for okay, visit:
 			stream, err := client.PostReceiveHook(ctx)
 			require.NoError(t, err)
 
-			hooksPayload, err := git.NewHooksPayload(cfg, repo, nil, nil, &git.ReceiveHooksPayload{
-				UserID:   "key_id",
-				Username: "username",
-				Protocol: "protocol",
-			}, git.PostReceiveHook).Env()
+			hooksPayload, err := git.NewHooksPayload(
+				cfg,
+				repo,
+				nil,
+				nil,
+				&git.ReceiveHooksPayload{
+					UserID:   "key_id",
+					Username: "username",
+					Protocol: "protocol",
+				},
+				git.PostReceiveHook,
+				featureflag.RawFromContext(ctx),
+			).Env()
 			require.NoError(t, err)
 
 			envVars := []string{

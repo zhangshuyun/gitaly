@@ -156,6 +156,7 @@ func TestReferenceTransactionHook(t *testing.T) {
 					praefectServer,
 					nil,
 					git.ReferenceTransactionHook,
+					featureflag.RawFromContext(ctx),
 				).Env()
 				require.NoError(t, err)
 

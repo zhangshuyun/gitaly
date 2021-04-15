@@ -9,6 +9,7 @@ import (
 
 	"github.com/golang/protobuf/jsonpb"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
@@ -56,6 +57,9 @@ type HooksPayload struct {
 	// RequestedHooks is a bitfield of requested Hooks. Hooks which
 	// were not requested will not get executed.
 	RequestedHooks Hook `json:"requested_hooks"`
+	// FeatureFlags contains feature flags with their values. They are set
+	// into the outgoing context when calling HookService.
+	FeatureFlags featureflag.Raw `json:"feature_flags,omitempty"`
 
 	// Repo is the repository in which the hook is running.
 	Repo *gitalypb.Repository `json:"-"`
@@ -110,6 +114,7 @@ func NewHooksPayload(
 	praefect *metadata.PraefectServer,
 	receiveHooksPayload *ReceiveHooksPayload,
 	requestedHooks Hook,
+	featureFlags featureflag.Raw,
 ) HooksPayload {
 	return HooksPayload{
 		Repo:                repo,
@@ -121,6 +126,7 @@ func NewHooksPayload(
 		Praefect:            praefect,
 		ReceiveHooksPayload: receiveHooksPayload,
 		RequestedHooks:      requestedHooks,
+		FeatureFlags:        featureFlags,
 	}
 }
 

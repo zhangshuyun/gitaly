@@ -17,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
 	gitalylog "gitlab.com/gitlab-org/gitaly/internal/log"
+	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/stream"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/streamio"
@@ -120,6 +121,7 @@ func main() {
 	}
 	hookClient := gitalypb.NewHookServiceClient(conn)
 
+	ctx = featureflag.OutgoingWithRaw(ctx, payload.FeatureFlags)
 	returnCode, err := hookCommand.exec(ctx, payload, hookClient, os.Args)
 	if err != nil {
 		logger.Fatal(err)

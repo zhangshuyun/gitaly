@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -13,6 +14,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/internal/command"
@@ -25,6 +27,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/hook"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	gitalylog "gitlab.com/gitlab-org/gitaly/internal/log"
+	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
@@ -41,13 +44,22 @@ type proxyValues struct {
 	HTTPProxy, HTTPSProxy, NoProxy string
 }
 
+var enabledFeatureFlag = featureflag.FeatureFlag{Name: "enabled-feature-flag", OnByDefault: false}
+var disabledFeatureFlag = featureflag.FeatureFlag{Name: "disabled-feature-flag", OnByDefault: true}
+
+func rawFeatureFlags() featureflag.Raw {
+	ctx := featureflag.IncomingCtxWithFeatureFlag(context.Background(), enabledFeatureFlag)
+	ctx = featureflag.IncomingCtxWithDisabledFeatureFlag(ctx, disabledFeatureFlag)
+	return featureflag.RawFromContext(ctx)
+}
+
 // envForHooks generates a set of environment variables for gitaly hooks
 func envForHooks(t testing.TB, cfg config.Cfg, repo *gitalypb.Repository, glHookValues glHookValues, proxyValues proxyValues, gitPushOptions ...string) []string {
 	payload, err := git.NewHooksPayload(cfg, repo, nil, nil, &git.ReceiveHooksPayload{
 		UserID:   glHookValues.GLID,
 		Username: glHookValues.GLUsername,
 		Protocol: glHookValues.GLProtocol,
-	}, git.AllHooks).Env()
+	}, git.AllHooks, rawFeatureFlags()).Env()
 	require.NoError(t, err)
 
 	env := append(os.Environ(), []string{
@@ -344,9 +356,6 @@ func TestHooksPostReceiveFailed(t *testing.T) {
 	gitlabAPI, err := gitalyhook.NewGitlabAPI(cfg.Gitlab, cfg.TLS)
 	require.NoError(t, err)
 
-	stop := runHookServiceServerWithAPI(t, cfg, gitlabAPI)
-	defer stop()
-
 	customHookOutputPath := gittest.WriteEnvToCustomHook(t, repoPath, "post-receive")
 
 	var stdout, stderr bytes.Buffer
@@ -389,6 +398,9 @@ func TestHooksPostReceiveFailed(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.desc, func(t *testing.T) {
+			stop := runHookServiceServerWithAPI(t, cfg, gitlabAPI)
+			defer stop()
+
 			hooksPayload, err := git.NewHooksPayload(
 				cfg,
 				repo,
@@ -407,6 +419,7 @@ func TestHooksPostReceiveFailed(t *testing.T) {
 					Protocol: glProtocol,
 				},
 				git.PostReceiveHook,
+				rawFeatureFlags(),
 			).Env()
 			require.NoError(t, err)
 
@@ -572,6 +585,41 @@ func runHookServiceServer(t *testing.T, cfg config.Cfg) func() {
 	return runHookServiceServerWithAPI(t, cfg, gitalyhook.GitlabAPIStub)
 }
 
+type featureFlagAsserter struct {
+	t       testing.TB
+	wrapped gitalypb.HookServiceServer
+}
+
+func (svc featureFlagAsserter) assertFlags(ctx context.Context) {
+	assert.True(svc.t, featureflag.IsEnabled(ctx, enabledFeatureFlag))
+	assert.True(svc.t, featureflag.IsDisabled(ctx, disabledFeatureFlag))
+}
+
+func (svc featureFlagAsserter) PreReceiveHook(stream gitalypb.HookService_PreReceiveHookServer) error {
+	svc.assertFlags(stream.Context())
+	return svc.wrapped.PreReceiveHook(stream)
+}
+
+func (svc featureFlagAsserter) PostReceiveHook(stream gitalypb.HookService_PostReceiveHookServer) error {
+	svc.assertFlags(stream.Context())
+	return svc.wrapped.PostReceiveHook(stream)
+}
+
+func (svc featureFlagAsserter) UpdateHook(request *gitalypb.UpdateHookRequest, stream gitalypb.HookService_UpdateHookServer) error {
+	svc.assertFlags(stream.Context())
+	return svc.wrapped.UpdateHook(request, stream)
+}
+
+func (svc featureFlagAsserter) ReferenceTransactionHook(stream gitalypb.HookService_ReferenceTransactionHookServer) error {
+	svc.assertFlags(stream.Context())
+	return svc.wrapped.ReferenceTransactionHook(stream)
+}
+
+func (svc featureFlagAsserter) PackObjectsHook(stream gitalypb.HookService_PackObjectsHookServer) error {
+	svc.assertFlags(stream.Context())
+	return svc.wrapped.PackObjectsHook(stream)
+}
+
 func runHookServiceServerWithAPI(t *testing.T, cfg config.Cfg, gitlabAPI gitalyhook.GitlabAPI) func() {
 	registry := backchannel.NewRegistry()
 	txManager := transaction.NewManager(cfg, registry)
@@ -579,7 +627,9 @@ func runHookServiceServerWithAPI(t *testing.T, cfg config.Cfg, gitlabAPI gitalyh
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
 	server := testhelper.NewServerWithAuth(t, nil, nil, cfg.Auth.Token, registry, testhelper.WithInternalSocket(cfg))
 
-	gitalypb.RegisterHookServiceServer(server.GrpcServer(), hook.NewServer(cfg, hookManager, gitCmdFactory))
+	gitalypb.RegisterHookServiceServer(server.GrpcServer(), featureFlagAsserter{
+		t: t, wrapped: hook.NewServer(cfg, hookManager, gitCmdFactory),
+	})
 	reflection.Register(server.GrpcServer())
 	server.Start(t)
 
@@ -622,8 +672,6 @@ func TestGitalyHooksPackObjects(t *testing.T) {
 	testhelper.ConfigureGitalyHooksBin(t, cfg)
 	testhelper.ConfigureGitalySSHBin(t, cfg)
 
-	defer runHookServiceServer(t, cfg)()
-
 	env := envForHooks(t, cfg, repo, glHookValues{}, proxyValues{})
 
 	baseArgs := []string{
@@ -647,6 +695,8 @@ func TestGitalyHooksPackObjects(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
+			defer runHookServiceServer(t, cfg)()
+
 			tempDir, cleanTempDir := testhelper.TempDir(t)
 			defer cleanTempDir()
 
@@ -675,7 +725,7 @@ func TestRequestedHooks(t *testing.T) {
 				testhelper.ConfigureGitalyHooksBin(t, cfg)
 				testhelper.ConfigureGitalySSHBin(t, cfg)
 
-				payload, err := git.NewHooksPayload(cfg, &gitalypb.Repository{}, nil, nil, nil, git.AllHooks&^hook).Env()
+				payload, err := git.NewHooksPayload(cfg, &gitalypb.Repository{}, nil, nil, nil, git.AllHooks&^hook, nil).Env()
 				require.NoError(t, err)
 
 				cmd := exec.Command(filepath.Join(cfg.BinDir, "gitaly-hooks"), hookName)
@@ -688,7 +738,7 @@ func TestRequestedHooks(t *testing.T) {
 				testhelper.ConfigureGitalyHooksBin(t, cfg)
 				testhelper.ConfigureGitalySSHBin(t, cfg)
 
-				payload, err := git.NewHooksPayload(cfg, &gitalypb.Repository{}, nil, nil, nil, hook).Env()
+				payload, err := git.NewHooksPayload(cfg, &gitalypb.Repository{}, nil, nil, nil, hook, nil).Env()
 				require.NoError(t, err)
 
 				cmd := exec.Command(filepath.Join(cfg.BinDir, "gitaly-hooks"), hookName)

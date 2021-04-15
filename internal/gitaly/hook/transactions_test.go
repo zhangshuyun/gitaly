@@ -14,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
@@ -34,6 +35,9 @@ func TestHookManager_stopCalled(t *testing.T) {
 	var mockTxMgr transaction.MockManager
 	hookManager := NewManager(config.NewLocator(cfg), &mockTxMgr, GitlabAPIStub, cfg)
 
+	ctx, cleanup := testhelper.Context()
+	defer cleanup()
+
 	hooksPayload, err := git.NewHooksPayload(
 		cfg,
 		repo,
@@ -45,11 +49,9 @@ func TestHookManager_stopCalled(t *testing.T) {
 			Protocol: "web",
 		},
 		git.ReferenceTransactionHook,
+		featureflag.RawFromContext(ctx),
 	).Env()
 	require.NoError(t, err)
-
-	ctx, cleanup := testhelper.Context()
-	defer cleanup()
 
 	for _, hook := range []string{"pre-receive", "update", "post-receive"} {
 		gittest.WriteCustomHook(t, repoPath, hook, []byte("#!/bin/sh\nexit 1\n"))
@@ -138,6 +140,7 @@ func TestHookManager_contextCancellationCancelsVote(t *testing.T) {
 		},
 		nil,
 		git.ReferenceTransactionHook,
+		nil,
 	).Env()
 	require.NoError(t, err)
 

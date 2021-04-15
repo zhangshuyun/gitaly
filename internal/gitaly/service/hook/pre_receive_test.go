@@ -17,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	gitalyhook "gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
@@ -142,11 +143,19 @@ func TestPreReceiveHook_GitlabAPIAccess(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	hooksPayload, err := git.NewHooksPayload(cfg, repo, nil, nil, &git.ReceiveHooksPayload{
-		UserID:   glID,
-		Username: "username",
-		Protocol: protocol,
-	}, git.PreReceiveHook).Env()
+	hooksPayload, err := git.NewHooksPayload(
+		cfg,
+		repo,
+		nil,
+		nil,
+		&git.ReceiveHooksPayload{
+			UserID:   glID,
+			Username: "username",
+			Protocol: protocol,
+		},
+		git.PreReceiveHook,
+		featureflag.RawFromContext(ctx),
+	).Env()
 	require.NoError(t, err)
 
 	stdin := bytes.NewBufferString(changes)
@@ -251,11 +260,19 @@ func TestPreReceive_APIErrors(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			hooksPayload, err := git.NewHooksPayload(cfg, repo, nil, nil, &git.ReceiveHooksPayload{
-				UserID:   "key-123",
-				Username: "username",
-				Protocol: "web",
-			}, git.PreReceiveHook).Env()
+			hooksPayload, err := git.NewHooksPayload(
+				cfg,
+				repo,
+				nil,
+				nil,
+				&git.ReceiveHooksPayload{
+					UserID:   "key-123",
+					Username: "username",
+					Protocol: "web",
+				},
+				git.PreReceiveHook,
+				featureflag.RawFromContext(ctx),
+			).Env()
 			require.NoError(t, err)
 
 			stream, err := client.PreReceiveHook(ctx)
@@ -317,11 +334,19 @@ exit %d
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	hooksPayload, err := git.NewHooksPayload(cfg, repo, nil, nil, &git.ReceiveHooksPayload{
-		UserID:   "key-123",
-		Username: "username",
-		Protocol: "web",
-	}, git.PreReceiveHook).Env()
+	hooksPayload, err := git.NewHooksPayload(
+		cfg,
+		repo,
+		nil,
+		nil,
+		&git.ReceiveHooksPayload{
+			UserID:   "key-123",
+			Username: "username",
+			Protocol: "web",
+		},
+		git.PreReceiveHook,
+		featureflag.RawFromContext(ctx),
+	).Env()
 	require.NoError(t, err)
 
 	stream, err := client.PreReceiveHook(ctx)
@@ -456,6 +481,7 @@ func TestPreReceiveHook_Primary(t *testing.T) {
 					Protocol: "web",
 				},
 				git.PreReceiveHook,
+				featureflag.RawFromContext(ctx),
 			).Env()
 			require.NoError(t, err)
 

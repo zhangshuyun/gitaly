@@ -1,6 +1,7 @@
 package smarthttp
 
 import (
+	"context"
 	"os"
 	"testing"
 
@@ -9,6 +10,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	diskcache "gitlab.com/gitlab-org/gitaly/internal/cache"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
 	hookservice "gitlab.com/gitlab-org/gitaly/internal/gitaly/service/hook"
@@ -40,17 +42,20 @@ func testMain(m *testing.M) int {
 func runSmartHTTPServer(t *testing.T, cfg config.Cfg, serverOpts ...ServerOpt) (string, func()) {
 	locator := config.NewLocator(cfg)
 	keyer := diskcache.NewLeaseKeyer(locator)
-	txManager := transaction.NewManager(cfg, backchannel.NewRegistry())
+	registry := backchannel.NewRegistry()
+	txManager := transaction.NewManager(cfg, registry)
 	hookManager := hook.NewManager(locator, txManager, hook.GitlabAPIStub, cfg)
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
 
-	srv := testhelper.NewServer(t,
+	srv := testhelper.NewServerWithAuth(t,
 		[]grpc.StreamServerInterceptor{
 			cache.StreamInvalidator(keyer, protoregistry.GitalyProtoPreregistered),
 		},
 		[]grpc.UnaryServerInterceptor{
 			cache.UnaryInvalidator(keyer, protoregistry.GitalyProtoPreregistered),
 		},
+		cfg.Auth.Token,
+		registry,
 		testhelper.WithInternalSocket(cfg))
 
 	gitalypb.RegisterSmartHTTPServiceServer(srv.GrpcServer(), NewServer(cfg, locator, gitCmdFactory, serverOpts...))
@@ -71,4 +76,18 @@ func newSmartHTTPClient(t *testing.T, serverSocketPath, token string) (gitalypb.
 	require.NoError(t, err)
 
 	return gitalypb.NewSmartHTTPServiceClient(conn), conn
+}
+
+func newMuxedSmartHTTPClient(t *testing.T, ctx context.Context, serverSocketPath, token string, serverFactory backchannel.ServerFactory) gitalypb.SmartHTTPServiceClient {
+	t.Helper()
+
+	conn, err := client.Dial(
+		ctx,
+		serverSocketPath,
+		[]grpc.DialOption{grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(token))},
+		backchannel.NewClientHandshaker(testhelper.DiscardTestEntry(t), serverFactory),
+	)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, conn.Close()) })
+	return gitalypb.NewSmartHTTPServiceClient(conn)
 }
