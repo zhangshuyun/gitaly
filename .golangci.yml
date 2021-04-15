@@ -887,10 +887,6 @@ issues:
         - errcheck
       path: "internal/praefect/nodes/local_elector_test.go"
       text: "Error return value of `strategy.checkNodes` is not checked"
-    - linters:
-        - errcheck
-      path: "cmd/gitaly-lfs-smudge/lfs_smudge_test.go"
-      text: "Error return value of `initLogging` is not checked"
     ## END errcheck exclusions
     ##
     # govet checks all struct initializations must be keyed by field names

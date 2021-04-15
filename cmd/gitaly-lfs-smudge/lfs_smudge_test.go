@@ -126,7 +126,8 @@ func TestSuccessfulLfsSmudge(t *testing.T) {
 				"GITALY_TLS":         string(tlsCfg),
 			}
 			cfgProvider := &mapConfig{env: env}
-			initLogging(cfgProvider)
+			_, err = initLogging(cfgProvider)
+			require.NoError(t, err)
 
 			err = smudge(&b, reader, cfgProvider)
 			require.NoError(t, err)
@@ -243,7 +244,9 @@ func TestUnsuccessfulLfsSmudge(t *testing.T) {
 			var b bytes.Buffer
 			reader := strings.NewReader(tc.data)
 
-			initLogging(cfgProvider)
+			_, err = initLogging(cfgProvider)
+			require.NoError(t, err)
+
 			err = smudge(&b, reader, cfgProvider)
 
 			if tc.expectedError {
