@@ -4,15 +4,15 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/updateref"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
@@ -22,31 +22,32 @@ func TestVisibilityOfHiddenRefs(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepo, testRepoPath, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
+	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
+	testhelper.ConfigureGitalySSHBin(t, cfg)
+	testhelper.ConfigureGitalyHooksBin(t, cfg)
 
 	socketPath := testhelper.GetTemporaryGitalySocketFileName(t)
 
-	_, clean := runServer(t, false, config.Config, "unix", socketPath)
+	_, clean := runServer(t, false, cfg, "unix", socketPath)
 	defer clean()
 
-	_, clean = runServer(t, false, config.Config, "unix", config.Config.GitalyInternalSocketPath())
+	_, clean = runServer(t, false, cfg, "unix", cfg.GitalyInternalSocketPath())
 	defer clean()
 
 	// Create a keep-around ref
 	existingSha := "1e292f8fedd741b75372e19097c76d327140c312"
 	keepAroundRef := fmt.Sprintf("%s/%s", keepAroundNamespace, existingSha)
 
-	gitCmdFactory := git.NewExecCommandFactory(config.Config)
-	updater, err := updateref.New(ctx, config.Config, gitCmdFactory, testRepo)
+	gitCmdFactory := git.NewExecCommandFactory(cfg)
+	updater, err := updateref.New(ctx, cfg, gitCmdFactory, repo)
 
 	require.NoError(t, err)
 	require.NoError(t, updater.Create(git.ReferenceName(keepAroundRef), existingSha))
 	require.NoError(t, updater.Wait())
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "config", "transfer.hideRefs", keepAroundNamespace)
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "transfer.hideRefs", keepAroundNamespace)
 
-	output := testhelper.MustRunCommand(t, nil, "git", "ls-remote", testRepoPath, keepAroundNamespace)
+	output := testhelper.MustRunCommand(t, nil, "git", "ls-remote", repoPath, keepAroundNamespace)
 	require.Empty(t, output, "there should be no keep-around refs in normal ls-remote output")
 
 	wd, err := os.Getwd()
@@ -72,7 +73,7 @@ func TestVisibilityOfHiddenRefs(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			pbMarshaler := &jsonpb.Marshaler{}
 			payload, err := pbMarshaler.MarshalToString(&gitalypb.SSHUploadPackRequest{
-				Repository:       testRepo,
+				Repository:       repo,
 				GitConfigOptions: test.GitConfigOptions,
 			})
 
@@ -83,14 +84,14 @@ func TestVisibilityOfHiddenRefs(t *testing.T) {
 				fmt.Sprintf("GITALY_ADDRESS=unix:%s", socketPath),
 				fmt.Sprintf("GITALY_WD=%s", wd),
 				fmt.Sprintf("PATH=.:%s", os.Getenv("PATH")),
-				fmt.Sprintf("GIT_SSH_COMMAND=%s upload-pack", gitalySSHPath),
+				fmt.Sprintf("GIT_SSH_COMMAND=%s upload-pack", filepath.Join(cfg.BinDir, "gitaly-ssh")),
 			}
 
 			stdout := &bytes.Buffer{}
 			cmd, err := gitCmdFactory.NewWithoutRepo(ctx, git.SubCmd{
 				Name: "ls-remote",
 				Args: []string{
-					fmt.Sprintf("%s:%s", "git@localhost", testRepoPath),
+					fmt.Sprintf("%s:%s", "git@localhost", repoPath),
 					keepAroundRef,
 				},
 			}, git.WithEnv(env...), git.WithStdout(stdout))
