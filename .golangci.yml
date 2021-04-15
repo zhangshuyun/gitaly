@@ -841,11 +841,6 @@ issues:
         - errcheck
       path: "internal/supervisor/supervisor_test.go"
       text: "Error return value of `syscall\\.Kill` is not checked"
-    ## errcheck: General (wide) rules in *_test.go files
-    - linters:
-        - errcheck
-      path: "_test.go"
-      text: "Error return value of `pktline.Write(String|Flush)` is not checked"
     ## errcheck: Specific issues in *_test.go files
     - linters:
         - errcheck
@@ -855,10 +850,6 @@ issues:
         - errcheck
       path: "cmd/gitaly-wrapper/main_test.go"
       text: "Error return value of `cmd.Process.Kill` is not checked"
-    - linters:
-        - errcheck
-      path: "internal/gitaly/service/smarthttp/upload_pack_test.go"
-      text: "Error return value of `pktline.WriteDelim` is not checked"
     - linters:
         - errcheck
       path: "internal/middleware/sentryhandler/sentryhandler_test.go"
