@@ -102,7 +102,9 @@ func TestCreate(t *testing.T) {
 
 	err := pool.Create(ctx, testRepo)
 	require.NoError(t, err)
-	defer pool.Remove(ctx)
+	defer func() {
+		require.NoError(t, pool.Remove(ctx))
+	}()
 
 	require.True(t, pool.IsValid())
 
@@ -132,7 +134,7 @@ func TestCreateSubDirsExist(t *testing.T) {
 	err := pool.Create(ctx, testRepo)
 	require.NoError(t, err)
 
-	pool.Remove(ctx)
+	require.NoError(t, pool.Remove(ctx))
 
 	// Recreate pool so the subdirs exist already
 	err = pool.Create(ctx, testRepo)

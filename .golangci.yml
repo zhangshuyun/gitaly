@@ -846,10 +846,6 @@ issues:
         - errcheck
       path: "_test.go"
       text: "Error return value of `pktline.Write(String|Flush)` is not checked"
-    - linters:
-        - errcheck
-      path: "_test.go"
-      text: "Error return value of `pool2?\\.Remove` is not checked"
     ## errcheck: Specific issues in *_test.go files
     - linters:
         - errcheck

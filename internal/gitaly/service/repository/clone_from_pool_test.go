@@ -30,7 +30,9 @@ func TestCloneFromPoolHTTP(t *testing.T) {
 	defer cleanupFn()
 
 	pool, poolRepo := NewTestObjectPool(t)
-	defer pool.Remove(ctx)
+	defer func() {
+		require.NoError(t, pool.Remove(ctx))
+	}()
 
 	require.NoError(t, pool.Create(ctx, testRepo))
 	require.NoError(t, pool.Link(ctx, testRepo))

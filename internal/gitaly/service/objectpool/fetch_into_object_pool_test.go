@@ -37,7 +37,9 @@ func TestFetchIntoObjectPool_Success(t *testing.T) {
 
 	pool, err := objectpool.NewObjectPool(cfg, locator, git.NewExecCommandFactory(cfg), repo.GetStorageName(), gittest.NewObjectPoolName(t))
 	require.NoError(t, err)
-	defer pool.Remove(ctx)
+	defer func() {
+		require.NoError(t, pool.Remove(ctx))
+	}()
 
 	req := &gitalypb.FetchIntoObjectPoolRequest{
 		ObjectPool: pool.ToProto(),
@@ -90,7 +92,9 @@ func TestFetchIntoObjectPool_hooks(t *testing.T) {
 
 	pool, err := objectpool.NewObjectPool(cfg, locator, gitCmdFactory, repo.GetStorageName(), gittest.NewObjectPoolName(t))
 	require.NoError(t, err)
-	defer pool.Remove(ctx)
+	defer func() {
+		require.NoError(t, pool.Remove(ctx))
+	}()
 
 	hookDir, cleanup := testhelper.TempDir(t)
 	defer cleanup()
@@ -130,7 +134,9 @@ func TestFetchIntoObjectPool_CollectLogStatistics(t *testing.T) {
 
 	pool, err := objectpool.NewObjectPool(cfg, locator, git.NewExecCommandFactory(cfg), repo.GetStorageName(), gittest.NewObjectPoolName(t))
 	require.NoError(t, err)
-	defer pool.Remove(ctx)
+	defer func() {
+		require.NoError(t, pool.Remove(ctx))
+	}()
 
 	req := &gitalypb.FetchIntoObjectPoolRequest{
 		ObjectPool: pool.ToProto(),
@@ -170,7 +176,9 @@ func TestFetchIntoObjectPool_Failure(t *testing.T) {
 
 	pool, err := objectpool.NewObjectPool(cfg, locator, gitCmdFactory, repos[0].StorageName, gittest.NewObjectPoolName(t))
 	require.NoError(t, err)
-	defer pool.Remove(ctx)
+	defer func() {
+		require.NoError(t, pool.Remove(ctx))
+	}()
 
 	poolWithDifferentStorage := pool.ToProto()
 	poolWithDifferentStorage.Repository.StorageName = "some other storage"

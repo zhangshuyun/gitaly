@@ -23,7 +23,9 @@ func TestDisconnectGitAlternates(t *testing.T) {
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
 	pool, err := objectpool.NewObjectPool(cfg, locator, gitCmdFactory, repo.GetStorageName(), gittest.NewObjectPoolName(t))
 	require.NoError(t, err)
-	defer pool.Remove(ctx)
+	defer func() {
+		require.NoError(t, pool.Remove(ctx))
+	}()
 
 	require.NoError(t, pool.Create(ctx, repo))
 	require.NoError(t, pool.Link(ctx, repo))

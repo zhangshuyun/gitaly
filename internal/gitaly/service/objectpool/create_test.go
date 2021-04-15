@@ -32,7 +32,9 @@ func TestCreate(t *testing.T) {
 
 	_, err = client.CreateObjectPool(ctx, poolReq)
 	require.NoError(t, err)
-	defer pool.Remove(ctx)
+	defer func() {
+		require.NoError(t, pool.Remove(ctx))
+	}()
 
 	// Checks if the underlying repository is valid
 	require.True(t, pool.IsValid())
@@ -61,7 +63,9 @@ func TestUnsuccessfulCreate(t *testing.T) {
 	storageName := repo.GetStorageName()
 	pool, err := objectpool.NewObjectPool(cfg, locator, git.NewExecCommandFactory(cfg), storageName, validPoolPath)
 	require.NoError(t, err)
-	defer pool.Remove(ctx)
+	defer func() {
+		require.NoError(t, pool.Remove(ctx))
+	}()
 
 	testCases := []struct {
 		desc    string

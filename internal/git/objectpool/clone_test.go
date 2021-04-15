@@ -37,7 +37,9 @@ func TestClone(t *testing.T) {
 	pool, testRepo := setupObjectPool(t)
 
 	require.NoError(t, pool.clone(ctx, testRepo))
-	defer pool.Remove(ctx)
+	defer func() {
+		require.NoError(t, pool.Remove(ctx))
+	}()
 
 	require.DirExists(t, pool.FullPath())
 	require.DirExists(t, filepath.Join(pool.FullPath(), "objects"))
@@ -50,7 +52,9 @@ func TestCloneExistingPool(t *testing.T) {
 	pool, testRepo := setupObjectPool(t)
 
 	require.NoError(t, pool.clone(ctx, testRepo))
-	defer pool.Remove(ctx)
+	defer func() {
+		require.NoError(t, pool.Remove(ctx))
+	}()
 
 	// re-clone on the directory
 	require.Error(t, pool.clone(ctx, testRepo))
