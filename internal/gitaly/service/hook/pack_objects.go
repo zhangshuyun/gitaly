@@ -1,6 +1,7 @@
 package hook
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"crypto/sha256"
@@ -177,9 +178,24 @@ func (s *server) runPackObjects(ctx context.Context, w io.Writer, repo *gitalypb
 	defer stdin.Close()
 
 	sw := pktline.NewSidebandWriter(w)
-	stdout := &countingWriter{W: sw.Writer(bandStdout)}
-	stderrBuf := &bytes.Buffer{}
-	stderr := &countingWriter{W: io.MultiWriter(sw.Writer(bandStderr), stderrBuf)}
+
+	// Using buffered IO makes the write end of the pipe more efficient
+	// (fewer syscalls), but more importantly it also makes the read end more
+	// efficient: each sideband packet we write becomes a gRPC message send
+	// on the read end, and typically each message send is a syscall.
+	// Syscalls saved on the read end are multiplied by the number of cache
+	// hits.
+	stdoutBufferedWriter := bufio.NewWriterSize(
+		sw.Writer(bandStdout),
+		pktline.MaxSidebandFrameSize,
+	)
+	stdout := &countingWriter{W: stdoutBufferedWriter}
+
+	// We intentionally do not buffer stderr. This is because
+	// git-pack-objects uses stderr to send keepalives, and those should be
+	// transmitted without delay.
+	stderrSpy := &bytes.Buffer{}
+	stderr := &countingWriter{W: io.MultiWriter(sw.Writer(bandStderr), stderrSpy)}
 
 	defer func() {
 		generatedBytes := stdout.N + stderr.N
@@ -201,10 +217,10 @@ func (s *server) runPackObjects(ctx context.Context, w io.Writer, repo *gitalypb
 	}
 
 	if err := cmd.Wait(); err != nil {
-		return fmt.Errorf("git-pack-objects: stderr: %q err: %w", stderrBuf.String(), err)
+		return fmt.Errorf("git-pack-objects: stderr: %q err: %w", stderrSpy.String(), err)
 	}
 
-	return nil
+	return stdoutBufferedWriter.Flush()
 }
 
 var (
