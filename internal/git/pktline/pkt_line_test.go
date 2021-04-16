@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"io"
+	"io/ioutil"
 	"math"
 	"math/rand"
 	"strings"
@@ -331,6 +332,40 @@ func TestEachSidebandPacket(t *testing.T) {
 			if tc.callback == nil {
 				require.Equal(t, tc.out, out)
 			}
+		})
+	}
+}
+
+type writeCounter struct {
+	W io.Writer
+	N int
+}
+
+func (wc *writeCounter) Write(p []byte) (int, error) {
+	wc.N++
+	return wc.W.Write(p)
+}
+
+func TestSidebandWriter_MaxSidebandFrameSize(t *testing.T) {
+	testCases := []struct {
+		desc   string
+		size   int
+		writes int
+	}{
+		{desc: "maximum frame size", size: MaxSidebandFrameSize, writes: 1},
+		{desc: "just over maximum frame size", size: MaxSidebandFrameSize + 1, writes: 2},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			w := &writeCounter{W: ioutil.Discard}
+			sw := NewSidebandWriter(w)
+
+			in := strings.Repeat("x", tc.size)
+			n, err := io.WriteString(sw.Writer(0), in)
+			require.NoError(t, err)
+			require.Equal(t, tc.size, n)
+			require.Equal(t, tc.writes, w.N)
 		})
 	}
 }

@@ -13,8 +13,10 @@ import (
 )
 
 const (
-	maxPktSize = 65520 // https://gitlab.com/gitlab-org/git/-/blob/v2.30.0/pkt-line.h#L216
-	pktDelim   = "0001"
+	// MaxSidebandFrameSize is the maximum number of bytes that fits in one Sideband frame
+	MaxSidebandFrameSize = maxPktSize - 5
+	maxPktSize           = 65520 // https://gitlab.com/gitlab-org/git/-/blob/v2.30.0/pkt-line.h#L216
+	pktDelim             = "0001"
 )
 
 // NewScanner returns a bufio.Scanner that splits on Git pktline boundaries
@@ -112,8 +114,9 @@ func pktLineSplitter(data []byte, atEOF bool) (advance int, token []byte, err er
 
 // SidebandWriter multiplexes byte streams into a single side-band-64k stream.
 type SidebandWriter struct {
-	w io.Writer
-	m sync.Mutex
+	w   io.Writer
+	m   sync.Mutex
+	buf [maxPktSize]byte
 }
 
 // NewSidebandWriter instantiates a new SidebandWriter.
@@ -125,17 +128,12 @@ func (sw *SidebandWriter) writeBand(band byte, data []byte) (int, error) {
 
 	n := 0
 	for len(data) > 0 {
-		chunkSize := len(data)
 		const headerSize = 5
-		if max := maxPktSize - headerSize; chunkSize > max {
-			chunkSize = max
-		}
+		chunkSize := copy(sw.buf[headerSize:], data)
+		totalSize := chunkSize + headerSize
+		copy(sw.buf[:headerSize], fmt.Sprintf("%04x%s", totalSize, []byte{band}))
 
-		if _, err := fmt.Fprintf(sw.w, "%04x%s", chunkSize+headerSize, []byte{band}); err != nil {
-			return n, err
-		}
-
-		if _, err := sw.w.Write(data[:chunkSize]); err != nil {
+		if _, err := sw.w.Write(sw.buf[:totalSize]); err != nil {
 			return n, err
 		}
 		data = data[chunkSize:]
