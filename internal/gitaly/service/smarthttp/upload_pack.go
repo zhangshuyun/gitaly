@@ -1,6 +1,7 @@
 package smarthttp
 
 import (
+	"bufio"
 	"context"
 	"crypto/sha1"
 	"fmt"
@@ -11,6 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/inspect"
+	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/streamio"
 	"google.golang.org/grpc/codes"
@@ -42,10 +44,24 @@ func (s *server) PostUploadPack(stream gitalypb.SmartHTTPService_PostUploadPackS
 
 	var respBytes int64
 
-	stdoutWriter := streamio.NewWriter(func(p []byte) error {
-		respBytes += int64(len(p))
-		return stream.Send(&gitalypb.PostUploadPackResponse{Data: p})
-	})
+	stdoutWriter := helper.NewUnbufferedStartWriter(
+		bufio.NewWriterSize(
+			streamio.NewWriter(func(p []byte) error {
+				respBytes += int64(len(p))
+				return stream.Send(&gitalypb.PostUploadPackResponse{Data: p})
+			}),
+			streamio.WriteBufferSize,
+		),
+		// Git's progress messages "Enumerating objects" etc act as keepalives so
+		// they should not be delayed by buffering. This number of bytes should
+		// be large enough to hold the combined progress messages.
+		32*1024,
+	)
+	defer func() {
+		// In case of an early return, the output stream may contain messages for
+		// the user so we should still flush it.
+		_ = stdoutWriter.Flush()
+	}()
 
 	// TODO: it is first step of the https://gitlab.com/gitlab-org/gitaly/issues/1519
 	// needs to be removed after we get some statistics on this
@@ -92,6 +108,10 @@ func (s *server) PostUploadPack(stream gitalypb.SmartHTTPService_PostUploadPackS
 			return nil
 		}
 
+		return status.Errorf(codes.Unavailable, "PostUploadPack: %v", err)
+	}
+
+	if err := stdoutWriter.Flush(); err != nil {
 		return status.Errorf(codes.Unavailable, "PostUploadPack: %v", err)
 	}
 
