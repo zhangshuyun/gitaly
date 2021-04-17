@@ -17,21 +17,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
-	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/objectpool"
-	gitaly_config "gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
-	hook_manager "gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/hook"
-	objectpoolservice "gitlab.com/gitlab-org/gitaly/internal/gitaly/service/objectpool"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/ref"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/remote"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/repository"
+	gconfig "gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/setup"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/ssh"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/metadatahandler"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
@@ -42,6 +32,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/promtest"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/labkit/correlation"
@@ -52,8 +43,6 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/reflection"
 )
-
-var RubyServer *rubyserver.Server
 
 func TestMain(m *testing.M) {
 	os.Exit(testMain(m))
@@ -71,74 +60,39 @@ func testMain(m *testing.M) int {
 	cleanup := testhelper.Configure()
 	defer cleanup()
 
-	gitaly_config.Config.Auth.Token = testhelper.RepositoryAuthToken
-
-	var err error
-	gitaly_config.Config.GitlabShell.Dir, err = filepath.Abs("testdata/gitlab-shell")
-	if err != nil {
-		logrus.Error(err)
-		return 1
-	}
-
-	testhelper.ConfigureGitalySSH(gitaly_config.Config.BinDir)
-	testhelper.ConfigureGitalyHooksBinary(gitaly_config.Config.BinDir)
-
-	RubyServer = rubyserver.New(gitaly_config.Config)
-	if err := RubyServer.Start(); err != nil {
-		logrus.Error(err)
-		return 1
-	}
-	defer RubyServer.Stop()
-
 	return m.Run()
 }
 
 func TestReplMgr_ProcessBacklog(t *testing.T) {
-	backupStorageName := "backup"
+	primaryCfg, testRepo, testRepoPath := testcfg.BuildWithRepo(t, testcfg.WithStorages("primary"))
+	primaryCfg.SocketPath = testserver.RunGitalyServer(t, primaryCfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
+	testhelper.ConfigureGitalySSHBin(t, primaryCfg)
+	testhelper.ConfigureGitalyHooksBin(t, primaryCfg)
 
-	backupDir := testhelper.TempDir(t)
-
-	defer func(oldStorages []gitaly_config.Storage) { gitaly_config.Config.Storages = oldStorages }(gitaly_config.Config.Storages)
-
-	gitaly_config.Config.Storages = append(gitaly_config.Config.Storages,
-		gitaly_config.Storage{
-			Name: backupStorageName,
-			Path: backupDir,
-		},
-		gitaly_config.Storage{
-			Name: "default",
-			Path: testhelper.GitlabTestStoragePath(),
-		},
-	)
-
-	srvSocketPath := runFullGitalyServer(t)
-
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	backupCfg, _, _ := testcfg.BuildWithRepo(t, testcfg.WithStorages("backup"))
+	backupCfg.SocketPath = testserver.RunGitalyServer(t, backupCfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
+	testhelper.ConfigureGitalySSHBin(t, backupCfg)
+	testhelper.ConfigureGitalyHooksBin(t, backupCfg)
 
 	conf := config.Config{
-		VirtualStorages: []*config.VirtualStorage{
-			&config.VirtualStorage{
-				Name: "default",
-				Nodes: []*config.Node{
-					&config.Node{
-						Storage: "default",
-						Address: srvSocketPath,
-						Token:   gitaly_config.Config.Auth.Token,
-					},
-					&config.Node{
-						Storage: backupStorageName,
-						Address: srvSocketPath,
-						Token:   gitaly_config.Config.Auth.Token,
-					},
+		VirtualStorages: []*config.VirtualStorage{{
+			Name: "virtual",
+			Nodes: []*config.Node{
+				{
+					Storage: primaryCfg.Storages[0].Name,
+					Address: primaryCfg.SocketPath,
+				},
+				{
+					Storage: backupCfg.Storages[0].Name,
+					Address: backupCfg.SocketPath,
 				},
 			},
-		},
+		}},
 	}
 
 	// create object pool on the source
 	objectPoolPath := gittest.NewObjectPoolName(t)
-	pool, err := objectpool.NewObjectPool(gitaly_config.Config, gitaly_config.NewLocator(gitaly_config.Config), git.NewExecCommandFactory(gitaly_config.Config), testRepo.GetStorageName(), objectPoolPath)
+	pool, err := objectpool.NewObjectPool(primaryCfg, gconfig.NewLocator(primaryCfg), git.NewExecCommandFactory(primaryCfg), testRepo.GetStorageName(), objectPoolPath)
 	require.NoError(t, err)
 
 	poolCtx, cancel := testhelper.Context()
@@ -148,20 +102,19 @@ func TestReplMgr_ProcessBacklog(t *testing.T) {
 	require.NoError(t, pool.Link(poolCtx, testRepo))
 
 	// replicate object pool repository to target node
-	targetObjectPoolRepo := *pool.ToProto().GetRepository()
-	targetObjectPoolRepo.StorageName = "backup"
+	poolRepository := pool.ToProto().GetRepository()
+	targetObjectPoolRepo := *poolRepository
+	targetObjectPoolRepo.StorageName = backupCfg.Storages[0].Name
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	injectedCtx := metadata.NewOutgoingContext(ctx, testhelper.GitalyServersMetadata(t, srvSocketPath))
+	injectedCtx := metadata.NewOutgoingContext(ctx, testhelper.GitalyServersMetadataFromCfg(t, primaryCfg))
 
-	repoClient, con := newRepositoryClient(t, srvSocketPath)
-	defer con.Close()
-
+	repoClient := newRepositoryClient(t, backupCfg.SocketPath, backupCfg.Auth.Token)
 	_, err = repoClient.ReplicateRepository(injectedCtx, &gitalypb.ReplicateRepositoryRequest{
 		Repository: &targetObjectPoolRepo,
-		Source:     pool.ToProto().GetRepository(),
+		Source:     poolRepository,
 	})
 	require.NoError(t, err)
 
@@ -179,7 +132,7 @@ func TestReplMgr_ProcessBacklog(t *testing.T) {
 	for _, secondary := range shard.Secondaries {
 		events = append(events, datastore.ReplicationEvent{
 			Job: datastore.ReplicationJob{
-				VirtualStorage:    "default",
+				VirtualStorage:    conf.VirtualStorages[0].Name,
 				Change:            datastore.UpdateRepo,
 				TargetNodeStorage: secondary.GetStorage(),
 				SourceNodeStorage: shard.Primary.GetStorage(),
@@ -192,7 +145,7 @@ func TestReplMgr_ProcessBacklog(t *testing.T) {
 	}
 	require.Len(t, events, 1)
 
-	commitID := gittest.CreateCommit(t, gitaly_config.Config, testRepoPath, "master", &gittest.CreateCommitOpts{
+	commitID := gittest.CreateCommit(t, primaryCfg, testRepoPath, "master", &gittest.CreateCommitOpts{
 		Message: "a commit",
 	})
 
@@ -200,7 +153,7 @@ func TestReplMgr_ProcessBacklog(t *testing.T) {
 	var mockReplicationDelayHistogramVec promtest.MockHistogramVec
 
 	logger := testhelper.DiscardTestLogger(t)
-	hook := test.NewLocal(logger)
+	loggerHook := test.NewLocal(logger)
 
 	queue := datastore.NewReplicationEventQueueInterceptor(datastore.NewMemoryReplicationEventQueue(conf))
 	queue.OnAcknowledge(func(ctx context.Context, state datastore.JobState, ids []uint64, queue datastore.ReplicationEventQueue) ([]uint64, error) {
@@ -225,30 +178,28 @@ func TestReplMgr_ProcessBacklog(t *testing.T) {
 
 	replMgr.ProcessBacklog(ctx, ExpBackoffFunc(time.Hour, 0))
 
-	logEntries := hook.AllEntries()
+	logEntries := loggerHook.AllEntries()
 	require.True(t, len(logEntries) > 3, "expected at least 4 log entries to be present")
 	require.Equal(t,
-		[]interface{}{"processing started", "default"},
+		[]interface{}{"processing started", "virtual"},
 		[]interface{}{logEntries[0].Message, logEntries[0].Data["virtual_storage"]},
 	)
 
 	require.Equal(t,
-		[]interface{}{"replication job processing started", "default", "correlation-id"},
+		[]interface{}{"replication job processing started", "virtual", "correlation-id"},
 		[]interface{}{logEntries[1].Message, logEntries[1].Data["virtual_storage"], logEntries[1].Data[logWithCorrID]},
 	)
 
 	dequeuedEvent := logEntries[1].Data["event"].(datastore.ReplicationEvent)
 	require.Equal(t, datastore.JobStateInProgress, dequeuedEvent.State)
-	require.Equal(t, []string{"backup", "default"}, []string{dequeuedEvent.Job.TargetNodeStorage, dequeuedEvent.Job.SourceNodeStorage})
+	require.Equal(t, []string{"backup", "primary"}, []string{dequeuedEvent.Job.TargetNodeStorage, dequeuedEvent.Job.SourceNodeStorage})
 
 	require.Equal(t,
-		[]interface{}{"replication job processing finished", "default", datastore.JobStateCompleted, "correlation-id"},
+		[]interface{}{"replication job processing finished", "virtual", datastore.JobStateCompleted, "correlation-id"},
 		[]interface{}{logEntries[2].Message, logEntries[2].Data["virtual_storage"], logEntries[2].Data["new_state"], logEntries[2].Data[logWithCorrID]},
 	)
 
-	relativeRepoPath, err := filepath.Rel(testhelper.GitlabTestStoragePath(), testRepoPath)
-	require.NoError(t, err)
-	replicatedPath := filepath.Join(backupDir, relativeRepoPath)
+	replicatedPath := filepath.Join(backupCfg.Storages[0].Path, testRepo.GetRelativePath())
 
 	testhelper.MustRunCommand(t, nil, "git", "-C", replicatedPath, "cat-file", "-e", commitID)
 	testhelper.MustRunCommand(t, nil, "git", "-C", replicatedPath, "gc")
@@ -259,7 +210,7 @@ func TestReplMgr_ProcessBacklog(t *testing.T) {
 	require.NoError(t, testutil.CollectAndCompare(replMgr, strings.NewReader(`
 # HELP gitaly_praefect_replication_jobs Number of replication jobs in flight.
 # TYPE gitaly_praefect_replication_jobs gauge
-gitaly_praefect_replication_jobs{change_type="update",gitaly_storage="backup",virtual_storage="default"} 0
+gitaly_praefect_replication_jobs{change_type="update",gitaly_storage="backup",virtual_storage="virtual"} 0
 `)))
 }
 
@@ -548,26 +499,25 @@ func TestConfirmReplication(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	srvSocketPath := runFullGitalyServer(t)
+	cfg, testRepoA, testRepoAPath := testcfg.BuildWithRepo(t)
+	srvSocketPath := testserver.RunGitalyServer(t, cfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
 
-	testRepoA, testRepoAPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-
-	testRepoB, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	testRepoB, _, cleanupFn := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "second")
+	t.Cleanup(cleanupFn)
 
 	connOpts := []grpc.DialOption{
 		grpc.WithInsecure(),
-		grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(testhelper.RepositoryAuthToken)),
+		grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(cfg.Auth.Token)),
 	}
 	conn, err := grpc.Dial(srvSocketPath, connOpts...)
 	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, conn.Close()) })
 
 	equal, err := confirmChecksums(ctx, testhelper.DiscardTestLogger(t), gitalypb.NewRepositoryServiceClient(conn), gitalypb.NewRepositoryServiceClient(conn), testRepoA, testRepoB)
 	require.NoError(t, err)
 	require.True(t, equal)
 
-	gittest.CreateCommit(t, gitaly_config.Config, testRepoAPath, "master", &gittest.CreateCommitOpts{
+	gittest.CreateCommit(t, cfg, testRepoAPath, "master", &gittest.CreateCommitOpts{
 		Message: "a commit",
 	})
 
@@ -610,32 +560,22 @@ func getChecksumFunc(ctx context.Context, client gitalypb.RepositoryServiceClien
 }
 
 func TestProcessBacklog_FailedJobs(t *testing.T) {
-	backupStorageName := "backup"
+	primaryCfg, testRepo, _ := testcfg.BuildWithRepo(t, testcfg.WithStorages("default"))
+	primaryAddr := testserver.RunGitalyServer(t, primaryCfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
 
-	backupDir := testhelper.TempDir(t)
-	defer func(oldStorages []gitaly_config.Storage) { gitaly_config.Config.Storages = oldStorages }(gitaly_config.Config.Storages)
-
-	gitaly_config.Config.Storages = append(gitaly_config.Config.Storages, gitaly_config.Storage{
-		Name: backupStorageName,
-		Path: backupDir,
-	})
-
-	require.Len(t, gitaly_config.Config.Storages, 2, "expected 'default' storage and a new one")
-
-	primarySvr, primarySocket := newReplicationService(t)
-	defer primarySvr.Stop()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	backupCfg, _, _ := testcfg.BuildWithRepo(t, testcfg.WithStorages("backup"))
+	backupAddr := testserver.RunGitalyServer(t, backupCfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
+	testhelper.ConfigureGitalySSHBin(t, backupCfg)
+	testhelper.ConfigureGitalyHooksBin(t, backupCfg)
 
 	primary := config.Node{
-		Storage: "default",
-		Address: "unix://" + primarySocket,
+		Storage: primaryCfg.Storages[0].Name,
+		Address: primaryAddr,
 	}
 
 	secondary := config.Node{
-		Storage: backupStorageName,
-		Address: "unix://" + primarySocket,
+		Storage: backupCfg.Storages[0].Name,
+		Address: backupAddr,
 	}
 
 	conf := config.Config{
@@ -739,36 +679,30 @@ func TestProcessBacklog_FailedJobs(t *testing.T) {
 }
 
 func TestProcessBacklog_Success(t *testing.T) {
-	defer func(oldStorages []gitaly_config.Storage) { gitaly_config.Config.Storages = oldStorages }(gitaly_config.Config.Storages)
+	primaryCfg, testRepo, _ := testcfg.BuildWithRepo(t, testcfg.WithStorages("primary"))
+	primaryCfg.SocketPath = testserver.RunGitalyServer(t, primaryCfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
+	testhelper.ConfigureGitalySSHBin(t, primaryCfg)
+	testhelper.ConfigureGitalyHooksBin(t, primaryCfg)
 
-	backupDir := testhelper.TempDir(t)
-
-	gitaly_config.Config.Storages = append(gitaly_config.Config.Storages, gitaly_config.Storage{
-		Name: "backup",
-		Path: backupDir,
-	})
-	require.Len(t, gitaly_config.Config.Storages, 2, "expected 'default' storage and a new one")
-
-	primarySvr, primarySocket := newReplicationService(t)
-	defer primarySvr.Stop()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	backupCfg, _, _ := testcfg.BuildWithRepo(t, testcfg.WithStorages("backup"))
+	backupCfg.SocketPath = testserver.RunGitalyServer(t, backupCfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
+	testhelper.ConfigureGitalySSHBin(t, backupCfg)
+	testhelper.ConfigureGitalyHooksBin(t, backupCfg)
 
 	primary := config.Node{
-		Storage: "default",
-		Address: "unix://" + primarySocket,
+		Storage: primaryCfg.Storages[0].Name,
+		Address: primaryCfg.SocketPath,
 	}
 
 	secondary := config.Node{
-		Storage: "backup",
-		Address: "unix://" + primarySocket,
+		Storage: backupCfg.Storages[0].Name,
+		Address: backupCfg.SocketPath,
 	}
 
 	conf := config.Config{
 		VirtualStorages: []*config.VirtualStorage{
 			{
-				Name: "default",
+				Name: "virtual",
 				Nodes: []*config.Node{
 					&primary,
 					&secondary,
@@ -818,10 +752,10 @@ func TestProcessBacklog_Success(t *testing.T) {
 	require.NoError(t, err)
 
 	renameTo1 := filepath.Join(testRepo.GetRelativePath(), "..", filepath.Base(testRepo.GetRelativePath())+"-mv1")
-	fullNewPath1 := filepath.Join(backupDir, renameTo1)
+	fullNewPath1 := filepath.Join(backupCfg.Storages[0].Path, renameTo1)
 
 	renameTo2 := filepath.Join(renameTo1, "..", filepath.Base(testRepo.GetRelativePath())+"-mv2")
-	fullNewPath2 := filepath.Join(backupDir, renameTo2)
+	fullNewPath2 := filepath.Join(backupCfg.Storages[0].Path, renameTo2)
 
 	// Rename replication job
 	eventType2 := datastore.ReplicationEvent{
@@ -1043,56 +977,18 @@ func TestBackoff(t *testing.T) {
 	require.Equal(t, start, b())
 }
 
-func runFullGitalyServer(t *testing.T) string {
-	return testserver.RunGitalyServer(t, gitaly_config.Config, RubyServer, setup.RegisterAll, testserver.WithDisablePraefect())
-}
+func newRepositoryClient(t *testing.T, serverSocketPath, token string) gitalypb.RepositoryServiceClient {
+	t.Helper()
 
-// newReplicationService is a grpc service that has the SSH, Repository, Remote and ObjectPool services, which
-// are the only ones needed for replication
-func newReplicationService(tb testing.TB) (*grpc.Server, string) {
-	socketName := testhelper.GetTemporaryGitalySocketFileName(tb)
-	internalSocketName := gitaly_config.Config.GitalyInternalSocketPath()
-	require.NoError(tb, os.RemoveAll(internalSocketName))
-
-	svr := testhelper.NewTestGrpcServer(tb, nil, nil)
-
-	locator := gitaly_config.NewLocator(gitaly_config.Config)
-	txManager := transaction.NewManager(gitaly_config.Config, backchannel.NewRegistry())
-	hookManager := hook_manager.NewManager(locator, txManager, hook_manager.GitlabAPIStub, gitaly_config.Config)
-	gitCmdFactory := git.NewExecCommandFactory(gitaly_config.Config)
-
-	gitalypb.RegisterRepositoryServiceServer(svr, repository.NewServer(gitaly_config.Config, RubyServer, locator, txManager, gitCmdFactory))
-	gitalypb.RegisterObjectPoolServiceServer(svr, objectpoolservice.NewServer(gitaly_config.Config, locator, gitCmdFactory))
-	gitalypb.RegisterRemoteServiceServer(svr, remote.NewServer(gitaly_config.Config, RubyServer, locator, gitCmdFactory))
-	gitalypb.RegisterSSHServiceServer(svr, ssh.NewServer(gitaly_config.Config, locator, gitCmdFactory))
-	gitalypb.RegisterRefServiceServer(svr, ref.NewServer(gitaly_config.Config, locator, gitCmdFactory, txManager))
-	gitalypb.RegisterHookServiceServer(svr, hook.NewServer(gitaly_config.Config, hookManager, gitCmdFactory))
-	healthpb.RegisterHealthServer(svr, health.NewServer())
-	reflection.Register(svr)
-
-	listener, err := net.Listen("unix", socketName)
-	require.NoError(tb, err)
-
-	internalListener, err := net.Listen("unix", internalSocketName)
-	require.NoError(tb, err)
-
-	go svr.Serve(listener)         // listens for incoming requests
-	go svr.Serve(internalListener) // listens for internal requests (service need to access another service on same server)
-
-	return svr, socketName
-}
-
-func newRepositoryClient(t *testing.T, serverSocketPath string) (gitalypb.RepositoryServiceClient, *grpc.ClientConn) {
-	connOpts := []grpc.DialOption{
+	conn, err := grpc.Dial(
+		serverSocketPath,
 		grpc.WithInsecure(),
-		grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(testhelper.RepositoryAuthToken)),
-	}
-	conn, err := grpc.Dial(serverSocketPath, connOpts...)
-	if err != nil {
-		t.Fatal(err)
-	}
+		grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(token)),
+	)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, conn.Close()) })
 
-	return gitalypb.NewRepositoryServiceClient(conn), conn
+	return gitalypb.NewRepositoryServiceClient(conn)
 }
 
 func TestSubtractUint64(t *testing.T) {
