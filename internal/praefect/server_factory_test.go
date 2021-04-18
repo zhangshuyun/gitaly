@@ -12,14 +12,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/client"
-	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/internal/bootstrap/starter"
-	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	gconfig "gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/linguist"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/server"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/commit"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/setup"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
@@ -28,44 +23,17 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/transactions"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/promtest"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
 
 func TestServerFactory(t *testing.T) {
-	cfg := gconfig.Config
-	locator := gconfig.NewLocator(cfg)
-	gitCmdFactory := git.NewExecCommandFactory(cfg)
-	gitalyServerFactory := server.NewGitalyServerFactory(cfg, backchannel.NewRegistry())
-	defer gitalyServerFactory.Stop()
-
-	ling, err := linguist.New(cfg)
-	require.NoError(t, err)
-
-	gitalySrv, err := gitalyServerFactory.Create(false)
-	require.NoError(t, err)
-	healthpb.RegisterHealthServer(gitalySrv, health.NewServer())
-	gitalypb.RegisterCommitServiceServer(gitalySrv, commit.NewServer(cfg, locator, gitCmdFactory, ling))
-
-	// start gitaly serving on public endpoint
-	gitalyListener, err := net.Listen(starter.TCP, "localhost:0")
-	require.NoError(t, err)
-	defer func() { require.NoError(t, gitalyListener.Close()) }()
-	go gitalySrv.Serve(gitalyListener)
-
-	// start gitaly serving on internal endpoint
-	gitalyInternalSocketPath := cfg.GitalyInternalSocketPath()
-	defer func() { require.NoError(t, os.RemoveAll(gitalyInternalSocketPath)) }()
-	gitalyInternalListener, err := net.Listen(starter.Unix, gitalyInternalSocketPath)
-	require.NoError(t, err)
-	defer func() { require.NoError(t, gitalyInternalListener.Close()) }()
-	go gitalySrv.Serve(gitalyInternalListener)
-
-	gitalyAddr, err := starter.ComposeEndpoint(gitalyListener.Addr().Network(), gitalyListener.Addr().String())
-	require.NoError(t, err)
+	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
+	gitalyAddr := testserver.RunGitalyServer(t, cfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
 
 	certFile, keyFile := testhelper.GenerateCerts(t)
 
@@ -89,8 +57,6 @@ func TestServerFactory(t *testing.T) {
 		Failover: config.Failover{Enabled: true},
 	}
 
-	repo, repoPath, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
 	repo.StorageName = conf.VirtualStorages[0].Name // storage must be re-written to virtual to be properly redirected by praefect
 	revision := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", "HEAD"))
 
