@@ -107,56 +107,48 @@ func TestGitalyServerInfo(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	gitVersion, err := git.CurrentVersion(ctx, git.NewExecCommandFactory(gconfig.Config))
-	require.NoError(t, err)
-
 	t.Run("gitaly responds with ok", func(t *testing.T) {
-		tempDir := testhelper.TempDir(t)
+		firstCfg := testcfg.Build(t, testcfg.WithStorages("praefect-internal-1"))
+		firstCfg.SocketPath = testserver.RunGitalyServer(t, firstCfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
 
-		cfg := gconfig.Config
-		cfg.Storages = []gconfig.Storage{{Name: "praefect-internal-1"}, {Name: "praefect-internal-2"}}
-		for i := range cfg.Storages {
-			storagePath := filepath.Join(tempDir, cfg.Storages[i].Name)
-			require.NoError(t, os.MkdirAll(storagePath, 0755))
-			cfg.Storages[i].Path = storagePath
-		}
-
-		gitalyAddr := testserver.RunGitalyServer(t, cfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
+		secondCfg := testcfg.Build(t, testcfg.WithStorages("praefect-internal-2"))
+		secondCfg.SocketPath = testserver.RunGitalyServer(t, secondCfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
 
 		conf := config.Config{
 			VirtualStorages: []*config.VirtualStorage{
 				{
-					Name: "virtual-storage-1",
+					Name: "virtual-storage",
 					Nodes: []*config.Node{
 						{
-							Storage: "praefect-internal-1",
-							Token:   gconfig.Config.Auth.Token,
-							Address: gitalyAddr,
+							Storage: firstCfg.Storages[0].Name,
+							Address: firstCfg.SocketPath,
 						},
 						{
-							Storage: "praefect-internal-2",
-							Token:   gconfig.Config.Auth.Token,
-							Address: gitalyAddr,
+							Storage: secondCfg.Storages[0].Name,
+							Address: secondCfg.SocketPath,
 						},
 					},
 				},
 			},
 		}
 
-		nodes, err := DialNodes(ctx, conf.VirtualStorages, nil, nil, nil)
+		nodeSet, err := DialNodes(ctx, conf.VirtualStorages, nil, nil, nil)
 		require.NoError(t, err)
-		defer nodes.Close()
+		t.Cleanup(nodeSet.Close)
 
 		cc, _, cleanup := runPraefectServer(t, conf, buildOptions{
-			withConnections: nodes.Connections(),
+			withConnections: nodeSet.Connections(),
 		})
-		defer cleanup()
+		t.Cleanup(cleanup)
+
+		gitVersion, err := git.CurrentVersion(ctx, git.NewExecCommandFactory(firstCfg))
+		require.NoError(t, err)
 
 		expected := &gitalypb.ServerInfoResponse{
 			ServerVersion: version.GetVersion(),
 			GitVersion:    gitVersion.String(),
 			StorageStatuses: []*gitalypb.ServerInfoResponse_StorageStatus{
-				{StorageName: "virtual-storage-1", Readable: true, Writeable: true, ReplicationFactor: 2},
+				{StorageName: conf.VirtualStorages[0].Name, Readable: true, Writeable: true, ReplicationFactor: 2},
 			},
 		}
 
@@ -171,14 +163,16 @@ func TestGitalyServerInfo(t *testing.T) {
 	})
 
 	t.Run("gitaly responds with error", func(t *testing.T) {
+		cfg := testcfg.Build(t)
+
 		conf := config.Config{
 			VirtualStorages: []*config.VirtualStorage{
 				{
-					Name: "virtual-storage-1",
+					Name: "virtual-storage",
 					Nodes: []*config.Node{
 						{
-							Storage: gconfig.Config.Storages[0].Name,
-							Token:   gconfig.Config.Auth.Token,
+							Storage: cfg.Storages[0].Name,
+							Token:   cfg.Auth.Token,
 							Address: "unix://invalid.addr",
 						},
 					},
@@ -188,12 +182,12 @@ func TestGitalyServerInfo(t *testing.T) {
 
 		nodeSet, err := DialNodes(ctx, conf.VirtualStorages, nil, nil, nil)
 		require.NoError(t, err)
-		defer nodeSet.Close()
+		t.Cleanup(nodeSet.Close)
 
 		cc, _, cleanup := runPraefectServer(t, conf, buildOptions{
 			withConnections: nodeSet.Connections(),
 		})
-		defer cleanup()
+		t.Cleanup(cleanup)
 
 		client := gitalypb.NewServerServiceClient(cc)
 		actual, err := client.ServerInfo(ctx, &gitalypb.ServerInfoRequest{})
