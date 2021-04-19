@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/commonerr"
@@ -48,10 +50,34 @@ func TestPerRepositoryElector(t *testing.T) {
 		}
 	}
 
+	type logMatcher func(t testing.TB, entry logrus.Entry)
+
+	anyChange := func(expected ...primaryChanges) logMatcher {
+		return func(t testing.TB, entry logrus.Entry) {
+			require.Equal(t, "performed failovers", entry.Message)
+
+			var fields []logrus.Fields
+			for _, changes := range expected {
+				fields = append(fields, logrus.Fields{
+					"component": "PerRepositoryElector",
+					"changes":   changes,
+				})
+			}
+
+			require.Contains(t, fields, entry.Data)
+		}
+	}
+
+	noChanges := func(t testing.TB, entry logrus.Entry) {
+		t.Helper()
+		require.Equal(t, "attempting failovers resulted no changes", entry.Message)
+	}
+
 	type steps []struct {
 		healthyNodes map[string][]string
 		error        error
 		primary      matcher
+		matchLogs    logMatcher
 	}
 
 	for _, tc := range []struct {
@@ -75,7 +101,8 @@ func TestPerRepositoryElector(t *testing.T) {
 					healthyNodes: map[string][]string{
 						"virtual-storage-1": {"gitaly-1", "gitaly-2", "gitaly-3"},
 					},
-					primary: any("gitaly-1"),
+					primary:   any("gitaly-1"),
+					matchLogs: anyChange(primaryChanges{"virtual-storage-1": {"gitaly-1": {"demoted": 0, "promoted": 1}}}),
 				},
 			},
 		},
@@ -94,7 +121,8 @@ func TestPerRepositoryElector(t *testing.T) {
 					healthyNodes: map[string][]string{
 						"virtual-storage-1": {"gitaly-2", "gitaly-3"},
 					},
-					primary: any("gitaly-2"),
+					primary:   any("gitaly-2"),
+					matchLogs: anyChange(primaryChanges{"virtual-storage-1": {"gitaly-2": {"demoted": 0, "promoted": 1}}}),
 				},
 			},
 		},
@@ -112,8 +140,9 @@ func TestPerRepositoryElector(t *testing.T) {
 					healthyNodes: map[string][]string{
 						"virtual-storage-1": {"gitaly-2", "gitaly-3"},
 					},
-					error:   ErrNoPrimary,
-					primary: noPrimary(),
+					error:     ErrNoPrimary,
+					primary:   noPrimary(),
+					matchLogs: noChanges,
 				},
 			},
 		},
@@ -133,6 +162,10 @@ func TestPerRepositoryElector(t *testing.T) {
 						"virtual-storage-1": {"gitaly-1", "gitaly-2", "gitaly-3"},
 					},
 					primary: any("gitaly-1", "gitaly-2"),
+					matchLogs: anyChange(
+						primaryChanges{"virtual-storage-1": {"gitaly-1": {"demoted": 0, "promoted": 1}}},
+						primaryChanges{"virtual-storage-1": {"gitaly-2": {"demoted": 0, "promoted": 1}}},
+					),
 				},
 			},
 		},
@@ -152,13 +185,18 @@ func TestPerRepositoryElector(t *testing.T) {
 					healthyNodes: map[string][]string{
 						"virtual-storage-1": {"gitaly-1", "gitaly-3"},
 					},
-					primary: any("gitaly-1"),
+					primary:   any("gitaly-1"),
+					matchLogs: anyChange(primaryChanges{"virtual-storage-1": {"gitaly-1": {"demoted": 0, "promoted": 1}}}),
 				},
 				{
 					healthyNodes: map[string][]string{
 						"virtual-storage-1": {"gitaly-2", "gitaly-3"},
 					},
 					primary: any("gitaly-2"),
+					matchLogs: anyChange(primaryChanges{"virtual-storage-1": {
+						"gitaly-1": {"demoted": 1, "promoted": 0},
+						"gitaly-2": {"demoted": 0, "promoted": 1},
+					}}),
 				},
 			},
 		},
@@ -177,13 +215,18 @@ func TestPerRepositoryElector(t *testing.T) {
 					healthyNodes: map[string][]string{
 						"virtual-storage-1": {"gitaly-1", "gitaly-2", "gitaly-3"},
 					},
-					primary: any("gitaly-1"),
+					primary:   any("gitaly-1"),
+					matchLogs: anyChange(primaryChanges{"virtual-storage-1": {"gitaly-1": {"demoted": 0, "promoted": 1}}}),
 				},
 				{
 					healthyNodes: map[string][]string{
 						"virtual-storage-1": {"gitaly-2", "gitaly-3"},
 					},
 					primary: any("gitaly-3"),
+					matchLogs: anyChange(primaryChanges{"virtual-storage-1": {
+						"gitaly-1": {"demoted": 1, "promoted": 0},
+						"gitaly-3": {"demoted": 0, "promoted": 1},
+					}}),
 				},
 			},
 		},
@@ -203,13 +246,18 @@ func TestPerRepositoryElector(t *testing.T) {
 					healthyNodes: map[string][]string{
 						"virtual-storage-1": {"gitaly-1", "gitaly-2", "gitaly-3"},
 					},
-					primary: any("gitaly-1"),
+					primary:   any("gitaly-1"),
+					matchLogs: anyChange(primaryChanges{"virtual-storage-1": {"gitaly-1": {"demoted": 0, "promoted": 1}}}),
 				},
 				{
 					healthyNodes: map[string][]string{
 						"virtual-storage-1": {"gitaly-2", "gitaly-3"},
 					},
 					primary: any("gitaly-2"),
+					matchLogs: anyChange(primaryChanges{"virtual-storage-1": {
+						"gitaly-1": {"demoted": 1, "promoted": 0},
+						"gitaly-2": {"demoted": 0, "promoted": 1},
+					}}),
 				},
 			},
 		},
@@ -228,14 +276,16 @@ func TestPerRepositoryElector(t *testing.T) {
 					healthyNodes: map[string][]string{
 						"virtual-storage-1": {"gitaly-1", "gitaly-2", "gitaly-3"},
 					},
-					primary: any("gitaly-1"),
+					primary:   any("gitaly-1"),
+					matchLogs: anyChange(primaryChanges{"virtual-storage-1": {"gitaly-1": {"demoted": 0, "promoted": 1}}}),
 				},
 				{
 					healthyNodes: map[string][]string{
 						"virtual-storage-1": {"gitaly-2", "gitaly-3"},
 					},
-					error:   ErrNoPrimary,
-					primary: noPrimary(),
+					error:     ErrNoPrimary,
+					primary:   noPrimary(),
+					matchLogs: anyChange(primaryChanges{"virtual-storage-1": {"gitaly-1": {"demoted": 1, "promoted": 0}}}),
 				},
 			},
 		},
@@ -264,8 +314,9 @@ func TestPerRepositoryElector(t *testing.T) {
 					healthyNodes: map[string][]string{
 						"virtual-storage-1": {"gitaly-1"},
 					},
-					error:   ErrNoPrimary,
-					primary: noPrimary(),
+					error:     ErrNoPrimary,
+					primary:   noPrimary(),
+					matchLogs: noChanges,
 				},
 			},
 		},
@@ -294,8 +345,9 @@ func TestPerRepositoryElector(t *testing.T) {
 					healthyNodes: map[string][]string{
 						"virtual-storage-1": {"gitaly-1"},
 					},
-					error:   ErrNoPrimary,
-					primary: noPrimary(),
+					error:     ErrNoPrimary,
+					primary:   noPrimary(),
+					matchLogs: noChanges,
 				},
 			},
 		},
@@ -324,8 +376,9 @@ func TestPerRepositoryElector(t *testing.T) {
 					healthyNodes: map[string][]string{
 						"virtual-storage-1": {"gitaly-1"},
 					},
-					error:   ErrNoPrimary,
-					primary: noPrimary(),
+					error:     ErrNoPrimary,
+					primary:   noPrimary(),
+					matchLogs: noChanges,
 				},
 			},
 		},
@@ -399,7 +452,8 @@ func TestPerRepositoryElector(t *testing.T) {
 					healthyNodes: map[string][]string{
 						"virtual-storage-1": {"gitaly-1"},
 					},
-					primary: any("gitaly-1"),
+					primary:   any("gitaly-1"),
+					matchLogs: anyChange(primaryChanges{"virtual-storage-1": {"gitaly-1": {"demoted": 0, "promoted": 1}}}),
 				},
 			},
 		},
@@ -407,8 +461,9 @@ func TestPerRepositoryElector(t *testing.T) {
 			desc: "repository does not exist",
 			steps: steps{
 				{
-					error:   commonerr.NewRepositoryNotFoundError("virtual-storage-1", "relative-path-1"),
-					primary: noPrimary(),
+					error:     commonerr.NewRepositoryNotFoundError("virtual-storage-1", "relative-path-1"),
+					primary:   noPrimary(),
+					matchLogs: noChanges,
 				},
 			},
 		},
@@ -447,7 +502,8 @@ func TestPerRepositoryElector(t *testing.T) {
 			}
 
 			for _, step := range tc.steps {
-				elector := NewPerRepositoryElector(testhelper.DiscardTestLogger(t), db,
+				logger, hook := test.NewNullLogger()
+				elector := NewPerRepositoryElector(logrus.NewEntry(logger), db,
 					HealthConsensusFunc(func() map[string][]string { return step.healthyNodes }),
 				)
 				elector.handleError = func(err error) error { return err }
@@ -461,6 +517,9 @@ func TestPerRepositoryElector(t *testing.T) {
 				primary, err := elector.GetPrimary(ctx, "virtual-storage-1", "relative-path-1")
 				assert.Equal(t, step.error, err)
 				step.primary(t, primary)
+
+				require.Len(t, hook.Entries, 3)
+				step.matchLogs(t, hook.Entries[1])
 			}
 		})
 	}
@@ -475,8 +534,9 @@ func TestPerRepositoryElector_Retry(t *testing.T) {
 	elector := NewPerRepositoryElector(
 		testhelper.DiscardTestLogger(t),
 		&glsql.MockQuerier{
-			ExecContextFunc: func(context.Context, string, ...interface{}) (sql.Result, error) {
+			QueryContextFunc: func(context.Context, string, ...interface{}) (*sql.Rows, error) {
 				dbCalls++
+
 				return nil, assert.AnError
 			},
 		},
