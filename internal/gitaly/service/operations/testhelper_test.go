@@ -121,6 +121,7 @@ func setupOperationsService(t testing.TB, ctx context.Context) (context.Context,
 
 type setupConfig struct {
 	txManagerConstructor func() transaction.Manager
+	testServerOpts       []testhelper.TestServerOpt
 }
 
 func (c setupConfig) buildTxManager(cfg config.Cfg, registry *backchannel.Registry) transaction.Manager {
@@ -135,6 +136,12 @@ type setupOption func(*setupConfig)
 func withTxManagerConstructor(constructor func() transaction.Manager) setupOption {
 	return func(config *setupConfig) {
 		config.txManagerConstructor = constructor
+	}
+}
+
+func withTestServerOpts(opts ...testhelper.TestServerOpt) setupOption {
+	return func(config *setupConfig) {
+		config.testServerOpts = opts
 	}
 }
 
@@ -163,16 +170,21 @@ func setupOperationsServiceWithRuby(
 func runOperationServiceServer(t testing.TB, cfg config.Cfg, rubySrv *rubyserver.Server, options ...setupOption) string {
 	t.Helper()
 
-	registry := backchannel.NewRegistry()
-	srv := testhelper.NewServerWithAuth(t, nil, nil, cfg.Auth.Token, registry, testhelper.WithInternalSocket(cfg))
-
-	conns := gitalyclient.NewPool()
-	t.Cleanup(func() { conns.Close() })
-
 	setupConfig := setupConfig{}
 	for _, option := range options {
 		option(&setupConfig)
 	}
+
+	testServerOpts := append(
+		[]testhelper.TestServerOpt{testhelper.WithInternalSocket(cfg)},
+		setupConfig.testServerOpts...,
+	)
+
+	registry := backchannel.NewRegistry()
+	srv := testhelper.NewServerWithAuth(t, nil, nil, cfg.Auth.Token, registry, testServerOpts...)
+
+	conns := gitalyclient.NewPool()
+	t.Cleanup(func() { conns.Close() })
 
 	locator := config.NewLocator(cfg)
 
