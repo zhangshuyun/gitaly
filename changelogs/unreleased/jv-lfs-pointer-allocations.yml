@@ -1,0 +1,5 @@
+---
+title: Reduce memory usage in GetAllLFSPointers
+merge_request: 3379
+author:
+type: performance
