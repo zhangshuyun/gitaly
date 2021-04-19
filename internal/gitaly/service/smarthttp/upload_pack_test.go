@@ -172,8 +172,7 @@ func TestUploadPackRequestWithGitProtocol(t *testing.T) {
 	defer cancel()
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
-	readProto, cfg, restore := gittest.EnableGitProtocolV2Support(t, cfg)
-	defer restore()
+	readProto, cfg := gittest.EnableGitProtocolV2Support(t, cfg)
 
 	serverSocketPath, stop := runSmartHTTPServer(t, cfg)
 	defer stop()
@@ -249,8 +248,7 @@ func TestUploadPackWithPackObjectsHook(t *testing.T) {
 	// out. In the best case we'd have just printed the error to stderr and
 	// check the return error message. But it's unfortunately not
 	// transferred back.
-	cleanup = testhelper.WriteExecutable(t, filepath.Join(cfg.BinDir, "gitaly-hooks"), []byte(hookScript))
-	defer cleanup()
+	testhelper.WriteExecutable(t, filepath.Join(cfg.BinDir, "gitaly-hooks"), []byte(hookScript))
 
 	serverSocketPath, stop := runSmartHTTPServer(t, cfg)
 	defer stop()

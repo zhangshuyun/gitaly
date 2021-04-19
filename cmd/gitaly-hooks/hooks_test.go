@@ -158,8 +158,7 @@ func testHooksPrePostReceive(t *testing.T, cfg config.Cfg, repo *gitalypb.Reposi
 
 	for _, hookName := range hookNames {
 		t.Run(fmt.Sprintf("hookName: %s", hookName), func(t *testing.T) {
-			customHookOutputPath, cleanup := gittest.WriteEnvToCustomHook(t, repoPath, hookName)
-			defer cleanup()
+			customHookOutputPath := gittest.WriteEnvToCustomHook(t, repoPath, hookName)
 
 			gitlabAPI, err := gitalyhook.NewGitlabAPI(cfg.Gitlab, cfg.TLS)
 			require.NoError(t, err)
@@ -281,12 +280,10 @@ require 'json'
 open('%s', 'w') { |f| f.puts(JSON.dump(ARGV)) }
 `, customHookArgsPath)
 	// write a custom hook to path/to/repo.git/custom_hooks/update.d/dumpargsscript which dumps the args into a tempfile
-	cleanup = testhelper.WriteExecutable(t, filepath.Join(repoPath, "custom_hooks", "update.d", "dumpargsscript"), []byte(dumpArgsToTempfileScript))
-	defer cleanup()
+	testhelper.WriteExecutable(t, filepath.Join(repoPath, "custom_hooks", "update.d", "dumpargsscript"), []byte(dumpArgsToTempfileScript))
 
 	// write a custom hook to path/to/repo.git/custom_hooks/update which dumps the env into a tempfile
-	customHookOutputPath, cleanup := gittest.WriteEnvToCustomHook(t, repoPath, "update")
-	defer cleanup()
+	customHookOutputPath := gittest.WriteEnvToCustomHook(t, repoPath, "update")
 
 	var stdout, stderr bytes.Buffer
 
@@ -350,8 +347,7 @@ func TestHooksPostReceiveFailed(t *testing.T) {
 	stop := runHookServiceServerWithAPI(t, cfg, gitlabAPI)
 	defer stop()
 
-	customHookOutputPath, cleanup := gittest.WriteEnvToCustomHook(t, repoPath, "post-receive")
-	defer cleanup()
+	customHookOutputPath := gittest.WriteEnvToCustomHook(t, repoPath, "post-receive")
 
 	var stdout, stderr bytes.Buffer
 
@@ -374,9 +370,7 @@ func TestHooksPostReceiveFailed(t *testing.T) {
 				require.Equal(t, 1, code, "exit status")
 				require.Empty(t, stdout.String())
 				require.Empty(t, stderr.String())
-
-				output := string(testhelper.MustReadFile(t, customHookOutputPath))
-				require.Empty(t, output, "custom hook should not have run")
+				require.NoFileExists(t, customHookOutputPath)
 			},
 		},
 		{
@@ -388,9 +382,7 @@ func TestHooksPostReceiveFailed(t *testing.T) {
 
 				require.Empty(t, stdout.String())
 				require.Empty(t, stderr.String())
-
-				output := string(testhelper.MustReadFile(t, customHookOutputPath))
-				require.Empty(t, output, "custom hook should not have run")
+				require.NoFileExists(t, customHookOutputPath)
 			},
 		},
 	}
@@ -460,8 +452,7 @@ func TestHooksNotAllowed(t *testing.T) {
 	cfg.Gitlab.URL = serverURL
 	cfg.Gitlab.SecretFile = testhelper.WriteShellSecretFile(t, cfg.GitlabShell.Dir, "the wrong token")
 
-	customHookOutputPath, cleanup := gittest.WriteEnvToCustomHook(t, repoPath, "post-receive")
-	defer cleanup()
+	customHookOutputPath := gittest.WriteEnvToCustomHook(t, repoPath, "post-receive")
 
 	gitlabAPI, err := gitalyhook.NewGitlabAPI(cfg.Gitlab, cfg.TLS)
 	require.NoError(t, err)
@@ -489,9 +480,7 @@ func TestHooksNotAllowed(t *testing.T) {
 	require.Error(t, cmd.Run())
 	require.Equal(t, "GitLab: 401 Unauthorized\n", stderr.String())
 	require.Equal(t, "", stdout.String())
-
-	output := string(testhelper.MustReadFile(t, customHookOutputPath))
-	require.Empty(t, output, "custom hook should not have run")
+	require.NoFileExists(t, customHookOutputPath)
 }
 
 func TestCheckOK(t *testing.T) {

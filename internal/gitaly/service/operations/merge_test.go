@@ -62,8 +62,7 @@ func TestSuccessfulMerge(t *testing.T) {
 		defer os.Remove(outputFile.Name())
 
 		script := fmt.Sprintf("#!/bin/sh\n(cat && env) >%s \n", outputFile.Name())
-		cleanup := gittest.WriteCustomHook(t, repoPath, hook, []byte(script))
-		defer cleanup()
+		gittest.WriteCustomHook(t, repoPath, hook, []byte(script))
 
 		hookTempfiles[i] = outputFile.Name()
 	}
@@ -372,8 +371,7 @@ func TestFailedMergeDueToHooks(t *testing.T) {
 
 	for _, hookName := range gitlabPreHooks {
 		t.Run(hookName, func(t *testing.T) {
-			remove := gittest.WriteCustomHook(t, repoPath, hookName, hookContent)
-			defer remove()
+			gittest.WriteCustomHook(t, repoPath, hookName, hookContent)
 
 			mergeBidi, err := client.UserMergeBranch(ctx)
 			require.NoError(t, err)
@@ -549,8 +547,7 @@ func TestFailedUserFFBranchDueToHooks(t *testing.T) {
 
 	for _, hookName := range gitlabPreHooks {
 		t.Run(hookName, func(t *testing.T) {
-			remove := gittest.WriteCustomHook(t, repoPath, hookName, hookContent)
-			defer remove()
+			gittest.WriteCustomHook(t, repoPath, hookName, hookContent)
 
 			resp, err := client.UserFFBranch(ctx, request)
 			require.Nil(t, err)
@@ -920,8 +917,7 @@ func TestUserMergeToRefIgnoreHooksRequest(t *testing.T) {
 
 	for _, hookName := range gitlabPreHooks {
 		t.Run(hookName, func(t *testing.T) {
-			remove := gittest.WriteCustomHook(t, repoPath, hookName, hookContent)
-			defer remove()
+			gittest.WriteCustomHook(t, repoPath, hookName, hookContent)
 
 			resp, err := client.UserMergeToRef(ctx, request)
 			require.NoError(t, err)

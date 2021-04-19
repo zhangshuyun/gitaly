@@ -3,6 +3,7 @@ package operations
 //lint:file-ignore SA1019 due to planned removal in issue https://gitlab.com/gitlab-org/gitaly/issues/1628
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -15,6 +16,9 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -43,10 +47,8 @@ func testSuccessfulUserRebaseConfirmableRequest(t *testing.T, cfg config.Cfg, ru
 	rebaseStream, err := client.UserRebaseConfirmable(ctx)
 	require.NoError(t, err)
 
-	preReceiveHookOutputPath, removePreReceive := gittest.WriteEnvToCustomHook(t, repoPath, "pre-receive")
-	postReceiveHookOutputPath, removePostReceive := gittest.WriteEnvToCustomHook(t, repoPath, "post-receive")
-	defer removePreReceive()
-	defer removePostReceive()
+	preReceiveHookOutputPath := gittest.WriteEnvToCustomHook(t, repoPath, "pre-receive")
+	postReceiveHookOutputPath := gittest.WriteEnvToCustomHook(t, repoPath, "post-receive")
 
 	headerRequest := buildHeaderRequest(repoProto, testhelper.TestUser, "1", rebaseBranchName, branchSha, repoCopyProto, "master")
 	headerRequest.GetHeader().GitPushOptions = pushOptions
@@ -81,6 +83,109 @@ func testSuccessfulUserRebaseConfirmableRequest(t *testing.T, cfg config.Cfg, ru
 		require.Contains(t, output, "GIT_PUSH_OPTION_COUNT=2")
 		require.Contains(t, output, "GIT_PUSH_OPTION_0=ci.skip")
 		require.Contains(t, output, "GIT_PUSH_OPTION_1=test=value")
+	}
+}
+
+func testUserRebaseConfirmableTransaction(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	var voteCount int
+	txManager := &transaction.MockManager{
+		VoteFn: func(context.Context, metadata.Transaction, metadata.PraefectServer, transaction.Vote) error {
+			voteCount++
+			return nil
+		},
+	}
+
+	ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithRuby(
+		t, ctx, cfg, rubySrv,
+		// Praefect would intercept our call and inject its own transaction.
+		withTestServerOpts(testhelper.WithDisabledPraefect()),
+		withTxManagerConstructor(func() transaction.Manager {
+			return txManager
+		}),
+	)
+	cfg.Gitlab.URL = setupAndStartGitlabServer(t, testhelper.GlID, "project-1", cfg)
+
+	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+
+	for _, tc := range []struct {
+		desc                 string
+		withTransaction      bool
+		primary              bool
+		expectedVotes        int
+		expectPreReceiveHook bool
+	}{
+		{
+			desc:                 "non-transactonal does not vote but executes hook",
+			expectedVotes:        0,
+			expectPreReceiveHook: true,
+		},
+		{
+			desc:                 "primary votes and executes hook",
+			withTransaction:      true,
+			primary:              true,
+			expectedVotes:        1,
+			expectPreReceiveHook: true,
+		},
+		{
+			desc:                 "secondary votes but does not execute hook",
+			withTransaction:      true,
+			primary:              false,
+			expectedVotes:        1,
+			expectPreReceiveHook: false,
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			preReceiveHookOutputPath := gittest.WriteEnvToCustomHook(t, repoPath, "pre-receive")
+
+			voteCount = 0
+
+			ctx := ctx
+			if tc.withTransaction {
+				ctx = helper.OutgoingToIncoming(ctx)
+
+				var err error
+				ctx, err = metadata.InjectTransaction(ctx, 1, "node", tc.primary)
+				require.NoError(t, err)
+				ctx, err = (&metadata.PraefectServer{
+					SocketPath: "irrelevant",
+				}).Inject(ctx)
+				require.NoError(t, err)
+
+				ctx = helper.IncomingToOutgoing(ctx)
+			}
+
+			branchSha, err := repo.ResolveRevision(ctx, git.Revision(rebaseBranchName))
+			require.NoError(t, err)
+
+			rebaseStream, err := client.UserRebaseConfirmable(ctx)
+			require.NoError(t, err)
+
+			headerRequest := buildHeaderRequest(repoProto, testhelper.TestUser, "1", rebaseBranchName, branchSha.String(), repoProto, "master")
+			require.NoError(t, rebaseStream.Send(headerRequest))
+			_, err = rebaseStream.Recv()
+			require.NoError(t, err)
+
+			require.NoError(t, rebaseStream.Send(buildApplyRequest(true)), "apply rebase")
+			secondResponse, err := rebaseStream.Recv()
+			require.NoError(t, err)
+			require.True(t, secondResponse.GetRebaseApplied(), "the second rebase is applied")
+
+			testhelper.ReceiveEOFWithTimeout(t, func() error {
+				response, err := rebaseStream.Recv()
+				require.Nil(t, response)
+				return err
+			})
+
+			require.Equal(t, tc.expectedVotes, voteCount)
+			if tc.expectPreReceiveHook {
+				require.FileExists(t, preReceiveHookOutputPath)
+			} else {
+				require.NoFileExists(t, preReceiveHookOutputPath)
+			}
+		})
 	}
 }
 
@@ -331,8 +436,7 @@ func testFailedUserRebaseConfirmableRequestDueToPreReceiveError(t *testing.T, cf
 
 	for i, hookName := range GitlabPreHooks {
 		t.Run(hookName, func(t *testing.T) {
-			remove := gittest.WriteCustomHook(t, repoPath, hookName, hookContent)
-			defer remove()
+			gittest.WriteCustomHook(t, repoPath, hookName, hookContent)
 
 			rebaseStream, err := client.UserRebaseConfirmable(ctx)
 			require.NoError(t, err)

@@ -78,8 +78,7 @@ func testSuccessfulGitHooksForUserDeleteTagRequest(t *testing.T, ctx context.Con
 		t.Run(hookName, func(t *testing.T) {
 			testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "tag", tagNameInput)
 
-			hookOutputTempPath, cleanup := gittest.WriteEnvToCustomHook(t, repoPath, hookName)
-			defer cleanup()
+			hookOutputTempPath := gittest.WriteEnvToCustomHook(t, repoPath, hookName)
 
 			_, err := client.UserDeleteTag(ctx, request)
 			require.NoError(t, err)
@@ -224,8 +223,7 @@ func testSuccessfulUserCreateTagRequest(t *testing.T, ctx context.Context) {
 				"pre-receive": fmt.Sprintf("#!/bin/sh\n%s %s \"$@\"", preReceiveHook, testCase.expectedObjectType),
 				"update":      fmt.Sprintf("#!/bin/sh\n%s %s \"$@\"", updateHook, testCase.expectedObjectType),
 			} {
-				hookCleanup := gittest.WriteCustomHook(t, repoPath, hook, []byte(content))
-				defer hookCleanup()
+				gittest.WriteCustomHook(t, repoPath, hook, []byte(content))
 			}
 
 			request := &gitalypb.UserCreateTagRequest{
@@ -495,8 +493,7 @@ func testSuccessfulUserCreateTagRequestAnnotatedLightweightDisambiguation(t *tes
 				"pre-receive": fmt.Sprintf("#!/bin/sh\n%s %s \"$@\"", preReceiveHook, testCase.objType),
 				"update":      fmt.Sprintf("#!/bin/sh\n%s %s \"$@\"", updateHook, testCase.objType),
 			} {
-				hookCleanup := gittest.WriteCustomHook(t, repoPath, hook, []byte(content))
-				defer hookCleanup()
+				gittest.WriteCustomHook(t, repoPath, hook, []byte(content))
 			}
 
 			tagName := "what-will-it-be"
@@ -681,8 +678,7 @@ func TestSuccessfulUserCreateTagRequestToNonCommit(t *testing.T) {
 				"pre-receive": fmt.Sprintf("#!/bin/sh\n%s %s \"$@\"", preReceiveHook, testCase.expectedObjectType),
 				"update":      fmt.Sprintf("#!/bin/sh\n%s %s \"$@\"", updateHook, testCase.expectedObjectType),
 			} {
-				hookCleanup := gittest.WriteCustomHook(t, repoPath, hook, []byte(content))
-				defer hookCleanup()
+				gittest.WriteCustomHook(t, repoPath, hook, []byte(content))
 			}
 
 			request := &gitalypb.UserCreateTagRequest{
@@ -763,8 +759,7 @@ func TestSuccessfulUserCreateTagNestedTags(t *testing.T) {
 				"pre-receive": fmt.Sprintf("#!/bin/sh\n%s %s \"$@\"", preReceiveHook, hookObjectType),
 				"update":      fmt.Sprintf("#!/bin/sh\n%s %s \"$@\"", updateHook, hookObjectType),
 			} {
-				hookCleanup := gittest.WriteCustomHook(t, repoPath, hook, []byte(content))
-				defer hookCleanup()
+				gittest.WriteCustomHook(t, repoPath, hook, []byte(content))
 			}
 
 			targetObject := testCase.targetObject
@@ -998,8 +993,7 @@ func TestSuccessfulGitHooksForUserCreateTagRequest(t *testing.T) {
 		t.Run(hookName, func(t *testing.T) {
 			defer testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "tag", "-d", tagName)
 
-			hookOutputTempPath, cleanup := gittest.WriteEnvToCustomHook(t, repoPath, hookName)
-			defer cleanup()
+			hookOutputTempPath := gittest.WriteEnvToCustomHook(t, repoPath, hookName)
 
 			response, err := client.UserCreateTag(ctx, request)
 			require.NoError(t, err)
@@ -1106,8 +1100,7 @@ func testFailedUserDeleteTagDueToHooks(t *testing.T, ctx context.Context) {
 
 	for _, hookName := range gitlabPreHooks {
 		t.Run(hookName, func(t *testing.T) {
-			remove := gittest.WriteCustomHook(t, repoPath, hookName, hookContent)
-			defer remove()
+			gittest.WriteCustomHook(t, repoPath, hookName, hookContent)
 
 			response, err := client.UserDeleteTag(ctx, request)
 			require.Nil(t, err)
@@ -1135,8 +1128,7 @@ func TestFailedUserCreateTagDueToHooks(t *testing.T) {
 	hookContent := []byte("#!/bin/sh\necho GL_ID=$GL_ID\nexit 1")
 
 	for _, hookName := range gitlabPreHooks {
-		remove := gittest.WriteCustomHook(t, repoPath, hookName, hookContent)
-		defer remove()
+		gittest.WriteCustomHook(t, repoPath, hookName, hookContent)
 
 		response, err := client.UserCreateTag(ctx, request)
 		require.Nil(t, err)
@@ -1375,8 +1367,7 @@ func testTagHookOutput(t *testing.T, ctx context.Context) {
 					User:       testhelper.TestUser,
 				}
 
-				remove := gittest.WriteCustomHook(t, repoPath, hookName, []byte(testCase.hookContent))
-				defer remove()
+				gittest.WriteCustomHook(t, repoPath, hookName, []byte(testCase.hookContent))
 
 				createResponse, err := client.UserCreateTag(ctx, createRequest)
 				require.NoError(t, err)

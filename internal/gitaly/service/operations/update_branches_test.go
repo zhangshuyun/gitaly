@@ -188,8 +188,7 @@ func testSuccessfulGitHooksForUserUpdateBranchRequestFeatured(t *testing.T, ctx 
 			testRepo, testRepoPath, cleanupFn := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "repo")
 			defer cleanupFn()
 
-			hookOutputTempPath, cleanup := gittest.WriteEnvToCustomHook(t, testRepoPath, hookName)
-			defer cleanup()
+			hookOutputTempPath := gittest.WriteEnvToCustomHook(t, testRepoPath, hookName)
 
 			request := &gitalypb.UserUpdateBranchRequest{
 				Repository: testRepo,
@@ -230,8 +229,7 @@ func testFailedUserUpdateBranchDueToHooksFeatured(t *testing.T, ctx context.Cont
 	hookContent := []byte("#!/bin/sh\nprintenv | paste -sd ' ' - >&2\nexit 1")
 
 	for _, hookName := range gitlabPreHooks {
-		remove := gittest.WriteCustomHook(t, repoPath, hookName, hookContent)
-		defer remove()
+		gittest.WriteCustomHook(t, repoPath, hookName, hookContent)
 
 		response, err := client.UserUpdateBranch(ctx, request)
 		require.Nil(t, err)

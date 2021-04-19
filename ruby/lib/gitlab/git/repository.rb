@@ -272,7 +272,7 @@ module Gitlab
       end
 
       # rubocop:disable Metrics/ParameterLists
-      def rebase(user, rebase_id, branch:, branch_sha:, remote_repository:, remote_branch:, push_options: nil, timestamp: nil)
+      def rebase(user, rebase_id, branch:, branch_sha:, remote_repository:, remote_branch:, push_options: nil, timestamp: nil, transaction: nil)
         worktree = Gitlab::Git::Worktree.new(path, REBASE_WORKTREE_PREFIX, rebase_id)
         env = user.git_env(timestamp)
 
@@ -296,7 +296,7 @@ module Gitlab
 
             yield rebase_sha if block_given?
 
-            update_branch(branch, user: user, newrev: rebase_sha, oldrev: branch_sha, push_options: push_options)
+            update_branch(branch, user: user, newrev: rebase_sha, oldrev: branch_sha, push_options: push_options, transaction: transaction)
 
             rebase_sha
           end

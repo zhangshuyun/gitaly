@@ -191,8 +191,7 @@ func TestUpdate_customHooks(t *testing.T) {
 			ctx, cleanup := testhelper.Context()
 			defer cleanup()
 
-			cleanup = gittest.WriteCustomHook(t, repoPath, "update", []byte(tc.hook))
-			defer cleanup()
+			gittest.WriteCustomHook(t, repoPath, "update", []byte(tc.hook))
 
 			var stdout, stderr bytes.Buffer
 			err = hookManager.UpdateHook(ctx, repo, tc.reference, tc.oldHash, tc.newHash, tc.env, &stdout, &stderr)

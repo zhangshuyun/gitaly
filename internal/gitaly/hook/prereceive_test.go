@@ -165,8 +165,7 @@ func TestPrereceive_customHooks(t *testing.T) {
 			ctx, cleanup := testhelper.Context()
 			defer cleanup()
 
-			cleanup = gittest.WriteCustomHook(t, repoPath, "pre-receive", []byte(tc.hook))
-			defer cleanup()
+			gittest.WriteCustomHook(t, repoPath, "pre-receive", []byte(tc.hook))
 
 			var stdout, stderr bytes.Buffer
 			err = hookManager.PreReceiveHook(ctx, repo, tc.pushOptions, tc.env, strings.NewReader(tc.stdin), &stdout, &stderr)
@@ -307,8 +306,7 @@ func TestPrereceive_gitlab(t *testing.T) {
 
 			hookManager := NewManager(config.NewLocator(cfg), transaction.NewManager(cfg, backchannel.NewRegistry()), &gitlabAPI, cfg)
 
-			cleanup = gittest.WriteCustomHook(t, repoPath, "pre-receive", []byte("#!/bin/sh\necho called\n"))
-			defer cleanup()
+			gittest.WriteCustomHook(t, repoPath, "pre-receive", []byte("#!/bin/sh\necho called\n"))
 
 			var stdout, stderr bytes.Buffer
 			err = hookManager.PreReceiveHook(ctx, repo, nil, tc.env, strings.NewReader(tc.changes), &stdout, &stderr)

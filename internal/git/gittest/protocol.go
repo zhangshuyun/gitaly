@@ -14,8 +14,9 @@ import (
 // EnableGitProtocolV2Support replaces the git binary in config with a wrapper that allows the
 // protocol to be tested. It returns a function to read the GIT_PROTOCOl environment variable
 // created by the wrapper script, the modified configuration as well as a cleanup function.
-func EnableGitProtocolV2Support(t testing.TB, cfg config.Cfg) (func() string, config.Cfg, testhelper.Cleanup) {
+func EnableGitProtocolV2Support(t testing.TB, cfg config.Cfg) (func() string, config.Cfg) {
 	dir, cleanupDir := testhelper.TempDir(t)
+	t.Cleanup(cleanupDir)
 
 	gitPath := filepath.Join(dir, "git")
 	envPath := filepath.Join(dir, "git-env")
@@ -25,16 +26,13 @@ env | grep ^GIT_PROTOCOL= >>"%s"
 exec "%s" "$@"
 `, envPath, cfg.Git.BinPath)
 
-	cleanupExe := testhelper.WriteExecutable(t, gitPath, []byte(script))
+	testhelper.WriteExecutable(t, gitPath, []byte(script))
 
 	cfg.Git.BinPath = gitPath
 
 	return func() string {
-			data, err := ioutil.ReadFile(envPath)
-			require.NoError(t, err)
-			return string(data)
-		}, cfg, func() {
-			cleanupExe()
-			cleanupDir()
-		}
+		data, err := ioutil.ReadFile(envPath)
+		require.NoError(t, err)
+		return string(data)
+	}, cfg
 }

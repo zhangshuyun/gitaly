@@ -426,8 +426,7 @@ func TestUploadPackCloneSuccessWithGitProtocol(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.desc, func(t *testing.T) {
-			readProto, cfg, restore := gittest.EnableGitProtocolV2Support(t, cfg)
-			defer restore()
+			readProto, cfg := gittest.EnableGitProtocolV2Support(t, cfg)
 
 			serverSocketPath, stop := runSSHServer(t, cfg)
 			defer stop()

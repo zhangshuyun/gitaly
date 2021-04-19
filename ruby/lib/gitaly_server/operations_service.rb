@@ -96,9 +96,11 @@ module GitalyServer
       Gitaly::UserRevertResponse.new(pre_receive_error: set_utf8!(e.message))
     end
 
+    # rubocop:disable Metrics/AbcSize
     def user_rebase_confirmable(session, call)
       Enumerator.new do |y|
         header = session.next.header
+        transaction = Praefect::Transaction.from_metadata(call.metadata)
 
         repo = Gitlab::Git::Repository.from_gitaly(header.repository, call)
         user = Gitlab::Git::User.from_gitaly(header.user)
@@ -113,7 +115,8 @@ module GitalyServer
             remote_repository: remote_repository,
             remote_branch: header.remote_branch,
             push_options: Gitlab::Git::PushOptions.new(header.git_push_options),
-            timestamp: header.timestamp
+            timestamp: header.timestamp,
+            transaction: transaction
           ) do |rebase_sha|
             y << Gitaly::UserRebaseConfirmableResponse.new(rebase_sha: rebase_sha)
 
@@ -130,6 +133,7 @@ module GitalyServer
         end
       end
     end
+    # rubocop:enable Metrics/AbcSize
 
     def user_commit_files(call)
       actions = []
