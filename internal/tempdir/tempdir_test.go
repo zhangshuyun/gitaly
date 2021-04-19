@@ -13,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
@@ -20,10 +21,8 @@ func TestNewAsRepositorySuccess(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	repo, _, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
-
-	locator := config.NewLocator(config.Config)
+	cfg, repo, _ := testcfg.BuildWithRepo(t)
+	locator := config.NewLocator(cfg)
 	tempRepo, tempDir, err := NewAsRepository(ctx, repo, locator)
 	require.NoError(t, err)
 	require.NotEqual(t, repo, tempRepo)
@@ -104,19 +103,17 @@ func TestCleanSuccess(t *testing.T) {
 }
 
 func TestCleanTempDir(t *testing.T) {
+	cfg := testcfg.Build(t, testcfg.WithStorages("first", "second"))
+	gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name())
+
 	logrus.SetLevel(logrus.InfoLevel)
 	logrus.SetOutput(ioutil.Discard)
 
 	hook := test.NewGlobal()
 
-	storages := append(config.Config.Storages[:], config.Storage{
-		Name: "default",
-		Path: "testdata/clean",
-	})
+	cleanTempDir(cfg.Storages)
 
-	cleanTempDir(storages)
-
-	require.Equal(t, 2, len(hook.Entries))
+	require.Equal(t, 2, len(hook.Entries), hook.Entries)
 	require.Equal(t, "finished tempdir cleaner walk", hook.LastEntry().Message)
 }
 
