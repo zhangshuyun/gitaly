@@ -44,12 +44,12 @@ func (cmd *mergeSubcommand) Run(context.Context, io.Reader, io.Writer) error {
 
 	ours, err := lookupCommit(repo, request.Ours)
 	if err != nil {
-		return fmt.Errorf("could not lookup commit %q: %w", request.Ours, err)
+		return fmt.Errorf("ours commit lookup: %w", err)
 	}
 
 	theirs, err := lookupCommit(repo, request.Theirs)
 	if err != nil {
-		return fmt.Errorf("could not lookup commit %q: %w", request.Theirs, err)
+		return fmt.Errorf("theirs commit lookup: %w", err)
 	}
 
 	mergeOpts, err := git.DefaultMergeOptions()

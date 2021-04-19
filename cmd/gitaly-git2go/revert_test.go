@@ -152,7 +152,7 @@ func TestRevert_trees(t *testing.T) {
 
 				return "nonexistent", revertOid.String()
 			},
-			expectedErr: "revert: ours commit lookup: could not lookup reference \"nonexistent\": revspec 'nonexistent' not found",
+			expectedErr: "revert: ours commit lookup: lookup commit \"nonexistent\": revspec 'nonexistent' not found",
 		},
 		{
 			desc: "nonexistent revert fails",
@@ -163,7 +163,7 @@ func TestRevert_trees(t *testing.T) {
 
 				return oursOid.String(), "nonexistent"
 			},
-			expectedErr: "revert: revert commit lookup: could not lookup reference \"nonexistent\": revspec 'nonexistent' not found",
+			expectedErr: "revert: revert commit lookup: lookup commit \"nonexistent\": revspec 'nonexistent' not found",
 		},
 	}
 	for _, tc := range testcases {

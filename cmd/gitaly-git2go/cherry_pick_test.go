@@ -133,14 +133,14 @@ func TestCherryPick(t *testing.T) {
 		},
 		{
 			desc:           "fails on nonexistent ours commit",
-			expectedErrMsg: "cherry-pick: ours commit lookup: could not lookup reference \"nonexistent\": revspec 'nonexistent' not found",
+			expectedErrMsg: "cherry-pick: ours commit lookup: lookup commit \"nonexistent\": revspec 'nonexistent' not found",
 		},
 		{
 			desc: "fails on nonexistent cherry-pick commit",
 			ours: map[string]string{
 				"file": "fooqux",
 			},
-			expectedErrMsg: "cherry-pick: commit lookup: could not lookup reference \"nonexistent\": revspec 'nonexistent' not found",
+			expectedErrMsg: "cherry-pick: commit lookup: lookup commit \"nonexistent\": revspec 'nonexistent' not found",
 		},
 	}
 	for _, tc := range testcases {
