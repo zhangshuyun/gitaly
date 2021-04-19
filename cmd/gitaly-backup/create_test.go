@@ -46,13 +46,20 @@ func TestCreateSubcommand(t *testing.T) {
 		}))
 	}
 
+	require.NoError(t, encoder.Encode(map[string]string{
+		"address": "invalid",
+		"token":   "invalid",
+	}))
+
 	cmd := createSubcommand{backupPath: path}
 
 	fs := flag.NewFlagSet("create", flag.ContinueOnError)
 	cmd.Flags(fs)
 
 	require.NoError(t, fs.Parse([]string{"-path", path}))
-	require.NoError(t, cmd.Run(context.Background(), &stdin, ioutil.Discard))
+	require.EqualError(t,
+		cmd.Run(context.Background(), &stdin, ioutil.Discard),
+		"create: 1 failures encountered")
 
 	for _, repo := range repos {
 		bundlePath := filepath.Join(path, repo.RelativePath+".bundle")

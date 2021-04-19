@@ -32,6 +32,7 @@ func (cmd *createSubcommand) Flags(fs *flag.FlagSet) {
 func (cmd *createSubcommand) Run(ctx context.Context, stdin io.Reader, stdout io.Writer) error {
 	fsBackup := backup.NewFilesystem(cmd.backupPath)
 
+	var failed int
 	decoder := json.NewDecoder(stdin)
 	for {
 		var sr serverRepository
@@ -56,11 +57,16 @@ func (cmd *createSubcommand) Run(ctx context.Context, stdin io.Reader, stdout io
 				repoLog.Warn("skipped backup")
 			} else {
 				repoLog.WithError(err).Error("backup failed")
+				failed++
 			}
-		} else {
-			repoLog.Info("completed backup")
+			continue
 		}
+
+		repoLog.Info("completed backup")
 	}
 
+	if failed > 0 {
+		return fmt.Errorf("create: %d failures encountered", failed)
+	}
 	return nil
 }
