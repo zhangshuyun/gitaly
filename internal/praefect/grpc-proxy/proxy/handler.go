@@ -326,17 +326,22 @@ func forwardClientToServers(src grpc.ServerStream, dsts []streamAndDestination) 
 			g.Go(func() error { return forwardFramesToServer(dst, frameChan) })
 		}
 
+		var outerErr error
 		for {
 			if err := receiveFromClientAndForward(src, frameChans); err != nil {
 				if !errors.Is(err, io.EOF) {
-					ret <- err
+					outerErr = err
 				}
 
 				break
 			}
 		}
 
-		ret <- g.Wait()
+		if err := g.Wait(); outerErr == nil {
+			outerErr = err
+		}
+
+		ret <- outerErr
 	}()
 	return ret
 }

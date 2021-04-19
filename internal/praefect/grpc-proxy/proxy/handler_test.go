@@ -12,7 +12,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -31,6 +30,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/grpc-proxy/proxy"
 	pb "gitlab.com/gitlab-org/gitaly/internal/praefect/grpc-proxy/testdata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"go.uber.org/goleak"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -49,15 +49,11 @@ const (
 )
 
 func TestMain(m *testing.M) {
-	os.Exit(testMain(m))
-}
-
-func testMain(m *testing.M) int {
 	defer testhelper.MustHaveNoChildProcess()
 	cleanup := testhelper.Configure()
 	defer cleanup()
 
-	return m.Run()
+	goleak.VerifyTestMain(m)
 }
 
 // asserting service is implemented on the server side and serves as a handler for stuff
@@ -126,8 +122,9 @@ type ProxyHappySuite struct {
 	proxy            *grpc.Server
 	serverClientConn *grpc.ClientConn
 
-	client     *grpc.ClientConn
-	testClient pb.TestServiceClient
+	client         *grpc.ClientConn
+	testClient     pb.TestServiceClient
+	testClientConn *grpc.ClientConn
 }
 
 func (s *ProxyHappySuite) ctx() context.Context {
@@ -289,14 +286,17 @@ func (s *ProxyHappySuite) SetupSuite() {
 	ctx, cancel := context.WithTimeout(context.TODO(), 1*time.Second)
 	defer cancel()
 
-	clientConn, err := grpc.DialContext(ctx, strings.Replace(s.proxyListener.Addr().String(), "127.0.0.1", "localhost", 1), grpc.WithInsecure())
+	s.testClientConn, err = grpc.DialContext(ctx, strings.Replace(s.proxyListener.Addr().String(), "127.0.0.1", "localhost", 1), grpc.WithInsecure())
 	require.NoError(s.T(), err, "must not error on deferred client Dial")
-	s.testClient = pb.NewTestServiceClient(clientConn)
+	s.testClient = pb.NewTestServiceClient(s.testClientConn)
 }
 
 func (s *ProxyHappySuite) TearDownSuite() {
 	if s.client != nil {
 		s.client.Close()
+	}
+	if s.testClientConn != nil {
+		s.testClientConn.Close()
 	}
 	if s.serverClientConn != nil {
 		s.serverClientConn.Close()
@@ -388,53 +388,61 @@ func TestProxyErrorPropagation(t *testing.T) {
 			},
 		},
 	} {
-		tmpDir, clean := testhelper.TempDir(t)
-		defer clean()
+		t.Run(tc.desc, func(t *testing.T) {
+			tmpDir, clean := testhelper.TempDir(t)
+			defer clean()
 
-		backendListener, err := net.Listen("unix", filepath.Join(tmpDir, "backend"))
-		require.NoError(t, err)
+			backendListener, err := net.Listen("unix", filepath.Join(tmpDir, "backend"))
+			require.NoError(t, err)
 
-		backendServer := grpc.NewServer(grpc.UnknownServiceHandler(func(interface{}, grpc.ServerStream) error {
-			return tc.backendError
-		}))
-		go func() { backendServer.Serve(backendListener) }()
-		defer backendServer.Stop()
+			backendServer := grpc.NewServer(grpc.UnknownServiceHandler(func(interface{}, grpc.ServerStream) error {
+				return tc.backendError
+			}))
+			go func() { backendServer.Serve(backendListener) }()
+			defer backendServer.Stop()
 
-		ctx, cancel := testhelper.Context()
-		defer cancel()
+			ctx, cancel := testhelper.Context()
+			defer cancel()
 
-		backendClientConn, err := grpc.DialContext(ctx, "unix://"+backendListener.Addr().String(),
-			grpc.WithInsecure(), grpc.WithDefaultCallOptions(grpc.ForceCodec(proxy.NewCodec())))
-		require.NoError(t, err)
+			backendClientConn, err := grpc.DialContext(ctx, "unix://"+backendListener.Addr().String(),
+				grpc.WithInsecure(), grpc.WithDefaultCallOptions(grpc.ForceCodec(proxy.NewCodec())))
+			require.NoError(t, err)
+			defer func() {
+				require.NoError(t, backendClientConn.Close())
+			}()
 
-		proxyListener, err := net.Listen("unix", filepath.Join(tmpDir, "proxy"))
-		require.NoError(t, err)
+			proxyListener, err := net.Listen("unix", filepath.Join(tmpDir, "proxy"))
+			require.NoError(t, err)
 
-		proxyServer := grpc.NewServer(
-			grpc.CustomCodec(proxy.NewCodec()),
-			grpc.UnknownServiceHandler(proxy.TransparentHandler(func(ctx context.Context, fullMethodName string, peeker proxy.StreamPeeker) (*proxy.StreamParameters, error) {
-				return proxy.NewStreamParameters(
-					proxy.Destination{
-						Ctx:        ctx,
-						Conn:       backendClientConn,
-						ErrHandler: tc.errHandler,
-					},
-					nil,
-					func() error { return tc.requestFinalizerError },
-					nil,
-				), tc.directorError
-			})),
-		)
+			proxyServer := grpc.NewServer(
+				grpc.CustomCodec(proxy.NewCodec()),
+				grpc.UnknownServiceHandler(proxy.TransparentHandler(func(ctx context.Context, fullMethodName string, peeker proxy.StreamPeeker) (*proxy.StreamParameters, error) {
+					return proxy.NewStreamParameters(
+						proxy.Destination{
+							Ctx:        ctx,
+							Conn:       backendClientConn,
+							ErrHandler: tc.errHandler,
+						},
+						nil,
+						func() error { return tc.requestFinalizerError },
+						nil,
+					), tc.directorError
+				})),
+			)
 
-		go func() { proxyServer.Serve(proxyListener) }()
-		defer proxyServer.Stop()
+			go func() { proxyServer.Serve(proxyListener) }()
+			defer proxyServer.Stop()
 
-		proxyClientConn, err := grpc.DialContext(ctx, "unix://"+proxyListener.Addr().String(), grpc.WithInsecure())
-		require.NoError(t, err)
+			proxyClientConn, err := grpc.DialContext(ctx, "unix://"+proxyListener.Addr().String(), grpc.WithInsecure())
+			require.NoError(t, err)
+			defer func() {
+				require.NoError(t, proxyClientConn.Close())
+			}()
 
-		resp, err := pb.NewTestServiceClient(proxyClientConn).Ping(ctx, &pb.PingRequest{})
-		require.Equal(t, tc.returnedError, err)
-		require.Nil(t, resp)
+			resp, err := pb.NewTestServiceClient(proxyClientConn).Ping(ctx, &pb.PingRequest{})
+			require.Equal(t, tc.returnedError, err)
+			require.Nil(t, resp)
+		})
 	}
 }
 
@@ -495,6 +503,7 @@ func TestRegisterStreamHandlers(t *testing.T) {
 
 	cc, err := client.Dial("unix://"+serverSocketPath, []grpc.DialOption{grpc.WithBlock()})
 	require.NoError(t, err)
+	defer cc.Close()
 
 	testServiceClient := pb.NewTestServiceClient(cc)
 
