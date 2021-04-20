@@ -103,8 +103,9 @@ func TestWithRubySidecar(t *testing.T) {
 }
 
 func newRepositoryClient(t testing.TB, cfg config.Cfg, serverSocketPath string) (gitalypb.RepositoryServiceClient, *grpc.ClientConn) {
-	connOpts := []grpc.DialOption{
-		grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(cfg.Auth.Token)),
+	var connOpts []grpc.DialOption
+	if cfg.Auth.Token != "" {
+		connOpts = append(connOpts, grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(cfg.Auth.Token)))
 	}
 	conn, err := gclient.Dial(serverSocketPath, connOpts)
 	if err != nil {
