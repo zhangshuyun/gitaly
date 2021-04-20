@@ -26,8 +26,7 @@ func TestRepositoryExists(t *testing.T) {
 	repo, _, cleanupFn := gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name())
 	t.Cleanup(cleanupFn)
 
-	client, conn := newRepositoryClient(t, cfg, serverSocketPath)
-	t.Cleanup(func() { require.NoError(t, conn.Close()) })
+	client := newRepositoryClient(t, cfg, serverSocketPath)
 
 	queries := []struct {
 		desc      string

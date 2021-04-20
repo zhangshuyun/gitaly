@@ -24,8 +24,7 @@ func TestRepoNoAuth(t *testing.T) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t, testcfg.WithBase(config.Cfg{Auth: auth.Config{Token: "some"}}))
 
 	serverSocketPath := runRepositoryServerWithConfig(t, cfg, nil)
-	client, conn := newRepositoryClient(t, config.Cfg{Auth: auth.Config{Token: ""}}, serverSocketPath)
-	t.Cleanup(func() { require.NoError(t, conn.Close()) })
+	client := newRepositoryClient(t, config.Cfg{Auth: auth.Config{Token: ""}}, serverSocketPath)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()

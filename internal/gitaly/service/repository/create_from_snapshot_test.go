@@ -61,8 +61,7 @@ func createFromSnapshot(t *testing.T, req *gitalypb.CreateRepositoryFromSnapshot
 	t.Helper()
 
 	serverSocketPath := runRepositoryServerWithConfig(t, cfg, nil)
-	client, conn := newRepositoryClient(t, cfg, serverSocketPath)
-	t.Cleanup(func() { require.NoError(t, conn.Close()) })
+	client := newRepositoryClient(t, cfg, serverSocketPath)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()

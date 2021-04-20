@@ -186,8 +186,7 @@ func TestGetArchiveWithLfsSuccess(t *testing.T) {
 	}))
 
 	serverSocketPath := runRepositoryServerWithConfig(t, cfg, nil)
-	client, conn := newRepositoryClient(t, cfg, serverSocketPath)
-	defer func() { require.NoError(t, conn.Close()) }()
+	client := newRepositoryClient(t, cfg, serverSocketPath)
 
 	repo, _, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name())
 	t.Cleanup(cleanup)
@@ -490,8 +489,7 @@ env | grep -E "^GL_|CORRELATION|GITALY_"`))
 	serverSocketPath := runRepositoryServerWithConfig(t, cfg, nil)
 	cfg.SocketPath = serverSocketPath
 
-	client, conn := newRepositoryClient(t, cfg, serverSocketPath)
-	defer func() { require.NoError(t, conn.Close()) }()
+	client := newRepositoryClient(t, cfg, serverSocketPath)
 
 	repo, _, cleanup := gittest.CloneRepoWithWorktreeAtStorage(t, cfg.Storages[0])
 	t.Cleanup(cleanup)

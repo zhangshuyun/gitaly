@@ -36,8 +36,7 @@ func TestReplicateRepository(t *testing.T) {
 	serverSocketPath := runRepositoryServerWithConfig(t, cfg, nil, testserver.WithDisablePraefect())
 	cfg.SocketPath = serverSocketPath
 
-	client, conn := newRepositoryClient(t, cfg, serverSocketPath)
-	t.Cleanup(func() { require.NoError(t, conn.Close()) })
+	client := newRepositoryClient(t, cfg, serverSocketPath)
 
 	repo, repoPath, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "source")
 	t.Cleanup(cleanup)
@@ -213,8 +212,7 @@ func TestReplicateRepository_BadRepository(t *testing.T) {
 			serverSocketPath := runRepositoryServerWithConfig(t, cfg, nil, testserver.WithDisablePraefect())
 			cfg.SocketPath = serverSocketPath
 
-			client, conn := newRepositoryClient(t, cfg, serverSocketPath)
-			t.Cleanup(func() { require.NoError(t, conn.Close()) })
+			client := newRepositoryClient(t, cfg, serverSocketPath)
 
 			sourceRepo, _, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "source")
 			t.Cleanup(cleanup)
@@ -273,8 +271,7 @@ func TestReplicateRepository_FailedFetchInternalRemote(t *testing.T) {
 	testRepo, _, cleanupRepo := gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name())
 	t.Cleanup(cleanupRepo)
 
-	repoClient, conn := newRepositoryClient(t, cfg, cfg.SocketPath)
-	t.Cleanup(func() { require.NoError(t, conn.Close()) })
+	repoClient := newRepositoryClient(t, cfg, cfg.SocketPath)
 
 	targetRepo := *testRepo
 	targetRepo.StorageName = cfg.Storages[1].Name

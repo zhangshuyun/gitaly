@@ -222,8 +222,7 @@ func TestFetchRemote_transaction(t *testing.T) {
 	srv.Start(t)
 	defer srv.Stop()
 
-	client, conn := newRepositoryClient(t, sourceCfg, "unix://"+srv.Socket())
-	t.Cleanup(func() { require.NoError(t, conn.Close()) })
+	client := newRepositoryClient(t, sourceCfg, "unix://"+srv.Socket())
 
 	targetCfg, targetRepoProto, targetRepoPath := testcfg.BuildWithRepo(t)
 	port, stopGitServer := gittest.GitServer(t, targetCfg, targetRepoPath, nil)

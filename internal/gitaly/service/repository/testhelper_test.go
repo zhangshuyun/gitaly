@@ -71,17 +71,16 @@ func TestWithRubySidecar(t *testing.T) {
 	}
 }
 
-func newRepositoryClient(t testing.TB, cfg config.Cfg, serverSocketPath string) (gitalypb.RepositoryServiceClient, *grpc.ClientConn) {
+func newRepositoryClient(t testing.TB, cfg config.Cfg, serverSocketPath string) gitalypb.RepositoryServiceClient {
 	var connOpts []grpc.DialOption
 	if cfg.Auth.Token != "" {
 		connOpts = append(connOpts, grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(cfg.Auth.Token)))
 	}
 	conn, err := gclient.Dial(serverSocketPath, connOpts)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, conn.Close()) })
 
-	return gitalypb.NewRepositoryServiceClient(conn), conn
+	return gitalypb.NewRepositoryServiceClient(conn)
 }
 
 func newMuxedRepositoryClient(t *testing.T, ctx context.Context, cfg config.Cfg, serverSocketPath string, handshaker internalclient.Handshaker) gitalypb.RepositoryServiceClient {
@@ -131,8 +130,7 @@ func runRepositoryServerWithConfig(t testing.TB, cfg config.Cfg, rubySrv *rubyse
 
 func runRepositoryService(t testing.TB, cfg config.Cfg, rubySrv *rubyserver.Server, opts ...testserver.GitalyServerOpt) (gitalypb.RepositoryServiceClient, string) {
 	serverSocketPath := runRepositoryServerWithConfig(t, cfg, rubySrv, opts...)
-	client, conn := newRepositoryClient(t, cfg, serverSocketPath)
-	t.Cleanup(func() { require.NoError(t, conn.Close()) })
+	client := newRepositoryClient(t, cfg, serverSocketPath)
 
 	return client, serverSocketPath
 }
