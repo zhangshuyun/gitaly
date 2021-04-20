@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"strings"
 
 	gitaly_errors "gitlab.com/gitlab-org/gitaly/internal/errors"
@@ -325,7 +324,7 @@ func readLFSPointers(
 
 	var lfsPointers []*gitalypb.LFSPointer
 	reader := bufio.NewReader(catfileBatch)
-
+	buf := &bytes.Buffer{}
 	for {
 		objectInfo, err := catfile.ParseObjectInfo(reader)
 		if err != nil {
@@ -335,15 +334,22 @@ func readLFSPointers(
 			return nil, fmt.Errorf("could not get LFS pointer info: %w", err)
 		}
 
-		data, err := ioutil.ReadAll(io.LimitReader(reader, objectInfo.Size+1))
-		if err != nil {
+		// Avoid allocating bytes for an LFS pointer until we know the current
+		// blob really is an LFS pointer.
+		buf.Reset()
+		if _, err := io.CopyN(buf, reader, objectInfo.Size+1); err != nil {
 			return nil, fmt.Errorf("could not read LFS pointer candidate: %w", err)
 		}
-		data = data[:len(data)-1]
+		tempData := buf.Bytes()[:buf.Len()-1]
 
-		if objectInfo.Type != "blob" || !isLFSPointer(data) {
+		if objectInfo.Type != "blob" || !isLFSPointer(tempData) {
 			continue
 		}
+
+		// Now that we know this is an LFS pointer it is not a waste to allocate
+		// memory.
+		data := make([]byte, len(tempData))
+		copy(data, tempData)
 
 		lfsPointers = append(lfsPointers, &gitalypb.LFSPointer{
 			Data: data,
