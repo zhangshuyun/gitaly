@@ -15,6 +15,9 @@ module Gitaly
       self.service_name = 'gitaly.ConflictsService'
 
       rpc :ListConflictFiles, Gitaly::ListConflictFilesRequest, stream(Gitaly::ListConflictFilesResponse)
+      # ResolveConflicts tries to resolve a conflicting merge with a set of
+      # user-provided merge resolutions. If resolving the conflict succeeds, the
+      # result will be a new merge commit.
       rpc :ResolveConflicts, stream(Gitaly::ResolveConflictsRequest), Gitaly::ResolveConflictsResponse
     end
 

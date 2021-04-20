@@ -270,15 +270,30 @@ func (m *ListConflictFilesResponse) GetFiles() []*ConflictFile {
 	return nil
 }
 
+// ResolveConflictsRequestHeader is the first message that must be sent for
+// each ResolveConflicts call.
 type ResolveConflictsRequestHeader struct {
-	Repository       *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	OurCommitOid     string      `protobuf:"bytes,2,opt,name=our_commit_oid,json=ourCommitOid,proto3" json:"our_commit_oid,omitempty"`
+	// Repository is the repository in which conflicts shall be resolved and
+	// where SourceBranch shall be updated with the resolved conflict.
+	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
+	// OurCommitOid is the OID of the commit representing the local commit.
+	OurCommitOid string `protobuf:"bytes,2,opt,name=our_commit_oid,json=ourCommitOid,proto3" json:"our_commit_oid,omitempty"`
+	// TargetRepository is the repository from which TheirCommitOid shall be
+	// retrieved.
 	TargetRepository *Repository `protobuf:"bytes,3,opt,name=target_repository,json=targetRepository,proto3" json:"target_repository,omitempty"`
-	TheirCommitOid   string      `protobuf:"bytes,4,opt,name=their_commit_oid,json=theirCommitOid,proto3" json:"their_commit_oid,omitempty"`
-	SourceBranch     []byte      `protobuf:"bytes,5,opt,name=source_branch,json=sourceBranch,proto3" json:"source_branch,omitempty"`
-	TargetBranch     []byte      `protobuf:"bytes,6,opt,name=target_branch,json=targetBranch,proto3" json:"target_branch,omitempty"`
-	CommitMessage    []byte      `protobuf:"bytes,7,opt,name=commit_message,json=commitMessage,proto3" json:"commit_message,omitempty"`
-	User             *User       `protobuf:"bytes,8,opt,name=user,proto3" json:"user,omitempty"`
+	// TheirCommitOid is the OID of the commit representing the remote commit
+	// which is to be merged into the local commit.
+	TheirCommitOid string `protobuf:"bytes,4,opt,name=their_commit_oid,json=theirCommitOid,proto3" json:"their_commit_oid,omitempty"`
+	// SourceBranch is the branch on which the new commit shall be created.
+	SourceBranch []byte `protobuf:"bytes,5,opt,name=source_branch,json=sourceBranch,proto3" json:"source_branch,omitempty"`
+	// TargetBranch identifies the branch which will be fetched from
+	// TargetRepository in case TheirCommitOid does not exist in Repository.
+	TargetBranch []byte `protobuf:"bytes,6,opt,name=target_branch,json=targetBranch,proto3" json:"target_branch,omitempty"`
+	// CommitMessage is the message of the newly created merge commit.
+	CommitMessage []byte `protobuf:"bytes,7,opt,name=commit_message,json=commitMessage,proto3" json:"commit_message,omitempty"`
+	// User is the user used as author and committer of the newly created merge
+	// commit.
+	User *User `protobuf:"bytes,8,opt,name=user,proto3" json:"user,omitempty"`
 	// timestamp is the optional timestamp to use for the commit as committer
 	// date. If it's not set, the current time will be used.
 	Timestamp            *timestamp.Timestamp `protobuf:"bytes,9,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
@@ -375,7 +390,12 @@ func (m *ResolveConflictsRequestHeader) GetTimestamp() *timestamp.Timestamp {
 	return nil
 }
 
+// ResolveConflictsRequest is a request for the ResolveConflicts RPC.
 type ResolveConflictsRequest struct {
+	// RequestPayload is the payload part of the request. The first message sent
+	// must always be a ResolveConflictsRequestHeader, whereas all remaining
+	// requests must be FilesJson requests.
+	//
 	// Types that are valid to be assigned to ResolveConflictsRequestPayload:
 	//	*ResolveConflictsRequest_Header
 	//	*ResolveConflictsRequest_FilesJson
@@ -456,7 +476,13 @@ func (*ResolveConflictsRequest) XXX_OneofWrappers() []interface{} {
 	}
 }
 
+// ResolveConflictsResponse is a response of the ResolveConflicts RPC. Conflict
+// resolution may have failed even if the RPC has returned OK. The user must
+// check ResolutionError to verify whether the merge commit was correctly
+// computed or not.
 type ResolveConflictsResponse struct {
+	// ResolutionError contains a description of why conflict resolution has
+	// failed.
 	ResolutionError      string   `protobuf:"bytes,1,opt,name=resolution_error,json=resolutionError,proto3" json:"resolution_error,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -568,6 +594,9 @@ const _ = grpc.SupportPackageIsVersion4
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type ConflictsServiceClient interface {
 	ListConflictFiles(ctx context.Context, in *ListConflictFilesRequest, opts ...grpc.CallOption) (ConflictsService_ListConflictFilesClient, error)
+	// ResolveConflicts tries to resolve a conflicting merge with a set of
+	// user-provided merge resolutions. If resolving the conflict succeeds, the
+	// result will be a new merge commit.
 	ResolveConflicts(ctx context.Context, opts ...grpc.CallOption) (ConflictsService_ResolveConflictsClient, error)
 }
 
@@ -648,6 +677,9 @@ func (x *conflictsServiceResolveConflictsClient) CloseAndRecv() (*ResolveConflic
 // ConflictsServiceServer is the server API for ConflictsService service.
 type ConflictsServiceServer interface {
 	ListConflictFiles(*ListConflictFilesRequest, ConflictsService_ListConflictFilesServer) error
+	// ResolveConflicts tries to resolve a conflicting merge with a set of
+	// user-provided merge resolutions. If resolving the conflict succeeds, the
+	// result will be a new merge commit.
 	ResolveConflicts(ConflictsService_ResolveConflictsServer) error
 }
 
