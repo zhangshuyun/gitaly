@@ -91,6 +91,8 @@ func TestWithRubySidecar(t *testing.T) {
 	fs := []func(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server){
 		testCloneFromPoolHTTP,
 		testSetConfig,
+		testFetchRemoteFailure,
+		testFetchRemoteOverHTTP,
 	}
 	for _, f := range fs {
 		t.Run(runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name(), func(t *testing.T) {
