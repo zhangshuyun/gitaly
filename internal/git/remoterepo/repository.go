@@ -13,7 +13,7 @@ import (
 
 // Repo represents a Git repository on a different Gitaly storage
 type Repo struct {
-	repo *gitalypb.Repository
+	*gitalypb.Repository
 	conn *grpc.ClientConn
 }
 
@@ -29,7 +29,10 @@ func New(ctx context.Context, repo *gitalypb.Repository, pool *client.Pool) (*Re
 		return nil, fmt.Errorf("dial: %w", err)
 	}
 
-	return &Repo{repo: repo, conn: cc}, nil
+	return &Repo{
+		Repository: repo,
+		conn:       cc,
+	}, nil
 }
 
 // ResolveRevision will dial to the remote repository and attempt to resolve the
@@ -37,7 +40,7 @@ func New(ctx context.Context, repo *gitalypb.Repository, pool *client.Pool) (*Re
 func (rr *Repo) ResolveRevision(ctx context.Context, revision git.Revision) (git.ObjectID, error) {
 	cli := gitalypb.NewCommitServiceClient(rr.conn)
 	resp, err := cli.FindCommit(ctx, &gitalypb.FindCommitRequest{
-		Repository: rr.repo,
+		Repository: rr.Repository,
 		Revision:   []byte(revision.String()),
 	})
 	if err != nil {
@@ -60,7 +63,7 @@ func (rr *Repo) ResolveRevision(ctx context.Context, revision git.Revision) (git
 // HasBranches will dial to the remote repository and check whether the repository has any branches.
 func (rr *Repo) HasBranches(ctx context.Context) (bool, error) {
 	resp, err := gitalypb.NewRepositoryServiceClient(rr.conn).HasLocalBranches(
-		ctx, &gitalypb.HasLocalBranchesRequest{Repository: rr.repo})
+		ctx, &gitalypb.HasLocalBranchesRequest{Repository: rr.Repository})
 	if err != nil {
 		return false, fmt.Errorf("has local branches: %w", err)
 	}
