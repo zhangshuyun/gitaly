@@ -182,18 +182,23 @@ func (s *server) resolveConflicts(header *gitalypb.ResolveConflictsRequestHeader
 		return err
 	}
 
-	err := s.repoWithBranchCommit(
-		stream.Context(),
-		header.GetRepository(),
-		header.GetTargetRepository(),
-		header.SourceBranch,
-		header.TargetBranch,
-	)
+	ctx := stream.Context()
+	sourceRepo := localrepo.New(s.gitCmdFactory, header.GetRepository(), s.cfg)
+	targetRepo, err := remoterepo.New(ctx, header.GetTargetRepository(), s.pool)
 	if err != nil {
 		return err
 	}
 
-	repoPath, err := s.locator.GetRepoPath(header.GetRepository())
+	if err := s.repoWithBranchCommit(ctx,
+		sourceRepo,
+		targetRepo,
+		header.SourceBranch,
+		header.TargetBranch,
+	); err != nil {
+		return err
+	}
+
+	repoPath, err := s.locator.GetRepoPath(sourceRepo)
 	if err != nil {
 		return err
 	}
@@ -235,8 +240,8 @@ func (s *server) resolveConflicts(header *gitalypb.ResolveConflictsRequestHeader
 		return err
 	}
 
-	if err := localrepo.New(s.gitCmdFactory, header.GetRepository(), s.cfg).UpdateRef(
-		stream.Context(),
+	if err := sourceRepo.UpdateRef(
+		ctx,
 		git.ReferenceName("refs/heads/"+string(header.GetSourceBranch())),
 		commitOID,
 		"",
@@ -276,26 +281,20 @@ func sameRepo(left, right repository.GitRepo) bool {
 // hope to merge with from the target branch, else it will be fetched from the
 // target repo. This is necessary since all merge/resolve logic occurs on the
 // same filesystem
-func (s *server) repoWithBranchCommit(ctx context.Context, srcRepo, targetRepo *gitalypb.Repository, srcBranch, targetBranch []byte) error {
+func (s *server) repoWithBranchCommit(ctx context.Context, sourceRepo *localrepo.Repo, targetRepo *remoterepo.Repo, srcBranch, targetBranch []byte) error {
 	const peelCommit = "^{commit}"
 
-	src := localrepo.New(s.gitCmdFactory, srcRepo, s.cfg)
-	if sameRepo(srcRepo, targetRepo) {
-		_, err := src.ResolveRevision(ctx, git.Revision(string(targetBranch)+peelCommit))
+	if sameRepo(sourceRepo, targetRepo) {
+		_, err := sourceRepo.ResolveRevision(ctx, git.Revision(string(targetBranch)+peelCommit))
 		return err
 	}
 
-	target, err := remoterepo.New(ctx, targetRepo, s.pool)
+	oid, err := targetRepo.ResolveRevision(ctx, git.Revision(string(targetBranch)+peelCommit))
 	if err != nil {
 		return err
 	}
 
-	oid, err := target.ResolveRevision(ctx, git.Revision(string(targetBranch)+peelCommit))
-	if err != nil {
-		return err
-	}
-
-	ok, err := src.HasRevision(ctx, git.Revision(oid))
+	ok, err := sourceRepo.HasRevision(ctx, git.Revision(oid))
 	if err != nil {
 		return err
 	}
@@ -305,24 +304,16 @@ func (s *server) repoWithBranchCommit(ctx context.Context, srcRepo, targetRepo *
 		return nil
 	}
 
-	env, err := gitalyssh.UploadPackEnv(ctx, s.cfg, &gitalypb.SSHUploadPackRequest{Repository: targetRepo})
+	env, err := gitalyssh.UploadPackEnv(ctx, s.cfg, &gitalypb.SSHUploadPackRequest{Repository: targetRepo.Repository})
 	if err != nil {
 		return err
 	}
 
-	cmd, err := s.gitCmdFactory.New(ctx, srcRepo,
-		git.SubCmd{
-			Name:  "fetch",
-			Flags: []git.Option{git.Flag{Name: "--no-tags"}},
-			Args:  []string{gitalyssh.GitalyInternalURL, oid.String()},
-		},
-		git.WithEnv(env...),
-	)
-	if err != nil {
-		return err
-	}
-
-	if err := cmd.Wait(); err != nil {
+	if err := sourceRepo.ExecAndWait(ctx, git.SubCmd{
+		Name:  "fetch",
+		Flags: []git.Option{git.Flag{Name: "--no-tags"}},
+		Args:  []string{gitalyssh.GitalyInternalURL, oid.String()},
+	}, git.WithEnv(env...)); err != nil {
 		return err
 	}
 
