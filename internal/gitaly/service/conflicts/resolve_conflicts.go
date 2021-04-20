@@ -17,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/conflict"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/git/remoterepo"
+	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/gitalyssh"
@@ -246,7 +247,7 @@ func (s *server) resolveConflicts(header *gitalypb.ResolveConflictsRequestHeader
 	return nil
 }
 
-func sameRepo(left, right *gitalypb.Repository) bool {
+func sameRepo(left, right repository.GitRepo) bool {
 	lgaod := left.GetGitAlternateObjectDirectories()
 	rgaod := right.GetGitAlternateObjectDirectories()
 	if len(lgaod) != len(rgaod) {
