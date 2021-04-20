@@ -4,6 +4,7 @@ package nodes
 
 import (
 	"context"
+	"sort"
 	"testing"
 	"time"
 
@@ -31,11 +32,11 @@ func TestHealthManager(t *testing.T) {
 	type LocalStatus map[string]map[string]bool
 
 	type HealthChecks []struct {
-		After        time.Duration
-		PraefectName string
-		LocalStatus  LocalStatus
-		Updated      bool
-		HealthyNodes map[string][]string
+		After           time.Duration
+		PraefectName    string
+		LocalStatus     LocalStatus
+		Updated         bool
+		HealthConsensus map[string][]string
 	}
 
 	for _, tc := range []struct {
@@ -62,7 +63,7 @@ func TestHealthManager(t *testing.T) {
 						},
 					},
 					Updated: true,
-					HealthyNodes: map[string][]string{
+					HealthConsensus: map[string][]string{
 						"virtual-storage-1": {"gitaly-1", "gitaly-2"},
 						"virtual-storage-2": {"gitaly-1"},
 					},
@@ -79,8 +80,8 @@ func TestHealthManager(t *testing.T) {
 							"gitaly-1": false,
 						},
 					},
-					Updated:      true,
-					HealthyNodes: map[string][]string{},
+					Updated:         true,
+					HealthConsensus: map[string][]string{},
 				},
 				{
 					PraefectName: "praefect-1",
@@ -90,7 +91,7 @@ func TestHealthManager(t *testing.T) {
 						},
 					},
 					Updated: true,
-					HealthyNodes: map[string][]string{
+					HealthConsensus: map[string][]string{
 						"virtual-storage-1": {"gitaly-1"},
 					},
 				},
@@ -107,7 +108,7 @@ func TestHealthManager(t *testing.T) {
 						},
 					},
 					Updated: true,
-					HealthyNodes: map[string][]string{
+					HealthConsensus: map[string][]string{
 						"virtual-storage-1": {"gitaly-1"},
 					},
 				},
@@ -118,7 +119,7 @@ func TestHealthManager(t *testing.T) {
 							"gitaly-1": false,
 						},
 					},
-					HealthyNodes: map[string][]string{
+					HealthConsensus: map[string][]string{
 						"virtual-storage-1": {"gitaly-1"},
 					},
 				},
@@ -135,7 +136,7 @@ func TestHealthManager(t *testing.T) {
 						},
 					},
 					Updated: true,
-					HealthyNodes: map[string][]string{
+					HealthConsensus: map[string][]string{
 						"virtual-storage-1": {"gitaly-1"},
 					},
 				},
@@ -147,8 +148,8 @@ func TestHealthManager(t *testing.T) {
 							"gitaly-1": false,
 						},
 					},
-					Updated:      true,
-					HealthyNodes: map[string][]string{},
+					Updated:         true,
+					HealthConsensus: map[string][]string{},
 				},
 			},
 		},
@@ -162,8 +163,8 @@ func TestHealthManager(t *testing.T) {
 							"gitaly-1": false,
 						},
 					},
-					Updated:      true,
-					HealthyNodes: map[string][]string{},
+					Updated:         true,
+					HealthConsensus: map[string][]string{},
 				},
 				{
 					PraefectName: "praefect-2",
@@ -172,8 +173,8 @@ func TestHealthManager(t *testing.T) {
 							"gitaly-1": false,
 						},
 					},
-					Updated:      true,
-					HealthyNodes: map[string][]string{},
+					Updated:         true,
+					HealthConsensus: map[string][]string{},
 				},
 				{
 					After:        activePraefectTimeout,
@@ -184,7 +185,7 @@ func TestHealthManager(t *testing.T) {
 						},
 					},
 					Updated: true,
-					HealthyNodes: map[string][]string{
+					HealthConsensus: map[string][]string{
 						"virtual-storage-1": {"gitaly-1"},
 					},
 				},
@@ -201,7 +202,7 @@ func TestHealthManager(t *testing.T) {
 						},
 					},
 					Updated: true,
-					HealthyNodes: map[string][]string{
+					HealthConsensus: map[string][]string{
 						"virtual-storage-1": {"configured"},
 					},
 				},
@@ -213,7 +214,7 @@ func TestHealthManager(t *testing.T) {
 						},
 					},
 					Updated: true,
-					HealthyNodes: map[string][]string{
+					HealthConsensus: map[string][]string{
 						"virtual-storage-1": {"configured"},
 					},
 				},
@@ -226,7 +227,7 @@ func TestHealthManager(t *testing.T) {
 						},
 					},
 					Updated: true,
-					HealthyNodes: map[string][]string{
+					HealthConsensus: map[string][]string{
 						"virtual-storage-1": {"configured"},
 					},
 				},
@@ -244,7 +245,7 @@ func TestHealthManager(t *testing.T) {
 						},
 					},
 					Updated: true,
-					HealthyNodes: map[string][]string{
+					HealthConsensus: map[string][]string{
 						"virtual-storage-1": {"configured", "unconfigured"},
 					},
 				},
@@ -257,7 +258,7 @@ func TestHealthManager(t *testing.T) {
 						},
 					},
 					Updated: true,
-					HealthyNodes: map[string][]string{
+					HealthConsensus: map[string][]string{
 						"virtual-storage-1": {"configured", "unconfigured"},
 					},
 				},
@@ -269,7 +270,7 @@ func TestHealthManager(t *testing.T) {
 						},
 					},
 					Updated: true,
-					HealthyNodes: map[string][]string{
+					HealthConsensus: map[string][]string{
 						"virtual-storage-1": {"configured", "unconfigured"},
 					},
 				},
@@ -286,8 +287,8 @@ func TestHealthManager(t *testing.T) {
 							"gitaly-1": false,
 						},
 					},
-					Updated:      true,
-					HealthyNodes: map[string][]string{},
+					Updated:         true,
+					HealthConsensus: map[string][]string{},
 				},
 				{
 					PraefectName: "praefect-2",
@@ -297,7 +298,7 @@ func TestHealthManager(t *testing.T) {
 						},
 					},
 					Updated: true,
-					HealthyNodes: map[string][]string{
+					HealthConsensus: map[string][]string{
 						"virtual-storage-1": {"gitaly-1"},
 					},
 				},
@@ -309,7 +310,7 @@ func TestHealthManager(t *testing.T) {
 						},
 					},
 					Updated: true,
-					HealthyNodes: map[string][]string{
+					HealthConsensus: map[string][]string{
 						"virtual-storage-1": {"gitaly-1"},
 					},
 				},
@@ -326,7 +327,7 @@ func TestHealthManager(t *testing.T) {
 						},
 					},
 					Updated: true,
-					HealthyNodes: map[string][]string{
+					HealthConsensus: map[string][]string{
 						"virtual-storage-1": {"gitaly-1"},
 					},
 				},
@@ -338,7 +339,7 @@ func TestHealthManager(t *testing.T) {
 						},
 					},
 					Updated: true,
-					HealthyNodes: map[string][]string{
+					HealthConsensus: map[string][]string{
 						"virtual-storage-1": {"gitaly-1"},
 					},
 				},
@@ -349,8 +350,8 @@ func TestHealthManager(t *testing.T) {
 							"gitaly-1": false,
 						},
 					},
-					Updated:      true,
-					HealthyNodes: map[string][]string{},
+					Updated:         true,
+					HealthConsensus: map[string][]string{},
 				},
 			},
 		},
@@ -364,8 +365,8 @@ func TestHealthManager(t *testing.T) {
 							"gitaly-1": false,
 						},
 					},
-					Updated:      true,
-					HealthyNodes: map[string][]string{},
+					Updated:         true,
+					HealthConsensus: map[string][]string{},
 				},
 				{
 					PraefectName: "praefect-1",
@@ -374,7 +375,7 @@ func TestHealthManager(t *testing.T) {
 							"gitaly-1": false,
 						},
 					},
-					HealthyNodes: map[string][]string{},
+					HealthConsensus: map[string][]string{},
 				},
 			},
 		},
@@ -390,7 +391,7 @@ func TestHealthManager(t *testing.T) {
 						},
 					},
 					Updated: true,
-					HealthyNodes: map[string][]string{
+					HealthConsensus: map[string][]string{
 						"virtual-storage-1": {"gitaly-1"},
 					},
 				},
@@ -403,7 +404,7 @@ func TestHealthManager(t *testing.T) {
 						},
 					},
 					Updated: true,
-					HealthyNodes: map[string][]string{
+					HealthConsensus: map[string][]string{
 						"virtual-storage-1": {"gitaly-1", "gitaly-2"},
 					},
 				},
@@ -420,7 +421,7 @@ func TestHealthManager(t *testing.T) {
 						},
 					},
 					Updated: true,
-					HealthyNodes: map[string][]string{
+					HealthConsensus: map[string][]string{
 						"virtual-storage-1": {"gitaly-1"},
 					},
 				},
@@ -431,7 +432,7 @@ func TestHealthManager(t *testing.T) {
 							"gitaly-1": true,
 						},
 					},
-					HealthyNodes: map[string][]string{
+					HealthConsensus: map[string][]string{
 						"virtual-storage-1": {"gitaly-1"},
 					},
 				},
@@ -449,7 +450,7 @@ func TestHealthManager(t *testing.T) {
 						},
 					},
 					Updated: true,
-					HealthyNodes: map[string][]string{
+					HealthConsensus: map[string][]string{
 						"virtual-storage-1": {"gitaly-1"},
 					},
 				},
@@ -463,7 +464,7 @@ func TestHealthManager(t *testing.T) {
 						},
 					},
 					Updated: true,
-					HealthyNodes: map[string][]string{
+					HealthConsensus: map[string][]string{
 						"virtual-storage-1": {"gitaly-2"},
 					},
 				},
@@ -518,9 +519,30 @@ func TestHealthManager(t *testing.T) {
 					predateHealthChecks(t, db, hc.After)
 				}
 
+				expectedHealthyNodes := map[string][]string{}
+				for virtualStorage, storages := range hc.LocalStatus {
+					for storage, healthy := range storages {
+						if !healthy {
+							continue
+						}
+
+						expectedHealthyNodes[virtualStorage] = append(expectedHealthyNodes[virtualStorage], storage)
+					}
+
+					sort.Strings(expectedHealthyNodes[virtualStorage])
+				}
+
 				runCtx, cancelRun := context.WithCancel(ctx)
 				require.Equal(t, context.Canceled, hm.Run(runCtx, helper.NewCountTicker(1, cancelRun)))
-				require.Equal(t, hc.HealthyNodes, hm.HealthyNodes(), "health check %d", i+1)
+
+				// we need to sort the storages so the require.Equal matches, ElementsMatch does not work with a map.
+				actualHealthyNodes := hm.HealthyNodes()
+				for _, storages := range actualHealthyNodes {
+					sort.Strings(storages)
+				}
+
+				require.Equal(t, expectedHealthyNodes, actualHealthyNodes, "health check %d", i+1)
+				require.Equal(t, hc.HealthConsensus, hm.HealthConsensus(), "health check %d", i+1)
 
 				updated := false
 				select {

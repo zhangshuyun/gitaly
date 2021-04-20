@@ -51,9 +51,11 @@ type HealthManager struct {
 	// to be part of the quorum if it has not performed a health check.
 	quorumParticipantTimeout time.Duration
 
-	firstUpdate  bool
-	updated      chan struct{}
-	healthyNodes atomic.Value
+	firstUpdate bool
+	updated     chan struct{}
+
+	locallyHealthy  atomic.Value
+	healthConsensus atomic.Value
 }
 
 // NewHealthManager returns a new health manager that monitors which nodes in the cluster
@@ -81,7 +83,8 @@ func NewHealthManager(
 		updated:                  make(chan struct{}, 1),
 	}
 
-	hm.healthyNodes.Store(make(map[string][]string, len(clients)))
+	hm.locallyHealthy.Store(make(map[string][]string, len(clients)))
+	hm.healthConsensus.Store(make(map[string][]string, len(clients)))
 
 	return &hm
 }
@@ -118,15 +121,32 @@ func (hm *HealthManager) Updated() <-chan struct{} {
 	return hm.updated
 }
 
-// HealthyNodes returns a map of healthy nodes in each virtual storage. The set of
-// healthy nodes might include nodes which are not present in the local configuration
-// if the cluster's consensus has deemed them healthy.
+// HealthyNodes returns a map of healthy nodes in each virtual storage as seen by the latest
+// local health check.
 func (hm *HealthManager) HealthyNodes() map[string][]string {
-	return hm.healthyNodes.Load().(map[string][]string)
+	return hm.locallyHealthy.Load().(map[string][]string)
+}
+
+// HealthConsensus returns a map of healthy nodes in each virtual storage as determined by
+// the consensus of Praefect nodes. The returned set might include nodes which are not present
+// in the local configuration if the cluster's consensus has deemed them healthy.
+func (hm *HealthManager) HealthConsensus() map[string][]string {
+	return hm.healthConsensus.Load().(map[string][]string)
 }
 
 func (hm *HealthManager) updateHealthChecks(ctx context.Context) error {
 	virtualStorages, physicalStorages, healthy := hm.performHealthChecks(ctx)
+
+	locallyHealthy := map[string][]string{}
+	for i := range virtualStorages {
+		if !healthy[i] {
+			continue
+		}
+
+		locallyHealthy[virtualStorages[i]] = append(locallyHealthy[virtualStorages[i]], physicalStorages[i])
+	}
+
+	hm.locallyHealthy.Store(locallyHealthy)
 
 	rows, err := hm.db.QueryContext(ctx, `
 WITH updated_checks AS (
@@ -191,23 +211,23 @@ ORDER BY shard_name, node_name
 		}
 	}()
 
-	currentlyHealthy := make(map[string][]string, len(physicalStorages))
+	healthConsensus := make(map[string][]string, len(physicalStorages))
 	for rows.Next() {
 		var virtualStorage, storage string
 		if err := rows.Scan(&virtualStorage, &storage); err != nil {
 			return fmt.Errorf("scan: %w", err)
 		}
 
-		currentlyHealthy[virtualStorage] = append(currentlyHealthy[virtualStorage], storage)
+		healthConsensus[virtualStorage] = append(healthConsensus[virtualStorage], storage)
 	}
 
 	if err := rows.Err(); err != nil {
 		return fmt.Errorf("rows: %w", err)
 	}
 
-	if hm.firstUpdate || hm.hasHealthySetChanged(currentlyHealthy) {
+	if hm.firstUpdate || hm.hasHealthConsensusChanged(healthConsensus) {
 		hm.firstUpdate = false
-		hm.healthyNodes.Store(currentlyHealthy)
+		hm.healthConsensus.Store(healthConsensus)
 		select {
 		case hm.updated <- struct{}{}:
 		default:
@@ -261,8 +281,8 @@ func (hm *HealthManager) performHealthChecks(ctx context.Context) ([]string, []s
 	return virtualStorages, physicalStorages, healthy
 }
 
-func (hm *HealthManager) hasHealthySetChanged(currentlyHealthy map[string][]string) bool {
-	previouslyHealthy := hm.HealthyNodes()
+func (hm *HealthManager) hasHealthConsensusChanged(currentlyHealthy map[string][]string) bool {
+	previouslyHealthy := hm.HealthConsensus()
 
 	if len(previouslyHealthy) != len(currentlyHealthy) {
 		return true
