@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 )
@@ -67,10 +68,17 @@ func getGitDirSize(t testing.TB, repoPath string, subdirs ...string) int64 {
 func WriteBlobs(t testing.TB, testRepoPath string, n int) []string {
 	var blobIDs []string
 	for i := 0; i < n; i++ {
-		var stdin bytes.Buffer
-		stdin.Write([]byte(strconv.Itoa(time.Now().Nanosecond())))
-		blobIDs = append(blobIDs, text.ChompBytes(testhelper.MustRunCommand(t, &stdin, "git", "-C", testRepoPath, "hash-object", "-w", "--stdin")))
+		contents := []byte(strconv.Itoa(time.Now().Nanosecond()))
+		blobIDs = append(blobIDs, WriteBlob(t, testRepoPath, contents).String())
 	}
 
 	return blobIDs
+}
+
+// WriteBlob writes the given contents as a blob into the repository and returns its OID.
+func WriteBlob(t testing.TB, testRepoPath string, contents []byte) git.ObjectID {
+	hex := text.ChompBytes(testhelper.MustRunCommand(t, bytes.NewReader(contents), "git", "-C", testRepoPath, "hash-object", "-w", "--stdin"))
+	oid, err := git.NewObjectIDFromHex(hex)
+	require.NoError(t, err)
+	return oid
 }
