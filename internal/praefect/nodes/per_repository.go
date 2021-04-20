@@ -50,6 +50,10 @@ func NewPerRepositoryElector(log logrus.FieldLogger, db glsql.Querier, hc Health
 	}
 }
 
+// primaryChanges is a type for collecting promotion and demotion counts. It's keyed by
+// virtual storage -> storage -> (promoted | demoted).
+type primaryChanges map[string]map[string]map[string]int
+
 // Run listens on the trigger channel for updates. On each update, it tries to elect new primaries for
 // repositories which have an unhealthy primary. Blocks until the context is canceled or the trigger
 // channel is closed. Returns the error from the context.
@@ -103,47 +107,100 @@ func (pr *PerRepositoryElector) performFailovers(ctx context.Context) error {
 		}
 	}
 
-	if _, err := pr.db.ExecContext(ctx, `
+	rows, err := pr.db.QueryContext(ctx, `
 WITH healthy_storages AS (
     SELECT unnest($1::text[]) AS virtual_storage, unnest($2::text[]) AS storage
+),
+
+updated AS (
+	UPDATE repositories
+		SET "primary" = (
+			SELECT storage
+			FROM healthy_storages
+			LEFT JOIN storage_repositories USING (virtual_storage, storage)
+			WHERE virtual_storage = repositories.virtual_storage
+			AND storage_repositories.relative_path = repositories.relative_path
+			AND (
+				-- If assignments exist for the repository, only the assigned storages elected as primary.
+				-- If no assignments exist, any healthy node can be elected as the primary
+				SELECT COUNT(*) = 0 OR COUNT(*) FILTER (WHERE storage = storage_repositories.storage) = 1
+				FROM repository_assignments
+				WHERE repository_assignments.virtual_storage = storage_repositories.virtual_storage
+				AND repository_assignments.relative_path = storage_repositories.relative_path
+			)
+			AND NOT EXISTS (
+				-- This check exists to prevent us from electing a primary that is pending deletion. The primary
+				-- could accept a write and lose it when the deletion is carried out.
+				SELECT true
+				FROM replication_queue
+				WHERE state NOT IN ('completed', 'dead', 'cancelled')
+				AND job->>'change' = 'delete_replica'
+				AND job->>'virtual_storage' = virtual_storage
+				AND job->>'relative_path' = relative_path
+				AND job->>'target_node_storage' = storage
+			)
+			ORDER BY generation DESC NULLS LAST, random()
+			LIMIT 1
+		)
+	WHERE NOT EXISTS (
+		SELECT 1
+		FROM healthy_storages
+		WHERE virtual_storage = repositories.virtual_storage
+		AND storage = repositories."primary"
+	)
+	RETURNING virtual_storage, relative_path, "primary"
+),
+
+demoted AS (
+	SELECT virtual_storage, repositories."primary" AS storage, COUNT(*) AS demoted
+	FROM repositories
+	JOIN updated USING (virtual_storage, relative_path)
+	WHERE repositories."primary" IS NOT NULL
+	GROUP BY virtual_storage, repositories."primary"
+),
+
+promoted AS (
+	SELECT virtual_storage, "primary" AS storage, COUNT(*) AS promoted
+	FROM updated
+	WHERE updated."primary" IS NOT NULL
+	GROUP BY virtual_storage, "primary"
 )
 
-UPDATE repositories
-	SET "primary" = (
-		SELECT storage
-		FROM healthy_storages
-		LEFT JOIN storage_repositories USING (virtual_storage, storage)
-		WHERE virtual_storage = repositories.virtual_storage
-		AND storage_repositories.relative_path = repositories.relative_path
-		AND (
-			-- If assignments exist for the repository, only the assigned storages elected as primary.
-			-- If no assignments exist, any healthy node can be elected as the primary
-			SELECT COUNT(*) = 0 OR COUNT(*) FILTER (WHERE storage = storage_repositories.storage) = 1
-			FROM repository_assignments
-			WHERE repository_assignments.virtual_storage = storage_repositories.virtual_storage
-			AND repository_assignments.relative_path = storage_repositories.relative_path
-		)
-		AND NOT EXISTS (
-			-- This check exists to prevent us from electing a primary that is pending deletion. The primary
-			-- could accept a write and lose it when the deletion is carried out.
-			SELECT true
-			FROM replication_queue
-			WHERE state NOT IN ('completed', 'dead', 'cancelled')
-			AND job->>'change' = 'delete_replica'
-			AND job->>'virtual_storage' = virtual_storage
-			AND job->>'relative_path' = relative_path
-			AND job->>'target_node_storage' = storage
-		)
-		ORDER BY generation DESC NULLS LAST, random()
-		LIMIT 1
-	)
-WHERE NOT EXISTS (
-	SELECT 1
-	FROM healthy_storages
-	WHERE virtual_storage = repositories.virtual_storage
-	AND storage = repositories."primary"
-)`, pq.StringArray(virtualStorages), pq.StringArray(physicalStorages)); err != nil {
+SELECT virtual_storage, storage, COALESCE(demoted, 0), COALESCE(promoted, 0)
+FROM demoted
+FULL JOIN promoted USING (virtual_storage, storage)
+`, pq.StringArray(virtualStorages), pq.StringArray(physicalStorages))
+	if err != nil {
 		return fmt.Errorf("query: %w", err)
+	}
+	defer rows.Close()
+
+	changes := primaryChanges{}
+	for rows.Next() {
+		var virtualStorage, storage string
+		var demoted, promoted int
+
+		if err := rows.Scan(&virtualStorage, &storage, &demoted, &promoted); err != nil {
+			return fmt.Errorf("scan: %w", err)
+		}
+
+		storageChanges, ok := changes[virtualStorage]
+		if !ok {
+			storageChanges = map[string]map[string]int{}
+		}
+
+		storageChanges[storage] = map[string]int{"demoted": demoted, "promoted": promoted}
+		changes[virtualStorage] = storageChanges
+	}
+
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("rows: %w", err)
+	}
+
+	if len(changes) > 0 {
+		pr.log.WithField("changes", changes).Info("performed failovers")
+	} else {
+		pr.log.Info("attempting failovers resulted no changes")
 	}
 
 	return nil
