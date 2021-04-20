@@ -37,7 +37,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 )
 
@@ -147,29 +146,6 @@ func runRepoServerWithConfig(t *testing.T, cfg config.Cfg, locator storage.Locat
 
 func runRepoServer(t *testing.T, cfg config.Cfg, locator storage.Locator, opts ...testhelper.TestServerOpt) (string, func()) {
 	return runRepoServerWithConfig(t, cfg, locator, opts...)
-}
-
-func TestRepoNoAuth(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	socket, stop := runRepoServer(t, config.Config, locator)
-	defer stop()
-
-	connOpts := []grpc.DialOption{
-		grpc.WithInsecure(),
-	}
-
-	conn, err := grpc.Dial(socket, connOpts...)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-
-	client := gitalypb.NewRepositoryServiceClient(conn)
-	_, err = client.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{Repository: &gitalypb.Repository{StorageName: "default", RelativePath: "new/project/path"}})
-
-	testhelper.RequireGrpcError(t, err, codes.Unauthenticated)
 }
 
 func assertModTimeAfter(t *testing.T, afterTime time.Time, paths ...string) bool {
