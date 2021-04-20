@@ -1,5 +1,6 @@
 # Top-level executables
 /gitaly
+/gitaly-backup
 /gitaly-blackbox
 /gitaly-debug
 /gitaly-git2go
