@@ -17,10 +17,10 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 )
 
-// HealthCheckerFunc is an adapter to turn a conforming function in to a HealthChecker.
-type HealthCheckerFunc func() map[string][]string
+// HealthConsensusFunc is an adapter to turn a conforming function in to a HealthConsensus.
+type HealthConsensusFunc func() map[string][]string
 
-func (fn HealthCheckerFunc) HealthyNodes() map[string][]string { return fn() }
+func (fn HealthConsensusFunc) HealthConsensus() map[string][]string { return fn() }
 
 func TestPerRepositoryElector(t *testing.T) {
 	ctx, cancel := testhelper.Context()
@@ -448,7 +448,7 @@ func TestPerRepositoryElector(t *testing.T) {
 
 			for _, step := range tc.steps {
 				elector := NewPerRepositoryElector(testhelper.DiscardTestLogger(t), db,
-					HealthCheckerFunc(func() map[string][]string { return step.healthyNodes }),
+					HealthConsensusFunc(func() map[string][]string { return step.healthyNodes }),
 				)
 				elector.handleError = func(err error) error { return err }
 
@@ -480,7 +480,7 @@ func TestPerRepositoryElector_Retry(t *testing.T) {
 				return nil, assert.AnError
 			},
 		},
-		HealthCheckerFunc(func() map[string][]string { return map[string][]string{} }),
+		HealthConsensusFunc(func() map[string][]string { return map[string][]string{} }),
 	)
 	elector.retryWait = time.Nanosecond
 	elector.handleError = func(err error) error {

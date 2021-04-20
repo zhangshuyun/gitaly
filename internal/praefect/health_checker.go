@@ -1,6 +1,6 @@
 package praefect
 
-// HealthChecker manages information of healthy nodes.
+// HealthChecker manages information of locally healthy nodes.
 type HealthChecker interface {
 	// HealthyNodes gets a list of healthy storages by their virtual storage.
 	HealthyNodes() map[string][]string

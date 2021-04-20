@@ -22,19 +22,21 @@ var ErrNoPrimary = errors.New("no primary")
 type PerRepositoryElector struct {
 	log         logrus.FieldLogger
 	db          glsql.Querier
-	hc          HealthChecker
+	hc          HealthConsensus
 	handleError func(error) error
 	retryWait   time.Duration
 }
 
-// HealthChecker maintains node health statuses.
-type HealthChecker interface {
-	// HealthyNodes returns lists of healthy nodes by virtual storages.
-	HealthyNodes() map[string][]string
+// HealthConsensus returns the cluster's consensus of healthy nodes.
+type HealthConsensus interface {
+	// HealthConsensus returns a list of healthy nodes by cluster consensus. Returned
+	// set may contains nodes not present in the local configuration if the cluster has
+	// deemed them healthy.
+	HealthConsensus() map[string][]string
 }
 
 // NewPerRepositoryElector returns a new per repository primary elector.
-func NewPerRepositoryElector(log logrus.FieldLogger, db glsql.Querier, hc HealthChecker) *PerRepositoryElector {
+func NewPerRepositoryElector(log logrus.FieldLogger, db glsql.Querier, hc HealthConsensus) *PerRepositoryElector {
 	log = log.WithField("component", "PerRepositoryElector")
 	return &PerRepositoryElector{
 		log: log,
@@ -91,7 +93,7 @@ func (pr *PerRepositoryElector) Run(ctx context.Context, trigger <-chan struct{}
 }
 
 func (pr *PerRepositoryElector) performFailovers(ctx context.Context) error {
-	healthyNodes := pr.hc.HealthyNodes()
+	healthyNodes := pr.hc.HealthConsensus()
 
 	var virtualStorages, physicalStorages []string
 	for virtualStorage, nodes := range healthyNodes {
