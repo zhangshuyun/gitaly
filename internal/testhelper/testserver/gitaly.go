@@ -39,13 +39,18 @@ import (
 // calling service.RegisterAll explicitly because it creates a circular dependency
 // when the function is used in on of internal/gitaly/service/... packages.
 func RunGitalyServer(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server, registrar func(srv *grpc.Server, deps *service.Dependencies), opts ...GitalyServerOpt) string {
-	gitalyAddr, disablePraefect := runGitaly(t, cfg, rubyServer, registrar, opts...)
+	_, gitalyAddr, disablePraefect := runGitaly(t, cfg, rubyServer, registrar, opts...)
 
 	praefectBinPath, ok := os.LookupEnv("GITALY_TEST_PRAEFECT_BIN")
 	if !ok || disablePraefect {
 		return gitalyAddr
 	}
 
+	praefectAddr, _ := runPraefectProxy(t, cfg, gitalyAddr, praefectBinPath)
+	return praefectAddr
+}
+
+func runPraefectProxy(t testing.TB, cfg config.Cfg, gitalyAddr, praefectBinPath string) (string, func()) {
 	tempDir, cleanup := testhelper.TempDir(t)
 	defer cleanup()
 
@@ -108,8 +113,48 @@ func RunGitalyServer(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server
 	waitHealthy(t, conn, 3, time.Second)
 
 	t.Cleanup(func() { _ = cmd.Wait() })
-	t.Cleanup(func() { _ = cmd.Process.Kill() })
-	return praefectServerSocketPath
+	shutdown := func() { _ = cmd.Process.Kill() }
+	t.Cleanup(shutdown)
+	return praefectServerSocketPath, shutdown
+}
+
+// GitalyServer is a helper that carries additional info and
+// functionality about gitaly (+praefect) server.
+type GitalyServer struct {
+	shutdown func()
+	address  string
+}
+
+// Shutdown terminates running gitaly (+praefect) server.
+func (gs GitalyServer) Shutdown() {
+	gs.shutdown()
+}
+
+// Address returns address of the running gitaly (or praefect) service.
+func (gs GitalyServer) Address() string {
+	return gs.address
+}
+
+// StartGitalyServer creates and runs gitaly (and praefect as a proxy) server.
+func StartGitalyServer(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server, registrar func(srv *grpc.Server, deps *service.Dependencies), opts ...GitalyServerOpt) GitalyServer {
+	gitalySrv, gitalyAddr, disablePraefect := runGitaly(t, cfg, rubyServer, registrar, opts...)
+
+	praefectBinPath, ok := os.LookupEnv("GITALY_TEST_PRAEFECT_BIN")
+	if !ok || disablePraefect {
+		return GitalyServer{
+			shutdown: gitalySrv.Stop,
+			address:  gitalyAddr,
+		}
+	}
+
+	praefectAddr, shutdownPraefect := runPraefectProxy(t, cfg, gitalyAddr, praefectBinPath)
+	return GitalyServer{
+		shutdown: func() {
+			shutdownPraefect()
+			gitalySrv.Stop()
+		},
+		address: praefectAddr,
+	}
 }
 
 // waitHealthy executes health check request `retries` times and awaits each `timeout` period to respond.
@@ -146,7 +191,7 @@ func IsHealthy(conn *grpc.ClientConn, timeout time.Duration) bool {
 	return true
 }
 
-func runGitaly(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server, registrar func(srv *grpc.Server, deps *service.Dependencies), opts ...GitalyServerOpt) (string, bool) {
+func runGitaly(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server, registrar func(srv *grpc.Server, deps *service.Dependencies), opts ...GitalyServerOpt) (*grpc.Server, string, bool) {
 	t.Helper()
 
 	var gsd gitalyServerDeps
@@ -210,7 +255,7 @@ func runGitaly(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server, regi
 
 	go srv.Serve(listener)
 
-	return addr, gsd.disablePraefect
+	return srv, addr, gsd.disablePraefect
 }
 
 type gitalyServerDeps struct {

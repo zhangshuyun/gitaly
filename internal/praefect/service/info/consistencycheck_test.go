@@ -7,22 +7,20 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/client"
-	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
-	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
-	gconfig "gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/internalgitaly"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/repository"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/setup"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/nodes"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -42,8 +40,6 @@ func TestServer_ConsistencyCheck_repositorySpecificPrimariesUnsupported(t *testi
 }
 
 func TestServer_ConsistencyCheck(t *testing.T) {
-	cfg := gconfig.Config
-
 	const (
 		firstRepoPath  = "1.git"
 		secondRepoPath = "2.git"
@@ -57,60 +53,31 @@ func TestServer_ConsistencyCheck(t *testing.T) {
 		virtualStorage = "virtualStorage"
 	)
 
-	primaryStorageDir, cleanupPrim := testhelper.TempDir(t)
-	defer cleanupPrim()
-	secondaryStorageDir, cleanupSec := testhelper.TempDir(t)
-	defer cleanupSec()
+	referenceCfg := testcfg.Build(t, testcfg.WithStorages(referenceStorageName))
+	targetCfg := testcfg.Build(t, testcfg.WithStorages(targetStorageName))
 
 	// firstRepoPath exists on both storages and has same state
-	gittest.CloneRepoAtStorageRoot(t, primaryStorageDir, firstRepoPath)
-	gittest.CloneRepoAtStorageRoot(t, secondaryStorageDir, firstRepoPath)
+	gittest.CloneRepoAtStorage(t, referenceCfg.Storages[0], firstRepoPath)
+	gittest.CloneRepoAtStorage(t, targetCfg.Storages[0], firstRepoPath)
 
-	cfg.Storages = []gconfig.Storage{{
-		Name: referenceStorageName,
-		Path: secondaryStorageDir,
-	}, {
-		Name: targetStorageName,
-		Path: primaryStorageDir,
-	}}
+	referenceAddr := testserver.RunGitalyServer(t, referenceCfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
+	targetGitaly := testserver.StartGitalyServer(t, targetCfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
 
-	conf := config.Config{VirtualStorages: []*config.VirtualStorage{{Name: virtualStorage}}}
-	for _, storage := range cfg.Storages {
-		conf.VirtualStorages[0].Nodes = append(conf.VirtualStorages[0].Nodes, &config.Node{
-			Storage: storage.Name,
-			Address: testhelper.GetTemporaryGitalySocketFileName(t),
-		})
-	}
+	conf := config.Config{VirtualStorages: []*config.VirtualStorage{{
+		Name: virtualStorage,
+		Nodes: []*config.Node{
+			{Storage: referenceCfg.Storages[0].Name, Address: referenceAddr},
+			{Storage: targetCfg.Storages[0].Name, Address: targetGitaly.Address()},
+		},
+	}}}
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	var toTerminate *grpc.Server
-	var addr string
-	var conns []*grpc.ClientConn
-	for i, node := range conf.VirtualStorages[0].Nodes {
-		gitalyListener, err := net.Listen("unix", node.Address)
-		require.NoError(t, err)
-
-		gitalySrv := grpc.NewServer()
-		defer gitalySrv.Stop()
-
-		gitalypb.RegisterRepositoryServiceServer(gitalySrv, repository.NewServer(cfg, nil, gconfig.NewLocator(cfg), transaction.NewManager(cfg, backchannel.NewRegistry()), git.NewExecCommandFactory(cfg)))
-		gitalypb.RegisterInternalGitalyServer(gitalySrv, internalgitaly.NewServer(cfg.Storages))
-
-		go func() { gitalySrv.Serve(gitalyListener) }()
-
-		if i+1 == len(conf.VirtualStorages[0].Nodes) {
-			toTerminate = gitalySrv
-			addr = node.Address
-		}
-
-		conn, err := client.DialContext(ctx, "unix://"+node.Address, nil)
-		require.NoError(t, err)
-		defer conn.Close()
-
-		conns = append(conns, conn)
-	}
+	referenceConn, err := client.Dial(referenceAddr, nil)
+	require.NoError(t, err)
+	targetConn, err := client.Dial(targetGitaly.Address(), nil)
+	require.NoError(t, err)
 
 	nm := &nodes.MockManager{
 		GetShardFunc: func(s string) (nodes.Shard, error) {
@@ -119,13 +86,13 @@ func TestServer_ConsistencyCheck(t *testing.T) {
 			}
 			return nodes.Shard{
 				Primary: &nodes.MockNode{
-					GetStorageMethod: func() string { return cfg.Storages[0].Name },
-					Conn:             conns[0],
+					GetStorageMethod: func() string { return referenceCfg.Storages[0].Name },
+					Conn:             referenceConn,
 					Healthy:          true,
 				},
 				Secondaries: []nodes.Node{&nodes.MockNode{
-					GetStorageMethod: func() string { return cfg.Storages[1].Name },
-					Conn:             conns[1],
+					GetStorageMethod: func() string { return targetCfg.Storages[0].Name },
+					Conn:             targetConn,
 					Healthy:          true,
 				}},
 			}, nil
@@ -159,6 +126,7 @@ func TestServer_ConsistencyCheck(t *testing.T) {
 	infoClient := gitalypb.NewPraefectInfoServiceClient(praefectConn)
 
 	execAndVerify := func(t *testing.T, req gitalypb.ConsistencyCheckRequest, verify func(*testing.T, []*gitalypb.ConsistencyCheckResponse, error)) {
+		t.Helper()
 		response, err := infoClient.ConsistencyCheck(ctx, &req)
 		require.NoError(t, err)
 
@@ -201,11 +169,11 @@ func TestServer_ConsistencyCheck(t *testing.T) {
 
 	// secondRepoPath generates an error, but it should not stop other repositories from being processed.
 	// Order does matter for the test to verify the flow.
-	gittest.CloneRepoAtStorageRoot(t, secondaryStorageDir, secondRepoPath)
+	gittest.CloneRepoAtStorage(t, referenceCfg.Storages[0], secondRepoPath)
 	// thirdRepoPath exists only on the reference storage (where traversal happens).
-	gittest.CloneRepoAtStorageRoot(t, secondaryStorageDir, thirdRepoPath)
+	gittest.CloneRepoAtStorage(t, referenceCfg.Storages[0], thirdRepoPath)
 	// not.git is a folder on the reference storage that should be skipped as it is not a git repository.
-	require.NoError(t, os.MkdirAll(filepath.Join(secondaryStorageDir, "not.git"), os.ModePerm))
+	require.NoError(t, os.MkdirAll(filepath.Join(referenceCfg.Storages[0].Path, "not.git"), os.ModePerm))
 
 	expErrStatus := status.Error(codes.Internal, errReconciliationInternal.Error())
 
@@ -382,7 +350,7 @@ func TestServer_ConsistencyCheck(t *testing.T) {
 
 	// this case needs to be the last as it terminates one of the gitaly instances
 	t.Run("one of gitalies is unreachable", func(t *testing.T) {
-		toTerminate.Stop()
+		targetGitaly.Shutdown()
 
 		req := gitalypb.ConsistencyCheckRequest{
 			VirtualStorage:         virtualStorage,
@@ -392,9 +360,10 @@ func TestServer_ConsistencyCheck(t *testing.T) {
 		}
 
 		execAndVerify(t, req, func(t *testing.T, responses []*gitalypb.ConsistencyCheckResponse, err error) {
+			t.Helper()
 			require.Equal(t, expErrStatus, err)
 			errs := []string{
-				fmt.Sprintf("rpc error: code = Unavailable desc = connection error: desc = \"transport: Error while dialing dial unix //%s: connect: no such file or directory\"", addr),
+				fmt.Sprintf("rpc error: code = Unavailable desc = connection error: desc = \"transport: Error while dialing dial unix //%s: connect: no such file or directory\"", strings.TrimPrefix(targetGitaly.Address(), "unix://")),
 				"rpc error: code = Canceled desc = context canceled",
 			}
 			require.Equal(t, []*gitalypb.ConsistencyCheckResponse{
