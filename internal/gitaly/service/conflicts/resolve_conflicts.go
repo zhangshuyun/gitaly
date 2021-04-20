@@ -192,7 +192,6 @@ func (s *server) resolveConflicts(header *gitalypb.ResolveConflictsRequestHeader
 	if err := s.repoWithBranchCommit(ctx,
 		sourceRepo,
 		targetRepo,
-		header.SourceBranch,
 		header.TargetBranch,
 	); err != nil {
 		return err
@@ -281,7 +280,7 @@ func sameRepo(left, right repository.GitRepo) bool {
 // hope to merge with from the target branch, else it will be fetched from the
 // target repo. This is necessary since all merge/resolve logic occurs on the
 // same filesystem
-func (s *server) repoWithBranchCommit(ctx context.Context, sourceRepo *localrepo.Repo, targetRepo *remoterepo.Repo, srcBranch, targetBranch []byte) error {
+func (s *server) repoWithBranchCommit(ctx context.Context, sourceRepo *localrepo.Repo, targetRepo *remoterepo.Repo, targetBranch []byte) error {
 	const peelCommit = "^{commit}"
 
 	if sameRepo(sourceRepo, targetRepo) {
