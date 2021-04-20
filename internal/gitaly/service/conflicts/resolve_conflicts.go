@@ -295,7 +295,7 @@ func (s *server) repoWithBranchCommit(ctx context.Context, sourceRepo *localrepo
 		return fmt.Errorf("could not resolve target revision %q: %w", targetRevision, err)
 	}
 
-	ok, err := sourceRepo.HasRevision(ctx, git.Revision(oid))
+	ok, err := sourceRepo.HasRevision(ctx, git.Revision(oid)+peelCommit)
 	if err != nil {
 		return err
 	}
@@ -305,17 +305,26 @@ func (s *server) repoWithBranchCommit(ctx context.Context, sourceRepo *localrepo
 		return nil
 	}
 
-	env, err := gitalyssh.UploadPackEnv(ctx, s.cfg, &gitalypb.SSHUploadPackRequest{Repository: targetRepo.Repository})
+	env, err := gitalyssh.UploadPackEnv(ctx, s.cfg, &gitalypb.SSHUploadPackRequest{
+		Repository:       targetRepo.Repository,
+		GitConfigOptions: []string{"uploadpack.allowAnySHA1InWant=true"},
+	})
 	if err != nil {
 		return err
 	}
 
-	if err := sourceRepo.ExecAndWait(ctx, git.SubCmd{
-		Name:  "fetch",
-		Flags: []git.Option{git.Flag{Name: "--no-tags"}},
-		Args:  []string{gitalyssh.GitalyInternalURL, oid.String()},
-	}, git.WithEnv(env...)); err != nil {
-		return err
+	var stderr bytes.Buffer
+	if err := sourceRepo.ExecAndWait(ctx,
+		git.SubCmd{
+			Name:  "fetch",
+			Flags: []git.Option{git.Flag{Name: "--no-tags"}},
+			Args:  []string{gitalyssh.GitalyInternalURL, oid.String()},
+		},
+		git.WithStderr(&stderr),
+		git.WithEnv(env...),
+		git.WithRefTxHook(ctx, sourceRepo, s.cfg),
+	); err != nil {
+		return fmt.Errorf("could not fetch target commit: %w, stderr: %q", err, stderr.String())
 	}
 
 	return nil
