@@ -222,7 +222,7 @@ func TestFailedFetchInternalRemote(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	md := testhelper.GitalyServersMetadata(t, cfg.SocketPath)
+	md := testhelper.GitalyServersMetadataFromCfg(t, cfg)
 	ctx = metadata.NewOutgoingContext(ctx, md)
 
 	// Non-existing remote repo

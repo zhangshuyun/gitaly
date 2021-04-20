@@ -82,7 +82,7 @@ func testSuccessfulResolveConflictsRequestFeatured(t *testing.T, ctx context.Con
 
 	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
-	mdGS := testhelper.GitalyServersMetadata(t, cfg.SocketPath)
+	mdGS := testhelper.GitalyServersMetadataFromCfg(t, cfg)
 	mdFF, _ := metadata.FromOutgoingContext(ctx)
 	ctx = metadata.NewOutgoingContext(ctx, metadata.Join(mdGS, mdFF))
 
@@ -211,7 +211,7 @@ func testResolveConflictsNonOIDRequests(t *testing.T, cfg config.Cfg, rubySrv *r
 func testResolveConflictsNonOIDRequestsFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	cfg, repoProto, _, client := conflicts.SetupConflictsServiceWithRuby(t, cfg, rubySrv, true)
 
-	ctx = testhelper.MergeOutgoingMetadata(ctx, testhelper.GitalyServersMetadata(t, cfg.SocketPath))
+	ctx = testhelper.MergeOutgoingMetadata(ctx, testhelper.GitalyServersMetadataFromCfg(t, cfg))
 
 	stream, err := client.ResolveConflicts(ctx)
 	require.NoError(t, err)
@@ -315,7 +315,7 @@ func testResolveConflictsIdenticalContentFeatured(t *testing.T, ctx context.Cont
 	})
 	require.NoError(t, err)
 
-	ctx = testhelper.MergeOutgoingMetadata(ctx, testhelper.GitalyServersMetadata(t, cfg.SocketPath))
+	ctx = testhelper.MergeOutgoingMetadata(ctx, testhelper.GitalyServersMetadataFromCfg(t, cfg))
 	stream, err := client.ResolveConflicts(ctx)
 	require.NoError(t, err)
 
@@ -361,7 +361,7 @@ func testResolveConflictsStableIDFeatured(t *testing.T, ctx context.Context, cfg
 
 	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
-	md := testhelper.GitalyServersMetadata(t, cfg.SocketPath)
+	md := testhelper.GitalyServersMetadataFromCfg(t, cfg)
 	ctx = testhelper.MergeOutgoingMetadata(ctx, md)
 
 	stream, err := client.ResolveConflicts(ctx)
@@ -433,7 +433,7 @@ func testFailedResolveConflictsRequestDueToResolutionError(t *testing.T, cfg con
 func testFailedResolveConflictsRequestDueToResolutionErrorFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	cfg, repo, _, client := conflicts.SetupConflictsServiceWithRuby(t, cfg, rubySrv, true)
 
-	mdGS := testhelper.GitalyServersMetadata(t, cfg.SocketPath)
+	mdGS := testhelper.GitalyServersMetadataFromCfg(t, cfg)
 	mdFF, _ := metadata.FromOutgoingContext(ctx)
 	ctx = metadata.NewOutgoingContext(ctx, metadata.Join(mdGS, mdFF))
 
@@ -495,7 +495,7 @@ func testFailedResolveConflictsRequestDueToValidation(t *testing.T, cfg config.C
 func testFailedResolveConflictsRequestDueToValidationFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	cfg, repo, _, client := conflicts.SetupConflictsServiceWithRuby(t, cfg, rubySrv, true)
 
-	mdGS := testhelper.GitalyServersMetadata(t, cfg.SocketPath)
+	mdGS := testhelper.GitalyServersMetadataFromCfg(t, cfg)
 	ourCommitOid := "1450cd639e0bc6721eb02800169e464f212cde06"
 	theirCommitOid := "824be604a34828eb682305f0d963056cfac87b2d"
 	commitMsg := []byte(conflictResolutionCommitMessage)

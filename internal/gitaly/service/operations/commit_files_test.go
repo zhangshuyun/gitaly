@@ -945,7 +945,7 @@ func TestUserCommitFilesStableCommitID(t *testing.T) {
 	defer cleanup()
 	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
-	for key, values := range testhelper.GitalyServersMetadata(t, cfg.SocketPath) {
+	for key, values := range testhelper.GitalyServersMetadataFromCfg(t, cfg) {
 		for _, value := range values {
 			ctx = metadata.AppendToOutgoingContext(ctx, key, value)
 		}
