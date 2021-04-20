@@ -1,0 +1,5 @@
+---
+title: 'conflicts: Fix use of ambiguous refs in ResolveConflicts'
+merge_request: 3386
+author:
+type: fixed

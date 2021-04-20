@@ -283,14 +283,16 @@ func sameRepo(left, right repository.GitRepo) bool {
 func (s *server) repoWithBranchCommit(ctx context.Context, sourceRepo *localrepo.Repo, targetRepo *remoterepo.Repo, targetBranch []byte) error {
 	const peelCommit = "^{commit}"
 
+	targetRevision := "refs/heads/" + git.Revision(string(targetBranch)) + peelCommit
+
 	if sameRepo(sourceRepo, targetRepo) {
-		_, err := sourceRepo.ResolveRevision(ctx, git.Revision(string(targetBranch)+peelCommit))
+		_, err := sourceRepo.ResolveRevision(ctx, targetRevision)
 		return err
 	}
 
-	oid, err := targetRepo.ResolveRevision(ctx, git.Revision(string(targetBranch)+peelCommit))
+	oid, err := targetRepo.ResolveRevision(ctx, targetRevision)
 	if err != nil {
-		return err
+		return fmt.Errorf("could not resolve target revision %q: %w", targetRevision, err)
 	}
 
 	ok, err := sourceRepo.HasRevision(ctx, git.Revision(oid))
