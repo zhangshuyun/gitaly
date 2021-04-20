@@ -413,8 +413,35 @@ Before beginning work on a security fix, open a new Gitaly issue with the templa
 `Security Release` and follow the instructions at the top of the page for following
 the template.
 
-## Experimental builds
+### Experimental builds
 
 Push the release tag to dev.gitlab.org/gitlab/gitaly. After
 passing the test suite, the tag will automatically be built and
 published in https://packages.gitlab.com/gitlab/unstable.
+
+### Patching git
+
+The Gitaly project is the single source of truth for the Git distribution across
+all of GitLab: all downstream distributions use the `make git` target to build
+and install the git version used at runtime. Given that there is only one
+central location where we define the git version and its features, this grants
+us the possibility to easily apply custom patches to git.
+
+In order for a custom patch to be accepted into the Gitaly project, it must meet
+the high bar of being at least in the upstream's `next` branch. The mechanism is
+thus intended as a process to ensure that we can test upstreamed patches faster
+than having to wait for the next release, not to add patches which would never
+be accepted upstream. Patches which were not upstreamed yet will not be
+accepted: at no point in time do we want to start maintaining a friendly fork of
+git.
+
+In order to add a patch, you can simply add it to the `GIT_PATCHES` array in our
+`Makefile`.
+
+Note: while there is only a single git distribution which is distributed across
+all of GitLab's official distributions, there may be unoffical ones which use a
+different version of git (most importantly source-based installations). So even
+if you add patches to Gitaly's Makefile, you cannot assume that installations
+will always have these patches. As a result, all code which makes use of
+patched-in features must have fallback code to support the [minimum required Git
+version](../README.md#installation)

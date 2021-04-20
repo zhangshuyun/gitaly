@@ -90,6 +90,13 @@ ifeq (${Q},@)
 	GIT_QUIET = --quiet
 endif
 
+ifeq (${GIT_PATCHES},)
+    # Before adding custom patches, please read doc/PROCESS.md#Patching-git
+    # first to make sure your patches meet our acceptance criteria. Patches
+    # must be put into `_support/git-patches`.
+    GIT_PATCHES += pack-bitmap-avoid-traversal-of-uninteresting-tag.patch
+endif
+
 ifeq (${GIT_BUILD_OPTIONS},)
     # activate developer checks
     GIT_BUILD_OPTIONS += DEVELOPER=1
@@ -415,9 +422,9 @@ ${DEPENDENCY_DIR}: | ${BUILD_DIR}
 # these targets.
 .PHONY: dependency-version
 ${DEPENDENCY_DIR}/libgit2.version: dependency-version | ${DEPENDENCY_DIR}
-	${Q}[ x"$$(cat "$@" 2>/dev/null)" = x"${LIBGIT2_VERSION}" ] || >$@ echo -n "${LIBGIT2_VERSION}"
+	${Q}[ x"$$(cat "$@" 2>/dev/null)" = x"${LIBGIT2_VERSION} ${LIBGIT2_BUILD_OPTIONS}" ] || >$@ echo -n "${LIBGIT2_VERSION} ${LIBGIT2_BUILD_OPTIONS}"
 ${DEPENDENCY_DIR}/git.version: dependency-version | ${DEPENDENCY_DIR}
-	${Q}[ x"$$(cat "$@" 2>/dev/null)" = x"${GIT_VERSION}" ] || >$@ echo -n "${GIT_VERSION}"
+	${Q}[ x"$$(cat "$@" 2>/dev/null)" = x"${GIT_VERSION} ${GIT_BUILD_OPTIONS} ${GIT_PATCHES}" ] || >$@ echo -n "${GIT_VERSION} ${GIT_BUILD_OPTIONS} ${GIT_PATCHES}"
 ${TOOLS_DIR}/%.version: dependency-version | ${TOOLS_DIR}
 	${Q}[ x"$$(cat "$@" 2>/dev/null)" = x"${TOOL_VERSION}" ] || >$@ echo -n "${TOOL_VERSION}"
 
@@ -439,7 +446,11 @@ ${GIT_INSTALL_DIR}/bin/git: ${DEPENDENCY_DIR}/git.version
 	${Q}${GIT} -C "${GIT_SOURCE_DIR}" config remote.origin.url ${GIT_REPO_URL}
 	${Q}${GIT} -C "${GIT_SOURCE_DIR}" config remote.origin.tagOpt --no-tags
 	${Q}${GIT} -C "${GIT_SOURCE_DIR}" fetch --depth 1 ${GIT_QUIET} origin ${GIT_VERSION}
+	${Q}${GIT} -C "${GIT_SOURCE_DIR}" reset --hard
 	${Q}${GIT} -C "${GIT_SOURCE_DIR}" checkout ${GIT_QUIET} --detach FETCH_HEAD
+ifneq (${GIT_PATCHES},)
+	${Q}${GIT} -C "${GIT_SOURCE_DIR}" apply $(addprefix "${SOURCE_DIR}"/_support/git-patches/,${GIT_PATCHES})
+endif
 	${Q}rm -rf ${GIT_INSTALL_DIR}
 	${Q}mkdir -p ${GIT_INSTALL_DIR}
 	env -u MAKEFLAGS -u GIT_VERSION ${MAKE} -C ${GIT_SOURCE_DIR} -j$(shell nproc) prefix=${GIT_PREFIX} ${GIT_BUILD_OPTIONS} install
