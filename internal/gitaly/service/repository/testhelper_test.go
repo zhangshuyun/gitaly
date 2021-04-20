@@ -176,7 +176,7 @@ func assertModTimeAfter(t *testing.T, afterTime time.Time, paths ...string) bool
 	return t.Failed()
 }
 
-func runRepositoryServerWithConfig(t testing.TB, cfg config.Cfg, rubySrv *rubyserver.Server) string {
+func runRepositoryServerWithConfig(t testing.TB, cfg config.Cfg, rubySrv *rubyserver.Server, opts ...testserver.GitalyServerOpt) string {
 	return testserver.RunGitalyServer(t, cfg, rubySrv, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterRepositoryServiceServer(srv, NewServer(cfg, deps.GetRubyServer(), deps.GetLocator(), deps.GetTxManager(), deps.GetGitCmdFactory()))
 		gitalypb.RegisterHookServiceServer(srv, hookservice.NewServer(cfg, deps.GetHookManager(), deps.GetGitCmdFactory()))
@@ -184,31 +184,31 @@ func runRepositoryServerWithConfig(t testing.TB, cfg config.Cfg, rubySrv *rubyse
 		gitalypb.RegisterSSHServiceServer(srv, ssh.NewServer(cfg, deps.GetLocator(), deps.GetGitCmdFactory()))
 		gitalypb.RegisterRefServiceServer(srv, ref.NewServer(cfg, deps.GetLocator(), deps.GetGitCmdFactory(), deps.GetTxManager()))
 		gitalypb.RegisterCommitServiceServer(srv, commit.NewServer(cfg, deps.GetLocator(), deps.GetGitCmdFactory(), nil))
-	})
+	}, opts...)
 }
 
-func runRepositoryService(t testing.TB, cfg config.Cfg, rubySrv *rubyserver.Server) (gitalypb.RepositoryServiceClient, string) {
-	serverSocketPath := runRepositoryServerWithConfig(t, cfg, rubySrv)
+func runRepositoryService(t testing.TB, cfg config.Cfg, rubySrv *rubyserver.Server, opts ...testserver.GitalyServerOpt) (gitalypb.RepositoryServiceClient, string) {
+	serverSocketPath := runRepositoryServerWithConfig(t, cfg, rubySrv, opts...)
 	client, conn := newRepositoryClient(t, cfg, serverSocketPath)
 	t.Cleanup(func() { require.NoError(t, conn.Close()) })
 
 	return client, serverSocketPath
 }
 
-func setupRepositoryService(t testing.TB) (config.Cfg, *gitalypb.Repository, string, gitalypb.RepositoryServiceClient) {
-	cfg, client := setupRepositoryServiceWithoutRepo(t)
+func setupRepositoryService(t testing.TB, opts ...testserver.GitalyServerOpt) (config.Cfg, *gitalypb.Repository, string, gitalypb.RepositoryServiceClient) {
+	cfg, client := setupRepositoryServiceWithoutRepo(t, opts...)
 	repo, repoPath, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name())
 	t.Cleanup(cleanup)
 	return cfg, repo, repoPath, client
 }
 
-func setupRepositoryServiceWithoutRepo(t testing.TB) (config.Cfg, gitalypb.RepositoryServiceClient) {
+func setupRepositoryServiceWithoutRepo(t testing.TB, opts ...testserver.GitalyServerOpt) (config.Cfg, gitalypb.RepositoryServiceClient) {
 	cfg := testcfg.Build(t)
 
 	testhelper.ConfigureGitalyHooksBin(t, cfg)
 	testhelper.ConfigureGitalySSHBin(t, cfg)
 
-	client, serverSocketPath := runRepositoryService(t, cfg, nil)
+	client, serverSocketPath := runRepositoryService(t, cfg, nil, opts...)
 	cfg.SocketPath = serverSocketPath
 
 	return cfg, client
