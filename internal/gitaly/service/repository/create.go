@@ -27,7 +27,6 @@ func (s *server) CreateRepository(ctx context.Context, req *gitalypb.CreateRepos
 			Flags: []git.Option{
 				git.Flag{Name: "--bare"},
 				git.Flag{Name: "--quiet"},
-				git.ValueFlag{"--initial-branch", git.DefaultBranch},
 			},
 			Args: []string{diskPath},
 		},
