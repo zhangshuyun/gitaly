@@ -3,24 +3,18 @@ package repository
 import (
 	"context"
 	"os"
-	"path/filepath"
 	"reflect"
 	"runtime"
 	"testing"
 	"time"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
 	gclient "gitlab.com/gitlab-org/gitaly/client"
-	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
-	dcache "gitlab.com/gitlab-org/gitaly/internal/cache"
-	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	internalclient "gitlab.com/gitlab-org/gitaly/internal/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/commit"
@@ -28,10 +22,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/ref"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/remote"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/ssh"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
-	mcache "gitlab.com/gitlab-org/gitaly/internal/middleware/cache"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/protoregistry"
-	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
@@ -42,10 +32,7 @@ import (
 // Stamp taken from https://golang.org/pkg/time/#pkg-constants
 const testTimeString = "200601021504.05"
 
-var (
-	testTime   = time.Date(2006, 1, 2, 15, 4, 5, 0, time.UTC)
-	RubyServer *rubyserver.Server
-)
+var testTime = time.Date(2006, 1, 2, 15, 4, 5, 0, time.UTC)
 
 func TestMain(m *testing.M) {
 	os.Exit(testMain(m))
@@ -56,25 +43,6 @@ func testMain(m *testing.M) int {
 
 	cleanup := testhelper.Configure()
 	defer cleanup()
-
-	config.Config.Auth.Token = testhelper.RepositoryAuthToken
-
-	var err error
-	config.Config.GitlabShell.Dir, err = filepath.Abs("testdata/gitlab-shell")
-	if err != nil {
-		log.Error(err)
-		return 1
-	}
-
-	testhelper.ConfigureGitalyHooksBinary(config.Config.BinDir)
-	testhelper.ConfigureGitalySSH(config.Config.BinDir)
-
-	RubyServer = rubyserver.New(config.Config)
-	if err := RubyServer.Start(); err != nil {
-		log.Error(err)
-		return 1
-	}
-	defer RubyServer.Stop()
 
 	return m.Run()
 }
@@ -125,9 +93,6 @@ func newMuxedRepositoryClient(t *testing.T, ctx context.Context, cfg config.Cfg,
 	return gitalypb.NewRepositoryServiceClient(conn)
 }
 
-var NewRepositoryClient = newRepositoryClient
-var RunRepoServer = runRepoServer
-
 func setupRepositoryServiceWithRuby(t testing.TB, cfg config.Cfg, rubySrv *rubyserver.Server) (config.Cfg, *gitalypb.Repository, string, gitalypb.RepositoryServiceClient) {
 	client, serverSocketPath := runRepositoryService(t, cfg, rubySrv)
 	cfg.SocketPath = serverSocketPath
@@ -136,31 +101,6 @@ func setupRepositoryServiceWithRuby(t testing.TB, cfg config.Cfg, rubySrv *rubys
 	t.Cleanup(cleanup)
 
 	return cfg, repo, repoPath, client
-}
-
-func runRepoServerWithConfig(t *testing.T, cfg config.Cfg, locator storage.Locator, opts ...testhelper.TestServerOpt) (string, func()) {
-	streamInt := []grpc.StreamServerInterceptor{
-		mcache.StreamInvalidator(dcache.NewLeaseKeyer(locator), protoregistry.GitalyProtoPreregistered),
-	}
-	unaryInt := []grpc.UnaryServerInterceptor{
-		mcache.UnaryInvalidator(dcache.NewLeaseKeyer(locator), protoregistry.GitalyProtoPreregistered),
-	}
-
-	registry := backchannel.NewRegistry()
-	txManager := transaction.NewManager(cfg, registry)
-	hookManager := hook.NewManager(locator, txManager, hook.GitlabAPIStub, cfg)
-	gitCmdFactory := git.NewExecCommandFactory(cfg)
-
-	srv := testhelper.NewServerWithAuth(t, streamInt, unaryInt, cfg.Auth.Token, registry, opts...)
-	gitalypb.RegisterRepositoryServiceServer(srv.GrpcServer(), NewServer(cfg, RubyServer, locator, txManager, gitCmdFactory))
-	gitalypb.RegisterHookServiceServer(srv.GrpcServer(), hookservice.NewServer(cfg, hookManager, gitCmdFactory))
-	srv.Start(t)
-
-	return "unix://" + srv.Socket(), srv.Stop
-}
-
-func runRepoServer(t *testing.T, cfg config.Cfg, locator storage.Locator, opts ...testhelper.TestServerOpt) (string, func()) {
-	return runRepoServerWithConfig(t, cfg, locator, opts...)
 }
 
 func assertModTimeAfter(t *testing.T, afterTime time.Time, paths ...string) bool {
