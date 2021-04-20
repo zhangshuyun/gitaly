@@ -259,10 +259,6 @@ issues:
       text: "exported function `WithPackfileNegotiationMetrics` should have comment or be unexported"
     - linters:
         - golint
-      path: "internal/git/remoterepo/repository.go"
-      text: "exported method `Repository.HasBranches` should have comment or be unexported"
-    - linters:
-        - golint
       path: "internal/git/stats/analyzehttp.go"
       text: "exported type `Post` should have comment or be unexported"
     - linters:
