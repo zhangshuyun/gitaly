@@ -93,6 +93,8 @@ func TestWithRubySidecar(t *testing.T) {
 		testSetConfig,
 		testFetchRemoteFailure,
 		testFetchRemoteOverHTTP,
+		testSuccessfulFindLicenseRequest,
+		testFindLicenseRequestEmptyRepo,
 	}
 	for _, f := range fs {
 		t.Run(runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name(), func(t *testing.T) {
