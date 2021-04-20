@@ -57,10 +57,10 @@ func generateTarFile(t *testing.T, path string) ([]byte, []string) {
 }
 
 func createFromSnapshot(t *testing.T, req *gitalypb.CreateRepositoryFromSnapshotRequest, cfg config.Cfg) (*gitalypb.CreateRepositoryFromSnapshotResponse, error) {
-	serverSocketPath, stop := runRepoServer(t, config.NewLocator(cfg))
+	serverSocketPath, stop := runRepoServer(t, config.Config, config.NewLocator(cfg))
 	defer stop()
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
+	client, conn := newRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	ctx, cancel := testhelper.Context()

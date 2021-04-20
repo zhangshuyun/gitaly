@@ -22,10 +22,10 @@ import (
 
 func TestMidxWrite(t *testing.T) {
 	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
+	serverSocketPath, stop := runRepoServer(t, config.Config, locator)
 	defer stop()
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
+	client, conn := newRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
@@ -55,10 +55,10 @@ func TestMidxWrite(t *testing.T) {
 
 func TestMidxRewrite(t *testing.T) {
 	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
+	serverSocketPath, stop := runRepoServer(t, config.Config, locator)
 	defer stop()
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
+	client, conn := newRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
@@ -90,10 +90,10 @@ func TestMidxRewrite(t *testing.T) {
 
 func TestMidxRepack(t *testing.T) {
 	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
+	serverSocketPath, stop := runRepoServer(t, config.Config, locator)
 	defer stop()
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
+	client, conn := newRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
@@ -137,10 +137,10 @@ func TestMidxRepack(t *testing.T) {
 
 func TestMidxRepackExpire(t *testing.T) {
 	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
+	serverSocketPath, stop := runRepoServer(t, config.Config, locator)
 	defer stop()
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
+	client, conn := newRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	for _, packsAdded := range []int{3, 5, 11, 20} {

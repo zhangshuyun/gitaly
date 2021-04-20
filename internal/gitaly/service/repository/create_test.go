@@ -21,10 +21,10 @@ import (
 
 func TestCreateRepositorySuccess(t *testing.T) {
 	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
+	serverSocketPath, stop := runRepoServer(t, config.Config, locator)
 	defer stop()
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
+	client, conn := newRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	ctx, cancel := testhelper.Context()
@@ -60,10 +60,10 @@ func TestCreateRepositorySuccess(t *testing.T) {
 
 func TestCreateRepositoryFailure(t *testing.T) {
 	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
+	serverSocketPath, stop := runRepoServer(t, config.Config, locator)
 	defer stop()
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
+	client, conn := newRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	ctx, cancel := testhelper.Context()
@@ -86,10 +86,10 @@ func TestCreateRepositoryFailure(t *testing.T) {
 
 func TestCreateRepositoryFailureInvalidArgs(t *testing.T) {
 	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
+	serverSocketPath, stop := runRepoServer(t, config.Config, locator)
 	defer stop()
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
+	client, conn := newRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	ctx, cancel := testhelper.Context()
@@ -117,10 +117,10 @@ func TestCreateRepositoryFailureInvalidArgs(t *testing.T) {
 
 func TestCreateRepositoryIdempotent(t *testing.T) {
 	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
+	serverSocketPath, stop := runRepoServer(t, config.Config, locator)
 	defer stop()
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
+	client, conn := newRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	ctx, cancel := testhelper.Context()

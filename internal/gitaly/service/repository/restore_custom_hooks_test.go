@@ -17,10 +17,10 @@ import (
 
 func TestSuccessfullRestoreCustomHooksRequest(t *testing.T) {
 	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
+	serverSocketPath, stop := runRepoServer(t, config.Config, locator)
 	defer stop()
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
+	client, conn := newRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	ctx, cancel := testhelper.Context()
@@ -62,10 +62,10 @@ func TestSuccessfullRestoreCustomHooksRequest(t *testing.T) {
 
 func TestFailedRestoreCustomHooksDueToValidations(t *testing.T) {
 	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
+	serverSocketPath, stop := runRepoServer(t, config.Config, locator)
 	defer stop()
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
+	client, conn := newRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	ctx, cancel := testhelper.Context()
@@ -82,10 +82,10 @@ func TestFailedRestoreCustomHooksDueToValidations(t *testing.T) {
 
 func TestFailedRestoreCustomHooksDueToBadTar(t *testing.T) {
 	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
+	serverSocketPath, stop := runRepoServer(t, config.Config, locator)
 	defer stop()
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
+	client, conn := newRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	ctx, cancel := testhelper.Context()

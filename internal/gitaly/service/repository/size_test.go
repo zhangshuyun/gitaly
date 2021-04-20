@@ -17,10 +17,10 @@ const testRepoMinSizeKB = 10000
 
 func TestSuccessfulRepositorySizeRequest(t *testing.T) {
 	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
+	serverSocketPath, stop := runRepoServer(t, config.Config, locator)
 	defer stop()
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
+	client, conn := newRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	repo, _, cleanup := gittest.CloneRepo(t)
@@ -41,10 +41,10 @@ func TestSuccessfulRepositorySizeRequest(t *testing.T) {
 
 func TestFailedRepositorySizeRequest(t *testing.T) {
 	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
+	serverSocketPath, stop := runRepoServer(t, config.Config, locator)
 	defer stop()
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
+	client, conn := newRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	invalidRepo := &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}
@@ -72,10 +72,10 @@ func TestFailedRepositorySizeRequest(t *testing.T) {
 
 func TestSuccessfulGetObjectDirectorySizeRequest(t *testing.T) {
 	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
+	serverSocketPath, stop := runRepoServer(t, config.Config, locator)
 	defer stop()
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
+	client, conn := newRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, _, cleanup := gittest.CloneRepo(t)

@@ -17,10 +17,10 @@ import (
 
 func TestSuccessfulIsRebaseInProgressRequest(t *testing.T) {
 	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
+	serverSocketPath, stop := runRepoServer(t, config.Config, locator)
 	defer stop()
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
+	client, conn := newRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	testRepo1, testRepo1Path, cleanupFn := gittest.CloneRepo(t)
@@ -94,10 +94,10 @@ func TestSuccessfulIsRebaseInProgressRequest(t *testing.T) {
 
 func TestFailedIsRebaseInProgressRequestDueToValidations(t *testing.T) {
 	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
+	serverSocketPath, stop := runRepoServer(t, config.Config, locator)
 	defer stop()
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
+	client, conn := newRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	testCases := []struct {

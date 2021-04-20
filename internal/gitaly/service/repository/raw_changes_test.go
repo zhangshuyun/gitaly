@@ -17,10 +17,10 @@ import (
 
 func TestGetRawChanges(t *testing.T) {
 	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
+	serverSocketPath, stop := runRepoServer(t, config.Config, locator)
 	defer stop()
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
+	client, conn := newRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
@@ -135,10 +135,10 @@ func TestGetRawChangesSpecialCharacters(t *testing.T) {
 	// characters.
 
 	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
+	serverSocketPath, stop := runRepoServer(t, config.Config, locator)
 	defer stop()
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
+	client, conn := newRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
@@ -180,10 +180,10 @@ func collectChanges(t *testing.T, stream gitalypb.RepositoryService_GetRawChange
 
 func TestGetRawChangesFailures(t *testing.T) {
 	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
+	serverSocketPath, stop := runRepoServer(t, config.Config, locator)
 	defer stop()
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
+	client, conn := newRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, _, cleanupFn := gittest.CloneRepo(t)
@@ -243,10 +243,10 @@ func TestGetRawChangesFailures(t *testing.T) {
 
 func TestGetRawChangesManyFiles(t *testing.T) {
 	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
+	serverSocketPath, stop := runRepoServer(t, config.Config, locator)
 	defer stop()
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
+	client, conn := newRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, _, cleanupFn := gittest.CloneRepo(t)
@@ -272,10 +272,10 @@ func TestGetRawChangesManyFiles(t *testing.T) {
 
 func TestGetRawChangesMappingOperations(t *testing.T) {
 	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
+	serverSocketPath, stop := runRepoServer(t, config.Config, locator)
 	defer stop()
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
+	client, conn := newRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, _, cleanupFn := gittest.CloneRepo(t)
@@ -324,10 +324,10 @@ func TestGetRawChangesMappingOperations(t *testing.T) {
 
 func TestGetRawChangesInvalidUTF8Paths(t *testing.T) {
 	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
+	serverSocketPath, stop := runRepoServer(t, config.Config, locator)
 	defer stop()
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
+	client, conn := newRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)

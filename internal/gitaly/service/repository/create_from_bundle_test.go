@@ -22,10 +22,10 @@ import (
 
 func TestServer_CreateRepositoryFromBundle_successful(t *testing.T) {
 	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator, testhelper.WithInternalSocket(config.Config))
+	serverSocketPath, stop := runRepoServer(t, config.Config, locator, testhelper.WithInternalSocket(config.Config))
 	defer stop()
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
+	client, conn := newRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	ctx, cancel := testhelper.Context()
@@ -91,10 +91,10 @@ func TestServer_CreateRepositoryFromBundle_successful(t *testing.T) {
 
 func TestServer_CreateRepositoryFromBundle_failed_invalid_bundle(t *testing.T) {
 	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
+	serverSocketPath, stop := runRepoServer(t, config.Config, locator)
 	defer stop()
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
+	client, conn := newRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	ctx, cancel := testhelper.Context()
@@ -134,10 +134,10 @@ func TestServer_CreateRepositoryFromBundle_failed_invalid_bundle(t *testing.T) {
 
 func TestServer_CreateRepositoryFromBundle_failed_validations(t *testing.T) {
 	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
+	serverSocketPath, stop := runRepoServer(t, config.Config, locator)
 	defer stop()
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
+	client, conn := newRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	ctx, cancel := testhelper.Context()
@@ -154,13 +154,13 @@ func TestServer_CreateRepositoryFromBundle_failed_validations(t *testing.T) {
 
 func TestServer_CreateRepositoryFromBundle_failed_existing_directory(t *testing.T) {
 	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
+	serverSocketPath, stop := runRepoServer(t, config.Config, locator)
 	defer stop()
 
 	testRepo, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
+	client, conn := newRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	ctx, cancel := testhelper.Context()

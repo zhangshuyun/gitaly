@@ -20,10 +20,10 @@ import (
 
 func TestSuccessfulCreateRepositoryFromURLRequest(t *testing.T) {
 	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator, testhelper.WithInternalSocket(config.Config))
+	serverSocketPath, stop := runRepoServer(t, config.Config, locator, testhelper.WithInternalSocket(config.Config))
 	defer stop()
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
+	client, conn := newRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	ctx, cancel := testhelper.Context()
@@ -93,10 +93,10 @@ func TestCloneRepositoryFromUrlCommand(t *testing.T) {
 
 func TestFailedCreateRepositoryFromURLRequestDueToExistingTarget(t *testing.T) {
 	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
+	serverSocketPath, stop := runRepoServer(t, config.Config, locator)
 	defer stop()
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
+	client, conn := newRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	ctx, cancel := testhelper.Context()
@@ -149,10 +149,10 @@ func TestFailedCreateRepositoryFromURLRequestDueToExistingTarget(t *testing.T) {
 
 func TestPreventingRedirect(t *testing.T) {
 	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
+	serverSocketPath, stop := runRepoServer(t, config.Config, locator)
 	defer stop()
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
+	client, conn := newRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	ctx, cancel := testhelper.Context()

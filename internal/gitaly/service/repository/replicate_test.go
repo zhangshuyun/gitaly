@@ -63,7 +63,7 @@ func TestReplicateRepository(t *testing.T) {
 
 	config.Config.SocketPath = serverSocketPath
 
-	repoClient, conn := repository.NewRepositoryClient(t, serverSocketPath)
+	repoClient, conn := repository.NewRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	// write info attributes
@@ -184,10 +184,10 @@ func TestReplicateRepositoryInvalidArguments(t *testing.T) {
 	}
 
 	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := repository.RunRepoServer(t, locator)
+	serverSocketPath, stop := repository.RunRepoServer(t, config.Config, locator)
 	defer stop()
 
-	client, conn := repository.NewRepositoryClient(t, serverSocketPath)
+	client, conn := repository.NewRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	ctx, cancel := testhelper.Context()
@@ -276,7 +276,7 @@ func TestReplicateRepository_BadRepository(t *testing.T) {
 
 			config.Config.SocketPath = serverSocketPath
 
-			repoClient, conn := repository.NewRepositoryClient(t, serverSocketPath)
+			repoClient, conn := repository.NewRepositoryClient(t, config.Config, serverSocketPath)
 			defer conn.Close()
 
 			ctx, cancel := testhelper.Context()
@@ -331,7 +331,7 @@ func TestReplicateRepository_FailedFetchInternalRemote(t *testing.T) {
 
 	config.Config.SocketPath = serverSocketPath
 
-	repoClient, conn := repository.NewRepositoryClient(t, serverSocketPath)
+	repoClient, conn := repository.NewRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	targetRepo := *testRepo

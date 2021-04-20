@@ -15,10 +15,10 @@ import (
 
 func TestWriteCommitGraph(t *testing.T) {
 	locator := config.NewLocator(config.Config)
-	s, stop := runRepoServer(t, locator)
+	s, stop := runRepoServer(t, config.Config, locator)
 	defer stop()
 
-	c, conn := newRepositoryClient(t, s)
+	c, conn := newRepositoryClient(t, config.Config, s)
 	defer conn.Close()
 
 	testRepo, testRepoPath, cleanup := gittest.CloneRepo(t)
@@ -49,10 +49,10 @@ func TestWriteCommitGraph(t *testing.T) {
 
 func TestUpdateCommitGraph(t *testing.T) {
 	locator := config.NewLocator(config.Config)
-	s, stop := runRepoServer(t, locator)
+	s, stop := runRepoServer(t, config.Config, locator)
 	defer stop()
 
-	c, conn := newRepositoryClient(t, s)
+	c, conn := newRepositoryClient(t, config.Config, s)
 	defer conn.Close()
 
 	testRepo, testRepoPath, cleanup := gittest.CloneRepo(t)

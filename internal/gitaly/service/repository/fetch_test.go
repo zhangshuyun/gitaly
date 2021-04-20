@@ -32,7 +32,7 @@ func TestFetchSourceBranchSourceRepositorySuccess(t *testing.T) {
 
 	serverSocketPath := runFullServer(t)
 
-	client, conn := repository.NewRepositoryClient(t, serverSocketPath)
+	client, conn := repository.NewRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	ctx, cancel := testhelper.Context()
@@ -73,7 +73,7 @@ func TestFetchSourceBranchSameRepositorySuccess(t *testing.T) {
 
 	serverSocketPath := runFullServer(t)
 
-	client, conn := repository.NewRepositoryClient(t, serverSocketPath)
+	client, conn := repository.NewRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	ctx, cancel := testhelper.Context()
@@ -111,7 +111,7 @@ func TestFetchSourceBranchBranchNotFound(t *testing.T) {
 
 	serverSocketPath := runFullServer(t)
 
-	client, conn := repository.NewRepositoryClient(t, serverSocketPath)
+	client, conn := repository.NewRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	ctx, cancel := testhelper.Context()
@@ -167,7 +167,7 @@ func TestFetchSourceBranchWrongRef(t *testing.T) {
 
 	serverSocketPath := runFullServer(t)
 
-	client, conn := repository.NewRepositoryClient(t, serverSocketPath)
+	client, conn := repository.NewRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	ctx, cancel := testhelper.Context()

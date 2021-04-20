@@ -73,9 +73,9 @@ func testMain(m *testing.M) int {
 	return m.Run()
 }
 
-func newRepositoryClient(t *testing.T, serverSocketPath string) (gitalypb.RepositoryServiceClient, *grpc.ClientConn) {
+func newRepositoryClient(t *testing.T, cfg config.Cfg, serverSocketPath string) (gitalypb.RepositoryServiceClient, *grpc.ClientConn) {
 	connOpts := []grpc.DialOption{
-		grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(config.Config.Auth.Token)),
+		grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(cfg.Auth.Token)),
 	}
 	conn, err := client.Dial(serverSocketPath, connOpts)
 	if err != nil {
@@ -85,9 +85,9 @@ func newRepositoryClient(t *testing.T, serverSocketPath string) (gitalypb.Reposi
 	return gitalypb.NewRepositoryServiceClient(conn), conn
 }
 
-func newMuxedRepositoryClient(t *testing.T, ctx context.Context, serverSocketPath string, handshaker internalclient.Handshaker) gitalypb.RepositoryServiceClient {
+func newMuxedRepositoryClient(t *testing.T, ctx context.Context, cfg config.Cfg, serverSocketPath string, handshaker internalclient.Handshaker) gitalypb.RepositoryServiceClient {
 	conn, err := internalclient.Dial(ctx, serverSocketPath, []grpc.DialOption{
-		grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(config.Config.Auth.Token)),
+		grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(cfg.Auth.Token)),
 	}, handshaker)
 	require.NoError(t, err)
 	t.Cleanup(func() { conn.Close() })
@@ -97,13 +97,13 @@ func newMuxedRepositoryClient(t *testing.T, ctx context.Context, serverSocketPat
 var NewRepositoryClient = newRepositoryClient
 var RunRepoServer = runRepoServer
 
-func newSecureRepoClient(t *testing.T, serverSocketPath string, pool *x509.CertPool) (gitalypb.RepositoryServiceClient, *grpc.ClientConn) {
+func newSecureRepoClient(t *testing.T, cfg config.Cfg, serverSocketPath string, pool *x509.CertPool) (gitalypb.RepositoryServiceClient, *grpc.ClientConn) {
 	connOpts := []grpc.DialOption{
 		grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{
 			RootCAs:    pool,
 			MinVersion: tls.VersionTLS12,
 		})),
-		grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(config.Config.Auth.Token)),
+		grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(cfg.Auth.Token)),
 	}
 
 	conn, err := client.Dial(serverSocketPath, connOpts)
@@ -137,13 +137,13 @@ func runRepoServerWithConfig(t *testing.T, cfg config.Cfg, locator storage.Locat
 	return "unix://" + srv.Socket(), srv.Stop
 }
 
-func runRepoServer(t *testing.T, locator storage.Locator, opts ...testhelper.TestServerOpt) (string, func()) {
-	return runRepoServerWithConfig(t, config.Config, locator, opts...)
+func runRepoServer(t *testing.T, cfg config.Cfg, locator storage.Locator, opts ...testhelper.TestServerOpt) (string, func()) {
+	return runRepoServerWithConfig(t, cfg, locator, opts...)
 }
 
 func TestRepoNoAuth(t *testing.T) {
 	locator := config.NewLocator(config.Config)
-	socket, stop := runRepoServer(t, locator)
+	socket, stop := runRepoServer(t, config.Config, locator)
 	defer stop()
 
 	connOpts := []grpc.DialOption{

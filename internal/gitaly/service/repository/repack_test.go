@@ -23,10 +23,10 @@ import (
 
 func TestRepackIncrementalSuccess(t *testing.T) {
 	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
+	serverSocketPath, stop := runRepoServer(t, config.Config, locator)
 	defer stop()
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
+	client, conn := newRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, _, cleanupFn := gittest.CloneRepo(t)
@@ -64,10 +64,10 @@ func TestRepackIncrementalCollectLogStatistics(t *testing.T) {
 	ctx = ctxlogrus.ToContext(ctx, log.WithField("test", "logging"))
 
 	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
+	serverSocketPath, stop := runRepoServer(t, config.Config, locator)
 	defer stop()
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
+	client, conn := newRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, _, cleanupFn := gittest.CloneRepo(t)
@@ -81,10 +81,10 @@ func TestRepackIncrementalCollectLogStatistics(t *testing.T) {
 
 func TestRepackLocal(t *testing.T) {
 	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
+	serverSocketPath, stop := runRepoServer(t, config.Config, locator)
 	defer stop()
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
+	client, conn := newRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, repoPath, cleanupFn := gittest.CloneRepoWithWorktree(t)
@@ -121,10 +121,10 @@ func TestRepackLocal(t *testing.T) {
 
 func TestRepackIncrementalFailure(t *testing.T) {
 	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
+	serverSocketPath, stop := runRepoServer(t, config.Config, locator)
 	defer stop()
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
+	client, conn := newRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	tests := []struct {
@@ -150,10 +150,10 @@ func TestRepackIncrementalFailure(t *testing.T) {
 
 func TestRepackFullSuccess(t *testing.T) {
 	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
+	serverSocketPath, stop := runRepoServer(t, config.Config, locator)
 	defer stop()
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
+	client, conn := newRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
@@ -217,10 +217,10 @@ func TestRepackFullCollectLogStatistics(t *testing.T) {
 	ctx = ctxlogrus.ToContext(ctx, log.WithField("test", "logging"))
 
 	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
+	serverSocketPath, stop := runRepoServer(t, config.Config, locator)
 	defer stop()
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
+	client, conn := newRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, _, cleanupFn := gittest.CloneRepo(t)
@@ -260,10 +260,10 @@ func doBitmapsContainHashCache(t *testing.T, bitmapPaths []string) {
 
 func TestRepackFullFailure(t *testing.T) {
 	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
+	serverSocketPath, stop := runRepoServer(t, config.Config, locator)
 	defer stop()
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
+	client, conn := newRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	tests := []struct {
@@ -289,10 +289,10 @@ func TestRepackFullFailure(t *testing.T) {
 
 func TestRepackFullDeltaIslands(t *testing.T) {
 	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
+	serverSocketPath, stop := runRepoServer(t, config.Config, locator)
 	defer stop()
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
+	client, conn := newRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)

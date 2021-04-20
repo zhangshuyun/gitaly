@@ -27,10 +27,10 @@ import (
 )
 
 func getSnapshot(t *testing.T, locator storage.Locator, req *gitalypb.GetSnapshotRequest) ([]byte, error) {
-	serverSocketPath, stop := runRepoServer(t, locator)
+	serverSocketPath, stop := runRepoServer(t, config.Config, locator)
 	defer stop()
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
+	client, conn := newRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	ctx, cancel := testhelper.Context()

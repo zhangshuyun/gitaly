@@ -17,10 +17,10 @@ import (
 
 func TestGetInfoAttributesExisting(t *testing.T) {
 	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
+	serverSocketPath, stop := runRepoServer(t, config.Config, locator)
 	defer stop()
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
+	client, conn := newRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, repoPath, cleanupFn := gittest.CloneRepo(t)
@@ -53,10 +53,10 @@ func TestGetInfoAttributesExisting(t *testing.T) {
 
 func TestGetInfoAttributesNonExisting(t *testing.T) {
 	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
+	serverSocketPath, stop := runRepoServer(t, config.Config, locator)
 	defer stop()
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
+	client, conn := newRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, _, cleanupFn := gittest.CloneRepo(t)

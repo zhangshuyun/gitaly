@@ -23,7 +23,7 @@ func TestCloneFromPoolHTTP(t *testing.T) {
 	md := testhelper.GitalyServersMetadata(t, serverSocketPath)
 	ctx := metadata.NewOutgoingContext(ctxOuter, md)
 
-	client, conn := repository.NewRepositoryClient(t, serverSocketPath)
+	client, conn := repository.NewRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)

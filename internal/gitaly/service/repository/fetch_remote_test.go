@@ -49,10 +49,10 @@ func copyRepoWithNewRemote(t *testing.T, repo *gitalypb.Repository, locator stor
 
 func TestFetchRemoteSuccess(t *testing.T) {
 	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator, testhelper.WithInternalSocket(config.Config))
+	serverSocketPath, stop := runRepoServer(t, config.Config, locator, testhelper.WithInternalSocket(config.Config))
 	defer stop()
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
+	client, conn := newRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	ctx, cancel := testhelper.Context()
@@ -112,7 +112,7 @@ func TestFetchRemote_sshCommand(t *testing.T) {
 	serverSocketPath, stop := runRepoServerWithConfig(t, cfg, locator)
 	defer stop()
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
+	client, conn := newRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	ctx, cancel := testhelper.Context()
@@ -177,10 +177,10 @@ func TestFetchRemote_sshCommand(t *testing.T) {
 
 func TestFetchRemote_withDefaultRefmaps(t *testing.T) {
 	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator, testhelper.WithInternalSocket(config.Config))
+	serverSocketPath, stop := runRepoServer(t, config.Config, locator, testhelper.WithInternalSocket(config.Config))
 	defer stop()
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
+	client, conn := newRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	gitCmdFactory := git.NewExecCommandFactory(config.Config)
@@ -244,7 +244,7 @@ func TestFetchRemote_transaction(t *testing.T) {
 	srv.Start(t)
 	defer srv.Stop()
 
-	client, conn := newRepositoryClient(t, "unix://"+srv.Socket())
+	client, conn := newRepositoryClient(t, config.Config, "unix://"+srv.Socket())
 	defer conn.Close()
 
 	targetCfg, targetRepoProto, targetRepoPath := testcfg.BuildWithRepo(t)
@@ -274,10 +274,10 @@ func TestFetchRemote_transaction(t *testing.T) {
 
 func TestFetchRemote_prune(t *testing.T) {
 	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator, testhelper.WithInternalSocket(config.Config))
+	serverSocketPath, stop := runRepoServer(t, config.Config, locator, testhelper.WithInternalSocket(config.Config))
 	defer stop()
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
+	client, conn := newRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	sourceRepo, sourceRepoPath, cleanup := gittest.CloneRepo(t)
@@ -402,10 +402,10 @@ func TestFetchRemote_force(t *testing.T) {
 	divergingBranchOID, _ := gittest.CreateCommitOnNewBranch(t, config.Config, sourceRepoPath)
 	divergingTagOID, _ := gittest.CreateCommitOnNewBranch(t, config.Config, sourceRepoPath)
 
-	serverSocketPath, stop := runRepoServer(t, locator, testhelper.WithInternalSocket(config.Config))
+	serverSocketPath, stop := runRepoServer(t, config.Config, locator, testhelper.WithInternalSocket(config.Config))
 	defer stop()
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
+	client, conn := newRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	port, stopGitServer := gittest.GitServer(t, config.Config, sourceRepoPath, nil)
@@ -565,14 +565,14 @@ func TestFetchRemoteFailure(t *testing.T) {
 	repo, _, cleanup := gittest.CloneRepo(t)
 	defer cleanup()
 
-	serverSocketPath, stop := runRepoServer(t, config.NewLocator(config.Config))
+	serverSocketPath, stop := runRepoServer(t, config.Config, config.NewLocator(config.Config))
 	defer stop()
 
 	const remoteName = "test-repo"
 	httpSrv, _ := remoteHTTPServer(t, remoteName, httpToken)
 	defer httpSrv.Close()
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
+	client, conn := newRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	ctx, cancel := testhelper.Context()
@@ -707,10 +707,10 @@ func getRefnames(t *testing.T, repoPath string) []string {
 }
 
 func TestFetchRemoteOverHTTP(t *testing.T) {
-	serverSocketPath, stop := runRepoServer(t, config.NewLocator(config.Config), testhelper.WithInternalSocket(config.Config))
+	serverSocketPath, stop := runRepoServer(t, config.Config, config.NewLocator(config.Config), testhelper.WithInternalSocket(config.Config))
 	defer stop()
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
+	client, conn := newRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	ctx, cancel := testhelper.Context()
@@ -767,10 +767,10 @@ func TestFetchRemoteOverHTTP(t *testing.T) {
 }
 
 func TestFetchRemoteOverHTTPWithRedirect(t *testing.T) {
-	serverSocketPath, stop := runRepoServer(t, config.NewLocator(config.Config))
+	serverSocketPath, stop := runRepoServer(t, config.Config, config.NewLocator(config.Config))
 	defer stop()
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
+	client, conn := newRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	s := httptest.NewServer(
@@ -799,10 +799,10 @@ func TestFetchRemoteOverHTTPWithRedirect(t *testing.T) {
 }
 
 func TestFetchRemoteOverHTTPWithTimeout(t *testing.T) {
-	serverSocketPath, stop := runRepoServer(t, config.NewLocator(config.Config))
+	serverSocketPath, stop := runRepoServer(t, config.Config, config.NewLocator(config.Config))
 	defer stop()
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
+	client, conn := newRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	s := httptest.NewServer(

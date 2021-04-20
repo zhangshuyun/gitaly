@@ -32,10 +32,10 @@ var (
 
 func TestGarbageCollectCommitGraph(t *testing.T) {
 	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator, testhelper.WithInternalSocket(config.Config))
+	serverSocketPath, stop := runRepoServer(t, config.Config, locator, testhelper.WithInternalSocket(config.Config))
 	defer stop()
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
+	client, conn := newRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
@@ -66,10 +66,10 @@ func TestGarbageCollectCommitGraph(t *testing.T) {
 
 func TestGarbageCollectSuccess(t *testing.T) {
 	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator, testhelper.WithInternalSocket(config.Config))
+	serverSocketPath, stop := runRepoServer(t, config.Config, locator, testhelper.WithInternalSocket(config.Config))
 	defer stop()
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
+	client, conn := newRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, _, cleanupFn := gittest.CloneRepo(t)
@@ -128,10 +128,10 @@ func TestGarbageCollectWithPrune(t *testing.T) {
 	defer cancel()
 
 	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator, testhelper.WithInternalSocket(config.Config))
+	serverSocketPath, stop := runRepoServer(t, config.Config, locator, testhelper.WithInternalSocket(config.Config))
 	defer stop()
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
+	client, conn := newRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, repoPath, cleanupFn := gittest.CloneRepo(t)
@@ -184,10 +184,10 @@ func TestGarbageCollectLogStatistics(t *testing.T) {
 	ctx = ctxlogrus.ToContext(ctx, log.WithField("test", "logging"))
 
 	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator, testhelper.WithInternalSocket(config.Config))
+	serverSocketPath, stop := runRepoServer(t, config.Config, locator, testhelper.WithInternalSocket(config.Config))
 	defer stop()
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
+	client, conn := newRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, _, cleanupFn := gittest.CloneRepo(t)
@@ -201,10 +201,10 @@ func TestGarbageCollectLogStatistics(t *testing.T) {
 
 func TestGarbageCollectDeletesRefsLocks(t *testing.T) {
 	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
+	serverSocketPath, stop := runRepoServer(t, config.Config, locator)
 	defer stop()
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
+	client, conn := newRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
@@ -250,10 +250,10 @@ func TestGarbageCollectDeletesRefsLocks(t *testing.T) {
 
 func TestGarbageCollectFailure(t *testing.T) {
 	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
+	serverSocketPath, stop := runRepoServer(t, config.Config, locator)
 	defer stop()
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
+	client, conn := newRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, _, cleanupFn := gittest.CloneRepo(t)
@@ -281,10 +281,10 @@ func TestGarbageCollectFailure(t *testing.T) {
 
 func TestCleanupInvalidKeepAroundRefs(t *testing.T) {
 	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator, testhelper.WithInternalSocket(config.Config))
+	serverSocketPath, stop := runRepoServer(t, config.Config, locator, testhelper.WithInternalSocket(config.Config))
 	defer stop()
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
+	client, conn := newRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
@@ -380,10 +380,10 @@ func mustCreateFileWithTimes(t testing.TB, path string, mTime time.Time) {
 
 func TestGarbageCollectDeltaIslands(t *testing.T) {
 	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator, testhelper.WithInternalSocket(config.Config))
+	serverSocketPath, stop := runRepoServer(t, config.Config, locator, testhelper.WithInternalSocket(config.Config))
 	defer stop()
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
+	client, conn := newRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)

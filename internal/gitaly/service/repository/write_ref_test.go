@@ -15,10 +15,10 @@ import (
 
 func TestWriteRefSuccessful(t *testing.T) {
 	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator, testhelper.WithInternalSocket(config.Config))
+	serverSocketPath, stop := runRepoServer(t, config.Config, locator, testhelper.WithInternalSocket(config.Config))
 	defer stop()
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
+	client, conn := newRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
@@ -82,10 +82,10 @@ func TestWriteRefSuccessful(t *testing.T) {
 
 func TestWriteRefValidationError(t *testing.T) {
 	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
+	serverSocketPath, stop := runRepoServer(t, config.Config, locator)
 	defer stop()
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
+	client, conn := newRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, _, cleanupFn := gittest.CloneRepo(t)

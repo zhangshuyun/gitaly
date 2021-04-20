@@ -30,10 +30,10 @@ import (
 
 func TestApplyGitattributesSuccess(t *testing.T) {
 	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
+	serverSocketPath, stop := runRepoServer(t, config.Config, locator)
 	defer stop()
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
+	client, conn := newRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, _, cleanupFn := gittest.CloneRepo(t)
@@ -121,7 +121,7 @@ func TestApplyGitattributesWithTransaction(t *testing.T) {
 		require.NoError(t, err)
 		go func() { require.NoError(t, srv.GrpcServer().Serve(transactionServerListener)) }()
 
-		client := newMuxedRepositoryClient(t, ctx, "unix://"+transactionServerListener.Addr().String(),
+		client := newMuxedRepositoryClient(t, ctx, config.Config, "unix://"+transactionServerListener.Addr().String(),
 			backchannel.NewClientHandshaker(logger, func() backchannel.Server {
 				srv := grpc.NewServer()
 
@@ -231,10 +231,10 @@ func TestApplyGitattributesWithTransaction(t *testing.T) {
 
 func TestApplyGitattributesFailure(t *testing.T) {
 	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
+	serverSocketPath, stop := runRepoServer(t, config.Config, locator)
 	defer stop()
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
+	client, conn := newRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, _, cleanupFn := gittest.CloneRepo(t)

@@ -75,10 +75,10 @@ func TestOptimizeRepository(t *testing.T) {
 	require.True(t, bytes.Contains(confFileData, []byte("https://localhost:51744/60631c8695bf041a808759a05de53e36a73316aacb502824fabbb0c6055637c5.git")))
 
 	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator, testhelper.WithInternalSocket(config.Config))
+	serverSocketPath, stop := runRepoServer(t, config.Config, locator, testhelper.WithInternalSocket(config.Config))
 	defer stop()
 
-	repoClient, conn := NewRepositoryClient(t, serverSocketPath)
+	repoClient, conn := NewRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	_, err = repoClient.OptimizeRepository(ctx, &gitalypb.OptimizeRepositoryRequest{Repository: testRepo})
@@ -177,10 +177,10 @@ func TestOptimizeRepositoryValidation(t *testing.T) {
 	}
 
 	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
+	serverSocketPath, stop := runRepoServer(t, config.Config, locator)
 	defer stop()
 
-	repoClient, conn := NewRepositoryClient(t, serverSocketPath)
+	repoClient, conn := NewRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	ctx, cancel := testhelper.Context()

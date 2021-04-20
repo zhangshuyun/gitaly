@@ -50,12 +50,12 @@ func TestSuccessfulCreateForkRequest(t *testing.T) {
 				_, serverSocketPath, serverCleanup = runFullSecureServer(t, locator)
 				defer serverCleanup()
 
-				client, conn = repository.NewSecureRepoClient(t, serverSocketPath, testPool)
+				client, conn = repository.NewSecureRepoClient(t, config.Config, serverSocketPath, testPool)
 				defer conn.Close()
 			} else {
 				serverSocketPath = runFullServer(t)
 
-				client, conn = repository.NewRepositoryClient(t, serverSocketPath)
+				client, conn = repository.NewRepositoryClient(t, config.Config, serverSocketPath)
 				defer conn.Close()
 			}
 
@@ -107,7 +107,7 @@ func TestFailedCreateForkRequestDueToExistingTarget(t *testing.T) {
 
 	serverSocketPath := runFullServer(t)
 
-	client, conn := repository.NewRepositoryClient(t, serverSocketPath)
+	client, conn := repository.NewRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	ctxOuter, cancel := testhelper.Context()

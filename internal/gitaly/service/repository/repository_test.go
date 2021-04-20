@@ -30,13 +30,13 @@ func TestRepositoryExists(t *testing.T) {
 	config.Config.Storages = testStorages
 
 	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator, testhelper.WithStorages([]string{"default", "other", "broken"}))
+	serverSocketPath, stop := runRepoServer(t, config.Config, locator, testhelper.WithStorages([]string{"default", "other", "broken"}))
 	defer stop()
 
 	testRepo, _, cleanupFn := gittest.CloneRepo(t)
 	defer cleanupFn()
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
+	client, conn := newRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	queries := []struct {
@@ -124,10 +124,10 @@ func TestRepositoryExists(t *testing.T) {
 
 func TestSuccessfulHasLocalBranches(t *testing.T) {
 	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
+	serverSocketPath, stop := runRepoServer(t, config.Config, locator)
 	defer stop()
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
+	client, conn := newRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	testRepo, _, cleanupFn := gittest.CloneRepo(t)
@@ -180,10 +180,10 @@ func TestSuccessfulHasLocalBranches(t *testing.T) {
 
 func TestFailedHasLocalBranches(t *testing.T) {
 	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
+	serverSocketPath, stop := runRepoServer(t, config.Config, locator)
 	defer stop()
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
+	client, conn := newRepositoryClient(t, config.Config, serverSocketPath)
 	defer conn.Close()
 
 	testCases := []struct {
