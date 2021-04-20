@@ -13,20 +13,28 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
-	"gitlab.com/gitlab-org/gitaly/client"
+	gclient "gitlab.com/gitlab-org/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	dcache "gitlab.com/gitlab-org/gitaly/internal/cache"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	internalclient "gitlab.com/gitlab-org/gitaly/internal/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/commit"
 	hookservice "gitlab.com/gitlab-org/gitaly/internal/gitaly/service/hook"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/ref"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/remote"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/ssh"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	mcache "gitlab.com/gitlab-org/gitaly/internal/middleware/cache"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -73,11 +81,11 @@ func testMain(m *testing.M) int {
 	return m.Run()
 }
 
-func newRepositoryClient(t *testing.T, cfg config.Cfg, serverSocketPath string) (gitalypb.RepositoryServiceClient, *grpc.ClientConn) {
+func newRepositoryClient(t testing.TB, cfg config.Cfg, serverSocketPath string) (gitalypb.RepositoryServiceClient, *grpc.ClientConn) {
 	connOpts := []grpc.DialOption{
 		grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(cfg.Auth.Token)),
 	}
-	conn, err := client.Dial(serverSocketPath, connOpts)
+	conn, err := gclient.Dial(serverSocketPath, connOpts)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -106,7 +114,7 @@ func newSecureRepoClient(t *testing.T, cfg config.Cfg, serverSocketPath string, 
 		grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(cfg.Auth.Token)),
 	}
 
-	conn, err := client.Dial(serverSocketPath, connOpts)
+	conn, err := gclient.Dial(serverSocketPath, connOpts)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -177,4 +185,51 @@ func assertModTimeAfter(t *testing.T, afterTime time.Time, paths ...string) bool
 		}
 	}
 	return t.Failed()
+}
+
+func runRepositoryServerWithConfig(t testing.TB, cfg config.Cfg, rubySrv *rubyserver.Server) string {
+	return testserver.RunGitalyServer(t, cfg, rubySrv, func(srv *grpc.Server, deps *service.Dependencies) {
+		gitalypb.RegisterRepositoryServiceServer(srv, NewServer(cfg, deps.GetRubyServer(), deps.GetLocator(), deps.GetTxManager(), deps.GetGitCmdFactory()))
+		gitalypb.RegisterHookServiceServer(srv, hookservice.NewServer(cfg, deps.GetHookManager(), deps.GetGitCmdFactory()))
+		gitalypb.RegisterRemoteServiceServer(srv, remote.NewServer(cfg, rubySrv, deps.GetLocator(), deps.GetGitCmdFactory()))
+		gitalypb.RegisterSSHServiceServer(srv, ssh.NewServer(cfg, deps.GetLocator(), deps.GetGitCmdFactory()))
+		gitalypb.RegisterRefServiceServer(srv, ref.NewServer(cfg, deps.GetLocator(), deps.GetGitCmdFactory(), deps.GetTxManager()))
+		gitalypb.RegisterCommitServiceServer(srv, commit.NewServer(cfg, deps.GetLocator(), deps.GetGitCmdFactory(), nil))
+	})
+}
+
+func runRepositoryService(t testing.TB, cfg config.Cfg, rubySrv *rubyserver.Server) (gitalypb.RepositoryServiceClient, string) {
+	serverSocketPath := runRepositoryServerWithConfig(t, cfg, rubySrv)
+	client, conn := newRepositoryClient(t, cfg, serverSocketPath)
+	t.Cleanup(func() { require.NoError(t, conn.Close()) })
+
+	return client, serverSocketPath
+}
+
+func setupRepositoryService(t testing.TB) (config.Cfg, *gitalypb.Repository, string, gitalypb.RepositoryServiceClient) {
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	repo, repoPath, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name())
+	t.Cleanup(cleanup)
+	return cfg, repo, repoPath, client
+}
+
+func setupRepositoryServiceWithoutRepo(t testing.TB) (config.Cfg, gitalypb.RepositoryServiceClient) {
+	cfg := testcfg.Build(t)
+
+	testhelper.ConfigureGitalyHooksBin(t, cfg)
+	testhelper.ConfigureGitalySSHBin(t, cfg)
+
+	client, serverSocketPath := runRepositoryService(t, cfg, nil)
+	cfg.SocketPath = serverSocketPath
+
+	return cfg, client
+}
+
+func setupRepositoryServiceWithWorktree(t testing.TB) (config.Cfg, *gitalypb.Repository, string, gitalypb.RepositoryServiceClient) {
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
+
+	repo, repoPath, cleanup := gittest.CloneRepoWithWorktreeAtStorage(t, cfg.Storages[0])
+	t.Cleanup(cleanup)
+
+	return cfg, repo, repoPath, client
 }
