@@ -6,6 +6,8 @@ import (
 	"crypto/x509"
 	"os"
 	"path/filepath"
+	"reflect"
+	"runtime"
 	"testing"
 	"time"
 
@@ -80,6 +82,25 @@ func testMain(m *testing.M) int {
 	return m.Run()
 }
 
+func TestWithRubySidecar(t *testing.T) {
+	cfg := testcfg.Build(t)
+
+	testhelper.ConfigureGitalyHooksBin(t, cfg)
+
+	rubySrv := rubyserver.New(cfg)
+	require.NoError(t, rubySrv.Start())
+	t.Cleanup(rubySrv.Stop)
+
+	fs := []func(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server){
+		testSetConfig,
+	}
+	for _, f := range fs {
+		t.Run(runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name(), func(t *testing.T) {
+			f(t, cfg, rubySrv)
+		})
+	}
+}
+
 func newRepositoryClient(t testing.TB, cfg config.Cfg, serverSocketPath string) (gitalypb.RepositoryServiceClient, *grpc.ClientConn) {
 	connOpts := []grpc.DialOption{
 		grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(cfg.Auth.Token)),
@@ -122,6 +143,16 @@ func newSecureRepoClient(t *testing.T, cfg config.Cfg, serverSocketPath string, 
 }
 
 var NewSecureRepoClient = newSecureRepoClient
+
+func setupRepositoryServiceWithRuby(t testing.TB, cfg config.Cfg, rubySrv *rubyserver.Server) (config.Cfg, *gitalypb.Repository, string, gitalypb.RepositoryServiceClient) {
+	client, serverSocketPath := runRepositoryService(t, cfg, rubySrv)
+	cfg.SocketPath = serverSocketPath
+
+	repo, repoPath, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name())
+	t.Cleanup(cleanup)
+
+	return cfg, repo, repoPath, client
+}
 
 func runRepoServerWithConfig(t *testing.T, cfg config.Cfg, locator storage.Locator, opts ...testhelper.TestServerOpt) (string, func()) {
 	streamInt := []grpc.StreamServerInterceptor{
