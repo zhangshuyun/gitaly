@@ -2,8 +2,6 @@ package repository
 
 import (
 	"context"
-	"crypto/tls"
-	"crypto/x509"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -39,7 +37,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 )
 
 // Stamp taken from https://golang.org/pkg/time/#pkg-constants
@@ -126,25 +123,6 @@ func newMuxedRepositoryClient(t *testing.T, ctx context.Context, cfg config.Cfg,
 
 var NewRepositoryClient = newRepositoryClient
 var RunRepoServer = runRepoServer
-
-func newSecureRepoClient(t *testing.T, cfg config.Cfg, serverSocketPath string, pool *x509.CertPool) (gitalypb.RepositoryServiceClient, *grpc.ClientConn) {
-	connOpts := []grpc.DialOption{
-		grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{
-			RootCAs:    pool,
-			MinVersion: tls.VersionTLS12,
-		})),
-		grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(cfg.Auth.Token)),
-	}
-
-	conn, err := gclient.Dial(serverSocketPath, connOpts)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	return gitalypb.NewRepositoryServiceClient(conn), conn
-}
-
-var NewSecureRepoClient = newSecureRepoClient
 
 func setupRepositoryServiceWithRuby(t testing.TB, cfg config.Cfg, rubySrv *rubyserver.Server) (config.Cfg, *gitalypb.Repository, string, gitalypb.RepositoryServiceClient) {
 	client, serverSocketPath := runRepositoryService(t, cfg, rubySrv)
