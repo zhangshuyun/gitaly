@@ -224,7 +224,9 @@ func TestObjectPoolRefAdvertisementHidingSSH(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, pool.Create(ctx, repo))
-	defer pool.Remove(ctx)
+	defer func() {
+		require.NoError(t, pool.Remove(ctx))
+	}()
 
 	require.NoError(t, pool.Link(ctx, repo))
 

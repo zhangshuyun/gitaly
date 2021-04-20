@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/bootstrap"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 )
 
 // TestStolenPid tests for regressions in https://gitlab.com/gitlab-org/gitaly/issues/1661
@@ -24,9 +25,11 @@ func TestStolenPid(t *testing.T) {
 
 	require.NoError(t, os.Setenv(bootstrap.EnvPidFile, pidFile.Name()))
 
-	cmd := exec.Command("tail", "-f")
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "tail", "-f")
 	require.NoError(t, cmd.Start())
-	defer cmd.Process.Kill()
 
 	_, err = pidFile.WriteString(strconv.Itoa(cmd.Process.Pid))
 	require.NoError(t, err)

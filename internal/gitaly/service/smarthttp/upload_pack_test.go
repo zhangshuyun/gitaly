@@ -74,10 +74,10 @@ func TestSuccessfulUploadPackRequest(t *testing.T) {
 	// UploadPack request is a "want" packet line followed by a packet flush, then many "have" packets followed by a packet flush.
 	// This is explained a bit in https://git-scm.com/book/en/v2/Git-Internals-Transfer-Protocols#_downloading_data
 	requestBuffer := &bytes.Buffer{}
-	pktline.WriteString(requestBuffer, fmt.Sprintf("want %s %s\n", newHead, clientCapabilities))
-	pktline.WriteFlush(requestBuffer)
-	pktline.WriteString(requestBuffer, fmt.Sprintf("have %s\n", oldHead))
-	pktline.WriteFlush(requestBuffer)
+	gittest.WritePktlineString(t, requestBuffer, fmt.Sprintf("want %s %s\n", newHead, clientCapabilities))
+	gittest.WritePktlineFlush(t, requestBuffer)
+	gittest.WritePktlineString(t, requestBuffer, fmt.Sprintf("have %s\n", oldHead))
+	gittest.WritePktlineFlush(t, requestBuffer)
 
 	req := &gitalypb.PostUploadPackRequest{
 		Repository: &gitalypb.Repository{
@@ -136,10 +136,10 @@ func TestUploadPackRequestWithGitConfigOptions(t *testing.T) {
 	requestBodyCopy := &bytes.Buffer{}
 	tee := io.MultiWriter(requestBody, requestBodyCopy)
 
-	pktline.WriteString(tee, fmt.Sprintf("want %s %s\n", want, clientCapabilities))
-	pktline.WriteFlush(tee)
-	pktline.WriteString(tee, fmt.Sprintf("have %s\n", have))
-	pktline.WriteFlush(tee)
+	gittest.WritePktlineString(t, tee, fmt.Sprintf("want %s %s\n", want, clientCapabilities))
+	gittest.WritePktlineFlush(t, tee)
+	gittest.WritePktlineString(t, tee, fmt.Sprintf("have %s\n", have))
+	gittest.WritePktlineFlush(t, tee)
 
 	rpcRequest := &gitalypb.PostUploadPackRequest{
 		Repository: &gitalypb.Repository{
@@ -184,11 +184,11 @@ func TestUploadPackRequestWithGitProtocol(t *testing.T) {
 
 	requestBody := &bytes.Buffer{}
 
-	pktline.WriteString(requestBody, "command=ls-refs\n")
-	pktline.WriteDelim(requestBody)
-	pktline.WriteString(requestBody, "peel\n")
-	pktline.WriteString(requestBody, "symrefs\n")
-	pktline.WriteFlush(requestBody)
+	gittest.WritePktlineString(t, requestBody, "command=ls-refs\n")
+	gittest.WritePktlineDelim(t, requestBody)
+	gittest.WritePktlineString(t, requestBody, "peel\n")
+	gittest.WritePktlineString(t, requestBody, "symrefs\n")
+	gittest.WritePktlineFlush(t, requestBody)
 
 	// Only a Git server with v2 will recognize this request.
 	// Git v1 will throw a protocol error.
@@ -220,9 +220,9 @@ func TestSuccessfulUploadPackDeepenRequest(t *testing.T) {
 	defer stop()
 
 	requestBody := &bytes.Buffer{}
-	pktline.WriteString(requestBody, fmt.Sprintf("want e63f41fe459e62e1228fcef60d7189127aeba95a %s\n", clientCapabilities))
-	pktline.WriteString(requestBody, "deepen 1")
-	pktline.WriteFlush(requestBody)
+	gittest.WritePktlineString(t, requestBody, fmt.Sprintf("want e63f41fe459e62e1228fcef60d7189127aeba95a %s\n", clientCapabilities))
+	gittest.WritePktlineString(t, requestBody, "deepen 1")
+	gittest.WritePktlineFlush(t, requestBody)
 
 	rpcRequest := &gitalypb.PostUploadPackRequest{Repository: repo}
 	response, err := makePostUploadPackRequest(ctx, t, serverSocketPath, cfg.Auth.Token, rpcRequest, requestBody)
@@ -257,10 +257,10 @@ func TestUploadPackWithPackObjectsHook(t *testing.T) {
 	newHead := bytes.TrimSpace(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", "master"))
 
 	requestBuffer := &bytes.Buffer{}
-	pktline.WriteString(requestBuffer, fmt.Sprintf("want %s %s\n", newHead, clientCapabilities))
-	pktline.WriteFlush(requestBuffer)
-	pktline.WriteString(requestBuffer, fmt.Sprintf("have %s\n", oldHead))
-	pktline.WriteFlush(requestBuffer)
+	gittest.WritePktlineString(t, requestBuffer, fmt.Sprintf("want %s %s\n", newHead, clientCapabilities))
+	gittest.WritePktlineFlush(t, requestBuffer)
+	gittest.WritePktlineString(t, requestBuffer, fmt.Sprintf("have %s\n", oldHead))
+	gittest.WritePktlineFlush(t, requestBuffer)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -408,11 +408,11 @@ func TestUploadPackRequestForPartialCloneSuccess(t *testing.T) {
 	// This is explained a bit in https://git-scm.com/book/en/v2/Git-Internals-Transfer-Protocols#_downloading_data
 
 	var requestBuffer bytes.Buffer
-	pktline.WriteString(&requestBuffer, fmt.Sprintf("want %s %s\n", newHead, clientCapabilities))
-	pktline.WriteString(&requestBuffer, fmt.Sprintf("filter %s\n", "blob:limit=200"))
-	pktline.WriteFlush(&requestBuffer)
-	pktline.WriteString(&requestBuffer, "done\n")
-	pktline.WriteFlush(&requestBuffer)
+	gittest.WritePktlineString(t, &requestBuffer, fmt.Sprintf("want %s %s\n", newHead, clientCapabilities))
+	gittest.WritePktlineString(t, &requestBuffer, fmt.Sprintf("filter %s\n", "blob:limit=200"))
+	gittest.WritePktlineFlush(t, &requestBuffer)
+	gittest.WritePktlineString(t, &requestBuffer, "done\n")
+	gittest.WritePktlineFlush(t, &requestBuffer)
 
 	req := &gitalypb.PostUploadPackRequest{
 		Repository: &gitalypb.Repository{
@@ -448,10 +448,10 @@ func TestUploadPackRequestForPartialCloneSuccess(t *testing.T) {
 	testhelper.MustRunCommand(t, nil, "git", "-C", remoteRepoPath, "branch", "-D", newBranch)
 
 	requestBuffer.Reset()
-	pktline.WriteString(&requestBuffer, fmt.Sprintf("want %s %s\n", string(newHead), clientCapabilities))
+	gittest.WritePktlineString(t, &requestBuffer, fmt.Sprintf("want %s %s\n", string(newHead), clientCapabilities))
 	// add filtering
-	pktline.WriteFlush(&requestBuffer)
-	pktline.WriteFlush(&requestBuffer)
+	gittest.WritePktlineFlush(t, &requestBuffer)
+	gittest.WritePktlineFlush(t, &requestBuffer)
 
 	_, err = makePostUploadPackRequest(ctx, t, serverSocketPath, cfg.Auth.Token, req, &requestBuffer)
 	require.NoError(t, err)

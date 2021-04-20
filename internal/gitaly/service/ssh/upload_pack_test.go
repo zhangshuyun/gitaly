@@ -18,7 +18,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/internal/git/pktline"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -310,10 +309,10 @@ func TestUploadPackWithoutSideband(t *testing.T) {
 	// though to have Git not use that capability, so we're instead manually crafting a packfile
 	// negotiation without that capability and send it along.
 	negotiation := bytes.NewBuffer([]byte{})
-	pktline.WriteString(negotiation, "want 1e292f8fedd741b75372e19097c76d327140c312 multi_ack_detailed thin-pack include-tag ofs-delta agent=git/2.29.1")
-	pktline.WriteString(negotiation, "want 1e292f8fedd741b75372e19097c76d327140c312")
-	pktline.WriteFlush(negotiation)
-	pktline.WriteString(negotiation, "done")
+	gittest.WritePktlineString(t, negotiation, "want 1e292f8fedd741b75372e19097c76d327140c312 multi_ack_detailed thin-pack include-tag ofs-delta agent=git/2.29.1")
+	gittest.WritePktlineString(t, negotiation, "want 1e292f8fedd741b75372e19097c76d327140c312")
+	gittest.WritePktlineFlush(t, negotiation)
+	gittest.WritePktlineString(t, negotiation, "done")
 
 	request := &gitalypb.SSHUploadPackRequest{
 		Repository: repo,

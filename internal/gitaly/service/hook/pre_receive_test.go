@@ -168,23 +168,26 @@ func TestPreReceiveHook_GitlabAPIAccess(t *testing.T) {
 	assert.Equal(t, "", text.ChompBytes(stdout), "hook stdout")
 }
 
-func preReceiveHandler(increased bool) http.HandlerFunc {
+func preReceiveHandler(t *testing.T, increased bool) http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
 		res.Header().Set("Content-Type", "application/json")
 		res.WriteHeader(http.StatusOK)
-		res.Write([]byte(fmt.Sprintf("{\"reference_counter_increased\": %v}", increased)))
+		_, err := res.Write([]byte(fmt.Sprintf("{\"reference_counter_increased\": %v}", increased)))
+		require.NoError(t, err)
 	}
 }
 
-func allowedHandler(allowed bool) http.HandlerFunc {
+func allowedHandler(t *testing.T, allowed bool) http.HandlerFunc {
 	return func(res http.ResponseWriter, req *http.Request) {
 		res.Header().Set("Content-Type", "application/json")
 		if allowed {
 			res.WriteHeader(http.StatusOK)
-			res.Write([]byte(`{"status": true}`))
+			_, err := res.Write([]byte(`{"status": true}`))
+			require.NoError(t, err)
 		} else {
 			res.WriteHeader(http.StatusUnauthorized)
-			res.Write([]byte(`{"message":"not allowed"}`))
+			_, err := res.Write([]byte(`{"message":"not allowed"}`))
+			require.NoError(t, err)
 		}
 	}
 }
@@ -205,15 +208,16 @@ func TestPreReceive_APIErrors(t *testing.T) {
 				func(res http.ResponseWriter, req *http.Request) {
 					res.Header().Set("Content-Type", "application/json")
 					res.WriteHeader(http.StatusUnauthorized)
-					res.Write([]byte(`{"message":"not allowed"}`))
+					_, err := res.Write([]byte(`{"message":"not allowed"}`))
+					require.NoError(t, err)
 				}),
 			expectedExitStatus: 1,
 			expectedStderr:     "GitLab: not allowed",
 		},
 		{
 			desc:               "/pre_receive endpoint fails to increase reference coutner",
-			allowedHandler:     allowedHandler(true),
-			preReceiveHandler:  preReceiveHandler(false),
+			allowedHandler:     allowedHandler(t, true),
+			preReceiveHandler:  preReceiveHandler(t, false),
 			expectedExitStatus: 1,
 		},
 	}
@@ -279,8 +283,8 @@ func TestPreReceiveHook_CustomHookErrors(t *testing.T) {
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
 	mux := http.NewServeMux()
-	mux.Handle("/api/v4/internal/allowed", allowedHandler(true))
-	mux.Handle("/api/v4/internal/pre_receive", preReceiveHandler(true))
+	mux.Handle("/api/v4/internal/allowed", allowedHandler(t, true))
+	mux.Handle("/api/v4/internal/pre_receive", preReceiveHandler(t, true))
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
 
@@ -358,44 +362,44 @@ func TestPreReceiveHook_Primary(t *testing.T) {
 		{
 			desc:               "primary checks for permissions",
 			primary:            true,
-			allowedHandler:     allowedHandler(false),
+			allowedHandler:     allowedHandler(t, false),
 			expectedExitStatus: 1,
 			expectedStderr:     "GitLab: not allowed",
 		},
 		{
 			desc:               "secondary checks for permissions",
 			primary:            false,
-			allowedHandler:     allowedHandler(false),
+			allowedHandler:     allowedHandler(t, false),
 			expectedExitStatus: 0,
 		},
 		{
 			desc:               "primary tries to increase reference counter",
 			primary:            true,
-			allowedHandler:     allowedHandler(true),
-			preReceiveHandler:  preReceiveHandler(false),
+			allowedHandler:     allowedHandler(t, true),
+			preReceiveHandler:  preReceiveHandler(t, false),
 			expectedExitStatus: 1,
 			expectedStderr:     "",
 		},
 		{
 			desc:               "secondary does not try to increase reference counter",
 			primary:            false,
-			allowedHandler:     allowedHandler(true),
-			preReceiveHandler:  preReceiveHandler(false),
+			allowedHandler:     allowedHandler(t, true),
+			preReceiveHandler:  preReceiveHandler(t, false),
 			expectedExitStatus: 0,
 		},
 		{
 			desc:               "primary executes hook",
 			primary:            true,
-			allowedHandler:     allowedHandler(true),
-			preReceiveHandler:  preReceiveHandler(true),
+			allowedHandler:     allowedHandler(t, true),
+			preReceiveHandler:  preReceiveHandler(t, true),
 			hookExitCode:       123,
 			expectedExitStatus: 123,
 		},
 		{
 			desc:               "secondary does not execute hook",
 			primary:            false,
-			allowedHandler:     allowedHandler(true),
-			preReceiveHandler:  preReceiveHandler(true),
+			allowedHandler:     allowedHandler(t, true),
+			preReceiveHandler:  preReceiveHandler(t, true),
 			hookExitCode:       123,
 			expectedExitStatus: 0,
 		},

@@ -21,8 +21,7 @@ func (s *server) GetInfoAttributes(in *gitalypb.GetInfoAttributesRequest, stream
 	f, err := os.Open(attrFile)
 	if err != nil {
 		if os.IsNotExist(err) {
-			stream.Send(&gitalypb.GetInfoAttributesResponse{})
-			return nil
+			return stream.Send(&gitalypb.GetInfoAttributesResponse{})
 		}
 
 		return status.Errorf(codes.Internal, "GetInfoAttributes failure to read info attributes: %v", err)

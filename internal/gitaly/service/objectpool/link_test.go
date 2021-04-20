@@ -93,7 +93,9 @@ func TestLinkIdempotent(t *testing.T) {
 
 	pool, err := objectpool.NewObjectPool(cfg, locator, git.NewExecCommandFactory(cfg), repo.GetStorageName(), gittest.NewObjectPoolName(t))
 	require.NoError(t, err)
-	defer pool.Remove(ctx)
+	defer func() {
+		require.NoError(t, pool.Remove(ctx))
+	}()
 	require.NoError(t, pool.Create(ctx, repo))
 
 	request := &gitalypb.LinkRepositoryToObjectPoolRequest{
@@ -116,7 +118,9 @@ func TestLinkNoClobber(t *testing.T) {
 
 	pool, err := objectpool.NewObjectPool(cfg, locator, git.NewExecCommandFactory(cfg), repo.GetStorageName(), gittest.NewObjectPoolName(t))
 	require.NoError(t, err)
-	defer pool.Remove(ctx)
+	defer func() {
+		require.NoError(t, pool.Remove(ctx))
+	}()
 
 	require.NoError(t, pool.Create(ctx, repo))
 
@@ -149,7 +153,9 @@ func TestLinkNoPool(t *testing.T) {
 	pool, err := objectpool.NewObjectPool(cfg, locator, git.NewExecCommandFactory(cfg), repo.GetStorageName(), gittest.NewObjectPoolName(t))
 	require.NoError(t, err)
 	// intentionally do not call pool.Create
-	defer pool.Remove(ctx)
+	defer func() {
+		require.NoError(t, pool.Remove(ctx))
+	}()
 
 	request := &gitalypb.LinkRepositoryToObjectPoolRequest{
 		Repository: repo,
@@ -177,7 +183,9 @@ func TestUnlink(t *testing.T) {
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
 	pool, err := objectpool.NewObjectPool(cfg, locator, gitCmdFactory, repo.GetStorageName(), gittest.NewObjectPoolName(t))
 	require.NoError(t, err)
-	defer pool.Remove(ctx)
+	defer func() {
+		require.NoError(t, pool.Remove(ctx))
+	}()
 
 	require.NoError(t, pool.Create(ctx, repo), "create pool")
 	require.NoError(t, pool.Link(ctx, repo))
@@ -189,7 +197,9 @@ func TestUnlink(t *testing.T) {
 	pool2, err := objectpool.NewObjectPool(cfg, locator, gitCmdFactory, repo.GetStorageName(), gittest.NewObjectPoolName(t))
 	require.NoError(t, err)
 	require.NoError(t, pool2.Create(ctx, repo), "create pool 2")
-	defer pool2.Remove(ctx)
+	defer func() {
+		require.NoError(t, pool2.Remove(ctx))
+	}()
 
 	require.False(t, gittest.RemoteExists(t, pool.FullPath(), repo.GlRepository), "sanity check: remote exists in pool")
 	require.False(t, gittest.RemoteExists(t, pool.FullPath(), deletedRepo.GlRepository), "sanity check: remote exists in pool")
@@ -279,7 +289,9 @@ func TestUnlinkIdempotent(t *testing.T) {
 
 	pool, err := objectpool.NewObjectPool(cfg, locator, git.NewExecCommandFactory(cfg), repo.GetStorageName(), gittest.NewObjectPoolName(t))
 	require.NoError(t, err)
-	defer pool.Remove(ctx)
+	defer func() {
+		require.NoError(t, pool.Remove(ctx))
+	}()
 	require.NoError(t, pool.Create(ctx, repo))
 	require.NoError(t, pool.Link(ctx, repo))
 

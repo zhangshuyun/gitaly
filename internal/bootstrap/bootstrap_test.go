@@ -183,7 +183,7 @@ func TestGracefulTerminationServerErrors(t *testing.T) {
 		done <- <-req
 		close(done)
 
-		server.server.Shutdown(context.Background())
+		require.NoError(t, server.server.Shutdown(context.Background()))
 	}
 
 	err := testGracefulUpdate(t, server, b, 3*time.Second, 2*time.Second, nil)
@@ -231,7 +231,7 @@ func testGracefulUpdate(t *testing.T, server *testServer, b *Bootstrap, waitTime
 	time.Sleep(100 * time.Millisecond)
 
 	// Simulate an upgrade request after entering into the blocking b.Wait() and during the slowRequest execution
-	b.upgrader.Upgrade()
+	require.NoError(t, b.upgrader.Upgrade())
 
 	if duringGracePeriodCallback != nil {
 		// make sure we are on the grace period
@@ -272,7 +272,7 @@ func makeBootstrap(t *testing.T) (*Bootstrap, *testServer) {
 	b, err := _new(u, net.Listen, false)
 	require.NoError(t, err)
 
-	b.StopAction = func() { s.Shutdown(context.Background()) }
+	b.StopAction = func() { require.NoError(t, s.Shutdown(context.Background())) }
 
 	listeners := make(map[string]net.Listener)
 	start := func(network, address string) Starter {

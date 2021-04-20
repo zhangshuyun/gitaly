@@ -77,7 +77,8 @@ func (b Executor) Apply(ctx context.Context, params ApplyParams) (git.ObjectID, 
 	defer writer.Close()
 
 	go func() {
-		writer.CloseWithError(func() error {
+		// CloseWithError is documented to always return nil.
+		_ = writer.CloseWithError(func() error {
 			patches := params.Patches
 			params.Patches = nil
 

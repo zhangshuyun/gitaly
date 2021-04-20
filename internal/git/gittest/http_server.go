@@ -46,8 +46,10 @@ func RemoteUploadPackServer(ctx context.Context, t *testing.T, gitPath, repoName
 				w.Header().Set("Content-Type", "application/x-git-upload-pack-advertisement")
 				w.WriteHeader(http.StatusOK)
 
-				w.Write([]byte("001e# service=git-upload-pack\n"))
-				w.Write([]byte("0000"))
+				_, err := w.Write([]byte("001e# service=git-upload-pack\n"))
+				require.NoError(t, err)
+				_, err = w.Write([]byte("0000"))
+				require.NoError(t, err)
 
 				cmd, err := command.New(ctx, exec.Command(gitPath, "-C", repoPath, "upload-pack", "--advertise-refs", "."), nil, w, nil)
 				require.NoError(t, err)

@@ -522,9 +522,10 @@ func TestGetArchiveEnv(t *testing.T) {
 	err = tmpFile.Chmod(0755)
 	require.NoError(t, err)
 
-	tmpFile.Write([]byte(`#!/bin/sh
+	_, err = tmpFile.Write([]byte(`#!/bin/sh
 env | grep -E "^GL_|CORRELATION|GITALY_"`))
-	tmpFile.Close()
+	require.NoError(t, err)
+	require.NoError(t, tmpFile.Close())
 
 	oldBinPath := config.Config.Git.BinPath
 	config.Config.Git.BinPath = tmpFile.Name()

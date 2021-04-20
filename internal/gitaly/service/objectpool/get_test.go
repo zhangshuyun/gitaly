@@ -28,7 +28,9 @@ func TestGetObjectPoolSuccess(t *testing.T) {
 	require.NoError(t, pool.Link(poolCtx, repo))
 
 	ctx, cancel := testhelper.Context()
-	defer pool.Remove(ctx)
+	defer func() {
+		require.NoError(t, pool.Remove(ctx))
+	}()
 	defer cancel()
 
 	resp, err := client.GetObjectPool(ctx, &gitalypb.GetObjectPoolRequest{

@@ -720,7 +720,7 @@ issues:
     ## errcheck: General (wide) rules in non-*_test.go files
     - linters:
         - errcheck
-      text: "Error return value of `[^`]+.(Write|Close|Serve|CloseWithError)` is not checked"
+      text: "Error return value of `[^`]+.(Close|Serve)` is not checked"
     - linters:
         - errcheck
       text: "Error return value of `(io\\.Copy|out\\.Flush|os\\.Remove(All)?)` is not checked"
@@ -741,10 +741,6 @@ issues:
         - errcheck
       path: "internal/gitaly/rubyserver/proxy.go"
       text: "Error return value of `requestStream.CloseSend` is not checked"
-    - linters:
-        - errcheck
-      path: "cmd/gitaly-git2go/testhelper/testhelper.go"
-      text: "Error return value of `treeBuilder.Insert` is not checked"
     - linters:
         - errcheck
       path: "internal/testhelper/testserver.go"
@@ -769,10 +765,6 @@ issues:
         - errcheck
       path: "internal/praefect/nodes/sql_elector.go"
       text: "Error return value of `s.checkNodes` is not checked"
-    - linters:
-        - errcheck
-      path: "internal/gitaly/service/repository/info_attributes.go"
-      text: "Error return value of `stream.Send` is not checked"
     - linters:
         - errcheck
       path: "internal/gitaly/service/repository/snapshot.go"
@@ -849,64 +841,7 @@ issues:
         - errcheck
       path: "internal/supervisor/supervisor_test.go"
       text: "Error return value of `syscall\\.Kill` is not checked"
-    ## errcheck: General (wide) rules in *_test.go files
-    - linters:
-        - errcheck
-      path: "_test.go"
-      text: "Error return value of `pktline.Write(String|Flush)` is not checked"
-    - linters:
-        - errcheck
-      path: "_test.go"
-      text: "Error return value of `pool2?\\.Remove` is not checked"
     ## errcheck: Specific issues in *_test.go files
-    - linters:
-        - errcheck
-      path: "internal/praefect/replicator_test.go"
-      text: "Error return value of `glsql.Clean` is not checked"
-    - linters:
-        - errcheck
-      path: "cmd/gitaly-wrapper/main_test.go"
-      text: "Error return value of `cmd.Process.Kill` is not checked"
-    - linters:
-        - errcheck
-      path: "internal/praefect/grpc-proxy/proxy/handler_test.go"
-      text: "Error return value of `grpc.SendHeader` is not checked"
-    - linters:
-        - errcheck
-      path: "internal/praefect/grpc-proxy/proxy/handler_test.go"
-      text: "Error return value of `grpc.SetTrailer` is not checked"
-    - linters:
-        - errcheck
-      path: "internal/praefect/grpc-proxy/proxy/handler_test.go"
-      text: "Error return value of `stream.SendHeader` is not checked"
-    - linters:
-        - errcheck
-      path: "internal/praefect/grpc-proxy/proxy/handler_test.go"
-      text: "Error return value of `stream.Send` is not checked"
-    - linters:
-        - errcheck
-      path: "internal/praefect/grpc-proxy/proxy/handler_test.go"
-      text: "Error return value of `stream.SendHeader` is not checked"
-    - linters:
-        - errcheck
-      path: "internal/praefect/grpc-proxy/proxy/peeker_test.go"
-      text: "Error return value of `proxyClientPingStream.CloseSend` is not checked"
-    - linters:
-        - errcheck
-      path: "internal/bootstrap/bootstrap_test.go"
-      text: "Error return value of `server.server.Shutdown` is not checked"
-    - linters:
-        - errcheck
-      path: "internal/bootstrap/bootstrap_test.go"
-      text: "Error return value of `b.upgrader.Upgrade` is not checked"
-    - linters:
-        - errcheck
-      path: "internal/bootstrap/bootstrap_test.go"
-      text: "Error return value of `s.Shutdown` is not checked"
-    - linters:
-        - errcheck
-      path: "internal/gitaly/service/smarthttp/upload_pack_test.go"
-      text: "Error return value of `pktline.WriteDelim` is not checked"
     - linters:
         - errcheck
       path: "internal/middleware/sentryhandler/sentryhandler_test.go"
@@ -917,16 +852,8 @@ issues:
       text: "Error return value of `cmd.Run` is not checked"
     - linters:
         - errcheck
-      path: "cmd/praefect/main_test.go"
-      text: "Error return value of `glsql.Clean` is not checked"
-    - linters:
-        - errcheck
       path: "internal/praefect/nodes/local_elector_test.go"
       text: "Error return value of `strategy.checkNodes` is not checked"
-    - linters:
-        - errcheck
-      path: "cmd/gitaly-lfs-smudge/lfs_smudge_test.go"
-      text: "Error return value of `initLogging` is not checked"
     ## END errcheck exclusions
     ##
     # govet checks all struct initializations must be keyed by field names

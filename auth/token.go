@@ -138,7 +138,8 @@ func v2HmacInfoValid(message string, signedMessage, secret []byte, targetTime ti
 
 func hmacSign(secret []byte, message string) []byte {
 	mac := hmac.New(sha256.New, secret)
-	mac.Write([]byte(message))
+	// hash.Hash never returns an error.
+	_, _ = mac.Write([]byte(message))
 
 	return mac.Sum(nil)
 }
