@@ -8,8 +8,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/command"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 )
 
 const redirectURL = "/redirect_url"
@@ -38,12 +38,13 @@ func StartRedirectingTestServer() (*RedirectingTestServerState, *httptest.Server
 }
 
 func TestRedirectingServerRedirects(t *testing.T) {
+	cfg := testcfg.Build(t)
 	dir := testhelper.TempDir(t)
 
 	httpServerState, redirectingServer := StartRedirectingTestServer()
 
 	// we only test for redirection, this command can fail after that
-	cmd := exec.Command(config.Config.Git.BinPath, "-c", "http.followRedirects=true", "clone", "--bare", redirectingServer.URL, dir)
+	cmd := exec.Command(cfg.Git.BinPath, "-c", "http.followRedirects=true", "clone", "--bare", redirectingServer.URL, dir)
 	cmd.Env = append(command.GitEnv, cmd.Env...)
 	cmd.Run()
 
