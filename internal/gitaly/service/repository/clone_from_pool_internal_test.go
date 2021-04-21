@@ -65,7 +65,7 @@ func TestCloneFromPoolInternal(t *testing.T) {
 
 	fullRepack(t, testRepoPath)
 
-	_, newBranch := gittest.CreateCommitOnNewBranch(t, testRepoPath)
+	_, newBranch := gittest.CreateCommitOnNewBranch(t, config.Config, testRepoPath)
 
 	forkedRepo, forkRepoPath, forkRepoCleanup := getForkDestination(t)
 	defer forkRepoCleanup()

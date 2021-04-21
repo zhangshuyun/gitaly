@@ -240,7 +240,7 @@ func addPackFiles(
 	// create some pack files with different sizes
 	for i := 0; i < packCount; i++ {
 		for y := packCount + 1 - i; y > 0; y-- {
-			gittest.CreateCommitOnNewBranch(t, repoPath)
+			gittest.CreateCommitOnNewBranch(t, config.Config, repoPath)
 		}
 
 		_, err = client.RepackIncremental(ctx, &gitalypb.RepackIncrementalRequest{Repository: repo})

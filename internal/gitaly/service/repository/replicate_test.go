@@ -97,7 +97,7 @@ func TestReplicateRepository(t *testing.T) {
 	require.Equal(t, string(attrData), string(replicatedAttrData), "info/attributes files must match")
 
 	// create another branch
-	_, anotherNewBranch := gittest.CreateCommitOnNewBranch(t, testRepoPath)
+	_, anotherNewBranch := gittest.CreateCommitOnNewBranch(t, config.Config, testRepoPath)
 	_, err = repoClient.ReplicateRepository(injectedCtx, &gitalypb.ReplicateRepositoryRequest{
 		Repository: &targetRepo,
 		Source:     testRepo,

@@ -33,7 +33,7 @@ func TestLink(t *testing.T) {
 
 	// Mock object in the pool, which should be available to the pool members
 	// after linking
-	poolCommitID := gittest.CreateCommit(t, pool.FullPath(), "pool-test-branch", nil)
+	poolCommitID := gittest.CreateCommit(t, cfg, pool.FullPath(), "pool-test-branch", nil)
 
 	testCases := []struct {
 		desc string

@@ -49,7 +49,7 @@ func TestFetchSourceBranchSourceRepositorySuccess(t *testing.T) {
 	defer cleanup()
 
 	sourceBranch := "fetch-source-branch-test-branch"
-	newCommitID := gittest.CreateCommit(t, sourcePath, sourceBranch, nil)
+	newCommitID := gittest.CreateCommit(t, config.Config, sourcePath, sourceBranch, nil)
 
 	targetRef := "refs/tmp/fetch-source-branch-test"
 	req := &gitalypb.FetchSourceBranchRequest{
@@ -87,7 +87,7 @@ func TestFetchSourceBranchSameRepositorySuccess(t *testing.T) {
 	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
 
 	sourceBranch := "fetch-source-branch-test-branch"
-	newCommitID := gittest.CreateCommit(t, repoPath, sourceBranch, nil)
+	newCommitID := gittest.CreateCommit(t, config.Config, repoPath, sourceBranch, nil)
 
 	targetRef := "refs/tmp/fetch-source-branch-test"
 	req := &gitalypb.FetchSourceBranchRequest{
@@ -183,7 +183,7 @@ func TestFetchSourceBranchWrongRef(t *testing.T) {
 	defer cleanup()
 
 	sourceBranch := "fetch-source-branch-testmas-branch"
-	gittest.CreateCommit(t, sourceRepoPath, sourceBranch, nil)
+	gittest.CreateCommit(t, config.Config, sourceRepoPath, sourceBranch, nil)
 
 	targetRef := "refs/tmp/fetch-source-branch-test"
 

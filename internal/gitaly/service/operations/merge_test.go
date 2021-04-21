@@ -281,7 +281,7 @@ func TestFailedMergeConcurrentUpdate(t *testing.T) {
 	require.NoError(t, err, "receive first response")
 
 	// This concurrent update of the branch we are merging into should make the merge fail.
-	concurrentCommitID := gittest.CreateCommit(t, repoPath, mergeBranchName, nil)
+	concurrentCommitID := gittest.CreateCommit(t, cfg, repoPath, mergeBranchName, nil)
 	require.NotEqual(t, firstResponse.CommitId, concurrentCommitID)
 
 	require.NoError(t, mergeBidi.Send(&gitalypb.UserMergeBranchRequest{Apply: true}), "apply merge")

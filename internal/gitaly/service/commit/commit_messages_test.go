@@ -14,7 +14,7 @@ import (
 )
 
 func TestSuccessfulGetCommitMessagesRequest(t *testing.T) {
-	_, repo, repoPath, client := setupCommitServiceWithRepo(t, true)
+	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, true)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -22,8 +22,8 @@ func TestSuccessfulGetCommitMessagesRequest(t *testing.T) {
 	message1 := strings.Repeat("a\n", helper.MaxCommitOrTagMessageSize*2)
 	message2 := strings.Repeat("b\n", helper.MaxCommitOrTagMessageSize*2)
 
-	commit1ID := gittest.CreateCommit(t, repoPath, "local-big-commits", &gittest.CreateCommitOpts{Message: message1})
-	commit2ID := gittest.CreateCommit(t, repoPath, "local-big-commits", &gittest.CreateCommitOpts{Message: message2, ParentID: commit1ID})
+	commit1ID := gittest.CreateCommit(t, cfg, repoPath, "local-big-commits", &gittest.CreateCommitOpts{Message: message1})
+	commit2ID := gittest.CreateCommit(t, cfg, repoPath, "local-big-commits", &gittest.CreateCommitOpts{Message: message2, ParentID: commit1ID})
 
 	request := &gitalypb.GetCommitMessagesRequest{
 		Repository: repo,
