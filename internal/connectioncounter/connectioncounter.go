@@ -4,10 +4,11 @@ import (
 	"net"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 var (
-	connTotal = prometheus.NewCounterVec(
+	connTotal = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "gitaly_connections_total",
 			Help: "Total number of connections accepted by this Gitaly process",
@@ -15,10 +16,6 @@ var (
 		[]string{"type"},
 	)
 )
-
-func init() {
-	prometheus.MustRegister(connTotal)
-}
 
 // New returns a listener which increments a prometheus counter on each
 // accepted connection. Use cType to specify the connection type, this is

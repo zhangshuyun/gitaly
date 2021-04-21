@@ -9,19 +9,18 @@ import (
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"gitlab.com/gitlab-org/gitaly/internal/git/packfile"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
 )
 
-var badBitmapRequestCount = prometheus.NewCounterVec(
+var badBitmapRequestCount = promauto.NewCounterVec(
 	prometheus.CounterOpts{
 		Name: "gitaly_bad_bitmap_request_total",
 		Help: "RPC calls during which there was not exactly 1 packfile bitmap",
 	},
 	[]string{"method", "bitmaps"},
 )
-
-func init() { prometheus.MustRegister(badBitmapRequestCount) }
 
 // WarnIfTooManyBitmaps checks for too many (more than one) bitmaps in
 // repoPath, and if it finds any, it logs a warning. This is to help us

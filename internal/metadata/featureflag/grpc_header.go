@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"google.golang.org/grpc/metadata"
 )
 
@@ -19,7 +20,7 @@ var (
 	// purposes such that we can run integration tests with feature flags.
 	featureFlagsOverride = os.Getenv("GITALY_TESTING_ENABLE_ALL_FEATURE_FLAGS")
 
-	flagChecks = prometheus.NewCounterVec(
+	flagChecks = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "gitaly_feature_flag_checks_total",
 			Help: "Number of enabled/disabled checks for Gitaly server side feature flags",
@@ -27,10 +28,6 @@ var (
 		[]string{"flag", "enabled"},
 	)
 )
-
-func init() {
-	prometheus.MustRegister(flagChecks)
-}
 
 // Delim is a delimiter used between a feature flag name and its value.
 const Delim = ":"

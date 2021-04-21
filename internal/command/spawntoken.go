@@ -8,6 +8,7 @@ import (
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 const logDurationThreshold = 5 * time.Millisecond
@@ -16,7 +17,7 @@ var (
 	spawnTokens chan struct{}
 	spawnConfig SpawnConfig
 
-	spawnTimeoutCount = prometheus.NewCounter(
+	spawnTimeoutCount = promauto.NewCounter(
 		prometheus.CounterOpts{
 			Name: "gitaly_spawn_timeouts_total",
 			Help: "Number of process spawn timeouts",
@@ -46,7 +47,6 @@ type SpawnConfig struct {
 func init() {
 	envconfig.MustProcess("gitaly_command_spawn", &spawnConfig)
 	spawnTokens = make(chan struct{}, spawnConfig.MaxParallel)
-	prometheus.MustRegister(spawnTimeoutCount)
 }
 
 func getSpawnToken(ctx context.Context) (putToken func(), err error) {

@@ -7,6 +7,7 @@ import (
 
 	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"gitlab.com/gitlab-org/gitaly/internal/log"
 )
 
@@ -16,7 +17,7 @@ const (
 )
 
 var (
-	gitProtocolRequests = prometheus.NewCounterVec(
+	gitProtocolRequests = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "gitaly_git_protocol_requests_total",
 			Help: "Counter of Git protocol requests",
@@ -24,10 +25,6 @@ var (
 		[]string{"grpc_service", "grpc_method", "git_protocol"},
 	)
 )
-
-func init() {
-	prometheus.MustRegister(gitProtocolRequests)
-}
 
 // RequestWithGitProtocol holds requests that respond to GitProtocol
 type RequestWithGitProtocol interface {

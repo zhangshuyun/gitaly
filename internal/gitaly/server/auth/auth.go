@@ -6,6 +6,7 @@ import (
 
 	grpc_auth "github.com/grpc-ecosystem/go-grpc-middleware/auth"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
 	internalauth "gitlab.com/gitlab-org/gitaly/internal/gitaly/config/auth"
 	"google.golang.org/grpc"
@@ -14,7 +15,7 @@ import (
 )
 
 var (
-	authCount = prometheus.NewCounterVec(
+	authCount = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "gitaly_authentications_total",
 			Help: "Counts of of Gitaly request authentication attempts",
@@ -22,10 +23,6 @@ var (
 		[]string{"enforced", "status"},
 	)
 )
-
-func init() {
-	prometheus.MustRegister(authCount)
-}
 
 // StreamServerInterceptor checks for Gitaly bearer tokens.
 func StreamServerInterceptor(conf internalauth.Config) grpc.StreamServerInterceptor {

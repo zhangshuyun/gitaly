@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 )
@@ -20,7 +21,7 @@ const (
 	defaultMaxLen = 100
 )
 
-var catfileCacheMembers = prometheus.NewGauge(
+var catfileCacheMembers = promauto.NewGauge(
 	prometheus.GaugeOpts{
 		Name: "gitaly_catfile_cache_members",
 		Help: "Gauge of catfile cache members",
@@ -30,8 +31,6 @@ var catfileCacheMembers = prometheus.NewGauge(
 var cache *batchCache
 
 func init() {
-	prometheus.MustRegister(catfileCacheMembers)
-
 	config.RegisterHook(func(cfg *config.Cfg) error {
 		cache = newCache(DefaultBatchfileTTL, cfg.Git.CatfileCacheSize)
 		return nil

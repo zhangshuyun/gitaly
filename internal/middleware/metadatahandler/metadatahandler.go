@@ -7,6 +7,7 @@ import (
 	grpc_ctxtags "github.com/grpc-ecosystem/go-grpc-middleware/tags"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/labkit/correlation"
@@ -15,7 +16,7 @@ import (
 )
 
 var (
-	requests = prometheus.NewCounterVec(
+	requests = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: "gitaly",
 			Subsystem: "service",
@@ -31,10 +32,6 @@ type metadataTags struct {
 	callSite     string
 	authVersion  string
 	deadlineType string
-}
-
-func init() {
-	prometheus.MustRegister(requests)
 }
 
 // CallSiteKey is the key used in ctx_tags to store the client feature

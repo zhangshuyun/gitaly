@@ -3,6 +3,7 @@ package commit
 import (
 	"github.com/golang/protobuf/proto"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	gitlog "gitlab.com/gitlab-org/gitaly/internal/git/log"
@@ -11,7 +12,7 @@ import (
 )
 
 var (
-	listCommitsbyOidHistogram = prometheus.NewHistogram(
+	listCommitsbyOidHistogram = promauto.NewHistogram(
 		prometheus.HistogramOpts{
 			Name: "gitaly_list_commits_by_oid_request_size",
 			Help: "Number of commits requested in a ListCommitsByOid request",
@@ -22,10 +23,6 @@ var (
 			Buckets: []float64{0.001, 1, 5, 10, 20},
 		})
 )
-
-func init() {
-	prometheus.MustRegister(listCommitsbyOidHistogram)
-}
 
 func (s *server) ListCommitsByOid(in *gitalypb.ListCommitsByOidRequest, stream gitalypb.CommitService_ListCommitsByOidServer) error {
 	ctx := stream.Context()

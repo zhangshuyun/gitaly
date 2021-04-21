@@ -4,19 +4,20 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/internal/ps"
 )
 
 var (
-	rssGauge = prometheus.NewGaugeVec(
+	rssGauge = promauto.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "gitaly_supervisor_rss_bytes",
 			Help: "Resident set size of supervised processes, in bytes.",
 		},
 		[]string{"name"},
 	)
-	healthCounter = prometheus.NewCounterVec(
+	healthCounter = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "gitaly_supervisor_health_checks_total",
 			Help: "Count of Gitaly supervisor health checks",
@@ -24,11 +25,6 @@ var (
 		[]string{"name", "status"},
 	)
 )
-
-func init() {
-	prometheus.MustRegister(rssGauge)
-	prometheus.MustRegister(healthCounter)
-}
 
 type monitorProcess struct {
 	pid  int

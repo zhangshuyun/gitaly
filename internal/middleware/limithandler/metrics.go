@@ -7,13 +7,14 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 const acquireDurationLogThreshold = 10 * time.Millisecond
 
 var (
 	histogramVec       *prometheus.HistogramVec
-	inprogressGaugeVec = prometheus.NewGaugeVec(
+	inprogressGaugeVec = promauto.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Namespace: "gitaly",
 			Subsystem: "rate_limiting",
@@ -23,7 +24,7 @@ var (
 		[]string{"system", "grpc_service", "grpc_method"},
 	)
 
-	queuedGaugeVec = prometheus.NewGaugeVec(
+	queuedGaugeVec = promauto.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Namespace: "gitaly",
 			Subsystem: "rate_limiting",
@@ -38,10 +39,6 @@ type promMonitor struct {
 	queuedGauge     prometheus.Gauge
 	inprogressGauge prometheus.Gauge
 	histogram       prometheus.Observer
-}
-
-func init() {
-	prometheus.MustRegister(inprogressGaugeVec, queuedGaugeVec)
 }
 
 func splitMethodName(fullMethodName string) (string, string) {
@@ -62,12 +59,10 @@ func EnableAcquireTimeHistogram(buckets []float64) {
 		Buckets:   buckets,
 	}
 
-	histogramVec = prometheus.NewHistogramVec(
+	histogramVec = promauto.NewHistogramVec(
 		histogramOpts,
 		[]string{"system", "grpc_service", "grpc_method"},
 	)
-
-	prometheus.MustRegister(histogramVec)
 }
 
 func (c *promMonitor) Queued(ctx context.Context) {
