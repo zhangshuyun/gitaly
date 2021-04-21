@@ -2,7 +2,6 @@ package blob
 
 import (
 	"bytes"
-	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -17,7 +16,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
-	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -70,15 +68,10 @@ var (
 )
 
 func TestListLFSPointers(t *testing.T) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.LFSPointersUseBitmapIndex,
-	}).Run(t, func(t *testing.T, ctx context.Context) {
-		testListLFSPointers(t, ctx)
-	})
-}
-
-func testListLFSPointers(t *testing.T, ctx context.Context) {
 	_, repo, _, client := setup(t)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
 	for _, tc := range []struct {
 		desc             string
@@ -184,14 +177,6 @@ func testListLFSPointers(t *testing.T, ctx context.Context) {
 }
 
 func TestListAllLFSPointers(t *testing.T) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.LFSPointersUseBitmapIndex,
-	}).Run(t, func(t *testing.T, ctx context.Context) {
-		testListAllLFSPointers(t, ctx)
-	})
-}
-
-func testListAllLFSPointers(t *testing.T, ctx context.Context) {
 	receivePointers := func(t *testing.T, stream gitalypb.BlobService_ListAllLFSPointersClient) []*gitalypb.LFSPointer {
 		t.Helper()
 
@@ -306,14 +291,6 @@ size 12345`
 }
 
 func TestSuccessfulGetLFSPointersRequest(t *testing.T) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.LFSPointersUseBitmapIndex,
-	}).Run(t, func(t *testing.T, ctx context.Context) {
-		testSuccessfulGetLFSPointersRequestFeatured(t)
-	})
-}
-
-func testSuccessfulGetLFSPointersRequestFeatured(t *testing.T) {
 	_, repo, _, client := setup(t)
 
 	ctx, cancel := testhelper.Context()
@@ -359,13 +336,10 @@ func testSuccessfulGetLFSPointersRequestFeatured(t *testing.T) {
 }
 
 func TestFailedGetLFSPointersRequestDueToValidations(t *testing.T) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.LFSPointersUseBitmapIndex,
-	}).Run(t, testFailedGetLFSPointersRequestDueToValidations)
-}
-
-func testFailedGetLFSPointersRequestDueToValidations(t *testing.T, ctx context.Context) {
 	_, repo, _, client := setup(t)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
 	testCases := []struct {
 		desc    string
@@ -403,14 +377,6 @@ func testFailedGetLFSPointersRequestDueToValidations(t *testing.T, ctx context.C
 }
 
 func TestSuccessfulGetNewLFSPointersRequest(t *testing.T) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.LFSPointersUseBitmapIndex,
-	}).Run(t, func(t *testing.T, ctx context.Context) {
-		testSuccessfulGetNewLFSPointersRequestFeatured(t)
-	})
-}
-
-func testSuccessfulGetNewLFSPointersRequestFeatured(t *testing.T) {
 	cfg, _, _, client := setup(t)
 
 	ctx, cancel := testhelper.Context()
@@ -548,13 +514,10 @@ func testSuccessfulGetNewLFSPointersRequestFeatured(t *testing.T) {
 }
 
 func TestFailedGetNewLFSPointersRequestDueToValidations(t *testing.T) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.LFSPointersUseBitmapIndex,
-	}).Run(t, testFailedGetNewLFSPointersRequestDueToValidations)
-}
-
-func testFailedGetNewLFSPointersRequestDueToValidations(t *testing.T, ctx context.Context) {
 	_, repo, _, client := setup(t)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
 	testCases := []struct {
 		desc       string
@@ -605,14 +568,6 @@ func drainNewPointers(c gitalypb.BlobService_GetNewLFSPointersClient) error {
 }
 
 func TestSuccessfulGetAllLFSPointersRequest(t *testing.T) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.LFSPointersUseBitmapIndex,
-	}).Run(t, func(t *testing.T, ctx context.Context) {
-		testSuccessfulGetAllLFSPointersRequestFeatured(t)
-	})
-}
-
-func testSuccessfulGetAllLFSPointersRequestFeatured(t *testing.T) {
 	_, repo, _, client := setup(t)
 
 	ctx, cancel := testhelper.Context()
@@ -653,13 +608,10 @@ func getAllPointers(t *testing.T, c gitalypb.BlobService_GetAllLFSPointersClient
 }
 
 func TestFailedGetAllLFSPointersRequestDueToValidations(t *testing.T) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.LFSPointersUseBitmapIndex,
-	}).Run(t, testFailedGetAllLFSPointersRequestDueToValidations)
-}
-
-func testFailedGetAllLFSPointersRequestDueToValidations(t *testing.T, ctx context.Context) {
 	_, _, _, client := setup(t)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
 	testCases := []struct {
 		desc       string
@@ -696,17 +648,9 @@ func drainAllPointers(c gitalypb.BlobService_GetAllLFSPointersClient) error {
 	}
 }
 
-func TestGetAllLFSPointersVerifyScope(t *testing.T) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.LFSPointersUseBitmapIndex,
-	}).Run(t, func(t *testing.T, ctx context.Context) {
-		testGetAllLFSPointersVerifyScopeFeatured(t)
-	})
-}
-
-// testGetAllLFSPointersVerifyScope verifies that this RPC returns all LFS
+// TestGetAllLFSPointersVerifyScope verifies that this RPC returns all LFS
 // pointers in a repository, not only ones reachable from the default branch
-func testGetAllLFSPointersVerifyScopeFeatured(t *testing.T) {
+func TestGetAllLFSPointersVerifyScope(t *testing.T) {
 	_, repo, repoPath, client := setup(t)
 
 	ctx, cancel := testhelper.Context()
