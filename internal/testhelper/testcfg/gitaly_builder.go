@@ -60,10 +60,6 @@ type GitalyCfgBuilder struct {
 	realLinguist bool
 }
 
-func (gc *GitalyCfgBuilder) tempDir(t testing.TB) string {
-	return testhelper.TempDir(t)
-}
-
 // Build setups required filesystem structure, creates and returns configuration of the gitaly service.
 func (gc *GitalyCfgBuilder) Build(t testing.TB) config.Cfg {
 	t.Helper()
@@ -73,7 +69,7 @@ func (gc *GitalyCfgBuilder) Build(t testing.TB) config.Cfg {
 		cfg.SocketPath = "it is a stub to bypass Validate method"
 	}
 
-	root := gc.tempDir(t)
+	root := testhelper.TempDir(t)
 
 	if cfg.BinDir == "" {
 		cfg.BinDir = filepath.Join(root, "bin.d")
