@@ -125,6 +125,13 @@ func (f File) Resolve(resolution Resolution) ([]byte, error) {
 	return b.Bytes(), nil
 }
 
+// Entry is a conflict entry with a path and its original preimage contents.
+type Entry struct {
+	Path     string
+	Mode     uint
+	Contents []byte
+}
+
 // Parse will read each line and maintain which conflict section it belongs to
 func Parse(src io.Reader, ourPath, theirPath, parentPath string) (File, error) {
 	var (
