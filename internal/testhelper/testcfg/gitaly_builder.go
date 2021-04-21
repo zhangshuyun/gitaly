@@ -54,19 +54,10 @@ func NewGitalyCfgBuilder(opts ...Option) GitalyCfgBuilder {
 
 // GitalyCfgBuilder automates creation of the gitaly configuration and filesystem structure required.
 type GitalyCfgBuilder struct {
-	cfg      config.Cfg
-	cleanups []testhelper.Cleanup
+	cfg config.Cfg
 
 	storages     []string
 	realLinguist bool
-}
-
-// Cleanup releases all resources allocated fot the created config.
-// It should be called once the test is done.
-func (gc *GitalyCfgBuilder) Cleanup() {
-	for i := len(gc.cleanups) - 1; i >= 0; i-- {
-		gc.cleanups[i]()
-	}
 }
 
 func (gc *GitalyCfgBuilder) tempDir(t testing.TB) string {
@@ -160,7 +151,6 @@ func (gc *GitalyCfgBuilder) BuildWithRepoAt(t testing.TB, relativePath string) (
 // Build creates a minimal configuration setup with no options and returns it with cleanup function.
 func Build(t testing.TB, opts ...Option) config.Cfg {
 	cfgBuilder := NewGitalyCfgBuilder(opts...)
-	t.Cleanup(cfgBuilder.Cleanup)
 
 	return cfgBuilder.Build(t)
 }
@@ -169,7 +159,6 @@ func Build(t testing.TB, opts ...Option) config.Cfg {
 // It also clones test repository at the storage and returns it with the full path to the repository.
 func BuildWithRepo(t testing.TB, opts ...Option) (config.Cfg, *gitalypb.Repository, string) {
 	cfgBuilder := NewGitalyCfgBuilder(opts...)
-	t.Cleanup(cfgBuilder.Cleanup)
 
 	cfg, repos := cfgBuilder.BuildWithRepoAt(t, t.Name())
 	repoPath := filepath.Join(cfg.Storages[0].Path, repos[0].RelativePath)

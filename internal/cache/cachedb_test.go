@@ -136,7 +136,6 @@ func TestLoserCount(t *testing.T) {
 	// the test can be contaminate by other tests using the cache, so a
 	// dedicated storage location should be used
 	cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("storage-1", "storage-2"))
-	defer cfgBuilder.Cleanup()
 	cfg := cfgBuilder.Build(t)
 
 	db := cache.NewStreamDB(cache.NewLeaseKeyer(config.NewLocator(cfg)))

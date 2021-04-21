@@ -37,7 +37,6 @@ func (mo *mockOptimizer) OptimizeRepository(ctx context.Context, req *gitalypb.O
 
 func TestOptimizeReposRandomly(t *testing.T) {
 	cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("0", "1", "2"))
-	defer cfgBuilder.Cleanup()
 	cfg := cfgBuilder.Build(t)
 
 	for _, storage := range cfg.Storages {

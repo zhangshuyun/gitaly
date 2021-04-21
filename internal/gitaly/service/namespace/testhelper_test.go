@@ -15,7 +15,6 @@ import (
 
 func setupNamespaceService(t testing.TB) (config.Cfg, gitalypb.NamespaceServiceClient) {
 	cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("default", "other"))
-	t.Cleanup(cfgBuilder.Cleanup)
 	cfg := cfgBuilder.Build(t)
 
 	locator := config.NewLocator(cfg)

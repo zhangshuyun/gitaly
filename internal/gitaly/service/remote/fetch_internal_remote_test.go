@@ -159,7 +159,6 @@ func TestSuccessfulFetchInternalRemote(t *testing.T) {
 	gittest.CreateCommit(t, remoteCfg, remoteRepoPath, "master", nil)
 
 	localCfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("gitaly-1"))
-	t.Cleanup(localCfgBuilder.Cleanup)
 
 	localCfg, localRepos := localCfgBuilder.BuildWithRepoAt(t, "stub")
 	localRepo := localRepos[0]

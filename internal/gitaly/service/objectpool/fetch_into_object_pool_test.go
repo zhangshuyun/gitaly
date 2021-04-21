@@ -163,7 +163,6 @@ func TestFetchIntoObjectPool_CollectLogStatistics(t *testing.T) {
 
 func TestFetchIntoObjectPool_Failure(t *testing.T) {
 	cfgBuilder := testcfg.NewGitalyCfgBuilder()
-	defer cfgBuilder.Cleanup()
 	cfg, repos := cfgBuilder.BuildWithRepoAt(t, t.Name())
 
 	locator := config.NewLocator(cfg)
