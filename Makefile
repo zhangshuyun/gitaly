@@ -59,7 +59,7 @@ GO_LDFLAGS        := -ldflags '-X ${GITALY_PACKAGE}/internal/version.version=${G
 GO_BUILD_TAGS     := tracer_static,tracer_static_jaeger,continuous_profiler_stackdriver,static,system_libgit2
 
 # Dependency versions
-GOLANGCI_LINT_VERSION     ?= 1.33.0
+GOLANGCI_LINT_VERSION     ?= 1.39.0
 GOCOVER_COBERTURA_VERSION ?= aaee18c8195c3f2d90e5ef80ca918d265463842a
 GOIMPORTS_VERSION         ?= 2538eef75904eff384a2551359968e40c207d9d2
 GO_JUNIT_REPORT_VERSION   ?= 984a47ca6b0a7d704c4b589852051b4d7865aa17
