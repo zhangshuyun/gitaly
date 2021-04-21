@@ -63,9 +63,7 @@ func (s *server) findCommits(ctx context.Context, req *gitalypb.FindCommitsReque
 	getCommits := NewGetCommits(logCmd, batch)
 
 	if calculateOffsetManually(req) {
-		if err := getCommits.Offset(int(req.GetOffset())); err != nil {
-			return fmt.Errorf("cannot skip to offset: %w", err)
-		}
+		getCommits.Offset(int(req.GetOffset()))
 	}
 
 	if err := streamCommits(getCommits, stream, req.GetTrailers()); err != nil {
