@@ -1,6 +1,7 @@
 package backup
 
 import (
+	"errors"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -95,6 +96,91 @@ func TestFilesystem_BackupRepository(t *testing.T) {
 				require.FileExists(t, customHooksPath)
 			} else {
 				require.NoFileExists(t, customHooksPath)
+			}
+		})
+	}
+}
+
+func TestFilesystem_RestoreRepository(t *testing.T) {
+	cfg := testcfg.Build(t)
+	testhelper.ConfigureGitalyHooksBinary(cfg.BinDir)
+
+	gitalyAddr := testserver.RunGitalyServer(t, cfg, nil, setup.RegisterAll)
+
+	path := testhelper.TempDir(t)
+
+	existingRepo, existRepoPath, _ := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "existing_repo")
+	existingRepoPath := filepath.Join(path, existingRepo.RelativePath)
+	existingRepoBundlePath := existingRepoPath + ".bundle"
+	existingRepoCustomHooksPath := filepath.Join(existingRepoPath, "custom_hooks.tar")
+	require.NoError(t, os.MkdirAll(existingRepoPath, os.ModePerm))
+
+	gittest.Exec(t, cfg, "-C", existRepoPath, "bundle", "create", existingRepoBundlePath, "--all")
+	testhelper.CopyFile(t, "../gitaly/service/repository/testdata/custom_hooks.tar", existingRepoCustomHooksPath)
+
+	newRepo := gittest.InitRepoDir(t, cfg.Storages[0].Path, "new_repo")
+	newRepoBundlePath := filepath.Join(path, newRepo.RelativePath+".bundle")
+	testhelper.CopyFile(t, existingRepoBundlePath, newRepoBundlePath)
+
+	missingBundleRepo := gittest.InitRepoDir(t, cfg.Storages[0].Path, "missing_bundle")
+	missingBundleRepoAlwaysCreate := gittest.InitRepoDir(t, cfg.Storages[0].Path, "missing_bundle_always_create")
+
+	for _, tc := range []struct {
+		desc          string
+		repo          *gitalypb.Repository
+		alwaysCreate  bool
+		expectedPaths []string
+		expectedErrAs error
+		expectVerify  bool
+	}{
+		{
+			desc:         "new repo, without hooks",
+			repo:         newRepo,
+			expectVerify: true,
+		},
+		{
+			desc: "existing repo, with hooks",
+			repo: existingRepo,
+			expectedPaths: []string{
+				"custom_hooks/pre-commit.sample",
+				"custom_hooks/prepare-commit-msg.sample",
+				"custom_hooks/pre-push.sample",
+			},
+			expectVerify: true,
+		},
+		{
+			desc:          "missing bundle",
+			repo:          missingBundleRepo,
+			expectedErrAs: ErrSkipped,
+		},
+		{
+			desc:         "missing bundle, always create",
+			repo:         missingBundleRepoAlwaysCreate,
+			alwaysCreate: true,
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			repoPath := filepath.Join(cfg.Storages[0].Path, tc.repo.RelativePath)
+			bundlePath := filepath.Join(path, tc.repo.RelativePath+".bundle")
+
+			ctx, cancel := testhelper.Context()
+			defer cancel()
+
+			fsBackup := NewFilesystem(path)
+			err := fsBackup.RestoreRepository(ctx, storage.ServerInfo{Address: gitalyAddr, Token: cfg.Auth.Token}, tc.repo, tc.alwaysCreate)
+			if tc.expectedErrAs != nil {
+				require.True(t, errors.Is(err, tc.expectedErrAs), err.Error())
+			} else {
+				require.NoError(t, err)
+			}
+
+			if tc.expectVerify {
+				output := gittest.Exec(t, cfg, "-C", repoPath, "bundle", "verify", bundlePath)
+				require.Contains(t, string(output), "The bundle records a complete history")
+			}
+
+			for _, p := range tc.expectedPaths {
+				require.FileExists(t, filepath.Join(repoPath, p))
 			}
 		})
 	}

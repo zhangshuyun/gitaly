@@ -59,6 +59,35 @@ func (fs *Filesystem) BackupRepository(ctx context.Context, server storage.Serve
 	return nil
 }
 
+// RestoreRepository restores a repository from a backup on a local filesystem
+func (fs *Filesystem) RestoreRepository(ctx context.Context, server storage.ServerInfo, repo *gitalypb.Repository, alwaysCreate bool) error {
+	backupPath := strings.TrimSuffix(filepath.Join(fs.path, repo.RelativePath), ".git")
+	bundlePath := backupPath + ".bundle"
+	customHooksPath := filepath.Join(backupPath, "custom_hooks.tar")
+
+	if err := fs.removeRepository(ctx, server, repo); err != nil {
+		return fmt.Errorf("restore: %w", err)
+	}
+	if err := fs.restoreBundle(ctx, bundlePath, server, repo); err != nil {
+		// For compatibility with existing backups we need to always create the
+		// repository even if there's no bundle for project repositories
+		// (not wiki or snippet repositories).  Gitaly does not know which
+		// repository is which type so here we accept a parameter to tell us
+		// to employ this behaviour.
+		if alwaysCreate && errors.Is(err, ErrSkipped) {
+			if err := fs.createRepository(ctx, server, repo); err != nil {
+				return fmt.Errorf("restore: %w", err)
+			}
+		} else {
+			return fmt.Errorf("restore: %w", err)
+		}
+	}
+	if err := fs.restoreCustomHooks(ctx, customHooksPath, server, repo); err != nil {
+		return fmt.Errorf("restore: %w", err)
+	}
+	return nil
+}
+
 func (fs *Filesystem) isEmpty(ctx context.Context, server storage.ServerInfo, repo *gitalypb.Repository) (bool, error) {
 	repoClient, err := fs.newRepoClient(ctx, server)
 	if err != nil {
@@ -72,6 +101,28 @@ func (fs *Filesystem) isEmpty(ctx context.Context, server storage.ServerInfo, re
 		return false, fmt.Errorf("isEmpty: %w", err)
 	}
 	return !hasLocalBranches.GetValue(), nil
+}
+
+func (fs *Filesystem) removeRepository(ctx context.Context, server storage.ServerInfo, repo *gitalypb.Repository) error {
+	repoClient, err := fs.newRepoClient(ctx, server)
+	if err != nil {
+		return fmt.Errorf("remove repository: %w", err)
+	}
+	if _, err := repoClient.RemoveRepository(ctx, &gitalypb.RemoveRepositoryRequest{Repository: repo}); err != nil {
+		return fmt.Errorf("remove repository: %w", err)
+	}
+	return nil
+}
+
+func (fs *Filesystem) createRepository(ctx context.Context, server storage.ServerInfo, repo *gitalypb.Repository) error {
+	repoClient, err := fs.newRepoClient(ctx, server)
+	if err != nil {
+		return fmt.Errorf("create repository: %w", err)
+	}
+	if _, err := repoClient.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{Repository: repo}); err != nil {
+		return fmt.Errorf("create repository: %w", err)
+	}
+	return nil
 }
 
 func (fs *Filesystem) writeBundle(ctx context.Context, path string, server storage.ServerInfo, repo *gitalypb.Repository) error {
@@ -90,6 +141,45 @@ func (fs *Filesystem) writeBundle(ctx context.Context, path string, server stora
 	return writeFile(path, bundle)
 }
 
+func (fs *Filesystem) restoreBundle(ctx context.Context, path string, server storage.ServerInfo, repo *gitalypb.Repository) error {
+	f, err := os.Open(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("%w: bundle does not exist: %q", ErrSkipped, path)
+		}
+		return fmt.Errorf("restore bundle: %w", err)
+	}
+	defer f.Close()
+
+	repoClient, err := fs.newRepoClient(ctx, server)
+	if err != nil {
+		return fmt.Errorf("restore bundle: %q: %w", path, err)
+	}
+	stream, err := repoClient.CreateRepositoryFromBundle(ctx)
+	if err != nil {
+		return fmt.Errorf("restore bundle: %q: %w", path, err)
+	}
+	request := &gitalypb.CreateRepositoryFromBundleRequest{Repository: repo}
+	bundle := streamio.NewWriter(func(p []byte) error {
+		request.Data = p
+		if err := stream.Send(request); err != nil {
+			return err
+		}
+
+		// Only set `Repository` on the first `Send` of the stream
+		request = &gitalypb.CreateRepositoryFromBundleRequest{}
+
+		return nil
+	})
+	if _, err := io.Copy(bundle, f); err != nil {
+		return fmt.Errorf("restore bundle: %q: %w", path, err)
+	}
+	if _, err = stream.CloseAndRecv(); err != nil {
+		return fmt.Errorf("restore bundle: %q: %w", path, err)
+	}
+	return nil
+}
+
 func (fs *Filesystem) writeCustomHooks(ctx context.Context, path string, server storage.ServerInfo, repo *gitalypb.Repository) error {
 	repoClient, err := fs.newRepoClient(ctx, server)
 	if err != nil {
@@ -105,6 +195,46 @@ func (fs *Filesystem) writeCustomHooks(ctx context.Context, path string, server 
 	})
 	if err := writeFile(path, hooks); err != nil {
 		return err
+	}
+	return nil
+}
+
+func (fs *Filesystem) restoreCustomHooks(ctx context.Context, path string, server storage.ServerInfo, repo *gitalypb.Repository) error {
+	f, err := os.Open(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return fmt.Errorf("restore custom hooks: %w", err)
+	}
+	defer f.Close()
+
+	repoClient, err := fs.newRepoClient(ctx, server)
+	if err != nil {
+		return fmt.Errorf("restore custom hooks, %q: %w", path, err)
+	}
+	stream, err := repoClient.RestoreCustomHooks(ctx)
+	if err != nil {
+		return fmt.Errorf("restore custom hooks, %q: %w", path, err)
+	}
+
+	request := &gitalypb.RestoreCustomHooksRequest{Repository: repo}
+	bundle := streamio.NewWriter(func(p []byte) error {
+		request.Data = p
+		if err := stream.Send(request); err != nil {
+			return err
+		}
+
+		// Only set `Repository` on the first `Send` of the stream
+		request = &gitalypb.RestoreCustomHooksRequest{}
+
+		return nil
+	})
+	if _, err := io.Copy(bundle, f); err != nil {
+		return fmt.Errorf("restore custom hooks, %q: %w", path, err)
+	}
+	if _, err = stream.CloseAndRecv(); err != nil {
+		return fmt.Errorf("restore custom hooks, %q: %w", path, err)
 	}
 	return nil
 }

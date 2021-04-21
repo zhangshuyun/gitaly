@@ -178,6 +178,20 @@ func MustClose(t testing.TB, closer io.Closer) {
 	require.NoError(t, closer.Close())
 }
 
+// CopyFile copies a file at the path src to a file at the path dst
+func CopyFile(t testing.TB, src, dst string) {
+	fsrc, err := os.Open(src)
+	require.NoError(t, err)
+	defer MustClose(t, fsrc)
+
+	fdst, err := os.Create(dst)
+	require.NoError(t, err)
+	defer MustClose(t, fdst)
+
+	_, err = io.Copy(fdst, fsrc)
+	require.NoError(t, err)
+}
+
 // GetTemporaryGitalySocketFileName will return a unique, useable socket file name
 func GetTemporaryGitalySocketFileName(t testing.TB) string {
 	require.NotEmpty(t, testDirectory, "you must call testhelper.Configure() before GetTemporaryGitalySocketFileName()")
