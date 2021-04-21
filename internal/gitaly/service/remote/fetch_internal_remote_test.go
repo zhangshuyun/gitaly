@@ -21,13 +21,13 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/ref"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/ssh"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/metadata"
 )
 
 type mockHookManager struct {
@@ -220,8 +220,7 @@ func TestFailedFetchInternalRemote(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	md := testhelper.GitalyServersMetadataFromCfg(t, cfg)
-	ctx = metadata.NewOutgoingContext(ctx, md)
+	ctx = testhelper.MergeOutgoingMetadata(ctx, testhelper.GitalyServersMetadataFromCfg(t, cfg))
 
 	// Non-existing remote repo
 	remoteRepo := &gitalypb.Repository{StorageName: repo.GetStorageName(), RelativePath: "fake.git"}
@@ -231,9 +230,18 @@ func TestFailedFetchInternalRemote(t *testing.T) {
 		RemoteRepository: remoteRepo,
 	}
 
-	c, err := client.FetchInternalRemote(ctx, request)
-	require.NoError(t, err, "FetchInternalRemote is not supposed to return an error when 'git fetch' fails")
-	require.False(t, c.GetResult())
+	t.Run("fetch_internal_remote_errors enabled", func(t *testing.T) {
+		_, err := client.FetchInternalRemote(ctx, request)
+		require.Error(t, err, "FetchInternalRemote is supposed to return an error when 'git fetch' fails")
+	})
+
+	t.Run("fetch_internal_remote_errors disabled", func(t *testing.T) {
+		ctx := featureflag.OutgoingCtxWithDisabledFeatureFlags(ctx, featureflag.FetchInternalRemoteErrors)
+
+		c, err := client.FetchInternalRemote(ctx, request)
+		require.NoError(t, err, "FetchInternalRemote is not supposed to return an error when 'git fetch' fails")
+		require.False(t, c.GetResult())
+	})
 }
 
 func TestFailedFetchInternalRemoteDueToValidations(t *testing.T) {

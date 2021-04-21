@@ -11,6 +11,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/ref"
 	"gitlab.com/gitlab-org/gitaly/internal/gitalyssh"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -55,9 +56,18 @@ func (s *server) FetchInternalRemote(ctx context.Context, req *gitalypb.FetchInt
 		return nil, fmt.Errorf("create git fetch: %w", err)
 	}
 	if err := cmd.Wait(); err != nil {
-		// Design quirk: if the fetch fails, this RPC returns Result: false, but no error.
-		ctxlogrus.Extract(ctx).WithError(err).WithField("stderr", stderr.String()).Warn("git fetch failed")
-		return &gitalypb.FetchInternalRemoteResponse{Result: false}, nil
+		if featureflag.IsDisabled(ctx, featureflag.FetchInternalRemoteErrors) {
+			// Design quirk: if the fetch fails, this RPC returns Result: false, but no error.
+			ctxlogrus.Extract(ctx).WithError(err).WithField("stderr", stderr.String()).Warn("git fetch failed")
+			return &gitalypb.FetchInternalRemoteResponse{Result: false}, nil
+		}
+
+		errMsg := stderr.String()
+		if errMsg != "" {
+			return nil, fmt.Errorf("FetchInternalRemote: fetch: %w, stderr: %q", err, errMsg)
+		}
+
+		return nil, fmt.Errorf("FetchInternalRemote: fetch: %w", err)
 	}
 
 	remoteDefaultBranch, err := s.getRemoteDefaultBranch(ctx, req.RemoteRepository)
