@@ -10,6 +10,7 @@ linters:
   enable:
     - deadcode
     - errcheck
+    - exportloopref
     - gci
     - goimports
     - golint
