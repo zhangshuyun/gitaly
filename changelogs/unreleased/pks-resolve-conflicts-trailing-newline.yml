@@ -1,0 +1,5 @@
+---
+title: 'conflicts: Fix trailing newline handling when resolving conflicts'
+merge_request: 3386
+author:
+type: fixed

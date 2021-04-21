@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 )
 
 // Errors that can occur during parsing of a merge conflict file
@@ -74,18 +75,16 @@ const (
 // specified resolution
 func (f File) Resolve(resolution Resolution) ([]byte, error) {
 	var sectionID string
-	b := bytes.NewBuffer(nil)
 
 	if len(resolution.Sections) == 0 {
 		return []byte(resolution.Content), nil
 	}
 
+	resolvedLines := make([]string, 0, len(f.lines))
 	for _, l := range f.lines {
 		if l.section == sectionNone {
 			sectionID = ""
-			if _, err := b.WriteString(l.payload + "\n"); err != nil {
-				return nil, err
-			}
+			resolvedLines = append(resolvedLines, l.payload)
 			continue
 		}
 
@@ -111,19 +110,15 @@ func (f File) Resolve(resolution Resolution) ([]byte, error) {
 			return nil, fmt.Errorf("Missing resolution for section ID: %s", sectionID) //nolint
 		}
 
-		if _, err := b.WriteString(l.payload); err != nil {
-			return nil, err
-		}
-
-		if l.section == sectionNoNewline {
-			continue
-		}
-		if _, err := b.WriteString("\n"); err != nil {
-			return nil, err
-		}
+		resolvedLines = append(resolvedLines, l.payload)
 	}
 
-	return b.Bytes(), nil
+	resolvedContents := strings.Join(resolvedLines, "\n")
+	if bytes.HasSuffix(f.our.Contents, []byte{'\n'}) {
+		resolvedContents += "\n"
+	}
+
+	return []byte(resolvedContents), nil
 }
 
 // Entry is a conflict entry with a path and its original preimage contents.

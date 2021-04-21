@@ -64,6 +64,7 @@ func TestWithRubyServer(t *testing.T) {
 
 	t.Run("testSuccessfulResolveConflictsRequest", func(t *testing.T) { testSuccessfulResolveConflictsRequest(t, cfg, rubySrv) })
 	t.Run("testResolveConflictsWithRemoteRepo", func(t *testing.T) { testResolveConflictsWithRemoteRepo(t, cfg, rubySrv) })
+	t.Run("testResolveConflictsLineEndings", func(t *testing.T) { testResolveConflictsLineEndings(t, cfg, rubySrv) })
 	t.Run("testResolveConflictsNonOIDRequests", func(t *testing.T) { testResolveConflictsNonOIDRequests(t, cfg, rubySrv) })
 	t.Run("testResolveConflictsIdenticalContent", func(t *testing.T) { testResolveConflictsIdenticalContent(t, cfg, rubySrv) })
 	t.Run("testResolveConflictsStableID", func(t *testing.T) { testResolveConflictsStableID(t, cfg, rubySrv) })
@@ -269,6 +270,124 @@ func testResolveConflictsWithRemoteRepoFeatured(t *testing.T, ctx context.Contex
 	require.Empty(t, response.GetResolutionError())
 
 	require.Equal(t, []byte("contents-2\n"), testhelper.MustRunCommand(t, nil, "git", "-C", sourceRepoPath, "cat-file", "-p", "refs/heads/source:file.txt"))
+}
+
+func testResolveConflictsLineEndings(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.GoResolveConflicts,
+	}).Run(t, func(t *testing.T, ctx context.Context) {
+		testResolveConflictsLineEndingsFeatured(t, ctx, cfg, rubySrv)
+	})
+}
+
+func testResolveConflictsLineEndingsFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
+	cfg, repo, repoPath, client := conflicts.SetupConflictsServiceWithRuby(t, cfg, rubySrv, true)
+
+	ctx = testhelper.MergeOutgoingMetadata(ctx, testhelper.GitalyServersMetadata(t, cfg.SocketPath))
+
+	for _, tc := range []struct {
+		desc             string
+		ourContent       string
+		theirContent     string
+		resolutions      []map[string]interface{}
+		expectedContents string
+	}{
+		{
+			desc:             "only newline",
+			ourContent:       "\n",
+			theirContent:     "\n",
+			resolutions:      []map[string]interface{}{},
+			expectedContents: "\n",
+		},
+		{
+			desc:         "conflicting newline with embedded character",
+			ourContent:   "\nA\n",
+			theirContent: "\nB\n",
+			resolutions: []map[string]interface{}{
+				{
+					"old_path": "file.txt",
+					"new_path": "file.txt",
+					"sections": map[string]string{
+						"5436437fa01a7d3e41d46741da54b451446774ca_2_2": "head",
+					},
+				},
+			},
+			expectedContents: "\nA\n",
+		},
+		{
+			desc:         "conflicting carriage-return newlines",
+			ourContent:   "A\r\nB\r\nC\r\nD\r\nE\r\n",
+			theirContent: "A\r\nB\r\nX\r\nD\r\nE\r\n",
+			resolutions: []map[string]interface{}{
+				{
+					"old_path": "file.txt",
+					"new_path": "file.txt",
+					"sections": map[string]string{
+						"5436437fa01a7d3e41d46741da54b451446774ca_3_3": "origin",
+					},
+				},
+			},
+			expectedContents: "A\r\nB\r\nX\r\nD\r\nE\r\n",
+		},
+		{
+			desc:         "conflict with no trailing newline",
+			ourContent:   "A\nB",
+			theirContent: "X\nB",
+			resolutions: []map[string]interface{}{
+				{
+					"old_path": "file.txt",
+					"new_path": "file.txt",
+					"sections": map[string]string{
+						"5436437fa01a7d3e41d46741da54b451446774ca_1_1": "head",
+					},
+				},
+			},
+			expectedContents: "A\nB",
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			ourOID := gittest.WriteBlob(t, repoPath, []byte(tc.ourContent))
+			ourCommit := gittest.CommitBlobWithName(t, repoPath, ourOID.String(), "file.txt", "message")
+			testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "update-ref", "refs/heads/ours", ourCommit)
+
+			theirOID := gittest.WriteBlob(t, repoPath, []byte(tc.theirContent))
+			theirCommit := gittest.CommitBlobWithName(t, repoPath, theirOID.String(), "file.txt", "message")
+			testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "update-ref", "refs/heads/theirs", theirCommit)
+
+			stream, err := client.ResolveConflicts(ctx)
+			require.NoError(t, err)
+
+			filesJSON, err := json.Marshal(tc.resolutions)
+			require.NoError(t, err)
+
+			require.NoError(t, stream.Send(&gitalypb.ResolveConflictsRequest{
+				ResolveConflictsRequestPayload: &gitalypb.ResolveConflictsRequest_Header{
+					Header: &gitalypb.ResolveConflictsRequestHeader{
+						Repository:       repo,
+						TargetRepository: repo,
+						CommitMessage:    []byte(conflictResolutionCommitMessage),
+						OurCommitOid:     ourCommit,
+						TheirCommitOid:   theirCommit,
+						SourceBranch:     []byte("ours"),
+						TargetBranch:     []byte("theirs"),
+						User:             user,
+					},
+				},
+			}))
+			require.NoError(t, stream.Send(&gitalypb.ResolveConflictsRequest{
+				ResolveConflictsRequestPayload: &gitalypb.ResolveConflictsRequest_FilesJson{
+					FilesJson: filesJSON,
+				},
+			}))
+
+			response, err := stream.CloseAndRecv()
+			require.NoError(t, err)
+			require.Empty(t, response.GetResolutionError())
+
+			require.Equal(t, []byte(tc.expectedContents), testhelper.MustRunCommand(t, nil,
+				"git", "-C", repoPath, "cat-file", "-p", "refs/heads/ours:file.txt"))
+		})
+	}
 }
 
 func testResolveConflictsNonOIDRequests(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
