@@ -122,16 +122,11 @@ func (cmd resolveSubcommand) Run(_ context.Context, r io.Reader, w io.Writer) er
 			return fmt.Errorf("Resolved content has no changes for file %s", r.NewPath) //nolint
 		}
 
-		ancestorPath := c.Our.Path
-		if c.Ancestor != nil {
-			ancestorPath = c.Ancestor.Path
-		}
-
 		conflictFile, err := conflict.Parse(
 			bytes.NewReader(mfr.Contents),
-			c.Our.Path,
-			c.Their.Path,
-			ancestorPath,
+			ancestor,
+			our,
+			their,
 		)
 		if err != nil {
 			return fmt.Errorf("parse conflict for %q: %w", c.Ancestor.Path, err)

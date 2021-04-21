@@ -43,8 +43,9 @@ type line struct {
 // File contains an ordered list of lines with metadata about potential
 // conflicts.
 type File struct {
-	path  string
-	lines []line
+	path                 string
+	lines                []line
+	ancestor, our, their *Entry
 }
 
 func (f File) sectionID(l line) string {
@@ -133,14 +134,25 @@ type Entry struct {
 }
 
 // Parse will read each line and maintain which conflict section it belongs to
-func Parse(src io.Reader, ourPath, theirPath, parentPath string) (File, error) {
+func Parse(src io.Reader, ancestor, our, their *Entry) (File, error) {
+	parentPath := our.Path
+	if ancestor != nil {
+		parentPath = ancestor.Path
+	}
+
 	var (
 		// conflict markers
-		start  = "<<<<<<< " + ourPath
+		start  = "<<<<<<< " + our.Path
 		middle = "======="
-		end    = ">>>>>>> " + theirPath
+		end    = ">>>>>>> " + their.Path
 
-		f                                 = File{path: parentPath}
+		f = File{
+			path:     parentPath,
+			ancestor: ancestor,
+			our:      our,
+			their:    their,
+		}
+
 		objIndex, oldIndex, newIndex uint = 0, 1, 1
 		currentSection               section
 		bytesRead                    int

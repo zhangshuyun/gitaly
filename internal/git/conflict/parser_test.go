@@ -10,19 +10,17 @@ import (
 
 func TestFile_Resolve(t *testing.T) {
 	for _, tt := range []struct {
-		name                           string
-		ourPath, theirPath, parentPath string
-		conflictFile                   io.Reader
-		parseErr                       error
-		resolution                     Resolution
-		resolveErr                     error
-		expect                         string
+		name         string
+		path         string
+		conflictFile io.Reader
+		parseErr     error
+		resolution   Resolution
+		resolveErr   error
+		expect       string
 	}{
 		{
-			name:       "ours",
-			ourPath:    "conflict.txt",
-			theirPath:  "conflict.txt",
-			parentPath: "conflict.txt",
+			name: "ours",
+			path: "conflict.txt",
 			conflictFile: strings.NewReader(`# this file is very conflicted
 <<<<<<< conflict.txt
 we want this line
@@ -44,10 +42,8 @@ we can both agree on this line though
 `,
 		},
 		{
-			name:       "theirs",
-			ourPath:    "conflict.txt",
-			theirPath:  "conflict.txt",
-			parentPath: "conflict.txt",
+			name: "theirs",
+			path: "conflict.txt",
 			conflictFile: strings.NewReader(`# this file is very conflicted
 <<<<<<< conflict.txt
 we want this line
@@ -69,10 +65,8 @@ we can both agree on this line though
 `,
 		},
 		{
-			name:       "UnexpectedDelimiter",
-			ourPath:    "conflict.txt",
-			theirPath:  "conflict.txt",
-			parentPath: "conflict.txt",
+			name: "UnexpectedDelimiter",
+			path: "conflict.txt",
 			conflictFile: strings.NewReader(`# this file is very conflicted
 <<<<<<< conflict.txt
 we want this line
@@ -85,10 +79,8 @@ we can both agree on this line though
 			parseErr: ErrUnexpectedDelimiter,
 		},
 		{
-			name:       "ErrMissingEndDelimiter",
-			ourPath:    "conflict.txt",
-			theirPath:  "conflict.txt",
-			parentPath: "conflict.txt",
+			name: "ErrMissingEndDelimiter",
+			path: "conflict.txt",
 			conflictFile: strings.NewReader(`# this file is very conflicted
 <<<<<<< conflict.txt
 we want this line
@@ -100,30 +92,30 @@ we can both agree on this line though
 		},
 		{
 			name:         "Conflict file under file limit",
-			ourPath:      "conflict.txt",
-			theirPath:    "conflict.txt",
-			parentPath:   "conflict.txt",
+			path:         "conflict.txt",
 			conflictFile: strings.NewReader(strings.Repeat("x", fileLimit-2) + "\n"),
 		},
 		{
 			name:         "ErrUnmergeableFile over file limit",
-			ourPath:      "conflict.txt",
-			theirPath:    "conflict.txt",
-			parentPath:   "conflict.txt",
+			path:         "conflict.txt",
 			conflictFile: strings.NewReader(strings.Repeat("x", fileLimit+1)),
 			parseErr:     ErrUnmergeableFile,
 		},
 		{
 			name:         "ErrUnmergeableFile empty file",
-			ourPath:      "conflict.txt",
-			theirPath:    "conflict.txt",
-			parentPath:   "conflict.txt",
+			path:         "conflict.txt",
 			conflictFile: strings.NewReader(""),
 			parseErr:     ErrUnmergeableFile,
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			f, err := Parse(tt.conflictFile, tt.ourPath, tt.ourPath, tt.ourPath)
+			entry := Entry{
+				Path:     tt.path,
+				Mode:     0644,
+				Contents: []byte("something-with-trailing-newline\n"),
+			}
+
+			f, err := Parse(tt.conflictFile, &entry, &entry, &entry)
 			require.Equal(t, tt.parseErr, err)
 
 			actual, err := f.Resolve(tt.resolution)
