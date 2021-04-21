@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -94,12 +95,12 @@ func CreateCommitInAlternateObjectDirectory(t testing.TB, gitBin, repoPath, altO
 // specified name. This enables testing situations where the filepath is not
 // possible due to filesystem constraints (e.g. non-UTF characters). The commit
 // ID is returned.
-func CommitBlobWithName(t testing.TB, testRepoPath, blobID, fileName, commitMessage string) string {
+func CommitBlobWithName(t testing.TB, cfg config.Cfg, testRepoPath, blobID, fileName, commitMessage string) string {
 	mktreeIn := strings.NewReader(fmt.Sprintf("100644 blob %s\t%s", blobID, fileName))
-	treeID := text.ChompBytes(testhelper.MustRunCommand(t, mktreeIn, "git", "-C", testRepoPath, "mktree"))
+	treeID := text.ChompBytes(ExecStream(t, cfg, mktreeIn, "-C", testRepoPath, "mktree"))
 
 	return text.ChompBytes(
-		testhelper.MustRunCommand(t, nil, "git",
+		Exec(t, cfg,
 			"-c", fmt.Sprintf("user.name=%s", committerName),
 			"-c", fmt.Sprintf("user.email=%s", committerEmail),
 			"-C", testRepoPath, "commit-tree", treeID, "-m", commitMessage),

@@ -48,7 +48,7 @@ func TestRepositoryProfile(t *testing.T) {
 	require.Equal(t, int64(blobs), looseObjects)
 
 	for _, blobID := range blobIDs {
-		commitID := gittest.CommitBlobWithName(t, testRepoPath, blobID, blobID, "adding another blob....")
+		commitID := gittest.CommitBlobWithName(t, cfg, testRepoPath, blobID, blobID, "adding another blob....")
 		testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "update-ref", "refs/heads/"+blobID, commitID)
 	}
 

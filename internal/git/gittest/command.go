@@ -15,6 +15,11 @@ func Exec(t testing.TB, cfg config.Cfg, args ...string) []byte {
 	return run(t, nil, cfg, args...)
 }
 
+// ExecStream runs a git command with an input stream and returns the standard output, or fails.
+func ExecStream(t testing.TB, cfg config.Cfg, stream io.Reader, args ...string) []byte {
+	return run(t, stream, cfg, args...)
+}
+
 func run(t testing.TB, stdin io.Reader, cfg config.Cfg, args ...string) []byte {
 	t.Helper()
 

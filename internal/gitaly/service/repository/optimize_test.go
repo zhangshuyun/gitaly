@@ -106,7 +106,7 @@ func TestOptimizeRepository(t *testing.T) {
 	require.NoError(t, err)
 
 	for _, blobID := range blobIDs {
-		commitID := gittest.CommitBlobWithName(t, testRepoPath, blobID, blobID, "adding another blob....")
+		commitID := gittest.CommitBlobWithName(t, config.Config, testRepoPath, blobID, blobID, "adding another blob....")
 		require.NoError(t, updater.Create(git.ReferenceName("refs/heads/"+blobID), commitID))
 	}
 

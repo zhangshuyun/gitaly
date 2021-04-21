@@ -320,7 +320,7 @@ func TestFailedListLastCommitsForTreeRequest(t *testing.T) {
 }
 
 func TestNonUtf8ListLastCommitsForTreeRequest(t *testing.T) {
-	_, repo, repoPath, client := setupCommitServiceWithRepo(t, true)
+	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, true)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -331,7 +331,9 @@ func TestNonUtf8ListLastCommitsForTreeRequest(t *testing.T) {
 	nonUTF8Filename := "hello\x80world"
 	require.False(t, utf8.ValidString(nonUTF8Filename))
 
-	commitID := gittest.CommitBlobWithName(t,
+	commitID := gittest.CommitBlobWithName(
+		t,
+		cfg,
 		repoPath,
 		blobID,
 		nonUTF8Filename,
