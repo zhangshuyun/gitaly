@@ -1,5 +1,0 @@
----
-title: 'featureflag: Remove reverse-packfile index feature flag'
-merge_request: 3358
-author:
-type: performance

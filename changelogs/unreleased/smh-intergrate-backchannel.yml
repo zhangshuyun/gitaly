@@ -1,5 +1,0 @@
----
-title: Integrate connection multiplexing into Gitaly and Praefect
-merge_request: 3293
-author:
-type: added

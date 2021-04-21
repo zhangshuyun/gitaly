@@ -1,5 +1,0 @@
----
-title: 'proxy: Fix Goroutine leak in `forwardClientToServers()`'
-merge_request: 3371
-author:
-type: fixed

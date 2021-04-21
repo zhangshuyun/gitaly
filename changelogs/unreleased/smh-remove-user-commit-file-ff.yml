@@ -1,5 +1,0 @@
----
-title: Remove go_user_commit_files feature flag
-merge_request: 3281
-author:
-type: performance

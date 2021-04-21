@@ -1,5 +1,0 @@
----
-title: 'Makefile: Add custom patch to fix pathological perf with bitmap indices'
-merge_request: 3362
-author:
-type: performance

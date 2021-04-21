@@ -1,5 +1,0 @@
----
-title: Add CheckHostIP=no to SSH auth options for mirroring
-merge_request: 3312
-author:
-type: fixed
