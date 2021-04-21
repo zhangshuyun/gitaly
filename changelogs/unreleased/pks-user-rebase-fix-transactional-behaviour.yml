@@ -1,5 +1,0 @@
----
-title: 'operations: Fix UserRebaseConfirmable not using transactions'
-merge_request: 3369
-author:
-type: fixed

@@ -1,5 +1,0 @@
----
-title: 'git: Generate reverse packfile indices'
-merge_request: 3292
-author:
-type: performance

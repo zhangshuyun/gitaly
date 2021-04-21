@@ -1,5 +1,0 @@
----
-title: 'repository: Fix default refspecs force-updating references'
-merge_request: 3253
-author:
-type: fixed

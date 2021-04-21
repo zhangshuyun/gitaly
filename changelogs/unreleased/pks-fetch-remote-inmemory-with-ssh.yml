@@ -1,5 +1,0 @@
----
-title: 'repository: Fix fetching in-memory remotes with SSH params'
-merge_request: 3344
-author:
-type: fixed

@@ -1,5 +1,0 @@
----
-title: 'featureflag: Remove per-RPC transactional feature flags'
-merge_request: 3284
-author:
-type: changed

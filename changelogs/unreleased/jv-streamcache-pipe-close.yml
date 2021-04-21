@@ -1,5 +1,0 @@
----
-title: Close streamcache writer on all return paths
-merge_request: 3335
-author:
-type: fixed

@@ -1,5 +1,63 @@
 # Gitaly changelog
 
+## 13.11.0 (2021-04-22)
+
+### Removed (1 change)
+
+- Removal of the feature flag: distributed_reads. !3271
+
+### Fixed (10 changes)
+
+- repository: Fix default refspecs force-updating references. !3253
+- Upgrade git version to v2.31.1. !3306
+- Add CheckHostIP=no to SSH auth options for mirroring. !3312
+- Close streamcache writer on all return paths. !3335
+- Fail pipe writes when readers leave. !3341
+- repository: Fix fetching in-memory remotes with SSH params. !3344
+- remote: Fix UpdateRemoteMirror having transactional semantics. !3345
+- ref: Fix missing votes for `DeleteRefs()` RPC. !3347
+- operations: Fix UserRebaseConfirmable not using transactions. !3369
+- proxy: Fix Goroutine leak in `forwardClientToServers()`. !3371
+
+### Deprecated (1 change)
+
+- Upgrade minimum required Go version to 1.15. !3352
+
+### Changed (7 changes)
+
+- CommitsBetween: learn to accept pagination params. !2484
+- Enable gprc-go debug log messages with GRPC_GO_LOG_SEVERITY_LEVEL. !3266
+- featureflag: Remove per-RPC transactional feature flags. !3284
+- Turn UserUpdateBranch in Go on by default. !3286
+- Remove upload_pack_gitaly_hooks feature flag. !3301
+- featureflag: Default enable LogCommandStats. !3350
+- Update activesupport to v6.0.3.6. !3373
+
+### Performance (9 changes)
+
+- Enable Go implementation for UserCherryPick. !3262
+- Remove go_user_commit_files feature flag. !3281
+- git: Generate reverse packfile indices. !3292
+- blob: Remove feature flags for LFS pointer RPC ports. !3309
+- repository: Allow fetching via in-memory remotes. !3321
+- git: Use atomic fetches to allow for transactional behaviour. !3324
+- featureflag: Remove reverse-packfile index feature flag. !3358
+- featureflag: Remove `AtomicFetch` feature flag. !3359
+- Makefile: Add custom patch to fix pathological perf with bitmap indices. !3362
+
+### Added (5 changes)
+
+- Add support for word-diff mode. !3086
+- config: Allow injection of git config via Gitaly's config. !3279
+- Integrate connection multiplexing into Gitaly and Praefect. !3293
+- blob: Revamp interface for LFS pointers. !3316
+- git: Bump minimum git version to git v2.31.0. !3340
+
+### Other (1 change, 1 of them is from the community)
+
+- Update gitlab-gollum-rugged_adapter to 0.4.4.4.gitlab.1. !3357 (Takuya Noguchi)
+
+
 ## 13.10.3 (2021-04-13)
 
 - No changes.
