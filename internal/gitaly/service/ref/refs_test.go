@@ -929,7 +929,7 @@ func TestEmptyFindLocalBranchesRequest(t *testing.T) {
 }
 
 func TestSuccessfulFindAllBranchesRequest(t *testing.T) {
-	_, repo, repoPath, client := setupRefService(t)
+	cfg, repo, repoPath, client := setupRefService(t)
 
 	remoteBranch := &gitalypb.FindAllBranchesResponse_Branch{
 		Name: []byte("refs/remotes/origin/fake-remote-branch"),
@@ -956,7 +956,7 @@ func TestSuccessfulFindAllBranchesRequest(t *testing.T) {
 		},
 	}
 
-	gittest.CreateRemoteBranch(t, repoPath, "origin",
+	gittest.CreateRemoteBranch(t, cfg, repoPath, "origin",
 		"fake-remote-branch", remoteBranch.Target.Id)
 
 	request := &gitalypb.FindAllBranchesRequest{Repository: repo}
