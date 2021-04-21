@@ -168,7 +168,14 @@ func (cmd resolveSubcommand) Run(_ context.Context, r io.Reader, w io.Writer) er
 			if err != nil {
 				return fmt.Errorf("next unresolved conflict: %w", err)
 			}
-			conflictPaths = append(conflictPaths, c.Ancestor.Path)
+			var conflictingPath string
+			if c.Ancestor != nil {
+				conflictingPath = c.Ancestor.Path
+			} else {
+				conflictingPath = c.Our.Path
+			}
+
+			conflictPaths = append(conflictPaths, conflictingPath)
 		}
 
 		return fmt.Errorf("Missing resolutions for the following files: %s", strings.Join(conflictPaths, ", ")) //nolint
