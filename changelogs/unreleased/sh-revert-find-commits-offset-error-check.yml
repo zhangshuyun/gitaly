@@ -1,0 +1,5 @@
+---
+title: 'Revert commit: Raise error if skipping commit offsets fails'
+merge_request: 3390
+author:
+type: fixed
