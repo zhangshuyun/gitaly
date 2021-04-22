@@ -135,38 +135,6 @@ module GitalyServer
     end
     # rubocop:enable Metrics/AbcSize
 
-    def user_commit_files(call)
-      actions = []
-      request_enum = call.each_remote_read
-      header = request_enum.next.header
-
-      loop do
-        action = request_enum.next.action
-
-        if action.header
-          actions << commit_files_action_from_gitaly_request(action.header)
-        else
-          actions.last[:content] << action.content
-        end
-      end
-
-      repo = Gitlab::Git::Repository.from_gitaly(header.repository, call)
-      user = Gitlab::Git::User.from_gitaly(header.user)
-      opts = commit_files_opts(call, header, actions)
-
-      branch_update = branch_update_result(repo.multi_action(user, opts))
-
-      Gitaly::UserCommitFilesResponse.new(branch_update: branch_update)
-    rescue Gitlab::Git::Index::IndexError => e
-      Gitaly::UserCommitFilesResponse.new(index_error: set_utf8!(e.message))
-    rescue Gitlab::Git::PreReceiveError => e
-      Gitaly::UserCommitFilesResponse.new(pre_receive_error: set_utf8!(e.message))
-    rescue Gitlab::Git::CommitError => e
-      raise GRPC::FailedPrecondition.new(e.message)
-    rescue ArgumentError => e
-      raise GRPC::InvalidArgument.new(e.message)
-    end
-
     def user_apply_patch(call)
       stream = call.each_remote_read
       first_request = stream.next
@@ -208,43 +176,6 @@ module GitalyServer
     end
 
     private
-
-    def commit_files_opts(call, header, actions)
-      opts = {
-        branch_name: header.branch_name,
-        message: header.commit_message.b,
-        actions: actions
-      }
-
-      opts[:start_repository] = Gitlab::Git::GitalyRemoteRepository.new(header.start_repository, call) if header.start_repository
-
-      optional_fields = {
-        start_branch_name: 'start_branch_name',
-        start_sha: 'start_sha',
-        author_name: 'commit_author_name',
-        author_email: 'commit_author_email',
-        force: 'force',
-        timestamp: 'timestamp'
-      }.transform_values { |v| header[v].presence }
-
-      opts.merge(optional_fields)
-    end
-
-    def commit_files_action_from_gitaly_request(header)
-      {
-        action: header.action.downcase,
-        # Forcing the encoding to UTF-8 here is unusual. But these paths get
-        # compared with Rugged::Index entries, which are also force-encoded to
-        # UTF-8. See
-        # https://github.com/libgit2/rugged/blob/f8172c2a177a6795553f38f01248daff923f4264/ext/rugged/rugged_index.c#L514
-        file_path: set_utf8!(header.file_path),
-        previous_path: set_utf8!(header.previous_path),
-        encoding: header.base64_content ? 'base64' : '',
-        content: '',
-        infer_content: header.infer_content,
-        execute_filemode: header.execute_filemode
-      }
-    end
 
     def branch_update_result(gitlab_update_result)
       return if gitlab_update_result.nil?
