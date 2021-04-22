@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -19,9 +18,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/hooks"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
-	gitalyhook "gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/hook"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
@@ -29,11 +27,11 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/streamio"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/reflection"
 )
 
 const (
@@ -48,8 +46,7 @@ func TestSuccessfulReceivePackRequest(t *testing.T) {
 	hookOutputFile, cleanup := gittest.CaptureHookEnv(t)
 	defer cleanup()
 
-	serverSocketPath, stop := runSmartHTTPServer(t, cfg)
-	defer stop()
+	serverSocketPath := runSmartHTTPServer(t, cfg)
 
 	client, conn := newSmartHTTPClient(t, serverSocketPath, cfg.Auth.Token)
 	defer conn.Close()
@@ -113,8 +110,7 @@ func TestSuccessfulReceivePackRequestWithGitProtocol(t *testing.T) {
 
 	readProto, cfg := gittest.EnableGitProtocolV2Support(t, cfg)
 
-	serverSocketPath, stop := runSmartHTTPServer(t, cfg)
-	defer stop()
+	serverSocketPath := runSmartHTTPServer(t, cfg)
 
 	client, conn := newSmartHTTPClient(t, serverSocketPath, cfg.Auth.Token)
 	defer conn.Close()
@@ -139,8 +135,7 @@ func TestSuccessfulReceivePackRequestWithGitProtocol(t *testing.T) {
 func TestFailedReceivePackRequestWithGitOpts(t *testing.T) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
-	serverSocketPath, stop := runSmartHTTPServer(t, cfg)
-	defer stop()
+	serverSocketPath := runSmartHTTPServer(t, cfg)
 
 	client, conn := newSmartHTTPClient(t, serverSocketPath, cfg.Auth.Token)
 	defer conn.Close()
@@ -174,8 +169,7 @@ func TestFailedReceivePackRequestDueToHooksFailure(t *testing.T) {
 	hookContent := []byte("#!/bin/sh\nexit 1")
 	require.NoError(t, ioutil.WriteFile(filepath.Join(hooks.Path(cfg), "pre-receive"), hookContent, 0755))
 
-	serverSocketPath, stop := runSmartHTTPServer(t, cfg)
-	defer stop()
+	serverSocketPath := runSmartHTTPServer(t, cfg)
 
 	client, conn := newSmartHTTPClient(t, serverSocketPath, cfg.Auth.Token)
 	defer conn.Close()
@@ -281,8 +275,7 @@ func createCommit(t *testing.T, repoPath string, fileContents []byte) (oldHead s
 func TestFailedReceivePackRequestDueToValidationError(t *testing.T) {
 	cfg := testcfg.Build(t)
 
-	serverSocketPath, stop := runSmartHTTPServer(t, cfg)
-	defer stop()
+	serverSocketPath := runSmartHTTPServer(t, cfg)
 
 	client, conn := newSmartHTTPClient(t, serverSocketPath, cfg.Auth.Token)
 	defer conn.Close()
@@ -340,8 +333,7 @@ func TestInvalidTimezone(t *testing.T) {
 	_, cleanup = gittest.CaptureHookEnv(t)
 	defer cleanup()
 
-	socket, stop := runSmartHTTPServer(t, cfg)
-	defer stop()
+	socket := runSmartHTTPServer(t, cfg)
 
 	client, conn := newSmartHTTPClient(t, socket, cfg.Auth.Token)
 	defer conn.Close()
@@ -412,8 +404,7 @@ func TestPostReceivePackToHooks(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	server, socket := runSmartHTTPHookServiceServer(t, cfg)
-	defer server.Stop()
+	socket := runSmartHTTPServer(t, cfg)
 
 	client, conn := newSmartHTTPClient(t, "unix://"+socket, cfg.Auth.Token)
 	defer conn.Close()
@@ -432,34 +423,6 @@ func TestPostReceivePackToHooks(t *testing.T) {
 	expectedResponse := "0049\x01000eunpack ok\n0019ok refs/heads/master\n0019ok refs/heads/branch\n00000000"
 	require.Equal(t, expectedResponse, string(response), "Expected response to be %q, got %q", expectedResponse, response)
 	require.Equal(t, io.EOF, drainPostReceivePackResponse(stream))
-}
-
-func runSmartHTTPHookServiceServer(t *testing.T, cfg config.Cfg) (*grpc.Server, string) {
-	server := testhelper.NewTestGrpcServer(t, nil, nil)
-
-	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
-	listener, err := net.Listen("unix", serverSocketPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	internalListener, err := net.Listen("unix", cfg.GitalyInternalSocketPath())
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	locator := config.NewLocator(cfg)
-	txManager := transaction.NewManager(cfg, backchannel.NewRegistry())
-	hookManager := gitalyhook.NewManager(locator, txManager, gitalyhook.GitlabAPIStub, cfg)
-	gitCmdFactory := git.NewExecCommandFactory(cfg)
-
-	gitalypb.RegisterSmartHTTPServiceServer(server, NewServer(cfg, locator, gitCmdFactory))
-	gitalypb.RegisterHookServiceServer(server, hook.NewServer(cfg, hookManager, gitCmdFactory))
-	reflection.Register(server)
-
-	go server.Serve(listener)
-	go server.Serve(internalListener)
-
-	return server, "unix://" + serverSocketPath
 }
 
 func TestPostReceiveWithTransactionsViaPraefect(t *testing.T) {
@@ -500,29 +463,9 @@ func testPostReceiveWithTransactionsViaPraefect(t *testing.T, ctx context.Contex
 
 	testhelper.WriteShellSecretFile(t, gitlabShellDir, secretToken)
 
-	locator := config.NewLocator(cfg)
-	registry := backchannel.NewRegistry()
-	txManager := transaction.NewManager(cfg, registry)
-	hookManager := gitalyhook.NewManager(locator, txManager, gitalyhook.GitlabAPIStub, cfg)
-	gitCmdFactory := git.NewExecCommandFactory(cfg)
+	addr := runSmartHTTPServer(t, cfg)
 
-	gitalyServer := testhelper.NewServerWithAuth(t, nil, nil, cfg.Auth.Token, registry)
-
-	gitalypb.RegisterSmartHTTPServiceServer(gitalyServer.GrpcServer(), NewServer(cfg, locator, gitCmdFactory))
-	gitalypb.RegisterHookServiceServer(gitalyServer.GrpcServer(), hook.NewServer(cfg, hookManager, gitCmdFactory))
-	reflection.Register(gitalyServer.GrpcServer())
-	gitalyServer.Start(t)
-	defer gitalyServer.Stop()
-
-	internalSocket := cfg.GitalyInternalSocketPath()
-	internalListener, err := net.Listen("unix", internalSocket)
-	require.NoError(t, err)
-
-	go func() {
-		require.NoError(t, gitalyServer.GrpcServer().Serve(internalListener))
-	}()
-
-	client, conn := newSmartHTTPClient(t, "unix://"+gitalyServer.Socket(), cfg.Auth.Token)
+	client, conn := newSmartHTTPClient(t, addr, cfg.Auth.Token)
 	defer conn.Close()
 
 	stream, err := client.PostReceivePack(ctx)
@@ -561,48 +504,31 @@ func testPostReceiveWithReferenceTransactionHook(t *testing.T, ctx context.Conte
 
 	refTransactionServer := &testTransactionServer{}
 
-	locator := config.NewLocator(cfg)
-	registry := backchannel.NewRegistry()
-	txManager := transaction.NewManager(cfg, registry)
-	hookManager := gitalyhook.NewManager(locator, txManager, gitalyhook.GitlabAPIStub, cfg)
-	gitCmdFactory := git.NewExecCommandFactory(cfg)
-
-	gitalyServer := testhelper.NewServerWithAuth(t, nil, nil, cfg.Auth.Token, registry).GrpcServer()
-	gitalypb.RegisterSmartHTTPServiceServer(gitalyServer, NewServer(cfg, locator, gitCmdFactory))
-	gitalypb.RegisterHookServiceServer(gitalyServer, hook.NewServer(cfg, hookManager, gitCmdFactory))
-	reflection.Register(gitalyServer)
-	if featureflag.IsDisabled(ctx, featureflag.BackchannelVoting) {
-		gitalypb.RegisterRefTransactionServer(gitalyServer, refTransactionServer)
-	}
-
-	gitalySocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
-	listener, err := net.Listen("unix", gitalySocketPath)
-	require.NoError(t, err)
-
-	internalListener, err := net.Listen("unix", cfg.GitalyInternalSocketPath())
-	require.NoError(t, err)
-
-	go gitalyServer.Serve(listener)
-	go gitalyServer.Serve(internalListener)
-	defer gitalyServer.Stop()
+	addr := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
+		gitalypb.RegisterSmartHTTPServiceServer(srv, NewServer(deps.GetCfg(), deps.GetLocator(), deps.GetGitCmdFactory()))
+		gitalypb.RegisterHookServiceServer(srv, hook.NewServer(deps.GetCfg(), deps.GetHookManager(), deps.GetGitCmdFactory()))
+		if featureflag.IsDisabled(ctx, featureflag.BackchannelVoting) {
+			gitalypb.RegisterRefTransactionServer(srv, refTransactionServer)
+		}
+	}, testserver.WithDisablePraefect())
 
 	// As we ain't got a Praefect server setup, we instead hooked up the
 	// RefTransaction server for Gitaly itself. As this is the only Praefect
 	// service required in this context, we can just pretend that
 	// Gitaly is the Praefect server and inject it.
 	praefectServer, err := metadata.PraefectFromConfig(pconfig.Config{
-		SocketPath: "unix://" + gitalySocketPath,
+		SocketPath: addr,
 	})
 	require.NoError(t, err)
 
-	ctx, err = metadata.InjectTransaction(ctx, 1234, "primary", true) // here write
+	ctx, err = metadata.InjectTransaction(ctx, 1234, "primary", true)
 	require.NoError(t, err)
 	ctx, err = praefectServer.Inject(ctx)
 	require.NoError(t, err)
 
 	ctx = helper.IncomingToOutgoing(ctx)
 
-	client := newMuxedSmartHTTPClient(t, ctx, "unix://"+gitalySocketPath, cfg.Auth.Token, func() backchannel.Server {
+	client := newMuxedSmartHTTPClient(t, ctx, addr, cfg.Auth.Token, func() backchannel.Server {
 		srv := grpc.NewServer()
 		if featureflag.IsEnabled(ctx, featureflag.BackchannelVoting) {
 			gitalypb.RegisterRefTransactionServer(srv, refTransactionServer)
