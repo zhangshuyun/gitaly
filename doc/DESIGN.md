@@ -4,7 +4,7 @@
 
 Git's fundamental behaviors are similar to relational database engines and are difficult to horizontally scale for the same reasons that serverless database is challenging and why serverless database cannot handle all existing relational database workloads.
 
-Gitaly is a layer that brings horizontal scaling and higher availability to massively scaled Git operations through a variety of optimizations in disk locality, caching results of intensive operations (like git pack), coordinating between multiple nodes, cluster synchronization and sharding.
+Gitaly is a layer that brings horizontal scaling and higher availability to massively scaled Git operations through a variety of optimizations in disk locality, caching results of intensive operations (like git pack-objects), coordinating between multiple nodes, cluster synchronization and sharding.
 
 > **Note:** While Gitaly is designed to help Git scale horizontally, Gitaly internal operations depend on the standard open source release of the git client which it calls during git operations. So some Gitaly limitations still pass through from Git. The same is true of any server system that does not have a layer like Gitaly - but in such cases there is no ability to provide any horizontal scaling support at all.
 #### Git Architectural Characteristics and Assumptions
@@ -19,14 +19,14 @@ Gitaly is a layer that brings horizontal scaling and higher availability to mass
 
 #### Specific Git Workload Characteristics That Make Remote File Systems and Containerization of Gitaly Challenging
 
-**IMPORTANT:** The above characteristics and assumptions combine with specific Git workloads to create challenging compute characteristics - high burst CPU utilization, high burst memory utilization and high burst storage channel utilization. Bursts in these compute needs are based on Git usage patterns - how much content, how dense (e.g. binaries) and how often.
+**IMPORTANT:** The above characteristics and assumptions combined with specific Git workloads create challenging compute characteristics - high burst CPU utilization, high burst memory utilization and high burst storage channel utilization. Bursts in these compute needs are based on Git usage patterns - how much content, how dense (e.g. binaries) and how often.
 
 These workload characteristics are not fundamentally predictable across the portfolio of source code that a given GitLab server may need to store. Large monorepos might exist at companies with few employees.  Binaries storage - while not considered an ideal file type for Git file systems - is common in some industry segments or project types. This means that architecting a GitLab instance with built-in Git headroom limitations causes unexpected limitations of specific Git usage patterns of the people using the instance.
 
 These are some of the most challenging git workloads for Git:
 - Large scale monorepos (commits and packs for full clones are very large).
 - High commit volume on a single repository (commits and packs for full clones are very frequent).
-- Binaries stored in the Git file system. (In GitLab Git LFS can be redirected to PaaS storage).
+- Binaries stored in the Git object database. (In GitLab Git LFS can be redirected to PaaS storage).
 - Full history cloning - due to packfile creation requirements.
 
 The above workload factors compound together when a given workload has more than one characteristic.
