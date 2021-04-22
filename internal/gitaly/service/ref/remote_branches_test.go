@@ -32,11 +32,11 @@ func TestSuccessfulFindAllRemoteBranchesRequest(t *testing.T) {
 	}
 
 	for branchName, commitID := range expectedBranches {
-		gittest.CreateRemoteBranch(t, repoPath, remoteName, branchName, commitID)
+		gittest.CreateRemoteBranch(t, cfg, repoPath, remoteName, branchName, commitID)
 	}
 
 	for branchName, commitID := range excludedBranches {
-		gittest.CreateRemoteBranch(t, repoPath, excludedRemote, branchName, commitID)
+		gittest.CreateRemoteBranch(t, cfg, repoPath, excludedRemote, branchName, commitID)
 	}
 
 	request := &gitalypb.FindAllRemoteBranchesRequest{Repository: repoProto, RemoteName: remoteName}

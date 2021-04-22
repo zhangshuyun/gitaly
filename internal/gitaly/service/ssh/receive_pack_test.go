@@ -230,7 +230,7 @@ func TestObjectPoolRefAdvertisementHidingSSH(t *testing.T) {
 
 	require.NoError(t, pool.Link(ctx, repo))
 
-	commitID := gittest.CreateCommit(t, pool.FullPath(), t.Name(), nil)
+	commitID := gittest.CreateCommit(t, cfg, pool.FullPath(), t.Name(), nil)
 
 	// First request
 	require.NoError(t, stream.Send(&gitalypb.SSHReceivePackRequest{

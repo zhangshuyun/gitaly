@@ -343,6 +343,7 @@ func TestGetRawChangesInvalidUTF8Paths(t *testing.T) {
 
 	fromCommitID := gittest.CommitBlobWithName(
 		t,
+		config.Config,
 		testRepoPath,
 		blobID1,
 		nonUTF8Filename,
@@ -350,6 +351,7 @@ func TestGetRawChangesInvalidUTF8Paths(t *testing.T) {
 	)
 	toCommitID := gittest.CommitBlobWithName(
 		t,
+		config.Config,
 		testRepoPath,
 		blobID2,
 		nonUTF8Filename,

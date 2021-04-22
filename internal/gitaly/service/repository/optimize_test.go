@@ -55,7 +55,7 @@ func TestOptimizeRepository(t *testing.T) {
 	// get timestamp of latest packfile
 	newestsPackfileTime := getNewestPackfileModtime(t, testRepoPath)
 
-	gittest.CreateCommit(t, testRepoPath, "master", nil)
+	gittest.CreateCommit(t, config.Config, testRepoPath, "master", nil)
 
 	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "config", "http.http://localhost:51744/60631c8695bf041a808759a05de53e36a73316aacb502824fabbb0c6055637c1.git.extraHeader", "Authorization: Basic secret-password")
 	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "config", "http.http://localhost:51744/60631c8695bf041a808759a05de53e36a73316aacb502824fabbb0c6055637c2.git.extraHeader", "Authorization: Basic secret-password")
@@ -106,7 +106,7 @@ func TestOptimizeRepository(t *testing.T) {
 	require.NoError(t, err)
 
 	for _, blobID := range blobIDs {
-		commitID := gittest.CommitBlobWithName(t, testRepoPath, blobID, blobID, "adding another blob....")
+		commitID := gittest.CommitBlobWithName(t, config.Config, testRepoPath, blobID, blobID, "adding another blob....")
 		require.NoError(t, updater.Create(git.ReferenceName("refs/heads/"+blobID), commitID))
 	}
 

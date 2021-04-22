@@ -10,8 +10,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
-	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
@@ -27,7 +27,7 @@ const (
 )
 
 // CreateCommit makes a new empty commit and updates the named branch to point to it.
-func CreateCommit(t testing.TB, repoPath, branchName string, opts *CreateCommitOpts) string {
+func CreateCommit(t testing.TB, cfg config.Cfg, repoPath, branchName string, opts *CreateCommitOpts) string {
 	message := "message"
 	// The ID of an arbitrary commit known to exist in the test repository.
 	parentID := "1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"
@@ -54,10 +54,10 @@ func CreateCommit(t testing.TB, repoPath, branchName string, opts *CreateCommitO
 		"-C", repoPath,
 		"commit-tree", "-F", "-", "-p", parentID, parentID + "^{tree}",
 	}
-	newCommit := testhelper.MustRunCommand(t, stdin, "git", commitArgs...)
+	newCommit := ExecStream(t, cfg, stdin, commitArgs...)
 	newCommitID := text.ChompBytes(newCommit)
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "update-ref", "refs/heads/"+branchName, newCommitID)
+	Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/"+branchName, newCommitID)
 	return newCommitID
 }
 
@@ -94,12 +94,12 @@ func CreateCommitInAlternateObjectDirectory(t testing.TB, gitBin, repoPath, altO
 // specified name. This enables testing situations where the filepath is not
 // possible due to filesystem constraints (e.g. non-UTF characters). The commit
 // ID is returned.
-func CommitBlobWithName(t testing.TB, testRepoPath, blobID, fileName, commitMessage string) string {
+func CommitBlobWithName(t testing.TB, cfg config.Cfg, testRepoPath, blobID, fileName, commitMessage string) string {
 	mktreeIn := strings.NewReader(fmt.Sprintf("100644 blob %s\t%s", blobID, fileName))
-	treeID := text.ChompBytes(testhelper.MustRunCommand(t, mktreeIn, "git", "-C", testRepoPath, "mktree"))
+	treeID := text.ChompBytes(ExecStream(t, cfg, mktreeIn, "-C", testRepoPath, "mktree"))
 
 	return text.ChompBytes(
-		testhelper.MustRunCommand(t, nil, "git",
+		Exec(t, cfg,
 			"-c", fmt.Sprintf("user.name=%s", committerName),
 			"-c", fmt.Sprintf("user.email=%s", committerEmail),
 			"-C", testRepoPath, "commit-tree", treeID, "-m", commitMessage),
@@ -107,12 +107,12 @@ func CommitBlobWithName(t testing.TB, testRepoPath, blobID, fileName, commitMess
 }
 
 // CreateCommitOnNewBranch creates a branch and a commit, returning the commit sha and the branch name respectivelyi
-func CreateCommitOnNewBranch(t testing.TB, repoPath string) (string, string) {
+func CreateCommitOnNewBranch(t testing.TB, cfg config.Cfg, repoPath string) (string, string) {
 	nonce, err := text.RandomHex(4)
 	require.NoError(t, err)
 	newBranch := "branch-" + nonce
 
-	sha := CreateCommit(t, repoPath, newBranch, &CreateCommitOpts{
+	sha := CreateCommit(t, cfg, repoPath, newBranch, &CreateCommitOpts{
 		Message: "a new branch and commit " + nonce,
 	})
 

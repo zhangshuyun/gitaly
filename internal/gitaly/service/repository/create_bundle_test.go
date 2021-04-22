@@ -34,7 +34,7 @@ func TestSuccessfulCreateBundleRequest(t *testing.T) {
 
 	// create a work tree with a HEAD pointing to a commit that is missing.
 	// CreateBundle should clean this up before creating the bundle
-	sha, branchName := gittest.CreateCommitOnNewBranch(t, testRepoPath)
+	sha, branchName := gittest.CreateCommitOnNewBranch(t, config.Config, testRepoPath)
 
 	require.NoError(t, os.MkdirAll(filepath.Join(testRepoPath, "gitlab-worktree"), 0755))
 

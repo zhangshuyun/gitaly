@@ -34,6 +34,7 @@ func TestWriteCommitGraph(t *testing.T) {
 
 	gittest.CreateCommit(
 		t,
+		config.Config,
 		testRepoPath,
 		t.Name(),
 		&gittest.CreateCommitOpts{Message: t.Name()},
@@ -62,6 +63,7 @@ func TestUpdateCommitGraph(t *testing.T) {
 
 	gittest.CreateCommit(
 		t,
+		config.Config,
 		testRepoPath,
 		t.Name(),
 		&gittest.CreateCommitOpts{Message: t.Name()},
@@ -86,6 +88,7 @@ func TestUpdateCommitGraph(t *testing.T) {
 
 	gittest.CreateCommit(
 		t,
+		config.Config,
 		testRepoPath,
 		t.Name(),
 		&gittest.CreateCommitOpts{Message: t.Name()},

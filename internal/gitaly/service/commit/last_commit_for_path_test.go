@@ -115,13 +115,15 @@ func TestFailedLastCommitForPathRequest(t *testing.T) {
 }
 
 func TestSuccessfulLastCommitWithGlobCharacters(t *testing.T) {
-	_, repo, repoPath, client := setupCommitServiceWithRepo(t, true)
+	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, true)
 
 	// This is an arbitrary blob known to exist in the test repository
 	const blobID = "c60514b6d3d6bf4bec1030f70026e34dfbd69ad5"
 	path := ":wq"
 
-	commitID := gittest.CommitBlobWithName(t,
+	commitID := gittest.CommitBlobWithName(
+		t,
+		cfg,
 		repoPath,
 		blobID,
 		path,

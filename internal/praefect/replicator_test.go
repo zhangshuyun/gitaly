@@ -193,7 +193,7 @@ func TestReplMgr_ProcessBacklog(t *testing.T) {
 	}
 	require.Len(t, events, 1)
 
-	commitID := gittest.CreateCommit(t, testRepoPath, "master", &gittest.CreateCommitOpts{
+	commitID := gittest.CreateCommit(t, gitaly_config.Config, testRepoPath, "master", &gittest.CreateCommitOpts{
 		Message: "a commit",
 	})
 
@@ -568,7 +568,7 @@ func TestConfirmReplication(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, equal)
 
-	gittest.CreateCommit(t, testRepoAPath, "master", &gittest.CreateCommitOpts{
+	gittest.CreateCommit(t, gitaly_config.Config, testRepoAPath, "master", &gittest.CreateCommitOpts{
 		Message: "a commit",
 	})
 

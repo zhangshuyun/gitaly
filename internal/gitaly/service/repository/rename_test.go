@@ -57,7 +57,7 @@ func TestRenameRepositoryDestinationExists(t *testing.T) {
 	destinationRepo, destinationRepoPath, cleanupDestinationRepo := gittest.CloneRepo(t)
 	defer cleanupDestinationRepo()
 
-	_, sha := gittest.CreateCommitOnNewBranch(t, destinationRepoPath)
+	_, sha := gittest.CreateCommitOnNewBranch(t, config.Config, destinationRepoPath)
 
 	req := &gitalypb.RenameRepositoryRequest{Repository: testRepo, RelativePath: destinationRepo.GetRelativePath()}
 

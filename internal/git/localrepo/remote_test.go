@@ -498,7 +498,7 @@ if [ -z ${GIT_SSH_COMMAND+x} ];then rm -f %q ;else echo -n "$GIT_SSH_COMMAND" > 
 				require.NoError(t, err)
 
 				require.NoError(t, sourceRepo.Push(ctx, pushRepoPath, []string{"refs/*"}, PushOptions{}))
-				divergedMaster := gittest.CreateCommit(t, pushRepoPath, "master", &gittest.CreateCommitOpts{
+				divergedMaster := gittest.CreateCommit(t, cfg, pushRepoPath, "master", &gittest.CreateCommitOpts{
 					ParentID: sourceMaster.Target,
 				})
 
