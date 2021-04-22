@@ -23,7 +23,7 @@ Gitaly is a layer that brings horizontal scaling and higher availability to mass
 
 These workload characteristics are not fundamentally predictable across the portfolio of source code that a given GitLab server may need to store. Large monorepos might exist at companies with few employees.  Binaries storage - while not considered an ideal file type for Git file systems - is common in some industry segments or project types. This means that architecting a GitLab instance with built-in Git headroom limitations causes unexpected limitations of specific Git usage patterns of the people using the instance.
 
-These are some of the most challenging git workloads for  (like some database ops would). Containers are very memory constrained and brutal measures are taken when containers attempt to exceed limits. 
+These are some of the most challenging git workloads for Git:
 - Large scale monorepos (commits and packs for full clones are very large).
 - High commit volume on a single repository (commits and packs for full clones are very frequent).
 - Binaries stored in the Git file system. (In GitLab Git LFS can be redirected to PaaS storage).
