@@ -5,11 +5,12 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
 )
@@ -33,13 +34,11 @@ func setup(t *testing.T) (config.Cfg, *gitalypb.Repository, string, gitalypb.Blo
 	repo, repoPath, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name())
 	t.Cleanup(cleanup)
 
-	srv := testhelper.NewServer(t, nil, nil)
-	t.Cleanup(srv.Stop)
+	addr := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
+		gitalypb.RegisterBlobServiceServer(srv, NewServer(deps.GetCfg(), deps.GetLocator(), deps.GetGitCmdFactory()))
+	})
 
-	gitalypb.RegisterBlobServiceServer(srv.GrpcServer(), NewServer(cfg, config.NewLocator(cfg), git.NewExecCommandFactory(cfg)))
-	srv.Start(t)
-
-	conn, err := grpc.Dial("unix://"+srv.Socket(), grpc.WithInsecure())
+	conn, err := grpc.Dial(addr, grpc.WithInsecure())
 	require.NoError(t, err)
 	t.Cleanup(func() { conn.Close() })
 
