@@ -32,7 +32,7 @@ These are some of the most challenging git workloads for Git:
 The above workload factors compound together when a given workload has more than one characteristic.
 #### Affects on Horizontal Compute Architecture
 - The memory burstiness profile of Git makes it (and therefore Gitaly) very challenging to reliably containerize because container systems have very strong memory limits. Exceeding these limits causes significant operational instability and/or termination by the container running system.
-- The disk IO burstiness profile of Git makes it (and therefore Gitaly) very challenging to use remote file systems with reliability and integrity (e.g.  NFS - including PaaS versions). This was, in fact, the first design reason for Gitaly - to keep "Git" from having to operate on remote storage.
+- The disk IO burstiness profile of Git makes it (and therefore Gitaly) very challenging to use remote file systems with reliability and integrity (e.g.  NFS - including PaaS versions). This was, in fact, the first design reason for Gitaly - to avoid having the Git binary operate on remote storage.
 - The CPU burstiness profile of Git (and therefore Gitaly) also makes it challenging to reliably containerize.
 
 These are the challenges that imply an application layer is needed to help Git scale horizontally in any scaled implementation - not just GitLab.  GitLab has built this layer and continues to chip away (iterate) against all of the above challenges in this innovative layer.
