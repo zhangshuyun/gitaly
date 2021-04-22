@@ -361,6 +361,14 @@ func WithHookManager(hookMgr hook.Manager) GitalyServerOpt {
 	}
 }
 
+// WithTransactionManager sets transaction.Manager instance that will be used for gitaly services initialisation.
+func WithTransactionManager(txMgr transaction.Manager) GitalyServerOpt {
+	return func(deps gitalyServerDeps) gitalyServerDeps {
+		deps.txMgr = txMgr
+		return deps
+	}
+}
+
 // WithDisablePraefect disables setup and usage of the praefect as a proxy before the gitaly service.
 func WithDisablePraefect() GitalyServerOpt {
 	return func(deps gitalyServerDeps) gitalyServerDeps {

@@ -9,22 +9,19 @@ import (
 
 	"github.com/stretchr/testify/require"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
-	gitalyclient "gitlab.com/gitlab-org/gitaly/client"
-	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
-	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	internalclient "gitlab.com/gitlab-org/gitaly/internal/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
-	gitalyhook "gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/commit"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/hook"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/ref"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/repository"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/ssh"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
 )
@@ -120,34 +117,8 @@ func setupOperationsService(t testing.TB, ctx context.Context) (context.Context,
 	return ctx, cfg, repo, repoPath, client
 }
 
-type setupConfig struct {
-	txManagerConstructor func() transaction.Manager
-	testServerOpts       []testhelper.TestServerOpt
-}
-
-func (c setupConfig) buildTxManager(cfg config.Cfg, registry *backchannel.Registry) transaction.Manager {
-	if c.txManagerConstructor != nil {
-		return c.txManagerConstructor()
-	}
-	return transaction.NewManager(cfg, registry)
-}
-
-type setupOption func(*setupConfig)
-
-func withTxManagerConstructor(constructor func() transaction.Manager) setupOption {
-	return func(config *setupConfig) {
-		config.txManagerConstructor = constructor
-	}
-}
-
-func withTestServerOpts(opts ...testhelper.TestServerOpt) setupOption {
-	return func(config *setupConfig) {
-		config.testServerOpts = opts
-	}
-}
-
 func setupOperationsServiceWithRuby(
-	t testing.TB, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server, options ...setupOption,
+	t testing.TB, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server, options ...testserver.GitalyServerOpt,
 ) (context.Context, config.Cfg, *gitalypb.Repository, string, gitalypb.OperationServiceClient) {
 	repo, repoPath, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name())
 	t.Cleanup(cleanup)
@@ -168,43 +139,17 @@ func setupOperationsServiceWithRuby(
 	return ctx, cfg, repo, repoPath, client
 }
 
-func runOperationServiceServer(t testing.TB, cfg config.Cfg, rubySrv *rubyserver.Server, options ...setupOption) string {
+func runOperationServiceServer(t testing.TB, cfg config.Cfg, rubySrv *rubyserver.Server, options ...testserver.GitalyServerOpt) string {
 	t.Helper()
 
-	setupConfig := setupConfig{}
-	for _, option := range options {
-		option(&setupConfig)
-	}
-
-	testServerOpts := append(
-		[]testhelper.TestServerOpt{testhelper.WithInternalSocket(cfg)},
-		setupConfig.testServerOpts...,
-	)
-
-	registry := backchannel.NewRegistry()
-	srv := testhelper.NewServerWithAuth(t, nil, nil, cfg.Auth.Token, registry, testServerOpts...)
-
-	conns := gitalyclient.NewPool()
-	t.Cleanup(func() { conns.Close() })
-
-	locator := config.NewLocator(cfg)
-
-	txManager := setupConfig.buildTxManager(cfg, registry)
-	hookManager := gitalyhook.NewManager(locator, txManager, gitalyhook.GitlabAPIStub, cfg)
-	gitCmdFactory := git.NewExecCommandFactory(cfg)
-	server := NewServer(cfg, rubySrv, hookManager, locator, conns, gitCmdFactory)
-
-	gitalypb.RegisterOperationServiceServer(srv.GrpcServer(), server)
-	gitalypb.RegisterHookServiceServer(srv.GrpcServer(), hook.NewServer(cfg, hookManager, gitCmdFactory))
-	gitalypb.RegisterRepositoryServiceServer(srv.GrpcServer(), repository.NewServer(cfg, rubySrv, locator, txManager, gitCmdFactory))
-	gitalypb.RegisterRefServiceServer(srv.GrpcServer(), ref.NewServer(cfg, locator, gitCmdFactory, txManager))
-	gitalypb.RegisterCommitServiceServer(srv.GrpcServer(), commit.NewServer(cfg, locator, gitCmdFactory, nil))
-	gitalypb.RegisterSSHServiceServer(srv.GrpcServer(), ssh.NewServer(cfg, locator, gitCmdFactory))
-
-	srv.Start(t)
-	t.Cleanup(srv.Stop)
-
-	return "unix://" + srv.Socket()
+	return testserver.RunGitalyServer(t, cfg, rubySrv, func(srv *grpc.Server, deps *service.Dependencies) {
+		gitalypb.RegisterOperationServiceServer(srv, NewServer(deps.GetCfg(), deps.GetRubyServer(), deps.GetHookManager(), deps.GetLocator(), deps.GetConnsPool(), deps.GetGitCmdFactory()))
+		gitalypb.RegisterHookServiceServer(srv, hook.NewServer(cfg, deps.GetHookManager(), deps.GetGitCmdFactory()))
+		gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(cfg, rubySrv, deps.GetLocator(), deps.GetTxManager(), deps.GetGitCmdFactory()))
+		gitalypb.RegisterRefServiceServer(srv, ref.NewServer(cfg, deps.GetLocator(), deps.GetGitCmdFactory(), deps.GetTxManager()))
+		gitalypb.RegisterCommitServiceServer(srv, commit.NewServer(cfg, deps.GetLocator(), deps.GetGitCmdFactory(), nil))
+		gitalypb.RegisterSSHServiceServer(srv, ssh.NewServer(cfg, deps.GetLocator(), deps.GetGitCmdFactory()))
+	}, options...)
 }
 
 func newOperationClient(t testing.TB, serverSocketPath string) (gitalypb.OperationServiceClient, *grpc.ClientConn) {

@@ -66,13 +66,6 @@ func WithInternalSocket(cfg config.Cfg) TestServerOpt {
 	}
 }
 
-// WithDisabledPraefect disables setup and usage of Praefect as a proxy before the gitaly service.
-func WithDisabledPraefect() TestServerOpt {
-	return func(t *TestServer) {
-		t.disablePraefect = true
-	}
-}
-
 // NewTestServer instantiates a new TestServer
 func NewTestServer(srv *grpc.Server, opts ...TestServerOpt) *TestServer {
 	ts := &TestServer{
@@ -121,7 +114,6 @@ type TestServer struct {
 	storages               []string
 	waitCh                 chan struct{}
 	withInternalSocketPath string
-	disablePraefect        bool
 }
 
 // GrpcServer returns the underlying grpc.Server
@@ -146,7 +138,7 @@ func (p *TestServer) Socket() string {
 // Start will start the grpc server as well as spawn a praefect instance if GITALY_TEST_PRAEFECT_BIN is enabled
 func (p *TestServer) Start(t testing.TB) {
 	praefectBinPath, ok := os.LookupEnv("GITALY_TEST_PRAEFECT_BIN")
-	if !ok || p.disablePraefect {
+	if !ok {
 		p.socket = p.listen(t)
 		return
 	}
