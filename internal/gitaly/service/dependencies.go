@@ -23,6 +23,7 @@ type Dependencies struct {
 	GitCmdFactory       git.CommandFactory
 	Linguist            *linguist.Instance
 	BackchannelRegistry *backchannel.Registry
+	GitlabAPI           gitalyhook.GitlabAPI
 }
 
 // GetCfg returns service configuration.
@@ -68,4 +69,9 @@ func (dc *Dependencies) GetLinguist() *linguist.Instance {
 // GetBackchannelRegistry returns a registry of the backchannels.
 func (dc *Dependencies) GetBackchannelRegistry() *backchannel.Registry {
 	return dc.BackchannelRegistry
+}
+
+// GetGitlabAPI returns client to access GitLab API.
+func (dc *Dependencies) GetGitlabAPI() gitalyhook.GitlabAPI {
+	return dc.GitlabAPI
 }

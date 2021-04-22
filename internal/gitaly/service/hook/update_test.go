@@ -21,7 +21,7 @@ import (
 
 func TestUpdateInvalidArgument(t *testing.T) {
 	cfg := testcfg.Build(t)
-	serverSocketPath := runHooksServer(t, cfg)
+	serverSocketPath := runHooksServer(t, cfg, nil)
 	client, conn := newHooksClient(t, serverSocketPath)
 	t.Cleanup(func() { conn.Close() })
 

@@ -14,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -33,7 +34,7 @@ func (s *testTransactionServer) VoteTransaction(ctx context.Context, in *gitalyp
 
 func TestReferenceTransactionHookInvalidArgument(t *testing.T) {
 	cfg := testcfg.Build(t)
-	serverSocketPath := runHooksServer(t, cfg)
+	serverSocketPath := runHooksServer(t, cfg, nil)
 
 	client, conn := newHooksClient(t, serverSocketPath)
 	defer conn.Close()
@@ -139,7 +140,7 @@ func TestReferenceTransactionHook(t *testing.T) {
 					}, nil
 				}
 
-				serverSocketPath := runHooksServerWithRegistry(t, cfg, registry)
+				serverSocketPath := runHooksServer(t, cfg, nil, testserver.WithBackchannelRegistry(registry))
 
 				praefectServer := &metadata.PraefectServer{ListenAddr: "tcp://" + listener.Addr().String()}
 				if featureflag.IsEnabled(ctx, featureflag.BackchannelVoting) {

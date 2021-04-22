@@ -309,10 +309,6 @@ func (gsd *gitalyServerDeps) createDependencies(t testing.TB, cfg config.Cfg, ru
 		require.NoError(t, err)
 	}
 
-	if gsd.backchannelReg == nil {
-		gsd.backchannelReg = backchannel.NewRegistry()
-	}
-
 	return &service.Dependencies{
 		Cfg:                 cfg,
 		RubyServer:          rubyServer,
@@ -323,6 +319,7 @@ func (gsd *gitalyServerDeps) createDependencies(t testing.TB, cfg config.Cfg, ru
 		GitCmdFactory:       gsd.gitCmdFactory,
 		Linguist:            gsd.linguist,
 		BackchannelRegistry: gsd.backchannelReg,
+		GitlabAPI:           gsd.gitlabAPI,
 	}
 }
 
@@ -373,6 +370,14 @@ func WithTransactionManager(txMgr transaction.Manager) GitalyServerOpt {
 func WithDisablePraefect() GitalyServerOpt {
 	return func(deps gitalyServerDeps) gitalyServerDeps {
 		deps.disablePraefect = true
+		return deps
+	}
+}
+
+// WithBackchannelRegistry sets backchannel.Registry instance that will be used for gitaly services initialisation.
+func WithBackchannelRegistry(backchannelReg *backchannel.Registry) GitalyServerOpt {
+	return func(deps gitalyServerDeps) gitalyServerDeps {
+		deps.backchannelReg = backchannelReg
 		return deps
 	}
 }
