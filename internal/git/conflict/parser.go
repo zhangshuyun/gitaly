@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 )
 
 // Errors that can occur during parsing of a merge conflict file
@@ -43,8 +44,9 @@ type line struct {
 // File contains an ordered list of lines with metadata about potential
 // conflicts.
 type File struct {
-	path  string
-	lines []line
+	path                 string
+	lines                []line
+	ancestor, our, their *Entry
 }
 
 func (f File) sectionID(l line) string {
@@ -73,18 +75,16 @@ const (
 // specified resolution
 func (f File) Resolve(resolution Resolution) ([]byte, error) {
 	var sectionID string
-	b := bytes.NewBuffer(nil)
 
 	if len(resolution.Sections) == 0 {
 		return []byte(resolution.Content), nil
 	}
 
+	resolvedLines := make([]string, 0, len(f.lines))
 	for _, l := range f.lines {
 		if l.section == sectionNone {
 			sectionID = ""
-			if _, err := b.WriteString(l.payload + "\n"); err != nil {
-				return nil, err
-			}
+			resolvedLines = append(resolvedLines, l.payload)
 			continue
 		}
 
@@ -110,30 +110,44 @@ func (f File) Resolve(resolution Resolution) ([]byte, error) {
 			return nil, fmt.Errorf("Missing resolution for section ID: %s", sectionID) //nolint
 		}
 
-		if _, err := b.WriteString(l.payload); err != nil {
-			return nil, err
-		}
-
-		if l.section == sectionNoNewline {
-			continue
-		}
-		if _, err := b.WriteString("\n"); err != nil {
-			return nil, err
-		}
+		resolvedLines = append(resolvedLines, l.payload)
 	}
 
-	return b.Bytes(), nil
+	resolvedContents := strings.Join(resolvedLines, "\n")
+	if bytes.HasSuffix(f.our.Contents, []byte{'\n'}) {
+		resolvedContents += "\n"
+	}
+
+	return []byte(resolvedContents), nil
+}
+
+// Entry is a conflict entry with a path and its original preimage contents.
+type Entry struct {
+	Path     string
+	Mode     uint
+	Contents []byte
 }
 
 // Parse will read each line and maintain which conflict section it belongs to
-func Parse(src io.Reader, ourPath, theirPath, parentPath string) (File, error) {
+func Parse(src io.Reader, ancestor, our, their *Entry) (File, error) {
+	parentPath := our.Path
+	if ancestor != nil {
+		parentPath = ancestor.Path
+	}
+
 	var (
 		// conflict markers
-		start  = "<<<<<<< " + ourPath
+		start  = "<<<<<<< " + our.Path
 		middle = "======="
-		end    = ">>>>>>> " + theirPath
+		end    = ">>>>>>> " + their.Path
 
-		f                                 = File{path: parentPath}
+		f = File{
+			path:     parentPath,
+			ancestor: ancestor,
+			our:      our,
+			their:    their,
+		}
+
 		objIndex, oldIndex, newIndex uint = 0, 1, 1
 		currentSection               section
 		bytesRead                    int

@@ -14,6 +14,10 @@ service ConflictsService {
       op: ACCESSOR
     };
   }
+
+  // ResolveConflicts tries to resolve a conflicting merge with a set of
+  // user-provided merge resolutions. If resolving the conflict succeeds, the
+  // result will be a new merge commit.
   rpc ResolveConflicts(stream ResolveConflictsRequest) returns (ResolveConflictsResponse) {
     option (op_type) = {
       op: MUTATOR
@@ -47,27 +51,54 @@ message ListConflictFilesResponse {
   repeated ConflictFile files = 1;
 }
 
+// ResolveConflictsRequestHeader is the first message that must be sent for
+// each ResolveConflicts call.
 message ResolveConflictsRequestHeader {
+  // Repository is the repository in which conflicts shall be resolved and
+  // where SourceBranch shall be updated with the resolved conflict.
   Repository repository = 1 [(gitaly.target_repository)=true];
+  // OurCommitOid is the OID of the commit representing the local commit.
   string our_commit_oid = 2;
+  // TargetRepository is the repository from which TheirCommitOid shall be
+  // retrieved.
   Repository target_repository = 3;
+  // TheirCommitOid is the OID of the commit representing the remote commit
+  // which is to be merged into the local commit.
   string their_commit_oid = 4;
+  // SourceBranch is the branch on which the new commit shall be created.
   bytes source_branch = 5;
+  // TargetBranch identifies the branch which will be fetched from
+  // TargetRepository in case TheirCommitOid does not exist in Repository.
   bytes target_branch = 6;
+  // CommitMessage is the message of the newly created merge commit.
   bytes commit_message = 7;
+  // User is the user used as author and committer of the newly created merge
+  // commit.
   User user = 8;
   // timestamp is the optional timestamp to use for the commit as committer
   // date. If it's not set, the current time will be used.
   google.protobuf.Timestamp timestamp = 9;
 }
 
+// ResolveConflictsRequest is a request for the ResolveConflicts RPC.
 message ResolveConflictsRequest {
+  // RequestPayload is the payload part of the request. The first message sent
+  // must always be a ResolveConflictsRequestHeader, whereas all remaining
+  // requests must be FilesJson requests.
   oneof resolve_conflicts_request_payload {
+    // Header is the initial message specifying parameters of the RPC call.
     ResolveConflictsRequestHeader header = 1;
+    // FilesJson is a JSON-encoded list of conflicts resolutions.
     bytes files_json = 2;
   }
 }
 
+// ResolveConflictsResponse is a response of the ResolveConflicts RPC. Conflict
+// resolution may have failed even if the RPC has returned OK. The user must
+// check ResolutionError to verify whether the merge commit was correctly
+// computed or not.
 message ResolveConflictsResponse {
+  // ResolutionError contains a description of why conflict resolution has
+  // failed.
   string resolution_error = 1;
 }

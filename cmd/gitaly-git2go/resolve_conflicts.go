@@ -108,7 +108,12 @@ func (cmd resolveSubcommand) Run(_ context.Context, r io.Reader, w io.Writer) er
 			return fmt.Errorf("missing their-part of merge file input for new path %q", r.NewPath)
 		}
 
-		mfr, err := mergeFileResult(odb, c)
+		ancestor, our, their, err := readConflictEntries(odb, c)
+		if err != nil {
+			return fmt.Errorf("read conflict entries: %w", err)
+		}
+
+		mfr, err := mergeFileResult(odb, ancestor, our, their)
 		if err != nil {
 			return fmt.Errorf("merge file result for %q: %w", r.NewPath, err)
 		}
@@ -117,16 +122,11 @@ func (cmd resolveSubcommand) Run(_ context.Context, r io.Reader, w io.Writer) er
 			return fmt.Errorf("Resolved content has no changes for file %s", r.NewPath) //nolint
 		}
 
-		ancestorPath := c.Our.Path
-		if c.Ancestor != nil {
-			ancestorPath = c.Ancestor.Path
-		}
-
 		conflictFile, err := conflict.Parse(
 			bytes.NewReader(mfr.Contents),
-			c.Our.Path,
-			c.Their.Path,
-			ancestorPath,
+			ancestor,
+			our,
+			their,
 		)
 		if err != nil {
 			return fmt.Errorf("parse conflict for %q: %w", c.Ancestor.Path, err)
@@ -168,7 +168,14 @@ func (cmd resolveSubcommand) Run(_ context.Context, r io.Reader, w io.Writer) er
 			if err != nil {
 				return fmt.Errorf("next unresolved conflict: %w", err)
 			}
-			conflictPaths = append(conflictPaths, c.Ancestor.Path)
+			var conflictingPath string
+			if c.Ancestor != nil {
+				conflictingPath = c.Ancestor.Path
+			} else {
+				conflictingPath = c.Our.Path
+			}
+
+			conflictPaths = append(conflictPaths, conflictingPath)
 		}
 
 		return fmt.Errorf("Missing resolutions for the following files: %s", strings.Join(conflictPaths, ", ")) //nolint
@@ -200,17 +207,16 @@ func (cmd resolveSubcommand) Run(_ context.Context, r io.Reader, w io.Writer) er
 	return gob.NewEncoder(w).Encode(response)
 }
 
-func mergeFileResult(odb *git.Odb, c git.IndexConflict) (*git.MergeFileResult, error) {
-	var ancestorMFI, ourMFI, theirMFI git.MergeFileInput
+func readConflictEntries(odb *git.Odb, c git.IndexConflict) (*conflict.Entry, *conflict.Entry, *conflict.Entry, error) {
+	var ancestor, our, their *conflict.Entry
 
 	for _, part := range []struct {
-		name  string
-		entry *git.IndexEntry
-		mfi   *git.MergeFileInput
+		entry  *git.IndexEntry
+		result **conflict.Entry
 	}{
-		{name: "ancestor", entry: c.Ancestor, mfi: &ancestorMFI},
-		{name: "our", entry: c.Our, mfi: &ourMFI},
-		{name: "their", entry: c.Their, mfi: &theirMFI},
+		{entry: c.Ancestor, result: &ancestor},
+		{entry: c.Our, result: &our},
+		{entry: c.Their, result: &their},
 	} {
 		if part.entry == nil {
 			continue
@@ -218,18 +224,41 @@ func mergeFileResult(odb *git.Odb, c git.IndexConflict) (*git.MergeFileResult, e
 
 		blob, err := odb.Read(part.entry.Id)
 		if err != nil {
-			return nil, err
+			return nil, nil, nil, err
 		}
 
-		part.mfi.Path = part.entry.Path
-		part.mfi.Mode = uint(part.entry.Mode)
-		part.mfi.Contents = blob.Data()
+		*part.result = &conflict.Entry{
+			Path:     part.entry.Path,
+			Mode:     uint(part.entry.Mode),
+			Contents: blob.Data(),
+		}
 	}
 
-	mfr, err := git.MergeFile(ancestorMFI, ourMFI, theirMFI, nil)
+	return ancestor, our, their, nil
+}
+
+func mergeFileResult(odb *git.Odb, ancestor, our, their *conflict.Entry) (*git.MergeFileResult, error) {
+	mfr, err := git.MergeFile(
+		conflictEntryToMergeFileInput(ancestor),
+		conflictEntryToMergeFileInput(our),
+		conflictEntryToMergeFileInput(their),
+		nil,
+	)
 	if err != nil {
 		return nil, err
 	}
 
 	return mfr, nil
+}
+
+func conflictEntryToMergeFileInput(e *conflict.Entry) git.MergeFileInput {
+	if e == nil {
+		return git.MergeFileInput{}
+	}
+
+	return git.MergeFileInput{
+		Path:     e.Path,
+		Mode:     e.Mode,
+		Contents: e.Contents,
+	}
 }

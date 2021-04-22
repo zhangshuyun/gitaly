@@ -1,0 +1,5 @@
+---
+title: 'conflicts: Fix fetching from target repository'
+merge_request: 3386
+author:
+type: fixed

@@ -11,33 +11,36 @@ import (
 	"google.golang.org/grpc"
 )
 
-// Repository represents a Git repository on a different Gitaly storage
-type Repository struct {
-	repo *gitalypb.Repository
+// Repo represents a Git repository on a different Gitaly storage
+type Repo struct {
+	*gitalypb.Repository
 	conn *grpc.ClientConn
 }
 
 // New creates a new remote Repository from its protobuf representation.
-func New(ctx context.Context, repo *gitalypb.Repository, pool *client.Pool) (Repository, error) {
+func New(ctx context.Context, repo *gitalypb.Repository, pool *client.Pool) (*Repo, error) {
 	server, err := helper.ExtractGitalyServer(ctx, repo.GetStorageName())
 	if err != nil {
-		return Repository{}, fmt.Errorf("remote repository: %w", err)
+		return nil, fmt.Errorf("remote repository: %w", err)
 	}
 
 	cc, err := pool.Dial(ctx, server.Address, server.Token)
 	if err != nil {
-		return Repository{}, fmt.Errorf("dial: %w", err)
+		return nil, fmt.Errorf("dial: %w", err)
 	}
 
-	return Repository{repo: repo, conn: cc}, nil
+	return &Repo{
+		Repository: repo,
+		conn:       cc,
+	}, nil
 }
 
 // ResolveRevision will dial to the remote repository and attempt to resolve the
 // revision string via the gRPC interface.
-func (rr Repository) ResolveRevision(ctx context.Context, revision git.Revision) (git.ObjectID, error) {
+func (rr *Repo) ResolveRevision(ctx context.Context, revision git.Revision) (git.ObjectID, error) {
 	cli := gitalypb.NewCommitServiceClient(rr.conn)
 	resp, err := cli.FindCommit(ctx, &gitalypb.FindCommitRequest{
-		Repository: rr.repo,
+		Repository: rr.Repository,
 		Revision:   []byte(revision.String()),
 	})
 	if err != nil {
@@ -57,9 +60,10 @@ func (rr Repository) ResolveRevision(ctx context.Context, revision git.Revision)
 	return oid, nil
 }
 
-func (rr Repository) HasBranches(ctx context.Context) (bool, error) {
+// HasBranches will dial to the remote repository and check whether the repository has any branches.
+func (rr *Repo) HasBranches(ctx context.Context) (bool, error) {
 	resp, err := gitalypb.NewRepositoryServiceClient(rr.conn).HasLocalBranches(
-		ctx, &gitalypb.HasLocalBranchesRequest{Repository: rr.repo})
+		ctx, &gitalypb.HasLocalBranchesRequest{Repository: rr.Repository})
 	if err != nil {
 		return false, fmt.Errorf("has local branches: %w", err)
 	}
