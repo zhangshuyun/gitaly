@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/golang/protobuf/proto"
@@ -63,7 +64,16 @@ func (s *server) findCommits(ctx context.Context, req *gitalypb.FindCommitsReque
 	getCommits := NewGetCommits(logCmd, batch)
 
 	if calculateOffsetManually(req) {
-		getCommits.Offset(int(req.GetOffset()))
+		if err := getCommits.Offset(int(req.GetOffset())); err != nil {
+			// If we're at EOF, then it means that the offset has been greater than the
+			// number of available commits. We do not treat this as an error, but
+			// instead just return EOF ourselves.
+			if errors.Is(err, io.EOF) {
+				return nil
+			}
+
+			return fmt.Errorf("skipping to offset %d: %w", req.GetOffset(), err)
+		}
 	}
 
 	if err := streamCommits(getCommits, stream, req.GetTrailers()); err != nil {
@@ -104,7 +114,12 @@ func (g *GetCommits) Err() error {
 func (g *GetCommits) Offset(offset int) error {
 	for i := 0; i < offset; i++ {
 		if !g.Scan() {
-			return fmt.Errorf("offset %d is invalid: %v", offset, g.scanner.Err())
+			err := g.Err()
+			if err == nil {
+				err = io.EOF
+			}
+
+			return fmt.Errorf("skipping commit: %w", err)
 		}
 	}
 	return nil

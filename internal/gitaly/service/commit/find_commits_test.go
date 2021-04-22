@@ -584,6 +584,25 @@ func TestFindCommitsRequestWithFollowAndOffset(t *testing.T) {
 	}
 }
 
+func TestFindCommitsWithExceedingOffset(t *testing.T) {
+	_, repo, _, client := setupCommitServiceWithRepo(t, true)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	stream, err := client.FindCommits(ctx, &gitalypb.FindCommitsRequest{
+		Repository: repo,
+		Follow:     true,
+		Paths:      [][]byte{[]byte("CHANGELOG")},
+		Offset:     9000,
+	})
+	require.NoError(t, err)
+
+	response, err := stream.Recv()
+	require.Nil(t, response)
+	require.EqualError(t, err, "EOF")
+}
+
 func getCommits(ctx context.Context, t *testing.T, request *gitalypb.FindCommitsRequest, client gitalypb.CommitServiceClient) []*gitalypb.GitCommit {
 	t.Helper()
 
