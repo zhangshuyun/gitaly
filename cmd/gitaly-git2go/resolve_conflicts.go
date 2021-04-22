@@ -42,12 +42,12 @@ func (cmd resolveSubcommand) Run(_ context.Context, r io.Reader, w io.Writer) er
 
 	ours, err := lookupCommit(repo, request.Ours)
 	if err != nil {
-		return fmt.Errorf("could not lookup commit %q: %w", request.Ours, err)
+		return fmt.Errorf("ours commit lookup: %w", err)
 	}
 
 	theirs, err := lookupCommit(repo, request.Theirs)
 	if err != nil {
-		return fmt.Errorf("could not lookup commit %q: %w", request.Theirs, err)
+		return fmt.Errorf("theirs commit lookup: %w", err)
 	}
 
 	index, err := repo.MergeCommits(ours, theirs, nil)
