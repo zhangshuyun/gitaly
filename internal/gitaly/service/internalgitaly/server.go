@@ -6,6 +6,7 @@ import (
 )
 
 type server struct {
+	gitalypb.UnimplementedInternalGitalyServer
 	storages []config.Storage
 }
 

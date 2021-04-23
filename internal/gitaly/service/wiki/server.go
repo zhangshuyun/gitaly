@@ -7,6 +7,7 @@ import (
 )
 
 type server struct {
+	gitalypb.UnimplementedWikiServiceServer
 	ruby    *rubyserver.Server
 	locator storage.Locator
 }

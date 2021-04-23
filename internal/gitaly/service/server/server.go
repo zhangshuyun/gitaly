@@ -7,6 +7,7 @@ import (
 )
 
 type server struct {
+	gitalypb.UnimplementedServerServiceServer
 	gitCmdFactory git.CommandFactory
 	storages      []config.Storage
 }

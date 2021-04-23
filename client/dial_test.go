@@ -147,7 +147,7 @@ func TestDial(t *testing.T) {
 }
 
 type testSvc struct {
-	proxytestdata.TestServiceServer
+	proxytestdata.UnimplementedTestServiceServer
 	PingMethod       func(context.Context, *proxytestdata.PingRequest) (*proxytestdata.PingResponse, error)
 	PingStreamMethod func(stream proxytestdata.TestService_PingStreamServer) error
 }

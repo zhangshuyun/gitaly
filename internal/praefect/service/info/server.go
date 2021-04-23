@@ -34,6 +34,7 @@ type PrimaryGetter interface {
 
 // Server is a InfoService server
 type Server struct {
+	gitalypb.UnimplementedPraefectInfoServiceServer
 	nodeMgr         nodes.Manager
 	conf            config.Config
 	queue           datastore.ReplicationEventQueue

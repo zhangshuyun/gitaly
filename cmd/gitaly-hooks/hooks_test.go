@@ -578,6 +578,7 @@ func runHookServiceServer(t *testing.T, cfg config.Cfg) {
 }
 
 type featureFlagAsserter struct {
+	gitalypb.UnimplementedHookServiceServer
 	t       testing.TB
 	wrapped gitalypb.HookServiceServer
 }

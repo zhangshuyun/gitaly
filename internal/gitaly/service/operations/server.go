@@ -10,9 +10,11 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
+	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
 type Server struct {
+	gitalypb.UnimplementedOperationServiceServer
 	cfg           config.Cfg
 	ruby          *rubyserver.Server
 	hookManager   hook.Manager

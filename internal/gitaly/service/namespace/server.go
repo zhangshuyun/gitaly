@@ -6,6 +6,7 @@ import (
 )
 
 type server struct {
+	gitalypb.UnimplementedNamespaceServiceServer
 	locator storage.Locator
 }
 
