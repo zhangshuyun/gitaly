@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync/atomic"
 
-	pb "gitlab.com/gitlab-org/gitaly/internal/middleware/limithandler/testpb"
+	pb "gitlab.com/gitlab-org/gitaly/internal/middleware/limithandler/testdata"
 )
 
 type server struct {

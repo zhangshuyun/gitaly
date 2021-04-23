@@ -1,6 +1,8 @@
 syntax = "proto3";
 
-package test;
+package test.limithandler;
+
+option go_package = "gitlab.com/gitlab-org/gitaly/internal/middleware/limithandler/testdata";
 
 service Test {
   rpc Unary(UnaryRequest) returns (UnaryResponse) {}

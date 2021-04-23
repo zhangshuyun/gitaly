@@ -9,7 +9,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/stretchr/testify/require"
-	test "gitlab.com/gitlab-org/gitaly/internal/helper/chunk/pb"
+	test "gitlab.com/gitlab-org/gitaly/internal/helper/chunk/testdata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"google.golang.org/grpc"
 )

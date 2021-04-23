@@ -10,7 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/limithandler"
-	pb "gitlab.com/gitlab-org/gitaly/internal/middleware/limithandler/testpb"
+	pb "gitlab.com/gitlab-org/gitaly/internal/middleware/limithandler/testdata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"google.golang.org/grpc"
 )
