@@ -586,9 +586,10 @@ func testPostReceiveWithReferenceTransactionHook(t *testing.T, ctx context.Conte
 	go gitalyServer.Serve(internalListener)
 	defer gitalyServer.Stop()
 
+	backchannelVotingEnabled := featureflag.IsEnabled(ctx, featureflag.BackchannelVoting)
 	client := newMuxedSmartHTTPClient(t, ctx, "unix://"+gitalySocketPath, cfg.Auth.Token, func() backchannel.Server {
 		srv := grpc.NewServer()
-		if featureflag.IsEnabled(ctx, featureflag.BackchannelVoting) {
+		if backchannelVotingEnabled {
 			gitalypb.RegisterRefTransactionServer(srv, refTransactionServer)
 		}
 
