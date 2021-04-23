@@ -26,8 +26,6 @@ var (
 	GoUserRevert = FeatureFlag{Name: "go_user_revert", OnByDefault: false}
 	// GoUpdateRemoteMirror enables the Go implementation of UpdateRemoteMirror
 	GoUpdateRemoteMirror = FeatureFlag{Name: "go_update_remote_mirror", OnByDefault: false}
-	// ConnectionMultiplexing enables the use of multiplexed connection from Praefect to Gitaly.
-	ConnectionMultiplexing = FeatureFlag{Name: "connection_multiplexing", OnByDefault: false}
 	// GrpcTreeEntryNotFound makes the TreeEntry gRPC call return NotFound instead of an empty blob
 	GrpcTreeEntryNotFound = FeatureFlag{Name: "grpc_tree_entry_not_found", OnByDefault: false}
 	// BackchannelVoting enables voting via the backchannel connection.
@@ -45,6 +43,5 @@ var All = []FeatureFlag{
 	GoUserRevert,
 	GrpcTreeEntryNotFound,
 	GoUpdateRemoteMirror,
-	ConnectionMultiplexing,
 	BackchannelVoting,
 }

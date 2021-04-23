@@ -307,7 +307,7 @@ func run(cfgs []starter.Config, conf config.Config) error {
 		primaryGetter praefect.PrimaryGetter
 	)
 	if conf.Failover.ElectionStrategy == config.ElectionStrategyPerRepository {
-		nodeSet, err = praefect.DialNodes(ctx, conf.VirtualStorages, protoregistry.GitalyProtoPreregistered, errTracker, nil)
+		nodeSet, err = praefect.DialNodes(ctx, conf.VirtualStorages, protoregistry.GitalyProtoPreregistered, errTracker, clientHandshaker)
 		if err != nil {
 			return fmt.Errorf("dial nodes: %w", err)
 		}

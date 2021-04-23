@@ -5,13 +5,12 @@ import (
 	"sync"
 	"time"
 
-	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metrics"
 )
 
 // newDisabledElector returns a stub that always returns the same shard where the
 // primary is the first node from the passed in list.
-func newDisabledElector(virtualStorage string, ns []*nodeStatus, muxed muxedNodes) *disabledElector {
+func newDisabledElector(virtualStorage string, ns []*nodeStatus) *disabledElector {
 	secondaries := make([]Node, len(ns)-1)
 	for i, node := range ns[1:] {
 		secondaries[i] = node
@@ -19,14 +18,12 @@ func newDisabledElector(virtualStorage string, ns []*nodeStatus, muxed muxedNode
 	return &disabledElector{
 		virtualStorage: virtualStorage,
 		shard:          Shard{Primary: ns[0], Secondaries: secondaries},
-		muxed:          muxed,
 	}
 }
 
 type disabledElector struct {
 	shard          Shard
 	virtualStorage string
-	muxed          muxedNodes
 }
 
 func (de *disabledElector) start(bootstrap, _ time.Duration) {
@@ -66,18 +63,6 @@ func (de *disabledElector) checkNodes(ctx context.Context) error {
 func (de *disabledElector) GetShard(ctx context.Context) (Shard, error) {
 	if !de.shard.Primary.IsHealthy() {
 		return Shard{}, ErrPrimaryNotHealthy
-	}
-
-	if featureflag.IsEnabled(ctx, featureflag.ConnectionMultiplexing) {
-		secondaries := make([]Node, len(de.shard.Secondaries))
-		for i, secondary := range de.shard.Secondaries {
-			secondaries[i] = de.muxed.getNode(ctx, secondary)
-		}
-
-		return Shard{
-			Primary:     de.muxed.getNode(ctx, de.shard.Primary),
-			Secondaries: secondaries,
-		}, nil
 	}
 
 	return de.shard, nil

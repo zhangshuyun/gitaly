@@ -1,0 +1,5 @@
+---
+title: Multiplex connections between Praefect and Gitaly by default
+merge_request: 3360
+author:
+type: other
