@@ -1,0 +1,5 @@
+---
+title: 'blob: Drop LFS pointer bitmap experiment'
+merge_request: 3385
+author:
+type: performance

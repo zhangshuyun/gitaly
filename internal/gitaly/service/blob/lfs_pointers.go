@@ -13,7 +13,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"golang.org/x/text/transform"
 	"google.golang.org/grpc/codes"
@@ -256,23 +255,18 @@ func findLFSPointersByRevisions(
 		}
 	}
 
-	flags := []git.Option{
-		git.Flag{Name: "--in-commit-order"},
-		git.Flag{Name: "--objects"},
-		git.Flag{Name: "--no-object-names"},
-		git.Flag{Name: fmt.Sprintf("--filter=blob:limit=%d", lfsPointerMaxSize)},
-	}
-	if featureflag.IsEnabled(ctx, featureflag.LFSPointersUseBitmapIndex) {
-		flags = append(flags, git.Flag{Name: "--use-bitmap-index"})
-	}
-
 	// git-rev-list(1) currently does not have any way to list all reachable objects of a
 	// certain type.
 	var revListStderr bytes.Buffer
 	revlist, err := repo.Exec(ctx, git.SubCmd{
-		Name:  "rev-list",
-		Flags: flags,
-		Args:  revisions,
+		Name: "rev-list",
+		Flags: []git.Option{
+			git.Flag{Name: "--in-commit-order"},
+			git.Flag{Name: "--objects"},
+			git.Flag{Name: "--no-object-names"},
+			git.Flag{Name: fmt.Sprintf("--filter=blob:limit=%d", lfsPointerMaxSize)},
+		},
+		Args: revisions,
 	}, git.WithStderr(&revListStderr))
 	if err != nil {
 		return nil, fmt.Errorf("could not execute rev-list: %w", err)

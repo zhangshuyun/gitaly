@@ -24,8 +24,6 @@ var (
 	GoUserUpdateSubmodule = FeatureFlag{Name: "go_user_update_submodule", OnByDefault: true}
 	// GoUserRevert enables the Go implementation of UserRevert
 	GoUserRevert = FeatureFlag{Name: "go_user_revert", OnByDefault: false}
-	// LFSPointersUseBitmapIndex enables the use of bitmap indices when searching LFS pointers.
-	LFSPointersUseBitmapIndex = FeatureFlag{Name: "lfs_pointers_use_bitmap_index", OnByDefault: false}
 	// GoUpdateRemoteMirror enables the Go implementation of UpdateRemoteMirror
 	GoUpdateRemoteMirror = FeatureFlag{Name: "go_update_remote_mirror", OnByDefault: false}
 	// ConnectionMultiplexing enables the use of multiplexed connection from Praefect to Gitaly.
@@ -46,7 +44,6 @@ var All = []FeatureFlag{
 	GoUserUpdateSubmodule,
 	GoUserRevert,
 	GrpcTreeEntryNotFound,
-	LFSPointersUseBitmapIndex,
 	GoUpdateRemoteMirror,
 	ConnectionMultiplexing,
 	BackchannelVoting,
