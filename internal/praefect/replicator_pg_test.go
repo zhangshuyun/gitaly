@@ -31,8 +31,7 @@ func TestReplicatorInvalidSourceRepository(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	tmp, cleanDir := testhelper.TempDir(t)
-	defer cleanDir()
+	tmp := testhelper.TempDir(t)
 
 	socketPath := filepath.Join(tmp, "socket")
 	ln, err := net.Listen("unix", socketPath)

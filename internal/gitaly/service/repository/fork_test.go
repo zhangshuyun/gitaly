@@ -170,7 +170,7 @@ func TestFailedCreateForkRequestDueToExistingTarget(t *testing.T) {
 }
 
 func injectCustomCATestCerts(t *testing.T) (*x509.CertPool, testhelper.Cleanup) {
-	certFile, keyFile, removeCerts := testhelper.GenerateTestCerts(t)
+	certFile, keyFile := testhelper.GenerateCerts(t)
 
 	oldTLSConfig := config.Config.TLS
 
@@ -181,7 +181,6 @@ func injectCustomCATestCerts(t *testing.T) (*x509.CertPool, testhelper.Cleanup) 
 	cleanup := func() {
 		config.Config.TLS = oldTLSConfig
 		revertEnv()
-		removeCerts()
 	}
 
 	caPEMBytes, err := ioutil.ReadFile(certFile)

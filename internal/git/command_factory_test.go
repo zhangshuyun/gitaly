@@ -32,8 +32,7 @@ func TestGitCommandProxy(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	dir, cleanup := testhelper.TempDir(t)
-	defer cleanup()
+	dir := testhelper.TempDir(t)
 
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
 	cmd, err := gitCmdFactory.NewWithoutRepo(ctx, git.SubCmd{
@@ -62,8 +61,7 @@ func TestExecCommandFactory_NewWithDir(t *testing.T) {
 	})
 
 	t.Run("runs in dir", func(t *testing.T) {
-		repoPath, cleanup := testhelper.TempDir(t)
-		defer cleanup()
+		repoPath := testhelper.TempDir(t)
 
 		testhelper.MustRunCommand(t, nil, "git", "init", repoPath)
 		testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "commit", "--allow-empty",

@@ -41,8 +41,7 @@ func TestDial(t *testing.T) {
 
 	unixSocketAbsPath := connectionMap["unix"]
 
-	tempDir, cleanup := testhelper.TempDir(t)
-	defer cleanup()
+	tempDir := testhelper.TempDir(t)
 
 	unixSocketPath := filepath.Join(tempDir, "gitaly.socket")
 	require.NoError(t, os.Symlink(unixSocketAbsPath, unixSocketPath))

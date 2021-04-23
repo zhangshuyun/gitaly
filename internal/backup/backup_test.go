@@ -21,8 +21,7 @@ func TestFilesystem_BackupRepository(t *testing.T) {
 
 	gitalyAddr := testserver.RunGitalyServer(t, cfg, nil, setup.RegisterAll)
 
-	path, cleanup := testhelper.TempDir(t)
-	t.Cleanup(cleanup)
+	path := testhelper.TempDir(t)
 
 	hooksRepo, hooksRepoPath, _ := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "hooks")
 	require.NoError(t, os.Mkdir(filepath.Join(hooksRepoPath, "custom_hooks"), os.ModePerm))

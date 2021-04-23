@@ -187,8 +187,7 @@ func TestReceivePackPushHookFailure(t *testing.T) {
 	serverSocketPath, stop := runSSHServer(t, cfg)
 	defer stop()
 
-	hookDir, cleanup := testhelper.TempDir(t)
-	defer cleanup()
+	hookDir := testhelper.TempDir(t)
 
 	defer func(old string) { hooks.Override = old }(hooks.Override)
 	hooks.Override = hookDir
@@ -265,8 +264,7 @@ func TestSSHReceivePackToHooks(t *testing.T) {
 
 	readProto, cfg := gittest.EnableGitProtocolV2Support(t, cfg)
 
-	tempGitlabShellDir, cleanup := testhelper.TempDir(t)
-	defer cleanup()
+	tempGitlabShellDir := testhelper.TempDir(t)
 
 	cfg.GitlabShell.Dir = tempGitlabShellDir
 

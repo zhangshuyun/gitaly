@@ -151,8 +151,7 @@ func (p *TestServer) Start(t testing.TB) {
 		return
 	}
 
-	tempDir, cleanup := TempDir(t)
-	defer cleanup()
+	tempDir := TempDir(t)
 
 	praefectServerSocketPath := GetTemporaryGitalySocketFileName(t)
 
@@ -889,7 +888,7 @@ func NewGitlabTestServer(t testing.TB, options GitlabTestServerOptions) (url str
 }
 
 func startSocketHTTPServer(t testing.TB, mux *http.ServeMux, tlsCfg *tls.Config) (string, func()) {
-	tempDir, cleanupDir := TempDir(t)
+	tempDir := TempDir(t)
 
 	filename := filepath.Join(tempDir, "http-test-server")
 	socketListener, err := net.Listen("unix", filename)
@@ -905,7 +904,6 @@ func startSocketHTTPServer(t testing.TB, mux *http.ServeMux, tlsCfg *tls.Config)
 	url := "http+unix://" + filename
 	cleanup := func() {
 		require.NoError(t, server.Close())
-		cleanupDir()
 	}
 
 	return url, cleanup

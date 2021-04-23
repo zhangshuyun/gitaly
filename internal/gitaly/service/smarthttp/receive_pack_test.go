@@ -162,8 +162,7 @@ func TestFailedReceivePackRequestWithGitOpts(t *testing.T) {
 func TestFailedReceivePackRequestDueToHooksFailure(t *testing.T) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
-	hookDir, cleanup := testhelper.TempDir(t)
-	defer cleanup()
+	hookDir := testhelper.TempDir(t)
 
 	defer func(override string) {
 		hooks.Override = override
@@ -385,8 +384,7 @@ func TestPostReceivePackToHooks(t *testing.T) {
 	)
 
 	var cleanup func()
-	cfg.GitlabShell.Dir, cleanup = testhelper.TempDir(t)
-	defer cleanup()
+	cfg.GitlabShell.Dir = testhelper.TempDir(t)
 
 	cfg.Auth.Token = "abc123"
 	cfg.Gitlab.SecretFile = testhelper.WriteShellSecretFile(t, cfg.GitlabShell.Dir, secretToken)
@@ -493,8 +491,7 @@ func testPostReceiveWithTransactionsViaPraefect(t *testing.T, ctx context.Contex
 	serverURL, cleanup := testhelper.NewGitlabTestServer(t, opts)
 	defer cleanup()
 
-	gitlabShellDir, cleanup := testhelper.TempDir(t)
-	defer cleanup()
+	gitlabShellDir := testhelper.TempDir(t)
 	cfg.GitlabShell.Dir = gitlabShellDir
 	cfg.Gitlab.URL = serverURL
 	cfg.Gitlab.HTTPSettings.User = gitlabUser

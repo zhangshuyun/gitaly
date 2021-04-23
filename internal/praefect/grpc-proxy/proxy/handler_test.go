@@ -389,8 +389,7 @@ func TestProxyErrorPropagation(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			tmpDir, clean := testhelper.TempDir(t)
-			defer clean()
+			tmpDir := testhelper.TempDir(t)
 
 			backendListener, err := net.Listen("unix", filepath.Join(tmpDir, "backend"))
 			require.NoError(t, err)

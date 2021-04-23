@@ -67,8 +67,7 @@ func TestServerFactory(t *testing.T) {
 	gitalyAddr, err := starter.ComposeEndpoint(gitalyListener.Addr().Network(), gitalyListener.Addr().String())
 	require.NoError(t, err)
 
-	certFile, keyFile, remove := testhelper.GenerateTestCerts(t)
-	defer remove()
+	certFile, keyFile := testhelper.GenerateCerts(t)
 
 	conf := config.Config{
 		TLS: gconfig.TLS{

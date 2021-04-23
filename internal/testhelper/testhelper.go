@@ -288,15 +288,18 @@ func AssertPathNotExists(t testing.TB, path string) {
 }
 
 // TempDir is a wrapper around ioutil.TempDir that provides a cleanup function.
-func TempDir(t testing.TB) (string, func()) {
+func TempDir(t testing.TB) string {
 	if testDirectory == "" {
 		panic("you must call testhelper.Configure() before TempDir()")
 	}
 
 	tmpDir, err := ioutil.TempDir(testDirectory, "")
 	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, os.RemoveAll(tmpDir))
+	})
 
-	return tmpDir, func() { require.NoError(t, os.RemoveAll(tmpDir)) }
+	return tmpDir
 }
 
 // Cleanup functions should be called in a defer statement
@@ -331,9 +334,9 @@ func ModifyEnvironment(t testing.TB, key string, value string) func() {
 	}
 }
 
-// GenerateTestCerts creates a certificate that can be used to establish TLS protected TCP connection.
+// GenerateCerts creates a certificate that can be used to establish TLS protected TCP connection.
 // It returns paths to the file with the certificate and its private key.
-func GenerateTestCerts(t *testing.T) (string, string, Cleanup) {
+func GenerateCerts(t *testing.T) (string, string) {
 	t.Helper()
 
 	rootCA := &x509.Certificate{
@@ -366,6 +369,9 @@ func GenerateTestCerts(t *testing.T) (string, string, Cleanup) {
 	certFile, err := ioutil.TempFile(testDirectory, "")
 	require.NoError(t, err)
 	defer MustClose(t, certFile)
+	t.Cleanup(func() {
+		require.NoError(t, os.Remove(certFile.Name()))
+	})
 
 	// create chained PEM file with CA and entity cert
 	for _, cert := range [][]byte{entityCert, caCert} {
@@ -380,6 +386,9 @@ func GenerateTestCerts(t *testing.T) (string, string, Cleanup) {
 	keyFile, err := ioutil.TempFile(testDirectory, "")
 	require.NoError(t, err)
 	defer MustClose(t, keyFile)
+	t.Cleanup(func() {
+		require.NoError(t, os.Remove(keyFile.Name()))
+	})
 
 	entityKeyBytes, err := x509.MarshalECPrivateKey(entityKey)
 	require.NoError(t, err)
@@ -391,10 +400,5 @@ func GenerateTestCerts(t *testing.T) (string, string, Cleanup) {
 		}),
 	)
 
-	cleanup := func() {
-		require.NoError(t, os.Remove(certFile.Name()))
-		require.NoError(t, os.Remove(keyFile.Name()))
-	}
-
-	return certFile.Name(), keyFile.Name(), cleanup
+	return certFile.Name(), keyFile.Name()
 }

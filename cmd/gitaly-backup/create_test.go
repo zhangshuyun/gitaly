@@ -24,8 +24,7 @@ func TestCreateSubcommand(t *testing.T) {
 
 	gitalyAddr := testserver.RunGitalyServer(t, cfg, nil, setup.RegisterAll)
 
-	path, cleanup := testhelper.TempDir(t)
-	t.Cleanup(cleanup)
+	path := testhelper.TempDir(t)
 
 	var repos []*gitalypb.Repository
 	for i := 0; i < 5; i++ {

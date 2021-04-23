@@ -21,8 +21,7 @@ func testMain(m *testing.M) int {
 }
 
 func TestList(t *testing.T) {
-	tempDir, cleanup := testhelper.TempDir(t)
-	defer cleanup()
+	tempDir := testhelper.TempDir(t)
 
 	emptyRepo := filepath.Join(tempDir, "empty.git")
 	testhelper.MustRunCommand(t, nil, "git", "init", "--bare", emptyRepo)

@@ -36,8 +36,7 @@ func TestPostReceiveInvalidArgument(t *testing.T) {
 
 func TestHooksMissingStdin(t *testing.T) {
 	user, password, secretToken := "user", "password", "secret token"
-	tempDir, cleanup := testhelper.TempDir(t)
-	defer cleanup()
+	tempDir := testhelper.TempDir(t)
 	testhelper.WriteShellSecretFile(t, tempDir, secretToken)
 
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
@@ -186,8 +185,7 @@ To create a merge request for okay, visit:
 	secretToken := "secret token"
 	user, password := "user", "password"
 
-	tempDir, cleanup := testhelper.TempDir(t)
-	defer cleanup()
+	tempDir := testhelper.TempDir(t)
 	testhelper.WriteShellSecretFile(t, tempDir, secretToken)
 
 	for _, tc := range testCases {

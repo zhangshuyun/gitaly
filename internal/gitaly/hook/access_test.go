@@ -46,8 +46,7 @@ func TestAccess_verifyParams(t *testing.T) {
 		gitAlternateObjectDirsFull = append(gitAlternateObjectDirsFull, filepath.Join(testRepoPath, gitAlternateObjectDirRel))
 	}
 
-	tempDir, cleanup := testhelper.TempDir(t)
-	defer cleanup()
+	tempDir := testhelper.TempDir(t)
 	testhelper.WriteShellSecretFile(t, tempDir, secretToken)
 
 	secretFilePath := filepath.Join(tempDir, ".gitlab_shell_secret")
@@ -149,8 +148,7 @@ func TestAccess_escapedAndRelativeURLs(t *testing.T) {
 		gitAlternateObjectDirsFull = append(gitAlternateObjectDirsFull, filepath.Join(testRepoPath, gitAlternateObjectDirRel))
 	}
 
-	tempDir, cleanup := testhelper.TempDir(t)
-	defer cleanup()
+	tempDir := testhelper.TempDir(t)
 	testhelper.WriteShellSecretFile(t, tempDir, secretToken)
 
 	secretFilePath := filepath.Join(tempDir, ".gitlab_shell_secret")
@@ -244,8 +242,7 @@ func TestAccess_allowedResponseHandling(t *testing.T) {
 
 	defer cleanup()
 
-	tempDir, cleanup := testhelper.TempDir(t)
-	defer cleanup()
+	tempDir := testhelper.TempDir(t)
 	testhelper.WriteShellSecretFile(t, tempDir, "secret_token")
 
 	secretFilePath := filepath.Join(tempDir, ".gitlab_shell_secret")
@@ -386,8 +383,7 @@ func TestAccess_allowedResponseHandling(t *testing.T) {
 }
 
 func TestAccess_preReceive(t *testing.T) {
-	tempDir, cleanup := testhelper.TempDir(t)
-	defer cleanup()
+	tempDir := testhelper.TempDir(t)
 
 	testhelper.WriteShellSecretFile(t, tempDir, "secret_token")
 
@@ -477,8 +473,7 @@ func TestAccess_preReceive(t *testing.T) {
 }
 
 func TestAccess_postReceive(t *testing.T) {
-	tempDir, cleanup := testhelper.TempDir(t)
-	defer cleanup()
+	tempDir := testhelper.TempDir(t)
 
 	testhelper.WriteShellSecretFile(t, tempDir, "secret_token")
 

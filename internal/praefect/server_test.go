@@ -111,8 +111,7 @@ func TestGitalyServerInfo(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("gitaly responds with ok", func(t *testing.T) {
-		tempDir, cleanupTempDir := testhelper.TempDir(t)
-		defer cleanupTempDir()
+		tempDir := testhelper.TempDir(t)
 
 		cfg := gconfig.Config
 		cfg.Storages = []gconfig.Storage{{Name: "praefect-internal-1"}, {Name: "praefect-internal-2"}}
@@ -460,7 +459,6 @@ func TestRemoveRepository(t *testing.T) {
 
 	for i, name := range []string{"gitaly-1", "gitaly-2", "gitaly-3"} {
 		cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages(name))
-		defer cfgBuilder.Cleanup()
 		gitalyCfgs[i], repos[i] = cfgBuilder.BuildWithRepoAt(t, "test-repository")
 
 		gitalyAddr := testserver.RunGitalyServer(t, gitalyCfgs[i], nil, setup.RegisterAll)
@@ -549,7 +547,6 @@ func TestRenameRepository(t *testing.T) {
 		const relativePath = "test-repository"
 
 		cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages(storageName))
-		defer cfgBuilder.Cleanup()
 		gitalyCfg, repos := cfgBuilder.BuildWithRepoAt(t, relativePath)
 		if repo == nil {
 			repo = repos[0]

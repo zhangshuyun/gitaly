@@ -7,15 +7,14 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git/hooks"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 )
 
 // WriteEnvToCustomHook dumps the env vars that the custom hooks receives to a file
 func WriteEnvToCustomHook(t testing.TB, repoPath, hookName string) string {
-	tempDir, cleanup := testhelper.TempDir(t)
-	t.Cleanup(cleanup)
+	tempDir := testhelper.TempDir(t)
 
 	outputPath := filepath.Join(tempDir, "hook.env")
 	hookContent := fmt.Sprintf("#!/bin/sh\n/usr/bin/env >%s\n", outputPath)
@@ -50,28 +49,21 @@ func WriteCustomHook(t testing.TB, repoPath, name string, content []byte) {
 // CaptureHookEnv creates a bogus 'update' Git hook to sniff out what
 // environment variables get set for hooks.
 func CaptureHookEnv(t testing.TB) (string, func()) {
-	tempDir, cleanup := testhelper.TempDir(t)
+	tempDir := testhelper.TempDir(t)
 
 	oldOverride := hooks.Override
 	hooks.Override = filepath.Join(tempDir, "hooks")
 	hookOutputFile := filepath.Join(tempDir, "hook.env")
 
-	if !assert.NoError(t, os.MkdirAll(hooks.Override, 0755)) {
-		cleanup()
-		t.FailNow()
-	}
+	require.NoError(t, os.MkdirAll(hooks.Override, 0755))
 
 	script := []byte(`
 #!/bin/sh
 env | grep -e ^GIT -e ^GL_ > ` + hookOutputFile + "\n")
 
-	if !assert.NoError(t, ioutil.WriteFile(filepath.Join(hooks.Override, "update"), script, 0755)) {
-		cleanup()
-		t.FailNow()
-	}
+	require.NoError(t, ioutil.WriteFile(filepath.Join(hooks.Override, "update"), script, 0755))
 
 	return hookOutputFile, func() {
-		cleanup()
 		hooks.Override = oldOverride
 	}
 }

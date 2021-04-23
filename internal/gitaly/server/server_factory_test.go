@@ -91,8 +91,7 @@ func TestGitalyServerFactory(t *testing.T) {
 	})
 
 	t.Run("secure", func(t *testing.T) {
-		certFile, keyFile, remove := testhelper.GenerateTestCerts(t)
-		t.Cleanup(remove)
+		certFile, keyFile := testhelper.GenerateCerts(t)
 
 		cfg := testcfg.Build(t, testcfg.WithBase(config.Cfg{TLS: config.TLS{
 			CertPath: certFile,

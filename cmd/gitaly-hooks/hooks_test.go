@@ -104,8 +104,7 @@ func testMain(m *testing.M) int {
 }
 
 func TestHooksPrePostWithSymlinkedStoragePath(t *testing.T) {
-	tempDir, cleanup := testhelper.TempDir(t)
-	defer cleanup()
+	tempDir := testhelper.TempDir(t)
 
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 	testhelper.ConfigureGitalyHooksBin(t, cfg)
@@ -248,8 +247,7 @@ func TestHooksUpdate(t *testing.T) {
 	glUsername := "iamgitlab"
 	glProtocol := "ssh"
 
-	customHooksDir, cleanup := testhelper.TempDir(t)
-	defer cleanup()
+	customHooksDir := testhelper.TempDir(t)
 
 	cfg := testcfg.Build(t, testcfg.WithBase(config.Cfg{
 		Auth:  auth.Config{Token: "abc123"},
@@ -283,8 +281,7 @@ func testHooksUpdate(t *testing.T, cfg config.Cfg, glValues glHookValues) {
 	cmd.Env = envForHooks(t, cfg, repo, glValues, proxyValues{})
 	cmd.Dir = repoPath
 
-	tempDir, cleanup := testhelper.TempDir(t)
-	defer cleanup()
+	tempDir := testhelper.TempDir(t)
 
 	customHookArgsPath := filepath.Join(tempDir, "containsarguments")
 	dumpArgsToTempfileScript := fmt.Sprintf(`#!/usr/bin/env ruby
@@ -511,8 +508,7 @@ func TestCheckOK(t *testing.T) {
 	serverURL, cleanup := testhelper.NewGitlabTestServer(t, c)
 	defer cleanup()
 
-	tempDir, cleanup := testhelper.TempDir(t)
-	defer cleanup()
+	tempDir := testhelper.TempDir(t)
 
 	gitlabShellDir := filepath.Join(tempDir, "gitlab-shell")
 	require.NoError(t, os.MkdirAll(gitlabShellDir, 0755))
@@ -556,8 +552,7 @@ func TestCheckBadCreds(t *testing.T) {
 	serverURL, cleanup := testhelper.NewGitlabTestServer(t, c)
 	defer cleanup()
 
-	tempDir, cleanup := testhelper.TempDir(t)
-	defer cleanup()
+	tempDir := testhelper.TempDir(t)
 
 	gitlabShellDir := filepath.Join(tempDir, "gitlab-shell")
 	require.NoError(t, os.MkdirAll(gitlabShellDir, 0755))
@@ -697,8 +692,7 @@ func TestGitalyHooksPackObjects(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			defer runHookServiceServer(t, cfg)()
 
-			tempDir, cleanTempDir := testhelper.TempDir(t)
-			defer cleanTempDir()
+			tempDir := testhelper.TempDir(t)
 
 			args := append(baseArgs[1:], tc.extraArgs...)
 			args = append(args, repoPath, tempDir)

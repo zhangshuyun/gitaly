@@ -235,9 +235,7 @@ func TestSuccessfulUploadPackDeepenRequest(t *testing.T) {
 
 func TestUploadPackWithPackObjectsHook(t *testing.T) {
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
-	var cleanup func()
-	cfg.BinDir, cleanup = testhelper.TempDir(t)
-	defer cleanup()
+	cfg.BinDir = testhelper.TempDir(t)
 
 	outputPath := filepath.Join(cfg.BinDir, "output")
 	hookScript := fmt.Sprintf("#!/bin/sh\necho 'I was invoked' >'%s'\nshift\nexec '%s' \"$@\"\n", outputPath, cfg.Git.BinPath)

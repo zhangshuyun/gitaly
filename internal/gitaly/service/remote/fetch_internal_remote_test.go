@@ -65,8 +65,7 @@ func listenGitalySSHCalls(t *testing.T, conf config.Cfg) func() []GitalySSHParam
 	updatedPath := initialPath + "-actual"
 	require.NoError(t, os.Rename(initialPath, updatedPath))
 
-	tmpDir, clean := testhelper.TempDir(t)
-	t.Cleanup(clean)
+	tmpDir := testhelper.TempDir(t)
 
 	script := fmt.Sprintf(`
 		#!/bin/sh
@@ -160,7 +159,6 @@ func TestSuccessfulFetchInternalRemote(t *testing.T) {
 	gittest.CreateCommit(t, remoteCfg, remoteRepoPath, "master", nil)
 
 	localCfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("gitaly-1"))
-	t.Cleanup(localCfgBuilder.Cleanup)
 
 	localCfg, localRepos := localCfgBuilder.BuildWithRepoAt(t, "stub")
 	localRepo := localRepos[0]

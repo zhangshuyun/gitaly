@@ -96,8 +96,7 @@ func TestFetchIntoObjectPool_hooks(t *testing.T) {
 		require.NoError(t, pool.Remove(ctx))
 	}()
 
-	hookDir, cleanup := testhelper.TempDir(t)
-	defer cleanup()
+	hookDir := testhelper.TempDir(t)
 
 	defer func(oldValue string) {
 		hooks.Override = oldValue
@@ -164,7 +163,6 @@ func TestFetchIntoObjectPool_CollectLogStatistics(t *testing.T) {
 
 func TestFetchIntoObjectPool_Failure(t *testing.T) {
 	cfgBuilder := testcfg.NewGitalyCfgBuilder()
-	defer cfgBuilder.Cleanup()
 	cfg, repos := cfgBuilder.BuildWithRepoAt(t, t.Name())
 
 	locator := config.NewLocator(cfg)

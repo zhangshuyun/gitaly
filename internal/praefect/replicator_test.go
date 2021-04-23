@@ -96,8 +96,7 @@ func testMain(m *testing.M) int {
 func TestReplMgr_ProcessBacklog(t *testing.T) {
 	backupStorageName := "backup"
 
-	backupDir, cleanup := testhelper.TempDir(t)
-	defer cleanup()
+	backupDir := testhelper.TempDir(t)
 
 	defer func(oldStorages []gitaly_config.Storage) { gitaly_config.Config.Storages = oldStorages }(gitaly_config.Config.Storages)
 
@@ -613,8 +612,7 @@ func getChecksumFunc(ctx context.Context, client gitalypb.RepositoryServiceClien
 func TestProcessBacklog_FailedJobs(t *testing.T) {
 	backupStorageName := "backup"
 
-	backupDir, cleanup := testhelper.TempDir(t)
-	defer cleanup()
+	backupDir := testhelper.TempDir(t)
 	defer func(oldStorages []gitaly_config.Storage) { gitaly_config.Config.Storages = oldStorages }(gitaly_config.Config.Storages)
 
 	gitaly_config.Config.Storages = append(gitaly_config.Config.Storages, gitaly_config.Storage{
@@ -743,8 +741,7 @@ func TestProcessBacklog_FailedJobs(t *testing.T) {
 func TestProcessBacklog_Success(t *testing.T) {
 	defer func(oldStorages []gitaly_config.Storage) { gitaly_config.Config.Storages = oldStorages }(gitaly_config.Config.Storages)
 
-	backupDir, cleanup := testhelper.TempDir(t)
-	defer cleanup()
+	backupDir := testhelper.TempDir(t)
 
 	gitaly_config.Config.Storages = append(gitaly_config.Config.Storages, gitaly_config.Storage{
 		Name: "backup",
