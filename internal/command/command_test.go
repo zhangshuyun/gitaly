@@ -17,7 +17,12 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/goleak"
 )
+
+func TestMain(m *testing.M) {
+	goleak.VerifyTestMain(m)
+}
 
 func TestNewCommandTZEnv(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -220,12 +225,20 @@ func TestNewCommandNullInArg(t *testing.T) {
 	require.EqualError(t, err, `detected null byte in command argument "hello\x00world"`)
 }
 
+func TestNewNonExistent(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	cmd, err := New(ctx, exec.Command("command-non-existent"), nil, nil, nil)
+	require.Nil(t, cmd)
+	require.Error(t, err)
+}
+
 func TestCommandStdErr(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	var stdout bytes.Buffer
-
 	expectedMessage := `hello world\\nhello world\\nhello world\\nhello world\\nhello world\\n`
 
 	r, w := io.Pipe()
