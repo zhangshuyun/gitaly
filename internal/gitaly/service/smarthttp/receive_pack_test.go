@@ -519,7 +519,7 @@ func testPostReceiveWithTransactionsViaPraefect(t *testing.T, ctx context.Contex
 	require.NoError(t, err)
 
 	go func() {
-		gitalyServer.GrpcServer().Serve(internalListener)
+		require.NoError(t, gitalyServer.GrpcServer().Serve(internalListener))
 	}()
 
 	client, conn := newSmartHTTPClient(t, "unix://"+gitalyServer.Socket(), cfg.Auth.Token)

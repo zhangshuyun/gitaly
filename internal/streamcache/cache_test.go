@@ -189,7 +189,7 @@ func TestCache_scope(t *testing.T) {
 		var created bool
 		reader[i], created, err = cache[i].FindOrCreate(key, writeString(input[i]))
 		require.NoError(t, err)
-		defer func(i int) { reader[i].Close() }(i)
+		defer func(i int) { require.NoError(t, reader[i].Close()) }(i)
 		require.True(t, created)
 	}
 

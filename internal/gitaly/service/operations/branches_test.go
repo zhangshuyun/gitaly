@@ -154,8 +154,12 @@ func TestUserCreateBranchWithTransaction(t *testing.T) {
 		srv.Start(t)
 		defer srv.Stop()
 
-		go srv.GrpcServer().Serve(internalListener)
-		go srv.GrpcServer().Serve(tcpSocket)
+		go func() {
+			require.NoError(t, srv.GrpcServer().Serve(internalListener))
+		}()
+		go func() {
+			require.NoError(t, srv.GrpcServer().Serve(tcpSocket))
+		}()
 
 		testcases := []struct {
 			desc    string
@@ -549,7 +553,9 @@ func TestUserDeleteBranch_transaction(t *testing.T) {
 
 		srv.Start(t)
 		defer srv.Stop()
-		go srv.GrpcServer().Serve(internalListener)
+		go func() {
+			require.NoError(t, srv.GrpcServer().Serve(internalListener))
+		}()
 
 		praefect := metadata.PraefectServer{
 			SocketPath: fmt.Sprintf("unix://" + internalSocket),

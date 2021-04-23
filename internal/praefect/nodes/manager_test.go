@@ -137,7 +137,7 @@ func TestManagerFailoverDisabledElectionStrategySQL(t *testing.T) {
 	healthSrv.SetServingStatus("", grpc_health_v1.HealthCheckResponse_UNKNOWN)
 	nm.checkShards()
 
-	shard, err = nm.GetShard(ctx, virtualStorageName)
+	_, err = nm.GetShard(ctx, virtualStorageName)
 	require.Error(t, err)
 	require.Equal(t, ErrPrimaryNotHealthy, err)
 }

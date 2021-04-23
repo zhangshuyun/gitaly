@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"strings"
 	"testing"
 
@@ -18,8 +19,7 @@ import (
 // https://github.com/git/git/blob/master/t/t5320-delta-islands.sh .
 func TestDeltaIslands(t *testing.T, repoPath string, repack func() error) {
 	// Create blobs that we expect Git to use delta compression on.
-	blob1 := make([]byte, 100000)
-	_, err := io.ReadFull(rand.Reader, blob1)
+	blob1, err := ioutil.ReadAll(io.LimitReader(rand.Reader, 100000))
 	require.NoError(t, err)
 
 	blob2 := append(blob1, "\nblob 2"...)
