@@ -42,6 +42,7 @@ require (
 	gitlab.com/gitlab-org/gitlab-shell v1.9.8-0.20201117050822-3f9890ef73dc
 	gitlab.com/gitlab-org/labkit v1.0.0
 	go.uber.org/goleak v1.1.10
+	golang.org/x/crypto v0.0.0-20210421170649-83a5a9bb288b // indirect
 	golang.org/x/exp v0.0.0-20200331195152-e8c3332aa8e5 // indirect
 	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208
 	golang.org/x/sys v0.0.0-20210119212857-b64e53b001e4

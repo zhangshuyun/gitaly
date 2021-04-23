@@ -1,0 +1,5 @@
+---
+title: Update golang.org/x/crypto to the latest to address CVE-2020-29652
+merge_request: 3400
+author: Takuya Noguchi
+type: security
