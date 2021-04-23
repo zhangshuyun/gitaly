@@ -171,7 +171,7 @@ nightly:git:
   image: registry.gitlab.com/gitlab-org/gitlab-build-images:ruby-${RUBY_VERSION}-golang-${GO_VERSION}-git-2.31
   script:
     - go version
-    - make all ${TARGET}
+    - make all ${TARGET} GIT_PATCHES=
   parallel:
     matrix:
       - GO_VERSION: "1.16"

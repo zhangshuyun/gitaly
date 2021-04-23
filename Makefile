@@ -90,14 +90,14 @@ ifeq (${Q},@)
 	GIT_QUIET = --quiet
 endif
 
-ifeq (${GIT_PATCHES},)
+ifndef GIT_PATCHES
     # Before adding custom patches, please read doc/PROCESS.md#Patching-git
     # first to make sure your patches meet our acceptance criteria. Patches
     # must be put into `_support/git-patches`.
     GIT_PATCHES += pack-bitmap-avoid-traversal-of-uninteresting-tag.patch
 endif
 
-ifeq (${GIT_BUILD_OPTIONS},)
+ifndef GIT_BUILD_OPTIONS
     # activate developer checks
     GIT_BUILD_OPTIONS += DEVELOPER=1
     # but don't cause warnings to fail the build
@@ -117,7 +117,7 @@ LIBGIT2_SOURCE_DIR  ?= ${DEPENDENCY_DIR}/libgit2/source
 LIBGIT2_BUILD_DIR   ?= ${DEPENDENCY_DIR}/libgit2/build
 LIBGIT2_INSTALL_DIR ?= ${DEPENDENCY_DIR}/libgit2/install
 
-ifeq (${LIBGIT2_BUILD_OPTIONS},)
+ifndef LIBGIT2_BUILD_OPTIONS
     LIBGIT2_BUILD_OPTIONS += -DTHREADSAFE=ON
     LIBGIT2_BUILD_OPTIONS += -DBUILD_CLAR=OFF
     LIBGIT2_BUILD_OPTIONS += -DBUILD_SHARED_LIBS=OFF
@@ -440,7 +440,7 @@ ${LIBGIT2_INSTALL_DIR}/lib/libgit2.a: ${DEPENDENCY_DIR}/libgit2.version
 	${Q}CMAKE_BUILD_PARALLEL_LEVEL=$(shell nproc) cmake --build ${LIBGIT2_BUILD_DIR} --target install
 	go install -a github.com/libgit2/git2go/${GIT2GO_VERSION}
 
-ifeq (${GIT_USE_PREBUILT_BINARIES},)
+ifndef GIT_USE_PREBUILT_BINARIES
 ${GIT_INSTALL_DIR}/bin/git: ${DEPENDENCY_DIR}/git.version
 	${Q}${GIT} -c init.defaultBranch=master init ${GIT_QUIET} ${GIT_SOURCE_DIR}
 	${Q}${GIT} -C "${GIT_SOURCE_DIR}" config remote.origin.url ${GIT_REPO_URL}
