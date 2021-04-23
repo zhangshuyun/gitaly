@@ -12,6 +12,7 @@ import (
 	hookservice "gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/hook"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/lines"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -100,7 +101,7 @@ func assertContainsLocalBranch(t *testing.T, branches []*gitalypb.FindLocalBranc
 				t.Errorf("Expected branch\n%v\ngot\n%v", branch, b)
 			}
 
-			testhelper.ProtoEqual(t, branch.Commit, b.Commit)
+			testassert.ProtoEqual(t, branch.Commit, b.Commit)
 			return // Found the branch and it maches. Success!
 		}
 	}
@@ -127,7 +128,7 @@ func assertContainsBranch(t *testing.T, branches []*gitalypb.FindAllBranchesResp
 
 	for _, b := range branches {
 		if bytes.Equal(branch.Name, b.Name) {
-			testhelper.ProtoEqual(t, b.Target, branch.Target)
+			testassert.ProtoEqual(t, b.Target, branch.Target)
 			return // Found the branch and it maches. Success!
 		}
 		branchNames = append(branchNames, b.Name)

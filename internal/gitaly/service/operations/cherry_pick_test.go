@@ -10,6 +10,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
@@ -160,7 +161,7 @@ func TestServer_UserCherryPick_successful(t *testing.T) {
 			require.Empty(t, response.CreateTreeErrorCode)
 
 			if testCase.request.DryRun {
-				testhelper.ProtoEqual(t, masterHeadCommit, headCommit)
+				testassert.ProtoEqual(t, masterHeadCommit, headCommit)
 			} else {
 				require.Equal(t, testCase.request.Message, headCommit.Subject)
 				require.Equal(t, masterHeadCommit.Id, headCommit.ParentIds[0])
@@ -505,7 +506,7 @@ func TestServer_UserCherryPick_successfulWithGivenCommits(t *testing.T) {
 				BranchUpdate: &gitalypb.OperationBranchUpdate{CommitId: newHead.Id},
 			}
 
-			testhelper.ProtoEqual(t, expectedResponse, response)
+			testassert.ProtoEqual(t, expectedResponse, response)
 
 			require.Equal(t, request.Message, newHead.Subject)
 			require.Equal(t, testCase.startRevision.String(), newHead.ParentIds[0])

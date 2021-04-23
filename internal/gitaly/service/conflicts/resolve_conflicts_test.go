@@ -15,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -490,7 +491,7 @@ func TestResolveConflictsIdenticalContent(t *testing.T) {
 
 	response, err := stream.CloseAndRecv()
 	require.NoError(t, err)
-	testhelper.ProtoEqual(t, &gitalypb.ResolveConflictsResponse{
+	testassert.ProtoEqual(t, &gitalypb.ResolveConflictsResponse{
 		ResolutionError: "Resolved content has no changes for file files/ruby/popen.rb",
 	}, response)
 }

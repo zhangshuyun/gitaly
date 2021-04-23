@@ -21,6 +21,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/txinfo"
@@ -379,7 +380,7 @@ func TestUserCreateTagWithTransaction(t *testing.T) {
 			}
 			require.Equal(t, targetOIDOK, targetRevision)
 
-			testhelper.ProtoEqual(t, &gitalypb.UserCreateTagResponse{
+			testassert.ProtoEqual(t, &gitalypb.UserCreateTagResponse{
 				Tag: &gitalypb.Tag{
 					Name:         []byte(tagName),
 					Message:      []byte(testCase.message),
@@ -1045,7 +1046,7 @@ func TestFailedUserDeleteTagRequestDueToValidation(t *testing.T) {
 		t.Run(testCase.desc, func(t *testing.T) {
 			response, err := client.UserDeleteTag(ctx, testCase.request)
 			require.Equal(t, testCase.err, err)
-			testhelper.ProtoEqual(t, testCase.response, response)
+			testassert.ProtoEqual(t, testCase.response, response)
 		})
 	}
 }

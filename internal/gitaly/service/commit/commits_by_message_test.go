@@ -6,6 +6,7 @@ import (
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
@@ -149,7 +150,7 @@ func TestSuccessfulCommitsByMessageRequest(t *testing.T) {
 			require.Equal(t, len(testCase.expectedCommits), len(receivedCommits), "number of commits received")
 
 			for i, receivedCommit := range receivedCommits {
-				testhelper.ProtoEqual(t, testCase.expectedCommits[i], receivedCommit)
+				testassert.ProtoEqual(t, testCase.expectedCommits[i], receivedCommit)
 			}
 		})
 	}

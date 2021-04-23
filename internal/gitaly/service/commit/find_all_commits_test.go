@@ -9,6 +9,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service/ref"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
@@ -284,7 +285,7 @@ func TestSuccessfulFindAllCommitsRequest(t *testing.T) {
 			require.Equal(t, len(testCase.expectedCommits), len(receivedCommits), "number of commits received")
 
 			for i, receivedCommit := range receivedCommits {
-				testhelper.ProtoEqual(t, testCase.expectedCommits[i], receivedCommit)
+				testassert.ProtoEqual(t, testCase.expectedCommits[i], receivedCommit)
 			}
 		})
 	}
