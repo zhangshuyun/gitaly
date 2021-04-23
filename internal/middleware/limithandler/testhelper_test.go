@@ -8,8 +8,9 @@ import (
 )
 
 type server struct {
+	pb.UnimplementedTestServer
 	requestCount uint64
-	blockCh      chan (struct{})
+	blockCh      chan struct{}
 }
 
 func (s *server) registerRequest() {

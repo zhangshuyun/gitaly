@@ -12,6 +12,7 @@ import (
 )
 
 type server struct {
+	gitalypb.UnimplementedRefServiceServer
 	cfg           config.Cfg
 	txManager     transaction.Manager
 	locator       storage.Locator

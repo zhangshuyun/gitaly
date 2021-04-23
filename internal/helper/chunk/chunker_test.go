@@ -64,7 +64,9 @@ func TestChunker(t *testing.T) {
 	}
 }
 
-type server struct{}
+type server struct {
+	test.UnimplementedTestServer
+}
 
 func (s *server) StreamOutput(req *test.StreamOutputRequest, srv test.Test_StreamOutputServer) error {
 	const kilobyte = 1024

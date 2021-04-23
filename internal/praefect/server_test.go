@@ -610,6 +610,7 @@ func TestRenameRepository(t *testing.T) {
 }
 
 type mockSmartHTTP struct {
+	gitalypb.UnimplementedSmartHTTPServiceServer
 	txMgr         *transactions.Manager
 	m             sync.Mutex
 	methodsCalled map[string]int

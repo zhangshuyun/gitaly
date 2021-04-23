@@ -12,6 +12,7 @@ import (
 )
 
 type Server struct {
+	gitalypb.UnimplementedRefTransactionServer
 	txMgr *transactions.Manager
 }
 

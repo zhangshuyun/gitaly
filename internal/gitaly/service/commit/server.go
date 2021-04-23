@@ -13,6 +13,7 @@ import (
 )
 
 type server struct {
+	gitalypb.UnimplementedCommitServiceServer
 	cfg           config.Cfg
 	locator       storage.Locator
 	gitCmdFactory git.CommandFactory

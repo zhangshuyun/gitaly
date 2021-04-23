@@ -23,6 +23,7 @@ import (
 )
 
 type testTransactionServer struct {
+	gitalypb.UnimplementedRefTransactionServer
 	vote func(*gitalypb.VoteTransactionRequest) (*gitalypb.VoteTransactionResponse, error)
 	stop func(*gitalypb.StopTransactionRequest) (*gitalypb.StopTransactionResponse, error)
 }

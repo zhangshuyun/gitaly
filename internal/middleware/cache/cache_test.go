@@ -200,6 +200,7 @@ func newTestSvc(t testing.TB, ctx context.Context, srvr *grpc.Server, svc testda
 }
 
 type testSvc struct {
+	testdata.UnimplementedTestServiceServer
 	repoRequests []gitalypb.Repository
 }
 

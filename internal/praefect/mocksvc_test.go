@@ -15,6 +15,7 @@ type (
 // mockSvc is an implementation of mock.SimpleServer for testing purposes. The
 // gRPC stub can be updated by running `make proto`.
 type mockSvc struct {
+	mock.UnimplementedSimpleServiceServer
 	repoAccessorUnary repoAccessorUnaryFunc
 	repoMutatorUnary  repoMutatorUnaryFunc
 }

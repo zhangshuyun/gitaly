@@ -9,6 +9,7 @@ import (
 )
 
 type server struct {
+	gitalypb.UnimplementedObjectPoolServiceServer
 	cfg           config.Cfg
 	locator       storage.Locator
 	gitCmdFactory git.CommandFactory

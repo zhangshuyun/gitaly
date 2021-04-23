@@ -14,6 +14,7 @@ import (
 )
 
 type server struct {
+	gitalypb.UnimplementedRepositoryServiceServer
 	ruby          *rubyserver.Server
 	conns         *client.Pool
 	locator       storage.Locator

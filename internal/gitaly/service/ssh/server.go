@@ -17,6 +17,7 @@ var (
 )
 
 type server struct {
+	gitalypb.UnimplementedSSHServiceServer
 	cfg                         config.Cfg
 	locator                     storage.Locator
 	gitCmdFactory               git.CommandFactory

@@ -11,6 +11,7 @@ import (
 )
 
 type server struct {
+	gitalypb.UnimplementedBlobServiceServer
 	cfg           config.Cfg
 	locator       storage.Locator
 	gitCmdFactory git.CommandFactory
