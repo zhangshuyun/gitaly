@@ -15,8 +15,7 @@ import (
 )
 
 func TestRepositoryExists(t *testing.T) {
-	storageOtherDir, cleanup := testhelper.TempDir(t)
-	defer cleanup()
+	storageOtherDir := testhelper.TempDir(t)
 
 	// Setup storage paths
 	testStorages := []config.Storage{

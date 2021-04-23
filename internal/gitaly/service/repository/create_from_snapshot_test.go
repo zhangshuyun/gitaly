@@ -84,8 +84,7 @@ func TestCreateRepositoryFromSnapshotSuccess(t *testing.T) {
 	defer srv.Close()
 
 	const storageName = "default"
-	storagePath, cleanTempDir := testhelper.TempDir(t)
-	defer cleanTempDir()
+	storagePath := testhelper.TempDir(t)
 	repoRelativePath := filepath.Join("non-existing-parent", "repository")
 
 	req := &gitalypb.CreateRepositoryFromSnapshotRequest{

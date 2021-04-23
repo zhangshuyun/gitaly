@@ -33,8 +33,7 @@ func defaultCgroupsConfig() cgroups.Config {
 }
 
 func TestSetup(t *testing.T) {
-	mock, clean := newMock(t)
-	defer clean()
+	mock := newMock(t)
 
 	v1Manager := &CGroupV1Manager{
 		cfg:       defaultCgroupsConfig(),
@@ -60,8 +59,7 @@ func TestSetup(t *testing.T) {
 }
 
 func TestAddCommand(t *testing.T) {
-	mock, clean := newMock(t)
-	defer clean()
+	mock := newMock(t)
 
 	config := defaultCgroupsConfig()
 	v1Manager1 := &CGroupV1Manager{
@@ -99,8 +97,7 @@ func TestAddCommand(t *testing.T) {
 }
 
 func TestCleanup(t *testing.T) {
-	mock, clean := newMock(t)
-	defer clean()
+	mock := newMock(t)
 
 	v1Manager := &CGroupV1Manager{
 		cfg:       defaultCgroupsConfig(),

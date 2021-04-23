@@ -24,8 +24,7 @@ import (
 func TestInfoService_RepositoryReplicas(t *testing.T) {
 	cfg := gconfig.Config
 
-	tempDir, cleanupTempDir := testhelper.TempDir(t)
-	defer cleanupTempDir()
+	tempDir := testhelper.TempDir(t)
 
 	cfg.Storages = []gconfig.Storage{{Name: "gitaly-1"}, {Name: "gitaly-2"}, {Name: "gitaly-3"}}
 	for i := range cfg.Storages {

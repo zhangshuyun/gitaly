@@ -61,10 +61,6 @@ type GitalyCfgBuilder struct {
 	realLinguist bool
 }
 
-func (gc *GitalyCfgBuilder) addCleanup(f testhelper.Cleanup) {
-	gc.cleanups = append(gc.cleanups, f)
-}
-
 // Cleanup releases all resources allocated fot the created config.
 // It should be called once the test is done.
 func (gc *GitalyCfgBuilder) Cleanup() {
@@ -74,9 +70,7 @@ func (gc *GitalyCfgBuilder) Cleanup() {
 }
 
 func (gc *GitalyCfgBuilder) tempDir(t testing.TB) string {
-	tempDir, cleanupTempDir := testhelper.TempDir(t)
-	gc.addCleanup(cleanupTempDir)
-	return tempDir
+	return testhelper.TempDir(t)
 }
 
 // Build setups required filesystem structure, creates and returns configuration of the gitaly service.

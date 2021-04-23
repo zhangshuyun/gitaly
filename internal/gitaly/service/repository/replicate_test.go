@@ -29,8 +29,7 @@ import (
 )
 
 func TestReplicateRepository(t *testing.T) {
-	tmpPath, cleanup := testhelper.TempDir(t)
-	defer cleanup()
+	tmpPath := testhelper.TempDir(t)
 
 	replicaPath := filepath.Join(tmpPath, "replica")
 	require.NoError(t, os.MkdirAll(replicaPath, 0755))
@@ -231,8 +230,7 @@ func TestReplicateRepository_BadRepository(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			targetStorageRoot, cleanup := testhelper.TempDir(t)
-			defer cleanup()
+			targetStorageRoot := testhelper.TempDir(t)
 
 			defer func(storages []config.Storage) {
 				config.Config.Storages = storages
@@ -303,8 +301,7 @@ func TestReplicateRepository_BadRepository(t *testing.T) {
 }
 
 func TestReplicateRepository_FailedFetchInternalRemote(t *testing.T) {
-	tmpPath, cleanup := testhelper.TempDir(t)
-	defer cleanup()
+	tmpPath := testhelper.TempDir(t)
 
 	replicaPath := filepath.Join(tmpPath, "replica")
 	require.NoError(t, os.MkdirAll(replicaPath, 0755))

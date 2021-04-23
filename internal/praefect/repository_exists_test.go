@@ -79,8 +79,7 @@ func TestRepositoryExistsStreamInterceptor(t *testing.T) {
 				electionStrategy = config.ElectionStrategySQL
 			}
 
-			tmp, cleanDir := testhelper.TempDir(t)
-			defer cleanDir()
+			tmp := testhelper.TempDir(t)
 
 			ln, err := net.Listen("unix", filepath.Join(tmp, "praefect"))
 			require.NoError(t, err)

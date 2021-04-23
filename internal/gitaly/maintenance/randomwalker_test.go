@@ -147,8 +147,7 @@ func TestRandomWalk(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			root, cleanup := testhelper.TempDir(t)
-			defer cleanup()
+			root := testhelper.TempDir(t)
 
 			for _, dir := range tc.dirs {
 				require.NoError(t, os.MkdirAll(filepath.Join(root, dir), 0777))
@@ -192,8 +191,7 @@ func TestRandomWalk(t *testing.T) {
 }
 
 func TestRandomWalk_withRemovedDirs(t *testing.T) {
-	root, cleanup := testhelper.TempDir(t)
-	defer cleanup()
+	root := testhelper.TempDir(t)
 
 	for _, dir := range []string{"foo/bar", "foo/bar/deleteme", "foo/baz/qux", "foo/baz/other"} {
 		require.NoError(t, os.MkdirAll(filepath.Join(root, dir), 0777))

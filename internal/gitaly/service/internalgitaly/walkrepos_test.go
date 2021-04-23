@@ -35,8 +35,7 @@ func (w *streamWrapper) Send(resp *gitalypb.WalkReposResponse) error {
 }
 
 func TestWalkRepos(t *testing.T) {
-	testRoot, clean := testhelper.TempDir(t)
-	defer clean()
+	testRoot := testhelper.TempDir(t)
 
 	storageName := "default"
 	storageRoot := filepath.Join(testRoot, "storage")

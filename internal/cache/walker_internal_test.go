@@ -20,8 +20,7 @@ func TestCleanWalkDirNotExists(t *testing.T) {
 }
 
 func TestCleanWalkEmptyDirs(t *testing.T) {
-	tmp, cleanup := testhelper.TempDir(t)
-	defer cleanup()
+	tmp := testhelper.TempDir(t)
 
 	for _, tt := range []struct {
 		path  string

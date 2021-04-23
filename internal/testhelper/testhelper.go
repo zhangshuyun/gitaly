@@ -288,15 +288,18 @@ func AssertPathNotExists(t testing.TB, path string) {
 }
 
 // TempDir is a wrapper around ioutil.TempDir that provides a cleanup function.
-func TempDir(t testing.TB) (string, func()) {
+func TempDir(t testing.TB) string {
 	if testDirectory == "" {
 		panic("you must call testhelper.Configure() before TempDir()")
 	}
 
 	tmpDir, err := ioutil.TempDir(testDirectory, "")
 	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, os.RemoveAll(tmpDir))
+	})
 
-	return tmpDir, func() { require.NoError(t, os.RemoveAll(tmpDir)) }
+	return tmpDir
 }
 
 // Cleanup functions should be called in a defer statement

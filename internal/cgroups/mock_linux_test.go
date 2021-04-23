@@ -33,10 +33,10 @@ type mockCgroup struct {
 	subsystems []cgroups.Subsystem
 }
 
-func newMock(t *testing.T) (*mockCgroup, func()) {
+func newMock(t *testing.T) *mockCgroup {
 	t.Helper()
 
-	root, clean := testhelper.TempDir(t)
+	root := testhelper.TempDir(t)
 
 	subsystems, err := defaultSubsystems(root)
 	require.NoError(t, err)
@@ -48,7 +48,7 @@ func newMock(t *testing.T) (*mockCgroup, func()) {
 	return &mockCgroup{
 		root:       root,
 		subsystems: subsystems,
-	}, clean
+	}
 }
 
 func (m *mockCgroup) hierarchy() ([]cgroups.Subsystem, error) {

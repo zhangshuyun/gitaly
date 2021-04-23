@@ -60,8 +60,7 @@ func (s *testServer) slowRequest(duration time.Duration) <-chan error {
 }
 
 func TestCreateUnixListener(t *testing.T) {
-	tempDir, cleanup := testhelper.TempDir(t)
-	defer cleanup()
+	tempDir := testhelper.TempDir(t)
 
 	socketPath := filepath.Join(tempDir, "gitaly-test-unix-socket")
 	if err := os.Remove(socketPath); err != nil {
@@ -291,8 +290,7 @@ func makeBootstrap(t *testing.T) (*Bootstrap, *testServer) {
 		}
 	}
 
-	tempDir, cleanup := testhelper.TempDir(t)
-	defer cleanup()
+	tempDir := testhelper.TempDir(t)
 
 	for network, address := range map[string]string{
 		"tcp":  "127.0.0.1:0",

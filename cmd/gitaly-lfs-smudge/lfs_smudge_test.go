@@ -69,7 +69,7 @@ func (m *mapConfig) Get(key string) string {
 }
 
 func runTestServer(t *testing.T, options testhelper.GitlabTestServerOptions) (config.Gitlab, func()) {
-	tempDir, cleanup := testhelper.TempDir(t)
+	tempDir := testhelper.TempDir(t)
 
 	testhelper.WriteShellSecretFile(t, tempDir, secretToken)
 	secretFilePath := filepath.Join(tempDir, ".gitlab_shell_secret")
@@ -79,7 +79,6 @@ func runTestServer(t *testing.T, options testhelper.GitlabTestServerOptions) (co
 	c := config.Gitlab{URL: serverURL, SecretFile: secretFilePath, HTTPSettings: config.HTTPSettings{CAFile: certPath}}
 
 	return c, func() {
-		cleanup()
 		serverCleanup()
 	}
 }
@@ -116,8 +115,7 @@ func TestSuccessfulLfsSmudge(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			tmpDir, cleanup := testhelper.TempDir(t)
-			defer cleanup()
+			tmpDir := testhelper.TempDir(t)
 
 			env := map[string]string{
 				"GL_REPOSITORY":      "project-1",
@@ -225,8 +223,7 @@ func TestUnsuccessfulLfsSmudge(t *testing.T) {
 			tlsCfg, err := json.Marshal(tc.tlsCfg)
 			require.NoError(t, err)
 
-			tmpDir, cleanup := testhelper.TempDir(t)
-			defer cleanup()
+			tmpDir := testhelper.TempDir(t)
 
 			env := map[string]string{
 				"GL_REPOSITORY":      "project-1",

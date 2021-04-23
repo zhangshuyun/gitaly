@@ -84,8 +84,7 @@ func TestFetchRemoteSuccess(t *testing.T) {
 }
 
 func TestFetchRemote_sshCommand(t *testing.T) {
-	tempDir, cleanup := testhelper.TempDir(t)
-	defer cleanup()
+	tempDir := testhelper.TempDir(t)
 
 	// We ain't got a nice way to intercept the SSH call, so we just write a custom git command
 	// which simply prints the GIT_SSH_COMMAND environment variable.

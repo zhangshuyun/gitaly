@@ -15,8 +15,7 @@ import (
 // protocol to be tested. It returns a function to read the GIT_PROTOCOl environment variable
 // created by the wrapper script, the modified configuration as well as a cleanup function.
 func EnableGitProtocolV2Support(t testing.TB, cfg config.Cfg) (func() string, config.Cfg) {
-	dir, cleanupDir := testhelper.TempDir(t)
-	t.Cleanup(cleanupDir)
+	dir := testhelper.TempDir(t)
 
 	gitPath := filepath.Join(dir, "git")
 	envPath := filepath.Join(dir, "git-env")

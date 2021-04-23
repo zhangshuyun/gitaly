@@ -181,8 +181,7 @@ func TestGetArchiveWithLfsSuccess(t *testing.T) {
 		LfsBody:     lfsBody,
 	}
 
-	gitlabShellDir, cleanup := testhelper.TempDir(t)
-	defer cleanup()
+	gitlabShellDir := testhelper.TempDir(t)
 
 	defer func(cfg config.Cfg) {
 		config.Config = cfg
@@ -439,8 +438,7 @@ func TestGetArchivePathInjection(t *testing.T) {
 	defer cancel()
 
 	// Adding a temp directory representing the .ssh directory
-	sshDirectory, cleanup := testhelper.TempDir(t)
-	defer cleanup()
+	sshDirectory := testhelper.TempDir(t)
 
 	// Adding an empty authorized_keys file
 	authorizedKeysPath := filepath.Join(sshDirectory, "authorized_keys")

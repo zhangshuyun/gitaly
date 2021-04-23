@@ -15,8 +15,7 @@ import (
 )
 
 func TestFilestoreCreate(t *testing.T) {
-	tmp, cleanTmp := testhelper.TempDir(t)
-	defer cleanTmp()
+	tmp := testhelper.TempDir(t)
 
 	fs := newFilestore(tmp, 0, time.Sleep, log.Default())
 	defer fs.Stop()
@@ -39,8 +38,7 @@ func TestFilestoreCreate(t *testing.T) {
 }
 
 func TestFilestoreCreate_concurrency(t *testing.T) {
-	tmp, cleanTmp := testhelper.TempDir(t)
-	defer cleanTmp()
+	tmp := testhelper.TempDir(t)
 
 	fs := newFilestore(tmp, time.Hour, time.Sleep, log.Default())
 	defer fs.Stop()
@@ -74,8 +72,7 @@ func TestFilestoreCreate_concurrency(t *testing.T) {
 }
 
 func TestFilestoreCreate_uniqueness(t *testing.T) {
-	tmp, cleanTmp := testhelper.TempDir(t)
-	defer cleanTmp()
+	tmp := testhelper.TempDir(t)
 
 	const (
 		M = 10
@@ -103,8 +100,7 @@ func TestFilestoreCreate_uniqueness(t *testing.T) {
 }
 
 func TestFilestoreCleanwalk(t *testing.T) {
-	tmp, cleanTmp := testhelper.TempDir(t)
-	defer cleanTmp()
+	tmp := testhelper.TempDir(t)
 
 	fs := newFilestore(tmp, time.Hour, time.Sleep, log.Default())
 	defer fs.Stop()

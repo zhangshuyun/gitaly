@@ -443,8 +443,7 @@ func TestRepo_Push(t *testing.T) {
 
 	cfg, sourceRepoPb, _ := testcfg.BuildWithRepo(t)
 
-	tmpDir, clean := testhelper.TempDir(t)
-	defer clean()
+	tmpDir := testhelper.TempDir(t)
 
 	gitPath := filepath.Join(tmpDir, "git-hook")
 	envPath := filepath.Join(tmpDir, "GIT_SSH_PATH")

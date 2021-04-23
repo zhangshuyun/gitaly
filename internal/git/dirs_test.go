@@ -50,8 +50,7 @@ func TestObjectDirsNoAlternates(t *testing.T) {
 }
 
 func TestObjectDirsOutsideStorage(t *testing.T) {
-	tmp, clean := testhelper.TempDir(t)
-	defer clean()
+	tmp := testhelper.TempDir(t)
 
 	storageRoot := filepath.Join(tmp, "storage-root")
 	repoPath := filepath.Join(storageRoot, "repo")

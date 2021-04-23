@@ -98,8 +98,7 @@ func TestPreReceiveHook_GitlabAPIAccess(t *testing.T) {
 		gitAlternateObjectAbsDirs = append(gitAlternateObjectAbsDirs, filepath.Join(repoPath, gitAltObjectRel))
 	}
 
-	tmpDir, cleanup := testhelper.TempDir(t)
-	defer cleanup()
+	tmpDir := testhelper.TempDir(t)
 	secretFilePath := filepath.Join(tmpDir, ".gitlab_shell_secret")
 	testhelper.WriteShellSecretFile(t, tmpDir, secretToken)
 
@@ -231,8 +230,7 @@ func TestPreReceive_APIErrors(t *testing.T) {
 		},
 	}
 
-	tmpDir, cleanup := testhelper.TempDir(t)
-	defer cleanup()
+	tmpDir := testhelper.TempDir(t)
 	secretFilePath := filepath.Join(tmpDir, ".gitlab_shell_secret")
 	testhelper.WriteShellSecretFile(t, tmpDir, "token")
 
@@ -305,8 +303,7 @@ func TestPreReceiveHook_CustomHookErrors(t *testing.T) {
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
 
-	tmpDir, cleanup := testhelper.TempDir(t)
-	defer cleanup()
+	tmpDir := testhelper.TempDir(t)
 	secretFilePath := filepath.Join(tmpDir, ".gitlab_shell_secret")
 	testhelper.WriteShellSecretFile(t, tmpDir, "token")
 
@@ -441,8 +438,7 @@ func TestPreReceiveHook_Primary(t *testing.T) {
 			srv := httptest.NewServer(mux)
 			defer srv.Close()
 
-			tmpDir, cleanup := testhelper.TempDir(t)
-			defer cleanup()
+			tmpDir := testhelper.TempDir(t)
 
 			secretFilePath := filepath.Join(tmpDir, ".gitlab_shell_secret")
 			testhelper.WriteShellSecretFile(t, tmpDir, "token")

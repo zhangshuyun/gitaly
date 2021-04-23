@@ -96,8 +96,7 @@ func TestFetchIntoObjectPool_hooks(t *testing.T) {
 		require.NoError(t, pool.Remove(ctx))
 	}()
 
-	hookDir, cleanup := testhelper.TempDir(t)
-	defer cleanup()
+	hookDir := testhelper.TempDir(t)
 
 	defer func(oldValue string) {
 		hooks.Override = oldValue

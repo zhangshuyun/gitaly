@@ -21,8 +21,7 @@ import (
 )
 
 func TestCache_writeOneReadMultiple(t *testing.T) {
-	tmp, cleanTmp := testhelper.TempDir(t)
-	defer cleanTmp()
+	tmp := testhelper.TempDir(t)
 
 	c := New(tmp, time.Minute, log.Default())
 	defer c.Stop()
@@ -52,8 +51,7 @@ func TestCache_writeOneReadMultiple(t *testing.T) {
 }
 
 func TestCache_manyConcurrentWrites(t *testing.T) {
-	tmp, cleanTmp := testhelper.TempDir(t)
-	defer cleanTmp()
+	tmp := testhelper.TempDir(t)
 
 	c := New(tmp, time.Minute, log.Default())
 	defer c.Stop()
@@ -132,8 +130,7 @@ func requireCacheEntries(t *testing.T, _c Cache, n int) {
 }
 
 func TestCache_deletedFile(t *testing.T) {
-	tmp, cleanTmp := testhelper.TempDir(t)
-	defer cleanTmp()
+	tmp := testhelper.TempDir(t)
 
 	c := New(tmp, time.Hour, log.Default())
 	defer c.Stop()
@@ -170,8 +167,7 @@ func TestCache_deletedFile(t *testing.T) {
 }
 
 func TestCache_scope(t *testing.T) {
-	tmp, cleanTmp := testhelper.TempDir(t)
-	defer cleanTmp()
+	tmp := testhelper.TempDir(t)
 
 	const (
 		N   = 100
@@ -247,8 +243,7 @@ func (cl *clock) advance() {
 }
 
 func TestCache_diskCleanup(t *testing.T) {
-	tmp, cleanTmp := testhelper.TempDir(t)
-	defer cleanTmp()
+	tmp := testhelper.TempDir(t)
 
 	const (
 		key = "test key"
@@ -297,8 +292,7 @@ func TestCache_diskCleanup(t *testing.T) {
 }
 
 func TestCache_failedWrite(t *testing.T) {
-	tmp, cleanTmp := testhelper.TempDir(t)
-	defer cleanTmp()
+	tmp := testhelper.TempDir(t)
 
 	c := New(tmp, time.Hour, log.Default())
 	defer c.Stop()
@@ -345,8 +339,7 @@ func TestCache_failedWrite(t *testing.T) {
 }
 
 func TestCache_failCreateFile(t *testing.T) {
-	tmp, cleanTmp := testhelper.TempDir(t)
-	defer cleanTmp()
+	tmp := testhelper.TempDir(t)
 
 	c := New(tmp, time.Hour, log.Default())
 	defer c.Stop()
@@ -359,8 +352,7 @@ func TestCache_failCreateFile(t *testing.T) {
 }
 
 func TestCache_unWriteableFile(t *testing.T) {
-	tmp, cleanTmp := testhelper.TempDir(t)
-	defer cleanTmp()
+	tmp := testhelper.TempDir(t)
 
 	c := New(tmp, time.Hour, log.Default())
 	defer c.Stop()
@@ -385,8 +377,7 @@ func TestCache_unWriteableFile(t *testing.T) {
 }
 
 func TestCache_unCloseableFile(t *testing.T) {
-	tmp, cleanTmp := testhelper.TempDir(t)
-	defer cleanTmp()
+	tmp := testhelper.TempDir(t)
 
 	c := New(tmp, time.Hour, log.Default())
 	defer c.Stop()
@@ -412,8 +403,7 @@ func TestCache_unCloseableFile(t *testing.T) {
 }
 
 func TestCache_cannotOpenFileForReading(t *testing.T) {
-	tmp, cleanTmp := testhelper.TempDir(t)
-	defer cleanTmp()
+	tmp := testhelper.TempDir(t)
 
 	c := New(tmp, time.Hour, log.Default())
 	defer c.Stop()

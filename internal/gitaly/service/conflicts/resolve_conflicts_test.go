@@ -454,8 +454,7 @@ func testResolveConflictsIdenticalContentFeatured(t *testing.T, ctx context.Cont
 	targetOID, err := repo.ResolveRevision(ctx, git.Revision(targetBranch))
 	require.NoError(t, err)
 
-	tempDir, cleanup := testhelper.TempDir(t)
-	defer cleanup()
+	tempDir := testhelper.TempDir(t)
 
 	var conflictingPaths []string
 	for _, rev := range []string{

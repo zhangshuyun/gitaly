@@ -39,8 +39,7 @@ func TestConnectivity(t *testing.T) {
 
 	certPoolPath := filepath.Join(cwd, "testdata", "certs")
 
-	tempDir, cleanup := testhelper.TempDir(t)
-	defer cleanup()
+	tempDir := testhelper.TempDir(t)
 
 	relativeSocketPath, err := filepath.Rel(cwd, filepath.Join(tempDir, "gitaly.socket"))
 	require.NoError(t, err)

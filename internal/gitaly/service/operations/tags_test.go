@@ -89,7 +89,7 @@ func testSuccessfulGitHooksForUserDeleteTagRequest(t *testing.T, ctx context.Con
 	}
 }
 
-func writeAssertObjectTypePreReceiveHook(t *testing.T, cfg config.Cfg) (string, func()) {
+func writeAssertObjectTypePreReceiveHook(t *testing.T, cfg config.Cfg) string {
 	t.Helper()
 
 	hook := fmt.Sprintf(`#!/usr/bin/env ruby
@@ -118,15 +118,15 @@ unless out.chomp == expected_object_type
   abort "pre-receive hook error: expected '#{ref_name}' update of '#{old_value}' (a) -> '#{new_value}' (b) for 'b' to be a '#{expected_object_type}' object, got '#{out}'"
 end`, cfg.Git.BinPath)
 
-	dir, cleanup := testhelper.TempDir(t)
+	dir := testhelper.TempDir(t)
 	hookPath := filepath.Join(dir, "pre-receive")
 
 	require.NoError(t, ioutil.WriteFile(hookPath, []byte(hook), 0755))
 
-	return hookPath, cleanup
+	return hookPath
 }
 
-func writeAssertObjectTypeUpdateHook(t *testing.T, cfg config.Cfg) (string, func()) {
+func writeAssertObjectTypeUpdateHook(t *testing.T, cfg config.Cfg) string {
 	t.Helper()
 
 	hook := fmt.Sprintf(`#!/usr/bin/env ruby
@@ -151,12 +151,12 @@ unless out.chomp == expected_object_type
   abort "update hook error: expected '#{ref_name}' update of '#{old_value}' (a) -> '#{new_value}' (b) for 'b' to be a '#{expected_object_type}' object, got '#{out}'"
 end`, cfg.Git.BinPath)
 
-	dir, cleanup := testhelper.TempDir(t)
+	dir := testhelper.TempDir(t)
 	hookPath := filepath.Join(dir, "pre-receive")
 
 	require.NoError(t, ioutil.WriteFile(hookPath, []byte(hook), 0755))
 
-	return hookPath, cleanup
+	return hookPath
 }
 
 func TestSuccessfulUserCreateTagRequest(t *testing.T) {
@@ -176,11 +176,9 @@ func testSuccessfulUserCreateTagRequest(t *testing.T, ctx context.Context) {
 
 	inputTagName := "to-be-créated-soon"
 
-	preReceiveHook, cleanup := writeAssertObjectTypePreReceiveHook(t, cfg)
-	defer cleanup()
+	preReceiveHook := writeAssertObjectTypePreReceiveHook(t, cfg)
 
-	updateHook, cleanup := writeAssertObjectTypeUpdateHook(t, cfg)
-	defer cleanup()
+	updateHook := writeAssertObjectTypeUpdateHook(t, cfg)
 
 	testCases := []struct {
 		desc               string
@@ -265,8 +263,7 @@ func TestUserCreateTagWithTransaction(t *testing.T) {
 
 		repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
-		hooksOutputDir, cleanup := testhelper.TempDir(t)
-		defer cleanup()
+		hooksOutputDir := testhelper.TempDir(t)
 		hooksOutputPath := filepath.Join(hooksOutputDir, "output")
 
 		// We're creating a set of custom hooks which simply
@@ -433,11 +430,9 @@ func TestSuccessfulUserCreateTagRequestAnnotatedLightweightDisambiguation(t *tes
 func testSuccessfulUserCreateTagRequestAnnotatedLightweightDisambiguation(t *testing.T, ctx context.Context) {
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
-	preReceiveHook, cleanup := writeAssertObjectTypePreReceiveHook(t, cfg)
-	defer cleanup()
+	preReceiveHook := writeAssertObjectTypePreReceiveHook(t, cfg)
 
-	updateHook, cleanup := writeAssertObjectTypeUpdateHook(t, cfg)
-	defer cleanup()
+	updateHook := writeAssertObjectTypeUpdateHook(t, cfg)
 
 	testCases := []struct {
 		desc    string
@@ -608,11 +603,9 @@ func TestSuccessfulUserCreateTagRequestToNonCommit(t *testing.T) {
 
 	inputTagName := "to-be-créated-soon"
 
-	preReceiveHook, cleanup := writeAssertObjectTypePreReceiveHook(t, cfg)
-	defer cleanup()
+	preReceiveHook := writeAssertObjectTypePreReceiveHook(t, cfg)
 
-	updateHook, cleanup := writeAssertObjectTypeUpdateHook(t, cfg)
-	defer cleanup()
+	updateHook := writeAssertObjectTypeUpdateHook(t, cfg)
 
 	testCases := []struct {
 		desc               string
@@ -721,11 +714,9 @@ func TestSuccessfulUserCreateTagNestedTags(t *testing.T) {
 
 	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
-	preReceiveHook, cleanup := writeAssertObjectTypePreReceiveHook(t, cfg)
-	defer cleanup()
+	preReceiveHook := writeAssertObjectTypePreReceiveHook(t, cfg)
 
-	updateHook, cleanup := writeAssertObjectTypeUpdateHook(t, cfg)
-	defer cleanup()
+	updateHook := writeAssertObjectTypeUpdateHook(t, cfg)
 
 	testCases := []struct {
 		desc             string

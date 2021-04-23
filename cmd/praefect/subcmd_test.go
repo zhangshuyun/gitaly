@@ -33,7 +33,7 @@ func registerServerService(impl gitalypb.ServerServiceServer) svcRegistrar {
 func listenAndServe(t testing.TB, svcs []svcRegistrar) (net.Listener, testhelper.Cleanup) {
 	t.Helper()
 
-	tmp, clean := testhelper.TempDir(t)
+	tmp := testhelper.TempDir(t)
 
 	ln, err := net.Listen("unix", filepath.Join(tmp, "gitaly"))
 	require.NoError(t, err)
@@ -57,6 +57,5 @@ func listenAndServe(t testing.TB, svcs []svcRegistrar) (net.Listener, testhelper
 
 	return ln, func() {
 		srv.Stop()
-		clean()
 	}
 }

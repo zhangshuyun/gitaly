@@ -38,8 +38,7 @@ func StartRedirectingTestServer() (*RedirectingTestServerState, *httptest.Server
 }
 
 func TestRedirectingServerRedirects(t *testing.T) {
-	dir, cleanup := testhelper.TempDir(t)
-	defer cleanup()
+	dir := testhelper.TempDir(t)
 
 	httpServerState, redirectingServer := StartRedirectingTestServer()
 

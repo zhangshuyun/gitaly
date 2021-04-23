@@ -48,9 +48,7 @@ func TestServer_PackObjectsHook_invalidArgument(t *testing.T) {
 func cfgWithCache(t *testing.T) (config.Cfg, *gitalypb.Repository, string) {
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 	cfg.PackObjectsCache.Enabled = true
-	var cleanup func()
-	cfg.PackObjectsCache.Dir, cleanup = testhelper.TempDir(t)
-	t.Cleanup(cleanup)
+	cfg.PackObjectsCache.Dir = testhelper.TempDir(t)
 	return cfg, repo, repoPath
 }
 

@@ -211,8 +211,7 @@ func TestUploadPackCloneSuccess(t *testing.T) {
 	)
 	defer stop()
 
-	localRepoPath, cleanup := testhelper.TempDir(t)
-	defer cleanup()
+	localRepoPath := testhelper.TempDir(t)
 
 	tests := []struct {
 		cmd          *exec.Cmd
@@ -256,8 +255,7 @@ func TestUploadPackCloneSuccess(t *testing.T) {
 func TestUploadPackWithPackObjectsHook(t *testing.T) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
-	filterDir, cleanup := testhelper.TempDir(t)
-	defer cleanup()
+	filterDir := testhelper.TempDir(t)
 	outputPath := filepath.Join(filterDir, "output")
 	cfg.BinDir = filterDir
 
@@ -282,8 +280,7 @@ exec '%s' "$@"
 	serverSocketPath, stop := runSSHServer(t, cfg)
 	defer stop()
 
-	localRepoPath, cleanup := testhelper.TempDir(t)
-	defer cleanup()
+	localRepoPath := testhelper.TempDir(t)
 
 	err := cloneCommand{
 		repository: repo,
@@ -381,8 +378,7 @@ func TestUploadPackCloneWithPartialCloneFilter(t *testing.T) {
 			// Run the clone with filtering enabled in both runs. The only
 			// difference is that in the first run, we have the
 			// UploadPackFilter flag disabled.
-			localPath, cleanup := testhelper.TempDir(t)
-			defer cleanup()
+			localPath := testhelper.TempDir(t)
 
 			cmd := cloneCommand{
 				repository: repo,
@@ -406,8 +402,7 @@ func TestUploadPackCloneSuccessWithGitProtocol(t *testing.T) {
 	testhelper.ConfigureGitalySSHBin(t, cfg)
 	testhelper.ConfigureGitalyHooksBin(t, cfg)
 
-	localRepoPath, cleanup := testhelper.TempDir(t)
-	defer cleanup()
+	localRepoPath := testhelper.TempDir(t)
 
 	tests := []struct {
 		cmd  *exec.Cmd
@@ -456,8 +451,7 @@ func TestUploadPackCloneHideTags(t *testing.T) {
 	serverSocketPath, stop := runSSHServer(t, cfg)
 	defer stop()
 
-	localRepoPath, cleanup := testhelper.TempDir(t)
-	defer cleanup()
+	localRepoPath := testhelper.TempDir(t)
 
 	cmd := exec.Command(cfg.Git.BinPath, "clone", "--mirror", "git@localhost:test/test.git", localRepoPath)
 	cmd.Env = os.Environ()
@@ -485,8 +479,7 @@ func TestUploadPackCloneFailure(t *testing.T) {
 	serverSocketPath, stop := runSSHServer(t, cfg)
 	defer stop()
 
-	localRepoPath, cleanup := testhelper.TempDir(t)
-	defer cleanup()
+	localRepoPath := testhelper.TempDir(t)
 
 	cmd := cloneCommand{
 		repository: &gitalypb.Repository{

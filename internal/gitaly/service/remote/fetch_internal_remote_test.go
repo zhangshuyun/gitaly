@@ -65,8 +65,7 @@ func listenGitalySSHCalls(t *testing.T, conf config.Cfg) func() []GitalySSHParam
 	updatedPath := initialPath + "-actual"
 	require.NoError(t, os.Rename(initialPath, updatedPath))
 
-	tmpDir, clean := testhelper.TempDir(t)
-	t.Cleanup(clean)
+	tmpDir := testhelper.TempDir(t)
 
 	script := fmt.Sprintf(`
 		#!/bin/sh

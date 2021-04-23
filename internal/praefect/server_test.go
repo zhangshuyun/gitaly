@@ -111,8 +111,7 @@ func TestGitalyServerInfo(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("gitaly responds with ok", func(t *testing.T) {
-		tempDir, cleanupTempDir := testhelper.TempDir(t)
-		defer cleanupTempDir()
+		tempDir := testhelper.TempDir(t)
 
 		cfg := gconfig.Config
 		cfg.Storages = []gconfig.Storage{{Name: "praefect-internal-1"}, {Name: "praefect-internal-2"}}

@@ -82,8 +82,7 @@ func TestCustomHooksSuccess(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.hookName, func(t *testing.T) {
-			globalCustomHooksDir, cleanupGlobalDir := testhelper.TempDir(t)
-			defer cleanupGlobalDir()
+			globalCustomHooksDir := testhelper.TempDir(t)
 
 			locator := config.NewLocator(cfg)
 			// hook is in project custom hook directory <repository>.git/custom_hooks/<hook_name>
@@ -104,8 +103,7 @@ func TestCustomHooksSuccess(t *testing.T) {
 func TestCustomHookPartialFailure(t *testing.T) {
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
-	globalCustomHooksDir, cleanup := testhelper.TempDir(t)
-	defer cleanup()
+	globalCustomHooksDir := testhelper.TempDir(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -179,8 +177,7 @@ func TestCustomHookPartialFailure(t *testing.T) {
 func TestCustomHooksMultipleHooks(t *testing.T) {
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
-	globalCustomHooksDir, cleanup := testhelper.TempDir(t)
-	defer cleanup()
+	globalCustomHooksDir := testhelper.TempDir(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -228,8 +225,7 @@ func TestCustomHooksMultipleHooks(t *testing.T) {
 func TestCustomHooksWithSymlinks(t *testing.T) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
-	globalCustomHooksDir, cleanup := testhelper.TempDir(t)
-	defer cleanup()
+	globalCustomHooksDir := testhelper.TempDir(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -299,8 +295,7 @@ func TestCustomHooksWithSymlinks(t *testing.T) {
 func TestMultilineStdin(t *testing.T) {
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
-	globalCustomHooksDir, cleanup := testhelper.TempDir(t)
-	defer cleanup()
+	globalCustomHooksDir := testhelper.TempDir(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -332,8 +327,7 @@ old3 new3 ref3
 func TestMultipleScriptsStdin(t *testing.T) {
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
-	globalCustomHooksDir, cleanup := testhelper.TempDir(t)
-	defer cleanup()
+	globalCustomHooksDir := testhelper.TempDir(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
