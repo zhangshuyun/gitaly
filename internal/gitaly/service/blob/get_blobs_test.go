@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
@@ -119,7 +120,7 @@ func TestSuccessfulGetBlobsRequest(t *testing.T) {
 					expectedBlob.Data = expectedBlob.Data[:limit]
 				}
 
-				testhelper.ProtoEqual(t, expectedBlob, receivedBlob)
+				testassert.ProtoEqual(t, expectedBlob, receivedBlob)
 			}
 		})
 	}

@@ -12,6 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
@@ -141,7 +142,7 @@ func testSuccessfulWikiFindFileRequest(t *testing.T, cfg config.Cfg, rubySrv *ru
 				receivedResponse.RawData = nil
 			}
 
-			testhelper.ProtoEqual(t, expectedResponse, receivedResponse)
+			testassert.ProtoEqual(t, expectedResponse, receivedResponse)
 			if len(expectedResponse.Name) > 0 {
 				require.Equal(t, testCase.expectedContent, receivedContent, "mismatched content")
 			}

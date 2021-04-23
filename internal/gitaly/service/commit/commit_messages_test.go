@@ -9,6 +9,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
@@ -46,8 +47,8 @@ func TestSuccessfulGetCommitMessagesRequest(t *testing.T) {
 	fetchedMessages := readAllMessagesFromClient(t, c)
 
 	require.Len(t, fetchedMessages, len(expectedMessages))
-	testhelper.ProtoEqual(t, expectedMessages[0], fetchedMessages[0])
-	testhelper.ProtoEqual(t, expectedMessages[1], fetchedMessages[1])
+	testassert.ProtoEqual(t, expectedMessages[0], fetchedMessages[0])
+	testassert.ProtoEqual(t, expectedMessages[1], fetchedMessages[1])
 }
 
 func TestFailedGetCommitMessagesRequest(t *testing.T) {

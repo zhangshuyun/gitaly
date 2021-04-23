@@ -10,6 +10,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -152,7 +153,7 @@ func testFailedWikiWritePageDueToDuplicatePage(t *testing.T, cfg config.Cfg, rub
 	require.NoError(t, err)
 
 	expectedResponse := &gitalypb.WikiWritePageResponse{DuplicateError: []byte("Cannot write //Installing-Gitaly.md, found //Installing-Gitaly.md.")}
-	testhelper.ProtoEqual(t, expectedResponse, response)
+	testassert.ProtoEqual(t, expectedResponse, response)
 }
 
 func testFailedWikiWritePageInPathDueToDuplicatePage(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
@@ -193,7 +194,7 @@ func testFailedWikiWritePageInPathDueToDuplicatePage(t *testing.T, cfg config.Cf
 	require.NoError(t, err)
 
 	expectedResponse := &gitalypb.WikiWritePageResponse{DuplicateError: []byte("Cannot write foo/Installing-Gitaly.md, found foo/Installing-Gitaly.md.")}
-	testhelper.ProtoEqual(t, expectedResponse, response)
+	testassert.ProtoEqual(t, expectedResponse, response)
 }
 
 func TestFailedWikiWritePageDueToValidations(t *testing.T) {

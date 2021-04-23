@@ -18,6 +18,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -451,7 +452,7 @@ func testSuccessfulUserDeleteBranchRequest(t *testing.T, ctx context.Context) {
 				User:       testCase.user,
 			})
 			require.NoError(t, err)
-			testhelper.ProtoEqual(t, testCase.response, response)
+			testassert.ProtoEqual(t, testCase.response, response)
 
 			refs := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "for-each-ref", "--", "refs/heads/"+testCase.branchNameInput)
 			require.NotContains(t, string(refs), testCase.branchCommit, "branch deleted from refs")
@@ -595,7 +596,7 @@ func TestFailedUserDeleteBranchDueToValidation(t *testing.T) {
 		t.Run(testCase.desc, func(t *testing.T) {
 			response, err := client.UserDeleteBranch(ctx, testCase.request)
 			require.Equal(t, testCase.err, err)
-			testhelper.ProtoEqual(t, testCase.response, response)
+			testassert.ProtoEqual(t, testCase.response, response)
 		})
 	}
 }

@@ -26,6 +26,7 @@ import (
 	pconfig "gitlab.com/gitlab-org/gitaly/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -79,7 +80,7 @@ func TestSuccessfulReceivePackRequest(t *testing.T) {
 
 	// Compare the repository up front so that we can use require.Equal for
 	// the remaining values.
-	testhelper.ProtoEqual(t, repo, payload.Repo)
+	testassert.ProtoEqual(t, repo, payload.Repo)
 	payload.Repo = nil
 
 	// If running tests with Praefect, then these would be set, but we have

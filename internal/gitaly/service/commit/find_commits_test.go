@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
@@ -168,7 +169,7 @@ func TestFindCommitsFields(t *testing.T) {
 			require.Equal(t, 1, len(resp.Commits), "expected exactly one commit in the first message")
 			firstCommit := resp.Commits[0]
 
-			testhelper.ProtoEqual(t, tc.commit, firstCommit)
+			testassert.ProtoEqual(t, tc.commit, firstCommit)
 
 			_, err = stream.Recv()
 			require.Equal(t, io.EOF, err, "there should be no further messages in the stream")

@@ -21,6 +21,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -1439,7 +1440,7 @@ func TestSuccessfulFindTagRequest(t *testing.T) {
 		resp, err := client.FindTag(ctx, rpcRequest)
 		require.NoError(t, err)
 
-		testhelper.ProtoEqual(t, expectedTag, resp.GetTag())
+		testassert.ProtoEqual(t, expectedTag, resp.GetTag())
 	}
 }
 

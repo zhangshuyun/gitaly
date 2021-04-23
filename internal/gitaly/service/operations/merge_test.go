@@ -21,6 +21,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -97,7 +98,7 @@ func TestSuccessfulMerge(t *testing.T) {
 	commit, err := repo.ReadCommit(ctx, git.Revision(mergeBranchName))
 	require.NoError(t, err, "look up git commit after call has finished")
 
-	require.Equal(t, gitalypb.OperationBranchUpdate{CommitId: commit.Id}, *(secondResponse.BranchUpdate))
+	testassert.ProtoEqual(t, &gitalypb.OperationBranchUpdate{CommitId: commit.Id}, secondResponse.BranchUpdate)
 
 	require.Equal(t, commit.ParentIds, []string{mergeBranchHeadBefore, commitToMerge})
 
@@ -289,7 +290,7 @@ func TestFailedMergeConcurrentUpdate(t *testing.T) {
 
 	secondResponse, err := mergeBidi.Recv()
 	require.NoError(t, err, "receive second response")
-	testhelper.ProtoEqual(t, secondResponse, &gitalypb.UserMergeBranchResponse{})
+	testassert.ProtoEqual(t, secondResponse, &gitalypb.UserMergeBranchResponse{})
 
 	commit, err := repo.ReadCommit(ctx, git.Revision(mergeBranchName))
 	require.NoError(t, err, "get commit after RPC finished")
@@ -434,7 +435,7 @@ func TestSuccessfulUserFFBranchRequest(t *testing.T) {
 
 	resp, err := client.UserFFBranch(ctx, request)
 	require.NoError(t, err)
-	testhelper.ProtoEqual(t, expectedResponse, resp)
+	testassert.ProtoEqual(t, expectedResponse, resp)
 	newBranchHead := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", branchName)
 	require.Equal(t, commitID, text.ChompBytes(newBranchHead), "branch head not updated")
 }
@@ -595,7 +596,7 @@ func TestUserFFBranch_ambiguousReference(t *testing.T) {
 
 	resp, err := client.UserFFBranch(ctx, request)
 	require.NoError(t, err)
-	testhelper.ProtoEqual(t, expectedResponse, resp)
+	testassert.ProtoEqual(t, expectedResponse, resp)
 	newBranchHead := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", "refs/heads/"+branchName)
 	require.Equal(t, commitID, text.ChompBytes(newBranchHead), "branch head not updated")
 }
@@ -771,7 +772,7 @@ func TestUserMergeToRef_stableMergeID(t *testing.T) {
 
 	commit, err := repo.ReadCommit(ctx, git.Revision("refs/merge-requests/x/written"))
 	require.NoError(t, err, "look up git commit after call has finished")
-	require.Equal(t, &gitalypb.GitCommit{
+	testassert.ProtoEqual(t, &gitalypb.GitCommit{
 		Subject:  []byte("Merge message"),
 		Body:     []byte("Merge message"),
 		BodySize: 13,

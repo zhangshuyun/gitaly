@@ -13,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
@@ -84,7 +85,7 @@ end
 	require.Len(t, receivedFiles, len(expectedFiles))
 
 	for i := 0; i < len(expectedFiles); i++ {
-		testhelper.ProtoEqual(t, receivedFiles[i].header, expectedFiles[i].header)
+		testassert.ProtoEqual(t, receivedFiles[i].header, expectedFiles[i].header)
 		require.Equal(t, expectedFiles[i].content, receivedFiles[i].content)
 	}
 }
@@ -132,7 +133,7 @@ func TestSuccessfulListConflictFilesRequestWithAncestor(t *testing.T) {
 	require.Len(t, receivedFiles, len(expectedFiles))
 
 	for i := 0; i < len(expectedFiles); i++ {
-		testhelper.ProtoEqual(t, receivedFiles[i].header, expectedFiles[i].header)
+		testassert.ProtoEqual(t, receivedFiles[i].header, expectedFiles[i].header)
 	}
 }
 
@@ -163,14 +164,14 @@ func TestListConflictFilesHugeDiff(t *testing.T) {
 
 	receivedFiles := getConflictFiles(t, c)
 	require.Len(t, receivedFiles, 2)
-	testhelper.ProtoEqual(t, &gitalypb.ConflictFileHeader{
+	testassert.ProtoEqual(t, &gitalypb.ConflictFileHeader{
 		CommitOid: our,
 		OurMode:   int32(0100644),
 		OurPath:   []byte("a"),
 		TheirPath: []byte("a"),
 	}, receivedFiles[0].header)
 
-	testhelper.ProtoEqual(t, &gitalypb.ConflictFileHeader{
+	testassert.ProtoEqual(t, &gitalypb.ConflictFileHeader{
 		CommitOid: our,
 		OurMode:   int32(0100644),
 		OurPath:   []byte("b"),

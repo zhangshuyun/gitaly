@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/protoregistry"
-	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
@@ -217,7 +217,7 @@ func TestRequestFactory(t *testing.T) {
 	pb, err := mInfo.UnmarshalRequestProto([]byte{})
 	require.NoError(t, err)
 
-	testhelper.ProtoEqual(t, &gitalypb.RepositoryExistsRequest{}, pb)
+	testassert.ProtoEqual(t, &gitalypb.RepositoryExistsRequest{}, pb)
 }
 
 func TestMethodInfoScope(t *testing.T) {

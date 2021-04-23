@@ -32,6 +32,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/promtest"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -488,7 +489,7 @@ func waitForRequest(t *testing.T, ch chan proto.Message, expected proto.Message,
 	defer timer.Stop()
 	select {
 	case req := <-ch:
-		testhelper.ProtoEqual(t, expected, req)
+		testassert.ProtoEqual(t, expected, req)
 		close(ch)
 	case <-timer.C:
 		t.Fatal("timed out")
