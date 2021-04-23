@@ -19,6 +19,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/nodes"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -156,7 +157,7 @@ func TestServer_ConsistencyCheck(t *testing.T) {
 
 		execAndVerify(t, req, func(t *testing.T, responses []*gitalypb.ConsistencyCheckResponse, err error) {
 			require.NoError(t, err)
-			require.Equal(t, []*gitalypb.ConsistencyCheckResponse{
+			testassert.ProtoEqual(t, []*gitalypb.ConsistencyCheckResponse{
 				{
 					RepoRelativePath:  firstRepoPath,
 					ReferenceStorage:  referenceStorageName,
@@ -191,8 +192,8 @@ func TestServer_ConsistencyCheck(t *testing.T) {
 				DisableReconcilliation: false,
 			},
 			verify: func(t *testing.T, resp []*gitalypb.ConsistencyCheckResponse, err error) {
-				require.Equal(t, expErrStatus, err)
-				require.Equal(t, []*gitalypb.ConsistencyCheckResponse{
+				testassert.GrpcEqualErr(t, expErrStatus, err)
+				testassert.ProtoEqual(t, []*gitalypb.ConsistencyCheckResponse{
 					{
 						RepoRelativePath:  firstRepoPath,
 						TargetChecksum:    checksum,
@@ -228,7 +229,7 @@ func TestServer_ConsistencyCheck(t *testing.T) {
 			},
 			verify: func(t *testing.T, resp []*gitalypb.ConsistencyCheckResponse, err error) {
 				require.NoError(t, err)
-				require.Equal(t, []*gitalypb.ConsistencyCheckResponse{
+				testassert.ProtoEqual(t, []*gitalypb.ConsistencyCheckResponse{
 					{
 						RepoRelativePath:  firstRepoPath,
 						TargetChecksum:    checksum,
@@ -261,7 +262,7 @@ func TestServer_ConsistencyCheck(t *testing.T) {
 				ReferenceStorage: targetStorageName,
 			},
 			verify: func(t *testing.T, resp []*gitalypb.ConsistencyCheckResponse, err error) {
-				require.Equal(t, status.Error(codes.InvalidArgument, "missing target storage"), err)
+				testassert.GrpcEqualErr(t, status.Error(codes.InvalidArgument, "missing target storage"), err)
 			},
 		},
 		{
@@ -272,7 +273,7 @@ func TestServer_ConsistencyCheck(t *testing.T) {
 				ReferenceStorage: targetStorageName,
 			},
 			verify: func(t *testing.T, resp []*gitalypb.ConsistencyCheckResponse, err error) {
-				require.Equal(t, status.Error(codes.NotFound, `unable to find target storage "unknown"`), err)
+				testassert.GrpcEqualErr(t, status.Error(codes.NotFound, `unable to find target storage "unknown"`), err)
 			},
 		},
 		{
@@ -287,7 +288,7 @@ func TestServer_ConsistencyCheck(t *testing.T) {
 					codes.InvalidArgument,
 					fmt.Sprintf(`target storage %q is same as current primary, must provide alternate reference`, referenceStorageName),
 				)
-				require.Equal(t, expErr, err)
+				testassert.GrpcEqualErr(t, expErr, err)
 			},
 		},
 		{
@@ -302,7 +303,7 @@ func TestServer_ConsistencyCheck(t *testing.T) {
 					codes.NotFound,
 					fmt.Sprintf(`unable to find reference storage "unknown" in nodes for shard %q`, virtualStorage),
 				)
-				require.Equal(t, expErr, err)
+				testassert.GrpcEqualErr(t, expErr, err)
 			},
 		},
 		{
@@ -317,7 +318,7 @@ func TestServer_ConsistencyCheck(t *testing.T) {
 					codes.InvalidArgument,
 					fmt.Sprintf(`target storage %q cannot match reference storage %q`, referenceStorageName, referenceStorageName),
 				)
-				require.Equal(t, expErr, err)
+				testassert.GrpcEqualErr(t, expErr, err)
 			},
 		},
 		{
@@ -328,7 +329,7 @@ func TestServer_ConsistencyCheck(t *testing.T) {
 				ReferenceStorage: targetStorageName,
 			},
 			verify: func(t *testing.T, resp []*gitalypb.ConsistencyCheckResponse, err error) {
-				require.Equal(t, status.Error(codes.InvalidArgument, "missing virtual storage"), err)
+				testassert.GrpcEqualErr(t, status.Error(codes.InvalidArgument, "missing virtual storage"), err)
 			},
 		},
 		{
@@ -339,7 +340,7 @@ func TestServer_ConsistencyCheck(t *testing.T) {
 				ReferenceStorage: "unknown",
 			},
 			verify: func(t *testing.T, resp []*gitalypb.ConsistencyCheckResponse, err error) {
-				require.Equal(t, status.Error(codes.NotFound, "virtual storage does not exist"), err)
+				testassert.GrpcEqualErr(t, status.Error(codes.NotFound, "virtual storage does not exist"), err)
 			},
 		},
 	} {
@@ -361,12 +362,12 @@ func TestServer_ConsistencyCheck(t *testing.T) {
 
 		execAndVerify(t, req, func(t *testing.T, responses []*gitalypb.ConsistencyCheckResponse, err error) {
 			t.Helper()
-			require.Equal(t, expErrStatus, err)
+			testassert.GrpcEqualErr(t, expErrStatus, err)
 			errs := []string{
 				fmt.Sprintf("rpc error: code = Unavailable desc = connection error: desc = \"transport: Error while dialing dial unix //%s: connect: no such file or directory\"", strings.TrimPrefix(targetGitaly.Address(), "unix://")),
 				"rpc error: code = Canceled desc = context canceled",
 			}
-			require.Equal(t, []*gitalypb.ConsistencyCheckResponse{
+			testassert.ProtoEqual(t, []*gitalypb.ConsistencyCheckResponse{
 				{
 					RepoRelativePath: firstRepoPath,
 					ReferenceStorage: referenceStorageName,

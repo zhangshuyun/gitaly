@@ -312,7 +312,7 @@ func TestSuccessfulCreateBranchRequestWithStartPointRefPrefix(t *testing.T) {
 					TargetCommit: targetCommitOK,
 				},
 			}
-			require.Equal(t, responseOk, response)
+			testassert.ProtoEqual(t, responseOk, response)
 			branches := gittest.Exec(t, cfg, "-C", repoPath, "for-each-ref", "--", "refs/heads/"+testCase.branchName)
 			require.Contains(t, string(branches), "refs/heads/"+testCase.branchName)
 		})
@@ -398,7 +398,7 @@ func TestFailedUserCreateBranchRequest(t *testing.T) {
 			}
 
 			response, err := client.UserCreateBranch(ctx, request)
-			require.Equal(t, testCase.err, err)
+			testassert.GrpcEqualErr(t, testCase.err, err)
 			require.Empty(t, response)
 		})
 	}
@@ -596,7 +596,7 @@ func TestFailedUserDeleteBranchDueToValidation(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
 			response, err := client.UserDeleteBranch(ctx, testCase.request)
-			require.Equal(t, testCase.err, err)
+			testassert.GrpcEqualErr(t, testCase.err, err)
 			testassert.ProtoEqual(t, testCase.response, response)
 		})
 	}

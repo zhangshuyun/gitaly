@@ -800,7 +800,7 @@ func TestConflictsOnUserMergeToRefRequest(t *testing.T) {
 		request.AllowConflicts = false
 
 		_, err := client.UserMergeToRef(ctx, request)
-		require.Equal(t, status.Error(codes.FailedPrecondition, "Failed to create merge commit for source_sha 1450cd639e0bc6721eb02800169e464f212cde06 and target_sha 824be604a34828eb682305f0d963056cfac87b2d at refs/merge-requests/x/written"), err)
+		testassert.GrpcEqualErr(t, status.Error(codes.FailedPrecondition, "Failed to create merge commit for source_sha 1450cd639e0bc6721eb02800169e464f212cde06 and target_sha 824be604a34828eb682305f0d963056cfac87b2d at refs/merge-requests/x/written"), err)
 	})
 
 	targetRef := git.Revision("refs/merge-requests/foo")

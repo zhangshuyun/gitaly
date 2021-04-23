@@ -497,7 +497,7 @@ func TestPostReceivePackToHooks(t *testing.T) {
 
 	socket := runSmartHTTPServer(t, cfg)
 
-	client, conn := newSmartHTTPClient(t, "unix://"+socket, cfg.Auth.Token)
+	client, conn := newSmartHTTPClient(t, socket, cfg.Auth.Token)
 	defer conn.Close()
 
 	stream, err := client.PostReceivePack(ctx)

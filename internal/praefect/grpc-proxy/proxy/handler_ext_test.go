@@ -30,6 +30,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/praefect/grpc-proxy/proxy"
 	pb "gitlab.com/gitlab-org/gitaly/v14/internal/praefect/grpc-proxy/testdata"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"go.uber.org/goleak"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -58,6 +59,7 @@ func TestMain(m *testing.M) {
 
 // asserting service is implemented on the server side and serves as a handler for stuff
 type assertingService struct {
+	pb.UnimplementedTestServiceServer
 	t *testing.T
 }
 
@@ -137,7 +139,7 @@ func (s *ProxyHappySuite) TestPingEmptyCarriesClientMetadata() {
 	ctx := metadata.NewOutgoingContext(s.ctx(), metadata.Pairs(clientMdKey, "true"))
 	out, err := s.testClient.PingEmpty(ctx, &pb.Empty{})
 	require.NoError(s.T(), err, "PingEmpty should succeed without errors")
-	require.Equal(s.T(), &pb.PingResponse{Value: pingDefaultValue, Counter: 42}, out)
+	testassert.ProtoEqual(s.T(), &pb.PingResponse{Value: pingDefaultValue, Counter: 42}, out)
 }
 
 func (s *ProxyHappySuite) TestPingEmpty_StressTest() {
@@ -152,7 +154,7 @@ func (s *ProxyHappySuite) TestPingCarriesServerHeadersAndTrailers() {
 	// This is an awkward calling convention... but meh.
 	out, err := s.testClient.Ping(s.ctx(), &pb.PingRequest{Value: "foo"}, grpc.Header(&headerMd), grpc.Trailer(&trailerMd))
 	require.NoError(s.T(), err, "Ping should succeed without errors")
-	require.Equal(s.T(), &pb.PingResponse{Value: "foo", Counter: 42}, out)
+	testassert.ProtoEqual(s.T(), &pb.PingResponse{Value: "foo", Counter: 42}, out)
 	assert.Contains(s.T(), headerMd, serverHeaderMdKey, "server response headers must contain server data")
 	assert.Len(s.T(), trailerMd, 1, "server response trailers must contain server data")
 }
@@ -364,7 +366,7 @@ func TestProxyErrorPropagation(t *testing.T) {
 			requestFinalizerError: errRequestFinalizer,
 			returnedError:         errBackend,
 			errHandler: func(err error) error {
-				require.Equal(t, errBackend, err)
+				testassert.GrpcEqualErr(t, errBackend, err)
 				return errBackend
 			},
 		},
@@ -373,7 +375,7 @@ func TestProxyErrorPropagation(t *testing.T) {
 			backendError:  errBackend,
 			returnedError: io.EOF,
 			errHandler: func(err error) error {
-				require.Equal(t, errBackend, err)
+				testassert.GrpcEqualErr(t, errBackend, err)
 				return nil
 			},
 		},
@@ -383,7 +385,7 @@ func TestProxyErrorPropagation(t *testing.T) {
 			requestFinalizerError: errRequestFinalizer,
 			returnedError:         errRequestFinalizer,
 			errHandler: func(err error) error {
-				require.Equal(t, errBackend, err)
+				testassert.GrpcEqualErr(t, errBackend, err)
 				return nil
 			},
 		},
@@ -439,7 +441,7 @@ func TestProxyErrorPropagation(t *testing.T) {
 			}()
 
 			resp, err := pb.NewTestServiceClient(proxyClientConn).Ping(ctx, &pb.PingRequest{})
-			require.Equal(t, tc.returnedError, err)
+			testassert.GrpcEqualErr(t, tc.returnedError, err)
 			require.Nil(t, resp)
 		})
 	}
@@ -519,5 +521,5 @@ func TestRegisterStreamHandlers(t *testing.T) {
 
 	// since PingError was never registered with its own streamer, it should get sent to the UnknownServiceHandler
 	_, err = testServiceClient.PingError(ctx, &pb.PingRequest{})
-	require.Equal(t, status.Error(codes.Unknown, directorCalledError.Error()), err)
+	testassert.GrpcEqualErr(t, status.Error(codes.Unknown, directorCalledError.Error()), err)
 }

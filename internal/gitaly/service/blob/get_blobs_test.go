@@ -121,6 +121,10 @@ func TestSuccessfulGetBlobsRequest(t *testing.T) {
 					expectedBlob.Data = expectedBlob.Data[:limit]
 				}
 
+				// comparison of the huge blobs is not possible with testassert.ProtoEqual
+				// we compare them manually and override to use in testassert.ProtoEqual
+				require.Equal(t, expectedBlob.Data, receivedBlob.Data)
+				expectedBlob.Data, receivedBlob.Data = nil, nil
 				testassert.ProtoEqual(t, expectedBlob, receivedBlob)
 			}
 		})

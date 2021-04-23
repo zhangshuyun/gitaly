@@ -12,6 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/transaction/txinfo"
@@ -114,7 +115,7 @@ func TestPoolManager_Vote(t *testing.T) {
 			}
 
 			err := manager.Vote(ctx, tc.transaction, praefect, tc.vote)
-			require.Equal(t, tc.expectedErr, err)
+			testassert.GrpcEqualErr(t, tc.expectedErr, err)
 		})
 	}
 }
@@ -166,7 +167,7 @@ func TestPoolManager_Stop(t *testing.T) {
 			}
 
 			err := manager.Stop(ctx, tc.transaction, praefect)
-			require.Equal(t, tc.expectedErr, err)
+			testassert.GrpcEqualErr(t, tc.expectedErr, err)
 		})
 	}
 }

@@ -143,7 +143,7 @@ func TestDialWithUnhealthyNode(t *testing.T) {
 	require.NoError(t, err)
 
 	primaryAddress := "unix://" + primaryLn.Addr().String()
-	const secondaryAddress = "unix://does-not-exist"
+	const secondaryAddress = "unix:///does-not-exist"
 	const storageName = "default"
 
 	conf := config.Config{
