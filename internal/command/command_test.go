@@ -238,7 +238,7 @@ func TestCommandStdErr(t *testing.T) {
 	defer cancel()
 
 	var stdout, stderr bytes.Buffer
-	expectedMessage := `hello world\\nhello world\\nhello world\\nhello world\\nhello world\\n`
+	expectedMessage := `hello world\nhello world\nhello world\nhello world\nhello world\n`
 
 	logger := logrus.New()
 	logger.SetOutput(&stderr)
@@ -269,10 +269,7 @@ func TestCommandStdErrLargeOutput(t *testing.T) {
 	require.Error(t, cmd.Wait())
 
 	assert.Empty(t, stdout.Bytes())
-	// the logrus printer prints with %q, so with an escaped newline it will add an extra \ escape to the
-	// output. So for the test we can take out the extra \ since it was logrus that added it, not the command
-	// https://github.com/sirupsen/logrus/blob/master/text_formatter.go#L324
-	msg := strings.Replace(extractMessage(stderr.String()), `\\n`, `\n`, -1)
+	msg := strings.ReplaceAll(extractMessage(stderr.String()), "\\n", "\n")
 	require.LessOrEqual(t, len(msg), maxStderrBytes)
 }
 
@@ -292,7 +289,8 @@ func TestCommandStdErrBinaryNullBytes(t *testing.T) {
 	require.Error(t, cmd.Wait())
 
 	assert.Empty(t, stdout.Bytes())
-	require.NotEmpty(t, extractMessage(stderr.String()))
+	msg := strings.SplitN(extractMessage(stderr.String()), "\\n", 2)[0]
+	require.Equal(t, strings.Repeat("\\x00", maxStderrLineLength), msg)
 }
 
 func TestCommandStdErrLongLine(t *testing.T) {
@@ -311,7 +309,7 @@ func TestCommandStdErrLongLine(t *testing.T) {
 	require.Error(t, cmd.Wait())
 
 	assert.Empty(t, stdout.Bytes())
-	require.Contains(t, stderr.String(), fmt.Sprintf(`%s\\n%s`, strings.Repeat("a", maxStderrLineLength), strings.Repeat("b", maxStderrLineLength)))
+	require.Contains(t, stderr.String(), fmt.Sprintf("%s\\n%s", strings.Repeat("a", maxStderrLineLength), strings.Repeat("b", maxStderrLineLength)))
 }
 
 func TestCommandStdErrMaxBytes(t *testing.T) {
@@ -330,7 +328,7 @@ func TestCommandStdErrMaxBytes(t *testing.T) {
 	require.Error(t, cmd.Wait())
 
 	assert.Empty(t, stdout.Bytes())
-	require.NotEmpty(t, extractMessage(stderr.String()))
+	require.Equal(t, maxStderrBytes, len(strings.ReplaceAll(extractMessage(stderr.String()), "\\n", "\n")))
 }
 
 var logMsgRegex = regexp.MustCompile(`msg="(.+?)"`)

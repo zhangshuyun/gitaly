@@ -20,10 +20,6 @@ import (
 	"gitlab.com/gitlab-org/labkit/tracing"
 )
 
-const (
-	escapedNewline = `\n`
-)
-
 // GitEnv contains the ENV variables for git commands
 var GitEnv = []string{
 	// Force english locale for consistency on the output messages
