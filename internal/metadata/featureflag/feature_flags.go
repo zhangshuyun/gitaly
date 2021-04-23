@@ -20,7 +20,7 @@ var (
 	// GoResolveConflicts enables the Go implementation of ResolveConflicts
 	GoResolveConflicts = FeatureFlag{Name: "go_resolve_conflicts", OnByDefault: false}
 	// UserRebaseConfirmable
-	GoUserRebaseConfirmable = FeatureFlag{Name: "go_user_rebase_confirmable", OnByDefault: false}
+	GoUserRebaseConfirmable = FeatureFlag{Name: "go_user_rebase_confirmable", OnByDefault: true}
 	// GoUserUpdateSubmodule enables the Go implementation of
 	// UserUpdateSubmodules
 	GoUserUpdateSubmodule = FeatureFlag{Name: "go_user_update_submodule", OnByDefault: true}
