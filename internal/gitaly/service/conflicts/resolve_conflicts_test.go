@@ -220,13 +220,13 @@ func testResolveConflictsWithRemoteRepoFeatured(t *testing.T, ctx context.Contex
 	sourceRepo, sourceRepoPath, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "source")
 	t.Cleanup(cleanup)
 	sourceBlobOID := gittest.WriteBlob(t, sourceRepoPath, []byte("contents-1\n"))
-	sourceCommitOID := gittest.CommitBlobWithName(t, sourceRepoPath, sourceBlobOID.String(), "file.txt", "message")
+	sourceCommitOID := gittest.CommitBlobWithName(t, cfg, sourceRepoPath, sourceBlobOID.String(), "file.txt", "message")
 	testhelper.MustRunCommand(t, nil, "git", "-C", sourceRepoPath, "update-ref", "refs/heads/source", sourceCommitOID)
 
 	targetRepo, targetRepoPath, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "target")
 	t.Cleanup(cleanup)
 	targetBlobOID := gittest.WriteBlob(t, targetRepoPath, []byte("contents-2\n"))
-	targetCommitOID := gittest.CommitBlobWithName(t, targetRepoPath, targetBlobOID.String(), "file.txt", "message")
+	targetCommitOID := gittest.CommitBlobWithName(t, cfg, targetRepoPath, targetBlobOID.String(), "file.txt", "message")
 	testhelper.MustRunCommand(t, nil, "git", "-C", targetRepoPath, "update-ref", "refs/heads/target", targetCommitOID)
 
 	ctx = testhelper.MergeOutgoingMetadata(ctx, testhelper.GitalyServersMetadata(t, cfg.SocketPath))
@@ -347,11 +347,11 @@ func testResolveConflictsLineEndingsFeatured(t *testing.T, ctx context.Context, 
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			ourOID := gittest.WriteBlob(t, repoPath, []byte(tc.ourContent))
-			ourCommit := gittest.CommitBlobWithName(t, repoPath, ourOID.String(), "file.txt", "message")
+			ourCommit := gittest.CommitBlobWithName(t, cfg, repoPath, ourOID.String(), "file.txt", "message")
 			testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "update-ref", "refs/heads/ours", ourCommit)
 
 			theirOID := gittest.WriteBlob(t, repoPath, []byte(tc.theirContent))
-			theirCommit := gittest.CommitBlobWithName(t, repoPath, theirOID.String(), "file.txt", "message")
+			theirCommit := gittest.CommitBlobWithName(t, cfg, repoPath, theirOID.String(), "file.txt", "message")
 			testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "update-ref", "refs/heads/theirs", theirCommit)
 
 			stream, err := client.ResolveConflicts(ctx)
