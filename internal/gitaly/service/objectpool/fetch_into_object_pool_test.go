@@ -20,6 +20,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/objectpool"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/labkit/log"
@@ -114,7 +115,7 @@ func TestFetchIntoObjectPool_hooks(t *testing.T) {
 	}
 
 	_, err = client.FetchIntoObjectPool(ctx, req)
-	require.Equal(t, status.Error(codes.Internal, "exit status 128"), err)
+	testassert.GrpcEqualErr(t, status.Error(codes.Internal, "exit status 128"), err)
 }
 
 func TestFetchIntoObjectPool_CollectLogStatistics(t *testing.T) {

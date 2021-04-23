@@ -39,6 +39,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/transactions"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/promtest"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/internal/version"
@@ -97,7 +98,7 @@ func TestNewBackchannelServerFactory(t *testing.T) {
 	defer nodeSet.Close()
 
 	clientConn := nodeSet["default"]["gitaly-1"].Connection
-	require.Equal(t,
+	testassert.GrpcEqualErr(t,
 		status.Error(codes.NotFound, "transaction not found: 0"),
 		clientConn.Invoke(ctx, "/Service/Method", &gitalypb.CreateBranchRequest{}, &gitalypb.CreateBranchResponse{}),
 	)
@@ -978,7 +979,7 @@ func TestErrorThreshold(t *testing.T) {
 				require.True(t, healthy)
 
 				_, err = handler(ctx, &mock.RepoRequest{Repo: repo})
-				require.Equal(t, status.Error(codes.Internal, "something went wrong"), err)
+				testassert.GrpcEqualErr(t, status.Error(codes.Internal, "something went wrong"), err)
 			}
 
 			healthy, err := node.CheckHealth(ctx)

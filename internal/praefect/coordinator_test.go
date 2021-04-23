@@ -32,6 +32,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/transactions"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/promtest"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/labkit/correlation"
 	"google.golang.org/grpc"
@@ -1518,7 +1519,7 @@ func TestCoordinator_grpcErrorHandling(t *testing.T) {
 				&gitalypb.UserCreateBranchRequest{
 					Repository: repoProto,
 				})
-			require.Equal(t, tc.expectedErr, err)
+			testassert.GrpcEqualErr(t, tc.expectedErr, err)
 
 			for _, node := range gitalies {
 				require.True(t, node.operationServer.called, "expected gitaly %q to have been called", node.mock.GetStorage())

@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/limithandler"
 	pb "gitlab.com/gitlab-org/gitaly/internal/middleware/limithandler/testdata"
@@ -52,9 +53,13 @@ func TestUnaryLimitHandler(t *testing.T) {
 			defer wg.Done()
 
 			resp, err := client.Unary(ctx, &pb.UnaryRequest{})
-			require.NotNil(t, resp)
-			require.NoError(t, err)
-			require.True(t, resp.Ok)
+			if !assert.NoError(t, err) {
+				return
+			}
+			if !assert.NotNil(t, resp) {
+				return
+			}
+			assert.True(t, resp.Ok)
 		}()
 	}
 
@@ -79,12 +84,12 @@ func TestStreamLimitHandler(t *testing.T) {
 			fullname: "/test.Test/StreamOutput",
 			f: func(t *testing.T, ctx context.Context, client pb.TestClient) {
 				stream, err := client.StreamOutput(ctx, &pb.StreamOutputRequest{})
-				require.NotNil(t, stream)
 				require.NoError(t, err)
+				require.NotNil(t, stream)
 
 				r, err := stream.Recv()
-				require.NotNil(t, r)
 				require.NoError(t, err)
+				require.NotNil(t, r)
 				require.True(t, r.Ok)
 			},
 			maxConcurrency:       3,
@@ -95,13 +100,13 @@ func TestStreamLimitHandler(t *testing.T) {
 			fullname: "/test.Test/StreamInput",
 			f: func(t *testing.T, ctx context.Context, client pb.TestClient) {
 				stream, err := client.StreamInput(ctx)
-				require.NotNil(t, stream)
 				require.NoError(t, err)
+				require.NotNil(t, stream)
 
 				require.NoError(t, stream.Send(&pb.StreamInputRequest{}))
 				r, err := stream.CloseAndRecv()
-				require.NotNil(t, r)
 				require.NoError(t, err)
+				require.NotNil(t, r)
 				require.True(t, r.Ok)
 			},
 			maxConcurrency:       3,
@@ -112,15 +117,15 @@ func TestStreamLimitHandler(t *testing.T) {
 			fullname: "/test.Test/Bidirectional",
 			f: func(t *testing.T, ctx context.Context, client pb.TestClient) {
 				stream, err := client.Bidirectional(ctx)
-				require.NotNil(t, stream)
 				require.NoError(t, err)
+				require.NotNil(t, stream)
 
 				require.NoError(t, stream.Send(&pb.BidirectionalRequest{}))
 				require.NoError(t, stream.CloseSend())
 
 				r, err := stream.Recv()
-				require.NotNil(t, r)
 				require.NoError(t, err)
+				require.NotNil(t, r)
 				require.True(t, r.Ok)
 			},
 			maxConcurrency:       3,
@@ -133,8 +138,8 @@ func TestStreamLimitHandler(t *testing.T) {
 			fullname: "/test.Test/Bidirectional",
 			f: func(t *testing.T, ctx context.Context, client pb.TestClient) {
 				stream, err := client.Bidirectional(ctx)
-				require.NotNil(t, stream)
 				require.NoError(t, err)
+				require.NotNil(t, stream)
 
 				// Since the concurrency id is fixed all requests have the same
 				// id, but subsequent requests in a stream, even with the same
@@ -145,8 +150,8 @@ func TestStreamLimitHandler(t *testing.T) {
 				require.NoError(t, stream.CloseSend())
 
 				r, err := stream.Recv()
-				require.NotNil(t, r)
 				require.NoError(t, err)
+				require.NotNil(t, r)
 				require.True(t, r.Ok)
 			},
 			maxConcurrency: 3,
@@ -158,12 +163,12 @@ func TestStreamLimitHandler(t *testing.T) {
 			fullname: "/test.Test/StreamOutput",
 			f: func(t *testing.T, ctx context.Context, client pb.TestClient) {
 				stream, err := client.StreamOutput(ctx, &pb.StreamOutputRequest{})
-				require.NotNil(t, stream)
 				require.NoError(t, err)
+				require.NotNil(t, stream)
 
 				r, err := stream.Recv()
-				require.NotNil(t, r)
 				require.NoError(t, err)
+				require.NotNil(t, r)
 				require.True(t, r.Ok)
 			},
 			maxConcurrency:       0,

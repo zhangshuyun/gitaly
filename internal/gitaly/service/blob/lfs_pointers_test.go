@@ -16,6 +16,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -163,7 +164,7 @@ func TestListLFSPointers(t *testing.T) {
 				if err == io.EOF {
 					break
 				}
-				require.Equal(t, err, tc.expectedErr)
+				testassert.GrpcEqualErr(t, tc.expectedErr, err)
 				if err != nil {
 					break
 				}

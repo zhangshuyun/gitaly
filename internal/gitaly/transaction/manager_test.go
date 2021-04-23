@@ -14,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -116,7 +117,7 @@ func TestPoolManager_Vote(t *testing.T) {
 				}
 
 				err := manager.Vote(ctx, tc.transaction, praefect, tc.vote)
-				require.Equal(t, tc.expectedErr, err)
+				testassert.GrpcEqualErr(t, tc.expectedErr, err)
 			})
 		}
 	})
@@ -171,7 +172,7 @@ func TestPoolManager_Stop(t *testing.T) {
 				}
 
 				err := manager.Stop(ctx, tc.transaction, praefect)
-				require.Equal(t, tc.expectedErr, err)
+				testassert.GrpcEqualErr(t, tc.expectedErr, err)
 			})
 		}
 	})

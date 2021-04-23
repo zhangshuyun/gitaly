@@ -17,7 +17,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/conflicts"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testassert"
-	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -387,7 +386,7 @@ func TestResolveConflictsNonOIDRequests(t *testing.T) {
 	}))
 
 	_, err = stream.CloseAndRecv()
-	require.Equal(t, status.Errorf(codes.Unknown, "Rugged::InvalidError: unable to parse OID - contains invalid characters"), err)
+	testassert.GrpcEqualErr(t, status.Errorf(codes.Unknown, "Rugged::InvalidError: unable to parse OID - contains invalid characters"), err)
 }
 
 func TestResolveConflictsIdenticalContent(t *testing.T) {

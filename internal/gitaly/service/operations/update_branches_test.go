@@ -14,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -93,7 +94,7 @@ func testSuccessfulUserUpdateBranchRequestFeatured(t *testing.T, ctx context.Con
 			}
 			response, err := client.UserUpdateBranch(ctx, request)
 			require.NoError(t, err)
-			require.Equal(t, responseOk, response)
+			testassert.ProtoEqual(t, responseOk, response)
 
 			branchCommit, err := repo.ReadCommit(ctx, git.Revision(testCase.updateBranchName))
 
@@ -164,8 +165,8 @@ func testSuccessfulUserUpdateBranchRequestToDeleteFeatured(t *testing.T, ctx con
 				User:       testhelper.TestUser,
 			}
 			response, err := client.UserUpdateBranch(ctx, request)
-			require.Nil(t, err)
-			require.Equal(t, responseOk, response)
+			require.NoError(t, err)
+			testassert.ProtoEqual(t, responseOk, response)
 
 			_, err = repo.ReadCommit(ctx, git.Revision(testCase.updateBranchName))
 			require.Equal(t, localrepo.ErrObjectNotFound, err, "expected 'not found' error got %v", err)
@@ -203,7 +204,7 @@ func testSuccessfulGitHooksForUserUpdateBranchRequestFeatured(t *testing.T, ctx 
 			require.NoError(t, err)
 			require.Empty(t, response.PreReceiveError)
 
-			require.Equal(t, responseOk, response)
+			testassert.ProtoEqual(t, responseOk, response)
 			output := string(testhelper.MustReadFile(t, hookOutputTempPath))
 			require.Contains(t, output, "GL_USERNAME="+testhelper.TestUser.GlUsername)
 		})
@@ -232,14 +233,14 @@ func testFailedUserUpdateBranchDueToHooksFeatured(t *testing.T, ctx context.Cont
 		gittest.WriteCustomHook(t, repoPath, hookName, hookContent)
 
 		response, err := client.UserUpdateBranch(ctx, request)
-		require.Nil(t, err)
+		require.NoError(t, err)
 		require.Contains(t, response.PreReceiveError, "GL_USERNAME="+testhelper.TestUser.GlUsername)
 		require.Contains(t, response.PreReceiveError, "PWD="+repoPath)
 
 		responseOk := &gitalypb.UserUpdateBranchResponse{
 			PreReceiveError: response.PreReceiveError,
 		}
-		require.Equal(t, responseOk, response)
+		testassert.ProtoEqual(t, responseOk, response)
 	}
 }
 
@@ -374,7 +375,7 @@ func testFailedUserUpdateBranchRequestFeatured(t *testing.T, ctx context.Context
 
 			response, err := client.UserUpdateBranch(ctx, request)
 			require.Equal(t, testCase.response, response)
-			require.Equal(t, testCase.err, err)
+			testassert.GrpcEqualErr(t, testCase.err, err)
 
 			branchCommit, err := repo.ReadCommit(ctx, git.Revision(testCase.branchName))
 			if testCase.expectNotFoundError {

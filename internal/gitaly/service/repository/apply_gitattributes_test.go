@@ -19,6 +19,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testassert"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -193,7 +194,7 @@ func TestApplyGitattributesWithTransaction(t *testing.T) {
 					Repository: repo,
 					Revision:   tc.revision,
 				})
-				require.Equal(t, tc.expectedErr, err)
+				testassert.GrpcEqualErr(t, tc.expectedErr, err)
 
 				path := filepath.Join(infoPath, "attributes")
 				if tc.shouldExist {
