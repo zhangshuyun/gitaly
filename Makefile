@@ -47,6 +47,7 @@ GOLANGCI_LINT     := ${TOOLS_DIR}/golangci-lint
 GO_LICENSES       := ${TOOLS_DIR}/go-licenses
 PROTOC            := ${TOOLS_DIR}/protoc/bin/protoc
 PROTOC_GEN_GO     := ${TOOLS_DIR}/protoc-gen-go
+PROTOC_GEN_GO_GRPC:= ${TOOLS_DIR}/protoc-gen-go-grpc
 PROTOC_GEN_GITALY := ${TOOLS_DIR}/protoc-gen-gitaly
 GO_JUNIT_REPORT   := ${TOOLS_DIR}/go-junit-report
 GOCOVER_COBERTURA := ${TOOLS_DIR}/gocover-cobertura
@@ -69,8 +70,12 @@ GOCOVER_COBERTURA_VERSION ?= aaee18c8195c3f2d90e5ef80ca918d265463842a
 GOIMPORTS_VERSION         ?= 2538eef75904eff384a2551359968e40c207d9d2
 GO_JUNIT_REPORT_VERSION   ?= 984a47ca6b0a7d704c4b589852051b4d7865aa17
 GO_LICENSES_VERSION       ?= 73411c8fa237ccc6a75af79d0a5bc021c9487aad
-PROTOC_VERSION            ?= 3.12.4
-PROTOC_GEN_GO_VERSION     ?= 1.3.2
+# https://pkg.go.dev/github.com/protocolbuffers/protobuf
+PROTOC_VERSION            ?= 3.17.3
+# https://pkg.go.dev/google.golang.org/protobuf
+PROTOC_GEN_GO_VERSION     ?= 1.26.0
+# https://pkg.go.dev/google.golang.org/grpc/cmd/protoc-gen-go-grpc
+PROTOC_GEN_GO_GRPC_VERSION?= 1.1.0
 GIT_VERSION               ?= v2.32.0
 GIT2GO_VERSION            ?= v31
 LIBGIT2_VERSION           ?= v1.1.0
@@ -78,10 +83,10 @@ LIBGIT2_VERSION           ?= v1.1.0
 # Dependency downloads
 ifeq (${OS},Darwin)
     PROTOC_URL            ?= https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-osx-x86_64.zip
-    PROTOC_HASH           ?= 210227683a5db4a9348cd7545101d006c5829b9e823f3f067ac8539cb387519e
+    PROTOC_HASH           ?= 68901eb7ef5b55d7f2df3241ab0b8d97ee5192d3902c59e7adf461adc058e9f1
 else ifeq (${OS},Linux)
     PROTOC_URL            ?= https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-x86_64.zip
-    PROTOC_HASH           ?= d0d4c7a3c08d3ea9a20f94eaface12f5d46d7b023fe2057e834a4181c9e93ff3
+    PROTOC_HASH           ?= d4246a5136cf9cd1abc851c521a1ad6b8884df4feded8b9cbd5e2a2226d4b357
 endif
 
 # Git target
@@ -312,16 +317,20 @@ cover: prepare-tests libgit2 ${GOCOVER_COBERTURA}
 	${Q}go tool cover -func "${COVERAGE_DIR}/all.merged"
 
 .PHONY: proto
-proto: ${PROTOC} ${PROTOC_GEN_GO} ${SOURCE_DIR}/.ruby-bundle
+proto: SHARED_PROTOC_OPTS = --plugin=${PROTOC_GEN_GO} --plugin=${PROTOC_GEN_GO_GRPC} --go_opt=paths=source_relative --go-grpc_opt=paths=source_relative
+proto: ${PROTOC} ${PROTOC_GEN_GO} ${PROTOC_GEN_GO_GRPC} ${SOURCE_DIR}/.ruby-bundle
 	${Q}mkdir -p ${SOURCE_DIR}/proto/go/gitalypb
 	${Q}rm -f ${SOURCE_DIR}/proto/go/gitalypb/*.pb.go
-	${PROTOC} --plugin=${PROTOC_GEN_GO} -I ${SOURCE_DIR}/proto --go_out=paths=source_relative,plugins=grpc:${SOURCE_DIR}/proto/go/gitalypb ${SOURCE_DIR}/proto/*.proto
+	${PROTOC} ${SHARED_PROTOC_OPTS} -I ${SOURCE_DIR}/proto --go_out=${SOURCE_DIR}/proto/go/gitalypb --go-grpc_out=${SOURCE_DIR}/proto/go/gitalypb ${SOURCE_DIR}/proto/*.proto
 	${SOURCE_DIR}/_support/generate-proto-ruby
 	${Q}# this part is related to the generation of sources from testing proto files
-	${PROTOC} --plugin=${PROTOC_GEN_GO} -I ${SOURCE_DIR}/internal --go_out=path=source_relative,plugins=grpc:${SOURCE_DIR}/internal ${SOURCE_DIR}/internal/praefect/grpc-proxy/testdata/test.proto
-	${PROTOC} --plugin=${PROTOC_GEN_GO} -I ${SOURCE_DIR}/proto -I ${SOURCE_DIR}/internal --go_out=paths=source_relative,plugins=grpc:${SOURCE_DIR}/internal ${SOURCE_DIR}/internal/praefect/mock/mock.proto
-	${PROTOC} --plugin=${PROTOC_GEN_GO} -I ${SOURCE_DIR}/proto -I ${SOURCE_DIR}/internal --go_out=paths=source_relative,plugins=grpc:${SOURCE_DIR}/internal ${SOURCE_DIR}/internal/middleware/cache/testdata/stream.proto
-	${PROTOC} --plugin=${PROTOC_GEN_GO} -I ${SOURCE_DIR}/proto --go_out=paths=source_relative,plugins=grpc:${SOURCE_DIR}/proto ${SOURCE_DIR}/proto/go/internal/linter/testdata/*.proto
+	${PROTOC} ${SHARED_PROTOC_OPTS} -I ${SOURCE_DIR}/internal --go_out=${SOURCE_DIR}/internal --go-grpc_out=${SOURCE_DIR}/internal ${SOURCE_DIR}/internal/praefect/grpc-proxy/testdata/test.proto
+	${PROTOC} ${SHARED_PROTOC_OPTS} -I ${SOURCE_DIR}/proto -I ${SOURCE_DIR}/internal --go_out=${SOURCE_DIR}/internal --go-grpc_out=${SOURCE_DIR}/internal \
+		${SOURCE_DIR}/internal/praefect/mock/mock.proto \
+		${SOURCE_DIR}/internal/middleware/cache/testdata/stream.proto \
+		${SOURCE_DIR}/internal/helper/chunk/testdata/test.proto \
+		${SOURCE_DIR}/internal/middleware/limithandler/testdata/test.proto
+	${PROTOC} ${SHARED_PROTOC_OPTS} -I ${SOURCE_DIR}/proto --go_out=${SOURCE_DIR}/proto --go-grpc_out=${SOURCE_DIR}/proto ${SOURCE_DIR}/proto/go/internal/linter/testdata/*.proto
 
 .PHONY: lint-proto
 lint-proto: ${PROTOC} ${PROTOC_GEN_GITALY}
@@ -461,8 +470,10 @@ ${GO_JUNIT_REPORT}:   TOOL_PACKAGE = github.com/jstemmer/go-junit-report
 ${GO_JUNIT_REPORT}:   TOOL_VERSION = ${GO_JUNIT_REPORT_VERSION}
 ${GO_LICENSES}:       TOOL_PACKAGE = github.com/google/go-licenses
 ${GO_LICENSES}:       TOOL_VERSION = ${GO_LICENSES_VERSION}
-${PROTOC_GEN_GO}:     TOOL_PACKAGE = github.com/golang/protobuf/protoc-gen-go
+${PROTOC_GEN_GO}:     TOOL_PACKAGE = google.golang.org/protobuf/cmd/protoc-gen-go
 ${PROTOC_GEN_GO}:     TOOL_VERSION = v${PROTOC_GEN_GO_VERSION}
+${PROTOC_GEN_GO_GRPC}:TOOL_PACKAGE = google.golang.org/grpc/cmd/protoc-gen-go-grpc
+${PROTOC_GEN_GO_GRPC}:TOOL_VERSION = v${PROTOC_GEN_GO_GRPC_VERSION}
 
 ${TEST_REPO}:
 	${GIT} clone --bare ${GIT_QUIET} https://gitlab.com/gitlab-org/gitlab-test.git $@

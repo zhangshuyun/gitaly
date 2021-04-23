@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package testdata;
 
+option go_package = "gitlab.com/gitlab-org/gitaly/v14/internal/middleware/cache/testdata";
+
 import "lint.proto";
 import "shared.proto";
 
@@ -23,19 +25,19 @@ service TestService {
       op: MUTATOR
     };
   }
-  
+
   rpc ClientStreamRepoAccessor(Request) returns (stream Response) {
     option (gitaly.op_type) = {
       op: ACCESSOR
     };
   }
-  
+
   rpc ClientUnaryRepoMutator(Request) returns (Response) {
     option (gitaly.op_type) = {
       op: MUTATOR
     };
   }
-  
+
   rpc ClientUnaryRepoAccessor(Request) returns (Response) {
     option (gitaly.op_type) = {
       op: ACCESSOR

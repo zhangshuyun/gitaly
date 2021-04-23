@@ -7,6 +7,8 @@ syntax = "proto3";
 
 package mock;
 
+option go_package = "gitlab.com/gitlab-org/gitaly/v14/internal/praefect/mock";
+
 import "shared.proto";
 import "lint.proto";
 import "google/protobuf/empty.proto";
