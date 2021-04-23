@@ -1,0 +1,5 @@
+---
+title: Update google-protobuf to 3.15.8 to support Ruby 3.0
+merge_request: 3399
+author: Takuya Noguchi
+type: other
