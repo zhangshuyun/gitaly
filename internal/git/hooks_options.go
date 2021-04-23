@@ -10,6 +10,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/log"
+	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
@@ -88,7 +89,7 @@ func (cc *cmdCfg) configureHooks(
 		return err
 	}
 
-	payload, err := NewHooksPayload(cfg, repo, transaction, praefect, receiveHooksPayload, requestedHooks).Env()
+	payload, err := NewHooksPayload(cfg, repo, transaction, praefect, receiveHooksPayload, requestedHooks, featureflag.RawFromContext(ctx)).Env()
 	if err != nil {
 		return err
 	}

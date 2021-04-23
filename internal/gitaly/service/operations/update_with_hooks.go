@@ -11,6 +11,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
@@ -59,7 +60,7 @@ func (s *Server) updateReferenceWithHooks(
 		UserID:   user.GetGlId(),
 		Username: user.GetGlUsername(),
 		Protocol: "web",
-	}, git.ReceivePackHooks).Env()
+	}, git.ReceivePackHooks, featureflag.RawFromContext(ctx)).Env()
 	if err != nil {
 		return err
 	}

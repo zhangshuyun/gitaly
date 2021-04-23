@@ -17,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
 	hookservice "gitlab.com/gitlab-org/gitaly/internal/gitaly/service/hook"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -141,7 +142,7 @@ func TestUpdateReferenceWithHooks(t *testing.T) {
 		UserID:   "1234",
 		Username: "Username",
 		Protocol: "web",
-	}, git.ReceivePackHooks).Env()
+	}, git.ReceivePackHooks, featureflag.RawFromContext(ctx)).Env()
 	require.NoError(t, err)
 
 	expectedEnv := []string{

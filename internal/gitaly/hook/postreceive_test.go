@@ -15,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
@@ -72,7 +73,10 @@ func TestPostReceive_customHook(t *testing.T) {
 		Protocol: "web",
 	}
 
-	payload, err := git.NewHooksPayload(cfg, repo, nil, nil, receiveHooksPayload, git.PostReceiveHook).Env()
+	ctx, cleanup := testhelper.Context()
+	defer cleanup()
+
+	payload, err := git.NewHooksPayload(cfg, repo, nil, nil, receiveHooksPayload, git.PostReceiveHook, featureflag.RawFromContext(ctx)).Env()
 	require.NoError(t, err)
 
 	primaryPayload, err := git.NewHooksPayload(
@@ -87,6 +91,7 @@ func TestPostReceive_customHook(t *testing.T) {
 		},
 		receiveHooksPayload,
 		git.PostReceiveHook,
+		featureflag.RawFromContext(ctx),
 	).Env()
 	require.NoError(t, err)
 
@@ -102,6 +107,7 @@ func TestPostReceive_customHook(t *testing.T) {
 		},
 		receiveHooksPayload,
 		git.PostReceiveHook,
+		featureflag.RawFromContext(ctx),
 	).Env()
 	require.NoError(t, err)
 
@@ -201,9 +207,6 @@ func TestPostReceive_customHook(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			ctx, cleanup := testhelper.Context()
-			defer cleanup()
-
 			gittest.WriteCustomHook(t, repoPath, "post-receive", []byte(tc.hook))
 
 			var stdout, stderr bytes.Buffer
@@ -248,7 +251,7 @@ func TestPostReceive_gitlab(t *testing.T) {
 		UserID:   "1234",
 		Username: "user",
 		Protocol: "web",
-	}, git.PostReceiveHook).Env()
+	}, git.PostReceiveHook, nil).Env()
 	require.NoError(t, err)
 
 	standardEnv := []string{payload}

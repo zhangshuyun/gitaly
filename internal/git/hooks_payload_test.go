@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 )
@@ -28,13 +29,13 @@ func TestHooksPayload(t *testing.T) {
 	}
 
 	t.Run("envvar has proper name", func(t *testing.T) {
-		env, err := git.NewHooksPayload(cfg, repo, nil, nil, nil, git.AllHooks).Env()
+		env, err := git.NewHooksPayload(cfg, repo, nil, nil, nil, git.AllHooks, nil).Env()
 		require.NoError(t, err)
 		require.True(t, strings.HasPrefix(env, git.EnvHooksPayload+"="))
 	})
 
 	t.Run("roundtrip succeeds", func(t *testing.T) {
-		env, err := git.NewHooksPayload(cfg, repo, nil, nil, nil, git.PreReceiveHook).Env()
+		env, err := git.NewHooksPayload(cfg, repo, nil, nil, nil, git.PreReceiveHook, featureflag.Raw{"flag-key": "flag-value"}).Env()
 		require.NoError(t, err)
 
 		payload, err := git.HooksPayloadFromEnv([]string{
@@ -51,11 +52,12 @@ func TestHooksPayload(t *testing.T) {
 			GitPath:        cfg.Git.BinPath,
 			InternalSocket: cfg.GitalyInternalSocketPath(),
 			RequestedHooks: git.PreReceiveHook,
+			FeatureFlags:   featureflag.Raw{"flag-key": "flag-value"},
 		}, payload)
 	})
 
 	t.Run("roundtrip with transaction succeeds", func(t *testing.T) {
-		env, err := git.NewHooksPayload(cfg, repo, &tx, &praefect, nil, git.UpdateHook).Env()
+		env, err := git.NewHooksPayload(cfg, repo, &tx, &praefect, nil, git.UpdateHook, nil).Env()
 		require.NoError(t, err)
 
 		payload, err := git.HooksPayloadFromEnv([]string{env})
@@ -84,7 +86,7 @@ func TestHooksPayload(t *testing.T) {
 	})
 
 	t.Run("payload with missing Praefect", func(t *testing.T) {
-		env, err := git.NewHooksPayload(cfg, repo, &tx, nil, nil, git.AllHooks).Env()
+		env, err := git.NewHooksPayload(cfg, repo, &tx, nil, nil, git.AllHooks, nil).Env()
 		require.NoError(t, err)
 
 		_, err = git.HooksPayloadFromEnv([]string{env})
@@ -96,7 +98,7 @@ func TestHooksPayload(t *testing.T) {
 			UserID:   "1234",
 			Username: "user",
 			Protocol: "ssh",
-		}, git.PostReceiveHook).Env()
+		}, git.PostReceiveHook, nil).Env()
 		require.NoError(t, err)
 
 		payload, err := git.HooksPayloadFromEnv([]string{
@@ -126,7 +128,7 @@ func TestHooksPayload(t *testing.T) {
 		cfg, repo, _ := testcfg.BuildWithRepo(t)
 		cfg.Git.BinPath = ""
 
-		env, err := git.NewHooksPayload(cfg, repo, nil, nil, nil, git.ReceivePackHooks).Env()
+		env, err := git.NewHooksPayload(cfg, repo, nil, nil, nil, git.ReceivePackHooks, nil).Env()
 		require.NoError(t, err)
 
 		payload, err := git.HooksPayloadFromEnv([]string{

@@ -12,6 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -37,19 +38,28 @@ func TestUpdateInvalidArgument(t *testing.T) {
 func TestUpdate_CustomHooks(t *testing.T) {
 	cfg, repo, repoPath, client := setupHookService(t)
 
-	hooksPayload, err := git.NewHooksPayload(cfg, repo, nil, nil, &git.ReceiveHooksPayload{
-		UserID:   "key-123",
-		Username: "username",
-		Protocol: "web",
-	}, git.UpdateHook).Env()
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	hooksPayload, err := git.NewHooksPayload(
+		cfg,
+		repo,
+		nil,
+		nil,
+		&git.ReceiveHooksPayload{
+			UserID:   "key-123",
+			Username: "username",
+			Protocol: "web",
+		},
+		git.UpdateHook,
+		featureflag.RawFromContext(ctx),
+	).Env()
 	require.NoError(t, err)
 
 	envVars := []string{
 		hooksPayload,
 	}
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 	req := gitalypb.UpdateHookRequest{
 		Repository:           repo,
 		Ref:                  []byte("master"),

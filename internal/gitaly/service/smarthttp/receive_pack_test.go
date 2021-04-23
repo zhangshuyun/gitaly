@@ -33,8 +33,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/streamio"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/health"
-	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/reflection"
 )
 
@@ -104,6 +102,7 @@ func TestSuccessfulReceivePackRequest(t *testing.T) {
 			Protocol: "http",
 		},
 		RequestedHooks: git.ReceivePackHooks,
+		FeatureFlags:   featureflag.RawFromContext(ctx),
 	}, payload)
 }
 
@@ -553,6 +552,12 @@ func (t *testTransactionServer) VoteTransaction(ctx context.Context, in *gitalyp
 }
 
 func TestPostReceiveWithReferenceTransactionHook(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.BackchannelVoting,
+	}).Run(t, testPostReceiveWithReferenceTransactionHook)
+}
+
+func testPostReceiveWithReferenceTransactionHook(t *testing.T, ctx context.Context) {
 	cfg := testcfg.Build(t)
 
 	testhelper.ConfigureGitalyHooksBin(t, cfg)
@@ -560,16 +565,18 @@ func TestPostReceiveWithReferenceTransactionHook(t *testing.T) {
 	refTransactionServer := &testTransactionServer{}
 
 	locator := config.NewLocator(cfg)
-	txManager := transaction.NewManager(cfg, backchannel.NewRegistry())
+	registry := backchannel.NewRegistry()
+	txManager := transaction.NewManager(cfg, registry)
 	hookManager := gitalyhook.NewManager(locator, txManager, gitalyhook.GitlabAPIStub, cfg)
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
 
-	gitalyServer := testhelper.NewTestGrpcServer(t, nil, nil)
+	gitalyServer := testhelper.NewServerWithAuth(t, nil, nil, cfg.Auth.Token, registry).GrpcServer()
 	gitalypb.RegisterSmartHTTPServiceServer(gitalyServer, NewServer(cfg, locator, gitCmdFactory))
 	gitalypb.RegisterHookServiceServer(gitalyServer, hook.NewServer(cfg, hookManager, gitCmdFactory))
-	gitalypb.RegisterRefTransactionServer(gitalyServer, refTransactionServer)
-	healthpb.RegisterHealthServer(gitalyServer, health.NewServer())
 	reflection.Register(gitalyServer)
+	if featureflag.IsDisabled(ctx, featureflag.BackchannelVoting) {
+		gitalypb.RegisterRefTransactionServer(gitalyServer, refTransactionServer)
+	}
 
 	gitalySocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
 	listener, err := net.Listen("unix", gitalySocketPath)
@@ -582,8 +589,14 @@ func TestPostReceiveWithReferenceTransactionHook(t *testing.T) {
 	go gitalyServer.Serve(internalListener)
 	defer gitalyServer.Stop()
 
-	client, conn := newSmartHTTPClient(t, "unix://"+gitalySocketPath, cfg.Auth.Token)
-	defer conn.Close()
+	client := newMuxedSmartHTTPClient(t, ctx, "unix://"+gitalySocketPath, cfg.Auth.Token, func() backchannel.Server {
+		srv := grpc.NewServer()
+		if featureflag.IsEnabled(ctx, featureflag.BackchannelVoting) {
+			gitalypb.RegisterRefTransactionServer(srv, refTransactionServer)
+		}
+
+		return srv
+	})
 
 	// As we ain't got a Praefect server setup, we instead hooked up the
 	// RefTransaction server for Gitaly itself. As this is the only Praefect
@@ -594,12 +607,11 @@ func TestPostReceiveWithReferenceTransactionHook(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	ctx, cancel := testhelper.Context()
-	defer cancel()
 	ctx, err = metadata.InjectTransaction(ctx, 1234, "primary", true)
 	require.NoError(t, err)
 	ctx, err = praefectServer.Inject(ctx)
 	require.NoError(t, err)
+
 	ctx = helper.IncomingToOutgoing(ctx)
 
 	t.Run("update", func(t *testing.T) {

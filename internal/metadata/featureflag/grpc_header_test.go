@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/metadata"
 )
 
@@ -31,22 +31,46 @@ func TestGRPCMetadataFeatureFlag(t *testing.T) {
 			md := metadata.New(tc.headers)
 			ctx := metadata.NewIncomingContext(context.Background(), md)
 
-			assert.Equal(t, tc.enabled, IsEnabled(ctx, FeatureFlag{tc.flag, tc.onByDefault}))
+			require.Equal(t, tc.enabled, IsEnabled(ctx, FeatureFlag{tc.flag, tc.onByDefault}))
 		})
 	}
 }
 
 func TestAllEnabledFlags(t *testing.T) {
-	ctx := metadata.NewIncomingContext(
-		context.Background(),
-		metadata.New(
-			map[string]string{
-				ffPrefix + "meow": "true",
-				ffPrefix + "foo":  "true",
-				ffPrefix + "woof": "false", // not enabled
-				ffPrefix + "bar":  "TRUE",  // not enabled
-			},
-		),
-	)
-	assert.ElementsMatch(t, AllFlags(ctx), []string{"meow:true", "foo:true", "woof:false", "bar:TRUE"})
+	flags := map[string]string{
+		ffPrefix + "meow": "true",
+		ffPrefix + "foo":  "true",
+		ffPrefix + "woof": "false", // not enabled
+		ffPrefix + "bar":  "TRUE",  // not enabled
+	}
+
+	ctx := metadata.NewIncomingContext(context.Background(), metadata.New(flags))
+	require.ElementsMatch(t, AllFlags(ctx), []string{"meow:true", "foo:true", "woof:false", "bar:TRUE"})
+}
+
+func TestRaw(t *testing.T) {
+	enabledFlag := FeatureFlag{Name: "enabled-flag"}
+	disabledFlag := FeatureFlag{Name: "disabled-flag"}
+
+	raw := Raw{
+		ffPrefix + enabledFlag.Name:  "true",
+		ffPrefix + disabledFlag.Name: "false",
+	}
+
+	t.Run("RawFromContext", func(t *testing.T) {
+		ctx := context.Background()
+		ctx = IncomingCtxWithFeatureFlag(ctx, enabledFlag)
+		ctx = IncomingCtxWithDisabledFeatureFlag(ctx, disabledFlag)
+
+		require.Equal(t, raw, RawFromContext(ctx))
+	})
+
+	t.Run("OutgoingWithRaw", func(t *testing.T) {
+		outgoingMD, ok := metadata.FromOutgoingContext(OutgoingWithRaw(context.Background(), raw))
+		require.True(t, ok)
+		require.Equal(t, metadata.MD{
+			ffPrefix + enabledFlag.Name:  {"true"},
+			ffPrefix + disabledFlag.Name: {"false"},
+		}, outgoingMD)
+	})
 }
