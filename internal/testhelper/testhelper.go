@@ -127,6 +127,12 @@ func MustRunCommand(t testing.TB, stdin io.Reader, name string, args ...string) 
 
 	var cmd *exec.Cmd
 	if name == "git" {
+		if args[0] == "init" {
+			// Many tests depend on the fact "master" is the initial branch.
+			// To overcome the case when the user has set anything else in
+			// their git-config, override it to be "master".
+			args = append([]string{"-c", "init.defaultBranch=master"}, args...)
+		}
 		cmd = exec.Command(config.Config.Git.BinPath, args...)
 		cmd.Env = os.Environ()
 		cmd.Env = append(command.GitEnv, cmd.Env...)

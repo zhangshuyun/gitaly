@@ -88,6 +88,12 @@ var commandDescriptions = map[string]commandDescription{
 	},
 	"init": {
 		flags: scNoRefUpdates,
+		opts: []GlobalOption{
+			// We're not prepared for a world where the user has configured the default
+			// branch to be something different from "master" in Gitaly's git
+			// configuration. There explicitly override it on git-init.
+			ConfigPair{Key: "init.defaultBranch", Value: DefaultBranch},
+		},
 	},
 	"linguist": {
 		flags: scNoEndOfOptions,
