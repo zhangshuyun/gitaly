@@ -1,7 +1,6 @@
 package command
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"fmt"
@@ -10,7 +9,6 @@ import (
 	"os/exec"
 	"regexp"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -239,75 +237,42 @@ func TestCommandStdErr(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	var stdout bytes.Buffer
+	var stdout, stderr bytes.Buffer
 	expectedMessage := `hello world\\nhello world\\nhello world\\nhello world\\nhello world\\n`
 
-	r, w := io.Pipe()
-	defer r.Close()
-	defer w.Close()
-
 	logger := logrus.New()
-	logger.SetOutput(w)
+	logger.SetOutput(&stderr)
 
 	ctx = ctxlogrus.ToContext(ctx, logrus.NewEntry(logger))
 
 	cmd, err := New(ctx, exec.Command("./testdata/stderr_script.sh"), nil, &stdout, nil)
 	require.NoError(t, err)
-
-	var line string
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		b := bufio.NewReader(r)
-		var err error
-		line, err = b.ReadString('\n')
-		require.NoError(t, err)
-	}()
-
 	require.Error(t, cmd.Wait())
-	wg.Wait()
 
 	assert.Empty(t, stdout.Bytes())
-	require.Equal(t, expectedMessage, extractMessage(line))
+	require.Equal(t, expectedMessage, extractMessage(stderr.String()))
 }
 
 func TestCommandStdErrLargeOutput(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	var stdout bytes.Buffer
-	r, w := io.Pipe()
-	defer r.Close()
-	defer w.Close()
+	var stdout, stderr bytes.Buffer
 
 	logger := logrus.New()
-	logger.SetOutput(w)
+	logger.SetOutput(&stderr)
 
 	ctx = ctxlogrus.ToContext(ctx, logrus.NewEntry(logger))
 
 	cmd, err := New(ctx, exec.Command("./testdata/stderr_many_lines.sh"), nil, &stdout, nil)
 	require.NoError(t, err)
-
-	var line string
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		b := bufio.NewReader(r)
-		var err error
-		line, err = b.ReadString('\n')
-		require.NoError(t, err)
-	}()
-
 	require.Error(t, cmd.Wait())
-	wg.Wait()
 
 	assert.Empty(t, stdout.Bytes())
 	// the logrus printer prints with %q, so with an escaped newline it will add an extra \ escape to the
 	// output. So for the test we can take out the extra \ since it was logrus that added it, not the command
 	// https://github.com/sirupsen/logrus/blob/master/text_formatter.go#L324
-	msg := strings.Replace(extractMessage(line), `\\n`, `\n`, -1)
+	msg := strings.Replace(extractMessage(stderr.String()), `\\n`, `\n`, -1)
 	require.LessOrEqual(t, len(msg), maxStderrBytes)
 }
 
@@ -315,106 +280,57 @@ func TestCommandStdErrBinaryNullBytes(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	var stdout bytes.Buffer
-
-	r, w := io.Pipe()
-	defer r.Close()
-	defer w.Close()
+	var stdout, stderr bytes.Buffer
 
 	logger := logrus.New()
-	logger.SetOutput(w)
+	logger.SetOutput(&stderr)
 
 	ctx = ctxlogrus.ToContext(ctx, logrus.NewEntry(logger))
 
 	cmd, err := New(ctx, exec.Command("./testdata/stderr_binary_null.sh"), nil, &stdout, nil)
 	require.NoError(t, err)
-
-	var line string
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		b := bufio.NewReader(r)
-		var err error
-		line, err = b.ReadString('\n')
-		require.NoError(t, err)
-	}()
-
 	require.Error(t, cmd.Wait())
-	wg.Wait()
 
 	assert.Empty(t, stdout.Bytes())
-	require.NotEmpty(t, extractMessage(line))
+	require.NotEmpty(t, extractMessage(stderr.String()))
 }
 
 func TestCommandStdErrLongLine(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	var stdout bytes.Buffer
-	r, w := io.Pipe()
-	defer r.Close()
-	defer w.Close()
+	var stdout, stderr bytes.Buffer
 
 	logger := logrus.New()
-	logger.SetOutput(w)
+	logger.SetOutput(&stderr)
 
 	ctx = ctxlogrus.ToContext(ctx, logrus.NewEntry(logger))
 
 	cmd, err := New(ctx, exec.Command("./testdata/stderr_repeat_a.sh"), nil, &stdout, nil)
 	require.NoError(t, err)
-
-	var line string
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		b := bufio.NewReader(r)
-		var err error
-		line, err = b.ReadString('\n')
-		require.NoError(t, err)
-	}()
-
 	require.Error(t, cmd.Wait())
-	wg.Wait()
 
 	assert.Empty(t, stdout.Bytes())
-	require.Contains(t, line, fmt.Sprintf(`%s\\n%s`, strings.Repeat("a", maxStderrLineLength), strings.Repeat("b", maxStderrLineLength)))
+	require.Contains(t, stderr.String(), fmt.Sprintf(`%s\\n%s`, strings.Repeat("a", maxStderrLineLength), strings.Repeat("b", maxStderrLineLength)))
 }
 
 func TestCommandStdErrMaxBytes(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	var stdout bytes.Buffer
-	r, w := io.Pipe()
-	defer r.Close()
-	defer w.Close()
+	var stdout, stderr bytes.Buffer
 
 	logger := logrus.New()
-	logger.SetOutput(w)
+	logger.SetOutput(&stderr)
 
 	ctx = ctxlogrus.ToContext(ctx, logrus.NewEntry(logger))
 
 	cmd, err := New(ctx, exec.Command("./testdata/stderr_max_bytes_edge_case.sh"), nil, &stdout, nil)
 	require.NoError(t, err)
-
-	var line string
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		b := bufio.NewReader(r)
-		var err error
-		line, err = b.ReadString('\n')
-		require.NoError(t, err)
-	}()
-
 	require.Error(t, cmd.Wait())
-	wg.Wait()
 
 	assert.Empty(t, stdout.Bytes())
-	require.NotEmpty(t, extractMessage(line))
+	require.NotEmpty(t, extractMessage(stderr.String()))
 }
 
 var logMsgRegex = regexp.MustCompile(`msg="(.+?)"`)
