@@ -1,7 +1,6 @@
 package praefect
 
 import (
-	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -16,59 +15,39 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/promtest"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
 )
 
 func TestInfoService_RepositoryReplicas(t *testing.T) {
-	cfg := gconfig.Config
-
-	tempDir := testhelper.TempDir(t)
-
-	cfg.Storages = []gconfig.Storage{{Name: "gitaly-1"}, {Name: "gitaly-2"}, {Name: "gitaly-3"}}
-	for i := range cfg.Storages {
-		storagePath := filepath.Join(tempDir, cfg.Storages[i].Name)
-		require.NoError(t, os.MkdirAll(storagePath, 0755))
-		cfg.Storages[i].Path = storagePath
+	var cfgs []gconfig.Cfg
+	var cfgNodes []*config.Node
+	var testRepo *gitalypb.Repository
+	for i, storage := range []string{"g-1", "g-2", "g-3"} {
+		cfg, repo, _ := testcfg.BuildWithRepo(t, testcfg.WithStorages(storage))
+		if testRepo == nil {
+			testRepo = repo
+		}
+		cfgs = append(cfgs, cfg)
+		cfgs[i].SocketPath = testserver.RunGitalyServer(t, cfgs[i], nil, func(srv *grpc.Server, deps *service.Dependencies) {
+			gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(deps.GetCfg(), deps.GetRubyServer(), deps.GetLocator(), deps.GetTxManager(), deps.GetGitCmdFactory()))
+		}, testserver.WithDisablePraefect())
+		cfgNodes = append(cfgNodes, &config.Node{
+			Storage: cfgs[i].Storages[0].Name,
+			Address: cfgs[i].SocketPath,
+			Token:   cfgs[i].Auth.Token,
+		})
 	}
-
-	gitalyAddr := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
-		gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(deps.GetCfg(), deps.GetRubyServer(), deps.GetLocator(), deps.GetTxManager(), deps.GetGitCmdFactory()))
-	}, testserver.WithDisablePraefect())
 
 	conf := config.Config{
-		VirtualStorages: []*config.VirtualStorage{
-			{
-				Name: "default",
-				Nodes: []*config.Node{
-					{
-						Storage: "gitaly-1",
-						Address: gitalyAddr,
-						Token:   cfg.Auth.Token,
-					},
-					{
-						Storage: "gitaly-2",
-						Address: gitalyAddr,
-						Token:   cfg.Auth.Token,
-					},
-					{
-						Storage: "gitaly-3",
-						Address: gitalyAddr,
-						Token:   cfg.Auth.Token,
-					},
-				},
-			},
-		},
-		Failover: config.Failover{Enabled: true},
+		VirtualStorages: []*config.VirtualStorage{{Name: "default", Nodes: cfgNodes}},
+		Failover:        config.Failover{Enabled: true},
 	}
 
-	testRepo := gittest.CloneRepoAtStorageRoot(t, cfg.Storages[0].Path, "repo-1")
-	gittest.CloneRepoAtStorageRoot(t, cfg.Storages[1].Path, "repo-1")
-	gittest.CloneRepoAtStorageRoot(t, cfg.Storages[2].Path, "repo-1")
-
 	// create a commit in the second replica so we can check that its checksum is different than the primary
-	gittest.CreateCommit(t, cfg, filepath.Join(cfg.Storages[1].Path, "repo-1"), "master", nil)
+	gittest.CreateCommit(t, cfgs[1], filepath.Join(cfgs[1].Storages[0].Path, testRepo.GetRelativePath()), "master", nil)
 
 	nodeManager, err := nodes.NewManager(testhelper.DiscardTestEntry(t), conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil)
 	require.NoError(t, err)
