@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"regexp"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -253,12 +254,21 @@ func TestCommandStdErr(t *testing.T) {
 	cmd, err := New(ctx, exec.Command("./testdata/stderr_script.sh"), nil, &stdout, nil)
 	require.NoError(t, err)
 
-	require.Error(t, cmd.Wait())
-	assert.Empty(t, stdout.Bytes())
+	var line string
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		b := bufio.NewReader(r)
+		var err error
+		line, err = b.ReadString('\n')
+		require.NoError(t, err)
+	}()
 
-	b := bufio.NewReader(r)
-	line, err := b.ReadString('\n')
-	require.NoError(t, err)
+	require.Error(t, cmd.Wait())
+	wg.Wait()
+
+	assert.Empty(t, stdout.Bytes())
 	require.Equal(t, expectedMessage, extractMessage(line))
 }
 
@@ -279,18 +289,26 @@ func TestCommandStdErrLargeOutput(t *testing.T) {
 	cmd, err := New(ctx, exec.Command("./testdata/stderr_many_lines.sh"), nil, &stdout, nil)
 	require.NoError(t, err)
 
+	var line string
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		b := bufio.NewReader(r)
+		var err error
+		line, err = b.ReadString('\n')
+		require.NoError(t, err)
+	}()
+
 	require.Error(t, cmd.Wait())
+	wg.Wait()
+
 	assert.Empty(t, stdout.Bytes())
-
-	b := bufio.NewReader(r)
-	line, err := b.ReadString('\n')
-	require.NoError(t, err)
-
 	// the logrus printer prints with %q, so with an escaped newline it will add an extra \ escape to the
 	// output. So for the test we can take out the extra \ since it was logrus that added it, not the command
 	// https://github.com/sirupsen/logrus/blob/master/text_formatter.go#L324
 	msg := strings.Replace(extractMessage(line), `\\n`, `\n`, -1)
-	require.LessOrEqual(t, len(msg), MaxStderrBytes)
+	require.LessOrEqual(t, len(msg), maxStderrBytes)
 }
 
 func TestCommandStdErrBinaryNullBytes(t *testing.T) {
@@ -311,12 +329,21 @@ func TestCommandStdErrBinaryNullBytes(t *testing.T) {
 	cmd, err := New(ctx, exec.Command("./testdata/stderr_binary_null.sh"), nil, &stdout, nil)
 	require.NoError(t, err)
 
-	require.Error(t, cmd.Wait())
-	assert.Empty(t, stdout.Bytes())
+	var line string
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		b := bufio.NewReader(r)
+		var err error
+		line, err = b.ReadString('\n')
+		require.NoError(t, err)
+	}()
 
-	b := bufio.NewReader(r)
-	line, err := b.ReadString('\n')
-	require.NoError(t, err)
+	require.Error(t, cmd.Wait())
+	wg.Wait()
+
+	assert.Empty(t, stdout.Bytes())
 	require.NotEmpty(t, extractMessage(line))
 }
 
@@ -337,13 +364,22 @@ func TestCommandStdErrLongLine(t *testing.T) {
 	cmd, err := New(ctx, exec.Command("./testdata/stderr_repeat_a.sh"), nil, &stdout, nil)
 	require.NoError(t, err)
 
-	require.Error(t, cmd.Wait())
-	assert.Empty(t, stdout.Bytes())
+	var line string
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		b := bufio.NewReader(r)
+		var err error
+		line, err = b.ReadString('\n')
+		require.NoError(t, err)
+	}()
 
-	b := bufio.NewReader(r)
-	line, err := b.ReadString('\n')
-	require.NoError(t, err)
-	require.Contains(t, line, fmt.Sprintf(`%s\\n%s`, strings.Repeat("a", StderrBufferSize), strings.Repeat("b", StderrBufferSize)))
+	require.Error(t, cmd.Wait())
+	wg.Wait()
+
+	assert.Empty(t, stdout.Bytes())
+	require.Contains(t, line, fmt.Sprintf(`%s\\n%s`, strings.Repeat("a", maxStderrLineLength), strings.Repeat("b", maxStderrLineLength)))
 }
 
 func TestCommandStdErrMaxBytes(t *testing.T) {
@@ -363,16 +399,25 @@ func TestCommandStdErrMaxBytes(t *testing.T) {
 	cmd, err := New(ctx, exec.Command("./testdata/stderr_max_bytes_edge_case.sh"), nil, &stdout, nil)
 	require.NoError(t, err)
 
-	require.Error(t, cmd.Wait())
-	assert.Empty(t, stdout.Bytes())
+	var line string
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		b := bufio.NewReader(r)
+		var err error
+		line, err = b.ReadString('\n')
+		require.NoError(t, err)
+	}()
 
-	b := bufio.NewReader(r)
-	line, err := b.ReadString('\n')
-	require.NoError(t, err)
+	require.Error(t, cmd.Wait())
+	wg.Wait()
+
+	assert.Empty(t, stdout.Bytes())
 	require.NotEmpty(t, extractMessage(line))
 }
 
-var logMsgRegex = regexp.MustCompile(`msg="(.+)"`)
+var logMsgRegex = regexp.MustCompile(`msg="(.+?)"`)
 
 func extractMessage(logMessage string) string {
 	subMatches := logMsgRegex.FindStringSubmatch(logMessage)
