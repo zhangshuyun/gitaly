@@ -586,15 +586,6 @@ func testPostReceiveWithReferenceTransactionHook(t *testing.T, ctx context.Conte
 	go gitalyServer.Serve(internalListener)
 	defer gitalyServer.Stop()
 
-	client := newMuxedSmartHTTPClient(t, ctx, "unix://"+gitalySocketPath, cfg.Auth.Token, func() backchannel.Server {
-		srv := grpc.NewServer()
-		if featureflag.IsEnabled(ctx, featureflag.BackchannelVoting) {
-			gitalypb.RegisterRefTransactionServer(srv, refTransactionServer)
-		}
-
-		return srv
-	})
-
 	// As we ain't got a Praefect server setup, we instead hooked up the
 	// RefTransaction server for Gitaly itself. As this is the only Praefect
 	// service required in this context, we can just pretend that
@@ -604,12 +595,21 @@ func testPostReceiveWithReferenceTransactionHook(t *testing.T, ctx context.Conte
 	})
 	require.NoError(t, err)
 
-	ctx, err = metadata.InjectTransaction(ctx, 1234, "primary", true)
+	ctx, err = metadata.InjectTransaction(ctx, 1234, "primary", true) // here write
 	require.NoError(t, err)
 	ctx, err = praefectServer.Inject(ctx)
 	require.NoError(t, err)
 
 	ctx = helper.IncomingToOutgoing(ctx)
+
+	client := newMuxedSmartHTTPClient(t, ctx, "unix://"+gitalySocketPath, cfg.Auth.Token, func() backchannel.Server {
+		srv := grpc.NewServer()
+		if featureflag.IsEnabled(ctx, featureflag.BackchannelVoting) {
+			gitalypb.RegisterRefTransactionServer(srv, refTransactionServer)
+		}
+
+		return srv
+	})
 
 	t.Run("update", func(t *testing.T) {
 		stream, err := client.PostReceivePack(ctx)
