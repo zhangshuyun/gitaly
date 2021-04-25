@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/protoc-gen-go/descriptor"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -24,6 +23,8 @@ import (
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/reflect/protodesc"
+	protoreg "google.golang.org/protobuf/reflect/protoregistry"
 )
 
 //go:generate make testdata/stream.pb.go
@@ -164,9 +165,9 @@ func (mc *mockCache) StartLease(repo *gitalypb.Repository) (diskcache.LeaseEnder
 }
 
 func streamFileDesc(t testing.TB) *descriptor.FileDescriptorProto {
-	fdp, err := protoregistry.ExtractFileDescriptor(proto.FileDescriptor("middleware/cache/testdata/stream.proto"))
+	fd, err := protoreg.GlobalFiles.FindFileByPath("middleware/cache/testdata/stream.proto")
 	require.NoError(t, err)
-	return fdp
+	return protodesc.ToFileDescriptorProto(fd)
 }
 
 func newTestSvc(t testing.TB, ctx context.Context, srvr *grpc.Server, svc testdata.TestServiceServer) (testdata.TestServiceClient, *grpc.ClientConn, func()) {

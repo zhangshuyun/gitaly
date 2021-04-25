@@ -1,10 +1,7 @@
 package protoregistry
 
 import (
-	"bytes"
-	"compress/gzip"
 	"fmt"
-	"io/ioutil"
 	"reflect"
 	"strings"
 
@@ -12,6 +9,8 @@ import (
 	"github.com/golang/protobuf/protoc-gen-go/descriptor"
 	"gitlab.com/gitlab-org/gitaly/internal/protoutil"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
+	"google.golang.org/protobuf/reflect/protodesc"
+	protoreg "google.golang.org/protobuf/reflect/protoregistry"
 )
 
 // GitalyProtoFileDescriptors is a slice of all gitaly registered file descriptors
@@ -26,13 +25,12 @@ var (
 
 func init() {
 	for _, protoName := range gitalypb.GitalyProtos {
-		gz := proto.FileDescriptor(protoName)
-		fd, err := ExtractFileDescriptor(gz)
+		fd, err := protoreg.GlobalFiles.FindFileByPath(protoName)
 		if err != nil {
 			panic(err)
 		}
 
-		GitalyProtoFileDescriptors = append(GitalyProtoFileDescriptors, fd)
+		GitalyProtoFileDescriptors = append(GitalyProtoFileDescriptors, protodesc.ToFileDescriptorProto(fd))
 	}
 
 	var err error
@@ -336,10 +334,11 @@ func parseMethodInfo(
 }
 
 func getFileTypes(filename string) ([]*descriptor.DescriptorProto, error) {
-	sharedFD, err := ExtractFileDescriptor(proto.FileDescriptor(filename))
+	fd, err := protoreg.GlobalFiles.FindFileByPath(filename)
 	if err != nil {
 		return nil, err
 	}
+	sharedFD := protodesc.ToFileDescriptorProto(fd)
 
 	types := sharedFD.GetMessageType()
 
@@ -469,26 +468,4 @@ func (pr *Registry) Methods() []MethodInfo {
 func (pr *Registry) IsInterceptedMethod(fullMethodName string) bool {
 	_, ok := pr.interceptedMethods[fullMethodName]
 	return ok
-}
-
-// ExtractFileDescriptor extracts a FileDescriptorProto from a gzip'd buffer.
-// https://github.com/golang/protobuf/blob/9eb2c01ac278a5d89ce4b2be68fe4500955d8179/descriptor/descriptor.go#L50
-func ExtractFileDescriptor(gz []byte) (*descriptor.FileDescriptorProto, error) {
-	r, err := gzip.NewReader(bytes.NewReader(gz))
-	if err != nil {
-		return nil, fmt.Errorf("failed to open gzip reader: %v", err)
-	}
-	defer r.Close()
-
-	b, err := ioutil.ReadAll(r)
-	if err != nil {
-		return nil, fmt.Errorf("failed to uncompress descriptor: %v", err)
-	}
-
-	fd := &descriptor.FileDescriptorProto{}
-	if err := proto.Unmarshal(b, fd); err != nil {
-		return nil, fmt.Errorf("malformed FileDescriptorProto: %v", err)
-	}
-
-	return fd, nil
 }

@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -18,6 +17,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/reflect/protodesc"
+	protoreg "google.golang.org/protobuf/reflect/protoregistry"
 )
 
 type simpleService struct {
@@ -56,11 +57,10 @@ func TestStreamInterceptor(t *testing.T) {
 	lis, err := net.Listen("unix", internalServerSocketPath)
 	require.NoError(t, err)
 
-	gz := proto.FileDescriptor("praefect/mock/mock.proto")
-	fd, err := protoregistry.ExtractFileDescriptor(gz)
+	fd, err := protoreg.GlobalFiles.FindFileByPath("praefect/mock/mock.proto")
 	require.NoError(t, err)
 
-	registry, err := protoregistry.New(fd)
+	registry, err := protoregistry.New(protodesc.ToFileDescriptorProto(fd))
 	require.NoError(t, err)
 
 	require.NoError(t, err)

@@ -50,6 +50,8 @@ import (
 	"google.golang.org/grpc/health/grpc_health_v1"
 	grpc_metadata "google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/reflect/protodesc"
+	protoreg "google.golang.org/protobuf/reflect/protoregistry"
 )
 
 func TestNewBackchannelServerFactory(t *testing.T) {
@@ -904,11 +906,10 @@ func TestErrorThreshold(t *testing.T) {
 		},
 	}
 
-	gz := proto.FileDescriptor("praefect/mock/mock.proto")
-	fd, err := protoregistry.ExtractFileDescriptor(gz)
+	fd, err := protoreg.GlobalFiles.FindFileByPath("praefect/mock/mock.proto")
 	require.NoError(t, err)
 
-	registry, err := protoregistry.New(fd)
+	registry, err := protoregistry.New(protodesc.ToFileDescriptorProto(fd))
 	require.NoError(t, err)
 
 	for _, tc := range testCases {

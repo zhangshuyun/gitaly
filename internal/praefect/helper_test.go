@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/protoc-gen-go/descriptor"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
@@ -28,6 +27,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/protobuf/reflect/protodesc"
+	protoreg "google.golang.org/protobuf/reflect/protoregistry"
 )
 
 // generates a praefect configuration with the specified number of backend
@@ -222,9 +223,9 @@ func runPraefectServer(t testing.TB, conf config.Config, opt buildOptions) (*grp
 }
 
 func mustLoadProtoReg(t testing.TB) *descriptor.FileDescriptorProto {
-	fd, err := protoregistry.ExtractFileDescriptor(proto.FileDescriptor("praefect/mock/mock.proto"))
+	fd, err := protoreg.GlobalFiles.FindFileByPath("praefect/mock/mock.proto")
 	require.NoError(t, err)
-	return fd
+	return protodesc.ToFileDescriptorProto(fd)
 }
 
 func listenAvailPort(tb testing.TB) (net.Listener, int) {
