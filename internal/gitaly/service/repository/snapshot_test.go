@@ -51,11 +51,11 @@ func touch(t *testing.T, format string, args ...interface{}) {
 }
 
 func TestGetSnapshotSuccess(t *testing.T) {
-	_, repo, repoPath, client := setupRepositoryService(t)
+	cfg, repo, repoPath, client := setupRepositoryService(t)
 
 	// Ensure certain files exist in the test repo.
 	// CreateCommit produces a loose object with the given sha
-	sha := gittest.CreateCommit(t, config.Config, repoPath, "master", nil)
+	sha := gittest.CreateCommit(t, cfg, repoPath, "master", nil)
 	zeroes := strings.Repeat("0", 40)
 	require.NoError(t, os.MkdirAll(filepath.Join(repoPath, "hooks"), 0755))
 	require.NoError(t, os.MkdirAll(filepath.Join(repoPath, "objects/pack"), 0755))

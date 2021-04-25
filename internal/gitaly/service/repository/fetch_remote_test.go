@@ -366,8 +366,8 @@ func TestFetchRemote_force(t *testing.T) {
 	tagOID, err := sourceRepo.ResolveRevision(ctx, "refs/tags/v1.0.0")
 	require.NoError(t, err)
 
-	divergingBranchOID, _ := gittest.CreateCommitOnNewBranch(t, config.Config, sourceRepoPath)
-	divergingTagOID, _ := gittest.CreateCommitOnNewBranch(t, config.Config, sourceRepoPath)
+	divergingBranchOID, _ := gittest.CreateCommitOnNewBranch(t, cfg, sourceRepoPath)
+	divergingTagOID, _ := gittest.CreateCommitOnNewBranch(t, cfg, sourceRepoPath)
 
 	port, stopGitServer := gittest.GitServer(t, cfg, sourceRepoPath, nil)
 	defer func() { require.NoError(t, stopGitServer()) }()
