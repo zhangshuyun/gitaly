@@ -316,12 +316,15 @@ func TestUserCreateTagWithTransaction(t *testing.T) {
 		listener, hostPort := testhelper.GetLocalhostListener(t)
 		go func() { require.NoError(t, server.GrpcServer().Serve(listener)) }()
 
+		// we use new local reference to the context to prevent data race
+		// that is caused by adding additional data to the context in the sub-test
+		ctxCopy := ctx
 		client := newMuxedOperationClient(t, ctx, "tcp://"+listener.Addr().String(), cfg.Auth.Token,
 			backchannel.NewClientHandshaker(
 				testhelper.DiscardTestEntry(t),
 				func() backchannel.Server {
 					srv := grpc.NewServer()
-					if featureflag.IsEnabled(ctx, featureflag.BackchannelVoting) {
+					if featureflag.IsEnabled(ctxCopy, featureflag.BackchannelVoting) {
 						gitalypb.RegisterRefTransactionServer(srv, transactionServer)
 					}
 					return srv
