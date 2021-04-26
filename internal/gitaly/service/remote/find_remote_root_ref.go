@@ -31,7 +31,11 @@ func (s *server) findRemoteRootRef(ctx context.Context, repo *gitalypb.Repositor
 		line := strings.TrimSpace(scanner.Text())
 
 		if strings.HasPrefix(line, headPrefix) {
-			return strings.TrimPrefix(line, headPrefix), nil
+			rootRef := strings.TrimPrefix(line, headPrefix)
+			if rootRef == "(unknown)" {
+				return "", status.Error(codes.NotFound, "no remote HEAD found")
+			}
+			return rootRef, nil
 		}
 	}
 
