@@ -492,24 +492,6 @@ module Gitlab
         Gitlab::Git::Blob.find(self, sha, path) unless Gitlab::Git.blank_ref?(sha)
       end
 
-      def rev_list(including: [], excluding: [], options: [], objects: false, &block)
-        args = ['rev-list']
-
-        args.push(*rev_list_param(including))
-
-        exclude_param = *rev_list_param(excluding)
-        if exclude_param.any?
-          args.push('--not')
-          args.push(*exclude_param)
-        end
-
-        args.push('--objects') if objects
-
-        args.push(*options) if options.any?
-
-        run_git!(args, lazy_block: block)
-      end
-
       def cleanup
         # Opening a repository may be expensive, and we only need to close it
         # if it's been open.
@@ -695,10 +677,6 @@ module Gitlab
 
       def gitlab_projects_error
         raise CommandError, @gitlab_projects.output
-      end
-
-      def rev_list_param(spec)
-        spec == :all ? ['--all'] : spec
       end
 
       def rugged_submodule_entry(target, submodule_path)
