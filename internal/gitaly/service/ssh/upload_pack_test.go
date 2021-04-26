@@ -93,8 +93,7 @@ func (cmd cloneCommand) test(t *testing.T, repoPath string, localRepoPath string
 func TestFailedUploadPackRequestDueToTimeout(t *testing.T) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
-	serverSocketPath, stop := runSSHServer(t, cfg, WithUploadPackRequestTimeout(10*time.Microsecond))
-	defer stop()
+	serverSocketPath := runSSHServerWithOptions(t, cfg, []ServerOpt{WithUploadPackRequestTimeout(10 * time.Microsecond)})
 
 	client, conn := newSSHClient(t, serverSocketPath)
 	defer conn.Close()
@@ -150,8 +149,7 @@ func requireFailedSSHStream(t *testing.T, recv func() (int32, error)) {
 func TestFailedUploadPackRequestDueToValidationError(t *testing.T) {
 	cfg := testcfg.Build(t)
 
-	serverSocketPath, stop := runSSHServer(t, cfg)
-	defer stop()
+	serverSocketPath := runSSHServer(t, cfg)
 
 	client, conn := newSSHClient(t, serverSocketPath)
 	defer conn.Close()
@@ -206,10 +204,7 @@ func TestUploadPackCloneSuccess(t *testing.T) {
 
 	negotiationMetrics := prometheus.NewCounterVec(prometheus.CounterOpts{}, []string{"feature"})
 
-	serverSocketPath, stop := runSSHServer(
-		t, cfg, WithPackfileNegotiationMetrics(negotiationMetrics),
-	)
-	defer stop()
+	serverSocketPath := runSSHServerWithOptions(t, cfg, []ServerOpt{WithPackfileNegotiationMetrics(negotiationMetrics)})
 
 	localRepoPath := testhelper.TempDir(t)
 
@@ -277,8 +272,7 @@ exec '%s' "$@"
 	// cause the clone to fail with this error message.
 	testhelper.WriteExecutable(t, filepath.Join(filterDir, "gitaly-hooks"), []byte(hookScript))
 
-	serverSocketPath, stop := runSSHServer(t, cfg)
-	defer stop()
+	serverSocketPath := runSSHServer(t, cfg)
 
 	localRepoPath := testhelper.TempDir(t)
 
@@ -299,8 +293,7 @@ func TestUploadPackWithoutSideband(t *testing.T) {
 	testhelper.ConfigureGitalySSHBin(t, cfg)
 	testhelper.ConfigureGitalyHooksBin(t, cfg)
 
-	serverSocketPath, stop := runSSHServer(t, cfg)
-	defer stop()
+	serverSocketPath := runSSHServer(t, cfg)
 
 	// While Git knows the side-band-64 capability, some other clients don't. There is no way
 	// though to have Git not use that capability, so we're instead manually crafting a packfile
@@ -344,8 +337,7 @@ func TestUploadPackCloneWithPartialCloneFilter(t *testing.T) {
 	testhelper.ConfigureGitalySSHBin(t, cfg)
 	testhelper.ConfigureGitalyHooksBin(t, cfg)
 
-	serverSocketPath, stop := runSSHServer(t, cfg)
-	defer stop()
+	serverSocketPath := runSSHServer(t, cfg)
 
 	// Ruby file which is ~1kB in size and not present in HEAD
 	blobLessThanLimit := "6ee41e85cc9bf33c10b690df09ca735b22f3790f"
@@ -422,8 +414,7 @@ func TestUploadPackCloneSuccessWithGitProtocol(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			readProto, cfg := gittest.EnableGitProtocolV2Support(t, cfg)
 
-			serverSocketPath, stop := runSSHServer(t, cfg)
-			defer stop()
+			serverSocketPath := runSSHServer(t, cfg)
 
 			cmd := cloneCommand{
 				repository:  repo,
@@ -448,8 +439,7 @@ func TestUploadPackCloneHideTags(t *testing.T) {
 	testhelper.ConfigureGitalySSHBin(t, cfg)
 	testhelper.ConfigureGitalyHooksBin(t, cfg)
 
-	serverSocketPath, stop := runSSHServer(t, cfg)
-	defer stop()
+	serverSocketPath := runSSHServer(t, cfg)
 
 	localRepoPath := testhelper.TempDir(t)
 
@@ -476,8 +466,7 @@ func TestUploadPackCloneHideTags(t *testing.T) {
 func TestUploadPackCloneFailure(t *testing.T) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
-	serverSocketPath, stop := runSSHServer(t, cfg)
-	defer stop()
+	serverSocketPath := runSSHServer(t, cfg)
 
 	localRepoPath := testhelper.TempDir(t)
 

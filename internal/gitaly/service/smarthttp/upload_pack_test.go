@@ -39,10 +39,7 @@ func TestSuccessfulUploadPackRequest(t *testing.T) {
 
 	negotiationMetrics := prometheus.NewCounterVec(prometheus.CounterOpts{}, []string{"feature"})
 
-	serverSocketPath, stop := runSmartHTTPServer(
-		t, cfg, WithPackfileNegotiationMetrics(negotiationMetrics),
-	)
-	defer stop()
+	serverSocketPath := runSmartHTTPServer(t, cfg, WithPackfileNegotiationMetrics(negotiationMetrics))
 
 	storagePath := cfg.Storages[0].Path
 	remoteRepoRelativePath := "gitlab-test-remote"
@@ -111,8 +108,7 @@ func TestUploadPackRequestWithGitConfigOptions(t *testing.T) {
 
 	testhelper.ConfigureGitalyHooksBin(t, cfg)
 
-	serverSocketPath, stop := runSmartHTTPServer(t, cfg)
-	defer stop()
+	serverSocketPath := runSmartHTTPServer(t, cfg)
 
 	storagePath := cfg.Storages[0].Path
 	ourRepoRelativePath := "gitlab-test-remote"
@@ -175,8 +171,7 @@ func TestUploadPackRequestWithGitProtocol(t *testing.T) {
 
 	readProto, cfg := gittest.EnableGitProtocolV2Support(t, cfg)
 
-	serverSocketPath, stop := runSmartHTTPServer(t, cfg)
-	defer stop()
+	serverSocketPath := runSmartHTTPServer(t, cfg)
 
 	storagePath := cfg.Storages[0].Path
 	testRepoPath := filepath.Join(storagePath, repo.RelativePath)
@@ -217,8 +212,7 @@ func TestSuccessfulUploadPackDeepenRequest(t *testing.T) {
 	defer cancel()
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
-	serverSocketPath, stop := runSmartHTTPServer(t, cfg)
-	defer stop()
+	serverSocketPath := runSmartHTTPServer(t, cfg)
 
 	requestBody := &bytes.Buffer{}
 	gittest.WritePktlineString(t, requestBody, fmt.Sprintf("want e63f41fe459e62e1228fcef60d7189127aeba95a %s\n", clientCapabilities))
@@ -249,8 +243,7 @@ func TestUploadPackWithPackObjectsHook(t *testing.T) {
 	// transferred back.
 	testhelper.WriteExecutable(t, filepath.Join(cfg.BinDir, "gitaly-hooks"), []byte(hookScript))
 
-	serverSocketPath, stop := runSmartHTTPServer(t, cfg)
-	defer stop()
+	serverSocketPath := runSmartHTTPServer(t, cfg)
 
 	oldHead := bytes.TrimSpace(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", "master~"))
 	newHead := bytes.TrimSpace(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", "master"))
@@ -278,8 +271,7 @@ func TestFailedUploadPackRequestDueToValidationError(t *testing.T) {
 	defer cancel()
 	cfg := testcfg.Build(t)
 
-	serverSocketPath, stop := runSmartHTTPServer(t, cfg)
-	defer stop()
+	serverSocketPath := runSmartHTTPServer(t, cfg)
 
 	rpcRequests := []gitalypb.PostUploadPackRequest{
 		{Repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}}, // Repository doesn't exist
@@ -372,10 +364,7 @@ func TestUploadPackRequestForPartialCloneSuccess(t *testing.T) {
 
 	negotiationMetrics := prometheus.NewCounterVec(prometheus.CounterOpts{}, []string{"feature"})
 
-	serverSocketPath, stop := runSmartHTTPServer(
-		t, cfg, WithPackfileNegotiationMetrics(negotiationMetrics),
-	)
-	defer stop()
+	serverSocketPath := runSmartHTTPServer(t, cfg, WithPackfileNegotiationMetrics(negotiationMetrics))
 
 	storagePath := cfg.Storages[0].Path
 	remoteRepoRelativePath := "gitlab-test-remote"

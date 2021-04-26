@@ -20,6 +20,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
@@ -101,10 +102,8 @@ func testUserRebaseConfirmableTransaction(t *testing.T, cfg config.Cfg, rubySrv 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithRuby(
 		t, ctx, cfg, rubySrv,
 		// Praefect would intercept our call and inject its own transaction.
-		withTestServerOpts(testhelper.WithDisabledPraefect()),
-		withTxManagerConstructor(func() transaction.Manager {
-			return txManager
-		}),
+		testserver.WithDisablePraefect(),
+		testserver.WithTransactionManager(txManager),
 	)
 	cfg.Gitlab.URL = setupAndStartGitlabServer(t, testhelper.GlID, "project-1", cfg)
 

@@ -4,14 +4,12 @@ import (
 	"os"
 	"testing"
 
-	"github.com/sirupsen/logrus"
-	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
-	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	gitalyhook "gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
 )
@@ -31,7 +29,7 @@ func setupHookService(t testing.TB) (config.Cfg, *gitalypb.Repository, string, g
 	t.Helper()
 
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
-	serverSocketPath := runHooksServer(t, cfg)
+	serverSocketPath := runHooksServer(t, cfg, nil)
 	client, conn := newHooksClient(t, serverSocketPath)
 	t.Cleanup(func() { conn.Close() })
 
@@ -54,39 +52,19 @@ func newHooksClient(t testing.TB, serverSocketPath string) (gitalypb.HookService
 
 type serverOption func(*server)
 
-func runHooksServer(t testing.TB, cfg config.Cfg, serverOpts ...serverOption) string {
-	return runHooksServerWithAPI(t, gitalyhook.GitlabAPIStub, cfg, serverOpts...)
-}
-
-func runHooksServerWithRegistry(t testing.TB, cfg config.Cfg, registry *backchannel.Registry) string {
-	return runHooksServerWithAPIAndTestServer(t, testhelper.NewServer(t, nil, nil), gitalyhook.GitlabAPIStub, cfg, registry)
-}
-
-func runHooksServerWithLogger(t *testing.T, cfg config.Cfg, logger *logrus.Logger) string {
-	srv := testhelper.NewServerWithLogger(t, logger, nil, nil)
-	return runHooksServerWithAPIAndTestServer(t, srv, gitalyhook.GitlabAPIStub, cfg, backchannel.NewRegistry())
-}
-
-func runHooksServerWithAPI(t testing.TB, gitlabAPI gitalyhook.GitlabAPI, cfg config.Cfg, serverOpts ...serverOption) string {
-	return runHooksServerWithAPIAndTestServer(t, testhelper.NewServer(t, nil, nil), gitlabAPI, cfg, backchannel.NewRegistry(), serverOpts...)
-}
-
-func runHooksServerWithAPIAndTestServer(t testing.TB, srv *testhelper.TestServer, gitlabAPI gitalyhook.GitlabAPI, cfg config.Cfg, registry *backchannel.Registry, serverOpts ...serverOption) string {
+func runHooksServer(t testing.TB, cfg config.Cfg, opts []serverOption, serverOpts ...testserver.GitalyServerOpt) string {
 	t.Helper()
 
-	hookServer := NewServer(
-		cfg,
-		gitalyhook.NewManager(config.NewLocator(cfg), transaction.NewManager(cfg, registry), gitlabAPI, cfg),
-		git.NewExecCommandFactory(cfg),
-	)
-	for _, opt := range serverOpts {
-		opt(hookServer.(*server))
-	}
+	return testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
+		hookServer := NewServer(
+			deps.GetCfg(),
+			gitalyhook.NewManager(deps.GetLocator(), deps.GetTxManager(), deps.GetGitlabAPI(), deps.GetCfg()),
+			deps.GetGitCmdFactory(),
+		)
+		for _, opt := range opts {
+			opt(hookServer.(*server))
+		}
 
-	gitalypb.RegisterHookServiceServer(srv.GrpcServer(), hookServer)
-
-	srv.Start(t)
-	t.Cleanup(srv.Stop)
-
-	return "unix://" + srv.Socket()
+		gitalypb.RegisterHookServiceServer(srv, hookServer)
+	}, serverOpts...)
 }

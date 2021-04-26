@@ -10,17 +10,17 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service"
 	hookservice "gitlab.com/gitlab-org/gitaly/internal/gitaly/service/hook"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
+	"google.golang.org/grpc"
 )
 
 type mockHookManager struct {
@@ -118,16 +118,11 @@ func TestUpdateReferenceWithHooks(t *testing.T) {
 
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
-	server := testhelper.NewServer(t, nil, nil, testhelper.WithInternalSocket(cfg))
-	defer server.Stop()
-
 	// We need to set up a separate "real" hook service here, as it will be used in
 	// git-update-ref(1) spawned by `updateRefWithHooks()`
-	txManager := transaction.NewManager(cfg, backchannel.NewRegistry())
-	hookManager := hook.NewManager(config.NewLocator(cfg), txManager, hook.GitlabAPIStub, cfg)
-	gitCmdFactory := git.NewExecCommandFactory(cfg)
-	gitalypb.RegisterHookServiceServer(server.GrpcServer(), hookservice.NewServer(cfg, hookManager, gitCmdFactory))
-	server.Start(t)
+	testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
+		gitalypb.RegisterHookServiceServer(srv, hookservice.NewServer(deps.GetCfg(), deps.GetHookManager(), deps.GetGitCmdFactory()))
+	})
 
 	user := &gitalypb.User{
 		GlId:       "1234",
@@ -268,6 +263,7 @@ func TestUpdateReferenceWithHooks(t *testing.T) {
 				referenceTransaction: tc.referenceTransaction,
 			}
 
+			gitCmdFactory := git.NewExecCommandFactory(cfg)
 			hookServer := NewServer(cfg, nil, hookManager, nil, nil, gitCmdFactory)
 
 			err := hookServer.updateReferenceWithHooks(ctx, repo, user, git.ReferenceName("refs/heads/master"), git.ZeroOID, git.ObjectID(oldRev))

@@ -16,6 +16,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/streamio"
 	"google.golang.org/grpc/codes"
@@ -86,7 +87,7 @@ func TestHooksMissingStdin(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			serverSocketPath := runHooksServerWithAPI(t, api, cfg)
+			serverSocketPath := runHooksServer(t, cfg, nil, testserver.WithGitLabAPI(api))
 
 			client, conn := newHooksClient(t, serverSocketPath)
 			defer conn.Close()
@@ -219,7 +220,7 @@ To create a merge request for okay, visit:
 			api, err := gitalyhook.NewGitlabAPI(cfg.Gitlab, cfg.TLS)
 			require.NoError(t, err)
 
-			serverSocketPath := runHooksServerWithAPI(t, api, cfg)
+			serverSocketPath := runHooksServer(t, cfg, nil, testserver.WithGitLabAPI(api))
 
 			client, conn := newHooksClient(t, serverSocketPath)
 			defer conn.Close()

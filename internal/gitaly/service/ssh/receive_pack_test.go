@@ -29,8 +29,7 @@ import (
 func TestFailedReceivePackRequestDueToValidationError(t *testing.T) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
-	serverSocketPath, stop := runSSHServer(t, cfg)
-	defer stop()
+	serverSocketPath := runSSHServer(t, cfg)
 
 	client, conn := newSSHClient(t, serverSocketPath)
 	defer conn.Close()
@@ -89,8 +88,7 @@ func TestReceivePackPushSuccess(t *testing.T) {
 	hookOutputFile, cleanup := gittest.CaptureHookEnv(t)
 	defer cleanup()
 
-	serverSocketPath, stop := runSSHServer(t, cfg)
-	defer stop()
+	serverSocketPath := runSSHServer(t, cfg)
 
 	glRepository := "project-456"
 	glProjectPath := "project/path"
@@ -149,8 +147,7 @@ func TestReceivePackPushSuccessWithGitProtocol(t *testing.T) {
 
 	readProto, cfg := gittest.EnableGitProtocolV2Support(t, cfg)
 
-	serverSocketPath, stop := runSSHServer(t, cfg)
-	defer stop()
+	serverSocketPath := runSSHServer(t, cfg)
 
 	lHead, rHead, err := testCloneAndPush(t, cfg, cfg.Storages[0].Path, serverSocketPath, repo, pushParams{
 		storageName:  testhelper.DefaultStorageName,
@@ -169,8 +166,7 @@ func TestReceivePackPushSuccessWithGitProtocol(t *testing.T) {
 func TestReceivePackPushFailure(t *testing.T) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
-	serverSocketPath, stop := runSSHServer(t, cfg)
-	defer stop()
+	serverSocketPath := runSSHServer(t, cfg)
 
 	_, _, err := testCloneAndPush(t, cfg, cfg.Storages[0].Path, serverSocketPath, repo, pushParams{storageName: "foobar", glID: "1"})
 	require.Error(t, err, "local and remote head equal. push did not fail")
@@ -184,8 +180,7 @@ func TestReceivePackPushHookFailure(t *testing.T) {
 
 	testhelper.ConfigureGitalySSHBin(t, cfg)
 
-	serverSocketPath, stop := runSSHServer(t, cfg)
-	defer stop()
+	serverSocketPath := runSSHServer(t, cfg)
 
 	hookDir := testhelper.TempDir(t)
 
@@ -207,8 +202,7 @@ func TestObjectPoolRefAdvertisementHidingSSH(t *testing.T) {
 
 	testhelper.ConfigureGitalyHooksBin(t, cfg)
 
-	serverSocketPath, stop := runSSHServer(t, cfg)
-	defer stop()
+	serverSocketPath := runSSHServer(t, cfg)
 
 	client, conn := newSSHClient(t, serverSocketPath)
 	defer conn.Close()
@@ -290,8 +284,7 @@ func TestSSHReceivePackToHooks(t *testing.T) {
 
 	gittest.WriteCheckNewObjectExistsHook(t, cfg.Git.BinPath, cloneDetails.RemoteRepoPath)
 
-	serverSocketPath, stop := runSSHServer(t, cfg)
-	defer stop()
+	serverSocketPath := runSSHServer(t, cfg)
 
 	lHead, rHead, err := sshPush(t, cfg, cloneDetails, serverSocketPath, pushParams{
 		storageName:  cfg.Storages[0].Name,

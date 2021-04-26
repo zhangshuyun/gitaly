@@ -14,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/streamcache"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
@@ -79,7 +80,7 @@ func TestServer_PackObjectsHook(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			logger, hook := test.NewNullLogger()
 
-			serverSocketPath := runHooksServerWithLogger(t, cfg, logger)
+			serverSocketPath := runHooksServer(t, cfg, nil, testserver.WithLogger(logger))
 			client, conn := newHooksClient(t, serverSocketPath)
 			defer conn.Close()
 
@@ -175,7 +176,7 @@ func TestServer_PackObjectsHook_separateContext(t *testing.T) {
 		require.NoError(t, stream.CloseSend())
 	}
 
-	serverSocketPath := runHooksServer(t, cfg)
+	serverSocketPath := runHooksServer(t, cfg, nil)
 
 	client1, conn1 := newHooksClient(t, serverSocketPath)
 	defer conn1.Close()
@@ -225,10 +226,10 @@ func TestServer_PackObjectsHook_usesCache(t *testing.T) {
 	cfg, repo, repoPath := cfgWithCache(t)
 
 	tlc := &streamcache.TestLoggingCache{}
-	serverSocketPath := runHooksServer(t, cfg, func(s *server) {
+	serverSocketPath := runHooksServer(t, cfg, []serverOption{func(s *server) {
 		tlc.Cache = s.packObjectsCache
 		s.packObjectsCache = tlc
-	})
+	}})
 
 	doRequest := func() {
 		ctx, cancel := testhelper.Context()

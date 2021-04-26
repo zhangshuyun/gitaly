@@ -10,21 +10,20 @@ import (
 
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/require"
-	gitalyclient "gitlab.com/gitlab-org/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
-	gitalyhook "gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/hook"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -282,44 +281,27 @@ func TestUserCreateTagWithTransaction(t *testing.T) {
 		// it available for transactional voting. We cannot use
 		// runOperationServiceServer as it puts a Praefect server in between if
 		// running Praefect tests, which would break our test setup.
-		registry := backchannel.NewRegistry()
-		server := testhelper.NewServerWithAuth(t, nil, nil, cfg.Auth.Token, registry, testhelper.WithInternalSocket(cfg))
-
-		locator := config.NewLocator(cfg)
-		txManager := transaction.NewManager(cfg, registry)
-		hookManager := gitalyhook.NewManager(locator, txManager, gitalyhook.GitlabAPIStub, cfg)
-		gitCmdFactory := git.NewExecCommandFactory(cfg)
-		conns := gitalyclient.NewPool()
-		defer conns.Close()
-
-		operationServer := NewServer(cfg, nil, hookManager, locator, conns, gitCmdFactory)
-		hookServer := hook.NewServer(cfg, hookManager, gitCmdFactory)
 		transactionServer := &testTransactionServer{}
+		testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
+			gitalypb.RegisterOperationServiceServer(srv, NewServer(deps.GetCfg(), nil, deps.GetHookManager(), deps.GetLocator(), deps.GetConnsPool(), deps.GetGitCmdFactory()))
+			gitalypb.RegisterHookServiceServer(srv, hook.NewServer(deps.GetCfg(), deps.GetHookManager(), deps.GetGitCmdFactory()))
 
-		gitalypb.RegisterOperationServiceServer(server.GrpcServer(), operationServer)
-		gitalypb.RegisterHookServiceServer(server.GrpcServer(), hookServer)
-
-		if featureflag.IsDisabled(ctx, featureflag.BackchannelVoting) {
-			gitalypb.RegisterRefTransactionServer(server.GrpcServer(), transactionServer)
-		}
-
-		server.Start(t)
-		defer server.Stop()
-
-		// We're creating a separate listener here which we use to connect to
-		// the server. This is kind of a hack when running tests with Praefect:
-		// if we directly connect to the server created above, then our call
-		// would be intercepted by Praefect, which would in turn replace the
-		// transaction information we inject further down below. So we instead
-		// create a separate socket so we can circumvent Praefect and just talk
-		// to Gitaly directly.
-		listener, hostPort := testhelper.GetLocalhostListener(t)
-		go func() { require.NoError(t, server.GrpcServer().Serve(listener)) }()
+			if featureflag.IsDisabled(ctx, featureflag.BackchannelVoting) {
+				gitalypb.RegisterRefTransactionServer(srv, transactionServer)
+			}
+		})
 
 		// we use new local reference to the context to prevent data race
 		// that is caused by adding additional data to the context in the sub-test
 		ctxCopy := ctx
-		client := newMuxedOperationClient(t, ctx, "tcp://"+listener.Addr().String(), cfg.Auth.Token,
+		// We're using internal gitaly socket to connect to the server.
+		// This is kind of a hack when running tests with Praefect:
+		// if we directly connect to the server created above, then our call
+		// would be intercepted by Praefect, which would in turn replace the
+		// transaction information we inject further down below. So we instead
+		// use internal socket so we can circumvent Praefect and just talk
+		// to Gitaly directly.
+		client := newMuxedOperationClient(t, ctx, "unix://"+cfg.GitalyInternalSocketPath(), cfg.Auth.Token,
 			backchannel.NewClientHandshaker(
 				testhelper.DiscardTestEntry(t),
 				func() backchannel.Server {
@@ -333,7 +315,7 @@ func TestUserCreateTagWithTransaction(t *testing.T) {
 		)
 
 		praefectServer := &metadata.PraefectServer{
-			ListenAddr: "tcp://" + hostPort,
+			SocketPath: "unix://" + cfg.GitalyInternalSocketPath(),
 			Token:      cfg.Auth.Token,
 		}
 

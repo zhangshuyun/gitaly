@@ -21,6 +21,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/streamio"
 	"google.golang.org/grpc/codes"
@@ -134,7 +135,7 @@ func TestPreReceiveHook_GitlabAPIAccess(t *testing.T) {
 	gitlabAPI, err := gitalyhook.NewGitlabAPI(gitlabConfig, cfg.TLS)
 	require.NoError(t, err)
 
-	serverSocketPath := runHooksServerWithAPI(t, gitlabAPI, cfg)
+	serverSocketPath := runHooksServer(t, cfg, nil, testserver.WithGitLabAPI(gitlabAPI))
 
 	client, conn := newHooksClient(t, serverSocketPath)
 	defer conn.Close()
@@ -250,7 +251,7 @@ func TestPreReceive_APIErrors(t *testing.T) {
 			gitlabAPI, err := gitalyhook.NewGitlabAPI(gitlabConfig, cfg.TLS)
 			require.NoError(t, err)
 
-			serverSocketPath := runHooksServerWithAPI(t, gitlabAPI, cfg)
+			serverSocketPath := runHooksServer(t, cfg, nil, testserver.WithGitLabAPI(gitlabAPI))
 
 			client, conn := newHooksClient(t, serverSocketPath)
 			defer conn.Close()
@@ -323,7 +324,7 @@ exit %d
 	gitlabAPI, err := gitalyhook.NewGitlabAPI(gitlabConfig, cfg.TLS)
 	require.NoError(t, err)
 
-	serverSocketPath := runHooksServerWithAPI(t, gitlabAPI, cfg)
+	serverSocketPath := runHooksServer(t, cfg, nil, testserver.WithGitLabAPI(gitlabAPI))
 
 	client, conn := newHooksClient(t, serverSocketPath)
 	defer conn.Close()
@@ -451,7 +452,7 @@ func TestPreReceiveHook_Primary(t *testing.T) {
 			}, cfg.TLS)
 			require.NoError(t, err)
 
-			serverSocketPath := runHooksServerWithAPI(t, gitlabAPI, cfg)
+			serverSocketPath := runHooksServer(t, cfg, nil, testserver.WithGitLabAPI(gitlabAPI))
 
 			client, conn := newHooksClient(t, serverSocketPath)
 			defer conn.Close()

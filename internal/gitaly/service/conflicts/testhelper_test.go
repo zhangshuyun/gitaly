@@ -7,20 +7,18 @@ import (
 	"testing"
 
 	log "github.com/sirupsen/logrus"
-	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
-	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/hooks"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/commit"
 	hook_service "gitlab.com/gitlab-org/gitaly/internal/gitaly/service/hook"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/repository"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/ssh"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
 )
@@ -62,8 +60,7 @@ func SetupConflictsServiceWithRuby(t testing.TB, cfg config.Cfg, rubySrv *rubyse
 		t.Cleanup(cleanup)
 	}
 
-	serverSocketPath, stop := runConflictsServer(t, cfg, rubySrv)
-	t.Cleanup(stop)
+	serverSocketPath := runConflictsServer(t, cfg, rubySrv)
 	cfg.SocketPath = serverSocketPath
 
 	client, conn := NewConflictsClient(t, serverSocketPath)
@@ -78,22 +75,14 @@ func SetupConflictsService(t testing.TB, bare bool) (config.Cfg, *gitalypb.Repos
 	return SetupConflictsServiceWithRuby(t, cfg, nil, bare)
 }
 
-func runConflictsServer(t testing.TB, cfg config.Cfg, rubySrv *rubyserver.Server) (string, func()) {
-	srv := testhelper.NewServer(t, nil, nil, testhelper.WithInternalSocket(cfg))
-	locator := config.NewLocator(cfg)
-	gitCmdFactory := git.NewExecCommandFactory(cfg)
-	txManager := transaction.NewManager(cfg, backchannel.NewRegistry())
-	hookManager := hook.NewManager(locator, txManager, hook.GitlabAPIStub, cfg)
-
-	gitalypb.RegisterCommitServiceServer(srv.GrpcServer(), commit.NewServer(cfg, locator,
-		gitCmdFactory, nil))
-	gitalypb.RegisterConflictsServiceServer(srv.GrpcServer(), NewServer(rubySrv, cfg, locator, gitCmdFactory))
-	gitalypb.RegisterRepositoryServiceServer(srv.GrpcServer(), repository.NewServer(cfg, rubySrv, locator, txManager, gitCmdFactory))
-	gitalypb.RegisterSSHServiceServer(srv.GrpcServer(), ssh.NewServer(cfg, locator, gitCmdFactory))
-	gitalypb.RegisterHookServiceServer(srv.GrpcServer(), hook_service.NewServer(cfg, hookManager, gitCmdFactory))
-	srv.Start(t)
-
-	return "unix://" + srv.Socket(), srv.Stop
+func runConflictsServer(t testing.TB, cfg config.Cfg, rubySrv *rubyserver.Server) string {
+	return testserver.RunGitalyServer(t, cfg, rubySrv, func(srv *grpc.Server, deps *service.Dependencies) {
+		gitalypb.RegisterConflictsServiceServer(srv, NewServer(deps.GetRubyServer(), deps.GetCfg(), deps.GetLocator(), deps.GetGitCmdFactory()))
+		gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(deps.GetCfg(), deps.GetRubyServer(), deps.GetLocator(), deps.GetTxManager(), deps.GetGitCmdFactory()))
+		gitalypb.RegisterSSHServiceServer(srv, ssh.NewServer(deps.GetCfg(), deps.GetLocator(), deps.GetGitCmdFactory()))
+		gitalypb.RegisterHookServiceServer(srv, hook_service.NewServer(deps.GetCfg(), deps.GetHookManager(), deps.GetGitCmdFactory()))
+		gitalypb.RegisterCommitServiceServer(srv, commit.NewServer(deps.GetCfg(), deps.GetLocator(), deps.GetGitCmdFactory(), deps.GetLinguist()))
+	})
 }
 
 func NewConflictsClient(t testing.TB, serverSocketPath string) (gitalypb.ConflictsServiceClient, *grpc.ClientConn) {

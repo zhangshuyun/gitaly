@@ -20,8 +20,7 @@ import (
 func TestFailedUploadArchiveRequestDueToTimeout(t *testing.T) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
-	serverSocketPath, stop := runSSHServer(t, cfg, WithArchiveRequestTimeout(100*time.Microsecond))
-	defer stop()
+	serverSocketPath := runSSHServerWithOptions(t, cfg, []ServerOpt{WithArchiveRequestTimeout(100 * time.Microsecond)})
 
 	client, conn := newSSHClient(t, serverSocketPath)
 	defer conn.Close()
@@ -56,8 +55,7 @@ func TestFailedUploadArchiveRequestDueToTimeout(t *testing.T) {
 func TestFailedUploadArchiveRequestDueToValidationError(t *testing.T) {
 	cfg := testcfg.Build(t)
 
-	serverSocketPath, stop := runSSHServer(t, cfg)
-	defer stop()
+	serverSocketPath := runSSHServer(t, cfg)
 
 	client, conn := newSSHClient(t, serverSocketPath)
 	defer conn.Close()
@@ -109,8 +107,7 @@ func TestUploadArchiveSuccess(t *testing.T) {
 
 	testhelper.ConfigureGitalySSHBin(t, cfg)
 
-	serverSocketPath, stop := runSSHServer(t, cfg)
-	defer stop()
+	serverSocketPath := runSSHServer(t, cfg)
 
 	cmd := exec.Command(cfg.Git.BinPath, "archive", "master", "--remote=git@localhost:test/test.git")
 
