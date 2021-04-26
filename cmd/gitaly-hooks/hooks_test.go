@@ -172,7 +172,7 @@ func testHooksPrePostReceive(t *testing.T, cfg config.Cfg, repo *gitalypb.Reposi
 		t.Run(fmt.Sprintf("hookName: %s", hookName), func(t *testing.T) {
 			customHookOutputPath := gittest.WriteEnvToCustomHook(t, repoPath, hookName)
 
-			gitlabAPI, err := gitlab.NewGitlabAPI(cfg.Gitlab, cfg.TLS)
+			gitlabAPI, err := gitlab.NewHTTPClient(cfg.Gitlab, cfg.TLS)
 			require.NoError(t, err)
 
 			stop := runHookServiceServerWithAPI(t, cfg, gitlabAPI)
@@ -351,7 +351,7 @@ func TestHooksPostReceiveFailed(t *testing.T) {
 	cfg.Gitlab.URL = serverURL
 	cfg.Gitlab.SecretFile = testhelper.WriteShellSecretFile(t, cfg.GitlabShell.Dir, secretToken)
 
-	gitlabAPI, err := gitlab.NewGitlabAPI(cfg.Gitlab, cfg.TLS)
+	gitlabAPI, err := gitlab.NewHTTPClient(cfg.Gitlab, cfg.TLS)
 	require.NoError(t, err)
 
 	customHookOutputPath := gittest.WriteEnvToCustomHook(t, repoPath, "post-receive")
@@ -465,7 +465,7 @@ func TestHooksNotAllowed(t *testing.T) {
 
 	customHookOutputPath := gittest.WriteEnvToCustomHook(t, repoPath, "post-receive")
 
-	gitlabAPI, err := gitlab.NewGitlabAPI(cfg.Gitlab, cfg.TLS)
+	gitlabAPI, err := gitlab.NewHTTPClient(cfg.Gitlab, cfg.TLS)
 	require.NoError(t, err)
 
 	stop := runHookServiceServerWithAPI(t, cfg, gitlabAPI)

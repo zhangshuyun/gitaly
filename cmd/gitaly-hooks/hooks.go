@@ -182,7 +182,7 @@ func check(configPath string) (*gitlab.CheckInfo, error) {
 		return nil, err
 	}
 
-	gitlabAPI, err := gitlab.NewGitlabAPI(cfg.Gitlab, cfg.TLS)
+	gitlabAPI, err := gitlab.NewHTTPClient(cfg.Gitlab, cfg.TLS)
 	if err != nil {
 		return nil, err
 	}

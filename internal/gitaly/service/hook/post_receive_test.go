@@ -66,7 +66,7 @@ func TestHooksMissingStdin(t *testing.T) {
 		},
 	}
 
-	api, err := gitlab.NewGitlabAPI(cfg.Gitlab, cfg.TLS)
+	api, err := gitlab.NewHTTPClient(cfg.Gitlab, cfg.TLS)
 	require.NoError(t, err)
 
 	testCases := []struct {
@@ -217,7 +217,7 @@ To create a merge request for okay, visit:
 				},
 			}
 
-			api, err := gitlab.NewGitlabAPI(cfg.Gitlab, cfg.TLS)
+			api, err := gitlab.NewHTTPClient(cfg.Gitlab, cfg.TLS)
 			require.NoError(t, err)
 
 			serverSocketPath := runHooksServer(t, cfg, nil, testserver.WithGitLabAPI(api))

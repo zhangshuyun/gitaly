@@ -70,7 +70,7 @@ func TestAccess_verifyParams(t *testing.T) {
 	})
 	defer cleanup()
 
-	c, err := NewGitlabAPI(config.Gitlab{
+	c, err := NewHTTPClient(config.Gitlab{
 		URL:        serverURL,
 		SecretFile: secretFilePath,
 		HTTPSettings: config.HTTPSettings{
@@ -206,7 +206,7 @@ func TestAccess_escapedAndRelativeURLs(t *testing.T) {
 				serverURL = url.PathEscape(serverURL)
 			}
 
-			c, err := NewGitlabAPI(config.Gitlab{
+			c, err := NewHTTPClient(config.Gitlab{
 				URL:             serverURL,
 				RelativeURLRoot: tc.relativeURLRoot,
 				SecretFile:      secretFilePath,
@@ -357,7 +357,7 @@ func TestAccess_allowedResponseHandling(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(tc.allowedHandler))
 			defer server.Close()
 
-			c, err := NewGitlabAPI(config.Gitlab{
+			c, err := NewHTTPClient(config.Gitlab{
 				URL:        server.URL,
 				SecretFile: secretFilePath,
 			}, config.TLS{})
@@ -457,7 +457,7 @@ func TestAccess_preReceive(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(tc.prereceiveHandler))
 			defer server.Close()
 
-			c, err := NewGitlabAPI(config.Gitlab{
+			c, err := NewHTTPClient(config.Gitlab{
 				URL:        server.URL,
 				SecretFile: secretFilePath,
 			}, config.TLS{})
@@ -535,7 +535,7 @@ func TestAccess_postReceive(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(tc.postReceiveHandler))
 			defer server.Close()
 
-			c, err := NewGitlabAPI(config.Gitlab{
+			c, err := NewHTTPClient(config.Gitlab{
 				URL:        server.URL,
 				SecretFile: secretFilePath,
 			}, config.TLS{})

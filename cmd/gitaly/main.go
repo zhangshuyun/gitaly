@@ -147,7 +147,7 @@ func run(cfg config.Cfg) error {
 	if config.SkipHooks() {
 		log.Warn("skipping GitLab API client creation since hooks are bypassed via GITALY_TESTING_NO_GIT_HOOKS")
 	} else {
-		gitlabAPI, err := gitlab.NewGitlabAPI(cfg.Gitlab, cfg.TLS)
+		gitlabAPI, err := gitlab.NewHTTPClient(cfg.Gitlab, cfg.TLS)
 		if err != nil {
 			return fmt.Errorf("could not create GitLab API client: %w", err)
 		}
