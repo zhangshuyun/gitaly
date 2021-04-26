@@ -514,12 +514,18 @@ func (m *FindRemoteRepositoryResponse) GetExists() bool {
 	return false
 }
 
+// FindRemoteRootRefRequest represents a request for the FindRemoteRootRef RPC.
 type FindRemoteRootRefRequest struct {
-	Repository           *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
-	Remote               string      `protobuf:"bytes,2,opt,name=remote,proto3" json:"remote,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
-	XXX_unrecognized     []byte      `json:"-"`
-	XXX_sizecache        int32       `json:"-"`
+	// Repository is the repository in which the request shall be executed in. If
+	// a remote name is given, then this is the repository in which the remote
+	// will be looked up.
+	Repository *Repository `protobuf:"bytes,1,opt,name=repository,proto3" json:"repository,omitempty"`
+	// Remote is the name of the remote of which the root reference shall be
+	// looked up. The remote must have been created before this call.
+	Remote               string   `protobuf:"bytes,2,opt,name=remote,proto3" json:"remote,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *FindRemoteRootRefRequest) Reset()         { *m = FindRemoteRootRefRequest{} }
@@ -561,7 +567,10 @@ func (m *FindRemoteRootRefRequest) GetRemote() string {
 	return ""
 }
 
+// FindRemoteRootRefResponse represents the response for the FindRemoteRootRef
+// request.
 type FindRemoteRootRefResponse struct {
+	// Ref is the name of the remote root reference.
 	Ref                  string   `protobuf:"bytes,1,opt,name=ref,proto3" json:"ref,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -828,6 +837,11 @@ type RemoteServiceClient interface {
 	// the patterns specified in the requests.
 	UpdateRemoteMirror(ctx context.Context, opts ...grpc.CallOption) (RemoteService_UpdateRemoteMirrorClient, error)
 	FindRemoteRepository(ctx context.Context, in *FindRemoteRepositoryRequest, opts ...grpc.CallOption) (*FindRemoteRepositoryResponse, error)
+	// FindRemoteRootRef tries to find the root reference of a remote
+	// repository. The root reference is the default branch as pointed to by
+	// the remotes HEAD reference. Returns an InvalidArgument error if the
+	// specified remote does not exist and a NotFound error in case no HEAD
+	// branch was found.
 	FindRemoteRootRef(ctx context.Context, in *FindRemoteRootRefRequest, opts ...grpc.CallOption) (*FindRemoteRootRefResponse, error)
 }
 
@@ -930,6 +944,11 @@ type RemoteServiceServer interface {
 	// the patterns specified in the requests.
 	UpdateRemoteMirror(RemoteService_UpdateRemoteMirrorServer) error
 	FindRemoteRepository(context.Context, *FindRemoteRepositoryRequest) (*FindRemoteRepositoryResponse, error)
+	// FindRemoteRootRef tries to find the root reference of a remote
+	// repository. The root reference is the default branch as pointed to by
+	// the remotes HEAD reference. Returns an InvalidArgument error if the
+	// specified remote does not exist and a NotFound error in case no HEAD
+	// branch was found.
 	FindRemoteRootRef(context.Context, *FindRemoteRootRefRequest) (*FindRemoteRootRefResponse, error)
 }
 

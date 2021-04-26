@@ -24,6 +24,11 @@ module Gitaly
       # the patterns specified in the requests.
       rpc :UpdateRemoteMirror, stream(Gitaly::UpdateRemoteMirrorRequest), Gitaly::UpdateRemoteMirrorResponse
       rpc :FindRemoteRepository, Gitaly::FindRemoteRepositoryRequest, Gitaly::FindRemoteRepositoryResponse
+      # FindRemoteRootRef tries to find the root reference of a remote
+      # repository. The root reference is the default branch as pointed to by
+      # the remotes HEAD reference. Returns an InvalidArgument error if the
+      # specified remote does not exist and a NotFound error in case no HEAD
+      # branch was found.
       rpc :FindRemoteRootRef, Gitaly::FindRemoteRootRefRequest, Gitaly::FindRemoteRootRefResponse
     end
 
