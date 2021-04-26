@@ -1,0 +1,5 @@
+---
+title: 'commit: Handle real errors when skipping commits failed'
+merge_request: 3392
+author:
+type: fixed

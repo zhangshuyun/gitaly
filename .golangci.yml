@@ -793,10 +793,6 @@ issues:
       text: "Error return value of `(cmd.Process.Kill)?` is not checked"
     - linters:
         - errcheck
-      path: "internal/gitaly/service/commit/find_commits.go"
-      text: "Error return value of `getCommits.Offset` is not checked"
-    - linters:
-        - errcheck
       path: "cmd/gitaly-git2go/main.go"
       text: "Error return value of `flags.Parse` is not checked"
     - linters:
