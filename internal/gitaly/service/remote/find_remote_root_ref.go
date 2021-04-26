@@ -57,6 +57,9 @@ func (s *server) FindRemoteRootRef(ctx context.Context, in *gitalypb.FindRemoteR
 	if remote == "" {
 		return nil, status.Error(codes.InvalidArgument, "empty remote can't be queried")
 	}
+	if in.Repository == nil {
+		return nil, status.Error(codes.InvalidArgument, "missing repository")
+	}
 
 	ref, err := s.findRemoteRootRef(ctx, in.GetRepository(), remote)
 	if err != nil {

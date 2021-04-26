@@ -50,38 +50,54 @@ func TestFindRemoteRootRefFailedDueToValidation(t *testing.T) {
 	invalidRepo := &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}
 
 	testCases := []struct {
-		desc    string
-		request *gitalypb.FindRemoteRootRefRequest
-		code    codes.Code
+		desc        string
+		request     *gitalypb.FindRemoteRootRefRequest
+		expectedErr []error
 	}{
 		{
-			desc:    "Invalid repository",
-			request: &gitalypb.FindRemoteRootRefRequest{Repository: invalidRepo},
-			code:    codes.InvalidArgument,
+			desc: "Invalid repository",
+			request: &gitalypb.FindRemoteRootRefRequest{
+				Repository: invalidRepo,
+				Remote:     "remote-name",
+			},
+			expectedErr: []error{
+				status.Error(codes.InvalidArgument, "GetStorageByName: no such storage: \"fake\""),
+				status.Error(codes.InvalidArgument, "repo scoped: invalid Repository"),
+			},
 		},
 		{
-			desc:    "Repository is nil",
-			request: &gitalypb.FindRemoteRootRefRequest{},
-			code:    codes.InvalidArgument,
+			desc: "Repository is nil",
+			request: &gitalypb.FindRemoteRootRefRequest{
+				Remote: "remote-name",
+			},
+			expectedErr: []error{
+				status.Error(codes.InvalidArgument, "missing repository"),
+				status.Error(codes.InvalidArgument, "repo scoped: empty Repository"),
+			},
 		},
 		{
-			desc:    "Remote is nil",
-			request: &gitalypb.FindRemoteRootRefRequest{Repository: repo},
-			code:    codes.InvalidArgument,
-		},
-		{
-			desc:    "Remote is empty",
-			request: &gitalypb.FindRemoteRootRefRequest{Repository: repo, Remote: ""},
-			code:    codes.InvalidArgument,
+			desc: "Remote is empty",
+			request: &gitalypb.FindRemoteRootRefRequest{
+				Repository: repo,
+			},
+			expectedErr: []error{
+				status.Error(codes.InvalidArgument, "empty remote can't be queried"),
+			},
 		},
 	}
 
 	for _, testCase := range testCases {
-		testCtx, cancelCtx := testhelper.Context()
-		defer cancelCtx()
+		t.Run(testCase.desc, func(t *testing.T) {
+			ctx, cancel := testhelper.Context()
+			defer cancel()
 
-		_, err := client.FindRemoteRootRef(testCtx, testCase.request)
-		testhelper.RequireGrpcError(t, err, testCase.code)
+			_, err := client.FindRemoteRootRef(ctx, testCase.request)
+			// We cannot test for equality given that some errors depend on whether we
+			// proxy via Praefect or not. We thus simply assert that the actual error is
+			// one of the possible errors, which is the same as equality for all the
+			// other tests.
+			require.Contains(t, testCase.expectedErr, err)
+		})
 	}
 }
 
