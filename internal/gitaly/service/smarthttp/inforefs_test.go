@@ -187,7 +187,7 @@ func TestObjectPoolRefAdvertisementHiding(t *testing.T) {
 		require.NoError(t, pool.Remove(ctx))
 	}()
 
-	commitID := gittest.CreateCommit(t, config.Config, pool.FullPath(), t.Name(), nil)
+	commitID := gittest.CreateCommit(t, cfg, pool.FullPath(), t.Name(), nil)
 
 	require.NoError(t, pool.Link(ctx, repo))
 
