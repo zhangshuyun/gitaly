@@ -14,14 +14,14 @@ import (
 
 const headPrefix = "HEAD branch: "
 
-func (s *server) findRemoteRootRef(ctx context.Context, repo *gitalypb.Repository, remote string) (string, error) {
-	cmd, err := s.gitCmdFactory.New(ctx, repo,
+func (s *server) findRemoteRootRef(ctx context.Context, request *gitalypb.FindRemoteRootRefRequest) (string, error) {
+	cmd, err := s.gitCmdFactory.New(ctx, request.Repository,
 		git.SubSubCmd{
 			Name:   "remote",
 			Action: "show",
-			Args:   []string{remote},
+			Args:   []string{request.Remote},
 		},
-		git.WithRefTxHook(ctx, repo, s.cfg),
+		git.WithRefTxHook(ctx, request.Repository, s.cfg),
 	)
 	if err != nil {
 		return "", err
@@ -61,7 +61,7 @@ func (s *server) FindRemoteRootRef(ctx context.Context, in *gitalypb.FindRemoteR
 		return nil, status.Error(codes.InvalidArgument, "missing repository")
 	}
 
-	ref, err := s.findRemoteRootRef(ctx, in.GetRepository(), remote)
+	ref, err := s.findRemoteRootRef(ctx, in)
 	if err != nil {
 		return nil, helper.ErrInternal(err)
 	}
