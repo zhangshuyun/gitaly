@@ -1,7 +1,6 @@
 package operations
 
 import (
-	"context"
 	"fmt"
 	"testing"
 
@@ -10,20 +9,16 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
-	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
 
-func testServerUserCherryPickSuccessful(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	testWithFeature(t, featureflag.GoUserCherryPick, cfg, rubySrv, testServerUserCherryPickSuccessfulFeatured)
-}
+func TestServer_UserCherryPick_successful(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testServerUserCherryPickSuccessfulFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
+	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
@@ -174,12 +169,11 @@ func testServerUserCherryPickSuccessfulFeatured(t *testing.T, ctx context.Contex
 	}
 }
 
-func testServerUserCherryPickSuccessfulGitHooks(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	testWithFeature(t, featureflag.GoUserCherryPick, cfg, rubySrv, testServerUserCherryPickSuccessfulGitHooksFeatured)
-}
+func TestServer_UserCherryPick_successfulGitHooks(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testServerUserCherryPickSuccessfulGitHooksFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
+	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
@@ -213,12 +207,11 @@ func testServerUserCherryPickSuccessfulGitHooksFeatured(t *testing.T, ctx contex
 	}
 }
 
-func testServerUserCherryPickStableID(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	testWithFeature(t, featureflag.GoUserCherryPick, cfg, rubySrv, testServerUserCherryPickStableIDFeatured)
-}
+func TestServer_UserCherryPick_stableID(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testServerUserCherryPickStableIDFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
+	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
@@ -270,12 +263,11 @@ func testServerUserCherryPickStableIDFeatured(t *testing.T, ctx context.Context,
 	}, pickedCommit)
 }
 
-func testServerUserCherryPickFailedValidations(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	testWithFeature(t, featureflag.GoUserCherryPick, cfg, rubySrv, testServerUserCherryPickFailedValidationsFeatured)
-}
+func TestServer_UserCherryPick_failedValidations(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testServerUserCherryPickFailedValidationsFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	ctx, cfg, repoProto, _, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
+	ctx, cfg, repoProto, _, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
@@ -343,12 +335,11 @@ func testServerUserCherryPickFailedValidationsFeatured(t *testing.T, ctx context
 	}
 }
 
-func testServerUserCherryPickFailedWithPreReceiveError(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	testWithFeature(t, featureflag.GoUserCherryPick, cfg, rubySrv, testServerUserCherryPickFailedWithPreReceiveErrorFeatured)
-}
+func TestServer_UserCherryPick_failedWithPreReceiveError(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testServerUserCherryPickFailedWithPreReceiveErrorFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
+	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
@@ -379,12 +370,11 @@ func testServerUserCherryPickFailedWithPreReceiveErrorFeatured(t *testing.T, ctx
 	}
 }
 
-func testServerUserCherryPickFailedWithCreateTreeError(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	testWithFeature(t, featureflag.GoUserCherryPick, cfg, rubySrv, testServerUserCherryPickFailedWithCreateTreeErrorFeatured)
-}
+func TestServer_UserCherryPick_failedWithCreateTreeError(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testServerUserCherryPickFailedWithCreateTreeErrorFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
+	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
@@ -409,12 +399,11 @@ func testServerUserCherryPickFailedWithCreateTreeErrorFeatured(t *testing.T, ctx
 	require.Equal(t, gitalypb.UserCherryPickResponse_EMPTY, response.CreateTreeErrorCode)
 }
 
-func testServerUserCherryPickFailedWithCommitError(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	testWithFeature(t, featureflag.GoUserCherryPick, cfg, rubySrv, testServerUserCherryPickFailedWithCommitErrorFeatured)
-}
+func TestServer_UserCherryPick_failedWithCommitError(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testServerUserCherryPickFailedWithCommitErrorFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
+	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
@@ -440,12 +429,11 @@ func testServerUserCherryPickFailedWithCommitErrorFeatured(t *testing.T, ctx con
 	require.Equal(t, "Branch diverged", response.CommitError)
 }
 
-func testServerUserCherryPickFailedWithConflict(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	testWithFeature(t, featureflag.GoUserCherryPick, cfg, rubySrv, testServerUserCherryPickFailedWithConflictFeatured)
-}
+func TestServer_UserCherryPick_failedWithConflict(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testServerUserCherryPickFailedWithConflictFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
+	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
@@ -470,12 +458,11 @@ func testServerUserCherryPickFailedWithConflictFeatured(t *testing.T, ctx contex
 	require.Equal(t, gitalypb.UserCherryPickResponse_CONFLICT, response.CreateTreeErrorCode)
 }
 
-func testServerUserCherryPickSuccessfulWithGivenCommits(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	testWithFeature(t, featureflag.GoUserCherryPick, cfg, rubySrv, testServerUserCherryPickSuccessfulWithGivenCommitsFeatured)
-}
+func TestServer_UserCherryPick_successfulWithGivenCommits(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testServerUserCherryPickSuccessfulWithGivenCommitsFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
+	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
