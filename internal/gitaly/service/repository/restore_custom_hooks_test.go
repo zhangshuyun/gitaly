@@ -7,8 +7,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/streamio"
@@ -16,28 +14,15 @@ import (
 )
 
 func TestSuccessfullRestoreCustomHooksRequest(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
+	_, repo, repoPath, client := setupRepositoryService(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-
-	defer cleanupFn()
-
 	stream, err := client.RestoreCustomHooks(ctx)
-
 	require.NoError(t, err)
 
-	repoPath, err := locator.GetPath(testRepo)
-	require.NoError(t, err)
-	defer os.RemoveAll(repoPath)
-	request := &gitalypb.RestoreCustomHooksRequest{Repository: testRepo}
+	request := &gitalypb.RestoreCustomHooksRequest{Repository: repo}
 	writer := streamio.NewWriter(func(p []byte) error {
 		request.Data = p
 		if err := stream.Send(request); err != nil {
@@ -61,12 +46,7 @@ func TestSuccessfullRestoreCustomHooksRequest(t *testing.T) {
 }
 
 func TestFailedRestoreCustomHooksDueToValidations(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
+	_, client := setupRepositoryServiceWithoutRepo(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -81,28 +61,16 @@ func TestFailedRestoreCustomHooksDueToValidations(t *testing.T) {
 }
 
 func TestFailedRestoreCustomHooksDueToBadTar(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
+	_, repo, _, client := setupRepositoryService(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-
-	defer cleanupFn()
 
 	stream, err := client.RestoreCustomHooks(ctx)
 
 	require.NoError(t, err)
 
-	repoPath, err := locator.GetPath(testRepo)
-	require.NoError(t, err)
-	defer os.RemoveAll(repoPath)
-	request := &gitalypb.RestoreCustomHooksRequest{Repository: testRepo}
+	request := &gitalypb.RestoreCustomHooksRequest{Repository: repo}
 	writer := streamio.NewWriter(func(p []byte) error {
 		request.Data = p
 		if err := stream.Send(request); err != nil {

@@ -4,44 +4,29 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
 func TestRemoveRepository(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, repoPath, client := setupRepositoryService(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	_, err := client.RemoveRepository(ctx, &gitalypb.RemoveRepositoryRequest{Repository: testRepo})
+	_, err := client.RemoveRepository(ctx, &gitalypb.RemoveRepositoryRequest{Repository: repo})
 	require.NoError(t, err)
 
-	testhelper.AssertPathNotExists(t, testRepoPath)
+	testhelper.AssertPathNotExists(t, repoPath)
 }
 
 func TestRemoveRepositoryDoesNotExist(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
 	_, err := client.RemoveRepository(ctx, &gitalypb.RemoveRepositoryRequest{
-		Repository: &gitalypb.Repository{StorageName: "default", RelativePath: "/does/not/exist"}})
+		Repository: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "/does/not/exist"}})
 	require.NoError(t, err)
 }

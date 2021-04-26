@@ -8,23 +8,13 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/streamio"
 )
 
 func TestGetInfoAttributesExisting(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, repoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, repoPath, client := setupRepositoryService(t)
 
 	infoPath := filepath.Join(repoPath, "info")
 	require.NoError(t, os.MkdirAll(infoPath, 0755))
@@ -35,7 +25,7 @@ func TestGetInfoAttributesExisting(t *testing.T) {
 	err := ioutil.WriteFile(attrsPath, data, 0644)
 	require.NoError(t, err)
 
-	request := &gitalypb.GetInfoAttributesRequest{Repository: testRepo}
+	request := &gitalypb.GetInfoAttributesRequest{Repository: repo}
 	testCtx, cancelCtx := testhelper.Context()
 	defer cancelCtx()
 
@@ -52,17 +42,9 @@ func TestGetInfoAttributesExisting(t *testing.T) {
 }
 
 func TestGetInfoAttributesNonExisting(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
+	_, repo, _, client := setupRepositoryService(t)
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-
-	request := &gitalypb.GetInfoAttributesRequest{Repository: testRepo}
+	request := &gitalypb.GetInfoAttributesRequest{Repository: repo}
 	testCtx, cancelCtx := testhelper.Context()
 	defer cancelCtx()
 

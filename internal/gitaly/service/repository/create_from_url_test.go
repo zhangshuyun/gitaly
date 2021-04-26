@@ -14,37 +14,31 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
 
 func TestSuccessfulCreateRepositoryFromURLRequest(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator, testhelper.WithInternalSocket(config.Config))
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
+	cfg, _, repoPath, client := setupRepositoryService(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
 	importedRepo := &gitalypb.Repository{
 		RelativePath: "imports/test-repo-imported.git",
-		StorageName:  testhelper.DefaultStorageName,
+		StorageName:  cfg.Storages[0].Name,
 	}
-
-	_, testRepoPath, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
+	importedRepoPath := filepath.Join(cfg.Storages[0].Path, importedRepo.GetRelativePath())
 
 	user := "username123"
 	password := "password321localhost"
-	port, stopGitServer := gitServerWithBasicAuth(t, config.Config, user, password, testRepoPath)
+	port, stopGitServer := gitServerWithBasicAuth(t, cfg, user, password, repoPath)
 	defer func() {
 		require.NoError(t, stopGitServer())
 	}()
 
-	url := fmt.Sprintf("http://%s:%s@localhost:%d/%s", user, password, port, filepath.Base(testRepoPath))
+	url := fmt.Sprintf("http://%s:%s@localhost:%d/%s", user, password, port, filepath.Base(repoPath))
 
 	req := &gitalypb.CreateRepositoryFromURLRequest{
 		Repository: importedRepo,
@@ -53,10 +47,6 @@ func TestSuccessfulCreateRepositoryFromURLRequest(t *testing.T) {
 
 	_, err := client.CreateRepositoryFromURL(ctx, req)
 	require.NoError(t, err)
-
-	importedRepoPath, err := locator.GetRepoPath(importedRepo)
-	require.NoError(t, err)
-	defer os.RemoveAll(importedRepoPath)
 
 	testhelper.MustRunCommand(t, nil, "git", "-C", importedRepoPath, "fsck")
 
@@ -76,7 +66,7 @@ func TestCloneRepositoryFromUrlCommand(t *testing.T) {
 	repositoryFullPath := "full/path/to/repository"
 	url := fmt.Sprintf("https://%s@www.example.com/secretrepo.git", userInfo)
 
-	cfg := config.Config
+	cfg := testcfg.Build(t)
 	s := server{cfg: cfg, gitCmdFactory: git.NewExecCommandFactory(cfg)}
 	cmd, err := s.cloneFromURLCommand(ctx, &gitalypb.Repository{}, url, repositoryFullPath, nil)
 	require.NoError(t, err)
@@ -92,12 +82,7 @@ func TestCloneRepositoryFromUrlCommand(t *testing.T) {
 }
 
 func TestFailedCreateRepositoryFromURLRequestDueToExistingTarget(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -123,44 +108,37 @@ func TestFailedCreateRepositoryFromURLRequestDueToExistingTarget(t *testing.T) {
 		t.Run(testCase.desc, func(t *testing.T) {
 			importedRepo := &gitalypb.Repository{
 				RelativePath: "imports/test-repo-imported.git",
-				StorageName:  testhelper.DefaultStorageName,
+				StorageName:  cfg.Storages[0].Name,
 			}
-
-			importedRepoPath, err := locator.GetPath(importedRepo)
-			require.NoError(t, err)
+			importedRepoPath := filepath.Join(cfg.Storages[0].Path, importedRepo.GetRelativePath())
 
 			if testCase.isDir {
 				require.NoError(t, os.MkdirAll(importedRepoPath, 0770))
 			} else {
 				require.NoError(t, ioutil.WriteFile(importedRepoPath, nil, 0644))
 			}
-			defer os.RemoveAll(importedRepoPath)
+			t.Cleanup(func() { os.RemoveAll(importedRepoPath) })
 
 			req := &gitalypb.CreateRepositoryFromURLRequest{
 				Repository: importedRepo,
 				Url:        "https://gitlab.com/gitlab-org/gitlab-test.git",
 			}
 
-			_, err = client.CreateRepositoryFromURL(ctx, req)
+			_, err := client.CreateRepositoryFromURL(ctx, req)
 			testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
 		})
 	}
 }
 
 func TestPreventingRedirect(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
 	importedRepo := &gitalypb.Repository{
 		RelativePath: "imports/test-repo-imported.git",
-		StorageName:  testhelper.DefaultStorageName,
+		StorageName:  cfg.Storages[0].Name,
 	}
 
 	httpServerState, redirectingServer := StartRedirectingTestServer()

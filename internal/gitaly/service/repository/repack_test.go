@@ -9,30 +9,20 @@ import (
 	"testing"
 	"time"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
-	"gitlab.com/gitlab-org/labkit/log"
 	"google.golang.org/grpc/codes"
 )
 
 func TestRepackIncrementalSuccess(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
+	_, repo, repoPath, client := setupRepositoryService(t)
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-
-	packPath := filepath.Join(testhelper.GitlabTestStoragePath(), testRepo.GetRelativePath(), "objects", "pack")
+	packPath := filepath.Join(repoPath, "objects", "pack")
 
 	// Reset mtime to a long while ago since some filesystems don't have sub-second
 	// precision on `mtime`.
@@ -41,7 +31,7 @@ func TestRepackIncrementalSuccess(t *testing.T) {
 	testTime := time.Date(2006, 01, 02, 15, 04, 05, 0, time.UTC)
 	ctx, cancel := testhelper.Context()
 	defer cancel()
-	c, err := client.RepackIncremental(ctx, &gitalypb.RepackIncrementalRequest{Repository: testRepo})
+	c, err := client.RepackIncremental(ctx, &gitalypb.RepackIncrementalRequest{Repository: repo})
 	assert.NoError(t, err)
 	assert.NotNil(t, c)
 
@@ -50,53 +40,30 @@ func TestRepackIncrementalSuccess(t *testing.T) {
 }
 
 func TestRepackIncrementalCollectLogStatistics(t *testing.T) {
-	defer func(tl func(tb testing.TB) *logrus.Logger) {
-		testhelper.NewTestLogger = tl
-	}(testhelper.NewTestLogger)
-
-	logBuffer := &bytes.Buffer{}
-	testhelper.NewTestLogger = func(tb testing.TB) *logrus.Logger {
-		return &logrus.Logger{Out: logBuffer, Formatter: &logrus.JSONFormatter{}, Level: logrus.InfoLevel}
-	}
-
 	ctx, cancel := testhelper.Context()
 	defer cancel()
-	ctx = ctxlogrus.ToContext(ctx, log.WithField("test", "logging"))
 
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
+	logBuffer := &bytes.Buffer{}
+	logger := &logrus.Logger{Out: logBuffer, Formatter: &logrus.JSONFormatter{}, Level: logrus.InfoLevel}
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
+	_, repo, _, client := setupRepositoryService(t, testserver.WithLogger(logger))
 
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-
-	_, err := client.RepackIncremental(ctx, &gitalypb.RepackIncrementalRequest{Repository: testRepo})
+	_, err := client.RepackIncremental(ctx, &gitalypb.RepackIncrementalRequest{Repository: repo})
 	assert.NoError(t, err)
 
 	mustCountObjectLog(t, logBuffer.String())
 }
 
 func TestRepackLocal(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, repoPath, cleanupFn := gittest.CloneRepoWithWorktree(t)
-	defer cleanupFn()
+	cfg, repo, repoPath, client := setupRepositoryServiceWithWorktree(t)
 
 	commiterArgs := []string{"-c", "user.name=Scrooge McDuck", "-c", "user.email=scrooge@mcduck.com"}
 	cmdArgs := append(commiterArgs, "-C", repoPath, "commit", "--allow-empty", "-m", "An empty commit")
-	cmd := exec.Command(config.Config.Git.BinPath, cmdArgs...)
+	cmd := exec.Command(cfg.Git.BinPath, cmdArgs...)
 	altObjectsDir := "./alt-objects"
-	altDirsCommit := gittest.CreateCommitInAlternateObjectDirectory(t, config.Config.Git.BinPath, repoPath, altObjectsDir, cmd)
+	altDirsCommit := gittest.CreateCommitInAlternateObjectDirectory(t, cfg.Git.BinPath, repoPath, altObjectsDir, cmd)
 
-	repoCommit := gittest.CreateCommit(t, config.Config, repoPath, t.Name(), &gittest.CreateCommitOpts{Message: t.Name()})
+	repoCommit := gittest.CreateCommit(t, cfg, repoPath, t.Name(), &gittest.CreateCommitOpts{Message: t.Name()})
 
 	ctx, cancelFn := testhelper.Context()
 	defer cancelFn()
@@ -106,8 +73,8 @@ func TestRepackLocal(t *testing.T) {
 	// alternates are found through the objects/info/alternates file instead
 	// of GIT_ALTERNATE_OBJECT_DIRECTORIES. But for the purpose of this test
 	// it doesn't matter.
-	testRepo.GitAlternateObjectDirectories = []string{altObjectsDir}
-	_, err := client.RepackFull(ctx, &gitalypb.RepackFullRequest{Repository: testRepo})
+	repo.GitAlternateObjectDirectories = []string{altObjectsDir}
+	_, err := client.RepackFull(ctx, &gitalypb.RepackFullRequest{Repository: repo})
 	require.NoError(t, err)
 
 	packFiles, err := filepath.Glob(filepath.Join(repoPath, ".git", "objects", "pack", "pack-*.pack"))
@@ -120,12 +87,7 @@ func TestRepackLocal(t *testing.T) {
 }
 
 func TestRepackIncrementalFailure(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
 	tests := []struct {
 		repo *gitalypb.Repository
@@ -135,7 +97,7 @@ func TestRepackIncrementalFailure(t *testing.T) {
 		{desc: "nil repo", repo: nil, code: codes.InvalidArgument},
 		{desc: "invalid storage name", repo: &gitalypb.Repository{StorageName: "foo"}, code: codes.InvalidArgument},
 		{desc: "no storage name", repo: &gitalypb.Repository{RelativePath: "bar"}, code: codes.InvalidArgument},
-		{desc: "non-existing repo", repo: &gitalypb.Repository{StorageName: testhelper.DefaultStorageName, RelativePath: "bar"}, code: codes.NotFound},
+		{desc: "non-existing repo", repo: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "bar"}, code: codes.NotFound},
 	}
 
 	for _, test := range tests {
@@ -149,25 +111,17 @@ func TestRepackIncrementalFailure(t *testing.T) {
 }
 
 func TestRepackFullSuccess(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, repoPath, client := setupRepositoryService(t)
 
 	tests := []struct {
 		req  *gitalypb.RepackFullRequest
 		desc string
 	}{
-		{req: &gitalypb.RepackFullRequest{Repository: testRepo, CreateBitmap: true}, desc: "with bitmap"},
-		{req: &gitalypb.RepackFullRequest{Repository: testRepo, CreateBitmap: false}, desc: "without bitmap"},
+		{req: &gitalypb.RepackFullRequest{Repository: repo, CreateBitmap: true}, desc: "with bitmap"},
+		{req: &gitalypb.RepackFullRequest{Repository: repo, CreateBitmap: false}, desc: "without bitmap"},
 	}
 
-	packPath := filepath.Join(testRepoPath, "objects", "pack")
+	packPath := filepath.Join(repoPath, "objects", "pack")
 
 	for _, test := range tests {
 		t.Run(test.desc, func(t *testing.T) {
@@ -203,36 +157,23 @@ func TestRepackFullSuccess(t *testing.T) {
 }
 
 func TestRepackFullCollectLogStatistics(t *testing.T) {
-	defer func(tl func(tb testing.TB) *logrus.Logger) {
-		testhelper.NewTestLogger = tl
-	}(testhelper.NewTestLogger)
-
-	logBuffer := &bytes.Buffer{}
-	testhelper.NewTestLogger = func(tb testing.TB) *logrus.Logger {
-		return &logrus.Logger{Out: logBuffer, Formatter: &logrus.JSONFormatter{}, Level: logrus.InfoLevel}
-	}
-
 	ctx, cancel := testhelper.Context()
 	defer cancel()
-	ctx = ctxlogrus.ToContext(ctx, log.WithField("test", "logging"))
 
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
+	logBuffer := &bytes.Buffer{}
+	logger := &logrus.Logger{Out: logBuffer, Formatter: &logrus.JSONFormatter{}, Level: logrus.InfoLevel}
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
+	_, repo, _, client := setupRepositoryService(t, testserver.WithLogger(logger))
 
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-
-	_, err := client.RepackFull(ctx, &gitalypb.RepackFullRequest{Repository: testRepo})
+	_, err := client.RepackFull(ctx, &gitalypb.RepackFullRequest{Repository: repo})
 	require.NoError(t, err)
 
 	mustCountObjectLog(t, logBuffer.String())
 }
 
 func mustCountObjectLog(t testing.TB, logData string) {
+	t.Helper()
+
 	msgs := strings.Split(logData, "\n")
 	const key = "count_objects"
 	for _, msg := range msgs {
@@ -259,12 +200,7 @@ func doBitmapsContainHashCache(t *testing.T, bitmapPaths []string) {
 }
 
 func TestRepackFullFailure(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
 	tests := []struct {
 		repo *gitalypb.Repository
@@ -274,7 +210,7 @@ func TestRepackFullFailure(t *testing.T) {
 		{desc: "nil repo", repo: nil, code: codes.InvalidArgument},
 		{desc: "invalid storage name", repo: &gitalypb.Repository{StorageName: "foo"}, code: codes.InvalidArgument},
 		{desc: "no storage name", repo: &gitalypb.Repository{RelativePath: "bar"}, code: codes.InvalidArgument},
-		{desc: "non-existing repo", repo: &gitalypb.Repository{StorageName: testhelper.DefaultStorageName, RelativePath: "bar"}, code: codes.NotFound},
+		{desc: "non-existing repo", repo: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "bar"}, code: codes.NotFound},
 	}
 
 	for _, test := range tests {
@@ -288,21 +224,13 @@ func TestRepackFullFailure(t *testing.T) {
 }
 
 func TestRepackFullDeltaIslands(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, repoPath, client := setupRepositoryService(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	gittest.TestDeltaIslands(t, testRepoPath, func() error {
-		_, err := client.RepackFull(ctx, &gitalypb.RepackFullRequest{Repository: testRepo})
+	gittest.TestDeltaIslands(t, repoPath, func() error {
+		_, err := client.RepackFull(ctx, &gitalypb.RepackFullRequest{Repository: repo})
 		return err
 	})
 }

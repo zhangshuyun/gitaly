@@ -9,21 +9,13 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
 
 func TestGetRawChanges(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupRepositoryService(t)
 
 	testCases := []struct {
 		oldRev  string
@@ -110,7 +102,7 @@ func TestGetRawChanges(t *testing.T) {
 			defer cancel()
 
 			req := &gitalypb.GetRawChangesRequest{
-				Repository:   testRepo,
+				Repository:   repo,
 				FromRevision: tc.oldRev,
 				ToRevision:   tc.newRev,
 			}
@@ -134,20 +126,13 @@ func TestGetRawChangesSpecialCharacters(t *testing.T) {
 	// This test looks for a specific path known to contain special
 	// characters.
 
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupRepositoryService(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
 	req := &gitalypb.GetRawChangesRequest{
-		Repository:   testRepo,
+		Repository:   repo,
 		FromRevision: "cfe32cf61b73a0d5e9f13e774abde7ff789b1660",
 		ToRevision:   "913c66a37b4a45b9769037c55c2d238bd0942d2e",
 	}
@@ -165,6 +150,8 @@ func TestGetRawChangesSpecialCharacters(t *testing.T) {
 }
 
 func collectChanges(t *testing.T, stream gitalypb.RepositoryService_GetRawChangesClient) []*gitalypb.GetRawChangesResponse_RawChange {
+	t.Helper()
+
 	var changes []*gitalypb.GetRawChangesResponse_RawChange
 	var err error
 
@@ -179,15 +166,7 @@ func collectChanges(t *testing.T, stream gitalypb.RepositoryService_GetRawChange
 }
 
 func TestGetRawChangesFailures(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupRepositoryService(t)
 
 	testCases := []struct {
 		oldRev         string
@@ -220,7 +199,7 @@ func TestGetRawChangesFailures(t *testing.T) {
 			defer cancel()
 
 			req := &gitalypb.GetRawChangesRequest{
-				Repository:   testRepo,
+				Repository:   repo,
 				FromRevision: tc.oldRev,
 				ToRevision:   tc.newRev,
 			}
@@ -242,22 +221,14 @@ func TestGetRawChangesFailures(t *testing.T) {
 }
 
 func TestGetRawChangesManyFiles(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupRepositoryService(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
 	initCommit := "1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"
 	req := &gitalypb.GetRawChangesRequest{
-		Repository:   testRepo,
+		Repository:   repo,
 		FromRevision: initCommit,
 		ToRevision:   "many_files",
 	}
@@ -271,21 +242,13 @@ func TestGetRawChangesManyFiles(t *testing.T) {
 }
 
 func TestGetRawChangesMappingOperations(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupRepositoryService(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
 	req := &gitalypb.GetRawChangesRequest{
-		Repository:   testRepo,
+		Repository:   repo,
 		FromRevision: "1b12f15a11fc6e62177bef08f47bc7b5ce50b141",
 		ToRevision:   "94bb47ca1297b7b3731ff2a36923640991e9236f",
 	}
@@ -323,15 +286,7 @@ func TestGetRawChangesMappingOperations(t *testing.T) {
 }
 
 func TestGetRawChangesInvalidUTF8Paths(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	cfg, repo, repoPath, client := setupRepositoryService(t)
 
 	const (
 		// These are arbitrary blobs known to exist in the test repository
@@ -343,16 +298,16 @@ func TestGetRawChangesInvalidUTF8Paths(t *testing.T) {
 
 	fromCommitID := gittest.CommitBlobWithName(
 		t,
-		config.Config,
-		testRepoPath,
+		cfg,
+		repoPath,
 		blobID1,
 		nonUTF8Filename,
 		"killer AI might use non-UTF filenames",
 	)
 	toCommitID := gittest.CommitBlobWithName(
 		t,
-		config.Config,
-		testRepoPath,
+		cfg,
+		repoPath,
 		blobID2,
 		nonUTF8Filename,
 		"hostile extraterrestrials won't use UTF",
@@ -362,7 +317,7 @@ func TestGetRawChangesInvalidUTF8Paths(t *testing.T) {
 	defer cancel()
 
 	req := &gitalypb.GetRawChangesRequest{
-		Repository:   testRepo,
+		Repository:   repo,
 		FromRevision: fromCommitID,
 		ToRevision:   toCommitID,
 	}

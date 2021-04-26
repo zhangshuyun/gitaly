@@ -9,36 +9,27 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
 
 func TestSuccessfulIsRebaseInProgressRequest(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
+	cfg, repo1, repoPath1, client := setupRepositoryService(t)
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath1, "worktree", "add", "--detach", filepath.Join(repoPath1, worktreePrefix, fmt.Sprintf("%s-1", rebaseWorktreePrefix)), "master")
 
-	testRepo1, testRepo1Path, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepo1Path, "worktree", "add", "--detach", filepath.Join(testRepo1Path, worktreePrefix, fmt.Sprintf("%s-1", rebaseWorktreePrefix)), "master")
-
-	brokenPath := filepath.Join(testRepo1Path, worktreePrefix, fmt.Sprintf("%s-2", rebaseWorktreePrefix))
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepo1Path, "worktree", "add", "--detach", brokenPath, "master")
+	brokenPath := filepath.Join(repoPath1, worktreePrefix, fmt.Sprintf("%s-2", rebaseWorktreePrefix))
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath1, "worktree", "add", "--detach", brokenPath, "master")
 	require.NoError(t, os.Chmod(brokenPath, 0))
 	require.NoError(t, os.Chtimes(brokenPath, time.Now(), time.Now().Add(-16*time.Minute)))
 
-	oldPath := filepath.Join(testRepo1Path, worktreePrefix, fmt.Sprintf("%s-3", rebaseWorktreePrefix))
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepo1Path, "worktree", "add", "--detach", oldPath, "master")
+	oldPath := filepath.Join(repoPath1, worktreePrefix, fmt.Sprintf("%s-3", rebaseWorktreePrefix))
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath1, "worktree", "add", "--detach", oldPath, "master")
 	require.NoError(t, os.Chtimes(oldPath, time.Now(), time.Now().Add(-16*time.Minute)))
 
-	testRepo2, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	repo2, _, cleanupFn := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "second")
+	t.Cleanup(cleanupFn)
 
 	testCases := []struct {
 		desc       string
@@ -48,7 +39,7 @@ func TestSuccessfulIsRebaseInProgressRequest(t *testing.T) {
 		{
 			desc: "rebase in progress",
 			request: &gitalypb.IsRebaseInProgressRequest{
-				Repository: testRepo1,
+				Repository: repo1,
 				RebaseId:   "1",
 			},
 			inProgress: true,
@@ -56,7 +47,7 @@ func TestSuccessfulIsRebaseInProgressRequest(t *testing.T) {
 		{
 			desc: "broken rebase in progress",
 			request: &gitalypb.IsRebaseInProgressRequest{
-				Repository: testRepo1,
+				Repository: repo1,
 				RebaseId:   "2",
 			},
 			inProgress: false,
@@ -64,7 +55,7 @@ func TestSuccessfulIsRebaseInProgressRequest(t *testing.T) {
 		{
 			desc: "expired rebase in progress",
 			request: &gitalypb.IsRebaseInProgressRequest{
-				Repository: testRepo1,
+				Repository: repo1,
 				RebaseId:   "3",
 			},
 			inProgress: false,
@@ -72,7 +63,7 @@ func TestSuccessfulIsRebaseInProgressRequest(t *testing.T) {
 		{
 			desc: "no rebase in progress",
 			request: &gitalypb.IsRebaseInProgressRequest{
-				Repository: testRepo2,
+				Repository: repo2,
 				RebaseId:   "2",
 			},
 			inProgress: false,
@@ -93,12 +84,7 @@ func TestSuccessfulIsRebaseInProgressRequest(t *testing.T) {
 }
 
 func TestFailedIsRebaseInProgressRequestDueToValidations(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
+	_, client := setupRepositoryServiceWithoutRepo(t)
 
 	testCases := []struct {
 		desc    string

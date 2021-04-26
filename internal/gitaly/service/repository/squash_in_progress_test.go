@@ -6,26 +6,17 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
 
 func TestSuccessfulIsSquashInProgressRequest(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
+	cfg, repo, repoPath, client := setupRepositoryService(t)
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "worktree", "add", "--detach", filepath.Join(repoPath, worktreePrefix, "squash-1"), "master")
 
-	testRepo1, testRepo1Path, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepo1Path, "worktree", "add", "--detach", filepath.Join(testRepo1Path, worktreePrefix, "squash-1"), "master")
-
-	testRepo2, _, cleanupFn := gittest.CloneRepo(t)
+	repoCopy, _, cleanupFn := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "copy")
 	defer cleanupFn()
 
 	testCases := []struct {
@@ -36,7 +27,7 @@ func TestSuccessfulIsSquashInProgressRequest(t *testing.T) {
 		{
 			desc: "Squash in progress",
 			request: &gitalypb.IsSquashInProgressRequest{
-				Repository: testRepo1,
+				Repository: repo,
 				SquashId:   "1",
 			},
 			inProgress: true,
@@ -44,7 +35,7 @@ func TestSuccessfulIsSquashInProgressRequest(t *testing.T) {
 		{
 			desc: "no Squash in progress",
 			request: &gitalypb.IsSquashInProgressRequest{
-				Repository: testRepo2,
+				Repository: repoCopy,
 				SquashId:   "2",
 			},
 			inProgress: false,
@@ -65,12 +56,7 @@ func TestSuccessfulIsSquashInProgressRequest(t *testing.T) {
 }
 
 func TestFailedIsSquashInProgressRequestDueToValidations(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
+	_, client := setupRepositoryServiceWithoutRepo(t)
 
 	testCases := []struct {
 		desc    string

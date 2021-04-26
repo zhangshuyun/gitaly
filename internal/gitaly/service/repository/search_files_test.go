@@ -12,10 +12,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
@@ -85,15 +85,7 @@ func TestSearchFilesByContentSuccessful(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator, testhelper.WithInternalSocket(config.Config))
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupRepositoryService(t)
 
 	testCases := []struct {
 		desc   string
@@ -136,7 +128,7 @@ func TestSearchFilesByContentSuccessful(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			request := &gitalypb.SearchFilesByContentRequest{
-				Repository: testRepo,
+				Repository: repo,
 				Query:      tc.query,
 				Ref:        []byte(tc.ref),
 			}
@@ -158,15 +150,7 @@ func TestSearchFilesByContentLargeFile(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepoWithWorktree(t)
-	defer cleanupFn()
+	_, repo, repoPath, client := setupRepositoryServiceWithWorktree(t)
 
 	committerName := "Scrooge McDuck"
 	committerEmail := "scrooge@mcduck.com"
@@ -193,14 +177,14 @@ func TestSearchFilesByContentLargeFile(t *testing.T) {
 
 	for _, largeFile := range largeFiles {
 		t.Run(largeFile.filename, func(t *testing.T) {
-			require.NoError(t, ioutil.WriteFile(filepath.Join(testRepoPath, largeFile.filename), bytes.Repeat([]byte(largeFile.line), largeFile.repeated), 0644))
-			testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "add", ".")
-			testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath,
+			require.NoError(t, ioutil.WriteFile(filepath.Join(repoPath, largeFile.filename), bytes.Repeat([]byte(largeFile.line), largeFile.repeated), 0644))
+			testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "add", ".")
+			testhelper.MustRunCommand(t, nil, "git", "-C", repoPath,
 				"-c", fmt.Sprintf("user.name=%s", committerName),
 				"-c", fmt.Sprintf("user.email=%s", committerEmail), "commit", "-m", "large file commit", "--", largeFile.filename)
 
 			stream, err := client.SearchFilesByContent(ctx, &gitalypb.SearchFilesByContentRequest{
-				Repository:      testRepo,
+				Repository:      repo,
 				Query:           largeFile.query,
 				Ref:             []byte("master"),
 				ChunkedResponse: true,
@@ -216,10 +200,8 @@ func TestSearchFilesByContentLargeFile(t *testing.T) {
 }
 
 func TestSearchFilesByContentFailure(t *testing.T) {
-	server := NewServer(config.Config, RubyServer, config.NewLocator(config.Config), transaction.NewManager(config.Config, backchannel.NewRegistry()), git.NewExecCommandFactory(config.Config))
-
-	testRepo, _, cleanupRepo := gittest.CloneRepo(t)
-	defer cleanupRepo()
+	cfg, repo, _ := testcfg.BuildWithRepo(t)
+	server := NewServer(cfg, nil, config.NewLocator(cfg), transaction.NewManager(cfg, backchannel.NewRegistry()), git.NewExecCommandFactory(cfg))
 
 	testCases := []struct {
 		desc  string
@@ -249,7 +231,7 @@ func TestSearchFilesByContentFailure(t *testing.T) {
 		},
 		{
 			desc:  "invalid ref argument",
-			repo:  testRepo,
+			repo:  repo,
 			query: ".",
 			ref:   "--no-index",
 			code:  codes.InvalidArgument,
@@ -275,15 +257,7 @@ func TestSearchFilesByNameSuccessful(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupRepositoryService(t)
 
 	testCases := []struct {
 		desc     string
@@ -320,7 +294,7 @@ func TestSearchFilesByNameSuccessful(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			stream, err := client.SearchFilesByName(ctx, &gitalypb.SearchFilesByNameRequest{
-				Repository: testRepo,
+				Repository: repo,
 				Ref:        tc.ref,
 				Query:      tc.query,
 				Filter:     tc.filter,
@@ -338,7 +312,8 @@ func TestSearchFilesByNameSuccessful(t *testing.T) {
 }
 
 func TestSearchFilesByNameFailure(t *testing.T) {
-	server := NewServer(config.Config, RubyServer, config.NewLocator(config.Config), transaction.NewManager(config.Config, backchannel.NewRegistry()), git.NewExecCommandFactory(config.Config))
+	cfg := testcfg.Build(t)
+	server := NewServer(cfg, nil, config.NewLocator(cfg), transaction.NewManager(cfg, backchannel.NewRegistry()), git.NewExecCommandFactory(cfg))
 
 	testCases := []struct {
 		desc   string

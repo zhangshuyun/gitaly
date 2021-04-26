@@ -19,32 +19,24 @@ import (
 )
 
 func TestSuccessfulCreateBundleRequest(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
+	cfg, repo, repoPath, client := setupRepositoryService(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-
 	// create a work tree with a HEAD pointing to a commit that is missing.
 	// CreateBundle should clean this up before creating the bundle
-	sha, branchName := gittest.CreateCommitOnNewBranch(t, config.Config, testRepoPath)
+	sha, branchName := gittest.CreateCommitOnNewBranch(t, cfg, repoPath)
 
-	require.NoError(t, os.MkdirAll(filepath.Join(testRepoPath, "gitlab-worktree"), 0755))
+	require.NoError(t, os.MkdirAll(filepath.Join(repoPath, "gitlab-worktree"), 0755))
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "worktree", "add", "gitlab-worktree/worktree1", sha)
-	require.NoError(t, os.Chtimes(filepath.Join(testRepoPath, "gitlab-worktree", "worktree1"), time.Now().Add(-7*time.Hour), time.Now().Add(-7*time.Hour)))
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "worktree", "add", "gitlab-worktree/worktree1", sha)
+	require.NoError(t, os.Chtimes(filepath.Join(repoPath, "gitlab-worktree", "worktree1"), time.Now().Add(-7*time.Hour), time.Now().Add(-7*time.Hour)))
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", "-D", branchName)
-	require.NoError(t, os.Remove(filepath.Join(testRepoPath, "objects", sha[0:2], sha[2:])))
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", "-D", branchName)
+	require.NoError(t, os.Remove(filepath.Join(repoPath, "objects", sha[0:2], sha[2:])))
 
-	request := &gitalypb.CreateBundleRequest{Repository: testRepo}
+	request := &gitalypb.CreateBundleRequest{Repository: repo}
 
 	c, err := client.CreateBundle(ctx, request)
 	require.NoError(t, err)
@@ -54,7 +46,7 @@ func TestSuccessfulCreateBundleRequest(t *testing.T) {
 		return response.GetData(), err
 	})
 
-	dstDir, err := tempdir.New(ctx, testRepo, locator)
+	dstDir, err := tempdir.New(ctx, repo, config.NewLocator(cfg))
 	require.NoError(t, err)
 	dstFile, err := ioutil.TempFile(dstDir, "")
 	require.NoError(t, err)
@@ -64,18 +56,13 @@ func TestSuccessfulCreateBundleRequest(t *testing.T) {
 	_, err = io.Copy(dstFile, reader)
 	require.NoError(t, err)
 
-	output := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "bundle", "verify", dstFile.Name())
+	output := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "bundle", "verify", dstFile.Name())
 	// Extra sanity; running verify should fail on bad bundles
 	require.Contains(t, string(output), "The bundle records a complete history")
 }
 
 func TestFailedCreateBundleRequestDueToValidations(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
+	_, client := setupRepositoryServiceWithoutRepo(t)
 
 	testCases := []struct {
 		desc    string

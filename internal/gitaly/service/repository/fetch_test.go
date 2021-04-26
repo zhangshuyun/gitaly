@@ -1,55 +1,32 @@
-package repository_test
+package repository
 
 import (
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/client"
-	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
-	serverPkg "gitlab.com/gitlab-org/gitaly/internal/gitaly/server"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service"
-	hookservice "gitlab.com/gitlab-org/gitaly/internal/gitaly/service/hook"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/repository"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/setup"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
-	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
 
 func TestFetchSourceBranchSourceRepositorySuccess(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-
-	serverSocketPath := runFullServer(t)
-
-	client, conn := repository.NewRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
+	cfg, sourceRepo, sourcePath, client := setupRepositoryService(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	md := testhelper.GitalyServersMetadata(t, serverSocketPath)
+	md := testhelper.GitalyServersMetadataFromCfg(t, cfg)
 	ctx = testhelper.MergeOutgoingMetadata(ctx, md)
 
-	targetRepoProto, _, cleanup := newTestRepo(t, locator, "fetch-source-target.git")
+	targetRepoProto, _, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "fetch-source-target.git")
 	defer cleanup()
-	targetRepo := localrepo.New(git.NewExecCommandFactory(config.Config), targetRepoProto, config.Config)
-
-	sourceRepo, sourcePath, cleanup := newTestRepo(t, locator, "fetch-source-source.git")
-	defer cleanup()
+	targetRepo := localrepo.New(git.NewExecCommandFactory(cfg), targetRepoProto, cfg)
 
 	sourceBranch := "fetch-source-branch-test-branch"
-	newCommitID := gittest.CreateCommit(t, config.Config, sourcePath, sourceBranch, nil)
+	newCommitID := gittest.CreateCommit(t, cfg, sourcePath, sourceBranch, nil)
 
 	targetRef := "refs/tmp/fetch-source-branch-test"
 	req := &gitalypb.FetchSourceBranchRequest{
@@ -69,25 +46,18 @@ func TestFetchSourceBranchSourceRepositorySuccess(t *testing.T) {
 }
 
 func TestFetchSourceBranchSameRepositorySuccess(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-
-	serverSocketPath := runFullServer(t)
-
-	client, conn := repository.NewRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
+	cfg, repoProto, repoPath, client := setupRepositoryService(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	md := testhelper.GitalyServersMetadata(t, serverSocketPath)
+	md := testhelper.GitalyServersMetadataFromCfg(t, cfg)
 	ctx = testhelper.MergeOutgoingMetadata(ctx, md)
 
-	repoProto, repoPath, cleanup := newTestRepo(t, locator, "fetch-source-source.git")
-	defer cleanup()
-	repo := localrepo.New(git.NewExecCommandFactory(config.Config), repoProto, config.Config)
+	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
 	sourceBranch := "fetch-source-branch-test-branch"
-	newCommitID := gittest.CreateCommit(t, config.Config, repoPath, sourceBranch, nil)
+	newCommitID := gittest.CreateCommit(t, cfg, repoPath, sourceBranch, nil)
 
 	targetRef := "refs/tmp/fetch-source-branch-test"
 	req := &gitalypb.FetchSourceBranchRequest{
@@ -107,24 +77,16 @@ func TestFetchSourceBranchSameRepositorySuccess(t *testing.T) {
 }
 
 func TestFetchSourceBranchBranchNotFound(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-
-	serverSocketPath := runFullServer(t)
-
-	client, conn := repository.NewRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
+	cfg, targetRepo, _, client := setupRepositoryService(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	md := testhelper.GitalyServersMetadata(t, serverSocketPath)
+	md := testhelper.GitalyServersMetadataFromCfg(t, cfg)
 	ctx = testhelper.MergeOutgoingMetadata(ctx, md)
 
-	targetRepo, _, cleanup := newTestRepo(t, locator, "fetch-source-target.git")
-	defer cleanup()
-
-	sourceRepo, _, cleanup := newTestRepo(t, locator, "fetch-source-source.git")
-	defer cleanup()
+	sourceRepo, _, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "fetch-source-source.git")
+	t.Cleanup(cleanup)
 
 	sourceBranch := "does-not-exist"
 	targetRef := "refs/tmp/fetch-source-branch-test"
@@ -163,27 +125,19 @@ func TestFetchSourceBranchBranchNotFound(t *testing.T) {
 }
 
 func TestFetchSourceBranchWrongRef(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-
-	serverSocketPath := runFullServer(t)
-
-	client, conn := repository.NewRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
+	cfg, targetRepo, _, client := setupRepositoryService(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	md := testhelper.GitalyServersMetadata(t, serverSocketPath)
+	md := testhelper.GitalyServersMetadataFromCfg(t, cfg)
 	ctx = testhelper.MergeOutgoingMetadata(ctx, md)
 
-	targetRepo, _, cleanup := newTestRepo(t, locator, "fetch-source-target.git")
-	defer cleanup()
-
-	sourceRepo, sourceRepoPath, cleanup := newTestRepo(t, locator, "fetch-source-source.git")
+	sourceRepo, sourceRepoPath, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "fetch-source-source.git")
 	defer cleanup()
 
 	sourceBranch := "fetch-source-branch-testmas-branch"
-	gittest.CreateCommit(t, config.Config, sourceRepoPath, sourceBranch, nil)
+	gittest.CreateCommit(t, cfg, sourceRepoPath, sourceBranch, nil)
 
 	targetRef := "refs/tmp/fetch-source-branch-test"
 
@@ -289,92 +243,4 @@ func TestFetchSourceBranchWrongRef(t *testing.T) {
 			testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
 		})
 	}
-}
-
-func TestFetchFullServerRequiresAuthentication(t *testing.T) {
-	// The purpose of this test is to ensure that the server started by
-	// 'runFullServer' requires authentication. The RPC under test in this
-	// file (FetchSourceBranch) makes calls to a "remote" Gitaly server and
-	// we want to be sure that authentication is handled correctly. If the
-	// tests in this file were using a server without authentication we could
-	// not be confident that authentication is done right.
-	serverSocketPath := runFullServer(t)
-
-	connOpts := []grpc.DialOption{
-		grpc.WithInsecure(),
-	}
-
-	conn, err := grpc.Dial(serverSocketPath, connOpts...)
-	require.NoError(t, err)
-	defer conn.Close()
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-
-	client := healthpb.NewHealthClient(conn)
-	_, err = client.Check(ctx, &healthpb.HealthCheckRequest{})
-	testhelper.RequireGrpcError(t, err, codes.Unauthenticated)
-}
-
-func newTestRepo(t *testing.T, locator storage.Locator, relativePath string) (*gitalypb.Repository, string, func()) {
-	_, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-
-	repo := &gitalypb.Repository{StorageName: "default", RelativePath: relativePath}
-
-	repoPath, err := locator.GetPath(repo)
-	require.NoError(t, err)
-
-	require.NoError(t, os.RemoveAll(repoPath))
-	testhelper.MustRunCommand(t, nil, "git", "clone", "--bare", testRepoPath, repoPath)
-
-	return repo, repoPath, func() { require.NoError(t, os.RemoveAll(repoPath)) }
-}
-
-func runFullServer(t *testing.T) string {
-	return testserver.RunGitalyServer(t, config.Config, repository.RubyServer, setup.RegisterAll)
-}
-
-func runFullSecureServer(t *testing.T, locator storage.Locator) (*grpc.Server, string, testhelper.Cleanup) {
-	t.Helper()
-
-	conns := client.NewPool()
-	cfg := config.Config
-	registry := backchannel.NewRegistry()
-	txManager := transaction.NewManager(cfg, registry)
-	hookManager := hook.NewManager(locator, txManager, hook.GitlabAPIStub, cfg)
-	gitCmdFactory := git.NewExecCommandFactory(cfg)
-
-	server, err := serverPkg.New(true, cfg, testhelper.DiscardTestEntry(t), registry)
-	require.NoError(t, err)
-	listener, addr := testhelper.GetLocalhostListener(t)
-
-	setup.RegisterAll(server, &service.Dependencies{
-		Cfg:                cfg,
-		RubyServer:         repository.RubyServer,
-		GitalyHookManager:  hookManager,
-		TransactionManager: txManager,
-		StorageLocator:     config.NewLocator(cfg),
-		ClientPool:         conns,
-		GitCmdFactory:      gitCmdFactory,
-	})
-	errQ := make(chan error)
-
-	// This creates a secondary GRPC server which isn't "secure". Reusing
-	// the one created above won't work as its internal socket would be
-	// protected by the same TLS certificate.
-	internalServer := testhelper.NewServer(t, nil, nil, testhelper.WithInternalSocket(cfg))
-	gitalypb.RegisterHookServiceServer(internalServer.GrpcServer(), hookservice.NewServer(cfg, hookManager, gitCmdFactory))
-	internalServer.Start(t)
-
-	go func() { errQ <- server.Serve(listener) }()
-
-	cleanup := func() {
-		conns.Close()
-		server.Stop()
-		internalServer.Stop()
-		require.NoError(t, <-errQ)
-	}
-
-	return server, "tls://" + addr, cleanup
 }

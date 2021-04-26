@@ -4,8 +4,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -16,15 +14,7 @@ import (
 const testRepoMinSizeKB = 10000
 
 func TestSuccessfulRepositorySizeRequest(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
-
-	repo, _, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
+	_, repo, _, client := setupRepositoryService(t)
 
 	request := &gitalypb.RepositorySizeRequest{Repository: repo}
 
@@ -40,20 +30,16 @@ func TestSuccessfulRepositorySizeRequest(t *testing.T) {
 }
 
 func TestFailedRepositorySizeRequest(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
-
-	invalidRepo := &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}
+	_, client := setupRepositoryServiceWithoutRepo(t)
 
 	testCases := []struct {
 		description string
 		repo        *gitalypb.Repository
 	}{
-		{repo: invalidRepo, description: "Invalid repo"},
+		{
+			description: "Invalid repo",
+			repo:        &gitalypb.Repository{StorageName: "fake", RelativePath: "path"},
+		},
 	}
 
 	for _, testCase := range testCases {
@@ -71,25 +57,13 @@ func TestFailedRepositorySizeRequest(t *testing.T) {
 }
 
 func TestSuccessfulGetObjectDirectorySizeRequest(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
-
-	testRepo.GitObjectDirectory = "objects/"
-
-	request := &gitalypb.GetObjectDirectorySizeRequest{
-		Repository: testRepo,
-	}
+	_, repo, _, client := setupRepositoryService(t)
+	repo.GitObjectDirectory = "objects/"
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
+	request := &gitalypb.GetObjectDirectorySizeRequest{Repository: repo}
 	response, err := client.GetObjectDirectorySize(ctx, request)
 	require.NoError(t, err)
 

@@ -15,13 +15,13 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -29,18 +29,9 @@ import (
 )
 
 func TestApplyGitattributesSuccess(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
+	cfg, repo, _, client := setupRepositoryService(t)
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-
-	infoPath := filepath.Join(testhelper.GitlabTestStoragePath(),
-		testRepo.GetRelativePath(), "info")
+	infoPath := filepath.Join(cfg.Storages[0].Path, repo.GetRelativePath(), "info")
 	attributesPath := filepath.Join(infoPath, "attributes")
 
 	tests := []struct {
@@ -66,18 +57,18 @@ func TestApplyGitattributesSuccess(t *testing.T) {
 			if err := os.RemoveAll(infoPath); err != nil {
 				t.Fatal(err)
 			}
-			assertGitattributesApplied(t, client, testRepo, attributesPath, test.revision, test.contents)
+			assertGitattributesApplied(t, client, repo, attributesPath, test.revision, test.contents)
 
 			// Test when no git attributes file exists
 			if err := os.Remove(attributesPath); err != nil && !os.IsNotExist(err) {
 				t.Fatal(err)
 			}
-			assertGitattributesApplied(t, client, testRepo, attributesPath, test.revision, test.contents)
+			assertGitattributesApplied(t, client, repo, attributesPath, test.revision, test.contents)
 
 			// Test when a git attributes file already exists
 			require.NoError(t, os.MkdirAll(infoPath, 0755))
 			require.NoError(t, ioutil.WriteFile(attributesPath, []byte("*.docx diff=word"), 0644))
-			assertGitattributesApplied(t, client, testRepo, attributesPath, test.revision, test.contents)
+			assertGitattributesApplied(t, client, repo, attributesPath, test.revision, test.contents)
 		})
 	}
 }
@@ -98,18 +89,19 @@ func TestApplyGitattributesWithTransaction(t *testing.T) {
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.BackchannelVoting,
 	}).Run(t, func(t *testing.T, ctx context.Context) {
+		cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 		registry := backchannel.NewRegistry()
-		txManager := transaction.NewManager(config.Config, registry)
-		locator := config.NewLocator(config.Config)
+		txManager := transaction.NewManager(cfg, registry)
+		locator := config.NewLocator(cfg)
 		transactionServer := &testTransactionServer{}
 
 		logger := testhelper.DiscardTestEntry(t)
-		srv := testhelper.NewServerWithAuth(t, nil, nil, config.Config.Auth.Token, registry)
+		srv := testhelper.NewServerWithAuth(t, nil, nil, cfg.Auth.Token, registry)
 		if featureflag.IsDisabled(ctx, featureflag.BackchannelVoting) {
 			gitalypb.RegisterRefTransactionServer(srv.GrpcServer(), transactionServer)
 		}
 
-		gitalypb.RegisterRepositoryServiceServer(srv.GrpcServer(), NewServer(config.Config, RubyServer, locator, txManager, git.NewExecCommandFactory(config.Config)))
+		gitalypb.RegisterRepositoryServiceServer(srv.GrpcServer(), NewServer(cfg, nil, locator, txManager, git.NewExecCommandFactory(cfg)))
 
 		srv.Start(t)
 		defer srv.Stop()
@@ -121,7 +113,7 @@ func TestApplyGitattributesWithTransaction(t *testing.T) {
 		require.NoError(t, err)
 		go func() { require.NoError(t, srv.GrpcServer().Serve(transactionServerListener)) }()
 
-		client := newMuxedRepositoryClient(t, ctx, "unix://"+transactionServerListener.Addr().String(),
+		client := newMuxedRepositoryClient(t, ctx, cfg, "unix://"+transactionServerListener.Addr().String(),
 			backchannel.NewClientHandshaker(logger, func() backchannel.Server {
 				srv := grpc.NewServer()
 
@@ -135,11 +127,8 @@ func TestApplyGitattributesWithTransaction(t *testing.T) {
 
 		praefect := metadata.PraefectServer{
 			SocketPath: "unix://" + transactionServerListener.Addr().String(),
-			Token:      config.Config.Auth.Token,
+			Token:      cfg.Auth.Token,
 		}
-
-		repo, repoPath, cleanup := gittest.CloneRepo(t)
-		defer cleanup()
 
 		for _, tc := range []struct {
 			desc        string
@@ -230,15 +219,7 @@ func TestApplyGitattributesWithTransaction(t *testing.T) {
 }
 
 func TestApplyGitattributesFailure(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupRepositoryService(t)
 
 	tests := []struct {
 		repo     *gitalypb.Repository
@@ -261,22 +242,22 @@ func TestApplyGitattributesFailure(t *testing.T) {
 			code:     codes.InvalidArgument,
 		},
 		{
-			repo:     &gitalypb.Repository{StorageName: testRepo.GetStorageName(), RelativePath: "bar"},
+			repo:     &gitalypb.Repository{StorageName: repo.GetStorageName(), RelativePath: "bar"},
 			revision: []byte("master"),
 			code:     codes.NotFound,
 		},
 		{
-			repo:     testRepo,
+			repo:     repo,
 			revision: []byte(""),
 			code:     codes.InvalidArgument,
 		},
 		{
-			repo:     testRepo,
+			repo:     repo,
 			revision: []byte("not-existing-ref"),
 			code:     codes.InvalidArgument,
 		},
 		{
-			repo:     testRepo,
+			repo:     repo,
 			revision: []byte("--output=/meow"),
 			code:     codes.InvalidArgument,
 		},
@@ -295,6 +276,8 @@ func TestApplyGitattributesFailure(t *testing.T) {
 }
 
 func assertGitattributesApplied(t *testing.T, client gitalypb.RepositoryServiceClient, testRepo *gitalypb.Repository, attributesPath string, revision, expectedContents []byte) {
+	t.Helper()
+
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 

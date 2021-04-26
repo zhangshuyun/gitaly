@@ -15,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/streamio"
 	"gitlab.com/gitlab-org/labkit/correlation"
@@ -27,15 +28,7 @@ const (
 )
 
 func TestGetArchiveSuccess(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupRepositoryService(t)
 
 	formats := []gitalypb.GetArchiveRequest_Format{
 		gitalypb.GetArchiveRequest_ZIP,
@@ -138,7 +131,7 @@ func TestGetArchiveSuccess(t *testing.T) {
 				defer cancel()
 
 				req := &gitalypb.GetArchiveRequest{
-					Repository: testRepo,
+					Repository: repo,
 					CommitId:   tc.commitID,
 					Prefix:     tc.prefix,
 					Format:     format,
@@ -174,35 +167,31 @@ func TestGetArchiveSuccess(t *testing.T) {
 }
 
 func TestGetArchiveWithLfsSuccess(t *testing.T) {
-	testhelper.ConfigureGitalyLfsSmudge(config.Config.BinDir)
-
 	defaultOptions := testhelper.GitlabTestServerOptions{
 		SecretToken: secretToken,
 		LfsBody:     lfsBody,
 	}
 
-	gitlabShellDir := testhelper.TempDir(t)
+	url, cleanup := testhelper.NewGitlabTestServer(t, defaultOptions)
+	t.Cleanup(cleanup)
 
-	defer func(cfg config.Cfg) {
-		config.Config = cfg
-	}(config.Config)
+	shellDir := testhelper.TempDir(t)
 
-	config.Config.GitlabShell.Dir = gitlabShellDir
-	config.Config.Gitlab.SecretFile = filepath.Join(config.Config.GitlabShell.Dir, ".gitlab_shell_secret")
+	cfg := testcfg.Build(t, testcfg.WithBase(config.Cfg{
+		GitlabShell: config.GitlabShell{Dir: shellDir},
+		Gitlab: config.Gitlab{
+			URL:        url,
+			SecretFile: testhelper.WriteShellSecretFile(t, shellDir, defaultOptions.SecretToken),
+		},
+	}))
 
-	url, cleanup := testhelper.SetupAndStartGitlabServer(t, config.Config.GitlabShell.Dir, &defaultOptions)
-	defer cleanup()
+	serverSocketPath := runRepositoryServerWithConfig(t, cfg, nil)
+	client := newRepositoryClient(t, cfg, serverSocketPath)
 
-	config.Config.Gitlab.URL = url
+	repo, _, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name())
+	t.Cleanup(cleanup)
 
-	serverSocketPath, stop := runRepoServerWithConfig(t, config.Config, config.NewLocator(config.Config))
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	testhelper.ConfigureGitalyLfsSmudge(cfg.BinDir)
 
 	// lfs-moar branch SHA
 	sha := "46abbb087fcc0fd02c340f0f2f052bd2c7708da3"
@@ -241,7 +230,7 @@ func TestGetArchiveWithLfsSuccess(t *testing.T) {
 			defer cancel()
 
 			req := &gitalypb.GetArchiveRequest{
-				Repository:      testRepo,
+				Repository:      repo,
 				CommitId:        sha,
 				Prefix:          tc.prefix,
 				Format:          gitalypb.GetArchiveRequest_ZIP,
@@ -289,15 +278,7 @@ func TestGetArchiveWithLfsSuccess(t *testing.T) {
 }
 
 func TestGetArchiveFailure(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupRepositoryService(t)
 
 	commitID := "1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"
 
@@ -330,7 +311,7 @@ func TestGetArchiveFailure(t *testing.T) {
 		},
 		{
 			desc:     "CommitId is empty",
-			repo:     testRepo,
+			repo:     repo,
 			prefix:   "",
 			commitID: "",
 			format:   gitalypb.GetArchiveRequest_ZIP,
@@ -338,7 +319,7 @@ func TestGetArchiveFailure(t *testing.T) {
 		},
 		{
 			desc:     "Format is invalid",
-			repo:     testRepo,
+			repo:     repo,
 			prefix:   "",
 			commitID: "",
 			format:   gitalypb.GetArchiveRequest_Format(-1),
@@ -346,7 +327,7 @@ func TestGetArchiveFailure(t *testing.T) {
 		},
 		{
 			desc:     "Non-existing path in repository",
-			repo:     testRepo,
+			repo:     repo,
 			prefix:   "",
 			commitID: "1e292f8fedd741b75372e19097c76d327140c312",
 			format:   gitalypb.GetArchiveRequest_ZIP,
@@ -355,7 +336,7 @@ func TestGetArchiveFailure(t *testing.T) {
 		},
 		{
 			desc:     "Non-existing path in repository on commit ID",
-			repo:     testRepo,
+			repo:     repo,
 			prefix:   "",
 			commitID: commitID,
 			format:   gitalypb.GetArchiveRequest_ZIP,
@@ -364,7 +345,7 @@ func TestGetArchiveFailure(t *testing.T) {
 		},
 		{
 			desc:     "Non-existing exclude path in repository on commit ID",
-			repo:     testRepo,
+			repo:     repo,
 			prefix:   "",
 			commitID: commitID,
 			format:   gitalypb.GetArchiveRequest_ZIP,
@@ -373,7 +354,7 @@ func TestGetArchiveFailure(t *testing.T) {
 		},
 		{
 			desc:     "path contains directory traversal outside repository root",
-			repo:     testRepo,
+			repo:     repo,
 			prefix:   "",
 			commitID: "1e292f8fedd741b75372e19097c76d327140c312",
 			format:   gitalypb.GetArchiveRequest_ZIP,
@@ -382,7 +363,7 @@ func TestGetArchiveFailure(t *testing.T) {
 		},
 		{
 			desc:     "repo missing fields",
-			repo:     &gitalypb.Repository{StorageName: "default"},
+			repo:     &gitalypb.Repository{StorageName: repo.GetStorageName()},
 			prefix:   "qwert",
 			commitID: "sadf",
 			format:   gitalypb.GetArchiveRequest_TAR,
@@ -391,7 +372,7 @@ func TestGetArchiveFailure(t *testing.T) {
 		},
 		{
 			desc:      "with path is file and path elision",
-			repo:      testRepo,
+			repo:      repo,
 			commitID:  "1e292f8fedd741b75372e19097c76d327140c312",
 			prefix:    "my-prefix",
 			elidePath: true,
@@ -424,15 +405,7 @@ func TestGetArchiveFailure(t *testing.T) {
 }
 
 func TestGetArchivePathInjection(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepoWithWorktree(t)
-	defer cleanupFn()
+	_, repo, repoPath, client := setupRepositoryServiceWithWorktree(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -448,7 +421,7 @@ func TestGetArchivePathInjection(t *testing.T) {
 	require.NoError(t, authorizedKeysFile.Close())
 
 	// Create the directory on the repository
-	repoExploitPath := filepath.Join(testRepoPath, "--output=", authorizedKeysPath)
+	repoExploitPath := filepath.Join(repoPath, "--output=", authorizedKeysPath)
 	require.NoError(t, os.MkdirAll(repoExploitPath, os.ModeDir|0755))
 
 	f, err := os.Create(filepath.Join(repoExploitPath, "id_12345.pub"))
@@ -463,14 +436,14 @@ func TestGetArchivePathInjection(t *testing.T) {
 	require.NoError(t, f.Close())
 
 	// Add the directory to the repository
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "add", ".")
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "commit", "-m", "adding fake key file")
-	commitID := strings.TrimRight(string(testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "rev-parse", "HEAD")), "\n")
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "add", ".")
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "commit", "-m", "adding fake key file")
+	commitID := strings.TrimRight(string(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", "HEAD")), "\n")
 
 	injectionPath := fmt.Sprintf("--output=%s", authorizedKeysPath)
 
 	req := &gitalypb.GetArchiveRequest{
-		Repository: testRepo,
+		Repository: repo,
 		CommitId:   commitID,
 		Prefix:     "",
 		Format:     gitalypb.GetArchiveRequest_TAR,
@@ -497,22 +470,6 @@ func TestGetArchivePathInjection(t *testing.T) {
 }
 
 func TestGetArchiveEnv(t *testing.T) {
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-
-	commitID := "1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-
-	correlationID, _ := correlation.RandomID()
-	ctx = correlation.ContextWithCorrelation(ctx, correlationID)
-
-	req := &gitalypb.GetArchiveRequest{
-		Repository: testRepo,
-		CommitId:   commitID,
-	}
-
 	tmpFile, err := ioutil.TempFile("", "archive.sh")
 	require.NoError(t, err)
 	defer os.Remove(tmpFile.Name())
@@ -525,21 +482,35 @@ env | grep -E "^GL_|CORRELATION|GITALY_"`))
 	require.NoError(t, err)
 	require.NoError(t, tmpFile.Close())
 
-	oldBinPath := config.Config.Git.BinPath
-	config.Config.Git.BinPath = tmpFile.Name()
-	defer func() { config.Config.Git.BinPath = oldBinPath }()
+	cfg := testcfg.Build(t, testcfg.WithBase(config.Cfg{Git: config.Git{BinPath: tmpFile.Name()}}))
 
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
+	testhelper.ConfigureGitalyHooksBin(t, cfg)
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
+	serverSocketPath := runRepositoryServerWithConfig(t, cfg, nil)
+	cfg.SocketPath = serverSocketPath
 
-	cfgData, err := json.Marshal(config.Config.Gitlab)
+	client := newRepositoryClient(t, cfg, serverSocketPath)
+
+	repo, _, cleanup := gittest.CloneRepoWithWorktreeAtStorage(t, cfg.Storages[0])
+	t.Cleanup(cleanup)
+
+	commitID := "1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	correlationID, _ := correlation.RandomID()
+	ctx = correlation.ContextWithCorrelation(ctx, correlationID)
+
+	req := &gitalypb.GetArchiveRequest{
+		Repository: repo,
+		CommitId:   commitID,
+	}
+
+	cfgData, err := json.Marshal(cfg.Gitlab)
 	require.NoError(t, err)
 
-	tlsCfgData, err := json.Marshal(config.Config.TLS)
+	tlsCfgData, err := json.Marshal(cfg.TLS)
 	require.NoError(t, err)
 
 	stream, err := client.GetArchive(ctx, req)
@@ -552,7 +523,7 @@ env | grep -E "^GL_|CORRELATION|GITALY_"`))
 	require.Contains(t, string(data), "GL_INTERNAL_CONFIG="+string(cfgData))
 	require.Contains(t, string(data), "GITALY_TLS="+string(tlsCfgData))
 	require.Contains(t, string(data), "CORRELATION_ID="+correlationID)
-	require.Contains(t, string(data), "GITALY_LOG_DIR="+config.Config.Logging.Dir)
+	require.Contains(t, string(data), "GITALY_LOG_DIR="+cfg.Logging.Dir)
 }
 
 func compressedFileContents(t *testing.T, format gitalypb.GetArchiveRequest_Format, name string) []byte {

@@ -7,37 +7,26 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
 
 func TestRepositoryExists(t *testing.T) {
-	storageOtherDir := testhelper.TempDir(t)
+	cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("default", "other", "broken"))
+	cfg := cfgBuilder.Build(t)
 
-	// Setup storage paths
-	testStorages := []config.Storage{
-		{Name: "default", Path: testhelper.GitlabTestStoragePath()},
-		{Name: "other", Path: storageOtherDir},
-		{Name: "broken", Path: "/does/not/exist"},
-	}
+	require.NoError(t, os.RemoveAll(cfg.Storages[2].Path), "third storage needs to be invalid")
 
-	defer func(oldStorages []config.Storage) {
-		config.Config.Storages = oldStorages
-	}(config.Config.Storages)
-	config.Config.Storages = testStorages
+	serverSocketPath := runRepositoryServerWithConfig(t, cfg, nil, testserver.WithDisablePraefect())
 
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator, testhelper.WithStorages([]string{"default", "other", "broken"}))
-	defer stop()
+	repo, _, cleanupFn := gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name())
+	t.Cleanup(cleanupFn)
 
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
+	client := newRepositoryClient(t, cfg, serverSocketPath)
 
 	queries := []struct {
 		desc      string
@@ -57,7 +46,7 @@ func TestRepositoryExists(t *testing.T) {
 			request: &gitalypb.RepositoryExistsRequest{
 				Repository: &gitalypb.Repository{
 					StorageName:  "",
-					RelativePath: testRepo.GetRelativePath(),
+					RelativePath: repo.GetRelativePath(),
 				},
 			},
 			errorCode: codes.InvalidArgument,
@@ -66,7 +55,7 @@ func TestRepositoryExists(t *testing.T) {
 			desc: "relative path empty",
 			request: &gitalypb.RepositoryExistsRequest{
 				Repository: &gitalypb.Repository{
-					StorageName:  testRepo.GetStorageName(),
+					StorageName:  repo.GetStorageName(),
 					RelativePath: "",
 				},
 			},
@@ -76,8 +65,8 @@ func TestRepositoryExists(t *testing.T) {
 			desc: "exists true",
 			request: &gitalypb.RepositoryExistsRequest{
 				Repository: &gitalypb.Repository{
-					StorageName:  testRepo.GetStorageName(),
-					RelativePath: testRepo.GetRelativePath(),
+					StorageName:  repo.GetStorageName(),
+					RelativePath: repo.GetRelativePath(),
 				},
 			},
 			exists: true,
@@ -87,7 +76,7 @@ func TestRepositoryExists(t *testing.T) {
 			request: &gitalypb.RepositoryExistsRequest{
 				Repository: &gitalypb.Repository{
 					StorageName:  "other",
-					RelativePath: testRepo.GetRelativePath(),
+					RelativePath: repo.GetRelativePath(),
 				},
 			},
 			exists: false,
@@ -123,18 +112,10 @@ func TestRepositoryExists(t *testing.T) {
 }
 
 func TestSuccessfulHasLocalBranches(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	cfg, repo, _, client := setupRepositoryService(t)
 
 	emptyRepoName := "empty-repo.git"
-	emptyRepoPath := filepath.Join(testhelper.GitlabTestStoragePath(), emptyRepoName)
+	emptyRepoPath := filepath.Join(cfg.Storages[0].Path, emptyRepoName)
 	testhelper.MustRunCommand(t, nil, "git", "init", "--bare", emptyRepoPath)
 	defer os.RemoveAll(emptyRepoPath)
 
@@ -146,14 +127,14 @@ func TestSuccessfulHasLocalBranches(t *testing.T) {
 	}{
 		{
 			desc:    "repository has branches",
-			request: &gitalypb.HasLocalBranchesRequest{Repository: testRepo},
+			request: &gitalypb.HasLocalBranchesRequest{Repository: repo},
 			value:   true,
 		},
 		{
 			desc: "repository doesn't have branches",
 			request: &gitalypb.HasLocalBranchesRequest{
 				Repository: &gitalypb.Repository{
-					StorageName:  "default",
+					StorageName:  cfg.Storages[0].Name,
 					RelativePath: emptyRepoName,
 				},
 			},
@@ -179,12 +160,7 @@ func TestSuccessfulHasLocalBranches(t *testing.T) {
 }
 
 func TestFailedHasLocalBranches(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
+	_, client := setupRepositoryServiceWithoutRepo(t)
 
 	testCases := []struct {
 		desc       string

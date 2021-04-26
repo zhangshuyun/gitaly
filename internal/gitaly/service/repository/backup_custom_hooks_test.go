@@ -11,29 +11,16 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/streamio"
 )
 
 func TestSuccessfullBackupCustomHooksRequest(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
+	_, repo, repoPath, client := setupRepositoryService(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-
-	repoPath, err := locator.GetPath(testRepo)
-	require.NoError(t, err)
 
 	expectedTarResponse := []string{
 		"custom_hooks/",
@@ -46,7 +33,7 @@ func TestSuccessfullBackupCustomHooksRequest(t *testing.T) {
 		require.NoError(t, ioutil.WriteFile(filepath.Join(repoPath, fileName), []byte("Some hooks"), 0700), fmt.Sprintf("Could not create %s", fileName))
 	}
 
-	backupRequest := &gitalypb.BackupCustomHooksRequest{Repository: testRepo}
+	backupRequest := &gitalypb.BackupCustomHooksRequest{Repository: repo}
 	backupStream, err := client.BackupCustomHooks(ctx, backupRequest)
 	require.NoError(t, err)
 
@@ -69,26 +56,15 @@ func TestSuccessfullBackupCustomHooksRequest(t *testing.T) {
 }
 
 func TestSuccessfullBackupCustomHooksSymlink(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
+	_, repo, repoPath, client := setupRepositoryService(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-
-	repoPath, err := locator.GetPath(testRepo)
-	require.NoError(t, err)
-
 	linkTarget := "/var/empty"
 	require.NoError(t, os.Symlink(linkTarget, filepath.Join(repoPath, "custom_hooks")), "Could not create custom_hooks symlink")
 
-	backupRequest := &gitalypb.BackupCustomHooksRequest{Repository: testRepo}
+	backupRequest := &gitalypb.BackupCustomHooksRequest{Repository: repo}
 	backupStream, err := client.BackupCustomHooks(ctx, backupRequest)
 	require.NoError(t, err)
 
@@ -109,20 +85,12 @@ func TestSuccessfullBackupCustomHooksSymlink(t *testing.T) {
 }
 
 func TestSuccessfullBackupCustomHooksRequestWithNoHooks(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
+	_, repo, _, client := setupRepositoryService(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-
-	backupRequest := &gitalypb.BackupCustomHooksRequest{Repository: testRepo}
+	backupRequest := &gitalypb.BackupCustomHooksRequest{Repository: repo}
 	backupStream, err := client.BackupCustomHooks(ctx, backupRequest)
 	require.NoError(t, err)
 

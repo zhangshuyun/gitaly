@@ -13,13 +13,14 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/internal/git/updateref"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
 
 func getNewestPackfileModtime(t *testing.T, repoPath string) time.Time {
+	t.Helper()
+
 	packFiles, err := filepath.Glob(filepath.Join(repoPath, "objects", "pack", "*.pack"))
 	require.NoError(t, err)
 	if len(packFiles) == 0 {
@@ -40,31 +41,30 @@ func getNewestPackfileModtime(t *testing.T, repoPath string) time.Time {
 }
 
 func TestOptimizeRepository(t *testing.T) {
-	testRepo, testRepoPath, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
+	cfg, repo, repoPath, client := setupRepositoryService(t)
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "repack", "-A", "-b")
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "repack", "-A", "-b")
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	hasBitmap, err := stats.HasBitmap(testRepoPath)
+	hasBitmap, err := stats.HasBitmap(repoPath)
 	require.NoError(t, err)
 	require.True(t, hasBitmap, "expect a bitmap since we just repacked with -b")
 
 	// get timestamp of latest packfile
-	newestsPackfileTime := getNewestPackfileModtime(t, testRepoPath)
+	newestsPackfileTime := getNewestPackfileModtime(t, repoPath)
 
-	gittest.CreateCommit(t, config.Config, testRepoPath, "master", nil)
+	gittest.CreateCommit(t, cfg, repoPath, "master", nil)
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "config", "http.http://localhost:51744/60631c8695bf041a808759a05de53e36a73316aacb502824fabbb0c6055637c1.git.extraHeader", "Authorization: Basic secret-password")
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "config", "http.http://localhost:51744/60631c8695bf041a808759a05de53e36a73316aacb502824fabbb0c6055637c2.git.extraHeader", "Authorization: Basic secret-password")
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "config", "randomStart-http.http://localhost:51744/60631c8695bf041a808759a05de53e36a73316aacb502824fabbb0c6055637c3.git.extraHeader", "Authorization: Basic secret-password")
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "config", "http.http://localhost:51744/60631c8695bf041a808759a05de53e36a73316aacb502824fabbb0c6055637c4.git.extraHeader-randomEnd", "Authorization: Basic secret-password")
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "config", "hTTp.http://localhost:51744/60631c8695bf041a808759a05de53e36a73316aacb502824fabbb0c6055637c5.git.ExtrAheaDeR", "Authorization: Basic secret-password")
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "config", "http.http://extraHeader/extraheader/EXTRAHEADER.git.extraHeader", "Authorization: Basic secret-password")
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "config", "https.https://localhost:51744/60631c8695bf041a808759a05de53e36a73316aacb502824fabbb0c6055637c5.git.extraHeader", "Authorization: Basic secret-password")
-	confFileData, err := ioutil.ReadFile(filepath.Join(testRepoPath, "config"))
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "http.http://localhost:51744/60631c8695bf041a808759a05de53e36a73316aacb502824fabbb0c6055637c1.git.extraHeader", "Authorization: Basic secret-password")
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "http.http://localhost:51744/60631c8695bf041a808759a05de53e36a73316aacb502824fabbb0c6055637c2.git.extraHeader", "Authorization: Basic secret-password")
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "randomStart-http.http://localhost:51744/60631c8695bf041a808759a05de53e36a73316aacb502824fabbb0c6055637c3.git.extraHeader", "Authorization: Basic secret-password")
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "http.http://localhost:51744/60631c8695bf041a808759a05de53e36a73316aacb502824fabbb0c6055637c4.git.extraHeader-randomEnd", "Authorization: Basic secret-password")
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "hTTp.http://localhost:51744/60631c8695bf041a808759a05de53e36a73316aacb502824fabbb0c6055637c5.git.ExtrAheaDeR", "Authorization: Basic secret-password")
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "http.http://extraHeader/extraheader/EXTRAHEADER.git.extraHeader", "Authorization: Basic secret-password")
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "https.https://localhost:51744/60631c8695bf041a808759a05de53e36a73316aacb502824fabbb0c6055637c5.git.extraHeader", "Authorization: Basic secret-password")
+	confFileData, err := ioutil.ReadFile(filepath.Join(repoPath, "config"))
 	require.NoError(t, err)
 	require.True(t, bytes.Contains(confFileData, []byte("http://localhost:51744/60631c8695bf041a808759a05de53e36a73316aacb502824fabbb0c6055637c1.git")))
 	require.True(t, bytes.Contains(confFileData, []byte("http://localhost:51744/60631c8695bf041a808759a05de53e36a73316aacb502824fabbb0c6055637c2.git")))
@@ -74,17 +74,10 @@ func TestOptimizeRepository(t *testing.T) {
 	require.True(t, bytes.Contains(confFileData, []byte("http://extraHeader/extraheader/EXTRAHEADER.git")))
 	require.True(t, bytes.Contains(confFileData, []byte("https://localhost:51744/60631c8695bf041a808759a05de53e36a73316aacb502824fabbb0c6055637c5.git")))
 
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator, testhelper.WithInternalSocket(config.Config))
-	defer stop()
-
-	repoClient, conn := NewRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
-
-	_, err = repoClient.OptimizeRepository(ctx, &gitalypb.OptimizeRepositoryRequest{Repository: testRepo})
+	_, err = client.OptimizeRepository(ctx, &gitalypb.OptimizeRepositoryRequest{Repository: repo})
 	require.NoError(t, err)
 
-	confFileData, err = ioutil.ReadFile(filepath.Join(testRepoPath, "config"))
+	confFileData, err = ioutil.ReadFile(filepath.Join(repoPath, "config"))
 	require.NoError(t, err)
 	require.False(t, bytes.Contains(confFileData, []byte("http://localhost:51744/60631c8695bf041a808759a05de53e36a73316aacb502824fabbb0c6055637c1.git")))
 	require.False(t, bytes.Contains(confFileData, []byte("http://localhost:51744/60631c8695bf041a808759a05de53e36a73316aacb502824fabbb0c6055637c2.git")))
@@ -94,19 +87,19 @@ func TestOptimizeRepository(t *testing.T) {
 	require.False(t, bytes.Contains(confFileData, []byte("http://extraHeader/extraheader/EXTRAHEADER.git.extraHeader")))
 	require.True(t, bytes.Contains(confFileData, []byte("https://localhost:51744/60631c8695bf041a808759a05de53e36a73316aacb502824fabbb0c6055637c5.git")))
 
-	require.Equal(t, getNewestPackfileModtime(t, testRepoPath), newestsPackfileTime, "there should not have been a new packfile created")
+	require.Equal(t, getNewestPackfileModtime(t, repoPath), newestsPackfileTime, "there should not have been a new packfile created")
 
-	testRepo, testRepoPath, cleanupBare := gittest.InitBareRepo(t)
-	defer cleanupBare()
+	testRepo, testRepoPath, cleanupBare := gittest.InitBareRepoAt(t, cfg.Storages[0])
+	t.Cleanup(cleanupBare)
 
 	blobs := 10
 	blobIDs := gittest.WriteBlobs(t, testRepoPath, blobs)
 
-	updater, err := updateref.New(ctx, config.Config, git.NewExecCommandFactory(config.Config), testRepo)
+	updater, err := updateref.New(ctx, cfg, git.NewExecCommandFactory(cfg), testRepo)
 	require.NoError(t, err)
 
 	for _, blobID := range blobIDs {
-		commitID := gittest.CommitBlobWithName(t, config.Config, testRepoPath, blobID, blobID, "adding another blob....")
+		commitID := gittest.CommitBlobWithName(t, cfg, testRepoPath, blobID, blobID, "adding another blob....")
 		require.NoError(t, updater.Create(git.ReferenceName("refs/heads/"+blobID), commitID))
 	}
 
@@ -122,7 +115,7 @@ func TestOptimizeRepository(t *testing.T) {
 	require.DirExists(t, emptyRef, "sanity check for empty ref dir existence")
 
 	// optimize repository on a repository without a bitmap should call repack full
-	_, err = repoClient.OptimizeRepository(ctx, &gitalypb.OptimizeRepositoryRequest{Repository: testRepo})
+	_, err = client.OptimizeRepository(ctx, &gitalypb.OptimizeRepositoryRequest{Repository: testRepo})
 	require.NoError(t, err)
 
 	bitmaps, err = filepath.Glob(filepath.Join(testRepoPath, "objects", "pack", "*.bitmap"))
@@ -143,7 +136,7 @@ func TestOptimizeRepository(t *testing.T) {
 	require.NoError(t, os.Chtimes(emptyRef, oneDayAgo, oneDayAgo))
 	require.NoError(t, os.Chtimes(mrRefs, oneDayAgo, oneDayAgo))
 
-	_, err = repoClient.OptimizeRepository(ctx, &gitalypb.OptimizeRepositoryRequest{Repository: testRepo})
+	_, err = client.OptimizeRepository(ctx, &gitalypb.OptimizeRepositoryRequest{Repository: testRepo})
 	require.NoError(t, err)
 
 	testhelper.AssertPathNotExists(t, emptyRef)
@@ -151,8 +144,7 @@ func TestOptimizeRepository(t *testing.T) {
 }
 
 func TestOptimizeRepositoryValidation(t *testing.T) {
-	testRepo, _, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
+	_, repo, _, client := setupRepositoryService(t)
 
 	testCases := []struct {
 		desc              string
@@ -166,34 +158,27 @@ func TestOptimizeRepositoryValidation(t *testing.T) {
 		},
 		{
 			desc:              "invalid repository storage",
-			repo:              &gitalypb.Repository{StorageName: "non-existent", RelativePath: testRepo.GetRelativePath()},
+			repo:              &gitalypb.Repository{StorageName: "non-existent", RelativePath: repo.GetRelativePath()},
 			expectedErrorCode: codes.InvalidArgument,
 		},
 		{
 			desc:              "invalid repository path",
-			repo:              &gitalypb.Repository{StorageName: testRepo.GetStorageName(), RelativePath: "/path/not/exist"},
+			repo:              &gitalypb.Repository{StorageName: repo.GetStorageName(), RelativePath: "/path/not/exist"},
 			expectedErrorCode: codes.NotFound,
 		},
 	}
-
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
-
-	repoClient, conn := NewRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			_, err := repoClient.OptimizeRepository(ctx, &gitalypb.OptimizeRepositoryRequest{Repository: tc.repo})
+			_, err := client.OptimizeRepository(ctx, &gitalypb.OptimizeRepositoryRequest{Repository: tc.repo})
 			require.Error(t, err)
 			testhelper.RequireGrpcError(t, err, tc.expectedErrorCode)
 		})
 	}
 
-	_, err := repoClient.OptimizeRepository(ctx, &gitalypb.OptimizeRepositoryRequest{Repository: testRepo})
+	_, err := client.OptimizeRepository(ctx, &gitalypb.OptimizeRepositoryRequest{Repository: repo})
 	require.NoError(t, err)
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -16,12 +17,7 @@ import (
 )
 
 func TestDeleteConfig(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
 	testcases := []struct {
 		desc    string
@@ -48,14 +44,14 @@ func TestDeleteConfig(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-			defer cleanupFn()
+			repo, repoPath, cleanupFn := gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name())
+			t.Cleanup(cleanupFn)
 
 			for _, k := range tc.addKeys {
-				testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "config", k, "blabla")
+				testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", k, "blabla")
 			}
 
-			_, err := client.DeleteConfig(ctx, &gitalypb.DeleteConfigRequest{Repository: testRepo, Keys: tc.reqKeys})
+			_, err := client.DeleteConfig(ctx, &gitalypb.DeleteConfigRequest{Repository: repo, Keys: tc.reqKeys})
 			if tc.code == codes.OK {
 				require.NoError(t, err)
 			} else {
@@ -63,7 +59,7 @@ func TestDeleteConfig(t *testing.T) {
 				return
 			}
 
-			actualConfig := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "config", "-l")
+			actualConfig := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "-l")
 			scanner := bufio.NewScanner(bytes.NewReader(actualConfig))
 			for scanner.Scan() {
 				for _, k := range tc.reqKeys {
@@ -76,13 +72,8 @@ func TestDeleteConfig(t *testing.T) {
 	}
 }
 
-func TestSetConfig(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
+func testSetConfig(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
+	cfg, _, _, client := setupRepositoryServiceWithRuby(t, cfg, rubySrv)
 
 	testcases := []struct {
 		desc     string
@@ -113,7 +104,7 @@ func TestSetConfig(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
+			testRepo, testRepoPath, cleanupFn := gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name())
 			defer cleanupFn()
 
 			_, err := client.SetConfig(ctx, &gitalypb.SetConfigRequest{Repository: testRepo, Entries: tc.entries})

@@ -21,53 +21,37 @@ import (
 )
 
 func TestMidxWrite(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	cfg, repo, repoPath, client := setupRepositoryService(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	_, err := client.MidxRepack(ctx, &gitalypb.MidxRepackRequest{Repository: testRepo})
+	_, err := client.MidxRepack(ctx, &gitalypb.MidxRepackRequest{Repository: repo})
 	assert.NoError(t, err)
 
 	require.FileExists(t,
-		filepath.Join(testRepoPath, MidxRelPath),
+		filepath.Join(repoPath, MidxRelPath),
 		"multi-pack-index should exist after running MidxRepack",
 	)
 
-	repoCfgPath := filepath.Join(testRepoPath, "config")
+	repoCfgPath := filepath.Join(repoPath, "config")
 
 	cfgF, err := os.Open(repoCfgPath)
 	require.NoError(t, err)
 	defer cfgF.Close()
 
-	cfg, err := localrepo.New(git.NewExecCommandFactory(config.Config), testRepo, config.Config).Config().GetRegexp(ctx, "core.multipackindex", git.ConfigGetRegexpOpts{})
+	cfgCmd, err := localrepo.New(git.NewExecCommandFactory(cfg), repo, cfg).Config().GetRegexp(ctx, "core.multipackindex", git.ConfigGetRegexpOpts{})
 	require.NoError(t, err)
-	require.Equal(t, []git.ConfigPair{{Key: "core.multipackindex", Value: "true"}}, cfg)
+	require.Equal(t, []git.ConfigPair{{Key: "core.multipackindex", Value: "true"}}, cfgCmd)
 }
 
 func TestMidxRewrite(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, repoPath, client := setupRepositoryService(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	midxPath := filepath.Join(testRepoPath, MidxRelPath)
+	midxPath := filepath.Join(repoPath, MidxRelPath)
 
 	// Create an invalid multi-pack-index file
 	// with mtime update being the basis for comparison
@@ -77,11 +61,11 @@ func TestMidxRewrite(t *testing.T) {
 	require.NoError(t, err)
 	mt := info.ModTime()
 
-	_, err = client.MidxRepack(ctx, &gitalypb.MidxRepackRequest{Repository: testRepo})
+	_, err = client.MidxRepack(ctx, &gitalypb.MidxRepackRequest{Repository: repo})
 	require.NoError(t, err)
 
 	require.FileExists(t,
-		filepath.Join(testRepoPath, MidxRelPath),
+		filepath.Join(repoPath, MidxRelPath),
 		"multi-pack-index should exist after running MidxRepack",
 	)
 
@@ -89,25 +73,17 @@ func TestMidxRewrite(t *testing.T) {
 }
 
 func TestMidxRepack(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	cfg, repo, repoPath, client := setupRepositoryService(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
 	// add some pack files with different sizes
 	packsAdded := 5
-	addPackFiles(t, ctx, client, testRepo, testRepoPath, packsAdded, true)
+	addPackFiles(t, ctx, cfg, client, repo, repoPath, packsAdded, true)
 
 	// record pack count
-	actualCount, err := stats.PackfilesCount(testRepoPath)
+	actualCount, err := stats.PackfilesCount(repoPath)
 	require.NoError(t, err)
 	require.Equal(t,
 		packsAdded+1, // expect
@@ -118,12 +94,12 @@ func TestMidxRepack(t *testing.T) {
 	_, err = client.MidxRepack(
 		ctx,
 		&gitalypb.MidxRepackRequest{
-			Repository: testRepo,
+			Repository: repo,
 		},
 	)
 	require.NoError(t, err)
 
-	actualCount, err = stats.PackfilesCount(testRepoPath)
+	actualCount, err = stats.PackfilesCount(repoPath)
 	require.NoError(t, err)
 	require.Equal(t,
 		packsAdded+2, // expect
@@ -131,32 +107,27 @@ func TestMidxRepack(t *testing.T) {
 		"At least 1 pack file should have been created",
 	)
 
-	newPackFile := findNewestPackFile(t, testRepoPath)
+	newPackFile := findNewestPackFile(t, repoPath)
 	assert.True(t, newPackFile.ModTime().After(time.Time{}))
 }
 
 func TestMidxRepackExpire(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
 	for _, packsAdded := range []int{3, 5, 11, 20} {
 		t.Run(fmt.Sprintf("Test repack expire with %d added packs", packsAdded),
 			func(t *testing.T) {
-				testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-				defer cleanupFn()
+				repo, repoPath, cleanupFn := gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name())
+				t.Cleanup(cleanupFn)
 
 				ctx, cancel := testhelper.Context()
 				defer cancel()
 
 				// add some pack files with different sizes
-				addPackFiles(t, ctx, client, testRepo, testRepoPath, packsAdded, false)
+				addPackFiles(t, ctx, cfg, client, repo, repoPath, packsAdded, false)
 
 				// record pack count
-				actualCount, err := stats.PackfilesCount(testRepoPath)
+				actualCount, err := stats.PackfilesCount(repoPath)
 				require.NoError(t, err)
 				require.Equal(t,
 					packsAdded+1, // expect
@@ -179,12 +150,12 @@ func TestMidxRepackExpire(t *testing.T) {
 					_, err := client.MidxRepack(
 						ctx,
 						&gitalypb.MidxRepackRequest{
-							Repository: testRepo,
+							Repository: repo,
 						},
 					)
 					require.NoError(t, err)
 
-					packCount, err = stats.PackfilesCount(testRepoPath)
+					packCount, err = stats.PackfilesCount(repoPath)
 					require.NoError(t, err)
 
 					if packCount == 2 {
@@ -208,6 +179,8 @@ func TestMidxRepackExpire(t *testing.T) {
 
 // findNewestPackFile returns the latest created pack file in repo's odb
 func findNewestPackFile(t *testing.T, repoPath string) os.FileInfo {
+	t.Helper()
+
 	files, err := stats.GetPackfiles(repoPath)
 	require.NoError(t, err)
 
@@ -227,12 +200,15 @@ func findNewestPackFile(t *testing.T, repoPath string) os.FileInfo {
 func addPackFiles(
 	t *testing.T,
 	ctx context.Context,
+	cfg config.Cfg,
 	client gitalypb.RepositoryServiceClient,
 	repo *gitalypb.Repository,
 	repoPath string,
 	packCount int,
 	resetModTime bool,
 ) {
+	t.Helper()
+
 	// do a full repack to ensure we start with 1 pack
 	_, err := client.RepackFull(ctx, &gitalypb.RepackFullRequest{Repository: repo, CreateBitmap: true})
 	require.NoError(t, err)
@@ -240,7 +216,7 @@ func addPackFiles(
 	// create some pack files with different sizes
 	for i := 0; i < packCount; i++ {
 		for y := packCount + 1 - i; y > 0; y-- {
-			gittest.CreateCommitOnNewBranch(t, config.Config, repoPath)
+			gittest.CreateCommitOnNewBranch(t, cfg, repoPath)
 		}
 
 		_, err = client.RepackIncremental(ctx, &gitalypb.RepackIncrementalRequest{Repository: repo})

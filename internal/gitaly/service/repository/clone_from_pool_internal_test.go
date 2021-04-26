@@ -1,4 +1,4 @@
-package repository_test
+package repository
 
 import (
 	"fmt"
@@ -12,67 +12,61 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/objectpool"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/repository"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/metadata"
 )
 
-func NewTestObjectPool(t *testing.T) (*objectpool.ObjectPool, *gitalypb.Repository) {
-	storagePath := testhelper.GitlabTestStoragePath()
+func newTestObjectPool(t *testing.T, cfg config.Cfg) (*objectpool.ObjectPool, *gitalypb.Repository) {
+	t.Helper()
 	relativePath := gittest.NewObjectPoolName(t)
-	repo := gittest.InitRepoDir(t, storagePath, relativePath)
+	repo := gittest.InitRepoDir(t, cfg.Storages[0].Path, relativePath)
 
-	pool, err := objectpool.NewObjectPool(config.Config, config.NewLocator(config.Config), git.NewExecCommandFactory(config.Config), repo.GetStorageName(), relativePath)
+	pool, err := objectpool.NewObjectPool(cfg, config.NewLocator(cfg), git.NewExecCommandFactory(cfg), repo.GetStorageName(), relativePath)
 	require.NoError(t, err)
 
 	return pool, repo
 }
 
 // getForkDestination creates a repo struct and path, but does not actually create the directory
-func getForkDestination(t *testing.T) (*gitalypb.Repository, string, func()) {
+func getForkDestination(t *testing.T, storage config.Storage) (*gitalypb.Repository, string, func()) {
+	t.Helper()
 	folder, err := text.RandomHex(20)
 	require.NoError(t, err)
-	forkRepoPath := filepath.Join(testhelper.GitlabTestStoragePath(), folder)
-	forkedRepo := &gitalypb.Repository{StorageName: "default", RelativePath: folder, GlRepository: "project-1"}
+	forkRepoPath := filepath.Join(storage.Path, folder)
+	forkedRepo := &gitalypb.Repository{StorageName: storage.Name, RelativePath: folder, GlRepository: "project-1"}
 
 	return forkedRepo, forkRepoPath, func() { os.RemoveAll(forkRepoPath) }
 }
 
 func TestCloneFromPoolInternal(t *testing.T) {
-	serverSocketPath := runFullServer(t)
+	cfg, repo, repoPath, client := setupRepositoryService(t)
 
 	ctxOuter, cancel := testhelper.Context()
 	defer cancel()
 
-	md := testhelper.GitalyServersMetadata(t, serverSocketPath)
+	md := testhelper.GitalyServersMetadataFromCfg(t, cfg)
 	ctx := metadata.NewOutgoingContext(ctxOuter, md)
 
-	client, conn := repository.NewRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-
-	pool, poolRepo := NewTestObjectPool(t)
+	pool, poolRepo := newTestObjectPool(t, cfg)
 	defer func() {
 		require.NoError(t, pool.Remove(ctx))
 	}()
 
-	require.NoError(t, pool.Create(ctx, testRepo))
-	require.NoError(t, pool.Link(ctx, testRepo))
+	require.NoError(t, pool.Create(ctx, repo))
+	require.NoError(t, pool.Link(ctx, repo))
 
-	fullRepack(t, testRepoPath)
+	fullRepack(t, repoPath)
 
-	_, newBranch := gittest.CreateCommitOnNewBranch(t, config.Config, testRepoPath)
+	_, newBranch := gittest.CreateCommitOnNewBranch(t, cfg, repoPath)
 
-	forkedRepo, forkRepoPath, forkRepoCleanup := getForkDestination(t)
+	forkedRepo, forkRepoPath, forkRepoCleanup := getForkDestination(t, cfg.Storages[0])
 	defer forkRepoCleanup()
 
 	req := &gitalypb.CloneFromPoolInternalRequest{
 		Repository:       forkedRepo,
-		SourceRepository: testRepo,
+		SourceRepository: repo,
 		Pool: &gitalypb.ObjectPool{
 			Repository: poolRepo,
 		},
@@ -83,7 +77,7 @@ func TestCloneFromPoolInternal(t *testing.T) {
 
 	assert.True(t, gittest.GetGitObjectDirSize(t, forkRepoPath) < 100)
 
-	isLinked, err := pool.LinkedToRepository(testRepo)
+	isLinked, err := pool.LinkedToRepository(repo)
 	require.NoError(t, err)
 	require.True(t, isLinked)
 

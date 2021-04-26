@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/tempdir"
@@ -21,36 +20,29 @@ import (
 )
 
 func TestServer_CreateRepositoryFromBundle_successful(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator, testhelper.WithInternalSocket(config.Config))
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
+	cfg, repo, repoPath, client := setupRepositoryService(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-
-	tmpdir, err := tempdir.New(ctx, testRepo, locator)
+	locator := config.NewLocator(cfg)
+	tmpdir, err := tempdir.New(ctx, repo, locator)
 	require.NoError(t, err)
 	bundlePath := filepath.Join(tmpdir, "original.bundle")
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "update-ref", "refs/custom-refs/ref1", "HEAD")
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "update-ref", "refs/custom-refs/ref1", "HEAD")
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "bundle", "create", bundlePath, "--all")
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "bundle", "create", bundlePath, "--all")
 	defer os.RemoveAll(bundlePath)
 
 	stream, err := client.CreateRepositoryFromBundle(ctx)
 	require.NoError(t, err)
 
 	importedRepoProto := &gitalypb.Repository{
-		StorageName:  testhelper.DefaultStorageName,
+		StorageName:  repo.GetStorageName(),
 		RelativePath: "a-repo-from-bundle",
 	}
-	importedRepo := localrepo.New(git.NewExecCommandFactory(config.Config), importedRepoProto, config.Config)
+	importedRepo := localrepo.New(git.NewExecCommandFactory(cfg), importedRepoProto, cfg)
 	importedRepoPath, err := locator.GetPath(importedRepoProto)
 	require.NoError(t, err)
 	defer os.RemoveAll(importedRepoPath)
@@ -90,12 +82,7 @@ func TestServer_CreateRepositoryFromBundle_successful(t *testing.T) {
 }
 
 func TestServer_CreateRepositoryFromBundle_failed_invalid_bundle(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -104,11 +91,10 @@ func TestServer_CreateRepositoryFromBundle_failed_invalid_bundle(t *testing.T) {
 	require.NoError(t, err)
 
 	importedRepo := &gitalypb.Repository{
-		StorageName:  testhelper.DefaultStorageName,
+		StorageName:  cfg.Storages[0].Name,
 		RelativePath: "a-repo-from-bundle",
 	}
-	importedRepoPath, err := locator.GetPath(importedRepo)
-	require.NoError(t, err)
+	importedRepoPath := filepath.Join(cfg.Storages[0].Path, importedRepo.GetRelativePath())
 	defer os.RemoveAll(importedRepoPath)
 
 	request := &gitalypb.CreateRepositoryFromBundleRequest{Repository: importedRepo}
@@ -133,12 +119,7 @@ func TestServer_CreateRepositoryFromBundle_failed_invalid_bundle(t *testing.T) {
 }
 
 func TestServer_CreateRepositoryFromBundle_failed_validations(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
+	_, client := setupRepositoryServiceWithoutRepo(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -153,15 +134,7 @@ func TestServer_CreateRepositoryFromBundle_failed_validations(t *testing.T) {
 }
 
 func TestServer_CreateRepositoryFromBundle_failed_existing_directory(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
-
-	testRepo, _, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
+	_, repo, _, client := setupRepositoryService(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -170,7 +143,7 @@ func TestServer_CreateRepositoryFromBundle_failed_existing_directory(t *testing.
 	require.NoError(t, err)
 
 	require.NoError(t, stream.Send(&gitalypb.CreateRepositoryFromBundleRequest{
-		Repository: testRepo,
+		Repository: repo,
 	}))
 
 	_, err = stream.CloseAndRecv()

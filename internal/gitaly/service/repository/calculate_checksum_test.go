@@ -9,32 +9,23 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
 
 func TestSuccessfulCalculateChecksum(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	cfg, repo, repoPath, client := setupRepositoryService(t)
 
 	// Force the refs database of testRepo into a known state
-	require.NoError(t, os.RemoveAll(filepath.Join(testRepoPath, "refs")))
+	require.NoError(t, os.RemoveAll(filepath.Join(repoPath, "refs")))
 	for _, d := range []string{"refs/heads", "refs/tags", "refs/notes"} {
-		require.NoError(t, os.MkdirAll(filepath.Join(testRepoPath, d), 0755))
+		require.NoError(t, os.MkdirAll(filepath.Join(repoPath, d), 0755))
 	}
-	require.NoError(t, exec.Command("cp", "testdata/checksum-test-packed-refs", filepath.Join(testRepoPath, "packed-refs")).Run())
-	require.NoError(t, exec.Command(config.Config.Git.BinPath, "-C", testRepoPath, "symbolic-ref", "HEAD", "refs/heads/feature").Run())
+	require.NoError(t, exec.Command("cp", "testdata/checksum-test-packed-refs", filepath.Join(repoPath, "packed-refs")).Run())
+	require.NoError(t, exec.Command(cfg.Git.BinPath, "-C", repoPath, "symbolic-ref", "HEAD", "refs/heads/feature").Run())
 
-	request := &gitalypb.CalculateChecksumRequest{Repository: testRepo}
+	request := &gitalypb.CalculateChecksumRequest{Repository: repo}
 	testCtx, cancelCtx := testhelper.Context()
 	defer cancelCtx()
 
@@ -74,15 +65,10 @@ func TestRefWhitelist(t *testing.T) {
 }
 
 func TestEmptyRepositoryCalculateChecksum(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
-
-	repo, _, cleanupFn := gittest.InitBareRepo(t)
-	defer cleanupFn()
+	repo, _, cleanup := gittest.InitBareRepoAt(t, cfg.Storages[0])
+	t.Cleanup(cleanup)
 
 	request := &gitalypb.CalculateChecksumRequest{Repository: repo}
 	testCtx, cancelCtx := testhelper.Context()
@@ -94,18 +80,13 @@ func TestEmptyRepositoryCalculateChecksum(t *testing.T) {
 }
 
 func TestBrokenRepositoryCalculateChecksum(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
-
-	repo, testRepoPath, cleanupFn := gittest.InitBareRepo(t)
-	defer cleanupFn()
+	repo, repoPath, cleanup := gittest.InitBareRepoAt(t, cfg.Storages[0])
+	t.Cleanup(cleanup)
 
 	// Force an empty HEAD file
-	require.NoError(t, os.Truncate(filepath.Join(testRepoPath, "HEAD"), 0))
+	require.NoError(t, os.Truncate(filepath.Join(repoPath, "HEAD"), 0))
 
 	request := &gitalypb.CalculateChecksumRequest{Repository: repo}
 	testCtx, cancelCtx := testhelper.Context()
@@ -116,12 +97,7 @@ func TestBrokenRepositoryCalculateChecksum(t *testing.T) {
 }
 
 func TestFailedCalculateChecksum(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
+	_, client := setupRepositoryServiceWithoutRepo(t)
 
 	invalidRepo := &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}
 
@@ -152,24 +128,16 @@ func TestFailedCalculateChecksum(t *testing.T) {
 }
 
 func TestInvalidRefsCalculateChecksum(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, repoPath, client := setupRepositoryService(t)
 
 	// Force the refs database of testRepo into a known state
-	require.NoError(t, os.RemoveAll(filepath.Join(testRepoPath, "refs")))
+	require.NoError(t, os.RemoveAll(filepath.Join(repoPath, "refs")))
 	for _, d := range []string{"refs/heads", "refs/tags", "refs/notes"} {
-		require.NoError(t, os.MkdirAll(filepath.Join(testRepoPath, d), 0755))
+		require.NoError(t, os.MkdirAll(filepath.Join(repoPath, d), 0755))
 	}
-	require.NoError(t, exec.Command("cp", "testdata/checksum-test-invalid-refs", filepath.Join(testRepoPath, "packed-refs")).Run())
+	require.NoError(t, exec.Command("cp", "testdata/checksum-test-invalid-refs", filepath.Join(repoPath, "packed-refs")).Run())
 
-	request := &gitalypb.CalculateChecksumRequest{Repository: testRepo}
+	request := &gitalypb.CalculateChecksumRequest{Repository: repo}
 	testCtx, cancelCtx := testhelper.Context()
 	defer cancelCtx()
 

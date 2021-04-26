@@ -12,33 +12,42 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config/auth"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
 
-func TestCreateRepositorySuccess(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
+func TestRepoNoAuth(t *testing.T) {
+	cfg, repo, _ := testcfg.BuildWithRepo(t, testcfg.WithBase(config.Cfg{Auth: auth.Config{Token: "some"}}))
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
+	serverSocketPath := runRepositoryServerWithConfig(t, cfg, nil)
+	client := newRepositoryClient(t, config.Cfg{Auth: auth.Config{Token: ""}}, serverSocketPath)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	storageDir, err := locator.GetStorageByName("default")
-	require.NoError(t, err)
+	_, err := client.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{Repository: repo})
+
+	testhelper.RequireGrpcError(t, err, codes.Unauthenticated)
+}
+
+func TestCreateRepositorySuccess(t *testing.T) {
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	storageDir := cfg.Storages[0].Path
 	relativePath := "create-repository-test.git"
 	repoDir := filepath.Join(storageDir, relativePath)
 	require.NoError(t, os.RemoveAll(repoDir))
 
-	repo := &gitalypb.Repository{StorageName: "default", RelativePath: relativePath}
+	repo := &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: relativePath}
 	req := &gitalypb.CreateRepositoryRequest{Repository: repo}
-	_, err = client.CreateRepository(ctx, req)
+	_, err := client.CreateRepository(ctx, req)
 	require.NoError(t, err)
 	defer func() { require.NoError(t, os.RemoveAll(repoDir)) }()
 
@@ -59,38 +68,27 @@ func TestCreateRepositorySuccess(t *testing.T) {
 }
 
 func TestCreateRepositoryFailure(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	storagePath, err := locator.GetStorageByName("default")
-	require.NoError(t, err)
+	storagePath := cfg.Storages[0].Path
 	fullPath := filepath.Join(storagePath, "foo.git")
 
-	_, err = os.Create(fullPath)
+	_, err := os.Create(fullPath)
 	require.NoError(t, err)
 	defer os.RemoveAll(fullPath)
 
 	_, err = client.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{
-		Repository: &gitalypb.Repository{StorageName: "default", RelativePath: "foo.git"},
+		Repository: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "foo.git"},
 	})
 
 	testhelper.RequireGrpcError(t, err, codes.Internal)
 }
 
 func TestCreateRepositoryFailureInvalidArgs(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
+	_, client := setupRepositoryServiceWithoutRepo(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -116,26 +114,18 @@ func TestCreateRepositoryFailureInvalidArgs(t *testing.T) {
 }
 
 func TestCreateRepositoryIdempotent(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
+	_, repo, repoPath, client := setupRepositoryService(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	refsBefore := strings.Split(string(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "for-each-ref")), "\n")
 
-	refsBefore := strings.Split(string(testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "for-each-ref")), "\n")
-
-	req := &gitalypb.CreateRepositoryRequest{Repository: testRepo}
+	req := &gitalypb.CreateRepositoryRequest{Repository: repo}
 	_, err := client.CreateRepository(ctx, req)
 	require.NoError(t, err)
 
-	refsAfter := strings.Split(string(testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "for-each-ref")), "\n")
+	refsAfter := strings.Split(string(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "for-each-ref")), "\n")
 
 	assert.Equal(t, refsBefore, refsAfter)
 }

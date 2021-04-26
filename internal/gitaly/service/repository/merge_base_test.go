@@ -4,23 +4,13 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
 
 func TestSuccessfulFindFindMergeBaseRequest(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupRepositoryService(t)
 
 	testCases := []struct {
 		desc      string
@@ -76,7 +66,7 @@ func TestSuccessfulFindFindMergeBaseRequest(t *testing.T) {
 			defer cancel()
 
 			request := &gitalypb.FindMergeBaseRequest{
-				Repository: testRepo,
+				Repository: repo,
 				Revisions:  testCase.revisions,
 			}
 
@@ -89,21 +79,13 @@ func TestSuccessfulFindFindMergeBaseRequest(t *testing.T) {
 }
 
 func TestFailedFindMergeBaseRequestDueToValidations(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupRepositoryService(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
 	request := &gitalypb.FindMergeBaseRequest{
-		Repository: testRepo,
+		Repository: repo,
 		Revisions: [][]byte{
 			[]byte("372ab6950519549b14d220271ee2322caa44d4eb"),
 		},

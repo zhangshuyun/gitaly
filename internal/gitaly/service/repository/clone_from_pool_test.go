@@ -1,4 +1,4 @@
-package repository_test
+package repository
 
 import (
 	"fmt"
@@ -8,44 +8,38 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/repository"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/metadata"
 )
 
-func TestCloneFromPoolHTTP(t *testing.T) {
-	serverSocketPath := runFullServer(t)
+func testCloneFromPoolHTTP(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
+	cfg, repo, repoPath, client := setupRepositoryServiceWithRuby(t, cfg, rubySrv)
 
 	ctxOuter, cancel := testhelper.Context()
 	defer cancel()
 
-	md := testhelper.GitalyServersMetadata(t, serverSocketPath)
+	md := testhelper.GitalyServersMetadataFromCfg(t, cfg)
 	ctx := metadata.NewOutgoingContext(ctxOuter, md)
 
-	client, conn := repository.NewRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-
-	pool, poolRepo := NewTestObjectPool(t)
+	pool, poolRepo := newTestObjectPool(t, cfg)
 	defer func() {
 		require.NoError(t, pool.Remove(ctx))
 	}()
 
-	require.NoError(t, pool.Create(ctx, testRepo))
-	require.NoError(t, pool.Link(ctx, testRepo))
+	require.NoError(t, pool.Create(ctx, repo))
+	require.NoError(t, pool.Link(ctx, repo))
 
-	fullRepack(t, testRepoPath)
+	fullRepack(t, repoPath)
 
-	_, newBranch := gittest.CreateCommitOnNewBranch(t, config.Config, testRepoPath)
+	_, newBranch := gittest.CreateCommitOnNewBranch(t, cfg, repoPath)
 
-	forkedRepo, forkRepoPath, forkRepoCleanup := getForkDestination(t)
+	forkedRepo, forkRepoPath, forkRepoCleanup := getForkDestination(t, cfg.Storages[0])
 	defer forkRepoCleanup()
 
 	authorizationHeader := "ABCefg0999182"
-	_, remoteURL := gittest.RemoteUploadPackServer(ctx, t, config.Config.Git.BinPath, "my-repo", authorizationHeader, testRepoPath)
+	_, remoteURL := gittest.RemoteUploadPackServer(ctx, t, cfg.Git.BinPath, "my-repo", authorizationHeader, repoPath)
 
 	req := &gitalypb.CloneFromPoolRequest{
 		Repository: forkedRepo,
@@ -62,7 +56,7 @@ func TestCloneFromPoolHTTP(t *testing.T) {
 	_, err := client.CloneFromPool(ctx, req)
 	require.NoError(t, err)
 
-	isLinked, err := pool.LinkedToRepository(testRepo)
+	isLinked, err := pool.LinkedToRepository(repo)
 	require.NoError(t, err)
 	require.True(t, isLinked, "repository is not linked to the pool repository")
 

@@ -19,11 +19,11 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
-	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -31,13 +31,10 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func copyRepoWithNewRemote(t *testing.T, repo *gitalypb.Repository, locator storage.Locator, remote string) (*gitalypb.Repository, string) {
-	repoPath, err := locator.GetRepoPath(repo)
-	require.NoError(t, err)
-
+func copyRepoWithNewRemote(t *testing.T, repo *gitalypb.Repository, repoPath string, remote string) (*gitalypb.Repository, string) {
 	cloneRepo := &gitalypb.Repository{StorageName: repo.GetStorageName(), RelativePath: "fetch-remote-clone.git"}
 
-	clonePath := filepath.Join(testhelper.GitlabTestStoragePath(), "fetch-remote-clone.git")
+	clonePath := filepath.Join(filepath.Dir(repoPath), "fetch-remote-clone.git")
 	require.NoError(t, os.RemoveAll(clonePath))
 
 	testhelper.MustRunCommand(t, nil, "git", "clone", "--bare", repoPath, clonePath)
@@ -48,26 +45,18 @@ func copyRepoWithNewRemote(t *testing.T, repo *gitalypb.Repository, locator stor
 }
 
 func TestFetchRemoteSuccess(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator, testhelper.WithInternalSocket(config.Config))
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
+	_, repo, repoPath, client := setupRepositoryService(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-
-	cloneRepo, cloneRepoPath := copyRepoWithNewRemote(t, testRepo, locator, "my-remote")
+	cloneRepo, cloneRepoPath := copyRepoWithNewRemote(t, repo, repoPath, "my-remote")
 	defer func() {
 		require.NoError(t, os.RemoveAll(cloneRepoPath))
 	}()
 
 	// Ensure there's a new tag to fetch
-	testhelper.CreateTag(t, testRepoPath, "testtag", "master", nil)
+	testhelper.CreateTag(t, repoPath, "testtag", "master", nil)
 
 	req := &gitalypb.FetchRemoteRequest{Repository: cloneRepo, Remote: "my-remote", Timeout: 120, CheckTagsChanged: true}
 	resp, err := client.FetchRemote(ctx, req)
@@ -108,12 +97,8 @@ func TestFetchRemote_sshCommand(t *testing.T) {
 		Git: config.Git{BinPath: gitPath},
 	}))
 
-	locator := config.NewLocator(cfg)
-	serverSocketPath, stop := runRepoServerWithConfig(t, cfg, locator)
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
+	client, serverSocketPath := runRepositoryService(t, cfg, nil)
+	cfg.SocketPath = serverSocketPath
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -176,26 +161,19 @@ func TestFetchRemote_sshCommand(t *testing.T) {
 }
 
 func TestFetchRemote_withDefaultRefmaps(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator, testhelper.WithInternalSocket(config.Config))
-	defer stop()
+	cfg, sourceRepoProto, sourceRepoPath, client := setupRepositoryService(t)
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
+	gitCmdFactory := git.NewExecCommandFactory(cfg)
 
-	gitCmdFactory := git.NewExecCommandFactory(config.Config)
+	sourceRepo := localrepo.New(gitCmdFactory, sourceRepoProto, cfg)
 
-	sourceRepoProto, sourceRepoPath, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
-	sourceRepo := localrepo.New(gitCmdFactory, sourceRepoProto, config.Config)
-
-	targetRepoProto, targetRepoPath := copyRepoWithNewRemote(t, sourceRepoProto, locator, "my-remote")
+	targetRepoProto, targetRepoPath := copyRepoWithNewRemote(t, sourceRepoProto, sourceRepoPath, "my-remote")
 	defer func() {
 		require.NoError(t, os.RemoveAll(targetRepoPath))
 	}()
-	targetRepo := localrepo.New(gitCmdFactory, targetRepoProto, config.Config)
+	targetRepo := localrepo.New(gitCmdFactory, targetRepoProto, cfg)
 
-	port, stopGitServer := gittest.GitServer(t, config.Config, sourceRepoPath, nil)
+	port, stopGitServer := gittest.GitServer(t, cfg, sourceRepoPath, nil)
 	defer func() { require.NoError(t, stopGitServer()) }()
 
 	ctx, cancel := testhelper.Context()
@@ -240,12 +218,11 @@ func TestFetchRemote_transaction(t *testing.T) {
 	gitCmdFactory := git.NewExecCommandFactory(sourceCfg)
 
 	srv := testhelper.NewServerWithAuth(t, nil, nil, sourceCfg.Auth.Token, backchannel.NewRegistry(), testhelper.WithInternalSocket(sourceCfg))
-	gitalypb.RegisterRepositoryServiceServer(srv.GrpcServer(), NewServer(sourceCfg, RubyServer, locator, txManager, gitCmdFactory))
+	gitalypb.RegisterRepositoryServiceServer(srv.GrpcServer(), NewServer(sourceCfg, nil, locator, txManager, gitCmdFactory))
 	srv.Start(t)
 	defer srv.Stop()
 
-	client, conn := newRepositoryClient(t, "unix://"+srv.Socket())
-	defer conn.Close()
+	client := newRepositoryClient(t, sourceCfg, "unix://"+srv.Socket())
 
 	targetCfg, targetRepoProto, targetRepoPath := testcfg.BuildWithRepo(t)
 	port, stopGitServer := gittest.GitServer(t, targetCfg, targetRepoPath, nil)
@@ -273,17 +250,9 @@ func TestFetchRemote_transaction(t *testing.T) {
 }
 
 func TestFetchRemote_prune(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator, testhelper.WithInternalSocket(config.Config))
-	defer stop()
+	cfg, sourceRepo, sourceRepoPath, client := setupRepositoryService(t)
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
-
-	sourceRepo, sourceRepoPath, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
-
-	port, stopGitServer := gittest.GitServer(t, config.Config, sourceRepoPath, nil)
+	port, stopGitServer := gittest.GitServer(t, cfg, sourceRepoPath, nil)
 	defer func() { require.NoError(t, stopGitServer()) }()
 
 	remoteURL := fmt.Sprintf("http://127.0.0.1:%d/%s", port, filepath.Base(sourceRepoPath))
@@ -359,11 +328,11 @@ func TestFetchRemote_prune(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			targetRepoProto, targetRepoPath := copyRepoWithNewRemote(t, sourceRepo, locator, "my-remote")
+			targetRepoProto, targetRepoPath := copyRepoWithNewRemote(t, sourceRepo, sourceRepoPath, "my-remote")
 			defer func() {
 				require.NoError(t, os.RemoveAll(targetRepoPath))
 			}()
-			targetRepo := localrepo.New(git.NewExecCommandFactory(config.Config), targetRepoProto, config.Config)
+			targetRepo := localrepo.New(git.NewExecCommandFactory(cfg), targetRepoProto, cfg)
 
 			ctx, cancel := testhelper.Context()
 			defer cancel()
@@ -383,15 +352,13 @@ func TestFetchRemote_prune(t *testing.T) {
 }
 
 func TestFetchRemote_force(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	gitCommandFactory := git.NewExecCommandFactory(config.Config)
-
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	sourceRepoProto, sourceRepoPath, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
-	sourceRepo := localrepo.New(gitCommandFactory, sourceRepoProto, config.Config)
+	cfg, sourceRepoProto, sourceRepoPath, client := setupRepositoryService(t)
+	gitCommandFactory := git.NewExecCommandFactory(cfg)
+
+	sourceRepo := localrepo.New(gitCommandFactory, sourceRepoProto, cfg)
 
 	branchOID, err := sourceRepo.ResolveRevision(ctx, "refs/heads/master")
 	require.NoError(t, err)
@@ -402,13 +369,7 @@ func TestFetchRemote_force(t *testing.T) {
 	divergingBranchOID, _ := gittest.CreateCommitOnNewBranch(t, config.Config, sourceRepoPath)
 	divergingTagOID, _ := gittest.CreateCommitOnNewBranch(t, config.Config, sourceRepoPath)
 
-	serverSocketPath, stop := runRepoServer(t, locator, testhelper.WithInternalSocket(config.Config))
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
-
-	port, stopGitServer := gittest.GitServer(t, config.Config, sourceRepoPath, nil)
+	port, stopGitServer := gittest.GitServer(t, cfg, sourceRepoPath, nil)
 	defer func() { require.NoError(t, stopGitServer()) }()
 
 	remoteURL := fmt.Sprintf("http://127.0.0.1:%d/%s", port, filepath.Base(sourceRepoPath))
@@ -523,12 +484,12 @@ func TestFetchRemote_force(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			targetRepoProto, targetRepoPath := copyRepoWithNewRemote(t, sourceRepoProto, locator, "my-remote")
+			targetRepoProto, targetRepoPath := copyRepoWithNewRemote(t, sourceRepoProto, sourceRepoPath, "my-remote")
 			defer func() {
 				require.NoError(t, os.RemoveAll(targetRepoPath))
 			}()
 
-			targetRepo := localrepo.New(gitCommandFactory, targetRepoProto, config.Config)
+			targetRepo := localrepo.New(gitCommandFactory, targetRepoProto, cfg)
 
 			// We're force-updating a branch and a tag in the source repository to point
 			// to a diverging object ID in order to verify that the `force` parameter
@@ -561,19 +522,12 @@ func TestFetchRemote_force(t *testing.T) {
 	}
 }
 
-func TestFetchRemoteFailure(t *testing.T) {
-	repo, _, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
-
-	serverSocketPath, stop := runRepoServer(t, config.NewLocator(config.Config))
-	defer stop()
+func testFetchRemoteFailure(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
+	_, repo, _, client := setupRepositoryServiceWithRuby(t, cfg, rubySrv)
 
 	const remoteName = "test-repo"
 	httpSrv, _ := remoteHTTPServer(t, remoteName, httpToken)
 	defer httpSrv.Close()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -706,12 +660,8 @@ func getRefnames(t *testing.T, repoPath string) []string {
 	return strings.Split(text.ChompBytes(result), "\n")
 }
 
-func TestFetchRemoteOverHTTP(t *testing.T) {
-	serverSocketPath, stop := runRepoServer(t, config.NewLocator(config.Config), testhelper.WithInternalSocket(config.Config))
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
+func testFetchRemoteOverHTTP(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
+	cfg, _, _, client := setupRepositoryServiceWithRuby(t, cfg, rubySrv)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -733,7 +683,7 @@ func TestFetchRemoteOverHTTP(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.description, func(t *testing.T) {
-			forkedRepo, forkedRepoPath, forkedRepoCleanup := gittest.CloneRepo(t)
+			forkedRepo, forkedRepoPath, forkedRepoCleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name())
 			defer forkedRepoCleanup()
 
 			s, remoteURL := remoteHTTPServer(t, "my-repo", tc.httpToken)
@@ -767,11 +717,7 @@ func TestFetchRemoteOverHTTP(t *testing.T) {
 }
 
 func TestFetchRemoteOverHTTPWithRedirect(t *testing.T) {
-	serverSocketPath, stop := runRepoServer(t, config.NewLocator(config.Config))
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
+	_, repo, _, client := setupRepositoryService(t)
 
 	s := httptest.NewServer(
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -784,11 +730,8 @@ func TestFetchRemoteOverHTTPWithRedirect(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepo, _, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
-
 	req := &gitalypb.FetchRemoteRequest{
-		Repository:   testRepo,
+		Repository:   repo,
 		RemoteParams: &gitalypb.Remote{Url: s.URL},
 		Timeout:      1000,
 	}
@@ -799,11 +742,7 @@ func TestFetchRemoteOverHTTPWithRedirect(t *testing.T) {
 }
 
 func TestFetchRemoteOverHTTPWithTimeout(t *testing.T) {
-	serverSocketPath, stop := runRepoServer(t, config.NewLocator(config.Config))
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
+	_, repo, _, client := setupRepositoryService(t)
 
 	s := httptest.NewServer(
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -817,11 +756,8 @@ func TestFetchRemoteOverHTTPWithTimeout(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepo, _, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
-
 	req := &gitalypb.FetchRemoteRequest{
-		Repository:   testRepo,
+		Repository:   repo,
 		RemoteParams: &gitalypb.Remote{Url: s.URL},
 		Timeout:      1,
 	}

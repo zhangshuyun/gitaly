@@ -19,20 +19,13 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/archive"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/streamio"
 	"google.golang.org/grpc/codes"
 )
 
-func getSnapshot(t *testing.T, locator storage.Locator, req *gitalypb.GetSnapshotRequest) ([]byte, error) {
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
-
+func getSnapshot(client gitalypb.RepositoryServiceClient, req *gitalypb.GetSnapshotRequest) ([]byte, error) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -58,8 +51,7 @@ func touch(t *testing.T, format string, args ...interface{}) {
 }
 
 func TestGetSnapshotSuccess(t *testing.T) {
-	testRepo, repoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, repoPath, client := setupRepositoryService(t)
 
 	// Ensure certain files exist in the test repo.
 	// CreateCommit produces a loose object with the given sha
@@ -72,8 +64,8 @@ func TestGetSnapshotSuccess(t *testing.T) {
 	touch(t, filepath.Join(repoPath, "objects/pack/pack-%s.idx"), zeroes)
 	touch(t, filepath.Join(repoPath, "objects/this-should-not-be-included"))
 
-	req := &gitalypb.GetSnapshotRequest{Repository: testRepo}
-	data, err := getSnapshot(t, config.NewLocator(config.Config), req)
+	req := &gitalypb.GetSnapshotRequest{Repository: repo}
+	data, err := getSnapshot(client, req)
 	require.NoError(t, err)
 
 	entries, err := archive.TarEntries(bytes.NewReader(data))
@@ -95,23 +87,23 @@ func TestGetSnapshotSuccess(t *testing.T) {
 func TestGetSnapshotWithDedupe(t *testing.T) {
 	for _, tc := range []struct {
 		desc              string
-		alternatePathFunc func(t *testing.T, objDir string) string
+		alternatePathFunc func(t *testing.T, storageDir, objDir string) string
 	}{
 		{
 			desc:              "subdirectory",
-			alternatePathFunc: func(*testing.T, string) string { return "./alt-objects" },
+			alternatePathFunc: func(*testing.T, string, string) string { return "./alt-objects" },
 		},
 		{
 			desc: "absolute path",
-			alternatePathFunc: func(*testing.T, string) string {
-				return filepath.Join(testhelper.GitlabTestStoragePath(), gittest.NewObjectPoolName(t), "objects")
+			alternatePathFunc: func(t *testing.T, storageDir, objDir string) string {
+				return filepath.Join(storageDir, gittest.NewObjectPoolName(t), "objects")
 			},
 		},
 		{
 			desc: "relative path",
-			alternatePathFunc: func(t *testing.T, objDir string) string {
+			alternatePathFunc: func(t *testing.T, storageDir, objDir string) string {
 				altObjDir, err := filepath.Rel(objDir, filepath.Join(
-					testhelper.GitlabTestStoragePath(), gittest.NewObjectPoolName(t), "objects",
+					storageDir, gittest.NewObjectPoolName(t), "objects",
 				))
 				require.NoError(t, err)
 				return altObjDir
@@ -119,8 +111,7 @@ func TestGetSnapshotWithDedupe(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			testRepo, repoPath, cleanup := gittest.CloneRepoWithWorktree(t)
-			defer cleanup()
+			cfg, repo, repoPath, client := setupRepositoryServiceWithWorktree(t)
 
 			ctx, cancel := testhelper.Context()
 			defer cancel()
@@ -128,41 +119,41 @@ func TestGetSnapshotWithDedupe(t *testing.T) {
 			const committerName = "Scrooge McDuck"
 			const committerEmail = "scrooge@mcduck.com"
 
-			cmd := exec.Command(config.Config.Git.BinPath, "-C", repoPath,
+			cmd := exec.Command(cfg.Git.BinPath, "-C", repoPath,
 				"-c", fmt.Sprintf("user.name=%s", committerName),
 				"-c", fmt.Sprintf("user.email=%s", committerEmail),
 				"commit", "--allow-empty", "-m", "An empty commit")
-			alternateObjDir := tc.alternatePathFunc(t, filepath.Join(repoPath, "objects"))
-			commitSha := gittest.CreateCommitInAlternateObjectDirectory(t, config.Config.Git.BinPath, repoPath, alternateObjDir, cmd)
+			alternateObjDir := tc.alternatePathFunc(t, cfg.Storages[0].Path, filepath.Join(repoPath, "objects"))
+			commitSha := gittest.CreateCommitInAlternateObjectDirectory(t, cfg.Git.BinPath, repoPath, alternateObjDir, cmd)
 			originalAlternatesCommit := string(commitSha)
 
-			locator := config.NewLocator(config.Config)
-			gitCmdFactory := git.NewExecCommandFactory(config.Config)
+			locator := config.NewLocator(cfg)
+			gitCmdFactory := git.NewExecCommandFactory(cfg)
 
 			// ensure commit cannot be found in current repository
-			c, err := catfile.New(ctx, gitCmdFactory, testRepo)
+			c, err := catfile.New(ctx, gitCmdFactory, repo)
 			require.NoError(t, err)
 			_, err = c.Info(ctx, git.Revision(originalAlternatesCommit))
 			require.True(t, catfile.IsNotFound(err))
 
 			// write alternates file to point to alt objects folder
-			alternatesPath, err := locator.InfoAlternatesPath(testRepo)
+			alternatesPath, err := locator.InfoAlternatesPath(repo)
 			require.NoError(t, err)
 			require.NoError(t, ioutil.WriteFile(alternatesPath, []byte(filepath.Join(repoPath, ".git", fmt.Sprintf("%s\n", alternateObjDir))), 0644))
 
 			// write another commit and ensure we can find it
-			cmd = exec.Command(config.Config.Git.BinPath, "-C", repoPath,
+			cmd = exec.Command(cfg.Git.BinPath, "-C", repoPath,
 				"-c", fmt.Sprintf("user.name=%s", committerName),
 				"-c", fmt.Sprintf("user.email=%s", committerEmail),
 				"commit", "--allow-empty", "-m", "Another empty commit")
-			commitSha = gittest.CreateCommitInAlternateObjectDirectory(t, config.Config.Git.BinPath, repoPath, alternateObjDir, cmd)
+			commitSha = gittest.CreateCommitInAlternateObjectDirectory(t, cfg.Git.BinPath, repoPath, alternateObjDir, cmd)
 
-			c, err = catfile.New(ctx, gitCmdFactory, testRepo)
+			c, err = catfile.New(ctx, gitCmdFactory, repo)
 			require.NoError(t, err)
 			_, err = c.Info(ctx, git.Revision(commitSha))
 			require.NoError(t, err)
 
-			_, repoCopyPath, cleanupCopy := copyRepoUsingSnapshot(t, locator, testRepo)
+			_, repoCopyPath, cleanupCopy := copyRepoUsingSnapshot(t, cfg, client, repo)
 			defer cleanupCopy()
 
 			// ensure the sha committed to the alternates directory can be accessed
@@ -173,10 +164,12 @@ func TestGetSnapshotWithDedupe(t *testing.T) {
 }
 
 func TestGetSnapshotWithDedupeSoftFailures(t *testing.T) {
-	testRepo, repoPath, cleanup := gittest.CloneRepoWithWorktree(t)
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
+
+	testRepo, repoPath, cleanup := gittest.CloneRepoWithWorktreeAtStorage(t, cfg.Storages[0])
 	defer cleanup()
 
-	locator := config.NewLocator(config.Config)
+	locator := config.NewLocator(cfg)
 
 	// write alternates file to point to alternates objects folder that doesn't exist
 	alternateObjDir := "./alt-objects"
@@ -186,7 +179,7 @@ func TestGetSnapshotWithDedupeSoftFailures(t *testing.T) {
 	require.NoError(t, ioutil.WriteFile(alternatesPath, []byte(fmt.Sprintf("%s\n", alternateObjPath)), 0644))
 
 	req := &gitalypb.GetSnapshotRequest{Repository: testRepo}
-	_, err = getSnapshot(t, locator, req)
+	_, err = getSnapshot(client, req)
 	assert.NoError(t, err)
 	require.NoError(t, os.Remove(alternatesPath))
 
@@ -195,13 +188,13 @@ func TestGetSnapshotWithDedupeSoftFailures(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, ioutil.WriteFile(alternatesPath, []byte(filepath.Join(storageRoot, "..")), 0600))
 
-	_, err = getSnapshot(t, locator, &gitalypb.GetSnapshotRequest{Repository: testRepo})
+	_, err = getSnapshot(client, &gitalypb.GetSnapshotRequest{Repository: testRepo})
 	assert.NoError(t, err)
 	require.NoError(t, os.Remove(alternatesPath))
 
 	// write alternates file with bad permissions
 	require.NoError(t, ioutil.WriteFile(alternatesPath, []byte(fmt.Sprintf("%s\n", alternateObjPath)), 0000))
-	_, err = getSnapshot(t, locator, req)
+	_, err = getSnapshot(client, req)
 	assert.NoError(t, err)
 	require.NoError(t, os.Remove(alternatesPath))
 
@@ -209,17 +202,17 @@ func TestGetSnapshotWithDedupeSoftFailures(t *testing.T) {
 	committerName := "Scrooge McDuck"
 	committerEmail := "scrooge@mcduck.com"
 
-	cmd := exec.Command(config.Config.Git.BinPath, "-C", repoPath,
+	cmd := exec.Command(cfg.Git.BinPath, "-C", repoPath,
 		"-c", fmt.Sprintf("user.name=%s", committerName),
 		"-c", fmt.Sprintf("user.email=%s", committerEmail),
 		"commit", "--allow-empty", "-m", "An empty commit")
 
-	commitSha := gittest.CreateCommitInAlternateObjectDirectory(t, config.Config.Git.BinPath, repoPath, alternateObjDir, cmd)
+	commitSha := gittest.CreateCommitInAlternateObjectDirectory(t, cfg.Git.BinPath, repoPath, alternateObjDir, cmd)
 	originalAlternatesCommit := string(commitSha)
 
 	require.NoError(t, ioutil.WriteFile(alternatesPath, []byte(alternateObjPath), 0644))
 
-	_, repoCopyPath, cleanupCopy := copyRepoUsingSnapshot(t, locator, testRepo)
+	_, repoCopyPath, cleanupCopy := copyRepoUsingSnapshot(t, cfg, client, testRepo)
 	defer cleanupCopy()
 
 	// ensure the sha committed to the alternates directory can be accessed
@@ -228,17 +221,18 @@ func TestGetSnapshotWithDedupeSoftFailures(t *testing.T) {
 }
 
 // copyRepoUsingSnapshot creates a tarball snapshot, then creates a new repository from that snapshot
-func copyRepoUsingSnapshot(t *testing.T, locator storage.Locator, source *gitalypb.Repository) (*gitalypb.Repository, string, func()) {
+func copyRepoUsingSnapshot(t *testing.T, cfg config.Cfg, client gitalypb.RepositoryServiceClient, source *gitalypb.Repository) (*gitalypb.Repository, string, func()) {
+	t.Helper()
 	// create the tar
 	req := &gitalypb.GetSnapshotRequest{Repository: source}
-	data, err := getSnapshot(t, locator, req)
+	data, err := getSnapshot(client, req)
 	require.NoError(t, err)
 
 	secret := "my secret"
 	srv := httptest.NewServer(&tarTesthandler{tarData: bytes.NewBuffer(data), secret: secret})
 	defer srv.Close()
 
-	repoCopy, repoCopyPath, cleanupCopy := gittest.CloneRepo(t)
+	repoCopy, repoCopyPath, cleanupCopy := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "copy")
 
 	// Delete the repository so we can re-use the path
 	require.NoError(t, os.RemoveAll(repoCopyPath))
@@ -249,33 +243,39 @@ func copyRepoUsingSnapshot(t *testing.T, locator storage.Locator, source *gitaly
 		HttpAuth:   secret,
 	}
 
-	rsp, err := createFromSnapshot(t, createRepoReq, config.Config)
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+	rsp, err := client.CreateRepositoryFromSnapshot(ctx, createRepoReq)
 	require.NoError(t, err)
 	testhelper.ProtoEqual(t, rsp, &gitalypb.CreateRepositoryFromSnapshotResponse{})
 	return repoCopy, repoCopyPath, cleanupCopy
 }
 
 func TestGetSnapshotFailsIfRepositoryMissing(t *testing.T) {
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	cleanupFn() // Remove the repo
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
+	repo := &gitalypb.Repository{
+		StorageName:   cfg.Storages[0].Name,
+		RelativePath:  t.Name(),
+		GlRepository:  gittest.GlRepository,
+		GlProjectPath: gittest.GlProjectPath,
+	}
 
-	req := &gitalypb.GetSnapshotRequest{Repository: testRepo}
-	data, err := getSnapshot(t, config.NewLocator(config.Config), req)
+	req := &gitalypb.GetSnapshotRequest{Repository: repo}
+	data, err := getSnapshot(client, req)
 	testhelper.RequireGrpcError(t, err, codes.NotFound)
 	require.Empty(t, data)
 }
 
 func TestGetSnapshotFailsIfRepositoryContainsSymlink(t *testing.T) {
-	testRepo, repoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, repoPath, client := setupRepositoryService(t)
 
 	// Make packed-refs into a symlink to break GetSnapshot()
 	packedRefsFile := filepath.Join(repoPath, "packed-refs")
 	require.NoError(t, os.Remove(packedRefsFile))
 	require.NoError(t, os.Symlink("HEAD", packedRefsFile))
 
-	req := &gitalypb.GetSnapshotRequest{Repository: testRepo}
-	data, err := getSnapshot(t, config.NewLocator(config.Config), req)
+	req := &gitalypb.GetSnapshotRequest{Repository: repo}
+	data, err := getSnapshot(client, req)
 	testhelper.RequireGrpcError(t, err, codes.Internal)
 	require.Contains(t, err.Error(), "building snapshot failed")
 

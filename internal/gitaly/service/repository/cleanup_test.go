@@ -10,27 +10,18 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
 func TestCleanupDeletesRefsLocks(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, repoPath, client := setupRepositoryService(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	req := &gitalypb.CleanupRequest{Repository: testRepo}
-	refsPath := filepath.Join(testRepoPath, "refs")
+	req := &gitalypb.CleanupRequest{Repository: repo}
+	refsPath := filepath.Join(repoPath, "refs")
 
 	keepRefPath := filepath.Join(refsPath, "heads", "keepthis")
 	mustCreateFileWithTimes(t, keepRefPath, freshTime)
@@ -60,12 +51,7 @@ func TestCleanupDeletesRefsLocks(t *testing.T) {
 }
 
 func TestCleanupDeletesPackedRefsLock(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
 	testCases := []struct {
 		desc        string
@@ -91,16 +77,16 @@ func TestCleanupDeletesPackedRefsLock(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-			defer cleanupFn()
+			repo, repoPath, cleanupFn := gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name())
+			t.Cleanup(cleanupFn)
 
 			// Force the packed-refs file to have an old time to test that even
 			// in that case it doesn't get deleted
-			packedRefsPath := filepath.Join(testRepoPath, "packed-refs")
+			packedRefsPath := filepath.Join(repoPath, "packed-refs")
 			require.NoError(t, os.Chtimes(packedRefsPath, oldTime, oldTime))
 
-			req := &gitalypb.CleanupRequest{Repository: testRepo}
-			lockPath := filepath.Join(testRepoPath, "packed-refs.lock")
+			req := &gitalypb.CleanupRequest{Repository: repo}
+			lockPath := filepath.Join(repoPath, "packed-refs.lock")
 
 			if tc.lockTime != nil {
 				mustCreateFileWithTimes(t, lockPath, *tc.lockTime)
@@ -112,7 +98,7 @@ func TestCleanupDeletesPackedRefsLock(t *testing.T) {
 			c, err := client.Cleanup(ctx, req)
 
 			// Sanity checks
-			assert.FileExists(t, filepath.Join(testRepoPath, "HEAD")) // For good measure
+			assert.FileExists(t, filepath.Join(repoPath, "HEAD")) // For good measure
 			assert.FileExists(t, packedRefsPath)
 
 			if tc.shouldExist {
@@ -130,12 +116,7 @@ func TestCleanupDeletesPackedRefsLock(t *testing.T) {
 // TODO: replace emulated rebase RPC with actual
 // https://gitlab.com/gitlab-org/gitaly/issues/1750
 func TestCleanupDeletesStaleWorktrees(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
 	testCases := []struct {
 		desc         string
@@ -161,14 +142,14 @@ func TestCleanupDeletesStaleWorktrees(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-			defer cleanupFn()
+			repo, repoPath, cleanupFn := gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name())
+			t.Cleanup(cleanupFn)
 
-			req := &gitalypb.CleanupRequest{Repository: testRepo}
+			req := &gitalypb.CleanupRequest{Repository: repo}
 
-			worktreeCheckoutPath := filepath.Join(testRepoPath, worktreePrefix, "test-worktree")
-			gittest.AddWorktree(t, testRepoPath, worktreeCheckoutPath)
-			basePath := filepath.Join(testRepoPath, "worktrees")
+			worktreeCheckoutPath := filepath.Join(repoPath, worktreePrefix, "test-worktree")
+			gittest.AddWorktree(t, repoPath, worktreeCheckoutPath)
+			basePath := filepath.Join(repoPath, "worktrees")
 			worktreePath := filepath.Join(basePath, "test-worktree")
 
 			require.NoError(t, os.Chtimes(worktreeCheckoutPath, tc.worktreeTime, tc.worktreeTime))
@@ -179,7 +160,7 @@ func TestCleanupDeletesStaleWorktrees(t *testing.T) {
 			c, err := client.Cleanup(ctx, req)
 
 			// Sanity check
-			assert.FileExists(t, filepath.Join(testRepoPath, "HEAD")) // For good measure
+			assert.FileExists(t, filepath.Join(repoPath, "HEAD")) // For good measure
 
 			if tc.shouldExist {
 				assert.DirExists(t, worktreeCheckoutPath)
@@ -203,24 +184,16 @@ func TestCleanupDisconnectedWorktrees(t *testing.T) {
 		worktreeAdminDir = "worktrees"
 	)
 
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
+	cfg, repo, repoPath, client := setupRepositoryService(t)
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-
-	worktreePath := filepath.Join(testRepoPath, worktreePrefix, worktreeName)
+	worktreePath := filepath.Join(repoPath, worktreePrefix, worktreeName)
 	worktreeAdminPath := filepath.Join(
-		testRepoPath, worktreeAdminDir, filepath.Base(worktreeName),
+		repoPath, worktreeAdminDir, filepath.Base(worktreeName),
 	)
 
-	req := &gitalypb.CleanupRequest{Repository: testRepo}
+	req := &gitalypb.CleanupRequest{Repository: repo}
 
-	gittest.AddWorktree(t, testRepoPath, worktreePath)
+	gittest.AddWorktree(t, repoPath, worktreePath)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -233,7 +206,7 @@ func TestCleanupDisconnectedWorktrees(t *testing.T) {
 		"disconnecting worktree by removing work tree at %s should succeed", worktreePath,
 	)
 
-	err = exec.Command(config.Config.Git.BinPath, gittest.AddWorktreeArgs(testRepoPath, worktreePath)...).Run()
+	err = exec.Command(cfg.Git.BinPath, gittest.AddWorktreeArgs(repoPath, worktreePath)...).Run()
 	require.Error(t, err, "creating a new work tree at the same path as a disconnected work tree should fail")
 
 	// cleanup should prune the disconnected worktree administrative files
@@ -243,31 +216,23 @@ func TestCleanupDisconnectedWorktrees(t *testing.T) {
 
 	// if the worktree administrative files are pruned, then we should be able
 	// to checkout another worktree at the same path
-	gittest.AddWorktree(t, testRepoPath, worktreePath)
+	gittest.AddWorktree(t, repoPath, worktreePath)
 }
 
 func TestCleanupFileLocks(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, repoPath, client := setupRepositoryService(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	req := &gitalypb.CleanupRequest{Repository: testRepo}
+	req := &gitalypb.CleanupRequest{Repository: repo}
 
 	for _, fileName := range []string{
 		"config.lock",
 		"HEAD.lock",
 		"objects/info/commit-graphs/commit-graph-chain.lock",
 	} {
-		lockPath := filepath.Join(testRepoPath, fileName)
+		lockPath := filepath.Join(repoPath, fileName)
 		// No file on the lock path
 		_, err := client.Cleanup(ctx, req)
 		assert.NoError(t, err)
@@ -287,12 +252,7 @@ func TestCleanupFileLocks(t *testing.T) {
 }
 
 func TestCleanupDeletesPackedRefsNew(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
 	testCases := []struct {
 		desc        string
@@ -317,11 +277,11 @@ func TestCleanupDeletesPackedRefsNew(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-			defer cleanupFn()
+			repo, repoPath, cleanupFn := gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name())
+			t.Cleanup(cleanupFn)
 
-			req := &gitalypb.CleanupRequest{Repository: testRepo}
-			packedRefsNewPath := filepath.Join(testRepoPath, "packed-refs.new")
+			req := &gitalypb.CleanupRequest{Repository: repo}
+			packedRefsNewPath := filepath.Join(repoPath, "packed-refs.new")
 
 			if tc.lockTime != nil {
 				mustCreateFileWithTimes(t, packedRefsNewPath, *tc.lockTime)

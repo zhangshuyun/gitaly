@@ -9,18 +9,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
-	"gitlab.com/gitlab-org/labkit/log"
 	"google.golang.org/grpc/codes"
 )
 
@@ -31,65 +29,49 @@ var (
 )
 
 func TestGarbageCollectCommitGraph(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator, testhelper.WithInternalSocket(config.Config))
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	cfg, repo, repoPath, client := setupRepositoryService(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	c, err := client.GarbageCollect(ctx, &gitalypb.GarbageCollectRequest{Repository: testRepo})
+	c, err := client.GarbageCollect(ctx, &gitalypb.GarbageCollectRequest{Repository: repo})
 	assert.NoError(t, err)
 	assert.NotNil(t, c)
 
 	assert.FileExistsf(t,
-		filepath.Join(testRepoPath, "objects/info/commit-graph"),
+		filepath.Join(repoPath, "objects/info/commit-graph"),
 		"pre-computed commit-graph should exist after running garbage collect",
 	)
 
-	repoCfgPath := filepath.Join(testRepoPath, "config")
+	repoCfgPath := filepath.Join(repoPath, "config")
 
 	cfgF, err := os.Open(repoCfgPath)
 	require.NoError(t, err)
 	defer cfgF.Close()
 
-	cfg, err := localrepo.New(git.NewExecCommandFactory(config.Config), testRepo, config.Config).Config().GetRegexp(ctx, "core.commitgraph", git.ConfigGetRegexpOpts{})
+	cfgCmd, err := localrepo.New(git.NewExecCommandFactory(cfg), repo, cfg).Config().GetRegexp(ctx, "core.commitgraph", git.ConfigGetRegexpOpts{})
 	require.NoError(t, err)
-	require.Equal(t, []git.ConfigPair{{Key: "core.commitgraph", Value: "true"}}, cfg)
+	require.Equal(t, []git.ConfigPair{{Key: "core.commitgraph", Value: "true"}}, cfgCmd)
 }
 
 func TestGarbageCollectSuccess(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator, testhelper.WithInternalSocket(config.Config))
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	cfg, repo, _, client := setupRepositoryService(t)
 
 	tests := []struct {
 		req  *gitalypb.GarbageCollectRequest
 		desc string
 	}{
 		{
-			req:  &gitalypb.GarbageCollectRequest{Repository: testRepo, CreateBitmap: false},
+			req:  &gitalypb.GarbageCollectRequest{Repository: repo, CreateBitmap: false},
 			desc: "without bitmap",
 		},
 		{
-			req:  &gitalypb.GarbageCollectRequest{Repository: testRepo, CreateBitmap: true},
+			req:  &gitalypb.GarbageCollectRequest{Repository: repo, CreateBitmap: true},
 			desc: "with bitmap",
 		},
 	}
 
-	packPath := filepath.Join(testhelper.GitlabTestStoragePath(), testRepo.GetRelativePath(), "objects", "pack")
+	packPath := filepath.Join(cfg.Storages[0].Path, repo.GetRelativePath(), "objects", "pack")
 
 	for _, test := range tests {
 		t.Run(test.desc, func(t *testing.T) {
@@ -127,15 +109,7 @@ func TestGarbageCollectWithPrune(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator, testhelper.WithInternalSocket(config.Config))
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, repoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	cfg, repo, repoPath, client := setupRepositoryService(t)
 
 	blobHashes := gittest.WriteBlobs(t, repoPath, 3)
 	oldDanglingObjFile := filepath.Join(repoPath, "objects", blobHashes[0][:2], blobHashes[0][2:])
@@ -143,7 +117,7 @@ func TestGarbageCollectWithPrune(t *testing.T) {
 	oldReferencedObjFile := filepath.Join(repoPath, "objects", blobHashes[2][:2], blobHashes[2][2:])
 
 	// create a reference to the blob, so it should not be removed by gc
-	gittest.CommitBlobWithName(t, config.Config, repoPath, blobHashes[2], t.Name(), t.Name())
+	gittest.CommitBlobWithName(t, cfg, repoPath, blobHashes[2], t.Name(), t.Name())
 
 	// change modification time of the blobs to make them attractive for the gc
 	aBitMoreThan30MinutesAgo := time.Now().Add(-30*time.Minute - time.Second)
@@ -153,13 +127,13 @@ func TestGarbageCollectWithPrune(t *testing.T) {
 	require.NoError(t, os.Chtimes(oldReferencedObjFile, farAgo, farAgo))
 
 	// Prune option has no effect when disabled
-	c, err := client.GarbageCollect(ctx, &gitalypb.GarbageCollectRequest{Repository: testRepo, Prune: false})
+	c, err := client.GarbageCollect(ctx, &gitalypb.GarbageCollectRequest{Repository: repo, Prune: false})
 	require.NoError(t, err)
 	require.NotNil(t, c)
 	require.FileExists(t, oldDanglingObjFile, "blob should not be removed from object storage as it was modified less then 2 weeks ago")
 
 	// Prune option has effect when enabled
-	c, err = client.GarbageCollect(ctx, &gitalypb.GarbageCollectRequest{Repository: testRepo, Prune: true})
+	c, err = client.GarbageCollect(ctx, &gitalypb.GarbageCollectRequest{Repository: repo, Prune: true})
 	require.NoError(t, err)
 	require.NotNil(t, c)
 
@@ -170,51 +144,28 @@ func TestGarbageCollectWithPrune(t *testing.T) {
 }
 
 func TestGarbageCollectLogStatistics(t *testing.T) {
-	defer func(tl func(tb testing.TB) *logrus.Logger) {
-		testhelper.NewTestLogger = tl
-	}(testhelper.NewTestLogger)
-
-	logBuffer := &bytes.Buffer{}
-	testhelper.NewTestLogger = func(tb testing.TB) *logrus.Logger {
-		return &logrus.Logger{Out: logBuffer, Formatter: &logrus.JSONFormatter{}, Level: logrus.InfoLevel}
-	}
-
 	ctx, cancel := testhelper.Context()
 	defer cancel()
-	ctx = ctxlogrus.ToContext(ctx, log.WithField("test", "logging"))
 
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator, testhelper.WithInternalSocket(config.Config))
-	defer stop()
+	logBuffer := &bytes.Buffer{}
+	logger := &logrus.Logger{Out: logBuffer, Formatter: &logrus.JSONFormatter{}, Level: logrus.InfoLevel}
 
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
+	_, repo, _, client := setupRepositoryService(t, testserver.WithLogger(logger))
 
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
-
-	_, err := client.GarbageCollect(ctx, &gitalypb.GarbageCollectRequest{Repository: testRepo})
+	_, err := client.GarbageCollect(ctx, &gitalypb.GarbageCollectRequest{Repository: repo})
 	require.NoError(t, err)
 
 	mustCountObjectLog(t, logBuffer.String())
 }
 
 func TestGarbageCollectDeletesRefsLocks(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, repoPath, client := setupRepositoryService(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	req := &gitalypb.GarbageCollectRequest{Repository: testRepo}
-	refsPath := filepath.Join(testRepoPath, "refs")
+	req := &gitalypb.GarbageCollectRequest{Repository: repo}
+	refsPath := filepath.Join(repoPath, "refs")
 
 	// Note: Creating refs this way makes `git gc` crash but this actually works
 	// in our favor for this test since we can ensure that the files kept and
@@ -249,15 +200,7 @@ func TestGarbageCollectDeletesRefsLocks(t *testing.T) {
 }
 
 func TestGarbageCollectFailure(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator)
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _, client := setupRepositoryService(t)
 
 	tests := []struct {
 		repo *gitalypb.Repository
@@ -266,7 +209,7 @@ func TestGarbageCollectFailure(t *testing.T) {
 		{repo: nil, code: codes.InvalidArgument},
 		{repo: &gitalypb.Repository{StorageName: "foo"}, code: codes.InvalidArgument},
 		{repo: &gitalypb.Repository{RelativePath: "bar"}, code: codes.InvalidArgument},
-		{repo: &gitalypb.Repository{StorageName: testRepo.GetStorageName(), RelativePath: "bar"}, code: codes.NotFound},
+		{repo: &gitalypb.Repository{StorageName: repo.GetStorageName(), RelativePath: "bar"}, code: codes.NotFound},
 	}
 
 	for _, test := range tests {
@@ -280,18 +223,10 @@ func TestGarbageCollectFailure(t *testing.T) {
 }
 
 func TestCleanupInvalidKeepAroundRefs(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator, testhelper.WithInternalSocket(config.Config))
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, repoPath, client := setupRepositoryService(t)
 
 	// Make the directory, so we can create random reflike things in it
-	require.NoError(t, os.MkdirAll(filepath.Join(testRepoPath, "refs", "keep-around"), 0755))
+	require.NoError(t, os.MkdirAll(filepath.Join(repoPath, "refs", "keep-around"), 0755))
 
 	testCases := []struct {
 		desc        string
@@ -336,24 +271,24 @@ func TestCleanupInvalidKeepAroundRefs(t *testing.T) {
 			// Create a proper keep-around loose ref
 			existingSha := "1e292f8fedd741b75372e19097c76d327140c312"
 			existingRefName := fmt.Sprintf("refs/keep-around/%s", existingSha)
-			testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "update-ref", existingRefName, existingSha)
+			testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "update-ref", existingRefName, existingSha)
 
 			// Create an invalid ref that should should be removed with the testcase
 			bogusSha := "b3f5e4adf6277b571b7943a4f0405a6dd7ee7e15"
-			bogusPath := filepath.Join(testRepoPath, fmt.Sprintf("refs/keep-around/%s", bogusSha))
+			bogusPath := filepath.Join(repoPath, fmt.Sprintf("refs/keep-around/%s", bogusSha))
 			require.NoError(t, ioutil.WriteFile(bogusPath, []byte(bogusSha), 0644))
 
 			// Creating the keeparound without using git so we can create invalid ones in testcases
-			refPath := filepath.Join(testRepoPath, fmt.Sprintf("refs/keep-around/%s", testcase.refName))
+			refPath := filepath.Join(repoPath, fmt.Sprintf("refs/keep-around/%s", testcase.refName))
 			require.NoError(t, ioutil.WriteFile(refPath, []byte(testcase.refContent), 0644))
 
 			// Perform the request
-			req := &gitalypb.GarbageCollectRequest{Repository: testRepo}
+			req := &gitalypb.GarbageCollectRequest{Repository: repo}
 			_, err := client.GarbageCollect(ctx, req)
 			require.NoError(t, err)
 
 			// The existing keeparound still exists
-			commitSha := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "rev-parse", existingRefName)
+			commitSha := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", existingRefName)
 			require.Equal(t, existingSha, text.ChompBytes(commitSha))
 
 			//The invalid one was removed
@@ -362,7 +297,7 @@ func TestCleanupInvalidKeepAroundRefs(t *testing.T) {
 
 			if testcase.shouldExist {
 				keepAroundName := fmt.Sprintf("refs/keep-around/%s", testcase.refName)
-				commitSha := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "rev-parse", keepAroundName)
+				commitSha := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", keepAroundName)
 				require.Equal(t, testcase.refName, text.ChompBytes(commitSha))
 			} else {
 				_, err := os.Stat(refPath)
@@ -373,27 +308,21 @@ func TestCleanupInvalidKeepAroundRefs(t *testing.T) {
 }
 
 func mustCreateFileWithTimes(t testing.TB, path string, mTime time.Time) {
+	t.Helper()
+
 	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0755))
 	require.NoError(t, ioutil.WriteFile(path, nil, 0644))
 	require.NoError(t, os.Chtimes(path, mTime, mTime))
 }
 
 func TestGarbageCollectDeltaIslands(t *testing.T) {
-	locator := config.NewLocator(config.Config)
-	serverSocketPath, stop := runRepoServer(t, locator, testhelper.WithInternalSocket(config.Config))
-	defer stop()
-
-	client, conn := newRepositoryClient(t, serverSocketPath)
-	defer conn.Close()
-
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, repoPath, client := setupRepositoryService(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	gittest.TestDeltaIslands(t, testRepoPath, func() error {
-		_, err := client.GarbageCollect(ctx, &gitalypb.GarbageCollectRequest{Repository: testRepo})
+	gittest.TestDeltaIslands(t, repoPath, func() error {
+		_, err := client.GarbageCollect(ctx, &gitalypb.GarbageCollectRequest{Repository: repo})
 		return err
 	})
 }
