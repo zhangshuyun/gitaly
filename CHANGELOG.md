@@ -66,6 +66,10 @@
 - Update gitlab-gollum-rugged_adapter to 0.4.4.4.gitlab.1. !3357 (Takuya Noguchi)
 
 
+## 13.10.4 (2021-04-27)
+
+- No changes.
+
 ## 13.10.3 (2021-04-13)
 
 - No changes.
