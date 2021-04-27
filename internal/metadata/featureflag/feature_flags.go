@@ -13,8 +13,6 @@ var (
 	ReferenceTransactions = FeatureFlag{Name: "reference_transactions", OnByDefault: true}
 	// LogCommandStats will log additional rusage stats for commands
 	LogCommandStats = FeatureFlag{Name: "log_command_stats", OnByDefault: true}
-	// GoUserCherryPick enables the Go implementation of UserCherryPick
-	GoUserCherryPick = FeatureFlag{Name: "go_user_cherry_pick", OnByDefault: true}
 	// GoUserUpdateBranch enables the Go implementation of UserUpdateBranch
 	GoUserUpdateBranch = FeatureFlag{Name: "go_user_update_branch", OnByDefault: true}
 	// GoResolveConflicts enables the Go implementation of ResolveConflicts
@@ -38,7 +36,6 @@ var (
 var All = []FeatureFlag{
 	LogCommandStats,
 	ReferenceTransactions,
-	GoUserCherryPick,
 	GoUserUpdateBranch,
 	GoResolveConflicts,
 	GoUserUpdateSubmodule,

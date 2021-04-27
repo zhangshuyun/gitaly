@@ -10,9 +10,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/git2go"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -23,24 +21,6 @@ func (s *Server) UserCherryPick(ctx context.Context, req *gitalypb.UserCherryPic
 		return nil, status.Errorf(codes.InvalidArgument, "UserCherryPick: %v", err)
 	}
 
-	if featureflag.IsEnabled(ctx, featureflag.GoUserCherryPick) {
-		return s.userCherryPick(ctx, req)
-	}
-
-	client, err := s.ruby.OperationServiceClient(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	clientCtx, err := rubyserver.SetHeaders(ctx, s.locator, req.GetRepository())
-	if err != nil {
-		return nil, err
-	}
-
-	return client.UserCherryPick(clientCtx, req)
-}
-
-func (s *Server) userCherryPick(ctx context.Context, req *gitalypb.UserCherryPickRequest) (*gitalypb.UserCherryPickResponse, error) {
 	startRevision, err := s.fetchStartRevision(ctx, req)
 	if err != nil {
 		return nil, err
