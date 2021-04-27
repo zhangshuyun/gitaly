@@ -15,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config/prometheus"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/internal/gitlab"
 	gitalylog "gitlab.com/gitlab-org/gitaly/internal/log"
@@ -182,7 +183,7 @@ func check(configPath string) (*gitlab.CheckInfo, error) {
 		return nil, err
 	}
 
-	gitlabAPI, err := gitlab.NewHTTPClient(cfg.Gitlab, cfg.TLS)
+	gitlabAPI, err := gitlab.NewHTTPClient(cfg.Gitlab, cfg.TLS, prometheus.Config{})
 	if err != nil {
 		return nil, err
 	}

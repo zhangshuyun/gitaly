@@ -12,7 +12,10 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	promcfg "gitlab.com/gitlab-org/gitaly/internal/gitaly/config/prometheus"
+	"gitlab.com/gitlab-org/gitaly/internal/prometheus/metrics"
 	"gitlab.com/gitlab-org/gitaly/internal/version"
 	"gitlab.com/gitlab-org/gitlab-shell/client"
 )
@@ -22,10 +25,15 @@ var glIDRegex = regexp.MustCompile(`\A[0-9]+\z`)
 // HTTPClient is an HTTP client used to talk to the internal GitLab Rails API.
 type HTTPClient struct {
 	*client.GitlabNetClient
+	latencyMetric metrics.HistogramVec
 }
 
 // NewHTTPClient creates an HTTP client to talk to the Rails internal API
-func NewHTTPClient(gitlabCfg config.Gitlab, tlsCfg config.TLS) (*HTTPClient, error) {
+func NewHTTPClient(
+	gitlabCfg config.Gitlab,
+	tlsCfg config.TLS,
+	promCfg promcfg.Config,
+) (*HTTPClient, error) {
 	url, err := url.PathUnescape(gitlabCfg.URL)
 	if err != nil {
 		return nil, err
@@ -65,7 +73,27 @@ func NewHTTPClient(gitlabCfg config.Gitlab, tlsCfg config.TLS) (*HTTPClient, err
 
 	gitlabnetClient.SetUserAgent("gitaly/" + version.GetVersion())
 
-	return &HTTPClient{gitlabnetClient}, nil
+	return &HTTPClient{
+		GitlabNetClient: gitlabnetClient,
+		latencyMetric: prometheus.NewHistogramVec(
+			prometheus.HistogramOpts{
+				Name:    "gitaly_gitlab_api_latency_seconds",
+				Help:    "Latency between posting to GitLab's `/internal/` APIs and receiving a response",
+				Buckets: promCfg.GRPCLatencyBuckets,
+			},
+			[]string{"endpoint"},
+		),
+	}, nil
+}
+
+// Describe describes Prometheus metrics exposed by the HTTPClient.
+func (c *HTTPClient) Describe(descs chan<- *prometheus.Desc) {
+	prometheus.DescribeByCollect(c, descs)
+}
+
+// Collect collects Prometheus metrics exposed by the HTTPClient.
+func (c *HTTPClient) Collect(metrics chan<- prometheus.Metric) {
+	c.latencyMetric.Collect(metrics)
 }
 
 // allowedRequest is a request for the internal gitlab api /allowed endpoint
@@ -112,6 +140,8 @@ type allowedResponse struct {
 
 // Allowed checks if a ref change for a given repository is allowed through the gitlab internal api /allowed endpoint
 func (c *HTTPClient) Allowed(ctx context.Context, params AllowedParams) (bool, string, error) {
+	defer prometheus.NewTimer(c.latencyMetric.WithLabelValues("allowed")).ObserveDuration()
+
 	gitObjDirVars, err := marshallGitObjectDirs(params.GitObjectDirectory, params.GitAlternateObjectDirectories)
 	if err != nil {
 		return false, "", fmt.Errorf("when getting git object directories json encoded string: %w", err)
@@ -171,6 +201,8 @@ type preReceiveResponse struct {
 
 // PreReceive increases the reference counter for a push for a given gl_repository through the gitlab internal API /pre_receive endpoint
 func (c *HTTPClient) PreReceive(ctx context.Context, glRepository string) (bool, error) {
+	defer prometheus.NewTimer(c.latencyMetric.WithLabelValues("pre-receive")).ObserveDuration()
+
 	resp, err := c.Post(ctx, "/pre_receive", map[string]string{"gl_repository": glRepository})
 	if err != nil {
 		return false, fmt.Errorf("http post to gitlab api /pre_receive endpoint: %w", err)
@@ -211,6 +243,8 @@ type postReceiveResponse struct {
 
 // PostReceive decreases the reference counter for a push for a given gl_repository through the gitlab internal API /post_receive endpoint
 func (c *HTTPClient) PostReceive(ctx context.Context, glRepository, glID, changes string, pushOptions ...string) (bool, []PostReceiveMessage, error) {
+	defer prometheus.NewTimer(c.latencyMetric.WithLabelValues("post-receive")).ObserveDuration()
+
 	resp, err := c.Post(ctx, "/post_receive", map[string]interface{}{"gl_repository": glRepository, "identifier": glID, "changes": changes, "push_options": pushOptions})
 	if err != nil {
 		return false, nil, fmt.Errorf("http post to gitlab api /post_receive endpoint: %w", err)
@@ -247,6 +281,8 @@ func (c *HTTPClient) PostReceive(ctx context.Context, glRepository, glID, change
 // the connection and tokens. It returns basic information of the installed
 // GitLab
 func (c *HTTPClient) Check(ctx context.Context) (*CheckInfo, error) {
+	defer prometheus.NewTimer(c.latencyMetric.WithLabelValues("check")).ObserveDuration()
+
 	resp, err := c.Get(ctx, "/check")
 	if err != nil {
 		return nil, fmt.Errorf("HTTP GET to GitLab endpoint /check failed: %w", err)

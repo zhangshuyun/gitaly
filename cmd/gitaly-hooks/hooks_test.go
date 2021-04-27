@@ -23,6 +23,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config/auth"
 	internallog "gitlab.com/gitlab-org/gitaly/internal/gitaly/config/log"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config/prometheus"
 	gitalyhook "gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/hook"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
@@ -172,7 +173,7 @@ func testHooksPrePostReceive(t *testing.T, cfg config.Cfg, repo *gitalypb.Reposi
 		t.Run(fmt.Sprintf("hookName: %s", hookName), func(t *testing.T) {
 			customHookOutputPath := gittest.WriteEnvToCustomHook(t, repoPath, hookName)
 
-			gitlabClient, err := gitlab.NewHTTPClient(cfg.Gitlab, cfg.TLS)
+			gitlabClient, err := gitlab.NewHTTPClient(cfg.Gitlab, cfg.TLS, prometheus.Config{})
 			require.NoError(t, err)
 
 			stop := runHookServiceWithGitlabClient(t, cfg, gitlabClient)
@@ -351,7 +352,7 @@ func TestHooksPostReceiveFailed(t *testing.T) {
 	cfg.Gitlab.URL = serverURL
 	cfg.Gitlab.SecretFile = testhelper.WriteShellSecretFile(t, cfg.GitlabShell.Dir, secretToken)
 
-	gitlabClient, err := gitlab.NewHTTPClient(cfg.Gitlab, cfg.TLS)
+	gitlabClient, err := gitlab.NewHTTPClient(cfg.Gitlab, cfg.TLS, prometheus.Config{})
 	require.NoError(t, err)
 
 	customHookOutputPath := gittest.WriteEnvToCustomHook(t, repoPath, "post-receive")
@@ -465,7 +466,7 @@ func TestHooksNotAllowed(t *testing.T) {
 
 	customHookOutputPath := gittest.WriteEnvToCustomHook(t, repoPath, "post-receive")
 
-	gitlabClient, err := gitlab.NewHTTPClient(cfg.Gitlab, cfg.TLS)
+	gitlabClient, err := gitlab.NewHTTPClient(cfg.Gitlab, cfg.TLS, prometheus.Config{})
 	require.NoError(t, err)
 
 	stop := runHookServiceWithGitlabClient(t, cfg, gitlabClient)

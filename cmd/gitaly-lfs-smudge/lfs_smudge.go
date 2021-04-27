@@ -11,6 +11,7 @@ import (
 
 	"github.com/git-lfs/git-lfs/lfs"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config/prometheus"
 	"gitlab.com/gitlab-org/gitaly/internal/gitlab"
 	gitalylog "gitlab.com/gitlab-org/gitaly/internal/log"
 	"gitlab.com/gitlab-org/labkit/log"
@@ -78,7 +79,7 @@ func handleSmudge(to io.Writer, from io.Reader, config configProvider) (io.Reade
 		WithField("gitaly_tls_config", tlsCfg).
 		Debug("loaded GitLab API config")
 
-	client, err := gitlab.NewHTTPClient(glCfg, tlsCfg)
+	client, err := gitlab.NewHTTPClient(glCfg, tlsCfg, prometheus.Config{})
 	if err != nil {
 		return contents, err
 	}
