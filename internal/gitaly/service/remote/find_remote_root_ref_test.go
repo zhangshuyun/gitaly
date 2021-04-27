@@ -5,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -12,15 +13,44 @@ import (
 )
 
 func TestFindRemoteRootRefSuccess(t *testing.T) {
-	_, repo, _, client := setupRemoteService(t)
+	_, repo, repoPath, client := setupRemoteService(t)
 
-	request := &gitalypb.FindRemoteRootRefRequest{Repository: repo, Remote: "origin"}
-	testCtx, cancelCtx := testhelper.Context()
-	defer cancelCtx()
+	originURL := text.ChompBytes(testhelper.MustRunCommand(t, nil,
+		"git", "-C", repoPath, "remote", "get-url", "origin"))
 
-	response, err := client.FindRemoteRootRef(testCtx, request)
-	require.NoError(t, err)
-	require.Equal(t, "master", response.Ref)
+	for _, tc := range []struct {
+		desc    string
+		request *gitalypb.FindRemoteRootRefRequest
+	}{
+		{
+			desc:    "with remote name",
+			request: &gitalypb.FindRemoteRootRefRequest{Repository: repo, Remote: "origin"},
+		},
+		{
+			desc:    "with remote URL",
+			request: &gitalypb.FindRemoteRootRefRequest{Repository: repo, RemoteUrl: originURL},
+		},
+		{
+			// Unfortunately, we do not really have a nice way to verify we actually got
+			// the auth header. So this test case only really verifies that it doesn't
+			// break the world to set up one.
+			desc: "with remote URL and auth header",
+			request: &gitalypb.FindRemoteRootRefRequest{
+				Repository:              repo,
+				RemoteUrl:               originURL,
+				HttpAuthorizationHeader: "mysecret",
+			},
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			ctx, cancel := testhelper.Context()
+			defer cancel()
+
+			response, err := client.FindRemoteRootRef(ctx, tc.request)
+			require.NoError(t, err)
+			require.Equal(t, "master", response.Ref)
+		})
+	}
 }
 
 func TestFindRemoteRootRefWithUnbornRemoteHead(t *testing.T) {
@@ -36,12 +66,14 @@ func TestFindRemoteRootRefWithUnbornRemoteHead(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	response, err := client.FindRemoteRootRef(ctx, &gitalypb.FindRemoteRootRefRequest{
-		Repository: remoteRepo,
-		Remote:     "foo",
-	})
-	require.Equal(t, status.Error(codes.NotFound, "no remote HEAD found"), err)
-	require.Nil(t, response)
+	for _, request := range []*gitalypb.FindRemoteRootRefRequest{
+		&gitalypb.FindRemoteRootRefRequest{Repository: remoteRepo, Remote: "foo"},
+		&gitalypb.FindRemoteRootRefRequest{Repository: remoteRepo, RemoteUrl: "file://" + clientRepoPath},
+	} {
+		response, err := client.FindRemoteRootRef(ctx, request)
+		require.Equal(t, status.Error(codes.NotFound, "no remote HEAD found"), err)
+		require.Nil(t, response)
+	}
 }
 
 func TestFindRemoteRootRefFailedDueToValidation(t *testing.T) {
@@ -76,12 +108,23 @@ func TestFindRemoteRootRefFailedDueToValidation(t *testing.T) {
 			},
 		},
 		{
-			desc: "Remote is empty",
+			desc: "Remote name and URL is empty",
 			request: &gitalypb.FindRemoteRootRefRequest{
 				Repository: repo,
 			},
 			expectedErr: []error{
-				status.Error(codes.InvalidArgument, "empty remote can't be queried"),
+				status.Error(codes.InvalidArgument, "got neither remote name nor URL"),
+			},
+		},
+		{
+			desc: "Remote name and URL is set",
+			request: &gitalypb.FindRemoteRootRefRequest{
+				Repository: repo,
+				Remote:     "remote-name",
+				RemoteUrl:  "remote-url",
+			},
+			expectedErr: []error{
+				status.Error(codes.InvalidArgument, "got remote name and URL"),
 			},
 		},
 	}
@@ -104,10 +147,27 @@ func TestFindRemoteRootRefFailedDueToValidation(t *testing.T) {
 func TestFindRemoteRootRefFailedDueToInvalidRemote(t *testing.T) {
 	_, repo, _, client := setupRemoteService(t)
 
-	request := &gitalypb.FindRemoteRootRefRequest{Repository: repo, Remote: "invalid"}
-	testCtx, cancelCtx := testhelper.Context()
-	defer cancelCtx()
+	t.Run("invalid remote name", func(t *testing.T) {
+		request := &gitalypb.FindRemoteRootRefRequest{Repository: repo, Remote: "invalid"}
+		ctx, cancel := testhelper.Context()
+		defer cancel()
 
-	_, err := client.FindRemoteRootRef(testCtx, request)
-	testhelper.RequireGrpcError(t, err, codes.Internal)
+		_, err := client.FindRemoteRootRef(ctx, request)
+		testhelper.RequireGrpcError(t, err, codes.Internal)
+	})
+
+	t.Run("invalid remote URL", func(t *testing.T) {
+		fakeRepoDir := testhelper.TempDir(t)
+
+		// We're using a nonexistent filepath remote URL so we avoid hitting the internet.
+		request := &gitalypb.FindRemoteRootRefRequest{
+			Repository: repo, RemoteUrl: "file://" + fakeRepoDir,
+		}
+
+		ctx, cancel := testhelper.Context()
+		defer cancel()
+
+		_, err := client.FindRemoteRootRef(ctx, request)
+		testhelper.RequireGrpcError(t, err, codes.Internal)
+	})
 }
