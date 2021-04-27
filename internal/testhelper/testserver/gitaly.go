@@ -285,7 +285,7 @@ func (gsd *gitalyServerDeps) createDependencies(t testing.TB, cfg config.Cfg, ru
 	}
 
 	if gsd.gitlabAPI == nil {
-		gsd.gitlabAPI = gitlab.GitlabAPIStub
+		gsd.gitlabAPI = gitlab.NewMockClient()
 	}
 
 	if gsd.backchannelReg == nil {

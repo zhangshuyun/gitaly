@@ -578,7 +578,7 @@ func TestCheckBadCreds(t *testing.T) {
 }
 
 func runHookServiceServer(t *testing.T, cfg config.Cfg) func() {
-	return runHookServiceServerWithAPI(t, cfg, gitlab.GitlabAPIStub)
+	return runHookServiceServerWithAPI(t, cfg, gitlab.NewMockClient())
 }
 
 type featureFlagAsserter struct {

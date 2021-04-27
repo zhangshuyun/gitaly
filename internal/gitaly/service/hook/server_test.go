@@ -44,7 +44,7 @@ func TestNewServer(t *testing.T) {
 			cfg := tc.cfg
 			poc := NewServer(
 				cfg,
-				hook.NewManager(config.NewLocator(cfg), transaction.NewManager(cfg, backchannel.NewRegistry()), gitlab.GitlabAPIStub, cfg),
+				hook.NewManager(config.NewLocator(cfg), transaction.NewManager(cfg, backchannel.NewRegistry()), gitlab.NewMockClient(), cfg),
 				git.NewExecCommandFactory(cfg),
 			).(*server).packObjectsCache
 

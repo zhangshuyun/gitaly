@@ -60,7 +60,7 @@ func runObjectPoolServer(t *testing.T, cfg config.Cfg, locator storage.Locator) 
 	require.NoError(t, err)
 
 	txManager := transaction.NewManager(cfg, backchannel.NewRegistry())
-	hookManager := hook.NewManager(locator, txManager, gitlab.GitlabAPIStub, cfg)
+	hookManager := hook.NewManager(locator, txManager, gitlab.NewMockClient(), cfg)
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
 
 	gitalypb.RegisterObjectPoolServiceServer(server, NewServer(cfg, locator, gitCmdFactory))

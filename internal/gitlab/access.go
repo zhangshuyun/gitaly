@@ -256,30 +256,3 @@ func (a *AllowedRequest) parseAndSetGLID(glID string) error {
 
 	return nil
 }
-
-// mockAPI is a noop gitlab API client
-type mockAPI struct{}
-
-func (m *mockAPI) Allowed(ctx context.Context, params AllowedParams) (bool, string, error) {
-	return true, "", nil
-}
-
-func (m *mockAPI) Check(ctx context.Context) (*CheckInfo, error) {
-	return &CheckInfo{
-		Version:        "v13.5.0",
-		Revision:       "deadbeef",
-		APIVersion:     "v4",
-		RedisReachable: true,
-	}, nil
-}
-
-func (m *mockAPI) PreReceive(ctx context.Context, glRepository string) (bool, error) {
-	return true, nil
-}
-
-func (m *mockAPI) PostReceive(ctx context.Context, glRepository, glID, changes string, gitPushOptions ...string) (bool, []PostReceiveMessage, error) {
-	return true, nil, nil
-}
-
-// GitlabAPIStub is a global mock that can be used in testing
-var GitlabAPIStub = &mockAPI{}
