@@ -18,6 +18,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
@@ -30,9 +31,10 @@ var (
 )
 
 func testSuccessfulUserRebaseConfirmableRequest(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	testWithFeature(t, featureflag.GoUserRebaseConfirmable, cfg, rubySrv, testSuccessfulUserRebaseConfirmableRequestFeatured)
+}
 
+func testSuccessfulUserRebaseConfirmableRequestFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
 
 	pushOptions := []string{"ci.skip", "test=value"}
@@ -88,9 +90,10 @@ func testSuccessfulUserRebaseConfirmableRequest(t *testing.T, cfg config.Cfg, ru
 }
 
 func testUserRebaseConfirmableTransaction(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	testWithFeature(t, featureflag.GoUserRebaseConfirmable, cfg, rubySrv, testUserRebaseConfirmableTransactionFeatured)
+}
 
+func testUserRebaseConfirmableTransactionFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	var voteCount int
 	txManager := &transaction.MockManager{
 		VoteFn: func(context.Context, metadata.Transaction, metadata.PraefectServer, transaction.Vote) error {
@@ -189,9 +192,10 @@ func testUserRebaseConfirmableTransaction(t *testing.T, cfg config.Cfg, rubySrv 
 }
 
 func testUserRebaseConfirmableStableCommitIDs(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	testWithFeature(t, featureflag.GoUserRebaseConfirmable, cfg, rubySrv, testUserRebaseConfirmableStableCommitIDsFeatured)
+}
 
+func testUserRebaseConfirmableStableCommitIDsFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
 	cfg.Gitlab.URL = setupAndStartGitlabServer(t, testhelper.GlID, "project-1", cfg)
 
@@ -261,9 +265,10 @@ func testUserRebaseConfirmableStableCommitIDs(t *testing.T, cfg config.Cfg, ruby
 }
 
 func testFailedRebaseUserRebaseConfirmableRequestDueToInvalidHeader(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	testWithFeature(t, featureflag.GoUserRebaseConfirmable, cfg, rubySrv, testFailedRebaseUserRebaseConfirmableRequestDueToInvalidHeaderFeatured)
+}
 
+func testFailedRebaseUserRebaseConfirmableRequestDueToInvalidHeaderFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	ctx, cfg, repo, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
 
 	repoCopy, _, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "copy")
@@ -321,9 +326,10 @@ func testFailedRebaseUserRebaseConfirmableRequestDueToInvalidHeader(t *testing.T
 }
 
 func testAbortedUserRebaseConfirmable(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	testWithFeature(t, featureflag.GoUserRebaseConfirmable, cfg, rubySrv, testAbortedUserRebaseConfirmableFeatured)
+}
 
+func testAbortedUserRebaseConfirmableFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	ctx, cfg, _, _, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
 
 	testCases := []struct {
@@ -382,9 +388,10 @@ func testAbortedUserRebaseConfirmable(t *testing.T, cfg config.Cfg, rubySrv *rub
 }
 
 func testFailedUserRebaseConfirmableDueToApplyBeingFalse(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	testWithFeature(t, featureflag.GoUserRebaseConfirmable, cfg, rubySrv, testFailedUserRebaseConfirmableDueToApplyBeingFalseFeatured)
+}
 
+func testFailedUserRebaseConfirmableDueToApplyBeingFalseFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
 
 	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
@@ -420,9 +427,10 @@ func testFailedUserRebaseConfirmableDueToApplyBeingFalse(t *testing.T, cfg confi
 }
 
 func testFailedUserRebaseConfirmableRequestDueToPreReceiveError(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	testWithFeature(t, featureflag.GoUserRebaseConfirmable, cfg, rubySrv, testFailedUserRebaseConfirmableRequestDueToPreReceiveErrorFeatured)
+}
 
+func testFailedUserRebaseConfirmableRequestDueToPreReceiveErrorFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
 	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
@@ -470,9 +478,10 @@ func testFailedUserRebaseConfirmableRequestDueToPreReceiveError(t *testing.T, cf
 }
 
 func testFailedUserRebaseConfirmableDueToGitError(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	testWithFeature(t, featureflag.GoUserRebaseConfirmable, cfg, rubySrv, testFailedUserRebaseConfirmableDueToGitErrorFeatured)
+}
 
+func testFailedUserRebaseConfirmableDueToGitErrorFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
 
 	repoCopyProto, _, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "copy")
@@ -489,7 +498,7 @@ func testFailedUserRebaseConfirmableDueToGitError(t *testing.T, cfg config.Cfg, 
 
 	firstResponse, err := rebaseStream.Recv()
 	require.NoError(t, err, "receive first response")
-	require.Contains(t, firstResponse.GitError, "CONFLICT (content): Merge conflict in README.md")
+	require.Contains(t, firstResponse.GitError, "conflict")
 
 	testhelper.ReceiveEOFWithTimeout(t, func() error {
 		_, err = rebaseStream.Recv()
@@ -506,9 +515,10 @@ func getBranchSha(t *testing.T, repoPath string, branchName string) string {
 }
 
 func testRebaseRequestWithDeletedFile(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	testWithFeature(t, featureflag.GoUserRebaseConfirmable, cfg, rubySrv, testRebaseRequestWithDeletedFileFeatured)
+}
 
+func testRebaseRequestWithDeletedFileFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	ctx, cfg, _, _, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
 	repoProto, repoPath, cleanup := gittest.CloneRepoWithWorktreeAtStorage(t, cfg.Storages[0])
 	t.Cleanup(cleanup)
@@ -560,9 +570,10 @@ func testRebaseRequestWithDeletedFile(t *testing.T, cfg config.Cfg, rubySrv *rub
 }
 
 func testRebaseOntoRemoteBranch(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	ctx, cancel := testhelper.Context()
-	defer cancel()
+	testWithFeature(t, featureflag.GoUserRebaseConfirmable, cfg, rubySrv, testRebaseOntoRemoteBranchFeatured)
+}
 
+func testRebaseOntoRemoteBranchFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
 
 	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
@@ -613,6 +624,56 @@ func testRebaseOntoRemoteBranch(t *testing.T, cfg config.Cfg, rubySrv *rubyserve
 	require.Equal(t, rebasedBranchHash, firstResponse.GetRebaseSha())
 
 	require.True(t, secondResponse.GetRebaseApplied(), "the second rebase is applied")
+}
+
+func testRebaseFailedWithCode(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
+	testWithFeature(t, featureflag.GoUserRebaseConfirmable, cfg, rubySrv, testRebaseFailedWithCodeFeatured)
+}
+
+func testRebaseFailedWithCodeFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
+	ctx, _, repoProto, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
+
+	branchSha := getBranchSha(t, repoPath, rebaseBranchName)
+
+	testCases := []struct {
+		desc               string
+		buildHeaderRequest func() *gitalypb.UserRebaseConfirmableRequest
+		expectedCode       codes.Code
+	}{
+		{
+			desc: "non-existing storage",
+			buildHeaderRequest: func() *gitalypb.UserRebaseConfirmableRequest {
+				repo := *repoProto
+				repo.StorageName = "@this-storage-does-not-exist"
+
+				return buildHeaderRequest(&repo, testhelper.TestUser, "1", rebaseBranchName, branchSha, &repo, "master")
+			},
+			expectedCode: codes.InvalidArgument,
+		},
+		{
+			desc: "missing repository path",
+			buildHeaderRequest: func() *gitalypb.UserRebaseConfirmableRequest {
+				repo := *repoProto
+				repo.RelativePath = ""
+
+				return buildHeaderRequest(&repo, testhelper.TestUser, "1", rebaseBranchName, branchSha, &repo, "master")
+			},
+			expectedCode: codes.InvalidArgument,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			rebaseStream, err := client.UserRebaseConfirmable(ctx)
+			require.NoError(t, err)
+
+			headerRequest := tc.buildHeaderRequest()
+			require.NoError(t, rebaseStream.Send(headerRequest), "send header")
+
+			_, err = rebaseStream.Recv()
+			testhelper.RequireGrpcError(t, err, tc.expectedCode)
+		})
+	}
 }
 
 func rebaseRecvTimeout(bidi gitalypb.OperationService_UserRebaseConfirmableClient, timeout time.Duration) (*gitalypb.UserRebaseConfirmableResponse, error) {

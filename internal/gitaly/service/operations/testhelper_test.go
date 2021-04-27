@@ -84,6 +84,7 @@ func TestWithRubySidecar(t *testing.T) {
 		testFailedUserRebaseConfirmableDueToGitError,
 		testRebaseRequestWithDeletedFile,
 		testRebaseOntoRemoteBranch,
+		testRebaseFailedWithCode,
 		testSuccessfulUserUpdateSubmoduleRequest,
 		testUserUpdateSubmoduleStableID,
 		testFailedUserUpdateSubmoduleRequestDueToValidations,
