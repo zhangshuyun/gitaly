@@ -15,14 +15,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
-// Only references in these namespaces are cleaned up
-var internalRefs = []string{
-	"refs/environments/",
-	"refs/keep-around/",
-	"refs/merge-requests/",
-	"refs/pipelines/",
-}
-
 // A ForEachFunc can be called for every entry in the filter-repo or BFG object
 // map file that the cleaner is processing. Returning an error will stop the
 // cleaner before it has processed the entry in question
@@ -137,7 +129,7 @@ func buildLookupTable(ctx context.Context, gitCmdFactory git.CommandFactory, rep
 	cmd, err := gitCmdFactory.New(ctx, repo, git.SubCmd{
 		Name:  "for-each-ref",
 		Flags: []git.Option{git.ValueFlag{Name: "--format", Value: "%(objectname) %(refname)"}},
-		Args:  internalRefs,
+		Args:  git.InternalRefPrefixes[:],
 	})
 	if err != nil {
 		return nil, err
