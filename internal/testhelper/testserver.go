@@ -50,14 +50,6 @@ func WithStorages(storages []string) TestServerOpt {
 	}
 }
 
-// WithInternalSocket is a TestServerOpt that will cause the TestServer to
-// listen on its internal socket.
-func WithInternalSocket(cfg config.Cfg) TestServerOpt {
-	return func(t *TestServer) {
-		t.withInternalSocketPath = cfg.GitalyInternalSocketPath()
-	}
-}
-
 // NewTestServer instantiates a new TestServer
 func NewTestServer(srv *grpc.Server, opts ...TestServerOpt) *TestServer {
 	ts := &TestServer{
