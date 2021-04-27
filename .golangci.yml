@@ -657,10 +657,6 @@ issues:
       text: "exported var `ErrNotFound` should have comment or be unexported"
     - linters:
         - golint
-      path: "internal/prometheus/metrics/metrics.go"
-      text: "exported type `HistogramVec` should have comment or be unexported"
-    - linters:
-        - golint
       path: "internal/storage/locator.go"
       text: "exported var `ErrRelativePathEscapesRoot` should have comment or be unexported"
     - linters:
@@ -679,38 +675,6 @@ issues:
         - golint
       path: "internal/testhelper/promtest/counter.go"
       text: "exported type `MockCounter` should have comment or be unexported"
-    - linters:
-        - golint
-      path: "internal/testhelper/promtest/histogram.go"
-      text: "exported function `NewMockHistogramVec` should have comment or be unexported"
-    - linters:
-        - golint
-      path: "internal/testhelper/promtest/histogram.go"
-      text: "exported type `MockHistogramVec` should have comment or be unexported"
-    - linters:
-        - golint
-      path: "internal/testhelper/promtest/histogram.go"
-      text: "exported method `MockHistogramVec.LabelsCalled` should have comment or be unexported"
-    - linters:
-        - golint
-      path: "internal/testhelper/promtest/histogram.go"
-      text: "exported method `MockHistogramVec.Observer` should have comment or be unexported"
-    - linters:
-        - golint
-      path: "internal/testhelper/promtest/histogram.go"
-      text: "exported method `MockHistogramVec.WithLabelValues` should have comment or be unexported"
-    - linters:
-        - golint
-      path: "internal/testhelper/promtest/histogram.go"
-      text: "exported type `MockObserver` should have comment or be unexported"
-    - linters:
-        - golint
-      path: "internal/testhelper/promtest/histogram.go"
-      text: "exported method `MockObserver.Observe` should have comment or be unexported"
-    - linters:
-        - golint
-      path: "internal/testhelper/promtest/histogram.go"
-      text: "exported method `MockObserver.Observed` should have comment or be unexported"
     ## END golint exclusions
     ##
     ## BEGIN errcheck exclusions
