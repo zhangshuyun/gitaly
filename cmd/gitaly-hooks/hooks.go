@@ -131,6 +131,8 @@ func run(args []string) (int, error) {
 	if err != nil {
 		return 0, fmt.Errorf("error when connecting to gitaly: %v", err)
 	}
+	defer conn.Close()
+
 	hookClient := gitalypb.NewHookServiceClient(conn)
 
 	ctx = featureflag.OutgoingWithRaw(ctx, payload.FeatureFlags)
