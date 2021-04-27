@@ -15,8 +15,6 @@ var (
 	LogCommandStats = FeatureFlag{Name: "log_command_stats", OnByDefault: true}
 	// GoUserUpdateBranch enables the Go implementation of UserUpdateBranch
 	GoUserUpdateBranch = FeatureFlag{Name: "go_user_update_branch", OnByDefault: true}
-	// GoResolveConflicts enables the Go implementation of ResolveConflicts
-	GoResolveConflicts = FeatureFlag{Name: "go_resolve_conflicts", OnByDefault: false}
 	// UserRebaseConfirmable
 	GoUserRebaseConfirmable = FeatureFlag{Name: "go_user_rebase_confirmable", OnByDefault: false}
 	// GoUserUpdateSubmodule enables the Go implementation of
@@ -39,7 +37,6 @@ var All = []FeatureFlag{
 	LogCommandStats,
 	ReferenceTransactions,
 	GoUserUpdateBranch,
-	GoResolveConflicts,
 	GoUserRebaseConfirmable,
 	GoUserUpdateSubmodule,
 	GoUserRevert,

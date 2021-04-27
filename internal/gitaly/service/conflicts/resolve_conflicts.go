@@ -19,10 +19,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/remoterepo"
 	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/internal/git2go"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/gitalyssh"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -43,49 +41,8 @@ func (s *server) ResolveConflicts(stream gitalypb.ConflictsService_ResolveConfli
 		return status.Errorf(codes.InvalidArgument, "ResolveConflicts: %v", err)
 	}
 
-	if featureflag.IsEnabled(stream.Context(), featureflag.GoResolveConflicts) {
-		err := s.resolveConflicts(header, stream)
-		return handleResolveConflictsErr(err, stream)
-	}
-
-	ctx := stream.Context()
-	client, err := s.ruby.ConflictsServiceClient(ctx)
-	if err != nil {
-		return err
-	}
-
-	clientCtx, err := rubyserver.SetHeaders(ctx, s.locator, header.GetRepository())
-	if err != nil {
-		return err
-	}
-
-	rubyStream, err := client.ResolveConflicts(clientCtx)
-	if err != nil {
-		return err
-	}
-
-	if err := rubyStream.Send(firstRequest); err != nil {
-		return err
-	}
-
-	err = rubyserver.Proxy(func() error {
-		request, err := stream.Recv()
-		if err != nil {
-			return err
-		}
-		return rubyStream.Send(request)
-	})
-
-	if err != nil {
-		return err
-	}
-
-	response, err := rubyStream.CloseAndRecv()
-	if err != nil {
-		return err
-	}
-
-	return stream.SendAndClose(response)
+	err = s.resolveConflicts(header, stream)
+	return handleResolveConflictsErr(err, stream)
 }
 
 func handleResolveConflictsErr(err error, stream gitalypb.ConflictsService_ResolveConflictsServer) error {
