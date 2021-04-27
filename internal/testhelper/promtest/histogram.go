@@ -19,16 +19,19 @@ func (m *MockHistogram) Observe(v float64) {
 	m.Values = append(m.Values, v)
 }
 
-func NewMockHistogramVec() *MockHistogramVec {
-	return &MockHistogramVec{}
-}
-
+// MockHistogramVec implements a subset of the prometheus.HistogramVec interface.
 type MockHistogramVec struct {
 	m            sync.RWMutex
 	labelsCalled [][]string
 	observer     MockObserver
 }
 
+// NewMockHistogramVec returns a new MockHistogramVec.
+func NewMockHistogramVec() *MockHistogramVec {
+	return &MockHistogramVec{}
+}
+
+// LabelsCalled returns the set of labels which have been observed.
 func (m *MockHistogramVec) LabelsCalled() [][]string {
 	m.m.RLock()
 	defer m.m.RUnlock()
@@ -36,10 +39,19 @@ func (m *MockHistogramVec) LabelsCalled() [][]string {
 	return m.labelsCalled
 }
 
+// Observer returns the mocked observer.
 func (m *MockHistogramVec) Observer() *MockObserver {
 	return &m.observer
 }
 
+// Collect does nothing.
+func (m *MockHistogramVec) Collect(chan<- prometheus.Metric) {}
+
+// Describe does nothing.
+func (m *MockHistogramVec) Describe(chan<- *prometheus.Desc) {}
+
+// WithLabelValues records the given labels such that `LabelsCalled()` will return the set of
+// observed labels.
 func (m *MockHistogramVec) WithLabelValues(lvs ...string) prometheus.Observer {
 	m.m.Lock()
 	defer m.m.Unlock()
@@ -48,11 +60,13 @@ func (m *MockHistogramVec) WithLabelValues(lvs ...string) prometheus.Observer {
 	return &m.observer
 }
 
+// MockObserver implements a subset of the prometheus.Observer interface.
 type MockObserver struct {
 	m        sync.RWMutex
 	observed []float64
 }
 
+// Observe records the given value in its observed values.
 func (m *MockObserver) Observe(v float64) {
 	m.m.Lock()
 	defer m.m.Unlock()
@@ -60,6 +74,7 @@ func (m *MockObserver) Observe(v float64) {
 	m.observed = append(m.observed, v)
 }
 
+// Observed returns all observed values.
 func (m *MockObserver) Observed() []float64 {
 	m.m.RLock()
 	defer m.m.RUnlock()

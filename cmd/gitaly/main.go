@@ -24,6 +24,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/setup"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/internal/gitlab"
 	glog "gitlab.com/gitlab-org/gitaly/internal/log"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/internal/tempdir"
@@ -146,12 +147,13 @@ func run(cfg config.Cfg) error {
 	if config.SkipHooks() {
 		log.Warn("skipping GitLab API client creation since hooks are bypassed via GITALY_TESTING_NO_GIT_HOOKS")
 	} else {
-		gitlabAPI, err := hook.NewGitlabAPI(cfg.Gitlab, cfg.TLS)
+		gitlabClient, err := gitlab.NewHTTPClient(cfg.Gitlab, cfg.TLS, cfg.Prometheus)
 		if err != nil {
 			return fmt.Errorf("could not create GitLab API client: %w", err)
 		}
+		prometheus.MustRegister(gitlabClient)
 
-		hm := hook.NewManager(locator, transactionManager, gitlabAPI, cfg)
+		hm := hook.NewManager(locator, transactionManager, gitlabClient, cfg)
 
 		hookManager = hm
 	}

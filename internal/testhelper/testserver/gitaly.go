@@ -26,6 +26,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/server"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/internal/gitlab"
 	praefectconfig "gitlab.com/gitlab-org/gitaly/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -264,7 +265,7 @@ type gitalyServerDeps struct {
 	locator         storage.Locator
 	txMgr           transaction.Manager
 	hookMgr         hook.Manager
-	gitlabAPI       hook.GitlabAPI
+	gitlabClient    gitlab.Client
 	gitCmdFactory   git.CommandFactory
 	linguist        *linguist.Instance
 	backchannelReg  *backchannel.Registry
@@ -283,8 +284,8 @@ func (gsd *gitalyServerDeps) createDependencies(t testing.TB, cfg config.Cfg, ru
 		gsd.locator = config.NewLocator(cfg)
 	}
 
-	if gsd.gitlabAPI == nil {
-		gsd.gitlabAPI = hook.GitlabAPIStub
+	if gsd.gitlabClient == nil {
+		gsd.gitlabClient = gitlab.NewMockClient()
 	}
 
 	if gsd.backchannelReg == nil {
@@ -296,7 +297,7 @@ func (gsd *gitalyServerDeps) createDependencies(t testing.TB, cfg config.Cfg, ru
 	}
 
 	if gsd.hookMgr == nil {
-		gsd.hookMgr = hook.NewManager(gsd.locator, gsd.txMgr, gsd.gitlabAPI, cfg)
+		gsd.hookMgr = hook.NewManager(gsd.locator, gsd.txMgr, gsd.gitlabClient, cfg)
 	}
 
 	if gsd.gitCmdFactory == nil {
@@ -319,7 +320,7 @@ func (gsd *gitalyServerDeps) createDependencies(t testing.TB, cfg config.Cfg, ru
 		GitCmdFactory:       gsd.gitCmdFactory,
 		Linguist:            gsd.linguist,
 		BackchannelRegistry: gsd.backchannelReg,
-		GitlabAPI:           gsd.gitlabAPI,
+		GitlabClient:        gsd.gitlabClient,
 	}
 }
 
@@ -342,10 +343,10 @@ func WithLocator(locator storage.Locator) GitalyServerOpt {
 	}
 }
 
-// WithGitLabAPI sets hook.GitlabAPI instance that will be used for gitaly services initialisation.
-func WithGitLabAPI(gitlabAPI hook.GitlabAPI) GitalyServerOpt {
+// WithGitLabClient sets gitlab.Client instance that will be used for gitaly services initialisation.
+func WithGitLabClient(gitlabClient gitlab.Client) GitalyServerOpt {
 	return func(deps gitalyServerDeps) gitalyServerDeps {
-		deps.gitlabAPI = gitlabAPI
+		deps.gitlabClient = gitlabClient
 		return deps
 	}
 }

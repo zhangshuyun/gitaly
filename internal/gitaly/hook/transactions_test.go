@@ -14,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -33,7 +34,7 @@ func TestHookManager_stopCalled(t *testing.T) {
 	}
 
 	var mockTxMgr transaction.MockManager
-	hookManager := NewManager(config.NewLocator(cfg), &mockTxMgr, GitlabAPIStub, cfg)
+	hookManager := NewManager(config.NewLocator(cfg), &mockTxMgr, gitlab.NewMockClient(), cfg)
 
 	ctx, cleanup := testhelper.Context()
 	defer cleanup()
@@ -126,7 +127,7 @@ func TestHookManager_contextCancellationCancelsVote(t *testing.T) {
 		},
 	}
 
-	hookManager := NewManager(config.NewLocator(cfg), &mockTxMgr, GitlabAPIStub, cfg)
+	hookManager := NewManager(config.NewLocator(cfg), &mockTxMgr, gitlab.NewMockClient(), cfg)
 
 	hooksPayload, err := git.NewHooksPayload(
 		cfg,

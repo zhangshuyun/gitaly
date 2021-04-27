@@ -9,6 +9,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/linguist"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
 )
 
@@ -23,7 +24,7 @@ type Dependencies struct {
 	GitCmdFactory       git.CommandFactory
 	Linguist            *linguist.Instance
 	BackchannelRegistry *backchannel.Registry
-	GitlabAPI           gitalyhook.GitlabAPI
+	GitlabClient        gitlab.Client
 }
 
 // GetCfg returns service configuration.
@@ -71,7 +72,7 @@ func (dc *Dependencies) GetBackchannelRegistry() *backchannel.Registry {
 	return dc.BackchannelRegistry
 }
 
-// GetGitlabAPI returns client to access GitLab API.
-func (dc *Dependencies) GetGitlabAPI() gitalyhook.GitlabAPI {
-	return dc.GitlabAPI
+// GetGitlabClient returns client to access GitLab API.
+func (dc *Dependencies) GetGitlabClient() gitlab.Client {
+	return dc.GitlabClient
 }

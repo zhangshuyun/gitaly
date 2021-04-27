@@ -1,4 +1,4 @@
-package hook
+package gitlab
 
 import (
 	"context"
@@ -12,7 +12,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config/prometheus"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/promtest"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
@@ -70,7 +72,7 @@ func TestAccess_verifyParams(t *testing.T) {
 	})
 	defer cleanup()
 
-	c, err := NewGitlabAPI(config.Gitlab{
+	c, err := NewHTTPClient(config.Gitlab{
 		URL:        serverURL,
 		SecretFile: secretFilePath,
 		HTTPSettings: config.HTTPSettings{
@@ -81,7 +83,7 @@ func TestAccess_verifyParams(t *testing.T) {
 	}, config.TLS{
 		CertPath: "testdata/certs/server.crt",
 		KeyPath:  "testdata/certs/server.key",
-	})
+	}, prometheus.Config{})
 	require.NoError(t, err)
 
 	badRepo := *testRepo
@@ -206,7 +208,7 @@ func TestAccess_escapedAndRelativeURLs(t *testing.T) {
 				serverURL = url.PathEscape(serverURL)
 			}
 
-			c, err := NewGitlabAPI(config.Gitlab{
+			c, err := NewHTTPClient(config.Gitlab{
 				URL:             serverURL,
 				RelativeURLRoot: tc.relativeURLRoot,
 				SecretFile:      secretFilePath,
@@ -214,7 +216,7 @@ func TestAccess_escapedAndRelativeURLs(t *testing.T) {
 					User:     user,
 					Password: password,
 				},
-			}, config.TLS{})
+			}, config.TLS{}, prometheus.Config{})
 			require.NoError(t, err)
 			allowed, _, err := c.Allowed(context.Background(), AllowedParams{
 				RepoPath:                      testRepo.RelativePath,
@@ -357,11 +359,14 @@ func TestAccess_allowedResponseHandling(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(tc.allowedHandler))
 			defer server.Close()
 
-			c, err := NewGitlabAPI(config.Gitlab{
+			c, err := NewHTTPClient(config.Gitlab{
 				URL:        server.URL,
 				SecretFile: secretFilePath,
-			}, config.TLS{})
+			}, config.TLS{}, prometheus.Config{})
 			require.NoError(t, err)
+
+			mockHistogramVec := promtest.NewMockHistogramVec()
+			c.latencyMetric = mockHistogramVec
 
 			allowed, message, err := c.Allowed(context.Background(), AllowedParams{
 				RepoPath:                      testRepo.RelativePath,
@@ -378,6 +383,8 @@ func TestAccess_allowedResponseHandling(t *testing.T) {
 			} else {
 				require.Equal(t, tc.errMsg, message)
 			}
+
+			require.Equal(t, [][]string{{"allowed"}}, mockHistogramVec.LabelsCalled())
 		})
 	}
 }
@@ -457,17 +464,22 @@ func TestAccess_preReceive(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(tc.prereceiveHandler))
 			defer server.Close()
 
-			c, err := NewGitlabAPI(config.Gitlab{
+			c, err := NewHTTPClient(config.Gitlab{
 				URL:        server.URL,
 				SecretFile: secretFilePath,
-			}, config.TLS{})
+			}, config.TLS{}, prometheus.Config{})
 			require.NoError(t, err)
+
+			mockHistogramVec := promtest.NewMockHistogramVec()
+			c.latencyMetric = mockHistogramVec
 
 			success, err := c.PreReceive(context.Background(), "key-123")
 			require.Equal(t, tc.success, success)
 			if err != nil {
 				require.Contains(t, err.Error(), tc.errMsg)
 			}
+
+			require.Equal(t, [][]string{{"pre-receive"}}, mockHistogramVec.LabelsCalled())
 		})
 	}
 }
@@ -535,11 +547,14 @@ func TestAccess_postReceive(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(tc.postReceiveHandler))
 			defer server.Close()
 
-			c, err := NewGitlabAPI(config.Gitlab{
+			c, err := NewHTTPClient(config.Gitlab{
 				URL:        server.URL,
 				SecretFile: secretFilePath,
-			}, config.TLS{})
+			}, config.TLS{}, prometheus.Config{})
 			require.NoError(t, err)
+
+			mockHistogramVec := promtest.NewMockHistogramVec()
+			c.latencyMetric = mockHistogramVec
 
 			repositoryID := "project-123"
 			identifier := "key-123"
@@ -554,6 +569,8 @@ func TestAccess_postReceive(t *testing.T) {
 				require.Equal(t, changes, receivedRequest.Changes)
 				require.Equal(t, tc.pushOptions, receivedRequest.PushOptions)
 			}
+
+			require.Equal(t, [][]string{{"post-receive"}}, mockHistogramVec.LabelsCalled())
 		})
 	}
 }

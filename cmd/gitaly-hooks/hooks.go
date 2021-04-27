@@ -15,7 +15,9 @@ import (
 	"gitlab.com/gitlab-org/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config/prometheus"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
+	"gitlab.com/gitlab-org/gitaly/internal/gitlab"
 	gitalylog "gitlab.com/gitlab-org/gitaly/internal/log"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/stream"
@@ -169,7 +171,7 @@ func sendFunc(reqWriter io.Writer, stream grpc.ClientStream, stdin io.Reader) fu
 	}
 }
 
-func check(configPath string) (*hook.CheckInfo, error) {
+func check(configPath string) (*gitlab.CheckInfo, error) {
 	cfgFile, err := os.Open(configPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open config file: %w", err)
@@ -181,7 +183,7 @@ func check(configPath string) (*hook.CheckInfo, error) {
 		return nil, err
 	}
 
-	gitlabAPI, err := hook.NewGitlabAPI(cfg.Gitlab, cfg.TLS)
+	gitlabAPI, err := gitlab.NewHTTPClient(cfg.Gitlab, cfg.TLS, prometheus.Config{})
 	if err != nil {
 		return nil, err
 	}

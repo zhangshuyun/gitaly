@@ -12,6 +12,7 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
@@ -42,7 +43,7 @@ func getEnvVar(key string, vars []string) string {
 	return ""
 }
 
-func printMessages(messages []PostReceiveMessage, w io.Writer) error {
+func printMessages(messages []gitlab.PostReceiveMessage, w io.Writer) error {
 	for _, message := range messages {
 		if _, err := w.Write([]byte("\n")); err != nil {
 			return err
@@ -75,7 +76,7 @@ func centerLine(b []byte) []byte {
 	return append(bytes.Repeat([]byte(" "), linePadding), b...)
 }
 
-func printAlert(m PostReceiveMessage, w io.Writer) error {
+func printAlert(m gitlab.PostReceiveMessage, w io.Writer) error {
 	if _, err := w.Write(bytes.Repeat([]byte("="), maxMessageWidth)); err != nil {
 		return err
 	}
@@ -159,7 +160,7 @@ func (m *GitLabHookManager) postReceiveHook(ctx context.Context, payload git.Hoo
 		return helper.ErrInternalf("repository not set")
 	}
 
-	ok, messages, err := m.gitlabAPI.PostReceive(
+	ok, messages, err := m.gitlabClient.PostReceive(
 		ctx, repo.GetGlRepository(),
 		payload.ReceiveHooksPayload.UserID,
 		string(stdin),

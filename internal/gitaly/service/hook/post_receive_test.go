@@ -10,7 +10,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
-	gitalyhook "gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config/prometheus"
+	"gitlab.com/gitlab-org/gitaly/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
@@ -66,7 +67,7 @@ func TestHooksMissingStdin(t *testing.T) {
 		},
 	}
 
-	api, err := gitalyhook.NewGitlabAPI(cfg.Gitlab, cfg.TLS)
+	gitlabClient, err := gitlab.NewHTTPClient(cfg.Gitlab, cfg.TLS, prometheus.Config{})
 	require.NoError(t, err)
 
 	testCases := []struct {
@@ -87,7 +88,7 @@ func TestHooksMissingStdin(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			serverSocketPath := runHooksServer(t, cfg, nil, testserver.WithGitLabAPI(api))
+			serverSocketPath := runHooksServer(t, cfg, nil, testserver.WithGitLabClient(gitlabClient))
 
 			client, conn := newHooksClient(t, serverSocketPath)
 			defer conn.Close()
@@ -217,10 +218,10 @@ To create a merge request for okay, visit:
 				},
 			}
 
-			api, err := gitalyhook.NewGitlabAPI(cfg.Gitlab, cfg.TLS)
+			gitlabClient, err := gitlab.NewHTTPClient(cfg.Gitlab, cfg.TLS, prometheus.Config{})
 			require.NoError(t, err)
 
-			serverSocketPath := runHooksServer(t, cfg, nil, testserver.WithGitLabAPI(api))
+			serverSocketPath := runHooksServer(t, cfg, nil, testserver.WithGitLabClient(gitlabClient))
 
 			client, conn := newHooksClient(t, serverSocketPath)
 			defer conn.Close()
