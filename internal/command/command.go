@@ -1,7 +1,6 @@
 package command
 
 import (
-	"bufio"
 	"context"
 	"errors"
 	"fmt"
@@ -19,10 +18,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/labkit/tracing"
-)
-
-const (
-	escapedNewline = `\n`
 )
 
 // GitEnv contains the ENV variables for git commands
@@ -60,11 +55,11 @@ var exportedEnvVars = []string{
 var envInjector = tracing.NewEnvInjector()
 
 const (
-	// MaxStderrBytes is at most how many bytes will be written to stderr
-	MaxStderrBytes = 10000 // 10kb
-	// StderrBufferSize is the buffer size we use for the reader that reads from
-	// the stderr stream of the command
-	StderrBufferSize = 4096
+	// maxStderrBytes is at most how many bytes will be written to stderr
+	maxStderrBytes = 10000 // 10kb
+	// maxStderrLineLength is at most how many bytes a single line will be
+	// written to stderr. Lines exceeding this limit should be truncated
+	maxStderrLineLength = 4096
 )
 
 // Command encapsulates a running exec.Cmd. The embedded exec.Cmd is
@@ -73,8 +68,7 @@ const (
 type Command struct {
 	reader       io.Reader
 	writer       io.WriteCloser
-	stderrCloser io.WriteCloser
-	stderrDone   chan struct{}
+	stderrBuffer *stderrBuffer
 	cmd          *exec.Cmd
 	context      context.Context
 	startTime    time.Time
@@ -137,18 +131,6 @@ func WaitAllDone() {
 
 type contextWithoutDonePanic string
 
-// noopWriteCloser has a noop Close(). The reason for this is so we can close any WriteClosers that get
-// passed into writeLines. We need this for WriteClosers such as the Logrus writer, which has a
-// goroutine that is stopped by the runtime https://github.com/sirupsen/logrus/blob/master/writer.go#L51.
-// Unless we explicitly close it, go test will complain that logs are being written to after the Test exits.
-type noopWriteCloser struct {
-	io.Writer
-}
-
-func (n *noopWriteCloser) Close() error {
-	return nil
-}
-
 // New creates a Command from an exec.Cmd. On success, the Command
 // contains a running subprocess. When ctx is canceled the embedded
 // process will be terminated and reaped automatically.
@@ -167,7 +149,7 @@ func New(ctx context.Context, cmd *exec.Cmd, stdin io.Reader, stdout, stderr io.
 	span, ctx := opentracing.StartSpanFromContext(
 		ctx,
 		cmd.Path,
-		opentracing.Tag{"args", strings.Join(cmd.Args, " ")},
+		opentracing.Tag{Key: "args", Value: strings.Join(cmd.Args, " ")},
 	)
 
 	putToken, err := getSpawnToken(ctx)
@@ -186,11 +168,10 @@ func New(ctx context.Context, cmd *exec.Cmd, stdin io.Reader, stdout, stderr io.
 	}()
 
 	command := &Command{
-		cmd:        cmd,
-		startTime:  time.Now(),
-		context:    ctx,
-		stderrDone: make(chan struct{}),
-		span:       span,
+		cmd:       cmd,
+		startTime: time.Now(),
+		context:   ctx,
+		span:      span,
 	}
 
 	// Explicitly set the environment for the command
@@ -230,13 +211,14 @@ func New(ctx context.Context, cmd *exec.Cmd, stdin io.Reader, stdout, stderr io.
 	}
 
 	if stderr != nil {
-		command.stderrCloser = &noopWriteCloser{stderr}
-		close(command.stderrDone)
+		cmd.Stderr = stderr
 	} else {
-		command.stderrCloser = escapeNewlineWriter(ctxlogrus.Extract(ctx).WriterLevel(logrus.ErrorLevel), command.stderrDone, MaxStderrBytes)
+		command.stderrBuffer, err = newStderrBuffer(maxStderrBytes, maxStderrLineLength, []byte("\n"))
+		if err != nil {
+			return nil, fmt.Errorf("GitCommand: failed to create stderr buffer: %v", err)
+		}
+		cmd.Stderr = command.stderrBuffer
 	}
-
-	cmd.Stderr = command.stderrCloser
 
 	if err := cmd.Start(); err != nil {
 		return nil, fmt.Errorf("GitCommand: start %v: %v", cmd.Args, err)
@@ -280,71 +262,6 @@ func AllowedEnvironment(envs []string) []string {
 	return filtered
 }
 
-func escapeNewlineWriter(outbound io.WriteCloser, done chan struct{}, maxBytes int) io.WriteCloser {
-	r, w := io.Pipe()
-
-	go writeLines(outbound, r, done, maxBytes)
-
-	return w
-}
-
-func writeLines(writer io.WriteCloser, reader io.Reader, done chan struct{}, maxBytes int) {
-	var bytesWritten int
-
-	bufReader := bufio.NewReaderSize(reader, StderrBufferSize)
-
-	var err error
-	var b []byte
-	var isPrefix, discardRestOfLine bool
-
-	for err == nil {
-		b, isPrefix, err = bufReader.ReadLine()
-
-		if discardRestOfLine {
-			_, _ = ioutil.Discard.Write(b)
-			// if isPrefix = false, that means the reader has gotten to the end
-			// of the line. We want to read the first chunk of the  next line
-			if !isPrefix {
-				discardRestOfLine = false
-			}
-			continue
-		}
-
-		// if we've reached the max, discard
-		if bytesWritten+len(escapedNewline) >= maxBytes {
-			_, _ = ioutil.Discard.Write(b)
-			continue
-		}
-
-		// only write up to the max
-		if len(b)+bytesWritten+len(escapedNewline) >= maxBytes {
-			b = b[:maxBytes-bytesWritten-len(escapedNewline)]
-		}
-
-		// prepend an escaped newline
-		if bytesWritten > 0 {
-			b = append([]byte(escapedNewline), b...)
-		}
-
-		n, _ := writer.Write(b)
-		bytesWritten += n
-
-		// if isPrefix, it means the line is too long so we want to discard the rest
-		if isPrefix {
-			discardRestOfLine = true
-		}
-	}
-
-	// read the rest so the command doesn't get blocked
-	if err != io.EOF {
-		logrus.WithError(err).Error("error while reading from Writer")
-		io.Copy(ioutil.Discard, reader)
-	}
-
-	writer.Close()
-	done <- struct{}{}
-}
-
 // This function should never be called directly, use Wait().
 func (c *Command) wait() {
 	if c.writer != nil {
@@ -359,21 +276,9 @@ func (c *Command) wait() {
 
 	c.waitError = c.cmd.Wait()
 
-	exitCode := 0
-	if c.waitError != nil {
-		if exitStatus, ok := ExitStatus(c.waitError); ok {
-			exitCode = exitStatus
-		}
-	}
-
 	inFlightCommandGauge.Dec()
-	c.logProcessComplete(c.context, exitCode)
 
-	if w := c.stderrCloser; w != nil {
-		w.Close()
-	}
-
-	<-c.stderrDone
+	c.logProcessComplete()
 }
 
 // ExitStatus will return the exit-code from an error returned by Wait().
@@ -391,7 +296,15 @@ func ExitStatus(err error) (int, bool) {
 	return waitStatus.ExitStatus(), true
 }
 
-func (c *Command) logProcessComplete(ctx context.Context, exitCode int) {
+func (c *Command) logProcessComplete() {
+	exitCode := 0
+	if c.waitError != nil {
+		if exitStatus, ok := ExitStatus(c.waitError); ok {
+			exitCode = exitStatus
+		}
+	}
+
+	ctx := c.context
 	cmd := c.cmd
 
 	systemTime := cmd.ProcessState.SystemTime()
@@ -418,6 +331,9 @@ func (c *Command) logProcessComplete(ctx context.Context, exitCode int) {
 	}
 
 	entry.Debug("spawn complete")
+	if c.stderrBuffer != nil && c.stderrBuffer.Len() > 0 {
+		entry.Error(c.stderrBuffer.String())
+	}
 
 	if stats := StatsFromContext(ctx); stats != nil && featureflag.IsEnabled(ctx, featureflag.LogCommandStats) {
 		stats.RecordSum("command.count", 1)

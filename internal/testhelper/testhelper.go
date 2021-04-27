@@ -1,5 +1,6 @@
 package testhelper
 
+//nolint: gci
 import (
 	"context"
 	"crypto/ecdsa"
@@ -33,6 +34,10 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/metadata"
+
+	// The goleak import only exists such that this test-only dependency is properly being
+	// attributed in our NOTICE file.
+	_ "go.uber.org/goleak"
 )
 
 const (
