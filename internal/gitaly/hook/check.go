@@ -7,5 +7,5 @@ import (
 )
 
 func (m *GitLabHookManager) Check(ctx context.Context) (*gitlab.CheckInfo, error) {
-	return m.gitlabAPI.Check(ctx)
+	return m.gitlabClient.Check(ctx)
 }

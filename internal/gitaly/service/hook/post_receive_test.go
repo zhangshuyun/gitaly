@@ -66,7 +66,7 @@ func TestHooksMissingStdin(t *testing.T) {
 		},
 	}
 
-	api, err := gitlab.NewHTTPClient(cfg.Gitlab, cfg.TLS)
+	gitlabClient, err := gitlab.NewHTTPClient(cfg.Gitlab, cfg.TLS)
 	require.NoError(t, err)
 
 	testCases := []struct {
@@ -87,7 +87,7 @@ func TestHooksMissingStdin(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			serverSocketPath := runHooksServer(t, cfg, nil, testserver.WithGitLabAPI(api))
+			serverSocketPath := runHooksServer(t, cfg, nil, testserver.WithGitLabClient(gitlabClient))
 
 			client, conn := newHooksClient(t, serverSocketPath)
 			defer conn.Close()
@@ -217,10 +217,10 @@ To create a merge request for okay, visit:
 				},
 			}
 
-			api, err := gitlab.NewHTTPClient(cfg.Gitlab, cfg.TLS)
+			gitlabClient, err := gitlab.NewHTTPClient(cfg.Gitlab, cfg.TLS)
 			require.NoError(t, err)
 
-			serverSocketPath := runHooksServer(t, cfg, nil, testserver.WithGitLabAPI(api))
+			serverSocketPath := runHooksServer(t, cfg, nil, testserver.WithGitLabClient(gitlabClient))
 
 			client, conn := newHooksClient(t, serverSocketPath)
 			defer conn.Close()

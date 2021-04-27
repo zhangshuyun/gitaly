@@ -172,10 +172,10 @@ func testHooksPrePostReceive(t *testing.T, cfg config.Cfg, repo *gitalypb.Reposi
 		t.Run(fmt.Sprintf("hookName: %s", hookName), func(t *testing.T) {
 			customHookOutputPath := gittest.WriteEnvToCustomHook(t, repoPath, hookName)
 
-			gitlabAPI, err := gitlab.NewHTTPClient(cfg.Gitlab, cfg.TLS)
+			gitlabClient, err := gitlab.NewHTTPClient(cfg.Gitlab, cfg.TLS)
 			require.NoError(t, err)
 
-			stop := runHookServiceServerWithAPI(t, cfg, gitlabAPI)
+			stop := runHookServiceWithGitlabClient(t, cfg, gitlabClient)
 			defer stop()
 
 			var stderr, stdout bytes.Buffer
@@ -351,7 +351,7 @@ func TestHooksPostReceiveFailed(t *testing.T) {
 	cfg.Gitlab.URL = serverURL
 	cfg.Gitlab.SecretFile = testhelper.WriteShellSecretFile(t, cfg.GitlabShell.Dir, secretToken)
 
-	gitlabAPI, err := gitlab.NewHTTPClient(cfg.Gitlab, cfg.TLS)
+	gitlabClient, err := gitlab.NewHTTPClient(cfg.Gitlab, cfg.TLS)
 	require.NoError(t, err)
 
 	customHookOutputPath := gittest.WriteEnvToCustomHook(t, repoPath, "post-receive")
@@ -396,7 +396,7 @@ func TestHooksPostReceiveFailed(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.desc, func(t *testing.T) {
-			stop := runHookServiceServerWithAPI(t, cfg, gitlabAPI)
+			stop := runHookServiceWithGitlabClient(t, cfg, gitlabClient)
 			defer stop()
 
 			hooksPayload, err := git.NewHooksPayload(
@@ -465,10 +465,10 @@ func TestHooksNotAllowed(t *testing.T) {
 
 	customHookOutputPath := gittest.WriteEnvToCustomHook(t, repoPath, "post-receive")
 
-	gitlabAPI, err := gitlab.NewHTTPClient(cfg.Gitlab, cfg.TLS)
+	gitlabClient, err := gitlab.NewHTTPClient(cfg.Gitlab, cfg.TLS)
 	require.NoError(t, err)
 
-	stop := runHookServiceServerWithAPI(t, cfg, gitlabAPI)
+	stop := runHookServiceWithGitlabClient(t, cfg, gitlabClient)
 	defer stop()
 
 	var stderr, stdout bytes.Buffer
@@ -578,7 +578,7 @@ func TestCheckBadCreds(t *testing.T) {
 }
 
 func runHookServiceServer(t *testing.T, cfg config.Cfg) func() {
-	return runHookServiceServerWithAPI(t, cfg, gitlab.NewMockClient())
+	return runHookServiceWithGitlabClient(t, cfg, gitlab.NewMockClient())
 }
 
 type featureFlagAsserter struct {
@@ -616,10 +616,10 @@ func (svc featureFlagAsserter) PackObjectsHook(stream gitalypb.HookService_PackO
 	return svc.wrapped.PackObjectsHook(stream)
 }
 
-func runHookServiceServerWithAPI(t *testing.T, cfg config.Cfg, gitlabAPI gitlab.GitlabAPI) func() {
+func runHookServiceWithGitlabClient(t *testing.T, cfg config.Cfg, gitlabClient gitlab.Client) func() {
 	registry := backchannel.NewRegistry()
 	txManager := transaction.NewManager(cfg, registry)
-	hookManager := gitalyhook.NewManager(config.NewLocator(cfg), txManager, gitlabAPI, cfg)
+	hookManager := gitalyhook.NewManager(config.NewLocator(cfg), txManager, gitlabClient, cfg)
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
 	server := testhelper.NewServerWithAuth(t, nil, nil, cfg.Auth.Token, registry, testhelper.WithInternalSocket(cfg))
 

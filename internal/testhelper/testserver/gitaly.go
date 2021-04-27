@@ -265,7 +265,7 @@ type gitalyServerDeps struct {
 	locator         storage.Locator
 	txMgr           transaction.Manager
 	hookMgr         hook.Manager
-	gitlabAPI       gitlab.GitlabAPI
+	gitlabClient    gitlab.Client
 	gitCmdFactory   git.CommandFactory
 	linguist        *linguist.Instance
 	backchannelReg  *backchannel.Registry
@@ -284,8 +284,8 @@ func (gsd *gitalyServerDeps) createDependencies(t testing.TB, cfg config.Cfg, ru
 		gsd.locator = config.NewLocator(cfg)
 	}
 
-	if gsd.gitlabAPI == nil {
-		gsd.gitlabAPI = gitlab.NewMockClient()
+	if gsd.gitlabClient == nil {
+		gsd.gitlabClient = gitlab.NewMockClient()
 	}
 
 	if gsd.backchannelReg == nil {
@@ -297,7 +297,7 @@ func (gsd *gitalyServerDeps) createDependencies(t testing.TB, cfg config.Cfg, ru
 	}
 
 	if gsd.hookMgr == nil {
-		gsd.hookMgr = hook.NewManager(gsd.locator, gsd.txMgr, gsd.gitlabAPI, cfg)
+		gsd.hookMgr = hook.NewManager(gsd.locator, gsd.txMgr, gsd.gitlabClient, cfg)
 	}
 
 	if gsd.gitCmdFactory == nil {
@@ -320,7 +320,7 @@ func (gsd *gitalyServerDeps) createDependencies(t testing.TB, cfg config.Cfg, ru
 		GitCmdFactory:       gsd.gitCmdFactory,
 		Linguist:            gsd.linguist,
 		BackchannelRegistry: gsd.backchannelReg,
-		GitlabAPI:           gsd.gitlabAPI,
+		GitlabClient:        gsd.gitlabClient,
 	}
 }
 
@@ -343,10 +343,10 @@ func WithLocator(locator storage.Locator) GitalyServerOpt {
 	}
 }
 
-// WithGitLabAPI sets hook.GitlabAPI instance that will be used for gitaly services initialisation.
-func WithGitLabAPI(gitlabAPI gitlab.GitlabAPI) GitalyServerOpt {
+// WithGitLabClient sets gitlab.Client instance that will be used for gitaly services initialisation.
+func WithGitLabClient(gitlabClient gitlab.Client) GitalyServerOpt {
 	return func(deps gitalyServerDeps) gitalyServerDeps {
-		deps.gitlabAPI = gitlabAPI
+		deps.gitlabClient = gitlabClient
 		return deps
 	}
 }

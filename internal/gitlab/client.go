@@ -42,8 +42,8 @@ type CheckInfo struct {
 	RedisReachable bool `json:"redis"`
 }
 
-// GitlabAPI is an interface for accessing the gitlab internal API
-type GitlabAPI interface {
+// Client is an interface for accessing the GitLab internal API
+type Client interface {
 	// Allowed queries the gitlab internal api /allowed endpoint to determine if a ref change for a given repository and user is allowed
 	Allowed(ctx context.Context, params AllowedParams) (bool, string, error)
 	// Check verifies that GitLab can be reached, and authenticated to

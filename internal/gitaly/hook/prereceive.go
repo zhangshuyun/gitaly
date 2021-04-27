@@ -127,7 +127,7 @@ func (m *GitLabHookManager) preReceiveHook(ctx context.Context, payload git.Hook
 		Changes:                       string(changes),
 	}
 
-	allowed, message, err := m.gitlabAPI.Allowed(ctx, params)
+	allowed, message, err := m.gitlabClient.Allowed(ctx, params)
 	if err != nil {
 		return NotAllowedError{Message: fmt.Sprintf("GitLab: %v", err)}
 	}
@@ -157,7 +157,7 @@ func (m *GitLabHookManager) preReceiveHook(ctx context.Context, payload git.Hook
 	}
 
 	// reference counter
-	ok, err := m.gitlabAPI.PreReceive(ctx, repo.GetGlRepository())
+	ok, err := m.gitlabClient.PreReceive(ctx, repo.GetGlRepository())
 	if err != nil {
 		return helper.ErrInternalf("calling pre_receive endpoint: %v", err)
 	}

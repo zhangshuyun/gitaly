@@ -8,7 +8,7 @@ import (
 type MockClient struct{}
 
 // NewMockClient returns a new mock client for the internal GitLab API.
-func NewMockClient() GitlabAPI {
+func NewMockClient() Client {
 	return &MockClient{}
 }
 

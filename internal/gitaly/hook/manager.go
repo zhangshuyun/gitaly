@@ -49,18 +49,18 @@ type Manager interface {
 // GitLabHookManager is a hook manager containing Git hook business logic. It
 // uses the GitLab API to authenticate and track ongoing hook calls.
 type GitLabHookManager struct {
-	locator     storage.Locator
-	gitlabAPI   gitlab.GitlabAPI
-	hooksConfig config.Hooks
-	txManager   transaction.Manager
+	locator      storage.Locator
+	gitlabClient gitlab.Client
+	hooksConfig  config.Hooks
+	txManager    transaction.Manager
 }
 
 // NewManager returns a new hook manager
-func NewManager(locator storage.Locator, txManager transaction.Manager, gitlabAPI gitlab.GitlabAPI, cfg config.Cfg) *GitLabHookManager {
+func NewManager(locator storage.Locator, txManager transaction.Manager, gitlabClient gitlab.Client, cfg config.Cfg) *GitLabHookManager {
 	return &GitLabHookManager{
-		locator:     locator,
-		gitlabAPI:   gitlabAPI,
-		hooksConfig: cfg.Hooks,
-		txManager:   txManager,
+		locator:      locator,
+		gitlabClient: gitlabClient,
+		hooksConfig:  cfg.Hooks,
+		txManager:    txManager,
 	}
 }

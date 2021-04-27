@@ -132,10 +132,10 @@ func TestPreReceiveHook_GitlabAPIAccess(t *testing.T) {
 		SecretFile: secretFilePath,
 	}
 
-	gitlabAPI, err := gitlab.NewHTTPClient(gitlabConfig, cfg.TLS)
+	gitlabClient, err := gitlab.NewHTTPClient(gitlabConfig, cfg.TLS)
 	require.NoError(t, err)
 
-	serverSocketPath := runHooksServer(t, cfg, nil, testserver.WithGitLabAPI(gitlabAPI))
+	serverSocketPath := runHooksServer(t, cfg, nil, testserver.WithGitLabClient(gitlabClient))
 
 	client, conn := newHooksClient(t, serverSocketPath)
 	defer conn.Close()
@@ -248,10 +248,10 @@ func TestPreReceive_APIErrors(t *testing.T) {
 				SecretFile: secretFilePath,
 			}
 
-			gitlabAPI, err := gitlab.NewHTTPClient(gitlabConfig, cfg.TLS)
+			gitlabClient, err := gitlab.NewHTTPClient(gitlabConfig, cfg.TLS)
 			require.NoError(t, err)
 
-			serverSocketPath := runHooksServer(t, cfg, nil, testserver.WithGitLabAPI(gitlabAPI))
+			serverSocketPath := runHooksServer(t, cfg, nil, testserver.WithGitLabClient(gitlabClient))
 
 			client, conn := newHooksClient(t, serverSocketPath)
 			defer conn.Close()
@@ -321,10 +321,10 @@ exit %d
 		SecretFile: secretFilePath,
 	}
 
-	gitlabAPI, err := gitlab.NewHTTPClient(gitlabConfig, cfg.TLS)
+	gitlabClient, err := gitlab.NewHTTPClient(gitlabConfig, cfg.TLS)
 	require.NoError(t, err)
 
-	serverSocketPath := runHooksServer(t, cfg, nil, testserver.WithGitLabAPI(gitlabAPI))
+	serverSocketPath := runHooksServer(t, cfg, nil, testserver.WithGitLabClient(gitlabClient))
 
 	client, conn := newHooksClient(t, serverSocketPath)
 	defer conn.Close()
@@ -446,13 +446,13 @@ func TestPreReceiveHook_Primary(t *testing.T) {
 
 			gittest.WriteCustomHook(t, testRepoPath, "pre-receive", []byte(fmt.Sprintf("#!/bin/bash\nexit %d", tc.hookExitCode)))
 
-			gitlabAPI, err := gitlab.NewHTTPClient(config.Gitlab{
+			gitlabClient, err := gitlab.NewHTTPClient(config.Gitlab{
 				URL:        srv.URL,
 				SecretFile: secretFilePath,
 			}, cfg.TLS)
 			require.NoError(t, err)
 
-			serverSocketPath := runHooksServer(t, cfg, nil, testserver.WithGitLabAPI(gitlabAPI))
+			serverSocketPath := runHooksServer(t, cfg, nil, testserver.WithGitLabClient(gitlabClient))
 
 			client, conn := newHooksClient(t, serverSocketPath)
 			defer conn.Close()

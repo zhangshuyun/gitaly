@@ -160,7 +160,7 @@ func (m *GitLabHookManager) postReceiveHook(ctx context.Context, payload git.Hoo
 		return helper.ErrInternalf("repository not set")
 	}
 
-	ok, messages, err := m.gitlabAPI.PostReceive(
+	ok, messages, err := m.gitlabClient.PostReceive(
 		ctx, repo.GetGlRepository(),
 		payload.ReceiveHooksPayload.UserID,
 		string(stdin),
