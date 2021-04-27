@@ -929,7 +929,7 @@ func TestUserCommitFiles(t *testing.T) {
 
 				require.Equal(t, step.branchCreated, resp.BranchUpdate.BranchCreated, "step %d", i+1)
 				require.Equal(t, step.repoCreated, resp.BranchUpdate.RepoCreated, "step %d", i+1)
-				gittest.RequireTree(t, repoPath, branch, step.treeEntries)
+				gittest.RequireTree(t, cfg, repoPath, branch, step.treeEntries)
 			}
 		})
 	}
@@ -967,7 +967,7 @@ func TestUserCommitFilesStableCommitID(t *testing.T) {
 	require.Equal(t, resp.BranchUpdate.CommitId, "4f0ca1fbf05e04dbd5f68d14677034e0afee58ff")
 	require.True(t, resp.BranchUpdate.BranchCreated)
 	require.True(t, resp.BranchUpdate.RepoCreated)
-	gittest.RequireTree(t, repoPath, "refs/heads/master", []gittest.TreeEntry{
+	gittest.RequireTree(t, cfg, repoPath, "refs/heads/master", []gittest.TreeEntry{
 		{Mode: "100644", Path: "file.txt", Content: "content"},
 	})
 
