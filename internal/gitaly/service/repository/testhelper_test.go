@@ -157,7 +157,7 @@ func setupRepositoryServiceWithoutRepo(t testing.TB, opts ...testserver.GitalySe
 func setupRepositoryServiceWithWorktree(t testing.TB) (config.Cfg, *gitalypb.Repository, string, gitalypb.RepositoryServiceClient) {
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
 
-	repo, repoPath, cleanup := gittest.CloneRepoWithWorktreeAtStorage(t, cfg.Storages[0])
+	repo, repoPath, cleanup := gittest.CloneRepoWithWorktreeAtStorage(t, cfg, cfg.Storages[0])
 	t.Cleanup(cleanup)
 
 	return cfg, repo, repoPath, client

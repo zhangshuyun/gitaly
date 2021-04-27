@@ -482,16 +482,22 @@ env | grep -E "^GL_|CORRELATION|GITALY_"`))
 	require.NoError(t, err)
 	require.NoError(t, tmpFile.Close())
 
-	cfg := testcfg.Build(t, testcfg.WithBase(config.Cfg{Git: config.Git{BinPath: tmpFile.Name()}}))
+	cfg := testcfg.Build(t)
 
 	testhelper.ConfigureGitalyHooksBin(t, cfg)
 
-	serverSocketPath := runRepositoryServerWithConfig(t, cfg, nil)
+	// We re-define path to the git executable to catch parameters used to call it.
+	// This replacement only needs to be done for the configuration used to invoke git commands.
+	// Other operations should use actual path to the git binary to work properly.
+	spyGitCfg := cfg
+	spyGitCfg.Git.BinPath = tmpFile.Name()
+
+	serverSocketPath := runRepositoryServerWithConfig(t, spyGitCfg, nil)
 	cfg.SocketPath = serverSocketPath
 
 	client := newRepositoryClient(t, cfg, serverSocketPath)
 
-	repo, _, cleanup := gittest.CloneRepoWithWorktreeAtStorage(t, cfg.Storages[0])
+	repo, _, cleanup := gittest.CloneRepoWithWorktreeAtStorage(t, cfg, cfg.Storages[0])
 	t.Cleanup(cleanup)
 
 	commitID := "1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"

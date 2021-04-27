@@ -511,7 +511,7 @@ func testRebaseRequestWithDeletedFile(t *testing.T, cfg config.Cfg, rubySrv *rub
 
 func testRebaseRequestWithDeletedFileFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	ctx, cfg, _, _, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
-	repoProto, repoPath, cleanup := gittest.CloneRepoWithWorktreeAtStorage(t, cfg.Storages[0])
+	repoProto, repoPath, cleanup := gittest.CloneRepoWithWorktreeAtStorage(t, cfg, cfg.Storages[0])
 	t.Cleanup(cleanup)
 
 	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
@@ -567,7 +567,7 @@ func testRebaseOntoRemoteBranchFeatured(t *testing.T, ctx context.Context, cfg c
 
 	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
-	remoteRepo, remoteRepoPath, cleanup := gittest.CloneRepoWithWorktreeAtStorage(t, cfg.Storages[0])
+	remoteRepo, remoteRepoPath, cleanup := gittest.CloneRepoWithWorktreeAtStorage(t, cfg, cfg.Storages[0])
 	defer cleanup()
 
 	localBranch := "master"

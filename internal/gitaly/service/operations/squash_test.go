@@ -216,7 +216,7 @@ func TestSquashRequestWithRenamedFiles(t *testing.T) {
 
 	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
 
-	repoProto, repoPath, cleanup := gittest.CloneRepoWithWorktreeAtStorage(t, cfg.Storages[0])
+	repoProto, repoPath, cleanup := gittest.CloneRepoWithWorktreeAtStorage(t, cfg, cfg.Storages[0])
 	t.Cleanup(cleanup)
 
 	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)

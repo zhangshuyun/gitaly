@@ -95,12 +95,15 @@ func TestFetchRemote_sshCommand(t *testing.T) {
 	exit 7`, outputPath)
 	testhelper.WriteExecutable(t, gitPath, []byte(script))
 
-	cfg, repo, _ := testcfg.BuildWithRepo(t, testcfg.WithBase(config.Cfg{
-		Git: config.Git{BinPath: gitPath},
-	}))
+	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
-	client, serverSocketPath := runRepositoryService(t, cfg, nil)
-	cfg.SocketPath = serverSocketPath
+	// We re-define path to the git executable to catch parameters used to call it.
+	// This replacement only needs to be done for the configuration used to invoke git commands.
+	// Other operations should use actual path to the git binary to work properly.
+	spyGitCfg := cfg
+	spyGitCfg.Git.BinPath = gitPath
+
+	client, _ := runRepositoryService(t, spyGitCfg, nil)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
