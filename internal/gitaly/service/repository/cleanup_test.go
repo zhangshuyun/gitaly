@@ -148,7 +148,7 @@ func TestCleanupDeletesStaleWorktrees(t *testing.T) {
 			req := &gitalypb.CleanupRequest{Repository: repo}
 
 			worktreeCheckoutPath := filepath.Join(repoPath, worktreePrefix, "test-worktree")
-			gittest.AddWorktree(t, repoPath, worktreeCheckoutPath)
+			gittest.AddWorktree(t, cfg, repoPath, worktreeCheckoutPath)
 			basePath := filepath.Join(repoPath, "worktrees")
 			worktreePath := filepath.Join(basePath, "test-worktree")
 
@@ -193,7 +193,7 @@ func TestCleanupDisconnectedWorktrees(t *testing.T) {
 
 	req := &gitalypb.CleanupRequest{Repository: repo}
 
-	gittest.AddWorktree(t, repoPath, worktreePath)
+	gittest.AddWorktree(t, cfg, repoPath, worktreePath)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -216,7 +216,7 @@ func TestCleanupDisconnectedWorktrees(t *testing.T) {
 
 	// if the worktree administrative files are pruned, then we should be able
 	// to checkout another worktree at the same path
-	gittest.AddWorktree(t, repoPath, worktreePath)
+	gittest.AddWorktree(t, cfg, repoPath, worktreePath)
 }
 
 func TestCleanupFileLocks(t *testing.T) {

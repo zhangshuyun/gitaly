@@ -186,6 +186,6 @@ func AddWorktreeArgs(repoPath, worktreeName string) []string {
 }
 
 // AddWorktree creates a worktree in the repository path for tests
-func AddWorktree(t testing.TB, repoPath string, worktreeName string) {
-	testhelper.MustRunCommand(t, nil, "git", AddWorktreeArgs(repoPath, worktreeName)...)
+func AddWorktree(t testing.TB, cfg config.Cfg, repoPath string, worktreeName string) {
+	Exec(t, cfg, AddWorktreeArgs(repoPath, worktreeName)...)
 }
