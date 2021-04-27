@@ -224,12 +224,12 @@ func TestRepackFullFailure(t *testing.T) {
 }
 
 func TestRepackFullDeltaIslands(t *testing.T) {
-	_, repo, repoPath, client := setupRepositoryService(t)
+	cfg, repo, repoPath, client := setupRepositoryService(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	gittest.TestDeltaIslands(t, repoPath, func() error {
+	gittest.TestDeltaIslands(t, cfg, repoPath, func() error {
 		_, err := client.RepackFull(ctx, &gitalypb.RepackFullRequest{Repository: repo})
 		return err
 	})
