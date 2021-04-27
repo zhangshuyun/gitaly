@@ -65,11 +65,11 @@ func getGitDirSize(t testing.TB, repoPath string, subdirs ...string) int64 {
 
 // WriteBlobs writes n distinct blobs into the git repository's object
 // database. Each object has the current time in nanoseconds as contents.
-func WriteBlobs(t testing.TB, testRepoPath string, n int) []string {
+func WriteBlobs(t testing.TB, cfg config.Cfg, testRepoPath string, n int) []string {
 	var blobIDs []string
 	for i := 0; i < n; i++ {
 		contents := []byte(strconv.Itoa(time.Now().Nanosecond()))
-		blobIDs = append(blobIDs, WriteBlob(t, config.Config, testRepoPath, contents).String())
+		blobIDs = append(blobIDs, WriteBlob(t, cfg, testRepoPath, contents).String())
 	}
 
 	return blobIDs
