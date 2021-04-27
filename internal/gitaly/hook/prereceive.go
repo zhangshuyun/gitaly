@@ -12,6 +12,7 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
@@ -116,7 +117,7 @@ func (m *GitLabHookManager) preReceiveHook(ctx context.Context, payload git.Hook
 		return helper.ErrInternalf("protocol not set")
 	}
 
-	params := AllowedParams{
+	params := gitlab.AllowedParams{
 		RepoPath:                      repoPath,
 		GitObjectDirectory:            repo.GitObjectDirectory,
 		GitAlternateObjectDirectories: repo.GitAlternateObjectDirectories,

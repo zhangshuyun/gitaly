@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
-	gitalyhook "gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
+	"gitlab.com/gitlab-org/gitaly/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
@@ -66,7 +66,7 @@ func TestHooksMissingStdin(t *testing.T) {
 		},
 	}
 
-	api, err := gitalyhook.NewGitlabAPI(cfg.Gitlab, cfg.TLS)
+	api, err := gitlab.NewGitlabAPI(cfg.Gitlab, cfg.TLS)
 	require.NoError(t, err)
 
 	testCases := []struct {
@@ -217,7 +217,7 @@ To create a merge request for okay, visit:
 				},
 			}
 
-			api, err := gitalyhook.NewGitlabAPI(cfg.Gitlab, cfg.TLS)
+			api, err := gitlab.NewGitlabAPI(cfg.Gitlab, cfg.TLS)
 			require.NoError(t, err)
 
 			serverSocketPath := runHooksServer(t, cfg, nil, testserver.WithGitLabAPI(api))

@@ -26,6 +26,7 @@ import (
 	gitalyhook "gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/hook"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/internal/gitlab"
 	gitalylog "gitlab.com/gitlab-org/gitaly/internal/log"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
@@ -171,7 +172,7 @@ func testHooksPrePostReceive(t *testing.T, cfg config.Cfg, repo *gitalypb.Reposi
 		t.Run(fmt.Sprintf("hookName: %s", hookName), func(t *testing.T) {
 			customHookOutputPath := gittest.WriteEnvToCustomHook(t, repoPath, hookName)
 
-			gitlabAPI, err := gitalyhook.NewGitlabAPI(cfg.Gitlab, cfg.TLS)
+			gitlabAPI, err := gitlab.NewGitlabAPI(cfg.Gitlab, cfg.TLS)
 			require.NoError(t, err)
 
 			stop := runHookServiceServerWithAPI(t, cfg, gitlabAPI)
@@ -350,7 +351,7 @@ func TestHooksPostReceiveFailed(t *testing.T) {
 	cfg.Gitlab.URL = serverURL
 	cfg.Gitlab.SecretFile = testhelper.WriteShellSecretFile(t, cfg.GitlabShell.Dir, secretToken)
 
-	gitlabAPI, err := gitalyhook.NewGitlabAPI(cfg.Gitlab, cfg.TLS)
+	gitlabAPI, err := gitlab.NewGitlabAPI(cfg.Gitlab, cfg.TLS)
 	require.NoError(t, err)
 
 	customHookOutputPath := gittest.WriteEnvToCustomHook(t, repoPath, "post-receive")
@@ -464,7 +465,7 @@ func TestHooksNotAllowed(t *testing.T) {
 
 	customHookOutputPath := gittest.WriteEnvToCustomHook(t, repoPath, "post-receive")
 
-	gitlabAPI, err := gitalyhook.NewGitlabAPI(cfg.Gitlab, cfg.TLS)
+	gitlabAPI, err := gitlab.NewGitlabAPI(cfg.Gitlab, cfg.TLS)
 	require.NoError(t, err)
 
 	stop := runHookServiceServerWithAPI(t, cfg, gitlabAPI)
@@ -577,7 +578,7 @@ func TestCheckBadCreds(t *testing.T) {
 }
 
 func runHookServiceServer(t *testing.T, cfg config.Cfg) func() {
-	return runHookServiceServerWithAPI(t, cfg, gitalyhook.GitlabAPIStub)
+	return runHookServiceServerWithAPI(t, cfg, gitlab.GitlabAPIStub)
 }
 
 type featureFlagAsserter struct {
@@ -615,7 +616,7 @@ func (svc featureFlagAsserter) PackObjectsHook(stream gitalypb.HookService_PackO
 	return svc.wrapped.PackObjectsHook(stream)
 }
 
-func runHookServiceServerWithAPI(t *testing.T, cfg config.Cfg, gitlabAPI gitalyhook.GitlabAPI) func() {
+func runHookServiceServerWithAPI(t *testing.T, cfg config.Cfg, gitlabAPI gitlab.GitlabAPI) func() {
 	registry := backchannel.NewRegistry()
 	txManager := transaction.NewManager(cfg, registry)
 	hookManager := gitalyhook.NewManager(config.NewLocator(cfg), txManager, gitlabAPI, cfg)

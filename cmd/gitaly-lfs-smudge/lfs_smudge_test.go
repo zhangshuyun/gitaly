@@ -33,8 +33,8 @@ size 177735`
 	glRepository = "project-1"
 	secretToken  = "topsecret"
 	testData     = "hello world"
-	certPath     = "../../internal/gitaly/hook/testdata/certs/server.crt"
-	keyPath      = "../../internal/gitaly/hook/testdata/certs/server.key"
+	certPath     = "../../internal/gitlab/testdata/certs/server.crt"
+	keyPath      = "../../internal/gitlab/testdata/certs/server.key"
 )
 
 var (
