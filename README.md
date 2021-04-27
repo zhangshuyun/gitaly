@@ -43,11 +43,11 @@ GitLab.com, read about our [observability story](doc/observability.md)!
 
 ##### Overall
 
-[![image](https://gitlab.com/gitlab-org/gitaly/uploads/ca7dddd2e23b7f1fb8c0f842c93059ce/gitaly-overview_s.png)](https://dashboards.gitlab.com/d/000000176/gitaly)
+[![image](https://gitlab.com/gitlab-org/gitaly/uploads/c3aa987884d5e78c3567a3a7469ea6c2/overview.png)](https://dashboards.gitlab.com/d/gitaly-main/gitaly-overview)
 
 ##### By Feature
 
-[![image](https://gitlab.com/gitlab-org/gitaly/uploads/048a1facaaf18b4799569150ca7c3cd6/gitaly-features_s.png)](https://dashboards.gitlab.com/d/000000198/gitaly-features-overview)
+[![image](https://gitlab.com/gitlab-org/gitaly/uploads/3e8a5616863fa17c5bf08cb67c1bb385/feature.png)](https://dashboards.gitlab.com/d/000000198/gitaly-features-overview)
 
 ## Installation
 
