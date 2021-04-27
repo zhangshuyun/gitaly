@@ -350,10 +350,10 @@ func testUpdateRemoteMirrorFeatured(t *testing.T, ctx context.Context, cfg confi
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			_, mirrorRepoPath, cleanMirrorRepo := gittest.InitBareRepoAt(t, cfg.Storages[0])
+			_, mirrorRepoPath, cleanMirrorRepo := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
 			defer cleanMirrorRepo()
 
-			sourceRepoPb, sourceRepoPath, cleanSourceRepo := gittest.InitBareRepoAt(t, cfg.Storages[0])
+			sourceRepoPb, sourceRepoPath, cleanSourceRepo := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
 			defer cleanSourceRepo()
 
 			// configure the mirror repository as a remote in the source

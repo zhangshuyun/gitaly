@@ -89,7 +89,7 @@ func testRepositoryHasBranches(t *testing.T, cfg config.Cfg, getRepository func(
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	pbRepo, repoPath, cleanup := InitBareRepoAt(t, cfg.Storages[0])
+	pbRepo, repoPath, cleanup := InitBareRepoAt(t, cfg, cfg.Storages[0])
 	defer cleanup()
 
 	repo := getRepository(t, pbRepo)

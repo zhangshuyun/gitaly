@@ -26,7 +26,7 @@ func createRepoWithDivergentBranches(t *testing.T, cfg config.Cfg, leftCommits, 
 		 f   h
 	*/
 
-	repo, worktreePath, cleanupFn := gittest.InitRepoWithWorktreeAtStorage(t, cfg.Storages[0])
+	repo, worktreePath, cleanupFn := gittest.InitRepoWithWorktreeAtStorage(t, cfg, cfg.Storages[0])
 	committerName := "Scrooge McDuck"
 	committerEmail := "scrooge@mcduck.com"
 

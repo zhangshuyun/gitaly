@@ -46,7 +46,7 @@ func TestUserCommitFiles(t *testing.T) {
 	// repository there on every test run. This allows us to use deterministic
 	// paths in the tests.
 
-	startRepo, startRepoPath, cleanup := gittest.InitBareRepoAt(t, cfg.Storages[0])
+	startRepo, startRepoPath, cleanup := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
 	t.Cleanup(cleanup)
 
 	pathToStorage := strings.TrimSuffix(startRepoPath, startRepo.RelativePath)
@@ -941,7 +941,7 @@ func TestUserCommitFilesStableCommitID(t *testing.T) {
 
 	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
 
-	repoProto, repoPath, cleanup := gittest.InitBareRepoAt(t, cfg.Storages[0])
+	repoProto, repoPath, cleanup := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
 	defer cleanup()
 	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
@@ -1000,7 +1000,7 @@ func TestSuccessfulUserCommitFilesRequest(t *testing.T) {
 
 	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
-	newRepo, newRepoPath, newRepoCleanupFn := gittest.InitBareRepoAt(t, cfg.Storages[0])
+	newRepo, newRepoPath, newRepoCleanupFn := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
 	defer newRepoCleanupFn()
 
 	filePath := "héllo/wörld"
@@ -1254,7 +1254,7 @@ func testSuccessfulUserCommitFilesRemoteRepositoryRequest(setHeader func(header 
 
 		repo := localrepo.New(gitCmdFactory, repoProto, cfg)
 
-		newRepoProto, _, newRepoCleanupFn := gittest.InitBareRepoAt(t, cfg.Storages[0])
+		newRepoProto, _, newRepoCleanupFn := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
 		defer newRepoCleanupFn()
 		newRepo := localrepo.New(gitCmdFactory, newRepoProto, cfg)
 
@@ -1291,7 +1291,7 @@ func TestSuccessfulUserCommitFilesRequestWithSpecialCharactersInSignature(t *tes
 
 	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
 
-	repoProto, _, cleanup := gittest.InitBareRepoAt(t, cfg.Storages[0])
+	repoProto, _, cleanup := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
 	defer cleanup()
 	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 

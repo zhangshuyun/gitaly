@@ -30,7 +30,7 @@ func setupRepo(t *testing.T, bare bool) (*Repo, string) {
 	var repoPath string
 	var repoCleanUp func()
 	if bare {
-		repoProto, repoPath, repoCleanUp = gittest.InitBareRepoAt(t, cfg.Storages[0])
+		repoProto, repoPath, repoCleanUp = gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
 	} else {
 		repoProto, repoPath, repoCleanUp = gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name())
 	}

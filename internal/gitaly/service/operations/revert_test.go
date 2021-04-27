@@ -246,7 +246,7 @@ func testServerUserRevertSuccessfulIntoNewRepo(t *testing.T, ctx context.Context
 	masterHeadCommit, err := startRepo.ReadCommit(ctx, "master")
 	require.NoError(t, err)
 
-	repoProto, _, cleanup := gittest.InitBareRepoAt(t, cfg.Storages[0])
+	repoProto, _, cleanup := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
 	defer cleanup()
 	repo := localrepo.New(gitCmdFactory, repoProto, cfg)
 

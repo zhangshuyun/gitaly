@@ -38,24 +38,14 @@ func InitRepoDir(t testing.TB, storagePath, relativePath string) *gitalypb.Repos
 	}
 }
 
-// InitBareRepo creates a new bare repository
-func InitBareRepo(t testing.TB) (*gitalypb.Repository, string, func()) {
-	return initRepoAt(t, true, config.Storage{Name: "default", Path: testhelper.GitlabTestStoragePath()})
-}
-
 // InitBareRepoAt creates a new bare repository in the storage
-func InitBareRepoAt(t testing.TB, storage config.Storage) (*gitalypb.Repository, string, func()) {
-	return initRepoAt(t, true, storage)
-}
-
-// InitRepoWithWorktree creates a new repository with a worktree
-func InitRepoWithWorktree(t testing.TB) (*gitalypb.Repository, string, func()) {
-	return initRepoAt(t, false, config.Storage{Name: "default", Path: testhelper.GitlabTestStoragePath()})
+func InitBareRepoAt(t testing.TB, cfg config.Cfg, storage config.Storage) (*gitalypb.Repository, string, func()) {
+	return initRepoAt(t, cfg, true, storage)
 }
 
 // InitRepoWithWorktreeAtStorage creates a new repository with a worktree in the storage
-func InitRepoWithWorktreeAtStorage(t testing.TB, storage config.Storage) (*gitalypb.Repository, string, func()) {
-	return initRepoAt(t, false, storage)
+func InitRepoWithWorktreeAtStorage(t testing.TB, cfg config.Cfg, storage config.Storage) (*gitalypb.Repository, string, func()) {
+	return initRepoAt(t, cfg, false, storage)
 }
 
 // NewObjectPoolName returns a random pool repository name in format
@@ -86,7 +76,7 @@ func newDiskHash(t testing.TB) string {
 	return filepath.Join(b[0:2], b[2:4], b)
 }
 
-func initRepoAt(t testing.TB, bare bool, storage config.Storage) (*gitalypb.Repository, string, func()) {
+func initRepoAt(t testing.TB, cfg config.Cfg, bare bool, storage config.Storage) (*gitalypb.Repository, string, func()) {
 	relativePath := NewRepositoryName(t, bare)
 	repoPath := filepath.Join(storage.Path, relativePath)
 
@@ -95,7 +85,7 @@ func initRepoAt(t testing.TB, bare bool, storage config.Storage) (*gitalypb.Repo
 		args = append(args, "--bare")
 	}
 
-	testhelper.MustRunCommand(t, nil, "git", append(args, repoPath)...)
+	Exec(t, cfg, append(args, repoPath)...)
 
 	repo := InitRepoDir(t, storage.Path, relativePath)
 	repo.StorageName = storage.Name

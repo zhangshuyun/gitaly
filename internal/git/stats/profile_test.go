@@ -16,7 +16,7 @@ import (
 func TestRepositoryProfile(t *testing.T) {
 	cfg := testcfg.Build(t)
 
-	testRepo, testRepoPath, cleanup := gittest.InitBareRepoAt(t, cfg.Storages[0])
+	testRepo, testRepoPath, cleanup := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
 	defer cleanup()
 
 	ctx, cancel := testhelper.Context()
