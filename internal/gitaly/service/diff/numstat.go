@@ -1,9 +1,11 @@
 package diff
 
 import (
+	"bytes"
 	"io"
 
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/diff"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -34,6 +36,20 @@ func (s *server) DiffStats(in *gitalypb.DiffStatsRequest, stream gitalypb.DiffSe
 	}
 
 	parser := diff.NewDiffNumStatParser(cmd)
+
+	{
+		repo := localrepo.New(s.gitCmdFactory, in.GetRepository(), s.cfg)
+		commit, err := repo.ReadCommit(stream.Context(), git.Revision(in.RightCommitId))
+		if err == nil {
+			numStat := &gitalypb.DiffStats{
+				Additions: int32(bytes.Count(commit.Body, []byte("\n"))),
+				Deletions: 0,
+				Path:      []byte("COMMIT_MSG"),
+				OldPath:   []byte("COMMIT_MSG"),
+			}
+			batch = append(batch, numStat)
+		}
+	}
 
 	for {
 		stat, err := parser.NextNumStat()

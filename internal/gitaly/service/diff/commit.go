@@ -1,12 +1,14 @@
 package diff
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/diff"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -71,6 +73,27 @@ func (s *server) CommitDiff(in *gitalypb.CommitDiffRequest, stream gitalypb.Diff
 	limits.SafeMaxFiles = int(in.SafeMaxFiles)
 	limits.SafeMaxLines = int(in.SafeMaxLines)
 	limits.SafeMaxBytes = int(in.SafeMaxBytes)
+
+	{
+		repo := localrepo.New(s.gitCmdFactory, in.GetRepository(), s.cfg)
+		commit, err := repo.ReadCommit(stream.Context(), git.Revision(rightSha))
+
+		if err == nil {
+			patch := fmt.Sprintf("@@ -0,0 +1,%d @@\n%s", bytes.Count(commit.Body, []byte("\n")), commit.Body)
+
+			response := &gitalypb.CommitDiffResponse{
+				FromPath:     []byte("COMMIT_MSG"),
+				ToPath:       []byte("COMMIT_MSG"),
+				FromId:       git.ZeroOID.String(),
+				ToId:         rightSha,
+				OldMode:      0,
+				NewMode:      0100644,
+				RawPatchData: []byte(patch),
+				EndOfPatch:   true,
+			}
+			stream.Send(response)
+		}
+	}
 
 	return s.eachDiff(stream.Context(), "CommitDiff", in.Repository, cmd, limits, func(diff *diff.Diff) error {
 		response := &gitalypb.CommitDiffResponse{

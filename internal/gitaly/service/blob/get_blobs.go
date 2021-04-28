@@ -32,6 +32,35 @@ func sendGetBlobsResponse(req *gitalypb.GetBlobsRequest, stream gitalypb.BlobSer
 			path = bytes.TrimRight(path, "/")
 		}
 
+		if bytes.Equal(path, []byte("COMMIT_MSG")) {
+			object, _ := c.Commit(ctx, git.Revision(revisionPath.Revision))
+
+			response := &gitalypb.GetBlobsResponse{
+				Revision: revision,
+				Oid:      revision,
+				Path:     path,
+				Size:     object.ObjectInfo.Size,
+				Mode:     0100644,
+			}
+
+			sw := streamio.NewWriter(func(p []byte) error {
+				msg := &gitalypb.GetBlobsResponse{}
+				if response != nil {
+					msg = response
+					response = nil
+				}
+
+				msg.Data = bytes.SplitN(p, []byte("\n\n"), 2)[1]
+				msg.Size = int64(len(msg.Data))
+
+				return stream.Send(msg)
+			})
+
+			io.Copy(sw, object.Reader)
+
+			continue
+		}
+
 		treeEntry, err := tef.FindByRevisionAndPath(ctx, revision, string(path))
 		if err != nil {
 			return err
