@@ -25,8 +25,6 @@ service BlobService {
   // GetLFSPointers retrieves LFS pointers from a given set of object IDs.
   // This RPC filters all requested objects and only returns those which refer
   // to a valid LFS pointer.
-  //
-  // Deprecated in favor of `ListLFSPointers`, passing object IDs as revisions.
   rpc GetLFSPointers(GetLFSPointersRequest) returns (stream GetLFSPointersResponse) {
     option (op_type) = {
       op: ACCESSOR

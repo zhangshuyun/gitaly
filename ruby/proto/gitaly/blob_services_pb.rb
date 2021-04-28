@@ -22,8 +22,6 @@ module Gitaly
       # GetLFSPointers retrieves LFS pointers from a given set of object IDs.
       # This RPC filters all requested objects and only returns those which refer
       # to a valid LFS pointer.
-      #
-      # Deprecated in favor of `ListLFSPointers`, passing object IDs as revisions.
       rpc :GetLFSPointers, Gitaly::GetLFSPointersRequest, stream(Gitaly::GetLFSPointersResponse)
       # ListLFSPointers retrieves LFS pointers reachable from a given set of
       # revisions by doing a graph walk. This includes both normal revisions like

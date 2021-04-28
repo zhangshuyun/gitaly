@@ -826,8 +826,6 @@ type BlobServiceClient interface {
 	// GetLFSPointers retrieves LFS pointers from a given set of object IDs.
 	// This RPC filters all requested objects and only returns those which refer
 	// to a valid LFS pointer.
-	//
-	// Deprecated in favor of `ListLFSPointers`, passing object IDs as revisions.
 	GetLFSPointers(ctx context.Context, in *GetLFSPointersRequest, opts ...grpc.CallOption) (BlobService_GetLFSPointersClient, error)
 	// ListLFSPointers retrieves LFS pointers reachable from a given set of
 	// revisions by doing a graph walk. This includes both normal revisions like
@@ -1019,8 +1017,6 @@ type BlobServiceServer interface {
 	// GetLFSPointers retrieves LFS pointers from a given set of object IDs.
 	// This RPC filters all requested objects and only returns those which refer
 	// to a valid LFS pointer.
-	//
-	// Deprecated in favor of `ListLFSPointers`, passing object IDs as revisions.
 	GetLFSPointers(*GetLFSPointersRequest, BlobService_GetLFSPointersServer) error
 	// ListLFSPointers retrieves LFS pointers reachable from a given set of
 	// revisions by doing a graph walk. This includes both normal revisions like
