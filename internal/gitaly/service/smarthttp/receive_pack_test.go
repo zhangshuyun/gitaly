@@ -394,16 +394,58 @@ func TestInvalidTimezone(t *testing.T) {
 	stream, err := client.PostReceivePack(ctx)
 	require.NoError(t, err)
 	firstRequest := &gitalypb.PostReceivePackRequest{
-		Repository:       repo,
-		GlId:             "user-123",
-		GlRepository:     "project-456",
-		GitConfigOptions: []string{"receive.fsckObjects=true"},
+		Repository:   repo,
+		GlId:         "user-123",
+		GlRepository: "project-456",
 	}
 	response := doPush(t, stream, firstRequest, body)
 
 	expectedResponse := "0030\x01000eunpack ok\n0019ok refs/heads/master\n00000000"
 	require.Equal(t, expectedResponse, string(response), "Expected response to be %q, got %q", expectedResponse, response)
 	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "show", commit)
+}
+
+func TestReceivePackFsck(t *testing.T) {
+	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
+
+	testhelper.ConfigureGitalyHooksBin(t, cfg)
+
+	head := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "HEAD"))
+
+	// We're creating a new commit which has a root tree with duplicate entries. git-mktree(1)
+	// allows us to create these trees just fine, but git-fsck(1) complains.
+	commit := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{OID: "4b825dc642cb6eb9a060e54bf8d69288fbee4904", Path: "dup", Mode: "040000"},
+			gittest.TreeEntry{OID: "4b825dc642cb6eb9a060e54bf8d69288fbee4904", Path: "dup", Mode: "040000"},
+		),
+	)
+
+	stdin := strings.NewReader(fmt.Sprintf("^%s\n%s\n", head, commit))
+	pack := gittest.ExecStream(t, cfg, stdin, "-C", repoPath, "pack-objects", "--stdout", "--revs", "--thin", "--delta-base-offset", "-q")
+
+	var body bytes.Buffer
+	gittest.WritePktlineString(t, &body, fmt.Sprintf("%s %s refs/heads/master\x00 %s", head, commit, "report-status side-band-64k agent=git/2.12.0"))
+	gittest.WritePktlineFlush(t, &body)
+	_, err := body.Write(pack)
+	require.NoError(t, err)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	client, conn := newSmartHTTPClient(t, runSmartHTTPServer(t, cfg), cfg.Auth.Token)
+	defer conn.Close()
+
+	stream, err := client.PostReceivePack(ctx)
+	require.NoError(t, err)
+
+	response := doPush(t, stream, &gitalypb.PostReceivePackRequest{
+		Repository:   repo,
+		GlId:         "user-123",
+		GlRepository: "project-456",
+	}, &body)
+
+	require.Contains(t, string(response), "duplicateEntries: contains duplicate file entries")
 }
 
 func drainPostReceivePackResponse(stream gitalypb.SmartHTTPService_PostReceivePackClient) error {

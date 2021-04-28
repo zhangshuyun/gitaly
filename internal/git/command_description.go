@@ -139,6 +139,10 @@ var commandDescriptions = map[string]commandDescription{
 			// command ends with a "#". The end result is that Git runs `/bin/sh -c 'exit 0 # /path/to/pool.git`.
 			ConfigPair{Key: "core.alternateRefsCommand", Value: "exit 0 #"},
 
+			// When receiving objects from an untrusted source, we want to always assert
+			// that all objects are valid.
+			ConfigPair{Key: "receive.fsckObjects", Value: "true"},
+
 			// In the past, there was a bug in git that caused users to
 			// create commits with invalid timezones. As a result, some
 			// histories contain commits that do not match the spec. As we
