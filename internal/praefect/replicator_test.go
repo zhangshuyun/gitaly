@@ -2,7 +2,6 @@ package praefect
 
 import (
 	"context"
-	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -21,6 +20,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/objectpool"
 	gconfig "gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/setup"
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/metadatahandler"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
@@ -38,10 +38,7 @@ import (
 	"gitlab.com/gitlab-org/labkit/correlation"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/health"
-	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/metadata"
-	"google.golang.org/grpc/reflection"
 )
 
 func TestMain(m *testing.M) {
@@ -271,13 +268,14 @@ func TestReplicatorDowngradeAttempt(t *testing.T) {
 }
 
 func TestPropagateReplicationJob(t *testing.T) {
-	primaryServer, primarySocketPath, cleanup := runMockRepositoryServer(t)
-	defer cleanup()
-
-	secondaryServer, secondarySocketPath, cleanup := runMockRepositoryServer(t)
-	defer cleanup()
-
 	primaryStorage, secondaryStorage := "internal-gitaly-0", "internal-gitaly-1"
+
+	primCfg := testcfg.Build(t, testcfg.WithStorages(primaryStorage))
+	primaryServer, primarySocketPath := runMockRepositoryServer(t, primCfg)
+
+	secCfg := testcfg.Build(t, testcfg.WithStorages(secondaryStorage))
+	secondaryServer, secondarySocketPath := runMockRepositoryServer(t, secCfg)
+
 	conf := config.Config{
 		VirtualStorages: []*config.VirtualStorage{
 			{
@@ -462,23 +460,14 @@ func (m *mockServer) PackRefs(ctx context.Context, in *gitalypb.PackRefsRequest)
 	return &gitalypb.PackRefsResponse{}, nil
 }
 
-func runMockRepositoryServer(t *testing.T) (*mockServer, string, func()) {
-	server := testhelper.NewTestGrpcServer(t, nil, nil)
-	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
-
-	listener, err := net.Listen("unix", serverSocketPath)
-	require.NoError(t, err)
-
+func runMockRepositoryServer(t *testing.T, cfg gconfig.Cfg) (*mockServer, string) {
 	mockServer := newMockRepositoryServer()
 
-	gitalypb.RegisterRepositoryServiceServer(server, mockServer)
-	gitalypb.RegisterRefServiceServer(server, mockServer)
-	healthpb.RegisterHealthServer(server, health.NewServer())
-	reflection.Register(server)
-
-	go server.Serve(listener)
-
-	return mockServer, "unix://" + serverSocketPath, server.Stop
+	addr := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
+		gitalypb.RegisterRepositoryServiceServer(srv, mockServer)
+		gitalypb.RegisterRefServiceServer(srv, mockServer)
+	})
+	return mockServer, addr
 }
 
 func waitForRequest(t *testing.T, ch chan proto.Message, expected proto.Message, timeout time.Duration) {
