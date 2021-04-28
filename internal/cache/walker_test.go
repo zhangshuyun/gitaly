@@ -70,6 +70,11 @@ func TestDiskCacheObjectWalker(t *testing.T) {
 }
 
 func TestDiskCacheInitialClear(t *testing.T) {
+	// disable the background walkers since we are only
+	// evaluating the initial move-and-clear function
+	*cache.ExportDisableWalker = true
+	defer func() { *cache.ExportDisableWalker = false }()
+
 	cfg := testcfg.Build(t)
 
 	cacheDir := tempdir.CacheDir(cfg.Storages[0])
@@ -77,11 +82,6 @@ func TestDiskCacheInitialClear(t *testing.T) {
 	canary := filepath.Join(cacheDir, "canary.txt")
 	require.NoError(t, os.MkdirAll(filepath.Dir(canary), 0755))
 	require.NoError(t, ioutil.WriteFile(canary, []byte("chirp chirp"), 0755))
-
-	// disable the background walkers since we are only
-	// evaluating the initial move-and-clear function
-	*cache.ExportDisableWalker = true
-	defer func() { *cache.ExportDisableWalker = false }()
 
 	// validation will run cache walker hook which synchronously
 	// runs the move-and-clear function
