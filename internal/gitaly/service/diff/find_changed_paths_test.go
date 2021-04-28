@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -110,7 +111,7 @@ func TestFindChangedPathsRequest_success(t *testing.T) {
 }
 
 func TestFindChangedPathsRequest_failing(t *testing.T) {
-	cfg, repo, _, client := setupDiffService(t)
+	cfg, repo, _, client := setupDiffService(t, testserver.WithDisablePraefect())
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()

@@ -17,11 +17,8 @@ func TestStorageDiskStatistics(t *testing.T) {
 
 	cfg.Storages = append(cfg.Storages, config.Storage{Name: "broken", Path: "/does/not/exist"})
 
-	server, serverSocketPath := runServer(t, cfg)
-	defer server.Stop()
-
-	client, conn := newServerClient(t, serverSocketPath)
-	defer conn.Close()
+	addr := runServer(t, cfg)
+	client := newServerClient(t, addr)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()

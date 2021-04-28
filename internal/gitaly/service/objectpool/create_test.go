@@ -12,6 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/objectpool"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/status"
 )
@@ -54,7 +55,7 @@ func TestCreate(t *testing.T) {
 }
 
 func TestUnsuccessfulCreate(t *testing.T) {
-	cfg, repo, _, locator, client := setup(t)
+	cfg, repo, _, locator, client := setup(t, testserver.WithDisablePraefect())
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()

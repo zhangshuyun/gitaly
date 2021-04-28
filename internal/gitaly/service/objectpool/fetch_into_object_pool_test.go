@@ -24,6 +24,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/labkit/log"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -119,14 +120,19 @@ func TestFetchIntoObjectPool_hooks(t *testing.T) {
 }
 
 func TestFetchIntoObjectPool_CollectLogStatistics(t *testing.T) {
-	defer func(old func(tb testing.TB) *logrus.Logger) { testhelper.NewTestLogger = old }(testhelper.NewTestLogger)
+	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
+	testhelper.ConfigureGitalyHooksBin(t, cfg)
+
+	locator := config.NewLocator(cfg)
 	logBuffer := &bytes.Buffer{}
-	testhelper.NewTestLogger = func(tb testing.TB) *logrus.Logger {
-		return &logrus.Logger{Out: logBuffer, Formatter: &logrus.JSONFormatter{}, Level: logrus.InfoLevel}
-	}
+	logger := &logrus.Logger{Out: logBuffer, Formatter: &logrus.JSONFormatter{}, Level: logrus.InfoLevel}
+	serverSocketPath := runObjectPoolServer(t, cfg, locator, logger)
 
-	cfg, repo, _, locator, client := setup(t)
+	conn, err := grpc.Dial(serverSocketPath, grpc.WithInsecure())
+	require.NoError(t, err)
+	t.Cleanup(func() { testhelper.MustClose(t, conn) })
+	client := gitalypb.NewObjectPoolServiceClient(conn)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
