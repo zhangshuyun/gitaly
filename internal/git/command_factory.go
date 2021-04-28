@@ -189,27 +189,28 @@ func (cf *ExecCommandFactory) combineArgs(ctx context.Context, gitConfig []confi
 		)
 	}
 
-	// As global options may cancel out each other, we have a clearly
-	// defined order in which globals get applied. The order is similar to
-	// how git handles configuration options from most general to most
-	// specific. This allows callsites to override options which would
-	// otherwise be set up automatically.
+	// As global options may cancel out each other, we have a clearly defined order in which
+	// globals get applied. The order is similar to how git handles configuration options from
+	// most general to most specific. This allows callsites to override options which would
+	// otherwise be set up automatically. The exception to this is configuration specified by
+	// the admin, which always overrides all other items. The following order of precedence
+	// applies:
 	//
-	// 1. Configuration as provided by the admin in Gitaly's config.toml.
-	// 2. Globals which get set up by default for all git commands.
-	// 3. Globals which get set up by default for a given git command.
-	// 4. Globals passed via command options, e.g. as set up by
+	// 1. Globals which get set up by default for all git commands.
+	// 2. Globals which get set up by default for a given git command.
+	// 3. Globals passed via command options, e.g. as set up by
 	//    `WithReftxHook()`.
+	// 4. Configuration as provided by the admin in Gitaly's config.toml.
 	var combinedGlobals []GlobalOption
+	combinedGlobals = append(combinedGlobals, globalOptions...)
+	combinedGlobals = append(combinedGlobals, commandSpecificOptions...)
+	combinedGlobals = append(combinedGlobals, cc.globals...)
 	for _, configPair := range gitConfig {
 		combinedGlobals = append(combinedGlobals, ConfigPair{
 			Key:   configPair.Key,
 			Value: configPair.Value,
 		})
 	}
-	combinedGlobals = append(combinedGlobals, globalOptions...)
-	combinedGlobals = append(combinedGlobals, commandSpecificOptions...)
-	combinedGlobals = append(combinedGlobals, cc.globals...)
 
 	for _, global := range combinedGlobals {
 		globalArgs, err := global.GlobalArgs()
