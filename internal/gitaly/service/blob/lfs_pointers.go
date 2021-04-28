@@ -147,44 +147,6 @@ func validateGetLFSPointersRequest(req *gitalypb.GetLFSPointersRequest) error {
 	return nil
 }
 
-// GetAllLFSPointers returns all LFS pointers of the git repository which are reachable by any git
-// reference. LFS pointers are streamed back in batches of lfsPointerSliceSize.
-func (s *server) GetAllLFSPointers(in *gitalypb.GetAllLFSPointersRequest, stream gitalypb.BlobService_GetAllLFSPointersServer) error {
-	ctx := stream.Context()
-
-	if err := validateGetAllLFSPointersRequest(in); err != nil {
-		return status.Errorf(codes.InvalidArgument, "GetAllLFSPointers: %v", err)
-	}
-
-	repo := localrepo.New(s.gitCmdFactory, in.Repository, s.cfg)
-
-	lfsPointers, err := findLFSPointersByRevisions(ctx, repo, s.gitCmdFactory, 0, "--all")
-	if err != nil {
-		if errors.Is(err, errInvalidRevision) {
-			return status.Errorf(codes.InvalidArgument, err.Error())
-		}
-		return err
-	}
-
-	err = sliceLFSPointers(lfsPointers, func(slice []*gitalypb.LFSPointer) error {
-		return stream.Send(&gitalypb.GetAllLFSPointersResponse{
-			LfsPointers: slice,
-		})
-	})
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func validateGetAllLFSPointersRequest(in *gitalypb.GetAllLFSPointersRequest) error {
-	if in.GetRepository() == nil {
-		return fmt.Errorf("empty Repository")
-	}
-	return nil
-}
-
 // findLFSPointersByRevisions will return all LFS objects reachable via the given set of revisions.
 // Revisions accept all syntax supported by git-rev-list(1).
 func findLFSPointersByRevisions(

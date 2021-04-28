@@ -53,12 +53,6 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
     add_message "gitaly.GetLFSPointersResponse" do
       repeated :lfs_pointers, :message, 1, "gitaly.LFSPointer"
     end
-    add_message "gitaly.GetAllLFSPointersRequest" do
-      optional :repository, :message, 1, "gitaly.Repository"
-    end
-    add_message "gitaly.GetAllLFSPointersResponse" do
-      repeated :lfs_pointers, :message, 1, "gitaly.LFSPointer"
-    end
     add_message "gitaly.ListLFSPointersRequest" do
       optional :repository, :message, 1, "gitaly.Repository"
       repeated :revisions, :string, 2
@@ -87,8 +81,6 @@ module Gitaly
   NewBlobObject = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.NewBlobObject").msgclass
   GetLFSPointersRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.GetLFSPointersRequest").msgclass
   GetLFSPointersResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.GetLFSPointersResponse").msgclass
-  GetAllLFSPointersRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.GetAllLFSPointersRequest").msgclass
-  GetAllLFSPointersResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.GetAllLFSPointersResponse").msgclass
   ListLFSPointersRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.ListLFSPointersRequest").msgclass
   ListLFSPointersResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.ListLFSPointersResponse").msgclass
   ListAllLFSPointersRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.ListAllLFSPointersRequest").msgclass

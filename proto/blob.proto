@@ -33,15 +33,6 @@ service BlobService {
     };
   }
 
-  // GetAllLFSPointers retrieves all LFS pointers of the given repository.
-  //
-  // Deprecated in favor of `ListLFSPointers`, passing `--all` as revision.
-  rpc GetAllLFSPointers(GetAllLFSPointersRequest) returns (stream GetAllLFSPointersResponse) {
-    option (op_type) = {
-      op: ACCESSOR
-    };
-  }
-
   // ListLFSPointers retrieves LFS pointers reachable from a given set of
   // revisions by doing a graph walk. This includes both normal revisions like
   // an object ID or branch, but also the pseudo-revisions "--all" and "--not"
@@ -54,9 +45,8 @@ service BlobService {
     };
   }
 
-  // ListAllLFSPointers retrieves all LFS pointers in the repository. In
-  // contrast to `GetAllLFSPointers`, this RPC also includes LFS pointers which
-  // are not reachable by any reference.
+  // ListAllLFSPointers retrieves all LFS pointers in the repository, including
+  // those not reachable by any reference.
   rpc ListAllLFSPointers(ListAllLFSPointersRequest) returns (stream ListAllLFSPointersResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -142,20 +132,6 @@ message GetLFSPointersRequest {
 // GetLFSPointersResponse is a response for the GetLFSPointers RPC.
 message GetLFSPointersResponse {
   // LfsPointers is the list of LFS pointers which were requested.
-  repeated LFSPointer lfs_pointers = 1;
-}
-
-// GetAllLFSPointersRequest is a request for the GetAllLFSPointers RPC.
-message GetAllLFSPointersRequest {
-  // Repository is the repository for which LFS pointers shoul be retrieved
-  // from.
-  Repository repository = 1[(target_repository)=true];
-  reserved 2;
-}
-
-// GetAllLFSPointersResponse is a response for the GetAllLFSPointers RPC.
-message GetAllLFSPointersResponse {
-  // LfsPointers is the list of LFS pointers.
   repeated LFSPointer lfs_pointers = 1;
 }
 
