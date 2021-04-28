@@ -5,6 +5,7 @@ package operations
 import (
 	"context"
 	"fmt"
+	"io"
 	"strings"
 	"testing"
 	"time"
@@ -69,10 +70,8 @@ func testSuccessfulUserRebaseConfirmableRequestFeatured(t *testing.T, ctx contex
 	secondResponse, err := rebaseStream.Recv()
 	require.NoError(t, err, "receive second response")
 
-	testhelper.ReceiveEOFWithTimeout(t, func() error {
-		_, err = rebaseStream.Recv()
-		return err
-	})
+	_, err = rebaseStream.Recv()
+	require.Equal(t, io.EOF, err)
 
 	newBranchSha := getBranchSha(t, repoPath, rebaseBranchName)
 
@@ -175,11 +174,9 @@ func testUserRebaseConfirmableTransactionFeatured(t *testing.T, ctx context.Cont
 			require.NoError(t, err)
 			require.True(t, secondResponse.GetRebaseApplied(), "the second rebase is applied")
 
-			testhelper.ReceiveEOFWithTimeout(t, func() error {
-				response, err := rebaseStream.Recv()
-				require.Nil(t, response)
-				return err
-			})
+			response, err := rebaseStream.Recv()
+			require.Nil(t, response)
+			require.Equal(t, io.EOF, err)
 
 			require.Equal(t, tc.expectedVotes, voteCount)
 			if tc.expectPreReceiveHook {
@@ -233,10 +230,8 @@ func testUserRebaseConfirmableStableCommitIDsFeatured(t *testing.T, ctx context.
 	require.NoError(t, err, "receive second response")
 	require.True(t, response.GetRebaseApplied())
 
-	testhelper.ReceiveEOFWithTimeout(t, func() error {
-		_, err = rebaseStream.Recv()
-		return err
-	})
+	_, err = rebaseStream.Recv()
+	require.Equal(t, io.EOF, err)
 
 	commit, err := repo.ReadCommit(ctx, git.Revision(rebaseBranchName))
 	require.NoError(t, err, "look up git commit")
@@ -465,10 +460,8 @@ func testFailedUserRebaseConfirmableRequestDueToPreReceiveErrorFeatured(t *testi
 			require.NoError(t, err, "receive second response")
 			require.Contains(t, secondResponse.PreReceiveError, "failure")
 
-			testhelper.ReceiveEOFWithTimeout(t, func() error {
-				_, err = rebaseStream.Recv()
-				return err
-			})
+			_, err = rebaseStream.Recv()
+			require.Equal(t, io.EOF, err)
 
 			newBranchSha := getBranchSha(t, repoPath, rebaseBranchName)
 			require.Equal(t, branchSha, newBranchSha, "branch should not change when the rebase fails due to PreReceiveError")
@@ -500,10 +493,8 @@ func testFailedUserRebaseConfirmableDueToGitErrorFeatured(t *testing.T, ctx cont
 	require.NoError(t, err, "receive first response")
 	require.Contains(t, firstResponse.GitError, "conflict")
 
-	testhelper.ReceiveEOFWithTimeout(t, func() error {
-		_, err = rebaseStream.Recv()
-		return err
-	})
+	_, err = rebaseStream.Recv()
+	require.Equal(t, io.EOF, err)
 
 	newBranchSha := getBranchSha(t, repoPath, failedBranchName)
 	require.Equal(t, branchSha, newBranchSha, "branch should not change when the rebase fails due to GitError")
@@ -556,10 +547,8 @@ func testRebaseRequestWithDeletedFileFeatured(t *testing.T, ctx context.Context,
 	secondResponse, err := rebaseStream.Recv()
 	require.NoError(t, err, "receive second response")
 
-	testhelper.ReceiveEOFWithTimeout(t, func() error {
-		_, err = rebaseStream.Recv()
-		return err
-	})
+	_, err = rebaseStream.Recv()
+	require.Equal(t, io.EOF, err)
 
 	newBranchSha := getBranchSha(t, repoPath, branch)
 
@@ -613,10 +602,8 @@ func testRebaseOntoRemoteBranchFeatured(t *testing.T, ctx context.Context, cfg c
 	secondResponse, err := rebaseStream.Recv()
 	require.NoError(t, err, "receive second response")
 
-	testhelper.ReceiveEOFWithTimeout(t, func() error {
-		_, err = rebaseStream.Recv()
-		return err
-	})
+	_, err = rebaseStream.Recv()
+	require.Equal(t, io.EOF, err)
 
 	rebasedBranchHash := getBranchSha(t, repoPath, localBranch)
 
