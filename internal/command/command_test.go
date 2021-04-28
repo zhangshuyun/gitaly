@@ -23,26 +23,6 @@ func TestMain(m *testing.M) {
 	goleak.VerifyTestMain(m)
 }
 
-func TestNewCommandTZEnv(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	oldTZ := os.Getenv("TZ")
-	defer func() {
-		require.NoError(t, os.Setenv("TZ", oldTZ))
-	}()
-
-	require.NoError(t, os.Setenv("TZ", "foobar"))
-
-	buff := &bytes.Buffer{}
-	cmd, err := New(ctx, exec.Command("env"), nil, buff, nil)
-
-	require.NoError(t, err)
-	require.NoError(t, cmd.Wait())
-
-	require.Contains(t, strings.Split(buff.String(), "\n"), "TZ=foobar")
-}
-
 func TestNewCommandExtraEnv(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -57,7 +37,7 @@ func TestNewCommandExtraEnv(t *testing.T) {
 	require.Contains(t, strings.Split(buff.String(), "\n"), extraVar)
 }
 
-func TestNewCommandProxyEnv(t *testing.T) {
+func TestNewCommandExportedEnv(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -65,6 +45,42 @@ func TestNewCommandProxyEnv(t *testing.T) {
 		key   string
 		value string
 	}{
+		{
+			key:   "HOME",
+			value: "/home/git",
+		},
+		{
+			key:   "PATH",
+			value: "/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin",
+		},
+		{
+			key:   "LD_LIBRARY_PATH",
+			value: "/path/to/your/lib",
+		},
+		{
+			key:   "TZ",
+			value: "foobar",
+		},
+		{
+			key:   "GIT_TRACE",
+			value: "true",
+		},
+		{
+			key:   "GIT_TRACE_PACK_ACCESS",
+			value: "true",
+		},
+		{
+			key:   "GIT_TRACE_PACKET",
+			value: "true",
+		},
+		{
+			key:   "GIT_TRACE_PERFORMANCE",
+			value: "true",
+		},
+		{
+			key:   "GIT_TRACE_SETUP",
+			value: "true",
+		},
 		{
 			key:   "all_proxy",
 			value: "http://localhost:4000",
@@ -97,16 +113,51 @@ func TestNewCommandProxyEnv(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.key, func(t *testing.T) {
-			extraVar := fmt.Sprintf("%s=%s", tc.key, tc.value)
-			buff := &bytes.Buffer{}
-			cmd, err := New(ctx, exec.Command("/usr/bin/env"), nil, buff, nil, extraVar)
+			oldValue, exists := os.LookupEnv(tc.key)
+			defer func() {
+				if !exists {
+					require.NoError(t, os.Unsetenv(tc.key))
+					return
+				}
+				require.NoError(t, os.Setenv(tc.key, oldValue))
+			}()
+			require.NoError(t, os.Setenv(tc.key, tc.value))
 
+			buff := &bytes.Buffer{}
+			cmd, err := New(ctx, exec.Command("/usr/bin/env"), nil, buff, nil)
 			require.NoError(t, err)
 			require.NoError(t, cmd.Wait())
 
-			require.Contains(t, strings.Split(buff.String(), "\n"), extraVar)
+			expectedEnv := fmt.Sprintf("%s=%s", tc.key, tc.value)
+			require.Contains(t, strings.Split(buff.String(), "\n"), expectedEnv)
 		})
 	}
+}
+
+func TestNewCommandUnexportedEnv(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	unexportedEnvKey, unexportedEnvVal := "GITALY_UNEXPORTED_ENV", "foobar"
+
+	oldValue, exists := os.LookupEnv(unexportedEnvKey)
+	defer func() {
+		if !exists {
+			require.NoError(t, os.Unsetenv(unexportedEnvKey))
+			return
+		}
+		require.NoError(t, os.Setenv(unexportedEnvKey, oldValue))
+	}()
+
+	require.NoError(t, os.Setenv(unexportedEnvKey, unexportedEnvVal))
+
+	buff := &bytes.Buffer{}
+	cmd, err := New(ctx, exec.Command("/usr/bin/env"), nil, buff, nil)
+
+	require.NoError(t, err)
+	require.NoError(t, cmd.Wait())
+
+	require.NotContains(t, strings.Split(buff.String(), "\n"), fmt.Sprintf("%s=%s", unexportedEnvKey, unexportedEnvVal))
 }
 
 func TestRejectEmptyContextDone(t *testing.T) {
