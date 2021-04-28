@@ -19,7 +19,6 @@ func TestNewProtoRegistry(t *testing.T) {
 			"GetBlob":           protoregistry.OpAccessor,
 			"GetBlobs":          protoregistry.OpAccessor,
 			"GetLFSPointers":    protoregistry.OpAccessor,
-			"GetNewLFSPointers": protoregistry.OpAccessor,
 			"GetAllLFSPointers": protoregistry.OpAccessor,
 		},
 		"CleanupService": map[string]protoregistry.OpType{

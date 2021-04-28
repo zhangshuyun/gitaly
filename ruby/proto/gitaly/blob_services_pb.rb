@@ -25,14 +25,6 @@ module Gitaly
       #
       # Deprecated in favor of `ListLFSPointers`, passing object IDs as revisions.
       rpc :GetLFSPointers, Gitaly::GetLFSPointersRequest, stream(Gitaly::GetLFSPointersResponse)
-      # GetNewLFSPointers retrieves LFS pointers for a limited subset of the
-      # commit graph. It will return all LFS pointers which are reachable by the
-      # provided revision, but not reachable by any of the limiting references.
-      #
-      # Deprecated in favor of `ListLFSPointers`. `NotInAll` can be replaced with
-      # `REVISION` `--not` `--all`, while `NotInRefs` can be replaced with
-      # `REVISION` `--not` `NotInRevs...`.
-      rpc :GetNewLFSPointers, Gitaly::GetNewLFSPointersRequest, stream(Gitaly::GetNewLFSPointersResponse)
       # GetAllLFSPointers retrieves all LFS pointers of the given repository.
       #
       # Deprecated in favor of `ListLFSPointers`, passing `--all` as revision.

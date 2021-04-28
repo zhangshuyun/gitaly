@@ -33,19 +33,6 @@ service BlobService {
     };
   }
 
-  // GetNewLFSPointers retrieves LFS pointers for a limited subset of the
-  // commit graph. It will return all LFS pointers which are reachable by the
-  // provided revision, but not reachable by any of the limiting references.
-  //
-  // Deprecated in favor of `ListLFSPointers`. `NotInAll` can be replaced with
-  // `REVISION` `--not` `--all`, while `NotInRefs` can be replaced with
-  // `REVISION` `--not` `NotInRevs...`.
-  rpc GetNewLFSPointers(GetNewLFSPointersRequest) returns (stream GetNewLFSPointersResponse) {
-    option (op_type) = {
-      op: ACCESSOR
-    };
-  }
-
   // GetAllLFSPointers retrieves all LFS pointers of the given repository.
   //
   // Deprecated in favor of `ListLFSPointers`, passing `--all` as revision.
@@ -154,31 +141,6 @@ message GetLFSPointersRequest {
 
 // GetLFSPointersResponse is a response for the GetLFSPointers RPC.
 message GetLFSPointersResponse {
-  // LfsPointers is the list of LFS pointers which were requested.
-  repeated LFSPointer lfs_pointers = 1;
-}
-
-// GetNewLFSPointersRequest is a request for the GetNewLFSPointers RPC.
-message GetNewLFSPointersRequest {
-  // Repository is the repository for which LFS pointers should be retrieved
-  // from.
-  Repository repository = 1[(target_repository)=true];
-  // Revision is the revision for which to retrieve new LFS pointers.
-  bytes revision = 2;
-  // Limit limits the number of LFS pointers returned.
-  int32 limit = 3;
-  // NotInAll limits the revision graph to not include any commits which are
-  // referenced by a git reference. When `not_in_all` is true, `not_in_refs` is
-  // ignored.
-  bool not_in_all = 4;
-  // NotInRefs is a list of references used to limit the revision graph. Any
-  // commit reachable by any commit in NotInRefs will not be searched for new
-  // LFS pointers. This is ignored if NotInAll is set to `true`.
-  repeated bytes not_in_refs = 5;
-}
-
-// GetNewLFSPointersResponse is a response for the GetNewLFSPointers RPC.
-message GetNewLFSPointersResponse {
   // LfsPointers is the list of LFS pointers which were requested.
   repeated LFSPointer lfs_pointers = 1;
 }
