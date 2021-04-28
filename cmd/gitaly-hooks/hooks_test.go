@@ -16,7 +16,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
@@ -24,17 +23,17 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config/auth"
 	internallog "gitlab.com/gitlab-org/gitaly/internal/gitaly/config/log"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config/prometheus"
-	gitalyhook "gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/hook"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/gitlab"
 	gitalylog "gitlab.com/gitlab-org/gitaly/internal/log"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
-	"google.golang.org/grpc/reflection"
+	"google.golang.org/grpc"
 )
 
 type glHookValues struct {
@@ -176,8 +175,7 @@ func testHooksPrePostReceive(t *testing.T, cfg config.Cfg, repo *gitalypb.Reposi
 			gitlabClient, err := gitlab.NewHTTPClient(cfg.Gitlab, cfg.TLS, prometheus.Config{})
 			require.NoError(t, err)
 
-			stop := runHookServiceWithGitlabClient(t, cfg, gitlabClient)
-			defer stop()
+			runHookServiceWithGitlabClient(t, cfg, gitlabClient)
 
 			var stderr, stdout bytes.Buffer
 			stdin := bytes.NewBuffer([]byte(changes))
@@ -262,8 +260,7 @@ func TestHooksUpdate(t *testing.T) {
 
 	cfg.Gitlab.SecretFile = testhelper.WriteShellSecretFile(t, cfg.GitlabShell.Dir, "the wrong token")
 
-	stop := runHookServiceServer(t, cfg)
-	defer stop()
+	runHookServiceServer(t, cfg)
 
 	testHooksUpdate(t, cfg, glHookValues{
 		GLID:       glID,
@@ -397,8 +394,7 @@ func TestHooksPostReceiveFailed(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.desc, func(t *testing.T) {
-			stop := runHookServiceWithGitlabClient(t, cfg, gitlabClient)
-			defer stop()
+			runHookServiceWithGitlabClient(t, cfg, gitlabClient)
 
 			hooksPayload, err := git.NewHooksPayload(
 				cfg,
@@ -469,8 +465,7 @@ func TestHooksNotAllowed(t *testing.T) {
 	gitlabClient, err := gitlab.NewHTTPClient(cfg.Gitlab, cfg.TLS, prometheus.Config{})
 	require.NoError(t, err)
 
-	stop := runHookServiceWithGitlabClient(t, cfg, gitlabClient)
-	defer stop()
+	runHookServiceWithGitlabClient(t, cfg, gitlabClient)
 
 	var stderr, stdout bytes.Buffer
 
@@ -578,8 +573,8 @@ func TestCheckBadCreds(t *testing.T) {
 	require.Regexp(t, `Checking GitLab API access: .* level=error msg="Internal API error" .* error="authorization failed" method=GET status=401 url="http://127.0.0.1:[0-9]+/api/v4/internal/check"\nFAIL`, stdout.String())
 }
 
-func runHookServiceServer(t *testing.T, cfg config.Cfg) func() {
-	return runHookServiceWithGitlabClient(t, cfg, gitlab.NewMockClient())
+func runHookServiceServer(t *testing.T, cfg config.Cfg) {
+	runHookServiceWithGitlabClient(t, cfg, gitlab.NewMockClient())
 }
 
 type featureFlagAsserter struct {
@@ -617,20 +612,12 @@ func (svc featureFlagAsserter) PackObjectsHook(stream gitalypb.HookService_PackO
 	return svc.wrapped.PackObjectsHook(stream)
 }
 
-func runHookServiceWithGitlabClient(t *testing.T, cfg config.Cfg, gitlabClient gitlab.Client) func() {
-	registry := backchannel.NewRegistry()
-	txManager := transaction.NewManager(cfg, registry)
-	hookManager := gitalyhook.NewManager(config.NewLocator(cfg), txManager, gitlabClient, cfg)
-	gitCmdFactory := git.NewExecCommandFactory(cfg)
-	server := testhelper.NewServerWithAuth(t, nil, nil, cfg.Auth.Token, registry, testhelper.WithInternalSocket(cfg))
-
-	gitalypb.RegisterHookServiceServer(server.GrpcServer(), featureFlagAsserter{
-		t: t, wrapped: hook.NewServer(cfg, hookManager, gitCmdFactory),
-	})
-	reflection.Register(server.GrpcServer())
-	server.Start(t)
-
-	return server.Stop
+func runHookServiceWithGitlabClient(t *testing.T, cfg config.Cfg, gitlabClient gitlab.Client) {
+	testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
+		gitalypb.RegisterHookServiceServer(srv, featureFlagAsserter{
+			t: t, wrapped: hook.NewServer(deps.GetCfg(), deps.GetHookManager(), deps.GetGitCmdFactory()),
+		})
+	}, testserver.WithGitLabClient(gitlabClient))
 }
 
 func requireContainsOnce(t *testing.T, s string, contains string) {
@@ -692,7 +679,7 @@ func TestGitalyHooksPackObjects(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			defer runHookServiceServer(t, cfg)()
+			runHookServiceServer(t, cfg)
 
 			tempDir := testhelper.TempDir(t)
 

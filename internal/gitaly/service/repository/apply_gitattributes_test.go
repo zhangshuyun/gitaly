@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"net"
 	"os"
 	"path/filepath"
 	"testing"
@@ -15,13 +14,13 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -90,30 +89,21 @@ func TestApplyGitattributesWithTransaction(t *testing.T) {
 		featureflag.BackchannelVoting,
 	}).Run(t, func(t *testing.T, ctx context.Context) {
 		cfg, repo, repoPath := testcfg.BuildWithRepo(t)
-		registry := backchannel.NewRegistry()
-		txManager := transaction.NewManager(cfg, registry)
-		locator := config.NewLocator(cfg)
+
 		transactionServer := &testTransactionServer{}
+		testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
+			gitalypb.RegisterRepositoryServiceServer(srv, NewServer(deps.GetCfg(), deps.GetRubyServer(), deps.GetLocator(), deps.GetTxManager(), deps.GetGitCmdFactory()))
+			if featureflag.IsDisabled(ctx, featureflag.BackchannelVoting) {
+				gitalypb.RegisterRefTransactionServer(srv, transactionServer)
+			}
+		})
 
-		logger := testhelper.DiscardTestEntry(t)
-		srv := testhelper.NewServerWithAuth(t, nil, nil, cfg.Auth.Token, registry)
-		if featureflag.IsDisabled(ctx, featureflag.BackchannelVoting) {
-			gitalypb.RegisterRefTransactionServer(srv.GrpcServer(), transactionServer)
-		}
-
-		gitalypb.RegisterRepositoryServiceServer(srv.GrpcServer(), NewServer(cfg, nil, locator, txManager, git.NewExecCommandFactory(cfg)))
-
-		srv.Start(t)
-		defer srv.Stop()
-
-		// We're creating a secondary listener in order to route around
+		// We're using internal listener in order to route around
 		// Praefect in our tests. Otherwise Praefect would replace our
 		// carefully crafted transaction and server information.
-		transactionServerListener, err := net.Listen("unix", testhelper.GetTemporaryGitalySocketFileName(t))
-		require.NoError(t, err)
-		go func() { require.NoError(t, srv.GrpcServer().Serve(transactionServerListener)) }()
+		logger := testhelper.DiscardTestEntry(t)
 
-		client := newMuxedRepositoryClient(t, ctx, cfg, "unix://"+transactionServerListener.Addr().String(),
+		client := newMuxedRepositoryClient(t, ctx, cfg, "unix://"+cfg.GitalyInternalSocketPath(),
 			backchannel.NewClientHandshaker(logger, func() backchannel.Server {
 				srv := grpc.NewServer()
 
@@ -126,7 +116,7 @@ func TestApplyGitattributesWithTransaction(t *testing.T) {
 		)
 
 		praefect := metadata.PraefectServer{
-			SocketPath: "unix://" + transactionServerListener.Addr().String(),
+			SocketPath: "unix://" + cfg.GitalyInternalSocketPath(),
 			Token:      cfg.Auth.Token,
 		}
 

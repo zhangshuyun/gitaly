@@ -31,7 +31,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config/auth"
 	gitalylog "gitlab.com/gitlab-org/gitaly/internal/gitaly/config/log"
-	serverauth "gitlab.com/gitlab-org/gitaly/internal/gitaly/server/auth"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/fieldextractors"
 	gitalyinternallog "gitlab.com/gitlab-org/gitaly/internal/log"
 	praefectconfig "gitlab.com/gitlab-org/gitaly/internal/praefect/config"
@@ -44,25 +43,10 @@ import (
 // TestServerOpt is an option for TestServer
 type TestServerOpt func(t *TestServer)
 
-// WithToken is a TestServerOpt that provides a security token
-func WithToken(token string) TestServerOpt {
-	return func(t *TestServer) {
-		t.token = token
-	}
-}
-
 // WithStorages is a TestServerOpt that sets the storages for a TestServer
 func WithStorages(storages []string) TestServerOpt {
 	return func(t *TestServer) {
 		t.storages = storages
-	}
-}
-
-// WithInternalSocket is a TestServerOpt that will cause the TestServer to
-// listen on its internal socket.
-func WithInternalSocket(cfg config.Cfg) TestServerOpt {
-	return func(t *TestServer) {
-		t.withInternalSocketPath = cfg.GitalyInternalSocketPath()
 	}
 }
 
@@ -84,24 +68,6 @@ func NewTestServer(srv *grpc.Server, opts ...TestServerOpt) *TestServer {
 	healthpb.RegisterHealthServer(srv, health.NewServer())
 
 	return ts
-}
-
-// NewServerWithAuth creates a new test server with authentication
-func NewServerWithAuth(tb testing.TB, streamInterceptors []grpc.StreamServerInterceptor, unaryInterceptors []grpc.UnaryServerInterceptor, token string, registry *backchannel.Registry, opts ...TestServerOpt) *TestServer {
-	if token != "" {
-		opts = append(opts, WithToken(token))
-		streamInterceptors = append(streamInterceptors, serverauth.StreamServerInterceptor(auth.Config{Token: token}))
-		unaryInterceptors = append(unaryInterceptors, serverauth.UnaryServerInterceptor(auth.Config{Token: token}))
-	}
-
-	return newServerWithLogger(
-		tb,
-		NewTestLogger(tb),
-		streamInterceptors,
-		unaryInterceptors,
-		registry,
-		opts...,
-	)
 }
 
 // TestServer wraps a grpc Server and handles automatically putting a praefect in front of a gitaly instance

@@ -1,4 +1,4 @@
-package transaction
+package transaction_test
 
 import (
 	"context"
@@ -9,11 +9,15 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -43,8 +47,7 @@ func TestPoolManager_Vote(t *testing.T) {
 	}).Run(t, func(t *testing.T, ctx context.Context) {
 		cfg := testcfg.Build(t)
 
-		transactionServer, praefect, stop := runTransactionServer(t, cfg)
-		defer stop()
+		transactionServer, praefect := runTransactionServer(t, cfg)
 
 		registry := backchannel.NewRegistry()
 		if featureflag.IsEnabled(ctx, featureflag.BackchannelVoting) {
@@ -54,12 +57,12 @@ func TestPoolManager_Vote(t *testing.T) {
 			praefect = metadata.PraefectServer{BackchannelID: registry.RegisterBackchannel(backchannelConn)}
 		}
 
-		manager := NewManager(cfg, registry)
+		manager := transaction.NewManager(cfg, registry)
 
 		for _, tc := range []struct {
 			desc        string
 			transaction metadata.Transaction
-			vote        Vote
+			vote        transaction.Vote
 			voteFn      func(*testing.T, *gitalypb.VoteTransactionRequest) (*gitalypb.VoteTransactionResponse, error)
 			expectedErr error
 		}{
@@ -69,11 +72,11 @@ func TestPoolManager_Vote(t *testing.T) {
 					ID:   1,
 					Node: "node",
 				},
-				vote: VoteFromData([]byte("foobar")),
+				vote: transaction.VoteFromData([]byte("foobar")),
 				voteFn: func(t *testing.T, request *gitalypb.VoteTransactionRequest) (*gitalypb.VoteTransactionResponse, error) {
 					require.Equal(t, uint64(1), request.TransactionId)
 					require.Equal(t, "node", request.Node)
-					require.Equal(t, request.ReferenceUpdatesHash, VoteFromData([]byte("foobar")).Bytes())
+					require.Equal(t, request.ReferenceUpdatesHash, transaction.VoteFromData([]byte("foobar")).Bytes())
 
 					return &gitalypb.VoteTransactionResponse{
 						State: gitalypb.VoteTransactionResponse_COMMIT,
@@ -124,8 +127,7 @@ func TestPoolManager_Stop(t *testing.T) {
 	}).Run(t, func(t *testing.T, ctx context.Context) {
 		cfg := testcfg.Build(t)
 
-		transactionServer, praefect, stop := runTransactionServer(t, cfg)
-		defer stop()
+		transactionServer, praefect := runTransactionServer(t, cfg)
 
 		registry := backchannel.NewRegistry()
 		if featureflag.IsEnabled(ctx, featureflag.BackchannelVoting) {
@@ -135,7 +137,7 @@ func TestPoolManager_Stop(t *testing.T) {
 			praefect = metadata.PraefectServer{BackchannelID: registry.RegisterBackchannel(backchannelConn)}
 		}
 
-		manager := NewManager(cfg, registry)
+		manager := transaction.NewManager(cfg, registry)
 
 		for _, tc := range []struct {
 			desc        string
@@ -174,20 +176,17 @@ func TestPoolManager_Stop(t *testing.T) {
 	})
 }
 
-func runTransactionServer(t *testing.T, cfg config.Cfg) (*testTransactionServer, metadata.PraefectServer, func()) {
+func runTransactionServer(t *testing.T, cfg config.Cfg) (*testTransactionServer, metadata.PraefectServer) {
 	transactionServer := &testTransactionServer{}
-
-	server := testhelper.NewServerWithAuth(t, nil, nil, cfg.Auth.Token, backchannel.NewRegistry(), testhelper.WithInternalSocket(cfg))
-	gitalypb.RegisterRefTransactionServer(server.GrpcServer(), transactionServer)
-	server.Start(t)
-
-	listener, address := testhelper.GetLocalhostListener(t)
-	go func() { require.NoError(t, server.GrpcServer().Serve(listener)) }()
+	cfg.ListenAddr = ":0" // pushes gRPC to listen on the TCP address
+	addr := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
+		gitalypb.RegisterRefTransactionServer(srv, transactionServer)
+	}, testserver.WithDisablePraefect())
 
 	praefect := metadata.PraefectServer{
-		ListenAddr: "tcp://" + address,
+		ListenAddr: addr,
 		Token:      cfg.Auth.Token,
 	}
 
-	return transactionServer, praefect, server.Stop
+	return transactionServer, praefect
 }

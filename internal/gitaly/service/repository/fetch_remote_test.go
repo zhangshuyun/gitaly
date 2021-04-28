@@ -14,19 +14,21 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -213,16 +215,12 @@ func (m *mockTxManager) Vote(context.Context, metadata.Transaction, metadata.Pra
 func TestFetchRemote_transaction(t *testing.T) {
 	sourceCfg, _, sourceRepoPath := testcfg.BuildWithRepo(t)
 
-	locator := config.NewLocator(sourceCfg)
 	txManager := &mockTxManager{}
-	gitCmdFactory := git.NewExecCommandFactory(sourceCfg)
+	addr := testserver.RunGitalyServer(t, sourceCfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
+		gitalypb.RegisterRepositoryServiceServer(srv, NewServer(deps.GetCfg(), deps.GetRubyServer(), deps.GetLocator(), deps.GetTxManager(), deps.GetGitCmdFactory()))
+	}, testserver.WithTransactionManager(txManager))
 
-	srv := testhelper.NewServerWithAuth(t, nil, nil, sourceCfg.Auth.Token, backchannel.NewRegistry(), testhelper.WithInternalSocket(sourceCfg))
-	gitalypb.RegisterRepositoryServiceServer(srv.GrpcServer(), NewServer(sourceCfg, nil, locator, txManager, gitCmdFactory))
-	srv.Start(t)
-	defer srv.Stop()
-
-	client := newRepositoryClient(t, sourceCfg, "unix://"+srv.Socket())
+	client := newRepositoryClient(t, sourceCfg, addr)
 
 	targetCfg, targetRepoProto, targetRepoPath := testcfg.BuildWithRepo(t)
 	port, stopGitServer := gittest.GitServer(t, targetCfg, targetRepoPath, nil)
