@@ -62,19 +62,28 @@ var (
 func main() {
 	logger = gitalylog.NewHookLogger()
 
-	if len(os.Args) < 2 {
-		logger.Fatalf("requires hook name. args: %v", os.Args)
+	returnCode, err := run(os.Args)
+	if err != nil {
+		logger.Fatalf("%s", err)
 	}
 
-	subCmd := os.Args[1]
+	os.Exit(returnCode)
+}
+
+func run(args []string) (int, error) {
+	if len(args) < 2 {
+		return 0, fmt.Errorf("requires hook name. args: %v", args)
+	}
+
+	subCmd := args[1]
 
 	if subCmd == "check" {
 		logrus.SetLevel(logrus.ErrorLevel)
-		if len(os.Args) != 3 {
+		if len(args) != 3 {
 			log.Fatal(errors.New("no configuration file path provided invoke with: gitaly-hooks check <config_path>"))
 		}
 
-		configPath := os.Args[2]
+		configPath := args[2]
 		fmt.Print("Checking GitLab API access: ")
 
 		info, err := check(configPath)
@@ -89,7 +98,8 @@ func main() {
 		fmt.Printf("GitLab Api version: %s\n", info.APIVersion)
 		fmt.Printf("Redis reachable for GitLab: %t\n", info.RedisReachable)
 		fmt.Println("OK")
-		os.Exit(0)
+
+		return 0, nil
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -103,33 +113,33 @@ func main() {
 
 	payload, err := git.HooksPayloadFromEnv(os.Environ())
 	if err != nil {
-		logger.Fatalf("error when getting hooks payload: %v", err)
+		return 0, fmt.Errorf("error when getting hooks payload: %v", err)
 	}
 
 	hookCommand, ok := hooksBySubcommand[subCmd]
 	if !ok {
-		logger.Fatalf("subcommand name invalid: %q", subCmd)
+		return 0, fmt.Errorf("subcommand name invalid: %q", subCmd)
 	}
 
 	// If the hook wasn't requested, then we simply skip executing any
 	// logic.
 	if !payload.IsHookRequested(hookCommand.hookType) {
-		os.Exit(0)
+		return 0, nil
 	}
 
 	conn, err := dialGitaly(payload)
 	if err != nil {
-		logger.Fatalf("error when connecting to gitaly: %v", err)
+		return 0, fmt.Errorf("error when connecting to gitaly: %v", err)
 	}
 	hookClient := gitalypb.NewHookServiceClient(conn)
 
 	ctx = featureflag.OutgoingWithRaw(ctx, payload.FeatureFlags)
-	returnCode, err := hookCommand.exec(ctx, payload, hookClient, os.Args)
+	returnCode, err := hookCommand.exec(ctx, payload, hookClient, args)
 	if err != nil {
-		logger.Fatal(err)
+		return 0, err
 	}
 
-	os.Exit(returnCode)
+	return returnCode, nil
 }
 
 func noopSender(c chan error) {}
