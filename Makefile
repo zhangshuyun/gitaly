@@ -31,7 +31,6 @@ prefix           ?= ${PREFIX}
 exec_prefix      ?= ${prefix}
 bindir           ?= ${exec_prefix}/bin
 INSTALL_DEST_DIR := ${DESTDIR}${bindir}
-ASSEMBLY_ROOT    ?= ${BUILD_DIR}/assembly
 GIT_PREFIX       ?= ${GIT_INSTALL_DIR}
 
 # Tools
@@ -205,38 +204,6 @@ install: build
 	${Q}mkdir -p ${INSTALL_DEST_DIR}
 	install $(call find_command_binaries) ${INSTALL_DEST_DIR}
 
-.PHONY: force-ruby-bundle
-force-ruby-bundle:
-	${Q}rm -f ${SOURCE_DIR}/.ruby-bundle
-
-# Assembles all runtime components into a directory
-# Used by the GDK: run 'make assemble ASSEMBLY_ROOT=.../gitaly'
-.PHONY: assemble
-assemble: force-ruby-bundle assemble-internal
-
-# assemble-internal does not force 'bundle install' to run again
-.PHONY: assemble-internal
-assemble-internal: assemble-ruby assemble-go
-
-.PHONY: assemble-go
-assemble-go: build
-	${Q}rm -rf ${ASSEMBLY_ROOT}/bin
-	${Q}mkdir -p ${ASSEMBLY_ROOT}/bin
-	install $(call find_command_binaries) ${ASSEMBLY_ROOT}/bin
-
-.PHONY: assemble-ruby
-assemble-ruby:
-	${Q}mkdir -p ${ASSEMBLY_ROOT}
-	${Q}rm -rf ${GITALY_RUBY_DIR}/tmp
-	${Q}mkdir -p ${ASSEMBLY_ROOT}/ruby/
-	rsync -a --delete  ${GITALY_RUBY_DIR}/ ${ASSEMBLY_ROOT}/ruby/
-	${Q}rm -rf ${ASSEMBLY_ROOT}/ruby/spec
-
-.PHONY: binaries
-binaries: assemble
-	${Q}if [ ${ARCH} != 'x86_64' ]; then echo Incorrect architecture for build: ${ARCH}; exit 1; fi
-	${Q}cd ${ASSEMBLY_ROOT} && sha256sum bin/* | tee checksums.sha256.txt
-
 .PHONY: prepare-tests
 prepare-tests: git libgit2 prepare-test-repos ${SOURCE_DIR}/.ruby-bundle
 
@@ -279,7 +246,7 @@ race-go: TEST_OPTIONS := ${TEST_OPTIONS} -race
 race-go: test-go
 
 .PHONY: rspec
-rspec: assemble-go prepare-tests
+rspec: build prepare-tests
 	${Q}cd ${GITALY_RUBY_DIR} && PATH='${SOURCE_DIR}/internal/testhelper/testdata/home/bin:${PATH}' bundle exec rspec
 
 .PHONY: verify
