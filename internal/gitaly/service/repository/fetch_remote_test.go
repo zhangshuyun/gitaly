@@ -47,7 +47,7 @@ func copyRepoWithNewRemote(t *testing.T, repo *gitalypb.Repository, repoPath str
 }
 
 func TestFetchRemoteSuccess(t *testing.T) {
-	_, repo, repoPath, client := setupRepositoryService(t)
+	cfg, repo, repoPath, client := setupRepositoryService(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -58,7 +58,7 @@ func TestFetchRemoteSuccess(t *testing.T) {
 	}()
 
 	// Ensure there's a new tag to fetch
-	testhelper.CreateTag(t, repoPath, "testtag", "master", nil)
+	gittest.CreateTag(t, cfg, repoPath, "testtag", "master", nil)
 
 	req := &gitalypb.FetchRemoteRequest{Repository: cloneRepo, Remote: "my-remote", Timeout: 120, CheckTagsChanged: true}
 	resp, err := client.FetchRemote(ctx, req)

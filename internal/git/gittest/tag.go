@@ -1,10 +1,11 @@
-package testhelper
+package gittest
 
 import (
 	"bytes"
 	"fmt"
 	"testing"
 
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 )
 
@@ -15,7 +16,7 @@ type CreateTagOpts struct {
 }
 
 // CreateTag creates a new tag.
-func CreateTag(t testing.TB, repoPath, tagName, targetID string, opts *CreateTagOpts) string {
+func CreateTag(t testing.TB, cfg config.Cfg, repoPath, tagName, targetID string, opts *CreateTagOpts) string {
 	var message string
 	force := false
 
@@ -47,8 +48,8 @@ func CreateTag(t testing.TB, repoPath, tagName, targetID string, opts *CreateTag
 	}
 	args = append(args, tagName, targetID)
 
-	MustRunCommand(t, stdin, "git", args...)
+	ExecStream(t, cfg, stdin, args...)
 
-	tagID := MustRunCommand(t, nil, "git", "-C", repoPath, "show-ref", "-s", tagName)
+	tagID := Exec(t, cfg, "-C", repoPath, "show-ref", "-s", tagName)
 	return text.ChompBytes(tagID)
 }

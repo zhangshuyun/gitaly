@@ -464,9 +464,9 @@ func testSuccessfulUpdateRemoteMirrorRequestFeatured(t *testing.T, ctx context.C
 
 	remoteName := "remote_mirror_1"
 
-	testhelper.CreateTag(t, mirrorPath, "v0.0.1", "master", nil) // I needed another tag for the tests
-	testhelper.CreateTag(t, testRepoPath, "new-tag", "60ecb67744cb56576c30214ff52294f8ce2def98", nil)
-	testhelper.CreateTag(t, testRepoPath, "v1.0.0", "0b4bc9a49b562e85de7cc9e834518ea6828729b9", &testhelper.CreateTagOpts{
+	gittest.CreateTag(t, cfg, mirrorPath, "v0.0.1", "master", nil) // I needed another tag for the tests
+	gittest.CreateTag(t, cfg, testRepoPath, "new-tag", "60ecb67744cb56576c30214ff52294f8ce2def98", nil)
+	gittest.CreateTag(t, cfg, testRepoPath, "v1.0.0", "0b4bc9a49b562e85de7cc9e834518ea6828729b9", &gittest.CreateTagOpts{
 		Message: "Overriding tag", Force: true})
 
 	// Create a commit that only exists in the mirror
@@ -579,9 +579,9 @@ func testSuccessfulUpdateRemoteMirrorRequestWithWildcardsFeatured(t *testing.T, 
 		{"tag", "--delete", "v1.1.0"},         // v1.1.0 is ambiguous, maps to a branch and a tag in gitlab-test repository
 	}
 
-	testhelper.CreateTag(t, testRepoPath, "new-tag", "60ecb67744cb56576c30214ff52294f8ce2def98", nil) // Add tag
-	testhelper.CreateTag(t, testRepoPath, "v1.0.0", "0b4bc9a49b562e85de7cc9e834518ea6828729b9",
-		&testhelper.CreateTagOpts{Message: "Overriding tag", Force: true}) // Update tag
+	gittest.CreateTag(t, cfg, testRepoPath, "new-tag", "60ecb67744cb56576c30214ff52294f8ce2def98", nil) // Add tag
+	gittest.CreateTag(t, cfg, testRepoPath, "v1.0.0", "0b4bc9a49b562e85de7cc9e834518ea6828729b9",
+		&gittest.CreateTagOpts{Message: "Overriding tag", Force: true}) // Update tag
 
 	for _, args := range setupCommands {
 		gitArgs := []string{"-C", testRepoPath}
@@ -591,7 +591,7 @@ func testSuccessfulUpdateRemoteMirrorRequestWithWildcardsFeatured(t *testing.T, 
 
 	// Workaround for https://gitlab.com/gitlab-org/gitaly/issues/1439
 	// Create a tag on the remote to ensure it gets deleted later
-	testhelper.CreateTag(t, mirrorPath, "v1.2.0", "master", nil)
+	gittest.CreateTag(t, cfg, mirrorPath, "v1.2.0", "master", nil)
 
 	newTagOid := string(testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "rev-parse", "v1.0.0"))
 	newTagOid = strings.TrimSpace(newTagOid)
@@ -648,7 +648,7 @@ func testSuccessfulUpdateRemoteMirrorRequestWithKeepDivergentRefsFeatured(t *tes
 
 	remoteName := "remote_mirror_1"
 
-	testhelper.CreateTag(t, mirrorPath, "v2.0.0", "master", nil)
+	gittest.CreateTag(t, cfg, mirrorPath, "v2.0.0", "master", nil)
 
 	setupCommands := [][]string{
 		// Preconditions
