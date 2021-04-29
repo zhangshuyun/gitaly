@@ -902,26 +902,26 @@ type HTTPSettings struct {
 	Password string `yaml:"password"`
 }
 
-// NewServerWithHealth creates a new GRPC server with the health server set up.
+// NewServerWithHealth creates a new gRPC server with the health server set up.
 // It will listen on the socket identified by `socketName`.
-func NewServerWithHealth(t testing.TB, socketName string) (*grpc.Server, *health.Server) {
+func NewServerWithHealth(t testing.TB, socketName string) *health.Server {
 	lis, err := net.Listen("unix", socketName)
 	require.NoError(t, err)
 
 	return NewHealthServerWithListener(t, lis)
 }
 
-// NewHealthServerWithListener creates a new GRPC server with the health server
+// NewHealthServerWithListener creates a new gRPC server with the health server
 // set up. It will listen on the given listener.
-func NewHealthServerWithListener(t testing.TB, listener net.Listener) (*grpc.Server, *health.Server) {
-	srv := NewTestGrpcServer(t, nil, nil)
+func NewHealthServerWithListener(t testing.TB, listener net.Listener) *health.Server {
+	srv := grpc.NewServer()
 	healthSrvr := health.NewServer()
 	healthpb.RegisterHealthServer(srv, healthSrvr)
-	healthSrvr.SetServingStatus("", healthpb.HealthCheckResponse_SERVING)
 
-	go srv.Serve(listener)
+	t.Cleanup(srv.Stop)
+	go func() { require.NoError(t, srv.Serve(listener)) }()
 
-	return srv, healthSrvr
+	return healthSrvr
 }
 
 // SetupAndStartGitlabServer creates a new GitlabTestServer, starts it and sets

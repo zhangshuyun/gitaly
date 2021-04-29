@@ -198,7 +198,7 @@ func TestGitalyServerInfo(t *testing.T) {
 
 func TestGitalyServerInfoBadNode(t *testing.T) {
 	gitalySocket := testhelper.GetTemporaryGitalySocketFileName(t)
-	_, healthSrv := testhelper.NewServerWithHealth(t, gitalySocket)
+	healthSrv := testhelper.NewServerWithHealth(t, gitalySocket)
 	healthSrv.SetServingStatus("", grpc_health_v1.HealthCheckResponse_UNKNOWN)
 
 	conf := config.Config{
