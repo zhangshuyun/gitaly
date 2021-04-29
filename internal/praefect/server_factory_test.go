@@ -93,9 +93,12 @@ func TestServerFactory(t *testing.T) {
 		t.Helper()
 
 		commitClient := gitalypb.NewCommitServiceClient(cc)
-		resp, err := commitClient.CommitLanguages(ctx, &gitalypb.CommitLanguagesRequest{Repository: repo, Revision: []byte(revision)})
+		resp, err := commitClient.FindCommit(ctx, &gitalypb.FindCommitRequest{
+			Repository: repo,
+			Revision:   []byte(revision),
+		})
 		require.NoError(t, err)
-		require.Len(t, resp.Languages, 4)
+		require.Equal(t, revision, resp.Commit.Id)
 	}
 
 	t.Run("insecure", func(t *testing.T) {
