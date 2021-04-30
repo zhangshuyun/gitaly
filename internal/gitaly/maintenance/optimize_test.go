@@ -11,6 +11,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/repository"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
@@ -42,8 +43,8 @@ func TestOptimizeReposRandomly(t *testing.T) {
 	cfg := cfgBuilder.Build(t)
 
 	for _, storage := range cfg.Storages {
-		testhelper.MustRunCommand(t, nil, "git", "init", "--bare", filepath.Join(storage.Path, "a"))
-		testhelper.MustRunCommand(t, nil, "git", "init", "--bare", filepath.Join(storage.Path, "b"))
+		gittest.Exec(t, cfg, "init", "--bare", filepath.Join(storage.Path, "a"))
+		gittest.Exec(t, cfg, "init", "--bare", filepath.Join(storage.Path, "b"))
 	}
 
 	cfg.Storages = append(cfg.Storages, config.Storage{
