@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
@@ -21,19 +20,11 @@ func setupRepoConfig(t *testing.T) (Config, string) {
 
 	cfg := testcfg.Build(t)
 
-	repoProto, repoPath, cleanup := gittest.InitBareRepoAt(t, cfg.Storages[0])
+	repoProto, repoPath, cleanup := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
 	t.Cleanup(cleanup)
 
 	repo := New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 	return repo.Config(), repoPath
-}
-
-func TestRepo_Config(t *testing.T) {
-	bareRepo, _, cleanup := gittest.InitBareRepo(t)
-	defer cleanup()
-
-	repo := New(nil, bareRepo, config.Cfg{})
-	require.Equal(t, Config{repo: repo}, repo.Config())
 }
 
 func TestBuildConfigAddOptsFlags(t *testing.T) {

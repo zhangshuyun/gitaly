@@ -405,7 +405,7 @@ func TestInvalidRepoFindDefaultBranchNameRequest(t *testing.T) {
 func TestSuccessfulFindAllTagsRequest(t *testing.T) {
 	cfg, client := setupRefServiceWithoutRepo(t)
 
-	repoProto, repoPath, cleanupFn := gittest.CloneRepoWithWorktreeAtStorage(t, cfg.Storages[0])
+	repoProto, repoPath, cleanupFn := gittest.CloneRepoWithWorktreeAtStorage(t, cfg, cfg.Storages[0])
 	defer cleanupFn()
 	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
@@ -603,7 +603,7 @@ func TestSuccessfulFindAllTagsRequest(t *testing.T) {
 func TestFindAllTagNestedTags(t *testing.T) {
 	cfg, client := setupRefServiceWithoutRepo(t)
 
-	testRepoCopy, testRepoCopyPath, cleanupFn := gittest.CloneRepoWithWorktreeAtStorage(t, cfg.Storages[0])
+	testRepoCopy, testRepoCopyPath, cleanupFn := gittest.CloneRepoWithWorktreeAtStorage(t, cfg, cfg.Storages[0])
 	defer cleanupFn()
 
 	blobID := "faaf198af3a36dbf41961466703cc1d47c61d051"
@@ -1446,7 +1446,7 @@ func TestSuccessfulFindTagRequest(t *testing.T) {
 func TestFindTagNestedTag(t *testing.T) {
 	cfg, client := setupRefServiceWithoutRepo(t)
 
-	repo, repoPath, cleanup := gittest.CloneRepoWithWorktreeAtStorage(t, cfg.Storages[0])
+	repo, repoPath, cleanup := gittest.CloneRepoWithWorktreeAtStorage(t, cfg, cfg.Storages[0])
 	t.Cleanup(cleanup)
 
 	blobID := "faaf198af3a36dbf41961466703cc1d47c61d051"

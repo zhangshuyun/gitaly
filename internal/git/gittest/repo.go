@@ -38,24 +38,14 @@ func InitRepoDir(t testing.TB, storagePath, relativePath string) *gitalypb.Repos
 	}
 }
 
-// InitBareRepo creates a new bare repository
-func InitBareRepo(t testing.TB) (*gitalypb.Repository, string, func()) {
-	return initRepoAt(t, true, config.Storage{Name: "default", Path: testhelper.GitlabTestStoragePath()})
-}
-
 // InitBareRepoAt creates a new bare repository in the storage
-func InitBareRepoAt(t testing.TB, storage config.Storage) (*gitalypb.Repository, string, func()) {
-	return initRepoAt(t, true, storage)
-}
-
-// InitRepoWithWorktree creates a new repository with a worktree
-func InitRepoWithWorktree(t testing.TB) (*gitalypb.Repository, string, func()) {
-	return initRepoAt(t, false, config.Storage{Name: "default", Path: testhelper.GitlabTestStoragePath()})
+func InitBareRepoAt(t testing.TB, cfg config.Cfg, storage config.Storage) (*gitalypb.Repository, string, func()) {
+	return initRepoAt(t, cfg, true, storage)
 }
 
 // InitRepoWithWorktreeAtStorage creates a new repository with a worktree in the storage
-func InitRepoWithWorktreeAtStorage(t testing.TB, storage config.Storage) (*gitalypb.Repository, string, func()) {
-	return initRepoAt(t, false, storage)
+func InitRepoWithWorktreeAtStorage(t testing.TB, cfg config.Cfg, storage config.Storage) (*gitalypb.Repository, string, func()) {
+	return initRepoAt(t, cfg, false, storage)
 }
 
 // NewObjectPoolName returns a random pool repository name in format
@@ -86,7 +76,7 @@ func newDiskHash(t testing.TB) string {
 	return filepath.Join(b[0:2], b[2:4], b)
 }
 
-func initRepoAt(t testing.TB, bare bool, storage config.Storage) (*gitalypb.Repository, string, func()) {
+func initRepoAt(t testing.TB, cfg config.Cfg, bare bool, storage config.Storage) (*gitalypb.Repository, string, func()) {
 	relativePath := NewRepositoryName(t, bare)
 	repoPath := filepath.Join(storage.Path, relativePath)
 
@@ -95,7 +85,7 @@ func initRepoAt(t testing.TB, bare bool, storage config.Storage) (*gitalypb.Repo
 		args = append(args, "--bare")
 	}
 
-	testhelper.MustRunCommand(t, nil, "git", append(args, repoPath)...)
+	Exec(t, cfg, append(args, repoPath)...)
 
 	repo := InitRepoDir(t, storage.Path, relativePath)
 	repo.StorageName = storage.Name
@@ -107,33 +97,33 @@ func initRepoAt(t testing.TB, bare bool, storage config.Storage) (*gitalypb.Repo
 }
 
 // CloneRepoAtStorageRoot clones a new copy of test repository under a subdirectory in the storage root.
-func CloneRepoAtStorageRoot(t testing.TB, storageRoot, relativePath string) *gitalypb.Repository {
-	repo, _, _ := cloneRepo(t, storageRoot, relativePath, testRepo, true)
+func CloneRepoAtStorageRoot(t testing.TB, cfg config.Cfg, storageRoot, relativePath string) *gitalypb.Repository {
+	repo, _, _ := cloneRepo(t, cfg, storageRoot, relativePath, testRepo, true)
 	return repo
 }
 
 // CloneRepoAtStorage clones a new copy of test repository under a subdirectory in the storage root.
 func CloneRepoAtStorage(t testing.TB, storage config.Storage, relativePath string) (*gitalypb.Repository, string, testhelper.Cleanup) {
-	repo, repoPath, cleanup := cloneRepo(t, storage.Path, relativePath, testRepo, true)
+	repo, repoPath, cleanup := cloneRepo(t, config.Config, storage.Path, relativePath, testRepo, true)
 	repo.StorageName = storage.Name
 	return repo, repoPath, cleanup
 }
 
 // CloneRepo creates a bare copy of the test repository.
 func CloneRepo(t testing.TB) (repo *gitalypb.Repository, repoPath string, cleanup func()) {
-	return cloneRepo(t, testhelper.GitlabTestStoragePath(), NewRepositoryName(t, true), testRepo, true)
+	return cloneRepo(t, config.Config, testhelper.GitlabTestStoragePath(), NewRepositoryName(t, true), testRepo, true)
 }
 
 // CloneRepoWithWorktree creates a copy of the test repository with a worktree. This is allows you
 // to run normal 'non-bare' Git commands.
 func CloneRepoWithWorktree(t testing.TB) (repo *gitalypb.Repository, repoPath string, cleanup func()) {
-	return cloneRepo(t, testhelper.GitlabTestStoragePath(), NewRepositoryName(t, false), testRepo, false)
+	return cloneRepo(t, config.Config, testhelper.GitlabTestStoragePath(), NewRepositoryName(t, false), testRepo, false)
 }
 
 // CloneRepoWithWorktreeAtStorage creates a copy of the test repository with a worktree at the storage you want.
 // This is allows you to run normal 'non-bare' Git commands.
-func CloneRepoWithWorktreeAtStorage(t testing.TB, storage config.Storage) (*gitalypb.Repository, string, testhelper.Cleanup) {
-	repo, repoPath, cleanup := cloneRepo(t, storage.Path, NewRepositoryName(t, false), testRepo, false)
+func CloneRepoWithWorktreeAtStorage(t testing.TB, cfg config.Cfg, storage config.Storage) (*gitalypb.Repository, string, testhelper.Cleanup) {
+	repo, repoPath, cleanup := cloneRepo(t, cfg, storage.Path, NewRepositoryName(t, false), testRepo, false)
 	repo.StorageName = storage.Name
 	return repo, repoPath, cleanup
 }
@@ -166,7 +156,7 @@ func isValidRepoPath(absolutePath string) bool {
 	return true
 }
 
-func cloneRepo(t testing.TB, storageRoot, relativePath, repoName string, bare bool) (repo *gitalypb.Repository, repoPath string, cleanup func()) {
+func cloneRepo(t testing.TB, cfg config.Cfg, storageRoot, relativePath, repoName string, bare bool) (repo *gitalypb.Repository, repoPath string, cleanup func()) {
 	repoPath = filepath.Join(storageRoot, relativePath)
 
 	repo = InitRepoDir(t, storageRoot, relativePath)
@@ -178,14 +168,14 @@ func cloneRepo(t testing.TB, storageRoot, relativePath, repoName string, bare bo
 		repo.RelativePath = filepath.Join(relativePath, ".git")
 	}
 
-	testhelper.MustRunCommand(t, nil, "git", append(args, testRepositoryPath(t, repoName), repoPath)...)
+	Exec(t, cfg, append(args, testRepositoryPath(t, repoName), repoPath)...)
 
 	return repo, repoPath, func() { require.NoError(t, os.RemoveAll(repoPath)) }
 }
 
 // CloneBenchRepo creates a bare copy of the benchmarking test repository.
-func CloneBenchRepo(t testing.TB) (repo *gitalypb.Repository, repoPath string, cleanup func()) {
-	return cloneRepo(t, testhelper.GitlabTestStoragePath(), NewRepositoryName(t, true),
+func CloneBenchRepo(t testing.TB, cfg config.Cfg) (repo *gitalypb.Repository, repoPath string, cleanup func()) {
+	return cloneRepo(t, cfg, testhelper.GitlabTestStoragePath(), NewRepositoryName(t, true),
 		"benchmark.git", true)
 }
 
@@ -196,6 +186,6 @@ func AddWorktreeArgs(repoPath, worktreeName string) []string {
 }
 
 // AddWorktree creates a worktree in the repository path for tests
-func AddWorktree(t testing.TB, repoPath string, worktreeName string) {
-	testhelper.MustRunCommand(t, nil, "git", AddWorktreeArgs(repoPath, worktreeName)...)
+func AddWorktree(t testing.TB, cfg config.Cfg, repoPath string, worktreeName string) {
+	Exec(t, cfg, AddWorktreeArgs(repoPath, worktreeName)...)
 }

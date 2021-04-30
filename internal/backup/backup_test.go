@@ -28,7 +28,7 @@ func TestFilesystem_BackupRepository(t *testing.T) {
 	require.NoError(t, ioutil.WriteFile(filepath.Join(hooksRepoPath, "custom_hooks/pre-commit.sample"), []byte("Some hooks"), os.ModePerm))
 
 	noHooksRepo, _, _ := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "no-hooks")
-	emptyRepo, _, _ := gittest.InitBareRepoAt(t, cfg.Storages[0])
+	emptyRepo, _, _ := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
 	nonexistentRepo := *emptyRepo
 	nonexistentRepo.RelativePath = "nonexistent"
 

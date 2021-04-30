@@ -89,26 +89,20 @@ func testRepositoryHasBranches(t *testing.T, cfg config.Cfg, getRepository func(
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	pbRepo, repoPath, cleanup := InitBareRepoAt(t, cfg.Storages[0])
+	pbRepo, repoPath, cleanup := InitBareRepoAt(t, cfg, cfg.Storages[0])
 	defer cleanup()
 
 	repo := getRepository(t, pbRepo)
 
-	emptyCommit := text.ChompBytes(testhelper.MustRunCommand(t, nil,
-		"git", "-C", repoPath, "commit-tree", git.EmptyTreeOID.String(),
-	))
+	emptyCommit := text.ChompBytes(Exec(t, cfg, "-C", repoPath, "commit-tree", git.EmptyTreeOID.String()))
 
-	testhelper.MustRunCommand(t, nil,
-		"git", "-C", repoPath, "update-ref", "refs/headsbranch", emptyCommit,
-	)
+	Exec(t, cfg, "-C", repoPath, "update-ref", "refs/headsbranch", emptyCommit)
 
 	hasBranches, err := repo.HasBranches(ctx)
 	require.NoError(t, err)
 	require.False(t, hasBranches)
 
-	testhelper.MustRunCommand(t, nil,
-		"git", "-C", repoPath, "update-ref", "refs/heads/branch", emptyCommit,
-	)
+	Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/branch", emptyCommit)
 
 	hasBranches, err = repo.HasBranches(ctx)
 	require.NoError(t, err)

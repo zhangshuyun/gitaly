@@ -19,7 +19,7 @@ func TestExecutor_Apply(t *testing.T) {
 	cfg := testcfg.Build(t)
 	testhelper.ConfigureGitalyGit2GoBin(t, cfg)
 
-	repoProto, repoPath, cleanup := gittest.InitBareRepoAt(t, cfg.Storages[0])
+	repoProto, repoPath, cleanup := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
 	t.Cleanup(cleanup)
 
 	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
@@ -215,7 +215,7 @@ func TestExecutor_Apply(t *testing.T) {
 				Committer: committer,
 				Message:   tc.patches[len(tc.patches)-1].Message,
 			}, getCommit(t, ctx, repo, commitID))
-			gittest.RequireTree(t, repoPath, commitID.String(), tc.tree)
+			gittest.RequireTree(t, cfg, repoPath, commitID.String(), tc.tree)
 		})
 	}
 }

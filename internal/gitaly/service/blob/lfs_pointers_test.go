@@ -382,7 +382,7 @@ func TestSuccessfulGetNewLFSPointersRequest(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	repo, repoPath, cleanup := gittest.CloneRepoWithWorktreeAtStorage(t, cfg.Storages[0])
+	repo, repoPath, cleanup := gittest.CloneRepoWithWorktreeAtStorage(t, cfg, cfg.Storages[0])
 	t.Cleanup(cleanup)
 
 	revision := []byte("46abbb087fcc0fd02c340f0f2f052bd2c7708da3")
@@ -790,7 +790,7 @@ func BenchmarkFindLFSPointers(b *testing.B) {
 
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
 
-	repoProto, _, cleanup := gittest.CloneBenchRepo(b)
+	repoProto, _, cleanup := gittest.CloneBenchRepo(b, cfg)
 	b.Cleanup(cleanup)
 	repo := localrepo.New(gitCmdFactory, repoProto, cfg)
 
@@ -814,7 +814,7 @@ func BenchmarkReadLFSPointers(b *testing.B) {
 
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
 
-	repoProto, path, cleanup := gittest.CloneBenchRepo(b)
+	repoProto, path, cleanup := gittest.CloneBenchRepo(b, cfg)
 	b.Cleanup(cleanup)
 	repo := localrepo.New(gitCmdFactory, repoProto, cfg)
 

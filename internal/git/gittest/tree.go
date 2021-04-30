@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 )
 
 // TreeEntry represents an entry of a git tree object.
@@ -20,12 +20,12 @@ type TreeEntry struct {
 
 // RequireTree looks up the given treeish and asserts that its entries match
 // the given expected entries. Tree entries are checked recursively.
-func RequireTree(t testing.TB, repoPath, treeish string, expectedEntries []TreeEntry) {
+func RequireTree(t testing.TB, cfg config.Cfg, repoPath, treeish string, expectedEntries []TreeEntry) {
 	t.Helper()
 
 	var actualEntries []TreeEntry
 
-	output := bytes.TrimSpace(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "ls-tree", "-r", treeish))
+	output := bytes.TrimSpace(Exec(t, cfg, "-C", repoPath, "ls-tree", "-r", treeish))
 
 	if len(output) > 0 {
 		for _, line := range bytes.Split(output, []byte("\n")) {
@@ -36,7 +36,7 @@ func RequireTree(t testing.TB, repoPath, treeish string, expectedEntries []TreeE
 			actualEntries = append(actualEntries, TreeEntry{
 				Mode:    string(spaceSplit[0]),
 				Path:    path,
-				Content: string(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "show", treeish+":"+path)),
+				Content: string(Exec(t, cfg, "-C", repoPath, "show", treeish+":"+path)),
 			})
 		}
 	}

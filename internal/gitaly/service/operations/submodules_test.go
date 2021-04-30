@@ -370,7 +370,7 @@ func testFailedUserUpdateSubmoduleRequestDueToRepositoryEmpty(t *testing.T, cfg 
 func testFailedUserUpdateSubmoduleRequestDueToRepositoryEmptyFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	ctx, _, _, _, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
 
-	repo, _, cleanup := gittest.InitRepoWithWorktreeAtStorage(t, cfg.Storages[0])
+	repo, _, cleanup := gittest.InitRepoWithWorktreeAtStorage(t, cfg, cfg.Storages[0])
 	t.Cleanup(cleanup)
 
 	request := &gitalypb.UserUpdateSubmoduleRequest{

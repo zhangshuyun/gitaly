@@ -11,6 +11,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -35,16 +36,15 @@ func (w *streamWrapper) Send(resp *gitalypb.WalkReposResponse) error {
 }
 
 func TestWalkRepos(t *testing.T) {
-	testRoot := testhelper.TempDir(t)
-
-	storageName := "default"
-	storageRoot := filepath.Join(testRoot, "storage")
+	cfg := testcfg.Build(t)
+	storageName := cfg.Storages[0].Name
+	storageRoot := cfg.Storages[0].Path
 
 	// file walk happens lexicographically, so we delete repository in the middle
 	// of the seqeuence to ensure the walk proceeds normally
-	testRepo1 := gittest.CloneRepoAtStorageRoot(t, storageRoot, "a")
-	deletedRepo := gittest.CloneRepoAtStorageRoot(t, storageRoot, "b")
-	testRepo2 := gittest.CloneRepoAtStorageRoot(t, storageRoot, "c")
+	testRepo1 := gittest.CloneRepoAtStorageRoot(t, cfg, storageRoot, "a")
+	deletedRepo := gittest.CloneRepoAtStorageRoot(t, cfg, storageRoot, "b")
+	testRepo2 := gittest.CloneRepoAtStorageRoot(t, cfg, storageRoot, "c")
 
 	// to test a directory being deleted during a walk, we must delete a directory after
 	// the file walk has started. To achieve that, we wrap the server to pass down a wrapped

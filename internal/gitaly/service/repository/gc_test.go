@@ -111,7 +111,7 @@ func TestGarbageCollectWithPrune(t *testing.T) {
 
 	cfg, repo, repoPath, client := setupRepositoryService(t)
 
-	blobHashes := gittest.WriteBlobs(t, repoPath, 3)
+	blobHashes := gittest.WriteBlobs(t, cfg, repoPath, 3)
 	oldDanglingObjFile := filepath.Join(repoPath, "objects", blobHashes[0][:2], blobHashes[0][2:])
 	newDanglingObjFile := filepath.Join(repoPath, "objects", blobHashes[1][:2], blobHashes[1][2:])
 	oldReferencedObjFile := filepath.Join(repoPath, "objects", blobHashes[2][:2], blobHashes[2][2:])
@@ -316,12 +316,12 @@ func mustCreateFileWithTimes(t testing.TB, path string, mTime time.Time) {
 }
 
 func TestGarbageCollectDeltaIslands(t *testing.T) {
-	_, repo, repoPath, client := setupRepositoryService(t)
+	cfg, repo, repoPath, client := setupRepositoryService(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	gittest.TestDeltaIslands(t, repoPath, func() error {
+	gittest.TestDeltaIslands(t, cfg, repoPath, func() error {
 		_, err := client.GarbageCollect(ctx, &gitalypb.GarbageCollectRequest{Repository: repo})
 		return err
 	})

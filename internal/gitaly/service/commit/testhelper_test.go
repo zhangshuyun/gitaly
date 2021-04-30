@@ -45,7 +45,7 @@ func setupCommitServiceWithRepo(
 		if bare {
 			return gittest.CloneRepoAtStorage(tb, cfg.Storages[0], t.Name())
 		}
-		return gittest.CloneRepoWithWorktreeAtStorage(tb, cfg.Storages[0])
+		return gittest.CloneRepoWithWorktreeAtStorage(tb, cfg, cfg.Storages[0])
 	})
 }
 

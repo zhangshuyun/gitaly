@@ -184,7 +184,7 @@ func updateWikiPage(t *testing.T, client gitalypb.WikiServiceClient, wikiRepo *g
 }
 
 func setupWikiRepo(t *testing.T, cfg config.Cfg) (*gitalypb.Repository, string, func()) {
-	return gittest.InitBareRepoAt(t, cfg.Storages[0])
+	return gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
 }
 
 func sendBytes(data []byte, chunkSize int, sender func([]byte) error) (int, error) {

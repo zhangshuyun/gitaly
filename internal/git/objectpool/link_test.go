@@ -42,7 +42,7 @@ func TestLink(t *testing.T) {
 
 	require.Equal(t, content, newContent)
 
-	require.False(t, gittest.RemoteExists(t, pool.FullPath(), testRepo.GetGlRepository()), "pool remotes should not include %v", testRepo)
+	require.False(t, gittest.RemoteExists(t, pool.cfg, pool.FullPath(), testRepo.GetGlRepository()), "pool remotes should not include %v", testRepo)
 }
 
 func TestLinkRemoveBitmap(t *testing.T) {
@@ -101,10 +101,10 @@ func TestUnlink(t *testing.T) {
 	require.NoError(t, pool.Create(ctx, testRepo), "create pool")
 	require.NoError(t, pool.Link(ctx, testRepo), "link test repo to pool")
 
-	require.False(t, gittest.RemoteExists(t, pool.FullPath(), testRepo.GetGlRepository()), "pool remotes should include %v", testRepo)
+	require.False(t, gittest.RemoteExists(t, pool.cfg, pool.FullPath(), testRepo.GetGlRepository()), "pool remotes should include %v", testRepo)
 
 	require.NoError(t, pool.Unlink(ctx, testRepo), "unlink repo")
-	require.False(t, gittest.RemoteExists(t, pool.FullPath(), testRepo.GetGlRepository()), "pool remotes should no longer include %v", testRepo)
+	require.False(t, gittest.RemoteExists(t, pool.cfg, pool.FullPath(), testRepo.GetGlRepository()), "pool remotes should no longer include %v", testRepo)
 }
 
 func TestLinkAbsoluteLinkExists(t *testing.T) {
@@ -137,5 +137,5 @@ func TestLinkAbsoluteLinkExists(t *testing.T) {
 	testRepoObjectsPath := filepath.Join(testRepoPath, "objects")
 	require.Equal(t, fullPath, filepath.Join(testRepoObjectsPath, string(content)), "the content of the alternates file should be the relative version of the absolute pat")
 
-	require.True(t, gittest.RemoteExists(t, pool.FullPath(), "origin"), "pool remotes should include %v", testRepo)
+	require.True(t, gittest.RemoteExists(t, pool.cfg, pool.FullPath(), "origin"), "pool remotes should include %v", testRepo)
 }

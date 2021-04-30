@@ -91,7 +91,7 @@ func TestFetchFromOriginDeltaIslands(t *testing.T) {
 	require.NoError(t, pool.FetchFromOrigin(ctx, testRepo), "seed pool")
 	require.NoError(t, pool.Link(ctx, testRepo))
 
-	gittest.TestDeltaIslands(t, testRepoPath, func() error {
+	gittest.TestDeltaIslands(t, pool.cfg, testRepoPath, func() error {
 		// This should create a new packfile with good delta chains in the pool
 		if err := pool.FetchFromOrigin(ctx, testRepo); err != nil {
 			return err

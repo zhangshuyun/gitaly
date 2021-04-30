@@ -16,7 +16,7 @@ import (
 func TestRepositoryProfile(t *testing.T) {
 	cfg := testcfg.Build(t)
 
-	testRepo, testRepoPath, cleanup := gittest.InitBareRepoAt(t, cfg.Storages[0])
+	testRepo, testRepoPath, cleanup := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
 	defer cleanup()
 
 	ctx, cancel := testhelper.Context()
@@ -36,7 +36,7 @@ func TestRepositoryProfile(t *testing.T) {
 	require.Zero(t, packfilesCount)
 
 	blobs := 10
-	blobIDs := gittest.WriteBlobs(t, testRepoPath, blobs)
+	blobIDs := gittest.WriteBlobs(t, cfg, testRepoPath, blobs)
 
 	unpackedObjects, err = UnpackedObjects(testRepoPath)
 	require.NoError(t, err)
@@ -53,7 +53,7 @@ func TestRepositoryProfile(t *testing.T) {
 	}
 
 	// write a loose object
-	gittest.WriteBlobs(t, testRepoPath, 1)
+	gittest.WriteBlobs(t, cfg, testRepoPath, 1)
 
 	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "repack", "-A", "-b", "-d")
 
@@ -68,7 +68,7 @@ func TestRepositoryProfile(t *testing.T) {
 	time.Sleep(1 * time.Millisecond)
 
 	// write another loose object
-	blobID := gittest.WriteBlobs(t, testRepoPath, 1)[0]
+	blobID := gittest.WriteBlobs(t, cfg, testRepoPath, 1)[0]
 
 	// due to OS semantics, ensure that the blob has a timestamp that is after the packfile
 	theFuture := time.Now().Add(10 * time.Minute)

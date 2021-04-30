@@ -89,11 +89,11 @@ func TestOptimizeRepository(t *testing.T) {
 
 	require.Equal(t, getNewestPackfileModtime(t, repoPath), newestsPackfileTime, "there should not have been a new packfile created")
 
-	testRepo, testRepoPath, cleanupBare := gittest.InitBareRepoAt(t, cfg.Storages[0])
+	testRepo, testRepoPath, cleanupBare := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
 	t.Cleanup(cleanupBare)
 
 	blobs := 10
-	blobIDs := gittest.WriteBlobs(t, testRepoPath, blobs)
+	blobIDs := gittest.WriteBlobs(t, cfg, testRepoPath, blobs)
 
 	updater, err := updateref.New(ctx, cfg, git.NewExecCommandFactory(cfg), testRepo)
 	require.NoError(t, err)

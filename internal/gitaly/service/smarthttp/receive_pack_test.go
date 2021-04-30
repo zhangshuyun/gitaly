@@ -216,7 +216,7 @@ type pushData struct {
 }
 
 func newTestPush(t *testing.T, cfg config.Cfg, fileContents []byte) *pushData {
-	_, repoPath, localCleanup := gittest.CloneRepoWithWorktreeAtStorage(t, cfg.Storages[0])
+	_, repoPath, localCleanup := gittest.CloneRepoWithWorktreeAtStorage(t, cfg, cfg.Storages[0])
 	defer localCleanup()
 
 	oldHead, newHead := createCommit(t, repoPath, fileContents)
@@ -306,7 +306,7 @@ func TestFailedReceivePackRequestDueToValidationError(t *testing.T) {
 func TestInvalidTimezone(t *testing.T) {
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
-	_, localRepoPath, localCleanup := gittest.CloneRepoWithWorktreeAtStorage(t, cfg.Storages[0])
+	_, localRepoPath, localCleanup := gittest.CloneRepoWithWorktreeAtStorage(t, cfg, cfg.Storages[0])
 	defer localCleanup()
 
 	head := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", localRepoPath, "rev-parse", "HEAD"))

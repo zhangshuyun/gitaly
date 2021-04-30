@@ -455,7 +455,7 @@ func TestInvalidWikiFindPageRequestRevision(t *testing.T) {
 }
 
 func testSuccessfulWikiFindPageRequestWithTrailers(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	wikiRepo, worktreePath, cleanupFn := gittest.InitRepoWithWorktreeAtStorage(t, cfg.Storages[0])
+	wikiRepo, worktreePath, cleanupFn := gittest.InitRepoWithWorktreeAtStorage(t, cfg, cfg.Storages[0])
 	defer cleanupFn()
 
 	committerName := "Scróoge McDuck" // Include UTF-8 to ensure encoding is handled

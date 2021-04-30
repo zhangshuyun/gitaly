@@ -135,7 +135,7 @@ func TestListFiles_success(t *testing.T) {
 
 func TestListFiles_unbornBranch(t *testing.T) {
 	cfg, _, _, client := setupCommitServiceWithRepo(t, true)
-	repo, _, _ := gittest.InitBareRepoAt(t, cfg.Storages[0])
+	repo, _, _ := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
 
 	tests := []struct {
 		desc     string

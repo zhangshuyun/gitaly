@@ -32,7 +32,7 @@ func setupRepoRemote(t *testing.T, bare bool) (Remote, string) {
 	var repoPath string
 	var repoCleanUp func()
 	if bare {
-		repoProto, repoPath, repoCleanUp = gittest.InitBareRepoAt(t, cfg.Storages[0])
+		repoProto, repoPath, repoCleanUp = gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
 	} else {
 		repoProto, repoPath, repoCleanUp = gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name())
 	}
@@ -308,7 +308,7 @@ func TestRepo_FetchRemote(t *testing.T) {
 	initBareWithRemote := func(t *testing.T, remote string) (*Repo, string, testhelper.Cleanup) {
 		t.Helper()
 
-		testRepo, testRepoPath, cleanup := gittest.InitBareRepoAt(t, cfg.Storages[0])
+		testRepo, testRepoPath, cleanup := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
 
 		cmd := exec.Command(cfg.Git.BinPath, "-C", testRepoPath, "remote", "add", remote, remoteRepoPath)
 		err := cmd.Run()
@@ -524,7 +524,7 @@ if [ -z ${GIT_SSH_COMMAND+x} ];then rm -f %q ;else echo -n "$GIT_SSH_COMMAND" > 
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			pushRepoPb, pushRepoPath, _ := gittest.InitBareRepoAt(t, cfg.Storages[0])
+			pushRepoPb, pushRepoPath, _ := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
 			pushRepo := New(git.NewExecCommandFactory(cfg), pushRepoPb, cfg)
 
 			if tc.setupPushRepo != nil {

@@ -16,7 +16,7 @@ import (
 func TestSuccessfulCountCommitsRequest(t *testing.T) {
 	cfg, repo1, _, client := setupCommitServiceWithRepo(t, true)
 
-	repo2, repo2Path, cleanupFn := gittest.InitRepoWithWorktreeAtStorage(t, cfg.Storages[0])
+	repo2, repo2Path, cleanupFn := gittest.InitRepoWithWorktreeAtStorage(t, cfg, cfg.Storages[0])
 	t.Cleanup(cleanupFn)
 
 	committerName := "Scrooge McDuck"
