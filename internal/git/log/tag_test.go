@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 )
@@ -50,7 +51,7 @@ func TestGetTag(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.tagName, func(t *testing.T) {
-			tagID := testhelper.CreateTag(t, testRepoPath, testCase.tagName, testCase.rev, &testhelper.CreateTagOpts{Message: testCase.message})
+			tagID := gittest.CreateTag(t, cfg, testRepoPath, testCase.tagName, testCase.rev, &gittest.CreateTagOpts{Message: testCase.message})
 
 			tag, err := GetTagCatfile(ctx, c, git.Revision(tagID), testCase.tagName, testCase.trim, true)
 			require.NoError(t, err)
