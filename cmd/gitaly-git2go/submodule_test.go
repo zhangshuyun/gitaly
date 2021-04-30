@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/git/lstree"
 	"gitlab.com/gitlab-org/gitaly/internal/git2go"
@@ -109,10 +110,9 @@ func TestSubmodule(t *testing.T) {
 			require.Equal(t, commit.Committer.Email, testhelper.TestUser.Email)
 			require.Equal(t, commit.Subject, commitMessage)
 
-			entry := testhelper.MustRunCommand(
+			entry := gittest.Exec(
 				t,
-				nil,
-				"git",
+				cfg,
 				"-C",
 				repoPath,
 				"ls-tree",
