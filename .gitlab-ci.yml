@@ -310,3 +310,4 @@ trigger-qa:
   variables:
     ALTERNATIVE_SOURCES: "true"
     GITALY_SERVER_VERSION: $CI_COMMIT_SHA
+    EE: "true"
