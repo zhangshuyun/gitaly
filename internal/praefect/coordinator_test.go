@@ -126,10 +126,8 @@ func TestStreamDirectorReadOnlyEnforcement(t *testing.T) {
 
 func TestStreamDirectorMutator(t *testing.T) {
 	gitalySocket0, gitalySocket1 := testhelper.GetTemporaryGitalySocketFileName(t), testhelper.GetTemporaryGitalySocketFileName(t)
-	srv1, _ := testhelper.NewServerWithHealth(t, gitalySocket0)
-	defer srv1.Stop()
-	srv2, _ := testhelper.NewServerWithHealth(t, gitalySocket1)
-	defer srv2.Stop()
+	testhelper.NewServerWithHealth(t, gitalySocket0)
+	testhelper.NewServerWithHealth(t, gitalySocket1)
 
 	primaryAddress, secondaryAddress := "unix://"+gitalySocket0, "unix://"+gitalySocket1
 	primaryNode := &config.Node{Address: primaryAddress, Storage: "praefect-internal-1"}
@@ -236,8 +234,7 @@ func TestStreamDirectorMutator(t *testing.T) {
 
 func TestStreamDirectorMutator_StopTransaction(t *testing.T) {
 	socket := testhelper.GetTemporaryGitalySocketFileName(t)
-	server, _ := testhelper.NewServerWithHealth(t, socket)
-	defer server.Stop()
+	testhelper.NewServerWithHealth(t, socket)
 
 	conf := config.Config{
 		VirtualStorages: []*config.VirtualStorage{
@@ -355,8 +352,7 @@ func (m mockRouter) RouteRepositoryAccessor(ctx context.Context, virtualStorage,
 
 func TestStreamDirectorAccessor(t *testing.T) {
 	gitalySocket := testhelper.GetTemporaryGitalySocketFileName(t)
-	srv, _ := testhelper.NewServerWithHealth(t, gitalySocket)
-	defer srv.Stop()
+	testhelper.NewServerWithHealth(t, gitalySocket)
 
 	gitalyAddress := "unix://" + gitalySocket
 	conf := config.Config{
@@ -457,10 +453,8 @@ func TestStreamDirectorAccessor(t *testing.T) {
 
 func TestCoordinatorStreamDirector_distributesReads(t *testing.T) {
 	gitalySocket0, gitalySocket1 := testhelper.GetTemporaryGitalySocketFileName(t), testhelper.GetTemporaryGitalySocketFileName(t)
-	srv1, primaryHealthSrv := testhelper.NewServerWithHealth(t, gitalySocket0)
-	defer srv1.Stop()
-	srv2, healthSrv := testhelper.NewServerWithHealth(t, gitalySocket1)
-	defer srv2.Stop()
+	primaryHealthSrv := testhelper.NewServerWithHealth(t, gitalySocket0)
+	healthSrv := testhelper.NewServerWithHealth(t, gitalySocket1)
 
 	primaryNodeConf := config.Node{
 		Address: "unix://" + gitalySocket0,
@@ -835,13 +829,10 @@ func TestStreamDirector_repo_creation(t *testing.T) {
 				gitalySocket0 := testhelper.GetTemporaryGitalySocketFileName(t)
 				gitalySocket1 := testhelper.GetTemporaryGitalySocketFileName(t)
 				gitalySocket3 := testhelper.GetTemporaryGitalySocketFileName(t)
-				srv1, _ := testhelper.NewServerWithHealth(t, gitalySocket0)
-				defer srv1.Stop()
-				srv2, _ := testhelper.NewServerWithHealth(t, gitalySocket1)
-				defer srv2.Stop()
-				srv3, healthSrv3 := testhelper.NewServerWithHealth(t, gitalySocket3)
+				testhelper.NewServerWithHealth(t, gitalySocket0)
+				testhelper.NewServerWithHealth(t, gitalySocket1)
+				healthSrv3 := testhelper.NewServerWithHealth(t, gitalySocket3)
 				healthSrv3.SetServingStatus("", grpc_health_v1.HealthCheckResponse_NOT_SERVING)
-				defer srv3.Stop()
 
 				primaryNode.Address = "unix://" + gitalySocket0
 				healthySecondaryNode.Address = "unix://" + gitalySocket1
@@ -1000,8 +991,8 @@ func (m *mockPeeker) Modify(payload []byte) error {
 
 func TestAbsentCorrelationID(t *testing.T) {
 	gitalySocket0, gitalySocket1 := testhelper.GetTemporaryGitalySocketFileName(t), testhelper.GetTemporaryGitalySocketFileName(t)
-	_, healthSrv0 := testhelper.NewServerWithHealth(t, gitalySocket0)
-	_, healthSrv1 := testhelper.NewServerWithHealth(t, gitalySocket1)
+	healthSrv0 := testhelper.NewServerWithHealth(t, gitalySocket0)
+	healthSrv1 := testhelper.NewServerWithHealth(t, gitalySocket1)
 	healthSrv0.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
 	healthSrv1.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
 
@@ -1151,10 +1142,8 @@ func TestCoordinatorEnqueueFailure(t *testing.T) {
 func TestStreamDirectorStorageScope(t *testing.T) {
 	// stubs health-check requests because nodes.NewManager establishes connection on creation
 	gitalySocket0, gitalySocket1 := testhelper.GetTemporaryGitalySocketFileName(t), testhelper.GetTemporaryGitalySocketFileName(t)
-	srv1, _ := testhelper.NewServerWithHealth(t, gitalySocket0)
-	defer srv1.Stop()
-	srv2, _ := testhelper.NewServerWithHealth(t, gitalySocket1)
-	defer srv2.Stop()
+	testhelper.NewServerWithHealth(t, gitalySocket0)
+	testhelper.NewServerWithHealth(t, gitalySocket1)
 
 	primaryAddress, secondaryAddress := "unix://"+gitalySocket0, "unix://"+gitalySocket1
 	primaryGitaly := &config.Node{Address: primaryAddress, Storage: "gitaly-1"}
