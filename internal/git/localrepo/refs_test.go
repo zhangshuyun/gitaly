@@ -221,9 +221,9 @@ func TestRepo_GetRemoteReferences(t *testing.T) {
 	const relativePath = "repository-1"
 	repoPath := filepath.Join(storagePath, relativePath)
 
-	testhelper.MustRunCommand(t, nil, "git", "init", repoPath)
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "commit", "--allow-empty", "-m", "commit message")
-	commit := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", "refs/heads/master"))
+	gittest.Exec(t, cfg, "init", repoPath)
+	gittest.Exec(t, cfg, "-C", repoPath, "commit", "--allow-empty", "-m", "commit message")
+	commit := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "refs/heads/master"))
 
 	for _, cmd := range [][]string{
 		{"update-ref", "refs/heads/master", commit},
@@ -232,10 +232,10 @@ func TestRepo_GetRemoteReferences(t *testing.T) {
 		{"symbolic-ref", "refs/heads/symbolic", "refs/heads/master"},
 		{"update-ref", "refs/remote/remote-name/remote-branch", commit},
 	} {
-		testhelper.MustRunCommand(t, nil, "git", append([]string{"-C", repoPath}, cmd...)...)
+		gittest.Exec(t, cfg, append([]string{"-C", repoPath}, cmd...)...)
 	}
 
-	annotatedTagOID := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", "annotated-tag"))
+	annotatedTagOID := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "annotated-tag"))
 
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
 	repo := New(
