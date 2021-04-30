@@ -16,11 +16,9 @@ func TestNewProtoRegistry(t *testing.T) {
 
 	expectedResults := map[string]map[string]protoregistry.OpType{
 		"BlobService": map[string]protoregistry.OpType{
-			"GetBlob":           protoregistry.OpAccessor,
-			"GetBlobs":          protoregistry.OpAccessor,
-			"GetLFSPointers":    protoregistry.OpAccessor,
-			"GetNewLFSPointers": protoregistry.OpAccessor,
-			"GetAllLFSPointers": protoregistry.OpAccessor,
+			"GetBlob":        protoregistry.OpAccessor,
+			"GetBlobs":       protoregistry.OpAccessor,
+			"GetLFSPointers": protoregistry.OpAccessor,
 		},
 		"CleanupService": map[string]protoregistry.OpType{
 			"ApplyBfgObjectMapStream": protoregistry.OpMutator,
