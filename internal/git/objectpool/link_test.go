@@ -55,24 +55,24 @@ func TestLinkRemoveBitmap(t *testing.T) {
 	testRepoPath := filepath.Join(pool.cfg.Storages[0].Path, testRepo.RelativePath)
 
 	poolPath := pool.FullPath()
-	testhelper.MustRunCommand(t, nil, "git", "-C", poolPath, "fetch", testRepoPath, "+refs/*:refs/*")
+	gittest.Exec(t, pool.cfg, "-C", poolPath, "fetch", testRepoPath, "+refs/*:refs/*")
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", poolPath, "repack", "-adb")
+	gittest.Exec(t, pool.cfg, "-C", poolPath, "repack", "-adb")
 	require.Len(t, listBitmaps(t, pool.FullPath()), 1, "pool bitmaps before")
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "repack", "-adb")
+	gittest.Exec(t, pool.cfg, "-C", testRepoPath, "repack", "-adb")
 	require.Len(t, listBitmaps(t, testRepoPath), 1, "member bitmaps before")
 
-	refsBefore := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "for-each-ref")
+	refsBefore := gittest.Exec(t, pool.cfg, "-C", testRepoPath, "for-each-ref")
 
 	require.NoError(t, pool.Link(ctx, testRepo))
 
 	require.Len(t, listBitmaps(t, pool.FullPath()), 1, "pool bitmaps after")
 	require.Len(t, listBitmaps(t, testRepoPath), 0, "member bitmaps after")
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "fsck")
+	gittest.Exec(t, pool.cfg, "-C", testRepoPath, "fsck")
 
-	refsAfter := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "for-each-ref")
+	refsAfter := gittest.Exec(t, pool.cfg, "-C", testRepoPath, "for-each-ref")
 	require.Equal(t, refsBefore, refsAfter, "compare member refs before/after link")
 }
 
