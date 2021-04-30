@@ -86,7 +86,7 @@ func TestFilesystem_BackupRepository(t *testing.T) {
 			if tc.createsBundle {
 				require.FileExists(t, bundlePath)
 
-				output := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "bundle", "verify", bundlePath)
+				output := gittest.Exec(t, cfg, "-C", repoPath, "bundle", "verify", bundlePath)
 				require.Contains(t, string(output), "The bundle records a complete history")
 			} else {
 				require.NoFileExists(t, bundlePath)
