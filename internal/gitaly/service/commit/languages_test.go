@@ -30,7 +30,7 @@ func TestLanguages(t *testing.T) {
 
 	require.NotZero(t, len(resp.Languages), "number of languages in response")
 
-	expectedLanguages := []gitalypb.CommitLanguagesResponse_Language{
+	expectedLanguages := []*gitalypb.CommitLanguagesResponse_Language{
 		{Name: "Ruby", Share: 66, Color: "#701516", FileCount: 4, Bytes: 2943},
 		{Name: "JavaScript", Share: 22, Color: "#f1e05a", FileCount: 1, Bytes: 1014},
 		{Name: "HTML", Share: 7, Color: "#e34c26", FileCount: 1, Bytes: 349},
@@ -44,7 +44,7 @@ func TestLanguages(t *testing.T) {
 
 	for i, el := range expectedLanguages {
 		actualLanguage := resp.Languages[i]
-		requireLanguageEqual(t, &el, actualLanguage)
+		requireLanguageEqual(t, el, actualLanguage)
 	}
 }
 

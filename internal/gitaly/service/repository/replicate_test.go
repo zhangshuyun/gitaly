@@ -20,6 +20,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/reflection"
+	"google.golang.org/protobuf/proto"
 )
 
 func TestReplicateRepository(t *testing.T) {
@@ -52,7 +54,7 @@ func TestReplicateRepository(t *testing.T) {
 	configData := testhelper.MustReadFile(t, filepath.Join(repoPath, "config"))
 	require.Contains(t, string(configData), "[please]\n\treplicate = me\n")
 
-	targetRepo := *repo
+	targetRepo := proto.Clone(repo).(*gitalypb.Repository)
 	targetRepo.StorageName = cfg.Storages[1].Name
 
 	ctx, cancel := testhelper.Context()
@@ -61,7 +63,7 @@ func TestReplicateRepository(t *testing.T) {
 	injectedCtx := metadata.NewOutgoingContext(ctx, md)
 
 	_, err = client.ReplicateRepository(injectedCtx, &gitalypb.ReplicateRepositoryRequest{
-		Repository: &targetRepo,
+		Repository: targetRepo,
 		Source:     repo,
 	})
 	require.NoError(t, err)
@@ -80,7 +82,7 @@ func TestReplicateRepository(t *testing.T) {
 	// create another branch
 	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("branch"))
 	_, err = client.ReplicateRepository(injectedCtx, &gitalypb.ReplicateRepositoryRequest{
-		Repository: &targetRepo,
+		Repository: targetRepo,
 		Source:     repo,
 	})
 	require.NoError(t, err)
@@ -277,10 +279,10 @@ func TestReplicateRepository_FailedFetchInternalRemote(t *testing.T) {
 
 	repoClient := newRepositoryClient(t, cfg, cfg.SocketPath)
 
-	targetRepo := *testRepo
+	targetRepo := proto.Clone(testRepo).(*gitalypb.Repository)
 	targetRepo.StorageName = cfg.Storages[1].Name
 
-	targetRepoPath, err := locator.GetPath(&targetRepo)
+	targetRepoPath, err := locator.GetPath(targetRepo)
 	require.NoError(t, err)
 
 	require.NoError(t, os.MkdirAll(targetRepoPath, 0755))
@@ -293,7 +295,7 @@ func TestReplicateRepository_FailedFetchInternalRemote(t *testing.T) {
 	injectedCtx := metadata.NewOutgoingContext(ctx, md)
 
 	_, err = repoClient.ReplicateRepository(injectedCtx, &gitalypb.ReplicateRepositoryRequest{
-		Repository: &targetRepo,
+		Repository: targetRepo,
 		Source:     testRepo,
 	})
 	require.Error(t, err)

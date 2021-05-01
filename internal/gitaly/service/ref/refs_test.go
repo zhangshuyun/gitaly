@@ -1076,15 +1076,15 @@ func TestInvalidFindAllBranchesRequest(t *testing.T) {
 
 	testCases := []struct {
 		description string
-		request     gitalypb.FindAllBranchesRequest
+		request     *gitalypb.FindAllBranchesRequest
 	}{
 		{
 			description: "Empty request",
-			request:     gitalypb.FindAllBranchesRequest{},
+			request:     &gitalypb.FindAllBranchesRequest{},
 		},
 		{
 			description: "Invalid repo",
-			request: gitalypb.FindAllBranchesRequest{
+			request: &gitalypb.FindAllBranchesRequest{
 				Repository: &gitalypb.Repository{
 					StorageName:  "fake",
 					RelativePath: "repo",
@@ -1097,7 +1097,7 @@ func TestInvalidFindAllBranchesRequest(t *testing.T) {
 		t.Run(tc.description, func(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
-			c, err := client.FindAllBranches(ctx, &tc.request)
+			c, err := client.FindAllBranches(ctx, tc.request)
 			require.NoError(t, err)
 
 			var recvError error

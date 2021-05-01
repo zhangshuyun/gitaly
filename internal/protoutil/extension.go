@@ -59,12 +59,12 @@ func getBoolExtension(options proto.Message, extension *proto.ExtensionDesc) (bo
 
 func getExtension(options proto.Message, extension *proto.ExtensionDesc) (interface{}, error) {
 	if !proto.HasExtension(options, extension) {
-		return nil, fmt.Errorf("protoutil.getExtension %q: %w", extension.Name, proto.ErrMissingExtension)
+		return nil, fmt.Errorf("protoutil.getExtension %q: %w", extension.TypeDescriptor().FullName(), proto.ErrMissingExtension)
 	}
 
 	ext, err := proto.GetExtension(options, extension)
 	if err != nil {
-		return nil, fmt.Errorf("protoutil.getExtension %q: %w", extension.Name, err)
+		return nil, fmt.Errorf("protoutil.getExtension %q: %w", extension.TypeDescriptor().FullName(), err)
 	}
 
 	return ext, nil

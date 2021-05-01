@@ -125,9 +125,9 @@ func TestServer_ConsistencyCheck(t *testing.T) {
 
 	infoClient := gitalypb.NewPraefectInfoServiceClient(praefectConn)
 
-	execAndVerify := func(t *testing.T, req gitalypb.ConsistencyCheckRequest, verify func(*testing.T, []*gitalypb.ConsistencyCheckResponse, error)) {
+	execAndVerify := func(t *testing.T, req *gitalypb.ConsistencyCheckRequest, verify func(*testing.T, []*gitalypb.ConsistencyCheckResponse, error)) {
 		t.Helper()
-		response, err := infoClient.ConsistencyCheck(ctx, &req)
+		response, err := infoClient.ConsistencyCheck(ctx, req)
 		require.NoError(t, err)
 
 		var results []*gitalypb.ConsistencyCheckResponse
@@ -147,7 +147,7 @@ func TestServer_ConsistencyCheck(t *testing.T) {
 	}
 
 	t.Run("all in sync", func(t *testing.T) {
-		req := gitalypb.ConsistencyCheckRequest{
+		req := &gitalypb.ConsistencyCheckRequest{
 			VirtualStorage:         virtualStorage,
 			TargetStorage:          targetStorageName,
 			ReferenceStorage:       referenceStorageName,
@@ -179,12 +179,12 @@ func TestServer_ConsistencyCheck(t *testing.T) {
 
 	for _, tc := range []struct {
 		desc   string
-		req    gitalypb.ConsistencyCheckRequest
+		req    *gitalypb.ConsistencyCheckRequest
 		verify func(*testing.T, []*gitalypb.ConsistencyCheckResponse, error)
 	}{
 		{
 			desc: "with replication event created",
-			req: gitalypb.ConsistencyCheckRequest{
+			req: &gitalypb.ConsistencyCheckRequest{
 				VirtualStorage:         virtualStorage,
 				TargetStorage:          targetStorageName,
 				ReferenceStorage:       referenceStorageName,
@@ -220,7 +220,7 @@ func TestServer_ConsistencyCheck(t *testing.T) {
 		},
 		{
 			desc: "without replication event",
-			req: gitalypb.ConsistencyCheckRequest{
+			req: &gitalypb.ConsistencyCheckRequest{
 				VirtualStorage:         virtualStorage,
 				TargetStorage:          targetStorageName,
 				ReferenceStorage:       referenceStorageName,
@@ -255,7 +255,7 @@ func TestServer_ConsistencyCheck(t *testing.T) {
 		},
 		{
 			desc: "no target",
-			req: gitalypb.ConsistencyCheckRequest{
+			req: &gitalypb.ConsistencyCheckRequest{
 				VirtualStorage:   virtualStorage,
 				TargetStorage:    "",
 				ReferenceStorage: targetStorageName,
@@ -266,7 +266,7 @@ func TestServer_ConsistencyCheck(t *testing.T) {
 		},
 		{
 			desc: "unknown target",
-			req: gitalypb.ConsistencyCheckRequest{
+			req: &gitalypb.ConsistencyCheckRequest{
 				VirtualStorage:   virtualStorage,
 				TargetStorage:    "unknown",
 				ReferenceStorage: targetStorageName,
@@ -277,7 +277,7 @@ func TestServer_ConsistencyCheck(t *testing.T) {
 		},
 		{
 			desc: "no reference",
-			req: gitalypb.ConsistencyCheckRequest{
+			req: &gitalypb.ConsistencyCheckRequest{
 				VirtualStorage:   virtualStorage,
 				TargetStorage:    referenceStorageName,
 				ReferenceStorage: "",
@@ -292,7 +292,7 @@ func TestServer_ConsistencyCheck(t *testing.T) {
 		},
 		{
 			desc: "unknown reference",
-			req: gitalypb.ConsistencyCheckRequest{
+			req: &gitalypb.ConsistencyCheckRequest{
 				VirtualStorage:   virtualStorage,
 				TargetStorage:    referenceStorageName,
 				ReferenceStorage: "unknown",
@@ -307,7 +307,7 @@ func TestServer_ConsistencyCheck(t *testing.T) {
 		},
 		{
 			desc: "same storage",
-			req: gitalypb.ConsistencyCheckRequest{
+			req: &gitalypb.ConsistencyCheckRequest{
 				VirtualStorage:   virtualStorage,
 				TargetStorage:    referenceStorageName,
 				ReferenceStorage: referenceStorageName,
@@ -322,7 +322,7 @@ func TestServer_ConsistencyCheck(t *testing.T) {
 		},
 		{
 			desc: "no virtual",
-			req: gitalypb.ConsistencyCheckRequest{
+			req: &gitalypb.ConsistencyCheckRequest{
 				VirtualStorage:   "",
 				TargetStorage:    referenceStorageName,
 				ReferenceStorage: targetStorageName,
@@ -333,7 +333,7 @@ func TestServer_ConsistencyCheck(t *testing.T) {
 		},
 		{
 			desc: "unknown virtual",
-			req: gitalypb.ConsistencyCheckRequest{
+			req: &gitalypb.ConsistencyCheckRequest{
 				VirtualStorage:   "unknown",
 				TargetStorage:    referenceStorageName,
 				ReferenceStorage: "unknown",
@@ -352,7 +352,7 @@ func TestServer_ConsistencyCheck(t *testing.T) {
 	t.Run("one of gitalies is unreachable", func(t *testing.T) {
 		targetGitaly.Shutdown()
 
-		req := gitalypb.ConsistencyCheckRequest{
+		req := &gitalypb.ConsistencyCheckRequest{
 			VirtualStorage:         virtualStorage,
 			TargetStorage:          targetStorageName,
 			ReferenceStorage:       referenceStorageName,

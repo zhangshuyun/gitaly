@@ -6,6 +6,8 @@ import (
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testassert"
+	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 )
 
 func TestBuildLocalBranch(t *testing.T) {
@@ -174,7 +176,7 @@ func TestBuildLocalBranch(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			require.Equal(t, *tc.out, *buildLocalBranch([]byte("my-branch"), tc.in))
+			testassert.ProtoEqual(t, tc.out, buildLocalBranch([]byte("my-branch"), tc.in))
 		})
 	}
 }

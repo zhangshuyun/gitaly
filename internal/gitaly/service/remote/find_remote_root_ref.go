@@ -16,7 +16,7 @@ import (
 const headPrefix = "HEAD branch: "
 
 func (s *server) findRemoteRootRef(ctx context.Context, request *gitalypb.FindRemoteRootRefRequest) (string, error) {
-	remoteName := request.Remote
+	remoteName := request.Remote // nolint:staticcheck
 	var config []git.ConfigPair
 
 	if request.RemoteUrl != "" {

@@ -343,7 +343,7 @@ func TestUserMergeBranch_ambiguousReference(t *testing.T) {
 	commit, err := repo.ReadCommit(ctx, git.Revision("refs/heads/"+mergeBranchName))
 	require.NoError(t, err, "look up git commit after call has finished")
 
-	require.Equal(t, gitalypb.OperationBranchUpdate{CommitId: commit.Id}, *(response.BranchUpdate))
+	testassert.ProtoEqual(t, &gitalypb.OperationBranchUpdate{CommitId: commit.Id}, response.BranchUpdate)
 	require.Equal(t, mergeCommitMessage, string(commit.Body))
 	require.Equal(t, gittest.TestUser.Name, commit.Author.Name)
 	require.Equal(t, gittest.TestUser.Email, commit.Author.Email)

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -137,20 +138,22 @@ func TestFailedGetBlobRequestDueToValidationError(t *testing.T) {
 
 	oid := "d42783470dc29fde2cf459eb3199ee1d7e3f3a72"
 
-	rpcRequests := []gitalypb.GetBlobRequest{
+	rpcRequests := []*gitalypb.GetBlobRequest{
 		{Repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}, Oid: oid}, // Repository doesn't exist
 		{Repository: nil, Oid: oid}, // Repository is nil
 		{Repository: repo},          // Oid is empty
 	}
 
-	for _, rpcRequest := range rpcRequests {
-		ctx, cancel := testhelper.Context()
-		defer cancel()
+	for i, rpcRequest := range rpcRequests {
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
+			ctx, cancel := testhelper.Context()
+			defer cancel()
 
-		stream, err := client.GetBlob(ctx, &rpcRequest)
-		require.NoError(t, err, rpcRequest)
-		_, err = stream.Recv()
-		require.NotEqual(t, io.EOF, err, rpcRequest)
-		require.Error(t, err, rpcRequest)
+			stream, err := client.GetBlob(ctx, rpcRequest)
+			require.NoError(t, err, rpcRequest)
+			_, err = stream.Recv()
+			require.NotEqual(t, io.EOF, err, rpcRequest)
+			require.Error(t, err, rpcRequest)
+		})
 	}
 }

@@ -329,7 +329,7 @@ func TestFailedReceivePackRequestDueToValidationError(t *testing.T) {
 	client, conn := newSmartHTTPClient(t, serverSocketPath, cfg.Auth.Token)
 	defer conn.Close()
 
-	rpcRequests := []gitalypb.PostReceivePackRequest{
+	rpcRequests := []*gitalypb.PostReceivePackRequest{
 		{Repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}, GlId: "user-123"}, // Repository doesn't exist
 		{Repository: nil, GlId: "user-123"}, // Repository is nil
 		{Repository: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "path/to/repo"}, GlId: ""},                               // Empty GlId
@@ -343,7 +343,7 @@ func TestFailedReceivePackRequestDueToValidationError(t *testing.T) {
 			stream, err := client.PostReceivePack(ctx)
 			require.NoError(t, err)
 
-			require.NoError(t, stream.Send(&rpcRequest))
+			require.NoError(t, stream.Send(rpcRequest))
 			require.NoError(t, stream.CloseSend())
 
 			err = drainPostReceivePackResponse(stream)

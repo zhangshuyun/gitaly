@@ -102,7 +102,7 @@ func TestReplMgr_ProcessBacklog(t *testing.T) {
 
 	// replicate object pool repository to target node
 	poolRepository := pool.ToProto().GetRepository()
-	targetObjectPoolRepo := *poolRepository
+	targetObjectPoolRepo := proto.Clone(poolRepository).(*gitalypb.Repository)
 	targetObjectPoolRepo.StorageName = backupCfg.Storages[0].Name
 
 	ctx, cancel := testhelper.Context()
@@ -112,7 +112,7 @@ func TestReplMgr_ProcessBacklog(t *testing.T) {
 
 	repoClient := newRepositoryClient(t, backupCfg.SocketPath, backupCfg.Auth.Token)
 	_, err = repoClient.ReplicateRepository(injectedCtx, &gitalypb.ReplicateRepositoryRequest{
-		Repository: &targetObjectPoolRepo,
+		Repository: targetObjectPoolRepo,
 		Source:     poolRepository,
 	})
 	require.NoError(t, err)
