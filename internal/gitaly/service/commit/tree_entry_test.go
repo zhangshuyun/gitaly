@@ -180,62 +180,62 @@ func TestFailedTreeEntry(t *testing.T) {
 
 	testCases := []struct {
 		name         string
-		req          gitalypb.TreeEntryRequest
+		req          *gitalypb.TreeEntryRequest
 		expectedCode codes.Code
 	}{
 		{
 			name:         "Repository doesn't exist",
-			req:          gitalypb.TreeEntryRequest{Repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}, Revision: revision, Path: path},
+			req:          &gitalypb.TreeEntryRequest{Repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}, Revision: revision, Path: path},
 			expectedCode: codes.InvalidArgument,
 		},
 		{
 			name:         "Repository is nil",
-			req:          gitalypb.TreeEntryRequest{Repository: nil, Revision: revision, Path: path},
+			req:          &gitalypb.TreeEntryRequest{Repository: nil, Revision: revision, Path: path},
 			expectedCode: codes.InvalidArgument,
 		},
 		{
 			name:         "Revision is empty",
-			req:          gitalypb.TreeEntryRequest{Repository: repo, Revision: nil, Path: path},
+			req:          &gitalypb.TreeEntryRequest{Repository: repo, Revision: nil, Path: path},
 			expectedCode: codes.InvalidArgument,
 		},
 		{
 			name:         "Path is empty",
-			req:          gitalypb.TreeEntryRequest{Repository: repo, Revision: revision},
+			req:          &gitalypb.TreeEntryRequest{Repository: repo, Revision: revision},
 			expectedCode: codes.InvalidArgument,
 		},
 		{
 			name:         "Revision is invalid",
-			req:          gitalypb.TreeEntryRequest{Repository: repo, Revision: []byte("--output=/meow"), Path: path},
+			req:          &gitalypb.TreeEntryRequest{Repository: repo, Revision: []byte("--output=/meow"), Path: path},
 			expectedCode: codes.InvalidArgument,
 		},
 		{
 			name:         "Limit is negative",
-			req:          gitalypb.TreeEntryRequest{Repository: repo, Revision: revision, Path: path, Limit: -1},
+			req:          &gitalypb.TreeEntryRequest{Repository: repo, Revision: revision, Path: path, Limit: -1},
 			expectedCode: codes.InvalidArgument,
 		},
 		{
 			name:         "MaximumSize is negative",
-			req:          gitalypb.TreeEntryRequest{Repository: repo, Revision: revision, Path: path, MaxSize: -1},
+			req:          &gitalypb.TreeEntryRequest{Repository: repo, Revision: revision, Path: path, MaxSize: -1},
 			expectedCode: codes.InvalidArgument,
 		},
 		{
 			name:         "Object bigger than MaxSize",
-			req:          gitalypb.TreeEntryRequest{Repository: repo, Revision: []byte("913c66a37b4a45b9769037c55c2d238bd0942d2e"), Path: []byte("MAINTENANCE.md"), MaxSize: 10},
+			req:          &gitalypb.TreeEntryRequest{Repository: repo, Revision: []byte("913c66a37b4a45b9769037c55c2d238bd0942d2e"), Path: []byte("MAINTENANCE.md"), MaxSize: 10},
 			expectedCode: codes.FailedPrecondition,
 		},
 		{
 			name:         "Path is outside of repository",
-			req:          gitalypb.TreeEntryRequest{Repository: repo, Revision: []byte("913c66a37b4a45b9769037c55c2d238bd0942d2e"), Path: []byte("../bar/.gitkeep")}, // Git blows up on paths like this
+			req:          &gitalypb.TreeEntryRequest{Repository: repo, Revision: []byte("913c66a37b4a45b9769037c55c2d238bd0942d2e"), Path: []byte("../bar/.gitkeep")}, // Git blows up on paths like this
 			expectedCode: codes.NotFound,
 		},
 		{
 			name:         "Missing file with space in path",
-			req:          gitalypb.TreeEntryRequest{Repository: repo, Revision: []byte("deadfacedeadfacedeadfacedeadfacedeadface"), Path: []byte("with space/README.md")},
+			req:          &gitalypb.TreeEntryRequest{Repository: repo, Revision: []byte("deadfacedeadfacedeadfacedeadfacedeadface"), Path: []byte("with space/README.md")},
 			expectedCode: codes.NotFound,
 		},
 		{
 			name:         "Missing file",
-			req:          gitalypb.TreeEntryRequest{Repository: repo, Revision: []byte("e63f41fe459e62e1228fcef60d7189127aeba95a"), Path: []byte("missing.rb")},
+			req:          &gitalypb.TreeEntryRequest{Repository: repo, Revision: []byte("e63f41fe459e62e1228fcef60d7189127aeba95a"), Path: []byte("missing.rb")},
 			expectedCode: codes.NotFound,
 		},
 	}
@@ -244,7 +244,7 @@ func TestFailedTreeEntry(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
-			c, err := client.TreeEntry(ctx, &testCase.req)
+			c, err := client.TreeEntry(ctx, testCase.req)
 			require.NoError(t, err)
 
 			err = drainTreeEntryResponse(c)

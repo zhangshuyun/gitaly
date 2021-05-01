@@ -272,7 +272,7 @@ func TestFailedUploadPackRequestDueToValidationError(t *testing.T) {
 
 	serverSocketPath := runSmartHTTPServer(t, cfg)
 
-	rpcRequests := []gitalypb.PostUploadPackRequest{
+	rpcRequests := []*gitalypb.PostUploadPackRequest{
 		{Repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}}, // Repository doesn't exist
 		{Repository: nil}, // Repository is nil
 		{Repository: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "path/to/repo"}, Data: []byte("Fail")}, // Data exists on first request
@@ -280,7 +280,7 @@ func TestFailedUploadPackRequestDueToValidationError(t *testing.T) {
 
 	for _, rpcRequest := range rpcRequests {
 		t.Run(fmt.Sprintf("%v", rpcRequest), func(t *testing.T) {
-			_, err := makePostUploadPackRequest(ctx, t, serverSocketPath, cfg.Auth.Token, &rpcRequest, bytes.NewBuffer(nil))
+			_, err := makePostUploadPackRequest(ctx, t, serverSocketPath, cfg.Auth.Token, rpcRequest, bytes.NewBuffer(nil))
 			testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
 		})
 	}

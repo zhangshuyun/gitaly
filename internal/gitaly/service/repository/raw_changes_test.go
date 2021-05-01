@@ -146,7 +146,7 @@ func TestGetRawChangesSpecialCharacters(t *testing.T) {
 	require.Len(t, changes, nChangedFiles)
 
 	specialFileIdx := 11
-	require.Equal(t, "encoding/テスト.txt", changes[specialFileIdx].NewPath)
+	require.Equal(t, "encoding/テスト.txt", changes[specialFileIdx].NewPath) // nolint:staticcheck
 }
 
 func collectChanges(t *testing.T, stream gitalypb.RepositoryService_GetRawChangesClient) []*gitalypb.GetRawChangesResponse_RawChange {

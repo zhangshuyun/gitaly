@@ -598,12 +598,12 @@ func TestSuccessfulCommitDiffRequestWithLimits(t *testing.T) {
 
 	requestsAndResults := []struct {
 		desc    string
-		request gitalypb.CommitDiffRequest
+		request *gitalypb.CommitDiffRequest
 		result  []diffAttributes
 	}{
 		{
 			desc: "no enforcement",
-			request: gitalypb.CommitDiffRequest{
+			request: &gitalypb.CommitDiffRequest{
 				EnforceLimits: false,
 			},
 			result: []diffAttributes{
@@ -616,7 +616,7 @@ func TestSuccessfulCommitDiffRequestWithLimits(t *testing.T) {
 		},
 		{
 			desc: "max file count enforcement",
-			request: gitalypb.CommitDiffRequest{
+			request: &gitalypb.CommitDiffRequest{
 				EnforceLimits: true,
 				MaxFiles:      3,
 				MaxLines:      1000,
@@ -632,7 +632,7 @@ func TestSuccessfulCommitDiffRequestWithLimits(t *testing.T) {
 		},
 		{
 			desc: "max line count enforcement",
-			request: gitalypb.CommitDiffRequest{
+			request: &gitalypb.CommitDiffRequest{
 				EnforceLimits: true,
 				MaxFiles:      5,
 				MaxLines:      90,
@@ -647,7 +647,7 @@ func TestSuccessfulCommitDiffRequestWithLimits(t *testing.T) {
 		},
 		{
 			desc: "max byte count enforcement",
-			request: gitalypb.CommitDiffRequest{
+			request: &gitalypb.CommitDiffRequest{
 				EnforceLimits: true,
 				MaxFiles:      5,
 				MaxLines:      1000,
@@ -664,7 +664,7 @@ func TestSuccessfulCommitDiffRequestWithLimits(t *testing.T) {
 		},
 		{
 			desc: "no collapse",
-			request: gitalypb.CommitDiffRequest{
+			request: &gitalypb.CommitDiffRequest{
 				EnforceLimits: true,
 				CollapseDiffs: false,
 				MaxFiles:      3,
@@ -684,7 +684,7 @@ func TestSuccessfulCommitDiffRequestWithLimits(t *testing.T) {
 		},
 		{
 			desc: "set as too large when exceeding single patch limit",
-			request: gitalypb.CommitDiffRequest{
+			request: &gitalypb.CommitDiffRequest{
 				EnforceLimits: true,
 				CollapseDiffs: false,
 				MaxFiles:      5,
@@ -705,7 +705,7 @@ func TestSuccessfulCommitDiffRequestWithLimits(t *testing.T) {
 		},
 		{
 			desc: "collapse after safe max file count is exceeded",
-			request: gitalypb.CommitDiffRequest{
+			request: &gitalypb.CommitDiffRequest{
 				EnforceLimits: true,
 				CollapseDiffs: true,
 				MaxFiles:      3,
@@ -725,7 +725,7 @@ func TestSuccessfulCommitDiffRequestWithLimits(t *testing.T) {
 		},
 		{
 			desc: "collapse after safe max line count is exceeded",
-			request: gitalypb.CommitDiffRequest{
+			request: &gitalypb.CommitDiffRequest{
 				EnforceLimits: true,
 				CollapseDiffs: true,
 				MaxFiles:      5,
@@ -746,7 +746,7 @@ func TestSuccessfulCommitDiffRequestWithLimits(t *testing.T) {
 		},
 		{
 			desc: "collapse after safe max byte count is exceeded",
-			request: gitalypb.CommitDiffRequest{
+			request: &gitalypb.CommitDiffRequest{
 				EnforceLimits: true,
 				CollapseDiffs: true,
 				MaxFiles:      4,
@@ -776,7 +776,7 @@ func TestSuccessfulCommitDiffRequestWithLimits(t *testing.T) {
 
 			ctx, cancel := testhelper.Context()
 			defer cancel()
-			c, err := client.CommitDiff(ctx, &request)
+			c, err := client.CommitDiff(ctx, request)
 			require.NoError(t, err)
 
 			receivedDiffs := getDiffsFromCommitDiffClient(t, c)
@@ -804,7 +804,7 @@ func TestFailedCommitDiffRequestDueToValidationError(t *testing.T) {
 	rightCommit := "d42783470dc29fde2cf459eb3199ee1d7e3f3a72"
 	leftCommit := rightCommit + "~" // Parent of rightCommit
 
-	rpcRequests := []gitalypb.CommitDiffRequest{
+	rpcRequests := []*gitalypb.CommitDiffRequest{
 		{Repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}, RightCommitId: rightCommit, LeftCommitId: leftCommit}, // Repository doesn't exist
 		{Repository: nil, RightCommitId: rightCommit, LeftCommitId: leftCommit},                                                             // Repository is nil
 		{Repository: repo, RightCommitId: "", LeftCommitId: leftCommit},                                                                     // RightCommitId is empty
@@ -815,7 +815,7 @@ func TestFailedCommitDiffRequestDueToValidationError(t *testing.T) {
 		t.Run(fmt.Sprintf("%v", rpcRequest), func(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
-			c, err := client.CommitDiff(ctx, &rpcRequest)
+			c, err := client.CommitDiff(ctx, rpcRequest)
 			require.NoError(t, err)
 
 			err = drainCommitDiffResponse(c)
@@ -1020,7 +1020,7 @@ func TestFailedCommitDeltaRequestDueToValidationError(t *testing.T) {
 	rightCommit := "d42783470dc29fde2cf459eb3199ee1d7e3f3a72"
 	leftCommit := rightCommit + "~" // Parent of rightCommit
 
-	rpcRequests := []gitalypb.CommitDeltaRequest{
+	rpcRequests := []*gitalypb.CommitDeltaRequest{
 		{Repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}, RightCommitId: rightCommit, LeftCommitId: leftCommit}, // Repository doesn't exist
 		{Repository: nil, RightCommitId: rightCommit, LeftCommitId: leftCommit},                                                             // Repository is nil
 		{Repository: repo, RightCommitId: "", LeftCommitId: leftCommit},                                                                     // RightCommitId is empty
@@ -1031,7 +1031,7 @@ func TestFailedCommitDeltaRequestDueToValidationError(t *testing.T) {
 		t.Run(fmt.Sprintf("%v", rpcRequest), func(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
-			c, err := client.CommitDelta(ctx, &rpcRequest)
+			c, err := client.CommitDelta(ctx, rpcRequest)
 			require.NoError(t, err)
 
 			err = drainCommitDeltaResponse(c)

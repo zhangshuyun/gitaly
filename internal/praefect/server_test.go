@@ -498,11 +498,11 @@ func TestRemoveRepository(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	virtualRepo := *repos[0][0]
+	virtualRepo := repos[0][0]
 	virtualRepo.StorageName = praefectCfg.VirtualStorages[0].Name
 
 	_, err := gitalypb.NewRepositoryServiceClient(cc).RemoveRepository(ctx, &gitalypb.RemoveRepositoryRequest{
-		Repository: &virtualRepo,
+		Repository: virtualRepo,
 	})
 	require.NoError(t, err)
 
@@ -574,7 +574,7 @@ func TestRenameRepository(t *testing.T) {
 	defer cleanup()
 
 	// virtualRepo is a virtual repository all requests to it would be applied to the underline Gitaly nodes behind it
-	virtualRepo := *repo
+	virtualRepo := proto.Clone(repo).(*gitalypb.Repository)
 	virtualRepo.StorageName = praefectCfg.VirtualStorages[0].Name
 
 	repoServiceClient := gitalypb.NewRepositoryServiceClient(cc)
@@ -583,13 +583,13 @@ func TestRenameRepository(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = repoServiceClient.RenameRepository(ctx, &gitalypb.RenameRepositoryRequest{
-		Repository:   &virtualRepo,
+		Repository:   virtualRepo,
 		RelativePath: newName,
 	})
 	require.NoError(t, err)
 
 	resp, err := repoServiceClient.RepositoryExists(ctx, &gitalypb.RepositoryExistsRequest{
-		Repository: &virtualRepo,
+		Repository: virtualRepo,
 	})
 	require.NoError(t, err)
 	require.False(t, resp.GetExists(), "repo with old name must gone")

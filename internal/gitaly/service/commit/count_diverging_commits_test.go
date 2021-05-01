@@ -183,7 +183,7 @@ func TestFailedCountDivergentCommitsRequestDueToValidationError(t *testing.T) {
 
 	revision := []byte("d42783470dc29fde2cf459eb3199ee1d7e3f3a72")
 
-	rpcRequests := []gitalypb.CountDivergingCommitsRequest{
+	rpcRequests := []*gitalypb.CountDivergingCommitsRequest{
 		{Repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}, From: []byte("abcdef"), To: []byte("12345")}, // Repository doesn't exist
 		{Repository: repo, From: nil, To: revision}, // From is empty
 		{Repository: repo, From: revision, To: nil}, // To is empty
@@ -194,7 +194,7 @@ func TestFailedCountDivergentCommitsRequestDueToValidationError(t *testing.T) {
 		t.Run(fmt.Sprintf("%v", rpcRequest), func(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
-			_, err := client.CountDivergingCommits(ctx, &rpcRequest)
+			_, err := client.CountDivergingCommits(ctx, rpcRequest)
 			testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
 		})
 	}

@@ -175,7 +175,7 @@ func TestFailedCountCommitsRequestDueToValidationError(t *testing.T) {
 
 	revision := []byte("d42783470dc29fde2cf459eb3199ee1d7e3f3a72")
 
-	rpcRequests := []gitalypb.CountCommitsRequest{
+	rpcRequests := []*gitalypb.CountCommitsRequest{
 		{Repository: &gitalypb.Repository{StorageName: "fake", RelativePath: "path"}, Revision: revision}, // Repository doesn't exist
 		{Repository: nil, Revision: revision},                              // Repository is nil
 		{Repository: repo, Revision: nil, All: false},                      // Revision is empty and All is false
@@ -186,7 +186,7 @@ func TestFailedCountCommitsRequestDueToValidationError(t *testing.T) {
 		t.Run(fmt.Sprintf("%v", rpcRequest), func(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
-			_, err := client.CountCommits(ctx, &rpcRequest)
+			_, err := client.CountCommits(ctx, rpcRequest)
 			testhelper.RequireGrpcError(t, err, codes.InvalidArgument)
 		})
 	}

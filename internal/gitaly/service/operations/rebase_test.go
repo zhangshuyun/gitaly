@@ -26,6 +26,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/protobuf/proto"
 )
 
 var (
@@ -631,20 +632,20 @@ func testRebaseFailedWithCodeFeatured(t *testing.T, ctx context.Context, cfg con
 		{
 			desc: "non-existing storage",
 			buildHeaderRequest: func() *gitalypb.UserRebaseConfirmableRequest {
-				repo := *repoProto
+				repo := proto.Clone(repoProto).(*gitalypb.Repository)
 				repo.StorageName = "@this-storage-does-not-exist"
 
-				return buildHeaderRequest(&repo, testhelper.TestUser, "1", rebaseBranchName, branchSha, &repo, "master")
+				return buildHeaderRequest(repo, testhelper.TestUser, "1", rebaseBranchName, branchSha, repo, "master")
 			},
 			expectedCode: codes.InvalidArgument,
 		},
 		{
 			desc: "missing repository path",
 			buildHeaderRequest: func() *gitalypb.UserRebaseConfirmableRequest {
-				repo := *repoProto
+				repo := proto.Clone(repoProto).(*gitalypb.Repository)
 				repo.RelativePath = ""
 
-				return buildHeaderRequest(&repo, testhelper.TestUser, "1", rebaseBranchName, branchSha, &repo, "master")
+				return buildHeaderRequest(repo, testhelper.TestUser, "1", rebaseBranchName, branchSha, repo, "master")
 			},
 			expectedCode: codes.InvalidArgument,
 		},

@@ -16,6 +16,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/promtest"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
+	"google.golang.org/protobuf/proto"
 )
 
 type postReceiveRequest struct {
@@ -86,7 +87,7 @@ func TestAccess_verifyParams(t *testing.T) {
 	}, prometheus.Config{})
 	require.NoError(t, err)
 
-	badRepo := *testRepo
+	badRepo := proto.Clone(testRepo).(*gitalypb.Repository)
 	badRepo.GitObjectDirectory = filepath.Join(testRepoPath, "bad/object/directory")
 
 	testCases := []struct {
@@ -106,7 +107,7 @@ func TestAccess_verifyParams(t *testing.T) {
 		},
 		{
 			desc:         "repo with bad quarantine directories",
-			repo:         &badRepo,
+			repo:         badRepo,
 			glRepository: glRepository,
 			glID:         glID,
 			protocol:     protocol,
