@@ -161,7 +161,7 @@ func TestSuccessfulFetchInternalRemote(t *testing.T) {
 		gitalypb.RegisterHookServiceServer(srv, hook.NewServer(deps.GetCfg(), deps.GetHookManager(), deps.GetGitCmdFactory()))
 	}, testserver.WithDisablePraefect())
 
-	gittest.CreateCommit(t, remoteCfg, remoteRepoPath, "master", nil)
+	gittest.WriteCommit(t, remoteCfg, remoteRepoPath, gittest.WithBranch("master"))
 
 	localCfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("gitaly-1"))
 

@@ -470,7 +470,7 @@ func testSuccessfulUpdateRemoteMirrorRequestFeatured(t *testing.T, ctx context.C
 		Message: "Overriding tag", Force: true})
 
 	// Create a commit that only exists in the mirror
-	mirrorOnlyCommitOid := gittest.CreateCommit(t, cfg, mirrorPath, "master", nil)
+	mirrorOnlyCommitOid := gittest.WriteCommit(t, cfg, mirrorPath, gittest.WithBranch("master"))
 	require.NotEmpty(t, mirrorOnlyCommitOid)
 
 	setupCommands := [][]string{

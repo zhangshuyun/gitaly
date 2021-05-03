@@ -33,7 +33,8 @@ func TestLink(t *testing.T) {
 
 	// Mock object in the pool, which should be available to the pool members
 	// after linking
-	poolCommitID := gittest.CreateCommit(t, cfg, pool.FullPath(), "pool-test-branch", nil)
+	poolCommitID := gittest.WriteCommit(t, cfg, pool.FullPath(),
+		gittest.WithBranch("pool-test-branch"))
 
 	testCases := []struct {
 		desc string
@@ -80,7 +81,7 @@ func TestLink(t *testing.T) {
 			commit, err := localRepo.ReadCommit(ctx, git.Revision(poolCommitID))
 			require.NoError(t, err)
 			require.NotNil(t, commit)
-			require.Equal(t, poolCommitID, commit.Id)
+			require.Equal(t, poolCommitID.String(), commit.Id)
 		})
 	}
 }

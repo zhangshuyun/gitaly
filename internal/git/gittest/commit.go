@@ -10,40 +10,82 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
-
-// CreateCommitOpts holds extra options for CreateCommit.
-type CreateCommitOpts struct {
-	Message  string
-	ParentID string
-}
 
 const (
 	committerName  = "Scrooge McDuck"
 	committerEmail = "scrooge@mcduck.com"
 )
 
-// CreateCommit makes a new empty commit and updates the named branch to point to it.
-func CreateCommit(t testing.TB, cfg config.Cfg, repoPath, branchName string, opts *CreateCommitOpts) string {
-	message := "message"
-	// The ID of an arbitrary commit known to exist in the test repository.
-	parentID := "1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"
+type writeCommitConfig struct {
+	branch  string
+	parents []git.ObjectID
+	message string
+}
 
-	if opts != nil {
-		if opts.Message != "" {
-			message = opts.Message
-		}
+// WriteCommitOption is an option which can be passed to WriteCommit.
+type WriteCommitOption func(*writeCommitConfig)
 
-		if opts.ParentID != "" {
-			parentID = opts.ParentID
+// WithBranch is an option for WriteCommit which will cause it to update the update the given branch
+// name to the new commit.
+func WithBranch(branch string) WriteCommitOption {
+	return func(cfg *writeCommitConfig) {
+		cfg.branch = branch
+	}
+}
+
+// WithMessage is an option for WriteCommit which will set the commit message.
+func WithMessage(message string) WriteCommitOption {
+	return func(cfg *writeCommitConfig) {
+		cfg.message = message
+	}
+}
+
+// WithParents is an option for WriteCommit which will set the parent OIDs of the resulting commit.
+func WithParents(parents ...git.ObjectID) WriteCommitOption {
+	return func(cfg *writeCommitConfig) {
+		if parents != nil {
+			cfg.parents = parents
+		} else {
+			// We're explicitly initializing parents here such that we can discern the
+			// case where the commit should be created with no parents.
+			cfg.parents = []git.ObjectID{}
 		}
 	}
+}
 
-	// message can be very large, passing it directly in args would blow things up!
+// WriteCommit writes a new commit into the target repository.
+func WriteCommit(t testing.TB, cfg config.Cfg, repoPath string, opts ...WriteCommitOption) git.ObjectID {
+	t.Helper()
+
+	var writeCommitConfig writeCommitConfig
+	for _, opt := range opts {
+		opt(&writeCommitConfig)
+	}
+
+	message := "message"
+	if writeCommitConfig.message != "" {
+		message = writeCommitConfig.message
+	}
 	stdin := bytes.NewBufferString(message)
+
+	// The ID of an arbitrary commit known to exist in the test repository.
+	parents := []git.ObjectID{"1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"}
+	if writeCommitConfig.parents != nil {
+		parents = writeCommitConfig.parents
+	}
+
+	var tree string
+	if len(parents) == 0 {
+		// If there are no parents, then we set the root tree to the empty tree.
+		tree = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
+	} else {
+		tree = parents[0].String() + "^{tree}"
+	}
 
 	// Use 'commit-tree' instead of 'commit' because we are in a bare
 	// repository. What we do here is the same as "commit -m message
@@ -52,13 +94,22 @@ func CreateCommit(t testing.TB, cfg config.Cfg, repoPath, branchName string, opt
 		"-c", fmt.Sprintf("user.name=%s", committerName),
 		"-c", fmt.Sprintf("user.email=%s", committerEmail),
 		"-C", repoPath,
-		"commit-tree", "-F", "-", "-p", parentID, parentID + "^{tree}",
+		"commit-tree", "-F", "-", tree,
 	}
-	newCommit := ExecStream(t, cfg, stdin, commitArgs...)
-	newCommitID := text.ChompBytes(newCommit)
 
-	Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/"+branchName, newCommitID)
-	return newCommitID
+	for _, parent := range parents {
+		commitArgs = append(commitArgs, "-p", parent.String())
+	}
+
+	stdout := ExecStream(t, cfg, stdin, commitArgs...)
+	oid, err := git.NewObjectIDFromHex(text.ChompBytes(stdout))
+	require.NoError(t, err)
+
+	if writeCommitConfig.branch != "" {
+		Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/"+writeCommitConfig.branch, oid.String())
+	}
+
+	return oid
 }
 
 // CreateCommitInAlternateObjectDirectory runs a command such that its created
@@ -112,11 +163,9 @@ func CreateCommitOnNewBranch(t testing.TB, cfg config.Cfg, repoPath string) (str
 	require.NoError(t, err)
 	newBranch := "branch-" + nonce
 
-	sha := CreateCommit(t, cfg, repoPath, newBranch, &CreateCommitOpts{
-		Message: "a new branch and commit " + nonce,
-	})
+	sha := WriteCommit(t, cfg, repoPath, WithBranch(newBranch), WithMessage("a new branch and commit "+nonce))
 
-	return sha, newBranch
+	return sha.String(), newBranch
 }
 
 func authorEqualIgnoringDate(t testing.TB, expected *gitalypb.CommitAuthor, actual *gitalypb.CommitAuthor) {
