@@ -13,7 +13,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
@@ -89,7 +88,12 @@ func (m *PoolManager) Collect(metrics chan<- prometheus.Metric) {
 }
 
 func (m *PoolManager) getTransactionClient(ctx context.Context, server metadata.PraefectServer) (gitalypb.RefTransactionClient, error) {
-	if featureflag.IsEnabled(ctx, featureflag.BackchannelVoting) {
+	// Gitaly is upgraded prior to Praefect. Older Praefects may still be using non-multiplexed connections
+	// and send dialing information for voting. To prevent failing RPCs during the upgrade, Gitaly still
+	// needs to support the old voting approach. If multiplexed connection is in use, the backchannel ID would
+	// be set to >0. If so, the mutator came from an upgraded Praefect that supports backchannel voting and Gitaly
+	// defaults to the backchannel. The fallback code can be removed in 14.0.
+	if server.BackchannelID > 0 {
 		conn, err := m.backchannels.Backchannel(server.BackchannelID)
 		if err != nil {
 			return nil, fmt.Errorf("get backchannel: %w", err)

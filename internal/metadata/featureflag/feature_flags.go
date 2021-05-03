@@ -26,8 +26,6 @@ var (
 	GoUpdateRemoteMirror = FeatureFlag{Name: "go_update_remote_mirror", OnByDefault: false}
 	// GrpcTreeEntryNotFound makes the TreeEntry gRPC call return NotFound instead of an empty blob
 	GrpcTreeEntryNotFound = FeatureFlag{Name: "grpc_tree_entry_not_found", OnByDefault: false}
-	// BackchannelVoting enables voting via the backchannel connection.
-	BackchannelVoting = FeatureFlag{Name: "backchannel_voting", OnByDefault: false}
 	// FetchInternalRemoteErrors makes FetchInternalRemote return actual errors instead of a boolean
 	FetchInternalRemoteErrors = FeatureFlag{Name: "fetch_internal_remote_errors", OnByDefault: false}
 )
@@ -42,6 +40,5 @@ var All = []FeatureFlag{
 	GoUserRevert,
 	GrpcTreeEntryNotFound,
 	GoUpdateRemoteMirror,
-	BackchannelVoting,
 	FetchInternalRemoteErrors,
 }
