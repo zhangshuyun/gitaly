@@ -130,11 +130,12 @@ binaries:
   script:
     # Just in case we start running CI builds on other architectures in future
     - go version
-    - make binaries
+    - make build
+    - cd _build && sha256sum bin/* | tee checksums.sha256.txt
   artifacts:
     paths:
-    - _build/assembly/checksums.sha256.txt
-    - _build/assembly/bin/
+    - _build/checksums.sha256.txt
+    - _build/bin/
     name: "${CI_JOB_NAME}:go-${GO_VERSION}-git-${GIT_VERSION}"
     expire_in: 6 months
   parallel:
