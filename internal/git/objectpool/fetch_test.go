@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -32,32 +33,32 @@ func TestFetchFromOriginDangling(t *testing.T) {
 	nonce, err := text.RandomHex(4)
 	require.NoError(t, err)
 
-	baseArgs := []string{"-C", pool.FullPath()}
-
 	// A blob with random contents should be unique.
-	newBlobArgs := append(baseArgs, "hash-object", "-t", "blob", "-w", "--stdin")
-	newBlob := text.ChompBytes(testhelper.MustRunCommand(t, strings.NewReader(nonce), "git", newBlobArgs...))
+	newBlob := gittest.WriteBlob(t, pool.cfg, pool.FullPath(), []byte(nonce))
 
 	// A tree with a randomly named blob entry should be unique.
-	newTreeArgs := append(baseArgs, "mktree")
-	newTreeStdin := strings.NewReader(fmt.Sprintf("100644 blob %s	%s\n", existingBlob, nonce))
-	newTree := text.ChompBytes(testhelper.MustRunCommand(t, newTreeStdin, "git", newTreeArgs...))
+	newTree := gittest.WriteTree(t, pool.cfg, pool.FullPath(), []gittest.TreeEntry{
+		{Mode: "100644", OID: git.ObjectID(existingBlob), Path: nonce},
+	})
 
 	// A commit with a random message should be unique.
-	newCommitArgs := append(baseArgs, "commit-tree", existingTree)
-	newCommit := text.ChompBytes(testhelper.MustRunCommand(t, strings.NewReader(nonce), "git", newCommitArgs...))
+	newCommit := gittest.WriteCommit(t, pool.cfg, pool.FullPath(),
+		gittest.WithTreeEntries(gittest.TreeEntry{
+			OID: git.ObjectID(existingTree), Path: nonce, Mode: "040000",
+		}),
+	)
 
 	// A tag with random hex characters in its name should be unique.
 	newTagName := "tag-" + nonce
-	newTagArgs := append(baseArgs, "tag", "-m", "msg", "-a", newTagName, existingCommit)
-	testhelper.MustRunCommand(t, strings.NewReader(nonce), "git", newTagArgs...)
-	newTag := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", append(baseArgs, "rev-parse", newTagName)...))
+	newTag := gittest.CreateTag(t, pool.cfg, pool.FullPath(), newTagName, existingCommit, &gittest.CreateTagOpts{
+		Message: "msg",
+	})
 
 	// `git tag` automatically creates a ref, so our new tag is not dangling.
 	// Deleting the ref should fix that.
-	testhelper.MustRunCommand(t, nil, "git", append(baseArgs, "update-ref", "-d", "refs/tags/"+newTagName)...)
+	testhelper.MustRunCommand(t, nil, "git", "-C", pool.FullPath(), "update-ref", "-d", "refs/tags/"+newTagName)
 
-	fsckBefore := testhelper.MustRunCommand(t, nil, "git", append(baseArgs, "fsck", "--connectivity-only", "--dangling")...)
+	fsckBefore := testhelper.MustRunCommand(t, nil, "git", "-C", pool.FullPath(), "fsck", "--connectivity-only", "--dangling")
 	fsckBeforeLines := strings.Split(string(fsckBefore), "\n")
 
 	for _, l := range []string{
@@ -73,10 +74,9 @@ func TestFetchFromOriginDangling(t *testing.T) {
 	// non-dangling objects.
 	require.NoError(t, pool.FetchFromOrigin(ctx, testRepo), "second fetch")
 
-	refsArgs := append(baseArgs, "for-each-ref", "--format=%(refname) %(objectname)")
-	refsAfter := testhelper.MustRunCommand(t, nil, "git", refsArgs...)
+	refsAfter := testhelper.MustRunCommand(t, nil, "git", "-C", pool.FullPath(), "for-each-ref", "--format=%(refname) %(objectname)")
 	refsAfterLines := strings.Split(string(refsAfter), "\n")
-	for _, id := range []string{newBlob, newTree, newCommit, newTag} {
+	for _, id := range []string{newBlob.String(), newTree.String(), newCommit.String(), newTag} {
 		require.Contains(t, refsAfterLines, fmt.Sprintf("refs/dangling/%s %s", id, id))
 	}
 }
