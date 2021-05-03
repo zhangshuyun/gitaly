@@ -1,9 +1,7 @@
 package gittest
 
 import (
-	"bytes"
 	"crypto/rand"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"strings"
@@ -51,21 +49,20 @@ func TestDeltaIslands(t *testing.T, cfg config.Cfg, repoPath string, repack func
 }
 
 func commitBlob(t *testing.T, cfg config.Cfg, repoPath, ref string, content []byte) string {
-	hashObjectOut := ExecStream(t, cfg, bytes.NewReader(content), "-C", repoPath, "hash-object", "-w", "--stdin")
-	blobID := chompToString(hashObjectOut)
-
-	treeSpec := fmt.Sprintf("100644 blob %s\tfile\n", blobID)
-	mktreeOut := ExecStream(t, cfg, strings.NewReader(treeSpec), "-C", repoPath, "mktree")
-	treeID := chompToString(mktreeOut)
+	blobID := WriteBlob(t, cfg, repoPath, content)
 
 	// No parent, that means this will be an initial commit. Not very
 	// realistic but it doesn't matter for delta compression.
-	commitTreeOut := Exec(t, cfg, "-C", repoPath, "commit-tree", "-m", "msg", treeID)
-	commitID := chompToString(commitTreeOut)
+	commitID := WriteCommit(t, cfg, repoPath,
+		WithTreeEntries(TreeEntry{
+			Mode: "100644", OID: blobID, Path: "file",
+		}),
+		WithParents(),
+	)
 
-	Exec(t, cfg, "-C", repoPath, "update-ref", ref, commitID)
+	Exec(t, cfg, "-C", repoPath, "update-ref", ref, commitID.String())
 
-	return blobID
+	return blobID.String()
 }
 
 func deltaBase(t *testing.T, cfg config.Cfg, repoPath string, blobID string) string {
