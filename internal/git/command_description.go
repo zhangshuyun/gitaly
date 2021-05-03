@@ -68,6 +68,13 @@ var commandDescriptions = map[string]commandDescription{
 	},
 	"fetch": {
 		flags: 0,
+
+		opts: []GlobalOption{
+			// When fetching objects from an untrusted source, we want to always assert
+			// that all objects are valid.
+			ConfigPair{Key: "fetch.fsckObjects", Value: "true"},
+			ConfigPair{Key: "fetch.fsck.badTimezone", Value: "ignore"},
+		},
 	},
 	"for-each-ref": {
 		flags: scNoRefUpdates | scNoEndOfOptions,
