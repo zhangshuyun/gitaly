@@ -2,6 +2,7 @@ package git
 
 import (
 	"fmt"
+	"log"
 	"strings"
 )
 
@@ -149,6 +150,16 @@ var commandDescriptions = map[string]commandDescription{
 			// Make git-receive-pack(1) advertise the push options
 			// capability to clients.
 			ConfigPair{Key: "receive.advertisePushOptions", Value: "true"},
+
+			// Hide several reference spaces from being displayed on pushes. This has
+			// two outcomes: first, we reduce the initial ref advertisement and should
+			// speed up pushes for repos which have loads of merge requests, pipelines
+			// and environments. Second, this also prohibits clients to update or delete
+			// these refs.
+			ConfigPair{Key: "receive.hideRefs", Value: "refs/environments/"},
+			ConfigPair{Key: "receive.hideRefs", Value: "refs/keep-around/"},
+			ConfigPair{Key: "receive.hideRefs", Value: "refs/merge-requests/"},
+			ConfigPair{Key: "receive.hideRefs", Value: "refs/pipelines/"},
 		},
 	},
 	"remote": {
@@ -219,6 +230,34 @@ var commandDescriptions = map[string]commandDescription{
 	"worktree": {
 		flags: 0,
 	},
+}
+
+func init() {
+	// This is the poor-mans static assert that all internal ref prefixes are properly hidden
+	// from git-receive-pack(1) such that they cannot be written to when the user pushes.
+	receivePackDesc, ok := commandDescriptions["receive-pack"]
+	if !ok {
+		log.Fatal("could not find command description of git-receive-pack(1)")
+	}
+
+	hiddenRefs := map[string]bool{}
+	for _, opt := range receivePackDesc.opts {
+		configPair, ok := opt.(ConfigPair)
+		if !ok {
+			continue
+		}
+		if configPair.Key != "receive.hideRefs" {
+			continue
+		}
+
+		hiddenRefs[configPair.Value] = true
+	}
+
+	for _, internalRef := range InternalRefPrefixes {
+		if !hiddenRefs[internalRef] {
+			log.Fatalf("command description of receive-pack is missing hidden ref %q", internalRef)
+		}
+	}
 }
 
 // mayUpdateRef indicates if a command is known to update references.

@@ -17,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/hooks"
+	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/hook"
@@ -101,6 +102,55 @@ func TestSuccessfulReceivePackRequest(t *testing.T) {
 		RequestedHooks: git.ReceivePackHooks,
 		FeatureFlags:   featureflag.RawFromContext(ctx),
 	}, payload)
+}
+
+func TestReceivePackHiddenRefs(t *testing.T) {
+	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
+	repoProto.GlProjectPath = "project/path"
+
+	testhelper.ConfigureGitalyHooksBin(t, cfg)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	oldHead, err := repo.ResolveRevision(ctx, "HEAD~")
+	require.NoError(t, err)
+	newHead, err := repo.ResolveRevision(ctx, "HEAD")
+	require.NoError(t, err)
+
+	serverSocketPath := runSmartHTTPServer(t, cfg)
+
+	client, conn := newSmartHTTPClient(t, serverSocketPath, cfg.Auth.Token)
+	defer conn.Close()
+
+	for _, ref := range []string{
+		"refs/environments/1",
+		"refs/merge-requests/1/head",
+		"refs/merge-requests/1/merge",
+		"refs/pipelines/1",
+	} {
+		t.Run(ref, func(t *testing.T) {
+			request := &bytes.Buffer{}
+			gittest.WritePktlineString(t, request, fmt.Sprintf("%s %s %s\x00 %s",
+				oldHead, newHead, ref, uploadPackCapabilities))
+			gittest.WritePktlineFlush(t, request)
+
+			// The options passed are the same ones used when doing an actual push.
+			revisions := strings.NewReader(fmt.Sprintf("^%s\n%s\n", oldHead, newHead))
+			pack := testhelper.MustRunCommand(t, revisions, "git", "-C", repoPath, "pack-objects", "--stdout", "--revs", "--thin", "--delta-base-offset", "-q")
+			request.Write(pack)
+
+			stream, err := client.PostReceivePack(ctx)
+			require.NoError(t, err)
+
+			response := doPush(t, stream, &gitalypb.PostReceivePackRequest{
+				Repository: repoProto, GlUsername: "user", GlId: "123", GlRepository: "project-456",
+			}, request)
+
+			require.Contains(t, string(response), fmt.Sprintf("%s deny updating a hidden ref", ref))
+		})
+	}
 }
 
 func TestSuccessfulReceivePackRequestWithGitProtocol(t *testing.T) {
