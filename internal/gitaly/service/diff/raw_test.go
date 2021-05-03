@@ -15,7 +15,7 @@ import (
 )
 
 func TestSuccessfulRawDiffRequest(t *testing.T) {
-	_, repo, repoPath, client := setupDiffService(t)
+	cfg, repo, repoPath, client := setupDiffService(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -37,17 +37,17 @@ func TestSuccessfulRawDiffRequest(t *testing.T) {
 
 	committerName := "Scrooge McDuck"
 	committerEmail := "scrooge@mcduck.com"
-	testhelper.MustRunCommand(t, nil, "git", "-C", sandboxRepoPath, "reset", "--hard", leftCommit)
+	gittest.Exec(t, cfg, "-C", sandboxRepoPath, "reset", "--hard", leftCommit)
 
-	testhelper.MustRunCommand(t, reader, "git", "-C", sandboxRepoPath, "apply")
-	testhelper.MustRunCommand(t, reader, "git", "-C", sandboxRepoPath, "add", ".")
-	testhelper.MustRunCommand(t, nil, "git", "-C", sandboxRepoPath,
+	gittest.ExecStream(t, cfg, reader, "-C", sandboxRepoPath, "apply")
+	gittest.ExecStream(t, cfg, reader, "-C", sandboxRepoPath, "add", ".")
+	gittest.Exec(t, cfg, "-C", sandboxRepoPath,
 		"-c", fmt.Sprintf("user.name=%s", committerName),
 		"-c", fmt.Sprintf("user.email=%s", committerEmail),
 		"commit", "-m", "Applying received raw diff")
 
-	expectedTreeStructure := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "ls-tree", "-r", rightCommit)
-	actualTreeStructure := testhelper.MustRunCommand(t, nil, "git", "-C", sandboxRepoPath, "ls-tree", "-r", "HEAD")
+	expectedTreeStructure := gittest.Exec(t, cfg, "-C", repoPath, "ls-tree", "-r", rightCommit)
+	actualTreeStructure := gittest.Exec(t, cfg, "-C", sandboxRepoPath, "ls-tree", "-r", "HEAD")
 	require.Equal(t, expectedTreeStructure, actualTreeStructure)
 }
 
@@ -100,7 +100,7 @@ func TestFailedRawDiffRequestDueToValidations(t *testing.T) {
 }
 
 func TestSuccessfulRawPatchRequest(t *testing.T) {
-	_, repo, repoPath, client := setupDiffService(t)
+	cfg, repo, repoPath, client := setupDiffService(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -120,12 +120,12 @@ func TestSuccessfulRawPatchRequest(t *testing.T) {
 	_, sandboxRepoPath, cleanupFn := gittest.CloneRepoWithWorktree(t)
 	defer cleanupFn()
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", sandboxRepoPath, "reset", "--hard", leftCommit)
+	gittest.Exec(t, cfg, "-C", sandboxRepoPath, "reset", "--hard", leftCommit)
 
-	testhelper.MustRunCommand(t, reader, "git", "-C", sandboxRepoPath, "am")
+	gittest.ExecStream(t, cfg, reader, "-C", sandboxRepoPath, "am")
 
-	expectedTreeStructure := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "ls-tree", "-r", rightCommit)
-	actualTreeStructure := testhelper.MustRunCommand(t, nil, "git", "-C", sandboxRepoPath, "ls-tree", "-r", "HEAD")
+	expectedTreeStructure := gittest.Exec(t, cfg, "-C", repoPath, "ls-tree", "-r", rightCommit)
+	actualTreeStructure := gittest.Exec(t, cfg, "-C", sandboxRepoPath, "ls-tree", "-r", "HEAD")
 	require.Equal(t, expectedTreeStructure, actualTreeStructure)
 }
 

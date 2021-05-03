@@ -45,7 +45,7 @@ func TestCreate(t *testing.T) {
 	assert.True(t, os.IsNotExist(err))
 
 	// No problems
-	out := testhelper.MustRunCommand(t, nil, "git", "-C", pool.FullPath(), "cat-file", "-s", "55bc176024cfa3baaceb71db584c7e5df900ea65")
+	out := gittest.Exec(t, cfg, "-C", pool.FullPath(), "cat-file", "-s", "55bc176024cfa3baaceb71db584c7e5df900ea65")
 	assert.Equal(t, "282\n", string(out))
 
 	// Making the same request twice, should result in an error

@@ -177,18 +177,18 @@ func TestCreateRepositoryTransactional(t *testing.T) {
 }
 
 func TestCreateRepositoryIdempotent(t *testing.T) {
-	_, repo, repoPath, client := setupRepositoryService(t)
+	cfg, repo, repoPath, client := setupRepositoryService(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	refsBefore := strings.Split(string(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "for-each-ref")), "\n")
+	refsBefore := strings.Split(string(gittest.Exec(t, cfg, "-C", repoPath, "for-each-ref")), "\n")
 
 	req := &gitalypb.CreateRepositoryRequest{Repository: repo}
 	_, err := client.CreateRepository(ctx, req)
 	require.NoError(t, err)
 
-	refsAfter := strings.Split(string(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "for-each-ref")), "\n")
+	refsAfter := strings.Split(string(gittest.Exec(t, cfg, "-C", repoPath, "for-each-ref")), "\n")
 
 	assert.Equal(t, refsBefore, refsAfter)
 }

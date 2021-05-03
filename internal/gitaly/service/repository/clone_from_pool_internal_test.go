@@ -92,8 +92,8 @@ func TestCloneFromPoolInternal(t *testing.T) {
 
 	// feature is a branch known to exist in the source repository. By looking it up in the target
 	// we establish that the target has branches, even though (as we saw above) it has no objects.
-	testhelper.MustRunCommand(t, nil, "git", "-C", forkRepoPath, "show-ref", "--verify", "refs/heads/feature")
-	testhelper.MustRunCommand(t, nil, "git", "-C", forkRepoPath, "show-ref", "--verify", "refs/heads/branch")
+	gittest.Exec(t, cfg, "-C", forkRepoPath, "show-ref", "--verify", "refs/heads/feature")
+	gittest.Exec(t, cfg, "-C", forkRepoPath, "show-ref", "--verify", "refs/heads/branch")
 }
 
 // fullRepack does a full repack on the repository, which means if it has a pool repository linked, it will get rid of redundant objects that are reachable in the pool

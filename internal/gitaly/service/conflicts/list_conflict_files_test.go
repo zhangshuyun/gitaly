@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -184,15 +185,15 @@ func buildCommit(t *testing.T, ctx context.Context, cfg config.Cfg, repo *gitaly
 	for file, contents := range files {
 		filePath := filepath.Join(repoPath, file)
 		require.NoError(t, ioutil.WriteFile(filePath, contents, 0666))
-		testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "add", filePath)
+		gittest.Exec(t, cfg, "-C", repoPath, "add", filePath)
 	}
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "commit", "-m", "message")
+	gittest.Exec(t, cfg, "-C", repoPath, "commit", "-m", "message")
 
 	oid, err := localrepo.NewTestRepo(t, cfg, repo).ResolveRevision(ctx, git.Revision("HEAD"))
 	require.NoError(t, err)
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "reset", "--hard", "HEAD~")
+	gittest.Exec(t, cfg, "-C", repoPath, "reset", "--hard", "HEAD~")
 
 	return oid.String()
 }

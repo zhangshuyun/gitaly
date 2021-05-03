@@ -461,7 +461,7 @@ func testSuccessfulWikiFindPageRequestWithTrailers(t *testing.T, cfg config.Cfg,
 	committerName := "Scróoge McDuck" // Include UTF-8 to ensure encoding is handled
 	committerEmail := "scrooge@mcduck.com"
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", worktreePath,
+	gittest.Exec(t, cfg, "-C", worktreePath,
 		"-c", fmt.Sprintf("user.name=%s", committerName),
 		"-c", fmt.Sprintf("user.email=%s", committerEmail),
 		"commit", "--allow-empty", "-m", "master branch, empty commit")
@@ -471,7 +471,7 @@ func testSuccessfulWikiFindPageRequestWithTrailers(t *testing.T, cfg config.Cfg,
 	page1Name := "Home Pagé"
 	createTestWikiPage(t, cfg, client, wikiRepo, worktreePath, createWikiPageOpts{title: page1Name})
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", worktreePath,
+	gittest.Exec(t, cfg, "-C", worktreePath,
 		"-c", fmt.Sprintf("user.name=%s", committerName),
 		"-c", fmt.Sprintf("user.email=%s", committerEmail),
 		"commit", "--amend", "-m", "Empty commit", "-s")

@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -26,7 +27,7 @@ func testSuccessfulWikiFindFileRequest(t *testing.T, cfg config.Cfg, rubySrv *ru
 	committerEmail := "scrooge@mcduck.com"
 	sandboxWikiPath := filepath.Join(cfg.Storages[0].Path, "find-file-sandbox")
 
-	testhelper.MustRunCommand(t, nil, "git", "clone", wikiRepoPath, sandboxWikiPath)
+	gittest.Exec(t, cfg, "clone", wikiRepoPath, sandboxWikiPath)
 	defer os.RemoveAll(sandboxWikiPath)
 
 	sandboxWiki := &gitalypb.Repository{
@@ -44,19 +45,19 @@ func testSuccessfulWikiFindFileRequest(t *testing.T, cfg config.Cfg, rubySrv *ru
 	require.NoError(t, err)
 
 	// Sandbox wiki is empty, so we create a commit to be used later
-	testhelper.MustRunCommand(t, nil, "git", "-C", sandboxWikiPath,
+	gittest.Exec(t, cfg, "-C", sandboxWikiPath,
 		"-c", fmt.Sprintf("user.name=%s", committerName),
 		"-c", fmt.Sprintf("user.email=%s", committerEmail),
 		"commit", "--allow-empty", "-m", "Adding an empty commit")
-	oldHeadID := testhelper.MustRunCommand(t, nil, "git", "-C", sandboxWikiPath, "show", "--format=format:%H", "--no-patch", "HEAD")
+	oldHeadID := gittest.Exec(t, cfg, "-C", sandboxWikiPath, "show", "--format=format:%H", "--no-patch", "HEAD")
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", sandboxWikiPath, "add", ".")
-	testhelper.MustRunCommand(t, nil, "git", "-C", sandboxWikiPath,
+	gittest.Exec(t, cfg, "-C", sandboxWikiPath, "add", ".")
+	gittest.Exec(t, cfg, "-C", sandboxWikiPath,
 		"-c", fmt.Sprintf("user.name=%s", committerName),
 		"-c", fmt.Sprintf("user.email=%s", committerEmail),
 		"commit", "-m", "Adding an image")
 
-	newHeadID := testhelper.MustRunCommand(t, nil, "git", "-C", sandboxWikiPath, "show", "--format=format:%H", "--no-patch", "HEAD")
+	newHeadID := gittest.Exec(t, cfg, "-C", sandboxWikiPath, "show", "--format=format:%H", "--no-patch", "HEAD")
 
 	response := &gitalypb.WikiFindFileResponse{
 		Name:     []byte("cloúds.png"),

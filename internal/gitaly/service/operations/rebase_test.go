@@ -522,11 +522,11 @@ func testRebaseRequestWithDeletedFileFeatured(t *testing.T, ctx context.Context,
 
 	branch := "rebase-delete-test"
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "user.name", string(testhelper.TestUser.Name))
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "user.email", string(testhelper.TestUser.Email))
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "checkout", "-b", branch, "master~1")
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rm", "README")
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "commit", "-a", "-m", "delete file")
+	gittest.Exec(t, cfg, "-C", repoPath, "config", "user.name", string(testhelper.TestUser.Name))
+	gittest.Exec(t, cfg, "-C", repoPath, "config", "user.email", string(testhelper.TestUser.Email))
+	gittest.Exec(t, cfg, "-C", repoPath, "checkout", "-b", branch, "master~1")
+	gittest.Exec(t, cfg, "-C", repoPath, "rm", "README")
+	gittest.Exec(t, cfg, "-C", repoPath, "commit", "-a", "-m", "delete file")
 
 	branchSha := getBranchSha(t, repoPath, branch)
 
@@ -575,11 +575,11 @@ func testRebaseOntoRemoteBranchFeatured(t *testing.T, ctx context.Context, cfg c
 	localBranchHash := getBranchSha(t, repoPath, localBranch)
 
 	remoteBranch := "remote-branch"
-	testhelper.MustRunCommand(t, nil, "git", "-C", remoteRepoPath, "config", "user.name", string(testhelper.TestUser.Name))
-	testhelper.MustRunCommand(t, nil, "git", "-C", remoteRepoPath, "config", "user.email", string(testhelper.TestUser.Email))
-	testhelper.MustRunCommand(t, nil, "git", "-C", remoteRepoPath, "checkout", "-b", remoteBranch, "master")
-	testhelper.MustRunCommand(t, nil, "git", "-C", remoteRepoPath, "rm", "README")
-	testhelper.MustRunCommand(t, nil, "git", "-C", remoteRepoPath, "commit", "-a", "-m", "remove README")
+	gittest.Exec(t, cfg, "-C", remoteRepoPath, "config", "user.name", string(testhelper.TestUser.Name))
+	gittest.Exec(t, cfg, "-C", remoteRepoPath, "config", "user.email", string(testhelper.TestUser.Email))
+	gittest.Exec(t, cfg, "-C", remoteRepoPath, "checkout", "-b", remoteBranch, "master")
+	gittest.Exec(t, cfg, "-C", remoteRepoPath, "rm", "README")
+	gittest.Exec(t, cfg, "-C", remoteRepoPath, "commit", "-a", "-m", "remove README")
 	remoteBranchHash := getBranchSha(t, remoteRepoPath, remoteBranch)
 
 	rebaseStream, err := client.UserRebaseConfirmable(ctx)

@@ -116,7 +116,7 @@ func TestSuccessfulHasLocalBranches(t *testing.T) {
 
 	emptyRepoName := "empty-repo.git"
 	emptyRepoPath := filepath.Join(cfg.Storages[0].Path, emptyRepoName)
-	testhelper.MustRunCommand(t, nil, "git", "init", "--bare", emptyRepoPath)
+	gittest.Exec(t, cfg, "init", "--bare", emptyRepoPath)
 	defer os.RemoveAll(emptyRepoPath)
 
 	testCases := []struct {

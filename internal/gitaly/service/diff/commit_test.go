@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/diff"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -15,7 +16,7 @@ import (
 )
 
 func TestSuccessfulCommitDiffRequest(t *testing.T) {
-	_, repo, repoPath, client := setupDiffService(t)
+	cfg, repo, repoPath, client := setupDiffService(t)
 
 	rightCommit := "ab2c9622c02288a2bbaaf35d96088cfdff31d9d9"
 	leftCommit := "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab"
@@ -169,7 +170,7 @@ func TestSuccessfulCommitDiffRequest(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
-			testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "diff.noprefix", testCase.noPrefixConfig)
+			gittest.Exec(t, cfg, "-C", repoPath, "config", "diff.noprefix", testCase.noPrefixConfig)
 			rpcRequest := &gitalypb.CommitDiffRequest{Repository: repo, RightCommitId: rightCommit, LeftCommitId: leftCommit, IgnoreWhitespaceChange: false}
 
 			ctx, cancel := testhelper.Context()
@@ -399,13 +400,13 @@ func TestSuccessfulCommitDiffRequestWithIgnoreWhitespaceChange(t *testing.T) {
 }
 
 func TestSuccessfulCommitDiffRequestWithWordDiff(t *testing.T) {
-	_, repo, repoPath, client := setupDiffService(t)
+	cfg, repo, repoPath, client := setupDiffService(t)
 
 	rightCommit := "ab2c9622c02288a2bbaaf35d96088cfdff31d9d9"
 	leftCommit := "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab"
 
 	var diffPatches [][]byte
-	output := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "diff", "--word-diff=porcelain", leftCommit, rightCommit)
+	output := gittest.Exec(t, cfg, "-C", repoPath, "diff", "--word-diff=porcelain", leftCommit, rightCommit)
 	diffPerFile := bytes.Split(output, []byte("diff --git"))
 
 	for _, s := range diffPerFile {
@@ -564,7 +565,7 @@ func TestSuccessfulCommitDiffRequestWithWordDiff(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
-			testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "diff.noprefix", testCase.noPrefixConfig)
+			gittest.Exec(t, cfg, "-C", repoPath, "config", "diff.noprefix", testCase.noPrefixConfig)
 			rpcRequest := &gitalypb.CommitDiffRequest{
 				Repository:             repo,
 				RightCommitId:          rightCommit,

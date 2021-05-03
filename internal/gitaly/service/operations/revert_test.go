@@ -27,7 +27,7 @@ func testServerUserRevertSuccessfulFeatured(t *testing.T, ctx context.Context, c
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	destinationBranch := "revert-dst"
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", destinationBranch, "master")
+	gittest.Exec(t, cfg, "-C", repoPath, "branch", destinationBranch, "master")
 
 	masterHeadCommit, err := repo.ReadCommit(ctx, "master")
 	require.NoError(t, err)
@@ -38,7 +38,7 @@ func testServerUserRevertSuccessfulFeatured(t *testing.T, ctx context.Context, c
 	testRepoCopy, testRepoCopyPath, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "read-only") // read-only repo
 	defer cleanup()
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoCopyPath, "branch", destinationBranch, "master")
+	gittest.Exec(t, cfg, "-C", testRepoCopyPath, "branch", destinationBranch, "master")
 
 	testCases := []struct {
 		desc         string
@@ -287,7 +287,7 @@ func testServerUserRevertSuccessfulGitHooksFeatured(t *testing.T, ctx context.Co
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	destinationBranch := "revert-dst"
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", destinationBranch, "master")
+	gittest.Exec(t, cfg, "-C", repoPath, "branch", destinationBranch, "master")
 
 	revertedCommit, err := repo.ReadCommit(ctx, "d59c60028b053793cecfb4022de34602e1a9218e")
 	require.NoError(t, err)
@@ -399,7 +399,7 @@ func testServerUserRevertFailedDueToPreReceiveErrorFeatured(t *testing.T, ctx co
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	destinationBranch := "revert-dst"
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", destinationBranch, "master")
+	gittest.Exec(t, cfg, "-C", repoPath, "branch", destinationBranch, "master")
 
 	revertedCommit, err := repo.ReadCommit(ctx, "d59c60028b053793cecfb4022de34602e1a9218e")
 	require.NoError(t, err)
@@ -435,7 +435,7 @@ func testServerUserRevertFailedDueToCreateTreeErrorConflictFeatured(t *testing.T
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	destinationBranch := "revert-dst"
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", destinationBranch, "master")
+	gittest.Exec(t, cfg, "-C", repoPath, "branch", destinationBranch, "master")
 
 	// This revert patch of the following commit cannot be applied to the destinationBranch above
 	revertedCommit, err := repo.ReadCommit(ctx, "372ab6950519549b14d220271ee2322caa44d4eb")
@@ -465,7 +465,7 @@ func testServerUserRevertFailedDueToCreateTreeErrorEmptyFeatured(t *testing.T, c
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	destinationBranch := "revert-dst"
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", destinationBranch, "master")
+	gittest.Exec(t, cfg, "-C", repoPath, "branch", destinationBranch, "master")
 
 	revertedCommit, err := repo.ReadCommit(ctx, "d59c60028b053793cecfb4022de34602e1a9218e")
 	require.NoError(t, err)
@@ -500,8 +500,8 @@ func testServerUserRevertFailedDueToCommitErrorFeatured(t *testing.T, ctx contex
 
 	sourceBranch := "revert-src"
 	destinationBranch := "revert-dst"
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", destinationBranch, "master")
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", sourceBranch, "a5391128b0ef5d21df5dd23d98557f4ef12fae20")
+	gittest.Exec(t, cfg, "-C", repoPath, "branch", destinationBranch, "master")
+	gittest.Exec(t, cfg, "-C", repoPath, "branch", sourceBranch, "a5391128b0ef5d21df5dd23d98557f4ef12fae20")
 
 	revertedCommit, err := repo.ReadCommit(ctx, git.Revision(sourceBranch))
 	require.NoError(t, err)

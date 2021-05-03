@@ -95,7 +95,7 @@ func testSuccessfulUserApplyPatch(t *testing.T, cfg config.Cfg, rubySrv *rubyser
 			response.GetBranchUpdate()
 			require.Equal(t, testCase.branchCreated, response.GetBranchUpdate().GetBranchCreated())
 
-			branches := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch")
+			branches := gittest.Exec(t, cfg, "-C", repoPath, "branch")
 			require.Contains(t, string(branches), testCase.branchName)
 
 			maxCount := fmt.Sprintf("--max-count=%d", len(testCase.commitMessages))
@@ -110,7 +110,7 @@ func testSuccessfulUserApplyPatch(t *testing.T, cfg config.Cfg, rubySrv *rubyser
 				"--reverse",
 			}
 
-			output := testhelper.MustRunCommand(t, nil, "git", gitArgs...)
+			output := gittest.Exec(t, cfg, gitArgs...)
 			shas := strings.Split(string(output), "\n")
 			// Throw away the last element, as that's going to be
 			// an empty string.

@@ -81,7 +81,7 @@ func TestRepackLocal(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, packFiles, 1)
 
-	packContents := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "verify-pack", "-v", packFiles[0])
+	packContents := gittest.Exec(t, cfg, "-C", repoPath, "verify-pack", "-v", packFiles[0])
 	require.NotContains(t, string(packContents), string(altDirsCommit))
 	require.Contains(t, string(packContents), repoCommit)
 }

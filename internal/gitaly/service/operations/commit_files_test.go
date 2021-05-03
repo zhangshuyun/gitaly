@@ -880,7 +880,7 @@ func TestUserCommitFiles(t *testing.T) {
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			defer os.RemoveAll(repoPath)
-			testhelper.MustRunCommand(t, nil, "git", "init", "--bare", repoPath)
+			gittest.Exec(t, cfg, "init", "--bare", repoPath)
 
 			const branch = "master"
 
@@ -1081,10 +1081,10 @@ func TestSuccessfulUserCommitFilesRequest(t *testing.T) {
 			require.Equal(t, testhelper.TestUser.Email, headCommit.Committer.Email)
 			require.Equal(t, commitFilesMessage, headCommit.Subject)
 
-			fileContent := testhelper.MustRunCommand(t, nil, "git", "-C", tc.repoPath, "show", headCommit.GetId()+":"+filePath)
+			fileContent := gittest.Exec(t, cfg, "-C", tc.repoPath, "show", headCommit.GetId()+":"+filePath)
 			require.Equal(t, "My content", string(fileContent))
 
-			commitInfo := testhelper.MustRunCommand(t, nil, "git", "-C", tc.repoPath, "show", headCommit.GetId())
+			commitInfo := gittest.Exec(t, cfg, "-C", tc.repoPath, "show", headCommit.GetId())
 			expectedFilemode := "100644"
 			if tc.executeFilemode {
 				expectedFilemode = "100755"
@@ -1119,7 +1119,7 @@ func TestSuccessfulUserCommitFilesRequestMove(t *testing.T) {
 			testRepo, testRepoPath, cleanupFn := gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name())
 			defer cleanupFn()
 
-			origFileContent := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "show", branchName+":"+previousFilePath)
+			origFileContent := gittest.Exec(t, cfg, "-C", testRepoPath, "show", branchName+":"+previousFilePath)
 			headerRequest := headerRequest(testRepo, testhelper.TestUser, branchName, commitFilesMessage)
 			setAuthorAndEmail(headerRequest, authorName, authorEmail)
 			actionsRequest1 := moveFileHeaderRequest(previousFilePath, filePath, tc.infer)
@@ -1140,7 +1140,7 @@ func TestSuccessfulUserCommitFilesRequestMove(t *testing.T) {
 			update := resp.GetBranchUpdate()
 			require.NotNil(t, update)
 
-			fileContent := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "show", update.CommitId+":"+filePath)
+			fileContent := gittest.Exec(t, cfg, "-C", testRepoPath, "show", update.CommitId+":"+filePath)
 
 			if tc.infer {
 				require.Equal(t, string(origFileContent), string(fileContent))
@@ -1170,7 +1170,7 @@ func TestSuccessfulUserCommitFilesRequestForceCommit(t *testing.T) {
 	targetBranchCommit, err := repo.ReadCommit(ctx, git.Revision(targetBranchName))
 	require.NoError(t, err)
 
-	mergeBaseOut := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "merge-base", targetBranchCommit.Id, startBranchCommit.Id)
+	mergeBaseOut := gittest.Exec(t, cfg, "-C", repoPath, "merge-base", targetBranchCommit.Id, startBranchCommit.Id)
 	mergeBaseID := text.ChompBytes(mergeBaseOut)
 	require.NotEqual(t, mergeBaseID, targetBranchCommit.Id, "expected %s not to be an ancestor of %s", targetBranchCommit.Id, startBranchCommit.Id)
 

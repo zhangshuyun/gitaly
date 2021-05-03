@@ -48,10 +48,10 @@ func TestSuccessfulDeleteRefs(t *testing.T) {
 			repo, repoPath, cleanupFn := gittest.CloneRepoAtStorage(t, cfg.Storages[0], testCase.desc)
 			defer cleanupFn()
 
-			testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "update-ref", "refs/delete/a", "b83d6e391c22777fca1ed3012fce84f633d7fed0")
-			testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "update-ref", "refs/also-delete/b", "1b12f15a11fc6e62177bef08f47bc7b5ce50b141")
-			testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "update-ref", "refs/keep/c", "498214de67004b1da3d820901307bed2a68a8ef6")
-			testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "update-ref", "refs/also-keep/d", "b83d6e391c22777fca1ed3012fce84f633d7fed0")
+			gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/delete/a", "b83d6e391c22777fca1ed3012fce84f633d7fed0")
+			gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/also-delete/b", "1b12f15a11fc6e62177bef08f47bc7b5ce50b141")
+			gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/keep/c", "498214de67004b1da3d820901307bed2a68a8ef6")
+			gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/also-keep/d", "b83d6e391c22777fca1ed3012fce84f633d7fed0")
 
 			ctx, cancel := testhelper.Context()
 			defer cancel()

@@ -29,7 +29,7 @@ func TestDisconnectGitAlternates(t *testing.T) {
 
 	require.NoError(t, pool.Create(ctx, repo))
 	require.NoError(t, pool.Link(ctx, repo))
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "gc")
+	gittest.Exec(t, cfg, "-C", repoPath, "gc")
 
 	existingObjectID := "55bc176024cfa3baaceb71db584c7e5df900ea65"
 
@@ -56,11 +56,11 @@ func TestDisconnectGitAlternates(t *testing.T) {
 	// objects/info/alternates is gone. This is the purpose of
 	// DisconnectGitAlternates.
 	testhelper.AssertPathNotExists(t, altPath)
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "cat-file", "-e", existingObjectID)
+	gittest.Exec(t, cfg, "-C", repoPath, "cat-file", "-e", existingObjectID)
 }
 
 func TestDisconnectGitAlternatesNoAlternates(t *testing.T) {
-	_, repo, repoPath, locator, client := setup(t)
+	cfg, repo, repoPath, locator, client := setup(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -72,7 +72,7 @@ func TestDisconnectGitAlternatesNoAlternates(t *testing.T) {
 	_, err = client.DisconnectGitAlternates(ctx, &gitalypb.DisconnectGitAlternatesRequest{Repository: repo})
 	require.NoError(t, err, "call DisconnectGitAlternates on repository without alternates")
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "fsck")
+	gittest.Exec(t, cfg, "-C", repoPath, "fsck")
 }
 
 func TestDisconnectGitAlternatesUnexpectedAlternates(t *testing.T) {

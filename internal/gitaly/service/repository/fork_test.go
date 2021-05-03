@@ -14,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
@@ -104,9 +105,9 @@ func TestSuccessfulCreateForkRequest(t *testing.T) {
 			require.NoError(t, err)
 			defer func() { require.NoError(t, os.RemoveAll(forkedRepoPath)) }()
 
-			testhelper.MustRunCommand(t, nil, "git", "-C", forkedRepoPath, "fsck")
+			gittest.Exec(t, cfg, "-C", forkedRepoPath, "fsck")
 
-			remotes := testhelper.MustRunCommand(t, nil, "git", "-C", forkedRepoPath, "remote")
+			remotes := gittest.Exec(t, cfg, "-C", forkedRepoPath, "remote")
 			require.NotContains(t, string(remotes), "origin")
 
 			info, err := os.Lstat(filepath.Join(forkedRepoPath, "hooks"))

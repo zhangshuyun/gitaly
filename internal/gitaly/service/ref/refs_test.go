@@ -414,9 +414,9 @@ func TestSuccessfulFindAllTagsRequest(t *testing.T) {
 	truncatedPGPTagMsg, err := ioutil.ReadFile("testdata/truncated_pgp_msg.patch")
 	require.NoError(t, err)
 
-	truncatedPGPTagID := string(testhelper.MustRunCommand(t, bytes.NewBuffer(truncatedPGPTagMsg), "git", "-C", repoPath, "mktag"))
+	truncatedPGPTagID := string(gittest.ExecStream(t, cfg, bytes.NewBuffer(truncatedPGPTagMsg), "-C", repoPath, "mktag"))
 	truncatedPGPTagID = strings.TrimSpace(truncatedPGPTagID) // remove trailing newline
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "update-ref", "refs/tags/pgp-long-tag-message", truncatedPGPTagID)
+	gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/tags/pgp-long-tag-message", truncatedPGPTagID)
 
 	blobID := "faaf198af3a36dbf41961466703cc1d47c61d051"
 	commitID := "6f6d7e7ed97bb5f0054f2b1df789b39ca89b6ff9"
@@ -642,7 +642,7 @@ func TestFindAllTagNestedTags(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.description, func(t *testing.T) {
-			tags := bytes.NewReader(testhelper.MustRunCommand(t, nil, "git", "-C", testRepoCopyPath, "tag"))
+			tags := bytes.NewReader(gittest.Exec(t, cfg, "-C", testRepoCopyPath, "tag"))
 			testhelper.MustRunCommand(t, tags, "xargs", cfg.Git.BinPath, "-C", testRepoCopyPath, "tag", "-d")
 
 			catfileCache := catfile.NewCache(git.NewExecCommandFactory(cfg), cfg)
@@ -990,13 +990,13 @@ func TestSuccessfulFindAllBranchesRequestWithMergedBranches(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	localRefs := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "for-each-ref", "--format=%(refname:strip=2)", "refs/heads")
+	localRefs := gittest.Exec(t, cfg, "-C", repoPath, "for-each-ref", "--format=%(refname:strip=2)", "refs/heads")
 	for _, ref := range strings.Split(string(localRefs), "\n") {
 		ref = strings.TrimSpace(ref)
 		if _, ok := localBranches["refs/heads/"+ref]; ok || ref == "master" || ref == "" {
 			continue
 		}
-		testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", "-D", ref)
+		gittest.Exec(t, cfg, "-C", repoPath, "branch", "-D", ref)
 	}
 
 	expectedRefs := []string{"refs/heads/100%branch", "refs/heads/improve/awesome", "refs/heads/'test'"}
@@ -1487,7 +1487,7 @@ func TestFindTagNestedTag(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.description, func(t *testing.T) {
-			tags := bytes.NewReader(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "tag"))
+			tags := bytes.NewReader(gittest.Exec(t, cfg, "-C", repoPath, "tag"))
 			testhelper.MustRunCommand(t, tags, "xargs", cfg.Git.BinPath, "-C", repoPath, "tag", "-d")
 
 			catfileCache := catfile.NewCache(git.NewExecCommandFactory(cfg), cfg)

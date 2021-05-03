@@ -48,9 +48,9 @@ func TestSuccessfulCreateRepositoryFromURLRequest(t *testing.T) {
 	_, err := client.CreateRepositoryFromURL(ctx, req)
 	require.NoError(t, err)
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", importedRepoPath, "fsck")
+	gittest.Exec(t, cfg, "-C", importedRepoPath, "fsck")
 
-	remotes := testhelper.MustRunCommand(t, nil, "git", "-C", importedRepoPath, "remote")
+	remotes := gittest.Exec(t, cfg, "-C", importedRepoPath, "remote")
 	require.NotContains(t, string(remotes), "origin")
 
 	info, err := os.Lstat(filepath.Join(importedRepoPath, "hooks"))
