@@ -269,7 +269,7 @@ func newTestPush(t *testing.T, cfg config.Cfg, fileContents []byte) *pushData {
 	_, repoPath, localCleanup := gittest.CloneRepoWithWorktreeAtStorage(t, cfg, cfg.Storages[0])
 	defer localCleanup()
 
-	oldHead, newHead := createCommit(t, repoPath, fileContents)
+	oldHead, newHead := createCommit(t, cfg, repoPath, fileContents)
 
 	// ReceivePack request is a packet line followed by a packet flush, then the pack file of the objects we want to push.
 	// This is explained a bit in https://git-scm.com/book/en/v2/Git-Internals-Transfer-Protocols#_uploading_data
@@ -299,25 +299,25 @@ func newTestPush(t *testing.T, cfg config.Cfg, fileContents []byte) *pushData {
 
 // createCommit creates a commit on HEAD with a file containing the
 // specified contents.
-func createCommit(t *testing.T, repoPath string, fileContents []byte) (oldHead string, newHead string) {
+func createCommit(t *testing.T, cfg config.Cfg, repoPath string, fileContents []byte) (oldHead string, newHead string) {
 	commitMsg := fmt.Sprintf("Testing ReceivePack RPC around %d", time.Now().Unix())
 	committerName := "Scrooge McDuck"
 	committerEmail := "scrooge@mcduck.com"
 
 	// The latest commit ID on the remote repo
-	oldHead = text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", "master"))
+	oldHead = text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "master"))
 
 	changedFile := "README.md"
 	require.NoError(t, ioutil.WriteFile(filepath.Join(repoPath, changedFile), fileContents, 0644))
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "add", changedFile)
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath,
+	gittest.Exec(t, cfg, "-C", repoPath, "add", changedFile)
+	gittest.Exec(t, cfg, "-C", repoPath,
 		"-c", fmt.Sprintf("user.name=%s", committerName),
 		"-c", fmt.Sprintf("user.email=%s", committerEmail),
 		"commit", "-m", commitMsg)
 
 	// The commit ID we want to push to the remote repo
-	newHead = text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", "master"))
+	newHead = text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "master"))
 
 	return oldHead, newHead
 }
