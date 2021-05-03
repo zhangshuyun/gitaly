@@ -38,6 +38,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 )
 
@@ -297,7 +298,8 @@ func TestStreamDirectorMutator_StopTransaction(t *testing.T) {
 	streamParams, err := coordinator.StreamDirector(correlation.ContextWithCorrelation(ctx, "my-correlation-id"), fullMethod, peeker)
 	require.NoError(t, err)
 
-	transaction, err := praefect_metadata.TransactionFromContext(streamParams.Primary().Ctx)
+	txCtx := peer.NewContext(streamParams.Primary().Ctx, &peer.Peer{})
+	transaction, err := praefect_metadata.TransactionFromContext(txCtx)
 	require.NoError(t, err)
 
 	var wg sync.WaitGroup

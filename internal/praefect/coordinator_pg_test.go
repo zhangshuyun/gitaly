@@ -24,6 +24,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/promtest"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
+	"google.golang.org/grpc/peer"
 )
 
 func getDB(t *testing.T) glsql.DB {
@@ -195,7 +196,8 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 			streamParams, err := coordinator.StreamDirector(ctx, fullMethod, peeker)
 			require.NoError(t, err)
 
-			transaction, err := praefect_metadata.TransactionFromContext(streamParams.Primary().Ctx)
+			txCtx := peer.NewContext(streamParams.Primary().Ctx, &peer.Peer{})
+			transaction, err := praefect_metadata.TransactionFromContext(txCtx)
 			require.NoError(t, err)
 
 			var voterWaitGroup sync.WaitGroup
