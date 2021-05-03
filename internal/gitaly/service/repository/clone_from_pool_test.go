@@ -30,7 +30,7 @@ func testCloneFromPoolHTTP(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Ser
 	require.NoError(t, pool.Create(ctx, repo))
 	require.NoError(t, pool.Link(ctx, repo))
 
-	fullRepack(t, repoPath)
+	fullRepack(t, cfg, repoPath)
 
 	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("branch"))
 
