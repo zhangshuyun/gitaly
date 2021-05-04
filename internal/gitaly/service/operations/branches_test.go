@@ -116,98 +116,92 @@ func TestSuccessfulCreateBranchRequest(t *testing.T) {
 }
 
 func TestUserCreateBranchWithTransaction(t *testing.T) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.BackchannelVoting,
-	}).Run(t, func(t *testing.T, ctx context.Context) {
-		cfg, repo, repoPath := testcfg.BuildWithRepo(t)
+	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
-		transactionServer := &testTransactionServer{}
+	transactionServer := &testTransactionServer{}
 
-		cfg.ListenAddr = "127.0.0.1:0" // runs gitaly on the TCP address
-		addr := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
-			gitalypb.RegisterOperationServiceServer(srv, NewServer(deps.GetCfg(), nil, deps.GetHookManager(), deps.GetLocator(), deps.GetConnsPool(), deps.GetGitCmdFactory()))
-			gitalypb.RegisterHookServiceServer(srv, hook.NewServer(deps.GetCfg(), deps.GetHookManager(), deps.GetGitCmdFactory()))
-			if featureflag.IsDisabled(ctx, featureflag.BackchannelVoting) {
-				gitalypb.RegisterRefTransactionServer(srv, transactionServer)
+	cfg.ListenAddr = "127.0.0.1:0" // runs gitaly on the TCP address
+	addr := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
+		gitalypb.RegisterOperationServiceServer(srv, NewServer(deps.GetCfg(), nil, deps.GetHookManager(), deps.GetLocator(), deps.GetConnsPool(), deps.GetGitCmdFactory()))
+		gitalypb.RegisterHookServiceServer(srv, hook.NewServer(deps.GetCfg(), deps.GetHookManager(), deps.GetGitCmdFactory()))
+		// Praefect proxy execution disabled as praefect runs only on the UNIX socket, but
+		// the test requires a TCP listening address.
+	}, testserver.WithDisablePraefect())
+
+	addrConfig, err := starter.ParseEndpoint(addr)
+	require.NoError(t, err)
+	_, port, err := net.SplitHostPort(addrConfig.Addr)
+	require.NoError(t, err)
+
+	testcases := []struct {
+		desc    string
+		address string
+		server  metadata.PraefectServer
+	}{
+		{
+			desc:    "explicit TCP address",
+			address: addr,
+			server: metadata.PraefectServer{
+				ListenAddr: addr,
+				Token:      cfg.Auth.Token,
+			},
+		},
+		{
+			desc:    "catch-all TCP address",
+			address: addr,
+			server: metadata.PraefectServer{
+				ListenAddr: "tcp://0.0.0.0:" + port,
+				Token:      cfg.Auth.Token,
+			},
+		},
+		{
+			desc:    "Unix socket",
+			address: "unix://" + cfg.GitalyInternalSocketPath(),
+			server: metadata.PraefectServer{
+				SocketPath: "unix://" + cfg.GitalyInternalSocketPath(),
+				Token:      cfg.Auth.Token,
+			},
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.desc, func(t *testing.T) {
+			defer testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", "-D", "new-branch")
+
+			ctx, cancel := testhelper.Context()
+			defer cancel()
+
+			client := newMuxedOperationClient(t, ctx, tc.address, cfg.Auth.Token,
+				backchannel.NewClientHandshaker(
+					testhelper.DiscardTestEntry(t),
+					func() backchannel.Server {
+						srv := grpc.NewServer()
+						gitalypb.RegisterRefTransactionServer(srv, transactionServer)
+						return srv
+					},
+				),
+			)
+
+			ctx, err := tc.server.Inject(ctx)
+			require.NoError(t, err)
+			ctx, err = metadata.InjectTransaction(ctx, 1, "node", true)
+			require.NoError(t, err)
+			ctx = helper.IncomingToOutgoing(ctx)
+
+			request := &gitalypb.UserCreateBranchRequest{
+				Repository: repo,
+				BranchName: []byte("new-branch"),
+				StartPoint: []byte("c7fbe50c7c7419d9701eebe64b1fdacc3df5b9dd"),
+				User:       testhelper.TestUser,
 			}
-			// Praefect proxy execution disabled as praefect runs only on the UNIX socket, but
-			// the test requires a TCP listening address.
-		}, testserver.WithDisablePraefect())
 
-		addrConfig, err := starter.ParseEndpoint(addr)
-		require.NoError(t, err)
-		_, port, err := net.SplitHostPort(addrConfig.Addr)
-		require.NoError(t, err)
-
-		testcases := []struct {
-			desc    string
-			address string
-			server  metadata.PraefectServer
-		}{
-			{
-				desc:    "explicit TCP address",
-				address: addr,
-				server: metadata.PraefectServer{
-					ListenAddr: addr,
-					Token:      cfg.Auth.Token,
-				},
-			},
-			{
-				desc:    "catch-all TCP address",
-				address: addr,
-				server: metadata.PraefectServer{
-					ListenAddr: "tcp://0.0.0.0:" + port,
-					Token:      cfg.Auth.Token,
-				},
-			},
-			{
-				desc:    "Unix socket",
-				address: "unix://" + cfg.GitalyInternalSocketPath(),
-				server: metadata.PraefectServer{
-					SocketPath: "unix://" + cfg.GitalyInternalSocketPath(),
-					Token:      cfg.Auth.Token,
-				},
-			},
-		}
-
-		for _, tc := range testcases {
-			t.Run(tc.desc, func(t *testing.T) {
-				defer testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", "-D", "new-branch")
-
-				client := newMuxedOperationClient(t, ctx, tc.address, cfg.Auth.Token,
-					backchannel.NewClientHandshaker(
-						testhelper.DiscardTestEntry(t),
-						func() backchannel.Server {
-							srv := grpc.NewServer()
-							if featureflag.IsEnabled(ctx, featureflag.BackchannelVoting) {
-								gitalypb.RegisterRefTransactionServer(srv, transactionServer)
-							}
-							return srv
-						},
-					),
-				)
-
-				ctx, err := tc.server.Inject(ctx)
-				require.NoError(t, err)
-				ctx, err = metadata.InjectTransaction(ctx, 1, "node", true)
-				require.NoError(t, err)
-				ctx = helper.IncomingToOutgoing(ctx)
-
-				request := &gitalypb.UserCreateBranchRequest{
-					Repository: repo,
-					BranchName: []byte("new-branch"),
-					StartPoint: []byte("c7fbe50c7c7419d9701eebe64b1fdacc3df5b9dd"),
-					User:       testhelper.TestUser,
-				}
-
-				transactionServer.called = 0
-				response, err := client.UserCreateBranch(ctx, request)
-				require.NoError(t, err)
-				require.Empty(t, response.PreReceiveError)
-				require.Equal(t, 1, transactionServer.called)
-			})
-		}
-	})
+			transactionServer.called = 0
+			response, err := client.UserCreateBranch(ctx, request)
+			require.NoError(t, err)
+			require.Empty(t, response.PreReceiveError)
+			require.Equal(t, 1, transactionServer.called)
+		})
+	}
 }
 
 func TestSuccessfulGitHooksForUserCreateBranchRequest(t *testing.T) {
@@ -489,64 +483,55 @@ func TestSuccessfulGitHooksForUserDeleteBranchRequest(t *testing.T) {
 }
 
 func TestUserDeleteBranch_transaction(t *testing.T) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.BackchannelVoting,
-	}).Run(t, func(t *testing.T, ctx context.Context) {
-		cfg, repo, repoPath := testcfg.BuildWithRepo(t)
+	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
 
-		// This creates a new branch "delete-me" which exists both in the packed-refs file and as a
-		// loose reference. Git will create two reference transactions for this: one transaction to
-		// delete the packed-refs reference, and one to delete the loose ref. But given that we want
-		// to be independent of how well-packed refs are, we expect to get a single transactional
-		// vote, only.
-		testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "update-ref", "refs/heads/delete-me", "master~")
-		testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "pack-refs", "--all")
-		testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "update-ref", "refs/heads/delete-me", "master")
+	// This creates a new branch "delete-me" which exists both in the packed-refs file and as a
+	// loose reference. Git will create two reference transactions for this: one transaction to
+	// delete the packed-refs reference, and one to delete the loose ref. But given that we want
+	// to be independent of how well-packed refs are, we expect to get a single transactional
+	// vote, only.
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "update-ref", "refs/heads/delete-me", "master~")
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "pack-refs", "--all")
+	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "update-ref", "refs/heads/delete-me", "master")
 
-		transactionServer := &testTransactionServer{}
+	transactionServer := &testTransactionServer{}
 
-		testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
-			gitalypb.RegisterOperationServiceServer(srv, NewServer(deps.GetCfg(), nil, deps.GetHookManager(), deps.GetLocator(), deps.GetConnsPool(), deps.GetGitCmdFactory()))
-			// We're setting up the RefTransaction server on the same server as the OperationService.
-			// Typically it would be hosted on Praefect, but in order to make the already-complex test
-			// setup not even more complex we just reuse the same GRPC server.
-			if featureflag.IsDisabled(ctx, featureflag.BackchannelVoting) {
-				gitalypb.RegisterRefTransactionServer(srv, transactionServer)
-			}
-		})
-
-		praefect := metadata.PraefectServer{
-			SocketPath: fmt.Sprintf("unix://" + cfg.GitalyInternalSocketPath()),
-			Token:      cfg.Auth.Token,
-		}
-
-		ctx, err := praefect.Inject(ctx)
-		require.NoError(t, err)
-		ctx, err = metadata.InjectTransaction(ctx, 1, "node", true)
-		require.NoError(t, err)
-		ctx = helper.IncomingToOutgoing(ctx)
-
-		client := newMuxedOperationClient(t, ctx, fmt.Sprintf("unix://"+cfg.GitalyInternalSocketPath()), cfg.Auth.Token,
-			backchannel.NewClientHandshaker(
-				testhelper.DiscardTestEntry(t),
-				func() backchannel.Server {
-					srv := grpc.NewServer()
-					if featureflag.IsEnabled(ctx, featureflag.BackchannelVoting) {
-						gitalypb.RegisterRefTransactionServer(srv, transactionServer)
-					}
-					return srv
-				},
-			),
-		)
-
-		_, err = client.UserDeleteBranch(ctx, &gitalypb.UserDeleteBranchRequest{
-			Repository: repo,
-			BranchName: []byte("delete-me"),
-			User:       testhelper.TestUser,
-		})
-		require.NoError(t, err)
-		require.Equal(t, 1, transactionServer.called)
+	testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
+		gitalypb.RegisterOperationServiceServer(srv, NewServer(deps.GetCfg(), nil, deps.GetHookManager(), deps.GetLocator(), deps.GetConnsPool(), deps.GetGitCmdFactory()))
 	})
+
+	praefect := metadata.PraefectServer{
+		SocketPath: fmt.Sprintf("unix://" + cfg.GitalyInternalSocketPath()),
+		Token:      cfg.Auth.Token,
+	}
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	ctx, err := praefect.Inject(ctx)
+	require.NoError(t, err)
+	ctx, err = metadata.InjectTransaction(ctx, 1, "node", true)
+	require.NoError(t, err)
+	ctx = helper.IncomingToOutgoing(ctx)
+
+	client := newMuxedOperationClient(t, ctx, fmt.Sprintf("unix://"+cfg.GitalyInternalSocketPath()), cfg.Auth.Token,
+		backchannel.NewClientHandshaker(
+			testhelper.DiscardTestEntry(t),
+			func() backchannel.Server {
+				srv := grpc.NewServer()
+				gitalypb.RegisterRefTransactionServer(srv, transactionServer)
+				return srv
+			},
+		),
+	)
+
+	_, err = client.UserDeleteBranch(ctx, &gitalypb.UserDeleteBranchRequest{
+		Repository: repo,
+		BranchName: []byte("delete-me"),
+		User:       testhelper.TestUser,
+	})
+	require.NoError(t, err)
+	require.Equal(t, 1, transactionServer.called)
 }
 
 func TestFailedUserDeleteBranchDueToValidation(t *testing.T) {

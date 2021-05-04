@@ -542,12 +542,6 @@ func (t *testTransactionServer) VoteTransaction(ctx context.Context, in *gitalyp
 }
 
 func TestPostReceiveWithReferenceTransactionHook(t *testing.T) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.BackchannelVoting,
-	}).Run(t, testPostReceiveWithReferenceTransactionHook)
-}
-
-func testPostReceiveWithReferenceTransactionHook(t *testing.T, ctx context.Context) {
 	cfg := testcfg.Build(t)
 
 	testhelper.ConfigureGitalyHooksBin(t, cfg)
@@ -557,9 +551,6 @@ func testPostReceiveWithReferenceTransactionHook(t *testing.T, ctx context.Conte
 	addr := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterSmartHTTPServiceServer(srv, NewServer(deps.GetCfg(), deps.GetLocator(), deps.GetGitCmdFactory()))
 		gitalypb.RegisterHookServiceServer(srv, hook.NewServer(deps.GetCfg(), deps.GetHookManager(), deps.GetGitCmdFactory()))
-		if featureflag.IsDisabled(ctx, featureflag.BackchannelVoting) {
-			gitalypb.RegisterRefTransactionServer(srv, refTransactionServer)
-		}
 	}, testserver.WithDisablePraefect())
 
 	// As we ain't got a Praefect server setup, we instead hooked up the
@@ -571,6 +562,9 @@ func testPostReceiveWithReferenceTransactionHook(t *testing.T, ctx context.Conte
 	})
 	require.NoError(t, err)
 
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
 	ctx, err = metadata.InjectTransaction(ctx, 1234, "primary", true)
 	require.NoError(t, err)
 	ctx, err = praefectServer.Inject(ctx)
@@ -580,10 +574,7 @@ func testPostReceiveWithReferenceTransactionHook(t *testing.T, ctx context.Conte
 
 	client := newMuxedSmartHTTPClient(t, ctx, addr, cfg.Auth.Token, func() backchannel.Server {
 		srv := grpc.NewServer()
-		if featureflag.IsEnabled(ctx, featureflag.BackchannelVoting) {
-			gitalypb.RegisterRefTransactionServer(srv, refTransactionServer)
-		}
-
+		gitalypb.RegisterRefTransactionServer(srv, refTransactionServer)
 		return srv
 	})
 

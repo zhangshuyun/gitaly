@@ -57,12 +57,9 @@ func testSuccessfulUserDeleteTagRequest(t *testing.T, ctx context.Context) {
 }
 
 func TestSuccessfulGitHooksForUserDeleteTagRequest(t *testing.T) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.ReferenceTransactions,
-	}).Run(t, testSuccessfulGitHooksForUserDeleteTagRequest)
-}
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testSuccessfulGitHooksForUserDeleteTagRequest(t *testing.T, ctx context.Context) {
 	ctx, _, repo, repoPath, client := setupOperationsService(t, ctx)
 
 	tagNameInput := "to-be-déleted-soon-tag"
@@ -255,155 +252,145 @@ func testSuccessfulUserCreateTagRequest(t *testing.T, ctx context.Context) {
 }
 
 func TestUserCreateTagWithTransaction(t *testing.T) {
-	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
-		featureflag.BackchannelVoting,
-	}).Run(t, func(t *testing.T, ctx context.Context) {
-		cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
+	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
 
-		repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
 
-		hooksOutputDir := testhelper.TempDir(t)
-		hooksOutputPath := filepath.Join(hooksOutputDir, "output")
+	hooksOutputDir := testhelper.TempDir(t)
+	hooksOutputPath := filepath.Join(hooksOutputDir, "output")
 
-		// We're creating a set of custom hooks which simply
-		// write to a file. The intention is that we want to
-		// check that the hooks only run on the primary node.
-		hooks := []string{"pre-receive", "update", "post-receive"}
-		for _, hook := range hooks {
-			gittest.WriteCustomHook(t, repoPath, hook,
-				[]byte(fmt.Sprintf("#!/bin/sh\necho %s >>%s\n", hook, hooksOutputPath)),
-			)
-		}
-
-		// We're creating a custom server with a fake transaction server which
-		// simply returns success for every call, but tracks the number of
-		// calls. The server is then injected into the client's context to make
-		// it available for transactional voting. We cannot use
-		// runOperationServiceServer as it puts a Praefect server in between if
-		// running Praefect tests, which would break our test setup.
-		transactionServer := &testTransactionServer{}
-		testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
-			gitalypb.RegisterOperationServiceServer(srv, NewServer(deps.GetCfg(), nil, deps.GetHookManager(), deps.GetLocator(), deps.GetConnsPool(), deps.GetGitCmdFactory()))
-			gitalypb.RegisterHookServiceServer(srv, hook.NewServer(deps.GetCfg(), deps.GetHookManager(), deps.GetGitCmdFactory()))
-
-			if featureflag.IsDisabled(ctx, featureflag.BackchannelVoting) {
-				gitalypb.RegisterRefTransactionServer(srv, transactionServer)
-			}
-		})
-
-		// we use new local reference to the context to prevent data race
-		// that is caused by adding additional data to the context in the sub-test
-		ctxCopy := ctx
-		// We're using internal gitaly socket to connect to the server.
-		// This is kind of a hack when running tests with Praefect:
-		// if we directly connect to the server created above, then our call
-		// would be intercepted by Praefect, which would in turn replace the
-		// transaction information we inject further down below. So we instead
-		// use internal socket so we can circumvent Praefect and just talk
-		// to Gitaly directly.
-		client := newMuxedOperationClient(t, ctx, "unix://"+cfg.GitalyInternalSocketPath(), cfg.Auth.Token,
-			backchannel.NewClientHandshaker(
-				testhelper.DiscardTestEntry(t),
-				func() backchannel.Server {
-					srv := grpc.NewServer()
-					if featureflag.IsEnabled(ctxCopy, featureflag.BackchannelVoting) {
-						gitalypb.RegisterRefTransactionServer(srv, transactionServer)
-					}
-					return srv
-				},
-			),
+	// We're creating a set of custom hooks which simply
+	// write to a file. The intention is that we want to
+	// check that the hooks only run on the primary node.
+	hooks := []string{"pre-receive", "update", "post-receive"}
+	for _, hook := range hooks {
+		gittest.WriteCustomHook(t, repoPath, hook,
+			[]byte(fmt.Sprintf("#!/bin/sh\necho %s >>%s\n", hook, hooksOutputPath)),
 		)
+	}
 
-		praefectServer := &metadata.PraefectServer{
-			SocketPath: "unix://" + cfg.GitalyInternalSocketPath(),
-			Token:      cfg.Auth.Token,
-		}
-
-		for i, testCase := range []struct {
-			desc    string
-			primary bool
-			message string
-		}{
-			{
-				desc:    "primary creates a lightweight tag",
-				primary: true,
-			},
-			{
-				desc:    "secondary creates a lightweight tag",
-				primary: false,
-			},
-			{
-				desc:    "primary creates an annotated tag",
-				primary: true,
-				message: "foobar",
-			},
-			{
-				desc:    "secondary creates an annotated tag",
-				primary: false,
-				message: "foobar",
-			},
-		} {
-			t.Run(testCase.desc, func(t *testing.T) {
-				if err := os.Remove(hooksOutputPath); err != nil {
-					require.True(t, os.IsNotExist(err), "error when cleaning up work area: %v", err)
-				}
-
-				tagName := fmt.Sprintf("tag-%d", i)
-				targetRevision := "c7fbe50c7c7419d9701eebe64b1fdacc3df5b9dd"
-				targetCommit, err := repo.ReadCommit(ctx, git.Revision(targetRevision))
-				require.NoError(t, err)
-
-				request := &gitalypb.UserCreateTagRequest{
-					Repository:     repoProto,
-					TagName:        []byte(tagName),
-					Message:        []byte(testCase.message),
-					TargetRevision: []byte(targetRevision),
-					User:           testhelper.TestUser,
-				}
-
-				// We need to convert to an incoming context first in
-				// order to preserve the feature flag.
-				ctx = helper.OutgoingToIncoming(ctx)
-				ctx, err = metadata.InjectTransaction(ctx, 1, "node", testCase.primary)
-				require.NoError(t, err)
-				ctx, err = praefectServer.Inject(ctx)
-				require.NoError(t, err)
-				ctx = helper.IncomingToOutgoing(ctx)
-
-				response, err := client.UserCreateTag(ctx, request)
-				require.NoError(t, err)
-
-				targetOID := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", "refs/tags/"+tagName))
-				peeledOID := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", targetOID+"^{commit}"))
-				targetOIDOK := targetOID
-				if len(testCase.message) > 0 {
-					targetOIDOK = peeledOID
-				}
-				require.Equal(t, targetOIDOK, targetRevision)
-
-				testhelper.ProtoEqual(t, &gitalypb.UserCreateTagResponse{
-					Tag: &gitalypb.Tag{
-						Name:         []byte(tagName),
-						Message:      []byte(testCase.message),
-						MessageSize:  int64(len(testCase.message)),
-						Id:           targetOID,
-						TargetCommit: targetCommit,
-					},
-				}, response)
-
-				// Only the primary node should've executed hooks.
-				if testCase.primary {
-					contents := testhelper.MustReadFile(t, hooksOutputPath)
-					require.Equal(t, "pre-receive\nupdate\npost-receive\n", string(contents))
-				} else {
-					testhelper.AssertPathNotExists(t, hooksOutputPath)
-				}
-
-				require.Equal(t, 1, transactionServer.called)
-				transactionServer.called = 0
-			})
-		}
+	// We're creating a custom server with a fake transaction server which
+	// simply returns success for every call, but tracks the number of
+	// calls. The server is then injected into the client's context to make
+	// it available for transactional voting. We cannot use
+	// runOperationServiceServer as it puts a Praefect server in between if
+	// running Praefect tests, which would break our test setup.
+	transactionServer := &testTransactionServer{}
+	testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
+		gitalypb.RegisterOperationServiceServer(srv, NewServer(deps.GetCfg(), nil, deps.GetHookManager(), deps.GetLocator(), deps.GetConnsPool(), deps.GetGitCmdFactory()))
+		gitalypb.RegisterHookServiceServer(srv, hook.NewServer(deps.GetCfg(), deps.GetHookManager(), deps.GetGitCmdFactory()))
 	})
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	// We're using internal gitaly socket to connect to the server.
+	// This is kind of a hack when running tests with Praefect:
+	// if we directly connect to the server created above, then our call
+	// would be intercepted by Praefect, which would in turn replace the
+	// transaction information we inject further down below. So we instead
+	// use internal socket so we can circumvent Praefect and just talk
+	// to Gitaly directly.
+	client := newMuxedOperationClient(t, ctx, "unix://"+cfg.GitalyInternalSocketPath(), cfg.Auth.Token,
+		backchannel.NewClientHandshaker(
+			testhelper.DiscardTestEntry(t),
+			func() backchannel.Server {
+				srv := grpc.NewServer()
+				gitalypb.RegisterRefTransactionServer(srv, transactionServer)
+				return srv
+			},
+		),
+	)
+
+	praefectServer := &metadata.PraefectServer{
+		SocketPath: "unix://" + cfg.GitalyInternalSocketPath(),
+		Token:      cfg.Auth.Token,
+	}
+
+	for i, testCase := range []struct {
+		desc    string
+		primary bool
+		message string
+	}{
+		{
+			desc:    "primary creates a lightweight tag",
+			primary: true,
+		},
+		{
+			desc:    "secondary creates a lightweight tag",
+			primary: false,
+		},
+		{
+			desc:    "primary creates an annotated tag",
+			primary: true,
+			message: "foobar",
+		},
+		{
+			desc:    "secondary creates an annotated tag",
+			primary: false,
+			message: "foobar",
+		},
+	} {
+		t.Run(testCase.desc, func(t *testing.T) {
+			if err := os.Remove(hooksOutputPath); err != nil {
+				require.True(t, os.IsNotExist(err), "error when cleaning up work area: %v", err)
+			}
+
+			tagName := fmt.Sprintf("tag-%d", i)
+			targetRevision := "c7fbe50c7c7419d9701eebe64b1fdacc3df5b9dd"
+			targetCommit, err := repo.ReadCommit(ctx, git.Revision(targetRevision))
+			require.NoError(t, err)
+
+			request := &gitalypb.UserCreateTagRequest{
+				Repository:     repoProto,
+				TagName:        []byte(tagName),
+				Message:        []byte(testCase.message),
+				TargetRevision: []byte(targetRevision),
+				User:           testhelper.TestUser,
+			}
+
+			// We need to convert to an incoming context first in
+			// order to preserve the feature flag.
+			ctx = helper.OutgoingToIncoming(ctx)
+			ctx, err = metadata.InjectTransaction(ctx, 1, "node", testCase.primary)
+			require.NoError(t, err)
+			ctx, err = praefectServer.Inject(ctx)
+			require.NoError(t, err)
+			ctx = helper.IncomingToOutgoing(ctx)
+
+			response, err := client.UserCreateTag(ctx, request)
+			require.NoError(t, err)
+
+			targetOID := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", "refs/tags/"+tagName))
+			peeledOID := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", targetOID+"^{commit}"))
+			targetOIDOK := targetOID
+			if len(testCase.message) > 0 {
+				targetOIDOK = peeledOID
+			}
+			require.Equal(t, targetOIDOK, targetRevision)
+
+			testhelper.ProtoEqual(t, &gitalypb.UserCreateTagResponse{
+				Tag: &gitalypb.Tag{
+					Name:         []byte(tagName),
+					Message:      []byte(testCase.message),
+					MessageSize:  int64(len(testCase.message)),
+					Id:           targetOID,
+					TargetCommit: targetCommit,
+				},
+			}, response)
+
+			// Only the primary node should've executed hooks.
+			if testCase.primary {
+				contents := testhelper.MustReadFile(t, hooksOutputPath)
+				require.Equal(t, "pre-receive\nupdate\npost-receive\n", string(contents))
+			} else {
+				testhelper.AssertPathNotExists(t, hooksOutputPath)
+			}
+
+			require.Equal(t, 1, transactionServer.called)
+			transactionServer.called = 0
+		})
+	}
 }
 
 func TestSuccessfulUserCreateTagRequestAnnotatedLightweightDisambiguation(t *testing.T) {
