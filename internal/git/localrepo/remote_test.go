@@ -435,6 +435,21 @@ func TestRepo_FetchRemote(t *testing.T) {
 		require.NoError(t, err)
 		require.False(t, containsTags)
 	})
+
+	t.Run("with refspec", func(t *testing.T) {
+		repo, _, cleanup := initBareWithRemote(t, "origin")
+		defer cleanup()
+
+		require.NoError(t, repo.FetchRemote(ctx, "origin", FetchOpts{RefSpecs: []string{"refs/heads/master"}}))
+
+		containsBranch, err := repo.HasRevision(ctx, git.Revision("'test'"))
+		require.NoError(t, err)
+		require.False(t, containsBranch)
+
+		sha, err := repo.ResolveRevision(ctx, git.Revision("refs/remotes/origin/master^{commit}"))
+		require.NoError(t, err, "the object from remote should exists in local after fetch done")
+		require.Equal(t, git.ObjectID("1e292f8fedd741b75372e19097c76d327140c312"), sha)
+	})
 }
 
 func TestRepo_Push(t *testing.T) {

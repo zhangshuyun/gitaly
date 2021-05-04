@@ -215,6 +215,12 @@ type FetchOpts struct {
 	Tags FetchOptsTags
 	// Stderr if set it would be used to redirect stderr stream into it.
 	Stderr io.Writer
+	// RefSpecs specifies which refs to fetch and which local refs to update
+	// https://git-scm.com/docs/git-fetch#Documentation/git-fetch.txt-ltrefspecgt
+	RefSpecs []string
+	// Atomic makes local ref updates use an atomic transaction
+	// https://git-scm.com/docs/git-fetch#Documentation/git-fetch.txt---atomic
+	Atomic bool
 }
 
 // FetchRemote fetches changes from the specified remote.
@@ -234,7 +240,7 @@ func (repo *Repo) FetchRemote(ctx context.Context, remoteName string, opts Fetch
 		git.SubCmd{
 			Name:  "fetch",
 			Flags: opts.buildFlags(),
-			Args:  []string{remoteName},
+			Args:  append([]string{remoteName}, opts.RefSpecs...),
 		},
 		commandOptions...,
 	)
@@ -262,6 +268,10 @@ func (opts FetchOpts) buildFlags() []git.Option {
 
 	if opts.Tags != FetchOptsTagsDefault {
 		flags = append(flags, git.Flag{Name: opts.Tags.String()})
+	}
+
+	if opts.Atomic {
+		flags = append(flags, git.Flag{Name: "--atomic"})
 	}
 
 	return flags
