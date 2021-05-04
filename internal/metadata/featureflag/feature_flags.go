@@ -21,7 +21,7 @@ var (
 	// UserUpdateSubmodules
 	GoUserUpdateSubmodule = FeatureFlag{Name: "go_user_update_submodule", OnByDefault: true}
 	// GoUserRevert enables the Go implementation of UserRevert
-	GoUserRevert = FeatureFlag{Name: "go_user_revert", OnByDefault: false}
+	GoUserRevert = FeatureFlag{Name: "go_user_revert", OnByDefault: true}
 	// GoUpdateRemoteMirror enables the Go implementation of UpdateRemoteMirror
 	GoUpdateRemoteMirror = FeatureFlag{Name: "go_update_remote_mirror", OnByDefault: false}
 	// GrpcTreeEntryNotFound makes the TreeEntry gRPC call return NotFound instead of an empty blob
