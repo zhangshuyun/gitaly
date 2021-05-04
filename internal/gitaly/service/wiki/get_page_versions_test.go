@@ -100,8 +100,7 @@ func testWikiGetPageVersionsRequest(t *testing.T, cfg config.Cfg, rubySrv *rubys
 
 				assert.Equal(t, version.GetFormat(), v2.GetFormat(),
 					"expected wiki page format to be equal for version %d", i)
-				assert.NoError(t, gittest.GitCommitEqual(version.GetCommit(), v2.GetCommit()),
-					"expected wiki page commit to be equal for version %d", i)
+				gittest.CommitEqual(t, version.GetCommit(), v2.GetCommit())
 			}
 		})
 	}
