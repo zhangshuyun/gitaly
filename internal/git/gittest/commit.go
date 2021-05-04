@@ -157,17 +157,6 @@ func CommitBlobWithName(t testing.TB, cfg config.Cfg, testRepoPath, blobID, file
 	)
 }
 
-// CreateCommitOnNewBranch creates a branch and a commit, returning the commit sha and the branch name respectivelyi
-func CreateCommitOnNewBranch(t testing.TB, cfg config.Cfg, repoPath string) (string, string) {
-	nonce, err := text.RandomHex(4)
-	require.NoError(t, err)
-	newBranch := "branch-" + nonce
-
-	sha := WriteCommit(t, cfg, repoPath, WithBranch(newBranch), WithMessage("a new branch and commit "+nonce))
-
-	return sha.String(), newBranch
-}
-
 func authorEqualIgnoringDate(t testing.TB, expected *gitalypb.CommitAuthor, actual *gitalypb.CommitAuthor) {
 	t.Helper()
 	require.Equal(t, expected.GetName(), actual.GetName(), "author name does not match")

@@ -40,7 +40,7 @@ func TestRenameRepositoryDestinationExists(t *testing.T) {
 	destinationRepo, destinationRepoPath, cleanupDestinationRepo := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "dst")
 	t.Cleanup(cleanupDestinationRepo)
 
-	_, sha := gittest.CreateCommitOnNewBranch(t, cfg, destinationRepoPath)
+	sha := gittest.WriteCommit(t, cfg, destinationRepoPath)
 
 	req := &gitalypb.RenameRepositoryRequest{Repository: repo, RelativePath: destinationRepo.GetRelativePath()}
 
@@ -51,7 +51,7 @@ func TestRenameRepositoryDestinationExists(t *testing.T) {
 	testhelper.RequireGrpcError(t, err, codes.FailedPrecondition)
 
 	// ensure the git directory that already existed didn't get overwritten
-	gittest.GitObjectMustExist(t, cfg.Git.BinPath, destinationRepoPath, sha)
+	gittest.GitObjectMustExist(t, cfg.Git.BinPath, destinationRepoPath, sha.String())
 }
 
 func TestRenameRepositoryInvalidRequest(t *testing.T) {
