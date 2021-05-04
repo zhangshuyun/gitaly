@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -22,9 +21,10 @@ const (
 )
 
 type writeCommitConfig struct {
-	branch  string
-	parents []git.ObjectID
-	message string
+	branch      string
+	parents     []git.ObjectID
+	message     string
+	treeEntries []TreeEntry
 }
 
 // WriteCommitOption is an option which can be passed to WriteCommit.
@@ -58,6 +58,14 @@ func WithParents(parents ...git.ObjectID) WriteCommitOption {
 	}
 }
 
+// WithTreeEntries is an option for WriteCommit which will cause it to create a new tree and use it
+// as root tree of the resulting commit.
+func WithTreeEntries(entries ...TreeEntry) WriteCommitOption {
+	return func(cfg *writeCommitConfig) {
+		cfg.treeEntries = entries
+	}
+}
+
 // WriteCommit writes a new commit into the target repository.
 func WriteCommit(t testing.TB, cfg config.Cfg, repoPath string, opts ...WriteCommitOption) git.ObjectID {
 	t.Helper()
@@ -80,7 +88,9 @@ func WriteCommit(t testing.TB, cfg config.Cfg, repoPath string, opts ...WriteCom
 	}
 
 	var tree string
-	if len(parents) == 0 {
+	if len(writeCommitConfig.treeEntries) > 0 {
+		tree = WriteTree(t, cfg, repoPath, writeCommitConfig.treeEntries).String()
+	} else if len(parents) == 0 {
 		// If there are no parents, then we set the root tree to the empty tree.
 		tree = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 	} else {
@@ -139,22 +149,6 @@ func CreateCommitInAlternateObjectDirectory(t testing.TB, gitBin, repoPath, altO
 	require.NoError(t, err)
 
 	return currentHead[:len(currentHead)-1]
-}
-
-// CommitBlobWithName will create a commit for the specified blob with the
-// specified name. This enables testing situations where the filepath is not
-// possible due to filesystem constraints (e.g. non-UTF characters). The commit
-// ID is returned.
-func CommitBlobWithName(t testing.TB, cfg config.Cfg, testRepoPath, blobID, fileName, commitMessage string) string {
-	mktreeIn := strings.NewReader(fmt.Sprintf("100644 blob %s\t%s", blobID, fileName))
-	treeID := text.ChompBytes(ExecStream(t, cfg, mktreeIn, "-C", testRepoPath, "mktree"))
-
-	return text.ChompBytes(
-		Exec(t, cfg,
-			"-c", fmt.Sprintf("user.name=%s", committerName),
-			"-c", fmt.Sprintf("user.email=%s", committerEmail),
-			"-C", testRepoPath, "commit-tree", treeID, "-m", commitMessage),
-	)
 }
 
 func authorEqualIgnoringDate(t testing.TB, expected *gitalypb.CommitAuthor, actual *gitalypb.CommitAuthor) {

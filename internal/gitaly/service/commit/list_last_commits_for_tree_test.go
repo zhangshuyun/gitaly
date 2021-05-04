@@ -331,18 +331,15 @@ func TestNonUtf8ListLastCommitsForTreeRequest(t *testing.T) {
 	nonUTF8Filename := "hello\x80world"
 	require.False(t, utf8.ValidString(nonUTF8Filename))
 
-	commitID := gittest.CommitBlobWithName(
-		t,
-		cfg,
-		repoPath,
-		blobID,
-		nonUTF8Filename,
-		"commit for non-utf8 path",
+	commitID := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithTreeEntries(gittest.TreeEntry{
+			Mode: "100644", Path: nonUTF8Filename, OID: blobID,
+		}),
 	)
 
 	request := &gitalypb.ListLastCommitsForTreeRequest{
 		Repository: repo,
-		Revision:   commitID,
+		Revision:   commitID.String(),
 		Limit:      100,
 		Offset:     0,
 	}

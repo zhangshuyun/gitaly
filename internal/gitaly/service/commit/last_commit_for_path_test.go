@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -121,13 +122,10 @@ func TestSuccessfulLastCommitWithGlobCharacters(t *testing.T) {
 	const blobID = "c60514b6d3d6bf4bec1030f70026e34dfbd69ad5"
 	path := ":wq"
 
-	commitID := gittest.CommitBlobWithName(
-		t,
-		cfg,
-		repoPath,
-		blobID,
-		path,
-		"commit for filename with glob characters",
+	commitID := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithTreeEntries(gittest.TreeEntry{
+			Mode: "100644", Path: path, OID: git.ObjectID(blobID),
+		}),
 	)
 
 	request := &gitalypb.LastCommitForPathRequest{
@@ -142,7 +140,7 @@ func TestSuccessfulLastCommitWithGlobCharacters(t *testing.T) {
 	response, err := client.LastCommitForPath(ctx, request)
 	require.NoError(t, err)
 	require.NotNil(t, response.GetCommit())
-	require.Equal(t, commitID, response.GetCommit().Id)
+	require.Equal(t, commitID.String(), response.GetCommit().Id)
 
 	request.LiteralPathspec = false
 	response, err = client.LastCommitForPath(ctx, request)

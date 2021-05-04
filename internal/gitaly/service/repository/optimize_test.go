@@ -12,7 +12,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/stats"
-	"gitlab.com/gitlab-org/gitaly/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -95,15 +94,15 @@ func TestOptimizeRepository(t *testing.T) {
 	blobs := 10
 	blobIDs := gittest.WriteBlobs(t, cfg, testRepoPath, blobs)
 
-	updater, err := updateref.New(ctx, cfg, git.NewExecCommandFactory(cfg), testRepo)
-	require.NoError(t, err)
-
 	for _, blobID := range blobIDs {
-		commitID := gittest.CommitBlobWithName(t, cfg, testRepoPath, blobID, blobID, "adding another blob....")
-		require.NoError(t, updater.Create(git.ReferenceName("refs/heads/"+blobID), commitID))
+		gittest.WriteCommit(t, cfg, testRepoPath,
+			gittest.WithTreeEntries(gittest.TreeEntry{
+				OID: git.ObjectID(blobID), Mode: "100644", Path: "blob",
+			}),
+			gittest.WithBranch(blobID),
+			gittest.WithParents(),
+		)
 	}
-
-	require.NoError(t, updater.Wait())
 
 	bitmaps, err := filepath.Glob(filepath.Join(testRepoPath, "objects", "pack", "*.bitmap"))
 	require.NoError(t, err)

@@ -117,7 +117,11 @@ func TestGarbageCollectWithPrune(t *testing.T) {
 	oldReferencedObjFile := filepath.Join(repoPath, "objects", blobHashes[2][:2], blobHashes[2][2:])
 
 	// create a reference to the blob, so it should not be removed by gc
-	gittest.CommitBlobWithName(t, cfg, repoPath, blobHashes[2], t.Name(), t.Name())
+	gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithTreeEntries(gittest.TreeEntry{
+			OID: git.ObjectID(blobHashes[2]), Path: t.Name(), Mode: "100644",
+		}),
+	)
 
 	// change modification time of the blobs to make them attractive for the gc
 	aBitMoreThan30MinutesAgo := time.Now().Add(-30*time.Minute - time.Second)

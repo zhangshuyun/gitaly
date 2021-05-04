@@ -41,10 +41,11 @@ func TestWriteCommit(t *testing.T) {
 	}
 
 	for _, tc := range []struct {
-		desc              string
-		opts              []WriteCommitOption
-		expectedCommit    *gitalypb.GitCommit
-		expectedRevUpdate git.Revision
+		desc                string
+		opts                []WriteCommitOption
+		expectedCommit      *gitalypb.GitCommit
+		expectedTreeEntries []TreeEntry
+		expectedRevUpdate   git.Revision
 	}{
 		{
 			desc: "no options",
@@ -123,6 +124,33 @@ func TestWriteCommit(t *testing.T) {
 			},
 			expectedRevUpdate: "refs/heads/foo",
 		},
+		{
+			desc: "with tree entry",
+			opts: []WriteCommitOption{
+				WithTreeEntries(TreeEntry{
+					Content: "foobar",
+					Mode:    "100644",
+					Path:    "file",
+				}),
+			},
+			expectedCommit: &gitalypb.GitCommit{
+				Author:    defaultCommitter,
+				Committer: defaultCommitter,
+				Subject:   []byte("message"),
+				Body:      []byte("message"),
+				Id:        "12da4907ed3331f4991ba6817317a3a90801288e",
+				ParentIds: []string{
+					defaultParentID,
+				},
+			},
+			expectedTreeEntries: []TreeEntry{
+				{
+					Content: "foobar",
+					Mode:    "100644",
+					Path:    "file",
+				},
+			},
+		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			oid := WriteCommit(t, cfg, repoPath, tc.opts...)
@@ -131,6 +159,10 @@ func TestWriteCommit(t *testing.T) {
 			require.NoError(t, err)
 
 			CommitEqual(t, tc.expectedCommit, commit)
+
+			if tc.expectedTreeEntries != nil {
+				RequireTree(t, cfg, repoPath, oid.String(), tc.expectedTreeEntries)
+			}
 
 			if tc.expectedRevUpdate != "" {
 				updatedOID, err := repo.ResolveRevision(ctx, tc.expectedRevUpdate)

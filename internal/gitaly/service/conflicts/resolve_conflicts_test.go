@@ -185,14 +185,22 @@ func TestResolveConflictsWithRemoteRepo(t *testing.T) {
 	sourceRepo, sourceRepoPath, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "source")
 	t.Cleanup(cleanup)
 	sourceBlobOID := gittest.WriteBlob(t, cfg, sourceRepoPath, []byte("contents-1\n"))
-	sourceCommitOID := gittest.CommitBlobWithName(t, cfg, sourceRepoPath, sourceBlobOID.String(), "file.txt", "message")
-	testhelper.MustRunCommand(t, nil, "git", "-C", sourceRepoPath, "update-ref", "refs/heads/source", sourceCommitOID)
+	sourceCommitOID := gittest.WriteCommit(t, cfg, sourceRepoPath,
+		gittest.WithTreeEntries(gittest.TreeEntry{
+			Path: "file.txt", OID: sourceBlobOID, Mode: "100644",
+		}),
+	)
+	testhelper.MustRunCommand(t, nil, "git", "-C", sourceRepoPath, "update-ref", "refs/heads/source", sourceCommitOID.String())
 
 	targetRepo, targetRepoPath, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "target")
 	t.Cleanup(cleanup)
 	targetBlobOID := gittest.WriteBlob(t, cfg, targetRepoPath, []byte("contents-2\n"))
-	targetCommitOID := gittest.CommitBlobWithName(t, cfg, targetRepoPath, targetBlobOID.String(), "file.txt", "message")
-	testhelper.MustRunCommand(t, nil, "git", "-C", targetRepoPath, "update-ref", "refs/heads/target", targetCommitOID)
+	targetCommitOID := gittest.WriteCommit(t, cfg, targetRepoPath,
+		gittest.WithTreeEntries(gittest.TreeEntry{
+			OID: targetBlobOID, Path: "file.txt", Mode: "100644",
+		}),
+	)
+	testhelper.MustRunCommand(t, nil, "git", "-C", targetRepoPath, "update-ref", "refs/heads/target", targetCommitOID.String())
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -218,8 +226,8 @@ func TestResolveConflictsWithRemoteRepo(t *testing.T) {
 				Repository:       sourceRepo,
 				TargetRepository: targetRepo,
 				CommitMessage:    []byte(conflictResolutionCommitMessage),
-				OurCommitOid:     sourceCommitOID,
-				TheirCommitOid:   targetCommitOID,
+				OurCommitOid:     sourceCommitOID.String(),
+				TheirCommitOid:   targetCommitOID.String(),
 				SourceBranch:     []byte("source"),
 				TargetBranch:     []byte("target"),
 				User:             user,
@@ -308,12 +316,20 @@ func TestResolveConflictsLineEndings(t *testing.T) {
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			ourOID := gittest.WriteBlob(t, cfg, repoPath, []byte(tc.ourContent))
-			ourCommit := gittest.CommitBlobWithName(t, cfg, repoPath, ourOID.String(), "file.txt", "message")
-			testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "update-ref", "refs/heads/ours", ourCommit)
+			ourCommit := gittest.WriteCommit(t, cfg, repoPath,
+				gittest.WithTreeEntries(gittest.TreeEntry{
+					OID: ourOID, Path: "file.txt", Mode: "100644",
+				}),
+			)
+			testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "update-ref", "refs/heads/ours", ourCommit.String())
 
 			theirOID := gittest.WriteBlob(t, cfg, repoPath, []byte(tc.theirContent))
-			theirCommit := gittest.CommitBlobWithName(t, cfg, repoPath, theirOID.String(), "file.txt", "message")
-			testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "update-ref", "refs/heads/theirs", theirCommit)
+			theirCommit := gittest.WriteCommit(t, cfg, repoPath,
+				gittest.WithTreeEntries(gittest.TreeEntry{
+					OID: theirOID, Path: "file.txt", Mode: "100644",
+				}),
+			)
+			testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "update-ref", "refs/heads/theirs", theirCommit.String())
 
 			stream, err := client.ResolveConflicts(ctx)
 			require.NoError(t, err)
@@ -327,8 +343,8 @@ func TestResolveConflictsLineEndings(t *testing.T) {
 						Repository:       repo,
 						TargetRepository: repo,
 						CommitMessage:    []byte(conflictResolutionCommitMessage),
-						OurCommitOid:     ourCommit,
-						TheirCommitOid:   theirCommit,
+						OurCommitOid:     ourCommit.String(),
+						TheirCommitOid:   theirCommit.String(),
 						SourceBranch:     []byte("ours"),
 						TargetBranch:     []byte("theirs"),
 						User:             user,
