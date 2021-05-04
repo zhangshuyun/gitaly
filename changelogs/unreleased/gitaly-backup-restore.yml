@@ -1,0 +1,5 @@
+---
+title: 'gitlab-backup: Restore repositories as per backup.rake'
+merge_request: 3383
+author:
+type: added
