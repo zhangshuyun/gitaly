@@ -8,6 +8,7 @@ import (
 
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/ref"
 	"gitlab.com/gitlab-org/gitaly/internal/gitalyssh"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
@@ -32,30 +33,20 @@ func (s *server) FetchInternalRemote(ctx context.Context, req *gitalypb.FetchInt
 		return nil, fmt.Errorf("upload pack environment: %w", err)
 	}
 
+	repo := localrepo.New(s.gitCmdFactory, req.GetRepository(), s.cfg)
 	stderr := &bytes.Buffer{}
 
-	flags := []git.Option{
-		git.Flag{Name: "--prune"},
-		git.Flag{Name: "--atomic"},
-	}
-	options := []git.CmdOpt{
-		git.WithEnv(env...),
-		git.WithStderr(stderr),
-		git.WithRefTxHook(ctx, req.Repository, s.cfg),
-	}
-
-	cmd, err := s.gitCmdFactory.New(ctx, req.Repository,
-		git.SubCmd{
-			Name:  "fetch",
-			Flags: flags,
-			Args:  []string{gitalyssh.GitalyInternalURL, mirrorRefSpec},
+	err = repo.FetchRemote(ctx, gitalyssh.GitalyInternalURL, localrepo.FetchOpts{
+		Env:      env,
+		Stderr:   stderr,
+		Prune:    true,
+		Atomic:   true,
+		RefSpecs: []string{mirrorRefSpec},
+		CommandOptions: []git.CmdOpt{
+			git.WithRefTxHook(ctx, req.Repository, s.cfg),
 		},
-		options...,
-	)
+	})
 	if err != nil {
-		return nil, fmt.Errorf("create git fetch: %w", err)
-	}
-	if err := cmd.Wait(); err != nil {
 		if featureflag.IsDisabled(ctx, featureflag.FetchInternalRemoteErrors) {
 			// Design quirk: if the fetch fails, this RPC returns Result: false, but no error.
 			ctxlogrus.Extract(ctx).WithError(err).WithField("stderr", stderr.String()).Warn("git fetch failed")
