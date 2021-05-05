@@ -1,6 +1,7 @@
 package catfile
 
 import (
+	"context"
 	"strings"
 	"sync"
 	"time"
@@ -10,6 +11,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/internal/metadata"
 )
 
 const (
@@ -29,7 +31,16 @@ var catfileCacheMembers = promauto.NewGauge(
 	},
 )
 
-var cache *batchCache
+// Cache is a cache for git-cat-file(1) processes.
+type Cache interface {
+	// BatchProcess either creates a new git-cat-file(1) process or returns a cached one for
+	// the given repository.
+	BatchProcess(context.Context, repository.GitRepo) (Batch, error)
+	// Evict evicts all cached processes from the cache.
+	Evict()
+}
+
+var cache Cache
 
 func init() {
 	config.RegisterHook(func(cfg *config.Cfg) error {
@@ -107,6 +118,59 @@ func (bc *batchCache) monitor(refreshInterval time.Duration) {
 	}
 }
 
+func (bc *batchCache) BatchProcess(ctx context.Context, repo repository.GitRepo) (Batch, error) {
+	if ctx.Done() == nil {
+		panic("empty ctx.Done() in catfile.Batch.New()")
+	}
+
+	sessionID := metadata.GetValue(ctx, SessionIDField)
+	if sessionID == "" {
+		c, err := newBatch(ctx, bc.gitCmdFactory, repo)
+		if err != nil {
+			return nil, err
+		}
+		return newInstrumentedBatch(c), err
+	}
+
+	cacheKey := newCacheKey(sessionID, repo)
+	requestDone := ctx.Done()
+
+	if c, ok := bc.Checkout(cacheKey); ok {
+		go bc.returnWhenDone(requestDone, cacheKey, c)
+		return newInstrumentedBatch(c), nil
+	}
+
+	// if we are using caching, create a fresh context for the new batch
+	// and initialize the new batch with a bc key and cancel function
+	cacheCtx, cacheCancel := context.WithCancel(context.Background())
+	c, err := newBatch(cacheCtx, bc.gitCmdFactory, repo)
+	if err != nil {
+		cacheCancel()
+		return nil, err
+	}
+
+	c.cancel = cacheCancel
+	go bc.returnWhenDone(requestDone, cacheKey, c)
+
+	return newInstrumentedBatch(c), nil
+}
+
+func (bc *batchCache) returnWhenDone(done <-chan struct{}, cacheKey key, c *batch) {
+	<-done
+
+	if c == nil || c.isClosed() {
+		return
+	}
+
+	if c.hasUnreadData() {
+		catfileCacheCounter.WithLabelValues("dirty").Inc()
+		c.Close()
+		return
+	}
+
+	bc.Add(cacheKey, c)
+}
+
 // Add adds a key, value pair to bc. If there are too many keys in bc
 // already Add will evict old keys until the length is OK again.
 func (bc *batchCache) Add(k key, b *batch) {
@@ -161,7 +225,7 @@ func (bc *batchCache) EnforceTTL(now time.Time) {
 	}
 }
 
-func (bc *batchCache) EvictAll() {
+func (bc *batchCache) Evict() {
 	bc.Lock()
 	defer bc.Unlock()
 
@@ -172,7 +236,7 @@ func (bc *batchCache) EvictAll() {
 
 // ExpireAll is used to expire all of the batches in the cache
 func ExpireAll() {
-	cache.EvictAll()
+	cache.Evict()
 }
 
 func (bc *batchCache) lookup(k key) (int, bool) {

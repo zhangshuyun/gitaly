@@ -8,7 +8,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
-	"gitlab.com/gitlab-org/gitaly/internal/metadata"
 )
 
 var catfileCacheCounter = prometheus.NewCounterVec(
@@ -140,56 +139,7 @@ func (c *batch) isClosed() bool {
 // somewhere, because if it doesn't the cat-file processes spawned by
 // New() never terminate.
 func New(ctx context.Context, gitCmdFactory git.CommandFactory, repo repository.GitRepo) (Batch, error) {
-	if ctx.Done() == nil {
-		panic("empty ctx.Done() in catfile.Batch.New()")
-	}
-
-	sessionID := metadata.GetValue(ctx, SessionIDField)
-	if sessionID == "" {
-		c, err := newBatch(ctx, gitCmdFactory, repo)
-		if err != nil {
-			return nil, err
-		}
-		return newInstrumentedBatch(c), err
-	}
-
-	cacheKey := newCacheKey(sessionID, repo)
-	requestDone := ctx.Done()
-
-	if c, ok := cache.Checkout(cacheKey); ok {
-		go returnToCacheWhenDone(requestDone, cache, cacheKey, c)
-		return newInstrumentedBatch(c), nil
-	}
-
-	// if we are using caching, create a fresh context for the new batch
-	// and initialize the new batch with a cache key and cancel function
-	cacheCtx, cacheCancel := context.WithCancel(context.Background())
-	c, err := newBatch(cacheCtx, gitCmdFactory, repo)
-	if err != nil {
-		cacheCancel()
-		return nil, err
-	}
-
-	c.cancel = cacheCancel
-	go returnToCacheWhenDone(requestDone, cache, cacheKey, c)
-
-	return newInstrumentedBatch(c), nil
-}
-
-func returnToCacheWhenDone(done <-chan struct{}, bc *batchCache, cacheKey key, c *batch) {
-	<-done
-
-	if c == nil || c.isClosed() {
-		return
-	}
-
-	if c.hasUnreadData() {
-		catfileCacheCounter.WithLabelValues("dirty").Inc()
-		c.Close()
-		return
-	}
-
-	bc.Add(cacheKey, c)
+	return cache.BatchProcess(ctx, repo)
 }
 
 var injectSpawnErrors = false
