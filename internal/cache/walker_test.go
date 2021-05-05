@@ -16,6 +16,11 @@ import (
 )
 
 func TestDiskCacheObjectWalker(t *testing.T) {
+	// disable the initial move-and-clear function since we are only
+	// evaluating the walker
+	*cache.ExportDisableMoveAndClear = true
+	defer func() { *cache.ExportDisableMoveAndClear = false }()
+
 	cfg := testcfg.Build(t)
 
 	var shouldExist, shouldNotExist []string
@@ -49,11 +54,6 @@ func TestDiskCacheObjectWalker(t *testing.T) {
 			shouldExist = append(shouldExist, path)
 		}
 	}
-
-	// disable the initial move-and-clear function since we are only
-	// evaluating the walker
-	*cache.ExportDisableMoveAndClear = true
-	defer func() { *cache.ExportDisableMoveAndClear = false }()
 
 	require.NoError(t, cfg.Validate()) // triggers walker
 
