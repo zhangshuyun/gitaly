@@ -40,15 +40,6 @@ type Cache interface {
 	Evict()
 }
 
-var cache Cache
-
-func init() {
-	config.RegisterHook(func(cfg *config.Cfg) error {
-		cache = NewCache(git.NewExecCommandFactory(*cfg), *cfg)
-		return nil
-	})
-}
-
 func newCacheKey(sessionID string, repo repository.GitRepo) key {
 	return key{
 		sessionID:   sessionID,
@@ -242,11 +233,6 @@ func (bc *BatchCache) Evict() {
 	for bc.len() > 0 {
 		bc.evictHead()
 	}
-}
-
-// ExpireAll is used to expire all of the batches in the cache
-func ExpireAll() {
-	cache.Evict()
 }
 
 func (bc *BatchCache) lookup(k key) (int, bool) {

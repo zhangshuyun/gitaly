@@ -135,13 +135,6 @@ func (c *batch) isClosed() bool {
 	return c.closed
 }
 
-// New returns a new Batch instance. It is important that ctx gets canceled
-// somewhere, because if it doesn't the cat-file processes spawned by
-// New() never terminate.
-func New(ctx context.Context, gitCmdFactory git.CommandFactory, repo repository.GitRepo) (Batch, error) {
-	return cache.BatchProcess(ctx, repo)
-}
-
 type simulatedBatchSpawnError struct{}
 
 func (simulatedBatchSpawnError) Error() string { return "simulated spawn error" }
