@@ -10,18 +10,26 @@ import (
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
-func sendCommits(ctx context.Context, sender chunk.Sender, gitCmdFactory git.CommandFactory, repo *gitalypb.Repository, revisionRange []string, paths []string, options *gitalypb.GlobalOptions, extraArgs ...git.Option) error {
+func (s *server) sendCommits(
+	ctx context.Context,
+	sender chunk.Sender,
+	repo *gitalypb.Repository,
+	revisionRange []string,
+	paths []string,
+	options *gitalypb.GlobalOptions,
+	extraArgs ...git.Option,
+) error {
 	revisions := make([]git.Revision, len(revisionRange))
 	for i, revision := range revisionRange {
 		revisions[i] = git.Revision(revision)
 	}
 
-	cmd, err := log.GitLogCommand(ctx, gitCmdFactory, repo, revisions, paths, options, extraArgs...)
+	cmd, err := log.GitLogCommand(ctx, s.gitCmdFactory, repo, revisions, paths, options, extraArgs...)
 	if err != nil {
 		return err
 	}
 
-	logParser, err := log.NewLogParser(ctx, gitCmdFactory, repo, cmd)
+	logParser, err := log.NewLogParser(ctx, s.catfileCache, repo, cmd)
 	if err != nil {
 		return err
 	}

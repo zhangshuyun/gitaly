@@ -33,7 +33,8 @@ func setupBatch(t *testing.T, ctx context.Context) (config.Cfg, catfile.Batch, *
 
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
-	c, err := catfile.New(ctx, git.NewExecCommandFactory(cfg), repo)
+	catfileCache := catfile.NewCache(git.NewExecCommandFactory(cfg), cfg)
+	c, err := catfileCache.BatchProcess(ctx, repo)
 	require.NoError(t, err)
 
 	return cfg, c, repo

@@ -34,10 +34,9 @@ func (s *server) CommitsBetween(in *gitalypb.CommitsBetweenRequest, stream gital
 	from, to, limit := normalizedCommitsBetweenParams(in)
 	revisionRange := fmt.Sprintf("%s..%s", from, to)
 
-	if err := sendCommits(
+	if err := s.sendCommits(
 		stream.Context(),
 		sender,
-		s.gitCmdFactory,
 		in.GetRepository(),
 		[]string{revisionRange},
 		nil,
