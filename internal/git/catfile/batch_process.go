@@ -33,7 +33,7 @@ type batchProcess struct {
 	sync.Mutex
 }
 
-func (bc *batchCache) newBatchProcess(ctx context.Context, repo repository.GitRepo) (*batchProcess, error) {
+func (bc *BatchCache) newBatchProcess(ctx context.Context, repo repository.GitRepo) (*batchProcess, error) {
 	totalCatfileProcesses.Inc()
 	b := &batchProcess{}
 

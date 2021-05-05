@@ -20,7 +20,7 @@ type batchCheckProcess struct {
 	sync.Mutex
 }
 
-func (bc *batchCache) newBatchCheckProcess(ctx context.Context, repo repository.GitRepo) (*batchCheckProcess, error) {
+func (bc *BatchCache) newBatchCheckProcess(ctx context.Context, repo repository.GitRepo) (*batchCheckProcess, error) {
 	process := &batchCheckProcess{}
 
 	var stdinReader io.Reader

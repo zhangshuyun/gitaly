@@ -78,11 +78,11 @@ type entry struct {
 	expiry time.Time
 }
 
-// batchCache entries always get added to the back of the list. If the
+// BatchCache entries always get added to the back of the list. If the
 // list gets too long, we evict entries from the front of the list. When
 // an entry gets added it gets an expiry time based on a fixed TTL. A
 // monitor goroutine periodically evicts expired entries.
-type batchCache struct {
+type BatchCache struct {
 	gitCmdFactory git.CommandFactory
 
 	entries []*entry
@@ -99,12 +99,12 @@ type batchCache struct {
 	injectSpawnErrors bool
 }
 
-func newCache(gitCmdFactory git.CommandFactory, ttl time.Duration, maxLen int, refreshInterval time.Duration) *batchCache {
+func newCache(gitCmdFactory git.CommandFactory, ttl time.Duration, maxLen int, refreshInterval time.Duration) *BatchCache {
 	if maxLen <= 0 {
 		maxLen = defaultMaxLen
 	}
 
-	bc := &batchCache{
+	bc := &BatchCache{
 		gitCmdFactory: gitCmdFactory,
 		maxLen:        maxLen,
 		ttl:           ttl,
@@ -114,15 +114,16 @@ func newCache(gitCmdFactory git.CommandFactory, ttl time.Duration, maxLen int, r
 	return bc
 }
 
-func (bc *batchCache) monitor(refreshInterval time.Duration) {
+func (bc *BatchCache) monitor(refreshInterval time.Duration) {
 	ticker := time.NewTicker(refreshInterval)
 
 	for range ticker.C {
-		bc.EnforceTTL(time.Now())
+		bc.enforceTTL(time.Now())
 	}
 }
 
-func (bc *batchCache) BatchProcess(ctx context.Context, repo repository.GitRepo) (Batch, error) {
+// BatchProcess creates a new Batch process for the given repository.
+func (bc *BatchCache) BatchProcess(ctx context.Context, repo repository.GitRepo) (Batch, error) {
 	if ctx.Done() == nil {
 		panic("empty ctx.Done() in catfile.Batch.New()")
 	}
@@ -139,7 +140,7 @@ func (bc *batchCache) BatchProcess(ctx context.Context, repo repository.GitRepo)
 	cacheKey := newCacheKey(sessionID, repo)
 	requestDone := ctx.Done()
 
-	if c, ok := bc.Checkout(cacheKey); ok {
+	if c, ok := bc.checkout(cacheKey); ok {
 		go bc.returnWhenDone(requestDone, cacheKey, c)
 		return newInstrumentedBatch(c), nil
 	}
@@ -159,7 +160,7 @@ func (bc *batchCache) BatchProcess(ctx context.Context, repo repository.GitRepo)
 	return newInstrumentedBatch(c), nil
 }
 
-func (bc *batchCache) returnWhenDone(done <-chan struct{}, cacheKey key, c *batch) {
+func (bc *BatchCache) returnWhenDone(done <-chan struct{}, cacheKey key, c *batch) {
 	<-done
 
 	if c == nil || c.isClosed() {
@@ -172,12 +173,12 @@ func (bc *batchCache) returnWhenDone(done <-chan struct{}, cacheKey key, c *batc
 		return
 	}
 
-	bc.Add(cacheKey, c)
+	bc.add(cacheKey, c)
 }
 
-// Add adds a key, value pair to bc. If there are too many keys in bc
-// already Add will evict old keys until the length is OK again.
-func (bc *batchCache) Add(k key, b *batch) {
+// add adds a key, value pair to bc. If there are too many keys in bc
+// already add will evict old keys until the length is OK again.
+func (bc *BatchCache) add(k key, b *batch) {
 	bc.Lock()
 	defer bc.Unlock()
 
@@ -196,12 +197,12 @@ func (bc *batchCache) Add(k key, b *batch) {
 	catfileCacheMembers.Set(float64(bc.len()))
 }
 
-func (bc *batchCache) head() *entry { return bc.entries[0] }
-func (bc *batchCache) evictHead()   { bc.delete(0, true) }
-func (bc *batchCache) len() int     { return len(bc.entries) }
+func (bc *BatchCache) head() *entry { return bc.entries[0] }
+func (bc *BatchCache) evictHead()   { bc.delete(0, true) }
+func (bc *BatchCache) len() int     { return len(bc.entries) }
 
-// Checkout removes a value from bc. After use the caller can re-add the value with bc.Add.
-func (bc *batchCache) Checkout(k key) (*batch, bool) {
+// checkout removes a value from bc. After use the caller can re-add the value with bc.Add.
+func (bc *BatchCache) checkout(k key) (*batch, bool) {
 	bc.Lock()
 	defer bc.Unlock()
 
@@ -218,9 +219,9 @@ func (bc *batchCache) Checkout(k key) (*batch, bool) {
 	return ent.value, true
 }
 
-// EnforceTTL evicts all entries older than now, assuming the entry
+// enforceTTL evicts all entries older than now, assuming the entry
 // expiry times are increasing.
-func (bc *batchCache) EnforceTTL(now time.Time) {
+func (bc *BatchCache) enforceTTL(now time.Time) {
 	bc.Lock()
 	defer bc.Unlock()
 
@@ -229,7 +230,8 @@ func (bc *batchCache) EnforceTTL(now time.Time) {
 	}
 }
 
-func (bc *batchCache) Evict() {
+// Evict evicts all cached processes from the cache.
+func (bc *BatchCache) Evict() {
 	bc.Lock()
 	defer bc.Unlock()
 
@@ -243,7 +245,7 @@ func ExpireAll() {
 	cache.Evict()
 }
 
-func (bc *batchCache) lookup(k key) (int, bool) {
+func (bc *BatchCache) lookup(k key) (int, bool) {
 	for i, ent := range bc.entries {
 		if ent.key == k {
 			return i, true
@@ -253,7 +255,7 @@ func (bc *batchCache) lookup(k key) (int, bool) {
 	return -1, false
 }
 
-func (bc *batchCache) delete(i int, wantClose bool) {
+func (bc *BatchCache) delete(i int, wantClose bool) {
 	ent := bc.entries[i]
 
 	if wantClose {

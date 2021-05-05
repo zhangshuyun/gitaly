@@ -146,7 +146,7 @@ type simulatedBatchSpawnError struct{}
 
 func (simulatedBatchSpawnError) Error() string { return "simulated spawn error" }
 
-func (bc *batchCache) newBatch(ctx context.Context, repo repository.GitRepo) (_ *batch, err error) {
+func (bc *BatchCache) newBatch(ctx context.Context, repo repository.GitRepo) (_ *batch, err error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer func() {
 		if err != nil {

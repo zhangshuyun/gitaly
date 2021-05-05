@@ -18,21 +18,21 @@ func TestCacheAdd(t *testing.T) {
 
 	key0 := testKey(0)
 	value0 := testValue()
-	bc.Add(key0, value0)
+	bc.add(key0, value0)
 	requireCacheValid(t, bc)
 
 	key1 := testKey(1)
-	bc.Add(key1, testValue())
+	bc.add(key1, testValue())
 	requireCacheValid(t, bc)
 
 	key2 := testKey(2)
-	bc.Add(key2, testValue())
+	bc.add(key2, testValue())
 	requireCacheValid(t, bc)
 
 	// Because maxLen is 3, and key0 is oldest, we expect that adding key3
 	// will kick out key0.
 	key3 := testKey(3)
-	bc.Add(key3, testValue())
+	bc.add(key3, testValue())
 	requireCacheValid(t, bc)
 
 	require.Equal(t, maxLen, bc.len(), "length should be maxLen")
@@ -47,17 +47,17 @@ func TestCacheAddTwice(t *testing.T) {
 
 	key0 := testKey(0)
 	value0 := testValue()
-	bc.Add(key0, value0)
+	bc.add(key0, value0)
 	requireCacheValid(t, bc)
 
 	key1 := testKey(1)
-	bc.Add(key1, testValue())
+	bc.add(key1, testValue())
 	requireCacheValid(t, bc)
 
 	require.Equal(t, key0, bc.head().key, "key0 should be oldest key")
 
 	value2 := testValue()
-	bc.Add(key0, value2)
+	bc.add(key0, value2)
 	requireCacheValid(t, bc)
 
 	require.Equal(t, key1, bc.head().key, "key1 should be oldest key")
@@ -73,14 +73,14 @@ func TestCacheCheckout(t *testing.T) {
 
 	key0 := testKey(0)
 	value0 := testValue()
-	bc.Add(key0, value0)
+	bc.add(key0, value0)
 
-	v, ok := bc.Checkout(key{sessionID: "foo"})
+	v, ok := bc.checkout(key{sessionID: "foo"})
 	requireCacheValid(t, bc)
 	require.Nil(t, v, "expect nil value when key not found")
 	require.False(t, ok, "ok flag")
 
-	v, ok = bc.Checkout(key0)
+	v, ok = bc.checkout(key0)
 	requireCacheValid(t, bc)
 
 	require.Equal(t, value0, v)
@@ -88,7 +88,7 @@ func TestCacheCheckout(t *testing.T) {
 
 	require.False(t, v.isClosed(), "value should not be closed after checkout")
 
-	v, ok = bc.Checkout(key0)
+	v, ok = bc.checkout(key0)
 	require.False(t, ok, "ok flag after second checkout")
 	require.Nil(t, v, "value from second checkout")
 }
@@ -103,29 +103,29 @@ func TestCacheEnforceTTL(t *testing.T) {
 
 	key0 := testKey(0)
 	value0 := testValue()
-	bc.Add(key0, value0)
+	bc.add(key0, value0)
 	sleep()
 
 	key1 := testKey(1)
 	value1 := testValue()
-	bc.Add(key1, value1)
+	bc.add(key1, value1)
 	sleep()
 
 	cutoff := time.Now().Add(ttl)
 	sleep()
 
 	key2 := testKey(2)
-	bc.Add(key2, testValue())
+	bc.add(key2, testValue())
 	sleep()
 
 	key3 := testKey(3)
-	bc.Add(key3, testValue())
+	bc.add(key3, testValue())
 	sleep()
 
 	requireCacheValid(t, bc)
 
 	// We expect this cutoff to cause eviction of key0 and key1 but no other keys.
-	bc.EnforceTTL(cutoff)
+	bc.enforceTTL(cutoff)
 
 	requireCacheValid(t, bc)
 
@@ -135,7 +135,7 @@ func TestCacheEnforceTTL(t *testing.T) {
 
 	require.Equal(t, []key{key2, key3}, keys(bc), "remaining keys after EnforceTTL")
 
-	bc.EnforceTTL(cutoff)
+	bc.enforceTTL(cutoff)
 
 	requireCacheValid(t, bc)
 	require.Equal(t, []key{key2, key3}, keys(bc), "remaining keys after second EnforceTTL")
@@ -150,7 +150,7 @@ func TestAutoExpiry(t *testing.T) {
 
 	key0 := testKey(0)
 	value0 := testValue()
-	bc.Add(key0, value0)
+	bc.add(key0, value0)
 	requireCacheValid(t, bc)
 
 	require.Contains(t, keys(bc), key0, "key should still be in map")
@@ -169,7 +169,7 @@ func TestAutoExpiry(t *testing.T) {
 	require.True(t, value0.isClosed(), "value should be closed after eviction")
 }
 
-func requireCacheValid(t *testing.T, bc *batchCache) {
+func requireCacheValid(t *testing.T, bc *BatchCache) {
 	bc.Lock()
 	defer bc.Unlock()
 
@@ -183,7 +183,7 @@ func testValue() *batch { return &batch{} }
 
 func testKey(i int) key { return key{sessionID: fmt.Sprintf("key-%d", i)} }
 
-func keys(bc *batchCache) []key {
+func keys(bc *BatchCache) []key {
 	bc.Lock()
 	defer bc.Unlock()
 
