@@ -12,8 +12,8 @@ import (
 )
 
 const (
-	// DefaultBatchfileTTL is the default ttl for batch files to live in the cache
-	DefaultBatchfileTTL = 10 * time.Second
+	// defaultBatchfileTTL is the default ttl for batch files to live in the cache
+	defaultBatchfileTTL = 10 * time.Second
 
 	defaultEvictionInterval = 1 * time.Second
 
@@ -32,7 +32,7 @@ var cache *batchCache
 
 func init() {
 	config.RegisterHook(func(cfg *config.Cfg) error {
-		cache = newCache(DefaultBatchfileTTL, cfg.Git.CatfileCacheSize)
+		cache = newCache(defaultBatchfileTTL, cfg.Git.CatfileCacheSize)
 		return nil
 	})
 }
