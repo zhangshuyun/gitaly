@@ -38,7 +38,11 @@ func setupCleanupService(t *testing.T) (config.Cfg, *gitalypb.Repository, string
 
 func runCleanupServiceServer(t *testing.T, cfg config.Cfg) string {
 	return testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
-		gitalypb.RegisterCleanupServiceServer(srv, NewServer(deps.GetCfg(), deps.GetGitCmdFactory()))
+		gitalypb.RegisterCleanupServiceServer(srv, NewServer(
+			deps.GetCfg(),
+			deps.GetGitCmdFactory(),
+			deps.GetCatfileCache(),
+		))
 		gitalypb.RegisterHookServiceServer(srv, hookservice.NewServer(deps.GetCfg(), deps.GetHookManager(), deps.GetGitCmdFactory()))
 	})
 }
