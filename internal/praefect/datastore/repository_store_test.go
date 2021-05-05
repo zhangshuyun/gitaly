@@ -311,32 +311,44 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 		t.Run("successfully created", func(t *testing.T) {
 			for _, tc := range []struct {
 				desc                string
-				secondaries         []string
+				updatedSecondaries  []string
+				outdatedSecondaries []string
 				storePrimary        bool
 				storeAssignments    bool
 				expectedPrimary     string
 				expectedAssignments []string
 			}{
 				{
-					desc: "store only repository record",
+					desc: "store only repository record for primary",
 				},
 				{
-					desc:            "primary stored",
-					secondaries:     []string{"secondary-1", "secondary-2"},
-					storePrimary:    true,
-					expectedPrimary: "primary",
+					desc:                "store only repository records for primary and outdated secondaries",
+					outdatedSecondaries: []string{"secondary-1", "secondary-2"},
+				},
+				{
+					desc:               "store only repository records for primary and updated secondaries",
+					updatedSecondaries: []string{"secondary-1", "secondary-2"},
+				},
+				{
+					desc:                "primary stored",
+					updatedSecondaries:  []string{"secondary-1"},
+					outdatedSecondaries: []string{"secondary-2"},
+					storePrimary:        true,
+					expectedPrimary:     "primary",
 				},
 				{
 					desc:                "assignments stored",
 					storeAssignments:    true,
-					secondaries:         []string{"secondary-1", "secondary-2"},
+					updatedSecondaries:  []string{"secondary-1"},
+					outdatedSecondaries: []string{"secondary-2"},
 					expectedAssignments: []string{"primary", "secondary-1", "secondary-2"},
 				},
 				{
 					desc:                "store primary and assignments",
 					storePrimary:        true,
 					storeAssignments:    true,
-					secondaries:         []string{"secondary-1", "secondary-2"},
+					updatedSecondaries:  []string{"secondary-1"},
+					outdatedSecondaries: []string{"secondary-2"},
 					expectedPrimary:     "primary",
 					expectedAssignments: []string{"primary", "secondary-1", "secondary-2"},
 				},
@@ -344,7 +356,8 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 					desc:                "store primary and no secondaries",
 					storePrimary:        true,
 					storeAssignments:    true,
-					secondaries:         []string{},
+					updatedSecondaries:  []string{},
+					outdatedSecondaries: []string{},
 					expectedPrimary:     "primary",
 					expectedAssignments: []string{"primary"},
 				},
@@ -359,7 +372,20 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 				t.Run(tc.desc, func(t *testing.T) {
 					rs, requireState := newStore(t, nil)
 
-					require.NoError(t, rs.CreateRepository(ctx, vs, repo, "primary", tc.secondaries, tc.storePrimary, tc.storeAssignments))
+					require.NoError(t, rs.CreateRepository(ctx, vs, repo, "primary", tc.updatedSecondaries, tc.outdatedSecondaries, tc.storePrimary, tc.storeAssignments))
+
+					expectedStorageState := storageState{
+						vs: {
+							repo: {
+								"primary": 0,
+							},
+						},
+					}
+
+					for _, updatedSecondary := range tc.updatedSecondaries {
+						expectedStorageState[vs][repo][updatedSecondary] = 0
+					}
+
 					requireState(t, ctx,
 						virtualStorageState{
 							vs: {
@@ -369,13 +395,7 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 								},
 							},
 						},
-						storageState{
-							vs: {
-								repo: {
-									"primary": 0,
-								},
-							},
-						},
+						expectedStorageState,
 					)
 				})
 			}
@@ -384,10 +404,10 @@ func testRepositoryStore(t *testing.T, newStore repositoryStoreFactory) {
 		t.Run("conflict", func(t *testing.T) {
 			rs, _ := newStore(t, nil)
 
-			require.NoError(t, rs.CreateRepository(ctx, vs, repo, stor, nil, false, false))
+			require.NoError(t, rs.CreateRepository(ctx, vs, repo, stor, nil, nil, false, false))
 			require.Equal(t,
 				RepositoryExistsError{vs, repo, stor},
-				rs.CreateRepository(ctx, vs, repo, stor, nil, false, false),
+				rs.CreateRepository(ctx, vs, repo, stor, nil, nil, false, false),
 			)
 		})
 	})

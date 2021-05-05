@@ -897,7 +897,8 @@ func (c *Coordinator) newRequestFinalizer(
 				virtualStorage,
 				targetRepo.GetRelativePath(),
 				primary,
-				append(updatedSecondaries, outdatedSecondaries...),
+				updatedSecondaries,
+				outdatedSecondaries,
 				repositorySpecificPrimariesEnabled,
 				variableReplicationFactorEnabled,
 			); err != nil {
