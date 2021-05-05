@@ -15,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/bootstrap/starter"
 	"gitlab.com/gitlab-org/gitaly/internal/cgroups"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config/sentry"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
@@ -167,6 +168,8 @@ func run(cfg config.Cfg) error {
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
 	prometheus.MustRegister(gitCmdFactory)
 
+	catfileCache := catfile.NewCache(gitCmdFactory, cfg)
+
 	gitalyServerFactory := server.NewGitalyServerFactory(cfg, registry)
 	defer gitalyServerFactory.Stop()
 
@@ -206,6 +209,7 @@ func run(cfg config.Cfg) error {
 			ClientPool:         conns,
 			GitCmdFactory:      gitCmdFactory,
 			Linguist:           ling,
+			CatfileCache:       catfileCache,
 		})
 		b.RegisterStarter(starter.New(c, srv))
 	}

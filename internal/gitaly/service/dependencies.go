@@ -4,6 +4,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	gitalyhook "gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/linguist"
@@ -25,6 +26,7 @@ type Dependencies struct {
 	Linguist            *linguist.Instance
 	BackchannelRegistry *backchannel.Registry
 	GitlabClient        gitlab.Client
+	CatfileCache        catfile.Cache
 }
 
 // GetCfg returns service configuration.
@@ -75,4 +77,9 @@ func (dc *Dependencies) GetBackchannelRegistry() *backchannel.Registry {
 // GetGitlabClient returns client to access GitLab API.
 func (dc *Dependencies) GetGitlabClient() gitlab.Client {
 	return dc.GitlabClient
+}
+
+// GetCatfileCache returns catfile cache.
+func (dc *Dependencies) GetCatfileCache() catfile.Cache {
+	return dc.CatfileCache
 }

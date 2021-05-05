@@ -44,12 +44,7 @@ var cache Cache
 
 func init() {
 	config.RegisterHook(func(cfg *config.Cfg) error {
-		cache = newCache(
-			git.NewExecCommandFactory(*cfg),
-			defaultBatchfileTTL,
-			cfg.Git.CatfileCacheSize,
-			defaultEvictionInterval,
-		)
+		cache = NewCache(git.NewExecCommandFactory(*cfg), *cfg)
 		return nil
 	})
 }
@@ -97,6 +92,15 @@ type BatchCache struct {
 	// injectSpawnErrors is used for testing purposes only. If set to true, then spawned batch
 	// processes will simulate spawn errors.
 	injectSpawnErrors bool
+}
+
+// NewCache creates a new catfile process cache.
+func NewCache(gitCmdFactory git.CommandFactory, cfg config.Cfg) *BatchCache {
+	return newCache(gitCmdFactory,
+		defaultBatchfileTTL,
+		cfg.Git.CatfileCacheSize,
+		defaultEvictionInterval,
+	)
 }
 
 func newCache(gitCmdFactory git.CommandFactory, ttl time.Duration, maxLen int, refreshInterval time.Duration) *BatchCache {

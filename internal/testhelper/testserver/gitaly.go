@@ -17,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config/auth"
 	gitalylog "gitlab.com/gitlab-org/gitaly/internal/gitaly/config/log"
@@ -269,6 +270,7 @@ type gitalyServerDeps struct {
 	gitCmdFactory   git.CommandFactory
 	linguist        *linguist.Instance
 	backchannelReg  *backchannel.Registry
+	catfileCache    catfile.Cache
 }
 
 func (gsd *gitalyServerDeps) createDependencies(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server) *service.Dependencies {
@@ -310,6 +312,10 @@ func (gsd *gitalyServerDeps) createDependencies(t testing.TB, cfg config.Cfg, ru
 		require.NoError(t, err)
 	}
 
+	if gsd.catfileCache == nil {
+		gsd.catfileCache = catfile.NewCache(gsd.gitCmdFactory, cfg)
+	}
+
 	return &service.Dependencies{
 		Cfg:                 cfg,
 		RubyServer:          rubyServer,
@@ -321,6 +327,7 @@ func (gsd *gitalyServerDeps) createDependencies(t testing.TB, cfg config.Cfg, ru
 		Linguist:            gsd.linguist,
 		BackchannelRegistry: gsd.backchannelReg,
 		GitlabClient:        gsd.gitlabClient,
+		CatfileCache:        gsd.catfileCache,
 	}
 }
 
@@ -379,6 +386,14 @@ func WithDisablePraefect() GitalyServerOpt {
 func WithBackchannelRegistry(backchannelReg *backchannel.Registry) GitalyServerOpt {
 	return func(deps gitalyServerDeps) gitalyServerDeps {
 		deps.backchannelReg = backchannelReg
+		return deps
+	}
+}
+
+// WithCatfileCache sets catfile.Cache instance that will be used for gitaly services initialisation.
+func WithCatfileCache(catfileCache catfile.Cache) GitalyServerOpt {
+	return func(deps gitalyServerDeps) gitalyServerDeps {
+		deps.catfileCache = catfileCache
 		return deps
 	}
 }
