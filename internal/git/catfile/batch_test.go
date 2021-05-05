@@ -336,7 +336,7 @@ func TestSpawnFailure(t *testing.T) {
 	defer func(old *batchCache) { cache = old }(cache)
 
 	// Use very high values to effectively disable auto-expiry
-	cache = newCache(1*time.Hour, 1000)
+	cache = newCache(1*time.Hour, 1000, defaultEvictionInterval)
 	defer cache.EvictAll()
 
 	require.True(

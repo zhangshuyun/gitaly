@@ -32,7 +32,7 @@ var cache *batchCache
 
 func init() {
 	config.RegisterHook(func(cfg *config.Cfg) error {
-		cache = newCache(defaultBatchfileTTL, cfg.Git.CatfileCacheSize)
+		cache = newCache(defaultBatchfileTTL, cfg.Git.CatfileCacheSize, defaultEvictionInterval)
 		return nil
 	})
 }
@@ -76,11 +76,7 @@ type batchCache struct {
 	ttl time.Duration
 }
 
-func newCache(ttl time.Duration, maxLen int) *batchCache {
-	return newCacheWithRefresh(ttl, maxLen, defaultEvictionInterval)
-}
-
-func newCacheWithRefresh(ttl time.Duration, maxLen int, refreshInterval time.Duration) *batchCache {
+func newCache(ttl time.Duration, maxLen int, refreshInterval time.Duration) *batchCache {
 	if maxLen <= 0 {
 		maxLen = defaultMaxLen
 	}
