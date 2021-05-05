@@ -148,7 +148,7 @@ type simulatedBatchSpawnError struct{}
 
 func (simulatedBatchSpawnError) Error() string { return "simulated spawn error" }
 
-func newBatch(ctx context.Context, gitCmdFactory git.CommandFactory, repo repository.GitRepo) (_ *batch, err error) {
+func (bc *batchCache) newBatch(ctx context.Context, repo repository.GitRepo) (_ *batch, err error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer func() {
 		if err != nil {
@@ -156,12 +156,12 @@ func newBatch(ctx context.Context, gitCmdFactory git.CommandFactory, repo reposi
 		}
 	}()
 
-	batchProcess, err := newBatchProcess(ctx, gitCmdFactory, repo)
+	batchProcess, err := bc.newBatchProcess(ctx, repo)
 	if err != nil {
 		return nil, err
 	}
 
-	batchCheckProcess, err := newBatchCheckProcess(ctx, gitCmdFactory, repo)
+	batchCheckProcess, err := bc.newBatchCheckProcess(ctx, repo)
 	if err != nil {
 		return nil, err
 	}

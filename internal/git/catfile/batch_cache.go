@@ -125,7 +125,7 @@ func (bc *batchCache) BatchProcess(ctx context.Context, repo repository.GitRepo)
 
 	sessionID := metadata.GetValue(ctx, SessionIDField)
 	if sessionID == "" {
-		c, err := newBatch(ctx, bc.gitCmdFactory, repo)
+		c, err := bc.newBatch(ctx, repo)
 		if err != nil {
 			return nil, err
 		}
@@ -143,7 +143,7 @@ func (bc *batchCache) BatchProcess(ctx context.Context, repo repository.GitRepo)
 	// if we are using caching, create a fresh context for the new batch
 	// and initialize the new batch with a bc key and cancel function
 	cacheCtx, cacheCancel := context.WithCancel(context.Background())
-	c, err := newBatch(cacheCtx, bc.gitCmdFactory, repo)
+	c, err := bc.newBatch(cacheCtx, repo)
 	if err != nil {
 		cacheCancel()
 		return nil, err

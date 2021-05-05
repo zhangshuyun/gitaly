@@ -33,7 +33,7 @@ type batchProcess struct {
 	sync.Mutex
 }
 
-func newBatchProcess(ctx context.Context, gitCmdFactory git.CommandFactory, repo repository.GitRepo) (*batchProcess, error) {
+func (bc *batchCache) newBatchProcess(ctx context.Context, repo repository.GitRepo) (*batchProcess, error) {
 	totalCatfileProcesses.Inc()
 	b := &batchProcess{}
 
@@ -45,7 +45,7 @@ func newBatchProcess(ctx context.Context, gitCmdFactory git.CommandFactory, repo
 	ctx = correlation.ContextWithCorrelation(ctx, "")
 	ctx = opentracing.ContextWithSpan(ctx, nil)
 
-	batchCmd, err := gitCmdFactory.New(ctx, repo,
+	batchCmd, err := bc.gitCmdFactory.New(ctx, repo,
 		git.SubCmd{
 			Name: "cat-file",
 			Flags: []git.Option{
