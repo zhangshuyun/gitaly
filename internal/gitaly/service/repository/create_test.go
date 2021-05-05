@@ -40,16 +40,13 @@ func TestCreateRepositorySuccess(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	storageDir := cfg.Storages[0].Path
 	relativePath := "create-repository-test.git"
-	repoDir := filepath.Join(storageDir, relativePath)
-	require.NoError(t, os.RemoveAll(repoDir))
+	repoDir := filepath.Join(cfg.Storages[0].Path, relativePath)
 
 	repo := &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: relativePath}
 	req := &gitalypb.CreateRepositoryRequest{Repository: repo}
 	_, err := client.CreateRepository(ctx, req)
 	require.NoError(t, err)
-	defer func() { require.NoError(t, os.RemoveAll(repoDir)) }()
 
 	fi, err := os.Stat(repoDir)
 	require.NoError(t, err)
@@ -78,7 +75,6 @@ func TestCreateRepositoryFailure(t *testing.T) {
 
 	_, err := os.Create(fullPath)
 	require.NoError(t, err)
-	defer os.RemoveAll(fullPath)
 
 	_, err = client.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{
 		Repository: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "foo.git"},
