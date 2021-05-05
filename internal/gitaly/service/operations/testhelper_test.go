@@ -135,7 +135,15 @@ func runOperationServiceServer(t testing.TB, cfg config.Cfg, rubySrv *rubyserver
 	t.Helper()
 
 	return testserver.RunGitalyServer(t, cfg, rubySrv, func(srv *grpc.Server, deps *service.Dependencies) {
-		gitalypb.RegisterOperationServiceServer(srv, NewServer(deps.GetCfg(), deps.GetRubyServer(), deps.GetHookManager(), deps.GetLocator(), deps.GetConnsPool(), deps.GetGitCmdFactory()))
+		gitalypb.RegisterOperationServiceServer(srv, NewServer(
+			deps.GetCfg(),
+			deps.GetRubyServer(),
+			deps.GetHookManager(),
+			deps.GetLocator(),
+			deps.GetConnsPool(),
+			deps.GetGitCmdFactory(),
+			deps.GetCatfileCache(),
+		))
 		gitalypb.RegisterHookServiceServer(srv, hook.NewServer(cfg, deps.GetHookManager(), deps.GetGitCmdFactory()))
 		gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(cfg, rubySrv, deps.GetLocator(), deps.GetTxManager(), deps.GetGitCmdFactory()))
 		gitalypb.RegisterRefServiceServer(srv, ref.NewServer(cfg, deps.GetLocator(), deps.GetGitCmdFactory(), deps.GetTxManager()))

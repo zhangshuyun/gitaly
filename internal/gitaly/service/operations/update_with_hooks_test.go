@@ -62,7 +62,7 @@ func TestUpdateReferenceWithHooks_invalidParameters(t *testing.T) {
 
 	revA, revB := git.ObjectID(strings.Repeat("a", 40)), git.ObjectID(strings.Repeat("b", 40))
 
-	server := NewServer(cfg, nil, &mockHookManager{}, nil, nil, nil)
+	server := NewServer(cfg, nil, &mockHookManager{}, nil, nil, nil, nil)
 
 	testCases := []struct {
 		desc           string
@@ -264,7 +264,7 @@ func TestUpdateReferenceWithHooks(t *testing.T) {
 			}
 
 			gitCmdFactory := git.NewExecCommandFactory(cfg)
-			hookServer := NewServer(cfg, nil, hookManager, nil, nil, gitCmdFactory)
+			hookServer := NewServer(cfg, nil, hookManager, nil, nil, gitCmdFactory, nil)
 
 			err := hookServer.updateReferenceWithHooks(ctx, repo, user, git.ReferenceName("refs/heads/master"), git.ZeroOID, git.ObjectID(oldRev))
 			if tc.expectedErr == "" {

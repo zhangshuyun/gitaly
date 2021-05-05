@@ -10,7 +10,6 @@ import (
 
 	"github.com/golang/protobuf/ptypes"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
@@ -93,7 +92,7 @@ func (s *Server) UserCreateTag(ctx context.Context, req *gitalypb.UserCreateTagR
 
 	// Setup
 	repo := req.GetRepository()
-	catFile, err := catfile.New(ctx, s.gitCmdFactory, repo)
+	catFile, err := s.catfileCache.BatchProcess(ctx, repo)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
