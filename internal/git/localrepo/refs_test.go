@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -236,8 +237,10 @@ func TestRepo_GetRemoteReferences(t *testing.T) {
 
 	annotatedTagOID := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", "annotated-tag"))
 
+	gitCmdFactory := git.NewExecCommandFactory(cfg)
 	repo := New(
-		git.NewExecCommandFactory(cfg),
+		gitCmdFactory,
+		catfile.NewCache(gitCmdFactory, cfg),
 		&gitalypb.Repository{StorageName: "default", RelativePath: filepath.Join(relativePath, ".git")},
 		cfg,
 	)
@@ -398,7 +401,7 @@ func TestRepo_UpdateRef(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			// Re-create repo for each testcase.
 			repoProto, _, _ := gittest.CloneRepoAtStorage(t, repo.cfg.Storages[0], t.Name())
-			repo := New(repo.gitCmdFactory, repoProto, repo.cfg)
+			repo := New(repo.gitCmdFactory, repo.catfileCache, repoProto, repo.cfg)
 			err := repo.UpdateRef(ctx, git.ReferenceName(tc.ref), tc.newValue, tc.oldValue)
 			tc.verify(t, repo, err)
 		})

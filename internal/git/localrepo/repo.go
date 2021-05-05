@@ -7,6 +7,7 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
@@ -18,14 +19,16 @@ type Repo struct {
 	gitCmdFactory git.CommandFactory
 	cfg           config.Cfg
 	locator       storage.Locator
+	catfileCache  catfile.Cache
 }
 
 // New creates a new Repo from its protobuf representation.
-func New(gitCmdFactory git.CommandFactory, repo repository.GitRepo, cfg config.Cfg) *Repo {
+func New(gitCmdFactory git.CommandFactory, catfileCache catfile.Cache, repo repository.GitRepo, cfg config.Cfg) *Repo {
 	return &Repo{
 		GitRepo:       repo,
 		cfg:           cfg,
 		gitCmdFactory: gitCmdFactory,
+		catfileCache:  catfileCache,
 		locator:       config.NewLocator(cfg),
 	}
 }
@@ -33,7 +36,8 @@ func New(gitCmdFactory git.CommandFactory, repo repository.GitRepo, cfg config.C
 // NewTestRepo constructs a Repo. It is intended as a helper function for tests which assembles
 // dependencies ad-hoc from the given config.
 func NewTestRepo(t testing.TB, cfg config.Cfg, repo repository.GitRepo) *Repo {
-	return New(git.NewExecCommandFactory(cfg), repo, cfg)
+	gitCmdFactory := git.NewExecCommandFactory(cfg)
+	return New(gitCmdFactory, catfile.NewCache(gitCmdFactory, cfg), repo, cfg)
 }
 
 // Path returns the on-disk path of the repository.

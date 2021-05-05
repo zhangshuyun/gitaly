@@ -11,7 +11,6 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -227,7 +226,7 @@ func (repo *Repo) ReadCommit(ctx context.Context, revision git.Revision, opts ..
 		opt(&cfg)
 	}
 
-	c, err := catfile.New(ctx, repo.gitCmdFactory, repo)
+	c, err := repo.catfileCache.BatchProcess(ctx, repo)
 	if err != nil {
 		return nil, err
 	}
