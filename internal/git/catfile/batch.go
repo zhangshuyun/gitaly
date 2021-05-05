@@ -10,47 +10,10 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
 )
 
-var catfileCacheCounter = prometheus.NewCounterVec(
-	prometheus.CounterOpts{
-		Name: "gitaly_catfile_cache_total",
-		Help: "Counter of catfile cache hit/miss",
-	},
-	[]string{"type"},
-)
-
-var currentCatfileProcesses = prometheus.NewGauge(
-	prometheus.GaugeOpts{
-		Name: "gitaly_catfile_processes",
-		Help: "Gauge of active catfile processes",
-	},
-)
-
-var totalCatfileProcesses = prometheus.NewCounter(
-	prometheus.CounterOpts{
-		Name: "gitaly_catfile_processes_total",
-		Help: "Counter of catfile processes",
-	},
-)
-
-var catfileLookupCounter = prometheus.NewCounterVec(
-	prometheus.CounterOpts{
-		Name: "gitaly_catfile_lookups_total",
-		Help: "Git catfile lookups by object type",
-	},
-	[]string{"type"},
-)
-
 const (
 	// SessionIDField is the gRPC metadata field we use to store the gitaly session ID.
 	SessionIDField = "gitaly-session-id"
 )
-
-func init() {
-	prometheus.MustRegister(catfileCacheCounter)
-	prometheus.MustRegister(currentCatfileProcesses)
-	prometheus.MustRegister(totalCatfileProcesses)
-	prometheus.MustRegister(catfileLookupCounter)
-}
 
 // Batch abstracts 'git cat-file --batch' and 'git cat-file --batch-check'.
 // It lets you retrieve object metadata and raw objects from a Git repo.
@@ -160,19 +123,20 @@ func (bc *BatchCache) newBatch(ctx context.Context, repo repository.GitRepo) (_ 
 	return &batch{batchProcess: batchProcess, batchCheckProcess: batchCheckProcess}, nil
 }
 
-func newInstrumentedBatch(c Batch) Batch {
-	return &instrumentedBatch{c}
+func newInstrumentedBatch(c Batch, catfileLookupCounter *prometheus.CounterVec) Batch {
+	return &instrumentedBatch{c, catfileLookupCounter}
 }
 
 type instrumentedBatch struct {
 	Batch
+	catfileLookupCounter *prometheus.CounterVec
 }
 
 func (ib *instrumentedBatch) Info(ctx context.Context, revision git.Revision) (*ObjectInfo, error) {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "Batch.Info", opentracing.Tag{"revision", revision})
 	defer span.Finish()
 
-	catfileLookupCounter.WithLabelValues("info").Inc()
+	ib.catfileLookupCounter.WithLabelValues("info").Inc()
 
 	return ib.Batch.Info(ctx, revision)
 }
@@ -181,7 +145,7 @@ func (ib *instrumentedBatch) Tree(ctx context.Context, revision git.Revision) (*
 	span, ctx := opentracing.StartSpanFromContext(ctx, "Batch.Tree", opentracing.Tag{"revision", revision})
 	defer span.Finish()
 
-	catfileLookupCounter.WithLabelValues("tree").Inc()
+	ib.catfileLookupCounter.WithLabelValues("tree").Inc()
 
 	return ib.Batch.Tree(ctx, revision)
 }
@@ -190,7 +154,7 @@ func (ib *instrumentedBatch) Commit(ctx context.Context, revision git.Revision) 
 	span, ctx := opentracing.StartSpanFromContext(ctx, "Batch.Commit", opentracing.Tag{"revision", revision})
 	defer span.Finish()
 
-	catfileLookupCounter.WithLabelValues("commit").Inc()
+	ib.catfileLookupCounter.WithLabelValues("commit").Inc()
 
 	return ib.Batch.Commit(ctx, revision)
 }
@@ -199,7 +163,7 @@ func (ib *instrumentedBatch) Blob(ctx context.Context, revision git.Revision) (*
 	span, ctx := opentracing.StartSpanFromContext(ctx, "Batch.Blob", opentracing.Tag{"revision", revision})
 	defer span.Finish()
 
-	catfileLookupCounter.WithLabelValues("blob").Inc()
+	ib.catfileLookupCounter.WithLabelValues("blob").Inc()
 
 	return ib.Batch.Blob(ctx, revision)
 }
@@ -208,7 +172,7 @@ func (ib *instrumentedBatch) Tag(ctx context.Context, revision git.Revision) (*O
 	span, ctx := opentracing.StartSpanFromContext(ctx, "Batch.Tag", opentracing.Tag{"revision", revision})
 	defer span.Finish()
 
-	catfileLookupCounter.WithLabelValues("tag").Inc()
+	ib.catfileLookupCounter.WithLabelValues("tag").Inc()
 
 	return ib.Batch.Tag(ctx, revision)
 }

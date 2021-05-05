@@ -34,7 +34,7 @@ type batchProcess struct {
 }
 
 func (bc *BatchCache) newBatchProcess(ctx context.Context, repo repository.GitRepo) (*batchProcess, error) {
-	totalCatfileProcesses.Inc()
+	bc.totalCatfileProcesses.Inc()
 	b := &batchProcess{}
 
 	var stdinReader io.Reader
@@ -60,12 +60,12 @@ func (bc *BatchCache) newBatchProcess(ctx context.Context, repo repository.GitRe
 
 	b.r = bufio.NewReader(batchCmd)
 
-	currentCatfileProcesses.Inc()
+	bc.currentCatfileProcesses.Inc()
 	go func() {
 		<-ctx.Done()
 		// This Close() is crucial to prevent leaking file descriptors.
 		b.w.Close()
-		currentCatfileProcesses.Dec()
+		bc.currentCatfileProcesses.Dec()
 	}()
 
 	if bc.injectSpawnErrors {
