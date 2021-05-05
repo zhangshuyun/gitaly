@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
@@ -44,7 +45,14 @@ func runDiffServer(t testing.TB, cfg config.Cfg) string {
 	listener, err := net.Listen("unix", serverSocketPath)
 	require.NoError(t, err)
 
-	gitalypb.RegisterDiffServiceServer(server, NewServer(cfg, config.NewLocator(cfg), git.NewExecCommandFactory(cfg)))
+	gitCmdFactory := git.NewExecCommandFactory(cfg)
+
+	gitalypb.RegisterDiffServiceServer(server, NewServer(
+		cfg,
+		config.NewLocator(cfg),
+		gitCmdFactory,
+		catfile.NewCache(gitCmdFactory, cfg),
+	))
 
 	go server.Serve(listener)
 

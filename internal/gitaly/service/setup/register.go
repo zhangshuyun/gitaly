@@ -71,7 +71,12 @@ func RegisterAll(srv *grpc.Server, deps *service.Dependencies) {
 		deps.GetLinguist(),
 		deps.GetCatfileCache(),
 	))
-	gitalypb.RegisterDiffServiceServer(srv, diff.NewServer(deps.GetCfg(), deps.GetLocator(), deps.GetGitCmdFactory()))
+	gitalypb.RegisterDiffServiceServer(srv, diff.NewServer(
+		deps.GetCfg(),
+		deps.GetLocator(),
+		deps.GetGitCmdFactory(),
+		deps.GetCatfileCache(),
+	))
 	gitalypb.RegisterNamespaceServiceServer(srv, namespace.NewServer(deps.GetLocator()))
 	gitalypb.RegisterOperationServiceServer(srv, operations.NewServer(
 		deps.GetCfg(),
