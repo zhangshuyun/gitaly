@@ -92,7 +92,7 @@ func TestReplMgr_ProcessBacklog(t *testing.T) {
 
 	// create object pool on the source
 	objectPoolPath := gittest.NewObjectPoolName(t)
-	pool, err := objectpool.NewObjectPool(primaryCfg, gconfig.NewLocator(primaryCfg), git.NewExecCommandFactory(primaryCfg), testRepo.GetStorageName(), objectPoolPath)
+	pool, err := objectpool.NewObjectPool(primaryCfg, gconfig.NewLocator(primaryCfg), git.NewExecCommandFactory(primaryCfg), nil, testRepo.GetStorageName(), objectPoolPath)
 	require.NoError(t, err)
 
 	poolCtx, cancel := testhelper.Context()

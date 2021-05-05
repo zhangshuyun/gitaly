@@ -179,7 +179,14 @@ func TestObjectPoolRefAdvertisementHiding(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	pool, err := objectpool.NewObjectPool(cfg, config.NewLocator(cfg), git.NewExecCommandFactory(cfg), repo.GetStorageName(), gittest.NewObjectPoolName(t))
+	pool, err := objectpool.NewObjectPool(
+		cfg,
+		config.NewLocator(cfg),
+		git.NewExecCommandFactory(cfg),
+		nil,
+		repo.GetStorageName(),
+		gittest.NewObjectPoolName(t),
+	)
 	require.NoError(t, err)
 
 	require.NoError(t, pool.Create(ctx, repo))

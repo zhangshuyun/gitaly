@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -18,9 +19,18 @@ func setupObjectPool(t *testing.T) (*ObjectPool, *gitalypb.Repository) {
 	t.Helper()
 
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
+	gitCommandFactory := git.NewExecCommandFactory(cfg)
 
-	pool, err := NewObjectPool(cfg, config.NewLocator(cfg), git.NewExecCommandFactory(cfg), repo.GetStorageName(), gittest.NewObjectPoolName(t))
+	pool, err := NewObjectPool(
+		cfg,
+		config.NewLocator(cfg),
+		gitCommandFactory,
+		catfile.NewCache(gitCommandFactory, cfg),
+		repo.GetStorageName(),
+		gittest.NewObjectPoolName(t),
+	)
 	require.NoError(t, err)
+
 	t.Cleanup(func() {
 		if err := pool.Remove(context.TODO()); err != nil {
 			panic(err)

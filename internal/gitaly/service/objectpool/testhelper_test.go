@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
 	hookservice "gitlab.com/gitlab-org/gitaly/internal/gitaly/service/hook"
@@ -63,7 +64,7 @@ func runObjectPoolServer(t *testing.T, cfg config.Cfg, locator storage.Locator) 
 	hookManager := hook.NewManager(locator, txManager, gitlab.NewMockClient(), cfg)
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
 
-	gitalypb.RegisterObjectPoolServiceServer(server, NewServer(cfg, locator, gitCmdFactory))
+	gitalypb.RegisterObjectPoolServiceServer(server, NewServer(cfg, locator, gitCmdFactory, catfile.NewCache(gitCmdFactory, cfg)))
 	gitalypb.RegisterHookServiceServer(server, hookservice.NewServer(cfg, hookManager, gitCmdFactory))
 
 	go server.Serve(listener)
