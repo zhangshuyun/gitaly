@@ -6,11 +6,15 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 )
 
 func TestCacheAdd(t *testing.T) {
+	cfg := testcfg.Build(t)
+
 	const maxLen = 3
-	bc := newCache(time.Hour, maxLen, defaultEvictionInterval)
+	bc := newCache(git.NewExecCommandFactory(cfg), time.Hour, maxLen, defaultEvictionInterval)
 
 	key0 := testKey(0)
 	value0 := testValue()
@@ -37,7 +41,9 @@ func TestCacheAdd(t *testing.T) {
 }
 
 func TestCacheAddTwice(t *testing.T) {
-	bc := newCache(time.Hour, 10, defaultEvictionInterval)
+	cfg := testcfg.Build(t)
+
+	bc := newCache(git.NewExecCommandFactory(cfg), time.Hour, 10, defaultEvictionInterval)
 
 	key0 := testKey(0)
 	value0 := testValue()
@@ -61,7 +67,9 @@ func TestCacheAddTwice(t *testing.T) {
 }
 
 func TestCacheCheckout(t *testing.T) {
-	bc := newCache(time.Hour, 10, defaultEvictionInterval)
+	cfg := testcfg.Build(t)
+
+	bc := newCache(git.NewExecCommandFactory(cfg), time.Hour, 10, defaultEvictionInterval)
 
 	key0 := testKey(0)
 	value0 := testValue()
@@ -86,8 +94,10 @@ func TestCacheCheckout(t *testing.T) {
 }
 
 func TestCacheEnforceTTL(t *testing.T) {
+	cfg := testcfg.Build(t)
+
 	ttl := time.Hour
-	bc := newCache(ttl, 10, defaultEvictionInterval)
+	bc := newCache(git.NewExecCommandFactory(cfg), ttl, 10, defaultEvictionInterval)
 
 	sleep := func() { time.Sleep(2 * time.Millisecond) }
 
@@ -132,9 +142,11 @@ func TestCacheEnforceTTL(t *testing.T) {
 }
 
 func TestAutoExpiry(t *testing.T) {
+	cfg := testcfg.Build(t)
+
 	ttl := 5 * time.Millisecond
 	refresh := 1 * time.Millisecond
-	bc := newCache(ttl, 10, refresh)
+	bc := newCache(git.NewExecCommandFactory(cfg), ttl, 10, refresh)
 
 	key0 := testKey(0)
 	value0 := testValue()

@@ -330,13 +330,15 @@ func TestRepeatedCalls(t *testing.T) {
 }
 
 func TestSpawnFailure(t *testing.T) {
+	cfg := testcfg.Build(t)
+
 	defer func() { injectSpawnErrors = false }()
 
 	// reset global cache
 	defer func(old *batchCache) { cache = old }(cache)
 
 	// Use very high values to effectively disable auto-expiry
-	cache = newCache(1*time.Hour, 1000, defaultEvictionInterval)
+	cache = newCache(git.NewExecCommandFactory(cfg), 1*time.Hour, 1000, defaultEvictionInterval)
 	defer cache.EvictAll()
 
 	require.True(

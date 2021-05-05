@@ -7,6 +7,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 )
@@ -32,7 +33,12 @@ var cache *batchCache
 
 func init() {
 	config.RegisterHook(func(cfg *config.Cfg) error {
-		cache = newCache(defaultBatchfileTTL, cfg.Git.CatfileCacheSize, defaultEvictionInterval)
+		cache = newCache(
+			git.NewExecCommandFactory(*cfg),
+			defaultBatchfileTTL,
+			cfg.Git.CatfileCacheSize,
+			defaultEvictionInterval,
+		)
 		return nil
 	})
 }
@@ -66,6 +72,8 @@ type entry struct {
 // an entry gets added it gets an expiry time based on a fixed TTL. A
 // monitor goroutine periodically evicts expired entries.
 type batchCache struct {
+	gitCmdFactory git.CommandFactory
+
 	entries []*entry
 	sync.Mutex
 
@@ -76,14 +84,15 @@ type batchCache struct {
 	ttl time.Duration
 }
 
-func newCache(ttl time.Duration, maxLen int, refreshInterval time.Duration) *batchCache {
+func newCache(gitCmdFactory git.CommandFactory, ttl time.Duration, maxLen int, refreshInterval time.Duration) *batchCache {
 	if maxLen <= 0 {
 		maxLen = defaultMaxLen
 	}
 
 	bc := &batchCache{
-		maxLen: maxLen,
-		ttl:    ttl,
+		gitCmdFactory: gitCmdFactory,
+		maxLen:        maxLen,
+		ttl:           ttl,
 	}
 
 	go bc.monitor(refreshInterval)
