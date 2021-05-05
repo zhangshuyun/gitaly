@@ -1,0 +1,5 @@
+---
+title: Use the go implementation of UserRevert by default
+merge_request: 3438
+author:
+type: changed
