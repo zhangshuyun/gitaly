@@ -811,12 +811,13 @@ func TestStreamDirector_repo_creation(t *testing.T) {
 
 			var createRepositoryCalled int64
 			rs := datastore.MockRepositoryStore{
-				CreateRepositoryFunc: func(ctx context.Context, virtualStorage, relativePath, primary string, secondaries []string, storePrimary, storeAssignments bool) error {
+				CreateRepositoryFunc: func(ctx context.Context, virtualStorage, relativePath, primary string, updatedSecondaries, outdatedSecondaries []string, storePrimary, storeAssignments bool) error {
 					atomic.AddInt64(&createRepositoryCalled, 1)
 					assert.Equal(t, targetRepo.StorageName, virtualStorage)
 					assert.Equal(t, targetRepo.RelativePath, relativePath)
 					assert.Equal(t, rewrittenStorage, primary)
-					assert.ElementsMatch(t, []string{healthySecondaryNode.Storage, unhealthySecondaryNode.Storage}, secondaries)
+					assert.Equal(t, []string{healthySecondaryNode.Storage}, updatedSecondaries)
+					assert.Equal(t, []string{unhealthySecondaryNode.Storage}, outdatedSecondaries)
 					assert.Equal(t, tc.primaryStored, storePrimary)
 					assert.Equal(t, tc.assignmentsStored, storeAssignments)
 					return nil
@@ -830,15 +831,15 @@ func TestStreamDirector_repo_creation(t *testing.T) {
 			case config.ElectionStrategySQL:
 				gitalySocket0 := testhelper.GetTemporaryGitalySocketFileName(t)
 				gitalySocket1 := testhelper.GetTemporaryGitalySocketFileName(t)
-				gitalySocket3 := testhelper.GetTemporaryGitalySocketFileName(t)
+				gitalySocket2 := testhelper.GetTemporaryGitalySocketFileName(t)
 				testhelper.NewServerWithHealth(t, gitalySocket0)
 				testhelper.NewServerWithHealth(t, gitalySocket1)
-				healthSrv3 := testhelper.NewServerWithHealth(t, gitalySocket3)
-				healthSrv3.SetServingStatus("", grpc_health_v1.HealthCheckResponse_NOT_SERVING)
+				healthSrv2 := testhelper.NewServerWithHealth(t, gitalySocket2)
+				healthSrv2.SetServingStatus("", grpc_health_v1.HealthCheckResponse_NOT_SERVING)
 
 				primaryNode.Address = "unix://" + gitalySocket0
 				healthySecondaryNode.Address = "unix://" + gitalySocket1
-				unhealthySecondaryNode.Address = "unix://" + gitalySocket1
+				unhealthySecondaryNode.Address = "unix://" + gitalySocket2
 
 				nodeMgr, err := nodes.NewManager(testhelper.DiscardTestEntry(t), conf, nil, nil, promtest.NewMockHistogramVec(), protoregistry.GitalyProtoPreregistered, nil, nil)
 				require.NoError(t, err)
@@ -850,6 +851,10 @@ func TestStreamDirector_repo_creation(t *testing.T) {
 						primaryConnPointer = fmt.Sprintf("%p", node.GetConnection())
 						continue
 					}
+
+					if node.GetStorage() == healthySecondaryNode.Storage {
+						secondaryConnPointers = []string{fmt.Sprintf("%p", node.GetConnection())}
+					}
 				}
 			case config.ElectionStrategyPerRepository:
 				conns := Connections{
@@ -860,6 +865,7 @@ func TestStreamDirector_repo_creation(t *testing.T) {
 					},
 				}
 				primaryConnPointer = fmt.Sprintf("%p", conns["praefect"][primaryNode.Storage])
+				secondaryConnPointers = []string{fmt.Sprintf("%p", conns["praefect"][healthySecondaryNode.Storage])}
 				router = NewPerRepositoryRouter(
 					conns,
 					nil,
@@ -881,7 +887,9 @@ func TestStreamDirector_repo_creation(t *testing.T) {
 				t.Fatalf("unexpected election strategy: %q", tc.electionStrategy)
 			}
 
-			txMgr := transactions.NewManager(conf)
+			txMgr := transactions.NewManager(conf, transactions.WithTransactionIDGenerator(
+				transactions.TransactionIDGeneratorFunc(func() uint64 { return 1 }),
+			))
 
 			coordinator := NewCoordinator(
 				queueInterceptor,
@@ -927,7 +935,12 @@ func TestStreamDirector_repo_creation(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, rewrittenStorage, rewrittenTargetRepo.GetStorageName(), "stream director should have rewritten the storage name")
 
-			replEventWait.Add(2) // expected only one event to be created
+			replEventWait.Add(1)
+
+			vote := make([]byte, sha1.Size)
+			require.NoError(t, txMgr.VoteTransaction(ctx, 1, "praefect-internal-1", vote))
+			require.NoError(t, txMgr.VoteTransaction(ctx, 1, "praefect-internal-2", vote))
+
 			// this call creates new events in the queue and simulates usual flow of the update operation
 			err = streamParams.RequestFinalizer()
 			require.NoError(t, err)
@@ -935,7 +948,7 @@ func TestStreamDirector_repo_creation(t *testing.T) {
 			replEventWait.Wait() // wait until event persisted (async operation)
 
 			var expectedEvents, actualEvents []datastore.ReplicationEvent
-			for _, target := range []string{healthySecondaryNode.Storage, unhealthySecondaryNode.Storage} {
+			for _, target := range []string{unhealthySecondaryNode.Storage} {
 				actual, err := queueInterceptor.Dequeue(ctx, "praefect", target, 10)
 				require.NoError(t, err)
 				require.Len(t, actual, 1)
