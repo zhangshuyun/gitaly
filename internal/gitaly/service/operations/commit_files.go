@@ -138,7 +138,7 @@ func (s *Server) userCommitFiles(ctx context.Context, header *gitalypb.UserCommi
 		remoteRepo = nil
 	}
 
-	localRepo := localrepo.New(s.gitCmdFactory, header.Repository, s.cfg)
+	localRepo := s.localrepo(header.GetRepository())
 
 	targetBranchName := git.NewReferenceNameFromBranchName(string(header.BranchName))
 	targetBranchCommit, err := localRepo.ResolveRevision(ctx, targetBranchName.Revision()+"^{commit}")

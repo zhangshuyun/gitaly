@@ -3,6 +3,8 @@ package remote
 import (
 	"gitlab.com/gitlab-org/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
@@ -30,4 +32,8 @@ func NewServer(cfg config.Cfg, rs *rubyserver.Server, locator storage.Locator, g
 			client.WithDialOptions(client.FailOnNonTempDialError()...),
 		),
 	}
+}
+
+func (s *server) localrepo(repo repository.GitRepo) *localrepo.Repo {
+	return localrepo.New(s.gitCmdFactory, repo, s.cfg)
 }

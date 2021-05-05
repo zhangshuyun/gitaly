@@ -29,7 +29,7 @@ func (s *Server) UserDeleteTag(ctx context.Context, req *gitalypb.UserDeleteTagR
 	}
 
 	referenceName := git.ReferenceName(fmt.Sprintf("refs/tags/%s", req.TagName))
-	revision, err := localrepo.New(s.gitCmdFactory, req.Repository, s.cfg).ResolveRevision(ctx, referenceName.Revision())
+	revision, err := s.localrepo(req.GetRepository()).ResolveRevision(ctx, referenceName.Revision())
 	if err != nil {
 		return nil, status.Errorf(codes.FailedPrecondition, "tag not found: %s", req.TagName)
 	}
@@ -144,7 +144,7 @@ func (s *Server) UserCreateTag(ctx context.Context, req *gitalypb.UserCreateTagR
 	refObjectID := targetObjectID
 	var tagObject *gitalypb.Tag
 	if makingTag {
-		localRepo := localrepo.New(s.gitCmdFactory, repo, s.cfg)
+		localRepo := s.localrepo(repo)
 
 		committerTime := time.Now()
 		if req.Timestamp != nil {

@@ -8,7 +8,6 @@ import (
 
 	"github.com/golang/protobuf/ptypes"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -26,7 +25,7 @@ func (s *Server) UserCherryPick(ctx context.Context, req *gitalypb.UserCherryPic
 		return nil, err
 	}
 
-	localRepo := localrepo.New(s.gitCmdFactory, req.Repository, s.cfg)
+	localRepo := s.localrepo(req.GetRepository())
 	repoHadBranches, err := localRepo.HasBranches(ctx)
 	if err != nil {
 		return nil, err

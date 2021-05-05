@@ -16,7 +16,7 @@ import (
 )
 
 func (s *server) Cleanup(ctx context.Context, in *gitalypb.CleanupRequest) (*gitalypb.CleanupResponse, error) {
-	repo := localrepo.New(s.gitCmdFactory, in.GetRepository(), s.cfg)
+	repo := s.localrepo(in.GetRepository())
 
 	if err := s.cleanupRepo(ctx, repo); err != nil {
 		return nil, err

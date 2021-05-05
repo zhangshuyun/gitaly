@@ -3,7 +3,6 @@ package repository
 import (
 	"context"
 
-	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -26,7 +25,7 @@ func (s *server) RepositoryExists(ctx context.Context, in *gitalypb.RepositoryEx
 }
 
 func (s *server) HasLocalBranches(ctx context.Context, in *gitalypb.HasLocalBranchesRequest) (*gitalypb.HasLocalBranchesResponse, error) {
-	hasBranches, err := localrepo.New(s.gitCmdFactory, in.Repository, s.cfg).HasBranches(ctx)
+	hasBranches, err := s.localrepo(in.GetRepository()).HasBranches(ctx)
 	if err != nil {
 		return nil, helper.ErrInternal(err)
 	}

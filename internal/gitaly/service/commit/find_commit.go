@@ -16,7 +16,7 @@ func (s *server) FindCommit(ctx context.Context, in *gitalypb.FindCommitRequest)
 		return nil, helper.ErrInvalidArgument(err)
 	}
 
-	repo := localrepo.New(s.gitCmdFactory, in.GetRepository(), s.cfg)
+	repo := s.localrepo(in.GetRepository())
 
 	var opts []localrepo.ReadCommitOpt
 	if in.GetTrailers() {

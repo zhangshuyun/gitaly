@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
@@ -83,7 +82,7 @@ func (s *server) refsToRemove(ctx context.Context, req *gitalypb.DeleteRefsReque
 		prefixes[i] = string(prefix)
 	}
 
-	existingRefs, err := localrepo.New(s.gitCmdFactory, req.GetRepository(), s.cfg).GetReferences(ctx)
+	existingRefs, err := s.localrepo(req.GetRepository()).GetReferences(ctx)
 	if err != nil {
 		return nil, err
 	}

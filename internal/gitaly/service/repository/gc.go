@@ -26,7 +26,7 @@ func (s *server) GarbageCollect(ctx context.Context, in *gitalypb.GarbageCollect
 		"WriteBitmaps": in.GetCreateBitmap(),
 	}).Debug("GarbageCollect")
 
-	repo := localrepo.New(s.gitCmdFactory, in.GetRepository(), s.cfg)
+	repo := s.localrepo(in.GetRepository())
 
 	if err := s.cleanupRepo(ctx, repo); err != nil {
 		return nil, err

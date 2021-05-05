@@ -8,7 +8,6 @@ import (
 
 	"github.com/golang/protobuf/ptypes"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/git/remoterepo"
 	"gitlab.com/gitlab-org/gitaly/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
@@ -30,7 +29,7 @@ func (s *Server) UserRevert(ctx context.Context, req *gitalypb.UserRevertRequest
 		return nil, err
 	}
 
-	localRepo := localrepo.New(s.gitCmdFactory, req.Repository, s.cfg)
+	localRepo := s.localrepo(req.GetRepository())
 	repoHadBranches, err := localRepo.HasBranches(ctx)
 	if err != nil {
 		return nil, err
@@ -174,7 +173,7 @@ func (s *Server) fetchStartRevision(ctx context.Context, req requestFetchingStar
 		return startRevision, nil
 	}
 
-	localRepo := localrepo.New(s.gitCmdFactory, req.GetRepository(), s.cfg)
+	localRepo := s.localrepo(req.GetRepository())
 
 	_, err = localRepo.ResolveRevision(ctx, startRevision.Revision()+"^{commit}")
 	if errors.Is(err, git.ErrReferenceNotFound) {
