@@ -19,7 +19,7 @@ func TestSuccessfulFindAllRemoteBranchesRequest(t *testing.T) {
 
 	cfg, repoProto, repoPath, client := setupRefService(t)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	remoteName := "my-remote"
 	expectedBranches := map[string]string{

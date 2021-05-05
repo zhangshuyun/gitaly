@@ -44,7 +44,7 @@ func TestSuccessfulCreateBranchRequest(t *testing.T) {
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	startPoint := "c7fbe50c7c7419d9701eebe64b1fdacc3df5b9dd"
 	startPointCommit, err := repo.ReadCommit(ctx, git.Revision(startPoint))
@@ -243,7 +243,7 @@ func TestSuccessfulCreateBranchRequestWithStartPointRefPrefix(t *testing.T) {
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	testCases := []struct {
 		desc             string

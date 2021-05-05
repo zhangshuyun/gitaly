@@ -17,7 +17,7 @@ func testSuccessfulWikiDeletePageRequest(t *testing.T, cfg config.Cfg, rubySrv *
 	wikiRepoProto, wikiRepoPath, cleanupFunc := setupWikiRepo(t, cfg)
 	defer cleanupFunc()
 
-	wikiRepo := localrepo.New(git.NewExecCommandFactory(cfg), wikiRepoProto, cfg)
+	wikiRepo := localrepo.NewTestRepo(t, cfg, wikiRepoProto)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()

@@ -113,7 +113,7 @@ func TestReceivePackHiddenRefs(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 	oldHead, err := repo.ResolveRevision(ctx, "HEAD~")
 	require.NoError(t, err)
 	newHead, err := repo.ResolveRevision(ctx, "HEAD")

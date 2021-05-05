@@ -23,7 +23,7 @@ func TestLink(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	localRepo := localrepo.New(git.NewExecCommandFactory(cfg), repo, cfg)
+	localRepo := localrepo.NewTestRepo(t, cfg, repo)
 
 	pool, err := objectpool.NewObjectPool(cfg, locator, git.NewExecCommandFactory(cfg), repo.GetStorageName(), gittest.NewObjectPoolName(t))
 	require.NoError(t, err)

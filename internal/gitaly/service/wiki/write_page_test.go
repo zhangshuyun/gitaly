@@ -18,7 +18,7 @@ import (
 func testSuccessfulWikiWritePageRequest(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	wikiRepoProto, wikiRepoPath, cleanupFunc := setupWikiRepo(t, cfg)
 	defer cleanupFunc()
-	wikiRepo := localrepo.New(git.NewExecCommandFactory(cfg), wikiRepoProto, cfg)
+	wikiRepo := localrepo.NewTestRepo(t, cfg, wikiRepoProto)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()

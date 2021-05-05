@@ -20,7 +20,7 @@ func TestServer_UserCherryPick_successful(t *testing.T) {
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	destinationBranch := "cherry-picking-dst"
 	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", destinationBranch, "master")
@@ -148,7 +148,7 @@ func TestServer_UserCherryPick_successful(t *testing.T) {
 			response, err := client.UserCherryPick(ctx, testCase.request)
 			require.NoError(t, err)
 
-			testRepo := localrepo.New(git.NewExecCommandFactory(cfg), testCase.request.Repository, cfg)
+			testRepo := localrepo.NewTestRepo(t, cfg, testCase.request.Repository)
 			headCommit, err := testRepo.ReadCommit(ctx, git.Revision(testCase.request.BranchName))
 			require.NoError(t, err)
 
@@ -175,7 +175,7 @@ func TestServer_UserCherryPick_successfulGitHooks(t *testing.T) {
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	destinationBranch := "cherry-picking-dst"
 	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", destinationBranch, "master")
@@ -213,7 +213,7 @@ func TestServer_UserCherryPick_stableID(t *testing.T) {
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	destinationBranch := "cherry-picking-dst"
 	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", destinationBranch, "master")
@@ -269,7 +269,7 @@ func TestServer_UserCherryPick_failedValidations(t *testing.T) {
 
 	ctx, cfg, repoProto, _, client := setupOperationsService(t, ctx)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	cherryPickedCommit, err := repo.ReadCommit(ctx, "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab")
 	require.NoError(t, err)
@@ -341,7 +341,7 @@ func TestServer_UserCherryPick_failedWithPreReceiveError(t *testing.T) {
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	destinationBranch := "cherry-picking-dst"
 	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", destinationBranch, "master")
@@ -376,7 +376,7 @@ func TestServer_UserCherryPick_failedWithCreateTreeError(t *testing.T) {
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	destinationBranch := "cherry-picking-dst"
 	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", destinationBranch, "master")
@@ -405,7 +405,7 @@ func TestServer_UserCherryPick_failedWithCommitError(t *testing.T) {
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	sourceBranch := "cherry-pick-src"
 	destinationBranch := "cherry-picking-dst"
@@ -435,7 +435,7 @@ func TestServer_UserCherryPick_failedWithConflict(t *testing.T) {
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	destinationBranch := "cherry-picking-dst"
 	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", destinationBranch, "conflict_branch_a")
@@ -464,7 +464,7 @@ func TestServer_UserCherryPick_successfulWithGivenCommits(t *testing.T) {
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	testCases := []struct {
 		desc           string

@@ -25,7 +25,7 @@ func TestPackRefsSuccessfulRequest(t *testing.T) {
 
 	packedRefs := linesInPackfile(t, repoPath)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	// creates some new heads
 	newBranches := 10

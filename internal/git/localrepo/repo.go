@@ -3,6 +3,7 @@ package localrepo
 import (
 	"context"
 	"fmt"
+	"testing"
 
 	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
@@ -27,6 +28,12 @@ func New(gitCmdFactory git.CommandFactory, repo repository.GitRepo, cfg config.C
 		gitCmdFactory: gitCmdFactory,
 		locator:       config.NewLocator(cfg),
 	}
+}
+
+// NewTestRepo constructs a Repo. It is intended as a helper function for tests which assembles
+// dependencies ad-hoc from the given config.
+func NewTestRepo(t testing.TB, cfg config.Cfg, repo repository.GitRepo) *Repo {
+	return New(git.NewExecCommandFactory(cfg), repo, cfg)
 }
 
 // Path returns the on-disk path of the repository.

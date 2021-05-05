@@ -59,7 +59,7 @@ func TestExecutor_Commit(t *testing.T) {
 	repoProto, repoPath, cleanup := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
 	t.Cleanup(cleanup)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	originalFile, err := repo.WriteBlob(ctx, "file", bytes.NewBufferString("original"))
 	require.NoError(t, err)

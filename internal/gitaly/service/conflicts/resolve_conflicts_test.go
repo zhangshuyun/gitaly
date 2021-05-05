@@ -53,7 +53,7 @@ var (
 func TestSuccessfulResolveConflictsRequest(t *testing.T) {
 	cfg, repoProto, repoPath, client := conflicts.SetupConflictsService(t, true)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -391,7 +391,7 @@ func TestResolveConflictsNonOIDRequests(t *testing.T) {
 func TestResolveConflictsIdenticalContent(t *testing.T) {
 	cfg, repoProto, repoPath, client := conflicts.SetupConflictsService(t, true)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -488,7 +488,7 @@ func TestResolveConflictsIdenticalContent(t *testing.T) {
 func TestResolveConflictsStableID(t *testing.T) {
 	cfg, repoProto, _, client := conflicts.SetupConflictsService(t, true)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()

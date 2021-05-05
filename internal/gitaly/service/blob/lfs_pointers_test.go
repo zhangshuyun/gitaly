@@ -261,7 +261,7 @@ size 12345`
 		// Write a new object into the repository. Because we set GIT_OBJECT_DIRECTORY to
 		// the quarantine directory, objects will be written in there instead of into the
 		// repository's normal object directory.
-		repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+		repo := localrepo.NewTestRepo(t, cfg, repoProto)
 		var buffer, stderr bytes.Buffer
 		err = repo.ExecAndWait(ctx, git.SubCmd{
 			Name: "hash-object",
@@ -382,7 +382,7 @@ func TestFindLFSPointersByRevisions(t *testing.T) {
 
 	repoProto, _, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name())
 	t.Cleanup(cleanup)
-	repo := localrepo.New(gitCmdFactory, repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -484,7 +484,7 @@ func BenchmarkFindLFSPointers(b *testing.B) {
 
 	repoProto, _, cleanup := gittest.CloneBenchRepo(b, cfg)
 	b.Cleanup(cleanup)
-	repo := localrepo.New(gitCmdFactory, repoProto, cfg)
+	repo := localrepo.NewTestRepo(b, cfg, repoProto)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -504,11 +504,9 @@ func BenchmarkFindLFSPointers(b *testing.B) {
 func BenchmarkReadLFSPointers(b *testing.B) {
 	cfg := testcfg.Build(b)
 
-	gitCmdFactory := git.NewExecCommandFactory(cfg)
-
 	repoProto, path, cleanup := gittest.CloneBenchRepo(b, cfg)
 	b.Cleanup(cleanup)
-	repo := localrepo.New(gitCmdFactory, repoProto, cfg)
+	repo := localrepo.NewTestRepo(b, cfg, repoProto)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -530,9 +528,7 @@ func BenchmarkReadLFSPointers(b *testing.B) {
 func TestReadLFSPointers(t *testing.T) {
 	cfg, repo, _, _ := setup(t)
 
-	gitCmdFactory := git.NewExecCommandFactory(cfg)
-
-	localRepo := localrepo.New(gitCmdFactory, repo, cfg)
+	localRepo := localrepo.NewTestRepo(t, cfg, repo)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()

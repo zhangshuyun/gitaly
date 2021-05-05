@@ -88,7 +88,7 @@ func TestSubmodule(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
 			testhelper.ConfigureGitalyGit2GoBin(t, cfg)
-			repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+			repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 			tc.command.Repository = repoPath
 

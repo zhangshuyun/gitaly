@@ -46,7 +46,7 @@ func TestSuccessfulMerge(t *testing.T) {
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	mergeBidi, err := client.UserMergeBranch(ctx)
 	require.NoError(t, err)
@@ -128,7 +128,7 @@ func TestSuccessfulMerge_stableMergeIDs(t *testing.T) {
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	mergeBidi, err := client.UserMergeBranch(ctx)
 	require.NoError(t, err)
@@ -197,7 +197,7 @@ func TestAbortedMerge(t *testing.T) {
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", mergeBranchName, mergeBranchHeadBefore)
 
@@ -260,7 +260,7 @@ func TestFailedMergeConcurrentUpdate(t *testing.T) {
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	mergeBidi, err := client.UserMergeBranch(ctx)
 	require.NoError(t, err)
@@ -302,7 +302,7 @@ func TestUserMergeBranch_ambiguousReference(t *testing.T) {
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	merge, err := client.UserMergeBranch(ctx)
 	require.NoError(t, err)
@@ -606,7 +606,7 @@ func TestSuccessfulUserMergeToRefRequest(t *testing.T) {
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", mergeBranchName, mergeBranchHeadBefore)
 
@@ -753,7 +753,7 @@ func TestUserMergeToRef_stableMergeID(t *testing.T) {
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", mergeBranchName, mergeBranchHeadBefore)
 
