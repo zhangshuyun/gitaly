@@ -51,7 +51,7 @@ func (bc *batchCache) newBatchCheckProcess(ctx context.Context, repo repository.
 		process.w.Close()
 	}()
 
-	if injectSpawnErrors {
+	if bc.injectSpawnErrors {
 		// Testing only: intentionally leak process
 		return nil, &simulatedBatchSpawnError{}
 	}

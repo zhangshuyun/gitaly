@@ -142,8 +142,6 @@ func New(ctx context.Context, gitCmdFactory git.CommandFactory, repo repository.
 	return cache.BatchProcess(ctx, repo)
 }
 
-var injectSpawnErrors = false
-
 type simulatedBatchSpawnError struct{}
 
 func (simulatedBatchSpawnError) Error() string { return "simulated spawn error" }

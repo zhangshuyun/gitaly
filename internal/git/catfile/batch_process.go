@@ -68,7 +68,7 @@ func (bc *batchCache) newBatchProcess(ctx context.Context, repo repository.GitRe
 		currentCatfileProcesses.Dec()
 	}()
 
-	if injectSpawnErrors {
+	if bc.injectSpawnErrors {
 		// Testing only: intentionally leak process
 		return nil, &simulatedBatchSpawnError{}
 	}

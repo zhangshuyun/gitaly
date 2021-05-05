@@ -331,8 +331,6 @@ func TestRepeatedCalls(t *testing.T) {
 }
 
 func TestSpawnFailure(t *testing.T) {
-	defer func() { injectSpawnErrors = false }()
-
 	cfg, testRepo, _ := testcfg.BuildWithRepo(t)
 
 	cache := newCache(git.NewExecCommandFactory(cfg), 1*time.Hour, 1000, defaultEvictionInterval)
@@ -347,7 +345,6 @@ func TestSpawnFailure(t *testing.T) {
 	ctx1, cancel1 := testhelper.Context()
 	defer cancel1()
 
-	injectSpawnErrors = false
 	_, err := catfileWithFreshSessionID(ctx1, cache, testRepo)
 	require.NoError(t, err, "catfile spawn should succeed in normal circumstances")
 	require.Equal(t, 2, numGitChildren(t), "there should be 2 git child processes")
@@ -375,7 +372,7 @@ func TestSpawnFailure(t *testing.T) {
 	ctx2, cancel2 := testhelper.Context()
 	defer cancel2()
 
-	injectSpawnErrors = true
+	cache.injectSpawnErrors = true
 	_, err = catfileWithFreshSessionID(ctx2, cache, testRepo)
 	require.Error(t, err, "expect simulated error")
 	require.IsType(t, &simulatedBatchSpawnError{}, err)
