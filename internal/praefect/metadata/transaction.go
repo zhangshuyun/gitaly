@@ -5,7 +5,9 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 
+	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	"google.golang.org/grpc/metadata"
 )
 
@@ -24,6 +26,9 @@ var (
 // Transaction stores parameters required to identify a reference
 // transaction.
 type Transaction struct {
+	// BackchannelID is the ID of the backchannel that corresponds to the Praefect
+	// that is handling the transaction. This field is filled in by the Gitaly.
+	BackchannelID backchannel.ID `json:"backchannel_id,omitempty"`
 	// ID is the unique identifier of a transaction
 	ID uint64 `json:"id"`
 	// Node is the name used to cast a vote
@@ -94,7 +99,20 @@ func TransactionFromContext(ctx context.Context) (Transaction, error) {
 		return Transaction{}, ErrTransactionNotFound
 	}
 
-	return transactionFromSerialized(serialized[0])
+	transaction, err := transactionFromSerialized(serialized[0])
+	if err != nil {
+		return Transaction{}, fmt.Errorf("from serialized: %w", err)
+	}
+
+	// For backwards compatibility during an upgrade, we still need to accept transactions
+	// from non-multiplexed connections. From 14.0 onwards, we can expect every transaction to
+	// originate from a multiplexed connection and should drop the error check below.
+	transaction.BackchannelID, err = backchannel.GetPeerID(ctx)
+	if err != nil && !errors.Is(err, backchannel.ErrNonMultiplexedConnection) {
+		return Transaction{}, fmt.Errorf("get peer id: %w", err)
+	}
+
+	return transaction, nil
 }
 
 // TransactionMetadataFromContext extracts transaction-related metadata from
