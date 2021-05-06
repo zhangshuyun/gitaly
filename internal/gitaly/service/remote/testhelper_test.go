@@ -61,7 +61,13 @@ func setupRemoteServiceWithRuby(t *testing.T, cfg config.Cfg, rubySrv *rubyserve
 	t.Cleanup(cleanup)
 
 	addr := testserver.RunGitalyServer(t, cfg, rubySrv, func(srv *grpc.Server, deps *service.Dependencies) {
-		gitalypb.RegisterRemoteServiceServer(srv, NewServer(deps.GetCfg(), deps.GetRubyServer(), deps.GetLocator(), deps.GetGitCmdFactory()))
+		gitalypb.RegisterRemoteServiceServer(srv, NewServer(
+			deps.GetCfg(),
+			deps.GetRubyServer(),
+			deps.GetLocator(),
+			deps.GetGitCmdFactory(),
+			deps.GetCatfileCache(),
+		))
 	})
 	cfg.SocketPath = addr
 

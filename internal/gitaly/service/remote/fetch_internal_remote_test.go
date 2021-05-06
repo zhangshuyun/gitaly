@@ -181,7 +181,13 @@ func TestSuccessfulFetchInternalRemote(t *testing.T) {
 
 	hookManager := &mockHookManager{}
 	localAddr := testserver.RunGitalyServer(t, localCfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
-		gitalypb.RegisterRemoteServiceServer(srv, NewServer(deps.GetCfg(), deps.GetRubyServer(), deps.GetLocator(), deps.GetGitCmdFactory()))
+		gitalypb.RegisterRemoteServiceServer(srv, NewServer(
+			deps.GetCfg(),
+			deps.GetRubyServer(),
+			deps.GetLocator(),
+			deps.GetGitCmdFactory(),
+			deps.GetCatfileCache(),
+		))
 		gitalypb.RegisterHookServiceServer(srv, hook.NewServer(deps.GetCfg(), deps.GetHookManager(), deps.GetGitCmdFactory()))
 	}, testserver.WithHookManager(hookManager), testserver.WithDisablePraefect())
 

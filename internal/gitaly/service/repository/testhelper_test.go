@@ -128,7 +128,13 @@ func runRepositoryServerWithConfig(t testing.TB, cfg config.Cfg, rubySrv *rubyse
 			deps.GetCatfileCache(),
 		))
 		gitalypb.RegisterHookServiceServer(srv, hookservice.NewServer(cfg, deps.GetHookManager(), deps.GetGitCmdFactory()))
-		gitalypb.RegisterRemoteServiceServer(srv, remote.NewServer(cfg, rubySrv, deps.GetLocator(), deps.GetGitCmdFactory()))
+		gitalypb.RegisterRemoteServiceServer(srv, remote.NewServer(
+			cfg,
+			rubySrv,
+			deps.GetLocator(),
+			deps.GetGitCmdFactory(),
+			deps.GetCatfileCache(),
+		))
 		gitalypb.RegisterSSHServiceServer(srv, ssh.NewServer(
 			cfg,
 			deps.GetLocator(),
