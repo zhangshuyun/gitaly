@@ -184,10 +184,10 @@ func run(cfg config.Cfg) error {
 	defer rubySrv.Stop()
 
 	for _, c := range []starter.Config{
-		{starter.Unix, cfg.SocketPath},
-		{starter.Unix, cfg.GitalyInternalSocketPath()},
-		{starter.TCP, cfg.ListenAddr},
-		{starter.TLS, cfg.TLSListenAddr},
+		{Name: starter.Unix, Addr: cfg.SocketPath, HandoverOnUpgrade: true},
+		{Name: starter.Unix, Addr: cfg.GitalyInternalSocketPath(), HandoverOnUpgrade: false},
+		{Name: starter.TCP, Addr: cfg.ListenAddr, HandoverOnUpgrade: true},
+		{Name: starter.TLS, Addr: cfg.TLSListenAddr, HandoverOnUpgrade: true},
 	} {
 		if c.Addr == "" {
 			continue

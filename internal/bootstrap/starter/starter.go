@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"os"
 	"strings"
 
 	"github.com/sirupsen/logrus"
@@ -77,6 +78,11 @@ func verifySchema(schema string) error {
 // Config represents a network type, and address
 type Config struct {
 	Name, Addr string
+	// HandoverOnUpgrade indicates whether the socket should be handed over to the new
+	// process during an upgrade. If the socket is not handed over, it should be be unique
+	// to avoid colliding with the old process' socket. If the socket is a Unix socket, a
+	// possible existing file at the path is removed.
+	HandoverOnUpgrade bool
 }
 
 // Endpoint returns fully qualified address.
@@ -105,7 +111,18 @@ type Server interface {
 
 // New creates a new bootstrap.Starter from a config and a GracefulStoppableServer
 func New(cfg Config, server Server) bootstrap.Starter {
-	return func(listen bootstrap.ListenFunc, errCh chan<- error) error {
+	return func(listenWithHandover bootstrap.ListenFunc, errCh chan<- error) error {
+		listen := listenWithHandover
+		if !cfg.HandoverOnUpgrade {
+			if cfg.Name == Unix {
+				if err := os.Remove(cfg.Addr); err != nil && !os.IsNotExist(err) {
+					return fmt.Errorf("remove previous socket file: %w", err)
+				}
+			}
+
+			listen = net.Listen
+		}
+
 		l, err := listen(cfg.family(), cfg.Addr)
 		if err != nil {
 			return err
