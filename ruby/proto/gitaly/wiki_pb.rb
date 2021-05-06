@@ -49,13 +49,6 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
     add_message "gitaly.WikiUpdatePageResponse" do
       optional :error, :bytes, 1
     end
-    add_message "gitaly.WikiDeletePageRequest" do
-      optional :repository, :message, 1, "gitaly.Repository"
-      optional :page_path, :bytes, 2
-      optional :commit_details, :message, 3, "gitaly.WikiCommitDetails"
-    end
-    add_message "gitaly.WikiDeletePageResponse" do
-    end
     add_message "gitaly.WikiFindPageRequest" do
       optional :repository, :message, 1, "gitaly.Repository"
       optional :title, :bytes, 2
@@ -104,8 +97,6 @@ module Gitaly
   WikiWritePageResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.WikiWritePageResponse").msgclass
   WikiUpdatePageRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.WikiUpdatePageRequest").msgclass
   WikiUpdatePageResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.WikiUpdatePageResponse").msgclass
-  WikiDeletePageRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.WikiDeletePageRequest").msgclass
-  WikiDeletePageResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.WikiDeletePageResponse").msgclass
   WikiFindPageRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.WikiFindPageRequest").msgclass
   WikiFindPageResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.WikiFindPageResponse").msgclass
   WikiGetAllPagesRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.WikiGetAllPagesRequest").msgclass

@@ -63,8 +63,6 @@ func TestWithRubySidecar(t *testing.T) {
 	t.Cleanup(rubySrv.Stop)
 
 	fs := []func(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server){
-		testSuccessfulWikiDeletePageRequest,
-		testFailedWikiDeletePageDueToValidations,
 		testSuccessfulWikiFindPageRequest,
 		testSuccessfulWikiFindPageSameTitleDifferentPathRequest,
 		testSuccessfulWikiFindPageRequestWithTrailers,

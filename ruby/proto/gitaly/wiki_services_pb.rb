@@ -16,7 +16,6 @@ module Gitaly
 
       rpc :WikiWritePage, stream(Gitaly::WikiWritePageRequest), Gitaly::WikiWritePageResponse
       rpc :WikiUpdatePage, stream(Gitaly::WikiUpdatePageRequest), Gitaly::WikiUpdatePageResponse
-      rpc :WikiDeletePage, Gitaly::WikiDeletePageRequest, Gitaly::WikiDeletePageResponse
       # WikiFindPage returns a stream because the page's raw_data field may be arbitrarily large.
       rpc :WikiFindPage, Gitaly::WikiFindPageRequest, stream(Gitaly::WikiFindPageResponse)
       rpc :WikiGetAllPages, Gitaly::WikiGetAllPagesRequest, stream(Gitaly::WikiGetAllPagesResponse)

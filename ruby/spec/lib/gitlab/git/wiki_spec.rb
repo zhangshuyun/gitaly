@@ -102,18 +102,6 @@ describe Gitlab::Git::Wiki do
     end
   end
 
-  describe '#delete_page' do
-    it 'only removes the page with the same path' do
-      create_page('page1', 'content')
-      create_page('*', 'content')
-
-      subject.delete_page('*', commit_details('whatever'))
-
-      expect(subject.pages.count).to eq(1)
-      expect(subject.pages.first.title).to eq('page1')
-    end
-  end
-
   describe '#update_page' do
     let(:old_title) { 'page1' }
     let(:new_content) { 'different content' }

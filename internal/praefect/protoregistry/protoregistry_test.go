@@ -160,7 +160,6 @@ func TestNewProtoRegistry(t *testing.T) {
 		"WikiService": map[string]protoregistry.OpType{
 			"WikiWritePage":   protoregistry.OpMutator,
 			"WikiUpdatePage":  protoregistry.OpMutator,
-			"WikiDeletePage":  protoregistry.OpMutator,
 			"WikiFindPage":    protoregistry.OpAccessor,
 			"WikiGetAllPages": protoregistry.OpAccessor,
 			"WikiListPages":   protoregistry.OpAccessor,

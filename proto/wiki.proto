@@ -18,11 +18,6 @@ service WikiService {
       op: MUTATOR
     };
   }
-  rpc WikiDeletePage(WikiDeletePageRequest) returns (WikiDeletePageResponse) {
-    option (op_type) = {
-      op: MUTATOR
-    };
-  }
   // WikiFindPage returns a stream because the page's raw_data field may be arbitrarily large.
   rpc WikiFindPage(WikiFindPageRequest) returns (stream WikiFindPageResponse) {
     option (op_type) = {
@@ -100,14 +95,6 @@ message WikiUpdatePageRequest {
 message WikiUpdatePageResponse {
   bytes error = 1;
 }
-
-message WikiDeletePageRequest {
-  Repository repository = 1 [(target_repository)=true];
-  bytes page_path = 2;
-  WikiCommitDetails commit_details = 3;
-}
-
-message WikiDeletePageResponse {}
 
 message WikiFindPageRequest {
   Repository repository = 1 [(target_repository)=true];

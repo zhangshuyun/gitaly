@@ -2,17 +2,6 @@ module GitalyServer
   class WikiService < Gitaly::WikiService::Service
     include Utils
 
-    def wiki_delete_page(request, call)
-      repo = Gitlab::Git::Repository.from_gitaly(request.repository, call)
-      wiki = Gitlab::Git::Wiki.new(repo)
-      page_path = set_utf8!(request.page_path)
-      commit_details = commit_details_from_gitaly(request.commit_details)
-
-      wiki.delete_page(page_path, commit_details)
-
-      Gitaly::WikiDeletePageResponse.new
-    end
-
     def wiki_write_page(call)
       repo = name = format = commit_details = nil
       content = ""
