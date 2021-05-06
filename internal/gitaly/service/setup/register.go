@@ -89,7 +89,14 @@ func RegisterAll(srv *grpc.Server, deps *service.Dependencies) {
 		deps.GetTxManager(),
 		deps.GetCatfileCache(),
 	))
-	gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(deps.GetCfg(), deps.GetRubyServer(), deps.GetLocator(), deps.GetTxManager(), deps.GetGitCmdFactory()))
+	gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(
+		deps.GetCfg(),
+		deps.GetRubyServer(),
+		deps.GetLocator(),
+		deps.GetTxManager(),
+		deps.GetGitCmdFactory(),
+		deps.GetCatfileCache(),
+	))
 	gitalypb.RegisterSSHServiceServer(srv, ssh.NewServer(
 		deps.GetCfg(),
 		deps.GetLocator(),

@@ -12,7 +12,6 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/commit"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/log"
@@ -135,7 +134,7 @@ func validateGetArchiveRequest(in *gitalypb.GetArchiveRequest, format string, pa
 }
 
 func (s *server) validateGetArchivePrecondition(ctx context.Context, in *gitalypb.GetArchiveRequest, path string, exclude []string) error {
-	c, err := catfile.New(ctx, s.gitCmdFactory, in.GetRepository())
+	c, err := s.catfileCache.BatchProcess(ctx, in.GetRepository())
 	if err != nil {
 		return err
 	}
