@@ -2,7 +2,6 @@ package transaction
 
 import (
 	"context"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"time"
@@ -126,7 +125,7 @@ func (m *PoolManager) Vote(ctx context.Context, tx metadata.Transaction, server 
 	logger := m.log(ctx).WithFields(logrus.Fields{
 		"transaction.id":    tx.ID,
 		"transaction.voter": tx.Node,
-		"transaction.hash":  hex.EncodeToString(vote.Bytes()),
+		"transaction.hash":  vote.String(),
 	})
 
 	defer prometheus.NewTimer(m.votingDelayMetric).ObserveDuration()
