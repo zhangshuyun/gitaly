@@ -41,7 +41,7 @@ func testSuccessfulUserRebaseConfirmableRequestFeatured(t *testing.T, ctx contex
 	pushOptions := []string{"ci.skip", "test=value"}
 	cfg.Gitlab.URL = setupAndStartGitlabServer(t, testhelper.GlID, "project-1", cfg, pushOptions...)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	repoCopyProto, _, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "copy")
 	defer cleanup()
@@ -109,7 +109,7 @@ func testUserRebaseConfirmableTransactionFeatured(t *testing.T, ctx context.Cont
 	)
 	cfg.Gitlab.URL = setupAndStartGitlabServer(t, testhelper.GlID, "project-1", cfg)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	for _, tc := range []struct {
 		desc                 string
@@ -196,7 +196,7 @@ func testUserRebaseConfirmableStableCommitIDsFeatured(t *testing.T, ctx context.
 	ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
 	cfg.Gitlab.URL = setupAndStartGitlabServer(t, testhelper.GlID, "project-1", cfg)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	rebaseStream, err := client.UserRebaseConfirmable(ctx)
 	require.NoError(t, err)
@@ -389,7 +389,7 @@ func testFailedUserRebaseConfirmableDueToApplyBeingFalse(t *testing.T, cfg confi
 func testFailedUserRebaseConfirmableDueToApplyBeingFalseFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	testRepoCopy, _, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "copy")
 	defer cleanup()
@@ -427,7 +427,7 @@ func testFailedUserRebaseConfirmableRequestDueToPreReceiveError(t *testing.T, cf
 
 func testFailedUserRebaseConfirmableRequestDueToPreReceiveErrorFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	repoCopyProto, _, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "copy")
 	defer cleanup()
@@ -514,7 +514,7 @@ func testRebaseRequestWithDeletedFileFeatured(t *testing.T, ctx context.Context,
 	repoProto, repoPath, cleanup := gittest.CloneRepoWithWorktreeAtStorage(t, cfg, cfg.Storages[0])
 	t.Cleanup(cleanup)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	repoCopyProto, _, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "copy")
 	defer cleanup()
@@ -565,7 +565,7 @@ func testRebaseOntoRemoteBranch(t *testing.T, cfg config.Cfg, rubySrv *rubyserve
 func testRebaseOntoRemoteBranchFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	remoteRepo, remoteRepoPath, cleanup := gittest.CloneRepoWithWorktreeAtStorage(t, cfg, cfg.Storages[0])
 	defer cleanup()

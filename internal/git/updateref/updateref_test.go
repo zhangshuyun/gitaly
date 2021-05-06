@@ -34,7 +34,7 @@ func setupUpdater(t *testing.T, ctx context.Context) (config.Cfg, *localrepo.Rep
 	cfg, protoRepo, _ := testcfg.BuildWithRepo(t)
 
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
-	repo := localrepo.New(gitCmdFactory, protoRepo, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, protoRepo)
 
 	updater, err := New(ctx, cfg, gitCmdFactory, repo)
 	require.NoError(t, err)

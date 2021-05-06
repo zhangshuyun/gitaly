@@ -45,7 +45,7 @@ func (s *server) ListLFSPointers(in *gitalypb.ListLFSPointersRequest, stream git
 		return status.Error(codes.InvalidArgument, "missing revisions")
 	}
 
-	repo := localrepo.New(s.gitCmdFactory, in.Repository, s.cfg)
+	repo := s.localrepo(in.GetRepository())
 	lfsPointers, err := findLFSPointersByRevisions(ctx, repo, s.gitCmdFactory, int(in.Limit), in.Revisions...)
 	if err != nil {
 		if errors.Is(err, errInvalidRevision) {
@@ -74,7 +74,7 @@ func (s *server) ListAllLFSPointers(in *gitalypb.ListAllLFSPointersRequest, stre
 		return status.Error(codes.InvalidArgument, "empty repository")
 	}
 
-	repo := localrepo.New(s.gitCmdFactory, in.Repository, s.cfg)
+	repo := s.localrepo(in.GetRepository())
 	cmd, err := repo.Exec(ctx, git.SubCmd{
 		Name: "cat-file",
 		Flags: []git.Option{
@@ -115,7 +115,7 @@ func (s *server) GetLFSPointers(req *gitalypb.GetLFSPointersRequest, stream gita
 		return status.Errorf(codes.InvalidArgument, "GetLFSPointers: %v", err)
 	}
 
-	repo := localrepo.New(s.gitCmdFactory, req.Repository, s.cfg)
+	repo := s.localrepo(req.GetRepository())
 	objectIDs := strings.Join(req.BlobIds, "\n")
 
 	lfsPointers, err := readLFSPointers(ctx, repo, strings.NewReader(objectIDs), 0)

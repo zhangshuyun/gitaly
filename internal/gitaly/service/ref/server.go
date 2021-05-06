@@ -2,6 +2,8 @@ package ref
 
 import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
@@ -23,4 +25,8 @@ func NewServer(cfg config.Cfg, locator storage.Locator, gitCmdFactory git.Comman
 		locator:       locator,
 		gitCmdFactory: gitCmdFactory,
 	}
+}
+
+func (s *server) localrepo(repo repository.GitRepo) *localrepo.Repo {
+	return localrepo.New(s.gitCmdFactory, repo, s.cfg)
 }

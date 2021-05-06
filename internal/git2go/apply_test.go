@@ -22,7 +22,7 @@ func TestExecutor_Apply(t *testing.T) {
 	repoProto, repoPath, cleanup := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
 	t.Cleanup(cleanup)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 	executor := New(filepath.Join(cfg.BinDir, "gitaly-git2go"), cfg.Git.BinPath)
 
 	ctx, cancel := testhelper.Context()

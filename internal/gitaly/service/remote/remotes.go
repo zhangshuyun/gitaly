@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -51,7 +50,7 @@ func (s *server) RemoveRemote(ctx context.Context, req *gitalypb.RemoveRemoteReq
 		return nil, status.Errorf(codes.InvalidArgument, "RemoveRemote: %v", err)
 	}
 
-	remote := localrepo.New(s.gitCmdFactory, req.GetRepository(), s.cfg).Remote()
+	remote := s.localrepo(req.GetRepository()).Remote()
 
 	hasRemote, err := remote.Exists(ctx, req.Name)
 	if err != nil {

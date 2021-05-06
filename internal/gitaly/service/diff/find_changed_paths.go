@@ -9,7 +9,6 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/chunk"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -135,7 +134,7 @@ func (s *server) validateFindChangedPathsRequestParams(ctx context.Context, in *
 		return err
 	}
 
-	gitRepo := localrepo.New(s.gitCmdFactory, repo, s.cfg)
+	gitRepo := s.localrepo(in.GetRepository())
 
 	for _, commit := range in.GetCommits() {
 		if commit == "" {

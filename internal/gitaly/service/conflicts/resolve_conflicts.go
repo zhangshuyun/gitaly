@@ -140,7 +140,7 @@ func (s *server) resolveConflicts(header *gitalypb.ResolveConflictsRequestHeader
 	}
 
 	ctx := stream.Context()
-	sourceRepo := localrepo.New(s.gitCmdFactory, header.GetRepository(), s.cfg)
+	sourceRepo := s.localrepo(header.GetRepository())
 	targetRepo, err := remoterepo.New(ctx, header.GetTargetRepository(), s.pool)
 	if err != nil {
 		return err

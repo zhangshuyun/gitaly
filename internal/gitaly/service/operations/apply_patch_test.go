@@ -28,7 +28,7 @@ func testSuccessfulUserApplyPatch(t *testing.T, cfg config.Cfg, rubySrv *rubyser
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	testPatchReadme := "testdata/0001-A-commit-from-a-patch.patch"
 	testPatchFeature := "testdata/0001-This-does-not-apply-to-the-feature-branch.patch"
@@ -137,7 +137,7 @@ func testUserApplyPatchStableID(t *testing.T, cfg config.Cfg, rubySrv *rubyserve
 
 	ctx, cfg, repoProto, _, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	stream, err := client.UserApplyPatch(ctx)
 	require.NoError(t, err)

@@ -49,7 +49,7 @@ func TestSuccessfulUserSquashRequest(t *testing.T) {
 func testSuccessfulUserSquashRequest(t *testing.T, ctx context.Context, start, end string) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	request := &gitalypb.UserSquashRequest{
 		Repository:    repoProto,
@@ -85,7 +85,7 @@ func TestUserSquash_stableID(t *testing.T) {
 
 	ctx, cfg, repoProto, _, client := setupOperationsService(t, ctx)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	response, err := client.UserSquash(ctx, &gitalypb.UserSquashRequest{
 		Repository:    repoProto,
@@ -145,7 +145,7 @@ func TestSuccessfulUserSquashRequestWith3wayMerge(t *testing.T) {
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	request := &gitalypb.UserSquashRequest{
 		Repository:    repoProto,
@@ -219,7 +219,7 @@ func TestSquashRequestWithRenamedFiles(t *testing.T) {
 	repoProto, repoPath, cleanup := gittest.CloneRepoWithWorktreeAtStorage(t, cfg, cfg.Storages[0])
 	t.Cleanup(cleanup)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	originalFilename := "original-file.txt"
 	renamedFilename := "renamed-file.txt"

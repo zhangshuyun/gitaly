@@ -24,7 +24,7 @@ func testServerUserRevertSuccessful(t *testing.T, cfg config.Cfg, rubySrv *rubys
 func testServerUserRevertSuccessfulFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	destinationBranch := "revert-dst"
 	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", destinationBranch, "master")
@@ -152,7 +152,7 @@ func testServerUserRevertSuccessfulFeatured(t *testing.T, ctx context.Context, c
 			response, err := client.UserRevert(ctx, testCase.request)
 			require.NoError(t, err)
 
-			testCaseRepo := localrepo.New(git.NewExecCommandFactory(cfg), testCase.request.Repository, cfg)
+			testCaseRepo := localrepo.NewTestRepo(t, cfg, testCase.request.Repository)
 			headCommit, err := testCaseRepo.ReadCommit(ctx, git.Revision(testCase.request.BranchName))
 			require.NoError(t, err)
 
@@ -181,7 +181,7 @@ func testServerUserRevertStableID(t *testing.T, cfg config.Cfg, rubySrv *rubyser
 func testServerUserRevertStableIDFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	ctx, cfg, repoProto, _, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	commitToRevert, err := repo.ReadCommit(ctx, "d59c60028b053793cecfb4022de34602e1a9218e")
 	require.NoError(t, err)
@@ -236,9 +236,7 @@ func testServerUserRevertSuccessfulIntoEmptyRepo(t *testing.T, cfg config.Cfg, r
 func testServerUserRevertSuccessfulIntoNewRepo(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	ctx, cfg, startRepoProto, _, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
 
-	gitCmdFactory := git.NewExecCommandFactory(cfg)
-
-	startRepo := localrepo.New(gitCmdFactory, startRepoProto, cfg)
+	startRepo := localrepo.NewTestRepo(t, cfg, startRepoProto)
 
 	revertedCommit, err := startRepo.ReadCommit(ctx, "d59c60028b053793cecfb4022de34602e1a9218e")
 	require.NoError(t, err)
@@ -248,7 +246,7 @@ func testServerUserRevertSuccessfulIntoNewRepo(t *testing.T, ctx context.Context
 
 	repoProto, _, cleanup := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
 	defer cleanup()
-	repo := localrepo.New(gitCmdFactory, repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	request := &gitalypb.UserRevertRequest{
 		Repository:      repoProto,
@@ -286,7 +284,7 @@ func testServerUserRevertSuccessfulGitHooks(t *testing.T, cfg config.Cfg, rubySr
 func testServerUserRevertSuccessfulGitHooksFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	destinationBranch := "revert-dst"
 	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", destinationBranch, "master")
@@ -325,7 +323,7 @@ func testServerUserRevertFailuedDueToValidations(t *testing.T, cfg config.Cfg, r
 func testServerUserRevertFailuedDueToValidationsFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	ctx, cfg, repoProto, _, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	revertedCommit, err := repo.ReadCommit(ctx, "d59c60028b053793cecfb4022de34602e1a9218e")
 	require.NoError(t, err)
@@ -398,7 +396,7 @@ func testServerUserRevertFailedDueToPreReceiveError(t *testing.T, cfg config.Cfg
 func testServerUserRevertFailedDueToPreReceiveErrorFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	destinationBranch := "revert-dst"
 	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", destinationBranch, "master")
@@ -434,7 +432,7 @@ func testServerUserRevertFailedDueToCreateTreeErrorConflict(t *testing.T, cfg co
 func testServerUserRevertFailedDueToCreateTreeErrorConflictFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	destinationBranch := "revert-dst"
 	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", destinationBranch, "master")
@@ -464,7 +462,7 @@ func testServerUserRevertFailedDueToCreateTreeErrorEmpty(t *testing.T, cfg confi
 func testServerUserRevertFailedDueToCreateTreeErrorEmptyFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	destinationBranch := "revert-dst"
 	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", destinationBranch, "master")
@@ -498,7 +496,7 @@ func testServerUserRevertFailedDueToCommitError(t *testing.T, cfg config.Cfg, ru
 func testServerUserRevertFailedDueToCommitErrorFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	sourceBranch := "revert-src"
 	destinationBranch := "revert-dst"

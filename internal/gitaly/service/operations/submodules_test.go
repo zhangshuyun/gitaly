@@ -31,7 +31,7 @@ func testSuccessfulUserUpdateSubmoduleRequest(t *testing.T, cfg config.Cfg, ruby
 func testSuccessfulUserUpdateSubmoduleRequestFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	// This reference is created to check that we can correctly commit onto
 	// a branch which has a name starting with "refs/heads/".
@@ -117,7 +117,7 @@ func testUserUpdateSubmoduleStableID(t *testing.T, cfg config.Cfg, rubySrv *ruby
 func testUserUpdateSubmoduleStableIDFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	ctx, cfg, repoProto, _, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	response, err := client.UserUpdateSubmodule(ctx, &gitalypb.UserUpdateSubmoduleRequest{
 		Repository:    repoProto,

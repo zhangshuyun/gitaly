@@ -3,6 +3,8 @@ package repository
 import (
 	"gitlab.com/gitlab-org/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
@@ -42,4 +44,8 @@ func NewServer(
 		binDir:     cfg.BinDir,
 		loggingCfg: cfg.Logging,
 	}
+}
+
+func (s *server) localrepo(repo repository.GitRepo) *localrepo.Repo {
+	return localrepo.New(s.gitCmdFactory, repo, s.cfg)
 }

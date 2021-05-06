@@ -49,7 +49,7 @@ func TestGarbageCollectCommitGraph(t *testing.T) {
 	require.NoError(t, err)
 	defer cfgF.Close()
 
-	cfgCmd, err := localrepo.New(git.NewExecCommandFactory(cfg), repo, cfg).Config().GetRegexp(ctx, "core.commitgraph", git.ConfigGetRegexpOpts{})
+	cfgCmd, err := localrepo.NewTestRepo(t, cfg, repo).Config().GetRegexp(ctx, "core.commitgraph", git.ConfigGetRegexpOpts{})
 	require.NoError(t, err)
 	require.Equal(t, []git.ConfigPair{{Key: "core.commitgraph", Value: "true"}}, cfgCmd)
 }

@@ -168,15 +168,13 @@ func TestFetchRemote_sshCommand(t *testing.T) {
 func TestFetchRemote_withDefaultRefmaps(t *testing.T) {
 	cfg, sourceRepoProto, sourceRepoPath, client := setupRepositoryService(t)
 
-	gitCmdFactory := git.NewExecCommandFactory(cfg)
-
-	sourceRepo := localrepo.New(gitCmdFactory, sourceRepoProto, cfg)
+	sourceRepo := localrepo.NewTestRepo(t, cfg, sourceRepoProto)
 
 	targetRepoProto, targetRepoPath := copyRepoWithNewRemote(t, sourceRepoProto, sourceRepoPath, "my-remote")
 	defer func() {
 		require.NoError(t, os.RemoveAll(targetRepoPath))
 	}()
-	targetRepo := localrepo.New(gitCmdFactory, targetRepoProto, cfg)
+	targetRepo := localrepo.NewTestRepo(t, cfg, targetRepoProto)
 
 	port, stopGitServer := gittest.GitServer(t, cfg, sourceRepoPath, nil)
 	defer func() { require.NoError(t, stopGitServer()) }()
@@ -333,7 +331,7 @@ func TestFetchRemote_prune(t *testing.T) {
 			defer func() {
 				require.NoError(t, os.RemoveAll(targetRepoPath))
 			}()
-			targetRepo := localrepo.New(git.NewExecCommandFactory(cfg), targetRepoProto, cfg)
+			targetRepo := localrepo.NewTestRepo(t, cfg, targetRepoProto)
 
 			ctx, cancel := testhelper.Context()
 			defer cancel()
@@ -357,9 +355,8 @@ func TestFetchRemote_force(t *testing.T) {
 	defer cancel()
 
 	cfg, sourceRepoProto, sourceRepoPath, client := setupRepositoryService(t)
-	gitCommandFactory := git.NewExecCommandFactory(cfg)
 
-	sourceRepo := localrepo.New(gitCommandFactory, sourceRepoProto, cfg)
+	sourceRepo := localrepo.NewTestRepo(t, cfg, sourceRepoProto)
 
 	branchOID, err := sourceRepo.ResolveRevision(ctx, "refs/heads/master")
 	require.NoError(t, err)
@@ -490,7 +487,7 @@ func TestFetchRemote_force(t *testing.T) {
 				require.NoError(t, os.RemoveAll(targetRepoPath))
 			}()
 
-			targetRepo := localrepo.New(gitCommandFactory, targetRepoProto, cfg)
+			targetRepo := localrepo.NewTestRepo(t, cfg, targetRepoProto)
 
 			// We're force-updating a branch and a tag in the source repository to point
 			// to a diverging object ID in order to verify that the `force` parameter

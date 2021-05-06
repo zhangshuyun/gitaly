@@ -17,8 +17,7 @@ import (
 
 func TestLFSPointerFilter(t *testing.T) {
 	cfg, repo, _, _ := setup(t)
-	gitCmdFactory := git.NewExecCommandFactory(cfg)
-	localRepo := localrepo.New(gitCmdFactory, repo, cfg)
+	localRepo := localrepo.NewTestRepo(t, cfg, repo)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()

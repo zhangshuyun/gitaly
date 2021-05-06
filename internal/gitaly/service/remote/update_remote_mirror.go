@@ -113,7 +113,7 @@ func (s *server) goUpdateRemoteMirror(stream gitalypb.RemoteService_UpdateRemote
 		return fmt.Errorf("create reference matcher: %w", err)
 	}
 
-	repo := localrepo.New(s.gitCmdFactory, firstRequest.GetRepository(), s.cfg)
+	repo := s.localrepo(firstRequest.GetRepository())
 	remoteRefsSlice, err := repo.GetRemoteReferences(ctx, firstRequest.GetRefName(), "refs/heads/*", "refs/tags/*")
 	if err != nil {
 		return fmt.Errorf("get remote references: %w", err)

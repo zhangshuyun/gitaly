@@ -21,7 +21,7 @@ func TestApplyBfgObjectMapStreamSuccess(t *testing.T) {
 
 	testhelper.ConfigureGitalyHooksBin(t, cfg)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), protoRepo, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, protoRepo)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()

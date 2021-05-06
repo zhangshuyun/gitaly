@@ -164,7 +164,7 @@ func TestSuccessfulUserCreateTagRequest(t *testing.T) {
 func testSuccessfulUserCreateTagRequest(t *testing.T, ctx context.Context) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	targetRevision := "c7fbe50c7c7419d9701eebe64b1fdacc3df5b9dd"
 	targetRevisionCommit, err := repo.ReadCommit(ctx, git.Revision(targetRevision))
@@ -254,7 +254,7 @@ func testSuccessfulUserCreateTagRequest(t *testing.T, ctx context.Context) {
 func TestUserCreateTagWithTransaction(t *testing.T) {
 	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	hooksOutputDir := testhelper.TempDir(t)
 	hooksOutputPath := filepath.Join(hooksOutputDir, "output")
@@ -684,7 +684,7 @@ func TestSuccessfulUserCreateTagNestedTags(t *testing.T) {
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	preReceiveHook := writeAssertObjectTypePreReceiveHook(t, cfg)
 
@@ -884,7 +884,7 @@ func TestUserCreateTagsuccessfulCreationOfPrefixedTag(t *testing.T) {
 
 	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	testCases := []struct {
 		desc                   string

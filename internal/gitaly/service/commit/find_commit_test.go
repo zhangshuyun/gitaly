@@ -26,7 +26,7 @@ func TestSuccessfulFindCommitRequest(t *testing.T) {
 
 	cfg, repoProto, repoPath, client := setupCommitServiceWithRepo(t, true)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()

@@ -23,7 +23,7 @@ func TestFetchSourceBranchSourceRepositorySuccess(t *testing.T) {
 
 	targetRepoProto, _, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "fetch-source-target.git")
 	defer cleanup()
-	targetRepo := localrepo.New(git.NewExecCommandFactory(cfg), targetRepoProto, cfg)
+	targetRepo := localrepo.NewTestRepo(t, cfg, targetRepoProto)
 
 	sourceBranch := "fetch-source-branch-test-branch"
 	newCommitID := gittest.CreateCommit(t, cfg, sourcePath, sourceBranch, nil)
@@ -54,7 +54,7 @@ func TestFetchSourceBranchSameRepositorySuccess(t *testing.T) {
 	md := testhelper.GitalyServersMetadataFromCfg(t, cfg)
 	ctx = testhelper.MergeOutgoingMetadata(ctx, md)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	sourceBranch := "fetch-source-branch-test-branch"
 	newCommitID := gittest.CreateCommit(t, cfg, repoPath, sourceBranch, nil)

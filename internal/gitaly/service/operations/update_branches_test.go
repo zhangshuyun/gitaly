@@ -37,7 +37,7 @@ func testSuccessfulUserUpdateBranchRequest(t *testing.T, cfg config.Cfg, rubySrv
 func testSuccessfulUserUpdateBranchRequestFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	testCases := []struct {
 		desc             string
@@ -113,7 +113,7 @@ func testSuccessfulUserUpdateBranchRequestToDelete(t *testing.T, cfg config.Cfg,
 func testSuccessfulUserUpdateBranchRequestToDeleteFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	testCases := []struct {
 		desc             string
@@ -250,7 +250,7 @@ func testFailedUserUpdateBranchRequest(t *testing.T, cfg config.Cfg, rubySrv *ru
 func testFailedUserUpdateBranchRequestFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	ctx, cfg, repoProto, _, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
 
-	repo := localrepo.New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	revDoesntExist := fmt.Sprintf("%x", sha1.Sum([]byte("we need a non existent sha")))
 
