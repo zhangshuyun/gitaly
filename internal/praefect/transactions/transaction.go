@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"sync"
+
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/voting"
 )
 
 var (
@@ -43,7 +45,7 @@ type Voter struct {
 	// this voter.
 	Votes uint
 
-	vote   *vote
+	vote   *voting.Vote
 	result VoteResult
 }
 
