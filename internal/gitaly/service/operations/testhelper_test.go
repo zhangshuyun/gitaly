@@ -85,13 +85,6 @@ func TestWithRubySidecar(t *testing.T) {
 		testRebaseRequestWithDeletedFile,
 		testRebaseOntoRemoteBranch,
 		testRebaseFailedWithCode,
-		testSuccessfulUserUpdateSubmoduleRequest,
-		testUserUpdateSubmoduleStableID,
-		testFailedUserUpdateSubmoduleRequestDueToValidations,
-		testFailedUserUpdateSubmoduleRequestDueToInvalidBranch,
-		testFailedUserUpdateSubmoduleRequestDueToInvalidSubmodule,
-		testFailedUserUpdateSubmoduleRequestDueToSameReference,
-		testFailedUserUpdateSubmoduleRequestDueToRepositoryEmpty,
 		testServerUserRevertFailedDueToCreateTreeErrorEmpty,
 	}
 	for _, f := range fs {
