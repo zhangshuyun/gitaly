@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/ref"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
@@ -46,7 +47,15 @@ func createNewServer(t *testing.T, cfg config.Cfg) *grpc.Server {
 
 	server := grpc.NewServer(opts...)
 
-	gitalypb.RegisterRefServiceServer(server, ref.NewServer(cfg, config.NewLocator(cfg), git.NewExecCommandFactory(cfg), transaction.NewManager(cfg, backchannel.NewRegistry())))
+	gitCommandFactory := git.NewExecCommandFactory(cfg)
+
+	gitalypb.RegisterRefServiceServer(server, ref.NewServer(
+		cfg,
+		config.NewLocator(cfg),
+		gitCommandFactory,
+		transaction.NewManager(cfg, backchannel.NewRegistry()),
+		catfile.NewCache(gitCommandFactory, cfg),
+	))
 
 	return server
 }

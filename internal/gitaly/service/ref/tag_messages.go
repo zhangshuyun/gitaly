@@ -6,7 +6,6 @@ import (
 	"io"
 
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -37,7 +36,7 @@ func validateGetTagMessagesRequest(request *gitalypb.GetTagMessagesRequest) erro
 func (s *server) getAndStreamTagMessages(request *gitalypb.GetTagMessagesRequest, stream gitalypb.RefService_GetTagMessagesServer) error {
 	ctx := stream.Context()
 
-	c, err := catfile.New(ctx, s.gitCmdFactory, request.GetRepository())
+	c, err := s.catfileCache.BatchProcess(ctx, request.GetRepository())
 	if err != nil {
 		return err
 	}

@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
@@ -30,7 +29,7 @@ func (s *server) findAllRemoteBranches(req *gitalypb.FindAllRemoteBranchesReques
 	patterns := []string{"refs/remotes/" + req.GetRemoteName()}
 
 	ctx := stream.Context()
-	c, err := catfile.New(ctx, s.gitCmdFactory, req.GetRepository())
+	c, err := s.catfileCache.BatchProcess(ctx, req.GetRepository())
 	if err != nil {
 		return err
 	}
