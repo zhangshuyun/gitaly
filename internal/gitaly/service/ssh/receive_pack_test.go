@@ -310,7 +310,7 @@ func TestReceivePackTransactional(t *testing.T) {
 			expectedRefs: map[string]string{
 				"refs/heads/master": masterOID,
 			},
-			expectedVotes: 1,
+			expectedVotes: 2,
 		},
 		{
 			desc:          "update",
@@ -325,7 +325,7 @@ func TestReceivePackTransactional(t *testing.T) {
 			expectedRefs: map[string]string{
 				"refs/heads/master": masterParentOID,
 			},
-			expectedVotes: 1,
+			expectedVotes: 2,
 		},
 		{
 			desc:          "creation",
@@ -340,7 +340,7 @@ func TestReceivePackTransactional(t *testing.T) {
 			expectedRefs: map[string]string{
 				"refs/heads/other": masterOID,
 			},
-			expectedVotes: 1,
+			expectedVotes: 2,
 		},
 		{
 			desc: "deletion",
@@ -354,7 +354,7 @@ func TestReceivePackTransactional(t *testing.T) {
 			expectedRefs: map[string]string{
 				"refs/heads/other": git.ZeroOID.String(),
 			},
-			expectedVotes: 1,
+			expectedVotes: 2,
 		},
 		{
 			desc:          "multiple commands",
@@ -375,7 +375,7 @@ func TestReceivePackTransactional(t *testing.T) {
 				"refs/heads/a": masterOID,
 				"refs/heads/b": masterOID,
 			},
-			expectedVotes: 2,
+			expectedVotes: 3,
 		},
 		{
 			desc:          "refused recreation of branch",
@@ -390,11 +390,7 @@ func TestReceivePackTransactional(t *testing.T) {
 			expectedRefs: map[string]string{
 				"refs/heads/a": masterOID,
 			},
-			// This is bad: we do want to have votes regardless of whether all ref
-			// updates have been refused or not. Otherwise, the RPC would be regarded as
-			// potentially non-transactional and we'd schedule replication jobs even
-			// though this is an expected failure.
-			expectedVotes: 0,
+			expectedVotes: 1,
 		},
 		{
 			desc:          "refused recreation and successful delete",
@@ -414,7 +410,7 @@ func TestReceivePackTransactional(t *testing.T) {
 			expectedRefs: map[string]string{
 				"refs/heads/a": masterOID,
 			},
-			expectedVotes: 1,
+			expectedVotes: 2,
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {

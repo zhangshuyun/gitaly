@@ -9,9 +9,12 @@ import (
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/streamio"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func (s *server) SSHReceivePack(stream gitalypb.SSHService_SSHReceivePackServer) error {
@@ -90,6 +93,15 @@ func (s *server) sshReceivePack(stream gitalypb.SSHService_SSHReceivePackServer,
 		}
 
 		return fmt.Errorf("cmd wait: %v", err)
+	}
+
+	// In cases where all reference updates are rejected by git-receive-pack(1), we would end up
+	// with no transactional votes at all. We thus do a final vote which concludes this RPC to
+	// ensure there's always at least one vote. In case there was diverging behaviour in
+	// git-receive-pack(1) which led to a different outcome across voters, then this final vote
+	// would fail because the sequence of votes would be different.
+	if err := transaction.VoteOnContext(ctx, s.txManager, transaction.Vote{}); err != nil {
+		return status.Errorf(codes.Aborted, "final transactional vote: %v", err)
 	}
 
 	return nil
