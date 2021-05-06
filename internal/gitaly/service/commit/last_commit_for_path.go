@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -30,7 +29,7 @@ func (s *server) lastCommitForPath(ctx context.Context, in *gitalypb.LastCommitF
 	}
 
 	repo := in.GetRepository()
-	c, err := catfile.New(ctx, s.gitCmdFactory, repo)
+	c, err := s.catfileCache.BatchProcess(ctx, repo)
 	if err != nil {
 		return nil, err
 	}

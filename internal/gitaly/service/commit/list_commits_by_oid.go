@@ -27,7 +27,7 @@ var (
 func (s *server) ListCommitsByOid(in *gitalypb.ListCommitsByOidRequest, stream gitalypb.CommitService_ListCommitsByOidServer) error {
 	ctx := stream.Context()
 
-	c, err := catfile.New(ctx, s.gitCmdFactory, in.Repository)
+	c, err := s.catfileCache.BatchProcess(ctx, in.Repository)
 	if err != nil {
 		return err
 	}

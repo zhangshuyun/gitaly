@@ -129,7 +129,7 @@ func (s *server) TreeEntry(in *gitalypb.TreeEntryRequest, stream gitalypb.Commit
 		requestPath = strings.TrimRight(requestPath, "/")
 	}
 
-	c, err := catfile.New(stream.Context(), s.gitCmdFactory, in.Repository)
+	c, err := s.catfileCache.BatchProcess(stream.Context(), in.Repository)
 
 	if err != nil {
 		return err

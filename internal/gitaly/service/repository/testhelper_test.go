@@ -129,7 +129,13 @@ func runRepositoryServerWithConfig(t testing.TB, cfg config.Cfg, rubySrv *rubyse
 			deps.GetTxManager(),
 		))
 		gitalypb.RegisterRefServiceServer(srv, ref.NewServer(cfg, deps.GetLocator(), deps.GetGitCmdFactory(), deps.GetTxManager()))
-		gitalypb.RegisterCommitServiceServer(srv, commit.NewServer(cfg, deps.GetLocator(), deps.GetGitCmdFactory(), nil))
+		gitalypb.RegisterCommitServiceServer(srv, commit.NewServer(
+			cfg,
+			deps.GetLocator(),
+			deps.GetGitCmdFactory(),
+			nil,
+			deps.GetCatfileCache(),
+		))
 	}, opts...)
 }
 
