@@ -2,6 +2,7 @@ package ssh
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -17,10 +18,16 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/hooks"
+	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/git/objectpool"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/streamio"
 	"google.golang.org/grpc/codes"
@@ -242,6 +249,219 @@ func TestObjectPoolRefAdvertisementHidingSSH(t *testing.T) {
 	_, err = io.Copy(&b, r)
 	require.NoError(t, err)
 	require.NotContains(t, b.String(), commitID+" .have")
+}
+
+func TestReceivePackTransactional(t *testing.T) {
+	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+
+	testhelper.ConfigureGitalyHooksBin(t, cfg)
+
+	var votes int
+	serverSocketPath := runSSHServer(t, cfg, testserver.WithTransactionManager(
+		&transaction.MockManager{
+			VoteFn: func(context.Context, metadata.Transaction,
+				metadata.PraefectServer, transaction.Vote,
+			) error {
+				votes++
+				return nil
+			},
+		},
+	))
+
+	client, conn := newSSHClient(t, serverSocketPath)
+	defer conn.Close()
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+	ctx, err := (&metadata.PraefectServer{SocketPath: "whatever"}).Inject(ctx)
+	require.NoError(t, err)
+	ctx, err = metadata.InjectTransaction(ctx, 1, "node", true)
+	require.NoError(t, err)
+	ctx = helper.IncomingToOutgoing(ctx)
+
+	masterOID := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath,
+		"rev-parse", "refs/heads/master"))
+	masterParentOID := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "refs/heads/master~"))
+
+	type command struct {
+		ref    string
+		oldOID string
+		newOID string
+	}
+
+	for _, tc := range []struct {
+		desc          string
+		writePackfile bool
+		commands      []command
+		expectedRefs  map[string]string
+		expectedVotes int
+	}{
+		{
+			desc:          "noop",
+			writePackfile: true,
+			commands: []command{
+				{
+					ref:    "refs/heads/master",
+					oldOID: masterOID,
+					newOID: masterOID,
+				},
+			},
+			expectedRefs: map[string]string{
+				"refs/heads/master": masterOID,
+			},
+			expectedVotes: 2,
+		},
+		{
+			desc:          "update",
+			writePackfile: true,
+			commands: []command{
+				{
+					ref:    "refs/heads/master",
+					oldOID: masterOID,
+					newOID: masterParentOID,
+				},
+			},
+			expectedRefs: map[string]string{
+				"refs/heads/master": masterParentOID,
+			},
+			expectedVotes: 2,
+		},
+		{
+			desc:          "creation",
+			writePackfile: true,
+			commands: []command{
+				{
+					ref:    "refs/heads/other",
+					oldOID: git.ZeroOID.String(),
+					newOID: masterOID,
+				},
+			},
+			expectedRefs: map[string]string{
+				"refs/heads/other": masterOID,
+			},
+			expectedVotes: 2,
+		},
+		{
+			desc: "deletion",
+			commands: []command{
+				{
+					ref:    "refs/heads/other",
+					oldOID: masterOID,
+					newOID: git.ZeroOID.String(),
+				},
+			},
+			expectedRefs: map[string]string{
+				"refs/heads/other": git.ZeroOID.String(),
+			},
+			expectedVotes: 2,
+		},
+		{
+			desc:          "multiple commands",
+			writePackfile: true,
+			commands: []command{
+				{
+					ref:    "refs/heads/a",
+					oldOID: git.ZeroOID.String(),
+					newOID: masterOID,
+				},
+				{
+					ref:    "refs/heads/b",
+					oldOID: git.ZeroOID.String(),
+					newOID: masterOID,
+				},
+			},
+			expectedRefs: map[string]string{
+				"refs/heads/a": masterOID,
+				"refs/heads/b": masterOID,
+			},
+			expectedVotes: 3,
+		},
+		{
+			desc:          "refused recreation of branch",
+			writePackfile: true,
+			commands: []command{
+				{
+					ref:    "refs/heads/a",
+					oldOID: git.ZeroOID.String(),
+					newOID: masterParentOID,
+				},
+			},
+			expectedRefs: map[string]string{
+				"refs/heads/a": masterOID,
+			},
+			expectedVotes: 1,
+		},
+		{
+			desc:          "refused recreation and successful delete",
+			writePackfile: true,
+			commands: []command{
+				{
+					ref:    "refs/heads/a",
+					oldOID: git.ZeroOID.String(),
+					newOID: masterParentOID,
+				},
+				{
+					ref:    "refs/heads/b",
+					oldOID: masterOID,
+					newOID: git.ZeroOID.String(),
+				},
+			},
+			expectedRefs: map[string]string{
+				"refs/heads/a": masterOID,
+			},
+			expectedVotes: 2,
+		},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			votes = 0
+
+			var request bytes.Buffer
+			for i, command := range tc.commands {
+				// Only the first pktline contains capabilities.
+				if i == 0 {
+					gittest.WritePktlineString(t, &request, fmt.Sprintf("%s %s %s\000 %s",
+						command.oldOID, command.newOID, command.ref,
+						"report-status side-band-64k agent=git/2.12.0"))
+				} else {
+					gittest.WritePktlineString(t, &request, fmt.Sprintf("%s %s %s",
+						command.oldOID, command.newOID, command.ref))
+				}
+			}
+			gittest.WritePktlineFlush(t, &request)
+
+			if tc.writePackfile {
+				// We're lazy and simply send over all objects to simplify test
+				// setup.
+				pack := gittest.Exec(t, cfg, "-C", repoPath, "pack-objects", "--stdout", "--revs", "--thin", "--delta-base-offset", "-q")
+				request.Write(pack)
+			}
+
+			stream, err := client.SSHReceivePack(ctx)
+			require.NoError(t, err)
+
+			require.NoError(t, stream.Send(&gitalypb.SSHReceivePackRequest{
+				Repository: repoProto, GlId: "user-123",
+			}))
+			require.NoError(t, stream.Send(&gitalypb.SSHReceivePackRequest{
+				Stdin: request.Bytes(),
+			}))
+			require.NoError(t, stream.CloseSend())
+			require.Equal(t, io.EOF, drainPostReceivePackResponse(stream))
+
+			for expectedRef, expectedOID := range tc.expectedRefs {
+				actualOID, err := repo.ResolveRevision(ctx, git.Revision(expectedRef))
+
+				if expectedOID == git.ZeroOID.String() {
+					require.Equal(t, git.ErrReferenceNotFound, err)
+				} else {
+					require.NoError(t, err)
+					require.Equal(t, expectedOID, actualOID.String())
+				}
+			}
+			require.Equal(t, tc.expectedVotes, votes)
+		})
+	}
 }
 
 func TestSSHReceivePackToHooks(t *testing.T) {

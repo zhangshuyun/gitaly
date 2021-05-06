@@ -151,7 +151,12 @@ func TestSuccessfulFetchInternalRemote(t *testing.T) {
 	testhelper.ConfigureGitalyHooksBin(t, remoteCfg)
 
 	remoteAddr := testserver.RunGitalyServer(t, remoteCfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
-		gitalypb.RegisterSSHServiceServer(srv, ssh.NewServer(deps.GetCfg(), deps.GetLocator(), deps.GetGitCmdFactory()))
+		gitalypb.RegisterSSHServiceServer(srv, ssh.NewServer(
+			deps.GetCfg(),
+			deps.GetLocator(),
+			deps.GetGitCmdFactory(),
+			deps.GetTxManager(),
+		))
 		gitalypb.RegisterRefServiceServer(srv, ref.NewServer(deps.GetCfg(), deps.GetLocator(), deps.GetGitCmdFactory(), deps.GetTxManager()))
 		gitalypb.RegisterHookServiceServer(srv, hook.NewServer(deps.GetCfg(), deps.GetHookManager(), deps.GetGitCmdFactory()))
 	}, testserver.WithDisablePraefect())
