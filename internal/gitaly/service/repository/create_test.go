@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -12,10 +13,15 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config/auth"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
@@ -40,16 +46,13 @@ func TestCreateRepositorySuccess(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	storageDir := cfg.Storages[0].Path
 	relativePath := "create-repository-test.git"
-	repoDir := filepath.Join(storageDir, relativePath)
-	require.NoError(t, os.RemoveAll(repoDir))
+	repoDir := filepath.Join(cfg.Storages[0].Path, relativePath)
 
 	repo := &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: relativePath}
 	req := &gitalypb.CreateRepositoryRequest{Repository: repo}
 	_, err := client.CreateRepository(ctx, req)
 	require.NoError(t, err)
-	defer func() { require.NoError(t, os.RemoveAll(repoDir)) }()
 
 	fi, err := os.Stat(repoDir)
 	require.NoError(t, err)
@@ -78,7 +81,6 @@ func TestCreateRepositoryFailure(t *testing.T) {
 
 	_, err := os.Create(fullPath)
 	require.NoError(t, err)
-	defer os.RemoveAll(fullPath)
 
 	_, err = client.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{
 		Repository: &gitalypb.Repository{StorageName: cfg.Storages[0].Name, RelativePath: "foo.git"},
@@ -111,6 +113,66 @@ func TestCreateRepositoryFailureInvalidArgs(t *testing.T) {
 			testhelper.RequireGrpcError(t, err, tc.code)
 		})
 	}
+}
+
+func TestCreateRepositoryTransactional(t *testing.T) {
+	var vote transaction.Vote
+	var called int
+
+	mockTxManager := transaction.MockManager{
+		VoteFn: func(ctx context.Context, tx metadata.Transaction, server metadata.PraefectServer, v transaction.Vote) error {
+			vote = v
+			called++
+			return nil
+		},
+	}
+
+	cfg, client := setupRepositoryServiceWithoutRepo(t, testserver.WithTransactionManager(&mockTxManager))
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	ctx, err := (&metadata.PraefectServer{SocketPath: "something"}).Inject(ctx)
+	require.NoError(t, err)
+	ctx, err = metadata.InjectTransaction(ctx, 1, "node", true)
+	require.NoError(t, err)
+	ctx = helper.IncomingToOutgoing(ctx)
+
+	t.Run("initial creation without refs", func(t *testing.T) {
+		called = 0
+		vote = transaction.Vote{}
+
+		_, err = client.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{
+			Repository: &gitalypb.Repository{
+				StorageName:  cfg.Storages[0].Name,
+				RelativePath: "repo.git",
+			},
+		})
+		require.NoError(t, err)
+
+		require.DirExists(t, filepath.Join(cfg.Storages[0].Path, "repo.git"))
+		require.Equal(t, 1, called, "expected transactional vote")
+		require.Equal(t, transaction.VoteFromData([]byte{}), vote)
+	})
+
+	t.Run("idempotent creation with preexisting refs", func(t *testing.T) {
+		called = 0
+		vote = transaction.Vote{}
+
+		repo, repoPath, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "clone.git")
+		defer cleanup()
+
+		_, err = client.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{
+			Repository: repo,
+		})
+		require.NoError(t, err)
+
+		refs := gittest.Exec(t, cfg, "-C", repoPath, "for-each-ref")
+		require.NotEmpty(t, refs)
+
+		require.Equal(t, 1, called, "expected transactional vote")
+		require.Equal(t, transaction.VoteFromData(refs), vote)
+	})
 }
 
 func TestCreateRepositoryIdempotent(t *testing.T) {
