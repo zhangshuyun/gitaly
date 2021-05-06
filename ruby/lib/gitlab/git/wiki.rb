@@ -47,10 +47,6 @@ module Gitlab
         gollum_find_page(title: title, version: version, dir: dir)
       end
 
-      def file(name, version)
-        gollum_find_file(name, version)
-      end
-
       def count_page_versions(page_path)
         @repository.count_commits(ref: 'HEAD', path: page_path)
       end
@@ -173,14 +169,6 @@ module Gitlab
         return unless gollum_page
 
         new_page(gollum_page)
-      end
-
-      def gollum_find_file(name, version)
-        version ||= self.class.default_ref
-        gollum_file = gollum_wiki.file(name, version)
-        return unless gollum_file
-
-        Gitlab::Git::WikiFile.new(gollum_file)
       end
 
       def gollum_get_all_pages(limit: nil, sort: nil, direction_desc: false)
