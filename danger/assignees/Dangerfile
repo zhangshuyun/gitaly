@@ -11,7 +11,7 @@ if gitlab.mr_json['assignees'].none?
   TXT
 end
 
-suggestions = (REVIEWERS - [gitlab.mr_author]).sample(2, random: Random.new(gitlab.mr_json['iid']))
+suggestions = (GITALY_TEAM - [gitlab.mr_author]).sample(2, random: Random.new(gitlab.mr_json['iid']))
 
 case suggestions.size
 when 0
