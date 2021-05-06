@@ -5,16 +5,17 @@ import (
 	"errors"
 
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/voting"
 )
 
 // MockManager is a mock Manager for use in tests.
 type MockManager struct {
-	VoteFn func(context.Context, metadata.Transaction, metadata.PraefectServer, Vote) error
+	VoteFn func(context.Context, metadata.Transaction, metadata.PraefectServer, voting.Vote) error
 	StopFn func(context.Context, metadata.Transaction, metadata.PraefectServer) error
 }
 
 // Vote calls the MockManager's Vote function, if set. Otherwise, it returns an error.
-func (m *MockManager) Vote(ctx context.Context, tx metadata.Transaction, praefect metadata.PraefectServer, vote Vote) error {
+func (m *MockManager) Vote(ctx context.Context, tx metadata.Transaction, praefect metadata.PraefectServer, vote voting.Vote) error {
 	if m.VoteFn == nil {
 		return errors.New("mock does not implement Vote function")
 	}

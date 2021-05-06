@@ -11,8 +11,8 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -108,7 +108,7 @@ func (s *server) vote(ctx context.Context, oid git.ObjectID) error {
 		return fmt.Errorf("vote with invalid object ID: %w", err)
 	}
 
-	vote, err := transaction.VoteFromHash(hash)
+	vote, err := voting.VoteFromHash(hash)
 	if err != nil {
 		return fmt.Errorf("cannot convert OID to vote: %w", err)
 	}

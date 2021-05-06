@@ -14,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
@@ -47,7 +48,7 @@ var (
 type Manager interface {
 	// Vote casts a vote on the given transaction which is hosted by the
 	// given Praefect server.
-	Vote(context.Context, metadata.Transaction, metadata.PraefectServer, Vote) error
+	Vote(context.Context, metadata.Transaction, metadata.PraefectServer, voting.Vote) error
 
 	// Stop gracefully stops the given transaction which is hosted by the
 	// given Praefect server.
@@ -115,9 +116,8 @@ func (m *PoolManager) getTransactionClient(ctx context.Context, server metadata.
 	return gitalypb.NewRefTransactionClient(conn), nil
 }
 
-// Vote connects to the given server and casts hash as a vote for the
-// transaction identified by tx.
-func (m *PoolManager) Vote(ctx context.Context, tx metadata.Transaction, server metadata.PraefectServer, hash Vote) error {
+// Vote connects to the given server and casts vote as a vote for the transaction identified by tx.
+func (m *PoolManager) Vote(ctx context.Context, tx metadata.Transaction, server metadata.PraefectServer, vote voting.Vote) error {
 	client, err := m.getTransactionClient(ctx, server)
 	if err != nil {
 		return err
@@ -126,7 +126,7 @@ func (m *PoolManager) Vote(ctx context.Context, tx metadata.Transaction, server 
 	logger := m.log(ctx).WithFields(logrus.Fields{
 		"transaction.id":    tx.ID,
 		"transaction.voter": tx.Node,
-		"transaction.hash":  hex.EncodeToString(hash.Bytes()),
+		"transaction.hash":  hex.EncodeToString(vote.Bytes()),
 	})
 
 	defer prometheus.NewTimer(m.votingDelayMetric).ObserveDuration()
@@ -137,7 +137,7 @@ func (m *PoolManager) Vote(ctx context.Context, tx metadata.Transaction, server 
 	response, err := client.VoteTransaction(transactionCtx, &gitalypb.VoteTransactionRequest{
 		TransactionId:        tx.ID,
 		Node:                 tx.Node,
-		ReferenceUpdatesHash: hash.Bytes(),
+		ReferenceUpdatesHash: vote.Bytes(),
 	})
 	if err != nil {
 		// Add some additional context to cancellation errors so that
@@ -202,7 +202,7 @@ func RunOnContext(ctx context.Context, fn func(metadata.Transaction, metadata.Pr
 }
 
 // VoteOnContext casts the vote on a transaction identified by the context, if there is any.
-func VoteOnContext(ctx context.Context, m Manager, vote Vote) error {
+func VoteOnContext(ctx context.Context, m Manager, vote voting.Vote) error {
 	return RunOnContext(ctx, func(transaction metadata.Transaction, praefect metadata.PraefectServer) error {
 		return m.Vote(ctx, transaction, praefect, vote)
 	})

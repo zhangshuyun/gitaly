@@ -1,4 +1,4 @@
-package transaction
+package voting
 
 import (
 	"crypto/sha1"
