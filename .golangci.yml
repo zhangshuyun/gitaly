@@ -529,10 +529,6 @@ issues:
       text: "exported method `StaticHealthChecker.HealthyNodes` should have comment or be unexported"
     - linters:
         - golint
-      path: "internal/praefect/metadata/server.go"
-      text: "exported method `PraefectServer.Address` should have comment or be unexported"
-    - linters:
-        - golint
       path: "internal/praefect/metrics/prometheus.go"
       text: "exported var `MethodTypeCounter` should have comment or be unexported"
     - linters:
