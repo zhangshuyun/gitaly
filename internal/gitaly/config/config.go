@@ -426,7 +426,7 @@ func (cfg *Cfg) Storage(storageName string) (Storage, bool) {
 
 // GitalyInternalSocketPath is the path to the internal gitaly socket
 func (cfg *Cfg) GitalyInternalSocketPath() string {
-	return filepath.Join(cfg.InternalSocketDir, "internal.sock")
+	return filepath.Join(cfg.InternalSocketDir, fmt.Sprintf("internal_%d.sock", os.Getpid()))
 }
 
 func (cfg *Cfg) validateBinDir() error {
