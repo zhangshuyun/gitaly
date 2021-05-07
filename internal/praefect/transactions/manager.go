@@ -58,6 +58,13 @@ func (t *transactionIDGenerator) ID() uint64 {
 	return rand.Uint64()
 }
 
+// TransactionIDGeneratorFunc is an adapter that allows a compatible function to be used
+// as a TransactionIDGenerator.
+type TransactionIDGeneratorFunc func() uint64
+
+// ID returns the transaction id returned by the function.
+func (fn TransactionIDGeneratorFunc) ID() uint64 { return fn() }
+
 // ManagerOpt is a self referential option for Manager
 type ManagerOpt func(*Manager)
 
