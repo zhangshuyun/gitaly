@@ -135,7 +135,7 @@ ifndef LIBGIT2_BUILD_OPTIONS
 endif
 
 # These variables control test options and artifacts
-TEST_PACKAGES    ?= $(call find_go_packages)
+TEST_PACKAGES    ?= ${SOURCE_DIR}/...
 TEST_OPTIONS     ?= -v -count=1
 TEST_REPORT_DIR  ?= ${BUILD_DIR}/reports
 TEST_OUTPUT_NAME ?= go-${GO_VERSION}-git-${GIT_VERSION}
@@ -147,21 +147,12 @@ TEST_REPO        := ${TEST_REPO_DIR}/gitlab-test.git
 TEST_REPO_GIT    := ${TEST_REPO_DIR}/gitlab-git-test.git
 BENCHMARK_REPO   := ${TEST_REPO_DIR}/benchmark.git
 
-# uniq is a helper function to filter out any duplicate values in the single
-# parameter it accepts.
-#
-# Credits go to https://stackoverflow.com/questions/16144115/makefile-remove-duplicate-words-without-sorting
-uniq = $(if $(1),$(firstword $(1)) $(call uniq,$(filter-out $(firstword $(1)),$(1))))
-
 # Find all commands.
 find_commands         = $(notdir $(shell find ${SOURCE_DIR}/cmd -mindepth 1 -maxdepth 1 -type d -print))
 # Find all command binaries.
 find_command_binaries = $(addprefix ${BUILD_DIR}/bin/, $(call find_commands))
-
 # Find all Go source files.
-find_go_sources  = $(shell find ${SOURCE_DIR} -type d \( -name ruby -o -name vendor -o -name testdata -o -name '_*' -o -path '*/proto/go' \) -prune -o -type f -name '*.go' -not -name '*.pb.go' -print | sort -u)
-# Find all Go packages.
-find_go_packages = $(call uniq,$(dir $(call find_go_sources)))
+find_go_sources       = $(shell find ${SOURCE_DIR} -type d \( -name ruby -o -name vendor -o -name testdata -o -name '_*' -o -path '*/proto/go' \) -prune -o -type f -name '*.go' -not -name '*.pb.go' -print | sort -u)
 
 # run_go_tests will execute Go tests with all required parameters. Its
 # behaviour can be modified via the following variables:
