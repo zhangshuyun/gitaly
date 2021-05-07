@@ -518,6 +518,7 @@ func getStarterConfigs(conf config.Config) ([]starter.Config, error) {
 			}
 			addrConf = starter.Config{Name: schema, Addr: addr}
 		}
+		addrConf.HandoverOnUpgrade = true
 
 		if _, found := unique[addrConf.Addr]; found {
 			return nil, fmt.Errorf("same address can't be used for different schemas %q", addr)
