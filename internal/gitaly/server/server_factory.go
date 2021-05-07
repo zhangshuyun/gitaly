@@ -22,7 +22,6 @@ import (
 // GitalyServerFactory is a factory of gitaly grpc servers
 type GitalyServerFactory struct {
 	registry         *backchannel.Registry
-	mtx              sync.Mutex
 	cfg              config.Cfg
 	secure, insecure []*grpc.Server
 }
@@ -111,9 +110,6 @@ func (s *GitalyServerFactory) GracefulStop() {
 
 // Create returns newly instantiated and initialized with interceptors instance of the gRPC server.
 func (s *GitalyServerFactory) Create(secure bool) (*grpc.Server, error) {
-	s.mtx.Lock()
-	defer s.mtx.Unlock()
-
 	server, err := New(secure, s.cfg, gitalylog.Default(), s.registry)
 	if err != nil {
 		return nil, err
@@ -129,8 +125,5 @@ func (s *GitalyServerFactory) Create(secure bool) (*grpc.Server, error) {
 }
 
 func (s *GitalyServerFactory) all() []*grpc.Server {
-	s.mtx.Lock()
-	defer s.mtx.Unlock()
-
 	return append(s.secure[:], s.insecure...)
 }
