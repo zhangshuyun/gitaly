@@ -113,12 +113,7 @@ func (t *subtransaction) state() map[string]VoteResult {
 	return results
 }
 
-func (t *subtransaction) vote(node string, hash []byte) error {
-	vote, err := voting.VoteFromHash(hash)
-	if err != nil {
-		return err
-	}
-
+func (t *subtransaction) vote(node string, vote voting.Vote) error {
 	t.lock.Lock()
 	defer t.lock.Unlock()
 

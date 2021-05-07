@@ -2,7 +2,6 @@ package transactions
 
 import (
 	"context"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"sync"
@@ -13,6 +12,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/voting"
 )
 
 var ErrNotFound = errors.New("transaction not found")
@@ -143,7 +143,7 @@ func (mgr *Manager) cancelTransaction(ctx context.Context, transaction *transact
 	return nil
 }
 
-func (mgr *Manager) voteTransaction(ctx context.Context, transactionID uint64, node string, hash []byte) error {
+func (mgr *Manager) voteTransaction(ctx context.Context, transactionID uint64, node string, vote voting.Vote) error {
 	mgr.lock.Lock()
 	transaction, ok := mgr.transactions[transactionID]
 	mgr.lock.Unlock()
@@ -152,7 +152,7 @@ func (mgr *Manager) voteTransaction(ctx context.Context, transactionID uint64, n
 		return fmt.Errorf("%w: %d", ErrNotFound, transactionID)
 	}
 
-	if err := transaction.vote(ctx, node, hash); err != nil {
+	if err := transaction.vote(ctx, node, vote); err != nil {
 		return err
 	}
 
@@ -161,7 +161,7 @@ func (mgr *Manager) voteTransaction(ctx context.Context, transactionID uint64, n
 
 // VoteTransaction is called by a client who's casting a vote on a reference
 // transaction. It waits until quorum was reached on the given transaction.
-func (mgr *Manager) VoteTransaction(ctx context.Context, transactionID uint64, node string, hash []byte) error {
+func (mgr *Manager) VoteTransaction(ctx context.Context, transactionID uint64, node string, vote voting.Vote) error {
 	start := time.Now()
 	defer func() {
 		delay := time.Since(start)
@@ -171,13 +171,13 @@ func (mgr *Manager) VoteTransaction(ctx context.Context, transactionID uint64, n
 	logger := mgr.log(ctx).WithFields(logrus.Fields{
 		"transaction.id":    transactionID,
 		"transaction.voter": node,
-		"transaction.hash":  hex.EncodeToString(hash),
+		"transaction.hash":  vote.String(),
 	})
 
 	mgr.counterMetric.WithLabelValues("started").Inc()
 	logger.Debug("VoteTransaction")
 
-	if err := mgr.voteTransaction(ctx, transactionID, node, hash); err != nil {
+	if err := mgr.voteTransaction(ctx, transactionID, node, vote); err != nil {
 		var counterLabel string
 
 		if errors.Is(err, ErrTransactionStopped) {

@@ -246,13 +246,13 @@ func (t *transaction) getOrCreateSubtransaction(node string) (*subtransaction, e
 	return subtransaction, nil
 }
 
-func (t *transaction) vote(ctx context.Context, node string, hash []byte) error {
+func (t *transaction) vote(ctx context.Context, node string, vote voting.Vote) error {
 	subtransaction, err := t.getOrCreateSubtransaction(node)
 	if err != nil {
 		return err
 	}
 
-	if err := subtransaction.vote(node, hash); err != nil {
+	if err := subtransaction.vote(node, vote); err != nil {
 		return err
 	}
 

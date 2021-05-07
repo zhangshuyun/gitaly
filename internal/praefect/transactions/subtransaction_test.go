@@ -303,7 +303,7 @@ func TestSubtransaction_vote(t *testing.T) {
 				expectedVoterState[voter.Name] = &voter
 			}
 
-			require.Equal(t, tc.expectedErr, s.vote(tc.voterName, tc.vote[:]))
+			require.Equal(t, tc.expectedErr, s.vote(tc.voterName, tc.vote))
 			require.Equal(t, expectedVoterState, s.votersByNode)
 			require.Equal(t, tc.expectedVoteCounts, s.voteCounts)
 		})
@@ -434,7 +434,7 @@ func TestSubtransaction_race(t *testing.T) {
 					require.NoError(t, err)
 					require.Equal(t, VoteUndecided, result)
 
-					require.NoError(t, s.vote(voter.Name, voteA[:]))
+					require.NoError(t, s.vote(voter.Name, voteA))
 					require.NoError(t, s.collectVotes(ctx, voter.Name))
 
 					result, err = s.getResult(voter.Name)
