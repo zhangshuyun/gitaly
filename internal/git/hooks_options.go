@@ -84,7 +84,7 @@ func (cc *cmdCfg) configureHooks(
 		return errors.New("hooks already configured")
 	}
 
-	transaction, praefect, err := txinfo.TransactionMetadataFromContext(ctx)
+	transaction, praefect, err := txinfo.FromContext(ctx)
 	if err != nil {
 		return err
 	}

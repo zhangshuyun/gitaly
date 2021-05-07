@@ -190,7 +190,7 @@ func (m *PoolManager) log(ctx context.Context) logrus.FieldLogger {
 
 // RunOnContext runs the given function if the context identifies a transaction.
 func RunOnContext(ctx context.Context, fn func(txinfo.Transaction, txinfo.PraefectServer) error) error {
-	transaction, praefect, err := txinfo.TransactionMetadataFromContext(ctx)
+	transaction, praefect, err := txinfo.FromContext(ctx)
 	if err != nil {
 		return err
 	}
