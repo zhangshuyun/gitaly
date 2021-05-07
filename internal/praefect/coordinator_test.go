@@ -887,9 +887,7 @@ func TestStreamDirector_repo_creation(t *testing.T) {
 				t.Fatalf("unexpected election strategy: %q", tc.electionStrategy)
 			}
 
-			txMgr := transactions.NewManager(conf, transactions.WithTransactionIDGenerator(
-				transactions.TransactionIDGeneratorFunc(func() uint64 { return 1 }),
-			))
+			txMgr := transactions.NewManager(conf)
 
 			coordinator := NewCoordinator(
 				queueInterceptor,
