@@ -21,9 +21,9 @@ import (
 
 // GitalyServerFactory is a factory of gitaly grpc servers
 type GitalyServerFactory struct {
-	registry         *backchannel.Registry
-	cfg              config.Cfg
-	secure, insecure []*grpc.Server
+	registry *backchannel.Registry
+	cfg      config.Cfg
+	servers  []*grpc.Server
 }
 
 // NewGitalyServerFactory allows to create and start secure/insecure 'grpc.Server'-s with gitaly-ruby
@@ -87,7 +87,7 @@ func (s *GitalyServerFactory) StartWorkers(ctx context.Context, l logrus.FieldLo
 
 // Stop stops all servers started by calling Serve and the gitaly-ruby server.
 func (s *GitalyServerFactory) Stop() {
-	for _, srv := range s.all() {
+	for _, srv := range s.servers {
 		srv.Stop()
 	}
 }
@@ -96,7 +96,7 @@ func (s *GitalyServerFactory) Stop() {
 func (s *GitalyServerFactory) GracefulStop() {
 	wg := sync.WaitGroup{}
 
-	for _, srv := range s.all() {
+	for _, srv := range s.servers {
 		wg.Add(1)
 
 		go func(s *grpc.Server) {
@@ -115,15 +115,6 @@ func (s *GitalyServerFactory) Create(secure bool) (*grpc.Server, error) {
 		return nil, err
 	}
 
-	if secure {
-		s.secure = append(s.secure, server)
-		return s.secure[len(s.secure)-1], nil
-	}
-
-	s.insecure = append(s.insecure, server)
-	return s.insecure[len(s.insecure)-1], nil
-}
-
-func (s *GitalyServerFactory) all() []*grpc.Server {
-	return append(s.secure[:], s.insecure...)
+	s.servers = append(s.servers, server)
+	return server, nil
 }
