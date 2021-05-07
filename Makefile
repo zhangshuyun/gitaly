@@ -80,8 +80,6 @@ endif
 
 # Git target
 GIT_REPO_URL      ?= https://gitlab.com/gitlab-org/gitlab-git.git
-GIT_BINARIES_URL  ?= https://gitlab.com/gitlab-org/gitlab-git/-/jobs/artifacts/${GIT_VERSION}/raw/git_full_bins.tgz?job=build
-GIT_BINARIES_HASH ?= 9d8a5f0177eb723c10a63423280d47ab1e67de7a6f2608ec420ead009f6b7394
 GIT_INSTALL_DIR   := ${DEPENDENCY_DIR}/git/install
 GIT_SOURCE_DIR    := ${DEPENDENCY_DIR}/git/source
 GIT_QUIET         :=
@@ -397,7 +395,6 @@ ${LIBGIT2_INSTALL_DIR}/lib/libgit2.a: ${DEPENDENCY_DIR}/libgit2.version
 	${Q}CMAKE_BUILD_PARALLEL_LEVEL=$(shell nproc) cmake --build ${LIBGIT2_BUILD_DIR} --target install
 	go install -a github.com/libgit2/git2go/${GIT2GO_VERSION}
 
-ifndef GIT_USE_PREBUILT_BINARIES
 ${GIT_INSTALL_DIR}/bin/git: ${DEPENDENCY_DIR}/git.version
 	${Q}${GIT} -c init.defaultBranch=master init ${GIT_QUIET} ${GIT_SOURCE_DIR}
 	${Q}${GIT} -C "${GIT_SOURCE_DIR}" config remote.origin.url ${GIT_REPO_URL}
@@ -411,17 +408,6 @@ endif
 	${Q}rm -rf ${GIT_INSTALL_DIR}
 	${Q}mkdir -p ${GIT_INSTALL_DIR}
 	env -u PROFILE -u MAKEFLAGS -u GIT_VERSION ${MAKE} -C ${GIT_SOURCE_DIR} -j$(shell nproc) prefix=${GIT_PREFIX} ${GIT_BUILD_OPTIONS} install
-else
-${DEPENDENCY_DIR}/git_full_bins.tgz: ${DEPENDENCY_DIR}/git.version
-	curl -o $@.tmp --silent --show-error -L ${GIT_BINARIES_URL}
-	${Q}printf '${GIT_BINARIES_HASH}  $@.tmp' | sha256sum -c -
-	${Q}mv $@.tmp $@
-
-${GIT_INSTALL_DIR}/bin/git: ${DEPENDENCY_DIR}/git_full_bins.tgz
-	${Q}rm -rf ${GIT_INSTALL_DIR}
-	${Q}mkdir -p ${GIT_INSTALL_DIR}
-	tar -C ${GIT_INSTALL_DIR} -xvzf ${DEPENDENCY_DIR}/git_full_bins.tgz
-endif
 
 ${TOOLS_DIR}/protoc.zip: TOOL_VERSION = ${PROTOC_VERSION}
 ${TOOLS_DIR}/protoc.zip: ${TOOLS_DIR}/protoc.version
