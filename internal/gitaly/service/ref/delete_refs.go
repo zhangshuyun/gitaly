@@ -10,6 +10,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -33,7 +34,7 @@ func (s *server) DeleteRefs(ctx context.Context, in *gitalypb.DeleteRefsRequest)
 		return nil, helper.ErrInternal(err)
 	}
 
-	voteHash := transaction.NewVoteHash()
+	voteHash := voting.NewVoteHash()
 	for _, ref := range refnames {
 		if err := updater.Delete(ref); err != nil {
 			return &gitalypb.DeleteRefsResponse{GitError: err.Error()}, nil

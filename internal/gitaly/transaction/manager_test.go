@@ -15,6 +15,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -59,7 +60,7 @@ func TestPoolManager_Vote(t *testing.T) {
 	for _, tc := range []struct {
 		desc        string
 		transaction metadata.Transaction
-		vote        transaction.Vote
+		vote        voting.Vote
 		voteFn      func(*testing.T, *gitalypb.VoteTransactionRequest) (*gitalypb.VoteTransactionResponse, error)
 		expectedErr error
 	}{
@@ -69,11 +70,11 @@ func TestPoolManager_Vote(t *testing.T) {
 				ID:   1,
 				Node: "node",
 			},
-			vote: transaction.VoteFromData([]byte("foobar")),
+			vote: voting.VoteFromData([]byte("foobar")),
 			voteFn: func(t *testing.T, request *gitalypb.VoteTransactionRequest) (*gitalypb.VoteTransactionResponse, error) {
 				require.Equal(t, uint64(1), request.TransactionId)
 				require.Equal(t, "node", request.Node)
-				require.Equal(t, request.ReferenceUpdatesHash, transaction.VoteFromData([]byte("foobar")).Bytes())
+				require.Equal(t, request.ReferenceUpdatesHash, voting.VoteFromData([]byte("foobar")).Bytes())
 
 				return &gitalypb.VoteTransactionResponse{
 					State: gitalypb.VoteTransactionResponse_COMMIT,

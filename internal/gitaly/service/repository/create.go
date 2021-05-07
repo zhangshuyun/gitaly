@@ -10,6 +10,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -52,7 +53,7 @@ func (s *server) CreateRepository(ctx context.Context, req *gitalypb.CreateRepos
 	// called for a repo which already exists and has refs). In that case, voting ensures that
 	// all replicas have the same set of preexisting refs.
 	if err := transaction.RunOnContext(ctx, func(tx metadata.Transaction, server metadata.PraefectServer) error {
-		hash := transaction.NewVoteHash()
+		hash := voting.NewVoteHash()
 
 		cmd, err := s.gitCmdFactory.New(ctx, req.GetRepository(), git.SubCmd{
 			Name: "for-each-ref",

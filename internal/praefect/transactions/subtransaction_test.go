@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/voting"
 )
 
 func TestSubtransaction_cancel(t *testing.T) {
@@ -117,7 +118,7 @@ func TestSubtransaction_getResult(t *testing.T) {
 }
 
 func TestSubtransaction_vote(t *testing.T) {
-	var zeroVote vote
+	var zeroVote voting.Vote
 	voteA := newVote(t, "a")
 	voteB := newVote(t, "b")
 
@@ -126,9 +127,9 @@ func TestSubtransaction_vote(t *testing.T) {
 		voters             []Voter
 		threshold          uint
 		voterName          string
-		vote               vote
+		vote               voting.Vote
 		expectedVoterState []Voter
-		expectedVoteCounts map[vote]uint
+		expectedVoteCounts map[voting.Vote]uint
 		expectedErr        error
 	}{
 		{
@@ -142,7 +143,7 @@ func TestSubtransaction_vote(t *testing.T) {
 			expectedVoterState: []Voter{
 				{Name: "1", Votes: 1, result: VoteCommitted, vote: &voteA},
 			},
-			expectedVoteCounts: map[vote]uint{
+			expectedVoteCounts: map[voting.Vote]uint{
 				voteA: 1,
 			},
 		},
@@ -157,7 +158,7 @@ func TestSubtransaction_vote(t *testing.T) {
 			expectedVoterState: []Voter{
 				{Name: "1", Votes: 1, vote: &voteA},
 			},
-			expectedVoteCounts: map[vote]uint{
+			expectedVoteCounts: map[voting.Vote]uint{
 				voteA: 1,
 			},
 			expectedErr: errors.New("node already cast a vote: \"1\""),
@@ -173,7 +174,7 @@ func TestSubtransaction_vote(t *testing.T) {
 			expectedVoterState: []Voter{
 				{Name: "1", Votes: 1, result: VoteCommitted, vote: &zeroVote},
 			},
-			expectedVoteCounts: map[vote]uint{
+			expectedVoteCounts: map[voting.Vote]uint{
 				zeroVote: 1,
 			},
 		},
@@ -188,7 +189,7 @@ func TestSubtransaction_vote(t *testing.T) {
 			expectedVoterState: []Voter{
 				{Name: "1", Votes: 1, result: VoteCanceled},
 			},
-			expectedVoteCounts: map[vote]uint{},
+			expectedVoteCounts: map[voting.Vote]uint{},
 			expectedErr:        ErrTransactionCanceled,
 		},
 		{
@@ -202,7 +203,7 @@ func TestSubtransaction_vote(t *testing.T) {
 			expectedVoterState: []Voter{
 				{Name: "1", Votes: 1, result: VoteStopped},
 			},
-			expectedVoteCounts: map[vote]uint{},
+			expectedVoteCounts: map[voting.Vote]uint{},
 			expectedErr:        ErrTransactionStopped,
 		},
 		{
@@ -220,7 +221,7 @@ func TestSubtransaction_vote(t *testing.T) {
 				{Name: "2", Votes: 1, result: VoteCommitted, vote: &voteA},
 				{Name: "3", Votes: 1, result: VoteCommitted, vote: &voteA},
 			},
-			expectedVoteCounts: map[vote]uint{
+			expectedVoteCounts: map[voting.Vote]uint{
 				voteA: 3,
 			},
 		},
@@ -239,7 +240,7 @@ func TestSubtransaction_vote(t *testing.T) {
 				{Name: "2", Votes: 1},
 				{Name: "3", Votes: 1, vote: &voteA},
 			},
-			expectedVoteCounts: map[vote]uint{
+			expectedVoteCounts: map[voting.Vote]uint{
 				voteA: 2,
 			},
 		},
@@ -258,7 +259,7 @@ func TestSubtransaction_vote(t *testing.T) {
 				{Name: "2", Votes: 1, result: VoteFailed, vote: &voteA},
 				{Name: "3", Votes: 1, result: VoteFailed, vote: &voteB},
 			},
-			expectedVoteCounts: map[vote]uint{
+			expectedVoteCounts: map[voting.Vote]uint{
 				voteA: 2,
 				voteB: 1,
 			},
@@ -278,7 +279,7 @@ func TestSubtransaction_vote(t *testing.T) {
 				{Name: "2", Votes: 1, result: VoteCommitted, vote: &voteA},
 				{Name: "3", Votes: 1, result: VoteFailed, vote: &voteB},
 			},
-			expectedVoteCounts: map[vote]uint{
+			expectedVoteCounts: map[voting.Vote]uint{
 				voteA: 2,
 				voteB: 1,
 			},
@@ -288,7 +289,7 @@ func TestSubtransaction_vote(t *testing.T) {
 			s, err := newSubtransaction(tc.voters, tc.threshold)
 			require.NoError(t, err)
 
-			voteCounts := make(map[vote]uint)
+			voteCounts := make(map[voting.Vote]uint)
 			for _, voter := range tc.voters {
 				if voter.vote != nil {
 					voteCounts[*voter.vote] += voter.Votes
@@ -302,7 +303,7 @@ func TestSubtransaction_vote(t *testing.T) {
 				expectedVoterState[voter.Name] = &voter
 			}
 
-			require.Equal(t, tc.expectedErr, s.vote(tc.voterName, tc.vote[:]))
+			require.Equal(t, tc.expectedErr, s.vote(tc.voterName, tc.vote))
 			require.Equal(t, expectedVoterState, s.votersByNode)
 			require.Equal(t, tc.expectedVoteCounts, s.voteCounts)
 		})
@@ -392,7 +393,7 @@ func TestSubtransaction_mustSignalVoters(t *testing.T) {
 			s, err := newSubtransaction(tc.voters, tc.threshold)
 			require.NoError(t, err)
 
-			voteCounts := make(map[vote]uint)
+			voteCounts := make(map[voting.Vote]uint)
 			for _, voter := range tc.voters {
 				if voter.vote != nil {
 					voteCounts[*voter.vote] += voter.Votes
@@ -433,7 +434,7 @@ func TestSubtransaction_race(t *testing.T) {
 					require.NoError(t, err)
 					require.Equal(t, VoteUndecided, result)
 
-					require.NoError(t, s.vote(voter.Name, voteA[:]))
+					require.NoError(t, s.vote(voter.Name, voteA))
 					require.NoError(t, s.collectVotes(ctx, voter.Name))
 
 					result, err = s.getResult(voter.Name)
@@ -447,9 +448,9 @@ func TestSubtransaction_race(t *testing.T) {
 	}
 }
 
-func newVote(t *testing.T, s string) vote {
+func newVote(t *testing.T, s string) voting.Vote {
 	hash := sha1.Sum([]byte(s))
-	vote, err := voteFromHash(hash[:])
+	vote, err := voting.VoteFromHash(hash[:])
 	require.NoError(t, err)
 	return vote
 }

@@ -16,6 +16,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -84,7 +85,7 @@ func TestDeleteRefs_transaction(t *testing.T) {
 
 	var votes int
 	txManager := &transaction.MockManager{
-		VoteFn: func(context.Context, metadata.Transaction, metadata.PraefectServer, transaction.Vote) error {
+		VoteFn: func(context.Context, metadata.Transaction, metadata.PraefectServer, voting.Vote) error {
 			votes++
 			return nil
 		},

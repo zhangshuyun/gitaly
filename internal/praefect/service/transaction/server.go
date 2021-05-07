@@ -6,6 +6,7 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/transactions"
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
@@ -24,8 +25,12 @@ func NewServer(txMgr *transactions.Manager) gitalypb.RefTransactionServer {
 // transaction, blocking until a vote across all participating nodes has been
 // completed.
 func (s *Server) VoteTransaction(ctx context.Context, in *gitalypb.VoteTransactionRequest) (*gitalypb.VoteTransactionResponse, error) {
-	err := s.txMgr.VoteTransaction(ctx, in.TransactionId, in.Node, in.ReferenceUpdatesHash)
+	vote, err := voting.VoteFromHash(in.GetReferenceUpdatesHash())
 	if err != nil {
+		return nil, helper.ErrInvalidArgumentf("invalid reference update hash: %v", err)
+	}
+
+	if err := s.txMgr.VoteTransaction(ctx, in.TransactionId, in.Node, vote); err != nil {
 		switch {
 		case errors.Is(err, transactions.ErrNotFound):
 			return nil, helper.ErrNotFound(err)

@@ -5,8 +5,8 @@ import (
 	"errors"
 
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/voting"
 )
 
 func isPrimary(payload git.HooksPayload) bool {
@@ -36,9 +36,9 @@ func (m *GitLabHookManager) runWithTransaction(ctx context.Context, payload git.
 	return nil
 }
 
-func (m *GitLabHookManager) voteOnTransaction(ctx context.Context, hash transaction.Vote, payload git.HooksPayload) error {
+func (m *GitLabHookManager) voteOnTransaction(ctx context.Context, vote voting.Vote, payload git.HooksPayload) error {
 	return m.runWithTransaction(ctx, payload, func(ctx context.Context, tx metadata.Transaction, praefect metadata.PraefectServer) error {
-		return m.txManager.Vote(ctx, tx, praefect, hash)
+		return m.txManager.Vote(ctx, tx, praefect, vote)
 	})
 }
 

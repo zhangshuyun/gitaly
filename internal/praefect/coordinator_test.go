@@ -2,7 +2,6 @@ package praefect
 
 import (
 	"context"
-	"crypto/sha1"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -32,6 +31,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/transactions"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/promtest"
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/labkit/correlation"
 	"google.golang.org/grpc"
@@ -311,8 +311,8 @@ func TestStreamDirectorMutator_StopTransaction(t *testing.T) {
 	go func() {
 		defer wg.Done()
 
-		vote := sha1.Sum([]byte("vote"))
-		err := txMgr.VoteTransaction(ctx, transaction.ID, "primary", vote[:])
+		vote := voting.VoteFromData([]byte("vote"))
+		err := txMgr.VoteTransaction(ctx, transaction.ID, "primary", vote)
 		require.NoError(t, err)
 
 		// Assure that at least one vote was agreed on.
@@ -325,15 +325,15 @@ func TestStreamDirectorMutator_StopTransaction(t *testing.T) {
 	go func() {
 		defer wg.Done()
 
-		vote := sha1.Sum([]byte("vote"))
-		err := txMgr.VoteTransaction(ctx, transaction.ID, "secondary", vote[:])
+		vote := voting.VoteFromData([]byte("vote"))
+		err := txMgr.VoteTransaction(ctx, transaction.ID, "secondary", vote)
 		require.NoError(t, err)
 
 		// Assure that at least one vote was agreed on.
 		syncWG.Done()
 		syncWG.Wait()
 
-		err = txMgr.VoteTransaction(ctx, transaction.ID, "secondary", vote[:])
+		err = txMgr.VoteTransaction(ctx, transaction.ID, "secondary", vote)
 		assert.True(t, errors.Is(err, transactions.ErrTransactionStopped))
 	}()
 
@@ -935,7 +935,7 @@ func TestStreamDirector_repo_creation(t *testing.T) {
 
 			replEventWait.Add(1)
 
-			vote := make([]byte, sha1.Size)
+			vote := voting.VoteFromData([]byte{})
 			require.NoError(t, txMgr.VoteTransaction(ctx, 1, "praefect-internal-1", vote))
 			require.NoError(t, txMgr.VoteTransaction(ctx, 1, "praefect-internal-2", vote))
 

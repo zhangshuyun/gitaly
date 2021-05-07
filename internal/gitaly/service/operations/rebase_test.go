@@ -23,6 +23,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
@@ -95,7 +96,7 @@ func testUserRebaseConfirmableTransaction(t *testing.T, cfg config.Cfg, rubySrv 
 func testUserRebaseConfirmableTransactionFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	var voteCount int
 	txManager := &transaction.MockManager{
-		VoteFn: func(context.Context, metadata.Transaction, metadata.PraefectServer, transaction.Vote) error {
+		VoteFn: func(context.Context, metadata.Transaction, metadata.PraefectServer, voting.Vote) error {
 			voteCount++
 			return nil
 		},

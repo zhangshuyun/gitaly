@@ -22,6 +22,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
@@ -116,12 +117,12 @@ func TestCreateRepositoryFailureInvalidArgs(t *testing.T) {
 }
 
 func TestCreateRepositoryTransactional(t *testing.T) {
-	var vote transaction.Vote
+	var actualVote voting.Vote
 	var called int
 
 	mockTxManager := transaction.MockManager{
-		VoteFn: func(ctx context.Context, tx metadata.Transaction, server metadata.PraefectServer, v transaction.Vote) error {
-			vote = v
+		VoteFn: func(ctx context.Context, tx metadata.Transaction, server metadata.PraefectServer, v voting.Vote) error {
+			actualVote = v
 			called++
 			return nil
 		},
@@ -140,7 +141,7 @@ func TestCreateRepositoryTransactional(t *testing.T) {
 
 	t.Run("initial creation without refs", func(t *testing.T) {
 		called = 0
-		vote = transaction.Vote{}
+		actualVote = voting.Vote{}
 
 		_, err = client.CreateRepository(ctx, &gitalypb.CreateRepositoryRequest{
 			Repository: &gitalypb.Repository{
@@ -152,12 +153,12 @@ func TestCreateRepositoryTransactional(t *testing.T) {
 
 		require.DirExists(t, filepath.Join(cfg.Storages[0].Path, "repo.git"))
 		require.Equal(t, 1, called, "expected transactional vote")
-		require.Equal(t, transaction.VoteFromData([]byte{}), vote)
+		require.Equal(t, voting.VoteFromData([]byte{}), actualVote)
 	})
 
 	t.Run("idempotent creation with preexisting refs", func(t *testing.T) {
 		called = 0
-		vote = transaction.Vote{}
+		actualVote = voting.Vote{}
 
 		repo, repoPath, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "clone.git")
 		defer cleanup()
@@ -171,7 +172,7 @@ func TestCreateRepositoryTransactional(t *testing.T) {
 		require.NotEmpty(t, refs)
 
 		require.Equal(t, 1, called, "expected transactional vote")
-		require.Equal(t, transaction.VoteFromData(refs), vote)
+		require.Equal(t, voting.VoteFromData(refs), actualVote)
 	})
 }
 

@@ -19,6 +19,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/voting"
 )
 
 func TestHookManager_stopCalled(t *testing.T) {
@@ -121,7 +122,7 @@ func TestHookManager_contextCancellationCancelsVote(t *testing.T) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	mockTxMgr := transaction.MockManager{
-		VoteFn: func(ctx context.Context, tx metadata.Transaction, praefect metadata.PraefectServer, vote transaction.Vote) error {
+		VoteFn: func(ctx context.Context, tx metadata.Transaction, praefect metadata.PraefectServer, vote voting.Vote) error {
 			<-ctx.Done()
 			return fmt.Errorf("mock error: %s", ctx.Err())
 		},

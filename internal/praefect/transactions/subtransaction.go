@@ -2,10 +2,10 @@ package transactions
 
 import (
 	"context"
-	"crypto/sha1"
-	"encoding/hex"
 	"fmt"
 	"sync"
+
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/voting"
 )
 
 // VoteResult represents the outcome of a transaction for a single voter.
@@ -26,24 +26,6 @@ const (
 	VoteStopped
 )
 
-type vote [sha1.Size]byte
-
-func voteFromHash(hash []byte) (vote, error) {
-	var vote vote
-
-	if len(hash) != sha1.Size {
-		return vote, fmt.Errorf("invalid voting hash: %q", hash)
-	}
-
-	copy(vote[:], hash)
-	return vote, nil
-}
-
-// String returns the hexadecimal string representation of the vote.
-func (v vote) String() string {
-	return hex.EncodeToString(v[:])
-}
-
 // subtransaction is a single session where voters are voting for a certain outcome.
 type subtransaction struct {
 	doneCh chan interface{}
@@ -52,7 +34,7 @@ type subtransaction struct {
 
 	lock         sync.RWMutex
 	votersByNode map[string]*Voter
-	voteCounts   map[vote]uint
+	voteCounts   map[voting.Vote]uint
 	isDone       bool
 }
 
@@ -67,7 +49,7 @@ func newSubtransaction(voters []Voter, threshold uint) (*subtransaction, error) 
 		doneCh:       make(chan interface{}),
 		threshold:    threshold,
 		votersByNode: votersByNode,
-		voteCounts:   make(map[vote]uint, len(voters)),
+		voteCounts:   make(map[voting.Vote]uint, len(voters)),
 	}, nil
 }
 
@@ -131,12 +113,7 @@ func (t *subtransaction) state() map[string]VoteResult {
 	return results
 }
 
-func (t *subtransaction) vote(node string, hash []byte) error {
-	vote, err := voteFromHash(hash)
-	if err != nil {
-		return err
-	}
-
+func (t *subtransaction) vote(node string, vote voting.Vote) error {
 	t.lock.Lock()
 	defer t.lock.Unlock()
 
@@ -185,7 +162,7 @@ func (t *subtransaction) vote(node string, hash []byte) error {
 // updateVoterStates updates undecided voters. Voters are updated either as
 // soon as quorum was reached or alternatively when all votes were cast.
 func (t *subtransaction) updateVoterStates() {
-	var majorityVote *vote
+	var majorityVote *voting.Vote
 	for v, voteCount := range t.voteCounts {
 		if voteCount >= t.threshold {
 			v := v

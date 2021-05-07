@@ -3,7 +3,6 @@ package praefect
 import (
 	"bytes"
 	"context"
-	"crypto/sha1"
 	"errors"
 	"io"
 	"net"
@@ -41,6 +40,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/promtest"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/internal/version"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
@@ -70,7 +70,9 @@ func TestNewBackchannelServerFactory(t *testing.T) {
 			}
 
 			resp, err := gitalypb.NewRefTransactionClient(backchannelConn).VoteTransaction(
-				stream.Context(), &gitalypb.VoteTransactionRequest{},
+				stream.Context(), &gitalypb.VoteTransactionRequest{
+					ReferenceUpdatesHash: voting.VoteFromData([]byte{}).Bytes(),
+				},
 			)
 			assert.Nil(t, resp)
 
@@ -682,8 +684,8 @@ func (m *mockSmartHTTP) PostReceivePack(stream gitalypb.SmartHTTPService_PostRec
 		return helper.ErrInternal(err)
 	}
 
-	hash := sha1.Sum([]byte{})
-	if err := m.txMgr.VoteTransaction(ctx, tx.ID, tx.Node, hash[:]); err != nil {
+	vote := voting.VoteFromData([]byte{})
+	if err := m.txMgr.VoteTransaction(ctx, tx.ID, tx.Node, vote); err != nil {
 		return helper.ErrInternal(err)
 	}
 

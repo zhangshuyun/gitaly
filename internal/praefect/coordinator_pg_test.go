@@ -4,7 +4,6 @@ package praefect
 
 import (
 	"context"
-	"crypto/sha1"
 	"errors"
 	"fmt"
 	"sync"
@@ -23,6 +22,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/transactions"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/promtest"
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/peer"
 )
@@ -217,8 +217,8 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 				go func() {
 					defer voterWaitGroup.Done()
 
-					vote := sha1.Sum([]byte(node.vote))
-					err := txMgr.VoteTransaction(ctx, transaction.ID, fmt.Sprintf("node-%d", i), vote[:])
+					vote := voting.VoteFromData([]byte(node.vote))
+					err := txMgr.VoteTransaction(ctx, transaction.ID, fmt.Sprintf("node-%d", i), vote)
 					if node.shouldSucceed {
 						assert.NoError(t, err)
 					} else {

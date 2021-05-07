@@ -1,7 +1,8 @@
-package transaction
+package voting
 
 import (
 	"crypto/sha1"
+	"encoding/hex"
 	"fmt"
 	"hash"
 )
@@ -17,6 +18,11 @@ type Vote [voteSize]byte
 // Bytes returns a byte slice containing the hash.
 func (v Vote) Bytes() []byte {
 	return v[:]
+}
+
+// String returns the hex representation of the vote hash.
+func (v Vote) String() string {
+	return hex.EncodeToString(v[:])
 }
 
 // VoteFromHash converts the given byte slice containing a hash into a vote.

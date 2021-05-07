@@ -28,6 +28,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/streamio"
 	"google.golang.org/grpc/codes"
@@ -261,7 +262,7 @@ func TestReceivePackTransactional(t *testing.T) {
 	serverSocketPath := runSSHServer(t, cfg, testserver.WithTransactionManager(
 		&transaction.MockManager{
 			VoteFn: func(context.Context, metadata.Transaction,
-				metadata.PraefectServer, transaction.Vote,
+				metadata.PraefectServer, voting.Vote,
 			) error {
 				votes++
 				return nil

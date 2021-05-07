@@ -27,6 +27,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -208,7 +209,7 @@ type mockTxManager struct {
 	votes int
 }
 
-func (m *mockTxManager) Vote(context.Context, metadata.Transaction, metadata.PraefectServer, transaction.Vote) error {
+func (m *mockTxManager) Vote(context.Context, metadata.Transaction, metadata.PraefectServer, voting.Vote) error {
 	m.votes++
 	return nil
 }
