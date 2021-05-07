@@ -246,8 +246,8 @@ praefect_sql_connect:
     # Sanity check: direct ping with psql
     - PGPASSWORD=$POSTGRES_PASSWORD psql -h postgres -U $POSTGRES_USER -d $POSTGRES_DB -c 'select now()'
     - ruby -rerb -e 'ERB.new(ARGF.read).run' _support/config.praefect.toml.ci-sql-test.erb > config.praefect.toml
-    - ./praefect -config config.praefect.toml sql-ping
-    - ./praefect -config config.praefect.toml sql-migrate
+    - ./_build/bin/praefect -config config.praefect.toml sql-ping
+    - ./_build/bin/praefect -config config.praefect.toml sql-migrate
 
 praefect_sql_test:
   <<: *test_definition
