@@ -192,8 +192,7 @@ export CGO_LDFLAGS_ALLOW          = -D_THREAD_SAFE
 .SECONDARY:
 
 .PHONY: all
-all: INSTALL_DEST_DIR = ${SOURCE_DIR}
-all: install
+all: build
 
 .PHONY: build
 build: ${SOURCE_DIR}/.ruby-bundle libgit2
@@ -286,7 +285,7 @@ notice: ${SOURCE_DIR}/NOTICE
 
 .PHONY: clean
 clean:
-	rm -rf ${BUILD_DIR} ${SOURCE_DIR}/internal/testhelper/testdata/data/ ${SOURCE_DIR}/ruby/.bundle/ ${SOURCE_DIR}/ruby/vendor/bundle/ $(addprefix ${SOURCE_DIR}/, $(notdir $(call find_commands)))
+	rm -rf ${BUILD_DIR} ${SOURCE_DIR}/internal/testhelper/testdata/data/ ${SOURCE_DIR}/ruby/.bundle/ ${SOURCE_DIR}/ruby/vendor/bundle/
 
 .PHONY: clean-ruby-vendor-go
 clean-ruby-vendor-go:

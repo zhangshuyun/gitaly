@@ -1,15 +1,3 @@
-# Top-level executables
-/gitaly
-/gitaly-backup
-/gitaly-blackbox
-/gitaly-debug
-/gitaly-git2go
-/gitaly-hooks
-/gitaly-lfs-smudge
-/gitaly-ssh
-/gitaly-wrapper
-/praefect
-
 # Generic artifacts
 /_build/
 /*.deb
