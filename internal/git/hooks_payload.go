@@ -10,7 +10,7 @@ import (
 	"github.com/golang/protobuf/jsonpb"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
@@ -75,10 +75,10 @@ type HooksPayload struct {
 
 	// Transaction is used to identify a reference transaction. This is an optional field -- if
 	// it's not set, no transactional voting will happen.
-	Transaction *metadata.Transaction `json:"transaction"`
+	Transaction *txinfo.Transaction `json:"transaction"`
 	// Praefect is used to identify the Praefect server which is hosting the transaction. This
 	// field must be set if and only if `Transaction` is.
-	Praefect *metadata.PraefectServer `json:"praefect"`
+	Praefect *txinfo.PraefectServer `json:"praefect"`
 
 	// ReceiveHooksPayload contains information required when executing
 	// git-receive-pack.
@@ -110,8 +110,8 @@ type jsonHooksPayload struct {
 func NewHooksPayload(
 	cfg config.Cfg,
 	repo *gitalypb.Repository,
-	tx *metadata.Transaction,
-	praefect *metadata.PraefectServer,
+	tx *txinfo.Transaction,
+	praefect *txinfo.PraefectServer,
 	receiveHooksPayload *ReceiveHooksPayload,
 	requestedHooks Hook,
 	featureFlags featureflag.Raw,
@@ -174,7 +174,7 @@ func HooksPayloadFromEnv(envs []string) (HooksPayload, error) {
 	payload.Repo = &repo
 
 	if payload.Transaction != nil && payload.Praefect == nil {
-		return HooksPayload{}, metadata.ErrPraefectServerNotFound
+		return HooksPayload{}, txinfo.ErrPraefectServerNotFound
 	}
 
 	// If no git path is set up as part of the serialized hooks payload,

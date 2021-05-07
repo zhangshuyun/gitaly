@@ -18,10 +18,10 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config/auth"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -121,7 +121,7 @@ func TestCreateRepositoryTransactional(t *testing.T) {
 	var called int
 
 	mockTxManager := transaction.MockManager{
-		VoteFn: func(ctx context.Context, tx metadata.Transaction, server metadata.PraefectServer, v voting.Vote) error {
+		VoteFn: func(ctx context.Context, tx txinfo.Transaction, server txinfo.PraefectServer, v voting.Vote) error {
 			actualVote = v
 			called++
 			return nil
@@ -133,9 +133,9 @@ func TestCreateRepositoryTransactional(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	ctx, err := (&metadata.PraefectServer{SocketPath: "something"}).Inject(ctx)
+	ctx, err := (&txinfo.PraefectServer{SocketPath: "something"}).Inject(ctx)
 	require.NoError(t, err)
-	ctx, err = metadata.InjectTransaction(ctx, 1, "node", true)
+	ctx, err = txinfo.InjectTransaction(ctx, 1, "node", true)
 	require.NoError(t, err)
 	ctx = helper.IncomingToOutgoing(ctx)
 

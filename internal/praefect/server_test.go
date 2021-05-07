@@ -29,7 +29,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/grpc-proxy/proxy"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/mock"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/nodes"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/nodes/tracker"
@@ -40,6 +39,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/promtest"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/internal/version"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -679,7 +679,7 @@ func (m *mockSmartHTTP) PostReceivePack(stream gitalypb.SmartHTTPService_PostRec
 
 	ctx := stream.Context()
 
-	tx, err := metadata.TransactionFromContext(ctx)
+	tx, err := txinfo.TransactionFromContext(ctx)
 	if err != nil {
 		return helper.ErrInternal(err)
 	}

@@ -16,10 +16,10 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -107,7 +107,7 @@ func TestApplyGitattributesWithTransaction(t *testing.T) {
 		}),
 	)
 
-	praefect := metadata.PraefectServer{
+	praefect := txinfo.PraefectServer{
 		SocketPath: "unix://" + cfg.GitalyInternalSocketPath(),
 		Token:      cfg.Auth.Token,
 	}
@@ -171,7 +171,7 @@ func TestApplyGitattributesWithTransaction(t *testing.T) {
 			infoPath := filepath.Join(repoPath, "info")
 			require.NoError(t, os.RemoveAll(infoPath))
 
-			ctx, err := metadata.InjectTransaction(ctx, 1, "primary", true)
+			ctx, err := txinfo.InjectTransaction(ctx, 1, "primary", true)
 			require.NoError(t, err)
 			ctx, err = praefect.Inject(ctx)
 			require.NoError(t, err)

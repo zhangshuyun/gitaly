@@ -20,10 +20,10 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -302,7 +302,7 @@ func TestUserCreateTagWithTransaction(t *testing.T) {
 		),
 	)
 
-	praefectServer := &metadata.PraefectServer{
+	praefectServer := &txinfo.PraefectServer{
 		SocketPath: "unix://" + cfg.GitalyInternalSocketPath(),
 		Token:      cfg.Auth.Token,
 	}
@@ -352,7 +352,7 @@ func TestUserCreateTagWithTransaction(t *testing.T) {
 			// We need to convert to an incoming context first in
 			// order to preserve the feature flag.
 			ctx = helper.OutgoingToIncoming(ctx)
-			ctx, err = metadata.InjectTransaction(ctx, 1, "node", testCase.primary)
+			ctx, err = txinfo.InjectTransaction(ctx, 1, "node", testCase.primary)
 			require.NoError(t, err)
 			ctx, err = praefectServer.Inject(ctx)
 			require.NoError(t, err)

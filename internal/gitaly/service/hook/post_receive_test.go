@@ -14,10 +14,10 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/streamio"
 	"google.golang.org/grpc/codes"
@@ -99,12 +99,12 @@ func TestHooksMissingStdin(t *testing.T) {
 			hooksPayload, err := git.NewHooksPayload(
 				cfg,
 				repo,
-				&metadata.Transaction{
+				&txinfo.Transaction{
 					ID:      1234,
 					Node:    "node-1",
 					Primary: tc.primary,
 				},
-				&metadata.PraefectServer{
+				&txinfo.PraefectServer{
 					SocketPath: "/path/to/socket",
 					Token:      "secret",
 				},

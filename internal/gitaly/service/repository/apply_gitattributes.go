@@ -11,7 +11,7 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -93,12 +93,12 @@ func (s *server) applyGitattributes(ctx context.Context, c catfile.Batch, repoPa
 }
 
 func (s *server) vote(ctx context.Context, oid git.ObjectID) error {
-	tx, err := metadata.TransactionFromContext(ctx)
-	if errors.Is(err, metadata.ErrTransactionNotFound) {
+	tx, err := txinfo.TransactionFromContext(ctx)
+	if errors.Is(err, txinfo.ErrTransactionNotFound) {
 		return nil
 	}
 
-	praefect, err := metadata.PraefectFromContext(ctx)
+	praefect, err := txinfo.PraefectFromContext(ctx)
 	if err != nil {
 		return fmt.Errorf("vote has invalid Praefect info: %w", err)
 	}

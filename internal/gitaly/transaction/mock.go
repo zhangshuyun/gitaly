@@ -4,18 +4,18 @@ import (
 	"context"
 	"errors"
 
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/internal/transaction/voting"
 )
 
 // MockManager is a mock Manager for use in tests.
 type MockManager struct {
-	VoteFn func(context.Context, metadata.Transaction, metadata.PraefectServer, voting.Vote) error
-	StopFn func(context.Context, metadata.Transaction, metadata.PraefectServer) error
+	VoteFn func(context.Context, txinfo.Transaction, txinfo.PraefectServer, voting.Vote) error
+	StopFn func(context.Context, txinfo.Transaction, txinfo.PraefectServer) error
 }
 
 // Vote calls the MockManager's Vote function, if set. Otherwise, it returns an error.
-func (m *MockManager) Vote(ctx context.Context, tx metadata.Transaction, praefect metadata.PraefectServer, vote voting.Vote) error {
+func (m *MockManager) Vote(ctx context.Context, tx txinfo.Transaction, praefect txinfo.PraefectServer, vote voting.Vote) error {
 	if m.VoteFn == nil {
 		return errors.New("mock does not implement Vote function")
 	}
@@ -23,7 +23,7 @@ func (m *MockManager) Vote(ctx context.Context, tx metadata.Transaction, praefec
 }
 
 // Stop calls the MockManager's Stop function, if set. Otherwise, it returns an error.
-func (m *MockManager) Stop(ctx context.Context, tx metadata.Transaction, praefect metadata.PraefectServer) error {
+func (m *MockManager) Stop(ctx context.Context, tx txinfo.Transaction, praefect txinfo.PraefectServer) error {
 	if m.StopFn == nil {
 		return errors.New("mock does not implement Stop function")
 	}

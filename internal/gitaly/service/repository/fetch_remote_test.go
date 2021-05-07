@@ -23,10 +23,10 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
@@ -209,7 +209,7 @@ type mockTxManager struct {
 	votes int
 }
 
-func (m *mockTxManager) Vote(context.Context, metadata.Transaction, metadata.PraefectServer, voting.Vote) error {
+func (m *mockTxManager) Vote(context.Context, txinfo.Transaction, txinfo.PraefectServer, voting.Vote) error {
 	m.votes++
 	return nil
 }
@@ -230,9 +230,9 @@ func TestFetchRemote_transaction(t *testing.T) {
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
-	ctx, err := metadata.InjectTransaction(ctx, 1, "node", true)
+	ctx, err := txinfo.InjectTransaction(ctx, 1, "node", true)
 	require.NoError(t, err)
-	ctx, err = (&metadata.PraefectServer{SocketPath: "i-dont-care"}).Inject(ctx)
+	ctx, err = (&txinfo.PraefectServer{SocketPath: "i-dont-care"}).Inject(ctx)
 	require.NoError(t, err)
 	ctx = helper.IncomingToOutgoing(ctx)
 

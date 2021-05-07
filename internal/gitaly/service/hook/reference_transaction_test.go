@@ -11,10 +11,10 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -145,11 +145,11 @@ func TestReferenceTransactionHook(t *testing.T) {
 			hooksPayload, err := git.NewHooksPayload(
 				cfg,
 				repo,
-				&metadata.Transaction{
+				&txinfo.Transaction{
 					ID:   1234,
 					Node: "node-1",
 				},
-				&metadata.PraefectServer{BackchannelID: backchannelID},
+				&txinfo.PraefectServer{BackchannelID: backchannelID},
 				nil,
 				git.ReferenceTransactionHook,
 				featureflag.RawFromContext(ctx),

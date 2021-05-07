@@ -28,10 +28,10 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitlab"
 	gitalylog "gitlab.com/gitlab-org/gitaly/internal/log"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
 )
@@ -399,12 +399,12 @@ func TestHooksPostReceiveFailed(t *testing.T) {
 			hooksPayload, err := git.NewHooksPayload(
 				cfg,
 				repo,
-				&metadata.Transaction{
+				&txinfo.Transaction{
 					ID:      1,
 					Node:    "node",
 					Primary: tc.primary,
 				},
-				&metadata.PraefectServer{
+				&txinfo.PraefectServer{
 					SocketPath: "/path/to/socket",
 					Token:      "secret",
 				},

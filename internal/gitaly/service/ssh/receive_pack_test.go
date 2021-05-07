@@ -24,10 +24,10 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/streamio"
@@ -261,8 +261,8 @@ func TestReceivePackTransactional(t *testing.T) {
 	var votes int
 	serverSocketPath := runSSHServer(t, cfg, testserver.WithTransactionManager(
 		&transaction.MockManager{
-			VoteFn: func(context.Context, metadata.Transaction,
-				metadata.PraefectServer, voting.Vote,
+			VoteFn: func(context.Context, txinfo.Transaction,
+				txinfo.PraefectServer, voting.Vote,
 			) error {
 				votes++
 				return nil
@@ -275,9 +275,9 @@ func TestReceivePackTransactional(t *testing.T) {
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
-	ctx, err := (&metadata.PraefectServer{SocketPath: "whatever"}).Inject(ctx)
+	ctx, err := (&txinfo.PraefectServer{SocketPath: "whatever"}).Inject(ctx)
 	require.NoError(t, err)
-	ctx, err = metadata.InjectTransaction(ctx, 1, "node", true)
+	ctx, err = txinfo.InjectTransaction(ctx, 1, "node", true)
 	require.NoError(t, err)
 	ctx = helper.IncomingToOutgoing(ctx)
 

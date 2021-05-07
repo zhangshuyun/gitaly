@@ -6,8 +6,8 @@ import (
 	"os"
 	"strings"
 
-	praefect_metadata "gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/metadata"
 )
@@ -58,20 +58,20 @@ func setHeaders(ctx context.Context, locator storage.Locator, repo *gitalypb.Rep
 	// Praefect server info into the context, `PraefectFromContext()` will
 	// also resolve connection information from the context's peer info.
 	// Thus the re-injected connection info will contain resolved addresses.
-	if praefectServer, err := praefect_metadata.PraefectFromContext(ctx); err == nil {
+	if praefectServer, err := txinfo.PraefectFromContext(ctx); err == nil {
 		ctx, err = praefectServer.Inject(ctx)
 		if err != nil {
 			return nil, err
 		}
-	} else if err != praefect_metadata.ErrPraefectServerNotFound {
+	} else if err != txinfo.ErrPraefectServerNotFound {
 		return nil, err
 	}
 
 	// list of http/2 headers that will be forwarded as-is to gitaly-ruby
 	proxyHeaderAllowlist := []string{
 		"gitaly-servers",
-		praefect_metadata.TransactionMetadataKey,
-		praefect_metadata.PraefectMetadataKey,
+		txinfo.TransactionMetadataKey,
+		txinfo.PraefectMetadataKey,
 	}
 
 	if inMD, ok := metadata.FromIncomingContext(ctx); ok {

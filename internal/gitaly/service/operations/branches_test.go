@@ -16,10 +16,10 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/hook"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -136,12 +136,12 @@ func TestUserCreateBranchWithTransaction(t *testing.T) {
 	testcases := []struct {
 		desc    string
 		address string
-		server  metadata.PraefectServer
+		server  txinfo.PraefectServer
 	}{
 		{
 			desc:    "explicit TCP address",
 			address: addr,
-			server: metadata.PraefectServer{
+			server: txinfo.PraefectServer{
 				ListenAddr: addr,
 				Token:      cfg.Auth.Token,
 			},
@@ -149,7 +149,7 @@ func TestUserCreateBranchWithTransaction(t *testing.T) {
 		{
 			desc:    "catch-all TCP address",
 			address: addr,
-			server: metadata.PraefectServer{
+			server: txinfo.PraefectServer{
 				ListenAddr: "tcp://0.0.0.0:" + port,
 				Token:      cfg.Auth.Token,
 			},
@@ -157,7 +157,7 @@ func TestUserCreateBranchWithTransaction(t *testing.T) {
 		{
 			desc:    "Unix socket",
 			address: "unix://" + cfg.GitalyInternalSocketPath(),
-			server: metadata.PraefectServer{
+			server: txinfo.PraefectServer{
 				SocketPath: "unix://" + cfg.GitalyInternalSocketPath(),
 				Token:      cfg.Auth.Token,
 			},
@@ -184,7 +184,7 @@ func TestUserCreateBranchWithTransaction(t *testing.T) {
 
 			ctx, err := tc.server.Inject(ctx)
 			require.NoError(t, err)
-			ctx, err = metadata.InjectTransaction(ctx, 1, "node", true)
+			ctx, err = txinfo.InjectTransaction(ctx, 1, "node", true)
 			require.NoError(t, err)
 			ctx = helper.IncomingToOutgoing(ctx)
 
@@ -500,7 +500,7 @@ func TestUserDeleteBranch_transaction(t *testing.T) {
 		gitalypb.RegisterOperationServiceServer(srv, NewServer(deps.GetCfg(), nil, deps.GetHookManager(), deps.GetLocator(), deps.GetConnsPool(), deps.GetGitCmdFactory()))
 	})
 
-	praefect := metadata.PraefectServer{
+	praefect := txinfo.PraefectServer{
 		SocketPath: fmt.Sprintf("unix://" + cfg.GitalyInternalSocketPath()),
 		Token:      cfg.Auth.Token,
 	}
@@ -510,7 +510,7 @@ func TestUserDeleteBranch_transaction(t *testing.T) {
 
 	ctx, err := praefect.Inject(ctx)
 	require.NoError(t, err)
-	ctx, err = metadata.InjectTransaction(ctx, 1, "node", true)
+	ctx, err = txinfo.InjectTransaction(ctx, 1, "node", true)
 	require.NoError(t, err)
 	ctx = helper.IncomingToOutgoing(ctx)
 
