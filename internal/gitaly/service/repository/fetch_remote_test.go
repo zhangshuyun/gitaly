@@ -661,8 +661,8 @@ func remoteHTTPServer(t *testing.T, repoName, httpToken string) (*httptest.Serve
 	return s, fmt.Sprintf("%s/%s.git", s.URL, repoName)
 }
 
-func getRefnames(t *testing.T, repoPath string) []string {
-	result := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "for-each-ref", "--format", "%(refname:lstrip=2)")
+func getRefnames(t *testing.T, cfg config.Cfg, repoPath string) []string {
+	result := gittest.Exec(t, cfg, "-C", repoPath, "for-each-ref", "--format", "%(refname:lstrip=2)")
 	return strings.Split(text.ChompBytes(result), "\n")
 }
 
@@ -708,13 +708,13 @@ func testFetchRemoteOverHTTP(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.S
 				req.RemoteParams.Url = s.URL + tc.remoteURL
 			}
 
-			refs := getRefnames(t, forkedRepoPath)
+			refs := getRefnames(t, cfg, forkedRepoPath)
 			require.True(t, len(refs) > 1, "the advertisement.txt should have deleted all refs except for master")
 
 			_, err := client.FetchRemote(ctx, req)
 			require.NoError(t, err)
 
-			refs = getRefnames(t, forkedRepoPath)
+			refs = getRefnames(t, cfg, forkedRepoPath)
 
 			require.Len(t, refs, 1)
 			assert.Equal(t, "master", refs[0])
