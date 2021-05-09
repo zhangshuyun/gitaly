@@ -109,11 +109,6 @@ func CloneRepoAtStorage(t testing.TB, storage config.Storage, relativePath strin
 	return repo, repoPath, cleanup
 }
 
-// CloneRepo creates a bare copy of the test repository.
-func CloneRepo(t testing.TB) (repo *gitalypb.Repository, repoPath string, cleanup func()) {
-	return cloneRepo(t, config.Config, testhelper.GitlabTestStoragePath(), NewRepositoryName(t, true), testRepo, true)
-}
-
 // CloneRepoWithWorktree creates a copy of the test repository with a worktree. This is allows you
 // to run normal 'non-bare' Git commands.
 func CloneRepoWithWorktree(t testing.TB) (repo *gitalypb.Repository, repoPath string, cleanup func()) {

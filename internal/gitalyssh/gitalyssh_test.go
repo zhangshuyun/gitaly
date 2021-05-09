@@ -7,17 +7,16 @@ import (
 
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/labkit/correlation"
 	"google.golang.org/grpc/metadata"
 )
 
 func TestUploadPackEnv(t *testing.T) {
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _ := testcfg.BuildWithRepo(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -27,7 +26,7 @@ func TestUploadPackEnv(t *testing.T) {
 	ctx = correlation.ContextWithCorrelation(ctx, "correlation-id-1")
 
 	req := gitalypb.SSHUploadPackRequest{
-		Repository: testRepo,
+		Repository: repo,
 	}
 
 	var pbMarshaler jsonpb.Marshaler
