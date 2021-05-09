@@ -234,7 +234,7 @@ func copyRepoUsingSnapshot(t *testing.T, cfg config.Cfg, client gitalypb.Reposit
 	srv := httptest.NewServer(&tarTesthandler{tarData: bytes.NewBuffer(data), secret: secret})
 	defer srv.Close()
 
-	repoCopy, repoCopyPath, cleanupCopy := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "copy")
+	repoCopy, repoCopyPath, cleanupCopy := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "copy")
 
 	// Delete the repository so we can re-use the path
 	require.NoError(t, os.RemoveAll(repoCopyPath))

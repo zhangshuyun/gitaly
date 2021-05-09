@@ -57,8 +57,8 @@ func TestServer_ConsistencyCheck(t *testing.T) {
 	targetCfg := testcfg.Build(t, testcfg.WithStorages(targetStorageName))
 
 	// firstRepoPath exists on both storages and has same state
-	gittest.CloneRepoAtStorage(t, referenceCfg.Storages[0], firstRepoPath)
-	gittest.CloneRepoAtStorage(t, targetCfg.Storages[0], firstRepoPath)
+	gittest.CloneRepoAtStorage(t, referenceCfg, referenceCfg.Storages[0], firstRepoPath)
+	gittest.CloneRepoAtStorage(t, targetCfg, targetCfg.Storages[0], firstRepoPath)
 
 	referenceAddr := testserver.RunGitalyServer(t, referenceCfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
 	targetGitaly := testserver.StartGitalyServer(t, targetCfg, nil, setup.RegisterAll, testserver.WithDisablePraefect())
@@ -169,9 +169,9 @@ func TestServer_ConsistencyCheck(t *testing.T) {
 
 	// secondRepoPath generates an error, but it should not stop other repositories from being processed.
 	// Order does matter for the test to verify the flow.
-	gittest.CloneRepoAtStorage(t, referenceCfg.Storages[0], secondRepoPath)
+	gittest.CloneRepoAtStorage(t, referenceCfg, referenceCfg.Storages[0], secondRepoPath)
 	// thirdRepoPath exists only on the reference storage (where traversal happens).
-	gittest.CloneRepoAtStorage(t, referenceCfg.Storages[0], thirdRepoPath)
+	gittest.CloneRepoAtStorage(t, referenceCfg, referenceCfg.Storages[0], thirdRepoPath)
 	// not.git is a folder on the reference storage that should be skipped as it is not a git repository.
 	require.NoError(t, os.MkdirAll(filepath.Join(referenceCfg.Storages[0].Path, "not.git"), os.ModePerm))
 

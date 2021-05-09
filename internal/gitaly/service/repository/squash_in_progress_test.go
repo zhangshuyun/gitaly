@@ -16,7 +16,7 @@ func TestSuccessfulIsSquashInProgressRequest(t *testing.T) {
 
 	gittest.Exec(t, cfg, "-C", repoPath, "worktree", "add", "--detach", filepath.Join(repoPath, worktreePrefix, "squash-1"), "master")
 
-	repoCopy, _, cleanupFn := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "copy")
+	repoCopy, _, cleanupFn := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "copy")
 	defer cleanupFn()
 
 	testCases := []struct {

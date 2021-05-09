@@ -177,7 +177,7 @@ func TestUnlink(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	deletedRepo, deletedRepoPath, removeDeletedRepo := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "todelete")
+	deletedRepo, deletedRepoPath, removeDeletedRepo := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "todelete")
 	defer removeDeletedRepo()
 
 	gitCmdFactory := git.NewExecCommandFactory(cfg)

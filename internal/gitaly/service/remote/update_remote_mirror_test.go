@@ -480,10 +480,10 @@ func testSuccessfulUpdateRemoteMirrorRequestFeatured(t *testing.T, ctx context.C
 	client, conn := newRemoteClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "source")
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "source")
 	defer cleanupFn()
 
-	_, mirrorPath, mirrorCleanupFn := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "mirror")
+	_, mirrorPath, mirrorCleanupFn := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "mirror")
 	defer mirrorCleanupFn()
 
 	remoteName := "remote_mirror_1"
@@ -586,10 +586,10 @@ func testSuccessfulUpdateRemoteMirrorRequestWithWildcardsFeatured(t *testing.T, 
 	client, conn := newRemoteClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "source")
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "source")
 	defer cleanupFn()
 
-	_, mirrorPath, mirrorCleanupFn := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "mirror")
+	_, mirrorPath, mirrorCleanupFn := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "mirror")
 	defer mirrorCleanupFn()
 
 	remoteName := "remote_mirror_2"
@@ -676,10 +676,10 @@ func testSuccessfulUpdateRemoteMirrorRequestWithKeepDivergentRefsFeatured(t *tes
 	client, conn := newRemoteClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, testRepoPath, cleanupFn := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "source")
+	testRepo, testRepoPath, cleanupFn := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "source")
 	defer cleanupFn()
 
-	_, mirrorPath, mirrorCleanupFn := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "mirror")
+	_, mirrorPath, mirrorCleanupFn := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "mirror")
 	defer mirrorCleanupFn()
 
 	remoteName := "remote_mirror_1"
@@ -768,7 +768,7 @@ func testFailedUpdateRemoteMirrorRequestDueToValidationFeatured(t *testing.T, ct
 	client, conn := newRemoteClient(t, serverSocketPath)
 	defer conn.Close()
 
-	testRepo, _, cleanupFn := gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name())
+	testRepo, _, cleanupFn := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name())
 	defer cleanupFn()
 
 	testCases := []struct {

@@ -188,7 +188,7 @@ func TestGetArchiveWithLfsSuccess(t *testing.T) {
 	serverSocketPath := runRepositoryServerWithConfig(t, cfg, nil)
 	client := newRepositoryClient(t, cfg, serverSocketPath)
 
-	repo, _, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name())
+	repo, _, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name())
 	t.Cleanup(cleanup)
 
 	testhelper.ConfigureGitalyLfsSmudge(t, cfg.BinDir)

@@ -28,7 +28,7 @@ func TestSuccessfulIsRebaseInProgressRequest(t *testing.T) {
 	gittest.Exec(t, cfg, "-C", repoPath1, "worktree", "add", "--detach", oldPath, "master")
 	require.NoError(t, os.Chtimes(oldPath, time.Now(), time.Now().Add(-16*time.Minute)))
 
-	repo2, _, cleanupFn := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "second")
+	repo2, _, cleanupFn := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "second")
 	t.Cleanup(cleanupFn)
 
 	testCases := []struct {

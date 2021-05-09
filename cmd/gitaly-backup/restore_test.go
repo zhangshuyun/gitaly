@@ -27,7 +27,7 @@ func TestRestoreSubcommand(t *testing.T) {
 
 	path := testhelper.TempDir(t)
 
-	existingRepo, existRepoPath, _ := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "existing_repo")
+	existingRepo, existRepoPath, _ := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "existing_repo")
 	existingRepoBundlePath := filepath.Join(path, existingRepo.RelativePath+".bundle")
 	gittest.Exec(t, cfg, "-C", existRepoPath, "bundle", "create", existingRepoBundlePath, "--all")
 

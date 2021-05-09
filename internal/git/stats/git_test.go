@@ -23,10 +23,10 @@ import (
 func TestLogObjectInfo(t *testing.T) {
 	cfg := testcfg.Build(t)
 
-	repo1, repoPath1, cleanup1 := gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name()+"-1")
+	repo1, repoPath1, cleanup1 := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name()+"-1")
 	defer cleanup1()
 
-	repo2, repoPath2, cleanup2 := gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name()+"-2")
+	repo2, repoPath2, cleanup2 := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name()+"-2")
 	defer cleanup2()
 
 	ctx, cancel := testhelper.Context()

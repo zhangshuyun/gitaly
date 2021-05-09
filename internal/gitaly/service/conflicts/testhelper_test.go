@@ -54,7 +54,7 @@ func SetupConflictsService(t testing.TB, bare bool) (config.Cfg, *gitalypb.Repos
 	var repoPath string
 	var cleanup testhelper.Cleanup
 	if bare {
-		repo, repoPath, cleanup = gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name())
+		repo, repoPath, cleanup = gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name())
 		t.Cleanup(cleanup)
 	} else {
 		repo, repoPath, cleanup = gittest.CloneRepoWithWorktreeAtStorage(t, cfg, cfg.Storages[0])

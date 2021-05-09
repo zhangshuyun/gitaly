@@ -21,7 +21,7 @@ func TestFetchSourceBranchSourceRepositorySuccess(t *testing.T) {
 	md := testhelper.GitalyServersMetadataFromCfg(t, cfg)
 	ctx = testhelper.MergeOutgoingMetadata(ctx, md)
 
-	targetRepoProto, _, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "fetch-source-target.git")
+	targetRepoProto, _, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "fetch-source-target.git")
 	defer cleanup()
 	targetRepo := localrepo.NewTestRepo(t, cfg, targetRepoProto)
 
@@ -85,7 +85,7 @@ func TestFetchSourceBranchBranchNotFound(t *testing.T) {
 	md := testhelper.GitalyServersMetadataFromCfg(t, cfg)
 	ctx = testhelper.MergeOutgoingMetadata(ctx, md)
 
-	sourceRepo, _, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "fetch-source-source.git")
+	sourceRepo, _, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "fetch-source-source.git")
 	t.Cleanup(cleanup)
 
 	sourceBranch := "does-not-exist"
@@ -133,7 +133,7 @@ func TestFetchSourceBranchWrongRef(t *testing.T) {
 	md := testhelper.GitalyServersMetadataFromCfg(t, cfg)
 	ctx = testhelper.MergeOutgoingMetadata(ctx, md)
 
-	sourceRepo, sourceRepoPath, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "fetch-source-source.git")
+	sourceRepo, sourceRepoPath, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "fetch-source-source.git")
 	defer cleanup()
 
 	sourceBranch := "fetch-source-branch-testmas-branch"

@@ -33,7 +33,7 @@ func setupRepo(t *testing.T, bare bool) (*Repo, string) {
 	if bare {
 		repoProto, repoPath, repoCleanUp = gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
 	} else {
-		repoProto, repoPath, repoCleanUp = gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name())
+		repoProto, repoPath, repoCleanUp = gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name())
 	}
 	t.Cleanup(repoCleanUp)
 

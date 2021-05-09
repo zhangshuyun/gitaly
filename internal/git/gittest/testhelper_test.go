@@ -50,7 +50,7 @@ func setup(t testing.TB) (config.Cfg, *gitalypb.Repository, string) {
 	require.NoError(t, testhelper.ConfigureRuby(&cfg))
 	require.NoError(t, cfg.Validate())
 
-	repo, repoPath, cleanup := CloneRepoAtStorage(t, cfg.Storages[0], t.Name())
+	repo, repoPath, cleanup := CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name())
 	t.Cleanup(cleanup)
 
 	return cfg, repo, repoPath

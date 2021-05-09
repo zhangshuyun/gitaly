@@ -687,7 +687,7 @@ func testFetchRemoteOverHTTP(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.S
 
 	for _, tc := range testCases {
 		t.Run(tc.description, func(t *testing.T) {
-			forkedRepo, forkedRepoPath, forkedRepoCleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name())
+			forkedRepo, forkedRepoPath, forkedRepoCleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name())
 			defer forkedRepoCleanup()
 
 			s, remoteURL := remoteHTTPServer(t, "my-repo", tc.httpToken)

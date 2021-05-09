@@ -627,7 +627,7 @@ func TestPostReceiveWithReferenceTransactionHook(t *testing.T) {
 		stream, err := client.PostReceivePack(ctx)
 		require.NoError(t, err)
 
-		repo, _, _ := gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name())
+		repo, _, _ := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name())
 
 		request := &gitalypb.PostReceivePackRequest{Repository: repo, GlId: "key-1234", GlRepository: "some_repo"}
 		response := doPush(t, stream, request, newTestPush(t, cfg, nil).body)
@@ -643,7 +643,7 @@ func TestPostReceiveWithReferenceTransactionHook(t *testing.T) {
 		stream, err := client.PostReceivePack(ctx)
 		require.NoError(t, err)
 
-		repo, repoPath, _ := gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name())
+		repo, repoPath, _ := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name())
 
 		// Create a new branch which we're about to delete. We also pack references because
 		// this used to generate two transactions: one for the packed-refs file and one for
