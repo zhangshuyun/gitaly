@@ -79,24 +79,6 @@ func GitlabTestStoragePath() string {
 	return filepath.Join(testDirectory, "storage")
 }
 
-// GitalyServersMetadata returns a metadata pair for gitaly-servers to be used in
-// inter-gitaly operations.
-func GitalyServersMetadata(t testing.TB, serverSocketPath string) metadata.MD {
-	gitalyServers := storage.GitalyServers{
-		"default": storage.ServerInfo{
-			Address: serverSocketPath,
-			Token:   RepositoryAuthToken,
-		},
-	}
-
-	gitalyServersJSON, err := json.Marshal(gitalyServers)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	return metadata.Pairs("gitaly-servers", base64.StdEncoding.EncodeToString(gitalyServersJSON))
-}
-
 // GitalyServersMetadataFromCfg returns a metadata pair for gitaly-servers to be used in
 // inter-gitaly operations.
 func GitalyServersMetadataFromCfg(t testing.TB, cfg config.Cfg) metadata.MD {
