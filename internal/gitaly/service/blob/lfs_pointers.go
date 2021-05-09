@@ -243,7 +243,7 @@ func readLFSPointers(
 		}
 		tempData := buf.Bytes()[:buf.Len()-1]
 
-		if objectInfo.Type != "blob" || !isLFSPointer(tempData) {
+		if objectInfo.Type != "blob" || !git.IsLFSPointer(tempData) {
 			continue
 		}
 
@@ -274,14 +274,6 @@ func readLFSPointers(
 	}
 
 	return lfsPointers, nil
-}
-
-// isLFSPointer determines whether the given blob contents are an LFS pointer or not.
-func isLFSPointer(data []byte) bool {
-	// TODO: this is incomplete as it does not recognize pre-release version of LFS blobs with
-	// the "https://hawser.github.com/spec/v1" version. For compatibility with the Ruby RPC, we
-	// leave this as-is for now though.
-	return bytes.HasPrefix(data, []byte("version https://git-lfs.github.com/spec"))
 }
 
 // sliceLFSPointers slices the given pointers into subsets of slices with at most

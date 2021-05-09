@@ -10,7 +10,10 @@ var (
 	lfsSizeRe = regexp.MustCompile(`(?m)^size [0-9]+$`)
 )
 
-// IsLFSPointer checks to see if a blob is an LFS pointer. It returns the raw data of the pointer if it is
+// IsLFSPointer checks to see if a blob is an LFS pointer.
+// TODO: this is incomplete as it does not recognize pre-release version of LFS blobs with
+// the "https://hawser.github.com/spec/v1" version. For compatibility with the Ruby RPC, we
+// leave this as-is for now though.
 func IsLFSPointer(b []byte) bool {
 	// ensure the version exists
 	if !bytes.HasPrefix(b, []byte("version https://git-lfs.github.com/spec")) {
