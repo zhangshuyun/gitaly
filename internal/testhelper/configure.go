@@ -132,11 +132,6 @@ func ConfigureRuby(cfg *config.Cfg) error {
 	return nil
 }
 
-// ConfigureGitalyGit2Go configures the gitaly-git2go command for tests
-func ConfigureGitalyGit2Go(outputDir string) {
-	buildCommand(nil, outputDir, "gitaly-git2go")
-}
-
 // ConfigureGitalyGit2GoBin configures the gitaly-git2go command for tests
 func ConfigureGitalyGit2GoBin(t testing.TB, cfg config.Cfg) {
 	buildBinary(t, cfg.BinDir, "gitaly-git2go")
@@ -145,16 +140,6 @@ func ConfigureGitalyGit2GoBin(t testing.TB, cfg config.Cfg) {
 // ConfigureGitalyLfsSmudge configures the gitaly-lfs-smudge command for tests
 func ConfigureGitalyLfsSmudge(outputDir string) {
 	buildCommand(nil, outputDir, "gitaly-lfs-smudge")
-}
-
-// ConfigureGitalySSH configures the gitaly-ssh command for tests
-func ConfigureGitalySSH(outputDir string) {
-	buildCommand(nil, outputDir, "gitaly-ssh")
-}
-
-// ConfigureGitalyHooksBinary builds gitaly-hooks command for tests
-func ConfigureGitalyHooksBinary(outputDir string) {
-	buildCommand(nil, outputDir, "gitaly-hooks")
 }
 
 // ConfigureGitalyHooksBin builds gitaly-hooks command for tests for the cfg.

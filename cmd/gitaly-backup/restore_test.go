@@ -21,7 +21,7 @@ import (
 
 func TestRestoreSubcommand(t *testing.T) {
 	cfg := testcfg.Build(t)
-	testhelper.ConfigureGitalyHooksBinary(cfg.BinDir)
+	testhelper.ConfigureGitalyHooksBin(t, cfg)
 
 	gitalyAddr := testserver.RunGitalyServer(t, cfg, nil, setup.RegisterAll)
 
