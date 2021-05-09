@@ -14,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -126,8 +127,8 @@ func TestUserSquash_stableID(t *testing.T) {
 	}, commit)
 }
 
-func ensureSplitIndexExists(t *testing.T, repoDir string) bool {
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoDir, "update-index", "--add")
+func ensureSplitIndexExists(t *testing.T, cfg config.Cfg, repoDir string) bool {
+	gittest.Exec(t, cfg, "-C", repoDir, "update-index", "--add")
 
 	fis, err := ioutil.ReadDir(repoDir)
 	require.NoError(t, err)
@@ -190,9 +191,9 @@ func TestSplitIndex(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	ctx, _, repo, repoPath, client := setupOperationsService(t, ctx)
+	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
-	require.False(t, ensureSplitIndexExists(t, repoPath))
+	require.False(t, ensureSplitIndexExists(t, cfg, repoPath))
 
 	request := &gitalypb.UserSquashRequest{
 		Repository:    repo,
@@ -207,7 +208,7 @@ func TestSplitIndex(t *testing.T) {
 	response, err := client.UserSquash(ctx, request)
 	require.NoError(t, err)
 	require.Empty(t, response.GetGitError())
-	require.False(t, ensureSplitIndexExists(t, repoPath))
+	require.False(t, ensureSplitIndexExists(t, cfg, repoPath))
 }
 
 func TestSquashRequestWithRenamedFiles(t *testing.T) {
