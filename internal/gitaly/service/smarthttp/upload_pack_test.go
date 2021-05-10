@@ -286,7 +286,7 @@ func TestFailedUploadPackRequestDueToValidationError(t *testing.T) {
 	}
 }
 
-func makePostUploadPackRequest(ctx context.Context, t *testing.T, serverSocketPath, token string, in *gitalypb.PostUploadPackRequest, body io.Reader) (*bytes.Buffer, error) {
+func makePostUploadPackRequest(ctx context.Context, t testing.TB, serverSocketPath, token string, in *gitalypb.PostUploadPackRequest, body io.Reader) (*bytes.Buffer, error) {
 	client, conn := newSmartHTTPClient(t, serverSocketPath, token)
 	defer conn.Close()
 
@@ -317,7 +317,7 @@ func makePostUploadPackRequest(ctx context.Context, t *testing.T, serverSocketPa
 
 // The response contains bunch of things; metadata, progress messages, and a pack file. We're only
 // interested in the pack file and its header values.
-func extractPackDataFromResponse(t *testing.T, buf *bytes.Buffer) ([]byte, int, int) {
+func extractPackDataFromResponse(t testing.TB, buf *bytes.Buffer) ([]byte, int, int) {
 	var pack []byte
 
 	// The response should have the following format.
@@ -398,7 +398,7 @@ func TestUploadPackRequestForPartialCloneSuccess(t *testing.T) {
 	gittest.WritePktlineString(t, &requestBuffer, fmt.Sprintf("want %s %s\n", newHead, clientCapabilities))
 	gittest.WritePktlineString(t, &requestBuffer, fmt.Sprintf("filter %s\n", "blob:limit=200"))
 	gittest.WritePktlineFlush(t, &requestBuffer)
-	gittest.WritePktlineString(t, &requestBuffer, "done\n")
+	gittest.WritePktlineDone(t, &requestBuffer)
 	gittest.WritePktlineFlush(t, &requestBuffer)
 
 	req := &gitalypb.PostUploadPackRequest{
@@ -446,4 +446,55 @@ func TestUploadPackRequestForPartialCloneSuccess(t *testing.T) {
 	metric, err := negotiationMetrics.GetMetricWithLabelValues("filter")
 	require.NoError(t, err)
 	require.Equal(t, 1.0, promtest.ToFloat64(metric))
+}
+
+func BenchmarkSuccessfulUploadPackRequest(t *testing.B) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	cfg, repo, _ := testcfg.BuildWithRepo(t)
+
+	testhelper.ConfigureGitalyHooksBin(t, cfg)
+
+	serverSocketPath := runSmartHTTPServer(t, cfg)
+
+	storagePath := cfg.Storages[0].Path
+	remoteRepoRelativePath := "gitlab-test-remote"
+	localRepoRelativePath := "gitlab-test-local"
+	remoteRepoPath := filepath.Join(storagePath, remoteRepoRelativePath)
+	localRepoPath := filepath.Join(storagePath, localRepoRelativePath)
+	testRepoPath := filepath.Join(storagePath, repo.RelativePath)
+	// Make a non-bare clone of the test repo to act as a remote one
+	testhelper.MustRunCommand(t, nil, "git", "clone", testRepoPath, remoteRepoPath)
+	// Make a bare clone of the test repo to act as a local one and to leave the original repo intact for other tests
+	testhelper.MustRunCommand(t, nil, "git", "clone", "--bare", testRepoPath, localRepoPath)
+	defer os.RemoveAll(localRepoPath)
+	defer os.RemoveAll(remoteRepoPath)
+
+	// The commit ID we want to pull from the remote repo
+	head := bytes.TrimSpace(testhelper.MustRunCommand(t, nil, "git", "-C", remoteRepoPath, "rev-parse", "master"))
+
+	t.ResetTimer()
+	t.Run("master clone", func(t *testing.B) {
+		// UploadPack request is a "want" packet line followed by a packet flush, then many "have" packets followed by a packet flush.
+		// This is explained a bit in https://git-scm.com/book/en/v2/Git-Internals-Transfer-Protocols#_downloading_data
+		requestBuffer := &bytes.Buffer{}
+		gittest.WritePktlineString(t, requestBuffer, fmt.Sprintf("want %s %s\n", head, clientCapabilities))
+		gittest.WritePktlineFlush(t, requestBuffer)
+		gittest.WritePktlineDone(t, requestBuffer)
+
+		req := &gitalypb.PostUploadPackRequest{
+			Repository: &gitalypb.Repository{
+				StorageName:  cfg.Storages[0].Name,
+				RelativePath: filepath.Join(remoteRepoRelativePath, ".git"),
+			},
+		}
+		responseBuffer, err := makePostUploadPackRequest(ctx, t, serverSocketPath, cfg.Auth.Token, req, requestBuffer)
+		require.NoError(t, err)
+
+		// There's no git command we can pass it this response and do the work for us (extracting pack file, ...),
+		// so we have to do it ourselves.
+		pack, _, _ := extractPackDataFromResponse(t, responseBuffer)
+		require.NotNil(t, pack, "Expected to find a pack file in response, found none")
+	})
 }

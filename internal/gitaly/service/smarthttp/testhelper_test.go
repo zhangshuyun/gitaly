@@ -35,19 +35,19 @@ func testMain(m *testing.M) int {
 	return m.Run()
 }
 
-func startSmartHTTPServer(t *testing.T, cfg config.Cfg, serverOpts ...ServerOpt) testserver.GitalyServer {
+func startSmartHTTPServer(t testing.TB, cfg config.Cfg, serverOpts ...ServerOpt) testserver.GitalyServer {
 	return testserver.StartGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterSmartHTTPServiceServer(srv, NewServer(deps.GetCfg(), deps.GetLocator(), deps.GetGitCmdFactory(), serverOpts...))
 		gitalypb.RegisterHookServiceServer(srv, hookservice.NewServer(deps.GetCfg(), deps.GetHookManager(), deps.GetGitCmdFactory()))
 	})
 }
 
-func runSmartHTTPServer(t *testing.T, cfg config.Cfg, serverOpts ...ServerOpt) string {
+func runSmartHTTPServer(t testing.TB, cfg config.Cfg, serverOpts ...ServerOpt) string {
 	gitalyServer := startSmartHTTPServer(t, cfg, serverOpts...)
 	return gitalyServer.Address()
 }
 
-func newSmartHTTPClient(t *testing.T, serverSocketPath, token string) (gitalypb.SmartHTTPServiceClient, *grpc.ClientConn) {
+func newSmartHTTPClient(t testing.TB, serverSocketPath, token string) (gitalypb.SmartHTTPServiceClient, *grpc.ClientConn) {
 	t.Helper()
 
 	connOpts := []grpc.DialOption{

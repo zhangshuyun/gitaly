@@ -60,6 +60,11 @@ func WriteDelim(w io.Writer) error {
 	return err
 }
 
+func WriteDone(w io.Writer) error {
+	_, err := w.Write(PktDone())
+	return err
+}
+
 // PktDone returns the bytes for a "done" packet.
 func PktDone() []byte {
 	return []byte("0009done\n")
