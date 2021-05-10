@@ -20,22 +20,6 @@ module GitalyServer
       Gitaly::UserUpdateBranchResponse.new(pre_receive_error: set_utf8!(ex.message))
     end
 
-    def user_ff_branch(request, call)
-      repo = Gitlab::Git::Repository.from_gitaly(request.repository, call)
-      user = Gitlab::Git::User.from_gitaly(request.user)
-
-      result = repo.ff_merge(user, request.commit_id, request.branch)
-      branch_update = branch_update_result(result)
-
-      Gitaly::UserFFBranchResponse.new(branch_update: branch_update)
-    rescue Gitlab::Git::CommitError => e
-      raise GRPC::FailedPrecondition.new(e.to_s)
-    rescue ArgumentError => e
-      raise GRPC::InvalidArgument.new(e.to_s)
-    rescue Gitlab::Git::PreReceiveError => e
-      Gitaly::UserFFBranchResponse.new(pre_receive_error: set_utf8!(e.message))
-    end
-
     def user_cherry_pick(request, call)
       repo = Gitlab::Git::Repository.from_gitaly(request.repository, call)
       user = Gitlab::Git::User.from_gitaly(request.user)
