@@ -19,7 +19,8 @@ func TestWriteCommit(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	batch, err := catfile.New(ctx, gitCmdFactory, repoProto)
+	batchCache := catfile.NewCache(gitCmdFactory, cfg)
+	batch, err := batchCache.BatchProcess(ctx, repoProto)
 	require.NoError(t, err)
 
 	defaultCommitter := &gitalypb.CommitAuthor{
@@ -28,7 +29,7 @@ func TestWriteCommit(t *testing.T) {
 	}
 	defaultParentID := "1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"
 
-	repo := localrepo.New(gitCmdFactory, repoProto, cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	revisions := map[git.Revision]git.ObjectID{
 		"refs/heads/master":  "",
