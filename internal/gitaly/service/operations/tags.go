@@ -91,7 +91,7 @@ func (s *Server) UserCreateTag(ctx context.Context, req *gitalypb.UserCreateTagR
 	}
 
 	// Setup
-	repo := req.GetRepository()
+	repo := s.localrepo(req.GetRepository())
 	catFile, err := s.catfileCache.BatchProcess(ctx, repo)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())

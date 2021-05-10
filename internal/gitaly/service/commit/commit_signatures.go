@@ -28,8 +28,9 @@ func (s *server) GetCommitSignatures(request *gitalypb.GetCommitSignaturesReques
 
 func (s *server) getCommitSignatures(request *gitalypb.GetCommitSignaturesRequest, stream gitalypb.CommitService_GetCommitSignaturesServer) error {
 	ctx := stream.Context()
+	repo := s.localrepo(request.GetRepository())
 
-	c, err := s.catfileCache.BatchProcess(ctx, request.GetRepository())
+	c, err := s.catfileCache.BatchProcess(ctx, repo)
 	if err != nil {
 		return helper.ErrInternal(err)
 	}

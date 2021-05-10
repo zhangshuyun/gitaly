@@ -25,11 +25,13 @@ func (s *server) FindCommits(req *gitalypb.FindCommitsRequest, stream gitalypb.C
 		return helper.ErrInvalidArgument(err)
 	}
 
+	repo := s.localrepo(req.GetRepository())
+
 	// Use Gitaly's default branch lookup function because that is already
 	// migrated.
 	if revision := req.Revision; len(revision) == 0 && !req.GetAll() {
 		var err error
-		req.Revision, err = defaultBranchName(ctx, s.gitCmdFactory, req.Repository)
+		req.Revision, err = defaultBranchName(ctx, repo)
 		if err != nil {
 			return helper.ErrInternal(fmt.Errorf("defaultBranchName: %v", err))
 		}
@@ -50,12 +52,14 @@ func (s *server) FindCommits(req *gitalypb.FindCommitsRequest, stream gitalypb.C
 
 func (s *server) findCommits(ctx context.Context, req *gitalypb.FindCommitsRequest, stream gitalypb.CommitService_FindCommitsServer) error {
 	opts := git.ConvertGlobalOptions(req.GetGlobalOptions())
-	logCmd, err := s.gitCmdFactory.New(ctx, req.GetRepository(), getLogCommandSubCmd(req), opts...)
+	repo := s.localrepo(req.GetRepository())
+
+	logCmd, err := repo.Exec(ctx, getLogCommandSubCmd(req), opts...)
 	if err != nil {
 		return fmt.Errorf("error when creating git log command: %v", err)
 	}
 
-	batch, err := s.catfileCache.BatchProcess(ctx, req.GetRepository())
+	batch, err := s.catfileCache.BatchProcess(ctx, repo)
 	if err != nil {
 		return fmt.Errorf("creating catfile: %v", err)
 	}

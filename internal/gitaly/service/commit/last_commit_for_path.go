@@ -28,7 +28,7 @@ func (s *server) lastCommitForPath(ctx context.Context, in *gitalypb.LastCommitF
 		path = "."
 	}
 
-	repo := in.GetRepository()
+	repo := s.localrepo(in.GetRepository())
 	c, err := s.catfileCache.BatchProcess(ctx, repo)
 	if err != nil {
 		return nil, err

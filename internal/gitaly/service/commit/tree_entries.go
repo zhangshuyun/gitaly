@@ -99,7 +99,9 @@ func (s *server) GetTreeEntries(in *gitalypb.GetTreeEntriesRequest, stream gital
 		return status.Errorf(codes.InvalidArgument, "TreeEntry: %v", err)
 	}
 
-	c, err := s.catfileCache.BatchProcess(stream.Context(), in.Repository)
+	repo := s.localrepo(in.GetRepository())
+
+	c, err := s.catfileCache.BatchProcess(stream.Context(), repo)
 	if err != nil {
 		return err
 	}

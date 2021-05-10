@@ -17,7 +17,7 @@ type Notifier struct {
 }
 
 // New instantiates a new Notifier
-func New(ctx context.Context, catfileCache catfile.Cache, repo *gitalypb.Repository, chunker *chunk.Chunker) (*Notifier, error) {
+func New(ctx context.Context, catfileCache catfile.Cache, repo git.RepositoryExecutor, chunker *chunk.Chunker) (*Notifier, error) {
 	catfile, err := catfileCache.BatchProcess(ctx, repo)
 	if err != nil {
 		return nil, err

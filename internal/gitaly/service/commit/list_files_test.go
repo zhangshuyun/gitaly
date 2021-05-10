@@ -42,7 +42,7 @@ var (
 )
 
 func TestListFiles_success(t *testing.T) {
-	defaultBranchName = func(context.Context, git.CommandFactory, *gitalypb.Repository) ([]byte, error) {
+	defaultBranchName = func(context.Context, git.RepositoryExecutor) ([]byte, error) {
 		return []byte("test-do-not-touch"), nil
 	}
 	defer func() {

@@ -122,6 +122,8 @@ func (s *server) TreeEntry(in *gitalypb.TreeEntryRequest, stream gitalypb.Commit
 		return status.Errorf(codes.InvalidArgument, "TreeEntry: %v", err)
 	}
 
+	repo := s.localrepo(in.GetRepository())
+
 	requestPath := string(in.GetPath())
 	// filepath.Dir("api/docs") => "api" Correct!
 	// filepath.Dir("api/docs/") => "api/docs" WRONG!
@@ -129,8 +131,7 @@ func (s *server) TreeEntry(in *gitalypb.TreeEntryRequest, stream gitalypb.Commit
 		requestPath = strings.TrimRight(requestPath, "/")
 	}
 
-	c, err := s.catfileCache.BatchProcess(stream.Context(), in.Repository)
-
+	c, err := s.catfileCache.BatchProcess(stream.Context(), repo)
 	if err != nil {
 		return err
 	}

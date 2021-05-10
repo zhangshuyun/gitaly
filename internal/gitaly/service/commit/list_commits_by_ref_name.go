@@ -11,8 +11,9 @@ import (
 
 func (s *server) ListCommitsByRefName(in *gitalypb.ListCommitsByRefNameRequest, stream gitalypb.CommitService_ListCommitsByRefNameServer) error {
 	ctx := stream.Context()
+	repo := s.localrepo(in.GetRepository())
 
-	c, err := s.catfileCache.BatchProcess(ctx, in.Repository)
+	c, err := s.catfileCache.BatchProcess(ctx, repo)
 	if err != nil {
 		return helper.ErrInternal(err)
 	}

@@ -13,7 +13,7 @@ import (
 func (s *server) sendCommits(
 	ctx context.Context,
 	sender chunk.Sender,
-	repo *gitalypb.Repository,
+	repo git.RepositoryExecutor,
 	revisionRange []string,
 	paths []string,
 	options *gitalypb.GlobalOptions,
