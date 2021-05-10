@@ -427,9 +427,7 @@ func TestUploadPackRequestForPartialCloneSuccess(t *testing.T) {
 	gittest.GitObjectMustNotExist(t, cfg.Git.BinPath, localRepoPath, blobGreaterThanLimit)
 
 	newBranch := "new-branch"
-	newHead = []byte(gittest.CreateCommit(t, cfg, remoteRepoPath, newBranch, &gittest.CreateCommitOpts{
-		Message: commitMsg,
-	}))
+	newHead = []byte(gittest.WriteCommit(t, cfg, remoteRepoPath, gittest.WithBranch(newBranch)))
 
 	// after we delete the branch, we have a dangling commit
 	testhelper.MustRunCommand(t, nil, "git", "-C", remoteRepoPath, "branch", "-D", newBranch)

@@ -426,10 +426,11 @@ func TestSuccessfulFindAllTagsRequest(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	bigCommitID := gittest.CreateCommit(t, cfg, repoPath, "local-big-commits", &gittest.CreateCommitOpts{
-		Message:  "An empty commit with REALLY BIG message\n\n" + strings.Repeat("a", helper.MaxCommitOrTagMessageSize+1),
-		ParentID: "60ecb67744cb56576c30214ff52294f8ce2def98",
-	})
+	bigCommitID := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithBranch("local-big-commits"),
+		gittest.WithMessage("An empty commit with REALLY BIG message\n\n"+strings.Repeat("a", helper.MaxCommitOrTagMessageSize+1)),
+		gittest.WithParents("60ecb67744cb56576c30214ff52294f8ce2def98"),
+	)
 	bigCommit, err := repo.ReadCommit(ctx, git.Revision(bigCommitID))
 	require.NoError(t, err)
 
@@ -442,7 +443,7 @@ func TestSuccessfulFindAllTagsRequest(t *testing.T) {
 	gittest.CreateTag(t, cfg, repoPath, "v1.5.0", "v1.3.0", nil)
 
 	// A tag to commit with a big message
-	gittest.CreateTag(t, cfg, repoPath, "v1.6.0", bigCommitID, nil)
+	gittest.CreateTag(t, cfg, repoPath, "v1.6.0", bigCommitID.String(), nil)
 
 	// A tag with a big message
 	bigMessage := strings.Repeat("a", 11*1024)
@@ -578,7 +579,7 @@ func TestSuccessfulFindAllTagsRequest(t *testing.T) {
 		},
 		{
 			Name:         []byte("v1.6.0"),
-			Id:           bigCommitID,
+			Id:           bigCommitID.String(),
 			TargetCommit: bigCommit,
 		},
 		{
@@ -1291,10 +1292,11 @@ func TestSuccessfulFindTagRequest(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	bigCommitID := gittest.CreateCommit(t, cfg, repoPath, "local-big-commits", &gittest.CreateCommitOpts{
-		Message:  "An empty commit with REALLY BIG message\n\n" + strings.Repeat("a", helper.MaxCommitOrTagMessageSize+1),
-		ParentID: "60ecb67744cb56576c30214ff52294f8ce2def98",
-	})
+	bigCommitID := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithBranch("local-big-commits"),
+		gittest.WithMessage("An empty commit with REALLY BIG message\n\n"+strings.Repeat("a", helper.MaxCommitOrTagMessageSize+1)),
+		gittest.WithParents("60ecb67744cb56576c30214ff52294f8ce2def98"),
+	)
 	bigCommit, err := repo.ReadCommit(ctx, git.Revision(bigCommitID))
 	require.NoError(t, err)
 
@@ -1307,7 +1309,7 @@ func TestSuccessfulFindTagRequest(t *testing.T) {
 	gittest.CreateTag(t, cfg, repoPath, "v1.5.0", "v1.3.0", nil)
 
 	// A tag to commit with a big message
-	gittest.CreateTag(t, cfg, repoPath, "v1.6.0", bigCommitID, nil)
+	gittest.CreateTag(t, cfg, repoPath, "v1.6.0", bigCommitID.String(), nil)
 
 	// A tag with a big message
 	bigMessage := strings.Repeat("a", 11*1024)
@@ -1415,7 +1417,7 @@ func TestSuccessfulFindTagRequest(t *testing.T) {
 		},
 		{
 			Name:         []byte("v1.6.0"),
-			Id:           bigCommitID,
+			Id:           bigCommitID.String(),
 			TargetCommit: bigCommit,
 		},
 		{

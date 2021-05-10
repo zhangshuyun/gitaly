@@ -3,7 +3,6 @@ package repository
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"io/ioutil"
 	"net"
 	"os"
@@ -74,15 +73,15 @@ func TestReplicateRepository(t *testing.T) {
 	require.Equal(t, string(attrData), string(replicatedAttrData), "info/attributes files must match")
 
 	// create another branch
-	_, anotherNewBranch := gittest.CreateCommitOnNewBranch(t, cfg, repoPath)
+	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("branch"))
 	_, err = client.ReplicateRepository(injectedCtx, &gitalypb.ReplicateRepositoryRequest{
 		Repository: &targetRepo,
 		Source:     repo,
 	})
 	require.NoError(t, err)
 	require.Equal(t,
-		testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "show-ref", "--hash", "--verify", fmt.Sprintf("refs/heads/%s", anotherNewBranch)),
-		testhelper.MustRunCommand(t, nil, "git", "-C", targetRepoPath, "show-ref", "--hash", "--verify", fmt.Sprintf("refs/heads/%s", anotherNewBranch)),
+		testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "show-ref", "--hash", "--verify", "refs/heads/branch"),
+		testhelper.MustRunCommand(t, nil, "git", "-C", targetRepoPath, "show-ref", "--hash", "--verify", "refs/heads/branch"),
 	)
 
 	// if an unreachable object has been replicated, that means snapshot replication was used

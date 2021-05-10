@@ -497,14 +497,15 @@ if [ -z ${GIT_SSH_COMMAND+x} ];then rm -f %q ;else echo -n "$GIT_SSH_COMMAND" > 
 				require.NoError(t, err)
 
 				require.NoError(t, sourceRepo.Push(ctx, pushRepoPath, []string{"refs/*"}, PushOptions{}))
-				divergedMaster := gittest.CreateCommit(t, cfg, pushRepoPath, "master", &gittest.CreateCommitOpts{
-					ParentID: sourceMaster.Target,
-				})
+				divergedMaster := gittest.WriteCommit(t, cfg, pushRepoPath,
+					gittest.WithBranch("master"),
+					gittest.WithParents(git.ObjectID(sourceMaster.Target)),
+				)
 
 				master, err := repo.GetReference(ctx, "refs/heads/master")
 				require.NoError(t, err)
 
-				require.Equal(t, master.Target, divergedMaster)
+				require.Equal(t, master.Target, divergedMaster.String())
 			},
 		},
 		{

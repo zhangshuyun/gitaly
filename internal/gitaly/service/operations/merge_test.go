@@ -281,7 +281,8 @@ func TestFailedMergeConcurrentUpdate(t *testing.T) {
 	require.NoError(t, err, "receive first response")
 
 	// This concurrent update of the branch we are merging into should make the merge fail.
-	concurrentCommitID := gittest.CreateCommit(t, cfg, repoPath, mergeBranchName, nil)
+	concurrentCommitID := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithBranch(mergeBranchName))
 	require.NotEqual(t, firstResponse.CommitId, concurrentCommitID)
 
 	require.NoError(t, mergeBidi.Send(&gitalypb.UserMergeBranchRequest{Apply: true}), "apply merge")
@@ -293,7 +294,7 @@ func TestFailedMergeConcurrentUpdate(t *testing.T) {
 
 	commit, err := repo.ReadCommit(ctx, git.Revision(mergeBranchName))
 	require.NoError(t, err, "get commit after RPC finished")
-	require.Equal(t, commit.Id, concurrentCommitID, "RPC should not have trampled concurrent update")
+	require.Equal(t, commit.Id, concurrentCommitID.String(), "RPC should not have trampled concurrent update")
 }
 
 func TestUserMergeBranch_ambiguousReference(t *testing.T) {

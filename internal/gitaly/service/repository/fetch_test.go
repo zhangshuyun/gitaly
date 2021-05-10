@@ -26,7 +26,7 @@ func TestFetchSourceBranchSourceRepositorySuccess(t *testing.T) {
 	targetRepo := localrepo.NewTestRepo(t, cfg, targetRepoProto)
 
 	sourceBranch := "fetch-source-branch-test-branch"
-	newCommitID := gittest.CreateCommit(t, cfg, sourcePath, sourceBranch, nil)
+	newCommitID := gittest.WriteCommit(t, cfg, sourcePath, gittest.WithBranch(sourceBranch))
 
 	targetRef := "refs/tmp/fetch-source-branch-test"
 	req := &gitalypb.FetchSourceBranchRequest{
@@ -42,7 +42,7 @@ func TestFetchSourceBranchSourceRepositorySuccess(t *testing.T) {
 
 	fetchedCommit, err := targetRepo.ReadCommit(ctx, git.Revision(targetRef))
 	require.NoError(t, err)
-	require.Equal(t, newCommitID, fetchedCommit.GetId())
+	require.Equal(t, newCommitID.String(), fetchedCommit.GetId())
 }
 
 func TestFetchSourceBranchSameRepositorySuccess(t *testing.T) {
@@ -57,7 +57,7 @@ func TestFetchSourceBranchSameRepositorySuccess(t *testing.T) {
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	sourceBranch := "fetch-source-branch-test-branch"
-	newCommitID := gittest.CreateCommit(t, cfg, repoPath, sourceBranch, nil)
+	newCommitID := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(sourceBranch))
 
 	targetRef := "refs/tmp/fetch-source-branch-test"
 	req := &gitalypb.FetchSourceBranchRequest{
@@ -73,7 +73,7 @@ func TestFetchSourceBranchSameRepositorySuccess(t *testing.T) {
 
 	fetchedCommit, err := repo.ReadCommit(ctx, git.Revision(targetRef))
 	require.NoError(t, err)
-	require.Equal(t, newCommitID, fetchedCommit.GetId())
+	require.Equal(t, newCommitID.String(), fetchedCommit.GetId())
 }
 
 func TestFetchSourceBranchBranchNotFound(t *testing.T) {
@@ -137,7 +137,7 @@ func TestFetchSourceBranchWrongRef(t *testing.T) {
 	defer cleanup()
 
 	sourceBranch := "fetch-source-branch-testmas-branch"
-	gittest.CreateCommit(t, cfg, sourceRepoPath, sourceBranch, nil)
+	gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch(sourceBranch))
 
 	targetRef := "refs/tmp/fetch-source-branch-test"
 

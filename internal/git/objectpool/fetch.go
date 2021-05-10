@@ -18,6 +18,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/housekeeping"
 	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/internal/git/updateref"
+	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
@@ -63,6 +64,7 @@ func (o *ObjectPool) FetchFromOrigin(ctx context.Context, origin *gitalypb.Repos
 	}
 
 	refSpec := fmt.Sprintf("+refs/*:%s/*", sourceRefNamespace)
+	var stderr bytes.Buffer
 	if err := o.poolRepo.ExecAndWait(ctx,
 		git.SubCmd{
 			Name: "fetch",
@@ -73,8 +75,10 @@ func (o *ObjectPool) FetchFromOrigin(ctx context.Context, origin *gitalypb.Repos
 			Args: []string{sourceRemote, refSpec},
 		},
 		git.WithRefTxHook(ctx, o.poolRepo, o.cfg),
+		git.WithStderr(&stderr),
 	); err != nil {
-		return err
+		return helper.ErrInternalf("fetch into object pool: %w, stderr: %q", err,
+			stderr.String())
 	}
 
 	if err := o.rescueDanglingObjects(ctx); err != nil {

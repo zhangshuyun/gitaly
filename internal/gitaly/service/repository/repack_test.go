@@ -63,7 +63,7 @@ func TestRepackLocal(t *testing.T) {
 	altObjectsDir := "./alt-objects"
 	altDirsCommit := gittest.CreateCommitInAlternateObjectDirectory(t, cfg.Git.BinPath, repoPath, altObjectsDir, cmd)
 
-	repoCommit := gittest.CreateCommit(t, cfg, repoPath, t.Name(), &gittest.CreateCommitOpts{Message: t.Name()})
+	repoCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(t.Name()))
 
 	ctx, cancelFn := testhelper.Context()
 	defer cancelFn()

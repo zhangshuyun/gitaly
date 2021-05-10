@@ -296,21 +296,15 @@ func TestGetRawChangesInvalidUTF8Paths(t *testing.T) {
 	)
 	require.False(t, utf8.ValidString(nonUTF8Filename)) // sanity check
 
-	fromCommitID := gittest.CommitBlobWithName(
-		t,
-		cfg,
-		repoPath,
-		blobID1,
-		nonUTF8Filename,
-		"killer AI might use non-UTF filenames",
+	fromCommitID := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithTreeEntries(gittest.TreeEntry{
+			OID: blobID1, Path: nonUTF8Filename, Mode: "100644",
+		}),
 	)
-	toCommitID := gittest.CommitBlobWithName(
-		t,
-		cfg,
-		repoPath,
-		blobID2,
-		nonUTF8Filename,
-		"hostile extraterrestrials won't use UTF",
+	toCommitID := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithTreeEntries(gittest.TreeEntry{
+			OID: blobID2, Path: nonUTF8Filename, Mode: "100644",
+		}),
 	)
 
 	ctx, cancel := testhelper.Context()
@@ -318,8 +312,8 @@ func TestGetRawChangesInvalidUTF8Paths(t *testing.T) {
 
 	req := &gitalypb.GetRawChangesRequest{
 		Repository:   repo,
-		FromRevision: fromCommitID,
-		ToRevision:   toCommitID,
+		FromRevision: fromCommitID.String(),
+		ToRevision:   toCommitID.String(),
 	}
 
 	c, err := client.GetRawChanges(ctx, req)

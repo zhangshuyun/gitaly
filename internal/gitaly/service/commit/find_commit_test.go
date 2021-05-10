@@ -32,10 +32,10 @@ func TestSuccessfulFindCommitRequest(t *testing.T) {
 	defer cancel()
 
 	bigMessage := "An empty commit with REALLY BIG message\n\n" + strings.Repeat("MOAR!\n", 20*1024)
-	bigCommitID := gittest.CreateCommit(t, cfg, repoPath, "local-big-commits", &gittest.CreateCommitOpts{
-		Message:  bigMessage,
-		ParentID: "60ecb67744cb56576c30214ff52294f8ce2def98",
-	})
+	bigCommitID := gittest.WriteCommit(t, cfg, repoPath,
+		gittest.WithBranch("local-big-commits"), gittest.WithMessage(bigMessage),
+		gittest.WithParents("60ecb67744cb56576c30214ff52294f8ce2def98"),
+	)
 	bigCommit, err := repo.ReadCommit(ctx, git.Revision(bigCommitID))
 	require.NoError(t, err)
 
@@ -200,9 +200,9 @@ func TestSuccessfulFindCommitRequest(t *testing.T) {
 		},
 		{
 			description: "with a very large message",
-			revision:    bigCommitID,
+			revision:    bigCommitID.String(),
 			commit: &gitalypb.GitCommit{
-				Id:      bigCommitID,
+				Id:      bigCommitID.String(),
 				Subject: []byte("An empty commit with REALLY BIG message"),
 				Author: &gitalypb.CommitAuthor{
 					Name:     []byte("Scrooge McDuck"),

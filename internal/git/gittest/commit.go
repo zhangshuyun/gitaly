@@ -6,44 +6,96 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
-
-// CreateCommitOpts holds extra options for CreateCommit.
-type CreateCommitOpts struct {
-	Message  string
-	ParentID string
-}
 
 const (
 	committerName  = "Scrooge McDuck"
 	committerEmail = "scrooge@mcduck.com"
 )
 
-// CreateCommit makes a new empty commit and updates the named branch to point to it.
-func CreateCommit(t testing.TB, cfg config.Cfg, repoPath, branchName string, opts *CreateCommitOpts) string {
-	message := "message"
-	// The ID of an arbitrary commit known to exist in the test repository.
-	parentID := "1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"
+type writeCommitConfig struct {
+	branch      string
+	parents     []git.ObjectID
+	message     string
+	treeEntries []TreeEntry
+}
 
-	if opts != nil {
-		if opts.Message != "" {
-			message = opts.Message
-		}
+// WriteCommitOption is an option which can be passed to WriteCommit.
+type WriteCommitOption func(*writeCommitConfig)
 
-		if opts.ParentID != "" {
-			parentID = opts.ParentID
+// WithBranch is an option for WriteCommit which will cause it to update the update the given branch
+// name to the new commit.
+func WithBranch(branch string) WriteCommitOption {
+	return func(cfg *writeCommitConfig) {
+		cfg.branch = branch
+	}
+}
+
+// WithMessage is an option for WriteCommit which will set the commit message.
+func WithMessage(message string) WriteCommitOption {
+	return func(cfg *writeCommitConfig) {
+		cfg.message = message
+	}
+}
+
+// WithParents is an option for WriteCommit which will set the parent OIDs of the resulting commit.
+func WithParents(parents ...git.ObjectID) WriteCommitOption {
+	return func(cfg *writeCommitConfig) {
+		if parents != nil {
+			cfg.parents = parents
+		} else {
+			// We're explicitly initializing parents here such that we can discern the
+			// case where the commit should be created with no parents.
+			cfg.parents = []git.ObjectID{}
 		}
 	}
+}
 
-	// message can be very large, passing it directly in args would blow things up!
+// WithTreeEntries is an option for WriteCommit which will cause it to create a new tree and use it
+// as root tree of the resulting commit.
+func WithTreeEntries(entries ...TreeEntry) WriteCommitOption {
+	return func(cfg *writeCommitConfig) {
+		cfg.treeEntries = entries
+	}
+}
+
+// WriteCommit writes a new commit into the target repository.
+func WriteCommit(t testing.TB, cfg config.Cfg, repoPath string, opts ...WriteCommitOption) git.ObjectID {
+	t.Helper()
+
+	var writeCommitConfig writeCommitConfig
+	for _, opt := range opts {
+		opt(&writeCommitConfig)
+	}
+
+	message := "message"
+	if writeCommitConfig.message != "" {
+		message = writeCommitConfig.message
+	}
 	stdin := bytes.NewBufferString(message)
+
+	// The ID of an arbitrary commit known to exist in the test repository.
+	parents := []git.ObjectID{"1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"}
+	if writeCommitConfig.parents != nil {
+		parents = writeCommitConfig.parents
+	}
+
+	var tree string
+	if len(writeCommitConfig.treeEntries) > 0 {
+		tree = WriteTree(t, cfg, repoPath, writeCommitConfig.treeEntries).String()
+	} else if len(parents) == 0 {
+		// If there are no parents, then we set the root tree to the empty tree.
+		tree = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
+	} else {
+		tree = parents[0].String() + "^{tree}"
+	}
 
 	// Use 'commit-tree' instead of 'commit' because we are in a bare
 	// repository. What we do here is the same as "commit -m message
@@ -52,13 +104,22 @@ func CreateCommit(t testing.TB, cfg config.Cfg, repoPath, branchName string, opt
 		"-c", fmt.Sprintf("user.name=%s", committerName),
 		"-c", fmt.Sprintf("user.email=%s", committerEmail),
 		"-C", repoPath,
-		"commit-tree", "-F", "-", "-p", parentID, parentID + "^{tree}",
+		"commit-tree", "-F", "-", tree,
 	}
-	newCommit := ExecStream(t, cfg, stdin, commitArgs...)
-	newCommitID := text.ChompBytes(newCommit)
 
-	Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/"+branchName, newCommitID)
-	return newCommitID
+	for _, parent := range parents {
+		commitArgs = append(commitArgs, "-p", parent.String())
+	}
+
+	stdout := ExecStream(t, cfg, stdin, commitArgs...)
+	oid, err := git.NewObjectIDFromHex(text.ChompBytes(stdout))
+	require.NoError(t, err)
+
+	if writeCommitConfig.branch != "" {
+		Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/"+writeCommitConfig.branch, oid.String())
+	}
+
+	return oid
 }
 
 // CreateCommitInAlternateObjectDirectory runs a command such that its created
@@ -90,78 +151,28 @@ func CreateCommitInAlternateObjectDirectory(t testing.TB, gitBin, repoPath, altO
 	return currentHead[:len(currentHead)-1]
 }
 
-// CommitBlobWithName will create a commit for the specified blob with the
-// specified name. This enables testing situations where the filepath is not
-// possible due to filesystem constraints (e.g. non-UTF characters). The commit
-// ID is returned.
-func CommitBlobWithName(t testing.TB, cfg config.Cfg, testRepoPath, blobID, fileName, commitMessage string) string {
-	mktreeIn := strings.NewReader(fmt.Sprintf("100644 blob %s\t%s", blobID, fileName))
-	treeID := text.ChompBytes(ExecStream(t, cfg, mktreeIn, "-C", testRepoPath, "mktree"))
-
-	return text.ChompBytes(
-		Exec(t, cfg,
-			"-c", fmt.Sprintf("user.name=%s", committerName),
-			"-c", fmt.Sprintf("user.email=%s", committerEmail),
-			"-C", testRepoPath, "commit-tree", treeID, "-m", commitMessage),
-	)
+func authorEqualIgnoringDate(t testing.TB, expected *gitalypb.CommitAuthor, actual *gitalypb.CommitAuthor) {
+	t.Helper()
+	require.Equal(t, expected.GetName(), actual.GetName(), "author name does not match")
+	require.Equal(t, expected.GetEmail(), actual.GetEmail(), "author mail does not match")
 }
 
-// CreateCommitOnNewBranch creates a branch and a commit, returning the commit sha and the branch name respectivelyi
-func CreateCommitOnNewBranch(t testing.TB, cfg config.Cfg, repoPath string) (string, string) {
-	nonce, err := text.RandomHex(4)
-	require.NoError(t, err)
-	newBranch := "branch-" + nonce
-
-	sha := CreateCommit(t, cfg, repoPath, newBranch, &CreateCommitOpts{
-		Message: "a new branch and commit " + nonce,
-	})
-
-	return sha, newBranch
+// AuthorEqual tests if two `CommitAuthor`s are equal.
+func AuthorEqual(t testing.TB, expected *gitalypb.CommitAuthor, actual *gitalypb.CommitAuthor) {
+	t.Helper()
+	authorEqualIgnoringDate(t, expected, actual)
+	require.Equal(t, expected.GetDate().GetSeconds(), actual.GetDate().GetSeconds(),
+		"date does not match")
 }
 
-// authorSortofEqual tests if two `CommitAuthor`s have the same name and email.
-//  useful when creating commits in the tests.
-func authorSortofEqual(a, b *gitalypb.CommitAuthor) bool {
-	if (a == nil) != (b == nil) {
-		return false
-	}
-	return bytes.Equal(a.GetName(), b.GetName()) &&
-		bytes.Equal(a.GetEmail(), b.GetEmail())
-}
+// CommitEqual tests if two `GitCommit`s are equal
+func CommitEqual(t testing.TB, expected, actual *gitalypb.GitCommit) {
+	t.Helper()
 
-// AuthorsEqual tests if two `CommitAuthor`s are equal
-func AuthorsEqual(a *gitalypb.CommitAuthor, b *gitalypb.CommitAuthor) bool {
-	return authorSortofEqual(a, b) &&
-		a.GetDate().Seconds == b.GetDate().Seconds
-}
-
-// GitCommitEqual tests if two `GitCommit`s are equal
-func GitCommitEqual(a, b *gitalypb.GitCommit) error {
-	if !authorSortofEqual(a.GetAuthor(), b.GetAuthor()) {
-		return fmt.Errorf("author does not match: %v != %v", a.GetAuthor(), b.GetAuthor())
-	}
-	if !authorSortofEqual(a.GetCommitter(), b.GetCommitter()) {
-		return fmt.Errorf("commiter does not match: %v != %v", a.GetCommitter(), b.GetCommitter())
-	}
-	if !bytes.Equal(a.GetBody(), b.GetBody()) {
-		return fmt.Errorf("body differs: %q != %q", a.GetBody(), b.GetBody())
-	}
-	if !bytes.Equal(a.GetSubject(), b.GetSubject()) {
-		return fmt.Errorf("subject differs: %q != %q", a.GetSubject(), b.GetSubject())
-	}
-	if strings.Compare(a.GetId(), b.GetId()) != 0 {
-		return fmt.Errorf("id does not match: %q != %q", a.GetId(), b.GetId())
-	}
-	if len(a.GetParentIds()) != len(b.GetParentIds()) {
-		return fmt.Errorf("ParentId does not match: %v != %v", a.GetParentIds(), b.GetParentIds())
-	}
-
-	for i, pid := range a.GetParentIds() {
-		pid2 := b.GetParentIds()[i]
-		if strings.Compare(pid, pid2) != 0 {
-			return fmt.Errorf("parent id mismatch: %v != %v", pid, pid2)
-		}
-	}
-
-	return nil
+	authorEqualIgnoringDate(t, expected.GetAuthor(), actual.GetAuthor())
+	authorEqualIgnoringDate(t, expected.GetCommitter(), actual.GetCommitter())
+	require.Equal(t, expected.GetBody(), actual.GetBody(), "body does not match")
+	require.Equal(t, expected.GetSubject(), actual.GetSubject(), "subject does not match")
+	require.Equal(t, expected.GetId(), actual.GetId(), "object ID does not match")
+	require.Equal(t, expected.GetParentIds(), actual.GetParentIds(), "parent IDs do not match")
 }

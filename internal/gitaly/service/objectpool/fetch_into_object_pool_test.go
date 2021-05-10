@@ -33,7 +33,7 @@ func TestFetchIntoObjectPool_Success(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	repoCommit := gittest.CreateCommit(t, cfg, repoPath, t.Name(), &gittest.CreateCommitOpts{Message: t.Name()})
+	repoCommit := gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(t.Name()))
 
 	pool, err := objectpool.NewObjectPool(cfg, locator, git.NewExecCommandFactory(cfg), repo.GetStorageName(), gittest.NewObjectPoolName(t))
 	require.NoError(t, err)
@@ -114,7 +114,7 @@ func TestFetchIntoObjectPool_hooks(t *testing.T) {
 	}
 
 	_, err = client.FetchIntoObjectPool(ctx, req)
-	require.Equal(t, status.Error(codes.Internal, "exit status 128"), err)
+	require.Equal(t, status.Error(codes.Internal, "fetch into object pool: exit status 128, stderr: \"fatal: ref updates aborted by hook\\n\""), err)
 }
 
 func TestFetchIntoObjectPool_CollectLogStatistics(t *testing.T) {

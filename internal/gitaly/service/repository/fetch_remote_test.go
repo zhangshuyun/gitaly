@@ -365,8 +365,8 @@ func TestFetchRemote_force(t *testing.T) {
 	tagOID, err := sourceRepo.ResolveRevision(ctx, "refs/tags/v1.0.0")
 	require.NoError(t, err)
 
-	divergingBranchOID, _ := gittest.CreateCommitOnNewBranch(t, cfg, sourceRepoPath)
-	divergingTagOID, _ := gittest.CreateCommitOnNewBranch(t, cfg, sourceRepoPath)
+	divergingBranchOID := gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch("b1"))
+	divergingTagOID := gittest.WriteCommit(t, cfg, sourceRepoPath, gittest.WithBranch("b2"))
 
 	port, stopGitServer := gittest.GitServer(t, cfg, sourceRepoPath, nil)
 	defer func() { require.NoError(t, stopGitServer()) }()
@@ -401,7 +401,7 @@ func TestFetchRemote_force(t *testing.T) {
 			// branches would get updated.
 			expectedRefs: map[git.ReferenceName]git.ObjectID{
 				"refs/heads/master": branchOID,
-				"refs/tags/v1.0.0":  git.ObjectID(divergingTagOID),
+				"refs/tags/v1.0.0":  divergingTagOID,
 			},
 		},
 		{
@@ -426,8 +426,8 @@ func TestFetchRemote_force(t *testing.T) {
 				Force: true,
 			},
 			expectedRefs: map[git.ReferenceName]git.ObjectID{
-				"refs/heads/master": git.ObjectID(divergingBranchOID),
-				"refs/tags/v1.0.0":  git.ObjectID(divergingTagOID),
+				"refs/heads/master": divergingBranchOID,
+				"refs/tags/v1.0.0":  divergingTagOID,
 			},
 		},
 		{
@@ -445,7 +445,7 @@ func TestFetchRemote_force(t *testing.T) {
 			// diverge.
 			expectedErr: status.Error(codes.Unknown, "fetch remote: exit status 1"),
 			expectedRefs: map[git.ReferenceName]git.ObjectID{
-				"refs/heads/master": git.ObjectID(divergingBranchOID),
+				"refs/heads/master": divergingBranchOID,
 				"refs/tags/v1.0.0":  tagOID,
 			},
 		},
@@ -461,8 +461,8 @@ func TestFetchRemote_force(t *testing.T) {
 				Force: true,
 			},
 			expectedRefs: map[git.ReferenceName]git.ObjectID{
-				"refs/heads/master": git.ObjectID(divergingBranchOID),
-				"refs/tags/v1.0.0":  git.ObjectID(divergingTagOID),
+				"refs/heads/master": divergingBranchOID,
+				"refs/tags/v1.0.0":  divergingTagOID,
 			},
 		},
 		{
@@ -477,7 +477,7 @@ func TestFetchRemote_force(t *testing.T) {
 				NoTags: true,
 			},
 			expectedRefs: map[git.ReferenceName]git.ObjectID{
-				"refs/heads/master": git.ObjectID(divergingBranchOID),
+				"refs/heads/master": divergingBranchOID,
 				"refs/tags/v1.0.0":  tagOID,
 			},
 		},
@@ -493,15 +493,15 @@ func TestFetchRemote_force(t *testing.T) {
 			// We're force-updating a branch and a tag in the source repository to point
 			// to a diverging object ID in order to verify that the `force` parameter
 			// takes effect.
-			require.NoError(t, sourceRepo.UpdateRef(ctx, "refs/heads/master", git.ObjectID(divergingBranchOID), branchOID))
-			require.NoError(t, sourceRepo.UpdateRef(ctx, "refs/tags/v1.0.0", git.ObjectID(divergingTagOID), tagOID))
+			require.NoError(t, sourceRepo.UpdateRef(ctx, "refs/heads/master", divergingBranchOID, branchOID))
+			require.NoError(t, sourceRepo.UpdateRef(ctx, "refs/tags/v1.0.0", divergingTagOID, tagOID))
 			defer func() {
 				// Restore references after the current testcase again. Moving
 				// source repository setup into the testcases is not easily possible
 				// because hosting the gitserver requires the repo path, and we need
 				// the URL for our testcases.
-				require.NoError(t, sourceRepo.UpdateRef(ctx, "refs/heads/master", branchOID, git.ObjectID(divergingBranchOID)))
-				require.NoError(t, sourceRepo.UpdateRef(ctx, "refs/tags/v1.0.0", tagOID, git.ObjectID(divergingTagOID)))
+				require.NoError(t, sourceRepo.UpdateRef(ctx, "refs/heads/master", branchOID, divergingBranchOID))
+				require.NoError(t, sourceRepo.UpdateRef(ctx, "refs/tags/v1.0.0", tagOID, divergingTagOID))
 			}()
 
 			tc.request.Repository = targetRepoProto

@@ -23,12 +23,11 @@ func TestWriteCommitGraph(t *testing.T) {
 	_, err := os.Stat(commitGraphPath)
 	assert.True(t, os.IsNotExist(err))
 
-	gittest.CreateCommit(
+	gittest.WriteCommit(
 		t,
 		cfg,
 		repoPath,
-		t.Name(),
-		&gittest.CreateCommitOpts{Message: t.Name()},
+		gittest.WithBranch(t.Name()),
 	)
 
 	res, err := client.WriteCommitGraph(ctx, &gitalypb.WriteCommitGraphRequest{Repository: repo})
@@ -44,13 +43,7 @@ func TestUpdateCommitGraph(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	gittest.CreateCommit(
-		t,
-		cfg,
-		repoPath,
-		t.Name(),
-		&gittest.CreateCommitOpts{Message: t.Name()},
-	)
+	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(t.Name()))
 
 	commitGraphPath := filepath.Join(repoPath, CommitGraphRelPath)
 
@@ -69,13 +62,7 @@ func TestUpdateCommitGraph(t *testing.T) {
 	assert.NoError(t, err)
 	mt := info.ModTime()
 
-	gittest.CreateCommit(
-		t,
-		cfg,
-		repoPath,
-		t.Name(),
-		&gittest.CreateCommitOpts{Message: t.Name()},
-	)
+	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch(t.Name()))
 
 	res, err = client.WriteCommitGraph(ctx, &gitalypb.WriteCommitGraphRequest{Repository: repo})
 	assert.NoError(t, err)

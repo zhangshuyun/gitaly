@@ -145,9 +145,7 @@ func TestReplMgr_ProcessBacklog(t *testing.T) {
 	}
 	require.Len(t, events, 1)
 
-	commitID := gittest.CreateCommit(t, primaryCfg, testRepoPath, "master", &gittest.CreateCommitOpts{
-		Message: "a commit",
-	})
+	commitID := gittest.WriteCommit(t, primaryCfg, testRepoPath, gittest.WithBranch("master"))
 
 	var mockReplicationLatencyHistogramVec promtest.MockHistogramVec
 	var mockReplicationDelayHistogramVec promtest.MockHistogramVec
@@ -201,7 +199,7 @@ func TestReplMgr_ProcessBacklog(t *testing.T) {
 
 	replicatedPath := filepath.Join(backupCfg.Storages[0].Path, testRepo.GetRelativePath())
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", replicatedPath, "cat-file", "-e", commitID)
+	testhelper.MustRunCommand(t, nil, "git", "-C", replicatedPath, "cat-file", "-e", commitID.String())
 	testhelper.MustRunCommand(t, nil, "git", "-C", replicatedPath, "gc")
 	require.Less(t, gittest.GetGitPackfileDirSize(t, replicatedPath), int64(100), "expect a small pack directory")
 
@@ -517,9 +515,7 @@ func TestConfirmReplication(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, equal)
 
-	gittest.CreateCommit(t, cfg, testRepoAPath, "master", &gittest.CreateCommitOpts{
-		Message: "a commit",
-	})
+	gittest.WriteCommit(t, cfg, testRepoAPath, gittest.WithBranch("master"))
 
 	equal, err = confirmChecksums(ctx, testhelper.DiscardTestLogger(t), gitalypb.NewRepositoryServiceClient(conn), gitalypb.NewRepositoryServiceClient(conn), testRepoA, testRepoB)
 	require.NoError(t, err)
