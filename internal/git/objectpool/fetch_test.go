@@ -81,6 +81,30 @@ func TestFetchFromOriginDangling(t *testing.T) {
 	}
 }
 
+func TestFetchFromOriginFsck(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	pool, repo := setupObjectPool(t)
+	repoPath := filepath.Join(pool.cfg.Storages[0].Path, repo.RelativePath)
+
+	require.NoError(t, pool.FetchFromOrigin(ctx, repo), "seed pool")
+
+	// We're creating a new commit which has a root tree with duplicate entries. git-mktree(1)
+	// allows us to create these trees just fine, but git-fsck(1) complains.
+	gittest.WriteCommit(t, pool.cfg, repoPath,
+		gittest.WithTreeEntries(
+			gittest.TreeEntry{OID: "4b825dc642cb6eb9a060e54bf8d69288fbee4904", Path: "dup", Mode: "040000"},
+			gittest.TreeEntry{OID: "4b825dc642cb6eb9a060e54bf8d69288fbee4904", Path: "dup", Mode: "040000"},
+		),
+		gittest.WithBranch("branch"),
+	)
+
+	err := pool.FetchFromOrigin(ctx, repo)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "duplicateEntries: contains duplicate file entries")
+}
+
 func TestFetchFromOriginDeltaIslands(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()

@@ -68,6 +68,13 @@ var commandDescriptions = map[string]commandDescription{
 	},
 	"fetch": {
 		flags: 0,
+
+		opts: []GlobalOption{
+			// When fetching objects from an untrusted source, we want to always assert
+			// that all objects are valid.
+			ConfigPair{Key: "fetch.fsckObjects", Value: "true"},
+			ConfigPair{Key: "fetch.fsck.badTimezone", Value: "ignore"},
+		},
 	},
 	"for-each-ref": {
 		flags: scNoRefUpdates | scNoEndOfOptions,
@@ -138,6 +145,10 @@ var commandDescriptions = map[string]commandDescription{
 			// Because Git itself will append the pool repository directory, the
 			// command ends with a "#". The end result is that Git runs `/bin/sh -c 'exit 0 # /path/to/pool.git`.
 			ConfigPair{Key: "core.alternateRefsCommand", Value: "exit 0 #"},
+
+			// When receiving objects from an untrusted source, we want to always assert
+			// that all objects are valid.
+			ConfigPair{Key: "receive.fsckObjects", Value: "true"},
 
 			// In the past, there was a bug in git that caused users to
 			// create commits with invalid timezones. As a result, some
