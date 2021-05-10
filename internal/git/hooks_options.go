@@ -11,7 +11,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/log"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
@@ -84,7 +84,7 @@ func (cc *cmdCfg) configureHooks(
 		return errors.New("hooks already configured")
 	}
 
-	transaction, praefect, err := metadata.TransactionMetadataFromContext(ctx)
+	transaction, praefect, err := txinfo.FromContext(ctx)
 	if err != nil {
 		return err
 	}

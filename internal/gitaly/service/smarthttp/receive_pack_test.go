@@ -25,10 +25,10 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	pconfig "gitlab.com/gitlab-org/gitaly/internal/praefect/config"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/streamio"
 	"google.golang.org/grpc"
@@ -557,7 +557,7 @@ func TestPostReceiveWithReferenceTransactionHook(t *testing.T) {
 	// RefTransaction server for Gitaly itself. As this is the only Praefect
 	// service required in this context, we can just pretend that
 	// Gitaly is the Praefect server and inject it.
-	praefectServer, err := metadata.PraefectFromConfig(pconfig.Config{
+	praefectServer, err := txinfo.PraefectFromConfig(pconfig.Config{
 		SocketPath: addr,
 	})
 	require.NoError(t, err)
@@ -565,7 +565,7 @@ func TestPostReceiveWithReferenceTransactionHook(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	ctx, err = metadata.InjectTransaction(ctx, 1234, "primary", true)
+	ctx, err = txinfo.InjectTransaction(ctx, 1234, "primary", true)
 	require.NoError(t, err)
 	ctx, err = praefectServer.Inject(ctx)
 	require.NoError(t, err)

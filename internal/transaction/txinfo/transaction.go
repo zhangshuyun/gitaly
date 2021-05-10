@@ -1,4 +1,4 @@
-package metadata
+package txinfo
 
 import (
 	"context"
@@ -115,9 +115,9 @@ func TransactionFromContext(ctx context.Context) (Transaction, error) {
 	return transaction, nil
 }
 
-// TransactionMetadataFromContext extracts transaction-related metadata from
-// the given context. No error is returned in case no transaction was found.
-func TransactionMetadataFromContext(ctx context.Context) (*Transaction, *PraefectServer, error) {
+// FromContext extracts transaction-related metadata from the given context. No error is returned in
+// case no transaction was found.
+func FromContext(ctx context.Context) (*Transaction, *PraefectServer, error) {
 	transaction, err := TransactionFromContext(ctx)
 	if err != nil {
 		if err != ErrTransactionNotFound {

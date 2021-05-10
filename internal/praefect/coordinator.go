@@ -18,11 +18,11 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/grpc-proxy/proxy"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/metrics"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/nodes"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/transactions"
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/labkit/correlation"
 	"golang.org/x/sync/errgroup"
@@ -289,7 +289,7 @@ func (c *Coordinator) directRepositoryScopedMessage(ctx context.Context, call gr
 		"relative_path":   call.targetRepo.RelativePath,
 	})
 
-	praefectServer, err := metadata.PraefectFromConfig(c.conf)
+	praefectServer, err := txinfo.PraefectFromConfig(c.conf)
 	if err != nil {
 		return nil, fmt.Errorf("repo scoped: could not create Praefect configuration: %w", err)
 	}
@@ -458,7 +458,7 @@ func (c *Coordinator) mutatorStreamParameters(ctx context.Context, call grpcCall
 			errByNode: make(map[string]error),
 		}
 
-		injectedCtx, err := metadata.InjectTransaction(ctx, transaction.ID(), route.Primary.Storage, true)
+		injectedCtx, err := txinfo.InjectTransaction(ctx, transaction.ID(), route.Primary.Storage, true)
 		if err != nil {
 			return nil, err
 		}
@@ -476,7 +476,7 @@ func (c *Coordinator) mutatorStreamParameters(ctx context.Context, call grpcCall
 				return nil, err
 			}
 
-			injectedCtx, err := metadata.InjectTransaction(ctx, transaction.ID(), secondary.Storage, false)
+			injectedCtx, err := txinfo.InjectTransaction(ctx, transaction.ID(), secondary.Storage, false)
 			if err != nil {
 				return nil, err
 			}

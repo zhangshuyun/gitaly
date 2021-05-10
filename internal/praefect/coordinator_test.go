@@ -24,13 +24,13 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/grpc-proxy/proxy"
-	praefect_metadata "gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/mock"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/nodes"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/transactions"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/promtest"
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/labkit/correlation"
@@ -193,7 +193,7 @@ func TestStreamDirectorMutator(t *testing.T) {
 
 	md, ok := metadata.FromOutgoingContext(streamParams.Primary().Ctx)
 	require.True(t, ok)
-	require.Contains(t, md, praefect_metadata.PraefectMetadataKey)
+	require.Contains(t, md, txinfo.PraefectMetadataKey)
 
 	mi, err := coordinator.registry.LookupMethod(fullMethod)
 	require.NoError(t, err)
@@ -299,7 +299,7 @@ func TestStreamDirectorMutator_StopTransaction(t *testing.T) {
 	require.NoError(t, err)
 
 	txCtx := peer.NewContext(streamParams.Primary().Ctx, &peer.Peer{})
-	transaction, err := praefect_metadata.TransactionFromContext(txCtx)
+	transaction, err := txinfo.TransactionFromContext(txCtx)
 	require.NoError(t, err)
 
 	var wg sync.WaitGroup
@@ -436,7 +436,7 @@ func TestStreamDirectorAccessor(t *testing.T) {
 
 			md, ok := metadata.FromOutgoingContext(streamParams.Primary().Ctx)
 			require.True(t, ok)
-			require.Contains(t, md, praefect_metadata.PraefectMetadataKey)
+			require.Contains(t, md, txinfo.PraefectMetadataKey)
 
 			mi, err := coordinator.registry.LookupMethod(fullMethod)
 			require.NoError(t, err)
@@ -541,7 +541,7 @@ func TestCoordinatorStreamDirector_distributesReads(t *testing.T) {
 
 			md, ok := metadata.FromOutgoingContext(streamParams.Primary().Ctx)
 			require.True(t, ok)
-			require.Contains(t, md, praefect_metadata.PraefectMetadataKey)
+			require.Contains(t, md, txinfo.PraefectMetadataKey)
 
 			mi, err := coordinator.registry.LookupMethod(fullMethod)
 			require.NoError(t, err)
@@ -590,7 +590,7 @@ func TestCoordinatorStreamDirector_distributesReads(t *testing.T) {
 
 			md, ok := metadata.FromOutgoingContext(streamParams.Primary().Ctx)
 			require.True(t, ok)
-			require.Contains(t, md, praefect_metadata.PraefectMetadataKey)
+			require.Contains(t, md, txinfo.PraefectMetadataKey)
 
 			mi, err := coordinator.registry.LookupMethod(fullMethod)
 			require.NoError(t, err)
@@ -639,7 +639,7 @@ func TestCoordinatorStreamDirector_distributesReads(t *testing.T) {
 
 			md, ok := metadata.FromOutgoingContext(streamParams.Primary().Ctx)
 			require.True(t, ok)
-			require.Contains(t, md, praefect_metadata.PraefectMetadataKey)
+			require.Contains(t, md, txinfo.PraefectMetadataKey)
 
 			mi, err := coordinator.registry.LookupMethod(fullMethod)
 			require.NoError(t, err)
@@ -683,7 +683,7 @@ func TestCoordinatorStreamDirector_distributesReads(t *testing.T) {
 
 		md, ok := metadata.FromOutgoingContext(streamParams.Primary().Ctx)
 		require.True(t, ok)
-		require.Contains(t, md, praefect_metadata.PraefectMetadataKey)
+		require.Contains(t, md, txinfo.PraefectMetadataKey)
 
 		mi, err := coordinator.registry.LookupMethod(fullMethod)
 		require.NoError(t, err)
@@ -737,7 +737,7 @@ func TestCoordinatorStreamDirector_distributesReads(t *testing.T) {
 
 		md, ok := metadata.FromOutgoingContext(streamParams.Primary().Ctx)
 		require.True(t, ok)
-		require.Contains(t, md, praefect_metadata.PraefectMetadataKey)
+		require.Contains(t, md, txinfo.PraefectMetadataKey)
 
 		mi, err := coordinator.registry.LookupMethod(fullMethod)
 		require.NoError(t, err)
@@ -921,7 +921,7 @@ func TestStreamDirector_repo_creation(t *testing.T) {
 
 			md, ok := metadata.FromOutgoingContext(streamParams.Primary().Ctx)
 			require.True(t, ok)
-			require.Contains(t, md, praefect_metadata.PraefectMetadataKey)
+			require.Contains(t, md, txinfo.PraefectMetadataKey)
 
 			mi, err := coordinator.registry.LookupMethod(fullMethod)
 			require.NoError(t, err)

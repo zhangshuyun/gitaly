@@ -1,4 +1,4 @@
-package metadata
+package txinfo
 
 import (
 	"context"
@@ -235,6 +235,7 @@ func praefectFromSerialized(serialized string) (*PraefectServer, error) {
 	return &server, nil
 }
 
+// Address returns the address of the Praefect server which can be used to connect to it.
 func (p *PraefectServer) Address() (string, error) {
 	for _, addr := range []string{p.SocketPath, p.TLSListenAddr, p.ListenAddr} {
 		if addr != "" {

@@ -12,7 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
@@ -47,11 +47,11 @@ var (
 type Manager interface {
 	// Vote casts a vote on the given transaction which is hosted by the
 	// given Praefect server.
-	Vote(context.Context, metadata.Transaction, metadata.PraefectServer, voting.Vote) error
+	Vote(context.Context, txinfo.Transaction, txinfo.PraefectServer, voting.Vote) error
 
 	// Stop gracefully stops the given transaction which is hosted by the
 	// given Praefect server.
-	Stop(context.Context, metadata.Transaction, metadata.PraefectServer) error
+	Stop(context.Context, txinfo.Transaction, txinfo.PraefectServer) error
 }
 
 // PoolManager is an implementation of the Manager interface using a pool to
@@ -87,7 +87,7 @@ func (m *PoolManager) Collect(metrics chan<- prometheus.Metric) {
 	m.votingDelayMetric.Collect(metrics)
 }
 
-func (m *PoolManager) getTransactionClient(ctx context.Context, server metadata.PraefectServer) (gitalypb.RefTransactionClient, error) {
+func (m *PoolManager) getTransactionClient(ctx context.Context, server txinfo.PraefectServer) (gitalypb.RefTransactionClient, error) {
 	// Gitaly is upgraded prior to Praefect. Older Praefects may still be using non-multiplexed connections
 	// and send dialing information for voting. To prevent failing RPCs during the upgrade, Gitaly still
 	// needs to support the old voting approach. If multiplexed connection is in use, the backchannel ID would
@@ -116,7 +116,7 @@ func (m *PoolManager) getTransactionClient(ctx context.Context, server metadata.
 }
 
 // Vote connects to the given server and casts vote as a vote for the transaction identified by tx.
-func (m *PoolManager) Vote(ctx context.Context, tx metadata.Transaction, server metadata.PraefectServer, vote voting.Vote) error {
+func (m *PoolManager) Vote(ctx context.Context, tx txinfo.Transaction, server txinfo.PraefectServer, vote voting.Vote) error {
 	client, err := m.getTransactionClient(ctx, server)
 	if err != nil {
 		return err
@@ -164,7 +164,7 @@ func (m *PoolManager) Vote(ctx context.Context, tx metadata.Transaction, server 
 }
 
 // Stop connects to the given server and stops the transaction identified by tx.
-func (m *PoolManager) Stop(ctx context.Context, tx metadata.Transaction, server metadata.PraefectServer) error {
+func (m *PoolManager) Stop(ctx context.Context, tx txinfo.Transaction, server txinfo.PraefectServer) error {
 	client, err := m.getTransactionClient(ctx, server)
 	if err != nil {
 		return err
@@ -189,8 +189,8 @@ func (m *PoolManager) log(ctx context.Context) logrus.FieldLogger {
 }
 
 // RunOnContext runs the given function if the context identifies a transaction.
-func RunOnContext(ctx context.Context, fn func(metadata.Transaction, metadata.PraefectServer) error) error {
-	transaction, praefect, err := metadata.TransactionMetadataFromContext(ctx)
+func RunOnContext(ctx context.Context, fn func(txinfo.Transaction, txinfo.PraefectServer) error) error {
+	transaction, praefect, err := txinfo.FromContext(ctx)
 	if err != nil {
 		return err
 	}
@@ -202,7 +202,7 @@ func RunOnContext(ctx context.Context, fn func(metadata.Transaction, metadata.Pr
 
 // VoteOnContext casts the vote on a transaction identified by the context, if there is any.
 func VoteOnContext(ctx context.Context, m Manager, vote voting.Vote) error {
-	return RunOnContext(ctx, func(transaction metadata.Transaction, praefect metadata.PraefectServer) error {
+	return RunOnContext(ctx, func(transaction txinfo.Transaction, praefect txinfo.PraefectServer) error {
 		return m.Vote(ctx, transaction, praefect, vote)
 	})
 }

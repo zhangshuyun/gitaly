@@ -17,9 +17,9 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/txinfo"
 )
 
 func TestPrereceive_customHooks(t *testing.T) {
@@ -42,10 +42,10 @@ func TestPrereceive_customHooks(t *testing.T) {
 	primaryPayload, err := git.NewHooksPayload(
 		cfg,
 		repo,
-		&metadata.Transaction{
+		&txinfo.Transaction{
 			ID: 1234, Node: "primary", Primary: true,
 		},
-		&metadata.PraefectServer{
+		&txinfo.PraefectServer{
 			SocketPath: "/path/to/socket",
 			Token:      "secret",
 		},
@@ -58,10 +58,10 @@ func TestPrereceive_customHooks(t *testing.T) {
 	secondaryPayload, err := git.NewHooksPayload(
 		cfg,
 		repo,
-		&metadata.Transaction{
+		&txinfo.Transaction{
 			ID: 1234, Node: "secondary", Primary: false,
 		},
-		&metadata.PraefectServer{
+		&txinfo.PraefectServer{
 			SocketPath: "/path/to/socket",
 			Token:      "secret",
 		},

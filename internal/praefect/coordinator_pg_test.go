@@ -16,12 +16,12 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/config"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore/glsql"
-	praefect_metadata "gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/nodes"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/transactions"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/promtest"
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/peer"
@@ -197,7 +197,7 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 			require.NoError(t, err)
 
 			txCtx := peer.NewContext(streamParams.Primary().Ctx, &peer.Peer{})
-			transaction, err := praefect_metadata.TransactionFromContext(txCtx)
+			transaction, err := txinfo.TransactionFromContext(txCtx)
 			require.NoError(t, err)
 
 			var voterWaitGroup sync.WaitGroup

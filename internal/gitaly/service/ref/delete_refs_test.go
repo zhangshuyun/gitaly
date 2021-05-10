@@ -12,10 +12,10 @@ import (
 	hookservice "gitlab.com/gitlab-org/gitaly/internal/gitaly/service/hook"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
@@ -85,7 +85,7 @@ func TestDeleteRefs_transaction(t *testing.T) {
 
 	var votes int
 	txManager := &transaction.MockManager{
-		VoteFn: func(context.Context, metadata.Transaction, metadata.PraefectServer, voting.Vote) error {
+		VoteFn: func(context.Context, txinfo.Transaction, txinfo.PraefectServer, voting.Vote) error {
 			votes++
 			return nil
 		},
@@ -102,9 +102,9 @@ func TestDeleteRefs_transaction(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	t.Cleanup(cancel)
 
-	ctx, err := metadata.InjectTransaction(ctx, 1, "node", true)
+	ctx, err := txinfo.InjectTransaction(ctx, 1, "node", true)
 	require.NoError(t, err)
-	ctx, err = (&metadata.PraefectServer{SocketPath: "i-dont-care"}).Inject(ctx)
+	ctx, err = (&txinfo.PraefectServer{SocketPath: "i-dont-care"}).Inject(ctx)
 	require.NoError(t, err)
 	ctx = helper.IncomingToOutgoing(ctx)
 

@@ -7,20 +7,20 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/txinfo"
 )
 
 func TestHooksPayload(t *testing.T) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
-	tx := metadata.Transaction{
+	tx := txinfo.Transaction{
 		ID:      1234,
 		Node:    "primary",
 		Primary: true,
 	}
 
-	praefect := metadata.PraefectServer{
+	praefect := txinfo.PraefectServer{
 		BackchannelID: 1,
 		ListenAddr:    "127.0.0.1:1234",
 		TLSListenAddr: "127.0.0.1:4321",
@@ -90,7 +90,7 @@ func TestHooksPayload(t *testing.T) {
 		require.NoError(t, err)
 
 		_, err = git.HooksPayloadFromEnv([]string{env})
-		require.Equal(t, err, metadata.ErrPraefectServerNotFound)
+		require.Equal(t, err, txinfo.ErrPraefectServerNotFound)
 	})
 
 	t.Run("receive hooks payload", func(t *testing.T) {

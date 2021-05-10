@@ -11,10 +11,10 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
@@ -53,20 +53,20 @@ func TestPoolManager_Vote(t *testing.T) {
 	backchannelConn, err := client.Dial(ctx, praefect.ListenAddr, nil, nil)
 	require.NoError(t, err)
 	defer backchannelConn.Close()
-	praefect = metadata.PraefectServer{BackchannelID: registry.RegisterBackchannel(backchannelConn)}
+	praefect = txinfo.PraefectServer{BackchannelID: registry.RegisterBackchannel(backchannelConn)}
 
 	manager := transaction.NewManager(cfg, registry)
 
 	for _, tc := range []struct {
 		desc        string
-		transaction metadata.Transaction
+		transaction txinfo.Transaction
 		vote        voting.Vote
 		voteFn      func(*testing.T, *gitalypb.VoteTransactionRequest) (*gitalypb.VoteTransactionResponse, error)
 		expectedErr error
 	}{
 		{
 			desc: "successful vote",
-			transaction: metadata.Transaction{
+			transaction: txinfo.Transaction{
 				ID:   1,
 				Node: "node",
 			},
@@ -130,19 +130,19 @@ func TestPoolManager_Stop(t *testing.T) {
 	backchannelConn, err := client.Dial(ctx, praefect.ListenAddr, nil, nil)
 	require.NoError(t, err)
 	defer backchannelConn.Close()
-	praefect = metadata.PraefectServer{BackchannelID: registry.RegisterBackchannel(backchannelConn)}
+	praefect = txinfo.PraefectServer{BackchannelID: registry.RegisterBackchannel(backchannelConn)}
 
 	manager := transaction.NewManager(cfg, registry)
 
 	for _, tc := range []struct {
 		desc        string
-		transaction metadata.Transaction
+		transaction txinfo.Transaction
 		stopFn      func(*testing.T, *gitalypb.StopTransactionRequest) (*gitalypb.StopTransactionResponse, error)
 		expectedErr error
 	}{
 		{
 			desc: "successful stop",
-			transaction: metadata.Transaction{
+			transaction: txinfo.Transaction{
 				ID:   1,
 				Node: "node",
 			},
@@ -170,14 +170,14 @@ func TestPoolManager_Stop(t *testing.T) {
 	}
 }
 
-func runTransactionServer(t *testing.T, cfg config.Cfg) (*testTransactionServer, metadata.PraefectServer) {
+func runTransactionServer(t *testing.T, cfg config.Cfg) (*testTransactionServer, txinfo.PraefectServer) {
 	transactionServer := &testTransactionServer{}
 	cfg.ListenAddr = ":0" // pushes gRPC to listen on the TCP address
 	addr := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
 		gitalypb.RegisterRefTransactionServer(srv, transactionServer)
 	}, testserver.WithDisablePraefect())
 
-	praefect := metadata.PraefectServer{
+	praefect := txinfo.PraefectServer{
 		ListenAddr: addr,
 		Token:      cfg.Auth.Token,
 	}

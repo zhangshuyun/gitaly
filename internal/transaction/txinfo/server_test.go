@@ -1,4 +1,4 @@
-package metadata
+package txinfo
 
 import (
 	"net"

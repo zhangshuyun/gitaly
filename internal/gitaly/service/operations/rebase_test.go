@@ -20,9 +20,9 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -96,7 +96,7 @@ func testUserRebaseConfirmableTransaction(t *testing.T, cfg config.Cfg, rubySrv 
 func testUserRebaseConfirmableTransactionFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	var voteCount int
 	txManager := &transaction.MockManager{
-		VoteFn: func(context.Context, metadata.Transaction, metadata.PraefectServer, voting.Vote) error {
+		VoteFn: func(context.Context, txinfo.Transaction, txinfo.PraefectServer, voting.Vote) error {
 			voteCount++
 			return nil
 		},
@@ -149,9 +149,9 @@ func testUserRebaseConfirmableTransactionFeatured(t *testing.T, ctx context.Cont
 				ctx = helper.OutgoingToIncoming(ctx)
 
 				var err error
-				ctx, err = metadata.InjectTransaction(ctx, 1, "node", tc.primary)
+				ctx, err = txinfo.InjectTransaction(ctx, 1, "node", tc.primary)
 				require.NoError(t, err)
-				ctx, err = (&metadata.PraefectServer{
+				ctx, err = (&txinfo.PraefectServer{
 					SocketPath: "irrelevant",
 				}).Inject(ctx)
 				require.NoError(t, err)

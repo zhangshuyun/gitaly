@@ -12,7 +12,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
-	"gitlab.com/gitlab-org/gitaly/internal/praefect/metadata"
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
@@ -52,7 +52,7 @@ func (s *Server) updateReferenceWithHooks(
 	newrev, oldrev git.ObjectID,
 	pushOptions ...string,
 ) error {
-	transaction, praefect, err := metadata.TransactionMetadataFromContext(ctx)
+	transaction, praefect, err := txinfo.FromContext(ctx)
 	if err != nil {
 		return err
 	}
