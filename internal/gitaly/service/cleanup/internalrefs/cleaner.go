@@ -10,11 +10,8 @@ import (
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
-	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
 // A ForEachFunc can be called for every entry in the filter-repo or BFG object
@@ -41,18 +38,13 @@ type ErrInvalidObjectMap error
 
 // NewCleaner builds a new instance of Cleaner, which is used to apply a
 // filter-repo or BFG object map to a repository.
-func NewCleaner(ctx context.Context, cfg config.Cfg, gitCmdFactory git.CommandFactory, repo *gitalypb.Repository, forEach ForEachFunc) (*Cleaner, error) {
-	// This is only an intermediate state in this commit series to satisfy the interface. The
-	// subsequent commit will remove this ad-hoc cache again.
-	catfileCache := catfile.NewCache(gitCmdFactory, cfg)
-	localRepo := localrepo.New(gitCmdFactory, catfileCache, repo, cfg)
-
-	table, err := buildLookupTable(ctx, gitCmdFactory, repo)
+func NewCleaner(ctx context.Context, cfg config.Cfg, repo git.RepositoryExecutor, forEach ForEachFunc) (*Cleaner, error) {
+	table, err := buildLookupTable(ctx, repo)
 	if err != nil {
 		return nil, err
 	}
 
-	updater, err := updateref.New(ctx, cfg, localRepo)
+	updater, err := updateref.New(ctx, cfg, repo)
 	if err != nil {
 		return nil, err
 	}
@@ -132,8 +124,8 @@ func (c *Cleaner) processEntry(ctx context.Context, oldSHA, newSHA string) error
 // an object that has been rewritten by the filter-repo or BFG (and so require
 // action). It is consulted once per line in the object map. Git is optimized
 // for ref -> SHA lookups, but we want the opposite!
-func buildLookupTable(ctx context.Context, gitCmdFactory git.CommandFactory, repo *gitalypb.Repository) (map[string][]git.ReferenceName, error) {
-	cmd, err := gitCmdFactory.New(ctx, repo, git.SubCmd{
+func buildLookupTable(ctx context.Context, repo git.RepositoryExecutor) (map[string][]git.ReferenceName, error) {
+	cmd, err := repo.Exec(ctx, git.SubCmd{
 		Name:  "for-each-ref",
 		Flags: []git.Option{git.ValueFlag{Name: "--format", Value: "%(objectname) %(refname)"}},
 		Args:  git.InternalRefPrefixes[:],
