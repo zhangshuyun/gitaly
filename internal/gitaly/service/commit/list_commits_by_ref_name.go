@@ -4,7 +4,6 @@ import (
 	"github.com/golang/protobuf/proto"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
-	gitlog "gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/chunk"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -21,7 +20,7 @@ func (s *server) ListCommitsByRefName(in *gitalypb.ListCommitsByRefNameRequest, 
 	sender := chunk.New(&commitsByRefNameSender{stream: stream})
 
 	for _, refName := range in.RefNames {
-		commit, err := gitlog.GetCommitCatfile(ctx, c, git.Revision(refName))
+		commit, err := catfile.GetCommit(ctx, c, git.Revision(refName))
 		if catfile.IsNotFound(err) {
 			continue
 		}

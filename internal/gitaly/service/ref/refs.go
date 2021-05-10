@@ -12,7 +12,6 @@ import (
 	"github.com/golang/protobuf/proto"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
-	gitlog "gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/chunk"
@@ -396,13 +395,13 @@ func parseTagLine(ctx context.Context, c catfile.Batch, tagLine string) (*gitaly
 	switch refType {
 	// annotated tag
 	case "tag":
-		tag, err := gitlog.GetTagCatfile(ctx, c, git.Revision(tagID), refName, true, true)
+		tag, err := catfile.GetTag(ctx, c, git.Revision(tagID), refName, true, true)
 		if err != nil {
 			return nil, fmt.Errorf("getting annotated tag: %v", err)
 		}
 		return tag, nil
 	case "commit":
-		commit, err := gitlog.GetCommitCatfile(ctx, c, git.Revision(tagID))
+		commit, err := catfile.GetCommit(ctx, c, git.Revision(tagID))
 		if err != nil {
 			return nil, fmt.Errorf("getting commit catfile: %v", err)
 		}

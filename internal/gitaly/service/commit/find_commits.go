@@ -12,7 +12,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
-	"gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/git/trailerparser"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/chunk"
@@ -137,7 +136,7 @@ func (g *GetCommits) Commit(ctx context.Context, trailers bool) (*gitalypb.GitCo
 	} else {
 		revision = logOutput
 	}
-	commit, err := log.GetCommitCatfile(ctx, g.batch, git.Revision(revision))
+	commit, err := catfile.GetCommit(ctx, g.batch, git.Revision(revision))
 	if err != nil {
 		return nil, fmt.Errorf("cat-file get commit %q: %v", revision, err)
 	}

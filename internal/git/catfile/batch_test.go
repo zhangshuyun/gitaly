@@ -15,13 +15,15 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/metadata"
 )
 
-func setupBatch(t *testing.T, ctx context.Context) Batch {
+func setupBatch(t *testing.T, ctx context.Context) (config.Cfg, Batch, *gitalypb.Repository) {
 	t.Helper()
 
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
@@ -30,14 +32,14 @@ func setupBatch(t *testing.T, ctx context.Context) Batch {
 	batch, err := cache.BatchProcess(ctx, repo)
 	require.NoError(t, err)
 
-	return batch
+	return cfg, batch, repo
 }
 
 func TestInfo(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	c := setupBatch(t, ctx)
+	_, c, _ := setupBatch(t, ctx)
 
 	testCases := []struct {
 		desc     string
@@ -69,7 +71,7 @@ func TestBlob(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	c := setupBatch(t, ctx)
+	_, c, _ := setupBatch(t, ctx)
 
 	gitignoreBytes, err := ioutil.ReadFile("testdata/blob-dfaa3f97ca337e20154a98ac9d0be76ddd1fcc82")
 	require.NoError(t, err)
@@ -132,7 +134,7 @@ func TestCommit(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	c := setupBatch(t, ctx)
+	_, c, _ := setupBatch(t, ctx)
 
 	commitBytes, err := ioutil.ReadFile("testdata/commit-e63f41fe459e62e1228fcef60d7189127aeba95a")
 	require.NoError(t, err)
@@ -166,7 +168,7 @@ func TestTag(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	c := setupBatch(t, ctx)
+	_, c, _ := setupBatch(t, ctx)
 
 	tagBytes, err := ioutil.ReadFile("testdata/tag-a509fa67c27202a2bc9dd5e014b4af7e6063ac76")
 	require.NoError(t, err)
@@ -229,7 +231,7 @@ func TestTree(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	c := setupBatch(t, ctx)
+	_, c, _ := setupBatch(t, ctx)
 
 	treeBytes, err := ioutil.ReadFile("testdata/tree-7e2f26d033ee47cd0745649d1a28277c56197921")
 	require.NoError(t, err)
@@ -292,7 +294,7 @@ func TestRepeatedCalls(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	c := setupBatch(t, ctx)
+	_, c, _ := setupBatch(t, ctx)
 
 	treeOid := git.Revision("7e2f26d033ee47cd0745649d1a28277c56197921")
 	treeBytes, err := ioutil.ReadFile("testdata/tree-7e2f26d033ee47cd0745649d1a28277c56197921")

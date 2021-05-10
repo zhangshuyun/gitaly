@@ -48,7 +48,7 @@ func (parser *Parser) Parse(ctx context.Context) bool {
 
 	commitID := parser.scanner.Text()
 
-	commit, err := GetCommitCatfile(ctx, parser.c, git.Revision(commitID))
+	commit, err := catfile.GetCommit(ctx, parser.c, git.Revision(commitID))
 	if err != nil {
 		parser.err = err
 		return false

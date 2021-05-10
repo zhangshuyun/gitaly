@@ -7,7 +7,6 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
-	"gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/lines"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
@@ -60,7 +59,7 @@ func buildLocalBranch(name []byte, target *gitalypb.GitCommit) *gitalypb.FindLoc
 }
 
 func buildAllBranchesBranch(ctx context.Context, c catfile.Batch, elements [][]byte) (*gitalypb.FindAllBranchesResponse_Branch, error) {
-	target, err := log.GetCommitCatfile(ctx, c, git.Revision(elements[1]))
+	target, err := catfile.GetCommit(ctx, c, git.Revision(elements[1]))
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +71,7 @@ func buildAllBranchesBranch(ctx context.Context, c catfile.Batch, elements [][]b
 }
 
 func buildBranch(ctx context.Context, c catfile.Batch, elements [][]byte) (*gitalypb.Branch, error) {
-	target, err := log.GetCommitCatfile(ctx, c, git.Revision(elements[1]))
+	target, err := catfile.GetCommit(ctx, c, git.Revision(elements[1]))
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +93,7 @@ func newFindLocalBranchesWriter(stream gitalypb.RefService_FindLocalBranchesServ
 				return err
 			}
 
-			target, err := log.GetCommitCatfile(ctx, c, git.Revision(elements[1]))
+			target, err := catfile.GetCommit(ctx, c, git.Revision(elements[1]))
 			if err != nil {
 				return err
 			}

@@ -4,7 +4,7 @@ import (
 	"bufio"
 
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/log"
+	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
@@ -44,7 +44,7 @@ func (s *server) listNewCommits(in *gitalypb.ListNewCommitsRequest, stream gital
 	for scanner.Scan() {
 		line := scanner.Text()
 
-		commit, err := log.GetCommitCatfile(ctx, batch, git.Revision(line))
+		commit, err := catfile.GetCommit(ctx, batch, git.Revision(line))
 		if err != nil {
 			return err
 		}

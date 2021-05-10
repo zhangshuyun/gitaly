@@ -1,4 +1,4 @@
-package log
+package catfile
 
 import (
 	"bytes"
@@ -53,7 +53,7 @@ func TestGetTag(t *testing.T) {
 		t.Run(testCase.tagName, func(t *testing.T) {
 			tagID := gittest.CreateTag(t, cfg, testRepoPath, testCase.tagName, testCase.rev, &gittest.CreateTagOpts{Message: testCase.message})
 
-			tag, err := GetTagCatfile(ctx, c, git.Revision(tagID), testCase.tagName, testCase.trim, true)
+			tag, err := GetTag(ctx, c, git.Revision(tagID), testCase.tagName, testCase.trim, true)
 			require.NoError(t, err)
 			if testCase.trim && len(testCase.message) >= helper.MaxCommitOrTagMessageSize {
 				testCase.message = testCase.message[:helper.MaxCommitOrTagMessageSize]

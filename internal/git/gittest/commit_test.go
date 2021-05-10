@@ -7,7 +7,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
@@ -156,7 +155,7 @@ func TestWriteCommit(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			oid := WriteCommit(t, cfg, repoPath, tc.opts...)
 
-			commit, err := log.GetCommitCatfile(ctx, batch, oid.Revision())
+			commit, err := catfile.GetCommit(ctx, batch, oid.Revision())
 			require.NoError(t, err)
 
 			CommitEqual(t, tc.expectedCommit, commit)
