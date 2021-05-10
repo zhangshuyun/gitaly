@@ -31,6 +31,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/version"
 	"gitlab.com/gitlab-org/labkit/monitoring"
 	"gitlab.com/gitlab-org/labkit/tracing"
+	"google.golang.org/grpc"
 )
 
 var (
@@ -193,10 +194,19 @@ func run(cfg config.Cfg) error {
 			continue
 		}
 
-		srv, err := gitalyServerFactory.Create(c.IsSecure())
-		if err != nil {
-			return fmt.Errorf("create gRPC server: %w", err)
+		var srv *grpc.Server
+		if c.HandoverOnUpgrade {
+			srv, err = gitalyServerFactory.CreateExternal(c.IsSecure())
+			if err != nil {
+				return fmt.Errorf("create external gRPC server: %w", err)
+			}
+		} else {
+			srv, err = gitalyServerFactory.CreateInternal()
+			if err != nil {
+				return fmt.Errorf("create internal gRPC server: %w", err)
+			}
 		}
+
 		setup.RegisterAll(srv, &service.Dependencies{
 			Cfg:                cfg,
 			RubyServer:         rubySrv,

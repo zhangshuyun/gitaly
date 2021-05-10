@@ -21,10 +21,10 @@ import (
 
 // GitalyServerFactory is a factory of gitaly grpc servers
 type GitalyServerFactory struct {
-	registry         *backchannel.Registry
-	mtx              sync.Mutex
-	cfg              config.Cfg
-	secure, insecure []*grpc.Server
+	registry        *backchannel.Registry
+	cfg             config.Cfg
+	externalServers []*grpc.Server
+	internalServers []*grpc.Server
 }
 
 // NewGitalyServerFactory allows to create and start secure/insecure 'grpc.Server'-s with gitaly-ruby
@@ -86,51 +86,61 @@ func (s *GitalyServerFactory) StartWorkers(ctx context.Context, l logrus.FieldLo
 	return shutdown, nil
 }
 
-// Stop stops all servers started by calling Serve and the gitaly-ruby server.
+// Stop immediately stops all servers created by the GitalyServerFactory.
 func (s *GitalyServerFactory) Stop() {
-	for _, srv := range s.all() {
-		srv.Stop()
+	for _, servers := range [][]*grpc.Server{
+		s.externalServers,
+		s.internalServers,
+	} {
+		for _, server := range servers {
+			server.Stop()
+		}
 	}
 }
 
-// GracefulStop stops both the secure and insecure servers gracefully
+// GracefulStop gracefully stops all servers created by the GitalyServerFactory. ExternalServers
+// are stopped before the internal servers to ensure any RPCs accepted by the externals servers
+// can still complete their requests to the internal servers. This is important for hooks calling
+// back to Gitaly.
 func (s *GitalyServerFactory) GracefulStop() {
-	wg := sync.WaitGroup{}
+	for _, servers := range [][]*grpc.Server{
+		s.externalServers,
+		s.internalServers,
+	} {
+		var wg sync.WaitGroup
 
-	for _, srv := range s.all() {
-		wg.Add(1)
+		for _, server := range servers {
+			wg.Add(1)
+			go func(server *grpc.Server) {
+				defer wg.Done()
+				server.GracefulStop()
+			}(server)
+		}
 
-		go func(s *grpc.Server) {
-			s.GracefulStop()
-			wg.Done()
-		}(srv)
+		wg.Wait()
 	}
-
-	wg.Wait()
 }
 
-// Create returns newly instantiated and initialized with interceptors instance of the gRPC server.
-func (s *GitalyServerFactory) Create(secure bool) (*grpc.Server, error) {
-	s.mtx.Lock()
-	defer s.mtx.Unlock()
-
+// CreateExternal creates a new external gRPC server. The external servers are closed
+// before the internal servers when gracefully shutting down.
+func (s *GitalyServerFactory) CreateExternal(secure bool) (*grpc.Server, error) {
 	server, err := New(secure, s.cfg, gitalylog.Default(), s.registry)
 	if err != nil {
 		return nil, err
 	}
 
-	if secure {
-		s.secure = append(s.secure, server)
-		return s.secure[len(s.secure)-1], nil
-	}
-
-	s.insecure = append(s.insecure, server)
-	return s.insecure[len(s.insecure)-1], nil
+	s.externalServers = append(s.externalServers, server)
+	return server, nil
 }
 
-func (s *GitalyServerFactory) all() []*grpc.Server {
-	s.mtx.Lock()
-	defer s.mtx.Unlock()
+// CreateInternal creates a new internal gRPC server. Internal servers are closed
+// after the external ones when gracefully shutting down.
+func (s *GitalyServerFactory) CreateInternal() (*grpc.Server, error) {
+	server, err := New(false, s.cfg, gitalylog.Default(), s.registry)
+	if err != nil {
+		return nil, err
+	}
 
-	return append(s.secure[:], s.insecure...)
+	s.internalServers = append(s.internalServers, server)
+	return server, nil
 }
