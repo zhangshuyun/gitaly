@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
@@ -46,7 +47,14 @@ type ObjectPool struct {
 // NewObjectPool will initialize the object with the required data on the storage
 // shard. Relative path is validated to match the expected naming and directory
 // structure. If the shard cannot be found, this function returns an error.
-func NewObjectPool(cfg config.Cfg, locator storage.Locator, gitCmdFactory git.CommandFactory, storageName, relativePath string) (*ObjectPool, error) {
+func NewObjectPool(
+	cfg config.Cfg,
+	locator storage.Locator,
+	gitCmdFactory git.CommandFactory,
+	catfileCache catfile.Cache,
+	storageName,
+	relativePath string,
+) (*ObjectPool, error) {
 	storagePath, err := locator.GetStorageByName(storageName)
 	if err != nil {
 		return nil, err
@@ -65,7 +73,7 @@ func NewObjectPool(cfg config.Cfg, locator storage.Locator, gitCmdFactory git.Co
 		storagePath:   storagePath,
 		relativePath:  relativePath,
 	}
-	pool.poolRepo = localrepo.New(gitCmdFactory, pool, cfg)
+	pool.poolRepo = localrepo.New(gitCmdFactory, catfileCache, pool, cfg)
 
 	return pool, nil
 }
@@ -150,7 +158,13 @@ func (o *ObjectPool) Init(ctx context.Context) (err error) {
 }
 
 // FromRepo returns an instance of ObjectPool that the repository points to
-func FromRepo(cfg config.Cfg, locator storage.Locator, gitCmdFactory git.CommandFactory, repo *gitalypb.Repository) (*ObjectPool, error) {
+func FromRepo(
+	cfg config.Cfg,
+	locator storage.Locator,
+	gitCmdFactory git.CommandFactory,
+	catfileCache catfile.Cache,
+	repo *gitalypb.Repository,
+) (*ObjectPool, error) {
 	dir, err := getAlternateObjectDir(locator, repo)
 	if err != nil {
 		return nil, err
@@ -170,7 +184,7 @@ func FromRepo(cfg config.Cfg, locator storage.Locator, gitCmdFactory git.Command
 		return nil, err
 	}
 
-	return NewObjectPool(cfg, locator, gitCmdFactory, repo.GetStorageName(), filepath.Dir(altPathRelativeToStorage))
+	return NewObjectPool(cfg, locator, gitCmdFactory, catfileCache, repo.GetStorageName(), filepath.Dir(altPathRelativeToStorage))
 }
 
 var (

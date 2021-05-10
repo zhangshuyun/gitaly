@@ -24,8 +24,8 @@ type Parser struct {
 }
 
 // NewLogParser returns a new Parser
-func NewLogParser(ctx context.Context, gitCmdFactory git.CommandFactory, repo repository.GitRepo, src io.Reader) (*Parser, error) {
-	c, err := catfile.New(ctx, gitCmdFactory, repo)
+func NewLogParser(ctx context.Context, catfileCache catfile.Cache, repo repository.GitRepo, src io.Reader) (*Parser, error) {
+	c, err := catfileCache.BatchProcess(ctx, repo)
 	if err != nil {
 		return nil, err
 	}

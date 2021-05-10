@@ -1,19 +1,21 @@
 package catfile
 
 import (
+	"context"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
+	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/internal/metadata"
 )
 
 const (
-	// DefaultBatchfileTTL is the default ttl for batch files to live in the cache
-	DefaultBatchfileTTL = 10 * time.Second
+	// defaultBatchfileTTL is the default ttl for batch files to live in the cache
+	defaultBatchfileTTL = 10 * time.Second
 
 	defaultEvictionInterval = 1 * time.Second
 
@@ -21,20 +23,13 @@ const (
 	defaultMaxLen = 100
 )
 
-var catfileCacheMembers = promauto.NewGauge(
-	prometheus.GaugeOpts{
-		Name: "gitaly_catfile_cache_members",
-		Help: "Gauge of catfile cache members",
-	},
-)
-
-var cache *batchCache
-
-func init() {
-	config.RegisterHook(func(cfg *config.Cfg) error {
-		cache = newCache(DefaultBatchfileTTL, cfg.Git.CatfileCacheSize)
-		return nil
-	})
+// Cache is a cache for git-cat-file(1) processes.
+type Cache interface {
+	// BatchProcess either creates a new git-cat-file(1) process or returns a cached one for
+	// the given repository.
+	BatchProcess(context.Context, repository.GitRepo) (Batch, error)
+	// Evict evicts all cached processes from the cache.
+	Evict()
 }
 
 func newCacheKey(sessionID string, repo repository.GitRepo) key {
@@ -61,11 +56,13 @@ type entry struct {
 	expiry time.Time
 }
 
-// batchCache entries always get added to the back of the list. If the
+// BatchCache entries always get added to the back of the list. If the
 // list gets too long, we evict entries from the front of the list. When
 // an entry gets added it gets an expiry time based on a fixed TTL. A
 // monitor goroutine periodically evicts expired entries.
-type batchCache struct {
+type BatchCache struct {
+	gitCmdFactory git.CommandFactory
+
 	entries []*entry
 	sync.Mutex
 
@@ -74,42 +71,158 @@ type batchCache struct {
 
 	// ttl is the fixed ttl for cache entries
 	ttl time.Duration
+
+	// injectSpawnErrors is used for testing purposes only. If set to true, then spawned batch
+	// processes will simulate spawn errors.
+	injectSpawnErrors bool
+
+	catfileCacheCounter     *prometheus.CounterVec
+	currentCatfileProcesses prometheus.Gauge
+	totalCatfileProcesses   prometheus.Counter
+	catfileLookupCounter    *prometheus.CounterVec
+	catfileCacheMembers     prometheus.Gauge
 }
 
-func newCache(ttl time.Duration, maxLen int) *batchCache {
-	return newCacheWithRefresh(ttl, maxLen, defaultEvictionInterval)
+// NewCache creates a new catfile process cache.
+func NewCache(gitCmdFactory git.CommandFactory, cfg config.Cfg) *BatchCache {
+	return newCache(gitCmdFactory,
+		defaultBatchfileTTL,
+		cfg.Git.CatfileCacheSize,
+		defaultEvictionInterval,
+	)
 }
 
-func newCacheWithRefresh(ttl time.Duration, maxLen int, refreshInterval time.Duration) *batchCache {
+func newCache(gitCmdFactory git.CommandFactory, ttl time.Duration, maxLen int, refreshInterval time.Duration) *BatchCache {
 	if maxLen <= 0 {
 		maxLen = defaultMaxLen
 	}
 
-	bc := &batchCache{
-		maxLen: maxLen,
-		ttl:    ttl,
+	bc := &BatchCache{
+		gitCmdFactory: gitCmdFactory,
+		maxLen:        maxLen,
+		ttl:           ttl,
+		catfileCacheCounter: prometheus.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "gitaly_catfile_cache_total",
+				Help: "Counter of catfile cache hit/miss",
+			},
+			[]string{"type"},
+		),
+		currentCatfileProcesses: prometheus.NewGauge(
+			prometheus.GaugeOpts{
+				Name: "gitaly_catfile_processes",
+				Help: "Gauge of active catfile processes",
+			},
+		),
+		totalCatfileProcesses: prometheus.NewCounter(
+			prometheus.CounterOpts{
+				Name: "gitaly_catfile_processes_total",
+				Help: "Counter of catfile processes",
+			},
+		),
+		catfileLookupCounter: prometheus.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "gitaly_catfile_lookups_total",
+				Help: "Git catfile lookups by object type",
+			},
+			[]string{"type"},
+		),
+		catfileCacheMembers: prometheus.NewGauge(
+			prometheus.GaugeOpts{
+				Name: "gitaly_catfile_cache_members",
+				Help: "Gauge of catfile cache members",
+			},
+		),
 	}
 
 	go bc.monitor(refreshInterval)
 	return bc
 }
 
-func (bc *batchCache) monitor(refreshInterval time.Duration) {
+// Describe describes all metrics exposed by BatchCache.
+func (bc *BatchCache) Describe(descs chan<- *prometheus.Desc) {
+	prometheus.DescribeByCollect(bc, descs)
+}
+
+// Collect collects all metrics exposed by BatchCache.
+func (bc *BatchCache) Collect(metrics chan<- prometheus.Metric) {
+	bc.catfileCacheCounter.Collect(metrics)
+	bc.currentCatfileProcesses.Collect(metrics)
+	bc.totalCatfileProcesses.Collect(metrics)
+	bc.catfileLookupCounter.Collect(metrics)
+	bc.catfileCacheMembers.Collect(metrics)
+}
+
+func (bc *BatchCache) monitor(refreshInterval time.Duration) {
 	ticker := time.NewTicker(refreshInterval)
 
 	for range ticker.C {
-		bc.EnforceTTL(time.Now())
+		bc.enforceTTL(time.Now())
 	}
 }
 
-// Add adds a key, value pair to bc. If there are too many keys in bc
-// already Add will evict old keys until the length is OK again.
-func (bc *batchCache) Add(k key, b *batch) {
+// BatchProcess creates a new Batch process for the given repository.
+func (bc *BatchCache) BatchProcess(ctx context.Context, repo repository.GitRepo) (Batch, error) {
+	if ctx.Done() == nil {
+		panic("empty ctx.Done() in catfile.Batch.New()")
+	}
+
+	sessionID := metadata.GetValue(ctx, SessionIDField)
+	if sessionID == "" {
+		c, err := bc.newBatch(ctx, repo)
+		if err != nil {
+			return nil, err
+		}
+		return newInstrumentedBatch(c, bc.catfileLookupCounter), err
+	}
+
+	cacheKey := newCacheKey(sessionID, repo)
+	requestDone := ctx.Done()
+
+	if c, ok := bc.checkout(cacheKey); ok {
+		go bc.returnWhenDone(requestDone, cacheKey, c)
+		return newInstrumentedBatch(c, bc.catfileLookupCounter), nil
+	}
+
+	// if we are using caching, create a fresh context for the new batch
+	// and initialize the new batch with a bc key and cancel function
+	cacheCtx, cacheCancel := context.WithCancel(context.Background())
+	c, err := bc.newBatch(cacheCtx, repo)
+	if err != nil {
+		cacheCancel()
+		return nil, err
+	}
+
+	c.cancel = cacheCancel
+	go bc.returnWhenDone(requestDone, cacheKey, c)
+
+	return newInstrumentedBatch(c, bc.catfileLookupCounter), nil
+}
+
+func (bc *BatchCache) returnWhenDone(done <-chan struct{}, cacheKey key, c *batch) {
+	<-done
+
+	if c == nil || c.isClosed() {
+		return
+	}
+
+	if c.hasUnreadData() {
+		bc.catfileCacheCounter.WithLabelValues("dirty").Inc()
+		c.Close()
+		return
+	}
+
+	bc.add(cacheKey, c)
+}
+
+// add adds a key, value pair to bc. If there are too many keys in bc
+// already add will evict old keys until the length is OK again.
+func (bc *BatchCache) add(k key, b *batch) {
 	bc.Lock()
 	defer bc.Unlock()
 
 	if i, ok := bc.lookup(k); ok {
-		catfileCacheCounter.WithLabelValues("duplicate").Inc()
+		bc.catfileCacheCounter.WithLabelValues("duplicate").Inc()
 		bc.delete(i, true)
 	}
 
@@ -120,34 +233,34 @@ func (bc *batchCache) Add(k key, b *batch) {
 		bc.evictHead()
 	}
 
-	catfileCacheMembers.Set(float64(bc.len()))
+	bc.catfileCacheMembers.Set(float64(bc.len()))
 }
 
-func (bc *batchCache) head() *entry { return bc.entries[0] }
-func (bc *batchCache) evictHead()   { bc.delete(0, true) }
-func (bc *batchCache) len() int     { return len(bc.entries) }
+func (bc *BatchCache) head() *entry { return bc.entries[0] }
+func (bc *BatchCache) evictHead()   { bc.delete(0, true) }
+func (bc *BatchCache) len() int     { return len(bc.entries) }
 
-// Checkout removes a value from bc. After use the caller can re-add the value with bc.Add.
-func (bc *batchCache) Checkout(k key) (*batch, bool) {
+// checkout removes a value from bc. After use the caller can re-add the value with bc.Add.
+func (bc *BatchCache) checkout(k key) (*batch, bool) {
 	bc.Lock()
 	defer bc.Unlock()
 
 	i, ok := bc.lookup(k)
 	if !ok {
-		catfileCacheCounter.WithLabelValues("miss").Inc()
+		bc.catfileCacheCounter.WithLabelValues("miss").Inc()
 		return nil, false
 	}
 
-	catfileCacheCounter.WithLabelValues("hit").Inc()
+	bc.catfileCacheCounter.WithLabelValues("hit").Inc()
 
 	ent := bc.entries[i]
 	bc.delete(i, false)
 	return ent.value, true
 }
 
-// EnforceTTL evicts all entries older than now, assuming the entry
+// enforceTTL evicts all entries older than now, assuming the entry
 // expiry times are increasing.
-func (bc *batchCache) EnforceTTL(now time.Time) {
+func (bc *BatchCache) enforceTTL(now time.Time) {
 	bc.Lock()
 	defer bc.Unlock()
 
@@ -156,7 +269,8 @@ func (bc *batchCache) EnforceTTL(now time.Time) {
 	}
 }
 
-func (bc *batchCache) EvictAll() {
+// Evict evicts all cached processes from the cache.
+func (bc *BatchCache) Evict() {
 	bc.Lock()
 	defer bc.Unlock()
 
@@ -165,12 +279,7 @@ func (bc *batchCache) EvictAll() {
 	}
 }
 
-// ExpireAll is used to expire all of the batches in the cache
-func ExpireAll() {
-	cache.EvictAll()
-}
-
-func (bc *batchCache) lookup(k key) (int, bool) {
+func (bc *BatchCache) lookup(k key) (int, bool) {
 	for i, ent := range bc.entries {
 		if ent.key == k {
 			return i, true
@@ -180,7 +289,7 @@ func (bc *batchCache) lookup(k key) (int, bool) {
 	return -1, false
 }
 
-func (bc *batchCache) delete(i int, wantClose bool) {
+func (bc *BatchCache) delete(i int, wantClose bool) {
 	ent := bc.entries[i]
 
 	if wantClose {
@@ -188,5 +297,5 @@ func (bc *batchCache) delete(i int, wantClose bool) {
 	}
 
 	bc.entries = append(bc.entries[:i], bc.entries[i+1:]...)
-	catfileCacheMembers.Set(float64(bc.len()))
+	bc.catfileCacheMembers.Set(float64(bc.len()))
 }

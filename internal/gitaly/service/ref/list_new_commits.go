@@ -4,7 +4,6 @@ import (
 	"bufio"
 
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -35,7 +34,7 @@ func (s *server) listNewCommits(in *gitalypb.ListNewCommitsRequest, stream gital
 		return err
 	}
 
-	batch, err := catfile.New(ctx, s.gitCmdFactory, in.GetRepository())
+	batch, err := s.catfileCache.BatchProcess(ctx, in.GetRepository())
 	if err != nil {
 		return err
 	}

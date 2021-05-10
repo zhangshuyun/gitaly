@@ -53,14 +53,55 @@ var (
 
 // RegisterAll will register all the known gRPC services on  the provided gRPC service instance.
 func RegisterAll(srv *grpc.Server, deps *service.Dependencies) {
-	gitalypb.RegisterBlobServiceServer(srv, blob.NewServer(deps.GetCfg(), deps.GetLocator(), deps.GetGitCmdFactory()))
-	gitalypb.RegisterCleanupServiceServer(srv, cleanup.NewServer(deps.GetCfg(), deps.GetGitCmdFactory()))
-	gitalypb.RegisterCommitServiceServer(srv, commit.NewServer(deps.GetCfg(), deps.GetLocator(), deps.GetGitCmdFactory(), deps.GetLinguist()))
-	gitalypb.RegisterDiffServiceServer(srv, diff.NewServer(deps.GetCfg(), deps.GetLocator(), deps.GetGitCmdFactory()))
+	gitalypb.RegisterBlobServiceServer(srv, blob.NewServer(
+		deps.GetCfg(),
+		deps.GetLocator(),
+		deps.GetGitCmdFactory(),
+		deps.GetCatfileCache(),
+	))
+	gitalypb.RegisterCleanupServiceServer(srv, cleanup.NewServer(
+		deps.GetCfg(),
+		deps.GetGitCmdFactory(),
+		deps.GetCatfileCache(),
+	))
+	gitalypb.RegisterCommitServiceServer(srv, commit.NewServer(
+		deps.GetCfg(),
+		deps.GetLocator(),
+		deps.GetGitCmdFactory(),
+		deps.GetLinguist(),
+		deps.GetCatfileCache(),
+	))
+	gitalypb.RegisterDiffServiceServer(srv, diff.NewServer(
+		deps.GetCfg(),
+		deps.GetLocator(),
+		deps.GetGitCmdFactory(),
+		deps.GetCatfileCache(),
+	))
 	gitalypb.RegisterNamespaceServiceServer(srv, namespace.NewServer(deps.GetLocator()))
-	gitalypb.RegisterOperationServiceServer(srv, operations.NewServer(deps.GetCfg(), deps.GetRubyServer(), deps.GetHookManager(), deps.GetLocator(), deps.GetConnsPool(), deps.GetGitCmdFactory()))
-	gitalypb.RegisterRefServiceServer(srv, ref.NewServer(deps.GetCfg(), deps.GetLocator(), deps.GetGitCmdFactory(), deps.GetTxManager()))
-	gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(deps.GetCfg(), deps.GetRubyServer(), deps.GetLocator(), deps.GetTxManager(), deps.GetGitCmdFactory()))
+	gitalypb.RegisterOperationServiceServer(srv, operations.NewServer(
+		deps.GetCfg(),
+		deps.GetRubyServer(),
+		deps.GetHookManager(),
+		deps.GetLocator(),
+		deps.GetConnsPool(),
+		deps.GetGitCmdFactory(),
+		deps.GetCatfileCache(),
+	))
+	gitalypb.RegisterRefServiceServer(srv, ref.NewServer(
+		deps.GetCfg(),
+		deps.GetLocator(),
+		deps.GetGitCmdFactory(),
+		deps.GetTxManager(),
+		deps.GetCatfileCache(),
+	))
+	gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(
+		deps.GetCfg(),
+		deps.GetRubyServer(),
+		deps.GetLocator(),
+		deps.GetTxManager(),
+		deps.GetGitCmdFactory(),
+		deps.GetCatfileCache(),
+	))
 	gitalypb.RegisterSSHServiceServer(srv, ssh.NewServer(
 		deps.GetCfg(),
 		deps.GetLocator(),
@@ -75,10 +116,26 @@ func RegisterAll(srv *grpc.Server, deps *service.Dependencies) {
 		smarthttp.WithPackfileNegotiationMetrics(smarthttpPackfileNegotiationMetrics),
 	))
 	gitalypb.RegisterWikiServiceServer(srv, wiki.NewServer(deps.GetRubyServer(), deps.GetLocator()))
-	gitalypb.RegisterConflictsServiceServer(srv, conflicts.NewServer(deps.GetCfg(), deps.GetLocator(), deps.GetGitCmdFactory()))
-	gitalypb.RegisterRemoteServiceServer(srv, remote.NewServer(deps.GetCfg(), deps.GetRubyServer(), deps.GetLocator(), deps.GetGitCmdFactory()))
+	gitalypb.RegisterConflictsServiceServer(srv, conflicts.NewServer(
+		deps.GetCfg(),
+		deps.GetLocator(),
+		deps.GetGitCmdFactory(),
+		deps.GetCatfileCache(),
+	))
+	gitalypb.RegisterRemoteServiceServer(srv, remote.NewServer(
+		deps.GetCfg(),
+		deps.GetRubyServer(),
+		deps.GetLocator(),
+		deps.GetGitCmdFactory(),
+		deps.GetCatfileCache(),
+	))
 	gitalypb.RegisterServerServiceServer(srv, server.NewServer(deps.GetGitCmdFactory(), deps.GetCfg().Storages))
-	gitalypb.RegisterObjectPoolServiceServer(srv, objectpool.NewServer(deps.GetCfg(), deps.GetLocator(), deps.GetGitCmdFactory()))
+	gitalypb.RegisterObjectPoolServiceServer(srv, objectpool.NewServer(
+		deps.GetCfg(),
+		deps.GetLocator(),
+		deps.GetGitCmdFactory(),
+		deps.GetCatfileCache(),
+	))
 	gitalypb.RegisterHookServiceServer(srv, hook.NewServer(deps.GetCfg(), deps.GetHookManager(), deps.GetGitCmdFactory()))
 	gitalypb.RegisterInternalGitalyServer(srv, internalgitaly.NewServer(deps.GetCfg().Storages))
 

@@ -144,7 +144,7 @@ func (s *server) GetBlobs(req *gitalypb.GetBlobsRequest, stream gitalypb.BlobSer
 		return err
 	}
 
-	c, err := catfile.New(stream.Context(), s.gitCmdFactory, req.Repository)
+	c, err := s.catfileCache.BatchProcess(stream.Context(), req.Repository)
 	if err != nil {
 		return err
 	}

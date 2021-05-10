@@ -22,7 +22,7 @@ func TestCreate(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	pool, err := objectpool.NewObjectPool(cfg, locator, git.NewExecCommandFactory(cfg), repo.GetStorageName(), gittest.NewObjectPoolName(t))
+	pool, err := objectpool.NewObjectPool(cfg, locator, git.NewExecCommandFactory(cfg), nil, repo.GetStorageName(), gittest.NewObjectPoolName(t))
 	require.NoError(t, err)
 
 	poolReq := &gitalypb.CreateObjectPoolRequest{
@@ -61,7 +61,7 @@ func TestUnsuccessfulCreate(t *testing.T) {
 
 	validPoolPath := gittest.NewObjectPoolName(t)
 	storageName := repo.GetStorageName()
-	pool, err := objectpool.NewObjectPool(cfg, locator, git.NewExecCommandFactory(cfg), storageName, validPoolPath)
+	pool, err := objectpool.NewObjectPool(cfg, locator, git.NewExecCommandFactory(cfg), nil, storageName, validPoolPath)
 	require.NoError(t, err)
 	defer func() {
 		require.NoError(t, pool.Remove(ctx))
@@ -155,7 +155,7 @@ func TestDelete(t *testing.T) {
 	defer cancel()
 
 	validPoolPath := gittest.NewObjectPoolName(t)
-	pool, err := objectpool.NewObjectPool(cfg, locator, git.NewExecCommandFactory(cfg), repo.GetStorageName(), validPoolPath)
+	pool, err := objectpool.NewObjectPool(cfg, locator, git.NewExecCommandFactory(cfg), nil, repo.GetStorageName(), validPoolPath)
 	require.NoError(t, err)
 	require.NoError(t, pool.Create(ctx, repo))
 

@@ -129,9 +129,10 @@ func TestGetSnapshotWithDedupe(t *testing.T) {
 
 			locator := config.NewLocator(cfg)
 			gitCmdFactory := git.NewExecCommandFactory(cfg)
+			catfileCache := catfile.NewCache(gitCmdFactory, cfg)
 
 			// ensure commit cannot be found in current repository
-			c, err := catfile.New(ctx, gitCmdFactory, repo)
+			c, err := catfileCache.BatchProcess(ctx, repo)
 			require.NoError(t, err)
 			_, err = c.Info(ctx, git.Revision(originalAlternatesCommit))
 			require.True(t, catfile.IsNotFound(err))
@@ -148,7 +149,7 @@ func TestGetSnapshotWithDedupe(t *testing.T) {
 				"commit", "--allow-empty", "-m", "Another empty commit")
 			commitSha = gittest.CreateCommitInAlternateObjectDirectory(t, cfg.Git.BinPath, repoPath, alternateObjDir, cmd)
 
-			c, err = catfile.New(ctx, gitCmdFactory, repo)
+			c, err = catfileCache.BatchProcess(ctx, repo)
 			require.NoError(t, err)
 			_, err = c.Info(ctx, git.Revision(commitSha))
 			require.NoError(t, err)

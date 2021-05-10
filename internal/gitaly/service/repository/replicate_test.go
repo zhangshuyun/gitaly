@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
@@ -304,7 +305,16 @@ func runServerWithBadFetchInternalRemote(t *testing.T, cfg config.Cfg) string {
 	internalListener, err := net.Listen("unix", cfg.GitalyInternalSocketPath())
 	require.NoError(t, err)
 
-	gitalypb.RegisterRepositoryServiceServer(server, NewServer(cfg, nil, config.NewLocator(cfg), transaction.NewManager(cfg, backchannel.NewRegistry()), git.NewExecCommandFactory(cfg)))
+	gitCmdFactory := git.NewExecCommandFactory(cfg)
+
+	gitalypb.RegisterRepositoryServiceServer(server, NewServer(
+		cfg,
+		nil,
+		config.NewLocator(cfg),
+		transaction.NewManager(cfg, backchannel.NewRegistry()),
+		gitCmdFactory,
+		catfile.NewCache(gitCmdFactory, cfg),
+	))
 	gitalypb.RegisterRemoteServiceServer(server, &mockRemoteServer{})
 	reflection.Register(server)
 

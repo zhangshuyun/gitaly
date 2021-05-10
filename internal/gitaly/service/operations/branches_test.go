@@ -122,7 +122,15 @@ func TestUserCreateBranchWithTransaction(t *testing.T) {
 
 	cfg.ListenAddr = "127.0.0.1:0" // runs gitaly on the TCP address
 	addr := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
-		gitalypb.RegisterOperationServiceServer(srv, NewServer(deps.GetCfg(), nil, deps.GetHookManager(), deps.GetLocator(), deps.GetConnsPool(), deps.GetGitCmdFactory()))
+		gitalypb.RegisterOperationServiceServer(srv, NewServer(
+			deps.GetCfg(),
+			nil,
+			deps.GetHookManager(),
+			deps.GetLocator(),
+			deps.GetConnsPool(),
+			deps.GetGitCmdFactory(),
+			deps.GetCatfileCache(),
+		))
 		gitalypb.RegisterHookServiceServer(srv, hook.NewServer(deps.GetCfg(), deps.GetHookManager(), deps.GetGitCmdFactory()))
 		// Praefect proxy execution disabled as praefect runs only on the UNIX socket, but
 		// the test requires a TCP listening address.
@@ -497,7 +505,15 @@ func TestUserDeleteBranch_transaction(t *testing.T) {
 	transactionServer := &testTransactionServer{}
 
 	testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
-		gitalypb.RegisterOperationServiceServer(srv, NewServer(deps.GetCfg(), nil, deps.GetHookManager(), deps.GetLocator(), deps.GetConnsPool(), deps.GetGitCmdFactory()))
+		gitalypb.RegisterOperationServiceServer(srv, NewServer(
+			deps.GetCfg(),
+			nil,
+			deps.GetHookManager(),
+			deps.GetLocator(),
+			deps.GetConnsPool(),
+			deps.GetGitCmdFactory(),
+			deps.GetCatfileCache(),
+		))
 	})
 
 	praefect := txinfo.PraefectServer{

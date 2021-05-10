@@ -9,7 +9,6 @@ import (
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
@@ -316,8 +315,6 @@ func benchmarkFindCommit(withCache bool, b *testing.B) {
 
 	require.NoError(b, logCmd.Wait())
 
-	defer catfile.ExpireAll()
-
 	for i := 0; i < b.N; i++ {
 		revision := revisions[b.N%len(revisions)]
 		if withCache {
@@ -356,8 +353,6 @@ func TestFindCommitWithCache(t *testing.T) {
 	}
 
 	require.NoError(t, logCmd.Wait())
-
-	defer catfile.ExpireAll()
 
 	for i := 0; i < 10; i++ {
 		revision := revisions[i%len(revisions)]

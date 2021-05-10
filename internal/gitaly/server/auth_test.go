@@ -17,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config/auth"
@@ -199,6 +200,7 @@ func runServer(t *testing.T, cfg config.Cfg) string {
 	txManager := transaction.NewManager(cfg, registry)
 	hookManager := hook.NewManager(locator, txManager, gitlab.NewMockClient(), cfg)
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
+	catfileCache := catfile.NewCache(gitCmdFactory, cfg)
 
 	srv, err := New(false, cfg, testhelper.DiscardTestEntry(t), registry)
 	require.NoError(t, err)
@@ -210,6 +212,7 @@ func runServer(t *testing.T, cfg config.Cfg) string {
 		StorageLocator:     locator,
 		ClientPool:         conns,
 		GitCmdFactory:      gitCmdFactory,
+		CatfileCache:       catfileCache,
 	})
 	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
 

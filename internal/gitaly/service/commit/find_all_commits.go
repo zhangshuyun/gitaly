@@ -80,5 +80,5 @@ func (s *server) findAllCommits(in *gitalypb.FindAllCommitsRequest, stream gital
 		gitLogExtraOptions = append(gitLogExtraOptions, git.Flag{Name: "--topo-order"})
 	}
 
-	return sendCommits(stream.Context(), sender, s.gitCmdFactory, in.GetRepository(), revisions, nil, nil, gitLogExtraOptions...)
+	return s.sendCommits(stream.Context(), sender, in.GetRepository(), revisions, nil, nil, gitLogExtraOptions...)
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -201,7 +202,16 @@ func TestSearchFilesByContentLargeFile(t *testing.T) {
 
 func TestSearchFilesByContentFailure(t *testing.T) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
-	server := NewServer(cfg, nil, config.NewLocator(cfg), transaction.NewManager(cfg, backchannel.NewRegistry()), git.NewExecCommandFactory(cfg))
+	gitCommandFactory := git.NewExecCommandFactory(cfg)
+
+	server := NewServer(
+		cfg,
+		nil,
+		config.NewLocator(cfg),
+		transaction.NewManager(cfg, backchannel.NewRegistry()),
+		gitCommandFactory,
+		catfile.NewCache(gitCommandFactory, cfg),
+	)
 
 	testCases := []struct {
 		desc  string
@@ -313,7 +323,16 @@ func TestSearchFilesByNameSuccessful(t *testing.T) {
 
 func TestSearchFilesByNameFailure(t *testing.T) {
 	cfg := testcfg.Build(t)
-	server := NewServer(cfg, nil, config.NewLocator(cfg), transaction.NewManager(cfg, backchannel.NewRegistry()), git.NewExecCommandFactory(cfg))
+	gitCommandFactory := git.NewExecCommandFactory(cfg)
+
+	server := NewServer(
+		cfg,
+		nil,
+		config.NewLocator(cfg),
+		transaction.NewManager(cfg, backchannel.NewRegistry()),
+		gitCommandFactory,
+		catfile.NewCache(gitCommandFactory, cfg),
+	)
 
 	testCases := []struct {
 		desc   string

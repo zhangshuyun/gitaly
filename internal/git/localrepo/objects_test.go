@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -36,7 +37,8 @@ func setupRepo(t *testing.T, bare bool) (*Repo, string) {
 	}
 	t.Cleanup(repoCleanUp)
 
-	return New(git.NewExecCommandFactory(cfg), repoProto, cfg), repoPath
+	gitCmdFactory := git.NewExecCommandFactory(cfg)
+	return New(gitCmdFactory, catfile.NewCache(gitCmdFactory, cfg), repoProto, cfg), repoPath
 }
 
 type ReaderFunc func([]byte) (int, error)

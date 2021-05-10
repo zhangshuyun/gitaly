@@ -97,7 +97,7 @@ func (s *server) parseAndReturnTags(ctx context.Context, repo *gitalypb.Reposito
 		return fmt.Errorf("for-each-ref error: %v", err)
 	}
 
-	c, err := catfile.New(ctx, s.gitCmdFactory, repo)
+	c, err := s.catfileCache.BatchProcess(ctx, repo)
 	if err != nil {
 		return fmt.Errorf("error creating catfile: %v", err)
 	}
@@ -301,7 +301,7 @@ func (s *server) FindLocalBranches(in *gitalypb.FindLocalBranchesRequest, stream
 
 func (s *server) findLocalBranches(in *gitalypb.FindLocalBranchesRequest, stream gitalypb.RefService_FindLocalBranchesServer) error {
 	ctx := stream.Context()
-	c, err := catfile.New(ctx, s.gitCmdFactory, in.Repository)
+	c, err := s.catfileCache.BatchProcess(ctx, in.Repository)
 	if err != nil {
 		return err
 	}
@@ -351,7 +351,7 @@ func (s *server) findAllBranches(in *gitalypb.FindAllBranchesRequest, stream git
 	}
 
 	ctx := stream.Context()
-	c, err := catfile.New(ctx, s.gitCmdFactory, in.Repository)
+	c, err := s.catfileCache.BatchProcess(ctx, in.Repository)
 	if err != nil {
 		return err
 	}
@@ -428,7 +428,7 @@ func (s *server) findTag(ctx context.Context, repository *gitalypb.Repository, t
 		return nil, fmt.Errorf("for-each-ref error: %v", err)
 	}
 
-	c, err := catfile.New(ctx, s.gitCmdFactory, repository)
+	c, err := s.catfileCache.BatchProcess(ctx, repository)
 	if err != nil {
 		return nil, err
 	}

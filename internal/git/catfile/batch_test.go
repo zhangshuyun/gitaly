@@ -14,10 +14,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
-	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/metadata"
 )
 
@@ -26,10 +26,11 @@ func setupBatch(t *testing.T, ctx context.Context) Batch {
 
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
-	c, err := New(ctx, git.NewExecCommandFactory(cfg), repo)
+	cache := newCache(git.NewExecCommandFactory(cfg), 1*time.Hour, 1000, defaultEvictionInterval)
+	batch, err := cache.BatchProcess(ctx, repo)
 	require.NoError(t, err)
 
-	return c
+	return batch
 }
 
 func TestInfo(t *testing.T) {
@@ -330,14 +331,9 @@ func TestRepeatedCalls(t *testing.T) {
 }
 
 func TestSpawnFailure(t *testing.T) {
-	defer func() { injectSpawnErrors = false }()
+	cfg, testRepo, _ := testcfg.BuildWithRepo(t)
 
-	// reset global cache
-	defer func(old *batchCache) { cache = old }(cache)
-
-	// Use very high values to effectively disable auto-expiry
-	cache = newCache(1*time.Hour, 1000)
-	defer cache.EvictAll()
+	cache := newCache(git.NewExecCommandFactory(cfg), 1*time.Hour, 1000, defaultEvictionInterval)
 
 	require.True(
 		t,
@@ -349,12 +345,7 @@ func TestSpawnFailure(t *testing.T) {
 	ctx1, cancel1 := testhelper.Context()
 	defer cancel1()
 
-	cfg, testRepo, _ := testcfg.BuildWithRepo(t)
-
-	gitCmdFactory := git.NewExecCommandFactory(cfg)
-
-	injectSpawnErrors = false
-	_, err := catfileWithFreshSessionID(ctx1, gitCmdFactory, testRepo)
+	_, err := catfileWithFreshSessionID(ctx1, cache, testRepo)
 	require.NoError(t, err, "catfile spawn should succeed in normal circumstances")
 	require.Equal(t, 2, numGitChildren(t), "there should be 2 git child processes")
 
@@ -369,7 +360,7 @@ func TestSpawnFailure(t *testing.T) {
 
 	require.Equal(t, 2, numGitChildren(t), "there should still be 2 git child processes")
 
-	cache.EvictAll()
+	cache.Evict()
 	require.Equal(t, 0, cacheSize(cache), "the cache should be empty now")
 
 	require.True(
@@ -381,8 +372,8 @@ func TestSpawnFailure(t *testing.T) {
 	ctx2, cancel2 := testhelper.Context()
 	defer cancel2()
 
-	injectSpawnErrors = true
-	_, err = catfileWithFreshSessionID(ctx2, gitCmdFactory, testRepo)
+	cache.injectSpawnErrors = true
+	_, err = catfileWithFreshSessionID(ctx2, cache, testRepo)
 	require.Error(t, err, "expect simulated error")
 	require.IsType(t, &simulatedBatchSpawnError{}, err)
 
@@ -393,7 +384,7 @@ func TestSpawnFailure(t *testing.T) {
 	)
 }
 
-func catfileWithFreshSessionID(ctx context.Context, gitCmdFactory git.CommandFactory, repo *gitalypb.Repository) (Batch, error) {
+func catfileWithFreshSessionID(ctx context.Context, cache Cache, repo repository.GitRepo) (Batch, error) {
 	id, err := text.RandomHex(4)
 	if err != nil {
 		return nil, err
@@ -403,7 +394,7 @@ func catfileWithFreshSessionID(ctx context.Context, gitCmdFactory git.CommandFac
 		SessionIDField: id,
 	})
 
-	return New(metadata.NewIncomingContext(ctx, md), gitCmdFactory, repo)
+	return cache.BatchProcess(metadata.NewIncomingContext(ctx, md), repo)
 }
 
 func waitTrue(callback func() bool) bool {
@@ -431,7 +422,7 @@ func numGitChildren(t *testing.T) int {
 	return bytes.Count(out, []byte("\n"))
 }
 
-func cacheSize(bc *batchCache) int {
+func cacheSize(bc *BatchCache) int {
 	bc.Lock()
 	defer bc.Unlock()
 	return bc.len()

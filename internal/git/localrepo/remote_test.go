@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
@@ -38,13 +39,14 @@ func setupRepoRemote(t *testing.T, bare bool) (Remote, string) {
 	}
 	t.Cleanup(repoCleanUp)
 
-	return New(git.NewExecCommandFactory(cfg), repoProto, cfg).Remote(), repoPath
+	gitCmdFactory := git.NewExecCommandFactory(cfg)
+	return New(gitCmdFactory, catfile.NewCache(gitCmdFactory, cfg), repoProto, cfg).Remote(), repoPath
 }
 
 func TestRepo_Remote(t *testing.T) {
 	repository := &gitalypb.Repository{StorageName: "stub", RelativePath: "/stub"}
 
-	repo := New(nil, repository, config.Cfg{})
+	repo := New(nil, nil, repository, config.Cfg{})
 	require.Equal(t, Remote{repo: repo}, repo.Remote())
 }
 
@@ -317,11 +319,11 @@ func TestRepo_FetchRemote(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		return New(remoteCmd.repo.gitCmdFactory, testRepo, cfg), testRepoPath, cleanup
+		return New(remoteCmd.repo.gitCmdFactory, remoteCmd.repo.catfileCache, testRepo, cfg), testRepoPath, cleanup
 	}
 
 	t.Run("invalid name", func(t *testing.T) {
-		repo := New(remoteCmd.repo.gitCmdFactory, nil, cfg)
+		repo := New(remoteCmd.repo.gitCmdFactory, remoteCmd.repo.catfileCache, nil, cfg)
 
 		err := repo.FetchRemote(ctx, " ", FetchOpts{})
 		require.True(t, errors.Is(err, git.ErrInvalidArg))
@@ -329,7 +331,7 @@ func TestRepo_FetchRemote(t *testing.T) {
 	})
 
 	t.Run("unknown remote", func(t *testing.T) {
-		repo := New(remoteCmd.repo.gitCmdFactory, remoteCmd.repo, cfg)
+		repo := New(remoteCmd.repo.gitCmdFactory, remoteCmd.repo.catfileCache, remoteCmd.repo, cfg)
 		var stderr bytes.Buffer
 		err := repo.FetchRemote(ctx, "stub", FetchOpts{Stderr: &stderr})
 		require.Error(t, err)
@@ -361,7 +363,7 @@ func TestRepo_FetchRemote(t *testing.T) {
 		_, sourceRepoPath, _ := gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name()+"-1")
 		testRepo, testRepoPath, _ := gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name()+"-2")
 
-		repo := New(remoteCmd.repo.gitCmdFactory, testRepo, cfg)
+		repo := New(remoteCmd.repo.gitCmdFactory, remoteCmd.repo.catfileCache, testRepo, cfg)
 		testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "remote", "add", "source", sourceRepoPath)
 
 		var stderr bytes.Buffer
@@ -373,7 +375,7 @@ func TestRepo_FetchRemote(t *testing.T) {
 		_, sourceRepoPath, _ := gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name()+"-1")
 		testRepo, testRepoPath, _ := gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name()+"-2")
 
-		repo := New(remoteCmd.repo.gitCmdFactory, testRepo, cfg)
+		repo := New(remoteCmd.repo.gitCmdFactory, remoteCmd.repo.catfileCache, testRepo, cfg)
 		testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "remote", "add", "source", sourceRepoPath)
 
 		require.NoError(t, repo.FetchRemote(ctx, "source", FetchOpts{}))
@@ -400,7 +402,7 @@ func TestRepo_FetchRemote(t *testing.T) {
 		_, sourceRepoPath, _ := gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name()+"-1")
 		testRepo, testRepoPath, _ := gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name()+"-2")
 
-		repo := New(remoteCmd.repo.gitCmdFactory, testRepo, cfg)
+		repo := New(remoteCmd.repo.gitCmdFactory, remoteCmd.repo.catfileCache, testRepo, cfg)
 
 		testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "remote", "add", "source", sourceRepoPath)
 		require.NoError(t, repo.FetchRemote(ctx, "source", FetchOpts{}))
@@ -460,7 +462,8 @@ if [ -z ${GIT_SSH_COMMAND+x} ];then rm -f %q ;else echo -n "$GIT_SSH_COMMAND" > 
 	)
 
 	cfg.Git.BinPath = gitPath
-	sourceRepo := New(git.NewExecCommandFactory(cfg), sourceRepoPb, cfg)
+	gitCmdFactory := git.NewExecCommandFactory(cfg)
+	sourceRepo := New(gitCmdFactory, catfile.NewCache(gitCmdFactory, cfg), sourceRepoPb, cfg)
 
 	for _, tc := range []struct {
 		desc           string
@@ -526,7 +529,8 @@ if [ -z ${GIT_SSH_COMMAND+x} ];then rm -f %q ;else echo -n "$GIT_SSH_COMMAND" > 
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			pushRepoPb, pushRepoPath, _ := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
-			pushRepo := New(git.NewExecCommandFactory(cfg), pushRepoPb, cfg)
+			gitCmdFactory := git.NewExecCommandFactory(cfg)
+			pushRepo := New(gitCmdFactory, catfile.NewCache(gitCmdFactory, cfg), pushRepoPb, cfg)
 
 			if tc.setupPushRepo != nil {
 				tc.setupPushRepo(t, pushRepo)

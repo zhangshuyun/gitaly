@@ -9,6 +9,7 @@ import (
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/linguist"
@@ -79,7 +80,16 @@ func startTestServices(t testing.TB, cfg config.Cfg) string {
 	ling, err := linguist.New(cfg)
 	require.NoError(t, err)
 
-	gitalypb.RegisterCommitServiceServer(server, NewServer(cfg, config.NewLocator(cfg), git.NewExecCommandFactory(cfg), ling))
+	gitCommandFactory := git.NewExecCommandFactory(cfg)
+	catfileCache := catfile.NewCache(gitCommandFactory, cfg)
+
+	gitalypb.RegisterCommitServiceServer(server, NewServer(
+		cfg,
+		config.NewLocator(cfg),
+		gitCommandFactory,
+		ling,
+		catfileCache,
+	))
 
 	go server.Serve(listener)
 	return "unix://" + serverSocketPath

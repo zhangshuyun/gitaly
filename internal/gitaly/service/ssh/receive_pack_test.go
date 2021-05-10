@@ -221,7 +221,14 @@ func TestObjectPoolRefAdvertisementHidingSSH(t *testing.T) {
 	stream, err := client.SSHReceivePack(ctx)
 	require.NoError(t, err)
 
-	pool, err := objectpool.NewObjectPool(cfg, config.NewLocator(cfg), git.NewExecCommandFactory(cfg), repo.GetStorageName(), gittest.NewObjectPoolName(t))
+	pool, err := objectpool.NewObjectPool(
+		cfg,
+		config.NewLocator(cfg),
+		git.NewExecCommandFactory(cfg),
+		nil,
+		repo.GetStorageName(),
+		gittest.NewObjectPoolName(t),
+	)
 	require.NoError(t, err)
 
 	require.NoError(t, pool.Create(ctx, repo))

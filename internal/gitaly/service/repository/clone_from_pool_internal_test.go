@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/objectpool"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
@@ -22,7 +23,16 @@ func newTestObjectPool(t *testing.T, cfg config.Cfg) (*objectpool.ObjectPool, *g
 	relativePath := gittest.NewObjectPoolName(t)
 	repo := gittest.InitRepoDir(t, cfg.Storages[0].Path, relativePath)
 
-	pool, err := objectpool.NewObjectPool(cfg, config.NewLocator(cfg), git.NewExecCommandFactory(cfg), repo.GetStorageName(), relativePath)
+	gitCmdFactory := git.NewExecCommandFactory(cfg)
+
+	pool, err := objectpool.NewObjectPool(
+		cfg,
+		config.NewLocator(cfg),
+		gitCmdFactory,
+		catfile.NewCache(gitCmdFactory, cfg),
+		repo.GetStorageName(),
+		relativePath,
+	)
 	require.NoError(t, err)
 
 	return pool, repo

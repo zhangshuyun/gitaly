@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -23,7 +24,9 @@ func setupRepoConfig(t *testing.T) (Config, string) {
 	repoProto, repoPath, cleanup := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
 	t.Cleanup(cleanup)
 
-	repo := New(git.NewExecCommandFactory(cfg), repoProto, cfg)
+	gitCmdFactory := git.NewExecCommandFactory(cfg)
+	repo := New(gitCmdFactory, catfile.NewCache(gitCmdFactory, cfg), repoProto, cfg)
+
 	return repo.Config(), repoPath
 }
 
