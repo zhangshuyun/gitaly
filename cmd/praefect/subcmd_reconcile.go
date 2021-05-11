@@ -38,6 +38,8 @@ func (s *reconcileSubcommand) FlagSet() *flag.FlagSet {
 }
 
 func (s *reconcileSubcommand) Exec(flags *flag.FlagSet, conf config.Config) error {
+	logger.Warn("The reconcile sub-command has been deprecated in GitLab 13.12 and is scheduled for removal in GitLab 14.0. Use the automatic reconciler instead: https://docs.gitlab.com/ee/administration/gitaly/praefect.html#automatic-reconciliation")
+
 	nr := nodeReconciler{
 		conf:                  conf,
 		virtualStorage:        s.virtual,
