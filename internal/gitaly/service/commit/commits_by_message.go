@@ -38,6 +38,7 @@ func (s *server) CommitsByMessage(in *gitalypb.CommitsByMessageRequest, stream g
 func (s *server) commitsByMessage(in *gitalypb.CommitsByMessageRequest, stream gitalypb.CommitService_CommitsByMessageServer) error {
 	ctx := stream.Context()
 	sender := &commitsByMessageSender{stream: stream}
+	repo := s.localrepo(in.GetRepository())
 
 	gitLogExtraOptions := []git.Option{
 		git.Flag{Name: "--grep=" + in.GetQuery()},
@@ -54,7 +55,7 @@ func (s *server) commitsByMessage(in *gitalypb.CommitsByMessageRequest, stream g
 	if len(revision) == 0 {
 		var err error
 
-		revision, err = defaultBranchName(ctx, s.gitCmdFactory, in.Repository)
+		revision, err = defaultBranchName(ctx, repo)
 		if err != nil {
 			return err
 		}
@@ -65,7 +66,7 @@ func (s *server) commitsByMessage(in *gitalypb.CommitsByMessageRequest, stream g
 		paths = append(paths, string(path))
 	}
 
-	return s.sendCommits(stream.Context(), sender, in.GetRepository(), []string{string(revision)}, paths, in.GetGlobalOptions(), gitLogExtraOptions...)
+	return s.sendCommits(stream.Context(), sender, repo, []string{string(revision)}, paths, in.GetGlobalOptions(), gitLogExtraOptions...)
 }
 
 func validateCommitsByMessageRequest(in *gitalypb.CommitsByMessageRequest) error {

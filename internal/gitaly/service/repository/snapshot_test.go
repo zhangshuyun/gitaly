@@ -17,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/archive"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -111,7 +112,8 @@ func TestGetSnapshotWithDedupe(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			cfg, repo, repoPath, client := setupRepositoryServiceWithWorktree(t)
+			cfg, repoProto, repoPath, client := setupRepositoryServiceWithWorktree(t)
+			repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 			ctx, cancel := testhelper.Context()
 			defer cancel()
@@ -128,8 +130,7 @@ func TestGetSnapshotWithDedupe(t *testing.T) {
 			originalAlternatesCommit := string(commitSha)
 
 			locator := config.NewLocator(cfg)
-			gitCmdFactory := git.NewExecCommandFactory(cfg)
-			catfileCache := catfile.NewCache(gitCmdFactory, cfg)
+			catfileCache := catfile.NewCache(cfg)
 
 			// ensure commit cannot be found in current repository
 			c, err := catfileCache.BatchProcess(ctx, repo)
@@ -138,7 +139,7 @@ func TestGetSnapshotWithDedupe(t *testing.T) {
 			require.True(t, catfile.IsNotFound(err))
 
 			// write alternates file to point to alt objects folder
-			alternatesPath, err := locator.InfoAlternatesPath(repo)
+			alternatesPath, err := locator.InfoAlternatesPath(repoProto)
 			require.NoError(t, err)
 			require.NoError(t, ioutil.WriteFile(alternatesPath, []byte(filepath.Join(repoPath, ".git", fmt.Sprintf("%s\n", alternateObjDir))), 0644))
 
@@ -154,7 +155,7 @@ func TestGetSnapshotWithDedupe(t *testing.T) {
 			_, err = c.Info(ctx, git.Revision(commitSha))
 			require.NoError(t, err)
 
-			_, repoCopyPath, cleanupCopy := copyRepoUsingSnapshot(t, cfg, client, repo)
+			_, repoCopyPath, cleanupCopy := copyRepoUsingSnapshot(t, cfg, client, repoProto)
 			defer cleanupCopy()
 
 			// ensure the sha committed to the alternates directory can be accessed

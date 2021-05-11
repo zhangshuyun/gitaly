@@ -38,8 +38,9 @@ type archiveParams struct {
 func (s *server) GetArchive(in *gitalypb.GetArchiveRequest, stream gitalypb.RepositoryService_GetArchiveServer) error {
 	ctx := stream.Context()
 	compressCmd, format := parseArchiveFormat(in.GetFormat())
+	repo := s.localrepo(in.GetRepository())
 
-	repoRoot, err := s.locator.GetRepoPath(in.GetRepository())
+	repoRoot, err := repo.Path()
 	if err != nil {
 		return err
 	}
@@ -61,7 +62,7 @@ func (s *server) GetArchive(in *gitalypb.GetArchiveRequest, stream gitalypb.Repo
 		return err
 	}
 
-	if err := s.validateGetArchivePrecondition(ctx, in, path, exclude); err != nil {
+	if err := s.validateGetArchivePrecondition(ctx, repo, in.GetCommitId(), path, exclude); err != nil {
 		return err
 	}
 
@@ -133,15 +134,21 @@ func validateGetArchiveRequest(in *gitalypb.GetArchiveRequest, format string, pa
 	return nil
 }
 
-func (s *server) validateGetArchivePrecondition(ctx context.Context, in *gitalypb.GetArchiveRequest, path string, exclude []string) error {
-	c, err := s.catfileCache.BatchProcess(ctx, in.GetRepository())
+func (s *server) validateGetArchivePrecondition(
+	ctx context.Context,
+	repo git.RepositoryExecutor,
+	commitID string,
+	path string,
+	exclude []string,
+) error {
+	c, err := s.catfileCache.BatchProcess(ctx, repo)
 	if err != nil {
 		return err
 	}
 
 	f := commit.NewTreeEntryFinder(c)
 	if path != "." {
-		if ok, err := findGetArchivePath(ctx, f, in.GetCommitId(), path); err != nil {
+		if ok, err := findGetArchivePath(ctx, f, commitID, path); err != nil {
 			return err
 		} else if !ok {
 			return helper.ErrPreconditionFailedf("path doesn't exist")
@@ -149,7 +156,7 @@ func (s *server) validateGetArchivePrecondition(ctx context.Context, in *gitalyp
 	}
 
 	for i, exclude := range exclude {
-		if ok, err := findGetArchivePath(ctx, f, in.GetCommitId(), exclude); err != nil {
+		if ok, err := findGetArchivePath(ctx, f, commitID, exclude); err != nil {
 			return err
 		} else if !ok {
 			return helper.ErrPreconditionFailedf("exclude[%d] doesn't exist", i)

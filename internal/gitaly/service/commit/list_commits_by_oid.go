@@ -6,7 +6,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
-	gitlog "gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/chunk"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
@@ -26,8 +25,9 @@ var (
 
 func (s *server) ListCommitsByOid(in *gitalypb.ListCommitsByOidRequest, stream gitalypb.CommitService_ListCommitsByOidServer) error {
 	ctx := stream.Context()
+	repo := s.localrepo(in.GetRepository())
 
-	c, err := s.catfileCache.BatchProcess(ctx, in.Repository)
+	c, err := s.catfileCache.BatchProcess(ctx, repo)
 	if err != nil {
 		return err
 	}
@@ -36,7 +36,7 @@ func (s *server) ListCommitsByOid(in *gitalypb.ListCommitsByOidRequest, stream g
 	listCommitsbyOidHistogram.Observe(float64(len(in.Oid)))
 
 	for _, oid := range in.Oid {
-		commit, err := gitlog.GetCommitCatfile(ctx, c, git.Revision(oid))
+		commit, err := catfile.GetCommit(ctx, c, git.Revision(oid))
 		if catfile.IsNotFound(err) {
 			continue
 		}

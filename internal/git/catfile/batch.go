@@ -7,7 +7,6 @@ import (
 	"github.com/opentracing/opentracing-go"
 	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
 )
 
 const (
@@ -102,7 +101,7 @@ type simulatedBatchSpawnError struct{}
 
 func (simulatedBatchSpawnError) Error() string { return "simulated spawn error" }
 
-func (bc *BatchCache) newBatch(ctx context.Context, repo repository.GitRepo) (_ *batch, err error) {
+func (bc *BatchCache) newBatch(ctx context.Context, repo git.RepositoryExecutor) (_ *batch, err error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer func() {
 		if err != nil {

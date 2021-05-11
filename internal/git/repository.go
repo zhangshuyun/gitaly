@@ -3,6 +3,9 @@ package git
 import (
 	"context"
 	"errors"
+
+	"gitlab.com/gitlab-org/gitaly/internal/command"
+	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
 )
 
 // DefaultBranch now defaults to master, as that's the Git default
@@ -36,4 +39,12 @@ type Repository interface {
 	ResolveRevision(ctx context.Context, revision Revision) (ObjectID, error)
 	// HasBranches returns whether the repository has branches.
 	HasBranches(ctx context.Context) (bool, error)
+}
+
+// RepositoryExecutor is an interface which allows execution of Git commands in a specific
+// repository.
+type RepositoryExecutor interface {
+	repository.GitRepo
+	Exec(ctx context.Context, cmd Cmd, opts ...CmdOpt) (*command.Command, error)
+	ExecAndWait(ctx context.Context, cmd Cmd, opts ...CmdOpt) error
 }

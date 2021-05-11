@@ -33,10 +33,9 @@ func setupUpdater(t *testing.T, ctx context.Context) (config.Cfg, *localrepo.Rep
 
 	cfg, protoRepo, _ := testcfg.BuildWithRepo(t)
 
-	gitCmdFactory := git.NewExecCommandFactory(cfg)
 	repo := localrepo.NewTestRepo(t, cfg, protoRepo)
 
-	updater, err := New(ctx, cfg, gitCmdFactory, repo)
+	updater, err := New(ctx, cfg, repo)
 	require.NoError(t, err)
 
 	return cfg, repo, updater
@@ -165,7 +164,8 @@ func TestContextCancelAbortsRefChanges(t *testing.T) {
 	require.NoError(t, err)
 
 	childCtx, childCancel := context.WithCancel(ctx)
-	updater, err := New(childCtx, cfg, git.NewExecCommandFactory(cfg), repo)
+	localRepo := localrepo.NewTestRepo(t, cfg, repo)
+	updater, err := New(childCtx, cfg, localRepo)
 	require.NoError(t, err)
 
 	ref := git.ReferenceName("refs/heads/_shouldnotexist")

@@ -6,7 +6,7 @@ import (
 	"io"
 
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/log"
+	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/streamio"
@@ -25,12 +25,14 @@ func (s *server) GetCommitMessages(request *gitalypb.GetCommitMessagesRequest, s
 
 func (s *server) getAndStreamCommitMessages(request *gitalypb.GetCommitMessagesRequest, stream gitalypb.CommitService_GetCommitMessagesServer) error {
 	ctx := stream.Context()
-	c, err := s.catfileCache.BatchProcess(ctx, request.GetRepository())
+	repo := s.localrepo(request.GetRepository())
+
+	c, err := s.catfileCache.BatchProcess(ctx, repo)
 	if err != nil {
 		return err
 	}
 	for _, commitID := range request.GetCommitIds() {
-		msg, err := log.GetCommitMessage(ctx, c, request.GetRepository(), git.Revision(commitID))
+		msg, err := catfile.GetCommitMessage(ctx, c, repo, git.Revision(commitID))
 		if err != nil {
 			return fmt.Errorf("failed to get commit message: %v", err)
 		}

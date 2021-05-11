@@ -37,7 +37,7 @@ func New(gitCmdFactory git.CommandFactory, catfileCache catfile.Cache, repo repo
 // dependencies ad-hoc from the given config.
 func NewTestRepo(t testing.TB, cfg config.Cfg, repo repository.GitRepo) *Repo {
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
-	return New(gitCmdFactory, catfile.NewCache(gitCmdFactory, cfg), repo, cfg)
+	return New(gitCmdFactory, catfile.NewCache(cfg), repo, cfg)
 }
 
 // Path returns the on-disk path of the repository.

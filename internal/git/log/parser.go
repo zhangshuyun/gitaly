@@ -8,7 +8,6 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
-	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
@@ -23,8 +22,8 @@ type Parser struct {
 	c             catfile.Batch
 }
 
-// NewLogParser returns a new Parser
-func NewLogParser(ctx context.Context, catfileCache catfile.Cache, repo repository.GitRepo, src io.Reader) (*Parser, error) {
+// NewParser returns a new Parser
+func NewParser(ctx context.Context, catfileCache catfile.Cache, repo git.RepositoryExecutor, src io.Reader) (*Parser, error) {
 	c, err := catfileCache.BatchProcess(ctx, repo)
 	if err != nil {
 		return nil, err
@@ -48,7 +47,7 @@ func (parser *Parser) Parse(ctx context.Context) bool {
 
 	commitID := parser.scanner.Text()
 
-	commit, err := GetCommitCatfile(ctx, parser.c, git.Revision(commitID))
+	commit, err := catfile.GetCommit(ctx, parser.c, git.Revision(commitID))
 	if err != nil {
 		parser.err = err
 		return false

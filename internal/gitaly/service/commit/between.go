@@ -29,6 +29,7 @@ func (s *server) CommitsBetween(in *gitalypb.CommitsBetweenRequest, stream gital
 		return helper.ErrInvalidArgument(err)
 	}
 
+	repo := s.localrepo(in.GetRepository())
 	sender := &commitsBetweenSender{stream: stream}
 
 	from, to, limit := normalizedCommitsBetweenParams(in)
@@ -37,7 +38,7 @@ func (s *server) CommitsBetween(in *gitalypb.CommitsBetweenRequest, stream gital
 	if err := s.sendCommits(
 		stream.Context(),
 		sender,
-		in.GetRepository(),
+		repo,
 		[]string{revisionRange},
 		nil,
 		nil,

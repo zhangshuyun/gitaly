@@ -200,7 +200,7 @@ func runServer(t *testing.T, cfg config.Cfg) string {
 	txManager := transaction.NewManager(cfg, registry)
 	hookManager := hook.NewManager(locator, txManager, gitlab.NewMockClient(), cfg)
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
-	catfileCache := catfile.NewCache(gitCmdFactory, cfg)
+	catfileCache := catfile.NewCache(cfg)
 
 	srv, err := New(false, cfg, testhelper.DiscardTestEntry(t), registry)
 	require.NoError(t, err)

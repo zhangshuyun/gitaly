@@ -4,7 +4,7 @@ import (
 	"bufio"
 
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/log"
+	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
@@ -25,7 +25,9 @@ func (s *server) ListNewCommits(in *gitalypb.ListNewCommitsRequest, stream gital
 func (s *server) listNewCommits(in *gitalypb.ListNewCommitsRequest, stream gitalypb.RefService_ListNewCommitsServer, oid string) error {
 	ctx := stream.Context()
 
-	revList, err := s.gitCmdFactory.New(ctx, in.GetRepository(), git.SubCmd{
+	repo := s.localrepo(in.GetRepository())
+
+	revList, err := repo.Exec(ctx, git.SubCmd{
 		Name:  "rev-list",
 		Flags: []git.Option{git.Flag{Name: "--not"}, git.Flag{Name: "--all"}},
 		Args:  []string{"^" + oid}, // the added ^ is to negate the oid since there is a --not option that comes earlier in the arg list
@@ -34,7 +36,7 @@ func (s *server) listNewCommits(in *gitalypb.ListNewCommitsRequest, stream gital
 		return err
 	}
 
-	batch, err := s.catfileCache.BatchProcess(ctx, in.GetRepository())
+	batch, err := s.catfileCache.BatchProcess(ctx, repo)
 	if err != nil {
 		return err
 	}
@@ -44,7 +46,7 @@ func (s *server) listNewCommits(in *gitalypb.ListNewCommitsRequest, stream gital
 	for scanner.Scan() {
 		line := scanner.Text()
 
-		commit, err := log.GetCommitCatfile(ctx, batch, git.Revision(line))
+		commit, err := catfile.GetCommit(ctx, batch, git.Revision(line))
 		if err != nil {
 			return err
 		}

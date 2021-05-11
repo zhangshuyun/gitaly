@@ -25,19 +25,20 @@ func (s *server) ListNewBlobs(in *gitalypb.ListNewBlobsRequest, stream gitalypb.
 
 func (s *server) listNewBlobs(in *gitalypb.ListNewBlobsRequest, stream gitalypb.RefService_ListNewBlobsServer, oid string) error {
 	ctx := stream.Context()
-	cmdFlags := []git.Option{git.Flag{Name: "--objects"}, git.Flag{Name: "--not"}, git.Flag{Name: "--all"}}
+	repo := s.localrepo(in.GetRepository())
 
+	cmdFlags := []git.Option{git.Flag{Name: "--objects"}, git.Flag{Name: "--not"}, git.Flag{Name: "--all"}}
 	if in.GetLimit() > 0 {
 		cmdFlags = append(cmdFlags, git.ValueFlag{Name: "--max-count", Value: fmt.Sprint(in.GetLimit())})
 	}
 
 	// the added ^ is to negate the oid since there is a --not option that comes earlier in the arg list
-	revList, err := s.gitCmdFactory.New(ctx, in.GetRepository(), git.SubCmd{Name: "rev-list", Flags: cmdFlags, Args: []string{"^" + oid}})
+	revList, err := repo.Exec(ctx, git.SubCmd{Name: "rev-list", Flags: cmdFlags, Args: []string{"^" + oid}})
 	if err != nil {
 		return err
 	}
 
-	batch, err := s.catfileCache.BatchProcess(ctx, in.GetRepository())
+	batch, err := s.catfileCache.BatchProcess(ctx, repo)
 	if err != nil {
 		return err
 	}

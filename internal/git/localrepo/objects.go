@@ -11,7 +11,7 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/log"
+	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
@@ -233,13 +233,13 @@ func (repo *Repo) ReadCommit(ctx context.Context, revision git.Revision, opts ..
 
 	var commit *gitalypb.GitCommit
 	if cfg.withTrailers {
-		commit, err = log.GetCommitCatfileWithTrailers(ctx, repo.gitCmdFactory, repo, c, revision)
+		commit, err = catfile.GetCommitWithTrailers(ctx, repo.gitCmdFactory, repo, c, revision)
 	} else {
-		commit, err = log.GetCommitCatfile(ctx, c, revision)
+		commit, err = catfile.GetCommit(ctx, c, revision)
 	}
 
 	if err != nil {
-		if log.IsNotFound(err) {
+		if catfile.IsNotFound(err) {
 			return nil, ErrObjectNotFound
 		}
 		return nil, err

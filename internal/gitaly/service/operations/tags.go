@@ -10,8 +10,8 @@ import (
 
 	"github.com/golang/protobuf/ptypes"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -91,7 +91,7 @@ func (s *Server) UserCreateTag(ctx context.Context, req *gitalypb.UserCreateTagR
 	}
 
 	// Setup
-	repo := req.GetRepository()
+	repo := s.localrepo(req.GetRepository())
 	catFile, err := s.catfileCache.BatchProcess(ctx, repo)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
@@ -167,7 +167,7 @@ func (s *Server) UserCreateTag(ctx context.Context, req *gitalypb.UserCreateTagR
 			return nil, status.Error(codes.Internal, err.Error())
 		}
 
-		createdTag, err := log.GetTagCatfile(ctx, catFile, tagObjectID.Revision(), string(req.TagName), false, false)
+		createdTag, err := catfile.GetTag(ctx, catFile, tagObjectID.Revision(), string(req.TagName), false, false)
 		if err != nil {
 			return nil, status.Error(codes.Internal, err.Error())
 		}
@@ -248,7 +248,7 @@ func (s *Server) UserCreateTag(ctx context.Context, req *gitalypb.UserCreateTagR
 	// Save ourselves looking this up earlier in case update-ref
 	// died
 	if peeledTargetObjectType == "commit" {
-		peeledTargetCommit, err := log.GetCommitCatfile(ctx, catFile, peeledTargetObjectID.Revision())
+		peeledTargetCommit, err := catfile.GetCommit(ctx, catFile, peeledTargetObjectID.Revision())
 		if err != nil {
 			return nil, status.Error(codes.Internal, err.Error())
 		}

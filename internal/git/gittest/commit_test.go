@@ -7,20 +7,19 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
 func TestWriteCommit(t *testing.T) {
 	cfg, repoProto, repoPath := setup(t)
-	gitCmdFactory := git.NewExecCommandFactory(cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	batchCache := catfile.NewCache(gitCmdFactory, cfg)
-	batch, err := batchCache.BatchProcess(ctx, repoProto)
+	batchCache := catfile.NewCache(cfg)
+	batch, err := batchCache.BatchProcess(ctx, repo)
 	require.NoError(t, err)
 
 	defaultCommitter := &gitalypb.CommitAuthor{
@@ -28,8 +27,6 @@ func TestWriteCommit(t *testing.T) {
 		Email: []byte(committerEmail),
 	}
 	defaultParentID := "1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"
-
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	revisions := map[git.Revision]git.ObjectID{
 		"refs/heads/master":  "",
@@ -156,7 +153,7 @@ func TestWriteCommit(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			oid := WriteCommit(t, cfg, repoPath, tc.opts...)
 
-			commit, err := log.GetCommitCatfile(ctx, batch, oid.Revision())
+			commit, err := catfile.GetCommit(ctx, batch, oid.Revision())
 			require.NoError(t, err)
 
 			CommitEqual(t, tc.expectedCommit, commit)

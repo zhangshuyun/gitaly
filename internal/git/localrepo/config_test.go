@@ -25,7 +25,7 @@ func setupRepoConfig(t *testing.T) (Config, string) {
 	t.Cleanup(cleanup)
 
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
-	repo := New(gitCmdFactory, catfile.NewCache(gitCmdFactory, cfg), repoProto, cfg)
+	repo := New(gitCmdFactory, catfile.NewCache(cfg), repoProto, cfg)
 
 	return repo.Config(), repoPath
 }

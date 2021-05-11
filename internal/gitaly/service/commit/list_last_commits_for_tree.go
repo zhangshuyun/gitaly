@@ -43,7 +43,7 @@ func (s *server) listLastCommitsForTree(in *gitalypb.ListLastCommitsForTreeReque
 	}
 
 	ctx := stream.Context()
-	repo := in.GetRepository()
+	repo := s.localrepo(in.GetRepository())
 	c, err := s.catfileCache.BatchProcess(ctx, repo)
 	if err != nil {
 		return err

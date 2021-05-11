@@ -121,7 +121,7 @@ func (s *server) vote(ctx context.Context, oid git.ObjectID) error {
 }
 
 func (s *server) ApplyGitattributes(ctx context.Context, in *gitalypb.ApplyGitattributesRequest) (*gitalypb.ApplyGitattributesResponse, error) {
-	repo := in.GetRepository()
+	repo := s.localrepo(in.GetRepository())
 	repoPath, err := s.locator.GetRepoPath(repo)
 	if err != nil {
 		return nil, err

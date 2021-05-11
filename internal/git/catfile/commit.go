@@ -1,4 +1,4 @@
-package log
+package catfile
 
 import (
 	"bufio"
@@ -12,15 +12,14 @@ import (
 
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/internal/git/trailerparser"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
-// GetCommitCatfile looks up a commit by revision using an existing catfile.Batch instance.
-func GetCommitCatfile(ctx context.Context, c catfile.Batch, revision git.Revision) (*gitalypb.GitCommit, error) {
+// GetCommit looks up a commit by revision using an existing Batch instance.
+func GetCommit(ctx context.Context, c Batch, revision git.Revision) (*gitalypb.GitCommit, error) {
 	obj, err := c.Commit(ctx, revision+"^{commit}")
 	if err != nil {
 		return nil, err
@@ -29,10 +28,10 @@ func GetCommitCatfile(ctx context.Context, c catfile.Batch, revision git.Revisio
 	return parseRawCommit(obj.Reader, &obj.ObjectInfo)
 }
 
-// GetCommitCatfileWithTrailers looks up a commit by revision using an existing
-// catfile.Batch instance, and includes Git trailers in the returned commit.
-func GetCommitCatfileWithTrailers(ctx context.Context, gitCmdFactory git.CommandFactory, repo repository.GitRepo, c catfile.Batch, revision git.Revision) (*gitalypb.GitCommit, error) {
-	commit, err := GetCommitCatfile(ctx, c, revision)
+// GetCommitWithTrailers looks up a commit by revision using an existing Batch instance, and
+// includes Git trailers in the returned commit.
+func GetCommitWithTrailers(ctx context.Context, gitCmdFactory git.CommandFactory, repo repository.GitRepo, c Batch, revision git.Revision) (*gitalypb.GitCommit, error) {
+	commit, err := GetCommit(ctx, c, revision)
 
 	if err != nil {
 		return nil, err
@@ -69,7 +68,7 @@ func GetCommitCatfileWithTrailers(ctx context.Context, gitCmdFactory git.Command
 }
 
 // GetCommitMessage looks up a commit message and returns it in its entirety.
-func GetCommitMessage(ctx context.Context, c catfile.Batch, repo repository.GitRepo, revision git.Revision) ([]byte, error) {
+func GetCommitMessage(ctx context.Context, c Batch, repo repository.GitRepo, revision git.Revision) ([]byte, error) {
 	obj, err := c.Commit(ctx, revision+"^{commit}")
 	if err != nil {
 		return nil, err
@@ -82,7 +81,7 @@ func GetCommitMessage(ctx context.Context, c catfile.Batch, repo repository.GitR
 	return body, nil
 }
 
-func parseRawCommit(r io.Reader, info *catfile.ObjectInfo) (*gitalypb.GitCommit, error) {
+func parseRawCommit(r io.Reader, info *ObjectInfo) (*gitalypb.GitCommit, error) {
 	header, body, err := splitRawCommit(r)
 	if err != nil {
 		return nil, err
@@ -107,7 +106,7 @@ func splitRawCommit(r io.Reader) ([]byte, []byte, error) {
 	return header, body, nil
 }
 
-func buildCommit(header, body []byte, info *catfile.ObjectInfo) (*gitalypb.GitCommit, error) {
+func buildCommit(header, body []byte, info *ObjectInfo) (*gitalypb.GitCommit, error) {
 	commit := &gitalypb.GitCommit{
 		Id:       info.Oid.String(),
 		BodySize: int64(len(body)),

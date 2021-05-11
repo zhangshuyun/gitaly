@@ -240,7 +240,7 @@ func TestRepo_GetRemoteReferences(t *testing.T) {
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
 	repo := New(
 		gitCmdFactory,
-		catfile.NewCache(gitCmdFactory, cfg),
+		catfile.NewCache(cfg),
 		&gitalypb.Repository{StorageName: "default", RelativePath: filepath.Join(relativePath, ".git")},
 		cfg,
 	)

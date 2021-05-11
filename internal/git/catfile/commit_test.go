@@ -1,47 +1,19 @@
-package log
+package catfile
 
 import (
 	"bytes"
-	"context"
-	"os"
 	"testing"
 
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
-	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/metadata"
 )
 
-func TestMain(m *testing.M) {
-	os.Exit(testMain(m))
-}
-
-func testMain(m *testing.M) int {
-	defer testhelper.MustHaveNoChildProcess()
-	cleanup := testhelper.Configure()
-	defer cleanup()
-	return m.Run()
-}
-
-func setupBatch(t *testing.T, ctx context.Context) (config.Cfg, catfile.Batch, *gitalypb.Repository) {
-	t.Helper()
-
-	cfg, repo, _ := testcfg.BuildWithRepo(t)
-
-	catfileCache := catfile.NewCache(git.NewExecCommandFactory(cfg), cfg)
-	c, err := catfileCache.BatchProcess(ctx, repo)
-	require.NoError(t, err)
-
-	return cfg, c, repo
-}
-
 func TestParseRawCommit(t *testing.T) {
-	info := &catfile.ObjectInfo{
+	info := &ObjectInfo{
 		Oid:  "a984dfa4dee018c6d5f5f57ffec0d0e22763df16",
 		Type: "commit",
 	}
@@ -133,7 +105,7 @@ func TestParseRawCommit(t *testing.T) {
 	}
 }
 
-func TestGetCommitCatfile(t *testing.T) {
+func TestGetCommit(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -168,7 +140,7 @@ func TestGetCommitCatfile(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			c, err := GetCommitCatfile(ctx, c, git.Revision(tc.revision))
+			c, err := GetCommit(ctx, c, git.Revision(tc.revision))
 
 			if tc.errStr == "" {
 				require.NoError(t, err)
@@ -180,7 +152,7 @@ func TestGetCommitCatfile(t *testing.T) {
 	}
 }
 
-func TestGetCommitCatfileWithTrailers(t *testing.T) {
+func TestGetCommitWithTrailers(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -188,7 +160,7 @@ func TestGetCommitCatfileWithTrailers(t *testing.T) {
 
 	ctx = metadata.NewIncomingContext(ctx, metadata.MD{})
 
-	commit, err := GetCommitCatfileWithTrailers(ctx, git.NewExecCommandFactory(cfg), testRepo, c, "5937ac0a7beb003549fc5fd26fc247adbce4a52e")
+	commit, err := GetCommitWithTrailers(ctx, git.NewExecCommandFactory(cfg), testRepo, c, "5937ac0a7beb003549fc5fd26fc247adbce4a52e")
 
 	require.NoError(t, err)
 

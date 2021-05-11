@@ -38,7 +38,7 @@ func setupRepo(t *testing.T, bare bool) (*Repo, string) {
 	t.Cleanup(repoCleanUp)
 
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
-	return New(gitCmdFactory, catfile.NewCache(gitCmdFactory, cfg), repoProto, cfg), repoPath
+	return New(gitCmdFactory, catfile.NewCache(cfg), repoProto, cfg), repoPath
 }
 
 type ReaderFunc func([]byte) (int, error)

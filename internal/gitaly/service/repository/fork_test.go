@@ -221,7 +221,7 @@ func runSecureServer(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) s
 	txManager := transaction.NewManager(cfg, registry)
 	hookManager := hook.NewManager(locator, txManager, gitlab.NewMockClient(), cfg)
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
-	catfileCache := catfile.NewCache(gitCmdFactory, cfg)
+	catfileCache := catfile.NewCache(cfg)
 
 	gitalypb.RegisterRepositoryServiceServer(server, NewServer(cfg, rubySrv, locator, txManager, gitCmdFactory, catfileCache))
 	gitalypb.RegisterHookServiceServer(server, hookservice.NewServer(cfg, hookManager, gitCmdFactory))

@@ -313,7 +313,7 @@ func (gsd *gitalyServerDeps) createDependencies(t testing.TB, cfg config.Cfg, ru
 	}
 
 	if gsd.catfileCache == nil {
-		gsd.catfileCache = catfile.NewCache(gsd.gitCmdFactory, cfg)
+		gsd.catfileCache = catfile.NewCache(cfg)
 	}
 
 	return &service.Dependencies{

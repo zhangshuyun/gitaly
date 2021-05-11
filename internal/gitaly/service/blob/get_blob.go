@@ -16,11 +16,13 @@ import (
 func (s *server) GetBlob(in *gitalypb.GetBlobRequest, stream gitalypb.BlobService_GetBlobServer) error {
 	ctx := stream.Context()
 
+	repo := s.localrepo(in.GetRepository())
+
 	if err := validateRequest(in); err != nil {
 		return status.Errorf(codes.InvalidArgument, "GetBlob: %v", err)
 	}
 
-	c, err := s.catfileCache.BatchProcess(stream.Context(), in.Repository)
+	c, err := s.catfileCache.BatchProcess(stream.Context(), repo)
 	if err != nil {
 		return status.Errorf(codes.Internal, "GetBlob: %v", err)
 	}

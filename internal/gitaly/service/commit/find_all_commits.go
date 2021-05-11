@@ -32,9 +32,11 @@ func (s *server) FindAllCommits(in *gitalypb.FindAllCommitsRequest, stream gital
 		return err
 	}
 
+	repo := s.localrepo(in.GetRepository())
+
 	var revisions []string
 	if len(in.GetRevision()) == 0 {
-		branchNames, err := _findBranchNamesFunc(stream.Context(), s.gitCmdFactory, in.Repository)
+		branchNames, err := _findBranchNamesFunc(stream.Context(), repo)
 		if err != nil {
 			return helper.ErrInvalidArgument(err)
 		}
@@ -46,7 +48,7 @@ func (s *server) FindAllCommits(in *gitalypb.FindAllCommitsRequest, stream gital
 		revisions = []string{string(in.GetRevision())}
 	}
 
-	if err := s.findAllCommits(in, stream, revisions); err != nil {
+	if err := s.findAllCommits(repo, in, stream, revisions); err != nil {
 		return helper.ErrInternal(err)
 	}
 
@@ -61,7 +63,7 @@ func validateFindAllCommitsRequest(in *gitalypb.FindAllCommitsRequest) error {
 	return nil
 }
 
-func (s *server) findAllCommits(in *gitalypb.FindAllCommitsRequest, stream gitalypb.CommitService_FindAllCommitsServer, revisions []string) error {
+func (s *server) findAllCommits(repo git.RepositoryExecutor, in *gitalypb.FindAllCommitsRequest, stream gitalypb.CommitService_FindAllCommitsServer, revisions []string) error {
 	sender := &findAllCommitsSender{stream: stream}
 
 	var gitLogExtraOptions []git.Option
@@ -80,5 +82,5 @@ func (s *server) findAllCommits(in *gitalypb.FindAllCommitsRequest, stream gital
 		gitLogExtraOptions = append(gitLogExtraOptions, git.Flag{Name: "--topo-order"})
 	}
 
-	return s.sendCommits(stream.Context(), sender, in.GetRepository(), revisions, nil, nil, gitLogExtraOptions...)
+	return s.sendCommits(stream.Context(), sender, repo, revisions, nil, nil, gitLogExtraOptions...)
 }

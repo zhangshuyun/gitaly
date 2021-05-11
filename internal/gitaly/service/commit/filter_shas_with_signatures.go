@@ -7,7 +7,6 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
-	"gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
@@ -37,7 +36,9 @@ func validateFirstFilterShasWithSignaturesRequest(in *gitalypb.FilterShasWithSig
 
 func (s *server) filterShasWithSignatures(bidi gitalypb.CommitService_FilterShasWithSignaturesServer, firstRequest *gitalypb.FilterShasWithSignaturesRequest) error {
 	ctx := bidi.Context()
-	c, err := s.catfileCache.BatchProcess(ctx, firstRequest.GetRepository())
+	repo := s.localrepo(firstRequest.GetRepository())
+
+	c, err := s.catfileCache.BatchProcess(ctx, repo)
 	if err != nil {
 		return err
 	}
@@ -67,7 +68,7 @@ func (s *server) filterShasWithSignatures(bidi gitalypb.CommitService_FilterShas
 func filterCommitShasWithSignatures(ctx context.Context, c catfile.Batch, shas [][]byte) ([][]byte, error) {
 	var foundShas [][]byte
 	for _, sha := range shas {
-		commit, err := log.GetCommitCatfile(ctx, c, git.Revision(sha))
+		commit, err := catfile.GetCommit(ctx, c, git.Revision(sha))
 		if catfile.IsNotFound(err) {
 			continue
 		}

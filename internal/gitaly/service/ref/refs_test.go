@@ -17,7 +17,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/internal/git/log"
 	"gitlab.com/gitlab-org/gitaly/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -65,12 +64,13 @@ func TestSuccessfulFindAllBranchNames(t *testing.T) {
 }
 
 func TestFindAllBranchNamesVeryLargeResponse(t *testing.T) {
-	cfg, repo, _, client := setupRefService(t)
+	cfg, repoProto, _, client := setupRefService(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	updater, err := updateref.New(ctx, cfg, git.NewExecCommandFactory(cfg), repo)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	updater, err := updateref.New(ctx, cfg, repo)
 	require.NoError(t, err)
 
 	// We want to create enough refs to overflow the default bufio.Scanner
@@ -92,7 +92,7 @@ func TestFindAllBranchNamesVeryLargeResponse(t *testing.T) {
 
 	require.NoError(t, updater.Wait())
 
-	rpcRequest := &gitalypb.FindAllBranchNamesRequest{Repository: repo}
+	rpcRequest := &gitalypb.FindAllBranchNamesRequest{Repository: repoProto}
 
 	c, err := client.FindAllBranchNames(ctx, rpcRequest)
 	require.NoError(t, err)
@@ -228,7 +228,7 @@ func TestHeadReference(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	headRef, err := headReference(ctx, git.NewExecCommandFactory(cfg), repo)
+	headRef, err := headReference(ctx, localrepo.NewTestRepo(t, cfg, repo))
 	require.NoError(t, err)
 
 	require.Equal(t, git.DefaultRef, headRef)
@@ -246,7 +246,7 @@ func TestHeadReferenceWithNonExistingHead(t *testing.T) {
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
-	headRef, err := headReference(ctx, git.NewExecCommandFactory(cfg), repo)
+	headRef, err := headReference(ctx, localrepo.NewTestRepo(t, cfg, repo))
 	require.NoError(t, err)
 	if headRef != nil {
 		t.Fatal("Expected HEAD reference to be nil, got '", string(headRef), "'")
@@ -254,7 +254,8 @@ func TestHeadReferenceWithNonExistingHead(t *testing.T) {
 }
 
 func TestSetDefaultBranchRef(t *testing.T) {
-	cfg, repo, _ := testcfg.BuildWithRepo(t)
+	cfg, repoProto, _ := testcfg.BuildWithRepo(t)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	testCases := []struct {
 		desc        string
@@ -279,10 +280,10 @@ func TestSetDefaultBranchRef(t *testing.T) {
 			defer cancel()
 
 			gitCmdFactory := git.NewExecCommandFactory(cfg)
-			err := SetDefaultBranchRef(ctx, gitCmdFactory, repo, tc.ref, cfg)
+			err := SetDefaultBranchRef(ctx, gitCmdFactory, repoProto, tc.ref, cfg)
 			require.NoError(t, err)
 
-			newRef, err := DefaultBranchName(ctx, gitCmdFactory, repo)
+			newRef, err := DefaultBranchName(ctx, repo)
 			require.NoError(t, err)
 
 			require.Equal(t, tc.expectedRef, string(newRef))
@@ -297,55 +298,56 @@ func TestDefaultBranchName(t *testing.T) {
 		headReference = _headReference
 	}()
 
-	cfg, repo, _ := testcfg.BuildWithRepo(t)
+	cfg, repoProto, _ := testcfg.BuildWithRepo(t)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	testCases := []struct {
 		desc            string
-		findBranchNames func(context.Context, git.CommandFactory, *gitalypb.Repository) ([][]byte, error)
-		headReference   func(context.Context, git.CommandFactory, *gitalypb.Repository) ([]byte, error)
+		findBranchNames func(context.Context, git.RepositoryExecutor) ([][]byte, error)
+		headReference   func(context.Context, git.RepositoryExecutor) ([]byte, error)
 		expected        []byte
 	}{
 		{
 			desc:     "Get first branch when only one branch exists",
 			expected: []byte("refs/heads/foo"),
-			findBranchNames: func(context.Context, git.CommandFactory, *gitalypb.Repository) ([][]byte, error) {
+			findBranchNames: func(context.Context, git.RepositoryExecutor) ([][]byte, error) {
 				return [][]byte{[]byte("refs/heads/foo")}, nil
 			},
-			headReference: func(context.Context, git.CommandFactory, *gitalypb.Repository) ([]byte, error) { return nil, nil },
+			headReference: func(context.Context, git.RepositoryExecutor) ([]byte, error) { return nil, nil },
 		},
 		{
 			desc:     "Get empy ref if no branches exists",
 			expected: nil,
-			findBranchNames: func(context.Context, git.CommandFactory, *gitalypb.Repository) ([][]byte, error) {
+			findBranchNames: func(context.Context, git.RepositoryExecutor) ([][]byte, error) {
 				return [][]byte{}, nil
 			},
-			headReference: func(context.Context, git.CommandFactory, *gitalypb.Repository) ([]byte, error) { return nil, nil },
+			headReference: func(context.Context, git.RepositoryExecutor) ([]byte, error) { return nil, nil },
 		},
 		{
 			desc:     "Get the name of the head reference when more than one branch exists",
 			expected: []byte("refs/heads/bar"),
-			findBranchNames: func(context.Context, git.CommandFactory, *gitalypb.Repository) ([][]byte, error) {
+			findBranchNames: func(context.Context, git.RepositoryExecutor) ([][]byte, error) {
 				return [][]byte{[]byte("refs/heads/foo"), []byte("refs/heads/bar")}, nil
 			},
-			headReference: func(context.Context, git.CommandFactory, *gitalypb.Repository) ([]byte, error) {
+			headReference: func(context.Context, git.RepositoryExecutor) ([]byte, error) {
 				return []byte("refs/heads/bar"), nil
 			},
 		},
 		{
 			desc:     "Get `ref/heads/master` when several branches exist",
 			expected: git.DefaultRef,
-			findBranchNames: func(context.Context, git.CommandFactory, *gitalypb.Repository) ([][]byte, error) {
+			findBranchNames: func(context.Context, git.RepositoryExecutor) ([][]byte, error) {
 				return [][]byte{[]byte("refs/heads/foo"), []byte("refs/heads/master"), []byte("refs/heads/bar")}, nil
 			},
-			headReference: func(context.Context, git.CommandFactory, *gitalypb.Repository) ([]byte, error) { return nil, nil },
+			headReference: func(context.Context, git.RepositoryExecutor) ([]byte, error) { return nil, nil },
 		},
 		{
 			desc:     "Get the name of the first branch when several branches exists and no other conditions are met",
 			expected: []byte("refs/heads/foo"),
-			findBranchNames: func(context.Context, git.CommandFactory, *gitalypb.Repository) ([][]byte, error) {
+			findBranchNames: func(context.Context, git.RepositoryExecutor) ([][]byte, error) {
 				return [][]byte{[]byte("refs/heads/foo"), []byte("refs/heads/bar"), []byte("refs/heads/baz")}, nil
 			},
-			headReference: func(context.Context, git.CommandFactory, *gitalypb.Repository) ([]byte, error) { return nil, nil },
+			headReference: func(context.Context, git.RepositoryExecutor) ([]byte, error) { return nil, nil },
 		},
 	}
 
@@ -355,7 +357,7 @@ func TestDefaultBranchName(t *testing.T) {
 
 		ctx, cancel := testhelper.Context()
 		defer cancel()
-		defaultBranch, err := DefaultBranchName(ctx, git.NewExecCommandFactory(cfg), repo)
+		defaultBranch, err := DefaultBranchName(ctx, repo)
 		require.NoError(t, err)
 		if !bytes.Equal(defaultBranch, testCase.expected) {
 			t.Fatalf("%s: expected %s, got %s instead", testCase.desc, testCase.expected, defaultBranch)
@@ -604,8 +606,9 @@ func TestSuccessfulFindAllTagsRequest(t *testing.T) {
 func TestFindAllTagNestedTags(t *testing.T) {
 	cfg, client := setupRefServiceWithoutRepo(t)
 
-	testRepoCopy, testRepoCopyPath, cleanupFn := gittest.CloneRepoWithWorktreeAtStorage(t, cfg, cfg.Storages[0])
+	repoProto, repoPath, cleanupFn := gittest.CloneRepoWithWorktreeAtStorage(t, cfg, cfg.Storages[0])
 	defer cleanupFn()
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	blobID := "faaf198af3a36dbf41961466703cc1d47c61d051"
 	commitID := "6f6d7e7ed97bb5f0054f2b1df789b39ca89b6ff9"
@@ -642,11 +645,11 @@ func TestFindAllTagNestedTags(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.description, func(t *testing.T) {
-			tags := bytes.NewReader(gittest.Exec(t, cfg, "-C", testRepoCopyPath, "tag"))
-			testhelper.MustRunCommand(t, tags, "xargs", cfg.Git.BinPath, "-C", testRepoCopyPath, "tag", "-d")
+			tags := bytes.NewReader(gittest.Exec(t, cfg, "-C", repoPath, "tag"))
+			testhelper.MustRunCommand(t, tags, "xargs", cfg.Git.BinPath, "-C", repoPath, "tag", "-d")
 
-			catfileCache := catfile.NewCache(git.NewExecCommandFactory(cfg), cfg)
-			batch, err := catfileCache.BatchProcess(ctx, testRepoCopy)
+			catfileCache := catfile.NewCache(cfg)
+			batch, err := catfileCache.BatchProcess(ctx, repo)
 			require.NoError(t, err)
 
 			info, err := batch.Info(ctx, git.Revision(tc.originalOid))
@@ -658,7 +661,7 @@ func TestFindAllTagNestedTags(t *testing.T) {
 			for depth := 0; depth < tc.depth; depth++ {
 				tagName := fmt.Sprintf("tag-depth-%d", depth)
 				tagMessage := fmt.Sprintf("a commit %d deep", depth)
-				tagID = gittest.CreateTag(t, cfg, testRepoCopyPath, tagName, tagID, &gittest.CreateTagOpts{Message: tagMessage})
+				tagID = gittest.CreateTag(t, cfg, repoPath, tagName, tagID, &gittest.CreateTagOpts{Message: tagMessage})
 
 				expectedTag := &gitalypb.Tag{
 					Name:        []byte(tagName),
@@ -674,8 +677,8 @@ func TestFindAllTagNestedTags(t *testing.T) {
 				}
 
 				// only expect the TargetCommit to be populated if it is a commit and if its less than 10 tags deep
-				if info.Type == "commit" && depth < log.MaxTagReferenceDepth {
-					commit, err := log.GetCommitCatfile(ctx, batch, git.Revision(tc.originalOid))
+				if info.Type == "commit" && depth < catfile.MaxTagReferenceDepth {
+					commit, err := catfile.GetCommit(ctx, batch, git.Revision(tc.originalOid))
 					require.NoError(t, err)
 					expectedTag.TargetCommit = commit
 				}
@@ -683,7 +686,7 @@ func TestFindAllTagNestedTags(t *testing.T) {
 				expectedTags[string(expectedTag.Name)] = expectedTag
 			}
 
-			rpcRequest := &gitalypb.FindAllTagsRequest{Repository: testRepoCopy}
+			rpcRequest := &gitalypb.FindAllTagsRequest{Repository: repoProto}
 
 			c, err := client.FindAllTags(ctx, rpcRequest)
 			require.NoError(t, err)
@@ -1449,8 +1452,9 @@ func TestSuccessfulFindTagRequest(t *testing.T) {
 func TestFindTagNestedTag(t *testing.T) {
 	cfg, client := setupRefServiceWithoutRepo(t)
 
-	repo, repoPath, cleanup := gittest.CloneRepoWithWorktreeAtStorage(t, cfg, cfg.Storages[0])
+	repoProto, repoPath, cleanup := gittest.CloneRepoWithWorktreeAtStorage(t, cfg, cfg.Storages[0])
 	t.Cleanup(cleanup)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	blobID := "faaf198af3a36dbf41961466703cc1d47c61d051"
 	commitID := "6f6d7e7ed97bb5f0054f2b1df789b39ca89b6ff9"
@@ -1490,7 +1494,7 @@ func TestFindTagNestedTag(t *testing.T) {
 			tags := bytes.NewReader(gittest.Exec(t, cfg, "-C", repoPath, "tag"))
 			testhelper.MustRunCommand(t, tags, "xargs", cfg.Git.BinPath, "-C", repoPath, "tag", "-d")
 
-			catfileCache := catfile.NewCache(git.NewExecCommandFactory(cfg), cfg)
+			catfileCache := catfile.NewCache(cfg)
 			batch, err := catfileCache.BatchProcess(ctx, repo)
 			require.NoError(t, err)
 
@@ -1518,12 +1522,12 @@ func TestFindTagNestedTag(t *testing.T) {
 				},
 			}
 			// only expect the TargetCommit to be populated if it is a commit and if its less than 10 tags deep
-			if info.Type == "commit" && tc.depth < log.MaxTagReferenceDepth {
-				commit, err := log.GetCommitCatfile(ctx, batch, git.Revision(tc.originalOid))
+			if info.Type == "commit" && tc.depth < catfile.MaxTagReferenceDepth {
+				commit, err := catfile.GetCommit(ctx, batch, git.Revision(tc.originalOid))
 				require.NoError(t, err)
 				expectedTag.TargetCommit = commit
 			}
-			rpcRequest := &gitalypb.FindTagRequest{Repository: repo, TagName: []byte(tagName)}
+			rpcRequest := &gitalypb.FindTagRequest{Repository: repoProto, TagName: []byte(tagName)}
 
 			resp, err := client.FindTag(ctx, rpcRequest)
 			require.NoError(t, err)

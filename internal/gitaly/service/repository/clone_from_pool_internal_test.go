@@ -29,7 +29,7 @@ func newTestObjectPool(t *testing.T, cfg config.Cfg) (*objectpool.ObjectPool, *g
 		cfg,
 		config.NewLocator(cfg),
 		gitCmdFactory,
-		catfile.NewCache(gitCmdFactory, cfg),
+		catfile.NewCache(cfg),
 		repo.GetStorageName(),
 		relativePath,
 	)

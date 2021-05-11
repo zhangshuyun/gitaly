@@ -3,6 +3,8 @@ package cleanup
 import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
+	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
@@ -20,4 +22,8 @@ func NewServer(cfg config.Cfg, gitCmdFactory git.CommandFactory, catfileCache ca
 		gitCmdFactory: gitCmdFactory,
 		catfileCache:  catfileCache,
 	}
+}
+
+func (s *server) localrepo(repo repository.GitRepo) *localrepo.Repo {
+	return localrepo.New(s.gitCmdFactory, s.catfileCache, repo, s.cfg)
 }

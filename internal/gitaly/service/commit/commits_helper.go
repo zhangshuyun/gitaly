@@ -13,7 +13,7 @@ import (
 func (s *server) sendCommits(
 	ctx context.Context,
 	sender chunk.Sender,
-	repo *gitalypb.Repository,
+	repo git.RepositoryExecutor,
 	revisionRange []string,
 	paths []string,
 	options *gitalypb.GlobalOptions,
@@ -29,7 +29,7 @@ func (s *server) sendCommits(
 		return err
 	}
 
-	logParser, err := log.NewLogParser(ctx, s.catfileCache, repo, cmd)
+	logParser, err := log.NewParser(ctx, s.catfileCache, repo, cmd)
 	if err != nil {
 		return err
 	}
