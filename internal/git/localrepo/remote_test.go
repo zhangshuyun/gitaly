@@ -40,7 +40,7 @@ func setupRepoRemote(t *testing.T, bare bool) (Remote, string) {
 	t.Cleanup(repoCleanUp)
 
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
-	return New(gitCmdFactory, catfile.NewCache(gitCmdFactory, cfg), repoProto, cfg).Remote(), repoPath
+	return New(gitCmdFactory, catfile.NewCache(cfg), repoProto, cfg).Remote(), repoPath
 }
 
 func TestRepo_Remote(t *testing.T) {
@@ -463,7 +463,7 @@ if [ -z ${GIT_SSH_COMMAND+x} ];then rm -f %q ;else echo -n "$GIT_SSH_COMMAND" > 
 
 	cfg.Git.BinPath = gitPath
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
-	sourceRepo := New(gitCmdFactory, catfile.NewCache(gitCmdFactory, cfg), sourceRepoPb, cfg)
+	sourceRepo := New(gitCmdFactory, catfile.NewCache(cfg), sourceRepoPb, cfg)
 
 	for _, tc := range []struct {
 		desc           string
@@ -530,7 +530,7 @@ if [ -z ${GIT_SSH_COMMAND+x} ];then rm -f %q ;else echo -n "$GIT_SSH_COMMAND" > 
 		t.Run(tc.desc, func(t *testing.T) {
 			pushRepoPb, pushRepoPath, _ := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
 			gitCmdFactory := git.NewExecCommandFactory(cfg)
-			pushRepo := New(gitCmdFactory, catfile.NewCache(gitCmdFactory, cfg), pushRepoPb, cfg)
+			pushRepo := New(gitCmdFactory, catfile.NewCache(cfg), pushRepoPb, cfg)
 
 			if tc.setupPushRepo != nil {
 				tc.setupPushRepo(t, pushRepo)

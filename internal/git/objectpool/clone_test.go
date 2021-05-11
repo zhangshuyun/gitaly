@@ -25,7 +25,7 @@ func setupObjectPool(t *testing.T) (*ObjectPool, *gitalypb.Repository) {
 		cfg,
 		config.NewLocator(cfg),
 		gitCommandFactory,
-		catfile.NewCache(gitCommandFactory, cfg),
+		catfile.NewCache(cfg),
 		repo.GetStorageName(),
 		gittest.NewObjectPoolName(t),
 	)

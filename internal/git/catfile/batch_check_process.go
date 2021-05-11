@@ -9,7 +9,6 @@ import (
 
 	"github.com/opentracing/opentracing-go"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
 	"gitlab.com/gitlab-org/labkit/correlation"
 )
 
@@ -20,7 +19,7 @@ type batchCheckProcess struct {
 	sync.Mutex
 }
 
-func (bc *BatchCache) newBatchCheckProcess(ctx context.Context, repo repository.GitRepo) (*batchCheckProcess, error) {
+func (bc *BatchCache) newBatchCheckProcess(ctx context.Context, repo git.RepositoryExecutor) (*batchCheckProcess, error) {
 	process := &batchCheckProcess{}
 
 	var stdinReader io.Reader
@@ -31,7 +30,7 @@ func (bc *BatchCache) newBatchCheckProcess(ctx context.Context, repo repository.
 	ctx = correlation.ContextWithCorrelation(ctx, "")
 	ctx = opentracing.ContextWithSpan(ctx, nil)
 
-	batchCmd, err := bc.gitCmdFactory.New(ctx, repo,
+	batchCmd, err := repo.Exec(ctx,
 		git.SubCmd{
 			Name: "cat-file",
 			Flags: []git.Option{

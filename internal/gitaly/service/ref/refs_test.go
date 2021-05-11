@@ -606,8 +606,9 @@ func TestSuccessfulFindAllTagsRequest(t *testing.T) {
 func TestFindAllTagNestedTags(t *testing.T) {
 	cfg, client := setupRefServiceWithoutRepo(t)
 
-	testRepoCopy, testRepoCopyPath, cleanupFn := gittest.CloneRepoWithWorktreeAtStorage(t, cfg, cfg.Storages[0])
+	repoProto, repoPath, cleanupFn := gittest.CloneRepoWithWorktreeAtStorage(t, cfg, cfg.Storages[0])
 	defer cleanupFn()
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	blobID := "faaf198af3a36dbf41961466703cc1d47c61d051"
 	commitID := "6f6d7e7ed97bb5f0054f2b1df789b39ca89b6ff9"
@@ -644,11 +645,11 @@ func TestFindAllTagNestedTags(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.description, func(t *testing.T) {
-			tags := bytes.NewReader(gittest.Exec(t, cfg, "-C", testRepoCopyPath, "tag"))
-			testhelper.MustRunCommand(t, tags, "xargs", cfg.Git.BinPath, "-C", testRepoCopyPath, "tag", "-d")
+			tags := bytes.NewReader(gittest.Exec(t, cfg, "-C", repoPath, "tag"))
+			testhelper.MustRunCommand(t, tags, "xargs", cfg.Git.BinPath, "-C", repoPath, "tag", "-d")
 
-			catfileCache := catfile.NewCache(git.NewExecCommandFactory(cfg), cfg)
-			batch, err := catfileCache.BatchProcess(ctx, testRepoCopy)
+			catfileCache := catfile.NewCache(cfg)
+			batch, err := catfileCache.BatchProcess(ctx, repo)
 			require.NoError(t, err)
 
 			info, err := batch.Info(ctx, git.Revision(tc.originalOid))
@@ -660,7 +661,7 @@ func TestFindAllTagNestedTags(t *testing.T) {
 			for depth := 0; depth < tc.depth; depth++ {
 				tagName := fmt.Sprintf("tag-depth-%d", depth)
 				tagMessage := fmt.Sprintf("a commit %d deep", depth)
-				tagID = gittest.CreateTag(t, cfg, testRepoCopyPath, tagName, tagID, &gittest.CreateTagOpts{Message: tagMessage})
+				tagID = gittest.CreateTag(t, cfg, repoPath, tagName, tagID, &gittest.CreateTagOpts{Message: tagMessage})
 
 				expectedTag := &gitalypb.Tag{
 					Name:        []byte(tagName),
@@ -685,7 +686,7 @@ func TestFindAllTagNestedTags(t *testing.T) {
 				expectedTags[string(expectedTag.Name)] = expectedTag
 			}
 
-			rpcRequest := &gitalypb.FindAllTagsRequest{Repository: testRepoCopy}
+			rpcRequest := &gitalypb.FindAllTagsRequest{Repository: repoProto}
 
 			c, err := client.FindAllTags(ctx, rpcRequest)
 			require.NoError(t, err)
@@ -1451,8 +1452,9 @@ func TestSuccessfulFindTagRequest(t *testing.T) {
 func TestFindTagNestedTag(t *testing.T) {
 	cfg, client := setupRefServiceWithoutRepo(t)
 
-	repo, repoPath, cleanup := gittest.CloneRepoWithWorktreeAtStorage(t, cfg, cfg.Storages[0])
+	repoProto, repoPath, cleanup := gittest.CloneRepoWithWorktreeAtStorage(t, cfg, cfg.Storages[0])
 	t.Cleanup(cleanup)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	blobID := "faaf198af3a36dbf41961466703cc1d47c61d051"
 	commitID := "6f6d7e7ed97bb5f0054f2b1df789b39ca89b6ff9"
@@ -1492,7 +1494,7 @@ func TestFindTagNestedTag(t *testing.T) {
 			tags := bytes.NewReader(gittest.Exec(t, cfg, "-C", repoPath, "tag"))
 			testhelper.MustRunCommand(t, tags, "xargs", cfg.Git.BinPath, "-C", repoPath, "tag", "-d")
 
-			catfileCache := catfile.NewCache(git.NewExecCommandFactory(cfg), cfg)
+			catfileCache := catfile.NewCache(cfg)
 			batch, err := catfileCache.BatchProcess(ctx, repo)
 			require.NoError(t, err)
 
@@ -1525,7 +1527,7 @@ func TestFindTagNestedTag(t *testing.T) {
 				require.NoError(t, err)
 				expectedTag.TargetCommit = commit
 			}
-			rpcRequest := &gitalypb.FindTagRequest{Repository: repo, TagName: []byte(tagName)}
+			rpcRequest := &gitalypb.FindTagRequest{Repository: repoProto, TagName: []byte(tagName)}
 
 			resp, err := client.FindTag(ctx, rpcRequest)
 			require.NoError(t, err)

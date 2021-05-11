@@ -13,13 +13,13 @@ import (
 
 func TestWriteCommit(t *testing.T) {
 	cfg, repoProto, repoPath := setup(t)
-	gitCmdFactory := git.NewExecCommandFactory(cfg)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	batchCache := catfile.NewCache(gitCmdFactory, cfg)
-	batch, err := batchCache.BatchProcess(ctx, repoProto)
+	batchCache := catfile.NewCache(cfg)
+	batch, err := batchCache.BatchProcess(ctx, repo)
 	require.NoError(t, err)
 
 	defaultCommitter := &gitalypb.CommitAuthor{
@@ -27,8 +27,6 @@ func TestWriteCommit(t *testing.T) {
 		Email: []byte(committerEmail),
 	}
 	defaultParentID := "1a0b36b3cdad1d2ee32457c102a8c0b7056fa863"
-
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	revisions := map[git.Revision]git.ObjectID{
 		"refs/heads/master":  "",

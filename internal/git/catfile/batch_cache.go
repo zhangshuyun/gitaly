@@ -27,7 +27,7 @@ const (
 type Cache interface {
 	// BatchProcess either creates a new git-cat-file(1) process or returns a cached one for
 	// the given repository.
-	BatchProcess(context.Context, repository.GitRepo) (Batch, error)
+	BatchProcess(context.Context, git.RepositoryExecutor) (Batch, error)
 	// Evict evicts all cached processes from the cache.
 	Evict()
 }
@@ -61,8 +61,6 @@ type entry struct {
 // an entry gets added it gets an expiry time based on a fixed TTL. A
 // monitor goroutine periodically evicts expired entries.
 type BatchCache struct {
-	gitCmdFactory git.CommandFactory
-
 	entries []*entry
 	sync.Mutex
 
@@ -84,23 +82,18 @@ type BatchCache struct {
 }
 
 // NewCache creates a new catfile process cache.
-func NewCache(gitCmdFactory git.CommandFactory, cfg config.Cfg) *BatchCache {
-	return newCache(gitCmdFactory,
-		defaultBatchfileTTL,
-		cfg.Git.CatfileCacheSize,
-		defaultEvictionInterval,
-	)
+func NewCache(cfg config.Cfg) *BatchCache {
+	return newCache(defaultBatchfileTTL, cfg.Git.CatfileCacheSize, defaultEvictionInterval)
 }
 
-func newCache(gitCmdFactory git.CommandFactory, ttl time.Duration, maxLen int, refreshInterval time.Duration) *BatchCache {
+func newCache(ttl time.Duration, maxLen int, refreshInterval time.Duration) *BatchCache {
 	if maxLen <= 0 {
 		maxLen = defaultMaxLen
 	}
 
 	bc := &BatchCache{
-		gitCmdFactory: gitCmdFactory,
-		maxLen:        maxLen,
-		ttl:           ttl,
+		maxLen: maxLen,
+		ttl:    ttl,
 		catfileCacheCounter: prometheus.NewCounterVec(
 			prometheus.CounterOpts{
 				Name: "gitaly_catfile_cache_total",
@@ -162,7 +155,7 @@ func (bc *BatchCache) monitor(refreshInterval time.Duration) {
 }
 
 // BatchProcess creates a new Batch process for the given repository.
-func (bc *BatchCache) BatchProcess(ctx context.Context, repo repository.GitRepo) (Batch, error) {
+func (bc *BatchCache) BatchProcess(ctx context.Context, repo git.RepositoryExecutor) (Batch, error) {
 	if ctx.Done() == nil {
 		panic("empty ctx.Done() in catfile.Batch.New()")
 	}

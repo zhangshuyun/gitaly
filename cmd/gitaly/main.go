@@ -169,7 +169,7 @@ func run(cfg config.Cfg) error {
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
 	prometheus.MustRegister(gitCmdFactory)
 
-	catfileCache := catfile.NewCache(gitCmdFactory, cfg)
+	catfileCache := catfile.NewCache(cfg)
 	prometheus.MustRegister(catfileCache)
 
 	gitalyServerFactory := server.NewGitalyServerFactory(cfg, registry)

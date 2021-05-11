@@ -20,7 +20,7 @@ func TestRepo(t *testing.T) {
 	gittest.TestRepository(t, cfg, func(t testing.TB, pbRepo *gitalypb.Repository) git.Repository {
 		t.Helper()
 		gitCmdFactory := git.NewExecCommandFactory(cfg)
-		return New(gitCmdFactory, catfile.NewCache(gitCmdFactory, cfg), pbRepo, cfg)
+		return New(gitCmdFactory, catfile.NewCache(cfg), pbRepo, cfg)
 	})
 }
 
@@ -28,7 +28,7 @@ func TestRepo_Path(t *testing.T) {
 	t.Run("valid repository", func(t *testing.T) {
 		cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
 		gitCmdFactory := git.NewExecCommandFactory(cfg)
-		repo := New(gitCmdFactory, catfile.NewCache(gitCmdFactory, cfg), repoProto, cfg)
+		repo := New(gitCmdFactory, catfile.NewCache(cfg), repoProto, cfg)
 
 		path, err := repo.Path()
 		require.NoError(t, err)
@@ -38,7 +38,7 @@ func TestRepo_Path(t *testing.T) {
 	t.Run("deleted repository", func(t *testing.T) {
 		cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
 		gitCmdFactory := git.NewExecCommandFactory(cfg)
-		repo := New(gitCmdFactory, catfile.NewCache(gitCmdFactory, cfg), repoProto, cfg)
+		repo := New(gitCmdFactory, catfile.NewCache(cfg), repoProto, cfg)
 
 		require.NoError(t, os.RemoveAll(repoPath))
 
@@ -49,7 +49,7 @@ func TestRepo_Path(t *testing.T) {
 	t.Run("non-git repository", func(t *testing.T) {
 		cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
 		gitCmdFactory := git.NewExecCommandFactory(cfg)
-		repo := New(gitCmdFactory, catfile.NewCache(gitCmdFactory, cfg), repoProto, cfg)
+		repo := New(gitCmdFactory, catfile.NewCache(cfg), repoProto, cfg)
 
 		// Recreate the repository as a simple empty directory to simulate
 		// that the repository is in a partially-created state.

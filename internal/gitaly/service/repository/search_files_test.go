@@ -211,7 +211,7 @@ func TestSearchFilesByContentFailure(t *testing.T) {
 		config.NewLocator(cfg),
 		transaction.NewManager(cfg, backchannel.NewRegistry()),
 		gitCommandFactory,
-		catfile.NewCache(gitCommandFactory, cfg),
+		catfile.NewCache(cfg),
 	)
 
 	testCases := []struct {
@@ -332,7 +332,7 @@ func TestSearchFilesByNameFailure(t *testing.T) {
 		config.NewLocator(cfg),
 		transaction.NewManager(cfg, backchannel.NewRegistry()),
 		gitCommandFactory,
-		catfile.NewCache(gitCommandFactory, cfg),
+		catfile.NewCache(cfg),
 	)
 
 	testCases := []struct {

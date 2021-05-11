@@ -174,7 +174,7 @@ func TestFetchIntoObjectPool_Failure(t *testing.T) {
 
 	locator := config.NewLocator(cfg)
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
-	server := NewServer(cfg, locator, gitCmdFactory, catfile.NewCache(gitCmdFactory, cfg))
+	server := NewServer(cfg, locator, gitCmdFactory, catfile.NewCache(cfg))
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
