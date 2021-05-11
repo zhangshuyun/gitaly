@@ -1,4 +1,4 @@
-package cache_test
+package cache
 
 import (
 	"context"
@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/cache"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
@@ -25,14 +24,14 @@ func TestStreamDBNaiveKeyer(t *testing.T) {
 	testRepo1, _, _ := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "repository-1")
 	testRepo2, _, _ := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "repository-2")
 
-	keyer := cache.NewLeaseKeyer(config.NewLocator(cfg))
+	keyer := NewLeaseKeyer(config.NewLocator(cfg))
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
 	ctx = testhelper.SetCtxGrpcMethod(ctx, "InfoRefsUploadPack")
 
-	db := cache.NewStreamDB(cache.NewLeaseKeyer(config.NewLocator(cfg)))
+	db := NewStreamDB(NewLeaseKeyer(config.NewLocator(cfg)))
 
 	req1 := &gitalypb.InfoRefsRequest{
 		Repository: testRepo1,
@@ -43,7 +42,7 @@ func TestStreamDBNaiveKeyer(t *testing.T) {
 
 	expectGetMiss := func(req *gitalypb.InfoRefsRequest) {
 		_, err := db.GetStream(ctx, req.Repository, req)
-		require.Equal(t, cache.ErrReqNotFound, err)
+		require.Equal(t, ErrReqNotFound, err)
 	}
 
 	expectGetHit := func(expectStr string, req *gitalypb.InfoRefsRequest) {
@@ -99,16 +98,16 @@ func TestStreamDBNaiveKeyer(t *testing.T) {
 
 	// accessing repo cache with open critical section should fail
 	_, err = db.GetStream(ctx, req1.Repository, req1)
-	require.Equal(t, err, cache.ErrPendingExists)
+	require.Equal(t, err, ErrPendingExists)
 	err = db.PutStream(ctx, req1.Repository, req1, strings.NewReader(repo1contents))
-	require.Equal(t, err, cache.ErrPendingExists)
+	require.Equal(t, err, ErrPendingExists)
 
 	expectGetHit(repo2contents, req2) // other repo caches should be unaffected
 
 	// opening and closing a new critical zone doesn't resolve the issue
 	invalidationEvent(req1.Repository)
 	_, err = db.GetStream(ctx, req1.Repository, req1)
-	require.Equal(t, err, cache.ErrPendingExists)
+	require.Equal(t, err, ErrPendingExists)
 
 	// only completing/removing the pending generation file will allow access
 	require.NoError(t, repo1Lease.EndLease(ctx))
@@ -126,7 +125,7 @@ func TestLoserCount(t *testing.T) {
 	cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("storage-1", "storage-2"))
 	cfg := cfgBuilder.Build(t)
 
-	db := cache.NewStreamDB(cache.NewLeaseKeyer(config.NewLocator(cfg)))
+	db := NewStreamDB(NewLeaseKeyer(config.NewLocator(cfg)))
 
 	req := &gitalypb.InfoRefsRequest{
 		Repository: &gitalypb.Repository{
@@ -150,14 +149,14 @@ func TestLoserCount(t *testing.T) {
 
 	wg.Wait()
 
-	start := cache.ExportMockLoserBytes.Count()
+	start := ExportMockLoserBytes.Count()
 
 	for _, l := range leashes {
 		close(l)
 		require.NoError(t, <-errQ)
 	}
 
-	require.Equal(t, start+len(leashes)-1, cache.ExportMockLoserBytes.Count())
+	require.Equal(t, start+len(leashes)-1, ExportMockLoserBytes.Count())
 }
 
 type leashedReader struct {
