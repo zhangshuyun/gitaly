@@ -88,7 +88,9 @@ func (s *server) ListAllLFSPointers(in *gitalypb.ListAllLFSPointersRequest, stre
 		return status.Errorf(codes.Internal, "could not run batch-check: %v", err)
 	}
 
-	filteredReader := transform.NewReader(cmd, lfsPointerFilter{})
+	filteredReader := transform.NewReader(cmd, blobFilter{
+		maxSize: lfsPointerMaxSize,
+	})
 	lfsPointers, err := readLFSPointers(ctx, repo, filteredReader, int(in.Limit))
 	if err != nil {
 		return status.Errorf(codes.Internal, "could not read LFS pointers: %v", err)
