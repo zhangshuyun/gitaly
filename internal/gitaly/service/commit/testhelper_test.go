@@ -2,19 +2,17 @@ package commit
 
 import (
 	"io"
-	"net"
 	"os"
 	"testing"
 
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/linguist"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
 )
@@ -68,31 +66,15 @@ func setupCommitServiceCreateRepo(
 
 func startTestServices(t testing.TB, cfg config.Cfg) string {
 	t.Helper()
-
-	server := testhelper.NewTestGrpcServer(t, nil, nil)
-	t.Cleanup(server.Stop)
-
-	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
-
-	listener, err := net.Listen("unix", serverSocketPath)
-	require.NoError(t, err)
-
-	ling, err := linguist.New(cfg)
-	require.NoError(t, err)
-
-	gitCommandFactory := git.NewExecCommandFactory(cfg)
-	catfileCache := catfile.NewCache(gitCommandFactory, cfg)
-
-	gitalypb.RegisterCommitServiceServer(server, NewServer(
-		cfg,
-		config.NewLocator(cfg),
-		gitCommandFactory,
-		ling,
-		catfileCache,
-	))
-
-	go server.Serve(listener)
-	return "unix://" + serverSocketPath
+	return testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
+		gitalypb.RegisterCommitServiceServer(srv, NewServer(
+			deps.GetCfg(),
+			deps.GetLocator(),
+			deps.GetGitCmdFactory(),
+			deps.GetLinguist(),
+			deps.GetCatfileCache(),
+		))
+	})
 }
 
 func newCommitServiceClient(t testing.TB, serviceSocketPath string) gitalypb.CommitServiceClient {

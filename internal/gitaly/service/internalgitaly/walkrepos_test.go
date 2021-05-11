@@ -65,11 +65,7 @@ func TestWalkRepos(t *testing.T) {
 		},
 	}
 
-	server, serverSocketPath := runInternalGitalyServer(t, wsrv)
-	defer server.Stop()
-
-	client, conn := newInternalGitalyClient(t, serverSocketPath)
-	defer conn.Close()
+	client := setupInternalGitalyService(t, cfg, wsrv)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()

@@ -9,6 +9,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
@@ -27,7 +28,7 @@ func testMain(m *testing.M) int {
 }
 
 func TestNamespaceExists(t *testing.T) {
-	cfg, client := setupNamespaceService(t)
+	cfg, client := setupNamespaceService(t, testserver.WithDisablePraefect())
 	existingStorage := cfg.Storages[0]
 
 	ctx, cancel := testhelper.Context()

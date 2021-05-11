@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/middleware/metadatahandler"
@@ -30,6 +31,8 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/transactions"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/promtest"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -1418,7 +1421,6 @@ func TestCoordinator_grpcErrorHandling(t *testing.T) {
 
 	type gitalyNode struct {
 		mock            *nodes.MockNode
-		grpcServer      *grpc.Server
 		operationServer *mockOperationServer
 	}
 
@@ -1462,19 +1464,18 @@ func TestCoordinator_grpcErrorHandling(t *testing.T) {
 			for _, gitaly := range []string{"primary", "secondary-1", "secondary-2"} {
 				gitaly := gitaly
 
-				grpcServer := testhelper.NewTestGrpcServer(t, nil, nil)
+				cfg := testcfg.Build(t, testcfg.WithStorages(gitaly))
+				cfg.ListenAddr = ":0"
 
 				operationServer := &mockOperationServer{
 					t:  t,
 					wg: &wg,
 				}
-				gitalypb.RegisterOperationServiceServer(grpcServer, operationServer)
+				addr := testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
+					gitalypb.RegisterOperationServiceServer(srv, operationServer)
+				})
 
-				listener, address := testhelper.GetLocalhostListener(t)
-				go grpcServer.Serve(listener)
-				defer grpcServer.Stop()
-
-				conn, err := client.DialContext(ctx, "tcp://"+address, []grpc.DialOption{
+				conn, err := client.DialContext(ctx, addr, []grpc.DialOption{
 					grpc.WithDefaultCallOptions(grpc.ForceCodec(proxy.NewCodec())),
 				})
 				require.NoError(t, err)
@@ -1485,12 +1486,11 @@ func TestCoordinator_grpcErrorHandling(t *testing.T) {
 						Healthy:          true,
 						GetStorageMethod: func() string { return gitaly },
 					},
-					grpcServer:      grpcServer,
 					operationServer: operationServer,
 				}
 
 				praefectConfig.VirtualStorages[0].Nodes = append(praefectConfig.VirtualStorages[0].Nodes, &config.Node{
-					Address: "tcp://" + address,
+					Address: addr,
 					Storage: gitaly,
 				})
 			}

@@ -4,26 +4,22 @@ import (
 	"bytes"
 	"context"
 	"io/ioutil"
-	"net"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
-	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
-	"google.golang.org/grpc/reflection"
 )
 
 func TestReplicateRepository(t *testing.T) {
@@ -296,32 +292,17 @@ func TestReplicateRepository_FailedFetchInternalRemote(t *testing.T) {
 }
 
 func runServerWithBadFetchInternalRemote(t *testing.T, cfg config.Cfg) string {
-	server := testhelper.NewTestGrpcServer(t, nil, nil)
-	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
-
-	listener, err := net.Listen("unix", serverSocketPath)
-	require.NoError(t, err)
-
-	internalListener, err := net.Listen("unix", cfg.GitalyInternalSocketPath())
-	require.NoError(t, err)
-
-	gitCmdFactory := git.NewExecCommandFactory(cfg)
-
-	gitalypb.RegisterRepositoryServiceServer(server, NewServer(
-		cfg,
-		nil,
-		config.NewLocator(cfg),
-		transaction.NewManager(cfg, backchannel.NewRegistry()),
-		gitCmdFactory,
-		catfile.NewCache(gitCmdFactory, cfg),
-	))
-	gitalypb.RegisterRemoteServiceServer(server, &mockRemoteServer{})
-	reflection.Register(server)
-
-	go server.Serve(listener)
-	go server.Serve(internalListener)
-	t.Cleanup(server.Stop)
-	return "unix://" + serverSocketPath
+	return testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
+		gitalypb.RegisterRepositoryServiceServer(srv, NewServer(
+			deps.GetCfg(),
+			deps.GetRubyServer(),
+			deps.GetLocator(),
+			deps.GetTxManager(),
+			deps.GetGitCmdFactory(),
+			deps.GetCatfileCache(),
+		))
+		gitalypb.RegisterRemoteServiceServer(srv, &mockRemoteServer{})
+	})
 }
 
 type mockRemoteServer struct {

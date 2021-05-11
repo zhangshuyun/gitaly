@@ -1,23 +1,18 @@
 package objectpool
 
 import (
-	"context"
-	"net"
 	"os"
 	"testing"
 
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
-	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service"
 	hookservice "gitlab.com/gitlab-org/gitaly/internal/gitaly/service/hook"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
-	"gitlab.com/gitlab-org/gitaly/internal/gitlab"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
 )
@@ -33,7 +28,7 @@ func testMain(m *testing.M) int {
 	return m.Run()
 }
 
-func setup(t *testing.T) (config.Cfg, *gitalypb.Repository, string, storage.Locator, gitalypb.ObjectPoolServiceClient) {
+func setup(t *testing.T, opts ...testserver.GitalyServerOpt) (config.Cfg, *gitalypb.Repository, string, storage.Locator, gitalypb.ObjectPoolServiceClient) {
 	t.Helper()
 
 	cfg, repo, repoPath := testcfg.BuildWithRepo(t)
@@ -41,51 +36,27 @@ func setup(t *testing.T) (config.Cfg, *gitalypb.Repository, string, storage.Loca
 	testhelper.ConfigureGitalyHooksBin(t, cfg)
 
 	locator := config.NewLocator(cfg)
-	server, serverSocketPath := runObjectPoolServer(t, cfg, locator)
-	t.Cleanup(server.Stop)
+	addr := runObjectPoolServer(t, cfg, locator, testhelper.DiscardTestLogger(t), opts...)
 
-	client, conn := newObjectPoolClient(t, serverSocketPath)
-	t.Cleanup(func() { conn.Close() })
+	conn, err := grpc.Dial(addr, grpc.WithInsecure())
+	require.NoError(t, err)
+	t.Cleanup(func() { testhelper.MustClose(t, conn) })
 
-	return cfg, repo, repoPath, locator, client
+	return cfg, repo, repoPath, locator, gitalypb.NewObjectPoolServiceClient(conn)
 }
 
-func runObjectPoolServer(t *testing.T, cfg config.Cfg, locator storage.Locator) (*grpc.Server, string) {
-	server := testhelper.NewTestGrpcServer(t, nil, nil)
-
-	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
-	listener, err := net.Listen("unix", serverSocketPath)
-	require.NoError(t, err)
-
-	internalListener, err := net.Listen("unix", cfg.GitalyInternalSocketPath())
-	require.NoError(t, err)
-
-	txManager := transaction.NewManager(cfg, backchannel.NewRegistry())
-	hookManager := hook.NewManager(locator, txManager, gitlab.NewMockClient(), cfg)
-	gitCmdFactory := git.NewExecCommandFactory(cfg)
-
-	gitalypb.RegisterObjectPoolServiceServer(server, NewServer(cfg, locator, gitCmdFactory, catfile.NewCache(gitCmdFactory, cfg)))
-	gitalypb.RegisterHookServiceServer(server, hookservice.NewServer(cfg, hookManager, gitCmdFactory))
-
-	go server.Serve(listener)
-	go server.Serve(internalListener)
-
-	return server, serverSocketPath
-}
-
-func newObjectPoolClient(t *testing.T, serverSocketPath string) (gitalypb.ObjectPoolServiceClient, *grpc.ClientConn) {
-	connOpts := []grpc.DialOption{
-		grpc.WithInsecure(),
-		grpc.WithContextDialer(func(ctx context.Context, addr string) (conn net.Conn, err error) {
-			d := net.Dialer{}
-			return d.DialContext(ctx, "unix", addr)
-		}),
-	}
-
-	conn, err := grpc.Dial(serverSocketPath, connOpts...)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	return gitalypb.NewObjectPoolServiceClient(conn), conn
+func runObjectPoolServer(t *testing.T, cfg config.Cfg, locator storage.Locator, logger *logrus.Logger, opts ...testserver.GitalyServerOpt) string {
+	return testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
+		gitalypb.RegisterObjectPoolServiceServer(srv, NewServer(
+			deps.GetCfg(),
+			deps.GetLocator(),
+			deps.GetGitCmdFactory(),
+			deps.GetCatfileCache(),
+		))
+		gitalypb.RegisterHookServiceServer(srv, hookservice.NewServer(
+			deps.GetCfg(),
+			deps.GetHookManager(),
+			deps.GetGitCmdFactory(),
+		))
+	}, append(opts, testserver.WithLocator(locator), testserver.WithLogger(logger))...)
 }

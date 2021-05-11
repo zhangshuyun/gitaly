@@ -1,23 +1,22 @@
 package server
 
 import (
-	"net"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
-	internalauth "gitlab.com/gitlab-org/gitaly/internal/gitaly/config/auth"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/server/auth"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config/auth"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
 	"gitlab.com/gitlab-org/gitaly/internal/version"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/reflection"
 )
 
 func TestGitalyServerInfo(t *testing.T) {
@@ -25,11 +24,9 @@ func TestGitalyServerInfo(t *testing.T) {
 
 	cfg.Storages = append(cfg.Storages, config.Storage{Name: "broken", Path: "/does/not/exist"})
 
-	server, serverSocketPath := runServer(t, cfg)
-	defer server.Stop()
+	addr := runServer(t, cfg, testserver.WithDisablePraefect())
 
-	client, conn := newServerClient(t, serverSocketPath)
-	defer conn.Close()
+	client := newServerClient(t, addr)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -59,41 +56,20 @@ func TestGitalyServerInfo(t *testing.T) {
 	require.Equal(t, uint32(1), c.GetStorageStatuses()[1].ReplicationFactor)
 }
 
-func runServer(t *testing.T, cfg config.Cfg) (*grpc.Server, string) {
-	authConfig := internalauth.Config{Token: testhelper.RepositoryAuthToken}
-	streamInt := []grpc.StreamServerInterceptor{auth.StreamServerInterceptor(authConfig)}
-	unaryInt := []grpc.UnaryServerInterceptor{auth.UnaryServerInterceptor(authConfig)}
-
-	server := testhelper.NewTestGrpcServer(t, streamInt, unaryInt)
-	serverSocketPath := testhelper.GetTemporaryGitalySocketFileName(t)
-
-	listener, err := net.Listen("unix", serverSocketPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	gitCmdFactory := git.NewExecCommandFactory(cfg)
-	gitalypb.RegisterServerServiceServer(server, NewServer(gitCmdFactory, cfg.Storages))
-	reflection.Register(server)
-
-	go server.Serve(listener)
-
-	return server, "unix://" + serverSocketPath
+func runServer(t *testing.T, cfg config.Cfg, opts ...testserver.GitalyServerOpt) string {
+	return testserver.RunGitalyServer(t, cfg, nil, func(srv *grpc.Server, deps *service.Dependencies) {
+		gitalypb.RegisterServerServiceServer(srv, NewServer(deps.GetGitCmdFactory(), deps.GetCfg().Storages))
+	}, opts...)
 }
 
 func TestServerNoAuth(t *testing.T) {
-	cfg := testcfg.Build(t)
+	cfg := testcfg.Build(t, testcfg.WithBase(config.Cfg{Auth: auth.Config{Token: "some"}}))
 
-	srv, path := runServer(t, cfg)
-	defer srv.Stop()
+	addr := runServer(t, cfg)
 
-	connOpts := []grpc.DialOption{
-		grpc.WithInsecure(),
-	}
-
-	conn, err := grpc.Dial(path, connOpts...)
-	if err != nil {
-		t.Fatal(err)
-	}
+	conn, err := grpc.Dial(addr, grpc.WithInsecure())
+	require.NoError(t, err)
+	t.Cleanup(func() { testhelper.MustClose(t, conn) })
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -104,15 +80,14 @@ func TestServerNoAuth(t *testing.T) {
 	testhelper.RequireGrpcError(t, err, codes.Unauthenticated)
 }
 
-func newServerClient(t *testing.T, serverSocketPath string) (gitalypb.ServerServiceClient, *grpc.ClientConn) {
+func newServerClient(t *testing.T, serverSocketPath string) gitalypb.ServerServiceClient {
 	connOpts := []grpc.DialOption{
 		grpc.WithInsecure(),
 		grpc.WithPerRPCCredentials(gitalyauth.RPCCredentialsV2(testhelper.RepositoryAuthToken)),
 	}
 	conn, err := grpc.Dial(serverSocketPath, connOpts...)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
+	t.Cleanup(func() { testhelper.MustClose(t, conn) })
 
-	return gitalypb.NewServerServiceClient(conn), conn
+	return gitalypb.NewServerServiceClient(conn)
 }
