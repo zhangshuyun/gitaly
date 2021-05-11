@@ -6,13 +6,14 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
 
 func TestWriteRefSuccessful(t *testing.T) {
-	_, repo, repoPath, client := setupRepositoryService(t)
+	cfg, repo, repoPath, client := setupRepositoryService(t)
 
 	testCases := []struct {
 		desc string
@@ -61,7 +62,7 @@ func TestWriteRefSuccessful(t *testing.T) {
 				require.EqualValues(t, content, refRevision)
 				return
 			}
-			rev := testhelper.MustRunCommand(t, nil, "git", "--git-dir", repoPath, "log", "--pretty=%H", "-1", string(tc.req.Ref))
+			rev := gittest.Exec(t, cfg, "--git-dir", repoPath, "log", "--pretty=%H", "-1", string(tc.req.Ref))
 
 			rev = bytes.Replace(rev, []byte("\n"), nil, 1)
 

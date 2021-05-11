@@ -357,7 +357,7 @@ func testUpdateRemoteMirrorFeatured(t *testing.T, ctx context.Context, cfg confi
 			defer cleanSourceRepo()
 
 			// configure the mirror repository as a remote in the source
-			testhelper.MustRunCommand(t, nil, "git", "-C", sourceRepoPath, "remote", "add", "mirror", mirrorRepoPath)
+			gittest.Exec(t, cfg, "-C", sourceRepoPath, "remote", "add", "mirror", mirrorRepoPath)
 
 			// create identical commits in both repositories so we can use them for
 			// the references
@@ -383,7 +383,7 @@ func testUpdateRemoteMirrorFeatured(t *testing.T, ctx context.Context, cfg confi
 						require.NoError(t, err)
 					}
 
-					testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "update-ref", reference, commitOID.String())
+					gittest.Exec(t, cfg, "-C", repoPath, "update-ref", reference, commitOID.String())
 				}
 			}
 			for repoPath, symRefs := range map[string]map[string]string{
@@ -391,7 +391,7 @@ func testUpdateRemoteMirrorFeatured(t *testing.T, ctx context.Context, cfg confi
 				mirrorRepoPath: tc.mirrorSymRefs,
 			} {
 				for symRef, targetRef := range symRefs {
-					testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "symbolic-ref", symRef, targetRef)
+					gittest.Exec(t, cfg, "-C", repoPath, "symbolic-ref", symRef, targetRef)
 				}
 			}
 
@@ -425,7 +425,7 @@ func testUpdateRemoteMirrorFeatured(t *testing.T, ctx context.Context, cfg confi
 			// the same.
 			actualMirrorRefs := map[string]string{}
 
-			refLines := strings.Split(text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", mirrorRepoPath, "for-each-ref", "--format=%(refname)%00%(contents:subject)")), "\n")
+			refLines := strings.Split(text.ChompBytes(gittest.Exec(t, cfg, "-C", mirrorRepoPath, "for-each-ref", "--format=%(refname)%00%(contents:subject)")), "\n")
 			for _, line := range refLines {
 				if line == "" {
 					continue
@@ -499,10 +499,10 @@ func testSuccessfulUpdateRemoteMirrorRequestFeatured(t *testing.T, ctx context.C
 	for _, args := range setupCommands {
 		gitArgs := []string{"-C", testRepoPath}
 		gitArgs = append(gitArgs, args...)
-		testhelper.MustRunCommand(t, nil, "git", gitArgs...)
+		gittest.Exec(t, cfg, gitArgs...)
 	}
 
-	newTagOid := string(testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "rev-parse", "v1.0.0"))
+	newTagOid := string(gittest.Exec(t, cfg, "-C", testRepoPath, "rev-parse", "v1.0.0"))
 	newTagOid = strings.TrimSpace(newTagOid)
 	require.NotEqual(t, newTagOid, "f4e6814c3e4e7a0de82a9e7cd20c626cc963a2f8") // Sanity check that the tag did in fact change
 
@@ -529,10 +529,10 @@ func testSuccessfulUpdateRemoteMirrorRequestFeatured(t *testing.T, ctx context.C
 	require.Empty(t, response.DivergentRefs)
 
 	// Ensure the local repository still has no reference to the mirror-only commit
-	localRefs := string(testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "for-each-ref"))
+	localRefs := string(gittest.Exec(t, cfg, "-C", testRepoPath, "for-each-ref"))
 	require.NotContains(t, localRefs, mirrorOnlyCommitOid)
 
-	mirrorRefs := string(testhelper.MustRunCommand(t, nil, "git", "-C", mirrorPath, "for-each-ref"))
+	mirrorRefs := string(gittest.Exec(t, cfg, "-C", mirrorPath, "for-each-ref"))
 
 	require.Contains(t, mirrorRefs, mirrorOnlyCommitOid)
 	require.Contains(t, mirrorRefs, "60ecb67744cb56576c30214ff52294f8ce2def98 commit\trefs/heads/new-branch")
@@ -598,14 +598,14 @@ func testSuccessfulUpdateRemoteMirrorRequestWithWildcardsFeatured(t *testing.T, 
 	for _, args := range setupCommands {
 		gitArgs := []string{"-C", testRepoPath}
 		gitArgs = append(gitArgs, args...)
-		testhelper.MustRunCommand(t, nil, "git", gitArgs...)
+		gittest.Exec(t, cfg, gitArgs...)
 	}
 
 	// Workaround for https://gitlab.com/gitlab-org/gitaly/issues/1439
 	// Create a tag on the remote to ensure it gets deleted later
 	gittest.CreateTag(t, cfg, mirrorPath, "v1.2.0", "master", nil)
 
-	newTagOid := string(testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "rev-parse", "v1.0.0"))
+	newTagOid := string(gittest.Exec(t, cfg, "-C", testRepoPath, "rev-parse", "v1.0.0"))
 	newTagOid = strings.TrimSpace(newTagOid)
 	require.NotEqual(t, newTagOid, "f4e6814c3e4e7a0de82a9e7cd20c626cc963a2f8") // Sanity check that the tag did in fact change
 	firstRequest := &gitalypb.UpdateRemoteMirrorRequest{
@@ -622,7 +622,7 @@ func testSuccessfulUpdateRemoteMirrorRequestWithWildcardsFeatured(t *testing.T, 
 	require.NoError(t, err)
 	require.Empty(t, response.DivergentRefs)
 
-	mirrorRefs := string(testhelper.MustRunCommand(t, nil, "git", "-C", mirrorPath, "for-each-ref"))
+	mirrorRefs := string(gittest.Exec(t, cfg, "-C", mirrorPath, "for-each-ref"))
 	require.Contains(t, mirrorRefs, "60ecb67744cb56576c30214ff52294f8ce2def98 commit\trefs/heads/11-0-stable")
 	require.Contains(t, mirrorRefs, "60ecb67744cb56576c30214ff52294f8ce2def98 commit\trefs/heads/11-1-stable")
 	require.Contains(t, mirrorRefs, "0b4bc9a49b562e85de7cc9e834518ea6828729b9 commit\trefs/heads/feature")
@@ -684,7 +684,7 @@ func testSuccessfulUpdateRemoteMirrorRequestWithKeepDivergentRefsFeatured(t *tes
 	for _, args := range setupCommands {
 		gitArgs := []string{"-C", testRepoPath}
 		gitArgs = append(gitArgs, args...)
-		testhelper.MustRunCommand(t, nil, "git", gitArgs...)
+		gittest.Exec(t, cfg, gitArgs...)
 	}
 	firstRequest := &gitalypb.UpdateRemoteMirrorRequest{
 		Repository:        testRepo,
@@ -700,7 +700,7 @@ func testSuccessfulUpdateRemoteMirrorRequestWithKeepDivergentRefsFeatured(t *tes
 	require.NoError(t, err)
 	require.ElementsMatch(t, response.DivergentRefs, [][]byte{[]byte("refs/heads/master")})
 
-	mirrorRefs := string(testhelper.MustRunCommand(t, nil, "git", "-C", mirrorPath, "for-each-ref"))
+	mirrorRefs := string(gittest.Exec(t, cfg, "-C", mirrorPath, "for-each-ref"))
 
 	// Verify `master` didn't get updated, since its HEAD is no longer an ancestor of remote's version
 	require.Contains(t, mirrorRefs, "1e292f8fedd741b75372e19097c76d327140c312 commit\trefs/heads/master")
@@ -719,7 +719,7 @@ func testSuccessfulUpdateRemoteMirrorRequestWithKeepDivergentRefsFeatured(t *tes
 	_, err = stream.CloseAndRecv()
 	require.NoError(t, err)
 
-	mirrorRefs = string(testhelper.MustRunCommand(t, nil, "git", "-C", mirrorPath, "for-each-ref"))
+	mirrorRefs = string(gittest.Exec(t, cfg, "-C", mirrorPath, "for-each-ref"))
 
 	// Verify `master` gets overwritten with the value from the source
 	require.Contains(t, mirrorRefs, "ba3faa7dbecdb555c748b36e8bc0f427e69de5e7 commit\trefs/heads/master")

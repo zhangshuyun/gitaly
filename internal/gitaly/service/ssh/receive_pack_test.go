@@ -490,7 +490,7 @@ func TestSSHReceivePackToHooks(t *testing.T) {
 
 	cfg.GitlabShell.Dir = tempGitlabShellDir
 
-	cloneDetails, cleanup := setupSSHClone(t, cfg.Storages[0].Path, repo)
+	cloneDetails, cleanup := setupSSHClone(t, cfg, cfg.Storages[0].Path, repo)
 	defer cleanup()
 
 	serverURL, cleanup := testhelper.NewGitlabTestServer(t, testhelper.GitlabTestServerOptions{
@@ -535,7 +535,7 @@ type SSHCloneDetails struct {
 }
 
 // setupSSHClone sets up a test clone
-func setupSSHClone(t *testing.T, storagePath string, testRepo *gitalypb.Repository) (SSHCloneDetails, func()) {
+func setupSSHClone(t *testing.T, cfg config.Cfg, storagePath string, testRepo *gitalypb.Repository) (SSHCloneDetails, func()) {
 	tempRepo := "gitlab-test-ssh-receive-pack.git"
 	testRepoPath := filepath.Join(storagePath, testRepo.GetRelativePath())
 	remoteRepoPath := filepath.Join(storagePath, tempRepo)
@@ -544,15 +544,15 @@ func setupSSHClone(t *testing.T, storagePath string, testRepo *gitalypb.Reposito
 	if err := os.RemoveAll(remoteRepoPath); err != nil && !os.IsNotExist(err) {
 		t.Fatal(err)
 	}
-	testhelper.MustRunCommand(t, nil, "git", "clone", "--bare", testRepoPath, remoteRepoPath)
+	gittest.Exec(t, cfg, "clone", "--bare", testRepoPath, remoteRepoPath)
 	// Make a non-bare clone of the test repo to act as a local one
 	if err := os.RemoveAll(localRepoPath); err != nil && !os.IsNotExist(err) {
 		t.Fatal(err)
 	}
-	testhelper.MustRunCommand(t, nil, "git", "clone", remoteRepoPath, localRepoPath)
+	gittest.Exec(t, cfg, "clone", remoteRepoPath, localRepoPath)
 
 	// We need git thinking we're pushing over SSH...
-	oldHead, newHead, success := makeCommit(t, localRepoPath)
+	oldHead, newHead, success := makeCommit(t, cfg, localRepoPath)
 	require.True(t, success)
 
 	return SSHCloneDetails{
@@ -601,21 +601,21 @@ func sshPush(t *testing.T, cfg config.Cfg, cloneDetails SSHCloneDetails, serverS
 		return "", "", fmt.Errorf("failed to run `git push`: %q", out)
 	}
 
-	localHead := bytes.TrimSpace(testhelper.MustRunCommand(t, nil, "git", "-C", cloneDetails.LocalRepoPath, "rev-parse", "master"))
-	remoteHead := bytes.TrimSpace(testhelper.MustRunCommand(t, nil, "git", "-C", cloneDetails.RemoteRepoPath, "rev-parse", "master"))
+	localHead := bytes.TrimSpace(gittest.Exec(t, cfg, "-C", cloneDetails.LocalRepoPath, "rev-parse", "master"))
+	remoteHead := bytes.TrimSpace(gittest.Exec(t, cfg, "-C", cloneDetails.RemoteRepoPath, "rev-parse", "master"))
 
 	return string(localHead), string(remoteHead), nil
 }
 
 func testCloneAndPush(t *testing.T, cfg config.Cfg, storagePath, serverSocketPath string, testRepo *gitalypb.Repository, params pushParams) (string, string, error) {
-	cloneDetails, cleanup := setupSSHClone(t, storagePath, testRepo)
+	cloneDetails, cleanup := setupSSHClone(t, cfg, storagePath, testRepo)
 	defer cleanup()
 
 	return sshPush(t, cfg, cloneDetails, serverSocketPath, params)
 }
 
 // makeCommit creates a new commit and returns oldHead, newHead, success
-func makeCommit(t *testing.T, localRepoPath string) ([]byte, []byte, bool) {
+func makeCommit(t *testing.T, cfg config.Cfg, localRepoPath string) ([]byte, []byte, bool) {
 	commitMsg := fmt.Sprintf("Testing ReceivePack RPC around %d", time.Now().Unix())
 	committerName := "Scrooge McDuck"
 	committerEmail := "scrooge@mcduck.com"
@@ -623,12 +623,12 @@ func makeCommit(t *testing.T, localRepoPath string) ([]byte, []byte, bool) {
 
 	// Create a tiny file and add it to the index
 	require.NoError(t, ioutil.WriteFile(newFilePath, []byte("foo bar"), 0644))
-	testhelper.MustRunCommand(t, nil, "git", "-C", localRepoPath, "add", ".")
+	gittest.Exec(t, cfg, "-C", localRepoPath, "add", ".")
 
 	// The latest commit ID on the remote repo
-	oldHead := bytes.TrimSpace(testhelper.MustRunCommand(t, nil, "git", "-C", localRepoPath, "rev-parse", "master"))
+	oldHead := bytes.TrimSpace(gittest.Exec(t, cfg, "-C", localRepoPath, "rev-parse", "master"))
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", localRepoPath,
+	gittest.Exec(t, cfg, "-C", localRepoPath,
 		"-c", fmt.Sprintf("user.name=%s", committerName),
 		"-c", fmt.Sprintf("user.email=%s", committerEmail),
 		"commit", "-m", commitMsg)
@@ -637,7 +637,7 @@ func makeCommit(t *testing.T, localRepoPath string) ([]byte, []byte, bool) {
 	}
 
 	// The commit ID we want to push to the remote repo
-	newHead := bytes.TrimSpace(testhelper.MustRunCommand(t, nil, "git", "-C", localRepoPath, "rev-parse", "master"))
+	newHead := bytes.TrimSpace(gittest.Exec(t, cfg, "-C", localRepoPath, "rev-parse", "master"))
 
 	return oldHead, newHead, true
 }

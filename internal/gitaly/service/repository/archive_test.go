@@ -405,7 +405,7 @@ func TestGetArchiveFailure(t *testing.T) {
 }
 
 func TestGetArchivePathInjection(t *testing.T) {
-	_, repo, repoPath, client := setupRepositoryServiceWithWorktree(t)
+	cfg, repo, repoPath, client := setupRepositoryServiceWithWorktree(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -436,9 +436,9 @@ func TestGetArchivePathInjection(t *testing.T) {
 	require.NoError(t, f.Close())
 
 	// Add the directory to the repository
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "add", ".")
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "commit", "-m", "adding fake key file")
-	commitID := strings.TrimRight(string(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", "HEAD")), "\n")
+	gittest.Exec(t, cfg, "-C", repoPath, "add", ".")
+	gittest.Exec(t, cfg, "-C", repoPath, "commit", "-m", "adding fake key file")
+	commitID := strings.TrimRight(string(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "HEAD")), "\n")
 
 	injectionPath := fmt.Sprintf("--output=%s", authorizedKeysPath)
 

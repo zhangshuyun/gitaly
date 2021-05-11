@@ -14,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -74,7 +75,7 @@ func testSuccessfulUserSquashRequest(t *testing.T, ctx context.Context, start, e
 	require.Equal(t, testhelper.TestUser.Email, commit.Committer.Email)
 	require.Equal(t, commitMessage, commit.Subject)
 
-	treeData := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "ls-tree", "--name-only", response.SquashSha)
+	treeData := gittest.Exec(t, cfg, "-C", repoPath, "ls-tree", "--name-only", response.SquashSha)
 	files := strings.Fields(text.ChompBytes(treeData))
 	require.Subset(t, files, []string{"VERSION", "README", "files", ".gitattributes"}, "ensure the files remain on their places")
 }
@@ -126,8 +127,8 @@ func TestUserSquash_stableID(t *testing.T) {
 	}, commit)
 }
 
-func ensureSplitIndexExists(t *testing.T, repoDir string) bool {
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoDir, "update-index", "--add")
+func ensureSplitIndexExists(t *testing.T, cfg config.Cfg, repoDir string) bool {
+	gittest.Exec(t, cfg, "-C", repoDir, "update-index", "--add")
 
 	fis, err := ioutil.ReadDir(repoDir)
 	require.NoError(t, err)
@@ -176,7 +177,7 @@ func TestSuccessfulUserSquashRequestWith3wayMerge(t *testing.T) {
 	require.NoError(t, err)
 
 	// Ensure Git metadata is cleaned up
-	worktreeList := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "worktree", "list", "--porcelain"))
+	worktreeList := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "worktree", "list", "--porcelain"))
 	expectedOut := fmt.Sprintf("worktree %s\nbare\n", repoPath)
 	require.Equal(t, expectedOut, worktreeList)
 
@@ -190,9 +191,9 @@ func TestSplitIndex(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	ctx, _, repo, repoPath, client := setupOperationsService(t, ctx)
+	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
-	require.False(t, ensureSplitIndexExists(t, repoPath))
+	require.False(t, ensureSplitIndexExists(t, cfg, repoPath))
 
 	request := &gitalypb.UserSquashRequest{
 		Repository:    repo,
@@ -207,7 +208,7 @@ func TestSplitIndex(t *testing.T) {
 	response, err := client.UserSquash(ctx, request)
 	require.NoError(t, err)
 	require.Empty(t, response.GetGitError())
-	require.False(t, ensureSplitIndexExists(t, repoPath))
+	require.False(t, ensureSplitIndexExists(t, cfg, repoPath))
 }
 
 func TestSquashRequestWithRenamedFiles(t *testing.T) {
@@ -224,27 +225,27 @@ func TestSquashRequestWithRenamedFiles(t *testing.T) {
 	originalFilename := "original-file.txt"
 	renamedFilename := "renamed-file.txt"
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "testhelper.TestUser.name", string(author.Name))
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "testhelper.TestUser.email", string(author.Email))
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "checkout", "-b", "squash-rename-test", "master")
+	gittest.Exec(t, cfg, "-C", repoPath, "config", "testhelper.TestUser.name", string(author.Name))
+	gittest.Exec(t, cfg, "-C", repoPath, "config", "testhelper.TestUser.email", string(author.Email))
+	gittest.Exec(t, cfg, "-C", repoPath, "checkout", "-b", "squash-rename-test", "master")
 	require.NoError(t, ioutil.WriteFile(filepath.Join(repoPath, originalFilename), []byte("This is a test"), 0644))
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "add", ".")
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "commit", "-m", "test file")
+	gittest.Exec(t, cfg, "-C", repoPath, "add", ".")
+	gittest.Exec(t, cfg, "-C", repoPath, "commit", "-m", "test file")
 
-	startCommitID := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", "HEAD"))
+	startCommitID := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "HEAD"))
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "mv", originalFilename, renamedFilename)
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "commit", "-a", "-m", "renamed test file")
+	gittest.Exec(t, cfg, "-C", repoPath, "mv", originalFilename, renamedFilename)
+	gittest.Exec(t, cfg, "-C", repoPath, "commit", "-a", "-m", "renamed test file")
 
 	// Modify the original file in another branch
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "checkout", "-b", "squash-rename-branch", startCommitID)
+	gittest.Exec(t, cfg, "-C", repoPath, "checkout", "-b", "squash-rename-branch", startCommitID)
 	require.NoError(t, ioutil.WriteFile(filepath.Join(repoPath, originalFilename), []byte("This is a change"), 0644))
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "commit", "-a", "-m", "test")
+	gittest.Exec(t, cfg, "-C", repoPath, "commit", "-a", "-m", "test")
 
 	require.NoError(t, ioutil.WriteFile(filepath.Join(repoPath, originalFilename), []byte("This is another change"), 0644))
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "commit", "-a", "-m", "test")
+	gittest.Exec(t, cfg, "-C", repoPath, "commit", "-a", "-m", "test")
 
-	endCommitID := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", "HEAD"))
+	endCommitID := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "HEAD"))
 
 	request := &gitalypb.UserSquashRequest{
 		Repository:    repoProto,

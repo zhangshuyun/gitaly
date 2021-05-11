@@ -215,10 +215,10 @@ size 12345`
 	})
 
 	t.Run("dangling LFS pointer", func(t *testing.T) {
-		_, repo, repoPath, client := setup(t)
+		cfg, repo, repoPath, client := setup(t)
 
-		lfsPointerOID := text.ChompBytes(testhelper.MustRunCommand(t, strings.NewReader(lfsPointerContents),
-			"git", "-C", repoPath, "hash-object", "-w", "--stdin"))
+		hash := gittest.ExecStream(t, cfg, strings.NewReader(lfsPointerContents), "-C", repoPath, "hash-object", "-w", "--stdin")
+		lfsPointerOID := text.ChompBytes(hash)
 
 		stream, err := client.ListAllLFSPointers(ctx, &gitalypb.ListAllLFSPointersRequest{
 			Repository: repo,
@@ -511,7 +511,7 @@ func BenchmarkReadLFSPointers(b *testing.B) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	candidates := testhelper.MustRunCommand(b, nil, "git", "-C", path, "rev-list", "--in-commit-order", "--objects", "--no-object-names", "--filter=blob:limit=200", "--all")
+	candidates := gittest.Exec(b, cfg, "-C", path, "rev-list", "--in-commit-order", "--objects", "--no-object-names", "--filter=blob:limit=200", "--all")
 
 	b.Run("limitless", func(b *testing.B) {
 		_, err := readLFSPointers(ctx, repo, bytes.NewReader(candidates), 0)

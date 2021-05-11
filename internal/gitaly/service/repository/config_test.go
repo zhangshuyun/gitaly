@@ -48,7 +48,7 @@ func TestDeleteConfig(t *testing.T) {
 			t.Cleanup(cleanupFn)
 
 			for _, k := range tc.addKeys {
-				testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", k, "blabla")
+				gittest.Exec(t, cfg, "-C", repoPath, "config", k, "blabla")
 			}
 
 			_, err := client.DeleteConfig(ctx, &gitalypb.DeleteConfigRequest{Repository: repo, Keys: tc.reqKeys})
@@ -59,7 +59,7 @@ func TestDeleteConfig(t *testing.T) {
 				return
 			}
 
-			actualConfig := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "-l")
+			actualConfig := gittest.Exec(t, cfg, "-C", repoPath, "config", "-l")
 			scanner := bufio.NewScanner(bytes.NewReader(actualConfig))
 			for scanner.Scan() {
 				for _, k := range tc.reqKeys {
@@ -115,7 +115,7 @@ func testSetConfig(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
 				return
 			}
 
-			actualConfigBytes := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "config", "--local", "-l")
+			actualConfigBytes := gittest.Exec(t, cfg, "-C", testRepoPath, "config", "--local", "-l")
 			scanner := bufio.NewScanner(bytes.NewReader(actualConfigBytes))
 
 			var actualConfig []string

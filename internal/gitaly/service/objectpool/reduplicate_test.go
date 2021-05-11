@@ -27,7 +27,7 @@ func TestReduplicate(t *testing.T) {
 	require.NoError(t, pool.Create(ctx, repo))
 	require.NoError(t, pool.Link(ctx, repo))
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "gc")
+	gittest.Exec(t, cfg, "-C", repoPath, "gc")
 
 	existingObjectID := "55bc176024cfa3baaceb71db584c7e5df900ea65"
 
@@ -47,5 +47,5 @@ func TestReduplicate(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, pool.Unlink(ctx, repo))
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "cat-file", "-e", existingObjectID)
+	gittest.Exec(t, cfg, "-C", repoPath, "cat-file", "-e", existingObjectID)
 }

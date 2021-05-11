@@ -14,7 +14,7 @@ import (
 func TestSuccessfulIsSquashInProgressRequest(t *testing.T) {
 	cfg, repo, repoPath, client := setupRepositoryService(t)
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "worktree", "add", "--detach", filepath.Join(repoPath, worktreePrefix, "squash-1"), "master")
+	gittest.Exec(t, cfg, "-C", repoPath, "worktree", "add", "--detach", filepath.Join(repoPath, worktreePrefix, "squash-1"), "master")
 
 	repoCopy, _, cleanupFn := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "copy")
 	defer cleanupFn()

@@ -164,7 +164,7 @@ func TestSuccessfulIsAncestorRequestWithAltGitObjectDirs(t *testing.T) {
 	committerName := "Scrooge McDuck"
 	committerEmail := "scrooge@mcduck.com"
 
-	previousHead := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "show", "--format=format:%H", "--no-patch", "HEAD")
+	previousHead := gittest.Exec(t, cfg, "-C", repoPath, "show", "--format=format:%H", "--no-patch", "HEAD")
 
 	cmd := exec.Command(cfg.Git.BinPath, "-C", repoPath,
 		"-c", fmt.Sprintf("user.name=%s", committerName),

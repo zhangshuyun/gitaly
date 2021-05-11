@@ -23,7 +23,7 @@ func TestServer_UserCherryPick_successful(t *testing.T) {
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	destinationBranch := "cherry-picking-dst"
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", destinationBranch, "master")
+	gittest.Exec(t, cfg, "-C", repoPath, "branch", destinationBranch, "master")
 
 	masterHeadCommit, err := repo.ReadCommit(ctx, "master")
 	require.NoError(t, err)
@@ -34,7 +34,7 @@ func TestServer_UserCherryPick_successful(t *testing.T) {
 	testRepoCopy, testRepoCopyPath, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "read-only") // read-only repo
 	defer cleanup()
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoCopyPath, "branch", destinationBranch, "master")
+	gittest.Exec(t, cfg, "-C", testRepoCopyPath, "branch", destinationBranch, "master")
 
 	testCases := []struct {
 		desc         string
@@ -178,7 +178,7 @@ func TestServer_UserCherryPick_successfulGitHooks(t *testing.T) {
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	destinationBranch := "cherry-picking-dst"
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", destinationBranch, "master")
+	gittest.Exec(t, cfg, "-C", repoPath, "branch", destinationBranch, "master")
 
 	cherryPickedCommit, err := repo.ReadCommit(ctx, "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab")
 	require.NoError(t, err)
@@ -216,7 +216,7 @@ func TestServer_UserCherryPick_stableID(t *testing.T) {
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	destinationBranch := "cherry-picking-dst"
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", destinationBranch, "master")
+	gittest.Exec(t, cfg, "-C", repoPath, "branch", destinationBranch, "master")
 
 	commitToPick, err := repo.ReadCommit(ctx, "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab")
 	require.NoError(t, err)
@@ -344,7 +344,7 @@ func TestServer_UserCherryPick_failedWithPreReceiveError(t *testing.T) {
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	destinationBranch := "cherry-picking-dst"
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", destinationBranch, "master")
+	gittest.Exec(t, cfg, "-C", repoPath, "branch", destinationBranch, "master")
 
 	cherryPickedCommit, err := repo.ReadCommit(ctx, "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab")
 	require.NoError(t, err)
@@ -379,7 +379,7 @@ func TestServer_UserCherryPick_failedWithCreateTreeError(t *testing.T) {
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	destinationBranch := "cherry-picking-dst"
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", destinationBranch, "master")
+	gittest.Exec(t, cfg, "-C", repoPath, "branch", destinationBranch, "master")
 
 	// This commit already exists in master
 	cherryPickedCommit, err := repo.ReadCommit(ctx, "4a24d82dbca5c11c61556f3b35ca472b7463187e")
@@ -409,8 +409,8 @@ func TestServer_UserCherryPick_failedWithCommitError(t *testing.T) {
 
 	sourceBranch := "cherry-pick-src"
 	destinationBranch := "cherry-picking-dst"
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", destinationBranch, "master")
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", sourceBranch, "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab")
+	gittest.Exec(t, cfg, "-C", repoPath, "branch", destinationBranch, "master")
+	gittest.Exec(t, cfg, "-C", repoPath, "branch", sourceBranch, "8a0f2ee90d940bfb0ba1e14e8214b0649056e4ab")
 
 	cherryPickedCommit, err := repo.ReadCommit(ctx, git.Revision(sourceBranch))
 	require.NoError(t, err)
@@ -438,7 +438,7 @@ func TestServer_UserCherryPick_failedWithConflict(t *testing.T) {
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
 	destinationBranch := "cherry-picking-dst"
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", destinationBranch, "conflict_branch_a")
+	gittest.Exec(t, cfg, "-C", repoPath, "branch", destinationBranch, "conflict_branch_a")
 
 	// This commit cannot be applied to the destinationBranch above
 	cherryPickedCommit, err := repo.ReadCommit(ctx, git.Revision("f0f390655872bb2772c85a0128b2fbc2d88670cb"))
@@ -482,7 +482,7 @@ func TestServer_UserCherryPick_successfulWithGivenCommits(t *testing.T) {
 		t.Run(testCase.desc, func(t *testing.T) {
 			destinationBranch := fmt.Sprintf("cherry-picking-%d", i)
 
-			testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", destinationBranch, testCase.startRevision.String())
+			gittest.Exec(t, cfg, "-C", repoPath, "branch", destinationBranch, testCase.startRevision.String())
 
 			commit, err := repo.ReadCommit(ctx, testCase.cherryRevision)
 			require.NoError(t, err)

@@ -29,9 +29,9 @@ func testWikiGetPageVersionsRequest(t *testing.T, cfg config.Cfg, rubySrv *rubys
 
 	content := bytes.Repeat([]byte("Mock wiki page content"), 10000)
 	writeWikiPage(t, client, wikiRepo, createWikiPageOpts{title: pageTitle, content: content})
-	v1cid := testhelper.MustRunCommand(t, nil, "git", "-C", wikiRepoPath, "log", "-1", "--format=%H")
+	v1cid := gittest.Exec(t, cfg, "-C", wikiRepoPath, "log", "-1", "--format=%H")
 	updateWikiPage(t, client, wikiRepo, pageTitle, []byte("New content"))
-	v2cid := testhelper.MustRunCommand(t, nil, "git", "-C", wikiRepoPath, "log", "-1", "--format=%H")
+	v2cid := gittest.Exec(t, cfg, "-C", wikiRepoPath, "log", "-1", "--format=%H")
 
 	gitAuthor := &gitalypb.CommitAuthor{
 		Name:  []byte("Ahmad Sherif"),

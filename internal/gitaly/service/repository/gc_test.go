@@ -227,7 +227,7 @@ func TestGarbageCollectFailure(t *testing.T) {
 }
 
 func TestCleanupInvalidKeepAroundRefs(t *testing.T) {
-	_, repo, repoPath, client := setupRepositoryService(t)
+	cfg, repo, repoPath, client := setupRepositoryService(t)
 
 	// Make the directory, so we can create random reflike things in it
 	require.NoError(t, os.MkdirAll(filepath.Join(repoPath, "refs", "keep-around"), 0755))
@@ -275,7 +275,7 @@ func TestCleanupInvalidKeepAroundRefs(t *testing.T) {
 			// Create a proper keep-around loose ref
 			existingSha := "1e292f8fedd741b75372e19097c76d327140c312"
 			existingRefName := fmt.Sprintf("refs/keep-around/%s", existingSha)
-			testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "update-ref", existingRefName, existingSha)
+			gittest.Exec(t, cfg, "-C", repoPath, "update-ref", existingRefName, existingSha)
 
 			// Create an invalid ref that should should be removed with the testcase
 			bogusSha := "b3f5e4adf6277b571b7943a4f0405a6dd7ee7e15"
@@ -292,7 +292,7 @@ func TestCleanupInvalidKeepAroundRefs(t *testing.T) {
 			require.NoError(t, err)
 
 			// The existing keeparound still exists
-			commitSha := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", existingRefName)
+			commitSha := gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", existingRefName)
 			require.Equal(t, existingSha, text.ChompBytes(commitSha))
 
 			//The invalid one was removed
@@ -301,7 +301,7 @@ func TestCleanupInvalidKeepAroundRefs(t *testing.T) {
 
 			if testcase.shouldExist {
 				keepAroundName := fmt.Sprintf("refs/keep-around/%s", testcase.refName)
-				commitSha := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", keepAroundName)
+				commitSha := gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", keepAroundName)
 				require.Equal(t, testcase.refName, text.ChompBytes(commitSha))
 			} else {
 				_, err := os.Stat(refPath)

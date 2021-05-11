@@ -40,7 +40,7 @@ func TestReplicateRepository(t *testing.T) {
 	// create a loose object to ensure snapshot replication is used
 	blobData, err := text.RandomHex(10)
 	require.NoError(t, err)
-	blobID := text.ChompBytes(testhelper.MustRunCommand(t, bytes.NewBuffer([]byte(blobData)), "git", "-C", repoPath, "hash-object", "-w", "--stdin"))
+	blobID := text.ChompBytes(gittest.ExecStream(t, cfg, bytes.NewBuffer([]byte(blobData)), "-C", repoPath, "hash-object", "-w", "--stdin"))
 
 	// write info attributes
 	attrFilePath := filepath.Join(repoPath, "info", "attributes")
@@ -62,7 +62,7 @@ func TestReplicateRepository(t *testing.T) {
 	require.NoError(t, err)
 
 	targetRepoPath := filepath.Join(cfg.Storages[1].Path, targetRepo.GetRelativePath())
-	testhelper.MustRunCommand(t, nil, "git", "-C", targetRepoPath, "fsck")
+	gittest.Exec(t, cfg, "-C", targetRepoPath, "fsck")
 
 	replicatedAttrFilePath := filepath.Join(targetRepoPath, "info", "attributes")
 	replicatedAttrData, err := ioutil.ReadFile(replicatedAttrFilePath)
@@ -77,12 +77,12 @@ func TestReplicateRepository(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Equal(t,
-		testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "show-ref", "--hash", "--verify", "refs/heads/branch"),
-		testhelper.MustRunCommand(t, nil, "git", "-C", targetRepoPath, "show-ref", "--hash", "--verify", "refs/heads/branch"),
+		gittest.Exec(t, cfg, "-C", repoPath, "show-ref", "--hash", "--verify", "refs/heads/branch"),
+		gittest.Exec(t, cfg, "-C", targetRepoPath, "show-ref", "--hash", "--verify", "refs/heads/branch"),
 	)
 
 	// if an unreachable object has been replicated, that means snapshot replication was used
-	testhelper.MustRunCommand(t, nil, "git", "-C", targetRepoPath, "cat-file", "-p", blobID)
+	gittest.Exec(t, cfg, "-C", targetRepoPath, "cat-file", "-p", blobID)
 }
 
 func TestReplicateRepositoryInvalidArguments(t *testing.T) {
@@ -251,7 +251,7 @@ func TestReplicateRepository_BadRepository(t *testing.T) {
 			}
 
 			require.NoError(t, err)
-			testhelper.MustRunCommand(t, nil, "git", "-C", targetRepoPath, "fsck")
+			gittest.Exec(t, cfg, "-C", targetRepoPath, "fsck")
 		})
 	}
 }

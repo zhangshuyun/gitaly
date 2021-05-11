@@ -158,8 +158,8 @@ func TestGetSnapshotWithDedupe(t *testing.T) {
 			defer cleanupCopy()
 
 			// ensure the sha committed to the alternates directory can be accessed
-			testhelper.MustRunCommand(t, nil, "git", "-C", repoCopyPath, "cat-file", "-p", originalAlternatesCommit)
-			testhelper.MustRunCommand(t, nil, "git", "-C", repoCopyPath, "fsck")
+			gittest.Exec(t, cfg, "-C", repoCopyPath, "cat-file", "-p", originalAlternatesCommit)
+			gittest.Exec(t, cfg, "-C", repoCopyPath, "fsck")
 		})
 	}
 }
@@ -217,8 +217,8 @@ func TestGetSnapshotWithDedupeSoftFailures(t *testing.T) {
 	defer cleanupCopy()
 
 	// ensure the sha committed to the alternates directory can be accessed
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoCopyPath, "cat-file", "-p", originalAlternatesCommit)
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoCopyPath, "fsck")
+	gittest.Exec(t, cfg, "-C", repoCopyPath, "cat-file", "-p", originalAlternatesCommit)
+	gittest.Exec(t, cfg, "-C", repoCopyPath, "fsck")
 }
 
 // copyRepoUsingSnapshot creates a tarball snapshot, then creates a new repository from that snapshot

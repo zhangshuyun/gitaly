@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
@@ -96,7 +97,7 @@ func testSuccessfulWikiUpdatePageRequest(t *testing.T, cfg config.Cfg, rubySrv *
 			_, err = stream.CloseAndRecv()
 			require.NoError(t, err)
 
-			headID := testhelper.MustRunCommand(t, nil, "git", "-C", wikiRepoPath, "show", "--format=format:%H", "--no-patch", "HEAD")
+			headID := gittest.Exec(t, cfg, "-C", wikiRepoPath, "show", "--format=format:%H", "--no-patch", "HEAD")
 			commit, err := wikiRepo.ReadCommit(ctx, git.Revision(headID))
 			require.NoError(t, err, "look up git commit before merge is applied")
 
@@ -104,7 +105,7 @@ func testSuccessfulWikiUpdatePageRequest(t *testing.T, cfg config.Cfg, rubySrv *
 			require.Equal(t, authorEmail, commit.Author.Email, "author email mismatched")
 			require.Equal(t, message, commit.Subject, "message mismatched")
 
-			pageContent := testhelper.MustRunCommand(t, nil, "git", "-C", wikiRepoPath, "cat-file", "blob", "HEAD:Instálling-Gitaly.md")
+			pageContent := gittest.Exec(t, cfg, "-C", wikiRepoPath, "cat-file", "blob", "HEAD:Instálling-Gitaly.md")
 			require.Equal(t, tc.content, pageContent, "mismatched content")
 		})
 	}
