@@ -138,8 +138,8 @@ func ConfigureGitalyGit2GoBin(t testing.TB, cfg config.Cfg) {
 }
 
 // ConfigureGitalyLfsSmudge configures the gitaly-lfs-smudge command for tests
-func ConfigureGitalyLfsSmudge(outputDir string) {
-	buildCommand(nil, outputDir, "gitaly-lfs-smudge")
+func ConfigureGitalyLfsSmudge(t *testing.T, outputDir string) {
+	buildCommand(t, outputDir, "gitaly-lfs-smudge")
 }
 
 // ConfigureGitalyHooksBin builds gitaly-hooks command for tests for the cfg.
