@@ -24,14 +24,15 @@ func TestStreamDBNaiveKeyer(t *testing.T) {
 	testRepo1, _, _ := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "repository-1")
 	testRepo2, _, _ := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "repository-2")
 
-	keyer := NewLeaseKeyer(config.NewLocator(cfg))
+	locator := config.NewLocator(cfg)
+	keyer := NewLeaseKeyer(locator)
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
 	ctx = testhelper.SetCtxGrpcMethod(ctx, "InfoRefsUploadPack")
 
-	db := New(NewLeaseKeyer(config.NewLocator(cfg)))
+	db := New(cfg, locator, NewLeaseKeyer(locator))
 
 	req1 := &gitalypb.InfoRefsRequest{
 		Repository: testRepo1,
@@ -125,7 +126,8 @@ func TestLoserCount(t *testing.T) {
 	cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("storage-1", "storage-2"))
 	cfg := cfgBuilder.Build(t)
 
-	db := New(NewLeaseKeyer(config.NewLocator(cfg)))
+	locator := config.NewLocator(cfg)
+	db := New(cfg, locator, NewLeaseKeyer(locator))
 
 	req := &gitalypb.InfoRefsRequest{
 		Repository: &gitalypb.Repository{

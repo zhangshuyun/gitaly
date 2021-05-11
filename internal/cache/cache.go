@@ -10,7 +10,9 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/safe"
+	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
@@ -51,7 +53,7 @@ type Cache struct {
 }
 
 // New will create a new Cache with the given Keyer.
-func New(ck Keyer) *Cache {
+func New(cfg config.Cfg, locator storage.Locator, ck Keyer) *Cache {
 	return &Cache{
 		ck: ck,
 		af: activeFiles{

@@ -27,7 +27,7 @@ func NewServer(cfg config.Cfg, locator storage.Locator, gitCmdFactory git.Comman
 			prometheus.CounterOpts{},
 			[]string{"git_negotiation_feature"},
 		),
-		infoRefCache: newInfoRefCache(cache.New(cache.NewLeaseKeyer(locator))),
+		infoRefCache: newInfoRefCache(cache.New(cfg, locator, cache.NewLeaseKeyer(locator))),
 	}
 
 	for _, serverOpt := range serverOpts {

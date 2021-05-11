@@ -291,6 +291,7 @@ func (ms mockStreamer) PutStream(ctx context.Context, repo *gitalypb.Repository,
 func TestCacheInfoRefsUploadPack(t *testing.T) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
+	locator := config.NewLocator(cfg)
 	gitalyServer := startSmartHTTPServer(t, cfg)
 
 	rpcRequest := &gitalypb.InfoRefsRequest{Repository: repo}
@@ -315,7 +316,7 @@ func TestCacheInfoRefsUploadPack(t *testing.T) {
 	}
 
 	assertNormalResponse(gitalyServer.Address())
-	require.FileExists(t, pathToCachedResponse(t, ctx, config.NewLocator(cfg), rpcRequest))
+	require.FileExists(t, pathToCachedResponse(t, ctx, locator, rpcRequest))
 
 	replacedContents := []string{
 		"first line",
@@ -333,7 +334,7 @@ func TestCacheInfoRefsUploadPack(t *testing.T) {
 	)
 
 	invalidateCacheForRepo := func() {
-		ender, err := cache.NewLeaseKeyer(config.NewLocator(cfg)).StartLease(rpcRequest.Repository)
+		ender, err := cache.NewLeaseKeyer(locator).StartLease(rpcRequest.Repository)
 		require.NoError(t, err)
 		require.NoError(t, ender.EndLease(setInfoRefsUploadPackMethod(ctx)))
 	}
@@ -355,14 +356,14 @@ func TestCacheInfoRefsUploadPack(t *testing.T) {
 
 	_, err = makeInfoRefsUploadPackRequest(ctx, t, gitalyServer.Address(), cfg.Auth.Token, invalidReq)
 	testhelper.RequireGrpcError(t, err, codes.NotFound)
-	require.NoFileExists(t, pathToCachedResponse(t, ctx, config.NewLocator(cfg), invalidReq))
+	require.NoFileExists(t, pathToCachedResponse(t, ctx, locator, invalidReq))
 
 	// if an error occurs while putting stream, it should not interrupt
 	// request from being served
 	happened := false
 
 	mockInfoRefCache := newInfoRefCache(mockStreamer{
-		streamer: cache.New(cache.NewLeaseKeyer(config.NewLocator(cfg))),
+		streamer: cache.New(cfg, locator, cache.NewLeaseKeyer(locator)),
 		putStream: func(context.Context, *gitalypb.Repository, proto.Message, io.Reader) error {
 			happened = true
 			return errors.New("oopsie")
