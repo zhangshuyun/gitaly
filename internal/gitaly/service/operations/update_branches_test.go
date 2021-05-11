@@ -10,8 +10,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
@@ -25,17 +23,17 @@ var (
 	oldrev           = []byte("0b4bc9a49b562e85de7cc9e834518ea6828729b9")
 )
 
-func testSuccessfulUserUpdateBranchRequest(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
+func TestSuccessfulUserUpdateBranchRequest(t *testing.T) {
 	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
 		featureflag.ReferenceTransactions,
-		featureflag.GoUserUpdateBranch,
-	}).Run(t, func(t *testing.T, ctx context.Context) {
-		testSuccessfulUserUpdateBranchRequestFeatured(t, ctx, cfg, rubySrv)
-	})
+	}).Run(t, testSuccessfulUserUpdateBranchRequest)
 }
 
-func testSuccessfulUserUpdateBranchRequestFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
+func testSuccessfulUserUpdateBranchRequest(t *testing.T, ctx context.Context) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -106,12 +104,11 @@ func testSuccessfulUserUpdateBranchRequestFeatured(t *testing.T, ctx context.Con
 	}
 }
 
-func testSuccessfulUserUpdateBranchRequestToDelete(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	testWithFeature(t, featureflag.GoUserUpdateBranch, cfg, rubySrv, testSuccessfulUserUpdateBranchRequestToDeleteFeatured)
-}
+func TestSuccessfulUserUpdateBranchRequestToDelete(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testSuccessfulUserUpdateBranchRequestToDeleteFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
+	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -176,12 +173,11 @@ func testSuccessfulUserUpdateBranchRequestToDeleteFeatured(t *testing.T, ctx con
 	}
 }
 
-func testSuccessfulGitHooksForUserUpdateBranchRequest(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	testWithFeature(t, featureflag.GoUserUpdateBranch, cfg, rubySrv, testSuccessfulGitHooksForUserUpdateBranchRequestFeatured)
-}
+func TestSuccessfulGitHooksForUserUpdateBranchRequest(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testSuccessfulGitHooksForUserUpdateBranchRequestFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	ctx, cfg, _, _, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
+	ctx, cfg, _, _, client := setupOperationsService(t, ctx)
 
 	for _, hookName := range GitlabHooks {
 		t.Run(hookName, func(t *testing.T) {
@@ -210,15 +206,14 @@ func testSuccessfulGitHooksForUserUpdateBranchRequestFeatured(t *testing.T, ctx 
 	}
 }
 
-func testFailedUserUpdateBranchDueToHooks(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	testWithFeature(t, featureflag.GoUserUpdateBranch, cfg, rubySrv, testFailedUserUpdateBranchDueToHooksFeatured)
-}
+func TestFailedUserUpdateBranchDueToHooks(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testFailedUserUpdateBranchDueToHooksFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	ctx, _, repo, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
+	ctx, _, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	request := &gitalypb.UserUpdateBranchRequest{
-		Repository: repo,
+		Repository: repoProto,
 		BranchName: []byte(updateBranchName),
 		Newrev:     newrev,
 		Oldrev:     oldrev,
@@ -243,14 +238,11 @@ func testFailedUserUpdateBranchDueToHooksFeatured(t *testing.T, ctx context.Cont
 	}
 }
 
-func testFailedUserUpdateBranchRequest(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	testWithFeature(t, featureflag.GoUserUpdateBranch, cfg, rubySrv, testFailedUserUpdateBranchRequestFeatured)
-}
+func TestFailedUserUpdateBranchRequest(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testFailedUserUpdateBranchRequestFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	ctx, cfg, repoProto, _, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
-
-	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	ctx, cfg, repoProto, _, client := setupOperationsService(t, ctx)
 
 	revDoesntExist := fmt.Sprintf("%x", sha1.Sum([]byte("we need a non existent sha")))
 
@@ -362,6 +354,7 @@ func testFailedUserUpdateBranchRequestFeatured(t *testing.T, ctx context.Context
 		},
 	}
 
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
 			request := &gitalypb.UserUpdateBranchRequest{

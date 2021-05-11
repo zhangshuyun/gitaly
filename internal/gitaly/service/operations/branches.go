@@ -5,8 +5,6 @@ import (
 	"errors"
 
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/rubyserver"
-	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -76,13 +74,6 @@ func (s *Server) UserCreateBranch(ctx context.Context, req *gitalypb.UserCreateB
 	}, nil
 }
 
-func (s *Server) UserUpdateBranch(ctx context.Context, req *gitalypb.UserUpdateBranchRequest) (*gitalypb.UserUpdateBranchResponse, error) {
-	if featureflag.IsDisabled(ctx, featureflag.GoUserUpdateBranch) {
-		return s.userUpdateBranchRuby(ctx, req)
-	}
-	return s.userUpdateBranchGo(ctx, req)
-}
-
 func validateUserUpdateBranchGo(req *gitalypb.UserUpdateBranchRequest) error {
 	if req.User == nil {
 		return status.Errorf(codes.InvalidArgument, "empty user")
@@ -103,7 +94,7 @@ func validateUserUpdateBranchGo(req *gitalypb.UserUpdateBranchRequest) error {
 	return nil
 }
 
-func (s *Server) userUpdateBranchGo(ctx context.Context, req *gitalypb.UserUpdateBranchRequest) (*gitalypb.UserUpdateBranchResponse, error) {
+func (s *Server) UserUpdateBranch(ctx context.Context, req *gitalypb.UserUpdateBranchRequest) (*gitalypb.UserUpdateBranchResponse, error) {
 	// Validate the request
 	if err := validateUserUpdateBranchGo(req); err != nil {
 		return nil, err
@@ -139,20 +130,6 @@ func (s *Server) userUpdateBranchGo(ctx context.Context, req *gitalypb.UserUpdat
 	}
 
 	return &gitalypb.UserUpdateBranchResponse{}, nil
-}
-
-func (s *Server) userUpdateBranchRuby(ctx context.Context, req *gitalypb.UserUpdateBranchRequest) (*gitalypb.UserUpdateBranchResponse, error) {
-	client, err := s.ruby.OperationServiceClient(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	clientCtx, err := rubyserver.SetHeaders(ctx, s.locator, req.GetRepository())
-	if err != nil {
-		return nil, err
-	}
-
-	return client.UserUpdateBranch(clientCtx, req)
 }
 
 func (s *Server) UserDeleteBranch(ctx context.Context, req *gitalypb.UserDeleteBranchRequest) (*gitalypb.UserDeleteBranchResponse, error) {
