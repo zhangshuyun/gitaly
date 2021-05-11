@@ -44,15 +44,15 @@ func (af activeFiles) trackFile(path string) func() bool {
 	}
 }
 
-// StreamDB stores and retrieves byte streams for repository related RPCs
-type StreamDB struct {
+// Cache stores and retrieves byte streams for repository related RPCs
+type Cache struct {
 	ck Keyer
 	af activeFiles
 }
 
-// NewStreamDB will open the stream database at the specified file path.
-func NewStreamDB(ck Keyer) *StreamDB {
-	return &StreamDB{
+// New will create a new Cache with the given Keyer.
+func New(ck Keyer) *Cache {
+	return &Cache{
 		ck: ck,
 		af: activeFiles{
 			Mutex: &sync.Mutex{},
@@ -66,7 +66,7 @@ var ErrReqNotFound = errors.New("request digest not found within repo namespace"
 
 // GetStream will fetch the cached stream for a request. It is the
 // responsibility of the caller to close the stream when done.
-func (sdb *StreamDB) GetStream(ctx context.Context, repo *gitalypb.Repository, req proto.Message) (_ io.ReadCloser, err error) {
+func (c *Cache) GetStream(ctx context.Context, repo *gitalypb.Repository, req proto.Message) (_ io.ReadCloser, err error) {
 	defer func() {
 		if err != nil {
 			countMiss()
@@ -75,7 +75,7 @@ func (sdb *StreamDB) GetStream(ctx context.Context, repo *gitalypb.Repository, r
 
 	countRequest()
 
-	respPath, err := sdb.ck.KeyPath(ctx, repo, req)
+	respPath, err := c.ck.KeyPath(ctx, repo, req)
 	switch {
 	case os.IsNotExist(err):
 		return nil, ErrReqNotFound
@@ -114,8 +114,8 @@ func (irc instrumentedReadCloser) Read(p []byte) (n int, err error) {
 
 // PutStream will store a stream in a repo-namespace keyed by the digest of the
 // request protobuf message.
-func (sdb *StreamDB) PutStream(ctx context.Context, repo *gitalypb.Repository, req proto.Message, src io.Reader) error {
-	reqPath, err := sdb.ck.KeyPath(ctx, repo, req)
+func (c *Cache) PutStream(ctx context.Context, repo *gitalypb.Repository, req proto.Message, src io.Reader) error {
+	reqPath, err := c.ck.KeyPath(ctx, repo, req)
 	if err != nil {
 		return err
 	}
@@ -125,7 +125,7 @@ func (sdb *StreamDB) PutStream(ctx context.Context, repo *gitalypb.Repository, r
 		Info("putting stream")
 
 	var n int64
-	isWinner := sdb.af.trackFile(reqPath)
+	isWinner := c.af.trackFile(reqPath)
 	defer func() {
 		if !isWinner() {
 			countLoserBytes(float64(n))

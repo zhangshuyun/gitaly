@@ -31,7 +31,7 @@ func TestStreamDBNaiveKeyer(t *testing.T) {
 
 	ctx = testhelper.SetCtxGrpcMethod(ctx, "InfoRefsUploadPack")
 
-	db := NewStreamDB(NewLeaseKeyer(config.NewLocator(cfg)))
+	db := New(NewLeaseKeyer(config.NewLocator(cfg)))
 
 	req1 := &gitalypb.InfoRefsRequest{
 		Repository: testRepo1,
@@ -125,7 +125,7 @@ func TestLoserCount(t *testing.T) {
 	cfgBuilder := testcfg.NewGitalyCfgBuilder(testcfg.WithStorages("storage-1", "storage-2"))
 	cfg := cfgBuilder.Build(t)
 
-	db := NewStreamDB(NewLeaseKeyer(config.NewLocator(cfg)))
+	db := New(NewLeaseKeyer(config.NewLocator(cfg)))
 
 	req := &gitalypb.InfoRefsRequest{
 		Repository: &gitalypb.Repository{
