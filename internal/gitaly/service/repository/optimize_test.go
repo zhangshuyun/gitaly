@@ -40,7 +40,7 @@ func getNewestPackfileModtime(t *testing.T, repoPath string) time.Time {
 }
 
 func TestOptimizeRepository(t *testing.T) {
-	cfg, repo, repoPath, client := setupRepositoryService(t)
+	cfg, repoProto, repoPath, client := setupRepositoryService(t)
 
 	gittest.Exec(t, cfg, "-C", repoPath, "repack", "-A", "-b")
 
@@ -73,7 +73,7 @@ func TestOptimizeRepository(t *testing.T) {
 	require.True(t, bytes.Contains(confFileData, []byte("http://extraHeader/extraheader/EXTRAHEADER.git")))
 	require.True(t, bytes.Contains(confFileData, []byte("https://localhost:51744/60631c8695bf041a808759a05de53e36a73316aacb502824fabbb0c6055637c5.git")))
 
-	_, err = client.OptimizeRepository(ctx, &gitalypb.OptimizeRepositoryRequest{Repository: repo})
+	_, err = client.OptimizeRepository(ctx, &gitalypb.OptimizeRepositoryRequest{Repository: repoProto})
 	require.NoError(t, err)
 
 	confFileData, err = ioutil.ReadFile(filepath.Join(repoPath, "config"))
@@ -88,7 +88,7 @@ func TestOptimizeRepository(t *testing.T) {
 
 	require.Equal(t, getNewestPackfileModtime(t, repoPath), newestsPackfileTime, "there should not have been a new packfile created")
 
-	testRepo, testRepoPath, cleanupBare := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
+	testRepoProto, testRepoPath, cleanupBare := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
 	t.Cleanup(cleanupBare)
 
 	blobs := 10
@@ -114,7 +114,7 @@ func TestOptimizeRepository(t *testing.T) {
 	require.DirExists(t, emptyRef, "sanity check for empty ref dir existence")
 
 	// optimize repository on a repository without a bitmap should call repack full
-	_, err = client.OptimizeRepository(ctx, &gitalypb.OptimizeRepositoryRequest{Repository: testRepo})
+	_, err = client.OptimizeRepository(ctx, &gitalypb.OptimizeRepositoryRequest{Repository: testRepoProto})
 	require.NoError(t, err)
 
 	bitmaps, err = filepath.Glob(filepath.Join(testRepoPath, "objects", "pack", "*.bitmap"))
@@ -135,7 +135,7 @@ func TestOptimizeRepository(t *testing.T) {
 	require.NoError(t, os.Chtimes(emptyRef, oneDayAgo, oneDayAgo))
 	require.NoError(t, os.Chtimes(mrRefs, oneDayAgo, oneDayAgo))
 
-	_, err = client.OptimizeRepository(ctx, &gitalypb.OptimizeRepositoryRequest{Repository: testRepo})
+	_, err = client.OptimizeRepository(ctx, &gitalypb.OptimizeRepositoryRequest{Repository: testRepoProto})
 	require.NoError(t, err)
 
 	testhelper.AssertPathNotExists(t, emptyRef)

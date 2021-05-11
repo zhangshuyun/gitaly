@@ -7,7 +7,6 @@ import (
 
 	"gitlab.com/gitlab-org/gitaly/internal/command"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 )
 
@@ -15,7 +14,7 @@ import (
 // that allows references to be easily updated in bulk. It is not suitable for
 // concurrent use.
 type Updater struct {
-	repo   repository.GitRepo
+	repo   git.RepositoryExecutor
 	cmd    *command.Command
 	stderr *bytes.Buffer
 }
@@ -41,7 +40,7 @@ func WithDisabledTransactions() UpdaterOpt {
 //
 // It is important that ctx gets canceled somewhere. If it doesn't, the process
 // spawned by New() may never terminate.
-func New(ctx context.Context, conf config.Cfg, gitCmdFactory git.CommandFactory, repo repository.GitRepo, opts ...UpdaterOpt) (*Updater, error) {
+func New(ctx context.Context, conf config.Cfg, repo git.RepositoryExecutor, opts ...UpdaterOpt) (*Updater, error) {
 	var cfg updaterConfig
 	for _, opt := range opts {
 		opt(&cfg)
@@ -53,7 +52,7 @@ func New(ctx context.Context, conf config.Cfg, gitCmdFactory git.CommandFactory,
 	}
 
 	var stderr bytes.Buffer
-	cmd, err := gitCmdFactory.New(ctx, repo,
+	cmd, err := repo.Exec(ctx,
 		git.SubCmd{
 			Name:  "update-ref",
 			Flags: []git.Option{git.Flag{Name: "-z"}, git.Flag{Name: "--stdin"}},

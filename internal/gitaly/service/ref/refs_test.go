@@ -64,12 +64,13 @@ func TestSuccessfulFindAllBranchNames(t *testing.T) {
 }
 
 func TestFindAllBranchNamesVeryLargeResponse(t *testing.T) {
-	cfg, repo, _, client := setupRefService(t)
+	cfg, repoProto, _, client := setupRefService(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	updater, err := updateref.New(ctx, cfg, git.NewExecCommandFactory(cfg), repo)
+	repo := localrepo.NewTestRepo(t, cfg, repoProto)
+	updater, err := updateref.New(ctx, cfg, repo)
 	require.NoError(t, err)
 
 	// We want to create enough refs to overflow the default bufio.Scanner
@@ -91,7 +92,7 @@ func TestFindAllBranchNamesVeryLargeResponse(t *testing.T) {
 
 	require.NoError(t, updater.Wait())
 
-	rpcRequest := &gitalypb.FindAllBranchNamesRequest{Repository: repo}
+	rpcRequest := &gitalypb.FindAllBranchNamesRequest{Repository: repoProto}
 
 	c, err := client.FindAllBranchNames(ctx, rpcRequest)
 	require.NoError(t, err)

@@ -10,6 +10,8 @@ import (
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
+	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/git/updateref"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -40,12 +42,17 @@ type ErrInvalidObjectMap error
 // NewCleaner builds a new instance of Cleaner, which is used to apply a
 // filter-repo or BFG object map to a repository.
 func NewCleaner(ctx context.Context, cfg config.Cfg, gitCmdFactory git.CommandFactory, repo *gitalypb.Repository, forEach ForEachFunc) (*Cleaner, error) {
+	// This is only an intermediate state in this commit series to satisfy the interface. The
+	// subsequent commit will remove this ad-hoc cache again.
+	catfileCache := catfile.NewCache(gitCmdFactory, cfg)
+	localRepo := localrepo.New(gitCmdFactory, catfileCache, repo, cfg)
+
 	table, err := buildLookupTable(ctx, gitCmdFactory, repo)
 	if err != nil {
 		return nil, err
 	}
 
-	updater, err := updateref.New(ctx, cfg, gitCmdFactory, repo)
+	updater, err := updateref.New(ctx, cfg, localRepo)
 	if err != nil {
 		return nil, err
 	}

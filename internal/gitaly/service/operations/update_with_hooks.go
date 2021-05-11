@@ -96,6 +96,8 @@ func (s *Server) updateReferenceWithHooks(
 		return preReceiveError{message: err.Error()}
 	}
 
+	localRepo := s.localrepo(repo)
+
 	// We are already manually invoking the reference-transaction hook, so there is no need to
 	// set up hooks again here. One could argue that it would be easier to just have git handle
 	// execution of the reference-transaction hook. But unfortunately, it has proven to be
@@ -106,7 +108,7 @@ func (s *Server) updateReferenceWithHooks(
 	// is packed, which is obviously a bad thing as Gitaly nodes may be differently packed. We
 	// thus continue to manually drive the reference-transaction hook here, which doesn't have
 	// this problem.
-	updater, err := updateref.New(ctx, s.cfg, s.gitCmdFactory, repo, updateref.WithDisabledTransactions())
+	updater, err := updateref.New(ctx, s.cfg, localRepo, updateref.WithDisabledTransactions())
 	if err != nil {
 		return err
 	}

@@ -118,7 +118,7 @@ func (o *ObjectPool) rescueDanglingObjects(ctx context.Context) error {
 		return err
 	}
 
-	updater, err := updateref.New(ctx, o.cfg, o.gitCmdFactory, o, updateref.WithDisabledTransactions())
+	updater, err := updateref.New(ctx, o.cfg, o.poolRepo, updateref.WithDisabledTransactions())
 	if err != nil {
 		return err
 	}
