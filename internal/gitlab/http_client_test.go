@@ -10,11 +10,11 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config/prometheus"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/promtest"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
@@ -33,19 +33,18 @@ func TestAccess_verifyParams(t *testing.T) {
 	secretToken := "topsecret"
 	glID, glRepository := "key-123", "repo-1"
 
-	testRepo, testRepoPath, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
+	_, repo, repoPath := testcfg.BuildWithRepo(t)
 	changes := "changes1\nchanges2\nchanges3"
 	protocol := "protocol"
 
-	testRepo.GitObjectDirectory = "object/dir"
-	testRepo.GitAlternateObjectDirectories = []string{"alt/object/dir1", "alt/object/dir2"}
+	repo.GitObjectDirectory = "object/dir"
+	repo.GitAlternateObjectDirectories = []string{"alt/object/dir1", "alt/object/dir2"}
 
-	gitObjectDirFull := filepath.Join(testRepoPath, testRepo.GitObjectDirectory)
+	gitObjectDirFull := filepath.Join(repoPath, repo.GitObjectDirectory)
 	var gitAlternateObjectDirsFull []string
 
-	for _, gitAlternateObjectDirRel := range testRepo.GitAlternateObjectDirectories {
-		gitAlternateObjectDirsFull = append(gitAlternateObjectDirsFull, filepath.Join(testRepoPath, gitAlternateObjectDirRel))
+	for _, gitAlternateObjectDirRel := range repo.GitAlternateObjectDirectories {
+		gitAlternateObjectDirsFull = append(gitAlternateObjectDirsFull, filepath.Join(repoPath, gitAlternateObjectDirRel))
 	}
 
 	tempDir := testhelper.TempDir(t)
@@ -65,7 +64,7 @@ func TestAccess_verifyParams(t *testing.T) {
 		GitPushOptions:              nil,
 		GitObjectDir:                gitObjectDirFull,
 		GitAlternateObjectDirs:      gitAlternateObjectDirsFull,
-		RepoPath:                    testRepoPath,
+		RepoPath:                    repoPath,
 		ClientCACertPath:            "testdata/certs/server.crt",
 		ServerCertPath:              "testdata/certs/server.crt",
 		ServerKeyPath:               "testdata/certs/server.key",
@@ -86,8 +85,8 @@ func TestAccess_verifyParams(t *testing.T) {
 	}, prometheus.Config{})
 	require.NoError(t, err)
 
-	badRepo := *testRepo
-	badRepo.GitObjectDirectory = filepath.Join(testRepoPath, "bad/object/directory")
+	badRepo := *repo
+	badRepo.GitObjectDirectory = filepath.Join(repoPath, "bad/object/directory")
 
 	testCases := []struct {
 		desc                                  string
@@ -97,7 +96,7 @@ func TestAccess_verifyParams(t *testing.T) {
 	}{
 		{
 			desc:         "success",
-			repo:         testRepo,
+			repo:         repo,
 			glRepository: glRepository,
 			glID:         glID,
 			protocol:     protocol,
@@ -135,19 +134,18 @@ func TestAccess_escapedAndRelativeURLs(t *testing.T) {
 	secretToken := "topsecret"
 	glID, glRepository := "key-123", "repo-1"
 
-	testRepo, testRepoPath, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
+	_, repo, repoPath := testcfg.BuildWithRepo(t)
 	changes := "changes1\nchanges2\nchanges3"
 	protocol := "protocol"
 
-	testRepo.GitObjectDirectory = "object/dir"
-	testRepo.GitAlternateObjectDirectories = []string{"alt/object/dir1", "alt/object/dir2"}
+	repo.GitObjectDirectory = "object/dir"
+	repo.GitAlternateObjectDirectories = []string{"alt/object/dir1", "alt/object/dir2"}
 
-	gitObjectDirFull := filepath.Join(testRepoPath, testRepo.GitObjectDirectory)
+	gitObjectDirFull := filepath.Join(repoPath, repo.GitObjectDirectory)
 	var gitAlternateObjectDirsFull []string
 
-	for _, gitAlternateObjectDirRel := range testRepo.GitAlternateObjectDirectories {
-		gitAlternateObjectDirsFull = append(gitAlternateObjectDirsFull, filepath.Join(testRepoPath, gitAlternateObjectDirRel))
+	for _, gitAlternateObjectDirRel := range repo.GitAlternateObjectDirectories {
+		gitAlternateObjectDirsFull = append(gitAlternateObjectDirsFull, filepath.Join(repoPath, gitAlternateObjectDirRel))
 	}
 
 	tempDir := testhelper.TempDir(t)
@@ -198,7 +196,7 @@ func TestAccess_escapedAndRelativeURLs(t *testing.T) {
 				GitPushOptions:              nil,
 				GitObjectDir:                gitObjectDirFull,
 				GitAlternateObjectDirs:      gitAlternateObjectDirsFull,
-				RepoPath:                    testRepoPath,
+				RepoPath:                    repoPath,
 				RelativeURLRoot:             tc.relativeURLRoot,
 				UnixSocket:                  tc.unixSocket,
 			})
@@ -219,9 +217,9 @@ func TestAccess_escapedAndRelativeURLs(t *testing.T) {
 			}, config.TLS{}, prometheus.Config{})
 			require.NoError(t, err)
 			allowed, _, err := c.Allowed(context.Background(), AllowedParams{
-				RepoPath:                      testRepo.RelativePath,
-				GitObjectDirectory:            testRepo.GitObjectDirectory,
-				GitAlternateObjectDirectories: testRepo.GitAlternateObjectDirectories,
+				RepoPath:                      repo.RelativePath,
+				GitObjectDirectory:            repo.GitObjectDirectory,
+				GitAlternateObjectDirectories: repo.GitAlternateObjectDirectories,
 				GLID:                          glID,
 				GLRepository:                  glRepository,
 				GLProtocol:                    protocol,
@@ -234,15 +232,13 @@ func TestAccess_escapedAndRelativeURLs(t *testing.T) {
 }
 
 func TestAccess_allowedResponseHandling(t *testing.T) {
-	testRepo, testRepoPath, cleanup := gittest.CloneRepo(t)
+	_, repo, repoPath := testcfg.BuildWithRepo(t)
 
 	// set git quarantine directories
-	gitObjectDir := filepath.Join(testRepoPath, "quarantine", "object", "dir")
-	testRepo.GitObjectDirectory = gitObjectDir
-	gitAltObjectDir := filepath.Join(testRepoPath, "objects")
-	testRepo.GitAlternateObjectDirectories = []string{gitAltObjectDir}
-
-	defer cleanup()
+	gitObjectDir := filepath.Join(repoPath, "quarantine", "object", "dir")
+	repo.GitObjectDirectory = gitObjectDir
+	gitAltObjectDir := filepath.Join(repoPath, "objects")
+	repo.GitAlternateObjectDirectories = []string{gitAltObjectDir}
 
 	tempDir := testhelper.TempDir(t)
 	testhelper.WriteShellSecretFile(t, tempDir, "secret_token")
@@ -369,9 +365,9 @@ func TestAccess_allowedResponseHandling(t *testing.T) {
 			c.latencyMetric = mockHistogramVec
 
 			allowed, message, err := c.Allowed(context.Background(), AllowedParams{
-				RepoPath:                      testRepo.RelativePath,
-				GitObjectDirectory:            testRepo.GitObjectDirectory,
-				GitAlternateObjectDirectories: testRepo.GitAlternateObjectDirectories,
+				RepoPath:                      repo.RelativePath,
+				GitObjectDirectory:            repo.GitObjectDirectory,
+				GitAlternateObjectDirectories: repo.GitAlternateObjectDirectories,
 				GLRepository:                  "repo-1",
 				GLID:                          "key-123",
 				GLProtocol:                    "http",

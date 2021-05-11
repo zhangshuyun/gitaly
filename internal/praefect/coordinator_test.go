@@ -16,7 +16,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/client"
-	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
@@ -1424,8 +1423,7 @@ func TestCoordinator_grpcErrorHandling(t *testing.T) {
 		operationServer *mockOperationServer
 	}
 
-	repoProto, _, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
+	_, repoProto, _ := testcfg.BuildWithRepo(t)
 
 	for _, tc := range []struct {
 		desc        string

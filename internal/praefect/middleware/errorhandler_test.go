@@ -10,13 +10,13 @@ import (
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/grpc-proxy/proxy"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/mock"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/nodes/tracker"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/protoregistry"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"google.golang.org/grpc"
 )
 
@@ -98,16 +98,15 @@ func TestStreamInterceptor(t *testing.T) {
 
 	simpleClient := mock.NewSimpleServiceClient(praefectCC)
 
-	testRepo, _, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
+	_, repo, _ := testcfg.BuildWithRepo(t)
 
 	for i := 0; i < threshold; i++ {
 		_, err = simpleClient.RepoAccessorUnary(ctx, &mock.RepoRequest{
-			Repo: testRepo,
+			Repo: repo,
 		})
 		require.NoError(t, err)
 		_, err = simpleClient.RepoMutatorUnary(ctx, &mock.RepoRequest{
-			Repo: testRepo,
+			Repo: repo,
 		})
 		require.NoError(t, err)
 	}
@@ -133,11 +132,11 @@ func TestStreamInterceptor(t *testing.T) {
 
 	for i := 0; i < threshold; i++ {
 		_, err = simpleClient.RepoAccessorUnary(ctx, &mock.RepoRequest{
-			Repo: testRepo,
+			Repo: repo,
 		})
 		require.NoError(t, err)
 		_, err = simpleClient.RepoMutatorUnary(ctx, &mock.RepoRequest{
-			Repo: testRepo,
+			Repo: repo,
 		})
 		require.NoError(t, err)
 	}

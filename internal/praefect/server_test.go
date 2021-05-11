@@ -21,7 +21,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	gconfig "gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/setup"
@@ -751,8 +750,7 @@ func TestProxyWrites(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testRepo, _, cleanup := gittest.CloneRepo(t)
-	defer cleanup()
+	_, repo, _ := testcfg.BuildWithRepo(t)
 
 	rs := datastore.MockRepositoryStore{
 		GetConsistentStoragesFunc: func(ctx context.Context, virtualStorage, relativePath string) (map[string]struct{}, error) {
@@ -798,7 +796,7 @@ func TestProxyWrites(t *testing.T) {
 	payload := "some pack data"
 	for i := 0; i < 10; i++ {
 		require.NoError(t, stream.Send(&gitalypb.PostReceivePackRequest{
-			Repository: testRepo,
+			Repository: repo,
 			Data:       []byte(payload),
 		}))
 	}
@@ -943,8 +941,7 @@ func TestErrorThreshold(t *testing.T) {
 			require.NoError(t, err)
 			cli := mock.NewSimpleServiceClient(conn)
 
-			repo, _, cleanup := gittest.CloneRepo(t)
-			defer cleanup()
+			_, repo, _ := testcfg.BuildWithRepo(t)
 
 			node := nodeMgr.Nodes()["default"][0]
 			require.Equal(t, "praefect-internal-0", node.GetStorage())

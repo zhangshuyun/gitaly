@@ -12,11 +12,11 @@ import (
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
-	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/streamio"
 	"google.golang.org/grpc/codes"
@@ -214,8 +214,7 @@ func testFailedPatchApplyPatch(t *testing.T, cfg config.Cfg, rubySrv *rubyserver
 }
 
 func TestFailedValidationUserApplyPatch(t *testing.T) {
-	testRepo, _, cleanupFn := gittest.CloneRepo(t)
-	defer cleanupFn()
+	_, repo, _ := testcfg.BuildWithRepo(t)
 
 	testCases := []struct {
 		desc         string
@@ -234,13 +233,13 @@ func TestFailedValidationUserApplyPatch(t *testing.T) {
 		{
 			desc:         "missing Branch",
 			errorMessage: "missing Branch",
-			repo:         testRepo,
+			repo:         repo,
 			user:         testhelper.TestUser,
 		},
 		{
 			desc:         "empty BranchName",
 			errorMessage: "missing Branch",
-			repo:         testRepo,
+			repo:         repo,
 			user:         testhelper.TestUser,
 			branchName:   "",
 		},
@@ -248,7 +247,7 @@ func TestFailedValidationUserApplyPatch(t *testing.T) {
 			desc:         "missing User",
 			errorMessage: "missing User",
 			branchName:   "new-branch",
-			repo:         testRepo,
+			repo:         repo,
 		},
 	}
 
