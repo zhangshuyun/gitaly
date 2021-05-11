@@ -210,7 +210,7 @@ func TestRepo_WriteTag(t *testing.T) {
 			tagObjID, err := repo.WriteTag(ctx, tc.objectID, tc.objectType, tc.tagName, tc.userName, tc.userEmail, tc.tagBody, tc.authorDate)
 			require.NoError(t, err)
 
-			repoTagObjID := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", tagObjID.String())
+			repoTagObjID := gittest.Exec(t, repo.cfg, "-C", repoPath, "rev-parse", tagObjID.String())
 			require.Equal(t, text.ChompBytes(repoTagObjID), tagObjID.String())
 		})
 	}

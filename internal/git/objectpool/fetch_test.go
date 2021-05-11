@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 )
@@ -56,9 +57,9 @@ func TestFetchFromOriginDangling(t *testing.T) {
 
 	// `git tag` automatically creates a ref, so our new tag is not dangling.
 	// Deleting the ref should fix that.
-	testhelper.MustRunCommand(t, nil, "git", "-C", pool.FullPath(), "update-ref", "-d", "refs/tags/"+newTagName)
+	gittest.Exec(t, pool.cfg, "-C", pool.FullPath(), "update-ref", "-d", "refs/tags/"+newTagName)
 
-	fsckBefore := testhelper.MustRunCommand(t, nil, "git", "-C", pool.FullPath(), "fsck", "--connectivity-only", "--dangling")
+	fsckBefore := gittest.Exec(t, pool.cfg, "-C", pool.FullPath(), "fsck", "--connectivity-only", "--dangling")
 	fsckBeforeLines := strings.Split(string(fsckBefore), "\n")
 
 	for _, l := range []string{
@@ -74,7 +75,7 @@ func TestFetchFromOriginDangling(t *testing.T) {
 	// non-dangling objects.
 	require.NoError(t, pool.FetchFromOrigin(ctx, testRepo), "second fetch")
 
-	refsAfter := testhelper.MustRunCommand(t, nil, "git", "-C", pool.FullPath(), "for-each-ref", "--format=%(refname) %(objectname)")
+	refsAfter := gittest.Exec(t, pool.cfg, "-C", pool.FullPath(), "for-each-ref", "--format=%(refname) %(objectname)")
 	refsAfterLines := strings.Split(string(refsAfter), "\n")
 	for _, id := range []string{newBlob.String(), newTree.String(), newCommit.String(), newTag} {
 		require.Contains(t, refsAfterLines, fmt.Sprintf("refs/dangling/%s %s", id, id))
@@ -122,7 +123,7 @@ func TestFetchFromOriginDeltaIslands(t *testing.T) {
 		}
 
 		// Make sure the old packfile, with bad delta chains, is deleted from the source repo
-		testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "repack", "-ald")
+		gittest.Exec(t, pool.cfg, "-C", testRepoPath, "repack", "-ald")
 
 		return nil
 	})
@@ -170,8 +171,8 @@ func TestFetchFromOriginRefUpdates(t *testing.T) {
 	}
 
 	for ref, oid := range oldRefs {
-		require.Equal(t, oid, resolveRef(t, testRepoPath, "refs/"+ref), "look up %q in source", ref)
-		require.Equal(t, oid, resolveRef(t, poolPath, "refs/remotes/origin/"+ref), "look up %q in pool", ref)
+		require.Equal(t, oid, resolveRef(t, pool.cfg, testRepoPath, "refs/"+ref), "look up %q in source", ref)
+		require.Equal(t, oid, resolveRef(t, pool.cfg, poolPath, "refs/remotes/origin/"+ref), "look up %q in pool", ref)
 	}
 
 	newRefs := map[string]string{
@@ -184,21 +185,21 @@ func TestFetchFromOriginRefUpdates(t *testing.T) {
 	}
 
 	for ref, oid := range newRefs {
-		testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "update-ref", "refs/"+ref, oid)
-		require.Equal(t, oid, resolveRef(t, testRepoPath, "refs/"+ref), "look up %q in source after update", ref)
+		gittest.Exec(t, pool.cfg, "-C", testRepoPath, "update-ref", "refs/"+ref, oid)
+		require.Equal(t, oid, resolveRef(t, pool.cfg, testRepoPath, "refs/"+ref), "look up %q in source after update", ref)
 	}
 
 	require.NoError(t, pool.FetchFromOrigin(ctx, testRepo), "update pool")
 
 	for ref, oid := range newRefs {
-		require.Equal(t, oid, resolveRef(t, poolPath, "refs/remotes/origin/"+ref), "look up %q in pool after update", ref)
+		require.Equal(t, oid, resolveRef(t, pool.cfg, poolPath, "refs/remotes/origin/"+ref), "look up %q in pool after update", ref)
 	}
 
 	looseRefs := testhelper.MustRunCommand(t, nil, "find", filepath.Join(poolPath, "refs"), "-type", "f")
 	require.Equal(t, "", string(looseRefs), "there should be no loose refs after the fetch")
 }
 
-func resolveRef(t *testing.T, repo string, ref string) string {
-	out := testhelper.MustRunCommand(t, nil, "git", "-C", repo, "rev-parse", ref)
+func resolveRef(t *testing.T, cfg config.Cfg, repo string, ref string) string {
+	out := gittest.Exec(t, cfg, "-C", repo, "rev-parse", ref)
 	return text.ChompBytes(out)
 }

@@ -96,7 +96,7 @@ func TestRemote_Add(t *testing.T) {
 
 	remote, repoPath := setupRepoRemote(t, false)
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "remote", "remove", "origin")
+	gittest.Exec(t, remote.repo.cfg, "-C", repoPath, "remote", "remove", "origin")
 
 	_, remoteRepoPath, cleanup := gittest.CloneRepoAtStorage(t, remote.repo.cfg.Storages[0], "repository")
 	defer cleanup()
@@ -132,27 +132,27 @@ func TestRemote_Add(t *testing.T) {
 	t.Run("fetch", func(t *testing.T) {
 		require.NoError(t, remote.Add(ctx, "first", remoteRepoPath, git.RemoteAddOpts{Fetch: true}))
 
-		remotes := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "remote", "--verbose"))
+		remotes := text.ChompBytes(gittest.Exec(t, remote.repo.cfg, "-C", repoPath, "remote", "--verbose"))
 		require.Equal(t,
 			"first	"+remoteRepoPath+" (fetch)\n"+
 				"first	"+remoteRepoPath+" (push)",
 			remotes,
 		)
-		latestSHA := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", "refs/remotes/first/master"))
+		latestSHA := text.ChompBytes(gittest.Exec(t, remote.repo.cfg, "-C", repoPath, "rev-parse", "refs/remotes/first/master"))
 		require.Equal(t, "1e292f8fedd741b75372e19097c76d327140c312", latestSHA)
 	})
 
 	t.Run("default branch", func(t *testing.T) {
 		require.NoError(t, remote.Add(ctx, "second", "http://some.com.git", git.RemoteAddOpts{DefaultBranch: "wip"}))
 
-		defaultRemote := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "symbolic-ref", "refs/remotes/second/HEAD"))
+		defaultRemote := text.ChompBytes(gittest.Exec(t, remote.repo.cfg, "-C", repoPath, "symbolic-ref", "refs/remotes/second/HEAD"))
 		require.Equal(t, "refs/remotes/second/wip", defaultRemote)
 	})
 
 	t.Run("remote tracking branches", func(t *testing.T) {
 		require.NoError(t, remote.Add(ctx, "third", "http://some.com.git", git.RemoteAddOpts{RemoteTrackingBranches: []string{"a", "b"}}))
 
-		defaultRemote := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "--get-all", "remote.third.fetch"))
+		defaultRemote := text.ChompBytes(gittest.Exec(t, remote.repo.cfg, "-C", repoPath, "config", "--get-all", "remote.third.fetch"))
 		require.Equal(t, "+refs/heads/a:refs/remotes/third/a\n+refs/heads/b:refs/remotes/third/b", defaultRemote)
 	})
 
@@ -171,11 +171,11 @@ func TestRemote_Remove(t *testing.T) {
 	remote, repoPath := setupRepoRemote(t, true)
 
 	t.Run("ok", func(t *testing.T) {
-		testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "remote", "add", "first", "http://some.com.git")
+		gittest.Exec(t, remote.repo.cfg, "-C", repoPath, "remote", "add", "first", "http://some.com.git")
 
 		require.NoError(t, remote.Remove(ctx, "first"))
 
-		remotes := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "remote", "--verbose"))
+		remotes := text.ChompBytes(gittest.Exec(t, remote.repo.cfg, "-C", repoPath, "remote", "--verbose"))
 		require.Empty(t, remotes)
 	})
 
@@ -195,17 +195,17 @@ func TestRemote_Remove(t *testing.T) {
 		remote, repoPath := setupRepoRemote(t, false)
 
 		// configure remote as fetch mirror
-		testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "remote.origin.fetch", "+refs/*:refs/*")
-		testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "fetch")
+		gittest.Exec(t, remote.repo.cfg, "-C", repoPath, "config", "remote.origin.fetch", "+refs/*:refs/*")
+		gittest.Exec(t, remote.repo.cfg, "-C", repoPath, "fetch")
 
-		masterBeforeRemove := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "show-ref", "refs/heads/master")
+		masterBeforeRemove := gittest.Exec(t, remote.repo.cfg, "-C", repoPath, "show-ref", "refs/heads/master")
 
 		require.NoError(t, remote.Remove(ctx, "origin"))
 
-		out := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "remote")
+		out := gittest.Exec(t, remote.repo.cfg, "-C", repoPath, "remote")
 		require.Len(t, out, 0)
 
-		out = testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "show-ref", "refs/heads/master")
+		out = gittest.Exec(t, remote.repo.cfg, "-C", repoPath, "show-ref", "refs/heads/master")
 		require.Equal(t, masterBeforeRemove, out)
 	})
 }
@@ -282,11 +282,11 @@ func TestRemote_SetURL(t *testing.T) {
 	})
 
 	t.Run("ok", func(t *testing.T) {
-		testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "remote", "add", "first", "file:/"+repoPath)
+		gittest.Exec(t, remote.repo.cfg, "-C", repoPath, "remote", "add", "first", "file:/"+repoPath)
 
 		require.NoError(t, remote.SetURL(ctx, "first", "http://some.com.git", git.SetURLOpts{Push: true}))
 
-		remotes := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "remote", "--verbose"))
+		remotes := text.ChompBytes(gittest.Exec(t, remote.repo.cfg, "-C", repoPath, "remote", "--verbose"))
 		require.Equal(t,
 			"first	file:/"+repoPath+" (fetch)\n"+
 				"first	http://some.com.git (push)",
@@ -364,7 +364,7 @@ func TestRepo_FetchRemote(t *testing.T) {
 		testRepo, testRepoPath, _ := gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name()+"-2")
 
 		repo := New(remoteCmd.repo.gitCmdFactory, remoteCmd.repo.catfileCache, testRepo, cfg)
-		testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "remote", "add", "source", sourceRepoPath)
+		gittest.Exec(t, cfg, "-C", testRepoPath, "remote", "add", "source", sourceRepoPath)
 
 		var stderr bytes.Buffer
 		require.NoError(t, repo.FetchRemote(ctx, "source", FetchOpts{Stderr: &stderr, Env: []string{"GIT_TRACE=1"}}))
@@ -376,12 +376,12 @@ func TestRepo_FetchRemote(t *testing.T) {
 		testRepo, testRepoPath, _ := gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name()+"-2")
 
 		repo := New(remoteCmd.repo.gitCmdFactory, remoteCmd.repo.catfileCache, testRepo, cfg)
-		testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "remote", "add", "source", sourceRepoPath)
+		gittest.Exec(t, cfg, "-C", testRepoPath, "remote", "add", "source", sourceRepoPath)
 
 		require.NoError(t, repo.FetchRemote(ctx, "source", FetchOpts{}))
 
-		testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", "--track", "testing-fetch-prune", "refs/remotes/source/markdown")
-		testhelper.MustRunCommand(t, nil, "git", "-C", sourceRepoPath, "branch", "-D", "markdown")
+		gittest.Exec(t, cfg, "-C", testRepoPath, "branch", "--track", "testing-fetch-prune", "refs/remotes/source/markdown")
+		gittest.Exec(t, cfg, "-C", sourceRepoPath, "branch", "-D", "markdown")
 
 		require.NoError(t, repo.FetchRemote(
 			ctx,
@@ -404,11 +404,11 @@ func TestRepo_FetchRemote(t *testing.T) {
 
 		repo := New(remoteCmd.repo.gitCmdFactory, remoteCmd.repo.catfileCache, testRepo, cfg)
 
-		testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "remote", "add", "source", sourceRepoPath)
+		gittest.Exec(t, cfg, "-C", testRepoPath, "remote", "add", "source", sourceRepoPath)
 		require.NoError(t, repo.FetchRemote(ctx, "source", FetchOpts{}))
 
-		testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "branch", "--track", "testing-fetch-prune", "refs/remotes/source/markdown")
-		testhelper.MustRunCommand(t, nil, "git", "-C", sourceRepoPath, "branch", "-D", "markdown")
+		gittest.Exec(t, cfg, "-C", testRepoPath, "branch", "--track", "testing-fetch-prune", "refs/remotes/source/markdown")
+		gittest.Exec(t, cfg, "-C", sourceRepoPath, "branch", "-D", "markdown")
 
 		require.NoError(t, repo.FetchRemote(ctx, "source", FetchOpts{Prune: true}))
 
@@ -421,12 +421,12 @@ func TestRepo_FetchRemote(t *testing.T) {
 		repo, testRepoPath, cleanup := initBareWithRemote(t, "origin")
 		defer cleanup()
 
-		tagsBefore := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "tag", "--list")
+		tagsBefore := gittest.Exec(t, cfg, "-C", testRepoPath, "tag", "--list")
 		require.Empty(t, tagsBefore)
 
 		require.NoError(t, repo.FetchRemote(ctx, "origin", FetchOpts{Tags: FetchOptsTagsNone, Force: true}))
 
-		tagsAfter := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "tag", "--list")
+		tagsAfter := gittest.Exec(t, cfg, "-C", testRepoPath, "tag", "--list")
 		require.Empty(t, tagsAfter)
 
 		containsBranches, err := repo.HasRevision(ctx, git.Revision("'test'"))

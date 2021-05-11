@@ -98,7 +98,7 @@ func TestCreate(t *testing.T) {
 
 	testRepoPath := filepath.Join(pool.cfg.Storages[0].Path, testRepo.RelativePath)
 
-	masterSha := testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "show-ref", "master")
+	masterSha := gittest.Exec(t, pool.cfg, "-C", testRepoPath, "show-ref", "master")
 
 	err := pool.Create(ctx, testRepo)
 	require.NoError(t, err)
@@ -113,15 +113,15 @@ func TestCreate(t *testing.T) {
 	assert.True(t, os.IsNotExist(err))
 
 	// origin is set
-	out := testhelper.MustRunCommand(t, nil, "git", "-C", pool.FullPath(), "remote", "get-url", "origin")
+	out := gittest.Exec(t, pool.cfg, "-C", pool.FullPath(), "remote", "get-url", "origin")
 	assert.Equal(t, testRepoPath, strings.TrimRight(string(out), "\n"))
 
 	// refs exist
-	out = testhelper.MustRunCommand(t, nil, "git", "-C", pool.FullPath(), "show-ref", "refs/heads/master")
+	out = gittest.Exec(t, pool.cfg, "-C", pool.FullPath(), "show-ref", "refs/heads/master")
 	assert.Equal(t, masterSha, out)
 
 	// No problems
-	out = testhelper.MustRunCommand(t, nil, "git", "-C", pool.FullPath(), "cat-file", "-s", "55bc176024cfa3baaceb71db584c7e5df900ea65")
+	out = gittest.Exec(t, pool.cfg, "-C", pool.FullPath(), "cat-file", "-s", "55bc176024cfa3baaceb71db584c7e5df900ea65")
 	assert.Equal(t, "282\n", string(out))
 }
 

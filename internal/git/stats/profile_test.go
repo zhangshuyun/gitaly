@@ -54,13 +54,13 @@ func TestRepositoryProfile(t *testing.T) {
 			}),
 			gittest.WithParents(),
 		)
-		testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "update-ref", "refs/heads/"+blobID, commitID.String())
+		gittest.Exec(t, cfg, "-C", testRepoPath, "update-ref", "refs/heads/"+blobID, commitID.String())
 	}
 
 	// write a loose object
 	gittest.WriteBlobs(t, cfg, testRepoPath, 1)
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "repack", "-A", "-b", "-d")
+	gittest.Exec(t, cfg, "-C", testRepoPath, "repack", "-A", "-b", "-d")
 
 	unpackedObjects, err = UnpackedObjects(testRepoPath)
 	require.NoError(t, err)

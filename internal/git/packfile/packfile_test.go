@@ -1,4 +1,4 @@
-package packfile
+package packfile_test
 
 import (
 	"os"
@@ -6,7 +6,10 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
+	"gitlab.com/gitlab-org/gitaly/internal/git/packfile"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 )
 
 func TestMain(m *testing.M) {
@@ -21,18 +24,19 @@ func testMain(m *testing.M) int {
 }
 
 func TestList(t *testing.T) {
+	cfg := testcfg.Build(t)
 	tempDir := testhelper.TempDir(t)
 
 	emptyRepo := filepath.Join(tempDir, "empty.git")
-	testhelper.MustRunCommand(t, nil, "git", "init", "--bare", emptyRepo)
+	gittest.Exec(t, cfg, "init", "--bare", emptyRepo)
 
 	populatedRepo := filepath.Join(tempDir, "populated")
-	testhelper.MustRunCommand(t, nil, "git", "init", populatedRepo)
+	gittest.Exec(t, cfg, "init", populatedRepo)
 	for i := 0; i < 10; i++ {
-		testhelper.MustRunCommand(t, nil, "git", "-C", populatedRepo, "commit",
+		gittest.Exec(t, cfg, "-C", populatedRepo, "commit",
 			"--allow-empty", "--message", "commit message")
 	}
-	testhelper.MustRunCommand(t, nil, "git", "-C", populatedRepo, "repack", "-ad")
+	gittest.Exec(t, cfg, "-C", populatedRepo, "repack", "-ad")
 
 	testCases := []struct {
 		desc     string
@@ -45,7 +49,7 @@ func TestList(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			out, err := List(filepath.Join(tc.path, "objects"))
+			out, err := packfile.List(filepath.Join(tc.path, "objects"))
 			require.NoError(t, err)
 			require.Len(t, out, tc.numPacks)
 		})

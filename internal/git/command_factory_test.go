@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
@@ -63,9 +64,8 @@ func TestExecCommandFactory_NewWithDir(t *testing.T) {
 	t.Run("runs in dir", func(t *testing.T) {
 		repoPath := testhelper.TempDir(t)
 
-		testhelper.MustRunCommand(t, nil, "git", "init", repoPath)
-		testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "commit", "--allow-empty",
-			"-m", "initial commit")
+		gittest.Exec(t, cfg, "init", repoPath)
+		gittest.Exec(t, cfg, "-C", repoPath, "commit", "--allow-empty", "-m", "initial commit")
 
 		ctx, cancel := testhelper.Context()
 		defer cancel()

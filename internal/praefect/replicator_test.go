@@ -196,8 +196,8 @@ func TestReplMgr_ProcessBacklog(t *testing.T) {
 
 	replicatedPath := filepath.Join(backupCfg.Storages[0].Path, testRepo.GetRelativePath())
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", replicatedPath, "cat-file", "-e", commitID.String())
-	testhelper.MustRunCommand(t, nil, "git", "-C", replicatedPath, "gc")
+	gittest.Exec(t, backupCfg, "-C", replicatedPath, "cat-file", "-e", commitID.String())
+	gittest.Exec(t, backupCfg, "-C", replicatedPath, "gc")
 	require.Less(t, gittest.GetGitPackfileDirSize(t, replicatedPath), int64(100), "expect a small pack directory")
 
 	require.Equal(t, mockReplicationLatencyHistogramVec.LabelsCalled(), [][]string{{"update"}})
