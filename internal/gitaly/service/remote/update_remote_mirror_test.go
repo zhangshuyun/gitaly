@@ -137,6 +137,24 @@ func testUpdateRemoteMirrorFeatured(t *testing.T, ctx context.Context, cfg confi
 			},
 		},
 		{
+			desc: "ignores diverged branches not matched by the branch selector",
+			sourceRefs: refs{
+				"refs/heads/matched":  {"commit 1"},
+				"refs/heads/diverged": {"commit 1"},
+			},
+			onlyBranchesMatching: []string{"matched"},
+			keepDivergentRefs:    true,
+			mirrorRefs: refs{
+				"refs/heads/matched":  {"commit 1"},
+				"refs/heads/diverged": {"commit 2"},
+			},
+			response: &gitalypb.UpdateRemoteMirrorResponse{},
+			expectedMirrorRefs: map[string]string{
+				"refs/heads/matched":  "commit 1",
+				"refs/heads/diverged": "commit 2",
+			},
+		},
+		{
 			desc: "does not delete refs with KeepDivergentRefs",
 			sourceRefs: refs{
 				"refs/heads/master": {"commit 1"},

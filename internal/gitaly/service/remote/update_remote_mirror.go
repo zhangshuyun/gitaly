@@ -160,7 +160,12 @@ func (s *server) goUpdateRemoteMirror(stream gitalypb.RemoteService_UpdateRemote
 			if !isAncestor {
 				// The mirror's reference has diverged from the local ref, or the mirror contains a commit
 				// which is not present in the local repository.
-				divergentRefs = append(divergentRefs, []byte(localRef.Name))
+				if referenceMatcher.MatchString(localRef.Name.String()) {
+					// diverged branches on the mirror are only included in the response if they match
+					// one of the branches in the selector
+					divergentRefs = append(divergentRefs, []byte(localRef.Name))
+				}
+
 				delete(remoteRefs, localRef.Name)
 				continue
 			}
