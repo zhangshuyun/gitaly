@@ -103,24 +103,19 @@ func TestSuccessfulResolveConflictsRequest(t *testing.T) {
 	commitConflict := func(parentCommitID, branch, blob string) string {
 		blobID, err := repo.WriteBlob(ctx, "", strings.NewReader(blob))
 		require.NoError(t, err)
-		testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "read-tree", branch)
-		testhelper.MustRunCommand(t, nil,
-			"git", "-C", repoPath,
+		gittest.Exec(t, cfg, "-C", repoPath, "read-tree", branch)
+		gittest.Exec(t, cfg, "-C", repoPath,
 			"update-index", "--add", "--cacheinfo", "100644", blobID.String(), missingAncestorPath,
 		)
 		treeID := bytes.TrimSpace(
-			testhelper.MustRunCommand(t, nil,
-				"git", "-C", repoPath, "write-tree",
-			),
+			gittest.Exec(t, cfg, "-C", repoPath, "write-tree"),
 		)
 		commitID := bytes.TrimSpace(
-			testhelper.MustRunCommand(t, nil,
-				"git", "-C", repoPath,
+			gittest.Exec(t, cfg, "-C", repoPath,
 				"commit-tree", string(treeID), "-p", parentCommitID,
 			),
 		)
-		testhelper.MustRunCommand(t, nil,
-			"git", "-C", repoPath, "update-ref", "refs/heads/"+branch, string(commitID))
+		gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/"+branch, string(commitID))
 		return string(commitID)
 	}
 
@@ -190,7 +185,7 @@ func TestResolveConflictsWithRemoteRepo(t *testing.T) {
 			Path: "file.txt", OID: sourceBlobOID, Mode: "100644",
 		}),
 	)
-	testhelper.MustRunCommand(t, nil, "git", "-C", sourceRepoPath, "update-ref", "refs/heads/source", sourceCommitOID.String())
+	gittest.Exec(t, cfg, "-C", sourceRepoPath, "update-ref", "refs/heads/source", sourceCommitOID.String())
 
 	targetRepo, targetRepoPath, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "target")
 	t.Cleanup(cleanup)
@@ -200,7 +195,7 @@ func TestResolveConflictsWithRemoteRepo(t *testing.T) {
 			OID: targetBlobOID, Path: "file.txt", Mode: "100644",
 		}),
 	)
-	testhelper.MustRunCommand(t, nil, "git", "-C", targetRepoPath, "update-ref", "refs/heads/target", targetCommitOID.String())
+	gittest.Exec(t, cfg, "-C", targetRepoPath, "update-ref", "refs/heads/target", targetCommitOID.String())
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -244,7 +239,7 @@ func TestResolveConflictsWithRemoteRepo(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, response.GetResolutionError())
 
-	require.Equal(t, []byte("contents-2\n"), testhelper.MustRunCommand(t, nil, "git", "-C", sourceRepoPath, "cat-file", "-p", "refs/heads/source:file.txt"))
+	require.Equal(t, []byte("contents-2\n"), gittest.Exec(t, cfg, "-C", sourceRepoPath, "cat-file", "-p", "refs/heads/source:file.txt"))
 }
 
 func TestResolveConflictsLineEndings(t *testing.T) {
@@ -321,7 +316,7 @@ func TestResolveConflictsLineEndings(t *testing.T) {
 					OID: ourOID, Path: "file.txt", Mode: "100644",
 				}),
 			)
-			testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "update-ref", "refs/heads/ours", ourCommit.String())
+			gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/ours", ourCommit.String())
 
 			theirOID := gittest.WriteBlob(t, cfg, repoPath, []byte(tc.theirContent))
 			theirCommit := gittest.WriteCommit(t, cfg, repoPath,
@@ -329,7 +324,7 @@ func TestResolveConflictsLineEndings(t *testing.T) {
 					OID: theirOID, Path: "file.txt", Mode: "100644",
 				}),
 			)
-			testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "update-ref", "refs/heads/theirs", theirCommit.String())
+			gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/theirs", theirCommit.String())
 
 			stream, err := client.ResolveConflicts(ctx)
 			require.NoError(t, err)
@@ -361,8 +356,8 @@ func TestResolveConflictsLineEndings(t *testing.T) {
 			require.NoError(t, err)
 			require.Empty(t, response.GetResolutionError())
 
-			require.Equal(t, []byte(tc.expectedContents), testhelper.MustRunCommand(t, nil,
-				"git", "-C", repoPath, "cat-file", "-p", "refs/heads/ours:file.txt"))
+			oursFile := gittest.Exec(t, cfg, "-C", repoPath, "cat-file", "-p", "refs/heads/ours:file.txt")
+			require.Equal(t, []byte(tc.expectedContents), oursFile)
 		})
 	}
 }
@@ -428,7 +423,7 @@ func TestResolveConflictsIdenticalContent(t *testing.T) {
 		"6907208d755b60ebeacb2e9dfea74c92c3449a1f",
 		targetOID.String(),
 	} {
-		contents := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "cat-file", "-p", rev+":files/ruby/popen.rb")
+		contents := gittest.Exec(t, cfg, "-C", repoPath, "cat-file", "-p", rev+":files/ruby/popen.rb")
 		path := filepath.Join(tempDir, rev)
 		require.NoError(t, ioutil.WriteFile(path, contents, 0644))
 		conflictingPaths = append(conflictingPaths, path)

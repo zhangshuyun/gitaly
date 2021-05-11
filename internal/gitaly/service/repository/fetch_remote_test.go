@@ -34,15 +34,15 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func copyRepoWithNewRemote(t *testing.T, repo *gitalypb.Repository, repoPath string, remote string) (*gitalypb.Repository, string) {
+func copyRepoWithNewRemote(t *testing.T, cfg config.Cfg, repo *gitalypb.Repository, repoPath string, remote string) (*gitalypb.Repository, string) {
 	cloneRepo := &gitalypb.Repository{StorageName: repo.GetStorageName(), RelativePath: "fetch-remote-clone.git"}
 
 	clonePath := filepath.Join(filepath.Dir(repoPath), "fetch-remote-clone.git")
 	require.NoError(t, os.RemoveAll(clonePath))
 
-	testhelper.MustRunCommand(t, nil, "git", "clone", "--bare", repoPath, clonePath)
+	gittest.Exec(t, cfg, "clone", "--bare", repoPath, clonePath)
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", clonePath, "remote", "add", remote, repoPath)
+	gittest.Exec(t, cfg, "-C", clonePath, "remote", "add", remote, repoPath)
 
 	return cloneRepo, clonePath
 }
@@ -53,7 +53,7 @@ func TestFetchRemoteSuccess(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	cloneRepo, cloneRepoPath := copyRepoWithNewRemote(t, repo, repoPath, "my-remote")
+	cloneRepo, cloneRepoPath := copyRepoWithNewRemote(t, cfg, repo, repoPath, "my-remote")
 	defer func() {
 		require.NoError(t, os.RemoveAll(cloneRepoPath))
 	}()
@@ -171,7 +171,7 @@ func TestFetchRemote_withDefaultRefmaps(t *testing.T) {
 
 	sourceRepo := localrepo.NewTestRepo(t, cfg, sourceRepoProto)
 
-	targetRepoProto, targetRepoPath := copyRepoWithNewRemote(t, sourceRepoProto, sourceRepoPath, "my-remote")
+	targetRepoProto, targetRepoPath := copyRepoWithNewRemote(t, cfg, sourceRepoProto, sourceRepoPath, "my-remote")
 	defer func() {
 		require.NoError(t, os.RemoveAll(targetRepoPath))
 	}()
@@ -335,7 +335,7 @@ func TestFetchRemote_prune(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			targetRepoProto, targetRepoPath := copyRepoWithNewRemote(t, sourceRepo, sourceRepoPath, "my-remote")
+			targetRepoProto, targetRepoPath := copyRepoWithNewRemote(t, cfg, sourceRepo, sourceRepoPath, "my-remote")
 			defer func() {
 				require.NoError(t, os.RemoveAll(targetRepoPath))
 			}()
@@ -490,7 +490,7 @@ func TestFetchRemote_force(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			targetRepoProto, targetRepoPath := copyRepoWithNewRemote(t, sourceRepoProto, sourceRepoPath, "my-remote")
+			targetRepoProto, targetRepoPath := copyRepoWithNewRemote(t, cfg, sourceRepoProto, sourceRepoPath, "my-remote")
 			defer func() {
 				require.NoError(t, os.RemoveAll(targetRepoPath))
 			}()
@@ -661,8 +661,8 @@ func remoteHTTPServer(t *testing.T, repoName, httpToken string) (*httptest.Serve
 	return s, fmt.Sprintf("%s/%s.git", s.URL, repoName)
 }
 
-func getRefnames(t *testing.T, repoPath string) []string {
-	result := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "for-each-ref", "--format", "%(refname:lstrip=2)")
+func getRefnames(t *testing.T, cfg config.Cfg, repoPath string) []string {
+	result := gittest.Exec(t, cfg, "-C", repoPath, "for-each-ref", "--format", "%(refname:lstrip=2)")
 	return strings.Split(text.ChompBytes(result), "\n")
 }
 
@@ -708,13 +708,13 @@ func testFetchRemoteOverHTTP(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.S
 				req.RemoteParams.Url = s.URL + tc.remoteURL
 			}
 
-			refs := getRefnames(t, forkedRepoPath)
+			refs := getRefnames(t, cfg, forkedRepoPath)
 			require.True(t, len(refs) > 1, "the advertisement.txt should have deleted all refs except for master")
 
 			_, err := client.FetchRemote(ctx, req)
 			require.NoError(t, err)
 
-			refs = getRefnames(t, forkedRepoPath)
+			refs = getRefnames(t, cfg, forkedRepoPath)
 
 			require.Len(t, refs, 1)
 			assert.Equal(t, "master", refs[0])

@@ -11,6 +11,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service"
@@ -277,7 +278,7 @@ func TestUpdateReferenceWithHooks(t *testing.T) {
 				contained, err := localrepo.NewTestRepo(t, cfg, repo).HasRevision(ctx, git.Revision("refs/heads/master"))
 				require.NoError(t, err)
 				require.False(t, contained, "branch should have been deleted")
-				testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", "master", oldRev)
+				gittest.Exec(t, cfg, "-C", repoPath, "branch", "master", oldRev)
 			} else {
 				ref, err := localrepo.NewTestRepo(t, cfg, repo).GetReference(ctx, "refs/heads/master")
 				require.NoError(t, err)

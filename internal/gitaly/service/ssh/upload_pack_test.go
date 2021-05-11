@@ -73,7 +73,7 @@ func (cmd cloneCommand) execute(t *testing.T) error {
 	return nil
 }
 
-func (cmd cloneCommand) test(t *testing.T, repoPath string, localRepoPath string) (string, string, string, string) {
+func (cmd cloneCommand) test(t *testing.T, cfg config.Cfg, repoPath string, localRepoPath string) (string, string, string, string) {
 	t.Helper()
 
 	defer os.RemoveAll(localRepoPath)
@@ -81,11 +81,11 @@ func (cmd cloneCommand) test(t *testing.T, repoPath string, localRepoPath string
 	err := cmd.execute(t)
 	require.NoError(t, err)
 
-	remoteHead := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", "master"))
-	localHead := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", localRepoPath, "rev-parse", "master"))
+	remoteHead := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "master"))
+	localHead := text.ChompBytes(gittest.Exec(t, cfg, "-C", localRepoPath, "rev-parse", "master"))
 
-	remoteTags := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "tag"))
-	localTags := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", localRepoPath, "tag"))
+	remoteTags := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "tag"))
+	localTags := text.ChompBytes(gittest.Exec(t, cfg, "-C", localRepoPath, "tag"))
 
 	return localHead, remoteHead, localTags, remoteTags
 }
@@ -237,7 +237,7 @@ func TestUploadPackCloneSuccess(t *testing.T) {
 				server:       serverSocketPath,
 				cfg:          cfg,
 			}
-			lHead, rHead, _, _ := cmd.test(t, repoPath, localRepoPath)
+			lHead, rHead, _, _ := cmd.test(t, cfg, repoPath, localRepoPath)
 			require.Equal(t, lHead, rHead, "local and remote head not equal")
 
 			metric, err := negotiationMetrics.GetMetricWithLabelValues("deepen")
@@ -424,7 +424,7 @@ func TestUploadPackCloneSuccessWithGitProtocol(t *testing.T) {
 				cfg:         cfg,
 			}
 
-			lHead, rHead, _, _ := cmd.test(t, repoPath, localRepoPath)
+			lHead, rHead, _, _ := cmd.test(t, cfg, repoPath, localRepoPath)
 			require.Equal(t, lHead, rHead, "local and remote head not equal")
 
 			envData := readProto()
@@ -453,7 +453,7 @@ func TestUploadPackCloneHideTags(t *testing.T) {
 		gitConfig:  "transfer.hideRefs=refs/tags",
 		cfg:        cfg,
 	}
-	_, _, lTags, rTags := cloneCmd.test(t, repoPath, localRepoPath)
+	_, _, lTags, rTags := cloneCmd.test(t, cfg, repoPath, localRepoPath)
 
 	if lTags == rTags {
 		t.Fatalf("local and remote tags are equal. clone failed: %q != %q", lTags, rTags)

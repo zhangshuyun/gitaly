@@ -100,7 +100,7 @@ func testSuccessfulUserUpdateBranchRequestFeatured(t *testing.T, ctx context.Con
 			require.NoError(t, err)
 			require.Equal(t, string(testCase.newRev), branchCommit.Id)
 
-			branches := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "for-each-ref", "--", "refs/heads/"+branchName)
+			branches := gittest.Exec(t, cfg, "-C", repoPath, "for-each-ref", "--", "refs/heads/"+branchName)
 			require.Contains(t, string(branches), "refs/heads/"+branchName)
 		})
 	}
@@ -152,7 +152,7 @@ func testSuccessfulUserUpdateBranchRequestToDeleteFeatured(t *testing.T, ctx con
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
 			if testCase.createBranch {
-				testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", "--", testCase.updateBranchName, string(testCase.oldRev))
+				gittest.Exec(t, cfg, "-C", repoPath, "branch", "--", testCase.updateBranchName, string(testCase.oldRev))
 			}
 
 			responseOk := &gitalypb.UserUpdateBranchResponse{}
@@ -170,7 +170,7 @@ func testSuccessfulUserUpdateBranchRequestToDeleteFeatured(t *testing.T, ctx con
 			_, err = repo.ReadCommit(ctx, git.Revision(testCase.updateBranchName))
 			require.Equal(t, localrepo.ErrObjectNotFound, err, "expected 'not found' error got %v", err)
 
-			refs := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "for-each-ref", "--", "refs/heads/"+testCase.updateBranchName)
+			refs := gittest.Exec(t, cfg, "-C", repoPath, "for-each-ref", "--", "refs/heads/"+testCase.updateBranchName)
 			require.NotContains(t, string(refs), testCase.oldRev, "branch deleted from refs")
 		})
 	}

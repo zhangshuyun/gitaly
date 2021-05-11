@@ -55,13 +55,13 @@ func TestFetchIntoObjectPool_Success(t *testing.T) {
 	require.True(t, pool.IsValid(), "ensure underlying repository is valid")
 
 	// No problems
-	testhelper.MustRunCommand(t, nil, "git", "-C", pool.FullPath(), "fsck")
+	gittest.Exec(t, cfg, "-C", pool.FullPath(), "fsck")
 
 	packFiles, err := filepath.Glob(filepath.Join(pool.FullPath(), "objects", "pack", "pack-*.pack"))
 	require.NoError(t, err)
 	require.Len(t, packFiles, 1, "ensure commits got packed")
 
-	packContents := testhelper.MustRunCommand(t, nil, "git", "-C", pool.FullPath(), "verify-pack", "-v", packFiles[0])
+	packContents := gittest.Exec(t, cfg, "-C", pool.FullPath(), "verify-pack", "-v", packFiles[0])
 	require.Contains(t, string(packContents), repoCommit)
 
 	_, err = client.FetchIntoObjectPool(ctx, req)

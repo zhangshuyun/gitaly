@@ -96,7 +96,7 @@ func testSuccessfulUserUpdateSubmoduleRequestFeatured(t *testing.T, ctx context.
 			require.Equal(t, commit.Committer.Email, testhelper.TestUser.Email)
 			require.Equal(t, commit.Subject, commitMessage)
 
-			entry := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "ls-tree", "-z", fmt.Sprintf("%s^{tree}:", response.BranchUpdate.CommitId), testCase.submodule)
+			entry := gittest.Exec(t, cfg, "-C", repoPath, "ls-tree", "-z", fmt.Sprintf("%s^{tree}:", response.BranchUpdate.CommitId), testCase.submodule)
 			parser := lstree.NewParser(bytes.NewReader(entry))
 			parsedEntry, err := parser.NextEntry()
 			require.NoError(t, err)

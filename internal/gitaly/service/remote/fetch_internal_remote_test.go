@@ -192,7 +192,7 @@ func TestSuccessfulFetchInternalRemote(t *testing.T) {
 	}, testserver.WithHookManager(hookManager), testserver.WithDisablePraefect())
 
 	localRepoPath := filepath.Join(localCfg.Storages[0].Path, localRepo.GetRelativePath())
-	testhelper.MustRunCommand(t, nil, "git", "-C", localRepoPath, "symbolic-ref", "HEAD", "refs/heads/feature")
+	gittest.Exec(t, remoteCfg, "-C", localRepoPath, "symbolic-ref", "HEAD", "refs/heads/feature")
 
 	client, conn := newRemoteClient(t, localAddr)
 	t.Cleanup(func() { conn.Close() })
@@ -211,8 +211,8 @@ func TestSuccessfulFetchInternalRemote(t *testing.T) {
 	require.True(t, c.GetResult())
 
 	require.Equal(t,
-		string(testhelper.MustRunCommand(t, nil, "git", "-C", remoteRepoPath, "show-ref", "--head")),
-		string(testhelper.MustRunCommand(t, nil, "git", "-C", localRepoPath, "show-ref", "--head")),
+		string(gittest.Exec(t, remoteCfg, "-C", remoteRepoPath, "show-ref", "--head")),
+		string(gittest.Exec(t, remoteCfg, "-C", localRepoPath, "show-ref", "--head")),
 	)
 
 	gitalySSHInvocationParams := getGitalySSHInvocationParams()

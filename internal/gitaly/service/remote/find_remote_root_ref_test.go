@@ -13,10 +13,9 @@ import (
 )
 
 func TestFindRemoteRootRefSuccess(t *testing.T) {
-	_, repo, repoPath, client := setupRemoteService(t)
+	cfg, repo, repoPath, client := setupRemoteService(t)
 
-	originURL := text.ChompBytes(testhelper.MustRunCommand(t, nil,
-		"git", "-C", repoPath, "remote", "get-url", "origin"))
+	originURL := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "remote", "get-url", "origin"))
 
 	for _, tc := range []struct {
 		desc    string
@@ -60,7 +59,7 @@ func TestFindRemoteRootRefWithUnbornRemoteHead(t *testing.T) {
 	// point to an unborn branch because the default branch hasn't yet been created.
 	_, clientRepoPath, cleanup := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
 	defer cleanup()
-	testhelper.MustRunCommand(t, nil, "git", "-C", remoteRepoPath, "remote", "add",
+	gittest.Exec(t, cfg, "-C", remoteRepoPath, "remote", "add",
 		"foo", "file://"+clientRepoPath)
 
 	ctx, cancel := testhelper.Context()

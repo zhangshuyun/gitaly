@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -73,13 +74,13 @@ func testSuccessfulAddRemote(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.S
 			_, err := client.AddRemote(ctx, request)
 			require.NoError(t, err)
 
-			remotes := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "remote", "-v")
+			remotes := gittest.Exec(t, cfg, "-C", repoPath, "remote", "-v")
 
 			require.Contains(t, string(remotes), fmt.Sprintf("%s\t%s (fetch)", tc.remoteName, tc.url))
 			require.Contains(t, string(remotes), fmt.Sprintf("%s\t%s (push)", tc.remoteName, tc.url))
 
 			mirrorConfigRegexp := fmt.Sprintf("remote.%s", tc.remoteName)
-			mirrorConfig := string(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "--get-regexp", mirrorConfigRegexp))
+			mirrorConfig := string(gittest.Exec(t, cfg, "-C", repoPath, "config", "--get-regexp", mirrorConfigRegexp))
 			if len(tc.resolvedMirrorRefmaps) > 0 {
 				for _, resolvedMirrorRefmap := range tc.resolvedMirrorRefmaps {
 					require.Contains(t, mirrorConfig, resolvedMirrorRefmap)
@@ -134,12 +135,12 @@ func TestFailedAddRemoteDueToValidation(t *testing.T) {
 }
 
 func TestSuccessfulRemoveRemote(t *testing.T) {
-	_, repo, repoPath, client := setupRemoteService(t)
+	cfg, repo, repoPath, client := setupRemoteService(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "remote", "add", "my-remote", "http://my-repo.git")
+	gittest.Exec(t, cfg, "-C", repoPath, "remote", "add", "my-remote", "http://my-repo.git")
 
 	testCases := []struct {
 		description string
@@ -169,7 +170,7 @@ func TestSuccessfulRemoveRemote(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, tc.result, r.GetResult())
 
-			remotes := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "remote")
+			remotes := gittest.Exec(t, cfg, "-C", repoPath, "remote")
 
 			require.NotContains(t, string(remotes), tc.remoteName)
 		})

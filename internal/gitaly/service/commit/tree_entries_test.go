@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -16,7 +17,7 @@ import (
 )
 
 func TestSuccessfulGetTreeEntriesWithCurlyBraces(t *testing.T) {
-	_, repo, repoPath, client := setupCommitServiceWithRepo(t, false)
+	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, false)
 
 	normalFolderName := "issue-46261/folder"
 	curlyFolderName := "issue-46261/{{curly}}"
@@ -29,8 +30,8 @@ func TestSuccessfulGetTreeEntriesWithCurlyBraces(t *testing.T) {
 	testhelper.MustRunCommand(t, nil, "touch", filepath.Join(normalFolder, "/test1.txt"))
 	testhelper.MustRunCommand(t, nil, "touch", filepath.Join(curlyFolder, "/test2.txt"))
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "add", "--all")
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "commit", "-m", "Test commit")
+	gittest.Exec(t, cfg, "-C", repoPath, "add", "--all")
+	gittest.Exec(t, cfg, "-C", repoPath, "commit", "-m", "Test commit")
 
 	testCases := []struct {
 		description string
@@ -394,7 +395,7 @@ func getTreeEntriesFromTreeEntryClient(t *testing.T, client gitalypb.CommitServi
 }
 
 func TestSuccessfulGetTreeEntries_FlatPathMaxDeep_SingleFoldersStructure(t *testing.T) {
-	_, repo, repoPath, client := setupCommitServiceWithRepo(t, false)
+	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, false)
 
 	folderName := "1/2/3/4/5/6/7/8/9/10/11/12"
 	require.GreaterOrEqual(t, strings.Count(strings.Trim(folderName, "/"), "/"), defaultFlatTreeRecursion, "sanity check: construct folder deeper than default recursion value")
@@ -403,11 +404,11 @@ func TestSuccessfulGetTreeEntries_FlatPathMaxDeep_SingleFoldersStructure(t *test
 	require.NoError(t, os.MkdirAll(nestedFolder, 0755))
 	// put single file into the deepest directory
 	testhelper.MustRunCommand(t, nil, "touch", filepath.Join(nestedFolder, ".gitkeep"))
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "add", "--all")
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "commit", "-m", "Deep folder struct")
+	gittest.Exec(t, cfg, "-C", repoPath, "add", "--all")
+	gittest.Exec(t, cfg, "-C", repoPath, "commit", "-m", "Deep folder struct")
 
-	commitID := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", "HEAD"))
-	rootOid := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", "HEAD^{tree}"))
+	commitID := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "HEAD"))
+	rootOid := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "HEAD^{tree}"))
 
 	// make request to folder that contains nothing except one folder
 	request := &gitalypb.GetTreeEntriesRequest{

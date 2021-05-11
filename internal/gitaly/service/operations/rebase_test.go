@@ -47,7 +47,7 @@ func testSuccessfulUserRebaseConfirmableRequestFeatured(t *testing.T, ctx contex
 	repoCopyProto, _, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "copy")
 	defer cleanup()
 
-	branchSha := getBranchSha(t, repoPath, rebaseBranchName)
+	branchSha := getBranchSha(t, cfg, repoPath, rebaseBranchName)
 
 	rebaseStream, err := client.UserRebaseConfirmable(ctx)
 	require.NoError(t, err)
@@ -74,7 +74,7 @@ func testSuccessfulUserRebaseConfirmableRequestFeatured(t *testing.T, ctx contex
 	_, err = rebaseStream.Recv()
 	require.Equal(t, io.EOF, err)
 
-	newBranchSha := getBranchSha(t, repoPath, rebaseBranchName)
+	newBranchSha := getBranchSha(t, cfg, repoPath, rebaseBranchName)
 
 	require.NotEqual(t, newBranchSha, branchSha)
 	require.Equal(t, newBranchSha, firstResponse.GetRebaseSha())
@@ -203,7 +203,7 @@ func testUserRebaseConfirmableStableCommitIDsFeatured(t *testing.T, ctx context.
 	require.NoError(t, err)
 
 	committerDate := &timestamp.Timestamp{Seconds: 100000000}
-	parentSha := getBranchSha(t, repoPath, "master")
+	parentSha := getBranchSha(t, cfg, repoPath, "master")
 
 	require.NoError(t, rebaseStream.Send(&gitalypb.UserRebaseConfirmableRequest{
 		UserRebaseConfirmableRequestPayload: &gitalypb.UserRebaseConfirmableRequest_Header_{
@@ -212,7 +212,7 @@ func testUserRebaseConfirmableStableCommitIDsFeatured(t *testing.T, ctx context.
 				User:             testhelper.TestUser,
 				RebaseId:         "1",
 				Branch:           []byte(rebaseBranchName),
-				BranchSha:        getBranchSha(t, repoPath, rebaseBranchName),
+				BranchSha:        getBranchSha(t, cfg, repoPath, rebaseBranchName),
 				RemoteRepository: repoProto,
 				RemoteBranch:     []byte("master"),
 				Timestamp:        committerDate,
@@ -270,7 +270,7 @@ func testFailedRebaseUserRebaseConfirmableRequestDueToInvalidHeaderFeatured(t *t
 	repoCopy, _, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "copy")
 	defer cleanup()
 
-	branchSha := getBranchSha(t, repoPath, rebaseBranchName)
+	branchSha := getBranchSha(t, cfg, repoPath, rebaseBranchName)
 
 	testCases := []struct {
 		desc string
@@ -347,7 +347,7 @@ func testAbortedUserRebaseConfirmableFeatured(t *testing.T, ctx context.Context,
 			testRepoCopy, _, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "copy")
 			defer cleanup()
 
-			branchSha := getBranchSha(t, testRepoPath, rebaseBranchName)
+			branchSha := getBranchSha(t, cfg, testRepoPath, rebaseBranchName)
 
 			headerRequest := buildHeaderRequest(testRepo, testhelper.TestUser, fmt.Sprintf("%v", i), rebaseBranchName, branchSha, testRepoCopy, "master")
 
@@ -377,7 +377,7 @@ func testAbortedUserRebaseConfirmableFeatured(t *testing.T, ctx context.Context,
 			require.Error(t, err)
 			testhelper.RequireGrpcError(t, err, tc.code)
 
-			newBranchSha := getBranchSha(t, testRepoPath, rebaseBranchName)
+			newBranchSha := getBranchSha(t, cfg, testRepoPath, rebaseBranchName)
 			require.Equal(t, newBranchSha, branchSha, "branch should not change when the rebase is aborted")
 		})
 	}
@@ -395,7 +395,7 @@ func testFailedUserRebaseConfirmableDueToApplyBeingFalseFeatured(t *testing.T, c
 	testRepoCopy, _, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "copy")
 	defer cleanup()
 
-	branchSha := getBranchSha(t, repoPath, rebaseBranchName)
+	branchSha := getBranchSha(t, cfg, repoPath, rebaseBranchName)
 
 	rebaseStream, err := client.UserRebaseConfirmable(ctx)
 	require.NoError(t, err)
@@ -417,7 +417,7 @@ func testFailedUserRebaseConfirmableDueToApplyBeingFalseFeatured(t *testing.T, c
 	testhelper.RequireGrpcError(t, err, codes.FailedPrecondition)
 	require.False(t, secondResponse.GetRebaseApplied(), "the second rebase is not applied")
 
-	newBranchSha := getBranchSha(t, repoPath, rebaseBranchName)
+	newBranchSha := getBranchSha(t, cfg, repoPath, rebaseBranchName)
 	require.Equal(t, branchSha, newBranchSha, "branch should not change when the rebase is not applied")
 	require.NotEqual(t, newBranchSha, firstResponse.GetRebaseSha(), "branch should not be the sha returned when the rebase is not applied")
 }
@@ -433,7 +433,7 @@ func testFailedUserRebaseConfirmableRequestDueToPreReceiveErrorFeatured(t *testi
 	repoCopyProto, _, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "copy")
 	defer cleanup()
 
-	branchSha := getBranchSha(t, repoPath, rebaseBranchName)
+	branchSha := getBranchSha(t, cfg, repoPath, rebaseBranchName)
 
 	hookContent := []byte("#!/bin/sh\necho 'failure'\nexit 1")
 
@@ -464,7 +464,7 @@ func testFailedUserRebaseConfirmableRequestDueToPreReceiveErrorFeatured(t *testi
 			_, err = rebaseStream.Recv()
 			require.Equal(t, io.EOF, err)
 
-			newBranchSha := getBranchSha(t, repoPath, rebaseBranchName)
+			newBranchSha := getBranchSha(t, cfg, repoPath, rebaseBranchName)
 			require.Equal(t, branchSha, newBranchSha, "branch should not change when the rebase fails due to PreReceiveError")
 			require.NotEqual(t, newBranchSha, firstResponse.GetRebaseSha(), "branch should not be the sha returned when the rebase fails due to PreReceiveError")
 		})
@@ -482,7 +482,7 @@ func testFailedUserRebaseConfirmableDueToGitErrorFeatured(t *testing.T, ctx cont
 	defer cleanup()
 
 	failedBranchName := "rebase-encoding-failure-trigger"
-	branchSha := getBranchSha(t, repoPath, failedBranchName)
+	branchSha := getBranchSha(t, cfg, repoPath, failedBranchName)
 
 	rebaseStream, err := client.UserRebaseConfirmable(ctx)
 	require.NoError(t, err)
@@ -497,12 +497,12 @@ func testFailedUserRebaseConfirmableDueToGitErrorFeatured(t *testing.T, ctx cont
 	_, err = rebaseStream.Recv()
 	require.Equal(t, io.EOF, err)
 
-	newBranchSha := getBranchSha(t, repoPath, failedBranchName)
+	newBranchSha := getBranchSha(t, cfg, repoPath, failedBranchName)
 	require.Equal(t, branchSha, newBranchSha, "branch should not change when the rebase fails due to GitError")
 }
 
-func getBranchSha(t *testing.T, repoPath string, branchName string) string {
-	branchSha := string(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", branchName))
+func getBranchSha(t *testing.T, cfg config.Cfg, repoPath string, branchName string) string {
+	branchSha := string(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", branchName))
 	return strings.TrimSpace(branchSha)
 }
 
@@ -522,13 +522,13 @@ func testRebaseRequestWithDeletedFileFeatured(t *testing.T, ctx context.Context,
 
 	branch := "rebase-delete-test"
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "user.name", string(testhelper.TestUser.Name))
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "config", "user.email", string(testhelper.TestUser.Email))
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "checkout", "-b", branch, "master~1")
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rm", "README")
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "commit", "-a", "-m", "delete file")
+	gittest.Exec(t, cfg, "-C", repoPath, "config", "user.name", string(testhelper.TestUser.Name))
+	gittest.Exec(t, cfg, "-C", repoPath, "config", "user.email", string(testhelper.TestUser.Email))
+	gittest.Exec(t, cfg, "-C", repoPath, "checkout", "-b", branch, "master~1")
+	gittest.Exec(t, cfg, "-C", repoPath, "rm", "README")
+	gittest.Exec(t, cfg, "-C", repoPath, "commit", "-a", "-m", "delete file")
 
-	branchSha := getBranchSha(t, repoPath, branch)
+	branchSha := getBranchSha(t, cfg, repoPath, branch)
 
 	rebaseStream, err := client.UserRebaseConfirmable(ctx)
 	require.NoError(t, err)
@@ -551,7 +551,7 @@ func testRebaseRequestWithDeletedFileFeatured(t *testing.T, ctx context.Context,
 	_, err = rebaseStream.Recv()
 	require.Equal(t, io.EOF, err)
 
-	newBranchSha := getBranchSha(t, repoPath, branch)
+	newBranchSha := getBranchSha(t, cfg, repoPath, branch)
 
 	require.NotEqual(t, newBranchSha, branchSha)
 	require.Equal(t, newBranchSha, firstResponse.GetRebaseSha())
@@ -572,15 +572,15 @@ func testRebaseOntoRemoteBranchFeatured(t *testing.T, ctx context.Context, cfg c
 	defer cleanup()
 
 	localBranch := "master"
-	localBranchHash := getBranchSha(t, repoPath, localBranch)
+	localBranchHash := getBranchSha(t, cfg, repoPath, localBranch)
 
 	remoteBranch := "remote-branch"
-	testhelper.MustRunCommand(t, nil, "git", "-C", remoteRepoPath, "config", "user.name", string(testhelper.TestUser.Name))
-	testhelper.MustRunCommand(t, nil, "git", "-C", remoteRepoPath, "config", "user.email", string(testhelper.TestUser.Email))
-	testhelper.MustRunCommand(t, nil, "git", "-C", remoteRepoPath, "checkout", "-b", remoteBranch, "master")
-	testhelper.MustRunCommand(t, nil, "git", "-C", remoteRepoPath, "rm", "README")
-	testhelper.MustRunCommand(t, nil, "git", "-C", remoteRepoPath, "commit", "-a", "-m", "remove README")
-	remoteBranchHash := getBranchSha(t, remoteRepoPath, remoteBranch)
+	gittest.Exec(t, cfg, "-C", remoteRepoPath, "config", "user.name", string(testhelper.TestUser.Name))
+	gittest.Exec(t, cfg, "-C", remoteRepoPath, "config", "user.email", string(testhelper.TestUser.Email))
+	gittest.Exec(t, cfg, "-C", remoteRepoPath, "checkout", "-b", remoteBranch, "master")
+	gittest.Exec(t, cfg, "-C", remoteRepoPath, "rm", "README")
+	gittest.Exec(t, cfg, "-C", remoteRepoPath, "commit", "-a", "-m", "remove README")
+	remoteBranchHash := getBranchSha(t, cfg, remoteRepoPath, remoteBranch)
 
 	rebaseStream, err := client.UserRebaseConfirmable(ctx)
 	require.NoError(t, err)
@@ -606,7 +606,7 @@ func testRebaseOntoRemoteBranchFeatured(t *testing.T, ctx context.Context, cfg c
 	_, err = rebaseStream.Recv()
 	require.Equal(t, io.EOF, err)
 
-	rebasedBranchHash := getBranchSha(t, repoPath, localBranch)
+	rebasedBranchHash := getBranchSha(t, cfg, repoPath, localBranch)
 
 	require.NotEqual(t, rebasedBranchHash, localBranchHash)
 	require.Equal(t, rebasedBranchHash, firstResponse.GetRebaseSha())
@@ -621,7 +621,7 @@ func testRebaseFailedWithCode(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.
 func testRebaseFailedWithCodeFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	ctx, _, repoProto, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
 
-	branchSha := getBranchSha(t, repoPath, rebaseBranchName)
+	branchSha := getBranchSha(t, cfg, repoPath, rebaseBranchName)
 
 	testCases := []struct {
 		desc               string

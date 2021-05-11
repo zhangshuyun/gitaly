@@ -17,15 +17,15 @@ import (
 func TestSuccessfulIsRebaseInProgressRequest(t *testing.T) {
 	cfg, repo1, repoPath1, client := setupRepositoryService(t)
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath1, "worktree", "add", "--detach", filepath.Join(repoPath1, worktreePrefix, fmt.Sprintf("%s-1", rebaseWorktreePrefix)), "master")
+	gittest.Exec(t, cfg, "-C", repoPath1, "worktree", "add", "--detach", filepath.Join(repoPath1, worktreePrefix, fmt.Sprintf("%s-1", rebaseWorktreePrefix)), "master")
 
 	brokenPath := filepath.Join(repoPath1, worktreePrefix, fmt.Sprintf("%s-2", rebaseWorktreePrefix))
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath1, "worktree", "add", "--detach", brokenPath, "master")
+	gittest.Exec(t, cfg, "-C", repoPath1, "worktree", "add", "--detach", brokenPath, "master")
 	require.NoError(t, os.Chmod(brokenPath, 0))
 	require.NoError(t, os.Chtimes(brokenPath, time.Now(), time.Now().Add(-16*time.Minute)))
 
 	oldPath := filepath.Join(repoPath1, worktreePrefix, fmt.Sprintf("%s-3", rebaseWorktreePrefix))
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath1, "worktree", "add", "--detach", oldPath, "master")
+	gittest.Exec(t, cfg, "-C", repoPath1, "worktree", "add", "--detach", oldPath, "master")
 	require.NoError(t, os.Chtimes(oldPath, time.Now(), time.Now().Add(-16*time.Minute)))
 
 	repo2, _, cleanupFn := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "second")

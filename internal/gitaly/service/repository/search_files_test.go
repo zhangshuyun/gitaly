@@ -13,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
@@ -151,7 +152,7 @@ func TestSearchFilesByContentLargeFile(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	_, repo, repoPath, client := setupRepositoryServiceWithWorktree(t)
+	cfg, repo, repoPath, client := setupRepositoryServiceWithWorktree(t)
 
 	committerName := "Scrooge McDuck"
 	committerEmail := "scrooge@mcduck.com"
@@ -179,8 +180,8 @@ func TestSearchFilesByContentLargeFile(t *testing.T) {
 	for _, largeFile := range largeFiles {
 		t.Run(largeFile.filename, func(t *testing.T) {
 			require.NoError(t, ioutil.WriteFile(filepath.Join(repoPath, largeFile.filename), bytes.Repeat([]byte(largeFile.line), largeFile.repeated), 0644))
-			testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "add", ".")
-			testhelper.MustRunCommand(t, nil, "git", "-C", repoPath,
+			gittest.Exec(t, cfg, "-C", repoPath, "add", ".")
+			gittest.Exec(t, cfg, "-C", repoPath,
 				"-c", fmt.Sprintf("user.name=%s", committerName),
 				"-c", fmt.Sprintf("user.email=%s", committerEmail), "commit", "-m", "large file commit", "--", largeFile.filename)
 

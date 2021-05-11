@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/tempdir"
@@ -29,9 +30,9 @@ func TestServer_CreateRepositoryFromBundle_successful(t *testing.T) {
 	require.NoError(t, err)
 	bundlePath := filepath.Join(tmpdir, "original.bundle")
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "update-ref", "refs/custom-refs/ref1", "HEAD")
+	gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/custom-refs/ref1", "HEAD")
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "bundle", "create", bundlePath, "--all")
+	gittest.Exec(t, cfg, "-C", repoPath, "bundle", "create", bundlePath, "--all")
 	defer os.RemoveAll(bundlePath)
 
 	stream, err := client.CreateRepositoryFromBundle(ctx)
@@ -69,7 +70,7 @@ func TestServer_CreateRepositoryFromBundle_successful(t *testing.T) {
 	_, err = stream.CloseAndRecv()
 	require.NoError(t, err)
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", importedRepoPath, "fsck")
+	gittest.Exec(t, cfg, "-C", importedRepoPath, "fsck")
 
 	info, err := os.Lstat(filepath.Join(importedRepoPath, "hooks"))
 	require.NoError(t, err)

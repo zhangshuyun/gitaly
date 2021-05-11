@@ -211,7 +211,7 @@ func createTestWikiPage(t *testing.T, cfg config.Cfg, client gitalypb.WikiServic
 	defer cancel()
 
 	writeWikiPage(t, client, wikiRepoProto, opts)
-	head1ID := testhelper.MustRunCommand(t, nil, "git", "-C", wikiRepoPath, "show", "--format=format:%H", "--no-patch", "HEAD")
+	head1ID := gittest.Exec(t, cfg, "-C", wikiRepoPath, "show", "--format=format:%H", "--no-patch", "HEAD")
 
 	wikiRepo := localrepo.NewTestRepo(t, cfg, wikiRepoProto)
 	pageCommit, err := wikiRepo.ReadCommit(ctx, git.Revision(head1ID))

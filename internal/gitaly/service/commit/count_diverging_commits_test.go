@@ -31,26 +31,26 @@ func createRepoWithDivergentBranches(t *testing.T, cfg config.Cfg, leftCommits, 
 	committerEmail := "scrooge@mcduck.com"
 
 	for i := 0; i < 2; i++ {
-		testhelper.MustRunCommand(t, nil, "git", "-C", worktreePath,
+		gittest.Exec(t, cfg, "-C", worktreePath,
 			"-c", fmt.Sprintf("user.name=%s", committerName),
 			"-c", fmt.Sprintf("user.email=%s", committerEmail),
 			"commit", "--allow-empty", "-m", fmt.Sprintf("master branch Empty commit %d", i))
 	}
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", worktreePath, "checkout", "-b", leftBranchName)
+	gittest.Exec(t, cfg, "-C", worktreePath, "checkout", "-b", leftBranchName)
 
 	for i := 0; i < leftCommits; i++ {
-		testhelper.MustRunCommand(t, nil, "git", "-C", worktreePath,
+		gittest.Exec(t, cfg, "-C", worktreePath,
 			"-c", fmt.Sprintf("user.name=%s", committerName),
 			"-c", fmt.Sprintf("user.email=%s", committerEmail),
 			"commit", "--allow-empty", "-m", fmt.Sprintf("branch-1 Empty commit %d", i))
 	}
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", worktreePath, "checkout", "master")
-	testhelper.MustRunCommand(t, nil, "git", "-C", worktreePath, "checkout", "-b", rightBranchName)
+	gittest.Exec(t, cfg, "-C", worktreePath, "checkout", "master")
+	gittest.Exec(t, cfg, "-C", worktreePath, "checkout", "-b", rightBranchName)
 
 	for i := 0; i < rightCommits; i++ {
-		testhelper.MustRunCommand(t, nil, "git", "-C", worktreePath,
+		gittest.Exec(t, cfg, "-C", worktreePath,
 			"-c", fmt.Sprintf("user.name=%s", committerName),
 			"-c", fmt.Sprintf("user.email=%s", committerEmail),
 			"commit", "--allow-empty", "-m", fmt.Sprintf("branch-2 Empty commit %d", i))

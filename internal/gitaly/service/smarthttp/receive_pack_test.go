@@ -70,7 +70,7 @@ func TestSuccessfulReceivePackRequest(t *testing.T) {
 	require.Equal(t, expectedResponse, string(response), "Expected response to be %q, got %q", expectedResponse, response)
 
 	// The fact that this command succeeds means that we got the commit correctly, no further checks should be needed.
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "show", push.newHead)
+	gittest.Exec(t, cfg, "-C", repoPath, "show", push.newHead)
 
 	envData, err := ioutil.ReadFile(hookOutputFile)
 	require.NoError(t, err, "get git env data")
@@ -138,7 +138,7 @@ func TestReceivePackHiddenRefs(t *testing.T) {
 
 			// The options passed are the same ones used when doing an actual push.
 			revisions := strings.NewReader(fmt.Sprintf("^%s\n%s\n", oldHead, newHead))
-			pack := testhelper.MustRunCommand(t, revisions, "git", "-C", repoPath, "pack-objects", "--stdout", "--revs", "--thin", "--delta-base-offset", "-q")
+			pack := gittest.ExecStream(t, cfg, revisions, "-C", repoPath, "pack-objects", "--stdout", "--revs", "--thin", "--delta-base-offset", "-q")
 			request.Write(pack)
 
 			stream, err := client.PostReceivePack(ctx)
@@ -179,7 +179,7 @@ func TestSuccessfulReceivePackRequestWithGitProtocol(t *testing.T) {
 	require.Equal(t, fmt.Sprintf("GIT_PROTOCOL=%s\n", git.ProtocolV2), envData)
 
 	// The fact that this command succeeds means that we got the commit correctly, no further checks should be needed.
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "show", push.newHead)
+	gittest.Exec(t, cfg, "-C", repoPath, "show", push.newHead)
 }
 
 func TestFailedReceivePackRequestWithGitOpts(t *testing.T) {
@@ -269,7 +269,7 @@ func newTestPush(t *testing.T, cfg config.Cfg, fileContents []byte) *pushData {
 	_, repoPath, localCleanup := gittest.CloneRepoWithWorktreeAtStorage(t, cfg, cfg.Storages[0])
 	defer localCleanup()
 
-	oldHead, newHead := createCommit(t, repoPath, fileContents)
+	oldHead, newHead := createCommit(t, cfg, repoPath, fileContents)
 
 	// ReceivePack request is a packet line followed by a packet flush, then the pack file of the objects we want to push.
 	// This is explained a bit in https://git-scm.com/book/en/v2/Git-Internals-Transfer-Protocols#_uploading_data
@@ -291,7 +291,7 @@ func newTestPush(t *testing.T, cfg config.Cfg, fileContents []byte) *pushData {
 	stdin := strings.NewReader(fmt.Sprintf("^%s\n%s\n", oldHead, newHead))
 
 	// The options passed are the same ones used when doing an actual push.
-	pack := testhelper.MustRunCommand(t, stdin, "git", "-C", repoPath, "pack-objects", "--stdout", "--revs", "--thin", "--delta-base-offset", "-q")
+	pack := gittest.ExecStream(t, cfg, stdin, "-C", repoPath, "pack-objects", "--stdout", "--revs", "--thin", "--delta-base-offset", "-q")
 	requestBuffer.Write(pack)
 
 	return &pushData{newHead: newHead, body: requestBuffer}
@@ -299,25 +299,25 @@ func newTestPush(t *testing.T, cfg config.Cfg, fileContents []byte) *pushData {
 
 // createCommit creates a commit on HEAD with a file containing the
 // specified contents.
-func createCommit(t *testing.T, repoPath string, fileContents []byte) (oldHead string, newHead string) {
+func createCommit(t *testing.T, cfg config.Cfg, repoPath string, fileContents []byte) (oldHead string, newHead string) {
 	commitMsg := fmt.Sprintf("Testing ReceivePack RPC around %d", time.Now().Unix())
 	committerName := "Scrooge McDuck"
 	committerEmail := "scrooge@mcduck.com"
 
 	// The latest commit ID on the remote repo
-	oldHead = text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", "master"))
+	oldHead = text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "master"))
 
 	changedFile := "README.md"
 	require.NoError(t, ioutil.WriteFile(filepath.Join(repoPath, changedFile), fileContents, 0644))
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "add", changedFile)
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath,
+	gittest.Exec(t, cfg, "-C", repoPath, "add", changedFile)
+	gittest.Exec(t, cfg, "-C", repoPath,
 		"-c", fmt.Sprintf("user.name=%s", committerName),
 		"-c", fmt.Sprintf("user.email=%s", committerEmail),
 		"commit", "-m", commitMsg)
 
 	// The commit ID we want to push to the remote repo
-	newHead = text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", "master"))
+	newHead = text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "master"))
 
 	return oldHead, newHead
 }
@@ -359,8 +359,8 @@ func TestInvalidTimezone(t *testing.T) {
 	_, localRepoPath, localCleanup := gittest.CloneRepoWithWorktreeAtStorage(t, cfg, cfg.Storages[0])
 	defer localCleanup()
 
-	head := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", localRepoPath, "rev-parse", "HEAD"))
-	tree := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", localRepoPath, "rev-parse", "HEAD^{tree}"))
+	head := text.ChompBytes(gittest.Exec(t, cfg, "-C", localRepoPath, "rev-parse", "HEAD"))
+	tree := text.ChompBytes(gittest.Exec(t, cfg, "-C", localRepoPath, "rev-parse", "HEAD^{tree}"))
 
 	buf := new(bytes.Buffer)
 	buf.WriteString("tree " + tree + "\n")
@@ -369,10 +369,10 @@ func TestInvalidTimezone(t *testing.T) {
 	buf.WriteString("committer Au Thor <author@example.com> 1313584730 +051800\n")
 	buf.WriteString("\n")
 	buf.WriteString("Commit message\n")
-	commit := text.ChompBytes(testhelper.MustRunCommand(t, buf, "git", "-C", localRepoPath, "hash-object", "-t", "commit", "--stdin", "-w"))
+	commit := text.ChompBytes(gittest.ExecStream(t, cfg, buf, "-C", localRepoPath, "hash-object", "-t", "commit", "--stdin", "-w"))
 
 	stdin := strings.NewReader(fmt.Sprintf("^%s\n%s\n", head, commit))
-	pack := testhelper.MustRunCommand(t, stdin, "git", "-C", localRepoPath, "pack-objects", "--stdout", "--revs", "--thin", "--delta-base-offset", "-q")
+	pack := gittest.ExecStream(t, cfg, stdin, "-C", localRepoPath, "pack-objects", "--stdout", "--revs", "--thin", "--delta-base-offset", "-q")
 
 	pkt := fmt.Sprintf("%s %s refs/heads/master\x00 %s", head, commit, "report-status side-band-64k agent=git/2.12.0")
 	body := &bytes.Buffer{}
@@ -402,7 +402,7 @@ func TestInvalidTimezone(t *testing.T) {
 
 	expectedResponse := "0030\x01000eunpack ok\n0019ok refs/heads/master\n00000000"
 	require.Equal(t, expectedResponse, string(response), "Expected response to be %q, got %q", expectedResponse, response)
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "show", commit)
+	gittest.Exec(t, cfg, "-C", repoPath, "show", commit)
 }
 
 func TestReceivePackFsck(t *testing.T) {
@@ -475,7 +475,7 @@ func TestPostReceivePackToHooks(t *testing.T) {
 
 	push := newTestPush(t, cfg, nil)
 	testRepoPath := filepath.Join(cfg.Storages[0].Path, repo.RelativePath)
-	oldHead := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", testRepoPath, "rev-parse", "HEAD"))
+	oldHead := text.ChompBytes(gittest.Exec(t, cfg, "-C", testRepoPath, "rev-parse", "HEAD"))
 
 	changes := fmt.Sprintf("%s %s refs/heads/master\n", oldHead, push.newHead)
 
@@ -646,9 +646,9 @@ func TestPostReceiveWithReferenceTransactionHook(t *testing.T) {
 		// this used to generate two transactions: one for the packed-refs file and one for
 		// the loose ref. We only expect a single transaction though, given that the
 		// packed-refs transaction should get filtered out.
-		testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", "delete-me")
-		testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "pack-refs", "--all")
-		branchOID := text.ChompBytes(testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "rev-parse", "refs/heads/delete-me"))
+		gittest.Exec(t, cfg, "-C", repoPath, "branch", "delete-me")
+		gittest.Exec(t, cfg, "-C", repoPath, "pack-refs", "--all")
+		branchOID := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "refs/heads/delete-me"))
 
 		uploadPackData := &bytes.Buffer{}
 		gittest.WritePktlineString(t, uploadPackData, fmt.Sprintf("%s %s refs/heads/delete-me\x00 %s", branchOID, git.ZeroOID.String(), uploadPackCapabilities))

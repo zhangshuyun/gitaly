@@ -486,7 +486,7 @@ func TestSuccessfulFindCommitsRequestWithAltGitObjectDirs(t *testing.T) {
 }
 
 func TestSuccessfulFindCommitsRequestWithAmbiguousRef(t *testing.T) {
-	_, repo, repoPath, client := setupCommitServiceWithRepo(t, false)
+	cfg, repo, repoPath, client := setupCommitServiceWithRepo(t, false)
 
 	// These are arbitrary SHAs in the repository. The important part is
 	// that we create a branch using one of them with a different SHA so
@@ -494,7 +494,7 @@ func TestSuccessfulFindCommitsRequestWithAmbiguousRef(t *testing.T) {
 	branchName := "1e292f8fedd741b75372e19097c76d327140c312"
 	commitSha := "6907208d755b60ebeacb2e9dfea74c92c3449a1f"
 
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "checkout", "-b", branchName, commitSha)
+	gittest.Exec(t, cfg, "-C", repoPath, "checkout", "-b", branchName, commitSha)
 
 	request := &gitalypb.FindCommitsRequest{
 		Repository: repo,

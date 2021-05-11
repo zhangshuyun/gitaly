@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
@@ -15,10 +16,10 @@ func TestListNewCommits(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	_, repo, repoPath, client := setupRefService(t)
+	cfg, repo, repoPath, client := setupRefService(t)
 
 	oid := "0031876facac3f2b2702a0e53a26e89939a42209"
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", "-D", "few-commits")
+	gittest.Exec(t, cfg, "-C", repoPath, "branch", "-D", "few-commits")
 
 	testCases := []struct {
 		revision      string

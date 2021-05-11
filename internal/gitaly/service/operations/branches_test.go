@@ -102,14 +102,14 @@ func TestSuccessfulCreateBranchRequest(t *testing.T) {
 
 			response, err := client.UserCreateBranch(ctx, request)
 			if testCase.expectedBranch != nil {
-				defer testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", "-D", branchName)
+				defer gittest.Exec(t, cfg, "-C", repoPath, "branch", "-D", branchName)
 			}
 
 			require.NoError(t, err)
 			require.Equal(t, testCase.expectedBranch, response.Branch)
 			require.Empty(t, response.PreReceiveError)
 
-			branches := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "for-each-ref", "--", "refs/heads/"+branchName)
+			branches := gittest.Exec(t, cfg, "-C", repoPath, "for-each-ref", "--", "refs/heads/"+branchName)
 			require.Contains(t, string(branches), "refs/heads/"+branchName)
 		})
 	}
@@ -174,7 +174,7 @@ func TestUserCreateBranchWithTransaction(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.desc, func(t *testing.T) {
-			defer testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", "-D", "new-branch")
+			defer gittest.Exec(t, cfg, "-C", repoPath, "branch", "-D", "new-branch")
 
 			ctx, cancel := testhelper.Context()
 			defer cancel()
@@ -219,7 +219,7 @@ func TestSuccessfulGitHooksForUserCreateBranchRequest(t *testing.T) {
 }
 
 func testSuccessfulGitHooksForUserCreateBranchRequest(t *testing.T, ctx context.Context) {
-	ctx, _, repo, repoPath, client := setupOperationsService(t, ctx)
+	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
 	branchName := "new-branch"
 	request := &gitalypb.UserCreateBranchRequest{
@@ -231,7 +231,7 @@ func testSuccessfulGitHooksForUserCreateBranchRequest(t *testing.T, ctx context.
 
 	for _, hookName := range GitlabHooks {
 		t.Run(hookName, func(t *testing.T) {
-			defer testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", "-D", branchName)
+			defer gittest.Exec(t, cfg, "-C", repoPath, "branch", "-D", branchName)
 
 			hookOutputTempPath := gittest.WriteEnvToCustomHook(t, repoPath, hookName)
 
@@ -283,7 +283,7 @@ func TestSuccessfulCreateBranchRequestWithStartPointRefPrefix(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
-			testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "update-ref", "refs/heads/"+testCase.startPoint,
+			gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/"+testCase.startPoint,
 				testCase.startPointCommit,
 				git.ZeroOID.String(),
 			)
@@ -312,7 +312,7 @@ func TestSuccessfulCreateBranchRequestWithStartPointRefPrefix(t *testing.T) {
 				},
 			}
 			require.Equal(t, responseOk, response)
-			branches := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "for-each-ref", "--", "refs/heads/"+testCase.branchName)
+			branches := gittest.Exec(t, cfg, "-C", repoPath, "for-each-ref", "--", "refs/heads/"+testCase.branchName)
 			require.Contains(t, string(branches), "refs/heads/"+testCase.branchName)
 		})
 	}
@@ -410,7 +410,7 @@ func TestSuccessfulUserDeleteBranchRequest(t *testing.T) {
 }
 
 func testSuccessfulUserDeleteBranchRequest(t *testing.T, ctx context.Context) {
-	ctx, _, repo, repoPath, client := setupOperationsService(t, ctx)
+	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
 	testCases := []struct {
 		desc            string
@@ -445,7 +445,7 @@ func testSuccessfulUserDeleteBranchRequest(t *testing.T, ctx context.Context) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.desc, func(t *testing.T) {
-			testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", testCase.branchNameInput, testCase.branchCommit)
+			gittest.Exec(t, cfg, "-C", repoPath, "branch", testCase.branchNameInput, testCase.branchCommit)
 
 			response, err := client.UserDeleteBranch(ctx, &gitalypb.UserDeleteBranchRequest{
 				Repository: repo,
@@ -455,7 +455,7 @@ func testSuccessfulUserDeleteBranchRequest(t *testing.T, ctx context.Context) {
 			require.NoError(t, err)
 			testhelper.ProtoEqual(t, testCase.response, response)
 
-			refs := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "for-each-ref", "--", "refs/heads/"+testCase.branchNameInput)
+			refs := gittest.Exec(t, cfg, "-C", repoPath, "for-each-ref", "--", "refs/heads/"+testCase.branchNameInput)
 			require.NotContains(t, string(refs), testCase.branchCommit, "branch deleted from refs")
 		})
 	}
@@ -465,7 +465,7 @@ func TestSuccessfulGitHooksForUserDeleteBranchRequest(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	ctx, _, repo, repoPath, client := setupOperationsService(t, ctx)
+	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
 	branchNameInput := "to-be-deleted-soon-branch"
 
@@ -477,7 +477,7 @@ func TestSuccessfulGitHooksForUserDeleteBranchRequest(t *testing.T) {
 
 	for _, hookName := range GitlabHooks {
 		t.Run(hookName, func(t *testing.T) {
-			testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", branchNameInput)
+			gittest.Exec(t, cfg, "-C", repoPath, "branch", branchNameInput)
 
 			hookOutputTempPath := gittest.WriteEnvToCustomHook(t, repoPath, hookName)
 
@@ -498,9 +498,9 @@ func TestUserDeleteBranch_transaction(t *testing.T) {
 	// delete the packed-refs reference, and one to delete the loose ref. But given that we want
 	// to be independent of how well-packed refs are, we expect to get a single transactional
 	// vote, only.
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "update-ref", "refs/heads/delete-me", "master~")
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "pack-refs", "--all")
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "update-ref", "refs/heads/delete-me", "master")
+	gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/delete-me", "master~")
+	gittest.Exec(t, cfg, "-C", repoPath, "pack-refs", "--all")
+	gittest.Exec(t, cfg, "-C", repoPath, "update-ref", "refs/heads/delete-me", "master")
 
 	transactionServer := &testTransactionServer{}
 
@@ -605,10 +605,10 @@ func TestFailedUserDeleteBranchDueToHooks(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	ctx, _, repo, repoPath, client := setupOperationsService(t, ctx)
+	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
 	branchNameInput := "to-be-deleted-soon-branch"
-	testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", branchNameInput)
+	gittest.Exec(t, cfg, "-C", repoPath, "branch", branchNameInput)
 
 	request := &gitalypb.UserDeleteBranchRequest{
 		Repository: repo,
@@ -626,7 +626,7 @@ func TestFailedUserDeleteBranchDueToHooks(t *testing.T) {
 			require.NoError(t, err)
 			require.Contains(t, response.PreReceiveError, "GL_ID="+testhelper.TestUser.GlId)
 
-			branches := testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "for-each-ref", "--", "refs/heads/"+branchNameInput)
+			branches := gittest.Exec(t, cfg, "-C", repoPath, "for-each-ref", "--", "refs/heads/"+branchNameInput)
 			require.Contains(t, string(branches), branchNameInput, "branch name does not exist in branches list")
 		})
 	}
@@ -636,7 +636,7 @@ func TestBranchHookOutput(t *testing.T) {
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
-	ctx, _, repo, repoPath, client := setupOperationsService(t, ctx)
+	ctx, cfg, repo, repoPath, client := setupOperationsService(t, ctx)
 
 	testCases := []struct {
 		desc        string
@@ -697,8 +697,8 @@ func TestBranchHookOutput(t *testing.T) {
 				require.NoError(t, err)
 				require.Equal(t, testCase.output, createResponse.PreReceiveError)
 
-				testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", branchNameInput)
-				defer testhelper.MustRunCommand(t, nil, "git", "-C", repoPath, "branch", "-d", branchNameInput)
+				gittest.Exec(t, cfg, "-C", repoPath, "branch", branchNameInput)
+				defer gittest.Exec(t, cfg, "-C", repoPath, "branch", "-d", branchNameInput)
 
 				deleteResponse, err := client.UserDeleteBranch(ctx, deleteRequest)
 				require.NoError(t, err)
