@@ -17,9 +17,6 @@ var (
 	GoUserUpdateBranch = FeatureFlag{Name: "go_user_update_branch", OnByDefault: true}
 	// UserRebaseConfirmable
 	GoUserRebaseConfirmable = FeatureFlag{Name: "go_user_rebase_confirmable", OnByDefault: false}
-	// GoUserUpdateSubmodule enables the Go implementation of
-	// UserUpdateSubmodules
-	GoUserUpdateSubmodule = FeatureFlag{Name: "go_user_update_submodule", OnByDefault: true}
 	// GoUserRevert enables the Go implementation of UserRevert
 	GoUserRevert = FeatureFlag{Name: "go_user_revert", OnByDefault: true}
 	// GoUpdateRemoteMirror enables the Go implementation of UpdateRemoteMirror
@@ -36,7 +33,6 @@ var All = []FeatureFlag{
 	ReferenceTransactions,
 	GoUserUpdateBranch,
 	GoUserRebaseConfirmable,
-	GoUserUpdateSubmodule,
 	GoUserRevert,
 	GrpcTreeEntryNotFound,
 	GoUpdateRemoteMirror,
