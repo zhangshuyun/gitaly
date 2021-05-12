@@ -80,8 +80,6 @@ endif
 
 # Git target
 GIT_REPO_URL      ?= https://gitlab.com/gitlab-org/gitlab-git.git
-GIT_BINARIES_URL  ?= https://gitlab.com/gitlab-org/gitlab-git/-/jobs/artifacts/${GIT_VERSION}/raw/git_full_bins.tgz?job=build
-GIT_BINARIES_HASH ?= 9d8a5f0177eb723c10a63423280d47ab1e67de7a6f2608ec420ead009f6b7394
 GIT_INSTALL_DIR   := ${DEPENDENCY_DIR}/git/install
 GIT_SOURCE_DIR    := ${DEPENDENCY_DIR}/git/source
 GIT_QUIET         :=
@@ -135,7 +133,7 @@ ifndef LIBGIT2_BUILD_OPTIONS
 endif
 
 # These variables control test options and artifacts
-TEST_PACKAGES    ?= $(call find_go_packages)
+TEST_PACKAGES    ?= ${SOURCE_DIR}/...
 TEST_OPTIONS     ?= -v -count=1
 TEST_REPORT_DIR  ?= ${BUILD_DIR}/reports
 TEST_OUTPUT_NAME ?= go-${GO_VERSION}-git-${GIT_VERSION}
@@ -147,21 +145,12 @@ TEST_REPO        := ${TEST_REPO_DIR}/gitlab-test.git
 TEST_REPO_GIT    := ${TEST_REPO_DIR}/gitlab-git-test.git
 BENCHMARK_REPO   := ${TEST_REPO_DIR}/benchmark.git
 
-# uniq is a helper function to filter out any duplicate values in the single
-# parameter it accepts.
-#
-# Credits go to https://stackoverflow.com/questions/16144115/makefile-remove-duplicate-words-without-sorting
-uniq = $(if $(1),$(firstword $(1)) $(call uniq,$(filter-out $(firstword $(1)),$(1))))
-
 # Find all commands.
 find_commands         = $(notdir $(shell find ${SOURCE_DIR}/cmd -mindepth 1 -maxdepth 1 -type d -print))
 # Find all command binaries.
 find_command_binaries = $(addprefix ${BUILD_DIR}/bin/, $(call find_commands))
-
 # Find all Go source files.
-find_go_sources  = $(shell find ${SOURCE_DIR} -type d \( -name ruby -o -name vendor -o -name testdata -o -name '_*' -o -path '*/proto/go' \) -prune -o -type f -name '*.go' -not -name '*.pb.go' -print | sort -u)
-# Find all Go packages.
-find_go_packages = $(call uniq,$(dir $(call find_go_sources)))
+find_go_sources       = $(shell find ${SOURCE_DIR} -type d \( -name ruby -o -name vendor -o -name testdata -o -name '_*' -o -path '*/proto/go' \) -prune -o -type f -name '*.go' -not -name '*.pb.go' -print | sort -u)
 
 # run_go_tests will execute Go tests with all required parameters. Its
 # behaviour can be modified via the following variables:
@@ -192,8 +181,7 @@ export CGO_LDFLAGS_ALLOW          = -D_THREAD_SAFE
 .SECONDARY:
 
 .PHONY: all
-all: INSTALL_DEST_DIR = ${SOURCE_DIR}
-all: install
+all: build
 
 .PHONY: build
 build: ${SOURCE_DIR}/.ruby-bundle libgit2
@@ -286,7 +274,7 @@ notice: ${SOURCE_DIR}/NOTICE
 
 .PHONY: clean
 clean:
-	rm -rf ${BUILD_DIR} ${SOURCE_DIR}/internal/testhelper/testdata/data/ ${SOURCE_DIR}/ruby/.bundle/ ${SOURCE_DIR}/ruby/vendor/bundle/ $(addprefix ${SOURCE_DIR}/, $(notdir $(call find_commands)))
+	rm -rf ${BUILD_DIR} ${SOURCE_DIR}/internal/testhelper/testdata/data/ ${SOURCE_DIR}/ruby/.bundle/ ${SOURCE_DIR}/ruby/vendor/bundle/
 
 .PHONY: clean-ruby-vendor-go
 clean-ruby-vendor-go:
@@ -407,7 +395,6 @@ ${LIBGIT2_INSTALL_DIR}/lib/libgit2.a: ${DEPENDENCY_DIR}/libgit2.version
 	${Q}CMAKE_BUILD_PARALLEL_LEVEL=$(shell nproc) cmake --build ${LIBGIT2_BUILD_DIR} --target install
 	go install -a github.com/libgit2/git2go/${GIT2GO_VERSION}
 
-ifndef GIT_USE_PREBUILT_BINARIES
 ${GIT_INSTALL_DIR}/bin/git: ${DEPENDENCY_DIR}/git.version
 	${Q}${GIT} -c init.defaultBranch=master init ${GIT_QUIET} ${GIT_SOURCE_DIR}
 	${Q}${GIT} -C "${GIT_SOURCE_DIR}" config remote.origin.url ${GIT_REPO_URL}
@@ -421,17 +408,6 @@ endif
 	${Q}rm -rf ${GIT_INSTALL_DIR}
 	${Q}mkdir -p ${GIT_INSTALL_DIR}
 	env -u PROFILE -u MAKEFLAGS -u GIT_VERSION ${MAKE} -C ${GIT_SOURCE_DIR} -j$(shell nproc) prefix=${GIT_PREFIX} ${GIT_BUILD_OPTIONS} install
-else
-${DEPENDENCY_DIR}/git_full_bins.tgz: ${DEPENDENCY_DIR}/git.version
-	curl -o $@.tmp --silent --show-error -L ${GIT_BINARIES_URL}
-	${Q}printf '${GIT_BINARIES_HASH}  $@.tmp' | sha256sum -c -
-	${Q}mv $@.tmp $@
-
-${GIT_INSTALL_DIR}/bin/git: ${DEPENDENCY_DIR}/git_full_bins.tgz
-	${Q}rm -rf ${GIT_INSTALL_DIR}
-	${Q}mkdir -p ${GIT_INSTALL_DIR}
-	tar -C ${GIT_INSTALL_DIR} -xvzf ${DEPENDENCY_DIR}/git_full_bins.tgz
-endif
 
 ${TOOLS_DIR}/protoc.zip: TOOL_VERSION = ${PROTOC_VERSION}
 ${TOOLS_DIR}/protoc.zip: ${TOOLS_DIR}/protoc.version

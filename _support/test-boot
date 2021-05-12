@@ -7,8 +7,9 @@ ADDR = 'socket'.freeze
 
 def main(gitaly_dir)
   gitaly_dir = File.realpath(gitaly_dir)
+  bin_dir = File.join(gitaly_dir, '_build', 'bin')
 
-  version = IO.popen("#{File.join(gitaly_dir, 'gitaly')} -version").read.delete_prefix('Gitaly, version ').strip
+  version = IO.popen("#{File.join(bin_dir, 'gitaly')} -version").read.delete_prefix('Gitaly, version ').strip
   version_from_file = IO.read(File.join(gitaly_dir, 'VERSION')).strip
 
   # Use start_with? instead of == because the version output could use git describe, if it is a source install
@@ -22,7 +23,7 @@ def main(gitaly_dir)
 
     File.write('config.toml', <<~CONFIG
       socket_path = "#{ADDR}"
-      bin_dir = "#{gitaly_dir}"
+      bin_dir = "#{bin_dir}"
 
       [[storage]]
       name = "default"
@@ -44,7 +45,7 @@ def main(gitaly_dir)
 
     begin
       start = Time.now
-      pid = spawn(File.join(gitaly_dir, 'gitaly'), 'config.toml')
+      pid = spawn(File.join(bin_dir, 'gitaly'), 'config.toml')
       wait_connect
       puts
       puts "\n\nconnection established after #{Time.now - start} seconds\n\n"
