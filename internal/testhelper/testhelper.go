@@ -126,29 +126,13 @@ storages:
 
 // MustRunCommand runs a command with an optional standard input and returns the standard output, or fails.
 func MustRunCommand(t testing.TB, stdin io.Reader, name string, args ...string) []byte {
-	if t != nil {
-		t.Helper()
+	t.Helper()
+
+	if filepath.Base(name) == "git" {
+		require.Fail(t, "Please use gittest.Exec or gittest.ExecStream to run git commands.")
 	}
 
-	var cmd *exec.Cmd
-	if name == "git" {
-		if args[0] == "init" {
-			// Many tests depend on the fact "master" is the initial branch.
-			// To overcome the case when the user has set anything else in
-			// their git-config, override it to be "master".
-			args = append([]string{"-c", "init.defaultBranch=master"}, args...)
-		}
-		cmd = exec.Command(config.Config.Git.BinPath, args...)
-		cmd.Env = os.Environ()
-		cmd.Env = append(command.GitEnv, cmd.Env...)
-		cmd.Env = append(cmd.Env,
-			"GIT_AUTHOR_DATE=1572776879 +0100",
-			"GIT_COMMITTER_DATE=1572776879 +0100",
-		)
-	} else {
-		cmd = exec.Command(name, args...)
-	}
-
+	cmd := exec.Command(name, args...)
 	if stdin != nil {
 		cmd.Stdin = stdin
 	}
@@ -156,15 +140,7 @@ func MustRunCommand(t testing.TB, stdin io.Reader, name string, args ...string) 
 	output, err := cmd.Output()
 	if err != nil {
 		stderr := err.(*exec.ExitError).Stderr
-		if t == nil {
-			log.Print(name, args)
-			log.Printf("%s", stderr)
-			panic(err)
-		} else {
-			t.Log(name, args)
-			t.Logf("%s", stderr)
-			t.Fatal(err)
-		}
+		require.NoError(t, err, "%s %s: %s", name, args, stderr)
 	}
 
 	return output
