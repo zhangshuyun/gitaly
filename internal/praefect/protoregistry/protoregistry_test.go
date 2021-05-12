@@ -163,7 +163,6 @@ func TestNewProtoRegistry(t *testing.T) {
 			"WikiUpdatePage":      protoregistry.OpMutator,
 			"WikiDeletePage":      protoregistry.OpMutator,
 			"WikiFindPage":        protoregistry.OpAccessor,
-			"WikiFindFile":        protoregistry.OpAccessor,
 			"WikiGetAllPages":     protoregistry.OpAccessor,
 			"WikiListPages":       protoregistry.OpAccessor,
 		},

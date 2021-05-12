@@ -74,17 +74,6 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
     add_message "gitaly.WikiFindPageResponse" do
       optional :page, :message, 1, "gitaly.WikiPage"
     end
-    add_message "gitaly.WikiFindFileRequest" do
-      optional :repository, :message, 1, "gitaly.Repository"
-      optional :name, :bytes, 2
-      optional :revision, :bytes, 3
-    end
-    add_message "gitaly.WikiFindFileResponse" do
-      optional :name, :bytes, 1
-      optional :mime_type, :string, 2
-      optional :raw_data, :bytes, 3
-      optional :path, :bytes, 4
-    end
     add_message "gitaly.WikiGetAllPagesRequest" do
       optional :repository, :message, 1, "gitaly.Repository"
       optional :limit, :uint32, 2
@@ -130,8 +119,6 @@ module Gitaly
   WikiDeletePageResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.WikiDeletePageResponse").msgclass
   WikiFindPageRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.WikiFindPageRequest").msgclass
   WikiFindPageResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.WikiFindPageResponse").msgclass
-  WikiFindFileRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.WikiFindFileRequest").msgclass
-  WikiFindFileResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.WikiFindFileResponse").msgclass
   WikiGetAllPagesRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.WikiGetAllPagesRequest").msgclass
   WikiGetAllPagesRequest::SortBy = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.WikiGetAllPagesRequest.SortBy").enummodule
   WikiGetAllPagesResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.WikiGetAllPagesResponse").msgclass

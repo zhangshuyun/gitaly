@@ -97,34 +97,6 @@ module GitalyServer
       end
     end
 
-    def wiki_find_file(request, call)
-      repo = Gitlab::Git::Repository.from_gitaly(request.repository, call)
-      wiki = Gitlab::Git::Wiki.new(repo)
-
-      file = wiki.file(set_utf8!(request.name), request.revision.presence)
-
-      unless file
-        return Enumerator.new do |y|
-          y.yield Gitaly::WikiFindFileResponse.new
-        end
-      end
-
-      response = Gitaly::WikiFindFileResponse.new(
-        name: file.name.b,
-        mime_type: file.mime_type,
-        path: file.path.b
-      )
-
-      Enumerator.new do |y|
-        y.yield response
-
-        io = StringIO.new(file.raw_data)
-        while chunk = io.read(Gitlab.config.git.write_buffer_size)
-          y.yield Gitaly::WikiFindFileResponse.new(raw_data: chunk)
-        end
-      end
-    end
-
     def wiki_get_page_versions(request, call)
       repo = Gitlab::Git::Repository.from_gitaly(request.repository, call)
       wiki = Gollum::Wiki.new(repo.path)

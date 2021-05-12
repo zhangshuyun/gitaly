@@ -34,11 +34,6 @@ service WikiService {
       op: ACCESSOR
     };
   }
-  rpc WikiFindFile(WikiFindFileRequest) returns (stream WikiFindFileResponse) {
-    option (op_type) = {
-      op: ACCESSOR
-    };
-  }
   rpc WikiGetAllPages(WikiGetAllPagesRequest) returns (stream WikiGetAllPagesResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -142,21 +137,6 @@ message WikiFindPageRequest {
 // messages to send the raw_data field.
 message WikiFindPageResponse {
   WikiPage page = 1;
-}
-
-message WikiFindFileRequest {
-  Repository repository = 1 [(target_repository)=true];
-  bytes name = 2;
-  // Optional: revision
-  bytes revision = 3;
-}
-
-message WikiFindFileResponse {
-  // If 'name' is empty, the file was not found.
-  bytes name = 1;
-  string mime_type = 2;
-  bytes raw_data = 3;
-  bytes path = 4;
 }
 
 message WikiGetAllPagesRequest {
