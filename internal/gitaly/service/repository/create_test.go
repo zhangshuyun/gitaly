@@ -24,6 +24,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/transaction/txinfo"
 	"gitlab.com/gitlab-org/gitaly/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
+	"golang.org/x/sys/unix"
 	"google.golang.org/grpc/codes"
 )
 
@@ -55,14 +56,18 @@ func TestCreateRepositorySuccess(t *testing.T) {
 	_, err := client.CreateRepository(ctx, req)
 	require.NoError(t, err)
 
-	fi, err := os.Stat(repoDir)
-	require.NoError(t, err)
-	require.Equal(t, "drwxr-x---", fi.Mode().String())
+	require.NoError(t, unix.Access(repoDir, unix.R_OK))
+	require.NoError(t, unix.Access(repoDir, unix.W_OK))
+	require.NoError(t, unix.Access(repoDir, unix.X_OK))
 
 	for _, dir := range []string{repoDir, filepath.Join(repoDir, "refs")} {
 		fi, err := os.Stat(dir)
 		require.NoError(t, err)
 		require.True(t, fi.IsDir(), "%q must be a directory", fi.Name())
+
+		require.NoError(t, unix.Access(dir, unix.R_OK))
+		require.NoError(t, unix.Access(dir, unix.W_OK))
+		require.NoError(t, unix.Access(dir, unix.X_OK))
 	}
 
 	symRef, err := ioutil.ReadFile(path.Join(repoDir, "HEAD"))
