@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
+	"gitlab.com/gitlab-org/gitaly/internal/cache"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/hook"
@@ -150,7 +151,8 @@ func runServer(t *testing.T, secure bool, cfg config.Cfg, connectionType string,
 	txManager := transaction.NewManager(cfg, registry)
 	hookManager := hook.NewManager(locator, txManager, gitlab.NewMockClient(), cfg)
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
-	srv, err := server.New(secure, cfg, testhelper.DiscardTestEntry(t), registry)
+	diskCache := cache.New(cfg, locator)
+	srv, err := server.New(secure, cfg, testhelper.DiscardTestEntry(t), registry, diskCache)
 	require.NoError(t, err)
 	setup.RegisterAll(srv, &service.Dependencies{
 		Cfg:                cfg,

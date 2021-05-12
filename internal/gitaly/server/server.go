@@ -12,7 +12,6 @@ import (
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
-	diskcache "gitlab.com/gitlab-org/gitaly/internal/cache"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/server/auth"
@@ -66,14 +65,18 @@ func init() {
 
 // New returns a GRPC server instance with a set of interceptors configured.
 // If logrusEntry is nil the default logger will be used.
-func New(secure bool, cfg config.Cfg, logrusEntry *log.Entry, registry *backchannel.Registry) (*grpc.Server, error) {
+func New(
+	secure bool,
+	cfg config.Cfg,
+	logrusEntry *log.Entry,
+	registry *backchannel.Registry,
+	cacheInvalidator cache.Invalidator,
+) (*grpc.Server, error) {
 	ctxTagOpts := []grpc_ctxtags.Option{
 		grpc_ctxtags.WithFieldExtractorForInitialReq(fieldextractors.FieldExtractor),
 	}
 
 	lh := limithandler.New(concurrencyKeyFn)
-
-	storageLocator := config.NewLocator(cfg)
 
 	transportCredentials := backchannel.Insecure()
 	// If tls config is specified attempt to extract tls options and use it
@@ -106,7 +109,7 @@ func New(secure bool, cfg config.Cfg, logrusEntry *log.Entry, registry *backchan
 			auth.StreamServerInterceptor(cfg.Auth),
 			lh.StreamInterceptor(), // Should be below auth handler to prevent v2 hmac tokens from timing out while queued
 			grpctracing.StreamServerTracingInterceptor(),
-			cache.StreamInvalidator(diskcache.NewLeaseKeyer(storageLocator), protoregistry.GitalyProtoPreregistered),
+			cache.StreamInvalidator(cacheInvalidator, protoregistry.GitalyProtoPreregistered),
 			// Panic handler should remain last so that application panics will be
 			// converted to errors and logged
 			panichandler.StreamPanicHandler,
@@ -125,7 +128,7 @@ func New(secure bool, cfg config.Cfg, logrusEntry *log.Entry, registry *backchan
 			auth.UnaryServerInterceptor(cfg.Auth),
 			lh.UnaryInterceptor(), // Should be below auth handler to prevent v2 hmac tokens from timing out while queued
 			grpctracing.UnaryServerTracingInterceptor(),
-			cache.UnaryInvalidator(diskcache.NewLeaseKeyer(storageLocator), protoregistry.GitalyProtoPreregistered),
+			cache.UnaryInvalidator(cacheInvalidator, protoregistry.GitalyProtoPreregistered),
 			// Panic handler should remain last so that application panics will be
 			// converted to errors and logged
 			panichandler.UnaryPanicHandler,

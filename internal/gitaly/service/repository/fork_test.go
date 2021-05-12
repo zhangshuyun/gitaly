@@ -12,6 +12,7 @@ import (
 	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
 	gclient "gitlab.com/gitlab-org/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
+	"gitlab.com/gitlab-org/gitaly/internal/cache"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
@@ -212,11 +213,12 @@ func runSecureServer(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) s
 	t.Helper()
 
 	registry := backchannel.NewRegistry()
-	server, err := gserver.New(true, cfg, testhelper.DiscardTestEntry(t), registry)
+	locator := config.NewLocator(cfg)
+	cache := cache.New(cfg, locator)
+	server, err := gserver.New(true, cfg, testhelper.DiscardTestEntry(t), registry, cache)
 	require.NoError(t, err)
 	listener, addr := testhelper.GetLocalhostListener(t)
 
-	locator := config.NewLocator(cfg)
 	txManager := transaction.NewManager(cfg, registry)
 	hookManager := hook.NewManager(locator, txManager, gitlab.NewMockClient(), cfg)
 	gitCmdFactory := git.NewExecCommandFactory(cfg)

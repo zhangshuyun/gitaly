@@ -15,21 +15,27 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/maintenance"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	gitalylog "gitlab.com/gitlab-org/gitaly/internal/log"
+	"gitlab.com/gitlab-org/gitaly/internal/middleware/cache"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc"
 )
 
 // GitalyServerFactory is a factory of gitaly grpc servers
 type GitalyServerFactory struct {
-	registry        *backchannel.Registry
-	cfg             config.Cfg
-	externalServers []*grpc.Server
-	internalServers []*grpc.Server
+	registry         *backchannel.Registry
+	cacheInvalidator cache.Invalidator
+	cfg              config.Cfg
+	externalServers  []*grpc.Server
+	internalServers  []*grpc.Server
 }
 
 // NewGitalyServerFactory allows to create and start secure/insecure 'grpc.Server'-s with gitaly-ruby
 // server shared in between.
-func NewGitalyServerFactory(cfg config.Cfg, registry *backchannel.Registry) *GitalyServerFactory {
+func NewGitalyServerFactory(
+	cfg config.Cfg,
+	registry *backchannel.Registry,
+	cacheInvalidator cache.Invalidator,
+) *GitalyServerFactory {
 	return &GitalyServerFactory{cfg: cfg, registry: registry}
 }
 
@@ -124,7 +130,7 @@ func (s *GitalyServerFactory) GracefulStop() {
 // CreateExternal creates a new external gRPC server. The external servers are closed
 // before the internal servers when gracefully shutting down.
 func (s *GitalyServerFactory) CreateExternal(secure bool) (*grpc.Server, error) {
-	server, err := New(secure, s.cfg, gitalylog.Default(), s.registry)
+	server, err := New(secure, s.cfg, gitalylog.Default(), s.registry, s.cacheInvalidator)
 	if err != nil {
 		return nil, err
 	}
@@ -136,7 +142,7 @@ func (s *GitalyServerFactory) CreateExternal(secure bool) (*grpc.Server, error) 
 // CreateInternal creates a new internal gRPC server. Internal servers are closed
 // after the external ones when gracefully shutting down.
 func (s *GitalyServerFactory) CreateInternal() (*grpc.Server, error) {
-	server, err := New(false, s.cfg, gitalylog.Default(), s.registry)
+	server, err := New(false, s.cfg, gitalylog.Default(), s.registry, s.cacheInvalidator)
 	if err != nil {
 		return nil, err
 	}

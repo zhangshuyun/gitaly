@@ -204,7 +204,13 @@ func runGitaly(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server, regi
 	deps := gsd.createDependencies(t, cfg, rubyServer)
 	t.Cleanup(func() { gsd.conns.Close() })
 
-	srv, err := server.New(cfg.TLS.CertPath != "" && cfg.TLS.KeyPath != "", cfg, gsd.logger.WithField("test", t.Name()), deps.GetBackchannelRegistry())
+	srv, err := server.New(
+		cfg.TLS.CertPath != "" && cfg.TLS.KeyPath != "",
+		cfg,
+		gsd.logger.WithField("test", t.Name()),
+		deps.GetBackchannelRegistry(),
+		deps.GetDiskCache(),
+	)
 	require.NoError(t, err)
 	t.Cleanup(srv.Stop)
 
