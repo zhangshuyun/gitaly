@@ -11,9 +11,24 @@ Praefect records the expected state of each repository within a virtual storage 
 | default         | @hashed/5f/9c/5f9c4ab08cac7457e9111a30e4664920607ea2c115a1433d7be98e97e64244ca.git | 5          |
 
 The `repositories` table has three columns: [^1]
-1. `virtual_storage` indicates which virtual storage the repository belongs in. 
-1. `relative_path` indicates where the repository should be stored on a physical storage. 
+1. `virtual_storage` indicates which virtual storage the repository belongs in.
+1. `relative_path` indicates where the repository should be stored on a physical storage.
 1. `generation` is monotonically increasing version number that is incremented on each mutator call to the repository.
+
+`repository_assignments` table records which physical storages are supposed to contain a replica of a repository.
+
+| virtual_storage | relative_path                                                                      | storage  |
+|-----------------|------------------------------------------------------------------------------------|----------|
+| default         | @hashed/5f/9c/5f9c4ab08cac7457e9111a30e4664920607ea2c115a1433d7be98e97e64244ca.git | gitaly-1 |
+| default         | @hashed/5f/9c/5f9c4ab08cac7457e9111a30e4664920607ea2c115a1433d7be98e97e64244ca.git | gitaly-2 |
+
+The number of assigned storages each repository has indicates its desired replication factor. Each record contains:
+
+- The `(virtual_storage, relative_path)` tuple to uniquely identify a repository.
+- The `storage` that is assigned to host a replica.
+
+If there are no assignments for a repository, every physical storage is considered to be assigned.
+previous behavior of replicating a repository on every physical storage.
 
 Praefect tracks the current state of a repository on each physical storage in the `storage_repositories` table:
 
@@ -24,8 +39,8 @@ Praefect tracks the current state of a repository on each physical storage in th
 
 The `storage_repositories` table has four columns:
 1. `virtual_storage` indicates which virtual storage the repository belongs in.
-1. `relative_path` indicates where the repository should be stored on a physical storage. 
-1. `storage` indicates which physical storage this record belongs to. 
+1. `relative_path` indicates where the repository should be stored on a physical storage.
+1. `storage` indicates which physical storage this record belongs to.
 1. `generation` indicates the minimum generation of the repository on this storage.
 
 While similar to `storage_repositories`, the `repositories` table is needed to infer whether a repository was deleted or is waiting to be replicated to a physical storage. The records in `repositories` table additionally act as repository specific locks which should be acquired on updates to synchronizes access to `storage_repositories`.
@@ -43,19 +58,18 @@ In both cases either all or some secondaries are left outdated. Praefect schedul
 
 ## Identifying Inconsistencies
 
-Praefect identifies inconsistencies in the storage cluster by cross-referencing the expected state in the `repositories` with the actual state of the physical storages in `storage_repositories`. 
+Praefect identifies inconsistencies in the storage cluster by cross-referencing the expected state in the `repositories` and `repository_assignments` with the actual state of the physical storages in `storage_repositories`.
 
-Expected state of physical storages can be attained by cross joining the configured physical storages with the expected repositories of the virtual storage in the `repositories` table. It's important to use configured storages as some physical storages might have been added to or removed from the virtual storage. 
+Expected state of physical storages can be attained by cross joining the configured physical storages with the expected repositories of the virtual storage in the `repositories` table. It's important to use configured storages as some physical storages might have been added to or removed from the virtual storage.
 
-Some possible inconsistencies are listed below. Each of the scenarios assume a virtual storage called `default` with a primary storage `gitaly-1` and a secondary storage  `gitaly-2`.
+Possible inconsistencies and their reconciliations are listed below. Each of the scenarios assume a virtual storage called `default` with a primary storage `gitaly-1` and a secondary storage  `gitaly-2`.
 
 ### Missing Repository
 
-Praefect expects a repository to be replicated to every physical storage within virtual storage. However, a physical storage might be missing an expected repository. This might be due to the following reasons:
+Praefect expects an up to date copy of a repository to be present on every assigned physical storage. However, a physical storage might be missing a replica. This can be due to two reasons:
 
-#### New Repository
-
-A repository was just created. The primary `gitaly-1` contains the new repository but it has not yet been replicated to the secondary `gitaly-2`. This might be a temporary situation while the secondary is waiting to replicate the changes.
+- A repository was just created. The primary `gitaly-1` contains the new repository but it has not yet been replicated to the secondary `gitaly-2`. This might be a temporary situation while the secondary is waiting to replicate the changes.
+- A physical storage was assigned as a new host for the repository. The assignment has been recorded for `gitaly-2` but the repository has not yet been replicated to the storage.
 
 `repositories`:
 
@@ -63,28 +77,20 @@ A repository was just created. The primary `gitaly-1` contains the new repositor
 |-----------------|------------------------------------------------------------------------------------|------------|
 | default         | @hashed/5f/9c/5f9c4ab08cac7457e9111a30e4664920607ea2c115a1433d7be98e97e64244ca.git | 0          |
 
-`storage_repositories`:
+`repository_assignments`:
 
-| virtual_storage | relative_path                                                                      | storage  | generation |
-|-----------------|------------------------------------------------------------------------------------|----------|------------|
-| default         | @hashed/5f/9c/5f9c4ab08cac7457e9111a30e4664920607ea2c115a1433d7be98e97e64244ca.git | gitaly-1 | 0          |
-
-
-#### New Physical Storage
-Assume a new physical storage called `gitaly-3` was added to the virtual storage. Brand new physical storage is empty and would be missing every expected repository.
-
-`repositories`: 
-
-| virtual_storage | relative_path                                                                      | generation |
+| virtual_storage | relative_path                                                                      | storage    |
 |-----------------|------------------------------------------------------------------------------------|------------|
-| default         | @hashed/5f/9c/5f9c4ab08cac7457e9111a30e4664920607ea2c115a1433d7be98e97e64244ca.git | 0          |
+| default         | @hashed/5f/9c/5f9c4ab08cac7457e9111a30e4664920607ea2c115a1433d7be98e97e64244ca.git | gitaly-1   |
+| default         | @hashed/5f/9c/5f9c4ab08cac7457e9111a30e4664920607ea2c115a1433d7be98e97e64244ca.git | gitaly-2   |
 
 `storage_repositories`:
 
 | virtual_storage | relative_path                                                                      | storage  | generation |
 |-----------------|------------------------------------------------------------------------------------|----------|------------|
 | default         | @hashed/5f/9c/5f9c4ab08cac7457e9111a30e4664920607ea2c115a1433d7be98e97e64244ca.git | gitaly-1 | 0          |
-| default         | @hashed/5f/9c/5f9c4ab08cac7457e9111a30e4664920607ea2c115a1433d7be98e97e64244ca.git | gitaly-2 | 0          |
+
+To fix the inconsistency, reconciler schedules `update`-type jobs to the storages missing the repository from random healthy storages with up to date replicas.
 
 ### Outdated Repository
 
@@ -101,12 +107,21 @@ In the case below, `gitaly-2` has an outdated version of the repository as its g
 |-----------------|------------------------------------------------------------------------------------|------------|
 | default         | @hashed/5f/9c/5f9c4ab08cac7457e9111a30e4664920607ea2c115a1433d7be98e97e64244ca.git | 2          |
 
+`repository_assignments`:
+
+| virtual_storage | relative_path                                                                      | storage    |
+|-----------------|------------------------------------------------------------------------------------|------------|
+| default         | @hashed/5f/9c/5f9c4ab08cac7457e9111a30e4664920607ea2c115a1433d7be98e97e64244ca.git | gitaly-1   |
+| default         | @hashed/5f/9c/5f9c4ab08cac7457e9111a30e4664920607ea2c115a1433d7be98e97e64244ca.git | gitaly-2   |
+
 `storage_repositories`:
 
 | virtual_storage | relative_path                                                                      | storage  | generation |
 |-----------------|------------------------------------------------------------------------------------|----------|------------|
 | default         | @hashed/5f/9c/5f9c4ab08cac7457e9111a30e4664920607ea2c115a1433d7be98e97e64244ca.git | gitaly-1 | 2          |
 | default         | @hashed/5f/9c/5f9c4ab08cac7457e9111a30e4664920607ea2c115a1433d7be98e97e64244ca.git | gitaly-2 | 0          |
+
+To fix the inconsistency, reconciler schedules `update`-type jobs to the storages missing the repository from random healthy storages with up to date replicas.
 
 ### Unexpected Repository
 
@@ -121,10 +136,42 @@ A physical storage might contain a repository that is not expected be present on
 | virtual_storage | relative_path                                                                      | generation |
 |-----------------|------------------------------------------------------------------------------------|------------|
 
+`repository_assignments`:
+
+| virtual_storage | relative_path                                                                      | storage    |
+|-----------------|------------------------------------------------------------------------------------|------------|
+
 `storage_repositories`:
 
 | virtual_storage | relative_path                                                                      | storage  | generation |
 |-----------------|------------------------------------------------------------------------------------|----------|------------|
+| default         | @hashed/5f/9c/5f9c4ab08cac7457e9111a30e4664920607ea2c115a1433d7be98e97e64244ca.git | gitaly-2 | 2          |
+
+Praefect's reconciler doesn't fix the inconsistency at this time. A fix is tracked in https://gitlab.com/gitlab-org/gitaly/-/issues/3480.
+
+### Unassigned Replica
+
+A physical storage might contain a replica of a repository even if it is not assigned to host it. This can happen if the storage was previously
+assigned to host the repository but was later unassigned. Praefect doesn't keep unassigned copies up to date via transactions nor replication jobs.
+Below, `gitaly-2` has been unassigned but still contains a replica of the repository.
+
+`repositories`:
+
+| virtual_storage | relative_path                                                                      | generation |
+|-----------------|------------------------------------------------------------------------------------|------------|
+| default         | @hashed/5f/9c/5f9c4ab08cac7457e9111a30e4664920607ea2c115a1433d7be98e97e64244ca.git | 2          |
+
+`repository_assignments`:
+
+| virtual_storage | relative_path                                                                      | storage    |
+|-----------------|------------------------------------------------------------------------------------|------------|
+| default         | @hashed/5f/9c/5f9c4ab08cac7457e9111a30e4664920607ea2c115a1433d7be98e97e64244ca.git | gitaly-1   |
+
+`storage_repositories`:
+
+| virtual_storage | relative_path                                                                      | storage  | generation |
+|-----------------|------------------------------------------------------------------------------------|----------|------------|
+| default         | @hashed/5f/9c/5f9c4ab08cac7457e9111a30e4664920607ea2c115a1433d7be98e97e64244ca.git | gitaly-1 | 2          |
 | default         | @hashed/5f/9c/5f9c4ab08cac7457e9111a30e4664920607ea2c115a1433d7be98e97e64244ca.git | gitaly-2 | 2          |
 
 ### Removed Physical Storage
@@ -133,11 +180,21 @@ When a physical storage is removed from the virtual storage configuration, it le
 
 In the example below, assume that `gitaly-2` has been removed from the configuration. `gitaly-2` had the most up to date version of a repository in the virtual storage. The expected state of the virtual storage in `repositories` table still records the latest generation. Repositories that were not up to date with the removed physical storage would be considered outdated.
 
+Assignments of unconfigured storages are ignored as well. This means a repository's replication factor decreases when an assigned storage is removed
+from the virtual storage. Below, the repository's replication factor is `1` as `gitaly-2` has been removed from the configuration.
+
 `repositories`:
 
 | virtual_storage | relative_path                                                                      | generation |
 |-----------------|------------------------------------------------------------------------------------|------------|
 | default         | @hashed/5f/9c/5f9c4ab08cac7457e9111a30e4664920607ea2c115a1433d7be98e97e64244ca.git | 3          |
+
+`repository_assignments`:
+
+| virtual_storage | relative_path                                                                      | storage    |
+|-----------------|------------------------------------------------------------------------------------|------------|
+| default         | @hashed/5f/9c/5f9c4ab08cac7457e9111a30e4664920607ea2c115a1433d7be98e97e64244ca.git | gitaly-1   |
+| default         | @hashed/5f/9c/5f9c4ab08cac7457e9111a30e4664920607ea2c115a1433d7be98e97e64244ca.git | gitaly-2   |
 
 `storage_repositories`:
 
@@ -145,6 +202,9 @@ In the example below, assume that `gitaly-2` has been removed from the configura
 |-----------------|------------------------------------------------------------------------------------|----------|------------|
 | default         | @hashed/5f/9c/5f9c4ab08cac7457e9111a30e4664920607ea2c115a1433d7be98e97e64244ca.git | gitaly-1 | 2          |
 | default         | @hashed/5f/9c/5f9c4ab08cac7457e9111a30e4664920607ea2c115a1433d7be98e97e64244ca.git | gitaly-2 | 3          |
+
+The reconciler considers assigned but removed storages as still assigned. This means it won't schedule `delete_replica` jobs to any assigned storage before the assignments
+of the removed storages are manually removed.
 
 ## Known Problems
 
