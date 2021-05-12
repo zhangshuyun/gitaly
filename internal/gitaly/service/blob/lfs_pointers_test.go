@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 
@@ -170,7 +171,7 @@ func TestListLFSPointers(t *testing.T) {
 
 				actualLFSPointers = append(actualLFSPointers, resp.GetLfsPointers()...)
 			}
-			require.ElementsMatch(t, tc.expectedPointers, actualLFSPointers)
+			lfsPointersEqual(t, tc.expectedPointers, actualLFSPointers)
 		})
 	}
 }
@@ -204,7 +205,7 @@ size 12345`
 			Repository: repo,
 		})
 		require.NoError(t, err)
-		require.ElementsMatch(t, []*gitalypb.LFSPointer{
+		lfsPointersEqual(t, []*gitalypb.LFSPointer{
 			lfsPointers[lfsPointer1],
 			lfsPointers[lfsPointer2],
 			lfsPointers[lfsPointer3],
@@ -224,7 +225,7 @@ size 12345`
 			Repository: repo,
 		})
 		require.NoError(t, err)
-		require.ElementsMatch(t, []*gitalypb.LFSPointer{
+		lfsPointersEqual(t, []*gitalypb.LFSPointer{
 			&gitalypb.LFSPointer{
 				Oid:  lfsPointerOID,
 				Data: []byte(lfsPointerContents),
@@ -279,7 +280,7 @@ size 12345`
 
 		// We only expect to find a single LFS pointer, which is the one we've just written
 		// into the quarantine directory.
-		require.ElementsMatch(t, []*gitalypb.LFSPointer{
+		lfsPointersEqual(t, []*gitalypb.LFSPointer{
 			&gitalypb.LFSPointer{
 				Oid:  text.ChompBytes(buffer.Bytes()),
 				Data: []byte(lfsPointerContents),
@@ -331,7 +332,7 @@ func TestSuccessfulGetLFSPointersRequest(t *testing.T) {
 		receivedLFSPointers = append(receivedLFSPointers, resp.GetLfsPointers()...)
 	}
 
-	require.ElementsMatch(t, receivedLFSPointers, expectedLFSPointers)
+	lfsPointersEqual(t, receivedLFSPointers, expectedLFSPointers)
 }
 
 func TestFailedGetLFSPointersRequestDueToValidations(t *testing.T) {
@@ -472,7 +473,7 @@ func TestFindLFSPointersByRevisions(t *testing.T) {
 			} else {
 				require.Contains(t, err.Error(), tc.expectedErr.Error())
 			}
-			require.ElementsMatch(t, tc.expectedLFSPointers, actualLFSPointers)
+			lfsPointersEqual(t, tc.expectedLFSPointers, actualLFSPointers)
 		})
 	}
 }
@@ -649,7 +650,8 @@ func TestReadLFSPointers(t *testing.T) {
 			} else {
 				require.Contains(t, err.Error(), tc.expectedErr.Error())
 			}
-			require.ElementsMatch(t, tc.expectedLFSPointers, actualLFSPointers)
+
+			lfsPointersEqual(t, tc.expectedLFSPointers, actualLFSPointers)
 		})
 	}
 }
@@ -721,5 +723,20 @@ func TestSliceLFSPointers(t *testing.T) {
 			require.Equal(t, tc.err, err)
 			require.Equal(t, tc.expectedSlices, slices)
 		})
+	}
+}
+
+func lfsPointersEqual(tb testing.TB, expected, actual []*gitalypb.LFSPointer) {
+	tb.Helper()
+
+	for _, slice := range [][]*gitalypb.LFSPointer{expected, actual} {
+		sort.Slice(slice, func(i, j int) bool {
+			return strings.Compare(slice[i].Oid, slice[j].Oid) < 0
+		})
+	}
+
+	require.Equal(tb, len(expected), len(actual))
+	for i := range expected {
+		testhelper.ProtoEqual(tb, expected[i], actual[i])
 	}
 }
