@@ -3,7 +3,6 @@ package repository
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -70,9 +69,7 @@ func TestCreateRepositorySuccess(t *testing.T) {
 		require.NoError(t, unix.Access(dir, unix.X_OK))
 	}
 
-	symRef, err := ioutil.ReadFile(path.Join(repoDir, "HEAD"))
-	require.NoError(t, err)
-
+	symRef := testhelper.MustReadFile(t, path.Join(repoDir, "HEAD"))
 	require.Equal(t, symRef, []byte(fmt.Sprintf("ref: %s\n", git.DefaultRef)))
 }
 

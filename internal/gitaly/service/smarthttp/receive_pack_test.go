@@ -72,9 +72,7 @@ func TestSuccessfulReceivePackRequest(t *testing.T) {
 	// The fact that this command succeeds means that we got the commit correctly, no further checks should be needed.
 	gittest.Exec(t, cfg, "-C", repoPath, "show", push.newHead)
 
-	envData, err := ioutil.ReadFile(hookOutputFile)
-	require.NoError(t, err, "get git env data")
-
+	envData := testhelper.MustReadFile(t, hookOutputFile)
 	payload, err := git.HooksPayloadFromEnv(strings.Split(string(envData), "\n"))
 	require.NoError(t, err)
 

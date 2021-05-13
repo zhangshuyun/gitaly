@@ -347,8 +347,7 @@ func TestRepo_FetchRemote(t *testing.T) {
 
 		require.Empty(t, stderr.String(), "it should not produce output as it is called with --quite flag by default")
 
-		fetchHeadData, err := ioutil.ReadFile(filepath.Join(testRepoPath, "FETCH_HEAD"))
-		require.NoError(t, err, "it should create FETCH_HEAD with info about fetch")
+		fetchHeadData := testhelper.MustReadFile(t, filepath.Join(testRepoPath, "FETCH_HEAD"))
 
 		fetchHead := string(fetchHeadData)
 		require.Contains(t, fetchHead, "e56497bb5f03a90a51293fc6d516788730953899	not-for-merge	branch ''test''")

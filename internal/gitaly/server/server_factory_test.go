@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
-	"io/ioutil"
 	"net"
 	"os"
 	"testing"
@@ -47,9 +46,7 @@ func TestGitalyServerFactory(t *testing.T) {
 			certPool, err := x509.SystemCertPool()
 			require.NoError(t, err)
 
-			pem, err := ioutil.ReadFile(sf.cfg.TLS.CertPath)
-			require.NoError(t, err)
-
+			pem := testhelper.MustReadFile(t, sf.cfg.TLS.CertPath)
 			require.True(t, certPool.AppendCertsFromPEM(pem))
 
 			creds := credentials.NewTLS(&tls.Config{

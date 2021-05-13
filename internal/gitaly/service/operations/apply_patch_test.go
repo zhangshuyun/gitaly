@@ -3,7 +3,6 @@ package operations
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"strings"
 	"testing"
@@ -154,8 +153,7 @@ func testUserApplyPatchStableID(t *testing.T, cfg config.Cfg, rubySrv *rubyserve
 		},
 	}))
 
-	patch, err := ioutil.ReadFile("testdata/0001-A-commit-from-a-patch.patch")
-	require.NoError(t, err)
+	patch := testhelper.MustReadFile(t, "testdata/0001-A-commit-from-a-patch.patch")
 	require.NoError(t, stream.Send(&gitalypb.UserApplyPatchRequest{
 		UserApplyPatchRequestPayload: &gitalypb.UserApplyPatchRequest_Patches{
 			Patches: patch,
@@ -198,8 +196,7 @@ func testFailedPatchApplyPatch(t *testing.T, cfg config.Cfg, rubySrv *rubyserver
 
 	ctx, _, repo, _, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
 
-	testPatch, err := ioutil.ReadFile("testdata/0001-This-does-not-apply-to-the-feature-branch.patch")
-	require.NoError(t, err)
+	testPatch := testhelper.MustReadFile(t, "testdata/0001-This-does-not-apply-to-the-feature-branch.patch")
 
 	stream, err := client.UserApplyPatch(ctx)
 	require.NoError(t, err)

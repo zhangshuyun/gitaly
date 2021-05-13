@@ -1,7 +1,6 @@
 package git
 
 import (
-	"io/ioutil"
 	"path/filepath"
 	"regexp"
 	"testing"
@@ -59,8 +58,7 @@ func TestBuildSSHInvocation(t *testing.T) {
 
 			expectedCommand := "ssh"
 			if tc.sshKey != "" {
-				content, err := ioutil.ReadFile(sshKeyPath)
-				require.NoError(t, err)
+				content := testhelper.MustReadFile(t, sshKeyPath)
 				require.Equal(t, tc.sshKey, string(content))
 				expectedCommand += " -oIdentitiesOnly=yes -oIdentityFile=" + sshKeyPath
 			} else {
@@ -68,8 +66,7 @@ func TestBuildSSHInvocation(t *testing.T) {
 			}
 
 			if tc.knownHosts != "" {
-				content, err := ioutil.ReadFile(knownHostsPath)
-				require.NoError(t, err)
+				content := testhelper.MustReadFile(t, knownHostsPath)
 				require.Equal(t, tc.knownHosts, string(content))
 				expectedCommand += " -oStrictHostKeyChecking=yes -oCheckHostIP=no -oUserKnownHostsFile=" + knownHostsPath
 			} else {

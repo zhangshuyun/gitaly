@@ -201,8 +201,7 @@ func injectCustomCATestCerts(t *testing.T, cfg *config.Cfg) *x509.CertPool {
 	revertEnv := testhelper.ModifyEnvironment(t, gitaly_x509.SSLCertFile, certFile)
 	t.Cleanup(revertEnv)
 
-	caPEMBytes, err := ioutil.ReadFile(certFile)
-	require.NoError(t, err)
+	caPEMBytes := testhelper.MustReadFile(t, certFile)
 	pool := x509.NewCertPool()
 	require.True(t, pool.AppendCertsFromPEM(caPEMBytes))
 

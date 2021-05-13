@@ -140,9 +140,7 @@ func TestLinkNoClobber(t *testing.T) {
 	_, err = client.LinkRepositoryToObjectPool(ctx, request)
 	require.Error(t, err)
 
-	contentAfter, err := ioutil.ReadFile(alternatesFile)
-	require.NoError(t, err)
-
+	contentAfter := testhelper.MustReadFile(t, alternatesFile)
 	require.Equal(t, contentBefore, string(contentAfter), "contents of existing alternates file should not have changed")
 }
 

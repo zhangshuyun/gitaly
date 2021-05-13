@@ -65,9 +65,7 @@ func TestTLSSanity(t *testing.T) {
 	certPool, err := x509.SystemCertPool()
 	require.NoError(t, err)
 
-	cert, err := ioutil.ReadFile("testdata/gitalycert.pem")
-	require.NoError(t, err)
-
+	cert := testhelper.MustReadFile(t, "testdata/gitalycert.pem")
 	ok := certPool.AppendCertsFromPEM(cert)
 	require.True(t, ok)
 

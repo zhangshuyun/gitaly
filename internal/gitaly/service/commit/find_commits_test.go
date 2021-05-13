@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os/exec"
 	"testing"
 
@@ -18,8 +17,7 @@ import (
 )
 
 func TestFindCommitsFields(t *testing.T) {
-	windows1251Message, err := ioutil.ReadFile("testdata/commit-c809470461118b7bcab850f6e9a7ca97ac42f8ea-message.txt")
-	require.NoError(t, err)
+	windows1251Message := testhelper.MustReadFile(t, "testdata/commit-c809470461118b7bcab850f6e9a7ca97ac42f8ea-message.txt")
 
 	_, repo, _, client := setupCommitServiceWithRepo(t, true)
 
