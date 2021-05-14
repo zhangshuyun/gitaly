@@ -392,7 +392,7 @@ func TestUserCreateTagWithTransaction(t *testing.T) {
 				contents := testhelper.MustReadFile(t, hooksOutputPath)
 				require.Equal(t, "pre-receive\nupdate\npost-receive\n", string(contents))
 			} else {
-				testhelper.AssertPathNotExists(t, hooksOutputPath)
+				require.NoFileExists(t, hooksOutputPath)
 			}
 
 			require.Equal(t, 1, transactionServer.called)

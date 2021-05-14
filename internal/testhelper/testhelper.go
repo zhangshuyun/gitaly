@@ -282,12 +282,6 @@ func Context(opts ...ContextOpt) (context.Context, func()) {
 	}
 }
 
-// AssertPathNotExists asserts true if the path doesn't exist, false otherwise
-func AssertPathNotExists(t testing.TB, path string) {
-	_, err := os.Stat(path)
-	assert.True(t, os.IsNotExist(err), "file should not exist: %s", path)
-}
-
 // TempDir is a wrapper around ioutil.TempDir that provides a cleanup function.
 func TempDir(t testing.TB) string {
 	if testDirectory == "" {

@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/cache"
 	"gitlab.com/gitlab-org/gitaly/internal/tempdir"
-	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 )
 
@@ -87,7 +86,7 @@ func TestDiskCacheInitialClear(t *testing.T) {
 	// runs the move-and-clear function
 	require.NoError(t, cfg.Validate())
 
-	testhelper.AssertPathNotExists(t, canary)
+	require.NoFileExists(t, canary)
 }
 
 func pollCountersUntil(t testing.TB, expectRemovals int) {

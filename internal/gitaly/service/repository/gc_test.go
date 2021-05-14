@@ -200,7 +200,7 @@ func TestGarbageCollectDeletesRefsLocks(t *testing.T) {
 
 	assert.FileExists(t, keepLockPath)
 
-	testhelper.AssertPathNotExists(t, deleteLockPath)
+	require.NoFileExists(t, deleteLockPath)
 }
 
 func TestGarbageCollectFailure(t *testing.T) {

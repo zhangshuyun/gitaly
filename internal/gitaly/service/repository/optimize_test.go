@@ -135,8 +135,8 @@ func TestOptimizeRepository(t *testing.T) {
 	_, err = client.OptimizeRepository(ctx, &gitalypb.OptimizeRepositoryRequest{Repository: testRepoProto})
 	require.NoError(t, err)
 
-	testhelper.AssertPathNotExists(t, emptyRef)
-	testhelper.AssertPathNotExists(t, mrRefs)
+	require.NoFileExists(t, emptyRef)
+	require.NoFileExists(t, mrRefs)
 }
 
 func TestOptimizeRepositoryValidation(t *testing.T) {
