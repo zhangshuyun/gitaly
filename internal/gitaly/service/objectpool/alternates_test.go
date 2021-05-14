@@ -103,8 +103,7 @@ func TestDisconnectGitAlternatesUnexpectedAlternates(t *testing.T) {
 			_, err = client.DisconnectGitAlternates(ctx, &gitalypb.DisconnectGitAlternatesRequest{Repository: repo})
 			require.Error(t, err, "call DisconnectGitAlternates on repository with unexpected objects/info/alternates")
 
-			contentAfterRPC, err := ioutil.ReadFile(altPath)
-			require.NoError(t, err, "read back objects/info/alternates")
+			contentAfterRPC := testhelper.MustReadFile(t, altPath)
 			require.Equal(t, tc.altContent, string(contentAfterRPC), "objects/info/alternates content should not have changed")
 		})
 	}
@@ -142,8 +141,7 @@ func TestRemoveAlternatesIfOk(t *testing.T) {
 func assertAlternates(t *testing.T, altPath string, altContent string) {
 	t.Helper()
 
-	actualContent, err := ioutil.ReadFile(altPath)
-	require.NoError(t, err, "read %s after fsck failure", altPath)
+	actualContent := testhelper.MustReadFile(t, altPath)
 
 	require.Equal(t, altContent, string(actualContent), "%s content after fsck failure", altPath)
 }

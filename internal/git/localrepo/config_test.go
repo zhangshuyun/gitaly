@@ -2,7 +2,6 @@ package localrepo
 
 import (
 	"errors"
-	"io/ioutil"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -247,8 +246,7 @@ func TestBuildConfigUnsetOptsFlags(t *testing.T) {
 
 func TestConfig_UnsetAll(t *testing.T) {
 	configContains := func(t *testing.T, repoPath string) func(t *testing.T, val string, contains bool) {
-		data, err := ioutil.ReadFile(filepath.Join(repoPath, "config"))
-		require.NoError(t, err)
+		data := testhelper.MustReadFile(t, filepath.Join(repoPath, "config"))
 		require.Contains(t, string(data), "[core]", "config should have core section defined by default")
 		return func(t *testing.T, val string, contains bool) {
 			require.Equal(t, contains, strings.Contains(string(data), val))

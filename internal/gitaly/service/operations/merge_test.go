@@ -109,8 +109,7 @@ func TestSuccessfulMerge(t *testing.T) {
 
 	expectedGlID := "GL_ID=" + testhelper.TestUser.GlId
 	for i, h := range hooks {
-		hookEnv, err := ioutil.ReadFile(hookTempfiles[i])
-		require.NoError(t, err)
+		hookEnv := testhelper.MustReadFile(t, hookTempfiles[i])
 
 		lines := strings.Split(string(hookEnv), "\n")
 		require.Contains(t, lines, expectedGlID, "expected env of hook %q to contain %q", h, expectedGlID)

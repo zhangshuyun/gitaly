@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
-	"io/ioutil"
 	"net"
 	"os"
 	"testing"
@@ -147,8 +146,7 @@ func TestServerFactory(t *testing.T) {
 		certPool, err := x509.SystemCertPool()
 		require.NoError(t, err)
 
-		pem, err := ioutil.ReadFile(conf.TLS.CertPath)
-		require.NoError(t, err)
+		pem := testhelper.MustReadFile(t, conf.TLS.CertPath)
 
 		require.True(t, certPool.AppendCertsFromPEM(pem))
 

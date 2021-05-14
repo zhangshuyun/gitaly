@@ -2,7 +2,6 @@ package commit
 
 import (
 	"bufio"
-	"io/ioutil"
 	"strings"
 	"testing"
 
@@ -20,8 +19,7 @@ import (
 )
 
 func TestSuccessfulFindCommitRequest(t *testing.T) {
-	windows1251Message, err := ioutil.ReadFile("testdata/commit-c809470461118b7bcab850f6e9a7ca97ac42f8ea-message.txt")
-	require.NoError(t, err)
+	windows1251Message := testhelper.MustReadFile(t, "testdata/commit-c809470461118b7bcab850f6e9a7ca97ac42f8ea-message.txt")
 
 	cfg, repoProto, repoPath, client := setupCommitServiceWithRepo(t, true)
 

@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -134,7 +133,7 @@ func TestSuccessfulLfsSmudge(t *testing.T) {
 			logFilename := filepath.Join(tmpDir, "gitaly_lfs_smudge.log")
 			require.FileExists(t, logFilename)
 
-			data, err := ioutil.ReadFile(logFilename)
+			data := testhelper.MustReadFile(t, logFilename)
 			require.NoError(t, err)
 			d := string(data)
 
@@ -256,8 +255,7 @@ func TestUnsuccessfulLfsSmudge(t *testing.T) {
 			logFilename := filepath.Join(tmpDir, "gitaly_lfs_smudge.log")
 			require.FileExists(t, logFilename)
 
-			data, err := ioutil.ReadFile(logFilename)
-			require.NoError(t, err)
+			data := testhelper.MustReadFile(t, logFilename)
 
 			if tc.expectedLogMessage != "" {
 				require.Contains(t, string(data), tc.expectedLogMessage)

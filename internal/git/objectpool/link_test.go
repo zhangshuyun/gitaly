@@ -30,16 +30,12 @@ func TestLink(t *testing.T) {
 
 	require.FileExists(t, altPath, "alternates file must exist after Link")
 
-	content, err := ioutil.ReadFile(altPath)
-	require.NoError(t, err)
-
+	content := testhelper.MustReadFile(t, altPath)
 	require.True(t, strings.HasPrefix(string(content), "../"), "expected %q to be relative path", content)
 
 	require.NoError(t, pool.Link(ctx, testRepo))
 
-	newContent, err := ioutil.ReadFile(altPath)
-	require.NoError(t, err)
-
+	newContent := testhelper.MustReadFile(t, altPath)
 	require.Equal(t, content, newContent)
 
 	require.False(t, gittest.RemoteExists(t, pool.cfg, pool.FullPath(), testRepo.GetGlRepository()), "pool remotes should not include %v", testRepo)
@@ -129,9 +125,7 @@ func TestLinkAbsoluteLinkExists(t *testing.T) {
 
 	require.FileExists(t, altPath, "alternates file must exist after Link")
 
-	content, err := ioutil.ReadFile(altPath)
-	require.NoError(t, err)
-
+	content := testhelper.MustReadFile(t, altPath)
 	require.False(t, filepath.IsAbs(string(content)), "expected %q to be relative path", content)
 
 	testRepoObjectsPath := filepath.Join(testRepoPath, "objects")

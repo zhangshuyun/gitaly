@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path"
@@ -307,8 +306,7 @@ open('%s', 'w') { |f| f.puts(JSON.dump(ARGV)) }
 
 	var inputs []string
 
-	b, err := ioutil.ReadFile(customHookArgsPath)
-	require.NoError(t, err)
+	b := testhelper.MustReadFile(t, customHookArgsPath)
 	require.NoError(t, json.Unmarshal(b, &inputs))
 	require.Equal(t, []string{refval, oldval, newval}, inputs)
 

@@ -55,9 +55,7 @@ func TestSuccessfulFindAllBranchNames(t *testing.T) {
 		names = append(names, r.GetNames()...)
 	}
 
-	expectedBranches, err := ioutil.ReadFile("testdata/branches.txt")
-	require.NoError(t, err)
-
+	expectedBranches := testhelper.MustReadFile(t, "testdata/branches.txt")
 	for _, branch := range bytes.Split(bytes.TrimSpace(expectedBranches), []byte("\n")) {
 		require.Contains(t, names, branch)
 	}
@@ -413,8 +411,7 @@ func TestSuccessfulFindAllTagsRequest(t *testing.T) {
 
 	// reconstruct the v1.1.2 tag from patches to test truncated tag message
 	// with partial PGP block
-	truncatedPGPTagMsg, err := ioutil.ReadFile("testdata/truncated_pgp_msg.patch")
-	require.NoError(t, err)
+	truncatedPGPTagMsg := testhelper.MustReadFile(t, "testdata/truncated_pgp_msg.patch")
 
 	truncatedPGPTagID := string(gittest.ExecStream(t, cfg, bytes.NewBuffer(truncatedPGPTagMsg), "-C", repoPath, "mktag"))
 	truncatedPGPTagID = strings.TrimSpace(truncatedPGPTagID) // remove trailing newline

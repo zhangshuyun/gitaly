@@ -111,9 +111,7 @@ func TestReceivePackPushSuccess(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, lHead, rHead, "local and remote head not equal. push failed")
 
-	envData, err := ioutil.ReadFile(hookOutputFile)
-	require.NoError(t, err, "get git env data")
-
+	envData := testhelper.MustReadFile(t, hookOutputFile)
 	payload, err := git.HooksPayloadFromEnv(strings.Split(string(envData), "\n"))
 	require.NoError(t, err)
 

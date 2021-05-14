@@ -3,7 +3,6 @@ package repository
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -636,8 +635,7 @@ const (
 )
 
 func remoteHTTPServer(t *testing.T, repoName, httpToken string) (*httptest.Server, string) {
-	b, err := ioutil.ReadFile("testdata/advertise.txt")
-	require.NoError(t, err)
+	b := testhelper.MustReadFile(t, "testdata/advertise.txt")
 
 	s := httptest.NewServer(
 		// https://github.com/git/git/blob/master/Documentation/technical/http-protocol.txt
@@ -653,7 +651,7 @@ func remoteHTTPServer(t *testing.T, repoName, httpToken string) (*httptest.Serve
 			}
 
 			w.Header().Set("Content-Type", "application/x-git-upload-pack-advertisement")
-			_, err = w.Write(b)
+			_, err := w.Write(b)
 			assert.NoError(t, err)
 		}),
 	)

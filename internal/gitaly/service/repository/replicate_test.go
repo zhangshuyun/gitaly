@@ -65,8 +65,7 @@ func TestReplicateRepository(t *testing.T) {
 	gittest.Exec(t, cfg, "-C", targetRepoPath, "fsck")
 
 	replicatedAttrFilePath := filepath.Join(targetRepoPath, "info", "attributes")
-	replicatedAttrData, err := ioutil.ReadFile(replicatedAttrFilePath)
-	require.NoError(t, err)
+	replicatedAttrData := testhelper.MustReadFile(t, replicatedAttrFilePath)
 	require.Equal(t, string(attrData), string(replicatedAttrData), "info/attributes files must match")
 
 	// create another branch

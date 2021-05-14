@@ -93,8 +93,7 @@ func TestBlob(t *testing.T) {
 
 	_, c, _ := setupBatch(t, ctx)
 
-	gitignoreBytes, err := ioutil.ReadFile("testdata/blob-dfaa3f97ca337e20154a98ac9d0be76ddd1fcc82")
-	require.NoError(t, err)
+	gitignoreBytes := testhelper.MustReadFile(t, "testdata/blob-dfaa3f97ca337e20154a98ac9d0be76ddd1fcc82")
 
 	testCases := []struct {
 		desc       string
@@ -156,8 +155,7 @@ func TestCommit(t *testing.T) {
 
 	_, c, _ := setupBatch(t, ctx)
 
-	commitBytes, err := ioutil.ReadFile("testdata/commit-e63f41fe459e62e1228fcef60d7189127aeba95a")
-	require.NoError(t, err)
+	commitBytes := testhelper.MustReadFile(t, "testdata/commit-e63f41fe459e62e1228fcef60d7189127aeba95a")
 
 	testCases := []struct {
 		desc     string
@@ -190,8 +188,7 @@ func TestTag(t *testing.T) {
 
 	_, c, _ := setupBatch(t, ctx)
 
-	tagBytes, err := ioutil.ReadFile("testdata/tag-a509fa67c27202a2bc9dd5e014b4af7e6063ac76")
-	require.NoError(t, err)
+	tagBytes := testhelper.MustReadFile(t, "testdata/tag-a509fa67c27202a2bc9dd5e014b4af7e6063ac76")
 
 	testCases := []struct {
 		desc       string
@@ -253,8 +250,7 @@ func TestTree(t *testing.T) {
 
 	_, c, _ := setupBatch(t, ctx)
 
-	treeBytes, err := ioutil.ReadFile("testdata/tree-7e2f26d033ee47cd0745649d1a28277c56197921")
-	require.NoError(t, err)
+	treeBytes := testhelper.MustReadFile(t, "testdata/tree-7e2f26d033ee47cd0745649d1a28277c56197921")
 
 	testCases := []struct {
 		desc       string
@@ -317,8 +313,7 @@ func TestRepeatedCalls(t *testing.T) {
 	_, c, _ := setupBatch(t, ctx)
 
 	treeOid := git.Revision("7e2f26d033ee47cd0745649d1a28277c56197921")
-	treeBytes, err := ioutil.ReadFile("testdata/tree-7e2f26d033ee47cd0745649d1a28277c56197921")
-	require.NoError(t, err)
+	treeBytes := testhelper.MustReadFile(t, "testdata/tree-7e2f26d033ee47cd0745649d1a28277c56197921")
 
 	tree1Obj, err := c.Tree(ctx, treeOid)
 	require.NoError(t, err)
