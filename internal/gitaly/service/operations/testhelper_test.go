@@ -139,7 +139,7 @@ func runOperationServiceServer(t testing.TB, cfg config.Cfg, rubySrv *rubyserver
 		))
 		gitalypb.RegisterHookServiceServer(srv, hook.NewServer(cfg, deps.GetHookManager(), deps.GetGitCmdFactory()))
 		gitalypb.RegisterRepositoryServiceServer(srv, repository.NewServer(
-			cfg,
+			deps.GetCfg(),
 			rubySrv,
 			deps.GetLocator(),
 			deps.GetTxManager(),
@@ -147,21 +147,21 @@ func runOperationServiceServer(t testing.TB, cfg config.Cfg, rubySrv *rubyserver
 			deps.GetCatfileCache(),
 		))
 		gitalypb.RegisterRefServiceServer(srv, ref.NewServer(
-			cfg,
+			deps.GetCfg(),
 			deps.GetLocator(),
 			deps.GetGitCmdFactory(),
 			deps.GetTxManager(),
 			deps.GetCatfileCache(),
 		))
 		gitalypb.RegisterCommitServiceServer(srv, commit.NewServer(
-			cfg,
+			deps.GetCfg(),
 			deps.GetLocator(),
 			deps.GetGitCmdFactory(),
 			nil,
 			deps.GetCatfileCache(),
 		))
 		gitalypb.RegisterSSHServiceServer(srv, ssh.NewServer(
-			cfg,
+			deps.GetCfg(),
 			deps.GetLocator(),
 			deps.GetGitCmdFactory(),
 			deps.GetTxManager(),
