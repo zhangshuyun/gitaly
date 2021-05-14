@@ -71,8 +71,6 @@ func TestWithRubySidecar(t *testing.T) {
 		testSuccessfulWikiGetAllPagesRequest,
 		testWikiGetAllPagesSorting,
 		testFailedWikiGetAllPagesDueToValidation,
-		testWikiGetPageVersionsRequest,
-		testWikiGetPageVersionsPaginationParams,
 		testSuccessfulWikiListPagesRequest,
 		testWikiListPagesSorting,
 		testSuccessfulWikiUpdatePageRequest,
@@ -144,37 +142,6 @@ func writeWikiPage(t *testing.T, client gitalypb.WikiServiceClient, wikiRepo *gi
 	stream, err := client.WikiWritePage(ctx)
 	require.NoError(t, err)
 
-	require.NoError(t, stream.Send(request))
-
-	_, err = stream.CloseAndRecv()
-	require.NoError(t, err)
-}
-
-func updateWikiPage(t *testing.T, client gitalypb.WikiServiceClient, wikiRepo *gitalypb.Repository, name string, content []byte) {
-	t.Helper()
-
-	commitDetails := &gitalypb.WikiCommitDetails{
-		Name:     []byte("Ahmad Sherif"),
-		Email:    []byte("ahmad@gitlab.com"),
-		Message:  []byte("Update " + name),
-		UserId:   int32(1),
-		UserName: []byte("ahmad"),
-	}
-
-	request := &gitalypb.WikiUpdatePageRequest{
-		Repository:    wikiRepo,
-		PagePath:      []byte(name),
-		Title:         []byte(name),
-		Format:        "markdown",
-		CommitDetails: commitDetails,
-		Content:       content,
-	}
-
-	ctx, cancel := testhelper.Context()
-	defer cancel()
-
-	stream, err := client.WikiUpdatePage(ctx)
-	require.NoError(t, err)
 	require.NoError(t, stream.Send(request))
 
 	_, err = stream.CloseAndRecv()
