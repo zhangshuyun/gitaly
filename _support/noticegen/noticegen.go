@@ -2,11 +2,11 @@ package main
 
 import (
 	"flag"
-	"html/template"
 	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
+	"text/template"
 )
 
 var (
