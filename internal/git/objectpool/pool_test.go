@@ -109,8 +109,7 @@ func TestCreate(t *testing.T) {
 	require.True(t, pool.IsValid())
 
 	// No hooks
-	_, err = os.Stat(filepath.Join(pool.FullPath(), "hooks"))
-	assert.True(t, os.IsNotExist(err))
+	assert.NoDirExists(t, filepath.Join(pool.FullPath(), "hooks"))
 
 	// origin is set
 	out := gittest.Exec(t, pool.cfg, "-C", pool.FullPath(), "remote", "get-url", "origin")

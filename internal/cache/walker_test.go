@@ -63,8 +63,7 @@ func TestDiskCacheObjectWalker(t *testing.T) {
 	}
 
 	for _, p := range shouldNotExist {
-		_, err := os.Stat(p)
-		require.True(t, os.IsNotExist(err), "expected %s not to exist", p)
+		require.NoFileExists(t, p)
 	}
 }
 

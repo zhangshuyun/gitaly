@@ -20,8 +20,7 @@ func TestWriteCommitGraph(t *testing.T) {
 
 	commitGraphPath := filepath.Join(repoPath, CommitGraphRelPath)
 
-	_, err := os.Stat(commitGraphPath)
-	assert.True(t, os.IsNotExist(err))
+	assert.NoFileExists(t, commitGraphPath)
 
 	gittest.WriteCommit(
 		t,
@@ -47,8 +46,7 @@ func TestUpdateCommitGraph(t *testing.T) {
 
 	commitGraphPath := filepath.Join(repoPath, CommitGraphRelPath)
 
-	_, err := os.Stat(commitGraphPath)
-	assert.True(t, os.IsNotExist(err))
+	assert.NoFileExists(t, commitGraphPath)
 
 	res, err := client.WriteCommitGraph(ctx, &gitalypb.WriteCommitGraphRequest{Repository: repo})
 	assert.NoError(t, err)
