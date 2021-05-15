@@ -2,6 +2,7 @@ package transactions
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 
@@ -239,20 +240,44 @@ func (t *subtransaction) mustSignalVoters() bool {
 	return true
 }
 
+// cancelVote cancels a node's vote if the subtransaction is still ongoing. This
+// has to be called with the lock acquired as collectVotes does.
+func (t *subtransaction) cancelVote(voter *Voter) error {
+	if t.isDone() {
+		// If the transaction is already done, it's too late to cancel our vote.
+		// Other nodes may have committed their changes already.
+		return errors.New("subtransaction was already finished")
+	}
+
+	// Remove the voter's support for the vote so it's not counted towards the
+	// majority. The node is not going to commit the subtransaction anyway.
+	t.voteCounts[*voter.vote] -= voter.Votes
+	voter.result = VoteCanceled
+	return nil
+}
+
 func (t *subtransaction) collectVotes(ctx context.Context, node string) error {
 	select {
 	case <-ctx.Done():
-		return ctx.Err()
 	case <-t.doneCh:
-		break
 	}
 
-	t.lock.RLock()
-	defer t.lock.RUnlock()
+	t.lock.Lock()
+	defer t.lock.Unlock()
 
 	voter, ok := t.votersByNode[node]
 	if !ok {
 		return fmt.Errorf("invalid node for transaction: %q", node)
+	}
+
+	// If the waiting stopped due to the context being canceled, we need to cancel
+	// this voter's votes.
+	if err := ctx.Err(); err != nil {
+		if err := t.cancelVote(voter); err != nil {
+			return fmt.Errorf("cancel vote: %w", err)
+		}
+
+		return ctx.Err()
 	}
 
 	switch voter.result {
