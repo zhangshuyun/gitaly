@@ -225,8 +225,6 @@ func TestSquashRequestWithRenamedFiles(t *testing.T) {
 	originalFilename := "original-file.txt"
 	renamedFilename := "renamed-file.txt"
 
-	gittest.Exec(t, cfg, "-C", repoPath, "config", "gittest.TestUser.name", string(author.Name))
-	gittest.Exec(t, cfg, "-C", repoPath, "config", "gittest.TestUser.email", string(author.Email))
 	gittest.Exec(t, cfg, "-C", repoPath, "checkout", "-b", "squash-rename-test", "master")
 	require.NoError(t, ioutil.WriteFile(filepath.Join(repoPath, originalFilename), []byte("This is a test"), 0644))
 	gittest.Exec(t, cfg, "-C", repoPath, "add", ".")
