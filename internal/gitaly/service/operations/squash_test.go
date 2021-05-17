@@ -34,6 +34,7 @@ var (
 )
 
 func TestSuccessfulUserSquashRequest(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -81,6 +82,7 @@ func testSuccessfulUserSquashRequest(t *testing.T, ctx context.Context, start, e
 }
 
 func TestUserSquash_stableID(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -141,6 +143,7 @@ func ensureSplitIndexExists(t *testing.T, cfg config.Cfg, repoDir string) bool {
 }
 
 func TestSuccessfulUserSquashRequestWith3wayMerge(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -188,6 +191,7 @@ func TestSuccessfulUserSquashRequestWith3wayMerge(t *testing.T) {
 }
 
 func TestSplitIndex(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -212,6 +216,7 @@ func TestSplitIndex(t *testing.T) {
 }
 
 func TestSquashRequestWithRenamedFiles(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -270,6 +275,7 @@ func TestSquashRequestWithRenamedFiles(t *testing.T) {
 }
 
 func TestSuccessfulUserSquashRequestWithMissingFileOnTargetBranch(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -293,6 +299,7 @@ func TestSuccessfulUserSquashRequestWithMissingFileOnTargetBranch(t *testing.T) 
 }
 
 func TestFailedUserSquashRequestDueToValidations(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -419,6 +426,7 @@ func TestFailedUserSquashRequestDueToValidations(t *testing.T) {
 }
 
 func TestUserSquashWithGitError(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 

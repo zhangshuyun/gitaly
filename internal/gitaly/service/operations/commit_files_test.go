@@ -30,6 +30,7 @@ var (
 )
 
 func TestUserCommitFiles(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -938,6 +939,7 @@ func TestUserCommitFiles(t *testing.T) {
 }
 
 func TestUserCommitFilesStableCommitID(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -997,6 +999,7 @@ func TestUserCommitFilesStableCommitID(t *testing.T) {
 }
 
 func TestSuccessfulUserCommitFilesRequest(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -1107,6 +1110,7 @@ func TestSuccessfulUserCommitFilesRequest(t *testing.T) {
 }
 
 func TestSuccessfulUserCommitFilesRequestMove(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -1164,6 +1168,7 @@ func TestSuccessfulUserCommitFilesRequestMove(t *testing.T) {
 }
 
 func TestSuccessfulUserCommitFilesRequestForceCommit(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -1209,6 +1214,7 @@ func TestSuccessfulUserCommitFilesRequestForceCommit(t *testing.T) {
 }
 
 func TestSuccessfulUserCommitFilesRequestStartSha(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -1242,12 +1248,14 @@ func TestSuccessfulUserCommitFilesRequestStartSha(t *testing.T) {
 }
 
 func TestSuccessfulUserCommitFilesRequestStartShaRemoteRepository(t *testing.T) {
+	t.Parallel()
 	testSuccessfulUserCommitFilesRemoteRepositoryRequest(func(header *gitalypb.UserCommitFilesRequest) {
 		setStartSha(header, "1e292f8fedd741b75372e19097c76d327140c312")
 	})
 }
 
 func TestSuccessfulUserCommitFilesRequestStartBranchRemoteRepository(t *testing.T) {
+	t.Parallel()
 	testSuccessfulUserCommitFilesRemoteRepositoryRequest(func(header *gitalypb.UserCommitFilesRequest) {
 		setStartBranchName(header, []byte("master"))
 	})
@@ -1296,6 +1304,7 @@ func testSuccessfulUserCommitFilesRemoteRepositoryRequest(setHeader func(header 
 }
 
 func TestSuccessfulUserCommitFilesRequestWithSpecialCharactersInSignature(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -1348,6 +1357,7 @@ func TestSuccessfulUserCommitFilesRequestWithSpecialCharactersInSignature(t *tes
 }
 
 func TestFailedUserCommitFilesRequestDueToHooks(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -1380,6 +1390,7 @@ func TestFailedUserCommitFilesRequestDueToHooks(t *testing.T) {
 }
 
 func TestFailedUserCommitFilesRequestDueToIndexError(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -1443,6 +1454,7 @@ func TestFailedUserCommitFilesRequestDueToIndexError(t *testing.T) {
 }
 
 func TestFailedUserCommitFilesRequest(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 

@@ -212,6 +212,7 @@ func testFailedPatchApplyPatch(t *testing.T, cfg config.Cfg, rubySrv *rubyserver
 }
 
 func TestFailedValidationUserApplyPatch(t *testing.T) {
+	t.Parallel()
 	_, repo, _ := testcfg.BuildWithRepo(t)
 
 	testCases := []struct {

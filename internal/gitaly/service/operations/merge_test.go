@@ -31,6 +31,7 @@ var (
 )
 
 func TestSuccessfulMerge(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -112,6 +113,7 @@ func TestSuccessfulMerge(t *testing.T) {
 }
 
 func TestSuccessfulMerge_stableMergeIDs(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -181,6 +183,7 @@ func TestSuccessfulMerge_stableMergeIDs(t *testing.T) {
 }
 
 func TestAbortedMerge(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -244,6 +247,7 @@ func TestAbortedMerge(t *testing.T) {
 }
 
 func TestFailedMergeConcurrentUpdate(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -287,6 +291,7 @@ func TestFailedMergeConcurrentUpdate(t *testing.T) {
 }
 
 func TestUserMergeBranch_ambiguousReference(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -350,6 +355,7 @@ func TestUserMergeBranch_ambiguousReference(t *testing.T) {
 }
 
 func TestFailedMergeDueToHooks(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -399,6 +405,7 @@ func TestFailedMergeDueToHooks(t *testing.T) {
 }
 
 func TestSuccessfulUserFFBranchRequest(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -430,6 +437,7 @@ func TestSuccessfulUserFFBranchRequest(t *testing.T) {
 }
 
 func TestFailedUserFFBranchRequest(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -517,6 +525,7 @@ func TestFailedUserFFBranchRequest(t *testing.T) {
 }
 
 func TestFailedUserFFBranchDueToHooks(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -547,6 +556,7 @@ func TestFailedUserFFBranchDueToHooks(t *testing.T) {
 }
 
 func TestUserFFBranch_ambiguousReference(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -591,6 +601,7 @@ func TestUserFFBranch_ambiguousReference(t *testing.T) {
 }
 
 func TestSuccessfulUserMergeToRefRequest(t *testing.T) {
+	t.Parallel()
 	ctx, cleanup := testhelper.Context()
 	defer cleanup()
 
@@ -695,6 +706,7 @@ func TestSuccessfulUserMergeToRefRequest(t *testing.T) {
 }
 
 func TestConflictsOnUserMergeToRefRequest(t *testing.T) {
+	t.Parallel()
 	ctx, cleanup := testhelper.Context()
 	defer cleanup()
 
@@ -831,6 +843,7 @@ func buildUserMergeToRefRequest(t testing.TB, cfg config.Cfg, repo *gitalypb.Rep
 }
 
 func TestUserMergeToRef_stableMergeID(t *testing.T) {
+	t.Parallel()
 	ctx, cleanup := testhelper.Context()
 	defer cleanup()
 
@@ -882,6 +895,7 @@ func TestUserMergeToRef_stableMergeID(t *testing.T) {
 }
 
 func TestFailedUserMergeToRefRequest(t *testing.T) {
+	t.Parallel()
 	ctx, cleanup := testhelper.Context()
 	defer cleanup()
 
@@ -977,6 +991,7 @@ func TestFailedUserMergeToRefRequest(t *testing.T) {
 }
 
 func TestUserMergeToRefIgnoreHooksRequest(t *testing.T) {
+	t.Parallel()
 	ctx, cleanup := testhelper.Context()
 	defer cleanup()
 

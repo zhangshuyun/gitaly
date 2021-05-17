@@ -30,6 +30,8 @@ import (
 )
 
 func TestSuccessfulUserDeleteTagRequest(t *testing.T) {
+	t.Parallel()
+
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -53,6 +55,7 @@ func TestSuccessfulUserDeleteTagRequest(t *testing.T) {
 }
 
 func TestSuccessfulGitHooksForUserDeleteTagRequest(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -152,6 +155,8 @@ end`, cfg.Git.BinPath)
 }
 
 func TestSuccessfulUserCreateTagRequest(t *testing.T) {
+	t.Parallel()
+
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -245,6 +250,7 @@ func TestSuccessfulUserCreateTagRequest(t *testing.T) {
 }
 
 func TestUserCreateTagWithTransaction(t *testing.T) {
+	t.Parallel()
 	cfg, repoProto, repoPath := testcfg.BuildWithRepo(t)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
@@ -390,6 +396,8 @@ func TestUserCreateTagWithTransaction(t *testing.T) {
 }
 
 func TestSuccessfulUserCreateTagRequestAnnotatedLightweightDisambiguation(t *testing.T) {
+	t.Parallel()
+
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -479,6 +487,8 @@ func TestSuccessfulUserCreateTagRequestAnnotatedLightweightDisambiguation(t *tes
 }
 
 func TestSuccessfulUserCreateTagRequestWithParsedTargetRevision(t *testing.T) {
+	t.Parallel()
+
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -558,6 +568,7 @@ func TestSuccessfulUserCreateTagRequestWithParsedTargetRevision(t *testing.T) {
 }
 
 func TestSuccessfulUserCreateTagRequestToNonCommit(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -669,6 +680,7 @@ func TestSuccessfulUserCreateTagRequestToNonCommit(t *testing.T) {
 }
 
 func TestSuccessfulUserCreateTagNestedTags(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -795,6 +807,7 @@ func TestSuccessfulUserCreateTagNestedTags(t *testing.T) {
 }
 
 func TestUserCreateTagStableTagIDs(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -819,6 +832,8 @@ func TestUserCreateTagStableTagIDs(t *testing.T) {
 }
 
 func TestUserDeleteTagSuccessfulDeletionOfPrefixedTag(t *testing.T) {
+	t.Parallel()
+
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -863,6 +878,7 @@ func TestUserDeleteTagSuccessfulDeletionOfPrefixedTag(t *testing.T) {
 }
 
 func TestUserCreateTagsuccessfulCreationOfPrefixedTag(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -919,6 +935,7 @@ func TestUserCreateTagsuccessfulCreationOfPrefixedTag(t *testing.T) {
 }
 
 func TestSuccessfulGitHooksForUserCreateTagRequest(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -954,6 +971,7 @@ func TestSuccessfulGitHooksForUserCreateTagRequest(t *testing.T) {
 }
 
 func TestFailedUserDeleteTagRequestDueToValidation(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -1025,6 +1043,8 @@ func TestFailedUserDeleteTagRequestDueToValidation(t *testing.T) {
 }
 
 func TestFailedUserDeleteTagDueToHooks(t *testing.T) {
+	t.Parallel()
+
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -1057,6 +1077,7 @@ func TestFailedUserDeleteTagDueToHooks(t *testing.T) {
 }
 
 func TestFailedUserCreateTagDueToHooks(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -1081,6 +1102,7 @@ func TestFailedUserCreateTagDueToHooks(t *testing.T) {
 }
 
 func TestFailedUserCreateTagRequestDueToTagExistence(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -1132,6 +1154,7 @@ func TestFailedUserCreateTagRequestDueToTagExistence(t *testing.T) {
 }
 
 func TestFailedUserCreateTagRequestDueToValidation(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
@@ -1250,6 +1273,8 @@ func TestFailedUserCreateTagRequestDueToValidation(t *testing.T) {
 }
 
 func TestTagHookOutput(t *testing.T) {
+	t.Parallel()
+
 	ctx, cancel := testhelper.Context()
 	defer cancel()
 
