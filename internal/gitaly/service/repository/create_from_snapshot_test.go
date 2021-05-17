@@ -71,7 +71,7 @@ func createFromSnapshot(t *testing.T, req *gitalypb.CreateRepositoryFromSnapshot
 
 func TestCreateRepositoryFromSnapshotSuccess(t *testing.T) {
 	cfg := testcfg.Build(t)
-	_, sourceRepoPath, cleanTestRepo := gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name())
+	_, sourceRepoPath, cleanTestRepo := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name())
 	t.Cleanup(cleanTestRepo)
 
 	// Ensure these won't be in the archive
@@ -116,7 +116,7 @@ func TestCreateRepositoryFromSnapshotSuccess(t *testing.T) {
 
 func TestCreateRepositoryFromSnapshotFailsIfRepositoryExists(t *testing.T) {
 	cfg := testcfg.Build(t)
-	repo, _, cleanupFn := gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name())
+	repo, _, cleanupFn := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name())
 	t.Cleanup(cleanupFn)
 
 	req := &gitalypb.CreateRepositoryFromSnapshotRequest{Repository: repo}
@@ -128,7 +128,7 @@ func TestCreateRepositoryFromSnapshotFailsIfRepositoryExists(t *testing.T) {
 
 func TestCreateRepositoryFromSnapshotFailsIfBadURL(t *testing.T) {
 	cfg := testcfg.Build(t)
-	repo, _, cleanupFn := gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name())
+	repo, _, cleanupFn := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name())
 	cleanupFn() // free up the destination dir for use
 
 	req := &gitalypb.CreateRepositoryFromSnapshotRequest{
@@ -144,7 +144,7 @@ func TestCreateRepositoryFromSnapshotFailsIfBadURL(t *testing.T) {
 
 func TestCreateRepositoryFromSnapshotBadRequests(t *testing.T) {
 	cfg := testcfg.Build(t)
-	repo, _, cleanupFn := gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name())
+	repo, _, cleanupFn := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name())
 	cleanupFn() // free up the destination dir for use
 
 	testCases := []struct {
@@ -199,7 +199,7 @@ func TestCreateRepositoryFromSnapshotBadRequests(t *testing.T) {
 
 func TestCreateRepositoryFromSnapshotHandlesMalformedResponse(t *testing.T) {
 	cfg := testcfg.Build(t)
-	repo, repoPath, cleanupFn := gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name())
+	repo, repoPath, cleanupFn := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name())
 	t.Cleanup(cleanupFn)
 
 	require.NoError(t, os.Remove(filepath.Join(repoPath, "config")))

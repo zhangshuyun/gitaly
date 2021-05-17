@@ -57,7 +57,7 @@ func TestWithRubySidecar(t *testing.T) {
 func setupRemoteServiceWithRuby(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) (config.Cfg, *gitalypb.Repository, string, gitalypb.RemoteServiceClient) {
 	t.Helper()
 
-	repo, repoPath, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name())
+	repo, repoPath, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name())
 	t.Cleanup(cleanup)
 
 	addr := testserver.RunGitalyServer(t, cfg, rubySrv, func(srv *grpc.Server, deps *service.Dependencies) {

@@ -269,7 +269,7 @@ func TestHooksUpdate(t *testing.T) {
 }
 
 func testHooksUpdate(t *testing.T, cfg config.Cfg, glValues glHookValues) {
-	repo, repoPath, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name())
+	repo, repoPath, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name())
 	t.Cleanup(cleanup)
 
 	refval, oldval, newval := "refval", strings.Repeat("a", 40), strings.Repeat("b", 40)

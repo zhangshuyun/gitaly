@@ -104,7 +104,7 @@ func TestCleanSuccess(t *testing.T) {
 
 func TestCleanTempDir(t *testing.T) {
 	cfg := testcfg.Build(t, testcfg.WithStorages("first", "second"))
-	gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name())
+	gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name())
 
 	logrus.SetLevel(logrus.InfoLevel)
 	logrus.SetOutput(ioutil.Discard)

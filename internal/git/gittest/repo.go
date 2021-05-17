@@ -103,8 +103,8 @@ func CloneRepoAtStorageRoot(t testing.TB, cfg config.Cfg, storageRoot, relativeP
 }
 
 // CloneRepoAtStorage clones a new copy of test repository under a subdirectory in the storage root.
-func CloneRepoAtStorage(t testing.TB, storage config.Storage, relativePath string) (*gitalypb.Repository, string, testhelper.Cleanup) {
-	repo, repoPath, cleanup := cloneRepo(t, config.Config, storage.Path, relativePath, testRepo, true)
+func CloneRepoAtStorage(t testing.TB, cfg config.Cfg, storage config.Storage, relativePath string) (*gitalypb.Repository, string, testhelper.Cleanup) {
+	repo, repoPath, cleanup := cloneRepo(t, cfg, storage.Path, relativePath, testRepo, true)
 	repo.StorageName = storage.Name
 	return repo, repoPath, cleanup
 }

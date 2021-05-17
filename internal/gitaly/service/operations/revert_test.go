@@ -35,7 +35,7 @@ func testServerUserRevertSuccessfulFeatured(t *testing.T, ctx context.Context, c
 	revertedCommit, err := repo.ReadCommit(ctx, "d59c60028b053793cecfb4022de34602e1a9218e")
 	require.NoError(t, err)
 
-	testRepoCopy, testRepoCopyPath, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "read-only") // read-only repo
+	testRepoCopy, testRepoCopyPath, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "read-only") // read-only repo
 	defer cleanup()
 
 	gittest.Exec(t, cfg, "-C", testRepoCopyPath, "branch", destinationBranch, "master")

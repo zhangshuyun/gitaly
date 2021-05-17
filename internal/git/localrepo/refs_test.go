@@ -400,7 +400,7 @@ func TestRepo_UpdateRef(t *testing.T) {
 	for _, tc := range testcases {
 		t.Run(tc.desc, func(t *testing.T) {
 			// Re-create repo for each testcase.
-			repoProto, _, _ := gittest.CloneRepoAtStorage(t, repo.cfg.Storages[0], t.Name())
+			repoProto, _, _ := gittest.CloneRepoAtStorage(t, repo.cfg, repo.cfg.Storages[0], t.Name())
 			repo := New(repo.gitCmdFactory, repo.catfileCache, repoProto, repo.cfg)
 			err := repo.UpdateRef(ctx, git.ReferenceName(tc.ref), tc.newValue, tc.oldValue)
 			tc.verify(t, repo, err)

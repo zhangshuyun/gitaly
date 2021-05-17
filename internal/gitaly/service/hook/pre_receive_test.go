@@ -431,7 +431,7 @@ func TestPreReceiveHook_Primary(t *testing.T) {
 
 	for i, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			testRepo, testRepoPath, cleanupFn := gittest.CloneRepoAtStorage(t, cfg.Storages[0], fmt.Sprintf("repo-%d", i))
+			testRepo, testRepoPath, cleanupFn := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], fmt.Sprintf("repo-%d", i))
 			defer cleanupFn()
 
 			mux := http.NewServeMux()

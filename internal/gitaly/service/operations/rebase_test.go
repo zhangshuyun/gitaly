@@ -44,7 +44,7 @@ func testSuccessfulUserRebaseConfirmableRequestFeatured(t *testing.T, ctx contex
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	repoCopyProto, _, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "copy")
+	repoCopyProto, _, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "copy")
 	defer cleanup()
 
 	branchSha := getBranchSha(t, cfg, repoPath, rebaseBranchName)
@@ -267,7 +267,7 @@ func testFailedRebaseUserRebaseConfirmableRequestDueToInvalidHeader(t *testing.T
 func testFailedRebaseUserRebaseConfirmableRequestDueToInvalidHeaderFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	ctx, cfg, repo, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
 
-	repoCopy, _, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "copy")
+	repoCopy, _, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "copy")
 	defer cleanup()
 
 	branchSha := getBranchSha(t, cfg, repoPath, rebaseBranchName)
@@ -341,10 +341,10 @@ func testAbortedUserRebaseConfirmableFeatured(t *testing.T, ctx context.Context,
 
 	for i, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			testRepo, testRepoPath, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "repo")
+			testRepo, testRepoPath, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "repo")
 			defer cleanup()
 
-			testRepoCopy, _, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "copy")
+			testRepoCopy, _, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "copy")
 			defer cleanup()
 
 			branchSha := getBranchSha(t, cfg, testRepoPath, rebaseBranchName)
@@ -392,7 +392,7 @@ func testFailedUserRebaseConfirmableDueToApplyBeingFalseFeatured(t *testing.T, c
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	testRepoCopy, _, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "copy")
+	testRepoCopy, _, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "copy")
 	defer cleanup()
 
 	branchSha := getBranchSha(t, cfg, repoPath, rebaseBranchName)
@@ -430,7 +430,7 @@ func testFailedUserRebaseConfirmableRequestDueToPreReceiveErrorFeatured(t *testi
 	ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	repoCopyProto, _, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "copy")
+	repoCopyProto, _, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "copy")
 	defer cleanup()
 
 	branchSha := getBranchSha(t, cfg, repoPath, rebaseBranchName)
@@ -478,7 +478,7 @@ func testFailedUserRebaseConfirmableDueToGitError(t *testing.T, cfg config.Cfg, 
 func testFailedUserRebaseConfirmableDueToGitErrorFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
 
-	repoCopyProto, _, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "copy")
+	repoCopyProto, _, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "copy")
 	defer cleanup()
 
 	failedBranchName := "rebase-encoding-failure-trigger"
@@ -517,7 +517,7 @@ func testRebaseRequestWithDeletedFileFeatured(t *testing.T, ctx context.Context,
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
-	repoCopyProto, _, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "copy")
+	repoCopyProto, _, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], "copy")
 	defer cleanup()
 
 	branch := "rebase-delete-test"

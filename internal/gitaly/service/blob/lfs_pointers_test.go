@@ -380,7 +380,7 @@ func TestFindLFSPointersByRevisions(t *testing.T) {
 
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
 
-	repoProto, _, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name())
+	repoProto, _, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name())
 	t.Cleanup(cleanup)
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
