@@ -81,7 +81,7 @@ service RepositoryService {
   }
   rpc Fsck(FsckRequest) returns (FsckResponse) {
     option (op_type) = {
-      op: MUTATOR
+      op: ACCESSOR
     };
   }
   rpc WriteRef(WriteRefRequest) returns (WriteRefResponse) {
