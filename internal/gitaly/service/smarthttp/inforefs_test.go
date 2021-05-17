@@ -355,7 +355,7 @@ func TestCacheInfoRefsUploadPack(t *testing.T) {
 
 	_, err = makeInfoRefsUploadPackRequest(ctx, t, gitalyServer.Address(), cfg.Auth.Token, invalidReq)
 	testhelper.RequireGrpcError(t, err, codes.NotFound)
-	testhelper.AssertPathNotExists(t, pathToCachedResponse(t, ctx, config.NewLocator(cfg), invalidReq))
+	require.NoFileExists(t, pathToCachedResponse(t, ctx, config.NewLocator(cfg), invalidReq))
 
 	// if an error occurs while putting stream, it should not interrupt
 	// request from being served

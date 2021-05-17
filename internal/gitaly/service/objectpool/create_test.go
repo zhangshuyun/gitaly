@@ -1,7 +1,6 @@
 package objectpool
 
 import (
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -41,8 +40,7 @@ func TestCreate(t *testing.T) {
 	require.True(t, pool.IsValid())
 
 	// No hooks
-	_, err = os.Stat(filepath.Join(pool.FullPath(), "hooks"))
-	assert.True(t, os.IsNotExist(err))
+	assert.NoDirExists(t, filepath.Join(pool.FullPath(), "hooks"))
 
 	// No problems
 	out := gittest.Exec(t, cfg, "-C", pool.FullPath(), "cat-file", "-s", "55bc176024cfa3baaceb71db584c7e5df900ea65")

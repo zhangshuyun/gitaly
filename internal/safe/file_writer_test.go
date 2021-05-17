@@ -25,7 +25,7 @@ func TestFile(t *testing.T) {
 	_, err = io.Copy(file, bytes.NewBufferString(fileContents))
 	require.NoError(t, err)
 
-	testhelper.AssertPathNotExists(t, filePath)
+	require.NoFileExists(t, filePath)
 
 	require.NoError(t, file.Commit())
 

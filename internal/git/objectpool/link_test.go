@@ -2,7 +2,6 @@ package objectpool
 
 import (
 	"io/ioutil"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -23,8 +22,7 @@ func TestLink(t *testing.T) {
 
 	altPath, err := pool.locator.InfoAlternatesPath(testRepo)
 	require.NoError(t, err)
-	_, err = os.Stat(altPath)
-	require.True(t, os.IsNotExist(err))
+	require.NoFileExists(t, altPath)
 
 	require.NoError(t, pool.Link(ctx, testRepo))
 

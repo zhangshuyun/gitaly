@@ -141,8 +141,7 @@ func TestGarbageCollectWithPrune(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, c)
 
-	_, err = os.Stat(oldDanglingObjFile)
-	require.True(t, os.IsNotExist(err), "blob should be removed from object storage as it is too old and there are no references to it")
+	require.NoFileExists(t, oldDanglingObjFile, "blob should be removed from object storage as it is too old and there are no references to it")
 	require.FileExists(t, newDanglingObjFile, "blob should not be removed from object storage as it is fresh enough despite there are no references to it")
 	require.FileExists(t, oldReferencedObjFile, "blob should not be removed from object storage as it is referenced by something despite it is too old")
 }
@@ -200,7 +199,7 @@ func TestGarbageCollectDeletesRefsLocks(t *testing.T) {
 
 	assert.FileExists(t, keepLockPath)
 
-	testhelper.AssertPathNotExists(t, deleteLockPath)
+	require.NoFileExists(t, deleteLockPath)
 }
 
 func TestGarbageCollectFailure(t *testing.T) {
@@ -296,16 +295,14 @@ func TestCleanupInvalidKeepAroundRefs(t *testing.T) {
 			require.Equal(t, existingSha, text.ChompBytes(commitSha))
 
 			//The invalid one was removed
-			_, err = os.Stat(bogusPath)
-			require.True(t, os.IsNotExist(err), "expected 'does not exist' error, got %v", err)
+			require.NoFileExists(t, bogusPath)
 
 			if testcase.shouldExist {
 				keepAroundName := fmt.Sprintf("refs/keep-around/%s", testcase.refName)
 				commitSha := gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", keepAroundName)
 				require.Equal(t, testcase.refName, text.ChompBytes(commitSha))
 			} else {
-				_, err := os.Stat(refPath)
-				require.True(t, os.IsNotExist(err), "expected 'does not exist' error, got %v", err)
+				require.NoFileExists(t, refPath)
 			}
 		})
 	}

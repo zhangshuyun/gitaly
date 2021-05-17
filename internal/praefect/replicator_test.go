@@ -797,8 +797,7 @@ func TestProcessBacklog_Success(t *testing.T) {
 		t.Fatal("time limit expired for job to complete")
 	}
 
-	_, serr := os.Stat(fullNewPath1)
-	require.True(t, os.IsNotExist(serr), "repository must be moved from %q to the new location", fullNewPath1)
+	require.NoDirExists(t, fullNewPath1, "repository must be moved from %q to the new location", fullNewPath1)
 	require.True(t, storage.IsGitDirectory(fullNewPath2), "repository must exist at new last RenameRepository location")
 }
 
