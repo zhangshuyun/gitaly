@@ -123,7 +123,7 @@ func TestNewProtoRegistry(t *testing.T) {
 			"GetArchive":                   protoregistry.OpAccessor,
 			"HasLocalBranches":             protoregistry.OpAccessor,
 			"FetchSourceBranch":            protoregistry.OpMutator,
-			"Fsck":                         protoregistry.OpMutator,
+			"Fsck":                         protoregistry.OpAccessor,
 			"WriteRef":                     protoregistry.OpMutator,
 			"FindMergeBase":                protoregistry.OpAccessor,
 			"CreateFork":                   protoregistry.OpMutator,

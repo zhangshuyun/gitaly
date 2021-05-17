@@ -93,7 +93,6 @@ var transactionRPCs = map[string]transactionsCondition{
 	"/gitaly.RefService/PackRefs":                              transactionsDisabled,
 	"/gitaly.RepositoryService/Cleanup":                        transactionsDisabled,
 	"/gitaly.RepositoryService/DeleteConfig":                   transactionsDisabled,
-	"/gitaly.RepositoryService/Fsck":                           transactionsDisabled,
 	"/gitaly.RepositoryService/GarbageCollect":                 transactionsDisabled,
 	"/gitaly.RepositoryService/MidxRepack":                     transactionsDisabled,
 	"/gitaly.RepositoryService/OptimizeRepository":             transactionsDisabled,
