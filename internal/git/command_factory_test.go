@@ -14,6 +14,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/testhelper/testcfg"
+	"gitlab.com/gitlab-org/labkit/correlation"
 )
 
 func TestGitCommandProxy(t *testing.T) {
@@ -97,4 +98,36 @@ func TestExecCommandFactory_NewWithDir(t *testing.T) {
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "no such file or directory")
 	})
+}
+
+func TestExecCommandFactory_Trace2EventCaptured(t *testing.T) {
+	cfg := testcfg.Build(t)
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	const corrID = "correlation-id"
+	ctx = correlation.ContextWithCorrelation(ctx, corrID)
+
+	buf := &bytes.Buffer{}
+	gitCmdFactory := git.NewExecCommandFactory(cfg)
+	gitCmdFactory.SetTrace2Sink(buf)
+
+	cmd, err := gitCmdFactory.NewWithoutRepo(ctx, git.SubCmd{Name: "version"})
+	require.NoError(t, err)
+	cmd.Wait()
+
+	// The buffer should contain at least info about:
+	require.NotEmpty(t, buf)
+
+	// Gits version
+	require.Contains(t, buf.String(), `"event":"version"`)
+
+	// Start the command and report the name
+	require.Contains(t, buf.String(), `"event":"cmd_name"`)
+
+	// report the exit
+	require.Contains(t, buf.String(), `"event":"exit"`)
+
+	// Propegates the SID to child events
+	require.Contains(t, buf.String(), `"sid":"`+corrID)
 }

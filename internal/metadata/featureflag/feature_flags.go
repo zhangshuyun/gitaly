@@ -23,6 +23,8 @@ var (
 	TxConfig = FeatureFlag{Name: "tx_config", OnByDefault: false}
 	// TxRemote enables transactional voting for AddRemote and DeleteRemote.
 	TxRemote = FeatureFlag{Name: "tx_remote", OnByDefault: false}
+	// GitTrace2 enables the GIT_TRACE2_* environment variables required for Gitaly to ingest the trace events
+	GitTrace2 = FeatureFlag{Name: "git_trace2", OnByDefault: false}
 )
 
 // All includes all feature flags.
@@ -34,4 +36,5 @@ var All = []FeatureFlag{
 	FetchInternalRemoteErrors,
 	TxConfig,
 	TxRemote,
+	GitTrace2,
 }

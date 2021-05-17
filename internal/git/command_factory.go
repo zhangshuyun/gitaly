@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os/exec"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -11,7 +12,9 @@ import (
 	"gitlab.com/gitlab-org/gitaly/v14/internal/command"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/alternates"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/repository"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/git/trace2"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/gitaly/config"
+	"gitlab.com/gitlab-org/gitaly/v14/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/storage"
 )
 
@@ -49,6 +52,7 @@ type ExecCommandFactory struct {
 	cfg                   config.Cfg
 	cgroupsManager        cgroups.Manager
 	invalidCommandsMetric *prometheus.CounterVec
+	trace2Sink            io.Writer
 }
 
 // NewExecCommandFactory returns a new instance of initialized ExecCommandFactory.
@@ -98,6 +102,10 @@ func (cf *ExecCommandFactory) NewWithDir(ctx context.Context, dir string, sc Cmd
 	return cf.newCommand(ctx, nil, dir, sc, opts...)
 }
 
+func (cf *ExecCommandFactory) SetTrace2Sink(w io.Writer) {
+	cf.trace2Sink = w
+}
+
 func (cf *ExecCommandFactory) gitPath() string {
 	return cf.cfg.Git.BinPath
 }
@@ -133,6 +141,15 @@ func (cf *ExecCommandFactory) newCommand(ctx context.Context, repo repository.Gi
 
 	execCommand := exec.Command(cf.gitPath(), args...)
 	execCommand.Dir = dir
+
+	if featureflag.IsEnabled(ctx, featureflag.GitTrace2) && cf.trace2Sink != nil {
+		envVars, err := trace2.CopyHandler(ctx, execCommand, cf.trace2Sink)
+		if err != nil {
+			return nil, err
+		}
+
+		env = append(env, envVars...)
+	}
 
 	command, err := command.New(ctx, execCommand, config.stdin, config.stdout, config.stderr, env...)
 	if err != nil {
