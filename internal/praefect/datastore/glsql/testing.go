@@ -116,13 +116,15 @@ func GetDBConfig(t testing.TB, database string) config.DB {
 
 	// connect to 'postgres' database first to re-create testing database from scratch
 	conf := config.DB{
-		Host:        host,
-		HostNoProxy: host,
-		Port:        portNumber,
-		PortNoProxy: portNumber,
-		DBName:      database,
-		SSLMode:     "disable",
-		User:        os.Getenv("PGUSER"),
+		Host:    host,
+		Port:    portNumber,
+		DBName:  database,
+		SSLMode: "disable",
+		User:    os.Getenv("PGUSER"),
+		SessionPooled: config.DBConnection{
+			Host: host,
+			Port: portNumber,
+		},
 	}
 
 	bouncerHost, bouncerHostFound := os.LookupEnv("PGHOST_PGBOUNCER")

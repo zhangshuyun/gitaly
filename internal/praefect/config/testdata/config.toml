@@ -54,8 +54,17 @@ sslmode = "require"
 sslcert = "/path/to/cert"
 sslkey = "/path/to/key"
 sslrootcert = "/path/to/root-cert"
-host_no_proxy = "2.3.4.5"
-port_no_proxy = 6432
+
+[database.session_pooled]
+host = "2.3.4.5"
+port = 6432
+user = "praefect_sp"
+password = "db-secret-sp"
+dbname = "praefect_production_sp"
+sslmode = "prefer"
+sslcert = "/path/to/sp/cert"
+sslkey = "/path/to/sp/key"
+sslrootcert = "/path/to/sp/root-cert"
 
 [failover]
 error_threshold_window = "20s"
