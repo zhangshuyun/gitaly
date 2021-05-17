@@ -13,7 +13,6 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/internal/dontpanic"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/log"
 	"gitlab.com/gitlab-org/gitaly/internal/tempdir"
 )
@@ -105,8 +104,8 @@ func walkLoop(walkPath string) {
 	})
 }
 
-func startCleanWalker(storagePath string) {
-	if disableWalker {
+func (c *Cache) startCleanWalker(storagePath string) {
+	if c.cacheConfig.disableWalker {
 		return
 	}
 
@@ -114,15 +113,10 @@ func startCleanWalker(storagePath string) {
 	walkLoop(tempdir.AppendStateDir(storagePath))
 }
 
-var (
-	disableMoveAndClear bool // only used to disable move and clear in tests
-	disableWalker       bool // only used to disable object walker in tests
-)
-
 // moveAndClear will move the cache to the storage location's
 // temporary folder, and then remove its contents asynchronously
-func moveAndClear(storagePath string) error {
-	if disableMoveAndClear {
+func (c *Cache) moveAndClear(storagePath string) error {
+	if c.cacheConfig.disableMoveAndClear {
 		return nil
 	}
 
@@ -165,19 +159,20 @@ func moveAndClear(storagePath string) error {
 	return nil
 }
 
-func init() {
-	config.RegisterHook(func(cfg *config.Cfg) error {
-		pathSet := map[string]struct{}{}
-		for _, storage := range cfg.Storages {
-			pathSet[storage.Path] = struct{}{}
-		}
+// StartWalkers starts the cache walker Goroutines. Initially, this function will try to clean up
+// any preexisting cache directories.
+func (c *Cache) StartWalkers() error {
+	pathSet := map[string]struct{}{}
+	for _, storage := range c.storages {
+		pathSet[storage.Path] = struct{}{}
+	}
 
-		for sPath := range pathSet {
-			if err := moveAndClear(sPath); err != nil {
-				return err
-			}
-			startCleanWalker(sPath)
+	for sPath := range pathSet {
+		if err := c.moveAndClear(sPath); err != nil {
+			return err
 		}
-		return nil
-	})
+		c.startCleanWalker(sPath)
+	}
+
+	return nil
 }

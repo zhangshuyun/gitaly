@@ -11,17 +11,13 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/tempdir"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 )
 
 func TestDiskCacheObjectWalker(t *testing.T) {
-	// disable the initial move-and-clear function since we are only
-	// evaluating the walker
-	*ExportDisableMoveAndClear = true
-	defer func() { *ExportDisableMoveAndClear = false }()
-
 	cfg := testcfg.Build(t)
 
 	var shouldExist, shouldNotExist []string
@@ -56,7 +52,9 @@ func TestDiskCacheObjectWalker(t *testing.T) {
 		}
 	}
 
-	require.NoError(t, cfg.Validate()) // triggers walker
+	locator := config.NewLocator(cfg)
+	cache := New(cfg, locator, NewLeaseKeyer(locator), withDisabledMoveAndClear())
+	require.NoError(t, cache.StartWalkers())
 
 	pollCountersUntil(t, 4)
 
@@ -70,11 +68,6 @@ func TestDiskCacheObjectWalker(t *testing.T) {
 }
 
 func TestDiskCacheInitialClear(t *testing.T) {
-	// disable the background walkers since we are only
-	// evaluating the initial move-and-clear function
-	*ExportDisableWalker = true
-	defer func() { *ExportDisableWalker = false }()
-
 	cfg := testcfg.Build(t)
 
 	cacheDir := tempdir.CacheDir(cfg.Storages[0])
@@ -83,9 +76,9 @@ func TestDiskCacheInitialClear(t *testing.T) {
 	require.NoError(t, os.MkdirAll(filepath.Dir(canary), 0755))
 	require.NoError(t, ioutil.WriteFile(canary, []byte("chirp chirp"), 0755))
 
-	// validation will run cache walker hook which synchronously
-	// runs the move-and-clear function
-	require.NoError(t, cfg.Validate())
+	locator := config.NewLocator(cfg)
+	cache := New(cfg, locator, NewLeaseKeyer(locator), withDisabledWalker())
+	require.NoError(t, cache.StartWalkers())
 
 	require.NoFileExists(t, canary)
 }

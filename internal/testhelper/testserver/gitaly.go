@@ -16,6 +16,7 @@ import (
 	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
 	"gitlab.com/gitlab-org/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
+	"gitlab.com/gitlab-org/gitaly/internal/cache"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
@@ -271,6 +272,7 @@ type gitalyServerDeps struct {
 	linguist        *linguist.Instance
 	backchannelReg  *backchannel.Registry
 	catfileCache    catfile.Cache
+	diskCache       *cache.Cache
 }
 
 func (gsd *gitalyServerDeps) createDependencies(t testing.TB, cfg config.Cfg, rubyServer *rubyserver.Server) *service.Dependencies {
@@ -316,6 +318,10 @@ func (gsd *gitalyServerDeps) createDependencies(t testing.TB, cfg config.Cfg, ru
 		gsd.catfileCache = catfile.NewCache(cfg)
 	}
 
+	if gsd.diskCache == nil {
+		gsd.diskCache = cache.New(cfg, gsd.locator, cache.NewLeaseKeyer(gsd.locator))
+	}
+
 	return &service.Dependencies{
 		Cfg:                 cfg,
 		RubyServer:          rubyServer,
@@ -328,6 +334,7 @@ func (gsd *gitalyServerDeps) createDependencies(t testing.TB, cfg config.Cfg, ru
 		BackchannelRegistry: gsd.backchannelReg,
 		GitlabClient:        gsd.gitlabClient,
 		CatfileCache:        gsd.catfileCache,
+		DiskCache:           gsd.diskCache,
 	}
 }
 

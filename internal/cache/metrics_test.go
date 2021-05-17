@@ -6,9 +6,6 @@ var (
 	ExportMockRemovalCounter = &MockCounter{}
 	ExportMockCheckCounter   = &MockCounter{}
 	ExportMockLoserBytes     = &MockCounter{}
-
-	ExportDisableMoveAndClear = &disableMoveAndClear
-	ExportDisableWalker       = &disableWalker
 )
 
 // MockCounter is a mocked counter used for the testing.

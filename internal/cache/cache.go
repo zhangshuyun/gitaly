@@ -46,20 +46,53 @@ func (af activeFiles) trackFile(path string) func() bool {
 	}
 }
 
+type cacheConfig struct {
+	disableMoveAndClear bool // only used to disable move and clear in tests
+	disableWalker       bool // only used to disable object walker in tests
+}
+
+// Option is an option for the cache.
+type Option func(*cacheConfig)
+
+// withDisabledMoveAndClear disables the initial move and cleanup of preexisting cache directories.
+// This option is only for test purposes.
+func withDisabledMoveAndClear() Option {
+	return func(cfg *cacheConfig) {
+		cfg.disableMoveAndClear = true
+	}
+}
+
+// withDisabledWalker disables the cache walker which cleans up the cache asynchronously. This
+// option is only for test purposes.
+func withDisabledWalker() Option {
+	return func(cfg *cacheConfig) {
+		cfg.disableWalker = true
+	}
+}
+
 // Cache stores and retrieves byte streams for repository related RPCs
 type Cache struct {
-	ck Keyer
-	af activeFiles
+	storages    []config.Storage
+	ck          Keyer
+	af          activeFiles
+	cacheConfig cacheConfig
 }
 
 // New will create a new Cache with the given Keyer.
-func New(cfg config.Cfg, locator storage.Locator, ck Keyer) *Cache {
+func New(cfg config.Cfg, locator storage.Locator, ck Keyer, opts ...Option) *Cache {
+	var cacheConfig cacheConfig
+	for _, opt := range opts {
+		opt(&cacheConfig)
+	}
+
 	return &Cache{
-		ck: ck,
+		storages: cfg.Storages,
+		ck:       ck,
 		af: activeFiles{
 			Mutex: &sync.Mutex{},
 			m:     map[string]int{},
 		},
+		cacheConfig: cacheConfig,
 	}
 }
 

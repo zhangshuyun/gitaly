@@ -13,6 +13,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
 	"gitlab.com/gitlab-org/gitaly/internal/bootstrap"
 	"gitlab.com/gitlab-org/gitaly/internal/bootstrap/starter"
+	"gitlab.com/gitlab-org/gitaly/internal/cache"
 	"gitlab.com/gitlab-org/gitaly/internal/cgroups"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
@@ -172,6 +173,11 @@ func run(cfg config.Cfg) error {
 	catfileCache := catfile.NewCache(cfg)
 	prometheus.MustRegister(catfileCache)
 
+	diskCache := cache.New(cfg, locator, cache.NewLeaseKeyer(locator))
+	if err := diskCache.StartWalkers(); err != nil {
+		return fmt.Errorf("disk cache walkers: %w", err)
+	}
+
 	gitalyServerFactory := server.NewGitalyServerFactory(cfg, registry)
 	defer gitalyServerFactory.Stop()
 
@@ -221,6 +227,7 @@ func run(cfg config.Cfg) error {
 			GitCmdFactory:      gitCmdFactory,
 			Linguist:           ling,
 			CatfileCache:       catfileCache,
+			DiskCache:          diskCache,
 		})
 		b.RegisterStarter(starter.New(c, srv))
 	}
