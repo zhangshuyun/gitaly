@@ -86,6 +86,14 @@ func TestFilesystem_BackupRepository(t *testing.T) {
 			if tc.createsBundle {
 				require.FileExists(t, bundlePath)
 
+				dirInfo, err := os.Stat(filepath.Dir(bundlePath))
+				require.NoError(t, err)
+				require.Equal(t, os.FileMode(0700), dirInfo.Mode().Perm(), "expecting restricted directory permissions")
+
+				bundleInfo, err := os.Stat(bundlePath)
+				require.NoError(t, err)
+				require.Equal(t, os.FileMode(0600), bundleInfo.Mode().Perm(), "expecting restricted file permissions")
+
 				output := gittest.Exec(t, cfg, "-C", repoPath, "bundle", "verify", bundlePath)
 				require.Contains(t, string(output), "The bundle records a complete history")
 			} else {

@@ -46,7 +46,7 @@ func (fs *Filesystem) BackupRepository(ctx context.Context, server storage.Serve
 	bundlePath := backupPath + ".bundle"
 	customHooksPath := filepath.Join(backupPath, "custom_hooks.tar")
 
-	if err := os.MkdirAll(backupPath, os.ModePerm); err != nil {
+	if err := os.MkdirAll(backupPath, 0700); err != nil {
 		return fmt.Errorf("backup: %w", err)
 	}
 	if err := fs.writeBundle(ctx, bundlePath, server, repo); err != nil {
@@ -249,7 +249,7 @@ func (fs *Filesystem) newRepoClient(ctx context.Context, server storage.ServerIn
 }
 
 func writeFile(path string, r io.Reader) (returnErr error) {
-	f, err := os.Create(path)
+	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		return fmt.Errorf("write file: %w", err)
 	}
