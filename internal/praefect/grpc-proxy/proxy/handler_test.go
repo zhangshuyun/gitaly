@@ -519,5 +519,5 @@ func TestRegisterStreamHandlers(t *testing.T) {
 
 	// since PingError was never registered with its own streamer, it should get sent to the UnknownServiceHandler
 	_, err = testServiceClient.PingError(ctx, &pb.PingRequest{})
-	testhelper.GrpcErrorHasMessage(t, err, directorCalledError.Error())
+	require.Equal(t, status.Error(codes.Unknown, directorCalledError.Error()), err)
 }
