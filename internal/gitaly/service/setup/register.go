@@ -113,6 +113,7 @@ func RegisterAll(srv *grpc.Server, deps *service.Dependencies) {
 		deps.GetCfg(),
 		deps.GetLocator(),
 		deps.GetGitCmdFactory(),
+		deps.GetDiskCache(),
 		smarthttp.WithPackfileNegotiationMetrics(smarthttpPackfileNegotiationMetrics),
 	))
 	gitalypb.RegisterWikiServiceServer(srv, wiki.NewServer(deps.GetRubyServer(), deps.GetLocator()))

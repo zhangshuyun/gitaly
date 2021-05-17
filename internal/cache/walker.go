@@ -13,29 +13,28 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/internal/dontpanic"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/log"
 	"gitlab.com/gitlab-org/gitaly/internal/tempdir"
 )
 
-func logWalkErr(err error, path, msg string) {
-	countWalkError()
+func (c *Cache) logWalkErr(err error, path, msg string) {
+	c.walkerErrorTotal.Inc()
 	log.Default().
 		WithField("path", path).
 		WithError(err).
 		Warn(msg)
 }
 
-func cleanWalk(path string) error {
+func (c *Cache) cleanWalk(path string) error {
 	defer time.Sleep(100 * time.Microsecond) // relieve pressure
 
-	countWalkCheck()
+	c.walkerCheckTotal.Inc()
 	entries, err := ioutil.ReadDir(path)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil
 		}
-		logWalkErr(err, path, "unable to stat directory")
+		c.logWalkErr(err, path, "unable to stat directory")
 		return err
 	}
 
@@ -43,13 +42,13 @@ func cleanWalk(path string) error {
 		ePath := filepath.Join(path, e.Name())
 
 		if e.IsDir() {
-			if err := cleanWalk(ePath); err != nil {
+			if err := c.cleanWalk(ePath); err != nil {
 				return err
 			}
 			continue
 		}
 
-		countWalkCheck()
+		c.walkerCheckTotal.Inc()
 		if time.Since(e.ModTime()) < staleAge {
 			continue // still fresh
 		}
@@ -59,10 +58,10 @@ func cleanWalk(path string) error {
 			if os.IsNotExist(err) {
 				continue
 			}
-			logWalkErr(err, ePath, "unable to remove file")
+			c.logWalkErr(err, ePath, "unable to remove file")
 			return err
 		}
-		countWalkRemoval()
+		c.walkerRemovalTotal.Inc()
 	}
 
 	files, err := ioutil.ReadDir(path)
@@ -70,21 +69,21 @@ func cleanWalk(path string) error {
 		if os.IsNotExist(err) {
 			return nil
 		}
-		logWalkErr(err, path, "unable to stat directory after walk")
+		c.logWalkErr(err, path, "unable to stat directory after walk")
 		return err
 	}
 
 	if len(files) == 0 {
-		countEmptyDir()
+		c.walkerEmptyDirTotal.Inc()
 		if err := os.Remove(path); err != nil {
 			if os.IsNotExist(err) {
 				return nil
 			}
-			logWalkErr(err, path, "unable to remove empty directory")
+			c.logWalkErr(err, path, "unable to remove empty directory")
 			return err
 		}
-		countEmptyDirRemoval()
-		countWalkRemoval()
+		c.walkerEmptyDirRemovalTotal.Inc()
+		c.walkerRemovalTotal.Inc()
 	}
 
 	return nil
@@ -92,37 +91,32 @@ func cleanWalk(path string) error {
 
 const cleanWalkFrequency = 10 * time.Minute
 
-func walkLoop(walkPath string) {
+func (c *Cache) walkLoop(walkPath string) {
 	logger := logrus.WithField("path", walkPath)
 	logger.Infof("Starting file walker for %s", walkPath)
 
 	walkTick := time.NewTicker(cleanWalkFrequency)
 	dontpanic.GoForever(time.Minute, func() {
-		if err := cleanWalk(walkPath); err != nil {
+		if err := c.cleanWalk(walkPath); err != nil {
 			logger.Error(err)
 		}
 		<-walkTick.C
 	})
 }
 
-func startCleanWalker(storagePath string) {
-	if disableWalker {
+func (c *Cache) startCleanWalker(storagePath string) {
+	if c.cacheConfig.disableWalker {
 		return
 	}
 
-	walkLoop(tempdir.AppendCacheDir(storagePath))
-	walkLoop(tempdir.AppendStateDir(storagePath))
+	c.walkLoop(tempdir.AppendCacheDir(storagePath))
+	c.walkLoop(tempdir.AppendStateDir(storagePath))
 }
-
-var (
-	disableMoveAndClear bool // only used to disable move and clear in tests
-	disableWalker       bool // only used to disable object walker in tests
-)
 
 // moveAndClear will move the cache to the storage location's
 // temporary folder, and then remove its contents asynchronously
-func moveAndClear(storagePath string) error {
-	if disableMoveAndClear {
+func (c *Cache) moveAndClear(storagePath string) error {
+	if c.cacheConfig.disableMoveAndClear {
 		return nil
 	}
 
@@ -165,19 +159,20 @@ func moveAndClear(storagePath string) error {
 	return nil
 }
 
-func init() {
-	config.RegisterHook(func(cfg *config.Cfg) error {
-		pathSet := map[string]struct{}{}
-		for _, storage := range cfg.Storages {
-			pathSet[storage.Path] = struct{}{}
-		}
+// StartWalkers starts the cache walker Goroutines. Initially, this function will try to clean up
+// any preexisting cache directories.
+func (c *Cache) StartWalkers() error {
+	pathSet := map[string]struct{}{}
+	for _, storage := range c.storages {
+		pathSet[storage.Path] = struct{}{}
+	}
 
-		for sPath := range pathSet {
-			if err := moveAndClear(sPath); err != nil {
-				return err
-			}
-			startCleanWalker(sPath)
+	for sPath := range pathSet {
+		if err := c.moveAndClear(sPath); err != nil {
+			return err
 		}
-		return nil
-	})
+		c.startCleanWalker(sPath)
+	}
+
+	return nil
 }

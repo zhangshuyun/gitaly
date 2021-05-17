@@ -16,6 +16,7 @@ import (
 	gitalyauth "gitlab.com/gitlab-org/gitaly/auth"
 	"gitlab.com/gitlab-org/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
+	"gitlab.com/gitlab-org/gitaly/internal/cache"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
@@ -199,8 +200,9 @@ func runServer(t *testing.T, cfg config.Cfg) string {
 	hookManager := hook.NewManager(locator, txManager, gitlab.NewMockClient(), cfg)
 	gitCmdFactory := git.NewExecCommandFactory(cfg)
 	catfileCache := catfile.NewCache(cfg)
+	diskCache := cache.New(cfg, locator)
 
-	srv, err := New(false, cfg, testhelper.DiscardTestEntry(t), registry)
+	srv, err := New(false, cfg, testhelper.DiscardTestEntry(t), registry, diskCache)
 	require.NoError(t, err)
 
 	setup.RegisterAll(srv, &service.Dependencies{
@@ -234,7 +236,7 @@ func runSecureServer(t *testing.T, cfg config.Cfg) string {
 	conns := client.NewPool()
 	t.Cleanup(func() { conns.Close() })
 
-	srv, err := New(true, cfg, testhelper.DiscardTestEntry(t), backchannel.NewRegistry())
+	srv, err := New(true, cfg, testhelper.DiscardTestEntry(t), backchannel.NewRegistry(), cache.New(cfg, config.NewLocator(cfg)))
 	require.NoError(t, err)
 
 	healthpb.RegisterHealthServer(srv, health.NewServer())

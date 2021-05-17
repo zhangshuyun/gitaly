@@ -3,6 +3,7 @@ package service
 import (
 	"gitlab.com/gitlab-org/gitaly/client"
 	"gitlab.com/gitlab-org/gitaly/internal/backchannel"
+	"gitlab.com/gitlab-org/gitaly/internal/cache"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/catfile"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
@@ -27,6 +28,7 @@ type Dependencies struct {
 	BackchannelRegistry *backchannel.Registry
 	GitlabClient        gitlab.Client
 	CatfileCache        catfile.Cache
+	DiskCache           *cache.Cache
 }
 
 // GetCfg returns service configuration.
@@ -82,4 +84,9 @@ func (dc *Dependencies) GetGitlabClient() gitlab.Client {
 // GetCatfileCache returns catfile cache.
 func (dc *Dependencies) GetCatfileCache() catfile.Cache {
 	return dc.CatfileCache
+}
+
+// GetDiskCache returns the disk cache.
+func (dc *Dependencies) GetDiskCache() *cache.Cache {
+	return dc.DiskCache
 }
