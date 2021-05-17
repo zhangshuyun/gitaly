@@ -36,7 +36,7 @@ func NewGitalyServerFactory(
 	registry *backchannel.Registry,
 	cacheInvalidator cache.Invalidator,
 ) *GitalyServerFactory {
-	return &GitalyServerFactory{cfg: cfg, registry: registry}
+	return &GitalyServerFactory{cfg: cfg, registry: registry, cacheInvalidator: cacheInvalidator}
 }
 
 // StartWorkers will start any auxiliary background workers that are allowed
