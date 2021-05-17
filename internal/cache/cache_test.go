@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	promtest "github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
@@ -150,14 +151,14 @@ func TestLoserCount(t *testing.T) {
 
 	wg.Wait()
 
-	start := ExportMockLoserBytes.Count()
+	start := int(promtest.ToFloat64(cache.bytesLoserTotals))
 
 	for _, l := range leashes {
 		close(l)
 		require.NoError(t, <-errQ)
 	}
 
-	require.Equal(t, start+len(leashes)-1, ExportMockLoserBytes.Count())
+	require.Equal(t, start+len(leashes)-1, int(promtest.ToFloat64(cache.bytesLoserTotals)))
 }
 
 type leashedReader struct {

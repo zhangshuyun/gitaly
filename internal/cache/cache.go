@@ -10,6 +10,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
+	"github.com/prometheus/client_golang/prometheus"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/safe"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
@@ -76,6 +77,18 @@ type Cache struct {
 	keyer       leaseKeyer
 	af          activeFiles
 	cacheConfig cacheConfig
+
+	requestTotals              prometheus.Counter
+	missTotals                 prometheus.Counter
+	bytesStoredtotals          prometheus.Counter
+	bytesFetchedtotals         prometheus.Counter
+	bytesLoserTotals           prometheus.Counter
+	errTotal                   *prometheus.CounterVec
+	walkerCheckTotal           prometheus.Counter
+	walkerRemovalTotal         prometheus.Counter
+	walkerErrorTotal           prometheus.Counter
+	walkerEmptyDirTotal        prometheus.Counter
+	walkerEmptyDirRemovalTotal prometheus.Counter
 }
 
 // New will create a new Cache with the given Keyer.
@@ -85,15 +98,114 @@ func New(cfg config.Cfg, locator storage.Locator, opts ...Option) *Cache {
 		opt(&cacheConfig)
 	}
 
-	return &Cache{
+	cache := &Cache{
 		storages: cfg.Storages,
-		keyer:    newLeaseKeyer(locator),
 		af: activeFiles{
 			Mutex: &sync.Mutex{},
 			m:     map[string]int{},
 		},
 		cacheConfig: cacheConfig,
+
+		requestTotals: prometheus.NewCounter(
+			prometheus.CounterOpts{
+				Name: "gitaly_diskcache_requests_total",
+				Help: "Total number of disk cache requests",
+			},
+		),
+		missTotals: prometheus.NewCounter(
+			prometheus.CounterOpts{
+				Name: "gitaly_diskcache_miss_total",
+				Help: "Total number of disk cache misses",
+			},
+		),
+		bytesStoredtotals: prometheus.NewCounter(
+			prometheus.CounterOpts{
+				Name: "gitaly_diskcache_bytes_stored_total",
+				Help: "Total number of disk cache bytes stored",
+			},
+		),
+		bytesFetchedtotals: prometheus.NewCounter(
+			prometheus.CounterOpts{
+				Name: "gitaly_diskcache_bytes_fetched_total",
+				Help: "Total number of disk cache bytes fetched",
+			},
+		),
+		bytesLoserTotals: prometheus.NewCounter(
+			prometheus.CounterOpts{
+				Name: "gitaly_diskcache_bytes_loser_total",
+				Help: "Total number of disk cache bytes from losing writes",
+			},
+		),
+		errTotal: prometheus.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "gitaly_diskcache_errors_total",
+				Help: "Total number of errors encountered by disk cache",
+			},
+			[]string{"error"},
+		),
+		walkerCheckTotal: prometheus.NewCounter(
+			prometheus.CounterOpts{
+				Name: "gitaly_diskcache_walker_check_total",
+				Help: "Total number of events during diskcache filesystem walks",
+			},
+		),
+		walkerRemovalTotal: prometheus.NewCounter(
+			prometheus.CounterOpts{
+				Name: "gitaly_diskcache_walker_removal_total",
+				Help: "Total number of events during diskcache filesystem walks",
+			},
+		),
+		walkerErrorTotal: prometheus.NewCounter(
+			prometheus.CounterOpts{
+				Name: "gitaly_diskcache_walker_error_total",
+				Help: "Total number of errors during diskcache filesystem walks",
+			},
+		),
+		walkerEmptyDirTotal: prometheus.NewCounter(
+			prometheus.CounterOpts{
+				Name: "gitaly_diskcache_walker_empty_dir_total",
+				Help: "Total number of empty directories encountered",
+			},
+		),
+		walkerEmptyDirRemovalTotal: prometheus.NewCounter(
+			prometheus.CounterOpts{
+				Name: "gitaly_diskcache_walker_empty_dir_removal_total",
+				Help: "Total number of empty directories removed",
+			},
+		),
 	}
+	cache.keyer = newLeaseKeyer(locator, cache.countErr)
+
+	return cache
+}
+
+// Describe is used to describe Prometheus metrics.
+func (c *Cache) Describe(descs chan<- *prometheus.Desc) {
+	prometheus.DescribeByCollect(c, descs)
+}
+
+// Collect is used to collect Prometheus metrics.
+func (c *Cache) Collect(metrics chan<- prometheus.Metric) {
+	c.requestTotals.Collect(metrics)
+	c.missTotals.Collect(metrics)
+	c.bytesStoredtotals.Collect(metrics)
+	c.bytesFetchedtotals.Collect(metrics)
+	c.bytesLoserTotals.Collect(metrics)
+	c.errTotal.Collect(metrics)
+	c.walkerRemovalTotal.Collect(metrics)
+	c.walkerErrorTotal.Collect(metrics)
+	c.walkerEmptyDirTotal.Collect(metrics)
+	c.walkerEmptyDirRemovalTotal.Collect(metrics)
+}
+
+func (c *Cache) countErr(err error) error {
+	switch err {
+	case ErrMissingLeaseFile:
+		c.errTotal.WithLabelValues("ErrMissingLeaseFile").Inc()
+	case ErrPendingExists:
+		c.errTotal.WithLabelValues("ErrPendingExists").Inc()
+	}
+	return err
 }
 
 // ErrReqNotFound indicates the request does not exist within the repo digest
@@ -104,11 +216,11 @@ var ErrReqNotFound = errors.New("request digest not found within repo namespace"
 func (c *Cache) GetStream(ctx context.Context, repo *gitalypb.Repository, req proto.Message) (_ io.ReadCloser, err error) {
 	defer func() {
 		if err != nil {
-			countMiss()
+			c.missTotals.Inc()
 		}
 	}()
 
-	countRequest()
+	c.requestTotals.Inc()
 
 	respPath, err := c.KeyPath(ctx, repo, req)
 	switch {
@@ -134,16 +246,20 @@ func (c *Cache) GetStream(ctx context.Context, repo *gitalypb.Repository, req pr
 		return nil, err
 	}
 
-	return instrumentedReadCloser{respF}, nil
+	return instrumentedReadCloser{
+		ReadCloser: respF,
+		counter:    c.bytesFetchedtotals,
+	}, nil
 }
 
 type instrumentedReadCloser struct {
 	io.ReadCloser
+	counter prometheus.Counter
 }
 
 func (irc instrumentedReadCloser) Read(p []byte) (n int, err error) {
 	n, err = irc.ReadCloser.Read(p)
-	countReadBytes(float64(n))
+	irc.counter.Add(float64(n))
 	return
 }
 
@@ -163,7 +279,7 @@ func (c *Cache) PutStream(ctx context.Context, repo *gitalypb.Repository, req pr
 	isWinner := c.af.trackFile(reqPath)
 	defer func() {
 		if !isWinner() {
-			countLoserBytes(float64(n))
+			c.bytesLoserTotals.Add(float64(n))
 		}
 	}()
 
@@ -181,10 +297,10 @@ func (c *Cache) PutStream(ctx context.Context, repo *gitalypb.Repository, req pr
 	if err != nil {
 		return err
 	}
-	countWriteBytes(float64(n))
+	c.bytesStoredtotals.Add(float64(n))
 
 	if err := sf.Commit(); err != nil {
-		errTotal.WithLabelValues("ErrSafefileCommit").Inc()
+		c.errTotal.WithLabelValues("ErrSafefileCommit").Inc()
 		return err
 	}
 
@@ -209,6 +325,7 @@ func (c *Cache) StartLease(repo *gitalypb.Repository) (LeaseEnder, error) {
 		pendingPath: pendingPath,
 		repo:        repo,
 		keyer:       c.keyer,
+		countErr:    c.countErr,
 	}, nil
 }
 
@@ -221,6 +338,7 @@ type lease struct {
 	pendingPath string
 	repo        *gitalypb.Repository
 	keyer       leaseKeyer
+	countErr    func(error) error
 }
 
 // EndLease will end the lease by removing the pending lease file and updating
@@ -233,7 +351,7 @@ func (l lease) EndLease(ctx context.Context) error {
 
 	if err := os.Remove(l.pendingPath); err != nil {
 		if os.IsNotExist(err) {
-			return countErr(ErrMissingLeaseFile)
+			return l.countErr(ErrMissingLeaseFile)
 		}
 		return err
 	}

@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	promtest "github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
@@ -21,8 +22,6 @@ func TestDiskCacheObjectWalker(t *testing.T) {
 	cfg := testcfg.Build(t)
 
 	var shouldExist, shouldNotExist []string
-
-	ExportMockRemovalCounter.Reset()
 
 	for _, tt := range []struct {
 		name          string
@@ -56,7 +55,7 @@ func TestDiskCacheObjectWalker(t *testing.T) {
 	cache := New(cfg, locator, withDisabledMoveAndClear())
 	require.NoError(t, cache.StartWalkers())
 
-	pollCountersUntil(t, 4)
+	pollCountersUntil(t, cache, 4)
 
 	for _, p := range shouldExist {
 		assert.FileExists(t, p)
@@ -83,11 +82,11 @@ func TestDiskCacheInitialClear(t *testing.T) {
 	require.NoFileExists(t, canary)
 }
 
-func pollCountersUntil(t testing.TB, expectRemovals int) {
+func pollCountersUntil(t testing.TB, cache *Cache, expectRemovals int) {
 	// poll injected mock prometheus counters until expected events occur
 	timeout := time.After(time.Second)
 	for {
-		count := ExportMockRemovalCounter.Count()
+		count := int(promtest.ToFloat64(cache.walkerRemovalTotal))
 		select {
 		case <-timeout:
 			t.Fatalf(
@@ -105,7 +104,11 @@ func pollCountersUntil(t testing.TB, expectRemovals int) {
 }
 
 func TestCleanWalkDirNotExists(t *testing.T) {
-	err := cleanWalk("/path/that/does/not/exist")
+	cfg := testcfg.Build(t)
+
+	cache := New(cfg, config.NewLocator(cfg))
+
+	err := cache.cleanWalk("/path/that/does/not/exist")
 	assert.NoError(t, err, "cleanWalk returned an error for a non existing directory")
 }
 
@@ -135,7 +138,10 @@ func TestCleanWalkEmptyDirs(t *testing.T) {
 		}
 	}
 
-	require.NoError(t, cleanWalk(tmp))
+	cfg := testcfg.Build(t)
+	cache := New(cfg, config.NewLocator(cfg))
+
+	require.NoError(t, cache.cleanWalk(tmp))
 
 	actual := findFiles(t, tmp)
 	expect := `.

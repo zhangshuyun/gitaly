@@ -44,13 +44,15 @@ var (
 // atomically created/renamed files. Read more about leaseKeyer's design:
 // https://gitlab.com/gitlab-org/gitaly/issues/1745
 type leaseKeyer struct {
-	locator storage.Locator
+	locator  storage.Locator
+	countErr func(error) error
 }
 
 // newLeaseKeyer initializes a new leaseKeyer
-func newLeaseKeyer(locator storage.Locator) leaseKeyer {
+func newLeaseKeyer(locator storage.Locator, countErr func(error) error) leaseKeyer {
 	return leaseKeyer{
-		locator: locator,
+		locator:  locator,
+		countErr: countErr,
 	}
 }
 
@@ -123,7 +125,7 @@ func (keyer leaseKeyer) keyPath(ctx context.Context, repo *gitalypb.Repository, 
 	}
 
 	if anyValidPending {
-		return "", countErr(ErrPendingExists)
+		return "", keyer.countErr(ErrPendingExists)
 	}
 
 	genID, err := keyer.currentGenID(ctx, repo)

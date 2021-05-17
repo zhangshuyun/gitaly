@@ -174,6 +174,7 @@ func run(cfg config.Cfg) error {
 	prometheus.MustRegister(catfileCache)
 
 	diskCache := cache.New(cfg, locator)
+	prometheus.MustRegister(diskCache)
 	if err := diskCache.StartWalkers(); err != nil {
 		return fmt.Errorf("disk cache walkers: %w", err)
 	}
