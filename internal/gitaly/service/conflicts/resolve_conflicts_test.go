@@ -199,7 +199,7 @@ func TestResolveConflictsWithRemoteRepo(t *testing.T) {
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
-	ctx = testhelper.MergeOutgoingMetadata(ctx, testhelper.GitalyServersMetadata(t, cfg.SocketPath))
+	ctx = testhelper.MergeOutgoingMetadata(ctx, testhelper.GitalyServersMetadataFromCfg(t, cfg))
 
 	stream, err := client.ResolveConflicts(ctx)
 	require.NoError(t, err)
@@ -247,7 +247,7 @@ func TestResolveConflictsLineEndings(t *testing.T) {
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
-	ctx = testhelper.MergeOutgoingMetadata(ctx, testhelper.GitalyServersMetadata(t, cfg.SocketPath))
+	ctx = testhelper.MergeOutgoingMetadata(ctx, testhelper.GitalyServersMetadataFromCfg(t, cfg))
 
 	for _, tc := range []struct {
 		desc             string
