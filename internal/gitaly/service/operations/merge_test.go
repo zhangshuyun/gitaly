@@ -70,7 +70,7 @@ func TestSuccessfulMerge(t *testing.T) {
 	mergeCommitMessage := "Merged by Gitaly"
 	firstRequest := &gitalypb.UserMergeBranchRequest{
 		Repository: repoProto,
-		User:       testhelper.TestUser,
+		User:       gittest.TestUser,
 		CommitId:   commitToMerge,
 		Branch:     []byte(mergeBranchName),
 		Message:    []byte(mergeCommitMessage),
@@ -104,10 +104,10 @@ func TestSuccessfulMerge(t *testing.T) {
 	require.True(t, strings.HasPrefix(string(commit.Body), mergeCommitMessage), "expected %q to start with %q", commit.Body, mergeCommitMessage)
 
 	author := commit.Author
-	require.Equal(t, testhelper.TestUser.Name, author.Name)
-	require.Equal(t, testhelper.TestUser.Email, author.Email)
+	require.Equal(t, gittest.TestUser.Name, author.Name)
+	require.Equal(t, gittest.TestUser.Email, author.Email)
 
-	expectedGlID := "GL_ID=" + testhelper.TestUser.GlId
+	expectedGlID := "GL_ID=" + gittest.TestUser.GlId
 	for i, h := range hooks {
 		hookEnv := testhelper.MustReadFile(t, hookTempfiles[i])
 
@@ -136,7 +136,7 @@ func TestSuccessfulMerge_stableMergeIDs(t *testing.T) {
 
 	firstRequest := &gitalypb.UserMergeBranchRequest{
 		Repository: repoProto,
-		User:       testhelper.TestUser,
+		User:       gittest.TestUser,
 		CommitId:   commitToMerge,
 		Branch:     []byte(mergeBranchName),
 		Message:    []byte("Merged by Gitaly"),
@@ -174,15 +174,15 @@ func TestSuccessfulMerge_stableMergeIDs(t *testing.T) {
 		},
 		TreeId: "86ec18bfe87ad42a782fdabd8310f9b7ac750f51",
 		Author: &gitalypb.CommitAuthor{
-			Name:  testhelper.TestUser.Name,
-			Email: testhelper.TestUser.Email,
+			Name:  gittest.TestUser.Name,
+			Email: gittest.TestUser.Email,
 			// Nanoseconds get ignored because commit timestamps aren't that granular.
 			Date:     &timestamp.Timestamp{Seconds: 12},
 			Timezone: []byte("+0000"),
 		},
 		Committer: &gitalypb.CommitAuthor{
-			Name:  testhelper.TestUser.Name,
-			Email: testhelper.TestUser.Email,
+			Name:  gittest.TestUser.Name,
+			Email: gittest.TestUser.Email,
 			// Nanoseconds get ignored because commit timestamps aren't that granular.
 			Date:     &timestamp.Timestamp{Seconds: 12},
 			Timezone: []byte("+0000"),
@@ -202,7 +202,7 @@ func TestAbortedMerge(t *testing.T) {
 
 	firstRequest := &gitalypb.UserMergeBranchRequest{
 		Repository: repoProto,
-		User:       testhelper.TestUser,
+		User:       gittest.TestUser,
 		CommitId:   commitToMerge,
 		Branch:     []byte(mergeBranchName),
 		Message:    []byte("foobar"),
@@ -269,7 +269,7 @@ func TestFailedMergeConcurrentUpdate(t *testing.T) {
 	mergeCommitMessage := "Merged by Gitaly"
 	firstRequest := &gitalypb.UserMergeBranchRequest{
 		Repository: repoProto,
-		User:       testhelper.TestUser,
+		User:       gittest.TestUser,
 		CommitId:   commitToMerge,
 		Branch:     []byte(mergeBranchName),
 		Message:    []byte(mergeCommitMessage),
@@ -328,7 +328,7 @@ func TestUserMergeBranch_ambiguousReference(t *testing.T) {
 	mergeCommitMessage := "Merged by Gitaly"
 	firstRequest := &gitalypb.UserMergeBranchRequest{
 		Repository: repoProto,
-		User:       testhelper.TestUser,
+		User:       gittest.TestUser,
 		CommitId:   commitToMerge,
 		Branch:     []byte(mergeBranchName),
 		Message:    []byte(mergeCommitMessage),
@@ -354,8 +354,8 @@ func TestUserMergeBranch_ambiguousReference(t *testing.T) {
 
 	require.Equal(t, gitalypb.OperationBranchUpdate{CommitId: commit.Id}, *(response.BranchUpdate))
 	require.Equal(t, mergeCommitMessage, string(commit.Body))
-	require.Equal(t, testhelper.TestUser.Name, commit.Author.Name)
-	require.Equal(t, testhelper.TestUser.Email, commit.Author.Email)
+	require.Equal(t, gittest.TestUser.Name, commit.Author.Name)
+	require.Equal(t, gittest.TestUser.Email, commit.Author.Email)
 	require.Equal(t, []string{mergeBranchHeadBefore, commitToMerge}, commit.ParentIds)
 }
 
@@ -379,7 +379,7 @@ func TestFailedMergeDueToHooks(t *testing.T) {
 			mergeCommitMessage := "Merged by Gitaly"
 			firstRequest := &gitalypb.UserMergeBranchRequest{
 				Repository: repo,
-				User:       testhelper.TestUser,
+				User:       gittest.TestUser,
 				CommitId:   commitToMerge,
 				Branch:     []byte(mergeBranchName),
 				Message:    []byte(mergeCommitMessage),
@@ -420,7 +420,7 @@ func TestSuccessfulUserFFBranchRequest(t *testing.T) {
 		Repository: repo,
 		CommitId:   commitID,
 		Branch:     []byte(branchName),
-		User:       testhelper.TestUser,
+		User:       gittest.TestUser,
 	}
 	expectedResponse := &gitalypb.UserFFBranchResponse{
 		BranchUpdate: &gitalypb.OperationBranchUpdate{
@@ -460,7 +460,7 @@ func TestFailedUserFFBranchRequest(t *testing.T) {
 	}{
 		{
 			desc:     "empty repository",
-			user:     testhelper.TestUser,
+			user:     gittest.TestUser,
 			branch:   []byte(branchName),
 			commitID: commitID,
 			code:     codes.InvalidArgument,
@@ -475,14 +475,14 @@ func TestFailedUserFFBranchRequest(t *testing.T) {
 		{
 			desc:   "empty commit",
 			repo:   repo,
-			user:   testhelper.TestUser,
+			user:   gittest.TestUser,
 			branch: []byte(branchName),
 			code:   codes.InvalidArgument,
 		},
 		{
 			desc:     "non-existing commit",
 			repo:     repo,
-			user:     testhelper.TestUser,
+			user:     gittest.TestUser,
 			branch:   []byte(branchName),
 			commitID: "f001",
 			code:     codes.InvalidArgument,
@@ -490,14 +490,14 @@ func TestFailedUserFFBranchRequest(t *testing.T) {
 		{
 			desc:     "empty branch",
 			repo:     repo,
-			user:     testhelper.TestUser,
+			user:     gittest.TestUser,
 			commitID: commitID,
 			code:     codes.InvalidArgument,
 		},
 		{
 			desc:     "non-existing branch",
 			repo:     repo,
-			user:     testhelper.TestUser,
+			user:     gittest.TestUser,
 			branch:   []byte("this-isnt-real"),
 			commitID: commitID,
 			code:     codes.InvalidArgument,
@@ -505,7 +505,7 @@ func TestFailedUserFFBranchRequest(t *testing.T) {
 		{
 			desc:     "commit is not a descendant of branch head",
 			repo:     repo,
-			user:     testhelper.TestUser,
+			user:     gittest.TestUser,
 			branch:   []byte(branchName),
 			commitID: "1a0b36b3cdad1d2ee32457c102a8c0b7056fa863",
 			code:     codes.FailedPrecondition,
@@ -538,7 +538,7 @@ func TestFailedUserFFBranchDueToHooks(t *testing.T) {
 		Repository: repo,
 		CommitId:   commitID,
 		Branch:     []byte(branchName),
-		User:       testhelper.TestUser,
+		User:       gittest.TestUser,
 	}
 
 	gittest.Exec(t, cfg, "-C", repoPath, "branch", "-f", branchName, "6d394385cf567f80a8fd85055db1ab4c5295806f")
@@ -583,7 +583,7 @@ func TestUserFFBranch_ambiguousReference(t *testing.T) {
 		Repository: repo,
 		CommitId:   commitID,
 		Branch:     []byte(branchName),
-		User:       testhelper.TestUser,
+		User:       gittest.TestUser,
 	}
 	expectedResponse := &gitalypb.UserFFBranchResponse{
 		BranchUpdate: &gitalypb.OperationBranchUpdate{
@@ -631,7 +631,7 @@ func TestSuccessfulUserMergeToRefRequest(t *testing.T) {
 	}{
 		{
 			desc:           "empty target ref merge",
-			user:           testhelper.TestUser,
+			user:           gittest.TestUser,
 			targetRef:      emptyTargetRef,
 			emptyRef:       true,
 			sourceSha:      commitToMerge,
@@ -640,7 +640,7 @@ func TestSuccessfulUserMergeToRefRequest(t *testing.T) {
 		},
 		{
 			desc:           "existing target ref",
-			user:           testhelper.TestUser,
+			user:           gittest.TestUser,
 			targetRef:      existingTargetRef,
 			emptyRef:       false,
 			sourceSha:      commitToMerge,
@@ -649,7 +649,7 @@ func TestSuccessfulUserMergeToRefRequest(t *testing.T) {
 		},
 		{
 			desc:      "branch is specified and firstParentRef is empty",
-			user:      testhelper.TestUser,
+			user:      gittest.TestUser,
 			branch:    []byte(mergeBranchName),
 			targetRef: existingTargetRef,
 			emptyRef:  false,
@@ -690,8 +690,8 @@ func TestSuccessfulUserMergeToRefRequest(t *testing.T) {
 
 			// Asserts author
 			author := commit.Author
-			require.Equal(t, testhelper.TestUser.Name, author.Name)
-			require.Equal(t, testhelper.TestUser.Email, author.Email)
+			require.Equal(t, gittest.TestUser.Name, author.Name)
+			require.Equal(t, gittest.TestUser.Email, author.Email)
 
 			require.Equal(t, resp.CommitId, commit.Id)
 
@@ -714,7 +714,7 @@ func TestConflictsOnUserMergeToRefRequest(t *testing.T) {
 
 	request := &gitalypb.UserMergeToRefRequest{
 		Repository:     repo,
-		User:           testhelper.TestUser,
+		User:           gittest.TestUser,
 		TargetRef:      []byte("refs/merge-requests/x/written"),
 		SourceSha:      "1450cd639e0bc6721eb02800169e464f212cde06",
 		Message:        []byte("message1"),
@@ -759,7 +759,7 @@ func TestUserMergeToRef_stableMergeID(t *testing.T) {
 
 	response, err := client.UserMergeToRef(ctx, &gitalypb.UserMergeToRefRequest{
 		Repository:     repoProto,
-		User:           testhelper.TestUser,
+		User:           gittest.TestUser,
 		FirstParentRef: []byte("refs/heads/" + mergeBranchName),
 		TargetRef:      []byte("refs/merge-requests/x/written"),
 		SourceSha:      "1450cd639e0bc6721eb02800169e464f212cde06",
@@ -782,15 +782,15 @@ func TestUserMergeToRef_stableMergeID(t *testing.T) {
 		},
 		TreeId: "3d3c2dd807abaf36d7bd5334bf3f8c5cf61bad75",
 		Author: &gitalypb.CommitAuthor{
-			Name:  testhelper.TestUser.Name,
-			Email: testhelper.TestUser.Email,
+			Name:  gittest.TestUser.Name,
+			Email: gittest.TestUser.Email,
 			// Nanoseconds get ignored because commit timestamps aren't that granular.
 			Date:     &timestamp.Timestamp{Seconds: 12},
 			Timezone: []byte("+0000"),
 		},
 		Committer: &gitalypb.CommitAuthor{
-			Name:  testhelper.TestUser.Name,
-			Email: testhelper.TestUser.Email,
+			Name:  gittest.TestUser.Name,
+			Email: gittest.TestUser.Email,
 			// Nanoseconds get ignored because commit timestamps aren't that granular.
 			Date:     &timestamp.Timestamp{Seconds: 12},
 			Timezone: []byte("+0000"),
@@ -819,7 +819,7 @@ func TestFailedUserMergeToRefRequest(t *testing.T) {
 	}{
 		{
 			desc:      "empty repository",
-			user:      testhelper.TestUser,
+			user:      gittest.TestUser,
 			branch:    []byte(branchName),
 			sourceSha: commitToMerge,
 			targetRef: validTargetRef,
@@ -836,7 +836,7 @@ func TestFailedUserMergeToRefRequest(t *testing.T) {
 		{
 			desc:      "empty source SHA",
 			repo:      repo,
-			user:      testhelper.TestUser,
+			user:      gittest.TestUser,
 			branch:    []byte(branchName),
 			targetRef: validTargetRef,
 			code:      codes.InvalidArgument,
@@ -844,7 +844,7 @@ func TestFailedUserMergeToRefRequest(t *testing.T) {
 		{
 			desc:      "non-existing commit",
 			repo:      repo,
-			user:      testhelper.TestUser,
+			user:      gittest.TestUser,
 			branch:    []byte(branchName),
 			sourceSha: "f001",
 			targetRef: validTargetRef,
@@ -853,7 +853,7 @@ func TestFailedUserMergeToRefRequest(t *testing.T) {
 		{
 			desc:      "empty branch and first parent ref",
 			repo:      repo,
-			user:      testhelper.TestUser,
+			user:      gittest.TestUser,
 			sourceSha: commitToMerge,
 			targetRef: validTargetRef,
 			code:      codes.InvalidArgument,
@@ -861,7 +861,7 @@ func TestFailedUserMergeToRefRequest(t *testing.T) {
 		{
 			desc:      "invalid target ref",
 			repo:      repo,
-			user:      testhelper.TestUser,
+			user:      gittest.TestUser,
 			branch:    []byte(branchName),
 			sourceSha: commitToMerge,
 			targetRef: []byte("refs/heads/branch"),
@@ -870,7 +870,7 @@ func TestFailedUserMergeToRefRequest(t *testing.T) {
 		{
 			desc:      "non-existing branch",
 			repo:      repo,
-			user:      testhelper.TestUser,
+			user:      gittest.TestUser,
 			branch:    []byte("this-isnt-real"),
 			sourceSha: commitToMerge,
 			targetRef: validTargetRef,
@@ -909,7 +909,7 @@ func TestUserMergeToRefIgnoreHooksRequest(t *testing.T) {
 		SourceSha:  commitToMerge,
 		Branch:     []byte(mergeBranchName),
 		TargetRef:  targetRef,
-		User:       testhelper.TestUser,
+		User:       gittest.TestUser,
 		Message:    []byte(mergeCommitMessage),
 	}
 

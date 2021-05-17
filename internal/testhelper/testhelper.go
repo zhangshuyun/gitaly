@@ -32,7 +32,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
-	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/metadata"
 
 	// The goleak import only exists such that this test-only dependency is properly being
@@ -47,18 +46,6 @@ const (
 	RepositoryAuthToken = "the-secret-token"
 	// DefaultStorageName is the default name of the Gitaly storage.
 	DefaultStorageName = "default"
-	// GlID is the ID of the default user.
-	GlID = "user-123"
-)
-
-var (
-	// TestUser is the default user for tests.
-	TestUser = &gitalypb.User{
-		Name:       []byte("Jane Doe"),
-		Email:      []byte("janedoe@gitlab.com"),
-		GlId:       GlID,
-		GlUsername: "janedoe",
-	}
 )
 
 // MustReadFile returns the content of a file or fails at once.

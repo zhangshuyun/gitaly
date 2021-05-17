@@ -97,7 +97,7 @@ func TestSuccessfulCreateBranchRequest(t *testing.T) {
 				Repository: repoProto,
 				BranchName: []byte(branchName),
 				StartPoint: []byte(testCase.startPoint),
-				User:       testhelper.TestUser,
+				User:       gittest.TestUser,
 			}
 
 			response, err := client.UserCreateBranch(ctx, request)
@@ -200,7 +200,7 @@ func TestUserCreateBranchWithTransaction(t *testing.T) {
 				Repository: repo,
 				BranchName: []byte("new-branch"),
 				StartPoint: []byte("c7fbe50c7c7419d9701eebe64b1fdacc3df5b9dd"),
-				User:       testhelper.TestUser,
+				User:       gittest.TestUser,
 			}
 
 			transactionServer.called = 0
@@ -226,7 +226,7 @@ func testSuccessfulGitHooksForUserCreateBranchRequest(t *testing.T, ctx context.
 		Repository: repo,
 		BranchName: []byte(branchName),
 		StartPoint: []byte("c7fbe50c7c7419d9701eebe64b1fdacc3df5b9dd"),
-		User:       testhelper.TestUser,
+		User:       gittest.TestUser,
 	}
 
 	for _, hookName := range GitlabHooks {
@@ -240,7 +240,7 @@ func testSuccessfulGitHooksForUserCreateBranchRequest(t *testing.T, ctx context.
 			require.Empty(t, response.PreReceiveError)
 
 			output := string(testhelper.MustReadFile(t, hookOutputTempPath))
-			require.Contains(t, output, "GL_USERNAME="+testhelper.TestUser.GlUsername)
+			require.Contains(t, output, "GL_USERNAME="+gittest.TestUser.GlUsername)
 		})
 	}
 }
@@ -270,14 +270,14 @@ func TestSuccessfulCreateBranchRequestWithStartPointRefPrefix(t *testing.T) {
 			branchName:       "topic",
 			startPoint:       "heads/master",
 			startPointCommit: "9a944d90955aaf45f6d0c88f30e27f8d2c41cec0", // TODO: see below
-			user:             testhelper.TestUser,
+			user:             gittest.TestUser,
 		},
 		{
 			desc:             "the StartPoint parameter does DWYM references (boo!) 2",
 			branchName:       "topic2",
 			startPoint:       "refs/heads/master",
 			startPointCommit: "c642fe9b8b9f28f9225d7ea953fe14e74748d53b", // TODO: see below
-			user:             testhelper.TestUser,
+			user:             gittest.TestUser,
 		},
 	}
 
@@ -328,7 +328,7 @@ func TestFailedUserCreateBranchDueToHooks(t *testing.T) {
 		Repository: repo,
 		BranchName: []byte("new-branch"),
 		StartPoint: []byte("c7fbe50c7c7419d9701eebe64b1fdacc3df5b9dd"),
-		User:       testhelper.TestUser,
+		User:       gittest.TestUser,
 	}
 	// Write a hook that will fail with the environment as the error message
 	// so we can check that string for our env variables.
@@ -339,7 +339,7 @@ func TestFailedUserCreateBranchDueToHooks(t *testing.T) {
 
 		response, err := client.UserCreateBranch(ctx, request)
 		require.Nil(t, err)
-		require.Contains(t, response.PreReceiveError, "GL_USERNAME="+testhelper.TestUser.GlUsername)
+		require.Contains(t, response.PreReceiveError, "GL_USERNAME="+gittest.TestUser.GlUsername)
 	}
 }
 
@@ -360,7 +360,7 @@ func TestFailedUserCreateBranchRequest(t *testing.T) {
 			desc:       "empty start_point",
 			branchName: "shiny-new-branch",
 			startPoint: "",
-			user:       testhelper.TestUser,
+			user:       gittest.TestUser,
 			err:        status.Error(codes.InvalidArgument, "empty start point"),
 		},
 		{
@@ -374,7 +374,7 @@ func TestFailedUserCreateBranchRequest(t *testing.T) {
 			desc:       "non-existing starting point",
 			branchName: "new-branch",
 			startPoint: "i-dont-exist",
-			user:       testhelper.TestUser,
+			user:       gittest.TestUser,
 			err:        status.Errorf(codes.FailedPrecondition, "revspec '%s' not found", "i-dont-exist"),
 		},
 
@@ -382,7 +382,7 @@ func TestFailedUserCreateBranchRequest(t *testing.T) {
 			desc:       "branch exists",
 			branchName: "master",
 			startPoint: "master",
-			user:       testhelper.TestUser,
+			user:       gittest.TestUser,
 			err:        status.Errorf(codes.FailedPrecondition, "Could not update %s. Please refresh and try again.", "master"),
 		},
 	}
@@ -424,21 +424,21 @@ func testSuccessfulUserDeleteBranchRequest(t *testing.T, ctx context.Context) {
 			desc:            "simple successful deletion",
 			branchNameInput: "to-attempt-to-delete-soon-branch",
 			branchCommit:    "c7fbe50c7c7419d9701eebe64b1fdacc3df5b9dd",
-			user:            testhelper.TestUser,
+			user:            gittest.TestUser,
 			response:        &gitalypb.UserDeleteBranchResponse{},
 		},
 		{
 			desc:            "partially prefixed successful deletion",
 			branchNameInput: "heads/to-attempt-to-delete-soon-branch",
 			branchCommit:    "9a944d90955aaf45f6d0c88f30e27f8d2c41cec0",
-			user:            testhelper.TestUser,
+			user:            gittest.TestUser,
 			response:        &gitalypb.UserDeleteBranchResponse{},
 		},
 		{
 			desc:            "branch with refs/heads/ prefix",
 			branchNameInput: "refs/heads/branch",
 			branchCommit:    "9a944d90955aaf45f6d0c88f30e27f8d2c41cec0",
-			user:            testhelper.TestUser,
+			user:            gittest.TestUser,
 			response:        &gitalypb.UserDeleteBranchResponse{},
 		},
 	}
@@ -472,7 +472,7 @@ func TestSuccessfulGitHooksForUserDeleteBranchRequest(t *testing.T) {
 	request := &gitalypb.UserDeleteBranchRequest{
 		Repository: repo,
 		BranchName: []byte(branchNameInput),
-		User:       testhelper.TestUser,
+		User:       gittest.TestUser,
 	}
 
 	for _, hookName := range GitlabHooks {
@@ -485,7 +485,7 @@ func TestSuccessfulGitHooksForUserDeleteBranchRequest(t *testing.T) {
 			require.NoError(t, err)
 
 			output := testhelper.MustReadFile(t, hookOutputTempPath)
-			require.Contains(t, string(output), "GL_USERNAME="+testhelper.TestUser.GlUsername)
+			require.Contains(t, string(output), "GL_USERNAME="+gittest.TestUser.GlUsername)
 		})
 	}
 }
@@ -544,7 +544,7 @@ func TestUserDeleteBranch_transaction(t *testing.T) {
 	_, err = client.UserDeleteBranch(ctx, &gitalypb.UserDeleteBranchRequest{
 		Repository: repo,
 		BranchName: []byte("delete-me"),
-		User:       testhelper.TestUser,
+		User:       gittest.TestUser,
 	})
 	require.NoError(t, err)
 	require.Equal(t, 1, transactionServer.called)
@@ -575,7 +575,7 @@ func TestFailedUserDeleteBranchDueToValidation(t *testing.T) {
 			desc: "empty branch name",
 			request: &gitalypb.UserDeleteBranchRequest{
 				Repository: repo,
-				User:       testhelper.TestUser,
+				User:       gittest.TestUser,
 			},
 			response: nil,
 			err:      status.Error(codes.InvalidArgument, "Bad Request (empty branch name)"),
@@ -584,7 +584,7 @@ func TestFailedUserDeleteBranchDueToValidation(t *testing.T) {
 			desc: "non-existent branch name",
 			request: &gitalypb.UserDeleteBranchRequest{
 				Repository: repo,
-				User:       testhelper.TestUser,
+				User:       gittest.TestUser,
 				BranchName: []byte("i-do-not-exist"),
 			},
 			response: nil,
@@ -613,7 +613,7 @@ func TestFailedUserDeleteBranchDueToHooks(t *testing.T) {
 	request := &gitalypb.UserDeleteBranchRequest{
 		Repository: repo,
 		BranchName: []byte(branchNameInput),
-		User:       testhelper.TestUser,
+		User:       gittest.TestUser,
 	}
 
 	hookContent := []byte("#!/bin/sh\necho GL_ID=$GL_ID\nexit 1")
@@ -624,7 +624,7 @@ func TestFailedUserDeleteBranchDueToHooks(t *testing.T) {
 
 			response, err := client.UserDeleteBranch(ctx, request)
 			require.NoError(t, err)
-			require.Contains(t, response.PreReceiveError, "GL_ID="+testhelper.TestUser.GlId)
+			require.Contains(t, response.PreReceiveError, "GL_ID="+gittest.TestUser.GlId)
 
 			branches := gittest.Exec(t, cfg, "-C", repoPath, "for-each-ref", "--", "refs/heads/"+branchNameInput)
 			require.Contains(t, string(branches), branchNameInput, "branch name does not exist in branches list")
@@ -683,12 +683,12 @@ func TestBranchHookOutput(t *testing.T) {
 					Repository: repo,
 					BranchName: []byte(branchNameInput),
 					StartPoint: []byte("master"),
-					User:       testhelper.TestUser,
+					User:       gittest.TestUser,
 				}
 				deleteRequest := &gitalypb.UserDeleteBranchRequest{
 					Repository: repo,
 					BranchName: []byte(branchNameInput),
-					User:       testhelper.TestUser,
+					User:       gittest.TestUser,
 				}
 
 				gittest.WriteCustomHook(t, repoPath, hookName, []byte(testCase.hookContent))

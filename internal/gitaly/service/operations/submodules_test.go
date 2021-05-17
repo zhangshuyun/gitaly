@@ -69,7 +69,7 @@ func TestSuccessfulUserUpdateSubmoduleRequest(t *testing.T) {
 		t.Run(testCase.desc, func(t *testing.T) {
 			request := &gitalypb.UserUpdateSubmoduleRequest{
 				Repository:    repoProto,
-				User:          testhelper.TestUser,
+				User:          gittest.TestUser,
 				Submodule:     []byte(testCase.submodule),
 				CommitSha:     testCase.commitSha,
 				Branch:        []byte(testCase.branch),
@@ -83,8 +83,8 @@ func TestSuccessfulUserUpdateSubmoduleRequest(t *testing.T) {
 
 			commit, err := repo.ReadCommit(ctx, git.Revision(response.BranchUpdate.CommitId))
 			require.NoError(t, err)
-			require.Equal(t, commit.Author.Email, testhelper.TestUser.Email)
-			require.Equal(t, commit.Committer.Email, testhelper.TestUser.Email)
+			require.Equal(t, commit.Author.Email, gittest.TestUser.Email)
+			require.Equal(t, commit.Committer.Email, gittest.TestUser.Email)
 			require.Equal(t, commit.Subject, commitMessage)
 
 			entry := gittest.Exec(t, cfg, "-C", repoPath, "ls-tree", "-z", fmt.Sprintf("%s^{tree}:", response.BranchUpdate.CommitId), testCase.submodule)
@@ -106,7 +106,7 @@ func TestUserUpdateSubmoduleStableID(t *testing.T) {
 
 	response, err := client.UserUpdateSubmodule(ctx, &gitalypb.UserUpdateSubmoduleRequest{
 		Repository:    repoProto,
-		User:          testhelper.TestUser,
+		User:          gittest.TestUser,
 		Submodule:     []byte("gitlab-grack"),
 		CommitSha:     "41fa1bc9e0f0630ced6a8a211d60c2af425ecc2d",
 		Branch:        []byte("master"),
@@ -129,14 +129,14 @@ func TestUserUpdateSubmoduleStableID(t *testing.T) {
 		Body:     []byte("Update Submodule message"),
 		BodySize: 24,
 		Author: &gitalypb.CommitAuthor{
-			Name:     testhelper.TestUser.Name,
-			Email:    testhelper.TestUser.Email,
+			Name:     gittest.TestUser.Name,
+			Email:    gittest.TestUser.Email,
 			Date:     &timestamp.Timestamp{Seconds: 12345},
 			Timezone: []byte("+0000"),
 		},
 		Committer: &gitalypb.CommitAuthor{
-			Name:     testhelper.TestUser.Name,
-			Email:    testhelper.TestUser.Email,
+			Name:     gittest.TestUser.Name,
+			Email:    gittest.TestUser.Email,
 			Date:     &timestamp.Timestamp{Seconds: 12345},
 			Timezone: []byte("+0000"),
 		},
@@ -158,7 +158,7 @@ func TestFailedUserUpdateSubmoduleRequestDueToValidations(t *testing.T) {
 			desc: "empty Repository",
 			request: &gitalypb.UserUpdateSubmoduleRequest{
 				Repository:    nil,
-				User:          testhelper.TestUser,
+				User:          gittest.TestUser,
 				Submodule:     []byte("six"),
 				CommitSha:     "db54006ff1c999fd485af44581dabe9b6c85a701",
 				Branch:        []byte("some-branch"),
@@ -182,7 +182,7 @@ func TestFailedUserUpdateSubmoduleRequestDueToValidations(t *testing.T) {
 			desc: "empty Submodule",
 			request: &gitalypb.UserUpdateSubmoduleRequest{
 				Repository:    repo,
-				User:          testhelper.TestUser,
+				User:          gittest.TestUser,
 				Submodule:     nil,
 				CommitSha:     "db54006ff1c999fd485af44581dabe9b6c85a701",
 				Branch:        []byte("some-branch"),
@@ -194,7 +194,7 @@ func TestFailedUserUpdateSubmoduleRequestDueToValidations(t *testing.T) {
 			desc: "empty CommitSha",
 			request: &gitalypb.UserUpdateSubmoduleRequest{
 				Repository:    repo,
-				User:          testhelper.TestUser,
+				User:          gittest.TestUser,
 				Submodule:     []byte("six"),
 				CommitSha:     "",
 				Branch:        []byte("some-branch"),
@@ -206,7 +206,7 @@ func TestFailedUserUpdateSubmoduleRequestDueToValidations(t *testing.T) {
 			desc: "invalid CommitSha",
 			request: &gitalypb.UserUpdateSubmoduleRequest{
 				Repository:    repo,
-				User:          testhelper.TestUser,
+				User:          gittest.TestUser,
 				Submodule:     []byte("six"),
 				CommitSha:     "foobar",
 				Branch:        []byte("some-branch"),
@@ -218,7 +218,7 @@ func TestFailedUserUpdateSubmoduleRequestDueToValidations(t *testing.T) {
 			desc: "invalid CommitSha",
 			request: &gitalypb.UserUpdateSubmoduleRequest{
 				Repository:    repo,
-				User:          testhelper.TestUser,
+				User:          gittest.TestUser,
 				Submodule:     []byte("six"),
 				CommitSha:     "db54006ff1c999fd485a",
 				Branch:        []byte("some-branch"),
@@ -230,7 +230,7 @@ func TestFailedUserUpdateSubmoduleRequestDueToValidations(t *testing.T) {
 			desc: "empty Branch",
 			request: &gitalypb.UserUpdateSubmoduleRequest{
 				Repository:    repo,
-				User:          testhelper.TestUser,
+				User:          gittest.TestUser,
 				Submodule:     []byte("six"),
 				CommitSha:     "db54006ff1c999fd485af44581dabe9b6c85a701",
 				Branch:        nil,
@@ -242,7 +242,7 @@ func TestFailedUserUpdateSubmoduleRequestDueToValidations(t *testing.T) {
 			desc: "empty CommitMessage",
 			request: &gitalypb.UserUpdateSubmoduleRequest{
 				Repository:    repo,
-				User:          testhelper.TestUser,
+				User:          gittest.TestUser,
 				Submodule:     []byte("six"),
 				CommitSha:     "db54006ff1c999fd485af44581dabe9b6c85a701",
 				Branch:        []byte("some-branch"),
@@ -269,7 +269,7 @@ func TestFailedUserUpdateSubmoduleRequestDueToInvalidBranch(t *testing.T) {
 
 	request := &gitalypb.UserUpdateSubmoduleRequest{
 		Repository:    repo,
-		User:          testhelper.TestUser,
+		User:          gittest.TestUser,
 		Submodule:     []byte("six"),
 		CommitSha:     "db54006ff1c999fd485af44581dabe9b6c85a701",
 		Branch:        []byte("non/existent"),
@@ -289,7 +289,7 @@ func TestFailedUserUpdateSubmoduleRequestDueToInvalidSubmodule(t *testing.T) {
 
 	request := &gitalypb.UserUpdateSubmoduleRequest{
 		Repository:    repo,
-		User:          testhelper.TestUser,
+		User:          gittest.TestUser,
 		Submodule:     []byte("non-existent-submodule"),
 		CommitSha:     "db54006ff1c999fd485af44581dabe9b6c85a701",
 		Branch:        []byte("master"),
@@ -309,7 +309,7 @@ func TestFailedUserUpdateSubmoduleRequestDueToSameReference(t *testing.T) {
 
 	request := &gitalypb.UserUpdateSubmoduleRequest{
 		Repository:    repo,
-		User:          testhelper.TestUser,
+		User:          gittest.TestUser,
 		Submodule:     []byte("six"),
 		CommitSha:     "41fa1bc9e0f0630ced6a8a211d60c2af425ecc2d",
 		Branch:        []byte("master"),
@@ -335,7 +335,7 @@ func TestFailedUserUpdateSubmoduleRequestDueToRepositoryEmpty(t *testing.T) {
 
 	request := &gitalypb.UserUpdateSubmoduleRequest{
 		Repository:    repo,
-		User:          testhelper.TestUser,
+		User:          gittest.TestUser,
 		Submodule:     []byte("six"),
 		CommitSha:     "41fa1bc9e0f0630ced6a8a211d60c2af425ecc2d",
 		Branch:        []byte("master"),
