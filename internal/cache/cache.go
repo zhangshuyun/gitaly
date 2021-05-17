@@ -73,7 +73,7 @@ func withDisabledWalker() Option {
 // Cache stores and retrieves byte streams for repository related RPCs
 type Cache struct {
 	storages    []config.Storage
-	keyer       LeaseKeyer
+	keyer       leaseKeyer
 	af          activeFiles
 	cacheConfig cacheConfig
 }
@@ -87,7 +87,7 @@ func New(cfg config.Cfg, locator storage.Locator, opts ...Option) *Cache {
 
 	return &Cache{
 		storages: cfg.Storages,
-		keyer:    NewLeaseKeyer(locator),
+		keyer:    newLeaseKeyer(locator),
 		af: activeFiles{
 			Mutex: &sync.Mutex{},
 			m:     map[string]int{},
@@ -110,7 +110,7 @@ func (c *Cache) GetStream(ctx context.Context, repo *gitalypb.Repository, req pr
 
 	countRequest()
 
-	respPath, err := c.keyer.KeyPath(ctx, repo, req)
+	respPath, err := c.KeyPath(ctx, repo, req)
 	switch {
 	case os.IsNotExist(err):
 		return nil, ErrReqNotFound
@@ -150,7 +150,7 @@ func (irc instrumentedReadCloser) Read(p []byte) (n int, err error) {
 // PutStream will store a stream in a repo-namespace keyed by the digest of the
 // request protobuf message.
 func (c *Cache) PutStream(ctx context.Context, repo *gitalypb.Repository, req proto.Message, src io.Reader) error {
-	reqPath, err := c.keyer.KeyPath(ctx, repo, req)
+	reqPath, err := c.KeyPath(ctx, repo, req)
 	if err != nil {
 		return err
 	}
@@ -191,9 +191,52 @@ func (c *Cache) PutStream(ctx context.Context, repo *gitalypb.Repository, req pr
 	return nil
 }
 
+// KeyPath returns the cache path for the given request.
+func (c *Cache) KeyPath(ctx context.Context, repo *gitalypb.Repository, req proto.Message) (string, error) {
+	return c.keyer.keyPath(ctx, repo, req)
+}
+
 // StartLease will mark the repository as being in an indeterministic state. This is typically used
 // when modifying the repo, since the cache is not stable until after the modification is complete.
 // A lease object will be returned that allows the caller to signal the end of the lease.
 func (c *Cache) StartLease(repo *gitalypb.Repository) (LeaseEnder, error) {
-	return c.keyer.StartLease(repo)
+	pendingPath, err := c.keyer.newPendingLease(repo)
+	if err != nil {
+		return lease{}, err
+	}
+
+	return lease{
+		pendingPath: pendingPath,
+		repo:        repo,
+		keyer:       c.keyer,
+	}, nil
+}
+
+// LeaseEnder allows the caller to indicate when a lease is no longer needed
+type LeaseEnder interface {
+	EndLease(context.Context) error
+}
+
+type lease struct {
+	pendingPath string
+	repo        *gitalypb.Repository
+	keyer       leaseKeyer
+}
+
+// EndLease will end the lease by removing the pending lease file and updating
+// the key file with the current lease ID.
+func (l lease) EndLease(ctx context.Context) error {
+	_, err := l.keyer.updateLatest(ctx, l.repo)
+	if err != nil {
+		return err
+	}
+
+	if err := os.Remove(l.pendingPath); err != nil {
+		if os.IsNotExist(err) {
+			return countErr(ErrMissingLeaseFile)
+		}
+		return err
+	}
+
+	return nil
 }

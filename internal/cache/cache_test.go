@@ -25,14 +25,13 @@ func TestStreamDBNaiveKeyer(t *testing.T) {
 	testRepo2, _, _ := gittest.CloneRepoAtStorage(t, cfg.Storages[0], "repository-2")
 
 	locator := config.NewLocator(cfg)
-	keyer := NewLeaseKeyer(locator)
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
 	ctx = testhelper.SetCtxGrpcMethod(ctx, "InfoRefsUploadPack")
 
-	db := New(cfg, locator)
+	cache := New(cfg, locator)
 
 	req1 := &gitalypb.InfoRefsRequest{
 		Repository: testRepo1,
@@ -42,12 +41,12 @@ func TestStreamDBNaiveKeyer(t *testing.T) {
 	}
 
 	expectGetMiss := func(req *gitalypb.InfoRefsRequest) {
-		_, err := db.GetStream(ctx, req.Repository, req)
+		_, err := cache.GetStream(ctx, req.Repository, req)
 		require.Equal(t, ErrReqNotFound, err)
 	}
 
 	expectGetHit := func(expectStr string, req *gitalypb.InfoRefsRequest) {
-		actualStream, err := db.GetStream(ctx, req.Repository, req)
+		actualStream, err := cache.GetStream(ctx, req.Repository, req)
 		require.NoError(t, err)
 		actualBytes, err := ioutil.ReadAll(actualStream)
 		require.NoError(t, err)
@@ -55,14 +54,14 @@ func TestStreamDBNaiveKeyer(t *testing.T) {
 	}
 
 	invalidationEvent := func(repo *gitalypb.Repository) {
-		lease, err := keyer.StartLease(repo)
+		lease, err := cache.StartLease(repo)
 		require.NoError(t, err)
 		// imagine repo being modified here
 		require.NoError(t, lease.EndLease(ctx))
 	}
 
 	storeAndRetrieve := func(expectStr string, req *gitalypb.InfoRefsRequest) {
-		require.NoError(t, db.PutStream(ctx, req.Repository, req, strings.NewReader(expectStr)))
+		require.NoError(t, cache.PutStream(ctx, req.Repository, req, strings.NewReader(expectStr)))
 		expectGetHit(expectStr, req)
 	}
 
@@ -83,7 +82,7 @@ func TestStreamDBNaiveKeyer(t *testing.T) {
 
 	// store new value for same cache value but at new generation
 	expectStream2 := "not what you were looking for"
-	require.NoError(t, db.PutStream(ctx, req1.Repository, req1, strings.NewReader(expectStream2)))
+	require.NoError(t, cache.PutStream(ctx, req1.Repository, req1, strings.NewReader(expectStream2)))
 	expectGetHit(expectStream2, req1)
 
 	// enabled feature flags affect caching
@@ -94,20 +93,20 @@ func TestStreamDBNaiveKeyer(t *testing.T) {
 	expectGetHit(expectStream2, req1)
 
 	// start critical section without closing
-	repo1Lease, err := keyer.StartLease(req1.Repository)
+	repo1Lease, err := cache.StartLease(req1.Repository)
 	require.NoError(t, err)
 
 	// accessing repo cache with open critical section should fail
-	_, err = db.GetStream(ctx, req1.Repository, req1)
+	_, err = cache.GetStream(ctx, req1.Repository, req1)
 	require.Equal(t, err, ErrPendingExists)
-	err = db.PutStream(ctx, req1.Repository, req1, strings.NewReader(repo1contents))
+	err = cache.PutStream(ctx, req1.Repository, req1, strings.NewReader(repo1contents))
 	require.Equal(t, err, ErrPendingExists)
 
 	expectGetHit(repo2contents, req2) // other repo caches should be unaffected
 
 	// opening and closing a new critical zone doesn't resolve the issue
 	invalidationEvent(req1.Repository)
-	_, err = db.GetStream(ctx, req1.Repository, req1)
+	_, err = cache.GetStream(ctx, req1.Repository, req1)
 	require.Equal(t, err, ErrPendingExists)
 
 	// only completing/removing the pending generation file will allow access
@@ -116,7 +115,7 @@ func TestStreamDBNaiveKeyer(t *testing.T) {
 
 	// creating a lease on a repo that doesn't exist yet should succeed
 	req1.Repository.RelativePath += "-does-not-exist"
-	_, err = keyer.StartLease(req1.Repository)
+	_, err = cache.StartLease(req1.Repository)
 	require.NoError(t, err)
 }
 
@@ -127,7 +126,7 @@ func TestLoserCount(t *testing.T) {
 	cfg := cfgBuilder.Build(t)
 
 	locator := config.NewLocator(cfg)
-	db := New(cfg, locator)
+	cache := New(cfg, locator)
 
 	req := &gitalypb.InfoRefsRequest{
 		Repository: &gitalypb.Repository{
@@ -145,7 +144,7 @@ func TestLoserCount(t *testing.T) {
 
 	// Run streams concurrently for the same repo and request
 	for _, l := range leashes {
-		go func(l chan struct{}) { errQ <- db.PutStream(ctx, req.Repository, req, leashedReader{l, wg}) }(l)
+		go func(l chan struct{}) { errQ <- cache.PutStream(ctx, req.Repository, req, leashedReader{l, wg}) }(l)
 		l <- struct{}{}
 	}
 

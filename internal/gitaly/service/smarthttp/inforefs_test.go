@@ -21,7 +21,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/objectpool"
 	"gitlab.com/gitlab-org/gitaly/internal/git/stats"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -292,7 +291,9 @@ func TestCacheInfoRefsUploadPack(t *testing.T) {
 	cfg, repo, _ := testcfg.BuildWithRepo(t)
 
 	locator := config.NewLocator(cfg)
-	gitalyServer := startSmartHTTPServer(t, cfg)
+	cache := cache.New(cfg, locator)
+
+	gitalyServer := startSmartHTTPServer(t, cfg, withInfoRefCache(newInfoRefCache(cache)))
 
 	rpcRequest := &gitalypb.InfoRefsRequest{Repository: repo}
 
@@ -316,7 +317,7 @@ func TestCacheInfoRefsUploadPack(t *testing.T) {
 	}
 
 	assertNormalResponse(gitalyServer.Address())
-	require.FileExists(t, pathToCachedResponse(t, ctx, locator, rpcRequest))
+	require.FileExists(t, pathToCachedResponse(t, ctx, cache, rpcRequest))
 
 	replacedContents := []string{
 		"first line",
@@ -326,7 +327,7 @@ func TestCacheInfoRefsUploadPack(t *testing.T) {
 	}
 
 	// replace cached response file to prove the info-ref uses the cache
-	replaceCachedResponse(t, ctx, cfg, rpcRequest, strings.Join(replacedContents, "\n"))
+	replaceCachedResponse(t, ctx, cache, rpcRequest, strings.Join(replacedContents, "\n"))
 	response, err := makeInfoRefsUploadPackRequest(ctx, t, gitalyServer.Address(), cfg.Auth.Token, rpcRequest)
 	require.NoError(t, err)
 	assertGitRefAdvertisement(t, "InfoRefsUploadPack", string(response),
@@ -334,7 +335,7 @@ func TestCacheInfoRefsUploadPack(t *testing.T) {
 	)
 
 	invalidateCacheForRepo := func() {
-		ender, err := cache.NewLeaseKeyer(locator).StartLease(rpcRequest.Repository)
+		ender, err := cache.StartLease(rpcRequest.Repository)
 		require.NoError(t, err)
 		require.NoError(t, ender.EndLease(setInfoRefsUploadPackMethod(ctx)))
 	}
@@ -356,14 +357,14 @@ func TestCacheInfoRefsUploadPack(t *testing.T) {
 
 	_, err = makeInfoRefsUploadPackRequest(ctx, t, gitalyServer.Address(), cfg.Auth.Token, invalidReq)
 	testhelper.RequireGrpcError(t, err, codes.NotFound)
-	require.NoFileExists(t, pathToCachedResponse(t, ctx, locator, invalidReq))
+	require.NoFileExists(t, pathToCachedResponse(t, ctx, cache, invalidReq))
 
 	// if an error occurs while putting stream, it should not interrupt
 	// request from being served
 	happened := false
 
 	mockInfoRefCache := newInfoRefCache(mockStreamer{
-		streamer: cache.New(cfg, locator),
+		streamer: cache,
 		putStream: func(context.Context, *gitalypb.Repository, proto.Message, io.Reader) error {
 			happened = true
 			return errors.New("oopsie")
@@ -391,8 +392,8 @@ func createInvalidRepo(t testing.TB, repoDir string) func() {
 	return func() { require.NoError(t, os.RemoveAll(repoDir)) }
 }
 
-func replaceCachedResponse(t testing.TB, ctx context.Context, cfg config.Cfg, req *gitalypb.InfoRefsRequest, newContents string) {
-	path := pathToCachedResponse(t, ctx, config.NewLocator(cfg), req)
+func replaceCachedResponse(t testing.TB, ctx context.Context, cache *cache.Cache, req *gitalypb.InfoRefsRequest, newContents string) {
+	path := pathToCachedResponse(t, ctx, cache, req)
 	require.NoError(t, ioutil.WriteFile(path, []byte(newContents), 0644))
 }
 
@@ -400,9 +401,9 @@ func setInfoRefsUploadPackMethod(ctx context.Context) context.Context {
 	return testhelper.SetCtxGrpcMethod(ctx, "/gitaly.SmartHTTPService/InfoRefsUploadPack")
 }
 
-func pathToCachedResponse(t testing.TB, ctx context.Context, locator storage.Locator, req *gitalypb.InfoRefsRequest) string {
+func pathToCachedResponse(t testing.TB, ctx context.Context, cache *cache.Cache, req *gitalypb.InfoRefsRequest) string {
 	ctx = setInfoRefsUploadPackMethod(ctx)
-	path, err := cache.NewLeaseKeyer(locator).KeyPath(ctx, req.GetRepository(), req)
+	path, err := cache.KeyPath(ctx, req.GetRepository(), req)
 	require.NoError(t, err)
 	return path
 }
