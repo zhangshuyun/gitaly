@@ -73,13 +73,13 @@ func withDisabledWalker() Option {
 // Cache stores and retrieves byte streams for repository related RPCs
 type Cache struct {
 	storages    []config.Storage
-	ck          Keyer
+	keyer       LeaseKeyer
 	af          activeFiles
 	cacheConfig cacheConfig
 }
 
 // New will create a new Cache with the given Keyer.
-func New(cfg config.Cfg, locator storage.Locator, ck Keyer, opts ...Option) *Cache {
+func New(cfg config.Cfg, locator storage.Locator, opts ...Option) *Cache {
 	var cacheConfig cacheConfig
 	for _, opt := range opts {
 		opt(&cacheConfig)
@@ -87,7 +87,7 @@ func New(cfg config.Cfg, locator storage.Locator, ck Keyer, opts ...Option) *Cac
 
 	return &Cache{
 		storages: cfg.Storages,
-		ck:       ck,
+		keyer:    NewLeaseKeyer(locator),
 		af: activeFiles{
 			Mutex: &sync.Mutex{},
 			m:     map[string]int{},
@@ -110,7 +110,7 @@ func (c *Cache) GetStream(ctx context.Context, repo *gitalypb.Repository, req pr
 
 	countRequest()
 
-	respPath, err := c.ck.KeyPath(ctx, repo, req)
+	respPath, err := c.keyer.KeyPath(ctx, repo, req)
 	switch {
 	case os.IsNotExist(err):
 		return nil, ErrReqNotFound
@@ -150,7 +150,7 @@ func (irc instrumentedReadCloser) Read(p []byte) (n int, err error) {
 // PutStream will store a stream in a repo-namespace keyed by the digest of the
 // request protobuf message.
 func (c *Cache) PutStream(ctx context.Context, repo *gitalypb.Repository, req proto.Message, src io.Reader) error {
-	reqPath, err := c.ck.KeyPath(ctx, repo, req)
+	reqPath, err := c.keyer.KeyPath(ctx, repo, req)
 	if err != nil {
 		return err
 	}
@@ -189,4 +189,11 @@ func (c *Cache) PutStream(ctx context.Context, repo *gitalypb.Repository, req pr
 	}
 
 	return nil
+}
+
+// StartLease will mark the repository as being in an indeterministic state. This is typically used
+// when modifying the repo, since the cache is not stable until after the modification is complete.
+// A lease object will be returned that allows the caller to signal the end of the lease.
+func (c *Cache) StartLease(repo *gitalypb.Repository) (LeaseEnder, error) {
+	return c.keyer.StartLease(repo)
 }

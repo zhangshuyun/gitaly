@@ -363,7 +363,7 @@ func TestCacheInfoRefsUploadPack(t *testing.T) {
 	happened := false
 
 	mockInfoRefCache := newInfoRefCache(mockStreamer{
-		streamer: cache.New(cfg, locator, cache.NewLeaseKeyer(locator)),
+		streamer: cache.New(cfg, locator),
 		putStream: func(context.Context, *gitalypb.Repository, proto.Message, io.Reader) error {
 			happened = true
 			return errors.New("oopsie")

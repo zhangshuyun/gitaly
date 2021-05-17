@@ -319,7 +319,7 @@ func (gsd *gitalyServerDeps) createDependencies(t testing.TB, cfg config.Cfg, ru
 	}
 
 	if gsd.diskCache == nil {
-		gsd.diskCache = cache.New(cfg, gsd.locator, cache.NewLeaseKeyer(gsd.locator))
+		gsd.diskCache = cache.New(cfg, gsd.locator)
 	}
 
 	return &service.Dependencies{
