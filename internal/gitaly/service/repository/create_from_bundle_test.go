@@ -17,6 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/streamio"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestServer_CreateRepositoryFromBundle_successful(t *testing.T) {
@@ -147,8 +148,7 @@ func TestServer_CreateRepositoryFromBundle_failed_existing_directory(t *testing.
 	}))
 
 	_, err = stream.CloseAndRecv()
-	testhelper.RequireGrpcError(t, err, codes.FailedPrecondition)
-	testhelper.GrpcErrorHasMessage(t, err, "CreateRepositoryFromBundle: target directory is non-empty")
+	require.Equal(t, status.Error(codes.FailedPrecondition, "CreateRepositoryFromBundle: target directory is non-empty"), err)
 }
 
 func TestSanitizedError(t *testing.T) {
