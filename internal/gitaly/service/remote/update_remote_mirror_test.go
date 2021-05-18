@@ -352,7 +352,7 @@ func testUpdateRemoteMirrorFeatured(t *testing.T, ctx context.Context, cfg confi
 			desc: "push batching works",
 			sourceRefs: func() refs {
 				out := refs{}
-				for i := 0; i < 2*PushBatchSize+1; i++ {
+				for i := 0; i < 2*pushBatchSize+1; i++ {
 					out[fmt.Sprintf("refs/heads/branch-%d", i)] = []string{"commit 1"}
 				}
 				return out
@@ -360,7 +360,7 @@ func testUpdateRemoteMirrorFeatured(t *testing.T, ctx context.Context, cfg confi
 			response: &gitalypb.UpdateRemoteMirrorResponse{},
 			expectedMirrorRefs: func() map[string]string {
 				out := map[string]string{}
-				for i := 0; i < 2*PushBatchSize+1; i++ {
+				for i := 0; i < 2*pushBatchSize+1; i++ {
 					out[fmt.Sprintf("refs/heads/branch-%d", i)] = "commit 1"
 				}
 				return out
