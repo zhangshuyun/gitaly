@@ -99,8 +99,8 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 			// replication jobs.
 			desc: "unstarted transaction should create replication jobs",
 			nodes: []node{
-				{primary: true, shouldSucceed: true, shouldGetRepl: false, expectedGeneration: 1},
-				{primary: false, shouldSucceed: false, shouldGetRepl: true, expectedGeneration: 0},
+				{primary: true, shouldGetRepl: false, expectedGeneration: 1},
+				{primary: false, shouldGetRepl: true, expectedGeneration: 0},
 			},
 		},
 		{
@@ -109,10 +109,10 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 			// replication jobs.
 			desc: "unstarted transaction should create replication jobs for outdated node",
 			nodes: []node{
-				{primary: true, shouldSucceed: true, shouldGetRepl: false, generation: 1, expectedGeneration: 2},
-				{primary: false, shouldSucceed: false, shouldGetRepl: true, generation: 1, expectedGeneration: 1},
-				{primary: false, shouldSucceed: false, shouldGetRepl: true, generation: 0, expectedGeneration: 0},
-				{primary: false, shouldSucceed: false, shouldGetRepl: true, generation: datastore.GenerationUnknown, expectedGeneration: datastore.GenerationUnknown},
+				{primary: true, shouldGetRepl: false, generation: 1, expectedGeneration: 2},
+				{primary: false, shouldGetRepl: true, generation: 1, expectedGeneration: 1},
+				{primary: false, shouldGetRepl: true, generation: 0, expectedGeneration: 0},
+				{primary: false, shouldGetRepl: true, generation: datastore.GenerationUnknown, expectedGeneration: datastore.GenerationUnknown},
 			},
 		},
 	}
