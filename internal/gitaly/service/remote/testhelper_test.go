@@ -44,6 +44,7 @@ func TestWithRubySidecar(t *testing.T) {
 		testSuccessfulUpdateRemoteMirrorRequestWithKeepDivergentRefs,
 		testFailedUpdateRemoteMirrorRequestDueToValidation,
 		testSuccessfulAddRemote,
+		testAddRemoteTransactional,
 		testUpdateRemoteMirror,
 	}
 
