@@ -34,10 +34,10 @@ func NewFilesystem(path string) *Filesystem {
 	}
 }
 
-// BackupRepository creates a repository backup on a local filesystem
-func (fs *Filesystem) BackupRepository(ctx context.Context, server storage.ServerInfo, repo *gitalypb.Repository) error {
+// Create creates a repository backup on a local filesystem
+func (fs *Filesystem) Create(ctx context.Context, server storage.ServerInfo, repo *gitalypb.Repository) error {
 	if isEmpty, err := fs.isEmpty(ctx, server, repo); err != nil {
-		return fmt.Errorf("backup: %w", err)
+		return fmt.Errorf("filesystem: %w", err)
 	} else if isEmpty {
 		return ErrSkipped
 	}
@@ -47,26 +47,26 @@ func (fs *Filesystem) BackupRepository(ctx context.Context, server storage.Serve
 	customHooksPath := filepath.Join(backupPath, "custom_hooks.tar")
 
 	if err := os.MkdirAll(backupPath, 0700); err != nil {
-		return fmt.Errorf("backup: %w", err)
+		return fmt.Errorf("filesystem: %w", err)
 	}
 	if err := fs.writeBundle(ctx, bundlePath, server, repo); err != nil {
-		return fmt.Errorf("backup: write bundle: %w", err)
+		return fmt.Errorf("filesystem: write bundle: %w", err)
 	}
 	if err := fs.writeCustomHooks(ctx, customHooksPath, server, repo); err != nil {
-		return fmt.Errorf("backup: write custom hooks: %w", err)
+		return fmt.Errorf("filesystem: write custom hooks: %w", err)
 	}
 
 	return nil
 }
 
-// RestoreRepository restores a repository from a backup on a local filesystem
-func (fs *Filesystem) RestoreRepository(ctx context.Context, server storage.ServerInfo, repo *gitalypb.Repository, alwaysCreate bool) error {
+// Restore restores a repository from a backup on a local filesystem
+func (fs *Filesystem) Restore(ctx context.Context, server storage.ServerInfo, repo *gitalypb.Repository, alwaysCreate bool) error {
 	backupPath := strings.TrimSuffix(filepath.Join(fs.path, repo.RelativePath), ".git")
 	bundlePath := backupPath + ".bundle"
 	customHooksPath := filepath.Join(backupPath, "custom_hooks.tar")
 
 	if err := fs.removeRepository(ctx, server, repo); err != nil {
-		return fmt.Errorf("restore: %w", err)
+		return fmt.Errorf("filesystem: %w", err)
 	}
 	if err := fs.restoreBundle(ctx, bundlePath, server, repo); err != nil {
 		// For compatibility with existing backups we need to always create the
@@ -76,14 +76,14 @@ func (fs *Filesystem) RestoreRepository(ctx context.Context, server storage.Serv
 		// to employ this behaviour.
 		if alwaysCreate && errors.Is(err, ErrSkipped) {
 			if err := fs.createRepository(ctx, server, repo); err != nil {
-				return fmt.Errorf("restore: %w", err)
+				return fmt.Errorf("filesystem: %w", err)
 			}
 		} else {
-			return fmt.Errorf("restore: %w", err)
+			return fmt.Errorf("filesystem: %w", err)
 		}
 	}
 	if err := fs.restoreCustomHooks(ctx, customHooksPath, server, repo); err != nil {
-		return fmt.Errorf("restore: %w", err)
+		return fmt.Errorf("filesystem: %w", err)
 	}
 	return nil
 }

@@ -17,7 +17,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
-func TestFilesystem_BackupRepository(t *testing.T) {
+func TestFilesystem_Create(t *testing.T) {
 	cfg := testcfg.Build(t)
 
 	gitalyAddr := testserver.RunGitalyServer(t, cfg, nil, setup.RegisterAll)
@@ -76,7 +76,7 @@ func TestFilesystem_BackupRepository(t *testing.T) {
 			defer cancel()
 
 			fsBackup := NewFilesystem(path)
-			err := fsBackup.BackupRepository(ctx, storage.ServerInfo{Address: gitalyAddr, Token: cfg.Auth.Token}, tc.repo)
+			err := fsBackup.Create(ctx, storage.ServerInfo{Address: gitalyAddr, Token: cfg.Auth.Token}, tc.repo)
 			if tc.err == nil {
 				require.NoError(t, err)
 			} else {
@@ -109,7 +109,7 @@ func TestFilesystem_BackupRepository(t *testing.T) {
 	}
 }
 
-func TestFilesystem_RestoreRepository(t *testing.T) {
+func TestFilesystem_Restore(t *testing.T) {
 	cfg := testcfg.Build(t)
 	testhelper.ConfigureGitalyHooksBin(t, cfg)
 
@@ -175,7 +175,7 @@ func TestFilesystem_RestoreRepository(t *testing.T) {
 			defer cancel()
 
 			fsBackup := NewFilesystem(path)
-			err := fsBackup.RestoreRepository(ctx, storage.ServerInfo{Address: gitalyAddr, Token: cfg.Auth.Token}, tc.repo, tc.alwaysCreate)
+			err := fsBackup.Restore(ctx, storage.ServerInfo{Address: gitalyAddr, Token: cfg.Auth.Token}, tc.repo, tc.alwaysCreate)
 			if tc.expectedErrAs != nil {
 				require.True(t, errors.Is(err, tc.expectedErrAs), err.Error())
 			} else {

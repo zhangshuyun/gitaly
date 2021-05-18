@@ -52,7 +52,7 @@ func (cmd *createSubcommand) Run(ctx context.Context, stdin io.Reader, stdout io
 			GlProjectPath: sr.GlProjectPath,
 		}
 		repoLog.Info("started backup")
-		if err := fsBackup.BackupRepository(ctx, sr.ServerInfo, &repo); err != nil {
+		if err := fsBackup.Create(ctx, sr.ServerInfo, &repo); err != nil {
 			if errors.Is(err, backup.ErrSkipped) {
 				repoLog.Warn("skipped backup")
 			} else {
