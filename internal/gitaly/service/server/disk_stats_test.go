@@ -50,7 +50,7 @@ func getSpaceStats(t *testing.T, path string) (available int64, used int64) {
 	require.NoError(t, err)
 
 	// Redundant conversions to handle differences between unix families
-	available = int64(stats.Bavail) * int64(stats.Bsize)                   //nolint:unconvert
-	used = (int64(stats.Blocks) - int64(stats.Bfree)) * int64(stats.Bsize) //nolint:unconvert
+	available = int64(stats.Bavail) * int64(stats.Bsize)                   //nolint:unconvert,nolintlint
+	used = (int64(stats.Blocks) - int64(stats.Bfree)) * int64(stats.Bsize) //nolint:unconvert,nolintlint
 	return
 }
