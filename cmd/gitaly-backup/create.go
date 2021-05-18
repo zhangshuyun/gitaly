@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -31,8 +30,8 @@ func (cmd *createSubcommand) Flags(fs *flag.FlagSet) {
 
 func (cmd *createSubcommand) Run(ctx context.Context, stdin io.Reader, stdout io.Writer) error {
 	fsBackup := backup.NewFilesystem(cmd.backupPath)
+	pipeline := backup.NewPipeline(log.StandardLogger(), fsBackup)
 
-	var failed int
 	decoder := json.NewDecoder(stdin)
 	for {
 		var sr serverRepository
@@ -41,35 +40,19 @@ func (cmd *createSubcommand) Run(ctx context.Context, stdin io.Reader, stdout io
 		} else if err != nil {
 			return fmt.Errorf("create: %w", err)
 		}
-		repoLog := log.WithFields(log.Fields{
-			"storage_name":    sr.StorageName,
-			"relative_path":   sr.RelativePath,
-			"gl_project_path": sr.GlProjectPath,
-		})
 		repo := gitalypb.Repository{
 			StorageName:   sr.StorageName,
 			RelativePath:  sr.RelativePath,
 			GlProjectPath: sr.GlProjectPath,
 		}
-		repoLog.Info("started backup")
-		if err := fsBackup.Create(ctx, &backup.CreateRequest{
+		pipeline.Create(ctx, &backup.CreateRequest{
 			Server:     sr.ServerInfo,
 			Repository: &repo,
-		}); err != nil {
-			if errors.Is(err, backup.ErrSkipped) {
-				repoLog.Warn("skipped backup")
-			} else {
-				repoLog.WithError(err).Error("backup failed")
-				failed++
-			}
-			continue
-		}
-
-		repoLog.Info("completed backup")
+		})
 	}
 
-	if failed > 0 {
-		return fmt.Errorf("create: %d failures encountered", failed)
+	if err := pipeline.Done(); err != nil {
+		return fmt.Errorf("create: %w", err)
 	}
 	return nil
 }
