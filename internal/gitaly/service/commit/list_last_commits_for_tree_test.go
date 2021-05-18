@@ -357,8 +357,6 @@ func TestSuccessfulListLastCommitsForTreeRequestWithGlobCharacters(t *testing.T)
 	err := os.Mkdir(filepath.Join(repoPath, path), 0755)
 	require.NoError(t, err)
 
-	gittest.Exec(t, cfg, "-C", repoPath, "config", "testhelper.TestUser.name", "test@example.com")
-	gittest.Exec(t, cfg, "-C", repoPath, "config", "testhelper.TestUser.email", "test@example.com")
 	gittest.Exec(t, cfg, "-C", repoPath, "mv", "README.md", path)
 	gittest.Exec(t, cfg, "-C", repoPath, "commit", "-a", "-m", "renamed test file")
 	commitID := text.ChompBytes(gittest.Exec(t, cfg, "-C", repoPath, "rev-parse", "HEAD"))

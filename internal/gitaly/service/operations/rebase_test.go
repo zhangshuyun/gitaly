@@ -40,7 +40,7 @@ func testSuccessfulUserRebaseConfirmableRequestFeatured(t *testing.T, ctx contex
 	ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
 
 	pushOptions := []string{"ci.skip", "test=value"}
-	cfg.Gitlab.URL = setupAndStartGitlabServer(t, testhelper.GlID, "project-1", cfg, pushOptions...)
+	cfg.Gitlab.URL = setupAndStartGitlabServer(t, gittest.GlID, "project-1", cfg, pushOptions...)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -55,7 +55,7 @@ func testSuccessfulUserRebaseConfirmableRequestFeatured(t *testing.T, ctx contex
 	preReceiveHookOutputPath := gittest.WriteEnvToCustomHook(t, repoPath, "pre-receive")
 	postReceiveHookOutputPath := gittest.WriteEnvToCustomHook(t, repoPath, "post-receive")
 
-	headerRequest := buildHeaderRequest(repoProto, testhelper.TestUser, "1", rebaseBranchName, branchSha, repoCopyProto, "master")
+	headerRequest := buildHeaderRequest(repoProto, gittest.TestUser, "1", rebaseBranchName, branchSha, repoCopyProto, "master")
 	headerRequest.GetHeader().GitPushOptions = pushOptions
 	require.NoError(t, rebaseStream.Send(headerRequest), "send header")
 
@@ -108,7 +108,7 @@ func testUserRebaseConfirmableTransactionFeatured(t *testing.T, ctx context.Cont
 		testserver.WithDisablePraefect(),
 		testserver.WithTransactionManager(txManager),
 	)
-	cfg.Gitlab.URL = setupAndStartGitlabServer(t, testhelper.GlID, "project-1", cfg)
+	cfg.Gitlab.URL = setupAndStartGitlabServer(t, gittest.GlID, "project-1", cfg)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -165,7 +165,7 @@ func testUserRebaseConfirmableTransactionFeatured(t *testing.T, ctx context.Cont
 			rebaseStream, err := client.UserRebaseConfirmable(ctx)
 			require.NoError(t, err)
 
-			headerRequest := buildHeaderRequest(repoProto, testhelper.TestUser, "1", rebaseBranchName, branchSha.String(), repoProto, "master")
+			headerRequest := buildHeaderRequest(repoProto, gittest.TestUser, "1", rebaseBranchName, branchSha.String(), repoProto, "master")
 			require.NoError(t, rebaseStream.Send(headerRequest))
 			_, err = rebaseStream.Recv()
 			require.NoError(t, err)
@@ -195,7 +195,7 @@ func testUserRebaseConfirmableStableCommitIDs(t *testing.T, cfg config.Cfg, ruby
 
 func testUserRebaseConfirmableStableCommitIDsFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
-	cfg.Gitlab.URL = setupAndStartGitlabServer(t, testhelper.GlID, "project-1", cfg)
+	cfg.Gitlab.URL = setupAndStartGitlabServer(t, gittest.GlID, "project-1", cfg)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -209,7 +209,7 @@ func testUserRebaseConfirmableStableCommitIDsFeatured(t *testing.T, ctx context.
 		UserRebaseConfirmableRequestPayload: &gitalypb.UserRebaseConfirmableRequest_Header_{
 			Header: &gitalypb.UserRebaseConfirmableRequest_Header{
 				Repository:       repoProto,
-				User:             testhelper.TestUser,
+				User:             gittest.TestUser,
 				RebaseId:         "1",
 				Branch:           []byte(rebaseBranchName),
 				BranchSha:        getBranchSha(t, cfg, repoPath, rebaseBranchName),
@@ -251,8 +251,8 @@ func testUserRebaseConfirmableStableCommitIDsFeatured(t *testing.T, ctx context.
 			Timezone: []byte("-0600"),
 		},
 		Committer: &gitalypb.CommitAuthor{
-			Name:  testhelper.TestUser.Name,
-			Email: testhelper.TestUser.Email,
+			Name:  gittest.TestUser.Name,
+			Email: gittest.TestUser.Email,
 			// Nanoseconds get ignored because commit timestamps aren't that granular.
 			Date:     committerDate,
 			Timezone: []byte("+0000"),
@@ -278,7 +278,7 @@ func testFailedRebaseUserRebaseConfirmableRequestDueToInvalidHeaderFeatured(t *t
 	}{
 		{
 			desc: "empty Repository",
-			req:  buildHeaderRequest(nil, testhelper.TestUser, "1", rebaseBranchName, branchSha, repoCopy, "master"),
+			req:  buildHeaderRequest(nil, gittest.TestUser, "1", rebaseBranchName, branchSha, repoCopy, "master"),
 		},
 		{
 			desc: "empty User",
@@ -286,23 +286,23 @@ func testFailedRebaseUserRebaseConfirmableRequestDueToInvalidHeaderFeatured(t *t
 		},
 		{
 			desc: "empty Branch",
-			req:  buildHeaderRequest(repo, testhelper.TestUser, "1", "", branchSha, repoCopy, "master"),
+			req:  buildHeaderRequest(repo, gittest.TestUser, "1", "", branchSha, repoCopy, "master"),
 		},
 		{
 			desc: "empty BranchSha",
-			req:  buildHeaderRequest(repo, testhelper.TestUser, "1", rebaseBranchName, "", repoCopy, "master"),
+			req:  buildHeaderRequest(repo, gittest.TestUser, "1", rebaseBranchName, "", repoCopy, "master"),
 		},
 		{
 			desc: "empty RemoteRepository",
-			req:  buildHeaderRequest(repo, testhelper.TestUser, "1", rebaseBranchName, branchSha, nil, "master"),
+			req:  buildHeaderRequest(repo, gittest.TestUser, "1", rebaseBranchName, branchSha, nil, "master"),
 		},
 		{
 			desc: "empty RemoteBranch",
-			req:  buildHeaderRequest(repo, testhelper.TestUser, "1", rebaseBranchName, branchSha, repoCopy, ""),
+			req:  buildHeaderRequest(repo, gittest.TestUser, "1", rebaseBranchName, branchSha, repoCopy, ""),
 		},
 		{
 			desc: "invalid branch name",
-			req:  buildHeaderRequest(repo, testhelper.TestUser, "1", rebaseBranchName, branchSha, repoCopy, "+dev:master"),
+			req:  buildHeaderRequest(repo, gittest.TestUser, "1", rebaseBranchName, branchSha, repoCopy, "+dev:master"),
 		},
 	}
 
@@ -349,7 +349,7 @@ func testAbortedUserRebaseConfirmableFeatured(t *testing.T, ctx context.Context,
 
 			branchSha := getBranchSha(t, cfg, testRepoPath, rebaseBranchName)
 
-			headerRequest := buildHeaderRequest(testRepo, testhelper.TestUser, fmt.Sprintf("%v", i), rebaseBranchName, branchSha, testRepoCopy, "master")
+			headerRequest := buildHeaderRequest(testRepo, gittest.TestUser, fmt.Sprintf("%v", i), rebaseBranchName, branchSha, testRepoCopy, "master")
 
 			rebaseStream, err := client.UserRebaseConfirmable(ctx)
 			require.NoError(t, err)
@@ -400,7 +400,7 @@ func testFailedUserRebaseConfirmableDueToApplyBeingFalseFeatured(t *testing.T, c
 	rebaseStream, err := client.UserRebaseConfirmable(ctx)
 	require.NoError(t, err)
 
-	headerRequest := buildHeaderRequest(repoProto, testhelper.TestUser, "1", rebaseBranchName, branchSha, testRepoCopy, "master")
+	headerRequest := buildHeaderRequest(repoProto, gittest.TestUser, "1", rebaseBranchName, branchSha, testRepoCopy, "master")
 	require.NoError(t, rebaseStream.Send(headerRequest), "send header")
 
 	firstResponse, err := rebaseStream.Recv()
@@ -444,7 +444,7 @@ func testFailedUserRebaseConfirmableRequestDueToPreReceiveErrorFeatured(t *testi
 			rebaseStream, err := client.UserRebaseConfirmable(ctx)
 			require.NoError(t, err)
 
-			headerRequest := buildHeaderRequest(repoProto, testhelper.TestUser, fmt.Sprintf("%v", i), rebaseBranchName, branchSha, repoCopyProto, "master")
+			headerRequest := buildHeaderRequest(repoProto, gittest.TestUser, fmt.Sprintf("%v", i), rebaseBranchName, branchSha, repoCopyProto, "master")
 			require.NoError(t, rebaseStream.Send(headerRequest), "send header")
 
 			firstResponse, err := rebaseStream.Recv()
@@ -487,7 +487,7 @@ func testFailedUserRebaseConfirmableDueToGitErrorFeatured(t *testing.T, ctx cont
 	rebaseStream, err := client.UserRebaseConfirmable(ctx)
 	require.NoError(t, err)
 
-	headerRequest := buildHeaderRequest(repoProto, testhelper.TestUser, "1", failedBranchName, branchSha, repoCopyProto, "master")
+	headerRequest := buildHeaderRequest(repoProto, gittest.TestUser, "1", failedBranchName, branchSha, repoCopyProto, "master")
 	require.NoError(t, rebaseStream.Send(headerRequest), "send header")
 
 	firstResponse, err := rebaseStream.Recv()
@@ -522,8 +522,8 @@ func testRebaseRequestWithDeletedFileFeatured(t *testing.T, ctx context.Context,
 
 	branch := "rebase-delete-test"
 
-	gittest.Exec(t, cfg, "-C", repoPath, "config", "user.name", string(testhelper.TestUser.Name))
-	gittest.Exec(t, cfg, "-C", repoPath, "config", "user.email", string(testhelper.TestUser.Email))
+	gittest.Exec(t, cfg, "-C", repoPath, "config", "user.name", string(gittest.TestUser.Name))
+	gittest.Exec(t, cfg, "-C", repoPath, "config", "user.email", string(gittest.TestUser.Email))
 	gittest.Exec(t, cfg, "-C", repoPath, "checkout", "-b", branch, "master~1")
 	gittest.Exec(t, cfg, "-C", repoPath, "rm", "README")
 	gittest.Exec(t, cfg, "-C", repoPath, "commit", "-a", "-m", "delete file")
@@ -533,7 +533,7 @@ func testRebaseRequestWithDeletedFileFeatured(t *testing.T, ctx context.Context,
 	rebaseStream, err := client.UserRebaseConfirmable(ctx)
 	require.NoError(t, err)
 
-	headerRequest := buildHeaderRequest(repoProto, testhelper.TestUser, "1", branch, branchSha, repoCopyProto, "master")
+	headerRequest := buildHeaderRequest(repoProto, gittest.TestUser, "1", branch, branchSha, repoCopyProto, "master")
 	require.NoError(t, rebaseStream.Send(headerRequest), "send header")
 
 	firstResponse, err := rebaseStream.Recv()
@@ -575,8 +575,8 @@ func testRebaseOntoRemoteBranchFeatured(t *testing.T, ctx context.Context, cfg c
 	localBranchHash := getBranchSha(t, cfg, repoPath, localBranch)
 
 	remoteBranch := "remote-branch"
-	gittest.Exec(t, cfg, "-C", remoteRepoPath, "config", "user.name", string(testhelper.TestUser.Name))
-	gittest.Exec(t, cfg, "-C", remoteRepoPath, "config", "user.email", string(testhelper.TestUser.Email))
+	gittest.Exec(t, cfg, "-C", remoteRepoPath, "config", "user.name", string(gittest.TestUser.Name))
+	gittest.Exec(t, cfg, "-C", remoteRepoPath, "config", "user.email", string(gittest.TestUser.Email))
 	gittest.Exec(t, cfg, "-C", remoteRepoPath, "checkout", "-b", remoteBranch, "master")
 	gittest.Exec(t, cfg, "-C", remoteRepoPath, "rm", "README")
 	gittest.Exec(t, cfg, "-C", remoteRepoPath, "commit", "-a", "-m", "remove README")
@@ -588,7 +588,7 @@ func testRebaseOntoRemoteBranchFeatured(t *testing.T, ctx context.Context, cfg c
 	_, err = repo.ReadCommit(ctx, git.Revision(remoteBranchHash))
 	require.Equal(t, localrepo.ErrObjectNotFound, err, "remote commit does not yet exist in local repository")
 
-	headerRequest := buildHeaderRequest(repoProto, testhelper.TestUser, "1", localBranch, localBranchHash, remoteRepo, remoteBranch)
+	headerRequest := buildHeaderRequest(repoProto, gittest.TestUser, "1", localBranch, localBranchHash, remoteRepo, remoteBranch)
 	require.NoError(t, rebaseStream.Send(headerRequest), "send header")
 
 	firstResponse, err := rebaseStream.Recv()
@@ -634,7 +634,7 @@ func testRebaseFailedWithCodeFeatured(t *testing.T, ctx context.Context, cfg con
 				repo := *repoProto
 				repo.StorageName = "@this-storage-does-not-exist"
 
-				return buildHeaderRequest(&repo, testhelper.TestUser, "1", rebaseBranchName, branchSha, &repo, "master")
+				return buildHeaderRequest(&repo, gittest.TestUser, "1", rebaseBranchName, branchSha, &repo, "master")
 			},
 			expectedCode: codes.InvalidArgument,
 		},
@@ -644,7 +644,7 @@ func testRebaseFailedWithCodeFeatured(t *testing.T, ctx context.Context, cfg con
 				repo := *repoProto
 				repo.RelativePath = ""
 
-				return buildHeaderRequest(&repo, testhelper.TestUser, "1", rebaseBranchName, branchSha, &repo, "master")
+				return buildHeaderRequest(&repo, gittest.TestUser, "1", rebaseBranchName, branchSha, &repo, "master")
 			},
 			expectedCode: codes.InvalidArgument,
 		},

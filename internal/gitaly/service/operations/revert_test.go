@@ -49,7 +49,7 @@ func testServerUserRevertSuccessfulFeatured(t *testing.T, ctx context.Context, c
 			desc: "branch exists",
 			request: &gitalypb.UserRevertRequest{
 				Repository: repoProto,
-				User:       testhelper.TestUser,
+				User:       gittest.TestUser,
 				Commit:     revertedCommit,
 				BranchName: []byte(destinationBranch),
 				Message:    []byte("Reverting " + revertedCommit.Id),
@@ -60,7 +60,7 @@ func testServerUserRevertSuccessfulFeatured(t *testing.T, ctx context.Context, c
 			desc: "nonexistent branch + start_repository == repository",
 			request: &gitalypb.UserRevertRequest{
 				Repository:      repoProto,
-				User:            testhelper.TestUser,
+				User:            gittest.TestUser,
 				Commit:          revertedCommit,
 				BranchName:      []byte("to-be-reverted-into-1"),
 				Message:         []byte("Reverting " + revertedCommit.Id),
@@ -72,7 +72,7 @@ func testServerUserRevertSuccessfulFeatured(t *testing.T, ctx context.Context, c
 			desc: "nonexistent branch + start_repository != repository",
 			request: &gitalypb.UserRevertRequest{
 				Repository:      repoProto,
-				User:            testhelper.TestUser,
+				User:            gittest.TestUser,
 				Commit:          revertedCommit,
 				BranchName:      []byte("to-be-reverted-into-2"),
 				Message:         []byte("Reverting " + revertedCommit.Id),
@@ -85,7 +85,7 @@ func testServerUserRevertSuccessfulFeatured(t *testing.T, ctx context.Context, c
 			desc: "nonexistent branch + empty start_repository",
 			request: &gitalypb.UserRevertRequest{
 				Repository:      repoProto,
-				User:            testhelper.TestUser,
+				User:            gittest.TestUser,
 				Commit:          revertedCommit,
 				BranchName:      []byte("to-be-reverted-into-3"),
 				Message:         []byte("Reverting " + revertedCommit.Id),
@@ -97,7 +97,7 @@ func testServerUserRevertSuccessfulFeatured(t *testing.T, ctx context.Context, c
 			desc: "branch exists with dry run",
 			request: &gitalypb.UserRevertRequest{
 				Repository: testRepoCopy,
-				User:       testhelper.TestUser,
+				User:       gittest.TestUser,
 				Commit:     revertedCommit,
 				BranchName: []byte(destinationBranch),
 				Message:    []byte("Reverting " + revertedCommit.Id),
@@ -109,7 +109,7 @@ func testServerUserRevertSuccessfulFeatured(t *testing.T, ctx context.Context, c
 			desc: "nonexistent branch + start_repository == repository with dry run",
 			request: &gitalypb.UserRevertRequest{
 				Repository:      testRepoCopy,
-				User:            testhelper.TestUser,
+				User:            gittest.TestUser,
 				Commit:          revertedCommit,
 				BranchName:      []byte("to-be-reverted-into-1"),
 				Message:         []byte("Reverting " + revertedCommit.Id),
@@ -122,7 +122,7 @@ func testServerUserRevertSuccessfulFeatured(t *testing.T, ctx context.Context, c
 			desc: "nonexistent branch + start_repository != repository with dry run",
 			request: &gitalypb.UserRevertRequest{
 				Repository:      testRepoCopy,
-				User:            testhelper.TestUser,
+				User:            gittest.TestUser,
 				Commit:          revertedCommit,
 				BranchName:      []byte("to-be-reverted-into-2"),
 				Message:         []byte("Reverting " + revertedCommit.Id),
@@ -136,7 +136,7 @@ func testServerUserRevertSuccessfulFeatured(t *testing.T, ctx context.Context, c
 			desc: "nonexistent branch + empty start_repository with dry run",
 			request: &gitalypb.UserRevertRequest{
 				Repository:      testRepoCopy,
-				User:            testhelper.TestUser,
+				User:            gittest.TestUser,
 				Commit:          revertedCommit,
 				BranchName:      []byte("to-be-reverted-into-3"),
 				Message:         []byte("Reverting " + revertedCommit.Id),
@@ -188,7 +188,7 @@ func testServerUserRevertStableIDFeatured(t *testing.T, ctx context.Context, cfg
 
 	response, err := client.UserRevert(ctx, &gitalypb.UserRevertRequest{
 		Repository: repoProto,
-		User:       testhelper.TestUser,
+		User:       gittest.TestUser,
 		Commit:     commitToRevert,
 		BranchName: []byte("master"),
 		Message:    []byte("Reverting commit"),
@@ -250,7 +250,7 @@ func testServerUserRevertSuccessfulIntoNewRepo(t *testing.T, ctx context.Context
 
 	request := &gitalypb.UserRevertRequest{
 		Repository:      repoProto,
-		User:            testhelper.TestUser,
+		User:            gittest.TestUser,
 		Commit:          revertedCommit,
 		BranchName:      []byte("dst-branch"),
 		Message:         []byte("Reverting " + revertedCommit.Id),
@@ -294,7 +294,7 @@ func testServerUserRevertSuccessfulGitHooksFeatured(t *testing.T, ctx context.Co
 
 	request := &gitalypb.UserRevertRequest{
 		Repository: repoProto,
-		User:       testhelper.TestUser,
+		User:       gittest.TestUser,
 		Commit:     revertedCommit,
 		BranchName: []byte(destinationBranch),
 		Message:    []byte("Reverting " + revertedCommit.Id),
@@ -312,7 +312,7 @@ func testServerUserRevertSuccessfulGitHooksFeatured(t *testing.T, ctx context.Co
 
 	for _, file := range hookOutputFiles {
 		output := string(testhelper.MustReadFile(t, file))
-		require.Contains(t, output, "GL_USERNAME="+testhelper.TestUser.GlUsername)
+		require.Contains(t, output, "GL_USERNAME="+gittest.TestUser.GlUsername)
 	}
 }
 
@@ -350,7 +350,7 @@ func testServerUserRevertFailuedDueToValidationsFeatured(t *testing.T, ctx conte
 			desc: "empty commit",
 			request: &gitalypb.UserRevertRequest{
 				Repository: repoProto,
-				User:       testhelper.TestUser,
+				User:       gittest.TestUser,
 				Commit:     nil,
 				BranchName: []byte(destinationBranch),
 				Message:    []byte("Reverting " + revertedCommit.Id),
@@ -361,7 +361,7 @@ func testServerUserRevertFailuedDueToValidationsFeatured(t *testing.T, ctx conte
 			desc: "empty branch name",
 			request: &gitalypb.UserRevertRequest{
 				Repository: repoProto,
-				User:       testhelper.TestUser,
+				User:       gittest.TestUser,
 				Commit:     revertedCommit,
 				BranchName: nil,
 				Message:    []byte("Reverting " + revertedCommit.Id),
@@ -372,7 +372,7 @@ func testServerUserRevertFailuedDueToValidationsFeatured(t *testing.T, ctx conte
 			desc: "empty message",
 			request: &gitalypb.UserRevertRequest{
 				Repository: repoProto,
-				User:       testhelper.TestUser,
+				User:       gittest.TestUser,
 				Commit:     revertedCommit,
 				BranchName: []byte(destinationBranch),
 				Message:    nil,
@@ -406,7 +406,7 @@ func testServerUserRevertFailedDueToPreReceiveErrorFeatured(t *testing.T, ctx co
 
 	request := &gitalypb.UserRevertRequest{
 		Repository: repoProto,
-		User:       testhelper.TestUser,
+		User:       gittest.TestUser,
 		Commit:     revertedCommit,
 		BranchName: []byte(destinationBranch),
 		Message:    []byte("Reverting " + revertedCommit.Id),
@@ -420,7 +420,7 @@ func testServerUserRevertFailedDueToPreReceiveErrorFeatured(t *testing.T, ctx co
 
 			response, err := client.UserRevert(ctx, request)
 			require.NoError(t, err)
-			require.Contains(t, response.PreReceiveError, "GL_ID="+testhelper.TestUser.GlId)
+			require.Contains(t, response.PreReceiveError, "GL_ID="+gittest.TestUser.GlId)
 		})
 	}
 }
@@ -443,7 +443,7 @@ func testServerUserRevertFailedDueToCreateTreeErrorConflictFeatured(t *testing.T
 
 	request := &gitalypb.UserRevertRequest{
 		Repository: repoProto,
-		User:       testhelper.TestUser,
+		User:       gittest.TestUser,
 		Commit:     revertedCommit,
 		BranchName: []byte(destinationBranch),
 		Message:    []byte("Reverting " + revertedCommit.Id),
@@ -472,7 +472,7 @@ func testServerUserRevertFailedDueToCreateTreeErrorEmptyFeatured(t *testing.T, c
 
 	request := &gitalypb.UserRevertRequest{
 		Repository: repoProto,
-		User:       testhelper.TestUser,
+		User:       gittest.TestUser,
 		Commit:     revertedCommit,
 		BranchName: []byte(destinationBranch),
 		Message:    []byte("Reverting " + revertedCommit.Id),
@@ -508,7 +508,7 @@ func testServerUserRevertFailedDueToCommitErrorFeatured(t *testing.T, ctx contex
 
 	request := &gitalypb.UserRevertRequest{
 		Repository:      repoProto,
-		User:            testhelper.TestUser,
+		User:            gittest.TestUser,
 		Commit:          revertedCommit,
 		BranchName:      []byte(destinationBranch),
 		Message:         []byte("Reverting " + revertedCommit.Id),

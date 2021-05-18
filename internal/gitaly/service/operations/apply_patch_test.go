@@ -68,7 +68,7 @@ func testSuccessfulUserApplyPatch(t *testing.T, cfg config.Cfg, rubySrv *rubyser
 			stream, err := client.UserApplyPatch(ctx)
 			require.NoError(t, err)
 
-			headerRequest := applyPatchHeaderRequest(repoProto, testhelper.TestUser, testCase.branchName)
+			headerRequest := applyPatchHeaderRequest(repoProto, gittest.TestUser, testCase.branchName)
 			require.NoError(t, stream.Send(headerRequest))
 
 			writer := streamio.NewWriter(func(p []byte) error {
@@ -125,7 +125,7 @@ func testSuccessfulUserApplyPatch(t *testing.T, cfg config.Cfg, rubySrv *rubyser
 				require.NotNil(t, commit)
 				require.Equal(t, string(commit.Subject), testCase.commitMessages[index])
 				require.Equal(t, string(commit.Author.Email), "patchuser@gitlab.org")
-				require.Equal(t, string(commit.Committer.Email), string(testhelper.TestUser.Email))
+				require.Equal(t, string(commit.Committer.Email), string(gittest.TestUser.Email))
 			}
 		})
 	}
@@ -146,7 +146,7 @@ func testUserApplyPatchStableID(t *testing.T, cfg config.Cfg, rubySrv *rubyserve
 		UserApplyPatchRequestPayload: &gitalypb.UserApplyPatchRequest_Header_{
 			Header: &gitalypb.UserApplyPatchRequest_Header{
 				Repository:   repoProto,
-				User:         testhelper.TestUser,
+				User:         gittest.TestUser,
 				TargetBranch: []byte("branch"),
 				Timestamp:    &timestamp.Timestamp{Seconds: 1234512345},
 			},
@@ -182,8 +182,8 @@ func testUserApplyPatchStableID(t *testing.T, cfg config.Cfg, rubySrv *rubyserve
 			Timezone: []byte("+0200"),
 		},
 		Committer: &gitalypb.CommitAuthor{
-			Name:     testhelper.TestUser.Name,
-			Email:    testhelper.TestUser.Email,
+			Name:     gittest.TestUser.Name,
+			Email:    gittest.TestUser.Email,
 			Date:     &timestamp.Timestamp{Seconds: 1234512345},
 			Timezone: []byte("+0000"),
 		},
@@ -201,7 +201,7 @@ func testFailedPatchApplyPatch(t *testing.T, cfg config.Cfg, rubySrv *rubyserver
 	stream, err := client.UserApplyPatch(ctx)
 	require.NoError(t, err)
 
-	headerRequest := applyPatchHeaderRequest(repo, testhelper.TestUser, "feature")
+	headerRequest := applyPatchHeaderRequest(repo, gittest.TestUser, "feature")
 	require.NoError(t, stream.Send(headerRequest))
 
 	patchRequest := applyPatchPatchesRequest(testPatch)
@@ -225,20 +225,20 @@ func TestFailedValidationUserApplyPatch(t *testing.T) {
 			desc:         "missing Repository",
 			errorMessage: "missing Repository",
 			branchName:   "new-branch",
-			user:         testhelper.TestUser,
+			user:         gittest.TestUser,
 		},
 
 		{
 			desc:         "missing Branch",
 			errorMessage: "missing Branch",
 			repo:         repo,
-			user:         testhelper.TestUser,
+			user:         gittest.TestUser,
 		},
 		{
 			desc:         "empty BranchName",
 			errorMessage: "missing Branch",
 			repo:         repo,
-			user:         testhelper.TestUser,
+			user:         gittest.TestUser,
 			branchName:   "",
 		},
 		{

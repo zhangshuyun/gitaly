@@ -308,7 +308,7 @@ func TestAuthBeforeLimit(t *testing.T) {
 
 	gitlabURL, cleanup := testhelper.SetupAndStartGitlabServer(t, cfg.GitlabShell.Dir, &testhelper.GitlabTestServerOptions{
 		SecretToken:                 "secretToken",
-		GLID:                        testhelper.GlID,
+		GLID:                        gittest.GlID,
 		GLRepository:                repo.GetGlRepository(),
 		PostReceiveCounterDecreased: true,
 		Protocol:                    "web",
@@ -330,7 +330,7 @@ func TestAuthBeforeLimit(t *testing.T) {
 		Repository:     repo,
 		TagName:        []byte(inputTagName),
 		TargetRevision: []byte(targetRevision),
-		User:           testhelper.TestUser,
+		User:           gittest.TestUser,
 		Message:        []byte("a new tag!"),
 	}
 

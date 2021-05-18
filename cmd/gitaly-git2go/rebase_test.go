@@ -9,6 +9,7 @@ import (
 	git "github.com/libgit2/git2go/v31"
 	"github.com/stretchr/testify/require"
 	cmdtesthelper "gitlab.com/gitlab-org/gitaly/cmd/gitaly-git2go/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git2go"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
@@ -157,8 +158,8 @@ func TestRebase_rebase(t *testing.T) {
 			ctx, cancel := testhelper.Context()
 			defer cancel()
 
-			committer := git2go.NewSignature(string(testhelper.TestUser.Name),
-				string(testhelper.TestUser.Email),
+			committer := git2go.NewSignature(string(gittest.TestUser.Name),
+				string(gittest.TestUser.Email),
 				time.Date(2021, 3, 1, 13, 45, 50, 0, time.FixedZone("", +2*60*60)))
 
 			cfg, _, repoPath := testcfg.BuildWithRepo(t)
