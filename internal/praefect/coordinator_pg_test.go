@@ -32,10 +32,14 @@ func getDB(t *testing.T) glsql.DB {
 }
 
 func TestStreamDirectorMutator_Transaction(t *testing.T) {
+	type subtransactions []struct {
+		vote          string
+		shouldSucceed bool
+	}
+
 	type node struct {
 		primary            bool
-		vote               string
-		shouldSucceed      bool
+		subtransactions    subtransactions
 		shouldGetRepl      bool
 		shouldParticipate  bool
 		generation         int
@@ -49,39 +53,39 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 		{
 			desc: "successful vote should not create replication jobs",
 			nodes: []node{
-				{primary: true, vote: "foobar", shouldSucceed: true, shouldGetRepl: false, shouldParticipate: true, expectedGeneration: 1},
-				{primary: false, vote: "foobar", shouldSucceed: true, shouldGetRepl: false, shouldParticipate: true, expectedGeneration: 1},
-				{primary: false, vote: "foobar", shouldSucceed: true, shouldGetRepl: false, shouldParticipate: true, expectedGeneration: 1},
+				{primary: true, subtransactions: subtransactions{{vote: "foobar", shouldSucceed: true}}, shouldGetRepl: false, shouldParticipate: true, expectedGeneration: 1},
+				{primary: false, subtransactions: subtransactions{{vote: "foobar", shouldSucceed: true}}, shouldGetRepl: false, shouldParticipate: true, expectedGeneration: 1},
+				{primary: false, subtransactions: subtransactions{{vote: "foobar", shouldSucceed: true}}, shouldGetRepl: false, shouldParticipate: true, expectedGeneration: 1},
 			},
 		},
 		{
 			desc: "failing vote should not create replication jobs",
 			nodes: []node{
-				{primary: true, vote: "foo", shouldSucceed: false, shouldGetRepl: false, shouldParticipate: true, expectedGeneration: 1},
-				{primary: false, vote: "qux", shouldSucceed: false, shouldGetRepl: true, shouldParticipate: true, expectedGeneration: 0},
-				{primary: false, vote: "bar", shouldSucceed: false, shouldGetRepl: true, shouldParticipate: true, expectedGeneration: 0},
+				{primary: true, subtransactions: subtransactions{{vote: "foo", shouldSucceed: false}}, shouldGetRepl: false, shouldParticipate: true, expectedGeneration: 1},
+				{primary: false, subtransactions: subtransactions{{vote: "qux", shouldSucceed: false}}, shouldGetRepl: true, shouldParticipate: true, expectedGeneration: 0},
+				{primary: false, subtransactions: subtransactions{{vote: "bar", shouldSucceed: false}}, shouldGetRepl: true, shouldParticipate: true, expectedGeneration: 0},
 			},
 		},
 		{
 			desc: "primary should reach quorum with disagreeing secondary",
 			nodes: []node{
-				{primary: true, vote: "foobar", shouldSucceed: true, shouldGetRepl: false, shouldParticipate: true, expectedGeneration: 1},
-				{primary: false, vote: "barfoo", shouldSucceed: false, shouldGetRepl: true, shouldParticipate: true, expectedGeneration: 0},
+				{primary: true, subtransactions: subtransactions{{vote: "foobar", shouldSucceed: true}}, shouldGetRepl: false, shouldParticipate: true, expectedGeneration: 1},
+				{primary: false, subtransactions: subtransactions{{vote: "barfoo", shouldSucceed: false}}, shouldGetRepl: true, shouldParticipate: true, expectedGeneration: 0},
 			},
 		},
 		{
 			desc: "quorum should create replication jobs for disagreeing node",
 			nodes: []node{
-				{primary: true, vote: "foobar", shouldSucceed: true, shouldGetRepl: false, shouldParticipate: true, expectedGeneration: 1},
-				{primary: false, vote: "foobar", shouldSucceed: true, shouldGetRepl: false, shouldParticipate: true, expectedGeneration: 1},
-				{primary: false, vote: "barfoo", shouldSucceed: false, shouldGetRepl: true, shouldParticipate: true, expectedGeneration: 0},
+				{primary: true, subtransactions: subtransactions{{vote: "foobar", shouldSucceed: true}}, shouldGetRepl: false, shouldParticipate: true, expectedGeneration: 1},
+				{primary: false, subtransactions: subtransactions{{vote: "foobar", shouldSucceed: true}}, shouldGetRepl: false, shouldParticipate: true, expectedGeneration: 1},
+				{primary: false, subtransactions: subtransactions{{vote: "barfoo", shouldSucceed: false}}, shouldGetRepl: true, shouldParticipate: true, expectedGeneration: 0},
 			},
 		},
 		{
 			desc: "only consistent secondaries should participate",
 			nodes: []node{
-				{primary: true, vote: "foobar", shouldSucceed: true, shouldParticipate: true, generation: 1, expectedGeneration: 2},
-				{primary: false, vote: "foobar", shouldSucceed: true, shouldParticipate: true, generation: 1, expectedGeneration: 2},
+				{primary: true, subtransactions: subtransactions{{vote: "foobar", shouldSucceed: true}}, shouldParticipate: true, generation: 1, expectedGeneration: 2},
+				{primary: false, subtransactions: subtransactions{{vote: "foobar", shouldSucceed: true}}, shouldParticipate: true, generation: 1, expectedGeneration: 2},
 				{shouldParticipate: false, shouldGetRepl: true, generation: 0, expectedGeneration: 0},
 				{shouldParticipate: false, shouldGetRepl: true, generation: datastore.GenerationUnknown, expectedGeneration: datastore.GenerationUnknown},
 			},
@@ -89,7 +93,7 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 		{
 			desc: "secondaries should not participate when primary's generation is unknown",
 			nodes: []node{
-				{primary: true, vote: "foobar", shouldSucceed: true, shouldParticipate: true, generation: datastore.GenerationUnknown, expectedGeneration: 0},
+				{primary: true, subtransactions: subtransactions{{vote: "foobar", shouldSucceed: true}}, shouldParticipate: true, generation: datastore.GenerationUnknown, expectedGeneration: 0},
 				{shouldParticipate: false, shouldGetRepl: true, generation: datastore.GenerationUnknown, expectedGeneration: datastore.GenerationUnknown},
 			},
 		},
@@ -217,12 +221,18 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 				go func() {
 					defer voterWaitGroup.Done()
 
-					vote := voting.VoteFromData([]byte(node.vote))
-					err := txMgr.VoteTransaction(ctx, transaction.ID, fmt.Sprintf("node-%d", i), vote)
-					if node.shouldSucceed {
-						assert.NoError(t, err)
-					} else {
-						assert.True(t, errors.Is(err, transactions.ErrTransactionFailed))
+					for _, subtransaction := range node.subtransactions {
+						vote := voting.VoteFromData([]byte(subtransaction.vote))
+						err := txMgr.VoteTransaction(ctx, transaction.ID, fmt.Sprintf("node-%d", i), vote)
+						if subtransaction.shouldSucceed {
+							if !assert.NoError(t, err) {
+								break
+							}
+						} else {
+							if !assert.True(t, errors.Is(err, transactions.ErrTransactionFailed)) {
+								break
+							}
+						}
 					}
 				}()
 			}
