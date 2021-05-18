@@ -18,17 +18,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config/sentry"
 )
 
-func TestLoad_doesntClearPreviousGlobalConfig(t *testing.T) {
-	defer func(old Cfg) { Config = old }(Config)
-
-	Config = Cfg{SocketPath: "/tmp"}
-	cfg, err := Load(&bytes.Buffer{})
-	require.NoError(t, err)
-
-	require.Equal(t, "", cfg.SocketPath)
-	require.Equal(t, "/tmp", Config.SocketPath)
-}
-
 func TestLoadBrokenConfig(t *testing.T) {
 	tmpFile := strings.NewReader(`path = "/tmp"\nname="foo"`)
 	_, err := Load(tmpFile)
@@ -424,11 +413,6 @@ func TestValidateHooks(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
-			originalConfig := Config
-			defer func() {
-				Config = originalConfig
-			}()
-
 			tempHookDir, cleanup := setupTempHookDirs(t, tc.hookFiles)
 			defer cleanup()
 
