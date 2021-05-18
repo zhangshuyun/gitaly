@@ -366,6 +366,40 @@ func testUpdateRemoteMirrorFeatured(t *testing.T, ctx context.Context, cfg confi
 				return out
 			}(),
 		},
+		{
+			desc: "limits the number of divergent refs returned",
+			sourceRefs: func() refs {
+				out := refs{}
+				for i := 0; i < maxDivergentRefs+1; i++ {
+					out[fmt.Sprintf("refs/heads/branch-%03d", i)] = []string{"commit 1"}
+				}
+				return out
+			}(),
+			mirrorRefs: func() refs {
+				out := refs{}
+				for i := 0; i < maxDivergentRefs+1; i++ {
+					out[fmt.Sprintf("refs/heads/branch-%03d", i)] = []string{"commit 2"}
+				}
+				return out
+			}(),
+			keepDivergentRefs: true,
+			response: &gitalypb.UpdateRemoteMirrorResponse{
+				DivergentRefs: func() [][]byte {
+					out := make([][]byte, maxDivergentRefs)
+					for i := range out {
+						out[i] = []byte(fmt.Sprintf("refs/heads/branch-%03d", i))
+					}
+					return out
+				}(),
+			},
+			expectedMirrorRefs: func() map[string]string {
+				out := map[string]string{}
+				for i := 0; i < maxDivergentRefs+1; i++ {
+					out[fmt.Sprintf("refs/heads/branch-%03d", i)] = "commit 2"
+				}
+				return out
+			}(),
+		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			_, mirrorRepoPath, cleanMirrorRepo := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])

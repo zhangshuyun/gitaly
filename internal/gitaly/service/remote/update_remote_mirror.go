@@ -15,8 +15,13 @@ import (
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
-// pushBatchSize is the maximum number of branches to push in a single push call.
-const pushBatchSize = 10
+const (
+	// pushBatchSize is the maximum number of branches to push in a single push call.
+	pushBatchSize = 10
+	// maxDivergentRefs is the maximum number of divergent refs to return in UpdateRemoteMirror's
+	// response.
+	maxDivergentRefs = 100
+)
 
 func (s *server) UpdateRemoteMirror(stream gitalypb.RemoteService_UpdateRemoteMirrorServer) error {
 	firstRequest, err := stream.Recv()
@@ -160,7 +165,7 @@ func (s *server) goUpdateRemoteMirror(stream gitalypb.RemoteService_UpdateRemote
 			if !isAncestor {
 				// The mirror's reference has diverged from the local ref, or the mirror contains a commit
 				// which is not present in the local repository.
-				if referenceMatcher.MatchString(localRef.Name.String()) {
+				if referenceMatcher.MatchString(localRef.Name.String()) && len(divergentRefs) < maxDivergentRefs {
 					// diverged branches on the mirror are only included in the response if they match
 					// one of the branches in the selector
 					divergentRefs = append(divergentRefs, []byte(localRef.Name))
