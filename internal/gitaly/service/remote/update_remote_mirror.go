@@ -10,6 +10,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/ref"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -134,6 +135,11 @@ func (s *server) goUpdateRemoteMirror(stream gitalypb.RemoteService_UpdateRemote
 		return errors.New("close stream to gitaly-ruby: rpc error: code = Unknown desc = NoMethodError: undefined method `id' for nil:NilClass")
 	}
 
+	defaultBranch, err := ref.DefaultBranchName(ctx, repo)
+	if err != nil {
+		return fmt.Errorf("get default branch: %w", err)
+	}
+
 	remoteRefs := make(map[git.ReferenceName]string, len(remoteRefsSlice))
 	for _, ref := range remoteRefsSlice {
 		remoteRefs[ref.Name] = ref.Target
@@ -202,6 +208,13 @@ func (s *server) goUpdateRemoteMirror(stream gitalypb.RemoteService_UpdateRemote
 			}
 
 			refspecs = append(refspecs, prefix+reference.String())
+			if reference == git.ReferenceName(defaultBranch) {
+				// The default branch needs to be pushed in the first batch of refspecs as some features
+				// depend on it existing in the repository. The default branch may not exist in the repo
+				// yet if this is the first mirroring push.
+				last := len(refspecs) - 1
+				refspecs[0], refspecs[last] = refspecs[last], refspecs[0]
+			}
 
 			// https://gitlab.com/gitlab-org/gitaly/-/issues/3504
 			name := strings.TrimPrefix(reference.String(), "refs/heads/")
