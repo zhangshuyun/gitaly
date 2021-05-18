@@ -1539,8 +1539,9 @@ func TestCoordinator_grpcErrorHandling(t *testing.T) {
 }
 
 type mockTransaction struct {
-	nodeStates      map[string]transactions.VoteResult
-	subtransactions int
+	nodeStates                 map[string]transactions.VoteResult
+	subtransactions            int
+	didCommitAnySubtransaction bool
 }
 
 func (t mockTransaction) ID() uint64 {
@@ -1549,6 +1550,10 @@ func (t mockTransaction) ID() uint64 {
 
 func (t mockTransaction) CountSubtransactions() int {
 	return t.subtransactions
+}
+
+func (t mockTransaction) DidCommitAnySubtransaction() bool {
+	return t.didCommitAnySubtransaction
 }
 
 func (t mockTransaction) State() (map[string]transactions.VoteResult, error) {
