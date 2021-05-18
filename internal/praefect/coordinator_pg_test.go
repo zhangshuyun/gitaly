@@ -59,7 +59,7 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 			},
 		},
 		{
-			desc: "failing vote should not create replication jobs",
+			desc: "failing vote should create replication jobs",
 			nodes: []node{
 				{primary: true, subtransactions: subtransactions{{vote: "foo", shouldSucceed: false}}, shouldGetRepl: false, shouldParticipate: true, expectedGeneration: 1},
 				{primary: false, subtransactions: subtransactions{{vote: "qux", shouldSucceed: false}}, shouldGetRepl: true, shouldParticipate: true, expectedGeneration: 0},
