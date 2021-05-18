@@ -8,6 +8,7 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/storage"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
@@ -18,6 +19,7 @@ type server struct {
 	locator       storage.Locator
 	gitCmdFactory git.CommandFactory
 	catfileCache  catfile.Cache
+	txManager     transaction.Manager
 
 	conns *client.Pool
 }
@@ -29,6 +31,7 @@ func NewServer(
 	locator storage.Locator,
 	gitCmdFactory git.CommandFactory,
 	catfileCache catfile.Cache,
+	txManager transaction.Manager,
 ) gitalypb.RemoteServiceServer {
 	return &server{
 		cfg:           cfg,
@@ -36,6 +39,7 @@ func NewServer(
 		locator:       locator,
 		gitCmdFactory: gitCmdFactory,
 		catfileCache:  catfileCache,
+		txManager:     txManager,
 		conns: client.NewPoolWithOptions(
 			client.WithDialer(client.HealthCheckDialer(client.DialContext)),
 			client.WithDialOptions(client.FailOnNonTempDialError()...),

@@ -474,6 +474,7 @@ func testSuccessfulUpdateRemoteMirrorRequestFeatured(t *testing.T, ctx context.C
 			deps.GetLocator(),
 			deps.GetGitCmdFactory(),
 			deps.GetCatfileCache(),
+			deps.GetTxManager(),
 		))
 	})
 
@@ -580,6 +581,7 @@ func testSuccessfulUpdateRemoteMirrorRequestWithWildcardsFeatured(t *testing.T, 
 			deps.GetLocator(),
 			deps.GetGitCmdFactory(),
 			deps.GetCatfileCache(),
+			deps.GetTxManager(),
 		))
 	})
 
@@ -670,6 +672,7 @@ func testSuccessfulUpdateRemoteMirrorRequestWithKeepDivergentRefsFeatured(t *tes
 			deps.GetLocator(),
 			deps.GetGitCmdFactory(),
 			deps.GetCatfileCache(),
+			deps.GetTxManager(),
 		))
 	})
 
@@ -762,6 +765,7 @@ func testFailedUpdateRemoteMirrorRequestDueToValidationFeatured(t *testing.T, ct
 			deps.GetLocator(),
 			deps.GetGitCmdFactory(),
 			deps.GetCatfileCache(),
+			deps.GetTxManager(),
 		))
 	})
 

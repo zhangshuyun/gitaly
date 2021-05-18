@@ -187,6 +187,7 @@ func TestSuccessfulFetchInternalRemote(t *testing.T) {
 			deps.GetLocator(),
 			deps.GetGitCmdFactory(),
 			deps.GetCatfileCache(),
+			deps.GetTxManager(),
 		))
 		gitalypb.RegisterHookServiceServer(srv, hook.NewServer(deps.GetCfg(), deps.GetHookManager(), deps.GetGitCmdFactory()))
 	}, testserver.WithHookManager(hookManager), testserver.WithDisablePraefect())

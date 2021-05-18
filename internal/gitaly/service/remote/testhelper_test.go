@@ -67,6 +67,7 @@ func setupRemoteServiceWithRuby(t *testing.T, cfg config.Cfg, rubySrv *rubyserve
 			deps.GetLocator(),
 			deps.GetGitCmdFactory(),
 			deps.GetCatfileCache(),
+			deps.GetTxManager(),
 		))
 	})
 	cfg.SocketPath = addr
