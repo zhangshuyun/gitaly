@@ -54,7 +54,11 @@ func (cmd *restoreSubcommand) Run(ctx context.Context, stdin io.Reader, stdout i
 			GlProjectPath: req.GlProjectPath,
 		}
 		repoLog.Info("started restore")
-		if err := fsBackup.Restore(ctx, req.ServerInfo, &repo, req.AlwaysCreate); err != nil {
+		if err := fsBackup.Restore(ctx, &backup.RestoreRequest{
+			Server:       req.ServerInfo,
+			Repository:   &repo,
+			AlwaysCreate: req.AlwaysCreate,
+		}); err != nil {
 			if errors.Is(err, backup.ErrSkipped) {
 				repoLog.WithError(err).Warn("skipped restore")
 			} else {

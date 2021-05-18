@@ -76,7 +76,10 @@ func TestFilesystem_Create(t *testing.T) {
 			defer cancel()
 
 			fsBackup := NewFilesystem(path)
-			err := fsBackup.Create(ctx, storage.ServerInfo{Address: gitalyAddr, Token: cfg.Auth.Token}, tc.repo)
+			err := fsBackup.Create(ctx, &CreateRequest{
+				Server:     storage.ServerInfo{Address: gitalyAddr, Token: cfg.Auth.Token},
+				Repository: tc.repo,
+			})
 			if tc.err == nil {
 				require.NoError(t, err)
 			} else {
@@ -175,7 +178,11 @@ func TestFilesystem_Restore(t *testing.T) {
 			defer cancel()
 
 			fsBackup := NewFilesystem(path)
-			err := fsBackup.Restore(ctx, storage.ServerInfo{Address: gitalyAddr, Token: cfg.Auth.Token}, tc.repo, tc.alwaysCreate)
+			err := fsBackup.Restore(ctx, &RestoreRequest{
+				Server:       storage.ServerInfo{Address: gitalyAddr, Token: cfg.Auth.Token},
+				Repository:   tc.repo,
+				AlwaysCreate: tc.alwaysCreate,
+			})
 			if tc.expectedErrAs != nil {
 				require.True(t, errors.Is(err, tc.expectedErrAs), err.Error())
 			} else {
