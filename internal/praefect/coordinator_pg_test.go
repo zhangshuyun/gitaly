@@ -47,8 +47,9 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 	}
 
 	testcases := []struct {
-		desc  string
-		nodes []node
+		desc         string
+		primaryFails bool
+		nodes        []node
 	}{
 		{
 			desc: "successful vote should not create replication jobs",
@@ -56,6 +57,15 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 				{primary: true, subtransactions: subtransactions{{vote: "foobar", shouldSucceed: true}}, shouldGetRepl: false, shouldParticipate: true, expectedGeneration: 1},
 				{primary: false, subtransactions: subtransactions{{vote: "foobar", shouldSucceed: true}}, shouldGetRepl: false, shouldParticipate: true, expectedGeneration: 1},
 				{primary: false, subtransactions: subtransactions{{vote: "foobar", shouldSucceed: true}}, shouldGetRepl: false, shouldParticipate: true, expectedGeneration: 1},
+			},
+		},
+		{
+			desc:         "successful vote should create replication jobs if the primary fails",
+			primaryFails: true,
+			nodes: []node{
+				{primary: true, subtransactions: subtransactions{{vote: "foobar", shouldSucceed: true}}, shouldGetRepl: false, shouldParticipate: true, expectedGeneration: 1},
+				{primary: false, subtransactions: subtransactions{{vote: "foobar", shouldSucceed: true}}, shouldGetRepl: true, shouldParticipate: true, expectedGeneration: 0},
+				{primary: false, subtransactions: subtransactions{{vote: "foobar", shouldSucceed: true}}, shouldGetRepl: true, shouldParticipate: true, expectedGeneration: 0},
 			},
 		},
 		{
@@ -237,6 +247,10 @@ func TestStreamDirectorMutator_Transaction(t *testing.T) {
 				}()
 			}
 			voterWaitGroup.Wait()
+
+			if tc.primaryFails {
+				streamParams.Primary().ErrHandler(errors.New("rpc failure"))
+			}
 
 			err = streamParams.RequestFinalizer()
 			require.NoError(t, err)
