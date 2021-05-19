@@ -263,26 +263,12 @@ func TestGarbageCollectDeletesFileLocks(t *testing.T) {
 
 	req := &gitalypb.GarbageCollectRequest{Repository: repo}
 
-	testCases := []struct {
-		fileName      string
-		shouldBlockGC bool
-	}{
-		{
-			fileName:      "config.lock",
-			shouldBlockGC: true,
-		},
-		{
-			fileName:      "HEAD.lock",
-			shouldBlockGC: false,
-		},
-		{
-			fileName:      "objects/info/commit-graphs/commit-graph-chain.lock",
-			shouldBlockGC: false,
-		},
-	}
-
-	for _, tc := range testCases {
-		lockPath := filepath.Join(repoPath, tc.fileName)
+	for _, tc := range []string{
+		"config.lock",
+		"HEAD.lock",
+		"objects/info/commit-graphs/commit-graph-chain.lock",
+	} {
+		lockPath := filepath.Join(repoPath, tc)
 		// No file on the lock path
 		_, err := client.GarbageCollect(ctx, req)
 		assert.NoError(t, err)
@@ -291,12 +277,7 @@ func TestGarbageCollectDeletesFileLocks(t *testing.T) {
 		mustCreateFileWithTimes(t, lockPath, freshTime)
 		_, err = client.GarbageCollect(ctx, req)
 
-		if tc.shouldBlockGC {
-			assert.Error(t, err)
-			testhelper.RequireGrpcError(t, err, codes.Internal)
-		} else {
-			assert.NoError(t, err)
-		}
+		assert.NoError(t, err)
 
 		assert.FileExists(t, lockPath)
 
