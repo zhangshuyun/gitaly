@@ -27,6 +27,8 @@ var (
 	FetchInternalRemoteErrors = FeatureFlag{Name: "fetch_internal_remote_errors", OnByDefault: false}
 	// TxConfig enables transactional voting for SetConfig and DeleteConfig RPCs.
 	TxConfig = FeatureFlag{Name: "tx_config", OnByDefault: false}
+	// TxRemote enables transactional voting for AddRemote and DeleteRemote.
+	TxRemote = FeatureFlag{Name: "tx_remote", OnByDefault: false}
 )
 
 // All includes all feature flags.
@@ -40,4 +42,5 @@ var All = []FeatureFlag{
 	GoUpdateRemoteMirror,
 	FetchInternalRemoteErrors,
 	TxConfig,
+	TxRemote,
 }
