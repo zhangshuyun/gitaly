@@ -33,13 +33,6 @@ const (
 	GitalyDataPrefix = "+gitaly"
 )
 
-var (
-	// Config stores the global configuration
-	// Deprecated: please do not use global variable and pass preconfigured Cfg as a parameter
-	// where it is needed.
-	Config Cfg
-)
-
 // DailyJob enables a daily task to be scheduled for specific storages
 type DailyJob struct {
 	Hour     uint     `toml:"start_hour"`

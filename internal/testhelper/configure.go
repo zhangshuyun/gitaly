@@ -36,39 +36,8 @@ func Configure() func() {
 			log.Fatal(err)
 		}
 
-		config.Config.Logging.Dir = filepath.Join(testDirectory, "log")
-		if err := os.Mkdir(config.Config.Logging.Dir, 0755); err != nil {
-			os.RemoveAll(testDirectory)
-			log.Fatal(err)
-		}
-
-		config.Config.Storages = []config.Storage{
-			{Name: "default", Path: GitlabTestStoragePath()},
-		}
-		if err := os.Mkdir(config.Config.Storages[0].Path, 0755); err != nil {
-			os.RemoveAll(testDirectory)
-			log.Fatal(err)
-		}
-
-		config.Config.SocketPath = "/bogus"
-		config.Config.GitlabShell.Dir = "/"
-
-		config.Config.InternalSocketDir = filepath.Join(testDirectory, "internal-socket")
-		if err := os.Mkdir(config.Config.InternalSocketDir, 0755); err != nil {
-			os.RemoveAll(testDirectory)
-			log.Fatal(err)
-		}
-
-		config.Config.BinDir = filepath.Join(testDirectory, "bin")
-		if err := os.Mkdir(config.Config.BinDir, 0755); err != nil {
-			os.RemoveAll(testDirectory)
-			log.Fatal(err)
-		}
-
 		for _, f := range []func() error{
-			func() error { return ConfigureRuby(&config.Config) },
 			ConfigureGit,
-			func() error { return config.Config.Validate() },
 		} {
 			if err := f(); err != nil {
 				os.RemoveAll(testDirectory)
