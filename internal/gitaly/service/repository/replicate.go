@@ -57,6 +57,7 @@ func (s *server) ReplicateRepository(ctx context.Context, in *gitalypb.Replicate
 	outgoingCtx := helper.IncomingToOutgoing(ctx)
 
 	syncFuncs := []func(context.Context, *gitalypb.ReplicateRepositoryRequest) error{
+		s.syncGitconfig,
 		s.syncInfoAttributes,
 		s.syncRepository,
 	}
@@ -209,6 +210,47 @@ func (s *server) syncRepository(ctx context.Context, in *gitalypb.ReplicateRepos
 	return nil
 }
 
+func (s *server) syncGitconfig(ctx context.Context, in *gitalypb.ReplicateRepositoryRequest) error {
+	repoClient, err := s.newRepoClient(ctx, in.GetSource().GetStorageName())
+	if err != nil {
+		return err
+	}
+
+	repoPath, err := s.locator.GetRepoPath(in.GetRepository())
+	if err != nil {
+		return err
+	}
+
+	// At the point of implementing this, the `GetConfig` RPC hasn't been deployed yet and is
+	// thus not available for general use. In theory, we'd have to wait for this release cycle
+	// to finish, and only afterwards would we be able to implement replication of the
+	// gitconfig. In order to allow us to iterate fast, we just try to call `GetConfig()`, but
+	// ignore any errors for the case where the target Gitaly node doesn't support the RPC yet.
+	// TODO: Remove this hack and properly return the error in the next release cycle.
+	if err := func() error {
+		stream, err := repoClient.GetConfig(ctx, &gitalypb.GetConfigRequest{
+			Repository: in.GetSource(),
+		})
+		if err != nil {
+			return err
+		}
+
+		configPath := filepath.Join(repoPath, "config")
+		if err := writeFile(configPath, 0644, streamio.NewReader(func() ([]byte, error) {
+			resp, err := stream.Recv()
+			return resp.GetData(), err
+		})); err != nil {
+			return err
+		}
+
+		return nil
+	}(); err != nil {
+		ctxlogrus.Extract(ctx).WithError(err).Warn("synchronizing gitconfig failed")
+	}
+
+	return nil
+}
+
 func (s *server) syncInfoAttributes(ctx context.Context, in *gitalypb.ReplicateRepositoryRequest) error {
 	repoClient, err := s.newRepoClient(ctx, in.GetSource().GetStorageName())
 	if err != nil {
@@ -220,19 +262,6 @@ func (s *server) syncInfoAttributes(ctx context.Context, in *gitalypb.ReplicateR
 		return err
 	}
 
-	infoPath := filepath.Join(repoPath, "info")
-	attributesPath := filepath.Join(infoPath, "attributes")
-
-	if err := os.MkdirAll(infoPath, 0755); err != nil {
-		return err
-	}
-
-	fw, err := safe.CreateFileWriter(attributesPath)
-	if err != nil {
-		return err
-	}
-	defer fw.Close()
-
 	stream, err := repoClient.GetInfoAttributes(ctx, &gitalypb.GetInfoAttributesRequest{
 		Repository: in.GetSource(),
 	})
@@ -240,10 +269,30 @@ func (s *server) syncInfoAttributes(ctx context.Context, in *gitalypb.ReplicateR
 		return err
 	}
 
-	if _, err := io.Copy(fw, streamio.NewReader(func() ([]byte, error) {
+	attributesPath := filepath.Join(repoPath, "info", "attributes")
+	if err := writeFile(attributesPath, attributesFileMode, streamio.NewReader(func() ([]byte, error) {
 		resp, err := stream.Recv()
 		return resp.GetAttributes(), err
 	})); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func writeFile(path string, mode os.FileMode, reader io.Reader) error {
+	parentDir := filepath.Dir(path)
+	if err := os.MkdirAll(parentDir, 0755); err != nil {
+		return err
+	}
+
+	fw, err := safe.CreateFileWriter(path)
+	if err != nil {
+		return err
+	}
+	defer fw.Close()
+
+	if _, err := io.Copy(fw, reader); err != nil {
 		return err
 	}
 
@@ -251,11 +300,11 @@ func (s *server) syncInfoAttributes(ctx context.Context, in *gitalypb.ReplicateR
 		return err
 	}
 
-	if err := os.Chmod(attributesPath, attributesFileMode); err != nil {
+	if err := os.Chmod(path, mode); err != nil {
 		return err
 	}
 
-	return os.Rename(attributesPath, attributesPath)
+	return nil
 }
 
 // newRemoteClient creates a new RemoteClient that talks to the same gitaly server

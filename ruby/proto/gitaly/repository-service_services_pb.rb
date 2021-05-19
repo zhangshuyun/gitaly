@@ -40,6 +40,9 @@ module Gitaly
       rpc :CreateRepositoryFromURL, Gitaly::CreateRepositoryFromURLRequest, Gitaly::CreateRepositoryFromURLResponse
       rpc :CreateBundle, Gitaly::CreateBundleRequest, stream(Gitaly::CreateBundleResponse)
       rpc :CreateRepositoryFromBundle, stream(Gitaly::CreateRepositoryFromBundleRequest), Gitaly::CreateRepositoryFromBundleResponse
+      # GetConfig reads the target repository's gitconfig and streams its contents
+      # back. Returns a NotFound error in case no gitconfig was found.
+      rpc :GetConfig, Gitaly::GetConfigRequest, stream(Gitaly::GetConfigResponse)
       rpc :SetConfig, Gitaly::SetConfigRequest, Gitaly::SetConfigResponse
       rpc :DeleteConfig, Gitaly::DeleteConfigRequest, Gitaly::DeleteConfigResponse
       rpc :FindLicense, Gitaly::FindLicenseRequest, Gitaly::FindLicenseResponse

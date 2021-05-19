@@ -3,6 +3,10 @@ package repository
 import (
 	"bufio"
 	"bytes"
+	"context"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -10,11 +14,69 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/txinfo"
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
+	"gitlab.com/gitlab-org/gitaly/streamio"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
+
+func TestGetConfig(t *testing.T) {
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
+
+	getConfig := func(
+		t *testing.T,
+		client gitalypb.RepositoryServiceClient,
+		repo *gitalypb.Repository,
+	) (string, error) {
+		ctx, cleanup := testhelper.Context()
+		defer cleanup()
+
+		stream, err := client.GetConfig(ctx, &gitalypb.GetConfigRequest{
+			Repository: repo,
+		})
+		require.NoError(t, err)
+
+		reader := streamio.NewReader(func() ([]byte, error) {
+			response, err := stream.Recv()
+			var bytes []byte
+			if response != nil {
+				bytes = response.Data
+			}
+			return bytes, err
+		})
+
+		contents, err := ioutil.ReadAll(reader)
+		return string(contents), err
+	}
+
+	t.Run("normal repo", func(t *testing.T) {
+		repo, _, cleanup := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
+		defer cleanup()
+
+		config, err := getConfig(t, client, repo)
+		require.NoError(t, err)
+		require.Equal(t, "[core]\n\trepositoryformatversion = 0\n\tfilemode = true\n\tbare = true\n", config)
+	})
+
+	t.Run("missing config", func(t *testing.T) {
+		repo, repoPath, cleanup := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
+		defer cleanup()
+
+		configPath := filepath.Join(repoPath, "config")
+		require.NoError(t, os.Remove(configPath))
+
+		config, err := getConfig(t, client, repo)
+		require.Equal(t, status.Errorf(codes.NotFound, "opening gitconfig: open %s: no such file or directory", configPath), err)
+		require.Equal(t, "", config)
+	})
+}
 
 func TestDeleteConfig(t *testing.T) {
 	cfg, client := setupRepositoryServiceWithoutRepo(t)
@@ -70,6 +132,47 @@ func TestDeleteConfig(t *testing.T) {
 			require.NoError(t, scanner.Err())
 		})
 	}
+}
+
+func TestDeleteConfigTransactional(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.TxConfig,
+	}).Run(t, func(t *testing.T, ctx context.Context) {
+		var votes []voting.Vote
+		txManager := transaction.MockManager{
+			VoteFn: func(_ context.Context, _ txinfo.Transaction, _ txinfo.PraefectServer, vote voting.Vote) error {
+				votes = append(votes, vote)
+				return nil
+			},
+		}
+
+		cfg, repo, repoPath, client := setupRepositoryService(t, testserver.WithTransactionManager(&txManager))
+
+		ctx, err := (&txinfo.PraefectServer{SocketPath: "i-dont-care"}).Inject(ctx)
+		require.NoError(t, err)
+		ctx, err = txinfo.InjectTransaction(ctx, 1, "node", true)
+		require.NoError(t, err)
+		ctx = helper.IncomingToOutgoing(ctx)
+
+		unmodifiedContents := testhelper.MustReadFile(t, filepath.Join(repoPath, "config"))
+		gittest.Exec(t, cfg, "-C", repoPath, "config", "delete.me", "now")
+		modifiedContents := testhelper.MustReadFile(t, filepath.Join(repoPath, "config"))
+
+		_, err = client.DeleteConfig(ctx, &gitalypb.DeleteConfigRequest{
+			Repository: repo,
+			Keys:       []string{"delete.me"},
+		})
+		require.NoError(t, err)
+
+		if featureflag.IsEnabled(ctx, featureflag.TxConfig) {
+			require.Equal(t, []voting.Vote{
+				voting.VoteFromData(modifiedContents),
+				voting.VoteFromData(unmodifiedContents),
+			}, votes)
+		} else {
+			require.Len(t, votes, 0)
+		}
+	})
 }
 
 func testSetConfig(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
@@ -129,4 +232,52 @@ func testSetConfig(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
 			}
 		})
 	}
+}
+
+func testSetConfigTransactional(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.TxConfig,
+	}).Run(t, func(t *testing.T, ctx context.Context) {
+		var votes []voting.Vote
+
+		txManager := transaction.MockManager{
+			VoteFn: func(_ context.Context, _ txinfo.Transaction, _ txinfo.PraefectServer, vote voting.Vote) error {
+				votes = append(votes, vote)
+				return nil
+			},
+		}
+
+		_, repo, repoPath, client := setupRepositoryServiceWithRuby(t, cfg, rubySrv, testserver.WithTransactionManager(&txManager))
+
+		ctx, err := (&txinfo.PraefectServer{SocketPath: "i-dont-care"}).Inject(ctx)
+		require.NoError(t, err)
+		ctx, err = txinfo.InjectTransaction(ctx, 1, "node", true)
+		require.NoError(t, err)
+		ctx = helper.IncomingToOutgoing(ctx)
+
+		unmodifiedContents := testhelper.MustReadFile(t, filepath.Join(repoPath, "config"))
+
+		_, err = client.SetConfig(ctx, &gitalypb.SetConfigRequest{
+			Repository: repo,
+			Entries: []*gitalypb.SetConfigRequest_Entry{
+				&gitalypb.SetConfigRequest_Entry{
+					Key: "set.me",
+					Value: &gitalypb.SetConfigRequest_Entry_ValueStr{
+						"something",
+					},
+				},
+			},
+		})
+		require.NoError(t, err)
+
+		if featureflag.IsEnabled(ctx, featureflag.TxConfig) {
+			modifiedContents := string(unmodifiedContents) + "[set]\n\tme = something\n"
+			require.Equal(t, []voting.Vote{
+				voting.VoteFromData(unmodifiedContents),
+				voting.VoteFromData([]byte(modifiedContents)),
+			}, votes)
+		} else {
+			require.Len(t, votes, 0)
+		}
+	})
 }

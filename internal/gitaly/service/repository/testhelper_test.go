@@ -59,6 +59,7 @@ func TestWithRubySidecar(t *testing.T) {
 	fs := []func(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server){
 		testCloneFromPoolHTTP,
 		testSetConfig,
+		testSetConfigTransactional,
 		testFetchRemoteFailure,
 		testFetchRemoteOverHTTP,
 		testSuccessfulFindLicenseRequest,
@@ -92,8 +93,8 @@ func newMuxedRepositoryClient(t *testing.T, ctx context.Context, cfg config.Cfg,
 	return gitalypb.NewRepositoryServiceClient(conn)
 }
 
-func setupRepositoryServiceWithRuby(t testing.TB, cfg config.Cfg, rubySrv *rubyserver.Server) (config.Cfg, *gitalypb.Repository, string, gitalypb.RepositoryServiceClient) {
-	client, serverSocketPath := runRepositoryService(t, cfg, rubySrv)
+func setupRepositoryServiceWithRuby(t testing.TB, cfg config.Cfg, rubySrv *rubyserver.Server, opts ...testserver.GitalyServerOpt) (config.Cfg, *gitalypb.Repository, string, gitalypb.RepositoryServiceClient) {
+	client, serverSocketPath := runRepositoryService(t, cfg, rubySrv, opts...)
 	cfg.SocketPath = serverSocketPath
 
 	repo, repoPath, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name())

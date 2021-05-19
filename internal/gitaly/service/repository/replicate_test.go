@@ -47,6 +47,11 @@ func TestReplicateRepository(t *testing.T) {
 	attrData := []byte("*.pbxproj binary\n")
 	require.NoError(t, ioutil.WriteFile(attrFilePath, attrData, 0644))
 
+	// Write a modified gitconfig
+	gittest.Exec(t, cfg, "-C", repoPath, "config", "please.replicate", "me")
+	configData := testhelper.MustReadFile(t, filepath.Join(repoPath, "config"))
+	require.Contains(t, string(configData), "[please]\n\treplicate = me\n")
+
 	targetRepo := *repo
 	targetRepo.StorageName = cfg.Storages[1].Name
 
@@ -67,6 +72,10 @@ func TestReplicateRepository(t *testing.T) {
 	replicatedAttrFilePath := filepath.Join(targetRepoPath, "info", "attributes")
 	replicatedAttrData := testhelper.MustReadFile(t, replicatedAttrFilePath)
 	require.Equal(t, string(attrData), string(replicatedAttrData), "info/attributes files must match")
+
+	replicatedConfigPath := filepath.Join(targetRepoPath, "config")
+	replicatedConfigData := testhelper.MustReadFile(t, replicatedConfigPath)
+	require.Equal(t, string(configData), string(replicatedConfigData), "config files must match")
 
 	// create another branch
 	gittest.WriteCommit(t, cfg, repoPath, gittest.WithBranch("branch"))

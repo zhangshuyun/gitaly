@@ -12,6 +12,8 @@ import (
 
 // Exec runs a git command and returns the standard output, or fails.
 func Exec(t testing.TB, cfg config.Cfg, args ...string) []byte {
+	t.Helper()
+
 	return run(t, nil, cfg, args...)
 }
 
