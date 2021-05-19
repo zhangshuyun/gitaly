@@ -220,19 +220,6 @@ func (s *server) syncInfoAttributes(ctx context.Context, in *gitalypb.ReplicateR
 		return err
 	}
 
-	infoPath := filepath.Join(repoPath, "info")
-	attributesPath := filepath.Join(infoPath, "attributes")
-
-	if err := os.MkdirAll(infoPath, 0755); err != nil {
-		return err
-	}
-
-	fw, err := safe.CreateFileWriter(attributesPath)
-	if err != nil {
-		return err
-	}
-	defer fw.Close()
-
 	stream, err := repoClient.GetInfoAttributes(ctx, &gitalypb.GetInfoAttributesRequest{
 		Repository: in.GetSource(),
 	})
@@ -240,10 +227,30 @@ func (s *server) syncInfoAttributes(ctx context.Context, in *gitalypb.ReplicateR
 		return err
 	}
 
-	if _, err := io.Copy(fw, streamio.NewReader(func() ([]byte, error) {
+	attributesPath := filepath.Join(repoPath, "info", "attributes")
+	if err := writeFile(attributesPath, attributesFileMode, streamio.NewReader(func() ([]byte, error) {
 		resp, err := stream.Recv()
 		return resp.GetAttributes(), err
 	})); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func writeFile(path string, mode os.FileMode, reader io.Reader) error {
+	parentDir := filepath.Dir(path)
+	if err := os.MkdirAll(parentDir, 0755); err != nil {
+		return err
+	}
+
+	fw, err := safe.CreateFileWriter(path)
+	if err != nil {
+		return err
+	}
+	defer fw.Close()
+
+	if _, err := io.Copy(fw, reader); err != nil {
 		return err
 	}
 
@@ -251,7 +258,7 @@ func (s *server) syncInfoAttributes(ctx context.Context, in *gitalypb.ReplicateR
 		return err
 	}
 
-	if err := os.Chmod(attributesPath, attributesFileMode); err != nil {
+	if err := os.Chmod(path, mode); err != nil {
 		return err
 	}
 
