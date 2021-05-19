@@ -3,6 +3,9 @@ package repository
 import (
 	"bufio"
 	"bytes"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -12,9 +15,61 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
+	"gitlab.com/gitlab-org/gitaly/streamio"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
+
+func TestGetConfig(t *testing.T) {
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
+
+	getConfig := func(
+		t *testing.T,
+		client gitalypb.RepositoryServiceClient,
+		repo *gitalypb.Repository,
+	) (string, error) {
+		ctx, cleanup := testhelper.Context()
+		defer cleanup()
+
+		stream, err := client.GetConfig(ctx, &gitalypb.GetConfigRequest{
+			Repository: repo,
+		})
+		require.NoError(t, err)
+
+		reader := streamio.NewReader(func() ([]byte, error) {
+			response, err := stream.Recv()
+			var bytes []byte
+			if response != nil {
+				bytes = response.Data
+			}
+			return bytes, err
+		})
+
+		contents, err := ioutil.ReadAll(reader)
+		return string(contents), err
+	}
+
+	t.Run("normal repo", func(t *testing.T) {
+		repo, _, cleanup := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
+		defer cleanup()
+
+		config, err := getConfig(t, client, repo)
+		require.NoError(t, err)
+		require.Equal(t, "[core]\n\trepositoryformatversion = 0\n\tfilemode = true\n\tbare = true\n", config)
+	})
+
+	t.Run("missing config", func(t *testing.T) {
+		repo, repoPath, cleanup := gittest.InitBareRepoAt(t, cfg, cfg.Storages[0])
+		defer cleanup()
+
+		configPath := filepath.Join(repoPath, "config")
+		require.NoError(t, os.Remove(configPath))
+
+		config, err := getConfig(t, client, repo)
+		require.Equal(t, status.Errorf(codes.NotFound, "opening gitconfig: open %s: no such file or directory", configPath), err)
+		require.Equal(t, "", config)
+	})
+}
 
 func TestDeleteConfig(t *testing.T) {
 	cfg, client := setupRepositoryServiceWithoutRepo(t)

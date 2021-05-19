@@ -125,16 +125,27 @@ service RepositoryService {
       op: MUTATOR
     };
   }
+
+  // GetConfig reads the target repository's gitconfig and streams its contents
+  // back. Returns a NotFound error in case no gitconfig was found.
+  rpc GetConfig(GetConfigRequest) returns (stream GetConfigResponse) {
+    option (op_type) = {
+      op: ACCESSOR
+    };
+  }
+
   rpc SetConfig(SetConfigRequest) returns (SetConfigResponse) {
     option (op_type) = {
       op: MUTATOR
     };
   }
+
   rpc DeleteConfig(DeleteConfigRequest) returns (DeleteConfigResponse) {
     option (op_type) = {
       op: MUTATOR
     };
   }
+
   rpc FindLicense(FindLicenseRequest) returns (FindLicenseResponse) {
     option (op_type) = {
       op: ACCESSOR
@@ -477,6 +488,19 @@ message CreateBundleRequest {
 }
 
 message CreateBundleResponse {
+  bytes data = 1;
+}
+
+// GetConfigRequest is a request for the GetConfig RPC.
+message GetConfigRequest {
+  // Repository is the repository from which the configuration should be read
+  // from.
+  Repository repository = 1 [(target_repository)=true];
+}
+
+// GetConfigResponse is a response for the GetConfig RPC.
+message GetConfigResponse {
+  // Data contains contents of the gitconfig.
   bytes data = 1;
 }
 

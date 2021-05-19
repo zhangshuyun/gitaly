@@ -170,6 +170,12 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
     add_message "gitaly.CreateBundleResponse" do
       optional :data, :bytes, 1
     end
+    add_message "gitaly.GetConfigRequest" do
+      optional :repository, :message, 1, "gitaly.Repository"
+    end
+    add_message "gitaly.GetConfigResponse" do
+      optional :data, :bytes, 1
+    end
     add_message "gitaly.SetConfigRequest" do
       optional :repository, :message, 1, "gitaly.Repository"
       repeated :entries, :message, 2, "gitaly.SetConfigRequest.Entry"
@@ -385,6 +391,8 @@ module Gitaly
   CreateRepositoryFromURLResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.CreateRepositoryFromURLResponse").msgclass
   CreateBundleRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.CreateBundleRequest").msgclass
   CreateBundleResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.CreateBundleResponse").msgclass
+  GetConfigRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.GetConfigRequest").msgclass
+  GetConfigResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.GetConfigResponse").msgclass
   SetConfigRequest = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.SetConfigRequest").msgclass
   SetConfigRequest::Entry = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.SetConfigRequest.Entry").msgclass
   SetConfigResponse = ::Google::Protobuf::DescriptorPool.generated_pool.lookup("gitaly.SetConfigResponse").msgclass
