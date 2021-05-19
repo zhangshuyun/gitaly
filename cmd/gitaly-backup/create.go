@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"runtime"
 
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/internal/backup"
@@ -22,15 +23,22 @@ type serverRepository struct {
 
 type createSubcommand struct {
 	backupPath string
+	parallel   int
 }
 
 func (cmd *createSubcommand) Flags(fs *flag.FlagSet) {
 	fs.StringVar(&cmd.backupPath, "path", "", "repository backup path")
+	fs.IntVar(&cmd.parallel, "parallel", runtime.NumCPU(), "maximum number of parallel backups")
 }
 
 func (cmd *createSubcommand) Run(ctx context.Context, stdin io.Reader, stdout io.Writer) error {
 	fsBackup := backup.NewFilesystem(cmd.backupPath)
-	pipeline := backup.NewPipeline(log.StandardLogger(), fsBackup)
+
+	var pipeline backup.CreatePipeline
+	pipeline = backup.NewPipeline(log.StandardLogger(), fsBackup)
+	if cmd.parallel > 0 {
+		pipeline = backup.NewParallelCreatePipeline(pipeline, cmd.parallel)
+	}
 
 	decoder := json.NewDecoder(stdin)
 	for {

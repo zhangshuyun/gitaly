@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"sync/atomic"
 
 	"github.com/sirupsen/logrus"
@@ -14,6 +15,12 @@ import (
 type Strategy interface {
 	Create(context.Context, *CreateRequest) error
 	Restore(context.Context, *RestoreRequest) error
+}
+
+// CreatePipeline is a pipeline that only handles creating backups
+type CreatePipeline interface {
+	Create(context.Context, *CreateRequest)
+	Done() error
 }
 
 // Pipeline handles a series of requests to create/restore backups. Pipeline
@@ -82,4 +89,79 @@ func (p *Pipeline) repoLogger(repo *gitalypb.Repository) logrus.FieldLogger {
 		"relative_path":   repo.RelativePath,
 		"gl_project_path": repo.GlProjectPath,
 	})
+}
+
+// ParallelCreatePipeline is a pipeline that creates backups in parallel
+type ParallelCreatePipeline struct {
+	next CreatePipeline
+	n    int
+
+	workersOnce sync.Once
+	wg          sync.WaitGroup
+	done        chan struct{}
+	requests    chan *CreateRequest
+
+	mu  sync.Mutex
+	err error
+}
+
+// NewParallelCreatePipeline creates a new ParallelCreatePipeline where `next`
+// is the pipeline called to create the backups and `n` is the number of
+// parallel backups that will run.
+func NewParallelCreatePipeline(next CreatePipeline, n int) *ParallelCreatePipeline {
+	return &ParallelCreatePipeline{
+		next:     next,
+		n:        n,
+		done:     make(chan struct{}),
+		requests: make(chan *CreateRequest),
+	}
+}
+
+// Create queues a call to `next.Create` which will be run in parallel
+func (p *ParallelCreatePipeline) Create(ctx context.Context, req *CreateRequest) {
+	p.workersOnce.Do(p.startWorkers)
+
+	select {
+	case <-ctx.Done():
+		p.setErr(ctx.Err())
+	case p.requests <- req:
+	}
+}
+
+// Done waits for any in progress calls to `Create` to complete then reports any accumulated errors
+func (p *ParallelCreatePipeline) Done() error {
+	close(p.done)
+	p.wg.Wait()
+	if err := p.next.Done(); err != nil {
+		return err
+	}
+	return p.err
+}
+
+func (p *ParallelCreatePipeline) startWorkers() {
+	for i := 0; i < p.n; i++ {
+		p.wg.Add(1)
+		go p.worker()
+	}
+}
+
+func (p *ParallelCreatePipeline) worker() {
+	defer p.wg.Done()
+	for {
+		select {
+		case <-p.done:
+			return
+		case req := <-p.requests:
+			p.next.Create(context.TODO(), req)
+		}
+	}
+}
+
+func (p *ParallelCreatePipeline) setErr(err error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.err != nil {
+		return
+	}
+	p.err = err
 }
