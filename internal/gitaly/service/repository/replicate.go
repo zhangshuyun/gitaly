@@ -255,7 +255,7 @@ func (s *server) syncInfoAttributes(ctx context.Context, in *gitalypb.ReplicateR
 		return err
 	}
 
-	return os.Rename(attributesPath, attributesPath)
+	return nil
 }
 
 // newRemoteClient creates a new RemoteClient that talks to the same gitaly server
