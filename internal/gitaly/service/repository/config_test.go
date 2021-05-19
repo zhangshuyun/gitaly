@@ -3,6 +3,7 @@ package repository
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -13,7 +14,13 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
+	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/txinfo"
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"gitlab.com/gitlab-org/gitaly/streamio"
 	"google.golang.org/grpc/codes"
@@ -127,6 +134,47 @@ func TestDeleteConfig(t *testing.T) {
 	}
 }
 
+func TestDeleteConfigTransactional(t *testing.T) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.TxConfig,
+	}).Run(t, func(t *testing.T, ctx context.Context) {
+		var votes []voting.Vote
+		txManager := transaction.MockManager{
+			VoteFn: func(_ context.Context, _ txinfo.Transaction, _ txinfo.PraefectServer, vote voting.Vote) error {
+				votes = append(votes, vote)
+				return nil
+			},
+		}
+
+		cfg, repo, repoPath, client := setupRepositoryService(t, testserver.WithTransactionManager(&txManager))
+
+		ctx, err := (&txinfo.PraefectServer{SocketPath: "i-dont-care"}).Inject(ctx)
+		require.NoError(t, err)
+		ctx, err = txinfo.InjectTransaction(ctx, 1, "node", true)
+		require.NoError(t, err)
+		ctx = helper.IncomingToOutgoing(ctx)
+
+		unmodifiedContents := testhelper.MustReadFile(t, filepath.Join(repoPath, "config"))
+		gittest.Exec(t, cfg, "-C", repoPath, "config", "delete.me", "now")
+		modifiedContents := testhelper.MustReadFile(t, filepath.Join(repoPath, "config"))
+
+		_, err = client.DeleteConfig(ctx, &gitalypb.DeleteConfigRequest{
+			Repository: repo,
+			Keys:       []string{"delete.me"},
+		})
+		require.NoError(t, err)
+
+		if featureflag.IsEnabled(ctx, featureflag.TxConfig) {
+			require.Equal(t, []voting.Vote{
+				voting.VoteFromData(modifiedContents),
+				voting.VoteFromData(unmodifiedContents),
+			}, votes)
+		} else {
+			require.Len(t, votes, 0)
+		}
+	})
+}
+
 func testSetConfig(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
 	cfg, _, _, client := setupRepositoryServiceWithRuby(t, cfg, rubySrv)
 
@@ -184,4 +232,52 @@ func testSetConfig(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
 			}
 		})
 	}
+}
+
+func testSetConfigTransactional(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
+	testhelper.NewFeatureSets([]featureflag.FeatureFlag{
+		featureflag.TxConfig,
+	}).Run(t, func(t *testing.T, ctx context.Context) {
+		var votes []voting.Vote
+
+		txManager := transaction.MockManager{
+			VoteFn: func(_ context.Context, _ txinfo.Transaction, _ txinfo.PraefectServer, vote voting.Vote) error {
+				votes = append(votes, vote)
+				return nil
+			},
+		}
+
+		_, repo, repoPath, client := setupRepositoryServiceWithRuby(t, cfg, rubySrv, testserver.WithTransactionManager(&txManager))
+
+		ctx, err := (&txinfo.PraefectServer{SocketPath: "i-dont-care"}).Inject(ctx)
+		require.NoError(t, err)
+		ctx, err = txinfo.InjectTransaction(ctx, 1, "node", true)
+		require.NoError(t, err)
+		ctx = helper.IncomingToOutgoing(ctx)
+
+		unmodifiedContents := testhelper.MustReadFile(t, filepath.Join(repoPath, "config"))
+
+		_, err = client.SetConfig(ctx, &gitalypb.SetConfigRequest{
+			Repository: repo,
+			Entries: []*gitalypb.SetConfigRequest_Entry{
+				&gitalypb.SetConfigRequest_Entry{
+					Key: "set.me",
+					Value: &gitalypb.SetConfigRequest_Entry_ValueStr{
+						"something",
+					},
+				},
+			},
+		})
+		require.NoError(t, err)
+
+		if featureflag.IsEnabled(ctx, featureflag.TxConfig) {
+			modifiedContents := string(unmodifiedContents) + "[set]\n\tme = something\n"
+			require.Equal(t, []voting.Vote{
+				voting.VoteFromData(unmodifiedContents),
+				voting.VoteFromData([]byte(modifiedContents)),
+			}, votes)
+		} else {
+			require.Len(t, votes, 0)
+		}
+	})
 }

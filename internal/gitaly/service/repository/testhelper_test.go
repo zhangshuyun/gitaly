@@ -59,6 +59,7 @@ func TestWithRubySidecar(t *testing.T) {
 	fs := []func(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server){
 		testCloneFromPoolHTTP,
 		testSetConfig,
+		testSetConfigTransactional,
 		testFetchRemoteFailure,
 		testFetchRemoteOverHTTP,
 		testSuccessfulFindLicenseRequest,

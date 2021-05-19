@@ -25,6 +25,8 @@ var (
 	GrpcTreeEntryNotFound = FeatureFlag{Name: "grpc_tree_entry_not_found", OnByDefault: false}
 	// FetchInternalRemoteErrors makes FetchInternalRemote return actual errors instead of a boolean
 	FetchInternalRemoteErrors = FeatureFlag{Name: "fetch_internal_remote_errors", OnByDefault: false}
+	// TxConfig enables transactional voting for SetConfig and DeleteConfig RPCs.
+	TxConfig = FeatureFlag{Name: "tx_config", OnByDefault: false}
 )
 
 // All includes all feature flags.
@@ -37,4 +39,5 @@ var All = []FeatureFlag{
 	GrpcTreeEntryNotFound,
 	GoUpdateRemoteMirror,
 	FetchInternalRemoteErrors,
+	TxConfig,
 }
