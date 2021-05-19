@@ -14,7 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
-	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testserver"
@@ -29,7 +28,7 @@ var (
 )
 
 func TestGarbageCollectCommitGraph(t *testing.T) {
-	cfg, repo, repoPath, client := setupRepositoryService(t)
+	_, repo, repoPath, client := setupRepositoryService(t)
 
 	ctx, cancel := testhelper.Context()
 	defer cancel()
@@ -38,20 +37,8 @@ func TestGarbageCollectCommitGraph(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, c)
 
-	assert.FileExistsf(t,
-		filepath.Join(repoPath, "objects/info/commit-graph"),
-		"pre-computed commit-graph should exist after running garbage collect",
-	)
-
-	repoCfgPath := filepath.Join(repoPath, "config")
-
-	cfgF, err := os.Open(repoCfgPath)
-	require.NoError(t, err)
-	defer cfgF.Close()
-
-	cfgCmd, err := localrepo.NewTestRepo(t, cfg, repo).Config().GetRegexp(ctx, "core.commitgraph", git.ConfigGetRegexpOpts{})
-	require.NoError(t, err)
-	require.Equal(t, []git.ConfigPair{{Key: "core.commitgraph", Value: "true"}}, cfgCmd)
+	chainPath := filepath.Join(repoPath, CommitGraphChainRelPath)
+	require.FileExists(t, chainPath, "pre-computed commit-graph should exist after running garbage collect")
 }
 
 func TestGarbageCollectSuccess(t *testing.T) {

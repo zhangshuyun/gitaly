@@ -2,42 +2,63 @@ package repository
 
 import (
 	"context"
-	"fmt"
 
 	"gitlab.com/gitlab-org/gitaly/internal/git"
+	"gitlab.com/gitlab-org/gitaly/internal/git/repository"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
 const (
-	CommitGraphRelPath = "objects/info/commit-graph"
+	CommitGraphRelPath      = "objects/info/commit-graph"
+	CommitGraphsRelPath     = "objects/info/commit-graphs"
+	CommitGraphChainRelPath = CommitGraphsRelPath + "/commit-graph-chain"
 )
 
 // WriteCommitGraph write or update commit-graph file in a repository
-func (s *server) WriteCommitGraph(ctx context.Context, in *gitalypb.WriteCommitGraphRequest) (*gitalypb.WriteCommitGraphResponse, error) {
-	if err := s.writeCommitGraph(ctx, in); err != nil {
-		return nil, helper.ErrInternal(fmt.Errorf("WriteCommitGraph: gitCommand: %v", err))
+func (s *server) WriteCommitGraph(
+	ctx context.Context,
+	in *gitalypb.WriteCommitGraphRequest,
+) (*gitalypb.WriteCommitGraphResponse, error) {
+	if err := s.writeCommitGraph(ctx, in.GetRepository(), in.GetSplitStrategy()); err != nil {
+		return nil, err
 	}
 
 	return &gitalypb.WriteCommitGraphResponse{}, nil
 }
 
-func (s *server) writeCommitGraph(ctx context.Context, in *gitalypb.WriteCommitGraphRequest) error {
-	cmd, err := s.gitCmdFactory.New(ctx, in.GetRepository(),
+func (s *server) writeCommitGraph(
+	ctx context.Context,
+	repo repository.GitRepo,
+	splitStrategy gitalypb.WriteCommitGraphRequest_SplitStrategy,
+) error {
+	flags := []git.Option{
+		git.Flag{Name: "--reachable"},
+	}
+
+	switch splitStrategy {
+	case gitalypb.WriteCommitGraphRequest_SizeMultiple:
+		flags = append(flags,
+			git.Flag{Name: "--split"},
+			git.ValueFlag{Name: "--size-multiple", Value: "4"},
+		)
+	default:
+		return helper.ErrInvalidArgumentf("unsupported split strategy: %v", splitStrategy)
+	}
+
+	cmd, err := s.gitCmdFactory.New(ctx, repo,
 		git.SubSubCmd{
 			Name:   "commit-graph",
 			Action: "write",
-			Flags: []git.Option{
-				git.Flag{Name: "--reachable"},
-			},
+			Flags:  flags,
 		},
 	)
 	if err != nil {
-		return err
+		return helper.ErrInternal(err)
 	}
 
 	if err := cmd.Wait(); err != nil {
-		return err
+		return helper.ErrInternal(err)
 	}
 
 	return nil

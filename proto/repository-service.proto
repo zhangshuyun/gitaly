@@ -271,7 +271,15 @@ message GarbageCollectRequest {
 message GarbageCollectResponse {}
 
 message WriteCommitGraphRequest {
+  enum SplitStrategy {
+    // SizeMultiple requires to use '--split --size-multiple=4' strategy to create/update commit graph.
+    // https://git-scm.com/docs/git-commit-graph#Documentation/git-commit-graph.txt-emwriteem
+    // It is a default, there is no need to explicitly set it in the request.
+    SizeMultiple = 0;
+  }
   Repository repository = 1 [(target_repository)=true];
+  // SplitStrategy is a strategy used to create/update commit graph.
+  SplitStrategy splitStrategy = 2;
 }
 
 message WriteCommitGraphResponse {}
