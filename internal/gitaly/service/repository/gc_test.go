@@ -189,6 +189,181 @@ func TestGarbageCollectDeletesRefsLocks(t *testing.T) {
 	require.NoFileExists(t, deleteLockPath)
 }
 
+func TestGarbageCollectDeletesPackedRefsLock(t *testing.T) {
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
+
+	testCases := []struct {
+		desc        string
+		lockTime    *time.Time
+		shouldExist bool
+	}{
+		{
+			desc:        "with a recent lock",
+			lockTime:    &freshTime,
+			shouldExist: true,
+		},
+		{
+			desc:        "with an old lock",
+			lockTime:    &oldTime,
+			shouldExist: false,
+		},
+		{
+			desc:        "with a non-existing lock",
+			lockTime:    nil,
+			shouldExist: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			repo, repoPath, cleanupFn := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name())
+			t.Cleanup(cleanupFn)
+
+			// Force the packed-refs file to have an old time to test that even
+			// in that case it doesn't get deleted
+			packedRefsPath := filepath.Join(repoPath, "packed-refs")
+			require.NoError(t, os.Chtimes(packedRefsPath, oldTime, oldTime))
+
+			req := &gitalypb.GarbageCollectRequest{Repository: repo}
+			lockPath := filepath.Join(repoPath, "packed-refs.lock")
+
+			if tc.lockTime != nil {
+				mustCreateFileWithTimes(t, lockPath, *tc.lockTime)
+			}
+
+			ctx, cancel := testhelper.Context()
+			defer cancel()
+
+			c, err := client.GarbageCollect(ctx, req)
+
+			// Sanity checks
+			assert.FileExists(t, filepath.Join(repoPath, "HEAD")) // For good measure
+			assert.FileExists(t, packedRefsPath)
+
+			if tc.shouldExist {
+				assert.Error(t, err)
+				testhelper.RequireGrpcError(t, err, codes.Internal)
+
+				require.FileExists(t, lockPath)
+			} else {
+				assert.NoError(t, err)
+				assert.NotNil(t, c)
+
+				require.NoFileExists(t, lockPath)
+			}
+		})
+	}
+}
+
+func TestGarbageCollectDeletesFileLocks(t *testing.T) {
+	_, repo, repoPath, client := setupRepositoryService(t)
+
+	ctx, cancel := testhelper.Context()
+	defer cancel()
+
+	req := &gitalypb.GarbageCollectRequest{Repository: repo}
+
+	testCases := []struct {
+		fileName      string
+		shouldBlockGC bool
+	}{
+		{
+			fileName:      "config.lock",
+			shouldBlockGC: true,
+		},
+		{
+			fileName:      "HEAD.lock",
+			shouldBlockGC: false,
+		},
+		{
+			fileName:      "objects/info/commit-graphs/commit-graph-chain.lock",
+			shouldBlockGC: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		lockPath := filepath.Join(repoPath, tc.fileName)
+		// No file on the lock path
+		_, err := client.GarbageCollect(ctx, req)
+		assert.NoError(t, err)
+
+		// Fresh lock should remain
+		mustCreateFileWithTimes(t, lockPath, freshTime)
+		_, err = client.GarbageCollect(ctx, req)
+
+		if tc.shouldBlockGC {
+			assert.Error(t, err)
+			testhelper.RequireGrpcError(t, err, codes.Internal)
+		} else {
+			assert.NoError(t, err)
+		}
+
+		assert.FileExists(t, lockPath)
+
+		// Old lock should be removed
+		mustCreateFileWithTimes(t, lockPath, oldTime)
+		_, err = client.GarbageCollect(ctx, req)
+		assert.NoError(t, err)
+		require.NoFileExists(t, lockPath)
+	}
+}
+
+func TestGarbageCollectDeletesPackedRefsNew(t *testing.T) {
+	cfg, client := setupRepositoryServiceWithoutRepo(t)
+
+	testCases := []struct {
+		desc        string
+		lockTime    *time.Time
+		shouldExist bool
+	}{
+		{
+			desc:        "created recently",
+			lockTime:    &freshTime,
+			shouldExist: true,
+		},
+		{
+			desc:        "exists for too long",
+			lockTime:    &oldTime,
+			shouldExist: false,
+		},
+		{
+			desc:        "nothing to clean up",
+			shouldExist: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			repo, repoPath, cleanupFn := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name())
+			t.Cleanup(cleanupFn)
+
+			req := &gitalypb.GarbageCollectRequest{Repository: repo}
+			packedRefsNewPath := filepath.Join(repoPath, "packed-refs.new")
+
+			if tc.lockTime != nil {
+				mustCreateFileWithTimes(t, packedRefsNewPath, *tc.lockTime)
+			}
+
+			ctx, cancel := testhelper.Context()
+			defer cancel()
+
+			c, err := client.GarbageCollect(ctx, req)
+
+			if tc.shouldExist {
+				require.Error(t, err)
+				testhelper.RequireGrpcError(t, err, codes.Internal)
+
+				require.FileExists(t, packedRefsNewPath)
+			} else {
+				require.NotNil(t, c)
+				require.NoError(t, err)
+
+				require.NoFileExists(t, packedRefsNewPath)
+			}
+		})
+	}
+}
+
 func TestGarbageCollectFailure(t *testing.T) {
 	_, repo, _, client := setupRepositoryService(t)
 

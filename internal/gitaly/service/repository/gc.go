@@ -36,17 +36,17 @@ func (s *server) GarbageCollect(ctx context.Context, in *gitalypb.GarbageCollect
 		return nil, err
 	}
 
+	// Perform housekeeping to cleanup stale lockfiles that may block GC
+	if err := housekeeping.Perform(ctx, repo); err != nil {
+		ctxlogger.WithError(err).Warn("Pre gc housekeeping failed")
+	}
+
 	if err := s.gc(ctx, in); err != nil {
 		return nil, err
 	}
 
 	if err := s.writeCommitGraph(ctx, repo, gitalypb.WriteCommitGraphRequest_SizeMultiple); err != nil {
 		return nil, err
-	}
-
-	// Perform housekeeping post GC
-	if err := housekeeping.Perform(ctx, repo); err != nil {
-		ctxlogger.WithError(err).Warn("Post gc housekeeping failed")
 	}
 
 	stats.LogObjectsInfo(ctx, s.gitCmdFactory, repo)
