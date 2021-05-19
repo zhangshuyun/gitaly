@@ -179,7 +179,7 @@ func run(cfg config.Cfg) error {
 		return fmt.Errorf("disk cache walkers: %w", err)
 	}
 
-	gitalyServerFactory := server.NewGitalyServerFactory(cfg, registry, diskCache)
+	gitalyServerFactory := server.NewGitalyServerFactory(cfg, glog.Default(), registry, diskCache)
 	defer gitalyServerFactory.Stop()
 
 	ling, err := linguist.New(cfg)
