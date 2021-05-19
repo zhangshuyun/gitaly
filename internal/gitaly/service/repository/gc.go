@@ -40,13 +40,7 @@ func (s *server) GarbageCollect(ctx context.Context, in *gitalypb.GarbageCollect
 		return nil, err
 	}
 
-	if err := s.configureCommitGraph(ctx, in); err != nil {
-		return nil, err
-	}
-
-	if err := s.writeCommitGraph(ctx, &gitalypb.WriteCommitGraphRequest{
-		Repository: in.GetRepository(),
-	}); err != nil {
+	if err := s.writeCommitGraph(ctx, repo, gitalypb.WriteCommitGraphRequest_SizeMultiple); err != nil {
 		return nil, err
 	}
 
@@ -61,7 +55,7 @@ func (s *server) GarbageCollect(ctx context.Context, in *gitalypb.GarbageCollect
 }
 
 func (s *server) gc(ctx context.Context, in *gitalypb.GarbageCollectRequest) error {
-	config := repackConfig(ctx, in.CreateBitmap)
+	config := append(repackConfig(ctx, in.CreateBitmap), git.ConfigPair{Key: "gc.writeCommitGraph", Value: "false"})
 
 	var flags []git.Option
 	if in.Prune {
@@ -86,28 +80,6 @@ func (s *server) gc(ctx context.Context, in *gitalypb.GarbageCollectRequest) err
 
 	if err := cmd.Wait(); err != nil {
 		return helper.ErrInternal(fmt.Errorf("GarbageCollect: cmd wait: %v", err))
-	}
-
-	return nil
-}
-
-func (s *server) configureCommitGraph(ctx context.Context, in *gitalypb.GarbageCollectRequest) error {
-	cmd, err := s.gitCmdFactory.New(ctx, in.GetRepository(), git.SubCmd{
-		Name: "config",
-		Flags: []git.Option{
-			git.ConfigPair{Key: "core.commitGraph", Value: "true"},
-		},
-	})
-	if err != nil {
-		if _, ok := status.FromError(err); ok {
-			return err
-		}
-
-		return helper.ErrInternal(fmt.Errorf("GarbageCollect: config gitCommand: %v", err))
-	}
-
-	if err := cmd.Wait(); err != nil {
-		return helper.ErrInternal(fmt.Errorf("GarbageCollect: config cmd wait: %v", err))
 	}
 
 	return nil

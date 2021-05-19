@@ -103,6 +103,7 @@ func setupRepositoryServiceWithRuby(t testing.TB, cfg config.Cfg, rubySrv *rubys
 }
 
 func assertModTimeAfter(t *testing.T, afterTime time.Time, paths ...string) bool {
+	t.Helper()
 	// NOTE: Since some filesystems don't have sub-second precision on `mtime`
 	//       we're rounding the times to seconds
 	afterTime = afterTime.Round(time.Second)
