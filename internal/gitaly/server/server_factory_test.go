@@ -86,7 +86,7 @@ func TestGitalyServerFactory(t *testing.T) {
 
 	t.Run("insecure", func(t *testing.T) {
 		cfg := testcfg.Build(t)
-		sf := NewGitalyServerFactory(cfg, backchannel.NewRegistry(), cache.New(cfg, config.NewLocator(cfg)))
+		sf := NewGitalyServerFactory(cfg, testhelper.DiscardTestEntry(t), backchannel.NewRegistry(), cache.New(cfg, config.NewLocator(cfg)))
 
 		checkHealth(t, sf, starter.TCP, "localhost:0")
 	})
@@ -99,7 +99,7 @@ func TestGitalyServerFactory(t *testing.T) {
 			KeyPath:  keyFile,
 		}}))
 
-		sf := NewGitalyServerFactory(cfg, backchannel.NewRegistry(), cache.New(cfg, config.NewLocator(cfg)))
+		sf := NewGitalyServerFactory(cfg, testhelper.DiscardTestEntry(t), backchannel.NewRegistry(), cache.New(cfg, config.NewLocator(cfg)))
 		t.Cleanup(sf.Stop)
 
 		checkHealth(t, sf, starter.TLS, "localhost:0")
@@ -107,7 +107,7 @@ func TestGitalyServerFactory(t *testing.T) {
 
 	t.Run("all services must be stopped", func(t *testing.T) {
 		cfg := testcfg.Build(t)
-		sf := NewGitalyServerFactory(cfg, backchannel.NewRegistry(), cache.New(cfg, config.NewLocator(cfg)))
+		sf := NewGitalyServerFactory(cfg, testhelper.DiscardTestEntry(t), backchannel.NewRegistry(), cache.New(cfg, config.NewLocator(cfg)))
 		t.Cleanup(sf.Stop)
 
 		tcpHealthClient := checkHealth(t, sf, starter.TCP, "localhost:0")
@@ -132,7 +132,7 @@ func TestGitalyServerFactory_closeOrder(t *testing.T) {
 	defer cancel()
 
 	cfg := testcfg.Build(t)
-	sf := NewGitalyServerFactory(cfg, backchannel.NewRegistry(), cache.New(cfg, config.NewLocator(cfg)))
+	sf := NewGitalyServerFactory(cfg, testhelper.DiscardTestEntry(t), backchannel.NewRegistry(), cache.New(cfg, config.NewLocator(cfg)))
 	defer sf.Stop()
 
 	errQuickRPC := status.Error(codes.Internal, "quick RPC")
