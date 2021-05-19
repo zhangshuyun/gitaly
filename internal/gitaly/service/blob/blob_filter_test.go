@@ -15,7 +15,7 @@ import (
 	"golang.org/x/text/transform"
 )
 
-func TestLFSPointerFilter(t *testing.T) {
+func TestBlobFilter(t *testing.T) {
 	cfg, repo, _, _ := setup(t)
 	localRepo := localrepo.NewTestRepo(t, cfg, repo)
 
@@ -55,6 +55,7 @@ func TestLFSPointerFilter(t *testing.T) {
 	for _, tc := range []struct {
 		desc           string
 		input          string
+		maxSize        uint64
 		expectedOutput string
 		expectedErr    error
 	}{
@@ -66,12 +67,12 @@ func TestLFSPointerFilter(t *testing.T) {
 		{
 			desc:        "newline only",
 			input:       "\n",
-			expectedErr: errors.New("invalid LFS pointer candidate line \"\""),
+			expectedErr: errors.New("invalid line \"\""),
 		},
 		{
-			desc:        "invalid LFS pointer",
+			desc:        "invalid blob",
 			input:       "x",
-			expectedErr: errors.New("invalid trailing LFS pointer line"),
+			expectedErr: errors.New("invalid trailing line"),
 		},
 		{
 			desc:           "single blob",
@@ -86,37 +87,42 @@ func TestLFSPointerFilter(t *testing.T) {
 		{
 			desc:           "mixed blobs and other objects",
 			input:          "blob 140 1234\ntree 150 4321\ncommit 50123 123123\n",
+			maxSize:        160,
 			expectedOutput: "1234\n",
 		},
 		{
 			desc:           "big blob gets filtered",
 			input:          "blob 140 1234\nblob 201 4321\n",
+			maxSize:        200,
 			expectedOutput: "1234\n",
 		},
 		{
 			desc:        "missing trailing newline",
 			input:       "blob 140 1234",
-			expectedErr: errors.New("invalid trailing LFS pointer line"),
+			expectedErr: errors.New("invalid trailing line"),
 		},
 		{
 			desc:        "invalid object size",
 			input:       "blob 140 1234\nblob x 4321\n",
-			expectedErr: errors.New("invalid LFS pointer size \"x\""),
+			maxSize:     1,
+			expectedErr: errors.New("invalid blob size \"x\""),
 		},
 		{
 			desc:        "missing field",
 			input:       "blob 1234\n",
-			expectedErr: errors.New("invalid LFS pointer candidate line \"blob 1234\""),
+			expectedErr: errors.New("invalid line \"blob 1234\""),
 		},
 		{
 			desc:           "real-repo output",
 			input:          batchCheckOutput.String(),
+			maxSize:        lfsPointerMaxSize,
 			expectedOutput: strings.Join(expectedOIDs, "\n") + "\n",
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			reader := transform.NewReader(strings.NewReader(tc.input),
-				lfsPointerFilter{})
+			reader := transform.NewReader(strings.NewReader(tc.input), blobFilter{
+				maxSize: tc.maxSize,
+			})
 			output, err := ioutil.ReadAll(reader)
 			require.Equal(t, tc.expectedErr, err)
 			require.Equal(t, tc.expectedOutput, string(output))

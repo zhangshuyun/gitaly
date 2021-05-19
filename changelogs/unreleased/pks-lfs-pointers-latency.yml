@@ -1,0 +1,5 @@
+---
+title: 'blob: Improve latency and memory consumption for LFS pointers'
+merge_request: 3483
+author:
+type: performance

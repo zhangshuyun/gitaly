@@ -7,13 +7,16 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
+	"gitlab.com/gitlab-org/gitaly/internal/helper/chunk"
 	"gitlab.com/gitlab-org/gitaly/internal/helper/text"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
@@ -170,7 +173,7 @@ func TestListLFSPointers(t *testing.T) {
 
 				actualLFSPointers = append(actualLFSPointers, resp.GetLfsPointers()...)
 			}
-			require.ElementsMatch(t, tc.expectedPointers, actualLFSPointers)
+			lfsPointersEqual(t, tc.expectedPointers, actualLFSPointers)
 		})
 	}
 }
@@ -204,7 +207,7 @@ size 12345`
 			Repository: repo,
 		})
 		require.NoError(t, err)
-		require.ElementsMatch(t, []*gitalypb.LFSPointer{
+		lfsPointersEqual(t, []*gitalypb.LFSPointer{
 			lfsPointers[lfsPointer1],
 			lfsPointers[lfsPointer2],
 			lfsPointers[lfsPointer3],
@@ -224,7 +227,7 @@ size 12345`
 			Repository: repo,
 		})
 		require.NoError(t, err)
-		require.ElementsMatch(t, []*gitalypb.LFSPointer{
+		lfsPointersEqual(t, []*gitalypb.LFSPointer{
 			&gitalypb.LFSPointer{
 				Oid:  lfsPointerOID,
 				Data: []byte(lfsPointerContents),
@@ -279,7 +282,7 @@ size 12345`
 
 		// We only expect to find a single LFS pointer, which is the one we've just written
 		// into the quarantine directory.
-		require.ElementsMatch(t, []*gitalypb.LFSPointer{
+		lfsPointersEqual(t, []*gitalypb.LFSPointer{
 			&gitalypb.LFSPointer{
 				Oid:  text.ChompBytes(buffer.Bytes()),
 				Data: []byte(lfsPointerContents),
@@ -331,7 +334,7 @@ func TestSuccessfulGetLFSPointersRequest(t *testing.T) {
 		receivedLFSPointers = append(receivedLFSPointers, resp.GetLfsPointers()...)
 	}
 
-	require.ElementsMatch(t, receivedLFSPointers, expectedLFSPointers)
+	lfsPointersEqual(t, receivedLFSPointers, expectedLFSPointers)
 }
 
 func TestFailedGetLFSPointersRequestDueToValidations(t *testing.T) {
@@ -428,6 +431,7 @@ func TestFindLFSPointersByRevisions(t *testing.T) {
 				lfsPointers[lfsPointer5],
 				lfsPointers[lfsPointer6],
 			},
+			expectedErr: errLimitReached,
 		},
 		{
 			desc: "--not --all",
@@ -465,14 +469,16 @@ func TestFindLFSPointersByRevisions(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			actualLFSPointers, err := findLFSPointersByRevisions(
-				ctx, repo, gitCmdFactory, tc.limit, tc.revs...)
+			var collector lfsPointerCollector
+
+			err := findLFSPointersByRevisions(ctx, repo, gitCmdFactory,
+				collector.chunker(), tc.limit, tc.revs...)
 			if tc.expectedErr == nil {
 				require.NoError(t, err)
 			} else {
 				require.Contains(t, err.Error(), tc.expectedErr.Error())
 			}
-			require.ElementsMatch(t, tc.expectedLFSPointers, actualLFSPointers)
+			lfsPointersEqual(t, tc.expectedLFSPointers, collector.pointers)
 		})
 	}
 }
@@ -490,14 +496,16 @@ func BenchmarkFindLFSPointers(b *testing.B) {
 	defer cancel()
 
 	b.Run("limitless", func(b *testing.B) {
-		_, err := findLFSPointersByRevisions(ctx, repo, gitCmdFactory, 0, "--all")
+		var collector lfsPointerCollector
+		err := findLFSPointersByRevisions(ctx, repo, gitCmdFactory, collector.chunker(), 0, "--all")
 		require.NoError(b, err)
 	})
 
 	b.Run("limit", func(b *testing.B) {
-		lfsPointer, err := findLFSPointersByRevisions(ctx, repo, gitCmdFactory, 1, "--all")
+		var collector lfsPointerCollector
+		err := findLFSPointersByRevisions(ctx, repo, gitCmdFactory, collector.chunker(), 1, "--all")
 		require.NoError(b, err)
-		require.Len(b, lfsPointer, 1)
+		require.Len(b, collector.pointers, 1)
 	})
 }
 
@@ -514,14 +522,16 @@ func BenchmarkReadLFSPointers(b *testing.B) {
 	candidates := gittest.Exec(b, cfg, "-C", path, "rev-list", "--in-commit-order", "--objects", "--no-object-names", "--filter=blob:limit=200", "--all")
 
 	b.Run("limitless", func(b *testing.B) {
-		_, err := readLFSPointers(ctx, repo, bytes.NewReader(candidates), 0)
+		var collector lfsPointerCollector
+		err := readLFSPointers(ctx, repo, collector.chunker(), bytes.NewReader(candidates), 0)
 		require.NoError(b, err)
 	})
 
 	b.Run("limit", func(b *testing.B) {
-		lfsPointer, err := readLFSPointers(ctx, repo, bytes.NewReader(candidates), 1)
-		require.NoError(b, err)
-		require.Len(b, lfsPointer, 1)
+		var collector lfsPointerCollector
+		err := readLFSPointers(ctx, repo, collector.chunker(), bytes.NewReader(candidates), 1)
+		require.Equal(b, errLimitReached, err)
+		require.Equal(b, 1, len(collector.pointers))
 	})
 }
 
@@ -602,6 +612,7 @@ func TestReadLFSPointers(t *testing.T) {
 				lfsPointers[lfsPointer2],
 				lfsPointers[lfsPointer3],
 			},
+			expectedErr: errLimitReached,
 		},
 		{
 			desc: "multiple object IDs with name filter",
@@ -613,6 +624,10 @@ func TestReadLFSPointers(t *testing.T) {
 				lfsPointer5 + " z",
 				lfsPointer6 + " a",
 			}, "\n"),
+			expectedLFSPointers: []*gitalypb.LFSPointer{
+				lfsPointers[lfsPointer1],
+				lfsPointers[lfsPointer2],
+			},
 			expectedErr: errors.New("object not found"),
 		},
 		{
@@ -642,84 +657,52 @@ func TestReadLFSPointers(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			reader := strings.NewReader(tc.input)
 
-			actualLFSPointers, err := readLFSPointers(
-				ctx, localRepo, reader, tc.limit)
+			var collector lfsPointerCollector
+
+			err := readLFSPointers(ctx, localRepo, collector.chunker(), reader, tc.limit)
 			if tc.expectedErr == nil {
 				require.NoError(t, err)
 			} else {
 				require.Contains(t, err.Error(), tc.expectedErr.Error())
 			}
-			require.ElementsMatch(t, tc.expectedLFSPointers, actualLFSPointers)
+
+			lfsPointersEqual(t, tc.expectedLFSPointers, collector.pointers)
 		})
 	}
 }
 
-func TestSliceLFSPointers(t *testing.T) {
-	generateSlice := func(n, offset int) []*gitalypb.LFSPointer {
-		slice := make([]*gitalypb.LFSPointer, n)
-		for i := 0; i < n; i++ {
-			slice[i] = &gitalypb.LFSPointer{
-				Size: int64(i + offset),
-			}
-		}
-		return slice
-	}
+func lfsPointersEqual(tb testing.TB, expected, actual []*gitalypb.LFSPointer) {
+	tb.Helper()
 
-	for _, tc := range []struct {
-		desc           string
-		err            error
-		lfsPointers    []*gitalypb.LFSPointer
-		expectedSlices [][]*gitalypb.LFSPointer
-	}{
-		{
-			desc: "empty",
-		},
-		{
-			desc:        "single slice",
-			lfsPointers: generateSlice(10, 0),
-			expectedSlices: [][]*gitalypb.LFSPointer{
-				generateSlice(10, 0),
-			},
-		},
-		{
-			desc:        "two slices",
-			lfsPointers: generateSlice(101, 0),
-			expectedSlices: [][]*gitalypb.LFSPointer{
-				generateSlice(100, 0),
-				generateSlice(1, 100),
-			},
-		},
-		{
-			desc:        "many slices",
-			lfsPointers: generateSlice(635, 0),
-			expectedSlices: [][]*gitalypb.LFSPointer{
-				generateSlice(100, 0),
-				generateSlice(100, 100),
-				generateSlice(100, 200),
-				generateSlice(100, 300),
-				generateSlice(100, 400),
-				generateSlice(100, 500),
-				generateSlice(35, 600),
-			},
-		},
-		{
-			desc:        "error",
-			lfsPointers: generateSlice(500, 0),
-			err:         errors.New("foo"),
-			expectedSlices: [][]*gitalypb.LFSPointer{
-				generateSlice(100, 0),
-			},
-		},
-	} {
-		t.Run(tc.desc, func(t *testing.T) {
-			var slices [][]*gitalypb.LFSPointer
-
-			err := sliceLFSPointers(tc.lfsPointers, func(slice []*gitalypb.LFSPointer) error {
-				slices = append(slices, slice)
-				return tc.err
-			})
-			require.Equal(t, tc.err, err)
-			require.Equal(t, tc.expectedSlices, slices)
+	for _, slice := range [][]*gitalypb.LFSPointer{expected, actual} {
+		sort.Slice(slice, func(i, j int) bool {
+			return strings.Compare(slice[i].Oid, slice[j].Oid) < 0
 		})
 	}
+
+	require.Equal(tb, len(expected), len(actual))
+	for i := range expected {
+		testhelper.ProtoEqual(tb, expected[i], actual[i])
+	}
+}
+
+type lfsPointerCollector struct {
+	pointers []*gitalypb.LFSPointer
+}
+
+func (c *lfsPointerCollector) Append(m proto.Message) {
+	c.pointers = append(c.pointers, m.(*gitalypb.LFSPointer))
+}
+
+func (c *lfsPointerCollector) Reset() {
+	// We don'c reset anything given that we want to collect all pointers.
+}
+
+func (c *lfsPointerCollector) Send() error {
+	// And neither do we anything here.
+	return nil
+}
+
+func (c *lfsPointerCollector) chunker() *chunk.Chunker {
+	return chunk.New(c)
 }
