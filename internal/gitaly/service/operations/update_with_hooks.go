@@ -121,6 +121,10 @@ func (s *Server) updateReferenceWithHooks(
 		return updateRefError{reference: reference.String()}
 	}
 
+	if err := s.hookManager.ReferenceTransactionHook(ctx, hook.ReferenceTransactionCommitted, env, strings.NewReader(changes)); err != nil {
+		return preReceiveError{message: err.Error()}
+	}
+
 	if err := s.hookManager.PostReceiveHook(ctx, repo, pushOptions, env, strings.NewReader(changes), &stdout, &stderr); err != nil {
 		msg := hookErrorMessage(stdout.String(), stderr.String(), err)
 		return preReceiveError{message: msg}

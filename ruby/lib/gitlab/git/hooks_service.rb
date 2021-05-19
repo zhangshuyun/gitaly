@@ -20,6 +20,9 @@ module Gitlab
         end
 
         yield(self).tap do
+          status, message = run_hook('reference-transaction')
+          Gitlab::GitLogger.error("reference-transaction committed hook: #{message}") unless status
+
           status, message = run_hook('post-receive')
 
           Gitlab::GitLogger.error("post-receive hook: #{message}") unless status

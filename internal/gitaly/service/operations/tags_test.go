@@ -340,6 +340,8 @@ func TestUserCreateTagWithTransaction(t *testing.T) {
 		},
 	} {
 		t.Run(testCase.desc, func(t *testing.T) {
+			*transactionServer = testTransactionServer{}
+
 			if err := os.Remove(hooksOutputPath); err != nil {
 				require.True(t, os.IsNotExist(err), "error when cleaning up work area: %v", err)
 			}
@@ -395,7 +397,7 @@ func TestUserCreateTagWithTransaction(t *testing.T) {
 				require.NoFileExists(t, hooksOutputPath)
 			}
 
-			require.Equal(t, 1, transactionServer.called)
+			require.Equal(t, 2, transactionServer.called)
 			transactionServer.called = 0
 		})
 	}

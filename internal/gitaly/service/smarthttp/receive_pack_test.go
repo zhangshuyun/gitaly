@@ -634,7 +634,7 @@ func TestPostReceiveWithReferenceTransactionHook(t *testing.T) {
 
 		expectedResponse := "0049\x01000eunpack ok\n0019ok refs/heads/master\n0019ok refs/heads/branch\n00000000"
 		require.Equal(t, expectedResponse, string(response), "Expected response to be %q, got %q", expectedResponse, response)
-		require.Equal(t, 2, refTransactionServer.called)
+		require.Equal(t, 4, refTransactionServer.called)
 	})
 
 	t.Run("delete", func(t *testing.T) {
@@ -662,6 +662,6 @@ func TestPostReceiveWithReferenceTransactionHook(t *testing.T) {
 
 		expectedResponse := "0033\x01000eunpack ok\n001cok refs/heads/delete-me\n00000000"
 		require.Equal(t, expectedResponse, string(response), "Expected response to be %q, got %q", expectedResponse, response)
-		require.Equal(t, 1, refTransactionServer.called)
+		require.Equal(t, 2, refTransactionServer.called)
 	})
 }

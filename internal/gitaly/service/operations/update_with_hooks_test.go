@@ -145,6 +145,7 @@ func TestUpdateReferenceWithHooks(t *testing.T) {
 		payload,
 	}
 
+	referenceTransactionCalls := 0
 	testCases := []struct {
 		desc                 string
 		preReceive           func(t *testing.T, ctx context.Context, repo *gitalypb.Repository, pushOptions, env []string, stdin io.Reader, stdout, stderr io.Writer) error
@@ -183,7 +184,15 @@ func TestUpdateReferenceWithHooks(t *testing.T) {
 				changes, err := ioutil.ReadAll(stdin)
 				require.NoError(t, err)
 				require.Equal(t, fmt.Sprintf("%s %s refs/heads/master\n", oldRev, git.ZeroOID.String()), string(changes))
-				require.Equal(t, state, hook.ReferenceTransactionPrepared)
+
+				require.Less(t, referenceTransactionCalls, 2)
+				if referenceTransactionCalls == 0 {
+					require.Equal(t, state, hook.ReferenceTransactionPrepared)
+				} else {
+					require.Equal(t, state, hook.ReferenceTransactionCommitted)
+				}
+				referenceTransactionCalls++
+
 				require.Equal(t, env, expectedEnv)
 				return nil
 			},
@@ -255,6 +264,7 @@ func TestUpdateReferenceWithHooks(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
+		referenceTransactionCalls = 0
 		t.Run(tc.desc, func(t *testing.T) {
 			hookManager := &mockHookManager{
 				t:                    t,

@@ -207,7 +207,7 @@ func TestUserCreateBranchWithTransaction(t *testing.T) {
 			response, err := client.UserCreateBranch(ctx, request)
 			require.NoError(t, err)
 			require.Empty(t, response.PreReceiveError)
-			require.Equal(t, 1, transactionServer.called)
+			require.Equal(t, 2, transactionServer.called)
 		})
 	}
 }
@@ -547,7 +547,7 @@ func TestUserDeleteBranch_transaction(t *testing.T) {
 		User:       gittest.TestUser,
 	})
 	require.NoError(t, err)
-	require.Equal(t, 1, transactionServer.called)
+	require.Equal(t, 2, transactionServer.called)
 }
 
 func TestFailedUserDeleteBranchDueToValidation(t *testing.T) {

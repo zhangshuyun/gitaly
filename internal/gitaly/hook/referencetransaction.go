@@ -29,10 +29,13 @@ func (m *GitLabHookManager) ReferenceTransactionHook(ctx context.Context, state 
 		return fmt.Errorf("reading stdin from request: %w", err)
 	}
 
-	// We're only voting in prepared state as this is the only stage in
-	// Git's reference transaction which allows us to abort the
-	// transaction.
-	if state != ReferenceTransactionPrepared {
+	// We're voting in prepared state as this is the only stage in Git's reference transaction
+	// which allows us to abort the transaction. We're also voting in committed state to tell
+	// Praefect we've actually persisted the changes. This is necessary as some RPCs fail return
+	// errors in the response body rather than as an error code. Praefect can't tell if these RPCs
+	// have failed. Voting on committed ensure Praefect sees either a missing vote or that the RPC did
+	// commit the changes.
+	if state != ReferenceTransactionPrepared && state != ReferenceTransactionCommitted {
 		return nil
 	}
 
