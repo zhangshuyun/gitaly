@@ -3,10 +3,10 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"flag"
 	"fmt"
 	"io"
+	"runtime"
 
 	log "github.com/sirupsen/logrus"
 	"gitlab.com/gitlab-org/gitaly/internal/backup"
@@ -23,16 +23,23 @@ type serverRepository struct {
 
 type createSubcommand struct {
 	backupPath string
+	parallel   int
 }
 
 func (cmd *createSubcommand) Flags(fs *flag.FlagSet) {
 	fs.StringVar(&cmd.backupPath, "path", "", "repository backup path")
+	fs.IntVar(&cmd.parallel, "parallel", runtime.NumCPU(), "maximum number of parallel backups")
 }
 
 func (cmd *createSubcommand) Run(ctx context.Context, stdin io.Reader, stdout io.Writer) error {
 	fsBackup := backup.NewFilesystem(cmd.backupPath)
 
-	var failed int
+	var pipeline backup.CreatePipeline
+	pipeline = backup.NewPipeline(log.StandardLogger(), fsBackup)
+	if cmd.parallel > 0 {
+		pipeline = backup.NewParallelCreatePipeline(pipeline, cmd.parallel)
+	}
+
 	decoder := json.NewDecoder(stdin)
 	for {
 		var sr serverRepository
@@ -41,32 +48,19 @@ func (cmd *createSubcommand) Run(ctx context.Context, stdin io.Reader, stdout io
 		} else if err != nil {
 			return fmt.Errorf("create: %w", err)
 		}
-		repoLog := log.WithFields(log.Fields{
-			"storage_name":    sr.StorageName,
-			"relative_path":   sr.RelativePath,
-			"gl_project_path": sr.GlProjectPath,
-		})
 		repo := gitalypb.Repository{
 			StorageName:   sr.StorageName,
 			RelativePath:  sr.RelativePath,
 			GlProjectPath: sr.GlProjectPath,
 		}
-		repoLog.Info("started backup")
-		if err := fsBackup.BackupRepository(ctx, sr.ServerInfo, &repo); err != nil {
-			if errors.Is(err, backup.ErrSkipped) {
-				repoLog.Warn("skipped backup")
-			} else {
-				repoLog.WithError(err).Error("backup failed")
-				failed++
-			}
-			continue
-		}
-
-		repoLog.Info("completed backup")
+		pipeline.Create(ctx, &backup.CreateRequest{
+			Server:     sr.ServerInfo,
+			Repository: &repo,
+		})
 	}
 
-	if failed > 0 {
-		return fmt.Errorf("create: %d failures encountered", failed)
+	if err := pipeline.Done(); err != nil {
+		return fmt.Errorf("create: %w", err)
 	}
 	return nil
 }

@@ -34,56 +34,69 @@ func NewFilesystem(path string) *Filesystem {
 	}
 }
 
-// BackupRepository creates a repository backup on a local filesystem
-func (fs *Filesystem) BackupRepository(ctx context.Context, server storage.ServerInfo, repo *gitalypb.Repository) error {
-	if isEmpty, err := fs.isEmpty(ctx, server, repo); err != nil {
-		return fmt.Errorf("backup: %w", err)
+// CreateRequest is the request to create a backup
+type CreateRequest struct {
+	Server     storage.ServerInfo
+	Repository *gitalypb.Repository
+}
+
+// Create creates a repository backup on a local filesystem
+func (fs *Filesystem) Create(ctx context.Context, req *CreateRequest) error {
+	if isEmpty, err := fs.isEmpty(ctx, req.Server, req.Repository); err != nil {
+		return fmt.Errorf("filesystem: %w", err)
 	} else if isEmpty {
 		return ErrSkipped
 	}
 
-	backupPath := strings.TrimSuffix(filepath.Join(fs.path, repo.RelativePath), ".git")
+	backupPath := strings.TrimSuffix(filepath.Join(fs.path, req.Repository.RelativePath), ".git")
 	bundlePath := backupPath + ".bundle"
 	customHooksPath := filepath.Join(backupPath, "custom_hooks.tar")
 
 	if err := os.MkdirAll(backupPath, 0700); err != nil {
-		return fmt.Errorf("backup: %w", err)
+		return fmt.Errorf("filesystem: %w", err)
 	}
-	if err := fs.writeBundle(ctx, bundlePath, server, repo); err != nil {
-		return fmt.Errorf("backup: write bundle: %w", err)
+	if err := fs.writeBundle(ctx, bundlePath, req.Server, req.Repository); err != nil {
+		return fmt.Errorf("filesystem: write bundle: %w", err)
 	}
-	if err := fs.writeCustomHooks(ctx, customHooksPath, server, repo); err != nil {
-		return fmt.Errorf("backup: write custom hooks: %w", err)
+	if err := fs.writeCustomHooks(ctx, customHooksPath, req.Server, req.Repository); err != nil {
+		return fmt.Errorf("filesystem: write custom hooks: %w", err)
 	}
 
 	return nil
 }
 
-// RestoreRepository restores a repository from a backup on a local filesystem
-func (fs *Filesystem) RestoreRepository(ctx context.Context, server storage.ServerInfo, repo *gitalypb.Repository, alwaysCreate bool) error {
-	backupPath := strings.TrimSuffix(filepath.Join(fs.path, repo.RelativePath), ".git")
+// RestoreRequest is the request to restore from a backup
+type RestoreRequest struct {
+	Server       storage.ServerInfo
+	Repository   *gitalypb.Repository
+	AlwaysCreate bool
+}
+
+// Restore restores a repository from a backup on a local filesystem
+func (fs *Filesystem) Restore(ctx context.Context, req *RestoreRequest) error {
+	backupPath := strings.TrimSuffix(filepath.Join(fs.path, req.Repository.RelativePath), ".git")
 	bundlePath := backupPath + ".bundle"
 	customHooksPath := filepath.Join(backupPath, "custom_hooks.tar")
 
-	if err := fs.removeRepository(ctx, server, repo); err != nil {
-		return fmt.Errorf("restore: %w", err)
+	if err := fs.removeRepository(ctx, req.Server, req.Repository); err != nil {
+		return fmt.Errorf("filesystem: %w", err)
 	}
-	if err := fs.restoreBundle(ctx, bundlePath, server, repo); err != nil {
+	if err := fs.restoreBundle(ctx, bundlePath, req.Server, req.Repository); err != nil {
 		// For compatibility with existing backups we need to always create the
 		// repository even if there's no bundle for project repositories
 		// (not wiki or snippet repositories).  Gitaly does not know which
 		// repository is which type so here we accept a parameter to tell us
 		// to employ this behaviour.
-		if alwaysCreate && errors.Is(err, ErrSkipped) {
-			if err := fs.createRepository(ctx, server, repo); err != nil {
-				return fmt.Errorf("restore: %w", err)
+		if req.AlwaysCreate && errors.Is(err, ErrSkipped) {
+			if err := fs.createRepository(ctx, req.Server, req.Repository); err != nil {
+				return fmt.Errorf("filesystem: %w", err)
 			}
 		} else {
-			return fmt.Errorf("restore: %w", err)
+			return fmt.Errorf("filesystem: %w", err)
 		}
 	}
-	if err := fs.restoreCustomHooks(ctx, customHooksPath, server, repo); err != nil {
-		return fmt.Errorf("restore: %w", err)
+	if err := fs.restoreCustomHooks(ctx, customHooksPath, req.Server, req.Repository); err != nil {
+		return fmt.Errorf("filesystem: %w", err)
 	}
 	return nil
 }

@@ -58,7 +58,7 @@ func TestCreateSubcommand(t *testing.T) {
 	require.NoError(t, fs.Parse([]string{"-path", path}))
 	require.EqualError(t,
 		cmd.Run(context.Background(), &stdin, ioutil.Discard),
-		"create: 1 failures encountered")
+		"create: pipeline: 1 failures encountered")
 
 	for _, repo := range repos {
 		bundlePath := filepath.Join(path, repo.RelativePath+".bundle")

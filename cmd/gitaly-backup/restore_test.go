@@ -65,7 +65,7 @@ func TestRestoreSubcommand(t *testing.T) {
 	require.NoError(t, fs.Parse([]string{"-path", path}))
 	require.EqualError(t,
 		cmd.Run(context.Background(), &stdin, ioutil.Discard),
-		"restore: 1 failures encountered")
+		"restore: pipeline: 1 failures encountered")
 
 	for _, repo := range repos {
 		repoPath := filepath.Join(cfg.Storages[0].Path, repo.RelativePath)

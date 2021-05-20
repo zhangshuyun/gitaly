@@ -32,8 +32,8 @@ func (cmd *restoreSubcommand) Flags(fs *flag.FlagSet) {
 
 func (cmd *restoreSubcommand) Run(ctx context.Context, stdin io.Reader, stdout io.Writer) error {
 	fsBackup := backup.NewFilesystem(cmd.backupPath)
+	pipeline := backup.NewPipeline(log.StandardLogger(), fsBackup)
 
-	var failed int
 	decoder := json.NewDecoder(stdin)
 	for {
 		var req restoreRequest
@@ -43,32 +43,20 @@ func (cmd *restoreSubcommand) Run(ctx context.Context, stdin io.Reader, stdout i
 			return fmt.Errorf("restore: %w", err)
 		}
 
-		repoLog := log.WithFields(log.Fields{
-			"storage_name":    req.StorageName,
-			"relative_path":   req.RelativePath,
-			"gl_project_path": req.GlProjectPath,
-		})
 		repo := gitalypb.Repository{
 			StorageName:   req.StorageName,
 			RelativePath:  req.RelativePath,
 			GlProjectPath: req.GlProjectPath,
 		}
-		repoLog.Info("started restore")
-		if err := fsBackup.RestoreRepository(ctx, req.ServerInfo, &repo, req.AlwaysCreate); err != nil {
-			if errors.Is(err, backup.ErrSkipped) {
-				repoLog.WithError(err).Warn("skipped restore")
-			} else {
-				repoLog.WithError(err).Error("restore failed")
-				failed++
-			}
-			continue
-		}
-
-		repoLog.Info("completed restore")
+		pipeline.Restore(ctx, &backup.RestoreRequest{
+			Server:       req.ServerInfo,
+			Repository:   &repo,
+			AlwaysCreate: req.AlwaysCreate,
+		})
 	}
 
-	if failed > 0 {
-		return fmt.Errorf("restore: %d failures encountered", failed)
+	if err := pipeline.Done(); err != nil {
+		return fmt.Errorf("restore: %w", err)
 	}
 	return nil
 }
