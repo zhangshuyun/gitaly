@@ -14,7 +14,6 @@ module Gitaly
       self.unmarshal_class_method = :decode
       self.service_name = 'gitaly.WikiService'
 
-      rpc :WikiGetPageVersions, Gitaly::WikiGetPageVersionsRequest, stream(Gitaly::WikiGetPageVersionsResponse)
       rpc :WikiWritePage, stream(Gitaly::WikiWritePageRequest), Gitaly::WikiWritePageResponse
       rpc :WikiUpdatePage, stream(Gitaly::WikiUpdatePageRequest), Gitaly::WikiUpdatePageResponse
       rpc :WikiDeletePage, Gitaly::WikiDeletePageRequest, Gitaly::WikiDeletePageResponse

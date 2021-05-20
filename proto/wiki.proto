@@ -8,11 +8,6 @@ package gitaly;
 option go_package = "gitlab.com/gitlab-org/gitaly/proto/go/gitalypb";
 
 service WikiService {
-  rpc WikiGetPageVersions(WikiGetPageVersionsRequest) returns (stream WikiGetPageVersionsResponse) {
-    option (op_type) = {
-      op: ACCESSOR
-    };
-  }
   rpc WikiWritePage(stream WikiWritePageRequest) returns (WikiWritePageResponse) {
     option (op_type) = {
       op: MUTATOR
@@ -73,18 +68,6 @@ message WikiPage {
 
   // This field is present in all messages of a WikiPage stream
   bytes raw_data = 8;
-}
-
-message WikiGetPageVersionsRequest {
-  Repository repository = 1 [(target_repository)=true];
-  bytes page_path = 2;
-
-  int32 page = 3;
-  int32 per_page = 4;
-}
-
-message WikiGetPageVersionsResponse {
-  repeated WikiPageVersion versions = 1;
 }
 
 // This message is sent in a stream because the 'content' field may be large.
