@@ -320,7 +320,9 @@ func (gsd *gitalyServerDeps) createDependencies(t testing.TB, cfg config.Cfg, ru
 	}
 
 	if gsd.catfileCache == nil {
-		gsd.catfileCache = catfile.NewCache(cfg)
+		cache := catfile.NewCache(cfg)
+		gsd.catfileCache = cache
+		t.Cleanup(cache.Stop)
 	}
 
 	if gsd.diskCache == nil {

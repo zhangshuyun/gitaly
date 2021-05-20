@@ -70,6 +70,7 @@ type BatchCache struct {
 	injectSpawnErrors bool
 	// monitorTicker is the ticker used for the monitoring Goroutine.
 	monitorTicker *time.Ticker
+	monitorDone   chan interface{}
 
 	catfileCacheCounter     *prometheus.CounterVec
 	currentCatfileProcesses prometheus.Gauge
@@ -84,6 +85,13 @@ type BatchCache struct {
 // NewCache creates a new catfile process cache.
 func NewCache(cfg config.Cfg) *BatchCache {
 	return newCache(defaultBatchfileTTL, cfg.Git.CatfileCacheSize, defaultEvictionInterval)
+}
+
+// Stop stops the monitoring Goroutine. This must only be called once.
+func (bc *BatchCache) Stop() {
+	bc.monitorTicker.Stop()
+	bc.monitorDone <- struct{}{}
+	<-bc.monitorDone
 }
 
 func newCache(ttl time.Duration, maxLen int, refreshInterval time.Duration) *BatchCache {
@@ -127,6 +135,7 @@ func newCache(ttl time.Duration, maxLen int, refreshInterval time.Duration) *Bat
 			},
 		),
 		monitorTicker: time.NewTicker(refreshInterval),
+		monitorDone:   make(chan interface{}),
 	}
 
 	go bc.monitor()
@@ -148,8 +157,14 @@ func (bc *BatchCache) Collect(metrics chan<- prometheus.Metric) {
 }
 
 func (bc *BatchCache) monitor() {
-	for range bc.monitorTicker.C {
-		bc.enforceTTL(time.Now())
+	for {
+		select {
+		case <-bc.monitorTicker.C:
+			bc.enforceTTL(time.Now())
+		case <-bc.monitorDone:
+			close(bc.monitorDone)
+			return
+		}
 	}
 }
 
