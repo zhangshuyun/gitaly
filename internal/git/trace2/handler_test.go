@@ -1,7 +1,6 @@
 package trace2
 
 import (
-	"bytes"
 	"fmt"
 	"os/exec"
 	"strings"
@@ -17,8 +16,7 @@ func TestCopyHandler(t *testing.T) {
 
 	cmd := exec.Command("env")
 
-	var sink bytes.Buffer
-	env, err := CopyHandler(ctx, cmd, &sink)
+	env, err := LogHandler(ctx, cmd)
 	require.NoError(t, err)
 
 	require.Len(t, cmd.ExtraFiles, 1)

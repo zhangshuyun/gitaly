@@ -8,6 +8,8 @@ import (
 	"os"
 	"testing"
 
+	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git"
 	"gitlab.com/gitlab-org/gitaly/v14/internal/git/gittest"
@@ -108,26 +110,30 @@ func TestExecCommandFactory_Trace2EventCaptured(t *testing.T) {
 	const corrID = "correlation-id"
 	ctx = correlation.ContextWithCorrelation(ctx, corrID)
 
-	buf := &bytes.Buffer{}
-	gitCmdFactory := git.NewExecCommandFactory(cfg)
-	gitCmdFactory.SetTrace2Sink(buf)
+	logBuffer := &bytes.Buffer{}
+	log := &logrus.Logger{Out: logBuffer, Formatter: &logrus.JSONFormatter{}, Level: logrus.InfoLevel}
+	testCtx := ctxlogrus.ToContext(ctx, log.WithField("test", "logging"))
 
-	cmd, err := gitCmdFactory.NewWithoutRepo(ctx, git.SubCmd{Name: "version"})
+	repo, _, cleanup := gittest.CloneRepoAtStorage(t, cfg.Storages[0], t.Name())
+	t.Cleanup(cleanup)
+
+	gitCmdFactory := git.NewExecCommandFactory(cfg)
+	cmd, err := gitCmdFactory.New(testCtx, repo, git.SubCmd{
+		Name:  "repack",
+		Flags: []git.Option{git.Flag{Name: "--no-write-bitmap-index"}}},
+	)
 	require.NoError(t, err)
 	cmd.Wait()
 
-	// The buffer should contain at least info about:
-	require.NotEmpty(t, buf)
+	strBuf := logBuffer.String()
 
-	// Gits version
-	require.Contains(t, buf.String(), `"event":"version"`)
-
-	// Start the command and report the name
-	require.Contains(t, buf.String(), `"event":"cmd_name"`)
-
-	// report the exit
-	require.Contains(t, buf.String(), `"event":"exit"`)
-
-	// Propegates the SID to child events
-	require.Contains(t, buf.String(), `"sid":"`+corrID)
+	for _, expected := range []string{
+		`"SID":"correlation-id/`,
+		`"event":"child_start"`,
+		`"event":"child_exit"`,
+		`"exit_code":0`,
+		`"argv":["git","pack-objects"`,
+	} {
+		require.Contains(t, strBuf, expected)
+	}
 }

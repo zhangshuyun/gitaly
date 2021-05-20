@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"os/exec"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -52,7 +51,6 @@ type ExecCommandFactory struct {
 	cfg                   config.Cfg
 	cgroupsManager        cgroups.Manager
 	invalidCommandsMetric *prometheus.CounterVec
-	trace2Sink            io.Writer
 }
 
 // NewExecCommandFactory returns a new instance of initialized ExecCommandFactory.
@@ -102,10 +100,6 @@ func (cf *ExecCommandFactory) NewWithDir(ctx context.Context, dir string, sc Cmd
 	return cf.newCommand(ctx, nil, dir, sc, opts...)
 }
 
-func (cf *ExecCommandFactory) SetTrace2Sink(w io.Writer) {
-	cf.trace2Sink = w
-}
-
 func (cf *ExecCommandFactory) gitPath() string {
 	return cf.cfg.Git.BinPath
 }
@@ -142,8 +136,8 @@ func (cf *ExecCommandFactory) newCommand(ctx context.Context, repo repository.Gi
 	execCommand := exec.Command(cf.gitPath(), args...)
 	execCommand.Dir = dir
 
-	if featureflag.IsEnabled(ctx, featureflag.GitTrace2) && cf.trace2Sink != nil {
-		envVars, err := trace2.CopyHandler(ctx, execCommand, cf.trace2Sink)
+	if featureflag.IsEnabled(ctx, featureflag.GitTrace2) {
+		envVars, err := trace2.LogHandler(ctx, execCommand)
 		if err != nil {
 			return nil, err
 		}
