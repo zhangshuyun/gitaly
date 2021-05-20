@@ -18,7 +18,6 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/service/ref"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
 	"gitlab.com/gitlab-org/gitaly/internal/log"
-	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper/testcfg"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
@@ -125,8 +124,8 @@ func TestInterceptor(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			logBuffer.Reset()
 
-			ctx := context.TODO()
-			ctx = featureflag.OutgoingCtxWithFeatureFlags(ctx, featureflag.LogCommandStats)
+			ctx, cancel := testhelper.Context()
+			defer cancel()
 
 			conn, err := grpc.DialContext(ctx, "", grpc.WithContextDialer(getBufDialer(listener)), grpc.WithInsecure())
 			require.NoError(t, err)
