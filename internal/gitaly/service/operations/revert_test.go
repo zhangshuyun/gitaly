@@ -1,7 +1,6 @@
 package operations
 
 import (
-	"context"
 	"testing"
 
 	"github.com/golang/protobuf/ptypes/timestamp"
@@ -9,20 +8,16 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/gittest"
 	"gitlab.com/gitlab-org/gitaly/internal/git/localrepo"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/config"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
-	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/internal/testhelper"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 )
 
-func testServerUserRevertSuccessful(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	testWithFeature(t, featureflag.GoUserRevert, cfg, rubySrv, testServerUserRevertSuccessfulFeatured)
-}
+func TestServer_UserRevert_successful(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testServerUserRevertSuccessfulFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
+	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -174,12 +169,11 @@ func testServerUserRevertSuccessfulFeatured(t *testing.T, ctx context.Context, c
 	}
 }
 
-func testServerUserRevertStableID(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	testWithFeature(t, featureflag.GoUserRevert, cfg, rubySrv, testServerUserRevertStableIDFeatured)
-}
+func TestServer_UserRevert_stableID(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testServerUserRevertStableIDFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	ctx, cfg, repoProto, _, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
+	ctx, cfg, repoProto, _, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -229,12 +223,11 @@ func testServerUserRevertStableIDFeatured(t *testing.T, ctx context.Context, cfg
 	}, revertedCommit)
 }
 
-func testServerUserRevertSuccessfulIntoEmptyRepo(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	testWithFeature(t, featureflag.GoUserRevert, cfg, rubySrv, testServerUserRevertSuccessfulIntoNewRepo)
-}
+func TestServer_UserRevert_successfulIntoEmptyRepo(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testServerUserRevertSuccessfulIntoNewRepo(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	ctx, cfg, startRepoProto, _, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
+	ctx, cfg, startRepoProto, _, client := setupOperationsService(t, ctx)
 
 	startRepo := localrepo.NewTestRepo(t, cfg, startRepoProto)
 
@@ -277,12 +270,11 @@ func testServerUserRevertSuccessfulIntoNewRepo(t *testing.T, ctx context.Context
 	require.Equal(t, masterHeadCommit.Id, headCommit.ParentIds[0])
 }
 
-func testServerUserRevertSuccessfulGitHooks(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	testWithFeature(t, featureflag.GoUserRevert, cfg, rubySrv, testServerUserRevertSuccessfulGitHooksFeatured)
-}
+func TestServer_UserRevert_successfulGitHooks(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testServerUserRevertSuccessfulGitHooksFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
+	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -316,12 +308,11 @@ func testServerUserRevertSuccessfulGitHooksFeatured(t *testing.T, ctx context.Co
 	}
 }
 
-func testServerUserRevertFailuedDueToValidations(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	testWithFeature(t, featureflag.GoUserRevert, cfg, rubySrv, testServerUserRevertFailuedDueToValidationsFeatured)
-}
+func TestServer_UserRevert_failuedDueToValidations(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testServerUserRevertFailuedDueToValidationsFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	ctx, cfg, repoProto, _, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
+	ctx, cfg, repoProto, _, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -389,12 +380,11 @@ func testServerUserRevertFailuedDueToValidationsFeatured(t *testing.T, ctx conte
 	}
 }
 
-func testServerUserRevertFailedDueToPreReceiveError(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	testWithFeature(t, featureflag.GoUserRevert, cfg, rubySrv, testServerUserRevertFailedDueToPreReceiveErrorFeatured)
-}
+func TestServer_UserRevert_failedDueToPreReceiveError(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testServerUserRevertFailedDueToPreReceiveErrorFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
+	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -425,12 +415,11 @@ func testServerUserRevertFailedDueToPreReceiveErrorFeatured(t *testing.T, ctx co
 	}
 }
 
-func testServerUserRevertFailedDueToCreateTreeErrorConflict(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	testWithFeature(t, featureflag.GoUserRevert, cfg, rubySrv, testServerUserRevertFailedDueToCreateTreeErrorConflictFeatured)
-}
+func TestServer_UserRevert_failedDueToCreateTreeErrorConflict(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testServerUserRevertFailedDueToCreateTreeErrorConflictFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
+	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -455,12 +444,11 @@ func testServerUserRevertFailedDueToCreateTreeErrorConflictFeatured(t *testing.T
 	require.Equal(t, gitalypb.UserRevertResponse_CONFLICT, response.CreateTreeErrorCode)
 }
 
-func testServerUserRevertFailedDueToCreateTreeErrorEmpty(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	testWithFeature(t, featureflag.GoUserRevert, cfg, rubySrv, testServerUserRevertFailedDueToCreateTreeErrorEmptyFeatured)
-}
+func TestServer_UserRevert_failedDueToCreateTreeErrorEmpty(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testServerUserRevertFailedDueToCreateTreeErrorEmptyFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
+	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
@@ -489,12 +477,11 @@ func testServerUserRevertFailedDueToCreateTreeErrorEmptyFeatured(t *testing.T, c
 	require.Equal(t, gitalypb.UserRevertResponse_EMPTY, response.CreateTreeErrorCode)
 }
 
-func testServerUserRevertFailedDueToCommitError(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	testWithFeature(t, featureflag.GoUserRevert, cfg, rubySrv, testServerUserRevertFailedDueToCommitErrorFeatured)
-}
+func TestServer_UserRevert_failedDueToCommitError(t *testing.T) {
+	ctx, cancel := testhelper.Context()
+	defer cancel()
 
-func testServerUserRevertFailedDueToCommitErrorFeatured(t *testing.T, ctx context.Context, cfg config.Cfg, rubySrv *rubyserver.Server) {
-	ctx, cfg, repoProto, repoPath, client := setupOperationsServiceWithRuby(t, ctx, cfg, rubySrv)
+	ctx, cfg, repoProto, repoPath, client := setupOperationsService(t, ctx)
 
 	repo := localrepo.NewTestRepo(t, cfg, repoProto)
 
