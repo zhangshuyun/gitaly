@@ -297,7 +297,7 @@ objectinfo_fuzz_test:
 code_navigation:
   allow_failure: true
   script:
-    - go get github.com/sourcegraph/lsif-go/cmd/lsif-go
+    - go get github.com/sourcegraph/lsif-go/cmd/lsif-go@v1.3.1
     - ~/go/bin/lsif-go
   artifacts:
     reports:
