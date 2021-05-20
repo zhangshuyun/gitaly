@@ -4,11 +4,17 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"strings"
 
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
+	"gitlab.com/gitlab-org/gitaly/internal/gitaly/transaction"
+	"gitlab.com/gitlab-org/gitaly/internal/helper"
+	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/txinfo"
+	"gitlab.com/gitlab-org/gitaly/internal/transaction/voting"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -30,7 +36,20 @@ func (s *server) AddRemote(ctx context.Context, req *gitalypb.AddRemoteRequest) 
 		return nil, err
 	}
 
-	return client.AddRemote(clientCtx, req)
+	if err := s.voteOnRemote(ctx, req.GetRepository(), req.GetName()); err != nil {
+		return nil, helper.ErrInternalf("preimage vote on remote: %v", err)
+	}
+
+	response, err := client.AddRemote(clientCtx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.voteOnRemote(ctx, req.GetRepository(), req.GetName()); err != nil {
+		return nil, helper.ErrInternalf("postimage vote on remote: %v", err)
+	}
+
+	return response, nil
 }
 
 func validateAddRemoteRequest(req *gitalypb.AddRemoteRequest) error {
@@ -60,8 +79,16 @@ func (s *server) RemoveRemote(ctx context.Context, req *gitalypb.RemoveRemoteReq
 		return &gitalypb.RemoveRemoteResponse{Result: false}, nil
 	}
 
+	if err := s.voteOnRemote(ctx, req.GetRepository(), req.GetName()); err != nil {
+		return nil, helper.ErrInternalf("preimage vote on remote: %v", err)
+	}
+
 	if err := remote.Remove(ctx, req.Name); err != nil {
 		return nil, err
+	}
+
+	if err := s.voteOnRemote(ctx, req.GetRepository(), req.GetName()); err != nil {
+		return nil, helper.ErrInternalf("postimage vote on remote: %v", err)
 	}
 
 	return &gitalypb.RemoveRemoteResponse{Result: true}, nil
@@ -109,4 +136,38 @@ func validateRemoveRemoteRequest(req *gitalypb.RemoveRemoteRequest) error {
 	}
 
 	return nil
+}
+
+func (s *server) voteOnRemote(ctx context.Context, repo *gitalypb.Repository, remoteName string) error {
+	if featureflag.IsDisabled(ctx, featureflag.TxRemote) {
+		return nil
+	}
+
+	return transaction.RunOnContext(ctx, func(tx txinfo.Transaction, server txinfo.PraefectServer) error {
+		localrepo := s.localrepo(repo)
+
+		configEntries, err := localrepo.Config().GetRegexp(ctx, "remote\\."+remoteName+"\\.", git.ConfigGetRegexpOpts{})
+		if err != nil {
+			return fmt.Errorf("get remote configuration: %w", err)
+		}
+
+		hash := voting.NewVoteHash()
+		for _, configEntry := range configEntries {
+			config := fmt.Sprintf("%s\t%s\n", configEntry.Key, configEntry.Value)
+			if _, err := io.WriteString(hash, config); err != nil {
+				return fmt.Errorf("hash remote config entry: %w", err)
+			}
+		}
+
+		vote, err := hash.Vote()
+		if err != nil {
+			return fmt.Errorf("compute remote config vote: %w", err)
+		}
+
+		if err := s.txManager.Vote(ctx, tx, server, vote); err != nil {
+			return fmt.Errorf("vote: %w", err)
+		}
+
+		return nil
+	})
 }

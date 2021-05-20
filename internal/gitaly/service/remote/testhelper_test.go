@@ -44,6 +44,7 @@ func TestWithRubySidecar(t *testing.T) {
 		testSuccessfulUpdateRemoteMirrorRequestWithKeepDivergentRefs,
 		testFailedUpdateRemoteMirrorRequestDueToValidation,
 		testSuccessfulAddRemote,
+		testAddRemoteTransactional,
 		testUpdateRemoteMirror,
 	}
 
@@ -54,7 +55,7 @@ func TestWithRubySidecar(t *testing.T) {
 	}
 }
 
-func setupRemoteServiceWithRuby(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server) (config.Cfg, *gitalypb.Repository, string, gitalypb.RemoteServiceClient) {
+func setupRemoteServiceWithRuby(t *testing.T, cfg config.Cfg, rubySrv *rubyserver.Server, opts ...testserver.GitalyServerOpt) (config.Cfg, *gitalypb.Repository, string, gitalypb.RemoteServiceClient) {
 	t.Helper()
 
 	repo, repoPath, cleanup := gittest.CloneRepoAtStorage(t, cfg, cfg.Storages[0], t.Name())
@@ -67,8 +68,9 @@ func setupRemoteServiceWithRuby(t *testing.T, cfg config.Cfg, rubySrv *rubyserve
 			deps.GetLocator(),
 			deps.GetGitCmdFactory(),
 			deps.GetCatfileCache(),
+			deps.GetTxManager(),
 		))
-	})
+	}, opts...)
 	cfg.SocketPath = addr
 
 	client, conn := newRemoteClient(t, addr)
@@ -77,11 +79,11 @@ func setupRemoteServiceWithRuby(t *testing.T, cfg config.Cfg, rubySrv *rubyserve
 	return cfg, repo, repoPath, client
 }
 
-func setupRemoteService(t *testing.T) (config.Cfg, *gitalypb.Repository, string, gitalypb.RemoteServiceClient) {
+func setupRemoteService(t *testing.T, opts ...testserver.GitalyServerOpt) (config.Cfg, *gitalypb.Repository, string, gitalypb.RemoteServiceClient) {
 	t.Helper()
 
 	cfg := testcfg.Build(t)
-	return setupRemoteServiceWithRuby(t, cfg, nil)
+	return setupRemoteServiceWithRuby(t, cfg, nil, opts...)
 }
 
 func newRemoteClient(t *testing.T, serverSocketPath string) (gitalypb.RemoteServiceClient, *grpc.ClientConn) {

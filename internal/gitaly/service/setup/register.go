@@ -129,6 +129,7 @@ func RegisterAll(srv *grpc.Server, deps *service.Dependencies) {
 		deps.GetLocator(),
 		deps.GetGitCmdFactory(),
 		deps.GetCatfileCache(),
+		deps.GetTxManager(),
 	))
 	gitalypb.RegisterServerServiceServer(srv, server.NewServer(deps.GetGitCmdFactory(), deps.GetCfg().Storages))
 	gitalypb.RegisterObjectPoolServiceServer(srv, objectpool.NewServer(
