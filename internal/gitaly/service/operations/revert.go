@@ -10,18 +10,13 @@ import (
 	"gitlab.com/gitlab-org/gitaly/internal/git"
 	"gitlab.com/gitlab-org/gitaly/internal/git/remoterepo"
 	"gitlab.com/gitlab-org/gitaly/internal/git2go"
-	"gitlab.com/gitlab-org/gitaly/internal/gitaly/rubyserver"
 	"gitlab.com/gitlab-org/gitaly/internal/helper"
-	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/gitaly/proto/go/gitalypb"
 )
 
 func (s *Server) UserRevert(ctx context.Context, req *gitalypb.UserRevertRequest) (*gitalypb.UserRevertResponse, error) {
 	if err := validateCherryPickOrRevertRequest(req); err != nil {
 		return nil, helper.ErrInvalidArgument(err)
-	}
-	if featureflag.IsDisabled(ctx, featureflag.GoUserRevert) {
-		return s.rubyUserRevert(ctx, req)
 	}
 
 	startRevision, err := s.fetchStartRevision(ctx, req)
@@ -126,20 +121,6 @@ func (s *Server) UserRevert(ctx context.Context, req *gitalypb.UserRevertRequest
 			RepoCreated:   !repoHadBranches,
 		},
 	}, nil
-}
-
-func (s *Server) rubyUserRevert(ctx context.Context, req *gitalypb.UserRevertRequest) (*gitalypb.UserRevertResponse, error) {
-	client, err := s.ruby.OperationServiceClient(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	clientCtx, err := rubyserver.SetHeaders(ctx, s.locator, req.GetRepository())
-	if err != nil {
-		return nil, err
-	}
-
-	return client.UserRevert(clientCtx, req)
 }
 
 type requestFetchingStartRevision interface {
