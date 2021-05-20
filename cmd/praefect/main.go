@@ -322,11 +322,14 @@ func run(cfgs []starter.Config, conf config.Config) error {
 		healthChecker = hm
 
 		elector := nodes.NewPerRepositoryElector(logger, db, hm)
-		go func() {
-			if err := elector.Run(ctx, hm.Updated()); err != nil {
-				logger.WithError(err).Error("primary elector exited")
-			}
-		}()
+
+		if conf.Failover.Enabled {
+			go func() {
+				if err := elector.Run(ctx, hm.Updated()); err != nil {
+					logger.WithError(err).Error("primary elector exited")
+				}
+			}()
+		}
 
 		primaryGetter = elector
 		assignmentStore = datastore.NewAssignmentStore(db, conf.StorageNames())
