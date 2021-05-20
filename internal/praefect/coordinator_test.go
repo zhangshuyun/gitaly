@@ -1798,3 +1798,95 @@ func TestGetUpdatedAndOutdatedSecondaries(t *testing.T) {
 		})
 	}
 }
+
+func TestNewRequestFinalizer_contextIsDisjointedFromTheRPC(t *testing.T) {
+	type ctxKey struct{}
+
+	parentDeadline := time.Now()
+	ctx, cancel := context.WithDeadline(context.WithValue(context.Background(), ctxKey{}, "value"), parentDeadline)
+	cancel()
+
+	requireSuppressedCancellation := func(t testing.TB, ctx context.Context) {
+		deadline, ok := ctx.Deadline()
+		require.True(t, ok)
+		require.NotEqual(t, parentDeadline, deadline)
+		require.Equal(t, ctx.Value(ctxKey{}), "value")
+		require.Nil(t, ctx.Err())
+		select {
+		case <-ctx.Done():
+			t.Fatal("context should not be canceled if the parent is canceled")
+		default:
+			require.NotNil(t, ctx.Done())
+		}
+	}
+
+	err := errors.New("error")
+
+	for _, tc := range []struct {
+		change datastore.ChangeType
+		errMsg string
+	}{
+		{
+			change: datastore.UpdateRepo,
+			errMsg: "increment generation: error",
+		},
+		{
+			change: datastore.RenameRepo,
+			errMsg: "rename repository: error",
+		},
+		{
+			change: datastore.DeleteRepo,
+			errMsg: "delete repository: error",
+		},
+		{
+			change: "replication jobs only",
+			errMsg: "enqueue replication event: error",
+		},
+	} {
+		t.Run(string(tc.change), func(t *testing.T) {
+			require.EqualError(t,
+				NewCoordinator(
+					&datastore.MockReplicationEventQueue{
+						EnqueueFunc: func(ctx context.Context, _ datastore.ReplicationEvent) (datastore.ReplicationEvent, error) {
+							requireSuppressedCancellation(t, ctx)
+							return datastore.ReplicationEvent{}, err
+						},
+					},
+					datastore.MockRepositoryStore{
+						IncrementGenerationFunc: func(ctx context.Context, _, _, _ string, _ []string) error {
+							requireSuppressedCancellation(t, ctx)
+							return err
+						},
+						RenameRepositoryFunc: func(ctx context.Context, _, _, _, _ string) error {
+							requireSuppressedCancellation(t, ctx)
+							return err
+						},
+						DeleteRepositoryFunc: func(ctx context.Context, _, _, _ string) error {
+							requireSuppressedCancellation(t, ctx)
+							return err
+						},
+						CreateRepositoryFunc: func(ctx context.Context, _, _, _ string, _, _ []string, _, _ bool) error {
+							requireSuppressedCancellation(t, ctx)
+							return err
+						},
+					},
+					nil,
+					nil,
+					config.Config{},
+					nil,
+				).newRequestFinalizer(
+					ctx,
+					"virtual storage",
+					&gitalypb.Repository{},
+					"primary",
+					[]string{},
+					[]string{"secondary"},
+					tc.change,
+					datastore.Params{"RelativePath": "relative-path"},
+					"rpc-name",
+				)(),
+				tc.errMsg,
+			)
+		})
+	}
+}

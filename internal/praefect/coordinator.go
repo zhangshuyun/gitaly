@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
@@ -851,6 +852,13 @@ func (c *Coordinator) newRequestFinalizer(
 	cause string,
 ) func() error {
 	return func() error {
+		// Use a separate timeout for the database operations. If the request times out, the passed in context is
+		// canceled. We need to perform the database updates regardless whether the request was canceled or not as
+		// the primary replica could have been dirtied and secondaries become outdated. Otherwise we'd have no idea of
+		// the possible changes performed on the disk.
+		ctx, cancel := context.WithTimeout(helper.SuppressCancellation(ctx), 30*time.Second)
+		defer cancel()
+
 		log := ctxlogrus.Extract(ctx).WithFields(logrus.Fields{
 			"replication.cause":   cause,
 			"replication.change":  change,
