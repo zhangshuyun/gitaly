@@ -61,15 +61,10 @@ type entry struct {
 // an entry gets added it gets an expiry time based on a fixed TTL. A
 // monitor goroutine periodically evicts expired entries.
 type BatchCache struct {
-	entries []*entry
-	sync.Mutex
-
 	// maxLen is the maximum number of keys in the cache
 	maxLen int
-
 	// ttl is the fixed ttl for cache entries
 	ttl time.Duration
-
 	// injectSpawnErrors is used for testing purposes only. If set to true, then spawned batch
 	// processes will simulate spawn errors.
 	injectSpawnErrors bool
@@ -79,6 +74,9 @@ type BatchCache struct {
 	totalCatfileProcesses   prometheus.Counter
 	catfileLookupCounter    *prometheus.CounterVec
 	catfileCacheMembers     prometheus.Gauge
+
+	entriesMutex sync.Mutex
+	entries      []*entry
 }
 
 // NewCache creates a new catfile process cache.
@@ -211,8 +209,8 @@ func (bc *BatchCache) returnWhenDone(done <-chan struct{}, cacheKey key, c *batc
 // add adds a key, value pair to bc. If there are too many keys in bc
 // already add will evict old keys until the length is OK again.
 func (bc *BatchCache) add(k key, b *batch) {
-	bc.Lock()
-	defer bc.Unlock()
+	bc.entriesMutex.Lock()
+	defer bc.entriesMutex.Unlock()
 
 	if i, ok := bc.lookup(k); ok {
 		bc.catfileCacheCounter.WithLabelValues("duplicate").Inc()
@@ -235,8 +233,8 @@ func (bc *BatchCache) len() int     { return len(bc.entries) }
 
 // checkout removes a value from bc. After use the caller can re-add the value with bc.Add.
 func (bc *BatchCache) checkout(k key) (*batch, bool) {
-	bc.Lock()
-	defer bc.Unlock()
+	bc.entriesMutex.Lock()
+	defer bc.entriesMutex.Unlock()
 
 	i, ok := bc.lookup(k)
 	if !ok {
@@ -254,8 +252,8 @@ func (bc *BatchCache) checkout(k key) (*batch, bool) {
 // enforceTTL evicts all entries older than now, assuming the entry
 // expiry times are increasing.
 func (bc *BatchCache) enforceTTL(now time.Time) {
-	bc.Lock()
-	defer bc.Unlock()
+	bc.entriesMutex.Lock()
+	defer bc.entriesMutex.Unlock()
 
 	for bc.len() > 0 && now.After(bc.head().expiry) {
 		bc.evictHead()
@@ -264,8 +262,8 @@ func (bc *BatchCache) enforceTTL(now time.Time) {
 
 // Evict evicts all cached processes from the cache.
 func (bc *BatchCache) Evict() {
-	bc.Lock()
-	defer bc.Unlock()
+	bc.entriesMutex.Lock()
+	defer bc.entriesMutex.Unlock()
 
 	for bc.len() > 0 {
 		bc.evictHead()

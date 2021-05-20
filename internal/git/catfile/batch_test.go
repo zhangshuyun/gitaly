@@ -443,7 +443,7 @@ func numGitChildren(t *testing.T) int {
 }
 
 func cacheSize(bc *BatchCache) int {
-	bc.Lock()
-	defer bc.Unlock()
+	bc.entriesMutex.Lock()
+	defer bc.entriesMutex.Unlock()
 	return bc.len()
 }

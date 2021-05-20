@@ -158,8 +158,8 @@ func TestAutoExpiry(t *testing.T) {
 }
 
 func requireCacheValid(t *testing.T, bc *BatchCache) {
-	bc.Lock()
-	defer bc.Unlock()
+	bc.entriesMutex.Lock()
+	defer bc.entriesMutex.Unlock()
 
 	for _, ent := range bc.entries {
 		v := ent.value
@@ -172,8 +172,8 @@ func testValue() *batch { return &batch{} }
 func testKey(i int) key { return key{sessionID: fmt.Sprintf("key-%d", i)} }
 
 func keys(bc *BatchCache) []key {
-	bc.Lock()
-	defer bc.Unlock()
+	bc.entriesMutex.Lock()
+	defer bc.entriesMutex.Unlock()
 
 	var result []key
 	for _, ent := range bc.entries {
