@@ -42,6 +42,7 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       optional :name, :bytes, 2
       optional :format, :string, 3
       optional :commit_details, :message, 4, "gitaly.WikiCommitDetails"
+      optional :ref, :bytes, 6
       optional :content, :bytes, 5
     end
     add_message "gitaly.WikiWritePageResponse" do
@@ -53,6 +54,7 @@ Google::Protobuf::DescriptorPool.generated_pool.build do
       optional :title, :bytes, 3
       optional :format, :string, 4
       optional :commit_details, :message, 5, "gitaly.WikiCommitDetails"
+      optional :ref, :bytes, 7
       optional :content, :bytes, 6
     end
     add_message "gitaly.WikiUpdatePageResponse" do

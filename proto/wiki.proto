@@ -94,7 +94,9 @@ message WikiWritePageRequest {
   bytes name = 2;
   string format = 3;
   WikiCommitDetails commit_details = 4;
-  // This field is present in all messages.
+  bytes ref = 6;
+
+  // These fields is present in all messages.
   bytes content = 5;
 }
 
@@ -109,8 +111,9 @@ message WikiUpdatePageRequest {
   bytes title = 3;
   string format = 4;
   WikiCommitDetails commit_details = 5;
+  bytes ref = 7;
 
-  // This field is present in all messages
+  // These fields is present in all messages
   bytes content = 6;
 }
 
