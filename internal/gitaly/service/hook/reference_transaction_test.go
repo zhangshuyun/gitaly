@@ -81,10 +81,11 @@ func TestReferenceTransactionHook(t *testing.T) {
 			expectedCode: codes.OK,
 		},
 		{
-			desc:         "hook does not trigger transaction with committed state",
-			stdin:        []byte("foobar"),
-			state:        gitalypb.ReferenceTransactionHookRequest_COMMITTED,
-			expectedCode: codes.OK,
+			desc:              "hook triggers transaction with committed state",
+			stdin:             []byte("foobar"),
+			state:             gitalypb.ReferenceTransactionHookRequest_COMMITTED,
+			expectedCode:      codes.OK,
+			expectedReftxHash: []byte("foobar"),
 		},
 		{
 			desc:              "hook fails with failed vote",

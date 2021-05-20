@@ -316,7 +316,7 @@ func TestReceivePackTransactional(t *testing.T) {
 			expectedRefs: map[string]string{
 				"refs/heads/master": masterOID,
 			},
-			expectedVotes: 2,
+			expectedVotes: 3,
 		},
 		{
 			desc:          "update",
@@ -331,7 +331,7 @@ func TestReceivePackTransactional(t *testing.T) {
 			expectedRefs: map[string]string{
 				"refs/heads/master": masterParentOID,
 			},
-			expectedVotes: 2,
+			expectedVotes: 3,
 		},
 		{
 			desc:          "creation",
@@ -346,7 +346,7 @@ func TestReceivePackTransactional(t *testing.T) {
 			expectedRefs: map[string]string{
 				"refs/heads/other": masterOID,
 			},
-			expectedVotes: 2,
+			expectedVotes: 3,
 		},
 		{
 			desc: "deletion",
@@ -360,7 +360,7 @@ func TestReceivePackTransactional(t *testing.T) {
 			expectedRefs: map[string]string{
 				"refs/heads/other": git.ZeroOID.String(),
 			},
-			expectedVotes: 2,
+			expectedVotes: 3,
 		},
 		{
 			desc:          "multiple commands",
@@ -381,7 +381,7 @@ func TestReceivePackTransactional(t *testing.T) {
 				"refs/heads/a": masterOID,
 				"refs/heads/b": masterOID,
 			},
-			expectedVotes: 3,
+			expectedVotes: 5,
 		},
 		{
 			desc:          "refused recreation of branch",
@@ -416,7 +416,7 @@ func TestReceivePackTransactional(t *testing.T) {
 			expectedRefs: map[string]string{
 				"refs/heads/a": masterOID,
 			},
-			expectedVotes: 2,
+			expectedVotes: 3,
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
