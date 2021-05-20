@@ -35,7 +35,6 @@ type subtransaction struct {
 	lock         sync.RWMutex
 	votersByNode map[string]*Voter
 	voteCounts   map[voting.Vote]uint
-	isDone       bool
 }
 
 func newSubtransaction(voters []Voter, threshold uint) (*subtransaction, error) {
@@ -66,8 +65,7 @@ func (t *subtransaction) cancel() {
 		}
 	}
 
-	if !t.isDone {
-		t.isDone = true
+	if !t.isDone() {
 		close(t.doneCh)
 	}
 }
@@ -93,8 +91,7 @@ func (t *subtransaction) stop() error {
 		}
 	}
 
-	if !t.isDone {
-		t.isDone = true
+	if !t.isDone() {
 		close(t.doneCh)
 	}
 
@@ -152,7 +149,6 @@ func (t *subtransaction) vote(node string, vote voting.Vote) error {
 	t.updateVoterStates()
 
 	if t.mustSignalVoters() {
-		t.isDone = true
 		close(t.doneCh)
 	}
 
@@ -216,7 +212,7 @@ func (t *subtransaction) updateVoterStates() {
 func (t *subtransaction) mustSignalVoters() bool {
 	// If somebody else already notified voters, then we mustn't do so
 	// again.
-	if t.isDone {
+	if t.isDone() {
 		return false
 	}
 
@@ -283,6 +279,15 @@ func (t *subtransaction) collectVotes(ctx context.Context, node string) error {
 		return fmt.Errorf("voter is in undecided state: %q", node)
 	default:
 		return fmt.Errorf("voter is in invalid state %d: %q", voter.result, node)
+	}
+}
+
+func (t *subtransaction) isDone() bool {
+	select {
+	case <-t.doneCh:
+		return true
+	default:
+		return false
 	}
 }
 

@@ -23,7 +23,7 @@ func TestSubtransaction_cancel(t *testing.T) {
 
 	s.cancel()
 
-	require.True(t, s.isDone)
+	require.True(t, s.isDone())
 	require.Equal(t, VoteCanceled, s.votersByNode["1"].result)
 	require.Equal(t, VoteCommitted, s.votersByNode["2"].result)
 	require.Equal(t, VoteFailed, s.votersByNode["3"].result)
@@ -41,7 +41,7 @@ func TestSubtransaction_stop(t *testing.T) {
 
 		require.NoError(t, s.stop())
 
-		require.True(t, s.isDone)
+		require.True(t, s.isDone())
 		require.Equal(t, VoteStopped, s.votersByNode["1"].result)
 		require.Equal(t, VoteCommitted, s.votersByNode["2"].result)
 		require.Equal(t, VoteFailed, s.votersByNode["3"].result)
@@ -57,7 +57,7 @@ func TestSubtransaction_stop(t *testing.T) {
 		require.NoError(t, err)
 
 		require.Equal(t, s.stop(), ErrTransactionCanceled)
-		require.False(t, s.isDone)
+		require.False(t, s.isDone())
 	})
 
 	t.Run("stop of stopped transaction fails", func(t *testing.T) {
@@ -70,7 +70,7 @@ func TestSubtransaction_stop(t *testing.T) {
 		require.NoError(t, err)
 
 		require.Equal(t, s.stop(), ErrTransactionStopped)
-		require.False(t, s.isDone)
+		require.False(t, s.isDone())
 	})
 }
 
@@ -401,7 +401,9 @@ func TestSubtransaction_mustSignalVoters(t *testing.T) {
 			}
 
 			s.voteCounts = voteCounts
-			s.isDone = tc.isDone
+			if tc.isDone {
+				close(s.doneCh)
+			}
 
 			require.Equal(t, tc.mustSignal, s.mustSignalVoters())
 		})
