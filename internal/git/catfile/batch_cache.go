@@ -68,6 +68,8 @@ type BatchCache struct {
 	// injectSpawnErrors is used for testing purposes only. If set to true, then spawned batch
 	// processes will simulate spawn errors.
 	injectSpawnErrors bool
+	// monitorTicker is the ticker used for the monitoring Goroutine.
+	monitorTicker *time.Ticker
 
 	catfileCacheCounter     *prometheus.CounterVec
 	currentCatfileProcesses prometheus.Gauge
@@ -124,9 +126,10 @@ func newCache(ttl time.Duration, maxLen int, refreshInterval time.Duration) *Bat
 				Help: "Gauge of catfile cache members",
 			},
 		),
+		monitorTicker: time.NewTicker(refreshInterval),
 	}
 
-	go bc.monitor(refreshInterval)
+	go bc.monitor()
 	return bc
 }
 
@@ -144,10 +147,8 @@ func (bc *BatchCache) Collect(metrics chan<- prometheus.Metric) {
 	bc.catfileCacheMembers.Collect(metrics)
 }
 
-func (bc *BatchCache) monitor(refreshInterval time.Duration) {
-	ticker := time.NewTicker(refreshInterval)
-
-	for range ticker.C {
+func (bc *BatchCache) monitor() {
+	for range bc.monitorTicker.C {
 		bc.enforceTTL(time.Now())
 	}
 }
