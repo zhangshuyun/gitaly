@@ -53,7 +53,7 @@ GOLANGCI_LINT_CONFIG  ?= ${SOURCE_DIR}/.golangci.yml
 BUNDLE_DEPLOYMENT ?= $(shell test -f ${SOURCE_DIR}/../.gdk-install-root && echo false || echo true)
 GITALY_PACKAGE    := gitlab.com/gitlab-org/gitaly
 BUILD_TIME        := $(shell date +"%Y%m%d.%H%M%S")
-GITALY_VERSION    := $(shell git describe --match v* 2>/dev/null | sed 's/^v//' || cat ${SOURCE_DIR}/VERSION 2>/dev/null || echo unknown)
+GITALY_VERSION    := $(shell ${GIT} describe --match v* 2>/dev/null | sed 's/^v//' || cat ${SOURCE_DIR}/VERSION 2>/dev/null || echo unknown)
 GO_LDFLAGS        := -ldflags '-X ${GITALY_PACKAGE}/internal/version.version=${GITALY_VERSION} -X ${GITALY_PACKAGE}/internal/version.buildtime=${BUILD_TIME}'
 GO_BUILD_TAGS     := tracer_static,tracer_static_jaeger,continuous_profiler_stackdriver,static,system_libgit2
 
