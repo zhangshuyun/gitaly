@@ -208,6 +208,8 @@ func runPraefectServer(t testing.TB, conf config.Config, opt buildOptions) (*grp
 	cc := dialLocalPort(t, port, false)
 
 	cleanup := func() {
+		cc.Close()
+
 		for _, cu := range cleanups {
 			cu()
 		}
