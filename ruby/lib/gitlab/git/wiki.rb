@@ -19,27 +19,25 @@ module Gitlab
       end
 
       # Initialize with a Gitlab::Git::Repository instance
-      def initialize(repository)
+      def initialize(repository, ref = 'master')
         @repository = repository
+        @ref = ref
       end
 
       def repository_exists?
         @repository.exists?
       end
 
-      def write_page(name, format, ref, content, commit_details)
-        puts "###########"
-        puts ref
-        puts "##########"
-        gollum_write_page(name, format, ref, content, commit_details)
+      def write_page(name, format, content, commit_details)
+        gollum_write_page(name, format, content, commit_details)
       end
 
       def delete_page(page_path, commit_details)
         gollum_delete_page(page_path, commit_details)
       end
 
-      def update_page(page_path, title, format, ref, content, commit_details)
-        gollum_update_page(page_path, title, format, ref, content, commit_details)
+      def update_page(page_path, title, format, content, commit_details)
+        gollum_update_page(page_path, title, format, content, commit_details)
       end
 
       def pages(limit: nil, sort: nil, direction_desc: false)
@@ -66,13 +64,8 @@ module Gitlab
         page.url_path
       end
 
-      def gollum_wiki(ref = nil)
-        options = {}
-        options[:ref] = ref if ref
-        puts "*************"
-        puts ref
-        puts "********"
-        @gollum_wiki ||= Gollum::Wiki.new(@repository.path, ref: 'main')
+      def gollum_wiki
+        @gollum_wiki ||= Gollum::Wiki.new(@repository.path, ref: @ref)
       end
 
       private
@@ -131,7 +124,7 @@ module Gitlab
         gollum_wiki.paged(page_name, page_dir) || (raise PageNotFound, page_path)
       end
 
-      def gollum_write_page(name, format, ref, content, commit_details)
+      def gollum_write_page(name, format, content, commit_details)
         assert_type!(format, Symbol)
         assert_type!(commit_details, CommitDetails)
 
@@ -139,7 +132,7 @@ module Gitlab
           filename = File.basename(name)
           dir = (tmp_dir = File.dirname(name)) == '.' ? '' : tmp_dir
 
-          gollum_wiki(ref).write_page(filename, format, content, { committer: committer }, dir)
+          gollum_wiki.write_page(filename, format, content, { committer: committer }, dir)
         end
       rescue Gollum::DuplicatePageError => e
         raise Gitlab::Git::Wiki::DuplicatePageError, e.message
@@ -153,18 +146,17 @@ module Gitlab
         end
       end
 
-      def gollum_update_page(page_path, title, format, ref, content, commit_details)
+      def gollum_update_page(page_path, title, format, content, commit_details)
         assert_type!(format, Symbol)
         assert_type!(commit_details, CommitDetails)
 
-        gw = gollum_wiki(ref)
         with_committer_with_hooks(commit_details) do |committer|
           page = gollum_page_by_path(page_path)
           # Instead of performing two renames if the title has changed,
           # the update_page will only update the format and content and
           # the rename_page will do anything related to moving/renaming
-          gw.update_page(page, page.name, format, content, committer: committer)
-          gw.rename_page(page, title, committer: committer)
+          gollum_wiki.update_page(page, page.name, format, content, committer: committer)
+          gollum_wiki.rename_page(page, title, committer: committer)
         end
       end
 

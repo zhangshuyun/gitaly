@@ -24,17 +24,15 @@ module GitalyServer
           format = request.format
           commit_details = request.commit_details
           ref = set_utf8!(request.ref)
-          puts "!!!!!!!!"
-          puts request.inspect
         end
 
         content << request.content
       end
 
-      wiki = Gitlab::Git::Wiki.new(repo)
+      wiki = Gitlab::Git::Wiki.new(repo, ref)
       commit_details = commit_details_from_gitaly(commit_details)
 
-      wiki.write_page(name, format.to_sym, ref, content, commit_details)
+      wiki.write_page(name, format.to_sym, content, commit_details)
 
       Gitaly::WikiWritePageResponse.new
     rescue Gitlab::Git::Wiki::DuplicatePageError => e
@@ -138,11 +136,10 @@ module GitalyServer
       call.each_remote_read.with_index do |request, index|
         if index.zero?
           repo = Gitlab::Git::Repository.from_gitaly(request.repository, call)
-          wiki = Gitlab::Git::Wiki.new(repo)
+          wiki = Gitlab::Git::Wiki.new(repo, set_utf8!(request.ref))
           title = set_utf8!(request.title)
           page_path = set_utf8!(request.page_path)
           format = request.format
-          ref = set_utf8!(request.ref)
 
           commit_details = commit_details_from_gitaly(request.commit_details)
         end
@@ -150,7 +147,7 @@ module GitalyServer
         content << request.content
       end
 
-      wiki.update_page(page_path, title, format.to_sym, ref, content, commit_details)
+      wiki.update_page(page_path, title, format.to_sym, content, commit_details)
 
       Gitaly::WikiUpdatePageResponse.new
     end
