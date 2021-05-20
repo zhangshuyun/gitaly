@@ -4,6 +4,12 @@
 # directory.
 -include config.mak
 
+# Unexport environment variables which have an effect on Git itself.
+# We need to keep GIT_PREFIX because it's used to determine where our
+# self-built Git should be installed into. It's probably not going to
+# matter much though.
+unexport $(filter-out GIT_PREFIX,$(shell git rev-parse --local-env-vars))
+
 # Call `make V=1` in order to print commands verbosely.
 ifeq ($(V),1)
     Q =
