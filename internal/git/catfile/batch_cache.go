@@ -87,11 +87,13 @@ func NewCache(cfg config.Cfg) *BatchCache {
 	return newCache(defaultBatchfileTTL, cfg.Git.CatfileCacheSize, defaultEvictionInterval)
 }
 
-// Stop stops the monitoring Goroutine. This must only be called once.
+// Stop stops the monitoring Goroutine and evicts all cached processes. This must only be called
+// once.
 func (bc *BatchCache) Stop() {
 	bc.monitorTicker.Stop()
 	bc.monitorDone <- struct{}{}
 	<-bc.monitorDone
+	bc.Evict()
 }
 
 func newCache(ttl time.Duration, maxLen int, refreshInterval time.Duration) *BatchCache {
