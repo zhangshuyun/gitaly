@@ -16,7 +16,6 @@ import (
 	"github.com/grpc-ecosystem/go-grpc-middleware/logging/logrus/ctxlogrus"
 	"github.com/opentracing/opentracing-go"
 	"github.com/sirupsen/logrus"
-	"gitlab.com/gitlab-org/gitaly/internal/metadata/featureflag"
 	"gitlab.com/gitlab-org/labkit/tracing"
 )
 
@@ -335,7 +334,7 @@ func (c *Command) logProcessComplete() {
 		entry.Error(c.stderrBuffer.String())
 	}
 
-	if stats := StatsFromContext(ctx); stats != nil && featureflag.IsEnabled(ctx, featureflag.LogCommandStats) {
+	if stats := StatsFromContext(ctx); stats != nil {
 		stats.RecordSum("command.count", 1)
 		stats.RecordSum("command.system_time_ms", int(systemTime.Seconds()*1000))
 		stats.RecordSum("command.user_time_ms", int(userTime.Seconds()*1000))

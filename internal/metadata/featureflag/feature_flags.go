@@ -11,8 +11,6 @@ type FeatureFlag struct {
 var (
 	// ReferenceTransactions will handle Git reference updates via the transaction service for strong consistency
 	ReferenceTransactions = FeatureFlag{Name: "reference_transactions", OnByDefault: true}
-	// LogCommandStats will log additional rusage stats for commands
-	LogCommandStats = FeatureFlag{Name: "log_command_stats", OnByDefault: true}
 	// GoUserUpdateBranch enables the Go implementation of UserUpdateBranch
 	GoUserUpdateBranch = FeatureFlag{Name: "go_user_update_branch", OnByDefault: true}
 	// UserRebaseConfirmable
@@ -31,7 +29,6 @@ var (
 
 // All includes all feature flags.
 var All = []FeatureFlag{
-	LogCommandStats,
 	ReferenceTransactions,
 	GoUserUpdateBranch,
 	GoUserRebaseConfirmable,
