@@ -1,5 +1,0 @@
----
-title: Don't run housekeeping in Cleanup RPC
-merge_request: 3502
-author:
-type: fixed

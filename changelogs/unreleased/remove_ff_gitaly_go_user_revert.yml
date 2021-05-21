@@ -1,5 +1,0 @@
----
-title: Remove gitaly feature flag gitaly_go_user_revert
-merge_request: 3516
-author:
-type: changed
