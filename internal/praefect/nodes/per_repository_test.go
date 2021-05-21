@@ -8,6 +8,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/commonerr"
 	"gitlab.com/gitlab-org/gitaly/internal/praefect/datastore"
@@ -37,10 +38,11 @@ func TestPerRepositoryElector(t *testing.T) {
 	}
 
 	for _, tc := range []struct {
-		desc         string
-		state        state
-		steps        steps
-		existingJobs []datastore.ReplicationEvent
+		desc            string
+		state           state
+		startingPrimary string
+		steps           steps
+		existingJobs    []datastore.ReplicationEvent
 	}{
 		{
 			desc: "elects the most up to date storage",
@@ -77,6 +79,26 @@ func TestPerRepositoryElector(t *testing.T) {
 						"virtual-storage-1": {"gitaly-2", "gitaly-3"},
 					},
 					primaryIsOneOf: []string{"gitaly-2"},
+				},
+			},
+		},
+		{
+			desc:            "doesn't re-elect if primary is healthy",
+			startingPrimary: "gitaly-1",
+			state: state{
+				"virtual-storage-1": {
+					"relative-path-1": {
+						"gitaly-1": {generation: 0},
+						"gitaly-2": {generation: 1},
+					},
+				},
+			},
+			steps: steps{
+				{
+					healthyNodes: map[string][]string{
+						"virtual-storage-1": {"gitaly-1", "gitaly-2", "gitaly-3"},
+					},
+					primaryIsOneOf: []string{"gitaly-1"},
 				},
 			},
 		},
@@ -395,9 +417,14 @@ func TestPerRepositoryElector(t *testing.T) {
 			rs := datastore.NewPostgresRepositoryStore(db, nil)
 			for virtualStorage, relativePaths := range tc.state {
 				for relativePath, storages := range relativePaths {
+					var startingPrimary *string
+					if tc.startingPrimary != "" {
+						startingPrimary = &tc.startingPrimary
+					}
+
 					_, err := db.ExecContext(ctx,
-						`INSERT INTO repositories (virtual_storage, relative_path) VALUES ($1, $2)`,
-						virtualStorage, relativePath,
+						`INSERT INTO repositories (virtual_storage, relative_path, "primary") VALUES ($1, $2, $3)`,
+						virtualStorage, relativePath, startingPrimary,
 					)
 					require.NoError(t, err)
 
@@ -422,7 +449,7 @@ func TestPerRepositoryElector(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			previousPrimary := ""
+			previousPrimary := tc.startingPrimary
 			for _, step := range tc.steps {
 				runElection := func(tx *sql.Tx) (string, *logrus.Entry) {
 					logger, hook := test.NewNullLogger()
@@ -467,9 +494,9 @@ func TestPerRepositoryElector(t *testing.T) {
 				}
 
 				if previousPrimary != primary {
-					require.NotNil(t, logEntry)
-					require.Equal(t, "primary node changed", logEntry.Message)
-					require.Equal(t, logrus.Fields{
+					assert.NotNil(t, logEntry)
+					assert.Equal(t, "primary node changed", logEntry.Message)
+					assert.Equal(t, logrus.Fields{
 						"component":        "PerRepositoryElector",
 						"virtual_storage":  "virtual-storage-1",
 						"relative_path":    "relative-path-1",
