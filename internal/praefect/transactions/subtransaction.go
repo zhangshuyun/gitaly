@@ -133,10 +133,6 @@ func (t *subtransaction) vote(node string, vote voting.Vote) error {
 		return fmt.Errorf("updating state of node %q: %w", node, err)
 	}
 
-	if t.mustSignalVoters() {
-		close(t.doneCh)
-	}
-
 	return nil
 }
 
@@ -180,6 +176,12 @@ func (t *subtransaction) updateVoterState(voter *Voter, vote *voting.Vote) error
 		t.voteCounts[*voter.vote] -= voter.Votes
 		voter.result = VoteCanceled
 	}
+
+	defer func() {
+		if t.mustSignalVoters() {
+			close(t.doneCh)
+		}
+	}()
 
 	var majorityVote *voting.Vote
 	for v, voteCount := range t.voteCounts {
