@@ -779,11 +779,6 @@ func getUpdatedAndOutdatedSecondaries(
 	nodeErrors.Lock()
 	defer nodeErrors.Unlock()
 
-	// Replication targets were not added to the transaction, most likely because they are
-	// either not healthy or out of date. We thus need to make sure to create replication jobs
-	// for them.
-	outdated = append(outdated, route.ReplicationTargets...)
-
 	primaryErr := nodeErrors.errByNode[route.Primary.Storage]
 
 	// If there were subtransactions, we only assume some changes were made if one of the subtransactions
@@ -796,6 +791,11 @@ func getUpdatedAndOutdatedSecondaries(
 	// the nodes simply failed before voting.
 	primaryDirtied = transaction.DidCommitAnySubtransaction() ||
 		(transaction.CountSubtransactions() == 0 && primaryErr == nil)
+
+	// Replication targets were not added to the transaction, most likely because they are
+	// either not healthy or out of date. We thus need to make sure to create replication jobs
+	// for them.
+	outdated = append(outdated, route.ReplicationTargets...)
 
 	// If the primary errored, then we need to assume that it has modified on-disk state and
 	// thus need to replicate those changes to secondaries.
