@@ -457,7 +457,7 @@ func TestSubtransaction_voterStopsWaiting(t *testing.T) {
 			outcomes: outcomes{
 				{weight: 1, vote: agreeingVote, result: VoteCommitted},
 				{weight: 1, vote: agreeingVote, result: VoteCommitted},
-				{weight: 1, vote: agreeingVote, drops: true, result: VoteCommitted, errorMessage: "cancel vote: subtransaction was already finished"},
+				{weight: 1, vote: agreeingVote, drops: true, result: VoteCommitted, errorMessage: "cancel vote: cannot change committed vote"},
 			},
 		},
 		{
@@ -472,7 +472,7 @@ func TestSubtransaction_voterStopsWaiting(t *testing.T) {
 			desc: "secondary cancels its vote after crossing the threshold",
 			outcomes: outcomes{
 				{weight: 2, vote: agreeingVote, result: VoteCommitted},
-				{weight: 1, vote: agreeingVote, drops: true, result: VoteCommitted, errorMessage: "cancel vote: subtransaction was already finished"},
+				{weight: 1, vote: agreeingVote, drops: true, result: VoteCommitted, errorMessage: "cancel vote: cannot change committed vote"},
 				{weight: 1, vote: disagreeingVote, result: VoteFailed, errorMessage: errorMessageForVote(1, 3, disagreeingVote)},
 			},
 		},

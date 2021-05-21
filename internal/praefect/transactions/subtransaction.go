@@ -152,6 +152,8 @@ func (t *subtransaction) updateVoterState(voter *Voter, vote *voting.Vote) error
 		return ErrTransactionCanceled
 	case VoteStopped:
 		return ErrTransactionStopped
+	case VoteCommitted:
+		return fmt.Errorf("cannot change committed vote")
 	default:
 		// Because we didn't vote yet, we know that the node cannot be
 		// either in VoteCommitted or VoteFailed state.
@@ -167,7 +169,16 @@ func (t *subtransaction) updateVoterState(voter *Voter, vote *voting.Vote) error
 		t.voteCounts[*vote] += voter.Votes
 		voter.vote = vote
 	case vote == nil:
-		return errors.New("cannot remove vote")
+		if t.isDone() {
+			// If the transaction is already done, it's too late to cancel our vote.
+			// Other nodes may have committed their changes already.
+			return errors.New("subtransaction was already finished")
+		}
+
+		// Remove the voter's support for the vote so it's not counted towards the
+		// majority. The node is not going to commit the subtransaction anyway.
+		t.voteCounts[*voter.vote] -= voter.Votes
+		voter.result = VoteCanceled
 	}
 
 	var majorityVote *voting.Vote
@@ -253,22 +264,6 @@ func (t *subtransaction) mustSignalVoters() bool {
 	return true
 }
 
-// cancelVote cancels a node's vote if the subtransaction is still ongoing. This
-// has to be called with the lock acquired as collectVotes does.
-func (t *subtransaction) cancelVote(voter *Voter) error {
-	if t.isDone() {
-		// If the transaction is already done, it's too late to cancel our vote.
-		// Other nodes may have committed their changes already.
-		return errors.New("subtransaction was already finished")
-	}
-
-	// Remove the voter's support for the vote so it's not counted towards the
-	// majority. The node is not going to commit the subtransaction anyway.
-	t.voteCounts[*voter.vote] -= voter.Votes
-	voter.result = VoteCanceled
-	return nil
-}
-
 func (t *subtransaction) collectVotes(ctx context.Context, node string) error {
 	select {
 	case <-ctx.Done():
@@ -286,7 +281,7 @@ func (t *subtransaction) collectVotes(ctx context.Context, node string) error {
 	// If the waiting stopped due to the context being canceled, we need to cancel
 	// this voter's votes.
 	if err := ctx.Err(); err != nil {
-		if err := t.cancelVote(voter); err != nil {
+		if err := t.updateVoterState(voter, nil); err != nil {
 			return fmt.Errorf("cancel vote: %w", err)
 		}
 
