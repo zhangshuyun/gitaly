@@ -124,6 +124,7 @@ func TestSubtransaction_vote(t *testing.T) {
 	var zeroVote voting.Vote
 	voteA := newVote(t, "a")
 	voteB := newVote(t, "b")
+	voteC := newVote(t, "c")
 
 	for _, tc := range []struct {
 		desc               string
@@ -285,6 +286,29 @@ func TestSubtransaction_vote(t *testing.T) {
 			expectedVoteCounts: map[voting.Vote]uint{
 				voteA: 2,
 				voteB: 1,
+			},
+		},
+		{
+			desc: "multiple disagreeing voters fail early",
+			voters: []Voter{
+				{Name: "1", Votes: 1},
+				{Name: "2", Votes: 1, vote: &voteB},
+				{Name: "3", Votes: 1, vote: &voteC},
+				{Name: "4", Votes: 1},
+			},
+			threshold: 3,
+			voterName: "1",
+			vote:      voteA,
+			expectedVoterState: []Voter{
+				{Name: "1", Votes: 1, result: VoteFailed, vote: &voteA},
+				{Name: "2", Votes: 1, result: VoteFailed, vote: &voteB},
+				{Name: "3", Votes: 1, result: VoteFailed, vote: &voteC},
+				{Name: "4", Votes: 1, result: VoteUndecided},
+			},
+			expectedVoteCounts: map[voting.Vote]uint{
+				voteA: 1,
+				voteB: 1,
+				voteC: 1,
 			},
 		},
 	} {

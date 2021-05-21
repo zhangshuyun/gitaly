@@ -184,26 +184,25 @@ func (t *subtransaction) updateVoterState(voter *Voter, vote *voting.Vote) error
 	}()
 
 	var majorityVote *voting.Vote
+	var majorityVoteCount uint
 	for v, voteCount := range t.voteCounts {
-		if voteCount >= t.threshold {
+		if majorityVoteCount < voteCount {
 			v := v
+			majorityVoteCount = voteCount
 			majorityVote = &v
-			break
 		}
 	}
 
-	allVotesCast := true
+	var outstandingVotes uint
 	for _, voter := range t.votersByNode {
 		if voter.vote == nil {
-			allVotesCast = false
-			break
+			outstandingVotes += voter.Votes
 		}
 	}
 
-	// We need to adjust voter states either when quorum was reached or
-	// when all votes were cast. If all votes were cast without reaching
-	// quorum, we set all voters into VoteFailed state.
-	if majorityVote == nil && !allVotesCast {
+	// When the majority vote didn't yet cross the threshold and the number of outstanding votes
+	// may still get us across that threshold, then we need to wait for more votes to come in.
+	if majorityVoteCount < t.threshold && majorityVoteCount+outstandingVotes >= t.threshold {
 		return nil
 	}
 
@@ -224,9 +223,10 @@ func (t *subtransaction) updateVoterState(voter *Voter, vote *voting.Vote) error
 			continue
 		}
 
-		// If all votes were cast but we didn't reach quorum, then we need to mark nodes as
-		// failed.
-		if majorityVote == nil && allVotesCast {
+		// If the majority vote count is smaller than the threshold at this point, then we
+		// know that we cannot ever reach it anymore even with the votes which are still
+		// outstanding. We can thus mark this node as failed.
+		if majorityVoteCount < t.threshold {
 			voter.result = VoteFailed
 			continue
 		}
