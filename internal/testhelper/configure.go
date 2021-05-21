@@ -55,6 +55,26 @@ func Configure() func() {
 
 // ConfigureGit configures git for test purpose
 func ConfigureGit() error {
+	// We cannot use gittest here given that we ain't got no config yet. We thus need to
+	// manually resolve the git executable, which is either stored in below envvar if
+	// executed via our Makefile, or else just git as resolved via PATH.
+	gitPath := "git"
+	if path, ok := os.LookupEnv("GITALY_TESTING_GIT_BINARY"); ok {
+		gitPath = path
+	}
+
+	// Unset environment variables which have an effect on Git itself.
+	cmd := exec.Command(gitPath, "rev-parse", "--local-env-vars")
+	envvars, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("error computing local envvars: %w", err)
+	}
+	for _, envvar := range strings.Split(string(envvars), "\n") {
+		if err := os.Unsetenv(envvar); err != nil {
+			return fmt.Errorf("error unsetting envvar: %w", err)
+		}
+	}
+
 	_, currentFile, _, ok := runtime.Caller(0)
 	if !ok {
 		return fmt.Errorf("could not get caller info")

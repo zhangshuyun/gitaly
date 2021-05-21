@@ -4,6 +4,12 @@
 # directory.
 -include config.mak
 
+# Unexport environment variables which have an effect on Git itself.
+# We need to keep GIT_PREFIX because it's used to determine where our
+# self-built Git should be installed into. It's probably not going to
+# matter much though.
+unexport $(filter-out GIT_PREFIX,$(shell git rev-parse --local-env-vars))
+
 # Call `make V=1` in order to print commands verbosely.
 ifeq ($(V),1)
     Q =
@@ -53,7 +59,7 @@ GOLANGCI_LINT_CONFIG  ?= ${SOURCE_DIR}/.golangci.yml
 BUNDLE_DEPLOYMENT ?= $(shell test -f ${SOURCE_DIR}/../.gdk-install-root && echo false || echo true)
 GITALY_PACKAGE    := gitlab.com/gitlab-org/gitaly
 BUILD_TIME        := $(shell date +"%Y%m%d.%H%M%S")
-GITALY_VERSION    := $(shell git describe --match v* 2>/dev/null | sed 's/^v//' || cat ${SOURCE_DIR}/VERSION 2>/dev/null || echo unknown)
+GITALY_VERSION    := $(shell ${GIT} describe --match v* 2>/dev/null | sed 's/^v//' || cat ${SOURCE_DIR}/VERSION 2>/dev/null || echo unknown)
 GO_LDFLAGS        := -ldflags '-X ${GITALY_PACKAGE}/internal/version.version=${GITALY_VERSION} -X ${GITALY_PACKAGE}/internal/version.buildtime=${BUILD_TIME}'
 GO_BUILD_TAGS     := tracer_static,tracer_static_jaeger,continuous_profiler_stackdriver,static,system_libgit2
 
@@ -159,6 +165,7 @@ find_go_sources       = $(shell find ${SOURCE_DIR} -type d \( -name ruby -o -nam
 # TEST_OPTIONS: any additional options
 # TEST_PACKAGES: packages which shall be tested
 run_go_tests = PATH='${SOURCE_DIR}/internal/testhelper/testdata/home/bin:${PATH}' \
+    GIT_DIR=/dev/null \
     go test -tags '${GO_BUILD_TAGS}' ${TEST_OPTIONS} ${TEST_PACKAGES}
 
 unexport GOROOT
