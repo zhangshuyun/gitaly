@@ -22,13 +22,15 @@ type serverRepository struct {
 }
 
 type createSubcommand struct {
-	backupPath string
-	parallel   int
+	backupPath      string
+	parallel        int
+	parallelStorage int
 }
 
 func (cmd *createSubcommand) Flags(fs *flag.FlagSet) {
 	fs.StringVar(&cmd.backupPath, "path", "", "repository backup path")
 	fs.IntVar(&cmd.parallel, "parallel", runtime.NumCPU(), "maximum number of parallel backups")
+	fs.IntVar(&cmd.parallelStorage, "parallel-storage", 2, "maximum number of parallel backups per storage")
 }
 
 func (cmd *createSubcommand) Run(ctx context.Context, stdin io.Reader, stdout io.Writer) error {
@@ -38,6 +40,9 @@ func (cmd *createSubcommand) Run(ctx context.Context, stdin io.Reader, stdout io
 	pipeline = backup.NewPipeline(log.StandardLogger(), fsBackup)
 	if cmd.parallel > 0 {
 		pipeline = backup.NewParallelCreatePipeline(pipeline, cmd.parallel)
+	}
+	if cmd.parallelStorage > 0 {
+		pipeline = backup.NewParallelStorageCreatePipeline(pipeline, cmd.parallelStorage)
 	}
 
 	decoder := json.NewDecoder(stdin)
