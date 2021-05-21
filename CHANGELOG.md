@@ -1,5 +1,50 @@
 # Gitaly changelog
 
+## 13.12.0 (2021-05-22)
+
+### Security (2 changes, 1 of them is from the community)
+
+- Update golang.org/x/crypto to the latest to address CVE-2020-29652. !3400 (Takuya Noguchi)
+- git: Always check fetched objects for consistency. !3458
+
+### Removed (1 change)
+
+- wiki: Remove FindFile RPC. !3454
+
+### Fixed (8 changes)
+
+- conflicts: Fix use of ambiguous refs in ResolveConflicts. !3386
+- conflicts: Fix fetching from target repository. !3386
+- conflicts: Fix segfault in case unresolved conflicts have no ancestor. !3386
+- conflicts: Fix trailing newline handling when resolving conflicts. !3386
+- Revert commit: Raise error if skipping commit offsets fails. !3390
+- commit: Handle real errors when skipping commits failed. !3392
+- Makefile: Unset PROFILE envvar before building git. !3414
+- ssh: Fix secondaries being out-of-date if all refs are rejected. !3455
+
+### Changed (1 change)
+
+- Use the go implementation of UserRevert by default. !3438
+
+### Performance (4 changes)
+
+- Reduce memory usage in GetAllLFSPointers. !3379
+- blob: Drop LFS pointer bitmap experiment. !3385
+- conflicts: Drop ResolveConflicts feature flag. !3410
+- featureflag: Activate Rebase implementation in Go. !3484
+
+### Added (4 changes)
+
+- Implement repository backups as per backup.rake. !3287
+- gitlab-backup: Restore repositories as per backup.rake. !3383
+- gitlab: Implement metric to measure latency of API calls. !3409
+- remote: Add RemoteUrl parameter to FindRemoteRootRef. !3412
+
+### Other (1 change)
+
+- Multiplex connections between Praefect and Gitaly by default. !3360
+
+
 ## 13.11.4 (2021-05-14)
 
 - No changes.

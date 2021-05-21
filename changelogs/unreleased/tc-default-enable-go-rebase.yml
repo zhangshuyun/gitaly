@@ -1,5 +1,0 @@
----
-title: 'featureflag: Activate Rebase implementation in Go'
-merge_request: 3484
-author:
-type: performance

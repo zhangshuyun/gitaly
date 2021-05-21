@@ -1,5 +1,0 @@
----
-title: 'gitlab: Implement metric to measure latency of API calls'
-merge_request: 3409
-author:
-type: added
