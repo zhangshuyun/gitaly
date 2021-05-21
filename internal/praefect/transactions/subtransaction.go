@@ -207,22 +207,31 @@ func (t *subtransaction) updateVoterState(voter *Voter, vote *voting.Vote) error
 		return nil
 	}
 
-	// Update all voters which have cast a vote and which are not
-	// undecided. We mustn't change any voters which did decide on an
-	// outcome already as they may have already committed or aborted their
-	// action.
+	// Update all voters which have cast a vote and which are not undecided. We mustn't change
+	// any voters which did decide on an outcome already as they may have already committed or
+	// aborted their action.
 	for _, voter := range t.votersByNode {
+		// We cannot change the mind of nodes which have already settled on any outcome
+		// after the fact.
 		if voter.result != VoteUndecided {
 			continue
 		}
 
-		if voter.vote == nil || majorityVote == nil {
-			if allVotesCast {
-				voter.result = VoteFailed
-			}
+		// We do not change the mind of any voter which didn't yet cast its vote. While it
+		// may be true that it can only fail anyway, it is easier to handle if we just wait
+		// for its incoming vote and set it to failed at that point in time.
+		if voter.vote == nil {
 			continue
 		}
 
+		// If all votes were cast but we didn't reach quorum, then we need to mark nodes as
+		// failed.
+		if majorityVote == nil && allVotesCast {
+			voter.result = VoteFailed
+			continue
+		}
+
+		// Otherwise, the result depends on whether the voter agrees on the quorum or not.
 		if *voter.vote == *majorityVote {
 			voter.result = VoteCommitted
 		} else {
